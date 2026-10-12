@@ -44,8 +44,11 @@ export type PreparationOptions = {
 // accept가 내는 경계 오류. code는 공통 7개 안의 LophnError고, 이 밖의 실패는
 // unavailable로 중계한다.
 class PreparationFailure extends Error {
-  constructor(readonly failure: LophnError) {
+  readonly failure: LophnError;
+
+  constructor(failure: LophnError) {
     super(failure.message);
+    this.failure = failure;
   }
 }
 

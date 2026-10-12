@@ -3,11 +3,11 @@ import type { Result } from "../../base/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
+  type RedactionInput,
+  type RedactionResult,
 } from "../../base/redaction/mod.ts";
 import type {
   AuthenticatedContext,
-  RedactionInput,
-  RedactionResult,
   SettingMutation,
   SqlParam,
   SqlRow,

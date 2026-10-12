@@ -387,12 +387,22 @@ type Assignment = { id: string; role: string; revision: number; state: string };
 // 메시지 하나를 보내고 저장된 본문(redaction을 거친 글)을 읽어 돌려준다.
 class Conversation {
   private sent = 0;
+  private readonly core: Core;
+  private readonly assignment: Assignment;
+  private readonly session: string;
+  private readonly number: number;
+
   private constructor(
-    private readonly core: Core,
-    private readonly assignment: Assignment,
-    private readonly session: string,
-    private readonly number: number,
-  ) {}
+    core: Core,
+    assignment: Assignment,
+    session: string,
+    number: number,
+  ) {
+    this.core = core;
+    this.assignment = assignment;
+    this.session = session;
+    this.number = number;
+  }
 
   static async open(core: Core, number = 1): Promise<Conversation> {
     const listed = await post(core, "assignments/list", {});

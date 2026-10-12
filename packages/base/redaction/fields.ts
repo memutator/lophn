@@ -1,8 +1,4 @@
-import {
-  fieldPathSchema,
-  type RedactionFieldDeclaration,
-  redactionFieldDeclarationSchema,
-} from "../../protocol/server/mod.ts";
+import { isFieldPath, type RedactionFieldDeclaration } from "./model.ts";
 
 // 소유 concern이 선언한 경로만 남긴다(platform/redaction#R8, R9).
 // 필드명 변경은 익명화가 아니다. 가명 비교는 같은 자료 안으로 한정한다.
@@ -25,7 +21,7 @@ export type FieldSelection = {
 type Segment = { key: string; index?: number };
 
 function segmentsOf(path: string): Segment[] | undefined {
-  if (!fieldPathSchema.safeParse(path).success) return undefined;
+  if (!isFieldPath(path)) return undefined;
   const parts = path.split(".");
   const segments: Segment[] = [];
   for (const part of parts) {
@@ -89,16 +85,37 @@ function writeAt(
   }
 }
 
+const DECLARATION_KEYS = ["safe_fields", "private_fields", "sample_paths"];
+
+function fieldPathList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (!value.every(isFieldPath)) return undefined;
+  if (new Set(value).size !== value.length) return undefined;
+  return [...value];
+}
+
+// 선언 모양을 검사한다. 모르는 key, 틀린 경로, 중복 경로, 안전·private 겹침은 받지 않는다.
 export function parseFieldDeclaration(
   declaration: RedactionFieldDeclaration,
 ): RedactionFieldDeclaration | undefined {
-  const parsed = redactionFieldDeclarationSchema.safeParse(declaration);
-  if (!parsed.success) return undefined;
-  const overlap = parsed.data.safe_fields.some((path) =>
-    parsed.data.private_fields.includes(path)
-  );
-  if (overlap) return undefined;
-  return parsed.data;
+  const raw: unknown = declaration;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const record = raw as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (
+    keys.length !== DECLARATION_KEYS.length ||
+    !keys.every((key) => DECLARATION_KEYS.includes(key))
+  ) {
+    return undefined;
+  }
+  const safe = fieldPathList(record.safe_fields);
+  const priv = fieldPathList(record.private_fields);
+  const sample = fieldPathList(record.sample_paths);
+  if (!safe || !priv || !sample) return undefined;
+  if (safe.some((path) => priv.includes(path))) return undefined;
+  return { safe_fields: safe, private_fields: priv, sample_paths: sample };
 }
 
 function subtreeHasPrivate(

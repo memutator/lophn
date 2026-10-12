@@ -51,7 +51,7 @@ import {
   ProblemWordingPort,
   ProblemWorkPort,
 } from "../../protocol/problems/mod.ts";
-import { problemWorkLookup } from "../../coding-agent/mod.ts";
+import { problemWorkLookup } from "../apps/tickets/mod.ts";
 import { releaseWording } from "../apps/releases/store.ts";
 import { REPORTS_SCHEMA_STEPS } from "./reporting/mod.ts";
 import {

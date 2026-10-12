@@ -1,52 +1,30 @@
 import { z } from "zod";
+import {
+  FIELD_PATH_PATTERN,
+  OMISSION_REASONS,
+  type RedactedItem,
+  REDACTION_AUDIENCES,
+  REDACTION_REPLACEMENT,
+  REDACTION_STATUSES,
+  type RedactionContent,
+  type RedactionFieldDeclaration,
+  type RedactionInput,
+  type RedactionOmission,
+  type RedactionResult,
+  type RedactionSource,
+} from "../../base/redaction/mod.ts";
 import { definePort } from "./ports.ts";
 import { defineWorker } from "../server/route.ts";
 import { sha256Schema } from "./values.ts";
 
-const MIB = 1024 * 1024;
-const KIB = 1024;
-
-// architecture/platform 5.8의 고정 한도.
-export const REDACTION_UNIT_MAX_BYTES = MIB;
-export const REDACTION_MAX_DEPTH = 16;
-export const REDACTION_MAX_ITEMS = 4096;
-export const REDACTION_TIMEOUT_MS = 5_000;
-export const REDACTION_REPLACEMENT = "*";
-export const REDACTION_SAMPLE_MAX_CHARS = 64;
-export const REDACTION_SAMPLE_MAX_BYTES = 2 * KIB;
-export const REDACTION_SCREEN_STRING_MAX_CHARS = 80;
-
-export const REDACTION_AUDIENCES = [
-  "storage",
-  "display",
-  "model",
-  "external",
-] as const;
+// 한도·모양의 정의는 base/redaction에 있다. 아래 schema는 그 모양을 검사한다.
 export const redactionAudienceSchema = z.enum(REDACTION_AUDIENCES);
-export type RedactionAudience = z.infer<typeof redactionAudienceSchema>;
 
-export const REDACTION_STATUSES = ["passed", "partial", "omitted"] as const;
 export const redactionStatusSchema = z.enum(REDACTION_STATUSES);
-export type RedactionStatus = z.infer<typeof redactionStatusSchema>;
 
-export const OMISSION_REASONS = [
-  "private",
-  "secret_detected",
-  "unsupported_media",
-  "limit_exceeded",
-  "redaction_failed",
-  "uncertain",
-] as const;
 export const omissionReasonSchema = z.enum(OMISSION_REASONS);
-export type OmissionReason = z.infer<typeof omissionReasonSchema>;
 
-// 단독 `*`와 구간 중간 `*`는 원값 경로가 아니다(platform/redaction#R11).
-const FIELD_PATH =
-  /^(?!\*)[A-Za-z_][A-Za-z0-9_]*(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_]*)*$/;
-
-export const fieldPathSchema = z.string().regex(FIELD_PATH);
-
-export type FieldPath = z.infer<typeof fieldPathSchema>;
+export const fieldPathSchema = z.string().regex(FIELD_PATH_PATTERN);
 
 const fieldPathsSchema = z.array(fieldPathSchema).refine(
   (paths) => new Set(paths).size === paths.length,
@@ -59,7 +37,6 @@ export const redactionSourceSchema = z.strictObject({
   revision: z.string().min(1),
   scope: z.string().min(1),
 });
-export type RedactionSource = z.infer<typeof redactionSourceSchema>;
 
 export const redactionInputSchema = z.strictObject({
   source: redactionSourceSchema,
@@ -68,20 +45,17 @@ export const redactionInputSchema = z.strictObject({
   safe_fields: fieldPathsSchema,
   private_fields: fieldPathsSchema,
 });
-export type RedactionInput = z.infer<typeof redactionInputSchema>;
 
 // 검출한 값·길이·원문 일부를 담지 않는다(platform/redaction#R6, R7, R17).
 export const redactedItemSchema = z.object({
   location: z.string().min(1),
 });
-export type RedactedItem = z.infer<typeof redactedItemSchema>;
 
 export const redactionOmissionSchema = z.object({
   location: z.string().min(1),
   reason: omissionReasonSchema,
   message: z.string().min(1),
 });
-export type RedactionOmission = z.infer<typeof redactionOmissionSchema>;
 
 const inlineContentSchema = z.object({
   kind: z.literal("inline"),
@@ -97,7 +71,6 @@ export const redactionContentSchema = z.discriminatedUnion("kind", [
   inlineContentSchema,
   blobContentSchema,
 ]);
-export type RedactionContent = z.infer<typeof redactionContentSchema>;
 
 export const redactionResultSchema = z.object({
   rule_revision: z.string().min(1),
@@ -112,7 +85,6 @@ export const redactionResultSchema = z.object({
   (result) => result.status === "passed" || result.omissions.length >= 1,
   { message: "partial and omitted results name an omission" },
 );
-export type RedactionResult = z.infer<typeof redactionResultSchema>;
 
 export const redactionRulesSchema = z.object({
   revision: z.string().min(1),
@@ -127,9 +99,24 @@ export const redactionFieldDeclarationSchema = z.strictObject({
   private_fields: fieldPathsSchema,
   sample_paths: fieldPathsSchema,
 });
-export type RedactionFieldDeclaration = z.infer<
-  typeof redactionFieldDeclarationSchema
->;
+
+// schema가 base의 모양과 어긋나면 type 검사에서 걸린다.
+type Equal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type MustBeTrue<T extends true> = T;
+export type RedactionShapeChecks = [
+  MustBeTrue<Equal<z.infer<typeof redactionSourceSchema>, RedactionSource>>,
+  MustBeTrue<Equal<z.infer<typeof redactionInputSchema>, RedactionInput>>,
+  MustBeTrue<Equal<z.infer<typeof redactedItemSchema>, RedactedItem>>,
+  MustBeTrue<Equal<z.infer<typeof redactionOmissionSchema>, RedactionOmission>>,
+  MustBeTrue<Equal<z.infer<typeof redactionContentSchema>, RedactionContent>>,
+  MustBeTrue<Equal<z.infer<typeof redactionResultSchema>, RedactionResult>>,
+  MustBeTrue<
+    Equal<
+      z.infer<typeof redactionFieldDeclarationSchema>,
+      RedactionFieldDeclaration
+    >
+  >,
+];
 
 // domain-model/platform/security.md TrustClass. 자료 문자열로 승격하지 않는다.
 export const TRUST_CLASSES = [

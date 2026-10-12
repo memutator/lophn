@@ -15,8 +15,8 @@ import {
   type ApprovalAction,
   type ApprovalRequest,
   type AuthenticatedContext,
-  REDACTION_REPLACEMENT,
 } from "../../../../protocol/server/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../../../base/redaction/mod.ts";
 import { handoffBodyHash, handoffContentBytes } from "./mod.ts";
 import {
   AGENT_TOOLS,

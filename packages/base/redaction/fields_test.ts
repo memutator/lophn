@@ -3,8 +3,7 @@ import {
   REDACTION_REPLACEMENT,
   REDACTION_SCREEN_STRING_MAX_CHARS,
   type RedactionInput,
-  redactionResultSchema,
-} from "../../protocol/server/mod.ts";
+} from "./model.ts";
 import { createRedactionEngine } from "./engine.ts";
 import {
   parseFieldDeclaration,
@@ -43,7 +42,6 @@ Deno.test("R7 결과와 표시 복사본에 가린 값의 type·길이·점 개�
     }),
     JSON.stringify({ note: `see ${secret} now` }),
   );
-  assert(redactionResultSchema.safeParse(result).success);
   const encoded = JSON.stringify(result);
   assert(!encoded.includes(secret));
   assert(encoded.includes(REDACTION_REPLACEMENT));
@@ -84,7 +82,6 @@ Deno.test("R8 선언한 안전 필드만 남기고 미선언 값·이름·연락
     input({ safe_fields: ["code", "nested.note"], private_fields: ["email"] }),
     JSON.stringify(record),
   );
-  assert(redactionResultSchema.safeParse(result).success);
   assert(result.content?.kind === "inline");
   const value = result.content.value;
   assert(value.includes("E_TIMEOUT"));

@@ -1,9 +1,9 @@
 import {
-  fieldPathSchema,
+  isFieldPath,
   REDACTION_REPLACEMENT,
   REDACTION_SAMPLE_MAX_BYTES,
   REDACTION_SAMPLE_MAX_CHARS,
-} from "../../protocol/server/mod.ts";
+} from "./model.ts";
 import { pseudonym, selectSafeFields } from "./fields.ts";
 import { matchCredential } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
@@ -93,7 +93,7 @@ function walk(
 export function samplePathsAllowed(
   paths: readonly string[],
 ): boolean {
-  return paths.every((path) => fieldPathSchema.safeParse(path).success);
+  return paths.every((path) => isFieldPath(path));
 }
 
 export function redactSample(

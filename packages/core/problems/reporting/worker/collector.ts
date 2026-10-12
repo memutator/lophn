@@ -103,8 +103,11 @@ export type CollectorWorkerOptions = {
 
 // 접수를 거절한 사유. 코드는 호출자에게 그대로 가고 그 밖의 실패는 unavailable이다.
 export class CollectorRejection extends Error {
-  constructor(readonly code: ErrorCode, message: string) {
+  readonly code: ErrorCode;
+
+  constructor(code: ErrorCode, message: string) {
     super(message);
+    this.code = code;
   }
 }
 

@@ -6,23 +6,11 @@ export {
   type UpdatePackage,
 } from "./update.ts";
 export {
-  type DaemonStart,
-  daemonStart,
-  daemonStatus,
-  type DaemonStop,
-  daemonStop,
-  instanceState,
-} from "./daemon.ts";
-export {
   acquireInstanceLock,
   INSTANCE_LOCK_NAME,
   type InstanceLock,
 } from "../../base/install/instance-lock.ts";
-export {
-  readRunMetadata,
-  removeRunMetadata,
-  writeRunMetadata,
-} from "./run-metadata.ts";
+export { removeRunMetadata, writeRunMetadata } from "./run-metadata.ts";
 export {
   type CredentialSocket,
   serveCredentialSocket,

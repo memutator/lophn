@@ -3,7 +3,7 @@
 // operation, 그리고 worker를 깨우는 core 안 구독자(machine:ticket-check-feed)다.
 // event는 깨우는 신호이고 payload로 상태를 만들지 않는다: worker가 정본을 다시 읽는다.
 import { ok } from "../../../../base/mod.ts";
-import { ticketCheckWork } from "../../../../coding-agent/mod.ts";
+import { ticketCheckWork } from "./work.ts";
 import {
   ticketCompletionReported,
   ticketRecordChecks,

@@ -175,9 +175,7 @@ export async function openRuntime(input: {
   });
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
   // settings 등록 파일도 같은 풀로 붙는다. settings read는 ledger snapshot을 읽는다.
-  const readerModules: URL[] = [
-    new URL("../../config/settings.ts", import.meta.url),
-  ];
+  const readerModules: URL[] = [new URL(settingsModule())];
   for (const url of input.modules) {
     const module = (await import(url)) as {
       createReaderRegistration?: unknown;
@@ -516,7 +514,7 @@ async function runSessionOf(
 // settings 등록 파일. settingsRoutes에 붙는 registry·command·read는
 // settings.ts가 만든다.
 function settingsModule(): string {
-  return "../../config/settings.ts";
+  return new URL("../../config/settings.ts", import.meta.url).href;
 }
 
 // worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고

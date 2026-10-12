@@ -28,10 +28,10 @@ import {
   registeringProvider,
 } from "../connection/credential/helper.ts";
 import { LOPHN_CONNECTION } from "../../protocol/coding-agent/mod.ts";
-import { REDACTION_REPLACEMENT } from "../../protocol/server/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
+  REDACTION_REPLACEMENT,
 } from "../../base/redaction/mod.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
 import {

@@ -86,8 +86,8 @@ import {
   daemonStart,
   daemonStatus,
   daemonStop,
-  readRunMetadata,
-} from "../../core/install-and-update/mod.ts";
+} from "../../protocol/client/daemon.ts";
+import { readRunMetadata } from "../../protocol/client/run-metadata.ts";
 import { appDirectSocketPaths } from "../../protocol/apps/mod.ts";
 import { documentSectionHistory } from "../../protocol/projects/mod.ts";
 import type { Route } from "../../protocol/server/mod.ts";

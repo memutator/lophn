@@ -1,10 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../mod.ts";
-import {
-  REDACTION_REPLACEMENT,
-  type RedactionInput,
-  redactionResultSchema,
-} from "../../protocol/server/mod.ts";
+import { REDACTION_REPLACEMENT, type RedactionInput } from "./model.ts";
 import { createRedactionEngine } from "./mod.ts";
 import { patternRevision } from "./patterns.ts";
 import { createKnownSecretRegistry } from "./registry.ts";
@@ -184,7 +180,6 @@ Deno.test("R4 세션 입력과 질문 답에서 secret이면 전체 제출을 �
     );
     assertEquals(result.status, "omitted");
     assertEquals(result.content, null);
-    assert(redactionResultSchema.safeParse(result).success);
     const guidance = result.omissions[0]?.message ?? "";
     assert(guidance.includes("protected secret input"));
     assertEquals(result.omissions[0]?.reason, "secret_detected");

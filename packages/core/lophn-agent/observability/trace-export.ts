@@ -22,7 +22,7 @@ import {
 import type {
   RedactionInput,
   RedactionResult,
-} from "../../../protocol/server/mod.ts";
+} from "../../../base/redaction/mod.ts";
 import { createProductRedactor } from "../../projects/outline-and-search/redactor.ts";
 
 export type TraceExportWriterDeps = {

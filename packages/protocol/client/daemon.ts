@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type InstanceState } from "../../protocol/server/mod.ts";
-import { QUIT_FLAG, TRAY_FLAG } from "../../protocol/shell/mod.ts";
+import type { InstanceState } from "../install-and-update/install.ts";
+import { QUIT_FLAG, TRAY_FLAG } from "../shell/launch.ts";
 import { INSTANCE_LOCK_NAME } from "../../base/install/instance-lock.ts";
 import { readRunMetadata } from "./run-metadata.ts";
 

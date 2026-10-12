@@ -1,19 +1,16 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import {
+  createKnownSecretRegistry,
+  createRedactionEngine,
+  type RedactionInput,
+} from "../../base/redaction/mod.ts";
+import {
   DATA_SERIALIZER_PORT,
   type DataSerializer,
   fieldPathSchema,
   REDACTION_CHECK_OP,
-  REDACTION_MAX_DEPTH,
-  REDACTION_MAX_ITEMS,
   REDACTION_PIPE_OPS,
-  REDACTION_REPLACEMENT,
-  REDACTION_SAMPLE_MAX_BYTES,
-  REDACTION_SAMPLE_MAX_CHARS,
-  REDACTION_SCREEN_STRING_MAX_CHARS,
-  REDACTION_TIMEOUT_MS,
-  REDACTION_UNIT_MAX_BYTES,
   redactionCheck,
   redactionFieldDeclarationSchema,
   redactionInputSchema,
@@ -42,21 +39,13 @@ const passed = {
   omissions: [],
 };
 
-Deno.test("platform/redaction#R2 platform/redaction#R6 platform/redaction#R14: redaction.check 이름과 한도는 architecture 5.8과 같다", () => {
+Deno.test("platform/redaction#R2 platform/redaction#R6 platform/redaction#R14: redaction.check 이름은 architecture 5.8과 같다", () => {
   assertEquals(
     REDACTION_PIPE_OPS.map((op) => [op.kind, op.name, op.method]),
     [["worker", "redaction.check", "check"]],
   );
   assertEquals(REDACTION_CHECK_OP, "redaction.check");
   assertEquals(redactionCheck.resource, "redaction");
-  assertEquals(REDACTION_UNIT_MAX_BYTES, 1024 * 1024);
-  assertEquals(REDACTION_MAX_DEPTH, 16);
-  assertEquals(REDACTION_MAX_ITEMS, 4096);
-  assertEquals(REDACTION_TIMEOUT_MS, 5000);
-  assertEquals(REDACTION_REPLACEMENT, "*");
-  assertEquals(REDACTION_SAMPLE_MAX_CHARS, 64);
-  assertEquals(REDACTION_SAMPLE_MAX_BYTES, 2 * 1024);
-  assertEquals(REDACTION_SCREEN_STRING_MAX_CHARS, 80);
   assertEquals(
     redactionRulesSchema.parse({
       revision: "rules-1",
@@ -168,4 +157,39 @@ Deno.test("platform/redaction#R15 platform/security#R10: Redactor와 data 직렬
     ),
     true,
   );
+});
+
+Deno.test("base redaction engine이 내는 결과는 redactionResultSchema를 지난다", async () => {
+  const secret = "sk-openaiKeyValue1234567890abcd";
+  const registry = createKnownSecretRegistry();
+  registry.register(["session-secret"]);
+  const engine = createRedactionEngine({ registry });
+  const engineInput = (scope: string): RedactionInput => ({
+    source: { concern: "lophn-agent/conversation", revision: "1", scope },
+    media_type: "text/plain",
+    audience: "model",
+    safe_fields: [],
+    private_fields: [],
+  });
+  const redacted = await engine.redact(
+    engineInput("conversation"),
+    `see ${secret} now`,
+  );
+  assert(redactionResultSchema.safeParse(redacted).success);
+  const omitted = await engine.redact(
+    engineInput("session_input"),
+    "store session-secret at the end",
+  );
+  assertEquals(omitted.status, "omitted");
+  assert(redactionResultSchema.safeParse(omitted).success);
+  const structured = await engine.redact(
+    {
+      ...engineInput("record"),
+      media_type: "application/json",
+      audience: "display",
+      safe_fields: ["note"],
+    },
+    JSON.stringify({ note: `see ${secret} now` }),
+  );
+  assert(redactionResultSchema.safeParse(structured).success);
 });

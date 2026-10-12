@@ -7,9 +7,11 @@
 //   matcher를 받는다. 값 목록도 module 전역 상태도 이 파일에 없다.
 // 한 자리에서 둘이 겹치면 더 앞에서 시작하는, 같으면 더 긴 쪽을 지운다. 안전화를 끝내지
 // 못하면 null로 답해 원문이 나가지 않게 한다(fail-closed).
-import { REDACTION_REPLACEMENT } from "../../../protocol/server/mod.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
-import { matchCredential } from "../../../base/redaction/mod.ts";
+import {
+  matchCredential,
+  REDACTION_REPLACEMENT,
+} from "../../../base/redaction/mod.ts";
 
 export type DocumentRedactor = (
   source: { concern: string; revision: string; scope: string },

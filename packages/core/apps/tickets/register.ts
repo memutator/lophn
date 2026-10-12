@@ -10,7 +10,7 @@ import {
   TICKET_BLOB_FIELDS,
   TICKET_BLOB_PURPOSES,
   ticketSchemaSteps,
-} from "../../../coding-agent/mod.ts";
+} from "./mod.ts";
 import {
   ticketCancelled,
   ticketCheckFailed,

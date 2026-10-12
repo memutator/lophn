@@ -3,7 +3,7 @@ import { TRACE_EXPORT_FORMAT_VERSION } from "../../../protocol/lophn-agent/mod.t
 import type {
   RedactionInput,
   RedactionResult,
-} from "../../../protocol/server/mod.ts";
+} from "../../../base/redaction/mod.ts";
 
 // export 파일의 형식과 내용 판정(observability#R10, R14, R16, R17). trace 자체는 원본
 // 참조 묶음이므로 그대로 한 줄에 내보내도 사본이 아니다. 선택한 본문만 redaction 뒤

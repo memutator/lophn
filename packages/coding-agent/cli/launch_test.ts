@@ -16,7 +16,7 @@ import { DETECTION_FALLBACK_DIRS } from "../harnesses/mod.ts";
 import {
   cliLauncher,
   linuxInstallLayout,
-} from "../../core/install-and-update/mod.ts";
+} from "../../base/install/linux-install.ts";
 import { planCliPermissions } from "./launch-entry.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";

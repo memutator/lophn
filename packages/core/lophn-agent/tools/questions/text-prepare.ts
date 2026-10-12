@@ -13,11 +13,7 @@ import {
   questionTextSchema,
   waitRun,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type {
-  AuthenticatedContext,
-  RedactionInput,
-  RedactionResult,
-} from "../../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type CommandEnvelope,
   type Writer,
@@ -25,6 +21,8 @@ import {
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
+  type RedactionInput,
+  type RedactionResult,
 } from "../../../../base/redaction/mod.ts";
 import { screenAnswerText } from "./mod.ts";
 import { createProductRedactor } from "../../../projects/outline-and-search/redactor.ts";

@@ -131,8 +131,11 @@ const UNKNOWN_COST: CallCost = {
 
 // 한 걸음이 실패한 이유. 요청을 이 이유로 닫는다.
 class Failure extends Error {
-  constructor(readonly reason: CompactFailureReason) {
+  readonly reason: CompactFailureReason;
+
+  constructor(reason: CompactFailureReason) {
     super(reason);
+    this.reason = reason;
   }
 }
 

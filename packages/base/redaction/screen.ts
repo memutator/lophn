@@ -1,4 +1,4 @@
-import { REDACTION_SCREEN_STRING_MAX_CHARS } from "../../protocol/server/mod.ts";
+import { REDACTION_SCREEN_STRING_MAX_CHARS } from "./model.ts";
 import { personalKey, selectSafeFields } from "./fields.ts";
 
 // 80자를 넘는 화면 문자열의 안전 shape. 원문 길이는 담지 않는다(R7, R12).

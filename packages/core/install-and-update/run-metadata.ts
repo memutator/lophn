@@ -1,11 +1,8 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  type RunMetadata,
-  runMetadataSchema,
-} from "../../protocol/server/mod.ts";
+import { RUN_METADATA_NAME } from "../../protocol/client/run-metadata.ts";
+import { runMetadataSchema } from "../../protocol/server/mod.ts";
 
 // H/run의 인증 없는 위치 metadata. port·epoch·시작 시각만 있고 credential은 없다.
-const NAME = "location.json";
 
 export async function writeRunMetadata(
   runDir: string,
@@ -30,7 +27,7 @@ export async function writeRunMetadata(
       message: "위치 metadata에 credential 모양이 있다",
     });
   }
-  const path = `${runDir}/${NAME}`;
+  const path = `${runDir}/${RUN_METADATA_NAME}`;
   const temporary = `${path}.tmp`;
   try {
     await Deno.writeTextFile(temporary, text, { mode: 0o600 });
@@ -47,39 +44,8 @@ export async function writeRunMetadata(
 // 정상 종료에서만 지운다. 비정상 종료는 마지막 위치를 남겨 둔다.
 export async function removeRunMetadata(runDir: string): Promise<void> {
   try {
-    await Deno.remove(`${runDir}/location.json`);
+    await Deno.remove(`${runDir}/${RUN_METADATA_NAME}`);
   } catch (thrown) {
     if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
   }
-}
-
-// H/run의 위치 metadata를 읽는다(cli#R8의 daemon status가 쓴다). 파일 이름은
-// 고정 상수이고 내용은 schema로 걸러 credential 모양은 애초에 없다. 값 자체를
-// log에 그대로 쓰지 않는 것은 호출자의 몫이다.
-export async function readRunMetadata(
-  runDir: string,
-): Promise<Result<RunMetadata>> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(`${runDir}/${NAME}`);
-  } catch (thrown) {
-    if (thrown instanceof Deno.errors.NotFound) {
-      return err({ code: "not_found", message: "실행 중인 instance가 없다" });
-    }
-    return err({
-      code: "unavailable",
-      message: "위치 metadata를 읽을 수 없다",
-    });
-  }
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return err({ code: "not_found", message: "위치 metadata가 올바르지 않다" });
-  }
-  const parsed = runMetadataSchema.safeParse(value);
-  if (!parsed.success) {
-    return err({ code: "not_found", message: "위치 metadata가 올바르지 않다" });
-  }
-  return ok(parsed.data);
 }

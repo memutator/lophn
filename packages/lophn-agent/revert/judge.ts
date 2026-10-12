@@ -4,7 +4,7 @@ import type {
 } from "../../contracts/lophn-agent/mod.ts";
 
 // 문서 파일 복원 판정(lophn-agent/revert "판정 규칙"). 기록(RewindFile)과 파일의 지금 상태만 받는 순수
-// 함수다. 구현은 agent-RW3b가 채운다.
+// 함수다.
 
 export type JudgeRecord = {
   tool_call: string;
@@ -56,6 +56,109 @@ export function judgeFiles(input: {
   records: readonly JudgeRecord[];
   current: ReadonlyMap<string, FileStat>;
 }): JudgedFile[] {
-  void input;
-  throw new Error("not implemented: agent-RW3b");
+  return groupByUnit(input.records)
+    .map((group) => judgeUnit(group, input.current))
+    .sort((left, right) => compareSeq(left.firstSeq, right.firstSeq))
+    .map((entry) => entry.judged);
+}
+
+const GONE: FileStat = { exists: false, sha256: null, link: false };
+
+function compareSeq(left: string, right: string): number {
+  const a = BigInt(left);
+  const b = BigInt(right);
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// 이름 변경은 옛 경로와 새 경로의 기록을 한 사슬로 잇는다. 같은 경로이거나 이름 변경으로 이어진
+// 경로의 기록이 한 단위다.
+function groupByUnit(records: readonly JudgeRecord[]): JudgeRecord[][] {
+  const parent = new Map<string, string>();
+  const find = (path: string): string => {
+    let root = parent.get(path) ?? path;
+    while (root !== (parent.get(root) ?? root)) root = parent.get(root)!;
+    parent.set(path, root);
+    return root;
+  };
+  for (const record of records) {
+    const root = find(record.path);
+    if (record.moved_from !== null) parent.set(find(record.moved_from), root);
+  }
+  const groups = new Map<string, JudgeRecord[]>();
+  for (const record of records) {
+    const key = find(record.path);
+    groups.set(key, [...(groups.get(key) ?? []), record]);
+  }
+  return [...groups.values()].map((group) =>
+    group.sort((left, right) => compareSeq(left.seq, right.seq))
+  );
+}
+
+const hashOf = (state: { exists: boolean; sha256: string | null }) =>
+  state.exists ? state.sha256 : null;
+
+function judgeUnit(
+  group: readonly JudgeRecord[],
+  current: ReadonlyMap<string, FileStat>,
+): { firstSeq: string; judged: JudgedFile } {
+  const active = group.filter((record) => record.reverted_by === null);
+  const shown = active.length === 0 ? group : active;
+  const first = shown[0]!;
+  const last = shown[shown.length - 1]!;
+  const make = (
+    plan: "restore" | "skip",
+    reason: RevertReason | null,
+    actions: FileAction[] = [],
+    restored: string | null = null,
+  ): { firstSeq: string; judged: JudgedFile } => ({
+    firstSeq: group[0]!.seq,
+    judged: {
+      path: last.path,
+      source: shown.map((record) => record.tool_call),
+      plan,
+      reason,
+      actions,
+      restored_sha256: restored,
+    },
+  });
+  const skip = (reason: RevertReason) => make("skip", reason);
+
+  if (active.length === 0) return skip("already_reverted");
+  const now = current.get(last.path) ?? GONE;
+  if (now.link) return skip("link_path");
+  if (
+    active.some((record) => record.before.exists && record.before.blob === null)
+  ) {
+    return skip("no_pre_image");
+  }
+  for (let index = 1; index < active.length; index++) {
+    if (hashOf(active[index - 1]!.after) !== hashOf(active[index]!.before)) {
+      return skip("chain_broken");
+    }
+  }
+  if (hashOf(now) !== hashOf(last.after) && now.exists) {
+    return skip(first.before.exists ? "edited_outside" : "created_edited");
+  }
+  const origin = first.moved_from ?? first.path;
+  const moved = origin !== last.path;
+  if (moved && (current.get(origin) ?? GONE).exists) {
+    return skip("rename_blocked");
+  }
+  const write = first.before.exists
+    ? [{
+      kind: "write" as const,
+      path: origin,
+      sha256: first.before.sha256!,
+      blob: first.before.blob!,
+    }]
+    : [];
+  if (moved) {
+    return make("restore", null, [...write, {
+      kind: "delete",
+      path: last.path,
+    }]);
+  }
+  return write.length > 0
+    ? make("restore", null, write, first.before.sha256)
+    : make("restore", null, [{ kind: "delete", path: last.path }]);
 }

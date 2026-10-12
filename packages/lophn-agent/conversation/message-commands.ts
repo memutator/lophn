@@ -98,14 +98,14 @@ type BodyBlob = {
 
 // 본문 값의 blob 증거. 준비한 쪽(core)과 같은 정규 직렬화를 쓰므로 같은 값은 항상
 // 같은 hash다. 재전송의 지문도 값으로 정해져 준비 참조의 수명과 상관없다.
-function bodyBlob(ctx: RequestContext, content: unknown): BodyBlob {
+function bodyBlob(principal: string, content: unknown): BodyBlob {
   const bytes = serializeMessageContent(content);
   const hash = createHash("sha256").update(bytes).digest("hex");
   return {
     hash,
     evidence: {
       preparation: hash,
-      principal: ctx.principal,
+      principal,
       purpose: MESSAGE_CONTENT_PURPOSE,
       hash,
       size_bytes: bytes.length,
@@ -173,6 +173,51 @@ function textOf(content: Input<typeof receiveMessage>["content"]): string {
   return content.parts.map((part) => part.text).join("\n");
 }
 
+// session에 machine이 남기는 사실 한 줄의 본문이다(Undo의 "Undid edit to <경로>"). core가 이 값으로 blob을
+// 준비해 두고 recordFactMessage가 같은 값에서 같은 hash를 만든다.
+export function factMessageContent(text: string) {
+  return {
+    schema_version: 1 as const,
+    parts: [{ kind: "text" as const, text }],
+  };
+}
+
+// 다른 command가 같은 transaction 안에서 session에 사실 메시지(machine, run 없음)를 남긴다. 본문 blob은
+// principal의 이름으로 준비되어 있어야 한다. 열려 있는 session에만 남긴다.
+export function recordFactMessage(
+  tx: Tx,
+  input: { session: string; text: string; principal: string },
+): Result<string> {
+  const session = loadSession(tx, input.session);
+  if (session === undefined) return sessionNotFound();
+  if (session.state !== "open") {
+    return reject("forbidden", "a closed session takes no new message");
+  }
+  const content = factMessageContent(input.text);
+  if (!textMessageContentInputSchema.safeParse(content).success) {
+    return reject("invalid_input", "the fact message is not valid text");
+  }
+  const body = bodyBlob(input.principal, content);
+  const id = tx.newId("msg");
+  const seq = tx.emit(messageRecorded, id, {
+    session: session.id,
+    run: null,
+    body: body.hash,
+    links: [],
+  });
+  insertMessage(tx, {
+    id,
+    session: session.id,
+    actor: "machine",
+    body: body.hash,
+    run: null,
+    mode: null,
+    links: "[]",
+  }, seq);
+  const registered = registerBody(tx, id, seq, body);
+  return registered.ok ? ok(id) : registered;
+}
+
 export function createMessageCommands(accept: AcceptRun): {
   receive: CommandDefinition<typeof receiveMessage>;
   record: CommandDefinition<typeof recordMessage>;
@@ -185,7 +230,7 @@ export function createMessageCommands(accept: AcceptRun): {
       handle(tx, ctx, input: Input<typeof receiveMessage>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const body = bodyBlob(ctx, input.content);
+        const body = bodyBlob(ctx.principal, input.content);
         const existing = loadMessage(tx, input.id);
         if (existing !== undefined) {
           const target = existing.run === null
@@ -334,7 +379,7 @@ export function createMessageCommands(accept: AcceptRun): {
             return reject("invalid_input", checked.error.message);
           }
         }
-        const body = bodyBlob(ctx, input.content);
+        const body = bodyBlob(ctx.principal, input.content);
         const links = JSON.stringify(input.links);
         const existing = loadMessage(tx, input.id);
         if (existing !== undefined) {

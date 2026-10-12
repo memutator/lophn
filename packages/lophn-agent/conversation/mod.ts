@@ -11,6 +11,7 @@ export {
   createConversationCommands,
 } from "./commands.ts";
 export { createConversationReads } from "./reads.ts";
+export { factMessageContent, recordFactMessage } from "./message-commands.ts";
 export {
   type MessageBodyEnvironment,
   messageBodyRead,

@@ -317,7 +317,7 @@ async function collect(root: string): Promise<string[]> {
   return files.sort();
 }
 
-// 화면 코드 묶음 검사. 저장소 검사는 repo-check.ts의 checkRepo가 problems 문구 key를 더해 부른다.
+// 화면 코드 묶음 검사. 저장소 검사는 testing/repo-check.ts의 checkRepo가 problems 문구 key를 더해 부른다.
 export async function checkScreens(
   root: string,
   options: CheckOptions = {},

@@ -261,3 +261,29 @@ Deno.test("lophn-agent/agents#R7 [agent-I9]: an Operator without a definition is
   assert(!appEngineerInProject.ok);
   assertEquals(appEngineerInProject.error.code, "invalid_input");
 });
+
+Deno.test("lophn-agent/agents#R16 [agent-I54]: App Engineer in an app shows the active contexts that read the app, as resolveAgent does, while lophn and Operators there show none", async () => {
+  const active = [
+    "ctx_01arz3ndektsv4rrffq69g5fb1",
+    "ctx_01arz3ndektsv4rrffq69g5fb2",
+  ];
+  const withActive = (build: Build): ResolveInput => {
+    const base = input(build);
+    return {
+      ...base,
+      environment: { ...base.environment, active_contexts: active },
+    };
+  };
+  const engineer = effectiveAgent(withActive(CASES[5].build));
+  assert(engineer.ok);
+  assertEquals(engineer.value.contexts, active);
+  const resolved = await resolveAgent(withActive(CASES[5].build));
+  assert(resolved.ok);
+  assertEquals(engineer.value.contexts, resolved.value.contexts);
+
+  for (const build of [CASES[4].build, CASES[6].build]) {
+    const other = effectiveAgent(withActive(build));
+    assert(other.ok);
+    assertEquals(other.value.contexts, []);
+  }
+});

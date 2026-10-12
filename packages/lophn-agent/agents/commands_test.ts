@@ -274,17 +274,72 @@ Deno.test("lophn-agent/agents#R24 [agent-I9]: a valid body with a context that i
         .filter((name) => name.startsWith("asg_")).sort(),
       [`${ASG.reviewer}.md`, `${ASG.scribe}.md`],
     );
-    // 보관한 context도 실제 context라 고를 수 있다.
+  });
+});
+
+Deno.test("lophn-agent/agents#R24 [agent-I54]: an archived context is refused naming its own item, and nothing is saved", async () => {
+  await withAgents(async (ctx) => {
+    const before = await assignmentRows(ctx.h);
+    const result = await save(ctx, {
+      place: PROJECT,
+      definition: {
+        name: "Planner",
+        contexts: [CTX.one, CTX.archived],
+        body: "Plan the week.",
+      },
+    }, null);
+    assertEquals(issuesOf(result), ["contexts.1:archived_reference"]);
+    assertEquals(await assignmentRows(ctx.h), before);
+    assertEquals((await eventsOf(ctx.h, "AgentSaved")).length, 0);
+    // 고친 정의는 저장된다: 보관한 context를 빼면 된다.
     saved(
       await save(ctx, {
         place: PROJECT,
         definition: {
           name: "Planner",
-          contexts: [CTX.one, CTX.archived],
+          contexts: [CTX.one],
           body: "Plan the week.",
         },
       }, null),
     );
+  });
+});
+
+Deno.test("lophn-agent/agents#R24 [agent-I54]: a context still being drafted can be picked", async () => {
+  await withAgents(async (ctx) => {
+    saved(
+      await save(ctx, {
+        place: PROJECT,
+        definition: {
+          name: "Planner",
+          contexts: [CTX.drafting, CTX.one],
+          body: "Plan the week.",
+        },
+      }, null),
+    );
+  });
+});
+
+Deno.test("lophn-agent/agents#R24 [agent-I54]: a context of another project is refused as missing, and archived, missing and foreign items are listed together", async () => {
+  await withAgents(async (ctx) => {
+    const result = await save(ctx, {
+      place: PROJECT,
+      definition: {
+        name: "Planner",
+        contexts: [
+          CTX.archived,
+          CTX.foreign,
+          "ctx_01arz3ndektsv4rrffq69g5fz9",
+          CTX.one,
+        ],
+        body: "Plan the week.",
+      },
+    }, null);
+    assertEquals(issuesOf(result), [
+      "contexts.0:archived_reference",
+      "contexts.1:missing_reference",
+      "contexts.2:missing_reference",
+    ]);
   });
 });
 

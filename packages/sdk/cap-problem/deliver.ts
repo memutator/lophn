@@ -1,12 +1,12 @@
 import {
   isRetryableReportError,
   REPORT_RETRY_DELAYS_MS,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 import type {
   ReportAcceptance,
   ReportCompletion,
   ReportTransportError,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 
 type Outcome = { ok: true; value: ReportAcceptance } | {
   ok: false;

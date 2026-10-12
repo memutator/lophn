@@ -1,8 +1,8 @@
 // tool registry다(architecture/coding-agent 5.2). 고정 adapter tool의 표가
-// 권한 목록이며 목록 밖 op는 없다. R2대로 op마다 소유 route 하나로만 routing하고
+// 권한 목록이며 목록 밖 op는 없다. op마다 소유 route 하나로만 routing하고
 // 임의 core API를 부르는 passthrough는 없다.
 import { z } from "zod";
-import type { Toolset } from "../../contracts/coding-agent/mod.ts";
+import type { Toolset } from "../../protocol/coding-agent/mod.ts";
 import {
   MCP_APP_ROUTES,
   MCP_APP_TOOLS,
@@ -25,8 +25,8 @@ import {
   mcpSessionTool,
   type McpSessionToolName,
   readOnlyHint,
-} from "../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../protocol/base/mod.ts";
 import { APP_OP_ROUTES } from "../connection/mod.ts";
 
 type StaticTool = {
@@ -57,7 +57,7 @@ Object.assign(OWNER_ROUTES, MCP_CORE_ROUTES);
 Object.assign(OWNER_ROUTES, MCP_DECISION_ROUTES);
 Object.assign(OWNER_ROUTES, MCP_APP_ROUTES);
 // lophn_app은 op마다 소유 route가 다르다. 계약 표(MCP_APP_ROUTES)가 4개만 내므로 같은 소유
-// route 표를 connection이 공유해 CLI와 같은 route를 쓴다(T21, mcp#R19).
+// route 표를 connection이 공유해 CLI와 같은 route를 쓴다.
 OWNER_ROUTES.lophn_app = { ...APP_OP_ROUTES };
 Object.assign(OWNER_ROUTES, MCP_PROBLEM_ROUTES);
 
@@ -113,7 +113,7 @@ export type ToolEntry = {
   readOnlyHint?: true;
 };
 
-// MCP tools/list의 항목이다. toolset에 켠 것만 discovery에 나온다(R3). readOnlyHint는
+// MCP tools/list의 항목이다. toolset에 켠 것만 discovery에 나온다. readOnlyHint는
 // 모든 op가 읽기인 tool에만 붙는다(client는 이것으로 승인을 건너뛰지 않는다).
 export function toolEntries(enabled: readonly Toolset[]): ToolEntry[] {
   const entries: ToolEntry[] = [];
@@ -135,9 +135,9 @@ function describeTool(tool: StaticTool): string {
 }
 
 // discovery schema는 zod 4의 toJSONSchema(io "input")로 만들고 여기서 모델이 몰라도
-// 되는 것을 걷어낸다(R4). 본뜬 모양은 GitHub MCP server의 한 tool 여러 동작이다:
+// 되는 것을 걷어낸다. 본뜬 모양은 GitHub MCP server의 한 tool 여러 동작이다:
 // discriminatedUnion(oneOf, op const)을 op enum + 합친 properties로 편다. tool·op 수는
-// 그대로고 실행 입력 검사는 소유 route의 zod 입력을 그대로 쓴다(R6). 걷어내는 것:
+// 그대로고 실행 입력 검사는 소유 route의 zod 입력을 그대로 쓴다. 걷어내는 것:
 // - $schema(draft 선언), default(서버가 적용한다), additionalProperties(서버가 검사한다)
 // - ID 충족 pattern과 minLength·maxLength·safe-integer min·max(서버가 같은 검사를
 //   실행 전에 하고 이유를 돌려준다. model은 id를 이전 read에서 복사한다)

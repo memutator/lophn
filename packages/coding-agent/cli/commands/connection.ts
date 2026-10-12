@@ -1,5 +1,5 @@
-// `lophn connection list|show|create|revoke|install` command의 route 표와 실행 결정이다(T36,
-// coding-agent/cli#R40, connection#R2, R9, R12, harnesses#R6). list·show는 원문 token·hash 없는
+// `lophn connection list|show|create|revoke|install` command의 route 표와 실행 결정이다.
+// list·show는 원문 token·hash 없는
 // connection을 소유 읽기 route로 읽는다. create·revoke는 사람의 결정이라 CLI가 사람 credential을
 // 읽지 않고 shell main의 연결 화면이 받는다(이 표는 안내만 한다). install은 기존 connection의 선택
 // target 재설치이고 자동 재발급이 없다. 그리고 사람의 연결 결정 흐름을 shell main이 부를 순서 그대로
@@ -19,7 +19,7 @@ import {
   connectionShow,
   decisionLink,
   type IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { InstallOutcome } from "../../harnesses/mod.ts";
 import type { DoctorReport } from "./doctor.ts";
 import type { CommandEntry } from "./types.ts";
@@ -41,7 +41,7 @@ export const CONNECTION_COMMANDS: readonly CommandEntry[] = [
 ];
 
 // 연결 생성은 lophn 연결 화면에서 사람이 고른다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고
-// 어디서 하는지만 안내한다(cli#R7). 연결 생성은 확인 창이 없다.
+// 어디서 하는지만 안내한다. 연결 생성은 확인 창이 없다.
 export function humanDecisionGuide(
   name: "connection create",
 ): { summary: string; data: unknown; next: string[]; isError: true } {
@@ -55,10 +55,10 @@ export function humanDecisionGuide(
   };
 }
 
-// 연결 회수는 confirmation window에서 사람이 결정한다(connection#R2, cli#R7). CLI는 창을 열지도
+// 연결 회수는 confirmation window에서 사람이 결정한다. CLI는 창을 열지도
 // 연결을 읽지도 않고 결정 화면 링크와 기다린다는 사실만 낸다. 대상 연결이 있든 없든, 범위 안이든
 // 밖이든 같은 답이라 존재를 드러내지 않는다. 회수가 일어났다고도, 외부 프로세스·OS 파일 편집을
-// 멈춘다고도 말하지 않는다(connection#R18).
+// 멈춘다고도 말하지 않는다.
 export function connectionRevokeGuide(
   input: { connection: ConnectionId; base_revision: string },
 ): { summary: string; data: unknown; next: string[]; isError: true } {
@@ -85,8 +85,7 @@ export function connectionRevokeGuide(
 }
 
 export type ConnectionInstallDeps = {
-  // 호출 주체다. 연결 참조(LOPHN_CONNECTION)로 시작한 coding credential context는 관리 쓰기를 거절한다
-  // (cli#R40, connection#R2).
+  // 호출 주체다. 연결 참조(LOPHN_CONNECTION)로 시작한 coding credential context는 관리 쓰기를 거절한다.
   actor: "user" | "coding_agent";
   // connection 상태 읽기다. 원문 token·hash는 받지 않는다.
   connections: {
@@ -148,8 +147,8 @@ export function describeInstall(
   );
 }
 
-// `connection install`: 기존 connection의 선택 target 재설치다(harnesses#R6, cli#R40). 감지된 다른
-// 제품은 바꾸지 않고 회수된 connection은 거절하며 자동 재발급이 없다(connection#R9).
+// `connection install`: 기존 connection의 선택 target 재설치다. 감지된 다른
+// 제품은 바꾸지 않고 회수된 connection은 거절하며 자동 재발급이 없다.
 export async function runConnectionInstall(
   input: { connection?: string; target: IntegrationTarget },
   deps: ConnectionInstallDeps,
@@ -215,9 +214,9 @@ export type ConnectFlowResult = {
 };
 
 // 사람 선택 → connection 생성 → 선택 target 설치 → doctor다. token을 만들거나 붙여 넣는 단계가
-// 없고 연결 생성에 확인 창이 없다(connection#R2). 보관 준비가 실패하면 connection이 생기지 않아
+// 없고 연결 생성에 확인 창이 없다. 보관 준비가 실패하면 connection이 생기지 않아
 // 설치·doctor를 시작하지 않는다. 설치 실패·일부 실패는 이미 생긴 connection을 회수하거나 다시
-// 발급하지 않고 따로 보인다(R12). doctor는 읽기만 한다.
+// 발급하지 않고 따로 보인다. doctor는 읽기만 한다.
 export async function connectAndInstall(
   input: {
     label: string;

@@ -58,8 +58,8 @@ Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: context tool·command·변경 �
 Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: contract·배선·skill 안내에 context가 없다", async () => {
   for (
     const path of [
-      "packages/contracts/coding-agent/mcp-decisions.ts",
-      "packages/contracts/coding-agent/cli-decisions.ts",
+      "packages/protocol/coding-agent/mcp-decisions.ts",
+      "packages/protocol/coding-agent/cli-decisions.ts",
     ]
   ) {
     const body = await text(path);
@@ -80,7 +80,7 @@ Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: contract·배선·skill 안내�
   }
   for (
     const path of [
-      "apps/mcp/main.ts",
+      "packages/coding-agent/mcp-server/main.ts",
       "packages/coding-agent/guides/skills/lophn-navigate/SKILL.md",
     ]
   ) {

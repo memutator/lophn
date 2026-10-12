@@ -1,0 +1,363 @@
+/*
+ * 편집기는 읽기 화면과 같은 기둥·16px/28px·제목·목록·인용·코드 모양을 쓴다
+ * (packages/design/reading/reading.module.css). 배경·테두리는 읽기와
+ * 같고 바뀌는 것은 커서뿐이다. CodeMirror class는 전역이라 .editor 아래로만 고친다.
+ */
+.editor {
+  position: relative;
+  min-width: var(--space-0);
+}
+
+.area {
+  position: relative;
+}
+
+.host {
+  min-width: var(--space-0);
+}
+
+/* 형식 문제 여백 24px은 기둥 밖 왼쪽에 둔다. 글 첫 글자 자리는 읽기와 같다. */
+.editor :global(.cm-editor) {
+  margin-left: calc(var(--editor-gutter) * -1);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-reading-size);
+  line-height: var(--type-reading-line);
+  letter-spacing: var(--type-tracking-normal);
+}
+
+.editor :global(.cm-editor.cm-focused) {
+  outline: none;
+}
+
+.editor :global(.cm-scroller) {
+  font-family: inherit;
+  line-height: var(--type-reading-line);
+  overflow: visible;
+}
+
+.editor :global(.cm-content) {
+  padding: var(--space-0);
+  caret-color: var(--color-text-primary);
+}
+
+.editor :global(.cm-line) {
+  padding: var(--space-0);
+}
+
+.editor :global(.cm-content > .cm-line:first-child) {
+  padding-top: var(--space-0);
+}
+
+.editor :global(.cm-cursor) {
+  border-left-color: var(--color-text-primary);
+}
+
+.editor :global(.cm-selectionBackground),
+.editor :global(.cm-content ::selection),
+.editor :global(.cm-focused .cm-selectionBackground) {
+  background: var(--color-selection);
+}
+
+.editor :global(.cm-gutters) {
+  border-right: none;
+  background: transparent;
+}
+
+.editor :global(.cm-lp-problems .cm-gutterElement) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: var(--editor-gutter);
+}
+
+.editor :global(.cm-lp-problem) {
+  display: inline-flex;
+  align-items: center;
+  height: var(--type-reading-line);
+  color: var(--status-warning-text);
+}
+
+.editor :global(.cm-lp-problem[data-spacer]) {
+  visibility: hidden;
+}
+
+.editor :global(.cm-lp-icon) {
+  width: var(--icon-size-small);
+  height: var(--icon-size-small);
+}
+
+/* 커서가 요소 안일 때만 보이는 원문 표지. */
+.editor :global(.cm-lp-marker) {
+  color: var(--color-text-muted);
+}
+
+/* 제목: 1단 20px, 2단 16px/600, 3단 16px/600/secondary, 4단 14px. */
+.editor :global(.cm-lp-h1),
+.editor :global(.cm-lp-h2),
+.editor :global(.cm-lp-h3),
+.editor :global(.cm-lp-h4),
+.editor :global(.cm-lp-h5),
+.editor :global(.cm-lp-h6) {
+  font-weight: var(--font-weight-semibold);
+}
+
+.editor :global(.cm-line.cm-lp-h1) {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  letter-spacing: var(--type-tracking-title);
+}
+
+/* 빈 줄 28px에 더해 읽기의 제목 위 간격(40px·32px)과 맞춘다. */
+.editor :global(.cm-line.cm-lp-h2) {
+  padding-top: var(--space-5);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.editor :global(.cm-line.cm-lp-h3) {
+  padding-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.editor :global(.cm-line.cm-lp-h4),
+.editor :global(.cm-line.cm-lp-h5),
+.editor :global(.cm-line.cm-lp-h6) {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.editor :global(.cm-lp-em) {
+  font-style: italic;
+}
+
+.editor :global(.cm-lp-strong) {
+  font-weight: var(--font-weight-semibold);
+}
+
+.editor :global(.cm-lp-strike) {
+  text-decoration: line-through;
+}
+
+/* 코드는 고정폭·muted 배경·문법 강조 없음. */
+.editor :global(.cm-lp-code) {
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+.editor :global(.cm-lp-link),
+.editor :global(.cm-lp-link-source) {
+  color: var(--color-link);
+}
+
+.editor :global(.cm-lp-link) {
+  text-decoration: underline;
+}
+
+/* 목록은 읽기처럼 24px 들이고 표지는 그 들임 안에 둔다. */
+.editor :global(.cm-line.cm-lp-list) {
+  padding-left: var(--space-8);
+}
+
+.editor :global(.cm-lp-bullet) {
+  display: inline-block;
+  width: var(--space-5);
+  margin-left: calc(var(--space-6) * -1);
+  color: var(--color-text-secondary);
+}
+
+.editor :global(.cm-lp-number) {
+  color: var(--color-text-secondary);
+}
+
+/* 체크박스 16px. */
+.editor :global(.cm-lp-task) {
+  width: var(--editor-check);
+  height: var(--editor-check);
+  margin: var(--space-0) var(--space-4) var(--space-0) var(--space-0);
+  vertical-align: middle;
+  accent-color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* 인용 막대 2px. 읽기 인용과 같은 막대·들임·글자색이다. */
+.editor :global(.cm-line.cm-lp-quote) {
+  padding-left: var(--space-6);
+  border-left: var(--editor-quote-bar) solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+.editor :global(.cm-lp-rule) {
+  display: inline-block;
+  width: 100%;
+  height: var(--border-width);
+  vertical-align: middle;
+  background: var(--color-border-subtle);
+}
+
+.editor :global(.cm-line.cm-lp-codeblock) {
+  padding: var(--space-0) var(--space-5);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.editor :global(.cm-line.cm-lp-codeblock-first) {
+  position: relative;
+  padding-top: var(--space-4);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.editor :global(.cm-line.cm-lp-codeblock-last) {
+  padding-bottom: var(--space-4);
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.editor :global(.cm-line.cm-lp-fence) {
+  height: var(--space-0);
+  padding-top: var(--space-0);
+  padding-bottom: var(--space-0);
+  overflow: hidden;
+}
+
+.editor :global(.cm-line.cm-lp-fence.cm-lp-codeblock-first),
+.editor :global(.cm-line.cm-lp-fence.cm-lp-codeblock-last) {
+  height: var(--space-4);
+  overflow: visible;
+}
+
+.editor :global(.cm-lp-lang) {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-5);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.editor :global(.cm-line.cm-lp-html) {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+/* 그림은 본문 최대폭, 불러오는 동안 16:9 skeleton. */
+.editor :global(.cm-lp-image) {
+  display: block;
+  max-width: 100%;
+}
+
+.editor :global(.cm-lp-image img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.editor :global(.cm-lp-image-loading) {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+}
+
+.editor :global(.cm-lp-image-loading img) {
+  visibility: hidden;
+}
+
+.editor :global(.cm-lp-image-failed) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.editor :global(.cm-lp-table) {
+  margin: var(--space-2) var(--space-0);
+  overflow-x: auto;
+  cursor: text;
+}
+
+.editor :global(.cm-lp-table table) {
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.editor :global(.cm-lp-table th),
+.editor :global(.cm-lp-table td) {
+  padding: var(--space-2) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  text-align: left;
+}
+
+.editor :global(.cm-lp-table th) {
+  font-weight: var(--font-weight-semibold);
+}
+
+.editor :global(.cm-lp-table .cm-lp-align-right) {
+  text-align: right;
+  font-variant-numeric: var(--font-numeric);
+}
+
+.editor :global(.cm-lp-table .cm-lp-align-center) {
+  text-align: center;
+}
+
+/* frontmatter key/value 두 열. */
+.editor :global(.cm-lp-props) {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  cursor: text;
+}
+
+.editor :global(.cm-lp-props-head) {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.editor :global(.cm-lp-props dl) {
+  display: grid;
+  grid-template-columns: minmax(var(--space-0), max-content) minmax(
+    var(--space-0),
+    1fr
+  );
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-0);
+}
+
+.editor :global(.cm-lp-props dt) {
+  color: var(--color-text-secondary);
+}
+
+.editor :global(.cm-lp-props dd) {
+  margin: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.editor :global(.cm-lp-match) {
+  border-radius: var(--radius-xs);
+  background: var(--color-selection);
+}
+
+.editor :global(.cm-lp-match-current) {
+  outline: var(--border-width) solid var(--color-focus);
+}

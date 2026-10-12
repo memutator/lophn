@@ -196,7 +196,7 @@ function blocks(
   return content.map((item, index) => block(item, index, context));
 }
 
-// Lezer Markdown을 React 글과 element로만 그린다. raw HTML은 실행하지 않는다(R39).
+// Lezer Markdown을 React 글과 element로만 그린다. raw HTML은 실행하지 않는다.
 export function Markdown(
   { source, resolveImage, onOpenLink, clipboard = systemClipboard }:
     MarkdownProps,

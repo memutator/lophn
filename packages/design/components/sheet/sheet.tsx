@@ -19,7 +19,7 @@ export interface SheetProps {
   returnFocus?: boolean;
 }
 
-// backdrop 없는 non-modal Dialog: Escape·바깥 click·바깥 focus 이동에 닫는다(R33, R20).
+// backdrop 없는 non-modal Dialog: Escape·바깥 click·바깥 focus 이동에 닫는다.
 export function Sheet(
   {
     open,

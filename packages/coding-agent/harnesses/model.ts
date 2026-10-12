@@ -1,28 +1,28 @@
-// harnesses의 순수 값과 판정이다(coding-agent/harnesses, T28). IO는 없고
+// harnesses의 순수 값과 판정이다(coding-agent/harnesses). IO는 없고
 // 시각·파일·외부 command는 인자로 받는다(architecture). 일곱 제품
-// HarnessDefinition의 spec 양과 version·auth 판정을 정의한다(harnesses#R1, R3).
+// HarnessDefinition의 spec 양과 version·auth 판정을 정의한다.
 import type {
   HarnessAuth,
   HarnessId,
   HarnessProbeResult,
   HarnessVersion,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 // 배포 catalog와 adapter code의 release 참조다. 관측·설치·실행 해석이 이
 // revision을 기준으로 묶인다(domain-model harnesses).
 export const CATALOG_REVISION = "harness-catalog-1";
 export const ADAPTER_REVISION = "harness-adapter-1";
 
-// capability의 판정이다(R1). 검증하지 못한 capability는 unverified로 남고
+// capability의 판정이다. 검증하지 못한 capability는 unverified로 남고
 // 성공으로 나오지 않는다.
 export type CapabilityState = "supported" | "unsupported" | "unverified";
 
-// 실행 환경 지원이다(R4). 지금 native host만 지원이고 WSL·remote는 미지원
+// 실행 환경 지원이다. 지금 native host만 지원이고 WSL·remote는 미지원
 // 안내로 끝난다.
 export type EnvironmentSupport = {
   kind: "host" | "wsl" | "remote";
   supported: boolean;
-  // host는 null이고 미지원은 안내 이유다(R4).
+  // host는 null이고 미지원은 안내 이유다.
   reason: string | null;
 };
 
@@ -33,12 +33,12 @@ export type DetectionCommand = {
   aliases: readonly string[];
 };
 
-// filesystem 감지 spec이다(R2). home 순회·shell RC 평가가 없다.
+// filesystem 감지 spec이다. home 순회·shell RC 평가가 없다.
 export type DetectionSpec = {
   commands: readonly DetectionCommand[];
 };
 
-// probe spec이다(R1). version·auth 모두 5,000ms·65,536 bytes 상한이다
+// probe spec이다. version·auth 모두 5,000ms·65,536 bytes 상한이다
 // (domain-model target·probe 계약). filesystem 감지에서 자동 실행하지 않고
 // 사람이 고른 별도 검사 level에서 실행한다.
 export type ProbeSpec = {
@@ -50,7 +50,7 @@ export type ProbeSpec = {
   // output 판정 방법이다. first_semver는 첫 줄의 semver를 읽고, login_status는
   // codex 문구별 stderr exit로 판정한다.
   classifier: "first_semver" | "login_status";
-  // 제품 command가 읽는 것의 표시다. lophn은 원문을 보관하지 않는다(R12).
+  // 제품 command가 읽는 것의 표시다. lophn은 원문을 보관하지 않는다.
   side_effects: "none" | "reads_config" | "reads_auth_storage";
   capability: CapabilityState;
   tested_versions: readonly string[];
@@ -62,7 +62,7 @@ export type ProbeSeat =
   | { present: true; spec: ProbeSpec }
   | { present: false; capability: CapabilityState; reason: string };
 
-// config·skill·지침·hook 설치 target이다(R1). 위치·연산 본문은 이 값의
+// config·skill·지침·hook 설치 target이다. 위치·연산 본문은 이 값의
 // 참조 adapter가 수행한다. mount 범위는 settings 코멘트가 아닌 사람의 선택이다.
 export type ConfigTargetSpec = {
   scope_kind: "user" | "app";
@@ -86,7 +86,7 @@ export type InstructionSpec = {
   file: string;
   // 정본 AGENTS.md를 읽게 하는 방식이다. canonical은 제품이 AGENTS.md를 직접
   // 읽어 lophn이 고칠 파일이 없는 것이고, region은 지침 파일의 관리 구간이며,
-  // json_member는 설정 JSON의 기존 목록에 원소 하나를 더하는 것이다(guides#R13).
+  // json_member는 설정 JSON의 기존 목록에 원소 하나를 더하는 것이다.
   // 없으면 canonical이다.
   mode?: "canonical" | "region" | "json_member";
   // region이 쓰는 관리 구간 본문이다(Claude `@AGENTS.md`).
@@ -100,30 +100,29 @@ export type InstructionSpec = {
 
 export type HookSpec = {
   // 제품별 event 이름이다(Claude `SessionStart`, Gemini `BeforeTool` 등). 한
-  // 목록을 여러 제품에 재사용하지 않고 제품 catalog가 version별로 둔다(R11).
+  // 목록을 여러 제품에 재사용하지 않고 제품 catalog가 version별로 둔다.
   event: string;
-  // hook을 쓰는 설정 파일이다. config_targets(MCP)와 따로 둔다(R11).
+  // hook을 쓰는 설정 파일이다. config_targets(MCP)와 따로 둔다.
   target: {
     scope_kind: "user" | "app";
     root_resolver: string;
     path: string;
   };
   purpose: "summary" | "status";
-  // 이 event를 받는 source다. Claude SessionStart의 시작·재개·초기화다(guides#R23). 없으면 matcher를
+  // 이 event를 받는 source다. Claude SessionStart의 시작·재개·초기화다. 없으면 matcher를
   // 쓰지 않는다.
   matcher?: string;
   // config fragment·plugin·extension 방식이다(domain-model).
   method: "config_fragment" | "plugin" | "extension";
   owned_identity: string;
-  // event 최소 version이다. 미확인 version은 conservative subset만 쓴다
-  // (harnesses#R11).
+  // event 최소 version이다. 미확인 version은 conservative subset만 쓴다.
   minimum_version: string | null;
   // hook timeout 단위다. Claude는 초, Gemini는 ms다. 없으면 초다.
   timeout_unit?: "s" | "ms";
   capability: CapabilityState;
 };
 
-// 실행 계약이다(R1). 지금 PTY TUI만 실행 허용이다(domain-model harnesses,
+// 실행 계약이다. 지금 PTY TUI만 실행 허용이다(domain-model harnesses,
 // → coding-agent/sessions).
 export type ExecutionSpec = {
   transport: "pty" | "sdk" | "rpc" | "http" | "acp";
@@ -136,9 +135,9 @@ export type ExecutionSpec = {
   capability: CapabilityState;
 };
 
-// 일곱 제품의 배포 catalog 값이다(domain-model HarnessDefinition, R1). 값이며
+// 일곱 제품의 배포 catalog 값이다(domain-model HarnessDefinition). 값이며
 // entity가 아니라 stable 제품 key가 ID 역할을 한다.
-// 제품이 skill을 읽는 발견 root다(guides#R5). 앞일수록 같은 이름에서 이긴다
+// 제품이 skill을 읽는 발견 root다. 앞일수록 같은 이름에서 이긴다
 // (조사 skills-and-guides의 우선순위). 설치 root와 다른 root의 동명 skill은
 // 가림·가려짐 conflict의 근거다.
 export type SkillDiscoverySpec = {
@@ -150,7 +149,7 @@ export type SkillDiscoverySpec = {
 // MCP 항목 모양이다. 제품마다 command·args·env 표기가 다르다(domain-model 표).
 export type McpShape = "command_args_env" | "opencode_local";
 
-// 네 loading 관측의 제품별 근거다(harnesses#R10, T32). 조사 문서가 확인한
+// 네 loading 관측의 제품별 근거다. 조사 문서가 확인한
 // 사실만 두고 확인하지 못한 제품은 gate를 두지 않아 성공도 부재도 단정하지
 // 않는다. 설정·workspace를 읽는 규칙이 아니라 읽기 결과 해석의 근거다.
 export type LoadingSpec = {
@@ -180,11 +179,11 @@ export type HarnessDefinition = {
   catalog_revision: string;
   adapter_revision: string;
   version_policy: {
-    // capability가 이 근거로 판정된다(R1).
+    // capability가 이 근거로 판정된다.
     policy: "tested_ranges" | "minimum" | "unknown";
     tested_versions: readonly string[];
     minimum_version: string | null;
-    // version을 모를 때의 capability다(R1 확인).
+    // version을 모를 때의 capability다.
     unverifiable: CapabilityState;
   };
   environments: readonly EnvironmentSupport[];
@@ -203,11 +202,11 @@ export type HarnessDefinition = {
   instructions: readonly InstructionSpec[];
   hooks: readonly HookSpec[];
   execution: ExecutionSpec;
-  // loading 관측의 근거다. 없으면 gate·hider 없는 제품이다(T32).
+  // loading 관측의 근거다. 없으면 gate·hider 없는 제품이다.
   loading?: LoadingSpec;
 };
 
-// probe 결과의 판정이다(R3). timeout·실패·미지원 probe는 absent나 성공으로
+// probe 결과의 판정이다. timeout·실패·미지원 probe는 absent나 성공으로
 // 바꾸지 않는다.
 export const PROBE_OUTCOMES = [
   "ok",
@@ -219,7 +218,7 @@ export const PROBE_OUTCOMES = [
 
 export type ProbeOutcome = (typeof PROBE_OUTCOMES)[number];
 
-// probe 결과를 안전 HarnessProbeResult로 낸다(R12). raw stdout는 없다.
+// probe 결과를 안전 HarnessProbeResult로 낸다. raw stdout는 없다.
 export function probeResultOf(
   probe: string,
   outcome: ProbeOutcome,
@@ -228,7 +227,7 @@ export function probeResultOf(
   return { probe, outcome, detail };
 }
 
-// version 판정이다(R1, R3). classifier 성공 + sortie에서 semver만 verified고
+// version 판정이다. classifier 성공 + sortie에서 semver만 verified고
 // timeout·실패·빈 결과는 unknown·error로 남는다.
 export function versionOf(
   result: HarnessVersion["result"],
@@ -238,7 +237,7 @@ export function versionOf(
   return { result, value, reason };
 }
 
-// auth 판정이다(R3). 파일 존재만으로 verified 금지다. verified는 probe가
+// auth 판정이다. 파일 존재만으로 verified 금지다. verified는 probe가
 // 상태 명령을 확인했을 때뿐이다.
 export function authOf(
   result: HarnessAuth["result"],

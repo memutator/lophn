@@ -1,7 +1,7 @@
 import { currentContext } from "./handlers.ts";
 
-// 앱 runtime이 설치하는 host port의 모양이다(packages/apps/connections/client.ts와 같은 심볼·
-// 필드). SDK는 packages/apps를 import하지 않는다.
+// 앱 runtime이 설치하는 host port의 모양이다(packages/core/apps/connections/client.ts와 같은 심볼·
+// 필드). SDK는 packages/core/apps를 import하지 않는다.
 export const PAIR_PORT = Symbol.for("lophn.cap-apps");
 
 type PortResponse = { status: number; body: unknown };

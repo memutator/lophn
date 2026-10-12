@@ -22,7 +22,7 @@ export function formatSeq(n: bigint): string {
   return n.toString(10);
 }
 
-// 처리 위치 P 다음 시작 위치(platform/ledger#R15).
+// 처리 위치 P 다음 시작 위치.
 export function nextFromSeq(p: string): Result<string> {
   const parsed = parseSeq(p);
   if (!parsed.ok) return parsed;

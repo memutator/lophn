@@ -3,14 +3,14 @@
 // 실행과 사람의 ~/.claude는 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { CodingAgentSessionSummary } from "../../contracts/coding-agent/mod.ts";
+import type { CodingAgentSessionSummary } from "../../protocol/coding-agent/mod.ts";
 import {
   HOOK_CORE_WAIT_MS,
   HOOK_MAX_CODE_POINTS,
   HOOK_MAX_LINES,
   HOOK_MAX_PROBLEMS,
   HOOK_TOTAL_TIMEOUT_MS,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type HookFacts,
   renderHook,

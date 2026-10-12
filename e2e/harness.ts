@@ -1,4 +1,4 @@
-// docs/plan/contracts.md의 contracts#T10: E2E harness.
+// E2E harness.
 // 실제 Electron shell과 실제 core를 임시 LOPHN_HOME으로 띄우고, renderer DOM은
 // Chromium 원격 디버깅으로 읽는다. 끝나면 띄운 프로세스만 정확한 pid로 정리한다.
 // 실제 ~/.lophn은 읽지도 쓰지도 않는다.
@@ -30,7 +30,7 @@ export const READY_TIMEOUT_MS = 60_000;
 export const EXIT_TIMEOUT_MS = 15_000;
 
 export interface ElectronLaunch {
-  /** Electron 실행 파일. `apps/shell/main/node_modules/electron/dist/electron`. */
+  /** Electron 실행 파일. `packages/shell/main/node_modules/electron/dist/electron`. */
   executable: string;
   /** shell main 앱 인자. build 결과의 main.cjs다. */
   app: string;

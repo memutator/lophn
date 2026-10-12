@@ -17,7 +17,7 @@ export interface PopoverProps {
   returnFocus?: boolean;
 }
 
-// modal이 아니라서 바깥 click·focus 이동·Escape에 닫히고 trigger로 focus를 돌린다(R20, R2).
+// modal이 아니라서 바깥 click·focus 이동·Escape에 닫히고 trigger로 focus를 돌린다.
 export function Popover(
   {
     trigger,
@@ -51,7 +51,7 @@ export interface PopoverRowProps {
   disabled?: boolean;
 }
 
-// popover 안의 고를 수 있는 한 줄. 높이는 menu 행과 같은 32px이다(R33).
+// popover 안의 고를 수 있는 한 줄. 높이는 menu 행과 같은 32px이다.
 export function PopoverRow({ children, onSelect, disabled }: PopoverRowProps) {
   return (
     <button

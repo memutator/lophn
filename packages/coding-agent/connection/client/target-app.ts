@@ -1,13 +1,13 @@
-// MCP·CLI가 같은 대상 앱 순서를 쓰는 공통 찾기(connection#R11).
+// MCP·CLI가 같은 대상 앱 순서를 쓰는 공통 찾기.
 // 명시 선택 → 앱 환경 설정 → 현재 작업 폴더의 blueprint.
 // 발견한 앱은 connection scope와 다시 비교해 범위 밖이면 거절이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { validateBlueprint } from "../../../contracts/apps/mod.ts";
+import { validateBlueprint } from "../../../protocol/apps/mod.ts";
 import type {
   Blueprint,
   ValidationResult,
-} from "../../../contracts/apps/mod.ts";
-import type { ConnectionScope } from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import type { ConnectionScope } from "../../../protocol/coding-agent/mod.ts";
 
 export const LOPHN_APP = "LOPHN_APP";
 
@@ -24,7 +24,7 @@ export function scopeAllows(scope: ConnectionScope, app: string): boolean {
   return scope.kind === "app" && scope.app === app;
 }
 
-// 발견한 앱을 connection scope와 다시 비교한다. 범위 밖이면 거절(R11).
+// 발견한 앱을 connection scope와 다시 비교한다. 범위 밖이면 거절.
 export function withinScope(
   target: TargetApp,
   scope: ConnectionScope,

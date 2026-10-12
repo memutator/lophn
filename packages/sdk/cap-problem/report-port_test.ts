@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { formatAt } from "@lophn/base";
-import type { ReportAcceptance } from "@lophn/contracts/problems/sdk-report";
+import type { ReportAcceptance } from "@lophn/protocol/problems/sdk-report";
 import {
   installProblemReporter,
   REPORTER_PORT,

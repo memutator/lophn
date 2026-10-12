@@ -1,22 +1,22 @@
-// sync이다(guides#R17, mcp#R19 도구 재배포, cli#R29, T34). 사람이 고른 target 하나의 앱
+// sync이다(도구 재배포). 사람이 고른 target 하나의 앱
 // 범위(app_realpath)에 도구를 다시 맞춘다. 두 통로(MCP tool과 CLI command)가 이 한 흐름을
-// 지나므로 같은 입력의 결과와 거절이 같다(connection#R6, cli#R1).
+// 지나므로 같은 입력의 결과와 거절이 같다.
 //
 // 통로는 다섯이다.
 // - MCP 설정·skill·관리 구간 안내(Claude의 CLAUDE.md 관리 구간 등)는 사람이 고른 plan의
 //   몫과 같은 engine(harnesses의 installSelected·installSkills)을 재사용한다. conflict
-//   규칙(receipt 없는 동명·사람 수정·외부 symlink는 덮지 않는다)도 같다(R17).
+//   규칙(receipt 없는 동명·사람 수정·외부 symlink는 덮지 않는다)도 같다.
 // - ignore 안내는 source의 관리 ignore 구간을 이 모듈이 쓴다(managed-files의 bytes 보존).
 //
-// 재배포는 앱 code와 사람 몫 구간·다른 MCP 설정을 건드리지 않는다(R17). 같은 배포를
-// 두 번 해도 소유 조각의 unchanged로 중복이 없다. 파일 변경이 생기면(cli#R29) 이 모듈이
+// 재배포는 앱 code와 사람 몫 구간·다른 MCP 설정을 건드리지 않는다. 같은 배포를
+// 두 번 해도 소유 조각의 unchanged로 중복이 없다. 파일 변경이 생기면 이 모듈이
 // 파일별 결과를 풀어 준다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   IntegrationTarget,
   ReceiptOutcome,
   ResourceInstallResult,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type { RootInputs } from "../harnesses/mod.ts";
 import { installSelected } from "../harnesses/mod.ts";
 import type { ManagedFilesPort } from "./managed-files.ts";
@@ -25,7 +25,7 @@ import type { DistributedSkill } from "./distribution.ts";
 import { installSkills } from "./install.ts";
 
 export type SyncFileResult = {
-  // 두 통로가 같은 이름으로 보여 주는 재배포 대상이다(cli#R29의 MCP·skill·공통
+  // 두 통로가 같은 이름으로 보여 주는 재배포 대상이다(MCP·skill·공통
   // 안내·ignore 안내별 항목).
   target: "mcp" | "guide" | "ignore" | "skill";
   name: string;
@@ -46,7 +46,7 @@ export type SyncToolsInput = {
   skills: readonly DistributedSkill[];
   roots: RootInputs;
   launch: Parameters<typeof installSkills>[0]["launch"];
-  // 사람이 고른 connection 참조다. token 원문은 없다(connection#R17).
+  // 사람이 고른 connection 참조다. token 원문은 없다.
   connection: string | null;
   operationId: string;
   now: string;
@@ -57,12 +57,12 @@ export type SyncToolsPorts = {
   store: Parameters<typeof installSkills>[1]["store"];
 };
 
-// 무변경 충돌 안내다(R16). 읽어 둔 hash가 현재와 달라 파일을 바꾸지 않았다.
+// 무변경 충돌 안내다. 읽어 둔 hash가 현재와 달라 파일을 바꾸지 않았다.
 export function staleGuideMessage(): string {
   return "안내 파일을 읽은 뒤 사람 동시 편집이 생겼다. 파일을 다시 읽고 같은 갱신을 다시 접수한다. lophn은 파일을 바꾸지 않았다";
 }
 
-// engine의 resource별 결과를 재배포 항목으로 옮긴다(cli#R29). identity의 앞부분이
+// engine의 resource별 결과를 재배포 항목으로 옮긴다. identity의 앞부분이
 // builder의 규칙이다. hook identity는(sync는 hook을 다시 맞추지 않는다) 건너뜀 결과로
 // 옮기지 않고 이 결과에 싣지 않는다.
 function fileResultOf(
@@ -107,13 +107,13 @@ function managedIgnorePort(
   };
 }
 
-// 무변경 재배포 sync의 기준 bytes다. 안내 원본이 cli#R29의 재배포 항목이다. 관리 ignore
+// 무변경 재배포 sync의 기준 bytes다. 안내 원본이 재배포 항목이다. 관리 ignore
 // 구간 기준 bytes다. sync의 ignore 갱신은 관리 구간 안쪽을 이 몸통으로만 두고 바깥 사람
-// 내용을 bytes 그대로 둔다(R15). 어느 몸통이든 sync의 몫 구간(bytes 보존)은 managed-files다.
+// 내용을 bytes 그대로 둔다. 어느 몸통이든 sync의 몫 구간(bytes 보존)은 managed-files다.
 const IGNORE_ORIGINAL = "# begin lophn-managed\n# end lophn-managed\n";
 const IGNORE_BODY = ".lophn/\ndist/\nnode_modules/\n";
 
-// app source의 개발 도구를 다시 맞춘다. 결과의 files는 cli#R29의 재배포 항목별
+// app source의 개발 도구를 다시 맞춘다. 결과의 files는 재배포 항목별
 // 결과다. sync는 앱 하나 범위의 target만 받고(MCP 설정·skill·안내는 이 target의
 // app_realpath에 쓴다) user target은 오류이다.
 export async function syncTools(

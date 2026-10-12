@@ -1,8 +1,8 @@
-// harness 감지다(coding-agent/harnesses#R2–R4, T28). PATH와 제품 catalog에
+// harness 감지다. PATH와 제품 catalog에
 // 정한 유한한 fallback 위치만 읽는다. home 전체 순회·설치 트리 순회·shell RC
-// 평가가 없다(R2). 발견·version·auth는 별도 값이고 timeout·실패·미지원 probe를
-// absent나 성공으로 바꾸지 않는다(R3). 지금 native host만 수집이고 WSL·remote
-// 요청은 미지원 안내로 끝난다(R4). probe는 argv만 쓰고 timeout이 있다
+// 평가가 없다. 발견·version·auth는 별도 값이고 timeout·실패·미지원 probe를
+// absent나 성공으로 바꾸지 않는다. 지금 native host만 수집이고 WSL·remote
+// 요청은 미지원 안내로 끝난다. probe는 argv만 쓰고 timeout이 있다
 // (파일·외부 command는 인자로 끼운다, architecture).
 import { err, formatAt, ok, type Result } from "../../base/mod.ts";
 import {
@@ -14,7 +14,7 @@ import {
   type HarnessEnvironment,
   type HarnessId,
   type HarnessVersion,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type HarnessDefinition,
   PROBE_OUTCOMES,
@@ -22,11 +22,11 @@ import {
   type ProbeSeat,
 } from "./model.ts";
 
-// alias가 가리키는 bin 재검사 hop guard다(R2, domain-model). 8회면 cycle로
+// alias가 가리키는 bin 재검사 hop guard다(domain-model). 8회면 cycle로
 // 보고 그 alias 위치를 따라가지 않는다.
 export const ALIAS_HOP_LIMIT = 8;
 
-// probe의 고정 상한이다(R1, domain-model target·probe 계약).
+// probe의 고정 상한이다(domain-model target·probe 계약).
 export const PROBE_TIMEOUT_MS = 5_000;
 export const PROBE_OUTPUT_LIMIT_BYTES = 65_536;
 
@@ -50,17 +50,17 @@ export type ExecPort = {
 
 export type ProbeRun = {
   outcome: ProbeOutcome;
-  // raw stdout는 아니다. classifier가 다듬은 안전 detail만 있다(R12).
+  // raw stdout는 아니다. classifier가 다듬은 안전 detail만 있다.
   detail: string | null;
 };
 
-// 감지 결과 key다(R4). environment·profile별로 나눈다.
+// 감지 결과 key다. environment·profile별로 나눈다.
 export type DetectionKey = {
   environment: HarnessEnvironment;
   profile_id: string | null;
 };
 
-// catalog fallback이 가리키는 home 기준 bin다(R2). shell RC 평가가 없다.
+// catalog fallback이 가리키는 home 기준 bin다. shell RC 평가가 없다.
 export const FALLBACK_DIRS = [
   ".local/bin",
   ".bun/bin",
@@ -90,7 +90,7 @@ export function environmentSupported(
     });
   }
   if (!support.supported) {
-    // WSL·remote 요청은 미지원 안내로 끝난다(R4). invalid_input에 안내 이유를
+    // WSL·remote 요청은 미지원 안내로 끝난다. invalid_input에 안내 이유를
     // 남긴다(존재 누설이 아니다, 요청이 먼저 온다).
     return err({
       code: "invalid_input",
@@ -112,7 +112,7 @@ export type Candidate = {
   executable_result: string;
 };
 
-// PATH에서 찾은 디렉터리다. shell RC 평가 없이 process env의 PATH만 본다(R2).
+// PATH에서 찾은 디렉터리다. shell RC 평가 없이 process env의 PATH만 본다.
 export function pathDirs(
   path: string | undefined,
 ): readonly string[] {
@@ -126,7 +126,7 @@ function absoluteJoin(home: string, dir: string, name: string): string {
   return `${home}/${dir}/${name}`;
 }
 
-// 실행 결과 라벨이다(R3). 발견과 실행 가능함은 별도 값이다. POSIX 실행 권한을
+// 실행 결과 라벨이다. 발견과 실행 가능함은 별도 값이다. POSIX 실행 권한을
 // 파일 lookup으로 본다(조사 1.2).
 function executableLabel(executable: boolean | null, exists: boolean): string {
   if (!exists) return "absent";
@@ -153,7 +153,7 @@ function pathSeeds(dirs: readonly string[]): readonly CandidateSeed[] {
   }));
 }
 
-// 실행 파일을 찾는다(R2). 위치 목록: PATH + 정한 fallback만이다. 다른 위치는
+// 실행 파일을 찾는다. 위치 목록: PATH + 정한 fallback만이다. 다른 위치는
 // 순회하지 않는다. absent는 모든 정한 lookup이 끝나고 후보가 없을 때뿐이다.
 export function discover(
   definition: HarnessDefinition,
@@ -186,7 +186,7 @@ export function discover(
   ) {
     const listed = ports.files.list(seed.dir);
     if (!listed.ok) {
-      // lookup 실패도 absent로 바꾸지 않는다(R3). 하나의 실패가 전체를
+      // lookup 실패도 absent로 바꾸지 않는다. 하나의 실패가 전체를
       // unknown으로 만든다.
       return ok({
         discovery: "unknown",
@@ -207,7 +207,7 @@ export function discover(
           selected: null,
         });
       }
-      // PATH 뒤 정한 fallback이다. source는 seed provenance다(R2).
+      // PATH 뒤 정한 fallback이다. source는 seed provenance다.
       candidates.push({
         path: full,
         source: seed.source,
@@ -215,7 +215,7 @@ export function discover(
       });
     }
   }
-  // absent는 모든 정한 lookup이 끝나고 후보가 없을 때뿐이다(R3).
+  // absent는 모든 정한 lookup이 끝나고 후보가 없을 때뿐이다.
   const first = candidates.find(
     (candidate) => candidate.executable_result === "ok",
   );
@@ -227,15 +227,15 @@ export function discover(
   });
 }
 
-// probe를 실행한다(R1). 사람이 고른 별도 검사 level에서 부른다. filesystem
+// probe를 실행한다. 사람이 고른 별도 검사 level에서 부른다. filesystem
 // 감지에서 자동 실행하지 않는다. timeout·실패는 absent나 성공으로 바꾸지
-// 않는다(R3).
+// 않는다.
 export async function runProbe(
   seat: ProbeSeat,
   exec: ExecPort,
 ): Promise<Result<HarnessProbeResult_shape>> {
   if (!seat.present) {
-    // 없는 probe는 unverified_capability로 남는다(R3). 성공이 아니다.
+    // 없는 probe는 unverified_capability로 남는다. 성공이 아니다.
     return ok({
       probe: "capability",
       outcome: "unverified_capability",
@@ -267,7 +267,7 @@ type HarnessProbeResult_shape = {
   detail: string | null;
 };
 
-// version을 판정한다(R3). classifier 성공만 verified고 나머지는
+// version을 판정한다. classifier 성공만 verified고 나머지는
 // unknown·error다. timeout을 성공으로 바꾸지 않는다.
 export function versionJudgment(
   run: ProbeRun | null,
@@ -282,7 +282,7 @@ export function versionJudgment(
   if (run.outcome === "ok" && run.detail !== null) {
     return { result: "verified", value: run.detail, reason: null };
   }
-  // timeout·실패는 각각 구별한다(R3).
+  // timeout·실패는 각각 구별한다.
   return {
     result: run.outcome === PROBE_OUTCOMES[1] ? "error" : "unknown",
     value: null,
@@ -290,14 +290,14 @@ export function versionJudgment(
   };
 }
 
-// auth를 판정한다(R3). probe 상태 문구 확인만 verified고 파일 존재·미지원
+// auth를 판정한다. probe 상태 문구 확인만 verified고 파일 존재·미지원
 // probe를 verified나 성공으로 바꾸지 않는다.
 export function authJudgment(
   run: ProbeRun | null,
   seat: ProbeSeat,
 ): HarnessAuth {
   if (!seat.present) {
-    // 미지원·미검증 probe는 unverified_capability다(R1 확인). 성공이 아니다.
+    // 미지원·미검증 probe는 unverified_capability다. 성공이 아니다.
     return {
       result: seat.capability === "unsupported"
         ? "unverified_capability"
@@ -330,7 +330,7 @@ export function authJudgment(
   };
 }
 
-// obs의 freshness를 판정한다. env·profile·catalog 변경이 stale이다(R4).
+// obs의 freshness를 판정한다. env·profile·catalog 변경이 stale이다.
 export function freshnessOf(
   previous: {
     environment: HarnessEnvironment;
@@ -347,7 +347,7 @@ export function freshnessOf(
   return sameEnv && sameProfile && sameCatalog ? "fresh" : "stale";
 }
 
-// 감지 결과값이다(R2–R4). obs key·candidates·selected·version·auth·probe·
+// 감지 결과값이다. obs key·candidates·selected·version·auth·probe·
 // freshness를 별도 값으로 둔다. refresh는 사람 요청만 먹는다(호출 경로가
 // 그렇게 묶는다). freshness는 이전 결과가 같은 key이면 fresh다.
 export function detectionOf(

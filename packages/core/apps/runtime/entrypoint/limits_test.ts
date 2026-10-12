@@ -1,0 +1,29 @@
+import { assertEquals } from "@std/assert";
+import {
+  CONFIRM_MARKER_LIMIT,
+  DIRECT_SOCKET_PATHS,
+  READY_TIMEOUT_MS,
+  SHUTDOWN_GRACE_MS,
+  SOCKET_HOST,
+  SOCKET_PATH_MAX_BYTES,
+  TRACE_NAME_MAX_CHARS,
+} from "@lophn/protocol/apps";
+import {
+  CONFIRM_MARKER_LIMIT as LOCAL_MARKERS,
+  DIRECT_SOCKET_PATHS as LOCAL_PATHS,
+  READY_TIMEOUT_MS as LOCAL_READY,
+  SHUTDOWN_GRACE_MS as LOCAL_GRACE,
+  SOCKET_HOST as LOCAL_HOST,
+  SOCKET_PATH_MAX_BYTES as LOCAL_PATH_MAX,
+  TRACE_NAME_MAX_CHARS as LOCAL_TRACE,
+} from "./limits.ts";
+
+Deno.test("apps/runtime#R8: entrypoint limits match contracts channel values", () => {
+  assertEquals(LOCAL_HOST, SOCKET_HOST);
+  assertEquals(LOCAL_READY, READY_TIMEOUT_MS);
+  assertEquals(LOCAL_GRACE, SHUTDOWN_GRACE_MS);
+  assertEquals(LOCAL_MARKERS, CONFIRM_MARKER_LIMIT);
+  assertEquals(LOCAL_TRACE, TRACE_NAME_MAX_CHARS);
+  assertEquals(LOCAL_PATH_MAX, SOCKET_PATH_MAX_BYTES);
+  assertEquals(LOCAL_PATHS, DIRECT_SOCKET_PATHS);
+});

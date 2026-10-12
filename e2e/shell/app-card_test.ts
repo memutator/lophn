@@ -1,6 +1,6 @@
 // shell#T44: 세션 앱 카드의 scroll bounds. 실제 Electron(Chromium)을 화면 없이(show:false·offscreen)
 // 띄워 창 본문에 카드 목록 page를 싣는다. page는 renderer의 실제 bounds relay
-// (`apps/shell/renderer/app-frame/bounds.ts`)로 카드 자리를 목록 scroll 경계로 자른 사각형만
+// (`packages/shell/renderer/app-frame/bounds.ts`)로 카드 자리를 목록 scroll 경계로 자른 사각형만
 // 알리고, shell main과 같은 app-frame 조립이 card 크기 앱 view를 그 사각형에 붙인다. core 앱
 // 통로만 probe의 가짜 connector이고 앱 화면은 이 테스트가 Unix socket에 띄운 가짜 앱이 내준다.
 // - shell/app-frame#R35: 일부만 보이면 보이는 만큼, 다 보이면 전체, 목록 밖이면 떼고, 돌아오면
@@ -18,10 +18,10 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   /\/$/,
   "",
 );
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electronExecutable = `${shellMain}/node_modules/electron/dist/electron`;
 const probeSource = `${shellMain}/app-frame/testdata/app-card-probe.ts`;
-const boundsSource = `${repoRoot}/apps/shell/renderer/app-frame/bounds.ts`;
+const boundsSource = `${repoRoot}/packages/shell/renderer/app-frame/bounds.ts`;
 
 const APP = "app_01j9zzzzzzzzzzzzzzzzzzzzzz";
 const RELEASE = "rel_01j9zzzzzzzzzzzzzzzzzzzzz1";

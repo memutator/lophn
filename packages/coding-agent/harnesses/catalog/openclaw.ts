@@ -1,4 +1,4 @@
-// OpenClaw의 배포 catalog다(coding-agent/harnesses#R1·R8, T31). 위치·format은
+// OpenClaw의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고 검증
 // 근거는 docs/research/coding-agent-harness-integration.md 9.1이다. [미확인]
 // capability는 unverified로 남고 성공으로 나오지 않는다.
@@ -47,7 +47,7 @@ export const openclaw: HarnessDefinition = {
     reason: "auth 상태 명령을 아직 검증하지 않았다",
   },
   // config의 `mcp.servers`는 strict schema라 invalid면 harness가 throw하므로
-  // (조사 9.1) lophn이 자동 merge하지 않는다(R8). `mcp.servers.lophn` stdio
+  // (조사 9.1) lophn이 자동 merge하지 않는다. `mcp.servers.lophn` stdio
   // 조각 안내만 남는다. 구체 구성 위치는 `resolveConfigDir`의 state dir env
   // override·`OPENCLAW_CONFIG_PATH` 다음 기본 `~/.openclaw`이다[확인](조사
   // 9.1). env 치환 문법·hook·skill root 계산은 조사에서 미확인이다.
@@ -83,8 +83,7 @@ export const openclaw: HarnessDefinition = {
     resume_argv: null,
     prompt_delivery: "stdin_after_ready",
     session_evidence: "listing",
-    // session 소유 stdio 미확인은 unverified이고 CLI fallback이다(조사 3.1,
-    // mcp-server#R1).
+    // session 소유 stdio 미확인은 unverified이고 CLI fallback이다(조사 3.1).
     capability: "unverified",
   },
 };

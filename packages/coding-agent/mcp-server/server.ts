@@ -1,15 +1,15 @@
 // MCP server 로직이다(architecture/coding-agent 5.1). initialize·tools/list는
-// core에 닿지 않고 답한다(R1). tools/call은 registry의 route로만 dispatch한다.
+// core에 닿지 않고 답한다. tools/call은 registry의 route로만 dispatch한다.
 // protocol 오류는 JSON parse -32700, request -32600, method -32601, tool·params
-// -32602다. 알려진 tool의 실행·scope·입력 실패는 isError true다(R7).
-import type { Toolset } from "../../contracts/coding-agent/mod.ts";
+// -32602다. 알려진 tool의 실행·scope·입력 실패는 isError true다.
+import type { Toolset } from "../../protocol/coding-agent/mod.ts";
 import {
   agentResultSchema,
   mcpToolResult,
   parseToolsets,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type { LophnError, Result } from "../../base/mod.ts";
-import { appCommandToolInputSchema } from "../../contracts/coding-agent/mod.ts";
+import { appCommandToolInputSchema } from "../../protocol/coding-agent/mod.ts";
 import {
   findTool,
   resolveRoute,
@@ -22,7 +22,7 @@ import { effectUnknownResult, failureResult, successResult } from "./result.ts";
 const SERVER_INFO = { name: "lophn-mcp", version: "0.1.0" };
 
 // 기동부터 tools/list까지의 측정 기준이다. Codex·OpenCode 기동 timeout 30초보다
-// 넉넉히 2,000ms 안이다(R1).
+// 넉넉히 2,000ms 안이다.
 export const STARTUP_BUDGET_MS = 2_000;
 
 export type JsonRpcId = string | number | null;
@@ -49,7 +49,7 @@ const PROTOCOL_ERRORS = {
   internal: -32603,
 } as const;
 
-// server가 소유한 상태다. label 순서의 마지막 항목이 여기에 남는다(connection#R3).
+// server가 소유한 상태다. label 순서의 마지막 항목이 여기에 남는다.
 export type McpServer = {
   // enable한 toolset이다. discovery에 나올 tool을 정한다.
   toolsets: readonly Toolset[];
@@ -57,10 +57,10 @@ export type McpServer = {
 
 export type HandleDeps = {
   toolsets?: readonly Toolset[];
-  // initialize clientInfo.name은 label 순서의 마지막으로만 쓰인다(connection#R3).
+  // initialize clientInfo.name은 label 순서의 마지막으로만 쓰인다.
   onClientInfo?: (name: string | undefined) => void;
-  // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
-  // isError는 실행 실패·거절을 model에 실패로 알린다(R7). 성공 결과는 생략한다.
+  // tools/call의 실행이다. registry route 하나로만 routing된다.
+  // isError는 실행 실패·거절을 model에 실패로 알린다. 성공 결과는 생략한다.
   callTool: (
     toolName: string,
     args: unknown,
@@ -71,7 +71,7 @@ export type HandleDeps = {
     next: string[];
     isError?: boolean;
   }>;
-  // blueprint 유래 앱 command tool이다(T23, mcp#R34·R35). app toolset을 켠 경우에만 목록과
+  // blueprint 유래 앱 command tool이다. app toolset을 켠 경우에만 목록과
   // 호출에 닿고, 없거나 toolset이 꺼져 있으면 이름이 없는 tool과 같다.
   appCommands?: DynamicAppTools;
   // 응답 밖으로 내는 JSON-RPC notification이다(progress). 없으면 progress를 보내지 않는다.
@@ -92,7 +92,7 @@ export type JsonRpcNotification = {
 };
 
 // tools/call 하나의 맥락이다. 요청이 `_meta.progressToken`을 주었을 때만 progress가 있다.
-// 오래 기다리는 tool이 client의 tool timeout 전에 살아 있음을 알린다(mcp#R19).
+// 오래 기다리는 tool이 client의 tool timeout 전에 살아 있음을 알린다.
 export type ToolCallContext = {
   progress?: (message: string) => Promise<void>;
 };
@@ -113,7 +113,7 @@ export function createHandler(
         return initializeResponse(
           request,
           deps.onClientInfo,
-          // 동적 앱 tool이 바뀌면 list_changed를 보낸다(R35).
+          // 동적 앱 tool이 바뀌면 list_changed를 보낸다.
           toolsets.includes("app") && deps.appCommands !== undefined,
         );
       case "tools/list":
@@ -134,8 +134,8 @@ export function createHandler(
   };
 }
 
-// 고정 tool은 core에 닿지 않고 답한다(R1). app toolset의 동적 목록만 현재 blueprint를
-// 읽는다. 이름 충돌은 조용히 덮지 않고 목록 전체의 실패로 돌려준다(R34).
+// 고정 tool은 core에 닿지 않고 답한다. app toolset의 동적 목록만 현재 blueprint를
+// 읽는다. 이름 충돌은 조용히 덮지 않고 목록 전체의 실패로 돌려준다.
 async function listResponse(
   id: JsonRpcId,
   toolsets: readonly Toolset[],
@@ -231,7 +231,7 @@ function initializeResponse(
       params.clientInfo.name !== ""
     ? params.clientInfo.name
     : undefined;
-  // label 표시 순서의 마지막 항목이다. 권한은 credential로만 정해진다(connection#R3).
+  // label 표시 순서의 마지막 항목이다. 권한은 credential로만 정해진다.
   onClientInfo?.(name);
   return okResponse(request.id ?? null, {
     protocolVersion: (request.params as { protocolVersion?: unknown })
@@ -292,7 +292,7 @@ async function callResponse(
   const args = (params.arguments ?? {}) as Record<string, unknown>;
   if (appCommands?.owns(params.name)) {
     // 바깥 입력은 input·environment·timeout_ms뿐이다. command 입력 검사는 앱 통로가 고정
-    // blueprint로 한다(R35).
+    // blueprint로 한다.
     const outer = appCommandToolInputSchema.safeParse(args);
     if (!outer.success) {
       return okResponse(
@@ -325,7 +325,7 @@ async function callResponse(
     );
   }
   if (!resolved) {
-    // 표에 있고 op만 틀린 것은 실행 전 isError다(R6). 다른 동작으로 추측해
+    // 표에 있고 op만 틀린 것은 실행 전 isError다. 다른 동작으로 추측해
     // 실행하지 않는다.
     return okResponse(
       request.id,
@@ -337,7 +337,7 @@ async function callResponse(
     );
   }
   // tool 입력은 tool 표의 input(여러 op tool은 `op`를 고르는 union)으로 실행 전
-  // 검사한다(R6). 소유 route의 입력은 `op`를 모르므로 route 입력으로는 검사할 수
+  // 검사한다. 소유 route의 입력은 `op`를 모르므로 route 입력으로는 검사할 수
   // 없고, route의 envelope·입력 검사는 core client가 보내기 전에 다시 한다.
   const input = resolved.tool.input.safeParse(args);
   if (!input.success) {
@@ -392,7 +392,7 @@ function errorResponse(
   };
 }
 
-// tool 실행 결과를 domain 결과로 감싼다. 실패·effect_unknown은 isError다(R7).
+// tool 실행 결과를 domain 결과로 감싼다. 실패·effect_unknown은 isError다.
 export function wrapToolResult(
   value: { summary: string; data: unknown; next: string[] },
   failure: LophnError | undefined,

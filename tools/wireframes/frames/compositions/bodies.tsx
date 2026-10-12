@@ -2,14 +2,16 @@
 import { useState } from "react";
 import {
   Card,
-  editorIcons,
   Icon,
   IconButton,
   iconPixels,
   Input,
-  lophnSpaceIcons,
   Menu,
 } from "@lophn/design/components";
+import {
+  editorIcons,
+  lophnSpaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 import { Button, Field, Select } from "@lophn/ui-control";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";

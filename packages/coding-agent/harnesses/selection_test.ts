@@ -1,6 +1,6 @@
 // 기본 harness 선택 시험이다(harnesses#R5). 감지·설치 관측은 값으로 준다.
 import { assert, assertEquals } from "@std/assert";
-import type { HarnessDetection } from "../../contracts/coding-agent/mod.ts";
+import type { HarnessDetection } from "../../protocol/coding-agent/mod.ts";
 import {
   decideDefaultHarness,
   runnableOf,

@@ -2,7 +2,7 @@
 // 세 경우(첫 key 직접 지정·규칙 부적합·이미 사용한 key)를 이유와 함께 낸다. 생성·수정
 // op가 없고 command를 부르지 않는다. core에 닿지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { MCP_CORE_TOOLS } from "../../../contracts/coding-agent/mod.ts";
+import { MCP_CORE_TOOLS } from "../../../protocol/coding-agent/mod.ts";
 import { resolveRoute } from "../registry.ts";
 import { scriptedFlow, SERIES_ID } from "../../connection/testing/mod.ts";
 import { createSeriesTool } from "./series.ts";

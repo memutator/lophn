@@ -73,15 +73,6 @@ export {
   type Timer,
 } from "./shared.ts";
 export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
-export { workspaceIcons } from "./workspace-icons.ts";
-export { launcherIcons } from "./launcher-icons.ts";
-export { editorIcons } from "./editor-icons.ts";
-export { lophnSpaceIcons } from "./lophn-space-icons.ts";
-export { settingsIcons } from "./settings-icons.ts";
-export { appSpaceIcons } from "./app-space-icons.ts";
-export { paletteIcons } from "./palette-icons.ts";
-export { conversationIcons } from "./conversation-icons.ts";
-export { confirmIcons } from "./confirm-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,
@@ -165,14 +156,20 @@ export {
   type ToastTone,
 } from "./toast/toast.tsx";
 export { Chip, type ChipItem, type ChipProps } from "./chip/chip.tsx";
+export { DataTable, type DataTableProps } from "./data-table/data-table.tsx";
 export {
-  connectionFailedIcon,
-  connectionStaleIcon,
-  launcherEmptyIcon,
-  lophnEntryIcon,
-  retryIcon,
-  windowCloseIcon,
-  windowMaximizeIcon,
-  windowMinimizeIcon,
-  windowRestoreIcon,
-} from "./chrome-icons.ts";
+  DataState,
+  type DataStateProps,
+  type EmptySpec,
+} from "./data-table/data-state.tsx";
+export {
+  clampPage,
+  pageCount,
+  type PageSlice,
+  pageSlice,
+  type SortDirection,
+  sortRows,
+  type SortState,
+  toggleColumn,
+  visibleColumns,
+} from "./data-table/model.ts";

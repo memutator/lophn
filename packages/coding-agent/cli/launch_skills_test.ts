@@ -2,7 +2,7 @@
 // 파일을 열지 않는다. 고른 제품 skill root 아래 배포 skill 이름의 디렉터리만 정확한 경로로 열리고 root 폴더
 // 전체·사람의 다른 skill·다른 제품 root는 열리지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import type { IntegrationTarget } from "../../contracts/coding-agent/mod.ts";
+import type { IntegrationTarget } from "../../protocol/coding-agent/mod.ts";
 import { SKILL_RELEASES } from "../guides/mod.ts";
 import { NO_SELECTION, planSelection, selectionFlags } from "./launch.ts";
 

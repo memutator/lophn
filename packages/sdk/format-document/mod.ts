@@ -1,15 +1,15 @@
-// 내장 document format의 선언이다. 내용의 정본은 packages/documents/formats의
-// 등록이고(apps/core/documents.ts), 여기는 같은 선언을 데이터로 담아 앱이 읽게
-// 내보내기만 한다(documents Q10). 검사 코드는 없다 — 검사는 core 밖 격리 환경에서
-// 돌는 `/v1/formats/validate`만 한다(documents/formats#R18). Module hash는
-// documents#T4의 bundle.js hash와 같다(→ documents/plan Q10).
+// 내장 document format의 선언이다. 내용의 정본은 packages/core/projects/formats의
+// 등록이고(packages/core/projects/register.ts), 여기는 같은 선언을 데이터로 담아 앱이 읽게
+// 내보내기만 한다. 검사 코드는 없다 — 검사는 core 밖 격리 환경에서
+// 돌는 `/v1/formats/validate`만 한다. Module hash는
+// bundle.js hash와 같다.
 
 // FormatRef의 정확한 module hash(bundle.js 묶음의 sha256). documents/formats의
 // guest/module-hash.ts가 정본이다.
 export const DOCUMENT_MODULE_HASH =
-  "8098b95b6b7bf63f8466c8e07c2f2a560fd46ff4160671fd99faa4c82a83ccdd";
+  "859415856f59662c5bcdfc30adf2677d9fc296b193c7137fece8f5385e02f9d8";
 
-// document가 읽기·검색 대상으로 지원하는 media type이다(documents/formats#R2).
+// document가 읽기·검색 대상으로 지원하는 media type이다.
 export const DOCUMENT_MEDIA_TYPES = [
   "text/markdown",
   "text/x-markdown",
@@ -19,7 +19,7 @@ export const DOCUMENT_MEDIA_TYPES = [
 ] as const;
 
 // document format 선언이다. 구성은 이름·media type·구조·metadata 요구·template·
-// guide·vocabulary·section 추출 가능 여부뿐이다(apps/sdk#R2, documents/formats#R8).
+// guide·vocabulary·section 추출 가능 여부뿐이다.
 export const documentFormat = {
   name: "document",
   module_hash: DOCUMENT_MODULE_HASH,

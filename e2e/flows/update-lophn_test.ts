@@ -29,42 +29,40 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
-import { canonicalJson } from "../../packages/apps/blueprint/mod.ts";
-import type { Blueprint } from "../../packages/apps/blueprint/mod.ts";
+import { canonicalJson } from "../../packages/core/apps/blueprint/mod.ts";
+import type { Blueprint } from "../../packages/core/apps/blueprint/mod.ts";
 import {
   bundleCopyPath,
   sealBundle,
-} from "../../packages/apps/releases/mod.ts";
-import { installPackage } from "../../packages/apps/sdk/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
-import { type Core, startCore } from "../../apps/core/core.ts";
+} from "../../packages/core/apps/releases/mod.ts";
+import { installPackage } from "../../packages/core/apps/packages/mod.ts";
+import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../packages/core/apps/register.ts";
+import { type Core, startCore } from "../../packages/core/main/daemon/core.ts";
 import {
   APP,
   RELEASE_ID,
   seedLedger,
-} from "../../apps/core/testing/app-export-fixtures.ts";
+} from "../../packages/core/testing/app-export-fixtures.ts";
 import {
-  encodeFrame,
-  FrameDecoder,
   type MainHello,
   mainHelloSchema,
   mainToCoreMessageSchema,
-} from "../../packages/contracts/platform/mod.ts";
-import { RECOVERY_STAMP } from "../../packages/platform/backup-and-migration/mod.ts";
-import { SECRET_SCHEMA_STEPS } from "../../packages/platform/secrets/mod.ts";
-import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
-import { coreLaunch } from "../../apps/shell/main/desktop/core/supervise.ts";
+} from "../../packages/protocol/supervision/mod.ts";
+import { RECOVERY_STAMP } from "../../packages/core/storage/migration/mod.ts";
+import { SECRET_SCHEMA_STEPS } from "../../packages/core/secrets/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
+import { coreLaunch } from "../../packages/shell/main/desktop/core/supervise.ts";
 import type { Script } from "../../tools/fake-provider/mod.ts";
-import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";
+import type { ToolLookup } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
+import { decide as humanDecide } from "../../packages/core/testing/approvals-fixture.ts";
 import {
   count,
   inspect,
   openRecoveryWorld,
   type RecoveryWorld,
   USER_TOKEN,
-} from "../../apps/core/testing/run-recovery-world.ts";
+} from "../../packages/core/testing/run-recovery-world.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   documentTitled,
@@ -76,6 +74,7 @@ import {
   removeHome,
   untilDocuments,
 } from "../flow-support.ts";
+import { encodeFrame, FrameDecoder } from "../../packages/protocol/base/mod.ts";
 
 const OFFERED = "0.9.0";
 const UNVERIFIED =
@@ -1529,7 +1528,9 @@ async function bootApps(home: string): Promise<Core> {
     lophnHome: home,
     port: 0,
     teams: [{ createLedgerRegistration: createAppsRegistration }],
-    teamModules: [new URL("../../apps/core/apps.ts", import.meta.url).href],
+    teamModules: [
+      new URL("../../packages/core/apps/register.ts", import.meta.url).href,
+    ],
     writerClock: "system",
     testCredentials: true,
   });
@@ -2879,7 +2880,7 @@ Deno.test({
         },
       );
 
-      // 제품 결함(apps/core·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
+      // 제품 결함(core/main의 daemon·worker 조립 몫): 진단 탭은 desktop entry에 이어졌지만 product core가
       // DoctorSource(`runtime.ts`의 `doctor` 입력)를 받지 않아 `diagnostics/check` read가 등록되지
       // 않는다. 그래서 탭의 [Check security]가 `failed`("The check couldn't start right now.")로 끝난다.
       // worker의 observeDoctor는 core에 연결되어 있지 않다. shell settings 안에서 고칠 수 없어 둔다.

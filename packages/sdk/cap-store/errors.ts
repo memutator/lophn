@@ -1,4 +1,4 @@
-// 거절은 필요한 permission 이름과 scope를 알린다(apps/sdk#R23). 이 값은 안내일 뿐
+// 거절은 필요한 permission 이름과 scope를 알린다. 이 값은 안내일 뿐
 // grant를 주지 않는다.
 
 export type CapabilityErrorCode =

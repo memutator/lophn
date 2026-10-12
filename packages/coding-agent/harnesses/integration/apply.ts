@@ -1,11 +1,11 @@
-// 설치·갱신 engine이다(coding-agent/harnesses#R6–R9, T29). plan의 exact target만
-// 쓰고, 교체 직전에 hash를 다시 비교한다(R7). 쓰기는 temp·fsync·rename이고
-// resource별 결과를 낸다(R9). home root는 인자로 받는다. 고정 HOME은 없다.
+// 설치·갱신 engine이다. plan의 exact target만
+// 쓰고, 교체 직전에 hash를 다시 비교한다. 쓰기는 temp·fsync·rename이고
+// resource별 결과를 낸다. home root는 인자로 받는다. 고정 HOME은 없다.
 import { fingerprint, sha256Hex } from "../../../base/mod.ts";
 import type {
   ReceiptOutcome,
   ResourceInstallResult,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import * as json from "../adapters/json.ts";
 import * as region from "../adapters/region.ts";
 import * as toml from "../adapters/toml.ts";
@@ -15,8 +15,8 @@ import { persist } from "./remove.ts";
 import type { Digest, Journal, OwnedResource, Receipt } from "./receipt.ts";
 import { plannedDigest, treeDigest } from "./tree.ts";
 
-// 파일 눈이다. fixture home을 끼운다. symlink는 따라가지 않는다(R7). 디렉터리를
-// error로 뭉개면 skill 재설치가 막힌다(guides#R4).
+// 파일 눈이다. fixture home을 끼운다. symlink는 따라가지 않는다. 디렉터리를
+// error로 뭉개면 skill 재설치가 막힌다.
 export type FilePort = {
   read(path: string): Promise<
     | { kind: "file"; text: string }
@@ -68,7 +68,7 @@ export function result(
   };
 }
 
-// 계획 때 읽은 파일 hash다. 교체 직전에 다시 읽어 비교한다(R7).
+// 계획 때 읽은 파일 hash다. 교체 직전에 다시 읽어 비교한다.
 export type ObservedHashes = ReadonlyMap<string, Digest>;
 
 async function hashOf(

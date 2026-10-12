@@ -1,9 +1,9 @@
-// lophn_question tool의 실행이다(T16, mcp#R18). list·show는 소유 읽기 route 하나로만
+// lophn_question tool의 실행이다. list·show는 소유 읽기 route 하나로만
 // 보내고 이유·option·고정 action과 상태를 그대로 돌려준다. 이 tool은 command route를
 // 부르지 않는다: 답·미루기·취소·적용은 사람 결정 화면과 lophn-agent의 몫이다. 대기
-// 중인 질문에는 결정 화면 링크만 붙는다(cli#R7·R21과 같은 링크).
-import { MCP_DECISION_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+// 중인 질문에는 결정 화면 링크만 붙는다(CLI와 같은 링크).
+import { MCP_DECISION_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import {
   type FlowClient,
   type QuestionRecord,

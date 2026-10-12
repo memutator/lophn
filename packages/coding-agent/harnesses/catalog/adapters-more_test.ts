@@ -6,8 +6,8 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   HarnessId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
-import { cliMcpConfigSchema } from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { cliMcpConfigSchema } from "../../../protocol/coding-agent/mod.ts";
 import {
   type FilePort,
   install,

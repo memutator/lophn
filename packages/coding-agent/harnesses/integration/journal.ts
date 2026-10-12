@@ -1,8 +1,8 @@
-// receipt·journal의 파일 저장과 실제 파일 눈이다(coding-agent/harnesses#R9,
-// T29). receipt와 journal은 `~/.lophn/integrations/` 아래 local metadata다
+// receipt·journal의 파일 저장과 실제 파일 눈이다. receipt와 journal은 `~/.lophn/integrations/`
+// 아래 local metadata다
 // (domain-model). home root는 인자로 받는다. 고정 HOME을 읽지 않는다.
-// 쓰기는 같은 폴더 temp·fsync·rename이다(R9). symlink는 따라가지 않는다(R7).
-import type { IntegrationTarget } from "../../../contracts/coding-agent/mod.ts";
+// 쓰기는 같은 폴더 temp·fsync·rename이다. symlink는 따라가지 않는다.
+import type { IntegrationTarget } from "../../../protocol/coding-agent/mod.ts";
 import type { FilePort, Store } from "./apply.ts";
 import type { Journal, Receipt } from "./receipt.ts";
 
@@ -79,7 +79,7 @@ async function existingMode(path: string): Promise<number> {
   }
 }
 
-// root 밖으로 나가는 경로를 거절한다. symlink는 따라가지 않는다(R7).
+// root 밖으로 나가는 경로를 거절한다. symlink는 따라가지 않는다.
 function contained(root: string, path: string): boolean {
   const prefix = root.endsWith("/") ? root : `${root}/`;
   return path.startsWith(prefix) &&
@@ -163,7 +163,7 @@ export function integrationsStore(dir: string): Store {
   };
 }
 
-// 디렉터리 안의 파일을 상대 경로로 모은다. symlink는 따라가지 않는다(R7).
+// 디렉터리 안의 파일을 상대 경로로 모은다. symlink는 따라가지 않는다.
 async function walkFiles(
   root: string,
   dir: string,
@@ -191,7 +191,7 @@ async function walkFiles(
 }
 
 // root에서 target까지의 부모를 lstat한다. 하나라도 symlink거나, 실제로 있는
-// 가장 깊은 조상의 realpath가 root 밖이면 빠져나간다(R7). 마지막 컴포넌트만
+// 가장 깊은 조상의 realpath가 root 밖이면 빠져나간다. 마지막 컴포넌트만
 // 보면 `root/.claude`가 밖을 가리킬 때 놓친다.
 async function pathEscapes(root: string, path: string): Promise<boolean> {
   const prefix = root.endsWith("/") ? root : `${root}/`;

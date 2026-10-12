@@ -1,12 +1,12 @@
-// sessions의 순수 값이다(coding-agent/sessions, T38). IO가 없고 시각·파일·감지는 인자로 받는다
-// (architecture). 시작 방식, 제품별 첫 prompt 전달 adapter, TUI 환경 값을 정의한다(sessions#R1, R5).
-import type { HarnessId } from "../../contracts/coding-agent/mod.ts";
+// sessions의 순수 값이다(coding-agent/sessions). IO가 없고 시각·파일·감지는 인자로 받는다
+// (architecture). 시작 방식, 제품별 첫 prompt 전달 adapter, TUI 환경 값을 정의한다.
+import type { HarnessId } from "../../protocol/coding-agent/mod.ts";
 
 // 시작은 ticket·harness·방식 하나다. 방식은 사람이 자기 터미널에서 직접 시작하는 안내와 lophn의 project
-// 터미널 탭 TUI 둘뿐이다(R1). headless·자동 시작은 방식으로 받지 않는다.
+// 터미널 탭 TUI 둘뿐이다. headless·자동 시작은 방식으로 받지 않는다.
 export const TERMINAL_TUI = "terminal_tui" as const;
 
-// 제품 TUI가 첫 prompt를 받는 검증한 방법이다(R5, 조사 T6). argv 방식은 harness가 스스로 submit하므로
+// 제품 TUI가 첫 prompt를 받는 검증한 방법이다. argv 방식은 harness가 스스로 submit하므로
 // lophn이 PTY에 입력을 더 쓰지 않는다. stdin_after_ready는 검증한 composer readiness evidence가 있는
 // adapter만 가진다. 검증하지 못한 제품은 시작하지 않고 자기 터미널 안내로 끝난다.
 export type PromptAdapter = {
@@ -76,7 +76,7 @@ export const ENV_DELETE: readonly string[] = [
   "LOPHN_APP_BROKER_CREDENTIAL",
 ];
 
-// Windows의 `.cmd`·`.bat` shim은 줄바꿈 prompt를 argv로 넘기지 못한다(R5, 조사 T6).
+// Windows의 `.cmd`·`.bat` shim은 줄바꿈 prompt를 argv로 넘기지 못한다.
 export function isBatchShim(executable: string): boolean {
   return /\.(cmd|bat)$/i.test(executable);
 }

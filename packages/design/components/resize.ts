@@ -11,7 +11,7 @@ export interface Size {
   readonly height: number;
 }
 
-// 페이지 틀과 표는 viewport가 아니라 자기 칸의 크기를 본다(shell/design-system#R23).
+// 페이지 틀과 표는 viewport가 아니라 자기 칸의 크기를 본다.
 // 관측 대상에는 padding·border를 두지 않아 content 크기가 곧 칸 크기다.
 export interface ResizeSource {
   observe(element: Element, onSize: (size: Size) => void): () => void;

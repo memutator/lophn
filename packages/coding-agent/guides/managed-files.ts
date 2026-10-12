@@ -1,7 +1,7 @@
-// 앱 root 안내 파일의 lophn 관리 구간 갱신이다(guides#R15·R16·R13, T34). 갱신은 짝이 맞는
+// 앱 root 안내 파일의 lophn 관리 구간 갱신이다. 갱신은 짝이 맞는
 // 관리 구간 하나의 내부만 바꾸고 바깥 사람 내용을 바이트 그대로 둔다. marker 없음·중복·
 // 불완전·짝 불일치는 무변경이고 복구 안내만 남긴다. 읽은 파일 hash와 현재 파일 hash가
-// 다르면 덮지 않고 충돌로 끝낸다(R16). 쓰기는 같은 폴더 temp·rename으로 원자 교체한다.
+// 다르면 덮지 않고 충돌로 끝낸다. 쓰기는 같은 폴더 temp·rename으로 원자 교체한다.
 // 이 module은 순수 값과 파일 판정만 두고 실제 파일 눈은 인자로 받는다(architecture).
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 
@@ -9,10 +9,10 @@ export const GUIDE_BEGIN_MARKER = "<!-- begin lophn-managed -->";
 export const GUIDE_END_MARKER = "<!-- end lophn-managed -->";
 
 // 관리 구간 본문의 상한이다(Codex는 안내 예산 32 KiB를 바이트로 잘라 읽으므로(조사
-// skills-and-guides), 마커·본문을 합친 안내 파일 전체가 이 안에 들도록 배포 테스트가 잰다(R13).
+// skills-and-guides), 마커·본문을 합친 안내 파일 전체가 이 안에 들도록 배포 테스트가 잰다.
 export const GUIDE_BYTES_MAX = 32 * 1024;
 
-// 경계 오류다. 오류마다 파일이 바뀌지 않고 파일의 현재 상태 복구 안내만 남긴다(R15).
+// 경계 오류다. 오류마다 파일이 바뀌지 않고 파일의 현재 상태 복구 안내만 남긴다.
 export type RegionBoundaryFailure = {
   kind: "no_region" | "duplicate" | "unterminated" | "pair_mismatch";
   message: string;
@@ -47,8 +47,8 @@ function encoder(): TextEncoder {
   return new TextEncoder();
 }
 
-// bytes에서 짝이 맞는 구간 하나의 위치를 찾는다. 없음·중복·불완전·짝 불일치는 무변경이다
-// (R15). 위치 탐색은 bytes 그대로다: 갱신이 사람의 bytes를 보존한다는 뜻이다.
+// bytes에서 짝이 맞는 구간 하나의 위치를 찾는다. 없음·중복·불완전·짝 불일치는 무변경이다.
+// 위치 탐색은 bytes 그대로다: 갱신이 사람의 bytes를 보존한다는 뜻이다.
 export function guideRegionSpan(bytes: Uint8Array): Boundary {
   const beginNeedle = encoder().encode(GUIDE_BEGIN_MARKER);
   const endNeedle = encoder().encode(GUIDE_END_MARKER);
@@ -121,7 +121,7 @@ function firstHit(bytes: Uint8Array, needle: Uint8Array): number {
 }
 
 // 실제 파일 눈이다. fixture가 끼운다. read와 rename의 사이 사람 동시 편집은(교체 직전 hash
-// 비교 R7, 조사 Orca의 temp + 재확인 + rename) readBytes가 rename 앞에 한 번 더 읽게 막는다.
+// 비교, temp + 재확인 + rename) readBytes가 rename 앞에 한 번 더 읽게 막는다.
 export type ManagedFilesPort = {
   readBytes(path: string): Promise<Result<Uint8Array | null>>;
   // temp 이름을 같은 폴더에 쓰고 rename한다. 폴더 grant 없이 같은 폴더 temp뿐이다
@@ -136,23 +136,23 @@ export type RegionInputs = {
   guidePath: string;
 };
 
-// 무변경 충돌 안내다(R16). 읽어 둔 hash가 현재 일치하지 않아 파일을 바꾸지 않았다.
+// 무변경 충돌 안내다. 읽어 둔 hash가 현재 일치하지 않아 파일을 바꾸지 않았다.
 function staleMessage(): string {
   return "안내 파일을 읽은 뒤 사람 동시 편집이 생겼다. 파일을 다시 읽고 같은 갱신을 다시 접수한다. lophn은 파일을 바꾸지 않았다";
 }
 
 export type RegionUpdateInputs = RegionInputs & {
-  // 읽었던 파일 bytes다. 이후 사람 편집이 생겼는지 반응한다(R16).
+  // 읽었던 파일 bytes다. 이후 사람 편집이 생겼는지 반응한다.
   guideOriginalBytes: Uint8Array;
 };
 
 // 갱신이다. 짝이 맞는 관리 구간 하나의 내부만 바꾸고 바깥 bytes를 그대로 둔다. 경계 오류·
-// 동시 편집은 파일이 바뀌지 않고 안내만 남긴다(R15·R16).
+// 동시 편집은 파일이 바뀌지 않고 안내만 남긴다.
 export async function updateGuideRegion(
   input: RegionUpdateInputs,
   port: ManagedFilesPort,
 ): Promise<Result<null, RegionBoundaryFailure>> {
-  // 교체 직전 현재 파일이다(R16).
+  // 교체 직전 현재 파일이다.
   const current = await port.readBytes(input.guidePath);
   if (!current.ok) {
     return err({
@@ -168,7 +168,7 @@ export async function updateGuideRegion(
     });
   }
   const bytes = current.value;
-  // 원본 hash와 현재 hash가 다르면 동시 편집이다(R16).
+  // 원본 hash와 현재 hash가 다르면 동시 편집이다.
   const originalHash = await sha256Hex(input.guideOriginalBytes);
   const currentHash = await sha256Hex(bytes);
   if (originalHash !== currentHash) {
@@ -181,7 +181,7 @@ export async function updateGuideRegion(
   if (!span.ok) return err(span.failure);
   // 본문은 앞뒤 newline 하나씩으로 감싼다(region.ts의 관례와 같다).
   const guide = encoder().encode(`\n${input.guide}\n`);
-  // 안내 본문은 마커·본문까지 합쳐 상한 안에 들도록 두고, 배포 테스트가 전체 파일로 잰다(R13).
+  // 안내 본문은 마커·본문까지 합쳐 상한 안에 들도록 두고, 배포 테스트가 전체 파일로 잰다.
   const whole = new Uint8Array(
     bytes.length - (span.span.bodyEnd - span.span.bodyStart) +
       guide.length,

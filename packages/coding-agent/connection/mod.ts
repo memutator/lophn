@@ -1,12 +1,3 @@
-export { connectionSchemaSteps } from "./schema.ts";
-// core 조립이 시작 때 active connection 목록을 읽는다(platform 인증 색인 복원).
-export { listConnections } from "./store.ts";
-export {
-  assertConnection,
-  nextState,
-  principalFor,
-  scopeColumns,
-} from "./model.ts";
 export {
   APP_SCOPE_CONCERNS,
   appScopeAllows,
@@ -19,20 +10,6 @@ export {
   isForbiddenAction,
   registrationAllowed,
 } from "./policy.ts";
-export {
-  createConnectionCommands,
-  requireConfirmation,
-  revokeConnection,
-} from "./commands.ts";
-export { createConnectionReads } from "./reads.ts";
-export {
-  connectionAuthFromSnapshot,
-  connectionAuthFromTx,
-  connectionAuthPort,
-  connectionAuthSyncFromTx,
-  connectionAuthSyncPort,
-  lookupConnectionAuth,
-} from "./auth.ts";
 export {
   canonicalFilesHash,
   canonicalFilesJson,
@@ -134,10 +111,6 @@ export {
   type TicketOpOutput,
 } from "./ticket-ops.ts";
 export { UNREADABLE_MESSAGE } from "./unreadable.ts";
-export {
-  CONNECTION_SECRET_OWNER,
-  createConnectionSecretRefSource,
-} from "./credential/secret-refs.ts";
 export {
   createHelperCredentialProvider,
   currentProcessGeneration,

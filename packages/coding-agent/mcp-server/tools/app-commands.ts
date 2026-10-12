@@ -1,4 +1,4 @@
-// blueprint 유래 앱 read command tool이다(T23, mcp#R34·R35). app toolset을 켠 연결의 scope 안
+// blueprint 유래 앱 read command tool이다. app toolset을 켠 연결의 scope 안
 // 앱에서 active release blueprint의 `effect=read`·`confirm=false` command마다 tool 하나를 낸다.
 // 호출은 `lophn_app command`와 같은 한 흐름(`runAppOp`)이라 preview 기본값·앱 통로 direct call·
 // 결과 불명 구별이 같고 읽기가 core ledger 쓰기를 기다리지 않는다. 정의는 호출마다 현재
@@ -10,16 +10,16 @@ import {
   type Result,
   sha256Hex,
 } from "../../../base/mod.ts";
-import { appBlueprint, appList } from "../../../contracts/apps/mod.ts";
+import { appBlueprint, appList } from "../../../protocol/apps/mod.ts";
 import type {
   CommandDeclaration,
   InputSchema,
-} from "../../../contracts/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   APP_TOOL_NAME_PREFIX,
   appCommandToolInputSchema,
   appToolName,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   type AppOpDeps,
   runAppOp,
@@ -28,8 +28,8 @@ import {
 import type { ToolEntry } from "../registry.ts";
 import type { ToolOutput } from "./output.ts";
 
-// active release의 blueprint에서 command 정의만 읽은 값이다. 소유 route(apps#T19
-// `/v1/apps/blueprint`)가 낸 것을 이 모양으로 옮기는 어댑터가 source를 만든다. 범위 밖·없는 앱과
+// active release의 blueprint에서 command 정의만 읽은 값이다. 소유 route(`/v1/apps/blueprint`)가
+// 낸 것을 이 모양으로 옮기는 어댑터가 source를 만든다. 범위 밖·없는 앱과
 // active release가 없는 앱은 null이다(같은 답).
 export type AppBlueprintView = {
   release: string;
@@ -43,7 +43,7 @@ export type AppBlueprintSource = (
   app: string,
 ) => Promise<Result<AppBlueprintView | null, LophnError>>;
 
-// 소유 read(`/v1/apps/blueprint`, apps#T19)로 source를 만든다. 범위 밖·없는 앱·active release가
+// 소유 read(`/v1/apps/blueprint`)로 source를 만든다. 범위 밖·없는 앱·active release가
 // 없는 앱은 같은 not_found라 null이다(같은 답). 그 밖의 실패는 호출 쪽이 앱이 없는 것과 같이 다룬다.
 export function appBlueprintSourceOf(
   client: Pick<AppOpDeps["client"], "read">,
@@ -184,7 +184,7 @@ export function createAppCommandTools(deps: AppCommandToolsDeps) {
   }
 
   // 정의가 바뀌었다. 옛 정의로 부르지 않고 목록 재조회를 알린다. list_changed를 받지 않는
-  // client(Codex)를 위해 같은 호출을 고정 op로 하는 방법도 준다(R35).
+  // client(Codex)를 위해 같은 호출을 고정 op로 하는 방법도 준다.
   async function stale(
     name: string,
     current: Definition | undefined,

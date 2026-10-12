@@ -4,16 +4,18 @@
 import { useState } from "react";
 import {
   Button,
-  editorIcons,
   Icon,
   IconButton,
   iconPixels,
-  launcherIcons,
-  lophnSpaceIcons,
-  paletteIcons,
   Popover,
   Tooltip,
 } from "@lophn/design/components";
+import {
+  editorIcons,
+  launcherIcons,
+  lophnSpaceIcons,
+  paletteIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import { Avatar } from "./agent-avatar.tsx";

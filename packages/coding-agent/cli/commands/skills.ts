@@ -1,4 +1,4 @@
-// `lophn skills list|install` command의 표와 실행이다(cli#R10, guides#R4·R5·R20). 목록은 배포 skill의
+// `lophn skills list|install` command의 표와 실행이다. 목록은 배포 skill의
 // 이름·설명·version·content hash를 읽고, 설치는 사람이 고른 exact target 하나의 skill root에만 한다.
 // 설치 engine·충돌 규칙은 coding-agent/harnesses의 것이고(receipt 없는 동명 skill은 덮지 않는다) 여기는
 // 입력을 넘기고 결과를 파일별 변경·무변경·충돌로 보여 주는 일만 한다.
@@ -7,7 +7,7 @@ import {
   cliSkillsInstallSchema,
   cliSkillsListSchema,
   type IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { Distribution, SkillsInstallOutcome } from "../../guides/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";

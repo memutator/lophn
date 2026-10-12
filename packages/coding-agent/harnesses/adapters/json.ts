@@ -1,5 +1,5 @@
-// JSON 설정 merge다(coding-agent/harnesses#R8, T29). lophn 소유 key만 바꾸고
-// 나머지 key는 그대로 둔다. 깨진 JSON·root가 객체가 아니면 무변경이다(R8).
+// JSON 설정 merge다. lophn 소유 key만 바꾸고
+// 나머지 key는 그대로 둔다. 깨진 JSON·root가 객체가 아니면 무변경이다.
 // 직렬화는 기존 들여쓰기와 끝 newline을 보존해 harness가 다시 쓴 것과
 // lophn이 쓴 것을 구분할 수 있게 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -14,7 +14,7 @@ export type JsonValue =
 
 export type JsonDocument = { [key: string]: JsonValue };
 
-// 깨진 설정은 고치지 않고 그 사실을 돌려준다(R8 확인).
+// 깨진 설정은 고치지 않고 그 사실을 돌려준다.
 export type ParseFailure = { kind: "broken" };
 
 export type SetOutcome =
@@ -69,7 +69,7 @@ function write(document: JsonDocument, text: string): string {
   return trailing ? `${out}\n` : out;
 }
 
-// 소유 key만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다.
+// 소유 key만 넣는다. 같은 값이면 파일을 바꾸지 않는다.
 function setKey(
   text: string,
   key: string,
@@ -95,7 +95,7 @@ function setKey(
     ) {
       cursor = next;
     } else {
-      // 중간에 객체가 아닌 값이 있으면 사람 값을 덮지 않는다(R7, R8).
+      // 중간에 객체가 아닌 값이 있으면 사람 값을 덮지 않는다.
       return { kind: "broken" };
     }
   }
@@ -103,7 +103,7 @@ function setKey(
   return { kind: "changed", text: write(parsed.value, text) };
 }
 
-// 소유 key만 지운다(R8 제거). 주변 key는 남긴다. 없으면 무변경이다.
+// 소유 key만 지운다. 주변 key는 남긴다. 없으면 무변경이다.
 function removeKey(text: string, key: string): SetOutcome {
   const parsed = parseJson(text);
   if (!parsed.ok) return parsed.error;
@@ -124,7 +124,7 @@ function removeKey(text: string, key: string): SetOutcome {
   return { kind: "changed", text: write(parsed.value, text) };
 }
 
-// 소유 조각만 꺼낸다. fragment digest의 재료다(R7). 없으면 null이다.
+// 소유 조각만 꺼낸다. fragment digest의 재료다. 없으면 null이다.
 function keyFragment(
   text: string,
   key: string,
@@ -134,7 +134,7 @@ function keyFragment(
   return ok(at(parsed.value, key) ?? null);
 }
 
-// 배열 원소 소유다(T30). `경로#member`는 그 경로의 배열에서 member가 가리키는
+// 배열 원소 소유다. `경로#member`는 그 경로의 배열에서 member가 가리키는
 // 원소 하나만 lophn 소유라는 뜻이다. Gemini `context.fileName`의 `AGENTS.md`나
 // settings `hooks.SessionStart`의 lophn hook 항목처럼 사람의 다른 원소가 같은
 // 배열에 있는 자리다. 문자열 원소는 member와 같을 때, 객체 원소는 안의 문자열

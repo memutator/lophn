@@ -1,11 +1,11 @@
-// 제거와 receipt 복구다(coding-agent/harnesses#R7, R9, T29). 제거는 receipt에
-// 있는 resource만 지우고 사람이 고친 것은 conflict로 보존한다(R7). receipt
+// 제거와 receipt 복구다. 제거는 receipt에
+// 있는 resource만 지우고 사람이 고친 것은 conflict로 보존한다. receipt
 // 저장이 실패하면 journal에 남기고, 복구는 hash를 다시 확인해 무조건
-// 재설치하지 않는다(R9).
+// 재설치하지 않는다.
 import { sha256Hex } from "../../../base/mod.ts";
 import type { Digest } from "./receipt.ts";
 import { treeDigest } from "./tree.ts";
-import type { ResourceInstallResult } from "../../../contracts/coding-agent/mod.ts";
+import type { ResourceInstallResult } from "../../../protocol/coding-agent/mod.ts";
 import {
   type ApplyResult,
   type FilePort,
@@ -19,7 +19,7 @@ import type { InstallPlan, PlannedResource } from "./plan.ts";
 import type { JournalEntry, OwnedResource, Receipt } from "./receipt.ts";
 import { RECEIPT_SCHEMA_VERSION } from "./receipt.ts";
 
-// receipt를 저장한다(R9). 실패하면 journal에 남기고 다음 갱신을 막는다.
+// receipt를 저장한다. 실패하면 journal에 남기고 다음 갱신을 막는다.
 export async function persist(
   store: Store,
   plan: InstallPlan,
@@ -74,7 +74,7 @@ export async function persist(
   return { resources: results, receipt_stored: false, recovery_pending: true };
 }
 
-// 제거다(R7). receipt에 있는 resource만 지우고, 사람이 고친 것은 conflict다.
+// 제거다. receipt에 있는 resource만 지우고, 사람이 고친 것은 conflict다.
 export async function remove(
   port: FilePort,
   store: Store,
@@ -97,7 +97,7 @@ export async function remove(
   const results: ResourceInstallResult[] = [];
   const remaining: OwnedResource[] = [...(receipt?.resources ?? [])];
   for (const resource of plan.resources) {
-    // 이름과 경로가 둘 다 receipt와 같아야 지운다(R7). 경로가 다르면 다른
+    // 이름과 경로가 둘 다 receipt와 같아야 지운다. 경로가 다르면 다른
     // 자리다.
     const owned = remaining.find((item) =>
       item.canonical_identity === resource.identity &&
@@ -214,7 +214,7 @@ async function removeResource(
     : result(resource.identity, "failed", false, "쓰기에 실패했다");
 }
 
-// journal을 비운다(R9). 복구는 hash를 다시 확인하고 무조건 재설치하지 않는다.
+// journal을 비운다. 복구는 hash를 다시 확인하고 무조건 재설치하지 않는다.
 // 파일이 journal의 hash와 같으면 receipt만 다시 저장하고, 다르면 보존한다.
 export async function recover(
   store: Store,

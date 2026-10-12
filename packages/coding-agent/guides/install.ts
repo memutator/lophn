@@ -1,4 +1,4 @@
-// 배포 skill을 사람이 고른 harness의 skill root에 설치한다(coding-agent/guides#R4, R20, cli#R10). 설치는
+// 배포 skill을 사람이 고른 harness의 skill root에 설치한다. 설치는
 // coding-agent/harnesses의 선택 target 설치 engine이 한다: receipt 없는 동명 skill은 덮지 않고 충돌로 남기고,
 // 사람이 고친 skill은 충돌이며, 쓰기는 같은 폴더 temp와 rename이다. 이 module은 skill 입력(이름·파일)을
 // 넘기고 engine의 skill 디렉터리 결과를 파일별 변경·무변경·충돌로 풀어 줄 뿐이다. 선택한 target의 skill
@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   IntegrationTarget,
   ReceiptOutcome,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   type InstallPorts,
   installSelected,

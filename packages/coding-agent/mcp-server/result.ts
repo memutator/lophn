@@ -6,8 +6,8 @@ import {
   agentResultSchema,
   type McpToolResult,
   mcpToolResult,
-} from "../../contracts/coding-agent/mod.ts";
-import { effectUnknownSchema } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { effectUnknownSchema } from "../../protocol/coding-agent/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 
 // 성공 domain 결과를 두 표현으로 내보낸다. summary는 본문을 담지 않는다.
@@ -19,7 +19,7 @@ export function successResult(value: {
   return mcpToolResult(agentResultSchema.parse(value));
 }
 
-// 실행 실패·범위거절·credential 실패는 isError true다(R7). 승인 대기는
+// 실행 실패·범위거절·credential 실패는 isError true다. 승인 대기는
 // 실패가 아니므로 여기로 오지 않는다.
 export function failureResult(failure: AgentFailure): McpToolResult {
   return mcpToolResult(
@@ -34,11 +34,11 @@ export function failureResult(failure: AgentFailure): McpToolResult {
 }
 
 // 효과 불명은 성공·domain 실패가 아니다. 원래 key와 대상 read 안내가 진단에 남고
-// isError로 모델에 전달된다(R7, exit 계약과 같은 판정).
+// isError로 모델에 전달된다(exit 계약과 같은 판정).
 export function effectUnknownResult(error: LophnError): McpToolResult {
   const unknown = effectUnknownSchema.safeParse(error);
   if (!unknown.success) return failureResult(error as AgentFailure);
-  // details의 진단·key·대상을 data로 옮겨 두 표현 모두에 같은 뜻으로 넣는다(R5).
+  // details의 진단·key·대상을 data로 옮겨 두 표현 모두에 같은 뜻으로 넣는다.
   return mcpToolResult(
     {
       summary: unknown.data.message,

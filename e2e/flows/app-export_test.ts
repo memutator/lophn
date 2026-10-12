@@ -1,5 +1,5 @@
 // flow backup-and-restore의 앱 export 단계(apps/data#R13, docs/flows/backup-and-restore.md 4).
-// 제품 core(apps/core/main.ts)를 workers seam 없이 임시 LOPHN_HOME으로 띄우고(Electron은
+// 제품 core(packages/core/main/daemon/main.ts)를 workers seam 없이 임시 LOPHN_HOME으로 띄우고(Electron은
 // 띄우지 않는다), main이 받는 hello의 user token으로 loopback HTTP `POST /v1/apps/export`를 부른다.
 // 앱과 release 행은 core route 시험과 같은 fixture로 ledger 쪽에 심는다. export가 ready로
 // 답한 뒤 디스크의 묶음을 본다: 확인된 DB 사본(WAL에만 있던 확정 행 포함), 고정 blueprint의
@@ -9,17 +9,17 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
 import { sha256Hex } from "../../packages/base/mod.ts";
-import { mainHelloSchema } from "../../packages/contracts/platform/mod.ts";
-import { readFrames } from "../../packages/platform/responsiveness/mod.ts";
-import { bundleCopyPath } from "../../packages/apps/releases/mod.ts";
-import { removeTree } from "../../packages/apps/sdk/testing/mod.ts";
+import { mainHelloSchema } from "../../packages/protocol/supervision/mod.ts";
+import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
+import { bundleCopyPath } from "../../packages/core/apps/releases/mod.ts";
+import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
 import {
   APP,
   RELEASE_ID,
   seedBundleAndSdk,
   seedDatabase,
   seedLedger,
-} from "../../apps/core/testing/app-export-fixtures.ts";
+} from "../../packages/core/testing/app-export-fixtures.ts";
 
 const SECRET_VALUE = "flow-secret-value-0a9b8c7d";
 
@@ -85,7 +85,8 @@ Deno.test({
       args: [
         "run",
         "--allow-all",
-        new URL("../../apps/core/main.ts", import.meta.url).pathname,
+        new URL("../../packages/core/main/daemon/main.ts", import.meta.url)
+          .pathname,
         "--port=0",
       ],
       env: { LOPHN_HOME: home },

@@ -9,7 +9,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ## concern 모듈의 모양
 
 ```
-packages/<최상위>/<leaf>/
+packages/core/<module>/<leaf>/
   mod.ts          밖으로 내보내는 것만. 다른 모듈은 이것만 import한다
   model.ts        entity, 값, 상태 전이, 불변 조건. 순수 함수만. IO 없음
   commands.ts     ledger command handler: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나
@@ -25,8 +25,8 @@ packages/<최상위>/<leaf>/
 
 - 안쪽(model)은 바깥(adapters, work)을 모른다. 바깥이 안쪽을 부른다.
 - 시각, id, 무작위 값, 파일 시스템, 네트워크는 인자로 받는다(`packages/base`의 Clock, IdSource 같은 interface). 테스트에서 바꿔 끼운다.
-- 전역 mutable 상태를 두지 않는다. 프로세스 수명의 상태는 entry(`apps/*`)에서 만들어 넘긴다.
-- 최상위 사이는 `packages/contracts`만 거친다([contracts.md](contracts.md)).
+- 전역 mutable 상태를 두지 않는다. 프로세스 수명의 상태는 entry(`packages/core/main/*`)에서 만들어 넘긴다.
+- package 사이는 [code-map.md](code-map.md)의 의존 규칙만 거친다. 약속은 `packages/protocol`에 둔다([contracts.md](contracts.md)). core 안의 module 사이는 그 module의 `mod.ts`로만 부른다.
 
 ## 오류
 

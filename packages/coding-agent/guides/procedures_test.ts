@@ -7,7 +7,7 @@ import {
   MCP_DECISION_TOOLS,
   MCP_PROBLEM_TOOLS,
   MCP_SESSION_TOOLS,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { loadDistribution } from "./distribution.ts";
 
 async function bodyOf(name: string): Promise<string> {

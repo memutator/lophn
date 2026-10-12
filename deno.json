@@ -2,10 +2,10 @@
   "workspace": [
     "./packages/*",
     "./packages/sdk/*",
-    "./apps/*",
-    "./apps/shell/renderer",
+    "./packages/shell/renderer",
     "./tools/wireframes",
-    "./packages/design/wording"
+    "./packages/design/wording",
+    "./packages/design/chart"
   ],
   "lock": {
     "frozen": true
@@ -41,8 +41,8 @@
       ".dev-data",
       ".claude",
       "dist",
-      "packages/documents/formats/guest/bundle.js",
-      "packages/documents/contexts/testdata"
+      "packages/core/projects/formats/guest/bundle.js",
+      "packages/core/projects/contexts/testdata"
     ]
   },
   "lint": {
@@ -56,7 +56,7 @@
       ".dev-data",
       ".claude",
       "dist",
-      "packages/documents/formats/guest/bundle.js"
+      "packages/core/projects/formats/guest/bundle.js"
     ],
     "rules": {
       "exclude": [
@@ -66,19 +66,20 @@
   },
   "test": {
     "exclude": [
-      "apps/shell/main",
-      "apps/shell/preload",
+      "packages/shell/main",
+      "packages/shell/preload",
       "packages/design/components/**/*_test.tsx",
+      "packages/design/chart/**/*_test.tsx",
       "packages/design/reading/**/*_test.tsx",
-      "apps/shell/renderer/**/*_test.tsx",
+      "packages/shell/renderer/**/*_test.tsx",
       "packages/sdk/**/*_test.tsx"
     ]
   },
   "exclude": [
     ".claude",
     ".dev-data",
-    "apps/shell/main",
-    "apps/shell/preload",
+    "packages/shell/main",
+    "packages/shell/preload",
     "dist",
     "node_modules",
     "tools/check-docs.ts"

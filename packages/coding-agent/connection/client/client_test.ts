@@ -3,8 +3,8 @@ import type { Result } from "../../../base/mod.ts";
 import {
   connectionIdSchema,
   LOPHN_CONNECTION,
-} from "../../../contracts/coding-agent/mod.ts";
-import { runMetadataSchema } from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { runMetadataSchema } from "../../../protocol/supervision/mod.ts";
 import {
   acceptAddress,
   type DaemonAddressInputs,

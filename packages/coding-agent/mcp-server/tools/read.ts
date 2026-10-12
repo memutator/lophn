@@ -1,10 +1,10 @@
-// lophn_read tool의 실행이다(T13, mcp#R10). 고정 판의 본문(선택 구역·줄 범위)을 소유 읽기
+// lophn_read tool의 실행이다. 고정 판의 본문(선택 구역·줄 범위)을 소유 읽기
 // route 하나로 읽는다. 입력의 reference는 고정 판이라 읽는 중 새 판이 생겨도 같은 판을
 // 이어 읽고, 새 판이 있으면 결과가 그것을 알린다. 두 가지 실패를 구별한다: 문서·판이
 // 없거나 범위 밖이면 isError(없는 것과 같은 not_found)이고, 판은 있으나 본문을 뽑지 못했거나
 // 지원하지 않는 형식이면 오류가 아닌 결과로 이유와 원문 파일 참조를 낸다.
-import { MCP_CORE_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import { failureOutput, type ToolOutput } from "./output.ts";
 

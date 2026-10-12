@@ -1,8 +1,8 @@
-// YAML 설정 merge다(coding-agent/harnesses#R8, T29·T30). lophn이 쓰는 설정은
+// YAML 설정 merge다. lophn이 쓰는 설정은
 // 들여쓰기 map, scalar, scalar 목록(`args`의 block sequence)뿐이라(Hermes
 // `mcp_servers.lophn`의 command·args·env, 조사 9.1) 그 부분집합만 읽는다. 쓰기는 lophn이 쓴 뒤 원문을 바꿀 일이 없다
 // (조사 9.7). 소유 블록만 텍스트 패치로 고치고 주석·빈 줄·다른 key는 그대로
-// 둔다(T30). anchor·tag·flow 표기·여러 줄 문자는 쓰지 않으므로 만나면 깨진
+// 둔다. anchor·tag·flow 표기·여러 줄 문자는 쓰지 않으므로 만나면 깨진
 // 설정으로 보고 무변경이다(조사 9.2). 의존성을 더하지 않는다(stack).
 import { err, ok, type Result } from "../../../base/mod.ts";
 
@@ -179,7 +179,7 @@ function same(left: YamlValue | undefined, right: YamlMap): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-// 소유 최하위 조각의 블록 줄이다(T30). `lophn:` 헤더와 그 몸을 둔다. 다른
+// 소유 최하위 조각의 블록 줄이다. `lophn:` 헤더와 그 몸을 둔다. 다른
 // key의 바이트는 흉내 내지 않는다.
 function blockLines(key: string, value: YamlMap): string[] {
   const segments = segmentsOf(key);
@@ -188,7 +188,7 @@ function blockLines(key: string, value: YamlMap): string[] {
   return [`${leaf}:`, ...emit(value, 2)];
 }
 
-// 소유 key 블록을 줄 위치로 찾는다(T30). 마지막 조각 이름이 맞는, 소유
+// 소유 key 블록을 줄 위치로 찾는다. 마지막 조각 이름이 맞는, 소유
 // 블록 depth의 key 줄이다. 상위 블록 안에서 찾는다.
 function findSegment(
   lines: readonly string[],
@@ -210,7 +210,7 @@ function findSegment(
   return null;
 }
 
-// 소유 최하위 조각의 블록 범위를 찾는다(T30). 상위 조각을 따라 내려간다.
+// 소유 최하위 조각의 블록 범위를 찾는다. 상위 조각을 따라 내려간다.
 // 중간 조각이 없으면(새 블록) null이다.
 function findOwnedRange(
   lines: readonly string[],
@@ -226,8 +226,8 @@ function findOwnedRange(
     if (parent === null) return null;
     const childIndent = indent + 2;
     const parentEnd = blockEnd(lines, parent);
-    // 상위 블록 몸 안에서 다음 조각을 찾는다. 다음 key는 있던 것이다(R8은
-    // 상위 블록을 보존하므로 parentEnd까지 본다).
+    // 상위 블록 몸 안에서 다음 조각을 찾는다. 다음 key는 있던 것이다(상위 블록을
+    // 보존하므로 parentEnd까지 본다).
     const child = findSegment(
       lines,
       parent + 1,
@@ -251,7 +251,7 @@ function findOwnedRange(
   return { start: leaf, end: blockEnd(lines, leaf) };
 }
 
-// 없는 소유 블록을 더한다(T30). 있는 가장 깊은 상위 조각 몸 끝에 더하고, 없는
+// 없는 소유 블록을 더한다. 있는 가장 깊은 상위 조각 몸 끝에 더하고, 없는
 // 상위 조각은 그 아래로 한 칸(2칸)씩 들여 새로 만든다. 상위가 하나도 없으면
 // 파일 끝 top-level에서 시작한다. 상위 key가 map이 아니면(값이 한 줄에 있다)
 // 안전하게 더할 수 없어 null이다.
@@ -339,8 +339,8 @@ function emptyMapBody(lines: readonly string[]): string[] | null {
   return null;
 }
 
-// 소유 key만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다. 다른 key의
-// 바이트는 하나도 가리지 않는다(T30). 빈 문서·`{}` 한 줄도 빈 map이라 새 블록의
+// 소유 key만 넣는다. 같은 값이면 파일을 바꾸지 않는다. 다른 key의
+// 바이트는 하나도 가리지 않는다. 빈 문서·`{}` 한 줄도 빈 map이라 새 블록의
 // base다. 없는 상위 key는 알맞은 들여쓰기로 만든다.
 export function setOwned(
   text: string,
@@ -359,14 +359,14 @@ export function setOwned(
   const body = blank ?? split;
   const segments = segmentsOf(key);
   if (segments === null) return { kind: "broken" };
-  // 패치 행은 소유 최하위 조각의 블록이다(T29). 상위 조각은 보존 대상이라
+  // 패치 행은 소유 최하위 조각의 블록이다. 상위 조각은 보존 대상이라
   // 패치에 넣지 않는다.
   const replacement = blockLines(key, value);
   const range = findOwnedRange(body, key);
   if (range !== null) {
     const end = range.end;
     // 소유 최하위 조각 블록을 최소 표기로 바꾼다. emit의 들여쓰기는 소유
-    // 조각 줄의 depth에 상대적이다(T30).
+    // 조각 줄의 depth에 상대적이다.
     const pad = " ".repeat(body[range.start].match(/^ */)?.[0].length ?? 0);
     const shifted = replacement.map((line) => `${pad}${line}`);
     const patched = [
@@ -376,14 +376,14 @@ export function setOwned(
     ];
     return { kind: "changed", text: rendered(patched) };
   }
-  // 소유 블록이 없으면 상위 블록 몸 끝에 더한다(T30). 상위 블록이 있으면
+  // 소유 블록이 없으면 상위 블록 몸 끝에 더한다. 상위 블록이 있으면
   // 그 안의 childIndent에, 없는 상위는 만들어 더한다.
   const added = insertNewBlock(body, segments, replacement);
   if (added === null) return { kind: "broken" };
   return { kind: "changed", text: rendered(added) };
 }
 
-// 소유 key만 지운다(R8 제거). 없으면 무변경이다. 다른 key와 그 사이 빈 줄도
+// 소유 key만 지운다. 없으면 무변경이다. 다른 key와 그 사이 빈 줄도
 // 그대로 둔다.
 export function removeOwned(text: string, key: string): SetOutcome {
   const parsed = parseYaml(text);

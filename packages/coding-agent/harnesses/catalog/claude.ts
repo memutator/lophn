@@ -1,4 +1,4 @@
-// Claude Code의 배포 catalog다(coding-agent/harnesses#R1, T30). 위치·format은
+// Claude Code의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고
 // 검증 근거는 docs/research/coding-agent-harness-integration.md 9절이다.
 import {
@@ -83,10 +83,10 @@ const claude: HarnessDefinition = {
   ],
   // `.claude/settings.local.json`의 lophn SessionStart만 summary용이다
   // (domain-model 표). event 별 최소 version은 조사 1.5의 예시다.
-  // 모르는 event 하나가 settings 전체를 버리게 하므로(조사 R11) event별 최소
+  // 모르는 event 하나가 settings 전체를 버리게 하므로 event별 최소
   // version을 두고 version을 알 때만 설치한다. status용 event는 `lophn session observe --hook claude`가
   // 정규화한다. payload schema와 `LOPHN_TERMINAL_OBSERVE` env가 hook까지 살아남는지 검증한 version이 없어
-  // 모두 unverified이고 설치하지 않으며 관측은 unknown이다(R11).
+  // 모두 unverified이고 설치하지 않으며 관측은 unknown이다.
   hooks: [
     {
       event: "SessionStart",
@@ -96,7 +96,7 @@ const claude: HarnessDefinition = {
         path: ".claude/settings.local.json",
       },
       purpose: "summary",
-      // 시작·재개·초기화만 받는다. compact 같은 다른 source는 summary를 다시 넣지 않는다(guides#R23).
+      // 시작·재개·초기화만 받는다. compact 같은 다른 source는 summary를 다시 넣지 않는다.
       matcher: "startup|resume|clear",
       method: "config_fragment",
       owned_identity: "SessionStart.lophn",
@@ -195,7 +195,7 @@ const claude: HarnessDefinition = {
       capability: "unverified",
     },
   ],
-  // 네 loading 관측의 근거다(R10, T32). project skill은 폴더 신뢰 뒤에 읽고
+  // 네 loading 관측의 근거다. project skill은 폴더 신뢰 뒤에 읽고
   // 앱 `.mcp.json`은 사람의 승인 뒤에 쓰인다. CLAUDE.md는 `@AGENTS.md`
   // import로만 AGENTS.md를 읽는다(조사 skills-and-guides).
   loading: {

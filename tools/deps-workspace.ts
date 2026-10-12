@@ -54,14 +54,33 @@ export async function readMembers(
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) throw error;
   }
-  const patterns = workspace.map(glob);
-  const members: Member[] = [];
+  const member = workspaceMatcher(workspace);
+  const configs = new Map<string, Omit<Member, "directory">>();
   for (const file of files.filter((file) => file.endsWith("/deno.json"))) {
-    const parent = directory(file);
-    if (!patterns.some((pattern) => pattern.test(parent))) continue;
-    const config = JSON.parse(await Deno.readTextFile(`${root}/${file}`));
+    if (!member(directory(file))) continue;
+    configs.set(file, JSON.parse(await Deno.readTextFile(`${root}/${file}`)));
+  }
+  return membersOf(workspace, configs);
+}
+
+export function workspaceMatcher(
+  workspace: string[],
+): (directory: string) => boolean {
+  const patterns = workspace.map(glob);
+  return (directory) => patterns.some((pattern) => pattern.test(directory));
+}
+
+// 이미 읽은 설정으로 member를 만든다. configs는 deno.json 경로 → 내용이다.
+export function membersOf(
+  workspace: string[],
+  configs: Map<string, Omit<Member, "directory">>,
+): Member[] {
+  const member = workspaceMatcher(workspace);
+  const members: Member[] = [];
+  for (const [file, config] of configs) {
+    if (!file.endsWith("/deno.json") || !member(directory(file))) continue;
     members.push({
-      directory: parent,
+      directory: directory(file),
       name: config.name,
       exports: config.exports,
     });

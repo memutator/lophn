@@ -5,12 +5,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 
-import { prepareFromSource } from "../packages/apps/releases/prepare/from-source.ts";
-import { declarationsOfBlueprint } from "../packages/apps/releases/mod.ts";
+import { prepareFromSource } from "../packages/core/apps/releases/prepare/from-source.ts";
+import { declarationsOfBlueprint } from "../packages/core/apps/releases/mod.ts";
 import {
   devImportMap,
   readTemplateDirectory,
-} from "../packages/apps/sdk/mod.ts";
+} from "../packages/core/apps/packages/mod.ts";
 import { delay, type FlowShell } from "./flow-support.ts";
 
 export const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
@@ -33,7 +33,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 
 /**
  * leaf testing/ 도구는 *_test.ts만 import할 수 있어(tools/check-deps.ts) 시험 파일이 넘겨 준다.
- * 시험은 `{ installedHome, removeTree }`(packages/apps/sdk/testing/mod.ts)를 그대로 넘기면 된다.
+ * 시험은 `{ installedHome, removeTree }`(packages/core/apps/packages/testing/mod.ts)를 그대로 넘기면 된다.
  */
 export interface BrokenAppTools {
   installedHome(): Promise<{ sdkRoot: string; dispose(): Promise<void> }>;

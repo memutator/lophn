@@ -1,9 +1,9 @@
-// ticket 쓰기 op의 공통 흐름이다(coding-agent#T25, mcp#R27, R28, cli#R36). MCP `lophn_ticket`
-// 과 CLI `ticket`이 같은 소유 route·같은 입력·같은 결과를 쓴다(cli#R1, connection#R6).
+// ticket 쓰기 op의 공통 흐름이다. MCP `lophn_ticket`
+// 과 CLI `ticket`이 같은 소유 route·같은 입력·같은 결과를 쓴다.
 // 완료 보고는 summary 본문을 받아 hash를 내고 `tickets/upload_summary`로 바이트를 올린 뒤 그
 // 준비 참조로 `report_completion`을 보낸다. completion seq는 입력이 아니고 core가 부여한다.
 // 통로는 기한을 정하거나 claim을 갱신하지 않는다: 만료·반납·취소 뒤 보고는 core의 거절이
-// 그대로 나온다(mcp#R27).
+// 그대로 나온다.
 import { type LophnError, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   ticketChecks,
@@ -11,12 +11,12 @@ import {
   ticketShow,
   ticketSummaryBlobSchema,
   ticketUploadSummary,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import type {
   CommandRoute,
   Route,
   UploadRoute,
-} from "../../contracts/platform/mod.ts";
+} from "../../protocol/base/mod.ts";
 
 // core client 중 ticket 쓰기가 쓰는 호출이다. client/core.ts는 core module graph 밖이라 구조로만 좁힌다.
 export type TicketOpClient = {
@@ -73,8 +73,8 @@ type ShownTicket = {
 };
 type CheckRow = { condition?: number; result?: string };
 
-// 완료 주장·보고 접수·확인 실패·approval 대기·activation·문제 정상 확인을 따로 읽는다(mcp#R28,
-// cli#R36). 보고만으로 confirmed나 문제 닫힘을 만들지 않는다: 이 값은 모두 원래 ticket의 읽기에서
+// 완료 주장·보고 접수·확인 실패·approval 대기·activation·문제 정상 확인을 따로 읽는다.
+// 보고만으로 confirmed나 문제 닫힘을 만들지 않는다: 이 값은 모두 원래 ticket의 읽기에서
 // 온다. 조건이 없으면 not_required, 읽지 못하면 unread다.
 function followUp(
   shown: Result<unknown, LophnError>,

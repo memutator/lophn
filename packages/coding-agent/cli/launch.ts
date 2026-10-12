@@ -1,4 +1,4 @@
-// CLI 실행 argv의 권한 계산이다(architecture/coding-agent 2.2, open-issues coding-agent/mcp-server#Q9).
+// CLI 실행 argv의 권한 계산이다(architecture/coding-agent 2.2, open-issues coding-agent/mcp-server).
 // 일반 CLI는 core loopback과 helper 실행뿐이고, 설치·감지·`daemon`·`sdk add --apply`가 요구하는 write·run은
 // 정확한 경로와 파일로만 준다: 선택한 제품 설정 파일, `<H>/integrations`, 앱 source의 `deno.json`·`deno.lock`,
 // instance lock 파일, 설치 Deno와 `lophn-desktop`, PATH 폴더 읽기. `-A`·일반 `--allow-write`·`--allow-run`,
@@ -7,7 +7,7 @@
 import {
   type IntegrationTarget,
   LOPHN_TERMINAL_OBSERVE,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   DETECTION_FALLBACK_DIRS,
   type RootInputs,
@@ -18,7 +18,7 @@ import {
 import { SKILL_RELEASES } from "../guides/mod.ts";
 
 // 실행 entry의 설치 resource root 기준 경로다.
-export const CLI_ENTRY = "apps/cli/main.ts";
+export const CLI_ENTRY = "packages/coding-agent/cli/main.ts";
 
 // CLI가 읽는 환경 이름이다. token 이름은 없다.
 export const CLI_ENV_NAMES = [
@@ -209,7 +209,7 @@ export async function planSelection(
       : released;
     if (!names.every((name) => released.includes(name))) return NO_SELECTION;
     // 앱 root 두 위치만: 관리 구간 지침 파일(과 그 temp)과 skill root 아래 lophn skill
-    // 디렉터리. ignore 갱신은 앱 root의 .gitignore 하나다(R17).
+    // 디렉터리. ignore 갱신은 앱 root의 .gitignore 하나다.
     if (target.scope_kind !== "app") return NO_SELECTION;
     const writes = selectedWriteFiles(target, request.roots);
     const dirs = selectedSkillDirs(target, request.roots, names);

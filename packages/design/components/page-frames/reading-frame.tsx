@@ -13,7 +13,7 @@ export interface ReadingFrameProps {
   children: ReactNode;
 }
 
-// 읽기 본문 600/680/800px과 목차 220px(R21, R23). 별도 메타 패널은 두지 않는다.
+// 읽기 본문 600/680/800px과 목차 220px. 별도 메타 패널은 두지 않는다.
 export function ReadingFrame(
   { width, header, toc, children }: ReadingFrameProps,
 ) {

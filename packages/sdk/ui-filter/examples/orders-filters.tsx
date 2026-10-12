@@ -9,7 +9,7 @@ import {
   SearchFilter,
 } from "@lophn/ui-filter";
 
-// 앱 blueprint의 read command 입력. command key와 화면 문구는 따로 둔다(apps/sdk#R41).
+// 앱 blueprint의 read command 입력. command key와 화면 문구는 따로 둔다.
 export interface OrdersQuery {
   from: string;
   to: string;

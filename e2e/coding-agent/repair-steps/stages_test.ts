@@ -18,23 +18,23 @@ import {
   REPAIR_CONTEXT_LINES,
   REPAIR_CONTEXT_SUMMARY_MAX_CHARS,
   SECTION_KINDS,
-} from "../../../packages/contracts/coding-agent/mod.ts";
-import { confirmationBinding } from "../../../packages/platform/identity/mod.ts";
+} from "../../../packages/protocol/coding-agent/mod.ts";
+import { confirmationBinding } from "../../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,
   createFakeKeychain,
   type FakeKeychain,
-} from "../../../packages/platform/secrets/mod.ts";
+} from "../../../packages/core/secrets/mod.ts";
 import {
   openWorld,
   type World,
-} from "../../../packages/apps/runtime/world_test.ts";
-import { codingAgentConnectionDefinitions } from "../../../apps/core/coding-agent.ts";
+} from "../../../packages/core/apps/runtime/world_test.ts";
+import { codingAgentConnectionDefinitions } from "../../../packages/core/server/identity/coding-connection.ts";
 import {
   problemsReportDefinitions,
   problemsTestDefinitions,
-} from "../../../apps/core/problems.ts";
-import { ticketDefinitions } from "../../../apps/core/tickets.ts";
+} from "../../../packages/core/problems/register.ts";
+import { ticketDefinitions } from "../../../packages/core/apps/tickets/register.ts";
 import {
   REPAIR_STAGES,
   type RepairScriptResult,
@@ -318,16 +318,23 @@ async function withWorld(run: (opened: Opened) => Promise<void>) {
         { problemsReportDefinitions },
       ],
       teamModules: [
-        new URL("../../../apps/core/coding-agent.ts", import.meta.url).href,
-        new URL("../../../apps/core/tickets.ts", import.meta.url).href,
-        new URL("../../../apps/core/problems.ts", import.meta.url).href,
         new URL(
-          "../../../apps/core/ticket-claim-ports_test.ts",
+          "../../../packages/core/server/identity/coding-connection.ts",
+          import.meta.url,
+        ).href,
+        new URL(
+          "../../../packages/core/apps/tickets/register.ts",
+          import.meta.url,
+        ).href,
+        new URL("../../../packages/core/problems/register.ts", import.meta.url)
+          .href,
+        new URL(
+          "../../../packages/core/apps/tickets/claim-ports_test.ts",
           import.meta.url,
         )
           .href,
         new URL(
-          "../../../apps/core/repair-context-ports_test.ts",
+          "../../../packages/core/problems/repairs/context-ports_test.ts",
           import.meta.url,
         ).href,
       ],

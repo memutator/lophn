@@ -1,6 +1,6 @@
 // shell#T43·T45 후속: app-detail 결정 intent 다섯이 실제 Electron 보호 창으로 열린다. 화면 없이
 // (show:false·offscreen) 실제 coordinator·설치한 confirmation renderer와 preload에 가짜 core를 붙인다
-// (apps/shell/main/confirmation/testdata/app-decisions-probe.ts). LOPHN_SHELL_SHOT_DIR이 있으면
+// (packages/shell/main/confirmation/testdata/app-decisions-probe.ts). LOPHN_SHELL_SHOT_DIR이 있으면
 // 창마다 PNG를 그곳에 남긴다.
 // - shell/confirmation-window#R5, R8: 결정마다 정확한 종류의 창이 열리고 확인할 수 있는 상태다.
 import { assert, assertEquals } from "@std/assert";
@@ -16,10 +16,10 @@ const repoRoot = new URL("../../", import.meta.url).pathname.replace(
   /\/$/,
   "",
 );
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electronExecutable = `${shellMain}/node_modules/electron/dist/electron`;
 const probeSource = `${shellMain}/confirmation/testdata/app-decisions-probe.ts`;
-const rendererBuild = `${repoRoot}/apps/shell/renderer/build.ts`;
+const rendererBuild = `${repoRoot}/packages/shell/renderer/build.ts`;
 
 async function run(command: string, args: string[], cwd: string) {
   const output = await new Deno.Command(command, {

@@ -1,17 +1,17 @@
-// 설치 plan이다(coding-agent/harnesses#R6, T29). 사람이 고른 harness·native
+// 설치 plan이다. 사람이 고른 harness·native
 // 환경·profile·범위의 exact target만 담는다. 감지된 다른 제품·다른 profile은
-// 이 plan에 들어오지 않는다(R6 확인). plan은 파일을 읽기만 하고 쓰지 않는다.
+// 이 plan에 들어오지 않는다. plan은 파일을 읽기만 하고 쓰지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   HarnessId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import type { HarnessDefinition } from "../model.ts";
 
-// 설치할 조각의 종류다. 제품 adapter(T30·T31)가 내용을 채운다.
+// 설치할 조각의 종류다. 제품 adapter가 내용을 채운다.
 export type PlannedResource = {
   identity: string;
-  // target root 기준 상대 경로다. 절대 경로·`..`는 거절한다(R6).
+  // target root 기준 상대 경로다. 절대 경로·`..`는 거절한다.
   path: string;
   kind: "config" | "skill" | "instruction" | "hook";
   // config fragment merge의 소유 key다. 파일 전체 소유면 null이다.
@@ -23,7 +23,7 @@ export type PlannedResource = {
 
 export type InstallPlan = {
   target: IntegrationTarget;
-  // 사람이 고른 connection 참조다. token 원문은 없다(connection#R17).
+  // 사람이 고른 connection 참조다. token 원문은 없다.
   connection: string | null;
   catalog_revision: string;
   adapter_revision: string;
@@ -43,7 +43,7 @@ export type PlanError =
   | { code: "unsupported"; detail: string };
 
 // 고른 harness와 target이 같은 제품인지, native host인지, 경로가 root 안인지
-// 본다(R6). 다른 제품·WSL·remote·root 밖 경로는 plan에 들어오지 않는다.
+// 본다. 다른 제품·WSL·remote·root 밖 경로는 plan에 들어오지 않는다.
 export type PlanResult = Result<InstallPlan, PlanError>;
 
 export function planOf(input: PlanInput): PlanResult {
@@ -98,7 +98,7 @@ function insideRoot(path: string): boolean {
 }
 
 // 고른 harness가 catalog에 있는지 확인하는 자리의 식별자다. 다른 제품 설치를
-// 막기 위해 plan은 harness id를 그대로 보존한다(R6).
+// 막기 위해 plan은 harness id를 그대로 보존한다.
 export function chosenHarness(plan: InstallPlan): HarnessId {
   return plan.target.harness_id;
 }

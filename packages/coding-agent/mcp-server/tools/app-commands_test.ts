@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import { Tiktoken } from "js-tiktoken";
 import cl100k_base from "js-tiktoken/ranks/cl100k_base";
 import { err, ok, sha256Hex } from "../../../base/mod.ts";
-import { appToolName } from "../../../contracts/coding-agent/mod.ts";
+import { appToolName } from "../../../protocol/coding-agent/mod.ts";
 import {
   type AppDirect,
   type AppInvokeRequest,

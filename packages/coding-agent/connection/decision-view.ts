@@ -1,7 +1,7 @@
-// 질문·approval 읽기 결과의 사람·모델용 모양이다(T16, mcp#R18, cli#R21). MCP tool과
+// 질문·approval 읽기 결과의 사람·모델용 모양이다. MCP tool과
 // CLI command가 같은 상태 이름·문장·결정 화면 링크를 쓰도록 한 곳에 둔다. 읽기 결과만
 // 다루고 결정하지 않는다: 답·허락·거절·사용은 이 파일에 없다.
-import { decisionLink } from "../../contracts/coding-agent/mod.ts";
+import { decisionLink } from "../../protocol/coding-agent/mod.ts";
 
 // 질문 묶음(qgr) 하나의 읽기 결과다. 적용은 질문마다 기록되고, 고정 action이 있는
 // 질문은 질문 하나짜리 묶음이므로 질문 하나라도 적용됐으면 묶음은 적용된 것이다.

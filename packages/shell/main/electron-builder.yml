@@ -1,0 +1,42 @@
+# electron-builder config. Linux는 `--linux dir`로 앱만 풀고,
+# 설치 묶음(.deb)은 tools/package-linux.ts가 /opt/lophn 배치로 잇는다.
+appId: dev.lophn.shell
+productName: lophn
+executableName: lophn-desktop
+copyright: lophn
+directories:
+  output: release
+  buildResources: packaging
+files:
+  - dist/**/*
+  - package.json
+asar: true
+extraResources:
+  - from: packaging/icon.png
+    to: icon.png
+protocols:
+  - name: lophn
+    schemes:
+      - lophn
+    role: Editor
+linux:
+  target:
+    - dir
+  category: Development
+  synopsis: Client workspace for projects and apps with lophn
+  maintainer: lophn developers <lophn@localhost>
+  mimeTypes:
+    - x-scheme-handler/lophn
+appImage:
+  artifactName: ${productName}-${version}-${arch}.AppImage
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false

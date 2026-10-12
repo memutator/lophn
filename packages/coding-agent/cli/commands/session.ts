@@ -1,9 +1,9 @@
-// `lophn session summary|plan|observe` command 표와 summary·plan·observe 실행이다(cli#R40). summary는 `lophn_session`의
+// `lophn session summary|plan|observe` command 표와 summary·plan·observe 실행이다. summary는 `lophn_session`의
 // 결과를 같은 read route(`/v1/coding_agent_sessions/summary`)로 읽는다. `--hook`이면 Claude Code 세션 시작 hook의
-// 출력 글 하나를 내고 어떤 실패도 빈 값으로 끝낸다(guides#R23, R24). 일반 summary는 실패를 그대로 보인다. plan은 sessions의 LaunchPlan 입출력이고 spawn이 아니다(coding-agent#T38): shell main이
+// 출력 글 하나를 내고 어떤 실패도 빈 값으로 끝낸다. 일반 summary는 실패를 그대로 보인다. plan은 sessions의 LaunchPlan 입출력이고 spawn이 아니다: shell main이
 // 클릭을 검증하며 넘긴 값으로 plan이나 자기 터미널 안내를 낸다. shell terminal host가 plan을 연다. observe는
 // 제품 hook·plugin·extension이 stdin으로 준 payload를 정규화해 `LOPHN_TERMINAL_OBSERVE` socket에만 쓰고 core·credential을
-// 부르지 않는다(coding-agent#T39, sessions#R6, R9).
+// 부르지 않는다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {
   cliSessionObserveSchema,
@@ -15,10 +15,10 @@ import {
   type HarnessId,
   LOPHN_TERMINAL_OBSERVE,
   type SessionPlanInput,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import { runSummaryHookBounded } from "../../guides/mod.ts";
 import { launchPlanOf, observeStream } from "../../sessions/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import { UNREADABLE_MESSAGE } from "../../connection/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";
@@ -69,7 +69,7 @@ export async function runSessionSummary(
     ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
   });
   if (!read.ok) {
-    // 없는 대상과 범위 밖 대상은 같은 답이다(connection#R5).
+    // 없는 대상과 범위 밖 대상은 같은 답이다.
     return read.error.code === "not_found"
       ? err({ code: "not_found", message: UNREADABLE_MESSAGE })
       : read;
@@ -97,9 +97,9 @@ export async function runSessionSummary(
 }
 
 export type SessionPlanDeps = {
-  // 저장한(없으면 처음 본) 감지 결과다. 재감지나 version·auth probe를 돌리지 않는다(harnesses#R2).
+  // 저장한(없으면 처음 본) 감지 결과다. 재감지나 version·auth probe를 돌리지 않는다.
   detect(): Promise<Result<readonly HarnessDetection[]>>;
-  // 지금 PATH·catalog 위치에서 다시 본 실행 파일이다. 감지 뒤 옮겨졌는지 확인한다(R4).
+  // 지금 PATH·catalog 위치에서 다시 본 실행 파일이다. 감지 뒤 옮겨졌는지 확인한다.
   current(harness: HarnessId): Result<{ selected: string | null }>;
 };
 
@@ -149,7 +149,7 @@ export type SessionObserveDeps = {
 };
 
 // 환경에 관측 socket이 없으면(자기 터미널 등) 아무것도 읽거나 보내지 않는다. runtime_ref·generation·origin은
-// host가 자기 등록 channel에서 붙이므로 여기서는 쓰지 않는다(R8).
+// host가 자기 등록 channel에서 붙이므로 여기서는 쓰지 않는다.
 export async function runSessionObserve(
   input: { hook: HarnessId },
   deps: SessionObserveDeps,

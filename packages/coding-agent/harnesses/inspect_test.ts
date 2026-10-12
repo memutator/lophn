@@ -2,7 +2,7 @@
 // loading 단계가 따로 나오고 current가 loading 성공을 뜻하지 않는지 본다.
 // 모든 root는 temp fixture이고 MCP server는 대역이다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { harnessIntegrationObservationSchema } from "../../contracts/coding-agent/mod.ts";
+import { harnessIntegrationObservationSchema } from "../../protocol/coding-agent/mod.ts";
 import { inspectIntegration } from "./inspect.ts";
 import { filePort, storeOf } from "./integration/journal.ts";
 import { stdioMcpProbe } from "./mcp-probe.ts";

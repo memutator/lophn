@@ -1,4 +1,4 @@
-// 기본 harness 선택이다(coding-agent/harnesses#R5, T36). 기본 harness는 사람이 고르는 nullable
+// 기본 harness 선택이다. 기본 harness는 사람이 고르는 nullable
 // 값이고 이 module은 그 값을 쓰지 않는다. 비었을 때 연결 설치가 확인된 실행 가능 후보가 하나면
 // 그 후보를 제안하고 여럿이면 사람이 고르게 하며, 저장한 선택이 사라지거나 실행 불가가 되어도
 // 다른 제품으로 자동 교체하지 않고 다시 고르는 행동을 안내한다. 후보가 없으면 연결 안내뿐이다.
@@ -9,10 +9,10 @@ import {
   type HarnessId,
   type HarnessSuggestion,
   harnessSuggestionSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 
 // 제품 하나의 관측이다. runnable은 실행 파일을 찾고 version을 확인했다는 사실이다(존재만으로
-// 실행 가능이라 하지 않는다, R3). connected는 이 컴퓨터에서 연결 설치를 확인했다는 사실이다.
+// 실행 가능이라 하지 않는다). connected는 이 컴퓨터에서 연결 설치를 확인했다는 사실이다.
 export type SelectionEntry = {
   harness: HarnessId;
   enabled: boolean;

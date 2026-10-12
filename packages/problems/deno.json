@@ -1,5 +1,0 @@
-{
-  "name": "@lophn/problems",
-  "exports": "./mod.ts",
-  "compilerOptions": { "erasableSyntaxOnly": true }
-}

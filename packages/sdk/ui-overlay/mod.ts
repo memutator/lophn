@@ -1,4 +1,4 @@
-// tooltip·popover·메뉴·dialog·toast·command palette(apps/sdk#R15). lophn 화면과 같은 component다(R21).
+// tooltip·popover·메뉴·dialog·toast·command palette. lophn 화면과 같은 component다.
 // 앱 안에서는 모두 앱 view의 문서 안에 그린다. lophn 화면의 overlay 층을 부르는 통로는 없다.
 export {
   type Clock,

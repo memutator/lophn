@@ -26,7 +26,7 @@ function same(lines: readonly DiffLine[]): boolean {
   return lines.every((line) => line.kind === "same");
 }
 
-// 추가·삭제 줄은 정한 diff 배경과 +/− 기호를 함께 쓰고 글자는 primary다(R14).
+// 추가·삭제 줄은 정한 diff 배경과 +/− 기호를 함께 쓰고 글자는 primary다.
 export function DiffView({ lines }: DiffViewProps) {
   if (same(lines)) {
     return <p className={styles.identical}>{t("document.diff.identical")}</p>;

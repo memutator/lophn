@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { checkSource, errorsOf } from "./check.ts";
-import { checkRepo, PROBLEM_MESSAGE_KEYS } from "./repo-check.ts";
+import { checkRepo, PROBLEM_MESSAGE_KEYS } from "./testing/repo-check.ts";
 import { en } from "./en.ts";
 
 const root = new URL("../../../", import.meta.url).pathname;
@@ -87,7 +87,7 @@ Deno.test("shell/wording#R9: problems 문구 key는 저장소 검사의 알려�
   ]);
   const directory = await Deno.makeTempDir();
   try {
-    const screens = `${directory}/apps/shell/renderer/app-frame`;
+    const screens = `${directory}/packages/shell/renderer/app-frame`;
     await Deno.mkdir(screens, { recursive: true });
     await Deno.writeTextFile(
       `${screens}/issue.tsx`,

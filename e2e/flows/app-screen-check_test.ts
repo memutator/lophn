@@ -6,17 +6,17 @@ import { assert, assertEquals } from "@std/assert";
 import {
   runScreenHost,
   screenErrorBoundaries,
-} from "../../packages/problems/tests/adapters/screen-host.ts";
-import { serveTestAppSocket } from "../../packages/problems/tests/adapters/test-app-socket.ts";
+} from "../../packages/core/problems/tests/adapters/screen-host.ts";
+import { serveTestAppSocket } from "../../packages/core/problems/tests/adapters/test-app-socket.ts";
 import {
   fakeCollector,
   judgeWithScreens,
-} from "../../packages/problems/tests/testing/view-checks.ts";
-import type { ScreenHostResult } from "../../packages/problems/tests/app-test/mod.ts";
+} from "../../packages/core/problems/tests/testing/view-checks.ts";
+import type { ScreenHostResult } from "../../packages/core/problems/tests/app-test/mod.ts";
 import { e2eEnabled } from "../harness.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
-const shellMain = `${repoRoot}/apps/shell/main`;
+const shellMain = `${repoRoot}/packages/shell/main`;
 const electron = `${shellMain}/node_modules/electron/dist/electron`;
 const bundleScreens = `${repoRoot}/fixtures/app-screens`;
 

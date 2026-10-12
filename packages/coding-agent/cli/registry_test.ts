@@ -1,6 +1,6 @@
 // CLI command registry 테스트다. coding agent에게 context 통로가 없는지 본다.
 import { assertEquals } from "@std/assert";
-import { cliIndexSchema } from "../../contracts/coding-agent/mod.ts";
+import { cliIndexSchema } from "../../protocol/coding-agent/mod.ts";
 import { COMMANDS, findCommand } from "./registry.ts";
 
 Deno.test(

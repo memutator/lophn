@@ -1,0 +1,57 @@
+/* 창 오른쪽 아래 한 칸. toast와 같은 자리와 층이다. */
+.corner {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  max-width: calc(100% - var(--space-6) - var(--space-6));
+  z-index: var(--z-toast);
+}
+
+/* 대기 개수 글자 pill. 색이 아니라 글로 개수를 읽는다. */
+.pill {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-4);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+button.pill {
+  cursor: pointer;
+}
+
+button.pill:hover {
+  background: var(--color-surface-subtle);
+}
+
+button.pill:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.chrome {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.down {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--status-serious-text);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+}

@@ -3,18 +3,20 @@
 // sidebar·tab strip은 project-window.tsx의 look-alike다.
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { TopBar } from "../../../../apps/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { Breadcrumbs } from "../../../../apps/shell/renderer/workspace/top-path/breadcrumbs.tsx";
-import { LauncherButton } from "../../../../apps/shell/renderer/workspace/launcher-button.tsx";
+import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
+import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import {
   IconButton,
   Palette,
-  paletteIcons,
   type PaletteItem,
   Toast,
   ToastStack,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  paletteIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
 import {

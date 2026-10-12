@@ -1,4 +1,4 @@
-// pi의 배포 catalog다(coding-agent/harnesses#R1·R8, T31). 위치·format은
+// pi의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고 검증
 // 근거는 docs/research/coding-agent-harness-integration.md 9.1이다. [미확인]
 // capability는 unverified로 남고 성공으로 나오지 않는다.
@@ -46,7 +46,7 @@ export const pi: HarnessDefinition = {
     reason: "auth 상태 명령을 아직 검증하지 않았다",
   },
   config_targets: [
-    // 조사 revision(8369268)의 native MCP 설정이다(질문 Q19): `loadMcpConfig`
+    // 조사 revision(8369268)의 native MCP 설정이다: `loadMcpConfig`
     // 이 `getAgentDir()`(기본 `~/.pi/agent`)의 `mcp.json`과 trusted 프로젝트의
     // `<cwd>/.pi/mcp.json`을 읽는다[확인](조사 9.1). `stdio`는
     // command·args·env·cwd뿐이고 프로젝트 항목은 같은 이름의 전역 항목을
@@ -60,7 +60,7 @@ export const pi: HarnessDefinition = {
     },
     // 단, pi는 깨진 JSON 파일 전체를 건너뛰므로(조사 9.1) broken은 무변경이다.
     // trusted `<cwd>/.pi/mcp.json`(app)은 사람 trust 결정 뒤에만 읽히므로
-    // lophn이 자동으로 쓰지 않는다(guides#R5).
+    // lophn이 자동으로 쓰지 않는다.
     {
       scope_kind: "app",
       root_resolver: "project",
@@ -79,13 +79,13 @@ export const pi: HarnessDefinition = {
   skill_trust_note:
     "앱 `.pi/skills`와 `.agents/skills`는 pi의 project trust 뒤에 읽힌다. lophn은 신뢰를 대신 정하지 않는다",
   // `AGENTS.md` chain이고 더 가까운 `AGENTS.override.md`가 이긴다(조사
-  // skills-and-guides pi 절). native MCP와 adapter 이중 시작 금지다(Q19).
+  // skills-and-guides pi 절). native MCP와 adapter 이중 시작 금지다.
   instructions: [
     { marker: "lophn-managed-instruction", file: "AGENTS.md" },
   ],
   // pi extension event는 `session_start` 등의 union이다(조사 9.5). extension 하나가 아래 event를
   // 받아 `session observe`로 넘긴다. loader 디렉터리가 [미확인]이라 검증 version이 없어 unverified이고
-  // 설치하지 않는다(R11).
+  // 설치하지 않는다.
   hooks: [
     {
       event: "session_start",

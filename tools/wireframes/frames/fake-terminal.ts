@@ -5,7 +5,7 @@ import type {
   TerminalCall,
   TerminalOutput,
   TerminalRuntime,
-} from "../../../apps/shell/ipc/terminal.ts";
+} from "../../../packages/shell/ipc/terminal.ts";
 
 const PROMPT = "\x1b[32mmina@lophn\x1b[0m:\x1b[34m~/Documents/grocery\x1b[0m$ ";
 const FIRST = [

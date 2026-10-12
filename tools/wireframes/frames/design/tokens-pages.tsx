@@ -1,24 +1,26 @@
 // 디자인 시스템 · Tokens 네 page. 값은 @lophn/design의 tokens에서 그대로 읽는다.
 import { tokens } from "@lophn/design";
 import {
+  folderOpenIcon,
+  Icon,
+  iconPixels,
+  STATUS_ICONS,
+} from "@lophn/design/components";
+import {
   appSpaceIcons,
   confirmIcons,
   connectionFailedIcon,
   connectionStaleIcon,
   conversationIcons,
   editorIcons,
-  folderOpenIcon,
-  Icon,
-  iconPixels,
   launcherEmptyIcon,
   launcherIcons,
   lophnEntryIcon,
   lophnSpaceIcons,
   paletteIcons,
   retryIcon,
-  STATUS_ICONS,
   workspaceIcons,
-} from "@lophn/design/components";
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 import type { IconProps } from "@lophn/design/components";
 
 import { kit, Page, Row, Section } from "./kit.tsx";

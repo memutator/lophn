@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { formatAt } from "@lophn/base";
-import { REPORT_RETRY_DELAYS_MS } from "@lophn/contracts/problems/sdk-report";
+import { REPORT_RETRY_DELAYS_MS } from "@lophn/protocol/problems/sdk-report";
 import type {
   ExceptionObservationInput,
   ExceptionObserverTransport,
   ReportAcceptance,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 import { createExceptionObserver } from "./exception-observer.ts";
 
 const START = Date.parse("2026-10-04T12:00:00.000Z");

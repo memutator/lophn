@@ -1,7 +1,7 @@
-// TOML 설정 merge다(coding-agent/harnesses#R8, T29·T30). lophn 소유 테이블만
+// TOML 설정 merge다. lophn 소유 테이블만
 // 텍스트 패치로 고치고 주석·빈 줄·다른 테이블은 그대로 둔다. 제품 자신의
 // `mcp add` 명령은 파일 전체를 다시 직렬화하고 동명 항목을 묻지 않고 바꾸므로
-// 부르지 않는다(조사 9.6, R8). 깨진 TOML은 무변경이다(조사 9.2).
+// 부르지 않는다(조사 9.6). 깨진 TOML은 무변경이다(조사 9.2).
 import { parse } from "@std/toml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
@@ -92,8 +92,8 @@ function bodyEnd(lines: readonly string[], start: number): number {
 }
 
 // 소유 헤더 행의 위치다. `#` 주석 제외한 첫 행(`[...]`)만 본다. 문자열 안
-// `[`는 헤더가 아니므로 대괄호로만 끝나는 행은 넘어간다. T31이 정확한
-// locator를 더 자리다. 여기서는 key 헤더만 찾고, 찾지 못하면 null이다.
+// `[`는 헤더가 아니므로 대괄호로만 끝나는 행은 넘어간다. 정확한
+// locator는 나중에 더할 자리다. 여기서는 key 헤더만 찾고, 찾지 못하면 null이다.
 function findHeader(
   lines: readonly string[],
   key: string,
@@ -111,8 +111,8 @@ function rendered(lines: readonly string[]): string {
   return `${lines.join("\n")}\n`;
 }
 
-// 소유 테이블만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다. 다른 테이블의
-// 바이트는 하나도 가리지 않는다(T30).
+// 소유 테이블만 넣는다. 같은 값이면 파일을 바꾸지 않는다. 다른 테이블의
+// 바이트는 하나도 가리지 않는다.
 export function setOwned(text: string, key: string, value: Table): SetOutcome {
   const parsed = parseToml(text);
   if (!parsed.ok) return parsed.error;
@@ -126,7 +126,7 @@ export function setOwned(text: string, key: string, value: Table): SetOutcome {
   const replacement = tableLines(key, value);
   const header = findHeader(body, key);
   if (header !== null) {
-    // 헤더 행은 유지하고 몸만 바꾼다(T30). 헤더 스타일도 사람의 것을 둔다.
+    // 헤더 행은 유지하고 몸만 바꾼다. 헤더 스타일도 사람의 것을 둔다.
     const end = bodyEnd(body, header);
     const patched = [
       ...body.slice(0, header + 1),
@@ -142,7 +142,7 @@ export function setOwned(text: string, key: string, value: Table): SetOutcome {
   return { kind: "changed", text: rendered(appended) };
 }
 
-// 소유 테이블만 지운다(R8 제거). 없으면 무변경이다. 다른 테이블과 테이블
+// 소유 테이블만 지운다. 없으면 무변경이다. 다른 테이블과 테이블
 // 사이 빈 줄도 그대로 둔다.
 export function removeOwned(text: string, key: string): SetOutcome {
   const parsed = parseToml(text);

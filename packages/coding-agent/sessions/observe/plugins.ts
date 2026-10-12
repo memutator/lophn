@@ -1,8 +1,8 @@
-// plugin·extension으로 event를 주는 제품(OpenCode·pi)의 normalizer다(sessions#R6, R7, T39, 조사 T6). payload는
+// plugin·extension으로 event를 주는 제품(OpenCode·pi)의 normalizer다. payload는
 // plugin·extension이 native event를 그대로 넘긴 JSON이다. 두 제품 모두 ended를 event로 만들지 않는다. process
 // 종료는 host evidence이고 plugin·extension의 종료·idle 신호는 turn이나 runtime 사실이다.
 import { type Evidence, type Normalizer, recordOf, textOf } from "./model.ts";
-import type { SessionState } from "../../../contracts/coding-agent/mod.ts";
+import type { SessionState } from "../../../protocol/coding-agent/mod.ts";
 
 function evidenceOf(
   state: SessionState,
@@ -24,7 +24,7 @@ function evidenceOf(
 
 // OpenCode plugin의 event는 `{type, properties}`이고 ID는 `properties.sessionID`다. busy·retry는 작업이고 idle은
 // turn 끝이며, permission 요청은 대기이고 응답은 작업 재개다. session 삭제 event는 process 종료가 아니라 표에 없다.
-// 하위 session attribution은 plugin이 root event만 넘기는 것으로 한다(조사 T6).
+// 하위 session attribution은 plugin이 root event만 넘기는 것으로 한다.
 export const normalizeOpencode: Normalizer = (payload) => {
   const type = textOf(payload.type);
   const properties = recordOf(payload.properties);

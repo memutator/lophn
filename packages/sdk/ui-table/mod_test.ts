@@ -34,7 +34,7 @@ Deno.test("apps/sdk#R38: @lophn/ui-table는 contracts를 import하지 않고 HTM
     const text = await Deno.readTextFile(file);
     for (
       const banned of [
-        "@lophn/contracts",
+        "@lophn/protocol",
         "dangerouslySetInnerHTML",
         "innerHTML",
         "eval(",

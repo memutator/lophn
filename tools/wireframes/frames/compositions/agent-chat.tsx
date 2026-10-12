@@ -6,17 +6,19 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
-  conversationIcons,
-  editorIcons,
   Icon,
   IconButton,
   iconPixels,
   Kbd,
-  lophnSpaceIcons,
   Menu,
   Popover,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  conversationIcons,
+  editorIcons,
+  lophnSpaceIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import { Avatar } from "./agent-avatar.tsx";

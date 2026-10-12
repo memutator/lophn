@@ -22,14 +22,11 @@ import {
   iconPixels,
   Input,
   Kbd,
-  launcherEmptyIcon,
   LauncherFrame,
   List,
   ListDetailFrame,
   ListItem,
-  lophnSpaceIcons,
   OverviewFrame,
-  paletteIcons,
   Popover,
   PopoverRow,
   ReadingFrame,
@@ -52,8 +49,13 @@ import {
   Tooltip,
   Tree,
   type TreeNode,
-  workspaceIcons,
 } from "@lophn/design/components";
+import {
+  launcherEmptyIcon,
+  lophnSpaceIcons,
+  paletteIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import dialogStyles from "../../../../packages/design/components/dialog/dialog.module.css";
 import sheetStyles from "../../../../packages/design/components/sheet/sheet.module.css";

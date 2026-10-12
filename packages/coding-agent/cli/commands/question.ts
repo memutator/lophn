@@ -1,4 +1,4 @@
-// question command의 route 표와 `question open` 실행이다(T16, cli#R7·R21). list·show는
+// question command의 route 표와 `question open` 실행이다. list·show는
 // 소유 읽기 route로 core에 닿는다. open은 결정 화면 링크와 대기 사실만 낸다: confirmation
 // window를 열지 않고 TTY의 yes나 옵션으로 답하지 않는다. 답·미루기·취소·적용 command는
 // 표에 없다(질문의 결정은 사람 화면이다).
@@ -7,11 +7,11 @@ import {
   cliQuestionListSchema,
   cliQuestionOpenSchema,
   cliQuestionShowSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   questionList,
   questionRead,
-} from "../../../contracts/lophn-agent/mod.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   type FlowClient,
   type QuestionRecord,
@@ -31,7 +31,7 @@ export const QUESTION_COMMANDS: readonly CommandEntry[] = [
     input: cliQuestionShowSchema,
     monoRoute: questionRead,
   },
-  // open은 결정 화면 링크와 대기 사실만 낸다. 답을 입력받지 않는다(cli#R21).
+  // open은 결정 화면 링크와 대기 사실만 낸다. 답을 입력받지 않는다.
   {
     name: "question open",
     input: cliQuestionOpenSchema,

@@ -1,10 +1,10 @@
-// lophn_document tool의 실행이다(T13, mcp#R11·R12). list는 본문 없는 문서 목록, history는
+// lophn_document tool의 실행이다. list는 본문 없는 문서 목록, history는
 // 고정 판 목록(section을 주면 같은 key의 판별 변화), diff는 두 고정 판의 줄 단위 추가·삭제다.
 // 모두 읽기 route 하나로만 보낸다. 비교는 같은 key와 줄만 본다: 의미상 이름 변경은 추정해
 // 사실로 내지 않고, 복원하지 못한 범위는 누락으로 밝힌다. 이 tool은 쓰지 않는다.
-import { MCP_CORE_ROUTES } from "../../../contracts/coding-agent/mod.ts";
-import { documentSectionHistory } from "../../../contracts/documents/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
+import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
+import { documentSectionHistory } from "../../../protocol/projects/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   continuation,

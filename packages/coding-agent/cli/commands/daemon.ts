@@ -1,9 +1,9 @@
-// `lophn daemon start|stop|status|logs` command의 route 표와 실행 결정이다
-// (T37, cli#R6, R8). start·stop은 launcher가 실행할 결정을 내놓고(platform#T55,
-// 창 없는 시작 desktop#R21), status·logs는 OS 사용자 권한으로 `H/run` metadata와
-// `H/logs`의 안전 log를 읽는다. API token도 coding credential도 쓰지 않는다.
-// start·stop은 사람 전용이라 coding credential context는 실행 전 거절이다
-// (cli#R6). 실제 process 결정은 플랫폼 설치·시작의 몫이라 이 자리는 port로
+// `lophn daemon start|stop|status|logs` command의 route 표와 실행 결정이다.
+// start·stop은 launcher가 실행할 결정을 내놓고(창 없는 시작), status·logs는
+// OS 사용자 권한으로 `H/run` metadata와 `H/logs`의 안전 log를 읽는다.
+// API token도 coding credential도 쓰지 않는다.
+// start·stop은 사람 전용이라 coding credential context는 실행 전 거절이다.
+// 실제 process 결정은 플랫폼 설치·시작의 몫이라 이 자리는 port로
 // 받는다(connection credential의 provider interface 같은 모양).
 import {
   cliDaemonLogsSchema,
@@ -11,8 +11,8 @@ import {
   cliDaemonStatusSchema,
   cliDaemonStopSchema,
   HUMAN_ONLY_NAMES,
-} from "../../../contracts/coding-agent/mod.ts";
-import { QUIT_FLAG, TRAY_FLAG } from "../../../contracts/shell/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
+import { QUIT_FLAG, TRAY_FLAG } from "../../../protocol/shell/mod.ts";
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
@@ -35,9 +35,9 @@ export const DAEMON_COMMANDS: readonly CommandEntry[] = [
   },
 ];
 
-// 사람 전용 command의 실행 전 거절이다(cli#R6). coding credential context에서
-// daemon start·stop을 고르면 forbidden이다. user credential fallback은 없다
-// (R6 확인). 표 밖 command는 애초에 표에 없다.
+// 사람 전용 command의 실행 전 거절이다. coding credential context에서
+// daemon start·stop을 고르면 forbidden이다. user credential fallback은 없다.
+// 표 밖 command는 애초에 표에 없다.
 export function daemonHumanOnlyGate(
   command: string,
   actor: "user" | "coding_agent",
@@ -51,9 +51,9 @@ export function daemonHumanOnlyGate(
   });
 }
 
-// 플랫폼 설치·시작이 채우는 port다(T37 쓰는 contract). 결정은 인자로 받는다.
+// 플랫폼 설치·시작이 채우는 port다. 결정은 인자로 받는다.
 // 창 없는 시작은 `--tray`, 명시 종료는 single-instance 통로 `--quit`이다(shell
-// launch contract, platform#T55). metadata·상태·log 읽기는 token이 없다(R8).
+// launch contract). metadata·상태·log 읽기는 token이 없다.
 export type DaemonPort = {
   // launcher가 실행할 창 없는 시작 결정. 실행 이름은 설치 contract의 고정 이름이다.
   start(): Promise<Result<{ executable: string; argv: readonly string[] }>>;
@@ -82,7 +82,7 @@ type DaemonContext = {
   port: DaemonPort;
 };
 
-// 시작 요청이다. launcher가 창 없는 Electron main을 띄운다(R8). 이미 실행 중인
+// 시작 요청이다. launcher가 창 없는 Electron main을 띄운다. 이미 실행 중인
 // 상태도 port 결정 그대로 내놓는다(접수와 실제 상태의 구별은 port가 한다).
 export function daemonStartRequest(
   context: DaemonContext,
@@ -93,7 +93,7 @@ export function daemonStartRequest(
 }
 
 // 명시 종료 요청이다. OS single-instance 통로로 실행 중인 main에 `--quit`을
-// 보낸다. token이 없으므로 권한은 OS 사용자 권한 하나다(R8).
+// 보낸다. token이 없으므로 권한은 OS 사용자 권한 하나다.
 export function daemonStopRequest(
   context: DaemonContext,
 ): Promise<Result<{ executable: string; argv: readonly string[] }>> {
@@ -102,7 +102,7 @@ export function daemonStopRequest(
   return context.port.stop();
 }
 
-// 현재 상태다. 이미 시작·중지된 상태도 현재 상태로 응답한다(R8 확인). 상태는
+// 현재 상태다. 이미 시작·중지된 상태도 현재 상태로 응답한다. 상태는
 // lock 판정 그대로고 metadata 부재는 상태를 바꾸지 않는다.
 export function daemonStatusRequest(
   context: DaemonContext,
@@ -115,7 +115,7 @@ export function daemonStatusRequest(
 }
 
 // 현재 연결 상태다. `H/run` 위치 metadata가 있으면 connected다. metadata에는
-// port·epoch만 있고 credential은 없으므로 token 없이 읽는다(R8).
+// port·epoch만 있고 credential은 없으므로 token 없이 읽는다.
 export async function daemonConnectionRequest(
   context: DaemonContext,
 ): Promise<Result<"connected" | "disconnected">> {
@@ -124,9 +124,9 @@ export async function daemonConnectionRequest(
 }
 
 // 안전 log tail이다. `H/logs`의 platform-N.jsonl을 안전 log 순서(오래된 파일이
-// 뒤)로 읽는다. 안전 log는 쓰는 쪽에서 redaction을 통과했다(platform/diagnostics#R5)
+// 뒤)로 읽는다. 안전 log는 쓰는 쪽에서 redaction을 통과했다
 // 그래서 읽는 쪽에서 다시 거르지 않는다. 파일 수·이름은 OS 사용자 권한의 고정
-// 위치라 token도 credential도 없다(R8). 입력 검사는 schema가 이미 했다.
+// 위치라 token도 credential도 없다. 입력 검사는 schema가 이미 했다.
 export type DaemonLogsInput = {
   cursor?: string;
   lines?: number;
@@ -168,12 +168,12 @@ export async function daemonLogsRead(
 }
 
 // launcher 결정의 argv 모양이다. 창 없는 시작과 명시 종료의 intent flag만 있다
-// (desktop#R21: second-instance argv에서 읽는 것은 `--quit`뿐이다).
+// (second-instance argv에서 읽는 것은 `--quit`뿐이다).
 export function findDaemonCommand(name: string): CommandEntry | undefined {
   return DAEMON_COMMANDS.find((entry) => entry.name === name);
 }
 
-// launch intent flag는 tray·quit 둘이다(desktop#R21: second-instance argv에서
+// launch intent flag는 tray·quit 둘이다(second-instance argv에서
 // 읽는 것은 `--quit`뿐이다).
 export const DAEMON_LAUNCH_FLAGS = [TRAY_FLAG, QUIT_FLAG] as const;
 
@@ -191,7 +191,7 @@ type DaemonOutput = {
   next: string[];
 };
 
-// `daemon start|stop|status|logs`의 실행이다(cli#R8). start·stop은 접수와 실제 상태를 따로 낸다:
+// `daemon start|stop|status|logs`의 실행이다. start·stop은 접수와 실제 상태를 따로 낸다:
 // launcher를 띄운 것이 daemon이 이미 시작·종료됐다는 뜻이 아니다. 이미 그 상태인 요청은 새로
 // 띄우지 않고 현재 상태로 답한다.
 export async function runDaemon(

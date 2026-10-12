@@ -1,7 +1,7 @@
 // production credential provider(helper loader)의 시험이다. helper는 temp dir의 sh script 대역이라
 // 사람의 실제 keychain·data root·harness 설정은 열지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { CREDENTIAL_DELIVERY_FAILURES } from "../../../contracts/coding-agent/mod.ts";
+import { CREDENTIAL_DELIVERY_FAILURES } from "../../../protocol/coding-agent/mod.ts";
 import {
   createHelperCredentialProvider,
   processGenerationOf,

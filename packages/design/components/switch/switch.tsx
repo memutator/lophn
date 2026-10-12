@@ -9,7 +9,7 @@ export interface SwitchProps {
   defaultChecked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
-  // 같은 줄의 버튼·입력과 높이를 맞춘다(shell/design-system#R26).
+  // 같은 줄의 버튼·입력과 높이를 맞춘다.
   size?: ControlSize;
 }
 

@@ -3,7 +3,7 @@
 // 사람의 실제 home은 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../base/mod.ts";
-import type { HarnessEnvironment } from "../../contracts/coding-agent/mod.ts";
+import type { HarnessEnvironment } from "../../protocol/coding-agent/mod.ts";
 import { catalogOf, HARNESS_CATALOG } from "./catalog/definitions.ts";
 import {
   ALIAS_HOP_LIMIT,

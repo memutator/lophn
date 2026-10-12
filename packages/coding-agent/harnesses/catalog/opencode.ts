@@ -1,4 +1,4 @@
-// OpenCode의 배포 catalog다(coding-agent/harnesses#R1, T30). 위치·format은
+// OpenCode의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고
 // 검증 근거는 docs/research/coding-agent-harness-integration.md 9절이다.
 import {
@@ -49,7 +49,7 @@ const opencode: HarnessDefinition = {
   },
   auth_probe: {
     // `opencode providers list`의 출력·exit는 [미확인]이라(조사 9.4)
-    // 상태 probe로 쓰지 않는다(R3 확인).
+    // 상태 probe로 쓰지 않는다.
     present: false,
     capability: "unverified",
     reason: "`opencode providers list` 출력을 아직 검증하지 않았다",

@@ -4,7 +4,7 @@
 // 거절을 본다. core에 닿지 않는다.
 import { assertEquals } from "@std/assert";
 import { err, ok, sha256Hex } from "../../../base/mod.ts";
-import { MCP_APP_ROUTES } from "../../../contracts/coding-agent/mod.ts";
+import { MCP_APP_ROUTES } from "../../../protocol/coding-agent/mod.ts";
 import { createTicketTool } from "./ticket.ts";
 
 const TKT = "tkt_01h455vb4pex5v6nkc6gd5fdw1";

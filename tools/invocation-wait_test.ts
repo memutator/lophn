@@ -1,13 +1,13 @@
 // R2 직접 통로 정적·빠른 확인(docs/plan/platform.md T52). 기본 check에서
 // 돌고(LOPHN_MEASURE 없이) 빠르다: temp SQLite도 큰 파일도 없다. 이 확인은
-// packages/platform과 packages/apps 사이 직접 import가 deps 규칙에 걸리므로,
+// core의 supervision 모듈과 apps 모듈 사이 직접 import가 deps 규칙에 걸리므로,
 // T52 자리의 tools/에 둔다. apps/runtime entrypoint의 제품 형상을 그대로 쓴다 —
 // direct 통로의 invoke가 core·invocation 기록(submit)을 기다리지 않는다
 // (invoke.ts "void submit" fire-and-forget). 부하 도중의 실측은
-// packages/platform/responsiveness/measure-load_test.ts의 opt-in(R9)이 맡는다.
+// packages/core/supervision/responsiveness/measure-load_test.ts의 opt-in(R9)이 맡는다.
 import { assert } from "@std/assert";
-import { handleInvoke } from "../packages/apps/runtime/entrypoint/invoke.ts";
-import { startRuntime } from "../packages/apps/runtime/entrypoint/startup.ts";
+import { handleInvoke } from "../packages/core/apps/runtime/entrypoint/invoke.ts";
+import { startRuntime } from "../packages/core/apps/runtime/entrypoint/startup.ts";
 import {
   blueprint,
   clockAt,
@@ -16,8 +16,8 @@ import {
   REL,
   shaKey,
   startLine,
-} from "../packages/apps/runtime/entrypoint/testing.ts";
-import type { AppConnection } from "../packages/apps/runtime/entrypoint/wire.ts";
+} from "../packages/core/apps/runtime/entrypoint/testing.ts";
+import type { AppConnection } from "../packages/core/apps/runtime/entrypoint/wire.ts";
 
 Deno.test({
   name:

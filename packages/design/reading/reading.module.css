@@ -1,4 +1,4 @@
-/* 읽기 본문 16/28(shell/design-system#R16). Markdown·code·diff·목차가 함께 쓴다. */
+/* 읽기 본문 16/28. Markdown·code·diff·목차가 함께 쓴다. */
 .markdown {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
@@ -14,7 +14,7 @@
   margin-top: var(--space-0);
 }
 
-/* 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px(R39). */
+/* 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px. */
 .h1 {
   margin: var(--space-0) var(--space-0) var(--space-6);
   font-size: var(--type-title-size);
@@ -79,7 +79,7 @@
   color: var(--color-text-secondary);
 }
 
-/* 인용 막대 2px은 편집기와 같다(shell/editor#R8, R10). */
+/* 인용 막대 2px은 편집기와 같다. */
 .quote {
   margin: var(--space-0) var(--space-0) var(--space-6);
   padding: var(--space-0) var(--space-0) var(--space-0) var(--space-6);
@@ -179,7 +179,7 @@
   user-select: text;
 }
 
-/* diff 글자는 중립 primary이고 색 없이도 +/− 기호로 읽는다(R14, R2). */
+/* diff 글자는 중립 primary이고 색 없이도 +/− 기호로 읽는다. */
 .diff {
   width: 100%;
   user-select: text;

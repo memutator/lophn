@@ -22,7 +22,7 @@ export interface AppShellProps {
 }
 
 // 앱 view 안의 화면 틀. 바깥 크롬은 lophn이 그리고 앱은 자기 머리부터 그린다.
-// 넣은 영역의 폭을 관측해 패널·카드에서는 sidebar를 본문 위 한 줄로 옮긴다(apps/sdk#R37).
+// 넣은 영역의 폭을 관측해 패널·카드에서는 sidebar를 본문 위 한 줄로 옮긴다.
 export function AppShell({ title, actions, nav, children }: AppShellProps) {
   const ref = useRef<HTMLDivElement>(null);
   const size = useObservedSize(ref);

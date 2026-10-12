@@ -3,14 +3,10 @@
 // 표는 칸에 단추가 있어야 해서 design Table의 CSS Module로 짠 look-alike이고, provider 연결 창의 정적 모양
 // (A9b)은 한 화면에 두 창을 나란히 놓으려고 같은 token으로 짠 look-alike다. 눌러서 여는 창은 실제 Dialog다.
 import type { ReactNode } from "react";
+import { Button, Dialog, Field, Input, Select } from "@lophn/design/components";
 import {
-  Button,
-  Dialog,
-  Field,
-  Input,
   lophnSpaceIcons,
-  Select,
-} from "@lophn/design/components";
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import tableStyles from "../../../../packages/design/components/table/table.module.css";
 import {

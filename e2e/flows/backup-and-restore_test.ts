@@ -3,7 +3,7 @@
 // 검증된 묶음을 고르고 잃을 기록 범위를 본 뒤 복원한다. 복원 뒤 core는 같은 pipe의 새 hello로
 // 다시 시작하고, 같은 창이 복원 기준의 기록을 다시 읽는다.
 // - 1·2(하루 backup)는 사람에게 보이지 않는 machine 단계다. I/O worker의 check 주기가 1시간이라
-//   시험은 운영 중 ledger에서 I/O worker와 같은 createBackup으로 묶음을 만든다(apps/core/restore_test.ts와 같다).
+//   시험은 운영 중 ledger에서 I/O worker와 같은 createBackup으로 묶음을 만든다(packages/core/storage/migration/restore-flow_test.ts와 같다).
 // - 미완성 묶음 갈래는 manifest 전에 멈춘 묶음 folder(중단된 backup)로 만든다.
 // - 이 파일이 보지 않는 갈래(앱 export: app-export_test.ts가 본다, 호환되지 않는 묶음, secret
 //   export·import 보호 창, 문서만 export, keychain 잠김, 확인 불가 외부 결과)는 platform#T54의
@@ -14,7 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   backupStamp,
   createBackup,
-} from "../../packages/platform/backup-and-migration/mod.ts";
+} from "../../packages/core/storage/migration/mod.ts";
 import {
   type FlowShell,
   mustCall,

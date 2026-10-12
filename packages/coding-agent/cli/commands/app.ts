@@ -1,7 +1,7 @@
-// app command의 route 표와 실행이다(T21, cli#R7, R24–R28, R31, R32). 모든 command는 MCP
+// app command의 route 표와 실행이다. 모든 command는 MCP
 // `lophn_app`과 같은 op·같은 소유 route·같은 흐름(connection/app-ops)이다: 같은 credential·입력의
-// 결과와 거절이 같다(cli#R1). 사람 전용 `app start|stop|release activate`와 `app automation run`은
-// route가 없다: coding credential로는 거절이고 결정 화면 링크와 사실만 낸다(cli#R7, R27, R31).
+// 결과와 거절이 같다. 사람 전용 `app start|stop|release activate`와 `app automation run`은
+// route가 없다: coding credential로는 거절이고 결정 화면 링크와 사실만 낸다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {
   cliAppAutomationRunSchema,
@@ -25,7 +25,7 @@ import {
   cliAppSyncToolsSchema,
   cliAppTestSchema,
   cliAppValidateSchema,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import {
   APP_OP_ROUTES,
   type AppHumanOnly,
@@ -37,7 +37,7 @@ import {
 } from "../../connection/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
-// CLI command 이름 → MCP op다. 이 표 하나로 두 통로의 대응이 정해진다(cli#R1).
+// CLI command 이름 → MCP op다. 이 표 하나로 두 통로의 대응이 정해진다.
 export const CLI_APP_OPS = {
   "app list": "list",
   "app show": "show",
@@ -145,7 +145,7 @@ export function isHumanOnly(name: string): name is AppHumanOnly {
 export type AppRunDeps = Omit<AppOpDeps, "surface">;
 
 // command 하나를 실행한다. 결과 모양은 MCP와 같은 {summary, data, next}이고 isError면
-// CLI는 성공 exit로 처리하지 않는다(cli#R26).
+// CLI는 성공 exit로 처리하지 않는다.
 export async function runApp(
   name: CliAppName | AppHumanOnly,
   input: Record<string, unknown>,

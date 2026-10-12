@@ -1,4 +1,4 @@
-// shell#T53 Issues 화면 E2E 공용 조립. 실제 headless shell·core에 깨진 앱 fixture를 띄우고,
+// Issues 화면 E2E 공용 조립. 실제 headless shell·core에 깨진 앱 fixture를 띄우고,
 // 사람이 [Report a problem]으로 실제 문제를 만든 뒤 [View issue]로 앱 공간 Issues 상세에 닿는다.
 // 문제·보고는 core command(problems SubmitFeedback)가 만든 것이고 화면은 core read를 그대로 보인다.
 import { assert, assertEquals } from "@std/assert";

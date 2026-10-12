@@ -12,7 +12,7 @@ export interface TreeRow {
   id: string;
   label: string;
   depth: number;
-  // 그릴 들임 단계. 8단부터 더 들이지 않는다(shell/design-system#R32).
+  // 그릴 들임 단계. 8단부터 더 들이지 않는다.
   indent: number;
   parentId?: string;
   branch: boolean;

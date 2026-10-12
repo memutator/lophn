@@ -1,4 +1,4 @@
-// 배포 skill의 version·content hash manifest다(coding-agent/guides#R20). 배포하는 skill마다 version과
+// 배포 skill의 version·content hash manifest다. 배포하는 skill마다 version과
 // 파일 내용 hash를 여기에 기록하고, 같은 version의 내용이 바뀌면 배포 테스트가 실패한다. 내용을 바꾸면
 // version을 올리고 새 hash를 함께 기록한다. 설치 묶음은 이 manifest와 함께 서명되므로 설치 때도 내용
 // hash가 기록과 맞아야 설치한다. 사용자가 만든 skill은 이 manifest에 없고 로컬 파일로만 다룬다.

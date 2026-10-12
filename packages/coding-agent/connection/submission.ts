@@ -1,4 +1,4 @@
-// 제출 파일의 검사와 읽기다(connection#R10). coding agent가 명시한 파일만 realpath로
+// 제출 파일의 검사와 읽기다. coding agent가 명시한 파일만 realpath로
 // 다시 풀어 submission root 안인지 보고, 운영 data·backup·다른 앱 source로 이어진
 // 경로는 없는 파일과 똑같이 거절한다. 거절 응답에는 해석한 경로도 금지 영역의
 // 경로도 넣지 않는다(운영 data 경로가 통로 출력에 나오지 않는다).
@@ -19,8 +19,8 @@ import {
   type Result,
   sha256Hex,
 } from "../../base/mod.ts";
-import type { DocumentFileInput } from "../../contracts/documents/mod.ts";
-import type { PreparedBlob } from "../../contracts/platform/mod.ts";
+import type { DocumentFileInput } from "../../protocol/projects/mod.ts";
+import type { PreparedBlob } from "../../protocol/storage/mod.ts";
 
 export type SubmissionScope = {
   // 제출을 허용하는 root다. 연결 source의 작업 폴더(submission root)다.
@@ -205,7 +205,7 @@ export async function resolveSubmission(
 
 // documents/versions의 content_hash와 같은 규칙이다: 고정 필드 JSON을 path 순으로,
 // 키는 codepoint 순으로 공백 없이 만든 UTF-8의 SHA-256. 문서 저장 준비가 낸 hash와
-// 같은 값이어야 해서 apps/core 통합 테스트가 두 정의를 맞대 본다.
+// 같은 값이어야 해서 core의 projects/file-tracking/routes/format-validate_test.ts가 두 정의를 맞대 본다.
 const FILE_FIELDS = [
   "blob_hash",
   "bytes",

@@ -23,7 +23,7 @@ export function columnPixels(frame: ColumnFrame): number {
   return pixels(tokens.page[frame]);
 }
 
-// 칸 640px 미만은 양쪽 16px, 이상은 32px(shell/design-system#R24, R42).
+// 칸 640px 미만은 양쪽 16px, 이상은 32px.
 export function panePadding(pane: number): PanePadding {
   return pane < tokens.breakpoint.sm ? "narrow" : "wide";
 }
@@ -49,7 +49,7 @@ export interface ColumnBox {
   readonly right: number;
 }
 
-// 최대폭 기둥은 칸 여백 안 가용 영역의 가운데에 둔다(R21, R22).
+// 최대폭 기둥은 칸 여백 안 가용 영역의 가운데에 둔다.
 export function columnBox(pane: number, max: number): ColumnBox {
   const padding = panePaddingPixels(pane);
   const inner = Math.max(0, pane - padding * 2);

@@ -3,16 +3,16 @@ import { checkRepo, type Violation } from "./check-deps.ts";
 import { BLUEPRINT_ENTRY, BLUEPRINT_WRAPPER } from "./deps-blueprint.ts";
 
 const SDK = "packages/sdk/blueprint";
-const HELPER = "packages/contracts/apps/blueprint-json.ts";
+const HELPER = "packages/protocol/apps/blueprint-json.ts";
 type Tree = Record<string, string>;
 const graph: Tree = {
   [BLUEPRINT_ENTRY]: 'export * from "./blueprint-json.ts";',
   [HELPER]: "export const value = 1;",
-  [BLUEPRINT_WRAPPER]: 'export * from "../../contracts/apps/blueprint.ts";',
+  [BLUEPRINT_WRAPPER]: 'export * from "../../../protocol/apps/blueprint.ts";',
   [`${SDK}/mod.ts`]:
-    'export * from "../../contracts/apps/blueprint.ts"; export * from "./define.ts";',
+    'export * from "../../protocol/apps/blueprint.ts"; export * from "./define.ts";',
   [`${SDK}/define.ts`]:
-    'import { value } from "../../contracts/apps/blueprint.ts"; export { value };',
+    'import { value } from "../../protocol/apps/blueprint.ts"; export { value };',
 };
 
 async function fixture(tree: Tree): Promise<Violation[]> {
@@ -36,7 +36,7 @@ function pure(violations: Violation[]) {
     .map(({ file, line }) => ({ file, line }));
 }
 
-Deno.test("apps/blueprint#R16 apps/sdk#R5: exact public wrappers share the pure entry", async () => {
+Deno.test("blueprint: exact public wrappers share the pure entry", async () => {
   assertEquals(await fixture(graph), []);
   assertEquals(
     await fixture({
@@ -54,42 +54,22 @@ Deno.test("apps/blueprint#R16 apps/sdk#R5: exact public wrappers share the pure 
   );
 });
 
-Deno.test("apps/blueprint#R16: only the exact apps wrapper gains a public-entry exception", async () => {
-  for (
-    const file of [
-      "packages/apps/blueprint/validate.ts",
-      "packages/apps/runtime/mod.ts",
-      "packages/documents/formats/mod.ts",
-    ]
-  ) {
-    assertEquals(
-      (await fixture({
-        ...graph,
-        [file]: 'export * from "../../contracts/apps/blueprint.ts";',
-      })).map(({ file: source, rule }) => ({ file: source, rule })),
-      [
-        { file, rule: "leaf-contract" },
-      ],
-    );
-  }
+Deno.test("blueprint: only the exact core wrapper gains a public-entry exception", async () => {
   const violations = await fixture({
     ...graph,
     [BLUEPRINT_WRAPPER]:
-      'export * from "../../contracts/apps/blueprint-json.ts";',
+      'export * from "../../../protocol/apps/blueprint-json.ts";',
   });
-  assertEquals(violations.map(({ rule }) => rule), [
-    "blueprint-pure",
-    "leaf-contract",
-  ]);
+  assertEquals(violations.map(({ rule }) => rule), ["blueprint-pure"]);
 });
 
-Deno.test("apps/blueprint#R16 apps/sdk#R5: wrappers cannot select private contract helpers", async () => {
+Deno.test("blueprint: wrappers cannot select private contract helpers", async () => {
   for (const file of [`${SDK}/mod.ts`, `${SDK}/define.ts`]) {
     assertEquals(
       pure(
         await fixture({
           ...graph,
-          [file]: 'export * from "../../contracts/apps/blueprint-json.ts";',
+          [file]: 'export * from "../../protocol/apps/blueprint-json.ts";',
         }),
       ),
       [{ file, line: 1 }],
@@ -97,7 +77,7 @@ Deno.test("apps/blueprint#R16 apps/sdk#R5: wrappers cannot select private contra
   }
 });
 
-Deno.test("apps/blueprint#R16: transitive pure contracts cannot gain external dependencies", async () => {
+Deno.test("blueprint: transitive pure contracts cannot gain external dependencies", async () => {
   for (
     const specifier of [
       "zod",
@@ -121,14 +101,14 @@ Deno.test("apps/blueprint#R16: transitive pure contracts cannot gain external de
   }
 });
 
-Deno.test("apps/blueprint#R16: relative paths cannot drag in base Zod contracts or runtime", async () => {
+Deno.test("blueprint: relative paths cannot drag in base Zod contracts or runtime", async () => {
   for (
     const [specifier, target] of [
       ["../../base/mod.ts", "packages/base/mod.ts"],
-      ["./mod.ts", "packages/contracts/apps/mod.ts"],
-      ["./permissions.ts", "packages/contracts/apps/permissions.ts"],
-      ["../platform/mod.ts", "packages/contracts/platform/mod.ts"],
-      ["../../apps/runtime/mod.ts", "packages/apps/runtime/mod.ts"],
+      ["./mod.ts", "packages/protocol/apps/mod.ts"],
+      ["./permissions.ts", "packages/protocol/apps/permissions.ts"],
+      ["../server/mod.ts", "packages/protocol/server/mod.ts"],
+      ["../../core/apps/runtime/mod.ts", "packages/core/apps/runtime/mod.ts"],
       ["../../sdk/blueprint/mod.ts", `${SDK}/mod.ts`],
     ]
   ) {
@@ -145,14 +125,14 @@ Deno.test("apps/blueprint#R16: relative paths cannot drag in base Zod contracts 
   }
 });
 
-Deno.test("apps/sdk#R5 apps/blueprint#R16: SDK dependencies stay in its own pure directory", async () => {
+Deno.test("blueprint: SDK dependencies stay in its own pure directory", async () => {
   for (
     const [specifier, target] of [
       ["../cap-problem/mod.ts", "packages/sdk/cap-problem/mod.ts"],
       ["../../base/mod.ts", "packages/base/mod.ts"],
-      ["../../contracts/apps/mod.ts", "packages/contracts/apps/mod.ts"],
-      ["../../apps/runtime/mod.ts", "packages/apps/runtime/mod.ts"],
-      ["zod", "packages/contracts/apps/permissions.ts"],
+      ["../../protocol/apps/mod.ts", "packages/protocol/apps/mod.ts"],
+      ["../../core/apps/runtime/mod.ts", "packages/core/apps/runtime/mod.ts"],
+      ["zod", "packages/protocol/apps/permissions.ts"],
     ]
   ) {
     assertEquals(
@@ -171,7 +151,7 @@ Deno.test("apps/sdk#R5 apps/blueprint#R16: SDK dependencies stay in its own pure
       ...graph,
       [`${SDK}/define.ts`]: 'export * from "./helpers/value.ts";',
       [`${SDK}/helpers/value.ts`]:
-        'export * from "../../../contracts/apps/blueprint.ts";',
+        'export * from "../../../protocol/apps/blueprint.ts";',
     }),
     [],
   );
@@ -187,7 +167,7 @@ Deno.test("apps/sdk#R5 apps/blueprint#R16: SDK dependencies stay in its own pure
   );
 });
 
-Deno.test("apps/blueprint#R16: missing extension missing file and test dependencies fail closed", async () => {
+Deno.test("blueprint: missing extension missing file and test dependencies fail closed", async () => {
   for (
     const specifier of [
       "./blueprint-json",
@@ -202,9 +182,8 @@ Deno.test("apps/blueprint#R16: missing extension missing file and test dependenc
         await fixture({
           ...graph,
           [BLUEPRINT_ENTRY]: `export * from "${specifier}";`,
-          "packages/contracts/apps/blueprint_test.ts":
-            "export const value = 1;",
-          "packages/contracts/apps/blueprint-unregistered.ts":
+          "packages/protocol/apps/blueprint_test.ts": "export const value = 1;",
+          "packages/protocol/apps/blueprint-unregistered.ts":
             "export const value = 1;",
         }),
       ),
@@ -213,19 +192,19 @@ Deno.test("apps/blueprint#R16: missing extension missing file and test dependenc
   }
 });
 
-Deno.test("apps/blueprint#R16: escaped workspace names remain nonrelative dependencies", async () => {
+Deno.test("blueprint: escaped workspace names remain nonrelative dependencies", async () => {
   assertEquals(
     pure(
       await fixture({
         ...graph,
         "deno.json": '{"workspace":["./packages/*"]}',
-        "packages/contracts/deno.json": JSON.stringify({
-          name: "@lophn/contracts",
+        "packages/protocol/deno.json": JSON.stringify({
+          name: "@lophn/protocol",
           exports: { "./blueprint": "./apps/blueprint.ts" },
           compilerOptions: { erasableSyntaxOnly: true },
         }),
-        [BLUEPRINT_WRAPPER]: 'export * from "@lophn/contracts/blueprint";',
-        [`${SDK}/mod.ts`]: 'export * from "@lophn/contracts/blueprint";',
+        [BLUEPRINT_WRAPPER]: 'export * from "@lophn/protocol/blueprint";',
+        [`${SDK}/mod.ts`]: 'export * from "@lophn/protocol/blueprint";',
         [HELPER]: 'import "\\u007aod";',
       }),
     ),
@@ -237,7 +216,7 @@ Deno.test("apps/blueprint#R16: escaped workspace names remain nonrelative depend
   );
 });
 
-Deno.test("apps/blueprint#R16: pure graph checks computed and literal dynamic import lines", async () => {
+Deno.test("blueprint: pure graph checks computed and literal dynamic import lines", async () => {
   for (const expression of ["name", "`./blueprint-json.ts`", '"./" + name']) {
     assertEquals(
       pure(
@@ -278,7 +257,7 @@ Deno.test("apps/blueprint#R16: pure graph checks computed and literal dynamic im
   );
 });
 
-Deno.test("apps/blueprint#R16: comments strings templates regex and property calls are not imports", async () => {
+Deno.test("blueprint: comments strings templates regex and property calls are not imports", async () => {
   assertEquals(
     await fixture({
       ...graph,
@@ -290,7 +269,7 @@ Deno.test("apps/blueprint#R16: comments strings templates regex and property cal
   assertEquals(
     await fixture({
       ...graph,
-      "packages/contracts/apps/mod.ts": 'import "zod";',
+      "packages/protocol/apps/mod.ts": 'import "zod";',
       "packages/sdk/cap-problem/mod.ts": 'import "node:fs";',
       "packages/base/mod.ts": "const load = () => import(name);",
     }),

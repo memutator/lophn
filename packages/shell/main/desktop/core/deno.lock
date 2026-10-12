@@ -1,0 +1,231 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:electron@44.5.1": "44.5.1",
+    "npm:zod@4.6.5": "4.6.5"
+  },
+  "npm": {
+    "@electron-internal/extract-zip@1.0.5": {
+      "integrity": "sha512-+bqFCP98pLI0Tt0XQo1TmlXtwjWchISndDOxCkEcIuUgXWpBnLyRI+2DU+mesvnMMX6L1XDqYNA0lXNDHd/yiA=="
+    },
+    "@electron/get@5.1.0": {
+      "integrity": "sha512-3kSBtG8ObcTVfXanm5vVJ6UnBLEVmVsRk1M+vGqCuMBV+XLCbJYuWQful+yIy0GQDsSlK0kHEriEHn7SPk4EnA==",
+      "dependencies": [
+        "debug",
+        "env-paths",
+        "graceful-fs",
+        "progress",
+        "semver",
+        "sumchecker"
+      ],
+      "optionalDependencies": [
+        "undici"
+      ]
+    },
+    "@types/node@24.19.1": {
+      "integrity": "sha512-aS3/DG0oM05K0RIXXP+hKjinGG5IgSSVGzswZxW3O0sS3pH4/fycXundUC9XsszgKCk4gHXylTEK6hyFxVxnoQ==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
+    "debug@4.4.3": {
+      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
+      "dependencies": [
+        "ms"
+      ]
+    },
+    "electron@44.5.1": {
+      "integrity": "sha512-lx7AYoFIiyvEvgvpyWO9kOC60xtNPpiPZAth6Fmg9NutzpCAMLwpUlaBY2EXfZyIgUdzEmLMj9KvK0Vrokl1yQ==",
+      "dependencies": [
+        "@electron-internal/extract-zip",
+        "@electron/get",
+        "@types/node"
+      ],
+      "bin": true
+    },
+    "env-paths@3.0.0": {
+      "integrity": "sha512-dtJUTepzMW3Lm/NPxRf3wP4642UWhjL2sQxc+ym2YMj1m/H2zDNQOlezafzkHwn6sMstjHTwG6iQQsctDW/b1A=="
+    },
+    "graceful-fs@4.2.11": {
+      "integrity": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="
+    },
+    "ms@2.1.3": {
+      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
+    },
+    "progress@2.0.3": {
+      "integrity": "sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA=="
+    },
+    "semver@7.8.5": {
+      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
+      "bin": true
+    },
+    "sumchecker@3.0.1": {
+      "integrity": "sha512-MvjXzkz/BOfyVDkG0oFOtBxHX2u3gKbMHIF/dXblZsgD3BWOFLmHovIpZY7BykJdAjcqRCBi1WYBNdEC9yI7vg==",
+      "dependencies": [
+        "debug"
+      ]
+    },
+    "undici-types@7.24.6": {
+      "integrity": "sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg=="
+    },
+    "undici@7.30.0": {
+      "integrity": "sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ=="
+    },
+    "zod@4.6.5": {
+      "integrity": "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:electron@44.5.1",
+      "npm:zod@4.6.5"
+    ],
+    "links": {
+      "jsr:@lophn/base": {},
+      "jsr:@lophn/blueprint@1.0.0": {},
+      "jsr:@lophn/cap-problem@1.0.0": {},
+      "jsr:@lophn/cap-schedule@1.0.0": {},
+      "jsr:@lophn/chart": {
+        "dependencies": [
+          "npm:@types/d3-scale@4.0.9",
+          "npm:@types/d3-shape@3.2.0",
+          "npm:@types/react@19.3.0",
+          "npm:d3-scale@4.0.2",
+          "npm:d3-shape@3.2.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/coding-agent": {},
+      "jsr:@lophn/design": {
+        "dependencies": [
+          "jsr:@luca/esbuild-deno-loader@0.11.1",
+          "npm:@lezer/markdown@1.7.2",
+          "npm:@radix-ui/react-checkbox@1.3.11",
+          "npm:@radix-ui/react-dialog@1.1.23",
+          "npm:@radix-ui/react-dropdown-menu@2.1.24",
+          "npm:@radix-ui/react-popover@1.1.23",
+          "npm:@radix-ui/react-select@2.3.7",
+          "npm:@radix-ui/react-switch@1.3.7",
+          "npm:@radix-ui/react-tabs@1.1.21",
+          "npm:@radix-ui/react-tooltip@1.2.16",
+          "npm:@types/react@19.3.0",
+          "npm:esbuild@0.28.2",
+          "npm:happy-dom@20.14.5",
+          "npm:lucide-react@1.51.0",
+          "npm:postcss-value-parser@4.2.0",
+          "npm:postcss@8.5.28",
+          "npm:react-dom@19.3.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/format-document@1.0.0": {},
+      "jsr:@lophn/protocol": {},
+      "jsr:@lophn/shell-renderer": {
+        "dependencies": [
+          "jsr:@luca/esbuild-deno-loader@0.11.1",
+          "npm:@codemirror/commands@6.11.1",
+          "npm:@codemirror/lang-markdown@6.5.2",
+          "npm:@codemirror/language@6.12.4",
+          "npm:@codemirror/state@6.7.6",
+          "npm:@codemirror/view@6.43.13",
+          "npm:@types/react@19.3.0",
+          "npm:@xterm/addon-fit@0.11.0",
+          "npm:@xterm/xterm@6.0.0",
+          "npm:esbuild@0.28.2",
+          "npm:happy-dom@20.14.5",
+          "npm:lucide-react@1.51.0",
+          "npm:react-dom@19.3.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/tokens@1.0.0": {},
+      "jsr:@lophn/ui-action@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-chart@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-control@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-filter@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-layout@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-overlay@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-reading@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-stat@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-state@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-table@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/wireframes": {
+        "dependencies": [
+          "jsr:@luca/esbuild-deno-loader@0.11.1",
+          "npm:@types/react@19.3.0",
+          "npm:@xterm/xterm@6.0.0",
+          "npm:esbuild@0.28.2",
+          "npm:react-dom@19.3.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/wording": {
+        "dependencies": [
+          "npm:@formatjs/icu-messageformat-parser@3.5.20",
+          "npm:intl-messageformat@12.1.2"
+        ]
+      }
+    }
+  }
+}

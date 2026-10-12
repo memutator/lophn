@@ -7,8 +7,8 @@
 // 실제 ~/.lophn은 읽지도 쓰지도 않는다. 화면은 사람 화면에 띄우지 않는다(headless).
 import { assert, assertEquals } from "@std/assert";
 
-import { directoryScanner } from "../packages/documents/projects/scan.ts";
-import { previewTracking } from "../packages/documents/projects/work.ts";
+import { directoryScanner } from "../packages/core/projects/registry/scan.ts";
+import { previewTracking } from "../packages/core/projects/registry/work.ts";
 import { READY_TIMEOUT_MS } from "./harness.ts";
 import { launchShell, type RunningShell } from "./run.ts";
 
@@ -17,8 +17,8 @@ export const repoRoot = new URL("../", import.meta.url).pathname.replace(
   "",
 );
 const electronExecutable =
-  `${repoRoot}/apps/shell/main/node_modules/electron/dist/electron`;
-const shellApp = `${repoRoot}/apps/shell/main/dist/main.cjs`;
+  `${repoRoot}/packages/shell/main/node_modules/electron/dist/electron`;
+const shellApp = `${repoRoot}/packages/shell/main/dist/main.cjs`;
 
 async function runBuild(args: string[], failure: string): Promise<void> {
   const build = new Deno.Command(args[0], {
@@ -35,7 +35,7 @@ let built: Promise<void> | undefined;
 export function buildShell(): Promise<void> {
   built ??= (async () => {
     await runBuild(
-      ["npm", "--prefix", `${repoRoot}/apps/shell/main`, "run", "build"],
+      ["npm", "--prefix", `${repoRoot}/packages/shell/main`, "run", "build"],
       "shell main build 실패",
     );
     await runBuild(
@@ -43,7 +43,7 @@ export function buildShell(): Promise<void> {
         "deno",
         "run",
         "--allow-all",
-        `${repoRoot}/apps/shell/renderer/build.ts`,
+        `${repoRoot}/packages/shell/renderer/build.ts`,
       ],
       "shell renderer build 실패",
     );
@@ -382,7 +382,7 @@ export type TrackingOptions = {
 };
 
 /**
- * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다, documents/projects#R3).
+ * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다).
  * 화면 조작(launcher 등록 dialog)은 first-project 1·2·4 시험이 보고, 다른 시험은 준비로 같은 사람
  * command를 core 통로로 낸다.
  */

@@ -5,7 +5,7 @@
 import type {
   HarnessId,
   IntegrationTarget,
-} from "../../../contracts/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/mod.ts";
 import { setOwned as setToml } from "../adapters/toml.ts";
 import { setOwned as setYaml, type YamlMap } from "../adapters/yaml.ts";
 import { buildResources } from "../builder.ts";

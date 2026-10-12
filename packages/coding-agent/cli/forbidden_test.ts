@@ -1,6 +1,6 @@
 // coding-agent#T15: 사람 관리 command가 CLI 표에 없고 표가 부르는 route는 금지 route가
 // 아니다(cli#R6, R16, R17, R23, R38). 표 밖 command는 실행 전에 거절이다(cli#R4).
-// daemon 쪽 거절은 apps/core/coding-agent-scope_test.ts가 실제 core로 본다.
+// daemon 쪽 거절은 packages/core/apps/connections/scope_test.ts가 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 import { contractRoutesByName } from "../connection/testing/mod.ts";
 import { forbiddenRouteNames } from "../connection/mod.ts";

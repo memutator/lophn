@@ -3,7 +3,7 @@
   flex-direction: column;
 }
 
-/* 칸보다 탭이 많으면 페이지가 아니라 탭 줄이 가로로 scroll한다(apps/sdk#R37). */
+/* 칸보다 탭이 많으면 페이지가 아니라 탭 줄이 가로로 scroll한다. */
 .list {
   display: flex;
   align-items: flex-end;

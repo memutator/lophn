@@ -30,7 +30,7 @@ export interface MenuProps {
   returnFocus?: boolean;
 }
 
-// 키보드 이동·Escape·focus 복귀는 Radix DropdownMenu가 맡는다. dialog 안에서도 popover 층에 뜬다(R20).
+// 키보드 이동·Escape·focus 복귀는 Radix DropdownMenu가 맡는다. dialog 안에서도 popover 층에 뜬다.
 export function Menu(
   {
     trigger,

@@ -1,8 +1,8 @@
 // docs/architecture/*.md의 "## 5." 절에서 route 경로와 event 이름을 읽어
 // ALL_ROUTES·ALL_EVENTS에 있는 것·없는 것을 최상위·절마다 보인다.
-// 빠짐이 있으면 exit 1이다(관문, contracts#T46).
+// 빠짐이 있으면 exit 1이다(관문).
 
-import { ALL_EVENTS, ALL_ROUTES } from "@lophn/contracts";
+import { ALL_EVENTS, ALL_ROUTES } from "@lophn/protocol";
 
 const ROOT = new URL("..", import.meta.url);
 const ARCHITECTURE = new URL("docs/architecture/", ROOT);
@@ -302,7 +302,7 @@ if (import.meta.main) {
   const missing = missingItems(docs);
   if (missing.length > 0) {
     console.error(
-      `contract 빠짐 ${missing.length}개. 각 architecture 5장의 경로·event가 contracts에 있어야 한다:`,
+      `contract 빠짐 ${missing.length}개. 각 architecture 5장의 경로·event가 protocol에 있어야 한다:`,
     );
     for (const item of missing) {
       console.error(

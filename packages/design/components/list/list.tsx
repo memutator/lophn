@@ -6,7 +6,7 @@ export function List({ children }: { children: ReactNode }) {
 }
 
 export interface ListItemProps {
-  // 사람이 지은 이름. 메타는 그 아래 2px에 작은 글로 둔다(shell/design-system#R32).
+  // 사람이 지은 이름. 메타는 그 아래 2px에 작은 글로 둔다.
   title: string;
   meta?: ReactNode;
   selected?: boolean;

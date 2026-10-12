@@ -4,9 +4,9 @@ import {
   defineCommand,
   defineRead,
   defineUpload,
-  type RpcFetch,
   UPLOAD_INPUT_HEADER,
-} from "../../../contracts/platform/mod.ts";
+} from "../../../protocol/base/mod.ts";
+import type { RpcFetch } from "../../../protocol/client/mod.ts";
 import {
   createCoreClient,
   UNREADABLE_MESSAGE,

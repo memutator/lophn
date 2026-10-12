@@ -1,9 +1,9 @@
 // 설치된 Deno executable로 lophn-mcp를 띄워 initialize·tools/list를 확인하는
-// 눈이다(coding-agent/harnesses#R10, T32). 요청은 loading.ts의 gate를 지난
+// 눈이다. 요청은 loading.ts의 gate를 지난
 // 것(설치 Deno executable과 좁은 권한 args)만 온다. stdin/stdout JSON-RPC 한
 // 번을 주고받고 끝내며 server를 남겨 두지 않는다. stdout 원문·stderr는 반환하지
-// 않고 안전한 분류와 exit code만 남긴다(R12). timeout을 성공이나 실패로 바꾸지
-// 않는다(R3).
+// 않고 안전한 분류와 exit code만 남긴다. timeout을 성공이나 실패로 바꾸지
+// 않는다.
 import type {
   McpProbePort,
   McpProbeRequest,

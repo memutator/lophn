@@ -1,6 +1,6 @@
 // agent context와 힌트(apps/agent-context#R1–R5). SDK의 등록 handler를 lophn이 설치하는 화면 context host의 대역
 // 위에서 돌린다. 대역은 선언 조회·열린 view 조회·입력 검사·민감 path 제거(요약 2048byte)를 같은 모양으로 한다.
-// 실제 host의 검사는 packages/apps/agent-context의 test가 맡고, 여기서는 이 앱의 선언과 상태가 맞는지 본다.
+// 실제 host의 검사는 packages/core/apps/agent-context의 test가 맡고, 여기서는 이 앱의 선언과 상태가 맞는지 본다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import {
   CommandRejection,

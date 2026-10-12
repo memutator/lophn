@@ -10,12 +10,14 @@ import {
   Icon,
   iconPixels,
   Input,
-  lophnSpaceIcons,
   Menu,
   Select,
   Switch,
   Textarea,
 } from "@lophn/design/components";
+import {
+  lophnSpaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import {
   AVATAR_ICON_LABEL,

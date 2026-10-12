@@ -6,7 +6,7 @@ import styles from "./button.module.css";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
-// className·style을 받지 않아 전체폭·임의 색 버튼을 만들 수 없다(shell/design-system#R27).
+// className·style을 받지 않아 전체폭·임의 색 버튼을 만들 수 없다.
 type NativeButton = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "className" | "style" | "children"

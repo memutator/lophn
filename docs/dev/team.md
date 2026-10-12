@@ -13,7 +13,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | 1 | lead (주 세션) | Opus 5.5 | 선행이 열린 작업 고르기, worker 배정, review, PR 병합, 팀(concern) 사이 충돌 조정, 사람에게 묻기, 결정 기록 | `docs/plan/`, `docs/dev/`, open-issues.md |
 | 2 | worker (lead가 띄우는 sub agent) | 아래 등급 | 작업 하나를 worktree에서 구현하고 PR을 올린다. 자기 sub agent는 띄우지 않는다 | 작업의 "자리"만 |
 
-- concern 경계와 자리는 그대로다: contracts는 `packages/contracts/`·`packages/base/`, 최상위 concern은 `packages/<최상위>/`와 실행 entry, shell은 `apps/shell/`·`packages/design/`·`packages/sdk/ui-*`.
+- concern 경계와 자리는 그대로다: contracts는 `packages/protocol/`·`packages/base/`, core의 concern은 `packages/core/<module>/`와 `packages/core/main/`(실행 entry), shell은 `packages/shell/`·`packages/design/`·`packages/sdk/ui-*`.
 - worker는 작업 블록이 가리키는 자기 concern 문서와 관련 flow만 읽는다. 다른 최상위는 contract와 concern id로만 본다. contract가 바뀌어야 하면 lead에게 말한다.
 - review는 lead가 diff를 직접 읽거나, 구현한 worker와 다른 model의 worker에게 맡긴다.
 

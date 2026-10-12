@@ -1,4 +1,4 @@
-// 관리 구간 merge다(coding-agent/guides#R13·R15, harnesses#R8, T30). Markdown
+// 관리 구간 merge다. Markdown
 // 지침 파일의 `<!-- begin lophn-managed -->`와 `<!-- end lophn-managed -->`
 // 사이만 lophn 소유이고 바깥 사람 내용은 바이트 그대로 둔다. marker가 없거나
 // 중복·불완전·짝이 맞지 않으면 무변경이다(broken). 새 파일 만들기는 별도 명시

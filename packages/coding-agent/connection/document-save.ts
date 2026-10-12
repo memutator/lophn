@@ -1,4 +1,4 @@
-// 문서 저장 통로다(mcp#R13–R15, cli#R15). MCP `lophn_save`와 CLI `save`가 같은 흐름을
+// 문서 저장 통로다. MCP `lophn_save`와 CLI `save`가 같은 흐름을
 // 쓴다: 자리·series 검사 → document.prepare(worker) → document.save(command, CAS와
 // 준비 참조를 묶어서) → 허용된 series 가입. 문서·판은 documents가 만들고 이 통로는
 // 순서와 입력을 이을 뿐이다. 추측으로 성공을 만들지 않는다: 어느 단계가 실패해도 그
@@ -19,8 +19,8 @@ import {
   type PlaceRef,
   seriesAddInstance,
   seriesGet,
-} from "../../contracts/documents/mod.ts";
-import type { CommandRoute, Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/projects/mod.ts";
+import type { CommandRoute, Route } from "../../protocol/base/mod.ts";
 import {
   type PrepareBytes,
   type SubmissionScope,
@@ -94,7 +94,7 @@ function reject(
 }
 
 // 새 문서 ID는 idempotency key에서 정한다. 같은 key의 재전달이 같은 문서를 가리켜
-// 새 문서가 하나 더 생기지 않는다(documents/versions#R8). ULID 모양(128bit)이다.
+// 새 문서가 하나 더 생기지 않는다. ULID 모양(128bit)이다.
 export async function documentIdForKey(key: string): Promise<string> {
   const hex = await sha256Hex(`lophn:document:${key}`);
   let value = 0n;

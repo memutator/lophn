@@ -2,14 +2,14 @@
 // 이 파일을 직접 import한다(code-map). core client의 호출 모양을 기록하고 route별로
 // 답을 정해 주는 흐름 client와, 준비를 마친 문서 파일 입력 예를 낸다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import { ROUTES as appsRoutes } from "../../../contracts/apps/mod.ts";
-import { ROUTES as codingAgentRoutes } from "../../../contracts/coding-agent/mod.ts";
-import { ROUTES as documentsRoutes } from "../../../contracts/documents/mod.ts";
-import { ROUTES as lophnAgentRoutes } from "../../../contracts/lophn-agent/mod.ts";
-import { ROUTES as platformRoutes } from "../../../contracts/platform/mod.ts";
-import { ROUTES as problemsRoutes } from "../../../contracts/problems/mod.ts";
-import type { DocumentFileInput } from "../../../contracts/documents/mod.ts";
-import type { CommandRoute, Route } from "../../../contracts/platform/mod.ts";
+import { ROUTES as appsRoutes } from "../../../protocol/apps/mod.ts";
+import { ROUTES as codingAgentRoutes } from "../../../protocol/coding-agent/mod.ts";
+import { ROUTES as documentsRoutes } from "../../../protocol/projects/mod.ts";
+import { ROUTES as lophnAgentRoutes } from "../../../protocol/lophn-agent/mod.ts";
+import { ROUTES as platformRoutes } from "../../../protocol/registry.ts";
+import type { CommandRoute, Route } from "../../../protocol/base/mod.ts";
+import { ROUTES as problemsRoutes } from "../../../protocol/problems/mod.ts";
+import type { DocumentFileInput } from "../../../protocol/projects/mod.ts";
 import type { FlowClient } from "../document-save.ts";
 import type { PrepareBytes, SubmissionScope } from "../submission.ts";
 

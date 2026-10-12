@@ -1,4 +1,4 @@
-// 이 package를 쓰는 앱 선언이 요구 permission을 빠뜨리면 거절한다(apps/sdk#R22).
+// 이 package를 쓰는 앱 선언이 요구 permission을 빠뜨리면 거절한다.
 // import도 이 검사도 grant를 주지 않는다. grant는 apps/permissions의 사람 승인이다.
 
 export const REQUIRED_PERMISSIONS: readonly (readonly string[])[] = [

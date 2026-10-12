@@ -1,8 +1,8 @@
 // 문서 저장 통로 테스트다(mcp#R13–R15, cli#R15). core 대신 route별로 답을 정한 흐름
 // client를 끼워 호출 순서·CAS·준비 참조·무저장 보장을 본다. 실제 core와의 통합은
-// apps/core/documents-save-tool_test.ts에 있다.
+// packages/core/projects/versions/save-e2e_test.ts에 있다.
 import { assert, assertEquals } from "@std/assert";
-import { documentIdSchema } from "../../contracts/documents/mod.ts";
+import { documentIdSchema } from "../../protocol/projects/mod.ts";
 import { documentIdForKey, saveDocument } from "./document-save.ts";
 import { describeSave, describeSaveFailure } from "./save-result.ts";
 import {

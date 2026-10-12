@@ -41,7 +41,7 @@ Deno.test(
     });
     assertEquals(
       argv2.args[argv2.args.length - 1],
-      "/opt/lophn/resources/apps/mcp/main.ts",
+      "/opt/lophn/resources/packages/coding-agent/mcp-server/main.ts",
     );
     assertEquals(
       argv2.args.includes("--config=/opt/lophn/resources/deno.json"),

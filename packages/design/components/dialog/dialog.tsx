@@ -12,7 +12,7 @@ export interface DialogProps {
   // 사람이 읽는 제목. 호출자가 wording key나 owner 문구로 준다.
   title: string;
   children?: ReactNode;
-  // 오른쪽 끝에 주 행동을 둔 버튼 줄(R27).
+  // 오른쪽 끝에 주 행동을 둔 버튼 줄.
   actions?: ReactNode;
   width?: DialogWidth;
   container?: HTMLElement | null;
@@ -20,7 +20,7 @@ export interface DialogProps {
   returnFocus?: boolean;
 }
 
-// modal: backdrop 위 dialog 층에 두고 focus를 가둔 뒤 닫히면 연 자리로 돌려준다(R2, R20).
+// modal: backdrop 위 dialog 층에 두고 focus를 가둔 뒤 닫히면 연 자리로 돌려준다.
 export function Dialog(
   {
     open,

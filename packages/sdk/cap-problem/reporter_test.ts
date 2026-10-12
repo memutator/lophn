@@ -3,14 +3,14 @@ import { formatAt } from "@lophn/base";
 import {
   REPORT_RETRY_DELAYS_MS,
   REPORTING_LIMITS,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 import type {
   ObservationInvocationEvidence,
   ReportAcceptance,
   ReportProblemInput,
   ReportTransport,
   ReportTransportError,
-} from "@lophn/contracts/problems/sdk-report";
+} from "@lophn/protocol/problems/sdk-report";
 import { createProblemReporter } from "./reporter.ts";
 
 const START = Date.parse("2026-10-04T12:00:00.000Z");

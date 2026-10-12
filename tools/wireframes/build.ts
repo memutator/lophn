@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { mergeImports } from "../../apps/shell/renderer/build.ts";
+import { mergeImports } from "../../packages/shell/renderer/build.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "../..");
@@ -97,8 +97,8 @@ async function importMap(): Promise<Record<string, string>> {
   }
   mergeImports(
     imports,
-    await read(join(root, "apps/shell/renderer/deno.json")),
-    pathToFileURL(join(root, "apps/shell/renderer/deno.json")),
+    await read(join(root, "packages/shell/renderer/deno.json")),
+    pathToFileURL(join(root, "packages/shell/renderer/deno.json")),
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));

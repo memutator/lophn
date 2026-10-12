@@ -4,7 +4,7 @@ import { pixels } from "../shared.ts";
 
 export type Density = keyof typeof tokens.table.row;
 
-// 이 행 수를 넘으면 보이는 창만 그린다(shell/design-system#R30).
+// 이 행 수를 넘으면 보이는 창만 그린다.
 export const VIRTUALIZE_AFTER = 1000;
 // 빠르게 scroll해도 빈 줄이 보이지 않도록 위아래로 더 그리는 행 수.
 export const OVERSCAN = 8;

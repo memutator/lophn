@@ -1,14 +1,14 @@
-// 설치 관측이다(coding-agent/harnesses#R3, R10, T32). 설치한 resource의 현재
+// 설치 관측이다. 설치한 resource의 현재
 // 상태(component)와 네 loading 단계를 따로 모아 HarnessIntegrationObservation을
 // 만든다. component의 current는 receipt와 현재 파일의 일치일 뿐이고 loading
-// 성공을 뜻하지 않는다(R3). 읽기만 하며 파일·receipt·설정을 바꾸지 않는다.
+// 성공을 뜻하지 않는다. 읽기만 하며 파일·receipt·설정을 바꾸지 않는다.
 import { fingerprint } from "../../base/mod.ts";
 import {
   type ComponentKind,
   type ComponentObservation,
   type HarnessIntegrationObservation,
   harnessIntegrationObservationSchema,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { fragmentDigest, type Store } from "./integration/apply.ts";
 import type { PlannedResource } from "./integration/plan.ts";
 import type { OwnedResource } from "./integration/receipt.ts";

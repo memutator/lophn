@@ -1,4 +1,4 @@
-// docs/dev/stack.md의 check 단계. 의존 규칙 검사는 contracts#T2가 이 배열에 더한다.
+// docs/dev/stack.md의 check 단계. 의존 규칙 검사(deps)는 lint 다음 단계다.
 // 실행: deno task check
 
 export type Runner = (command: string[]) => Promise<number>;
@@ -23,7 +23,7 @@ export type Decision = {
   before?: string[];
 };
 
-const SHELL_MAIN = "apps/shell/main";
+const SHELL_MAIN = "packages/shell/main";
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -41,7 +41,7 @@ export const steps: Step[] = [
     name: "deps",
     command: ["deno", "run", "--allow-read", "tools/check-deps.ts"],
   },
-  // architecture 5장의 경로·event가 contracts에 있는지 센다. 빠짐이 있으면 실패다(contracts#T46).
+  // architecture 5장의 경로·event가 protocol에 있는지 센다. 빠짐이 있으면 실패다.
   {
     name: "coverage",
     command: ["deno", "run", "--allow-read", "tools/contract-coverage.ts"],
@@ -57,7 +57,7 @@ export const steps: Step[] = [
     command: ["npm", "--prefix", SHELL_MAIN, "run", "check"],
     when: async () => {
       if (!(await exists(`${SHELL_MAIN}/package.json`))) {
-        return { run: false, note: "건너뜀: apps/shell/main 없음" };
+        return { run: false, note: "건너뜀: packages/shell/main 없음" };
       }
       if (await exists(`${SHELL_MAIN}/node_modules`)) return { run: true };
       return {

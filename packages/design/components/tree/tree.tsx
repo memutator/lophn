@@ -29,7 +29,7 @@ export interface TreeProps {
 
 const EMPTY = new Set<string>();
 
-// 행 28px, 깊이당 12px·8단 상한, 현재 왼쪽 2px, 키보드 안쪽 2px focus(shell/design-system#R32).
+// 행 28px, 깊이당 12px·8단 상한, 현재 왼쪽 2px, 키보드 안쪽 2px focus.
 export function Tree(
   {
     nodes,

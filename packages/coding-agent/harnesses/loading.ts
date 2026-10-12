@@ -1,18 +1,17 @@
-// 네 loading 관측이다(coding-agent/harnesses#R10, R3, connection#R13·R14,
-// T32). mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을
+// 네 loading 관측이다. mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을
 // 각각 success·failure·unknown과 안전한 이유·다음 확인으로 낸다.
 // 원칙은 셋이다. (1) 파일 존재·credential active·CLI fallback 성공을 loading
 // 성공으로 쓰지 않는다. MCP 성공은 설치 Deno executable로 lophn-mcp를 띄운
 // initialize·tools/list 응답뿐이다. (2) 관측하지 못한 것(timeout·읽기 실패·
 // 미확인 제품 동작·별도 workspace)은 failure도 success도 아닌 unknown이다.
 // (3) 읽기만 한다. 파일 눈에 쓰기 연산이 없고 trust·권한·workspace를 넓히지
-// 않는다(connection#R14). 설정·skill·안내 파일 원문은 이유에 싣지 않는다(R12).
+// 않는다. 설정·skill·안내 파일 원문은 이유에 싣지 않는다.
 import type {
   IntegrationTarget,
   LoadingCheck,
   LoadingResult,
   LoadingStage,
-} from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import * as json from "./adapters/json.ts";
 import { BEGIN_MARKER, END_MARKER } from "./adapters/region.ts";
 import * as toml from "./adapters/toml.ts";
@@ -22,7 +21,7 @@ import type { HarnessDefinition, LoadingSpec } from "./model.ts";
 import { type RootInputs, rootOf } from "./resolvers.ts";
 import { type SkillRootView, skillShadowsOf } from "./skills.ts";
 
-// loading은 읽기만 한다. 쓰기 연산이 없는 눈이다(connection#R14).
+// loading은 읽기만 한다. 쓰기 연산이 없는 눈이다.
 export type ReadPort = Pick<FilePort, "read" | "listFiles">;
 
 export type McpProbeRequest = {
@@ -31,7 +30,7 @@ export type McpProbeRequest = {
   env: Readonly<Record<string, string>>;
 };
 
-// MCP probe 결과다. raw stdout·stderr는 없고 안전한 분류만 있다(R12).
+// MCP probe 결과다. raw stdout·stderr는 없고 안전한 분류만 있다.
 export type McpProbeResult =
   | { kind: "ok"; server: string | null; tools: readonly string[] }
   | {
@@ -73,12 +72,12 @@ export type LoadingInput = {
   trust?: LoadingTrust;
   // session이 실제로 도는 폴더다. 없거나 앱 root면 앱 root에서 돈다.
   workspace?: string | null;
-  // CLI fallback 결과다. 참고 표시일 뿐 MCP loading 판정에 쓰지 않는다(R10).
+  // CLI fallback 결과다. 참고 표시일 뿐 MCP loading 판정에 쓰지 않는다.
   cliFallback?: LoadingResult;
 };
 
 export type LoadingReport = LoadingCheck & {
-  // 사람이 다음에 확인할 방법이다(connection#R13). 설정·권한을 대신 바꾸지
+  // 사람이 다음에 확인할 방법이다. 설정·권한을 대신 바꾸지
   // 않는 안내다.
   next: string;
 };
@@ -434,7 +433,7 @@ async function observeMcp(
     tools: dependent("MCP 초기화를 확인하지 못해 tool 발견은 확인하지 않았다"),
   });
 
-  // 비활성 연결은 credential이 있어도 호출이 인증 거절된다(connection#R13).
+  // 비활성 연결은 credential이 있어도 호출이 인증 거절된다.
   if (input.connection !== null && input.connection.state === "revoked") {
     return stop(
       "failure",

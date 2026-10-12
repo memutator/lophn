@@ -2,7 +2,7 @@
 // client와 메모리 source port를 쓴다. MCP와 CLI가 같은 흐름이므로 두 surface의 data가 같은지도 본다.
 import { assert, assertEquals } from "@std/assert";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
-import type { Package } from "../../contracts/apps/mod.ts";
+import type { Package } from "../../protocol/apps/mod.ts";
 import { fail, scriptedFlow } from "./testing/mod.ts";
 import {
   compareSemver,

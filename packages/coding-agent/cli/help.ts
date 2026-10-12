@@ -1,4 +1,4 @@
-// CLI 도움말(architecture/coding-agent 5.4, cli#R39). 사람 help와 `help --json`
+// CLI 도움말(architecture/coding-agent 5.4). 사람 help와 `help --json`
 // 을 같은 command registry에서 만든다. 화면 문구가 아니라 기술 문장이므로
 // wording key를 쓰지 않는다(exceptions: shell 화면 전용).
 import {
@@ -7,8 +7,8 @@ import {
   CLI_SETUP_NAMES,
   CONFIRMATION_NAMES,
   HUMAN_ONLY_NAMES,
-} from "../../contracts/coding-agent/mod.ts";
-import type { AgentResult } from "../../contracts/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { AgentResult } from "../../protocol/coding-agent/mod.ts";
 
 // command 등록 한 자리. 목적·입력·출력·읽기와 변경·권한·다음 조회를 묶는다.
 export type CommandHelp = {
@@ -272,7 +272,7 @@ const CORE_HELP: readonly CommandHelp[] = [
   },
 ];
 
-// 앱 개발 command다(T21, cli#R24–R28, R31). 접수와 읽기는 변경이 아니다: test·release 준비·
+// 앱 개발 command다. 접수와 읽기는 변경이 아니다: test·release 준비·
 // preview는 요청을 접수할 뿐이고 결과는 다음 조회로 읽는다. 사람 전용은 결정 화면 링크만 낸다.
 function appHelp(
   command: string,
@@ -428,7 +428,7 @@ const APP_HELP: readonly CommandHelp[] = [
   ),
 ];
 
-// SDK command다(T22, cli#R30). add는 `apply`일 때만 앱 source의 deno.json을 바꾼다.
+// SDK command다. add는 `apply`일 때만 앱 source의 deno.json을 바꾼다.
 const SDK_HELP: readonly CommandHelp[] = [
   {
     command: "sdk catalog",
@@ -509,7 +509,7 @@ const TICKET_HELP: readonly CommandHelp[] = [
     next: ["ticket show"],
   },
   {
-    // claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다(cli#R41).
+    // claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다.
     command: "ticket claim",
     purpose:
       "ticket claim은 MCP로 수행한다. MCP 연결과 지정 ticket 안내만 낸다",
@@ -638,9 +638,9 @@ const TICKET_HELP: readonly CommandHelp[] = [
   },
 ];
 
-// 문제 command다(T44, cli#R33–R35). 읽기와 접수는 변경이 아니다: record-fix만 고친 기록을 남기고
+// 문제 command다. 읽기와 접수는 변경이 아니다: record-fix만 고친 기록을 남기고
 // test는 실제 runner 요청을 접수할 뿐이다. 사람 전용 네 command는 feedback·수리 요청·확인·무시를
-// 접수하지 않고 결정 화면 링크와 대기 사실만 낸다(D27).
+// 접수하지 않고 결정 화면 링크와 대기 사실만 낸다.
 function problemHelp(
   command: string,
   purpose: string,
@@ -976,7 +976,7 @@ export function commandHelp(command: string): CommandHelp | undefined {
 
 export const COMMAND_HELP = CLI_HELP;
 
-// help --json의 같은 registry 출력(architecture 5.4, cli#R39).
+// help --json의 같은 registry 출력(architecture 5.4).
 export function helpJson(command: string | undefined): AgentResult {
   if (command === undefined) {
     return {

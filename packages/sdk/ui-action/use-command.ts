@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { CommandDeclaration } from "@lophn/blueprint";
 
-// 버튼이 쓰는 blueprint command 선언. 확인 여부는 effect가 아니라 선언의 confirm이 정한다(apps/sdk#R19).
+// 버튼이 쓰는 blueprint command 선언. 확인 여부는 effect가 아니라 선언의 confirm이 정한다.
 export type CommandSpec = Pick<CommandDeclaration, "key" | "label" | "confirm">;
 
 export type CommandInput =

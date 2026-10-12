@@ -1,16 +1,16 @@
-// 문제 op의 공통 실행이다(coding-agent#T44, mcp#R24·R25, cli#R26·R33·R34). MCP `lophn_problem`과
-// CLI `problem …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이 같다(cli#R1,
-// connection#R6). op마다 소유 route 하나로만 보내고 임의 core API는 부르지 않는다.
+// 문제 op의 공통 실행이다. MCP `lophn_problem`과
+// CLI `problem …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이 같다.
+// op마다 소유 route 하나로만 보내고 임의 core API는 부르지 않는다.
 //
 // - 읽기(list·show·snapshot·fix_records·summary·bundle·more)는 읽기 route만 부른다. claim을 만들거나
-//   갱신하지 않는다(mcp#R24, cli#R33).
+//   갱신하지 않는다.
 // - record_fix는 summary 본문을 올려 저장한 blob의 준비 참조를 싣고 RecordProblemFix를 보낸다. hash만
 //   싣는 기록은 core가 거절하므로 이 통로는 저장하지 않은 blob의 hash를 만들지 않는다. 지정 ticket의
-//   현재 claim 검사는 owner command가 같은 transaction에서 한다(mcp#R25, cli#R34).
+//   현재 claim 검사는 owner command가 같은 transaction에서 한다.
 // - test는 reproduction만이다. 지정 ticket의 현재 claim을 읽어 확인한 뒤 같은 `app test` 흐름으로 실제
 //   runner에 요청하고 접수·시작·결과·timeout·판정 불가를 구별해 읽는다. 문제를 직접 claim하거나 test
 //   result를 입력으로 받지 않는다.
-// - attachment open은 허용된 첨부의 안전한 참조만 낸다. 운영 경로·blob hash 단독 접근은 없다(cli#R33).
+// - attachment open은 허용된 첨부의 안전한 참조만 낸다. 운영 경로·blob hash 단독 접근은 없다.
 import { type LophnError, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   fixSummaryBlobSchema,
@@ -24,14 +24,14 @@ import {
   problemsUploadFixSummary,
   recordProblemFix,
   userProblemReadOf,
-} from "../../contracts/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   repairContextBundle,
   repairContextMore,
   repairContextSummary,
   ticketShow,
-} from "../../contracts/coding-agent/mod.ts";
-import type { Route } from "../../contracts/platform/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { Route } from "../../protocol/base/mod.ts";
 import { type AppOpDeps, runAppOp } from "./app-ops.ts";
 import type { TicketOpClient } from "./ticket-ops.ts";
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";
@@ -82,7 +82,7 @@ export type ProblemOpOutput = {
   summary: string;
   data: unknown;
   next: string[];
-  // 실패·거절·판정 불가는 true다. 성공 결과는 생략한다(mcp#R7, cli#R26).
+  // 실패·거절·판정 불가는 true다. 성공 결과는 생략한다.
   isError?: true;
 };
 
@@ -122,7 +122,7 @@ function refer(deps: ProblemOpDeps, op: ProblemOp, note = ""): string {
   return note === "" ? name : `${name} ${note}`;
 }
 
-// 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다(connection#R5).
+// 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다.
 function failure(error: LophnError, next: string[]): ProblemOpOutput {
   const absent = error.code === "not_found";
   return {
@@ -222,7 +222,7 @@ async function readOp(
   const value = obj(read.value);
   switch (op) {
     case "show": {
-      // 사용자용 상세만 보인다(problems#T22). ticket·version 연결 식별자는 싣지 않고 담당·수리
+      // 사용자용 상세만 보인다. ticket·version 연결 식별자는 싣지 않고 담당·수리
       // 상태는 `detail`의 en 문구로 읽는다. detail이 없는 이전 응답은 받은 그대로 둔다.
       const parsed = getProblemOutputSchema.safeParse(value);
       const user = parsed.success ? userProblemReadOf(parsed.data) : null;

@@ -1,5 +1,5 @@
-// loading·empty·error·freshness 상태(apps/sdk#R18)와 앱 화면 root의 AppErrorBoundary(R29).
-// 상태 표시는 lophn 화면과 같은 component다(R21).
+// loading·empty·error·freshness 상태와 앱 화면 root의 AppErrorBoundary.
+// 상태 표시는 lophn 화면과 같은 component다.
 export {
   AppErrorBoundary,
   type AppErrorBoundaryProps,

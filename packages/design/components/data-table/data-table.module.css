@@ -1,0 +1,62 @@
+/* 도구 줄·표·페이지 줄을 세로로 쌓고, 표 칸만 scroll한다. */
+.frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: var(--space-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+.frame[data-layout="fill"] {
+  height: 100%;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.sort {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+/* popover 안의 열 목록. 테두리·배경·그림자는 popover가 준다. */
+.columnList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+/* host가 높이를 주지 않아도 큰 표는 머리 + 10행 높이 안에서 표 안쪽이 scroll한다. */
+.body {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--space-0);
+  max-height: calc(var(--table-row-compact) * 11);
+}
+
+.frame[data-layout="fill"] > .body {
+  flex: 1;
+  max-height: none;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.range {
+  margin-right: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-variant-numeric: var(--font-numeric);
+}

@@ -1,4 +1,4 @@
-import type { ConnectionScope } from "../../contracts/coding-agent/mod.ts";
+import type { ConnectionScope } from "../../protocol/coding-agent/mod.ts";
 
 // 앱 scope가 허용하는 concern. 목록·검색·절·첨부·추가 근거에도 같은 범위다.
 export const APP_SCOPE_CONCERNS = [
@@ -56,7 +56,7 @@ export const FORBIDDEN_ROUTES: Readonly<
 > = {
   "approval.decide": ["grant_approval_request", "reject_approval_request"],
   "grant.change": ["grant.create", "grant.revoke"],
-  // 값을 읽는 route는 없다. 등록·삭제·입력과 이름 조회를 coding credential에 주지 않는다(cli#R38).
+  // 값을 읽는 route는 없다. 등록·삭제·입력과 이름 조회를 coding credential에 주지 않는다.
   "secret.read": ["SetSecret", "RemoveSecret", "secret.input", "ListSecrets"],
   "backup.read": ["ListBackups", "GetBackup"],
   "problem.close": ["CloseProblemVerified", "ApplyProblemDecision"],
@@ -87,7 +87,7 @@ export const FORBIDDEN_ROUTES: Readonly<
 };
 
 // 원본 파일·문서 자리 관리는 사람의 화면 몫이다. 문서 정본 저장(document.save)만
-// coding credential의 길이다(cli#R16·R17·R23).
+// coding credential의 길이다.
 export const HUMAN_ONLY_DOCUMENT_ROUTES = [
   "document.move",
   "document.rename",

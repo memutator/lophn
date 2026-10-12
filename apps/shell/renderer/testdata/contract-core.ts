@@ -12,6 +12,7 @@ import type {
 } from "../desktop/connection/connection.ts";
 
 export type Handler = (
+  // deno-lint-ignore no-explicit-any
   body: any,
   call: CoreCall,
 ) => CoreReply | Promise<CoreReply>;

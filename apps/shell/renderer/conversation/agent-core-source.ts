@@ -20,7 +20,6 @@ import type {
   SourceResult,
 } from "./agent-source.ts";
 import {
-  type AgentEnv,
   type AgentTarget,
   createEnv,
   latestRun,

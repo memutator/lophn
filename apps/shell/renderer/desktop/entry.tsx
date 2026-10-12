@@ -28,6 +28,7 @@ import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
 import { ConversationProvider } from "../conversation/dock-slot.tsx";
+import { coreAgentViewSourceFactory } from "../conversation/agent-core-source.ts";
 import { coreConversationSource } from "../conversation/core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import {
@@ -119,6 +120,9 @@ const conversation = {
     location.hash = "#settings";
   },
 };
+// Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
+const agentViewSource = mock?.agentViewSource ??
+  coreAgentViewSourceFactory(core);
 // 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
 const requests = {
   source: mock?.requests ?? coreRequestSource(core),
@@ -222,6 +226,7 @@ mount(
             appWindows={mock?.appWindows ?? bridges.lophnAppWindows}
             feedback={feedback}
             instructions={mock?.instructions ?? windowInstructionsSource()}
+            agentViewSource={agentViewSource}
           />
         </RequestsProvider>
       </ConversationProvider>

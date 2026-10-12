@@ -1,7 +1,7 @@
 // 옛 질문 칸이 없어졌음을 지킨다. 질문은 대화 안 카드(shell/desktop#R46)가 맡는다.
 import { assert, assertEquals } from "@std/assert";
 
-Deno.test("shell/desktop#R46 [I45]: conversation/question-strip 폴더가 없고 dock이 질문 칸을 가져오지 않는다", async () => {
+Deno.test("shell/desktop#R46 [I45]: conversation/question-strip 폴더가 없다", async () => {
   let found = true;
   try {
     await Deno.stat(new URL("./question-strip/", import.meta.url));
@@ -10,7 +10,4 @@ Deno.test("shell/desktop#R46 [I45]: conversation/question-strip 폴더가 없고
     found = false;
   }
   assertEquals(found, false);
-  const dock = await Deno.readTextFile(new URL("./dock.tsx", import.meta.url));
-  assertEquals(dock.includes("question-strip"), false);
-  assertEquals(dock.includes("QuestionStrip"), false);
 });

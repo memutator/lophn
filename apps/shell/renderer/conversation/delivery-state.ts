@@ -1,7 +1,7 @@
 // 보낸 말 하나의 전달 상태(shell/desktop#R8). 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
 // 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다(lophn-agent/conversation#R2).
-import type { TextContent } from "./source.ts";
+import type { TextContent } from "./agent-source.ts";
 
 export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
 

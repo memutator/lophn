@@ -4,12 +4,7 @@
 // agents · Tools and skills · Notifications · Update · Diagnose. backup 자리는 nav에서 뺐다(backup
 // 제거는 후속 작업). secret 값은 이 화면이 받지 않고 보호 창이 받는다.
 import { useMemo, useRef, useState } from "react";
-import {
-  Button,
-  Icon,
-  iconPixels,
-  settingsIcons,
-} from "@lophn/design/components";
+import { Icon, iconPixels, settingsIcons } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { AgentsPanel } from "./agents/agents-panel.tsx";
@@ -45,8 +40,6 @@ export interface SettingsScreenProps {
   agents?: AgentsSettingsSource;
   /** 모든 project의 LOPHN.md 편집기(전역 지침)를 연다(shell/editor#R17). Agents의 [Edit]이 쓴다. */
   onInstructions?: () => void;
-  /** 대화 도크를 연다. 설정의 뜻을 lophn에게 묻는다(flow ask-lophn-help). */
-  onAsk?: () => void;
   /** coding agent 연결 통로(shell#T50). 없으면 그 탭을 두지 않는다. */
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. 있으면 그 탭을 먼저 연다. */
@@ -95,7 +88,6 @@ export function SettingsScreen(
     providers,
     agents,
     onInstructions,
-    onAsk,
     coding,
     initialConnection,
     update,
@@ -226,16 +218,6 @@ export function SettingsScreen(
         <div className={styles.page}>
           <div className={styles.head}>
             <h1 className={styles.title}>{active.label}</h1>
-            {onAsk === undefined ? null : (
-              <Button
-                size="sm"
-                variant="secondary"
-                data-action="ask-lophn"
-                onClick={onAsk}
-              >
-                {t("settings.button.ask-lophn")}
-              </Button>
-            )}
           </div>
           <p className={styles.text}>{t("settings.intro.screen")}</p>
           <div

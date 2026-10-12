@@ -1,7 +1,7 @@
 // 확정 메시지 본문 읽기(ReadMessageBody). 사람 말·lophn 답·machine 사실·다른 창이 보낸
 // 말 모두 같은 read로 읽는다. 확정 메시지의 본문은 바뀌지 않아 창 메모리(DraftStore)에
 // 한 번 읽은 값을 둔다. 결과를 모르는 실패만 다음 박자에 다시 읽는다.
-import type { BodyPart, SourceResult } from "./source.ts";
+import type { BodyPart, SourceResult } from "./agent-source.ts";
 import type { DraftStore } from "./drafts.ts";
 
 /** 본문을 읽는 통로. 대화 화면의 어느 source든 이것을 가진다. */

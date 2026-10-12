@@ -2,13 +2,12 @@ import { useEffect, useState } from "react";
 import { conversationIcons, Icon, iconPixels } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { foldResults } from "./model.ts";
-import type { ConversationSource, ResultLink } from "./source.ts";
+import type { AgentViewSource, ResultLink } from "./agent-source.ts";
 import styles from "./result-links.module.css";
 
 export interface ResultLinksProps {
   links: readonly ResultLink[];
-  source: Pick<ConversationSource, "documentTitle">;
+  source: Pick<AgentViewSource, "documentTitle">;
   onOpen?: (document: string, version: string | null) => void;
   /** context 링크가 그 context의 탭을 여는 길과 이름. 없으면 링크를 누를 수 없다. */
   contexts?: ContextLinks;
@@ -19,6 +18,23 @@ export interface ContextLinks {
   open(context: string): void;
   /** 알려진 context의 이름. 모르면 undefined다. */
   titleOf(context: string): string | undefined;
+}
+
+/** 결과 링크 접기(desktop#R3). 4개 이상이면 첫 3개와 남은 개수만 보인다. */
+const RESULT_FOLD_AT = 4;
+const RESULT_SHOWN = 3;
+
+function foldResults(
+  links: readonly ResultLink[],
+  expanded: boolean,
+): { readonly shown: readonly ResultLink[]; readonly hidden: number } {
+  if (expanded || links.length < RESULT_FOLD_AT) {
+    return { shown: links, hidden: 0 };
+  }
+  return {
+    shown: links.slice(0, RESULT_SHOWN),
+    hidden: links.length - RESULT_SHOWN,
+  };
 }
 
 function linkKey(link: ResultLink): string {

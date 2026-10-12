@@ -1,12 +1,5 @@
-// mock 모드의 대화 도크와 질문·approval 통로, 그리고 core 연결. 도크와 things-to-confirm이 같은
-// 질문을 보고, provider 읽기만 대신 답한다(그 밖의 core 호출은 unavailable이다).
-import {
-  agentMessage,
-  fakeSource,
-  messageId,
-  runId,
-  sessionId,
-} from "../../conversation/testdata/fake-source.ts";
+// mock 모드의 질문·approval 통로, 그리고 core 연결. provider 읽기만 대신 답한다(그 밖의 core 호출은
+// unavailable이다).
 import {
   approval,
   fakeRequests,
@@ -14,17 +7,9 @@ import {
   notification,
   question,
 } from "../lophn-space/things-to-confirm/testdata/fake-source.ts";
-import {
-  barBlock,
-  tableBlock,
-} from "../../workspace/visuals/testdata/blocks.ts";
-import type {
-  BodyPart,
-  ConversationSource,
-} from "../../conversation/source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
 import type { ConnectionState, CoreSource } from "../connection/connection.ts";
-import { DOC_NOTES, DOC_REPORT, PROJECT_GROCERY } from "./ids.ts";
+import { PROJECT_GROCERY } from "./ids.ts";
 
 const MINUTE = 60 * 1000;
 
@@ -60,72 +45,6 @@ export function mockCore(): CoreSource {
       });
     },
   };
-}
-
-export function mockConversation(): ConversationSource {
-  const session = sessionId(1);
-  const bodies: Record<string, readonly BodyPart[]> = {
-    [messageId(1)]: [{
-      kind: "text",
-      text:
-        "How much did we spend on groceries this week, and is it under the plan?",
-    }],
-    [messageId(3)]: [{
-      kind: "text",
-      text: "Please file the week as a report in the grocery project.",
-    }],
-    [messageId(2)]: [
-      {
-        kind: "text",
-        text:
-          "This week came to 142, which is under the 150 weekly share of the plan. Rice and eggs were the biggest lines.",
-      },
-      { kind: "visual", block: barBlock },
-      { kind: "visual", block: tableBlock },
-    ],
-    [messageId(4)]: [{
-      kind: "text",
-      text:
-        "Filed the weekly report and added a short note about the store prices.",
-    }],
-  };
-  return fakeSource({
-    sessions: [{ id: session, state: "open", stateSeq: "10" }],
-    messages: {
-      [session]: [
-        {
-          ...agentMessage(1),
-          actor: "user",
-          mode: "request",
-          applied: true,
-        },
-        {
-          ...agentMessage(2),
-          run: runId(1),
-          applied: true,
-        },
-        {
-          ...agentMessage(3),
-          actor: "user",
-          mode: "request",
-          applied: true,
-        },
-        {
-          ...agentMessage(4, [
-            { kind: "document", document: DOC_REPORT },
-            { kind: "document", document: DOC_NOTES },
-          ]),
-          run: runId(2),
-          applied: true,
-        },
-      ],
-    },
-    bodies,
-    titles: {
-      [DOC_REPORT]: "Weekly grocery report",
-      [DOC_NOTES]: "Store notes",
-    },
-  }).source;
 }
 
 export function mockRequests(): RequestSource {

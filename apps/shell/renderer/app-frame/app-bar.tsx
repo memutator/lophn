@@ -34,8 +34,6 @@ export interface AppBarProps {
   decisions?: ReactNode;
   /** [Report a problem] 자리. 앱 view 캡처를 먼저 요청하는 독립 버튼이다(shell#T52). */
   report?: ReactNode;
-  /** 팔레트·대화 도크 토글. */
-  tools?: ReactNode;
   /** agent select. window controls 바로 옆, 곧 바 오른쪽의 맨 끝에 둔다(R37). */
   agentSelect?: ReactNode;
 }
@@ -73,7 +71,6 @@ export function AppBar(
     onNewWindow,
     decisions,
     report,
-    tools,
     agentSelect,
   }: AppBarProps,
 ) {
@@ -122,7 +119,6 @@ export function AppBar(
             onClick={onDetails}
             data="app-details"
           />
-          {tools}
           {agentSelect}
         </span>
       }

@@ -76,7 +76,7 @@ function replayOrConflict(
   );
 }
 
-// R12: event envelope 시각(tx.now) 기준 앱당 새 Report 상한. 같은 ID 재전송은
+// event envelope 시각(tx.now) 기준 앱당 새 Report 상한. 같은 ID 재전송은
 // 세지 않고 observed_at은 창을 우회하지 못한다.
 function windowReaches(
   tx: Tx,
@@ -157,7 +157,7 @@ export function handleRecordReport(
     report.content_hash,
   );
   if (prior !== undefined) return prior;
-  // R12 창은 새 Report만 센다. 재전송은 여기까지 오지 않는다.
+  // 창은 새 Report만 센다. 재전송은 여기까지 오지 않는다.
   const windowed = windowReaches(tx, report.app, report.id);
   if (!windowed.ok) return windowed;
   // 실행 자격 CAS: executor는 processed_through_seq만 검사하므로 이 command의

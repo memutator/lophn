@@ -1,4 +1,4 @@
-// coding-agent worker kind의 세션 시작 summary 조립이다(guides#R21). 요청마다 요청자
+// coding-agent worker kind의 세션 시작 summary 조립이다. 요청마다 요청자
 // connection credential로 core loopback의 정본 읽기를 불러 summary를 만든다. worker는 자기 credential이 없어
 // 범위 밖 자료를 대신 읽지 못하고, 읽기를 바꾸는 호출도 없다. core의 `/v1/coding_agent_sessions/summary`
 // route가 요청을 이 worker로 넘긴다.

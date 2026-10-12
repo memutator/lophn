@@ -1,6 +1,6 @@
 import type { RunRecord } from "../../../protocol/lophn-agent/mod.ts";
 
-// 사람에게 보이는 run 상태(requirements lophn-agent/harness/run-loop R19). 모양과
+// 사람에게 보이는 run 상태(concern lophn-agent/harness/run-loop). 모양과
 // 위치는 shell이 정한다. 여기는 실제 사실만 낸다: 상태 넷, 현재 행동 한 줄, 경과
 // 시간, 멈출 수 있는지. 진척을 모르면 퍼센트·예상 종료·추론 원문·장식 문구를 만들지 않는다.
 

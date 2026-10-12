@@ -1,6 +1,6 @@
 // series 가족 목차 read. root/series는 ledger metadata만 읽는다. series.get과 같은
 // 기준·순서의 key·제목·고정 최신 판·보관 상태를 돌려준다. page는
-// T14 outline cursor 방식이며 basis_seq가 지나가면 conflict다.
+// outline cursor 방식이며 basis_seq가 지나가면 conflict다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { z } from "zod";

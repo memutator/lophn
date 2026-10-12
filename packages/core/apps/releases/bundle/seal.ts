@@ -17,7 +17,7 @@ export type SealFailure = {
 const FILE_MODE = 0o444;
 const DIRECTORY_MODE = 0o555;
 
-// bundle 사본 위치 규칙(apps/plan apps#T6). contracts#T36 경로 함수가 없으므로
+// bundle 사본 위치 규칙. contracts에 경로 함수가 없으므로
 // 이 leaf가 계산한다. app ID와 hash를 검사하지 않으면 data root 밖으로 나간다.
 export function bundleCopyPath(
   dataRoot: string,

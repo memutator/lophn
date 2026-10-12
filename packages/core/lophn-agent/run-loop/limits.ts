@@ -16,7 +16,7 @@ import type { z } from "zod";
 
 export type RunLimits = z.infer<typeof runLimitsSchema>;
 
-// run 한도(requirements lophn-agent/harness/run-loop R20–R22). 한도 값은 공통
+// run 한도(concern lophn-agent/harness/run-loop). 한도 값은 공통
 // 설정이고 시작 때 run에 고정된다(runs_started_immutable). 이 파일은 시간·횟수를
 // 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
 

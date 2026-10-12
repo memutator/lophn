@@ -185,7 +185,7 @@ export const PACKAGE_KIND_ROUTES = [
   "usage",
 ] as const;
 
-// 입력에는 idempotency가 없고 key는 T22 approval과 같은 요청 envelope가 싣는다.
+// 입력에는 idempotency가 없고 key는 approval과 같은 요청 envelope가 싣는다.
 export const packageRegisterRequestSchema = z.strictObject({
   input: packageRegisterVersionInputSchema,
   key: idempotencyKeySchema,

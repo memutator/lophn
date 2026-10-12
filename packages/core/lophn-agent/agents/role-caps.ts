@@ -1,4 +1,4 @@
-// 제품이 고정하는 역할별 상한 표다. core는 platform/responsiveness#R1의
+// 제품이 고정하는 역할별 상한 표다. core는 platform/responsiveness의
 // core import 검사가 packages/core/lophn-agent/roles/를 막으므로, core가 부르는 검증은 이 leaf의
 // 표를 읽는다. roles/common/mod.ts가 같은 표를 runtime에 재노출한다. 상한은 이름 목록이고
 // wildcard·병합은 없다. 확장 선택(MCP·skill)은 상한 항목이 아니라 agent 정의의 선택 항목이다.

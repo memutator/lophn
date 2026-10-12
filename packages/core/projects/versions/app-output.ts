@@ -47,7 +47,7 @@ export function appOutputRejected(
       return rejected("invalid_input", "app output needs its document name");
     }
   }
-  // 앱이 있고 활성일 때만 쓴다. 보관된 앱은 새 출력을 남기지 못한다(registration#R9는
+  // 앱이 있고 활성일 때만 쓴다. 보관된 앱은 새 출력을 남기지 못한다(보관은
   // 기존 앱 문서의 보존이지 새 출력의 허용이 아니다).
   let lookup;
   try {

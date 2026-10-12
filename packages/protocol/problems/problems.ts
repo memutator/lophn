@@ -9,7 +9,7 @@ import { groupKeySchema } from "./reports.ts";
 import { closureSchema } from "./closing.ts";
 import { problemDetailSchema } from "./problem-detail.ts";
 
-// grouping#R2, R3: 지문은 오류 이름과 상위 최대 3개 앱 frame의 상대 위치·함수다.
+// 지문은 오류 이름과 상위 최대 3개 앱 frame의 상대 위치·함수다.
 // 줄·열·절대 경로·message는 넣지 않는다. hash는 collector가 canonical JSON으로 낸다.
 const fingerprintPathSchema = z.string().min(1).refine(
   (path) =>
@@ -32,7 +32,7 @@ export const PROBLEM_STATUSES = ["open", "fixing", "closed"] as const;
 export const problemStatusSchema = z.enum(PROBLEM_STATUSES);
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 
-// grouping#R8: 진행은 열림·고치는 중·닫힘 세 가지뿐이고 열린 repair ticket은 최대 하나다.
+// 진행은 열림·고치는 중·닫힘 세 가지뿐이고 열린 repair ticket은 최대 하나다.
 export const PROBLEM_LIST_LIMIT = 100;
 
 const interpretationFields = {

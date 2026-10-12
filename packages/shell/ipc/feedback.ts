@@ -1,4 +1,4 @@
-// [Report a problem] 경계(contracts#T38 FEEDBACK_IPC·FEEDBACK_PUSH의 사본). main tsc는 contracts
+// [Report a problem] 경계(FEEDBACK_IPC·FEEDBACK_PUSH의 사본). main tsc는 contracts
 // package를 보지 않으므로 같은 모양을 여기 둔다. feedback_test.ts가 contracts schema와 같은 값을
 // 받고 거절하는지 맞춘다. 원문 글·binding·raw capture는 main 메모리에만 있고 renderer에는
 // draftRef와 안전한 미리보기만 온다(architecture/shell 5.2).
@@ -31,7 +31,7 @@ export const FEEDBACK_PROBLEM_MESSAGE = "You reported an issue.";
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const ref = z.string().min(1).refine(noControl);
 
-// problems/feedback#R1: 공백 외 1~500 Unicode scalar. lone surrogate는 받지 않는다.
+// 공백 외 1~500 Unicode scalar. lone surrogate는 받지 않는다.
 export const feedbackTextSchema = z.string().regex(/\S/).refine((text) => {
   const scalars = [...text];
   return scalars.length >= 1 &&

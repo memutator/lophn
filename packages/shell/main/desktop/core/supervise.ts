@@ -124,7 +124,7 @@ export interface CoreProcess {
    */
   confirmStop(graceMs?: number): Promise<boolean>;
   /**
-   * 안전 진단 하나를 감독 pipe로 보낸다(platform#T8 diagnostic 메시지). contract 모양이
+   * 안전 진단 하나를 감독 pipe로 보낸다(diagnostic 메시지). contract 모양이
    * 아니거나 core가 멈췄으면 보내지 않고 false다.
    */
   diagnostic(message: unknown): boolean;

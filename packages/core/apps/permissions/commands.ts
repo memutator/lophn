@@ -186,8 +186,8 @@ function checkApproval(
   return decided?.actor === "user" ? ok(undefined) : notGranted();
 }
 
-// app.call·agent.commands·automation.run은 현재 선언과 맞아야 한다(R26, R27,
-// apps/automations#R13). 선언은 releases가 port로 낸다. 없으면 만들지 않는다.
+// app.call·agent.commands·automation.run은 현재 선언과 맞아야 한다.
+// 선언은 releases가 port로 낸다. 없으면 만들지 않는다.
 function checkDeclared(
   tx: Tx,
   app: string,

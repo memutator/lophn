@@ -1,5 +1,5 @@
-// 차트 블록의 point 목록을 design chart의 선언형 입력으로 옮기는 순수 규칙
-// (shell/workspace#R12). 막대는 범주 축, 선은 시간 축, 산점은 숫자 축으로 그린다. chart가 그릴 수 없는
+// 차트 블록의 point 목록을 design chart의 선언형 입력으로 옮기는 순수 규칙.
+// 막대는 범주 축, 선은 시간 축, 산점은 숫자 축으로 그린다. chart가 그릴 수 없는
 // 조합(범주·숫자 축의 선, 시간 축의 산점, 한 계열의 같은 x)은 값을 바꾸거나 버리지 않고 표로 보인다.
 // null은 결측이며 0으로 바꾸지 않는다.
 import { formatDate, formatNumber } from "@lophn/wording";

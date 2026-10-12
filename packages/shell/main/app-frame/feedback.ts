@@ -99,8 +99,8 @@ export interface FeedbackDeps {
   /** 묶인 Issue로 간다. 그 창 renderer가 앱 공간을 연다. */
   openIssue(window: string, target: { app: string; problem: string }): void;
   /**
-   * 그 view의 마지막 앱 호출이 입력 검사 등으로 시작되지 못했으면 `blocked_before_start`다
-   * (problems/feedback#R4). 없으면 모른다.
+   * 그 view의 마지막 앱 호출이 입력 검사 등으로 시작되지 못했으면 `blocked_before_start`다.
+   * 없으면 모른다.
    */
   commandStart?(view_session: string): "blocked_before_start" | "unknown";
   /**

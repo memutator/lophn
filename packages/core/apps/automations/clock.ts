@@ -1,4 +1,4 @@
-// 앱 프로세스 안의 automation 시계(apps/automations#R1-R9). release bundle의 플랫폼 진입 파일이라
+// 앱 프로세스 안의 automation 시계. release bundle의 플랫폼 진입 파일이라
 // 의존성이 없다(Zod·npm 금지). 시각·타이머·permit·호출은 모두 주입받는다.
 //
 // 계기는 업무 통로가 열릴 때 한 번(on_start)과 열린 단조 tick 기준 간격(interval)뿐이다. 1초마다

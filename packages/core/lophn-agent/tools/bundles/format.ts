@@ -25,7 +25,7 @@ import {
 } from "./common.ts";
 import { bodyOf, resume, scopeOf, windowedResult } from "./paging.ts";
 
-// format 묶음(concern harness/tools R7). format 목록·규칙·예시·본문 검사를 읽기로만 준다. 검사는
+// format 묶음(concern harness/tools). format 목록·규칙·예시·본문 검사를 읽기로만 준다. 검사는
 // 본문을 글 값으로 core에 넘겨 결과만 받고, 검사한 본문을 Document·Version으로 저장하지 않는다.
 // 검사는 model을 부르지 않는 결정적 계산이다.
 

@@ -315,7 +315,7 @@ type DirectTarget = {
   file: { path: string; blob_hash: string; bytes: number; media_type: string };
 };
 
-// documents/outline-and-search#R15의 대상. 요청 자격으로 같은 읽기를 다시 돌려 권한을 판정하고
+// 직접 추출 대상. 요청 자격으로 같은 읽기를 다시 돌려 권한을 판정하고
 // (거절·없음은 그 오류 그대로다), 그 판이 추출 안 됨(derived에 행이 없거나 미확인)이며, 내장
 // document module로 읽을 수 있는 한도 안의 대표 파일을 가질 때만 대상이다. 이미 실패·미지원으로 기록된 판과 다른 module로 저장된 판은
 // 대상이 아니다(최신 module로 대신하지 않는다).

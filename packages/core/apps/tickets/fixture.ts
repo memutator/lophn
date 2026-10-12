@@ -1,6 +1,6 @@
 // ticket ledger fixture(worker-common leaf unit). 실제 사람 데이터 root는
-// 열지 않고 in-memory DB만 쓴다. 문제·질문 read는 소유 구현이 아직 없어(문제#T6,
-// lophn-agent#T24) port로 대체 주입한다.
+// 열지 않고 in-memory DB만 쓴다. 문제·질문 read는 소유 구현이 아직 없어
+// port로 대체 주입한다.
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";

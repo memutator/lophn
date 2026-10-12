@@ -243,7 +243,7 @@ export function createLedgerRegistration(
         create: (tx) => createSecretAllowance(tx),
       },
       // 현재 release의 선언 사실이다. grant·broker·automation 읽기가 선언과 교집합을 본다
-      // (apps/permissions#R2). 준비 때 고정한 blueprint에서 만든 값을 읽는다.
+      // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
       { key: currentDeclarations, create: () => releaseDeclarations },
       // release 준비는 같은 bundle hash의 통과한 app test와 현재 ticket claim을 같은 transaction에서
       // 다시 확인한다. 구현은 problems·coding-agent 소유 읽기다.

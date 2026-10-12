@@ -47,8 +47,8 @@ function encoder(): TextEncoder {
   return new TextEncoder();
 }
 
-// bytes에서 짝이 맞는 구간 하나의 위치를 찾는다. 없음·중복·불완전·짝 불일치는 무변경이다
-// (R15). 위치 탐색은 bytes 그대로다: 갱신이 사람의 bytes를 보존한다는 뜻이다.
+// bytes에서 짝이 맞는 구간 하나의 위치를 찾는다. 없음·중복·불완전·짝 불일치는 무변경이다.
+// 위치 탐색은 bytes 그대로다: 갱신이 사람의 bytes를 보존한다는 뜻이다.
 export function guideRegionSpan(bytes: Uint8Array): Boundary {
   const beginNeedle = encoder().encode(GUIDE_BEGIN_MARKER);
   const endNeedle = encoder().encode(GUIDE_END_MARKER);
@@ -121,7 +121,7 @@ function firstHit(bytes: Uint8Array, needle: Uint8Array): number {
 }
 
 // 실제 파일 눈이다. fixture가 끼운다. read와 rename의 사이 사람 동시 편집은(교체 직전 hash
-// 비교 R7, 조사 Orca의 temp + 재확인 + rename) readBytes가 rename 앞에 한 번 더 읽게 막는다.
+// 비교, temp + 재확인 + rename) readBytes가 rename 앞에 한 번 더 읽게 막는다.
 export type ManagedFilesPort = {
   readBytes(path: string): Promise<Result<Uint8Array | null>>;
   // temp 이름을 같은 폴더에 쓰고 rename한다. 폴더 grant 없이 같은 폴더 temp뿐이다

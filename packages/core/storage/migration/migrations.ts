@@ -63,7 +63,7 @@ function readRecorded(sql: Sql): Recorded[] {
   }));
 }
 
-// 지원보다 높은 schema·다른 hash·손상은 아무것도 쓰지 않고 거절한다(b&m R6).
+// 지원보다 높은 schema·다른 hash·손상은 아무것도 쓰지 않고 거절한다.
 function checkHistory(
   recorded: Recorded[],
   steps: readonly AppliedMigration[],
@@ -183,7 +183,7 @@ function guardedTablesOf(step: string): string[] {
   return tables;
 }
 
-// 변환과 이력은 한 transaction이다. 실패하면 그 단계 전체가 rollback된다(b&m R4).
+// 변환과 이력은 한 transaction이다. 실패하면 그 단계 전체가 rollback된다.
 function applyStep(
   connection: LedgerConnection,
   step: SchemaStep,

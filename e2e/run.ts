@@ -1,4 +1,4 @@
-// contracts#T10 E2E 실행. Deno test에서 Playwright로 Electron shell을 띄운다.
+// E2E 실행. Deno test에서 Playwright로 Electron shell을 띄운다.
 // Playwright는 npm:playwright를 Deno가 직접 불러 온다(Node package.json 예외는 쓰지 않는다).
 // renderer DOM은 Chromium 원격 디버깅(CDP)으로 읽는다. 창을 닫고 종료하면 shell main의
 // will-quit가 core에 stop frame을 보내 core가 정상 종료한다. 남은 프로세스는 띄운

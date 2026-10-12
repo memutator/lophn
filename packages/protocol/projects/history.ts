@@ -34,7 +34,7 @@ export const agentHistoryVersionSchema = z.object({
   source: versionSourceOutputSchema.options[2].nullable(),
 }).refine((value) => versionSchema.safeParse(value).success);
 export type AgentHistoryVersion = z.infer<typeof agentHistoryVersionSchema>;
-// T15의 additive output을 그대로 쓴다. strict prepared/input schema로 output을 좁히지 않는다.
+// additive output을 그대로 쓴다. strict prepared/input schema로 output을 좁히지 않는다.
 export const historyPageSchema = publicPage(z.object({
   document: documentIdSchema,
   versions: z.array(versionSchema),

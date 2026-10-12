@@ -1,6 +1,6 @@
 // settings의 진단 자리. 보안 상태 점검(doctor) 결과는 영향 한 문장과 다음 행동으로만
-// 보이고 원문(check 이름·finding message·코드)은 개발자 diagnostics 펼침에만 둔다
-// (shell/wording#R8, R10). 사람이 누를 때만 검사를 돌린다.
+// 보이고 원문(check 이름·finding message·코드)은 개발자 diagnostics 펼침에만 둔다.
+// 사람이 누를 때만 검사를 돌린다.
 import { useState } from "react";
 import { Button, Skeleton } from "@lophn/design/components";
 import { t } from "@lophn/wording";
@@ -19,7 +19,7 @@ type Loaded =
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly view: DiagnosticsView };
 
-/** 다음 행동 문장. 영향 종류 하나씩이다(다음 행동은 하나다: shell/wording#R10). */
+/** 다음 행동 문장. 영향 종류 하나씩이다(다음 행동은 하나다). */
 function nextOf(
   impact: "wide_grant" | "raw_key",
 ): string {

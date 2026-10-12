@@ -48,7 +48,7 @@ export function readinessOf(
   return ok(readiness);
 }
 
-// R3: ready 근거의 고정 판과 그 판을 채택한 질문 답의 adoption이 같은
+// ready 근거의 고정 판과 그 판을 채택한 질문 답의 adoption이 같은
 // document·version이어야 한다. adoption이 없는 답으로는 ready가 되지 않는다.
 export function adoptionMatches(
   references: readonly { kind: string; target: string }[],
@@ -71,12 +71,12 @@ export function adoptionMatches(
   return ok(undefined);
 }
 
-// R7: 조건 kind는 여섯 가지뿐이다. 자유 산문은 입력 schema가 거절하고,
+// 조건 kind는 여섯 가지뿐이다. 자유 산문은 입력 schema가 거절하고,
 // human_confirmation은 어느 문제의 reproduction을 대신하는지 problem을 갖는다.
 export const HUMAN_CONFIRMATION_KIND = "human_confirmation";
 
-// R8: 구현 ready는 app_test와 실행 가능한 test_command를 각각 하나 이상 요구한다.
-// R9: 수리 ready는 app_test, 대상 문제 각각의 reproduction_test 또는
+// 구현 ready는 app_test와 실행 가능한 test_command를 각각 하나 이상 요구한다.
+// 수리 ready는 app_test, 대상 문제 각각의 reproduction_test 또는
 // human_confirmation, problems_closed를 요구한다.
 export function readyKindsComplete(
   kind: TicketKind,
@@ -171,7 +171,7 @@ export function uniqueConditions(
   return ok(undefined);
 }
 
-// inspect·preserve는 볼 곳·지킬 것일 뿐 권한이 아니다. R25의 권한 해석 금지는
+// inspect·preserve는 볼 곳·지킬 것일 뿐 권한이 아니다. 권한 해석 금지는
 // 여기 남긴다: 이 값으로 scope를 넓히는 path는 없다.
 export function wantsNoGrant(
   input: { inspect: readonly string[]; preserve: readonly string[] },
@@ -191,7 +191,7 @@ export function cancelActorAllowed(actor: string): boolean {
   return parts.kind === "user" || parts.kind === "machine";
 }
 
-// R15 release 역조회. releases.ticket_source는 claim 출처의 사본이 아니라 원 seq다.
+// release 역조회. releases.ticket_source는 claim 출처의 사본이 아니라 원 seq다.
 // 같은 앱이면서 이 ticket·이 claim seq로 준비된 release만 완료 보고가 받는다.
 export function releaseSourceMatches(
   source: { ticket: string; claim_seq: string } | null,

@@ -146,8 +146,8 @@ export async function schemaIsExpected(
     actual.value.data_schema === attempt.expectedSchema;
 }
 
-// 변경 전 보호 backup을 만들고 그 참조를 ledger에 확정한다. 확정이 끝나야 migration을 시작한다
-// (apps/data#R4). 확정 여부를 모르는 실패는 호출한 쪽이 ledger를 다시 읽어 판단한다.
+// 변경 전 보호 backup을 만들고 그 참조를 ledger에 확정한다. 확정이 끝나야 migration을 시작한다.
+// 확정 여부를 모르는 실패는 호출한 쪽이 ledger를 다시 읽어 판단한다.
 export type Protected =
   | { stage: "done"; backup: BackupOutcome }
   // backup을 만들지 못했다. 데이터는 바뀌지 않았다.

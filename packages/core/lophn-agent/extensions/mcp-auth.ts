@@ -4,8 +4,8 @@ import type { McpAuthFailure } from "../../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import { httpRequest } from "./adapters/mcp-http.ts";
 
-// HTTP 인증(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R16). 인증 없음·사람이 지정한 Bearer 토큰·사람이
+// HTTP 인증(concern lophn-agent/extensions).
+// 인증 없음·사람이 지정한 Bearer 토큰·사람이
 // 지정한 API 키 헤더·OAuth 2.1 Authorization Code와 S256 PKCE를 지원한다.
 // OAuth는 사람이 시작한 브라우저 열기(port가 열 URL을 돌려준다, 실제 브라우저를
 // 열지 않는다)와 127.0.0.1 loopback callback으로 진행한다. 동적 클라이언트
@@ -16,12 +16,12 @@ import { httpRequest } from "./adapters/mcp-http.ts";
 // 만료 토큰은 같은 연결에서 한 번에 하나만 갱신하고(single-flight), 갱신 실패는
 // 재인증 필요로 알린다.
 
-// shell#T31에서 넘어온 이름 규칙이다. bearer·api_key·oauth2의 credential은
+// 이름 규칙이다. bearer·api_key·oauth2의 credential은
 // 보호 창의 `SetSecret`(이름 `mcp-<server 이름>`)이 저장하고 설정은
 // `sec:mcp-<server 이름>`을 가리킨다. 이 이름 규칙으로 찾는 곳은 이 모듈 밖의
 // 통로(extensions secret-refs)다.
 
-// 보관 이름이다(shell#T31에서 넘어온 규칙). 서버 이름을 그대로 쓴다. 서버 이름은
+// 보관 이름이다. 서버 이름을 그대로 쓴다. 서버 이름은
 // 계약이 `[A-Za-z0-9_-]{1,32}`로 거르므로 이 그대로가
 // secretNameSchema를 지난다.
 export function mcpSecretName(server: string): string {
@@ -42,7 +42,7 @@ export type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
 export type CredentialBinding = {
   // 서버 URL이다. URL이 바뀌면 옛 인증 비밀을 재사용하지 않는다.
   server_url: string;
-  // 보관 이름이다(`mcp-<server>`, shell#T31 규칙).
+  // 보관 이름이다(`mcp-<server>`).
   secret_name: string;
 };
 
@@ -140,7 +140,7 @@ function base64url(bytes: Uint8Array): string {
 }
 
 // 사람이 시작한 브라우저 열기 port다. 실제 브라우저를 열지 않고 열 URL을
-// 돌려준다(shell#T31의 `[Sign in]` 흐름이 OS browser로 연다). 값은 접어 두는
+// 돌려준다(`[Sign in]` 흐름이 OS browser로 연다). 값은 접어 두는
 // 근거가 없다.
 export type BrowserOpener = (url: string) => Promise<Result<void>>;
 

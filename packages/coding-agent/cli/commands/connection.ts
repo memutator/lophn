@@ -1,5 +1,5 @@
-// `lophn connection list|show|create|revoke|install` command의 route 표와 실행 결정이다(T36,
-// coding-agent/cli#R40). list·show는 원문 token·hash 없는
+// `lophn connection list|show|create|revoke|install` command의 route 표와 실행 결정이다.
+// list·show는 원문 token·hash 없는
 // connection을 소유 읽기 route로 읽는다. create·revoke는 사람의 결정이라 CLI가 사람 credential을
 // 읽지 않고 shell main의 연결 화면이 받는다(이 표는 안내만 한다). install은 기존 connection의 선택
 // target 재설치이고 자동 재발급이 없다. 그리고 사람의 연결 결정 흐름을 shell main이 부를 순서 그대로

@@ -1,5 +1,5 @@
 // core 안의 documents 구독자(machine:documents-feed). documents event를 받으면 root 집합과 관측
-// 근거를 snapshot read로 다시 맞춘다(documents plan Q17). 2초·1초 주기 읽기를 대신한다.
+// 근거를 snapshot read로 다시 맞춘다. 2초·1초 주기 읽기를 대신한다.
 // event는 깨우는 신호이고 payload로 상태를 만들지 않는다. 구독이 (다시) 열릴 때도 맞춰서,
 // 구독이 닫혀 있던 동안의 변화를 놓치지 않는다.
 import { DOCUMENTS_FEED_CONTEXT, isDocumentsFeedEvent } from "./events.ts";
@@ -52,7 +52,7 @@ export function startDocumentsFeed(
       await resync();
     },
     onEvents(events) {
-      // R14: consumer는 쓰지 않는 event도 scanned_through_seq까지 cursor를 전진시킨다. 소비 대상
+      // consumer는 쓰지 않는 event도 scanned_through_seq까지 cursor를 전진시킨다. 소비 대상
       // event만 깨우면 ledger 끝의 비소비 event 뒤 cursor가 basis보다 한 칸 뒤에 머문다.
       clearTimeout(searchTimer);
       searchTimer = setTimeout(catchUpSearch, debounceMs);

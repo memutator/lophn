@@ -88,7 +88,7 @@ export const submitFeedbackInputSchema = z.strictObject({
 );
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackInputSchema>;
 // Current shell/view authorization is a trusted host check; supplied metadata is not
-// permission. The chosen screenshot is attached as-is without redaction (D32), after
+// permission. The chosen screenshot is attached as-is without redaction, after
 // the collector checks its PNG header, size and the preview's final hash.
 export const submitFeedback = defineWorker({
   resource: "problems",

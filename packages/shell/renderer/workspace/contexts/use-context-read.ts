@@ -1,5 +1,5 @@
-// Context 탭 본문이 한 번 읽고, 작업대 watch가 알리는 stamp가 바뀌면 화면을 그대로 둔 채 다시 읽는다
-// (shell/workspace#R30). 대상(source·context)이나 [Retry]가 바뀌면 loading부터 시작하고, stamp만
+// Context 탭 본문이 한 번 읽고, 작업대 watch가 알리는 stamp가 바뀌면 화면을 그대로 둔 채 다시 읽는다.
+// 대상(source·context)이나 [Retry]가 바뀌면 loading부터 시작하고, stamp만
 // 바뀌어 다시 읽다 실패하면 이미 보이는 값을 지키다 다음 stamp에서 다시 읽는다.
 import { useEffect, useRef, useState } from "react";
 

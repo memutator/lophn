@@ -1,8 +1,8 @@
 // 세션 시각 블록의 허용 registry와 그리기 전 검사. 블록은 lophn-agent/visuals의
 // owner 검사를 지나 저장된 값이지만, renderer는 받은 값을 믿지 않고 그릴 수 있는 모양인지 다시 본다.
 // contracts를 import하면 zod와 core 쪽 graph가 renderer bundle에 들어오므로(editor/core-source.ts와
-// 같은 이유) VisualBlock contract의 모양·상한과 owner 검사의 markup·URL 규칙
-// (lophn-agent Q45 (1))을 여기에 옮겨 적는다. registry_test가 contract fixture와 맞춰 본다.
+// 같은 이유) VisualBlock contract의 모양·상한과 owner 검사의 markup·URL 규칙을
+// 여기에 옮겨 적는다. registry_test가 contract fixture와 맞춰 본다.
 //
 // 그릴 수 있는 것은 아래 registry의 종류뿐이다. agent의 JS·HTML·CSS·URL은 import·eval·innerHTML로
 // 실행하지 않는다: 통과한 값은 문자열·숫자로만 SDK의 선언형 props에 넘어가고 React가 text node로
@@ -51,7 +51,7 @@ export function unsafeText(text: string): boolean {
   return UNSAFE.some((pattern) => pattern.test(text));
 }
 
-/** 블록을 그리는 SDK 갈래. 이 목록 밖의 종류는 그리지 않는다. 앱 카드는 shell#T44가 맡는다. */
+/** 블록을 그리는 SDK 갈래. 이 목록 밖의 종류는 그리지 않는다. */
 export const VISUAL_REGISTRY = Object.freeze(
   {
     table: "DataTable",

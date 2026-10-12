@@ -35,7 +35,7 @@ import { chosenActionOf, loadGroupOfQuestion } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 
 // 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(domain model lophn-agent/questions
-// `apply_question_option`, requirements questions#R13–R16).
+// `apply_question_option`).
 //
 // - 소유 command는 등록된 것만 부른다(OPTION_ACTION_OWNERS). 자유 답·일반 tool 결과·추천은
 //   동작으로 해석하지 않는다: action은 질문을 만들 때 선택지에 고정된 값뿐이다.
@@ -104,7 +104,7 @@ function documentOwner(
 }
 
 // 설정 변경은 입력에 질문 근거를 싣지 않는다. 사람 결정은 이 command가 이미 확인했다.
-// action의 command 이름은 `apply_settings`이고 dispatch하는 route는 `ApplySettings`다(Q36의 allowlist
+// action의 command 이름은 `apply_settings`이고 dispatch하는 route는 `ApplySettings`다(allowlist
 // 이름을 유지한다).
 export const SETTINGS_ACTION_COMMAND = "apply_settings";
 

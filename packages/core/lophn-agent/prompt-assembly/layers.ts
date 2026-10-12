@@ -133,7 +133,7 @@ export function withTurnContext(
   return [...messages, { role: "user", parts: [part] }];
 }
 
-// ---- Anthropic wire 대응(질문 Q11) ----
+// ---- Anthropic wire 대응 ----
 // Anthropic 요청은 tools → system → messages 순이다. 그래서 제품 층 system 끝의 marker가 tools를
 // 함께 덮는다. tools에는 marker를 따로 달지 않으므로 논리 경계 세 곳이 wire marker 세 개 이하다.
 

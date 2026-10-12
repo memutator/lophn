@@ -67,7 +67,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // refreshing, 재조회 실패면 failed다. fresh 밖의 서버 tool은 호출 거절과
   // connectionRevision undefined다.
   const refresh = new Map<string, Map<string, RefreshState>>();
-  // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 R24 판정 근거의
+  // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 판정 근거의
   // configuration_revision도 여기서 온다.
   const known = new Map<string, Map<string, McpServerConfig>>();
 
@@ -232,7 +232,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         return async (invoke) => {
           const state = stateOf(assignmentId, invoke.server);
           if (state !== "fresh") {
-            // Q16: 재조회가 끝날 때까지 그 server의 tool 호출을 막는다.
+            // 재조회가 끝날 때까지 그 server의 tool 호출을 막는다.
             return err({
               code: "unavailable",
               message: state === "refreshing"
@@ -338,7 +338,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
 }
 
 // external 정의의 description에서 서버 이름을 뗀다. 정의는
-// `MCP tool <original> of server <server>: ...` 모양이다(T37 모듈).
+// `MCP tool <original> of server <server>: ...` 모양이다.
 function serverNameOf(definition: ToolDefinition): string | undefined {
   const match = /of server ([^:]+):/.exec(definition.description);
   if (match === null) return undefined;

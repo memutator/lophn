@@ -1,4 +1,4 @@
-// sync이다(mcp#R19 도구 재배포). 사람이 고른 target 하나의 앱
+// sync이다(도구 재배포). 사람이 고른 target 하나의 앱
 // 범위(app_realpath)에 도구를 다시 맞춘다. 두 통로(MCP tool과 CLI command)가 이 한 흐름을
 // 지나므로 같은 입력의 결과와 거절이 같다.
 //
@@ -25,7 +25,7 @@ import type { DistributedSkill } from "./distribution.ts";
 import { installSkills } from "./install.ts";
 
 export type SyncFileResult = {
-  // 두 통로가 같은 이름으로 보여 주는 재배포 대상이다(cli#R29의 MCP·skill·공통
+  // 두 통로가 같은 이름으로 보여 주는 재배포 대상이다(MCP·skill·공통
   // 안내·ignore 안내별 항목).
   target: "mcp" | "guide" | "ignore" | "skill";
   name: string;
@@ -107,13 +107,13 @@ function managedIgnorePort(
   };
 }
 
-// 무변경 재배포 sync의 기준 bytes다. 안내 원본이 cli#R29의 재배포 항목이다. 관리 ignore
+// 무변경 재배포 sync의 기준 bytes다. 안내 원본이 재배포 항목이다. 관리 ignore
 // 구간 기준 bytes다. sync의 ignore 갱신은 관리 구간 안쪽을 이 몸통으로만 두고 바깥 사람
 // 내용을 bytes 그대로 둔다. 어느 몸통이든 sync의 몫 구간(bytes 보존)은 managed-files다.
 const IGNORE_ORIGINAL = "# begin lophn-managed\n# end lophn-managed\n";
 const IGNORE_BODY = ".lophn/\ndist/\nnode_modules/\n";
 
-// app source의 개발 도구를 다시 맞춘다. 결과의 files는 cli#R29의 재배포 항목별
+// app source의 개발 도구를 다시 맞춘다. 결과의 files는 재배포 항목별
 // 결과다. sync는 앱 하나 범위의 target만 받고(MCP 설정·skill·안내는 이 target의
 // app_realpath에 쓴다) user target은 오류이다.
 export async function syncTools(

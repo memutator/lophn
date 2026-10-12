@@ -3,7 +3,7 @@ import { z } from "zod";
 // 질문의 글(본문·이유·선택지 설명·추천 이유·자유 답·취소 이유)은 요청에 값으로 싣는다.
 // 호출자는 hash를 만들지도 blob을 준비하지도 않는다: core가 redaction을 거친 글을
 // UTF-8 bytes로 blob으로 준비하고 command가 같은 transaction에서 영구 참조를 등록한다
-// (메시지 본문 Q29와 같은 길). ledger에는 그 blob의 hash만 남는다.
+// (메시지 본문과 같은 길). ledger에는 그 blob의 hash만 남는다.
 
 // 글 하나의 상한(UTF-8 bytes). 요청 전체는 platform/api의 RPC JSON 상한 안이어야 한다.
 export const QUESTION_TEXT_MAX_BYTES = 32768;

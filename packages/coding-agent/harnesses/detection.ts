@@ -297,7 +297,7 @@ export function authJudgment(
   seat: ProbeSeat,
 ): HarnessAuth {
   if (!seat.present) {
-    // 미지원·미검증 probe는 unverified_capability다(R1 확인). 성공이 아니다.
+    // 미지원·미검증 probe는 unverified_capability다. 성공이 아니다.
     return {
       result: seat.capability === "unsupported"
         ? "unverified_capability"

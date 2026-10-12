@@ -1,4 +1,4 @@
-// 화면 검사(reporting#R5 view 쪽). shell의 앱 화면 검사
+// 화면 검사(view 쪽). shell의 앱 화면 검사
 // host가 돌려준 관측을 runner가 그 요청의 mode=test·scope로 보고 접수에 넘기고, 접수된 것만
 // harness의 ViewDriver 보고로 돌려준다. 접수가 test 진단 scope가 아니면(문제에 묶이면) 받은
 // 것으로 세지 않는다. host를 띄울 수 없으면 view가 null이라 화면 있는 app test는 pass가 아니고,

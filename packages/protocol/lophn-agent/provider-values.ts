@@ -24,7 +24,7 @@ export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
 export const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 
-// lead D31: OAuth는 ChatGPT와 SuperGrok만. Claude OAuth 자리는 두지 않는다.
+// lead 결정: OAuth는 ChatGPT와 SuperGrok만. Claude OAuth 자리는 두지 않는다.
 export const OAUTH_PRODUCTS = ["chatgpt", "supergrok"] as const;
 export const OAUTH_FLOWS = [
   "device_code",

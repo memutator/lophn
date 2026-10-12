@@ -1,4 +1,4 @@
-// coordinator가 쥔 관측 근거(documents plan Q15). core가 감독 pipe로 보낸 조각을 받아
+// coordinator가 쥔 관측 근거. core가 감독 pipe로 보낸 조각을 받아
 // 마지막 조각에서 한꺼번에 반영한다. 반영되면 관측 loop 관리자가 root별로 loop를 맞춘다.
 // 이 store는 파일을 읽지 않는다: root·규칙과 경로→문서 연결의 메모리일 뿐이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";

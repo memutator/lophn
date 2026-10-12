@@ -1,5 +1,5 @@
 // `apps.automations` read. 선언·현재 실행 가능 여부·실제 호출 관측을 서로 다른 사실로 구분해 보인다
-// (apps/automations#R10). 선언은 현재 release 선언, 실행 가능 여부는 App 값(archive·실행 허용·active
+// 선언은 현재 release 선언, 실행 가능 여부는 App 값(archive·실행 허용·active
 // release)·external 켜기 승인(`automation.run` grant)·현재 supervisor 관측, 관측은 이 release의 live
 // invocation 중 trigger가 그 automation인 것이 있는지다. 시작하지 못한 회차는 invocation이 아니므로
 // 실행 가능 여부의 reason으로만 보이고 실패한 호출과 섞이지 않는다.

@@ -62,8 +62,8 @@ export const cliMcpConfigSchema = commonWith("mcp config", {
   toolsets: z.string().min(1).optional(),
 });
 
-// `lophn harness list|detect|refresh|inspect|plan|install|update|remove`
-// (cli#R40). catalog·최초 감지·사람 요청 재감지·자원별 observance·설치 계획·
+// `lophn harness list|detect|refresh|inspect|plan|install|update|remove` command다.
+// catalog·최초 감지·사람 요청 재감지·자원별 observance·설치 계획·
 // 설치·갱신·제거다. 관리 쓰기(plan·install·update·remove)는 사람 전용이다.
 export const cliHarnessListSchema = withCommon(
   "harness list",

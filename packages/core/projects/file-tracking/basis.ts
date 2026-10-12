@@ -1,4 +1,4 @@
-// core가 documents coordinator에 넘기는 관측 근거(documents plan Q15). coordinator는
+// core가 documents coordinator에 넘기는 관측 근거. coordinator는
 // machine으로 tracking 규칙과 경로→문서 연결을 읽지 않는다. core가 소유자로 ledger
 // snapshot에서 읽어 이미 있는 core→coordinator 요청 envelope로 보내고, 규칙이나 연결이
 // 바뀌면 같은 통로로 다시 보낸다. 새 HTTP route나 credential 정책은 없다.

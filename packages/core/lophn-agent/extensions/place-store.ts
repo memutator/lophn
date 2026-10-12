@@ -9,7 +9,7 @@ import {
 import type { Tx } from "../../../protocol/server/mod.ts";
 
 // 자리(project·app) 층의 저장 위치와 파일 모양(concern lophn-agent/extensions, domain model
-// PlaceExtensionSettings, open-issues extensions#Q8). 자리 폴더 `<data root>/{projects,apps}/<id>/`는 agent 정의와
+// PlaceExtensionSettings). 자리 폴더 `<data root>/{projects,apps}/<id>/`는 agent 정의와
 // 같지만 `agents/`와 따로 둔다: skill 꾸러미는 `skills/`에, MCP 서버 목록은 `mcp-servers.json` 한 파일에 둔다.
 // 파일 IO는 port로 받는다.
 

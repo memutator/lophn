@@ -34,7 +34,7 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// 자리(project·app) 층의 MCP 서버 목록을 저장하고 읽는다(concern lophn-agent/extensions R32). 서버 등록은
+// 자리(project·app) 층의 MCP 서버 목록을 저장하고 읽는다(concern lophn-agent/extensions). 서버 등록은
 // 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다. 파일은 transaction 안에서 마지막에
 // 쓰고, 쓰기가 실패하면 handler가 err를 돌려 event까지 전체가 되돌아간다.
 

@@ -161,7 +161,7 @@ export async function assemblePrompt(
     references: [...(input.evidence?.references ?? [])],
     omissions: [...(input.evidence?.omissions ?? [])],
     turn_context: input.evidence?.turn_context ?? null,
-    // T28 compaction이 더한 원문 구간과 summary 근거다. 없으면 비운다.
+    // compaction이 더한 원문 구간과 summary 근거다. 없으면 비운다.
     message_ranges: [...(input.evidence?.message_ranges ?? [])],
     summaries: [...(input.evidence?.summaries ?? [])],
     tool_names: tools.map((tool) => tool.name),

@@ -1,14 +1,14 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// Streamable HTTP MCP 전송(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R13). Streamable HTTP만 지원하고 SSE로 자동
+// Streamable HTTP MCP 전송(concern lophn-agent/extensions).
+// Streamable HTTP만 지원하고 SSE로 자동
 // 전환하지 않는다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
-// 다른 origin(host·scheme·port)으로의 redirect는 거절이다(질문 Q13). TLS 검증을
+// 다른 origin(host·scheme·port)으로의 redirect는 거절이다. TLS 검증을
 // 끄는 설정은 제공하지 않는다.
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
-// 같은 origin(host·scheme·port)인지 본다(질문 Q13). localhost와 127.0.0.1은
+// 같은 origin(host·scheme·port)인지 본다. localhost와 127.0.0.1은
 // port는 같아도 host가 다르므로 다른 origin이다.
 export function sameOrigin(a: string, b: string): boolean {
   try {
@@ -51,7 +51,7 @@ export function endpointReason(url: string): string | null {
 
 export type HttpRequestResult =
   | { ok: true; status: number; body: Uint8Array; headers: Headers }
-  // redirect 거절이다(질문 Q13).
+  // redirect 거절이다.
   | { ok: false; reason: "redirect_rejected"; detail: string }
   | { ok: false; reason: "unavailable"; detail: string }
   | { ok: false; reason: "invalid"; detail: string };
@@ -85,7 +85,7 @@ export async function httpRequest(
         detail: "redirect 목적지가 URL이 아니다",
       };
     }
-    // host·scheme·port가 하나라도 다르면 거절이다(질문 Q13).
+    // host·scheme·port가 하나라도 다르면 거절이다.
     if (!sameOrigin(url, target.href)) {
       return {
         ok: false,
@@ -109,7 +109,7 @@ export async function httpRequest(
   };
 }
 
-// 원래 origin이 아닌 redirect URL인지 본다(질문 Q13).
+// 원래 origin이 아닌 redirect URL인지 본다.
 export function redirectOriginRejected(
   originalUrl: string,
   location: string,

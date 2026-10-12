@@ -1,5 +1,4 @@
-// snapshot의 로그 증거 수집(snapshots#R4, R5, R6, R7, R12, R14, R18, R19, R20;
-// plan problems T17). 로그는 apps/runtime의 임시 buffer(redaction이 이미 적용됨)에서
+// snapshot의 로그 증거 수집. 로그는 apps/runtime의 임시 buffer(redaction이 이미 적용됨)에서
 // 최근 줄만 받는다. 이 모듈은 그 줄을 다시 redaction하고(fail-closed), 크기 상한 안에서
 // blob으로 준비해 순수 값(LogEvidence)이나 공백 아닌 이유 하나를 낸다.
 import type { Result } from "../../../base/mod.ts";
@@ -30,7 +29,7 @@ export type AppLogFeed = {
   truncated: boolean;
 };
 
-// 앱 runtime log buffer를 읽는 통로. 운영 연결(core → supervisor 조회)은 apps#T10이
+// 앱 runtime log buffer를 읽는 통로. 운영 연결(core → supervisor 조회)은 apps가
 // 맡으므로 여기서는 contract 모양의 port로만 받는다. null은 연결 없음이다.
 export type AppLogSource = (query: AppLogQuery) => Promise<Result<AppLogFeed>>;
 

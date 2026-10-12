@@ -186,8 +186,8 @@ export function loadHandoffRun(
   return row === undefined ? undefined : handoffRunOf(row);
 }
 
-// 채택 질문의 답. 질문은 answered이고 고른 선택지의 adoption이 이 고정 판과 같아야 한다
-// (R3). 다른 판의 채택 답이나 최신 주소는 거절한다. 선택지·답의 원본은 questions 표이고
+// 채택 질문의 답. 질문은 answered이고 고른 선택지의 adoption이 이 고정 판과 같아야 한다.
+// 다른 판의 채택 답이나 최신 주소는 거절한다. 선택지·답의 원본은 questions 표이고
 // 질문이 답으로 닫혔는지는 질문이 든 묶음(question_groups)의 상태가 정한다.
 export function adoptionOf(
   lookup: Lookup,

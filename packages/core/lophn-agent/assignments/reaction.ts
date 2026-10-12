@@ -247,7 +247,7 @@ export function assignmentEngine(
       }
       // 공개 정책이 숨긴 event는 batch에 없다. 그 구간도 읽은 것이므로 cursor를
       // batch가 훑은 끝까지 올린다. 올리지 않으면 숨은 event만 있는 구간에서
-      // 같은 batch를 계속 다시 읽는다(R2와 같은 이유다).
+      // 같은 batch를 계속 다시 읽는다.
       const through = read.value.scanned_through_seq;
       if (!closed && BigInt(through) > BigInt(scanned)) {
         const advanced = await advance(through, scanned);

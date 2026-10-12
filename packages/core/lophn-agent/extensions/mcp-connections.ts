@@ -15,8 +15,8 @@ import {
   rpcResultOf,
 } from "./adapters/mcp-http.ts";
 
-// 바깥 MCP 연결 관리(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R18–R22). 연결은 assignment와 서버 이름의
+// 바깥 MCP 연결 관리(concern lophn-agent/extensions).
+// 연결은 assignment와 서버 이름의
 // 조합마다 하나다. 같은 assignment의 여러 run이 같은 연결을 쓰고 다른
 // assignment와는 공유하지 않는다. 시계·대기·process 시작·HTTP는 주입한다.
 // 테스트는 가짜 MCP child와 로컬 HTTP server를 끼운다.
@@ -28,7 +28,7 @@ export const LIST_TIMEOUT_MS = 30_000;
 // 재연결 대기이다. 1초·2초·4초, 최대 세 번.
 export const RECONNECT_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000];
 
-// 도구 목록 상한이다(질문 Q14). 넘으면 그 서버 목록 전체를 거절한다.
+// 도구 목록 상한이다. 넘으면 그 서버 목록 전체를 거절한다.
 export const LIST_PAGE_MAX = 100;
 export const LIST_TOOLS_MAX = 2048;
 export const LIST_BYTES_MAX = 10 * 1024 * 1024;
@@ -679,7 +679,7 @@ export function createMcpConnections(
     return null;
   }
 
-  // schema 깊이다(질문 Q14).
+  // schema 깊이다.
   function schemaDepth(value: unknown, depth: number): number {
     if (depth > SCHEMA_DEPTH_MAX) return depth;
     if (value === null || typeof value !== "object") return depth;

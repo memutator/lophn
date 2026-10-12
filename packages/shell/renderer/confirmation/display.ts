@@ -1,8 +1,8 @@
 import { t } from "@lophn/wording";
 
 // confirmation window가 그리는 표시 자료.
-// contracts#T13의 owner_decision은 comparison을 자유 json object로 두고,
-// 그 안을 채우는 표시 read는 documents#T12·T19의 files.delete다.
+// owner_decision은 comparison을 자유 json object로 두고,
+// 그 안을 채우는 표시 read는 documents의 files.delete다.
 // 정해진 키가 없는 자료는 화면이 지어내지 않고 없다고 말한다.
 
 export interface TextLine {

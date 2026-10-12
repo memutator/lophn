@@ -1,5 +1,5 @@
 // 편집기의 파일 adapter. renderer는 문서 id와 session handle만 보내고,
-// main이 documents의 파일 통로(documents#T12 `/v1/files/*`)를 부른다. 목표(FileTarget)·경로·
+// main이 documents의 파일 통로(`/v1/files/*`)를 부른다. 목표(FileTarget)·경로·
 // core port는 여기에만 있다. 원자 교체·hash 비교·version 준비는 documents가 하고 이 adapter는
 // 결과를 단계별로 옮길 뿐이다. 결과를 모르는 쓰기는 다시 쓰지 않고 documents 상태부터 본다.
 import { createHash, randomBytes } from "node:crypto";

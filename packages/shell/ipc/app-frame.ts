@@ -1,4 +1,4 @@
-// shell renderer와 main 사이 앱 view 경계(contracts#T38 APP_FRAME_IPC·APP_FRAME_PUSH의 사본).
+// shell renderer와 main 사이 앱 view 경계(APP_FRAME_IPC·APP_FRAME_PUSH의 사본).
 // main tsc는 contracts package를 보지 않으므로 같은 모양을 여기 둔다. app-frame_test.ts가
 // contracts schema와 같은 값을 받고 거절하는지 맞춘다. view ID는 main이 만든 메모리 식별이다.
 import { z } from "zod";
@@ -93,7 +93,7 @@ export type ViewReply<T> =
   | { ok: false; error: { code: ViewErrorCode; message: string } };
 
 /**
- * shell preload의 view API(contracts#T38 LophnShellViews 중 앱 view). 실패는 code 하나를
+ * shell preload의 view API(LophnShellViews 중 앱 view). 실패는 code 하나를
  * message로 싣은 Error로 거절한다. `subscribeViewState`는 `shell:view-state` push를 받는다.
  */
 export interface LophnShellViewsApi {

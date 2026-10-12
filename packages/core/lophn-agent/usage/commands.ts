@@ -184,7 +184,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         // 입력 schema refine이 started·결과 없음·초기 비용 unknown 조건을 이미 본다.
         const registered = checkProvider(tx, call.value);
         if (!registered.ok) return registered;
-        // 같은 id 재시작은 R1의 시도마다 한 번이다. 유니크 PK가 막기 전에
+        // 같은 id 재시작은 시도마다 한 번이다. 유니크 PK가 막기 전에
         // conflict로 내보낸다(저장 실패 rollback은 internal로 새지 않는다).
         const existing = tx.sql.get(
           "select id from model_calls where id = ?",

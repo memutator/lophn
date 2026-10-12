@@ -36,7 +36,7 @@ import type { RunCredential, ToolHandler } from "../work.ts";
 // 묶음). 이름은 `<영역>.<동작>`이고 tool 하나는 소유 contract 하나다. preset·assignment
 // tool은 구성·판·담당 현황을 읽기만 한다. 실제 생성·변경·적용은 사람 결정의 owner command
 // 몫이라 이 묶음에 변경 tool은 없다. 초안 제출(`approval.submit_assignment`)은
-// Operator 승인 bundle 묶음을 정하는 lophn-agent#T52가 여기 둔다.
+// Operator 승인 bundle 묶음을 정할 때 여기 둔다.
 
 export const AGENT_TOOL_REVISION = "2026-10-07";
 
@@ -121,7 +121,7 @@ export const handoffSubmitInput = z.strictObject({
 });
 
 // 몫이라 이 묶음에 변경 tool은 없다. 초안·approval 제출(`approval.submit_assignment`)은
-// bundle 모양을 정하는 lophn-agent#T52가 같은 묶음에 더한다.
+// bundle 모양을 정할 때 같은 묶음에 더한다.
 const handoffStatusInput = z.strictObject({
   dedup_key: z.string().min(1).max(128),
 });

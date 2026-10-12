@@ -19,7 +19,7 @@ import type {
 import type { ticketShow } from "../../../../protocol/coding-agent/mod.ts";
 import type { Fingerprint } from "./select.ts";
 
-// connection#R5와 같은 문장이다. 없는 대상과 범위 밖 대상은 같은 답이다.
+// connection과 같은 문장이다. 없는 대상과 범위 밖 대상은 같은 답이다.
 export const UNREADABLE_MESSAGE =
   "현재 연결로 읽을 수 없다. 없는 대상이거나 이 연결의 범위 밖이다";
 

@@ -93,7 +93,7 @@ import {
 // credential)과 tool의 소유 계약 연결은 주입한다.
 
 // 이 run의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어
-// buildMcpTools로 정의를 만들고, Q16 재조회가 끝날 때까지 그 server tool 호출을 막는다.
+// buildMcpTools로 정의를 만들고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
 // 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
 // skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다.
 export type McpSourceOptions = {
@@ -110,7 +110,7 @@ export type McpToolkit = {
   ): Promise<Result<McpToolsSource>>;
   // 고른 MCP(서버+현재 tool 정확한 쌍)와 safe 표시를 골라낸다.
   selection(definition: unknown): McpSelection | null;
-  // 도구 호출 통로다(Q16 재조회가 끝날 때까지 호출은 거절된다).
+  // 도구 호출 통로다(재조회가 끝날 때까지 호출은 거절된다).
   call(assignment: string): McpToolCall;
   // 서버의 연결 설정 판이다(판정 근거 mcp_configuration_revision).
   connectionRevision(
@@ -310,7 +310,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       : deps.apps.defineContext(scope.value, loaded.value);
 
     // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
-    // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
+    // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(재조회 실패는 옛 정의를
     // 호출 가능으로 두지 않는다).
     const mcpKit = mcp.kit;
     let external: readonly ExternalTool[] = [];

@@ -7,7 +7,7 @@ import type {
 
 // 사람 지침(LOPHN.md)의 층·작업 자리·상한을 고르는 순수 규칙이다. LOPHN.md는 document·판을 쓰지 않는
 // 그냥 파일이라 읽을 때마다 파일에서 읽는다. 파일 읽기와 hash는 work.ts, 파일을 여는 쪽은 core다
-// (lophn-agent/instructions 요구 R1–R8).
+// (concern lophn-agent/instructions).
 
 export const INSTRUCTION_FILE_MAX_BYTES = 32768;
 export const INSTRUCTION_TOTAL_MAX_BYTES = 131072;

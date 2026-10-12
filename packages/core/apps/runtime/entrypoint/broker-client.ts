@@ -1,4 +1,4 @@
-// 앱이 broker socket으로 보내는 좁은 요청. supervisor 구현은 T8이다.
+// 앱이 broker socket으로 보내는 좁은 요청. supervisor 구현은 runtime/supervisor에 있다.
 import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
 
 export type BrokerRequest = {

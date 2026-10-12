@@ -18,7 +18,7 @@ export type CredentialCheck = (
   ctx: AuthenticatedContext,
 ) => Result<AuthenticatedContext>;
 
-// Worker entry가 command 표와 권한을 조립한다. T9 core entry가 authority를 넣는다.
+// Worker entry가 command 표와 권한을 조립한다. core entry가 authority를 넣는다.
 export type WriterRegistration = {
   commands: readonly CommandDefinition[];
   clock: Clock;

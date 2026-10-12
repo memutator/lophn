@@ -83,7 +83,7 @@ const claude: HarnessDefinition = {
   ],
   // `.claude/settings.local.json`의 lophn SessionStart만 summary용이다
   // (domain-model 표). event 별 최소 version은 조사 1.5의 예시다.
-  // 모르는 event 하나가 settings 전체를 버리게 하므로(조사 R11) event별 최소
+  // 모르는 event 하나가 settings 전체를 버리게 하므로 event별 최소
   // version을 두고 version을 알 때만 설치한다. status용 event는 `lophn session observe --hook claude`가
   // 정규화한다. payload schema와 `LOPHN_TERMINAL_OBSERVE` env가 hook까지 살아남는지 검증한 version이 없어
   // 모두 unverified이고 설치하지 않으며 관측은 unknown이다.

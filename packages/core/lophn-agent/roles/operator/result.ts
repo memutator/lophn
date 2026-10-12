@@ -22,9 +22,9 @@ export type EvidenceAddress = {
   section: string | null;
 };
 
-// Operator run 하나의 결과다(R6 표). kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
+// Operator run 하나의 결과다. kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
 export type OperatorRunOutcome =
-  // 갱신 조건을 충족해 남길 내용이다(R6 표 갱신 결과). 승인된 update_condition에
+  // 갱신 조건을 충족해 남길 내용이다. 승인된 update_condition에
   // 맞을 때만 새 Version이다.
   | {
     kind: "update";
@@ -34,7 +34,7 @@ export type OperatorRunOutcome =
     declared_items: string[];
     update_condition: string;
   }
-  // 실제 저장된 문서·Version과 미저장·실패 내용이다(R6 표 부분). 일부 저장을
+  // 실제 저장된 문서·Version과 미저장·실패 내용이다. 일부 저장을
   // 전체 성공이나 전체 취소로 표시하지 않는다.
   | {
     kind: "partial";
@@ -52,7 +52,7 @@ export type OperatorRunOutcome =
     document: string;
   };
 
-// 갱신 조건을 충족했을 때 남길 결과다(R6 표 갱신 결과). 사실·판단·불확실함의 세
+// 갱신 조건을 충족했을 때 남길 결과다. 사실·판단·불확실함의 세
 // 구분과 고정 근거 주소와 선언한 판단 항목이 모두 있어야 새 Version이다.
 export function update(
   output: {

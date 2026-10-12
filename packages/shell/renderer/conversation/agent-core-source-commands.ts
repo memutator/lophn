@@ -12,7 +12,7 @@ const NEEDS_SESSION = new Set(["rename", "archive", "compact", "fork"]);
 
 /**
  * session이 하나도 없는 agent의 목록. registry는 session을 기준으로 계산되어 core에 물을 수 없으므로,
- * 어느 agent에나 같은 전역 명령 가운데 session 없이 쓰는 것만 둔다(lophn-agent/commands#R2의 표와 같은 글).
+ * 어느 agent에나 같은 전역 명령 가운데 session 없이 쓰는 것만 둔다(lophn-agent/commands의 표와 같은 글).
  */
 const GLOBAL_WITHOUT_SESSION: readonly CommandEntry[] = [
   ["new", "New session", "Start a new session with this agent"],

@@ -63,7 +63,7 @@ export const FEEDBACK_SCREENSHOT_STATES = [
 ] as const;
 
 // 미리보기는 글·화면 상태의 redaction 결과와 없는 이유만 담는다.
-// screenshot은 사람이 고른 그대로라 redaction 불가 이유·가림 값을 두지 않는다(D32).
+// screenshot은 사람이 고른 그대로라 redaction 불가 이유·가림 값을 두지 않는다.
 // `screenshot_png`는 main이 캡처한 같은 PNG를 가리지 않고 dialog 미리보기에 보이는 data URL이고,
 // `screen_summary`는 보낼 화면 상태 중 사람이 알아볼 화면 이름·URL path다.
 export const feedbackPreviewSchema = z.strictObject({

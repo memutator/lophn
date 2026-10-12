@@ -25,7 +25,7 @@ export const APP_PLAN_OPTION_WORDS: Record<AppPlanOption, string> = {
 // 앱 기획의 SDK 후보다. 순서는 그 앱이 이미 쓰는 재료, 개인 SDK, lophn SDK,
 // 새 코드다. 확인한 version·입력·출력·접근 조건과 확인이 필요한 조건을 구별한다.
 export type SdkCandidate = {
-  // R9 순서이다.
+  // 위 순서대로 둔다.
   kind: "app_material" | "personal_sdk" | "lophn_sdk" | "new_code";
   // 대상의 주소다. new_code는 없다.
   address: string | null;
@@ -140,7 +140,7 @@ export const NO_ASSIGNMENT_WORD =
   "no App Engineer was assigned, so the handoff is not prepared yet";
 
 // 앱 기획을 검사한다. 위험이 첫 줄이고 무엇·왜가 상한 안이며
-// 앞선 방안마다 이유가 있고 SDK 후보가 R9 순서이며 근거 주소가 있고 acceptance
+// 앞선 방안마다 이유가 있고 SDK 후보가 정해진 순서이며 근거 주소가 있고 acceptance
 // check이 없어야 통과다. 읽기 전 결론은 차단한다.
 export function checkAppPlan(
   draft: AppPlanDraft,
@@ -201,7 +201,7 @@ export function checkAppPlan(
   if (draft.build.trim() === "") {
     return { ok: false, error: { code: "build_absent" } };
   }
-  // SDK 후보는 R9 순서대로 둔다. 미확인 조건을 확정으로 적지 않는다.
+  // SDK 후보는 정해진 순서대로 둔다. 미확인 조건을 확정으로 적지 않는다.
   const kinds = draft.sdk_candidates.map((candidate) => candidate.kind);
   for (let i = 1; i < kinds.length; i++) {
     const before = SDK_CANDIDATE_ORDER.indexOf(kinds[i - 1]!);

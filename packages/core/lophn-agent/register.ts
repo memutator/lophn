@@ -214,7 +214,7 @@ export function agentRuntimeLaunchSpec(input: {
   apiPort: number;
   // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`). 자리 경로는 그 폴더와 같다.
   socketRoot: string;
-  // 등록된 MCP server 설정이다(contracts#T24 settings registry의 행). 없으면
+  // 등록된 MCP server 설정이다(settings registry의 행). 없으면
   // `--allow-run`은 빈 목록이다(architecture §2.3).
   mcpServers?: readonly McpServerConfig[];
   // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
@@ -265,7 +265,7 @@ export function agentRuntimeLaunchSpec(input: {
   };
 }
 
-// catalog 자동 갱신 on/off 정의 등록(contracts#T24 settings registry). 사람이
+// catalog 자동 갱신 on/off 정의 등록(settings registry). 사람이
 // 끄면 정상본·snapshot만 쓴다. machine_local이고 다음 기동부터 적용한다.
 export const catalogAutoUpdateSetting = defineSetting({
   key: "lophn-agent.model.catalog_auto_update",
@@ -288,7 +288,7 @@ export const catalogAutoUpdateSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// run 한도 정의 등록(contracts#T24 settings registry). 공통 설정
+// run 한도 정의 등록(settings registry). 공통 설정
 // 하나씩이고 양의 정수만 받는다. 0·무제한·역할의 인상은 없다. 사람이
 // 바꾸고 다음 run부터 적용하며 run은 시작할 때 값을 고정한다.
 function runLimitSetting(
@@ -334,9 +334,9 @@ export const runActiveSetting = runLimitSetting(
   "ms",
 );
 
-// derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다
-// (plan/lophn-agent Q28). pool read handler는 동기 Result를 돌려주므로 파일 읽기도
-// 동기여야 하는데, core module graph의 동기 file API는 platform/responsiveness#R1
+// derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다.
+// pool read handler는 동기 Result를 돌려주므로 파일 읽기도
+// 동기여야 하는데, core module graph의 동기 file API는 platform/responsiveness
 // 검사가 막는다. 그래서 정의는 leaf의 createCatalogRead에 두고 파일 reader는
 // 조립이 끼운다. reader가 없으면 read는 unavailable이다. apiRead 경로는 snapshot을
 // 받지 않아 as_of_seq를 만들 수 없어 pool read로 둔다.
@@ -526,7 +526,7 @@ const waitCommands = createWaitCommands({
 });
 
 // agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
-// (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
+// (platform/ledger). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
 // platform/ledger의 callChosenOption이 대조하는 질문 정본. 사람이 고른 option의
 // 고정 action이 내는 소유 command 호출을 같은 Tx에서 읽어 준다.
@@ -622,7 +622,7 @@ function registeredSkillFolders(sql: Pick<Tx["sql"], "all">): string[] {
   return shaped.success ? shaped.data : [];
 }
 
-// 전역에서 끈 skill의 정확한 이름이다(open-issues shell/desktop#Q22). 읽지 못하면 끈 것이 없다.
+// 전역에서 끈 skill의 정확한 이름이다. 읽지 못하면 끈 것이 없다.
 function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
   const shaped = skillsOffSetting.value_type.safeParse(
     settingValue(sql, skillsOffSetting.key),
@@ -819,7 +819,7 @@ const agentDeps: AgentDeps = {
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);
 
-// skill·MCP의 자리 층(concern extensions R32): 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
+// skill·MCP의 자리 층: 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
 // 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
 const placeExtensionDeps: PlaceExtensionDeps = {
   files: placeFiles,

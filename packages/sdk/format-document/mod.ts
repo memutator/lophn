@@ -2,7 +2,7 @@
 // 등록이고(packages/core/projects/register.ts), 여기는 같은 선언을 데이터로 담아 앱이 읽게
 // 내보내기만 한다. 검사 코드는 없다 — 검사는 core 밖 격리 환경에서
 // 돌는 `/v1/formats/validate`만 한다. Module hash는
-// documents#T4의 bundle.js hash와 같다(→ documents/plan Q10).
+// bundle.js hash와 같다.
 
 // FormatRef의 정확한 module hash(bundle.js 묶음의 sha256). documents/formats의
 // guest/module-hash.ts가 정본이다.

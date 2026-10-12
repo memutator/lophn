@@ -9,7 +9,7 @@ import {
 } from "../lophn-agent/provider-values.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 
-// shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 연다(D21). 종류에 없다.
+// shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 연다. 종류에 없다.
 export const CONFIRMATION_REQUEST_KINDS = [
   "approval_request",
   "question_option_action",

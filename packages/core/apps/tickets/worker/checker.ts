@@ -1,5 +1,5 @@
-// coding-agent/checker worker. 보고된 ticket의 acceptance check를 machine actor로 판정한다
-// (coding-agent/tickets#R7, R8, R18, R19, R20). core 감독이 상시 하나를 띄운다. 시작할 때
+// coding-agent/checker worker. 보고된 ticket의 acceptance check를 machine actor로 판정한다.
+// core 감독이 상시 하나를 띄운다. 시작할 때
 // (재시작 뒤 이어하기)와 core가 `tickets.check`를 보낼 때(VerificationRecorded·ReleaseActivated·
 // ReleaseSuperseded·TicketCompletionReported 뒤) 보고된 ticket을 정본 사실로 다시 비교한다.
 // 이 worker는 ledger를 직접 열지 않는다: core API의 read와 record_checks command뿐이다.

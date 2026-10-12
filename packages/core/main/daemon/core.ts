@@ -456,7 +456,7 @@ export type CoreOptions = {
   // 테스트가 context worker를 띄우지 않을 때만 끈다(worker의 결과를 손으로 내는 시험). 제품 기동은 항상
   // 띄운다.
   contextWorker?: boolean;
-  // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
+  // 테스트가 worker route serving을 붙이는 입구. 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
   // XDG runtime 디렉터리 자리이고 없으면 core 환경의 XDG_RUNTIME_DIR·사용자별 임시 폴더다.
@@ -571,7 +571,7 @@ export type Core = {
   // 시작 때의 고아 정리·색인 복원이 끝나면 resolve한다. 실패해도 resolve한다(기동을 막지 않는다).
   codingCredentialsReady?: Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
-  // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
+  // listen으로 그 session이 받는 event를 같이 들을 수 있다.
   documentsFeed?: InternalSubscription;
   // testCredentials일 때만 있다. event dispatcher에 올라 있는 session 수다. 닫힌 WebSocket
   // 연결이 session을 남기지 않는지 본다.
@@ -708,7 +708,7 @@ async function open(
   } catch {
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
-  // ledger를 새로 만드는 기동인지는 migration이 파일을 만들기 전에 본다(Q12: ledger_id는
+  // ledger를 새로 만드는 기동인지는 migration이 파일을 만들기 전에 본다(ledger_id는
   // ledger를 만들거나 복원할 때마다 새 값이다).
   const ledgerExisted = await fileExists(ledgerPath);
   const schemaSteps = [
@@ -725,7 +725,7 @@ async function open(
   if (!migrated.ok) return migrated;
   const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
   if (!ledgerId.ok) return ledgerId;
-  // 중단 작업 점검 → cursor 복원 치는 R11 순서다. SQLite 복구·schema 점검 뒤
+  // 중단 작업 점검 → cursor 복원 순서다. SQLite 복구·schema 점검 뒤
   // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다. 소유
   // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
   // 읽기 열기를 막지 않는다. 점검 관측은 status에 더하지 않는다: 상태는
@@ -741,8 +741,8 @@ async function open(
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
   // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
-  // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다
-  // (documents#T11). 준비 route도 machine이 닿도록 command kind로 올린다.
+  // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다.
+  // 준비 route도 machine이 닿도록 command kind로 올린다.
   const coding = options.codingKeychain
     ? createCodingCredentials({
       ledgerPath,
@@ -1324,7 +1324,7 @@ async function open(
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다.
       // trace export는 writer queue 앞에서 로컬 파일에 쓴다.
-      // OAuth 로그인(D31)도 writer queue 앞에서 listener와 network를
+      // OAuth 로그인도 writer queue 앞에서 listener와 network를
       // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
         withProviderLogin(
@@ -2885,7 +2885,7 @@ async function open(
             ? await appsSupervision.stopAll()
             : true;
           // stop 요청과 실제 정지 확인은 다르다. unconfirmed이면 update barrier와
-          // 정지 유지보수는 fail-closed로 남긴다(P11).
+          // 정지 유지보수는 fail-closed로 남긴다.
           const ioStopped = io ? await io.stopAll() : true;
           stoppedAt.preparationsBlocked = appsStopped && ioStopped;
           stopPrune.run?.();
@@ -3335,7 +3335,7 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
   };
 }
 
-// Q6 바이트 흐름. core가 relay를 만들어 I/O worker의 callback으로 넣는다.
+// 바이트 흐름. core가 relay를 만들어 I/O worker의 callback으로 넣는다.
 // 준비 성공은 writer 메모리에도 알려 등록 판정이 같은 참조를 보게 한다.
 // 바이트는 core가 열지 않는다. I/O worker의 blob.read가 읽고 core는 결과만 받는다.
 function blobReadDeps(

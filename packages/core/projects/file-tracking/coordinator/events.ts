@@ -1,5 +1,5 @@
 // documents가 event 구독에 싣는 것: 팀 event 정의, 공개 정책, 그리고 core 안에서 documents
-// 관측을 맞추는 구독자(machine:documents-feed)가 보는 event 범위(documents plan Q17).
+// 관측을 맞추는 구독자(machine:documents-feed)가 보는 event 범위.
 // 이 구독자는 core가 직접 돌리는 machine principal이고 token이 없다. 사람 token·agent·app
 // credential은 이 principal이 될 수 없어서 아래 정책의 feed 분기에 닿지 않는다.
 // event는 깨우는 신호일 뿐이다. 구독자는 payload로 상태를 만들지 않고, 깨어나면 같은

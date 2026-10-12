@@ -422,6 +422,6 @@ export const CATALOG_REFRESH_INTERVAL_MS = 86_400_000;
 export const INSTRUCTION_FILE_MAX_BYTES = 32_768;
 export const INSTRUCTION_CALL_MAX_BYTES = 131_072;
 
-// RunBasis에 고정하는 값은 T26의 ResolvedModel을 그대로 쓴다.
+// RunBasis에 고정하는 값은 ResolvedModel을 그대로 쓴다.
 export const runBasisModelSchema = resolvedModelSchema;
 export const runBasisModelOutputSchema = resolvedModelOutputSchema;

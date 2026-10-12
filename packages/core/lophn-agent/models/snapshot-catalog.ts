@@ -2,9 +2,9 @@ import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import { parseEntries } from "./mod.ts";
 import snapshotJson from "./snapshot.json" with { type: "json" };
 
-// 동봉 catalog snapshot이다(T4 release snapshot, harness/model R5의 마지막
+// 동봉 catalog snapshot이다(release snapshot, 마지막
 // 정상본이 없을 때 자리). module import라 file API가 없다(core graph의
-// platform/responsiveness#R1 검사가 동기 file API를 막는다).
+// platform/responsiveness 검사가 동기 file API를 막는다).
 const entries: CatalogEntry[] = parseEntries(
   JSON.stringify(snapshotJson),
 ) ?? [];

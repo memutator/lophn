@@ -5,8 +5,8 @@ import {
   type AgentRole,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// StartRun이 agent credential에 싣는 AgentAppScope 계산(requirements
-// lophn-agent/roles/common R11). 역할이 닿을 수 있는 앱 command의 상한이다.
+// StartRun이 agent credential에 싣는 AgentAppScope 계산(concern
+// lophn-agent/roles/common). 역할이 닿을 수 있는 앱 command의 상한이다.
 // platform은 이 값을 해석하지 않고 발급 뒤 넓히지 못하게만 한다. 현재 grant 회수·
 // release 변경은 호출마다 다시 교집합한다(tool 정의는 다른 작업). 여기서는 시작 상한만 낸다.
 

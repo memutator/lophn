@@ -1,5 +1,5 @@
-// agents 탭 kind. project의 agent 목록과 그 안에서 연 editor를 보이는 탭이라 현재 보기에는 대상이 없다
-// (shell/workspace#R36). layout 파일만 열어 둔 agent를 기억한다(R6).
+// agents 탭 kind. project의 agent 목록과 그 안에서 연 editor를 보이는 탭이라 현재 보기에는 대상이 없다.
+// layout 파일만 열어 둔 agent를 기억한다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

@@ -116,7 +116,7 @@ export const filesRename = defineWorker({
   errors: fileErrors,
 });
 
-// 사람 결정은 T13 owner_decision이다. 표시는 같은 목표의 files.status를 읽는다.
+// 사람 결정은 owner_decision이다. 표시는 같은 목표의 files.status를 읽는다.
 export const FILE_DELETE_DECISION = defineDecision("delete_file");
 
 export const filesDelete = defineWorker({

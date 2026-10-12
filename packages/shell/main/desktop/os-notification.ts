@@ -66,8 +66,8 @@ export interface OsNotificationOptions {
 
 export interface OsNotifications {
   /**
-   * 지금 도착한 event(구독 socket의 frame). 재연결 때 따라잡은 목록은 넘기지 않는다
-   * (shell/desktop#R7). NotificationCreated만 본다.
+   * 지금 도착한 event(구독 socket의 frame). 재연결 때 따라잡은 목록은 넘기지 않는다.
+   * NotificationCreated만 본다.
    */
   arrived(events: readonly ArrivedEvent[]): Promise<void>;
   readonly state: OsNotificationState;

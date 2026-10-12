@@ -6,7 +6,7 @@ import type {
 } from "../../../protocol/supervision/mod.ts";
 import { valueWithin } from "./deadline.ts";
 
-// route 등록값: timeout·응답 상한은 route마다 등록값이다(plan platform#T12).
+// route 등록값: timeout·응답 상한은 route마다 등록값이다.
 export type WorkerRouteLimits = {
   timeoutMs?: number;
   responseMaxBytes?: number;

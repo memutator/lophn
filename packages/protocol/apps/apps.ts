@@ -66,8 +66,8 @@ export const appCompareSchema = z.strictObject({
 });
 
 export const appCreateInputSchema = z.strictObject({
-  // 미리 배정한 app ID. 사람이 고른 질문 선택지의 고정 action만 앱 ID를 먼저 정할 수 있다
-  // (lophn-agent/questions#R13). 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
+  // 미리 배정한 app ID. 사람이 고른 질문 선택지의 고정 action만 앱 ID를 먼저 정할 수 있다.
+  // 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
   id: appIdSchema.optional(),
   slug: slugSchema,
   name: appNameSchema,

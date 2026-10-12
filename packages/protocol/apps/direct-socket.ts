@@ -20,8 +20,8 @@ import {
 
 export { DIRECT_SOCKET_PATHS };
 
-// 읽기 결과의 원천 상태. 정상 0행과 미수집·부분 범위·신선도 부족을 구분한다
-// (apps/invocations#R14). 값을 만드는 일은 앱 handler의 몫이다.
+// 읽기 결과의 원천 상태. 정상 0행과 미수집·부분 범위·신선도 부족을 구분한다.
+// 값을 만드는 일은 앱 handler의 몫이다.
 export const READ_COVERAGE = ["complete", "partial", "uncollected"] as const;
 export const READ_FRESHNESS = ["fresh", "stale", "unknown"] as const;
 

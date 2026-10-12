@@ -40,7 +40,7 @@ export interface QuitFlowOptions {
   work: QuitWork;
   /** 사람에게 묻는다. Quit을 고른 때만 true. 닫기·Esc·실패는 false. */
   confirm(prompt: QuitPrompt): Promise<boolean>;
-  /** 터미널 host와 core의 정상 종료 순서(contracts#T6 stop frame). 한 번만 부른다. */
+  /** 터미널 host와 core의 정상 종료 순서(stop frame). 한 번만 부른다. */
   stop(): void;
   /** Electron 종료. stop 뒤에 부른다. */
   quitApp(): void;

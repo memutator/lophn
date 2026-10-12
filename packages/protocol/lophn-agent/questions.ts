@@ -348,7 +348,7 @@ export const questionText = defineRead({
 const questionSubject = idSchema("qgr");
 
 // 질문마다 선택지의 key와, 고정 action이 platform/settings 변경이면 그 변경 목록을 싣는다.
-// platform/settings#R29가 machine ApplySettings의 질문 근거를 이 event에서 대조한다.
+// platform/settings가 machine ApplySettings의 질문 근거를 이 event에서 대조한다.
 // settings 변경이 아닌 선택지(자유 답·설명 요청·다른 owner action)는 changes가 null이다.
 export const questionCreatedOptionSchema = z.object({
   key: z.string().min(1),

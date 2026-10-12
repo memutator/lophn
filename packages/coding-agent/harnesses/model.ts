@@ -183,7 +183,7 @@ export type HarnessDefinition = {
     policy: "tested_ranges" | "minimum" | "unknown";
     tested_versions: readonly string[];
     minimum_version: string | null;
-    // version을 모를 때의 capability다(R1 확인).
+    // version을 모를 때의 capability다.
     unverifiable: CapabilityState;
   };
   environments: readonly EnvironmentSupport[];

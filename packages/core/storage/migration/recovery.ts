@@ -118,7 +118,7 @@ export async function createRecoveryCopy(
     }
   }
   if (failed !== undefined) {
-    // 실패한 복구본은 남기지 않는다. R18의 대상은 성공한 복구본이다.
+    // 실패한 복구본은 남기지 않는다. 남기는 것은 성공한 복구본이다.
     if (copied) {
       for (const suffix of ["", "-wal", "-shm"]) {
         try {

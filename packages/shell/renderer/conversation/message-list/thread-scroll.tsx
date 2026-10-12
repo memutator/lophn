@@ -1,5 +1,5 @@
-// 대화 줄을 담는 scroll 틀. 새 말이 와도 사람이 올려 읽던 위치와 입력 focus를 건드리지 않는다
-// (shell/workspace#R13). 맨 아래를 보고 있을 때만 새 말을 따라 내려간다.
+// 대화 줄을 담는 scroll 틀. 새 말이 와도 사람이 올려 읽던 위치와 입력 focus를 건드리지 않는다.
+// 맨 아래를 보고 있을 때만 새 말을 따라 내려간다.
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { IconButton, Tooltip } from "@lophn/design/components";
 import { conversationIcons } from "../../icons/mod.ts";

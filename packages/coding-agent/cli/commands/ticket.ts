@@ -1,10 +1,10 @@
 // ticket command의 route 표와 실행이다. list·show·checks는 소유
 // read route로 core에 닿는다. `ticket claim`은 MCP 연결·지정 ticket 안내로만 끝나고 claim을
-// 만들지 않는다(cli#R41 — 외부 세션의 claim은 MCP로 수행한다). renew·release·report는 MCP
+// 만들지 않는다(외부 세션의 claim은 MCP로 수행한다). renew·release·report는 MCP
 // `lophn_ticket`과 같은 소유 route·같은 흐름이다(connection/ticket-ops). report는 summary를
 // 올린 준비 참조로 보내고 completion seq를 입력받지 않는다. 표가 기한이나 자동 갱신을 덧붙이지
 // 않는다. create·cancel은 사람 전용이다: CLI는 사람 credential을 읽지 않으므로
-// 같은 필수 입력 검사만 하고 결정 화면 링크로 넘긴다(coding-agent 계획 질문 Q1). coding
+// 같은 필수 입력 검사만 하고 결정 화면 링크로 넘긴다. coding
 // credential에는 이 둘도 목표 수정·공개·확인 판정·test result 작성도 없다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {

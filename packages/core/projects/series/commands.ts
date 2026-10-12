@@ -99,7 +99,7 @@ export function createSeriesCommands(): {
         if (Object.keys(compare).length !== 0) {
           return rejected("invalid_input", "create takes no compare fields");
         }
-        // 앱은 자기 앱 place에만 가족을 등록한다(versions#R14의 앱 범위).
+        // 앱은 자기 앱 place에만 가족을 등록한다(앱 범위).
         const app = actingApp(ctx);
         if (app !== null && !isAppPlace(app, input.place)) {
           return rejected("forbidden", "app registers series in its own place");

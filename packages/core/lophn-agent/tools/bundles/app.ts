@@ -36,7 +36,7 @@ import {
 } from "./common.ts";
 import { type Body, bodyOf, pageThrough, scopeOf } from "./paging.ts";
 
-// 앱·problem 읽기 묶음(concern harness/tools R8). 앱 blueprint·release·invocation·정상 신호와 problem·
+// 앱·problem 읽기 묶음(concern harness/tools). 앱 blueprint·release·invocation·정상 신호와 problem·
 // 보고·snapshot·검증·고친 기록을 소유 contract 읽기 하나로 준다. 앱 소스 경로·실행 연결(endpoint·
 // process nonce)·secret 값은 결과에 싣지 않는다. 앱 command 호출은 이 묶음이 아니라 blueprint에서
 // 자동으로 만든 tool(`../app-tools.ts`)이 한다.

@@ -6,7 +6,7 @@ import type {
   SecretUse,
 } from "../../../protocol/secrets/mod.ts";
 
-// 외부 MCP credential의 secret 참조(platform#T19 후속 #294). MCP server 설정이
+// 외부 MCP credential의 secret 참조다. MCP server 설정이
 // 가리키는 `sec:` 참조를 ledger의 secrets 표에서 읽어 core의 알려진 값
 // registry에 등록하는 통로다. 설정은 setting_choices 행(platform/settings)에
 // 있고 참조는 secrets 표에 있다. 값은 표에 없다(platform/secrets).
@@ -52,7 +52,7 @@ function nameOf(ref: string): string | null {
   return name.length > 0 ? name : null;
 }
 
-// MCP server 설정이 가리키는 secret 참조를 읽는다(platform#T19 후속 #294).
+// MCP server 설정이 가리키는 secret 참조를 읽는다.
 // provider credential과 같은 모양이다(contracts/platform/secrets SecretRefSource).
 // extra는 OAuth token 보관(mcp-oauth-vault)이 가진 참조다. 그 참조는 ledger 표가 아니라 keychain의 고정 meta가
 // 가리키므로 보관이 읽거나 저장한 것만 나온다. 값은 어디에도 없다.

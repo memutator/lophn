@@ -90,7 +90,7 @@ const completionFields = {
 };
 export const ticketCompletionInputSchema = z.strictObject(completionFields);
 // summary blob의 준비 증거다(hash만 싣는 보고는 가리키는 바이트가 저장된 blob이어야 한다).
-// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다(contracts#T40 선례).
+// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다.
 export const ticketSummaryBlobSchema = z.strictObject(preparedBlobSchema.shape)
   .refine(
     (value) => value.purpose === "ticket_summary",

@@ -1,4 +1,4 @@
-# electron-builder config (shell#T57, platform#T48). Linux는 `--linux dir`로 앱만 풀고,
+# electron-builder config. Linux는 `--linux dir`로 앱만 풀고,
 # 설치 묶음(.deb)은 tools/package-linux.ts가 /opt/lophn 배치로 잇는다.
 appId: dev.lophn.shell
 productName: lophn

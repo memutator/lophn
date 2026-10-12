@@ -84,7 +84,7 @@ export const CREDENTIAL_HELPER_COMPILE_FLAGS: readonly string[] = [
 function launcherHead(layout: LinuxInstallLayout, name: string): string {
   return [
     "#!/bin/sh",
-    `# ${name}: 설치 묶음의 launcher다. 설치된 Deno로 cached-only 실행한다(platform#T48).`,
+    `# ${name}: 설치 묶음의 launcher다. 설치된 Deno로 cached-only 실행한다.`,
     "set -e",
     `ROOT=${layout.root}`,
     'H="${LOPHN_HOME:-$HOME/.lophn}"',
@@ -127,8 +127,8 @@ const CLI_ENV =
   "LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_TERMINAL_OBSERVE,HOME,DENO_DIR,PATH,XDG_RUNTIME_DIR,TMPDIR,CODEX_HOME,XDG_CONFIG_HOME,HERMES_HOME";
 
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 helper로만 받는다.
-// 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다
-// (open-issues coding-agent/mcp-server#Q9): 쓰기는 `<H>/integrations`와 instance lock 파일, 실행은 helper·
+// 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다.
+// 쓰기는 `<H>/integrations`와 instance lock 파일, 실행은 helper·
 // 설치 Deno·`lophn-desktop`, 읽기는 PATH 폴더를 더한다. 선택한 제품 설정 파일·앱 source의 `deno.json`·
 // `deno.lock`처럼 명령 시점에야 알 수 있는 경로는 같은 argv를 읽는 권한 계획 entry(`packages/coding-agent/cli/launch-entry.ts`)가
 // 사람이 고른 target·앱에서 정확한 경로로 계산해 이 실행에만 더한다. 일반 쓰기·일반 실행·폴더 단위 쓰기는 없다.

@@ -1,4 +1,4 @@
-// 깨진 앱 view의 상태와 새 view 열기(shell/app-frame#R21, architecture/shell 실패 표 "앱 view
+// 깨진 앱 view의 상태와 새 view 열기(architecture/shell 실패 표 "앱 view
 // crash·무한 loop"). renderer process가 사라지면 crashed, 응답이 없으면 unresponsive다. 이
 // 상태는 연결 상태와 함께 그 창의 shell 크롬에 알린다. main은 깨진 view를 스스로 다시
 // load하거나 앱을 다시 부르지 않는다: 사람이 [새 view 열기]를 누를 때만 지금 연결(같은

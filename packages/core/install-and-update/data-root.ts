@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 
-// Linux 데이터 root·관리 앱 폴더·runtime 제어 폴더는 0700보다 넓으면 기동을 거절한다
-// (install-and-update R7, R9). 다른 OS의 동등 ACL 검사는 아직 실측이 없다.
+// Linux 데이터 root·관리 앱 폴더·runtime 제어 폴더는 0700보다 넓으면 기동을 거절한다.
+// 다른 OS의 동등 ACL 검사는 아직 실측이 없다.
 const OWNER_ONLY = 0o700;
 const MANAGED = ["apps", "run"] as const;
 

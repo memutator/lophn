@@ -20,7 +20,7 @@ import {
 } from "./common.ts";
 import { bodyOf, pageThrough, scopeOf } from "./paging.ts";
 
-// SDK 안내 묶음(concern harness/tools R7). 설치가 제공하는 SDK Package의 목록·version·사용 예를 읽기로만
+// SDK 안내 묶음(concern harness/tools). 설치가 제공하는 SDK Package의 목록·version·사용 예를 읽기로만
 // 준다. 이 묶음에는 설치·추가·등록 tool이 없고 호출 뒤 설치 상태가 바뀌지 않는다. 안내 원문(API·type·
 // permission·peer)을 읽는 자리는 apps 계약에 아직 없어 그 hash만 보이고 원문은 null이다.
 

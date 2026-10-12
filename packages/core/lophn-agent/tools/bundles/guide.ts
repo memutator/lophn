@@ -22,7 +22,7 @@ import {
 } from "./common.ts";
 import { bodyOf, resume, scopeOf, wrap } from "./paging.ts";
 
-// 제품 안내 묶음(concern harness/tools R20). 동봉 안내와 공개 설정 정의·현재 적용값·출처를
+// 제품 안내 묶음(concern harness/tools). 동봉 안내와 공개 설정 정의·현재 적용값·출처를
 // 읽기로만 준다. 설정을 바꾸는 tool과 secret 값을 읽거나 받는 입력은 없다. 설정 변경은
 // lophn-agent/questions의 option action으로만 적용된다(사람이 선택한 뒤 machine이 적용).
 

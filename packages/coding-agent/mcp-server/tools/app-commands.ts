@@ -28,8 +28,8 @@ import {
 import type { ToolEntry } from "../registry.ts";
 import type { ToolOutput } from "./output.ts";
 
-// active release의 blueprint에서 command 정의만 읽은 값이다. 소유 route(apps#T19
-// `/v1/apps/blueprint`)가 낸 것을 이 모양으로 옮기는 어댑터가 source를 만든다. 범위 밖·없는 앱과
+// active release의 blueprint에서 command 정의만 읽은 값이다. 소유 route(`/v1/apps/blueprint`)가
+// 낸 것을 이 모양으로 옮기는 어댑터가 source를 만든다. 범위 밖·없는 앱과
 // active release가 없는 앱은 null이다(같은 답).
 export type AppBlueprintView = {
   release: string;

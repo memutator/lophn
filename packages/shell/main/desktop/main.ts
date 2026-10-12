@@ -384,7 +384,7 @@ function windowOfRef(ref: string): BrowserWindow | undefined {
 }
 
 // 앱 view registry. 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
-// 붙이기·숨기기 IPC와 renderer 연결은 shell#T39가 이 registry에 잇는다.
+// 붙이기·숨기기 IPC와 renderer 연결은 이 registry에 잇는다.
 const appViews = electronAppViews({
   windowOf: (ref) =>
     [...windows].find((window) =>
@@ -499,7 +499,7 @@ registerViewIpc(
   }),
 );
 // 앱 preload 통로. 신원은 IPC sender view에서만 정한다. 고정 blueprint는 core의
-// `/v1/apps/blueprint`를 읽는다. confirm command의 approval·proof(shell#T45 이어보냄)와
+// `/v1/apps/blueprint`를 읽는다. confirm command의 approval·proof와
 // view 오류의 collector 전달 binding은 아직 core 통로가 없어 unavailable·unsent다.
 const readBlueprint = (app: string) => {
   const session = core.session();
@@ -1025,7 +1025,7 @@ const codingIpcMain = {
 };
 
 // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
-// folder_ref는 documents#T7 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
+// folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
 // snapshot으로만 renderer에 다시 보인다.
 const terminalFocus = new TerminalFocusTable();
 const terminalIpc = createTerminalIpc({

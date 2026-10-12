@@ -8,7 +8,7 @@
 //   shell-main/dist/      main.cjs, preload.cjs (electron-builder에서 사용)
 //   shell-renderer/       shell renderer build output
 //   fonts/                design token 글꼴 (Pretendard Variable, JetBrains Mono)
-//   core/                 Deno workspace packages (contracts#T45가 완성)
+//   core/                 Deno workspace packages
 //   STAGE.json            빌드 메타데이터
 
 import { execFileSync } from "node:child_process";
@@ -113,7 +113,7 @@ function stageCorePackages(): void {
     return;
   }
 
-  // Copy packages for Deno bundling (contracts#T45 completes the rest)
+  // Copy packages for Deno bundling
   const toStage = ["platform", "contracts", "base"];
   for (const pkg of toStage) {
     const srcPkg = path.join(packagesDir, pkg);

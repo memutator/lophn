@@ -8,10 +8,10 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { FailureVerdict } from "./failures.ts";
 
-// ---- R27 과금 경로 ----
+// ---- 과금 경로 ----
 
 // API key는 API 과금, ChatGPT·SuperGrok OAuth는 구독이다. Claude OAuth 자리는
-// 없다(D31). 확정되지 않은 청구액은 모름이다.
+// 없다. 확정되지 않은 청구액은 모름이다.
 export function billingRouteOf(
   credential: Pick<ProviderCredential, "kind"> | null,
 ): "api" | "subscription" | "unknown" {

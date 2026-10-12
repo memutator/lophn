@@ -44,7 +44,7 @@ import {
 import { isSubscribePath, RouteRegistry } from "./routes.ts";
 import { acceptSocket, attachSession } from "./socket.ts";
 
-// T9가 조립한다. core entry·data root·시작 순서는 여기 없다.
+// core entry가 조립한다. core entry·data root·시작 순서는 여기 없다.
 export type ApiServerOptions = {
   // 0이면 빈 port. 테스트가 주입한다. 기본은 7431.
   port?: number;

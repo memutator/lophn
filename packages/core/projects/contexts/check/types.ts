@@ -1,5 +1,5 @@
 // 판 check runner의 입력과 출력. 규칙의 뜻은 docs/domain-model/documents/contexts.md의
-// "ContextCheck"와 "격리 검사", 요구는 documents/contexts#R20이다.
+// "ContextCheck"와 "격리 검사"에 있다.
 import type { CheckFinding } from "../../../../protocol/projects/mod.ts";
 import type { RuleViolation } from "../checks/types.ts";
 import type {

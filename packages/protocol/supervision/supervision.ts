@@ -241,8 +241,8 @@ export const redactResponseSchema = z.discriminatedUnion("ok", [
 export type RedactRequest = z.infer<typeof redactRequestSchema>;
 export type RedactResponse = z.infer<typeof redactResponseSchema>;
 
-// agent runtime의 provider 호출이 credential 값을 받는 통로(lophn-agent/harness/provider#R7,
-// platform/secrets#R5). 요청은 값 없이 secret 참조·판·용도·목적지와 보낼 요청의 url·method만 싣는다.
+// agent runtime의 provider 호출이 credential 값을 받는 통로다.
+// 요청은 값 없이 secret 참조·판·용도·목적지와 보낼 요청의 url·method만 싣는다.
 // core가 현재 참조·판·목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
 // child에 닿고 child의 인증 전송 callback 메모리에서만 쓰인다. 읽을 수 없거나 대조에 실패하면 값 없이
 // 오류이고 child는 요청을 보내지 않는다(fail-closed).

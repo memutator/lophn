@@ -1,4 +1,4 @@
-// 추적 켜기가 읽고 쓰는 통로. documents#T7의 projects.get·list, documents#T10의
+// 추적 켜기가 읽고 쓰는 통로. documents의 projects.get·list,
 // preview_tracking·set_tracking만 담는다. core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 
 export interface TrackingRule {

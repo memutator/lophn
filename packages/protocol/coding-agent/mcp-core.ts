@@ -30,7 +30,7 @@ import { idempotencyKeySchema } from "../base/envelope.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 
 // tool 입력은 documents route 입력을 다시 적지 않고 고른다. current의 cwd는 여기
-// 없다. host가 고정한 근거를 project.resolve_cwd(input {})로 읽는다(계획 Q24·Q28).
+// 없다. host가 고정한 근거를 project.resolve_cwd(input {})로 읽는다.
 const listInput = documentList.input.omit({ limit: true }).extend({
   limit: z.number().int().min(1).max(500).optional(),
 });

@@ -1,6 +1,6 @@
 // 수리 자료 조립. 요청마다 현재 정본을 port로 읽어 summary와
 // bundle을 만든다. 읽기만 하고(claim·문제·ticket 상태 무변경) 완성 묶음을 저장하지 않는다.
-// 전체 묶음 byte·줄 예산, 추가 근거 페이지, cursor, 이미지는 T43이 맡는다.
+// 전체 묶음 byte·줄 예산, 추가 근거 페이지, cursor, 이미지는 이 모듈이 다루지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   REPAIR_CONTEXT_BYTES,

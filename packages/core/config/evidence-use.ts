@@ -4,7 +4,7 @@ import type { SettingEvidenceUse } from "./question-evidence.ts";
 
 // command transaction의 SQL로 기록한다. question_evidence primary key가 일회를
 // 강제하고 불변 trigger가 기록 뒤 수정을 막는다. 같은 transaction이 rollback되면
-// 행이 없다(platform/ledger schema의 identity R14 표준본 표를 쓴다).
+// 행이 없다(platform/ledger schema의 표준본 표를 쓴다).
 export function settingEvidenceUse(
   sql: Pick<Sql, "run">,
   at: string,

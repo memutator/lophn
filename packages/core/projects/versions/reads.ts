@@ -262,7 +262,7 @@ export function exportDocument(
       files: files.value,
     });
   }
-  // 외부 출력 redaction(T20 완료 bullet 2). redactor 조립이 없는 export도
+  // 외부 출력 redaction. redactor 조립이 없는 export도
   // 내보내지 않는다(fail-closed다). redaction 실패는 해당 원문 반환을 중단하고
   // 안전한 오류로 알린다. 계약 출력은 omission field를 받지 않으므로 빠진 범위는
   // 온전한 export로 꾸미지 않는다. 고정 판은 수정하지 않는다.

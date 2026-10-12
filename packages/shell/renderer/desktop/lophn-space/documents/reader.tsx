@@ -344,8 +344,8 @@ function BodyView({ body }: { body: Body }) {
   );
 }
 
-// 없는 section, section 없는 format, 아직 읽지 못한 구조를 서로 다른 말로 보인다
-// (outline-and-search#R22). 비슷한 section으로 대신 가지 않는다.
+// 없는 section, section 없는 format, 아직 읽지 못한 구조를 서로 다른 말로 보인다.
+// 비슷한 section으로 대신 가지 않는다.
 function statusMessage(status: SectionStatus): string {
   if (status === "missing") return t("documents.error.section-missing");
   if (status === "unsupported") return t("documents.error.section-unsupported");

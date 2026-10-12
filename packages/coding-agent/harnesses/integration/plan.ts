@@ -1,6 +1,6 @@
 // 설치 plan이다. 사람이 고른 harness·native
 // 환경·profile·범위의 exact target만 담는다. 감지된 다른 제품·다른 profile은
-// 이 plan에 들어오지 않는다(R6 확인). plan은 파일을 읽기만 하고 쓰지 않는다.
+// 이 plan에 들어오지 않는다. plan은 파일을 읽기만 하고 쓰지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   HarnessId,

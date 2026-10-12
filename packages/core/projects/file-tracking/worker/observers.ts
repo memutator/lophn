@@ -1,4 +1,4 @@
-// root별 관측 loop 관리자(documents plan Q15). 관측 근거가 반영될 때마다 활성 root
+// root별 관측 loop 관리자. 관측 근거가 반영될 때마다 활성 root
 // 집합과 규칙에 loop를 맞춘다. 새 root는 loop를 시작하고, 사라진 root는 멈추고, 규칙·
 // project 판이 바뀐 root는 멈춘 뒤 다시 시작해 전체 대조를 한다.
 // 바뀌지 않은 root의 loop는 건드리지 않는다.

@@ -1,5 +1,5 @@
 // documents/worker coordinator. 준비 worker 2 slot을 띄우고 root별 후보 큐를
-// round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts#T6
+// round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts의
 // supervision 하나다. kind와 root는 환경으로만 받는다.
 import {
   type KindLaunchSpec,
@@ -114,7 +114,7 @@ export type ScanRootInput = {
 
 export type Coordinator = {
   session: ChildSession;
-  // root별 후보 큐와 준비 slot. T2 뼈대는 이 상태를 쥔다.
+  // root별 후보 큐와 준비 slot. 뼈대는 이 상태를 쥔다.
   readonly queues: readonly CandidateQueue[];
   readonly slots: readonly PrepareSlot[];
   // root당 후보 10,000 초과면 rescan_required 하나만 남긴다.

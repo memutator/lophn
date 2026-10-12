@@ -52,7 +52,7 @@ import {
   wrap,
 } from "./paging.ts";
 
-// 문서 묶음(concern harness/tools R6). tool 하나는 소유 contract 하나다. 읽기는 documents의
+// 문서 묶음(concern harness/tools). tool 하나는 소유 contract 하나다. 읽기는 documents의
 // 목록·목차·검색·본문·이력·차이를, 쓰기는 새 문서와 읽은 version 기준의 새 version을 부른다. 쓰기의
 // 범위(원본 연결·보관·지침 문서·파일 source 금지)와 CAS는 documents/versions가 정하고 이
 // 묶음은 그 규칙을 다시 만들지 않는다. Home·직접 삭제·이동·시리즈 관리·보관 tool은 없다.

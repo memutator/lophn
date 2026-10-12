@@ -92,7 +92,7 @@ export function createBlobPipe(deps: {
       if (!result.ok) {
         return { response: failed(request.request_id, result.error) };
       }
-      // 준비가 purpose를 안전하게 남긴다(T44: trimCapacity의 capacity
+      // 준비가 purpose를 안전하게 남긴다(trimCapacity의 capacity
       // category 할당 근거). 실패해도 준비 결과는 그대로 돌려준다.
       await recordPurpose(deps.work.root, result.value.prepared);
       return {

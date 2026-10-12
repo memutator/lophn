@@ -1,5 +1,5 @@
-// 설치 묶음의 deno.lock이 저장소의 lock에서 새 의존성이나 다른 integrity를 들이지 않았는지 본다
-// (platform/security#R5, install-and-update#R4). 묶음은 desktop 화면 build 전용 member를 빼고 lock을
+// 설치 묶음의 deno.lock이 저장소의 lock에서 새 의존성이나 다른 integrity를 들이지 않았는지 본다.
+// 묶음은 desktop 화면 build 전용 member를 빼고 lock을
 // 다시 쓰므로 항목이 줄 수는 있지만 늘거나 바뀌면 안 된다.
 
 type LockEntries = Record<string, unknown>;

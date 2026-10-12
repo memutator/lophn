@@ -17,7 +17,7 @@ export function statfsBytes(path: string): Promise<number | undefined> {
       const bytes = stat.bavail * stat.bsize;
       return Number.isSafeInteger(bytes) && bytes > 0 ? bytes : undefined;
     } catch {
-      // sys 권한이 없은 child는 관측할 수 없다. R12는 unavailable로 막는다.
+      // sys 권한이 없은 child는 관측할 수 없다. 새 준비를 unavailable로 막는다.
       return undefined;
     }
   })();

@@ -1,7 +1,7 @@
-// settings Backup 탭이 읽는 `/v1/backups/list·get`(platform#T41 contract). 묶음은 ledger가 아니라
+// settings Backup 탭이 읽는 `/v1/backups/list·get`. 묶음은 ledger가 아니라
 // 데이터 root의 `backups/<stamp>/manifest.json`이라 core가 파일로 읽는 api read다. manifest이
-// 있는 folder만 내고, 만들기 중·중단된 folder는 목록에 없다(platform/backup-and-migration#R10,
-// R12). as_of_seq는 읽은 때의 ledger 머리다. 묶음 내용·경로는 내지 않고 manifest만 낸다.
+// 있는 folder만 내고, 만들기 중·중단된 folder는 목록에 없다.
+// as_of_seq는 읽은 때의 ledger 머리다. 묶음 내용·경로는 내지 않고 manifest만 낸다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
 import { backupsGet, backupsList } from "../../../protocol/storage/mod.ts";

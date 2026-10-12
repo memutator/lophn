@@ -1,4 +1,4 @@
-// shell#T57 launcher failure states for start failure, sandbox failure, schema incompatibility.
+// Launcher failure states for start failure, sandbox failure, schema incompatibility.
 // Each state is a distinct launch failure that shows in the launcher without normal appearance.
 import type { MessageKey } from "@lophn/wording";
 

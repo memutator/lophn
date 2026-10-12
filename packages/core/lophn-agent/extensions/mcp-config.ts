@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 
-// 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R12). 계약 schema(mcpServerConfigSchema)가 이미
+// 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions).
+// 계약 schema(mcpServerConfigSchema)가 이미
 // 전송 방식·값 모양을 거르고, 이 모듈은 그 밖의 누락·상충을 서버별로 본다.
 // 잘못된 서버 하나만 연결하지 않고 고칠 항목을 알리며 다른 서버와 lophn 자체
 // 도구는 그대로다. TLS 검증을 끄는 설정은 없다.

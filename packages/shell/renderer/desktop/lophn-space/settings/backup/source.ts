@@ -69,7 +69,7 @@ export interface BackupSource {
   /** 앱 목록(사람이 지은 이름). 별도 앱 export의 대상이다. */
   apps(): Promise<SourceResult<readonly NamedRow[]>>;
   /**
-   * 사람이 고른 앱의 자료를 밖으로 내보낸다(별도 앱 export, apps#T28에서 넘어온 것). 준비 결과
+   * 사람이 고른 앱의 자료를 밖으로 내보낸다(별도 앱 export). 준비 결과
    * (ready·failed·preparing)만 답하고 실제 묶음은 core가 처리한다. 플랫폼 backup의 제외 자료가
    * 이 묶음에 자동 포함됐다고 설명하지 않는다.
    */

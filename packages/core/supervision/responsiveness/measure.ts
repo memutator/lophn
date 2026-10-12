@@ -1,4 +1,4 @@
-// 응답 측정의 순수 논리(docs/plan/platform.md T51). 표본을 모으고 분포를
+// 응답 측정의 순수 논리. 표본을 모으고 분포를
 // 요약하고 목표와 비교한다. 시간은 전송 직전부터 완전 응답까지 잰 실제
 // 경과(performance.now)와 sender가 기록한 queue 대기·실행의 분리만 온다.
 // 측정 시나리오(load 표본 수집, 부하 진행)는 measure-run.ts가 맡는다.
@@ -46,7 +46,7 @@ export type Goal = {
   p99Ms: number;
 };
 
-// R6·R7의 목표. 값은 사람이 requirements 문서에서 옮기지 않았다. 대상 키는
+// 응답 목표. 값은 사람이 requirements 문서에서 옮기지 않았다. 대상 키는
 // MeasureTarget.name이 결정한다.
 export const MEASURE_GOALS: Record<string, Goal> = {
   "small_local_read": { p95Ms: 200, p99Ms: 500 },
@@ -57,7 +57,7 @@ export const MEASURE_GOALS: Record<string, Goal> = {
   "control_receipt": { p95Ms: 200, p99Ms: 500 },
 } as const;
 
-/** 측정 조건. R8의 보고 field다. */
+/** 측정 조건. 보고 field다. */
 export type MeasureConditions = {
   /** 기준 장치 이름. 사람이 stack.md의 값으로 채운다. */
   device: string;

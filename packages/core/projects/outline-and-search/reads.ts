@@ -582,7 +582,7 @@ export type DocumentReadInput = {
   cursor?: string;
 };
 
-// R15의 근원. 선택 판 직접 추출. worker 조립이 넣는다(T11/T14 조립 seam).
+// 선택 판 직접 추출. worker 조립이 넣는다.
 export type DirectExtraction = (record: {
   document: string;
   version: string;

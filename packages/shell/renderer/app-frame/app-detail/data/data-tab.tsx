@@ -1,5 +1,5 @@
-// Data 탭. 이 앱의 데이터를 내보내는 일(앱 export)은 worker route다(shell#T58, apps#T28에서
-// 넘어온 것). 사람이 누를 때만 준비를 청하고 결과(ready·failed·preparing)를 구별해 보인다.
+// Data 탭. 이 앱의 데이터를 내보내는 일(앱 export)은 worker route다. 사람이 누를 때만 준비를
+// 청하고 결과(ready·failed·preparing)를 구별해 보인다.
 // 준비 본체는 core가 그래프 밖 프로세스로 하고 아무것도 바꾸지 않는다.
 import { useState } from "react";
 import { Button } from "@lophn/design/components";

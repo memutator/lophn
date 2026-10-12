@@ -1,5 +1,5 @@
-// MCP·CLI의 production credential provider다(coding-agent/connection#R17, R9,
-// mcp-server#R36). connection 참조로 시작할 때 platform의 helper `lophn-credential`을
+// MCP·CLI의 production credential provider다. connection 참조로 시작할 때 platform의 helper
+// `lophn-credential`을
 // stdin `CredentialDeliveryRequest`(purpose `mcp_cli_loader`)로 불러 token을 한 번 받는다.
 // helper가 core의 소유자 전용 socket에서 active connection·현재 scope·등록된 child(process
 // generation·loader identity)·keychain 값을 모두 확인한 응답만 stdout `{"token"}`(종료 0)

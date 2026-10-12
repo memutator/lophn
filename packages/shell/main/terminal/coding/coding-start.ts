@@ -2,7 +2,7 @@
 // operation_id를 만들고, main이 core로 ticket 현재 판·connection·등록 폴더를 다시 읽어 `lophn session plan --json`
 // child에 넘긴다. 받은 plan이 사람이 고른 harness·cwd와 다르면 거절하고 다른 것으로 대체하지 않는다. 그 plan을
 // host에 넘기면 host가 PTY를 직접 연다. 같은 시작 요청의 재전달은 같은 runtime만 돌려준다.
-// 이 module의 입구(click → issue → start)를 renderer에 여는 IPC와 [Start] 화면은 shell#T50이 붙인다.
+// 이 module의 입구(click → issue → start)를 renderer에 여는 IPC와 [Start] 화면은 이 module 밖에서 붙인다.
 //
 // host가 먼저 보내는 관측 줄은 ObservationStore가 받는다. 관측이 없거나 낡았거나 host가 끝나면 unknown이고
 // Electron 재시작은 빈 store라 unknown이다. 자동 spawn·resume·첫 prompt 재생은 이 module에 없다.

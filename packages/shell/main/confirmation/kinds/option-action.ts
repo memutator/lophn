@@ -1,6 +1,6 @@
 // 질문 묶음의 고정 action 선택지. 정본은 questions/read {group}(상태·질문의 선택지 action)와
-// questions/text {group}(질문·선택지 설명 글)다. 고정 action은 질문 하나짜리 묶음에만 있다
-// (lophn-agent/questions#R13). 고르기 전에 concern·command·대상·정확한 입력·비교 기준을 그대로
+// questions/text {group}(질문·선택지 설명 글)다. 고정 action은 질문 하나짜리 묶음에만 있다.
+// 고르기 전에 concern·command·대상·정확한 입력·비교 기준을 그대로
 // 보인다. 답은 AnswerQuestionAction이고 실제 적용은 lophn이 그 증거로 따로 한다.
 import type { LiveHandle } from "../handle.ts";
 import {

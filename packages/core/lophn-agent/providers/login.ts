@@ -1,11 +1,11 @@
-// OAuth 로그인 command(D31)의 HTTP 요청을 core가 답한다.
+// OAuth 로그인 command의 HTTP 요청을 core가 답한다.
 // 사람의 요청만 이 route에 닿는다(route actors가 user). ledger이 아니라 writer queue
 // 앞의 처리기로 돈다: OAuth network(등록·token 교환·device poll)와 callback listener가
 // 기다리므로 ledger transaction 안에 있을 수 없다.
 // Connect가 credential까지 받는 RegisterProvider 하나라 로그인은 provider가 등록되기 전에 시작한다:
 // begin은 만들 provider의 ID와 내장 정의 key를 받고 정의는 내장 목록에서 찾는다.
 // login 세션(state·nonce·verifier·device_code)은 이 처리기의 메모리에만 있고
-// ledger·event·log에는 남지 않는다. 활성 gate(D31)는 verified_for_lophn과
+// ledger·event·log에는 남지 않는다. 활성 gate는 verified_for_lophn과
 // live 확인 env(LOPHN_LIVE_PROVIDER=1) 둘이 모두 열려 있을 때만 통과한다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -26,14 +26,14 @@ import type { CommandSuccess, Writer } from "../../storage/ledger/mod.ts";
 
 export const PROVIDER_LOGIN_LIVE_ENV = "LOPHN_LIVE_PROVIDER";
 
-// D31 활성 gate다. 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만
+// 활성 gate다. 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만
 // 열린다. 테스트가 이 판정을 대신 준다.
 function liveGateOf(env = Deno.env.get(PROVIDER_LOGIN_LIVE_ENV)): boolean {
   return env === "1";
 }
 
 export type ProviderLoginWriterDeps = {
-  // 테스트가 D31 활성 gate와 OAuth HTTP를 대신 준다. 없으면 제품 env 판정과
+  // 테스트가 활성 gate와 OAuth HTTP를 대신 준다. 없으면 제품 env 판정과
   // 실제 network(비활성)다.
   liveGate?: () => boolean;
   http?: (url: string, init: RequestInit) => Promise<Response>;

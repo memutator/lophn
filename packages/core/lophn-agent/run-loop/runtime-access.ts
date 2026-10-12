@@ -158,8 +158,8 @@ export const RUNTIME_MACHINE_ROUTES = [
 ] as const;
 
 // machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는
-// 소유 command의 operation도 더한다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정된다
-// (questions#R13). 이 목록이 core가 runtime에 주는 machine credential의 scope 기준이다.
+// 소유 command의 operation도 더한다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정된다.
+// 이 목록이 core가 runtime에 주는 machine credential의 scope 기준이다.
 export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
   ...new Set([
     ...RUNTIME_MACHINE_ROUTES.map((route) => route.name),
@@ -206,7 +206,7 @@ export function roleOperations(role: string): readonly string[] {
     ...CONTEXT_MATERIAL_READS,
   ];
   // 외부 MCP tool의 소유 contract다. 확장 선택은 상한 항목이 아니라 preset의
-  // 선택 항목이라(presets role-caps R5) 상한 이름에 넣지 않고 contract만 더한다.
+  // 선택 항목이라 상한 이름에 넣지 않고 contract만 더한다.
   // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
   // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
   // 역할 tool이 소유한 operation과 겹치는 것(조회 tool의 context 읽기, 승인 요청)은 한 번만 둔다.

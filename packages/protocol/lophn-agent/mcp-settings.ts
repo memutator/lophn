@@ -126,15 +126,15 @@ export const mcpServersSetting = defineSetting({
 
 const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 
-// MCP OAuth 2.1의 시작 입구다(shell#T31에서 넘어온 것의 route 절반).
+// MCP OAuth 2.1의 시작 입구다.
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
 // 사람이 OS browser에서 열 authorization 주소와 callback port를 돌려준다. verifier·state는
 // 값이므로 응답 어디에도 옮기지 않고 core의 작업 메모리(packages/core/lophn-agent/extensions/
 // mcp-oauth.ts)에만 산다. 기다리는 시한은 5분이다. ledger queue를 거치지 않는다(작업 메모리가
 // 곧 상태다). 진행 중인 로그인을 그만두려면 `CancelMcpAuth`다.
 //
-// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다
-// (extensions R33). 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
+// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다.
+// 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
   // 등록한 서버 이름이다. 계약 serverFields의 nameSchema다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
@@ -146,7 +146,7 @@ export const mcpAuthBeginInputSchema = z.strictObject({
   scopes: z.array(z.string().min(1).max(128)).max(32),
 });
 export const mcpAuthBeginOutputSchema = z.object({
-  // 사람이 OS browser에서 열 주소다(shell#T31이 크롬 링크로 연다). 값 없는 안내라
+  // 사람이 OS browser에서 열 주소다(shell이 크롬 링크로 연다). 값 없는 안내라
   // secret이 아니다.
   url: z.string(),
   // 사람 credential의 loopback callback port다(127.0.0.1).
@@ -182,7 +182,7 @@ export const mcpAuthCompleteInputSchema = z.strictObject({
   callback_port: z.number().int().positive(),
 });
 export const mcpAuthCompleteOutputSchema = z.object({
-  // extensions R16: 잘못된 state는 거절이다. complete이 결과 코드만 남기고 값은 없다.
+  // 잘못된 state는 거절이다. complete이 결과 코드만 남기고 값은 없다.
   completed: z.boolean(),
 });
 
@@ -328,7 +328,7 @@ export const mcpAuthRequestDone = defineMemory({
 });
 
 // 자리(project·app) 층의 MCP 서버 목록이다(domain model PlaceExtensionSettings).
-// 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다(open-issues extensions#Q8).
+// 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다(open-issues extensions).
 // 어느 서버·tool을 쓸지는 agent 정의가 고르므로 이 목록에는 끈 것 칸이 없다.
 const placeServersSchema = z.array(mcpServerConfigSchema).max(32).refine(
   (servers) =>

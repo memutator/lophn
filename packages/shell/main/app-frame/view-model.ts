@@ -1,4 +1,4 @@
-// 앱 view registry의 값과 순수 검사. 입력 모양 검사(contracts#T38 appFrameOpen)와 같은 연결
+// 앱 view registry의 값과 순수 검사. 입력 모양 검사(appFrameOpen)와 같은 연결
 // 판정은 IO 없이 여기 둔다. 상태와 붙이기·숨기기·폐기는 registry.ts가 맡는다.
 import type {
   AppBinding,
@@ -155,7 +155,7 @@ export function boundsEmpty(bounds: ViewBounds): boolean {
   return bounds.width <= 0 || bounds.height <= 0;
 }
 
-/** contracts#T38 appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
+/** appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
 export function checkOpen(value: unknown): AppFrameOpen | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const input = value as Record<string, unknown>;

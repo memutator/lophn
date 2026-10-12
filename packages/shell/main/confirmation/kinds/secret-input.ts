@@ -1,5 +1,5 @@
 // secret 보호 입력. 값이 있는 곳은 창의 보호 입력칸과 이 제출 동안의 main 메모리뿐이다.
-// 순서(platform#T19 후속): (1) 값을 `/v1/secrets/input`으로 보내 값 없는 준비 증거를 받고,
+// 순서: (1) 값을 `/v1/secrets/input`으로 보내 값 없는 준비 증거를 받고,
 // (2) 그 증거가 들어간 소유 command 입력의 binding으로 이 창의 handle을 만들고(증거를 받은
 // 뒤에만 만들 수 있다), (3) 소유 command를 보내고, (4) 창에는 안전 이름과 저장 결과만 돌려준다.
 // 값은 log·오류·IPC 결과 어디에도 넣지 않는다.
@@ -22,7 +22,7 @@ export const REGISTER_PROVIDER = "RegisterProvider";
 // provider 끊기(Disconnect): provider와 credential(secret)을 함께 지우므로 확인 창의 handle을 거친다.
 export const DISCONNECT_PROVIDER = "DisconnectProvider";
 // OAuth 로그인 완료. oauth credential의 값은 secret store에 가지
-// 않고 login-complete 교환의 submission으로만 간다(R11: 값은 보호 제출이지 보관이
+// 않고 login-complete 교환의 submission으로만 간다(값은 보호 제출이지 보관이
 // 아니다).
 export const COMPLETE_PROVIDER_LOGIN = "CompleteProviderLogin";
 

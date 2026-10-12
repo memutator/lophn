@@ -1,5 +1,5 @@
 // approval request 조회.
-// 판단할 동작·대상·이유·변경·외부 전송·보존·되돌림을 요약하되 R1·R2 항목을 빼지 않는다.
+// 판단할 동작·대상·이유·변경·외부 전송·보존·되돌림을 요약하되 항목을 빼지 않는다.
 // 본문은 blob 참조로 돌려주고 원문 조립은 화면(shell)이 blob read로 한다.
 
 import { err, ok, type Result } from "../../base/mod.ts";

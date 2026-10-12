@@ -1,4 +1,4 @@
-// test runner control의 진입점이다. RequestTest 실행 구현(problems/tests#R13–R21, 실제 test 자식은
+// test runner control의 진입점이다. RequestTest 실행 구현(실제 test 자식은
 // 요청마다 띄운다)은 runner-core.ts와 app-test-run.ts에 있고, 상시 service(core 감독이 띄운 process가
 // `problems.test.run`·`problems.test.recover` 요청, `problems.work` 깨움과
 // `problems.closing` 깨움을 받는다)은 runner-service.ts에 있다. credential은 argv에

@@ -1,5 +1,5 @@
-// view 생성·교체·숨김·폐기·실제 attach를 같은 view_session과 generation으로 남긴다
-// (shell/app-frame#R22). core 감독 통로의 `shell_view_lifetime` diagnostic(platform#T8)에는
+// view 생성·교체·숨김·폐기·실제 attach를 같은 view_session과 generation으로 남긴다.
+// core 감독 통로의 `shell_view_lifetime` diagnostic에는
 // 개수만 싣고, main log에는 안전한 대상 참조(app·release·mode)를 함께 둔다. URL·query·본문·
 // token·socket 경로는 어디에도 쓰지 않는다.
 

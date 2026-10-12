@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// ledger 식별(platform plan Q12). `H/ledger-id` 파일 하나에 ledger를 만들거나 복원할 때마다
+// ledger 식별. `H/ledger-id` 파일 하나에 ledger를 만들거나 복원할 때마다
 // 새 값을 둔다. derived는 자기 출처에 이 값을 함께 적고, 값이 다르면 다른 ledger의 같은
 // seq를 이어 처리하지 않도록 버리고 다시 만든다.
 // ledger 안 표가 아니라 파일인 이유: restore는 옛 ledger의 안쪽을 그대로 들여오므로

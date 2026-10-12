@@ -88,7 +88,7 @@ export type LedgerDeps = {
   clock: Clock;
   ids: IdSource;
   ports?: readonly TxPortRegistration[];
-  // blob 참조 등록은 platform#T14, command dispatch는 platform#T18이 넘긴다.
+  // blob 참조 등록과 command dispatch는 밖에서 넘긴다.
   registerBlobRef: (
     reference: BlobRefRegistration,
   ) => Result<PermanentBlobReference>;

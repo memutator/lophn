@@ -46,7 +46,7 @@ export const pi: HarnessDefinition = {
     reason: "auth 상태 명령을 아직 검증하지 않았다",
   },
   config_targets: [
-    // 조사 revision(8369268)의 native MCP 설정이다(질문 Q19): `loadMcpConfig`
+    // 조사 revision(8369268)의 native MCP 설정이다: `loadMcpConfig`
     // 이 `getAgentDir()`(기본 `~/.pi/agent`)의 `mcp.json`과 trusted 프로젝트의
     // `<cwd>/.pi/mcp.json`을 읽는다[확인](조사 9.1). `stdio`는
     // command·args·env·cwd뿐이고 프로젝트 항목은 같은 이름의 전역 항목을

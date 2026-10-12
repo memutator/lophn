@@ -1,6 +1,6 @@
-// settings apply의 질문 근거 판별(identity R14를 settings 모양으로).
-// lophn 제안은 lophn-agent/questions의 정확한 고정 option action으로만 적용한다
-// (platform/settings#R29). 정본 read는 이 command transaction 안에서 ledger
+// settings apply의 질문 근거 판별.
+// lophn 제안은 lophn-agent/questions의 정확한 고정 option action으로만 적용한다.
+// 정본 read는 이 command transaction 안에서 ledger
 // events 표준본을 SQL로 읽는다(읽는 몫은 이 파일의 eventsOptionSource다).
 
 import { err, ok, type Result } from "../../base/mod.ts";

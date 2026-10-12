@@ -1,4 +1,4 @@
-// reproduction 판정이다(problems/problem-codes#R10). runner가 시작한
+// reproduction 판정이다. runner가 시작한
 // before·after 실행의 lifecycle과 harness의 관측 frame, 고정 근거(blueprint 선언·source의 보고 호출)를
 // 함께 읽어 pass·fail·inconclusive를 정한다. 관측한 값은 runner가 같은 고정 증상 정의로 다시 판정해
 // harness가 쓴 symptom_reproduced·expectation_met와 어긋나면 판정 불가다.

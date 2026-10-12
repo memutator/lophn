@@ -1,7 +1,6 @@
 // app-detail(ui-ux 5절): 한 앱의 version·access·automation·연결·활동·데이터를 보고 결정한다.
 // 운영 패널(`ops-panel-frame.tsx`)의 본문이다. 탭마다 필요한 것만 기본으로 보이고 안쪽 이름·원문은
-// 자세히 보기에 둔다. 결정은 confirmation window에서만 받는다. Issues·Tasks 탭 자리는 T53·T50이
-// 채운다.
+// 자세히 보기에 둔다. 결정은 confirmation window에서만 받는다.
 import type { ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
 import { t } from "@lophn/wording";

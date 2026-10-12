@@ -84,7 +84,7 @@ export function oneSentence(purpose: string): boolean {
 }
 
 // 기획을 검사한다. 다섯 내용이 모두 있어 통과다. 내줄 것이 없으면 문장으로
-// 남아 있어야 하고, 버린 방안은 앞선 방안(R7 순서에서 선택 전의 방안)마다
+// 남아 있어야 하고, 버린 방안은 앞선 방안(순서에서 선택 전의 방안)마다
 // 이유가 필요하다.
 export function checkPlan(
   draft: PlanDraft,
@@ -156,7 +156,7 @@ export function checkPlan(
 }
 
 // 기획의 선택과 버린 방안을 요청 범위 기획 문서에 남기는 본문이다.
-// 고정 자리·시리즈가 아니라 이 run의 요청 범위 문서다. 버린 방안은 R7 순서대로,
+// 고정 자리·시리즈가 아니라 이 run의 요청 범위 문서다. 버린 방안은 정해진 순서대로,
 // 내줄 것은 없을 때 없음이라고 적는다.
 export function planDocumentBody(draft: PlanDraft): string {
   const rejected = draft.rejected.length === 0

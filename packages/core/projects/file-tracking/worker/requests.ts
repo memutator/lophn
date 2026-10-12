@@ -1,4 +1,4 @@
-// core가 감독 pipe로 보내는 worker_request의 처리. codec은 contracts#T6 supervision
+// core가 감독 pipe로 보내는 worker_request의 처리. codec은 contracts의 supervision
 // 하나고, op 이름은 file-tracking이 정한다. 모르는 op는 invalid_input이다.
 import {
   fileTargetSchema,

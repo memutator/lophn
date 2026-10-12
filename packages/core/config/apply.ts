@@ -1,4 +1,4 @@
-// settings apply·reload·history의 command handler와 read(platform/settings#R17-R25).
+// settings apply·reload·history의 command handler와 read.
 // TOML parse와 큰 검증 준비는 command 밖에서 한다(domain model command 표).
 
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -217,7 +217,7 @@ export function createSettingsCommands(
           if (!checked.ok) return checked;
           validated.push({ mutation, choice: checked.value.choice });
         }
-        // 병합 뒤 필수값·항목 관계 검사(R11 후반). 현재 선택·기본값·새 선택으로 effective를 본다.
+        // 병합 뒤 필수값·항목 관계 검사. 현재 선택·기본값·새 선택으로 effective를 본다.
         const beforeChoices = new Map(
           loadChoices(tx.sql, [...mutations.keys()]).map((choice) => [
             choice.key,
@@ -463,7 +463,7 @@ function replaceState(tx: Tx, state: StateRow): void {
   );
 }
 
-// apply 뒤 적용값에 대한 병합 뒤 검사(R11 후반). 저장된 데이터로 다시 본다.
+// apply 뒤 적용값에 대한 병합 뒤 검사. 저장된 데이터로 다시 본다.
 function validateResolved(
   definition: SettingDefinition,
   value: unknown,

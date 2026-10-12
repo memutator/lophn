@@ -353,8 +353,8 @@ function fromStatus(input: FailureInput): CoreVerdict | null {
   };
   if (status === 429) return rateVerdict(input);
   if (status === 401 || status === 403) {
-    // 403이 plan 접근 거절인지는 code가 안전하게 말해 줄 때만 믿는다(provider#R21,
-    // R19/R21은 확인된 code만 plan_access, 그 외는 추측 금지).
+    // 403이 plan 접근 거절인지는 code가 안전하게 말해 줄 때만 믿는다.
+    // 확인된 code만 plan_access, 그 외는 추측 금지).
     if (input.code === "plan_access" || input.code === "plan_access_denied") {
       return {
         code: "credential_unavailable",

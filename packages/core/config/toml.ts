@@ -13,7 +13,7 @@ import {
 import { containsCredentialSecret } from "./model.ts";
 
 // format version 1의 TOML 문서 구조. domain model이 구조 확정을
-// redesign/propagate#Q1로 미뤄 두었으므로 이 작업이 첫 구조를 고정한다:
+// 미뤄 두었으므로 이 모듈이 첫 구조를 고정한다:
 // [exchange] 표에 format·toml_version·encoding·format_version을 두고,
 // [settings."layer.key"] 표 하나가 setting mutation 하나다. set은 value,
 // delete는 remove = true다.

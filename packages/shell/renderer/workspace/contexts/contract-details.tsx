@@ -1,6 +1,6 @@
 // Contract: "Details for Context Engineer and the curious" 아래에 개체 관계 그림, 개체마다 카드
-// (이름·public·kind와 경로·문서 수·field와 관계), 선언된 검색마다 이름과 예시 검사 결과
-// (shell/workspace#R21). 판 번호·단추가 있는 머리는 ContextFrame의 몫이다. 구현은 ctx-I46.
+// (이름·public·kind와 경로·문서 수·field와 관계), 선언된 검색마다 이름과 예시 검사 결과.
+// 판 번호·단추가 있는 머리는 ContextFrame의 몫이다.
 // 값 만들기는 contract-details-model.ts, 그림 자리는 contract-details-layout.ts,
 // 카드와 검색 목록은 contract-details-cards.tsx·contract-details-searches.tsx가 맡는다.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:

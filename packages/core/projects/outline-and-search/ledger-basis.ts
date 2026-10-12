@@ -1,5 +1,4 @@
-// derived store가 기록한 ledger 식별 확인(documents#T13의 넘어온 것, platform#T42,
-// platform/backup-and-migration#R14). ledger를 새로 만들거나 backup에서 복원하면
+// derived store가 기록한 ledger 식별 확인. ledger를 새로 만들거나 backup에서 복원하면
 // `/v1/platform/status`의 `ledger_id`가 바뀐다. derived는 자기를 만든 ledger의 식별을 같은
 // transaction에 적어 두고, 식별이 다르면 그 안의 결과·cursor를 모두 버린다. 그대로 두면
 // cursor가 옛 ledger의 seq를 가리켜 복원 ledger의 같은 숫자 seq를 "이미 처리했다"고

@@ -270,7 +270,7 @@ export function handleLinkProblemInterpretation(
   return ok({ interpretation: next });
 }
 
-// tx.call로 lophn-agent의 ToolCall 성공과 같은 transaction에서 부를 수 있다(질문 Q13).
+// tx.call로 lophn-agent의 ToolCall 성공과 같은 transaction에서 부를 수 있다.
 export const linkProblemInterpretationCommand: CommandDefinition<
   typeof linkProblemInterpretation
 > = {

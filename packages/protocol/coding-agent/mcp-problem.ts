@@ -21,8 +21,8 @@ import { cliCommonSchema } from "./cli-core.ts";
 export const PROBLEM_HANDLERS = ["user", "coding_agent"] as const;
 export const problemHandlerSchema = z.enum(PROBLEM_HANDLERS);
 
-// record_fix·test의 근거 ticket claim이다. 지정 ticket의 현재 claim이 아니면 쓰지 않는다
-// (mcp#R25, cli#R34). 문제 직접 claim·별도 시도 단계는 입력에 없다.
+// record_fix·test의 근거 ticket claim이다. 지정 ticket의 현재 claim이 아니면 쓰지 않는다.
+// 문제 직접 claim·별도 시도 단계는 입력에 없다.
 export const problemTicketSourceSchema = z.strictObject({
   ticket: idSchema("tkt"),
   claim_seq: seqSchema,
@@ -173,7 +173,7 @@ export const cliProblemAttachmentOpenSchema = withCommon(
   }),
 );
 
-// CLI는 feedback을 접수하지 않는다(plan/coding-agent D27). report는 shell의 문제
+// CLI는 feedback을 접수하지 않는다. report는 shell의 문제
 // 알리기 화면 안내, request-repair는 담당 agent의 ticket 준비 화면 링크, confirm·dismiss는
 // 결정 화면 링크와 대기 사실만 낸다. coding credential은 거절이다.
 export const cliProblemReportSchema = withCommon(

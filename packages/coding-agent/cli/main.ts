@@ -1,8 +1,8 @@
 // lophn CLI의 실행 entry다(code-map). 조립만 하고 업무 규칙을 두지 않는다.
-// stdin/stdout에서 한 command를 읽고, credential provider는 T36의 실제 loader
+// stdin/stdout에서 한 command를 읽고, credential provider는 실제 loader
 // 자리라 지금은 unavailable이 맞다(coding-agent/harnesses). dispatch는
 // registry의 route로만 한다(architecture 5.1). parse 오류도 --json이면
-// JSON 오류 하나다(T12 완료 8).
+// JSON 오류 하나다.
 import {
   findCommand,
   HELP_COMMAND,
@@ -114,7 +114,7 @@ export async function cliMain(
     await emitHelp(parsed, output);
   }
   if (parsed.errors.length > 0) {
-    // parse 오류는 실행 전 거절이다. --json이면 JSON 오류 하나다(T12 완료 8).
+    // parse 오류는 실행 전 거절이다. --json이면 JSON 오류 하나다.
     await output.failure({
       code: "invalid_input",
       message: parsed.errors.join("; "),
@@ -259,7 +259,7 @@ export async function cliMain(
   }
   if (command === "session observe") {
     // hook의 stdout은 제품이 model context로 읽을 수 있어 비워 둔다. 보내지 못해도 harness 작업을 막지 않으므로
-    // 진단은 stderr 한 줄이고 exit는 0이다(조사 T6).
+    // 진단은 stderr 한 줄이고 exit는 0이다.
     if (!ran.ok) {
       await output.diagnostic(`session observe: ${ran.error.message}`);
     }
@@ -306,7 +306,7 @@ async function emitHelp(
 }
 
 // 옵션 → 환경 설정 → 기본(daemon address 순서)이다. CLI에서는
-// 기본 daemon 주소를 쓰지 않는다. 명시 값만 받는다(T12 뼈대).
+// 기본 daemon 주소를 쓰지 않는다. 명시 값만 받는다.
 export function daemonUrlOf(
   parsed: ParsedArgs,
   env: { get: (name: string) => string | undefined },

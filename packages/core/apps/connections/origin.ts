@@ -4,7 +4,7 @@
 // path는 broker 요청에 실리지 않는다. 그래서 서비스가 (1) 자기가 발급한 origin과 (2) broker가
 // 본 start 사실(호출을 받은 앱이 보낸 caller 근거)을 묶어 "이 invocation은 어떤 path로 들어왔나"를
 // 안다. 시작 사실이 없는 호출(ledger에 남기지 않는 성공 일반 read, 아직 전달되지 않은 start)은
-// 부모로 알려지지 않아 부모 없음·새 path로 시작한다. 이 한계는 plan T15에 적었다.
+// 부모로 알려지지 않아 부모 없음·새 path로 시작한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   appCallDepthAllowed,

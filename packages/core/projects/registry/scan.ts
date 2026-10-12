@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { DirectoryEntry, RootScanner } from "./work.ts";
 import { symlinkEscapesRoot } from "./rules.ts";
 
-// 테스트와, T2 전 등록이 쓰는 임시 파일 시스템 순회다.
+// 테스트와, 실제 순회가 생기기 전 등록이 쓰는 임시 파일 시스템 순회다.
 // 실제 경로는 Deno.realPathSync로 푼다. root 밖 symlink는 따라가지 않는다.
 export function directoryScanner(): RootScanner {
   return {

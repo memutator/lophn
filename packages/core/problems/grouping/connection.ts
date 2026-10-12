@@ -39,8 +39,8 @@ export { PROBLEMS_WORK_FEED_PRINCIPAL, PROBLEMS_WORK_PRINCIPAL };
 export const PROBLEMS_WORK_OP = "problems.work";
 
 // worker가 core loopback에 낼 수 있는 operation: event 읽기, 문제 기준 읽기, 반응 command, cursor 전진.
-// 같은 worker kind의 `problems.closing` 반응기도 이 자격으로 CloseProblemVerified를 낸다(problems#T20,
-// closing#R1: machine의 실제 reproduction 판정만 닫는다).
+// 같은 worker kind의 `problems.closing` 반응기도 이 자격으로 CloseProblemVerified를 낸다.
+// machine의 실제 reproduction 판정만 닫는다.
 export const PROBLEMS_WORK_OPERATIONS = [
   eventsList.name,
   getProblem.name,

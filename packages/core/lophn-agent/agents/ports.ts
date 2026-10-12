@@ -42,8 +42,9 @@ export type AgentLookups = {
   // 이 자리의 agent가 읽을 active context다. project 자리는 그 project의 active context 전부이고, App Engineer가
   // 앱 자리에 있으면 그 앱을 app-data source로 읽는 active context 전부다. 그 밖의 앱 자리는 빈 목록이다.
   activeContexts(place: AgentPlace, role: AgentRole): string[];
-  // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는 agent에만 보인다,
-  // extensions R32)을 더한 것이고 발견·등록 순서다.
+  // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는
+  // agent에만 보인다)을
+  // 더한 것이고 발견·등록 순서다.
   skills(place: AgentPlace): string[];
   mcp(place: AgentPlace): McpTool[];
   // Workspace 층: 역할별 기본 model(agent-model-defaults)과 기본 권한(platform/settings).

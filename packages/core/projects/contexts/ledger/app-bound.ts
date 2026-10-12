@@ -1,5 +1,5 @@
-// 앱 하나에 묶인 agent(App Engineer의 `conditions.app`)가 context를 읽는 길이다
-// (lophn-agent/roles/app-engineer#R2). context는 앱의 것이 아니라서 platform은 context target을 owner가
+// 앱 하나에 묶인 agent(App Engineer의 `conditions.app`)가 context를 읽는 길이다.
+// context는 앱의 것이 아니라서 platform은 context target을 owner가
 // 담당 앱과 이어진 사실(`apps`)을 줄 때만 연다. 여기서 owner는 그 사실을 context_app_data 표에서
 // 내고, 열어 주는 읽기는 overview·용어집과 그 prompt 자료가 필요로 하는 get·contract뿐이다. 그 밖의
 // 읽기와 모든 command는 없는 대상과 같은 답이다.

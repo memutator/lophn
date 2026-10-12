@@ -5,7 +5,7 @@ import { INSTANCE_LOCK_NAME } from "../../base/install/instance-lock.ts";
 import { readRunMetadata } from "./run-metadata.ts";
 
 // daemon 시작·중지·상태·log의 위치 방법. 실제 process 띄우기는 각 OS의 launcher가
-// 하고, 이 모듈은 앞 단계의 결정을 내놓는다(coding-agent/cli#R8의 `lophn daemon`이 쓴다).
+// 하고, 이 모듈은 앞 단계의 결정을 내놓는다(`lophn daemon`이 쓴다).
 // API token은 필요 없고 coding credential을 쓰지 않는다.
 
 /** 시작이 열지 않는 Electron main의 실행 옵션. argv·env에 credential은 없다. */

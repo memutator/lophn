@@ -1,4 +1,4 @@
-// provider 연결 상태. contracts#T29의 providers read를 읽어 화면이
+// provider 연결 상태. providers read를 읽어 화면이
 // "provider가 지금 쓸 수 있는지"를 함께 본다. token·key·credential 값은 여기를 지나지 않는다.
 import type { CoreSource } from "./connection.ts";
 

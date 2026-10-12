@@ -83,8 +83,7 @@ export const openclaw: HarnessDefinition = {
     resume_argv: null,
     prompt_delivery: "stdin_after_ready",
     session_evidence: "listing",
-    // session 소유 stdio 미확인은 unverified이고 CLI fallback이다(조사 3.1,
-    // mcp-server#R1).
+    // session 소유 stdio 미확인은 unverified이고 CLI fallback이다(조사 3.1).
     capability: "unverified",
   },
 };

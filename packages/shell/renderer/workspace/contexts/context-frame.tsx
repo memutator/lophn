@@ -1,6 +1,6 @@
 // Context 탭의 틀: 머리(이름·Context 표시·목적·판 줄·단추)와 하위 탭 Overview · Search ·
 // Violations · Glossary · Contract. 하위 탭 본문은 부른 쪽이
-// renderPanel로 넣는다. 만드는 중인 context는 ContextDrafting을 그린다. 구현은 ctx-I41.
+// renderPanel로 넣는다. 만드는 중인 context는 ContextDrafting을 그린다.
 import type { ReactNode } from "react";
 import {
   Button,

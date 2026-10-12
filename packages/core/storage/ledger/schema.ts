@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// domain-model platform/ledger의 공통 표. run FK는 runs 표가 생길 때 더한다(계획 Q5).
+// domain-model platform/ledger의 공통 표. run FK는 runs 표가 생길 때 더한다.
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.
 
 const IMMUTABLE = (table: string) => `
@@ -81,9 +81,9 @@ begin
 end;`,
   },
   {
-    // 사람이 요청한 session delete만 지운 session의 기록을 지운다(lophn-agent/conversation
-    // #R20, platform/ledger#R10의 예외). 지우는 쪽이 같은 transaction 안에서 표 이름을 열었다가
-    // 닫는다(erase.ts). 열려 있는 표의 delete trigger만 통과시킨다. 정리·만료는 열지 않는다.
+    // 사람이 요청한 session delete만 지운 session의 기록을 지운다. ledger 기록을 지우는 것은 이
+    // 경우뿐이다. 지우는 쪽이 같은 transaction 안에서 표 이름을 열었다가 닫는다(erase.ts). 열려
+    // 있는 표의 delete trigger만 통과시킨다. 정리·만료는 열지 않는다.
     id: "erase-windows",
     sql: `
 create table erase_windows (

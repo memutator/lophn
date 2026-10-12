@@ -33,7 +33,7 @@ export type ModelCallInput = {
   timeoutMs: number | null;
   // token 사용량 정의 판. 보고 사용량에 붙는다.
   usageRevision: string;
-  // 재전송 대상 opaque 추론이 있는 요청의 state-free 계속 검증 입력이다(질문 Q7).
+  // 재전송 대상 opaque 추론이 있는 요청의 state-free 계속 검증 입력이다.
   continuation?: { pendingReasoning: boolean; reasoningRequired: boolean };
 };
 

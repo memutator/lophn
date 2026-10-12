@@ -1,4 +1,4 @@
-// lophn이 띄운 coding TUI 아래의 MCP·CLI process 관측(platform#T34 후속).
+// lophn이 띄운 coding TUI 아래의 MCP·CLI process 관측.
 // host는 TUI의 process tree를 짧은 간격으로 훑어 설치된 lophn MCP·CLI process가 나타나면 그 process
 // generation(`<pid>.<시작 tick>`)과 loader identity(helper 절대 경로)를 main에 알린다. 사라지면 끝났다고,
 // TUI가 끝나면 모두 끝났다고 알린다. main이 core에 등록·해제한다(host는 core에 닿지 않는다).

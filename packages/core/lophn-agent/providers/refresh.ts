@@ -45,7 +45,7 @@ export function refreshDue(
   return nowMs >= ms - leadMs;
 }
 
-// R18: OAuth 401의 복구 예산은 갱신 한 번과 동일 요청 재전송 한 번이다. 재전송은
+// OAuth 401의 복구 예산은 갱신 한 번과 동일 요청 재전송 한 번이다. 재전송은
 // 새 ModelCall로 남는다(run 한도에 센다).
 export type UnauthorizedRetry = {
   refresh: boolean;

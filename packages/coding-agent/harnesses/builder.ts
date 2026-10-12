@@ -1,5 +1,4 @@
-// 제품 catalog에서 설치 resource를 만든다(coding-agent/harnesses#R8·R11,
-// guides#R5·R13). 순수 값이다. 설정 파일의 현재 text는
+// 제품 catalog에서 설치 resource를 만든다. 순수 값이다. 설정 파일의 현재 text는
 // 호출자가 읽어 인자로 주고(관측), 이 함수는 파일을 읽지도 쓰지도 않는다.
 // 결과는 root resolver별 묶음이다. 한 target의 resource가 CODEX_HOME과 home처럼
 // 다른 root에 걸치기 때문이고, 묶음마다 plan 하나로 설치한다(engine은 plan당

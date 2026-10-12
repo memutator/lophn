@@ -1,5 +1,5 @@
-// collector가 core loopback으로 앱 로그와 진단 상세 수집 설정을 읽는 adapter
-// (snapshots#R7, R12). fetch는 주입받는다: core graph의 EXTERNAL_FETCH tripwire가
+// collector가 core loopback으로 앱 로그와 진단 상세 수집 설정을 읽는 adapter다.
+// fetch는 주입받는다: core graph의 EXTERNAL_FETCH tripwire가
 // bare fetch를 금지하므로 property 접근으로만 부른다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appLogsOutputSchema } from "../../../../protocol/apps/mod.ts";

@@ -23,7 +23,7 @@ export const DECISION_CHOICES = [
 export const decisionChoiceSchema = z.enum(DECISION_CHOICES);
 export type DecisionChoice = z.infer<typeof decisionChoiceSchema>;
 
-// closing#R8: 더 다루지 않음의 이유는 공백 아닌 한 줄이다.
+// 더 다루지 않음의 이유는 공백 아닌 한 줄이다.
 const oneLine = z.string().regex(/^[^\r\n]*\S[^\r\n]*$/);
 
 const closureFields = {
@@ -93,7 +93,7 @@ export const userProblemDecisionInputSchema = z.strictObject(decisionFields)
   .refine(validDecision);
 export type UserProblemDecision = z.infer<typeof userProblemDecisionSchema>;
 
-// 문제 결정 handle binding은 T13 owner_decision으로 등록한다.
+// 문제 결정 handle binding은 owner_decision으로 등록한다.
 export const PROBLEM_DECISION = defineDecision("problem_decision");
 
 export const closeProblemVerifiedInputSchema = z.strictObject({

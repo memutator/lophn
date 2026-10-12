@@ -310,7 +310,7 @@ function fixAppliedOf(
   }
 }
 
-// 지금 닫힘을 남긴 마지막 ProblemClosed의 시각이다(T20·T21의 실제 닫힘).
+// 지금 닫힘을 남긴 마지막 ProblemClosed의 시각이다(실제 닫힘).
 function closedAtOf(snapshot: ReadSnapshot, problem: string): string | null {
   const row = snapshot.sql.get(
     `select at from events where type = 'ProblemClosed' and subject = ?

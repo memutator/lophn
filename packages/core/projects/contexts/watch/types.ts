@@ -1,5 +1,5 @@
-// context 변화 감지의 모양. 규칙의 뜻은 docs/architecture/documents.md 3.2 "따라잡기"와
-// documents/contexts#R23이다. 신호는 "그 context를 다시 훑으라"는 힌트일 뿐이고 변화 기록·
+// context 변화 감지의 모양. 규칙의 뜻은 docs/architecture/documents.md 3.2 "따라잡기"에 있다.
+// 신호는 "그 context를 다시 훑으라"는 힌트일 뿐이고 변화 기록·
 // event·화면 상태를 만들지 않는다.
 import type { Contract } from "../../../../protocol/projects/mod.ts";
 

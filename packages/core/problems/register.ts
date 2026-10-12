@@ -102,8 +102,8 @@ import {
   problemsClosingVisibility,
 } from "./closing/connection.ts";
 
-// ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
-// T45). `problems.closing` 반응기도 문제 상태·활성 release를 다시 읽는 신호로 본다.
+// ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다.
+// `problems.closing` 반응기도 문제 상태·활성 release를 다시 읽는 신호로 본다.
 // 그 밖의 자격은 owner 정책이 그대로 판단한다.
 function visibleToChecker<D extends EventDefinition>(
   owner: EventVisibilityDefinition<D>,
@@ -320,8 +320,8 @@ export function createEventRegistration(): EventRegistration {
       visibleToChecker(notificationsOnlyVisibility(problemClosed)),
       // 사람의 not_fixed 결정은 checker feed에게만 연다(human_confirmation fail 신호).
       ticketCheckFeedVisibility(problemConfirmationRecorded),
-      // 같은 문제의 새 live 보고는 `problems.closing` 반응기의 재평가 신호다(problems#T20,
-      // closing#R4). 다른 자격은 정책이 없을 때와 똑같이 못 본다.
+      // 같은 문제의 새 live 보고는 `problems.closing` 반응기의 재평가 신호다.
+      // 다른 자격은 정책이 없을 때와 똑같이 못 본다.
       problemsClosingVisibility(problemObserved),
     ],
   };

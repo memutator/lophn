@@ -1,4 +1,4 @@
-// 세션 시작 summary 조립이다(coding-agent#T35). 요청자 connection의
+// 세션 시작 summary 조립이다. 요청자 connection의
 // credential로 같은 범위의 정본(문제·ticket·connection 읽기)을 읽어 요약만 만든다. 본문·log·첨부·수리
 // 묶음은 읽지 않고 claim·상태를 바꾸는 호출이 이 module에 없다. 어느 읽기든 실패하면 빈 목록으로
 // 바꾸지 않고 그 오류를 그대로 돌려준다. 범위 밖 앱은 없는 앱과 같은 not_found다.

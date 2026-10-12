@@ -1,4 +1,4 @@
-// core가 documents coordinator에 관측 근거를 보낸다(documents plan Q15). coordinator는
+// core가 documents coordinator에 관측 근거를 보낸다. coordinator는
 // machine으로 tracking 규칙과 경로→문서 연결을 읽지 않는다: core가 소유자로 ledger
 // snapshot에서 읽어 core→coordinator 요청 envelope(`documents.observation_basis`)로
 // 넘기고, 바뀐 것만 같은 통로로 다시 보낸다. 새 HTTP route·credential 정책은 없다.
@@ -106,8 +106,8 @@ export async function readObservationBasis(
   });
 }
 
-// 근거는 주기로 읽지 않는다. 구독자가 documents event로 깨우고 (다시) 구독할 때 한 번 맞춘다
-// (documents plan Q17). 읽기·보내기가 실패하면 retryMs 뒤 다시 한다.
+// 근거는 주기로 읽지 않는다. 구독자가 documents event로 깨우고 (다시) 구독할 때 한 번 맞춘다.
+// 읽기·보내기가 실패하면 retryMs 뒤 다시 한다.
 export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
   // 마지막으로 coordinator가 받은 근거와 그때의 snapshot. 보내기 실패는 둘 다 버려
   // 다음 확인이 전체를 다시 보낸다.

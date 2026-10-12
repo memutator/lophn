@@ -13,7 +13,7 @@ import { compactFailureReasonSchema } from "./sessions.ts";
 // 메시지(Checkpoint)이고, 문서 파일은 RewindFile pre-image로, 앱 data는 앱이 선언한 revert
 // command로 되돌린다. 숨긴 구간은 Message를 바꾸지 않고 Revert 기록에서 읽는다.
 
-// 한도(요구 R14). 넘는 쓰기는 막지 않고 그 checkpoint를 "파일 복원 불가"로 낮춘다.
+// 한도다. 넘는 쓰기는 막지 않고 그 checkpoint를 "파일 복원 불가"로 낮춘다.
 export const REWIND_MAX_CHECKPOINTS = 100;
 export const REWIND_MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const REWIND_MAX_SESSION_BYTES = 200 * 1024 * 1024;

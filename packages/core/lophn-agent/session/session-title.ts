@@ -4,8 +4,8 @@ import {
   sessionTitleSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// session 제목 만들기(domain model lophn-agent/conversation Session.title, requirements
-// conversation#R18). 순수 함수이며 저장·redaction·event는 command가 한다.
+// session 제목 만들기(domain model lophn-agent/conversation Session.title).
+// 순수 함수이며 저장·redaction·event는 command가 한다.
 //
 // 글자는 사람이 보는 글자(grapheme cluster)다: 결합 문자나 이모지 묶음을 중간에서 자르지 않는다.
 // 길이 규칙은 contracts의 `sessionTitleSchema`(rename 120자 `SESSION_RENAME_TITLE_MAX`)와

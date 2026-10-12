@@ -2,7 +2,7 @@
 // `--app-screen-test`로 띄우면 상속 fd 3에서 입력 한 줄을 읽고, 고정 bundle의 화면을 test view에
 // 하나씩 열어 load·처리되지 않은 오류·깨진 view의 feedback 경로·막힌 network 시도를 관측한 뒤
 // 관측 한 줄을 같은 fd에 쓰고 끝난다. 사람 token·core·collector·운영 view session·DB는 쓰지
-// 않는다. 관측을 collector로 넘기는 것은 runner다(problems 계획 Q7). Electron 조립은
+// 않는다. 관측을 collector로 넘기는 것은 runner다. Electron 조립은
 // `entry-screen-test.ts`에 있고 여기는 순서·관측·bundle 파일 응답만 둔다. 입력·관측 schema는
 // contracts/shell `screen-test.ts`이고, shell tsc가 contracts 원본을 검사하지 못해 deno가
 // 검사하는 entry가 schema로 입력을 거르고 관측을 확인한다. 여기 타입은 그 모양과 같다.
@@ -19,7 +19,7 @@ import { SCREEN_TEST_PROBE_SCRIPTS } from "../../ipc/screen-test.ts";
 import { APP_SCHEME } from "./network-policy.ts";
 import { checkViewError } from "./view-error.ts";
 
-/** problems/tests#R19: 통로 frame 하나의 상한. 입력·관측 모두 이 안이다. */
+/** 통로 frame 하나의 상한. 입력·관측 모두 이 안이다. */
 export const FRAME_MAX_BYTES = 65_536;
 /** load 뒤 늦게 오는 오류(timer·rejection)를 기다리는 시간. */
 export const SETTLE_MS = 1_000;

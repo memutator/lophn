@@ -1,5 +1,5 @@
-// 작업대가 읽는 통로. documents#T7(projects get)·documents#T6(문서 목록)·
-// documents/contexts(활성 context 목록)의 read 결과와 T13 layout 저장·복원만 담는다.
+// 작업대가 읽는 통로. documents의 projects get·문서 목록·
+// documents/contexts(활성 context 목록)의 read 결과와 layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { AgentsSource } from "./agents/source.ts";
 import type { ContextsSource } from "./contexts/source.ts";

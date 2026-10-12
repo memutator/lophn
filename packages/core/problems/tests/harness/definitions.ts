@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { canonicalize } from "../../../../base/mod.ts";
 
-// 플랫폼 필수 검사의 정의. runner의 불변 설치 자료이고 앱 bundle이 고칠 수 없다
-// (problems/tests#R6). 검사마다 정의 digest가 있고 test 자식은 관측 frame의
+// 플랫폼 필수 검사의 정의. runner의 불변 설치 자료이고 앱 bundle이 고칠 수 없다.
+// 검사마다 정의 digest가 있고 test 자식은 관측 frame의
 // actual에 그 digest를 실어 보낸다. runner가 설치 자료의 digest와 다르면 검사가
 // 바뀐 것으로 본다.
 export const CHECK_DEFINITIONS_VERSION = 1;
@@ -22,7 +22,7 @@ export const HARNESS_CHECKS = [
   "permission_denial",
   "view_exception",
   "feedback",
-  // 앱 계약 검사(apps/blueprint#R21)
+  // 앱 계약 검사
   "migration_empty",
   "migration_upgrade",
   "read_contract",

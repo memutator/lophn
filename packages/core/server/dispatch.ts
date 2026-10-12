@@ -116,7 +116,7 @@ export type WorkerRouteTarget = {
 
 export type WorkerTargets = ReadonlyMap<string, WorkerRouteTarget>;
 
-// T9가 조립한다. 없는 handler는 그 route를 제공하지 않는 것이다.
+// core entry가 조립한다. 없는 handler는 그 route를 제공하지 않는 것이다.
 export type DispatchDeps = {
   credentials: CredentialRegistry;
   clock: Clock;
@@ -567,7 +567,7 @@ async function file(
     return rejected({ code: "internal", message: "worker response mismatch" });
   }
   if (!response.ok) return rejected(commonWorkerError(response.error));
-  // 성공 payload는 원본 bytes다. core는 바이트를 해석·저장하지 않는다(plan platform#T12).
+  // 성공 payload는 원본 bytes다. core는 바이트를 해석·저장하지 않는다.
   if (!validBytesPayload(response.payload)) {
     return rejected(asInternalError(new Error("file bytes")));
   }

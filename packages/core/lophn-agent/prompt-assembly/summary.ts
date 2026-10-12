@@ -7,13 +7,13 @@ import {
 } from "../safety/mod.ts";
 import type { HistoryMessage, PromptRequest } from "./model.ts";
 
-// Compact summary의 준비이다(lophn-agent/harness/prompt-assemble 요구 R19–R23). 순수 값과 계산만
+// Compact summary의 준비이다(concern lophn-agent/harness/prompt-assemble). 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양·본문 상한·재축소·
 // 재사용 범위를 정한다.
 
 export const SUMMARY_RULE_VERSION = "compaction.1";
 
-// R20·Q12. Compact 본문 상한은 요약 출력 상한(R13의 summaryOutputCap, 입력 예산 10%와 4,000 중
+// Compact 본문 상한은 요약 출력 상한(summaryOutputCap, 입력 예산 10%와 4,000 중
 // 작은 값)과 같고 호출자가 cap으로 넘긴다. 상한을 1 넘으면 저장된 완성 summary로 쓰지 않고 다시 줄인다.
 // token 상한은 COUNT_METHOD에 따라 UTF-8 byte를 쓴다. 재축소 횟수는 여기서 정한다.
 export const COMPACT_RESHRINK_MAX = 2;
@@ -27,7 +27,7 @@ export type SummaryParts = {
   estimations_uncertainty: string;
 };
 
-// R14. 여섯 부분의 이름과 순서다. 없는 내용은 없다고 쓴다.
+// 여섯 부분의 이름과 순서다. 없는 내용은 없다고 쓴다.
 export const SUMMARY_PART_KEYS: readonly (keyof SummaryParts)[] = [
   "purpose",
   "decisions_constraints",
@@ -100,7 +100,7 @@ export function clampSummaryText(
   return { status: "over", text: points.slice(0, end).join(""), attempt };
 }
 
-// R23. Compact 재사용은 사람이 부른 같은 세션의 최신 완성본 하나다. 다른 세션·주기
+// Compact 재사용은 사람이 부른 같은 세션의 최신 완성본 하나다. 다른 세션·주기
 // run·handoff에 자동 주입하지 않는다. session을 지정하지 않으면 아무 것도 고르지 않는다.
 export function latestCompactSummary(
   summaries: readonly SummaryRef[],
@@ -119,7 +119,7 @@ export function latestCompactSummary(
   return chosen;
 }
 
-// R21. 일회 선호를 영구 취향으로 일반화하지 않는지의 확인이다. 요약 문장 안에
+// 일회 선호를 영구 취향으로 일반화하지 않는지의 확인이다. 요약 문장 안에
 // 일회 표현("이번"·"이번 한 번")이 남아야 하고 영구 표현("늘"·"항상")으로 바꾸지 않는다.
 export function assertsNoPreferenceGeneralization(
   summary: SummaryParts,

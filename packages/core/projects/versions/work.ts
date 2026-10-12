@@ -27,7 +27,7 @@ import {
 import { existingFileSource } from "./commands.ts";
 import type { VersionRow } from "./store.ts";
 
-// prepare worker가 파일 목록 검사를 부르는 정본(file-tracking의 T8 몫).
+// prepare worker가 파일 목록 검사를 부르는 정본(file-tracking 몫).
 import { checkFileList, type FileListIssue } from "../file-tracking/mod.ts";
 
 export type ValidateOutcome = {

@@ -54,7 +54,7 @@ import {
   runToolBatch,
 } from "./tool-batch.ts";
 
-// turn 하나(requirements lophn-agent/harness/run-loop R9–R11). 순서는 멈춤 확인 → 접수 입력
+// turn 하나(concern lophn-agent/harness/run-loop). 순서는 멈춤 확인 → 접수 입력
 // 선택 → 한도 검사 → prompt 조립 → 조립 뒤 입력·멈춤 재확인 → model call 하나(완전 응답 확인) →
 // tool 묶음 → 결과 기록 → 계속·종료 판정이다. 판단은 model이 하고 이 순서와 확인은 machine이 한다.
 

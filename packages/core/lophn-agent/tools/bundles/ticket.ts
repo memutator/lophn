@@ -25,7 +25,7 @@ import {
 } from "./common.ts";
 import { bodyOf, pageThrough, scopeOf } from "./paging.ts";
 
-// ticket 묶음(concern harness/tools R9). 읽기(`ticket.list`, `ticket.read`), 생성(`ticket.create`),
+// ticket 묶음(concern harness/tools). 읽기(`ticket.list`, `ticket.read`), 생성(`ticket.create`),
 // 확인 필요 ticket의 실행 준비 전환(`ticket.make_ready`)만 있다. claim·연장·완료 보고·release 연결·
 // 취소·[Start]는 정의 자체가 없다(coding-agent/mcp-server와 사람 경로). 앱 하나에 묶인 자격은 소유
 // contract(coding-agent/tickets)가 그 앱의 ticket만 보여 주고 다른 앱은 없는 대상과 같은 답이다.
@@ -153,7 +153,7 @@ export type TicketToolPorts = ContractCall;
 
 type Condition = { kind: string; problem?: string };
 
-// 실행 준비에 모자란 것이다(coding-agent/tickets R8·R9의 같은 규칙을 입력에서 미리 읽는다. 소유
+// 실행 준비에 모자란 것이다(coding-agent/tickets의 같은 규칙을 입력에서 미리 읽는다. 소유
 // contract가 전환 때 다시 검사한다). 모자라면 ticket을 버리지 않고 확인 필요로 남긴다.
 export function missingForReady(input: {
   kind: "implementation" | "repair";

@@ -2,7 +2,7 @@ import { TEST_EXECUTION_LIMITS } from "../../../../protocol/problems/mod.ts";
 import { TEST_OBSERVATION_FRAME_MAX_BYTES } from "../../../../protocol/problems/mod.ts";
 import { TEST_OBSERVATION_SIDE_MAX_BYTES } from "../../../../protocol/problems/mod.ts";
 
-// problems/tests#R19, R20. 요청이 이 상한을 넓히지 못한다.
+// 요청이 이 상한을 넓히지 못한다.
 export const RUNNER_LIMITS = {
   concurrent: TEST_EXECUTION_LIMITS.concurrent,
   preparing: TEST_EXECUTION_LIMITS.preparing,
@@ -12,7 +12,7 @@ export const RUNNER_LIMITS = {
   deno_heap_bytes: TEST_EXECUTION_LIMITS.deno_heap_bytes,
   frame_bytes: TEST_OBSERVATION_FRAME_MAX_BYTES,
   side_bytes: TEST_OBSERVATION_SIDE_MAX_BYTES,
-  // problems/tests#R21. 미확정 spool 보관 상한.
+  // 미확정 spool 보관 상한.
   spool_ttl_ms: 24 * 60 * 60 * 1000,
 } as const;
 

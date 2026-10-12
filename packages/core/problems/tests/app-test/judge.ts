@@ -149,8 +149,7 @@ function fromFrame(
 
 // 모든 필수 검사가 실제로 pass일 때만 pass다. stdout의 문자열이나 파일은 보지
 // 않는다. 관측 protocol이 어긋나면(다른 side·hash, 계획에 없는 이름, 겹친 이름,
-// 빠진 expectation) 판정 불가이고, 필수 검사의 관측이 없거나 실패면 fail이다
-// (problem-codes#R8).
+// 빠진 expectation) 판정 불가이고, 필수 검사의 관측이 없거나 실패면 fail이다.
 export function judgeAppTest(input: {
   plan: AppTestPlan;
   test_hash: string;

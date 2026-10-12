@@ -17,8 +17,8 @@ function stripComments(text: string): string {
 const CALL =
   /\breportProblem\s*\(\s*(?:(["'`])((?:(?!\1)[^\\\n])*)\1\s*[,)]|([^)\s][^)]*)?)/g;
 
-// 정적 code 사용 검사: 앱 source의 reportProblem 호출을 읽는다
-// (problems/problem-codes#R8). 선언 없는 code와 계산해 만든 code를 가려내는 데 쓴다.
+// 정적 code 사용 검사: 앱 source의 reportProblem 호출을 읽는다.
+// 선언 없는 code와 계산해 만든 code를 가려내는 데 쓴다.
 export function scanCodeUsage(files: readonly SourceFile[]): CodeUsage {
   const usage: CodeUsage = { literals: [], dynamic: [] };
   for (const file of files) {

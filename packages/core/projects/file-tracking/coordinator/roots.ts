@@ -1,8 +1,8 @@
-// 활성 tracking root 집합의 변화를 보고 documents worker를 새 권한으로 다시 띄운다
-// (file-tracking#R3). root 집합이 같으면 아무것도 하지 않는다. 다시 띄우지 못하면
+// 활성 tracking root 집합의 변화를 보고 documents worker를 새 권한으로 다시 띄운다.
+// root 집합이 같으면 아무것도 하지 않는다. 다시 띄우지 못하면
 // 옛 권한으로 성공했다고 하지 않고 곧 다시 시도한다.
 // 확인(check)은 core 안 구독자(machine:documents-feed)가 ProjectTrackingChanged 등 event를
-// 받을 때, 구독이 (다시) 열릴 때, 시작할 때 부른다(documents plan Q17). 주기로 읽지 않는다.
+// 받을 때, 구독이 (다시) 열릴 때, 시작할 때 부른다. 주기로 읽지 않는다.
 // event는 깨우는 신호일 뿐이고 root 집합은 매번 같은 read(project.tracking_roots)로 읽는다.
 import type { Result } from "../../../../base/mod.ts";
 import type { DocumentsRelaunch } from "../../register.ts";

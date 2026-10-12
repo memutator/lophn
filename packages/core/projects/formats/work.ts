@@ -72,7 +72,7 @@ export type RunnerClientOptions = {
 };
 
 function runnerFlags(heapMib: number): string[] {
-  // 읽기 권한은 runner entry와 내장 QuickJS wasm 파일로만 좁힌다(planning documents T4).
+  // 읽기 권한은 runner entry와 내장 QuickJS wasm 파일로만 좁힌다.
   return [
     "run",
     "--frozen",

@@ -1,5 +1,5 @@
-// model 호출 한 번의 실제 HTTP 실행(architecture §5.2 invokeModelCall; provider#R19–R23,
-// R25). 인증 부착은 AuthTransport 하나를 거친다. 호출은 한 번이다: SDK 숨은 retry는
+// model 호출 한 번의 실제 HTTP 실행(architecture §5.2 invokeModelCall).
+// 인증 부착은 AuthTransport 하나를 거친다. 호출은 한 번이다: SDK 숨은 retry는
 // 없고 재시도는 run-loop가 새 ModelCall로 한다. 응답은 두 길이다. 성공 SSE는
 // protocol별 parser가 읽고, 그 밖의 응답(오류 status·JSON)은 상한 안 본문 한 덩어리로
 // 읽어 failures.ts가 분류한다. 오류 본문 원문은 어디에도 남기지 않는다.
@@ -166,7 +166,7 @@ function plainOutcome(
 
 export function createInvokeModelCall(deps: InvokeDeps): InvokeModelCall {
   return async (input, signal): Promise<Result<ModelCallOutput>> => {
-    // state-free 계속 검증의 실제 호출 자리다(질문 Q7). 불가면 보내지 않는다.
+    // state-free 계속 검증의 실제 호출 자리다. 불가면 보내지 않는다.
     if (
       input.continuation !== undefined &&
       input.model.protocol !== "anthropic-messages"

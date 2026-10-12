@@ -1,4 +1,4 @@
-// docs/plan/contracts.md의 contracts#T10: E2E harness.
+// E2E harness.
 // 실제 Electron shell과 실제 core를 임시 LOPHN_HOME으로 띄우고, renderer DOM은
 // Chromium 원격 디버깅으로 읽는다. 끝나면 띄운 프로세스만 정확한 pid로 정리한다.
 // 실제 ~/.lophn은 읽지도 쓰지도 않는다.

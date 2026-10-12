@@ -1,5 +1,5 @@
 // settings의 OS notification 자리. opt-in 설정 값만 저장하고 보인다. 실제 OS
-// notification은 이 자리가 보내지 않는다(shell#T56은 표시 경로다). 값은 settings read·apply로
+// notification은 이 자리가 보내지 않는다. 값은 settings read·apply로
 // 저장되고, 기본(꺼짐)·바뀐 출처는 설정 값의 정의를 따른다.
 import { useCallback, useState } from "react";
 import {

@@ -1,5 +1,5 @@
-// 탭 kind registry. kind를 더하려면 kinds/<kind>.ts를 쓰고 아래 목록에 한 줄을 더한다
-// (shell/workspace#R14). 타입(LayoutTab·HintTab·ViewTab)도 이 목록에서 나온다.
+// 탭 kind registry. kind를 더하려면 kinds/<kind>.ts를 쓰고 아래 목록에 한 줄을 더한다.
+// 타입(LayoutTab·HintTab·ViewTab)도 이 목록에서 나온다.
 import type { z } from "zod";
 
 import { agentKind } from "./agent.ts";

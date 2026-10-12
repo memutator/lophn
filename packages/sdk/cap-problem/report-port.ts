@@ -4,8 +4,8 @@ import type {
   SafeReportDetails,
 } from "@lophn/protocol/problems/sdk-report";
 
-// 앱 진입점이 설치하는 보고 통로의 symbol. 앱 code는 reportProblem만 부르고 transport를 모른다
-// (apps/sdk#R26, R33). 같은 module이 두 번 load돼도 먼저 설치된 reporter를 쓴다.
+// 앱 진입점이 설치하는 보고 통로의 symbol. 앱 code는 reportProblem만 부르고 transport를 모른다.
+// 같은 module이 두 번 load돼도 먼저 설치된 reporter를 쓴다.
 export const REPORTER_PORT = Symbol.for("lophn.cap-problem");
 
 type Store = Record<symbol, unknown>;

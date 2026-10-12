@@ -3,7 +3,7 @@ import { packageVersionNameSchema } from "../../../protocol/apps/mod.ts";
 
 // 첫 공개 묶음에서 제공하지 않는 이름. cap-read-model은 앱 사이
 // command 호출이 cap-schedule과 apps/connections를 따르므로 만들지 않았고,
-// cap-notify는 platform#T17 notification이 맡는다.
+// cap-notify는 platform notification이 맡는다.
 export const SDK_WITHHELD_NAMES = [
   "@lophn/cap-read-model",
   "@lophn/cap-notify",

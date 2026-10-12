@@ -18,7 +18,7 @@ import type {
   ToolHandler,
 } from "../tools/mod.ts";
 
-// 외부 MCP tool 자동 등록(requirements lophn-agent/extensions#R23).
+// 외부 MCP tool 자동 등록(concern lophn-agent/extensions).
 // 연결 관리(mcp-connections.ts)가 검증을 모두 지난 목록을 주면 원래 쌍마다 호출 이름·정의 hash·사람 분류를
 // 붙여 harness/tools의 ToolDefinition으로 만든다. 사람의 설정(registry)과 preset 선택만이 출처이며
 // 문서·skill·server 응답은 어느 정의에도 들어가지 않는다.
@@ -210,7 +210,7 @@ const OBJECT_INPUT: z.ZodType = z.unknown().superRefine((value, context) => {
   }
 });
 
-// MCP tool의 입력 JSON Schema다. 서버가 준 객체를 그대로 노출한다(R22 검증을 지난 것만).
+// MCP tool의 입력 JSON Schema다. 서버가 준 객체를 그대로 노출한다(검증을 지난 것만).
 function toolInputSchema(entry: McpToolEntry): Record<string, unknown> {
   return entry.schema;
 }

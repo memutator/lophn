@@ -1,5 +1,5 @@
-// `document.set_source`: 문서의 프로젝트 파일 연결을 사람이 명시적으로 걸고 푼다
-// (documents/versions#R13). 파일 삭제나 추적 해제만으로는 연결이 사라지지 않고, 연결을 바꾸는
+// `document.set_source`: 문서의 프로젝트 파일 연결을 사람이 명시적으로 걸고 푼다.
+// 파일 삭제나 추적 해제만으로는 연결이 사라지지 않고, 연결을 바꾸는
 // 길은 이 command뿐이다. core는 파일을 열지 않는다: 경로가 등록 폴더 안인지와 다른 문서가
 // 쓰는 경로가 아닌지만 ledger에서 본다. 파일 내용과 최신 판의 대조는 다음 파일 관측이 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";

@@ -1,7 +1,7 @@
-// snapshot의 화면 증거(plan problems T15).
+// snapshot의 화면 증거.
 // 화면 자료는 사람이 선택한 당시의 안전한 상태와 PNG뿐이다. 이 모듈은 이미 한도를
 // 검사한 자료를 blob으로 준비하고, 없는 항목마다 공백 아닌 이유 하나를 고정한다.
-// PNG는 가리지 않는다(D32): 사람이 미리보기에서 본 그대로 저장한다.
+// PNG는 가리지 않는다: 사람이 미리보기에서 본 그대로 저장한다.
 import type {
   MissingReason,
   ScreenEvidence,

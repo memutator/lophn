@@ -75,7 +75,7 @@ export const appPairConfirmPoll = defineMemory({
 
 // 경로 장부는 core의 준비 서비스가 쥐고, 호출의 start 사실은 supervisor의 broker가 처음 본다. supervisor가
 // 그 사실을 core에 알린다. 알리지 못한 호출은 부모로 알려지지 않아 부모 없음으로
-// 시작한다(plan apps#T15의 한계). 자식 종료는 그 자식의 기억을 비운다.
+// 시작한다(알려진 한계). 자식 종료는 그 자식의 기억을 비운다.
 export const appPairObserve = defineMemory({
   resource: "apps",
   method: "pair_observe",

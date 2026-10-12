@@ -154,8 +154,8 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     });
   }
 
-  // 사람이 고른 선택지에 고정 action이 있고 아직 적용하지 않았으면 소유 command로 적용한다
-  // (questions#R13). 답 저장 → 적용 → ResolveRunWait는 각각 따로 확정되고 읽은 현재 사실에서
+  // 사람이 고른 선택지에 고정 action이 있고 아직 적용하지 않았으면 소유 command로 적용한다.
+  // 답 저장 → 적용 → ResolveRunWait는 각각 따로 확정되고 읽은 현재 사실에서
   // 이어 가므로 어느 지점에서 죽어도 적용은 한 번이다: 적용했다면 `applied`가 이미 참이라 다시
   // 부르지 않고, 적용 중 죽었다면 transaction이 통째로 되돌아가 처음부터 다시 적용한다.
   // 전제가 달라져 적용하지 못하면 답은 그대로 두고 재개하지 않는다.

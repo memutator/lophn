@@ -84,7 +84,7 @@ export function attachTerminalSurface(
 }
 
 /**
- * 사람이 누른 터미널 tab의 webContents 표. T25 탭 화면이 focus·blur에 쓰고,
+ * 사람이 누른 터미널 tab의 webContents 표. 탭 화면이 focus·blur에 쓰고,
  * main은 입력·resize·restart 검사에 본다. 표에 없는
  * terminal_ref의 입력은 통과하지 않는다.
  */

@@ -1,4 +1,4 @@
-// 제품 core가 secret store를 여는 조립(platform#T19, documents Q17 (3)). ledger가 가리키는
+// 제품 core가 secret store를 여는 조립. ledger가 가리키는
 // 현재 secret 참조의 값을 OS keychain adapter로 읽어 core 보호 메모리(held)에 알려진 값을
 // 채우고, reader pool의 등록·회수 통로로 같은 값을 reader Worker의 보호 메모리에 넣는다.
 // documents의 제품 redactor가 pattern 검출에 더해 이 값도 지운다(documents-redactor.ts).
@@ -233,7 +233,7 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
     options?: { immediate?: boolean },
   ): Promise<Result<void>> {
     const reclaim = deps.reclaim;
-    // 이미 연 keychain에서만 쓴다. 참조가 없어 열린 적이 없으면 쓸 것이 없다(R1: 참조 없는 core는 keychain을
+    // 이미 연 keychain에서만 쓴다. 참조가 없어 열린 적이 없으면 쓸 것이 없다(참조 없는 core는 keychain을
     // 열지 않는다).
     if (reclaim === undefined || stopped || keychain === undefined) {
       return ok(undefined);

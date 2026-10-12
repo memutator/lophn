@@ -1,7 +1,7 @@
 // OpenAI 호환 공통 레이어. endpoint path 결합(/v1 중복 없음),
 // redirect 목적지 검사(다른 목적지에 credential 없음), provider 정의가 명시하는
 // 호환 quirk(DeepSeek·OpenRouter 등), protocol별 state-free 계속 검증, 시그니처
-// 비교(T13이 넘긴 것)를 여기 둔다. 형식은 model 이름이 아니라 provider 정의가
+// 비교를 여기 둔다. 형식은 model 이름이 아니라 provider 정의가
 // 명시한다. Gemini는 Chat Completions 호환 연결이고 네이티브 Google 형식은
 // 받지 않는다.
 
@@ -16,7 +16,7 @@ export function joinEndpoint(base: string, path: string): string {
   return trimmed + inner;
 }
 
-// R5: 인증 없음은 127.0.0.1·::1·localhost에만 허용된다. Ollama·LM Studio·
+// 인증 없음은 127.0.0.1·::1·localhost에만 허용된다. Ollama·LM Studio·
 // llama.cpp의 loopback endpoint가 여기 해당한다. 파싱 실패는 fail closed다.
 export function isLoopback(endpoint: string): boolean {
   if (!URL.canParse(endpoint)) return false;
@@ -25,7 +25,7 @@ export function isLoopback(endpoint: string): boolean {
     host === "localhost";
 }
 
-// R5·R16: provider redirect로 다른 목적지에 credential을 보내지 않는다. 같은
+// provider redirect로 다른 목적지에 credential을 보내지 않는다. 같은
 // origin 안의 redirect만 안전하다. 목적지를 못 읽으면 안전하지 않은 것으로 세운다.
 export function redirectCredentialSafe(
   from: string,
@@ -75,7 +75,7 @@ export function quirksFor(provider: string): CompatQuirks {
 }
 
 export type StateFreeVerdict = {
-  // continuable이 false면 run-loop가 configuration_unavailable로 끝낸다(질문 Q7).
+  // continuable이 false면 run-loop가 configuration_unavailable로 끝낸다.
   continuable: boolean;
   adjustment: "none" | "reasoning_item_dropped" | "reasoning_content_padded";
 };
@@ -86,7 +86,7 @@ export type StateFreeVerdict = {
 // 턴을 공백 하나로 채우므로 DeepSeek 필수라도 계속 가능하다. 두 protocol 모두
 // 검증을 통과한다. 검증을 통과하지 못하는 protocol(서명 필수 Anthropic)은
 // messages.ts의 reasoningFor가 실패를 내고 run-loop가 configuration_unavailable로
-// 끝낸다(질문 Q7).
+// 끝낸다.
 export function verifyStateFree(input: {
   protocol: "openai-responses" | "openai-chat-completions";
   // 이번 요청에 재전송 대상 opaque 상태가 있었는가.
@@ -103,7 +103,7 @@ export function verifyStateFree(input: {
   };
 }
 
-// 시그니처 비교(T13이 넘긴 것). 블록의 signature와 메모리의 signature가
+// 시그니처 비교. 블록의 signature와 메모리의 signature가
 // 같을 때만 재전송 대상이다. 다르거나 한쪽이 없으면 깨진 턴으로 보고 그 시그니처를
 // 재전송하지 않는다(Hermes 487–524).
 export function signatureAgrees(
@@ -114,7 +114,7 @@ export function signatureAgrees(
   return block === memory;
 }
 
-// tool 인자 JSON 검증. 비어 있으면 인자 없는 호출로 본다(T13과 같은 근원).
+// tool 인자 JSON 검증. 비어 있으면 인자 없는 호출로 본다.
 export function verifiedJsonObject(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {

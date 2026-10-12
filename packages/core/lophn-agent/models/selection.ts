@@ -28,8 +28,8 @@ export type NamedLimits = {
   supports_tools: boolean;
 };
 
-// 목록에 없는 이름은 저장 거절이고, 목록을 확인하지 못했으면 미확인으로 저장한다
-// (R10). 첫 성공 호출에서 unverified 표시를 해제하는 것은 호출 기록의 몫이다.
+// 목록에 없는 이름은 저장 거절이고, 목록을 확인하지 못했으면 미확인으로 저장한다.
+// 첫 성공 호출에서 unverified 표시를 해제하는 것은 호출 기록의 몫이다.
 export function verificationOf(
   listed: boolean | null,
 ): "verified" | "unverified" {
@@ -225,7 +225,7 @@ export function requestOptionsWithinRun(
   return ok({ ...requested });
 }
 
-// 같음은 통과다. 바로 아래도 통과다(R11 확인).
+// 같음은 통과다. 바로 아래도 통과다.
 export function withinLimits(
   limits: Pick<
     ResolvedModel,

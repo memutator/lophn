@@ -92,7 +92,7 @@ export function redactSummary(
 
 // 늦은 시작은 terminal을 running으로 되돌리지 않는다. terminal 뒤 같은 사실은
 // 그대로다. absent(null) row는 record_started가 만들고, record_finished·
-// record_denied는 만들지 않는다(R10 가짜 Invocation 금지).
+// record_denied는 만들지 않는다(가짜 Invocation 금지).
 export function applyStarted(
   current: Invocation | null,
   input: InvocationRecordStartedInput,

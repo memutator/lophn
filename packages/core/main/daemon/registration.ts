@@ -163,7 +163,7 @@ export function assemble(
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     const fromTickets = asLoose(team.ticketDefinitions);
     // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
-    // schema·route가 core에 안 들어간다(tickets는 T18부터 빠졌다).
+    // schema·route가 core에 안 들어간다(tickets는 빠졌다).
     const registrations = [
       asLoose(direct),
       fromLedger,

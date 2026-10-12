@@ -11,7 +11,7 @@ import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
 import { predecessorAllows } from "./model.ts";
 import type { CoreRead } from "./startup.ts";
 
-// run selector(requirements lophn-agent/harness/run-loop R4). accepted run은
+// run selector(concern lophn-agent/harness/run-loop). accepted run은
 // ledger가 정본이고 이 selector는 읽기만 한다. 고른 run의 시작은 StartRun이 다시
 // 검사한다(session당 하나, session 없는 run은 assignment당 하나, 선행 정책, 앞선 접수). 메모리에는 event cursor와 최근
 // 시작 목록뿐이고 재시작하면 RunStarted event에서 다시 만든다. 새 queue entity는 없다.

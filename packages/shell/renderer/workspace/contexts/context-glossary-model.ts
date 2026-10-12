@@ -1,5 +1,5 @@
-// Glossary 화면의 순수한 계산: 사람이 고친 값에서 바뀐 field만 고르고, 누가·언제 문구를 고른다
-// (shell/workspace#R20, documents/terms#R5·R8). 화면과 줄 컴포넌트가 같이 쓴다.
+// Glossary 화면의 순수한 계산: 사람이 고친 값에서 바뀐 field만 고르고, 누가·언제 문구를 고른다.
+// 화면과 줄 컴포넌트가 같이 쓴다.
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { GlossaryEntry } from "./source.ts";

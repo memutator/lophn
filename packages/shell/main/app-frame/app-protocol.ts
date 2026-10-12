@@ -1,6 +1,6 @@
 // lophn-app:// 요청을 view에 묶인 연결의 앱 socket `/screens/<screen>/…`으로 넘긴다
-// (architecture/shell 5.2). socket 경로·인증 header는 main에만 있고 view·preload로 가지 않는다
-// (shell/app-frame#R9). 응답은 모으지 않고 stream으로 돌려주며, 요청이 취소되면 upstream도
+// (architecture/shell 5.2). socket 경로·인증 header는 main에만 있고 view·preload로 가지 않는다.
+// 응답은 모으지 않고 stream으로 돌려주며, 요청이 취소되면 upstream도
 // 끊는다. 다른 연결로의 redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다.
 import { request as httpRequest } from "node:http";
 import { Readable } from "node:stream";

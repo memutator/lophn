@@ -1,7 +1,7 @@
 // restore 프로세스 입구.
 // core 종료 조립이 writer·worker가 모두 멈춘 것을 관측한 뒤에만 이 프로세스를 띄운다.
-// 묶음 검증·현재 자료 보존·ledger 교체는 core graph 밖인 이 프로세스의 몫이다
-// (responsiveness#R1). 결과는 stdout의 마지막 줄 JSON 하나다. 실패하면 현재 자료는 그대로다.
+// 묶음 검증·현재 자료 보존·ledger 교체는 core graph 밖인 이 프로세스의 몫이다.
+// 결과는 stdout의 마지막 줄 JSON 하나다. 실패하면 현재 자료는 그대로다.
 
 import {
   restoreFromBackup,

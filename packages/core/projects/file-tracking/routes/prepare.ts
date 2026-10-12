@@ -1,4 +1,4 @@
-// `/v1/documents/prepare` worker route 조립. T8은 fake port로만
+// `/v1/documents/prepare` worker route 조립. fake port로만
 // 검증했다. 여기서는 canonical 목록을 stream으로 끊어 hash와 blob 준비를 같은
 // stream에서 만든다. 목록 전체를 한 버퍼로 모으지 않는다.
 import {

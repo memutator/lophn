@@ -111,7 +111,7 @@ function pathOf(path: PropertyKey[]): string {
   return path.map(String).join(".");
 }
 
-// zod가 알리는 이유를 R24의 code로 옮긴다. 값은 오류에 싣지 않는다.
+// zod가 알리는 이유를 code로 옮긴다. 값은 오류에 싣지 않는다.
 function schemaIssues(error: z.ZodError): AgentIssue[] {
   const found: AgentIssue[] = [];
   for (const issue of error.issues) {

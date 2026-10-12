@@ -215,8 +215,8 @@ function revertArchiveRejected(
   return undefined;
 }
 
-// 지침 문서는 agent·coding_agent·app의 create·save·제목 변경이 forbidden이다
-// (file-tracking#R20, versions#R20). 분류는 이름·place·본문이 아니라 등록 locator로만 한다:
+// 지침 문서는 agent·coding_agent·app의 create·save·제목 변경이 forbidden이다.
+// 분류는 이름·place·본문이 아니라 등록 locator로만 한다:
 // 문서가 instruction_file 원본에 연결돼 있거나 instruction_file 원본으로 만들려는 저장이다. 사람과
 // machine(좁은 파일 관측)은 이 규칙의 대상이 아니다.
 function instructionWriteRejected(
@@ -428,8 +428,8 @@ const NAME_ATTEMPTS = 1000;
 // 프로젝트 폴더의 파일을 관측해 만든 첫 문서가 자리 없이 왔으면 그 프로젝트를 자리로 하고
 // 이름은 제목(없으면 파일 이름)에서 정한다. 같은 자리의 이름이 이미 쓰이면 `-2`부터 붙인다
 // (이름은 같은 자리에서 유일하고 옛 예약도 다른 대상이 쓸 수 없다). 호출자가
-// 자리나 이름을 정해 보냈으면 그대로 둔다. 파일이 없는 저장(upload·agent)은 자리를 정하지 않는다
-// (addressing#R3). 지침 파일 문서는 프로젝트 문서가 아니라 그대로 둔다.
+// 자리나 이름을 정해 보냈으면 그대로 둔다. 파일이 없는 저장(upload·agent)은 자리를 정하지 않는다.
+// 지침 파일 문서는 프로젝트 문서가 아니라 그대로 둔다.
 function observedPlacement(
   tx: Tx,
   metadata: { place: PlaceRef | null; name: string | null; title: string },

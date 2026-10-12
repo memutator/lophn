@@ -52,7 +52,7 @@ function callerMatches(
   }
 }
 
-// confirm action이면 R8의 고정 규칙을 확인한다. confirm이 아닌 action은 건드리지 않는다.
+// confirm action이면 고정 규칙을 확인한다. confirm이 아닌 action은 건드리지 않는다.
 export function checkConfirmAction(
   approval: string,
   requester: string,

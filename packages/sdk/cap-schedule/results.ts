@@ -1,5 +1,5 @@
-// read 결과의 원천 상태. 정상 0행과 미수집·부분 범위·신선도 부족을 구별한다
-// (apps/invocations#R14). 이어 읽기 cursor는 처음 조건·정렬·데이터 기준에 묶인다.
+// read 결과의 원천 상태. 정상 0행과 미수집·부분 범위·신선도 부족을 구별한다.
+// 이어 읽기 cursor는 처음 조건·정렬·데이터 기준에 묶인다.
 
 export const READ_COVERAGE = ["complete", "partial", "uncollected"] as const;
 export const READ_FRESHNESS = ["fresh", "stale", "unknown"] as const;

@@ -1,5 +1,5 @@
-// 탭 kind registry. kind를 더하려면 kinds/<kind>.ts(x)를 쓰고 아래 목록에 한 줄을 더한다
-// (shell/workspace#R14). 탭 줄·layout map·view hint·칸은 이 목록을 돈다. 목록 순서는 탭 줄 오른쪽
+// 탭 kind registry. kind를 더하려면 kinds/<kind>.ts(x)를 쓰고 아래 목록에 한 줄을 더한다.
+// 탭 줄·layout map·view hint·칸은 이 목록을 돈다. 목록 순서는 탭 줄 오른쪽
 // 끝의 열기 단추 순서다.
 import { t } from "@lophn/wording";
 

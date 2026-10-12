@@ -14,7 +14,7 @@ import {
   toolRetryDelayMs,
 } from "./retry.ts";
 
-// 한 model 응답의 tool 묶음 처리(requirements lophn-agent/harness/run-loop R12).
+// 한 model 응답의 tool 묶음 처리(concern lophn-agent/harness/run-loop).
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
 

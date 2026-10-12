@@ -92,7 +92,7 @@ export function createTicketTool(
       ? routes[op]
       : undefined;
     if (!known) {
-      // op·route가 표에 없으면 실행하지 않는다(mcp#R37 — start·resume·permission
+      // op·route가 표에 없으면 실행하지 않는다(start·resume·permission
       // 응답류는 이 unkown op 경로로 거절이다).
       return {
         summary: "ticket tool 표에 없는 op다",

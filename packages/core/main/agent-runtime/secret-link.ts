@@ -5,8 +5,8 @@ import type {
 } from "../../../protocol/supervision/mod.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 
-// provider 호출의 credential은 core가 감독 pipe로 한 번 건네는 값이다(lophn-agent/harness/provider#R7,
-// platform/secrets#R5). 값은 core의 보호 메모리와 OS keychain에만 있고 runtime이 요청하면 core가 현재
+// provider 호출의 credential은 core가 감독 pipe로 한 번 건네는 값이다.
+// 값은 core의 보호 메모리와 OS keychain에만 있고 runtime이 요청하면 core가 현재
 // 참조·판·목적지를 대조한 뒤 이 응답 하나로만 준다. 값은 인증 전송 callback의 인자로만 쓰고 결과·오류·
 // log·ModelCall blob에 남기지 않는다. 값을 받지 못하면 callback은 불리지 않고 요청은 나가지 않는다.
 

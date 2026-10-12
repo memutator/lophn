@@ -7,8 +7,8 @@ import {
   type TxPortRegistration,
 } from "../../storage/ledger/mod.ts";
 
-// ticket 생성·실행 준비 전환이 같은 transaction에서 묻는 두 읽기 port의 제품 구현이다
-// (coding-agent/tickets#R3, R4). 질문 채택 답은 lophn-agent의 질문 표(answered 질문이 고른
+// ticket 생성·실행 준비 전환이 같은 transaction에서 묻는 두 읽기 port의 제품 구현이다.
+// 질문 채택 답은 lophn-agent의 질문 표(answered 질문이 고른
 // 선택지의 adoption, handoff 근거 검사와 같은 판정)를, 문제 상태는 problems 표를 읽는다. 두 표는
 // 같은 ledger라 tx.sql로 읽는다. 읽지 못하면(표 없음 등) 닫힌 채로 unavailable이다.
 // tickets 등록(tickets.ts)과 따로 둔 이유: 시험이 대역 port를 같은 key로 따로 올린다.

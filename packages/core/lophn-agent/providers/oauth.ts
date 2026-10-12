@@ -2,7 +2,7 @@
 // chatgpt는 공식 Sign in with ChatGPT(실제 lophn 앱 이름의 dynamic client 등록·발급
 // client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증)이고
 // supergrok은 xAI discovery(fake 포함)와 device code flow다. 활성 gate는
-// verified_for_lophn과 live 확인(D31) 둘이 모두 열려 있어야 통과한다. 값(state·
+// verified_for_lophn과 live 확인 둘이 모두 열려 있어야 통과한다. 값(state·
 // nonce·verifier·device_code·token)은 이 작업 메모리와 창가의 응답에만 산고
 // ledger·event·log에 남지 않는다. network·listener·시각은 deps로 받는다;
 // 이 모듈 자체는 IO를 하지 않는다.
@@ -27,7 +27,7 @@ import {
 // 위장하지 않는다.
 export const OAUTH_APP_NAME = "lophn";
 
-// chatgpt(공식 Sign in with ChatGPT)의 고정 목적지(O2, 조사 문서).
+// chatgpt(공식 Sign in with ChatGPT)의 고정 목적지(조사 문서).
 export const SIWC_AUTHORIZE = "https://auth.openai.com/api/accounts/authorize";
 export const SIWC_TOKEN = "https://auth.openai.com/api/accounts/oauth/token";
 export const SIWC_REGISTER =
@@ -41,11 +41,11 @@ export const SIWC_SCOPES = [
   "resource.invoke",
   "chatgpt.tokens.use.direct",
 ] as const;
-// token reference(O4): access 3600초, refresh 30일. 매 갱신 뒤 새 30일이다.
+// token reference: access 3600초, refresh 30일. 매 갱신 뒤 새 30일이다.
 export const SIWC_ACCESS_SECONDS = 3_600;
 export const SIWC_REFRESH_SECONDS = 30 * 24 * 3_600;
 
-// supergrok의 고정 discovery와 device 코드 목적지(X1, 조사 문서). 실제 endpoints는
+// supergrok의 고정 discovery와 device 코드 목적지(조사 문서). 실제 endpoints는
 // discovery 응답을 다시 검사한 뒤에만 쓴다.
 export const XAI_DISCOVERY =
   "https://auth.x.ai/.well-known/openid-configuration";
@@ -118,7 +118,7 @@ function jwtSegment(jwt: string, index: 0 | 1): Record<string, unknown> | null {
   }
 }
 
-// id_token의 서명을 JWKS의 RSA 공개 key로 검증한다(RS256만, O2). JWK의 n·e는
+// id_token의 서명을 JWKS의 RSA 공개 key로 검증한다(RS256만). JWK의 n·e는
 // base64url(unpadded)이다.
 async function rs256Verified(
   signingInput: string,
@@ -163,7 +163,7 @@ async function rs256Verified(
   }
 }
 
-// ---- 붙여넣은 인증 응답 파싱(T29에서 넘어온 것) ----
+// ---- 붙여넣은 인증 응답 파싱 ----
 // browser 최종 URL(code·state query), code#state, query string 세 모양을 받는다.
 
 export function parsePastedSubmission(
@@ -215,7 +215,7 @@ export type OAuthTokenBundle = {
   resource: string | null;
   // id_token의 검증된 sub다. 알 수 없으면 null이다(추측 금지).
   subject: string | null;
-  // earliest_refresh_at(O4)의 ms epoch다. 알 수 없으면 null이다.
+  // earliest_refresh_at의 ms epoch다. 알 수 없으면 null이다.
   earliest_refresh_at: number | null;
 };
 
@@ -275,7 +275,7 @@ type NativeTokens = {
 
 export type OAuthDeps = {
   // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리는 활성
-  // gate다(D31). gate가 닫혀 있으면 begin·complete은 시작하지 않는다(fake 성공으로
+  // gate다. gate가 닫혀 있으면 begin·complete은 시작하지 않는다(fake 성공으로
   // 열지 않는다). 테스트가 openGate를 대신 준다.
   liveGate(): boolean;
   nowMs(): number;
@@ -330,7 +330,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
         message: "provider does not support OAuth login",
       });
     }
-    // D31: 실제 확인 전까지 활성 gate는 false다.
+    // 실제 확인 전까지 활성 gate는 false다.
     if (definition.oauth.verified_for_lophn !== true) {
       return err({
         code: "unavailable",
@@ -1033,8 +1033,8 @@ export function createProviderOAuth(deps: OAuthDeps): {
   };
 }
 
-// earliest_refresh_at(O4)의 ms epoch다. 값이 없으면 만료에서 lead를 뺀 시각을 둔다
-// (그 이전에 갱신 요청하지 않는다 — R17).
+// earliest_refresh_at의 ms epoch다. 값이 없으면 만료에서 lead를 뺀 시각을 둔다
+// (그 이전에 갱신 요청하지 않는다).
 function earliestOf(
   value: string | null,
   expiresIn: number,

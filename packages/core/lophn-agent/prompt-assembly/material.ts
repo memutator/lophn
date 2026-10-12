@@ -7,7 +7,7 @@ import type {
   MaterialReference,
 } from "./model.ts";
 
-// 작업 재료 입력을 만든다(lophn-agent/harness/prompt-assemble 요구 R4). 결과 문자열은
+// 작업 재료 입력을 만든다(concern lophn-agent/harness/prompt-assemble). 결과 문자열은
 // `assemblePrompt`의 `material.materials`로 들어가므로 자료에서 온 글은 모두 safety `wireData`로 이미
 // 포장한다. 주소·version은 machine id라서 포장 밖 머리줄에 둔다.
 

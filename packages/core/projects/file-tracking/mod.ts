@@ -1,5 +1,5 @@
 // documents/file-tracking: 문서 worker 프로세스의 작업 배분과 IPC 요청 배분.
-// core↔coordinator↔준비 worker는 내부 IPC다(planning documents T2). 밖으로 내놓는
+// core↔coordinator↔준비 worker는 내부 IPC다. 밖으로 내놓는
 // contract는 없다. codec은 contracts/platform supervision 하나다.
 export {
   type Candidate,

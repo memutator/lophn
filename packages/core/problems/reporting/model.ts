@@ -66,7 +66,7 @@ export function windowLimit(): Result<never, LophnError> {
   return err({ code: "unavailable", message: WINDOW });
 }
 
-// R12: event envelope 시각 기준 앱당 window_ms 안 새 Report 상한. 같은 ID
+// event envelope 시각 기준 앱당 window_ms 안 새 Report 상한. 같은 ID
 // 재전송은 세지 않고 observed_at은 이 창과 무관하다(architecture §2.3).
 export function reportsInWindow(
   sql: Pick<Tx["sql"], "all">,

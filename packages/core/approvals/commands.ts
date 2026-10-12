@@ -1,5 +1,5 @@
-// approval request 생성·만료·취소·허락·거절 command(platform/approvals#R1, R2, R3, R4,
-// R5). 적용은 apply.ts가 맡는다. handler는 동기이고 transaction 하나다.
+// approval request 생성·만료·취소·허락·거절 command.
+// 적용은 apply.ts가 맡는다. handler는 동기이고 transaction 하나다.
 // 허락·거절의 사람 확인(confirmation handle)은 route의 `confirmation: "required"`와 binding으로
 // 선언하고, writer 실행기가 transaction 안에서 현재 handle을 예약·소비한다.
 // 설명 글(이유·변경·외부 영향·되돌림)은 값으로 받는다. core가 redaction을 거쳐 blob으로

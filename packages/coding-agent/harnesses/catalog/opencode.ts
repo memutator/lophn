@@ -49,7 +49,7 @@ const opencode: HarnessDefinition = {
   },
   auth_probe: {
     // `opencode providers list`의 출력·exit는 [미확인]이라(조사 9.4)
-    // 상태 probe로 쓰지 않는다(R3 확인).
+    // 상태 probe로 쓰지 않는다.
     present: false,
     capability: "unverified",
     reason: "`opencode providers list` 출력을 아직 검증하지 않았다",

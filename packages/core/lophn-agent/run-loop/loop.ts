@@ -8,7 +8,7 @@ import type {
 } from "./ports.ts";
 import { type LoopState, runTurn } from "./turn.ts";
 
-// 한 run의 agent loop(requirements lophn-agent/harness/run-loop R8). provider에 독립적이고, model
+// 한 run의 agent loop(concern lophn-agent/harness/run-loop). provider에 독립적이고, model
 // call·tool 동작·시간 대기는 모두 비동기 호출이라 ledger writer나 다른 run을 점유하지 않는다.
 // loop는 turn을 끝낼 때까지 되풀이하고 한도·멈춤·완료·사람 기다림에서 끝난다. 정상 완료·실패 확정은
 // FinishRun이고 사람 멈춤은 core가 이미 확정했다.

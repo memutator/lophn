@@ -88,7 +88,7 @@ export async function startAgentRuntime(input: {
   // 테스트가 core 대신 응답을 끼운다. 없으면 hello의 loopback port로 붙는다.
   read?: CoreRead;
   fetch?: typeof fetch;
-  // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다(T3와 같은 근원).
+  // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다.
   dataRoot?: string;
   // 접수된 run을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
   pump?: boolean;

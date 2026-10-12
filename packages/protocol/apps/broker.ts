@@ -48,7 +48,7 @@ export const brokerReadyInputSchema = z.strictObject({
 });
 export const brokerReadyOutputSchema = z.object({ accepted: z.literal(true) });
 
-// 후행 기록 전달. 기록 사실의 정본은 T35 invocation 전달 contract다.
+// 후행 기록 전달. 기록 사실의 정본은 invocation 전달 contract다.
 export const brokerInvocationSubmitInputSchema = z.strictObject({
   ...childFields,
   invocation: invocationIdSchema,

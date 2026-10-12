@@ -42,7 +42,7 @@ import {
   visualsOf,
 } from "./visual-view.ts";
 
-// 시각 묶음(concern harness/tools R19). 선언형 명세 검사와 세션 메시지 기록(`visual.show`), 확정
+// 시각 묶음(concern harness/tools). 선언형 명세 검사와 세션 메시지 기록(`visual.show`), 확정
 // 명세 읽기(`visual.read`), 문서 본문 준비(`visual.prepare_document`)만 한다. 문서 저장은 문서 tool이
 // 따로 한다. 어느 handler도 blob을 준비하거나 hash를 만들지 않는다: 메시지 본문은 값으로
 // RecordMessage에 싣고 core가 redaction·blob 준비·영구 참조를 맡으며, 문서 본문은 글 값으로 문서

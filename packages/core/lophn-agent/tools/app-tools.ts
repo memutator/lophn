@@ -18,7 +18,7 @@ import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { RunCredential, ToolHandler } from "./work.ts";
 
-// 앱 command 자동 tool(concern harness/tools R16). 허락된 앱의 active release blueprint에서 command
+// 앱 command 자동 tool(concern harness/tools). 허락된 앱의 active release blueprint에서 command
 // 하나마다 tool 정의 하나를 만든다. 별도 MCP 등록도 app proxy server도 없다. 정의의 입력 schema는
 // blueprint의 InputSchema 그대로이고 목록과 실행 검사가 같은 선언을 쓴다. 소스·원본 파일·secret 값에는
 // 닿는 통로가 없다: 호출은 앱 통로(`app.connect`의 제한 연결과 앱 direct 호출) 하나뿐이다.

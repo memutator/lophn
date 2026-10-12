@@ -1,5 +1,5 @@
 // project-workspace 틀의 순수 규칙. 화면은 이 값을 그대로 그린다.
-// 치수는 shell/desktop#R22, shell/editor#R3·R5, shell/design-system#R24·R25를 따른다.
+// 치수는 shell/desktop, shell/editor, shell/design-system 문서를 따른다.
 
 /** sidebar 기본 폭. drag로 200~400px, 접힘 56px. */
 export const SIDEBAR_WIDTH = 240;
@@ -330,7 +330,6 @@ export type DragOutcome =
 
 /**
  * drag 연결. drag-end의 마지막 DTO만 적용하고 drag-cancel은 버린다.
- * 실제 앱 native bounds 적용은 T39가 맡는다.
  */
 export function applyDrag<T>(
   start: T,

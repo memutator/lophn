@@ -1,4 +1,4 @@
-// settings backup 복원(platform#T42에서 넘어온 것). renderer가 고른 묶음 하나의
+// settings backup 복원. renderer가 고른 묶음 하나의
 // 복원 계획(잃을 최신 기록 범위)을 core 감독 pipe로 읽고, 사람이 확인하면 결정 handle을
 // pipe로 발급해 복원을 청한다. 계획 응답은 contract `restore_plan`(lost·target·content_hash)이고
 // 응답 결정 handle은 connection.registerConfirmation이 발급한다(confirmation_handle_register).

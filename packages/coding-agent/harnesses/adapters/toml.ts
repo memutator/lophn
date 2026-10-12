@@ -92,8 +92,8 @@ function bodyEnd(lines: readonly string[], start: number): number {
 }
 
 // 소유 헤더 행의 위치다. `#` 주석 제외한 첫 행(`[...]`)만 본다. 문자열 안
-// `[`는 헤더가 아니므로 대괄호로만 끝나는 행은 넘어간다. T31이 정확한
-// locator를 더 자리다. 여기서는 key 헤더만 찾고, 찾지 못하면 null이다.
+// `[`는 헤더가 아니므로 대괄호로만 끝나는 행은 넘어간다. 정확한
+// locator는 나중에 더할 자리다. 여기서는 key 헤더만 찾고, 찾지 못하면 null이다.
 function findHeader(
   lines: readonly string[],
   key: string,
@@ -142,7 +142,7 @@ export function setOwned(text: string, key: string, value: Table): SetOutcome {
   return { kind: "changed", text: rendered(appended) };
 }
 
-// 소유 테이블만 지운다(R8 제거). 없으면 무변경이다. 다른 테이블과 테이블
+// 소유 테이블만 지운다. 없으면 무변경이다. 다른 테이블과 테이블
 // 사이 빈 줄도 그대로 둔다.
 export function removeOwned(text: string, key: string): SetOutcome {
   const parsed = parseToml(text);

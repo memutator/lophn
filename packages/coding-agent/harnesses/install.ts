@@ -1,5 +1,5 @@
-// 사람이 고른 target 하나의 설치 흐름이다(coding-agent/harnesses#R6, R8, R9, connection#R12,
-// cli#R40). catalog에서 resource를 만들고(builder), root별 plan을 세워(plan), hash를 관측한 뒤
+// 사람이 고른 target 하나의 설치 흐름이다. catalog에서 resource를 만들고(builder), root별 plan을
+// 세워(plan), hash를 관측한 뒤
 // receipt와 함께 쓴다(apply). 고른 target 하나만 바꾸고 다른 제품·profile은 읽지도 쓰지도 않는다.
 // 설치 결과는 resource별 변경·무변경·건너뜀·충돌·실패이고 일부 실패를 전체 성공으로 표시하지
 // 않는다. 설치 실패는 이미 발급한 credential의 재발급·회수를 하지 않는다: 이
@@ -104,7 +104,7 @@ async function currentTexts(
 }
 
 // 설치 계획이다. 같은 흐름을 쓰되 파일·receipt·journal에는 쓰지 않고 메모리에만 겹쳐 쓴다.
-// 결과의 `changed`는 실제로 쓰였다는 뜻이 아니라 쓰게 될 것이라는 뜻이다(harnesses#R9: 계획을
+// 결과의 `changed`는 실제로 쓰였다는 뜻이 아니라 쓰게 될 것이라는 뜻이다(계획을
 // 설치 결과로 표시하지 않는다).
 function dryRunPorts(ports: InstallPorts): InstallPorts {
   const texts = new Map<string, string>();
@@ -342,7 +342,7 @@ async function runSelected(
 }
 
 // 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
-// open-issues coding-agent/mcp-server#Q9). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
+// open-issues coding-agent/mcp-server). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
 // 시작 summary hook(검증한 제품의 `summary` 목적 hook)의 설정 파일을 더하고 상태 수집 hook의 파일은 더하지
 // 않는다. skill은 `selectedSkillDirs`가 따로 낸다.
 // 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.

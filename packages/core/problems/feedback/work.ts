@@ -1,5 +1,4 @@
-// feedback 접수 조립(problems/feedback#R1–R4, R6–R10, R14; problems/grouping#R6;
-// problems/snapshots#R15; plan problems T15). collector가 shell이 고정한 자료를
+// feedback 접수 조립. collector가 shell이 고정한 자료를
 // 검증하고 redaction·blob 준비를 거쳐 RecordReport 입력으로 만든다. 사람의 글은
 // 첨부 때문에 잃지 않는다: 선택하지 않았거나 얻지 못했거나 제외한 항목은 각각
 // 이유로 남고 글은 접수된다. 한도를 넘거나 PNG가 아닌 선택 자료는 조용히 줄이지
@@ -147,7 +146,7 @@ export async function assembleFeedback(
   const text = checkFeedbackText(redactedText);
   if (!text.ok) return text;
 
-  // 선택한 이미지는 PNG 머리·크기를 본다. 가리지 않고 그대로 둔다(D32).
+  // 선택한 이미지는 PNG 머리·크기를 본다. 가리지 않고 그대로 둔다.
   if (selectedShot !== null) {
     const png = inspectPng(selectedShot);
     if (!png.ok) return png;

@@ -1,5 +1,5 @@
-// Tasks 탭의 순수 계산. coding-agent가 정한 화면 상태·다음 행동 값을 en wording key로 바꾸는 자리다
-// (coding-agent#T27 → shell). 값이 곧 key 이름이다. Task 상태, 실제 검사, TUI 상태, 첫 prompt 전달은
+// Tasks 탭의 순수 계산. coding-agent가 정한 화면 상태·다음 행동 값을 en wording key로 바꾸는 자리다.
+// 값이 곧 key 이름이다. Task 상태, 실제 검사, TUI 상태, 첫 prompt 전달은
 // 서로 다른 사실이라 각자 따로 말한다.
 import type { StatusTone } from "@lophn/design";
 import { t } from "@lophn/wording";

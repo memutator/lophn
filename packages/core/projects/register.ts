@@ -113,8 +113,8 @@ function projectDocuments(
 
 // format read는 ledger snapshot을 쓰지 않는다. core가 reader pool 밖에서 바로 열고,
 // dispatcher가 기다리므로 async get도 그대로 연다.
-// 게스트 실행 코드(runs the format modules)는 문서 worker·runner의 몫이다(platform.md 6장,
-// responsiveness#R1). core가 여는 것은 내장 declaration 읽기뿐이다.
+// 게스트 실행 코드(runs the format modules)는 문서 worker·runner의 몫이다(platform.md 6장).
+// core가 여는 것은 내장 declaration 읽기뿐이다.
 // FileStatus 조회가 묻는 메모리. 근원은 documents coordinator 메모리고, core가 기동 때
 // 감독 pipe로 묻는 구현을 environment에 넣는다. 넣지 않은 등록(harness)은 coordinator가
 // 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
@@ -306,7 +306,7 @@ export function documentsWorkerRelaunch(
   return { kind: "relaunch", specs: workerSpecs(dataRoot, next) };
 }
 
-// 감독의 재시작 입구. platform#T7의 updateSpec이 이 자리다.
+// 감독의 재시작 입구. updateSpec이 이 자리다.
 export type DocumentsSupervisor = {
   updateSpec(spec: KindLaunchSpec): Promise<{ ok: boolean }>;
 };
@@ -442,7 +442,7 @@ export function createLedgerRegistration(
       filesRead,
     ],
     // 문서 worker 뼈대. 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
-    // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
+    // core가 root를 좁히는 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),
   };
 }
@@ -462,7 +462,7 @@ function registerWorkers(): KindLaunchSpec[] {
 }
 
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
-// 만든다(documents plan Q17).
+// 만든다.
 export function createEventRegistration(): EventRegistration {
   return createDocumentsEventRegistration();
 }

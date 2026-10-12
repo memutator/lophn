@@ -51,8 +51,8 @@ import { titleOnReceive } from "./session-title.ts";
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
 // 하나다. 실패하면 이전 판 전체가 유지된다. 같은 ID의 재전송은 내용이 같으면 이전
 // 결과, 다르면 conflict다. 본문은 값으로 받는다. core가 redaction을 거쳐 blob으로
-// 준비해 두었고, 이 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다
-// (Q29). 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
+// 준비해 두었고, 이 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다.
+// 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
 // principal, 본문 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가 되돌아간다.
 
 export type AcceptRun = (

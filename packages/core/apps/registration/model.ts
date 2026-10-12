@@ -119,7 +119,7 @@ export function synchronousResult<T>(value: unknown): Result<T> {
 
 const DASH = /[-_]+/g;
 
-// R7. slug의 대시·밑줄을 공백으로 바꾸고 단어 첫 글자를 대문자로 한다.
+// slug의 대시·밑줄을 공백으로 바꾸고 단어 첫 글자를 대문자로 한다.
 // 이미 대문자인 토큰(MAHAS)은 그대로 둔다.
 export function suggestAppName(slug: string): string {
   return slug

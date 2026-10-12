@@ -10,7 +10,7 @@ import { ticketIdSchema } from "./ticket-values.ts";
 export const REPAIR_CONTEXT_BYTES = 24_576;
 export const REPAIR_CONTEXT_LINES = 300;
 
-// 절은 이 순서로 제공하고(→ coding-agent/repair-context#R3) 내용과 누락 사실이
+// 절은 이 순서로 제공하고 내용과 누락 사실이
 // 모두 없는 빈 절만 뺀다.
 export const SECTION_KINDS = [
   "target_symptom",

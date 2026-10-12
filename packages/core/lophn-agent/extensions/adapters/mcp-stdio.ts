@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// stdio MCP 전송(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R13). 절대 executable과 인자를 Deno.Command로
+// stdio MCP 전송(concern lophn-agent/extensions).
+// 절대 executable과 인자를 Deno.Command로
 // shell 없이 시작한다. 환경은 clearEnv 뒤 실행 파일 탐색·홈·임시 폴더·문자
 // 인코딩에 필요한 네 값(PATH·HOME·TEMP·LC_ALL)과 그 서버에 지정한 명시 env뿐이다.
 // 다른 연결이나 provider의 env·비밀은 상속하지 않는다. shell 메타문자가 든

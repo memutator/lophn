@@ -1,5 +1,5 @@
 // 계약 위반 toast. 알릴 뿐 입력 focus를 가져오지 않고 [View]는 그 context의
-// Violations를 여는 일을 부른 쪽에 맡긴다. 구현은 ctx-I44.
+// Violations를 여는 일을 부른 쪽에 맡긴다.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
 //   contexts.title.toast-violations
 //   common.button.view

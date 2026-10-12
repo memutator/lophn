@@ -1,12 +1,12 @@
 // docs/dev/stack.md "개발 환경", docs/plan/contracts.md의 `deno task dev`.
 // 실행: deno task dev, deno task dev:core, deno task dev:mock
 //
-// shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다
-// (shell#T3, platform#T9). 그래서 `deno task dev`는 shell main을 직접 띄우고,
+// shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다.
+// 그래서 `deno task dev`는 shell main을 직접 띄우고,
 // `deno task dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
 // 않는다. tools/fake-provider를 함께 띄워 그 loopback 주소를 LOPHN_FAKE_PROVIDER_URL로
-// core에 넘긴다(그 값으로 개발 provider를 seed하는 일은 lophn-agent#T3). 사람이
+// core에 넘긴다(그 값으로 개발 provider를 seed하는 일은 lophn-agent가 한다). 사람이
 // LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지 않는다. Ctrl+C와 SIGTERM에 띄운
 // 프로세스를 정리한다.
 //
@@ -76,7 +76,7 @@ export function planFakeProvider(root: string): SpawnPlan {
 }
 
 /**
- * core spawn 계획. platform#T9의 시작 인자다: `deno run <권한> packages/core/main/daemon/main.ts
+ * core spawn 계획. 시작 인자: `deno run <권한> packages/core/main/daemon/main.ts
  * [--port=<n>]`, LOPHN_HOME은 데이터 root다. Electron main이 물려 준 pipe는 shell main이
  * 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만 끝난다.
  */

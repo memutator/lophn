@@ -131,7 +131,7 @@ export async function runSkillReadSupplemental(
 }
 
 // 읽기 실패를 tool result로 포장한다(architecture §5.5): 실패면 body null이고
-// 요약은 code뿐이다. 절대 경로는 결과에 나가지 않는다(research R5/R6).
+// 요약은 code뿐이다. 절대 경로는 결과에 나가지 않는다.
 function wrapSkillResult(result: SkillReadResult): ToolResult {
   if (result.error !== null) {
     return failureResult(skillSummary(result.error.code));

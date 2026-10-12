@@ -1,6 +1,6 @@
 // core 안의 notifications 구독자(machine:notifications). 독립 비동기 루프가 `notifications`
-// cursor 뒤 event를 읽고, 계기 표의 사실이면 create_notification을, 아니면 cursor만 올린다
-// (platform/notifications#R1, R2). 본문 조립·OS 표시·model 호출은 하지 않는다(R8).
+// cursor 뒤 event를 읽고, 계기 표의 사실이면 create_notification을, 아니면 cursor만 올린다.
+// 본문 조립·OS 표시·model 호출은 하지 않는다.
 //
 // event는 깨우는 신호다. 구독이 (다시) 열릴 때와 event가 올 때 cursor부터 따라잡고, 실패하면
 // 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다. 전달 실패로 버리지 않는다.

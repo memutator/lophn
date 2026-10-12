@@ -1,4 +1,4 @@
-// 15절 조립(repair-context#R3-R10). 절 순서는 contracts의 SECTION_KINDS가 정하고
+// 15절 조립. 절 순서는 contracts의 SECTION_KINDS가 정하고
 // 줄·자·개수 상한은 SECTION_LIMITS를 쓴다. 사람 말·앱 문자열·log 원문은 모두 redaction을
 // 지난 뒤 data fence 안에만 둔다. 빠진 근거는 빠졌다고 적고 채우지 않는다.
 import {

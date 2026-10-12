@@ -111,8 +111,8 @@ export type SupervisorDeps = {
   stopGraceMs?: number;
   // 실패 근거 사실을 받는다. 던져도 supervisor는 계속 돈다.
   onEvent?: (event: SupervisorEvent) => void;
-  // 자식 종료를 관측하면 알린다. 결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다
-  // (apps/invocations#R10). 어떤 이유의 종료든 부른다.
+  // 자식 종료를 관측하면 알린다. 결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다.
+  // 어떤 이유의 종료든 부른다.
   childExited?: (processNonce: string) => void;
 };
 

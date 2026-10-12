@@ -187,7 +187,7 @@ const SUPERVISOR_OPERATIONS = [
   invocationRecordFinished.name,
   invocationRecordDenied.name,
   // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
-  // (apps/releases#R12–R15, apps/data#R4). 시작은 사람 approval의 적용(`apply_approved_action`)이다.
+  // 시작은 사람 approval의 적용(`apply_approved_action`)이다.
   releaseRecordBackup.name,
   releaseRecordDataChange.name,
   releaseRecordDataRestore.name,

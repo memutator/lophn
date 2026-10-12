@@ -25,7 +25,7 @@ import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 import { COMMON_ERRORS } from "./common.ts";
 
-// 앱 화면 context 묶음(concern harness/tools R18). 앱이 apps/agent-context로 선언한 현재 화면 상태 read
+// 앱 화면 context 묶음(concern harness/tools). 앱이 apps/agent-context로 선언한 현재 화면 상태 read
 // command(상세 조회)와 주석 자리의 write command(힌트·주석 되쓰기)를 그대로 부른다. 별도 DOM 조작도 임의
 // 입력 통로도 없다: 선언한 화면·command·자리 밖은 정의가 있어도 호출이 없는 것과 같다. 이 정의는 앱
 // command tool과 같이 origin이 app이고 역할·현재 허락·assignment의 교집합(AgentAppScope)이 이미 고른

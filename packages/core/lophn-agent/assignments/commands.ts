@@ -165,8 +165,8 @@ export function createAssignmentCommands(): {
           kind: "app",
           id: input.app,
         });
-        // assignment·event·cursor를 같은 transaction에 확정한다(R1,
-        // architecture 5.10, createNotification과 같은 모양). 반응 없이 직접
+        // assignment·event·cursor를 같은 transaction에 확정한다
+        // (architecture 5.10, createNotification과 같은 모양). 반응 없이 직접
         // 내는 등록은 cursor를 건드리지 않는다.
         if (input.processed_through_seq !== undefined) {
           const advanced = tx.advanceSubscriberCursor(

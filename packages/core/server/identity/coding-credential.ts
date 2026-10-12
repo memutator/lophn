@@ -1,5 +1,5 @@
-// coding agent connection credential의 발급·보관 준비·보호 전달(platform/identity#R5, R15,
-// platform/secrets#R12). 신뢰 인증 경계가 core command 밖에서 token을 만들고 keychain에 준비한 뒤
+// coding agent connection credential의 발급·보관 준비·보호 전달.
+// 신뢰 인증 경계가 core command 밖에서 token을 만들고 keychain에 준비한 뒤
 // 검증 digest만 connection command에 낸다. token 원문은 이 module의 지역 값과 keychain,
 // 지정 child의 보호 통로에만 있고 결과·오류·log·event에 나오지 않는다.
 
@@ -65,7 +65,7 @@ export function memoryPendingPreparations(): PendingPreparations {
   };
 }
 
-// 보호 통로의 OS별 구현은 → redesign/propagate#Q2. non-inheritable로 지정 child에만 쓴다.
+// 보호 통로. non-inheritable로 지정 child에만 쓴다.
 export type ProtectedChannel = {
   send(
     child: { process_generation: string; loader_identity: string },

@@ -205,8 +205,8 @@ export const cliTicketReportSchema = withCommon(
 );
 
 // 사람 전용 `ticket create|cancel`. 같은 필수 입력 검사와 취소 사유를 소유 입력으로
-// 검사한다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고 결정 화면 링크로 넘긴다
-// (coding-agent 계획 질문 Q1). coding credential에는 이 command도 목표 수정·공개·확인 판정·
+// 검사한다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고 결정 화면 링크로 넘긴다.
+// coding credential에는 이 command도 목표 수정·공개·확인 판정·
 // test result 작성도 없다.
 export const cliTicketCreateSchema = withCommon(
   "ticket create",

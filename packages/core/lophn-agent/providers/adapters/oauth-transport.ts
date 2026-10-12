@@ -2,7 +2,7 @@
 // redirect는 따라가지 않는다(다른 origin으로 credential을 흘리지 않는다). 사람
 // credential의 loopback callback은 127.0.0.1 실제 listener로만 받는다. fake
 // 브라우저는 열 주소를 돌려주는 port다(실제 OS browser는 여기서 열지 않는다 —
-// shell#T31이 sign_in.url을 OS browser로 연다).
+// shell이 sign_in.url을 OS browser로 연다).
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 

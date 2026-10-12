@@ -15,8 +15,8 @@ export interface NotificationChipProps {
   onView: () => void;
 }
 
-// 창 오른쪽 아래 한 칸. 사람을 부르는 notification 하나와 나머지 개수, 보기·닫기를 둔다
-// (shell/desktop#R10, shell/design-system#R35). 저절로 나타나도 focus나 현재 문서를 건드리지
+// 창 오른쪽 아래 한 칸. 사람을 부르는 notification 하나와 나머지 개수, 보기·닫기를 둔다.
+// 저절로 나타나도 focus나 현재 문서를 건드리지
 // 않고, 저절로 사라지지 않는다. 닫기는 이 창에서 감출 뿐 읽음이 아니다.
 export function NotificationChip({ onView }: NotificationChipProps) {
   const deps = useRequests();

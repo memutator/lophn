@@ -10,8 +10,8 @@ import type {
 } from "../../../protocol/problems/mod.ts";
 
 // 사용자용 문제 상세 projection. 읽은 사실에서 사람이 아는
-// en 문구만 만든다. 모르는 사실(undefined)은 성공이나 없음이 아니라 "모름"으로 보인다(P11).
-// 닫힘 4종·테스트 결과·고쳤다는 주장은 서로 다른 값으로 따로 낸다(P10).
+// en 문구만 만든다. 모르는 사실(undefined)은 성공이나 없음이 아니라 "모름"으로 보인다.
+// 닫힘 4종·테스트 결과·고쳤다는 주장은 서로 다른 값으로 따로 낸다.
 export type DetailFacts = {
   status: "open" | "fixing" | "closed";
   closure: Closure | null;
@@ -29,7 +29,7 @@ export type DetailFacts = {
   nextAction: string | null;
   // 지금 닫힘을 남긴 ProblemClosed의 시각이다. 사람 결정 근거의 시각으로 보인다.
   closedAt?: string | null;
-  // 사람 결정 뒤의 사실이다(T21의 ProblemConfirmationRecorded·ProblemReopened).
+  // 사람 결정 뒤의 사실이다(ProblemConfirmationRecorded·ProblemReopened).
   decision?: DecisionFacts;
 };
 

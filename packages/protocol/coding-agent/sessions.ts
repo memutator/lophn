@@ -17,7 +17,7 @@ import {
   ticketReadinessSchema,
 } from "./ticket-values.ts";
 
-// terminal host가 TUI env로 넘기는 관측 socket 경로 변수(계획 Q7). 경로만 담고
+// terminal host가 TUI env로 넘기는 관측 socket 경로 변수다. 경로만 담고
 // credential과 섞지 않는다.
 export const LOPHN_TERMINAL_OBSERVE = "LOPHN_TERMINAL_OBSERVE";
 

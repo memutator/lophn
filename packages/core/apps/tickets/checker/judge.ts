@@ -1,7 +1,7 @@
 // 조건별 판정. 순수 함수다. model 호출도 I/O도 없다.
 // 근거는 core가 읽어 준 사실뿐이다: 같은 app·bundle hash의 Verification, 앱 정본의 active
 // release. shell 성공 문장·완료 summary·agent의 주장은 근거가 아니다.
-// 없는 근거는 inconclusive다(P11). 실제로 일어난 실패만 fail이다(P10).
+// 없는 근거는 inconclusive다. 실제로 일어난 실패만 fail이다.
 import { applyProblemDecision } from "../../../../protocol/problems/mod.ts";
 import type {
   CheckWork,

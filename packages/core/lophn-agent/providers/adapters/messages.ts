@@ -1,7 +1,7 @@
 // Anthropic Messages adapter. 요청 번역(system·messages·tools,
 // tool_use.id↔tool_result 대응, cache 표시, opaque 상태 재전송)과 SSE 응답 번역
 // (frame 누적, complete/partial/refused/failed 판정, usage 정규화)을 여기 둔다.
-// 오류 코드의 HTTP·본문 분류는 나중 작업이 failures.ts로 맡는다(provider#R19-R24).
+// 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
@@ -106,7 +106,7 @@ export type ToolDefinition = {
   input_schema: unknown;
 };
 
-// cache 표시. R26: 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다.
+// cache 표시. 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다.
 const CACHE_CONTROL = { type: "ephemeral" } as const;
 
 // 마지막 block에만 경계 표시를 건다(Pi 1483–1509). 배열이 아니면 원값을 돌려준다.
@@ -174,7 +174,7 @@ function pairedThinking(
 ): AnthropicBlock {
   // 상태에는 원문 signature만 산다. 메모리에 상태가 없으면(다른 provider·model,
   // run 종료) 이 블록의 signature를 지워 전송 대상에서 뺀다. 메모리에 있으면
-  // 블록을 원문 그대로 보낸다. 시그니처 비교·재서명은 T14가 맡는다.
+  // 블록을 원문 그대로 보낸다. 시그니처 비교는 compat.ts가 맡는다.
   if (block.signature === undefined) return block;
   if (reasoning?.signature === undefined) {
     return { ...block, signature: undefined };

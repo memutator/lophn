@@ -1,5 +1,5 @@
-// Context 탭의 본문: 머리와 하위 탭은 ContextFrame이, 하위 탭 본문 다섯은 여기서 이어 붙인다
-// (shell/workspace#R17~R22). 만드는 중인 context는 ContextFrame이 ContextDrafting으로 그린다(R30).
+// Context 탭의 본문: 머리와 하위 탭은 ContextFrame이, 하위 탭 본문 다섯은 여기서 이어 붙인다.
+// 만드는 중인 context는 ContextFrame이 ContextDrafting으로 그린다.
 import type { ReactNode } from "react";
 
 import { newId } from "../../desktop/lophn-space/model.ts";

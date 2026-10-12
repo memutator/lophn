@@ -1,9 +1,9 @@
-// `lophn daemon start|stop|status|logs` command의 route 표와 실행 결정이다
-// (T37, cli#R6, R8). start·stop은 launcher가 실행할 결정을 내놓고(platform#T55,
-// 창 없는 시작 desktop#R21), status·logs는 OS 사용자 권한으로 `H/run` metadata와
-// `H/logs`의 안전 log를 읽는다. API token도 coding credential도 쓰지 않는다.
-// start·stop은 사람 전용이라 coding credential context는 실행 전 거절이다
-// (cli#R6). 실제 process 결정은 플랫폼 설치·시작의 몫이라 이 자리는 port로
+// `lophn daemon start|stop|status|logs` command의 route 표와 실행 결정이다.
+// start·stop은 launcher가 실행할 결정을 내놓고(창 없는 시작), status·logs는
+// OS 사용자 권한으로 `H/run` metadata와 `H/logs`의 안전 log를 읽는다.
+// API token도 coding credential도 쓰지 않는다.
+// start·stop은 사람 전용이라 coding credential context는 실행 전 거절이다.
+// 실제 process 결정은 플랫폼 설치·시작의 몫이라 이 자리는 port로
 // 받는다(connection credential의 provider interface 같은 모양).
 import {
   cliDaemonLogsSchema,
@@ -36,8 +36,8 @@ export const DAEMON_COMMANDS: readonly CommandEntry[] = [
 ];
 
 // 사람 전용 command의 실행 전 거절이다. coding credential context에서
-// daemon start·stop을 고르면 forbidden이다. user credential fallback은 없다
-// (R6 확인). 표 밖 command는 애초에 표에 없다.
+// daemon start·stop을 고르면 forbidden이다. user credential fallback은 없다.
+// 표 밖 command는 애초에 표에 없다.
 export function daemonHumanOnlyGate(
   command: string,
   actor: "user" | "coding_agent",
@@ -51,7 +51,7 @@ export function daemonHumanOnlyGate(
   });
 }
 
-// 플랫폼 설치·시작이 채우는 port다(T37 쓰는 contract). 결정은 인자로 받는다.
+// 플랫폼 설치·시작이 채우는 port다. 결정은 인자로 받는다.
 // 창 없는 시작은 `--tray`, 명시 종료는 single-instance 통로 `--quit`이다(shell
 // launch contract). metadata·상태·log 읽기는 token이 없다.
 export type DaemonPort = {
@@ -102,7 +102,7 @@ export function daemonStopRequest(
   return context.port.stop();
 }
 
-// 현재 상태다. 이미 시작·중지된 상태도 현재 상태로 응답한다(R8 확인). 상태는
+// 현재 상태다. 이미 시작·중지된 상태도 현재 상태로 응답한다. 상태는
 // lock 판정 그대로고 metadata 부재는 상태를 바꾸지 않는다.
 export function daemonStatusRequest(
   context: DaemonContext,
@@ -173,7 +173,7 @@ export function findDaemonCommand(name: string): CommandEntry | undefined {
   return DAEMON_COMMANDS.find((entry) => entry.name === name);
 }
 
-// launch intent flag는 tray·quit 둘이다(desktop#R21: second-instance argv에서
+// launch intent flag는 tray·quit 둘이다(second-instance argv에서
 // 읽는 것은 `--quit`뿐이다).
 export const DAEMON_LAUNCH_FLAGS = [TRAY_FLAG, QUIT_FLAG] as const;
 

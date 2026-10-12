@@ -1,6 +1,6 @@
 // Violations: 계약을 어긴 문서를 줄마다 파일 이름·무엇이 어긋났는지·어긴 규칙 한 줄·
 // [Send to Context Engineer]로 보이고 위에 [Send all to Context Engineer]를 둔다.
-// 이미 넘긴 줄은 "Context Engineer is on it", 위반이 없으면 "No violations."만. 구현은 ctx-I44.
+// 이미 넘긴 줄은 "Context Engineer is on it", 위반이 없으면 "No violations."만.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
 //   contexts.button.violations-send
 //   contexts.button.violations-send-all

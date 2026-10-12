@@ -245,7 +245,7 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
     );
   }
   // 앱 계약 검사는 blueprint가 선언한 기능마다 필수다. 선언이 없는 기능의 검사만
-  // 이유 있는 not_applicable이다(apps/blueprint#R21).
+  // 이유 있는 not_applicable이다.
   const commands = input.blueprint.commands;
   const secrets = secretNames(input.blueprint.permissions);
   const contract = (

@@ -78,8 +78,8 @@ export type McpOptions = {
   args?: readonly string[];
   env?: Record<string, string | undefined>;
   redact?: (text: string) => string;
-  // credential provider다. 없으면 설치 묶음의 helper `lophn-credential`에서 받는 production provider다
-  // (connection#R17). 시험은 fake helper를 끼운다.
+  // credential provider다. 없으면 설치 묶음의 helper `lophn-credential`에서 받는 production provider다.
+  // 시험은 fake helper를 끼운다.
   provider?: CredentialProvider;
   // 제출 root가 거절할 운영 data root다. 없으면 LOPHN_HOME이다.
   dataRoot?: string;

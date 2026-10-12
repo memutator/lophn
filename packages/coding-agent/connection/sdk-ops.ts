@@ -1,6 +1,6 @@
 // SDK tool의 공통 실행이다. catalog·show·add가 같은
-// credential·입력의 결과와 거절을 공유하도록 MCP와 CLI가 이 한 흐름을 지난다
-// (connection#R6, cli#R1). op마다 소유 읽기 route로만 보내고, 통로가 더한 입력
+// credential·입력의 결과와 거절을 공유하도록 MCP와 CLI가 이 한 흐름을 지난다.
+// op마다 소유 읽기 route로만 보내고, 통로가 더한 입력
 // field(query·version·apply·app)는 소유 route로 보내지 않는다.
 //
 // - catalog: 설치 catalog(packages.list)를 읽고 설명·API 이름 검색어로 거른다. 결과는
@@ -23,7 +23,7 @@ import {
 } from "../../protocol/apps/mod.ts";
 import type { FlowClient } from "./document-save.ts";
 
-// SDK op의 공통 op table이다(T21 app-ops의 패턴).
+// SDK op의 공통 op table이다(app-ops와 같은 패턴).
 export const SDK_OP_ROUTES = {
   catalog: packagesList,
   show: packagesVersions,

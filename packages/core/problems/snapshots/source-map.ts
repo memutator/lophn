@@ -3,7 +3,7 @@
 // 상대 path를 찾는다. 준비 폴더 밖 path·symlink는 읽지 않고 이유를 남긴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// bundle 사본 안의 고정 이름(releases/bundle/seal.ts와 같다). contracts#T36 경로
+// bundle 사본 안의 고정 이름(releases/bundle/seal.ts와 같다). contracts의 경로
 // 함수가 problems에서 닿지 않으므로 이 leaf가 문자만 반복한다.
 const SOURCE_MAP_COPY = "app.js.map";
 

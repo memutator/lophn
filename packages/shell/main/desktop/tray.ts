@@ -167,7 +167,7 @@ export interface IconLocation {
   desktopDir: string;
 }
 
-/** lophn 표식. packaged는 resources 옆(shell#T57이 넣는다), 개발 실행은 desktop 폴더. */
+/** lophn 표식. packaged는 resources 옆, 개발 실행은 desktop 폴더. */
 export function trayIconPath(location: IconLocation): string {
   return location.packaged
     ? join(location.resourcesPath, "icon.png")

@@ -132,7 +132,7 @@ export function capacityRuleOf(
   return ok({ category: found.retention.category });
 }
 
-// R11의 구별. 참조 차단은 GC가 참조 blob을 대상에서 뺀 것이고, 반환 차단은
+// 참조 차단은 GC가 참조 blob을 대상에서 뺀 것이고, 반환 차단은
 // general_read가 없는 field(보호 backup 등)다. OS 삭제는 실제 파일 삭제,
 // 사본 잔존은 backup 폴더의 나머지 사본이다.
 export type GcDisposition =

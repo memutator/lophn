@@ -74,8 +74,8 @@ export function testRunnerSpec(input: {
     allow_read: [input.dataRoot, entry, rootConfig, ...GROUP_TOOLS],
     allow_write: [work],
     // 고정 socket 자리와 가상 host(Unix socket은 정확한 경로의 net 허락을 요구한다)와
-    // core loopback(`problems.work` 반응기가 event를 읽고 command를 내는 데 쓴다,
-    // problems#T19; runner service가 요청을 받아 core command로 남긴다)을 모두 허락한다.
+    // core loopback(`problems.work` 반응기가 event를 읽고 command를 내는 데 쓴다;
+    // runner service가 요청을 받아 core command로 남긴다)을 모두 허락한다.
     allow_net: ["lophn.invalid", "127.0.0.1", ...sockets],
     allow_run: [
       input.deno,

@@ -1,6 +1,6 @@
 // 문제 op의 공통 실행이다. MCP `lophn_problem`과
-// CLI `problem …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이 같다(cli#R1,
-// connection#R6). op마다 소유 route 하나로만 보내고 임의 core API는 부르지 않는다.
+// CLI `problem …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이 같다.
+// op마다 소유 route 하나로만 보내고 임의 core API는 부르지 않는다.
 //
 // - 읽기(list·show·snapshot·fix_records·summary·bundle·more)는 읽기 route만 부른다. claim을 만들거나
 //   갱신하지 않는다.

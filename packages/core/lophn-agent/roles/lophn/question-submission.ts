@@ -6,12 +6,12 @@ import type {
 import { questionOptionSchema } from "@lophn/protocol/lophn-agent";
 import { validateNewGroup } from "../../tools/questions/mod.ts";
 
-// lophn이 만든 질문 draft를 `question.submit` tool 값으로 실는 길(roles/lophn#R5,
-// T29에서 넘어온 것). `question.submit`의 입력은 선택지 action을 `null`로만 받는다:
+// lophn이 만든 질문 draft를 `question.submit` tool 값으로 실는 길이다.
+// `question.submit`의 입력은 선택지 action을 `null`로만 받는다:
 // 모델은 대상·값 후보와 설명만 고르고, `recommendPlaces`·`settingChangeQuestion`이
 // 만든 고정 action은 여기서 그대로 싣는다. hash·CAS는 draft 함수가 만든 것이라
 // 이 모듈이 다시 만들지 않는다. 사람이 고르기 전에는 아무것도 바뀌지 않는다
-// (questions#R13의 적용은 machine ApplyQuestionOption 몫이다). 제출은 질문 묶음 하나다:
+// (적용은 machine ApplyQuestionOption 몫이다). 제출은 질문 묶음 하나다:
 // draft 1~4개를 한 묶음으로 싣고, 고정 action이 있는 draft는 혼자 묶음이 된다.
 
 // 질문 하나의 draft(place-recommendation·setting-proposal이 만드는 모양). 목록의 순서가 묶음 안

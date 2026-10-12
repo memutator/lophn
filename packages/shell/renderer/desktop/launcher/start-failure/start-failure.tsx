@@ -1,4 +1,4 @@
-// shell#T57 start failure screen showing distinct launcher failure states.
+// Start failure screen showing distinct launcher failure states.
 // Shows start, sandbox, or schema failure without normal launcher appearance.
 
 import { type ReactElement, useId, useState } from "react";

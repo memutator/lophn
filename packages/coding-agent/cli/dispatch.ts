@@ -1,6 +1,6 @@
 // lophn CLI의 실행 조립이다(code-map). command 표(`registry.ts`)의 route와 같은 core client로
-// command를 실행한다. 업무 규칙을 두지 않고 MCP와 같은 credential provider·client·runner를 잇기만 한다
-// (cli#R1, connection#R6). 표 밖 op와 임의 core API passthrough는 없다. 실행하지 못하는 command는 성공으로
+// command를 실행한다. 업무 규칙을 두지 않고 MCP와 같은 credential provider·client·runner를 잇기만 한다.
+// 표 밖 op와 임의 core API passthrough는 없다. 실행하지 못하는 command는 성공으로
 // 꾸미지 않고 unavailable로 낸다. 사람 전용 command는 연결 참조(LOPHN_CONNECTION)로 시작한
 // coding credential context에서 거절한다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
@@ -141,7 +141,7 @@ export type CliPorts = {
   observe(path: string, ndjson: string): Promise<Result<void, LophnError>>;
 };
 
-// hook payload 상한이다(조사 T6의 body 64KiB 제안). 넘으면 읽지 않는다.
+// hook payload 상한이다. 넘으면 읽지 않는다.
 const OBSERVE_STDIN_LIMIT = 64 * 1024;
 
 async function readProcessStdin(): Promise<string> {
@@ -376,7 +376,7 @@ export async function runCliCommand(
   }
   if (name === "ticket create" || name === "ticket cancel") {
     // 사람 전용이다. 연결 참조(coding credential)가 있으면 실행 전 거절이고, 사람은 결정 화면
-    // 링크를 받는다(질문 Q1).
+    // 링크를 받는다.
     return ticketHumanOnly(name, input, {
       actor: runtime.actor,
       connected: runtime.client !== undefined,
@@ -384,7 +384,7 @@ export async function runCliCommand(
   }
   if (isProblemHumanOnly(name)) {
     // 사람 전용이다. CLI는 feedback·수리 요청·확인·무시를 접수하지 않는다. 연결 참조(coding
-    // credential)가 있으면 실행 전 거절이고, 사람은 결정 화면 링크와 대기 사실만 받는다(D27).
+    // credential)가 있으면 실행 전 거절이고, 사람은 결정 화면 링크와 대기 사실만 받는다.
     return problemHumanOnly(name, input, {
       actor: runtime.actor,
       connected: runtime.client !== undefined,

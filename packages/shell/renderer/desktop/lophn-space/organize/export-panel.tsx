@@ -32,7 +32,7 @@ interface Pick {
   readonly versions: readonly VersionRow[] | null;
 }
 
-// 자리 안 문서와 고정 판을 골라 Markdown·JSON으로 export한다(documents/versions#R16, flow
+// 자리 안 문서와 고정 판을 골라 Markdown·JSON으로 export한다(flow
 // organize-documents 6·7). 결과는 실제로 묶은 문서·판·원래 파일과, 넣지 않은 문서를 나눠 보인다.
 // 원래 파일을 돌려줄 수 없는 판은 빈 내용이나 온전한 export로 보이지 않는다.
 export function ExportPanel({ source, place, documents }: ExportPanelProps) {

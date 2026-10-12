@@ -14,7 +14,7 @@ import {
   tmpPathFor,
 } from "./model.ts";
 
-// R12 안전 여유. 실측 크기를 모르므로 준비 최대치보다 여유가 있어야 받는다.
+// 안전 여유. 실측 크기를 모르므로 준비 최대치보다 여유가 있어야 받는다.
 export const DISK_MARGIN_BYTES = 256 * 1024 * 1024;
 
 export type PreparedInstall = {
@@ -51,7 +51,7 @@ export type BlobStoreDeps = {
   root: string;
   // 준비 파일 접미사. 내용에서 파생하지 않는다.
   suffix: () => string;
-  // R12 실제 여유. 부족하면 새 준비를 unavailable로 막는다.
+  // 실제 여유. 부족하면 새 준비를 unavailable로 막는다.
   quota: { availableBytes(path: string): Promise<number | undefined> };
 };
 
@@ -115,7 +115,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
           message: "임시 directory를 열 수 없다",
         });
       }
-      // R12: 여유를 알 수 없거나 부족하면 새 준비를 막는다. 참조 blob은 건드리지 않는다.
+      // 여유를 알 수 없거나 부족하면 새 준비를 막는다. 참조 blob은 건드리지 않는다.
       const available = await deps.quota.availableBytes(tmpDir);
       if (available === undefined) {
         return err({

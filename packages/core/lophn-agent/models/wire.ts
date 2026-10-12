@@ -10,7 +10,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject, JsonValue } from "../../../protocol/base/mod.ts";
 
-// option 값을 호출 형식의 요청으로 옮기는 곳이다(harness/model#R22-R24). 호출 형식마다 effort를
+// option 값을 호출 형식의 요청으로 옮기는 곳이다(harness/model). 호출 형식마다 effort를
 // 요청 필드로 옮기는 표가 하나씩 있고, effort 밖 값은 catalog가 선언한 wire(body patch 또는
 // model id 바꾸기)를 그대로 쓴다. model 이름으로 갈라지는 분기는 어디에도 두지 않는다.
 

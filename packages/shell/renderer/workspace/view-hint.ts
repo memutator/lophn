@@ -1,6 +1,5 @@
 // 작업대 화면이 main에 보내는 현재 보기 힌트. 제목·경로·본문·터미널 출력은
-// 넣지 않는다. 탭마다 무엇을 보낼지는 kind의 선언이 정한다(shell/workspace#R9, R14,
-// prompt-assemble#R25).
+// 넣지 않는다. 탭마다 무엇을 보낼지는 kind의 선언이 정한다.
 import type { WorkspaceView } from "./model.ts";
 import type { HintContext, HintTab, TabPresentation } from "./kinds/kind.ts";
 import { tabKindOf } from "./kinds/registry.ts";

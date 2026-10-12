@@ -1,4 +1,4 @@
-// Linux Secret Service adapter(계획 Q7).
+// Linux Secret Service adapter.
 // secret-tool만 쓰고 값은 stdin으로만 보낸다. argv·환경 변수·파일에는 두지 않는다.
 // macOS·Windows adapter는 범위 밖이다.
 

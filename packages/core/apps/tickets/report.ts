@@ -1,5 +1,4 @@
-// ticket 완료 보고·취소 command(coding-agent/tickets#R15, R17, R22, R23,
-// connection#R18). 보고는 현재 유효 claim과 release 역조회가 같은 transaction에서
+// ticket 완료 보고·취소 command. 보고는 현재 유효 claim과 release 역조회가 같은 transaction에서
 // 지나고, 접수 때 claim을 끝낸다. 취소는 user라면 확인 창 없이, revert 적용
 // machine이라면 외부 claim·보고·결과가 한 번도 없을 때만 성공한다.
 // 취소 직후 옛 claim의 갱신·보고는 claim 행 삭제와 state 전이로 거절된다.
@@ -132,7 +131,7 @@ function reportCompletion(
   ) {
     return conflict("release is not prepared through this ticket claim");
   }
-  // 입력 refine이 hash를 검사하지만 handler도 같은 준비를 본다(contracts#T40 선례).
+  // 입력 refine이 hash를 검사하지만 handler도 같은 준비를 본다.
   if (input.summary_blob.hash !== input.completion.summary_hash) {
     return invalid("summary blob hash가 summary_hash와 다르다");
   }

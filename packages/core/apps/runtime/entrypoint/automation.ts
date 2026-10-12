@@ -1,6 +1,6 @@
 // 앱 프로세스의 automation 조립. clock(`automations/clock.ts`)에 이 프로세스의 상태·broker·호출 경로를
-// 주입한다. 직접 호출과 같은 선언·입력 검사·handler를 쓰고 trigger만 automation이다
-// (apps/automations#R1). clock은 live 프로세스에서만 연다(R4).
+// 주입한다. 직접 호출과 같은 선언·입력 검사·handler를 쓰고 trigger만 automation이다.
+// clock은 live 프로세스에서만 연다.
 import {
   type Acquire,
   type AutomationClock,

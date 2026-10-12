@@ -1,5 +1,5 @@
-// core가 documents coordinator의 search consumer에 event와 저장 판 원문을 보낸다(documents#T21,
-// T13에서 넘어온 것). consumer의 자리(cursor)는 derived store에 있고 coordinator가 유일한
+// core가 documents coordinator의 search consumer에 event와 저장 판 원문을 보낸다.
+// consumer의 자리(cursor)는 derived store에 있고 coordinator가 유일한
 // writer다. core는 그 자리부터 event 구독의 ledger를 feed 자격(`machine:documents-feed`)으로
 // 읽어 consumer가 쓰는 event만 순서대로 보낸다. 저장 event의 판은 ledger 판 행의 파일 목록대로
 // I/O worker의 원문 blob을 byte chunk frame으로 먼저 보낸다. 결과·FTS·cursor는 coordinator가

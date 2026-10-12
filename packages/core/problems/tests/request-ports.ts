@@ -34,8 +34,8 @@ function read(tx: Tx, sql: string, params: (string | null)[]): Row {
   }
 }
 
-// coding agent의 reproduction 요청은 그 연결이 지금 쥔 repair ticket의 claim에 기대야 한다(coding-agent/mcp-server#R25,
-// cli#R34). 그 ticket은 이 앱의 repair ticket이고 이 문제를 담아야 한다. 도구가 먼저 거르는 것과 별개로 core가
+// coding agent의 reproduction 요청은 그 연결이 지금 쥔 repair ticket의 claim에 기대야 한다.
+// 그 ticket은 이 앱의 repair ticket이고 이 문제를 담아야 한다. 도구가 먼저 거르는 것과 별개로 core가
 // 접수 때 다시 확인한다: 도구를 거치지 않는 요청도 같은 거절이다. 사람·machine 요청과 다른 종류는 이 규칙이 없다.
 // 이유를 돌려주면 접수하지 않는다(conflict).
 export function reproductionClaimRejection(

@@ -72,8 +72,8 @@ export function registerRepairReads(
 // worker 요청 op. packages/core/problems/repairs/worker/session-summary.ts의 SESSION_SUMMARY_OP와 같은 값이다.
 const SESSION_SUMMARY_OP = "coding_agent_sessions.summary";
 
-// 세션 시작 summary(`/v1/coding_agent_sessions/summary`)의 handler를 같은 worker 통로로 붙인다
-// (coding-agent#T35). 요청자 credential을 요청마다 싣고, 이미 회수됐으면 보내지 않는다.
+// 세션 시작 summary(`/v1/coding_agent_sessions/summary`)의 handler를 같은 worker 통로로 붙인다.
+// 요청자 credential을 요청마다 싣고, 이미 회수됐으면 보내지 않는다.
 export function registerSessionReads(
   runtime: CoreRuntime,
   channel: DocumentsChannel,

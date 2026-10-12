@@ -55,7 +55,7 @@ export type MaintenanceDeps = {
     Result<readonly { hash: string; owner_kind: string; field: string }[]>
   >;
   nowMs(): number;
-  // 유예기간. 없으면 R9 7일이다. 테스트가 짧게 줄인다.
+  // 유예기간. 없으면 7일이다. 테스트가 짧게 줄인다.
   graceMs?: number;
 };
 

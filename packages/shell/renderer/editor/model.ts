@@ -50,8 +50,8 @@ export interface StickyHead {
 }
 
 /**
- * 문서 제목이 scroll 칸 위로 사라지면 32px sticky 머리를 붙이고 지금 절을 보인다
- * (shell/editor#R4). 지금 절은 sticky 머리 아래 선을 넘은 마지막 제목이다.
+ * 문서 제목이 scroll 칸 위로 사라지면 32px sticky 머리를 붙이고 지금 절을 보인다.
+ * 지금 절은 sticky 머리 아래 선을 넘은 마지막 제목이다.
  */
 export function stickyHead(
   titleBottom: number,

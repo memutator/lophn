@@ -4,7 +4,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { parsePlaceMcpFile, PLACE_MCP_FILE } from "./place-store.ts";
 
-// 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions R32). agent-runtime child의 Deno 권한
+// 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions). agent-runtime child의 Deno 권한
 // (`--allow-run`·`--allow-net`)은 띄울 때 정해지므로 core가 모든 자리 파일의 서버를 한 번에 모아 전역 서버와 함께
 // 권한 목록을 만든다. 권한은 서버가 선언한 실행 파일과 host:port만이다. 파일 IO는 비동기 port로 받는다.
 

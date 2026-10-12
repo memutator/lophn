@@ -1,4 +1,4 @@
-// exception snapshot 조립(plan problems T4).
+// exception snapshot 조립.
 // raw 문자는 인증된 observer → collector bounded memory에만 있다. 이 조립은
 // redaction → stack blob 준비 → source map 위치 찾기 → 지문 key까지를
 // bounded memory에서 끝내고 permanent content는 hash뿐이다.
@@ -26,7 +26,7 @@ export type { PreparedSnapshotBlob, SnapshotBlobPrepare };
 
 // contracts REPORTING_LIMITS의 값이다(sdk-report.ts). problems는 platform을
 // import하지 않으므로 이 leaf가 상수만 반복한다. bundle 사본 위치 규칙
-// (`apps/<app ID>/bundles/<hash>`)은 releases/bundle/seal.ts와 같다. contracts#T36
+// (`apps/<app ID>/bundles/<hash>`)은 releases/bundle/seal.ts와 같다. contracts의
 // 경로 함수가 problems에서 닿지 않으므로 이 leaf가 문자만 반복한다.
 const LIMITS = {
   snapshot_assembly_ms: 2_000,
@@ -505,8 +505,8 @@ export type AssembledException = {
   logs_prepared: PreparedSnapshotBlob | null;
 };
 
-// exception observation에서 SnapshotInput과 지문 key를 조립한다(snapshots#R1–R6,
-// R8–R11, R18, R20). raw 문자는 결과에 남지 않는다.
+// exception observation에서 SnapshotInput과 지문 key를 조립한다.
+// raw 문자는 결과에 남지 않는다.
 export async function assembleException(
   input: ObservedExceptionInput,
   evidence: {

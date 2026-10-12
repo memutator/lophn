@@ -1,5 +1,5 @@
 // NotificationsSource를 main의 core 통로로 만든다. 설정 값은 settings read(get)·command(apply)다.
-// OS notification opt-in은 platform/notifications#R9다: 값은 사람이 켰을 때만 켜진다.
+// OS notification opt-in 값은 사람이 켰을 때만 켜진다.
 import type { CoreCall } from "../../../../../ipc/core.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { OS_NOTIFICATIONS_KEY } from "../../../../../ipc/notifications.ts";

@@ -215,7 +215,7 @@ export function groupStateOf(group: QuestionGroup): GroupState {
 export type QuestionGroupRecord = Output<typeof questionList>["groups"][number];
 
 // 같은 질문 option을 사람 결정으로 적용한 기록의 key. 적용 기록은 platform/ledger의
-// question_evidence(identity R14의 일회 표)이고 이 concern에는 적용 상태 표가 없다.
+// question_evidence(identity의 일회 표)이고 이 concern에는 적용 상태 표가 없다.
 export function evidenceKey(question: string, option: string): string {
   return `${question}\u0000${option}`;
 }
@@ -326,7 +326,7 @@ export function recordOf(
 }
 
 // 선택지의 고정 action이 platform/settings 변경이면 그 변경 목록을 낸다.
-// platform/settings#R29가 QuestionCreated에서 이 목록을 읽어 machine ApplySettings를
+// platform/settings가 QuestionCreated에서 이 목록을 읽어 machine ApplySettings를
 // 대조한다. 다른 선택지·action 없음은 null이다. 모양이 틀리면 undefined다.
 export function settingChangesOf(
   option: QuestionOption,

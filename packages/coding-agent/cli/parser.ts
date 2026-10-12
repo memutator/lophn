@@ -60,7 +60,7 @@ export function emptyParsedArgs(): ParsedArgs {
 }
 
 // argv를 읽어 구조화 입력으로 바꾼다. 모르는 flag·값 없는 flag·flag 중복은
-// errors에 남기고 실행 전 거절에 쓴다. stdin "-"는 R4대로 지원하지 않는다.
+// errors에 남기고 실행 전 거절에 쓴다. stdin "-"는 지원하지 않는다.
 export function parseArgs(argv: readonly string[]): ParsedArgs {
   const parsed = emptyParsedArgs();
   for (let index = 0; index < argv.length; index += 1) {
@@ -102,7 +102,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   if (parsed.input !== undefined && parsed.inputFile !== undefined) {
     parsed.errors.push("input and input_file are exclusive");
   }
-  // stdin file은 지원하지 않는다(조사 T2의 implicit stdin append 금지).
+  // stdin file은 지원하지 않는다(implicit stdin append 금지).
   if (parsed.inputFile === "-") {
     parsed.errors.push("--input-file - (stdin)은 지원하지 않는다");
   }

@@ -1,4 +1,4 @@
-// 인증 transport(platform#T20 secret 전송 부착). adapter의 이
+// 인증 transport(secret 전송 부착). adapter의 이
 // 파일만 secret 전송 부착을 machine credential으로 부른다(architecture §5.2).
 // API key 값은 transport callback 메모리에서만 산다. 결과·오류·log·run loop·
 // ModelCall blob에는 값이나 header가 남지 않는다.
@@ -58,7 +58,7 @@ export function createAuthTransport(options: {
   transport: Transport;
   // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 attach가 재검사한다.
   context: SecretSendInput["context"];
-  // secret 참조·판·용도·목적지. platform#T20 contract의 짝이다.
+  // secret 참조·판·용도·목적지. platform contract의 짝이다.
   use: SecretUse;
   // 전송 기준 operation. 허용 목적지와 판이 다르면 fail closed다.
   operation: string;

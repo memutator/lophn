@@ -8,7 +8,7 @@ import {
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
-// 재시작 점검 모양(install-and-update#R11의 중단 작업 점검, b&m#R15·R16).
+// 재시작 점검 모양.
 // 소유 concern의 복구 command가 아직 없는 영역은 이 모양으로 관측값을 남긴다.
 // 각 대상의 상태·event는 해당 concern이 소유하고, 이 모듈은 소유 표를 읽지 않는다.
 export type RestartObservation = {
@@ -47,7 +47,7 @@ export type RestartDeps = {
 const SAFE_REASON = /^[a-z][a-z0-9_]*$/;
 
 /**
- * 재시작 뒤 중단 작업 점검. R11의 순서에서 ledger 무결성·schema 점검 다음,
+ * 재시작 뒤 중단 작업 점검. ledger 무결성·schema 점검 다음,
  * API 시작 전에 부른다. 소유 concern의 복구 command가 연결되기 전 영역은
  * unknown 관측값과 근거를 남긴다. 어느 관측도 읽기를 막지 않는다.
  */
@@ -71,9 +71,9 @@ function readRestartTrace(
   if (!opened.ok) return opened;
   const connection = opened.value;
   try {
-    // 무결성·schema 이력은 기동의 migration 적용이 이미 검사했다(R11의 앞
+    // 무결성·schema 이력은 기동의 migration 적용이 이미 검사했다(앞
     // 단계). 여기서 다시 scan하지 않는다: integrity_check는 전체 file
-    // scan이라 R15가 기다리지 말라는 것과 충돌한다. 위치 관측만 남긴다.
+    // scan이라 기다리지 않는다는 원칙과 충돌한다. 위치 관측만 남긴다.
     const row = sqlGet(
       connection,
       "select seq from events order by seq desc limit 1",

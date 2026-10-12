@@ -8,8 +8,8 @@ import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 
-// Session은 agent(assignment) 하나와 자리(project 또는 app) 하나에 고정된다
-// (conversation#R1·R16). role이나 자리를 바꾸는 command가 없고, 사람이 `closed`로 만드는
+// Session은 agent(assignment) 하나와 자리(project 또는 app) 하나에 고정된다.
+// role이나 자리를 바꾸는 command가 없고, 사람이 `closed`로 만드는
 // command도 없다: 사람이 session을 치우는 길은 archive와 delete다.
 
 // 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 이모지나 결합 문자를 중간에서

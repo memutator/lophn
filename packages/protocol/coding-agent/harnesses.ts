@@ -273,7 +273,7 @@ export const harnessSuggestionSchema = z.object({
 
 export type HarnessSuggestion = z.infer<typeof harnessSuggestionSchema>;
 
-// harness 설정 key 3개다(T24 모양). secret 값은 넣지 않는다(domain-model harnesses).
+// harness 설정 key 3개다. secret 값은 넣지 않는다(domain-model harnesses).
 const settingKeys = {
   display_name_key: "settings.coding-agent.harnesses.name",
   value_meaning_key: "settings.coding-agent.harnesses.value",

@@ -99,7 +99,7 @@ export function buildRequest(input: {
   max_output_tokens: number;
   // 재전송 대상 encrypted reasoning 원문들. reasoningFor가 준 값이다.
   reasoning?: readonly string[];
-  // T14: 상태 없이 계속 가능한지 검증 뒤의 결과다.
+  // 상태 없이 계속 가능한지 검증 뒤의 결과다.
   stateFree?: { protocol: "openai-responses"; reasoningRequired: boolean };
   // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
@@ -117,7 +117,7 @@ export function buildRequest(input: {
   if (input.tools?.length) {
     body.tools = input.tools;
   }
-  // T14: reasoning 재전송 대상이 있으면 state-free 계속을 검증한다(검증의 실제
+  // reasoning 재전송 대상이 있으면 state-free 계속을 검증한다(검증의 실제
   // 호출 자리는 invoke.ts다). 메모리 상태가
   // 없을 때(restart·compaction)도 Responses는 계속 가능하다 — reasoning item을
   // 빼도 function_call·call_id 대응이 남는다(architecture §5.2). 통과하지 못하는
@@ -145,7 +145,7 @@ export type ResponsesStreamResult = {
   errorMessage?: string;
   // encrypted reasoning 원문들. run 메모리로만 산다.
   reasoningItems: string[];
-  // 만나지 않은 event는 여기 세지 않는다(T13과 같은 근원).
+  // 만나지 않은 event는 여기 세지 않는다.
   sawUnknownEvent: boolean;
 };
 
@@ -199,7 +199,7 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
   try {
     parsed = JSON.parse(frame.data);
   } catch {
-    // 잘못된 JSON frame은 그 event만 버린다(T13과 같은 근원).
+    // 잘못된 JSON frame은 그 event만 버린다.
     return;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {

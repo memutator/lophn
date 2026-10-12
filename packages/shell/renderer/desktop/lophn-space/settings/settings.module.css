@@ -1,5 +1,5 @@
 /* settings 화면: 왼쪽 세로 nav 하나와 가운데 column 하나. column은 nav 오른쪽 자리의 가운데에 놓고
-   그 안에서 제목과 section·카드를 위아래로 쌓는다(shell/design-system#R21 form 폭). */
+   그 안에서 제목과 section·카드를 위아래로 쌓는다(form 폭). */
 .screen {
   display: flex;
   flex: 1;

@@ -75,7 +75,7 @@ for (;;) {
     ],
     parent,
     // coding agent connection credential은 OS keychain에 둔다. 보호 loader는 설치 묶음의 helper
-    // `lophn-credential` 하나이고 identity는 그 고정 절대 경로다(Linux .deb. 다른 OS는 platform#T49).
+    // `lophn-credential` 하나이고 identity는 그 고정 절대 경로다(Linux .deb. 다른 OS는 아직 없다).
     codingKeychain: productKeychain(),
     codingLoaders: [credentialLoaderIdentity()],
   });

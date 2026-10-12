@@ -112,7 +112,7 @@ export async function prepareAppExport(
   }
   try {
     // DB 사본은 backup API로 WAL의 확정 내용까지 포함해 만들고, 무결성·schema를
-    // 확인한 뒤에만 export 사본으로 옮긴다(R5과 같은 관문).
+    // 확인한 뒤에만 export 사본으로 옮긴다.
     await Deno.mkdir(copy, { recursive: true });
     const pending = `${copy}/database${PENDING_SUFFIX}`;
     const opened = openAppDatabase(databasePath);

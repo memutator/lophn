@@ -1,5 +1,5 @@
-// 절 초안. 줄 한도를 지키고 없음·범위 거절·가림·잘림을 절의 availability와 reason에 남긴다
-// (repair-context#R3, R18). 내용도 누락 사실도 없으면 절을 내지 않는다.
+// 절 초안. 줄 한도를 지키고 없음·범위 거절·가림·잘림을 절의 availability와 reason에 남긴다.
+// 내용도 누락 사실도 없으면 절을 내지 않는다.
 import type {
   EvidenceKind,
   RepairContextSection,

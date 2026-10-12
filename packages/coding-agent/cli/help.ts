@@ -640,7 +640,7 @@ const TICKET_HELP: readonly CommandHelp[] = [
 
 // 문제 command다. 읽기와 접수는 변경이 아니다: record-fix만 고친 기록을 남기고
 // test는 실제 runner 요청을 접수할 뿐이다. 사람 전용 네 command는 feedback·수리 요청·확인·무시를
-// 접수하지 않고 결정 화면 링크와 대기 사실만 낸다(D27).
+// 접수하지 않고 결정 화면 링크와 대기 사실만 낸다.
 function problemHelp(
   command: string,
   purpose: string,

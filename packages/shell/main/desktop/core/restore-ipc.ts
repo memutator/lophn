@@ -1,4 +1,4 @@
-// settings backup 복원 통로의 main 쪽(shell#T58을 platform#T54가 제품 조립에 잇는다). desktop 창
+// settings backup 복원 통로의 main 쪽. desktop 창
 // 본문만 부르고, 입력은 묶음 하나(`created_at`)뿐이다. 계획 응답의 `target`·`content_hash`는
 // 여기에만 남아 같은 묶음의 제출이 그 값으로 결정 handle을 발급한다. 사람이 본 계획과 다른
 // 묶음은 제출하지 못한다. handle 원문·pipe frame은 renderer로

@@ -3,7 +3,7 @@ import { defineRead } from "../base/route.ts";
 import { defineSetting } from "../config/settings.ts";
 import { withReadCommon } from "../base/envelope.ts";
 
-// skill 발견 root 정의 등록(contracts#T24 settings registry).
+// skill 발견 root 정의 등록(settings registry).
 // 사람이 등록한 절대 폴더를 등록 순서대로 발견한다. machine_local
 // 이고 다음 run부터 적용한다. 기본은 등록 폴더가 없는 빈 목록이다.
 // runtime이 같은 값 타입으로 읽도록 core 등록과 한 정의다.
@@ -65,7 +65,7 @@ export const skillSkippedSchema = z.object({
 });
 export type SkillSkipped = z.infer<typeof skillSkippedSchema>;
 
-// 전역에서 끈 skill의 정확한 이름이다(domain-model ExtensionSettings, open-issues shell/desktop#Q22). 전역 등록
+// 전역에서 끈 skill의 정확한 이름이다(domain-model ExtensionSettings, open-issues shell/desktop). 전역 등록
 // 목록 쪽의 끄기라서 agent 정의의 `skills_off`와 따로이고 둘 중 하나라도 끄면 그 agent는 쓰지 못한다. 지금 발견되지
 // 않는 이름도 그대로 둔다: 그 skill이 다시 나타나도 끈 채다. 와일드카드·패턴은 이름 규칙이 거절한다.
 const skillNameSchema = z.string().max(64).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);

@@ -1,5 +1,4 @@
-// 네 loading 관측이다(coding-agent/harnesses#R10, R3, connection#R13·R14,
-// T32). mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을
+// 네 loading 관측이다. mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을
 // 각각 success·failure·unknown과 안전한 이유·다음 확인으로 낸다.
 // 원칙은 셋이다. (1) 파일 존재·credential active·CLI fallback 성공을 loading
 // 성공으로 쓰지 않는다. MCP 성공은 설치 Deno executable로 lophn-mcp를 띄운

@@ -1,5 +1,5 @@
-// blob 영구 참조 등록과 읽기의 순수 규칙(platform/blob-store#R4, R5, R6, R7,
-// platform/identity#R9). IO 없음. 파일 관측과 hash는 worker의 몫이다.
+// blob 영구 참조 등록과 읽기의 순수 규칙.
+// IO 없음. 파일 관측과 hash는 worker의 몫이다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
@@ -31,7 +31,7 @@ export function preparedMatches(
       prepared.size_bytes === required.size_bytes);
 }
 
-// 등록 field가 보존 종류와 일반 읽기 허용을 함께 적었는지(T14 완료 기준).
+// 등록 field가 보존 종류와 일반 읽기 허용을 함께 적었는지.
 export function fieldDefined(
   fields: readonly BlobFieldDefinition[],
   ownerKind: string,

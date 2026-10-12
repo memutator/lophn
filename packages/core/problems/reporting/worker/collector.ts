@@ -1,5 +1,5 @@
 // report collector worker. core 감독이 띄우고 이 모듈이 보고 접수 통로를
-// 조립한다(plan problems T3). credential에서
+// 조립한다. credential에서
 // 출처를 정하고 본문 주장은 따르지 않는다. redaction은 이 worker가 ledger에 닿기
 // 전에 거친다.
 import {
@@ -77,7 +77,7 @@ export function acceptCollectorHello(kind: string): boolean {
 }
 
 // 인증 경계가 hello로 넘긴 collector 위치. app·release·process·mode·bundle_hash·
-// diagnostic_scope 주장은 hello scope targets에서 온다(T3: credential에서만 정한다.
+// diagnostic_scope 주장은 hello scope targets에서 온다(credential에서만 정한다.
 // contracts/platform의 app credential 주장 대상이고 발급 때 credential에 고정된다).
 export type CollectorPosition = {
   credential: string;
@@ -112,7 +112,7 @@ export class CollectorRejection extends Error {
   }
 }
 
-// 등록 시점 kind 검사(T8의 runnerReady와 같은 모양).
+// 등록 시점 kind 검사(runnerReady와 같은 모양).
 export function collectorReady(kind: string): Result<true> {
   if (kind !== COLLECTOR_KIND) {
     return err({ code: "invalid_input", message: "unknown worker kind" });
@@ -553,8 +553,8 @@ export async function acceptReportProblem(
   // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
   // 접수 본문의 report_id가 곧 제출 rpt ID다.
   const snapshotId = await pendingSnapshotId(report_id);
-  // redaction을 통과한 text·details를 blob 준비해 Report.text·details에 싣는다
-  // (T3에서 넘어온 것). 준비는 core blob prepare 경계로 간다. 넘치는 본문은
+  // redaction을 통과한 text·details를 blob 준비해 Report.text·details에 싣는다.
+  // 준비는 core blob prepare 경계로 간다. 넘치는 본문은
   // 항목 상한(automatic_body_bytes)에서 제외하고 이유를 남긴다.
   const preparedText = await prepareContent(
     session,
@@ -766,7 +766,7 @@ async function redact(options: {
   return outcome.value;
 }
 
-// 준비 입���을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
+// 준비 입력을 record-report로 제출한다. 대기 큐는 같은 고정 input만
 // 쥐고 개수·바이트 한도를 넘는 새 입력은 손실 이유다. acceptance는 ok payload다.
 async function submit(
   client: CoreClientOptions,
@@ -921,7 +921,7 @@ export async function observeExceptionPayload(
   const origin = observation.observation === "render_error"
     ? "view_observer"
     : "process_observer";
-  // raw 문��는 bounded memory에서 redaction을 거친다. fail-closed:
+  // raw 문자는 bounded memory에서 redaction을 거친다. fail-closed:
   // 통과하지 못한 문자는 원문 대신 null + missing reason이다. 이름도
   // 엔진을 거친다: safe 모양이어도 secret pattern 값이 든 이름은 지운다.
   const rawError = observation.error;
@@ -1485,7 +1485,7 @@ export async function acceptSubmitFeedback(
   return completion.acceptance;
 }
 
-// launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).
+// launchArgv가 내는 argv의 entry는 이 모듈 자체다(worker main과 다른 갈래).
 if (import.meta.main) {
   await runCollectorWorker();
 }

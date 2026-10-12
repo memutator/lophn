@@ -31,8 +31,8 @@ import {
   uniqueConditions,
 } from "./model.ts";
 
-// 문제 read·question read·documents resolve는 소유 구현이 아직 없다(문제#T6,
-// lophn-agent#T24). handler는 port로 대신 주입받는다.
+// 문제 read·question read·documents resolve는 소유 구현이 아직 없다.
+// handler는 port로 대신 주입받는다.
 export const QUESTION_ADOPTIONS_PORT = {
   name: "coding-agent.tickets.QuestionAdoptions",
 } as const;
@@ -103,7 +103,7 @@ function createTicket(
   }
   const readiness = readinessOf(input.readiness, input.needs);
   if (!readiness.ok) return readiness;
-  // R4: 구현 ticket은 문제를 묶지 않고 repair는 1개 이상이다. order는 contract
+  // 구현 ticket은 문제를 묶지 않고 repair는 1개 이상이다. order는 contract
   // validCreate가 검사하지만 동시 생성의 승자는 예약 unique가 만든다.
   if (outsideAppCondition(ctx, input.app)) {
     return notFound("app does not exist");
@@ -120,7 +120,7 @@ function createTicket(
       adopted.set(question, adoption);
     }
   }
-  // R3: ready 생성도 make_ready와 같은 근거 일치 검사를 거친다.
+  // ready 생성도 make_ready와 같은 근거 일치 검사를 거친다.
   if (readiness.value === "ready") {
     const matched = adoptionMatches(input.references, adopted);
     if (!matched.ok) return matched;
@@ -221,7 +221,7 @@ function writeCreate(
       `INSERT INTO ticket_problems (ticket, position, problem) VALUES (?, ?, ?)`,
       [id, position, problem],
     );
-    // R4: repair 예약은 같은 transaction이다.
+    // repair 예약은 같은 transaction이다.
     tx.sql.run(
       `INSERT INTO ticket_open_repair_problems (problem, ticket) VALUES (?, ?)`,
       [problem, id],

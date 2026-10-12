@@ -1,4 +1,4 @@
-// Claude Code 세션 시작 hook 출력이다(coding-agent#T35). summary를 10줄·1,200
+// Claude Code 세션 시작 hook 출력이다. summary를 10줄·1,200
 // code point 안의 글 하나로 줄이고, 장애·시간 초과·빈 결과는 빈 문자열로 끝낸다(호출자가 stdout 빈 값·exit 0).
 // 문제 모델에는 severity 축이 없어(problems/problem-codes) "warning 이상"은 모든 열린 문제다. coding agent가
 // 맡을 수 있는 문제는 수리 작업 상태가 ready_to_hand_off·in_progress인 것이고 사람 확인이 먼저인 문제와

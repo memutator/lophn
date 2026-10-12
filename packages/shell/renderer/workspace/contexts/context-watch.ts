@@ -1,5 +1,5 @@
 // 작업대가 context 목록을 읽어 두고 바뀐 것을 알린다. 위반이 늘어난 context는 toast로 알리고
-// (shell/workspace#R29), [New context] 뒤에 생긴 만드는 중인 context는 그 탭을 남긴다(R30).
+// [New context] 뒤에 생긴 만드는 중인 context는 그 탭을 남긴다.
 // 처음 읽은 값은 기준일 뿐이라 알리지 않는다. 읽기 실패는 이전 목록을 그대로 둔다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { systemTimer, type Timer } from "@lophn/design/components";

@@ -1,10 +1,9 @@
-// `lophn harness` command의 route 표와 실행 결정이다(T28·T29, cli#R40,
-// coding-agent/harnesses#R2–R4). list는 catalog를, detect는 최초 감지를,
+// `lophn harness` command의 route 표와 실행 결정이다. list는 catalog를, detect는 최초 감지를,
 // refresh는 사람 요청 재감지를, inspect는 제품별 감지 json을 낸다.
 // plan·install·update·remove는 사람이 고른 exact target만 받고 감지된 다른
 // 제품은 고치지 않는다. 감지·설치 명령은 core ledger command가
 // 아니므로 표에 route가 없다(architecture, coding-agent/harnesses 배치표).
-// screen 재진입·빈 결과·timeout에 자동 재감지·설치가 없다(R2 확인).
+// screen 재진입·빈 결과·timeout에 자동 재감지·설치가 없다.
 import type { HarnessId } from "../../../protocol/coding-agent/mod.ts";
 import {
   cliHarnessDetectSchema,
@@ -54,7 +53,7 @@ export const HARNESS_COMMANDS: readonly CommandEntry[] = [
 ];
 
 // 사람 요청대의 재감지다. refresh command만 재감지를 먹는다. detect·
-// inspect는 사람 요청이 아니라 화면 재진입이어도 자동 재감지가 없다(R2 확인).
+// inspect는 사람 요청이 아니라 화면 재진입이어도 자동 재감지가 없다.
 export function refreshRequestedBy(
   command: string,
 ): boolean {

@@ -2,7 +2,7 @@
 // MCP `lophn_app`과 CLI `app …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이
 // 같다. op마다 소유 route로만 보내고 임의 core API는 부르지 않는다.
 // 오래 걸리는 일(test·preview 시작·release 준비)은 접수와 다음 read로 나눠 돌려주고, 기다릴 때는
-// 알림을 보낸다: 기다림은 OpenCode 기본 tool timeout 30초 안에서 끝난다(조사 T1).
+// 알림을 보낸다: 기다림은 OpenCode 기본 tool timeout 30초 안에서 끝난다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   appBlueprint,
@@ -844,8 +844,8 @@ async function stopPreview(
 }
 
 // 개발 상태다: 운영 active release와 현재 preview를 따로 낸다.
-// active release에 고정된 blueprint다. 설명·구조 검증·실제 test 통과는 다른 근거로 표시한다
-// (apps/blueprint#R3). 범위 밖·없는 앱·active release 없는 앱은 같은 not_found라 합쳐 낸다.
+// active release에 고정된 blueprint다. 설명·구조 검증·실제 test 통과는 다른 근거로 표시한다.
+// 범위 밖·없는 앱·active release 없는 앱은 같은 not_found라 합쳐 낸다.
 async function readBlueprint(
   input: Obj,
   deps: AppOpDeps,

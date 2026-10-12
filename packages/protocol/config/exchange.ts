@@ -9,7 +9,7 @@ import {
 } from "../supervision/supervision.ts";
 import { settingMutationSchema } from "./settings.ts";
 
-// settings 교환 TOML의 import·export pipe 작업(T27 내놓는 contract).
+// settings 교환 TOML의 import·export pipe 작업.
 // - 이 op는 공개 HTTP route가 아니다. supervision worker envelope의 op로만 부른다.
 // - 안전 책임은 나눠진다. schema는 wire 모양만 고정한다. UTF-8 TOML 1.0 format
 //   version 1의 해석·redaction·전체 영향 검증은 platform I/O worker가 하고,

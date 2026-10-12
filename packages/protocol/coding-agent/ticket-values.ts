@@ -28,7 +28,7 @@ export const TICKET_STATES = [
 export const ticketStateSchema = z.enum(TICKET_STATES);
 export type TicketState = z.infer<typeof ticketStateSchema>;
 
-// lead 결정(coding-agent 계획 Q11). 진행 state와 별개다.
+// lead 결정이다. 진행 state와 별개다.
 export const TICKET_READINESS = ["needs_confirmation", "ready"] as const;
 export const ticketReadinessSchema = z.enum(TICKET_READINESS);
 export type TicketReadiness = z.infer<typeof ticketReadinessSchema>;

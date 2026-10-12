@@ -1,4 +1,4 @@
-// 런처가 읽고 쓰는 통로. documents#T7의 projects.list·create와 main의 OS 폴더 선택기만 담는다.
+// 런처가 읽고 쓰는 통로. documents의 projects.list·create와 main의 OS 폴더 선택기만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 
 /** 추적 규칙 한 줄. 등록 폴더 기준 glob이다. */

@@ -161,7 +161,7 @@ export type ChatStreamResult = {
   errorMessage?: string;
   // [DONE] sentinel을 봤다. sentinel 앞에 끝난 것도 단절은 아니다(연결 종료).
   sawDone: boolean;
-  // 잘못된 JSON·모르는 꼴을 만났다. 관측 기록이다(T13과 같은 근원).
+  // 잘못된 JSON·모르는 꼴을 만났다. 관측 기록이다.
   sawUnknownEvent: boolean;
   // 범위 밖 tool call index를 만났다. 일부 call만 남은 것이라 완성이 아니다.
   sawBadToolIndex: boolean;
@@ -249,7 +249,7 @@ function applyFrame(out: ChatStreamResult, frame: SseFrame): void {
   try {
     parsed = JSON.parse(data);
   } catch {
-    // 잘못된 JSON frame은 그 event만 버린다(T13과 같은 근원).
+    // 잘못된 JSON frame은 그 event만 버린다.
     return;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {

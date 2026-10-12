@@ -2,7 +2,7 @@ import { z } from "zod";
 import { endpointSchema, screenKeySchema } from "../apps/channel-values.ts";
 import { sha256Schema } from "../base/values.ts";
 
-// 상속 fd 3의 JSON lines. stdout은 쓰지 않는다(problems 계획 Q7).
+// 상속 fd 3의 JSON lines. stdout은 쓰지 않는다.
 export const SCREEN_TEST_FD = 3;
 export const SCREEN_TEST_FLAG = "--app-screen-test";
 

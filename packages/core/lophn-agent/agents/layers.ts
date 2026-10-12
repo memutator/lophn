@@ -147,8 +147,8 @@ export async function resolveRunAgent(
     run: RunRecord;
     assignment: AssignmentRecord;
     skills: readonly string[];
-    // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다
-    // (extensions R18, R31). 어느 tool을 켜는지는 resolve가 정한다.
+    // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
+    // 어느 tool을 켜는지는 resolve가 정한다.
     mcp(
       off: ReadonlySet<string>,
       place: AgentPlace,

@@ -8,7 +8,7 @@ import { ROLE_CAPS } from "../../agents/mod.ts";
 // 아직 고정되지 않은 기본 preset(null)은 빈 목록이고(fail closed), 목록 자체는
 // 이 함수를 같은 입력으로 부르면 같다.
 //
-// 질문 draft를 싣는 길(T29에서 넘어온 것): `question.submit` tool은 선택지의
+// 질문 draft를 싣는 길: `question.submit` tool은 선택지의
 // action을 `null`로만 받는다. `recommendPlaces`·`settingChangeQuestion`이 만든
 // draft의 고정 action은 이 모듈의 draft 제출 값으로 그대로 실리고, hash·CAS는
 // draft 함수가 만든 것을 바꾸지 않는다. 모델이 고르는 것은 대상·값 후보뿐이다.

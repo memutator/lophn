@@ -14,7 +14,7 @@ export type JsonValue =
 
 export type JsonDocument = { [key: string]: JsonValue };
 
-// 깨진 설정은 고치지 않고 그 사실을 돌려준다(R8 확인).
+// 깨진 설정은 고치지 않고 그 사실을 돌려준다.
 export type ParseFailure = { kind: "broken" };
 
 export type SetOutcome =
@@ -103,7 +103,7 @@ function setKey(
   return { kind: "changed", text: write(parsed.value, text) };
 }
 
-// 소유 key만 지운다(R8 제거). 주변 key는 남긴다. 없으면 무변경이다.
+// 소유 key만 지운다. 주변 key는 남긴다. 없으면 무변경이다.
 function removeKey(text: string, key: string): SetOutcome {
   const parsed = parseJson(text);
   if (!parsed.ok) return parsed.error;

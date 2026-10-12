@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
-// R5 완료 검사. FK 위반이 없고 무결성이 통과하며 불변 보호 trigger가 남아 있다.
+// 완료 검사. FK 위반이 없고 무결성이 통과하며 불변 보호 trigger가 남아 있다.
 // 표는 어떤 schema가 있는지 migration이 모르므로 검사에 넣는다. step이 부른 표의
 // trigger는 사람이 migration 밖에서 해제했는지 sqlite_master로 본다.
 export type MigrationVerification = {
@@ -14,7 +14,7 @@ export type MigrationVerification = {
 
 const DEFAULT_KINDS = ["no_update", "no_delete"] as const;
 
-// R5 완료 검사. FK 위반이 없고 무결성이 통과하며 불변 보호 trigger가 남아 있다.
+// 완료 검사. FK 위반이 없고 무결성이 통과하며 불변 보호 trigger가 남아 있다.
 export function verifyMigrated(
   sql: Sql,
   verification: MigrationVerification,

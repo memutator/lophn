@@ -298,7 +298,7 @@ async function readWhole(
   return ok(whole);
 }
 
-// documents/outline-and-search#R15: reader의 읽기가 추출 안 됨(unverified)으로 답한 고정 판은
+// reader의 읽기가 추출 안 됨(unverified)으로 답한 고정 판은
 // 무관한 ledger 쓰기나 전체 index 반영을 기다리지 않고 그 판을 직접 추출해 답한다. reader가
 // 권한을 판정한 계획대로 core가 blob-store 인가·hash 검사를 거쳐 대표 파일 바이트를 읽고, reader가
 // 이번 응답에만 추출한다. 어디서든 막히면 처음의 unverified 답을 그대로 낸다(꾸미지 않는다).
@@ -397,7 +397,7 @@ export function servedWorkers(
           if (!ran.ok) {
             return failed(workerCode(ran.error.code), ran.error.message);
           }
-          // documents/outline-and-search#R14: feed는 documents event만 받으므로, 그 밖의 ledger 쓰기로
+          // feed는 documents event만 받으므로, 그 밖의 ledger 쓰기로
           // head가 앞서간 index는 다음 documents event까지 뒤처진 채 머문다. 뒤처진 답을 본 읽기가
           // index를 깨워 자기 자리부터 head까지 따라잡게 한다(다음 읽기가 채워진 답을 본다).
           const coverage = (ran.value as { coverage?: { lagging?: unknown } })

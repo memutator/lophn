@@ -226,8 +226,8 @@ function findOwnedRange(
     if (parent === null) return null;
     const childIndent = indent + 2;
     const parentEnd = blockEnd(lines, parent);
-    // 상위 블록 몸 안에서 다음 조각을 찾는다. 다음 key는 있던 것이다(R8은
-    // 상위 블록을 보존하므로 parentEnd까지 본다).
+    // 상위 블록 몸 안에서 다음 조각을 찾는다. 다음 key는 있던 것이다(상위 블록을
+    // 보존하므로 parentEnd까지 본다).
     const child = findSegment(
       lines,
       parent + 1,
@@ -383,7 +383,7 @@ export function setOwned(
   return { kind: "changed", text: rendered(added) };
 }
 
-// 소유 key만 지운다(R8 제거). 없으면 무변경이다. 다른 key와 그 사이 빈 줄도
+// 소유 key만 지운다. 없으면 무변경이다. 다른 key와 그 사이 빈 줄도
 // 그대로 둔다.
 export function removeOwned(text: string, key: string): SetOutcome {
   const parsed = parseYaml(text);

@@ -3,7 +3,7 @@
 // 한 블록의 실패·빈 값·열 수 없는 출처가 다른 블록이나 입력을 막지 않는다. 틀은 focus를 스스로
 // 옮기지 않고 scroll을 건드리지 않는다.
 //
-// 문서로 남기기는 별도 저장 contract가 없다(lophn-agent Q45 (6)). 버튼은 "이 블록을 문서로 남겨
+// 문서로 남기기는 별도 저장 contract가 없다. 버튼은 "이 블록을 문서로 남겨
 // 달라"는 요청을 대화 입력으로 보내고, agent가 visual.prepare_document와 문서 tool로 준비·저장한다.
 // 고정 문서 링크는 그 요청에 답한 메시지의 결과 링크에서 온다.
 import { Component, type ReactNode, useMemo, useRef, useState } from "react";

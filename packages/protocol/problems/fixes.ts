@@ -9,7 +9,7 @@ import { withReadCommon } from "../base/envelope.ts";
 const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;
 
-// repairs#R1, R2: before와 다른 준비된 after, 공백 아닌 설명, 결과 목록은 비어도 된다.
+// before와 다른 준비된 after, 공백 아닌 설명, 결과 목록은 비어도 된다.
 export const fixRecordSchema = z.object({
   before: idSchema("rel"),
   after: idSchema("rel"),

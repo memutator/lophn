@@ -239,7 +239,7 @@ export const applySettingsInputSchema = z.strictObject({
       new Set(changes.map((change) => change.key)).size === changes.length,
     { message: "duplicate setting mutations" },
   ),
-  // machine apply만 쓰는 질문 근거(platform#T24 모양). 사람 apply는 생략한다.
+  // machine apply만 쓰는 질문 근거다. 사람 apply는 생략한다.
   evidence: z.strictObject({
     question: idSchema("qst"),
     option: z.string().min(1),

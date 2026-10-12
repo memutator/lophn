@@ -199,7 +199,7 @@ export function BackupPanel({ source }: BackupPanelProps) {
 
   async function moveApp(): Promise<void> {
     // 별도 앱 export. 대상은 Catalog의 첫 앱이 아니라 사람이 고른 앱이다; 이 panel에는
-    // 고르는 입력칸이 없어 catalog의 이름 순서 첫 앱을 그대로 청한다(apps#T28 화면).
+    // 고르는 입력칸이 없어 catalog의 이름 순서 첫 앱을 그대로 청한다.
     const list = await source.apps();
     if (!list.ok || list.value.length === 0) {
       setMoved({ kind: "failed" });

@@ -1,5 +1,5 @@
-// I/O worker의 blob GC 파일 작업(blob contract, platform/blob-store#R8–R11,
-// R13). 관측·실제 삭제는 이 worker만 한다. core는 판정값만 받고 파일을 열지
+// I/O worker의 blob GC 파일 작업(blob contract).
+// 관측·실제 삭제는 이 worker만 한다. core는 판정값만 받고 파일을 열지
 // 않는다. backup 중(backup.pending 표시가 남은 folder가 있으면) GC 불가다.
 // 삭제는 새 준비를 막은 뒤(새 준비·command 차단) 고정 blob_refs 전체와 대조한다.
 
@@ -27,7 +27,7 @@ export type GcObservation = {
   backupPending: number;
 };
 
-// GC 결과. R11의 구별. 참조 차단·반환 차단·OS 삭제·사본 잔존을 혼동하지 않는다.
+// GC 결과. 참조 차단·반환 차단·OS 삭제·사본 잔존을 혼동하지 않는다.
 export type GcOutcome = {
   // 유예기간 뒤 실제로 지운 hash(OS 삭제).
   deleted: readonly string[];

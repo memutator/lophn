@@ -21,7 +21,7 @@ export const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const BACKUP_MANIFEST_NAME = "manifest.json";
 
 // 만들기가 끝나기 전 folder에 두는 표시. GC·삭제는 이것이 남아 있으면 대상에서
-// 뺀다(문을 여는 것은 T44). manifest 설치와 함께 뗀다.
+// 뺀다. manifest 설치와 함께 뗀다.
 export const BACKUP_PENDING_NAME = "backup.pending";
 
 // 폴더 이름 stamp. 복구본 stamp와 같은 filename-safe UTC 형식 하나다.
@@ -316,7 +316,7 @@ async function installManifest(
 // 하루 backup 만들기. SQLite online backup(VACUUM INTO)이 일관된
 // snapshot S를 만들고, S 안의 blob_refs를 읽어 blob을 복사·검증한 뒤 manifest를
 // 설치한다. 중간이 실패하면 manifest 전이므로 아무것도 complete되지 않는다.
-// 만들기 중 GC·삭제 막기는 backup.pending 표시로 보인다(T44가 문을 연다).
+// 만들기 중 GC·삭제 막기는 backup.pending 표시로 보인다.
 export async function createBackup(
   ledgerPath: string,
   deps: BackupDeps,

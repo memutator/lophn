@@ -888,7 +888,7 @@ export async function runPlatformIo(root: string): Promise<void> {
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
     catalog: { components: ["platform/core", "platform/io"], locations: {} },
-    // Product authority is supplied by core/T9 composition, not inferred from hello.
+    // Product authority is supplied by the core entry composition, not inferred from hello.
     currentAuthority: () => undefined,
     // 보호 입력은 OS keychain adapter로만 간다. 준비 증거는
     // 응답으로 core에 돌려주고 core의 writer가 ledger에 남긴다: 이 worker는 ledger를 쓰지 않고
@@ -900,14 +900,14 @@ export async function runPlatformIo(root: string): Promise<void> {
       }),
     }),
   });
-  // 하루 backup은 I/O worker의 몫이다(platform/backup-and-migration#R9,
-  // responsiveness#R1). core command 흐름 밖에서 주기 check를 돌리고, 차례면
+  // 하루 backup은 I/O worker의 몫이다.
+  // core command 흐름 밖에서 주기 check를 돌리고, 차례면
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
   const backup = createBackupTick(root);
   const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
   // blob GC 관측. 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
   // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은
-  // 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced, R9: 참조를
+  // 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced: 참조를
   // 모르는 상태의 기록은 유예기간의 근거를 흐트러뜨린다). 기록 남기기·지우기는
   // 참조를 아는 관측(collectGarbage)의 몫이다. 기록 실패·관측 실패가 session을
   // 끝내지 않는다: 다음 check가 다시 본다.

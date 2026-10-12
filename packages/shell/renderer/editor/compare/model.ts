@@ -1,5 +1,5 @@
-// 버전 비교 화면의 순수 규칙. 줄 diff 계산은 documents가 한다
-// (documents/outline-and-search#R21). 여기서는 documents가 준 추가·삭제 줄과 두 판의 대표
+// 버전 비교 화면의 순수 규칙. 줄 diff 계산은 documents가 한다.
+// 여기서는 documents가 준 추가·삭제 줄과 두 판의 대표
 // 텍스트(같은 줄 좌표)를 줄 목록으로 맞추고, 접기·나란히 짝·바뀐 절 목록만 정한다.
 import type {
   ChangeRun,

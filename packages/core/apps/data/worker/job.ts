@@ -17,7 +17,7 @@ import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
 import { contained, insideDataArea } from "./paths.ts";
 import { restoreAppBackup } from "./restore.ts";
 
-// migration 자식에 있으면 안 되는 권한. T3 flag를 그대로 쓴다.
+// migration 자식에 있으면 안 되는 권한. migrationFlags의 flag를 그대로 쓴다.
 const FORBIDDEN_FLAGS = [
   "--allow-net",
   "--allow-env",
@@ -76,7 +76,7 @@ async function resolveInside(
     : invalid("path leaves the data area");
 }
 
-// migration 자식의 권한 경계. T3의 migrationFlags 결과에서 금지 flag를 확인한다.
+// migration 자식의 권한 경계. migrationFlags 결과에서 금지 flag를 확인한다.
 export function migrationChildFlags(
   app: { bundle: string; data: string },
   protectedDenies: readonly string[],

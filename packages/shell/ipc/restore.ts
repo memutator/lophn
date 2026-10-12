@@ -1,6 +1,6 @@
 // settings 화면의 backup 복원 통로. renderer는 복원 계획(잃을 최신 기록 범위)과 결과만
-// 받고 handle 원문·pipe frame은 이 파일과 main에만 있다(platform/backup-and-migration#R13,
-// shell/wording#R12). 이 파일은 main·preload·renderer가 함께 부르므로 import가 없다.
+// 받고 handle 원문·pipe frame은 이 파일과 main에만 있다.
+// 이 파일은 main·preload·renderer가 함께 부르므로 import가 없다.
 
 /** renderer가 main에 복원 계획을 묻는 요청. 대상은 묶음(`created_at`) 하나다. */
 export const RESTORE_PLAN_CHANNEL = "shell:restore-plan";

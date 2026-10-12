@@ -161,7 +161,7 @@ export function handleCloseProblemVerified(
   if (expectedSeq !== input.problem_seq) {
     return conflict("문제가 바뀌었다");
   }
-  // 이미 닫힌 문제는 다시 닫지 않는다(R14: 근거 연결과 CAS를 먼저 검사한다.
+  // 이미 닫힌 문제는 다시 닫지 않는다(근거 연결과 CAS를 먼저 검사한다.
   // 없는 Verification·없는 문제는 같은 not_found다).
   if (problemRow.status === "closed") {
     return conflict("이미 닫혔다");
@@ -179,7 +179,7 @@ export function handleCloseProblemVerified(
     `update problems set status = 'closed', closure = ? where id = ?`,
     [JSON.stringify(closure), input.problem],
   );
-  // 닫을 때 ProblemClosed event를 낸다(platform#T39 이어받음). 근거별 닫힘이다.
+  // 닫을 때 ProblemClosed event를 낸다. 근거별 닫힘이다.
   tx.emit(problemClosed, input.problem, {
     previous_status: problemRow.status,
     closure,

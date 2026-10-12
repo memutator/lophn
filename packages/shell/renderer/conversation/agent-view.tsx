@@ -297,7 +297,7 @@ export function AgentView(props: AgentViewProps) {
     );
   };
 
-  // 시각 블록을 문서로 남겨 달라는 요청을 대화 입력으로 보낸다(lophn-agent Q45 (6)). 따로 저장
+  // 시각 블록을 문서로 남겨 달라는 요청을 대화 입력으로 보낸다. 따로 저장
   // contract를 부르지 않고 agent가 visual.prepare_document와 문서 tool로 준비·저장한다. 작성 중인
   // 글과 focus·읽던 위치는 건드리지 않는다.
   const saveVisual = async (request: SaveRequest) => {

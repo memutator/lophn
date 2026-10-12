@@ -52,7 +52,7 @@ function diagnosed(diagnostic: Diagnostic): Classification {
   return { outcome: "platform_diagnostic", diagnostic };
 }
 
-// 어느 쪽 코드인지 정하지 못하면 앱 문제로 넘기지 않는다(P11). 출처 불명 관측으로 남긴다.
+// 어느 쪽 코드인지 정하지 못하면 앱 문제로 넘기지 않는다. 출처 불명 관측으로 남긴다.
 function unattributed(
   component: ProcessKind,
   observedAt: At,

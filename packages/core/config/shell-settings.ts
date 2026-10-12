@@ -1,5 +1,5 @@
-// shell이 core에 등록하는 것. 전역 읽기 폭과 OS notification opt-in 설정 항목이다(contracts#T24
-// settings registry). shell은 이 key를
+// shell이 core에 등록하는 것. 전역 읽기 폭과 OS notification opt-in 설정 항목이다(settings
+// registry). shell은 이 key를
 // settings.get·apply로만 읽고 쓴다.
 import { z } from "zod";
 import { defineSetting } from "../../protocol/config/mod.ts";

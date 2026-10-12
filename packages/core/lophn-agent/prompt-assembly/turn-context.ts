@@ -6,7 +6,7 @@ import type {
 import { wireData } from "../safety/mod.ts";
 import type { TurnContextBasis } from "./model.ts";
 
-// 매 judgment turn의 동적 context다(lophn-agent/harness/prompt-assemble 요구 R25–R28). 호출마다 새로
+// 매 judgment turn의 동적 context다(concern lophn-agent/harness/prompt-assemble). 호출마다 새로
 // 만들고 이전 turn의 값을 기억하지 않는다. 결과 문자열은 포장·8 KiB 제한을 끝낸 하나이거나 null이며
 // `assemblePrompt`가 최신 메시지 끝에 그대로 붙인다.
 

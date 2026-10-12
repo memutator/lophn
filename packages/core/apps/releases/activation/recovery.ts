@@ -1,5 +1,5 @@
-// activation의 실패 복원과 끊긴 시도의 이어받기(apps/data#R9, R11, R12, apps/releases#R15,
-// architecture/apps 7.4, 8장). 새 업무 통로를 열기 전의 실패만 backup으로 복원하고, ledger가 이미 새
+// activation의 실패 복원과 끊긴 시도의 이어받기(architecture/apps 7.4, 8장). 새 업무 통로를 열기
+// 전의 실패만 backup으로 복원하고, ledger가 이미 새
 // release를 채택했으면 옛 backup으로 데이터를 덮지 않는다. 복원이 실패하거나 확인되지 않으면 이전 코드도
 // 시작하지 않고 문제로 보고한다.
 import type { Sql } from "../../../../protocol/server/mod.ts";
@@ -110,7 +110,7 @@ async function restartPrevious(
   return started.ok ? "started" : "not_started";
 }
 
-// 끊긴 시도를 ledger와 실제 관측으로 잇는다(platform#T43의 재시작 점검 뒤, 응답 유실, supervisor·core 재시작).
+// 끊긴 시도를 ledger와 실제 관측으로 잇는다(재시작 점검 뒤, 응답 유실, supervisor·core 재시작).
 // ledger가 새 release를 채택했으면 데이터를 복원하지 않고 그 release를 다시 준비한다. 진행 중이면 시도가
 // 데이터를 바꿨을 수 있으므로 알려진 backup으로만 복원하고 모르는 script를 다시 적용하지 않는다.
 export async function recoverActivation(

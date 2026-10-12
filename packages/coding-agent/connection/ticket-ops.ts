@@ -73,8 +73,8 @@ type ShownTicket = {
 };
 type CheckRow = { condition?: number; result?: string };
 
-// 완료 주장·보고 접수·확인 실패·approval 대기·activation·문제 정상 확인을 따로 읽는다(mcp#R28,
-// cli#R36). 보고만으로 confirmed나 문제 닫힘을 만들지 않는다: 이 값은 모두 원래 ticket의 읽기에서
+// 완료 주장·보고 접수·확인 실패·approval 대기·activation·문제 정상 확인을 따로 읽는다.
+// 보고만으로 confirmed나 문제 닫힘을 만들지 않는다: 이 값은 모두 원래 ticket의 읽기에서
 // 온다. 조건이 없으면 not_required, 읽지 못하면 unread다.
 function followUp(
   shown: Result<unknown, LophnError>,

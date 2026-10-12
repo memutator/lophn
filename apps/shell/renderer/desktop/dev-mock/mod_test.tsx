@@ -19,9 +19,14 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const projects = await mock.launcher.projects();
   assert(projects.ok && projects.value.length >= 2);
 
-  const providers = await mock.settings.providers();
+  const providers = await mock.settingsPanels.providers!.connected();
   assert(providers.ok && providers.value.length >= 2);
   assert(providers.value.some((row) => row.accounts.length > 0));
+  const available = await mock.settingsPanels.providers!.available();
+  assert(available.ok && available.value.length >= 2);
+  const agents = await mock.settingsPanels.agents!.read();
+  assert(agents.ok && agents.value.providers.length >= 1);
+  assert(agents.value.defaults.lophn !== null);
 
   const apps = await mock.apps.list();
   assert(apps.ok && apps.value.length >= 1);

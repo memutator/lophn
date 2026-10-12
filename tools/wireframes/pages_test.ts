@@ -128,7 +128,6 @@ Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 �
     ) => page.title.split(" · ")[0]),
   );
   assertEquals(groups, new Set(["Agent", "Workspace"]));
-  assert(fresh.every((page) => page.screen !== "conversation-dock"));
   // agent 대화 탭 kind의 이름은 Agent다(Conversation이 아니다).
   assert(
     !fresh.some((page) =>

@@ -88,7 +88,6 @@ export type ScreenId =
   | "project-terminal"
   | "project-app-panel"
   | "app-space"
-  | "conversation-dock"
   | "new-tab-kinds"
   | "new-tab-menu"
   | "new-context-overview"
@@ -463,13 +462,6 @@ export const PAGES: readonly WireframePage[] = [
     ["connect-apps", "report-app-problem"],
     "앱 공간. 상단 바에 앱 이름과 [Report a problem], 본문에 앱 view, 운영 탭(Tasks·Issues 등). 앱 view는 안내 상자로 그린다.",
     "app-space",
-  ),
-  now(
-    "conversation-dock",
-    "Conversation dock",
-    ["ask-lophn-help"],
-    "공간 오른쪽에 여는 대화 도크. lophn과 나눈 말, 시각 블록(표·차트), 결과 문서 링크가 보인다.",
-    "conversation-dock",
   ),
   fresh(
     "new-project-tabs",

@@ -216,9 +216,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
     />
   ),
   "app-space": () => <MockDesktop route={openApp(APP_BUDGET)} />,
-  "conversation-dock": () => (
-    <MockDesktop route={openLophn("projects")} dockOpen />
-  ),
   "new-tab-kinds": () => <TabKinds />,
   "new-tab-menu": () => <NewTabMenu />,
   "new-context-overview": () => <ContextOverview />,

@@ -112,7 +112,7 @@ Deno.test("shell/desktop#R9 [I45]: 실제 core에서 things-to-confirm은 세션
       assert(rows[0]!.textContent?.includes("A decision is waiting"));
       assert(rows[1]!.textContent?.includes("A question is waiting"));
       assert(rows[2]!.textContent?.includes("A question is waiting"));
-      assert(rows.every((row) => row.hasAttribute("data-unread")));
+      assert([...rows].every((row) => row.hasAttribute("data-unread")));
       // 세션 없는 묶음의 알림은 그 묶음을 연다. 세션 있는 묶음의 알림은 열 대상이 없다.
       assertEquals(
         (find(rows[1] as HTMLElement, "button") as HTMLButtonElement).disabled,
@@ -183,14 +183,17 @@ Deno.test("lophn-agent/questions#R2 [I45]: 실제 core에서 세션 없는 run�
         ) !==
           null,
     );
-    // 세션 있는 묶음은 이 목록에 없고 세션 없는 묶음 하나만 있다.
-    assertEquals(
-      root.querySelectorAll("[data-tab-panel] ul:not([data-counts]) li").length,
-      1,
+    // 목록에는 세션 없는 묶음 하나와 approval 하나뿐이다. 세션 있는 묶음은 없다.
+    const rows = [
+      ...root.querySelectorAll("[data-tab-panel] ul:not([data-counts]) li"),
+    ];
+    assertEquals(rows.length, 2);
+    const questionRows = rows.filter((row) =>
+      row.textContent?.includes("Question from")
     );
+    assertEquals(questionRows.length, 1);
     act(() => {
-      (find(root, "[data-tab-panel] ul:not([data-counts]) li > button"))
-        .click();
+      find(questionRows[0] as HTMLElement, "button").click();
     });
     await until(
       "묶음 카드",

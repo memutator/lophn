@@ -5,6 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
 import {
   click,
+  focus,
   one,
   pressAsync,
   render,
@@ -372,19 +373,22 @@ Deno.test("shell/desktop#R38 lophn-agent/revert#R15 [agent-RW3e]: header의 Rewi
     }),
   });
   await settle();
-  const select = one(dialog(), "select") as HTMLSelectElement;
-  assertEquals(select.value, M3);
-  assertEquals(
-    [...select.options].map((option) => option.textContent),
-    ["excerpt of 1", "excerpt of 2", "excerpt of 3"],
-  );
+  const trigger = one(dialog(), "[role=combobox]");
+  assertEquals((trigger.textContent ?? "").trim(), "excerpt of 3");
+  assertEquals(trigger.getAttribute("aria-label") ?? "", "");
   await choose("Restore messages only");
   assertEquals(calls.previews.at(-1), [M3, "messages_only"]);
-  act(() => {
-    select.value = M2;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  await settle();
+  // 목록을 열어 한 칸 위(둘째 메시지)를 고른다.
+  focus(trigger);
+  await pressAsync(trigger, "ArrowDown");
+  assertEquals(
+    [...document.querySelectorAll("[role=listbox] [role=option]")].map((
+      option,
+    ) => (option.textContent ?? "").trim()),
+    ["excerpt of 1", "excerpt of 2", "excerpt of 3"],
+  );
+  await pressAsync(document.activeElement!, "ArrowUp");
+  await pressAsync(document.activeElement!, "Enter");
   // 시점을 바꾸면 그 시점에서 막힌 선택지가 달라지고, 고른 범위의 preview를 다시 읽는다.
   assertEquals(calls.previews.at(-1), [M2, "messages_only"]);
   assertEquals(radios()[0]!.getAttribute("aria-disabled"), "true");
@@ -395,7 +399,7 @@ Deno.test("shell/desktop#R38 lophn-agent/revert#R15 [agent-RW3e]: header의 Rewi
 Deno.test("lophn-agent/revert#R15 [agent-RW3e]: 메시지에서 연 menu에는 시점을 고르는 칸이 없다", async () => {
   const { view } = mount({ message: M1 });
   await settle();
-  assertEquals(dialog().querySelector("select"), null);
+  assertEquals(dialog().querySelector("[role=combobox]"), null);
   view.unmount();
   await settle();
 });

@@ -206,6 +206,7 @@ function ledger() {
       id text primary key, session text not null, actor text not null,
       mode text, copied_from text, created_seq integer not null
     );
+    create table tool_calls (id text primary key);
   `);
   for (const step of revertSchemaSteps) db.exec(step.sql);
   const sql = {

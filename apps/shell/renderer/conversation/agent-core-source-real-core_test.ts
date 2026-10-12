@@ -296,7 +296,7 @@ Deno.test("lophn-agent/revert#R16 lophn-agent/conversation#R25 [agent-RW3e]: 실
   }
 });
 
-Deno.test("lophn-agent/revert#R16 [agent-RW3e]: 실제 core: 다음 메시지 전에 Redo하면 숨긴 줄이 풀려 메시지가 다시 보이고 두 번째 Redo는 거절된다", async () => {
+Deno.test("lophn-agent/revert#R16 [agent-RW3e]: 실제 core: 다음 메시지 전에 Redo하면 숨긴 줄이 풀려 메시지가 다시 보이고 같은 Redo를 다시 보내도 한 번만 적용된다", async () => {
   const core = await startRealCore({ entry: REWIND_CORE });
   try {
     const source = await rewoundSource(core);
@@ -316,10 +316,14 @@ Deno.test("lophn-agent/revert#R16 [agent-RW3e]: 실제 core: 다음 메시지 �
       after.value.entries.some((entry) => entry.kind === "hidden"),
       false,
     );
+    // 같은 Redo를 다시 보내도 한 번만 적용된다(저장된 결과를 돌려준다).
     assertEquals(await source.redoRewind(REWIND_SESSION, REWIND_REVERT), {
-      ok: false,
-      code: "conflict",
+      ok: true,
+      value: undefined,
     });
+    const again = await source.thread(REWIND_SESSION);
+    assert(again.ok);
+    assertEquals(again.value.entries.length, after.value.entries.length);
     // 되돌리기 전의 입력 원문도 그대로 읽힌다.
     const body = await source.body(REWIND_FIRST);
     assertEquals(body, {

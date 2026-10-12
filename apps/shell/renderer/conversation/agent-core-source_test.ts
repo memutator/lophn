@@ -2293,8 +2293,7 @@ function rewindWorld(over: Handlers = {}): Handlers {
         version: { id: VER2, document: DOC, number: 1 },
         ...META,
       }),
-    "worker:documents/read": () =>
-      ok({ text: "a\nb\n", next_cursor: null, ...META }),
+    "worker:documents/read": () => ok({ text: "a\nb\n", ...META }),
     "read:rewind/checkpoints": () =>
       ok({
         checkpoints: [checkpointEntry(1), checkpointEntry(3, {}, 31)],
@@ -2305,9 +2304,6 @@ function rewindWorld(over: Handlers = {}): Handlers {
     ...over,
   });
 }
-
-const kindsOf = (view: ThreadView) =>
-  view.entries.map((entry) => [entry.kind, entry.id]);
 
 test("lophn-agent/revert#R16 [agent-RW3e]: 되돌린 구간(boundary_seq부터 result_seq까지)의 줄은 thread에서 한 줄로 접히고 숨긴 줄은 그 안에 남으며, 그 뒤에 접수한 메시지는 숨기지 않는다", async () => {
   const w = sourceOf(rewindWorld({
@@ -2469,7 +2465,9 @@ test("lophn-agent/revert#R19 [agent-RW3e]: 편집 카드는 같은 run에서 문
 });
 
 test("lophn-agent/revert#R19 [agent-RW3e]: 지금 파일이 다르거나 더 나중 편집이 있어 건너뛰는 call은 비활성이고 그 이유 코드를 준다", async () => {
-  for (const reason of ["edited_outside", "later_edit", "no_pre_image"]) {
+  for (
+    const reason of ["edited_outside", "later_edit", "no_pre_image"] as const
+  ) {
     const w = sourceOf(rewindWorld({
       "read:rewind/preview": () =>
         ok(undoPreviewBody({

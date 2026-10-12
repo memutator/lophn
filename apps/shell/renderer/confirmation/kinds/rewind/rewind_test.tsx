@@ -7,6 +7,7 @@ import {
 } from "../../../../../../packages/design/components/testing.ts";
 import type {
   ConfirmationFrameApi,
+  ConfirmationResult,
   ConfirmationView,
   SubmitResult,
 } from "../../frame/api.ts";
@@ -238,7 +239,7 @@ Deno.test("shell/confirmation-window#R5: 고를 결정이 없으면 Rewind 버�
 });
 
 Deno.test("lophn-agent/revert#R3 lophn-agent/revert#R11: 결과는 실제 적용·접수·부분·모름·막힘을 구별해 말한다", async () => {
-  const cases: [SubmitResult["result"], string][] = [
+  const cases: [ConfirmationResult, string][] = [
     ["applied", "Rewound."],
     ["applying", "undoing the app changes"],
     ["partial", "Some of it was rewound."],

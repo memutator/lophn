@@ -89,6 +89,14 @@ function preview(
     });
 }
 
+// 결정 자체가 적용인 command의 결과. secret 저장 영수증에는 없다.
+function resultOf(sent: { ok: boolean; value?: unknown }): unknown {
+  return sent.ok && sent.value !== undefined &&
+      "result" in (sent.value as object)
+    ? (sent.value as { result: unknown }).result
+    : undefined;
+}
+
 let serial = 0;
 const state = () => rewindState(() => id("rvt", ++serial));
 
@@ -406,7 +414,7 @@ test("lophn-agent/revert#R11: 이어 실행이 닿지 못해도 접수는 남아
     content: content(),
     summaryCall: null,
   });
-  assert.equal(sent.ok && sent.value.result, "applying");
+  assert.equal(resultOf(sent), "applying");
 });
 
 test("lophn-agent/revert#R7: 사람이 본 목록이 바뀌었으면 core가 blocked로 기록한다고 알린다", async () => {
@@ -427,7 +435,7 @@ test("lophn-agent/revert#R7: 사람이 본 목록이 바뀌었으면 core가 blo
     content: content(),
     summaryCall: null,
   });
-  assert.equal(sent.ok && sent.value.result, "blocked");
+  assert.equal(resultOf(sent), "blocked");
 });
 
 test("lophn-agent/revert#R15: 실행 중인 work가 있으면 core의 conflict를 그대로 돌려주고 결과를 모르면 receipt만 다시 본다", async () => {
@@ -467,9 +475,10 @@ test("shell/confirmation-window#R4: kinds는 lophn-agent/revert의 Rewind를 이
         replayed: false,
       }),
   });
+  let tick = 1_000;
   const kinds = createKinds({
     core: () => fake,
-    clock: { now: () => 1_000 },
+    clock: { now: () => tick += 1_000 },
     random: (bytes) => bytes,
   });
   const read = await kinds.canon.read(intent("restore_all"), "cfw_1");
@@ -493,7 +502,10 @@ test("shell/confirmation-window#R4: kinds는 lophn-agent/revert의 Rewind를 이
   const first = (read.value.content as { id: string }).id;
   kinds.closed("cfw_1");
   const again = await kinds.canon.read(intent("restore_all"), "cfw_1");
-  assert.notEqual(again.ok && (again.value.content as { id: string }).id, first);
+  assert.notEqual(
+    again.ok && (again.value.content as { id: string }).id,
+    first,
+  );
 });
 
 test("lophn-agent/revert#R8: revert id는 rvt_ 뒤에 26글자 ULID다", () => {

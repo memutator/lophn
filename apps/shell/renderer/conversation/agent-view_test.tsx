@@ -395,7 +395,7 @@ Deno.test("shell/desktop#R48 lophn-agent/revert#R15 [agent-RW3e]: Rewind to here
   // the button opens a menu; it does not rewind by itself.
   const dialog = find(document.body, "[role=dialog]");
   assertEquals(fake.calls.rewinds, []);
-  assertEquals(dialog.querySelector("select"), null);
+  assertEquals(dialog.querySelector("[role=combobox]"), null);
   const choice = [...dialog.querySelectorAll<HTMLElement>("[role=radio]")]
     .find((radio) => text(radio).startsWith("Restore messages only"))!;
   click(choice);
@@ -424,7 +424,7 @@ Deno.test("shell/desktop#R48 lophn-agent/revert#R15 [agent-RW3e]: Rewind to here
   await pickMore(2);
   await flush();
   const header = find(document.body, "[role=dialog]");
-  assertEquals(find(header, "select").tagName, "SELECT");
+  find(header, "[role=combobox]");
   click(find(header, "[data-rewind-cancel]"));
   await flush();
   assertEquals(fake.calls.rewinds.length, 1);

@@ -19,6 +19,7 @@ import { EVENTS } from "./mod.ts";
 
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+const QGR = "qgr_01arz3ndektsv4rrffq69g5fav";
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const HASH = "ab".repeat(32);
 
@@ -68,6 +69,27 @@ Deno.test(
     assert(
       confirmationRequestSchema.safeParse({
         kind: "question_option_action",
+        group: QGR,
+        question: QST,
+        option_key: "keep",
+        created_seq: "4",
+        binding_hash: HASH,
+      }).success,
+    );
+    // 고정 action 답은 묶음을 정본으로 가리킨다. 질문 id만 든 옛 모양은 받지 않는다.
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "question_option_action",
+        question: QST,
+        option_key: "keep",
+        created_seq: "4",
+        binding_hash: HASH,
+      }).success,
+    );
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "question_option_action",
+        group: QST,
         question: QST,
         option_key: "keep",
         created_seq: "4",

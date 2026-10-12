@@ -75,9 +75,10 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     // 계속 허락(Always)은 없다(platform/approvals#R18).
     preselect: z.enum(["allow_once", "allow_session", "deny"]).optional(),
   }),
+  // 고정 action 선택지는 질문 하나짜리 묶음에만 있다. 정본 참조는 묶음이다.
   z.strictObject({
     kind: z.literal("question_option_action"),
-    question: idSchema("qst"),
+    group: idSchema("qgr"),
     option_key: z.string().min(1),
   }),
   z.strictObject({
@@ -123,8 +124,10 @@ export const confirmationRequestSchema = z.discriminatedUnion("kind", [
     created_seq: seqSchema,
     binding_hash: sha256Schema,
   }),
+  // `question`은 묶음의 유일한 질문이다. main이 정본에서 채워 action 답의 evidence에 쓴다.
   z.strictObject({
     kind: z.literal("question_option_action"),
+    group: idSchema("qgr"),
     question: idSchema("qst"),
     option_key: z.string().min(1),
     created_seq: seqSchema,

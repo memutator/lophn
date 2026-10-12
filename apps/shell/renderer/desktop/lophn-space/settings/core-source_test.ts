@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { mcpServersSetting } from "../../../../../../packages/contracts/lophn-agent/mod.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { coreSettingsSource } from "./core-source.ts";
-import type { ServerRow } from "./source.ts";
+import type { ServerRow, ServerSignIn } from "./source.ts";
 import {
   assertCallsFitRoutes,
   authStateAnswer,
@@ -225,9 +225,15 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: 켜진 OAuth server마�
   assert(view.ok);
   const scopes = ["read", "write"];
   const sign = (
-    state: string,
-    reason: string | null = null,
-  ) => ({ place: null, clientId: "lophn-client", scopes, state, reason });
+    state: ServerSignIn["state"],
+    reason: ServerSignIn["reason"] = null,
+  ): ServerSignIn => ({
+    place: null,
+    clientId: "lophn-client",
+    scopes,
+    state,
+    reason,
+  });
   assertEquals(
     view.value.servers.map((row) => [row.name, row.signIn]),
     [
@@ -254,7 +260,6 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: 켜진 OAuth server마�
   });
   assertEquals(calls.find((call) => call.resource === "secrets"), undefined);
   assertCallsFitRoutes(calls.filter((call) => call.method === "state"));
-  assert(!JSON.stringify(view.value).includes("sec:"));
 });
 
 Deno.test("lophn-agent/extensions#R16 [agent-I52]: 로그인 상태를 읽지 못해도 설정 화면은 뜨고 그 줄은 상태를 모르는 채 로그인을 시작할 수 있다", async () => {

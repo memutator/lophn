@@ -8,6 +8,8 @@ import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { mcpTokenRef } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createFakeKeychain } from "../../packages/platform/secrets/mod.ts";
+import { machineCall } from "../agent-runtime/core-http.ts";
+import { startMcpAuthPump } from "../agent-runtime/mcp-auth-pump.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
@@ -19,6 +21,14 @@ import { MACHINE_TOKEN, USER_TOKEN } from "./testing/tool-judgment-world.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const ISSUER = "https://issuer.example.test";
+
+// runtime의 machine 자격이다. 발급자 호출을 대신 보내는 두 입구와, 사람 전용 입구를 부르면 거절되는지 보려는
+// 상태 읽기다.
+const MACHINE_OPERATIONS = [
+  "TakeMcpAuthRequest",
+  "FinishMcpAuthRequest",
+  "ReadMcpAuthState",
+];
 
 const USER_OPERATIONS = [
   "SettingsDefinitions",
@@ -80,7 +90,8 @@ async function boot(
   home: string,
   keychain: ReturnType<typeof createFakeKeychain>,
   issuerFetch: (url: string, init: RequestInit) => Promise<Response>,
-  round: string,
+  // 같은 home을 다시 띄울 때는 다른 값이다: 같은 seed는 같은 credential ref를 만들어 기록이 겹친다.
+  generation: number,
 ): Promise<Booted> {
   const clock = manualClock(Date.UTC(2026, 9, 12));
   const started = await startCore({
@@ -95,23 +106,34 @@ async function boot(
       new URL("./documents.ts", import.meta.url).href,
     ],
     clock,
-    random: seededRandom(71),
+    random: seededRandom(71 + generation),
     testCredentials: true,
     secretKeychain: keychain,
-    mcpAuthFetch: issuerFetch,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
   const core = started.value;
   for (
     const [ctx, token] of [
-      [context("machine", ["ReadMcpAuthState"], round), MACHINE_TOKEN],
-      [context("user", USER_OPERATIONS, round), USER_TOKEN],
+      [
+        context("machine", ["ReadMcpAuthState"], `g${generation}`),
+        MACHINE_TOKEN,
+      ],
+      [context("user", USER_OPERATIONS, `g${generation}`), USER_TOKEN],
     ] as const
   ) {
     const accepted = await core.acceptTestCredential?.(ctx, token);
     assert(accepted?.ok, JSON.stringify(accepted));
     assert((await core.record(ctx)).ok);
   }
+  // core에는 외부 fetch가 없으므로 발급자 호출은 runtime의 pump가 대신 보낸다. 제품 runtime과 같은 코드를 같은
+  // machine 입구로 돌린다. 발급자만 이 시험의 localhost server로 바꿔 끼운다.
+  const stopPump = new AbortController();
+  const pumping = startMcpAuthPump({
+    call: machineCall({ port: core.port, credential: () => MACHINE_TOKEN }),
+    fetch: issuerFetch,
+    signal: stopPump.signal,
+    idleMs: 10,
+  });
   return {
     core,
     server: {
@@ -121,7 +143,11 @@ async function boot(
       confirmation: (body) =>
         Promise.resolve(core.confirmation?.(body as never) as never),
     },
-    stop: () => core.shutdown(),
+    stop: async () => {
+      stopPump.abort();
+      await pumping;
+      await core.shutdown();
+    },
   };
 }
 
@@ -193,7 +219,7 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: a real core signs in a g
       url.replace(ISSUER, `http://127.0.0.1:${issuer.addr.port}`),
       init,
     );
-  let booted = await boot(home, keychain, issuerFetch, "one");
+  let booted = await boot(home, keychain, issuerFetch, 1);
   try {
     let { server } = booted;
     const globalTarget = { name: "notes", place: null };
@@ -326,7 +352,7 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: a real core signs in a g
 
     // core를 다시 띄워도 로그인 상태는 keychain과 설정에서 읽힌다.
     await booted.stop();
-    booted = await boot(home, keychain, issuerFetch, "two");
+    booted = await boot(home, keychain, issuerFetch, 2);
     server = booted.server;
     assertEquals(
       await stateOf(server, both),
@@ -359,7 +385,7 @@ Deno.test("lophn-agent/extensions#R16 [agent-I52]: through a real core a waiting
       url.replace(ISSUER, `http://127.0.0.1:${issuer.addr.port}`),
       init,
     );
-  const booted = await boot(home, keychain, issuerFetch, "one");
+  const booted = await boot(home, keychain, issuerFetch, 1);
   try {
     const { server } = booted;
     const target = { name: "notes", place: null };

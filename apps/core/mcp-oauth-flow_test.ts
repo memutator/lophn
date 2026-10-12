@@ -448,6 +448,7 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: a person signs in from b
     // 연결이 저장한 token을 Authorization으로 붙인다.
     const connected = await connect(world, pointed);
     assert(connected.ok, connected.ok ? "" : JSON.stringify(connected.error));
+    assert((await world.connections.toolList("asg-1", "notes")).ok);
     assert(world.mcp.seen.length >= 2);
     for (const header of world.mcp.seen) {
       assertEquals(header, `Bearer ${access}`);
@@ -487,6 +488,9 @@ Deno.test("lophn-agent/extensions#R17 [agent-I52]: when the token expires two as
     // 갱신 요청은 보관한 refresh token을 썼다.
     assert(refreshes[0]!.form.refresh_token!.startsWith("refresh-1-"));
     const latest = world.issuer.issued.at(-1)!;
+    for (const id of ["asg-a", "asg-b"]) {
+      assert((await world.connections.toolList(id, "notes")).ok);
+    }
     assert(world.mcp.seen.length >= 4);
     for (const header of world.mcp.seen) {
       assertEquals(header, `Bearer ${latest}`);
@@ -695,7 +699,7 @@ Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: servers of the same name
   }
 });
 
-Deno.test("lophn-agent/extensions#R16 [agent-I52]: only an enabled http OAuth server registered in the named place can begin, and a keychain that cannot keep the token ends the sign-in as store_failed", async () => {
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: only an http OAuth server registered in the named place can begin, and a keychain that cannot keep the token ends the sign-in as store_failed", async () => {
   const world = await open();
   try {
     world.globalServers = [

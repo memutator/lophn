@@ -13,6 +13,10 @@ import {
   mcpAuthCancelOutputSchema,
   mcpAuthComplete,
   mcpAuthCompleteInputSchema,
+  mcpAuthRequestDone,
+  mcpAuthRequestSchema,
+  mcpAuthRequestTake,
+  mcpAuthResponseSchema,
   mcpAuthSchema,
   mcpAuthState,
   mcpAuthStateInputSchema,
@@ -440,4 +444,63 @@ Deno.test("lophn-agent/extensions#R16 [agent-I52]: a person can cancel a sign-in
     assert(route.errors.every((code) => ERROR_CODES.includes(code)));
     assert(!route.errors.includes("internal"));
   }
+});
+
+Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: the runtime takes issuer requests from core and answers them through two machine-only memory routes with a fixed shape", () => {
+  assertEquals(mcpAuthRequestTake.name, "TakeMcpAuthRequest");
+  assertEquals(mcpAuthRequestDone.name, "FinishMcpAuthRequest");
+  assertEquals(
+    routePath(mcpAuthRequestTake),
+    "/v1/agent-mcp-auth/request-take",
+  );
+  assertEquals(
+    routePath(mcpAuthRequestDone),
+    "/v1/agent-mcp-auth/request-done",
+  );
+  for (const route of [mcpAuthRequestTake, mcpAuthRequestDone]) {
+    assertEquals(route.kind, "memory");
+    // 사람은 이 입구를 부르지 못한다: code·verifier·refresh token이 오가는 길이다.
+    assertEquals(route.actors, ["machine"]);
+    assert(route.errors.every((code) => ERROR_CODES.includes(code)));
+  }
+  const request = {
+    id: "req-1",
+    url: "https://issuer.example.test/token",
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: "grant_type=authorization_code&code=c",
+  };
+  assert(mcpAuthRequestSchema.safeParse(request).success);
+  // https 발급자에 보내는 POST만이다.
+  assert(
+    !mcpAuthRequestSchema.safeParse({ ...request, method: "GET" }).success,
+  );
+  assert(
+    !mcpAuthRequestSchema.safeParse({
+      ...request,
+      url: "http://issuer.example.test/token",
+    }).success,
+  );
+  assert(!mcpAuthRequestSchema.safeParse({ ...request, extra: 1 }).success);
+  assert(
+    !mcpAuthRequestSchema.safeParse({
+      ...request,
+      body: "x".repeat(65_537),
+    }).success,
+  );
+  const take = mcpAuthRequestTake.output;
+  assert(take.safeParse({ request: null }).success);
+  assert(take.safeParse({ request }).success);
+  assert(!take.safeParse({}).success);
+  const response = { status: 200, location: null, body: "{}" };
+  assert(mcpAuthResponseSchema.safeParse(response).success);
+  assert(!mcpAuthResponseSchema.safeParse({ ...response, status: 99 }).success);
+  assert(
+    !mcpAuthResponseSchema.safeParse({ ...response, headers: {} }).success,
+  );
+  const done = mcpAuthRequestDone.input;
+  assert(done.safeParse({ id: "req-1", response }).success);
+  // 발급자에 닿지 못한 경우는 응답이 null이다.
+  assert(done.safeParse({ id: "req-1", response: null }).success);
+  assert(!done.safeParse({ id: "", response }).success);
 });

@@ -97,7 +97,7 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 | `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영 |
 | `harness/run-loop/` | `runs` | 진행 하나, 고정 basis, 정상 종료와 correction 순서 |
 | `harness/waiting-and-recovery/` | `run_wait_resolutions` | 요청 생성·waiting 연결; `(run,request,decision_seq)` 한 번 반영 |
-| `harness/provider/` | `providers`, `provider_credentials`, `provider_credential_model_blocks` | secret 참조 판·순서·대기 시각·credential/model별 제한 |
+| `harness/provider/` | `providers`, `provider_credentials`, `provider_credential_model_blocks` | provider당 credential 하나의 secret 참조 판·대기 시각·model별 제한 |
 | `harness/model/` | `agent_model_defaults`, `model_favorites` | role별 기본 model·option과 요약용 model(Workspace 층), 즐겨찾기 |
 | `harness/tools/` | `tool_calls` | complete 응답의 request key; ledger 업무 변경과 call 성공 |
 | `harness/usage/` | `model_calls`, `model_call_supplements` | 실제 전송 시도마다 시작·완료; 늦은 사실은 append |
@@ -257,19 +257,14 @@ runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 ru
 | model defaults read | `/v1/agent-model-defaults/read` | slot별 기본값·선택 근거 |
 | ChangeModelFavorites | `/v1/agent-model-favorites/change` | user·이전 설정 seq·순서 있는 `(provider, model_name)` 목록 |
 | catalog read/refresh | `/v1/agent-model-catalog/read`, `/v1/agent-model-catalog/refresh` | read는 derived 상태; user refresh는 runtime 작업, 공개 fetch 뒤 정상본만 적용 |
-| RegisterProvider | `/v1/providers/register` | user·definition·불변 endpoint·명시 protocol |
-| ChangeProvider | `/v1/providers/change` | user·provider revision·이름/enabled |
-| RegisterProviderCredential | `/v1/provider-credentials/register` | user·보관 성공 secret 참조·확인 계정·중복 근거·provider revision |
-| ChangeProviderCredentials | `/v1/provider-credentials/change` | user·provider/credential revision·교체/회수/enabled/전체 순서 |
+| RegisterProvider | `/v1/providers/register` | user·definition·불변 endpoint·명시 protocol·인증 방식·보관 성공 secret 참조(Connect) |
+| DisconnectProvider | `/v1/providers/disconnect` | user·확인 창 증거·provider revision; provider와 credential(secret) 함께 삭제 |
 | RefreshProviderCredential | `/v1/provider-credentials/refresh-result` | machine·이전 credential revision·보관된 새 참조/expiry 또는 안전한 불가 상태 |
 | RecordProviderAvailability | `/v1/provider-credentials/record-availability` | credential revision·model?·until·안전한 이유 |
-| RecordProviderCheck | `/v1/providers/record-check` | 명시 user test 근거·credential revision·실제 call 결과 |
-| provider read/list | `/v1/providers/read`, `/v1/providers/list` | 안전한 목적지·protocol·enabled·credential 이름표/상태; 값 없음 |
-| credential list | `/v1/provider-credentials/list` | provider·순서·revision·계정·usage_wait/model block; 값 없음 |
+| provider read/list | `/v1/providers/read`, `/v1/providers/list` | 안전한 목적지·protocol·credential 상태(available/usage_wait/rejected/revoked)·model block; 값 없음 |
 | OAuth begin/complete/cancel | `/v1/providers/login-begin`, `/v1/providers/login-complete`, `/v1/providers/login-cancel` | user만·provider·transient login handle·코드/최종 URL; core는 runtime 제어 작업으로 전달, 입력 저장/echo 없음 |
-| 명시 연결 test | `/v1/providers/test` | user·provider/model/credential 선택·고정 test 재료; 30초 상한·사용량 기록 |
 
-내놓는 event는 `ProviderRegistered`, `ProviderChanged`, `ProviderChecked`, `ModelDefaultsChanged`, `ModelFavoritesChanged`, `ModelCallStarted`, `ModelCallFinished`, `ModelCallSupplemented`다. OAuth의 transient handle·PKCE·device code는 새 ledger entity가 아니다.
+내놓는 event는 `ProviderRegistered`, `ProviderChanged`, `ProviderDisconnected`, `ModelDefaultsChanged`, `ModelFavoritesChanged`, `ModelCallStarted`, `ModelCallFinished`, `ModelCallSupplemented`다. OAuth의 transient handle·PKCE·device code는 새 ledger entity가 아니다.
 
 #### 세 adapter의 실제 번역
 
@@ -283,7 +278,7 @@ provider가 protocol과 endpoint를 명시한다. model 이름이나 OAuth 종�
 
 SSE frame parser는 UTF-8·분할 frame·tool 인자 조각을 해당 protocol의 index/ID로 모으고 원래 요청 순서를 유지한다. transport의 SSE stream과 **MCP의 폐기된 SSE transport fallback**은 다르다. 사람이 읽을 추론 본문은 파서에서 제외한다. 필수 signature/encrypted item만 같은 run/provider/model 메모리 key로 보관하고 persistent response에는 제외한다. 유실 후 state-free input으로 계속 가능한지 검증하지 못하면 configuration_unavailable로 끝낸다. SDK 숨은 retry는 0이다.
 
-API key 대상은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gemini다. Gemini는 Chat Completions 호환만, Ollama·LM Studio·llama.cpp는 loopback Chat Completions다. 원격은 HTTPS와 credential 필수, HTTP/무인증은 `127.0.0.1`, `::1`, `localhost`만이다. provider redirect로 다른 목적지에 credential을 보내지 않는다. endpoint 변경은 새 Provider이고 run을 다른 provider/model로 자동 이동하지 않는다.
+API key 대상은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gemini다. Gemini는 Chat Completions 호환만이다. Ollama·LM Studio·llama.cpp 같은 로컬 서버는 내장 정의가 없고 사람이 직접 추가하는 custom provider(Chat Completions)로만 쓴다. 원격은 HTTPS와 credential 필수, HTTP/무인증은 custom provider의 `127.0.0.1`, `::1`, `localhost`만이다. provider redirect로 다른 목적지에 credential을 보내지 않는다. endpoint 변경은 새 Provider이고 run을 다른 provider/model로 자동 이동하지 않는다.
 
 #### OAuth와 credential 경계
 
@@ -294,9 +289,9 @@ API key 대상은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gem
 - SuperGrok: xAI OIDC discovery, 인증 목적지는 HTTPS `x.ai` 또는 subdomain인지 재검사. device code만, 신원/profile/email/offline/Grok CLI/API 접근 scope만. token은 xAI API만.
 - device poll은 서버 interval·expiry, 미지정 interval은 5초. xAI slow_down은 5초씩 증가, ChatGPT 최대 15분, xAI expiry 없으면 최대 5분. 거절·만료·취소 뒤 등록 없음.
 - refresh는 credential별 runtime single-flight 한 경계에서 만료 60초 전부터 잠금 → 최신 secret/revision 재조회 → 필요할 때만 최대 15초 network → 새 token 보관 → RefreshProviderCredential CAS → 잠금 해제/사용 순서다. 새 refresh token이 없으면 이전 것을 유지한다. 저장 실패면 새 token으로 inference하지 않는다.
-- OAuth 401은 refresh 한 번·동일 요청 재전송 한 번만 허용하고 재전송도 새 ModelCall이다. 재차 401·revoked/reused/expired refresh·계정 불일치와 key 인증 거절은 교체/재로그인 전까지 disabled다. 사용량 대기와 인증 폐기는 다르다.
+- OAuth 401은 refresh 한 번·동일 요청 재전송 한 번만 허용하고 재전송도 새 ModelCall이다. 재차 401·revoked/reused/expired refresh·계정 불일치와 key 인증 거절은 Disconnect 뒤 다시 Connect하기 전까지 disabled다. 사용량 대기와 인증 폐기는 다르다.
 
-실제 계정은 그 provider에 사람이 정한 credential 순서만 쓴다(model 선택은 계정을 고르지 않는다 → lophn-agent/harness/provider). key/OAuth 우선·round-robin·random·최소 사용은 없다. 같은 run의 첫 usable credential에 affinity를 두고 거절·usage_wait·model 불가 때도 같은 provider/model의 뒤 계정만 허용한다. 요약용 model이 다른 provider이면 그 provider의 순서로 affinity를 따로 둔다. 실제 선택·판·이동은 ModelCall에 남긴다. 같은 key 또는 OAuth account+organization 중복은 거절한다.
+provider에는 credential이 하나라 호출 계정을 고르는 규칙이 없다(model 선택은 credential을 고르지 않는다 → lophn-agent/harness/provider). rejected·usage_wait·model 불가면 run은 멈추고 다른 provider/model로 이동하지 않는다. 요약용 model이 다른 provider이면 그 provider의 credential로 따로 호출한다. 실제 판은 ModelCall에 남긴다.
 
 429 retry 시각이 30초 이내로 확인되면 temporary, 그보다 크거나 미상·소진·잔액/지출 한도는 credential usage_wait다. reset까지, reset 미상이면 1시간 유지하고 그 전에 test도 하지 않는다. model 없음/폐기/계정 model 제한은 credential/model 쌍만 막는다. temporary의 같은 입력 retry는 loop가 최초 뒤 최대 2회, 서버 시각 또는 2초·4초로 통제한다. 거절·context·cancel·원인 불명을 다른 계정으로 우회하지 않는다.
 
@@ -349,7 +344,7 @@ confirm=false인 read는 현재 scope·stop을 검증한 실제 contract로 즉�
 
 ### 5.4 prompt·catalog·compaction
 
-model은 층(기본값 < Workspace < 자리 < agent 정의 < session)에서 ModelChoice(provider·model 이름·option 값)를 통째로 가장 높은 층 하나만 고르며 계정은 고르지 않는다. 최초 Workspace 기본값은 모두 null이다. 새 판단·본문은 judgment(resolved agent의 model), 이미 정한 제목·요약·압축은 organizing 용도로 기록하며 organizing은 Workspace의 요약용 model(`summaries`)을 쓰고 비면 같은 agent model을 쓴다. 다른 model이나 계정으로 자동 fallback하지 않으며 합계·schema 검사는 model 호출 0회다. 기본값 변경은 진행 중 run과 이미 고정한 값을 바꾸지 않는다.
+model은 층(기본값 < Workspace < 자리 < agent 정의 < session)에서 ModelChoice(provider·model 이름·option 값)를 통째로 가장 높은 층 하나만 고르며 credential은 고르지 않는다(provider에 하나). 최초 Workspace 기본값은 모두 null이다. 새 판단·본문은 judgment(resolved agent의 model), 이미 정한 제목·요약·압축은 organizing 용도로 기록하며 organizing은 Workspace의 요약용 model(`summaries`)을 쓰고 비면 같은 agent model을 쓴다. 다른 model이나 provider로 자동 fallback하지 않으며 합계·schema 검사는 model 호출 0회다. 기본값 변경은 진행 중 run과 이미 고정한 값을 바꾸지 않는다.
 
 catalog identity는 `(provider_definition, model_name)`이다. release models.dev snapshot → 정상 새 catalog → 좁은 lophn patch → user 명시 보완 순으로 적용한다. provider/model/price 정보는 한 공개 fetch를 공유하고 24시간·ETag conditional GET·명시 refresh를 쓴다. 개인 자료·credential·선택 계정을 보내지 않는다. 깨진 자료·빈 목록·잘못된 알려진 한계/가격은 전체 갱신 거절, 마지막 정상본 유지다. 모르는 token 한계·tool 지원을 추측하지 않고 선택한 provider/model을 catalog 누락 때문에 바꾸지 않는다.
 
@@ -501,23 +496,22 @@ model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미�
 
 일반 메시지는 답/approval이 아니다. 명시 방향 수정은 CorrectWaitingRun으로 옛 요청 취소·input 담당·미시작 call을 함께 정리한다. option action은 저장된 실제 선택만 machine이 owner command로 적용하며 actor=user/run=null, 자유 답은 dispatch가 없다.
 
-### 7.4 로그인·model 선택·refresh → 계정 순서 affinity
+### 7.4 로그인·model 선택·refresh → 하나의 credential
 
 ```
 [shell] 사람 login-begin → [core control] runtime OAuth 작업 전달
    → [runtime] 검증된 client/endpoint·state/PKCE 또는 device poll
    → [platform secret] token 보관 → [core command] credential 참조 등록
    → [shell] 사람이 Workspace 기본·자리·agent 정의·session 중 한 층에서 provider/model 선택 → [core command] ChangeModelDefaults / ChangePlaceAgentSettings / SaveAgent / ChangeSessionModel
-   → [runtime call] 그 provider의 사람 순서 안 첫 usable credential 선택·run affinity
+   → [runtime call] 그 provider의 credential 하나 사용
    → 만료 임박: single-flight 잠금·secret 재조회·refresh(15초)·보관·CAS
    → [core command] StartModelCall → [adapter] 인증 부착·실제 전송
        temporary → 기록 후 같은 input의 유한 retry
        OAuth 401 → refresh 1회 + 새 ModelCall로 동일 요청 1회
-       rejected/usage_wait/model 불가 → availability 기록·같은 provider의 순서 뒤 후보
-       모두 불가 → configuration_unavailable/model_error, 다른 provider로 이동 없음
+       rejected/usage_wait/model 불가 → availability 기록, run 멈춤(configuration_unavailable/model_error), 다른 provider/model로 이동 없음
 ```
 
-설정 조회는 model 호출이 없다. 명시 test만 별도 고정 재료·30초·실제 usage를 남긴다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다.
+설정 조회는 model 호출이 없다. OAuth 회수와 usage_wait는 재시작으로 풀리지 않는다.
 
 ### 7.5 skill·MCP 준비 → 선택 tool 실행
 
@@ -590,7 +584,7 @@ StopRun·assignment pause/withdraw·scope 회수·provider disable은 새 model/
 - 같은 session의 동시 run은 하나이고 다른 session·assignment는 막히지 않으며 8회 양보·session FIFO가 유지된다.
 - record 지연 중 read는 먼저, write는 미시작이며 read 결과 저장 전 새 model 판단은 없다.
 - partial JSON·출력 length·steering·stop·definition 변경·오래된 approval이 tool 진입을 막는다.
-- refresh 동시 요청은 하나, token 저장 실패면 사용 없음, usage_wait 중 test 없음, affinity는 앞 계정으로 돌아가지 않는다.
+- refresh 동시 요청은 하나, token 저장 실패면 사용 없음, usage_wait 중 call 없음, Disconnect는 secret을 지우고 새 호출을 막는다.
 - 자료의 가짜 system/user/approval·물결표·provider 제어 표식·MCP reverse 요청이 권한을 만들지 않는다.
 - 반복 실패·retry·한도·사용량 포함 관계·모름·서로 다른 통화·late supplements를 재기동 전후 비교한다.
 - MCP child 최소 env·절대 executable·shell 문자 literal 전달·detach 5초 종료·이미 전달한 call 재송신 0개를 확인한다.
@@ -598,7 +592,7 @@ StopRun·assignment pause/withdraw·scope 회수·provider disable은 새 model/
 ## 9. 이전과 달라진 것
 
 - 이전: 외부 MCP·skill 없음 / 지금: 로컬 Agent Skills 발견·선택 읽기와 stdio/Streamable HTTP MCP, 기본 선택 0개·현재 역할 scope 재검사 / 이유: 사람이 준비한 확장을 쓰되 능력·권한을 자동 수입하지 않는다.
-- 이전: provider credential 하나 / 지금: 사람 순서의 여러 API key/OAuth, run affinity와 같은 provider의 뒤 credential 이동 / 이유: 여러 계정을 지원하되 cache·돈·목적지 선택을 무작위나 숨은 fallback으로 바꾸지 않는다.
+- 이전: 사람 순서의 여러 API key/OAuth와 run affinity, 같은 provider의 뒤 credential 이동 / 지금: provider당 credential 하나, 바꾸려면 Disconnect 뒤 Connect / 이유: 계정 기능을 모두 지우기로 한 사람 결정(2026-10-12)이다. 숨은 fallback 없이 provider 선택이 곧 연결 선택이다.
 - 이전: 추론 상태 전면 제외 / 지금: 읽을 추론은 제외, protocol 필수 opaque 상태만 같은 run/provider/model 메모리 재사용 / 이유: 필요한 연속 호출은 가능하게 하면서 영속 추론 기록을 만들지 않는다.
 - 이전: contract 설명 위주·권한 경계 추상적 / 지금: runtime 하나·MCP 자식 수명·Deno host/path/executable allowlist·코드/저장/POST 경로 명시 / 이유: 구현자가 프로세스와 호출 경계를 그대로 만들 수 있다.
 - 이전: 세션 text와 고정 자료만 / 지금: 불변 선언형 시각 블록·정적 문서 저장·turn마다 짧은 화면 context·허락된 앱 command 자동 tool / 이유: 앱을 보고 돕고 설명을 남기되 코드 실행·권한 자동 확대 없이 기존 contract를 재사용한다.

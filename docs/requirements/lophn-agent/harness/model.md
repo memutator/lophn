@@ -35,7 +35,7 @@ model catalog(model과 그 option 축)·한계·가격 검증, role별 기본 mo
 - 확인: 각 잘못된 응답·네트워크 실패에서 이전 값·정상 수신 시각과 실패 표시가 유지되는지 확인한다.
 - 의도: lophn-agent/harness#I3
 
-**[R6]** catalog 갱신은 세션·key·token·model 선택·계정 정보를 싣지 않는 공개 GET만 보내고 사람이 자동 갱신을 끄면 마지막 정상본 또는 release snapshot만 사용한다.
+**[R6]** catalog 갱신은 세션·key·token·model 선택·credential 정보를 싣지 않는 공개 GET만 보내고 사람이 자동 갱신을 끄면 마지막 정상본 또는 release snapshot만 사용한다.
 - 이유: 공개 목록 수집에 개인 정보를 보낼 이유가 없다.
 - 확인: 갱신 요청 내용을 검사하고 자동 갱신을 끈 뒤 네트워크 조회가 없는지 확인한다.
 - 의도: lophn-agent/harness#I3
@@ -54,7 +54,7 @@ model catalog(model과 그 option 축)·한계·가격 검증, role별 기본 mo
 - 확인: 한 role의 기본값을 바꾸어도 다른 role의 값은 그대로이고, 요약용 칸이 비면 요약이 그 run의 agent model로, 채우면 모든 role의 요약이 그 model로 도는지 본다.
 - 의도: lophn-agent/harness#I1, lophn-agent#I5
 
-**[R9]** 처음 설치한 기본 model은 모두 비어 있고 어느 층에서도 model이 정해지지 않았거나 그 provider에 쓸 수 있는 계정이 없는 agent는 일을 시작하지 않으며, 기본값의 변경은 다음 run부터 적용되고 진행 중인 run과 이어 하기의 고정 값은 바꾸지 않는다.
+**[R9]** 처음 설치한 기본 model은 모두 비어 있고 어느 층에서도 model이 정해지지 않았거나 그 provider의 연결이 없거나(Disconnect 포함) credential을 쓸 수 없는 agent는 일을 시작하지 않으며, 기본값의 변경은 다음 run부터 적용되고 진행 중인 run과 이어 하기의 고정 값은 바꾸지 않는다.
 - 이유: 인증·model 준비가 없는 구성을 조용히 시작하지 않고, 도는 도중에 model이 바뀌어 비용과 행동이 달라지지 않게 한다.
 - 확인: 기본값이 빈 role은 이유와 함께 막히고 다른 role은 시작되며, 기본값을 바꾼 뒤 진행 중 run은 그대로 끝나고 다음 run이 새 값을 쓰는지 본다.
 - 의도: lophn-agent/harness#I1, lophn-agent#I5

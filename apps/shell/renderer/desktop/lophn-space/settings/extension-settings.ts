@@ -29,6 +29,8 @@ export interface McpServerValue {
       kind: ServerAuth;
       secret_ref?: string;
       token_ref?: string | null;
+      client_id?: string;
+      scopes?: string[];
     };
   };
 }

@@ -2483,6 +2483,7 @@ export type PlaceholderKinds = {
     name: "string";
   };
   "settings.button.sign-in-again": Record<never, never>;
+  "settings.button.server-sign-in": Record<never, never>;
   "settings.button.test": Record<never, never>;
   "settings.defaults.current": {
     model: "string";
@@ -2672,7 +2673,15 @@ export type PlaceholderKinds = {
   "settings.server.error-url": Record<never, never>;
   "settings.server.name-help": Record<never, never>;
   "settings.server.program-help": Record<never, never>;
-  "settings.server.sign-in-absent": Record<never, never>;
+  "settings.server.sign-in-busy": Record<never, never>;
+  "settings.server.sign-in-done": {
+    name: "string";
+  };
+  "settings.server.sign-in-failed": {
+    name: "string";
+  };
+  "settings.server.sign-in-needed": Record<never, never>;
+  "settings.server.sign-in-not-opened": Record<never, never>;
   "settings.sign-in.absent": {
     name: "string";
   };

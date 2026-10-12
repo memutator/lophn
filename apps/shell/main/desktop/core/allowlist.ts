@@ -1,5 +1,5 @@
 // renderer가 부를 수 있는 것은 contract schema의 read·command와, worker에서 조립하는
-// 문서 읽기 몇 개뿐이다. credential 발급·daemon 종료는 route가 아니라 pipe 메시지라 이
+// 문서 읽기 몇 개, MCP 로그인의 memory route 둘뿐이다. credential 발급·daemon 종료는 route가 아니라 pipe 메시지라 이
 // 목록에 없다.
 import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 
@@ -32,11 +32,23 @@ export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:guides/read",
 ];
 
+// renderer가 부르는 memory route는 MCP server 로그인의 시작·완료뿐이다(extensions#R16). 사람이 Settings
+// › Tools and skills에서 [Sign in]을 눌러야 시작하고, 로그인이 필요한 server 이름과 자리를 입력에 싣는다.
+// 값(verifier·state·token)은 응답 어디에도 없다. 다른 memory route는 main의 고정 통로만 부른다.
+export const RENDERER_MEMORY_ROUTES: readonly string[] = [
+  "memory:agent-mcp-auth/begin",
+  "memory:agent-mcp-auth/complete",
+];
+
 /** allowlist는 이름만 기억한다. schema 검사는 client가 route 원본으로 한다. */
 const ALLOWED = new Set<string>();
 for (const route of ALL_ROUTES) {
   const name = `${route.kind}:${route.resource}/${route.method}`;
   if (route.kind === "worker" && READING_WORKER_ROUTES.includes(name)) {
+    ALLOWED.add(name);
+    continue;
+  }
+  if (route.kind === "memory" && RENDERER_MEMORY_ROUTES.includes(name)) {
     ALLOWED.add(name);
     continue;
   }

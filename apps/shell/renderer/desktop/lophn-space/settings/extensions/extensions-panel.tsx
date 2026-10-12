@@ -54,6 +54,29 @@ function noticeText(notice: Notice): string {
   }
 }
 
+/** 로그인 한 번의 진행. 줄마다 하나이고 이름으로 찾는다. */
+type SignInState =
+  | "waiting"
+  | "done"
+  | "busy"
+  | "not-opened"
+  | "failed";
+
+function signInText(state: SignInState, name: string): string {
+  switch (state) {
+    case "waiting":
+      return t("settings.sign-in.waiting");
+    case "done":
+      return t("settings.server.sign-in-done", { name });
+    case "busy":
+      return t("settings.server.sign-in-busy");
+    case "not-opened":
+      return t("settings.server.sign-in-not-opened");
+    case "failed":
+      return t("settings.server.sign-in-failed", { name });
+  }
+}
+
 function credentialText(server: ServerRow): string | null {
   switch (server.credential) {
     case "set":
@@ -63,9 +86,9 @@ function credentialText(server: ServerRow): string | null {
     case "unknown":
       return t("settings.server.credential-unknown");
     case null:
-      return server.auth === "oauth2"
-        ? t("settings.server.sign-in-absent")
-        : null;
+      return server.signIn === null
+        ? null
+        : t("settings.server.sign-in-needed");
   }
 }
 
@@ -74,6 +97,7 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [signIns, setSignIns] = useState<Record<string, SignInState>>({});
 
   const load = useCallback(() => {
     void source.settings().then((result) => {
@@ -141,6 +165,27 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
   async function enterCredential(secret: string): Promise<void> {
     const opened = await source.enterServerCredential(secret);
     setNotice({ kind: opened.ok ? "window-opened" : "window-failed" });
+  }
+
+  // 인증 주소를 browser로 열고 사람이 돌아올 때까지 기다린다. 끝나면 목록을 다시 읽는다.
+  async function signIn(server: ServerRow): Promise<void> {
+    const mark = (state: SignInState) =>
+      setSignIns((current) => ({ ...current, [server.name]: state }));
+    mark("waiting");
+    const begun = await source.beginSignIn(server);
+    if (!begun.ok) {
+      mark(
+        begun.code === "conflict"
+          ? "busy"
+          : begun.code === "not_opened"
+          ? "not-opened"
+          : "failed",
+      );
+      return;
+    }
+    const done = await source.finishSignIn(server, begun.value.callbackPort);
+    mark(done.ok ? "done" : "failed");
+    if (done.ok) load();
   }
 
   return (
@@ -250,6 +295,15 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
                           server.enabled ? null : t("settings.label.off"),
                         ].filter((part) => part !== null).join(" · ")}
                       </span>
+                      {signIns[server.name] === undefined ? null : (
+                        <span
+                          className={styles.text}
+                          role="status"
+                          data-sign-in={signIns[server.name]}
+                        >
+                          {signInText(signIns[server.name]!, server.name)}
+                        </span>
+                      )}
                       {credentialText(server) === null ? null : (
                         <span
                           className={styles.text}
@@ -259,6 +313,18 @@ export function ExtensionsPanel({ source }: { source: SettingsSource }) {
                         </span>
                       )}
                     </span>
+                    {server.signIn !== null && signIns[server.name] !== "done"
+                      ? (
+                        <Button
+                          size="sm"
+                          data-action="sign-in"
+                          disabled={signIns[server.name] === "waiting"}
+                          onClick={() => void signIn(server)}
+                        >
+                          {t("settings.button.server-sign-in")}
+                        </Button>
+                      )
+                      : null}
                     {server.secret !== null && server.credential !== "set"
                       ? (
                         <Button

@@ -2419,6 +2419,7 @@ export const en = {
   "settings.button.save": "Save",
   "settings.button.sign-in": "Sign in with {name}",
   "settings.button.sign-in-again": "Sign in again",
+  "settings.button.server-sign-in": "Sign in",
   "settings.button.test": "Test connection",
   "settings.defaults.current": "{model} on {name}.",
   "settings.defaults.decisions-help":
@@ -2608,8 +2609,15 @@ export const en = {
   "settings.server.name-help": "A short name you will recognize.",
   "settings.server.program-help":
     "The full path of the program to start on this computer.",
-  "settings.server.sign-in-absent":
-    "Signing in to this server isn't available yet.",
+  "settings.server.sign-in-busy":
+    "A sign-in for this server is already waiting. Finish it in your browser.",
+  "settings.server.sign-in-done": "Signed in to {name}.",
+  "settings.server.sign-in-failed":
+    "Couldn't sign in to {name}. Nothing changed. Try again.",
+  "settings.server.sign-in-needed":
+    "Sign in before new work can use this server.",
+  "settings.server.sign-in-not-opened":
+    "The sign-in page didn't open. Try again.",
   "settings.sign-in.absent":
     "Signing in with {name} isn't available in this version yet.",
   "settings.sign-in.code": "Enter this code on the page: {code}.",

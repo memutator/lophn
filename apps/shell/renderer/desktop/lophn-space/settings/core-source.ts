@@ -4,12 +4,14 @@
 // agents/core-source)가 맡는다. secret 값은 이 파일을 지나지 않는다: credential은 보호 창이 받고
 // 여기서는 창 열기만 한다.
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
+import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../launcher/core-source.ts";
 import {
   call,
   openProtected,
   type OpenSecretWindow,
+  windowLinkOpener,
   windowSecretOpener,
 } from "./core-call.ts";
 import {
@@ -20,11 +22,13 @@ import {
   secretOf,
   secretStates,
   SKILL_FOLDERS,
+  tokenOf,
 } from "./extension-settings.ts";
 import type {
   NewServer,
   ServerAuth,
   ServerRow,
+  ServerSignIn,
   SettingRow,
   SettingsSource,
   SettingsView,
@@ -40,6 +44,8 @@ interface DefinitionValue {
 export interface SettingsDeps {
   openWindow: OpenSecretWindow | undefined;
   picker: FolderPickerApi | undefined;
+  /** 인증 주소를 OS browser로 여는 shell 통로. 없는 창에서는 undefined다. */
+  openLink: OpenExternalApi["openExternal"] | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */
   random: () => string;
 }
@@ -52,6 +58,7 @@ export function coreSettingsSource(
     ? deps.openWindow
     : windowSecretOpener();
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
+  const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
 
   const apply = (view: SettingsView, key: string, value: unknown) =>
@@ -95,12 +102,15 @@ export function coreSettingsSource(
         : [];
       const states = await secretStates(
         core,
-        serverValues.flatMap((server) => secretOf(server) ?? []),
+        serverValues.flatMap((server) =>
+          [secretOf(server), tokenOf(server)].filter((name) => name !== null)
+        ),
       );
       const serverRows: ServerRow[] = serverValues.map((server) => {
         const auth: ServerAuth = server.http?.auth.kind ?? "none";
         const secret = secretOf(server);
         return {
+          signIn: signInOf(server, states),
           name: server.name,
           transport: server.transport,
           enabled: server.enabled,
@@ -185,6 +195,74 @@ export function coreSettingsSource(
         owner: secret,
         purpose: "app_secret",
       }),
+
+    async beginSignIn(server) {
+      if (server.signIn === null) return INVALID;
+      const begun = await call<{ url: string; callback_port: number }>(
+        core,
+        "memory",
+        "agent-mcp-auth",
+        "begin",
+        {
+          name: server.name,
+          place: server.signIn.place,
+          client_id: server.signIn.clientId,
+          scopes: server.signIn.scopes,
+        },
+      );
+      if (!begun.ok) return begun;
+      let opened = false;
+      if (openLink !== undefined) {
+        try {
+          opened = (await openLink(begun.value.url)).ok;
+        } catch {
+          opened = false;
+        }
+      }
+      return opened
+        ? { ok: true, value: { callbackPort: begun.value.callback_port } }
+        : { ok: false, code: "not_opened" };
+    },
+
+    async finishSignIn(server, callbackPort) {
+      if (server.signIn === null) return INVALID;
+      const done = await call<{ completed: boolean }>(
+        core,
+        "memory",
+        "agent-mcp-auth",
+        "complete",
+        {
+          name: server.name,
+          place: server.signIn.place,
+          callback_port: callbackPort,
+        },
+      );
+      if (!done.ok) return done;
+      return done.value.completed
+        ? { ok: true, value: null }
+        : { ok: false, code: "rejected" };
+    },
+  };
+}
+
+const INVALID = { ok: false, code: "invalid_input" } as const;
+
+/**
+ * 로그인이 필요한 server만 로그인 정보를 갖는다: 켜진 http OAuth server이고 token 이름이 없거나 그 이름의
+ * token이 저장돼 있지 않은 것. 이 목록은 전역 server뿐이라 자리는 null이다.
+ */
+function signInOf(
+  server: McpServerValue,
+  states: ReadonlyMap<string, "set" | "missing"> | null,
+): ServerSignIn | null {
+  const auth = server.http?.auth;
+  if (!server.enabled || auth?.kind !== "oauth2") return null;
+  const token = tokenOf(server);
+  if (token !== null && states?.get(token) !== "missing") return null;
+  return {
+    place: null,
+    clientId: auth.client_id ?? "",
+    scopes: auth.scopes ?? [],
   };
 }
 

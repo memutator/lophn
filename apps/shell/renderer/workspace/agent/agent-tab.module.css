@@ -1,0 +1,10 @@
+/* 통로가 없는 작업대에서 Agent 탭 자리에 서는 안내. 다른 빈 탭 안내와 같은 쪽 여백을 쓴다. */
+.notReady {
+  box-sizing: border-box;
+  margin: var(--space-0);
+  padding: var(--layout-pane-padding-wide);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

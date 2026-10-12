@@ -2,6 +2,7 @@
 // (shell/workspace#R14). 타입(LayoutTab·HintTab·ViewTab)도 이 목록에서 나온다.
 import type { z } from "zod";
 
+import { agentKind } from "./agent.ts";
 import { agentsKind } from "./agents.ts";
 import { appPanelKind } from "./app-panel.ts";
 import { contextKind } from "./context.ts";
@@ -19,6 +20,7 @@ export const BUILT_IN_TAB_KINDS = [
   contextKind,
   searchKind,
   agentsKind,
+  agentKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

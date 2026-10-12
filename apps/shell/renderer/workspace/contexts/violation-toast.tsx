@@ -12,19 +12,31 @@ export interface ViolationToastProps {
   readonly title: string;
   readonly count: number;
   readonly onView: () => void;
+  /**
+   * [Ask <agent 이름>]. 주면 [View] 앞에 단추가 선다(shell/desktop#R35). 누르면 부른 쪽이 위반된 context를
+   * 첫 chip으로 붙인 Agent 탭을 연다. 아무것도 보내지 않는다.
+   */
+  readonly ask?: { readonly agentName: string; readonly onAsk: () => void };
   readonly onClose: () => void;
   /** 자동으로 닫히는 시간을 재는 timer·clock. 시험이 시간을 세우려고 주입한다. */
   readonly timer?: Timer & Clock;
 }
 
 export function ViolationToast(
-  { title, count, onView, onClose, timer }: ViolationToastProps,
+  { title, count, onView, ask, onClose, timer }: ViolationToastProps,
 ): ReactNode {
+  const view = { id: "view", label: t("common.button.view") };
   return (
     <Toast
       title={t("contexts.title.toast-violations", { title, count })}
-      actions={[{ id: "view", label: t("common.button.view") }]}
-      onAction={() => onView()}
+      actions={ask === undefined ? [view] : [
+        {
+          id: "ask",
+          label: t("common.button.ask-agent", { agent: ask.agentName }),
+        },
+        view,
+      ]}
+      onAction={(id) => id === "ask" ? ask?.onAsk() : onView()}
       onClose={onClose}
       timer={timer}
       clock={timer}

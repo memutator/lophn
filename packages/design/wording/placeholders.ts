@@ -1848,6 +1848,7 @@ export type PlaceholderKinds = {
     code: "string";
   };
   "project-workspace.notice.agent-editor-model-help": Record<never, never>;
+  "project-workspace.notice.agent-not-ready": Record<never, never>;
   "project-workspace.notice.agents-change-failed": Record<never, never>;
   "project-workspace.notice.agents-delete-failed": Record<never, never>;
   "project-workspace.notice.agents-save-conflict": Record<never, never>;
@@ -1914,6 +1915,7 @@ export type PlaceholderKinds = {
   "project-workspace.label.kind-document-editor": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
   "project-workspace.label.kind-agents": Record<never, never>;
+  "project-workspace.label.kind-agent": Record<never, never>;
   "project-workspace.label.more-files": {
     count: "plural";
   };

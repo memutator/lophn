@@ -189,3 +189,22 @@ export const OAUTH_SERVER = (
     },
   },
 });
+
+/**
+ * 로그인 상태 read(`agent-mcp-auth/state`)의 답. 입력의 server마다 이름으로 고른 상태를 순서대로 돌려준다.
+ * 고르지 않은 이름은 none이다.
+ */
+export function authStateAnswer(
+  states: Record<string, { state: string; reason?: string | null }>,
+): (body: unknown) => CoreReply {
+  return (body) =>
+    ok({
+      servers: (body as { servers: { name: string; place: unknown }[] })
+        .servers.map((entry) => ({
+          name: entry.name,
+          place: entry.place,
+          state: states[entry.name]?.state ?? "none",
+          reason: states[entry.name]?.reason ?? null,
+        })),
+    });
+}

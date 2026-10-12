@@ -10,9 +10,11 @@ import {
 } from "../../../../../../../packages/contracts/lophn-agent/mod.ts";
 import {
   assertCallsFitRoutes,
+  authStateAnswer,
   fail,
   fakeCore,
   HTTP_SERVER,
+  OAUTH_SERVER,
   ok,
   settingsAnswers,
 } from "../testdata/fake-core.ts";
@@ -310,6 +312,57 @@ Deno.test("shell/desktop#R50 [agent-I46]: 전역 MCP server는 설정에서 읽�
   const secrets = calls.find((call) => call.resource === "secrets")!;
   assertEquals(secrets.body, { names: ["mcp-notes", "mcp-search"] });
   assert(!JSON.stringify(result.value).includes("sec:"));
+});
+
+Deno.test("lophn-agent/extensions#R16 #R17 shell/desktop#R50 [agent-I52]: OAuth server의 상태는 core가 읽어 준 로그인 상태이고 signed_in일 때만 connected며 token 이름은 묻지 않는다", async () => {
+  const servers = [
+    OAUTH_SERVER("signed", "sec:mcp-oauth:global:signed"),
+    OAUTH_SERVER("fresh", null),
+    OAUTH_SERVER("broken", "sec:mcp-oauth:global:broken"),
+    OAUTH_SERVER("waiting", null),
+    { ...OAUTH_SERVER("paused", null), enabled: false },
+  ];
+  const { core, calls } = fakeCore({
+    ...agentsAnswers(servers),
+    "memory:agent-mcp-auth/state": authStateAnswer({
+      signed: { state: "signed_in" },
+      broken: { state: "failed", reason: "refresh_rejected" },
+      waiting: { state: "in_progress" },
+    }),
+  });
+  const result = await coreAgentsSettingsSource(core, OPTIONS).read();
+  assert(result.ok);
+  assertEquals(
+    result.value.servers.map((row) => [row.name, row.status]),
+    [
+      ["signed", "connected"],
+      ["fresh", "needs-sign-in"],
+      ["broken", "needs-sign-in"],
+      ["waiting", "needs-sign-in"],
+      ["paused", "off"],
+    ],
+  );
+  const states = calls.filter((call) => call.method === "state");
+  assertEquals(states.length, 1);
+  assertEquals(states[0]!.body, {
+    servers: ["signed", "fresh", "broken", "waiting"].map((name) => ({
+      name,
+      place: null,
+    })),
+  });
+  assertEquals(calls.find((call) => call.resource === "secrets"), undefined);
+  assertCallsFitRoutes(states);
+  // 상태를 읽지 못하면 로그인했다고 말하지 않는다.
+  const blind = fakeCore({
+    ...agentsAnswers(servers),
+    "memory:agent-mcp-auth/state": () => fail("unavailable"),
+  });
+  const unread = await coreAgentsSettingsSource(blind.core, OPTIONS).read();
+  assert(unread.ok);
+  assertEquals(
+    unread.value.servers.map((row) => row.status),
+    ["needs-sign-in", "needs-sign-in", "needs-sign-in", "needs-sign-in", "off"],
+  );
 });
 
 Deno.test("lophn-agent/instructions#R9 shell/desktop#R50 [agent-I49]: 모든 project의 LOPHN.md 미리보기는 사람 읽기 route의 앞부분이고 잘렸으면 말줄임으로 알리며 없거나 빈 파일이면 null이다", async () => {

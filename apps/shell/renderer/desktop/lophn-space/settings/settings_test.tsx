@@ -28,6 +28,7 @@ import {
 } from "./providers/testdata/fake-providers.ts";
 import { buttonText } from "./testdata/field.ts";
 import { fakeSettings, server, setting } from "./testdata/fake-settings.ts";
+import type { ServerSignIn, SettingsSource } from "./source.ts";
 
 // 왼쪽 nav 단추를 누른다.
 const pressTab = click;
@@ -301,12 +302,27 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
   );
 });
 
-const SIGN_IN = { place: null, clientId: "lophn-client", scopes: ["read"] };
+const signInOf = (
+  state: ServerSignIn["state"],
+  reason: ServerSignIn["reason"] = null,
+): ServerSignIn => ({
+  place: null,
+  clientId: "lophn-client",
+  scopes: ["read"],
+  state,
+  reason,
+});
 
 function signInServers() {
   return [
-    server("fresh", { auth: "oauth2", signIn: SIGN_IN }),
-    server("stored", { auth: "oauth2" }),
+    server("fresh", { auth: "oauth2", signIn: signInOf("none") }),
+    server("stored", { auth: "oauth2", signIn: signInOf("signed_in") }),
+    server("waiting", { auth: "oauth2", signIn: signInOf("in_progress") }),
+    server("broken", {
+      auth: "oauth2",
+      signIn: signInOf("failed", "refresh_rejected"),
+    }),
+    server("blind", { auth: "oauth2", signIn: signInOf("unknown") }),
     server("notes", {
       auth: "bearer",
       secret: "mcp-notes",
@@ -319,36 +335,84 @@ function signInServers() {
 const signInRow = (container: Element, name: string) =>
   find(container, `[data-server='${name}']`);
 
-Deno.test("lophn-agent/extensions#R16 shell/desktop#R50 [agent-I51]: Tools and skills에서 [Sign in]은 로그인이 필요한 OAuth server 줄에만 있고 다음 행동을 말한다", async () => {
-  const { source } = fakeSettings({ settings: { servers: signInServers() } });
-  using view = render(<SettingsScreen source={source} />);
+const stateLine = (row: Element) => row.querySelector("[data-sign-in-state]");
+
+async function openTools(source: SettingsSource) {
+  const view = render(<SettingsScreen source={source} />);
   pressTab(byText(view.container, "Tools and skills"));
   await flush();
-  const buttons = [
-    ...view.container.querySelectorAll("[data-action='sign-in']"),
-  ];
-  assertEquals(buttons.length, 1);
-  assertEquals(textOf(buttons[0]!), "Sign in");
-  assert(signInRow(view.container, "fresh").contains(buttons[0]!));
-  assert(
-    textOf(signInRow(view.container, "fresh")).includes(
-      "Sign in before new work can use this server.",
-    ),
-  );
-  // 로그인 안내는 이제 "아직 안 된다"고 말하지 않는다. 이미 로그인한 server는 아무것도 더하지 않는다.
-  assert(!textOf(view.container).includes("isn't available yet"));
+  return view;
+}
+
+Deno.test("lophn-agent/extensions#R16 #R17 shell/desktop#R50 [agent-I52]: Tools and skills는 OAuth server 줄마다 core가 읽은 로그인 상태를 말하고 [Sign in]은 로그인이 필요한 줄에, [Cancel sign-in]은 기다리는 줄에만 둔다", async () => {
+  const { source } = fakeSettings({ settings: { servers: signInServers() } });
+  using view = await openTools(source);
+  const lines = (name: string) => {
+    const line = stateLine(signInRow(view.container, name));
+    return line === null
+      ? null
+      : [line.getAttribute("data-sign-in-state"), line.textContent];
+  };
+  assertEquals(lines("fresh"), [
+    "none",
+    "Sign in before new work can use this server.",
+  ]);
+  assertEquals(lines("stored"), ["signed_in", "Signed in."]);
+  assertEquals(lines("waiting"), [
+    "in_progress",
+    "Complete the sign-in in your browser.",
+  ]);
+  assertEquals(lines("broken"), [
+    "failed",
+    "The service ended this sign-in. Sign in again.",
+  ]);
+  // 상태를 읽지 못한 줄은 아는 척하지 않는다.
+  assertEquals(lines("blind"), null);
+  assertEquals(lines("notes"), null);
+  assertEquals(lines("local"), null);
+  const has = (name: string, action: string) =>
+    signInRow(view.container, name).querySelector(
+      `[data-action='${action}']`,
+    ) !== null;
+  for (
+    const [name, signIn, cancel] of [
+      ["fresh", true, false],
+      ["stored", false, false],
+      ["waiting", false, true],
+      ["broken", true, false],
+      ["blind", true, false],
+      ["notes", false, false],
+      ["local", false, false],
+    ] as const
+  ) {
+    assertEquals([name, has(name, "sign-in"), has(name, "cancel-sign-in")], [
+      name,
+      signIn,
+      cancel,
+    ]);
+  }
   assertEquals(
-    signInRow(view.container, "stored").querySelector("[data-credential]"),
-    null,
+    textOf(find(signInRow(view.container, "fresh"), "[data-action='sign-in']")),
+    "Sign in",
   );
-  // credential을 넣는 server의 [Enter credential]은 그대로다.
+  assertEquals(
+    textOf(
+      find(
+        signInRow(view.container, "waiting"),
+        "[data-action='cancel-sign-in']",
+      ),
+    ),
+    "Cancel sign-in",
+  );
+  // 로그인 안내는 "아직 안 된다"고 말하지 않는다. credential을 넣는 server의 [Enter credential]은 그대로다.
+  assert(!textOf(view.container).includes("isn't available yet"));
   assertEquals(
     view.container.querySelectorAll("[data-action='enter-credential']").length,
     1,
   );
 });
 
-Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: [Sign in]은 그 server의 자리로 시작해 기다리는 동안 브라우저에서 마치라고 알리고 끝나면 server 목록을 다시 읽는다", async () => {
+Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I52]: [Sign in]은 그 server의 자리로 시작해 기다리는 동안 core의 in_progress를 보이고, 끝난 뒤 Signed in은 core가 다시 읽어 준 상태다", async () => {
   let release!: (result: { ok: true; value: null }) => void;
   const finish = new Promise<{ ok: true; value: null }>((resolve) => {
     release = resolve;
@@ -357,9 +421,7 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: [Sign in]�
     settings: { servers: signInServers() },
     signIn: { finish },
   });
-  using view = render(<SettingsScreen source={source} />);
-  pressTab(byText(view.container, "Tools and skills"));
-  await flush();
+  using view = await openTools(source);
   const row = signInRow(view.container, "fresh");
   click(find(row, "[data-action='sign-in']"));
   await flush();
@@ -367,41 +429,90 @@ Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I51]: [Sign in]�
     calls.filter((call) => String(call[0]).startsWith("sign-in")),
     [["sign-in-begin", "fresh", null], ["sign-in-finish", "fresh", 4321]],
   );
+  // 기다리는 줄은 core가 말한 in_progress이고 같은 줄을 다시 시작하는 대신 그만둘 수 있다.
   assertEquals(
-    find(row, "[data-sign-in]").textContent,
-    "Complete the sign-in in your browser.",
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["in_progress", "Complete the sign-in in your browser."],
   );
-  assertEquals(
-    find(row, "[data-sign-in]").getAttribute("data-sign-in"),
-    "waiting",
-  );
-  // 기다리는 중에는 같은 줄을 다시 시작하지 못한다.
-  assertEquals(
-    find(row, "[data-action='sign-in']").hasAttribute("disabled"),
-    true,
-  );
+  assertEquals(row.querySelector("[data-action='sign-in']"), null);
+  assert(row.querySelector("[data-action='cancel-sign-in']") !== null);
   const reads = calls.filter((call) => call[0] === "settings").length;
   release({ ok: true, value: null });
   await flush();
+  assert(calls.filter((call) => call[0] === "settings").length > reads);
   assertEquals(
-    find(row, "[data-sign-in]").textContent,
-    "Signed in to fresh.",
-  );
-  assertEquals(
-    find(row, "[data-sign-in]").getAttribute("data-sign-in"),
-    "done",
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["signed_in", "Signed in."],
   );
   assertEquals(row.querySelector("[data-action='sign-in']"), null);
-  assert(calls.filter((call) => call[0] === "settings").length > reads);
+  assertEquals(row.querySelector("[data-action='cancel-sign-in']"), null);
 });
 
-Deno.test("lophn-agent/extensions#R16 [agent-I51]: 로그인이 시작되지 않거나 끝나지 않으면 그 줄에 이유 한 줄을 보이고 다시 시도할 수 있다", async () => {
-  const cases: [
-    { beginCode?: string; finish?: { ok: false; code: string } },
-    string,
-    string,
-    string[],
-  ][] = [
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: core가 아직 로그인했다고 하지 않으면 끝났다고 말하지 않고 다시 로그인할 수 있다", async () => {
+  const { source } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { stateStaysAfterFinish: true },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assert(!textOf(row).includes("Signed in"));
+  assertEquals(
+    find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+  assert(row.querySelector("[data-action='sign-in']") !== null);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: [Cancel sign-in]은 기다리는 로그인을 그만두고 실패로 말하지 않으며 [Sign in]이 돌아온다", async () => {
+  const never = new Promise<{ ok: true; value: null }>(() => {});
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish: never },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  click(find(row, "[data-action='cancel-sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => call[0] === "sign-in-cancel"),
+    [["sign-in-cancel", "fresh", null]],
+  );
+  assertEquals(
+    find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+  assertEquals(row.querySelector("[data-sign-in]"), null);
+  assertEquals(row.querySelector("[data-action='cancel-sign-in']"), null);
+  assertEquals(
+    find(row, "[data-action='sign-in']").hasAttribute("disabled"),
+    false,
+  );
+  // 이미 core에 기다리는 로그인이 남은 줄(창을 닫았다 다시 연 경우)도 같은 버튼으로 그만둔다.
+  const waiting = signInRow(view.container, "waiting");
+  click(find(waiting, "[data-action='cancel-sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => call[0] === "sign-in-cancel").map((call) => call[1]),
+    ["fresh", "waiting"],
+  );
+  assertEquals(
+    find(waiting, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 로그인이 시작되지 않으면 그 줄에 이유 한 줄을 보이고 다시 시도할 수 있으며, 시작 뒤 실패한 이유는 core가 말한 코드다", async () => {
+  const cases: [{ beginCode: string }, string, string, string[]][] = [
     [
       { beginCode: "conflict" },
       "busy",
@@ -420,28 +531,13 @@ Deno.test("lophn-agent/extensions#R16 [agent-I51]: 로그인이 시작되지 않
       "Couldn't sign in to fresh. Nothing changed. Try again.",
       ["sign-in-begin"],
     ],
-    [
-      { finish: { ok: false, code: "rejected" } },
-      "failed",
-      "Couldn't sign in to fresh. Nothing changed. Try again.",
-      ["sign-in-begin", "sign-in-finish"],
-    ],
   ];
   for (const [signIn, kind, text, steps] of cases) {
     const { source, calls } = fakeSettings({
       settings: { servers: signInServers() },
-      signIn: {
-        ...(signIn.beginCode === undefined
-          ? {}
-          : { beginCode: signIn.beginCode }),
-        ...(signIn.finish === undefined
-          ? {}
-          : { finish: Promise.resolve(signIn.finish) }),
-      },
+      signIn: { beginCode: signIn.beginCode },
     });
-    using view = render(<SettingsScreen source={source} />);
-    pressTab(byText(view.container, "Tools and skills"));
-    await flush();
+    using view = await openTools(source);
     const row = signInRow(view.container, "fresh");
     click(find(row, "[data-action='sign-in']"));
     await flush();
@@ -462,6 +558,29 @@ Deno.test("lophn-agent/extensions#R16 [agent-I51]: 로그인이 시작되지 않
       false,
     );
   }
+  // 시작한 로그인이 끝내 거절되면 줄은 core가 읽어 준 실패 이유를 말한다.
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish: Promise.resolve({ ok: false, code: "rejected" }) },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assertEquals(
+    calls.map((call) => call[0]).filter((name) =>
+      `${name}`.startsWith("sign-in")
+    ),
+    ["sign-in-begin", "sign-in-finish"],
+  );
+  assertEquals(
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["failed", "The service didn't accept the sign-in. Try again."],
+  );
+  assert(row.querySelector("[data-action='sign-in']") !== null);
 });
 
 Deno.test("shell/wording#R10: 읽지 못한 자리는 대상과 다시 시도를 보인다", async () => {

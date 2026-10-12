@@ -125,6 +125,8 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/global-skills/read",
     "/v1/agent-mcp-auth/begin",
     "/v1/agent-mcp-auth/complete",
+    "/v1/agent-mcp-auth/state",
+    "/v1/agent-mcp-auth/cancel",
   ]);
   assertEquals(lophnAgent.ROUTES, ROUTES);
   for (const route of ROUTES) {

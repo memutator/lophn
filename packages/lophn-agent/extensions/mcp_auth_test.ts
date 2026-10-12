@@ -15,6 +15,7 @@ import {
   type CallbackListener,
   createMcpAuth,
   type CredentialBinding,
+  MCP_AUTH_WAIT_MS,
   mcpSecretName,
   mcpSecretRef,
   type OAuthBinding,
@@ -433,68 +434,32 @@ Deno.test("lophn-agent/extensions#R17: secret을 server URL·issuer에 묶고 UR
   assertEquals(mcpSecretRef("notes"), "sec:mcp-notes");
 });
 
-Deno.test("lophn-agent/extensions#R17: 만료 직후 동시 호출 둘의 갱신 요청은 하나이다", async () => {
-  let begunState = "";
-  const listener = delivered(49152, () => begunState);
-  const auth = createMcpAuth({ nowMs: () => NOW, random: RANDOM });
-  const begun = await auth.begin({
-    authorizationEndpoint: AUTH_ENDPOINT,
-    tokenEndpoint: TOKEN_ENDPOINT,
-    clientId: "lophn",
-    scopes: [],
-    listener,
-  });
-  assert(begun.ok);
-  begunState = begun.value.state;
-  const { records: exchangeRecords, fetch: exchangeFetch } = fetchOf(() =>
-    tokenResponse({
-      access_token: ACCESS,
-      refresh_token: REFRESH,
-      expires_in: 3600,
-    })
-  );
-  const completed = await auth.complete({
-    fetch: exchangeFetch,
-    signal: new AbortController().signal,
-  });
-  assert(completed.ok);
-  let exchanges = exchangeRecords.length;
-  let refreshRecords = 0;
-  const seen: { body: string }[] = [];
-  const refreshFetch: HttpFetch = (_url: string, init: RequestInit) => {
-    seen.push({
-      body: typeof init.body === "string" ? init.body : String(init.body ?? ""),
-    });
-    refreshRecords += 1;
-    return Promise.resolve(
-      tokenResponse({ access_token: NEXT_ACCESS, refresh_token: "rt-test-2" }),
-    );
+// 한 번의 로그인 session이다. 갱신과 보관은 mcp_oauth_test.ts가 본다(R17).
+function waitingListener(port: number) {
+  const closed = { count: 0 };
+  const listener: CallbackListener = {
+    port: () => port,
+    receive: (signal) =>
+      new Promise((resolve) => {
+        signal.addEventListener(
+          "abort",
+          () =>
+            resolve({
+              ok: false,
+              error: { code: "unavailable", message: "callback이 오지 않았다" },
+            }),
+          { once: true },
+        );
+      }),
+    close() {
+      closed.count += 1;
+      return Promise.resolve();
+    },
   };
-  const records = seen;
-  // 만료 직후 동시 호출 둘이다(R17). 갱신 요청은 하나다(R17).
-  const first = auth.refresh({
-    fetch: refreshFetch,
-    signal: new AbortController().signal,
-  });
-  const second = auth.refresh({
-    fetch: refreshFetch,
-    signal: new AbortController().signal,
-  });
-  const outcomes = await Promise.all([first, second]);
-  assert(outcomes[0].ok, outcomes[0].ok ? "" : outcomes[0].error.message);
-  assertEquals(outcomes[0], outcomes[1]);
-  assertEquals(refreshRecords, 1);
-  // 지금까지의 token 교환은 하나다: complete 한 번과 refresh 한 번이다.
-  exchanges += 1;
-  assert(exchanges >= 1);
-  const request = form(records[0].body);
-  assertEquals(request.grant_type, "refresh_token");
-  assertEquals(request.refresh_token, REFRESH);
-  assertEquals(request.client_id, "lophn");
-  await listener.close();
-});
+  return { listener, closed };
+}
 
-Deno.test("lophn-agent/extensions#R17: 갱신 실패는 재인증 필요 상태다", async () => {
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: token 교환이 끝나면 session은 값을 쥐지 않고 보관할 grant를 돌려준다", async () => {
   let begunState = "";
   const listener = delivered(49152, () => begunState);
   const auth = createMcpAuth({ nowMs: () => NOW, random: RANDOM });
@@ -507,7 +472,7 @@ Deno.test("lophn-agent/extensions#R17: 갱신 실패는 재인증 필요 상태�
   });
   assert(begun.ok);
   begunState = begun.value.state;
-  const { fetch: exchangeFetch } = fetchOf(() =>
+  const { fetch } = fetchOf(() =>
     tokenResponse({
       access_token: ACCESS,
       refresh_token: REFRESH,
@@ -515,57 +480,168 @@ Deno.test("lophn-agent/extensions#R17: 갱신 실패는 재인증 필요 상태�
     })
   );
   const completed = await auth.complete({
-    fetch: exchangeFetch,
+    fetch,
     signal: new AbortController().signal,
   });
-  assert(completed.ok);
-  assertEquals(auth.state().kind, "authorized");
-  // 갱신 실패다(R17). 폐기된 refresh token이다: 상태는 재인증 필요다(R17) — 상태가
-  // authorized가 아니고 연결 실패(unavailable)와 구별되는 상태다(R17).
-  const { fetch: rejectedRefresh } = fetchOf(() => rejected(401));
-  const failed = await auth.refresh({
-    fetch: rejectedRefresh,
-    signal: new AbortController().signal,
+  assert(completed.ok, completed.ok ? "" : completed.error.message);
+  assertEquals(completed.value, {
+    access_token: ACCESS,
+    refresh_token: REFRESH,
+    expires_at_ms: NOW + 3600 * 1000,
+    token_endpoint: TOKEN_ENDPOINT,
+    client_id: "lophn",
   });
-  assert(!failed.ok);
-  assertEquals(failed.error.code, "forbidden");
-  const state = auth.state();
-  assertEquals(state.kind, "reauth_needed");
-  assert(state.kind === "reauth_needed" ? state.reason.length > 0 : true);
-  await listener.close();
+  // 끝난 session은 값을 남기지 않는다: 상태에도 token이 없다.
+  assertEquals(auth.state(), { kind: "not_started" });
+  assert(!JSON.stringify(auth.state()).includes(ACCESS));
+  assertEquals(listener.port(), 49152);
 });
 
-Deno.test("lophn-agent/extensions#R17: 없는 refresh token은 재인증 필요다", async () => {
-  let begunState = "";
-  const listener = delivered(49152, () => begunState);
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 취소하면 기다리던 complete가 끝나고 listener가 닫히며 다시 시작할 수 있다", async () => {
+  const { listener, closed } = waitingListener(49160);
   const auth = createMcpAuth({ nowMs: () => NOW, random: RANDOM });
-  const begun = await auth.begin({
+  const begin = () =>
+    auth.begin({
+      authorizationEndpoint: AUTH_ENDPOINT,
+      tokenEndpoint: TOKEN_ENDPOINT,
+      clientId: "lophn",
+      scopes: [],
+      listener,
+    });
+  assert((await begin()).ok);
+  assertEquals(auth.state(), { kind: "in_progress" });
+  const { fetch } = fetchOf(() => tokenResponse({ access_token: "x" }));
+  const waiting = auth.complete({
+    fetch,
+    signal: new AbortController().signal,
+  });
+  assertEquals(await auth.cancel(), true);
+  const ended = await waiting;
+  assert(!ended.ok);
+  assertEquals(ended.error.code, "conflict");
+  assertEquals(closed.count >= 1, true);
+  assertEquals(auth.state(), { kind: "not_started" });
+  assertEquals(await auth.cancel(), false);
+  assert((await begin()).ok);
+  await auth.cancel();
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 기다림 시한이 지나면 callback_timeout으로 실패하고 시한은 시작 때 정한 값이다", async () => {
+  assertEquals(MCP_AUTH_WAIT_MS, 5 * 60_000);
+  const { listener, closed } = waitingListener(49161);
+  let fire: () => void = () => {};
+  const asked: number[] = [];
+  const auth = createMcpAuth({
+    nowMs: () => NOW,
+    random: RANDOM,
+    deadline: (ms, signal) =>
+      new Promise((resolve) => {
+        asked.push(ms);
+        fire = () => resolve("elapsed");
+        signal.addEventListener("abort", () => resolve("aborted"), {
+          once: true,
+        });
+      }),
+  });
+  assert(
+    (await auth.begin({
+      authorizationEndpoint: AUTH_ENDPOINT,
+      tokenEndpoint: TOKEN_ENDPOINT,
+      clientId: "lophn",
+      scopes: [],
+      listener,
+    })).ok,
+  );
+  const { fetch } = fetchOf(() => tokenResponse({ access_token: "x" }));
+  const waiting = auth.complete({
+    fetch,
+    signal: new AbortController().signal,
+  });
+  assertEquals(asked, [MCP_AUTH_WAIT_MS]);
+  fire();
+  const ended = await waiting;
+  assert(!ended.ok);
+  assertEquals(ended.error.code, "unavailable");
+  assertEquals(auth.state(), { kind: "failed", reason: "callback_timeout" });
+  assertEquals(closed.count >= 1, true);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: complete을 부르지 않은 채 시한이 지난 session도 다시 시작을 막지 않는다", async () => {
+  let now = NOW;
+  const first = waitingListener(49162);
+  const auth = createMcpAuth({ nowMs: () => now, random: RANDOM });
+  const begin = (listener: CallbackListener) =>
+    auth.begin({
+      authorizationEndpoint: AUTH_ENDPOINT,
+      tokenEndpoint: TOKEN_ENDPOINT,
+      clientId: "lophn",
+      scopes: [],
+      listener,
+    });
+  assert((await begin(first.listener)).ok);
+  // 시한 안에서는 진행 중이고 두 번째 시작은 충돌이다.
+  now += MCP_AUTH_WAIT_MS - 1;
+  assertEquals(auth.state(), { kind: "in_progress" });
+  const busy = await begin(waitingListener(49163).listener);
+  assert(!busy.ok);
+  assertEquals(busy.error.code, "conflict");
+  // 시한이 지나면 실패로 읽히고 listener는 닫히며 새로 시작할 수 있다.
+  now += 2;
+  assertEquals(auth.state(), { kind: "failed", reason: "callback_timeout" });
+  assertEquals(first.closed.count >= 1, true);
+  assert((await begin(waitingListener(49164).listener)).ok);
+  await auth.cancel();
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 잘못된 state와 거절된 교환은 session 상태에 이유 코드로 남는다", async () => {
+  const wrong = delivered(49170, () => "the-evil-state");
+  const auth = createMcpAuth({ nowMs: () => NOW, random: RANDOM });
+  assert(
+    (await auth.begin({
+      authorizationEndpoint: AUTH_ENDPOINT,
+      tokenEndpoint: TOKEN_ENDPOINT,
+      clientId: "lophn",
+      scopes: [],
+      listener: wrong,
+    })).ok,
+  );
+  const { fetch } = fetchOf(() => tokenResponse({ access_token: "x" }));
+  const rejected = await auth.complete({
+    fetch,
+    signal: new AbortController().signal,
+  });
+  assert(!rejected.ok);
+  assertEquals(rejected.error.code, "invalid_input");
+  assertEquals(auth.state(), { kind: "failed", reason: "state_mismatch" });
+
+  let state = "";
+  const good = delivered(49171, () => state);
+  const second = createMcpAuth({ nowMs: () => NOW, random: RANDOM });
+  const begun = await second.begin({
     authorizationEndpoint: AUTH_ENDPOINT,
     tokenEndpoint: TOKEN_ENDPOINT,
     clientId: "lophn",
     scopes: [],
-    listener,
+    listener: good,
   });
   assert(begun.ok);
-  begunState = begun.value.state;
-  // refresh token이 없는 token 교환이다. 갱신은 재인증 필요다(R17).
-  const { fetch: exchangeFetch } = fetchOf(() =>
-    tokenResponse({ access_token: ACCESS })
+  state = begun.value.state;
+  const refused = fetchOf(() => rejected(400));
+  const exchange = await second.complete({
+    fetch: refused.fetch,
+    signal: new AbortController().signal,
+  });
+  assert(!exchange.ok);
+  assertEquals(second.state(), { kind: "failed", reason: "exchange_failed" });
+  // 실패한 뒤에는 새로 시작할 수 있다.
+  assert(
+    (await second.begin({
+      authorizationEndpoint: AUTH_ENDPOINT,
+      tokenEndpoint: TOKEN_ENDPOINT,
+      clientId: "lophn",
+      scopes: [],
+      listener: waitingListener(49172).listener,
+    })).ok,
   );
-  const completed = await auth.complete({
-    fetch: exchangeFetch,
-    signal: new AbortController().signal,
-  });
-  assert(completed.ok);
-  const { fetch: never } = fetchOf(() => {
-    throw new Error("호출되면 안 된다");
-  });
-  const failed = await auth.refresh({
-    fetch: never,
-    signal: new AbortController().signal,
-  });
-  assert(!failed.ok);
-  assertEquals(failed.error.code, "forbidden");
-  assertEquals(auth.state().kind, "reauth_needed");
-  await listener.close();
+  await second.cancel();
 });

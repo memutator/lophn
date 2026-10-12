@@ -5,11 +5,17 @@ import {
   mcpServersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
+  createMcpOAuthVault,
   PLACE_MCP_FILE,
   serializePlaceMcpFile,
 } from "../../packages/lophn-agent/extensions/mod.ts";
+import {
+  createFakeKeychain,
+  randomSealedRef,
+} from "../../packages/platform/secrets/mod.ts";
 import { startAgentRuntimeChild } from "./agent-runtime.ts";
-import { agentRuntimeLaunchSpec, createMcpAuthControl } from "./lophn-agent.ts";
+import { agentRuntimeLaunchSpec } from "./lophn-agent.ts";
+import { createMcpAuthControl } from "./mcp-auth.ts";
 import { mcpServerSnapshot, registeredMcpServers } from "./mcp-snapshot.ts";
 
 // 자리 층의 MCP 서버가 core의 snapshot과 agent-runtime child의 권한에 든다(lophn-agent/extensions R32, R33).
@@ -234,8 +240,16 @@ const placeOf = {
 } as const;
 
 function authControl(data: string, global: McpServerConfig[] = []) {
+  const keychain = createFakeKeychain();
   return createMcpAuthControl({
     nowMs: () => 0,
+    // 이 시험들은 시작과 완료의 서버 조회만 본다. 발급자에는 닿지 않고 설정도 쓰지 않는다.
+    fetch: () => Promise.reject(new Error("발급자에 닿으면 안 된다")),
+    vault: createMcpOAuthVault({
+      keychain: () => keychain,
+      randomRef: randomSealedRef,
+    }),
+    writeTokenRef: () => Promise.resolve(ok(undefined)),
     registered: () =>
       registeredMcpServers(`${data}/ledger.sqlite`, {
         global: () => ok(global),

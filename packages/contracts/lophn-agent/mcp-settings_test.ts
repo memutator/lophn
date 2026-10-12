@@ -8,9 +8,15 @@ import {
   extensionSettingsSchema,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
+  mcpAuthCancel,
+  mcpAuthCancelInputSchema,
+  mcpAuthCancelOutputSchema,
   mcpAuthComplete,
   mcpAuthCompleteInputSchema,
   mcpAuthSchema,
+  mcpAuthState,
+  mcpAuthStateInputSchema,
+  mcpAuthStateOutputSchema,
   mcpServerConfigSchema,
   mcpServersSetting,
   placeExtensionSettingsChange,
@@ -357,4 +363,81 @@ Deno.test("lophn-agent/extensions#R16 [agent-I50]: OAuth begin and complete name
       callback_port: 4321,
     }).success,
   );
+});
+
+Deno.test("lophn-agent/extensions#R16 #R17 [agent-I52]: the auth state read names servers by name and place and answers with a state and a reason code only", () => {
+  assertEquals(mcpAuthState.name, "ReadMcpAuthState");
+  assertEquals(routePath(mcpAuthState), "/v1/agent-mcp-auth/state");
+  assertEquals(mcpAuthState.kind, "memory");
+  const input = (servers: unknown) =>
+    mcpAuthStateInputSchema.safeParse({ servers }).success;
+  assert(input([{ name: "notes", place: null }]));
+  assert(
+    input([
+      { name: "notes", place: projectPlace },
+      { name: "notes", place: appPlace },
+    ]),
+  );
+  // 자리 칸은 빠질 수 없고 맞지 않는 id나 서버 이름은 거절이다.
+  assert(!input([{ name: "notes" }]));
+  assert(!input([{ name: "notes", place: { kind: "project", id: asg } }]));
+  assert(!input([{ name: "bad name", place: null }]));
+  assert(!input([{ name: "notes", place: null, extra: 1 }]));
+  const output = (entry: unknown) =>
+    mcpAuthStateOutputSchema.safeParse({ servers: [entry] }).success;
+  for (const state of ["none", "in_progress", "signed_in"]) {
+    assert(output({ name: "notes", place: null, state, reason: null }));
+  }
+  for (
+    const reason of [
+      "callback_timeout",
+      "state_mismatch",
+      "exchange_failed",
+      "refresh_rejected",
+      "expired",
+      "store_failed",
+    ]
+  ) {
+    assert(
+      output({ name: "notes", place: projectPlace, state: "failed", reason }),
+    );
+  }
+  assert(
+    !output({ name: "notes", place: null, state: "unknown", reason: null }),
+  );
+  assert(
+    !output({ name: "notes", place: null, state: "failed", reason: "boom" }),
+  );
+  // 응답에는 token·verifier·state 값이 들어갈 칸이 없다.
+  for (const secret of ["access_token", "refresh_token", "verifier", "code"]) {
+    assert(
+      !output({
+        name: "notes",
+        place: null,
+        state: "signed_in",
+        reason: null,
+        [secret]: "value",
+      }),
+    );
+  }
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: a person can cancel a sign-in that is waiting, naming the server and its place", () => {
+  assertEquals(mcpAuthCancel.name, "CancelMcpAuth");
+  assertEquals(routePath(mcpAuthCancel), "/v1/agent-mcp-auth/cancel");
+  assertEquals(mcpAuthCancel.kind, "memory");
+  assertEquals(mcpAuthCancel.actors, ["user"]);
+  const cancel = (place: unknown) =>
+    mcpAuthCancelInputSchema.safeParse({ name: "notes", place }).success;
+  assert(cancel(null));
+  assert(cancel(projectPlace));
+  assert(cancel(appPlace));
+  assert(!cancel(undefined));
+  assert(!cancel({ kind: "app", id: prj }));
+  assert(mcpAuthCancelOutputSchema.safeParse({ cancelled: true }).success);
+  assert(!mcpAuthCancelOutputSchema.safeParse({}).success);
+  for (const route of [mcpAuthState, mcpAuthCancel]) {
+    assert(route.errors.every((code) => ERROR_CODES.includes(code)));
+    assert(!route.errors.includes("internal"));
+  }
 });

@@ -162,9 +162,7 @@ Deno.test("lophn-agent/extensions#R16 [agent-I50]: each collected server keeps t
     assertEquals(
       found.map((entry) => [
         entry.place,
-        entry.server.transport === "stdio"
-          ? entry.server.stdio.executable
-          : "",
+        entry.server.transport === "stdio" ? entry.server.stdio.executable : "",
       ]),
       [
         [{ kind: "project", id: PRJ }, "/opt/one"],

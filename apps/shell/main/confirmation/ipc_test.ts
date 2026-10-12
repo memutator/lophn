@@ -305,11 +305,46 @@ test("shell/desktop#R47, shell/confirmation-window#R1 [agent-I42]: 창 열기는
   const other = await call("shell:confirmation-open", 100, {
     request: {
       kind: "question_option_action",
-      question: "qst_00000000000000000000000001",
+      group: "qgr_00000000000000000000000001",
       option_key: "a",
       preselect: "allow_once",
     },
     parentWindow: "window-1",
   }) as { code?: string };
   assert.equal(other.code, "invalid_input");
+});
+
+test("shell/confirmation-window#R5, lophn-agent/questions#R13: question_option_action intent는 묶음 id를 받고 질문 id만 든 옛 모양은 받지 않는다", async () => {
+  const { env, call } = wire();
+  const group = "qgr_00000000000000000000000001";
+  const opened = await call("shell:confirmation-open", 100, {
+    request: { kind: "question_option_action", group, option_key: "a" },
+    parentWindow: "window-1",
+  }) as { windowId?: string };
+  assert.equal(typeof opened.windowId, "string");
+  assert.deepEqual(env.canon.intents.at(-1), {
+    kind: "question_option_action",
+    group,
+    option_key: "a",
+  });
+  for (
+    const request of [
+      {
+        kind: "question_option_action",
+        question: "qst_00000000000000000000000001",
+        option_key: "a",
+      },
+      {
+        kind: "question_option_action",
+        group: "qst_00000000000000000000000001",
+        option_key: "a",
+      },
+    ]
+  ) {
+    const refused = await call("shell:confirmation-open", 100, {
+      request,
+      parentWindow: "window-1",
+    }) as { code?: string };
+    assert.equal(refused.code, "invalid_input");
+  }
 });

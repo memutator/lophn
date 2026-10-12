@@ -37,6 +37,7 @@
 
 .editCard {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
@@ -54,6 +55,15 @@
   display: flex;
   flex: none;
   gap: var(--space-2);
+}
+
+/* Undo를 누를 수 없는 이유. 카드 폭을 다 쓰고 단추 아래에 놓인다. */
+.undoReason {
+  flex-basis: 100%;
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
 }
 
 .mono {

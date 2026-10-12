@@ -168,7 +168,7 @@ export function mcpConnectionsDeps(
 export function startRunPump(options: {
   driver: RunDriver;
   liveRuns?: DriveDeps["liveRuns"];
-  // 사람이 요청한 Compact의 요약을 한 번에 하나씩 끝낸다. run을 시작하는 길과 따로 돈다.
+  // 사람이 요청한 Compact와 "Summarize from here"의 요약을 한 번에 하나씩 끝낸다. run을 시작하는 길과 따로 돈다.
   compactor?: Compactor;
   // Disconnect한 provider로 진행 중인 run을 멈추게 하는 알림을 매 주기 훑는다.
   providerWatch?: Pick<ProviderWatch, "poll">;
@@ -214,6 +214,14 @@ export function startRunPump(options: {
         }
       } catch {
         // 요약 한 번의 실패도 pump를 끝내지 않는다. 요청은 core에 열려 있어 다음 주기에 다시 본다.
+      }
+      try {
+        const summarized = await options.compactor?.nextRange();
+        if (summarized !== undefined && summarized.kind !== "idle") {
+          started = true;
+        }
+      } catch {
+        // 요약 한 번의 실패도 pump를 끝내지 않는다. 사람이 다시 요청하면 새 요청으로 온다.
       }
       if (!started) await abortableWait(idleMs, options.signal);
     }

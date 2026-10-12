@@ -17,15 +17,19 @@ import {
   agentProfilesUpload,
   assignmentPaused,
   createOperatorAssignment,
+  finishRewindSummary,
   instructionPreview,
   instructionRead,
   providerDisconnected,
   questionCreated,
+  readRewindSummary,
+  requestRewindSummary,
   REVERT_EVENTS,
   runAccepted,
   runAppRevert,
   runFinished,
   runStarted,
+  takeRewindSummaryRequest,
   withdrawAssignment,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
@@ -1025,6 +1029,10 @@ export const lophnAgentDefinitions = {
   // 확인한 rewind의 앱 단계를 이어 실행하는 core 메모리 route와 MCP OAuth 입구다.
   memoryRoutes: [
     runAppRevert,
+    requestRewindSummary,
+    readRewindSummary,
+    takeRewindSummaryRequest,
+    finishRewindSummary,
     mcpAuthBegin,
     mcpAuthComplete,
     mcpAuthState,

@@ -30,8 +30,15 @@ export type ConfirmationIntent =
     targets?: string[];
     automation?: string;
     requirement?: number;
-    /** 문제 결정에서 고른 결정. */
-    choice?: "fixed" | "not_fixed" | "not_visible" | "dismiss";
+    /** 문제 결정에서 고른 결정, 또는 session 되돌리기에서 고른 범위. */
+    choice?:
+      | "fixed"
+      | "not_fixed"
+      | "not_visible"
+      | "dismiss"
+      | "restore_all"
+      | "messages_only"
+      | "summarize";
     /** dismiss의 한 줄 이유. */
     note?: string;
   }

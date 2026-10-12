@@ -103,3 +103,45 @@ export interface ToolCallValue {
   finished_at: string | null;
   outcome: { kind: string } | null;
 }
+
+/** `rewind/preview`의 항목. 이 화면은 receipt 원문이 든 `app_revert`를 읽지 않는다. */
+export interface PreviewItemValue {
+  class: "file" | "app" | "fact";
+  target: string;
+  plan: "restore" | "skip" | "remain";
+  reason: string | null;
+}
+
+export interface PreviewValue {
+  restore: PreviewItemValue[];
+  skip: PreviewItemValue[];
+  remain: PreviewItemValue[];
+  redo: boolean;
+  preview_hash: string;
+}
+
+export interface CheckpointValue {
+  message: string;
+  files_restorable: boolean;
+  files_reason: string | null;
+  created_seq: string;
+  hidden: boolean;
+}
+
+export interface RevertItemValue extends PreviewItemValue {
+  result: string;
+}
+
+/** `rewind/list`의 rewind·Undo 한 번. */
+export interface RevertValue {
+  id: string;
+  kind: "rewind" | "undo";
+  choice: "restore_all" | "messages_only" | "summarize" | null;
+  checkpoint: string | null;
+  tool_call: string | null;
+  boundary_seq: string | null;
+  outcome: "applying" | "applied" | "partial" | "uncertain" | "blocked";
+  redo: "none" | "available" | "done" | "closed";
+  items: RevertItemValue[];
+  result_seq: string | null;
+}

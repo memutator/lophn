@@ -91,6 +91,10 @@ import {
 import { createMcpOAuthVault } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpAuthRequests } from "./mcp-auth-requests.ts";
 import {
+  createRewindSummaries,
+  rewindSummaryTarget,
+} from "./rewind-summary.ts";
+import {
   connectionConnect,
   connectionEndChild,
   connectionEndConnection,
@@ -1206,6 +1210,12 @@ async function open(
     store: rewindStore,
     relay: () => bodyPrepare.current,
   };
+  // "Summarize from here"의 요약 요청 대기열이다. 사람이 요청하면 runtime이 가져가 요약 call을 한다.
+  const rewindSummaries = createRewindSummaries({
+    resolve: rewindSummaryTarget(rewindFilesDeps.snapshot),
+    newId: () => crypto.randomUUID(),
+    now: () => clock.nowMs(),
+  });
   // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
   const secretInputRelay: { current?: SecretInputRelay } = {};
   const validateWiring: {
@@ -1369,6 +1379,8 @@ async function open(
             writer: () => runtime?.writer,
           }),
         ] as const,
+        // 요약 요청(사람)과 가져가기·끝내기(runtime)의 입구다.
+        ...rewindSummaries.handlers,
         // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 등록한 http 서버의
         // oauth2 인증 방식만 잡는다. verifier·state·token은 core 안에만 산다(값은 응답·ledger·log
         // 어디에도 옮기지 않는다).

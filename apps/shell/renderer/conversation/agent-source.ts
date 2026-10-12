@@ -100,13 +100,76 @@ export interface ThreadTools extends EntryBase {
   readonly tool: ToolLineView;
 }
 
+/**
+ * 이 편집을 지금 Undo할 수 있는가(lophn-agent/revert#R19). 지금 파일이 그 call이 쓴 내용과 같고 더 나중 편집이
+ * 없을 때만 true다. 아니면 사전 검사가 낸 이유 코드를 준다. 어느 call의 편집인지 모르면 reason은 `unknown`이다.
+ */
+export type EditUndo =
+  | { readonly can: true }
+  | { readonly can: false; readonly reason: RewindReason | "unknown" };
+
 export interface ThreadEdit extends EntryBase {
   readonly kind: "edit";
   readonly edit: EditView;
-  /** [Undo]를 눌러 되돌린 뒤이다. */
+  /** [Undo]를 눌러 되돌린 뒤이다. Undo를 다시 되돌리는 기능은 없다. */
   readonly undone: boolean;
-  /** 다음 사람 메시지를 보내기 전까지만 true다(lophn-agent/revert#R16). */
-  readonly canRedo: boolean;
+  readonly undo: EditUndo;
+}
+
+/** 되돌리기가 대상을 고르지 못하거나 항목을 설명하는 이유 코드(contracts revertReasonSchema). */
+export type RewindReason =
+  | "edited_outside"
+  | "chain_broken"
+  | "no_pre_image"
+  | "link_path"
+  | "rename_blocked"
+  | "created_edited"
+  | "no_receipt"
+  | "no_revert_command"
+  | "app_revision_changed"
+  | "external_effect"
+  | "already_reverted"
+  | "answered_fact"
+  | "app_failed"
+  | "app_uncertain"
+  | "app_not_started"
+  | "app_not_settled"
+  | "later_edit";
+
+/** 되돌린 구간에서 복원하지 못한 항목 하나. receipt 같은 안쪽 근거는 없다. */
+export interface RewindResultView {
+  readonly kind: "file" | "app" | "fact";
+  readonly target: string;
+  readonly result:
+    | "skipped"
+    | "remained"
+    | "failure"
+    | "uncertain"
+    | "unchanged";
+  readonly reason: RewindReason | null;
+}
+
+/**
+ * rewind가 숨긴 구간(lophn-agent/revert#R16). 메시지는 지워지지 않고 한 줄로 접히며, 펼치면 숨긴 줄을 읽기만 한다.
+ * 숨긴 줄 안의 메시지는 다시 시점으로 고를 수 없다.
+ */
+export interface ThreadHidden extends EntryBase {
+  readonly kind: "hidden";
+  /** 이 구간을 숨긴 rewind. 구간 안에서 Redo를 할 수 있는 가장 나중 것, 없으면 가장 나중 것이다. */
+  readonly revert: string;
+  /** 그 rewind가 고른 사람 메시지. 되돌린 뒤 입력창에 원문을 채우는 데 쓴다. */
+  readonly checkpoint: string;
+  readonly choice: "restore_all" | "messages_only";
+  /** 숨긴 메시지 수. */
+  readonly count: number;
+  /** 실제로 복원한 문서 파일 수. */
+  readonly restored: number;
+  /** 복원하지 못했거나 남은 항목(이유와 함께). */
+  readonly left: readonly RewindResultView[];
+  /** 다음 사람 메시지를 보내기 전이라 Redo를 할 수 있다. */
+  readonly redo: boolean;
+  /** 숨긴 줄. */
+  readonly entries: readonly ThreadEntry[];
 }
 
 /** 끝난 run의 꼬리. 정상 종료는 "Worked for", 멈춤·실패는 사람에게 멈춤이다. */
@@ -131,7 +194,8 @@ export type ThreadEntry =
   | ThreadTools
   | ThreadEdit
   | ThreadRunEnd
-  | ThreadQuestions;
+  | ThreadQuestions
+  | ThreadHidden;
 
 /** 한 session 화면 전체: 시간순 줄, 지금 일, 진행, composer 위에 붙는 승인. */
 export interface ThreadView {
@@ -179,6 +243,45 @@ export interface SendInput {
   readonly mode: "request" | "correction";
   /** 수정이 가리키는 지금 일. 다음 요청은 null이다. */
   readonly run: string | null;
+}
+
+export type RewindChoice = "restore_all" | "messages_only" | "summarize";
+
+/** 선택지를 고르지 못하는 이유. 문서 복원 한도(contracts checkpointFilesReasonSchema)와 checkpoint가 아닌 메시지다. */
+export type RewindBlock =
+  | "correction"
+  | "copied"
+  | "limit_total"
+  | "limit_file"
+  | "limit_count"
+  | "record_failed";
+
+/** 시점으로 고를 수 있는 사람 메시지 하나와 그 시점에서 고를 수 없는 범위. */
+export interface RewindPoint {
+  readonly message: string;
+  readonly blocked: Partial<Record<RewindChoice, RewindBlock>>;
+}
+
+export interface RewindMenuView {
+  /** 끝나지 않았거나 기다리는 work가 있다. 먼저 멈춰야 한다(R15). */
+  readonly running: boolean;
+  /** 숨긴 구간 밖의 사람 메시지, 오래된 순이다. */
+  readonly points: readonly RewindPoint[];
+}
+
+/** 사전 검사의 항목 하나. 앱 복원 근거(receipt 원문)는 화면에 오지 않는다. */
+export interface RewindItemView {
+  readonly kind: "file" | "app" | "fact";
+  readonly target: string;
+  readonly reason: RewindReason | null;
+}
+
+export interface RewindPreviewView {
+  readonly restore: readonly RewindItemView[];
+  readonly skip: readonly RewindItemView[];
+  readonly remain: readonly RewindItemView[];
+  /** redo 예고. 앱 복원이 있거나 요약이면 false다. */
+  readonly redo: boolean;
 }
 
 export interface AgentViewSource {
@@ -269,11 +372,26 @@ export interface AgentViewSource {
     input: { approval: string; choice: ApprovalChoice },
   ): Promise<SourceResult<void>>;
 
-  // 되돌리기 자리. 단추가 부르는 signal만 있고 동작은 revert 화면 task가 붙인다(lophn-agent/revert).
-  /** "Rewind to here"(message)와 ⋯ 메뉴의 Rewind…(null). */
-  rewind(session: string, message: string | null): Promise<SourceResult<void>>;
-  undoEdit(edit: string): Promise<SourceResult<void>>;
-  redoEdit(edit: string): Promise<SourceResult<void>>;
+  // 되돌리기(lophn-agent/revert)
+  /** rewind menu의 재료: 시점으로 고를 수 있는 메시지와 막힌 범위, 먼저 멈춰야 하는지. */
+  rewindMenu(session: string): Promise<SourceResult<RewindMenuView>>;
+  /** 그 시점과 범위로 되돌리면 복원할 것·건너뛰는 것·남는 영향. 아무것도 바꾸지 않는다. */
+  rewindPreview(
+    session: string,
+    message: string,
+    choice: RewindChoice,
+  ): Promise<SourceResult<RewindPreviewView>>;
+  /**
+   * 되돌리기를 시작한다: 확인 창을 연다. 결정은 그 창에서만 낸다. "Summarize from here"는 먼저 요약을 만들고 끝난
+   * 뒤에 연다(오래 걸릴 수 있다). 요약이 실패하면 `summary_failed`다.
+   */
+  rewind(
+    input: { session: string; message: string; choice: RewindChoice },
+  ): Promise<SourceResult<void>>;
+  /** 편집 카드 하나를 되돌린다(UndoEdit). 카드가 어느 call의 편집인지 모르면 not_found다. */
+  undoEdit(session: string, edit: string): Promise<SourceResult<void>>;
+  /** 숨긴 구간을 다시 보인다(Redo). 다음 사람 메시지를 보내기 전까지만 된다. */
+  redoRewind(session: string, revert: string): Promise<SourceResult<void>>;
 }
 
 /**

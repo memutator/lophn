@@ -10,12 +10,14 @@ import {
   compactSession,
   failSessionCompact,
   finishModelCall,
+  finishRewindSummary,
   modelCallList,
   type ModelChoice,
   modelDefaultsRead,
   RUN_BLOB_PURPOSES,
   sessionCompactRequests,
   startModelCall,
+  takeRewindSummaryRequest,
   type TokenUsage,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
@@ -79,6 +81,9 @@ export type RangeSummary =
 export type Compactor = {
   // 가장 오래된 열린 요청 하나를 끝낸다. 없으면 idle이다.
   next(): Promise<CompactResult>;
+  // 사람이 요청한 "Summarize from here" 하나를 core에서 가져와 요약하고 끝난 call(또는 실패 이유)을 돌려준다.
+  // 가져올 요청이 없거나 core에 닿지 못하면 idle이다.
+  nextRange(): Promise<RangeSummary>;
 };
 
 export type RangeSummarizer = {
@@ -509,6 +514,25 @@ export function createCompactor(
   }
 
   return {
+    async nextRange() {
+      const taken = await readOf(machine, takeRewindSummaryRequest, {});
+      if (!taken.ok || taken.value.request === null) return { kind: "idle" };
+      const request = taken.value.request;
+      const summary = await summarizeFrom({
+        session: request.session,
+        assignment: request.assignment,
+        from_seq: request.from_seq,
+      });
+      // 읽지 못해 idle이면 요청은 가져간 채로 남는다. 사람은 기다리다 다시 요청한다(기한이 있다).
+      if (summary.kind === "idle") return summary;
+      await readOf(machine, finishRewindSummary, {
+        id: request.id,
+        result: summary.kind === "summarized"
+          ? { kind: "summarized", summary_call: summary.summary_call }
+          : { kind: "failed", reason: summary.reason },
+      });
+      return summary;
+    },
     async next() {
       const listed = await readOf(machine, sessionCompactRequests, {});
       if (!listed.ok) return { kind: "idle" };

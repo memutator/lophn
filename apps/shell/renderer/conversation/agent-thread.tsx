@@ -34,6 +34,7 @@ import { AnsweredSummary } from "./question-card/answered-summary.tsx";
 import type { GroupAnswer } from "./question-card/model.ts";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { type ContextLinks, ResultLinks } from "./result-links.tsx";
+import { HiddenRange } from "./rewind/hidden-range.tsx";
 import styles from "./agent-view.module.css";
 
 export interface AgentThreadProps {
@@ -61,7 +62,8 @@ export interface AgentThreadProps {
   onCheck: () => void;
   onResend: () => void;
   onUndo: (edit: EditView) => void;
-  onRedo: (edit: EditView) => void;
+  /** 숨긴 구간의 [Redo]. */
+  onRedo: (revert: string) => void;
   onAnswer: (group: string, answers: readonly GroupAnswer[]) => void;
   onSkip: (group: string) => void;
 }
@@ -225,11 +227,38 @@ function itemsOf(entry: ThreadEntry, props: AgentThreadProps): TurnItem[] {
           <EditCard
             edit={entry.edit}
             undone={entry.undone}
-            canRedo={entry.canRedo}
+            undo={entry.undo}
             onOpen={(edit) => props.onOpenResult?.(edit.document, null)}
             onUndo={props.onUndo}
-            onRedo={props.onRedo}
           />
+        ),
+      }];
+    case "hidden":
+      return [{
+        kind: "block",
+        id: entry.id,
+        time,
+        node: (
+          <HiddenRange
+            revert={entry.revert}
+            choice={entry.choice}
+            count={entry.count}
+            restored={entry.restored}
+            left={entry.left}
+            redo={entry.redo}
+            onRedo={props.onRedo}
+          >
+            <MessageTurns
+              agent={props.agent}
+              // 숨긴 줄은 읽기만 한다: 다시 시점으로 고르거나 복사하지 않고 Undo도 없다.
+              items={shownEntries(entry.entries, props.detail).flatMap((item) =>
+                item.kind === "edit" ? [] : itemsOf(item, props)
+              )}
+              sessionClosed
+              onRewind={() => {}}
+              onFork={() => {}}
+            />
+          </HiddenRange>
         ),
       }];
     case "run-end":

@@ -28,6 +28,7 @@ import {
   decideToolCall,
   failSessionCompact,
   finishModelCall,
+  finishRewindSummary,
   finishRun,
   finishToolCall,
   instructionRead,
@@ -56,6 +57,7 @@ import {
   startRun,
   startToolCall,
   stopRun,
+  takeRewindSummaryRequest,
   toolCallList,
   toolCallRead,
   waitRun,
@@ -137,6 +139,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   // MCP OAuth 발급자 호출을 core 대신 보낸다(extensions R16, R17): core에는 외부 fetch가 없다.
   mcpAuthRequestTake,
   mcpAuthRequestDone,
+  // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다(revert R15).
+  takeRewindSummaryRequest,
+  finishRewindSummary,
   // run 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
   // 계약·검색)를 run을 시작하기 전에 읽는다(lophn-agent/harness/tools#R21).
   contextListRoute,

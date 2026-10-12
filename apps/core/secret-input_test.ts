@@ -96,6 +96,7 @@ async function boot(
   home: string,
   keychain: FakeKeychain,
   restart: boolean,
+  secretSweepMs?: number,
 ): Promise<{ core: Core; io: ReturnType<typeof inProcessIo> }> {
   // 값이 닿는 곳은 fake keychain뿐이다. 증거는 응답으로 돌려주고 core가 남긴다.
   const io = inProcessIo({
@@ -123,6 +124,7 @@ async function boot(
     random: seededRandom(restart ? 12 : 11),
     testCredentials: true,
     secretKeychain: keychain,
+    ...(secretSweepMs === undefined ? {} : { secretSweepMs }),
     spawn: io.spawn,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
@@ -857,25 +859,37 @@ Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R7 [agent-I53]: Disc
   }
 });
 
-Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R6 [agent-I53]: keychain 삭제가 실패해도 Disconnect는 확정이고 다음에 core가 뜰 때 남은 secret을 쓸어 지운다", async () => {
+Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R1 platform/secrets#R6 [agent-I53b]: keychain 삭제가 실패해도 Disconnect는 확정이고 재기동만으로는 keychain을 열지 않으며 새 Connect가 연 뒤 주기 쓸기가 남은 secret을 지운다", async () => {
   const opened = await open();
   let core: Core | undefined;
   try {
     const first = await connectValue(opened, id("pvd", 1), FIRST, "connect-1");
-    const other = await connectValue(opened, id("pvd", 2), SECOND, "connect-2");
 
     // ledger는 확정이지만 OS 삭제는 확인되지 않는다. 이 사실을 지운 것으로 꾸미지 않는다(R7).
     opened.keychain.holdRemovals(true);
     await disconnectValue(opened, id("pvd", 1), first.revision, "disconnect-1");
     assert(opened.keychain.stored.has(first.ref), "삭제 실패가 숨겨졌다");
 
-    // keychain이 풀린 뒤 core가 다시 뜨면 ledger가 가리키지 않는 provider 값을 쓸어 지운다.
+    // keychain이 풀린 뒤 core가 다시 떠도 참조가 없으면 keychain을 열지 않아 남은 값은 그대로다(R1).
     opened.keychain.holdRemovals(false);
     opened.keychain.confirmRemovals();
     await opened.core.shutdown();
-    core = (await boot(opened.home, opened.keychain, true)).core;
+    core = (await boot(opened.home, opened.keychain, true, 100)).core;
+    assert(opened.keychain.stored.has(first.ref), "재기동이 keychain을 열었다");
+
+    // 새 Connect가 keychain을 열면 주기 쓸기가 ledger가 가리키지 않는 값을 두 번 연속 본 뒤 지운다.
+    const other = await connectValue(
+      { ...opened, core },
+      id("pvd", 2),
+      SECOND,
+      "connect-2",
+    );
+    const deadline = Date.now() + 15_000;
+    while (opened.keychain.stored.has(first.ref) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     assertEquals(opened.keychain.stored.has(first.ref), false);
-    // ledger가 가리키는 값과 provider 밖의 값은 건드리지 않는다.
+    // ledger가 가리키는 값은 건드리지 않는다.
     assert(opened.keychain.stored.has(other.ref));
   } finally {
     opened.store.close();

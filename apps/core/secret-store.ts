@@ -42,8 +42,9 @@ export type SecretStore = {
   // 않는다. ready는 현재 참조의 값을 모두 읽어 등록했을 때만 true라서, 모르는 채로 원문을
   // 내보내는 안전화가 스스로 막는다(fail-closed).
   readonly known: KnownSecretMatch;
-  // ledger가 가리키지 않는 회수 대상 용도의 keychain 항목을 지운다. 보호 입력을 마치고 참조가 확정되기
-  // 전의 값과 구별할 수 없으므로 기본은 두 번 연속 고아로 본 것만 지운다. immediate는 보호 입력이
+  // 이미 열린 keychain에서만 쓴다(sync가 참조 때문에 열었거나 Connect·Disconnect가 열었을 때). 열린 적이
+  // 없으면 아무것도 하지 않고 ok다. ledger가 가리키지 않는 회수 대상 용도의 keychain 항목을 지운다. 보호
+  // 입력을 마치고 참조가 확정되기 전의 값과 구별할 수 없으므로 기본은 두 번 연속 고아로 본 것만 지운다. immediate는 보호 입력이
   // 아직 없을 때(core가 막 뜰 때)만 쓰고 본 고아를 바로 지운다. 지우지 못한 항목이 있거나 목록을
   // 낼 수 없으면 err이고, 지우지 못한 항목은 남겨 다음 쓸기가 다시 지운다.
   sweep(options?: { immediate?: boolean }): Promise<Result<void>>;
@@ -232,8 +233,11 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
     options?: { immediate?: boolean },
   ): Promise<Result<void>> {
     const reclaim = deps.reclaim;
-    if (reclaim === undefined || stopped) return ok(undefined);
-    keychain ??= deps.keychain();
+    // 이미 연 keychain에서만 쓴다. 참조가 없어 열린 적이 없으면 쓸 것이 없다(R1: 참조 없는 core는 keychain을
+    // 열지 않는다).
+    if (reclaim === undefined || stopped || keychain === undefined) {
+      return ok(undefined);
+    }
     const unavailable = err({
       code: "unavailable" as const,
       message: "keychain 항목을 쓸지 못했다",

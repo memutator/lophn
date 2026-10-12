@@ -398,6 +398,8 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // secret store의 주기 쓸기 간격(ms). 없으면 10분. 테스트가 줄인다.
+  secretSweepMs?: number;
   // coding agent connection credential을 준비·읽는 keychain adapter. 없으면 coding credential 인증은
   // 꺼져 있다. 제품 main만 OS adapter를 주고 테스트는 fake를 준다(사람의 실제 keychain에 닿지 않는다).
   codingKeychain?: KeychainAdapter;
@@ -904,6 +906,9 @@ async function open(
     // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
     keychain: () =>
       options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    ...(options.secretSweepMs === undefined
+      ? {}
+      : { secretSweepMs: options.secretSweepMs }),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;

@@ -16,9 +16,11 @@ import type {
   AgentViewSource,
   AgentViewSourceFactory,
   BodyPart,
+  RewindChoice,
   SendInput,
   SourceResult,
 } from "./agent-source.ts";
+import { createRewindPart } from "./agent-core-source-rewind.ts";
 import {
   type AgentTarget,
   createEnv,
@@ -54,6 +56,14 @@ export type ConfirmationRequest =
     readonly kind: "question_option_action";
     readonly group: string;
     readonly option_key: string;
+  }
+  | {
+    // 되돌리기(lophn-agent/revert). 대상은 [session, checkpoint(, 끝난 요약 call)]이고 main이 preview를 독립 read한다.
+    readonly kind: "owner_decision";
+    readonly concern: "lophn-agent/revert";
+    readonly decision: "Rewind";
+    readonly targets: readonly string[];
+    readonly choice: RewindChoice;
   };
 
 /** preload의 보호 창 열기. 열린 창의 id를 주거나 연 이유(code)를 준다. */
@@ -179,6 +189,8 @@ function createSource(
       return unavailable;
     }
   };
+
+  const rewindPart = createRewindPart(env, threadMemo, { wait, openWindow });
 
   /** 담당의 지금 revision과 상태. */
   const readAssignment = async (): Promise<SourceResult<AssignmentValue>> => {
@@ -490,10 +502,12 @@ function createSource(
     openApproval: ({ approval, choice }) =>
       openWindow({ kind: "approval_request", approval, preselect: choice }),
 
-    // 되돌리기는 revert 화면 task(RW3e)가 붙인다.
-    rewind: () => Promise.resolve(unavailable),
-    undoEdit: () => Promise.resolve(unavailable),
-    redoEdit: () => Promise.resolve(unavailable),
+    rewindMenu: (session) => rewindPart.menu(session),
+    rewindPreview: (session, message, choice) =>
+      rewindPart.preview(session, message, choice),
+    rewind: (input) => rewindPart.rewind(input),
+    undoEdit: (session, edit) => rewindPart.undoEdit(session, edit),
+    redoRewind: (session, revert) => rewindPart.redoRewind(session, revert),
   };
   return source;
 }

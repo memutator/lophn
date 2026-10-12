@@ -1,7 +1,7 @@
 // Agent 화면(shell/desktop#R37~R48): 한 agent의 한 session을 보이는 탭 본문. header, 대화, 대화 안 질문 묶음,
 // composer 위의 승인 카드, 진행, composer를 부품 그대로 묶는다. core와는 AgentViewSource로만 말하고
 // 탭을 열고 닫는 일, 문서와 설정으로 가는 일은 host가 한다.
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, retryIcon } from "@lophn/design/components";
 import { formatRelativeTime, t } from "@lophn/wording";
 
@@ -16,12 +16,15 @@ import { ViewDetailSelect } from "./activity/view-detail-select.tsx";
 import { AgentNotices } from "./agent-notices.tsx";
 import type {
   AgentViewSource,
+  RewindMenuView,
   SourceResult,
   ThreadView,
 } from "./agent-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
 import { intervalTicks, type Ticks, useAgentData } from "./agent-view-data.ts";
 import {
+  excerptOf,
+  hiddenOf,
   messagesOf,
   newSessionKey,
   sessionGroup,
@@ -47,6 +50,7 @@ import type { DraftStore } from "./drafts.ts";
 import { AgentHeader, type SessionLine } from "./header/agent-header.tsx";
 import type { SlashEntryView } from "./slash-menu/slash-menu.tsx";
 import type { ContextLinks } from "./result-links.tsx";
+import { RewindMenu } from "./rewind/rewind-menu.tsx";
 import { useModelPicker } from "./use-model-picker.ts";
 import { useSlashMenu } from "./use-slash-menu.tsx";
 import styles from "./agent-view.module.css";
@@ -109,8 +113,12 @@ export function AgentView(props: AgentViewProps) {
   };
   const ticks = props.ticks ?? intervalTicks;
   const now = props.now ?? Date.now;
-  useSyncExternalStore(drafts.subscribe, drafts.version);
+  const draftsVersion = useSyncExternalStore(drafts.subscribe, drafts.version);
   const [detail, setDetail] = useState<ViewDetail>("compact");
+  // 열려 있는 Rewind menu. message가 null이면 header의 Rewind…라 시점을 menu에서 고른다.
+  const [rewind, setRewind] = useState<
+    { message: string | null; menu: RewindMenuView } | null
+  >(null);
   const [chips, setChips] = useState(props.contextChips ?? []);
   const [problem, setProblem] = useState<Problem | null>(null);
 
@@ -150,6 +158,54 @@ export function AgentView(props: AgentViewProps) {
     void refresh();
     return result.ok;
   };
+
+  // menu의 재료(시점·막힌 범위·실행 중 여부)는 열 때 한 번 읽는다. 읽지 못하면 열지 않고 그렇다고 말한다.
+  const openRewind = async (message: string | null) => {
+    if (session === null) return;
+    const read = await source.rewindMenu(session);
+    if (read.ok) {
+      setProblem(null);
+      setRewind({ message, menu: read.value });
+    } else fail();
+  };
+
+  // rewind가 새로 숨긴 구간이 생기면 고른 메시지의 원문을 입력창에 채운다(lophn-agent/revert#R16). 처음 열었을 때
+  // 이미 있던 구간이나, 이미 쓰던 글이 있으면 건드리지 않는다.
+  const seenHidden = useRef<{ session: string; reverts: Set<string> } | null>(
+    null,
+  );
+  const fillFrom = useRef<string | null>(null);
+  const hidden = hiddenOf(thread);
+  useEffect(() => {
+    if (session === null || thread === null) return;
+    const seen = seenHidden.current;
+    if (seen === null || seen.session !== session) {
+      seenHidden.current = {
+        session,
+        reverts: new Set(hidden.map((item) => item.revert)),
+      };
+      fillFrom.current = null;
+      return;
+    }
+    for (const item of hidden) {
+      if (seen.reverts.has(item.revert)) continue;
+      seen.reverts.add(item.revert);
+      if (item.redo) fillFrom.current = item.checkpoint;
+    }
+    const checkpoint = fillFrom.current;
+    if (checkpoint === null) return;
+    const body = drafts.body(checkpoint);
+    // 본문을 읽는 중이면 읽힐 때 다시 본다.
+    if (body === undefined || body.state === "loading") return;
+    fillFrom.current = null;
+    const current = drafts.draft(session);
+    if (body.state !== "ready" || current.text !== "") return;
+    const text = body.parts.flatMap((part) =>
+      part.kind === "text" ? [part.text] : []
+    ).join("\n");
+    if (text === "") return;
+    drafts.save(session, { text, selection: [text.length, text.length] });
+  }, [thread, session, drafts, draftsVersion]);
 
   // 첫 말을 보낼 때 session을 만든다. 남은 chip이 그 session의 첫 context가 되고, 쓰던 글은 새 session의 것이 된다.
   const ensureSession = async (): Promise<string | null> => {
@@ -462,11 +518,7 @@ export function AgentView(props: AgentViewProps) {
             if (deleted && id === session) onSessionChange(null);
           })}
         onForkSession={() => void fork(null)}
-        onRewindMenu={() => {
-          if (session !== null) {
-            void perform(() => source.rewind(session, null));
-          }
-        }}
+        onRewindMenu={() => void openRewind(null)}
         onUsage={host.showUsage}
         onCloseTab={host.closeTab}
       >
@@ -513,17 +565,23 @@ export function AgentView(props: AgentViewProps) {
         onScroll={(position) => drafts.save(key, { scroll: position })}
         onOpenResult={host.openResult}
         onRewind={(message) => {
-          if (session !== null && known(message)) {
-            void perform(() => source.rewind(session, message));
-          }
+          if (known(message)) void openRewind(message);
         }}
         onFork={(message) => {
           if (known(message)) void fork(message);
         }}
         onCheck={() => void check()}
         onResend={() => void sendAgain()}
-        onUndo={(edit) => void perform(() => source.undoEdit(edit.id))}
-        onRedo={(edit) => void perform(() => source.redoEdit(edit.id))}
+        onUndo={(edit) => {
+          if (session !== null) {
+            void perform(() => source.undoEdit(session, edit.id));
+          }
+        }}
+        onRedo={(revert) => {
+          if (session !== null) {
+            void perform(() => source.redoRewind(session, revert));
+          }
+        }}
         onAnswer={(group, answers) =>
           void perform(() => source.answerQuestions({ group, answers }))}
         onSkip={(group) => void perform(() => source.deferQuestions(group))}
@@ -588,6 +646,21 @@ export function AgentView(props: AgentViewProps) {
             />
           )}
       </div>
+      {rewind === null || session === null ? null : (
+        <RewindMenu
+          menu={rewind.menu}
+          message={rewind.message}
+          excerpt={(message) => excerptOf(drafts.body(message))}
+          preview={(message, choice) =>
+            source.rewindPreview(session, message, choice)}
+          onRewind={async (input) => {
+            const result = await source.rewind({ session, ...input });
+            void refresh();
+            return result;
+          }}
+          onClose={() => setRewind(null)}
+        />
+      )}
     </section>
   );
 }

@@ -13,6 +13,7 @@ import {
 import { defineDecision } from "../platform/confirmation-handle.ts";
 import { relativePathSchema } from "../documents/mod.ts";
 import { readCursorSchema } from "./run-values.ts";
+import { compactFailureReasonSchema } from "./sessions.ts";
 
 // session 안 rewind와 편집 카드 Undo의 contract다(lophn-agent/revert). 단위는 session 안 사람
 // 메시지(Checkpoint)이고, 문서 파일은 RewindFile pre-image로, 앱 data는 앱이 선언한 revert
@@ -662,6 +663,101 @@ export const runAppRevert = defineMemory({
   errors: [...commandErrors],
 });
 
+// "Summarize from here"의 요약 요청이다. Compact와 같은 모양이다: 사람이 요청하면(RequestRewindSummary) runtime이
+// 요약 call(Model for summaries)을 하고(Take·FinishRewindSummary) 사람이 끝난 call로 Rewind(choice=summarize)를
+// 확인한다. 요청은 ledger 기록이 아니라 core의 작업 메모리다: 요약 call 자체는 model call 기록에 남고, 접히는 것은
+// Rewind가 확정할 때뿐이다. 요청이 사라지면(core 재시작, 기한) 사람이 다시 요청한다.
+const summaryRequestIdSchema = z.string().min(1).max(64);
+
+export const rewindSummaryStateSchema = z.discriminatedUnion("state", [
+  z.strictObject({ state: z.literal("waiting") }),
+  z.strictObject({
+    state: z.literal("summarized"),
+    // 완전 성공한 요약 call. Rewind의 summary_call로 넘긴다.
+    summary_call: idSchema("mcl"),
+  }),
+  z.strictObject({
+    state: z.literal("failed"),
+    reason: compactFailureReasonSchema,
+  }),
+]);
+export type RewindSummaryState = z.infer<typeof rewindSummaryStateSchema>;
+
+const summaryErrors = [
+  "unauthorized",
+  "forbidden",
+  "invalid_input",
+  "not_found",
+  "conflict",
+  "unavailable",
+] as const;
+
+export const requestRewindSummary = defineMemory({
+  resource: "rewind",
+  method: "summary-request",
+  name: "RequestRewindSummary",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    // 요약을 시작할 사람 메시지(checkpoint). 숨긴 구간 안이거나 checkpoint가 아니면 거절한다.
+    checkpoint: idSchema("msg"),
+  }),
+  output: z.object({ request: summaryRequestIdSchema }),
+  actors: ["user"],
+  errors: [...summaryErrors],
+});
+
+export const readRewindSummary = defineMemory({
+  resource: "rewind",
+  method: "summary-state",
+  name: "ReadRewindSummary",
+  input: z.strictObject({ request: summaryRequestIdSchema }),
+  output: rewindSummaryStateSchema,
+  actors: ["user"],
+  errors: [...summaryErrors],
+});
+
+export const takeRewindSummaryRequest = defineMemory({
+  resource: "rewind",
+  method: "summary-take",
+  name: "TakeRewindSummaryRequest",
+  input: z.strictObject({}),
+  // 요약할 요청이 없으면 null이다. 가져간 요청은 다시 나오지 않는다.
+  output: z.object({
+    request: z.object({
+      id: summaryRequestIdSchema,
+      session: idSchema("ses"),
+      assignment: idSchema("asg"),
+      // 요약을 시작할 메시지의 생성 seq다.
+      from_seq: seqSchema,
+    }).nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
+});
+
+export const finishRewindSummary = defineMemory({
+  resource: "rewind",
+  method: "summary-done",
+  name: "FinishRewindSummary",
+  input: z.strictObject({
+    id: summaryRequestIdSchema,
+    result: z.discriminatedUnion("kind", [
+      z.strictObject({
+        kind: z.literal("summarized"),
+        summary_call: idSchema("mcl"),
+      }),
+      z.strictObject({
+        kind: z.literal("failed"),
+        reason: compactFailureReasonSchema,
+      }),
+    ]),
+  }),
+  // 모르거나 기한이 지난 요청이면 accepted가 false다.
+  output: z.object({ accepted: z.boolean() }),
+  actors: ["machine"],
+  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
+});
+
 // 읽기. preview는 command나 event를 만들지 않는다.
 export const rewindPreviewInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({
@@ -852,6 +948,10 @@ export const REVERT_ROUTES = [
   checkpointRevert,
   finishRevert,
   amendRevertInstall,
+  requestRewindSummary,
+  readRewindSummary,
+  takeRewindSummaryRequest,
+  finishRewindSummary,
   rewindPreview,
   rewindCheckpoints,
   rewindList,

@@ -8,6 +8,9 @@ import type {
   AgentViewSource,
   BodyPart,
   ModelView,
+  RewindChoice,
+  RewindMenuView,
+  RewindPreviewView,
   SendInput,
   SessionEntry,
   SourceResult,
@@ -116,9 +119,12 @@ export interface FakeCalls {
   answered: { group: string; answers: readonly GroupAnswer[] }[];
   deferred: string[];
   approvals: { approval: string; choice: ApprovalChoice }[];
-  rewinds: [session: string, message: string | null][];
-  undone: string[];
-  redone: string[];
+  /** 메뉴가 연 미리보기. */
+  previews: { session: string; message: string; choice: RewindChoice }[];
+  /** 확인 창으로 넘긴 rewind. */
+  rewinds: { session: string; message: string; choice: RewindChoice }[];
+  undone: { session: string; edit: string }[];
+  redone: { session: string; revert: string }[];
   commands: { session: string; entry: SlashEntryView }[];
   chosen: PickerModelRef[];
   options: [axis: string, value: string][];
@@ -148,8 +154,20 @@ export interface FakeAgentState {
   /** 있으면 보내기 답을 이것이 풀릴 때까지 미룬다. */
   gate: Promise<void> | null;
   bodyReads: string[];
+  /** session별 rewind menu. 없으면 thread의 사람 메시지로 만든다. */
+  rewindMenus: Record<string, RewindMenuView>;
+  /** 모든 범위에 주는 미리보기. */
+  preview: RewindPreviewView;
   calls: FakeCalls;
 }
+
+/** 아무것도 건너뛰지 않는 기본 미리보기. */
+export const EMPTY_PREVIEW: RewindPreviewView = {
+  restore: [],
+  skip: [],
+  remain: [],
+  redo: true,
+};
 
 function modelView(
   scenario: PickerScenario,
@@ -213,6 +231,7 @@ export function fakeAgentSource(initial: Partial<FakeAgentState> = {}) {
     answered: [],
     deferred: [],
     approvals: [],
+    previews: [],
     rewinds: [],
     undone: [],
     redone: [],
@@ -237,6 +256,8 @@ export function fakeAgentSource(initial: Partial<FakeAgentState> = {}) {
     writeFails: {},
     gate: null,
     bodyReads: [],
+    rewindMenus: {},
+    preview: EMPTY_PREVIEW,
     calls,
     ...initial,
   };
@@ -524,19 +545,43 @@ export function fakeAgentSource(initial: Partial<FakeAgentState> = {}) {
       });
     },
 
-    rewind(session, message) {
+    rewindMenu(session) {
+      return read(() =>
+        state.rewindMenus[session] ?? {
+          running: thread(session).run?.phase === "working" ||
+            thread(session).run?.phase === "waiting",
+          points: thread(session).entries.flatMap((entry) =>
+            entry.kind === "message" && entry.actor === "user"
+              ? [
+                {
+                  message: entry.id,
+                  blocked: entry.mode === "correction"
+                    ? { restore_all: "correction", summarize: "correction" }
+                    : {},
+                } as const,
+              ]
+              : []
+          ),
+        }
+      );
+    },
+    rewindPreview(session, message, choice) {
+      calls.previews.push({ session, message, choice });
+      return read(() => state.preview);
+    },
+    rewind(input) {
       return write("rewinds", () => {
-        calls.rewinds.push([session, message]);
+        calls.rewinds.push(input);
       });
     },
-    undoEdit(edit) {
+    undoEdit(session, edit) {
       return write("undone", () => {
-        calls.undone.push(edit);
+        calls.undone.push({ session, edit });
       });
     },
-    redoEdit(edit) {
+    redoRewind(session, revert) {
       return write("redone", () => {
-        calls.redone.push(edit);
+        calls.redone.push({ session, revert });
       });
     },
   };
@@ -608,7 +653,7 @@ export function finishedReport(fake: FakeAgent): ThreadView {
       at: at(-16),
       edit: REPORT_EDIT,
       undone: false,
-      canRedo: false,
+      undo: { can: true },
     },
     {
       kind: "run-end",

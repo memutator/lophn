@@ -103,7 +103,7 @@ test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하�
   assert.equal(isAllowed("worker", "files", "watch"), false);
 });
 
-test("lophn-agent/extensions#R16 #R17 [agent-I52]: renderer는 MCP 로그인의 시작·완료·상태 읽기·취소 memory route만 부르고 다른 memory route는 막는다", () => {
+test("lophn-agent/extensions#R16 #R17 lophn-agent/revert#R15 [agent-I52]: renderer는 MCP 로그인의 시작·완료·상태 읽기·취소와 Summarize from here의 요청·상태 읽기 memory route만 부르고 다른 memory route는 막는다", () => {
   assert.deepEqual(
     [...RENDERER_MEMORY_ROUTES].sort(),
     [
@@ -111,8 +111,13 @@ test("lophn-agent/extensions#R16 #R17 [agent-I52]: renderer는 MCP 로그인의 
       "memory:agent-mcp-auth/cancel",
       "memory:agent-mcp-auth/complete",
       "memory:agent-mcp-auth/state",
+      "memory:rewind/summary-request",
+      "memory:rewind/summary-state",
     ],
   );
+  // 요약을 가져가고 끝내는 입구는 runtime(machine)만 쓴다.
+  assert.equal(isAllowed("memory", "rewind", "summary-take"), false);
+  assert.equal(isAllowed("memory", "rewind", "summary-done"), false);
   for (const method of ["begin", "complete", "state", "cancel"]) {
     assert.equal(isAllowed("memory", "agent-mcp-auth", method), true, method);
   }
@@ -120,7 +125,8 @@ test("lophn-agent/extensions#R16 #R17 [agent-I52]: renderer는 MCP 로그인의 
     lookupCall("memory", "agent-mcp-auth", "begin"),
     "memory:agent-mcp-auth/begin",
   );
-  assert.equal(isAllowed("memory", "reverts", "run_apps"), false);
+  // 앱 단계 이어 실행은 확인 창을 맡은 main이 부른다.
+  assert.equal(isAllowed("memory", "rewind", "run-apps"), false);
   assert.equal(
     isAllowed("memory", "coding_agent_connections", "connect"),
     false,

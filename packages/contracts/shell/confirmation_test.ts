@@ -268,29 +268,60 @@ Deno.test(
   },
 );
 
-const RUN = "run_01arz3ndektsv4rrffq69g5fav";
+const SES = "ses_01arz3ndektsv4rrffq69g5fav";
+const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
+const MCL = "mcl_01arz3ndektsv4rrffq69g5fav";
 const RVT = "rvt_01arz3ndektsv4rrffq69g5fav";
 
 Deno.test(
   "shell/confirmation-window#R2, lophn-agent/revert#R2: owner decision 열기는 대상 ID를, provider credential 입력은 값 아닌 등록 정보만 싣는다",
   () => {
-    const revert = confirmationOpenIntentSchema.parse({
-      request: {
-        kind: "owner_decision",
-        concern: "lophn-agent/revert",
-        decision: "RevertRun",
-        targets: [RUN],
-      },
-      parentWindow: "win-1",
-    });
-    assertEquals(revert.request.kind, "owner_decision");
+    // Rewind는 session과 checkpoint 메시지, 고른 범위를 가리킨다(summarize는 끝난 요약 call도).
+    for (const choice of ["restore_all", "messages_only"] as const) {
+      const revert = confirmationOpenIntentSchema.parse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG],
+          choice,
+        },
+        parentWindow: "win-1",
+      });
+      assertEquals(revert.request.kind, "owner_decision");
+    }
+    assert(
+      confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG, MCL],
+          choice: "summarize",
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
     assert(
       !confirmationOpenIntentSchema.safeParse({
         request: {
           kind: "owner_decision",
           concern: "lophn-agent/revert",
-          decision: "RevertRun",
-          targets: [RUN, RUN],
+          decision: "Rewind",
+          targets: [SES, SES],
+          choice: "restore_all",
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+    assert(
+      !confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG],
+          choice: "everything",
         },
         parentWindow: "win-1",
       }).success,
@@ -426,25 +457,27 @@ Deno.test(
       request: {
         kind: "owner_decision",
         concern: "lophn-agent/revert",
-        decision: "RevertRun",
-        targets: [RUN],
+        decision: "Rewind",
+        targets: [SES, MSG],
         input: {
           kind: "inline",
           value: {
             id: RVT,
-            run: RUN,
-            allow_partial: true,
+            session: SES,
+            checkpoint: MSG,
+            choice: "restore_all",
+            accept_remaining: true,
             preview_hash: HASH,
           },
         },
         comparison: { preview_hash: HASH },
       },
-      view: { kind: "revert", groups: [] },
+      view: { kind: "rewind", restore: [], skip: [], remain: [] },
       state: "ready",
-      decisions: ["RevertRun"],
+      decisions: ["Rewind"],
       second: true,
     });
-    assertEquals(display.decisions, ["RevertRun"]);
+    assertEquals(display.decisions, ["Rewind"]);
     assert(
       !confirmationDisplaySchema.safeParse({ ...display, state: "granted" })
         .success,

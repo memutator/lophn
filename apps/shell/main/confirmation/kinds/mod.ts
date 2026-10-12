@@ -25,6 +25,15 @@ import {
 import { failed, type KindCore, record, type Sent } from "./core.ts";
 import { readOptionAction, submitOptionAction } from "./option-action.ts";
 import {
+  isRewind,
+  newRevertId,
+  readRewind,
+  REWIND,
+  REWIND_CONCERN,
+  rewindState,
+  submitRewind,
+} from "./rewind.ts";
+import {
   APPLY_PROBLEM_DECISION,
   isProblemDecision,
   PROBLEM_CONCERN,
@@ -59,6 +68,9 @@ export function createKinds(options: KindsOptions): {
 } {
   // 결과를 모르면 같은 handle·같은 결정으로 다시 보내 receipt만 받는다(idempotency).
   const apps = appDecisions(() => options.clock.now(), options.random);
+  const rewinds = rewindState(() =>
+    newRevertId(options.clock.now(), options.random)
+  );
   const sentWith = new Map<string, { decision: string; input: unknown }>();
 
   const canon: CanonPort = {
@@ -81,6 +93,9 @@ export function createKinds(options: KindsOptions): {
           }
           if (isProblemDecision(intent)) {
             return readProblemDecision(core, intent);
+          }
+          if (isRewind(intent)) {
+            return readRewind(core, rewinds, windowId, intent);
           }
           return apps.read(core, intent, windowId);
         }
@@ -145,6 +160,17 @@ export function createKinds(options: KindsOptions): {
         content: record(canonical?.content),
       });
     }
+    if (
+      request?.kind === "owner_decision" &&
+      request.concern === REWIND_CONCERN && decision === REWIND &&
+      request.input.kind === "inline"
+    ) {
+      return submitRewind(core, {
+        handle,
+        content: record(canonical?.content),
+        summaryCall: request.targets[2] ?? null,
+      });
+    }
     return Promise.resolve({
       ok: false,
       unknown: false,
@@ -177,6 +203,7 @@ export function createKinds(options: KindsOptions): {
     ),
     closed(windowId) {
       apps.forget(windowId);
+      rewinds.forget(windowId);
     },
   };
 }

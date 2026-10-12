@@ -32,6 +32,14 @@ import {
   WORK_PLACE,
 } from "../testdata/agent-core-fixtures.ts";
 import {
+  checkpointEntry,
+  previewBody,
+  previewItem,
+  revertRecord,
+  undoPreviewBody,
+  undoRecord,
+} from "../testdata/rewind-fixtures.ts";
+import {
   type ContractCore,
   contractCore,
   fail,
@@ -67,6 +75,13 @@ const CHECKED = [
   "command:questions/answer",
   "command:questions/defer",
   "command:model-favorites/change",
+  "read:rewind/preview",
+  "read:rewind/checkpoints",
+  "read:rewind/list",
+  "command:rewind/undo",
+  "command:rewind/redo",
+  "memory:rewind/summary-request",
+  "memory:rewind/summary-state",
 ];
 
 const AGENT_ROW = {
@@ -167,6 +182,10 @@ function world(over: Handlers = {}): Handlers {
     "read:runs/list": () => ok(listed("runs", [])),
     "read:events/list": () =>
       ok({ events: [], scanned_through_seq: "100", head_seq: "100", ...META }),
+    // 되돌린 적이 없는 session의 기본 읽기다.
+    "read:rewind/list": () =>
+      ok({ reverts: [], hidden_from_seq: null, ...META }),
+    "read:rewind/checkpoints": () => ok({ checkpoints: [], ...META }),
     ...over,
   };
 }
@@ -944,7 +963,8 @@ test("shell/desktop#R40 shell/desktop#R41 [agent-I33b]: thread는 메시지·too
         removed: 1,
       },
       undone: false,
-      canRedo: false,
+      // 같은 run에서 문서를 쓴 call이 없어 어느 call의 편집인지 알 수 없다.
+      undo: { can: false, reason: "unknown" },
     },
     {
       kind: "run-end",
@@ -2191,16 +2211,6 @@ test("platform/approvals#R18 [agent-I33b]: 창을 열 수 없거나 열지 못�
 
 // ---------------------------------------------------------------- the rest
 
-test("lophn-agent/revert [agent-I33b]: 되돌리기는 revert 화면 task가 붙이기 전까지 unavailable이고 core를 부르지 않는다", async () => {
-  const w = sourceOf(world());
-  const unavailable = { ok: false, code: "unavailable" } as const;
-  assertEquals(await w.source.rewind(SESSION, id("msg", 1)), unavailable);
-  assertEquals(await w.source.rewind(SESSION, null), unavailable);
-  assertEquals(await w.source.undoEdit(VER2), unavailable);
-  assertEquals(await w.source.redoEdit(VER2), unavailable);
-  assertEquals(w.calls.length, 0);
-});
-
 test("shell/desktop#R7 [agent-I33b]: watch는 main이 미는 연결 상태를 그대로 듣고 해제하면 더 받지 않는다", () => {
   const w = sourceOf(world());
   const seen: string[] = [];
@@ -2222,4 +2232,688 @@ test("shell/desktop#R7 [agent-I33b]: 한 source의 읽기는 한꺼번에 많이
   );
   assert(harness.peak() <= 4, `동시 호출 ${harness.peak()}`);
   assert(harness.peak() >= 2);
+});
+
+// ---------------------------------------------------------------- rewind
+
+const SAVE = id("tcl", 5);
+
+/** 메시지 1·2는 run 1, 메시지 3·4는 run 2다. 편집(VER2)은 run 1의 document.save_version call이 썼다. */
+function rewindWorld(over: Handlers = {}): Handlers {
+  const m1 = message(1, { applied_at_call: id("mcl", 1) }, 21);
+  const m2 = message(2, {
+    actor: `agent:${LOPHN}`,
+    links: [{ kind: "version", document: DOC, version: VER2 }],
+  }, 22);
+  const m3 = message(3, { run: id("run", 2) }, 31);
+  const m4 = message(4, {
+    actor: `agent:${LOPHN}`,
+    run: id("run", 2),
+  }, 33);
+  return world({
+    "read:messages/list": () => ok({ messages: [m1, m2, m3, m4], ...META }),
+    "read:runs/list": () =>
+      ok(listed("runs", [
+        run(1, {
+          state: "finished",
+          accepted_seq: "21",
+          state_seq: "25",
+          elapsed: { active_ms: 18000, stall_ms: 0, checkpoint_at: at(18) },
+        }),
+        run(2, {
+          state: "finished",
+          accepted_seq: "31",
+          state_seq: "35",
+          elapsed: { active_ms: 4000, stall_ms: 0, checkpoint_at: at(40) },
+        }),
+      ])),
+    "read:questions/list": () => ok(listed("groups", [])),
+    "read:tool-calls/list": (body) =>
+      ok({
+        tool_calls: body.run === id("run", 1)
+          ? [toolCall(5, "document.save_version", { effect: "write" })]
+          : [],
+        ...META,
+      }),
+    "read:events/list": eventsFor([
+      { subject: id("msg", 1), seq: "21", at: at(0) },
+      { subject: id("msg", 2), seq: "22", at: at(17) },
+      { subject: id("msg", 3), seq: "31", at: at(40) },
+      { subject: id("msg", 4), seq: "33", at: at(44) },
+    ]),
+    "read:documents/get": () =>
+      ok({
+        document: {
+          id: DOC,
+          title: "Weekly report",
+          name: "weekly-report",
+          place: null,
+          latest_version: VER2,
+        },
+        version: { id: VER2, document: DOC, number: 1 },
+        ...META,
+      }),
+    "worker:documents/read": () => ok({ text: "a\nb\n", ...META }),
+    "read:rewind/checkpoints": () =>
+      ok({
+        checkpoints: [checkpointEntry(1), checkpointEntry(3, {}, 31)],
+        ...META,
+      }),
+    "read:rewind/preview": () =>
+      ok(undoPreviewBody({ restore: [previewItem(0)] })),
+    ...over,
+  });
+}
+
+test("lophn-agent/revert#R16 [agent-RW3e]: 되돌린 구간(boundary_seq부터 result_seq까지)의 줄은 thread에서 한 줄로 접히고 숨긴 줄은 그 안에 남으며, 그 뒤에 접수한 메시지는 숨기지 않는다", async () => {
+  const w = sourceOf(rewindWorld({
+    "read:messages/list": () =>
+      ok({
+        messages: [
+          message(1, { applied_at_call: id("mcl", 1) }, 21),
+          message(2, {
+            actor: `agent:${LOPHN}`,
+            links: [{ kind: "version", document: DOC, version: VER2 }],
+          }, 22),
+          message(3, { run: id("run", 2) }, 31),
+          message(4, { actor: `agent:${LOPHN}`, run: id("run", 2) }, 33),
+          // 되돌린 뒤 접수한 메시지.
+          message(5, { run: id("run", 3) }, 45),
+        ],
+        ...META,
+      }),
+    "read:runs/list": () =>
+      ok(listed("runs", [
+        run(1, { state: "finished", accepted_seq: "21", state_seq: "25" }),
+        run(2, { state: "finished", accepted_seq: "31", state_seq: "35" }),
+        run(3, { state: "running", accepted_seq: "45", state_seq: "46" }),
+      ])),
+    "read:rewind/list": () =>
+      ok({
+        reverts: [revertRecord(1)],
+        hidden_from_seq: "31",
+        ...META,
+      }),
+  }));
+  const read = await w.source.thread(SESSION);
+  assert(read.ok);
+  const entries = read.value.entries;
+  assertEquals(
+    entries.map((entry) => entry.kind),
+    ["message", "message", "edit", "run-end", "hidden", "message"],
+  );
+  const hidden = entries[4]!;
+  assert(hidden.kind === "hidden");
+  assertEquals(hidden.revert, id("rvt", 1));
+  assertEquals(hidden.checkpoint, id("msg", 3));
+  assertEquals(hidden.choice, "messages_only");
+  assertEquals(hidden.count, 2);
+  assertEquals(hidden.redo, true);
+  assertEquals(
+    hidden.entries.map((entry) => [entry.kind, entry.id]),
+    [
+      ["message", id("msg", 3)],
+      ["message", id("msg", 4)],
+      ["run-end", `end-${id("run", 2)}`],
+    ],
+  );
+  assertEquals(hidden.at, at(40));
+  assertEquals(entries[5]!.id, id("msg", 5));
+  w.verify();
+});
+
+test("lophn-agent/revert#R16 [agent-RW3e]: redo를 마쳤거나 닫혔거나 요약·막힌 rewind는 숨기지 않고, 닫힌 redo의 숨김은 그대로 접히되 Redo가 없다", async () => {
+  const cases: [Record<string, unknown>, boolean, boolean][] = [
+    // [revert, 접히는가, redo를 할 수 있는가]
+    [revertRecord(1, { redo: "done" }), false, false],
+    [revertRecord(1, { redo: "closed" }), true, false],
+    [revertRecord(1, { redo: "available" }), true, true],
+    [
+      revertRecord(1, { outcome: "blocked", redo: "none", items: [] }),
+      false,
+      false,
+    ],
+    [
+      revertRecord(1, {
+        choice: "summarize",
+        summary_call: id("mcl", 7),
+        redo: "none",
+      }),
+      false,
+      false,
+    ],
+    [revertRecord(1, { outcome: "partial", redo: "none" }), true, false],
+  ];
+  for (const [record, folded, redo] of cases) {
+    const w = sourceOf(rewindWorld({
+      "read:rewind/list": () =>
+        ok({ reverts: [record], hidden_from_seq: null, ...META }),
+    }));
+    const read = await w.source.thread(SESSION);
+    assert(read.ok);
+    const hidden = read.value.entries.find((entry) => entry.kind === "hidden");
+    assertEquals(hidden !== undefined, folded, JSON.stringify(record));
+    if (hidden?.kind === "hidden") assertEquals(hidden.redo, redo);
+  }
+});
+
+test("lophn-agent/revert#R3 lophn-agent/revert#R8 [agent-RW3e]: 접힌 줄은 실제 복원한 파일 수와 복원하지 못한 항목을 이유와 함께 싣는다", async () => {
+  const w = sourceOf(rewindWorld({
+    "read:rewind/list": () =>
+      ok({
+        reverts: [revertRecord(1, {
+          choice: "restore_all",
+          items: [
+            previewItem(0, { result: "restored" }),
+            previewItem(1, {
+              plan: "skip",
+              reason: "edited_outside",
+              result: "skipped",
+            }),
+            previewItem(2, {
+              class: "fact",
+              target: "external_request",
+              plan: "remain",
+              reason: "external_effect",
+              result: "remained",
+            }),
+          ],
+        })],
+        hidden_from_seq: "31",
+        ...META,
+      }),
+  }));
+  const read = await w.source.thread(SESSION);
+  assert(read.ok);
+  const hidden = read.value.entries.find((entry) => entry.kind === "hidden");
+  assert(hidden?.kind === "hidden");
+  assertEquals(hidden.choice, "restore_all");
+  assertEquals(hidden.restored, 1);
+  assertEquals(hidden.left, [
+    {
+      kind: "file",
+      target: "notes/1.md",
+      result: "skipped",
+      reason: "edited_outside",
+    },
+    {
+      kind: "fact",
+      target: "external_request",
+      result: "remained",
+      reason: "external_effect",
+    },
+  ]);
+  // 항목에는 receipt 원문이 없다.
+  assertEquals(JSON.stringify(hidden).includes("receipt"), false);
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: 편집 카드는 같은 run에서 문서를 쓴 call과 짝지어 지금 Undo할 수 있는지를 사전 검사로 정한다", async () => {
+  const w = sourceOf(rewindWorld());
+  const read = await w.source.thread(SESSION);
+  assert(read.ok);
+  const edit = read.value.entries.find((entry) => entry.kind === "edit");
+  assert(edit?.kind === "edit");
+  assertEquals(edit.undone, false);
+  assertEquals(edit.undo, { can: true });
+  const preview = w.calls.find((call) => call.method === "preview")!;
+  assertEquals(preview.body, {
+    kind: "undo",
+    session: SESSION,
+    tool_call: SAVE,
+  });
+  w.verify();
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: 지금 파일이 다르거나 더 나중 편집이 있어 건너뛰는 call은 비활성이고 그 이유 코드를 준다", async () => {
+  for (
+    const reason of ["edited_outside", "later_edit", "no_pre_image"] as const
+  ) {
+    const w = sourceOf(rewindWorld({
+      "read:rewind/preview": () =>
+        ok(undoPreviewBody({
+          skip: [previewItem(0, { plan: "skip", reason })],
+        })),
+    }));
+    const read = await w.source.thread(SESSION);
+    assert(read.ok);
+    const edit = read.value.entries.find((entry) => entry.kind === "edit");
+    assert(edit?.kind === "edit");
+    assertEquals(edit.undo, { can: false, reason });
+    w.verify();
+  }
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: Undo한 call의 카드는 undone이다", async () => {
+  const w = sourceOf(rewindWorld({
+    "read:rewind/list": () =>
+      ok({ reverts: [undoRecord(2)], hidden_from_seq: null, ...META }),
+    "read:rewind/preview": () =>
+      ok(undoPreviewBody({
+        skip: [previewItem(0, { plan: "skip", reason: "already_reverted" })],
+      })),
+  }));
+  const read = await w.source.thread(SESSION);
+  assert(read.ok);
+  const edit = read.value.entries.find((entry) => entry.kind === "edit");
+  assert(edit?.kind === "edit");
+  assertEquals(edit.undone, true);
+  // 되돌린 카드는 사전 검사를 더 묻지 않는다.
+  assertEquals(
+    w.calls.filter((call) =>
+      call.resource === "rewind" && call.method === "preview"
+    ),
+    [],
+  );
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: 같은 run의 문서 쓰기 call 수와 편집 카드 수가 맞지 않으면 어느 call인지 알 수 없어 Undo를 열지 않는다", async () => {
+  const w = sourceOf(rewindWorld({
+    "read:tool-calls/list": () =>
+      ok({
+        tool_calls: [
+          toolCall(5, "document.save_version", { effect: "write" }),
+          toolCall(6, "document.save_version", { effect: "write" }),
+        ],
+        ...META,
+      }),
+  }));
+  const read = await w.source.thread(SESSION);
+  assert(read.ok);
+  const edit = read.value.entries.find((entry) => entry.kind === "edit");
+  assert(edit?.kind === "edit");
+  assertEquals(edit.undo, { can: false, reason: "unknown" });
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: undoEdit은 카드의 call을 사전 검사한 지문으로 UndoEdit을 보내고 파일 준비는 core에 맡긴다", async () => {
+  const sent: unknown[] = [];
+  const w = sourceOf(rewindWorld({
+    "command:rewind/undo": (body) => {
+      sent.push(body);
+      return ok({
+        id: body.id,
+        session: SESSION,
+        kind: "undo",
+        outcome: "applied",
+        redo: "none",
+        result_seq: "50",
+        replayed: false,
+      });
+    },
+  }));
+  await w.source.thread(SESSION);
+  const result = await w.source.undoEdit(SESSION, VER2);
+  assertEquals(result, { ok: true, value: undefined });
+  const input = sent[0] as Record<string, unknown>;
+  assertEquals(
+    [input.session, input.tool_call, input.preview_hash, input.files],
+    [SESSION, SAVE, "b".repeat(64), []],
+  );
+  assert(String(input.id).startsWith("rvt_"));
+  const call = w.calls.find((item) => item.method === "undo")!;
+  assertEquals(
+    (call.body as { compare: unknown }).compare,
+    { session_state: "open", reverted_by: null },
+  );
+  w.verify();
+});
+
+test("lophn-agent/revert#R19 [agent-RW3e]: 사전 검사 뒤 파일이 바뀌어 blocked면 conflict이고, 어느 call인지 모르는 카드나 없는 카드는 보내지 않는다", async () => {
+  const blocked = sourceOf(rewindWorld({
+    "command:rewind/undo": (body) =>
+      ok({
+        id: body.id,
+        session: SESSION,
+        kind: "undo",
+        outcome: "blocked",
+        redo: "none",
+        result_seq: "50",
+        replayed: false,
+      }),
+  }));
+  await blocked.source.thread(SESSION);
+  assertEquals(await blocked.source.undoEdit(SESSION, VER2), {
+    ok: false,
+    code: "conflict",
+  });
+  const none = sourceOf(rewindWorld());
+  await none.source.thread(SESSION);
+  assertEquals(await none.source.undoEdit(SESSION, id("ver", 9)), {
+    ok: false,
+    code: "not_found",
+  });
+  assertEquals(none.calls.filter((call) => call.method === "undo"), []);
+});
+
+test("lophn-agent/revert#R16 [agent-RW3e]: redoRewind는 그 rewind의 결과 event seq를 읽어 Redo를 보내고 모르는 rewind는 보내지 않는다", async () => {
+  const sent: unknown[] = [];
+  const w = sourceOf(rewindWorld({
+    "read:rewind/list": () =>
+      ok({ reverts: [revertRecord(1)], hidden_from_seq: "31", ...META }),
+    "command:rewind/redo": (body) => {
+      sent.push(body);
+      return ok({
+        id: body.revert,
+        session: SESSION,
+        kind: "rewind",
+        outcome: "applied",
+        redo: "done",
+        result_seq: "40",
+        replayed: false,
+      });
+    },
+  }));
+  assertEquals(await w.source.redoRewind(SESSION, id("rvt", 1)), {
+    ok: true,
+    value: undefined,
+  });
+  assertEquals(sent, [{ revert: id("rvt", 1), result_seq: "40", files: [] }]);
+  const call = w.calls.find((item) => item.method === "redo")!;
+  assertEquals((call.body as { compare: unknown }).compare, {
+    redo: "available",
+  });
+  assertEquals(await w.source.redoRewind(SESSION, id("rvt", 9)), {
+    ok: false,
+    code: "not_found",
+  });
+  w.verify();
+});
+
+test("lophn-agent/revert#R12 lophn-agent/revert#R14 lophn-agent/revert#R15 [agent-RW3e]: rewindMenu는 숨기지 않은 사람 메시지를 시점으로 주고 수정 메시지·복사본·파일 복원 불가 checkpoint의 막힌 범위와 이유를 싣는다", async () => {
+  const w = sourceOf(rewindWorld({
+    "read:messages/list": () =>
+      ok({
+        messages: [
+          message(1, { applied_at_call: id("mcl", 1) }, 21),
+          message(2, { actor: `agent:${LOPHN}` }, 22),
+          // 진행 중 보낸 수정이라 checkpoint가 없다.
+          message(3, { mode: "correction" }, 23),
+          // Fork 복사본도 checkpoint가 아니다.
+          message(4, { mode: null, run: null, copied_from: id("msg", 90) }, 24),
+          message(5, { run: id("run", 2) }, 31),
+          // 숨긴 구간 안이다.
+          message(6, { run: id("run", 2) }, 32),
+        ],
+        ...META,
+      }),
+    "read:rewind/checkpoints": () =>
+      ok({
+        checkpoints: [
+          checkpointEntry(1, {
+            files_restorable: false,
+            files_reason: "limit_file",
+          }),
+          checkpointEntry(5, {}, 31),
+          checkpointEntry(6, { hidden: true }, 32),
+        ],
+        ...META,
+      }),
+  }));
+  const menu = await w.source.rewindMenu(SESSION);
+  assert(menu.ok);
+  assertEquals(menu.value.running, false);
+  assertEquals(menu.value.points, [
+    { message: id("msg", 1), blocked: { restore_all: "limit_file" } },
+    {
+      message: id("msg", 3),
+      blocked: { restore_all: "correction", summarize: "correction" },
+    },
+    {
+      message: id("msg", 4),
+      blocked: { restore_all: "copied", summarize: "copied" },
+    },
+    { message: id("msg", 5), blocked: {} },
+  ]);
+  w.verify();
+});
+
+test("lophn-agent/revert#R15 [agent-RW3e]: 끝나지 않았거나 기다리는 run이 있으면 menu는 running이다", async () => {
+  for (const state of ["running", "waiting_user"] as const) {
+    const w = sourceOf(rewindWorld({
+      "read:runs/list": () =>
+        ok(listed("runs", [
+          run(2, {
+            state,
+            waiting_on: state === "waiting_user" ? id("qgr", 1) : null,
+            accepted_seq: "31",
+            state_seq: "36",
+          }),
+        ])),
+    }));
+    const menu = await w.source.rewindMenu(SESSION);
+    assert(menu.ok);
+    assertEquals(menu.value.running, true, state);
+  }
+});
+
+test("lophn-agent/revert#R3 lophn-agent/revert#R6 [agent-RW3e]: rewindPreview는 복원할 것·건너뛰는 것·남는 영향을 이유와 함께 옮기고 앱 receipt 원문과 안쪽 근거는 옮기지 않는다", async () => {
+  const app = previewItem(3, {
+    class: "app",
+    target: id("tcl", 8),
+    source: [id("tcl", 8)],
+    app_revert: {
+      app: id("app", 1),
+      release: id("rel", 1),
+      command: "ticket.update",
+      tool_call: id("tcl", 8),
+      invocation: id("inv", 1),
+      receipt: "SECRET-RECEIPT",
+      expected_revision: "7",
+      revert_command: "ticket.revert",
+      step_key: `${id("rvt", 1)}:${id("inv", 1)}`,
+      revert_invocation: null,
+    },
+  });
+  const w = sourceOf(rewindWorld({
+    "read:rewind/preview": () =>
+      ok(previewBody({
+        choice: "restore_all",
+        restore: [previewItem(0), app],
+        skip: [previewItem(1, { plan: "skip", reason: "link_path" })],
+        remain: [previewItem(2, {
+          class: "fact",
+          target: "external_request",
+          plan: "remain",
+          reason: "external_effect",
+        })],
+        redo: false,
+      })),
+  }));
+  const preview = await w.source.rewindPreview(
+    SESSION,
+    id("msg", 3),
+    "restore_all",
+  );
+  assertEquals(preview, {
+    ok: true,
+    value: {
+      restore: [
+        { kind: "file", target: "notes/0.md", reason: null },
+        { kind: "app", target: id("tcl", 8), reason: null },
+      ],
+      skip: [{ kind: "file", target: "notes/1.md", reason: "link_path" }],
+      remain: [{
+        kind: "fact",
+        target: "external_request",
+        reason: "external_effect",
+      }],
+      redo: false,
+    },
+  });
+  assertEquals(JSON.stringify(preview).includes("SECRET-RECEIPT"), false);
+  assertEquals(w.calls.map((call) => call.body), [{
+    kind: "rewind",
+    session: SESSION,
+    checkpoint: id("msg", 3),
+    choice: "restore_all",
+  }]);
+  w.verify();
+});
+
+test("lophn-agent/revert#R7 shell/confirmation-window#R1 [agent-RW3e]: restore_all과 messages_only는 확인 창을 연다 — session·checkpoint·범위만 보내고 결정은 그 창에서만 낸다", async () => {
+  const opened: unknown[] = [];
+  const w = sourceOf(rewindWorld(), undefined, {
+    ...DEPS,
+    openConfirmation: (intent) => {
+      opened.push(intent);
+      return Promise.resolve({ windowId: "cfw_1" });
+    },
+  });
+  for (const choice of ["restore_all", "messages_only"] as const) {
+    assertEquals(
+      await w.source.rewind({
+        session: SESSION,
+        message: id("msg", 3),
+        choice,
+      }),
+      { ok: true, value: undefined },
+    );
+  }
+  assertEquals(
+    opened,
+    ["restore_all", "messages_only"].map((choice) => ({
+      request: {
+        kind: "owner_decision",
+        concern: "lophn-agent/revert",
+        decision: "Rewind",
+        targets: [SESSION, id("msg", 3)],
+        choice,
+      },
+      parentWindow: "requesting-window",
+    })),
+  );
+  // 창을 열 수 없으면 아무것도 하지 않는다.
+  const none = sourceOf(rewindWorld(), undefined, {
+    ...DEPS,
+    openConfirmation: undefined,
+  });
+  assertEquals(
+    await none.source.rewind({
+      session: SESSION,
+      message: id("msg", 3),
+      choice: "restore_all",
+    }),
+    { ok: false, code: "unavailable" },
+  );
+  assertEquals(none.calls.filter((call) => call.kind === "command"), []);
+});
+
+test("lophn-agent/revert#R15 [agent-RW3e]: Summarize from here는 요약을 요청하고 끝난 call을 기다려 그 call을 대상에 실은 확인 창을 연다", async () => {
+  const opened: unknown[] = [];
+  let polls = 0;
+  const w = sourceOf(
+    rewindWorld({
+      "memory:rewind/summary-request": () => ok({ request: "sum-1" }),
+      "memory:rewind/summary-state": () => {
+        polls += 1;
+        return ok(
+          polls < 3
+            ? { state: "waiting" }
+            : { state: "summarized", summary_call: id("mcl", 7) },
+        );
+      },
+    }),
+    undefined,
+    {
+      ...DEPS,
+      openConfirmation: (intent) => {
+        opened.push(intent);
+        return Promise.resolve({ windowId: "cfw_1" });
+      },
+    },
+  );
+  assertEquals(
+    await w.source.rewind({
+      session: SESSION,
+      message: id("msg", 3),
+      choice: "summarize",
+    }),
+    { ok: true, value: undefined },
+  );
+  assertEquals(polls, 3);
+  assertEquals(
+    w.calls.find((call) => call.method === "summary-request")!.body,
+    { session: SESSION, checkpoint: id("msg", 3) },
+  );
+  assertEquals(opened, [{
+    request: {
+      kind: "owner_decision",
+      concern: "lophn-agent/revert",
+      decision: "Rewind",
+      targets: [SESSION, id("msg", 3), id("mcl", 7)],
+      choice: "summarize",
+    },
+    parentWindow: "requesting-window",
+  }]);
+  w.verify();
+});
+
+test("lophn-agent/revert#R15 [agent-RW3e]: 요약이 실패하면 확인 창을 열지 않고 summary_failed를, 요청을 받지 못하면 그 이유를 돌려준다", async () => {
+  const opened: unknown[] = [];
+  const failed = sourceOf(
+    rewindWorld({
+      "memory:rewind/summary-request": () => ok({ request: "sum-1" }),
+      "memory:rewind/summary-state": () =>
+        ok({ state: "failed", reason: "model_unavailable" }),
+    }),
+    undefined,
+    {
+      ...DEPS,
+      openConfirmation: (intent) => {
+        opened.push(intent);
+        return Promise.resolve({ windowId: "cfw_1" });
+      },
+    },
+  );
+  assertEquals(
+    await failed.source.rewind({
+      session: SESSION,
+      message: id("msg", 3),
+      choice: "summarize",
+    }),
+    { ok: false, code: "summary_failed" },
+  );
+  const busy = sourceOf(
+    rewindWorld({
+      "memory:rewind/summary-request": () => fail("conflict"),
+    }),
+    undefined,
+    {
+      ...DEPS,
+      openConfirmation: (intent) => {
+        opened.push(intent);
+        return Promise.resolve({ windowId: "cfw_1" });
+      },
+    },
+  );
+  assertEquals(
+    await busy.source.rewind({
+      session: SESSION,
+      message: id("msg", 3),
+      choice: "summarize",
+    }),
+    { ok: false, code: "conflict" },
+  );
+  assertEquals(opened, []);
+});
+
+test("lophn-agent/revert#R15 [agent-RW3e]: 요약이 오래 끝나지 않으면 기다림을 멈추고 unavailable이다", async () => {
+  const w = sourceOf(
+    rewindWorld({
+      "memory:rewind/summary-request": () => ok({ request: "sum-1" }),
+      "memory:rewind/summary-state": () => ok({ state: "waiting" }),
+    }),
+    undefined,
+    {
+      ...DEPS,
+      openConfirmation: () => Promise.resolve({ windowId: "cfw_1" }),
+    },
+  );
+  assertEquals(
+    await w.source.rewind({
+      session: SESSION,
+      message: id("msg", 3),
+      choice: "summarize",
+    }),
+    { ok: false, code: "unavailable" },
+  );
 });

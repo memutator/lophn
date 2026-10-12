@@ -1,7 +1,9 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useId } from "react";
 import { Button, Card } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
+import type { EditUndo } from "../agent-source.ts";
+import { reasonText } from "../rewind/text.ts";
 import type { EditView } from "./model.ts";
 import styles from "./activity.module.css";
 
@@ -9,21 +11,21 @@ export interface EditCardProps {
   edit: EditView;
   /** [Undo]를 눌러 되돌린 뒤이다. 카드는 "Undid the edit to <경로>"가 되고 Undo는 없다. */
   undone: boolean;
-  /** redo가 가능한 동안만 true다: 다음 사람 메시지를 보내기 전까지(lophn-agent/revert#R16). */
-  canRedo: boolean;
+  /** 지금 Undo할 수 있는가. 아니면 단추는 비활성이고 이유가 단추 곁에 보인다(lophn-agent/revert#R19). */
+  undo: EditUndo;
   /** [Open]: 그 문서의 탭을 연다. */
   onOpen: (edit: EditView) => void;
-  /** [Undo]: lophn-agent/revert가 정한 되돌리기를 부른다. */
+  /** [Undo]: 이 편집 하나를 같은 pre-image 기록으로 되돌린다. */
   onUndo: (edit: EditView) => void;
-  /** [Redo]: 되돌리기를 다시 돌린다. canRedo일 때만 단추가 있다. */
-  onRedo: (edit: EditView) => void;
 }
 
 // 문서를 바꾼 편집 카드 "Edited <경로> +n −m"와 [Open]·[Undo](shell/desktop#R41). 되돌린 뒤에는
-// "Undid the edit to <경로>"와 [Open], canRedo이면 [Redo]다.
+// "Undid the edit to <경로>"와 [Open]뿐이다. Undo를 다시 되돌리는 기능은 없다.
 export function EditCard(
-  { edit, undone, canRedo, onOpen, onUndo, onRedo }: EditCardProps,
+  { edit, undone, undo, onOpen, onUndo }: EditCardProps,
 ): ReactElement {
+  const reasonId = useId();
+  const reason = !undone && !undo.can ? reasonText(undo.reason) : null;
   return (
     <Card>
       <div className={styles.editCard} data-edit-card={edit.id}>
@@ -49,21 +51,23 @@ export function EditCard(
             <Button
               size="sm"
               variant="ghost"
+              disabled={!undo.can}
+              aria-describedby={reason === null ? undefined : reasonId}
               onClick={() => onUndo(edit)}
             >
               {t("conversation.button.edit-undo")}
             </Button>
           )}
-          {undone && canRedo && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onRedo(edit)}
-            >
-              {t("conversation.button.edit-redo")}
-            </Button>
-          )}
         </span>
+        {reason === null ? null : (
+          <p
+            className={styles.undoReason}
+            id={reasonId}
+            data-undo-reason=""
+          >
+            {reason}
+          </p>
+        )}
       </div>
     </Card>
   );

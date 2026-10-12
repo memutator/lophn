@@ -711,6 +711,32 @@ export const en = {
   "confirmation-window.revert.title": "Undo the changes from this work?",
   "confirmation-window.revert.unknown":
     "Whether this can be undone isn't known.",
+  "confirmation-window.button.rewind": "Rewind",
+  "confirmation-window.button.rewind-anyway": "Rewind anyway",
+  "confirmation-window.button.summarize": "Summarize",
+  "confirmation-window.title.rewind-messages-only": "Rewind messages only?",
+  "confirmation-window.title.rewind-restore-all":
+    "Rewind messages and documents?",
+  "confirmation-window.title.rewind-second": "Some things stay as they are",
+  "confirmation-window.title.rewind-summarize": "Summarize from here?",
+  "confirmation-window.rewind.second-body":
+    "These are not restored. The rest will be rewound if you go on.",
+  "confirmation-window.rewind.subject-messages-only":
+    "The messages after this point are hidden. Documents and app data stay as they are.",
+  "confirmation-window.rewind.subject-restore-all":
+    "The messages after this point are hidden, and the documents and app data that changed since are put back as far as lophn can.",
+  "confirmation-window.rewind.subject-summarize":
+    "The messages from this point on are folded into a summary. Documents and app data stay as they are.",
+  "confirmation-window.result.rewind-blocked":
+    "Nothing changed. The list changed since you looked, so choose again.",
+  "confirmation-window.result.rewind-partly":
+    "Some of it was rewound. The rest stays as it is, and the conversation lists it.",
+  "confirmation-window.result.rewind-started":
+    "Rewinding. lophn is undoing the app changes, and the result will show in the conversation.",
+  "confirmation-window.result.rewind-unknown":
+    "Some results aren't known yet. Nothing will be repeated.",
+  "confirmation-window.result.rewound":
+    "Rewound. The conversation shows what changed.",
   "confirmation-window.secret-app.title": "Save a value for {name}?",
   "confirmation-window.secret-code.title": "Finish signing in?",
   "confirmation-window.secret-disconnect.effect":
@@ -1061,7 +1087,6 @@ export const en = {
   "conversation.button.close-tab": "Close tab",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
-  "conversation.button.edit-redo": "Redo",
   "conversation.button.edit-undo": "Undo",
   "conversation.button.fork": "Fork",
   "conversation.button.fork-here": "Fork from here",
@@ -1071,6 +1096,12 @@ export const en = {
   "conversation.button.new-session": "New conversation",
   "conversation.button.favorite-add": "Add {model} to favorites",
   "conversation.button.favorite-remove": "Remove {model} from favorites",
+  "conversation.button.hidden-hide": "Hide",
+  "conversation.button.hidden-show": "Show",
+  "conversation.button.redo": "Redo",
+  "conversation.button.rewind-go": "Rewind",
+  "conversation.button.summarize-go": "Summarize",
+  "conversation.button.summarizing": "Summarizing…",
   "conversation.button.next-request": "Next request",
   "conversation.button.open": "Open conversation",
   "conversation.button.previous-request": "Previous request",
@@ -1134,6 +1165,21 @@ export const en = {
   "conversation.label.duration-seconds": "{seconds, number}s",
   "conversation.label.edit-made": "Edited",
   "conversation.label.edit-undone": "Undid the edit to",
+  "conversation.label.rewind-hidden":
+    "Rewound here · {count, plural, one {# message} other {# messages}} hidden",
+  "conversation.label.rewind-item-answer": "An answer you gave",
+  "conversation.label.rewind-item-app": "An app change",
+  "conversation.label.rewind-item-approval": "An approval decision",
+  "conversation.label.rewind-item-external": "A request that already went out",
+  "conversation.label.rewind-item-fact": "Something that already happened",
+  "conversation.label.rewind-loading": "Checking what would change…",
+  "conversation.label.rewind-messages-only": "Restore messages only",
+  "conversation.label.rewind-point": "Rewind to",
+  "conversation.label.rewind-remain": "Stays as it is",
+  "conversation.label.rewind-restore": "Will be restored",
+  "conversation.label.rewind-restore-all": "Restore messages and documents",
+  "conversation.label.rewind-skip": "Will be skipped",
+  "conversation.label.rewind-summarize": "Summarize from here",
   "conversation.label.favorites": "Favorites",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-list": "Models",
@@ -1268,7 +1314,75 @@ export const en = {
   "conversation.placeholder.ask":
     "Ask {agent}… Type / for commands and skills.",
   "conversation.title.dock": "Conversation",
+  "conversation.title.rewind": "Rewind to here",
   "conversation.title.new-session": "New session",
+  "conversation.rewind.hint-messages-only":
+    "Hides the messages after this one. Documents and app data stay as they are.",
+  "conversation.rewind.hint-restore-all":
+    "Hides the messages after this one and puts back the documents and app data that changed since.",
+  "conversation.rewind.hint-summarize":
+    "Folds everything after this message into a summary. Documents and app data stay as they are.",
+  "conversation.rewind.note":
+    "Changes made outside this session are not restored.",
+  "conversation.rewind.preview-failed":
+    "Couldn't load what would change. Try again.",
+  "conversation.rewind.redo-no": "This can't be redone.",
+  "conversation.rewind.redo-yes":
+    "You can redo this until you send your next message.",
+  "conversation.rewind.result-left":
+    "Restored {restored, plural, one {# file} other {# files}}, but {left, plural, one {# item stays as it was} other {# items stay as they were}}.",
+  "conversation.rewind.result-restored":
+    "Restored {count, plural, one {# file} other {# files}}.",
+  "conversation.rewind.running":
+    "Stop the work in progress first, then rewind.",
+  "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
+  "conversation.rewind.summary-failed":
+    "Couldn't summarize this part, so nothing changed.",
+  "conversation.rewind-block.copied":
+    "Copied from another conversation, so only messages can be restored.",
+  "conversation.rewind-block.correction":
+    "Sent while work was in progress, so only messages can be restored.",
+  "conversation.rewind-block.limit-count":
+    "This point is too old, so documents from it can't be restored.",
+  "conversation.rewind-block.limit-file":
+    "A file here was too large to keep, so documents from this point can't be restored.",
+  "conversation.rewind-block.limit-total":
+    "Too many earlier changes were kept, so documents from this point can't be restored.",
+  "conversation.rewind-block.record-failed":
+    "lophn couldn't keep the earlier content of a file here, so documents from this point can't be restored.",
+  "conversation.rewind-why.answered-fact":
+    "Your answers and decisions stay in the conversation.",
+  "conversation.rewind-why.app-failed": "The app couldn't undo this change.",
+  "conversation.rewind-why.app-not-settled":
+    "This wasn't started because the app changes didn't all finish.",
+  "conversation.rewind-why.app-not-started":
+    "This wasn't started because an earlier step didn't finish.",
+  "conversation.rewind-why.app-revision-changed":
+    "The app's data changed since, so this change and the earlier ones from the same app aren't undone.",
+  "conversation.rewind-why.app-uncertain":
+    "The app was asked to undo this, but its answer never arrived. lophn can't tell if it worked.",
+  "conversation.rewind-why.already-reverted": "This was already undone.",
+  "conversation.rewind-why.chain-broken":
+    "This file was edited between lophn's changes, so it is left as it is.",
+  "conversation.rewind-why.created-edited":
+    "lophn created this file, but it was edited since, so it isn't deleted.",
+  "conversation.rewind-why.edited-outside":
+    "This file changed after lophn wrote it, so it is left as it is.",
+  "conversation.rewind-why.external-effect":
+    "This already reached something outside lophn.",
+  "conversation.rewind-why.later-edit":
+    "A later edit changed the same file, so only that one can be undone first.",
+  "conversation.rewind-why.link-path":
+    "This path is a link, so it is left as it is.",
+  "conversation.rewind-why.no-pre-image":
+    "The earlier content of this file wasn't kept.",
+  "conversation.rewind-why.no-receipt":
+    "The app didn't give a way to undo this change.",
+  "conversation.rewind-why.no-revert-command":
+    "The app has no way to undo this change.",
+  "conversation.rewind-why.rename-blocked":
+    "Another file is at the old name, so the rename isn't undone.",
+  "conversation.rewind-why.unknown": "lophn can't undo this edit.",
   "document.button.back-to-editing": "Back to editing",
   "document.button.check-again": "Check again",
   "document.button.check-task": "Check task",

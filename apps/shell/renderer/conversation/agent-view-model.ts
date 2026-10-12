@@ -1,8 +1,13 @@
 // Agent 화면의 순수 규칙. 화면은 이 값을 그대로 그린다. 시각은 인자로 받는다.
 import type { SaveState } from "../workspace/visuals/block-frame.tsx";
-import type { SaveRecord } from "./drafts.ts";
+import type { BodyState, SaveRecord } from "./drafts.ts";
 import type { Outgoing } from "./delivery-state.ts";
-import type { ThreadEntry, ThreadMessage, ThreadView } from "./agent-source.ts";
+import type {
+  ThreadEntry,
+  ThreadHidden,
+  ThreadMessage,
+  ThreadView,
+} from "./agent-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
@@ -70,9 +75,39 @@ export function shownEntries(
     : entries;
 }
 
+/** 대화의 확정 메시지 전부. 접힌 숨긴 구간 안의 메시지도 든다(펼치면 읽으므로 본문을 읽어 둔다). */
 export function messagesOf(thread: ThreadView | null): ThreadMessage[] {
-  return (thread?.entries ?? []).filter((entry): entry is ThreadMessage =>
+  return flatMessages(thread?.entries ?? []);
+}
+
+function flatMessages(entries: readonly ThreadEntry[]): ThreadMessage[] {
+  return entries.flatMap((entry) =>
     entry.kind === "message"
+      ? [entry]
+      : entry.kind === "hidden"
+      ? flatMessages(entry.entries)
+      : []
+  );
+}
+
+const EXCERPT_CHARS = 60;
+
+/** 시점을 고르는 목록에서 메시지를 알아볼 한 줄. 본문을 아직 읽지 못했으면 줄임표다. */
+export function excerptOf(body: BodyState | undefined): string {
+  if (body?.state !== "ready") return "…";
+  const text = body.parts.flatMap((part) =>
+    part.kind === "text" ? [part.text] : []
+  ).join(" ").replace(/\s+/g, " ").trim();
+  if (text === "") return "…";
+  return text.length > EXCERPT_CHARS
+    ? `${text.slice(0, EXCERPT_CHARS)}…`
+    : text;
+}
+
+/** 숨긴 구간 줄 전부. */
+export function hiddenOf(thread: ThreadView | null): ThreadHidden[] {
+  return (thread?.entries ?? []).filter((entry): entry is ThreadHidden =>
+    entry.kind === "hidden"
   );
 }
 

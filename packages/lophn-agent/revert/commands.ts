@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   amendRevertInstall,
-  checkpointRevert,
-  finishRevert,
+  type checkpointRevert,
+  type finishRevert,
   type recordRewindFile,
   redo,
   revertAmended,
@@ -22,6 +22,11 @@ import {
   type Sql,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import {
+  createAppStepCommands,
+  hasAppSteps,
+  startApplying,
+} from "./app-commands.ts";
 import type { FileStat } from "./judge.ts";
 import {
   type PlanDeps,
@@ -42,7 +47,7 @@ import {
 } from "./settle.ts";
 
 // 되돌리기 command들(lophn-agent/revert). Rewind·UndoEdit·Redo·AmendRevertInstall은 문서 파일까지 여기서
-// 확정한다. 앱 단계가 있는 Rewind와 CheckpointRevert·FinishRevert는 agent-RW3c, 숨김 구간 검사는
+// 확정한다. 앱 단계가 있는 Rewind와 CheckpointRevert·FinishRevert는 app-commands.ts, 숨김 구간 검사는
 // agent-RW3d가 이어 채운다. RecordRewindFile은 record.ts다.
 //
 // 규칙(시험 rewind_test·rewind_effects_test가 정한다). Rewind·UndoEdit·Redo는 사람만 부른다(그 밖은
@@ -51,7 +56,8 @@ import {
 // installRestore 순서로 잇고, command는 input.files의 관측으로 다시 판정해 같은 transaction에서 기록만
 // 확정한다. 준비가 받쳐 주지 않는 복원은 restored로 쓰지 않는다.
 //
-// Rewind: 없는 session은 not_found, 닫혔으면 forbidden, 끝나지 않은 run이나 applying revert가 있으면
+// Rewind: 앱 복원 단계가 있으면 applying으로 접수만 하고(app-commands.ts) 앱 호출 뒤 FinishRevert가 끝낸다.
+//   없는 session은 not_found, 닫혔으면 forbidden, 끝나지 않은 run이나 applying revert가 있으면
 //   conflict. choice=summarize인데 effects.summaryOk가 아니면 invalid_input이고 아무것도 바뀌지 않는다.
 //   preview_hash가 다르거나 건너뜀·남는 영향이 있는데 accept_remaining이 아니면 blocked(항목 없음)로 기록한다.
 //   아니면 restore_all·messages_only는 effects.cancelWaiting과 resetReadState를 부르고(실패하면 command 전체가
@@ -62,7 +68,7 @@ import {
 //   기록의 reverted_by를 풀어 다시 rewind할 수 있게 한다.
 // AmendRevertInstall(machine): 설치가 hash 불일치로 건너뛴 문서 파일 항목을 skipped(edited_outside)로 한 번
 //   고치고 그 기록의 reverted_by를 풀며 redo 근거에서 뺀다.
-// CheckpointRevert·FinishRevert는 앱 단계가 올라올 때까지 unavailable이다.
+// CheckpointRevert·FinishRevert(machine)는 app-commands.ts다.
 
 // 대화 쪽 효과를 core 조립이 주입하는 port다. 시험은 가짜로 대신한다.
 export type RewindEffects = {
@@ -90,7 +96,10 @@ export type RevertDeps = {
   // session 자리의 project 폴더(절대 경로).
   rootOf(lookup: { sql: Pick<Sql, "get" | "all"> }, session: string): string;
   // 앱의 지금 revision. 앱이 없거나 알 수 없으면 null이다(apps 소유 CAS의 읽기 통로).
-  appRevision(app: string): string | null;
+  appRevision(
+    app: string,
+    lookup: { sql: Pick<Sql, "get" | "all"> },
+  ): string | null;
   // 숨김 구간의 대화 효과. 없으면 Rewind는 unavailable이다(숨기지 못하는 rewind를 적용됐다고 하지 않는다).
   effects?: RewindEffects;
   // Undo가 session에 사실 메시지를 남긴다("Undid edit to <경로>", machine 메시지). principal은 본문
@@ -324,8 +333,6 @@ function apply(
   return headerOf(row, false);
 }
 
-const APP_STEPS_UNAVAILABLE = "app revert steps are not available yet";
-
 export function createRevertCommands(deps: RevertDeps): {
   record: CommandDefinition<typeof recordRewindFile>;
   rewind: CommandDefinition<typeof rewind>;
@@ -336,6 +343,7 @@ export function createRevertCommands(deps: RevertDeps): {
   amend: CommandDefinition<typeof amendRevertInstall>;
 } {
   const planDeps: PlanDeps = deps;
+  const appSteps = createAppStepCommands(deps);
 
   function handleRewind(
     tx: Tx,
@@ -379,6 +387,7 @@ export function createRevertCommands(deps: RevertDeps): {
     };
     const planned = planRewind(tx, planDeps, target, {
       observed: observedOf(input.files),
+      revert: input.id,
     });
     if (!planned.ok) return planned;
     const plan = planned.value;
@@ -394,6 +403,17 @@ export function createRevertCommands(deps: RevertDeps): {
       (needsAccept(plan) && !input.accept_remaining)
     ) return block(tx, request, plan);
     const boundary = boundaryOf(tx, target)!;
+    // 앱 복원이 있으면 접수만 한다. 대화 효과와 문서 파일은 앱 단계가 끝난 뒤 FinishRevert가 한다.
+    if (hasAppSteps(plan)) {
+      return ok(startApplying(tx, {
+        id: input.id,
+        session: input.session,
+        checkpoint: input.checkpoint,
+        choice: "restore_all",
+        preview_hash: input.preview_hash,
+        boundary_seq: boundary,
+      }, plan));
+    }
     if (input.choice !== "summarize") {
       const cancelled = effects.cancelWaiting(tx, {
         session: input.session,
@@ -587,14 +607,8 @@ export function createRevertCommands(deps: RevertDeps): {
       route: redo,
       handle: (tx, ctx, input) => handleRedo(tx, ctx, input),
     },
-    checkpoint: {
-      route: checkpointRevert,
-      handle: () => reject("unavailable", APP_STEPS_UNAVAILABLE),
-    },
-    finish: {
-      route: finishRevert,
-      handle: () => reject("unavailable", APP_STEPS_UNAVAILABLE),
-    },
+    checkpoint: appSteps.checkpoint,
+    finish: appSteps.finish,
     amend: {
       route: amendRevertInstall,
       handle: (tx, ctx, input) => handleAmend(tx, ctx, input),

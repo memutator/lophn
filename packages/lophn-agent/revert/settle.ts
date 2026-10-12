@@ -106,7 +106,7 @@ export function insertItems(
       `insert into revert_items
          (revert, ordinal, class, target, source, plan, result, reason, app_revert,
           restored_sha256, redo_ref)
-       values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?)`,
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         revert,
         entry.item.ordinal,
@@ -116,6 +116,9 @@ export function insertItems(
         entry.item.plan,
         entry.result,
         entry.item.reason,
+        entry.item.app_revert === null
+          ? null
+          : JSON.stringify(entry.item.app_revert),
         entry.restored_sha256,
         entry.redo_ref,
       ],

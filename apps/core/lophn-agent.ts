@@ -23,6 +23,7 @@ import {
   questionCreated,
   REVERT_EVENTS,
   runAccepted,
+  runAppRevert,
   runFinished,
   runStarted,
   withdrawAssignment,
@@ -134,6 +135,7 @@ import {
 import {
   createRevertCommands,
   createRevertReads,
+  latestAppRevision,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
 import { projectRootOf } from "./rewind-root.ts";
@@ -454,11 +456,11 @@ const handoffReads = createHandoffReads({
 // (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
 // 파일 관측·준비·설치는 ledger transaction 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer
 // queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(RewindEffects)는 아직 조립하지 않아서
-// Rewind는 unavailable이다: 숨기지 못하는 rewind를 적용됐다고 하지 않는다. 앱 단계(CheckpointRevert·
-// FinishRevert)도 아직 올리지 않는다.
+// Rewind는 unavailable이다: 숨기지 못하는 rewind를 적용됐다고 하지 않는다. 앱 단계가 있는 Rewind는 applying
+// 접수까지만 command가 하고, 이어 실행(RunAppRevert, app-revert.ts)이 CheckpointRevert·FinishRevert를 낸다.
 const revertDeps = {
   rootOf: projectRootOf,
-  appRevision: () => null,
+  appRevision: latestAppRevision,
   recordFact: recordFactMessage,
 };
 const revertCommands = createRevertCommands(revertDeps);
@@ -947,6 +949,8 @@ export const lophnAgentDefinitions = {
     revertCommands.rewind,
     revertCommands.undo,
     revertCommands.redo,
+    revertCommands.checkpoint,
+    revertCommands.finish,
     revertCommands.amend,
     traceExportCommand,
   ],
@@ -1003,7 +1007,9 @@ export const lophnAgentDefinitions = {
     questionOptionPort,
   ],
   workers: [],
+  // 확인한 rewind의 앱 단계를 이어 실행하는 core 메모리 route와 MCP OAuth 입구다.
   memoryRoutes: [
+    runAppRevert,
     mcpAuthBegin,
     mcpAuthComplete,
     mcpAuthState,

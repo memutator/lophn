@@ -3,6 +3,7 @@ import type { AuthenticatedContext } from "../../packages/contracts/platform/mod
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
 import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
+import { APP_REVERT_PRINCIPAL } from "./app-revert.ts";
 import { REWIND_INSTALL_PRINCIPAL } from "./rewind-files.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../../packages/apps/invocations/restart.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
@@ -98,6 +99,7 @@ const FIXED_CREDENTIALS = new Set([
   NOTIFICATIONS_PRINCIPAL,
   ASSIGNMENT_REACTIONS_PRINCIPAL,
   REWIND_INSTALL_PRINCIPAL,
+  APP_REVERT_PRINCIPAL,
 ]);
 
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다

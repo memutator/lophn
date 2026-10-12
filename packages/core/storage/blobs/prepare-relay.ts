@@ -7,13 +7,15 @@
 import { err, type ErrorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   BLOB_PREPARE_CREDIT_WINDOW,
-  BLOB_PREPARE_OP,
-  BLOB_READ_MAX_BYTES,
-  BLOB_READ_OP,
   type ChildMessage,
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import {
+  BLOB_PREPARE_OP,
+  BLOB_READ_MAX_BYTES,
+  BLOB_READ_OP,
+} from "../../../protocol/storage/mod.ts";
 import { type PreparationRegistry } from "./mod.ts";
 
 // core가 한 준비에서 동시에 쥘 수 있는 바이트의 상한. 자식 쪽에서 받아 둔 credit

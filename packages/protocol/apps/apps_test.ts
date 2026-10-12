@@ -6,12 +6,8 @@ import {
 } from "@std/assert";
 import { ERROR_CODES, ok } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
-import {
-  definePort,
-  type PortKey,
-  type ReadSnapshot,
-  type Tx,
-} from "../server/mod.ts";
+import { definePort, type PortKey } from "../base/ports.ts";
+import type { ReadSnapshot, Tx } from "../server/registration.ts";
 import { eventEnvelopeSchema } from "../events/events.ts";
 import { routePath } from "../base/route.ts";
 import {

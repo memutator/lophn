@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../../base/mod.ts";
-import type { ChildMessage } from "../../../protocol/server/mod.ts";
+import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
 import { armTimer, settledWithin, valueWithin } from "./deadline.ts";
 import { createSupervisor, type SupervisorOptions } from "./supervisor.ts";
 import {

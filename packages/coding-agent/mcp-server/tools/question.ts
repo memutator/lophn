@@ -3,7 +3,7 @@
 // 부르지 않는다: 답·미루기·취소·적용은 사람 결정 화면과 lophn-agent의 몫이다. 대기
 // 중인 질문에는 결정 화면 링크만 붙는다(cli#R7·R21과 같은 링크).
 import { MCP_DECISION_ROUTES } from "../../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../../protocol/server/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import {
   type FlowClient,
   type QuestionRecord,

@@ -8,10 +8,7 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { type ChildProcess, spawn } from "node:child_process";
 
-import {
-  FrameDecoder,
-  mainHelloSchema,
-} from "../../../../protocol/server/mod.ts";
+import { FrameDecoder, mainHelloSchema } from "../../../../protocol/supervision/mod.ts";
 
 import { openSession } from "./client.ts";
 import { nodeFetch, nodeStreamFetch } from "./node-io.ts";

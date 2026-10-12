@@ -1,9 +1,11 @@
 import { hashCanonical } from "./canonical.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/server/mod.ts";
-import type { TargetAuthorizer } from "../../../protocol/server/mod.ts";
-import { atSchema, sha256Schema } from "../../../protocol/server/mod.ts";
-import type { Input } from "../../../protocol/server/mod.ts";
+import type {
+  Input,
+  RequestContext,
+  TargetAuthorizer,
+} from "../../../protocol/server/mod.ts";
+import { atSchema, sha256Schema } from "../../../protocol/base/mod.ts";
 import type { requestTest } from "../../../protocol/problems/mod.ts";
 import {
   canonicalRequest,

@@ -6,13 +6,13 @@ import {
   REWIND_MAX_FILE_BYTES,
   REWIND_MAX_SESSION_BYTES,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import type { RewindStore } from "./store.ts";
 
 // 문서 tool이 파일을 쓰기 직전에 pre-image를 남기는 기록(RecordRewindFile)과, 그 호출을 쓰기에

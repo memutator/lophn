@@ -3,12 +3,12 @@
 // 소유 동작이 몇 번 일어났는지는 그 command가 남기는 event 수로, 사용 기록은 approval_uses로 센다.
 // 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-  AuthenticatedContext,
-  JsonObject,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
+import type { JsonObject } from "../../protocol/base/mod.ts";
 import {
   actionOf,
   call,

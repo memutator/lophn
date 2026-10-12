@@ -8,7 +8,7 @@ import {
   readCursorSchema,
 } from "../../../../protocol/projects/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
-import { archiveStateSchema } from "../../../../protocol/server/mod.ts";
+import { archiveStateSchema } from "../../../../protocol/base/mod.ts";
 import { fitJson, PAGE_SIZE } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolHandler } from "../work.ts";

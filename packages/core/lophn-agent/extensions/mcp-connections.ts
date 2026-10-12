@@ -4,7 +4,7 @@ import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SecretDestination,
   SecretSendInput,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/secrets/mod.ts";
 import { authHeaders } from "./mcp-auth.ts";
 import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
 import {

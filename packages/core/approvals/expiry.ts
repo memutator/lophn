@@ -5,7 +5,8 @@
 // 후보는 경계에 도달한(`now >= expires_at`) pending request뿐이다. 기한 없는 request는 만료하지 않는다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import { defineRead, type ReadDefinition } from "../../protocol/server/mod.ts";
+import type { ReadDefinition } from "../../protocol/server/mod.ts";
+import { defineRead } from "../../protocol/base/mod.ts";
 import { deadlineReached } from "./model.ts";
 
 // 한 번의 정리가 다루는 후보 수. 응답 행 한도 안에 두고 나머지는 다음 정리가 이어 만료한다.

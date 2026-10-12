@@ -1,5 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
-import { encodeFrame, mainHelloSchema } from "../../../protocol/server/mod.ts";
+import {
+  encodeFrame,
+  mainHelloSchema,
+} from "../../../protocol/supervision/mod.ts";
 import { readFrames } from "../../supervision/responsiveness/mod.ts";
 import {
   type ParentPipe,

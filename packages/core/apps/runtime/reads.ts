@@ -1,7 +1,10 @@
 // 현재 RuntimeState와 최대 200줄 log의 read. ledger write queue를 거치지 않는다.
 // 관측·log source는 조립이 주입하고, 없으면 null·none으로 명시한다(R13, R14).
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type {
+  AuthenticatedContext,
+  ReadDefinition,
+} from "../../../protocol/server/mod.ts";
 import {
   type App,
   appLogs,
@@ -12,7 +15,6 @@ import {
   type RuntimeObservation,
   type RuntimeState,
 } from "../../../protocol/apps/mod.ts";
-import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import { projection } from "./model.ts";
 

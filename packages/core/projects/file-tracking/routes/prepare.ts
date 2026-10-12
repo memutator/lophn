@@ -12,7 +12,7 @@ import { documentPrepare } from "../../../../protocol/projects/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import type { WorkerRouteHandle } from "../../../supervision/responsiveness/mod.ts";
 import { type BlobSink, prepareFromStream } from "../stream.ts";
 import {

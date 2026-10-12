@@ -6,10 +6,10 @@ import { type Result } from "../../../../base/mod.ts";
 import { CodingAgentSessionSummaryInputSchema } from "../../../../protocol/coding-agent/mod.ts";
 import {
   createRpcClient,
-  type Route,
   type RpcFetch,
-  type WorkerRequest,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/client/mod.ts";
+import type { Route } from "../../../../protocol/base/mod.ts";
+import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import { assembleSessionSummary } from "../../../../coding-agent/guides/mod.ts";
 import { RepairContextRejection } from "./context.ts";
 

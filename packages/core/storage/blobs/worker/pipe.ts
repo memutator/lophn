@@ -9,8 +9,8 @@ import {
   blobPrepareInputSchema,
   blobReadPipeInputSchema,
   type PreparedBlob,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/storage/mod.ts";
+import { STREAM_CHUNK_MAX_BYTES } from "../../../../protocol/supervision/mod.ts";
 import { type BlobStoreWork, purposesPathFor } from "../mod.ts";
 
 export type BlobPipeRequest = {

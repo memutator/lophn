@@ -22,7 +22,7 @@ import {
   EVENT_BATCH_LIMITS,
   type EventEnvelope,
   reactionKeySchema,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/events/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../../protocol/lophn-agent/mod.ts";
 
 export type AssignmentEngineCommand = (

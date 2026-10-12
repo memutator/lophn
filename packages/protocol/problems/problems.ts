@@ -1,13 +1,10 @@
 import { z } from "zod";
 import { sectionKeySchema } from "../projects/values.ts";
-import {
-  defineCommand,
-  defineEvent,
-  defineRead,
-  idSchema,
-  seqSchema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { seqSchema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { groupKeySchema } from "./reports.ts";
 import { closureSchema } from "./closing.ts";
 import { problemDetailSchema } from "./problem-detail.ts";

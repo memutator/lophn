@@ -11,11 +11,11 @@ import {
   commandsResult,
   type ConfirmationRef,
   confirmationRefSchema,
-  idempotencyKeySchema,
   type RequestContext,
   type Sql,
   type Tx,
 } from "../../../protocol/server/mod.ts";
+import { idempotencyKeySchema } from "../../../protocol/base/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 import {
   confirmationBinding,

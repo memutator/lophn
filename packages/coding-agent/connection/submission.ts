@@ -20,7 +20,7 @@ import {
   sha256Hex,
 } from "../../base/mod.ts";
 import type { DocumentFileInput } from "../../protocol/projects/mod.ts";
-import type { PreparedBlob } from "../../protocol/server/mod.ts";
+import type { PreparedBlob } from "../../protocol/storage/mod.ts";
 
 export type SubmissionScope = {
   // 제출을 허용하는 root다. 연결 source의 작업 폴더(submission root)다.

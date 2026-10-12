@@ -9,7 +9,7 @@ import {
   type Frame,
   type ParentMessage,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { objectPathFor, tmpDirFor } from "./mod.ts";
 import {
   type ByteReader,

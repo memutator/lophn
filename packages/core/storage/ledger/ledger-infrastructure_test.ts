@@ -7,12 +7,10 @@ import {
   ok,
   seededRandom,
 } from "../../../base/mod.ts";
-import {
-  type BlobRefRegistration,
-  defineEvent,
-  definePort,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
+import type { BlobRefRegistration } from "../../../protocol/storage/mod.ts";
+import { defineEvent } from "../../../protocol/events/mod.ts";
+import { definePort } from "../../../protocol/base/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { createSubscriberGate } from "../../events/subscriber-registration.ts";

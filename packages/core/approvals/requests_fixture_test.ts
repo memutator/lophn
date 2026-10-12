@@ -4,17 +4,17 @@ import { assert } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
 import { fingerprint } from "../../base/mod.ts";
 import type {
-  ApprovalAction,
-  ApprovalEffectInput,
   AuthenticatedContext,
   SqlRow,
 } from "../../protocol/server/mod.ts";
 import {
+  type ApprovalAction,
   approvalBinding,
+  type ApprovalEffectInput,
   type ApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { confirmationBinding } from "../server/identity/mod.ts";
 import { effectText, REASON_TEXT } from "./testing/mod.ts";
 

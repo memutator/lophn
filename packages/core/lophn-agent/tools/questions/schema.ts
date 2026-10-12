@@ -2,11 +2,11 @@ import {
   QUESTION_BLOB_FIELDS,
   QUESTION_BLOB_OWNER_KIND,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
   defineBlobField,
-  type SchemaStep,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/storage/mod.ts";
 
 // domain-model lophn-agent/questions의 `question_groups`·`questions` 표. 묶음은 상태·기한·
 // 종료를 갖고 질문은 묶음 안의 값(본문 hash·선택지·추천·답)을 갖는다.

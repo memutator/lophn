@@ -8,10 +8,10 @@ import {
 } from "../../base/redaction/mod.ts";
 import type {
   AuthenticatedContext,
-  SettingMutation,
   SqlParam,
   SqlRow,
 } from "../../protocol/server/mod.ts";
+import type { SettingMutation } from "../../protocol/config/mod.ts";
 import { textContent } from "../lophn-agent/session/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 import {

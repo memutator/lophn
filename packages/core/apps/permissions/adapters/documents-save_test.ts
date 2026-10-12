@@ -9,7 +9,7 @@ import {
   documentSave,
   documentUpload,
 } from "../../../../protocol/projects/mod.ts";
-import type { Route } from "../../../../protocol/server/mod.ts";
+import type { Route } from "../../../../protocol/base/mod.ts";
 import {
   appDocumentId,
   type AppOutputFile,

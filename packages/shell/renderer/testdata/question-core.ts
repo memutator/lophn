@@ -123,7 +123,7 @@ const teams = [
   { ticketDefinitions: tickets!.ticketDefinitions },
 ];
 const contracts = await load<PlatformContracts>(
-  "packages/protocol/server/mod.ts",
+  "packages/protocol/approvals/mod.ts",
 );
 const base = await load<Base>("packages/base/mod.ts");
 

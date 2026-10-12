@@ -1,11 +1,7 @@
 import { z } from "zod";
-import {
-  defineRead,
-  defineWorker,
-  idSchema,
-  seqSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { defineRead, defineWorker } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
 import { placeRefSchema } from "./address.ts";
 import { documentIdSchema, slugSchema, versionIdSchema } from "./values.ts";
 import { formatRefOutputSchema } from "./versions.ts";

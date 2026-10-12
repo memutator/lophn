@@ -1,14 +1,10 @@
 import { z } from "zod";
-import {
-  defineCommand,
-  defineEvent,
-  defineMemory,
-  defineRead,
-  defineSetting,
-  idSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { defineSetting } from "../config/settings.ts";
+import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import {
   globalSkillsRead,

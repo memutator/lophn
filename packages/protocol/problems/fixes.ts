@@ -1,15 +1,10 @@
 import { z } from "zod";
-import {
-  defineCommand,
-  defineEvent,
-  defineRead,
-  defineUpload,
-  idSchema,
-  preparedBlobSchema,
-  seqSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineCommand, defineRead, defineUpload } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { preparedBlobSchema } from "../storage/blob.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 
 const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;

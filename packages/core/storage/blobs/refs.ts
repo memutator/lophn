@@ -2,6 +2,7 @@
 // platform/identity#R9). IO 없음. 파일 관측과 hash는 worker의 몫이다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import {
   BLOB_READ_MAX_BYTES,
   type BlobFieldDefinition,
@@ -9,8 +10,7 @@ import {
   type BlobRefRegistration,
   type PermanentBlobReference,
   type PreparedBlob,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 export type BlobAuthorizer = (
   ctx: RequestContext,

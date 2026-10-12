@@ -1,10 +1,10 @@
 import type { LogLevel } from "../../base/mod.ts";
+import type { Diagnostic } from "../../protocol/supervision/mod.ts";
 import {
-  type Diagnostic,
   type DiagnosticRecord,
   DIAGNOSTICS_WRITE_MAX_PENDING_BYTES,
   diagnosticsWriteInputSchema,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/diagnostics/mod.ts";
 
 export const LOG_LEVEL: LogLevel = "info";
 export type DiagnosticCatalog = {

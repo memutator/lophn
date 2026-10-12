@@ -1,9 +1,9 @@
 import { err, type LophnError, type Result } from "../../../base/mod.ts";
+import type { HealthObservation } from "../../../protocol/server/mod.ts";
 import type {
-  HealthObservation,
   WorkerRequest,
   WorkerResponse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { valueWithin } from "./deadline.ts";
 
 // route 등록값: timeout·응답 상한은 route마다 등록값이다(plan platform#T12).

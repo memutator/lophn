@@ -4,7 +4,7 @@ import {
   skillFoldersSetting,
   skillsOffSetting,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../../protocol/server/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
 import {
   discoverSkills,
   SKILL_BODY_MAX_BYTES,

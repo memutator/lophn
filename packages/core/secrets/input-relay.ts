@@ -12,13 +12,15 @@
 import { err, type ErrorCode, ok, type Result } from "../../base/mod.ts";
 import {
   type ChildMessage,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../protocol/supervision/mod.ts";
+import {
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,
   secretInput,
   type SecretPreparation,
   secretPreparationSchema,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import type { UploadHandler } from "../server/mod.ts";
 
 // I/O worker의 응답을 기다리는 시간. keychain 잠금 해제 같은 사람 상호작용은 이 안에 없다.

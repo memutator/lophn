@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { defineEvent } from "../events/events.ts";
-import { preparedBlobSchema } from "../server/mod.ts";
+import { preparedBlobSchema } from "../storage/blob.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineUpload } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";

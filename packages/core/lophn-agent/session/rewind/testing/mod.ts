@@ -18,7 +18,7 @@ import type {
 import type {
   CommandRoute,
   ReadRoute,
-} from "../../../../../protocol/server/mod.ts";
+} from "../../../../../protocol/base/mod.ts";
 import type { RevertDeps } from "../commands.ts";
 import type { FileStat } from "../judge.ts";
 import { revertSchemaSteps } from "../schema.ts";

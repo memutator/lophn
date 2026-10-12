@@ -16,15 +16,15 @@ import {
   serializeMessageContent,
   textMessageContentInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Compare,
-  type Input,
-  parseActor,
-  type PermanentBlobReference,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Compare,
+  Input,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
+import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
 import { closeAvailableRedo, createCheckpoint } from "./rewind/mod.ts";
 import { checkVisualContent } from "../tools/visuals/mod.ts";
 import {

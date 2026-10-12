@@ -8,12 +8,12 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import type { CodingAgentConnectionAuthResult } from "../../../protocol/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../../../coding-agent/connection/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
 import { createTicketClaimCommands } from "./claims.ts";
 import {
   createTicketCommands,

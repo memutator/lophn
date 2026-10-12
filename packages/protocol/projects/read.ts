@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  defineFile,
-  defineWorker,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineFile, defineWorker } from "../base/route.ts";
+import { sha256Schema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import {
   documentIdSchema,
   relativePathSchema,

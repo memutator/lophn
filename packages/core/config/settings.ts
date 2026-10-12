@@ -12,10 +12,8 @@ import {
   settingsGetRead,
   settingsHistoryRead,
 } from "./mod.ts";
-import type {
-  SchemaStep,
-  SettingDefinition,
-} from "../../protocol/server/mod.ts";
+import type { SchemaStep } from "../../protocol/server/mod.ts";
+import type { SettingDefinition } from "../../protocol/config/mod.ts";
 import type { ReaderRegistration } from "../storage/ledger/mod.ts";
 import { codingAgentConnectionDefinitions } from "../server/identity/coding-connection.ts";
 import { lophnAgentDefinitions } from "../lophn-agent/register.ts";

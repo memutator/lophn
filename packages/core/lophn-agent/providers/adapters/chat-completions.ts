@@ -6,7 +6,7 @@
 // 처리를 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다(T15).
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../../protocol/server/mod.ts";
+import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { quirksFor, verifiedJsonObject } from "./compat.ts";
 import { mergeRequestPatch } from "./request-patch.ts";

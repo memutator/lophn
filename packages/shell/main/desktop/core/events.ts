@@ -1,14 +1,7 @@
 // event는 seq cursor로 잇는다. 끊기면 마지막 확인 시각을 남기고 backoff로 스스로 다시 붙는다.
 // 다시 붙으면 epoch를 확인한 뒤 cursor 다음부터 현재 기록으로 따라잡는다. epoch가 바뀌면 옛
 // 응답을 버린다.
-import {
-  EVENT_SUBSCRIBE_PATH,
-  EVENT_SUBSCRIBE_SUBPROTOCOL,
-  type EventEnvelope,
-  eventsList,
-  nextFromSeq,
-  parseEventFrame,
-} from "../../../../protocol/server/mod.ts";
+import { EVENT_SUBSCRIBE_PATH, EVENT_SUBSCRIBE_SUBPROTOCOL, type EventEnvelope, eventsList, nextFromSeq, parseEventFrame } from "../../../../protocol/events/mod.ts";
 
 import type { CoreSession } from "./client.ts";
 

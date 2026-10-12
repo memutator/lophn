@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
 
 // 역할 식별자의 정본. preset·assignment contract는 이 enum만 소비한다.
 export const AGENT_ROLES = [

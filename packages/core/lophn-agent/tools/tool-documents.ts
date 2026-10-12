@@ -15,11 +15,11 @@ import {
   TOOL_TEXT_PATHS,
   validateToolText,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../protocol/base/mod.ts";
 import type {
-  JsonObject,
   WorkerRequest,
   WorkerResponse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { WorkerRouteTarget } from "../../supervision/responsiveness/mod.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import type { ValidatePort } from "../../projects/versions/work.ts";

@@ -5,11 +5,11 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { matchCredential } from "../../base/redaction/mod.ts";
 import type {
   EffectiveSetting,
-  JsonValue,
   SettingChoice,
   SettingDefinition,
   SettingsValidationError,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/config/mod.ts";
+import type { JsonValue } from "../../protocol/base/mod.ts";
 
 // secret 원문 판정은 platform/redaction의 credential 규칙 하나를 쓴다.
 export function containsCredentialSecret(text: string): boolean {

@@ -3,10 +3,8 @@
 // scanned_through_seq까지 전진시켜야 한다.
 import { assert } from "@std/assert";
 import { ok } from "../../../../base/mod.ts";
-import type {
-  EventEnvelope,
-  RequestContext,
-} from "../../../../protocol/server/mod.ts";
+import type { RequestContext } from "../../../../protocol/server/mod.ts";
+import type { EventEnvelope } from "../../../../protocol/events/mod.ts";
 import type {
   EventBackend,
   EventSession,

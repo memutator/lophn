@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath, settingDefinitionSchema } from "../server/mod.ts";
+import { routePath } from "../base/route.ts";
+import { settingDefinitionSchema } from "../config/settings.ts";
 import {
   GLOBAL_SKILL_SOURCE_KINDS,
   globalSkillsRead,

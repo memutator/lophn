@@ -7,10 +7,8 @@ import {
   assignmentList,
   createBuiltinAssignment,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type {
-  AuthenticatedContext,
-  ReadRoute,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 
 export const BOOTSTRAP_PRINCIPAL = "machine:lophn-agent-bootstrap";

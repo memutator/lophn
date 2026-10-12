@@ -1,9 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  definePort,
-  type ReadSnapshot,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { ReadSnapshot, Tx } from "../../../protocol/server/mod.ts";
+import { definePort } from "../../../protocol/base/mod.ts";
 import type {
   GrantPermissionRequirement,
   GrantPermissionScope,

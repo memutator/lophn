@@ -10,12 +10,12 @@ import {
   documentList,
   type Version,
 } from "../../../protocol/projects/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type ReadSnapshot,
-  type RequestContext,
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { authorizeDocument } from "./authorization.ts";
 import {
   assembleVersion,

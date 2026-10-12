@@ -3,7 +3,7 @@
 // 부르지 않는다: 허락·거절·사용은 사람 confirmation window와 소유 concern의 몫이고
 // coding 통로는 결정하지도 소비하지도 않는다. 대기 중인 요청에는 결정 화면 링크만 붙는다.
 import { MCP_DECISION_ROUTES } from "../../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../../protocol/server/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import {
   type ApprovalRequest,
   approvalStateText,

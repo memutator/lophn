@@ -17,18 +17,21 @@ import {
 import type {
   ApiReadDefinition,
   CommandDefinition,
+  ReadDefinition,
+  ReadSnapshot,
+} from "../../protocol/server/mod.ts";
+import type {
   CommandRoute,
   FileRoute,
-  ReadDefinition,
   UploadRoute,
   WorkerRoute,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
+import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
 } from "../storage/ledger/mod.ts";
 import { createDocumentsEventRegistration } from "./file-tracking/coordinator/events.ts";
-import type { KindLaunchSpec } from "../../protocol/server/mod.ts";
 import { addressingSchemaSteps } from "./addressing/mod.ts";
 import {
   createAddressingReads,
@@ -63,7 +66,6 @@ import {
 import { createProjectReads, type ProjectReadDeps } from "./registry/reads.ts";
 import { projectsSchemaSteps } from "./registry/schema.ts";
 import { listDocuments } from "./versions/mod.ts";
-import type { ReadSnapshot } from "../../protocol/server/mod.ts";
 
 // context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
 // 실제 구현이 올라온다(contexts-api.ts). core 본체는 route 등록만 쓴다.

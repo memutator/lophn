@@ -1,11 +1,10 @@
+import { type At, idSchema } from "../../protocol/base/mod.ts";
 import {
-  type At,
   type Diagnostic,
   diagnosticSchema,
-  idSchema,
   type InternalErrorClass,
   type ProcessKind,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/supervision/mod.ts";
 
 // 관측은 이미 pipe contract가 검사한 사실 하나다. 그 사실이 플랫폼 진단인지
 // 앱 귀속 후보인지를 정하는 것이 이 모듈의 답이다(platform/diagnostics#R1).

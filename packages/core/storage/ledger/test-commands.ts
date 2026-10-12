@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
-import {
-  defineCommand,
-  defineEvent,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
+import { defineEvent } from "../../../protocol/events/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 
 export const noteCreated = defineEvent("NoteCreated", {

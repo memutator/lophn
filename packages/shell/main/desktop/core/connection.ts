@@ -5,7 +5,7 @@ import {
   CORE_STATE_GET_CHANNEL,
   coreCallSchema,
 } from "../../../ipc/core.ts";
-import type { RpcFetch } from "../../../../protocol/server/mod.ts";
+import type { RpcFetch } from "../../../../protocol/client/mod.ts";
 
 import { type CoreSession, openSession, type StreamFetch } from "./client.ts";
 import {

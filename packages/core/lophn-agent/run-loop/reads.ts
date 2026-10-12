@@ -4,11 +4,11 @@ import {
   runRead,
   runResult,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
+import type {
+  ReadDefinition,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { loadRun, recordOf, rowOf, RUN_COLUMNS, type RunRow } from "./model.ts";
 
 // read는 pool read다. handler는 동기 Result를 돌려준다. agent 자격은 자기

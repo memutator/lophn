@@ -7,7 +7,7 @@ import type {
   SecretPreparation,
   SecretPrepareInput,
   SecretValue,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import type { KnownSecretRegistry } from "../../base/redaction/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
 import { cleanupResult, type SecretRecord } from "./model.ts";

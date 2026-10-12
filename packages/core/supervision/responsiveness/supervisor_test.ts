@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../../base/mod.ts";
-import type { Frame } from "../../../protocol/server/mod.ts";
+import type { Frame } from "../../../protocol/supervision/mod.ts";
 import { createSupervisor, type SupervisorOptions } from "./supervisor.ts";
 import {
   type FakeOptions,

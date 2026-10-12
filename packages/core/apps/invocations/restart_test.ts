@@ -3,10 +3,8 @@
 // 다시 띄우면 기동이 점검 근거와 함께 미확인으로 확정한다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../../protocol/approvals/mod.ts";
 import { type Core, startCore } from "../../main/daemon/core.ts";
 import { createLedgerRegistration } from "../register.ts";
 import {

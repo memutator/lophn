@@ -3,7 +3,7 @@ import type {
   Frame,
   KindLaunchSpec,
   ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { FrameWriter } from "./frames.ts";
 import { ADAPTER_MS, GROUP_CONFIRM_MS } from "./group.ts";
 import { LEADER_EXIT_MS, type Spawned } from "./process.ts";

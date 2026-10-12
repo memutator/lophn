@@ -4,7 +4,7 @@
 // 삭제는 새 준비를 막은 뒤(새 준비·command 차단) 고정 blob_refs 전체와 대조한다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { BLOB_UNREFERENCED_GRACE_MS } from "../../../../protocol/server/mod.ts";
+import { BLOB_UNREFERENCED_GRACE_MS } from "../../../../protocol/storage/mod.ts";
 import {
   backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,

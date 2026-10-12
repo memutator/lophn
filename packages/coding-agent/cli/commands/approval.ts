@@ -8,7 +8,10 @@ import {
   cliApprovalOpenSchema,
   cliApprovalShowSchema,
 } from "../../../protocol/coding-agent/mod.ts";
-import { approvalsGet, approvalsList } from "../../../protocol/server/mod.ts";
+import {
+  approvalsGet,
+  approvalsList,
+} from "../../../protocol/approvals/mod.ts";
 import {
   type ApprovalRequest,
   approvalStateText,

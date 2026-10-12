@@ -8,9 +8,9 @@ import { err, ok } from "../../../base/mod.ts";
 import {
   type ApprovalRequest,
   approvalsList,
-  eventsList,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   runRead,
   sessionRead,

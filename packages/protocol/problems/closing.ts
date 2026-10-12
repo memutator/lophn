@@ -1,11 +1,9 @@
 import { z } from "zod";
-import {
-  defineCommand,
-  defineDecision,
-  defineEvent,
-  idSchema,
-  seqSchema,
-} from "../server/mod.ts";
+import { defineCommand } from "../base/route.ts";
+import { defineDecision } from "../server/confirmation-handle.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { seqSchema } from "../base/values.ts";
 
 export const CLOSURE_REASONS = [
   "verified",

@@ -7,13 +7,15 @@ import {
   type questionList,
   type QuestionOption,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type {
+  Output,
+  SqlParams,
+  SqlRow,
+} from "../../../../protocol/server/mod.ts";
 import {
-  type Output,
   type SettingMutation,
   settingMutationSchema,
-  type SqlParams,
-  type SqlRow,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/config/mod.ts";
 import type { GroupState, GroupStatus } from "./group.ts";
 import type { StoredGroupContent } from "./text-blobs.ts";
 

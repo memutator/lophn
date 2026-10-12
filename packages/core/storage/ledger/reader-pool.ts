@@ -1,8 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  ReadRoute,
-  RequestContext,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
+import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import type { KnownSecretChannel } from "./known-secrets.ts";
 import { READ_TIMEOUT_MS, readKey } from "./reads.ts";
 

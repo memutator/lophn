@@ -1,10 +1,8 @@
 // approval 설명 blob의 등록 field(domain model ApprovalRequest·ApprovalEffect).
 // 본문은 blob-store에 있고 request 행은 hash만 담는다.
 
-import {
-  APPROVAL_BLOB_OWNER_KIND,
-  defineBlobField,
-} from "../../protocol/server/mod.ts";
+import { APPROVAL_BLOB_OWNER_KIND } from "../../protocol/approvals/mod.ts";
+import { defineBlobField } from "../../protocol/storage/mod.ts";
 
 const owner = APPROVAL_BLOB_OWNER_KIND;
 

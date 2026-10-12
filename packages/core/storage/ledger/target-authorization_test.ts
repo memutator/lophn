@@ -4,8 +4,11 @@ import { manualClock, ok, type Result } from "../../../base/mod.ts";
 import {
   defineCommand,
   defineRead,
-  TargetAuthorization,
   withReadCommon,
+} from "../../../protocol/base/mod.ts";
+import {
+  type AuthorizationTarget,
+  TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { TARGET_AUTHORIZATION_UNAVAILABLE } from "../../server/identity/mod.ts";
@@ -16,7 +19,6 @@ import { openConnection, openLedger } from "./mod.ts";
 import { openReaderConnection } from "./reader-connection.ts";
 import { executeRead } from "./reads.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
-import type { AuthorizationTarget } from "../../../protocol/server/mod.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 
 function code(result: Result<unknown>): string {

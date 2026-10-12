@@ -1,9 +1,9 @@
 import type { Clock } from "../../../base/mod.ts";
+import type { HealthObservation } from "../../../protocol/server/mod.ts";
 import {
-  type HealthObservation,
   helloSchema,
   type ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../security/mod.ts";
 import { settledWithin, valueWithin } from "./deadline.ts";
 import { ADAPTER_MS } from "./group.ts";

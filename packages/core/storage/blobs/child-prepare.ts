@@ -8,12 +8,12 @@ import { err, type ErrorCode, type Result } from "../../../base/mod.ts";
 import {
   BLOB_PREPARE_CREDIT_WINDOW,
   BLOB_PREPARE_ERROR_CODES,
-  BLOB_PREPARE_MAX_BYTES,
   type BlobPrepareRequest,
   type ChildMessage,
   type Frame,
   type ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import { BLOB_PREPARE_MAX_BYTES } from "../../../protocol/storage/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
   RUN_BLOB_PURPOSES,

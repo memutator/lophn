@@ -10,14 +10,14 @@ import {
   revertStarted,
   type rewind,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  RequestContext,
+  Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import type { RevertDeps } from "./commands.ts";
 import { planRewind, type RewindPlan } from "./preview.ts";
 import { restorable } from "./restore.ts";

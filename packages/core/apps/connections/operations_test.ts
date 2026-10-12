@@ -14,7 +14,7 @@ import {
   connectionRevoke,
   TICKET_SUMMARY_MAX_BYTES,
 } from "../../../protocol/coding-agent/mod.ts";
-import { UPLOAD_INPUT_HEADER } from "../../../protocol/server/mod.ts";
+import { UPLOAD_INPUT_HEADER } from "../../../protocol/base/mod.ts";
 import { confirmationBinding } from "../../server/identity/mod.ts";
 import {
   codingCredentialRef,

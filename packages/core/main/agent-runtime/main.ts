@@ -1,10 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  type ChildMessage,
-  createRpcClient,
-  type ReadRoute,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
+import { createRpcClient } from "../../../protocol/client/mod.ts";
+import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
 import {
   type ChildSession,
   startChild,

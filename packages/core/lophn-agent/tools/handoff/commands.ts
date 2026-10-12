@@ -3,15 +3,15 @@ import {
   type acceptRun,
   handoffSubmit,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Compare,
-  type Input,
-  type Output,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Compare,
+  Input,
+  Output,
+  RequestContext,
+  Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   bodyBlob,
   checkReferences,

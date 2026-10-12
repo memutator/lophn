@@ -5,12 +5,12 @@
 // 읽기와 모든 command는 없는 대상과 같은 답이다.
 import type { Result } from "../../../../base/mod.ts";
 import {
-  parseActor,
   type RequestContext,
   type Sql,
   TargetAuthorization,
   type Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { loadAppData } from "./rows-app-data.ts";
 

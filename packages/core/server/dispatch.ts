@@ -7,8 +7,8 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   commandRequestSchema,
   type CommandRoute,
   type FileRoute,
@@ -18,10 +18,12 @@ import {
   routePath,
   UPLOAD_INPUT_HEADER,
   type UploadRoute,
-  type WorkerRequest,
-  type WorkerResponse,
   type WorkerRoute,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../protocol/supervision/mod.ts";
 import type { CommandEnvelope, Writer } from "../storage/ledger/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 import {

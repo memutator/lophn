@@ -12,10 +12,8 @@ import type {
   AgentAppScope,
   AgentRole,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type AuthenticatedContext,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { computeAgentAppScope } from "../run-loop/mod.ts";
 import { executeTool } from "./mod.ts";
 import { call as httpCall } from "../../testing/approvals-fixture.ts";

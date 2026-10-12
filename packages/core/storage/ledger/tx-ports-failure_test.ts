@@ -1,10 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
-import {
-  definePort,
-  type PortKey,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import { definePort, type PortKey } from "../../../protocol/base/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { recordNote } from "./test-commands.ts";

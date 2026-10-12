@@ -7,7 +7,7 @@ import { manualClock, sha256Hex } from "../../../base/mod.ts";
 import {
   BACKUP_EXCLUSIONS,
   BACKUP_MANIFEST_FORMAT,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import {
   applyMigrations,
   BACKUP_INTERVAL_MS,

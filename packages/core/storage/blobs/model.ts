@@ -3,11 +3,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BLOB_PREPARATION_TTL_MS,
+  BLOB_PREPARE_CHUNK_MAX_BYTES,
   BLOB_PREPARE_MAX_BYTES,
   type PreparedBlob,
   preparedBlobSchema,
-} from "../../../protocol/server/mod.ts";
-import { BLOB_PREPARE_CHUNK_MAX_BYTES } from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 export const BLOB_STORE_TMP_DIR = "blobs/tmp";
 // 완성 blob은 hash 앞 2자 폴더 아래 나머지 62자 파일로 둔다(domain-model "경로").

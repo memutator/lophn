@@ -1,12 +1,11 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import { type AgentAppScope } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type ActorKind,
-  type AuthenticatedContext,
-  type CredentialConditions,
-  type CredentialScope,
-  parseActor,
+import type {
+  AuthenticatedContext,
+  CredentialConditions,
+  CredentialScope,
 } from "../../../protocol/server/mod.ts";
+import { type ActorKind, parseActor } from "../../../protocol/base/mod.ts";
 
 // agent credential이 싣는 상한. lophn-agent가 계산한 AgentAppScope이며 platform은
 // 내용을 해석하지 않고 발급 뒤 넓히지 못하게만 한다(domain-model platform/identity).

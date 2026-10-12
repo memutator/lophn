@@ -14,13 +14,12 @@ import {
   type Slug,
   slugSchema,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Seq,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor, type Seq } from "../../../protocol/base/mod.ts";
 import {
   authorizeDocument,
   loadDocument,

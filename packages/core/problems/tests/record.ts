@@ -1,12 +1,12 @@
 import { canonicalHash, canonicalJson } from "./canonical.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  CommandDefinition,
-  Input,
-  RequestContext,
-  Tx,
+import {
+  type CommandDefinition,
+  type Input,
+  type RequestContext,
+  TargetAuthorization,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import {
   recordVerification,
   verificationRecorded,

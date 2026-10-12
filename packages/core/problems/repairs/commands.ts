@@ -1,15 +1,14 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
 import { TicketClaimCheck } from "../../../protocol/coding-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type PortKey,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor, type PortKey } from "../../../protocol/base/mod.ts";
 import {
   problemFixRecorded,
   recordProblemFix,

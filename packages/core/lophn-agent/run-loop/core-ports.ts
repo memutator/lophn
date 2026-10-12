@@ -34,8 +34,8 @@ import {
 import {
   approvalsGet,
   approvalsText,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,

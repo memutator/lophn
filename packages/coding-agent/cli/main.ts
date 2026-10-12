@@ -42,7 +42,7 @@ import {
   runCliCommand,
 } from "./dispatch.ts";
 import type { CredentialProvider } from "../connection/credential/provider.ts";
-import type { RpcFetch } from "../../protocol/server/mod.ts";
+import type { RpcFetch } from "../../protocol/client/mod.ts";
 
 const VERSION = "0.1.0";
 

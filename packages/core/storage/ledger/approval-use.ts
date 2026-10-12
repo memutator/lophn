@@ -11,12 +11,12 @@ import {
   parseSeq,
   type Result,
 } from "../../../base/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   type ApprovalAction,
   type ApprovalUse,
   approvalUseSchema,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
 import { runAdmission } from "./run-admission.ts";
 
 export type UsableApproval = {

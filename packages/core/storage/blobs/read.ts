@@ -3,16 +3,18 @@
 // 참조된 blob이 없거나 hash가 다르면 unavailable이며 빈 내용을 돌려주지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type {
+  ReadDefinition,
+  RequestContext,
+  Sql,
+} from "../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
   type BlobReadInput,
   blobReadInputSchema,
   type BlobReadResult,
   blobsRead,
-  type ReadDefinition,
-  type RequestContext,
-  type Sql,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import type { BlobAuthorizer } from "./refs.ts";
 import {
   fieldDefined,

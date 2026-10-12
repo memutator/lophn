@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  atSchema,
-  defineEvent,
-  idSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
 const nonblank = z.string().regex(/\S/);

@@ -4,7 +4,7 @@
 
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { PreparedBlob } from "../../../protocol/server/mod.ts";
+import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 import {
   BLOB_READ_ONLY_MODE,
   BLOB_STORE_OBJECTS_DIR,

@@ -5,11 +5,12 @@
 // record-report로 제출해서 Report·Problem ledger 행이 생기는지 HTTP read로
 // 본다. harness의 fileLedger나 직접 insert는 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { encodeFrame, FrameDecoder } from "../../../protocol/server/mod.ts";
-import type {
-  AuthenticatedContext,
-  KindLaunchSpec,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import {
+  encodeFrame,
+  FrameDecoder,
+  type KindLaunchSpec,
+} from "../../../protocol/supervision/mod.ts";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
 import { launchArgv } from "../../supervision/security/mod.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "../tests/runner.ts";

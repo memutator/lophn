@@ -1,12 +1,8 @@
 import { z } from "zod";
-import {
-  defineCommand,
-  defineRead,
-  idSchema,
-  seqSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { handoffReferenceSchema } from "./run-values.ts";
 import {
   handoffAllowed,

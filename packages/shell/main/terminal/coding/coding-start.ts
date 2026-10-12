@@ -28,7 +28,7 @@ import {
   unknownObservation,
 } from "../../../../protocol/coding-agent/mod.ts";
 import { projectIdSchema } from "../../../../protocol/projects/values.ts";
-import { seqSchema } from "../../../../protocol/server/mod.ts";
+import { seqSchema } from "../../../../protocol/base/mod.ts";
 import { z } from "zod";
 
 import type { TerminalReply, TerminalRuntime } from "../../../ipc/terminal.ts";

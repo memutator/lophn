@@ -13,7 +13,7 @@ import {
   toolTextSchema,
   validateToolText,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { sha256Schema } from "../../../../protocol/server/mod.ts";
+import { sha256Schema } from "../../../../protocol/base/mod.ts";
 import { fitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";

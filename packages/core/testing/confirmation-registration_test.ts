@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import { ACTOR_KINDS, defineCommand } from "../../protocol/server/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../protocol/base/mod.ts";
 import type { LedgerTestRegistration } from "./ledger.ts";
 
 const input = z.strictObject({

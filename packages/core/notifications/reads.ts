@@ -1,12 +1,12 @@
 import { err, ok } from "../../base/mod.ts";
+import type { ReadDefinition } from "../../protocol/server/mod.ts";
+import { atSchema } from "../../protocol/base/mod.ts";
 import {
-  atSchema,
   type NotificationAsk,
   notificationsDisplay,
   notificationsGet,
   notificationsList,
-  type ReadDefinition,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/notifications/mod.ts";
 import { notificationAsk } from "./ask-agent.ts";
 import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";

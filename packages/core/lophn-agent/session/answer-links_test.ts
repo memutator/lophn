@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
 import { runBody, toolCallList } from "../../../protocol/lophn-agent/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { resultLinks } from "./answer-links.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 

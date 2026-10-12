@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/lophn-agent/mod.ts";
-import { approvalsGet } from "../../../protocol/server/mod.ts";
+import { approvalsGet } from "../../../protocol/approvals/mod.ts";
 import {
   AGENT_TOOLS,
   type AgentToolPorts,

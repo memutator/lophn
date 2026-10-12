@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type {
   SecretDestination,
   SecretRefSource,
   SecretUse,
-  Sql,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/secrets/mod.ts";
 
 // 외부 MCP credential의 secret 참조(platform#T19 후속 #294). MCP server 설정이
 // 가리키는 `sec:` 참조를 ledger의 secrets 표에서 읽어 core의 알려진 값

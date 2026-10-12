@@ -11,7 +11,7 @@ import {
   ticketCreateInputSchema,
   ticketReferenceInputSchema,
 } from "../../../protocol/coding-agent/mod.ts";
-import { idSchema, sha256Schema } from "../../../protocol/server/mod.ts";
+import { idSchema, sha256Schema } from "../../../protocol/base/mod.ts";
 
 export const REPAIR_PREPARE_SOURCE = {
   name: "coding-agent.tickets.RepairPrepareSource",

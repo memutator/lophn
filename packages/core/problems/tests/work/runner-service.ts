@@ -11,7 +11,7 @@ import type {
   ChildMessage,
   ParentMessage,
   WorkerRequest,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import {
   type AcceptedReport,
   type ExecutionEvidence,

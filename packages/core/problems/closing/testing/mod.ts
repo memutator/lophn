@@ -6,11 +6,8 @@
 // 같은 이름으로 둔다. 문제 seq는 문제 표 subject event에서 읽으므로 시험이 직접 event를 낸다.
 import { z } from "zod";
 import { ok } from "../../../../base/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  type Tx,
-} from "../../../../protocol/server/mod.ts";
+import type { CommandDefinition, Tx } from "../../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../../protocol/base/mod.ts";
 import {
   applyProblemDecisionCommand,
   closeProblemVerifiedCommand,

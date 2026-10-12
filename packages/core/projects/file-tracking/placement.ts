@@ -18,7 +18,7 @@ import type {
   TrackingPreview,
   TrackingRuleSet,
 } from "../../../protocol/projects/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   decideTracking,
   deepestRegisteredRoot,

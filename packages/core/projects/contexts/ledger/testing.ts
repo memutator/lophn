@@ -10,13 +10,13 @@
 import { DatabaseSync } from "node:sqlite";
 import type { Result } from "../../../../base/mod.ts";
 import type {
-  BlobRefRegistration,
-  PortKey,
   RequestContext,
   Sql,
   SqlRow,
   Tx,
 } from "../../../../protocol/server/mod.ts";
+import type { BlobRefRegistration } from "../../../../protocol/storage/mod.ts";
+import type { PortKey } from "../../../../protocol/base/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { projectsSchemaSteps } from "../../registry/mod.ts";
 import { id, T0 } from "../api/testing.ts";

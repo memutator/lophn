@@ -7,11 +7,11 @@
 // 동시에 쓰지 못하게). worker는 첫 요청에서 띄운다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
-import {
-  type ChildMessage,
-  type KindLaunchSpec,
-  type ParentMessage,
-} from "../../../../protocol/server/mod.ts";
+import type {
+  ChildMessage,
+  KindLaunchSpec,
+  ParentMessage,
+} from "../../../../protocol/supervision/mod.ts";
 import {
   type ChildCallbacks,
   createSupervisor,

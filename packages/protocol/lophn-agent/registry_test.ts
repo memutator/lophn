@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES, lophnAgent } from "../mod.ts";
-import { routePath } from "../server/mod.ts";
+import { routePath } from "../base/route.ts";
 import * as contracts from "./mod.ts";
 import { EVENTS, ROUTES } from "./mod.ts";
 

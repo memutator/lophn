@@ -9,15 +9,17 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../../protocol/lophn-agent/mod.ts";
 import { ASSIGNMENT_REACTION_OPERATIONS } from "../../lophn-agent/assignments/reaction.ts";
+import type {
+  EventVisibilityDefinition,
+  RequestContext,
+} from "../../../protocol/server/mod.ts";
+import { approvalRequestCreated } from "../../../protocol/approvals/mod.ts";
+import type { CommandRoute } from "../../../protocol/base/mod.ts";
+import type { EventDefinition } from "../../../protocol/events/mod.ts";
 import {
-  approvalRequestCreated,
-  type CommandRoute,
-  type EventDefinition,
-  type EventVisibilityDefinition,
   notificationCreated,
   notificationRead,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/notifications/mod.ts";
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,

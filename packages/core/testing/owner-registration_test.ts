@@ -1,17 +1,19 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import {
-  ACTOR_KINDS,
   type CommandDefinition,
+  type ReadDefinition,
+  TargetAuthorization,
+  type Tx,
+} from "../../protocol/server/mod.ts";
+import {
+  ACTOR_KINDS,
   defineCommand,
   definePort,
   defineRead,
   type JsonValue,
-  type ReadDefinition,
-  TargetAuthorization,
-  type Tx,
   withReadCommon,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
 import { CONDITION_TARGET_KEYS } from "../server/identity/mod.ts";
 import { runAdmission } from "../storage/ledger/mod.ts";
 import {

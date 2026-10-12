@@ -1,11 +1,11 @@
 import type { Clock, Logger } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
-  EVENT_SUBSCRIBE_PATH,
   RPC_JSON_MAX_BYTES,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
+import { EVENT_SUBSCRIBE_PATH } from "../../protocol/events/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 import type { ConfirmationBridge, RouteConfirmation } from "./identity/mod.ts";
 import type {

@@ -15,12 +15,12 @@ import {
   userProjectSchema,
 } from "../../../protocol/projects/mod.ts";
 import { absolutePathSchema } from "../../../protocol/projects/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type ReadSnapshot,
-  type RequestContext,
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { deepestRegisteredRoot } from "./model.ts";
 import { loadProject, loadProjects, rowCount } from "./store.ts";
 

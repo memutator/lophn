@@ -1,8 +1,6 @@
 import type { LophnError, Result } from "../../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  PreparedBlob,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 
 // API 쪽과 writer Worker가 주고받는 작은 메시지. 연결 객체는 넘기지 않는다.
 // command 이름은 등록 표의 route.name이다. SQL·파일 경로는 메시지에 없다(R20).

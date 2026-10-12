@@ -2,12 +2,13 @@
 // 실제 collector entry를 자식 프로세스로 띄워 `/v1/problems/observe-view-error` route 뒤에 잇는다.
 // binding은 그 core의 signer가 서명한 AppConnection이다. harness의 직접 insert는 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { encodeFrame, FrameDecoder } from "../../../protocol/server/mod.ts";
-import type {
-  AuthenticatedContext,
-  WorkerRequest,
-  WorkerResponse,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import {
+  encodeFrame,
+  FrameDecoder,
+  type WorkerRequest,
+  type WorkerResponse,
+} from "../../../protocol/supervision/mod.ts";
 import { manualClock, ok, seededRandom } from "../../../base/mod.ts";
 import { createCoreSigner } from "../../apps/runtime/signing.ts";
 import { launchArgv } from "../../supervision/security/mod.ts";

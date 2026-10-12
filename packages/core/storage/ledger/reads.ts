@@ -1,13 +1,15 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  errorBodySchema,
-  parseActor,
-  readCommonSchema,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
+import {
+  errorBodySchema,
+  parseActor,
+  readCommonSchema,
+} from "../../../protocol/base/mod.ts";
 import type { ReaderConnection } from "./reader-connection.ts";
 import type {
   EventRegistration,

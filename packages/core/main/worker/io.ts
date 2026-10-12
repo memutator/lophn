@@ -40,12 +40,16 @@ import {
 } from "../../config/worker/pipe.ts";
 import {
   type Frame,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../protocol/supervision/mod.ts";
+import {
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,
+} from "../../../protocol/secrets/mod.ts";
+import {
   SETTINGS_EXPORT_OP,
   SETTINGS_IMPORT_OP,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/config/mod.ts";
 import {
   createSecretWork,
   productKeychain,

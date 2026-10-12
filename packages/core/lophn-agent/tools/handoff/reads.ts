@@ -3,13 +3,13 @@ import {
   handoffResult,
   handoffStatus,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
-  type SqlParams,
-  type SqlRow,
+import type {
+  ReadDefinition,
+  RequestContext,
+  SqlParams,
+  SqlRow,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   type HandoffRun,
   loadAssignmentRef,

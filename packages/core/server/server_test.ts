@@ -1,17 +1,19 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../base/mod.ts";
+import { platformHealth } from "../../protocol/server/mod.ts";
 import {
   API_MAJOR,
   DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
-  EVENT_SUBSCRIBE_PATH,
-  EVENT_SUBSCRIBE_SUBPROTOCOL,
   HEADER_MAX_BYTES,
-  platformHealth,
   RPC_JSON_MAX_BYTES,
   RPC_JSON_MAX_DEPTH,
   RPC_JSON_MAX_ITEMS,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
+import {
+  EVENT_SUBSCRIBE_PATH,
+  EVENT_SUBSCRIBE_SUBPROTOCOL,
+} from "../../protocol/events/mod.ts";
 import type { EventBackend } from "../storage/ledger/mod.ts";
 import { call, listen } from "./harness_test.ts";
 import { defaultPort, JSON_MAX_BYTES, RouteRegistry } from "./mod.ts";

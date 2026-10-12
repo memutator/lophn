@@ -24,15 +24,17 @@ import {
   type SaveResult,
   type Version,
 } from "../../../protocol/projects/mod.ts";
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
+} from "../../../protocol/server/mod.ts";
 import {
   type BlobRefRegistration,
-  type CommandDefinition,
   defineBlobField,
-  parseActor,
   type PreparedBlob,
-  type RequestContext,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   createDocumentNameReservation,
   type PlaceRef,

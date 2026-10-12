@@ -5,7 +5,8 @@ import {
   skillFoldersSetting,
   skillsOffSetting,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { routePath, settingsGet } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import type { CoreCalls } from "../../main/agent-runtime/main.ts";
 import { productDriver } from "../../main/agent-runtime/product-driver.ts";

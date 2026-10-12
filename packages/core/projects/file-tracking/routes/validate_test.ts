@@ -4,7 +4,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../../base/mod.ts";
 import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../../../protocol/projects/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../../../protocol/server/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../../../protocol/storage/mod.ts";
 import { DOCUMENT_OPS } from "../mod.ts";
 import { createValidatePort, type ValidateDeps } from "./validate.ts";
 

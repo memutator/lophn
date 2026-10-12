@@ -28,7 +28,7 @@ import {
   problemTicketSourceSchema,
 } from "../../../protocol/coding-agent/mod.ts";
 import { recordProblemFixToolInputSchema } from "../../../protocol/problems/mod.ts";
-import { idSchema } from "../../../protocol/server/mod.ts";
+import { idSchema } from "../../../protocol/base/mod.ts";
 import {
   openProblemAttachment,
   type ProblemOp,

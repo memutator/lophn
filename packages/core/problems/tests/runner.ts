@@ -1,6 +1,6 @@
 // test runner launch spec. core 등록이 이 모듈만 import한다.
 // 실행 구현(problems/tests/work)은 worker가 import하고 core graph에는 두지 않는다.
-import type { KindLaunchSpec } from "../../../protocol/server/mod.ts";
+import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";

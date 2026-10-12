@@ -1,13 +1,9 @@
 import { z } from "zod";
-import {
-  atSchema,
-  defineCommand,
-  defineEvent,
-  defineRead,
-  idSchema,
-  seqSchema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { atSchema, seqSchema } from "../base/values.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";

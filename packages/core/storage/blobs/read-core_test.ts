@@ -8,7 +8,7 @@ import { startCore } from "../../main/daemon/core.ts";
 import {
   BLOB_READ_MAX_BYTES,
   defineBlobField,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 const HASH_BYTES = new TextEncoder().encode("blob body");
 

@@ -8,14 +8,14 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import type { ContentFile } from "../../../../protocol/projects/mod.ts";
 import {
-  type PortKey,
-  type PreparedBlob,
   type Sql,
   type SqlRow,
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
 } from "../../../../protocol/server/mod.ts";
+import type { PortKey } from "../../../../protocol/base/mod.ts";
+import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../mod.ts";
 

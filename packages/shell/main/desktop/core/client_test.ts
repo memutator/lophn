@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { RpcFetch } from "../../../../protocol/server/mod.ts";
+import type { RpcFetch } from "../../../../protocol/client/mod.ts";
 
 import { CONNECTION_INTENT } from "./allowlist.ts";
 import { openSession } from "./client.ts";

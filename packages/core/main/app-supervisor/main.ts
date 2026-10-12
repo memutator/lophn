@@ -2,7 +2,7 @@
 // credential은 hello frame 한 번으로만 받고 argv·환경에는 없다. 자식 앱에는 supervisor의
 // machine credential을 주지 않고 자식마다 core가 발급한 app credential을 준다.
 import { createIdSource, systemClock } from "../../../base/mod.ts";
-import { encodeFrame } from "../../../protocol/server/mod.ts";
+import { encodeFrame } from "../../../protocol/supervision/mod.ts";
 import {
   createSocketDirectory,
   slotSockets,

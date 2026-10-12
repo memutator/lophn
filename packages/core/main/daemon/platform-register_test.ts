@@ -4,12 +4,12 @@
 // 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { fingerprint } from "../../../base/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
-  type AuthenticatedContext,
   grantApprovalRequest,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
 import { confirmationBinding } from "../../server/identity/mod.ts";
 import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 

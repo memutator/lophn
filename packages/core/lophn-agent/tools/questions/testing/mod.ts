@@ -5,14 +5,16 @@ import {
   QUESTION_BLOB_OWNER_KIND,
   QUESTION_TEXT_PURPOSE,
 } from "../../../../../protocol/lophn-agent/mod.ts";
+import type {
+  AuthenticatedContext,
+  RequestContext,
+  Tx,
+} from "../../../../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   type BlobRefRegistration,
   blobRefRegistrationSchema,
   type PermanentBlobReference,
-  type RequestContext,
-  type Tx,
-} from "../../../../../protocol/server/mod.ts";
+} from "../../../../../protocol/storage/mod.ts";
 
 // 질문 ledger 시험이 함께 쓰는 값과 자격. 제품 코드와 mod.ts는 import하지 않는다.
 // 실제 provider를 부르지 않는다.

@@ -18,10 +18,8 @@
 import { assert } from "@std/assert";
 
 import { createCoreHarness } from "../../testing/core.ts";
-import {
-  createRpcClient,
-  platformHealth,
-} from "../../../protocol/server/mod.ts";
+import { platformHealth } from "../../../protocol/server/mod.ts";
+import { createRpcClient } from "../../../protocol/client/mod.ts";
 import {
   createBlobStoreWork,
   createFakeQuota,

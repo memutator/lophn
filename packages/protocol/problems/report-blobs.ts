@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   permanentBlobReferenceSchema,
   preparedBlobSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+} from "../storage/blob.ts";
+import { sha256Schema } from "../base/values.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
 export const REPORT_BLOB_PURPOSES = [

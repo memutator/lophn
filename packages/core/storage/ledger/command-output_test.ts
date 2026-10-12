@@ -1,11 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  defineEvent,
-} from "../../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
+import { defineEvent } from "../../../protocol/events/mod.ts";
 import { deps, fileLedger, looseFixtureCase, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import type { LedgerConnection } from "./sqlite.ts";

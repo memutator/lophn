@@ -21,10 +21,8 @@ import {
   decide,
   inspect,
 } from "../../testing/approvals-fixture.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../../protocol/approvals/mod.ts";
 import { canonicalInputHash, validateBlueprint } from "../blueprint/mod.ts";
 import { coreAccess } from "../invocations/testing/mod.ts";
 import {

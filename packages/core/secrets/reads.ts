@@ -1,12 +1,8 @@
 // 조회는 이름·설정 여부만 돌려준다(platform/secrets#R4). sealed_ref는 나가지 않는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  listSecrets,
-  type ReadDefinition,
-  type SecretStatus,
-  type Sql,
-} from "../../protocol/server/mod.ts";
+import type { ReadDefinition, Sql } from "../../protocol/server/mod.ts";
+import { listSecrets, type SecretStatus } from "../../protocol/secrets/mod.ts";
 import { toStatus } from "./model.ts";
 
 type NameRow = { name: string; revision: number | bigint };

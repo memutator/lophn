@@ -12,7 +12,7 @@ import {
   fileWriteRequestSchema,
   versionIdSchema,
 } from "../../../protocol/projects/mod.ts";
-import { sha256Schema } from "../../../protocol/server/mod.ts";
+import { sha256Schema } from "../../../protocol/base/mod.ts";
 
 const channelSchema = z.number().int().min(1).max(0xffffffff);
 const contentRefSchema = z.strictObject({

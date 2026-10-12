@@ -10,11 +10,11 @@ import type { FlowClient } from "../../coding-agent/connection/mod.ts";
 import { createApprovalTool } from "../../coding-agent/mcp-server/tools/approval.ts";
 import { createHandler } from "../../coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../coding-agent/mcp-server/registry.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
-  type AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "../testing/ledger.ts";
 
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";

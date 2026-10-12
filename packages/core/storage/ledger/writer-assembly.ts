@@ -9,11 +9,14 @@ import {
   seededRandom,
   systemClock,
 } from "../../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  CommandDefinition,
+import {
+  type AuthenticatedContext,
+  authenticatedContextSchema,
+  type CommandDefinition,
+  type RequestContext,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { authenticatedContextSchema } from "../../../protocol/server/mod.ts";
+import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import {
   confirmationBridge,
   ConfirmationRegistry,
@@ -26,11 +29,6 @@ import {
   type TxPortRegistration,
   type WriterRegistration,
 } from "./mod.ts";
-import {
-  type BlobFieldDefinition,
-  type RequestContext,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
 import {
   createBlobRegistrar,
   createPreparationRegistry,

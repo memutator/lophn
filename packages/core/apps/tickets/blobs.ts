@@ -5,7 +5,7 @@ import { TICKET_SUMMARY_MAX_BYTES } from "../../../protocol/coding-agent/mod.ts"
 import {
   defineBlobField,
   defineBlobPurpose,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 export const TICKET_BLOB_FIELDS = [
   defineBlobField({

@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  type BlobRefRegistration,
-  type CommandDefinition,
-  defineCommand,
-  type PermanentBlobReference,
-  type PortKey,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import type {
+  BlobRefRegistration,
+  PermanentBlobReference,
+} from "../../../protocol/storage/mod.ts";
+import { defineCommand, type PortKey } from "../../../protocol/base/mod.ts";
 import {
   appendActualSideStart,
   appendRequestObservation,

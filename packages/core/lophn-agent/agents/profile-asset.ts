@@ -12,10 +12,8 @@ import {
   readAgentProfileInputSchema,
   uploadAgentProfileInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type {
-  AuthenticatedContext,
-  ReadRoute,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import { agentFileName, agentsDirectory } from "./store.ts";
 
 // 사람이 올린 profile 이미지(R13)다. 받는 형식은 png·jpg·webp뿐이고 형식은 내용의 첫 byte로 확인한다.

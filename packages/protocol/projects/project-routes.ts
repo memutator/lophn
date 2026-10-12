@@ -1,12 +1,7 @@
 import { z } from "zod";
-import {
-  archiveStateSchema,
-  commandRequestSchema,
-  defineCommand,
-  defineRead,
-  defineWorker,
-  withReadCommon,
-} from "../server/mod.ts";
+import { archiveStateSchema } from "../base/values.ts";
+import { commandRequestSchema, withReadCommon } from "../base/envelope.ts";
+import { defineCommand, defineRead, defineWorker } from "../base/route.ts";
 import {
   absolutePathSchema,
   projectIdSchema,

@@ -24,7 +24,8 @@ import {
   sessionSummary,
   skillFoldersSetting,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { routePath, settingsGet } from "../../../../protocol/server/mod.ts";
+import { routePath } from "../../../../protocol/base/mod.ts";
+import { settingsGet } from "../../../../protocol/config/mod.ts";
 import { RUN_LIMIT_SETTING_KEYS } from "../../../lophn-agent/run-loop/mod.ts";
 import type { CatalogRefresherHandle } from "../../../lophn-agent/models/catalog-refresh.ts";
 import type { CoreCall } from "../../../lophn-agent/run-loop/core-call.ts";

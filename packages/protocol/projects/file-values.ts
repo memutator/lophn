@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import {
-  atSchema,
-  idempotencyKeySchema,
-  seqSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import { idempotencyKeySchema } from "../base/envelope.ts";
 import { documentFileInputSchema } from "./document-files.ts";
 import {
   absolutePathSchema,

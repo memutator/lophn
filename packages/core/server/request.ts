@@ -5,9 +5,9 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   API_MAJOR,
-  type AuthenticatedContext,
   DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
   type ErrorBody,
@@ -15,7 +15,7 @@ import {
   RPC_JSON_MAX_BYTES,
   RPC_JSON_MAX_DEPTH,
   RPC_JSON_MAX_ITEMS,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 
 // body를 읽기 전의 고정 한도(platform/security#R8, architecture/platform 2.3).

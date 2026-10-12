@@ -6,10 +6,10 @@ import {
   projectPreviewTracking,
   projectPreviewTrackingInputSchema,
 } from "../../../../protocol/projects/mod.ts";
-import {
-  type WorkerRequest,
-  type WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../../../protocol/supervision/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

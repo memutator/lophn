@@ -6,7 +6,7 @@
 // 제품 core의 실제 command 경로는 packages/core/apps/tickets/checker/connection_test.ts가 본다.
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
-import { seqSchema } from "../../../protocol/server/mod.ts";
+import { seqSchema } from "../../../protocol/base/mod.ts";
 import {
   applyProblemDecision,
   type Closure as ProblemClosure,

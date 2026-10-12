@@ -9,12 +9,12 @@ import type {
   Project,
   Slug,
 } from "../../../protocol/projects/mod.ts";
-import {
-  parseActor,
-  type ReadSnapshot,
-  type RequestContext,
-  type Sql,
+import type {
+  ReadSnapshot,
+  RequestContext,
+  Sql,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   createDocumentNameReservation,
   SLUG_MAX_LENGTH,

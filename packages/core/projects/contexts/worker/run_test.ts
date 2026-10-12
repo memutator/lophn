@@ -6,7 +6,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import {
   type ByteReader,
   type ChildStreams,

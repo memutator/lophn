@@ -26,11 +26,11 @@ import {
   type SaveResult,
   saveResultSchema,
 } from "../../../../protocol/projects/mod.ts";
-import {
-  BLOB_READ_MAX_BYTES,
-  type WorkerRequest,
-  type WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../../../protocol/storage/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../../../protocol/supervision/mod.ts";
 import type { WorkerRouteTarget } from "../../../supervision/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,

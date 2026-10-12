@@ -2,8 +2,10 @@
 // ledger 파일을 쓴다. harness Worker가 registration_test.ts를 import하므로 이 파일은
 // mod.ts와 나누어 둔다(그 graph에 harness를 끌어들이면 Worker가 뜨지 못한다).
 import { ok, type Result } from "../../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import type { SqlRow } from "../../../../protocol/server/mod.ts";
+import type {
+  AuthenticatedContext,
+  SqlRow,
+} from "../../../../protocol/server/mod.ts";
 import { envelope } from "./mod.ts";
 
 export { envelope };

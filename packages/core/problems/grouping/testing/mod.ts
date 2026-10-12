@@ -12,11 +12,12 @@ import {
   ticketConfirmed,
   ticketCreated,
 } from "../../../../protocol/coding-agent/mod.ts";
-import {
-  type AuthenticatedContext,
-  type CommandDefinition,
-  defineCommand,
+import type {
+  AuthenticatedContext,
+  CommandDefinition,
+  Sql,
 } from "../../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../../protocol/base/mod.ts";
 import {
   type ProblemTestFact,
   ProblemTestPort,
@@ -25,7 +26,6 @@ import {
   type RepairTicketFact,
 } from "../../../../protocol/problems/mod.ts";
 import type { RecordReportInput } from "../../../../protocol/problems/mod.ts";
-import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,

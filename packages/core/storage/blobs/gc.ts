@@ -7,7 +7,7 @@ import {
   BLOB_RETENTION_CATEGORIES,
   type BlobFieldDefinition,
   type BlobRetentionCategory,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 // 정리한 blob을 읽으면 이 이유다(R13: "정리됨"). contracts의 안전 이유 하나다.
 export type PrunedReason = "pruned";

@@ -3,7 +3,7 @@
 // macOS·Windows adapter는 범위 밖이다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { SecretPurpose } from "../../../protocol/server/mod.ts";
+import type { SecretPurpose } from "../../../protocol/secrets/mod.ts";
 import {
   KEYCHAIN_NOT_FOUND,
   KEYCHAIN_UNAVAILABLE,

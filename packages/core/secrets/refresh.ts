@@ -5,14 +5,16 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   CommandDefinition,
+  Tx,
+} from "../../protocol/server/mod.ts";
+import type {
   ProcessLivenessCheck,
   SecretAllowanceCheck,
   SecretPreparation,
   SecretStoreRefreshInput,
   SecretStoreRefreshOutput,
   SecretValue,
-  Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import { authorize } from "../server/identity/mod.ts";
 import { compareMatches, type SecretCompare } from "./model.ts";
 import type { SecretWork } from "./work.ts";

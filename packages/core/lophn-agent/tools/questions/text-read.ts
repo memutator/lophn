@@ -6,10 +6,8 @@ import {
   questionText,
   questionTextInputSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type ApiReadDefinition,
-  parseActor,
-} from "../../../../protocol/server/mod.ts";
+import type { ApiReadDefinition } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   type MessageBodyEnvironment,
   readBodyBytes,

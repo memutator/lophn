@@ -10,7 +10,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import { DOCUMENT_OPS } from "../mod.ts";
 import { type FilesRouteDeps, fileWorkers } from "./files.ts";
 

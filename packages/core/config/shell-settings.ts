@@ -2,7 +2,7 @@
 // settings registry, shell/design-system#R23, platform/notifications#R9). shell은 이 key를
 // settings.get·apply로만 읽고 쓴다.
 import { z } from "zod";
-import { defineSetting } from "../../protocol/server/mod.ts";
+import { defineSetting } from "../../protocol/config/mod.ts";
 
 export const readingWidthSetting = defineSetting({
   key: "shell.reading_width",

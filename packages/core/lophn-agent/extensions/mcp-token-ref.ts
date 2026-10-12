@@ -5,11 +5,8 @@ import {
   mcpServersSetting,
   placeExtensionSettingsChange,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  applySettings,
-  type ReadRoute,
-  settingsGet,
-} from "../../../protocol/server/mod.ts";
+import { applySettings, settingsGet } from "../../../protocol/config/mod.ts";
+import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import { fileHash, parsePlaceMcpFile, placeMcpPathOf } from "./mod.ts";
 import type { McpAuthTarget } from "./mcp-auth-control.ts";
 

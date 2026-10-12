@@ -10,8 +10,13 @@
 // 이유 글이 없고 상태가 곧 이유다. 가짜 hash는 두지 않는다.
 
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
+} from "../../protocol/server/mod.ts";
+import type { Actor } from "../../protocol/base/mod.ts";
 import {
-  type Actor,
   APPROVAL_TEXT_FIELDS,
   type ApprovalGrantScope,
   type ApprovalRequest,
@@ -22,15 +27,12 @@ import {
   approvalRequestRejected,
   approvalRequestSchema,
   cancelApprovalRequest,
-  type CommandDefinition,
   createApprovalRequest,
   type CreateApprovalRequestInput,
   expireApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,
-  type RequestContext,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { checkConfirmAction, overlappingConfirm } from "./confirm.ts";
 import { approvalRunLineage } from "./lineage.ts";
 import {

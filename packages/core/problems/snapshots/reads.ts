@@ -2,7 +2,7 @@
 // snapshot 첨부를 직접 읽지 못한다. 고정한 조각은 앱의 임시 log buffer와 독립이라
 // buffer를 비운 뒤에도 같은 blob에서 읽힌다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
   ApiReadDefinition,
   Input,

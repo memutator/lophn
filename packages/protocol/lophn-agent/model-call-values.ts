@@ -1,11 +1,7 @@
 import { z } from "zod";
-import {
-  atSchema,
-  durationMsSchema,
-  idSchema,
-  jsonObjectSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { atSchema, durationMsSchema, sha256Schema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import {
   providerFailureSchema,
   providerProtocolSchema,

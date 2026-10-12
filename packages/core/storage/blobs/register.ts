@@ -2,15 +2,14 @@
 // 준비 참조의 주체·purpose·수명을 확인하고 blob_refs에 넣는다. commit 실패면 참조도 없다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { RequestContext, Sql } from "../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
   type BlobRefRegistration,
   blobRefRegistrationSchema,
   type PermanentBlobReference,
   permanentBlobReferenceSchema,
-  type RequestContext,
-  type Sql,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import type { PreparationRegistry } from "./registry.ts";
 import { claimedHash, fieldDefined } from "./refs.ts";
 

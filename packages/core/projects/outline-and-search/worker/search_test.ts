@@ -3,7 +3,7 @@
 // derived store는 실제 파일 SQLite, 추출은 실제 format runner(권한 없는 호출)다.
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../../../base/mod.ts";
-import type { WorkerRequest } from "../../../../protocol/server/mod.ts";
+import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import { BUILTIN_MODULE_HASH } from "../../formats/guest/module-hash.ts";
 import { createFormatHandlers } from "../../formats/reads.ts";
 import { SEARCH_OPS } from "../mod.ts";

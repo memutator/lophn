@@ -1,5 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
-import { encodeFrame, FrameDecoder } from "../../../../protocol/server/mod.ts";
+import {
+  encodeFrame,
+  FrameDecoder,
+} from "../../../../protocol/supervision/mod.ts";
 import {
   attachControlLink,
   type ControlReader,

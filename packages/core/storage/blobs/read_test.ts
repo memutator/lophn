@@ -2,16 +2,18 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type {
+  RequestContext,
+  Sql,
+  SqlRow,
+} from "../../../protocol/server/mod.ts";
 import {
   BLOB_READ_MAX_BYTES,
   type BlobFieldDefinition,
   type BlobReadInput,
   blobReadResultSchema,
   defineBlobField,
-  type RequestContext,
-  type Sql,
-  type SqlRow,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import { decideRead, readBlob, type StoredBlobRef } from "./read.ts";
 
 const HASH = "a".repeat(64);

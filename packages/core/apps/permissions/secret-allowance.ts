@@ -1,5 +1,6 @@
 import { err, ok } from "../../../base/mod.ts";
-import type { SecretAllowanceCheck, Tx } from "../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import type { SecretAllowanceCheck } from "../../../protocol/secrets/mod.ts";
 import { declarationsOf } from "./declarations.ts";
 import { effectiveScope } from "./effective.ts";
 import { secretAllowed } from "./broker/secrets.ts";

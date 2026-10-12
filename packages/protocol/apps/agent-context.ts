@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { idSchema, jsonObjectSchema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import { pointer } from "./blueprint-scope.ts";
 
 export const SUMMARY_MAX_BYTES = 2048;

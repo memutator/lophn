@@ -33,15 +33,14 @@ import {
   viewUpdateRoute,
 } from "../../../../protocol/projects/mod.ts";
 import type {
-  CommandRoute,
   Compare,
   Input,
   Output,
-  ReadRoute,
   ReadSnapshot,
   RequestContext,
   Tx,
 } from "../../../../protocol/server/mod.ts";
+import type { CommandRoute, ReadRoute } from "../../../../protocol/base/mod.ts";
 import type { ContextApiActor } from "../api/state.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import {

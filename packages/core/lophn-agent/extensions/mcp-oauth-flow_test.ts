@@ -10,7 +10,7 @@ import {
   type McpServerConfig,
   mcpServersSetting,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ParentMessage } from "../../../protocol/server/mod.ts";
+import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
 import {
   createMcpConnections,
   createMcpOAuthVault,

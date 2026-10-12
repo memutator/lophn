@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { routePath } from "../server/mod.ts";
+import { routePath } from "../base/route.ts";
 import {
   archiveSession,
   changeSessionModel,

@@ -6,16 +6,15 @@
 // unavailable이다.
 
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
+import type { ApiReadDefinition, Sql } from "../../protocol/server/mod.ts";
 import {
-  type ApiReadDefinition,
   APPROVAL_BLOB_OWNER_KIND,
   APPROVAL_TEXT_FIELDS,
   APPROVAL_TEXT_MAX_BYTES,
   approvalsText,
   approvalsTextInputSchema,
-  BLOB_READ_MAX_BYTES,
-  type Sql,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../protocol/storage/mod.ts";
 import { visible } from "./reads.ts";
 
 export type ApprovalTextEnvironment = {

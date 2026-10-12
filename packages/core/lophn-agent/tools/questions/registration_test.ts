@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { manualClock, ok } from "../../../../base/mod.ts";
-import { ACTOR_KINDS, defineCommand } from "../../../../protocol/server/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../../../protocol/base/mod.ts";
 import type { LedgerTestRegistration } from "../../../testing/ledger.ts";
 import {
   assignmentSchemaSteps,

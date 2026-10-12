@@ -1,5 +1,5 @@
 import type { Result } from "../../base/mod.ts";
-import type { Sql } from "../server/mod.ts";
+import type { Sql } from "../server/registration.ts";
 import { definePort, type PortKey } from "../base/ports.ts";
 import type { ProblemCodeDeclaration } from "./problem-codes.ts";
 

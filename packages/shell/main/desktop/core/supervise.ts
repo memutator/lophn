@@ -3,15 +3,8 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import {
-  coreToMainMessageSchema,
-  encodeFrame,
-  FrameDecoder,
-  type MainHello,
-  mainToCoreMessageSchema,
-  restorePlanRequestSchema,
-  restoreRequestSchema,
-} from "../../../../protocol/server/mod.ts";
+import { coreToMainMessageSchema, encodeFrame, FrameDecoder, type MainHello, mainToCoreMessageSchema } from "../../../../protocol/supervision/mod.ts";
+import { restorePlanRequestSchema, restoreRequestSchema } from "../../../../protocol/storage/mod.ts";
 
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
 export const STOP_GRACE_MS = 5_000;

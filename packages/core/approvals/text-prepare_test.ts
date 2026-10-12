@@ -14,11 +14,9 @@ import {
 import {
   BLOB_PREPARATION_TTL_MS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../protocol/server/mod.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/storage/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../protocol/approvals/mod.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";
 import {
   actionOf,

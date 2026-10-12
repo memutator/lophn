@@ -7,18 +7,17 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
+  RequestContext,
+} from "../../../protocol/server/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
+import type {
   ChildMessage,
   Frame,
   KindLaunchSpec,
   ParentMessage,
-  ReadRoute,
-  RequestContext,
-} from "../../../protocol/server/mod.ts";
-import {
-  eventsList,
-  routePath,
-  settingsGet,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { BUILTIN_TOOLS, runOperations } from "../tools/mod.ts";
 import {
   type AgentCredentialIssuer,

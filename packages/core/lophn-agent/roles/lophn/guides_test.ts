@@ -9,7 +9,7 @@ import {
   effectiveSettingSchema,
   type SettingDefinitionOutput,
   settingDefinitionSchema,
-} from "@lophn/protocol/server";
+} from "@lophn/protocol/config";
 import { GUIDE_SOURCES, guideSource } from "./guides/catalog.ts";
 import { markdownSections, prepareGuideText } from "./model.ts";
 import { explainSetting } from "./settings-explanation.ts";

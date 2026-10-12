@@ -10,12 +10,12 @@ import {
   type ModelDefaultSlot,
   modelFavoritesChanged,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { validateOptionValues } from "./options.ts";
 import { loadDefaults, loadFavorites } from "./store.ts";
 

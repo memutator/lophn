@@ -14,10 +14,8 @@ import {
   type Result,
   seededRandom,
 } from "../../base/mod.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../protocol/approvals/mod.ts";
 import { answerQuestionAction } from "../../protocol/lophn-agent/mod.ts";
 import {
   createToolJudgment,

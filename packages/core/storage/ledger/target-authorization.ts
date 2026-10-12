@@ -1,11 +1,11 @@
 import { err } from "../../../base/mod.ts";
 import {
   type AuthorizationTarget,
-  parseActor,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   authorize,
   CONDITION_TARGET_KEYS,

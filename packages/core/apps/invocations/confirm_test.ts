@@ -16,10 +16,8 @@ import {
 import { createLedgerRegistration } from "../register.ts";
 import type { CoreHarness } from "../../testing/core.ts";
 import { canonicalInputHash } from "../blueprint/mod.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../../protocol/approvals/mod.ts";
 import {
   type CoreAccess,
   coreAccess,

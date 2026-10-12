@@ -24,11 +24,10 @@ import {
 } from "../../../protocol/projects/mod.ts";
 import type {
   ReadDefinition,
-  ReadRoute,
   ReadSnapshot,
   RequestContext,
-  WorkerRoute,
 } from "../../../protocol/server/mod.ts";
+import type { ReadRoute, WorkerRoute } from "../../../protocol/base/mod.ts";
 import {
   KNOWN_SECRETS,
   type ReaderRegistration,

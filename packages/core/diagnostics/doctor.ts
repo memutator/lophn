@@ -1,12 +1,12 @@
 import type { Clock } from "../../base/mod.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  DiagnosticCheck,
-  DiagnosticCheckResult,
-  DiagnosticRecord,
-} from "../../protocol/server/mod.ts";
-import { diagnosticsCheck } from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import {
+  type DiagnosticCheck,
+  type DiagnosticCheckResult,
+  type DiagnosticRecord,
+  diagnosticsCheck,
+} from "../../protocol/diagnostics/mod.ts";
 import type { ReadHandler } from "../server/mod.ts";
 import { matchCredential, patternRevision } from "../../base/redaction/mod.ts";
 

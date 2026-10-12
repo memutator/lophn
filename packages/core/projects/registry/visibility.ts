@@ -5,12 +5,12 @@ import {
   projectUnarchived,
   projectUpdated,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type EventVisibilityDefinition,
-  parseActor,
-  type ReadSnapshot,
-  type RequestContext,
+import type {
+  EventVisibilityDefinition,
+  ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   authorizeProject,
   denied,

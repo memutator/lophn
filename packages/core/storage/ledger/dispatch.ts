@@ -2,9 +2,9 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   CommandDefinition,
-  CommandRoute,
   Tx,
 } from "../../../protocol/server/mod.ts";
+import type { CommandRoute } from "../../../protocol/base/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 import { admitAgentRun, runDisposition } from "./commands.ts";
 import { countCas, withinCommandLimits } from "./fingerprint.ts";

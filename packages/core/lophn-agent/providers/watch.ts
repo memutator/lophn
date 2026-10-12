@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { eventsList } from "../../../protocol/server/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
 import type { CoreRead } from "../run-loop/mod.ts";
 
 // Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다(lophn-agent/harness/provider#R4, R6).

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ok, type Result } from "../../base/mod.ts";
-import type { RequestContext, Tx } from "../server/mod.ts";
+import type { RequestContext, Tx } from "../server/registration.ts";
 
 // run·model call·tool call이 hash로 가리키는 본문의 blob 준비 용도와 크기 입력이다. hash만 싣는 기록은
 // 가리키는 바이트가 저장된 blob이어야 한다: 준비한 쪽이 `*_size`를 함께 보내면 command가 같은

@@ -1,17 +1,15 @@
 // documents/worker coordinator. 준비 worker 2 slot을 띄우고 root별 후보 큐를
 // round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts#T6
 // supervision 하나다. kind와 root는 환경으로만 받는다.
-import type {
-  Frame,
-  KindLaunchSpec,
-  ParentMessage,
-  WorkerRequest,
-  WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
 import {
+  type Frame,
+  type KindLaunchSpec,
+  type ParentMessage,
   processKindSchema,
+  type WorkerRequest,
   workerRequestEnvelopeSchema,
-} from "../../../../protocol/server/mod.ts";
+  type WorkerResponse,
+} from "../../../../protocol/supervision/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

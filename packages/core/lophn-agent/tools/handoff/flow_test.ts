@@ -11,11 +11,11 @@ import {
   manualClock,
   seededRandom,
 } from "../../../../base/mod.ts";
-import {
-  type ApprovalAction,
-  type ApprovalRequest,
-  type AuthenticatedContext,
-} from "../../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type {
+  ApprovalAction,
+  ApprovalRequest,
+} from "../../../../protocol/approvals/mod.ts";
 import { REDACTION_REPLACEMENT } from "../../../../base/redaction/mod.ts";
 import { handoffBodyHash, handoffContentBytes } from "./mod.ts";
 import {

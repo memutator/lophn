@@ -12,10 +12,10 @@ import {
   type CommandDefinition,
   type ReadDefinition,
   type RequestContext,
-  routePath,
   type SchemaStep,
   type Tx,
 } from "../../protocol/server/mod.ts";
+import { routePath } from "../../protocol/base/mod.ts";
 import {
   confirmationBridge,
   ConfirmationRegistry,

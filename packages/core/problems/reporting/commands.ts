@@ -3,6 +3,7 @@ import type { LophnError } from "../../../base/mod.ts";
 import type {
   CommandDefinition,
   Input,
+  Output,
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
@@ -20,7 +21,6 @@ import {
   snapshotRecorded,
 } from "../../../protocol/problems/mod.ts";
 import { insertSnapshot } from "../snapshots/mod.ts";
-import type { Output } from "../../../protocol/server/mod.ts";
 import {
   findProblem,
   findReport,

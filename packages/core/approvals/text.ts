@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../base/mod.ts";
+import type { RequestContext, Tx } from "../../protocol/server/mod.ts";
 import {
   APPROVAL_BLOB_OWNER_KIND,
   APPROVAL_TEXT_FIELDS,
@@ -12,9 +13,7 @@ import {
   type ApprovalEffect,
   type ApprovalEffectInput,
   approvalTextBytes,
-  type RequestContext,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 
 export type TextBlob = {
   hash: string;

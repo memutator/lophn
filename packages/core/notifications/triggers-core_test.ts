@@ -3,7 +3,7 @@
 // LOPHN_HOME의 실제 core를 HTTP route로만 본다. 소유 concern이 아직 발생 command를 내지 않는
 // 계기는 시험용 등록(testing/notification-sources.ts)이 실제 writer 경로로 contract event를 낸다.
 import { assert, assertEquals } from "@std/assert";
-import { NOTIFICATION_TRIGGERS } from "../../protocol/server/mod.ts";
+import { NOTIFICATION_TRIGGERS } from "../../protocol/notifications/mod.ts";
 import { createCoreRegistration } from "../testing/notification-sources.ts";
 import type { TeamModule } from "../main/daemon/registration.ts";
 import { NOTIFICATIONS_PRINCIPAL } from "../main/daemon/platform-register.ts";

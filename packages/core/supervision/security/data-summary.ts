@@ -1,4 +1,4 @@
-import type { DataEnvelope } from "../../../protocol/server/mod.ts";
+import type { DataEnvelope } from "../../../protocol/base/mod.ts";
 import { dataEnvelope } from "./data-envelope.ts";
 
 // summary·compaction·handoff는 원래 범위·고정 판·출처·data 분류를 유지한다(R11).

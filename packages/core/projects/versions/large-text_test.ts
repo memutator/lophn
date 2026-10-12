@@ -13,10 +13,8 @@ import {
   FORMAT_CHECK_CONTENT_MAX_BYTES,
   formatList,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type AuthenticatedContext,
-  UPLOAD_INPUT_HEADER,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import { UPLOAD_INPUT_HEADER } from "../../../protocol/base/mod.ts";
 import { createCoreClient } from "../../../coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

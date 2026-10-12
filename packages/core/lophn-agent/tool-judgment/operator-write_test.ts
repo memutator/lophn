@@ -4,7 +4,7 @@
 // 나머지 run·assignment·approval·ToolCall 기록은 실제 ledger다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { documentGet } from "../../../protocol/projects/mod.ts";
 import type { CoreCall } from "./mod.ts";
 import {

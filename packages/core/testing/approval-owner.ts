@@ -5,11 +5,9 @@
  */
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  defineEvent,
-} from "../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { defineCommand } from "../../protocol/base/mod.ts";
+import { defineEvent } from "../../protocol/events/mod.ts";
 
 export const ownedNoteRecorded = defineEvent("OwnedNoteRecorded", {
   subject: z.string(),

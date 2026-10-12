@@ -13,15 +13,17 @@ import {
   startRun,
   stopRun,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  CommandDefinition,
+  Input,
+  RequestContext,
+  Tx,
+} from "../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
-  type CommandDefinition,
   defineBlobField,
-  type Input,
-  parseActor,
-  type RequestContext,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   effectiveRunLimits,
   RUN_LIMIT_SETTING_KEYS,

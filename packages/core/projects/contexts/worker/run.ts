@@ -23,7 +23,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import { type IndexStore, openIndexStore } from "../index/mod.ts";
 import { runPreviewJob } from "../preview/mod.ts";
 import type { ValidationEnv } from "../validate/mod.ts";

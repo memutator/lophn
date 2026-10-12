@@ -13,13 +13,15 @@ import {
   type Result,
   seededRandom,
 } from "../../base/mod.ts";
+import type {
+  AuthenticatedContext,
+  RequestContext,
+} from "../../protocol/server/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
   type ApprovalEffectInput,
-  type AuthenticatedContext,
-  type RequestContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import {
   APPROVAL_SCHEMA_STEPS,

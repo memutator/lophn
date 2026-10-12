@@ -6,16 +6,11 @@
 // route는 `…Route`, event는 `…Event`, 입력은 `…RequestSchema`로 끝낸다. 옛 파일을 지우는 작업이
 // 끝나면 접미사를 걷어도 된다.
 import { z } from "zod";
-import {
-  actorSchema,
-  atSchema,
-  defineCommand,
-  defineEvent,
-  defineRead,
-  idSchema,
-  runIdSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { actorSchema } from "../base/actor.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema, runIdSchema } from "../base/ids.ts";
 import {
   bundleContentSchema,
   contractNameSchema,

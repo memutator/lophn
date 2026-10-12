@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { RUNTIME_MACHINE_ROUTES } from "../../lophn-agent/run-loop/mod.ts";
-import { API_MAJOR, routePath } from "../../../protocol/server/mod.ts";
+import { API_MAJOR, routePath } from "../../../protocol/base/mod.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
 
 export {

@@ -7,10 +7,10 @@ import {
 } from "../../protocol/coding-agent/mod.ts";
 import {
   confirmationRefSchema,
-  defineCommand,
   type RequestContext,
   type Tx,
 } from "../../protocol/server/mod.ts";
+import { defineCommand } from "../../protocol/base/mod.ts";
 import {
   connectionAuthFromTx,
   connectionAuthPort,

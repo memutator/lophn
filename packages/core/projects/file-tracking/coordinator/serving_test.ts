@@ -2,11 +2,11 @@
 // 요청과 child 응답을 시험이 직접 흉내 낸다.
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../../base/mod.ts";
+import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import type {
   ChildMessage,
-  RequestContext,
   WorkerRequest,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import { createDocumentsChannel, servedWorkers } from "./serving.ts";
 
 type Sent = { request_id: string; op: string };

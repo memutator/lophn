@@ -2,17 +2,18 @@
 // 실제 provider와 사람 데이터 root는 열지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import {
   APPROVAL_BLOB_OWNER_KIND,
   APPROVAL_TEXT_FIELDS,
   APPROVAL_TEXT_PURPOSE,
   type ApprovalEffectInput,
+} from "../../../protocol/approvals/mod.ts";
+import {
   type BlobRefRegistration,
   blobRefRegistrationSchema,
   type PermanentBlobReference,
-  type RequestContext,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 export const REASON_TEXT = "배포 전 확인이 필요하다";
 

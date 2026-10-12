@@ -1,17 +1,19 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
 import type {
   ApiReadDefinition,
-  BlobFieldDefinition,
   CommandDefinition,
-  FileRoute,
-  KindLaunchSpec,
-  MemoryRoute,
   ReadDefinition,
-  Route,
   SchemaStep,
+} from "../../../protocol/server/mod.ts";
+import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
+import type {
+  FileRoute,
+  MemoryRoute,
+  Route,
   UploadRoute,
   WorkerRoute,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/base/mod.ts";
+import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { TxPortRegistration } from "../../storage/ledger/mod.ts";
 import type { SecretRefSource } from "../../secrets/mod.ts";
 

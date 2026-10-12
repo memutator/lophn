@@ -7,7 +7,7 @@ import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   checkConfirmAction,
   CONFIRM_COMMAND,

@@ -12,10 +12,10 @@ import {
   type CommandDefinition,
   type ConfirmationRef,
   confirmationRefSchema,
-  parseActor,
   type RequestContext,
   type Tx,
 } from "../../protocol/server/mod.ts";
+import { parseActor } from "../../protocol/base/mod.ts";
 import { assertConnection, nextState, scopeColumns } from "./model.ts";
 import { insertConnection, loadConnection, markRevoked } from "./store.ts";
 

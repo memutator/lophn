@@ -1,9 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../base/mod.ts";
-import {
-  derivedProvenanceSchema,
-  seqSchema,
-} from "../../protocol/server/mod.ts";
+import { derivedProvenanceSchema, seqSchema } from "../../protocol/base/mod.ts";
 import { READER_BUSY_TIMEOUT_MS } from "../storage/ledger/reads.ts";
 
 const self = globalThis as unknown as {

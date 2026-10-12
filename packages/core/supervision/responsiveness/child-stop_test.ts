@@ -4,7 +4,7 @@ import {
   FrameDecoder,
   type ParentMessage,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { ByteReader } from "./frames.ts";
 import {
   type ChildHandlers,

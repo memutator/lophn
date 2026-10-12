@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertNotStrictEquals } from "@std/assert";
-import { definePort, type Tx } from "../server/mod.ts";
+import { definePort } from "../base/ports.ts";
+import type { Tx } from "../server/registration.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,

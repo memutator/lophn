@@ -1,22 +1,18 @@
 import { z } from "zod";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import { defineCommand } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import {
-  atSchema,
-  defineCommand,
-  defineEvent,
-  idSchema,
-  jsonObjectSchema,
-  seqSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+  createApprovalRequestInputSchema,
+  createApprovalRequestStoredSchema,
+} from "../approvals/approvals.ts";
 import {
   runElapsedOutputSchema,
   runElapsedSchema,
   runOutcomeOutputSchema,
 } from "./run-values.ts";
-import {
-  createApprovalRequestInputSchema,
-  createApprovalRequestStoredSchema,
-} from "../server/mod.ts";
 import {
   createQuestionGroupInputSchema,
   createQuestionGroupSubmissionOutputSchema,

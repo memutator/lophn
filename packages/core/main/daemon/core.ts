@@ -9,15 +9,21 @@ import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
 import { createIdSource, err, ok, sha256Hex } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
+  RequestContext,
+} from "../../../protocol/server/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
+import type {
   ChildMessage,
   Frame,
   KindLaunchSpec,
   ParentMessage,
-  ReadRoute,
-  RequestContext,
   WorkerRequest,
-} from "../../../protocol/server/mod.ts";
-import { createApprovalRequest, ROUTES } from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import type { ReadRoute } from "../../../protocol/base/mod.ts";
+import { createApprovalRequest } from "../../../protocol/approvals/mod.ts";
+import { ROUTES } from "../../../protocol/registry.ts";
+import { secretInput } from "../../../protocol/secrets/mod.ts";
+import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import {
   createAppEngineerAssignment,
   providerList,
@@ -116,7 +122,6 @@ import {
   secretInputHandler,
   type SecretInputRelay,
 } from "../../secrets/input-relay.ts";
-import { secretInput } from "../../../protocol/server/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -128,7 +133,6 @@ import {
   createPreparationRegistry,
   retentionRules,
 } from "../../storage/blobs/mod.ts";
-import type { BlobFieldDefinition } from "../../../protocol/server/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
@@ -393,7 +397,6 @@ import {
   agentProfilesUpload,
   skillFoldersSetting,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../../protocol/server/mod.ts";
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

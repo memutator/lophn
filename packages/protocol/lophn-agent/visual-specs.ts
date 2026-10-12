@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { atSchema, idSchema, jsonObjectSchema } from "../server/mod.ts";
+import { atSchema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import {
   distinct,
   visualObject,

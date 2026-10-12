@@ -7,8 +7,8 @@ import { documentUpload } from "../../protocol/projects/mod.ts";
 import {
   type PreparedBlob,
   preparedBlobSchema,
-  type UploadRoute,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/storage/mod.ts";
+import type { UploadRoute } from "../../protocol/base/mod.ts";
 import type { PrepareBytes } from "./submission.ts";
 
 // core client 중 이 통로가 쓰는 호출이다. client/core.ts는 core module graph 밖에 둔다.

@@ -21,7 +21,7 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   instructionFilesOverCore,

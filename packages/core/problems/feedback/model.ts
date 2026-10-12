@@ -1,7 +1,7 @@
 // feedback의 순수 규칙(problems/feedback#R1, R3, R4, R7, R8, R9, R14;
 // problems/grouping#R6). IO가 없다: redaction·blob 준비·읽기는 work.ts가 주입받는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { idSchema } from "../../../protocol/server/mod.ts";
+import { idSchema } from "../../../protocol/base/mod.ts";
 import {
   feedbackTextSchema,
   type GroupKey,

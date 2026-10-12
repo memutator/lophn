@@ -4,11 +4,11 @@ import {
   connectionList,
   connectionShow,
 } from "../../protocol/coding-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
+import type {
+  ReadDefinition,
+  RequestContext,
 } from "../../protocol/server/mod.ts";
+import { parseActor } from "../../protocol/base/mod.ts";
 import { nextConnectionCursor, pageAfter } from "./cursor.ts";
 import { publicConnection } from "./rows.ts";
 import { listConnections, loadConnection } from "./store.ts";

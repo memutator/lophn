@@ -1,16 +1,18 @@
 import type { Clock, IdSource, Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
-  BlobRefRegistration,
-  PermanentBlobReference,
   ReadDefinition,
-  ReadRoute,
   RequestContext,
   SchemaStep,
   SqlParam,
   SqlRow,
   Tx,
 } from "../../protocol/server/mod.ts";
+import type {
+  BlobRefRegistration,
+  PermanentBlobReference,
+} from "../../protocol/storage/mod.ts";
+import type { ReadRoute } from "../../protocol/base/mod.ts";
 import type {
   CommandEnvelope,
   CommandSuccess,

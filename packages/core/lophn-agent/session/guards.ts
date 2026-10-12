@@ -1,8 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  parseActor,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionRow } from "./model.ts";
 
 // command와 read가 같이 쓰는 거절과 보이는 범위 판정.

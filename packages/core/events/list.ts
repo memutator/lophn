@@ -1,15 +1,17 @@
 import { err, ok, type Result } from "../../base/mod.ts";
+import type {
+  Input,
+  Output,
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
+} from "../../protocol/server/mod.ts";
 import {
   EVENT_BATCH_LIMITS,
   type EventEnvelope,
   eventsList,
-  type Input,
-  type Output,
-  type ReadDefinition,
-  type ReadSnapshot,
-  type RequestContext,
   type Subject,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/events/mod.ts";
 import {
   currentEventContext,
   type EventReadGate,

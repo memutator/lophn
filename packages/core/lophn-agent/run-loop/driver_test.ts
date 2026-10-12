@@ -3,7 +3,7 @@ import { err, manualClock, ok } from "../../../base/mod.ts";
 import type {
   ChildMessage,
   ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { anthropicSystem, anthropicTools } from "../prompt-assembly/mod.ts";
 import {
   createRunCredentials,

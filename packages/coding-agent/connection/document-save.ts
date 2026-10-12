@@ -20,7 +20,7 @@ import {
   seriesAddInstance,
   seriesGet,
 } from "../../protocol/projects/mod.ts";
-import type { CommandRoute, Route } from "../../protocol/server/mod.ts";
+import type { CommandRoute, Route } from "../../protocol/base/mod.ts";
 import {
   type PrepareBytes,
   type SubmissionScope,

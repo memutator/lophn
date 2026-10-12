@@ -4,9 +4,9 @@ import {
   manualClock,
   seededRandom,
 } from "../../../base/mod.ts";
-import { definePort } from "../../../protocol/server/mod.ts";
-import { defineTxPort } from "./tx-ports.ts";
+import { definePort } from "../../../protocol/base/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import { defineTxPort } from "./tx-ports.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import { createSubscriberGate } from "../../events/subscriber-registration.ts";
 import {

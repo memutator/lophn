@@ -5,12 +5,12 @@ import {
   type ParentMessage,
   parentMessageSchema,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 import {
   type BlobPrepareInput,
   createBlobPrepareClient,
 } from "./blob-client.ts";
-import type { PreparedBlob } from "../../../protocol/server/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import {
   type ByteReader,

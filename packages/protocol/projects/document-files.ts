@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { blobRefRegistrationSchema } from "../server/mod.ts";
+import { blobRefRegistrationSchema } from "../storage/blob.ts";
 import { contentFileSchema } from "./versions.ts";
 
 // principal·scope·owner_key·field와 prepared blob TTL은 worker가 신뢰 참조로 검증한다.

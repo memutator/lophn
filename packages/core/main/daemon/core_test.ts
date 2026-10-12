@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
+import { defineRead } from "../../../protocol/base/mod.ts";
 import {
-  defineRead,
   encodeFrame,
   FrameDecoder,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";

@@ -9,11 +9,11 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   type OsDelivery,
   reportOsDelivery,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/notifications/mod.ts";
 import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
 import { createOsDeliveryObservations } from "./mod.ts";
 import { osNotificationsSetting } from "../config/shell-settings.ts";

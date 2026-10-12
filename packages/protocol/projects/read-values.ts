@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { RPC_JSON_MAX_BYTES, withReadCommon } from "../server/mod.ts";
+import { RPC_JSON_MAX_BYTES } from "../base/limits.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import {
   addressSchema,
   documentRefSchema,

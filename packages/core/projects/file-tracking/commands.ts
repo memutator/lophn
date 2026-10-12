@@ -10,12 +10,12 @@ import {
   fileRenamed,
   fileWritten,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { loadDocument } from "../versions/mod.ts";
 
 // 기록은 사람 요청을 결합해 받은 worker의 machine credential만 한다. 사람·agent·앱의

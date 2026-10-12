@@ -29,7 +29,6 @@ import {
 import { TicketClaimCheck } from "../../../../protocol/coding-agent/mod.ts";
 import {
   type CommandDefinition,
-  defineCommand,
   type ReadSnapshot,
   type RequestContext,
   type SchemaStep,
@@ -37,6 +36,7 @@ import {
   TargetAuthorization,
   type Tx,
 } from "../../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../../protocol/base/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import { manifestBytes } from "../bundle/manifest.ts";
 import { releasesSchemaSteps } from "../schema.ts";

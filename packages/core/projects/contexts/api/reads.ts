@@ -21,11 +21,8 @@ import type {
   glossaryListRoute,
   SearchRow,
 } from "../../../../protocol/projects/mod.ts";
-import type {
-  Input,
-  Output,
-  ReadRoute,
-} from "../../../../protocol/server/mod.ts";
+import type { Input, Output } from "../../../../protocol/server/mod.ts";
+import type { ReadRoute } from "../../../../protocol/base/mod.ts";
 import { createBundleReads } from "./reads-bundle.ts";
 import { createContextReads } from "./reads-contexts.ts";
 import { createEntityReads } from "./reads-entity.ts";

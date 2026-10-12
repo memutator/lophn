@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   BLOB_UNREFERENCED_GRACE_MS,
   defineBlobField,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import {
   backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,

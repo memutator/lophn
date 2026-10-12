@@ -31,7 +31,7 @@ import {
   repairContextSummary,
   ticketShow,
 } from "../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../protocol/server/mod.ts";
+import type { Route } from "../../protocol/base/mod.ts";
 import { type AppOpDeps, runAppOp } from "./app-ops.ts";
 import type { TicketOpClient } from "./ticket-ops.ts";
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";

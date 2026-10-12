@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineEvent } from "../server/mod.ts";
+import { defineEvent } from "../events/events.ts";
 import { placeRefOutputSchema } from "./address.ts";
 import {
   documentIdSchema,

@@ -20,13 +20,12 @@ import {
   type TicketState,
 } from "../../../protocol/coding-agent/mod.ts";
 import {
-  defineRead,
-  parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
+import { defineRead, parseActor } from "../../../protocol/base/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
 import {

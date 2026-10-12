@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sha256Schema } from "../server/mod.ts";
+import { sha256Schema } from "../base/values.ts";
 import { sectionKeySchema, versionNumberSchema } from "./values.ts";
 
 const lineRangeFields = {

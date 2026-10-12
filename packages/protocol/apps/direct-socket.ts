@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonValueSchema } from "../server/mod.ts";
+import { jsonValueSchema } from "../base/json-values.ts";
 import { revisionSchema } from "../projects/values.ts";
 import { readyAttestationSchema } from "./runtime.ts";
 import {

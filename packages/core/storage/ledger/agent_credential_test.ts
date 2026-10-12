@@ -1,13 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  ACTOR_KINDS,
-  type AuthenticatedContext,
-  defineCommand,
-  defineEvent,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext, Tx } from "../../../protocol/server/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../../protocol/base/mod.ts";
+import { defineEvent } from "../../../protocol/events/mod.ts";
 import {
   createLedgerHarness,
   defineTxPort,

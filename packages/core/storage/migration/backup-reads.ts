@@ -3,11 +3,8 @@
 // 있는 folder만 내고, 만들기 중·중단된 folder는 목록에 없다(platform/backup-and-migration#R10,
 // R12). as_of_seq는 읽은 때의 ledger 머리다. 묶음 내용·경로는 내지 않고 manifest만 낸다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  type ApiReadDefinition,
-  backupsGet,
-  backupsList,
-} from "../../../protocol/server/mod.ts";
+import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
+import { backupsGet, backupsList } from "../../../protocol/storage/mod.ts";
 import { findBackup, listBackups } from "./mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 

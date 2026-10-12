@@ -24,12 +24,12 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import {
   type CommandDefinition,
-  defineCommand,
   type ReadSnapshot,
   type SchemaStep,
   TargetAuthorization,
   type Tx,
 } from "../../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../../protocol/base/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import {
   type CurrentDeclarations,

@@ -14,10 +14,8 @@ import {
   undoEdit,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { MESSAGE_CONTENT_PURPOSE } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type AuthenticatedContext,
-  parseActor,
-} from "../../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import { factMessageContent } from "../mod.ts";
 import {
   assertCheckpointVisible,

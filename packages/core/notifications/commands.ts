@@ -8,7 +8,7 @@ import {
   markNotificationRead,
   notificationCreated,
   notificationRead,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/notifications/mod.ts";
 import { defineSyncCommand } from "../storage/ledger/mod.ts";
 import { conditionMet, notificationView, triggerOf } from "./model.ts";
 import { insertNotification, markRead, readNotificationRow } from "./store.ts";

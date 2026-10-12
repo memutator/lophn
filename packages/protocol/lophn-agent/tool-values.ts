@@ -1,10 +1,6 @@
 import { z } from "zod";
-import {
-  atSchema,
-  durationMsSchema,
-  idSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { atSchema, durationMsSchema, sha256Schema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
 
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const order = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);

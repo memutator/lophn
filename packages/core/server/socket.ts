@@ -1,9 +1,9 @@
 import { asInternalError } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   EVENT_SUBSCRIBE_SUBPROTOCOL,
   parseClientEventFrame,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/events/mod.ts";
 import {
   createEventSession,
   type EventBackend,

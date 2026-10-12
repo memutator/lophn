@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { ALL_ROUTES } from "../mod.ts";
-import { routePath } from "../server/mod.ts";
+import { routePath } from "../base/route.ts";
 import {
   getReport,
   getReportInputSchema,

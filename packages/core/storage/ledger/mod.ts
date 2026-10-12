@@ -1,11 +1,10 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import type {
   BlobRefRegistration,
   PermanentBlobReference,
-  RequestContext,
-  Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
 import type { SubscriberGate } from "../../events/subscriber-registration.ts";

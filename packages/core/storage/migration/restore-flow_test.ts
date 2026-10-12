@@ -5,7 +5,7 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
-import type { EventEnvelope } from "../../../protocol/server/mod.ts";
+import type { EventEnvelope } from "../../../protocol/events/mod.ts";
 import {
   backupStamp,
   createBackup,

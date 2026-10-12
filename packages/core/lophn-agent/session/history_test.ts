@@ -4,7 +4,7 @@ import {
   rewindList,
   sessionSummary,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { sessionMaterial } from "../prompt-assembly/mod.ts";
 import { readSessionConversation } from "./history.ts";
 import { err } from "../../../base/mod.ts";

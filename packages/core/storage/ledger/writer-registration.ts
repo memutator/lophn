@@ -1,10 +1,12 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
-  BlobRefRegistration,
   CommandDefinition,
-  PermanentBlobReference,
 } from "../../../protocol/server/mod.ts";
+import type {
+  BlobRefRegistration,
+  PermanentBlobReference,
+} from "../../../protocol/storage/mod.ts";
 import type { ConfirmationBridge } from "../../server/identity/mod.ts";
 import type { SubscriberGate } from "../../events/subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";

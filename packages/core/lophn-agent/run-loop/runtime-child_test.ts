@@ -6,10 +6,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { mcpServersSetting } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type AuthenticatedContext,
-  setSecret,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import { setSecret } from "../../../protocol/secrets/mod.ts";
 import { confirmationBinding } from "../../server/identity/mod.ts";
 import { createFakeKeychain, type FakeKeychain } from "../../secrets/mod.ts";
 import {

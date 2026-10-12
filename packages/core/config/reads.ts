@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
+import type { JsonValue } from "../../protocol/base/mod.ts";
+import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import {
-  type JsonValue,
-  type ReadDefinition,
+  type EffectiveSetting,
   settingsDefinitions,
   settingsGet,
-} from "../../protocol/server/mod.ts";
-import type { EffectiveSetting } from "../../protocol/server/mod.ts";
+} from "../../protocol/config/mod.ts";
 import type { SettingRegistry } from "./registry.ts";
 import { effectiveSetting } from "./model.ts";
 

@@ -19,10 +19,8 @@ import {
   serializeMessageContent,
   userMessageContentInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type AuthenticatedContext,
-  parseActor,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   type CommandEnvelope,
   openConnection,

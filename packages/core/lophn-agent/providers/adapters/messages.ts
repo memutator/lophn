@@ -5,7 +5,7 @@
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../../protocol/server/mod.ts";
+import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 

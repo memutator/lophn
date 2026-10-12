@@ -1,6 +1,8 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
-import { authenticatedContextSchema } from "../../protocol/server/mod.ts";
+import {
+  type AuthenticatedContext,
+  authenticatedContextSchema,
+} from "../../protocol/server/mod.ts";
 import type { LedgerConnection } from "../storage/ledger/mod.ts";
 import { APPS_CONTROL_PRINCIPAL } from "../apps/control.ts";
 import { APP_REVERT_PRINCIPAL } from "../apps/revert/app-steps.ts";

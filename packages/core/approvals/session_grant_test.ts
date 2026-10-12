@@ -9,7 +9,7 @@ import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
 import {
   type ApprovalRequest,
   grantApprovalRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { confirmationBinding } from "../server/identity/mod.ts";
 import { confirmAction } from "./confirm.ts";
 import {

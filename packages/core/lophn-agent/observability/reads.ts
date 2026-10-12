@@ -3,15 +3,15 @@ import {
   agentTraceRead,
   type RunTrace,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type Input,
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
-  type SqlParam,
-  type SqlParams,
-  type SqlRow,
+import type {
+  Input,
+  ReadDefinition,
+  RequestContext,
+  SqlParam,
+  SqlParams,
+  SqlRow,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   assembleTrace,
   type EventFacts,

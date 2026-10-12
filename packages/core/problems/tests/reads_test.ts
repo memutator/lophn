@@ -1,7 +1,8 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import type {
-  ReadSnapshot,
-  RequestContext,
+import {
+  type ReadSnapshot,
+  type RequestContext,
+  TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
 import {
   createIdSource,
@@ -14,7 +15,6 @@ import {
   readVerificationList,
   verificationRecordedVisibility,
 } from "./reads.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import { ctx, memorySql, strictTargetAuthorizer } from "./support.ts";
 import { VERIFICATION_PAGE_CAP } from "./model.ts";
 import { canonicalJson } from "./canonical.ts";

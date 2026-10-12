@@ -3,10 +3,8 @@
 // 열 때마다 onSubscribed를 부른다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type {
-  EventEnvelope,
-  RequestContext,
-} from "../../protocol/server/mod.ts";
+import type { RequestContext } from "../../protocol/server/mod.ts";
+import type { EventEnvelope } from "../../protocol/events/mod.ts";
 import type { EventBackend, EventSession } from "../storage/ledger/mod.ts";
 import { openInternalSubscription } from "./internal-subscription.ts";
 

@@ -18,12 +18,12 @@ import {
   type FormatRef,
   slugSchema,
 } from "../../../../protocol/projects/mod.ts";
-import {
-  type CommandRoute,
-  preparedBlobSchema,
-  type Route,
-  type UploadRoute,
-} from "../../../../protocol/server/mod.ts";
+import type {
+  CommandRoute,
+  Route,
+  UploadRoute,
+} from "../../../../protocol/base/mod.ts";
+import { preparedBlobSchema } from "../../../../protocol/storage/mod.ts";
 import type {
   DocumentSaveOutput,
   DocumentsSave,

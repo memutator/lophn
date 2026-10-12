@@ -62,7 +62,7 @@ import {
   type PreviewScope,
 } from "../../apps/preview/mod.ts";
 import { DIRECT_SOCKET_PATHS } from "../../../protocol/apps/mod.ts";
-import { diagnosticSchema } from "../../../protocol/server/mod.ts";
+import { diagnosticSchema } from "../../../protocol/supervision/mod.ts";
 import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
   type BrokerChild,

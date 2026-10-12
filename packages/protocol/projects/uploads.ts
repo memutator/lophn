@@ -1,9 +1,7 @@
 import { z } from "zod";
-import {
-  defineUpload,
-  preparedBlobSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { defineUpload } from "../base/route.ts";
+import { preparedBlobSchema } from "../storage/blob.ts";
+import { sha256Schema } from "../base/values.ts";
 
 // 한 파일의 상한은 architecture 조절값이다. 도메인 원문 크기 제한이 아니고 blob 준비의
 // 1GiB 안에서 정한다.

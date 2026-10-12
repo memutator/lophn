@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   ApprovalAction,
   ApprovalEffect,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   cancelActorAllowed,
   closeAllowed,

@@ -9,11 +9,8 @@ import {
   invocationAccepted,
   type InvocationCaller,
 } from "../../../protocol/apps/mod.ts";
-import {
-  actorSchema,
-  type CommandDefinition,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import { actorSchema } from "../../../protocol/base/mod.ts";
 import { insertInvocation, loadInvocation } from "./store.ts";
 
 // 접수한 proof의 수명이다(apps Q5). 다시 보내도 접수 시각 기준이라 늘어나지 않는다.

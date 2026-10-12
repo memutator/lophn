@@ -10,7 +10,7 @@ import {
   helloSchema,
   stopSchema,
   workerRequestEnvelopeSchema,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import type { ErrorCode } from "../../../../base/mod.ts";
 import type { z } from "zod";
 import type { Supervisor } from "./supervisor.ts";

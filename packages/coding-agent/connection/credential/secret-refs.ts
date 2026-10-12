@@ -10,7 +10,7 @@ import {
   connectionIdSchema,
   connectionRevoke,
 } from "../../../protocol/coding-agent/mod.ts";
-import type { SecretRefSource } from "../../../protocol/server/mod.ts";
+import type { SecretRefSource } from "../../../protocol/secrets/mod.ts";
 
 export const CONNECTION_SECRET_OWNER = "coding-agent/connection";
 

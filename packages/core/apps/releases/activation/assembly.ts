@@ -29,11 +29,8 @@ import {
   releasesGet,
 } from "../../../../protocol/apps/mod.ts";
 import { decodeDataJobOutput } from "../../../../protocol/apps/mod.ts";
-import type {
-  PreparedBlob,
-  RequestContext,
-  Sql,
-} from "../../../../protocol/server/mod.ts";
+import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
+import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
 import { type BlobPrepareCall } from "../../../main/daemon/core.ts";
 import type { PreparedRelayResult } from "../../../storage/blobs/prepare-relay.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";

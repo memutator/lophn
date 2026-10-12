@@ -77,9 +77,9 @@ import {
   approvalsText,
   cancelApprovalRequest,
   createApprovalRequest,
-  eventsList,
-  settingsGet,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. run의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.

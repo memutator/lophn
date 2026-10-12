@@ -8,12 +8,12 @@ import {
   refreshProviderCredential,
   registerProvider,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type {
   SecretDestination,
   SecretRefSource,
   SecretUse,
-  Sql,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/secrets/mod.ts";
 
 export const PROVIDER_SECRET_OWNER = "lophn-agent/harness/provider";
 

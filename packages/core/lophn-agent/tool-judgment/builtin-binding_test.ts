@@ -9,7 +9,7 @@ import {
   contextPreviewRoute,
   contextSeriesNextRoute,
 } from "../../../protocol/projects/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { roleOperations } from "../run-loop/mod.ts";
 import {
   BUILTIN_TOOLS,

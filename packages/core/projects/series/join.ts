@@ -6,11 +6,11 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type { Document } from "../../../protocol/projects/mod.ts";
 import {
-  parseActor,
   type RequestContext,
   TargetAuthorization,
   type Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { applyJoin, checkJoin } from "./commands.ts";
 import { loadSeries, updateSeries } from "./store.ts";

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 
 // core 읽기와 command는 주입한 호출로만 한다. machine 자격의 loopback이 보통이다.
 export type CoreCall = (

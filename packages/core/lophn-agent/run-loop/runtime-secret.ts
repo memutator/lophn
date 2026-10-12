@@ -1,12 +1,13 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type {
+  AuthenticatedContext,
+  Sql,
+} from "../../../protocol/server/mod.ts";
 import {
-  type AuthenticatedContext,
   secretSendRequestSchema,
   type SecretSendResponse,
-  type SecretUse,
-  type SecretValue,
-  type Sql,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import type { SecretUse, SecretValue } from "../../../protocol/secrets/mod.ts";
 import { lookupMcpSecretUse } from "../extensions/mod.ts";
 import { lookupProviderSecretUse } from "../providers/mod.ts";
 import {

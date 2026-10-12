@@ -1,15 +1,10 @@
 import { z } from "zod";
-import {
-  atSchema,
-  defineCommand,
-  defineEvent,
-  defineRead,
-  idSchema,
-  jsonObjectSchema,
-  seqSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import {
   EFFORT_LABELS,
   MODEL_MEDIA,

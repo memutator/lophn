@@ -1,11 +1,8 @@
 import { z } from "zod";
-import {
-  atSchema,
-  defineRead,
-  idSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
+import { defineRead } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import {
   problemCodeSchema,
   reservedProblemCodeSchema,

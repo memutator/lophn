@@ -5,11 +5,11 @@
 // 끝에서 끝까지는 lophn-agent#T32가 본다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";
 import { lophnAgentDefinitions } from "../lophn-agent/register.ts";
 import {

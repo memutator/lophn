@@ -5,7 +5,7 @@ import {
   type Frame,
   FrameDecoder,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 
 export type ByteReader = {
   read(buffer: Uint8Array): Promise<number | null>;

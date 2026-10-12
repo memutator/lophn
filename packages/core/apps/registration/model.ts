@@ -2,11 +2,11 @@ import { err, ERROR_CODES, type Result } from "../../../base/mod.ts";
 import type { App } from "../../../protocol/apps/mod.ts";
 import {
   type AuthorizationTarget,
-  type EventEnvelopeFor,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
+import type { EventEnvelopeFor } from "../../../protocol/events/mod.ts";
 import type {
   appArchived,
   appCreated,

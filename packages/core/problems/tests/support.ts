@@ -1,16 +1,16 @@
 import type { Result } from "../../../base/mod.ts";
 import { ok } from "../../../base/mod.ts";
 import { err } from "../../../base/mod.ts";
-import type {
-  BlobRefRegistration,
-  RequestContext,
-  Sql,
-  SqlParams,
-  SqlRow,
-  TargetAuthorizer,
-  Tx,
+import type { BlobRefRegistration } from "../../../protocol/storage/mod.ts";
+import {
+  type RequestContext,
+  type Sql,
+  type SqlParams,
+  type SqlRow,
+  TargetAuthorization,
+  type TargetAuthorizer,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import { TEST_SCHEMA_STEPS } from "./schema.ts";
 
 type Memory = { rows: Map<string, SqlRow[]> };

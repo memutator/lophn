@@ -4,7 +4,7 @@ import {
   effectiveSettingSchema,
   type SettingDefinitionOutput,
   settingDefinitionSchema,
-} from "@lophn/protocol/server";
+} from "@lophn/protocol/config";
 import {
   CONTEXT_LOOKUP_TOOL_NAMES,
   CONTEXT_LOOKUP_TOOLS,

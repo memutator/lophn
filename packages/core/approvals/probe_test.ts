@@ -4,13 +4,10 @@
 
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import {
-  approvalActionSchema,
-  type CommandDefinition,
-  defineCommand,
-  defineEvent,
-  idSchema,
-} from "../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { approvalActionSchema } from "../../protocol/approvals/mod.ts";
+import { defineCommand, idSchema } from "../../protocol/base/mod.ts";
+import { defineEvent } from "../../protocol/events/mod.ts";
 
 export const approvalProbed = defineEvent("ApprovalProbed", {
   subject: z.string(),

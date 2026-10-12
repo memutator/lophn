@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { idSchema, sha256Schema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
 import { semver } from "./blueprint-scope.ts";
 
 export const PACKAGE_KINDS = [

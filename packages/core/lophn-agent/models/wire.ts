@@ -8,7 +8,7 @@ import {
   type OptionWire,
   type PROVIDER_PROTOCOLS,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { JsonObject, JsonValue } from "../../../protocol/server/mod.ts";
+import type { JsonObject, JsonValue } from "../../../protocol/base/mod.ts";
 
 // option 값을 호출 형식의 요청으로 옮기는 곳이다(harness/model#R22-R24). 호출 형식마다 effort를
 // 요청 필드로 옮기는 표가 하나씩 있고, effort 밖 값은 catalog가 선언한 wire(body patch 또는

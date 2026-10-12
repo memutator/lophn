@@ -1,9 +1,6 @@
 import { assert } from "@std/assert";
-import type {
-  BlobRefRegistration,
-  RequestContext,
-  Tx,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
+import type { BlobRefRegistration } from "../../../protocol/storage/mod.ts";
 import type { Verification } from "../../../protocol/problems/mod.ts";
 import {
   canonicalRequest,

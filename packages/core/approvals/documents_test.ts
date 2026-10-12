@@ -3,11 +3,11 @@
 // command 이름은 소유 route 이름 그대로(`document.rename`)라 변환 없이 action이 된다.
 // 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   actionOf,
   call,

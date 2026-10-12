@@ -3,10 +3,10 @@
 // worker route 테스트와 같은 길이다).
 import { assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../../../base/mod.ts";
-import {
-  type WorkerRequest,
-  type WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../../../protocol/supervision/mod.ts";
 import { DOCUMENT_ROUTES } from "../../../../protocol/projects/mod.ts";
 import {
   type CredentialIssue,

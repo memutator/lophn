@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
+import { DIAGNOSTICS_WRITE_OP } from "../../../protocol/diagnostics/mod.ts";
 import {
-  DIAGNOSTICS_WRITE_OP,
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import {
   applyMigrations,
   BACKUP_MANIFEST_NAME,

@@ -12,11 +12,11 @@
 // handler가 동기이므로 지문은 동기 hash로 확인한다.
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   type InvocationAcceptConfirmInput,
   invocationAcceptConfirmInputSchema,

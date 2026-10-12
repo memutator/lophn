@@ -15,10 +15,8 @@ import {
   type Result,
   seededRandom,
 } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  JsonObject,
-} from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { JsonObject } from "../../protocol/base/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

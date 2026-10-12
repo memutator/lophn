@@ -12,7 +12,7 @@ import {
   settingsHistory,
   settingsReloaded,
   type SettingsRevision,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/config/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,

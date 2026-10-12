@@ -31,13 +31,12 @@ import {
   type TicketId,
 } from "../../../protocol/coding-agent/mod.ts";
 import { AppTestVerificationLookupPort } from "../../../protocol/problems/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type PortKey,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor, type PortKey } from "../../../protocol/base/mod.ts";
 
 import {
   appAccessDenied,

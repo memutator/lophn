@@ -5,10 +5,10 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
-  PermanentBlobReference,
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
+import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
 import {
   type ConversationDeps,
   createConversationCommands,

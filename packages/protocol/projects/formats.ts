@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  defineRead,
-  defineWorker,
-  jsonObjectSchema,
-  withReadCommon,
-} from "../server/mod.ts";
+import { defineRead, defineWorker } from "../base/route.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { contentFilesOutputSchema } from "./versions.ts";
 import { documentFilesInputSchema } from "./document-files.ts";
 import { sha256Schema } from "../base/values.ts";

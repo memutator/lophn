@@ -2,10 +2,10 @@ import { z } from "zod";
 import {
   atSchema,
   durationMsSchema,
-  idSchema,
   seqSchema,
   sha256Schema,
-} from "../server/mod.ts";
+} from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
 import { sectionKeySchema } from "../projects/mod.ts";
 import { resolvedSourcesSchema } from "./agent-values.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";

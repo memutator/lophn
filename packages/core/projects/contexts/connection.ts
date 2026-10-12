@@ -33,12 +33,12 @@ import {
   type ContextWorkInput,
   type ContextWorkList,
 } from "../../../protocol/projects/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
   ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { CommandEnvelope, Writer } from "../../storage/ledger/mod.ts";
 import type { ReadHandler } from "../../server/mod.ts";
 import type {

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { idSchema, sha256Schema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
 import { hostOf } from "./blueprint-scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.

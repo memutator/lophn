@@ -4,7 +4,7 @@
 // 남는다. 이 파일은 위치와 작은 metadata의 모양만 정한다(순수).
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { sha256Schema } from "../../../protocol/server/mod.ts";
+import { sha256Schema } from "../../../protocol/base/mod.ts";
 import {
   documentIdSchema,
   versionIdSchema,

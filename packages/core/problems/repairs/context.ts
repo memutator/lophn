@@ -7,7 +7,7 @@ import {
   codingAgentSessionSummary,
   REPAIR_CONTEXT_ROUTES,
 } from "../../../protocol/coding-agent/mod.ts";
-import type { KindLaunchSpec } from "../../../protocol/server/mod.ts";
+import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
 import type { CoreRuntime } from "../../main/daemon/runtime.ts";

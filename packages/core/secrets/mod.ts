@@ -36,7 +36,7 @@ export {
   type SecretView,
 } from "./reads.ts";
 export { readSecretRefs, type SecretReference } from "./refs.ts";
-export type { SecretRefSource } from "../../protocol/server/mod.ts";
+export type { SecretRefSource } from "../../protocol/secrets/mod.ts";
 export { recordSecretPreparation } from "./preparations.ts";
 export { productKeychain } from "./adapters/product.ts";
 export { SECRET_SCHEMA_STEPS } from "./schema.ts";

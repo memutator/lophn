@@ -1,5 +1,5 @@
 import { ok } from "../../../../base/mod.ts";
-import { cancelApprovalRequest } from "../../../../protocol/server/mod.ts";
+import { cancelApprovalRequest } from "../../../../protocol/approvals/mod.ts";
 import { isFinishedSummaryCall } from "../mod.ts";
 import { cancelGroupsFrom } from "../../tools/questions/mod.ts";
 import type { RewindEffects } from "./mod.ts";

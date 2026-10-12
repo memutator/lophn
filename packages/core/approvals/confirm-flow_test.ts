@@ -5,11 +5,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../protocol/apps/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { confirmAction } from "./mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../apps/register.ts";
 import {

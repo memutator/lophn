@@ -3,10 +3,10 @@
 // 이 모듈은 *_test.ts만 import한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
-  EventDefinition,
   EventVisibilityDefinition,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
+import type { EventDefinition } from "../../../protocol/events/mod.ts";
 import { createListEventsRead } from "../list.ts";
 import type { EventBatch, EventScan } from "../list.ts";
 

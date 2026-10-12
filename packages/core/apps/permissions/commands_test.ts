@@ -8,10 +8,8 @@ import {
   type GrantPermissionScope,
   grantRevoke,
 } from "../../../protocol/apps/mod.ts";
-import type {
-  ApprovalAction,
-  AuthenticatedContext,
-} from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ApprovalAction } from "../../../protocol/approvals/mod.ts";
 import {
   actionOf,
   call,

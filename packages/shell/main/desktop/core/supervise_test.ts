@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { encodeFrame } from "../../../../protocol/server/mod.ts";
+import { encodeFrame } from "../../../../protocol/supervision/mod.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 
 import {

@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type { SecretPreparation } from "../../protocol/server/mod.ts";
+import type { SecretPreparation } from "../../protocol/secrets/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";
 import { createSecretAttach } from "./attach.ts";
 import { createSecretRefresh } from "./refresh.ts";

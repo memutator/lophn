@@ -1,8 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import {
-  type Diagnostic,
-  DIAGNOSTICS_WRITE_OP,
-} from "../../protocol/server/mod.ts";
+import type { Diagnostic } from "../../protocol/supervision/mod.ts";
+import { DIAGNOSTICS_WRITE_OP } from "../../protocol/diagnostics/mod.ts";
 import {
   createDiagnosticHost,
   createDiagnosticIngress,

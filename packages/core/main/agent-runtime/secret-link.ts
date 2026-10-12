@@ -2,7 +2,7 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   ChildMessage,
   ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 
 // provider 호출의 credential은 core가 감독 pipe로 한 번 건네는 값이다(lophn-agent/harness/provider#R7,

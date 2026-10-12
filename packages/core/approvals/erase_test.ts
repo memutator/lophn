@@ -1,9 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../base/mod.ts";
-import {
-  APPROVAL_BLOB_OWNER_KIND,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
+import { APPROVAL_BLOB_OWNER_KIND } from "../../protocol/approvals/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openConnection } from "../storage/ledger/mod.ts";
 import { APPROVAL_SCHEMA_STEPS, eraseApprovalRequests } from "./mod.ts";

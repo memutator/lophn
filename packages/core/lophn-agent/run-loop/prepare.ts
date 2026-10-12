@@ -21,10 +21,8 @@ import {
   startRun,
   type WorkPlace,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  createApprovalRequest,
-  settingsGet,
-} from "../../../protocol/server/mod.ts";
+import { createApprovalRequest } from "../../../protocol/approvals/mod.ts";
+import { settingsGet } from "../../../protocol/config/mod.ts";
 import type { InstructionDeps } from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import { ROLE_CAPS } from "../agents/mod.ts";

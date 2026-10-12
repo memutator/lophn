@@ -11,7 +11,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/supervision/mod.ts";
 import type { WorkerRouteHandle } from "../../../supervision/responsiveness/mod.ts";
 import type { ValidatePort } from "../../versions/work.ts";
 

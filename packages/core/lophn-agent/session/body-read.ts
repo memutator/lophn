@@ -7,11 +7,8 @@ import {
   messageBodyInputSchema,
   messageContentSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type ApiReadDefinition,
-  BLOB_READ_MAX_BYTES,
-  type Sql,
-} from "../../../protocol/server/mod.ts";
+import type { ApiReadDefinition, Sql } from "../../../protocol/server/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../../protocol/storage/mod.ts";
 import { sessionVisible } from "./guards.ts";
 import { loadMessage, loadSession } from "./model.ts";
 

@@ -1,10 +1,11 @@
 import { err, ok, parseSeq, type Result } from "../../../base/mod.ts";
-import type {
-  ReadDefinition,
-  ReadSnapshot,
-  RequestContext,
+import {
+  type EventVisibilityDefinition,
+  type ReadDefinition,
+  type ReadSnapshot,
+  type RequestContext,
+  TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import {
   getTestRequest,
   getVerification,
@@ -14,7 +15,6 @@ import {
   verificationRecorded,
   verificationSchema,
 } from "../../../protocol/problems/mod.ts";
-import type { EventVisibilityDefinition } from "../../../protocol/server/mod.ts";
 import {
   canListVerifications,
   canReadOwnRequest,

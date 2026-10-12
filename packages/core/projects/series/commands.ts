@@ -26,12 +26,12 @@ import {
   seriesUpdated,
   seriesUpdateInstance,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { loadDocument, loadLatestVersion } from "../versions/mod.ts";
 import { draftKeyConflicts } from "./model.ts";

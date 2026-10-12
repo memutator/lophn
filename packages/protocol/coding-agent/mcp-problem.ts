@@ -5,7 +5,8 @@ import {
   recordProblemFix,
   recordProblemFixToolInputSchema,
 } from "../problems/fixes.ts";
-import { idSchema, seqSchema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { seqSchema } from "../base/values.ts";
 import { requestTest } from "../problems/tests.ts";
 import {
   repairContextBundle,

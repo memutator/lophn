@@ -5,7 +5,7 @@
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import { releasePrepare } from "../../../protocol/apps/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { dataChangesOf, readBundleCopy } from "./activation/desired.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
 import { findPassedAppTest } from "../../problems/tests/app-test-lookup.ts";

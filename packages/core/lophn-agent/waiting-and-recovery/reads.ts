@@ -6,10 +6,8 @@ import {
   runBodyView,
   runBodyViewInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type ApiReadDefinition,
-  parseActor,
-} from "../../../protocol/server/mod.ts";
+import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { type MessageBodyEnvironment, readBodyBytes } from "../session/mod.ts";
 
 // ReadRunBody. 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 길이다. 참조 행 판정은 ledger

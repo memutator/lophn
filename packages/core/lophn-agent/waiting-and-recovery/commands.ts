@@ -12,15 +12,15 @@ import {
   runWaited,
   waitRun,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { createApprovalRequest } from "../../../protocol/server/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type { createApprovalRequest } from "../../../protocol/approvals/mod.ts";
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { loadMessage } from "../session/mod.ts";
 import {
   appliedOf,

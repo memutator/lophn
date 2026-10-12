@@ -10,12 +10,12 @@ import {
   type seriesOutlinePageSchema,
 } from "../../../protocol/projects/mod.ts";
 import {
-  parseActor,
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   decodeOutlineCursor,
   encodeOutlineCursor,

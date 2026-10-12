@@ -4,8 +4,8 @@ import {
   type NotificationAskRole,
   notificationAskSchema,
   type NotificationFirstContext,
-  type Seq,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/notifications/mod.ts";
+import type { Seq } from "../../protocol/base/mod.ts";
 import { triggerOf } from "./model.ts";
 
 // 계기 종류가 정한 부를 agent와 첫 context 모양이다(platform/notifications#R13).

@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { RUN_METADATA_NAME } from "../../protocol/client/run-metadata.ts";
-import { runMetadataSchema } from "../../protocol/server/mod.ts";
+import { runMetadataSchema } from "../../protocol/supervision/mod.ts";
 
 // H/run의 인증 없는 위치 metadata. port·epoch·시작 시각만 있고 credential은 없다.
 

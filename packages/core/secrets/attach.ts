@@ -2,14 +2,14 @@
 // 값은 keychain과 전송 callback 메모리에만 있고 결과·오류·log에는 없다.
 
 import { err, type Result } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
-  AuthenticatedContext,
   ProcessLivenessCheck,
   SecretAllowanceCheck,
   SecretSendInput,
   SecretSendOutput,
   SecretValue,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import { authorize } from "../server/identity/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
 import { attachAllowed } from "./model.ts";

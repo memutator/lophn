@@ -26,8 +26,8 @@ import {
   approvalsGet,
   approvalsList,
   createApprovalRequest,
-  type JsonObject,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
+import type { JsonObject } from "../../../protocol/base/mod.ts";
 import {
   checkInput,
   findTool,

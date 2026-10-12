@@ -12,8 +12,8 @@ import {
   authenticatedContextSchema,
   type CredentialConditions,
   credentialScopeSchema,
-  parseActor,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { agentAppScopeSchema } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentCredentialScope,

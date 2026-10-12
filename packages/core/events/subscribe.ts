@@ -1,17 +1,18 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
-  type AckFrame,
   authenticatedContextSchema,
+  type RequestContext,
+} from "../../protocol/server/mod.ts";
+import {
+  type AckFrame,
   EVENT_BATCH_LIMITS,
   EVENT_CLOSE_CREDENTIAL_REVOKED,
   EVENT_CLOSE_SLOW_CONSUMER,
   eventsFrameSchema,
-  idSchema,
-  type RequestContext,
-  seqSchema,
   type SubscribeFrame,
   subscribeFrameSchema,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/events/mod.ts";
+import { idSchema, seqSchema } from "../../protocol/base/mod.ts";
 import { type EventBatch, type EventScan, frameBytes } from "./list.ts";
 import { validateOutput } from "../storage/ledger/output.ts";
 import type { SubscriptionStore } from "./subscription-store.ts";

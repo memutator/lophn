@@ -6,11 +6,11 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import {
-  type JsonValue,
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
+import type { JsonValue } from "../../../protocol/base/mod.ts";
 
 // 존재를 새지 않는 문구다. 범위 밖과 없는 대상은 같은 말로 답한다(platform/identity#R8).
 export const NOT_FOUND = "대상을 찾을 수 없다";

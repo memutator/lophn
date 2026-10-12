@@ -9,11 +9,8 @@ import {
   CONTEXT_CONTENT_PURPOSE,
   contextContentBytes,
 } from "../../../../protocol/projects/mod.ts";
-import type {
-  PermanentBlobReference,
-  RequestContext,
-  Tx,
-} from "../../../../protocol/server/mod.ts";
+import type { RequestContext, Tx } from "../../../../protocol/server/mod.ts";
+import type { PermanentBlobReference } from "../../../../protocol/storage/mod.ts";
 import type { BlobReference } from "../api/state.ts";
 
 // 값의 참조. 파일을 쓰지 않는다.

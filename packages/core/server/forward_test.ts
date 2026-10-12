@@ -1,13 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, type Result, seededRandom } from "../../base/mod.ts";
 import { z } from "zod";
-import {
-  type ConfirmationHandleRegister,
-  defineFile,
-  ERROR_HTTP_STATUS,
-  type WorkerRequest,
-  type WorkerResponse,
-} from "../../protocol/server/mod.ts";
+import type { ConfirmationHandleRegister } from "../../protocol/server/mod.ts";
+import { defineFile, ERROR_HTTP_STATUS } from "../../protocol/base/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../protocol/supervision/mod.ts";
 import {
   filesDelete,
   ROUTES as DOCUMENT_ROUTES,

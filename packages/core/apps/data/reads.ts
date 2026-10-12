@@ -23,9 +23,11 @@ import type {
   HealthObservation,
   ReadSnapshot,
   RequestContext,
+} from "../../../protocol/server/mod.ts";
+import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { canonicalJson } from "../blueprint/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import {

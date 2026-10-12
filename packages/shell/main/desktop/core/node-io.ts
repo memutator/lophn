@@ -1,6 +1,6 @@
 // Node 24의 fetch와 WebSocket을 contract client가 받는 모양으로 옮긴다.
 // token은 여기 두지 않는다. caller가 headers로 넣어 준다.
-import type { RpcFetch } from "../../../../protocol/server/mod.ts";
+import type { RpcFetch } from "../../../../protocol/client/mod.ts";
 
 import type { StreamFetch } from "./client.ts";
 import type { EventSocket, SocketFactory } from "./events.ts";

@@ -5,12 +5,12 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
-import {
-  type AuthenticatedContext,
-  type CommandDefinition,
-  errorBodySchema,
-  type Sql,
+import type {
+  AuthenticatedContext,
+  CommandDefinition,
+  Sql,
 } from "../../../protocol/server/mod.ts";
+import { errorBodySchema } from "../../../protocol/base/mod.ts";
 import {
   CONDITION_TARGET_KEYS,
   type CredentialTarget,

@@ -18,7 +18,7 @@ import {
 } from "../../../protocol/coding-agent/mod.ts";
 import { runSummaryHookBounded } from "../../guides/mod.ts";
 import { launchPlanOf, observeStream } from "../../sessions/mod.ts";
-import type { Route } from "../../../protocol/server/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import { UNREADABLE_MESSAGE } from "../../connection/mod.ts";
 import type { CommandOutput } from "./connection.ts";
 import type { CommandEntry } from "./types.ts";

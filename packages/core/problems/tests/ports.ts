@@ -1,9 +1,5 @@
-import {
-  definePort,
-  type PortKey,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
-import type { Input } from "../../../protocol/server/mod.ts";
+import { definePort, type PortKey } from "../../../protocol/base/mod.ts";
+import type { Input, RequestContext } from "../../../protocol/server/mod.ts";
 import type {
   recordVerification,
   requestTest,

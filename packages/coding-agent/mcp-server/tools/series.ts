@@ -2,7 +2,7 @@
 // 보내고 다음 key·title 제안만 돌려준다. 이 tool은 command route를 부르지 않는다:
 // 문서를 저장하지 않고 series를 만들지도 않으며 둘 다 사람의 몫이다(cli#R20).
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../../protocol/server/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import { failureOutput, type ToolOutput, withoutOp } from "./output.ts";
 

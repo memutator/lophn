@@ -2,15 +2,17 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
+import type {
+  RequestContext,
+  Sql,
+  SqlRow,
+} from "../../../protocol/server/mod.ts";
 import {
   BLOB_PREPARATION_TTL_MS,
   type BlobFieldDefinition,
   type BlobRefRegistration,
   defineBlobField,
-  type RequestContext,
-  type Sql,
-  type SqlRow,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import { createPreparationRegistry } from "./registry.ts";
 import { registerBlobRef } from "./register.ts";
 

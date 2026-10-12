@@ -1,12 +1,11 @@
 import { err, ok, type Result } from "../../base/mod.ts";
+import type { AuthenticatedContext, Tx } from "../../protocol/server/mod.ts";
+import { defineCommand } from "../../protocol/base/mod.ts";
 import type {
-  AuthenticatedContext,
   SecretSendInput,
   SecretStoreRefreshInput,
   SecretValue,
-  Tx,
-} from "../../protocol/server/mod.ts";
-import { defineCommand } from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import { z } from "zod";
 import { defineSyncCommand } from "../storage/ledger/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";

@@ -1,10 +1,11 @@
 import type { Clock } from "../../base/mod.ts";
 import { ok, type Result } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  HealthObservation,
+import {
+  type AuthenticatedContext,
+  type HealthObservation,
+  platformHealth,
+  platformStatus,
 } from "../../protocol/server/mod.ts";
-import { platformHealth, platformStatus } from "../../protocol/server/mod.ts";
 import type { ReadHandler } from "../server/mod.ts";
 
 // 구성 요소 하나의 현재 관측. 불가이면 안전한 이유를 함께 둔다(diagnostics R8).

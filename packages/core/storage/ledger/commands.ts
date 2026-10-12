@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  advanceSubscriberCursor,
-  type CommandDefinition,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { advanceSubscriberCursor } from "../../../protocol/events/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { runAdmission } from "./run-admission.ts";
 

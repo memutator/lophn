@@ -2,12 +2,12 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
-import {
-  type ReadDefinition,
-  type ReadSnapshot,
-  type RequestContext,
-  withReadCommon,
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
+import { withReadCommon } from "../../../protocol/base/mod.ts";
 import { createReaderPool } from "./reader-pool.ts";
 import { createReaderConnection } from "./reader-connection.ts";
 import {

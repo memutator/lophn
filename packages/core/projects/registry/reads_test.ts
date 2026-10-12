@@ -2,14 +2,14 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../../base/mod.ts";
 import type { Document, DocumentRef } from "../../../protocol/projects/mod.ts";
-import type {
-  PortKey,
-  Sql,
-  SqlRow,
-  TargetAuthorizer,
-  Tx,
+import type { PortKey } from "../../../protocol/base/mod.ts";
+import {
+  type Sql,
+  type SqlRow,
+  TargetAuthorization,
+  type TargetAuthorizer,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import { initialTrackingProposal } from "./mod.ts";
 import { createProjectReads, type ProjectReadDeps } from "./reads.ts";
 import { createProjectCommands } from "./commands.ts";

@@ -5,15 +5,13 @@
 // handler는 동기다. 입력이 큰 blob인 action은 transaction 안에서 읽을 수 없어 적용하지 못한다.
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import type { CommandDefinition, Tx } from "../../protocol/server/mod.ts";
+import type { Actor, CommandRoute } from "../../protocol/base/mod.ts";
 import {
-  type Actor,
   applyApprovedAction,
   type ApprovalAction,
   type ApprovalUse,
-  type CommandDefinition,
-  type CommandRoute,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import { recordedUse, usableApproval } from "../storage/ledger/mod.ts";
 
 function notFound(): Result<never> {

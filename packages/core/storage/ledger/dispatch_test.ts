@@ -1,11 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  defineCommand,
-  questionOption,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import { questionOption, type Tx } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
 import { defineTxPort } from "./tx-ports.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { commands, deps, fileLedger, user } from "./command-harness.ts";

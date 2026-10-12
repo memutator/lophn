@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { defineRead, idSchema, withReadCommon } from "../server/mod.ts";
+import { defineRead } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { withReadCommon } from "../base/envelope.ts";
 
 export const INSTRUCTION_LAYERS = ["global", "project", "app"] as const;
 

@@ -7,7 +7,7 @@ import {
   appIdSchema,
   relativePathSchema,
 } from "../../../../protocol/projects/mod.ts";
-import { sha256Schema } from "../../../../protocol/server/mod.ts";
+import { sha256Schema } from "../../../../protocol/base/mod.ts";
 
 export type SealFailure = {
   code: "unavailable" | "invalid_input";

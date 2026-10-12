@@ -2,7 +2,7 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   ChildMessage,
   ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { AgentCredentialIssuer } from "../../lophn-agent/run-loop/mod.ts";
 
 // run마다 받는 agent credential의 감독 pipe 연결(lophn-agent/harness/run-loop). 발급은 core의

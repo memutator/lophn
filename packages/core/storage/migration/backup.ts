@@ -11,7 +11,7 @@ import {
   BACKUP_MANIFEST_FORMAT,
   type BackupManifest,
   backupManifestSchema,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 하루 주기(R12: 매일 1회).

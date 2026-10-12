@@ -9,11 +9,11 @@ import type {
 } from "../../../protocol/projects/mod.ts";
 import {
   type AuthorizationTarget,
-  type EventEnvelopeFor,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
+import type { EventEnvelopeFor } from "../../../protocol/events/mod.ts";
 
 export type ProjectCandidate = Omit<Project, "revision">;
 export type ProjectEvent =

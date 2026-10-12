@@ -7,9 +7,11 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
+} from "../../../protocol/supervision/mod.ts";
+import {
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/secrets/mod.ts";
 import {
   createFakeKeychain,
   createSecretWork,

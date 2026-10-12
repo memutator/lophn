@@ -8,12 +8,12 @@
 //   - 접수 재조회: core에 저장된 접수 사실(invocations의 approval과 InvocationAccepted 시각)에서 proof payload를
 //     다시 만든다. 접수가 없으면 not_found다.
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
   createApprovalRequest,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
 import { confirmAction } from "../../approvals/mod.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
 import { existingAcceptance } from "../invocations/confirm.ts";

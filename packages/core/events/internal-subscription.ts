@@ -8,10 +8,8 @@
 // 불려 구독이 비어 있던 동안의 변화를 소비자가 snapshot read로 따라잡게 한다. event는 깨우는
 // 신호이고 소비자가 payload로 상태를 만들지 않는다.
 import type { Result } from "../../base/mod.ts";
-import {
-  type EventEnvelope,
-  type RequestContext,
-} from "../../protocol/server/mod.ts";
+import type { RequestContext } from "../../protocol/server/mod.ts";
+import type { EventEnvelope } from "../../protocol/events/mod.ts";
 import {
   createEventSession,
   type EventBackend,

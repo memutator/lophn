@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { err, manualClock, ok } from "../../../base/mod.ts";
-import { defineCommand } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
 import { canonicalFingerprintBody, COMMAND_MAX_CAS } from "./fingerprint.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { recordNoteCommand } from "./test-commands.ts";

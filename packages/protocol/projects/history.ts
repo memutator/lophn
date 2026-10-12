@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { defineRead, defineWorker } from "../server/mod.ts";
+import { defineRead, defineWorker } from "../base/route.ts";
+import { sha256Schema } from "../base/values.ts";
 import {
   documentIdSchema,
   sectionKeySchema,
@@ -18,7 +19,6 @@ import {
   readActors,
   readErrors,
 } from "./read-values.ts";
-import { sha256Schema } from "../server/mod.ts";
 
 export const historyInputSchema = z.strictObject({
   document: documentIdSchema,

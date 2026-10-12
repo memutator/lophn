@@ -4,15 +4,14 @@
 
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../protocol/base/mod.ts";
 import {
-  ACTOR_KINDS,
-  type CommandDefinition,
   defineBlobField,
-  defineCommand,
-  defineEvent,
   type PreparedBlob,
   preparedBlobSchema,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/storage/mod.ts";
+import { defineEvent } from "../../protocol/events/mod.ts";
 
 const field = defineBlobField({
   owner_kind: "document_version",

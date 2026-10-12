@@ -1,6 +1,6 @@
 import { err, type IdSource, ok, type Result } from "../../../base/mod.ts";
 import { assignmentRead, runRead } from "../../../protocol/lophn-agent/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   createBuiltinToolHandlers,
   createContextLookupToolHandlers,

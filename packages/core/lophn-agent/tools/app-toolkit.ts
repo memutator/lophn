@@ -19,8 +19,8 @@ import {
   applyApprovedAction,
   type ApprovalAction,
   approvalsGet,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/approvals/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   workspaceRead,
   workspaceReadOutputSchema,

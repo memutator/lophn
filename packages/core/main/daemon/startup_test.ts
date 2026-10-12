@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
 import { checkRestart } from "../../storage/migration/mod.ts";
-import { mainHelloSchema } from "../../../protocol/server/mod.ts";
+import { mainHelloSchema } from "../../../protocol/supervision/mod.ts";
 import { readFrames } from "../../supervision/responsiveness/mod.ts";
 import { type Core, startCore } from "./core.ts";
 

@@ -5,12 +5,11 @@ import {
   type HandoffContent,
   type HandoffReference,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { SqlParams, SqlRow } from "../../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
   defineBlobField,
-  type SqlParams,
-  type SqlRow,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/storage/mod.ts";
 
 // 순수 함수와 읽기 조회만 있다. handoff는 별도 entity·ID·상태·대기열이 없다
 // (domain-model lophn-agent/handoff). 받는 run의 source handoff 가지가 접수의

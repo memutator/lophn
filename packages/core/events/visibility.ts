@@ -2,16 +2,17 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   authenticatedContextSchema,
-  errorBodySchema,
+  type EventVisibilityDefinition,
+  type ReadSnapshot,
+  type RequestContext,
+} from "../../protocol/server/mod.ts";
+import { errorBodySchema, idSchema } from "../../protocol/base/mod.ts";
+import {
   type EventDefinition,
   type EventEnvelope,
   eventEnvelopeSchema,
-  type EventVisibilityDefinition,
-  idSchema,
-  type ReadSnapshot,
-  type RequestContext,
   type Subject,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/events/mod.ts";
 import { validateOutput } from "../storage/ledger/output.ts";
 
 export type EventReadGate = (

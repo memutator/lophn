@@ -14,7 +14,7 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   type CatalogLayers,
   type EntryIdentity,

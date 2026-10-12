@@ -1,10 +1,8 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { z } from "zod";
 import type { Result } from "../../base/mod.ts";
-import type {
-  JsonValue,
-  SettingDefinition,
-} from "../../protocol/server/mod.ts";
+import type { JsonValue } from "../../protocol/base/mod.ts";
+import type { SettingDefinition } from "../../protocol/config/mod.ts";
 import {
   containsCredentialSecret,
   defaultsRevisionText,

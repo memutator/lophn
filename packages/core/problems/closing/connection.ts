@@ -5,12 +5,14 @@
 // 그리고 worker를 깨우는 core 안 구독자(machine:problems-closing-feed)다. event는 깨우는 신호이고
 // payload로 상태를 만들지 않는다: worker가 cursor 뒤 event와 정본을 다시 읽는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type {
+  EventVisibilityDefinition,
+  RequestContext,
+} from "../../../protocol/server/mod.ts";
 import {
   type EventDefinition,
   eventsList,
-  type EventVisibilityDefinition,
-  type RequestContext,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/events/mod.ts";
 import {
   openConnection,
   type SubscriberBinding,

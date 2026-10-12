@@ -1,14 +1,14 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 import { DatabaseSync } from "node:sqlite";
 import { ok, type Result } from "../../../../base/mod.ts";
-import type {
-  PortKey,
-  Sql,
-  SqlRow,
-  TargetAuthorizer,
-  Tx,
+import type { PortKey } from "../../../../protocol/base/mod.ts";
+import {
+  type Sql,
+  type SqlRow,
+  TargetAuthorization,
+  type TargetAuthorizer,
+  type Tx,
 } from "../../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../../protocol/server/mod.ts";
 import { appRegistrationLookup } from "../../../../protocol/apps/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../../versions/mod.ts";

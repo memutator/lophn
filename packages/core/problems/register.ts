@@ -20,17 +20,17 @@ import {
   listProblemFixesRead,
   recordProblemFixCommand,
 } from "./repairs/mod.ts";
-import type {
-  EventDefinition,
-  EventVisibilityDefinition,
-} from "../../protocol/server/mod.ts";
+import type { EventDefinition } from "../../protocol/events/mod.ts";
+import type { EventVisibilityDefinition } from "../../protocol/server/mod.ts";
+import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
+import { defineBlobPurpose } from "../../protocol/storage/mod.ts";
+import { defineSetting } from "../../protocol/config/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
 import { z } from "zod";
-import { defineBlobPurpose, defineSetting } from "../../protocol/server/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,
@@ -67,7 +67,6 @@ import {
   REPORT_BLOB_PURPOSES,
   reportBody,
 } from "../../protocol/problems/mod.ts";
-import type { KindLaunchSpec } from "../../protocol/server/mod.ts";
 import {
   observeException,
   observeViewError,

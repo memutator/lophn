@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { defineRead, defineSetting, withReadCommon } from "../server/mod.ts";
+import { defineRead } from "../base/route.ts";
+import { defineSetting } from "../config/settings.ts";
+import { withReadCommon } from "../base/envelope.ts";
 
 // skill 발견 root 정의 등록(contracts#T24 settings registry, lophn-agent#T35).
 // 사람이 등록한 절대 폴더를 등록 순서대로 발견한다(extensions R1). machine_local

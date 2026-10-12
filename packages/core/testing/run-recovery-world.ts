@@ -18,10 +18,8 @@ import {
   seededRandom,
 } from "../../base/mod.ts";
 import type { CallModel } from "../../protocol/lophn-agent/mod.ts";
-import type {
-  AuthenticatedContext,
-  ChildMessage,
-} from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { ChildMessage } from "../../protocol/supervision/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

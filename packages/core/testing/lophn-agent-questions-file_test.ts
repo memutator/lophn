@@ -7,11 +7,9 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  BlobRefRegistration,
-  SettingMutation,
-} from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { BlobRefRegistration } from "../../protocol/storage/mod.ts";
+import type { SettingMutation } from "../../protocol/config/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import {
   defineTxPort,

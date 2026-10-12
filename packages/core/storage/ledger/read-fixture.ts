@@ -3,8 +3,11 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   definePort,
   defineRead,
-  type ReadSnapshot,
   withReadCommon,
+} from "../../../protocol/base/mod.ts";
+import type {
+  ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { KNOWN_SECRETS } from "./known-secrets.ts";
 import {
@@ -18,7 +21,6 @@ import {
   readerStorage,
 } from "./reader-connection.ts";
 import { DatabaseSync } from "node:sqlite";
-import type { RequestContext } from "../../../protocol/server/mod.ts";
 
 export function storageRegression(ctx: RequestContext): Result<unknown>[] {
   const results: Result<unknown>[] = [];

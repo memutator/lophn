@@ -8,19 +8,23 @@ import {
   parseSeq,
 } from "../../../base/mod.ts";
 import {
-  type BlobRefRegistration,
   type ChosenOptionCall,
-  type CommandRoute,
-  type IdPrefix,
-  type PermanentBlobReference,
-  type PortKey,
   questionOption,
   type RequestContext,
   type Sql,
-  subjectSchema,
   TargetAuthorization,
   type Tx,
 } from "../../../protocol/server/mod.ts";
+import type {
+  BlobRefRegistration,
+  PermanentBlobReference,
+} from "../../../protocol/storage/mod.ts";
+import type {
+  CommandRoute,
+  IdPrefix,
+  PortKey,
+} from "../../../protocol/base/mod.ts";
+import { subjectSchema } from "../../../protocol/events/mod.ts";
 import type { z } from "zod";
 import {
   isSqlRejected,

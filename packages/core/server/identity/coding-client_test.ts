@@ -2,10 +2,8 @@
 // (packages/core/testing)는 테스트에만 있고 제품 entry에는 없다. connection client
 // 코드 자체는 제품 자리(packages/coding-agent/connection/)다.
 import { assert, assertEquals } from "@std/assert";
-import {
-  createRpcClient,
-  platformStatus,
-} from "../../../protocol/server/mod.ts";
+import { platformStatus } from "../../../protocol/server/mod.ts";
+import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { createCoreClient } from "../../../coding-agent/connection/client/core.ts";
 import { createCoreHarness } from "../../testing/core.ts";
 

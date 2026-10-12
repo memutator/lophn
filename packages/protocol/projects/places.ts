@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Result } from "../../base/mod.ts";
-import { definePort, type Seq } from "../server/mod.ts";
+import { definePort } from "../base/ports.ts";
+import type { Seq } from "../base/values.ts";
 import { type PlaceRef, placeRefOutputSchema } from "./address.ts";
 import { revisionSchema, type Slug, slugSchema } from "./values.ts";
 

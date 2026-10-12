@@ -12,13 +12,13 @@ import {
   questionCreated,
   questionExpired,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  RequestContext,
+  Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   checkGroupOpen,
   collectGroupAnswers,

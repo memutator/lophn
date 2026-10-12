@@ -5,11 +5,8 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { TicketClaimCheck } from "../../../protocol/coding-agent/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
 import { recordProblemFixCommand } from "./commands.ts";
 import { listProblemFixesRead } from "./reads.ts";
 

@@ -4,12 +4,9 @@
 
 import { ok } from "../../base/mod.ts";
 import { z } from "zod";
-import {
-  type CommandDefinition,
-  defineCommand,
-  idSchema,
-} from "../../protocol/server/mod.ts";
-import { approvalRequestCreated } from "../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { approvalRequestCreated } from "../../protocol/approvals/mod.ts";
+import { defineCommand, idSchema } from "../../protocol/base/mod.ts";
 
 export const seedApprovalRequest = defineCommand({
   resource: "approvals",

@@ -2,14 +2,14 @@
 // OS 준비는 command 밖에서 끝났고, 값은 이 경계에 오지 않는다.
 
 import { err, ok } from "../../base/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import {
   removeSecret,
   type SecretPreparation,
   secretRemoved,
   secretSet,
   setSecret,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 import { defineSyncCommand } from "../storage/ledger/mod.ts";
 import { applyRemove, applySet, type SecretRecord, toStatus } from "./model.ts";
 

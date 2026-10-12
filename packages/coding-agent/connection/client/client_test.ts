@@ -4,7 +4,7 @@ import {
   connectionIdSchema,
   LOPHN_CONNECTION,
 } from "../../../protocol/coding-agent/mod.ts";
-import { runMetadataSchema } from "../../../protocol/server/mod.ts";
+import { runMetadataSchema } from "../../../protocol/supervision/mod.ts";
 import {
   acceptAddress,
   type DaemonAddressInputs,

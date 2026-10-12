@@ -1,5 +1,8 @@
 import { assertEquals } from "@std/assert";
-import { commandRequestSchema, commandResponseSchema } from "../server/mod.ts";
+import {
+  commandRequestSchema,
+  commandResponseSchema,
+} from "../base/envelope.ts";
 import {
   problemObserved,
   problemOpened,

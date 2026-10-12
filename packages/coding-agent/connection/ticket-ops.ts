@@ -16,7 +16,7 @@ import type {
   CommandRoute,
   Route,
   UploadRoute,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
 
 // core client 중 ticket 쓰기가 쓰는 호출이다. client/core.ts는 core module graph 밖이라 구조로만 좁힌다.
 export type TicketOpClient = {

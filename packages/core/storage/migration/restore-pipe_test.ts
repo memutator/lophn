@@ -9,7 +9,7 @@ import {
   encodeFrame,
   type MainHello,
   mainHelloSchema,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { backupStamp, createBackup, RESTORE_DECISION } from "./mod.ts";
 import { readFrames } from "../../supervision/responsiveness/mod.ts";
 

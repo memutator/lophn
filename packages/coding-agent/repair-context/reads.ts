@@ -2,7 +2,7 @@
 // credential로 부르는 client라 범위 밖 대상은 core가 없는 대상과 같은 답으로 거절한다. 이 port는
 // ledger·앱 DB·원본 파일을 직접 열지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { ReadRoute, Route } from "../../protocol/server/mod.ts";
+import type { ReadRoute, Route } from "../../protocol/base/mod.ts";
 import {
   getProblem,
   getReport,

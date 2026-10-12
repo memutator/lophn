@@ -4,7 +4,7 @@ import {
   effectiveSettingSchema,
   type SettingDefinitionOutput,
   settingDefinitionSchema,
-} from "@lophn/protocol/server";
+} from "@lophn/protocol/config";
 import { explainSetting } from "./settings-explanation.ts";
 
 const SECRET_VALUE = ["sk", "live", "fixture"].join("-");

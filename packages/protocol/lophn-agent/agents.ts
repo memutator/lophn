@@ -1,14 +1,14 @@
 import { z } from "zod";
 import {
   defineCommand,
-  defineEvent,
   defineFile,
   defineRead,
   defineUpload,
-  idSchema,
-  sha256Schema,
-  withReadCommon,
-} from "../server/mod.ts";
+} from "../base/route.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import {
   AGENT_PROFILE_IMAGE_MAX_BYTES,
   agentDefinitionOutputSchema,

@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { eventsList, type RequestContext } from "../../protocol/server/mod.ts";
+import type { RequestContext } from "../../protocol/server/mod.ts";
+import { eventsList } from "../../protocol/events/mod.ts";
 import type { ReaderPool } from "../storage/ledger/reader-pool.ts";
 import type { EventBackend } from "./subscribe.ts";
 import { validateOutput } from "../storage/ledger/output.ts";

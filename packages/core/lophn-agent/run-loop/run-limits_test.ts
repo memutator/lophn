@@ -6,7 +6,7 @@ import { createLedgerRegistration } from "../../projects/register.ts";
 import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 import { resolveRunLimits, RUN_LIMIT_SETTING_KEYS } from "./mod.ts";
 import { DEFAULT_RUN_LIMITS } from "../../../protocol/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../../protocol/server/mod.ts";
+import type { EffectiveSetting } from "../../../protocol/config/mod.ts";
 
 const OPERATIONS = [
   "SettingsDefinitions",

@@ -9,7 +9,7 @@ import {
   grantsList,
 } from "../../../protocol/apps/mod.ts";
 import { workspaceRead } from "../../../protocol/shell/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { computeAgentAppScope } from "../run-loop/mod.ts";
 import { appAnnotateTool, appScreenContextTool } from "./mod.ts";
 import type { DirectRequest } from "../../apps/runtime/client/mod.ts";

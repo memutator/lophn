@@ -4,11 +4,11 @@ import {
   agentRoleSchema,
   commandsList,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type ReadSnapshot,
+import type {
+  ReadDefinition,
+  ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 // `/` 명령 목록 read(concern lophn-agent/commands). 목록은 저장하는 표가 아니라 session의 agent에서

@@ -52,14 +52,16 @@ import {
   observeException,
   reportProblem,
 } from "../../protocol/problems/mod.ts";
+import type {
+  AuthenticatedContext,
+  RequestContext,
+} from "../../protocol/server/mod.ts";
 import {
   applyApprovedAction,
   approvalsGet,
-  type AuthenticatedContext,
   createApprovalRequest,
-  type KindLaunchSpec,
-  type RequestContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
+import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
 import {
   type AppCredentialIssuer,

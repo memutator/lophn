@@ -21,11 +21,11 @@ import type {
   viewUpdateRoute,
 } from "../../../../protocol/projects/mod.ts";
 import type {
-  CommandRoute,
   Compare,
   Input,
   Output,
 } from "../../../../protocol/server/mod.ts";
+import type { CommandRoute } from "../../../../protocol/base/mod.ts";
 import type {
   ContextApiActor,
   ContextApiDeps,

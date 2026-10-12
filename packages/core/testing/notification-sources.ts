@@ -4,12 +4,9 @@
 // 길로 낸다. event 정의는 각 소유 contract의 것 그대로고, payload는 그 schema가 검사한다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import {
-  ACTOR_KINDS,
-  type CommandDefinition,
-  defineCommand,
-  type EventDefinition,
-} from "../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../protocol/base/mod.ts";
+import type { EventDefinition } from "../../protocol/events/mod.ts";
 import { releaseActivationFailed } from "../../protocol/apps/mod.ts";
 import {
   contextCreatedEvent,

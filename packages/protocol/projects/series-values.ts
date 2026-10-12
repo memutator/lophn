@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  archiveStateSchema,
-  blobRefSchema,
-  idSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { archiveStateSchema, sha256Schema } from "../base/values.ts";
+import { blobRefSchema } from "../storage/blob.ts";
+import { idSchema } from "../base/ids.ts";
 import { placeRefOutputSchema, placeRefSchema } from "./address.ts";
 import { formatRefOutputSchema, formatRefSchema } from "./versions.ts";
 import {

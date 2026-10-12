@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   type BlobRefRegistration,
   defineBlobField,
   defineBlobPurpose,
-  idSchema,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
+import { idSchema } from "../../../protocol/base/mod.ts";
 import type { Verification } from "../../../protocol/problems/mod.ts";
 import type { PreparedResultEvidence } from "./model.ts";
 

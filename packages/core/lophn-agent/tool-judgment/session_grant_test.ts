@@ -8,11 +8,9 @@ import {
   sessionRead,
   toolCallList,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  approvalsList,
-  eventsList,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+import { approvalsList } from "../../../protocol/approvals/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   type BasisSnapshot,
   type CoreCall,

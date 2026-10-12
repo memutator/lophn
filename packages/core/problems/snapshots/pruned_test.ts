@@ -3,14 +3,14 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  ReadSnapshot,
-  RequestContext,
-  Sql,
-  SqlRow,
-  Tx,
+import {
+  type ReadSnapshot,
+  type RequestContext,
+  type Sql,
+  type SqlRow,
+  TargetAuthorization,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import {
   closureSchema,
   getSnapshotOutputSchema,

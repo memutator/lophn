@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineMemory } from "../server/mod.ts";
+import { defineMemory } from "../base/route.ts";
 import {
   appIdSchema,
   processNonceSchema,

@@ -16,17 +16,21 @@ import {
   applyQuestionOption,
   type OptionAction,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type {
+  ChosenOptionCall,
+  CommandDefinition,
+  Input,
+  Tx,
+} from "../../../../protocol/server/mod.ts";
 import {
   applySettings,
-  type ChosenOptionCall,
-  type CommandDefinition,
+  type SettingMutation,
+} from "../../../../protocol/config/mod.ts";
+import {
   type CommandRoute,
-  type Input,
   type JsonObject,
   parseActor,
-  type SettingMutation,
-  type Tx,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/base/mod.ts";
 import { chosenActionOf, loadGroupOfQuestion } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 

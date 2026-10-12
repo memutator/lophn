@@ -3,11 +3,11 @@ import {
   questionList,
   questionRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
+import type {
+  ReadDefinition,
+  RequestContext,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   appliedOf,
   GROUP_COLUMNS,

@@ -1,9 +1,7 @@
 import { z } from "zod";
-import {
-  defineWorker,
-  idempotencyKeySchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { defineWorker } from "../base/route.ts";
+import { idempotencyKeySchema } from "../base/envelope.ts";
+import { sha256Schema } from "../base/values.ts";
 import {
   builtinFormatNameSchema,
   documentIdSchema,

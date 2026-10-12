@@ -1,5 +1,5 @@
 import { canonicalize } from "../../../base/mod.ts";
-import type { JsonObject } from "../../../protocol/server/mod.ts";
+import type { JsonObject } from "../../../protocol/base/mod.ts";
 import type {
   ToolDecision,
   ToolEffect,

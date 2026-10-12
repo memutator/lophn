@@ -3,11 +3,11 @@
 // 시계가 기한에 닿기를 기다리는 sleep은 없다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type {
   ApprovalAction,
   ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   actionOf,
   call,

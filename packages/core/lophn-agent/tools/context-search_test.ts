@@ -10,7 +10,7 @@ import {
   contextListRoute,
   contextSearchRoute,
 } from "../../../protocol/projects/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
   CONTEXT_ENTITY_TOOL,
   executeTool,

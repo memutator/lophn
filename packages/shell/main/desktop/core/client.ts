@@ -1,14 +1,6 @@
 // 사람 token은 이 객체의 메모리에만 있다. 직렬화·log·renderer로 나가지 않는다.
-import {
-  createRpcClient,
-  errorBodySchema,
-  errorCodeForStatus,
-  type Route,
-  routePath,
-  type RpcClient,
-  type RpcFetch,
-  UPLOAD_INPUT_HEADER,
-} from "../../../../protocol/server/mod.ts";
+import { createRpcClient, type RpcClient, type RpcFetch } from "../../../../protocol/client/mod.ts";
+import { errorBodySchema, errorCodeForStatus, type Route, routePath, UPLOAD_INPUT_HEADER } from "../../../../protocol/base/mod.ts";
 
 import { isAllowed, lookupCall } from "./allowlist.ts";
 import { routeByName } from "./routes.ts";

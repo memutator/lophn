@@ -2,7 +2,7 @@ import { assert } from "@std/assert";
 import {
   encodeFrame,
   type ParentMessage,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { Spawned } from "./process.ts";
 
 export function hello(kind = "platform/io"): ParentMessage {

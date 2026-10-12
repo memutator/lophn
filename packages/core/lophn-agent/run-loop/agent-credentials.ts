@@ -11,9 +11,9 @@ import {
   agentCredentialRequestSchema,
   type AgentCredentialResponse,
   type ChildMessage,
-  eventsList,
-  routePath,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { roleOperations } from "./mod.ts";
 export { roleOperations };
 import type { AgentCredentialIssuer } from "./mod.ts";

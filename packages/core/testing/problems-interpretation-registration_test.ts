@@ -3,10 +3,8 @@
 // (질문 Q13). 이 파일이 core testing에 있는 까닭은 platform의 run 판정 port를 packages/core/problems가 못 받기 때문이다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-} from "../../protocol/server/mod.ts";
+import type { CommandDefinition } from "../../protocol/server/mod.ts";
+import { defineCommand } from "../../protocol/base/mod.ts";
 import {
   interpretationLinkInputSchema,
   linkProblemInterpretation,

@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  ReadSnapshot,
-  RequestContext,
-  Subject,
+import {
+  authenticatedContextSchema,
+  type ReadSnapshot,
+  type RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { authenticatedContextSchema } from "../../../protocol/server/mod.ts";
+import type { Subject } from "../../../protocol/events/mod.ts";
 import {
   commandResultRead,
   createListEventsRead,

@@ -5,11 +5,13 @@
 import { err, type ErrorCode, ok, type Result } from "../../../../base/mod.ts";
 import {
   createRpcClient,
-  type ParentMessage,
-  type Route,
   type RpcFetch,
-  type WorkerRequest,
-} from "../../../../protocol/server/mod.ts";
+} from "../../../../protocol/client/mod.ts";
+import type {
+  ParentMessage,
+  WorkerRequest,
+} from "../../../../protocol/supervision/mod.ts";
+import type { Route } from "../../../../protocol/base/mod.ts";
 import {
   RepairContextBundleInputSchema,
   RepairContextSummaryInputSchema,

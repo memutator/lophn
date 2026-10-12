@@ -4,12 +4,10 @@ function unique<T>(values: readonly T[]): boolean {
 
 import { z } from "zod";
 import { versionIdSchema } from "../projects/values.ts";
-import {
-  atSchema,
-  errorBodySchema,
-  idSchema,
-  secretNameSchema,
-} from "../server/mod.ts";
+import { atSchema } from "../base/values.ts";
+import { errorBodySchema } from "../base/errors.ts";
+import { idSchema } from "../base/ids.ts";
+import { secretNameSchema } from "../secrets/secrets.ts";
 import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
 import { reportAcceptanceSchema } from "../problems/reports.ts";

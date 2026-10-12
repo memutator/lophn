@@ -12,12 +12,12 @@ import {
   projectUpdate,
   projectUpdated,
 } from "../../../protocol/projects/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { createPlaceNameReservation } from "../addressing/mod.ts";
 import {
   insertProject,

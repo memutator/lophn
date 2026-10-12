@@ -14,7 +14,7 @@ import {
 import type {
   SecretDestination,
   SecretUse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/secrets/mod.ts";
 import {
   type AuthDeadline,
   type CallbackListener,

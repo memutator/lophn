@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { actorSchema } from "../base/actor.ts";
 import {
-  actorSchema,
   archiveStateSchema,
   atSchema,
   seqSchema,
   sha256Schema,
-} from "../server/mod.ts";
+} from "../base/values.ts";
 import {
   appIdSchema,
   documentIdSchema,

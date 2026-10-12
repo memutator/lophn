@@ -1,7 +1,7 @@
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
-import { eventsList } from "../../../protocol/server/mod.ts";
-import type { ParentMessage } from "../../../protocol/server/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
 
 // runtime 기동 순서(architecture §2.1): bootstrap·machine credential 수신 → core read 연결
 // → event cursor 조회. 그 뒤의 복구·selector는 나중 작업이다.

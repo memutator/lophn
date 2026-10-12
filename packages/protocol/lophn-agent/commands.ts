@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { defineRead, idSchema, withReadCommon } from "../server/mod.ts";
+import { defineRead } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { withReadCommon } from "../base/envelope.ts";
 
 // Agent composer의 `/` 명령 registry(lophn-agent/commands). registry는 저장하는
 // 표가 아니라 열 때마다 계산하는 derived 값이라 command도 event도 없고 read 하나뿐이다.

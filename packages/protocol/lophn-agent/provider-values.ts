@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { atSchema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
 import {
-  atSchema,
-  idSchema,
   secretNameSchema,
   secretOpaqueRefSchema,
   secretRevisionSchema,
-} from "../server/mod.ts";
+} from "../secrets/secrets.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

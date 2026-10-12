@@ -1,15 +1,14 @@
 import { z } from "zod";
+import { actorSchema } from "../base/actor.ts";
 import {
-  actorSchema,
   archiveStateSchema,
   atSchema,
-  idempotencyKeySchema,
-  idSchema,
-  permanentBlobReferenceSchema,
-  runIdSchema,
   seqSchema,
   sha256Schema,
-} from "../server/mod.ts";
+} from "../base/values.ts";
+import { idempotencyKeySchema } from "../base/envelope.ts";
+import { idSchema, runIdSchema } from "../base/ids.ts";
+import { permanentBlobReferenceSchema } from "../storage/blob.ts";
 import {
   addressOutputSchema,
   documentRefOutputSchema,

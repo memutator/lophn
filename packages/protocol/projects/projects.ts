@@ -1,10 +1,6 @@
 import { z } from "zod";
-import {
-  archiveStateSchema,
-  atSchema,
-  defineEvent,
-  sha256Schema,
-} from "../server/mod.ts";
+import { archiveStateSchema, atSchema, sha256Schema } from "../base/values.ts";
+import { defineEvent } from "../events/events.ts";
 import { fixedDocumentRefOutputSchema } from "./address.ts";
 import {
   absolutePathSchema,

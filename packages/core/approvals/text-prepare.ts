@@ -12,7 +12,7 @@ import {
   cancelApprovalRequest,
   createApprovalRequest,
   rejectApprovalRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { type CommandEnvelope, type Writer } from "../storage/ledger/mod.ts";
 import type { KnownSecretMatch } from "../storage/ledger/mod.ts";

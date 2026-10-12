@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { atSchema, idSchema } from "../server/mod.ts";
+import { atSchema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
 
 export const visualKeySchema = z.string().regex(/^[a-z0-9_-]{1,64}$/);
 

@@ -3,10 +3,8 @@
 // 열지 않는다. core를 끄고 같은 홈으로 다시 띄운다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../base/mod.ts";
-import type {
-  ApprovalRequest,
-  AuthenticatedContext,
-} from "../../protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { ApprovalRequest } from "../../protocol/approvals/mod.ts";
 import { observeApprovals } from "./mod.ts";
 import { checkRestart } from "../storage/migration/mod.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";

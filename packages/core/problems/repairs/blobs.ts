@@ -4,7 +4,7 @@
 import {
   defineBlobField,
   defineBlobPurpose,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 
 export const FIX_BLOB_FIELDS = [
   defineBlobField({

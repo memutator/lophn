@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  atSchema,
-  durationMsSchema,
-  idSchema,
-  secretPreparationInputSchema,
-} from "../server/mod.ts";
+import { atSchema, durationMsSchema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { secretPreparationInputSchema } from "../secrets/secrets.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,

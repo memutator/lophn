@@ -2,13 +2,15 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   CONTROL_MAX_BYTES,
   type Diagnostic,
+  type WorkerRequest,
+} from "../../protocol/supervision/mod.ts";
+import {
   DIAGNOSTICS_WRITE_MAX_PENDING_BYTES,
   DIAGNOSTICS_WRITE_OP,
   diagnosticsWriteInputSchema,
   type DiagnosticsWriteOutput,
   diagnosticsWriteRequestSchema,
-  type WorkerRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/diagnostics/mod.ts";
 import type { SafeLog } from "./log.ts";
 
 // The owner supplies current authority, never a principal/process/scope submitted in payload.

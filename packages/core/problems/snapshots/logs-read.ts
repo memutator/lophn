@@ -3,8 +3,10 @@
 // 정리된 첨부(PNG·로그 조각·stack)는 store가 구별한 pruned를 GetSnapshot의 "정리됨"으로 잇는다.
 // core만 import한다(reader Worker와 settings 조립은 sqlite 의존을 끌어오지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
+import {
+  type ApiReadDefinition,
+  TargetAuthorization,
+} from "../../../protocol/server/mod.ts";
 import {
   getSnapshot,
   getSnapshotInputSchema,

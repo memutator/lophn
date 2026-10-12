@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Result } from "../../base/mod.ts";
 import { atSchema } from "../base/values.ts";
-import type { Sql } from "../server/mod.ts";
+import type { Sql } from "../server/registration.ts";
 import { definePort, type PortKey } from "../base/ports.ts";
 import { closureReasonSchema } from "./closing.ts";
 import { testKindSchema } from "./tests.ts";

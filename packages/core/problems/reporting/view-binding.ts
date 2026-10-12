@@ -9,7 +9,7 @@ import { observeViewError } from "../../../protocol/problems/mod.ts";
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import type { CoreSigner } from "../../apps/runtime/signing.ts";
 import type { WorkerRouteTarget } from "../../supervision/responsiveness/mod.ts";
 

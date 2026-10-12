@@ -2,14 +2,14 @@
 // runner는 요청별 좁은 machine credential로만 이 command를 부른다. 시작 시도는 한 요청에 한 번만 확정한다:
 // 두 번째 시작 시도는 누구의 것이든 conflict라 같은 요청은 다시 시작하지 않는다(R17).
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  CommandDefinition,
-  Input,
-  RequestContext,
-  Sql,
-  Tx,
+import {
+  type CommandDefinition,
+  type Input,
+  type RequestContext,
+  type Sql,
+  TargetAuthorization,
+  type Tx,
 } from "../../../protocol/server/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import {
   observeTestRequest,
   type requestTest,

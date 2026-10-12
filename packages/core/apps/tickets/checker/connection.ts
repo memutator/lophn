@@ -19,11 +19,11 @@ import {
   verificationRecorded,
 } from "../../../../protocol/problems/mod.ts";
 import type {
-  EventDefinition,
   EventVisibilityDefinition,
-  KindLaunchSpec,
   RequestContext,
 } from "../../../../protocol/server/mod.ts";
+import type { EventDefinition } from "../../../../protocol/events/mod.ts";
+import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import type { OperationPolicy } from "../../../server/identity/mod.ts";
 import { checkLaunchSpec } from "../../../supervision/security/mod.ts";
 import {

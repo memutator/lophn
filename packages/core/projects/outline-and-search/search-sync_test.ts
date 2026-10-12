@@ -8,15 +8,15 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  RequestContext,
-} from "../../../protocol/server/mod.ts";
 import {
+  type AuthenticatedContext,
+  type RequestContext,
   TargetAuthorization,
-  type WorkerRequest,
-  type WorkerResponse,
 } from "../../../protocol/server/mod.ts";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "../../../protocol/supervision/mod.ts";
 import { SEARCH_ROUTES } from "../../../protocol/projects/mod.ts";
 import {
   type WorkerRouteHandle,

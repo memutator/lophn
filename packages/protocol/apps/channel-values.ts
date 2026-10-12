@@ -1,11 +1,8 @@
 import { z } from "zod";
-import {
-  actorSchema,
-  atSchema,
-  idSchema,
-  jsonValueSchema,
-  sha256Schema,
-} from "../server/mod.ts";
+import { actorSchema } from "../base/actor.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonValueSchema } from "../base/json-values.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { releaseIdSchema } from "./apps.ts";
 

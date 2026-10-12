@@ -4,6 +4,7 @@
 // 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { routePath } from "../../../../protocol/base/mod.ts";
 import {
   bundleFinishCheckRoute,
   bundleSaveDraftRoute,
@@ -20,7 +21,6 @@ import {
   glossarySetRoute,
 } from "../../../../protocol/projects/mod.ts";
 import { AGENT_RUNTIME_PRINCIPAL } from "../../../../protocol/lophn-agent/mod.ts";
-import { routePath } from "../../../../protocol/server/mod.ts";
 import { operationCeiling } from "../../../server/identity/mod.ts";
 import { agentRuntimePolicies } from "../../run-loop/runtime.ts";
 import { evalContent } from "../../../projects/contexts/api/testing.ts";

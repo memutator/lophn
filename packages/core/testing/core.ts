@@ -13,17 +13,14 @@ import {
 } from "../../base/mod.ts";
 import type { Result } from "../../base/mod.ts";
 import { err, ok } from "../../base/mod.ts";
-import type {
-  ActorKind,
-  AuthenticatedContext,
-  CredentialConditions,
-  CredentialScope,
-} from "../../protocol/server/mod.ts";
+import { type ActorKind, actorSchema } from "../../protocol/base/mod.ts";
 import {
-  actorSchema,
+  type AuthenticatedContext,
   authenticatedContextSchema,
+  type CredentialConditions,
+  type CredentialScope,
 } from "../../protocol/server/mod.ts";
-import type { PreparedBlob } from "../../protocol/server/mod.ts";
+import type { PreparedBlob } from "../../protocol/storage/mod.ts";
 import { type Core, startCore } from "../main/daemon/core.ts";
 import type { AppsControl } from "../apps/control.ts";
 import type { ProcessSource } from "../apps/runtime/connect.ts";

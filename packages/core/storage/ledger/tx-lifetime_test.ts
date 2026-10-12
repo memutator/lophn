@@ -1,12 +1,9 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
-import {
-  type CommandDefinition,
-  defineEvent,
-  definePort,
-  type Tx,
-} from "../../../protocol/server/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import { defineEvent } from "../../../protocol/events/mod.ts";
+import { definePort } from "../../../protocol/base/mod.ts";
 import {
   commands,
   deps,

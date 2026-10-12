@@ -6,10 +6,10 @@ import { ROUTES as appsRoutes } from "../../../protocol/apps/mod.ts";
 import { ROUTES as codingAgentRoutes } from "../../../protocol/coding-agent/mod.ts";
 import { ROUTES as documentsRoutes } from "../../../protocol/projects/mod.ts";
 import { ROUTES as lophnAgentRoutes } from "../../../protocol/lophn-agent/mod.ts";
-import { ROUTES as platformRoutes } from "../../../protocol/server/mod.ts";
+import { ROUTES as platformRoutes } from "../../../protocol/registry.ts";
+import type { CommandRoute, Route } from "../../../protocol/base/mod.ts";
 import { ROUTES as problemsRoutes } from "../../../protocol/problems/mod.ts";
 import type { DocumentFileInput } from "../../../protocol/projects/mod.ts";
-import type { CommandRoute, Route } from "../../../protocol/server/mod.ts";
 import type { FlowClient } from "../document-save.ts";
 import type { PrepareBytes, SubmissionScope } from "../submission.ts";
 

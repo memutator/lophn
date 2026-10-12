@@ -25,12 +25,14 @@ import {
   projectUpdated,
 } from "../../../../protocol/projects/mod.ts";
 import type {
-  EventDefinition,
-  EventEnvelopeFor,
   EventVisibilityDefinition,
   ReadSnapshot,
   RequestContext,
 } from "../../../../protocol/server/mod.ts";
+import type {
+  EventDefinition,
+  EventEnvelopeFor,
+} from "../../../../protocol/events/mod.ts";
 import { createProjectEventVisibility } from "../../registry/mod.ts";
 import type { EventRegistration } from "../../../storage/ledger/mod.ts";
 import {

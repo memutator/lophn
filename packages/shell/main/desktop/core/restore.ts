@@ -4,10 +4,7 @@
 // 응답 결정 handle은 connection.registerConfirmation이 발급한다(confirmation_handle_register).
 // 결정 이름은 `restore_backup` 하나뿐이다(platform/backup-and-migration#R13). 이 모듈은 계획과
 // 결과의 바깥 모양만 돌려준다: pipe frame·handle 원문은 여기와 supervise.ts에만 있다.
-import {
-  type MainHello,
-  type MainToCoreMessage,
-} from "../../../../protocol/server/mod.ts";
+import type { MainHello, MainToCoreMessage } from "../../../../protocol/supervision/mod.ts";
 import type {
   RestoreLost,
   RestorePlanReply,

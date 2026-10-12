@@ -12,7 +12,7 @@ import {
 import {
   BLOB_PREPARATION_TTL_MS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/storage/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   MESSAGE_TEXT_CONTENT_MAX_BYTES,

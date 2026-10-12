@@ -3,11 +3,11 @@
 // 보호 입력에서 왔음을 확인한다. 값·hash·길이·일부는 이 표에 없다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
+import type { Sql } from "../../protocol/server/mod.ts";
 import {
   type SecretPreparation,
   secretPreparationSchema,
-  type Sql,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/secrets/mod.ts";
 
 export function recordSecretPreparation(
   sql: Pick<Sql, "run">,

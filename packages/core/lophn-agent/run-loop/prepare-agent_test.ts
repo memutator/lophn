@@ -14,7 +14,7 @@ import {
   sessionSummary,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { contextListRoute as documentContextList } from "../../../protocol/projects/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { productEnvironment, resolveAgent, roleCapsOf } from "../agents/mod.ts";
 import type { RunCredentials } from "./mod.ts";
 import { productDriver } from "../../main/agent-runtime/product-driver.ts";

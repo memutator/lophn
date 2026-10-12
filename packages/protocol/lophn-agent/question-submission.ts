@@ -1,11 +1,8 @@
 import { z } from "zod";
-import {
-  atSchema,
-  idSchema,
-  jsonObjectSchema,
-  sha256Schema,
-} from "../server/mod.ts";
-import { approvalActionSchema } from "../server/mod.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
+import { approvalActionSchema } from "../approvals/approvals.ts";
 import { sectionKeySchema } from "../projects/mod.ts";
 import { questionTextSchema } from "./question-text.ts";
 

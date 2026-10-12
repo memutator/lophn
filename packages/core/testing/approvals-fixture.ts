@@ -9,9 +9,9 @@ import {
   approvalBinding,
   type ApprovalRequest,
   grantApprovalRequest,
-  type JsonObject,
   rejectApprovalRequest,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
+import type { JsonObject } from "../../protocol/base/mod.ts";
 import { confirmationBinding } from "../server/identity/mod.ts";
 
 export type Reply = { status: number; body: Record<string, unknown> };

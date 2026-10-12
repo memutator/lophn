@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import {
-  eventsList,
-  type EventVisibilityDefinition,
-  type ReadSnapshot,
+import type {
+  EventVisibilityDefinition,
+  ReadSnapshot,
 } from "../../protocol/server/mod.ts";
+import { eventsList } from "../../protocol/events/mod.ts";
 import {
   commands,
   deps,

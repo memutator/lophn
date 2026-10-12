@@ -2,17 +2,16 @@
 import type { Result } from "../../../../base/mod.ts";
 import { CONTEXT_API_EVENTS } from "../../../../protocol/projects/mod.ts";
 import type {
-  CommandRoute,
   Compare,
-  EventDefinition,
   Input,
   Output,
-  ReadRoute,
   ReadSnapshot,
   RequestContext,
   Sql,
   Tx,
 } from "../../../../protocol/server/mod.ts";
+import type { CommandRoute, ReadRoute } from "../../../../protocol/base/mod.ts";
+import type { EventDefinition } from "../../../../protocol/events/mod.ts";
 import {
   type ContextApiCommands,
   createContextApiCommands,

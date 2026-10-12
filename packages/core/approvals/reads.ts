@@ -3,16 +3,18 @@
 // 본문은 blob 참조로 돌려주고 원문 조립은 화면(shell)이 blob read로 한다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
+} from "../../protocol/server/mod.ts";
 import {
   type ApprovalRequest,
   approvalsGet,
   approvalsList,
   type ApprovalUse,
   approvalUseSchema,
-  type ReadDefinition,
-  type ReadSnapshot,
-  type RequestContext,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 
 const REQUEST_COLUMNS =
   `id, requester, run, reason_blob, effect, action, expires_at,

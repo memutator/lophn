@@ -3,7 +3,7 @@
 // 보낸다: 같은 credential·입력의 결과와 거절이 같다(connection#R6, cli#R1). 읽기는 claim을 만들거나
 // 갱신하지 않고, 쓰기(record_fix·test)는 지정 ticket의 현재 claim이 있어야 한다. 문제 직접 claim·별도 시도
 // 단계·workflow·test result 입력·문제 닫힘 op는 표에 없다.
-import type { Route } from "../../../protocol/server/mod.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import { type ProblemOpDeps, runProblemOp } from "../../connection/mod.ts";
 import type { ToolOutput } from "./output.ts";
 

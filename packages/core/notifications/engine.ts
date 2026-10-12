@@ -4,7 +4,7 @@
 
 import { err, nextFromSeq, ok, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
-import { EVENT_BATCH_LIMITS } from "../../protocol/server/mod.ts";
+import { EVENT_BATCH_LIMITS } from "../../protocol/events/mod.ts";
 import { reactionIdempotencyKey } from "../storage/ledger/mod.ts";
 import type { EventBackend } from "../storage/ledger/mod.ts";
 import { NOTIFICATION_SUBSCRIBER } from "./commands.ts";

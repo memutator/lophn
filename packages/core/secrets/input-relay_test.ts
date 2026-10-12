@@ -10,11 +10,8 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { disconnectProvider } from "../../protocol/lophn-agent/mod.ts";
-import {
-  FrameDecoder,
-  removeSecret,
-  setSecret,
-} from "../../protocol/server/mod.ts";
+import { FrameDecoder } from "../../protocol/supervision/mod.ts";
+import { removeSecret, setSecret } from "../../protocol/secrets/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   derivedPath,

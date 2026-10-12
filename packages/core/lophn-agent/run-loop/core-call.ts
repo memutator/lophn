@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 
 // runtime이 core loopback을 부르는 얇은 호출이다. 응답은 route의 output schema로 다시 검사한다.
 

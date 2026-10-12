@@ -10,7 +10,10 @@ import {
   type Result,
 } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
-import type { Frame, WorkerRequest } from "../../../../protocol/server/mod.ts";
+import type {
+  Frame,
+  WorkerRequest,
+} from "../../../../protocol/supervision/mod.ts";
 import {
   observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,

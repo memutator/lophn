@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   ChildMessage,
   RedactResponse,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { createRedactLink, REDACT_OVERLAP } from "./redact-link.ts";
 import { redactValue, storeValue } from "./blobs.ts";
 

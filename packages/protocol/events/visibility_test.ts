@@ -6,14 +6,13 @@ import {
 } from "@std/assert";
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  definePort,
-  type EventEnvelopeFor,
-  type EventVisibilityDefinition,
-  type PortKey,
-  type ReadSnapshot,
-  type RequestContext,
-} from "../server/mod.ts";
+import { definePort, type PortKey } from "../base/ports.ts";
+import type { EventEnvelopeFor } from "./events.ts";
+import type {
+  EventVisibilityDefinition,
+  ReadSnapshot,
+  RequestContext,
+} from "../server/registration.ts";
 
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fdw1";
 const VERSION = "ver_01h455vb4pex5v6nkc6gd5fdw1";

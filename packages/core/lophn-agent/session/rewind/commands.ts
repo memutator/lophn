@@ -13,15 +13,15 @@ import {
   rewind,
   undoEdit,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type RequestContext,
-  type Sql,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  RequestContext,
+  Sql,
+  Tx,
 } from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   createAppStepCommands,
   hasAppSteps,

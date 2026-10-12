@@ -13,7 +13,7 @@ import {
 import {
   errorBodySchema,
   errorCodeForStatus,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/base/mod.ts";
 import type { FlowClient } from "./document-save.ts";
 
 export const APP_ENVIRONMENTS = ["preview", "live"] as const;

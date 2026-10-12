@@ -3,7 +3,7 @@ import {
   type ParentMessage,
   REDACT_UNITS_MAX,
   REDACT_WINDOWS_MAX,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/supervision/mod.ts";
 import { REDACTION_REPLACEMENT } from "../../../base/redaction/mod.ts";
 
 // model로 보낼 글의 안전화는 core가 한다(lophn-agent/harness/run-loop). 알려진 secret 값은 core의 보호

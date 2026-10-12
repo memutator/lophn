@@ -9,14 +9,17 @@ import {
   startModelCall,
   supplementModelCall,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { parseActor } from "../../../protocol/server/mod.ts";
-import type { Input, RequestContext } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
-  BlobFieldDefinition,
   CommandDefinition,
+  Input,
+  RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { defineBlobField } from "../../../protocol/server/mod.ts";
+import {
+  type BlobFieldDefinition,
+  defineBlobField,
+} from "../../../protocol/storage/mod.ts";
 import { assertCall, callFromRow, type CallRow } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.

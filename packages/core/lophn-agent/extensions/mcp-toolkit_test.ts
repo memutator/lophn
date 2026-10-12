@@ -7,7 +7,7 @@ import {
   mcpServersSetting,
   placeExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { routePath } from "../../../protocol/server/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import { checkMcpConfig, type McpConnectionsDeps } from "./mod.ts";
 import { spawnStdioMcp } from "./mod.ts";
 import type { StdioSpawnInput } from "./mod.ts";

@@ -8,7 +8,7 @@ import { sha256Hex } from "../../base/mod.ts";
 import type {
   ApprovalAction,
   ApprovalEffect,
-} from "../../protocol/server/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   action,
   APP,

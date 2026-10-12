@@ -13,12 +13,12 @@ import {
   appUnarchive,
   appUnarchived,
 } from "../../../protocol/apps/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import { placeNameReservation } from "../../../protocol/projects/mod.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";

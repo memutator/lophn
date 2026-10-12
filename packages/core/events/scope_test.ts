@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import {
-  type EventVisibilityDefinition,
-  type RequestContext,
-  type Subject,
+import type {
+  EventVisibilityDefinition,
+  RequestContext,
 } from "../../protocol/server/mod.ts";
+import type { Subject } from "../../protocol/events/mod.ts";
 import {
   commands,
   deps,

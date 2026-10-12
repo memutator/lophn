@@ -4,14 +4,14 @@
 // 코드는 import하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
-import {
-  type CommandDefinition,
-  type Input,
-  type Output,
-  parseActor,
-  type RequestContext,
-  type Tx,
+import type {
+  CommandDefinition,
+  Input,
+  Output,
+  RequestContext,
+  Tx,
 } from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   linkProblemInterpretation,
   problemInterpretationLinked,

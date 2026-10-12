@@ -1,13 +1,13 @@
 import { DatabaseSync } from "node:sqlite";
 import { ok, type Result } from "../../../base/mod.ts";
 import {
-  type PortKey,
   type Sql,
   type SqlRow,
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
 } from "../../../protocol/server/mod.ts";
+import type { PortKey } from "../../../protocol/base/mod.ts";
 import { addressingSchemaSteps } from "../addressing/mod.ts";
 import { projectsSchemaSteps } from "./schema.ts";
 

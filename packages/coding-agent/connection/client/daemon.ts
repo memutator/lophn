@@ -1,10 +1,8 @@
 // MCP·CLI가 같은 daemon 주소 순서를 쓰는 공통 찾기(connection#R15).
 // 명시 옵션 → 환경 설정 → 현재 daemon 연결 정보 → 설치 설정 → 기본 loopback port.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  DEFAULT_API_PORT,
-  runMetadataSchema,
-} from "../../../protocol/server/mod.ts";
+import { DEFAULT_API_PORT } from "../../../protocol/base/mod.ts";
+import { runMetadataSchema } from "../../../protocol/supervision/mod.ts";
 
 export const LOPHN_DAEMON_URL = "LOPHN_DAEMON_URL";
 

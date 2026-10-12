@@ -5,12 +5,9 @@ import {
   harnessEnabledSetting,
   harnessProfileSetting,
 } from "../../protocol/coding-agent/mod.ts";
-import {
-  type CommandDefinition,
-  defineCommand,
-  type SettingDefinition,
-  type Tx,
-} from "../../protocol/server/mod.ts";
+import type { CommandDefinition, Tx } from "../../protocol/server/mod.ts";
+import { defineCommand } from "../../protocol/base/mod.ts";
+import type { SettingDefinition } from "../../protocol/config/mod.ts";
 import {
   createSettingsCommands,
   SettingRegistry,

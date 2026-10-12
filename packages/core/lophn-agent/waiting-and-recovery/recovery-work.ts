@@ -16,7 +16,8 @@ import {
   toolCallList,
   type ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { eventsList, routePath } from "../../../protocol/server/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import type { CoreCall } from "../tool-judgment/mod.ts";
 import { callRevision } from "../tools/mod.ts";
 import {

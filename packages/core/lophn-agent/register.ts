@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
+import { defineSetting } from "../../protocol/config/mod.ts";
+import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import {
-  defineSetting,
-  type KindLaunchSpec,
+  type CommandDefinition,
+  type EventVisibilityDefinition,
   questionOption,
   type ReadDefinition,
+  type SqlRow,
+  type Tx,
 } from "../../protocol/server/mod.ts";
+import type { EventDefinition } from "../../protocol/events/mod.ts";
 import {
   defineTxPort,
   type EventRegistration,
@@ -33,13 +38,6 @@ import {
   withdrawAssignment,
 } from "../../protocol/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
-import type {
-  CommandDefinition,
-  EventDefinition,
-  EventVisibilityDefinition,
-  SqlRow,
-  Tx,
-} from "../../protocol/server/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,

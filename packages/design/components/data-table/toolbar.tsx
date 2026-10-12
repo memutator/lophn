@@ -12,7 +12,7 @@ import { Field } from "../field/field.tsx";
 import { IconButton } from "../icon-button/icon-button.tsx";
 import { Popover } from "../popover/popover.tsx";
 import { Select } from "../select/select.tsx";
-import { type TableColumn } from "../table/table.tsx";
+import type { TableColumn } from "../table/table.tsx";
 import type { PageSlice, SortDirection, SortState } from "./model.ts";
 import styles from "./data-table.module.css";
 

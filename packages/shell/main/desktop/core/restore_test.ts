@@ -4,7 +4,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { CoreToMainMessage, MainToCoreMessage } from "../../../../protocol/supervision/mod.ts";
+import type {
+  CoreToMainMessage,
+  MainToCoreMessage,
+} from "../../../../protocol/supervision/mod.ts";
 
 import { readRestorePlan, type RestorePipe, submitRestore } from "./restore.ts";
 

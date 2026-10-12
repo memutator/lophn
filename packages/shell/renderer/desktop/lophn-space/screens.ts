@@ -1,5 +1,5 @@
 // 여섯 형제의 이름과 아이콘. 이름은 wording catalog, 아이콘은 design이 고른다.
-import { type IconProps } from "@lophn/design/components";
+import type { IconProps } from "@lophn/design/components";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

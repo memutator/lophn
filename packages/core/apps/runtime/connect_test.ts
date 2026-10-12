@@ -8,7 +8,7 @@ import {
   decodeVerifyKey,
   verifySigned,
 } from "./entrypoint/signature.ts";
-import { call } from "../../../../apps/core/testing/approvals-fixture.ts";
+import { call } from "../../testing/approvals-fixture.ts";
 import {
   authorizationOf,
   control,

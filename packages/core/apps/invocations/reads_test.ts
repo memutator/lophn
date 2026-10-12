@@ -40,7 +40,7 @@ async function createLedgerHarness(options: {
   return harness.createLedgerHarness(options);
 }
 
-const registration = new URL("../../../../apps/core/apps.ts", import.meta.url);
+const registration = new URL("../register.ts", import.meta.url);
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const APP_B = "app_01h455vb4pex5v6nkc6gd5fdw2";

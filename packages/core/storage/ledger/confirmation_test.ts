@@ -4,9 +4,9 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { confirmationBinding } from "../../server/identity/mod.ts";
-import { guardedRoute } from "../../../../apps/core/testing/confirmation-registration_test.ts";
+import { guardedRoute } from "../../testing/confirmation-registration_test.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const HASH = "ab".repeat(32);
@@ -39,7 +39,7 @@ async function open(): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL(
-        "../../../../apps/core/testing/confirmation-registration_test.ts",
+        "../../testing/confirmation-registration_test.ts",
         import.meta.url,
       ),
     ],

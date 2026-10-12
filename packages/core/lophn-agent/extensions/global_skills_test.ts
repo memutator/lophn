@@ -4,7 +4,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 
 // ReadGlobalSkills. 실제 reader(harness)와 실제 임시 폴더를 쓴다. 자리 skill은 place-extension-settings가 맡고
 // 이 읽기는 전역 층(등록 폴더·개인 보관소·동봉)만 본다.

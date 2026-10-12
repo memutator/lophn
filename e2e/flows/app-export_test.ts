@@ -19,7 +19,7 @@ import {
   seedBundleAndSdk,
   seedDatabase,
   seedLedger,
-} from "../../apps/core/testing/app-export-fixtures.ts";
+} from "../../packages/core/testing/app-export-fixtures.ts";
 
 const SECRET_VALUE = "flow-secret-value-0a9b8c7d";
 
@@ -85,7 +85,8 @@ Deno.test({
       args: [
         "run",
         "--allow-all",
-        new URL("../../apps/core/main.ts", import.meta.url).pathname,
+        new URL("../../packages/core/main/daemon/main.ts", import.meta.url)
+          .pathname,
         "--port=0",
       ],
       env: { LOPHN_HOME: home },

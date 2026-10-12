@@ -3,11 +3,8 @@
 // 선언을 모르는 것이고 보일 automation이 없다(`reads_test.ts`가 선언을 아는 snapshot에서 사실 구분을
 // 본다). 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import {
-  call,
-  command,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
+import { call, command } from "../../testing/approvals-fixture.ts";
+import { createCoreHarness } from "../../testing/core.ts";
 import { appAutomations } from "../../../protocol/apps/mod.ts";
 import {
   blueprint,
@@ -16,8 +13,8 @@ import {
 } from "../releases/testing/mod.ts";
 
 Deno.test("apps/automations#R10: apps.automations는 실제 core에서 닿고 선언을 모르면 빈 목록, 범위 밖 앱은 없는 앱과 같다", async () => {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const opened = await createCoreHarness({
     io: true,
     teams: [
@@ -25,8 +22,8 @@ Deno.test("apps/automations#R10: apps.automations는 실제 core에서 닿고 �
       { createLedgerRegistration: apps.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -83,8 +80,8 @@ Deno.test("apps/automations#R10: apps.automations는 실제 core에서 닿고 �
 });
 
 Deno.test("apps/automations#R10, apps/automations#R13: 채택된 release의 automation 선언이 실제 core에서 보이고 external은 켜는 승인 뒤에만 승인 이유가 없어진다", async () => {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const fixtures = await import("../releases/testing/mod.ts");
   const opened = await createCoreHarness({
     io: true,
@@ -94,8 +91,8 @@ Deno.test("apps/automations#R10, apps/automations#R13: 채택된 release의 auto
       { createLedgerRegistration: fixtures.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
       new URL("../releases/testing/mod.ts", import.meta.url).href,
     ],
   });

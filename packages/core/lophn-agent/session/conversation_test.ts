@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import type { LedgerHarness } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerHarness } from "../../testing/ledger.ts";
 import { envelope } from "../run-loop/testing/mod.ts";
 import { bodyHashOf, cred, id, textContent } from "./testing/mod.ts";
 import {

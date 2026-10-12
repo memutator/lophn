@@ -18,7 +18,7 @@ import {
 } from "../../packages/protocol/server/mod.ts";
 import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { executeTool } from "../../packages/core/lophn-agent/tools/mod.ts";
-import { call as httpCall } from "../core/testing/approvals-fixture.ts";
+import { call as httpCall } from "../../packages/core/testing/approvals-fixture.ts";
 import {
   declare,
   grant,

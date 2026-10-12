@@ -7,7 +7,7 @@ import {
   codeOf,
   command,
   inspect,
-} from "../../../../../apps/core/testing/approvals-fixture.ts";
+} from "../../../testing/approvals-fixture.ts";
 import { runActivation } from "./orchestrator.ts";
 import { activationWorld, PREVIOUS } from "../testing/activation.ts";
 import { sha256 } from "../testing/mod.ts";

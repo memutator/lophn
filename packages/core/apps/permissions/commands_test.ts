@@ -22,12 +22,9 @@ import {
   decide,
   inspect,
   type Reply,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import { confirmationFor } from "../../../../apps/core/testing/confirmation-fixture.ts";
-import {
-  type CoreHarness,
-  createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+} from "../../testing/approvals-fixture.ts";
+import { confirmationFor } from "../../testing/confirmation-fixture.ts";
+import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 import type { AppDeclarations } from "./declarations.ts";
 import { effectiveScope } from "./effective.ts";
 import { ok } from "../../../base/mod.ts";
@@ -87,8 +84,8 @@ const MACHINE_OPERATIONS = [
 ];
 
 async function open(withFixtures = true): Promise<World> {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const fixtures = await import("./testing/mod.ts");
   // approval 설명 글은 blob으로 준비되므로 I/O worker가 필요하다(platform#305).
   const opened = await createCoreHarness({
@@ -102,8 +99,8 @@ async function open(withFixtures = true): Promise<World> {
         : []),
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
       ...(withFixtures
         ? [new URL("./testing/mod.ts", import.meta.url).href]
         : []),

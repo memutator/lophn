@@ -1,13 +1,13 @@
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
-import type { TeamModule } from "../../../../apps/core/registration.ts";
+import { createCoreHarness } from "../../testing/core.ts";
+import type { TeamModule } from "../../main/daemon/registration.ts";
 import { guideBumpSections, permissionIncreaseIn } from "./model.ts";
 
 // SDK catalog 읽기(apps/sdk#R2, R3, R4, R6, R12). 실제 core(temp LOPHN_HOME)를 띄우고
 // HTTP로 catalog read가 닿는지 본다.
 
 async function appsTeam(): Promise<TeamModule> {
-  const module = await import("../../../../apps/core/apps.ts");
+  const module = await import("../register.ts");
   return { createLedgerRegistration: module.createLedgerRegistration };
 }
 
@@ -66,7 +66,7 @@ Deno.test("apps/sdk#R2: 한 Package에 한 kind를 담는다", async () => {
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -147,7 +147,7 @@ Deno.test("apps/sdk#R3: 목록에서 이름·목적·version·API·permission·p
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -203,7 +203,7 @@ Deno.test("apps/sdk#R4: R4 이름 1.0.0이 catalogue 대상이고 withheld는 �
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -281,7 +281,7 @@ Deno.test("apps/sdk#R6: @me가 먼저 정렬되고 개인 등록은 forbidden이
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
@@ -356,7 +356,7 @@ Deno.test("apps/sdk#R8: 같은 version의 다른 hash는 conflict이고 같은 h
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);

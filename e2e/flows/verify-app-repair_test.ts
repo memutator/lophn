@@ -26,8 +26,8 @@ import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts"
 import {
   type MadeFixture,
   madeFixture,
-} from "../../apps/core/testing/problems-app-test.ts";
-import { BROKEN_SCENARIO } from "../../apps/core/testing/problems-reproduction.ts";
+} from "../../packages/core/testing/problems-app-test.ts";
+import { BROKEN_SCENARIO } from "../../packages/core/testing/problems-reproduction.ts";
 import {
   canonicalHash,
   canonicalJson,
@@ -47,22 +47,22 @@ import {
 import {
   type CoreHarness,
   createCoreHarness,
-} from "../../apps/core/testing/core.ts";
-import { startCore } from "../../apps/core/core.ts";
-import { createLedgerRegistration as createDocumentsRegistration } from "../../apps/core/documents.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
-import { codingAgentConnectionDefinitions } from "../../apps/core/coding-agent.ts";
+} from "../../packages/core/testing/core.ts";
+import { startCore } from "../../packages/core/main/daemon/core.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../../packages/core/projects/register.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../packages/core/apps/register.ts";
+import { codingAgentConnectionDefinitions } from "../../packages/core/server/identity/coding-connection.ts";
 import {
   createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
   problemsTestDefinitions,
-} from "../../apps/core/problems.ts";
+} from "../../packages/core/problems/register.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
-} from "../../apps/core/lophn-agent.ts";
-import { ticketDefinitions } from "../../apps/core/tickets.ts";
-import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/core/ticket-ports.ts";
+} from "../../packages/core/lophn-agent/register.ts";
+import { ticketDefinitions } from "../../packages/core/apps/tickets/register.ts";
+import { createCoreRegistration as createTicketPortsRegistration } from "../../packages/core/apps/tickets/ports.ts";
 import {
   type RepairScriptResult,
   type RepairStage,
@@ -461,17 +461,28 @@ async function openLedger(options?: {
       { createCoreRegistration: createTicketPortsRegistration },
     ],
     teamModules: [
-      new URL("../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../apps/core/apps.ts", import.meta.url).href,
-      new URL("../../apps/core/problems.ts", import.meta.url).href,
-      new URL("../../apps/core/coding-agent.ts", import.meta.url).href,
-      new URL("../../apps/core/lophn-agent.ts", import.meta.url).href,
-      new URL("../../apps/core/tickets.ts", import.meta.url).href,
+      new URL("../../packages/core/projects/register.ts", import.meta.url).href,
+      new URL("../../packages/core/apps/register.ts", import.meta.url).href,
+      new URL("../../packages/core/problems/register.ts", import.meta.url).href,
+      new URL(
+        "../../packages/core/server/identity/coding-connection.ts",
+        import.meta.url,
+      ).href,
+      new URL("../../packages/core/lophn-agent/register.ts", import.meta.url)
+        .href,
+      new URL("../../packages/core/apps/tickets/register.ts", import.meta.url)
+        .href,
       // ticket-ports와 같은 port key를 같이 올리면 writer registry가 닫힌다.
       // 이 둘은 schema 단계가 없고, 제품 shell은 자기 ticket-ports로 읽기만 한다.
-      new URL("../../apps/core/ticket-claim-ports_test.ts", import.meta.url)
+      new URL(
+        "../../packages/core/apps/tickets/claim-ports_test.ts",
+        import.meta.url,
+      )
         .href,
-      new URL("../../apps/core/repair-context-ports_test.ts", import.meta.url)
+      new URL(
+        "../../packages/core/problems/repairs/context-ports_test.ts",
+        import.meta.url,
+      )
         .href,
     ],
     coding: { keychain, loaders: [] },
@@ -3865,13 +3876,19 @@ async function recordLateReport(
       { createCoreRegistration: createTicketPortsRegistration },
     ],
     teamModules: [
-      new URL("../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../apps/core/apps.ts", import.meta.url).href,
-      new URL("../../apps/core/problems.ts", import.meta.url).href,
-      new URL("../../apps/core/coding-agent.ts", import.meta.url).href,
-      new URL("../../apps/core/lophn-agent.ts", import.meta.url).href,
-      new URL("../../apps/core/tickets.ts", import.meta.url).href,
-      new URL("../../apps/core/ticket-ports.ts", import.meta.url).href,
+      new URL("../../packages/core/projects/register.ts", import.meta.url).href,
+      new URL("../../packages/core/apps/register.ts", import.meta.url).href,
+      new URL("../../packages/core/problems/register.ts", import.meta.url).href,
+      new URL(
+        "../../packages/core/server/identity/coding-connection.ts",
+        import.meta.url,
+      ).href,
+      new URL("../../packages/core/lophn-agent/register.ts", import.meta.url)
+        .href,
+      new URL("../../packages/core/apps/tickets/register.ts", import.meta.url)
+        .href,
+      new URL("../../packages/core/apps/tickets/ports.ts", import.meta.url)
+        .href,
     ],
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));

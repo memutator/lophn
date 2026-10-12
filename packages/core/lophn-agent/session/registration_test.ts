@@ -6,7 +6,7 @@ import {
   registerMessageBodyRef,
   textContent,
 } from "./testing/mod.ts";
-import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerTestRegistration } from "../../testing/ledger.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,

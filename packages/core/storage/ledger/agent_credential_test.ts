@@ -14,7 +14,7 @@ import {
   type LedgerHarness,
   type LedgerTestEnvironment,
   type LedgerTestRegistration,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

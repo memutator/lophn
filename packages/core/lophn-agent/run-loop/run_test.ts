@@ -7,7 +7,7 @@ import type {
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { envelope as assignmentEnvelope } from "./testing/mod.ts";
 
 // run ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.

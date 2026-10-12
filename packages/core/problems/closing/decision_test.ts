@@ -14,7 +14,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { APP_A, COLLECTOR, reportInput } from "../grouping/testing/mod.ts";
 import { offersFixedConfirmation } from "./mod.ts";
 

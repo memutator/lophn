@@ -43,9 +43,9 @@ async function createLedgerHarness(options: {
   return harness.createLedgerHarness(options);
 }
 
-const registration = new URL("../../../../apps/core/apps.ts", import.meta.url);
+const registration = new URL("../register.ts", import.meta.url);
 const documents = new URL(
-  "../../../../apps/core/documents.ts",
+  "../../projects/register.ts",
   import.meta.url,
 );
 // active_release 기입은 writer transaction 안에서 dispatch하는 fixture command로

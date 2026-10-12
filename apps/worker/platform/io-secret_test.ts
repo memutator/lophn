@@ -15,7 +15,7 @@ import {
   createSecretWork,
   type FakeKeychain,
 } from "../../../packages/core/secrets/mod.ts";
-import { inProcessIo } from "../../core/testing/in-process-io.ts";
+import { inProcessIo } from "../../../packages/core/testing/in-process-io.ts";
 import { createSecretPipe } from "./secrets.ts";
 
 const VALUE = "protected-input-value-4711";

@@ -3,7 +3,7 @@
 // 앱 direct 호출에 붙여야만 handler가 불린다. 사람 데이터 root는 열지 않고 core는 temp 홈에서 뜬다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
+import { createCoreHarness } from "../../testing/core.ts";
 import {
   actionOf,
   call,
@@ -12,9 +12,9 @@ import {
   createInput,
   decide,
   inspect,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import { createLedgerRegistration } from "../../../../apps/core/apps.ts";
-import type { CoreHarness } from "../../../../apps/core/testing/core.ts";
+} from "../../testing/approvals-fixture.ts";
+import { createLedgerRegistration } from "../register.ts";
+import type { CoreHarness } from "../../testing/core.ts";
 import { canonicalInputHash } from "../blueprint/mod.ts";
 import type {
   ApprovalRequest,
@@ -102,7 +102,7 @@ async function open(directSocket?: string): Promise<World> {
     io: true,
     teams: [{ createLedgerRegistration }],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
     nowMs: Date.parse("2026-10-04T00:00:00.000Z"),
   });

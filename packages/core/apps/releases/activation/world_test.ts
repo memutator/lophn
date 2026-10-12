@@ -9,11 +9,8 @@ import {
   decide,
   inspect,
   type Reply,
-} from "../../../../../apps/core/testing/approvals-fixture.ts";
-import {
-  type CoreHarness,
-  createCoreHarness,
-} from "../../../../../apps/core/testing/core.ts";
+} from "../../../testing/approvals-fixture.ts";
+import { type CoreHarness, createCoreHarness } from "../../../testing/core.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   blueprint,
@@ -71,8 +68,8 @@ async function login(
 }
 
 export async function open(): Promise<World> {
-  const documents = await import("../../../../../apps/core/documents.ts");
-  const apps = await import("../../../../../apps/core/apps.ts");
+  const documents = await import("../../../projects/register.ts");
+  const apps = await import("../../register.ts");
   const fixtures = await import("../testing/mod.ts");
   const opened = await createCoreHarness({
     io: true,
@@ -82,8 +79,8 @@ export async function open(): Promise<World> {
       { createLedgerRegistration: fixtures.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../../projects/register.ts", import.meta.url).href,
+      new URL("../../register.ts", import.meta.url).href,
       new URL("../testing/mod.ts", import.meta.url).href,
     ],
   });

@@ -1,0 +1,178 @@
+// documents가 event 구독에 싣는 것: 팀 event 정의, 공개 정책, 그리고 core 안에서 documents
+// 관측을 맞추는 구독자(machine:documents-feed)가 보는 event 범위(documents plan Q17).
+// 이 구독자는 core가 직접 돌리는 machine principal이고 token이 없다. 사람 token·agent·app
+// credential은 이 principal이 될 수 없어서 아래 정책의 feed 분기에 닿지 않는다.
+// event는 깨우는 신호일 뿐이다. 구독자는 payload로 상태를 만들지 않고, 깨어나면 같은
+// ledger snapshot read(project.tracking_roots·관측 근거)를 다시 한다.
+import { ok, type Result } from "../../../../base/mod.ts";
+import {
+  CONTEXT_API_EVENTS,
+  contextViolationsRecordedEvent,
+  documentArchived,
+  documentCreated,
+  documentMoved,
+  documentRenamed,
+  documentRestored,
+  documentSaved,
+  documentSourceChanged,
+  documentUnarchived,
+  documentUpdated,
+  EVENTS,
+  projectArchived,
+  projectCreated,
+  projectTrackingChanged,
+  projectUnarchived,
+  projectUpdated,
+} from "../../../../protocol/projects/mod.ts";
+import type {
+  EventDefinition,
+  EventEnvelopeFor,
+  EventVisibilityDefinition,
+  ReadSnapshot,
+  RequestContext,
+} from "../../../../protocol/server/mod.ts";
+import { createProjectEventVisibility } from "../../registry/mod.ts";
+import type { EventRegistration } from "../../../storage/ledger/mod.ts";
+import {
+  isAssignmentReactions,
+  isNotifications,
+} from "../../../main/daemon/platform-register.ts";
+import { CONTEXT_WORKER_PRINCIPAL } from "../../contexts/register.ts";
+
+export const DOCUMENTS_FEED_PRINCIPAL = "machine:documents-feed";
+
+// core가 ledger credential 기록으로 심는 자격이다. 읽는 operation은 ListEvents 하나다.
+export const DOCUMENTS_FEED_CONTEXT: RequestContext = {
+  principal: DOCUMENTS_FEED_PRINCIPAL,
+  actor: "machine",
+  scope: { operations: ["ListEvents"], targets: {} },
+  conditions: {},
+  credential_ref: DOCUMENTS_FEED_PRINCIPAL,
+};
+
+// tracking 규칙·root(project.tracking_roots)와 경로→문서 연결(원본 hash·최신 판·보관)이
+// 바뀌는 event다. 이 밖의 documents event는 feed에도 닫혀 있다.
+const FEED_EVENTS = [
+  projectCreated,
+  projectUpdated,
+  projectTrackingChanged,
+  projectArchived,
+  projectUnarchived,
+  documentCreated,
+  documentSaved,
+  documentSourceChanged,
+  documentArchived,
+  documentUnarchived,
+  documentRestored,
+  // 이름·자리·제목이 바뀌면 문서 revision이 바뀐다. 관측 근거(document_revision)가 낡으면
+  // 파일 관측의 저장이 conflict라서 이 event도 근거를 다시 맞추는 신호다.
+  documentMoved,
+  documentRenamed,
+  documentUpdated,
+] as const;
+
+const FEED_TYPES: ReadonlySet<string> = new Set(
+  FEED_EVENTS.map((event) => event.type),
+);
+
+export function isDocumentsFeedEvent(type: string): boolean {
+  return FEED_TYPES.has(type);
+}
+
+function isFeed(ctx: RequestContext): boolean {
+  return ctx.actor === "machine" &&
+    ctx.principal === DOCUMENTS_FEED_PRINCIPAL &&
+    ctx.credential_ref === DOCUMENTS_FEED_PRINCIPAL;
+}
+
+type Handle<D extends EventDefinition> = EventVisibilityDefinition<D>["handle"];
+
+// feed에는 열고, 나머지 자격은 owner의 기존 정책(없으면 닫힘)을 따른다.
+function withFeed<D extends EventDefinition>(
+  event: D,
+  owner?: Handle<D>,
+): EventVisibilityDefinition {
+  const policy: EventVisibilityDefinition<D> = {
+    event,
+    handle(
+      snapshot: ReadSnapshot,
+      ctx: RequestContext,
+      envelope: EventEnvelopeFor<D>,
+    ): Result<boolean> {
+      if (isFeed(ctx)) return ok(true);
+      return owner ? owner(snapshot, ctx, envelope) : ok(false);
+    },
+  };
+  return policy as unknown as EventVisibilityDefinition;
+}
+
+// project 보관·보관 해제는 assignments 반응 구독자도 읽는다. 그 자리의 켜진 assignment를 멈추고
+// 다시 켜는 계기다(lophn-agent/assignments#R14). 다른 자격은 feed와 owner 정책 그대로다.
+function withFeedAndAssignments<D extends EventDefinition>(
+  event: D,
+  owner: Handle<D>,
+): EventVisibilityDefinition {
+  const base = withFeed(event, owner) as unknown as EventVisibilityDefinition<
+    D
+  >;
+  const policy: EventVisibilityDefinition<D> = {
+    event,
+    handle(snapshot, ctx, envelope) {
+      return isAssignmentReactions(ctx)
+        ? ok(true)
+        : base.handle(snapshot, ctx, envelope);
+    },
+  };
+  return policy as unknown as EventVisibilityDefinition;
+}
+
+// context worker(machine:context-worker)가 보는 context event. 판 제출·적용·되돌림과 보관이
+// index 감시 폴더와 검사 일을 바꾼다. 사람 token은 owner 정책으로 읽는다.
+function isContextWorker(ctx: RequestContext): boolean {
+  return ctx.actor === "machine" && ctx.principal === CONTEXT_WORKER_PRINCIPAL;
+}
+
+// context event의 공개 정책: 사람(user)과 context worker가 읽고, 다른 자격에는 숨긴다.
+// ContextViolationsRecorded는 notifications 계기라 그 구독자에도 연다.
+function contextVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  const notified = event.type === contextViolationsRecordedEvent.type;
+  return {
+    event,
+    handle: (_snapshot, ctx) =>
+      ok(
+        ctx.actor === "user" || isContextWorker(ctx) ||
+          (notified && isNotifications(ctx)),
+      ),
+  };
+}
+
+export function createDocumentsEventRegistration(): EventRegistration {
+  const projects = createProjectEventVisibility();
+  return {
+    events: EVENTS,
+    visibility: [
+      withFeed(projectCreated, projects.created.handle),
+      withFeed(projectUpdated, projects.updated.handle),
+      // 규칙 변경의 사람 공개는 owner가 아직 정하지 않았다. feed에만 연다.
+      withFeed(projectTrackingChanged),
+      withFeedAndAssignments(projectArchived, projects.archived.handle),
+      withFeedAndAssignments(projectUnarchived, projects.unarchived.handle),
+      withFeed(documentCreated),
+      withFeed(documentSaved),
+      withFeed(documentSourceChanged),
+      withFeed(documentArchived),
+      withFeed(documentUnarchived),
+      withFeed(documentRestored),
+      // search consumer(derived index)가 읽는 event. 자리·이름·제목이 바뀌면 index가 따라간다.
+      // 사람 공개는 owner가 아직 정하지 않았다. feed에만 연다.
+      withFeed(documentMoved),
+      withFeed(documentRenamed),
+      withFeed(documentUpdated),
+      ...CONTEXT_API_EVENTS.map((event) =>
+        contextVisibility(event) as unknown as EventVisibilityDefinition
+      ),
+    ],
+  };
+}

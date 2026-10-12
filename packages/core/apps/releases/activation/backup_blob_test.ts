@@ -7,7 +7,7 @@ import {
   codeOf,
   command,
   inspect,
-} from "../../../../../apps/core/testing/approvals-fixture.ts";
+} from "../../../testing/approvals-fixture.ts";
 import {
   prepare,
   recordBackup,

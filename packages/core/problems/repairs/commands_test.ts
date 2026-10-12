@@ -39,7 +39,7 @@ async function createLedgerHarness(options: {
   credentials: readonly AuthenticatedContext[];
   nowMs?: number;
 }): Promise<Result<LedgerHarness>> {
-  const harness = await import("../../../../apps/core/testing/ledger.ts");
+  const harness = await import("../../testing/ledger.ts");
   return harness.createLedgerHarness(options);
 }
 

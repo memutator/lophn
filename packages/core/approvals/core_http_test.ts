@@ -5,7 +5,7 @@
 // apps/core/platform_test.ts가 본다.
 
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../apps/core/testing/core.ts";
+import { createCoreHarness } from "../testing/core.ts";
 
 const NOW = Date.UTC(2026, 9, 5);
 

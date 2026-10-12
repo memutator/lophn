@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
-import type { TeamModule } from "../../../../apps/core/registration.ts";
+import { createCoreHarness } from "../../testing/core.ts";
+import type { TeamModule } from "../../main/daemon/registration.ts";
 
 // 실제 core(temp LOPHN_HOME)를 띄우고 HTTP로 command·read가 닿는지 확인한다.
 // lead 요구: "실제 core 통합 테스트(temp LOPHN_HOME)로 command·read가 HTTP로 닿는지 확인한다".
@@ -13,7 +13,7 @@ const LATER = "2026-10-04T00:00:01.000Z";
 
 async function appsTeam(): Promise<TeamModule> {
   // 팀 등록 모듈을 dynamic import한다. 앱 등록은 같은 모듈에서 reader도 낸다.
-  const module = await import("../../../../apps/core/apps.ts");
+  const module = await import("../register.ts");
   return { createLedgerRegistration: module.createLedgerRegistration };
 }
 
@@ -21,7 +21,7 @@ Deno.test("apps/invocations#R3: command와 read가 HTTP로 닿는다", async () 
   const opened = await createCoreHarness({
     teams: [await appsTeam()],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);

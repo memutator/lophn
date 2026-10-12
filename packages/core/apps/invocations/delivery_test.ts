@@ -1,8 +1,8 @@
 // 후행 전달(apps/invocations#R1, R2, R5, R18, R19)을 실제 앱 runtime entrypoint와 supervisor 쪽 broker·
 // 전달 목록, 실제 core(temp LOPHN_HOME)의 record_* command로 본다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
-import { createLedgerRegistration } from "../../../../apps/core/apps.ts";
+import { createCoreHarness } from "../../testing/core.ts";
+import { createLedgerRegistration } from "../register.ts";
 import { FrameDecoder } from "../../../protocol/server/mod.ts";
 import {
   INVOCATION_DELIVERY_BACKOFF_MAX_MS,
@@ -53,7 +53,7 @@ installHandlers([
 
 const TEAMS = [{ createLedgerRegistration }];
 const MODULES = [
-  new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+  new URL("../register.ts", import.meta.url).href,
 ];
 
 function reset() {

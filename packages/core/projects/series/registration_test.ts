@@ -1,5 +1,5 @@
 import type { Result } from "../../../base/mod.ts";
-import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerTestRegistration } from "../../testing/ledger.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { createSeriesCommands } from "./commands.ts";
 import { seriesSchemaSteps } from "./mod.ts";

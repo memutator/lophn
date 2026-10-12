@@ -5,7 +5,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import {
   APP,
   GLOBAL_SERVER_NAME,

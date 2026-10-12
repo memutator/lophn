@@ -1,10 +1,10 @@
 // @lophn/format-document의 검사다(apps/sdk#R2, R4, apps#T29 완료 기준).
 // catalog 등록은 실제 core(temp LOPHN_HOME)를 띄워 HTTP로 본다.
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../apps/core/testing/core.ts";
-import type { TeamModule } from "../../../apps/core/registration.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../../apps/core/apps.ts";
-import { createLedgerRegistration as createDocumentsRegistration } from "../../../apps/core/documents.ts";
+import { createCoreHarness } from "../../core/testing/core.ts";
+import type { TeamModule } from "../../core/main/daemon/registration.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../core/apps/register.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../../core/projects/register.ts";
 import { installPackage } from "../../core/apps/packages/install.ts";
 import {
   BUILTIN_MODULE_HASH,
@@ -97,7 +97,7 @@ Deno.test("apps/sdk#R2: Package는 catalog에 kind=format 1.0.0으로 등록된�
   const opened = await createCoreHarness({
     teams,
     teamModules: [
-      new URL("../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../core/apps/register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);

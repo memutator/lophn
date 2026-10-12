@@ -5,7 +5,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { createProviderSecretRefSource } from "./mod.ts";
 
 // 사람 결정(2026-10-12): provider 하나에 credential 하나다. Connect는 credential까지 받는 RegisterProvider

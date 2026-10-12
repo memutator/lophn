@@ -5,7 +5,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 
 // agents ledger 시험이 함께 쓰는 자격과 도움. 제품 코드와 mod.ts는 import하지 않는다.
 // 파일은 harness의 임시 폴더(ledger 파일이 있는 폴더 = data root)에 둔다.

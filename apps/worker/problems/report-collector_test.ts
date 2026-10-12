@@ -22,7 +22,7 @@ import {
 import { ok } from "../../../packages/base/mod.ts";
 import { recordReportInputSchema } from "../../../packages/protocol/problems/mod.ts";
 import type { AppLogQuery } from "../../../packages/core/problems/snapshots/mod.ts";
-import { reportCollectorSpec } from "../../core/problems-runner.ts";
+import { reportCollectorSpec } from "../../../packages/core/problems/tests/runner.ts";
 import { createCollectorQueue } from "../../../packages/core/problems/reporting/mod.ts";
 import {
   createKnownSecretRegistry,

@@ -106,7 +106,7 @@ export async function openHarness(
   credentials: readonly AuthenticatedContext[],
   nowMs = NOW,
 ): Promise<LedgerHarness> {
-  const harness = await import("../../../apps/core/testing/ledger.ts");
+  const harness = await import("../testing/ledger.ts");
   return value(
     await harness.createLedgerHarness({
       registrationModules: [REGISTRATION],

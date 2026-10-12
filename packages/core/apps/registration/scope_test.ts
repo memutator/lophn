@@ -34,9 +34,9 @@ type LedgerHarness = {
   close(): Promise<void>;
 };
 
-const registration = new URL("../../../../apps/core/apps.ts", import.meta.url);
+const registration = new URL("../register.ts", import.meta.url);
 const documents = new URL(
-  "../../../../apps/core/documents.ts",
+  "../../projects/register.ts",
   import.meta.url,
 );
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";

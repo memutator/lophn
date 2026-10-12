@@ -1,7 +1,7 @@
 import type {
   LedgerTestRegistration,
   LedgerTestRegistrationModule,
-} from "../../../apps/core/testing/ledger-types.ts";
+} from "../testing/ledger-types.ts";
 import {
   createNotificationCommand,
   markNotificationReadCommand,

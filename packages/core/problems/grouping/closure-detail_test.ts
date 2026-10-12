@@ -12,7 +12,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { MACHINE_TEST } from "../closing/testing/mod.ts";
 import { APP_A, COLLECTOR, reportInput } from "./testing/mod.ts";
 

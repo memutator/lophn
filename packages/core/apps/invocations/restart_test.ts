@@ -7,8 +7,8 @@ import type {
   ApprovalRequest,
   AuthenticatedContext,
 } from "../../../protocol/server/mod.ts";
-import { type Core, startCore } from "../../../../apps/core/core.ts";
-import { createLedgerRegistration } from "../../../../apps/core/apps.ts";
+import { type Core, startCore } from "../../main/daemon/core.ts";
+import { createLedgerRegistration } from "../register.ts";
 import {
   actionOf,
   call,
@@ -17,7 +17,7 @@ import {
   decide,
   inspect,
   type Server,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
+} from "../../testing/approvals-fixture.ts";
 import { observeInvocations } from "./restart.ts";
 import { DatabaseSync } from "node:sqlite";
 
@@ -60,7 +60,7 @@ async function boot(
     port: 0,
     teams: [{ createLedgerRegistration }],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
     clock,
     // 시작마다 다른 seed다. 같은 seed는 같은 credential ref를 만들어 기록이 겹친다.

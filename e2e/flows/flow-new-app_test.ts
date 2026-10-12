@@ -30,18 +30,18 @@ import {
   removeTree,
   scaffoldInto,
 } from "../../packages/core/apps/packages/testing/mod.ts";
-import { madeFixture } from "../../apps/core/testing/problems-app-test.ts";
-import { codingAgentConnectionDefinitions } from "../../apps/core/coding-agent.ts";
-import { ticketDefinitions } from "../../apps/core/tickets.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
-import { createLedgerRegistration as createDocumentsRegistration } from "../../apps/core/documents.ts";
-import { lophnAgentDefinitions } from "../../apps/core/lophn-agent.ts";
-import { type Core, startCore } from "../../apps/core/core.ts";
+import { madeFixture } from "../../packages/core/testing/problems-app-test.ts";
+import { codingAgentConnectionDefinitions } from "../../packages/core/server/identity/coding-connection.ts";
+import { ticketDefinitions } from "../../packages/core/apps/tickets/register.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../packages/core/apps/register.ts";
+import { createLedgerRegistration as createDocumentsRegistration } from "../../packages/core/projects/register.ts";
+import { lophnAgentDefinitions } from "../../packages/core/lophn-agent/register.ts";
+import { type Core, startCore } from "../../packages/core/main/daemon/core.ts";
 import {
   createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
   problemsTestDefinitions,
-} from "../../apps/core/problems.ts";
+} from "../../packages/core/problems/register.ts";
 import { e2eEnabled } from "../harness.ts";
 
 const TEAMS = [
@@ -53,10 +53,10 @@ const TEAMS = [
   { createLedgerRegistration: createAppsRegistration },
 ];
 const MODULES = [
-  new URL("../../apps/core/lophn-agent.ts", import.meta.url).href,
-  new URL("../../apps/core/documents.ts", import.meta.url).href,
-  new URL("../../apps/core/problems.ts", import.meta.url).href,
-  new URL("../../apps/core/apps.ts", import.meta.url).href,
+  new URL("../../packages/core/lophn-agent/register.ts", import.meta.url).href,
+  new URL("../../packages/core/projects/register.ts", import.meta.url).href,
+  new URL("../../packages/core/problems/register.ts", import.meta.url).href,
+  new URL("../../packages/core/apps/register.ts", import.meta.url).href,
 ];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
@@ -259,8 +259,11 @@ const STAGE_TEAMS = [
 ];
 const STAGE_MODULES = [
   ...MODULES,
-  new URL("../../apps/core/coding-agent.ts", import.meta.url).href,
-  new URL("../../apps/core/tickets.ts", import.meta.url).href,
+  new URL(
+    "../../packages/core/server/identity/coding-connection.ts",
+    import.meta.url,
+  ).href,
+  new URL("../../packages/core/apps/tickets/register.ts", import.meta.url).href,
 ];
 const TICKET = "tkt_01arz3ndektsv4rrffq69g5fav";
 const CLAIM_SEQ = "3";

@@ -9,8 +9,8 @@ import {
   call,
   command,
   inspect,
-} from "../../../apps/core/testing/approvals-fixture.ts";
-import { confirmationFor } from "../../../apps/core/testing/confirmation-fixture.ts";
+} from "../../core/testing/approvals-fixture.ts";
+import { confirmationFor } from "../../core/testing/confirmation-fixture.ts";
 import {
   authorizationOf,
   control,

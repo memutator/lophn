@@ -1,5 +1,5 @@
 import { ok } from "../../../base/mod.ts";
-import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerTestRegistration } from "../../testing/ledger.ts";
 import type {
   AgentRole,
   AgentSettings,

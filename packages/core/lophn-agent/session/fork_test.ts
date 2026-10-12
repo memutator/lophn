@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import type { LedgerHarness } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerHarness } from "../../testing/ledger.ts";
 import { envelope } from "../run-loop/testing/mod.ts";
 import { bodyHashOf, cred, id } from "./testing/mod.ts";
 import {

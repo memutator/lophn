@@ -42,7 +42,7 @@ async function createLedgerHarness(options: {
 }
 
 const registration = new URL(
-  "../../../../apps/core/documents.ts",
+  "../register.ts",
   import.meta.url,
 );
 const project = "prj_01arz3ndektsv4rrffq69g5fav";

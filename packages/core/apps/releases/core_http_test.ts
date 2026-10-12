@@ -3,15 +3,8 @@
 // 같은 transaction의 app test 확인도 제품 등록 그대로다. activation(apps#T18)은 시험 team이 채택 참조만
 // 대신한다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import {
-  call,
-  codeOf,
-  command,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import {
-  type CoreHarness,
-  createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+import { call, codeOf, command } from "../../testing/approvals-fixture.ts";
+import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 import {
   appBlueprint,
   releasesCompare,
@@ -26,8 +19,8 @@ import {
 } from "./testing/mod.ts";
 
 async function open(): Promise<CoreHarness> {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const fixtures = await import("./testing/mod.ts");
   const opened = await createCoreHarness({
     io: true,
@@ -37,8 +30,8 @@ async function open(): Promise<CoreHarness> {
       { createLedgerRegistration: fixtures.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
       new URL("./testing/mod.ts", import.meta.url).href,
     ],
   });

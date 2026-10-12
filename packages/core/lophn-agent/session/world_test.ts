@@ -7,7 +7,7 @@ import type {
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { envelope } from "../run-loop/testing/mod.ts";
 import { BODY, cred, id, textContent } from "./testing/mod.ts";
 

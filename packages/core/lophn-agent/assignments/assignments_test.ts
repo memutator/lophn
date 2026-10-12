@@ -4,7 +4,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 
 // assignment ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.
 // 자리 보관에 반응하는 루프는 apps/core/testing/lophn-agent-assignments-reaction_test.ts에 있다.

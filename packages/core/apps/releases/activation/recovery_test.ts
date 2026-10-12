@@ -2,11 +2,7 @@
 // architecture/apps 8장)를 본다. supervisor 자식·앱 DB·core 응답은 `testing/activation.ts`의 대역 세계이고
 // migration 이력은 실제 core의 event에서 읽는다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import {
-  call,
-  command,
-  inspect,
-} from "../../../../../apps/core/testing/approvals-fixture.ts";
+import { call, command, inspect } from "../../../testing/approvals-fixture.ts";
 import {
   activationWorld,
   APP,

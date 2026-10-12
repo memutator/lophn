@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
-import { lophnAgentDefinitions } from "../../../../apps/core/lophn-agent.ts";
+import { createCoreHarness } from "../../testing/core.ts";
+import { lophnAgentDefinitions } from "../register.ts";
 
 // core를 메모리 SQLite로 띄워 API로 입력·출력·오류를 검증한다(T3).
 // scope operation은 route name이다(platform executor).
@@ -55,7 +55,7 @@ Deno.test("T3-integration: core API rejects unauthenticated, invalid input and u
   const opened = await createCoreHarness({
     teams: [{ lophnAgentDefinitions }],
     teamModules: [
-      new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok);
@@ -127,7 +127,7 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
   const opened = await createCoreHarness({
     teams: [{ lophnAgentDefinitions }],
     teamModules: [
-      new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
   });
   assert(opened.ok);

@@ -10,11 +10,8 @@ import {
   ok,
   systemClock,
 } from "../../../base/mod.ts";
-import { createLedgerRegistration } from "../../../../apps/core/apps.ts";
-import {
-  type CoreHarness,
-  createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+import { createLedgerRegistration } from "../register.ts";
+import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 import {
   actionOf,
   call,
@@ -23,7 +20,7 @@ import {
   createInput,
   decide,
   inspect,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
+} from "../../testing/approvals-fixture.ts";
 import type {
   ApprovalRequest,
   AuthenticatedContext,
@@ -120,7 +117,7 @@ async function open(): Promise<Core> {
     io: true,
     teams: [{ createLedgerRegistration }],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
     nowMs: Date.now(),
   });

@@ -1,4 +1,4 @@
-import { createLedgerHarness } from "../../../../../apps/core/testing/ledger.ts";
+import { createLedgerHarness } from "../../../testing/ledger.ts";
 import { machineCredential, RUN_NOW, userCredential } from "./runs.ts";
 
 // run ledger 테스트가 함께 여는 실제 임시 ledger(등록 executor와 임시 파일). 실제

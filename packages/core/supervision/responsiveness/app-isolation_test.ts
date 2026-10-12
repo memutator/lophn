@@ -10,7 +10,7 @@
 // 실행: deno test --allow-all packages/platform/responsiveness/app-isolation_test.ts
 import { assert, assertEquals, assertFalse } from "@std/assert";
 
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
+import { createCoreHarness } from "../../testing/core.ts";
 import {
   createRpcClient,
   platformHealth,

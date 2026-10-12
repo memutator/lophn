@@ -6,7 +6,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { APP_A, APP_B, COLLECTOR, reportInput } from "./testing/mod.ts";
 import {
   reactWork,

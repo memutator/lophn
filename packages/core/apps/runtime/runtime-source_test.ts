@@ -3,11 +3,7 @@
 // 프로세스를 띄워 probe·open·record_started를 마친다. 사람 데이터 root는 열지 않는다.
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import {
-  call,
-  command,
-  count,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
+import { call, command, count } from "../../testing/approvals-fixture.ts";
 import { appFlags } from "../permissions/mod.ts";
 import type { DesiredApp } from "./supervisor/mod.ts";
 import { createRuntimeClient, unixDirectTransport } from "./client/mod.ts";

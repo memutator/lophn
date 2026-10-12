@@ -6,7 +6,7 @@ import { canonicalize, sha256Hex } from "../../../../packages/base/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import { nonTextTokenBound, textTokenUpperBound } from "./token-bound.ts";
 import { workspaceModels } from "./store.ts";
 import {

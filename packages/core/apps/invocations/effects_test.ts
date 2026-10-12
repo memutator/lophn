@@ -2,8 +2,8 @@
 // 실패·중단·취소 요청은 부분 저장이나 외부 효과가 없다는 뜻으로 남지 않고, 결과를 모르거나 기록이
 // 빠졌다는 이유로 업무를 다시 부르지 않는다. 사람 데이터 root는 열지 않고 core는 temp 홈에서 뜬다.
 import { assert, assertEquals } from "@std/assert";
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
-import { createLedgerRegistration } from "../../../../apps/core/apps.ts";
+import { createCoreHarness } from "../../testing/core.ts";
+import { createLedgerRegistration } from "../register.ts";
 import { coreAccess, gatedSend } from "./testing/mod.ts";
 import { installHandlers, openRuntimeWorld, REL } from "./world_test.ts";
 import { readStagePort } from "./mod.ts";
@@ -36,7 +36,7 @@ async function openCore() {
   const opened = await createCoreHarness({
     teams: [{ createLedgerRegistration }],
     teamModules: [
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
     ],
     nowMs: Date.parse("2026-10-04T00:00:00.000Z"),
   });

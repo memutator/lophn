@@ -7,7 +7,7 @@ import { RESERVED_PROBLEM_CODES } from "../../../protocol/problems/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
-} from "../../../../apps/core/testing/ledger.ts";
+} from "../../testing/ledger.ts";
 import {
   APP_A,
   APP_B,

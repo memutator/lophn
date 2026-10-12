@@ -17,7 +17,7 @@
 // 등록 모듈)로 실제 writer에서 접수한다. read 표본은 HTTP core harness에서 온다.
 import { assert } from "@std/assert";
 
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
+import { createCoreHarness } from "../../testing/core.ts";
 import {
   createRpcClient,
   platformHealth,
@@ -26,7 +26,7 @@ import {
   createBlobStoreWork,
   createFakeQuota,
 } from "../../storage/blobs/mod.ts";
-import { createLedgerHarness } from "../../../../apps/core/testing/ledger.ts";
+import { createLedgerHarness } from "../../testing/ledger.ts";
 import { type TargetSamples } from "./measure-report.ts";
 import { buildReport, formatReport } from "./measure-report.ts";
 import { runScenario } from "./measure-run.ts";

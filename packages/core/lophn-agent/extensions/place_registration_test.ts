@@ -1,4 +1,4 @@
-import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
+import type { LedgerTestRegistration } from "../../testing/ledger.ts";
 import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {

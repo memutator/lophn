@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../../base/mod.ts";
-import { createLedgerHarness } from "../../../../apps/core/testing/ledger.ts";
+import { createLedgerHarness } from "../../testing/ledger.ts";
 import type { SeriesDraft } from "../../../protocol/projects/mod.ts";
 import { listInstances, listReservedKeys, loadSeries } from "./store.ts";
 import { createSeriesCommands } from "./commands.ts";

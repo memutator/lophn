@@ -16,14 +16,14 @@ import {
   decide,
   inspect,
   type Reply,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
+} from "../../testing/approvals-fixture.ts";
 import type { ApprovalRequest } from "../../../protocol/server/mod.ts";
 import type { GrantPermissionScope } from "../../../protocol/apps/mod.ts";
 import {
   type CoreHarness,
   type CoreHarnessOptions,
   createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+} from "../../testing/core.ts";
 import type {
   ProcessObservation,
   ProcessQuery,
@@ -152,8 +152,8 @@ export async function openWorld(
     };
   } = {},
 ): Promise<World> {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const fixtures = await import("./testing/mod.ts");
   const permissions = await import("../permissions/testing/mod.ts");
   const state: SourceState = {
@@ -179,8 +179,8 @@ export async function openWorld(
     ],
     ...(options.extend?.coding ? { coding: options.extend.coding } : {}),
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
       new URL("./testing/mod.ts", import.meta.url).href,
       new URL("../permissions/testing/mod.ts", import.meta.url).href,
       ...(options.extend?.teamModules ?? []),

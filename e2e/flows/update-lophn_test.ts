@@ -37,13 +37,13 @@ import {
 } from "../../packages/core/apps/releases/mod.ts";
 import { installPackage } from "../../packages/core/apps/packages/mod.ts";
 import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/core/apps.ts";
-import { type Core, startCore } from "../../apps/core/core.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../packages/core/apps/register.ts";
+import { type Core, startCore } from "../../packages/core/main/daemon/core.ts";
 import {
   APP,
   RELEASE_ID,
   seedLedger,
-} from "../../apps/core/testing/app-export-fixtures.ts";
+} from "../../packages/core/testing/app-export-fixtures.ts";
 import {
   encodeFrame,
   FrameDecoder,
@@ -57,14 +57,14 @@ import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";
 import { coreLaunch } from "../../packages/shell/main/desktop/core/supervise.ts";
 import type { Script } from "../../tools/fake-provider/mod.ts";
 import type { ToolLookup } from "../../packages/core/lophn-agent/waiting-and-recovery/mod.ts";
-import { decide as humanDecide } from "../../apps/core/testing/approvals-fixture.ts";
+import { decide as humanDecide } from "../../packages/core/testing/approvals-fixture.ts";
 import {
   count,
   inspect,
   openRecoveryWorld,
   type RecoveryWorld,
   USER_TOKEN,
-} from "../../apps/core/testing/run-recovery-world.ts";
+} from "../../packages/core/testing/run-recovery-world.ts";
 import { e2eEnabled } from "../harness.ts";
 import {
   documentTitled,
@@ -1529,7 +1529,9 @@ async function bootApps(home: string): Promise<Core> {
     lophnHome: home,
     port: 0,
     teams: [{ createLedgerRegistration: createAppsRegistration }],
-    teamModules: [new URL("../../apps/core/apps.ts", import.meta.url).href],
+    teamModules: [
+      new URL("../../packages/core/apps/register.ts", import.meta.url).href,
+    ],
     writerClock: "system",
     testCredentials: true,
   });

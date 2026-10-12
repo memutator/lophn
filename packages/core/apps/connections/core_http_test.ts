@@ -10,11 +10,8 @@ import {
   command,
   count,
   decide,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import {
-  type CoreHarness,
-  createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+} from "../../testing/approvals-fixture.ts";
+import { type CoreHarness, createCoreHarness } from "../../testing/core.ts";
 import { appConnectOutputSchema } from "../../../protocol/apps/mod.ts";
 import type {
   ProcessObservation,
@@ -47,8 +44,8 @@ function sourceOf(
 }
 
 async function open(observations: Map<string, ProcessObservation>) {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
+  const documents = await import("../../projects/register.ts");
+  const apps = await import("../register.ts");
   const fixtures = await import("../releases/testing/mod.ts");
   const opened = await createCoreHarness({
     nowMs: Date.now(),
@@ -59,8 +56,8 @@ async function open(observations: Map<string, ProcessObservation>) {
       { createLedgerRegistration: fixtures.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("../../projects/register.ts", import.meta.url).href,
+      new URL("../register.ts", import.meta.url).href,
       new URL("../releases/testing/mod.ts", import.meta.url).href,
     ],
     apps: { process: sourceOf(observations) },

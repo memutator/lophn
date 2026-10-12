@@ -5,7 +5,7 @@
 // `deno task check`의 test 단계에서는 건너뛴다. 실제 ~/.lophn은 읽지도 쓰지도 않는다.
 import { assert } from "@std/assert";
 
-import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
+import { createCoreHarness } from "../../testing/core.ts";
 import {
   createRpcClient,
   platformHealth,

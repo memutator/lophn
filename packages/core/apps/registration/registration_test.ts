@@ -16,8 +16,8 @@ import {
   inspect,
   openAppOptionWorld,
   type Registration,
-} from "../../../../apps/core/testing/app-option.ts";
-import { id } from "../../../../apps/core/testing/tool-judgment-world.ts";
+} from "../../testing/app-option.ts";
+import { id } from "../../testing/tool-judgment-world.ts";
 
 // harness 값 타입만 선언한다. platform ledger 모듈을 type-check하지 않기 위해서다.
 type CommandEnvelope = {
@@ -55,9 +55,9 @@ async function createLedgerHarness(options: {
   return harness.createLedgerHarness(options);
 }
 
-const registration = new URL("../../../../apps/core/apps.ts", import.meta.url);
+const registration = new URL("../register.ts", import.meta.url);
 const documents = new URL(
-  "../../../../apps/core/documents.ts",
+  "../../projects/register.ts",
   import.meta.url,
 );
 

@@ -18,7 +18,7 @@ import {
 } from "../../../protocol/problems/mod.ts";
 import { listProblemFixesRead } from "../repairs/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "../reporting/mod.ts";
-import { snapshotLogsEnvironment } from "../../../../apps/core/problems-logs.ts";
+import { snapshotLogsEnvironment } from "./logs-read.ts";
 import {
   type GcDeps,
   trimCapacity,

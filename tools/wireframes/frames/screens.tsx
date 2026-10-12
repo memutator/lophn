@@ -189,7 +189,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "lophn-things-to-confirm": () => (
     <MockDesktop route={openLophn("things-to-confirm")} />
   ),
-  "lophn-roles": () => <MockDesktop route={openLophn("roles")} />,
   "settings-connections": () => settings("connections"),
   "settings-coding": () => settings("coding"),
   "settings-extensions": () => settings("extensions"),

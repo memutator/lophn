@@ -77,7 +77,6 @@ export type ScreenId =
   | "lophn-projects"
   | "lophn-apps"
   | "lophn-things-to-confirm"
-  | "lophn-roles"
   | "settings-connections"
   | "settings-coding"
   | "settings-extensions"
@@ -387,13 +386,6 @@ export const PAGES: readonly WireframePage[] = [
     ["answer-question", "approve-action"],
     "lophn 공간의 Things to confirm. agent의 질문과 approval이 한 곳에 모이고, 기다리는 것이 먼저 보인다.",
     "lophn-things-to-confirm",
-  ),
-  now(
-    "lophn-roles",
-    "Lophn Workspace · Roles",
-    ["manage-operator", "set-up-operator"],
-    "lophn 공간의 Roles. 역할마다 하는 일·만든 것·대화·작업 검토·Preset을 본다.",
-    "lophn-roles",
   ),
   now(
     "settings-connections",

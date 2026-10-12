@@ -2,6 +2,13 @@
 // 옮기는 일, 거절의 항목별 이유(R24)가 그대로 나오는지를 본다. 실제 core 위의 흐름은 core-source-real-core_test가 본다.
 import { assert, assertEquals } from "@std/assert";
 
+import type {
+  AgentIssue,
+  AgentListRow,
+  ValueSource,
+} from "../../../../../packages/contracts/lophn-agent/agent-values.ts";
+import type { CatalogEntry } from "../../../../../packages/contracts/lophn-agent/models.ts";
+import type { AgentEffective } from "./views.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
@@ -14,7 +21,7 @@ const OPERATOR = "asg_01k6p0000000000000000000a2";
 const PROVIDER = "pvd_01k6p0000000000000000000a1";
 const HASH = "a".repeat(64);
 const NEXT_HASH = "b".repeat(64);
-const WORKSPACE = { layer: "workspace", place: null };
+const WORKSPACE: ValueSource = { layer: "workspace", place: null };
 const SONNET = {
   provider: PROVIDER,
   model_name: "Sonnet 5.5",
@@ -60,7 +67,7 @@ const fail = (code: string, details?: unknown): CoreReply => ({
   } as { code: string; message: string },
 });
 
-const ROW = {
+const ROW: AgentListRow = {
   assignment: OPERATOR,
   role: "operator",
   kind: "operator",
@@ -270,7 +277,7 @@ Deno.test("shell/workspace#R38 [agent-I34]: 있는 Operator 저장은 assignment
 });
 
 Deno.test("shell/workspace#R24 [agent-I34]: 저장 거절의 항목별 이유는 invalid_input의 details에서 그대로 나오고 다른 오류는 code만 나온다", async () => {
-  const issues = [
+  const issues: AgentIssue[] = [
     { field: "name", code: "reserved_name" },
     { field: "contexts.1", code: "missing_reference" },
   ];
@@ -323,7 +330,7 @@ Deno.test("shell/workspace#R38 [agent-I34]: Operator 삭제는 assignment와 읽
 });
 
 Deno.test("shell/workspace#R38 [agent-I34]: readAgent는 정의·hash·칸별 값과 출처·이유를 editor 값으로 옮기고 파일이 틀렸으면 빈 정의에 이유를 싣는다", async () => {
-  const effective = {
+  const effective: AgentEffective = {
     name: { value: "Release notes", source: WORKSPACE },
     profile: {
       value: { kind: "icon", icon: "edit" },
@@ -527,11 +534,12 @@ Deno.test("shell/workspace#R41 [agent-I34]: models는 provider와 catalog와 즐
     },
   ];
   let page = 0;
+  // 통로는 응답을 그대로 넘기므로 시험이 보는 칸만 둔다.
   const entry = {
     provider_definition: "anthropic",
     model_name: "Sonnet 5.5",
     options: null,
-  };
+  } as unknown as CatalogEntry;
   const { core } = routedCore({
     "read:providers/list": () => ok(pages[page++]),
     "read:agent-model-catalog/read": () =>

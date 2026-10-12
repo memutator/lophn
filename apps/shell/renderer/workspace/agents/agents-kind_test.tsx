@@ -113,18 +113,7 @@ function field(root: ParentNode, name: string): HTMLElement {
 function input(root: ParentNode, label: string): HTMLElement {
   const found = all(root, "label").find((item) => norm(item) === label);
   if (!found) throw new Error(`no label ${label}`);
-  return document.getElementById(found.htmlFor)!;
-}
-
-async function openAgentsTab(view: { container: HTMLElement }) {
-  click(one(view.container, "[data-agents-manage]"));
-  await flush();
-}
-
-async function newOperator(view: { container: HTMLElement }) {
-  await openAgentsTab(view);
-  click(buttonNamed(view.container, "New Operator")!);
-  await flush();
+  return document.getElementById((found as HTMLLabelElement).htmlFor)!;
 }
 
 Deno.test("shell/workspace#R14 [agent-I34]: Agents kind는 registry에 올라 TAB_KINDS에 있고 이름과 열기 단추를 가진다", () => {
@@ -240,7 +229,7 @@ Deno.test("shell/workspace#R36 [agent-I34]: 탭은 source가 준 agent를 카드
   assertEquals(norm(one(release, "[data-agent-kind]")), "Operator");
   assertEquals(
     norm(one(release, "[data-agent-counts]")),
-    "1 contexts · 1 skills · 1 MCP",
+    "1 context · 1 skill · 1 MCP",
   );
   assert(buttonNamed(view.container, "New Operator"));
   // 구역은 source가 읽어 준 값이다.
@@ -351,7 +340,7 @@ Deno.test("shell/workspace#R24 [agent-I34]: 저장이 거절되면 항목별 이
   await flush();
   click(buttonNamed(view.container, "New Operator")!);
   await flush();
-  typeInto(input(field(view.container, "name"), "Context Engineer"), "lophn");
+  typeInto(input(field(view.container, "name"), "Name"), "lophn");
   click(buttonNamed(view.container, "Save")!);
   await flush();
 
@@ -377,7 +366,7 @@ Deno.test("shell/workspace#R38 [agent-I34]: 저장이 issue 없이 실패하면 
   await flush();
   click(buttonNamed(view.container, "New Operator")!);
   await flush();
-  typeInto(input(field(view.container, "name"), "Digest"), "Digest");
+  typeInto(input(field(view.container, "name"), "Name"), "Digest");
   click(buttonNamed(view.container, "Save")!);
   await flush();
   assert(view.container.querySelector("[role=alert]"), "no failure notice");
@@ -389,6 +378,7 @@ Deno.test("shell/workspace#R38 [agent-I34]: 있는 Operator를 고쳐 Save하면
   const { view, agents } = mount({ layout: layoutOf(AGENTS_TAB) });
   using _ = view;
   await flush();
+  const openedHash = agents!.hashOf(RELEASE_ID);
   click(one(view.container, `[data-assignment='${RELEASE_ID}'] button`));
   await flush();
   typeInto(input(field(view.container, "name"), "Name"), "Release notes v2");
@@ -399,7 +389,7 @@ Deno.test("shell/workspace#R38 [agent-I34]: 있는 Operator를 고쳐 Save하면
   const call = calls[0]!;
   assert(call.method === "saveAgent");
   assertEquals(call.assignment, RELEASE_ID);
-  assertEquals(call.hash, agents!.hashOf(RELEASE_ID));
+  assertEquals(call.hash, openedHash);
   assertEquals(call.definition.name, "Release notes v2");
   // 사람이 바꾸지 않은 칸(model·profile)은 정의에 없다.
   assertEquals(call.definition.model, undefined);
@@ -537,7 +527,7 @@ Deno.test("shell/workspace#R37 [agent-I34]: MCP server 켬·끔은 source로 가
       one(view.container, "section[data-section=mcp]"),
       "label",
     ).find((item) => norm(item) === name)!;
-    return document.getElementById(label.htmlFor)!;
+    return document.getElementById((label as HTMLLabelElement).htmlFor)!;
   };
   assertEquals(control("linear").getAttribute("aria-checked"), "false");
   click(control("linear"));

@@ -89,16 +89,64 @@ Deno.test("lophn-agent/agents#R4 shell/workspace#R38 [agent-I34]: 실제 core: �
   }
 });
 
-Deno.test("shell/workspace#R41 [agent-I34]: 실제 core: models는 provider·catalog·즐겨찾기를 읽는다", async () => {
+Deno.test("shell/workspace#R37 [agent-I34]: 실제 core: 자리 설정의 권한과 role model은 바꾼 칸만 쓰여 overview로 다시 읽힌다", async () => {
+  const folder = await Deno.makeTempDir({ prefix: "lophn-agents-settings-" });
   const core = await startRealCore();
   try {
+    const project = newId("prj");
+    const registered = await coreLauncherSource(core.source, undefined)
+      .register({
+        id: project,
+        name: "agents-settings",
+        title: "Agents settings",
+        purpose: "",
+        folders: [{ path: folder, description: "Docs" }],
+      });
+    assert(registered.ok, JSON.stringify(registered));
     const source = coreAgentsSource(core.source, { instructions: undefined });
-    const models = await source.models();
-    assert(models.ok, JSON.stringify(models));
-    assertEquals(models.value.providers, []);
-    assertEquals(models.value.favorites, []);
-    assert(Array.isArray(models.value.catalog));
+
+    const first = await source.overview(project);
+    assert(first.ok, JSON.stringify(first));
+    assertEquals(first.value.chosenModels, {});
+    assertEquals(first.value.permissions, []);
+
+    const permitted = await source.setPermission(
+      project,
+      "document.list",
+      true,
+    );
+    assertEquals(
+      permitted,
+      { ok: true, value: null },
+      JSON.stringify(permitted),
+    );
+    const model = {
+      provider: newId("pvd"),
+      model_name: "Sonnet 5.5",
+      option_values: {},
+    };
+    const chosen = await source.changeRoleModel(project, "operator", model);
+    assertEquals(chosen, { ok: true, value: null }, JSON.stringify(chosen));
+
+    const after = await source.overview(project);
+    assert(after.ok, JSON.stringify(after));
+    assertEquals(after.value.chosenModels, { operator: model });
+    assertEquals(
+      after.value.permissions.map((rule) => rule.tool),
+      ["document.list"],
+    );
+
+    // 비우면 칸이 사라지고 권한은 그대로다.
+    assertEquals(await source.changeRoleModel(project, "operator", null), {
+      ok: true,
+      value: null,
+    });
+    const cleared = await source.overview(project);
+    assert(cleared.ok);
+    assertEquals(cleared.value.chosenModels, {});
+    assertEquals(cleared.value.permissions.length, 1);
   } finally {
     await core.stop();
+    await Deno.remove(folder, { recursive: true });
   }
 });

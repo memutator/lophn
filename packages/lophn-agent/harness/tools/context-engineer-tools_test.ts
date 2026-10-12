@@ -579,6 +579,68 @@ Deno.test("lophn-agent/roles/context-engineer#R14 [ctx-I57]: 계약 읽기는 �
   assertEquals(box.core.seen.length, 3);
 });
 
+Deno.test("lophn-agent/harness/tools#R23 [ctx-T10d]: 24 KiB를 넘는 계약은 part와 section으로 나눠 읽고 없는 쪽 판은 core를 부르지 않는다", async () => {
+  const box = engineer();
+  const big = "x".repeat(20 * 1024);
+  box.core.state.applied.content = {
+    schema: 1,
+    contract: { big },
+    searches: [{ name: "s1" }],
+    saved_views: [],
+    examples: [{ big }],
+  } as unknown as typeof box.core.state.applied.content;
+  box.core.state.draft = {
+    bundle: BUNDLE,
+    content: { schema: 1, contract: { big }, searches: [{ name: "d1" }] },
+    revision: 1,
+  };
+
+  // 둘 다 읽으면 24 KiB를 넘어 비워지고 complete가 거짓이다.
+  const whole = await box.run(N.readContract, { context: CTX });
+  assertEquals(whole.result.content, null);
+  assertEquals(whole.result.complete, false);
+
+  // 판 하나와 가지 하나로 나누면 읽힌다. 읽지 않는 쪽은 core를 부르지 않는다.
+  const before = box.core.seen.length;
+  const searches = await box.run(N.readContract, {
+    context: CTX,
+    part: "applied",
+    section: "searches",
+  });
+  assertEquals(searches.result.complete, true);
+  const applied = searches.result.content as Record<string, any>;
+  assertEquals(applied["applied"]["content"], { searches: [{ name: "s1" }] });
+  assertEquals(applied["applied"]["bundle_hash"], HASH);
+  assertEquals("draft" in applied, false);
+  assertEquals(applied["section"], "searches");
+  assertEquals(
+    box.core.seen.slice(before).map((call) => call.contract),
+    ["context.contract"],
+  );
+
+  const draft = await box.run(N.readContract, {
+    context: CTX,
+    part: "draft",
+    section: "searches",
+  });
+  const draftBody = draft.result.content as Record<string, any>;
+  assertEquals(draftBody["draft"]["content"], { searches: [{ name: "d1" }] });
+  assertEquals(draftBody["draft"]["bundle"]["id"], BUNDLE);
+  assertEquals("applied" in draftBody, false);
+  assertEquals(box.core.seen.at(-1)!.contract, "context.draft");
+
+  // 만드는 중인 판이 없으면 draft는 null이다.
+  const idle = engineer();
+  const none = await idle.run(N.readContract, { context: CTX, part: "draft" });
+  assertEquals((none.result.content as Record<string, any>)["draft"], null);
+
+  // 모르는 part·section은 거절한다.
+  for (const bad of [{ part: "both" }, { section: "types" }]) {
+    const rejected = await box.run(N.readContract, { context: CTX, ...bad });
+    assertEquals(rejected.outcome, { kind: "failure", code: "invalid_input" });
+  }
+});
+
 Deno.test("lophn-agent/harness/tools#R23 [ctx-I57]: 위반 읽기는 한 번에 20개와 이어 보기를 돌려준다", async () => {
   const box = engineer();
   const first = await box.run(N.readViolations, { context: CTX });

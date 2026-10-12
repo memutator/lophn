@@ -474,6 +474,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           type_names: [],
           glossary: "",
           has_glossary: false,
+          unavailable: item.reason,
         })),
       ]);
     const context = async (): Promise<Result<RunContext>> => {

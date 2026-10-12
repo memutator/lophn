@@ -68,7 +68,7 @@ import type {
   WaitTarget,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { parseToolArgs } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { savedDocumentLinks } from "./answer-links.ts";
+import { resultLinks } from "./answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { questionWaitRequest } from "./wait-request.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -834,7 +834,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       // 세션 없는 주기 run은 답을 남길 대화가 없다. 결과는 run 결과와 출력 문서가 낸다.
       if (seat.session === null || text.trim() === "") return ok(undefined);
       // 결과 링크는 이 run이 실제로 저장한 문서 판뿐이다(conversation#R4).
-      const saved = await savedDocumentLinks(machine, seat.run);
+      const saved = await resultLinks(machine, seat.run);
       if (!saved.ok) return saved;
       const recorded = await commandOf(
         agent,

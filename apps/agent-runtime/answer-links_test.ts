@@ -5,7 +5,7 @@ import {
   toolCallList,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
-import { savedDocumentLinks } from "./answer-links.ts";
+import { resultLinks } from "./answer-links.ts";
 import type { CoreCall } from "./core-call.ts";
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -88,7 +88,7 @@ const saved = (document: string, version: string) => ({
 });
 
 Deno.test("lophn-agent/conversation#R4: run이 저장한 문서 판만 결과 링크가 되고 같은 문서는 마지막 판이다", async () => {
-  const links = await savedDocumentLinks(
+  const links = await resultLinks(
     machine([
       {
         id: tcl(1),
@@ -121,7 +121,7 @@ Deno.test("lophn-agent/conversation#R4: run이 저장한 문서 판만 결과 �
 });
 
 Deno.test("lophn-agent/conversation#R4: 실패·불명확·새 판 없음·읽기 call은 링크가 아니고 저장이 없으면 링크가 없다", async () => {
-  const links = await savedDocumentLinks(
+  const links = await resultLinks(
     machine([
       {
         id: tcl(1),
@@ -168,7 +168,7 @@ Deno.test("lophn-agent/conversation#R4: tool call 목록이 여러 쪽이어도 
       content: saved(DOC_B, VER(2)),
     },
   ];
-  const links = await savedDocumentLinks(machine(calls, 1), RUN);
+  const links = await resultLinks(machine(calls, 1), RUN);
   assertEquals(
     links,
     ok([
@@ -182,7 +182,7 @@ const CTX_A = "ctx_01arz3ndektsv4rrffq69g5fa1";
 const CTX_B = "ctx_01arz3ndektsv4rrffq69g5fa2";
 
 Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: 만들거나 계약을 읽은 context가 결과 링크가 되고 같은 context는 한 번이다", async () => {
-  const links = await savedDocumentLinks(
+  const links = await resultLinks(
     machine([
       {
         id: tcl(1),
@@ -222,7 +222,7 @@ Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: 만들거나 계약을 읽은
 });
 
 Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: 실패한 call, 목록·검색 결과, ID가 아닌 값은 context 링크가 아니다", async () => {
-  const links = await savedDocumentLinks(
+  const links = await resultLinks(
     machine([
       {
         id: tcl(1),

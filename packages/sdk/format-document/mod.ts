@@ -7,7 +7,7 @@
 // FormatRef의 정확한 module hash(bundle.js 묶음의 sha256). documents/formats의
 // guest/module-hash.ts가 정본이다.
 export const DOCUMENT_MODULE_HASH =
-  "8ce2eeeb60302495a46e780bff18b3e5fb1a08ecd24cdfd7a232f5067535b9e3";
+  "859415856f59662c5bcdfc30adf2677d9fc296b193c7137fece8f5385e02f9d8";
 
 // document가 읽기·검색 대상으로 지원하는 media type이다.
 export const DOCUMENT_MEDIA_TYPES = [

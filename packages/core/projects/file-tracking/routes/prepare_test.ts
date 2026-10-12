@@ -27,7 +27,7 @@ import {
 
 const AT = "2026-10-04T00:00:00.000Z";
 const BUILTIN_MODULE_HASH =
-  "8ce2eeeb60302495a46e780bff18b3e5fb1a08ecd24cdfd7a232f5067535b9e3";
+  "859415856f59662c5bcdfc30adf2677d9fc296b193c7137fece8f5385e02f9d8";
 const HASH = "ab".repeat(32);
 
 const USER: CredentialIssue = {

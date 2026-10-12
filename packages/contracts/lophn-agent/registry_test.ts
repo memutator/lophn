@@ -119,8 +119,10 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/agent-traces/export",
     "/v1/agent-usage/read",
     "/v1/instructions/read",
+    "/v1/instructions/preview",
     "/v1/place-extension-settings/read",
     "/v1/place-extension-settings/change",
+    "/v1/global-skills/read",
     "/v1/agent-mcp-auth/begin",
     "/v1/agent-mcp-auth/complete",
   ]);

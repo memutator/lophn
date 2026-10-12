@@ -2609,6 +2609,8 @@ export type PlaceholderKinds = {
   "settings.label.state-sign-in-problem": Record<never, never>;
   "settings.label.state-signed-out": Record<never, never>;
   "settings.label.tab-connections": Record<never, never>;
+  "settings.label.tab-providers": Record<never, never>;
+  "settings.label.tab-agents": Record<never, never>;
   "settings.label.tab-backup": Record<never, never>;
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
@@ -2716,6 +2718,7 @@ export type PlaceholderKinds = {
     name: "string";
   };
   "settings.title.custom-provider": Record<never, never>;
+  "settings.label.custom-provider-hint": Record<never, never>;
   "settings.notice.provider-lead": Record<never, never>;
   "settings.notice.next-run": Record<never, never>;
   "settings.notice.none-connected": Record<never, never>;

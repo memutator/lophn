@@ -1,15 +1,13 @@
 // mock 모드의 lophn 공간 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
 // 채운 것이다. key·로그인 응답·복원·export는 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
+// Providers와 Agents 자리는 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
 import {
-  account,
-  CHATGPT,
-  CLAUDE,
   fakeSettings,
-  LOCAL,
-  provider,
   server,
   setting,
 } from "../lophn-space/settings/testdata/fake-settings.ts";
+import { fakeProviders } from "../lophn-space/settings/providers/testdata/fake-providers.ts";
+import { fakeAgents } from "../lophn-space/settings/agents/testdata/fake-agents.ts";
 import {
   backupRow,
   fakeBackup,
@@ -29,64 +27,6 @@ const MINUTE = 60 * 1000;
 
 export function mockSettings(): SettingsSource {
   return fakeSettings({
-    providers: [
-      provider(CLAUDE, "Claude", {
-        ways: ["api_key", "oauth"],
-        signIn: { verified: true },
-        accounts: [
-          account("main", "Main", {
-            way: "oauth",
-            order: 0,
-            account: "mina@example.com",
-            plan: "Max",
-          }),
-          account("backup", "Backup key", { order: 1 }),
-        ],
-        lastCheck: {
-          at: new Date(Date.now() - 20 * MINUTE).toISOString(),
-          result: "success",
-          kind: "text",
-          model: "claude-a",
-        },
-      }),
-      provider(CHATGPT, "ChatGPT", {
-        ways: ["oauth"],
-        accounts: [account("personal", "Personal", { way: "oauth" })],
-      }),
-      provider(LOCAL, "Local", { local: true, ways: ["none"] }),
-    ],
-    models: {
-      "claude-def": ["claude-a", "claude-b"],
-      "chatgpt-def": ["gpt-a"],
-      "local-def": ["local-small"],
-    },
-    usage: {
-      main: {
-        calls: 128,
-        costs: [{
-          kind: "subscription",
-          amount: null,
-          currency: null,
-          calls: 128,
-        }],
-        complete: true,
-      },
-      backup: {
-        calls: 12,
-        costs: [{
-          kind: "estimated",
-          amount: "0.84",
-          currency: "USD",
-          calls: 12,
-        }],
-        complete: true,
-      },
-    },
-    defaults: {
-      decisions: { provider: CLAUDE, model: "claude-a" },
-      summaries: { provider: CLAUDE, model: "claude-b" },
-      seq: "9",
-    },
     settings: {
       rows: [
         setting(
@@ -128,6 +68,8 @@ export function mockSettings(): SettingsSource {
 
 export function mockSettingsPanels(): SettingsPanels {
   return {
+    providers: fakeProviders().source,
+    agents: fakeAgents().source,
     backup: fakeBackup({
       backups: [
         backupRow("2026-10-09T02:00:00.000Z", { sizeBytes: 52428800 }),

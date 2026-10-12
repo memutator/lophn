@@ -2536,6 +2536,8 @@ export const en = {
   "settings.label.state-sign-in-problem": "Sign-in problem",
   "settings.label.state-signed-out": "Signed out",
   "settings.label.tab-connections": "Connections",
+  "settings.label.tab-providers": "Providers",
+  "settings.label.tab-agents": "Agents",
   "settings.label.tab-backup": "Backup",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
@@ -2647,6 +2649,7 @@ export const en = {
   "settings.heading.add-provider": "Add a provider",
   "settings.title.connect-provider": "Connect {name}",
   "settings.title.custom-provider": "Custom provider",
+  "settings.label.custom-provider-hint": "Any OpenAI-compatible endpoint",
   "settings.notice.provider-lead":
     "A provider is an account and how you sign in to it. You choose models per agent and per session, not here.",
   "settings.notice.next-run": "Changes apply to new work.",

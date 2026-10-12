@@ -1,7 +1,9 @@
-// settings 화면이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
-// 모양은 contracts(providers·provider-credentials·agent-model-*·agent-usage·settings·secrets)에서
-// 이 화면이 쓰는 field만 옮긴 것이다. secret 값은 이 통로에 없다. key·로그인 응답은 보호 창이
-// 받고 이 통로는 그 창을 여는 일만 한다(platform/secrets#R2).
+// settings 화면의 일반 설정·skill 폴더·도구 server가 읽고 쓰는 통로. 화면은 이 interface만 보고 core
+// route 이름은 core-source.ts만 안다. 모양은 contracts(settings·secrets)에서 이 화면이 쓰는 field만
+// 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
+// agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결·계정 모양은 Providers 통로가 같이 쓴다.
+// secret 값은 이 통로에 없다. credential은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다
+// (platform/secrets#R2).
 import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
@@ -49,13 +51,11 @@ export interface ConnectionCheck {
 
 /** 연결 하나(Claude, ChatGPT 같은 제품 또는 로컬 model). */
 export interface ProviderRow {
-  /** 등록된 연결은 provider id이고 아직 등록하지 않은 내장 정의는 정의에서 만든 임시 id다. */
+  /** provider id. */
   readonly id: string;
-  /** false면 내장 정의만 있고 이 컴퓨터에 등록된 연결이 아직 없다(계정·확인 기록 없음). */
-  readonly registered: boolean;
   readonly name: string;
   readonly enabled: boolean;
-  /** 정의 key. model 목록을 찾는 기준이다. */
+  /** 정의 key. */
   readonly definition: string;
   readonly ways: readonly AuthWay[];
   /** 공식 로그인이 있는 연결만. verified는 lophn 이름으로 허용된 것이 확인됐다는 뜻이다. */
@@ -68,76 +68,8 @@ export interface ProviderRow {
   readonly revision: number;
 }
 
-export type CostKind =
-  | "reported"
-  | "estimated"
-  | "subscription"
-  | "free"
-  | "unknown";
-
-export interface CostLine {
-  readonly kind: CostKind;
-  /** reported·estimated·free일 때만 있다. */
-  readonly amount: string | null;
-  readonly currency: string | null;
-  readonly calls: number;
-}
-
-/** 계정 하나의 최근 30일 사용. 모르는 비용은 0으로 채우지 않는다. */
-export interface UsageRow {
-  readonly calls: number;
-  readonly costs: readonly CostLine[];
-  /** 기록이 빠진 호출이 있다. */
-  readonly complete: boolean;
-}
-
-export type TestKind = "text" | "tool_call";
-
-export interface TestInput {
-  readonly provider: string;
-  readonly account: string;
-  readonly model: string;
-}
-
-/** 연결 테스트 한 번(한 종류). calls는 실제 시도 수이고 사용량은 따로 읽는다. */
-export interface TestResult {
-  readonly kind: TestKind;
-  /** 시도하지 않았거나 결과가 없으면 null이다. 성공으로 채우지 않는다. */
-  readonly result: "success" | "failure" | null;
-  readonly timeoutSeconds: number;
-}
-
-export interface SignIn {
-  readonly login: string;
-  /** 공식 로그인 주소. 없으면 열 곳이 없다. */
-  readonly url: string | null;
-  readonly code: string | null;
-  /** 최종 주소를 붙여 넣어 끝내는 방식. */
-  readonly paste: boolean;
-}
-
 /** 보호 창을 연 결과. 값은 창만 안다. 이 창은 닫혀도 결정이 아니다. */
 export type WindowOutcome = SourceResult<null>;
-
-export interface ModelChoice {
-  readonly provider: string;
-  readonly model: string;
-}
-
-/** 새로 고르는 model. 계정은 그 연결에서 쓸 수 있는 것을 사람이 정한 순서로 담는다. */
-export interface ModelPick extends ModelChoice {
-  readonly accounts: readonly string[];
-}
-
-/** model 기본값. 값을 정하지 않은 agent가 따르는 Workspace 층 기본이다. */
-export interface ModelDefaults {
-  readonly decisions: ModelChoice | null;
-  readonly summaries: ModelChoice | null;
-  /** 바꿀 때의 비교 기준. */
-  readonly seq: string;
-}
-
-export type ModelUse = "decisions" | "summaries";
 
 export type ApplyAt = "next_run" | "current_check" | "next_call";
 
@@ -199,35 +131,6 @@ export type NewServer =
 export interface SettingsSource {
   /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
   watch(listener: (state: { readonly state: string }) => void): () => void;
-  providers(): Promise<SourceResult<readonly ProviderRow[]>>;
-  /** 계정 하나의 최근 30일 사용. */
-  usage(account: string): Promise<SourceResult<UsageRow>>;
-  /** 그 정의가 알려진 model 이름들. 확인하지 못했으면 실패다. */
-  models(definition: string): Promise<SourceResult<readonly string[]>>;
-  /** 사람이 누를 때만 부른다. 두 종류(글·도구 호출)를 하나씩 시도한다. */
-  testConnection(
-    input: TestInput,
-  ): Promise<SourceResult<readonly TestResult[]>>;
-
-  /** 공식 로그인을 시작하고 열 주소를 받는다. 이 route가 없으면 unavailable이다. */
-  beginSignIn(provider: string): Promise<SourceResult<SignIn>>;
-  cancelSignIn(provider: string, login: string): Promise<SourceResult<null>>;
-  /** shell 크롬 링크. main이 검사하고 확인 없이 OS browser로 연다. */
-  openLink(url: string): Promise<boolean>;
-
-  /** 보호 창을 연다. 이름만 넘기고 값은 창이 받는다. */
-  connectKey(provider: string, label: string): Promise<WindowOutcome>;
-  /** 로그인 응답(코드 또는 최종 주소)을 보호 창에 넣는다. */
-  enterSignInResponse(provider: string, label: string): Promise<WindowOutcome>;
-  replaceKey(provider: string, account: string): Promise<WindowOutcome>;
-  removeAccount(provider: string, account: string): Promise<WindowOutcome>;
-
-  modelDefaults(): Promise<SourceResult<ModelDefaults>>;
-  setModelDefault(
-    use: ModelUse,
-    pick: ModelPick,
-    defaults: ModelDefaults,
-  ): Promise<SourceResult<ModelDefaults>>;
 
   settings(): Promise<SourceResult<SettingsView>>;
   /** OS 폴더 선택기로 고른 skill 폴더를 등록한다. 그만두면 null이다. */
@@ -240,16 +143,4 @@ export interface SettingsSource {
   ): Promise<SourceResult<null>>;
   /** MCP credential을 보호 창에 넣는다. secret은 ServerRow.secret이다. */
   enterServerCredential(secret: string): Promise<WindowOutcome>;
-  /**
-   * 사람이 고른 앱의 자료를 밖으로 내보낸다(settings [Export] 항목, shell#T58). 준비 결과
-   * (ready·failed)만 답하고 실제 묶음은 core가 처리한다. 준비 중이면 preparing이다.
-   */
-  exportApp(app: string): Promise<
-    SourceResult<{
-      readonly app: string;
-      readonly state: "preparing" | "ready" | "failed";
-      readonly reason?: string;
-      readonly includesExternalData: boolean;
-    }>
-  >;
 }

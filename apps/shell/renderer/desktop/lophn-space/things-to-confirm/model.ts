@@ -164,7 +164,7 @@ export function confirmsWithoutWindow(command: string | null | undefined) {
 }
 
 /**
- * 묶음에서 고른 답이 confirmation window에서만 확정하는 action 선택지이면 그 질문과 선택지.
+ * 묶음에서 고른 답이 confirmation window에서만 확정하는 action 선택지이면 그 묶음과 선택지.
  * 고정 action은 질문 하나짜리 묶음에만 있다(questions#R13). term.define·app.create·apply_settings는
  * 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정하므로 여기에 걸리지 않는다. 자유 답은 동작으로
  * 해석하지 않는다(R15).
@@ -172,7 +172,7 @@ export function confirmsWithoutWindow(command: string | null | undefined) {
 export function reviewTarget(
   group: QuestionGroupRequest,
   answers: readonly GroupAnswer[],
-): { question: string; option_key: string } | null {
+): { group: string; option_key: string } | null {
   if (group.questions.length !== 1) return null;
   const only = group.questions[0]!;
   const given = answers.find((entry) => entry.question === only.id);
@@ -181,7 +181,7 @@ export function reviewTarget(
   const chosen = only.options.find((item) => item.key === optionKey);
   if (chosen === undefined || !chosen.action) return null;
   if (confirmsWithoutWindow(chosen.command)) return null;
-  return { question: only.id, option_key: optionKey };
+  return { group: group.id, option_key: optionKey };
 }
 
 /** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다(questions#R6). */

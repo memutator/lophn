@@ -1,5 +1,5 @@
 // 고정 term.define·app.create 선택지. 사람이 질문에서 그 선택지를 확정하면 확인 창을 열지 않고
-// 정본을 다시 읽어 AnswerQuestionAction으로 접수한다. 적용은 machine이 그 답으로 한다.
+// 정본을 다시 읽어 AnswerQuestionAction으로 접수한다(묶음 단위). 적용은 machine이 그 답으로 한다.
 // 이 두 command만 확인 창 없이 접수하고(flow new-app 3, documents/terms#R2), 그 밖 action은
 // 읽은 정본의 command가 allowlist에 없으면 forbidden이다.
 import { contentBasis, earlierDeadline, type LiveHandle } from "./handle.ts";
@@ -38,13 +38,13 @@ export async function confirmTermDefinition(input: {
   core: KindCore;
   register: (request: ConfirmationHandleRegister) => Promise<Registered>;
   windowId: string;
-  question: string;
+  group: string;
   optionKey: string;
   nowMs: number;
 }): Promise<TermDefinitionResult> {
   const read = await readOptionAction(
     input.core,
-    input.question,
+    input.group,
     input.optionKey,
   );
   if (!read.ok) return { ok: false, code: codeOf(read.error.code) };
@@ -80,7 +80,8 @@ export async function confirmTermDefinition(input: {
   };
   const sent = await submitOptionAction(input.core, {
     handle,
-    question: input.question,
+    group: input.group,
+    question: request.question,
     optionKey: input.optionKey,
     createdSeq: request.created_seq,
     bindingHash: request.binding_hash,

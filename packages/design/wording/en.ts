@@ -1726,6 +1726,16 @@ export const en = {
     "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} archivedReference {This context is archived, so pick an active one} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and Workspace defaults.",
+  "project-workspace.notice.agents-change-failed":
+    "Couldn't change that. Nothing changed.",
+  "project-workspace.notice.agents-delete-failed":
+    "Couldn't delete this agent. Nothing changed.",
+  "project-workspace.notice.agents-save-conflict":
+    "This agent changed after you opened it. Cancel and open it again.",
+  "project-workspace.notice.agents-save-failed":
+    "Couldn't save this agent. Nothing changed.",
+  "project-workspace.notice.agents-upload-failed":
+    "Couldn't upload that image. Nothing changed.",
   "project-workspace.notice.agent-editor-wider-help":
     "Can't be wider than the project's permissions.",
   "project-workspace.notice.agent-editor-save-first":
@@ -1747,6 +1757,7 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.heading.agents-in-project": "Agents in {project}",
+  "project-workspace.heading.agents-new-operator": "New Operator",
   "project-workspace.heading.instructions": "Instructions",
   "project-workspace.heading.mcp-servers": "MCP servers",
   "project-workspace.heading.models-for-project": "Models for this project",
@@ -1766,6 +1777,19 @@ export const en = {
   "project-workspace.label.operators-none":
     "No Operator repeats a check here yet",
   "project-workspace.label.agent-waiting": "Waiting for you",
+  "project-workspace.label.agents-target": "the agents",
+  "project-workspace.label.avatar-icon-dock": "Chat",
+  "project-workspace.label.avatar-icon-roles": "People",
+  "project-workspace.label.avatar-icon-contexts": "Library",
+  "project-workspace.label.avatar-icon-documents": "Documents",
+  "project-workspace.label.avatar-icon-apps": "Apps",
+  "project-workspace.label.avatar-icon-search": "Search",
+  "project-workspace.label.avatar-icon-series": "Series",
+  "project-workspace.label.avatar-icon-bookmark": "Bookmark",
+  "project-workspace.label.avatar-icon-terminal": "Terminal",
+  "project-workspace.label.avatar-icon-read": "Reading",
+  "project-workspace.label.avatar-icon-edit": "Pencil",
+  "project-workspace.label.avatar-icon-compare": "Compare",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
@@ -1776,6 +1800,7 @@ export const en = {
   "project-workspace.label.kind-app-panel": "App panel",
   "project-workspace.label.kind-document-editor": "Document editor",
   "project-workspace.label.kind-terminal": "Terminal",
+  "project-workspace.label.kind-agents": "Agents",
   "project-workspace.label.more-files":
     "{count, plural, one {+# more file} other {+# more files}}",
   "project-workspace.label.path": "Path",

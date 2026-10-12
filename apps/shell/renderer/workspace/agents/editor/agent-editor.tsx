@@ -47,33 +47,20 @@ import { t } from "@lophn/wording";
 import type {
   AgentDefinition,
   AgentIssue,
-  AgentPermissions,
-  Profile,
   ValueSource,
 } from "../../../../../../packages/contracts/lophn-agent/agent-values.ts";
-import type { ModelChoice } from "../../../../../../packages/contracts/lophn-agent/models.ts";
 import type { AgentRole } from "../../../../../../packages/contracts/lophn-agent/scope.ts";
 import {
   ModelPicker,
   type ModelPickerProps,
 } from "../../../conversation/model-picker/model-picker.tsx";
-import type { ModelLabel, ProjectInstructionsView } from "../views.ts";
+import type {
+  AgentEffective,
+  ModelLabel,
+  ProjectInstructionsView,
+} from "../views.ts";
+export type { AgentEffective, Sourced } from "../views.ts";
 import styles from "./agent-editor.module.css";
-
-/** 값과 그 값이 어느 층에서 왔는지(ReadAgent.effective의 칸). */
-export interface Sourced<T> {
-  readonly value: T;
-  readonly source: ValueSource;
-}
-
-/** ReadAgent의 effective 중 editor가 쓰는 칸. 정의에 칸이 없을 때 보일 상속 값이다. */
-export interface AgentEffective {
-  readonly name: Sourced<string>;
-  readonly profile: Sourced<Profile>;
-  /** 어느 층에도 model이 없으면 null이다. */
-  readonly model: Sourced<ModelChoice> | null;
-  readonly permissions: Sourced<AgentPermissions>;
-}
 
 /** icon grid의 한 칸. id는 design의 avatar-icons 집합이고 label은 접근 이름이다. */
 export interface AvatarIconOption {

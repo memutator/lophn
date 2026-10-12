@@ -1838,6 +1838,11 @@ export type PlaceholderKinds = {
     code: "string";
   };
   "project-workspace.notice.agent-editor-model-help": Record<never, never>;
+  "project-workspace.notice.agents-change-failed": Record<never, never>;
+  "project-workspace.notice.agents-delete-failed": Record<never, never>;
+  "project-workspace.notice.agents-save-conflict": Record<never, never>;
+  "project-workspace.notice.agents-save-failed": Record<never, never>;
+  "project-workspace.notice.agents-upload-failed": Record<never, never>;
   "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
   "project-workspace.notice.agent-editor-save-first": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
@@ -1859,6 +1864,7 @@ export type PlaceholderKinds = {
   "project-workspace.heading.agents-in-project": {
     project: "string";
   };
+  "project-workspace.heading.agents-new-operator": Record<never, never>;
   "project-workspace.heading.instructions": Record<never, never>;
   "project-workspace.heading.mcp-servers": Record<never, never>;
   "project-workspace.heading.models-for-project": Record<never, never>;
@@ -1874,6 +1880,19 @@ export type PlaceholderKinds = {
   };
   "project-workspace.label.operators-none": Record<never, never>;
   "project-workspace.label.agent-waiting": Record<never, never>;
+  "project-workspace.label.agents-target": Record<never, never>;
+  "project-workspace.label.avatar-icon-dock": Record<never, never>;
+  "project-workspace.label.avatar-icon-roles": Record<never, never>;
+  "project-workspace.label.avatar-icon-contexts": Record<never, never>;
+  "project-workspace.label.avatar-icon-documents": Record<never, never>;
+  "project-workspace.label.avatar-icon-apps": Record<never, never>;
+  "project-workspace.label.avatar-icon-search": Record<never, never>;
+  "project-workspace.label.avatar-icon-series": Record<never, never>;
+  "project-workspace.label.avatar-icon-bookmark": Record<never, never>;
+  "project-workspace.label.avatar-icon-terminal": Record<never, never>;
+  "project-workspace.label.avatar-icon-read": Record<never, never>;
+  "project-workspace.label.avatar-icon-edit": Record<never, never>;
+  "project-workspace.label.avatar-icon-compare": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
@@ -1884,6 +1903,7 @@ export type PlaceholderKinds = {
   "project-workspace.label.kind-app-panel": Record<never, never>;
   "project-workspace.label.kind-document-editor": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
+  "project-workspace.label.kind-agents": Record<never, never>;
   "project-workspace.label.more-files": {
     count: "plural";
   };

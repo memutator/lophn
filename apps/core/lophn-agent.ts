@@ -17,6 +17,7 @@ import {
   agentProfilesUpload,
   assignmentPaused,
   createOperatorAssignment,
+  instructionPreview,
   instructionRead,
   questionCreated,
   runAccepted,
@@ -165,6 +166,7 @@ import {
   type McpServerConfig,
   mcpServersSetting,
   skillFoldersSetting,
+  skillsOffSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
@@ -172,6 +174,7 @@ import {
   allowRunList,
   commandSkillsOf,
   createExtensionRegistry,
+  createGlobalSkillReads,
   createPlaceExtensionCommands,
   createPlaceExtensionReads,
   dataRootOf,
@@ -610,6 +613,14 @@ function registeredSkillFolders(sql: Pick<Tx["sql"], "all">): string[] {
   return shaped.success ? shaped.data : [];
 }
 
+// 전역에서 끈 skill의 정확한 이름이다(open-issues shell/desktop#Q22). 읽지 못하면 끈 것이 없다.
+function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
+  const shaped = skillsOffSetting.value_type.safeParse(
+    settingValue(sql, skillsOffSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
 // 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더(extensions R1).
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
@@ -651,6 +662,7 @@ function extensionRegistry(
     global: {
       servers: registeredMcpServers(sql),
       skills: globalSkillSources(sql),
+      skillsOff: registeredSkillsOff(sql),
     },
   });
 }
@@ -803,6 +815,15 @@ const placeExtensionDeps: PlaceExtensionDeps = {
 const placeExtensionCommands = createPlaceExtensionCommands(placeExtensionDeps);
 const placeExtensionReads = createPlaceExtensionReads(placeExtensionDeps);
 
+// 전역 층의 skill 목록을 사람 화면에 준다(Settings › Agents). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+const globalSkillReads = createGlobalSkillReads({
+  skillFiles,
+  lookups: (sql) => ({
+    skillSources: () => globalSkillSources(sql),
+    skillsOff: () => registeredSkillsOff(sql),
+  }),
+});
+
 // 그 agent 정의가 끈 skill 이름이다(agents R18, extensions R30). 정의를 읽지 못하면 끈 것이 없다.
 function skillsOffOf(
   sql: Pick<Tx["sql"], "get" | "all">,
@@ -837,6 +858,7 @@ export const lophnAgentDefinitions = {
   settings: [
     catalogAutoUpdateSetting,
     skillFoldersSetting,
+    skillsOffSetting,
     mcpServersSetting,
     runModelAttemptsSetting,
     runStallSetting,
@@ -941,6 +963,7 @@ export const lophnAgentDefinitions = {
     agentReads.read,
     agentReads.settings,
     placeExtensionReads.read,
+    globalSkillReads.read,
     runReads.read,
     runReads.list,
     runReads.result,
@@ -959,6 +982,7 @@ export const lophnAgentDefinitions = {
     revertReads.list,
     traceReads.read,
     instructionReadRoute(),
+    instructionPreviewRoute(),
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
   // 메시지 본문은 영구 참조다(conversation#R2).
@@ -1264,6 +1288,19 @@ function instructionReadRoute(): ReadDefinition<typeof instructionRead> {
       return err({
         code: "unavailable" as const,
         message: "지침 읽기는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
+// PreviewGlobalInstructions도 같은 reader Worker가 서빙한다(instruction-files.ts). 사람 화면의 읽기다.
+function instructionPreviewRoute(): ReadDefinition<typeof instructionPreview> {
+  return {
+    route: instructionPreview,
+    handle() {
+      return err({
+        code: "unavailable" as const,
+        message: "지침 미리보기는 reader Worker가 서빙한다",
       });
     },
   };

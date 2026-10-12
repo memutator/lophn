@@ -1,9 +1,13 @@
-// Settings › Agents 통로(shell/desktop#R50). 부른 route·입력·비교 기준을 가짜 core 위에서 본다. route에
-// 없는 칸(전역 LOPHN.md 미리보기, skill 목록과 끄기, server 더하기)은 화면이 그 칸만 비우도록
-// unavailable이거나 빈 값이다. route는 contracts(models·mcp-settings·skill-settings·settings)를 따른다.
+// Settings › Agents 통로(shell/desktop#R50). 부른 route·입력·비교 기준을 가짜 core 위에서 본다. 미리보기와
+// 전역 skill 목록은 각자의 읽기 route에서, 끄고 켜기는 설정 registry의 skills_off로 적용한다. server 더하기와
+// LOPHN.md 열기는 settings 화면이 연결하므로 이 통로에서는 unavailable이다. route는 contracts(models·
+// mcp-settings·skill-settings·instructions·settings)를 따른다.
 import { assert, assertEquals } from "@std/assert";
 
-import { mcpServersSetting } from "../../../../../../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  skillsOffSetting,
+} from "../../../../../../../packages/contracts/lophn-agent/mod.ts";
 import {
   assertCallsFitRoutes,
   fail,
@@ -134,8 +138,52 @@ const CATALOG = {
   ],
 };
 
+const SKILL_LINES = [
+  {
+    name: "team-style",
+    description: "Team writing style",
+    source_kind: "registered",
+    enabled: true,
+  },
+  {
+    name: "personal-notes",
+    description: "My own notes",
+    source_kind: "personal",
+    enabled: false,
+  },
+  {
+    name: "bundled-help",
+    description: "Comes with lophn",
+    source_kind: "bundled",
+    enabled: true,
+  },
+];
+
+function skillsAnswer(over: Record<string, unknown> = {}) {
+  return ok({
+    skills: SKILL_LINES,
+    skills_off: ["personal-notes", "gone-for-now"],
+    shadowed: [],
+    skipped: [],
+    as_of_seq: "5",
+    next_cursor: null,
+    ...over,
+  });
+}
+
+function previewAnswer(preview: unknown) {
+  return ok({ preview, as_of_seq: "5", next_cursor: null });
+}
+
 function agentsAnswers(servers: unknown[] = [], folders: string[] = []) {
   return {
+    "read:instructions/preview": () =>
+      previewAnswer({
+        text: "# Rules\nBe brief.\n",
+        size_bytes: 18,
+        truncated: false,
+      }),
+    "read:global-skills/read": () => skillsAnswer(),
     "read:agent-model-defaults/read": () => ok({ defaults: DEFAULTS }),
     "read:providers/list": () =>
       ok({
@@ -162,6 +210,8 @@ Deno.test("shell/desktop#R50 [agent-I46]: Agents 화면 값은 기본값 칸 다
     "agent-model-defaults/read",
     "providers/list",
     "agent-model-catalog/read",
+    "instructions/preview",
+    "global-skills/read",
     "settings/get",
   ]);
   const view = result.value;
@@ -219,7 +269,7 @@ Deno.test("shell/desktop#R50 [agent-I46]: Agents 화면 값은 기본값 칸 다
   assert(!JSON.stringify(view).includes("wire"));
 });
 
-Deno.test("shell/desktop#R50 [agent-I46]: 전역 LOPHN.md 미리보기와 skill 목록을 읽을 route가 없어 그 칸은 비어 있고 전역 MCP server는 설정에서 읽되 끄면 off·credential이 없으면 needs-sign-in이다", async () => {
+Deno.test("shell/desktop#R50 [agent-I46]: 전역 MCP server는 설정에서 읽되 끄면 off·credential이 없으면 needs-sign-in이다", async () => {
   const servers = [
     HTTP_SERVER("notes", "bearer", "sec:mcp-notes"),
     HTTP_SERVER("search", "api_key", "sec:mcp-search"),
@@ -238,8 +288,6 @@ Deno.test("shell/desktop#R50 [agent-I46]: 전역 LOPHN.md 미리보기와 skill 
   const { core, calls } = fakeCore(agentsAnswers(servers, ["/home/me/skills"]));
   const result = await coreAgentsSettingsSource(core, OPTIONS).read();
   assert(result.ok);
-  assertEquals(result.value.instructionsPreview, null);
-  assertEquals(result.value.skills, []);
   assertEquals(
     result.value.servers.map((row) => [row.name, row.enabled, row.status]),
     [
@@ -256,6 +304,68 @@ Deno.test("shell/desktop#R50 [agent-I46]: 전역 LOPHN.md 미리보기와 skill 
   const secrets = calls.find((call) => call.resource === "secrets")!;
   assertEquals(secrets.body, { names: ["mcp-notes", "mcp-search"] });
   assert(!JSON.stringify(result.value).includes("sec:"));
+});
+
+Deno.test("lophn-agent/instructions#R9 shell/desktop#R50 [agent-I49]: 모든 project의 LOPHN.md 미리보기는 사람 읽기 route의 앞부분이고 잘렸으면 말줄임으로 알리며 없거나 빈 파일이면 null이다", async () => {
+  const read = async (preview: unknown) => {
+    const { core } = fakeCore({
+      ...agentsAnswers(),
+      "read:instructions/preview": () => previewAnswer(preview),
+    });
+    const result = await coreAgentsSettingsSource(core, OPTIONS).read();
+    assert(result.ok);
+    return result.value.instructionsPreview;
+  };
+  assertEquals(
+    await read({
+      text: "# Rules\nBe brief.\n",
+      size_bytes: 18,
+      truncated: false,
+    }),
+    "# Rules\nBe brief.\n",
+  );
+  assertEquals(
+    await read({ text: "# Rules\nBe", size_bytes: 9000, truncated: true }),
+    "# Rules\nBe…",
+  );
+  assertEquals(await read(null), null);
+  assertEquals(
+    await read({ text: "", size_bytes: 0, truncated: false }),
+    null,
+  );
+  // 사람이 읽는 route를 부르고 machine 전용 instructions/read나 run·층·경로를 보내지 않는다.
+  const { core, calls } = fakeCore(agentsAnswers());
+  await coreAgentsSettingsSource(core, OPTIONS).read();
+  const previews = calls.filter((call) => call.resource === "instructions");
+  assertEquals(previews.map((call) => [call.kind, call.method, call.body]), [
+    ["read", "preview", {}],
+  ]);
+});
+
+Deno.test("lophn-agent/extensions#R1 R4 shell/desktop#R50 [agent-I49]: 전역 skill은 목록 route의 이름·설명·켜짐을 옮기고 출처 이름과 본문·경로는 싣지 않는다", async () => {
+  const { core } = fakeCore(agentsAnswers());
+  const result = await coreAgentsSettingsSource(core, OPTIONS).read();
+  assert(result.ok);
+  assertEquals(result.value.skills, [
+    { name: "team-style", detail: "Team writing style", enabled: true },
+    { name: "personal-notes", detail: "My own notes", enabled: false },
+    { name: "bundled-help", detail: "Comes with lophn", enabled: true },
+  ]);
+  assert(!JSON.stringify(result.value.skills).includes("registered"));
+});
+
+Deno.test("shell/desktop#R50 [agent-I49]: 미리보기나 skill 목록만 못 읽으면 그 칸만 비우고 나머지는 그대로 보인다", async () => {
+  const { core } = fakeCore({
+    ...agentsAnswers([HTTP_SERVER("notes", "none")]),
+    "read:instructions/preview": () => fail("unavailable"),
+    "read:global-skills/read": () => fail("unavailable"),
+  });
+  const result = await coreAgentsSettingsSource(core, OPTIONS).read();
+  assert(result.ok);
+  assertEquals(result.value.instructionsPreview, null);
+  assertEquals(result.value.skills, []);
+  assertEquals(result.value.servers.map((row) => row.name), ["notes"]);
+  assertEquals(result.value.defaults.lophn?.modelName, "claude-sonnet-5-5");
 });
 
 Deno.test("shell/desktop#R50 [agent-I46]: 기본값·provider·catalog 가운데 하나라도 못 읽으면 그 오류가 가고 설정만 못 읽으면 server 칸만 비운다", async () => {
@@ -386,11 +496,106 @@ Deno.test("shell/desktop#R50 [agent-I46]: server를 켜고 끄면 설정의 serv
   assertEquals(applies(), 1);
 });
 
-Deno.test("shell/desktop#R50 [agent-I46]: skill 켜고 끄기·server 더하기·LOPHN.md 열기는 이 통로에 core route가 없어 core를 부르지 않고 unavailable이다", async () => {
+Deno.test("shell/desktop#R50 [agent-I49]: skill을 끄면 지금 끈 이름 뒤에 그 이름만 더해 읽은 비교 기준으로 skills_off를 적용하고 지금 없는 끈 이름도 지우지 않는다", async () => {
+  const { core, calls } = fakeCore(agentsAnswers());
+  const source = coreAgentsSettingsSource(core, OPTIONS);
+  assertEquals(await source.setSkillEnabled("team-style", false), {
+    ok: true,
+    value: null,
+  });
+  const apply = calls.find((call) => call.method === "apply")!.body as {
+    input: {
+      changes: { layer: string; key: string; action: string; value: unknown }[];
+    };
+    compare: unknown;
+  };
+  assertEquals(apply.compare, { revision: 7, defaults_revision: "d1" });
+  assertEquals(apply.input.changes, [{
+    layer: "common",
+    key: "lophn-agent.extensions.skills_off",
+    action: "set",
+    value: ["personal-notes", "gone-for-now", "team-style"],
+  }]);
+  assert(
+    skillsOffSetting.value_type.safeParse(apply.input.changes[0]!.value)
+      .success,
+  );
+  assert(calls.some((call) => call.resource === "global-skills"));
+});
+
+Deno.test("shell/desktop#R50 [agent-I49]: skill을 켜면 끈 이름에서 그 이름만 빼고 나머지 끈 이름은 그대로 둔다", async () => {
+  const { core, calls } = fakeCore(agentsAnswers());
+  const source = coreAgentsSettingsSource(core, OPTIONS);
+  assertEquals(await source.setSkillEnabled("personal-notes", true), {
+    ok: true,
+    value: null,
+  });
+  const apply = calls.find((call) => call.method === "apply")!.body as {
+    input: { changes: { key: string; value: unknown }[] };
+  };
+  assertEquals(
+    apply.input.changes[0]!.key,
+    "lophn-agent.extensions.skills_off",
+  );
+  assertEquals(apply.input.changes[0]!.value, ["gone-for-now"]);
+});
+
+Deno.test("shell/desktop#R50 [agent-I49]: 이미 그 상태인 skill은 다시 쓰지 않고 목록에 없는 skill은 not_found이며 설정을 건드리지 않는다", async () => {
+  const { core, calls } = fakeCore(agentsAnswers());
+  const source = coreAgentsSettingsSource(core, OPTIONS);
+  assertEquals(await source.setSkillEnabled("team-style", true), {
+    ok: true,
+    value: null,
+  });
+  assertEquals(await source.setSkillEnabled("personal-notes", false), {
+    ok: true,
+    value: null,
+  });
+  assertEquals(await source.setSkillEnabled("missing-skill", false), {
+    ok: false,
+    code: "not_found",
+  });
+  assertEquals(
+    calls.filter((call) => call.method === "apply").length,
+    0,
+  );
+});
+
+Deno.test("shell/desktop#R50 [agent-I49]: skill을 켜고 끄다 설정이 그 사이 바뀌었으면 conflict가 그대로 가고 목록이나 설정을 못 읽으면 쓰지 않는다", async () => {
+  const stale = fakeCore({
+    ...agentsAnswers(),
+    "command:settings/apply": () => fail("conflict"),
+  });
+  assertEquals(
+    await coreAgentsSettingsSource(stale.core, OPTIONS).setSkillEnabled(
+      "team-style",
+      false,
+    ),
+    { ok: false, code: "conflict" },
+  );
+  for (const missing of ["read:global-skills/read", "read:settings/get"]) {
+    const broken = fakeCore({
+      ...agentsAnswers(),
+      [missing]: () => fail("unavailable"),
+    });
+    assertEquals(
+      await coreAgentsSettingsSource(broken.core, OPTIONS).setSkillEnabled(
+        "team-style",
+        false,
+      ),
+      { ok: false, code: "unavailable" },
+    );
+    assertEquals(
+      broken.calls.filter((call) => call.method === "apply").length,
+      0,
+    );
+  }
+});
+
+Deno.test("shell/desktop#R50 [agent-I49]: server 더하기와 LOPHN.md 열기는 form과 editor를 가진 settings 화면이 잇고 이 통로는 core를 부르지 않고 unavailable이다", async () => {
   const { core, calls } = fakeCore({});
   const source = coreAgentsSettingsSource(core, OPTIONS);
   const unavailable = { ok: false, code: "unavailable" } as const;
-  assertEquals(await source.setSkillEnabled("notes", false), unavailable);
   assertEquals(await source.addServer(), unavailable);
   assertEquals(await source.openInstructions(), unavailable);
   assertEquals(calls, []);
@@ -414,6 +619,7 @@ Deno.test("shell/desktop#R50 [agent-I46]: 보내는 입력과 비교 기준은 c
   }, "7");
   await source.addSkill();
   await source.setServerEnabled("notes", false);
-  assert(calls.length >= 7);
+  await source.setSkillEnabled("team-style", false);
+  assert(calls.length >= 10);
   assertCallsFitRoutes(calls);
 });

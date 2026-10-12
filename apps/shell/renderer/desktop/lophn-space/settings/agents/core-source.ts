@@ -3,12 +3,12 @@
 // 이 화면이 읽는 field만 옮긴 것이다. model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가
 // 준다. credential 값은 이 파일을 지나지 않고 보관 이름과 저장 여부만 묻는다.
 //
-// core route가 없는 칸은 화면이 그 칸만 비우도록 빈 값이거나 unavailable이다.
-// - 모든 project의 LOPHN.md 미리보기: 사람이 읽는 route가 없다(instructions/read는 machine 전용).
-//   미리보기는 null이다. [Edit]이 여는 전역 지침 편집기는 shell(settings 화면)이 연결한다.
-// - skill 목록과 끄고 켜기: 등록한 skill 폴더만 설정에 있고 발견한 skill 목록·끄기 route가 없다.
-//   목록은 빈 값이고 setSkillEnabled는 unavailable이다.
-// - [Add server]: 새 server를 받는 form이 이 통로에 없다(Tools and skills 자리가 맡는다).
+// 칸마다 읽는 route가 다르고 하나를 못 읽으면 그 칸만 비운다.
+// - 모든 project의 LOPHN.md 미리보기: 사람이 읽는 instructions/preview다(instructions/read는 machine 전용).
+//   [Edit]이 여는 전역 지침 편집기는 shell(settings 화면)이 연결하므로 openInstructions는 unavailable이다.
+// - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+// - [Add server]: 새 server를 받는 form은 Tools and skills 자리가 갖고 있다. settings 화면이 그 자리로
+//   옮기므로 이 통로의 addServer는 unavailable이다.
 import type { FolderPickerApi } from "../../../../../ipc/folder-picker.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { windowFolderPicker } from "../../../launcher/core-source.ts";
@@ -67,7 +67,26 @@ const SLOTS: readonly DefaultSlot[] = [
   "summaries",
 ];
 
+interface SkillValue {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+interface PreviewValue {
+  text: string;
+  truncated: boolean;
+}
+
+const SKILLS_OFF = "lophn-agent.extensions.skills_off";
+
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
+
+/** 미리보기 본문. 빈 파일은 보일 것이 없고, 잘렸으면 말줄임으로 알린다. */
+function previewOf(value: PreviewValue | null): string | null {
+  if (value === null || value.text === "") return null;
+  return value.truncated ? `${value.text}…` : value.text;
+}
 
 function choiceOf(value: ChoiceValue | null): ModelChoice | null {
   return value === null ? null : {
@@ -162,6 +181,21 @@ export function coreAgentsSettingsSource(
         {},
       );
       if (!catalog.ok) return catalog;
+      // 미리보기와 skill 목록은 못 읽으면 그 칸만 비운다.
+      const preview = await call<{ preview: PreviewValue | null }>(
+        core,
+        "read",
+        "instructions",
+        "preview",
+        {},
+      );
+      const skills = await call<{ skills: SkillValue[] }>(
+        core,
+        "read",
+        "global-skills",
+        "read",
+        {},
+      );
       // 설정을 못 읽으면 server 칸만 비운다.
       const extensions = await readExtensionSettings(core);
       const serverValues = extensions.ok ? extensions.value.servers : [];
@@ -188,8 +222,16 @@ export function coreAgentsSettingsSource(
           definition: row.definition.key,
         })),
         catalog: catalog.value.entries.map(catalogOf),
-        instructionsPreview: null,
-        skills: [],
+        instructionsPreview: preview.ok
+          ? previewOf(preview.value.preview)
+          : null,
+        skills: skills.ok
+          ? skills.value.skills.map((skill) => ({
+            name: skill.name,
+            detail: skill.description,
+            enabled: skill.enabled,
+          }))
+          : [],
         servers,
       };
       return { ok: true, value: view };
@@ -228,7 +270,28 @@ export function coreAgentsSettingsSource(
       ], random);
     },
 
-    setSkillEnabled: () => Promise.resolve(UNAVAILABLE),
+    async setSkillEnabled(name, enabled) {
+      const listed = await call<{ skills: SkillValue[]; skills_off: string[] }>(
+        core,
+        "read",
+        "global-skills",
+        "read",
+        {},
+      );
+      if (!listed.ok) return listed;
+      const skill = listed.value.skills.find((row) => row.name === name);
+      if (skill === undefined) {
+        return { ok: false, code: "not_found" } satisfies SourceResult<null>;
+      }
+      if (skill.enabled === enabled) return { ok: true, value: null };
+      // 끈 이름은 지금 발견되지 않는 것까지 그대로 둔다: 그 skill이 다시 나타나도 끈 채다.
+      const off = enabled
+        ? listed.value.skills_off.filter((each) => each !== name)
+        : [...listed.value.skills_off, name];
+      const current = await readExtensionSettings(core);
+      if (!current.ok) return current;
+      return applySetting(core, current.value, SKILLS_OFF, off, random);
+    },
 
     addServer: () => Promise.resolve(UNAVAILABLE),
 

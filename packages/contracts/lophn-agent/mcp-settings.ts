@@ -11,6 +11,7 @@ import {
 } from "../platform/mod.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import {
+  globalSkillsRead,
   skillShadowSchema,
   skillSkippedSchema,
   skillSummarySchema,
@@ -282,6 +283,7 @@ export const placeExtensionSettingsChanged = defineEvent(
 export const EXTENSION_ROUTES = [
   placeExtensionSettingsRead,
   placeExtensionSettingsChange,
+  globalSkillsRead,
 ] as const;
 
 export const EXTENSION_EVENTS = [placeExtensionSettingsChanged] as const;

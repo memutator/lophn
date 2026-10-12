@@ -65,7 +65,11 @@ async function withRoot(run: (root: string) => void | Promise<void>) {
   }
 }
 
-function registry(root: string, servers: McpServerConfig[] = []) {
+function registry(
+  root: string,
+  servers: McpServerConfig[] = [],
+  skillsOff: string[] = [],
+) {
   return createExtensionRegistry({
     root,
     files: createNodePlaceFiles(),
@@ -77,6 +81,7 @@ function registry(root: string, servers: McpServerConfig[] = []) {
         personal: `${root}/skills`,
         bundled: `${root}/bundled`,
       },
+      skillsOff,
     },
   });
 }
@@ -248,4 +253,42 @@ Deno.test("lophn-agent/extensions#R4 lophn-agent/commands#R7 [agent-I19b]: the m
     commandSkillsOf(entries, []).every((skill) => skill.selected),
     true,
   );
+});
+
+Deno.test("lophn-agent/extensions#R4 shell/desktop#Q22 [agent-I49]: 전역에서 끈 skill은 모든 자리의 agent에게 보이지 않고 켜 둔 것과 자리 층의 같은 이름은 그대로 보인다", async () => {
+  await withRoot((root) => {
+    writeSkill(
+      `${placeFolderOf(root, PRJ)}/skills`,
+      "audit",
+      "Place copy of a globally-off name",
+    );
+    writeSkill(`${root}/registered`, "audit", "Registered");
+    writeSkill(`${root}/registered`, "style", "Registered style");
+    writeSkill(`${root}/skills`, "notes", "Personal");
+    writeSkill(`${root}/bundled`, "basics", "Bundled");
+    const reg = registry(root, [], ["style", "basics", "audit", "missing"]);
+    // 자리에 같은 이름이 있으면 자리의 것이 이긴다. 전역 끄기는 전역 층의 것만 가린다.
+    assertEquals(
+      reg.skills(PRJ).entries.map((entry) => [entry.name, entry.source_kind]),
+      [["audit", "place"], ["notes", "personal"]],
+    );
+    assertEquals(
+      reg.skills(OTHER).entries.map((entry) => entry.name),
+      ["notes"],
+    );
+    assertEquals(
+      reg.skills(APP).entries.map((entry) => entry.name),
+      ["notes"],
+    );
+  });
+});
+
+Deno.test("lophn-agent/extensions#R4 shell/desktop#Q22 [agent-I49]: 끈 목록이 비어 있으면 아무것도 가리지 않는다", async () => {
+  await withRoot((root) => {
+    writeSkill(`${root}/registered`, "audit", "Registered");
+    assertEquals(
+      registry(root).skills(OTHER).entries.map((entry) => entry.name),
+      ["audit"],
+    );
+  });
 });

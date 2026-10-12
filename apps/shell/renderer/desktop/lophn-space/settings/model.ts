@@ -86,6 +86,7 @@ export function valueText(value: unknown, resolved: boolean): string {
 /** 확장 설정과 따로 보이는 것은 General에서 뺀다. */
 const SHOWN_ELSEWHERE = new Set([
   "lophn-agent.extensions.skill_folders",
+  "lophn-agent.extensions.skills_off",
   "lophn-agent.extensions.mcp_servers",
 ]);
 

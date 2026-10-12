@@ -2,6 +2,7 @@ import { err, ok, type Result, systemClock } from "../../packages/base/mod.ts";
 import {
   type AgentPlace,
   skillFoldersSetting,
+  skillsOffSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { settingsGet } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -63,7 +64,7 @@ export async function discoverProductSkills(
   machine: CoreCall,
   stores: SkillStores,
 ): Promise<SkillDiscovery | null> {
-  const roots = await registeredRoots(machine);
+  const { roots, off } = await globalSkillSettings(machine);
   const port = productFiles(roots, stores);
   const discovered = await discoverSkills({
     port,
@@ -76,7 +77,14 @@ export async function discoverProductSkills(
     max_file_bytes: SKILL_BODY_MAX_BYTES,
     selection: null,
   });
-  return discovered.ok ? discovered.value : null;
+  if (!discovered.ok) return null;
+  // 전역에서 끈 skill은 전역 층의 같은 이름만 가린다. 자리 층의 것은 그대로 둔다(extensions R4, R32).
+  return {
+    ...discovered.value,
+    entries: discovered.value.entries.filter((entry) =>
+      entry.source_kind === "place" || !off.includes(entry.name)
+    ),
+  };
 }
 
 async function presentFolder(
@@ -88,20 +96,26 @@ async function presentFolder(
   return kind.ok && kind.value === null ? null : path;
 }
 
-async function registeredRoots(
+// 등록 폴더(순서대로)와 전역에서 끈 skill 이름이다. 읽지 못하거나 값이 틀리면 둘 다 없는 것으로 본다.
+async function globalSkillSettings(
   machine: CoreCall,
-): Promise<readonly string[]> {
+): Promise<{ roots: readonly string[]; off: readonly string[] }> {
   const read = await readOf(machine, settingsGet, {
-    keys: [skillFoldersSetting.key],
+    keys: [skillFoldersSetting.key, skillsOffSetting.key],
   });
-  if (!read.ok) return [];
-  const setting = read.value.settings.find((entry) =>
-    entry.key === skillFoldersSetting.key
+  if (!read.ok) return { roots: [], off: [] };
+  const valueOf = (key: string): unknown =>
+    read.value.settings.find((entry) => entry.key === key)?.value ?? null;
+  const roots = skillFoldersSetting.value_type.safeParse(
+    valueOf(skillFoldersSetting.key),
   );
-  if (setting === undefined || setting.value === null) return [];
-  const shaped = skillFoldersSetting.value_type.safeParse(setting.value);
-  if (!shaped.success || shaped.data.length === 0) return [];
-  return shaped.data;
+  const off = skillsOffSetting.value_type.safeParse(
+    valueOf(skillsOffSetting.key),
+  );
+  return {
+    roots: roots.success ? roots.data : [],
+    off: off.success ? off.data : [],
+  };
 }
 
 // 등록 root·자리·개인 보관소·동봉 폴더와 그 아래만 연다. symlink는 lstat로 보고 따라가지 않는다.

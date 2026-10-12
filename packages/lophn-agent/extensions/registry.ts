@@ -30,6 +30,8 @@ export type ExtensionRegistryDeps = {
   global: {
     servers: readonly McpServerConfig[];
     skills: Omit<SkillSources, "place">;
+    // 전역에서 끈 skill의 정확한 이름이다. 전역 층의 같은 이름만 가리고 자리 층의 것은 그대로 둔다.
+    skillsOff: readonly string[];
   };
 };
 
@@ -67,10 +69,17 @@ export function createExtensionRegistry(
     skills(place) {
       const found = skills.get(key(place));
       if (found !== undefined) return found;
-      const listing = listSkillsSync(deps.skillFiles, {
+      const discovered = listSkillsSync(deps.skillFiles, {
         ...deps.global.skills,
         place: placeSkillsOf(deps.root, place),
       });
+      const listing = {
+        ...discovered,
+        entries: discovered.entries.filter((entry) =>
+          entry.source_kind === "place" ||
+          !deps.global.skillsOff.includes(entry.name)
+        ),
+      };
       skills.set(key(place), listing);
       return listing;
     },

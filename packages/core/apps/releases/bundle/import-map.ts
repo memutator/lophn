@@ -1,4 +1,4 @@
-// lophn-sdk import map(apps/sdk#R7, R10, R34). `lophn-sdk:<name>@<version>`와
+// lophn-sdk import map. `lophn-sdk:<name>@<version>`와
 // `lophn-sdk:<name>@<version>/<subpath>`를 bundle 안 상대 file 경로로 치환한다.
 // 상대 specifier(`./`, `../`)는 허용한다. ^·~·latest와 원격·npm·jsr import는 거절이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -81,7 +81,7 @@ function relativeStays(specifier: string): Result<string, ImportMapFailure> {
 }
 
 // specifier 하나를 bundle 안 상대 경로로 바꾼다. map에 없는 이름은 거절이다
-// (실행 때 새 패키지를 다운로드하지 않는다, apps/sdk#R10).
+// (실행 때 새 패키지를 다운로드하지 않는다).
 export function resolveSpecifier(
   specifier: string,
   map: SdkPathMap,

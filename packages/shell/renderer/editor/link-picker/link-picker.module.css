@@ -1,4 +1,4 @@
-/* `[[` 링크 고르기: 320px popover, 32px 행(shell/editor#R11). */
+/* `[[` 링크 고르기: 320px popover, 32px 행. */
 .picker {
   position: absolute;
   z-index: var(--z-popover);

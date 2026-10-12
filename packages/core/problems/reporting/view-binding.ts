@@ -1,4 +1,4 @@
-// view exception 귀속(problems/reporting#R6). shell main이 보내는 view 오류의 `binding`은 core가
+// view exception 귀속. shell main이 보내는 view 오류의 `binding`은 core가
 // 서명한 AppConnection(`apps.connect`가 낸 SignedConnection JSON)이다. 서명 key는 core 시작마다 하나인
 // appsControl.signer의 것이라, 검증은 core가 collector worker로 넘기기 전에 한다. 검증된 payload의
 // app·release·mode·bundle_hash만 worker에 넘기고 페이지·본문 주장은 버린다. 위조·만료·형식 오류는

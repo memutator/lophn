@@ -3,7 +3,7 @@
 // (platform/notifications#R1, R2). 본문 조립·OS 표시·model 호출은 하지 않는다(R8).
 //
 // event는 깨우는 신호다. 구독이 (다시) 열릴 때와 event가 올 때 cursor부터 따라잡고, 실패하면
-// 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다. 전달 실패로 버리지 않는다(R4, R11).
+// 그 위치에서 멈춘 채 대기 뒤 같은 cursor부터 다시 읽는다. 전달 실패로 버리지 않는다.
 import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { notificationsEngine } from "./mod.ts";

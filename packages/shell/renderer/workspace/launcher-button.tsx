@@ -6,7 +6,7 @@ export interface LauncherButtonProps {
   onLauncher: () => void;
 }
 
-// 모든 공간 왼쪽 위의 런처 복귀(desktop#R26). sidebar 접힘 때는 상단 바가 그린다.
+// 모든 공간 왼쪽 위의 런처 복귀. sidebar 접힘 때는 상단 바가 그린다.
 export function LauncherButton({ onLauncher }: LauncherButtonProps) {
   const label = t("project-workspace.button.launcher");
   return (

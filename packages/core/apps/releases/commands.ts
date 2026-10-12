@@ -1,4 +1,4 @@
-// `release.prepare`: 신뢰된 준비 결과를 불변 prepared Release로 확정한다(apps/releases#R1, R5–R7).
+// `release.prepare`: 신뢰된 준비 결과를 불변 prepared Release로 확정한다.
 // bundle 준비·테스트는 core 밖에서 끝났고 이 command는 짧은 확정만 한다. machine만 부르며
 // coding agent의 통과·hash 주장은 받지 않는다: 같은 bundle hash의 통과한 app test는 Verification
 // 사실을 읽는 port로, 새 coding 준비의 ticket claim은 coding-agent의 현재 claim 검사로 이 transaction
@@ -95,7 +95,7 @@ function portOf<T>(tx: Pick<Tx, "port">, key: PortKey<T>): T | undefined {
 }
 
 // 새 coding 준비의 ticket 출처를 현재 claim으로 다시 확인한다. 요청 때 거절한 것과 같은 이유가
-// 확정 때에도 거절이다(R6). 검사는 claim 기한을 연장하지 않는다.
+// 확정 때에도 거절이다. 검사는 claim 기한을 연장하지 않는다.
 export function checkPreparationClaim(
   tx: Pick<Tx, "port" | "now">,
   createdBy: string,
@@ -110,7 +110,7 @@ export function checkPreparationClaim(
       ? ok(undefined)
       : invalid("ticket source needs a coding agent preparer");
   }
-  // 새 coding 준비는 출처 없이 할 수 없다. claim 없는 수리 fallback을 입구로 쓰지 않는다(R6, R7).
+  // 새 coding 준비는 출처 없이 할 수 없다. claim 없는 수리 fallback을 입구로 쓰지 않는다.
   if (source === undefined) {
     return invalid("a coding preparation needs a ticket source");
   }
@@ -148,7 +148,7 @@ export function createReleaseCommands(): {
   failActivation: CommandDefinition<typeof releaseFailActivation>;
 } {
   return {
-    // activation 시작(apps/releases#R8, R12, R13, R16). 정확한 대상 release의 사람 approval을 적용한
+    // activation 시작. 정확한 대상 release의 사람 approval을 적용한
     // 같은 transaction에서만 부른다(`/v1/approvals/apply`). 직접 부르면 approval 한 번 사용이 깨지므로
     // dispatch 전용이다. 앱마다 activation은 하나이고 시작 event의 seq가 그 시도의 이름이다.
     startActivation: {
@@ -201,7 +201,7 @@ export function createReleaseCommands(): {
           return conflict("the app data schema changed");
         }
         // 현재 schema와 같은 release만 바로 시작하고 다른 schema는 이어지는 앞으로의 경로가 있어야 한다.
-        // 뒤로 가는 옛 release는 별도 restore 없이는 시작하지 않는다(R16).
+        // 뒤로 가는 옛 release는 별도 restore 없이는 시작하지 않는다.
         const path = pathFrom(release, input.expected_schema);
         if (!path.ok) return invalid(path.error.message);
         const startedSeq = nextEventSeq(tx.sql);
@@ -229,7 +229,7 @@ export function createReleaseCommands(): {
         return ok({ status: "activating" as const, started_seq: startedSeq });
       },
     },
-    // activation 확정(apps/releases#R12, R14). 같은 시도·이전 활성 참조·grant 집합·approval과 실제 데이터
+    // activation 확정. 같은 시도·이전 활성 참조·grant 집합·approval과 실제 데이터
     // 결과·준비 확인(hash·handler·schema)을 다시 확인한 뒤 새 active 참조, 이전 superseded, 앱 이름·설명
     // 갱신(첫 성공은 run_enabled)을 한 transaction으로 바꾼다. 응답을 잃은 재전송은 같은 결과를 돌려준다.
     completeActivation: {
@@ -333,7 +333,7 @@ export function createReleaseCommands(): {
         });
       },
     },
-    // activation 실패(apps/releases#R15). 실패 근거와 이전 활성 참조를 남기고 알림 계기 event를 낸다.
+    // activation 실패. 실패 근거와 이전 활성 참조를 남기고 알림 계기 event를 낸다.
     // 데이터가 바뀌었을 수 있는 시도(backup 확정)는 복원 결과가 있어야 실패로 닫는다.
     failActivation: {
       route: releaseFailActivation,
@@ -388,7 +388,7 @@ export function createReleaseCommands(): {
         return ok({ status: "failed" as const });
       },
     },
-    // 준비 접수의 요청 때 검사다(apps/releases#R6). 앱 범위·source 연결·ticket claim을 이 transaction에서
+    // 준비 접수의 요청 때 검사다. 앱 범위·source 연결·ticket claim을 이 transaction에서
     // 확인하고 아무것도 기록하지 않는다. 실제 준비는 supervisor 메모리 진행이고 core는 이 검사를 통과한
     // 요청만 그쪽으로 넘긴다(packages/core/apps/control.ts의 `withReleasePreparation`). 범위 밖·없는 앱·
     // source가 없는 앱은 같은 거절이다.
@@ -448,7 +448,7 @@ export function createReleaseCommands(): {
         if (app.value.status === "archived") {
           return conflict("archived app cannot prepare a release");
         }
-        // 정규 blueprint는 검증기를 통과한 것만 hash로 고정한다(apps/blueprint#R16).
+        // 정규 blueprint는 검증기를 통과한 것만 hash로 고정한다.
         const validated = validateBlueprint(input.blueprint, {
           app: input.app,
         });
@@ -552,7 +552,7 @@ function requireMachine(ctx: RequestContext): Result<void> {
     : err({ code: "forbidden", message: "release.prepare is machine only" });
 }
 
-// migration 단계는 끊김 없이 이어지고 마지막 도착이 release의 schema다(apps/data#R3).
+// migration 단계는 끊김 없이 이어지고 마지막 도착이 release의 schema다.
 function checkDataChanges(
   changes: readonly { from: number; to: number }[],
   dataSchema: number,
@@ -569,7 +569,7 @@ function checkDataChanges(
 }
 
 // 같은 bundle hash의 통과한 이 앱 app test만 근거다. 다른 앱·다른 종류·다른 hash의 통과와
-// 없는 참조는 구별 없이 같은 거절이다(R5).
+// 없는 참조는 구별 없이 같은 거절이다.
 function checkTests(
   tx: Pick<Tx, "port">,
   input: { app: string; bundle_hash: string; tests: readonly string[] },
@@ -600,7 +600,7 @@ function checkTests(
   return ok(undefined);
 }
 
-// complete가 확인하는 실제 데이터 결과와 준비 확인이다(apps/releases#R14). hash·handler·schema·연결이 하나라도
+// complete가 확인하는 실제 데이터 결과와 준비 확인이다. hash·handler·schema·연결이 하나라도
 // 맞지 않으면 채택하지 않는다. 필요한 migration이 backup 확정과 변경 결과 없이 끝났다는 주장도 받지 않는다.
 function checkReady(
   tx: Pick<Tx, "sql">,
@@ -648,7 +648,7 @@ function checkReady(
   return ok(undefined);
 }
 
-// record_backup·record_data_change·record_data_restore가 부르는 시도 확인이다(apps/data#R4). 진행 중인 같은
+// record_backup·record_data_change·record_data_restore가 부르는 시도 확인이다. 진행 중인 같은
 // 시도의 release만 받고 비교 기준(실제 schema)이 다르면 conflict다. 확정한 참조는 그 시도에 남긴다.
 export const activationAttemptGate: AttemptGate = {
   check(tx, attempt) {

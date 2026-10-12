@@ -1,4 +1,4 @@
-// 대화 줄의 배치(shell/desktop#R40·R48): 내 메시지는 오른쪽 bubble, agent 메시지는 왼쪽에 avatar·이름·시각을
+// 대화 줄의 배치: 내 메시지는 오른쪽 bubble, agent 메시지는 왼쪽에 avatar·이름·시각을
 // 한 번 두고 이어지는 메시지는 그 아래에 묶는다. 기존 message-list.tsx는 그대로 두고 이 파일이 새 배치를 맡는다.
 // renderer는 contracts를 type check하지 않으므로 id는 문자열이다.
 import type { ReactElement, ReactNode } from "react";
@@ -30,7 +30,7 @@ export interface TurnMessage {
 
 /**
  * agent 쪽 block. tool 줄·편집 카드·질문 카드처럼 메시지가 아닌 것을 부르는 쪽이 그려서 준다.
- * agent 묶음 안에 이름 없이 이어지고 묶음을 나누지 않으며 왼쪽 열의 폭을 다 쓴다(R40).
+ * agent 묶음 안에 이름 없이 이어지고 묶음을 나누지 않으며 왼쪽 열의 폭을 다 쓴다.
  */
 export interface TurnBlock {
   readonly kind: "block";
@@ -52,7 +52,7 @@ export interface MessageTurnsProps {
   agent: TurnAgent;
   /** 시간순. 내 메시지는 `actor: "user"`, agent 쪽은 agent 메시지와 block이다. */
   items: readonly TurnItem[];
-  /** closed session이면 true. 내 메시지의 Rewind·Fork 단추가 없다(conversation#R25). */
+  /** closed session이면 true. 내 메시지의 Rewind·Fork 단추가 없다. */
   sessionClosed: boolean;
   /** "Rewind to here". 되돌리기 menu를 여는 일은 부르는 쪽 몫이다. */
   onRewind: (message: string) => void;

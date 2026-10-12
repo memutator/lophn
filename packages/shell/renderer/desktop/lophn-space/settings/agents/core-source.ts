@@ -1,4 +1,4 @@
-// AgentsSettingsSource를 main의 core 통로로 만든다(shell/desktop#R50). 응답은 main의 contract
+// AgentsSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract
 // client가 route output schema로 이미 검사했다. 아래 모양은 그 schema(models·providers·settings)에서
 // 이 화면이 읽는 field만 옮긴 것이다. model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가
 // 준다. credential 값은 이 파일을 지나지 않고 보관 이름과 저장 여부만 묻는다.

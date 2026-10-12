@@ -1,4 +1,4 @@
-// OS notification 표시(shell/desktop#R7, R10, platform/notifications#R9, R10, R12). 지금 도착한
+// OS notification 표시. 지금 도착한
 // NotificationCreated 하나마다 core에 OS 표시 요청(redaction한 계기 종류와 열 곳, 사람이 켰을
 // 때만 값이 있다)을 받아, 그 종류의 고정 문구로만 OS에 올린다. 이름·내용·secret·원문 오류는
 // OS에 넘기지 않는다. 재연결 때 따라잡은 backlog는 올리지 않고, 같은 notification은 이 main이

@@ -90,7 +90,7 @@ async function readLimited(
 }
 
 // 이 process의 generation 값이다. 신뢰 감독이 같은 process를 `<pid>.<시작 tick>`로 관측해
-// `registerChild`에 등록한다(platform/identity#R15). 시작 tick을 읽지 못하면 pid만이다.
+// `registerChild`에 등록한다. 시작 tick을 읽지 못하면 pid만이다.
 export function processGenerationOf(
   pid: number,
   startTicks: string | undefined,
@@ -243,7 +243,7 @@ export function createHelperCredentialProvider(
 }
 
 // 받은 token을 이 process의 알려진 값 registry에 올린다. 실패 진단·MCP text·stderr가 거치는 redaction이
-// 이 값을 가리게 해 token이 어떤 출력에도 나오지 않게 한다(connection#R17). registry는 호출 조립이
+// 이 값을 가리게 해 token이 어떤 출력에도 나오지 않게 한다. registry는 호출 조립이
 // 준다(platform redaction의 registry와 같은 `register`).
 export function registeringProvider(
   provider: CredentialProvider,

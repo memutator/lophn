@@ -86,7 +86,7 @@ function row(record: Record<string, unknown>): SqlRow {
 
 function statement(db: DatabaseSync, sql: string): StatementSync {
   const prepared = db.prepare(sql);
-  // seq는 JS 안전 정수를 넘는다(platform/ledger#R9).
+  // seq는 JS 안전 정수를 넘는다.
   prepared.setReadBigInts(true);
   return prepared;
 }
@@ -267,7 +267,7 @@ export function isTransactionLost(thrown: unknown): boolean {
   return thrown instanceof TransactionLost;
 }
 
-// disk·I/O·잠금 대기는 입력을 소비하지 않는 unavailable이다(platform/ledger#R6).
+// disk·I/O·잠금 대기는 입력을 소비하지 않는 unavailable이다.
 // 제약 위반·거절 SQL은 여기 넣지 않는다. 그건 handler 결과로 rollback된다.
 // primary code의 낮은 8bit와 SQLITE_* 이름. reader 분류와 같다.
 const STORAGE_CODES = new Set([5, 6, 8, 10, 11, 13, 14, 15, 26]);

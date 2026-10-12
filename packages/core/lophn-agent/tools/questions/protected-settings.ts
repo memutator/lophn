@@ -1,6 +1,6 @@
-// 질문 선택지가 바꿀 수 없는 설정(questions#R12, roles/lophn#R22). 권한 확대·secret 등록·외부 효과는
+// 질문 선택지가 바꿀 수 없는 설정. 권한 확대·secret 등록·외부 효과는
 // 사람이 소유 concern의 보호 화면에서 직접 한다. question option action은 되돌릴 수 있는 lophn
-// 안쪽 동작만 고정하므로(R13) 이런 설정 key는 action으로 열지 않고 보호 화면을 안내한다.
+// 안쪽 동작만 고정하므로 이런 설정 key는 action으로 열지 않고 보호 화면을 안내한다.
 //
 // 판정은 key만 본다. 질문을 만드는 쪽(create_question)과 선택지를 만드는 쪽(lophn 역할)이 같은
 // 규칙을 쓰려고 이 파일 하나에 둔다. 모르는 key는 일반 설정이다: 등록된 공개 설정은 secret 값을

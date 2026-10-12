@@ -1,4 +1,4 @@
-// bundle manifest(apps/releases#R1, apps/sdk#R7). entrypoint·각 상대 path·hash·
+// bundle manifest. entrypoint·각 상대 path·hash·
 // exact sdk_dependencies를 담는다. schema는 contracts의 bundleManifestSchema 하나다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {

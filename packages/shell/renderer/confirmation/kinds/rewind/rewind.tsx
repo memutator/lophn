@@ -76,7 +76,7 @@ function Groups(
 }
 
 /**
- * session 되돌리기(rewind) 확인(lophn-agent/revert#R3·R7·R15·R16). main이 preview에서 만든 view는
+ * session 되돌리기(rewind) 확인. main이 preview에서 만든 view는
  * `{ kind: "rewind", choice, redo, restore, skip, remain }`이고 항목은 종류·대상·이유 코드뿐이다(앱 receipt 원문은
  * 오지 않는다). 복원할 것·건너뛰는 것·남는 영향을 이유와 함께 따로 보이고, 건너뛰는 것이나 남는 영향이 있으면(`second`)
  * Rewind가 먼저 그 목록을 다시 보이는 단계를 열며, 거기서 확인해야 결정을 보낸다.
@@ -158,7 +158,7 @@ export function RewindKind({ view, decide, cancel, busy }: KindProps) {
       : choice === "messages_only"
       ? t("confirmation-window.rewind.subject-messages-only")
       : t("confirmation-window.rewind.subject-summarize"),
-    // 바깥 변경은 되돌리지 않는다는 말이 늘 보인다(R6).
+    // 바깥 변경은 되돌리지 않는다는 말이 늘 보인다.
     effect: t("conversation.rewind.note"),
     reversible: shown.redo === true,
     revertNote: shown.redo === true

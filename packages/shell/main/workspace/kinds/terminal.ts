@@ -1,4 +1,4 @@
-// terminal 탭 kind. 복원은 종료된 자리표시이고 PTY를 만들지 않는다(shell/workspace#R7).
+// terminal 탭 kind. 복원은 종료된 자리표시이고 PTY를 만들지 않는다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

@@ -1,4 +1,4 @@
-// 테스트로 확인됨 닫힘의 후보 읽기와 만약의 만약 대상(problems/closing#R3, R4).
+// 테스트로 확인됨 닫힘의 후보 읽기와 만약의 만약 대상.
 // architecture/problems 7.6. machine 판정기만 닫으며 판정의 근거는 problems/tests의
 // reproduction 종류 pass Verification 하나뿐이다. app test·test command·agent의 통과
 // 주장은 후보로 읽지 않는다.
@@ -7,12 +7,12 @@ import type { Seq } from "../../../protocol/base/mod.ts";
 import type { Verification } from "../../../protocol/problems/mod.ts";
 import type { Closure } from "../../../protocol/problems/mod.ts";
 
-// 닫힘이 참조하는 근거다. reproduction pass만 verified 근거다(closing#R3).
+// 닫힘이 참조하는 근거다. reproduction pass만 verified 근거다.
 export type ClosureEvidence = {
   verification: Verification;
 };
 
-// reproduction 종류 pass만 verified 닫힘의 후보다(R3). result 검증은 저장된
+// reproduction 종류 pass만 verified 닫힘의 후보다. result 검증은 저장된
 // Verification의 사실 그대로다.
 export function verifiedCandidate(
   verification: Verification,
@@ -29,7 +29,7 @@ export function verifiedCandidate(
   return ok({ verification });
 }
 
-// 닫힘 요청 CAS의 재료다(R5, R14). 낡은 seq·release의 요청은 다시 읽지 않고 conflict다.
+// 닫힘 요청 CAS의 재료다. 낡은 seq·release의 요청은 다시 읽지 않고 conflict다.
 export type ConclusionBasis = {
   problem: string;
   problem_seq: Seq;
@@ -59,7 +59,7 @@ type SqlGet = {
 };
 
 // 사람이 "아직입니다"(not_fixed)라고 한 뒤 같은 release·같은 근거로 고쳐짐 확인을 다시
-// 제안하지 않는다(problems/closing#R10). 마지막 부정 확인 event의 release와 그 뒤 새 근거
+// 제안하지 않는다. 마지막 부정 확인 event의 release와 그 뒤 새 근거
 // (같은 문제의 고친 기록·Verification)를 읽는다. 부정 확인이 없거나, 활성 release가 그때와
 // 다르거나, 그 뒤 새 근거가 있으면 다시 제안한다.
 export function offersFixedConfirmation(

@@ -61,7 +61,7 @@ export function generalReadAllowed(field: BlobFieldDefinition): Result<void> {
 }
 
 // 부분 읽기 구간. 요청이 음수이거나 시작이 전체 밖이면 invalid_input이다.
-// 실제 반환은 256KiB를 넘지 않고, 넘기면 잘림을 함께 답한다(R7).
+// 실제 반환은 256KiB를 넘지 않고, 넘기면 잘림을 함께 답한다.
 export function readWindow(
   sizeBytes: number,
   offsetBytes: number,
@@ -86,7 +86,7 @@ export function readWindow(
   });
 }
 
-// 관측한 바이트가 등록된 hash·크기와 다르면 손상이다. 빈 성공으로 채우지 않는다(R6).
+// 관측한 바이트가 등록된 hash·크기와 다르면 손상이다. 빈 성공으로 채우지 않는다.
 export function observedMatches(
   expected: { hash: string; size_bytes: number },
   observed: { hash: string; sizeBytes: number } | undefined,
@@ -109,7 +109,7 @@ export type BlobReadAnswer = {
   bytes?: Uint8Array;
 };
 
-// 읽기 결과. hash는 등록된 참조에서만 온다. hash를 안다고 읽을 수 없다(R5).
+// 읽기 결과. hash는 등록된 참조에서만 온다. hash를 안다고 읽을 수 없다.
 export function readAnswer(
   reference: { hash: string; size_bytes: number },
   window: { offset_bytes: number; length_bytes: number; truncated: boolean },

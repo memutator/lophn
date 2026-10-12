@@ -5,7 +5,7 @@ import type { MemoryLimitMode } from "../../../protocol/supervision/mod.ts";
 // problems/tests#R20. 전체 process 메모리 상한. Deno heap 상한과 별개다.
 export const PROCESS_MEMORY_LIMIT_BYTES = 536_870_912;
 
-// hard는 cgroup v2 memory.max다(platform Q10). user systemd가 scope에 컨트롤러를 위임한다.
+// hard는 cgroup v2 memory.max다. user systemd가 scope에 컨트롤러를 위임한다.
 const SYSTEMD_RUN = "/usr/bin/systemd-run";
 // soft는 가상 주소 공간 상한이다. cgroup을 못 쓸 때만 쓴다.
 // Deno는 512MiB RLIMIT_AS에서 시작 전에 죽는다(Oilpan 예약). /bin/true가

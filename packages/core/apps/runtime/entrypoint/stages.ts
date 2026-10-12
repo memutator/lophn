@@ -1,4 +1,4 @@
-// 호출 한 번이 지나간 단계 기록(apps/invocations#R11). handler 안의 SDK가 STAGE_PORT로 단계를 알리면
+// 호출 한 번이 지나간 단계 기록. handler 안의 SDK가 STAGE_PORT로 단계를 알리면
 // 현재 호출 문맥의 invocation에 붙고, 호출이 끝날 때 요약에 실린다. 문맥 밖 호출은 버린다.
 import {
   type InvocationStageState,

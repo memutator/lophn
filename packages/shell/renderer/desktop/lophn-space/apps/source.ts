@@ -16,7 +16,7 @@ export interface AppRow {
   readonly revision: string;
 }
 
-/** supervisor가 본 실행 상태(apps#T9). 과거 기록으로 running이라 하지 않는다. */
+/** supervisor가 본 실행 상태. 과거 기록으로 running이라 하지 않는다. */
 export type RunState = "preparing" | "stopped" | "running" | "unavailable";
 
 export interface AppsSource {
@@ -27,7 +27,7 @@ export interface AppsSource {
   /** 없는 앱·범위 밖 앱은 null이다. */
   get(app: string): Promise<SourceResult<AppRow | null>>;
   runtime(app: string): Promise<SourceResult<RunState>>;
-  /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다(apps/registration#R8). */
+  /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
   /** 그 version에서 앱 공간에 여는 화면. blueprint가 full 크기로 선언한 첫 화면이다. */
   entryScreen(app: string, release: string): Promise<SourceResult<string>>;

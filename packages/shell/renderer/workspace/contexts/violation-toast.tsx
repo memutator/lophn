@@ -1,4 +1,4 @@
-// 계약 위반 toast(shell/workspace#R29). 알릴 뿐 입력 focus를 가져오지 않고 [View]는 그 context의
+// 계약 위반 toast. 알릴 뿐 입력 focus를 가져오지 않고 [View]는 그 context의
 // Violations를 여는 일을 부른 쪽에 맡긴다. 구현은 ctx-I44.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
 //   contexts.title.toast-violations
@@ -13,7 +13,7 @@ export interface ViolationToastProps {
   readonly count: number;
   readonly onView: () => void;
   /**
-   * [Ask <agent 이름>]. 주면 [View] 앞에 단추가 선다(shell/desktop#R35). 누르면 부른 쪽이 위반된 context를
+   * [Ask <agent 이름>]. 주면 [View] 앞에 단추가 선다. 누르면 부른 쪽이 위반된 context를
    * 첫 chip으로 붙인 Agent 탭을 연다. 아무것도 보내지 않는다.
    */
   readonly ask?: { readonly agentName: string; readonly onAsk: () => void };

@@ -36,7 +36,7 @@ import {
   type ToolView,
 } from "./recovery.ts";
 
-// 중단 뒤 복구의 실제 일(lophn-agent/harness/waiting-and-recovery R8–R10, R12). ledger의 run·model
+// 중단 뒤 복구의 실제 일. ledger의 run·model
 // call·tool call 사실을 읽어 경계를 확정하고, 결과 없이 시작만 있는 호출을 먼저 닫은 뒤 이미 확정한
 // 응답·결과로 이력을 다시 만들어 같은 run을 잇게 한다. 확정한 call은 다시 부르지 않고, 결과 모르는
 // 쓰기·external은 소유 계약의 결과 조회가 알려 주기 전에는 다시 보내지 않는다.

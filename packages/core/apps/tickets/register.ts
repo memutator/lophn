@@ -43,7 +43,7 @@ const checks = createTicketCheckCommands();
 const checkReads = createTicketCheckReads();
 
 // 만료·회수 정리 간격. core 감독 timer가 이 간격으로 후보를 읽고
-// ticket.expire_claim을 제출한다. timer 자체는 표를 쓰지 않는다(R13).
+// ticket.expire_claim을 제출한다. timer 자체는 표를 쓰지 않는다.
 export const ticketClaimSweepIntervalMs = CLAIM_SWEEP_INTERVAL_MS;
 export { expiredClaims };
 
@@ -64,12 +64,12 @@ export function createReaderRegistration(): ReaderRegistration {
   };
 }
 
-// ticket 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 연다.
+// ticket 계기 event의 공개 정책. notifications 구독자에게만 연다.
 // 사람은 notification read로 본다. 다른 ticket event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
-      // `problems.work` 반응기(문제 work 연결, problems#T19)도 읽는 ticket event다.
+      // `problems.work` 반응기(문제 work 연결)도 읽는 ticket event다.
       visibleToProblemsWork(notificationsOnlyVisibility(ticketConfirmed)),
       visibleToProblemsWork(notificationsOnlyVisibility(ticketCheckFailed)),
       // checker를 깨우는 event. checker 구독자(machine:ticket-check-feed)와 문제 work 반응기에게 열린다.

@@ -1,4 +1,4 @@
-// 대화 입력 위의 안내(shell/desktop#R7): provider를 쓸 수 없을 때와 마지막 run의 외부 연결 호출이 기다리거나
+// 대화 입력 위의 안내: provider를 쓸 수 없을 때와 마지막 run의 외부 연결 호출이 기다리거나
 // 실패했을 때. 행동 하나만 말하고 확인된 시각만 적는다.
 import type { AgentNotice, SourceResult } from "./agent-source.ts";
 import {

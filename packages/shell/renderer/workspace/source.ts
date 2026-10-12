@@ -40,12 +40,12 @@ export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
   /**
-   * Contexts·Context·Search 탭의 통로(shell/workspace#R14~R31). 없으면 그 탭과 여는 길을 두지
+   * Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
    */
   readonly contextsSource?: ContextsSource;
   /**
-   * Agents 탭과 sidebar의 Agents 묶음의 통로(shell/workspace#R34, R36~R44). 없으면 그 탭과 여는 길을 두지
+   * Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
    */
   readonly agentsSource?: AgentsSource;

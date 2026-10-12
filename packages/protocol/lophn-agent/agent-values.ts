@@ -24,14 +24,14 @@ function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-// 제품이 이름을 고정하는 built-in. Operator는 이 이름을 쓰지 못한다(R2, R5).
+// 제품이 이름을 고정하는 built-in. Operator는 이 이름을 쓰지 못한다.
 export const BUILTIN_AGENT_NAMES = {
   lophn: "lophn",
   context_engineer: "Context Engineer",
   app_engineer: "App Engineer",
 } as const;
 
-// 같은 자리 Operator 사이의 이름 중복과 built-in 이름 충돌을 가리는 열쇠다: 앞뒤 공백과 영문 대소문자를 무시한다(R5).
+// 같은 자리 Operator 사이의 이름 중복과 built-in 이름 충돌을 가리는 열쇠다: 앞뒤 공백과 영문 대소문자를 무시한다.
 export function agentNameKey(name: string): string {
   return name.trim().toLowerCase();
 }
@@ -43,7 +43,7 @@ export function isBuiltinAgentName(name: string): boolean {
   );
 }
 
-// 지침 파일 하나(agent 정의 본문 포함)의 상한이다(instructions R7).
+// 지침 파일 하나(agent 정의 본문 포함)의 상한이다.
 export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 
 export const AGENT_KINDS = ["built_in", "operator"] as const;
@@ -67,7 +67,7 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
 export type AgentPlaceKind = AgentPlace["kind"];
 
-// Context Engineer는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 자리 모두다(R7).
+// Context Engineer는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 자리 모두다.
 export function agentPlaceAllowsRole(
   role: AgentRole,
   place: { kind: AgentPlaceKind },
@@ -77,7 +77,7 @@ export function agentPlaceAllowsRole(
   return true;
 }
 
-// Profile: design system의 icon 하나이거나 사람이 올린 이미지(R13). icon id의 존재는 design system이 판정하고
+// Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
 export const AGENT_PROFILE_IMAGE_MAX_BYTES = 1_048_576;
 export const AGENT_PROFILE_IMAGE_TYPES = {
@@ -122,13 +122,13 @@ export const profileOutputSchema = z.discriminatedUnion("kind", [
 ]);
 export type Profile = z.infer<typeof profileSchema>;
 
-// 앱 Operator가 읽을 (앱, command) 이름 쌍. 이름만 고르고, 호출할 때마다 현재 blueprint와 허락을 다시 본다(R17).
+// 앱 Operator가 읽을 (앱, command) 이름 쌍. 이름만 고르고, 호출할 때마다 현재 blueprint와 허락을 다시 본다.
 const appReadFields = { app: idSchema("app"), command: appCommandKeySchema };
 export const appReadSchema = z.strictObject(appReadFields);
 export const appReadOutputSchema = z.object(appReadFields);
 export type AppRead = z.infer<typeof appReadSchema>;
 
-// 끈 MCP. original_tool을 생략하면 그 서버 전체다(R18).
+// 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {
   server_name: nonblankSchema,
   original_tool: nonblankSchema.optional(),
@@ -137,7 +137,7 @@ export const mcpOffSchema = z.strictObject(mcpOffFields);
 export const mcpOffOutputSchema = z.object(mcpOffFields);
 export type McpOff = z.infer<typeof mcpOffSchema>;
 
-// 외부 MCP tool 하나. 안전 표시와 resolved agent의 켜진 MCP가 같은 모양을 쓴다(R19).
+// 외부 MCP tool 하나. 안전 표시와 resolved agent의 켜진 MCP가 같은 모양을 쓴다.
 const mcpToolFields = {
   server_name: nonblankSchema,
   original_tool: nonblankSchema,
@@ -146,7 +146,7 @@ export const mcpToolSchema = z.strictObject(mcpToolFields);
 export const mcpToolOutputSchema = z.object(mcpToolFields);
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
-// 권한은 개별 동작 이름(`<영역>.<동작>`)으로만 저장한다. 묶음 이름과 wildcard는 점 표기가 아니거나 `*`라 모양에서 걸린다(R22).
+// 권한은 개별 동작 이름(`<영역>.<동작>`)으로만 저장한다. 묶음 이름과 wildcard는 점 표기가 아니거나 `*`라 모양에서 걸린다.
 export const agentToolNameSchema = z.string().max(64).regex(
   /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/,
 );
@@ -234,7 +234,7 @@ const frontmatterOutputFields = {
 export const agentFrontmatterSchema = z.strictObject(frontmatterFields);
 export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;
 
-// AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다(R6).
+// AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다.
 export const agentDefinitionSchema = z.strictObject({
   ...frontmatterFields,
   body: bodySchema,
@@ -259,7 +259,7 @@ export const agentSettingsSchema = z.strictObject(settingsFields);
 export const agentSettingsOutputSchema = z.object(settingsOutputFields);
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
-// 값이 어느 층에서 왔나(R12). place와 definition은 그 층의 자리를 함께 적는다.
+// 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
 export const VALUE_LAYERS = [
   "default",
   "workspace",
@@ -285,7 +285,7 @@ export function sourced<T extends z.ZodType>(value: T) {
   return z.object({ value, source: valueSourceSchema });
 }
 
-// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다(R24). field는 점 경로(`contexts.1`, `model.api_key`)이고
+// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 export const AGENT_ISSUE_CODES = [
   "malformed",
@@ -327,7 +327,7 @@ export const RESOLVED_FIELDS = [
 ] as const;
 export type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
-// 앱 자리의 built-in은 project가 없어 context 자료가 0개이고, 그 이유를 밝힌다(R16).
+// 앱 자리의 built-in은 project가 없어 context 자료가 0개이고, 그 이유를 밝힌다.
 export const CONTEXTS_EMPTY_REASONS = ["no_project"] as const;
 
 // 칸마다 그 값을 준 층. resolved agent와 run 기준이 같은 모양을 쓴다.
@@ -373,14 +373,14 @@ function resolvedShape(value: {
 }
 
 // run을 준비할 때 한 번 만들어 run 기준에 고정하는 값이다. 같은 파일과 설정이면 같은 값과 hash가 나오고
-// hash는 hash를 뺀 나머지 값의 canonical JSON의 sha256이다(R25).
+// hash는 hash를 뺀 나머지 값의 canonical JSON의 sha256이다.
 export const resolvedAgentSchema = z.object(resolvedFields).refine(
   resolvedShape,
   { message: "resolved agent shape is not coupled" },
 );
 export type ResolvedAgent = z.infer<typeof resolvedAgentSchema>;
 
-// 목록 한 줄의 model 요약. 어느 층에서 왔는지도 함께 읽는다(R12).
+// 목록 한 줄의 model 요약. 어느 층에서 왔는지도 함께 읽는다.
 export const modelSummarySchema = z.object({
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
@@ -391,7 +391,7 @@ export const AGENT_LIST_STATES = ["enabled", "paused"] as const;
 
 const countSchema = z.number().int().nonnegative();
 
-// 카드의 "n contexts · n skills · n MCP"(shell/workspace R36). skills·mcp는 resolve 결과의 켜진 개수이고
+// 카드의 "n contexts · n skills · n MCP". skills·mcp는 resolve 결과의 켜진 개수이고
 // contexts는 Operator가 고른 것 가운데 active인 개수다. built-in은 context 수를 보이지 않아 null이다.
 // 파일이 틀려 resolve하지 못한 행은 셋 다 셀 수 없어 null이다.
 export const agentCountsSchema = z.object({
@@ -401,7 +401,7 @@ export const agentCountsSchema = z.object({
 });
 export type AgentCounts = z.infer<typeof agentCountsSchema>;
 
-// 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다(R24).
+// 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
 export const agentListRowSchema = z.object({
   assignment: idSchema("asg"),
   role: agentRoleSchema,

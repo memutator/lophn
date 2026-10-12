@@ -1,4 +1,4 @@
-// format command의 route 표다(T12·T14, cli#R15). format은 설치된 선언을 읽고
+// format command의 route 표다. format은 설치된 선언을 읽고
 // bytes 검사는 format worker 요청이다.
 import {
   cliFormatListSchema,

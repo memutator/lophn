@@ -53,7 +53,7 @@ import {
   storeCommandResult,
 } from "./command-outcome.ts";
 
-// transaction 안의 현재 자격 재검사. 자격 저장은 identity가 맡는다(R13).
+// transaction 안의 현재 자격 재검사. 자격 저장은 identity가 맡는다.
 export type CredentialCheck = (
   ctx: AuthenticatedContext,
 ) => Result<AuthenticatedContext>;
@@ -64,7 +64,7 @@ export type CommandExecutorDeps = TxDeps & {
   confirmation?: ConfirmationBridge;
 };
 
-// envelope.run이 없으면 current credential의 묶인 run을 잃지 않는다(R3, R11).
+// envelope.run이 없으면 current credential의 묶인 run을 잃지 않는다.
 function effectiveRun(
   ctx: AuthenticatedContext,
   envelopeRun: string | undefined,
@@ -102,7 +102,7 @@ export async function digestOf(
   }
 }
 
-// executor의 조회·저장은 handler Tx가 아닌 연결 SQL이다. Tx는 handler가 끝나면 닫는다(R4).
+// executor의 조회·저장은 handler Tx가 아닌 연결 SQL이다. Tx는 handler가 끝나면 닫는다.
 type Session = {
   record: Sql;
   tx: Tx;
@@ -147,15 +147,15 @@ function applyCommand(
     if (stored.value.fingerprint !== digest) {
       return err({ code: "conflict", message: "같은 key의 다른 요청이다" });
     }
-    // 재전달은 저장된 결과를 돌려준다. 확인 창이 없어도 현재 자격 뒤 결과를 준다(R13).
+    // 재전달은 저장된 결과를 돌려준다. 확인 창이 없어도 현재 자격 뒤 결과를 준다.
     return replay(stored.value);
   }
-  // 재전달은 여기까지 오지 않는다. 이미 소비한 handle로 새 변경을 시작하지 않는다(R13).
+  // 재전달은 여기까지 오지 않는다. 이미 소비한 handle로 새 변경을 시작하지 않는다.
   const reserved = reserveConfirmation(session, envelope);
   if (!reserved.ok) return reserved;
   const cas = casAgrees(record, compare, input, checkCursor);
   if (!cas.ok) return cas;
-  // agent의 command는 자격에 묶인 run만이다. 끝난 run은 감사 보완만 통과한다(R11).
+  // agent의 command는 자격에 묶인 run만이다. 끝난 run은 감사 보완만 통과한다.
   const admitted = admitAgentRun(
     tx,
     requestContext(ctx, effectiveRun(ctx, envelope.run)),
@@ -179,7 +179,7 @@ function applyCommand(
   if (!handled.ok) return handled;
   const span = eventSpan(record, before.value);
   if (!span.ok) return span;
-  // 안쪽 command는 결과를 저장하지 않는다. 바깥 command 하나만 남긴다(R13).
+  // 안쪽 command는 결과를 저장하지 않는다. 바깥 command 하나만 남긴다.
   storeCommandResult(record, {
     principal: ctx.principal,
     key: envelope.idempotency_key,
@@ -245,7 +245,7 @@ export function commitCommand(
   input: unknown,
   compare: unknown,
 ): Result<CommandSuccess> {
-  // checkCredential은 BEGIN IMMEDIATE 뒤 한 번만 부른다. Tx와 handler는 같은 current를 본다(R3, R11).
+  // checkCredential은 BEGIN IMMEDIATE 뒤 한 번만 부른다. Tx와 handler는 같은 current를 본다.
   let current: AuthenticatedContext | undefined;
   let authority: RequestContext | undefined;
   let reserved: ConfirmationRef | undefined;
@@ -334,7 +334,7 @@ export function commitCommand(
   }
 }
 
-// fingerprint는 transaction 전에 계산한다. 자격 재검사는 BEGIN IMMEDIATE 다음이다(R13).
+// fingerprint는 transaction 전에 계산한다. 자격 재검사는 BEGIN IMMEDIATE 다음이다.
 export async function executeCommand(
   connection: LedgerConnection,
   deps: CommandExecutorDeps,
@@ -406,7 +406,7 @@ export async function executeCommand(
   );
 }
 
-// 제출 ctx를 그대로 믿지 않는다. BEGIN 없는 read도 current 자격·CommandResult scope·자기 principal만 본다(R13).
+// 제출 ctx를 그대로 믿지 않는다. BEGIN 없는 read도 current 자격·CommandResult scope·자기 principal만 본다.
 export function readOwnResult(
   connection: LedgerConnection,
   checkCredential: CredentialCheck,

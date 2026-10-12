@@ -1,4 +1,4 @@
-/* 문서 머리: 제목 20px·메타 12px, 조작은 제목 줄 오른쪽(shell/editor#R16). */
+/* 문서 머리: 제목 20px·메타 12px, 조작은 제목 줄 오른쪽. */
 .head {
   display: flex;
   align-items: flex-start;
@@ -44,7 +44,7 @@
   gap: var(--space-4);
 }
 
-/* 제목이 사라지면 붙는 32px 머리. scroll 칸 위에 겹쳐 뜨고 본문을 밀지 않는다(R4). */
+/* 제목이 사라지면 붙는 32px 머리. scroll 칸 위에 겹쳐 뜨고 본문을 밀지 않는다. */
 .sticky {
   box-sizing: border-box;
   position: sticky;

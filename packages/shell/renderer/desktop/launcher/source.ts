@@ -49,7 +49,7 @@ export type FolderPick =
 export interface LauncherSource {
   /** 보관하지 않은 프로젝트 전부. */
   projects(): Promise<LauncherResult<readonly ProjectCard[]>>;
-  /** 등록만 한다. 추적은 꺼진 채로 만든다(documents/projects#R3). */
+  /** 등록만 한다. 추적은 꺼진 채로 만든다. */
   register(draft: ProjectDraft): Promise<LauncherResult<ProjectCard>>;
   /** OS 폴더 선택기. 사람이 그만두면 path가 null이다. */
   pickFolder(): Promise<FolderPick>;

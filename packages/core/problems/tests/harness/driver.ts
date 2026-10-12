@@ -37,7 +37,7 @@ export type InvokeResult = {
 };
 
 // 화면 검사 host가 판정할 수 없게 끝났다(exit 2–4·기한·잘못된 관측). 화면 검사는
-// fail이 아니라 판정 불가로 남는다(shell#T46 계약, problems/tests#R7).
+// fail이 아니라 판정 불가로 남는다(shell#T46 계약).
 export class ViewHostInconclusive extends Error {
   readonly reason: string;
   constructor(reason: string) {
@@ -50,13 +50,13 @@ export class ViewHostInconclusive extends Error {
 export type MigrationScenario = "empty" | "upgrade";
 
 // 고정 fixture DB에서 돌린 migration 한 번의 결과. 빈 DB 전체 migration은 schema 0에서,
-// 이전 release schema는 이전 release의 schema에서 시작한다(problems/tests#R8).
+// 이전 release schema는 이전 release의 schema에서 시작한다.
 export type MigrationRun = {
   ok: boolean;
   from_schema: number;
   data_schema: number;
   integrity_ok: boolean;
-  // 중간 실패로 첫 변경 전 backup으로 되돌렸으면 true다(apps/data#R7).
+  // 중간 실패로 첫 변경 전 backup으로 되돌렸으면 true다.
   restored: boolean;
   reason: string;
 };

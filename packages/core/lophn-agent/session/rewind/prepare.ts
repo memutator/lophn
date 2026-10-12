@@ -3,7 +3,7 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import type { FileStat } from "./judge.ts";
 
-// 문서 파일 복원의 동기 관측이다(lophn-agent/revert R17). reader Worker의 preview 읽기가 쓴다. 동기 file
+// 문서 파일 복원의 동기 관측이다. reader Worker의 preview 읽기가 쓴다. 동기 file
 // API가 core graph에 들어오지 않도록 이 모듈은 core가 import하지 않는다. 비동기 관측·준비·설치는
 // restore.ts에 있고 여기서 함께 내보낸다. 순서는 observeFiles → prepareRestore → (Rewind command) →
 // installRestore다.

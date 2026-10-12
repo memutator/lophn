@@ -1,4 +1,4 @@
-// document_editor 탭 kind. 문서 하나를 편집기로 연다(shell/workspace#R1, R7).
+// document_editor 탭 kind. 문서 하나를 편집기로 연다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

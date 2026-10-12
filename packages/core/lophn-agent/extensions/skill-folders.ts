@@ -14,7 +14,7 @@ import {
 } from "./mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 제품 runtime의 skill 발견이다(extensions R1, R10, R32). 출처는 그 agent 자리의 skill 폴더
+// 제품 runtime의 skill 발견이다. 출처는 그 agent 자리의 skill 폴더
 // (`<LOPHN_HOME>/{projects,apps}/<id>/skills`), 등록 순서의 설정 `lophn-agent.extensions.skill_folders`,
 // data root의 개인 보관소(`<LOPHN_HOME>/skills`), 설치 묶음에 동봉된 `assets/skills` 넷뿐이고 이 순서로
 // 찾는다. 다른 자리의 폴더·상위 폴더·앱 소스·다른 harness 보관소·원격은 열지 않는다. 제외 사유
@@ -78,7 +78,7 @@ export async function discoverProductSkills(
     selection: null,
   });
   if (!discovered.ok) return null;
-  // 전역에서 끈 skill은 전역 층의 같은 이름만 가린다. 자리 층의 것은 그대로 둔다(extensions R4, R32).
+  // 전역에서 끈 skill은 전역 층의 같은 이름만 가린다. 자리 층의 것은 그대로 둔다.
   return {
     ...discovered.value,
     entries: discovered.value.entries.filter((entry) =>

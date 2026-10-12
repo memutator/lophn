@@ -1,4 +1,4 @@
-// ticket checker의 core 쪽 연결(coding-agent#T26). 제품 core가 감독하는 상시 worker kind
+// ticket checker의 core 쪽 연결. 제품 core가 감독하는 상시 worker kind
 // `coding-agent/checker`의 launch spec, 그 worker가 core에 낼 수 있는 machine credential의
 // operation, 그리고 worker를 깨우는 core 안 구독자(machine:ticket-check-feed)다.
 // event는 깨우는 신호이고 payload로 상태를 만들지 않는다: worker가 정본을 다시 읽는다.
@@ -99,7 +99,7 @@ export function isTicketCheckFeed(ctx: RequestContext): boolean {
     ctx.credential_ref === TICKET_CHECK_FEED_PRINCIPAL;
 }
 
-// 보고된 ticket의 조건을 다시 비교하게 하는 event다(R20). 이 밖의 event는 feed에도 닫혀 있다.
+// 보고된 ticket의 조건을 다시 비교하게 하는 event다. 이 밖의 event는 feed에도 닫혀 있다.
 const WAKE_EVENTS: readonly EventDefinition[] = [
   ticketCompletionReported,
   verificationRecorded,

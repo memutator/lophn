@@ -52,7 +52,7 @@ import {
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나다.
 // 요청 생성과 waiting_on 연결, 결정 반영과 run 재개·종료는 각각 같은 transaction에서 확정한다.
 // 결정 값은 입력으로 받지 않는다. 요청을 소유한 영역의 ledger 행(질문·approval·고정 call)만
-// 읽고, `(request, decision_seq)`는 한 번만 반영한다(R5, R11).
+// 읽고, `(request, decision_seq)`는 한 번만 반영한다.
 
 export type WaitDeps = {
   // platform/approvals의 create handler. 같은 Tx에서 자격만 이 run의 agent로 바꿔 부른다. 요청자는
@@ -161,7 +161,7 @@ function resolutionOutput(row: ResolutionRow) {
   } as Output<typeof resolveRunWait>["resolution"];
 }
 
-// 이미 반영한 결정의 재전달. 새 변경 없이 처음 결과를 돌려준다(R5, R11). 지금 run이 다른
+// 이미 반영한 결정의 재전달. 새 변경 없이 처음 결과를 돌려준다. 지금 run이 다른
 // 요청을 기다리거나 끝났어도 그 결정의 결과는 그대로다.
 function replayOutput(
   row: RunRow,
@@ -275,7 +275,7 @@ function resumeWith(
   });
   recordResolution(tx, { ...resolution, resolved_seq: seq });
   // 기다린 시간은 active·stall에 세지 않는다. 재개 시각을 마지막 확인 시각으로 삼아 이후 재시작이
-  // 기다린 시간을 중단 시간으로 더하지 않게 한다(R7, R9).
+  // 기다린 시간을 중단 시간으로 더하지 않게 한다.
   const resumedAt = tx.now();
   tx.sql.run(
     `update runs set state = 'running', waiting_on = null, state_seq = ?,
@@ -498,7 +498,7 @@ export function createWaitCommands(deps: WaitDeps): {
         if (!machine.ok) return machine;
         const run = loadRun(tx, input.run);
         if (run === undefined) return notFound();
-        // 이미 반영한 결정은 처음 결과다. 같은 결정은 두 번 쓰이지 않는다(R11).
+        // 이미 반영한 결정은 처음 결과다. 같은 결정은 두 번 쓰이지 않는다.
         const prior = loadResolution(tx, input.request, input.decision_seq);
         if (prior !== undefined) {
           if (prior.run !== run.id) return notFound();
@@ -527,7 +527,7 @@ export function createWaitCommands(deps: WaitDeps): {
           decision_seq: input.decision_seq,
           tool_call: toolCall,
         };
-        // 끝난 run의 늦은 결정은 새 동작에 쓰지 않는다. 접수만 기록한다(R5).
+        // 끝난 run의 늦은 결정은 새 동작에 쓰지 않는다. 접수만 기록한다.
         if (run.state === "finished") {
           if (run.state_seq !== compare.state_seq) {
             return reject("conflict", "run state changed");
@@ -645,7 +645,7 @@ export function createWaitCommands(deps: WaitDeps): {
         if (run.state_seq !== compare.state_seq) {
           return reject("conflict", "run state changed");
         }
-        // 명시 수정만 옛 요청을 취소한다. 일반 메시지는 기다림을 풀지 않는다(R4).
+        // 명시 수정만 옛 요청을 취소한다. 일반 메시지는 기다림을 풀지 않는다.
         const message = loadMessage(tx, input.message);
         if (
           message === undefined || message.actor !== "user" ||
@@ -760,7 +760,7 @@ export function createWaitCommands(deps: WaitDeps): {
       route: recoverRun,
       // 복구가 ledger에서 확정한 경계(RecoveryBasis)를 한 번 기록한다. 경계는 ledger의 model·tool call
       // 행에서 다시 계산해 입력과 같을 때만 받는다. 한도 시간은 줄지 않고 run 전체를 처음부터
-      // 반복하거나 멈춘 assignment를 풀지 않는다(R9).
+      // 반복하거나 멈춘 assignment를 풀지 않는다.
       handle(tx, ctx, input: Input<typeof recoverRun>, compare) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;

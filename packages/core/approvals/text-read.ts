@@ -1,4 +1,4 @@
-// ReadApprovalText(platform/approvals#R14, R17). 결정 화면이 보는 설명 글(이유·변경·외부 영향·
+// ReadApprovalText. 결정 화면이 보는 설명 글(이유·변경·외부 영향·
 // 되돌림)과 거절·취소에 적은 종료 이유를 돌려준다. 메시지 본문·질문 글 읽기와 같은 길이다: 참조 행 판정은 ledger
 // snapshot에서 짧게 하고, blob 바이트는 그 뒤에 읽는다. 글은 준비 단계에서 이미 redaction을
 // 거쳤다. request를 볼 수 있는 쪽(사람·machine·요청한 자격)만 읽고, 그 밖은 없는 request와

@@ -1,11 +1,11 @@
-// OAuth 로그인 command(provider#R1, R12–R16, D31)의 HTTP 요청을 core가 답한다.
+// OAuth 로그인 command(D31)의 HTTP 요청을 core가 답한다.
 // 사람의 요청만 이 route에 닿는다(route actors가 user). ledger이 아니라 writer queue
 // 앞의 처리기로 돈다: OAuth network(등록·token 교환·device poll)와 callback listener가
 // 기다리므로 ledger transaction 안에 있을 수 없다.
 // Connect가 credential까지 받는 RegisterProvider 하나라 로그인은 provider가 등록되기 전에 시작한다:
-// begin은 만들 provider의 ID와 내장 정의 key를 받고 정의는 내장 목록에서 찾는다(provider#R12).
+// begin은 만들 provider의 ID와 내장 정의 key를 받고 정의는 내장 목록에서 찾는다.
 // login 세션(state·nonce·verifier·device_code)은 이 처리기의 메모리에만 있고
-// ledger·event·log에는 남지 않는다(R6, R7). 활성 gate(D31)는 verified_for_lophn과
+// ledger·event·log에는 남지 않는다. 활성 gate(D31)는 verified_for_lophn과
 // live 확인 env(LOPHN_LIVE_PROVIDER=1) 둘이 모두 열려 있을 때만 통과한다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -162,6 +162,6 @@ async function cancelCommand(
   return ok({ cancelled: true });
 }
 
-// loopback callback listener의 제품 open port다(127.0.0.1 실제 listener, R12).
+// loopback callback listener의 제품 open port다(127.0.0.1 실제 listener).
 export const providerLoginListenerOpener = (): Promise<Result<OAuthListener>> =>
   openCallbackListener();

@@ -20,7 +20,7 @@ const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 // 훑는 중 files가 던진 오류. 이것만 `unavailable`로 바꾸고 다른 오류는 그대로 던진다.
 class FileFailure extends Error {}
 
-// context 하나의 index를 계약 경로의 stat으로 갱신한다(documents/contexts#R23).
+// context 하나의 index를 계약 경로의 stat으로 갱신한다.
 //
 // 1. 훑을 파일 = files.paths() 중 watchFolders(bundle.contract)가 덮는 것. 폴더 밖 파일은 stat도 하지 않고
 //    index에 넣지 않는다. 훑는 중 files가 throw하면 `unavailable`을 돌려주고 store를 건드리지 않는다.

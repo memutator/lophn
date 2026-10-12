@@ -1,4 +1,4 @@
-// data worker job 진입(apps/data#R1, R6). stdin JSON 한 줄을 받아 DataResult 한 줄을
+// data worker job 진입. stdin JSON 한 줄을 받아 DataResult 한 줄을
 // 낸다. 한 앱 데이터 영역에서 job은 한 번에 하나이고, 경로는 데이터 영역 밖을
 // 벗어나지 못한다. migration 자식은 network·secret·외부 fs·subprocess 권한이 없다.
 
@@ -17,7 +17,7 @@ import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
 import { contained, insideDataArea } from "./paths.ts";
 import { restoreAppBackup } from "./restore.ts";
 
-// migration 자식에 있으면 안 되는 권한(apps/permissions#R18). T3 flag를 그대로 쓴다.
+// migration 자식에 있으면 안 되는 권한. T3 flag를 그대로 쓴다.
 const FORBIDDEN_FLAGS = [
   "--allow-net",
   "--allow-env",
@@ -273,7 +273,7 @@ export async function runDataJob(
   }
 }
 
-// 운영 DB를 열 수 있는지를 확인만 한다. core·supervisor 대신 data worker가 연다(R1).
+// 운영 DB를 열 수 있는지를 확인만 한다. core·supervisor 대신 data worker가 연다.
 export function dataWorkerCanOpen(databasePath: string): Result<true> {
   const opened = openAppDatabase(databasePath);
   if (!opened.ok) return opened;

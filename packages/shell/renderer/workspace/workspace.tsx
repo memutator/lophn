@@ -126,7 +126,7 @@ export interface WorkspaceProps {
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
   /**
-   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수(shell/workspace#R33, shell/desktop#R37). 없으면
+   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수. 없으면
    * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
    * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
    * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
@@ -200,11 +200,11 @@ export function Workspace(props: WorkspaceProps) {
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
-  // 위반이 늘어 알리는 toast. context마다 하나이고 닫거나 [View]를 누르면 빠진다(workspace#R29).
+  // 위반이 늘어 알리는 toast. context마다 하나이고 닫거나 [View]를 누르면 빠진다.
   const [toasts, setToasts] = useState<
     readonly { context: string; title: string; count: number }[]
   >([]);
-  // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시(workspace#R30).
+  // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시.
   const expectDraft = useRef(false);
   const [expectingDraft, setExpectingDraft] = useState(false);
   const leaveDraft = useRef<(context: string, title: string) => void>(() => {});
@@ -227,11 +227,11 @@ export function Workspace(props: WorkspaceProps) {
     timer,
     expectingDraft && engineerTabOpen(view, sidebarAgents.agents),
   );
-  // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
+  // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다.
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
   >({});
-  // 문서 탭의 판·읽기/편집. 현재 보기 힌트만 쓰고 탭 제목(R4)에는 넣지 않는다.
+  // 문서 탭의 판·읽기/편집. 현재 보기 힌트만 쓰고 탭 제목에는 넣지 않는다.
   const [presentation, setPresentation] = useState<
     Readonly<Record<string, TabPresentation>>
   >({});
@@ -239,7 +239,7 @@ export function Workspace(props: WorkspaceProps) {
   const [sessions, setSessions] = useState<Readonly<Record<string, string>>>(
     {},
   );
-  // 문서 탭마다 열린 버전 비교. 정보 패널의 버전 탭이 열고 문서 탭 본문 자리에 그린다(editor#R13).
+  // 문서 탭마다 열린 버전 비교. 정보 패널의 버전 탭이 열고 문서 탭 본문 자리에 그린다.
   const [compares, setCompares] = useState<
     Readonly<Record<string, CompareTarget>>
   >({});
@@ -271,7 +271,7 @@ export function Workspace(props: WorkspaceProps) {
       });
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
-        // 없어진 context의 탭은 다른 없는 대상처럼 빠진다. 목록을 못 읽으면 그대로 둔다(R6).
+        // 없어진 context의 탭은 다른 없는 대상처럼 빠진다. 목록을 못 읽으면 그대로 둔다.
         if (restored.view) {
           setView(
             contexts?.ok
@@ -525,7 +525,7 @@ export function Workspace(props: WorkspaceProps) {
     ? null
     : tabMeta[infoDocument]?.path ?? null;
 
-  // CommandOrControl+Alt+B는 정보 패널을 여닫는다(editor#R6).
+  // CommandOrControl+Alt+B는 정보 패널을 여닫는다.
   const toggleInfo = useRef(() => {});
   toggleInfo.current = () => setInfo(!infoOpen, infoTab);
   useEffect(() => {
@@ -546,7 +546,7 @@ export function Workspace(props: WorkspaceProps) {
     persist(view, { open, tab });
   };
 
-  // 검색 결과·Overview 예시의 도메인 객체는 그 문서 탭으로 간다(workspace#R26). 경로는 등록 폴더
+  // 검색 결과·Overview 예시의 도메인 객체는 그 문서 탭으로 간다. 경로는 등록 폴더
   // 기준 상대 경로이고 문서로 잡힌 파일만 탭이 된다.
   const openPath = (path: string) => {
     const file = loaded.files.find((item) => item.path === path) ??
@@ -580,7 +580,7 @@ export function Workspace(props: WorkspaceProps) {
       openRole("context_engineer");
     },
     newContext: () => {
-      // 첫 안내를 입력칸에 싣고, 대화가 context를 만들기 시작하면 그 탭을 남긴다(R30).
+      // 첫 안내를 입력칸에 싣고, 대화가 context를 만들기 시작하면 그 탭을 남긴다.
       const opened = openRole("context_engineer", {
         hint: t("conversation.placeholder.new-context"),
       });
@@ -624,7 +624,7 @@ export function Workspace(props: WorkspaceProps) {
     openLophn: onLophn,
   };
 
-  // kind 선언이 배치와 통로를 건드리는 유일한 길이다(workspace#R14). 본문·열기·닫기 확인·열기 단추는
+  // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인·열기 단추는
   // 모두 kind의 선언에서 오고 여기서는 kind 이름으로 가르지 않는다.
   const host: TabHost = {
     projectId,
@@ -661,7 +661,7 @@ export function Workspace(props: WorkspaceProps) {
   const renderKept = (tab: TabItem, shown: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.keep?.(tab, shown, host) ?? null;
 
-  // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다(terminal#R10, editor#R1).
+  // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
   const close = (pane: number, key: string) => {
     const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
     const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
@@ -692,7 +692,7 @@ export function Workspace(props: WorkspaceProps) {
       : []
   );
 
-  // 접힌 sidebar의 바로 가기 rail(workspace#R32). 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
+  // 접힌 sidebar의 바로 가기 rail. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "agent") openRole("lophn");
@@ -701,7 +701,7 @@ export function Workspace(props: WorkspaceProps) {
     else openSearchShortcut(host);
   };
 
-  // 창 팔레트의 작업대 행(desktop#R30). 고르면 이 작업대 안의 대상으로만 간다.
+  // 창 팔레트의 작업대 행. 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
   usePaletteScope(() =>
     workspaceScope({
@@ -761,7 +761,7 @@ export function Workspace(props: WorkspaceProps) {
             : () => openContexts(host)}
           agents={agents === null ? undefined : {
             agents: sidebarAgents.agents,
-            // 줄을 누르면 그 agent의 Agent 탭이 열린다(R34). 통로가 없으면 열 탭이 없다.
+            // 줄을 누르면 그 agent의 Agent 탭이 열린다. 통로가 없으면 열 탭이 없다.
             onOpenAgent: (assignment) => {
               const row = sidebarAgents.agents.find((agent) =>
                 agent.assignment === assignment
@@ -886,7 +886,7 @@ export function Workspace(props: WorkspaceProps) {
               {infoTab === "contexts" && contexts !== null &&
                   infoDocument !== null
                 ? (
-                  // 이 문서가 든 context는 새 통로가 읽고 [Open]은 그 Context 탭을 연다(workspace#R28).
+                  // 이 문서가 든 context는 새 통로가 읽고 [Open]은 그 Context 탭을 연다.
                   infoPath === null ? null : (
                     <DocumentContexts
                       source={contexts.source}
@@ -923,7 +923,7 @@ export function Workspace(props: WorkspaceProps) {
                       timer={timer}
                       ask={engineerName === undefined ? undefined : {
                         agentName: engineerName,
-                        // 위반된 context가 첫 chip으로 붙은 새 Agent 탭을 연다. 보내는 것은 없다(desktop#R35).
+                        // 위반된 context가 첫 chip으로 붙은 새 Agent 탭을 연다. 보내는 것은 없다.
                         onAsk: () => {
                           openRole("context_engineer", {
                             chips: [{ id: toast.context, label: toast.title }],

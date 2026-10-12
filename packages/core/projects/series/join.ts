@@ -1,6 +1,6 @@
 // document.save가 같은 command tx 안에서 부르는 series 가입 seam.
 // 저장한 Document가 활성 가족 draft의 예정 문서이면 그 draft key로 가입하고
-// 일치 draft를 비운다(series#R2, R3, R11, versions#R15). 별도 후속 command는 없다.
+// 일치 draft를 비운다. 별도 후속 command는 없다.
 // 가입 검사가 거절하면 저장도 같은 tx와 함께 거절이다.
 
 import { ok, type Result } from "../../../base/mod.ts";
@@ -35,7 +35,7 @@ export function joinSeriesOnSave(
   ctx: RequestContext,
   document: Document,
 ): Result<void> {
-  // lophn agent는 가족 멤버 추가 통로가 없다(series#R9). 없는 가족과 같다.
+  // lophn agent는 가족 멤버 추가 통로가 없다. 없는 가족과 같다.
   if (parseActor(ctx.actor)?.kind === "agent") return ok(undefined);
   const rows = tx.sql.all(
     `SELECT id FROM series

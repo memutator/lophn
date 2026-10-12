@@ -187,7 +187,7 @@ export const appConnectInputSchema = z.strictObject(connectFields).refine(
 export type AppConnectInput = z.infer<typeof appConnectInputSchema>;
 
 // Authorization과 confirm proof가 싣는 서명 envelope의 서명. 서명 대상은 payload의 RFC 8785
-// canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
+// canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다.
 const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
 
 // core가 서명한 connection이다. 앱 direct 요청의 Authorization은 `{payload: connection, signature}`다.
@@ -239,7 +239,7 @@ export const appConnect = defineMemory({
 
 // shell main이 폐기하거나 다른 앱으로 교체한 화면 view를 그 앱의 지금 live 프로세스에 알린다.
 // shell은 앱 machine 연결이 없으므로 core 제어 어댑터가 `control/view-closed`로 중계한다. 그 뒤
-// 앱 runtime은 그 view_session의 context 조회·주석 쓰기를 받지 않는다(apps/agent-context#R2, R5).
+// 앱 runtime은 그 view_session의 context 조회·주석 쓰기를 받지 않는다.
 // ledger를 거치지 않는다. relayed는 지금 받을 live 프로세스가 있었는지다.
 export const appViewClosedInputSchema = z.strictObject({
   app: appIdSchema,
@@ -259,7 +259,7 @@ export const appViewClosed = defineMemory({
 });
 
 // path는 최초 caller부터 현재 caller까지다. 다음 대상을 더한 앱 수가 8을 넘거나
-// 현재 path에 이미 있으면 handler 전에 거절한다(apps/connections#R7).
+// 현재 path에 이미 있으면 handler 전에 거절한다.
 export function appCallDepthAllowed(
   path: readonly string[],
   target: string,

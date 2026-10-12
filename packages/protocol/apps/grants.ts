@@ -71,7 +71,7 @@ export type GrantCreateInput = z.infer<typeof grantCreateInputSchema>;
 
 const grantCompareSchema = z.strictObject({ grants_seq: seqSchema });
 
-// 앱에 activation이 진행 중이면 handler가 conflict로 거절한다(apps/releases#R13).
+// 앱에 activation이 진행 중이면 handler가 conflict로 거절한다.
 export const grantCreate = defineCommand({
   resource: "grants",
   method: "create",
@@ -85,7 +85,7 @@ export const grantCreate = defineCommand({
 export type GrantCreate = typeof grantCreate;
 
 // grant.revoke 입력. 종료 확인 근거는 suppression 관측의 사실이며
-// handler가 현재 프로세스 종료·이미 멈춤을 검사한다(apps/permissions#R21).
+// handler가 현재 프로세스 종료·이미 멈춤을 검사한다.
 export const grantRevokeInputSchema = z.strictObject({
   app: appIdSchema.optional(),
   grant: grantIdSchema,
@@ -145,7 +145,7 @@ export const grantsListInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(GRANT_LIST_MAX_COUNT).optional(),
 });
 
-// confirmation window가 grant 결정 앞에서 보여 주는 자료의 경고 key(apps/permissions#R6, R24).
+// confirmation window가 grant 결정 앞에서 보여 주는 자료의 경고 key.
 // 문구 본문은 design wording catalog의 몫이다.
 export const GRANT_WARNING_KEYS = [
   "permissions.warning.file-read-and-network",
@@ -185,7 +185,7 @@ export type GrantCombinationWarning = z.infer<
   typeof grantCombinationWarningSchema
 >;
 
-// grant 결정의 표시 자료(apps/permissions#R24, R25). 요구·reason·정규 scope·조합 경고·
+// grant 결정의 표시 자료. 요구·reason·정규 scope·조합 경고·
 // Deno 한계 문구 key만 담고 grant를 자동으로 만들지 않는다.
 export const grantDisplaySchema = z.object({
   app: appIdSchema,

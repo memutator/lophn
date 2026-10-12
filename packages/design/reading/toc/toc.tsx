@@ -12,7 +12,7 @@ export interface TocProps {
   onSelect: (id: string) => void;
 }
 
-// ReadingFrame이 칸 폭으로 정한 자리에 따라 옆 목록이나 머리 선택으로 그린다(R23).
+// ReadingFrame이 칸 폭으로 정한 자리에 따라 옆 목록이나 머리 선택으로 그린다.
 export function Toc({ items, activeId, onSelect }: TocProps) {
   const placement = useTocPlacement();
   const shown = items.filter((item) => item.level <= TOC_MAX_LEVEL);

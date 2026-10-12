@@ -23,7 +23,7 @@ import type { AgentCredentialIssuer } from "./mod.ts";
 // StartRun이 확정한 AgentAppScope와 같은지, 요청한 operation이 그 assignment 역할의 상한 안인지를
 // core 자신의 ledger 기록으로 확인한다. 어느 하나라도 어긋나면 없는 run과 똑같이 답하지 않는다.
 
-// agent credential의 고정 조건이다(lophn-agent/roles/app-engineer#R2). App Engineer는 담당 앱 하나에
+// agent credential의 고정 조건이다. App Engineer는 담당 앱 하나에
 // 묶이므로 그 앱을 `app` 조건으로 고정한다: 다른 앱·project·자리 없음 문서와 담당 앱이 아닌
 // 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다(platform/ledger의 target 판정).
 // 이번 run이 handoff로 시작했으면 그 handoff의 고정 근거(문서, 판)를 `evidence`로 함께 고정해 그 판 주소

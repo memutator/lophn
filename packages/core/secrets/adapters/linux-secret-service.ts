@@ -1,4 +1,4 @@
-// Linux Secret Service adapter(platform/secrets#R1, R8, 계획 Q7).
+// Linux Secret Service adapter(계획 Q7).
 // secret-tool만 쓰고 값은 stdin으로만 보낸다. argv·환경 변수·파일에는 두지 않는다.
 // macOS·Windows adapter는 범위 밖이다.
 
@@ -91,7 +91,7 @@ export function createLinuxSecretServiceAdapter(options: {
       const removed = await runner.run(["clear", ATTR_REF, sealedRef]);
       if (!removed.ok) return err(KEYCHAIN_UNAVAILABLE);
       if (removed.value.code !== 0) return err(KEYCHAIN_NOT_FOUND);
-      // clear가 성공해도 실제 부재를 다시 확인한다(R7).
+      // clear가 성공해도 실제 부재를 다시 확인한다.
       const still = await runner.run(["lookup", ATTR_REF, sealedRef]);
       if (!still.ok) return err(KEYCHAIN_UNAVAILABLE);
       return still.value.code === 0 ? err(KEYCHAIN_UNAVAILABLE) : ok(undefined);

@@ -1,4 +1,4 @@
-// Agent 화면 맨 위 머리와 그 session popover(shell/desktop#R38·R39).
+// Agent 화면 맨 위 머리와 그 session popover.
 // 화면 값은 lophn-agent/sessions contract에서 만든 view 값이다. renderer는 contracts를 type check하지
 // 않으므로 id는 문자열로 받는다.
 import {
@@ -52,7 +52,7 @@ export interface AgentHeaderProps {
   onDelete: (session: string) => void;
   /** closed session이면 true. ⋯ 메뉴에서 Rename·Fork·Rewind…가 빠지고 Usage·Close tab만 남는다. */
   sessionClosed: boolean;
-  /** ⋯ 메뉴 Fork. 마지막 확정 메시지까지 복사한다(R48). */
+  /** ⋯ 메뉴 Fork. 마지막 확정 메시지까지 복사한다. */
   onForkSession: () => void;
   /** ⋯ 메뉴 Rewind…. 되돌리기 menu를 여는 일은 부르는 쪽 몫이다(내 메시지의 Rewind to here와 같은 menu). */
   onRewindMenu: () => void;

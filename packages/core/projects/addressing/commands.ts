@@ -139,7 +139,7 @@ export function createDocumentNameReservation(
   };
 }
 
-// move·rename은 사람 또는 사람이 고른 정확한 option action의 user 경로다(addressing#R9).
+// move·rename은 사람 또는 사람이 고른 정확한 option action의 user 경로다.
 // 낡은 base_revision은 conflict다. 옛 예약을 남기고 새 예약을 같은 transaction에 더한다.
 export function createDocumentChangeCommands(): {
   move: CommandDefinition<typeof documentMove>;
@@ -214,7 +214,7 @@ function changePlace(
   if (samePlace(document.place, place) && document.name === name) {
     return err({ code: "invalid_input", message: "place does not change" });
   }
-  // 목적지 이름 예약은 없거나 같은 doc이어야 한다. 다른 대상이면 conflict다(addressing#R2).
+  // 목적지 이름 예약은 없거나 같은 doc이어야 한다. 다른 대상이면 conflict다.
   if (place !== null && name !== null) {
     const destination = createDocumentNameReservation(tx).get(place, name);
     if (!destination.ok) return destination;
@@ -255,7 +255,7 @@ function changePlace(
     );
     if (!reserved.ok) return reserved;
   }
-  // place 변경만으로 FileSource·디스크 파일·tracking을 바꾸지 않는다(addressing#R8).
+  // place 변경만으로 FileSource·디스크 파일·tracking을 바꾸지 않는다.
   const next: Document = { ...document, place, name, revision: seq };
   replaceDocument(tx, next);
   return ok(next);

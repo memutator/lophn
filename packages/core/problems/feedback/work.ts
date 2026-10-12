@@ -3,7 +3,7 @@
 // 검증하고 redaction·blob 준비를 거쳐 RecordReport 입력으로 만든다. 사람의 글은
 // 첨부 때문에 잃지 않는다: 선택하지 않았거나 얻지 못했거나 제외한 항목은 각각
 // 이유로 남고 글은 접수된다. 한도를 넘거나 PNG가 아닌 선택 자료는 조용히 줄이지
-// 않고 명시적으로 거절한다(R8, R9).
+// 않고 명시적으로 거절한다.
 import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 import {
   type MissingReason,
@@ -53,7 +53,7 @@ export type FeedbackDeps = {
     body: string,
     mediaType: "text/plain" | "application/json",
   ) => Promise<string | null>;
-  // 진단 상세 수집 설정. null은 읽지 못한 것이다(snapshots#R7).
+  // 진단 상세 수집 설정. null은 읽지 못한 것이다.
   detailCollection: boolean | null;
   // 선택한 기존 문제. 없는 문제와 범위 밖 문제는 같은 null이다.
   lookupProblem: (id: string) => Promise<Result<SelectedProblem | null>>;
@@ -126,7 +126,7 @@ export async function assembleFeedback(
   if (!shown.ok) return shown;
   const view = intake.view;
 
-  // 전송 한도는 redaction 전에 본다: 큰 자료를 메모리에서 처리하지 않는다(R9).
+  // 전송 한도는 redaction 전에 본다: 큰 자료를 메모리에서 처리하지 않는다.
   const selectedShot = intake.selection.screenshot ? intake.screenshot : null;
   const transfer = checkTransfer(transferBytes({
     text: intake.text,

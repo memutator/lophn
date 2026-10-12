@@ -16,7 +16,7 @@ export function newSessionKey(assignment: string): string {
   return `new:${assignment}`;
 }
 
-/** 사용자 달력으로 오늘이면 Today, 아니면 Earlier다(shell/desktop#R39). */
+/** 사용자 달력으로 오늘이면 Today, 아니면 Earlier다. */
 export function sessionGroup(
   activeAt: string,
   now: number,
@@ -44,7 +44,7 @@ export type DeliveryLabel =
   | "not-sent"
   | "unconfirmed";
 
-/** 사람 말의 접수 표시. 접수와 반영은 따로 보인다(conversation#R3). */
+/** 사람 말의 접수 표시. 접수와 반영은 따로 보인다. */
 export function confirmedDelivery(message: ThreadMessage): DeliveryLabel {
   if (message.applied) return "applied";
   // 수정이 아닌 요청이 run 없이 남은 것은 담당이 없을 때 보존된 말이다.
@@ -112,9 +112,9 @@ export function hiddenOf(thread: ThreadView | null): ThreadHidden[] {
 }
 
 /**
- * 시각 블록 문서로 남기기의 진행(shell/workspace#R13). 요청으로 보낸 말이 맡긴 run의 lophn 답에
+ * 시각 블록 문서로 남기기의 진행. 요청으로 보낸 말이 맡긴 run의 lophn 답에
  * 문서·판 결과 링크가 있으면 저장된 것이다. 링크는 실제로 만들거나 바꾼 문서뿐이라
- * (lophn-agent/conversation#R4) 저장하지 않은 문서의 링크를 지어내지 않는다. run이 끝났는데
+ * 저장하지 않은 문서의 링크를 지어내지 않는다. run이 끝났는데
  * 링크가 없으면 저장하지 않은 것이고 그 이유는 답이 말한다.
  */
 export function visualSaveState(
@@ -180,7 +180,7 @@ export type SlashDecision =
   | { readonly kind: "unknown" };
 
 /**
- * 제출한 `/…`가 무엇을 하는지(commands#R6, R11). 메뉴가 열려 있으면 고른 줄이 우선이되, 고른 줄과 이름이
+ * 제출한 `/…`가 무엇을 하는지. 메뉴가 열려 있으면 고른 줄이 우선이되, 고른 줄과 이름이
  * 같은 skill이 둘 이상이면 어느 것인지 묻는다. 메뉴 없이 이름과 인자를 쳤으면 이름이 같은 것이 하나일 때만
  * 실행한다. 맞는 것이 없으면 알 수 없는 명령이다.
  */

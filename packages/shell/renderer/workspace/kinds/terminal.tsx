@@ -1,4 +1,4 @@
-// terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다(shell/workspace#R1, R7, R10).
+// terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다.
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
@@ -20,7 +20,7 @@ function folderRef(value: string | undefined): string | null {
   return value;
 }
 
-/** 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다(shell/terminal#R1). */
+/** 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다. */
 export function openTerminal(host: TabHost): void {
   const terminal = host.props.terminal;
   if (!terminal) return;
@@ -74,7 +74,7 @@ export const terminalKind: TabKindDef = {
       />
     );
   },
-  // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다(R10).
+  // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.
   beforeClose(tab, host) {
     const terminal = host.props.terminal;
     return terminal ? closeTerminalTab(terminal, tab.key) : null;

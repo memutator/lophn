@@ -77,7 +77,7 @@ function Group(
   );
 }
 
-// 미리보기의 포함·제외 파일과 이유. 경로는 등록 폴더 기준 상대 경로다(documents/projects#R6).
+// 미리보기의 포함·제외 파일과 이유. 경로는 등록 폴더 기준 상대 경로다.
 export function PreviewList({ groups }: { groups: PreviewGroups }) {
   return (
     <div className={styles.preview} data-preview-list="">

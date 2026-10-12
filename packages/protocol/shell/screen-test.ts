@@ -2,7 +2,7 @@ import { z } from "zod";
 import { endpointSchema, screenKeySchema } from "../apps/channel-values.ts";
 import { sha256Schema } from "../base/values.ts";
 
-// 상속 fd 3의 JSON lines. stdout은 쓰지 않는다(shell#T46, problems 계획 Q7).
+// 상속 fd 3의 JSON lines. stdout은 쓰지 않는다(problems 계획 Q7).
 export const SCREEN_TEST_FD = 3;
 export const SCREEN_TEST_FLAG = "--app-screen-test";
 
@@ -27,7 +27,7 @@ export const screenTestInputSchema = z.strictObject({
   deadline_ms: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
   // runner가 실행마다 정하는 불투명 nonce. 있으면 host가 화면마다 오류 probe(error·
   // unhandledrejection·render-error)를 main world에 일으키고 첫 화면을 일부러 멈춰 feedback
-  // 경로를 본다. probe 오류의 message에 이 nonce가 들어 runner가 알아본다(problems#T11).
+  // 경로를 본다. probe 오류의 message에 이 nonce가 들어 runner가 알아본다.
   probe_nonce: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
 });
 

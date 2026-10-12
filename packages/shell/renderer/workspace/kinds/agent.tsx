@@ -1,7 +1,7 @@
 // agent 탭 kind. 한 탭은 agent 하나(built-in 또는 Operator)와 그 agent의 session 하나를 담고 탭 안에서 agent를
-// 바꾸지 않는다(shell/workspace#R33). layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다
+// 바꾸지 않는다. layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다
 // (R6, R7). 여는 길(sidebar 줄·rail·Ask·[New context])은 모두 openAgent 하나를 부른다. 탭 줄 `+`에는
-// 열기 항목을 두지 않는다(R15).
+// 열기 항목을 두지 않는다.
 import { conversationIcons } from "../../icons/mod.ts";
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
@@ -164,7 +164,7 @@ export const agentKind: TabKindDef = {
       ...(session === null ? {} : { session }),
     };
   },
-  // agent·session은 현재 보기에 싣지 않는다. 대화 내용은 agent가 알 일이 아니다(R10).
+  // agent·session은 현재 보기에 싣지 않는다. 대화 내용은 agent가 알 일이 아니다.
   hint: (tab) => ({ kind: "agent", key: tab.key }),
   render(tab, _active, host) {
     const agent = agentOf(tab);

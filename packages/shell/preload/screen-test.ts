@@ -1,4 +1,4 @@
-// 앱 화면 검사 host만 test session에 더하는 preload(shell#T46, problems#T11). 앱 preload(`app.ts`)는
+// 앱 화면 검사 host만 test session에 더하는 preload. 앱 preload(`app.ts`)는
 // 그대로 함께 돈다.
 // - CSP가 막은 fetch·이미지·frame 요청은 renderer 안에서 끝나 session webRequest에 닿지 않는다.
 //   그래서 DOM의 `securitypolicyviolation`을 isolated world에서 듣고 막힌 주소만 main에 보낸다.

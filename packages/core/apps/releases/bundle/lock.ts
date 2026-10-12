@@ -1,4 +1,4 @@
-// 앱 import map을 bundle 안 상대 경로로 잠근다(apps/sdk#R7, R10, R34). 앱 deno.json의
+// 앱 import map을 bundle 안 상대 경로로 잠근다. 앱 deno.json의
 // `lophn-sdk:<name>@<version>/<경로>`는 bundle 안 설치 사본 `./sdk/<이름>/<version>/<경로>`로 바뀌고,
 // npm·jsr는 정확한 pin만 남는다. 범위 version과 원격 import는 잠그지 못하고 거절이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -102,7 +102,7 @@ export function lockAppImports(
 }
 
 // 설치 사본(`<sdkRoot>/<이름>/<version>/`)의 byte를 bundle 안 `sdk/<이름>/<version>/` 파일로 읽는다.
-// 설치 안 된 사본은 준비를 막는다. 실행 때 새로 받지 않는다(apps/sdk#R10).
+// 설치 안 된 사본은 준비를 막는다. 실행 때 새로 받지 않는다.
 async function collect(
   directory: string,
   prefix: string,

@@ -20,7 +20,7 @@ export interface ApprovalCardProps {
   request: ApprovalCardRequest;
   /**
    * [Allow](= allow_once)·[Allow ▾]의 항목·[Deny]를 누르면 고른 것을 미리 고른 confirmation window를
-   * 여는 callback만 부른다. 카드는 결정을 제출하지 않는다(platform/approvals#Q4, shell/desktop#R47).
+   * 여는 callback만 부른다. 카드는 결정을 제출하지 않는다.
    * Esc도 deny를 미리 고른 채 부른다([Deny] 옆에 Esc 안내).
    */
   onOpenConfirmation: (preselect: ApprovalChoice) => void;

@@ -1,4 +1,4 @@
-// document_editor 탭 kind. 문서 하나를 편집기로 읽고 고친다(shell/workspace#R1, R6, R7, R9).
+// document_editor 탭 kind. 문서 하나를 편집기로 읽고 고친다.
 import { workspaceIcons } from "../../icons/mod.ts";
 
 import { DocumentView } from "../../editor/document-view.tsx";
@@ -87,7 +87,7 @@ export const documentEditorKind: TabKindDef = {
       />
     );
   },
-  // 문서 탭은 마지막 고침을 보내 편집을 끝내고, 저장이 남으면 사람이 고른다(editor#R1).
+  // 문서 탭은 마지막 고침을 보내 편집을 끝내고, 저장이 남으면 사람이 고른다.
   beforeClose(tab, host) {
     const files = host.props.editor?.files;
     return files ? files.leave(tab.key) : null;

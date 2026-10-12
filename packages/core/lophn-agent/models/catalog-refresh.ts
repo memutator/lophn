@@ -9,7 +9,7 @@ import {
 export type CatalogRefresherHandle = CatalogRefresher;
 
 // agent runtime 안의 catalog 갱신 연결. 갱신은 run을 막지 않는 single-flight이고
-// network·시각·파일은 주입한다(architecture §5.3, R4).
+// network·시각·파일은 주입한다(architecture §5.3).
 export function startCatalogRefresher(
   input: {
     dataRoot: string;
@@ -60,7 +60,7 @@ function httpFetch(
   bytes: Uint8Array;
 }> {
   return async (url, init) => {
-    // 실제 fetch는 이 프로세스의 공개 GET 경로다. credential·선택은 init에 없다(R6).
+    // 실제 fetch는 이 프로세스의 공개 GET 경로다. credential·선택은 init에 없다.
     const response = await impl(url, init as RequestInit);
     const etag = response.headers.get("etag");
     return {

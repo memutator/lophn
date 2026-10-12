@@ -1,4 +1,4 @@
-// Markdown 편집기(shell/editor#R7, R9–R11). CodeMirror 6은 이 폴더에만 있고 SDK에 공개하지
+// Markdown 편집기. CodeMirror 6은 이 폴더에만 있고 SDK에 공개하지
 // 않는다. 글을 들고만 있고 저장은 하지 않는다. 바꾼 글은 onChange로 호출자에게 간다.
 import {
   type KeyboardEvent,

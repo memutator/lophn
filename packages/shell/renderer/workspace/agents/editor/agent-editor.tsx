@@ -1,4 +1,4 @@
-// agent 하나의 editor(shell/workspace#R38~R44). Agents 탭 안에서 [Open]이나 [+ New Operator]로 열리고, 위에서부터
+// agent 하나의 editor. Agents 탭 안에서 [Open]이나 [+ New Operator]로 열리고, 위에서부터
 // Profile · Name · Instructions · Model · Contexts · Skills · MCP servers · Permissions와 [Save]·[Cancel], Operator는
 // 맨 아래에 [Delete Operator]가 있다. What it does·Schedule·Last run·남길 문서 칸은 없다. built-in(lophn·Context
 // Engineer)의 [Open]도 이 editor다: Name은 고정 글자, Contexts 칸은 없고, Instructions에 "Built-in instructions
@@ -135,7 +135,7 @@ export interface AgentEditorProps {
   onDelete: () => void;
 }
 
-/** project instructions 블록이 보이는 줄 수(shell/workspace#R40). */
+/** project instructions 블록이 보이는 줄 수. */
 const PROJECT_LINES = 4;
 
 type FieldName =
@@ -584,7 +584,7 @@ function PermissionsField(props: FieldProps) {
   );
 }
 
-// 지우기는 확인을 한 번 받은 뒤에만 부른다(R38). 저장은 확인이 없다.
+// 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
 function DeleteOperator(props: AgentEditorProps) {
   const [asking, setAsking] = useState(false);
   const name = props.definition.name ?? props.effective.name.value;

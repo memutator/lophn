@@ -1,4 +1,4 @@
-// 템플릿에서 새 앱 폴더를 만든다(apps/sdk#R33). 파일을 그대로 복사하고 앱 이름·제목만 채운다. 개발용
+// 템플릿에서 새 앱 폴더를 만든다. 파일을 그대로 복사하고 앱 이름·제목만 채운다. 개발용
 // import map은 이 장치의 설치 SDK 위치를 담으므로 앱 source가 아니라 `.lophn/`(ignore)에 둔다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { TemplateFailure, TemplateFile } from "./files.ts";

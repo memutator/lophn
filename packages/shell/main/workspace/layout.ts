@@ -29,7 +29,7 @@ export type LayoutResult =
 
 /**
  * 파일에서 읽은 값을 검증한다. 미지원 schema와 손상은 안전한 오류로 빈 layout을
- * 가리킨다(shell/workspace#R7). 원본 파일은 바꾸지 않는다.
+ * 가리킨다. 원본 파일은 바꾸지 않는다.
  */
 export function parseLayoutFile(value: unknown): LayoutResult {
   if (
@@ -115,7 +115,7 @@ export function validateInformationPanel(
   return parsed.success ? parsed.data : undefined;
 }
 
-/** 두 칸 각각의 최소 폭은 480px다(shell/workspace#R4). */
+/** 두 칸 각각의 최소 폭은 480px다. */
 export const MIN_PANE_WIDTH = 480;
 
 /**

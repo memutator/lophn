@@ -3,7 +3,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { ACTOR_KINDS, type ActorKind, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
-// backup은 coding agent가 읽지 못한다(coding-agent/mcp-server#R30).
+// backup은 coding agent가 읽지 못한다.
 const BACKUP_READERS: readonly ActorKind[] = ACTOR_KINDS.filter((kind) =>
   kind !== "coding_agent"
 );
@@ -22,7 +22,7 @@ export const backupIntegritySchema = z.enum(BACKUP_INTEGRITY);
 
 export type BackupIntegrity = z.infer<typeof backupIntegritySchema>;
 
-// 자동 포함하지 않는 범위(platform/backup-and-migration#R11).
+// 자동 포함하지 않는 범위.
 export const BACKUP_EXCLUSIONS = [
   "app_db",
   "external_source",

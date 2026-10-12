@@ -1,7 +1,7 @@
 // Deno runtime client. agent runtime·MCP·CLI가 앱을 부르는 한 길이다.
 // core에서 `POST /v1/apps/connect`로 제한된 AppConnection을 받고, 그 뒤 업무 요청은
-// 앱 direct socket으로 core를 지나지 않고 간다(apps/runtime#R10). 전송이 끊기면 결과 모름으로
-// 돌려주고 자동으로 다시 부르지 않는다(R12). 같은 request_key로 다시 부르면 앱이 같은 결과를
+// 앱 direct socket으로 core를 지나지 않고 간다. 전송이 끊기면 결과 모름으로
+// 돌려주고 자동으로 다시 부르지 않는다. 같은 request_key로 다시 부르면 앱이 같은 결과를
 // 돌려준다(handler를 다시 실행하지 않는다).
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { z } from "zod";

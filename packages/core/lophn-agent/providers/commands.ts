@@ -30,7 +30,7 @@ import {
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
 // provider에는 credential이 하나다. 계정 목록·순서·끄기는 없고, 바꾸거나 다시 로그인하려면
-// Disconnect 뒤 Connect한다(provider#R8).
+// Disconnect 뒤 Connect한다.
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "provider not found" });
@@ -40,7 +40,7 @@ function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
 }
 
-// Connect와 Disconnect는 사람만 결정한다(provider#R6).
+// Connect와 Disconnect는 사람만 결정한다.
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : err({
     code: "forbidden",
@@ -168,7 +168,7 @@ export function createProviderCommands(): {
   cancelLogin: CommandDefinition<typeof loginCancel>;
 } {
   return {
-    // OAuth 로그인(provider#R12–R16)은 writer queue 앞의 처리기가 실제로 돌린다
+    // OAuth 로그인은 writer queue 앞의 처리기가 실제로 돌린다
     // (withProviderLogin). 이 등록은 경로를 route registry에 열어 두는 자리다.
     beginLogin: {
       route: loginBegin,
@@ -378,7 +378,7 @@ export function createProviderCommands(): {
         const existing = current.value.credential;
         const state = nextCredentialState(existing.state, input.state);
         if (!state.ok) return state;
-        // model 전용 제한은 그 model 하나의 block만 바꾸고 다른 model의 상태는 건드리지 않는다(provider#R22).
+        // model 전용 제한은 그 model 하나의 block만 바꾸고 다른 model의 상태는 건드리지 않는다.
         const blocks = input.model_block === null ? existing.model_blocks : [
           ...existing.model_blocks.filter((block) =>
             block.model_name !== input.model_block!.model_name

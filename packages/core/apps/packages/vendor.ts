@@ -1,4 +1,4 @@
-// 설치 사본을 자기 완결로 만드는 규칙(apps/sdk#R9, R10, R34).
+// 설치 사본을 자기 완결로 만드는 규칙.
 // 설치 사본(sdk/<name>/<version>/)은 앱 bundle 안에서 packages/ 저장소 없이 읽힌다. 그래서 사본이
 // packages/sdk/<name> 밖의 소스를 가져오는 자리는 설치가 사본 안 vendor/로 함께 담고 specifier를
 // 사본 안 상대 경로로 바꾼다. 원본 파일은 고치지 않고, 바꾼 byte가 사본의 hash가 된다.
@@ -60,7 +60,7 @@ export const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
 };
 
 // 설치 사본의 한 부분이면서 catalog Package가 아닌 지원 소스다. 공용 UI Package가 import하는
-// `@lophn/design`·`@lophn/wording`·`@lophn/chart`가 여기다(shell#T40·T41). catalog에 등록하지 않고 같은 sdk/<name>/<version>/
+// `@lophn/design`·`@lophn/wording`·`@lophn/chart`가 여기다. catalog에 등록하지 않고 같은 sdk/<name>/<version>/
 // 자리에 읽기 전용으로 풀어 앱 import map이 푼다.
 export type SupportPackage = {
   name: string;

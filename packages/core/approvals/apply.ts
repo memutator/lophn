@@ -1,4 +1,4 @@
-// approval 적용과 한 번 사용(platform/approvals#R7, R9, R10, R11, R12). 허락된 정확한 action을
+// approval 적용과 한 번 사용. 허락된 정확한 action을
 // 등록된 소유 command로 dispatch하고, 소유 변경·event와 approval_uses를 한 transaction에 확정한다.
 // approval만 먼저 소비하는 공개 command는 없다: 사용 기록은 소유 command가 접수·변경을 낸 뒤에만
 // 같은 transaction에서 INSERT되고, 실패하면 소유 변경까지 모두 rollback되어 receipt가 남지 않는다.
@@ -51,7 +51,7 @@ function applyApproved(
   }
   // 적용은 machine이나 고정된 호출자만 한다. 그 밖의 자격에는 없는 request와 같게 답한다.
   if (ctx.actor !== "machine" && ctx.actor !== fixed.caller) return notFound();
-  // 같은 허락의 재호출은 처음 접수의 receipt를 돌려주고 새 동작을 만들지 않는다(R7).
+  // 같은 허락의 재호출은 처음 접수의 receipt를 돌려주고 새 동작을 만들지 않는다.
   const prior = recordedUse(tx, input.approval);
   if (!prior.ok) return prior;
   if (prior.value !== undefined) {
@@ -63,7 +63,7 @@ function applyApproved(
     }
     return ok({ use: prior.value, replayed: true });
   }
-  // 허락됨·기한 전·정확한 action·원래 run 진행 중(R5, R10, R11, R12). 소유 command를 부르기 전이다.
+  // 허락됨·기한 전·정확한 action·원래 run 진행 중. 소유 command를 부르기 전이다.
   const usable = usableApproval(tx, input.approval, input.action);
   if (!usable.ok) return usable;
   if (input.action.input.kind !== "inline") {
@@ -87,7 +87,7 @@ function applyApproved(
     });
   }
   const before = lastSeq(tx);
-  // 소유 command는 같은 transaction·원래 자격으로 현재 권한·대상·CAS를 다시 검사한다(R11).
+  // 소유 command는 같은 transaction·원래 자격으로 현재 권한·대상·CAS를 다시 검사한다.
   const called = tx.call(route, value, input.action.comparison as never);
   if (!called.ok) return called;
   const accepted = lastSeq(tx);

@@ -1,7 +1,7 @@
 // 같은 데이터 root의 Electron main은 하나다. 두 번째 시작은 기존 main에 창을 요청할 뿐이고,
 // argv의 URL·파일·명령은 실행 권한으로 읽지 않는다. second-instance argv에서 읽는 것은
 // open-intent.ts의 세 intent(`--quit`, `--open-app <app ID>`, `lophn://things-to-confirm/<id>`)
-// 뿐이고 나머지는 새 기본 창 요청이다(desktop#R13, R14, R21).
+// 뿐이고 나머지는 새 기본 창 요청이다.
 import { readOpenIntent } from "./open-intent.ts";
 
 /** second-instance argv의 창 없는 종료 요청. 다른 값은 실행하지 않는다. */
@@ -21,7 +21,7 @@ export interface SingleInstanceOptions {
   dataRoot: string;
   /** 새 기본 창 요청. 대상 intent가 없는 second-instance마다 부른다. */
   onOpenWindow: () => void;
-  /** argv `--quit`의 종료 요청(desktop#R21). 있으면 second-instance가 부른다. */
+  /** argv `--quit`의 종료 요청. 있으면 second-instance가 부른다. */
   onQuitIntent: () => void;
   /** `--open-app <app ID>`의 앱 전용 창 요청. 없으면 기본 창이다. */
   onOpenApp?: (app: string) => void;

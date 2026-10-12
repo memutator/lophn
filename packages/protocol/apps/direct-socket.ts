@@ -50,7 +50,7 @@ export const commandResultSchema = z.object({
 });
 export type CommandResult = z.infer<typeof commandResultSchema>;
 
-// 호출에 붙이는 confirm proof는 core가 서명한 envelope다(apps/invocations#R8, apps Q5).
+// 호출에 붙이는 confirm proof는 core가 서명한 envelope다.
 // 서명 없는 payload는 받지 않는다.
 export const signedConfirmProofInputSchema = z.strictObject({
   payload: confirmExecutionProofInputSchema,

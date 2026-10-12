@@ -50,7 +50,7 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
 // 사람 결정은 묶음 Submit 자체다. 표시는 같은 묶음의 question-groups가 아니라 questions/read를
 // 읽는다. 고정 action이 있는 선택지를 고르는 답만 사람 결정 확인(confirmation handle)을
-// 요구한다. user token은 직접 사람 클릭의 증거가 아니므로(platform/identity#R14) action 답은
+// 요구한다. user token은 직접 사람 클릭의 증거가 아니므로 action 답은
 // 이 route로만 받는다. 확인 handle의 결정 이름은 ledger가 검사하는 command 이름(route.name)이다.
 export const QUESTION_ANSWER_DECISION = defineDecision("AnswerQuestionAction");
 
@@ -67,7 +67,7 @@ function distinctQuestions(answers: readonly { question: string }[]): boolean {
 
 // 일반 답: action이 없는 선택지 또는 자유 답. 묶음 전체에 한 번이고 질문마다 답 하나씩이다.
 // 모든 질문에 답했는지(일부만이면 invalid_input)는 묶음을 아는 owner와 group 검사가 본다.
-// 자유 답은 글을 값으로 싣는다(Q38).
+// 자유 답은 글을 값으로 싣는다.
 export const answerQuestionGroupInputSchema = questionGroupRefSchema.extend({
   answers: z.array(groupAnswerInputSchema)
     .min(QUESTION_GROUP_MIN_QUESTIONS)
@@ -87,12 +87,12 @@ export const answerQuestionActionInputSchema = questionGroupRefSchema.extend({
   { message: "action evidence must match the answered option" },
 );
 
-// Skip: 묶음 전체를 답 없이 미룬다(questions#R6).
+// Skip: 묶음 전체를 답 없이 미룬다.
 export const deferQuestionGroupInputSchema = questionGroupRefSchema;
 
 export const cancelQuestionGroupInputSchema = questionGroupRefSchema.extend({
   closed_reason: questionClosedReasonSchema.exclude(["deferred", "expired"]),
-  // 취소 이유는 글을 값으로 싣는다. core가 blob으로 준비한다(Q38).
+  // 취소 이유는 글을 값으로 싣는다. core가 blob으로 준비한다.
   closed_reason_text: questionTextSchema,
 });
 
@@ -311,7 +311,7 @@ export const questionList = defineRead({
 // 묶음의 글. 사람 화면(user)과 질문한 assignment의 agent·machine·coding_agent가 읽고,
 // 범위 밖 묶음은 없는 묶음과 똑같이 not_found다. 묶음 안 글 blob 하나라도 읽을 수 없으면
 // 일부만 돌려주지 않고 unavailable이다. 답 글과 취소 이유는 사람이 남긴 글이라
-// coding_agent에게는 싣지 않는다(coding-agent/mcp-server#R18: 사람 답은 노출하지 않는다).
+// coding_agent에게는 싣지 않는다(사람 답은 노출하지 않는다).
 export const questionTextInputSchema = questionGroupReadInputSchema;
 export const questionTextOutputSchema = withReadCommon(z.object({
   group: idSchema("qgr"),

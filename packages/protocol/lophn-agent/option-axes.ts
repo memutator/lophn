@@ -1,7 +1,7 @@
 // effort 축 이름과 값 순서다. 화면(renderer)과 core가 같이 쓰므로 zod를 import하지 않는 순수
 // TypeScript로 둔다. 값 schema는 resolved-model.ts·models.ts가 이 값으로 만든다.
 
-// effort 축의 값 이름이다. 약한 값에서 강한 값 순서이고 model마다 이 가운데 지원하는 것만 선언한다(R15).
+// effort 축의 값 이름이다. 약한 값에서 강한 값 순서이고 model마다 이 가운데 지원하는 것만 선언한다.
 export const EFFORT_VALUES = [
   "off",
   "minimal",

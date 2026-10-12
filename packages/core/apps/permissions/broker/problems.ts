@@ -1,5 +1,5 @@
 // broker `/_lophn/broker/problems/report`. 앱은 자기 release가 선언한 problem code만 보고하고
-// problem을 닫는 통로는 없다(apps/sdk#R26). app·release·mode는 자식 연결의 신원에서 정하고
+// problem을 닫는 통로는 없다. app·release·mode는 자식 연결의 신원에서 정하고
 // 본문이 정하지 못한다. 보고 자체의 수집·묶음은 problems 팀의 collector가 맡는다.
 import { err, type Result } from "../../../../base/mod.ts";
 import {

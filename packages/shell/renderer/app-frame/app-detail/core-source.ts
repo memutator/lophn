@@ -25,7 +25,7 @@ const PAGE_LIMIT = 10;
 const PREVIEW_POLLS = 40;
 const PREVIEW_POLL_MS = 250;
 
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
+// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
 const PARENT_WINDOW = "requesting-window";
 
 /** preload의 보호 창 열기. 없는 창에서는 undefined다. */

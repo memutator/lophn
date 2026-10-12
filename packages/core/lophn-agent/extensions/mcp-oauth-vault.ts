@@ -2,10 +2,10 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretPurpose } from "../../../protocol/secrets/mod.ts";
 
-// MCP OAuth token 보관(concern lophn-agent/extensions, requirements #R16, #R17, platform/secrets#R1).
+// MCP OAuth token 보관(concern lophn-agent/extensions, requirements #R16, #R17).
 // 접근·갱신 token은 OS keychain에만 있고 ledger·설정·log에는 참조와 만료·묶음 정보만 있다. 서버(자리+이름)마다
 // 한 벌이고, 같은 이름의 서버도 자리가 다르면 따로다. 벌마다 발급자·서버 URL·client를 함께 적어 두어(binding)
-// 그 조합이 바뀌면 옛 token을 쓰지 않을 수 있게 한다(R17). 평문 파일·환경 변수 fallback은 없다.
+// 그 조합이 바뀌면 옛 token을 쓰지 않을 수 있게 한다. 평문 파일·환경 변수 fallback은 없다.
 //
 // 값마다 따로 keychain 항목이다: core의 알려진 값 registry가 값 전체를 한 줄로 지우기 때문에 접근 token과 갱신
 // token은 각자의 항목이어야 한다. 값이 바뀔 때는 항목의 참조도 바뀌어야 secret store가 새 값을 읽고 옛 값을
@@ -30,7 +30,7 @@ export function mcpTokenRef(key: McpAuthKey): string {
   return `sec:mcp-oauth:${scopeOf(key.place)}:${key.name}`;
 }
 
-// token이 묶인 조합이다(R17). 이 중 하나라도 지금 설정과 다르면 token은 쓰지 않는다.
+// token이 묶인 조합이다. 이 중 하나라도 지금 설정과 다르면 token은 쓰지 않는다.
 export type McpGrantBinding = {
   issuer: string;
   server_url: string;

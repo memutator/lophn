@@ -1,6 +1,6 @@
 // 테스트가 쓰는 진입점. MCP client script로 lophn-mcp에 줄 단위 JSON-RPC를 보낸다.
 // ticket show·claim·claim 반납(op release)·report와 app tool 호출은
-// startFakeCodingAgent가 받은 step 순서대로 돈다(T20, T25). 수리 순서
+// startFakeCodingAgent가 받은 step 순서대로 돈다. 수리 순서
 // (claim → summary·bundle·more → reproduction → record_fix → lophn_app
 // release_prepare → report)는 repair.ts가 응답을 보고 만든다.
 import type { JsonRpcResponse } from "../../packages/coding-agent/mcp-server/mod.ts";
@@ -16,7 +16,7 @@ export type FakeAgentStep =
     base_revision: string;
   }
   | {
-    // 완료 보고다(coding-agent#T25). summary 본문은 lophn_ticket이 upload_summary로 올리고 준비 참조로
+    // 완료 보고다. summary 본문은 lophn_ticket이 upload_summary로 올리고 준비 참조로
     // 보고한다. completion seq는 입력이 아니다.
     kind: "report";
     ticket: string;

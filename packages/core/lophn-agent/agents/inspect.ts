@@ -25,8 +25,8 @@ import {
 } from "./store.ts";
 
 // 읽기가 함께 쓰는 것: 한 자리의 정의 파일과 자리 설정을 읽어 검사하고 층을 합친다.
-// 읽을 때의 검사는 파일 모양 전체(R24)다. 권한 상한은 저장 때 보고, 읽을 때는 resolve가
-// 상한과 자리·Workspace 권한의 교집합으로 줄이므로 지금의 상한 밖 동작은 run에 제공되지 않는다(R20, R21).
+// 읽을 때의 검사는 파일 모양 전체다. 권한 상한은 저장 때 보고, 읽을 때는 resolve가
+// 상한과 자리·Workspace 권한의 교집합으로 줄이므로 지금의 상한 밖 동작은 run에 제공되지 않는다.
 
 export type AgentContext = { lookups: AgentLookups; store: AgentStore };
 
@@ -47,7 +47,7 @@ export function issuesOfError(error: unknown): AgentIssue[] {
   return details?.issues ?? [];
 }
 
-// 이 assignment가 이 자리에서 부를 수 있는 agent인가(R7). 전역 lophn·Context Engineer는 어느 자리에서나
+// 이 assignment가 이 자리에서 부를 수 있는 agent인가. 전역 lophn·Context Engineer는 어느 자리에서나
 // (Context Engineer는 project만), App Engineer와 Operator는 자기 범위의 자리에서만이다.
 export function callableIn(ref: AssignmentRef, place: AgentPlace): boolean {
   if (ref.state === "withdrawn") return false;
@@ -116,7 +116,7 @@ export type Inspected = {
   file: AgentFile | null;
   definition: AgentDefinition | null;
   issues: AgentIssue[];
-  // 파일과 자리 설정이 모두 맞을 때만 있다. 아니면 그 agent는 시작하지 않는다(R24).
+  // 파일과 자리 설정이 모두 맞을 때만 있다. 아니면 그 agent는 시작하지 않는다.
   effective: Effective | null;
 };
 

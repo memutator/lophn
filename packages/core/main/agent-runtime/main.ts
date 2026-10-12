@@ -62,7 +62,7 @@ export type CoreCalls = {
 
 export type Runtime = {
   startup: Startup;
-  // 시작할 accepted run을 고른다(run-loop R4). 읽기만 하고 ledger를 바꾸지 않는다.
+  // 시작할 accepted run을 고른다. 읽기만 하고 ledger를 바꾸지 않는다.
   // 고른 run의 시작·loop는 이 selector를 부르는 쪽이 한다.
   selector: RunSelector;
   // run마다 받는 agent credential. 감독 pipe로 core에 청한다.
@@ -153,8 +153,8 @@ export async function startAgentRuntime(input: {
         if (started.ok) {
           startup = started.value;
           selectorRead = read;
-          // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는 내부에서 자동 요청이
-          // 나가지 않는다(R6).
+          // catalog 자동 갱신은 기동을 막지 않는 single-flight다. 끈 날에는 내부에서 자동 요청이
+          // 나가지 않는다.
           const root = runtimeDataRoot(input.dataRoot);
           const refresher = root === undefined
             ? undefined
@@ -245,7 +245,7 @@ export async function startAgentRuntime(input: {
   // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
   let recovered: RecoverReport[] = [];
   let pumping: Promise<void> = Promise.resolve();
-  // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다(extensions R16, R17).
+  // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
   // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
   const authPumping = input.pump === true
     ? startMcpAuthPump({

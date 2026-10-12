@@ -1,7 +1,7 @@
 // CodingConnectionsSource를 main의 통로로 만든다. 감지·연결·설치는 main IPC(`lophnCoding`)이고 연결 목록은
 // core read이며 회수는 보호 창을 여는 일이다. 응답은 main의 contract client가 route output schema로 이미
 // 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. 연결 생성 command와 token은 이
-// 통로에 없다: 연결은 고정 intent(`CONNECT_INTENT`)만 보내고 main이 따로 검증한다(shell/desktop#R19).
+// 통로에 없다: 연결은 고정 intent(`CONNECT_INTENT`)만 보내고 main이 따로 검증한다.
 import { type CodingApi, CONNECT_INTENT } from "../../../../../ipc/coding.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { coreAppsSource } from "../../apps/core-source.ts";
@@ -22,7 +22,7 @@ interface ConnectionValue {
 /** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 10;
 
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
+// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
 const PARENT_WINDOW = "requesting-window";
 
 /** 회수 결정 창을 여는 preload 통로. 없는 창에서는 undefined다. */

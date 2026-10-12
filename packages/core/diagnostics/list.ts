@@ -11,8 +11,7 @@ export type DiagnosticQuery = {
   kind?: DiagnosticRecord["kind"];
 };
 
-// 기록된 안전 진단. 원문은 여기 들어오기 전에 redaction을 통과한 것이다
-// (platform/diagnostics#R5).
+// 기록된 안전 진단. 원문은 여기 들어오기 전에 redaction을 통과한 것이다.
 export type DiagnosticListSource = {
   records(query: DiagnosticQuery): readonly DiagnosticRecord[];
 };

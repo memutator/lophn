@@ -9,7 +9,7 @@ import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 
 // ticket.create actor는 user·lophn·담당 App Engineer agent다. coding_agent·
-// app·machine은 생성하지 않는다(R5).
+// app·machine은 생성하지 않는다.
 export function createActorAllowed(actor: string): boolean {
   const parts = parseActor(actor);
   if (!parts) return false;
@@ -28,7 +28,7 @@ export function outsideAppCondition(
 }
 
 // readiness는 needs의 유무와 짝이다. needs_confirmation은 필요한 확인 1개 이상,
-// ready는 needs가 비어 있다(Q11).
+// ready는 needs가 비어 있다.
 export function readinessOf(
   readiness: TicketReadiness,
   needs: readonly string[],
@@ -72,7 +72,7 @@ export function adoptionMatches(
 }
 
 // R7: 조건 kind는 여섯 가지뿐이다. 자유 산문은 입력 schema가 거절하고,
-// human_confirmation은 어느 문제의 reproduction을 대신하는지 problem을 갖는다(Q18).
+// human_confirmation은 어느 문제의 reproduction을 대신하는지 problem을 갖는다.
 export const HUMAN_CONFIRMATION_KIND = "human_confirmation";
 
 // R8: 구현 ready는 app_test와 실행 가능한 test_command를 각각 하나 이상 요구한다.
@@ -120,7 +120,7 @@ export function readyKindsComplete(
 }
 
 // human_confirmation은 그 문제의 reproduction_test가 함께 없을 때만 유효하다.
-// 둘 다 있으면 사람 확인이 test를 대신하지 않는다(R7).
+// 둘 다 있으면 사람 확인이 test를 대신하지 않는다.
 export function humanConfirmationCoupled(
   conditions: readonly AcceptanceCheck[],
 ): Result<void> {
@@ -182,9 +182,9 @@ export function wantsNoGrant(
   return ok(undefined);
 }
 
-// ticket.cancel actor는 user라면 종료 전 어느 상태나 된다(R22). machine은 App
+// ticket.cancel actor는 user라면 종료 전 어느 상태나 된다. machine은 App
 // Engineer 생성의 revert 적용 분이라 외부 claim·보고·결과가 한 번도 없을 때만
-// 허용한다(R22). machine의 이력 검사는 handler가 현재 표로 본다.
+// 허용한다. machine의 이력 검사는 handler가 현재 표로 본다.
 export function cancelActorAllowed(actor: string): boolean {
   const parts = parseActor(actor);
   if (!parts) return false;

@@ -233,7 +233,7 @@ type CallResult = { ok: true; value: unknown } | {
   error: { code: string; message: string };
 };
 
-/** 등록 폴더 read. renderer가 믿는 경로를 여기서 다시 읽는다(documents#T7). */
+/** 등록 폴더 read. renderer가 믿는 경로를 여기서 다시 읽는다. */
 async function projectFolders(
   session: CallSession | null,
   project: string,
@@ -271,12 +271,12 @@ let shotSerial = 0;
 const overlays = electronOverlays(headless);
 // 순서는 최근에 focus를 받은 창이 끝이다. 창 밖에서 온 일은 끝의 창에 시킨다.
 const windows = new Set<BrowserWindow>();
-// 앱 전용 창(shell#T47). shell 창이 아니라서 shortcut·intent·core 상태를 받지 않는다.
+// 앱 전용 창. shell 창이 아니라서 shortcut·intent·core 상태를 받지 않는다.
 const appWindowRefs = new Map<string, BrowserWindow>();
 const log = (message: string) => console.log(`[lophn] ${message}`);
 let tray: InstalledTray | undefined;
 
-// OS notification(shell#T56, platform#T46). 지금 도착한 NotificationCreated마다 core가 주는 OS
+// OS notification. 지금 도착한 NotificationCreated마다 core가 주는 OS
 // 표시 요청(사람이 켰을 때만 값이 있다)으로 계기 종류의 고정 문구만 올린다. 클릭은
 // things-to-confirm을 열 뿐 읽음이 아니다. 표시 실패는 고정 이유로 core에 알린다. headless는
 // OS에 올리지 않는다.
@@ -383,7 +383,7 @@ function windowOfRef(ref: string): BrowserWindow | undefined {
   ) ?? appWindowRefs.get(ref);
 }
 
-// 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
+// 앱 view registry. 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
 // 붙이기·숨기기 IPC와 renderer 연결은 shell#T39가 이 registry에 잇는다.
 const appViews = electronAppViews({
   windowOf: (ref) =>
@@ -454,7 +454,7 @@ ipcMain.handle(VIEW_HINT_CHANNEL, (event, input: unknown) => {
   return liveView.hint(windowRef(window), input);
 });
 
-// native view 배치(shell#T39). renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
+// native view 배치. renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
 const viewVisibility = createViewVisibility({
   frame: appFrame,
   geometry: {
@@ -498,9 +498,9 @@ registerViewIpc(
     visibility: viewVisibility,
   }),
 );
-// 앱 preload 통로(shell#T38). 신원은 IPC sender view에서만 정한다. 고정 blueprint는 core의
-// `/v1/apps/blueprint`(apps#T19)를 읽는다. confirm command의 approval·proof(shell#T45 이어보냄)와
-// view 오류의 collector 전달 binding(problems#T16)은 아직 core 통로가 없어 unavailable·unsent다.
+// 앱 preload 통로. 신원은 IPC sender view에서만 정한다. 고정 blueprint는 core의
+// `/v1/apps/blueprint`를 읽는다. confirm command의 approval·proof(shell#T45 이어보냄)와
+// view 오류의 collector 전달 binding은 아직 core 통로가 없어 unavailable·unsent다.
 const readBlueprint = (app: string) => {
   const session = core.session();
   return session
@@ -570,7 +570,7 @@ registerAppIpc(appIpc, {
   viewError: (view, input) => viewErrors.observe(view, input),
 });
 
-// [Report a problem](shell#T52). 버튼은 desktop 창 본문이 view_session만 보내고 dialog는 같은 창
+// [Report a problem]. 버튼은 desktop 창 본문이 view_session만 보내고 dialog는 같은 창
 // overlay에 연다. 제출은 problems `SubmitFeedback`(worker route)으로 보내고 고른 PNG만 byte
 // channel로 붙인다. 원문 글·binding·raw capture는 main 메모리에만 있다.
 function shellWindowOf(sender: unknown): BrowserWindow | undefined {
@@ -605,7 +605,7 @@ const feedback = createFeedback({
       dialogOpen: () => overlay.dialogOpen(),
     };
   },
-  // confirmation window는 요청 창의 child modal이다(shell/confirmation-window#R6).
+  // confirmation window는 요청 창의 child modal이다.
   protectedWindow: (ref) =>
     windowOfRef(ref)?.getChildWindows().some((child) => !child.isDestroyed()) ??
       false,
@@ -645,7 +645,7 @@ const feedback = createFeedback({
     };
   },
   commandStart: (view_session) => appCall.commandStart(view_session),
-  // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다(problems/reporting#R9).
+  // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다.
   async lookup(report) {
     const session = core.session();
     if (session === null) return { ok: false };
@@ -693,7 +693,7 @@ const feedbackIpc: FeedbackIpcMain = {
 };
 registerFeedbackIpc(feedbackIpc, feedback);
 
-// 보호 창(shell#T22·T29). 사람이 desktop 창에서 [Review]를 누를 때만 그 창의 child modal로
+// 보호 창. 사람이 desktop 창에서 [Review]를 누를 때만 그 창의 child modal로
 // 연다. 종류별 정본 read·제출은 main 안 통로로 core를 부르고, handle은 비공개 pipe로 등록한다.
 // 창마다 메모리 partition이고 설치된 confirmation 페이지만 그 partition에서 연다.
 let confirmationShots = 0;
@@ -825,8 +825,8 @@ function windowRef(window: BrowserWindow): string {
   return `window-${window.id}`;
 }
 
-// 앱 전용 창(shell#T47, desktop#R13, R14). 본문 view와 같은 appFrame·Electron adapter로 연다.
-// 전용 창의 screen은 blueprint read(`/v1/apps/blueprint`, apps#T19)가 정한다. 아직 core 통로가
+// 앱 전용 창. 본문 view와 같은 appFrame·Electron adapter로 연다.
+// 전용 창의 screen은 blueprint read(`/v1/apps/blueprint`)가 정한다. 아직 core 통로가
 // 없어 unavailable이고, 그동안 `--open-app`은 기본 창을 앞으로 가져온다.
 const appWindows = createAppWindows({
   readApp: (app) => {
@@ -863,7 +863,7 @@ const appWindows = createAppWindows({
   log,
 });
 
-// 앱 바로가기의 실제 OS 쓰기(shell/desktop#R14). 같은 디렉터리의 임시 파일을 rename해 쓰고,
+// 앱 바로가기의 실제 OS 쓰기. 같은 디렉터리의 임시 파일을 rename해 쓰고,
 // macOS bundle은 폴더째 지운다. installOsEntry가 headless·개발 실행에서는 부르지 않는다.
 const nodeEntryFiles: EntryFiles = {
   write(path, data, mode) {
@@ -956,7 +956,7 @@ function refreshAppViews(
   }
 }
 // lophn이 띄운 coding TUI 아래 MCP·CLI process를 host가 관측해 알리면 main이 자기 사람 credential로 core에
-// 등록·해제한다(platform/identity#R15). 같은 줄이 TUI 관측(ObservationStore)도 채운다. 관측 표는 이 process의
+// 등록·해제한다. 같은 줄이 TUI 관측(ObservationStore)도 채운다. 관측 표는 이 process의
 // 메모리라 Electron이 다시 뜨면 비고 모든 TUI는 unknown이다(자동 spawn·resume 없음).
 const codingChildren = createChildRegistrar({ core: () => core.session() });
 const observations = createObservationStore({
@@ -971,7 +971,7 @@ const terminals = createSupervisor({
   onHostLost: () => hostSinks.onHostLost(),
 });
 
-// coding agent 연결과 ticket [Start](shell#T50). `lophn` 실행 파일과 helper는 설치 묶음에 있다(Linux .deb의
+// coding agent 연결과 ticket [Start]. `lophn` 실행 파일과 helper는 설치 묶음에 있다(Linux .deb의
 // `/usr/bin/lophn`, `<설치 root>/lophn-credential`). 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고,
 // 없으면 연결·시작은 unavailable이다. child에는 이 main의 데이터 root만 환경으로 준다.
 function lophnCommand(): string | null {
@@ -1026,7 +1026,7 @@ const codingIpcMain = {
 
 // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
 // folder_ref는 documents#T7 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
-// snapshot으로만 renderer에 다시 보인다(shell/terminal#R7, R8).
+// snapshot으로만 renderer에 다시 보인다.
 const terminalFocus = new TerminalFocusTable();
 const terminalIpc = createTerminalIpc({
   registry: overlays.overlayRegistry(),
@@ -1043,7 +1043,7 @@ registerTerminalIpc(
   } satisfies MainIpc,
   terminalIpc,
 );
-// 연결 화면과 [Start]. desktop 창 본문만 부르고 연결 intent·시작 클릭은 main이 다시 검사한다(desktop#R19).
+// 연결 화면과 [Start]. desktop 창 본문만 부르고 연결 intent·시작 클릭은 main이 다시 검사한다.
 registerCodingIpc(
   codingIpcMain,
   createCodingIpc({
@@ -1055,7 +1055,7 @@ registerCodingIpc(
   }),
 );
 
-// settings backup 복원(shell#T58). 계획을 읽고 사람이 확인한 묶음만 결정 handle로 복원한다.
+// settings backup 복원. 계획을 읽고 사람이 확인한 묶음만 결정 handle로 복원한다.
 // 복원 뒤 core는 같은 pipe의 새 hello로 다시 시작하고 connection이 session을 다시 연다.
 const restoreIpcMain: RestoreIpcMain = {
   handle: (channel, listener) =>
@@ -1095,7 +1095,7 @@ registerUpdateIpc(updateIpcMain, {
   },
 });
 
-// 작업대 layout(shell/workspace#R6). desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
+// 작업대 layout. desktop 창 본문만 부르고 파일 schema는 여기서 검사한다.
 const layoutIpcMain: LayoutIpcMain = {
   handle: (channel, listener) =>
     ipcMain.handle(channel, (event, input) => listener(event, input)),
@@ -1136,7 +1136,7 @@ ipcMain.handle(
   }),
 );
 
-// 상단 바의 최소화·최대화·닫기(shell/desktop#R23). desktop 창 본문만 부르고 그 창에만 간다.
+// 상단 바의 최소화·최대화·닫기. desktop 창 본문만 부르고 그 창에만 간다.
 ipcMain.handle(
   WINDOW_CONTROL_CHANNEL,
   createWindowControl({
@@ -1145,7 +1145,7 @@ ipcMain.handle(
   }),
 );
 
-// shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS browser로 연다(shell/app-frame#R7).
+// shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS browser로 연다.
 // headless 확인에서는 사람 화면에 browser를 띄우지 않는다.
 ipcMain.handle(
   OPEN_EXTERNAL_CHANNEL,
@@ -1182,7 +1182,7 @@ ipcMain.handle(WINDOWLESS_CONFIRMATION_CHANNEL, async (event, input) => {
   });
 });
 
-// 편집기 파일 adapter와 창 닫기 guard(shell#T17). renderer는 문서 id와 session handle만 보내고
+// 편집기 파일 adapter와 창 닫기 guard. renderer는 문서 id와 session handle만 보내고
 // 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
 const fileAdapter = createFileAdapter({
   port: () => {
@@ -1203,7 +1203,7 @@ const editorIpc = {
   removeAllListeners: (channel: string) =>
     void ipcMain.removeAllListeners(channel),
 };
-// 버전 복원(shell#T18). 준비·파일 쓰기·판 바이트는 renderer allowlist 밖이라 main이 부른다.
+// 버전 복원. 준비·파일 쓰기·판 바이트는 renderer allowlist 밖이라 main이 부른다.
 const restorer = createRestorer({
   port: () => {
     const session = core.session();
@@ -1218,7 +1218,7 @@ const creator = createDocumentCreator({
     return session ? coreCreatePort(session) : null;
   },
 });
-// [Instructions](shell#T32). exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
+// [Instructions]. exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
 const instructions = createInstructions({
   port: () => {
     const session = core.session();
@@ -1226,7 +1226,7 @@ const instructions = createInstructions({
   },
   dataRoot,
 });
-// 문서를 파일로 두기(shell#T20). 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
+// 문서를 파일로 두기. 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
 const placer = createPlacer(() => {
   const session = core.session();
   return session ? corePlacePort(session) : null;
@@ -1277,8 +1277,8 @@ function stopAll(): void {
   tray?.destroy();
 }
 
-// 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다(desktop#R21).
-// 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌 문서 수다(shell#T17).
+// 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다.
+// 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌 문서 수다.
 const quitFlow = createQuitFlow({
   work: {
     runningTerminals: () =>
@@ -1302,7 +1302,7 @@ const quitFlow = createQuitFlow({
 // OS 종료(logout, macOS Cmd+Q)도 터미널과 core를 멈춘다. 이미 멈췄으면 아무것도 안 한다.
 app.once("will-quit", () => stopAll());
 // 앱 끄기가 창 닫기를 부르면 편집기 guard가 먼저 묻는다. 막으면 Electron이 끄기를 멈추므로
-// renderer가 허락한 뒤 다시 잇는다(shell/editor#R1).
+// renderer가 허락한 뒤 다시 잇는다.
 let appQuitRequested = false;
 app.on("before-quit", () => {
   appQuitRequested = true;
@@ -1357,7 +1357,7 @@ app.on("open-url", (event, url) => {
 });
 
 // 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
-// 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다(desktop#R18).
+// 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
 app.on("web-contents-created", (_event, contents) => {
   listenShortcuts(contents, process.platform, (shortcut) => {
     const window = desktopWindowOf(contents);
@@ -1377,7 +1377,7 @@ function desktopWindowOf(contents: WebContents): BrowserWindow | undefined {
   );
 }
 
-// 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
+// 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다.
 app.on("window-all-closed", () => {});
 
 const mode = resolveLaunchMode({
@@ -1420,7 +1420,7 @@ if (instance.acquired) {
         },
       });
     }
-    // 전역 팔레트(desktop#R18). 실패하면 tray에 사용 불가로 보이고 다른 key는 잡지 않는다.
+    // 전역 팔레트. 실패하면 tray에 사용 불가로 보이고 다른 key는 잡지 않는다.
     // headless는 OS에 등록하지 않는다.
     globalPalette = installGlobalPalette({
       port: guardShortcuts(electronShortcuts, headless, log),
@@ -1434,7 +1434,7 @@ if (instance.acquired) {
       port: app,
       log,
     });
-    // 창 없는 시작은 main과 core만 띄운다(desktop#R21). 첫 시작의 `--open-app`은 기본 창
+    // 창 없는 시작은 main과 core만 띄운다. 첫 시작의 `--open-app`은 기본 창
     // 대신 앱 전용 창을, 링크는 그 대상을 고른 기본 창을 연다.
     const start = readOpenIntent(process.argv);
     if (
@@ -1610,7 +1610,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
         attachTerminalSurface(overlays.overlayRegistry(), window);
         windows.add(window);
         created = window;
-        // 창 닫기는 편집기의 마지막 고침과 편집 종료를 먼저 본다(editor#R1).
+        // 창 닫기는 편집기의 마지막 고침과 편집 종료를 먼저 본다.
         const contentsId = window.webContents.id;
         const guard = new CloseGuard({
           send: (request) => {
@@ -1651,7 +1651,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
           windows.add(window);
         });
         window.on("closed", () => windows.delete(window));
-        // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다(desktop#R23).
+        // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다.
         const sendWindowState = () => {
           if (!window.isDestroyed()) {
             window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));

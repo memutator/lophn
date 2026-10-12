@@ -25,8 +25,7 @@ import {
   X,
 } from "lucide-react";
 
-// 문서 머리·찾기 줄·형식 문제·저장 상태·notice가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다
-// (shell/design-system#R43).
+// 문서 머리·찾기 줄·형식 문제·저장 상태·notice가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
 export const editorIcons = {
   edit: PencilLine,
   read: BookOpen,
@@ -38,14 +37,14 @@ export const editorIcons = {
   replace: Replace,
   replaceAll: ReplaceAll,
   problem: TriangleAlert,
-  // 저장 상태 줄과 문서 옆 notice(shell/editor#R2, R15).
+  // 저장 상태 줄과 문서 옆 notice.
   saveWarning: TriangleAlert,
   saveFailed: CircleAlert,
   conflict: GitCompareArrows,
   reloaded: RotateCw,
   detailsOpen: ChevronUp,
   detailsClosed: ChevronDown,
-  // 정보 패널의 버전과 버전 비교(shell/editor#R6, R13, R14).
+  // 정보 패널의 버전과 버전 비교.
   compare: GitCompare,
   compareNewest: GitCompareArrows,
   compareBack: ArrowLeft,

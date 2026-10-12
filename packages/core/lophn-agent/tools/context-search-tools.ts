@@ -1,4 +1,4 @@
-// 선언 검색마다 읽기 tool 하나와 개체 하나 읽기 tool(lophn-agent/harness/tools#R21, R22)이다.
+// 선언 검색마다 읽기 tool 하나와 개체 하나 읽기 tool이다.
 // `buildAppTools`/`createAppToolHandlers`와 같은 모양으로 적용된 판의 선언에서 정의를 만들고 정의마다
 // handler를 묶는다. 정의는 run을 시작할 때 읽은 판 값(`ContextToolContext`)으로 만들고 그 뒤 판이 바뀌어도
 // 이미 만든 정의는 그대로다(진행 중인 run은 옛 정의로 계속하고 새 정의는 다음 run에서 만든다).
@@ -47,13 +47,13 @@ const HASH_LENGTH = 8;
 const SLUG_MAX = NAME_MAX - CONTEXT_TOOL_PREFIX.length - ULID_LENGTH - 2 -
   HASH_LENGTH;
 
-// 한 호출이 돌려주는 행 수다(harness/tools R13).
+// 한 호출이 돌려주는 행 수다.
 const SEARCH_PAGE_SIZE = PAGE_SIZE;
 // 한 page가 결과 상한을 넘으면 같은 위치에서 더 작은 page로 다시 읽는다(core cursor는 위치만 담는다).
 const SHRINK_SIZES = [SEARCH_PAGE_SIZE, 10, 5, 2, 1] as const;
 
 // run을 시작할 때 읽은 적용된 판이다. 판이 바뀌어도 진행 중인 run은 이 값으로 계속하고 새 정의는
-// 다음 run부터 쓴다(R21).
+// 다음 run부터 쓴다.
 export type ContextToolContext = {
   id: string;
   title: string;
@@ -467,7 +467,7 @@ export function createContextReadToolHandlers(
   if (tools.entity !== null) {
     handlers.set(tools.entity.name, entityHandler(tools, ports));
   }
-  // 다음 이름 읽기는 정의가 모든 역할에 같지만 개체 읽기처럼 선택한 context 안에서만 읽힌다(R24). 선택이 비어도
+  // 다음 이름 읽기는 정의가 모든 역할에 같지만 개체 읽기처럼 선택한 context 안에서만 읽힌다. 선택이 비어도
   // handler는 있어 어느 context도 not_found로 답한다.
   for (
     const [name, handler] of createSeriesNextToolHandlers(ports, tools.contexts)

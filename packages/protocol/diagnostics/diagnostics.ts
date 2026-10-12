@@ -24,7 +24,7 @@ export const diagnosticRecordSchema = z.object({
 
 export type DiagnosticRecord = z.infer<typeof diagnosticRecordSchema>;
 
-// doctor가 실제로 검사하는 항목(platform/diagnostics#R9, R10).
+// doctor가 실제로 검사하는 항목.
 export const DIAGNOSTIC_CHECKS = [
   "sdk_hash",
   "credential_permission",

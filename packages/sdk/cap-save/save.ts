@@ -1,4 +1,4 @@
-// 앱이 선언한 문서 key에 새 version을 저장하는 client다(apps/sdk#R30). 문서 place는 고르지
+// 앱이 선언한 문서 key에 새 version을 저장하는 client다. 문서 place는 고르지
 // 못한다. broker가 호출한 앱 자리의 (앱 자리, key)로만 보내고 기대 version 충돌과 재전송 중복은
 // documents/versions가 판정한다.
 import {

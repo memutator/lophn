@@ -8,10 +8,10 @@ import { withReadCommon } from "../base/envelope.ts";
 
 export const COMMAND_SOURCES = ["builtin", "role", "skill"] as const;
 export const COMMAND_WHILE_RUNNING = ["run", "queue", "blocked"] as const;
-// skill을 찾은 층. 같은 이름이 둘 이상일 때만 메뉴에 보인다(R6).
+// skill을 찾은 층. 같은 이름이 둘 이상일 때만 메뉴에 보인다.
 export const COMMAND_SKILL_ORIGINS = ["place", "workspace"] as const;
 
-// 전역 built-in 여덟 개의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다(R2).
+// 전역 built-in 여덟 개의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다.
 export const BUILTIN_COMMAND_IDS = [
   "new",
   "rename",
@@ -65,7 +65,7 @@ export const commandEntrySchema = z.object({
 export type CommandEntry = z.infer<typeof commandEntrySchema>;
 
 // `/`로는 부를 수 없게 된 skill이다. 이름이 예약된 built-in(전역이나 그 agent의
-// role 명령)과 같아 registry 목록에서 빠지고(R5) 사람에게는 이 알림으로 알린다.
+// role 명령)과 같아 registry 목록에서 빠지고 사람에게는 이 알림으로 알린다.
 // skill 자체는 읽을 수 있다.
 export const commandNoticeSchema = z.object({
   kind: z.literal("reserved_name"),
@@ -80,7 +80,7 @@ export const commandsListInputSchema = z.strictObject({
 });
 
 // 그 session의 agent 기준 목록이다: 전역 built-in, 그 role의 built-in, 그 agent가
-// 쓸 수 있는 skill의 순서(R1). 끈 skill은 없다(R7).
+// 쓸 수 있는 skill의 순서. 끈 skill은 없다.
 export const commandsListOutputSchema = withReadCommon(z.object({
   commands: z.array(commandEntrySchema).max(512),
   notices: z.array(commandNoticeSchema).max(512),

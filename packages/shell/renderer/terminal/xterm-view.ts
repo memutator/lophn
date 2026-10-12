@@ -1,6 +1,6 @@
 // xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·
 // 자동 링크(OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서
-// 먹어 xterm 기본 동작(링크 열기 확인 창)도 생기지 않게 한다(shell/terminal#R11).
+// 먹어 xterm 기본 동작(링크 열기 확인 창)도 생기지 않게 한다.
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 

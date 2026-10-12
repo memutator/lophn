@@ -56,7 +56,7 @@ export function startRunLoop(
   return {
     done: run(),
     stop(reason: StopReason) {
-      // 새 진입은 이 순간부터 막히고 진행 중인 호출에는 중단을 요청한다(R15).
+      // 새 진입은 이 순간부터 막히고 진행 중인 호출에는 중단을 요청한다.
       state.flags.stop ??= reason;
       state.control.abort();
     },

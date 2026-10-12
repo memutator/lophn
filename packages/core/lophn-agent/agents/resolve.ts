@@ -22,7 +22,7 @@ import {
   type ValueSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// 설정 층을 합쳐 run마다 고정하는 resolved agent를 만든다(agent-I2). 읽은 값만 받는 순수 함수라 파일도
+// 설정 층을 합쳐 run마다 고정하는 resolved agent를 만든다. 읽은 값만 받는 순수 함수라 파일도
 // 시각도 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
 
 // 제품이 고정하거나 다른 concern이 정하는 값이다. 테스트가 작은 값으로 바꿔 끼운다.
@@ -204,7 +204,7 @@ function invalid(issues: AgentIssue[]): Result<never, LophnError> {
 
 // requested 가운데 allowed에 없는 동작마다 `<field>.<index>` 항목(`over_cap`)을 돌려준다(field 기본값은
 // `permissions.tools`, index는 requested 안의 자리). 저장 때 정의의
-// permissions를 자리 권한에, 자리 권한을 Workspace 기본에, 정의를 role 상한에 대 보는 데 쓴다(R20, R21).
+// permissions를 자리 권한에, 자리 권한을 Workspace 기본에, 정의를 role 상한에 대 보는 데 쓴다.
 export function permissionIssues(
   requested: readonly string[],
   allowed: readonly string[],

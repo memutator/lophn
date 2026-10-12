@@ -18,7 +18,7 @@ import {
 } from "./model.ts";
 
 // read는 pool read다. handler는 동기 Result를 돌려준다. 보이는 범위는 guards.ts가 정한다.
-// 닫힌 세션도 원문을 그대로 읽는다(R8).
+// 닫힌 세션도 원문을 그대로 읽는다.
 
 const PAGE = 50;
 const PAGE_MAX = 200;
@@ -79,7 +79,7 @@ export function createConversationReads(): {
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
-        // 다른 agent의 목록을 이름으로 물어도 비어 있다(R21).
+        // 다른 agent의 목록을 이름으로 물어도 비어 있다.
         if (scope === undefined) return empty;
         if (scope !== null && input.assignment !== scope) return empty;
         // 목록은 agent와 자리별이다. 제목 검색은 화면이 이 결과의 제목만 거른다.

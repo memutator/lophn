@@ -113,7 +113,7 @@ export const CLI_CORE_NAMES = [
 ] as const;
 
 // section을 주면 그 key의 판별 변화(section_history), 없으면 고정 판 목록(history)이다. MCP
-// `lophn_document history`와 같은 입력이다(cli#R13).
+// `lophn_document history`와 같은 입력이다.
 export const cliDocumentHistorySchema = withCommon(
   "document history",
   historyInputSchema.extend({ section: sectionKeySchema.optional() }),

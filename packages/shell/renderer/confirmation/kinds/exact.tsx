@@ -47,7 +47,7 @@ function pretty(value: unknown): string {
 
 /**
  * 고정 동작을 줄이지 않고 그대로 보인다: 맡은 concern, command, 대상, 정확한 입력,
- * 비교 기준. 고정폭 원문이고 자르지 않는다(confirmation-window#R2, wording#R12).
+ * 비교 기준. 고정폭 원문이고 자르지 않는다.
  */
 export function ExactAction({ view }: { view: Record<string, unknown> }) {
   const input = obj(view.input);

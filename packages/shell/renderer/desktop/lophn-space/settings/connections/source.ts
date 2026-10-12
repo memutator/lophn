@@ -1,4 +1,4 @@
-// coding agent 연결 화면이 읽고 쓰는 통로(shell#T50). 화면은 이 interface만 보고 core route 이름과 main IPC는
+// coding agent 연결 화면이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름과 main IPC는
 // core-source.ts만 안다. 모양은 contracts(coding-agent 연결·harness 감지)에서 이 화면이 쓰는 field만 옮긴 것이다.
 // token·hash·설치 경로 설정은 이 통로에 없다. 연결은 "이 harness로 연결"이라는 고정 intent로만 만든다.
 import type {

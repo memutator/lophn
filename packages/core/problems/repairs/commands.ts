@@ -16,7 +16,7 @@ import {
 import { NOT_FOUND } from "../reporting/mod.ts";
 import { latestEventSeq, staleSeq } from "./model.ts";
 
-// 없는 대상과 범위 밖 대상은 같은 답이다(platform/identity#R8).
+// 없는 대상과 범위 밖 대상은 같은 답이다.
 const notFound = (): Result<never, LophnError> =>
   err({ code: "not_found", message: NOT_FOUND });
 const conflict = (message: string): Result<never, LophnError> =>
@@ -37,7 +37,7 @@ type ReleaseRow = {
 };
 
 // release 준비는 prepare가 한 번만 돌리므로 행이 있으면 준비됐다.
-// 관심 앱 밖 release는 같은 not_found다(R1).
+// 관심 앱 밖 release는 같은 not_found다.
 function findRelease(
   sql: Pick<Tx["sql"], "get">,
   release: string,
@@ -90,8 +90,8 @@ function findVerification(
 }
 
 // 문제 포함 여부(repair ticket에 이 문제가 있다)는 같은 transaction에서
-// coding-agent ticket 표로 직접 본다(coding-agent#T19). kind가 repair가 아니거나
-// 문제가 ticket에 없으면 같은 conflict다(R5).
+// coding-agent ticket 표로 직접 본다. kind가 repair가 아니거나
+// 문제가 ticket에 없으면 같은 conflict다.
 function ticketContains(
   sql: Pick<Tx["sql"], "get">,
   ticket: string,
@@ -156,16 +156,16 @@ export function handleRecordProblemFix(
   const app = String(row["app"]);
   const current = latestEventSeq(tx.sql, problem);
   if (staleSeq(problemSeq, current)) {
-    // 낡은 문제 기준 제출은 충돌이다(R3). 없는 문제와 같은 답을 하지 않는다.
+    // 낡은 문제 기준 제출은 충돌이다. 없는 문제와 같은 답을 하지 않는다.
     return conflict("문제가 바뀌었다");
   }
-  // 두 release는 이 앱의 준비된 고친 release다(R1). 다른 앱 release·없는 release는
+  // 두 release는 이 앱의 준비된 고친 release다. 다른 앱 release·없는 release는
   // 같은 not_found다.
   const before = findRelease(tx.sql, fix.before);
   const after = findRelease(tx.sql, fix.after);
   if (before === null || after === null) return notFound();
   if (before.app !== app || after.app !== app) return notFound();
-  // 결과 참조는 고친 묶음과 일치하는 결과만 가리킨다(R2). 빈 목록도 된다.
+  // 결과 참조는 고친 묶음과 일치하는 결과만 가리킨다. 빈 목록도 된다.
   for (const verification of fix.verification) {
     const found = findVerification(tx.sql, verification);
     if (found === null) return notFound();
@@ -193,7 +193,7 @@ export function handleRecordProblemFix(
       }
     }
   }
-  // 새 제출은 ticket 접수와 현재 claim만 출처로 받는다(R4, R5). 과거 null 출처는
+  // 새 제출은 ticket 접수와 현재 claim만 출처로 받는다. 과거 null 출처는
   // 이미 기록된 payload라 여기 오지 않는다.
   const ticketApp = ticketContains(tx.sql, fix.ticket, problem);
   if (!ticketApp.ok) return ticketApp;
@@ -235,7 +235,7 @@ export function handleRecordProblemFix(
     return conflict("ticket claim is not current: missing");
   }
   // summary blob 준비 참조. hash만 싣는 기록은 가리키는 바이트가 저장된 blob이어야 한다:
-  // 준비 증거가 fix.summary와 같은 hash·fix_summary purpose여야 등록한다(contracts#T40).
+  // 준비 증거가 fix.summary와 같은 hash·fix_summary purpose여야 등록한다.
   const prepared = input.summary_blob;
   if (prepared.hash !== fix.summary) {
     return err({
@@ -249,7 +249,7 @@ export function handleRecordProblemFix(
       message: "summary blob purpose는 fix_summary여야 한다",
     });
   }
-  // append-only다. update·delete는 없고, 늦은 기록이 이전 기록을 고치지 않는다(R3).
+  // append-only다. update·delete는 없고, 늦은 기록이 이전 기록을 고치지 않는다.
   const seq = tx.emit(problemFixRecorded, problem, {
     before: fix.before,
     after: fix.after,

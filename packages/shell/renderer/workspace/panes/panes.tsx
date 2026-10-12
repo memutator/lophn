@@ -25,7 +25,7 @@ import { startPointerDrag } from "../drag.ts";
 import { TabStrip } from "../tab-strip/tab-strip.tsx";
 import styles from "./panes.module.css";
 
-/** 칸 폭이 이보다 좁으면 본문 여백을 16px로 줄인다(design-system#R24). */
+/** 칸 폭이 이보다 좁으면 본문 여백을 16px로 줄인다. */
 const PANE_PADDING_WIDE_MIN = 640;
 
 export interface PanesProps {
@@ -45,7 +45,7 @@ export interface PanesProps {
   infoOpen?: boolean;
   onToggleInfo?: () => void;
   /**
-   * 마지막 칸 탭 줄 끝에 둘 열기 단추. kind마다 하나이고 순서대로 놓는다(workspace#R1, R5, R14).
+   * 마지막 칸 탭 줄 끝에 둘 열기 단추. kind마다 하나이고 순서대로 놓는다.
    */
   launchers?: readonly PaneLauncher[];
   /**
@@ -80,7 +80,7 @@ interface Dragging {
   readonly key: string;
 }
 
-// 좌우 1칸 또는 2칸. 폭이 부족하면 한 칸 보기로 그린다(workspace#R3, R4).
+// 좌우 1칸 또는 2칸. 폭이 부족하면 한 칸 보기로 그린다.
 export function Panes(
   {
     view,

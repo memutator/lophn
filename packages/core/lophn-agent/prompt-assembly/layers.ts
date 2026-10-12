@@ -10,7 +10,7 @@ import type {
   WorkMaterial,
 } from "./model.ts";
 
-// 층 본문과 직렬화다(R2, R3, R7, R8). 같은 재료는 같은 값을 낸다. 시각·무작위·입력 순서에 기대지
+// 층 본문과 직렬화다. 같은 재료는 같은 값을 낸다. 시각·무작위·입력 순서에 기대지
 // 않는다. 경계는 층 구조에서만 나오고 본문 문자열을 찾아 정하지 않는다.
 
 function canonicalValue<T>(value: T): T {
@@ -62,7 +62,7 @@ function present(text: string | null): text is string {
   return text !== null && text.trim() !== "";
 }
 
-// reasoning 본문은 prompt에 넣지 않는다. 조각이 모두 빠진 message는 없다(R24).
+// reasoning 본문은 prompt에 넣지 않는다. 조각이 모두 빠진 message는 없다.
 function historyMessages(history: readonly HistoryMessage[]): PromptMessage[] {
   const messages: PromptMessage[] = [];
   for (const message of history) {
@@ -115,7 +115,7 @@ export function workMessages(material: WorkMaterial): PromptMessage[] {
   return messages;
 }
 
-// 동적 context는 맨 마지막 최신 메시지 끝에만 붙는다(R8, R25). 이력은 바꾸지 않는다. 마지막이 사람
+// 동적 context는 맨 마지막 최신 메시지 끝에만 붙는다. 이력은 바꾸지 않는다. 마지막이 사람
 // 쪽 message가 아니면 새 user message로 둔다.
 export function withTurnContext(
   messages: readonly PromptMessage[],

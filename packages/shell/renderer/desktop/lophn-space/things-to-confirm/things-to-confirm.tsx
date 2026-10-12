@@ -79,8 +79,8 @@ function periodLabel(period: PeriodFilter): string {
 }
 
 // things-to-confirm. 기다리는 것(종류별 개수와 다음 행동)과 지난 일(최신순 링크)을 나누고
-// 역할·기간으로 거른다(shell/desktop#R9). 목록을 읽거나 고르는 것만으로는 아무것도 보내지
-// 않는다. 세션 없는 요청도 여기서 열어 답한다(R6).
+// 역할·기간으로 거른다. 목록을 읽거나 고르는 것만으로는 아무것도 보내지
+// 않는다. 세션 없는 요청도 여기서 열어 답한다.
 export function ThingsToConfirm(
   { deps, initialTab = "waiting", initialSelected }: ThingsToConfirmProps,
 ) {
@@ -130,7 +130,7 @@ export function ThingsToConfirm(
     let previous: ConnectionState["state"] | null = null;
     return source.watch((state) => {
       setConnection(state.state);
-      // 다시 붙으면 놓친 것을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다(desktop#R7).
+      // 다시 붙으면 놓친 것을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
       if (state.state === "ready" && previous !== "ready") void refresh();
       previous = state.state;
     });
@@ -286,7 +286,7 @@ export function ThingsToConfirm(
               </Tooltip>
             </li>
           </ul>
-          {/* approval을 못 읽었으면 "기다리는 것 없음"이라고 말하지 않는다(desktop#R7). */}
+          {/* approval을 못 읽었으면 "기다리는 것 없음"이라고 말하지 않는다. */}
           {waiting.length === 0 && !overview.approvalsRead
             ? null
             : requestList(waiting, t("things-to-confirm.empty.waiting"))}

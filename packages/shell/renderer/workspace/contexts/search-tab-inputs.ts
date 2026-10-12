@@ -1,4 +1,4 @@
-// Search 탭의 입력 값 다루기(shell/workspace#R23). 비운 입력은 값이 없는 것으로 본다.
+// Search 탭의 입력 값 다루기. 비운 입력은 값이 없는 것으로 본다.
 import type { DeclaredSearch, SearchInputValues } from "./source.ts";
 
 function isUnset(value: unknown): boolean {

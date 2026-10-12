@@ -8,7 +8,7 @@ import type {
 
 // core 쪽 읽기 통로(ReadInstructionFile)와 runtime 쪽 InstructionFiles 어댑터가 같은 인코딩을 쓰도록
 // base64 변환을 여기에 둔다. 지침 파일을 여는 것은 core(reader Worker)이고, agent runtime child는 파일도
-// ledger도 열지 않으며 이 읽기 하나로만 받는다(R4, R5, R8).
+// ledger도 열지 않으며 이 읽기 하나로만 받는다.
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";

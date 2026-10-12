@@ -109,7 +109,7 @@ function withFeed<D extends EventDefinition>(
 }
 
 // project 보관·보관 해제는 assignments 반응 구독자도 읽는다. 그 자리의 켜진 assignment를 멈추고
-// 다시 켜는 계기다(lophn-agent/assignments#R14). 다른 자격은 feed와 owner 정책 그대로다.
+// 다시 켜는 계기다. 다른 자격은 feed와 owner 정책 그대로다.
 function withFeedAndAssignments<D extends EventDefinition>(
   event: D,
   owner: Handle<D>,

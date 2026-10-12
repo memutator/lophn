@@ -27,7 +27,7 @@ import { loadDefaults, loadFavorites } from "./store.ts";
 export type ModelCommandDeps = {
   // provider 기록의 provider 정의 key다. 기록이 없으면 undefined다.
   definitionKey(provider: string): string | undefined;
-  // provider 정의의 확인된 model 목록에 그 이름이 있는지다. 목록을 확인하지 못했으면 null이다(R10).
+  // provider 정의의 확인된 model 목록에 그 이름이 있는지다. 목록을 확인하지 못했으면 null이다.
   modelListed(definition: string, modelName: string): boolean | null;
   catalogEntry(
     definition: string,
@@ -46,9 +46,9 @@ function conflict(): Result<never> {
   return err({ code: "conflict", message: "settings seq가 바뀌었다" });
 }
 
-// 저장 때 provider 목록에 없는 이름은 거절하고 목록을 확인하지 못했으면 미확인으로 저장한다(R10).
+// 저장 때 provider 목록에 없는 이름은 거절하고 목록을 확인하지 못했으면 미확인으로 저장한다.
 // 고른 option 값은 그 model의 축과 값 안에 있어야 한다. catalog 항목이 없으면 축을 모르므로 값 없이만
-// 저장한다(R16, R24). 호출 때의 한계 검사는 run 준비의 몫이다.
+// 저장한다. 호출 때의 한계 검사는 run 준비의 몫이다.
 function checkChoice(
   deps: ModelCommandDeps,
   slot: string,
@@ -155,7 +155,7 @@ export function createModelCommands(
       handle(tx, ctx, input, compare) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        // 즐겨찾기는 catalog에서 사라져도 지우지 않는다(R12). 목록과 catalog는 보지 않고 provider만 본다.
+        // 즐겨찾기는 catalog에서 사라져도 지우지 않는다. 목록과 catalog는 보지 않고 provider만 본다.
         const known = resolve(tx);
         for (const item of input.items) {
           if (known.definitionKey(item.provider) === undefined) {

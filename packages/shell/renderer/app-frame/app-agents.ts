@@ -1,4 +1,4 @@
-// 앱 공간 agent select의 후보를 그 앱 자리의 agent 목록(AgentsSource.list)에서 읽는다(shell/app-frame#R37).
+// 앱 공간 agent select의 후보를 그 앱 자리의 agent 목록(AgentsSource.list)에서 읽는다.
 // 정렬과 Context Engineer 거르기는 AgentSelect가 한다. 저장·삭제로 목록이 바뀌면 reload로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
 import type { AvatarProfile } from "@lophn/design/components";

@@ -1,4 +1,4 @@
-// migration(apps/data#R6, R7, R8). 각 단계의 데이터 변경과 schema 번호 갱신은
+// migration. 각 단계의 데이터 변경과 schema 번호 갱신은
 // 한 transaction이고, 중간 단계가 실패하면 첫 변경 전 backup으로 복원한다.
 // migration script는 bundle 안의 고정 파일에서 script_hash로만 찾는다.
 
@@ -13,14 +13,14 @@ const HASH_PREFIX = "sha256:";
 
 export type MigrationScript = {
   change: DataChange;
-  // bundle 안에 고정된 script 바이트. hash가 script_hash와 같아야 한다(R8).
+  // bundle 안에 고정된 script 바이트. hash가 script_hash와 같아야 한다.
   sql: string;
 };
 
 export type MigrateInput = {
   dataArea: string;
   databasePath: string;
-  // 첫 변경 전 backup. 중간 실패의 복원 근거다(R7).
+  // 첫 변경 전 backup. 중간 실패의 복원 근거다.
   backupPath: string;
   targetSchema: number;
   scripts: readonly MigrationScript[];
@@ -49,7 +49,7 @@ export function stepFile(change: Pick<DataChange, "from" | "to">): string {
 }
 
 // bundle 안의 그 단계 파일을 읽고 byte의 hash가 script_hash와 같은지 본다. 없거나 다르면 그 release의
-// migration은 준비되지 않은 것이다(R8).
+// migration은 준비되지 않은 것이다.
 export async function scriptFromBundle(
   bundlePath: string,
   change: DataChange,
@@ -75,7 +75,7 @@ export async function scriptFromBundle(
   return ok({ change, sql });
 }
 
-// 공개한 script 내용이 hash와 다르면 그 release 준비는 거절한다(R8).
+// 공개한 script 내용이 hash와 다르면 그 release 준비는 거절한다.
 export async function publishedScriptChanged(
   published: { scriptHash: string; sql: string },
   candidateSql: string,
@@ -89,7 +89,7 @@ async function scriptMatches(script: MigrationScript): Promise<boolean> {
 }
 
 // 연속 경로를 순서대로 적용한다. 단계 실패는 그 단계 transaction rollback에 더해
-// 첫 변경 전 backup으로 전체를 되돌린다(R7).
+// 첫 변경 전 backup으로 전체를 되돌린다.
 export async function migrateAppDatabase(
   input: MigrateInput,
 ): Promise<Result<MigrateOutcome>> {

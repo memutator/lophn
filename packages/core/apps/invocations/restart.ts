@@ -1,7 +1,7 @@
-// 재시작 점검에서 apps/invocations가 내는 관측(platform/backup-and-migration#R16, apps/invocations#R9, R10).
+// 재시작 점검에서 apps/invocations가 내는 관측.
 // core를 다시 띄운 뒤 접수(accepted)나 실행 중(running)으로 남은 invocation은 실제 시작이나 결과를
 // 본 근거가 없다. 접수가 있었다고 시작했다고, 시작을 알렸다고 끝났다고 추정하지 않으므로 둘 다
-// unknown과 근거로 남기고 같은 일을 다시 부르지 않는다(R12). 읽기 전용 SQL만 쓴다.
+// unknown과 근거로 남기고 같은 일을 다시 부르지 않는다. 읽기 전용 SQL만 쓴다.
 
 // platform의 RestartObservation과 같은 모양이다. 최상위 사이는 contract로만 부르므로 여기서 따로 쓴다.
 export type InvocationRestartObservation = {
@@ -59,7 +59,7 @@ export function interruptedReason(status: "accepted" | "running"): string {
 }
 
 // 재시작 점검이 unknown으로 본 접수·실행 중 호출을 미확인으로 확정하는 `invocation.record_finished`
-// 입력이다. 성공이나 실패로 꾸미지 않고 시작 시각은 있던 값 그대로이며 없으면 없음이다(R9, R10).
+// 입력이다. 성공이나 실패로 꾸미지 않고 시작 시각은 있던 값 그대로이며 없으면 없음이다.
 export function interruptedFinish(
   invocation: {
     id: string;

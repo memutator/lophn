@@ -45,7 +45,7 @@ export interface LaunchOptions {
 }
 
 /**
- * Deno transpile cache. 설치 묶음은 `~/.cache/lophn/deno`다(platform/install-and-update#R8).
+ * Deno transpile cache. 설치 묶음은 `~/.cache/lophn/deno`다.
  * 지워도 data root는 그대로고 고정 의존성으로 다시 만든다.
  */
 export function packagedDenoDir(home: string = homedir()): string {

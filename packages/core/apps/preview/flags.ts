@@ -25,7 +25,7 @@ export function liveDataOf(
 // preview 자식의 Deno flag가 disposable 영역 밖을 쓰지 못하는지 본다. 두 socket과 가상 host의
 // 허락은 supervisor가 시작마다 더하므로 입력 flag에는 net 허락이 없어야 하고(외부·loopback host
 // 듣기·연결 없음), 쓰기 허락은 disposable 영역 하나이며, 읽기 허락은 운영 data와 그 위 폴더를
-// 포함하지 않는다(apps/preview#R2, R4). 위반이면 이유를, 괜찮으면 undefined를 돌려준다.
+// 포함하지 않는다. 위반이면 이유를, 괜찮으면 undefined를 돌려준다.
 export function previewFlagsViolation(
   launch: PreviewLaunch,
 ): string | undefined {

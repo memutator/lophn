@@ -6,7 +6,7 @@ import { definePort, type PortKey } from "../base/ports.ts";
 import { closureReasonSchema } from "./closing.ts";
 import { testKindSchema } from "./tests.ts";
 
-// 사용자용 문제 상세(grouping#R12, closing#R13, tests#R5). `GetProblem`의 `problem` field는
+// 사용자용 문제 상세. `GetProblem`의 `problem` field는
 // 내부 contract(ticket·version ID)이고, 사람에게 보이는 것은 이 `detail`뿐이다. 이 안에는
 // claim·기한·연결 식별자·ticket·version·verification ID가 없다. 문구는 사람이 아는 en이다.
 const text = z.string().regex(/\S/);
@@ -33,7 +33,7 @@ export const TEST_STATES = [
 ] as const;
 export const testStateSchema = z.enum(TEST_STATES);
 export type TestState = z.infer<typeof testStateSchema>;
-// 기록으로 남긴 한 건. not_run은 준비 실패·미실행이고 통과가 아니다(tests#R4).
+// 기록으로 남긴 한 건. not_run은 준비 실패·미실행이고 통과가 아니다.
 export const RECORDED_TEST_STATES = [...TEST_STATES, "not_run"] as const;
 export const recordedTestStateSchema = z.enum(RECORDED_TEST_STATES);
 export type RecordedTestState = z.infer<typeof recordedTestStateSchema>;
@@ -76,7 +76,7 @@ export const problemDetailSchema = z.object({
         ended_at: atSchema.nullable(),
       })),
     }),
-    // 종류마다 지금 값과 따로, 이 문제에 남은 실제 결과와 미실행이다(tests#R4, R5).
+    // 종류마다 지금 값과 따로, 이 문제에 남은 실제 결과와 미실행이다.
     // 이전 응답에는 없다.
     recorded: z.array(z.object({
       kind: testKindSchema,
@@ -84,7 +84,7 @@ export const problemDetailSchema = z.object({
       label: text,
       ended_at: atSchema.nullable(),
     })).optional(),
-    // 고친 release가 운영에 적용되지 않아 문제가 열린 채 남는 한 문장이다(closing#R2, R4).
+    // 고친 release가 운영에 적용되지 않아 문제가 열린 채 남는 한 문장이다.
     remaining: text.optional(),
   }),
   closed: z.object({
@@ -100,7 +100,7 @@ export const problemDetailSchema = z.object({
       evidence: z.array(z.object({ text, at: atSchema.nullable() })).min(1),
     }),
   }).nullable(),
-  // 사람 결정의 뒤(problems/closing#R10, R11, grouping#R10). 열린 문제에서 마지막 "아직입니다"·
+  // 사람 결정의 뒤. 열린 문제에서 마지막 "아직입니다"·
   // 다시 열림을 사람이 아는 en으로 보이고, 결정 window가 "고쳐졌다"를 다시 제안할지 읽는다.
   // 같은 release·같은 근거로 "아직입니다" 뒤에는 제안하지 않고, 활성 release를 모르면 제안하지
   // 않는다. 닫힌 문제는 늘 false·null이다. 이전 소비자 fixture를 깨지 않도록 optional이다.

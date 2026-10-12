@@ -1,4 +1,4 @@
-// activation의 ledger 쪽 공통 규칙(apps/releases#R8, R12, R13, R16). start·complete·fail command와
+// activation의 ledger 쪽 공통 규칙. start·complete·fail command와
 // record_* 시도 확인이 같은 판정을 쓴다. 동기 함수만 있고 파일·process를 열지 않는다.
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Activation, Release } from "../../../../protocol/apps/mod.ts";
@@ -35,7 +35,7 @@ export function ledgerSchema(sql: Query, app: string): Result<number> {
 }
 
 // 시작 schema에서 release의 목표까지의 연속 경로다. schema가 같으면 빈 경로이고 뒤로 가는 release와
-// 이어지지 않는 경로는 invalid_input이다(apps/releases#R16, apps/data#R7).
+// 이어지지 않는 경로는 invalid_input이다.
 export function pathFrom(
   release: Pick<Release, "data_schema" | "data_changes">,
   expectedSchema: number,
@@ -49,7 +49,7 @@ export function pathFrom(
 }
 
 // 시작을 허락하는 approval이다. 정확한 대상 release와 정확한 입력으로 사람이 허락한 것이어야 하고 한 번
-// 쓴 approval이나 같은 release의 실패한 시도가 쓴 approval은 다시 쓰지 못한다(apps/releases#R8).
+// 쓴 approval이나 같은 release의 실패한 시도가 쓴 approval은 다시 쓰지 못한다.
 // 사람의 결정이 없거나 다른 입력이면 forbidden, 기한·재사용은 conflict다.
 export function checkStartApproval(
   tx: Tx,

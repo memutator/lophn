@@ -1,10 +1,10 @@
-// OAuth 로그인 작업(provider#R1, R12–R16, 조사 docs/research/provider-auth.md).
+// OAuth 로그인 작업(조사 docs/research/provider-auth.md).
 // chatgpt는 공식 Sign in with ChatGPT(실제 lophn 앱 이름의 dynamic client 등록·발급
 // client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증)이고
 // supergrok은 xAI discovery(fake 포함)와 device code flow다. 활성 gate는
 // verified_for_lophn과 live 확인(D31) 둘이 모두 열려 있어야 통과한다. 값(state·
 // nonce·verifier·device_code·token)은 이 작업 메모리와 창가의 응답에만 산고
-// ledger·event·log에 남지 않는다(R6, R7). network·listener·시각은 deps로 받는다;
+// ledger·event·log에 남지 않는다. network·listener·시각은 deps로 받는다;
 // 이 모듈 자체는 IO를 하지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -23,7 +23,7 @@ import {
   xaiHostAllowed,
 } from "./adapters/oauth-transport.ts";
 
-// lophn 제품 이름 식별(R15). 등록·요청 어디서도 Claude Code·Codex·Grok CLI로
+// lophn 제품 이름 식별. 등록·요청 어디서도 Claude Code·Codex·Grok CLI로
 // 위장하지 않는다.
 export const OAUTH_APP_NAME = "lophn";
 
@@ -46,7 +46,7 @@ export const SIWC_ACCESS_SECONDS = 3_600;
 export const SIWC_REFRESH_SECONDS = 30 * 24 * 3_600;
 
 // supergrok의 고정 discovery와 device 코드 목적지(X1, 조사 문서). 실제 endpoints는
-// discovery 응답을 다시 검사한 뒤에만 쓴다(R13).
+// discovery 응답을 다시 검사한 뒤에만 쓴다.
 export const XAI_DISCOVERY =
   "https://auth.x.ai/.well-known/openid-configuration";
 export const XAI_SCOPES = [
@@ -58,7 +58,7 @@ export const XAI_SCOPES = [
   "api:access",
 ] as const;
 
-// device polling(R14): 간격 없으면 5초, slow_down마다 5초를 더하고, chatgpt는 최대
+// device polling: 간격 없으면 5초, slow_down마다 5초를 더하고, chatgpt는 최대
 // 15분, xAI는 만료가 없으면 최대 5분까지만 기다린다.
 export const OAUTH_POLL_DEFAULT_MS = 5_000;
 export const OAUTH_POLL_SLOW_DOWN_MS = 5_000;
@@ -97,7 +97,7 @@ function randomToken(random?: RandomSource): string {
   return base64url(bytes);
 }
 
-// ---- JWT 검증(R12: id_token 서명·issuer·audience·만료·nonce) ----
+// ---- JWT 검증(id_token 서명·issuer·audience·만료·nonce) ----
 
 function jwtSegment(jwt: string, index: 0 | 1): Record<string, unknown> | null {
   const parts = jwt.split(".");
@@ -163,7 +163,7 @@ async function rs256Verified(
   }
 }
 
-// ---- 붙여넣은 인증 응답 파싱(R11, T29에서 넘어온 것) ----
+// ---- 붙여넣은 인증 응답 파싱(T29에서 넘어온 것) ----
 // browser 최종 URL(code·state query), code#state, query string 세 모양을 받는다.
 
 export function parsePastedSubmission(
@@ -205,15 +205,15 @@ function parsePastedUrl(
 // ---- 로그인 세션과 취득 번들 ----
 
 // 갱신할 token 묶음. access·refresh·id_token과 실제 만료, 발급 client·resource,
-// 검증된 identity가 함께 교체된다(조사 구현 메모 1, R17).
+// 검증된 identity가 함께 교체된다(조사 구현 메모 1).
 export type OAuthTokenBundle = {
   access_token: string;
   refresh_token: string | null;
-  // 실제 만료(ms epoch). expiry margin은 refresh 쪽이 정한다(R17).
+  // 실제 만료(ms epoch). expiry margin은 refresh 쪽이 정한다.
   expires_in: number;
   issued_client_id: string | null;
   resource: string | null;
-  // id_token의 검증된 sub다. 알 수 없으면 null이다(추측 금지, R9).
+  // id_token의 검증된 sub다. 알 수 없으면 null이다(추측 금지).
   subject: string | null;
   // earliest_refresh_at(O4)의 ms epoch다. 알 수 없으면 null이다.
   earliest_refresh_at: number | null;
@@ -227,7 +227,7 @@ export type OAuthBegin = {
   sign_in: { url: string; user_code: string | null } | null;
 };
 
-// login 세션. state·nonce·verifier·device_code는 값이라 메모리에만 산다(R6).
+// login 세션. state·nonce·verifier·device_code는 값이라 메모리에만 산다.
 type LoginSession = {
   login: string;
   provider: string;
@@ -241,19 +241,19 @@ type LoginSession = {
   scopes: readonly string[];
   // paste 방식을 기다리는 callback listener다. 취소·완료 뒤에 닫는다.
   listener: OAuthListener | null;
-  // device flow의 값이다(R14).
+  // device flow의 값이다.
   deviceCode: string | null;
   deviceAuthId: string | null;
   userCode: string | null;
   verificationUrl: string | null;
   intervalMs: number;
   deadlineMs: number;
-  // supergrok의 slow_down 누적이다(R14).
+  // supergrok의 slow_down 누적이다.
   slowDownMs: number;
   startedMs: number;
 };
 
-// device code 시작 응답(R13).
+// device code 시작 응답.
 type DeviceStart = {
   device_code: string;
   user_code: string;
@@ -285,7 +285,7 @@ export type OAuthDeps = {
   http?: (url: string, init: RequestInit) => Promise<Response>;
   // loopback callback listener의 open port다. 없으면 제품 openCallbackListener다.
   listenerOpener?: OAuthListenerOpener;
-  // device polling의 대기이다(R14: 서버 간격). 제품은 실제 대기, 테스트 fake clock은
+  // device polling의 대기이다(서버 간격). 제품은 실제 대기, 테스트 fake clock은
   // 즉시 돌려주는 대기를 준다.
   wait?: (ms: number) => Promise<void>;
   // provider의 현재 정의 read port다(complete이 세션 뒤 정의 변경을 검사한다).
@@ -307,7 +307,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
   ) => Promise<Result<OAuthTokenBundle>>;
   cancel: (provider: string, login: string) => Promise<Result<void>>;
 } {
-  // 발급 client_id 재사용(R12). 등록은 최초 한 번, 이후 세션이 같은 client를 쓴다.
+  // 발급 client_id 재사용. 등록은 최초 한 번, 이후 세션이 같은 client를 쓴다.
   let issuedClientId: string | null = null;
   const sessions = new Map<string, LoginSession>();
 
@@ -363,7 +363,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     redirectPort: number,
   ): Promise<Result<string>> {
     const http = deps.http!;
-    // 발급 client_id를 재사용한다(R12). 등록은 최초 한 번이다.
+    // 발급 client_id를 재사용한다. 등록은 최초 한 번이다.
     if (issuedClientId !== null) return ok(issuedClientId);
     const response = await oauthHttp(
       http,
@@ -422,7 +422,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     session.listener = opened.value;
     const signal = new AbortController().signal;
     const clientId = await registerClient(signal, opened.value.port());
-    // 등록이 열리지 않아도 paste 방식은 진행할 수 없다. 발급 client가 필수다(R12).
+    // 등록이 열리지 않아도 paste 방식은 진행할 수 없다. 발급 client가 필수다.
     if (!clientId.ok) {
       await closeListener(session);
       return clientId;
@@ -465,7 +465,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     const signal = new AbortController().signal;
     session.clientId = definition.issuer;
     session.scopes = [...XAI_SCOPES];
-    // discovery를 다시 확인하고 x.ai·하위 도메인 HTTPS인지 검사한다(R13).
+    // discovery를 다시 확인하고 x.ai·하위 도메인 HTTPS인지 검사한다.
     const discovery = await oauthHttp(http, XAI_DISCOVERY, {
       method: "GET",
     }, signal);
@@ -501,7 +501,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
         });
       }
       if (!xaiHostAllowed(endpoint)) {
-        // discovery가 알려 준 목적지도 검사를 통과하지 못하면 중단한다(R13).
+        // discovery가 알려 준 목적지도 검사를 통과하지 못하면 중단한다.
         return err({
           code: "forbidden",
           message: "xAI discovery endpoint is outside the trusted host",
@@ -513,7 +513,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     const deviceEndpoint = String(endpoints[2]);
     session.state = null;
     session.verifier = null;
-    // device code 시작이다(R13: device code만).
+    // device code 시작이다(device code만).
     const body = new URLSearchParams({
       client_id: definition.issuer,
       scope: session.scopes.join(" "),
@@ -569,12 +569,12 @@ export function createProviderOAuth(deps: OAuthDeps): {
         (device["interval"] as number) > 0
       ? (device["interval"] as number) * 1000
       : OAUTH_POLL_DEFAULT_MS;
-    // 만료가 없으면 최대 5분까지만 기다린다(R14). 만료 값이 있으면 그 둘 중 이른 값이다.
+    // 만료가 없으면 최대 5분까지만 기다린다. 만료 값이 있으면 그 둘 중 이른 값이다.
     const deviceDeadline = typeof expiresIn === "number" && expiresIn > 0
       ? deps.nowMs() + expiresIn * 1000
       : session.deadlineMs;
     session.deadlineMs = Math.min(session.deadlineMs, deviceDeadline);
-    // 정의의 token endpoint도 x.ai 호스트 규칙을 지나는지 재검사한다(R13).
+    // 정의의 token endpoint도 x.ai 호스트 규칙을 지나는지 재검사한다.
     if (
       !xaiHostAllowed(tokenEndpoint) || !xaiHostAllowed(authorizeEndpoint) ||
       tokenEndpoint !== definition.token_endpoint ||
@@ -695,7 +695,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     if (typeof payload["nonce"] !== "string" || payload["nonce"] !== nonce) {
       return err({ code: "unavailable", message: "id_token nonce is wrong" });
     }
-    // 서명 검증은 JWKS의 공개 key로 한다(R12). 실패는 거절이다.
+    // 서명 검증은 JWKS의 공개 key로 한다. 실패는 거절이다.
     const parts = idToken.split(".");
     const verified = await jwksVerified(
       `${parts[0]}.${parts[1]}`,
@@ -778,7 +778,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     definition: OAuthDefinition,
     submission: string,
   ): Promise<Result<OAuthTokenBundle>> {
-    // paste와 callback 둘을 본다(R12). callback이 먼저 도착했으면 그 값을 쓴다.
+    // paste와 callback 둘을 본다. callback이 먼저 도착했으면 그 값을 쓴다.
     let callback: OAuthCallback | null = null;
     if (submission.trim().length > 0) {
       const pasted = parsePastedSubmission(submission);
@@ -805,7 +805,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
       dropSession(session);
       return err({ code: "invalid_input", message: "submission is empty" });
     }
-    // state 누락·불일치는 거절이다(R12). verifier를 state로도 쓰지 않는다.
+    // state 누락·불일치는 거절이다. verifier를 state로도 쓰지 않는다.
     if (
       session.state === null || callback.state !== session.state ||
       session.verifier === null || session.nonce === null
@@ -864,7 +864,7 @@ export function createProviderOAuth(deps: OAuthDeps): {
     definition: OAuthDefinition,
   ): Promise<Result<OAuthTokenBundle>> {
     const http = deps.http!;
-    // device polling이다(R14). 서버 간격·만료를 따르고 거절·만료·취소에 중단한다.
+    // device polling이다. 서버 간격·만료를 따르고 거절·만료·취소에 중단한다.
     for (;;) {
       const now = deps.nowMs();
       if (now >= session.deadlineMs) {
@@ -933,12 +933,12 @@ export function createProviderOAuth(deps: OAuthDeps): {
         continue;
       }
       if (code === "slow_down") {
-        // 대기 연장마다 5초를 더한다(R14).
+        // 대기 연장마다 5초를 더한다.
         session.slowDownMs += OAUTH_POLL_SLOW_DOWN_MS;
         await pollingWait(session.intervalMs + session.slowDownMs);
         continue;
       }
-      // 거절·만료·취소다(R14).
+      // 거절·만료·취소다.
       dropSession(session);
       return err({
         code: code === "access_denied" || code === "expired_token"
@@ -1047,7 +1047,7 @@ function earliestOf(
   return nowMs + Math.max(0, expiresIn * 1000 - OAUTH_REFRESH_LEAD_MS);
 }
 
-// device polling의 실제 대기다(R14). 테스트는 deps.wait으로 대신한다.
+// device polling의 실제 대기다. 테스트는 deps.wait으로 대신한다.
 function realWait(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }

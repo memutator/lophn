@@ -1,4 +1,4 @@
-// contexts 탭 kind. project의 context 목록 자체를 보이므로 대상 필드가 없다(shell/workspace#R16).
+// contexts 탭 kind. project의 context 목록 자체를 보이므로 대상 필드가 없다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

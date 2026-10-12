@@ -109,7 +109,7 @@ export function locateInFolders(
   path: string,
   folders: readonly { path: string }[],
 ): { folder: string; relative: string } | null {
-  // 가장 깊은 등록 폴더를 고른다(documents/projects#R10).
+  // 가장 깊은 등록 폴더를 고른다.
   const roots = folders
     .map((folder) => ({
       folder: folder.path,
@@ -172,10 +172,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
   return {
     project,
 
-    // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다(shell/workspace#R16~R29).
+    // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다.
     contextsSource: coreContextsSource(core),
 
-    // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다(shell/workspace#R34, R36~R44).
+    // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),
 
     documents: (id) => projectDocuments(core, id),

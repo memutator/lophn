@@ -11,7 +11,7 @@ import type { NotificationRow } from "../lophn-space/things-to-confirm/source.ts
 import styles from "./notification-chip.module.css";
 
 export interface NotificationChipProps {
-  /** [View]. things-to-confirm으로 갈 뿐 읽음·결정이 아니다(desktop#R10). */
+  /** [View]. things-to-confirm으로 갈 뿐 읽음·결정이 아니다. */
   onView: () => void;
 }
 
@@ -27,7 +27,7 @@ export function NotificationChip({ onView }: NotificationChipProps) {
   const refresh = useCallback(async () => {
     if (deps === null) return;
     const read = await deps.source.unread();
-    // 읽지 못하면 마지막 chip을 그대로 둔다. 빈 결과로 보지 않는다(desktop#R7).
+    // 읽지 못하면 마지막 chip을 그대로 둔다. 빈 결과로 보지 않는다.
     if (read.ok) setUnread(read.value);
   }, [deps]);
 

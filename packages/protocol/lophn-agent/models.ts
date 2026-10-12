@@ -45,7 +45,7 @@ export const CATALOG_FAILURES = [
   "not_found",
 ] as const;
 
-// token 예산으로 번역되는 effort 값의 기준 예산이다(R17). 확인된 최소·최대 안으로 제한해서 쓴다.
+// token 예산으로 번역되는 effort 값의 기준 예산이다. 확인된 최소·최대 안으로 제한해서 쓴다.
 export const EFFORT_BUDGET_TOKENS = {
   low: 2048,
   medium: 8192,
@@ -58,7 +58,7 @@ const BUDGET_EFFORT_VALUES: readonly string[] = [
   ...Object.keys(EFFORT_BUDGET_TOKENS),
 ];
 
-// 요청에 싣는 방법은 둘뿐이다(R22). 화면은 wire를 모르고 축·값의 표시 이름만 쓴다.
+// 요청에 싣는 방법은 둘뿐이다. 화면은 wire를 모르고 축·값의 표시 이름만 쓴다.
 const bodyPatchWireFields = {
   kind: z.literal("body_patch"),
   // 빈 조각은 "요청에 더할 것이 없다"는 명시 값이다(예: Standard).
@@ -132,7 +132,7 @@ function optionAxisShape(
     }
     return;
   }
-  // effort 값은 약한 값에서 강한 값 순서로 일곱 이름 안에서만 고르고, 표시 이름은 고정이다(R15).
+  // effort 값은 약한 값에서 강한 값 순서로 일곱 이름 안에서만 고르고, 표시 이름은 고정이다.
   const ranks = names.map((name) => EFFORT_VALUES.indexOf(name as never));
   if (ranks.some((rank) => rank < 0)) issue("unknown effort value");
   if (ranks.some((rank, index) => index > 0 && rank <= ranks[index - 1])) {
@@ -220,7 +220,7 @@ export const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
 // Workspace 층의 기본 model. 앞의 넷은 role별 기본값이고 summaries는 제목·요약·압축에 쓰는
-// "Model for summaries" 한 칸이다(R8). 처음은 모두 null이다.
+// "Model for summaries" 한 칸이다. 처음은 모두 null이다.
 export const MODEL_DEFAULT_SLOTS = [
   "lophn",
   "context_engineer",
@@ -250,7 +250,7 @@ export const modelDefaultsOutputSchema = z.object({
 });
 export type ModelDefaults = z.infer<typeof modelDefaultsSchema>;
 
-// 즐겨찾기 순서는 별표를 찍은 순서이고 새로 찍은 것이 맨 끝이다(R26). provider로 다시 묶지 않는다.
+// 즐겨찾기 순서는 별표를 찍은 순서이고 새로 찍은 것이 맨 끝이다. provider로 다시 묶지 않는다.
 const favoriteFields = {
   provider: idSchema("pvd"),
   model_name: nonblankSchema,

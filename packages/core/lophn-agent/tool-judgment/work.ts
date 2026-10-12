@@ -52,9 +52,9 @@ import { findSessionGrant } from "./session-grant.ts";
 
 // 호출 판정과 진입 직전 재검사. command 밖의 일이고 결과는 command로 남긴다. 판정은 model.ts의
 // 판정표가 하고 여기는 사실을 읽고 기록과 approval 생성·적용을 잇는다. model의 말은 어느
-// 사실에도 들어오지 않는다(R7). core 읽기와 command는 주입한 호출로만 한다.
+// 사실에도 들어오지 않는다. core 읽기와 command는 주입한 호출로만 한다.
 
-// 소유 계약이 입력에서 읽은 정확한 동작. 모르거나 읽지 못하면 err이고 deny다(R2).
+// 소유 계약이 입력에서 읽은 정확한 동작. 모르거나 읽지 못하면 err이고 deny다.
 export type ResolvedAction = {
   concern: string;
   // 소유 command 이름. approval의 동작 이름과 같다.
@@ -69,7 +69,7 @@ export type ResolvedAction = {
   reversibility: string;
   // 사람이 확인해야 하는 앱 command(confirm)의 접수 입력에서 approval ID를 뺀 값이다. 있으면 approval
   // request의 동작이 접수 command(`invocation.accept_confirm`) 자체라서, agent의 사전 질문과 앱의
-  // confirm이 같은 approval 하나다(apps/invocations#R7, platform/approvals#R8).
+  // confirm이 같은 approval 하나다.
   confirm?: Omit<InvocationAcceptConfirmInput, "approval">;
 };
 
@@ -77,7 +77,7 @@ export type CallRef = { run: string; toolCall: string };
 
 export type ToolBinding = {
   // 현재 사실로 소유 계약의 동작을 읽는다. 읽지 못하거나 정의가 만들어진 계약과 달라졌으면 err이고
-  // 호출은 deny다(R2, R6).
+  // 호출은 deny다.
   resolve(
     input: unknown,
     call: CallRef,
@@ -141,7 +141,7 @@ function originOf(
 }
 
 // confirm 접수의 같은 동작은 앱·release·command·입력 지문이다. approval·key·caller는
-// 호출마다 다르고, process nonce는 run이 끝나 앱이 다시 뜨면 바뀐다(apps Q23).
+// 호출마다 다르고, process nonce는 run이 끝나 앱이 다시 뜨면 바뀐다.
 function confirmRefusalInput(value: JsonObject): JsonObject {
   return {
     app: value["app"],
@@ -171,7 +171,7 @@ async function inOperatorPlace(
   return where !== null && where.kind === place.kind && where.id === place.id;
 }
 
-// 사람이 거절한 같은 동작이 이 run의 계보에 있는지(R9). 거절만 본다. 만료·취소·기술 실패는
+// 사람이 거절한 같은 동작이 이 run의 계보에 있는지. 거절만 본다. 만료·취소·기술 실패는
 // status가 달라 걸리지 않는다. 계보는 같은 run이거나 같은 원래 사람 요청이다.
 async function refusedBefore(
   deps: JudgmentDeps,
@@ -219,7 +219,7 @@ async function refusedBefore(
   return false;
 }
 
-// 호출 하나의 사실을 읽는다. 읽지 못한 것은 모른다로 두어 판정이 deny가 되게 한다(R2).
+// 호출 하나의 사실을 읽는다. 읽지 못한 것은 모른다로 두어 판정이 deny가 되게 한다.
 async function gather(
   deps: JudgmentDeps,
   request: CallRequest,
@@ -255,7 +255,7 @@ async function gather(
     ? deps.mcpConnection(definition)
     : undefined;
   // Operator의 문서 쓰기는 정의의 권한 안(제공된 tool)에서 담당 자리의 문서에만 닿는다. 자리 밖은
-  // 승인으로 열지 않는 범위 밖이다. 그다음 판정은 다른 agent와 같다(roles/operator#R7).
+  // 승인으로 열지 않는 범위 밖이다. 그다음 판정은 다른 agent와 같다.
   const placed = assignment?.role === "operator" &&
     action?.concern === "documents/versions";
   const targets = await Promise.all(
@@ -415,7 +415,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
 
   // 판정표 뒤에 session 허락 칸을 적용한다. ask로 판정된 호출만 같은 session의 같은 tool·동작에 대한
   // 허락이 있을 때 allow로 낮아지고, 낮춘 근거 request를 함께 돌려준다. confirm 앱 command는 낮추지
-  // 않는다(R14).
+  // 않는다.
   async function judgeWithSessionGrant(
     gathered: Gathered,
   ): Promise<{ judgment: Judgment; grant: string | null }> {
@@ -502,7 +502,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
       action,
       expires_at: formatAt(deps.clock.nowMs() + deps.approvalTtlMs),
       // 카드가 Allow for this session을 보일 수 있는 ask는 session 있는 run의 tool call ask이고 사람이
-      // 호출마다 확인하는 앱 command(confirm)가 아닌 것이다(platform/approvals#R20).
+      // 호출마다 확인하는 앱 command(confirm)가 아닌 것이다.
       session_grantable: resolved.confirm === undefined &&
         gathered.session !== null,
     };
@@ -513,7 +513,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
       prepared: [],
     });
     if (created.ok) return ok(created.value.request.id);
-    // 읽기 목록이 놓친 오래된 거절은 platform의 계보 검사가 같은 답으로 막는다(R9).
+    // 읽기 목록이 놓친 오래된 거절은 platform의 계보 검사가 같은 답으로 막는다.
     const details = created.error.details;
     if (
       created.error.code === "conflict" &&
@@ -523,7 +523,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
   }
 
   // 호출을 판정하고 기록한다. ask면 정확한 approval request를 만들어 잇고, deny는 호출도
-  // approval request도 만들지 않는다(R1). 쓰기·승인 필요 호출의 시작은 이 기록 뒤에만 한다.
+  // approval request도 만들지 않는다. 쓰기·승인 필요 호출의 시작은 이 기록 뒤에만 한다.
   async function decide(request: CallRequest): Promise<Result<Decided>> {
     const gathered = await gather(deps, request);
     const judged = await judgeWithSessionGrant(gathered);
@@ -596,9 +596,9 @@ export function createToolJudgment(deps: JudgmentDeps) {
     return ok({ request: read.value.request, used: read.value.use !== null });
   }
 
-  // 최초·retry·복구·approval 뒤의 실제 호출 직전 재검사(R6). 확인한 대상·입력·계약·연결·
+  // 최초·retry·복구·approval 뒤의 실제 호출 직전 재검사. 확인한 대상·입력·계약·연결·
   // scope가 기록한 판정 때와 다르면 옛 허락을 쓰지 않는다. 승인 상태는 platform ledger의
-  // 사람 결정만 읽고 model·자료의 말은 읽지 않는다(R7).
+  // 사람 결정만 읽고 model·자료의 말은 읽지 않는다.
   async function admit(
     request: CallRequest,
     recorded: ToolDecision,

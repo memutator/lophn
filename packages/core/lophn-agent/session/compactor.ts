@@ -41,7 +41,7 @@ import {
 import { readSessionConversation } from "./history.ts";
 
 // 사람이 요청한 Compact를 끝낸다(lophn-agent/conversation#R10, harness/prompt-assemble#R13–R15, R19–R22,
-// harness/model#R8, R20). 요청은 core의 읽기로 고르고(끝나지 않은 run이 있는 session의 요청은 나오지
+// harness/model#R8). 요청은 core의 읽기로 고르고(끝나지 않은 run이 있는 session의 요청은 나오지
 // 않는다), session의 앞 구간을 prompt-assemble의 요약 규칙으로 요약하는 model call을 한 뒤, 끝까지 성공한
 // 그 call을 CompactSession으로 잇는다. 요약 call은 run과 agent 대신 session에 묶여 run이 한 번도 없는
 // session도 요약한다. 요약 model은 Workspace의 Model for summaries이고 그 칸이 비면 session agent의
@@ -441,7 +441,7 @@ export function createCompactor(
     // 읽지 못한 것은 요약할 수 없는 session이 아니라 지금 닿지 못한 core다. 요청은 열려 있고 다음에 다시 본다.
     if (!read.ok) return { kind: "idle" };
     const conversation = read.value;
-    // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다(prompt-assemble#R31).
+    // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다.
     const material = visibleMessages(conversation);
     if (material.length === 0) {
       return await fail(request, "nothing_to_summarize");
@@ -479,7 +479,7 @@ export function createCompactor(
     };
   }
 
-  // rewind의 "Summarize from here"(lophn-agent/revert R15). 고른 메시지부터 지금까지 보이는 대화를 Compact와
+  // rewind의 "Summarize from here". 고른 메시지부터 지금까지 보이는 대화를 Compact와
   // 같은 요약 call(Model for summaries)로 요약하고 그 call을 돌려준다. session은 아무것도 바뀌지 않고, 요약을
   // 접는 일(Rewind의 summary_call)은 사람이 확정한다. 실패해도 session과 원문은 그대로다.
   async function summarizeFrom(input: {

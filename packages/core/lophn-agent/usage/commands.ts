@@ -25,7 +25,7 @@ import { assertCall, callFromRow, type CallRow } from "./model.ts";
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
 // executor는 processed_through_seq만 검사하므로 state_seq 비교 기준은
 // handler가 현재 행을 읽어 직접 본다(provider checkRevision와 같은 방식).
-// 오류 본문은 어디에도 저장하지 않는다(R3). credential 값은 참조만 남는다(R2).
+// 오류 본문은 어디에도 저장하지 않는다. credential 값은 참조만 남는다.
 
 // 본문은 blob 참조만 남는다. model_call body는 용량 보존 종류다(plan blob 자리).
 export const modelCallBodyFields: readonly BlobFieldDefinition[] = [
@@ -64,7 +64,7 @@ function unavailableProvider(): Result<never> {
   });
 }
 
-// StartModelCall은 machine 전용 기록이다(R1). actor 종류는 route가 이미 본다.
+// StartModelCall은 machine 전용 기록이다. actor 종류는 route가 이미 본다.
 function requireMachine(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "machine" ? ok(undefined) : err({
     code: "forbidden",
@@ -102,7 +102,7 @@ function checkRevision(
 }
 
 // 시작 기록 저장은 같은 transaction이다. 저장이 실패하면 command 전체가
-// rollback되고 전송도 없다(R1).
+// rollback되고 전송도 없다.
 function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
   tx.sql.run(
     `insert into model_calls (
@@ -145,7 +145,7 @@ function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
 }
 
 // 연결된 provider는 StartModelCall의 unavailable 근원이다. Disconnect한 provider에는 새 호출을 시작하지
-// 않는다(provider#R4). 문맥 구간 기준은 call 자격 검사의 몫이다(run-loop, Q5).
+// 않는다. 문맥 구간 기준은 call 자격 검사의 몫이다(run-loop).
 function checkProvider(
   tx: Tx,
   call: ModelCallRecord,
@@ -157,7 +157,7 @@ function checkProvider(
   return row === undefined ? unavailableProvider() : ok(undefined);
 }
 
-// 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다(Q30). 반영 command는
+// 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다. 반영 command는
 // 입력 표를 소유한 conversation이 주입한다. 반영이 거절되면 시작 기록도 남지 않고 전송도 없다.
 export type UsageDeps = {
   applyMessages?: (
@@ -337,7 +337,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (current.value.state !== "finished") {
           return conflict("supplement needs a finished call");
         }
-        // 끝난 본문·결과와 최초 사실·가격은 덮지 않는다(R9). supplement 행만
+        // 끝난 본문·결과와 최초 사실·가격은 덮지 않는다. supplement 행만
         // 근거를 남긴다. 같은 supplement_key 재전송은 PK가 막는다.
         const duplicate = tx.sql.get(
           "select call from model_call_supplements where call = ? and supplement_key = ?",

@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import type { CoreRead } from "../run-loop/mod.ts";
 
-// Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다(lophn-agent/harness/provider#R4, R6).
+// Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다.
 // core의 ProviderDisconnected event를 cursor 뒤로 읽어 provider마다 회수를 알린다. runtime은 ledger를 읽기만
 // 하므로 event가 유일한 신호이고, 늦게 읽어도 같은 event를 두 번 처리하지 않도록 훑은 위치를 옮긴다. 읽지
 // 못하면 위치를 옮기지 않아 다음 훑기가 같은 event를 이어서 처리한다.

@@ -1,6 +1,6 @@
 // supervisor 메모리의 앱 log buffer. invocation마다 최근 200줄, 앱마다 최근 500개
-// invocation, invocation에 묶이지 않은 log는 최근 500줄, redaction 뒤 한 줄 300자(R26).
-// 추가 조회는 최대 200줄이고 실패 직후 마지막 flush는 최대 20ms만 기다린다(R27).
+// invocation, invocation에 묶이지 않은 log는 최근 500줄, redaction 뒤 한 줄 300자.
+// 추가 조회는 최대 200줄이고 실패 직후 마지막 flush는 최대 20ms만 기다린다.
 // 줄 redaction은 조립이 주입한다(최상위 경계는 contracts만 거친다).
 import {
   type AppLogState,
@@ -32,7 +32,7 @@ export type LogBufferDeps = {
   app: string;
   // 알려진 secret registry와 credential pattern을 적용한 줄 redaction.
   redact: (line: string) => string;
-  // 버린 줄의 진단. supervisor pipe의 app_log_line_loss 진단으로 나간다(contracts#T6).
+  // 버린 줄의 진단. supervisor pipe의 app_log_line_loss 진단으로 나간다.
   onLoss?: (loss: LogLineLoss) => void;
   now: () => number;
   // 테스트가 시간을 건너뛰게 한다. 운영에서는 실제 대기다.
@@ -68,7 +68,7 @@ export type LogBuffer = {
   // 지금 모인 줄을 읽는다.
   read(query: LogQuery): LogRead;
   // 실패 직후 조회. 읽는 중인 stream이 끝나기를 최대 20ms만 기다리고, 기다리다
-  // 끝나지 않았으면 state timeout으로 지금까지 모은 줄을 돌려준다(R27).
+  // 끝나지 않았으면 state timeout으로 지금까지 모은 줄을 돌려준다.
   collect(query: LogQuery): Promise<LogRead>;
 };
 

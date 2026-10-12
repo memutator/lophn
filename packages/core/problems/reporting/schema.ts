@@ -19,7 +19,7 @@ end;`;
 
 // 문제 표는 id·group_key를 닫힘·재발 뒤에도 유지하고 상태는 open/fixing/closed
 // 세 가지다. 상태 전환은 problems/grouping의 command가 update로 쓰므로 update
-// 트리거를 두지 않고, 삭제는 RESTRICT로 보존한다(grouping#R10). (app, group_key)
+// 트리거를 두지 않고, 삭제는 RESTRICT로 보존한다. (app, group_key)
 // unique는 상태와 무관하게 같은 문제를 찾는다. 보고 수·처음/마지막 시각 등은
 // Report와 event에서 읽고 복제하지 않는다.
 export const REPORTS_SCHEMA_STEPS: SchemaStep[] = [

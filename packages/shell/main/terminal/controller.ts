@@ -26,7 +26,7 @@ export interface MainIpc {
 
 /**
  * terminal 채널 일곱 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
- * TerminalIpc가 본다(desktop#R23, shell/terminal#R3).
+ * TerminalIpc가 본다.
  */
 export function registerTerminalIpc(
   register: MainIpc,
@@ -70,7 +70,7 @@ export function removeTerminalIpc(register: MainIpc): void {
   }
 }
 
-/** desktop renderer를 창마다 registry에 등록하고 닫힐 때 뺀다(shell/app-frame#R23). */
+/** desktop renderer를 창마다 registry에 등록하고 닫힐 때 뺀다. */
 export function attachTerminalSurface(
   registry: { register(entry: never): void; unregister(id: number): void },
   window: BrowserWindow,
@@ -85,7 +85,7 @@ export function attachTerminalSurface(
 
 /**
  * 사람이 누른 터미널 tab의 webContents 표. T25 탭 화면이 focus·blur에 쓰고,
- * main은 입력·resize·restart 검사에 본다(shell/terminal#R3). 표에 없는
+ * main은 입력·resize·restart 검사에 본다. 표에 없는
  * terminal_ref의 입력은 통과하지 않는다.
  */
 export class TerminalFocusTable {
@@ -96,7 +96,7 @@ export class TerminalFocusTable {
 
   /**
    * 사람이 terminal_ref 탭을 골랐다. webContents id는 그때의 frame이고
-   * generation은 renderer가 본 runtime이다(shell/terminal#R3).
+   * generation은 renderer가 본 runtime이다.
    */
   focus(contentsId: number, terminalRef: string, generation?: number): void {
     this.#focused.set(terminalRef, { contents: contentsId, generation });

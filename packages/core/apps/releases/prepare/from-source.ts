@@ -1,4 +1,4 @@
-// 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다(apps/releases#R1–R4, apps/sdk#R7, R10, R34).
+// 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
 // release worker 안에서 돈다: commit을 staging에 풀고, 앱 import map을 bundle 안 설치 사본 경로로
 // 잠그고, blueprint 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌린 결과를 `prepareRelease`에
 // 넘긴다. staging은 끝나면 늘 지운다.

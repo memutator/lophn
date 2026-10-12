@@ -102,7 +102,7 @@ export type Host = {
 
 export function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
-  /** 같은 operation_id는 같은 runtime_ref다(shell/terminal#R12). 다시 spawn하지 않는다. */
+  /** 같은 operation_id는 같은 runtime_ref다. 다시 spawn하지 않는다. */
   const operations = new Map<string, string>();
   let seq = 0;
 
@@ -391,7 +391,7 @@ export function createHost(deps: HostDeps): Host {
       }
       if (request.type === "close") return stop(session, deps.sleep);
       if (request.type === "restart") {
-        // coding TUI는 자동 resume·재spawn이 없다. 사람이 새 [Start]를 눌러야 한다(shell/terminal#R13).
+        // coding TUI는 자동 resume·재spawn이 없다. 사람이 새 [Start]를 눌러야 한다.
         if (session.runtime.launch_kind === "coding_tui") {
           return reject(
             "spawn_failed",
@@ -430,7 +430,7 @@ const defaultSleep = (ms: number) =>
 /**
  * 사람이 확인한 닫기. 터미널을 닫을 때처럼 SIGHUP을 보내고 group의 종료를 이벤트
  * 루프를 돌리며 확인한다. 끝나지 않으면 SIGKILL 뒤 다시 확인하고, 그래도 확인하지
- * 못하면 결과 불명이다(shell/terminal#R10). 대화형 shell은 SIGTERM을 무시하므로
+ * 못하면 결과 불명이다. 대화형 shell은 SIGTERM을 무시하므로
  * 신호 직후 동기 확인만으로는 늘 확인 실패가 된다.
  */
 async function stop(

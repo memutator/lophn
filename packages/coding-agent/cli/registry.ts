@@ -1,7 +1,7 @@
-// CLI command registry다(T12, architecture 5.4). 사람 help(`help.ts`)와 기계
-// dispatch가 같은 표에서 나온다. 표 밖 command·op는 실행 전 거절이다(cli#R4).
+// CLI command registry다(architecture 5.4). 사람 help(`help.ts`)와 기계
+// dispatch가 같은 표에서 나온다. 표 밖 command·op는 실행 전 거절이다.
 // route는 contracts의 소유 table 값 그대로다. 임의 core API passthrough는 없다
-// (cli#R1, architecture 5.1).
+// (architecture 5.1).
 import { APP_COMMANDS } from "./commands/app.ts";
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
 import { CONNECTION_COMMANDS } from "./commands/connection.ts";

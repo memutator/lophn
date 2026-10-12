@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// Operator run 하나의 결과 판정(roles/operator R6, R7, R8). 순수 함수다: IO·시계·model
+// Operator run 하나의 결과 판정. 순수 함수다: IO·시계·model
 // 호출이 없다. 실제 읽기·저장은 harness/tools 묶음의 tool과 documents/versions가
 // 하고, 이 모듈은 모델이 남긴 결과를 사실·판단·불확실함으로 구분해 무엇이 새
 // version이 되는지의 계약만 정한다.
 
-// 결과의 세 구분이다(R6). 확인한 사실과 판단과 불확실함이 섞이지 않는다.
+// 결과의 세 구분이다. 확인한 사실과 판단과 불확실함이 섞이지 않는다.
 export type OutcomePoint = {
   // 실제로 읽고 확인한 것이다. 고정 근거 주소가 필요하다.
   fact: string;
@@ -30,7 +30,7 @@ export type OperatorRunOutcome =
     kind: "update";
     points: OutcomePoint;
     evidence: EvidenceAddress[];
-    // 선언한 판단 항목이다(R1). prompt에 적은 항목 그대로다.
+    // 선언한 판단 항목이다. prompt에 적은 항목 그대로다.
     declared_items: string[];
     update_condition: string;
   }
@@ -43,7 +43,7 @@ export type OperatorRunOutcome =
     saved: { document: string; version: string }[];
     failed: { document: string; reason: string }[];
   }
-  // 사람이 이야기한 의도·취향의 답이다(R8). 승인된 판단 항목에 필요한 답만
+  // 사람이 이야기한 의도·취향의 답이다. 승인된 판단 항목에 필요한 답만
   // 승인된 기존 문서의 새 Version에 저장한다.
   | {
     kind: "person_answer";

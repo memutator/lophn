@@ -1,4 +1,4 @@
-// 원본 연결이 없는 문서의 작업 사본(file-tracking#R1). 선택한 판의 바이트로 시작하고 그
+// 원본 연결이 없는 문서의 작업 사본. 선택한 판의 바이트로 시작하고 그
 // 뒤의 미확정 편집을 `~/.lophn/documents/working-copies/<doc>/`에 보존한다. place·tracking
 // 원본이 아니고 derived store의 자동 삭제 대상도 아니다. 새 최신 판과 충돌해도 이 폴더는
 // 남는다. 이 파일은 위치와 작은 metadata의 모양만 정한다(순수).

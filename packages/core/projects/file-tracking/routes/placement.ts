@@ -1,4 +1,4 @@
-// 문서를 파일로 두기와 빼기의 core 조립(documents#T19). `files.write`의 `place`와 `files.delete`의
+// 문서를 파일로 두기와 빼기의 core 조립. `files.write`의 `place`와 `files.delete`의
 // `unlink`는 같은 route 안의 동작이다: 파일 쓰기·삭제는 기존 coordinator 경로가 하고, 연결 확정
 // (원본 연결, 추적 규칙, 자리)은 요청한 사람의 자격으로 core가 command를 직접 부른다.
 // 순서와 단계별 실패 보고는 file-tracking의 placement.ts가 한다. 이 파일은 그 port를 core의

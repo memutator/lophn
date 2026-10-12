@@ -1,6 +1,6 @@
-// command 표의 한 자리다(T12). 이름·입력 schema·op마다 소유 route를 묶는다.
-// 표 밖 op는 실행 전 거절이다(cli#R4). route는 contracts의 소유 table 값이며
-// 임의 core API를 부르지 않는다(cli#R1, architecture 5.1).
+// command 표의 한 자리다. 이름·입력 schema·op마다 소유 route를 묶는다.
+// 표 밖 op는 실행 전 거절이다. route는 contracts의 소유 table 값이며
+// 임의 core API를 부르지 않는다(architecture 5.1).
 import type { z } from "zod";
 import type { Route } from "../../../protocol/base/mod.ts";
 

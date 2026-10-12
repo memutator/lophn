@@ -1,10 +1,10 @@
-// 앱 화면 검사 host(shell#T46, problems/tests#R7, R19). problems runner가 같은 실행 파일을
+// 앱 화면 검사 host. problems runner가 같은 실행 파일을
 // `--app-screen-test`로 띄우면 상속 fd 3에서 입력 한 줄을 읽고, 고정 bundle의 화면을 test view에
 // 하나씩 열어 load·처리되지 않은 오류·깨진 view의 feedback 경로·막힌 network 시도를 관측한 뒤
 // 관측 한 줄을 같은 fd에 쓰고 끝난다. 사람 token·core·collector·운영 view session·DB는 쓰지
 // 않는다. 관측을 collector로 넘기는 것은 runner다(problems 계획 Q7). Electron 조립은
 // `entry-screen-test.ts`에 있고 여기는 순서·관측·bundle 파일 응답만 둔다. 입력·관측 schema는
-// contracts/shell `screen-test.ts`이고, shell tsc가 contracts 원본을 검사하지 못해(Q22) deno가
+// contracts/shell `screen-test.ts`이고, shell tsc가 contracts 원본을 검사하지 못해 deno가
 // 검사하는 entry가 schema로 입력을 거르고 관측을 확인한다. 여기 타입은 그 모양과 같다.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -52,7 +52,7 @@ export interface ScreenTestInput {
   screens: readonly ScreenEntry[];
   app_socket_path: string;
   deadline_ms: number;
-  /** 있으면 화면마다 오류 probe를 일으키고 첫 화면을 일부러 멈춘다(problems#T11). */
+  /** 있으면 화면마다 오류 probe를 일으키고 첫 화면을 일부러 멈춘다. */
   probe_nonce?: string;
 }
 

@@ -134,7 +134,7 @@ export function sourceColumns(source: RunSource): {
   };
 }
 
-// 같은 계기·같은 내용 판정(R2).
+// 같은 계기·같은 내용 판정.
 export function sameAcceptance(
   row: RunRow,
   input: {
@@ -152,7 +152,7 @@ export function sameAcceptance(
     canonicalize(JSON.parse(row.source)) === canonicalize(input.source);
 }
 
-// 선행 정책(R6): completed는 접수 순서대로 시작하고 failed·stopped는 사람이
+// 선행 정책: completed는 접수 순서대로 시작하고 failed·stopped는 사람이
 // 계속할 요청으로 확인(start_confirmed_seq)한 뒤에만 시작한다.
 export function predecessorAllows(
   row: Pick<RunRow, "start_after" | "start_confirmed_seq">,

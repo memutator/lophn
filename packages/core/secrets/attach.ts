@@ -1,4 +1,4 @@
-// secret 전송 부착(platform/secrets#R3, R5, platform/security#R9).
+// secret 전송 부착.
 // 값은 keychain과 전송 callback 메모리에만 있고 결과·오류·log에는 없다.
 
 import { err, type Result } from "../../base/mod.ts";

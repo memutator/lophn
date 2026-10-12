@@ -20,7 +20,7 @@ import type {
   SessionValue,
 } from "./agent-core-source-values.ts";
 
-/** 제품이 이름을 고정하는 built-in(lophn-agent/agents#R2). 정의 목록을 읽을 수 없는 전역 자리에서만 쓴다. */
+/** 제품이 이름을 고정하는 built-in. 정의 목록을 읽을 수 없는 전역 자리에서만 쓴다. */
 const BUILTIN_NAMES: Record<AgentRole, string> = {
   lophn: "lophn",
   context_engineer: "Context Engineer",

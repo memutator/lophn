@@ -1,7 +1,7 @@
 /*
  * 편집기는 읽기 화면과 같은 기둥·16px/28px·제목·목록·인용·코드 모양을 쓴다
- * (packages/design/reading/reading.module.css, shell/editor#R8). 배경·테두리는 읽기와
- * 같고 바뀌는 것은 커서뿐이다(R9). CodeMirror class는 전역이라 .editor 아래로만 고친다.
+ * (packages/design/reading/reading.module.css). 배경·테두리는 읽기와
+ * 같고 바뀌는 것은 커서뿐이다. CodeMirror class는 전역이라 .editor 아래로만 고친다.
  */
 .editor {
   position: relative;
@@ -93,7 +93,7 @@
   color: var(--color-text-muted);
 }
 
-/* 제목: 1단 20px, 2단 16px/600, 3단 16px/600/secondary, 4단 14px(design-system#R39). */
+/* 제목: 1단 20px, 2단 16px/600, 3단 16px/600/secondary, 4단 14px. */
 .editor :global(.cm-lp-h1),
 .editor :global(.cm-lp-h2),
 .editor :global(.cm-lp-h3),
@@ -144,7 +144,7 @@
   text-decoration: line-through;
 }
 
-/* 코드는 고정폭·muted 배경·문법 강조 없음(R10). */
+/* 코드는 고정폭·muted 배경·문법 강조 없음. */
 .editor :global(.cm-lp-code) {
   padding: var(--space-0) var(--space-2);
   border-radius: var(--radius-xs);
@@ -178,7 +178,7 @@
   color: var(--color-text-secondary);
 }
 
-/* 체크박스 16px(R10). */
+/* 체크박스 16px. */
 .editor :global(.cm-lp-task) {
   width: var(--editor-check);
   height: var(--editor-check);
@@ -188,7 +188,7 @@
   cursor: pointer;
 }
 
-/* 인용 막대 2px(R10). 읽기 인용과 같은 막대·들임·글자색이다. */
+/* 인용 막대 2px. 읽기 인용과 같은 막대·들임·글자색이다. */
 .editor :global(.cm-line.cm-lp-quote) {
   padding-left: var(--space-6);
   border-left: var(--editor-quote-bar) solid var(--color-border-strong);
@@ -253,7 +253,7 @@
   font-size: var(--type-small-size);
 }
 
-/* 그림은 본문 최대폭, 불러오는 동안 16:9 skeleton(R10). */
+/* 그림은 본문 최대폭, 불러오는 동안 16:9 skeleton. */
 .editor :global(.cm-lp-image) {
   display: block;
   max-width: 100%;
@@ -316,7 +316,7 @@
   text-align: center;
 }
 
-/* frontmatter key/value 두 열(R10). */
+/* frontmatter key/value 두 열. */
 .editor :global(.cm-lp-props) {
   margin-bottom: var(--space-6);
   padding-bottom: var(--space-5);

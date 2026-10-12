@@ -22,8 +22,8 @@ function described(error: unknown): { name: string; message: string } {
   return { name: "Error", message: String(error) };
 }
 
-// 앱 화면 root의 오류 경계(apps/sdk#R29). 잡은 render 오류를 window의 event로 넘겨 플랫폼 오류 수집이
-// 받게 하고, 빈 화면 대신 한 문장과 [Try again]을 보인다. 원문 오류는 화면에 두지 않는다(shell/wording#R8).
+// 앱 화면 root의 오류 경계. 잡은 render 오류를 window의 event로 넘겨 플랫폼 오류 수집이
+// 받게 하고, 빈 화면 대신 한 문장과 [Try again]을 보인다. 원문 오류는 화면에 두지 않는다.
 export class AppErrorBoundary extends Component<AppErrorBoundaryProps, State> {
   override state: State = { failed: false };
 

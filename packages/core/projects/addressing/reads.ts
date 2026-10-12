@@ -30,7 +30,7 @@ function notFound(message = "address does not resolve"): Result<never> {
   return err({ code: "not_found", message });
 }
 
-// section 해석의 근원(documents/addressing#R4, R5). 선택 고정 판의 section
+// section 해석의 근원. 선택 고정 판의 section
 // 목록을 주입해 받는다. outlines는 비동기 extraction 근원이라 read가 조립한다.
 export type SectionSource = {
   // 고정 판의 section 목록. 없는 판·읽지 못한 판은 err로 같은 미확인이다.
@@ -50,8 +50,8 @@ const resolveOutputSchema = z.object({
 });
 type ResolveOutput = Result<z.output<typeof resolveOutputSchema>>;
 
-// 현재 target에 대한 범위를 다시 검사한다. 안내로 권한을 넓히지 않는다(addressing#R6).
-// 범위 밖은 존재를 알려주지 않는다. not_found와 정확히 같은 응답으로 답한다(platform/identity#R10).
+// 현재 target에 대한 범위를 다시 검사한다. 안내로 권한을 넓히지 않는다.
+// 범위 밖은 존재를 알려주지 않는다. not_found와 정확히 같은 응답으로 답한다.
 function allowed(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
@@ -192,7 +192,7 @@ function resolveRef(
   });
 }
 
-// section 해석(documents/addressing#R4, R5). 조상 이름을 /로 이은 전체 경로를
+// section 해석. 조상 이름을 /로 이은 전체 경로를
 // 우선하고 문서 안에서 유일한 마지막 이름만으로도 찾는다. 중복이면 모호함
 // (invalid_input)이다. 같은 key만 이어지고 유사 section redirect는 없다.
 function resolveSection(

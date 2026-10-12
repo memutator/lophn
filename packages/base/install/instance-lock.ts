@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../mod.ts";
 
-// 같은 H에는 플랫폼 instance 하나만 둔다(install-and-update R10).
+// 같은 H에는 플랫폼 instance 하나만 둔다.
 // tryLock은 이미 잠긴 파일을 기다리지 않고 바로 false다.
 // 프로세스가 죽으면 커널이 풀어 준다. PID 파일로 판단하지 않는다.
 export type InstanceLock = {

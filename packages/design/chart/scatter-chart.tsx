@@ -133,7 +133,7 @@ function ScatterPlot(
   );
 }
 
-// 산점. 모든 쌍이 맞닿으므로 3계열까지만 그린다(shell/design-system#R12). 점은 radius 4px과 표면 ring이다.
+// 산점. 모든 쌍이 맞닿으므로 3계열까지만 그린다. 점은 radius 4px과 표면 ring이다.
 export function ScatterChart(
   {
     groups,

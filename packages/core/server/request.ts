@@ -18,7 +18,7 @@ import {
 } from "../../protocol/base/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 
-// body를 읽기 전의 고정 한도(platform/security#R8, architecture/platform 2.3).
+// body를 읽기 전의 고정 한도(architecture/platform 2.3).
 export const BODY_TIMEOUT_MS = 5_000;
 export const JSON_MAX_BYTES = RPC_JSON_MAX_BYTES;
 export const JSON_MAX_DEPTH = RPC_JSON_MAX_DEPTH;
@@ -41,12 +41,12 @@ export function errorBody(error: LophnError): ErrorBody {
   return body;
 }
 
-// handler가 던진 것은 경계에서 internal로 바꾼다. stack·원문·token은 없다(platform/api#R4).
+// handler가 던진 것은 경계에서 internal로 바꾼다. stack·원문·token은 없다.
 export function safeError(thrown: unknown): LophnError {
   return asInternalError(thrown);
 }
 
-// 실제 bind port P의 allowlist. proxy header는 보지 않는다(platform/identity#R12).
+// 실제 bind port P의 allowlist. proxy header는 보지 않는다.
 export function allowedHosts(port: number): ReadonlySet<string> {
   return new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 }
@@ -79,7 +79,7 @@ export function hostOf(url: string): string | null {
   }
 }
 
-// 검사 순서는 Host → Origin → Bearer다. 동작 자격은 route를 안 뒤에 본다(platform/identity#R13).
+// 검사 순서는 Host → Origin → Bearer다. 동작 자격은 route를 안 뒤에 본다.
 export async function gateRequest(
   input: GateInput,
   credentials: CredentialRegistry,

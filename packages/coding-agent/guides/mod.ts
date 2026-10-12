@@ -34,7 +34,7 @@ export {
   type SkillsInstallInput,
   type SkillsInstallOutcome,
 } from "./install.ts";
-// Claude Code 세션 시작 hook이다(coding-agent#T35).
+// Claude Code 세션 시작 hook이다.
 export {
   HOOK_LIMITS,
   type HookFacts,

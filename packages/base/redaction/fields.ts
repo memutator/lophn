@@ -1,11 +1,11 @@
 import { isFieldPath, type RedactionFieldDeclaration } from "./model.ts";
 
-// 소유 concern이 선언한 경로만 남긴다(platform/redaction#R8, R9).
+// 소유 concern이 선언한 경로만 남긴다.
 // 필드명 변경은 익명화가 아니다. 가명 비교는 같은 자료 안으로 한정한다.
 
 export const PSEUDONYM_SCOPE = "record";
 
-// 필드명을 바꿔도 이름·연락처·이메일·경로는 안전 필드가 아니다(R8, R9).
+// 필드명을 바꿔도 이름·연락처·이메일·경로는 안전 필드가 아니다.
 const PERSONAL_KEY =
   /(?:^|[._-])(?:name|full_name|display_name|alias|email|e_mail|phone|tel|mobile|contact|path|home)(?:$|[._-])/i;
 
@@ -178,7 +178,7 @@ export function selectSafeFields(
 }
 
 // 가명 표식. 비교는 PSEUDONYM_SCOPE(같은 자료) 안에서만 통한다.
-// 원문 길이·type은 표식에 넣지 않는다(R7, R9).
+// 원문 길이·type은 표식에 넣지 않는다.
 export function pseudonym(index: number): string {
   return `p${index}`;
 }

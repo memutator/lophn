@@ -1,4 +1,4 @@
-// project sidebar의 Agents 묶음(shell/workspace#R34·R35)과 접힌 rail의 Agent 단추(shell/workspace#R32).
+// project sidebar의 Agents 묶음과 접힌 rail의 Agent 단추.
 // 화면 값은 lophn-agent/agents의 목록 줄과 lophn-agent/sessions의 상태에서 부르는 쪽이 만든 view 값이다.
 // renderer는 contracts를 type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
@@ -24,7 +24,7 @@ export interface SidebarAgent {
   /** 줄에 보이는 이름(고정 글자가 아니다. Operator는 사람이 지은 이름). */
   readonly name: string;
   readonly profile: AvatarProfile;
-  /** 이 agent에 답을 기다리는 session이 하나라도 있다(R35). 점은 저장하지 않는 표시 상태다. */
+  /** 이 agent에 답을 기다리는 session이 하나라도 있다. 점은 저장하지 않는 표시 상태다. */
   readonly waiting: boolean;
 }
 
@@ -113,7 +113,7 @@ export interface AgentRailButtonProps {
 }
 
 /**
- * 접힌 sidebar의 바로 가기 rail에 놓는 단추(R32). `button[aria-label="Agent"][data-rail="agent"]` 하나이고
+ * 접힌 sidebar의 바로 가기 rail에 놓는 단추. `button[aria-label="Agent"][data-rail="agent"]` 하나이고
  * 누르면 `onOpenLophn()`을 한 번 부른다. rail의 다른 단추와 줄은 이 component 밖이다.
  */
 export function AgentRailButton(

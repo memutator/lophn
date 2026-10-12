@@ -1,6 +1,6 @@
 // 창마다 하나인 대화 메모리. 세션마다 작성 중 말·선택 답·커서·보낸 말의 전달 상태·읽던
 // 위치를 둔다. 도크를 닫거나 세션을 바꾸거나 confirmation window가 떠도 이 값은 그대로라
-// 다시 열면 같은 자리에서 이어 쓴다(shell/desktop#R8). 읽은 메시지 본문도 창 메모리에
+// 다시 열면 같은 자리에서 이어 쓴다. 읽은 메시지 본문도 창 메모리에
 // 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
 // 않는다.
 import type { Outgoing, SendMode } from "./delivery-state.ts";
@@ -35,7 +35,7 @@ export type BodyState =
   | { readonly state: "failed"; readonly code: string };
 
 /**
- * 시각 블록을 문서로 남겨 달라는 요청(shell/workspace#R13). request는 그 요청으로 보낸 말의
+ * 시각 블록을 문서로 남겨 달라는 요청. request는 그 요청으로 보낸 말의
  * 메시지 id다. failed면 보내지 못했다.
  */
 export interface SaveRecord {

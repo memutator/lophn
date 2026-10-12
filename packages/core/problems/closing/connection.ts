@@ -1,4 +1,4 @@
-// `problems.closing` 반응기의 core 쪽 연결(problems#T20). 반응기 자체는 제품 core가 감독하는 상시 worker
+// `problems.closing` 반응기의 core 쪽 연결. 반응기 자체는 제품 core가 감독하는 상시 worker
 // kind `problems/test-runner` 안에서 problems.work 반응기와 같이 돈다. worker가 core에 내는 자격은
 // `problems.work`의 machine credential이다(operations는 problems-work.ts의 목록, closing command도
 // 들어 있다). 이 파일은 closing event를 `problems.closing` 반응 쪽에게 여는 공개 정책, cursor 전진 자격,

@@ -1,4 +1,4 @@
-// `problems.closing` 반응기(problems/closing#R2, R3, R4; architecture/problems 7.6).
+// `problems.closing` 반응기(architecture/problems 7.6).
 // test-runner kind 안에서 돌고 ledger를 직접 열지 않는다. VerificationRecorded·
 // ReleaseActivated·ProblemObserved event를 cursor 뒤에서 읽어 후보를 다시 평가하고,
 // reproduction pass 근거가 조건을 충족하면 CloseProblemVerified를 낸다. event는 깨우는
@@ -16,11 +16,11 @@ import type { LophnError } from "../../../base/mod.ts";
 
 export const CLOSING_SUBSCRIBER = "problems.closing";
 
-// 후보를 다시 읽게 하는 event다(R3). reproduction pass만 닫힘 후보이므로 result가
+// 후보를 다시 읽게 하는 event다. reproduction pass만 닫힘 후보이므로 result가
 // 나올 때(VerificationRecorded), 활성 release가 바뀔 때(ReleaseActivated), 같은 문제에
 // 보고가 더 접수될 때(ProblemObserved) 조건을 다시 본다. release 준비·activation 시작·
 // 앱 시작·command 성공·app test·test command·ticket 완료·고친 기록·앱 주장 event는
-// 후보로 읽지 않는다(R2).
+// 후보로 읽지 않는다.
 export const CLOSING_EVENT_TYPES: readonly string[] = [
   "VerificationRecorded",
   "ReleaseActivated",
@@ -161,7 +161,7 @@ export async function reactClosing(
 // event 하나의 반응이다. VerificationRecorded는 payload의 문제를 좁혀 닫힘 후보로 다시
 // 읽는다. ReleaseActivated·ProblemObserved는 event만으로는 좁힐 근거(문제·verification)가
 // 없다: 반응기가 문제 표를 읽지 않으므로 이 event들은 cursor만 전진시키고, 다음
-// VerificationRecorded가 재평가를 잇는다(R3: 후보는 reproduction pass 근거에서 온다).
+// VerificationRecorded가 재평가를 잇는다(후보는 reproduction pass 근거에서 온다).
 async function reactOne(
   ports: ClosingReactionPorts,
   event: ClosingEvent,

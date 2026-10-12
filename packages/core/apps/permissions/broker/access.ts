@@ -1,6 +1,6 @@
 // broker 서비스가 요청마다 읽는 현재 실행 범위와 공통 거절 모양이다.
-// 실행 범위 = 현재 release 선언 ∩ 현재 active grant(apps/permissions#R2). 읽는 쪽이 계산한 값을
-// 요청마다 다시 받으므로 회수는 다음 사용부터 거절된다(R14). 여기서 IO는 하지 않는다.
+// 실행 범위 = 현재 release 선언 ∩ 현재 active grant. 읽는 쪽이 계산한 값을
+// 요청마다 다시 받으므로 회수는 다음 사용부터 거절된다. 여기서 IO는 하지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { hostOf } from "../../../../protocol/apps/blueprint-scope.ts";
 import type { AutomationDeclarationFact } from "../declarations.ts";
@@ -29,7 +29,7 @@ export type Permission =
   | "document.save"
   | "automation.run";
 
-// 거절은 필요한 permission 이름과 scope를 알린다(apps/sdk#R23). 선언 밖이든 grant 밖이든
+// 거절은 필요한 permission 이름과 scope를 알린다. 선언 밖이든 grant 밖이든
 // 같은 모양이라 어느 쪽이 빠졌는지를 앱 코드가 추측할 수 없다.
 export function refuse(
   permission: Permission,
@@ -51,7 +51,7 @@ export function unavailable(message: string): Result<never> {
 }
 
 // 외부 접근(net·secret·문서)은 운영 앱의 live 자식만 쓴다. 준비 모드·preview·test 자식은
-// 같은 통로로 외부에 닿지 않는다(R15, R23).
+// 같은 통로로 외부에 닿지 않는다.
 export function liveOnly(
   child: BrokerChild,
   permission: Permission,
@@ -83,7 +83,7 @@ export function normalHost(value: string): string | undefined {
 }
 
 // 선언∩grant가 정확히 허락한 net.fetch의 host·port인지 본다. wildcard·0·전체 port는 모양에서
-// 이미 없다(R8).
+// 이미 없다.
 export function netGranted(
   state: AccessState,
   host: string,

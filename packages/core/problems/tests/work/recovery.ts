@@ -18,8 +18,7 @@ export type LostRun = {
 };
 
 // runner가 죽으면 감독이 자식을 회수하고, 실제 시작한 요청만 runner_lost로 남긴다.
-// 시작하지 않은 요청과 시작 여부를 모르는 요청은 Verification을 만들지 않는다
-// (problems/tests#R17, R21).
+// 시작하지 않은 요청과 시작 여부를 모르는 요청은 Verification을 만들지 않는다.
 export function recoverLostRunner(
   attempts: readonly AttemptRecord[],
   deadRunner: string,

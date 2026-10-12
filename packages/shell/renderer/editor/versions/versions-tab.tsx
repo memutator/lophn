@@ -1,8 +1,8 @@
-// 정보 패널의 버전 탭(shell/editor#R6, flow restore-document 1단계). 판은 새 것이 위이고 행은
+// 정보 패널의 버전 탭(flow restore-document 1단계). 판은 새 것이 위이고 행은
 // 32px다. 행마다 저장 주체·시각을 보이고, 그 판에 저장된 run이 있으면 그것만 함께 보인다. 앞 판·
 // 최신 판과의 비교를 아이콘으로 연다. 절을 고르면
 // documents의 section 이력으로 그 절이 판마다 어떻게 바뀌었는지(바뀜·추가·소실·그대로)를 함께
-// 보인다. 복원은 비교 화면에서 고른다(R14: 비교를 거치지 않는 되돌리기 버튼을 두지 않는다).
+// 보인다. 복원은 비교 화면에서 고른다(비교를 거치지 않는 되돌리기 버튼을 두지 않는다).
 import { useEffect, useState } from "react";
 import {
   ErrorState,

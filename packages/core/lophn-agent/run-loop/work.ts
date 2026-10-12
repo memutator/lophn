@@ -31,7 +31,7 @@ export function tierOf(
 }
 
 // run이 줄 서는 곳. session이 있으면 session, 없으면 assignment의 session 없는 run들이다.
-// 같은 곳에서는 진행 중·사람 기다림 run이 하나뿐이고 접수 순서로 시작한다(R3).
+// 같은 곳에서는 진행 중·사람 기다림 run이 하나뿐이고 접수 순서로 시작한다.
 export function queueKeyOf(
   run: Pick<RunRecord, "assignment" | "session">,
 ): string {

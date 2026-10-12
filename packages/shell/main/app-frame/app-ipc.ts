@@ -1,6 +1,6 @@
 // 앱 view의 preload IPC를 main service에 잇는다. 매 IPC마다 sender가 registry의 살아 있는 앱
 // view이고 그 main frame이 자기 앱 주소(같은 screen)인지 본다. 신원은 sender에서만 정하고 입력의
-// 앱·release·actor는 쓰지 않는다(shell/app-frame#R12, R13). 앱 view가 아닌 sender는 어느
+// 앱·release·actor는 쓰지 않는다. 앱 view가 아닌 sender는 어느
 // 통로도 쓰지 못한다.
 import {
   APP_CALL_CHANNEL,

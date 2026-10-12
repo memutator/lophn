@@ -19,12 +19,12 @@ export type ModelBinding = {
   call: CallModel;
   // provider API base. adapter가 path를 붙인다.
   endpoint: string;
-  // token 사용량 정의 판(usage#R6).
+  // token 사용량 정의 판.
   usageRevision: string;
   timeoutMs: number | null;
   pack: WirePacker;
   invoke: InvokeModelCall;
-  // provider가 켜져 있고 쓸 수 있는지(R25).
+  // provider가 켜져 있고 쓸 수 있는지.
   available(): Promise<boolean>;
 };
 
@@ -50,8 +50,8 @@ function anthropicMessages(messages: readonly PromptMessage[]): unknown[] {
   }));
 }
 
-// Anthropic Messages 번역. cache 표시는 system 층에 이미 있어 adapter의 경계 표시는 모두 끈다(T19).
-// model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다(harness/model#R22).
+// Anthropic Messages 번역. cache 표시는 system 층에 이미 있어 adapter의 경계 표시는 모두 끈다.
+// model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다.
 export function anthropicPacker(input: {
   model: string;
   maxTokens: number;
@@ -71,12 +71,12 @@ export function anthropicPacker(input: {
   });
 }
 
-// system 층은 하나의 지시문으로 잇는다. OpenAI 계열은 cache를 자동으로 하므로 경계 표시가 없다(R26).
+// system 층은 하나의 지시문으로 잇는다. OpenAI 계열은 cache를 자동으로 하므로 경계 표시가 없다.
 function systemText(request: PromptRequest): string {
   return request.system.map((block) => block.text).join("\n\n");
 }
 
-// OpenAI Responses 번역(provider#R3). function_call.call_id와 function_call_output.call_id가 대응한다.
+// OpenAI Responses 번역. function_call.call_id와 function_call_output.call_id가 대응한다.
 // 연속한 text 조각은 한 message item이고 tool 결과·호출은 자기 item이다.
 function responsesInput(messages: readonly PromptMessage[]): unknown[] {
   const items: unknown[] = [];
@@ -135,7 +135,7 @@ export function responsesPacker(input: {
   });
 }
 
-// OpenAI Chat Completions 번역(provider#R3). assistant의 tool_calls[].id와 tool message의
+// OpenAI Chat Completions 번역. assistant의 tool_calls[].id와 tool message의
 // tool_call_id가 대응한다. 사람이 읽을 추론 본문은 보내지 않는다.
 function chatMessages(messages: readonly PromptMessage[]): unknown[] {
   const out: unknown[] = [];

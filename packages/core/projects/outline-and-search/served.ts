@@ -70,7 +70,7 @@ export const STORED_FILE_ROUTE: ReadRoute = {
   errors: documentFile.errors,
 };
 
-// 직접 추출(documents/outline-and-search#R15)을 받는 worker route. 읽기 handler는 동기·snapshot
+// 직접 추출을 받는 worker route. 읽기 handler는 동기·snapshot
 // 전용이라 바이트가 없다. 추출 안 된 고정 판에는 core가 두 단계로 부른다: 계획(어느 판의 어느
 // 파일을 읽을지, 요청 자격으로 같은 읽기를 다시 돌려 권한을 판정)과 답(core가 blob 인가·hash
 // 검사 뒤 읽은 바이트로 이번 응답에만 추출해 같은 handler로 답). 공개 route가 아니다.
@@ -182,7 +182,7 @@ export const FILE_PLACEMENT_ROUTE: ReadRoute = {
   errors: ["invalid_input", "forbidden", "unavailable", "internal"],
 };
 
-// coordinator에 넘길 관측 근거의 core 쪽 읽기(Q15). 공개 route가 아니라 core가 소유자로
+// coordinator에 넘길 관측 근거의 core 쪽 읽기. 공개 route가 아니라 core가 소유자로
 // 읽는 내부 read다. 응답 한도(500행)가 있어 root·규칙과 경로→문서 연결을 따로, 연결은
 // 경로 순서의 page로 읽는다.
 export const OBSERVATION_BASIS_ROUTE: ReadRoute = {

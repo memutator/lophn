@@ -11,17 +11,17 @@ import { confirmedSupport } from "./model.ts";
 import { resolveOptionValues } from "./options.ts";
 
 // ModelChoice를 catalog·provider의 현재 정보로 검증한다. 이 모듈은 검사 규칙이고 저장은
-// 선택을 가진 쪽의 몫이다. 임의 한계(128000·8192)나 tool 지원을 추측하지 않는다(R11, R13).
+// 선택을 가진 쪽의 몫이다. 임의 한계(128000·8192)나 tool 지원을 추측하지 않는다.
 // 요청에 싣는 값(sent_model_name·request_patch·request_headers)은 호출 형식을 아는 쪽이
 // wire.ts의 translateOptions로 채운다. 여기서는 바꾸지 않은 model 이름과 빈 조각이다.
 
 export type ProviderNames = {
-  // provider 목록에 그 model 이름이 있는지. 목록을 확인하지 못했으면 null이다(R10).
+  // provider 목록에 그 model 이름이 있는지. 목록을 확인하지 못했으면 null이다.
   modelListed(modelName: string): boolean | null;
 };
 
 export type NamedLimits = {
-  // 사람이 명시한 양의 입력·출력·전체 문맥 한계와 text·tool 지원 정보다(R13).
+  // 사람이 명시한 양의 입력·출력·전체 문맥 한계와 text·tool 지원 정보다.
   context_limit: number;
   input_limit: number;
   output_limit: number;
@@ -42,12 +42,12 @@ export type SelectionInput = {
   // run 시작에 고정한 provider의 credential 판. 인증 없음(loopback)만 null이다.
   credential_revision: number | null;
   model_name: string;
-  // 고른 축의 값이다. 없는 축은 모델에 맡김이고 default를 채우는 일은 여기서 한다(R16).
+  // 고른 축의 값이다. 없는 축은 모델에 맡김이고 default를 채우는 일은 여기서 한다.
   option_values: OptionValues;
   needs_tools: boolean;
 };
 
-// catalog 밖 model의 명시 대체 항목이다. option 축을 모른다(R16).
+// catalog 밖 model의 명시 대체 항목이다. option 축을 모른다.
 const EXPLICIT_ENTRY = (
   modelName: string,
   supportsTools: boolean | null,
@@ -70,7 +70,7 @@ const EXPLICIT_ENTRY = (
   price_basis: null,
 });
 
-// 알려진 텍스트 입력·출력 미지원과 필요한 tool call 미지원 model은 거절한다(R11).
+// 알려진 텍스트 입력·출력 미지원과 필요한 tool call 미지원 model은 거절한다.
 // tool call은 자기 model 호출(organizing 포함)이라 필요하다. judgment·organizing 구별은 없다.
 export function rejectSelection(
   entry: CatalogEntry,
@@ -100,7 +100,7 @@ export function rejectSelection(
 }
 
 // 고른 option 값을 검증하고 default를 채운다. option 축은 catalog 자료만 말하므로 catalog
-// 항목이 없는 model에는 어떤 값도 고를 수 없다(R16, R24).
+// 항목이 없는 model에는 어떤 값도 고를 수 없다.
 function selectedOptions(
   entry: CatalogEntry | undefined,
   values: OptionValues,
@@ -116,8 +116,8 @@ function selectedOptions(
 }
 
 // selection을 catalog의 현재 정보로 검증해 ResolvedModel로 만든다. entry가 없으면
-// 사람 명시 한계가 필요하다(R13). catalog 밖이면서 명시 한계가 없으면 사용할 수
-// 없다. 첫 판은 text 입력·출력만 사용한다(R19).
+// 사람 명시 한계가 필요하다. catalog 밖이면서 명시 한계가 없으면 사용할 수
+// 없다. 첫 판은 text 입력·출력만 사용한다.
 export function resolveSelection(
   selection: SelectionInput,
   entry: CatalogEntry | undefined,
@@ -126,7 +126,7 @@ export function resolveSelection(
 ): Result<ResolvedModel> {
   const listed = provider.modelListed(selection.model_name);
   if (listed === false) {
-    // provider의 현재 목록에 없으면 거절이다(R10).
+    // provider의 현재 목록에 없으면 거절이다.
     return err({
       code: "not_found",
       message: "provider 목록에 없는 model 이름이다",
@@ -173,7 +173,7 @@ export function resolveSelection(
     };
   } else if (explicit !== undefined) {
     // catalog 밖 model은 사람이 명시한 양의 한계와 text·tool 지원이 있어야 쓸 수
-    // 있다(R13). 명시 보완은 catalog 사실과 구별된다(basis.source).
+    // 있다. 명시 보완은 catalog 사실과 구별된다(basis.source).
     limits = {
       ...common,
       context_limit: explicit.context_limit,
@@ -197,7 +197,7 @@ export function resolveSelection(
   return gate.ok ? ok(limits) : gate;
 }
 
-// run은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다(R18).
+// run은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다.
 // run이 effort를 고정하지 않았으면(모델에 맡김) 비교할 값이 없다. effort 밖 축은 약하고 강함을
 // 비교할 이름 순서가 없어 이 검사가 바꾸지 않는다.
 export function requestOptionsWithinRun(

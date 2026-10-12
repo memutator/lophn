@@ -75,7 +75,7 @@ export function createSdkReads(): {
       route: packagesList,
       handle(snapshot, ctx, input) {
         void ctx;
-        // 이름 filter가 있으면 그 패키지만, 없으면 catalog 전체를 @me 먼저 정렬한다(R6).
+        // 이름 filter가 있으면 그 패키지만, 없으면 catalog 전체를 @me 먼저 정렬한다.
         if (input.name !== undefined) {
           // 개인 등록은 없으므로 @me 이름은 부재로 표시한다. 부재는 null 목록이다.
           if (personalRegistrationRejected(input.name)) {

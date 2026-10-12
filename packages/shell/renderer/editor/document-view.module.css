@@ -1,4 +1,4 @@
-/* 문서 탭의 scroll 칸. 읽기와 편집이 같은 칸·배경·테두리를 쓴다(shell/editor#R8, R9). */
+/* 문서 탭의 scroll 칸. 읽기와 편집이 같은 칸·배경·테두리를 쓴다. */
 .scroll {
   position: relative;
   box-sizing: border-box;
@@ -20,7 +20,7 @@
   line-height: var(--type-body-line);
 }
 
-/* 버전 비교는 읽기 기둥 밖에서 칸 전체 폭을 쓴다(나란히 보기는 1,100px 이상, shell/editor#R13). */
+/* 버전 비교는 읽기 기둥 밖에서 칸 전체 폭을 쓴다(나란히 보기는 1,100px 이상). */
 .compare {
   box-sizing: border-box;
   height: 100%;

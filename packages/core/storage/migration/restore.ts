@@ -24,7 +24,7 @@ import {
 } from "./backup.ts";
 import { newLedgerId, readLedgerId, writeLedgerId } from "./ledger-id.ts";
 
-// restore(platform/backup-and-migration#R13, R14). 모든 writer·worker를 정지한 뒤에만 현재
+// restore. 모든 writer·worker를 정지한 뒤에만 현재
 // 자료를 따로 보존하고, 검증을 마친 staging 본으로 ledger를 바꾼다. 여기까지가 파일의 일이고,
 // 사람이 잃을 범위를 확인하는 일과 정지는 호출하는 core의 몫이다.
 
@@ -270,7 +270,7 @@ async function preserve(
   let missingBlobs = 0;
   if (head !== null) {
     const copy = `${previous}/${BACKUP_LEDGER_PATH}`;
-    // 모든 writer가 멈췄으므로 파일을 그대로 복사한다(R13: 정지 뒤 물리 복사). 제한한 권한의
+    // 모든 writer가 멈췄으므로 파일을 그대로 복사한다(정지 뒤 물리 복사). 제한한 권한의
     // 프로세스에서는 VACUUM INTO가 쓰는 attach를 쓸 수 없다. 복구가 필요한 WAL·SHM도 같이 둔다.
     try {
       await Deno.copyFile(deps.ledgerPath, copy);

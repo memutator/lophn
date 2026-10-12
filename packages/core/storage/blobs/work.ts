@@ -1,4 +1,4 @@
-// blob 준비·설치의 파일 작업(platform/blob-store#R1, R2, R3, R12).
+// blob 준비·설치의 파일 작업.
 // 순서: 여유 확인 → 임시 streaming write + sha256 → 크기·예상 hash 검증 → fsync →
 // chmod 0400 → 원자적 link 설치 → directory sync. 실패한 임시 파일은 버린다.
 
@@ -19,7 +19,7 @@ export const DISK_MARGIN_BYTES = 256 * 1024 * 1024;
 
 export type PreparedInstall = {
   prepared: PreparedBlob;
-  // 기존 blob을 재사용했으면 파일을 새로 쓰지 않았다(R1).
+  // 기존 blob을 재사용했으면 파일을 새로 쓰지 않았다.
   reused: boolean;
 };
 
@@ -74,7 +74,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
     } catch { /* 이미 사라진 파일 */ }
   }
 
-  // 같은 파일 시스템의 hard link가 원자적 설치다. 기존 파일을 덮어쓰지 않는다(R1).
+  // 같은 파일 시스템의 hard link가 원자적 설치다. 기존 파일을 덮어쓰지 않는다.
   async function linkInstall(
     temporary: string,
     target: string,
@@ -88,7 +88,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
     }
   }
 
-  // 임시 directory와 대상 directory를 sync한다. 지원 OS에서만 의미가 있다(R2).
+  // 임시 directory와 대상 directory를 sync한다. 지원 OS에서만 의미가 있다.
   async function syncDirs(dirs: readonly string[]): Promise<void> {
     for (const dir of dirs) {
       let handle: Deno.FsFile | undefined;
@@ -133,7 +133,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
       const hash = createHash("sha256");
       let total = 0;
       try {
-        // streaming write이며 그 바이트로 sha256과 크기를 함께 계산한다(R2).
+        // streaming write이며 그 바이트로 sha256과 크기를 함께 계산한다.
         for await (const chunk of bytes) {
           if (total + chunk.length > Number.MAX_SAFE_INTEGER) {
             return fail(handle, temporary, {
@@ -149,7 +149,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
         await discard(handle, temporary);
         return err({ code: "unavailable", message: "임시 write에 실패했다" });
       }
-      // 크기·예상 hash 불일치는 invalid_input이다(R2).
+      // 크기·예상 hash 불일치는 invalid_input이다.
       if (total === 0) {
         await discard(handle, temporary);
         return err({ code: "invalid_input", message: "blob 내용이 없다" });
@@ -185,7 +185,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
         return linked;
       }
       if (linked.value === "exists") {
-        // 같은 hash는 기존 파일을 검증해 재사용하고 새 파일은 버린다(R1).
+        // 같은 hash는 기존 파일을 검증해 재사용하고 새 파일은 버린다.
         await discard(handle, temporary);
         const existed = await observeBlob(deps.root, digest);
         if (!existed.ok) return existed;
@@ -249,7 +249,7 @@ async function installSync(
 ): Promise<Result<void>> {
   try {
     await file.sync();
-    // 완성 blob은 0400이다(R3). 권한은 파일 sync 전에 고정한다.
+    // 완성 blob은 0400이다. 권한은 파일 sync 전에 고정한다.
     await Deno.chmod(path, BLOB_READ_ONLY_MODE);
     return ok(undefined);
   } catch {

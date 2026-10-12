@@ -1,6 +1,6 @@
-// session 관측 entry다(coding-agent/sessions#R6–R9, T39). `session observe`가 받은 hook·plugin·extension payload를
+// session 관측 entry다. `session observe`가 받은 hook·plugin·extension payload를
 // 제품별 normalizer로 정규화한 HarnessSessionObservation으로 바꾼다. 검증하지 않은 제품(Hermes·OpenClaw)은 상태·ID를
-// 지어내지 않고 unknown observation이다(R6, R7). 이 entry는 claim·connection·process를 건드리지 않는다(R9).
+// 지어내지 않고 unknown observation이다. 이 entry는 claim·connection·process를 건드리지 않는다.
 import type {
   HarnessId,
   HarnessSessionObservation,

@@ -1,4 +1,4 @@
-// reproduction test의 고정 시험(FrozenTest)에 들어가는 증상 정의다(problems/tests#R10, R12). 같은
+// reproduction test의 고정 시험(FrozenTest)에 들어가는 증상 정의다. 같은
 // 정의를 before·after 양쪽에 그대로 적용한다. 앱 source에서 오지 않고 접수 때 고정된 값이라 앱이 낮출 수 없다.
 import { canonicalHash } from "../canonical.ts";
 

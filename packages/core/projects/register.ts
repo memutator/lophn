@@ -153,7 +153,7 @@ function formatReads(): ApiReadDefinition[] {
         }
         // 내장 declaration의 hash와 보존된 module의 hash를 찾는다. 없는 hash는
         // not_found다. blob 보존 읽기는 문서 worker의 몫이므로, core가 여는 것은
-        // 내장 declaration뿐이다(Q10). 없는 hash는 최신 module로 대체하지 않는다.
+        // 내장 declaration뿐이다. 없는 hash는 최신 module로 대체하지 않는다.
         if (parsed.data.module_hash !== BUILTIN_MODULE_HASH) {
           return err({
             code: "not_found",
@@ -182,7 +182,7 @@ function formatReads(): ApiReadDefinition[] {
 // 등록 때 data root는 core와 같은 근원(LOPHN_HOME ?? ~/.lophn)에서 env로만 결정한다.
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
 // network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
-// 닿는다(T11). 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
+// 닿는다. 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
 // (platform/io spec과 같다). 준비 worker는 이 coordinator가 띄우는 자식이라 core가 따로
 // 선언하지 않는다(spec은 packages/core/projects/file-tracking/worker/launch.ts).
 export function workerSpecs(
@@ -229,7 +229,7 @@ function codeReads(): string[] {
     /\/$/,
     "",
   );
-  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다.
   const home = Deno.env.get("HOME");
   let configured: string | undefined;
   try {
@@ -436,12 +436,12 @@ export function createLedgerRegistration(
     ],
     // 제출 파일 바이트 route. 준비 중계로 흘려 보내는 handler는 core.ts가 붙인다.
     uploadRoutes: UPLOAD_ROUTES,
-    // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
+    // 단계적 읽기. 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
     files: [
       ...[...READ_ROUTES].filter((route) => route.kind === "file"),
       filesRead,
     ],
-    // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
+    // 문서 worker 뼈대. 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),
   };
@@ -462,7 +462,7 @@ function registerWorkers(): KindLaunchSpec[] {
 }
 
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
-// 만든다(platform/ledger#R15, documents plan Q17).
+// 만든다(documents plan Q17).
 export function createEventRegistration(): EventRegistration {
   return createDocumentsEventRegistration();
 }

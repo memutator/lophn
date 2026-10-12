@@ -124,7 +124,7 @@ export const connectionCreate = defineCommand({
   errors: ["invalid_input", "forbidden", "conflict"],
 });
 
-// 사람의 연결 결정 입구다(coding-agent/connection#R2). 사람이 고른 이름·범위만 받고 token 생성·
+// 사람의 연결 결정 입구다. 사람이 고른 이름·범위만 받고 token 생성·
 // 붙여 넣기 field가 없다. core의 인증 경계가 token을 자동 발급해 OS keychain에 보관한 뒤 검증 hash만
 // connection create command로 제출한다. 결과에는 connection 참조만 있고 token·hash는 없다. 확인 창은
 // 없다(회수만 묻는다). coding agent·app는 호출할 수 없다.
@@ -148,7 +148,7 @@ export const connectionConnect = defineMemory({
 });
 
 // 신뢰 감독(shell main)이 lophn이 띄운 coding TUI 아래의 MCP·CLI child process generation을 core의
-// 보호 전달 인증 경계에 등록·해제하는 입구다(platform/identity#R15, coding-agent/connection#R17). 사람
+// 보호 전달 인증 경계에 등록·해제하는 입구다. 사람
 // credential(shell main이 가진 user token)만 부른다. coding agent·app·agent는 호출할 수 없다. scope는 본문으로
 // 받지 않고 core가 ledger의 connection 현재 상태에서 읽는다. 회수·없는 connection은 등록하지 않는다.
 // process_generation은 `<pid>.<시작 tick>`, loader_identity는 설치된 helper의 절대 경로다.

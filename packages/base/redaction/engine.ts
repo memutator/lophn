@@ -29,9 +29,9 @@ export type RedactionEngine = {
     input: RedactionInput,
     body: string,
   ): Promise<RedactionResult>;
-  // 저장 때 redaction한 자료를 현재 규칙으로 다시 검사한다(R16).
+  // 저장 때 redaction한 자료를 현재 규칙으로 다시 검사한다.
   recheck(input: RedactionInput, body: string): Promise<RedactionResult>;
-  // 삭제·차단 감사. 값·hash·일부를 남기지 않는다(R17).
+  // 삭제·차단 감사. 값·hash·일부를 남기지 않는다.
   auditBlock(location: string): RedactionOmission;
 };
 
@@ -76,7 +76,7 @@ function omitted(
 }
 
 function blocked(revision: string): RedactionResult {
-  // 전체 제출을 막는다. 남는 것은 보호 입력 안내뿐이고 원문은 없다(R4).
+  // 전체 제출을 막는다. 남는 것은 보호 입력 안내뿐이고 원문은 없다.
   return {
     rule_revision: revision,
     status: "omitted",
@@ -213,7 +213,7 @@ export function createRedactionEngine(
     redactedLocations.push(...textLocations);
     const droppedFields: string[] = [];
 
-    // secret을 지운 뒤에 선언 필드만 남긴다. 미선언·private는 구조째 뺀다(R8).
+    // secret을 지운 뒤에 선언 필드만 남긴다. 미선언·private는 구조째 뺀다.
     if (
       input.media_type === "application/json" &&
       (input.safe_fields.length > 0 || input.private_fields.length > 0)

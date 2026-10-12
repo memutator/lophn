@@ -37,7 +37,7 @@ export const operatorScopeSchema = z.discriminatedUnion("kind", [
   scopeBranches[2],
 ]);
 
-// 멈춤은 담당 자리가 보관된 동안만이다(assignments#Q4).
+// 멈춤은 담당 자리가 보관된 동안만이다.
 const pauseFields = {
   kind: z.literal("scope_archived"),
   detail: z.string().refine((value) => value.trim().length > 0, {

@@ -8,7 +8,7 @@ import {
 import { confirmationBinding } from "./confirmation-binding.ts";
 
 // file·worker route는 ledger transaction이 없다. core의 registry가 대상·내용과 맞는지
-// 확인하고 메모리에서 원자적으로 소비한 뒤에만 worker로 넘긴다(ledger#R22).
+// 확인하고 메모리에서 원자적으로 소비한 뒤에만 worker로 넘긴다.
 // 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다. 사람이 다시 확인한다.
 export async function consumeRouteConfirmation(
   bridge: ConfirmationBridge | RouteConfirmation,

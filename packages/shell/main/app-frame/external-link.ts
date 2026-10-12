@@ -1,4 +1,4 @@
-// 앱의 외부 링크(shell/app-frame#R5, R6). live·preview 모두 HTTP·HTTPS이면서 userinfo가 없고
+// 앱의 외부 링크. live·preview 모두 HTTP·HTTPS이면서 userinfo가 없고
 // 8,192자 이하인 URL만 확인 없이 OS 기본 browser로 연다. 앱 view 안에서는 열지 않는다(view
 // 탐색은 자기 scheme만 통과한다, network-policy.ts). 기록에는 origin·path만 남기고 query·
 // fragment(OAuth state·비밀)는 어디에도 쓰지 않는다. shell 크롬의 링크 경로와 caller를 섞지 않는다

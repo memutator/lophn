@@ -12,7 +12,7 @@ import {
 } from "../../../protocol/server/mod.ts";
 import type { JsonValue } from "../../../protocol/base/mod.ts";
 
-// 존재를 새지 않는 문구다. 범위 밖과 없는 대상은 같은 말로 답한다(platform/identity#R8).
+// 존재를 새지 않는 문구다. 범위 밖과 없는 대상은 같은 말로 답한다.
 export const NOT_FOUND = "대상을 찾을 수 없다";
 const FORBIDDEN = "이 credential로는 할 수 없다";
 const CURSOR_INVALID = "cursor가 올바르지 않다";

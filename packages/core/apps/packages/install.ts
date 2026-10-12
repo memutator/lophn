@@ -1,8 +1,8 @@
-// SDK 설치(package catalog과 설치, apps/sdk#R4, R8, R9, R11, R13).
+// SDK 설치(package catalog과 설치).
 // packages/sdk/<name>의 검증된 소스를 패키지마다 자기 완결 byte로 묶고, hash·guide
 // hash를 blob으로 준비한 뒤 machine으로 register_version을 제출하고, 설치 사본을
 // sdk/<name>/<version>/의 파일 0444·디렉터리 0555로 풀어 놓는다. 공개 마켓·외부
-// Package 등록은 없다(R13) — packages/sdk/* 밖 이름은 거절이다.
+// Package 등록은 없다 — packages/sdk/* 밖 이름은 거절이다.
 
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
@@ -55,7 +55,7 @@ function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
 }
 
-// 외부 Package 등록은 없다(R13). supply 범위는 설치 제공 재료다.
+// 외부 Package 등록은 없다. supply 범위는 설치 제공 재료다.
 function installRefused(name: string): Result<never> {
   return forbidden(`package ${name} is outside the install-provided SDK set`);
 }
@@ -107,7 +107,7 @@ function sortFiles(files: SourceFile[]): SourceFile[] {
   return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-// 사본이 packages/sdk/<name> 밖에서 가져오는 소스를 vendor/로 함께 담고 specifier를 바꾼다(R9, R10).
+// 사본이 packages/sdk/<name> 밖에서 가져오는 소스를 vendor/로 함께 담고 specifier를 바꾼다.
 async function vendorFiles(
   name: string,
   files: readonly SourceFile[],
@@ -171,7 +171,7 @@ export function splitPackageName(
   return ok({ scope, part });
 }
 
-// 검증된 설치 내용만 설치한다(R13).
+// 검증된 설치 내용만 설치한다.
 export async function installPackage(
   name: string,
   description: string,
@@ -183,7 +183,7 @@ export async function installPackage(
   if (isWithheldPackageName(name)) {
     return installRefused(name);
   }
-  // scope 검사를 이름 schema보다 먼저 해 catalog 밖 scope도 forbidden으로 거절이다(R13).
+  // scope 검사를 이름 schema보다 먼저 해 catalog 밖 scope도 forbidden으로 거절이다.
   const rawSlash = name.indexOf("/");
   const rawScope = rawSlash > 0
     ? safeNamePart(name.slice(1, rawSlash))
@@ -265,7 +265,7 @@ export async function installPackage(
     if (!registered.ok) return registered;
   }
 
-  // 설치 사본 sdk/<name>/<version>/. 파일 0444·디렉터리 0555(R9).
+  // 설치 사본 sdk/<name>/<version>/. 파일 0444·디렉터리 0555.
   const target = `${deps.dataRoot}/sdk/${split.value.part}/${version}`;
   const copied = await writeInstallCopy(target, files.value);
   if (!copied.ok) return copied;
@@ -298,7 +298,7 @@ export type InstallResult = {
 };
 
 // 공용 UI Package가 import하는 지원 소스를 sdk/<name>/<version>/에 읽기 전용으로 풀어 놓는다.
-// catalog Package가 아니라 register_version은 없다(apps/sdk#R13). 같은 byte면 hash도 같다.
+// catalog Package가 아니라 register_version은 없다. 같은 byte면 hash도 같다.
 export async function installSupportPackage(
   name: string,
   deps: Pick<InstallDeps, "dataRoot" | "packagesRoot">,
@@ -315,7 +315,7 @@ export async function installSupportPackage(
   if (!collected.ok) return collected;
   const files = sortFiles(collected.value);
   const target = `${deps.dataRoot}/sdk/${split.value.part}/${support.version}`;
-  // 같은 byte의 사본이 이미 있으면 그대로 둔다. 읽기 전용 사본을 다시 쓰지 않는다(R8, R9).
+  // 같은 byte의 사본이 이미 있으면 그대로 둔다. 읽기 전용 사본을 다시 쓰지 않는다.
   if (!await sameInstallCopy(target, files)) {
     const copied = await writeInstallCopy(target, files);
     if (!copied.ok) return copied;
@@ -351,7 +351,7 @@ async function removeInstallCopy(target: string): Promise<void> {
   }
 }
 
-// 설치 템플릿을 `<dataRoot>/templates/app/`에 읽기 전용(파일 0444·디렉터리 0555)으로 둔다(apps/sdk#R35).
+// 설치 템플릿을 `<dataRoot>/templates/app/`에 읽기 전용(파일 0444·디렉터리 0555)으로 둔다.
 // 내용은 고정 hash와 같을 때만 설치한다. 같은 byte의 사본이 있으면 그대로 두고, 다른 사본(옛 판)이면
 // 새 판으로 바꾼다. 템플릿은 SDK Package가 아니라 catalog 등록은 없다.
 export async function installTemplate(
@@ -422,7 +422,7 @@ export async function writeInstallCopy(
     await Deno.mkdir(target, { recursive: true, mode: 0o755 });
     directories = [target];
     for (const file of files) {
-      // 깊은 파일의 중간 폴더도 모두 0555로 좁힌다(R9).
+      // 깊은 파일의 중간 폴더도 모두 0555로 좁힌다.
       const segments = file.path.split("/").slice(0, -1);
       for (let depth = 1; depth <= segments.length; depth += 1) {
         const directory = `${target}/${segments.slice(0, depth).join("/")}`;
@@ -441,7 +441,7 @@ export async function writeInstallCopy(
       }`,
     });
   }
-  // 사본 디렉터리는 모두 0555다(R9). 깊은 곳부터 좁힌다.
+  // 사본 디렉터리는 모두 0555다. 깊은 곳부터 좁힌다.
   for (const directory of [...directories].reverse()) {
     try {
       await Deno.chmod(directory, 0o555);
@@ -452,7 +452,7 @@ export async function writeInstallCopy(
   return ok(undefined);
 }
 
-// 설치된 사본이 정말 0444·0555인지 폴더 끝까지 본다(R9). 테스트와 install checker가 쓴다.
+// 설치된 사본이 정말 0444·0555인지 폴더 끝까지 본다. 테스트와 install checker가 쓴다.
 export async function verifyInstallPermissions(
   target: string,
 ): Promise<Result<void>> {
@@ -485,7 +485,7 @@ export async function verifyInstallPermissions(
   return await visit(target, ".");
 }
 
-// catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다(R13).
+// catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다.
 export function verifiedOnly(
   registered: readonly { name: string }[],
   name: string,

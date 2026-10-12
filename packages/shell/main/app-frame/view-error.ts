@@ -1,4 +1,4 @@
-// 앱 view의 처리되지 않은 오류 전달(problems/reporting#R5, R6). 설치 preload가 내부
+// 앱 view의 처리되지 않은 오류 전달. 설치 preload가 내부
 // `app:view-error`로 `{observation, name, message}`만 보내고, 앱·release·mode·view 연결은
 // main이 IPC를 보낸 실제 view에서 정해 붙인다. 페이지가 주장한 앱·release는 받을 자리가 없고
 // 모르는 field가 있는 메시지는 버린다. 깨진 페이지가 오류를 쏟아도 view마다 창당 상한까지만

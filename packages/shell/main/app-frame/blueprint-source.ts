@@ -1,4 +1,4 @@
-// 앱 view의 고정 blueprint를 core의 `/v1/apps/blueprint`(apps#T19)로 읽는다. 그 read는 앱의 active
+// 앱 view의 고정 blueprint를 core의 `/v1/apps/blueprint`로 읽는다. 그 read는 앱의 active
 // release blueprint 하나만 내므로, view가 묶인 release와 같을 때만 그 blueprint를 쓴다. 다르면
 // (release가 바뀜) 다른 release의 선언으로 command를 판정하지 않는다. release 없는 preview는
 // 이 read로 알 수 없어 unavailable이다.

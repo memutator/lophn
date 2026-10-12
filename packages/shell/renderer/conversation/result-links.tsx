@@ -14,14 +14,14 @@ export interface ResultLinksProps {
   contexts?: ContextLinks;
 }
 
-/** 대화 속 context 이름 링크가 작업대와 나누는 것(shell/workspace#R31). */
+/** 대화 속 context 이름 링크가 작업대와 나누는 것. */
 export interface ContextLinks {
   open(context: string): void;
   /** 알려진 context의 이름. 모르면 undefined다. */
   titleOf(context: string): string | undefined;
 }
 
-/** 결과 링크 접기(desktop#R3). 4개 이상이면 첫 3개와 남은 개수만 보인다. */
+/** 결과 링크 접기. 4개 이상이면 첫 3개와 남은 개수만 보인다. */
 const RESULT_FOLD_AT = 4;
 const RESULT_SHOWN = 3;
 
@@ -45,7 +45,7 @@ function linkKey(link: ResultLink): string {
     : link.document;
 }
 
-// 답 아래의 결과. 4개 이상이면 첫 3개·남은 개수·나머지 보기로 접는다(shell/desktop#R3).
+// 답 아래의 결과. 4개 이상이면 첫 3개·남은 개수·나머지 보기로 접는다.
 export function ResultLinks(
   { links, source, onOpen, contexts }: ResultLinksProps,
 ) {

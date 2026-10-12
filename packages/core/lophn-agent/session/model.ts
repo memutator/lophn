@@ -16,7 +16,7 @@ import {
   defineBlobField,
 } from "../../../protocol/storage/mod.ts";
 
-// 본문 blob은 영구 보존이다(R2). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
+// 본문 blob은 영구 보존이다. 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
 // 그 assignment의 agent, machine)는 ReadMessageBody가 판정한다.
 export const messageBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
@@ -34,8 +34,8 @@ export const messageBodyFields: readonly BlobFieldDefinition[] = [
 // 만든다. 본문은 열에 없고 hash만 남는다. 세션의 identity(assignment·자리·출처·첫
 // context)는 바뀌지 않고, 닫힌 세션은 다시 열리거나 model·요약이 바뀌지 않는다.
 // 확정 메시지의 본문·발언자·세션·mode·생성 순번은 덮어쓰지 않고 최초 반영은 한 번만
-// 설정한다(R3). 세션과 메시지는 DeleteSession만 지운다: 진행 중이거나 기다리는 run이
-// 있는 세션은 행 단계에서도 지우지 못한다(R20).
+// 설정한다. 세션과 메시지는 DeleteSession만 지운다: 진행 중이거나 기다리는 run이
+// 있는 세션은 행 단계에서도 지우지 못한다.
 export const conversationSchemaSteps: readonly SchemaStep[] = [
   {
     id: "lophn-agent.conversation.tables",
@@ -334,7 +334,7 @@ export function loadRunRef(lookup: Lookup, id: string): RunRef | undefined {
   };
 }
 
-// 세션의 가장 최근에 접수한 run. 다음 일의 선행 run이다(R6).
+// 세션의 가장 최근에 접수한 run. 다음 일의 선행 run이다.
 export function latestSessionRun(
   lookup: Lookup,
   session: string,
@@ -346,7 +346,7 @@ export function latestSessionRun(
   return row === undefined ? null : String(row["id"]);
 }
 
-// 세션의 첫 사람 request가 이미 있는지. 첫 request만 제목을 정한다(R18). Fork 복사본은
+// 세션의 첫 사람 request가 이미 있는지. 첫 request만 제목을 정한다. Fork 복사본은
 // mode가 없어 세지 않는다.
 export function hasPersonRequest(lookup: Lookup, session: string): boolean {
   return lookup.sql.get(
@@ -356,7 +356,7 @@ export function hasPersonRequest(lookup: Lookup, session: string): boolean {
   ) !== undefined;
 }
 
-// Compact 요청(conversation#R10). 요청 event의 순번이 요청의 이름이다. session마다 끝나지 않은 요청은 하나다.
+// Compact 요청. 요청 event의 순번이 요청의 이름이다. session마다 끝나지 않은 요청은 하나다.
 // 요청의 진행은 session 행을 바꾸지 않으므로 사람의 입력 접수(session의 state_seq)에 닿지 않는다.
 export function openCompactRequest(
   lookup: Lookup,
@@ -414,7 +414,7 @@ export function loadAssignmentRef(
   };
 }
 
-// 정상 종료를 막는 미반영 steering(run-loop R14). 현재 일 수정(correction)만
+// 정상 종료를 막는 미반영 steering. 현재 일 수정(correction)만
 // 센다. 다음 일(request)은 자기 run을 따로 갖고 정상 종료를 막지 않는다.
 export function hasUnappliedSteering(lookup: Lookup, run: string): boolean {
   return lookup.sql.get(
@@ -453,7 +453,7 @@ function exists(
   return lookup.sql.get(query, params) !== undefined;
 }
 
-// 메시지 link는 실제 존재하는 대상만 가리킨다(R4). 계획이나 아직 없는 산출물은
+// 메시지 link는 실제 존재하는 대상만 가리킨다. 계획이나 아직 없는 산출물은
 // 링크가 될 수 없다.
 export function linkExists(lookup: Lookup, link: MessageLink): boolean {
   switch (link.kind) {

@@ -2,7 +2,7 @@
 // 내용을 쓴다. 판이 없어 입력 멈춤에 쓸 곳이 없으므로 글은 창의 편집 session 묶음이 붙들고, 편집
 // 종료(읽기 전환·CommandOrControl+S·화면 떠남·창 닫기)가 첫 판을 만든다. 그 저장이 같은
 // transaction에서 멤버 가입과 draft 비움을 한다(documents). 메타 줄은 draft 보존과 판 확정을 다른
-// 상태로 보이고(shell/editor#R2), 저장 버튼은 없다(R12). 첫 판 뒤의 고침은 그 문서의 working copy로
+// 상태로 보이고, 저장 버튼은 없다. 첫 판 뒤의 고침은 그 문서의 working copy로
 // 파일 통로를 탄다.
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
@@ -123,7 +123,7 @@ export function MemberWriter(
     const stop = session.subscribe(setFacts);
     return () => {
       stop();
-      // 화면을 떠나는 것도 편집 종료다. 고친 글이 있으면 첫 판을 만든다(R1).
+      // 화면을 떠나는 것도 편집 종료다. 고친 글이 있으면 첫 판을 만든다.
       sessions.releaseDraft(draft.document);
     };
   }, [session, sessions, draft.document]);

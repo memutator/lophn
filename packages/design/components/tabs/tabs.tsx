@@ -10,7 +10,7 @@ export interface TabsProps {
   children: ReactNode;
 }
 
-// 일반 탭이다. 작업대 문서 탭 모양은 shell/editor가 따로 둔다(shell/design-system#R29).
+// 일반 탭이다. 작업대 문서 탭 모양은 shell/editor가 따로 둔다.
 export function Tabs(props: TabsProps) {
   return <Radix.Root {...props} className={styles.root} />;
 }
@@ -26,7 +26,7 @@ export interface TabProps {
   size?: ControlSize;
 }
 
-// 같은 크기의 Button·Input·Select와 높이·좌우 여백·기준선이 같다(shell/design-system#R26).
+// 같은 크기의 Button·Input·Select와 높이·좌우 여백·기준선이 같다.
 export function Tab({ value, children, disabled, size = "md" }: TabProps) {
   return (
     <Radix.Trigger

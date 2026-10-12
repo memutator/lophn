@@ -1,4 +1,4 @@
-// 수리 자료 조립이 쓰는 읽기 port와 조립 근거 모양(repair-context#R1, R2, R18).
+// 수리 자료 조립이 쓰는 읽기 port와 조립 근거 모양.
 // port는 현재 연결 범위 안의 정본 read 하나씩이다. 조립은 이 port 밖의 자료를 읽지 않고
 // 완성 묶음을 저장하지 않는다.
 import type { Result } from "../../../../base/mod.ts";

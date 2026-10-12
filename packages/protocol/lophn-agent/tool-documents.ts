@@ -11,7 +11,7 @@ import {
   versionIdSchema,
 } from "../projects/mod.ts";
 
-// 문서·format tool의 글 값 통로(lophn-agent/harness/tools#R6, R7). tool은 본문을 글(UTF-8)로
+// 문서·format tool의 글 값 통로. tool은 본문을 글(UTF-8)로
 // 싣고 hash·blob을 만들지 않는다. core가 요청 자격으로 글을 redaction해 UTF-8 bytes로 blob을
 // 준비한 뒤 documents의 준비·저장·검사 경로를 부른다(`document.prepare`·`document.save`·
 // format 검사). 저장 범위(원본 연결·보관·지침 문서·파일 source 금지)는 documents/versions가

@@ -1,4 +1,4 @@
-// shell renderer가 main에 부탁하는 앱 창 일(shell/desktop#R13, R14). 앱 공간의 [Open in new
+// shell renderer가 main에 부탁하는 앱 창 일. 앱 공간의 [Open in new
 // window]와 OS 앱 바로가기 추가·삭제다. 입력은 앱 ID 하나뿐이고 이름·실행 파일 경로는 main이
 // core 기록과 검증한 실행 파일에서 정한다.
 import { z } from "zod";

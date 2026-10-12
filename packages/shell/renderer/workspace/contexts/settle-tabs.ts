@@ -1,4 +1,4 @@
-// 복원한 layout의 Context·Search 탭을 지금의 context 목록으로 고른다(shell/workspace#R6). 없어졌거나
+// 복원한 layout의 Context·Search 탭을 지금의 context 목록으로 고른다. 없어졌거나
 // 보관된 context의 탭은 다른 없는 대상처럼 빠지고, 남는 탭은 이름을 얻는다. 나머지 탭의 순서와
 // 선택은 그대로다.
 import { t } from "@lophn/wording";

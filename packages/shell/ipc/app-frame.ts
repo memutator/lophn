@@ -67,7 +67,7 @@ export const appFrameViewStateSchema = z.object({
   screen: screenKey,
   size,
   connectionState: z.enum(["preparing", "stopped", "running", "unavailable"]),
-  // 화면 process 상태(shell/app-frame#R21). main은 늘 싣고, 없으면 ok로 읽는다. 깨진 view만
+  // 화면 process 상태. main은 늘 싣고, 없으면 ok로 읽는다. 깨진 view만
   // [새 view 열기]를 받는다.
   viewHealth: z.enum(["ok", "unresponsive", "crashed"]).optional(),
 }).refine((value) => value.mode === "preview" || value.release !== null);

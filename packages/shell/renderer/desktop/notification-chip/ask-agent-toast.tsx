@@ -26,7 +26,7 @@ export interface AskAgentToastProps {
   clock?: Clock;
 }
 
-// lophn이 가진 사건을 알리는 toast(shell/desktop#R35). 단추는 [Ask <agent 이름>] [View] 순서이고 [×]가
+// lophn이 가진 사건을 알리는 toast. 단추는 [Ask <agent 이름>] [View] 순서이고 [×]가
 // 뒤에 온다. Ask는 알림 행이 실어 온 요청 값으로 callback을 부른다.
 export function AskAgentToast(
   {

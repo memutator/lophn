@@ -1,6 +1,6 @@
 // 창 하나의 문서 탭 통로를 preload bridge로 만든다. bridge가 없으면 메뉴는 열지 못한다고
 // 답하고 core 읽기는 connection의 unavailable을 그대로 보인다. 편집 파일 통로(lophnEditor)가
-// 있으면 창의 편집 session 묶음을 만들고 main의 창 닫기 질문을 듣는다(shell/editor#R1).
+// 있으면 창의 편집 session 묶음을 만들고 main의 창 닫기 질문을 듣는다.
 import type { EditorFilesApi } from "../../ipc/editor.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -45,7 +45,7 @@ export function windowEditorDeps(core: CoreSource): EditorDeps {
     source,
     // 이력·비교는 core 읽기, 복원은 main의 편집 통로(준비·파일 쓰기)다.
     versions: coreVersionSource(core, source, api),
-    // core 끊김(desktop#R7)에서 저장 gate와 확인 시각을 화면이 알게 같은 통로를 남긴다.
+    // core 끊김에서 저장 gate와 확인 시각을 화면이 알게 같은 통로를 남긴다.
     core,
     readingWidth: readingWidthStore(
       coreSettingsPort(core, () => `reading-width-${crypto.randomUUID()}`),

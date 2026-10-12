@@ -1,4 +1,4 @@
-// fake harness TUI 모드다(coding-agent#T41). 수리 script와 별개이고 claim·보고를
+// fake harness TUI 모드다. 수리 script와 별개이고 claim·보고를
 // 하지 않는다. 테스트 catalog의 ExecutionSpec만 따른다. argv는 prompt를 한 인자로
 // 받고 끝나며, stdin_after_ready는 readiness를 낸 뒤 host가 쓰는 bracketed paste
 // 한 번만 읽는다. 준비 신호가 없으면 stdin으로 prompt를 받지 않는다.

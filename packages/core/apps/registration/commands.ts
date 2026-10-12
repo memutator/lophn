@@ -48,7 +48,7 @@ function requireWriter(ctx: RequestContext): Result<void> {
     : forbidden("app changes are user or coding connection only");
 }
 
-// 등록은 전체 범위 요청만 받는다(R3). 앱 하나 scope의 conditions.app은
+// 등록은 전체 범위 요청만 받는다. 앱 하나 scope의 conditions.app은
 // 새 앱 id를 가리킬 수 없으므로 connection scope가 앱이면 거른다.
 function requireWholeScope(ctx: RequestContext): Result<void> {
   return ctx.conditions.app === undefined
@@ -74,7 +74,7 @@ function accessTarget(
   return { kind: "command", before, after };
 }
 
-// 등록 뒤 place 예약은 documents/addressing을 따른다(R6, R10). Project와 같은
+// 등록 뒤 place 예약은 documents/addressing을 따른다. Project와 같은
 // 이름 공간이라 Project slug와 겹치면 conflict다. 구현은 core 조립이 등록한 port다.
 export function reserveSlug(tx: Tx, app: App): Result<void> {
   return tx.port(placeNameReservation).reserve(
@@ -160,7 +160,7 @@ export function createAppCommands(): {
         if (!current.ok) return current;
         if (current.value === null) return notFound();
         // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인은
-        // core에 두지 않는다(R4, architecture/apps 배치표). bundle 준비 때 release
+        // core에 두지 않는다(architecture/apps 배치표). bundle 준비 때 release
         // worker가 연결된 실제 source 경계를 읽고, 없는 source는 준비 실패가 된다.
         const resolved = input.source_path;
         const changed: App = { ...current.value, source_path: resolved };
@@ -176,7 +176,7 @@ export function createAppCommands(): {
         if (current.value.revision !== compare.base_revision) {
           return conflict("app revision changed");
         }
-        // source 연결은 운영 상태를 건드리지 않는다(R5). active_release·
+        // source 연결은 운영 상태를 건드리지 않는다. active_release·
         // run_enabled·status는 current 값을 그대로 쓴다.
         const seq = tx.emit(appSourceConnected, changed.id, {
           source_path: resolved,
@@ -221,7 +221,7 @@ export function createAppCommands(): {
           {
             from: "archived",
             to: "active",
-            // 보관 해제는 실행 재개의 숨은 동의가 아니다. false를 유지한다(R8).
+            // 보관 해제는 실행 재개의 숨은 동의가 아니다. false를 유지한다.
             event: appUnarchived,
             payload: { run_enabled: false as const },
           },

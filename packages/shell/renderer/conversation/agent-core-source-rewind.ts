@@ -248,7 +248,7 @@ export function createRewindPart(
         ) continue;
         let blocked: RewindPoint["blocked"] = {};
         if (checkpoint === undefined) {
-          // 진행 중 보낸 수정과 Fork 복사본은 checkpoint가 없어 대화만 되돌린다(R12).
+          // 진행 중 보낸 수정과 Fork 복사본은 checkpoint가 없어 대화만 되돌린다.
           const why: RewindBlock = message.mode === "correction"
             ? "correction"
             : "copied";

@@ -16,7 +16,7 @@ const unavailable = () =>
 // entry는 H/derived/api-subscriptions 절대 경로와 현재 ledger 식별(`platform/status`의 ledger_id)을
 // 넘긴다. ledger handle은 받지 않는다. 저장소에 적힌 식별이 다르면(ledger를 새로 만들었거나 복원한
 // 뒤) 옛 ledger의 위치를 버리고 비어 있는 저장소로 다시 시작한다. 다른 ledger의 같은 seq를 이어
-// 쓰지 않는다(backup-and-migration#R14).
+// 쓰지 않는다.
 export async function createSubscriptionStore(
   directory: string,
   ledgerId: string,

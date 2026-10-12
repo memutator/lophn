@@ -1,6 +1,6 @@
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 
-// 결과 상한(R13, R14). 목록·검색은 한 번에 20개. 텍스트는 UTF-8 24 KiB와 300줄
+// 결과 상한. 목록·검색은 한 번에 20개. 텍스트는 UTF-8 24 KiB와 300줄
 // 중 먼저 닿는 곳에서 자른다. 문서는 앞, log는 뒤를 남기고 JSON·Unicode를 깨지
 // 않는다.
 
@@ -60,7 +60,7 @@ export type TextLimit = {
   omittedCount: number;
 };
 
-// direction head는 문서·목록, tail은 log다(R14). 멀티바이트 문자와 JSON 문자열
+// direction head는 문서·목록, tail은 log다. 멀티바이트 문자와 JSON 문자열
 // 경계를 넘지 않게 UTF-8 code point와 줄 경계에서만 자른다.
 export function limitText(
   text: string,
@@ -132,7 +132,7 @@ function countOmitted(original: string, kept: string): number {
 }
 
 // JSON 결과는 문자열 한가운데를 자르지 않는다. 상한을 넘으면 content를 비우고
-// 생략을 표시한다(R14).
+// 생략을 표시한다.
 export function limitJson(value: unknown): {
   content: unknown;
   complete: boolean;
@@ -154,7 +154,7 @@ export function boundedResult(
 }
 
 // 소유 contract의 cursor를 감싸는 이어 보기 위치다. 조건(scope)을 같이 담아 다른 조건의 목록에서
-// 온 cursor를 거절하고(R13), 한 page에서 앞 20개만 보여 준 뒤의 위치(skip)도 지킨다.
+// 온 cursor를 거절하고, 한 page에서 앞 20개만 보여 준 뒤의 위치(skip)도 지킨다.
 // 소유 contract의 cursor는 그대로 안에 둔다. 해석하거나 만들어 내지 않는다.
 export type WindowCursor = {
   inner: string | null;
@@ -202,7 +202,7 @@ function jsonBytes(value: unknown): number {
 }
 
 // 상한을 넘는 JSON 결과는 지정한 배열 키의 뒤쪽 항목부터 덜어 낸다. 항목 하나를 쪼개지 않으므로
-// JSON·문자열 경계가 깨지지 않고, 덜어 낸 수는 content.omitted에 남는다(R14). 덜어 낼 배열이
+// JSON·문자열 경계가 깨지지 않고, 덜어 낸 수는 content.omitted에 남는다. 덜어 낼 배열이
 // 없으면 content를 비운다(limitJson과 같다).
 export function fitJson(
   value: Record<string, unknown>,

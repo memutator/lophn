@@ -1,5 +1,5 @@
-// 앱 공간 title bar의 agent select(shell/app-frame#R37~R39). 앱 공간은 lophn sidebar를 쓰지 않으므로
-// 이 select가 agent를 여는 유일한 길이다(알림의 [Ask App Engineer]는 select를 거치지 않는다, R40).
+// 앱 공간 title bar의 agent select. 앱 공간은 lophn sidebar를 쓰지 않으므로
+// 이 select가 agent를 여는 유일한 길이다(알림의 [Ask App Engineer]는 select를 거치지 않는다).
 // 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 contracts를
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
@@ -34,12 +34,12 @@ export interface AppSpaceAgent {
 export interface AgentSelectProps {
   /**
    * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, App Engineer, 이 앱의 Operator들(들어온 순서).
-   * Context Engineer는 앱 공간에서 부르지 않으므로 들어와도 그리지 않는다(R37).
+   * Context Engineer는 앱 공간에서 부르지 않으므로 들어와도 그리지 않는다.
    */
   agents: readonly AppSpaceAgent[];
-  /** agent 항목을 골랐다. 그 agent의 Agent component를 앱 화면 옆 칸에 여는 일은 부르는 쪽 몫이다(R38). */
+  /** agent 항목을 골랐다. 그 agent의 Agent component를 앱 화면 옆 칸에 여는 일은 부르는 쪽 몫이다. */
   onOpenAgent: (assignment: string) => void;
-  /** Manage를 골랐다. 같은 칸에 앱 자리의 agent 관리를 여는 일은 부르는 쪽 몫이다(R39). */
+  /** Manage를 골랐다. 같은 칸에 앱 자리의 agent 관리를 여는 일은 부르는 쪽 몫이다. */
   onManage: () => void;
 }
 

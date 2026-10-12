@@ -22,7 +22,7 @@ export interface TrackingProject {
     readonly description: string;
   }[];
   readonly tracking: RuleSet;
-  /** 처음 켤 때의 기본 제안(documents/projects#R3). */
+  /** 처음 켤 때의 기본 제안. */
   readonly proposal: RuleSet;
 }
 
@@ -34,7 +34,7 @@ export interface PreviewEntry {
   readonly reason: string;
 }
 
-/** 끝까지 모은 미리보기. 적용은 미리 본 바로 그 구성을 보낸다(documents/projects#R6). */
+/** 끝까지 모은 미리보기. 적용은 미리 본 바로 그 구성을 보낸다. */
 export interface Preview {
   readonly baseRevision: string;
   readonly rules: RuleSet;
@@ -43,7 +43,7 @@ export interface Preview {
   readonly basis: unknown;
 }
 
-/** 다른 프로젝트에서 추적이 켜진 폴더. 겹침 검사에 쓴다(documents/projects#R7). */
+/** 다른 프로젝트에서 추적이 켜진 폴더. 겹침 검사에 쓴다. */
 export interface TrackedRoot {
   readonly project: string;
   readonly title: string;

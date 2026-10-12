@@ -1,6 +1,6 @@
 // settings 통로들(일반·providers·agents)이 같이 쓰는 core 부르기와 보호 창 열기. 응답은 main의
 // contract client가 route output schema로 이미 검사했다. secret 값은 이 파일을 지나지 않는다: key·
-// 로그인 응답은 보호 창이 받고 여기서는 창 열기만 한다(platform/secrets#R2).
+// 로그인 응답은 보호 창이 받고 여기서는 창 열기만 한다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { CoreSource } from "../../connection/connection.ts";
@@ -80,7 +80,7 @@ export function windowLinkOpener():
     : undefined;
 }
 
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
+// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
 const PARENT_WINDOW = "requesting-window";
 
 /** 보호 창을 연다. 열렸으면 ok, 창이 없거나 열지 못했으면 그 이유다. */

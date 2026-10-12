@@ -1,4 +1,4 @@
-// app test 한 건을 실제 runner 경로로 돌린다(problems/tests#R6–R9, R12, R13–R19). 고정 bundle 사본과 고정
+// app test 한 건을 실제 runner 경로로 돌린다. 고정 bundle 사본과 고정
 // 시험(실패 경로 목록)에서 필수 검사 계획을 만들고, 실제 앱 자식·broker(app-driver.ts)를 띄우고, 요청마다
 // 새 Deno test 자식(플랫폼 harness)을 runner의 격리 flag로 띄운 뒤, 자식이 private 통로로 낸 관측 frame을
 // 판정한다. 결과를 ledger에 쓰는 것(RecordVerification)은 이 함수를 부른 쪽의 몫이다.
@@ -103,7 +103,7 @@ export type AppTestJobResult = {
 // 제품 runner의 연결 자리다. 없으면(stdin 한 건 모드) 한 요청 안의 collector 대역이 mode=test·scope로 접수한
 // 보고를 모은다.
 export type AppTestHooks = {
-  // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다(problems/tests#R17).
+  // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다.
   started?: (child: { started_at: string; mode: string }) => Promise<void>;
   // 실제 collector 연결. 앱 SDK 보고·process 예외·화면 host 관측을 그 요청의 mode=test·scope로 core에 넘긴다.
   collector?: {

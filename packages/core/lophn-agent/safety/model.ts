@@ -3,7 +3,7 @@ import type { ToolOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
 // 같은 요청 비교(domain-model lophn-agent/harness/safety RepeatedFailure).
 // tool·대상·입력이 같은 경우만 같다. canonical JSON은 객체 key 순서만 무시하고
-// 문자열 공백·배열 순서·빈 값·생략·null·값 종류는 그대로 구별한다(R1).
+// 문자열 공백·배열 순서·빈 값·생략·null·값 종류는 그대로 구별한다.
 export type ToolRequest = {
   tool: string;
   target: string | null;
@@ -15,7 +15,7 @@ export function requestKey(request: ToolRequest): Promise<string> {
 }
 
 // 실패 수는 그 요청이 성공할 때만 0이 된다. 다른 요청의 성공·실패, model 변경,
-// compaction, 재시작은 이 값을 지우지 않는다(R3).
+// compaction, 재시작은 이 값을 지우지 않는다.
 export type RepeatedFailure = {
   run: string;
   request_key: string;
@@ -24,8 +24,8 @@ export type RepeatedFailure = {
   block_call: string | null;
 };
 
-// 최종 실패는 자동 retry가 모두 끝난 뒤 한 요청당 한 번 센다(R2). 사람 거절과
-// 미실행 outcome은 실패 수에 넣지 않는다(R3).
+// 최종 실패는 자동 retry가 모두 끝난 뒤 한 요청당 한 번 센다. 사람 거절과
+// 미실행 outcome은 실패 수에 넣지 않는다.
 export function isFinalFailure(outcome: ToolOutcome): boolean {
   return outcome.kind === "failure";
 }
@@ -43,7 +43,7 @@ export function countFailure(
   };
 }
 
-// 세 번째 진입이 미실행 안내로 기록되면 그 안내 call을 근거로 남긴다(R2).
+// 세 번째 진입이 미실행 안내로 기록되면 그 안내 call을 근거로 남긴다.
 export function recordBlockNotice(
   state: RepeatedFailure,
   noticeCallId: string,
@@ -51,8 +51,8 @@ export function recordBlockNotice(
   return { ...state, block_call: noticeCallId };
 }
 
-// 두 번 실패한 요청의 세 번째 진입은 미실행으로 막는다(R2). 차단 안내 뒤 같은
-// 요청을 다시 요구하면 차단 자체가 유한하게 끝난다(R4).
+// 두 번 실패한 요청의 세 번째 진입은 미실행으로 막는다. 차단 안내 뒤 같은
+// 요청을 다시 요구하면 차단 자체가 유한하게 끝난다.
 export type BlockDecision =
   | { kind: "not_blocked" }
   | { kind: "blocked"; message: string };
@@ -69,7 +69,7 @@ export function blockVerdict(
 }
 
 // 차단 안내 뒤 같은 요청을 한 번 더 요구하면 남은 model·tool 진입을 막고 run을
-// 이유와 함께 끝낸다(R4). 차단 안내 자체는 run을 끝내지 않고, 그 뒤 다시
+// 이유와 함께 끝낸다. 차단 안내 자체는 run을 끝내지 않고, 그 뒤 다시
 // 요구할 때 끝낸다. retry·복구가 차단을 풀지 않으므로 판정은 상태만 본다.
 export type RunEnd =
   | { kind: "continue" }
@@ -84,12 +84,12 @@ export function runEndVerdict(
   return { kind: "stop", reason: "repeated_tool_failure" };
 }
 
-// 해당 요청의 성공만 카운터를 0으로 되돌린다(R3).
+// 해당 요청의 성공만 카운터를 0으로 되돌린다.
 export function resetOnSuccess(_state: RepeatedFailure | null): null {
   return null;
 }
 
-// 사람 거절·미실행은 실패 수에 넣지 않는다(R3).
+// 사람 거절·미실행은 실패 수에 넣지 않는다.
 export function isFailureCounted(outcome: ToolOutcome): boolean {
   if (outcome.code === "human_decision") return false;
   if (outcome.kind === "not_executed") return false;

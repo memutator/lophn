@@ -21,7 +21,7 @@ export const HANDOFF_BODY_FIELD = "handoff_content";
 export const HANDOFF_CONTENT_PURPOSE = "handoff_content";
 
 // 무엇·왜·제외·기대 결과만 담는 짧은 설명이다. 이 상한은 설명이 대화 원문 복사로
-// 커지는 것을 줄일 뿐 의미상의 복사를 막는다고 하지 않는다(plan Q25). 복사 방어는
+// 커지는 것을 줄일 뿐 의미상의 복사를 막는다고 하지 않는다. 복사 방어는
 // 구조(필드 넷만), 출처 검증(보낸 run·원래 요청·고정 version), redaction이다.
 export const HANDOFF_CONTENT_MAX_BYTES = 16 * 1024;
 
@@ -72,7 +72,7 @@ export function bodyBlob(principal: string, content: HandoffContent): BodyBlob {
   };
 }
 
-// 허용 방향은 contracts의 선언 그대로다(R1). 양쪽 실제 assignment의 역할로만 묻는다.
+// 허용 방향은 contracts의 선언 그대로다. 양쪽 실제 assignment의 역할로만 묻는다.
 export function directionAllowed(from: string, to: string): boolean {
   return handoffAllowed(from, to);
 }
@@ -122,7 +122,7 @@ export function loadAssignmentRef(
 }
 
 // 원래 사람 요청. 사람 요청에서 시작한 run은 그 message, handoff로 이어진 run은 받은
-// original_message다. 주기 run은 사람 요청이 아니라서 없다(R5).
+// original_message다. 주기 run은 사람 요청이 아니라서 없다.
 export function humanOrigin(source: SenderRun["source"]): string | null {
   if (source.kind === "message" && source.message !== undefined) {
     return source.message;
@@ -160,7 +160,7 @@ function handoffRunOf(row: SqlRow): HandoffRun {
   };
 }
 
-// 같은 보낸 run·중복 방지 key의 받는 run. 있으면 접수 유일성이 이미 확정된 것이다(R9).
+// 같은 보낸 run·중복 방지 key의 받는 run. 있으면 접수 유일성이 이미 확정된 것이다.
 export function loadByDedup(
   lookup: Lookup,
   senderRun: string,
@@ -218,9 +218,9 @@ export function adoptionOf(
   return chosen?.adoption ?? undefined;
 }
 
-// 근거 검사. 근거 고정 판이 하나도 없으면 시작하지 않고(R3) 질문을 단 근거는 그
+// 근거 검사. 근거 고정 판이 하나도 없으면 시작하지 않고 질문을 단 근거는 그
 // 질문의 채택 답과 같은 판이어야 한다. App Engineer에게 가는 일은 설계가 일의 근거라서
-// 채택한 판 하나는 있어야 한다(plan Q41).
+// 채택한 판 하나는 있어야 한다.
 export function checkReferences(
   lookup: Lookup,
   toRole: string,
@@ -267,7 +267,7 @@ export function checkReferences(
   return ok(undefined);
 }
 
-// 같은 요청의 재전송인지(R9). 접수 유일성은 (보낸 run, 중복 방지 key)가 정하므로 재전송이
+// 같은 요청의 재전송인지. 접수 유일성은 (보낸 run, 중복 방지 key)가 정하므로 재전송이
 // 새 수신 run id를 들고 와도 같은 요청이면 먼저 접수한 run을 돌려준다. 같은 key에 다른
 // 수신 assignment·원래 요청·내용·근거면 접수 유일성을 깨므로 거절한다.
 export function sameHandoff(

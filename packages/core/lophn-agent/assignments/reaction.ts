@@ -1,7 +1,7 @@
 // core의 독립 비동기 루프가 assignments cursor부터 event batch를 읽고, AppCreated 계기마다
 // CreateAppEngineerAssignment을, 자리(project·app) 보관 계기마다 그 자리의 enabled assignment
 // 멈춤(PauseAssignment, scope_archived)을, 보관 해제 계기마다 그 자리 때문에 멈춘 assignment
-// 재개(ResumeAssignment)를 낸다(R1, R14, assignments#Q7). 반응과 cursor 전진은 같은 transaction이다.
+// 재개(ResumeAssignment)를 낸다. 반응과 cursor 전진은 같은 transaction이다.
 // 한 event가 여러 assignment를 움직이면 cursor 전진은 마지막 command가 싣는다. 본문 조립·model
 // 호출은 하지 않는다. 전달 실패로 버리지 않고 그 위치에서 멈춘다.
 //

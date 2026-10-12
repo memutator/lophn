@@ -1,5 +1,5 @@
 // 앱 view의 network 판정. session 기본 차단 위에서 자기 scheme·자기 앱 host와 apps/permissions가
-// 부여한 fetch host만 통과시킨다(shell/app-frame#R2, R16). 판정은 URL을 파싱해 scheme·host·port를
+// 부여한 fetch host만 통과시킨다. 판정은 URL을 파싱해 scheme·host·port를
 // 따로 비교하고, redirect·WebSocket·subframe 요청도 같은 함수를 지난다.
 
 export const APP_SCHEME = "lophn-app";
@@ -46,7 +46,7 @@ export function isLoopback(host: string): boolean {
 
 /**
  * 자기 앱 주소인가. userinfo·port가 있으면 다른 대상으로 본다. label은 소문자 Crockford
- * ULID라 대소문자를 바꿔도 같은 앱으로만 풀린다(R11). Chromium은 host를 소문자로 주고 Node URL은
+ * ULID라 대소문자를 바꿔도 같은 앱으로만 풀린다. Chromium은 host를 소문자로 주고 Node URL은
  * custom scheme host를 그대로 두므로 여기서 소문자로 맞춘다.
  */
 export function ownAppUrl(url: URL, appLabel: string): boolean {

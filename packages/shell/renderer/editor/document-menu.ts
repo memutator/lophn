@@ -1,4 +1,4 @@
-// 문서 메뉴는 shell overlay view에 menu로 연다(shell/app-frame#R24). 다른 칸의 앱 view
+// 문서 메뉴는 shell overlay view에 menu로 연다. 다른 칸의 앱 view
 // 위에 걸쳐도 숨지 않는다. 고른 항목 id만 돌아오고 업무 값은 main으로 가지 않는다.
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { overlayConsumer } from "../overlay/consumer.ts";

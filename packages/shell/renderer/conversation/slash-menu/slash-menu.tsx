@@ -1,4 +1,4 @@
-// 입력칸에서 `/`를 치면 composer 위로 뜨는 명령 메뉴(shell/desktop#R45, lophn-agent/commands#R1·R6·R8·R11).
+// 입력칸에서 `/`를 치면 composer 위로 뜨는 명령 메뉴.
 // 목록·묶음·거르기·예약 이름은 lophn-agent/commands(registry·list)가 계산해 props로 주고, 이 component는
 // 받은 묶음을 순서대로 그리며 query와 맞는 글자를 굵게 한다. renderer는 contracts·design·sdk만 import하므로
 // 그 모듈을 부르는 연결은 core source 쪽 몫이다.
@@ -37,7 +37,7 @@ const ORIGIN_LABEL = {
   workspace: "conversation.label.slash-origin-workspace",
 } as const;
 
-// 글자가 단어 머리에서 맞는 곳을 굵게 한다. 거르기가 단어 머리 기준이라(shell/desktop#R45) 같은 기준으로 맞춘다.
+// 글자가 단어 머리에서 맞는 곳을 굵게 한다. 거르기가 단어 머리 기준이라 같은 기준으로 맞춘다.
 // 굵게 하는 것은 보이는 모양뿐이라 글 자체는 그대로 읽힌다.
 function mark(text: string, query: string): ReactNode {
   if (query === "") return text;

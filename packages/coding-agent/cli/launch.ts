@@ -209,7 +209,7 @@ export async function planSelection(
       : released;
     if (!names.every((name) => released.includes(name))) return NO_SELECTION;
     // 앱 root 두 위치만: 관리 구간 지침 파일(과 그 temp)과 skill root 아래 lophn skill
-    // 디렉터리. ignore 갱신은 앱 root의 .gitignore 하나다(R17).
+    // 디렉터리. ignore 갱신은 앱 root의 .gitignore 하나다.
     if (target.scope_kind !== "app") return NO_SELECTION;
     const writes = selectedWriteFiles(target, request.roots);
     const dirs = selectedSkillDirs(target, request.roots, names);

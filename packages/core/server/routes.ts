@@ -12,7 +12,7 @@ import { EVENT_SUBSCRIBE_PATH } from "../../protocol/events/mod.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 
 // route registry: resource/method → kind, schema, handler, actor 상한, 한도.
-// 경로는 v + major, resource, method의 정확히 세 구간이다(platform/api#R2, R6).
+// 경로는 v + major, resource, method의 정확히 세 구간이다.
 export type RouteEntry = {
   route: Route;
   path: string;

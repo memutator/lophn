@@ -14,7 +14,7 @@ export interface EmptyStateProps {
   icon: LucideIcon;
   // 한 문장.
   message: string;
-  // 다음 행동은 언제나 하나다(shell/design-system#R34).
+  // 다음 행동은 언제나 하나다.
   action: EmptyAction;
 }
 

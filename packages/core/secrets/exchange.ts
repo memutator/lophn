@@ -1,4 +1,4 @@
-// 머신 이전용 암호 보호 파일(platform/secrets#R9, architecture 5.7).
+// 머신 이전용 암호 보호 파일(architecture 5.7).
 // 암호화·복호화는 이 모듈의 메모리에서만 한다. 평문 중간 파일은 만들지 않는다.
 // secret.export·secret.import pipe 작업은 contracts에 아직 없다.
 // 아래 타입은 그 작업이 올 자리의 추천 모양이고, 지금은 platform 안 타입이다.

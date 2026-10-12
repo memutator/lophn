@@ -16,7 +16,7 @@ export const instructionLocationOutputSchema = z.object(locationFields);
 
 export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 
-// agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다(R4, R5, R8). machine만 읽는다.
+// agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다. machine만 읽는다.
 // 어느 자리의 파일인지는 입력에 없다. core가 `run`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
 // project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 run의 agent 정의 본문이다.
 // 작업 자리에 없는 층(project 자리 run의 app 층 등)은 없는 대상과 같은 not_found다. 본문은 core가 파일에서
@@ -64,7 +64,7 @@ export const instructionRead = defineRead({
 
 export const ASSIGNMENT_STATES = ["enabled", "paused", "withdrawn"] as const;
 
-// 사람이 Settings › Agents에서 모든 project의 LOPHN.md 앞부분을 보는 읽기다(R9). machine의 ReadInstructionFile과
+// 사람이 Settings › Agents에서 모든 project의 LOPHN.md 앞부분을 보는 읽기다. machine의 ReadInstructionFile과
 // 따로 두어 사람 자격으로 읽는다. 입력이 없다: 전역 층 하나뿐이라 run·층·경로를 받지 않는다. 파일이 없으면
 // `preview`가 null이고 빈 파일은 본문이 빈 미리보기다. 읽는 파일은 같은 core 길이라 로컬 경로는 어느 칸에도 없다.
 // 상한은 요구가 정하지 않아 추천값을 둔다: 화면 한 칸에 보이는 앞부분이라 4 KiB다(32 KiB 파일 상한의 1/8).

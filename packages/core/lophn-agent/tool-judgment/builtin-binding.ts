@@ -3,7 +3,7 @@ import type { JsonObject } from "../../../protocol/base/mod.ts";
 import type { ResolvedAction, ToolBinding } from "./mod.ts";
 import type { ToolDefinition } from "../tools/mod.ts";
 
-// 내장 쓰기 tool의 소유 계약 연결이다(lophn-agent/harness/tool-judgment R2, R3, R6). 호출 입력에서
+// 내장 쓰기 tool의 소유 계약 연결이다. 호출 입력에서
 // 정확한 대상을 읽고, 대상이 이 run의 자격으로 보이는지 소유 contract의 읽기로 확인한 뒤에만
 // 범위 안으로 올린다. 읽지 못하면 연결이 오류를 내고 호출은 없는 tool·대상과 같은 답으로 거절된다.
 // 되돌림은 정의가 선언한 값(소유 contract가 되돌릴 수 있는 변경인지)이고 model의 말이 아니다.
@@ -101,7 +101,7 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       input: (input) => ({ problem: input["problem"] }),
     },
   }],
-  // Context Engineer의 쓰기다(harness/tools#R23). context 생성은 project가, 초안은 context가, 제출은 만든 판이,
+  // Context Engineer의 쓰기다. context 생성은 project가, 초안은 context가, 제출은 만든 판이,
   // 용어집 항목은 항목(새 항목은 context)이 대상이다. 판과 항목 id만으로는 대상 읽기가 없어 소유 contract가
   // 실행 때 자격으로 막는다.
   ["context.create", {

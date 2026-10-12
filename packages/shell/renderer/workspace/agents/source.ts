@@ -1,4 +1,4 @@
-// Agents 탭과 Operator editor가 읽고 쓰는 통로(shell/workspace#R36~R44). 모양은 contracts(lophn-agent/agents·
+// Agents 탭과 Operator editor가 읽고 쓰는 통로. 모양은 contracts(lophn-agent/agents·
 // models·extensions)에서 이 화면이 쓰는 field만 옮긴 것이다. 정의 파일의 칸과 칸별 값·출처는 contract의 type을
 // 그대로 쓰고, 화면이 contract만으로 만들 수 없는 것(켬·끔 줄, 권한 줄)만 여기서 더한다. 화면은 이 통로를 지나는
 // 값으로만 그리고 core를 직접 부르지 않는다.
@@ -100,7 +100,7 @@ export type SaveResult =
       readonly hash: string;
     };
   }
-  /** 거절이면 항목별 이유가 issues에 있다(R24). 그 밖의 실패는 issues가 비어 있고 message가 core의 오류 code다. */
+  /** 거절이면 항목별 이유가 issues에 있다. 그 밖의 실패는 issues가 비어 있고 message가 core의 오류 code다. */
   | {
     readonly ok: false;
     readonly message: string;

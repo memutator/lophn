@@ -1,4 +1,4 @@
-// snapshot의 화면 증거(snapshots#R15, feedback#R5, R6, R10; plan problems T15).
+// snapshot의 화면 증거(plan problems T15).
 // 화면 자료는 사람이 선택한 당시의 안전한 상태와 PNG뿐이다. 이 모듈은 이미 한도를
 // 검사한 자료를 blob으로 준비하고, 없는 항목마다 공백 아닌 이유 하나를 고정한다.
 // PNG는 가리지 않는다(D32): 사람이 미리보기에서 본 그대로 저장한다.
@@ -51,7 +51,7 @@ export type ScreenEvidenceInput = {
 };
 
 export type ScreenCollectionDeps = {
-  // 진단 상세 수집 설정. 꺼져 있으면 새 화면 자료를 모으지 않는다(snapshots#R7).
+  // 진단 상세 수집 설정. 꺼져 있으면 새 화면 자료를 모으지 않는다.
   // null은 설정을 읽지 못한 것이다.
   detailCollection: boolean | null;
   blobPrepare: SnapshotBlobPrepare;
@@ -73,7 +73,7 @@ const BLOCK_REASONS: Record<ScreenCaptureBlock, string> = {
   capture_failed: SCREEN_REASONS.captureFailed,
 };
 
-// 저장 실패는 그 항목만 제외하고 이유를 고정한다. 글은 계속 접수한다(snapshots#R5).
+// 저장 실패는 그 항목만 제외하고 이유를 고정한다. 글은 계속 접수한다.
 async function prepare(
   deps: ScreenCollectionDeps,
   purpose: "feedback_state" | "feedback_screenshot",

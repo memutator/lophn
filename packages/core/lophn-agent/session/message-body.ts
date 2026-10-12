@@ -1,4 +1,4 @@
-// 메시지 본문의 core 쪽 길(lophn-agent/conversation, plan Q29). 호출자(shell·runtime)는
+// 메시지 본문의 core 쪽 길(lophn-agent/conversation). 호출자(shell·runtime)는
 // blob을 준비하지 않고 본문 값을 요청에 싣는다. core가 command 앞에서 값을 redaction해
 // 정규 직렬화 bytes로 blob을 준비하고, command가 같은 transaction에서 영구 참조를
 // 등록한다. 읽기는 ledger 참조 행을 snapshot에서 판정한 뒤 blob 바이트를 읽는다.

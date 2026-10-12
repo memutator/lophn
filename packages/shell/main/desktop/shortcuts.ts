@@ -1,4 +1,4 @@
-// 창 안 shortcut(shell/desktop#R18). OS 전역 단축키로 등록하지 않고 창에 속한 webContents의
+// 창 안 shortcut. OS 전역 단축키로 등록하지 않고 창에 속한 webContents의
 // before-input-event만 본다. 그래서 다른 앱에 focus가 있으면 Ctrl+K가 lophn에 오지 않는다.
 // 앱 view·overlay·터미널에 focus가 있어도 같은 창의 shell renderer가 받는다.
 import { WINDOW_SHORTCUTS, type WindowShortcut } from "../../ipc/shortcuts.ts";

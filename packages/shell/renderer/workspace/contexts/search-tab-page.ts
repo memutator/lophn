@@ -1,4 +1,4 @@
-// 선언된 검색의 한 page를 읽는다(shell/workspace#R25). cursor는 다음 page만 알려 주므로 앞 page부터
+// 선언된 검색의 한 page를 읽는다. cursor는 다음 page만 알려 주므로 앞 page부터
 // 따라가며, 지나온 cursor는 cursors에 남겨 다음에 그 자리에서 이어 읽는다.
 import type {
   ContextsSource,

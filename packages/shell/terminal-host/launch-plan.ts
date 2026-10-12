@@ -1,4 +1,4 @@
-// shell main이 core로 다시 검사한 LaunchPlan을 host가 PTY로 여는 쪽(shell/terminal#R4, R5, R12, R13).
+// shell main이 core로 다시 검사한 LaunchPlan을 host가 PTY로 여는 쪽.
 // plan은 `lophn session plan --json`이 만든 값이다. host는 shell 없이 executable·분리 argv·cwd·env로 열고
 // 다른 harness·cwd로 대체하지 않는다. env는 상속 환경에서 platform 값을 빼고 env_delete를 지운 뒤
 // env_overlay(안전 값과 `LOPHN_CONNECTION` 참조)를 얹고 env_delete를 한 번 더 적용한 다음

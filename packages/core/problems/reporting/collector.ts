@@ -1,4 +1,4 @@
-// report collector의 core 쪽 연결(problems#T3). 제품 core가 감독하는 상시 worker kind
+// report collector의 core 쪽 연결. 제품 core가 감독하는 상시 worker kind
 // `problems/report-collector`로 문제 보고 worker route를 넘기는 target과, collector가 core에
 // 제출할 때 쓰는 machine credential의 operation 목록이다.
 import { ok } from "../../../base/mod.ts";

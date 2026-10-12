@@ -1,4 +1,4 @@
-// format module 묶음의 blob 보존과 hash 되찾기(documents/formats#R20).
+// format module 묶음의 blob 보존과 hash 되찾기.
 // 묶음은 purpose `format_module`로 준비하고, 참조는 소유 변경과 같은
 // transaction에서 owner의 `bundle` field에 등록된다. hash로 다시 찾기는
 // blob 보존의 참조 행에서 시작하며, 없는 hash는 누락이다. 새 module로 대체하지 않는다.
@@ -38,7 +38,7 @@ export type ModuleBytes = {
   >;
 };
 
-// blob 보존에서 온 module을 hash로 되찾는다(R20). 내장 hash는 내장 StoredModule,
+// blob 보존에서 온 module을 hash로 되찾는다. 내장 hash는 내장 StoredModule,
 // 아니면 등록된 참조의 바이트다. 읽은 바이트의 hash가 참조와 다르면 누락이고,
 // 최신 module로 대체하지 않는다.
 export async function moduleFrom(

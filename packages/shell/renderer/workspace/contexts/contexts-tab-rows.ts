@@ -1,4 +1,4 @@
-// 카드의 줄: 종류 수·적용된 판과 검사 결과·위반 수·쓰는 Operator 수 순서(shell/workspace#R16).
+// 카드의 줄: 종류 수·적용된 판과 검사 결과·위반 수·쓰는 Operator 수 순서.
 import { t } from "@lophn/wording";
 
 import type { CardData } from "./contexts-tab-load.ts";

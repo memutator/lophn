@@ -40,7 +40,7 @@ import {
 } from "./model.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
-// 하나다. 실패하면 이전 판 전체가 유지된다. finished 행은 trigger도 다시 못 바꾼다(R18).
+// 하나다. 실패하면 이전 판 전체가 유지된다. finished 행은 trigger도 다시 못 바꾼다.
 
 // run 근거와 결과는 영구 참조다(run-loop domain model). 준비한 blob의 hash만 StartRun·FinishRun이 싣는다.
 export const runBodyFields: readonly BlobFieldDefinition[] = [
@@ -50,7 +50,7 @@ export const runBodyFields: readonly BlobFieldDefinition[] = [
     retention: { kind: "permanent" },
     general_read: false,
   }),
-  // 고정한 resolved agent의 전체 값이다. 이어 하기가 이 blob을 그대로 쓴다(lophn-agent/agents R26).
+  // 고정한 resolved agent의 전체 값이다. 이어 하기가 이 blob을 그대로 쓴다.
   defineBlobField({
     owner_kind: "run",
     field: "agent",
@@ -66,11 +66,11 @@ export const runBodyFields: readonly BlobFieldDefinition[] = [
 ];
 
 export type RunLoopDeps = {
-  // 정상 종료를 막는 미반영 steering이 있는지(R14). 입력 표를 소유한 concern
+  // 정상 종료를 막는 미반영 steering이 있는지. 입력 표를 소유한 concern
   // (lophn-agent/conversation)이 같은 Tx에서 답한다. 없으면 표가 없는 것이다.
   hasUnappliedSteering?: (tx: Tx, run: string) => boolean;
   // StartRun이 고정할 한도. 없으면 같은 Tx의 공통 설정 선택(setting_choices)에서
-  // 읽는다. 호출자가 보낸 한도는 이 값과 같아야 하고 다르면 거절한다(R20).
+  // 읽는다. 호출자가 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
   runLimits?: (tx: Tx) => Result<RunLimits>;
 };
 
@@ -143,7 +143,7 @@ function sha256(value: unknown): string {
 }
 
 // 같은 session(session 없는 run은 같은 assignment의 session 없는 run)의 접수 순서상
-// 먼저 시작할 수 있는 run이 있는지(R3, R6).
+// 먼저 시작할 수 있는 run이 있는지.
 function earlierStartable(tx: Tx, row: RunRow): boolean {
   const earlier = (row.session === null
     ? tx.sql.all(
@@ -169,7 +169,7 @@ function earlierStartable(tx: Tx, row: RunRow): boolean {
   );
 }
 
-// 끝내는 쓰기 하나. 정상 종료·멈춤·사람 기다림의 답 없음 종료가 같은 길로 끝난다(R18).
+// 끝내는 쓰기 하나. 정상 종료·멈춤·사람 기다림의 답 없음 종료가 같은 길로 끝난다.
 export function finishRow(
   tx: Tx,
   row: RunRow,
@@ -224,7 +224,7 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
       handle(tx, ctx, input: Input<typeof acceptRun>, compare) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
-        // 같은 요청·회차·handoff 재전달은 이전 결과다(R2).
+        // 같은 요청·회차·handoff 재전달은 이전 결과다.
         const existing = loadRun(tx, input.id);
         if (existing !== undefined) {
           if (!sameAcceptance(existing, input)) {
@@ -513,7 +513,7 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
         if (!machine.ok) return machine;
         const row = loadRun(tx, input.run);
         if (row === undefined) return notFound();
-        // 끝난 run의 늦은 결과는 결과를 덮지 못한다(R16, R18).
+        // 끝난 run의 늦은 결과는 결과를 덮지 못한다.
         if (row.state === "finished") {
           return reject("conflict", "the run result is already final");
         }
@@ -528,7 +528,7 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           return reject("invalid_input", "stops go through StopRun");
         }
         if (row.state === "accepted") {
-          // 시작하지 못한 run은 영구 불가 이유로만 끝낸다(R5).
+          // 시작하지 못한 run은 영구 불가 이유로만 끝낸다.
           const permanent = outcome.kind === "failed" &&
             (outcome.reason === "configuration_unavailable" ||
               outcome.reason === "target_unavailable");
@@ -611,7 +611,7 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           return reject("conflict", "run state changed");
         }
         const outcome = { kind: "stopped", reason: input.reason };
-        // 모델이 쓴 본문이 없으므로 machine이 확정한 사실만 결과로 정리한다(R22).
+        // 모델이 쓴 본문이 없으므로 machine이 확정한 사실만 결과로 정리한다.
         const facts = {
           run: row.id,
           assignment: row.assignment,

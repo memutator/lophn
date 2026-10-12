@@ -1,5 +1,5 @@
 // 창 하나의 팔레트 자리. Desktop이 hub를 만들고 지금 공간(작업대·lophn 공간)이 자기
-// scope를 등록한다. 창 shortcut은 main이 보낸 이름으로만 받는다(shell/desktop#R18).
+// scope를 등록한다. 창 shortcut은 main이 보낸 이름으로만 받는다.
 import {
   createContext,
   type ReactNode,
@@ -48,7 +48,7 @@ interface PaletteHub {
   register(scope: PaletteScope<unknown>): () => void;
   toggle(opener: HTMLElement): void;
   /**
-   * 전역 팔레트(shell#T56). 지금 공간과 상관없이 받은 scope로 연다. 이미 열려 있으면 그대로
+   * 전역 팔레트. 지금 공간과 상관없이 받은 scope로 연다. 이미 열려 있으면 그대로
    * 둔다(여닫는 창 팔레트와 다르다).
    */
   openGlobal(scope: PaletteScope<unknown>): void;

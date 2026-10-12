@@ -1,4 +1,4 @@
-// 후행 기록 전달의 재전송 간격(apps/invocations#R19). 순수 규칙이다.
+// 후행 기록 전달의 재전송 간격. 순수 규칙이다.
 // unavailable만 다시 보내고, 1초·2초·4초부터 두 배씩 최대 30초다.
 import {
   INVOCATION_DELIVERY_BACKOFF_MAX_MS,

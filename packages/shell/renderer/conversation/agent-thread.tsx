@@ -1,4 +1,4 @@
-// Agent 화면의 대화 줄(shell/desktop#R40~R42, R46). source가 준 시간순 줄을 MessageTurns의 항목으로 바꾼다.
+// Agent 화면의 대화 줄. source가 준 시간순 줄을 MessageTurns의 항목으로 바꾼다.
 // 메시지는 본문으로, tool 줄·편집 카드·끝 줄·질문 카드는 agent 쪽 block으로 그린다.
 import type { ReactElement } from "react";
 import { StatusMark } from "@lophn/design/components";

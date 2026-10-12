@@ -1,6 +1,6 @@
-// broker `/_lophn/broker/net/fetch`. 앱에는 외부 net flag가 없고(apps/permissions#R19) 이 전송부가
+// broker `/_lophn/broker/net/fetch`. 앱에는 외부 net flag가 없고 이 전송부가
 // 요청마다 선언∩grant의 정확한 host·port를 검사한 뒤 비동기로 외부 I/O를 한다. redirect는 한 단계마다
-// 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 loopback 어느 표기에서나 막는다(R11).
+// 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 loopback 어느 표기에서나 막는다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
   brokerNetFetchInputSchema,

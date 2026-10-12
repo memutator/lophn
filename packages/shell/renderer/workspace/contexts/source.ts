@@ -1,4 +1,4 @@
-// context 화면들이 읽고 보내는 통로(shell/workspace#R16~R29). 값의 모양은 documents/contexts의
+// context 화면들이 읽고 보내는 통로. 값의 모양은 documents/contexts의
 // context API 계약(context-api.ts, context-contract.ts)이 정하고, 이 파일은 type만 가져온다
 // (`import type`은 번들에 들어가지 않는다). core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 // 읽기와 명령은 workspace/source.ts의 ReadResult로 성공·실패 이유를 돌려준다.

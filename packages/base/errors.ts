@@ -16,7 +16,7 @@ export type LophnError = {
   details?: Record<string, unknown>;
 };
 
-// 경계 밖으로 나가는 오류에는 원문·stack이 없다(platform/api#R4).
+// 경계 밖으로 나가는 오류에는 원문·stack이 없다.
 const INTERNAL_MESSAGE = "internal error";
 
 export function internalError(): LophnError {

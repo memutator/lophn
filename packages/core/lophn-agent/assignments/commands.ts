@@ -28,7 +28,7 @@ import {
 } from "./model.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
-// 하나다. 멈춤과 재개는 machine이 자리 보관 event를 근거로만 낸다(assignments#Q4, Q7).
+// 하나다. 멈춤과 재개는 machine이 자리 보관 event를 근거로만 낸다.
 
 function reject(
   code: "invalid_input" | "conflict" | "not_found" | "forbidden",
@@ -110,7 +110,7 @@ export function createAssignmentCommands(): {
           }
           return ok({ assignment: recordOf(existing) });
         }
-        // builtin은 역할별 전역 하나다(R2). partial unique index가 지키지만
+        // builtin은 역할별 전역 하나다. partial unique index가 지키지만
         // command에서 먼저 본다.
         const sameRole = tx.sql.get(
           "select id from assignments where role = ? and state != 'withdrawn'",
@@ -148,7 +148,7 @@ export function createAssignmentCommands(): {
           }
           return ok({ assignment: recordOf(existing) });
         }
-        // 앱마다 거두지 않은 AE 하나다(R1, R2). 재전송 key가 달라도 등록된 앱의
+        // 앱마다 거두지 않은 AE 하나다. 재전송 key가 달라도 등록된 앱의
         // 둘째 AE는 거절이다.
         const sameApp = tx.sql.get(
           `select id from assignments where role = 'app_engineer'
@@ -180,7 +180,7 @@ export function createAssignmentCommands(): {
     },
     createOperator: {
       route: createOperatorAssignment,
-      // 새 Operator 저장(SaveAgent)이 같은 transaction에서 부른다(R4).
+      // 새 Operator 저장(SaveAgent)이 같은 transaction에서 부른다.
       dispatchable: true,
       handle(tx, ctx, input: Input<typeof createOperatorAssignment>) {
         const person = requireActor(ctx, "user");
@@ -188,7 +188,7 @@ export function createAssignmentCommands(): {
         if (loadRow(tx, input.id) !== undefined) {
           return reject("conflict", "assignment id already exists");
         }
-        // 담당 자리는 있어야 하고 같은 자리에 Operator를 몇 개든 둘 수 있다(R2).
+        // 담당 자리는 있어야 하고 같은 자리에 Operator를 몇 개든 둘 수 있다.
         if (!placeCreated(tx, input.scope.id)) {
           return reject("not_found", "the operator place is missing");
         }
@@ -243,7 +243,7 @@ export function createAssignmentCommands(): {
             input.assignment,
           ],
         );
-        // 자리 보관 반응이면 멈춤·event·cursor를 같은 transaction에 확정한다(R1).
+        // 자리 보관 반응이면 멈춤·event·cursor를 같은 transaction에 확정한다.
         if (input.processed_through_seq !== undefined) {
           const advanced = tx.advanceSubscriberCursor(
             ASSIGNMENT_SUBSCRIBER,
@@ -269,7 +269,7 @@ export function createAssignmentCommands(): {
         if (current.state !== compare.state) {
           return reject("conflict", "assignment state changed");
         }
-        // 멈춤을 푸는 근거는 멈춘 자리의 보관이 풀렸다는 event다(assignments#Q7). 반응이
+        // 멈춤을 푸는 근거는 멈춘 자리의 보관이 풀렸다는 event다. 반응이
         // event 순서대로 멈춤과 재개를 내므로 해제 event의 존재만 본다.
         const unarchived = current.pause_target === null
           ? undefined
@@ -302,7 +302,7 @@ export function createAssignmentCommands(): {
     },
     withdraw: {
       route: withdrawAssignment,
-      // Operator 삭제(DeleteAgent)가 같은 transaction에서 부른다(R9).
+      // Operator 삭제(DeleteAgent)가 같은 transaction에서 부른다.
       dispatchable: true,
       handle(tx, ctx, input: Input<typeof withdrawAssignment>, compare) {
         const person = requireActor(ctx, "user");
@@ -317,7 +317,7 @@ export function createAssignmentCommands(): {
         if (current.state !== compare.state) {
           return reject("conflict", "assignment state changed");
         }
-        // lophn·Context Engineer·App Engineer는 거둘 수 없다. Operator만 거둔다(R9).
+        // lophn·Context Engineer·App Engineer는 거둘 수 없다. Operator만 거둔다.
         if (current.role !== "operator") {
           return reject(
             "forbidden",

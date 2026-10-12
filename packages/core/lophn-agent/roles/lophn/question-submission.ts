@@ -100,7 +100,7 @@ export function checkDraftSubmission(
 export type SubmissionLike =
   CreateQuestionGroupInput["questions"][number]["options"][number];
 
-// lophn이 사람에게 묻는 의도·취향 질문 draft다(roles/lophn#R16). 목표·자료 용도·
+// lophn이 사람에게 묻는 의도·취향 질문 draft다. 목표·자료 용도·
 // project/app 여부·재사용 우선순위를 결정하지 않고 묻는다. 선택지에는 action이
 // 없어 답이 없어도 아무것도 바뀌지 않고 기획은 미결정으로 남는다.
 export function intentQuestion(goal: string, reuse_order: readonly string[]): {

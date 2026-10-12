@@ -1,4 +1,4 @@
-// command 밖의 OS 준비·정리(platform/secrets#R1, R6, R7).
+// command 밖의 OS 준비·정리.
 // 값은 이 모듈과 keychain 메모리에만 있고 결과에는 참조만 남는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -15,12 +15,12 @@ import { cleanupResult, type SecretRecord } from "./model.ts";
 export type PreparationStore = {
   // 준비 증거를 ledger에 남긴다. 값은 넣지 않는다.
   record(preparation: SecretPreparation): Promise<Result<void>>;
-  // 현재 참조가 아닌 준비·이전 참조를 고아로 구별한다(R6).
+  // 현재 참조가 아닌 준비·이전 참조를 고아로 구별한다.
   orphans(current: readonly string[]): Promise<Result<readonly string[]>>;
 };
 
 export type ProcessWatch = {
-  // 이 참조를 쓴 프로세스가 모두 끝났는지 실제 관측으로만 답한다(R7).
+  // 이 참조를 쓴 프로세스가 모두 끝났는지 실제 관측으로만 답한다.
   ended(sealedRef: string): Promise<boolean>;
 };
 
@@ -56,7 +56,7 @@ export function createSecretWork(options: {
   // 않는다: 알려진 값은 ledger가 그 참조를 현재로 확정한 뒤 core가 keychain에서 읽어 등록한다.
   registry?: KnownSecretRegistry;
   // 이 참조를 쓴 프로세스의 종료 관측. 없으면 종료를 관측하지 못한 것이라 processes_ended는
-  // false다(R7).
+  // false다.
   processes?: ProcessWatch;
   // 준비 증거 id. 값에서 파생하지 않는다.
   preparationId: () => string;
@@ -94,7 +94,7 @@ export function createSecretWork(options: {
       return ok(preparation);
     },
     async cleanup(target) {
-      // 세 사실은 서로 추론하지 않는다. 삭제가 늦어도 차단은 차단이다(R7).
+      // 세 사실은 서로 추론하지 않는다. 삭제가 늦어도 차단은 차단이다.
       const osDeleted =
         (await options.keychain.remove(target.previous.sealedRef)).ok;
       const processesEnded = options.processes === undefined

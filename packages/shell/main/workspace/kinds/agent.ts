@@ -1,6 +1,6 @@
 // agent 탭 kind. agent 하나(built-in 또는 Operator)와 그 agent의 session 하나를 보이는 Agent 화면이다
 // (shell/workspace#R33). layout 파일에는 agent·자리·session 참조만 남고 현재 보기에는 종류와 선택 여부만
-// 간다 — 대화 내용·agent 지침은 넣지 않는다(R10).
+// 간다 — 대화 내용·agent 지침은 넣지 않는다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";
@@ -27,7 +27,7 @@ export type AgentView = { kind: "agent"; key: string; selected: boolean };
 export const agentKind = defineTabKind<AgentLayout, AgentHint, AgentView>({
   kind: "agent",
   layout,
-  // 없어졌거나 withdraw된 agent, 지워진 session은 다른 agent나 새 session으로 바꾸지 않고 자리표시다(R7).
+  // 없어졌거나 withdraw된 agent, 지워진 session은 다른 agent나 새 session으로 바꾸지 않고 자리표시다.
   async restore(tab, targets) {
     if (!(await targets.agent(tab.agent, tab.session ?? null))) {
       return {

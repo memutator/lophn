@@ -1,4 +1,4 @@
-// I/O worker의 blob 준비 경계(blob contract, platform/blob-store#R1, R2, R3, R12).
+// I/O worker의 blob 준비 경계(blob contract).
 // hash·fsync·설치는 이 경계만 한다. 임의 파일 경로는 받지 않고 JSON payload에
 // stream을 넣지 않는다. bytes는 supervision 요청의 channel에 묶인다.
 
@@ -36,7 +36,7 @@ export type BlobPipeBytes = {
 };
 
 export type BlobPipe = {
-  // bytes callback은 core가 보낸 byte chunk frame을 해석 없이 넘길 때 부른다(Q6).
+  // bytes callback은 core가 보낸 byte chunk frame을 해석 없이 넘길 때 부른다.
   // core는 해석·hash 없이 backpressure를 지키며 넘긴다.
   handle(
     request: BlobPipeRequest,
@@ -162,7 +162,7 @@ function chunksOf(bytes: Uint8Array): Uint8Array[] {
   return chunks;
 }
 
-// 준비가 성공한 hash의 purpose를 분할된 목적 파일로 남긴다(T44).
+// 준비가 성공한 hash의 purpose를 분할된 목적 파일로 남긴다.
 // trimCapacity의 capacity category 할당 근거다. 같은 hash의 재준비는
 // 같은 내용이라 같은 purpose를 남긴다(파일을 다시 쓴다). 실패는 조용히
 // 둔다: 준비 자체는 성공이고, 정지 유지보수는 기록 없는 hash를 지우지

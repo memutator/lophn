@@ -11,7 +11,7 @@ import { eventsList } from "../../../protocol/events/mod.ts";
 import { type CoreCall, post } from "./core-call.ts";
 import { type BasisSnapshot, sameToolBasis } from "./model.ts";
 
-// session 허락 근거 찾기(R13, R14, platform/approvals#R19, R20). 별도 허락 표는 없다. 허락 session이
+// session 허락 근거 찾기. 별도 허락 표는 없다. 허락 session이
 // 이 session인 granted request를 조회해 계산한다. 읽지 못한 사실이 있으면 낮추지 않고 묻는다.
 
 export type SessionGrantQuery = {

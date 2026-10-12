@@ -1,4 +1,4 @@
-// 화면 상태에서 민감한 칸을 제거하고 요약을 2048byte로 맞춘다(apps/agent-context#R3, R4).
+// 화면 상태에서 민감한 칸을 제거하고 요약을 2048byte로 맞춘다.
 // release bundle에 들어가는 플랫폼 진입 파일이라 의존성이 없다(Zod·npm 금지).
 //
 // sensitive_paths는 AppScreenContext 값 `{summary, data}`를 가리키는 JSON Pointer다

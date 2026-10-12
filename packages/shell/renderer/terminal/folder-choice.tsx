@@ -18,7 +18,7 @@ export interface FolderChoiceProps {
   onChoose: (folderRef: string) => void;
 }
 
-// 등록 폴더가 여럿이면 고르기 전에는 시작하지 않는다(shell/terminal#R1). 정확한 경로를
+// 등록 폴더가 여럿이면 고르기 전에는 시작하지 않는다. 정확한 경로를
 // 숨기지 않는다.
 export function FolderChoice({ folders, onChoose }: FolderChoiceProps) {
   return (
@@ -48,7 +48,7 @@ export interface StartNoticeProps {
 }
 
 // 첫 열기 안내. OS 사용자 권한과 시작 위치를 서로 다른 문장으로 보인다. 프로젝트
-// 폴더 밖 접근을 lophn이 막는다고 말하지 않는다(shell/terminal#R6).
+// 폴더 밖 접근을 lophn이 막는다고 말하지 않는다.
 export function StartNotice({ onHide }: StartNoticeProps) {
   const hideLabel = t("terminal.button.hide-notice");
   return (

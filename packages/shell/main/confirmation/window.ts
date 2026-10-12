@@ -11,7 +11,7 @@ import {
 
 export const CONFIRMATION_URL = "lophn-shell://confirmation/index.html";
 
-/** 표시 최대폭. 좁은 부모는 창 안에 맞춘다(confirmation-window#R2). */
+/** 표시 최대폭. 좁은 부모는 창 안에 맞춘다. */
 export const CONFIRMATION_MAX_WIDTH = 640;
 export const CONFIRMATION_HEIGHT = 560;
 const CHROME = 48;

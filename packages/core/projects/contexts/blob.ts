@@ -1,4 +1,4 @@
-// context blob의 core 쪽 길(documents/contexts#R19·R25, platform/blob-store#R1·R4). command는 blob 파일을
+// context blob의 core 쪽 길. command는 blob 파일을
 // 쓰지 않는다: core가 command 앞에서 값을 정규 직렬화한 bytes를 요청 자격의 이름으로 준비하고(긴 준비를
 // transaction 안에 넣지 않는다), command가 같은 값에서 같은 hash를 만들어 소유 변경과 같은 transaction에서
 // 영구 참조만 등록한다. 준비가 없으면 등록이 실패해 command 전체가 되돌아가고, 등록되지 않은 준비는

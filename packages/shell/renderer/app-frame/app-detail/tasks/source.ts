@@ -1,5 +1,5 @@
-// Tasks 탭이 읽고 쓰는 통로(shell#T50). 화면은 이 interface만 보고 core route 이름과 main IPC는 core-source.ts만
-// 안다. 모양은 contracts의 `ListTicketScreen`·`ShowTicketScreen`(coding-agent#T27)에서 이 화면이 쓰는 field만
+// Tasks 탭이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름과 main IPC는 core-source.ts만
+// 안다. 모양은 contracts의 `ListTicketScreen`·`ShowTicketScreen`에서 이 화면이 쓰는 field만
 // 옮긴 것이다. 상태·다음 행동은 coding-agent가 정한 값 그대로이고 화면 문구는 shell이 wording key로 바꾼다.
 // 기본 화면에는 claim·기한·connection ID·조건 원문·보고 원문이 없고 상세에만 펼친 자리가 있다.
 import type {
@@ -13,7 +13,7 @@ import type { SourceResult } from "../source.ts";
 export type { SourceResult };
 export type { FolderChoiceView, HarnessName, PromptDelivery, TuiState };
 
-/** 화면 상태 일곱 값(coding-agent/tickets#R27). 진행 상태와 준비 상태가 하나로 합쳐진 값이다. */
+/** 화면 상태 일곱 값. 진행 상태와 준비 상태가 하나로 합쳐진 값이다. */
 export type TaskState =
   | "needs_confirmation"
   | "ready"

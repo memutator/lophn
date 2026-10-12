@@ -29,7 +29,7 @@ function writesTestResult(route: RouteShape): boolean {
 // coding_agent operation 상한. route 정의가 actors에 coding_agent를 선언한 route만 올리고
 // 더 넓히지 않는다. 사람 token 상한과 같은 방식이다. 연결마다의 범위(앱 하나)는 credential의
 // targets가 따로 좁힌다.
-// - blobs 자원은 올리지 않는다. 일반 blob 읽기는 coding agent에 열지 않는다(coding-agent#T36);
+// - blobs 자원은 올리지 않는다. 일반 blob 읽기는 coding agent에 열지 않는다;
 //   안내 원문은 `packages.guide_body` 같은 좁은 route가 읽는다.
 // - 위 READ_ONLY_RESOURCES의 비 read와 test result 기록은 올리지 않는다.
 // - 이미 coding_agent 정책이 있는 이름은 다시 더하지 않는다.

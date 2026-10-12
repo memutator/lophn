@@ -1,4 +1,4 @@
-// 미참조 확인 기록의 순수 규칙(platform/blob-store#R9). IO 없음.
+// 미참조 확인 기록의 순수 규칙. IO 없음.
 // R9의 7일 유예기간은 파일 mtime이 아니라 "미참조를 처음 확인한 시각"부터
 // 센다(architecture/platform.md GC: 미참조 확인 시각은 worker 관리 파일에
 // 안전하게 남긴다). 관측이 hash를 미참조로 본 때 관측자가 기록을 남기고,
@@ -58,7 +58,7 @@ export function parseUnreferencedRecord(
   return { unreferencedAtMs: at };
 }
 
-// 유예기간 판정(R9). 기록의 처음 확인 시각만 본다.
+// 유예기간 판정. 기록의 처음 확인 시각만 본다.
 export function unreferencedGracePassed(
   record: UnreferencedRecord | undefined,
   nowMs: number,

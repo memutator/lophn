@@ -29,7 +29,7 @@ export function changesOf(
   return Object.keys(changes).length === 0 ? null : changes;
 }
 
-/** 용어나 뜻이 비었거나 공백만 있으면 저장할 수 없다(documents/terms#R4). */
+/** 용어나 뜻이 비었거나 공백만 있으면 저장할 수 없다. */
 export function isBlank(draft: TermDraft): boolean {
   return draft.term.trim() === "" || draft.meaning.trim() === "";
 }

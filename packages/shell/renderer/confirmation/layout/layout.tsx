@@ -19,7 +19,7 @@ export interface LayoutProps {
 
 /**
  * 최대 640px, 좁으면 창 안에 맞춘다.
- * 순서: 대상·변경 → 영향·위험 → revert 가능 → 결정(confirmation-window#R2).
+ * 순서: 대상·변경 → 영향·위험 → revert 가능 → 결정.
  * 제목은 결정 자체를 문장으로 말한다.
  */
 export function ConfirmationLayout(

@@ -34,7 +34,7 @@ export interface RegisterDialogProps {
 }
 
 // 이전 lophn 프로젝트 등록 창의 배치: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록.
-// 폴더는 OS 선택기로만 고르고 없이도 등록한다. 등록은 추적을 켜지 않는다(documents/projects#R1–R3).
+// 폴더는 OS 선택기로만 고르고 없이도 등록한다. 등록은 추적을 켜지 않는다.
 export function RegisterDialog(
   {
     open,

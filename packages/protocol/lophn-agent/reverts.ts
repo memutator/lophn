@@ -424,7 +424,7 @@ const revertHeaderOutput = z.object({
   outcome: revertOutcomeSchema,
   redo: revertRedoSchema,
   result_seq: seqSchema.nullable(),
-  // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다(R8).
+  // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다.
   replayed: z.boolean(),
 }).refine(
   (value) => (value.outcome === "applying") === (value.result_seq === null),
@@ -441,7 +441,7 @@ export const rewindInputSchema = z.strictObject({
   session: idSchema("ses"),
   checkpoint: idSchema("msg"),
   choice: rewindChoiceSchema,
-  // 사람이 건너뜀·남는 영향 목록을 확인했다(R7). 목록이 있는데 false면 blocked 결과다.
+  // 사람이 건너뜀·남는 영향 목록을 확인했다. 목록이 있는데 false면 blocked 결과다.
   accept_remaining: z.boolean(),
   preview_hash: sha256Schema,
   // choice=summarize일 때만: 완전 성공한 요약 call. 요약이 실패하면 command를 내지 않는다.
@@ -457,7 +457,7 @@ export const rewindInputSchema = z.strictObject({
 
 export const rewindCompareSchema = z.strictObject({
   session_state: z.literal("open"),
-  // 진행 중이거나 기다리는 run이 없다(R15). 먼저 멈춘 뒤에만 시작한다.
+  // 진행 중이거나 기다리는 run이 없다. 먼저 멈춘 뒤에만 시작한다.
   active_run: z.null(),
   applying_revert: z.null(),
 });

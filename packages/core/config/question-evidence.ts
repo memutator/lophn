@@ -29,7 +29,7 @@ export type SettingEvidenceUse = {
   reserve(question: string, option: string): Result<void>;
 };
 
-// 제출 입력의 변경 목록. 키·action·값 전체가 고정 action과 같아야 한다(R29).
+// 제출 입력의 변경 목록. 키·action·값 전체가 고정 action과 같아야 한다.
 function mutationKey(mutation: SettingMutation): string {
   return JSON.stringify([mutation.key, mutation.action]);
 }
@@ -103,7 +103,7 @@ export function eventsOptionSource(sql: {
       "select actor, payload from events where type = 'QuestionAnswered' and subject = ? order by seq",
       [created[0]["subject"]],
     );
-    // 사람 답이 없으면 근거가 아니다(설명 요청·추천만은 무변경이다, R29).
+    // 사람 답이 없으면 근거가 아니다(설명 요청·추천만은 무변경이다).
     const reply = answered.find((row) =>
       String(row["actor"]) === "user" ||
       String(row["actor"]).startsWith("user:")
@@ -168,7 +168,7 @@ export function eventsOptionSource(sql: {
   };
 }
 
-// machine이 user 결정을 대신할 수 있는 유일한 예외(identity R14, settings R29).
+// machine이 user 결정을 대신할 수 있는 유일한 예외.
 // 정본 option의 고정 action이 제출 변경 목록 전체와 같을 때만 한 번 통과한다.
 // 답 없음·사람 아닌 답·다른 option의 null changes는 거절이다.
 export function verifySettingEvidence(

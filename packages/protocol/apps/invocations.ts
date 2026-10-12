@@ -22,9 +22,9 @@ import {
 
 const KIB = 1024;
 
-// redaction 뒤 UTF-8 상한(apps/invocations#R19).
+// redaction 뒤 UTF-8 상한.
 export const INVOCATION_SUMMARY_MAX_BYTES = 16 * KIB;
-// 후행 기록 전달 목록 한도(apps/invocations#R19). 두 값 중 먼저 닿는 쪽이 한도다.
+// 후행 기록 전달 목록 한도. 두 값 중 먼저 닿는 쪽이 한도다.
 export const INVOCATION_DELIVERY_MAX_MESSAGES = 4096;
 export const INVOCATION_DELIVERY_MAX_BYTES = 8 * 1024 * KIB;
 // unavailable만 다시 보내는 backoff 단계와 상한(ms).
@@ -113,7 +113,7 @@ function invocationSchemas(strict: boolean) {
     summary: invocationSummarySchema,
     detail_hash: sha256Schema.nullable(),
   };
-  // accepted·denied는 실제 시작이 없으므로 started_at이 없다(apps/invocations#R9).
+  // accepted·denied는 실제 시작이 없으므로 started_at이 없다.
   const noStart = (value: { status: InvocationStatus }) =>
     value.status === "accepted" || value.status === "denied";
   // 종료 상태는 확정 시각이 필수다. unknown은 미확인 판정 시각이다.
@@ -168,7 +168,7 @@ const finishedFactFields = {
 };
 
 // record_finished 입력. 종료 상태는 succeeded/failed/unknown이다.
-// unknown도 같은 사실 재전송이므로 started_at 모양은 그대로다(apps/invocations#R6).
+// unknown도 같은 사실 재전송이므로 started_at 모양은 그대로다.
 export const invocationRecordFinishedInputSchema = z.strictObject({
   invocation: invocationIdSchema,
   ...finishedFactFields,
@@ -288,7 +288,7 @@ const readErrors = [
 
 export const INVOCATION_LIST_MAX_COUNT = 200;
 
-// 알려진 invocation 목록. 기록 없음은 행이 없다(apps/invocations#R10).
+// 알려진 invocation 목록. 기록 없음은 행이 없다.
 export const invocationsListInputSchema = z.strictObject({
   app: appIdSchema.optional(),
   status: invocationStatusValueSchema.optional(),

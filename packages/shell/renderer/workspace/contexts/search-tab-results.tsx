@@ -1,4 +1,4 @@
-// Search 탭 본문의 결과(shell/workspace#R25, R26): 지금 page를 읽어 SearchResults에 넘긴다.
+// Search 탭 본문의 결과: 지금 page를 읽어 SearchResults에 넘긴다.
 import { type ReactNode, useMemo } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
 

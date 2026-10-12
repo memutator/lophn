@@ -8,13 +8,13 @@ import type {
 } from "../../../protocol/apps/mod.ts";
 
 // 허용됐고 채택한 release가 있는데 지금 살아 있다는 관측이 없을 때의 근거다.
-// 과거 event나 열린 problem으로 생존을 추정하지 않는다(R13).
+// 과거 event나 열린 problem으로 생존을 추정하지 않는다.
 export const NO_OBSERVATION: RuntimeReason = {
   code: "no_observation",
   summary: "no live observation of the current release",
 };
 
-// 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식의 관측 근거다(R15).
+// 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식의 관측 근거다.
 // supervisor가 이 reason으로 관측을 내놓고, 종료를 확인하면 관측을 거둔다.
 export const TERMINATING: RuntimeReason = {
   code: "terminating",
@@ -39,14 +39,14 @@ function fromApp(app: RuntimeApp): RuntimeState {
 }
 
 // App 값과 현재 supervisor 관측으로 RuntimeState를 계산한다.
-// observation은 현재 연결의 메모리 값이고 null이면 관측이 없다(R13).
+// observation은 현재 연결의 메모리 값이고 null이면 관측이 없다.
 export function projection(
   app: RuntimeApp,
   observation: RuntimeObservation | null,
 ): RuntimeState {
   const base = fromApp(app);
   if (base.state === "stopped") {
-    // 멈춤을 요청한 뒤에도 live 자식이 관측되면 OS 종료 확인 전이다(R15).
+    // 멈춤을 요청한 뒤에도 live 자식이 관측되면 OS 종료 확인 전이다.
     return observation !== null && observation.mode === "live"
       ? { ...base, termination_pending: true }
       : base;

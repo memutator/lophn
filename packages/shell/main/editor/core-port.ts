@@ -162,7 +162,7 @@ export function coreCreatePort(core: CoreCalls): CreatePort {
       );
     },
     async save(request) {
-      // 성공 응답은 route output(SaveResult) 그대로다(platform/api#R3).
+      // 성공 응답은 route output(SaveResult) 그대로다.
       return as<{ version: string }>(
         await core.internal("command", "documents", "save", request),
       );
@@ -207,7 +207,7 @@ export function coreRestorePort(core: CoreCalls): RestorePort {
       );
     },
     async restore(request) {
-      // 성공 응답은 route output(SaveResult) 그대로다(platform/api#R3).
+      // 성공 응답은 route output(SaveResult) 그대로다.
       return as<RestoreSaved>(
         await core.internal("command", "documents", "restore", request),
       );

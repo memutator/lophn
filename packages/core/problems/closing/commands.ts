@@ -1,4 +1,4 @@
-// 닫힘 command handler(problems/closing#R1, R4, R5, R14). machine 판정기만 부르고,
+// 닫힘 command handler. machine 판정기만 부르고,
 // core는 참조된 신뢰 runner 결과의 kind·대상·판정과 현재 조건을 같은 transaction에서
 // 다시 검사한다. 자료 해석·테스트는 하지 않는다. verifications 표는 problems/tests가
 // 소유하므로 이 handler는 그 표의 읽는 열만 읽는다(repairs/commands.ts가 verifications를
@@ -86,9 +86,9 @@ function activeReleaseOf(tx: Tx, app: string): string | null {
   return row === undefined ? null : String(row.id);
 }
 
-// basis_seq 뒤 같은 문제의 새 live Report가 0개인지다(R4). 늦은 이전 release 보고도
+// basis_seq 뒤 같은 문제의 새 live Report가 0개인지다. 늦은 이전 release 보고도
 // 새 live Report라 이 0개 조건에 든다. report 접수는 그 문제를 payload로 싣는
-// ReportRecorded event다(subject는 report ID다). quiet 대기도 날짜 만료도 없다(R5):
+// ReportRecorded event다(subject는 report ID다). quiet 대기도 날짜 만료도 없다:
 // 개수가 유일한 조건이다.
 function liveReportsAfter(
   tx: Tx,
@@ -104,9 +104,9 @@ function liveReportsAfter(
   return Number(row?.found ?? 0);
 }
 
-// machine 판정기만 verified로 닫는다(R1). 조건은 7.6대로 세 가지다: 참조된 결과가
+// machine 판정기만 verified로 닫는다. 조건은 7.6대로 세 가지다: 참조된 결과가
 // 이 문제의 reproduction pass, after가 현재 활성 release, basis_seq 뒤 새 live Report
-// 0개. 문제 seq·활성 release CAS는 실행기가 compare로 이미 좁힌다(R14).
+// 0개. 문제 seq·활성 release CAS는 실행기가 compare로 이미 좁힌다.
 export function handleCloseProblemVerified(
   tx: Tx,
   _ctx: RequestContext,
@@ -124,7 +124,7 @@ export function handleCloseProblemVerified(
   };
   const found = findVerification(tx, input.verification);
   if (found === null) return notFound();
-  // 다른 앱의 결과, reproduction이 아닌 결과, 실패·불가 판정은 후보가 아니다(R3).
+  // 다른 앱의 결과, reproduction이 아닌 결과, 실패·불가 판정은 후보가 아니다.
   if (found.app !== problemRow.app) return notFound();
   if (found.kind !== "reproduction" || found.result !== "pass") {
     return err({
@@ -143,15 +143,15 @@ export function handleCloseProblemVerified(
   if (parseSeq(basis).ok === false) {
     return err({ code: "invalid_input", message: "근거 연결이 없다" });
   }
-  // after는 현재 활성 release여야 한다(R4).
+  // after는 현재 활성 release여야 한다.
   if (after !== activeReleaseOf(tx, problemRow.app)) {
     return conflict("활성 release가 바뀌었다");
   }
-  // 요청의 release 예상도 현재 활성과 같아야 한다(R5, R14).
+  // 요청의 release 예상도 현재 활성과 같아야 한다.
   if (input.release !== after) {
     return conflict("활성 release가 바뀌었다");
   }
-  // basis_seq 뒤 같은 문제의 새 live Report가 0개일 때만 닫는다(R4).
+  // basis_seq 뒤 같은 문제의 새 live Report가 0개일 때만 닫는다.
   if (liveReportsAfter(tx, input.problem, basis) !== 0) {
     return conflict("근거 뒤 새 보고가 있다");
   }
@@ -207,17 +207,17 @@ function lastReportOf(tx: Tx, problem: string): string | null {
   return row === undefined ? null : String(row.subject);
 }
 
-// 보호된 사람 결정 적용(problems/closing#R1, R6~R10, R14). 일회 handle의 검증·소비는
+// 보호된 사람 결정 적용. 일회 handle의 검증·소비는
 // ledger executor가 같은 transaction에서 한다: confirmation route라 handle·binding 없이는
 // 여기 오지 않고, 재사용 handle도 여기 오지 않는다. handler는 actor·문제 seq·활성 release·
-// 필요한 last Report를 다시 비교하고 Verification을 만들지 않는다(R6).
+// 필요한 last Report를 다시 비교하고 Verification을 만들지 않는다.
 export function handleApplyProblemDecision(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof applyProblemDecision>,
   compare: { problem_seq: string; release: string | null },
 ): Result<Output<typeof applyProblemDecision>, LophnError> {
-  // agent·앱·machine의 사람 주장은 거절한다(R1). executor의 actors 검사와 같은 답이다.
+  // agent·앱·machine의 사람 주장은 거절한다. executor의 actors 검사와 같은 답이다.
   if (parseActor(ctx.actor)?.kind !== "user") {
     return err({ code: "forbidden", message: "사람 결정만 적용한다" });
   }
@@ -233,7 +233,7 @@ export function handleApplyProblemDecision(
   if (row === undefined) return notFound();
   const app = String(row.app);
   const status = String(row.status) as ProblemRow["status"];
-  // 보호 화면이 보여 준 문제 seq와 활성 release가 지금도 같아야 한다(R6, R14).
+  // 보호 화면이 보여 준 문제 seq와 활성 release가 지금도 같아야 한다.
   if (problemSeqOf(tx, input.problem) !== input.basis_seq) {
     return conflict("문제가 바뀌었다");
   }
@@ -250,11 +250,11 @@ export function handleApplyProblemDecision(
   };
   if (input.choice === "not_fixed") {
     if (status !== "closed") {
-      // 열린 문제는 닫지 않고 부정 확인만 남긴다(R10).
+      // 열린 문제는 닫지 않고 부정 확인만 남긴다.
       tx.emit(problemConfirmationRecorded, input.problem, decision);
       return ok({ status, closure: null });
     }
-    // 닫힌 문제는 같은 ID로 다시 연다. 이전 closure는 event에 남는다(R10).
+    // 닫힌 문제는 같은 ID로 다시 연다. 이전 closure는 event에 남는다.
     const previous = JSON.parse(String(row.closure)) as Closure;
     tx.sql.run(
       `update problems set status = 'open', closure = NULL where id = ?`,
@@ -273,7 +273,7 @@ export function handleApplyProblemDecision(
   const confirmation = `${applyProblemDecision.name}@${input.basis_seq}`;
   let closure: Closure;
   if (input.choice === "fixed") {
-    // 내가 확인함이다. reproduction 통과를 만들거나 대신하지 않는다(R6, R9).
+    // 내가 확인함이다. reproduction 통과를 만들거나 대신하지 않는다.
     closure = {
       reason: "user_confirmed",
       basis_seq: input.basis_seq,
@@ -284,7 +284,7 @@ export function handleApplyProblemDecision(
       note: input.note,
     };
   } else if (input.choice === "not_visible") {
-    // 현재 release와 마지막 Report를 본 사람만 recovered로 닫는다(R7).
+    // 현재 release와 마지막 Report를 본 사람만 recovered로 닫는다.
     if (input.last_report !== lastReportOf(tx, input.problem)) {
       return err({
         code: "invalid_input",
@@ -301,7 +301,7 @@ export function handleApplyProblemDecision(
       note: input.note,
     };
   } else {
-    // 더 다루지 않음은 한 줄 이유가 있어야 하고 수리 성공이 아니다(R8).
+    // 더 다루지 않음은 한 줄 이유가 있어야 하고 수리 성공이 아니다.
     if (input.note === null || input.note.trim().length === 0) {
       return err({ code: "invalid_input", message: "이유가 없다" });
     }

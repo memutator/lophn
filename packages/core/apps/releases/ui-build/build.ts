@@ -1,4 +1,4 @@
-// 고정 UI 의존 screen build(apps/releases#R4, apps/sdk#R10). GUI의 React·npm 의존은
+// 고정 UI 의존 screen build. GUI의 React·npm 의존은
 // 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 운영 프로세스는
 // build나 의존 다운로드 없이 그 결과만 사용한다. external source map도 bundle에 넣는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -45,7 +45,7 @@ export type UiBuildOutput = {
   sourceMap: { path: string; bytes: Uint8Array };
 };
 
-// 준비 단계 build 입력이 고정 목록 안에만 있는지 본다. 밖의 의존은 거절이다(apps/sdk#R34).
+// 준비 단계 build 입력이 고정 목록 안에만 있는지 본다. 밖의 의존은 거절이다.
 export function dependenciesInsideFixedList(
   dependencies: readonly { name: string; version: string }[],
 ): boolean {

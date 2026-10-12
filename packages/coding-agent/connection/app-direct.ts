@@ -1,4 +1,4 @@
-// 앱 통로(direct call)의 coding agent 쪽이다(T21, mcp#R29, cli#R31). core의 `apps/connect`로
+// 앱 통로(direct call)의 coding agent 쪽이다. core의 `apps/connect`로
 // 서명된 connection을 받고 그 뒤 업무 요청은 앱 direct socket으로 core를 지나지 않고 보낸다
 // (apps/runtime#R10). 연결을 열지 못해 요청이 나가지 않은 것(unavailable)과 보낸 뒤 응답을
 // 잃은 것(결과 불명)을 구별하고 자동으로 다시 부르지 않는다. transport(socket 위치·권한)는

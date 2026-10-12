@@ -1,4 +1,4 @@
-// 배포 skill 하나의 형식 검사다(coding-agent/guides#R2, R3, R4). 순수 값이다. Agent Skills의 공통
+// 배포 skill 하나의 형식 검사다. 순수 값이다. Agent Skills의 공통
 // 형식(YAML frontmatter + UTF-8 Markdown)만 보고 어떤 제품 전용 metadata도 읽지 않는다. 제품 loader는
 // 이 검사보다 느슨해서(조사 coding-agent-skills-and-guides) 부적합 배포의 거절은 lophn이 배포 전에 한다.
 // frontmatter는 lophn skill이 쓰는 부분집합(한 줄 scalar와 한 단계 string map)만 읽는다. 그 밖의 YAML은

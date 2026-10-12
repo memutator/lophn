@@ -45,7 +45,7 @@ function inside(root: string, path: string): boolean {
 }
 
 // shell 문법, native 실행 파일, `..`, 절대 경로, 넓은 권한 flag는 schema가 먼저 거절한다.
-// 여기는 OS 경로와 timeout 누락, 환경 이름까지 본다(problems/tests#R14, R16, R19).
+// 여기는 OS 경로와 timeout 누락, 환경 이름까지 본다.
 export function prepareCommand(
   input: PrepareInput,
 ): Result<PreparedCommand> {
@@ -110,7 +110,7 @@ export function prepareCommand(
   });
 }
 
-// 묶음 밖 symlink·`..` real path는 시작 전에 거절한다(problems/tests#R16).
+// 묶음 밖 symlink·`..` real path는 시작 전에 거절한다.
 export async function rejectOutside(
   root: string,
   path: string,

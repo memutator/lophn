@@ -1,7 +1,7 @@
-// settings의 backup 자리(shell#T58). 복원 가능한 묶음·제외된 자료·다시 준비할 항목과
+// settings의 backup 자리. 복원 가능한 묶음·제외된 자료·다시 준비할 항목과
 // 만들기·검증 결과·보존을 보인다. restore는 잃을 최신 기록 범위를 보이는 confirmation window로만
 // 받고(이 panel은 잃을 범위만 먼저 보인다), credential 다시 준비와 secret의 암호 보호
-// export·import는 보호 창의 secret 입력으로만 받는다(platform#T45). 값을 지어내지 않는다.
+// export·import는 보호 창의 secret 입력으로만 받는다. 값을 지어내지 않는다.
 import { useCallback, useEffect, useState } from "react";
 import {
   Button,
@@ -199,7 +199,7 @@ export function BackupPanel({ source }: BackupPanelProps) {
 
   async function moveApp(): Promise<void> {
     // 별도 앱 export. 대상은 Catalog의 첫 앱이 아니라 사람이 고른 앱이다; 이 panel에는
-    // 고르는 입력칸이 없어 catalog의 이름 순서 첫 앱을 그대로 청한다(apps#T28 화면, shell#T58).
+    // 고르는 입력칸이 없어 catalog의 이름 순서 첫 앱을 그대로 청한다(apps#T28 화면).
     const list = await source.apps();
     if (!list.ok || list.value.length === 0) {
       setMoved({ kind: "failed" });

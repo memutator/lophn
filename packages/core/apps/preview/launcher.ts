@@ -138,7 +138,7 @@ function startLine(input: {
 }): string {
   return JSON.stringify({
     app: input.launch.app,
-    // 준비 전 bundle이면 null이다. 가짜 release를 만들지 않는다(R9).
+    // 준비 전 bundle이면 null이다. 가짜 release를 만들지 않는다.
     release: input.launch.release,
     bundle_hash: input.launch.bundleHash,
     mode: "preview",
@@ -307,7 +307,7 @@ export function createPreviewLauncher(
       return;
     }
     // ready 관측은 open이 마친 뒤에만 낸다. probe 성공과 open 완료 사이의 창에 ready=true·
-    // accepting=false를 내면 connect가 지금 연결되고 write가 거절된다(apps/preview#R5).
+    // accepting=false를 내면 connect가 지금 연결되고 write가 거절된다.
     if (deps.open) {
       let opened = false;
       try {

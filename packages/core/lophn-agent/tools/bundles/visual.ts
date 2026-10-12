@@ -201,7 +201,7 @@ export function createVisualToolHandlers(
     return ok(null);
   }
 
-  // 앱 카드는 blueprint에서 카드 크기를 지원한 화면만 참조한다(visuals#R4). 카드가 있으면
+  // 앱 카드는 blueprint에서 카드 크기를 지원한 화면만 참조한다. 카드가 있으면
   // 이 run의 agent 자격으로 앱 blueprint를 읽어 view 화면이 card 크기를 선언했는지 본다.
   // 읽지 못한 앱과 card 미지원 화면은 같은 거절이며 존재를 새지 않는다.
   async function verifyCards(
@@ -261,7 +261,7 @@ export function createVisualToolHandlers(
       if (verified.value !== null) {
         return ok(notDone("not shown", verified.value));
       }
-      // 카드 참조의 화면이 지금 active release의 card 크기 화면인지 본다(visuals#R4).
+      // 카드 참조의 화면이 지금 active release의 card 크기 화면인지 본다.
       const cards = await verifyCards(blocks, credential);
       if (!cards.ok) return cards;
       if (cards.value !== null) {

@@ -1,4 +1,4 @@
-// `/v1/files/status` read(file-tracking#R9). FileStatus는 ledger 열이 아니다.
+// `/v1/files/status` read. FileStatus는 ledger 열이 아니다.
 // 조회 때 coordinator가 쥔 마지막 관측으로 계산한다. 관측이 없으면 추적 안 함이다.
 import { ok, type Result } from "../../../base/mod.ts";
 import type { FileStatus, FileTarget } from "../../../protocol/projects/mod.ts";

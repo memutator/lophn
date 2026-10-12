@@ -74,7 +74,7 @@ function text(value: unknown, limit: number): string | undefined {
 
 /**
  * main world의 오류(error·unhandledrejection·render_error)를 내부 `app:view-error`로 보내는
- * 함수(problems/reporting#R5). 이름과
+ * 함수. 이름과
  * message만 싣고 창당 상한을 넘으면 버린다. 보내지 못해도 페이지 동작은 바꾸지 않는다.
  */
 export function createViewErrorReport(

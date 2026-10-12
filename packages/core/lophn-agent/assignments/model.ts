@@ -17,7 +17,7 @@ export type AssignmentRow = {
 export const ASSIGNMENT_COLUMNS =
   "id, role, scope_kind, scope_id, state, pause_detail, pause_target, revision";
 
-// ledger는 INTEGER 열을 bigint로 준다(platform/ledger#R9). 화면 값은 number다.
+// ledger는 INTEGER 열을 bigint로 준다. 화면 값은 number다.
 export function rowOf(record: Record<string, unknown>): AssignmentRow {
   const text = (value: unknown) => value === null ? null : String(value);
   return {
@@ -58,7 +58,7 @@ export function recordOf(row: AssignmentRow): Assignment {
   };
 }
 
-// lophn·Context Engineer는 역할마다 전역 하나라 사람이 거둘 수 없다(R9).
+// lophn·Context Engineer는 역할마다 전역 하나라 사람이 거둘 수 없다.
 export function isBuiltin(role: string): boolean {
   return role === "lophn" || role === "context_engineer";
 }

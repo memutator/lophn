@@ -1,4 +1,4 @@
-// Agents 탭과 Operator editor가 함께 쓰는 화면 값(shell/workspace#R36~R44). 값의 정본은 lophn-agent/agents
+// Agents 탭과 Operator editor가 함께 쓰는 화면 값. 값의 정본은 lophn-agent/agents
 // contract(AgentListRow·ReadAgent·ReadPlaceAgentSettings)이고, 여기는 화면이 contract만으로 만들 수 없는 것
 // (model 표시 이름, 이미지 주소, 켬·끔 줄)만 더한다. renderer는 contracts를 type으로만 쓴다.
 import type {

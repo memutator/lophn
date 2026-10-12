@@ -8,7 +8,7 @@ import type { ResolveEnvironment } from "./resolve.ts";
 import { ROLE_CAPS } from "./role-caps.ts";
 
 // built-in agent의 정의는 코드에 있다: 제품 이름, 기본 icon, 역할 상한(role-caps.ts). 정의 파일은 사람이 바꾼
-// 칸만 가지므로 파일이 없어도 built-in은 완전한 agent다(lophn-agent/agents R5, R13, R20).
+// 칸만 가지므로 파일이 없어도 built-in은 완전한 agent다.
 
 export type BuiltinRole = Exclude<AgentRole, "operator">;
 
@@ -30,7 +30,7 @@ export const BUILTIN_AGENTS: Record<
   },
 };
 
-// 역할별 기본 icon. Operator는 이름을 정의 파일에서 받지만 icon은 제품 기본이 있다(R13).
+// 역할별 기본 icon. Operator는 이름을 정의 파일에서 받지만 icon은 제품 기본이 있다.
 export const DEFAULT_PROFILES: Record<AgentRole, Profile> = {
   lophn: BUILTIN_AGENTS.lophn.profile,
   context_engineer: BUILTIN_AGENTS.context_engineer.profile,

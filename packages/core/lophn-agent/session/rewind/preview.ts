@@ -18,7 +18,7 @@ import {
   readAppWrites,
 } from "./app-revert.ts";
 
-// 되돌리기 preview(RevertPreview)와 그 지문(preview_hash)이다(lophn-agent/revert R3). 앱 항목(`apps`)은
+// 되돌리기 preview(RevertPreview)와 그 지문(preview_hash)이다. 앱 항목(`apps`)은
 // app-revert.ts가 만든다.
 
 // 되돌릴 수 없는 사실 한 줄(외부 요청, 질문 답·승인 결정 같은 남는 영향).

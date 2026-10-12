@@ -1,4 +1,4 @@
-// 앱 socket 자리(고정 slot)의 이름이다(apps/runtime#R6, coding-agent/mcp-server#R29). Deno는 unix
+// 앱 socket 자리(고정 slot)의 이름이다. Deno는 unix
 // socket 연결에 정확한 경로 하나마다 net(`unix:<경로>`)·read·write 허락을 요구하고 폴더 prefix나
 // 와일드카드를 받지 않는다. 그래서 앱 socket은 시작마다 새 이름이 아니라 이 고정 자리이고, runtime(앱
 // 시작)과 MCP 실행 권한(앱 direct socket 연결)이 같은 이름을 쓴다. 이름 규칙은 이 한 곳에만 둔다.

@@ -1,4 +1,4 @@
-// broker `/_lophn/broker/apps/connect`의 apps 쪽 구현(apps/connections#R1, R4, R5, apps/runtime#R30).
+// broker `/_lophn/broker/apps/connect`의 apps 쪽 구현.
 // source 앱 자식 연결의 신원(app·release·mode·process nonce)으로 제한된 다른 앱 connection 준비만
 // 한다. 업무 payload를 중계하지 않고, 허락 범위·path·서명은 준비 서비스(apps/connections)가 정한다.
 // 신원은 본문이 정하지 않는다. 본문이 다른 앱·nonce·mode를 말해도 자식 연결의 값만 쓴다.

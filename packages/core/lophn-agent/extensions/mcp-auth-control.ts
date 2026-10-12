@@ -47,7 +47,7 @@ export type McpAuthTarget = { place: AgentPlace | null; name: string };
 export type McpAuthControlDeps = {
   // token 교환·갱신이 쓰는 fetch다. 테스트가 가짜 발급자를 끼운다.
   fetch: HttpFetch;
-  // 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만 듣는다. 테스트가 가짜를
+  // 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다. 테스트가 가짜를
   // 끼우므로 사람의 실제 OS browser는 열지 않는다.
   openListener(): Promise<Result<CallbackListener>>;
   // 등록한 MCP server와 등록된 자리의 읽기다(전역 서버는 자리가 null). 같은 이름의 서버가 여러 자리에 있을 수
@@ -135,7 +135,7 @@ const timerDeadline: AuthDeadline = (ms, signal) =>
 export function createMcpAuthControl(deps: McpAuthControlDeps): {
   handlers: ReadonlyMap<string, McpAuthMemoryHandler>;
   // 연결이 token을 붙이려고 청한 참조를 현재 설정과 보관에 대조한다. OAuth token 참조가 아니면 undefined다
-  // (다른 대조가 맡는다). 만료가 가까우면 여기서 갱신한다(R17): refresh token은 core 밖으로 나가지 않는다.
+  // (다른 대조가 맡는다). 만료가 가까우면 여기서 갱신한다: refresh token은 core 밖으로 나가지 않는다.
   tokenUse(use: SecretUse): Promise<Result<McpTokenUse> | undefined>;
   endAll(): Promise<void>;
 } {
@@ -196,14 +196,14 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     const { name, place } = parsed.data;
     const target = await oauthTarget(place, name);
     if (!target.ok) return target;
-    // 사람이 등록한 client_id만 쓴다(R16). 입력이 등록과 다르면 거절이다.
+    // 사람이 등록한 client_id만 쓴다. 입력이 등록과 다르면 거절이다.
     if (parsed.data.client_id !== target.value.clientId) {
       return err({
         code: "invalid_input",
         message: "client_id가 등록한 것과 다르다",
       });
     }
-    // 사람 credential의 callback listener다(extensions R16: 사람 credential의 loopback callback).
+    // 사람 credential의 callback listener다(사람 credential의 loopback callback).
     const listener = await deps.openListener();
     if (!listener.ok) return listener;
     const begun = await oauth.begin(target.value, {
@@ -327,7 +327,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   };
 }
 
-// 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만 듣는다.
+// 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다.
 // 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state를 옮긴다. 실제 browser 열기는
 // shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 요청 하나를 마치면 닫는다.
 // 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고 unavailable로 돌아온다.

@@ -1,10 +1,10 @@
-// [Instructions]: 지침 파일(LOPHN.md)을 같은 편집기로 연다(shell/editor#R17, flow edit-instructions).
+// [Instructions]: 지침 파일(LOPHN.md)을 같은 편집기로 연다(flow edit-instructions).
 // 전역은 data root의 LOPHN.md 한 파일, project는 그 project의 첫 등록 폴더 바로 아래 LOPHN.md 한
 // 파일이다. main이 이 exact 파일만 resolve하고 renderer에는 연결된 문서 id만 준다(경로·instruction
 // target 이름은 넘기지 않는다). 파일이 없으면 문서도 없어 renderer가 빈 초안을 보이고, 사람의 첫
 // 저장이 미존재 CAS(base_hash null)로 파일을 만든다. 만든 파일은 documents가 바로 다시 관측해
 // 첫 판이 되므로 연결 문서가 생길 때까지 짧게 기다린다. 그 뒤의 고침·충돌·비교·복원은 일반 문서와
-// 같은 파일 adapter가 한다. 지침 문서의 쓰기는 사람 자격뿐이라(documents/versions#R20) agent의
+// 같은 파일 adapter가 한다. 지침 문서의 쓰기는 사람 자격뿐이라 agent의
 // 제안은 이 통로로 저장되지 않는다. app 층은 documents에 등록 파일이 없어(앱 자리 경로를 내놓는
 // contract가 아직 없다) 없는 대상과 같게 답한다.
 import type { EditorReply } from "../../ipc/editor.ts";

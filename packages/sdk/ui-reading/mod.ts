@@ -1,4 +1,4 @@
-// Markdown·목차·code block·문서 주소 표시(apps/sdk#R16). Markdown·code block·목차와 읽기 틀은
+// Markdown·목차·code block·문서 주소 표시. Markdown·code block·목차와 읽기 틀은
 // lophn 문서 화면과 같은 component다. raw HTML과 script는 실행하지 않고 글로 보인다.
 export {
   DocumentAddress,

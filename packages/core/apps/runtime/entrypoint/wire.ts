@@ -243,7 +243,7 @@ export type ConfirmProof = {
   expires_at: string;
 };
 
-// core가 서명한 proof envelope. 서명 대상은 payload의 canonical JSON이다(apps Q5).
+// core가 서명한 proof envelope. 서명 대상은 payload의 canonical JSON이다.
 export type SignedConfirmProof = { payload: unknown; signature: string };
 
 const SIGNATURE = /^[A-Za-z0-9_-]{86}$/;

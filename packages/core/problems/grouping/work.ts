@@ -1,4 +1,4 @@
-// `problems.work` 반응기(problems/grouping#R9, architecture/problems 7.6). test-runner kind
+// `problems.work` 반응기(architecture/problems 7.6). test-runner kind
 // 안에서 돌고 ledger를 직접 열지 않는다. ticket event를 cursor 뒤에서 읽어 event가 가리키는
 // 문제마다 ReconcileProblemWork를 낸다. event는 깨우는 신호이고 상태는 command가 ticket 정본에서
 // 다시 읽는다. 반응 key는 `(subscriber, cause_seq, reaction)`이고, 처리한 위치는
@@ -22,7 +22,7 @@ import {
 
 export const WORK_SUBSCRIBER = "problems.work";
 
-// 문제의 work·status를 다시 계산하게 하는 ticket event다(Q3: TicketCreated 포함).
+// 문제의 work·status를 다시 계산하게 하는 ticket event다(TicketCreated 포함).
 // TicketCheckFailed도 신호이지만 새 claim으로 보지 않는다: command가 현재 claim 정본으로 계산한다.
 export const WORK_EVENT_TYPES: readonly string[] = [
   ticketCreated.type,

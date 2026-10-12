@@ -55,12 +55,12 @@ function prepare(state: RuntimeState, spec: AutomationSpec): Prepared {
   );
   // 선언 없는 command는 어떤 호출인지 모르므로 거절 사실도 만들지 않는다.
   if (!declared) return { ok: false, reason: "undeclared_command" };
-  // confirm=true command는 automation으로 실행하지 않는다(R13).
+  // confirm=true command는 automation으로 실행하지 않는다.
   if (declared.confirm) {
     denyAutomation(state, { key: spec.key, command: declared }, "confirm");
     return { ok: false, reason: "confirm_required" };
   }
-  // 직접 호출과 같은 규칙으로 고정 입력을 검사하고 default를 채운다(apps/blueprint#R7).
+  // 직접 호출과 같은 규칙으로 고정 입력을 검사하고 default를 채운다.
   const supplied = spec.input === undefined && declared.input?.type === "object"
     ? {}
     : spec.input;
@@ -144,7 +144,7 @@ export function createAutomationPorts(
 }
 
 // 이 프로세스의 automation 수명. 업무 통로가 열릴 때 시작하고 닫히면 멈춘다. preview·test와 선언이
-// 없는 앱은 clock이 없다(R4).
+// 없는 앱은 clock이 없다.
 export type AutomationLifecycle = {
   clock: AutomationClock;
   open(): void;

@@ -2,7 +2,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/harness/waiting-and-recovery의 `run_wait_resolutions` 표.
 // 결정 하나는 한 번만 반영된다: `(run, request, decision_seq)`가 키이고 `(request,
-// decision_seq)`가 unique다(R5, R11). 행은 한 번 쓰면 바꾸지도 지우지도 않는다. 결정
+// decision_seq)`가 unique다. 행은 한 번 쓰면 바꾸지도 지우지도 않는다. 결정
 // 값(답·허락)은 열에 없다. 요청 소유 영역의 `closed_seq`만 가리키고 값은 그 영역의
 // ledger에서 다시 읽는다. runs·tool_calls 표 뒤에 만든다.
 

@@ -1,7 +1,7 @@
 // domain-model apps/sdk의 값과 판정. IO는 없다.
 import { packageVersionNameSchema } from "../../../protocol/apps/mod.ts";
 
-// 첫 공개 묶음에서 제공하지 않는 이름(apps/sdk#R4). cap-read-model은 앱 사이
+// 첫 공개 묶음에서 제공하지 않는 이름. cap-read-model은 앱 사이
 // command 호출이 cap-schedule과 apps/connections를 따르므로 만들지 않았고,
 // cap-notify는 platform#T17 notification이 맡는다.
 export const SDK_WITHHELD_NAMES = [
@@ -14,7 +14,7 @@ export function isWithheldPackageName(name: string): boolean {
   return (SDK_WITHHELD_NAMES as readonly string[]).includes(name);
 }
 
-// @me 이름이 있으면 @lophn보다 먼저 보여 준다(R6). 개인 등록은 여전히 forbidden이다.
+// @me 이름이 있으면 @lophn보다 먼저 보여 준다. 개인 등록은 여전히 forbidden이다.
 export function byCatalogOrder(
   a: { name: string },
   b: { name: string },
@@ -25,7 +25,7 @@ export function byCatalogOrder(
   return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 }
 
-// 현재 개인 Package 등록은 받지 않는다(R6).
+// 현재 개인 Package 등록은 받지 않는다.
 export function personalRegistrationRejected(name: string): boolean {
   return name.startsWith("@me/");
 }
@@ -43,7 +43,7 @@ export function majorMinorPatch(
   };
 }
 
-// 같은 major.minor에서 patch와 minor 증가, major 증가를 나눈다(R12).
+// 같은 major.minor에서 patch와 minor 증가, major 증가를 나눈다.
 export function compareVersionBump(
   from: string,
   to: string,
@@ -57,7 +57,7 @@ export function compareVersionBump(
   return "patch";
 }
 
-// 안내 원문은 patch·minor·major를 구별해야 하고(R12) permission 증가는 major 절에만
+// 안내 원문은 patch·minor·major를 구별해야 하고 permission 증가는 major 절에만
 // 쓴다. 요구 확인: 세 변경을 구별하고 permission 증가를 patch나 minor로 표시하지 않는다.
 export type GuideSections = {
   patch: string;
@@ -98,7 +98,7 @@ export function guideBumpSections(guide: string): GuideSections | undefined {
     : undefined;
 }
 
-// permission 증가가 patch·minor 절에 있으면 거절의 근거다(R12).
+// permission 증가가 patch·minor 절에 있으면 거절의 근거다.
 export function permissionIncreaseIn(
   patch: string,
   minor: string,
@@ -111,7 +111,7 @@ export function permissionIncreaseIn(
   return false;
 }
 
-// release 준비가 쓸 해석 함수(apps/sdk#R7). lophn-sdk:<name>@<version>의 정확한
+// release 준비가 쓸 해석 함수. lophn-sdk:<name>@<version>의 정확한
 // version만 받고 ^·~·latest와 암묵적 최신 선택은 거절이다.
 export function parseLophnSdkSpecifier(
   specifier: string,

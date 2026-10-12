@@ -30,7 +30,7 @@ export const RUN_LIMIT_SETTING_KEYS = {
 export type RunLimitKey = keyof typeof RUN_LIMIT_SETTING_KEYS;
 
 // 다음 run을 시작할 한도. 적용값이 없거나 양의 정수가 아니면 기본값으로 몰래 대신하지
-// 않고 거절한다(R20: 0·무제한 금지). 호출자는 이를 configuration_unavailable로 닫는다.
+// 않고 거절한다(0·무제한 금지). 호출자는 이를 configuration_unavailable로 닫는다.
 export function resolveRunLimits(
   settings: readonly EffectiveSetting[],
 ): Result<RunLimits> {
@@ -59,7 +59,7 @@ export function resolveRunLimits(
 
 // 저장된 공통 선택(setting_choices)에서 다음 run의 한도를 계산한다. 선택이 없는 항목은
 // 내장 기본값이다(정의의 기본값과 같은 DEFAULT_RUN_LIMITS). 저장값이 양의 정수가
-// 아니면 기본값으로 대신하지 않고 거절한다(R20).
+// 아니면 기본값으로 대신하지 않고 거절한다.
 export function effectiveRunLimits(
   choices: readonly { key: string; value: unknown }[],
 ): Result<RunLimits> {
@@ -90,12 +90,12 @@ export type LimitReason =
 export type ModelPurpose = "judgment" | "organizing" | "finalizing";
 
 // 완전한 응답만 진행이다. partial·failed·cancelled는 시도 횟수에는 들어가고
-// 무진행 시간은 되돌리지 않는다(R21).
+// 무진행 시간은 되돌리지 않는다.
 export type AttemptEnd = "complete" | "partial" | "failed" | "cancelled";
 
 export type RunLimiterInit = {
   limits: RunLimits;
-  // 마지막 CheckpointRun 값. 재시작·retry는 이 값에서 이어 센다(R20).
+  // 마지막 CheckpointRun 값. 재시작·retry는 이 값에서 이어 센다.
   elapsed: RunElapsed;
   // 지금까지 센 model 시도. ledger의 ModelCall 수에서 읽는다. 실패·retry 포함.
   attempts: number;
@@ -146,7 +146,7 @@ export class RunLimiter {
     this.#mark = Math.max(now, this.#mark);
   }
 
-  // 한도에 닿았는지. 한 번 닿으면 이후 model 호출은 모두 막힌다(R22).
+  // 한도에 닿았는지. 한 번 닿으면 이후 model 호출은 모두 막힌다.
   check(): LimitReason | null {
     this.#measure();
     if (this.#tripped !== null) return this.#tripped;
@@ -161,8 +161,8 @@ export class RunLimiter {
     return this.#tripped;
   }
 
-  // 시도 하나를 시작한다. 허용되면 즉시 횟수에 센다. 실패해도 줄지 않는다(R21).
-  // purpose는 judgment·organizing·마무리 모두 같은 한도를 쓴다(R22).
+  // 시도 하나를 시작한다. 허용되면 즉시 횟수에 센다. 실패해도 줄지 않는다.
+  // purpose는 judgment·organizing·마무리 모두 같은 한도를 쓴다.
   startAttempt(_purpose: ModelPurpose): AttemptStart {
     const limit = this.check();
     if (limit !== null) return { allowed: false, limit };
@@ -175,18 +175,18 @@ export class RunLimiter {
     if (end === "complete") this.#stall = 0;
   }
 
-  // 부분 token은 시간만 센다. 무진행 시간을 되돌리지 않는다(R21).
+  // 부분 token은 시간만 센다. 무진행 시간을 되돌리지 않는다.
   partialToken(): void {
     this.#measure();
   }
 
-  // 확정한 tool 결과는 진행이다(R21).
+  // 확정한 tool 결과는 진행이다.
   toolResult(): void {
     this.#measure();
     this.#stall = 0;
   }
 
-  // 사람의 답을 기다리는 동안 active·stall을 모두 멈춘다(R20).
+  // 사람의 답을 기다리는 동안 active·stall을 모두 멈춘다.
   enterWait(): void {
     this.#measure();
     this.#mark = null;
@@ -236,7 +236,7 @@ export async function callWithinLimits<T>(
   return { called: true, value: await call() };
 }
 
-// 한도로 끝낼 때 machine이 확정한 사실만으로 만든 결과(R22). model 본문이 없다.
+// 한도로 끝낼 때 machine이 확정한 사실만으로 만든 결과. model 본문이 없다.
 export type ConfirmedFacts = {
   // 확정한 변경·미실행·불명확 효과·미반영 입력의 참조. 호출자가 ledger에서 읽은 것만 넣는다.
   changes: readonly string[];

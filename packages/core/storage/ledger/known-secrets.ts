@@ -1,4 +1,4 @@
-// reader Worker가 알려진 secret 값을 아는 방법(platform/redaction#R1, platform/secrets#R1).
+// reader Worker가 알려진 secret 값을 아는 방법.
 // 값은 요청 message가 아니라 core가 pool로 보내는 별도 등록·회수 통로로만 들어오고, 각 reader
 // Worker의 보호 메모리 registry에 있다. read handler는 일치 검사만 하는 얼굴(matcher)을
 // `snapshot.port(KNOWN_SECRETS)`로 받는다: 값 목록도 개수도 내보내지 않고, 팀 module의 전역

@@ -1,5 +1,5 @@
 // 화면 탭(TabItem)과 layout 파일 탭을 양쪽에서 읽는다. 단위 테스트는 title이 있는
-// 옛 모양을 복원하고, 파일에 남는 것은 schema 필드뿐이다(shell/workspace#R6).
+// 옛 모양을 복원하고, 파일에 남는 것은 schema 필드뿐이다.
 import {
   normalizePane,
   type PaneState,

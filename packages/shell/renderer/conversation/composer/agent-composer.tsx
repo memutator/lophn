@@ -1,4 +1,4 @@
-// Agent 탭의 composer(shell/desktop#R43). 입력칸 안 아래 줄에 [+]·[model · option ▾]·[send / 일하는 중이면 Stop],
+// Agent 탭의 composer. 입력칸 안 아래 줄에 [+]·[model · option ▾]·[send / 일하는 중이면 Stop],
 // 일하는 중에만 select(Change this work / Next request), 입력칸 밖 아래 줄에 자리 이름과 권한 요약 ▾, 입력칸
 // 위에 떼어 낼 수 있는 context chip 줄이 있다. agent를 고르는 칸은 없다. 기존 composer.tsx(dock용)는 R task가
 // 지울 때까지 그대로 두고, 이 파일이 Agent 탭 자리를 맡는다.
@@ -31,7 +31,7 @@ import type { ContextChipView } from "./types.ts";
 export type { ContextChipView } from "./types.ts";
 
 export interface AgentComposerProps {
-  /** 입력 중인 글·커서·보낼 방식(draft.mode). 세션 메모리에 남는 값이다(desktop#R8). */
+  /** 입력 중인 글·커서·보낼 방식(draft.mode). 세션 메모리에 남는 값이다. */
   draft: Draft;
   /** 일하는 중이다(run이 돌거나 질문·승인을 기다림). Stop과 보낼 방식 select가 나온다. */
   working: boolean;
@@ -77,7 +77,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
   const canSend = !locked && !offline && !tooLong &&
     (draft.text.trim().length > 0 || contexts.length > 0);
 
-  // 다시 열 때 커서를 돌려놓는다. focus는 옮기지 않는다(workspace#R13).
+  // 다시 열 때 커서를 돌려놓는다. focus는 옮기지 않는다.
   useLayoutEffect(() => {
     const element = input.current;
     if (!element) return;

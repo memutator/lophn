@@ -12,7 +12,7 @@ import { readRunMetadata } from "./run-metadata.ts";
 export type DaemonStart = {
   /** 실행 권한이 launcher로 해석하는 실행 이름. */
   executable: string;
-  /** 창 없는 시작 intent(desktop#R21). package.json·wrapper 스크립트가 이 argv를 받는다. */
+  /** 창 없는 시작 intent. package.json·wrapper 스크립트가 이 argv를 받는다. */
   argv: readonly [typeof TRAY_FLAG];
   env: Record<string, string>;
 };

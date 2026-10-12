@@ -20,7 +20,7 @@ const viewSessionSchema = z.string().min(1).refine(
 
 export const feedbackBeginSchema = z.strictObject({
   view_session: viewSessionSchema,
-  // Issues의 "직접 해 봤지만 안 됩니다": 이 보고를 덧붙일 같은 앱의 기존 문제(shell#T53).
+  // Issues의 "직접 해 봤지만 안 됩니다": 이 보고를 덧붙일 같은 앱의 기존 문제.
   problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
 });
 
@@ -44,7 +44,7 @@ export const feedbackCancelSchema = z.strictObject({
 
 export type FeedbackCancel = z.infer<typeof feedbackCancelSchema>;
 
-// 접수된 feedback이 묶인 Issue로 간다. dialog를 닫고 그 앱 공간을 연다(problems/feedback#R13).
+// 접수된 feedback이 묶인 Issue로 간다. dialog를 닫고 그 앱 공간을 연다.
 export const feedbackOpenIssueSchema = feedbackCancelSchema;
 
 export const FEEDBACK_IPC = {

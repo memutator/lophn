@@ -1,4 +1,4 @@
-// 대화 입력 위의 안내 한 줄(shell/desktop#R7). 로컬 문서·앱·터미널은 그대로 두고 대화에만 필요한
+// 대화 입력 위의 안내 한 줄. 로컬 문서·앱·터미널은 그대로 두고 대화에만 필요한
 // 행동 하나를 말한다. 확인된 시각만 적는다.
 import type { ReactElement } from "react";
 import { Button, Icon, iconPixels } from "@lophn/design/components";

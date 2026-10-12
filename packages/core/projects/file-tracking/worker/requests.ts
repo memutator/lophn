@@ -26,7 +26,7 @@ export type RequestDeps = {
   files?: FileHandlers;
   // `project.preview_tracking`. 등록 전 폴더를 읽으려 한 번만 쓰는 준비 worker로 간다.
   preview?(payload: unknown): Promise<Result<unknown, LophnError>>;
-  // core가 보낸 관측 근거 조각을 받는다(Q15).
+  // core가 보낸 관측 근거 조각을 받는다.
   basis: Pick<BasisStore, "apply">;
   // 준비 route의 format 검사. core가 보낸 바이트로 format runner를 부른다.
   validate(request: ValidateFilesRequest): Promise<Result<unknown, LophnError>>;

@@ -1,6 +1,6 @@
-// SDK command의 route 표와 실행이다(T22, cli#R30). catalog·show·add는 MCP
+// SDK command의 route 표와 실행이다. catalog·show·add는 MCP
 // `lophn_sdk`과 같은 op·같은 소유 route·같은 흐름(connection/sdk-ops)이다: 같은
-// credential·입력의 결과와 거절이 같다(cli#R1, connection#R6).
+// credential·입력의 결과와 거절이 같다.
 import {
   cliSdkAddSchema,
   cliSdkCatalogSchema,

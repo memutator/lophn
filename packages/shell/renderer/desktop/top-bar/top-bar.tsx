@@ -17,7 +17,7 @@ export interface TopBarProps {
 }
 
 // 48px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(144px)을
-// 직접 그린다. 조작 요소만 끌기에서 뺀다(desktop#R23, R25).
+// 직접 그린다. 조작 요소만 끌기에서 뺀다.
 export function TopBar(
   { leading, trailing, platform = currentPlatform() }: TopBarProps,
 ) {
@@ -35,7 +35,7 @@ export function Wordmark({ children }: { children: ReactNode }) {
   return <span className={styles.wordmark}>{children}</span>;
 }
 
-// 바 오른쪽의 고정 진입점. 형제 카드가 아니라 아이콘 하나이고 이름은 tooltip과 aria-label이다(desktop#R25).
+// 바 오른쪽의 고정 진입점. 형제 카드가 아니라 아이콘 하나이고 이름은 tooltip과 aria-label이다.
 export function LophnEntry({ onLophn }: { onLophn: () => void }) {
   const label = t("launcher.button.lophn");
   return (

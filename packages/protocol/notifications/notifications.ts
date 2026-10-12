@@ -13,7 +13,7 @@ export const notificationSchema = z.object({
 export type Notification = z.infer<typeof notificationSchema>;
 
 // 계기 표는 source event 이름과 생성 조건, 사람이 Ask를 골랐을 때 부를 agent를 적는다
-// (architecture/platform 5.10, platform/notifications#R13). payload type은 소유 contracts가
+// (architecture/platform 5.10). payload type은 소유 contracts가
 // 나중에 준다. 아직 없는 event는 이름 문자열만 쓴다.
 //
 // ask_agent는 계기 종류마다 고정된 role이거나 null(보기만)이다. 내용을 읽어 정하지 않는다.
@@ -135,7 +135,7 @@ export type OsDeliveryFailureReason = z.infer<
   typeof osDeliveryFailureReasonSchema
 >;
 
-// 조회에 붙는 OS 전달 상태다(platform/notifications#R10). ledger 상태가 아니라 core 메모리의
+// 조회에 붙는 OS 전달 상태다. ledger 상태가 아니라 core 메모리의
 // 관측이다. "delivered"는 없다: 배달 성공은 보장하지 않는다. not_requested는 사람이 켜지
 // 않은 것, unconfirmed는 켰지만 이 실행에서 실패 관측이 없는 것이다(재시작 뒤 포함).
 export const osDeliverySchema = z.discriminatedUnion("state", [
@@ -152,9 +152,9 @@ export type OsDelivery = z.infer<typeof osDeliverySchema>;
 export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
-// 사람 줄이 source event에서 읽는 당시 시각이다(platform/notifications#R3). payload 자체는 없다.
+// 사람 줄이 source event에서 읽는 당시 시각이다. payload 자체는 없다.
 //
-// ask는 [Ask <agent 이름>]이 쓰는 값이다(platform/notifications#R13, R14). core가 계기 표와
+// ask는 [Ask <agent 이름>]이 쓰는 값이다. core가 계기 표와
 // source 사실로 계산해 싣고 화면은 받은 값만 그린다. 부를 agent가 없는 계기는 null이다.
 // first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조뿐이다: 앱 자리와 문제 또는
 // release 대상의 id, 또는 project 자리와 위반된 context의 id. notification 본문 복사본·
@@ -272,8 +272,8 @@ export const markNotificationRead = defineCommand({
   errors: ["forbidden", "not_found"],
 });
 
-// shell main이 OS에 올릴 때 받는 전부다(platform/notifications#R9). 사람이 켰을 때만 값이 있고,
-// 제목은 redaction을 거친 계기 종류, 열 곳은 대상 하나의 참조다. focus·이동 필드는 없다(R12).
+// shell main이 OS에 올릴 때 받는 전부다. 사람이 켰을 때만 값이 있고,
+// 제목은 redaction을 거친 계기 종류, 열 곳은 대상 하나의 참조다. focus·이동 필드는 없다.
 export const osDisplaySchema = z.strictObject({
   notification: idSchema("ntf"),
   title: z.strictObject({ kind: z.string() }),

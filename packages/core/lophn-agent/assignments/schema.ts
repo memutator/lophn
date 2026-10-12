@@ -1,7 +1,7 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/assignments의 표. assignment는 실행 정체(role·자리·상태·revision)만
-// 담는다. 설정은 agent 정의 파일이, 실행 상태는 run-loop가 맡는다(assignments#R17).
+// 담는다. 설정은 agent 정의 파일이, 실행 상태는 run-loop가 맡는다.
 // 멈춤 근거의 kind는 `scope_archived` 하나라 칸을 두지 않는다.
 
 export const assignmentSchemaSteps: readonly SchemaStep[] = [

@@ -1,4 +1,4 @@
-// Unix socket HTTP/1.1. host는 lophn.invalid만 받는다(apps/runtime#R8).
+// Unix socket HTTP/1.1. host는 lophn.invalid만 받는다.
 import { SOCKET_HOST } from "./limits.ts";
 
 export type HttpRequest = {

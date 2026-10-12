@@ -1,9 +1,9 @@
-// I/O worker의 정지 유지보수 조립(platform/blob-store#R8, R9, R11, R13, T44).
+// I/O worker의 정지 유지보수 조립.
 // collectGarbage·trimCapacity는 정상 동작 중 부르지 않는다. 삭제는 세 정지
 // 조건(새 준비 차단, command 차단, writer 정지)이 모두 관측될 때만 실행한다:
 // 부르는 쪽이 deps의 실제 관측으로 조건을 채운다(architecture 7.5 종료 순서).
-// backup.pending 표시가 남아 있으면 이번 회수를 건너뛴다(T41, R11).
-// 관측(observeBlobGc)은 삭제가 아니므로 정상 동작 중에도 그대로 돈다(R10).
+// backup.pending 표시가 남아 있으면 이번 회수를 건너뛴다.
+// 관측(observeBlobGc)은 삭제가 아니므로 정상 동작 중에도 그대로 돈다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
@@ -50,7 +50,7 @@ export type MaintenanceDeps = {
   conditions(): StoppedConditions | Promise<StoppedConditions>;
   // 소유 concern이 등록한 blob field. 보존 종류가 함께 있다(blobFields).
   fields(): readonly RetentionRule[];
-  // 고정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다(R8).
+  // 고정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다.
   listReferenceRows(): Promise<
     Result<readonly { hash: string; owner_kind: string; field: string }[]>
   >;
@@ -60,8 +60,8 @@ export type MaintenanceDeps = {
 };
 
 // 정지 유지보수 1회. 순서:
-// 1. 세 정지 조건 확인 — 하나라도 거짓이면 아무것도 하지 않는다(R8).
-// 2. backup.pending 확인 — 있으면 이번 회수를 건너뛴다(T41, R11).
+// 1. 세 정지 조건 확인 — 하나라도 거짓이면 아무것도 하지 않는다.
+// 2. backup.pending 확인 — 있으면 이번 회수를 건너뛴다.
 // 3. trimCapacity의 할당 산출(참조 field 규칙 + 목적 기록) — 관측 실패면
 //    아무것도 지우지 않는다(fail-closed).
 // 4. collectGarbage(미참조 확인 기록의 유예기간이 지난 분만) →
@@ -85,7 +85,7 @@ export async function runMaintenanceGc(
     });
   }
   // blob_refs 참조 행 + 등록 field 규칙 + 목적 기록으로 trimCapacity의
-  // 할당을 산다(T44). 목록 관측 실패는 아무것도 지우지 않는다(fail-closed).
+  // 할당을 산다. 목록 관측 실패는 아무것도 지우지 않는다(fail-closed).
   const rows = await deps.listReferenceRows();
   if (!rows.ok) return rows;
   const purposes = await readPurposeRecords(deps.root);
@@ -103,7 +103,7 @@ export async function runMaintenanceGc(
   });
 }
 
-// 처음 확인 시각 기록(R9). io.ts의 매일 관측과 정지 유지보수가 이 helper로
+// 처음 확인 시각 기록. io.ts의 매일 관측과 정지 유지보수가 이 helper로
 // 남긴다. 유예기간은 처음 확인한 시각부터 센다 — 부른 쪽이 기록이 없을 때만
 // 부른다(collectGarbage·observeBlobGc의 기록 갱신 순서).
 export async function recordUnreferenced(
@@ -131,7 +131,7 @@ export async function recordUnreferenced(
   }
 }
 
-// 다시 참조된 hash의 기록 지우기(R9: 다음 미참조 확인부터 유예기간이 새로 섞인다).
+// 다시 참조된 hash의 기록 지우기(다음 미참조 확인부터 유예기간이 새로 섞인다).
 export async function forgetUnreferenced(
   root: string,
   hash: string,
@@ -158,12 +158,12 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       if (!rows.ok) return rows;
       return ok(rows.value.map((row) => ({ hash: row.hash })));
     },
-    // 미참조 확인 기록 관측(R9). blobs/unreferenced/<2>/<62>.json이다.
+    // 미참조 확인 기록 관측. blobs/unreferenced/<2>/<62>.json이다.
     listUnreferenced: () => readUnreferencedRecords(deps.root),
-    // 처음 확인 시각 기록. 이미 있는 기록은 바꾸지 않는다(R9).
+    // 처음 확인 시각 기록. 이미 있는 기록은 바꾸지 않는다.
     recordUnreferenced: (hash, atMs) =>
       recordUnreferenced(deps.root, hash, atMs),
-    // 다시 참조된 hash의 기록 지우기(R9: 유예기간이 새로 섞인다).
+    // 다시 참조된 hash의 기록 지우기(유예기간이 새로 섞인다).
     forgetUnreferenced: (hash) => forgetUnreferenced(deps.root, hash),
     listBackupPending: () => listBackupPending(deps.root),
     removeBlob: (hash) =>
@@ -215,7 +215,7 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
   };
 }
 
-// 목적 기록 관측(T44). 준비가 남긴 blobs/purposes/<2>/<62>.json 파일을 읽어
+// 목적 기록 관측. 준비가 남긴 blobs/purposes/<2>/<62>.json 파일을 읽어
 // hash → purpose로 모은다. 없거나 모양이 다른 기록은 건너뛴다: 정지
 // 유지보수는 기록 없는 hash를 지우지 않는다(fail-closed).
 export async function readPurposeRecords(
@@ -231,7 +231,7 @@ export async function readPurposeRecords(
   return ok(found);
 }
 
-// 미참조 확인 기록 관측(R9). blobs/unreferenced/<2>/<62>.json 파일을 읽어
+// 미참조 확인 기록 관측. blobs/unreferenced/<2>/<62>.json 파일을 읽어
 // hash → 처음 확인 시각으로 모은다. 없거나 모양이 다른 기록은 건너뛴다:
 // 기록 없는 hash는 지금부터 미참조다(fail-closed).
 export async function readUnreferencedRecords(

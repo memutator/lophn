@@ -60,7 +60,7 @@ export function createBrokerClient(deps: {
     }) {
       return post(BROKER_PATHS.appsConnect, body);
     },
-    // confirm=true command의 approval 요청과 결과 수령(apps/connections#R3).
+    // confirm=true command의 approval 요청과 결과 수령.
     appsConfirmRequest(body: Record<string, unknown>) {
       return post(BROKER_PATHS.appsConfirmRequest, body);
     },

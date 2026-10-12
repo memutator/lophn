@@ -1,4 +1,4 @@
-// `files.read`를 core가 stream으로 서빙하는 조립(documents#T12). 현재 디스크 파일을 한 JSON
+// `files.read`를 core가 stream으로 서빙하는 조립. 현재 디스크 파일을 한 JSON
 // frame에 싣지 않는다: 헤더(hash·크기·identity)를 먼저 받고, 본문은 창(256 KiB) 하나씩
 // coordinator에 요청해 byte chunk frame으로 받고, 소비자(HTTP 응답)가 당길 때만 다음 창을
 // 요청한다(backpressure, core 메모리는 열린 창 하나). 읽는 동안 sha256을 이어 갱신하고, 끝에서
@@ -92,7 +92,7 @@ export function fileReadStreams(
     } else if (
       target.kind !== "project_file" && target.kind !== "instruction_file"
     ) {
-      // 지침 파일은 coordinator가 exact 등록과 맞춰 본다(file-tracking#R19).
+      // 지침 파일은 coordinator가 exact 등록과 맞춰 본다.
       return notAvailable();
     }
     const opened = await deps.request(

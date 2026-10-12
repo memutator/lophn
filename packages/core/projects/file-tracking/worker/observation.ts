@@ -1,7 +1,7 @@
 // 파일 관측 하나를 Version까지 올리는 제출. 안정 읽기 결과(hash·바이트)를 blob으로
 // 준비하고, 공통 준비 경로(`document.prepare`)로 PreparedVersion을 받고, machine
 // `document.save`로 확정한다. 제출 근거(FileObservationBasis)는 확정 때 core가 다시
-// 비교하고, 달라졌으면 conflict라 다시 관측한다(file-tracking#R7, versions#R13).
+// 비교하고, 달라졌으면 conflict라 다시 관측한다.
 // 마지막 관측은 FileStatus 메모리에 남긴다(`/v1/files/status`가 이것을 묻는다).
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
@@ -26,11 +26,11 @@ import type { PreparationPool } from "./pool.ts";
 import type { CoreClient } from "./submit.ts";
 
 // 관측 파일이 이어지는 project·문서 근거. 근원은 core가 감독 pipe로 보낸 관측 근거다
-// (Q15, `linkFromStore`). coordinator는 machine으로 이것을 읽지 않는다.
+// (`linkFromStore`). coordinator는 machine으로 이것을 읽지 않는다.
 export type ObservationLink = {
   project: string;
   project_revision: string;
-  // 연결된 문서의 상태. 보관된 문서에는 새 판을 확정하지 않는다(file-tracking#R8).
+  // 연결된 문서의 상태. 보관된 문서에는 새 판을 확정하지 않는다.
   status: "active" | "archived";
   // 이 경로에 연결된 문서. 연결이 없으면 새 문서를 만든다(base_version null).
   document: string;
@@ -157,7 +157,7 @@ export function createObservationSubmit(
       return ok(undefined);
     }
     // 보관된 문서에는 새 판을 확정하지 않는다. 보관이 풀리면 core가 새 근거를 보내고
-    // 관측 loop가 그 root를 다시 대조한다(file-tracking#R8).
+    // 관측 loop가 그 root를 다시 대조한다.
     if (link.status === "archived") {
       ports.status.report(
         key,
@@ -259,7 +259,7 @@ export function createObservationSubmit(
       return err(prepared.error);
     }
     // 준비 결과의 files가 판의 파일 목록이다. save가 같은 tx에서 version_files 행과
-    // 파일별 원문 blob 참조를 등록하므로 그 준비 참조도 함께 묶는다(Q16).
+    // 파일별 원문 blob 참조를 등록하므로 그 준비 참조도 함께 묶는다.
     const preparedVersion = prepared.value as {
       preparation_ref: string;
       files: readonly { preparation_ref: string }[];
@@ -301,7 +301,7 @@ export function createObservationSubmit(
   };
 }
 
-// 원문 blob 준비의 제품 길: 자식 session이 감독 pipe로 core에 보낸다(platform Q6).
+// 원문 blob 준비의 제품 길: 자식 session이 감독 pipe로 core에 보낸다.
 // purpose는 document.prepare 입력의 content(document_file)다. principal은 core가 자식
 // kind에서 정한다.
 export function childBlobPort(session: {
@@ -321,7 +321,7 @@ export function childBlobPort(session: {
 
 // 같은 바이트를 동시에 준비하는 요청은 한 번만 보낸다(같은 내용의 파일을 한꺼번에 관측할 때
 // 바이트를 두 번 옮기지 않는다). 끝난 준비를 다시 쓰는 일은 core relay가 한다: 같은
-// 주체·purpose·내용의 준비가 살아 있으면 그 참조를 돌려준다(coding-agent Q24).
+// 주체·purpose·내용의 준비가 살아 있으면 그 참조를 돌려준다.
 export function sharePreparedBlob(
   prepare: ObservationPorts["prepareBlob"],
 ): ObservationPorts["prepareBlob"] {
@@ -428,7 +428,7 @@ export function retryOnNewBasis(
 }
 
 // 일반 root 관측이 등록된 지침 파일을 project 문서로 만들지 않는다. 그 파일은 지침 관측만 본다
-// (file-tracking#R19: 일반 폴더 tracking 범위와 지침 등록은 서로 넓히지 않는다).
+// (일반 폴더 tracking 범위와 지침 등록은 서로 넓히지 않는다).
 export function skipInstructionFiles(
   inner: (submission: ObservationSubmit) => Promise<Result<void>>,
   store: Pick<BasisStore, "instruction">,

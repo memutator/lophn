@@ -26,7 +26,7 @@ import type { UpdateSource } from "./update/source.ts";
 import type { SettingsSource } from "./source.ts";
 import styles from "./settings.module.css";
 
-/** settings의 운영 탭 통로 묶음(shell#T58). 제품 조립이 entry에서 만든다. */
+/** settings의 운영 탭 통로 묶음. 제품 조립이 entry에서 만든다. */
 export type SettingsPanels = Pick<
   SettingsScreenProps,
   "providers" | "agents" | "backup" | "update" | "diagnostics" | "notifications"
@@ -35,23 +35,23 @@ export type SettingsPanels = Pick<
 export interface SettingsScreenProps {
   /** 일반 설정과 도구·skill 자리가 읽고 쓰는 통로. */
   source: SettingsSource;
-  /** Providers 자리(shell/desktop#R49). 없으면 그 자리를 두지 않는다. */
+  /** Providers 자리. 없으면 그 자리를 두지 않는다. */
   providers?: ProviderSettingsSource;
-  /** Agents 자리(shell/desktop#R50). 없으면 그 자리를 두지 않는다. */
+  /** Agents 자리. 없으면 그 자리를 두지 않는다. */
   agents?: AgentsSettingsSource;
-  /** 모든 project의 LOPHN.md 편집기(전역 지침)를 연다(shell/editor#R17). Agents의 [Edit]이 쓴다. */
+  /** 모든 project의 LOPHN.md 편집기(전역 지침)를 연다. Agents의 [Edit]이 쓴다. */
   onInstructions?: () => void;
-  /** coding agent 연결 통로(shell#T50). 없으면 그 탭을 두지 않는다. */
+  /** coding agent 연결 통로. 없으면 그 탭을 두지 않는다. */
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. 있으면 그 탭을 먼저 연다. */
   initialConnection?: string;
-  /** backup·복원 자리(shell#T58). nav에서 뺐으므로 받아도 그리지 않는다(backup 제거는 후속 작업). */
+  /** backup·복원 자리. nav에서 뺐으므로 받아도 그리지 않는다(backup 제거는 후속 작업). */
   backup?: BackupSource;
-  /** update 자리(shell#T58). 없으면 그 탭을 두지 않는다. */
+  /** update 자리. 없으면 그 탭을 두지 않는다. */
   update?: UpdateSource;
-  /** 진단 자리(shell#T58). 없으면 그 탭을 두지 않는다. */
+  /** 진단 자리. 없으면 그 탭을 두지 않는다. */
   diagnostics?: DiagnosticsSource;
-  /** OS notification 자리(shell#T58). 없으면 그 탭을 두지 않는다. */
+  /** OS notification 자리. 없으면 그 탭을 두지 않는다. */
   notifications?: NotificationsSource;
 }
 

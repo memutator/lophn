@@ -1,7 +1,7 @@
 // lophn CLI의 실행 entry다(code-map). 조립만 하고 업무 규칙을 두지 않는다.
 // stdin/stdout에서 한 command를 읽고, credential provider는 T36의 실제 loader
 // 자리라 지금은 unavailable이 맞다(coding-agent/harnesses). dispatch는
-// registry의 route로만 한다(R1, architecture 5.1). parse 오류도 --json이면
+// registry의 route로만 한다(architecture 5.1). parse 오류도 --json이면
 // JSON 오류 하나다(T12 완료 8).
 import {
   findCommand,
@@ -85,7 +85,7 @@ function readTextOrUndefined(path: string): string | undefined {
   }
 }
 
-// 받은 token은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다(connection#R17).
+// 받은 token은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다.
 function scrub(
   known: ReturnType<typeof createKnownSecretRegistry>,
   text: string,
@@ -114,7 +114,7 @@ export async function cliMain(
     await emitHelp(parsed, output);
   }
   if (parsed.errors.length > 0) {
-    // parse 오류는 실행 전 거절이다(cli#R4). --json이면 JSON 오류 하나다(T12 완료 8).
+    // parse 오류는 실행 전 거절이다. --json이면 JSON 오류 하나다(T12 완료 8).
     await output.failure({
       code: "invalid_input",
       message: parsed.errors.join("; "),
@@ -157,7 +157,7 @@ export async function cliMain(
     return output.exitCode(failure);
   }
   if (parsed.help || entry === undefined) {
-    // 표 밖 command는 실행 전 거절이다(cli#R4). 지원 목록을 다음 조회로 남긴다.
+    // 표 밖 command는 실행 전 거절이다. 지원 목록을 다음 조회로 남긴다.
     await output.failure({
       code: "invalid_input",
       message: entry === undefined
@@ -185,7 +185,7 @@ export async function cliMain(
     await output.failure(failure);
     return output.exitCode(failure);
   }
-  // `session summary --hook`은 어떤 실패도 stdout 빈 값·exit 0이다(guides#R24). 세션 시작을 막지 않는다.
+  // `session summary --hook`은 어떤 실패도 stdout 빈 값·exit 0이다. 세션 시작을 막지 않는다.
   const hookMode = command === "session summary" &&
     (checked.data as { hook?: boolean }).hook === true;
   const env = options.env ?? ambientEnv();
@@ -206,7 +206,7 @@ export async function cliMain(
     return output.exitCode(address.error);
   }
   // connection 참조로 시작할 때 helper에서 credential을 한 번 받는다. 평문 파일·user credential
-  // fallback은 없다(connection#R17).
+  // fallback은 없다.
   const provider = registeringProvider(
     options.provider ?? createHelperCredentialProvider({
       helper: `${
@@ -281,8 +281,8 @@ export async function cliMain(
     scrub(known, JSON.stringify(result)),
   ) as typeof result;
   await output.result(safe);
-  // 실패·거절·검사 실패 결과는 성공 exit가 아니다(cli#R26).
-  // 쓰기 응답을 잃은 결과는 실제 오류와 구별한 effect_unknown(exit 6)이다(cli#R5).
+  // 실패·거절·검사 실패 결과는 성공 exit가 아니다.
+  // 쓰기 응답을 잃은 결과는 실제 오류와 구별한 effect_unknown(exit 6)이다.
   const lost = (result.data as { details?: Record<string, unknown> } | null)
     ?.details;
   const refused: AgentFailure | undefined = isError !== true
@@ -305,7 +305,7 @@ async function emitHelp(
   await output.result(help);
 }
 
-// 옵션 → 환경 설정 → 기본(daemon address 순서, connection#R15)이다. CLI에서는
+// 옵션 → 환경 설정 → 기본(daemon address 순서)이다. CLI에서는
 // 기본 daemon 주소를 쓰지 않는다. 명시 값만 받는다(T12 뼈대).
 export function daemonUrlOf(
   parsed: ParsedArgs,

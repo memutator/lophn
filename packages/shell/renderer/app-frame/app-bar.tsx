@@ -1,6 +1,6 @@
-// 앱 공간의 얇은 바(shell/app-frame#R26, architecture/shell 2.4 `/apps/:app`). 런처 복귀, 앱
+// 앱 공간의 얇은 바(architecture/shell 2.4 `/apps/:app`). 런처 복귀, 앱
 // 이름과 연결 상태, [Report a problem] 자리, 운영 패널 진입, 문서 작업대 전환, 새 창 열기를 둔다.
-// 이 공간의 lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다(desktop#R27, `decisions`).
+// 이 공간의 lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다(`decisions`).
 // 바는 shell 크롬이라 앱 view bounds에 들어가지 않는다.
 import type { ReactNode } from "react";
 import { IconButton, StatusMark, Tooltip } from "@lophn/design/components";
@@ -28,9 +28,9 @@ export interface AppBarProps {
   onNewWindow?: () => void;
   /** 그 앱의 결정 대기와 lophn 장애 안내(SpaceDecisions). */
   decisions?: ReactNode;
-  /** [Report a problem] 자리. 앱 view 캡처를 먼저 요청하는 독립 버튼이다(shell#T52). */
+  /** [Report a problem] 자리. 앱 view 캡처를 먼저 요청하는 독립 버튼이다. */
   report?: ReactNode;
-  /** agent select. window controls 바로 옆, 곧 바 오른쪽의 맨 끝에 둔다(R37). */
+  /** agent select. window controls 바로 옆, 곧 바 오른쪽의 맨 끝에 둔다. */
   agentSelect?: ReactNode;
 }
 

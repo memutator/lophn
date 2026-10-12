@@ -3,7 +3,7 @@ import type { IssuesSource } from "./source.ts";
 
 /**
  * "직접 해 봤지만 안 됩니다": 지금 보이는 앱 보기 세션으로 그 문제를 고른 report-problem
- * dialog를 연다(shell#T53). 보기 세션이 없으면 열 수 없다.
+ * dialog를 연다. 보기 세션이 없으면 열 수 없다.
  */
 export function withReportAgain(
   source: IssuesSource,

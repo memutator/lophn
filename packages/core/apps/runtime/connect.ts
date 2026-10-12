@@ -1,7 +1,7 @@
 // core 안 apps 제어 어댑터. `POST /v1/apps/connect`가 부르고 AppConnection을 서명한다.
 // ledger queue 밖이다: supervisor의 현재 프로세스 관측(메모리)과 현재 App·Grant read를
 // 읽어 원래 credential의 actor·scope·기한으로 제한한 connection을 만든다. endpoint·nonce는
-// ledger에 쓰지 않는다. 본문의 actor·mode·effect·다른 앱 주장은 권한 근거가 아니다(R9).
+// ledger에 쓰지 않는다. 본문의 actor·mode·effect·다른 앱 주장은 권한 근거가 아니다.
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import {
   appConnect,
@@ -18,7 +18,7 @@ import type { CoreSigner } from "./signing.ts";
 
 type ScreenSize = "full" | "panel" | "card";
 
-// AppConnection 기한의 상한이다(apps Q5). 원래 credential의 기한이 더 짧으면 그 기한이다.
+// AppConnection 기한의 상한이다. 원래 credential의 기한이 더 짧으면 그 기한이다.
 export const CONNECTION_TTL_MS = 10 * 60_000;
 // 서명해서 내보낸 connection을 기억하는 수의 상한. 기한이 지난 것은 먼저 뺀다.
 export const ISSUED_CONNECTION_LIMIT = 4096;
@@ -106,7 +106,7 @@ export type AppConnector = {
     input: AppConnectInput,
   ): Promise<Result<ConnectResult>>;
   // 발급한 connection 중 credential이 닫혔거나 agent 허락이 줄어든 것의 통로를 닫는다.
-  // 닫기는 그 프로세스의 정지와 새 nonce 재시작이다(apps Q5). 닫은 프로세스 수를 돌려준다.
+  // 닫기는 그 프로세스의 정지와 새 nonce 재시작이다. 닫은 프로세스 수를 돌려준다.
   sweep(): Promise<number>;
   // 지금 기억하는 발급 수(시험·관측).
   readonly issued: number;
@@ -197,7 +197,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
   }
 
   // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위 ∩ 현재 active
-  // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다(R32).
+  // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다.
   async function agentCommands(
     entry: { commands: readonly string[] },
     input: AppConnectInput,

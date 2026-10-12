@@ -1,4 +1,4 @@
-// SDK tool의 공통 실행이다(T22, mcp#R22·R23, cli#R30). catalog·show·add가 같은
+// SDK tool의 공통 실행이다. catalog·show·add가 같은
 // credential·입력의 결과와 거절을 공유하도록 MCP와 CLI가 이 한 흐름을 지난다
 // (connection#R6, cli#R1). op마다 소유 읽기 route로만 보내고, 통로가 더한 입력
 // field(query·version·apply·app)는 소유 route로 보내지 않는다.
@@ -23,7 +23,7 @@ import {
 } from "../../protocol/apps/mod.ts";
 import type { FlowClient } from "./document-save.ts";
 
-// SDK op의 공통 op table이다(T21 app-ops의 패턴, mcp#R22·R23, cli#R30).
+// SDK op의 공통 op table이다(T21 app-ops의 패턴).
 export const SDK_OP_ROUTES = {
   catalog: packagesList,
   show: packagesVersions,
@@ -68,7 +68,7 @@ export type SdkOpDeps = {
 
 export const SDK_SUPPORT = {
   supported: "supported",
-  // 개인 SDK(@me)는 현재 지원 범위 밖이다(apps/sdk#R6, mcp#R22).
+  // 개인 SDK(@me)는 현재 지원 범위 밖이다.
   personal: "personal_unsupported",
 } as const;
 
@@ -182,7 +182,7 @@ function matches(pkg: Obj, query: string): boolean {
   );
 }
 
-// 설치 catalog에서 찾지 못한 이름의 판정이다(mcp#R22): 개인 SDK는 지원 범위 밖, 그 밖은 비설치.
+// 설치 catalog에서 찾지 못한 이름의 판정이다: 개인 SDK는 지원 범위 밖, 그 밖은 비설치.
 function absence(name: string) {
   return isPersonalSdk(name)
     ? {
@@ -414,7 +414,7 @@ export type ImportMapOutcome =
   };
 
 // deno.json 원문에 SDK import 하나를 더한 결과다. 같은 항목이면 unchanged, 같은 이름의 다른
-// version·다른 대상이 있으면 conflict이고 원문을 바꾸지 않는다(mcp#R23).
+// version·다른 대상이 있으면 conflict이고 원문을 바꾸지 않는다.
 export function planImportMap(
   text: string | undefined,
   name: string,

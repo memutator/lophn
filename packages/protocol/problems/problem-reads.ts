@@ -133,7 +133,7 @@ export const getSnapshot = defineRead({
   errors: readErrors,
 });
 
-// 고정한 로그 조각 읽기(snapshots#R13, R16). 사람(user)만 읽는다. 앱 프로세스와 없는
+// 고정한 로그 조각 읽기. 사람(user)만 읽는다. 앱 프로세스와 없는
 // snapshot은 같은 not_found이고 blob 읽기를 열지 않는다. 조각은 지시가 아닌 데이터다.
 const logFragmentFields = {
   scope: z.string().regex(/\S/),

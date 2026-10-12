@@ -25,22 +25,22 @@ export const TAB_DRAG_TYPE = "application/x-lophn-tab";
 export interface TabStripProps {
   tabs: readonly TabItem[];
   selected: string | null;
-  /** 두 칸 중 focus 칸이면 활성 탭 위에 2px 표시를 둔다(editor#R3). */
+  /** 두 칸 중 focus 칸이면 활성 탭 위에 2px 표시를 둔다. */
   focused: boolean;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
-  /** 키보드로 다른 칸으로 옮긴다(workspace#R3). */
+  /** 키보드로 다른 칸으로 옮긴다. */
   onMoveToPane?: (key: string, direction: "left" | "right") => void;
   /** 탭 drag 시작과 끝. 끝나면 null이다. */
   onDragTab?: (key: string | null) => void;
   /** 줄 오른쪽 끝의 조작(칸 나누기, 정보 패널). */
   end?: ReactNode;
   label?: string;
-  /** 탭 key마다 tooltip. 문서 탭은 문서 제목과 상대 경로다(editor#R4). */
+  /** 탭 key마다 tooltip. 문서 탭은 문서 제목과 상대 경로다. */
   tooltips?: Readonly<Record<string, ReactNode>>;
 }
 
-// 탭 줄. 종류는 아이콘과 글자로 구별하고 넘치면 줄 안에서만 scroll한다(workspace#R1, R2).
+// 탭 줄. 종류는 아이콘과 글자로 구별하고 넘치면 줄 안에서만 scroll한다.
 export function TabStrip(
   {
     tabs,
@@ -56,7 +56,7 @@ export function TabStrip(
   }: TabStripProps,
 ) {
   const listRef = useRef<HTMLDivElement>(null);
-  // 키보드 focus가 있는 탭. 화살표는 focus만 옮기고 Enter가 연다(editor#R4).
+  // 키보드 focus가 있는 탭. 화살표는 focus만 옮기고 Enter가 연다.
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const current = tabs.some((tab) => tab.key === focusKey)
     ? focusKey
@@ -121,7 +121,7 @@ export function TabStrip(
       >
         {tabs.map((tab) => {
           const active = tab.key === selected;
-          // 종류 글자와 아이콘은 kind의 선언에서 온다(workspace#R14).
+          // 종류 글자와 아이콘은 kind의 선언에서 온다.
           const kind = tabKindLabel(tab.kind);
           const icon = tabKindOf(tab.kind)?.icon;
           const tooltip = tooltips[tab.key];

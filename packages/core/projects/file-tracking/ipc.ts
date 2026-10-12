@@ -40,7 +40,7 @@ export function markUnavailable(worker: WorkerPreparing): {
 }
 
 // 요청 envelope와 배분 batch를 보낸다. batch 후보는 1MiB 이하 byte chunk로 싣는다.
-// bytes 채널은 request JSON의 channel 필드로 묶는다(contracts#T6).
+// bytes 채널은 request JSON의 channel 필드로 묶는다.
 export async function sendPreparationRequest(
   writer: IpcWriter,
   request: { request_id: string; payload: RequestPayload; channel?: number },
@@ -97,12 +97,12 @@ export function batchToChunks(
 export const DOCUMENT_OPS = {
   // 대상의 마지막 관측(FileStatus 메모리). 입력은 FileTarget이다.
   fileStatus: "documents.file_status",
-  // core가 snapshot에서 읽은 tracking 규칙과 경로→문서 연결(Q15). 바뀔 때마다 다시 보낸다.
+  // core가 snapshot에서 읽은 tracking 규칙과 경로→문서 연결. 바뀔 때마다 다시 보낸다.
   observationBasis: "documents.observation_basis",
-  // 저장 준비의 format 검사(file-tracking#R5, versions#R4). 원문 바이트는 이 요청 앞에
+  // 저장 준비의 format 검사. 원문 바이트는 이 요청 앞에
   // byte chunk frame으로 먼저 가고, 요청은 channel과 길이로 그 바이트를 가리킨다.
   validateFiles: "documents.validate_files",
-  // 사람 파일 작업(file-tracking#R2, R11, R12). 요청은 user 자격으로 core가 검사한 뒤에만 온다.
+  // 사람 파일 작업. 요청은 user 자격으로 core가 검사한 뒤에만 온다.
   // write의 바이트는 이 요청 앞에 byte chunk frame으로 먼저 가고 요청이 channel로 가리킨다.
   // 파일 읽기는 헤더(`fileRead`: hash·크기·identity)와 창(`fileWindow`: 응답 전에 core가 정한
   // channel의 byte frame)으로 나뉜다. 한 응답 JSON frame에 파일을 싣지 않는다.

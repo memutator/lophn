@@ -1,4 +1,4 @@
-// I/O worker의 secret 보호 경계(platform/secrets#R2, R5, R11).
+// I/O worker의 secret 보호 경계.
 // 원값은 pipe op의 callback 메모리로만 들어오고 JSON payload·응답에는 없다.
 
 import { err, type ErrorCode, ok, type Result } from "../../../base/mod.ts";

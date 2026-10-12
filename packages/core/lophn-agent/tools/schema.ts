@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 
-// 진입 전 입력 검사(R3). JSON Schema 검증은 정의의 zod schema가 맡는다. 숫자
+// 진입 전 입력 검사. JSON Schema 검증은 정의의 zod schema가 맡는다. 숫자
 // 문자열을 숫자로 바꾸거나 모르는 필드를 지우거나 잘못된 값을 추측해 고치지
 // 않는다. 실패는 입력을 하나도 적용하지 않은 invalid_input이다.
 

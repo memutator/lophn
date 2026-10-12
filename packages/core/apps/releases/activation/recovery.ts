@@ -158,7 +158,7 @@ export async function recoverActivation(
   );
 }
 
-// ---- 재시작 점검(platform/backup-and-migration#R16) ----
+// ---- 재시작 점검 ----
 
 type Observation = {
   target: string;
@@ -215,7 +215,7 @@ export function observeReleaseActivations(
   }
 }
 
-// ---- migration 이력(apps/data#R9) ----
+// ---- migration 이력 ----
 
 export type MigrationHistoryEntry = {
   release: string;

@@ -1,4 +1,4 @@
-// app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다(shell/workspace#R5, R7, R11).
+// app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다.
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
@@ -11,7 +11,7 @@ const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 let appPanelCount = 0;
 
-/** 사람이 누른 앱 패널 열기. 탭은 앱을 고르는 자리로 시작한다(workspace#R5). */
+/** 사람이 누른 앱 패널 열기. 탭은 앱을 고르는 자리로 시작한다. */
 export function openAppPanel(host: TabHost): void {
   const key = `app-panel-${Date.now().toString(36)}-${++appPanelCount}`;
   host.openTab({

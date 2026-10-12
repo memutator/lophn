@@ -1,4 +1,4 @@
-// Agents 탭의 본문 전체(shell/workspace#R36~R44). 목록(AgentsTab)과 같은 탭 안에서 여는 editor(AgentEditor)를
+// Agents 탭의 본문 전체. 목록(AgentsTab)과 같은 탭 안에서 여는 editor(AgentEditor)를
 // source에 잇는다. 화면 component는 값을 props로 받아 그리기만 하므로 읽기·저장·거절 표시·model picker 상태는 여기서
 // 쥔다. 열어 둔 agent는 탭의 필드(layout)에 남고, 첫 저장 전의 새 Operator는 이 탭 안의 상태일 뿐이다.
 import { type ReactElement, useCallback, useEffect, useState } from "react";

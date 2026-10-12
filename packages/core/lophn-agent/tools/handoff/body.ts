@@ -1,4 +1,4 @@
-// handoff 내용의 core 쪽 길(lophn-agent/handoff#R3, R4, plan Q25). 호출자(agent runtime)는 blob을
+// handoff 내용의 core 쪽 길. 호출자(agent runtime)는 blob을
 // 준비하지 않고 무엇·왜·제외·기대 결과 값을 요청에 싣는다. core가 command 앞에서 문자열을
 // redaction(pattern과 알려진 secret 값)해 정규 직렬화 bytes로 blob을 준비하고, 요청의 `body`를 그
 // bytes의 hash로 맞춘다. command가 같은 값에서 같은 hash를 다시 만들어 보고 같은 transaction에서

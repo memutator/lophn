@@ -12,7 +12,7 @@ export interface RestoreTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 
-/** settings backup 복원 통로(shell#T58). 묶음 하나만 보내고 main이 다시 검사한다. */
+/** settings backup 복원 통로. 묶음 하나만 보내고 main이 다시 검사한다. */
 export interface LophnRestoreApi {
   plan(input: RestorePlanInput): Promise<RestorePlanReply>;
   submit(input: RestoreSubmitInput): Promise<RestoreSubmitReply>;

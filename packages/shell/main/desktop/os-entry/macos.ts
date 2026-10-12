@@ -1,5 +1,5 @@
 // macOS 앱 바로가기. `~/Applications`의 작은 app bundle이고 실행 파일은 검증된 lophn 실행
-// 경로를 `--open-app <app ID>`로 exec하는 두 줄 script뿐이다(shell/desktop#R14). bundle은
+// 경로를 `--open-app <app ID>`로 exec하는 두 줄 script뿐이다. bundle은
 // Dock에 따로 머물지 않는다(LSUIElement). 실제 창은 이미 떠 있는 lophn main이 연다.
 import { join } from "node:path";
 

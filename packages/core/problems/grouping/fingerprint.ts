@@ -1,8 +1,8 @@
-// 예외 지문과 묶기 key 준비(grouping#R2, R3, R4; architecture/problems 7.3).
+// 예외 지문과 묶기 key 준비(architecture/problems 7.3).
 // 지문은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function canonical JSON
 // 전체 SHA-256이다. line·column·오류 message·업무 값·절대 path·SDK·runtime
 // frame을 빼고 사람이 읽을 원래 위치는 ErrorEvidence에 남긴다. 앱 frame 0개는
-// 지문 대신 원래 Report ID를 discriminator로 쓴다(grouping#R3).
+// 지문 대신 원래 Report ID를 discriminator로 쓴다.
 import type { GroupKey } from "../../../protocol/problems/mod.ts";
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
 
@@ -15,7 +15,7 @@ export type FingerprintFrame = {
 };
 
 // runtime·SDK frame 판정. URL scheme 모양(node:internal/…)·절대 path·drive
-// letter는 앱 frame이 아니므로 지문에서 뺀다(grouping#R3).
+// letter는 앱 frame이 아니므로 지문에서 뺀다.
 export function isAppFrame(path: string): boolean {
   if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) return false;
   if (/^[\\/]/.test(path)) return false;
@@ -25,7 +25,7 @@ export function isAppFrame(path: string): boolean {
 }
 
 // 오류 이름 + 상위 3개 앱 frame의 상대 path·function만 남긴 지문 입력.
-// 여기서 줄·열·message·업무 값은 이미 빠져 있다(grouping#R3).
+// 여기서 줄·열·message·업무 값은 이미 빠져 있다.
 function fingerprintInput(
   name: string,
   frames: readonly FingerprintFrame[],
@@ -40,7 +40,7 @@ function fingerprintInput(
 }
 
 // 예외 지문 SHA-256. 앱 frame이 0개면 null을 돌려주고 호출자는 원래
-// Report ID를 discriminator로 쓴다(grouping#R3).
+// Report ID를 discriminator로 쓴다.
 export async function exceptionFingerprint(
   name: string,
   frames: readonly FingerprintFrame[],
@@ -50,7 +50,7 @@ export async function exceptionFingerprint(
   return await sha256Hex(canonicalize(fingerprintInput(name, appFrames)));
 }
 
-// 예외 묶기 key. 지문이 있으면 그 값, 없으면 원래 Report ID다(grouping#R3).
+// 예외 묶기 key. 지문이 있으면 그 값, 없으면 원래 Report ID다.
 export async function exceptionGroupKey(
   name: string,
   frames: readonly FingerprintFrame[],
@@ -64,7 +64,7 @@ export async function exceptionGroupKey(
   };
 }
 
-// 잘못된 보고 묶기 key(grouping#R4, architecture/problems 5.1). 안전하게 남길
+// 잘못된 보고 묶기 key(architecture/problems 5.1). 안전하게 남길
 // 수 있는 잘못된 code(식별자 모양의 짧은 소문자 문자열)는 그 값을
 // discriminator로 쓰고, 안전하지 않으면 원래 Report ID로 나눈다.
 const SAFE_WRONG_CODE = /^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/;

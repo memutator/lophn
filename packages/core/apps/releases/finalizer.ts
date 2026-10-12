@@ -1,4 +1,4 @@
-// release 준비 확정(apps/releases#R1, R5, R6). `prepare_bundle`이 끝나고 같은 bundle hash의 실제 app test가
+// release 준비 확정. `prepare_bundle`이 끝나고 같은 bundle hash의 실제 app test가
 // 통과로 기록돼 있으면 core가 봉인 사본에서 blueprint·manifest·data_changes를 모아 `release.prepare`를 낸다.
 // coding agent는 확정 command를 부를 수 없고(machine만) 자기가 만든 결과를 싣지도 못한다: 입력은 모두 봉인
 // 사본과 ledger의 Verification에서 온다. 확정은 접수한 coding agent의 ticket claim으로 다시 검사된다.

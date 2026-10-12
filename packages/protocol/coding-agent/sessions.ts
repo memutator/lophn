@@ -145,11 +145,11 @@ export const observeEnvelopeSchema = z.object({
 
 export type ObserveEnvelope = z.infer<typeof observeEnvelopeSchema>;
 
-// 관측이 이 시간보다 오래되면 현재 상태는 unknown이다(sessions#R6). 무호출이 오래된 것을 process 종료나
+// 관측이 이 시간보다 오래되면 현재 상태는 unknown이다. 무호출이 오래된 것을 process 종료나
 // idle로 추정하지 않으려는 보수 값이고 adapter별 값은 검증 뒤에 정한다.
 export const OBSERVATION_STALE_AFTER_MS = 15 * 60_000;
 
-// 지금 보이는 상태다. 관측이 없거나 낡았거나 수집이 끊겼으면 unknown이다(R6, R10). ended는 낡아도 ended다.
+// 지금 보이는 상태다. 관측이 없거나 낡았거나 수집이 끊겼으면 unknown이다. ended는 낡아도 ended다.
 export function observationAt(
   observation: HarnessSessionObservation | null,
   now: string,
@@ -179,7 +179,7 @@ export function observationAt(
 }
 
 // 같은 runtime_ref·generation의 새 관측을 받는다. ended는 늦은 작업 event로 되살리지 않고, 새 관측에 ID
-// evidence가 없으면 지난 evidence를 지키며 지우지 않는다(R6, R7).
+// evidence가 없으면 지난 evidence를 지키며 지우지 않는다.
 export function acceptObservation(
   current: HarnessSessionObservation | null,
   incoming: HarnessSessionObservation,
@@ -192,7 +192,7 @@ export function acceptObservation(
   return incoming;
 }
 
-// 연결된 process가 끝났다는 host evidence다. ticket 완료나 claim 해제가 아니다(R6, R9).
+// 연결된 process가 끝났다는 host evidence다. ticket 완료나 claim 해제가 아니다.
 export function endedByProcessExit(
   current: HarnessSessionObservation,
   now: string,
@@ -208,8 +208,7 @@ export function endedByProcessExit(
   };
 }
 
-// 수집 끊김·lophn 재시작 같은 이유로 지금 모른다는 표시다. 마지막 evidence는 지난 값으로 남고 ended는 그대로다
-// (R6, R10).
+// 수집 끊김·lophn 재시작 같은 이유로 지금 모른다는 표시다. 마지막 evidence는 지난 값으로 남고 ended는 그대로다.
 export function unknownObservation(
   current: HarnessSessionObservation,
   reason: string,
@@ -245,7 +244,7 @@ export const CodingAgentSessionSummarySchema = z.object({
   observed_seq: seqSchema,
   observed_at: atSchema,
   // repair_state는 문제 상세의 수리 작업 상태다. coding agent가 맡을 수 있는 문제(ready_to_hand_off·
-  // in_progress)와 사람이 먼저 할 일이 있는 문제를 hook이 가르는 근거다(guides#R23).
+  // in_progress)와 사람이 먼저 할 일이 있는 문제를 hook이 가르는 근거다.
   problems: z.array(
     problemSummarySchema.extend({ repair_state: repairStateSchema }),
   )

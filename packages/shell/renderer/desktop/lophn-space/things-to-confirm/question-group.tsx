@@ -88,7 +88,7 @@ function viewOf(
   };
 }
 
-// 닫힌 묶음의 요약 상태. 답 접수와 고정 action 적용을 따로 말한다(questions#R10).
+// 닫힌 묶음의 요약 상태. 답 접수와 고정 action 적용을 따로 말한다.
 function summaryStatus(group: QuestionGroupRequest): AnswerSummaryStatus {
   if (group.status === "answered") {
     // 고른 선택지가 고정 action이면 적용까지 따로 센다. 적용되기 전에는 접수만 된 것이다.
@@ -139,8 +139,8 @@ function answersOf(
 }
 
 // 세션 없는 run의 질문 묶음 하나. 대화 안 카드와 같은 QuestionCard로 그리고, 고르는 것만으로는
-// 아무것도 보내지 않으며 Submit이 모든 답을 한 번에 보낸다(questions#R4). Skip과 취소는 따로
-// 닫는 요청이다(R6). 고정 action이 있는 선택지는 답을 보내지 않고 [Review]로 보호 창만 연다.
+// 아무것도 보내지 않으며 Submit이 모든 답을 한 번에 보낸다. Skip과 취소는 따로
+// 닫는 요청이다. 고정 action이 있는 선택지는 답을 보내지 않고 [Review]로 보호 창만 연다.
 export function QuestionGroupPanel(
   {
     group,
@@ -225,7 +225,7 @@ export function QuestionGroupPanel(
     const target = reviewTarget(group, answers);
     if (target !== null) {
       // action 있는 선택지는 이 카드에서 답하지 않는다. 보호 창이 action 답 경로와 확인
-      // handle을 맡는다(shell#T29).
+      // handle을 맡는다.
       const opened = await source.review({
         kind: "question_option_action",
         ...target,

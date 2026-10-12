@@ -1,4 +1,4 @@
-// 읽기 전용 bundle 사본과 seal(apps/releases#R1, architecture/apps 3.2).
+// 읽기 전용 bundle 사본과 seal(architecture/apps 3.2).
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
 // 그 안의 정규 `blueprint.json`과 source map 자리는 problems test runner가 쓴다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -102,7 +102,7 @@ export async function sealBundle(
     for (const file of written) {
       const relative = relativeCopyPath(file.path);
       if (!relative.ok) return relative;
-      // 깊은 파일의 중간 폴더도 모두 좁힌다. 파일 바로 위 폴더만 좁히면 중간 폴더에 쓸 수 있다(R1).
+      // 깊은 파일의 중간 폴더도 모두 좁힌다. 파일 바로 위 폴더만 좁히면 중간 폴더에 쓸 수 있다.
       const segments = relative.value.split("/").slice(0, -1);
       for (let depth = 1; depth <= segments.length; depth += 1) {
         const directory = `${input.copyPath}/${
@@ -154,7 +154,7 @@ async function walk(
   return ok(undefined);
 }
 
-// 사본이 정말 0444·0555인지 재귀로 본다(R1).
+// 사본이 정말 0444·0555인지 재귀로 본다.
 export async function verifySealedPermissions(
   copyPath: string,
 ): Promise<Result<void, SealFailure>> {

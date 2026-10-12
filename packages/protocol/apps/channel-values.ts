@@ -35,27 +35,27 @@ export const BROKER_SOCKET_PATHS = {
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
 } as const;
 
-// Unix socket HTTP의 가상 host. 필수 플랫폼 통로에만 쓴다(apps/runtime#R8).
+// Unix socket HTTP의 가상 host. 필수 플랫폼 통로에만 쓴다.
 export const SOCKET_HOST = "lophn.invalid";
 
-// 시작 준비 확인 한도(apps/runtime#R2).
+// 시작 준비 확인 한도.
 export const READY_TIMEOUT_MS = 30_000;
-// 멈춤 유예(apps/runtime#R15).
+// 멈춤 유예.
 export const SHUTDOWN_GRACE_MS = 10_000;
-// confirm 실행 marker 상한(apps/invocations#R19).
+// confirm 실행 marker 상한.
 export const CONFIRM_MARKER_LIMIT = 4096;
-// 앱끼리 이어 부르는 깊이(apps/connections#R7).
+// 앱끼리 이어 부르는 깊이.
 export const APP_CALL_DEPTH_LIMIT = 8;
-// automation 전체 동시 invocation 기본 한도(apps/automations#R6).
+// automation 전체 동시 invocation 기본 한도.
 export const AUTOMATION_CONCURRENCY_LIMIT = 4;
-// automation 호출 기본 timeout(apps/automations#R9).
+// automation 호출 기본 timeout.
 export const AUTOMATION_TIMEOUT_MS = 600_000;
-// 내부 trace 이름 상한(apps/sdk#R28).
+// 내부 trace 이름 상한.
 export const TRACE_NAME_MAX_CHARS = 64;
 // socket 경로 UTF-8 상한(architecture/apps 2.2).
 export const SOCKET_PATH_MAX_BYTES = 104;
 
-// test는 problems runner가 같은 진입점으로 띄우는 프로세스다(apps Q7).
+// test는 problems runner가 같은 진입점으로 띄우는 프로세스다.
 // 화면 틀은 live·preview만 쓴다.
 export const runtimeModeSchema = z.enum(["live", "preview", "test"]);
 export type ChannelMode = z.infer<typeof runtimeModeSchema>;

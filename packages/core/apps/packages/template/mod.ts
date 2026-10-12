@@ -1,4 +1,4 @@
-// apps/sdk 앱 템플릿의 경계다(apps/sdk#R33, R35). 코드 자리는 template/app/의 `.tmpl` 원본이다.
+// apps/sdk 앱 템플릿의 경계다. 코드 자리는 template/app/의 `.tmpl` 원본이다.
 export {
   builtinTemplate,
   readTemplateDirectory,

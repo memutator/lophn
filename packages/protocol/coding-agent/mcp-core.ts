@@ -84,7 +84,7 @@ const saveFields = {
 };
 // 저장할 파일은 제출 root(MCP 작업 위치) 기준 상대 경로다. 첫 경로가 primary다.
 // bytes는 tool이 realpath로 다시 검사한 뒤 core로 보내므로 호출자가 blob 참조를
-// 주장하지 않는다(connection#R10).
+// 주장하지 않는다.
 const submittedPaths = z.array(relativePathSchema).min(1).refine(
   (paths) => new Set(paths).size === paths.length,
   { message: "paths must be unique" },

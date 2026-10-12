@@ -1,4 +1,4 @@
-// 준비 모드의 시계. accepting 전에는 업무 시각을 열지 않는다(apps/runtime#R3).
+// 준비 모드의 시계. accepting 전에는 업무 시각을 열지 않는다.
 import type { Clock } from "@lophn/base";
 
 export type GatedClock = Clock & { readonly open: boolean };

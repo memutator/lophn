@@ -171,7 +171,7 @@ export type Assembly = {
   broker: SupervisorBroker;
   // preview 자식의 broker다. 운영 자식의 broker와 hub를 나눠 서로의 정지·회수가 영향을 주지 않는다.
   previewBroker: SupervisorBroker;
-  // automation 전체 동시 한도의 permit이다. 앱마다가 아니라 하나뿐이다(apps/automations#R6).
+  // automation 전체 동시 한도의 permit이다. 앱마다가 아니라 하나뿐이다.
   permits: AutomationPermits;
   ops: OpHandlers;
   // 감독 pipe의 hello. core API 위치와 machine credential이 온다.
@@ -306,7 +306,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const waiting = new Map<string, (credential: string) => void>();
   // 알려진 secret 값은 supervisor가 모른다. credential 모양 pattern만 지운다.
   const redact = lineRedactor(createKnownSecretRegistry());
-  // automation 전체 동시 한도는 앱마다가 아니라 supervisor 하나가 쥔다(apps/automations#R6).
+  // automation 전체 동시 한도는 앱마다가 아니라 supervisor 하나가 쥔다.
   const permits = createAutomationPermits();
 
   const closedInvocations: Pick<InvocationBroker, "submit"> = {
@@ -389,7 +389,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const callTargets = createCoreAppCallTargets(toCore);
   const brokerAdapters: BrokerAdapters = {
     access: createCoreBrokerAccess(toCore),
-    // 호출의 start 사실은 core의 앱 쌍 경로 장부에도 알린다(apps/connections#R7).
+    // 호출의 start 사실은 core의 앱 쌍 경로 장부에도 알린다.
     invocations: observeStartsAtCore(
       io.invocations ?? closedInvocations,
       toCore,
@@ -416,7 +416,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       app,
       redact,
       now: () => io.clock.nowMs(),
-      // 버린 줄은 core가 안전한 진단으로 받는다(supervisor pipe, contracts#T6).
+      // 버린 줄은 core가 안전한 진단으로 받는다(supervisor pipe).
       onLoss(loss) {
         const diagnostic = diagnosticSchema.safeParse({
           type: "diagnostic",
@@ -441,7 +441,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       app,
       nowMs: () => io.clock.nowMs(),
       ...(io.rss ? { read: io.rss } : {}),
-      // 설정한 RSS 한도가 아직 없다. 한도 없이는 85% 초과를 주장하지 않는다(R29).
+      // 설정한 RSS 한도가 아직 없다. 한도 없이는 85% 초과를 주장하지 않는다.
     });
     created.start();
     memories.set(app, created);
@@ -823,7 +823,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const sockets = socketFlags(request.sockets);
       if (!sockets.ok) throw new Error(sockets.error.message);
       // preview 자식도 연결하기 전에 broker socket이 듣고 있어야 한다. 외부에 닿는 서비스는 모두 대역이고
-      // 선언은 그 bundle의 고정 blueprint가 정한다(apps/preview#R4).
+      // 선언은 그 bundle의 고정 blueprint가 정한다.
       const started = startFieldsOf(request.startLine);
       if (started === undefined) {
         throw new Error("the start input has no broker credential");
@@ -962,7 +962,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
       };
       // 살아 있는 자식의 stream은 끝나지 않으므로 기다리지 않고 지금 모인 줄을 준다. 자식이 끝난
-      // 직후의 조회만 마지막 flush를 최대 20ms 기다린다(R27).
+      // 직후의 조회만 마지막 flush를 최대 20ms 기다린다.
       const alive = (supervisor.observation(input.app)?.processNonce ?? "") !==
         "";
       return alive ? buffer.read(query) : await buffer.collect(query);

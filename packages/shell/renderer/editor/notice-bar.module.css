@@ -1,4 +1,4 @@
-/* 문서 옆 notice: 높이 32px·아이콘 14px·아래 여백 12px(shell/editor#R15), 머리와 12px(R16). */
+/* 문서 옆 notice: 높이 32px·아이콘 14px·아래 여백 12px, 머리와 12px. */
 .notice {
   box-sizing: border-box;
   display: flex;

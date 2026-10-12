@@ -1,4 +1,4 @@
-// 다른 앱 호출의 인증된 출처 AppCallOrigin을 만든다(apps/connections#R5, R7). 입력 본문의
+// 다른 앱 호출의 인증된 출처 AppCallOrigin을 만든다. 입력 본문의
 // path·caller 주장은 읽지 않는다. 부모 호출과 path는 준비 서비스가 직접 본 사실에서만 이어진다.
 //
 // path는 broker 요청에 실리지 않는다. 그래서 서비스가 (1) 자기가 발급한 origin과 (2) broker가

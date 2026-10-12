@@ -214,7 +214,7 @@ export const releaseDeclarations: CurrentDeclarations = {
   },
 };
 
-// problems의 `ProblemWording` port 구현이다(problems#T27). 보고 당시 release에 고정한
+// problems의 `ProblemWording` port 구현이다. 보고 당시 release에 고정한
 // blueprint의 선언 문구와 앱 등록 기록의 이름을 부른 쪽의 snapshot sql로 읽는다. 보고 당시
 // 문구다: 새 release가 선언을 바꾸거나 지워도 이전 보고의 답은 그 release의 선언이다. 앱
 // 이름은 선언이 없어도 부르는 쪽이 fallback에 붙일 수 있게 항상 준다. 그 release가 없거나

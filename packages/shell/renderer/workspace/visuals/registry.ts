@@ -1,7 +1,7 @@
-// 세션 시각 블록의 허용 registry와 그리기 전 검사(shell/workspace#R12). 블록은 lophn-agent/visuals의
+// 세션 시각 블록의 허용 registry와 그리기 전 검사. 블록은 lophn-agent/visuals의
 // owner 검사를 지나 저장된 값이지만, renderer는 받은 값을 믿지 않고 그릴 수 있는 모양인지 다시 본다.
 // contracts를 import하면 zod와 core 쪽 graph가 renderer bundle에 들어오므로(editor/core-source.ts와
-// 같은 이유) VisualBlock contract(contracts#T30)의 모양·상한과 owner 검사의 markup·URL 규칙
+// 같은 이유) VisualBlock contract의 모양·상한과 owner 검사의 markup·URL 규칙
 // (lophn-agent Q45 (1))을 여기에 옮겨 적는다. registry_test가 contract fixture와 맞춰 본다.
 //
 // 그릴 수 있는 것은 아래 registry의 종류뿐이다. agent의 JS·HTML·CSS·URL은 import·eval·innerHTML로
@@ -24,7 +24,7 @@ const APP_ID = idOf("app");
 const RELEASE_ID = idOf("rel");
 const TOOL_CALL_ID = idOf("tcl");
 
-/** contract(contracts#T30)와 owner(lophn-agent/visuals)의 상한. */
+/** contract와 owner(lophn-agent/visuals)의 상한. */
 export const VISUAL_LIMITS = {
   title: 200,
   description: 2000,

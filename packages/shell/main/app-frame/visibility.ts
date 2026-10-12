@@ -1,6 +1,6 @@
 // 앱 native view 배치. renderer가 ResizeObserver로 보낸 칸·카드 사각형(CSS pixel)을 창 DIP로
 // 바꾸고 창 본문과 교차한 영역에만 붙인다. 붙이기·숨기기·폐기는 registry 한 곳이 하고 이
-// 모듈은 그 앞의 순서를 정한다(shell/app-frame#R25–R29, R35, R36):
+// 모듈은 그 앞의 순서를 정한다:
 // - bounds 적용은 모든 view를 함께 16ms마다 한 번으로 묶는다(drag·resize·스크롤).
 // - 숨김·폐기는 묶지 않고 바로 한다. 탭 전환은 옛 view를 먼저 숨기고 새 view는 bounds가 오고
 //   준비된 뒤에 붙는다. 그래서 두 view가 같은 칸에 겹친 frame이 없다.

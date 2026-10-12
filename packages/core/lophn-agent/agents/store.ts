@@ -6,7 +6,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
-// 정의 파일과 자리 설정 파일을 app data의 자리별 `agents/` 폴더에서 읽고 쓰는 저장소다(R3).
+// 정의 파일과 자리 설정 파일을 app data의 자리별 `agents/` 폴더에서 읽고 쓰는 저장소다.
 // 파일 IO는 port로 받는다. hash는 파일 글의 sha256이고 CAS와 event가 이것을 비교한다.
 
 export const SETTINGS_FILE = "settings.md";

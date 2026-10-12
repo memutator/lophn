@@ -1,7 +1,7 @@
 // test runner control의 진입점이다. RequestTest 실행 구현(problems/tests#R13–R21, 실제 test 자식은
 // 요청마다 띄운다)은 runner-core.ts와 app-test-run.ts에 있고, 상시 service(core 감독이 띄운 process가
-// `problems.test.run`·`problems.test.recover` 요청, `problems.work` 깨움(problems#T19)과
-// `problems.closing` 깨움(problems#T20)을 받는다)은 runner-service.ts에 있다. credential은 argv에
+// `problems.test.run`·`problems.test.recover` 요청, `problems.work` 깨움과
+// `problems.closing` 깨움을 받는다)은 runner-service.ts에 있다. credential은 argv에
 // 넣지 않는다.
 export * from "../../problems/tests/work/runner-core.ts";
 
@@ -32,7 +32,7 @@ if (import.meta.main && Deno.args.includes("--reproduction-job")) {
 
 // 그 밖의 기동은 core 감독이 띄운 상시 process다. session 하나(runner-service.ts)가
 // `problems.test.run`·`problems.test.recover` 요청(problems/tests), `problems.work` 깨움
-// (problems#T19)과 `problems.closing` 깨움(problems#T20)을 같이 받는다(stdin 하나).
+//과 `problems.closing` 깨움을 같이 받는다(stdin 하나).
 if (
   import.meta.main && !Deno.args.includes("--app-test-job") &&
   !Deno.args.includes("--reproduction-job")

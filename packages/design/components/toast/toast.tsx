@@ -29,7 +29,7 @@ export interface ToastProps {
   title: string;
   body?: string;
   tone?: ToastTone;
-  // 행동은 최대 2개다(R33).
+  // 행동은 최대 2개다.
   actions?:
     | readonly []
     | readonly [ToastAction]

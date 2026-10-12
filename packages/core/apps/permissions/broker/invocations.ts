@@ -1,4 +1,4 @@
-// broker `/_lophn/broker/invocations/submit`의 apps 쪽 구현(apps/invocations#R1, R5, R10).
+// broker `/_lophn/broker/invocations/submit`의 apps 쪽 구현.
 // 앱이 응답 뒤에 보낸 기록 사실을 자식 연결의 신원(app·release·mode·process nonce)과 함께 core
 // command 입력으로 바꿔 전달 목록에 넣는다. 신원은 본문이 정하지 않고, 앱이 보낸 사실이 신원 필드를
 // 덮어쓰지도 못한다. 앱 업무 응답과는 이어지지 않는다. 자식이 사실을 다 보내지 못하고 끝나면 알려진

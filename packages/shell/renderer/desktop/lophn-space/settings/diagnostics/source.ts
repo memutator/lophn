@@ -1,5 +1,5 @@
 // settings 진단 자리가 읽는 통로. doctor 결과(diagnostics/check)의 영향 한 문장과 다음 행동만
-// 기본으로 보이고 원문(check·finding·코드)은 개발자 diagnostics 펼침에만 둔다(shell/wording#R8).
+// 기본으로 보이고 원문(check·finding·코드)은 개발자 diagnostics 펼침에만 둔다.
 // 모양은 contracts(diagnostics)에서 이 자리가 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../source.ts";
 

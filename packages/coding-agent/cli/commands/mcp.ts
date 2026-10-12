@@ -1,7 +1,7 @@
-// `lophn mcp config` command다(coding-agent/cli#R9, T30). 선택 제품의
+// `lophn mcp config` command다. 선택 제품의
 // executable·분리 argv·안전 env 설정 조각만 문자열로 내고 제품 설정 파일은
 // 읽지도 고치지도 않는다. 조각에는 connection 참조와 toolsets만 있고 token·
-// 운영 data 경로는 없다(R12). 시작 조각의 절대 경로는 설치가 해석해 주는 base다.
+// 운영 data 경로는 없다. 시작 조각의 절대 경로는 설치가 해석해 주는 base다.
 import type { HarnessId } from "../../../protocol/coding-agent/mod.ts";
 import { cliMcpConfigSchema } from "../../../protocol/coding-agent/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";

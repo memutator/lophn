@@ -82,10 +82,10 @@ const apps = mock?.apps ?? coreAppsSource(core);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
-// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 운영 탭(shell#T58).
+// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 운영 탭.
 // key·로그인 응답은 보호 창이 받는다. backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
 // update는 사람이 고른 로컬 파일의 안내와 정상 정지다(`lophnUpdate`). 다운로드·재시작은 없다.
-// OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다(platform/notifications#R9).
+// OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다.
 const settingsPanels = mock?.settingsPanels ?? {
   providers: coreProviderSettingsSource(core),
   agents: coreAgentsSettingsSource(core),
@@ -107,7 +107,7 @@ const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 const tracking = bench ? undefined : coreTrackingSource(core);
-// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8). provider 끊김 줄(desktop#R7)의
+// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다. provider 끊김 줄의
 // 행동은 lophn 공간 settings로 간다.
 const conversation = {
   drafts: new DraftStore(),

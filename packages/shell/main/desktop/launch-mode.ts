@@ -1,4 +1,4 @@
-// 창 없는 시작 intent(desktop#R21). 로그인 자동 시작은 `--tray`로 main만 띄운다.
+// 창 없는 시작 intent. 로그인 자동 시작은 `--tray`로 main만 띄운다.
 // argv에서 읽는 것은 `--tray`뿐이고 나머지 값은 실행 권한으로 해석하지 않는다.
 
 /** launcher가 첫 argv에 창 없는 시작을 요청할 때 쓰는 실행 intent. */
@@ -52,7 +52,7 @@ export interface RunningNoticeOptions {
 const TITLE = "lophn";
 const BODY = "이미 실행 중입니다";
 
-/** 같은 데이터 root에 main이 이미 있을 때 실행 중이라고 알리고 끝난다(platform#R10). */
+/** 같은 데이터 root에 main이 이미 있을 때 실행 중이라고 알리고 끝난다. */
 export function notifyAlreadyRunning(options: RunningNoticeOptions = {}): void {
   const show = options.show;
   if (show === undefined) {

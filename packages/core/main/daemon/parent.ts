@@ -118,7 +118,7 @@ async function flush(
   }
 }
 
-// backup 복원 통로(platform/backup-and-migration#R13). `run`이 정지를 시작했으면(`stopped`) 이
+// backup 복원 통로. `run`이 정지를 시작했으면(`stopped`) 이
 // 감독 pipe의 읽기는 끝나고 새로 시작하는 core가 같은 pipe를 이어받는다.
 export type ParentRestore = {
   plan(createdAt: string): Promise<
@@ -155,7 +155,7 @@ export type ParentDiagnostics = {
 };
 
 // view 수명 한 줄. schema가 고정한 field(구성 요소·관측 시각·view id·generation·개수)만 쓰고
-// URL·query·token·경로는 payload에 들어올 자리가 없다(platform/diagnostics#R12, redaction R15).
+// URL·query·token·경로는 payload에 들어올 자리가 없다.
 export function shellViewLogLine(diagnostic: ShellViewLifetime): string {
   const payload = diagnostic.payload;
   return JSON.stringify({
@@ -196,7 +196,7 @@ export function shellViewLog(dataRoot: string): ParentDiagnostics {
   };
 }
 
-// pipe EOF나 main의 명시 종료가 core 종료를 시작한다(install-and-update R12).
+// pipe EOF나 main의 명시 종료가 core 종료를 시작한다.
 // confirmation 등록은 이 비공개 통로에서만 받고 writer의 registry로 넘긴다.
 export function watchParent(
   parent: ParentPipe,

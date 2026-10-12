@@ -1,4 +1,4 @@
-// Agent 머리와 session popover가 받는 화면 값(shell/desktop#R38·R39). CSS를 부르는 component 없이 type만
+// Agent 머리와 session popover가 받는 화면 값. CSS를 부르는 component 없이 type만
 // 가져올 수 있게 따로 둔다.
 
 /** avatar가 그리는 얼굴. design의 AvatarProfile과 같은 모양이다. */

@@ -6,7 +6,7 @@ import { atSchema, seqSchema } from "../base/values.ts";
 import { problemSummarySchema } from "../problems/problems.ts";
 import { ticketIdSchema } from "./ticket-values.ts";
 
-// 전체 묶음은 UTF-8 24 KiB(24,576 bytes)와 300줄을 넘지 않는다(repair-context#R11).
+// 전체 묶음은 UTF-8 24 KiB(24,576 bytes)와 300줄을 넘지 않는다.
 export const REPAIR_CONTEXT_BYTES = 24_576;
 export const REPAIR_CONTEXT_LINES = 300;
 
@@ -55,7 +55,7 @@ export const SECTION_LIMITS = {
 
 export type SectionLimit = (typeof SECTION_LIMITS)[SectionKind];
 
-// 기본 묶음 밖 추가 근거 페이지 상한(repair-context#R15, R17).
+// 기본 묶음 밖 추가 근거 페이지 상한.
 export const EVIDENCE_PAGE_LIMITS = {
   log_lines: 200,
   occurrences: 20,
@@ -89,7 +89,7 @@ export const sectionAvailabilitySchema = z.enum(SECTION_AVAILABILITY);
 
 export type SectionAvailability = z.infer<typeof sectionAvailabilitySchema>;
 
-// 추가 근거 요청·이어 읽기 참조(repair-context#R15). cursor는 opaque string이다.
+// 추가 근거 요청·이어 읽기 참조. cursor는 opaque string이다.
 export const EVIDENCE_KINDS = [
   "log",
   "occurrences",
@@ -149,7 +149,7 @@ export const RepairContextSchema = z.object({
 });
 export type RepairContext = z.infer<typeof RepairContextSchema>;
 
-// problem 요약과 repair context는 같은 읽기 근거를 가리킨다(repair-context#R18).
+// problem 요약과 repair context는 같은 읽기 근거를 가리킨다.
 export const repairContextSummarySchema = z.object({
   app: idSchema("app"),
   ticket: ticketIdSchema.nullable(),
@@ -158,7 +158,7 @@ export const repairContextSummarySchema = z.object({
   truncated: z.boolean(),
 });
 
-// 문제 요약은 문제당 2줄·전체 10줄·1,200자 이하다(repair-context#R11). 조립이
+// 문제 요약은 문제당 2줄·전체 10줄·1,200자 이하다. 조립이
 // 적용하고 contract는 basis에 더해 이 상한 상수만 묶는다.
 export const REPAIR_CONTEXT_SUMMARY_MAX_CHARS = 1_200;
 
@@ -229,7 +229,7 @@ export const RepairContextMoreInputSchema = z.strictObject({
   cursor: z.string().min(1).nullable().optional(),
 });
 
-// 페이지 응답은 kind별 상한을 지키고 다음 위치를 조건 유지 cursor로 준다(R15).
+// 페이지 응답은 kind별 상한을 지키고 다음 위치를 조건 유지 cursor로 준다.
 export const repairContextMoreOutputSchema = withReadCommon(z.object({
   problem: idSchema("prb"),
   kind: evidenceKindSchema,

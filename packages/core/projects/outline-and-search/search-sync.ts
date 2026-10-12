@@ -49,7 +49,7 @@ export type SearchSyncDeps = {
   versionOf(version: string): Promise<Result<SearchVersion | null>>;
   streamer: Streamer;
   // 지금 ledger의 식별. coordinator가 derived store를 이 ledger에 맞춘 뒤에 cursor를 돌려준다
-  // (복원한 ledger의 같은 seq를 옛 cursor로 건너뛰지 않는다, platform#T42).
+  // (복원한 ledger의 같은 seq를 옛 cursor로 건너뛰지 않는다).
   ledgerId: string;
   // 읽기·보내기가 실패했을 때 다시 확인하기까지의 대기. 성공이면 timer를 두지 않는다.
   retryMs: number;

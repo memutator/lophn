@@ -1,4 +1,4 @@
-// 앱 쌍 연결 준비와 confirm의 supervisor 쪽 어댑터(apps/connections#R1–R5). 서명 key는 core만 쥐므로
+// 앱 쌍 연결 준비와 confirm의 supervisor 쪽 어댑터. 서명 key는 core만 쥐므로
 // 준비·proof 발급은 core의 서비스가 하고, supervisor는 앱 자식 연결의 신원(app·release·mode·nonce)을
 // 붙여 machine credential로 core route를 부를 뿐이다. 본문의 신원 주장은 쓰지 않는다. 호출의 start
 // 사실은 core의 경로 장부에 알리고(알리지 못해도 호출은 막지 않는다) 자식 종료는 그 자식의 기억을 비운다.

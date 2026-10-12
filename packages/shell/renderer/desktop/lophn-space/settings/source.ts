@@ -2,8 +2,7 @@
 // route 이름은 core-source.ts만 안다. 모양은 contracts(settings·secrets)에서 이 화면이 쓰는 field만
 // 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
 // agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결 모양은 Providers 통로가 같이 쓴다.
-// secret 값은 이 통로에 없다. credential은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다
-// (platform/secrets#R2).
+// secret 값은 이 통로에 없다. credential은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다.
 import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };

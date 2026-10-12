@@ -43,7 +43,7 @@ export const ROUTES = [
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
   ...EXTENSION_ROUTES,
-  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). ledger queue를 거치지 않는
+  // MCP OAuth의 시작·완료·상태·취소 입구다. ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,
   mcpAuthComplete,

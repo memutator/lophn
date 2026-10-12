@@ -1,4 +1,4 @@
-// shell 크롬의 외부 링크와 provider 공식 로그인 버튼(shell/app-frame#R7, D21). 확인 창 없이 OS
+// shell 크롬의 외부 링크와 provider 공식 로그인 버튼(D21). 확인 창 없이 OS
 // 기본 browser로 연다. HTTP·HTTPS이면서 userinfo가 없고 8,192자 이하인 URL만 열고, 기록에는
 // origin·path만 남겨 query·fragment(OAuth state·비밀)를 쓰지 않는다. 앱 view의 링크 경로
 // (`app:open-external`, app-frame/external-link.ts)와 caller를 섞지 않는다. 이 통로는 desktop 창

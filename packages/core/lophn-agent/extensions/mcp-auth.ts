@@ -5,16 +5,16 @@ import type { HttpFetch } from "./adapters/mcp-http.ts";
 import { httpRequest } from "./adapters/mcp-http.ts";
 
 // HTTP 인증(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R16, R17). 인증 없음·사람이 지정한 Bearer 토큰·사람이
-// 지정한 API 키 헤더·OAuth 2.1 Authorization Code와 S256 PKCE를 지원한다(R16).
+// lophn-agent/extensions#R16). 인증 없음·사람이 지정한 Bearer 토큰·사람이
+// 지정한 API 키 헤더·OAuth 2.1 Authorization Code와 S256 PKCE를 지원한다.
 // OAuth는 사람이 시작한 브라우저 열기(port가 열 URL을 돌려준다, 실제 브라우저를
-// 열지 않는다)와 127.0.0.1 loopback callback으로 진행한다(R16). 동적 클라이언트
-// 등록을 지원하지 않는 서버에는 사람이 등록한 client 정보를 넣는다(R16).
+// 열지 않는다)와 127.0.0.1 loopback callback으로 진행한다. 동적 클라이언트
+// 등록을 지원하지 않는 서버에는 사람이 등록한 client 정보를 넣는다.
 
 // 인증 비밀은 platform/secrets의 보관 방식으로 서버 연결 대상과 OAuth 발급자에
-// 묶는다(R17). URL·발급자·사용 계정이 바뀌면 이전 비밀을 재사용하지 않는다(R17).
+// 묶는다. URL·발급자·사용 계정이 바뀌면 이전 비밀을 재사용하지 않는다.
 // 만료 토큰은 같은 연결에서 한 번에 하나만 갱신하고(single-flight), 갱신 실패는
-// 재인증 필요로 알린다(R17).
+// 재인증 필요로 알린다.
 
 // shell#T31에서 넘어온 이름 규칙이다. bearer·api_key·oauth2의 credential은
 // 보호 창의 `SetSecret`(이름 `mcp-<server 이름>`)이 저장하고 설정은
@@ -22,7 +22,7 @@ import { httpRequest } from "./adapters/mcp-http.ts";
 // 통로(extensions secret-refs)다.
 
 // 보관 이름이다(shell#T31에서 넘어온 규칙). 서버 이름을 그대로 쓴다. 서버 이름은
-// 계약(extensions R12)이 `[A-Za-z0-9_-]{1,32}`로 거르므로 이 그대로가
+// 계약이 `[A-Za-z0-9_-]{1,32}`로 거르므로 이 그대로가
 // secretNameSchema를 지난다.
 export function mcpSecretName(server: string): string {
   return `mcp-${server}`;
@@ -37,32 +37,32 @@ export function mcpSecretRef(server: string): string {
 // 인증 방식이다(계약 mcpAuthSchema의 kind).
 export type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
 
-// 사람이 지정한 Bearer·API 키의 인증 비밀이 묶인 서버 연결 대상이다(R17). 값은
+// 사람이 지정한 Bearer·API 키의 인증 비밀이 묶인 서버 연결 대상이다. 값은
 // 이 모양 어디에도 없고 참조만 있다(platform/secrets).
 export type CredentialBinding = {
-  // 서버 URL이다. URL이 바뀌면 옛 인증 비밀을 재사용하지 않는다(R17).
+  // 서버 URL이다. URL이 바뀌면 옛 인증 비밀을 재사용하지 않는다.
   server_url: string;
   // 보관 이름이다(`mcp-<server>`, shell#T31 규칙).
   secret_name: string;
 };
 
-// OAuth 발급자에 묶인 인증 비밀이다(R17). 발급자·계정이 바뀌면 옛 token을
-// 재사용하지 않는다(R17).
+// OAuth 발급자에 묶인 인증 비밀이다. 발급자·계정이 바뀌면 옛 token을
+// 재사용하지 않는다.
 export type OAuthBinding = {
   // OAuth 발급자다(계약 mcpAuthSchema의 issuer). 발급자가 바뀌면 옛 token을
-  // 재사용하지 않는다(R17).
+  // 재사용하지 않는다.
   issuer: string;
-  // 서버 URL이다. URL이 바뀌면 옛 token을 재사용하지 않는다(R17).
+  // 서버 URL이다. URL이 바뀌면 옛 token을 재사용하지 않는다.
   server_url: string;
   // 사용 계정이다(사람이 로그인해 확인한 계정 식별). 계정이 바뀌면 옛 token을
-  // 재사용하지 않는다(R17). 없으면 아직 확인한 계정이 없는 것이다.
+  // 재사용하지 않는다. 없으면 아직 확인한 계정이 없는 것이다.
   account: string | null;
   // secret 보관 이름이다(`mcp-<server>` 앞 규칙).
   secret_name: string;
 };
 
-// URL·issuer·계정이 바뀌었는지 본다(R17). 하나라도 다르면 옛 비밀을 재사용하지
-// 않는다(R17). 같으면 같은 binding이고 재사용이다(R17).
+// URL·issuer·계정이 바뀌었는지 본다. 하나라도 다르면 옛 비밀을 재사용하지
+// 않는다. 같으면 같은 binding이고 재사용이다.
 export function bindingChanged(
   left: CredentialBinding | OAuthBinding,
   right: CredentialBinding | OAuthBinding,
@@ -74,18 +74,18 @@ export function bindingChanged(
       ("account" in right ? right.account : null);
 }
 
-// 인증 헤더 붙이기다(R16). Bearer는 `authorization: Bearer <token>`이고 API 키는
+// 인증 헤더 붙이기다. Bearer는 `authorization: Bearer <token>`이고 API 키는
 // 사람이 정한 헤더 이름에 값 그대로다. redirect가 같은 origin이 아니면 인증
-// 헤더를 넘기지 않는다(R15, adapter의 httpRequest가 거른다).
+// 헤더를 넘기지 않는다(adapter의 httpRequest가 거른다).
 export type HttpAuth = {
-  // 요청에 붙일 헤더다. 값이 비어 있으면 인증 없음이다(R16: 인증 없음).
+  // 요청에 붙일 헤더다. 값이 비어 있으면 인증 없음이다(인증 없음).
   headers: Record<string, string>;
   kind: McpAuthKind;
 };
 
-// 인증 헤더를 만든다(R16). Bearer는 `authorization` 하나고 API 키는 사람이 정한
+// 인증 헤더를 만든다. Bearer는 `authorization` 하나고 API 키는 사람이 정한
 // 헤더 이름이다. 값은 부르는 쪽이 결정한다. redirect의 다른 origin은 adapter가
-// 거른다(R15).
+// 거른다.
 export function authHeaders(
   auth:
     & {
@@ -110,7 +110,7 @@ export function authHeaders(
   };
 }
 
-// OAuth 2.1 Authorization Code + S256 PKCE다(R16).
+// OAuth 2.1 Authorization Code + S256 PKCE다.
 
 // PKCE verifier이다. RFC 7636의 43자 base64url이다.
 export function pkceVerifier(random: RandomSource = cryptoRandom): string {
@@ -139,16 +139,16 @@ function base64url(bytes: Uint8Array): string {
   );
 }
 
-// 사람이 시작한 브라우저 열기 port다(R16). 실제 브라우저를 열지 않고 열 URL을
+// 사람이 시작한 브라우저 열기 port다. 실제 브라우저를 열지 않고 열 URL을
 // 돌려준다(shell#T31의 `[Sign in]` 흐름이 OS browser로 연다). 값은 접어 두는
 // 근거가 없다.
 export type BrowserOpener = (url: string) => Promise<Result<void>>;
 
-// 127.0.0.1 loopback callback listener port다(R16). 테스트가 끼운다. 사람이
+// 127.0.0.1 loopback callback listener port다. 테스트가 끼운다. 사람이
 // return 해 주는 요청을 받아 redirect URL로 돌려주는 port다(렇게
 // 흐르는 근거는 없다). ListenAddr은 127.0.0.1의 port다.
 export type CallbackListener = {
-  // loopback callback port다. 127.0.0.1에만 듣는다(R16).
+  // loopback callback port다. 127.0.0.1에만 듣는다.
   port(): number;
   // 사람이 돌아온 callback을 기다린다. code·state·iss를 돌려준다.
   receive(signal: AbortSignal): Promise<
@@ -161,16 +161,16 @@ export type CallbackListener = {
   close(): Promise<void>;
 };
 
-// callback listener port를 만든다(R16). 실제 loopback listener는 이 모듈 밖의
+// callback listener port를 만든다. 실제 loopback listener는 이 모듈 밖의
 // port에서 만들고, 테스트는 가짜를 끼운다.
 export type CallbackOpener = () => Promise<Result<CallbackListener>>;
 
-// OAuth 시작이다(R16). authorization URL을 만들고 사람이 연다.
+// OAuth 시작이다. authorization URL을 만들고 사람이 연다.
 export type OAuthStartInput = {
   authorizationEndpoint: string;
   clientId: string;
   // 동적 클라이언트 등록을 지원하지 않는 서버에는 사람이 등록한 client_id를
-  // 넣는다(R16). 없으면 등록을 시도한다.
+  // 넣는다. 없으면 등록을 시도한다.
   scopes: readonly string[];
   redirectPort: number;
   state: string;
@@ -211,7 +211,7 @@ export function authorizationUrl(
   return ok(url);
 }
 
-// OAuth token 교환이다(R16). code·verifier·redirect_port로 token endpoint를
+// OAuth token 교환이다. code·verifier·redirect_port로 token endpoint를
 // 부른다. endpoint는 https다.
 export type TokenExchangeInput = {
   tokenEndpoint: string;
@@ -220,7 +220,7 @@ export type TokenExchangeInput = {
   clientId: string;
   redirectPort: number;
   // 동적 클라이언트 등록을 지원하지 않는 서버는 사람이 등록한 client secret을
-  // 넣는다(R16).
+  // 넣는다.
   clientSecret: string | null;
 };
 
@@ -298,7 +298,7 @@ export async function exchangeToken(
   });
 }
 
-// OAuth refresh이다(R17). 만료 토큰은 같은 연결에서 한 번에 하나만 갱신한다.
+// OAuth refresh이다. 만료 토큰은 같은 연결에서 한 번에 하나만 갱신한다.
 export type RefreshOutcome = {
   access_token: string;
   refresh_token: string | null;
@@ -348,7 +348,7 @@ export async function refreshToken(
     });
   }
   if (response.status >= 400) {
-    // 갱신 거절(폐기된 refresh token 등)은 재인증 필요다(R17).
+    // 갱신 거절(폐기된 refresh token 등)은 재인증 필요다.
     return err({
       code: "forbidden",
       message: "갱신 거절이다. 재인증이 필요하다",
@@ -383,11 +383,11 @@ export async function refreshToken(
   });
 }
 
-// 사람이 돌아온 callback이다(R16). code·state·iss다.
+// 사람이 돌아온 callback이다. code·state·iss다.
 
-// 동적 클라이언트 등록 시도다(R16). 지원하지 않는 서버는 사람이 등록한 client
-// 정보를 넣는다(R16). 등록 미지원(400대)은 absent이고 부르는 쪽이 사람 등록
-// client로 진행한다(R16).
+// 동적 클라이언트 등록 시도다. 지원하지 않는 서버는 사람이 등록한 client
+// 정보를 넣는다. 등록 미지원(400대)은 absent이고 부르는 쪽이 사람 등록
+// client로 진행한다.
 export type Registration =
   | { client_id: string; client_secret: string | null }
   | { absent: true };
@@ -432,7 +432,7 @@ export async function registerClient(
       message: response.detail,
     });
   }
-  // 등록 미지원이다(R16). 부르는 쪽이 사람 등록 client로 진행한다(R16).
+  // 등록 미지원이다. 부르는 쪽이 사람 등록 client로 진행한다.
   if (response.status >= 400) return ok({ absent: true });
   let parsed: unknown;
   try {
@@ -455,7 +455,7 @@ export async function registerClient(
   });
 }
 
-// 사람이 browser에서 돌아오기를 기다리는 시한이다(R16). 요구가 시한을 정하지 않아 추천값 5분으로 둔다:
+// 사람이 browser에서 돌아오기를 기다리는 시한이다. 요구가 시한을 정하지 않아 추천값 5분으로 둔다:
 // 로그인 페이지에서 계정을 고르고 허락하는 데 충분하고, 닫힌 browser가 작업 메모리를 오래 잡지 않는다.
 export const MCP_AUTH_WAIT_MS = 5 * 60_000;
 
@@ -466,7 +466,7 @@ export type AuthDeadline = (
 ) => Promise<"elapsed" | "aborted">;
 
 // 로그인 session의 상태다. 값(verifier·state·token)은 어디에도 없다. 끝나면 session은 값을 쥐지 않고
-// not_started로 돌아간다(받은 token은 부르는 쪽이 keychain에 보관한다, R17).
+// not_started로 돌아간다(받은 token은 부르는 쪽이 keychain에 보관한다).
 export type AuthState =
   | { kind: "not_started" }
   | { kind: "in_progress" }
@@ -481,8 +481,8 @@ export type TokenGrant = {
   client_id: string;
 };
 
-// 같은 연결의 OAuth 로그인 session이다(R16): 시작 → 사람이 돌아옴 → state 검사 → token 교환. 하나만 진행하고
-// 취소하거나 시한이 지나면 listener를 닫는다. 갱신은 보관한 grant로 하므로 여기 없다(R17, mcp-oauth.ts).
+// 같은 연결의 OAuth 로그인 session이다: 시작 → 사람이 돌아옴 → state 검사 → token 교환. 하나만 진행하고
+// 취소하거나 시한이 지나면 listener를 닫는다. 갱신은 보관한 grant로 하므로 여기 없다(mcp-oauth.ts).
 export function createMcpAuth(options: {
   nowMs(): number;
   random?: RandomSource;
@@ -490,7 +490,7 @@ export function createMcpAuth(options: {
   deadline?: AuthDeadline;
 }): {
   state(): AuthState;
-  // 사람이 시작한 OAuth다(R16). callback listener는 port로 시작했고 loopback port다(R16).
+  // 사람이 시작한 OAuth다. callback listener는 port로 시작했고 loopback port다.
   begin(input: {
     authorizationEndpoint: string;
     tokenEndpoint: string;
@@ -498,7 +498,7 @@ export function createMcpAuth(options: {
     scopes: readonly string[];
     listener: CallbackListener;
   }): Promise<Result<{ url: URL; verifier: string; state: string }>>;
-  // 사람이 돌아온 callback을 받아 token 교환을 마친다(R16). 기다리는 동안 취소나 시한으로 끝난다.
+  // 사람이 돌아온 callback을 받아 token 교환을 마친다. 기다리는 동안 취소나 시한으로 끝난다.
   complete(input: {
     fetch: HttpFetch;
     signal: AbortSignal;
@@ -570,7 +570,7 @@ export function createMcpAuth(options: {
       }
       const verifier = pkceVerifier(random);
       const challenge = await pkceChallengeS256(verifier);
-      // 무작위 state다(R16: 사람이 시작한 OAuth의 cryptographic state).
+      // 무작위 state다(사람이 시작한 OAuth의 cryptographic state).
       const stateBytes = new Uint8Array(16);
       random.fill(stateBytes);
       const stateValue = base64url(stateBytes);
@@ -645,7 +645,7 @@ export function createMcpAuth(options: {
       if (held.timedOut || session !== held) {
         return err({ code: "unavailable", message: "기다림 시한이 지났다" });
       }
-      // state 검증이다(R16: 잘못된 반환 검증 값은 거절이다).
+      // state 검증이다(잘못된 반환 검증 값은 거절이다).
       if (received.value.state !== held.stateValue) {
         session = null;
         state = { kind: "failed", reason: "state_mismatch" };

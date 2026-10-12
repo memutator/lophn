@@ -1,4 +1,4 @@
-// 앱 쌍 연결 준비(apps/connections#R1–R7, apps/runtime#R30). source 앱 자식이 broker로 요청하면
+// 앱 쌍 연결 준비. source 앱 자식이 broker로 요청하면
 // source의 현재 프로세스·선언·grant와 target의 현재 프로세스를 읽어 교집합 범위의 AppConnection을
 // 서명한다. ledger queue를 거치지 않는 현재 사실 조회뿐이고 업무 payload는 중계하지 않는다.
 // 범위 밖 대상은 없는 앱과 같은 not_found다. 신원은 broker의 자식 연결이 정하며 본문 주장은 없다.
@@ -16,7 +16,7 @@ import type {
 import { createPathBook, type PathBook } from "./origin.ts";
 import { type PairDeclaration, pairScope, resolveCall } from "./resolve.ts";
 
-// 연결 한 번의 기한 상한이다(apps Q5). 원래 자식 프로세스가 끝나면 nonce가 달라져 쓰지 못한다.
+// 연결 한 번의 기한 상한이다. 원래 자식 프로세스가 끝나면 nonce가 달라져 쓰지 못한다.
 export const PAIR_CONNECTION_TTL_MS = 10 * 60_000;
 export const PAIR_ISSUED_LIMIT = 4096;
 

@@ -11,9 +11,9 @@ import {
 } from "./mod.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
 
-// 등록한 MCP server의 snapshot 재료다(extensions R11, R32). 전역 설정 위에 모든 자리의 `mcp-servers.json`을
+// 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 자리의 `mcp-servers.json`을
 // 더한다. agent-runtime child의 `--allow-run`·`--allow-net`과 MCP OAuth begin의 서버 조회가 같은 snapshot을
-// 읽는다. 전역과 이름이 같은 자리 서버는 쓰지 않는다(R33).
+// 읽는다. 전역과 이름이 같은 자리 서버는 쓰지 않는다.
 
 // 전역(Workspace) 서버다. ledger 경로의 setting_choices 행을 readOnly로 열어 형식 검사를 지난 server 목록으로
 // 옮긴다(credentials 열기와 별개다). 읽지 못하면 빈 목록이다.
@@ -71,8 +71,8 @@ export type RegisteredMcpServer = {
   server: McpServerConfig;
 };
 
-// 전역 서버가 먼저고 자리 서버가 자리 id 순으로 따른다. 전역과 이름이 같은 자리 서버는 쓰지 않으므로 빠진다(R33).
-// 서로 다른 자리의 같은 이름은 둘 다 남고 `place`로 가른다: OAuth 시작이 입력의 자리로 서버를 고른다(R16).
+// 전역 서버가 먼저고 자리 서버가 자리 id 순으로 따른다. 전역과 이름이 같은 자리 서버는 쓰지 않으므로 빠진다.
+// 서로 다른 자리의 같은 이름은 둘 다 남고 `place`로 가른다: OAuth 시작이 입력의 자리로 서버를 고른다.
 export async function registeredMcpServers(
   ledgerPath: string,
   deps: McpSnapshotDeps = {},
@@ -84,7 +84,7 @@ export async function registeredMcpServers(
     root,
     deps.places ?? denoPlaceSource,
   );
-  // 겹침 규칙(R33)은 mergeMcpServers 하나다: 살아남은 서버만 자리와 함께 남긴다.
+  // 겹침 규칙은 mergeMcpServers 하나다: 살아남은 서버만 자리와 함께 남긴다.
   const kept = new Set(mergeMcpServers(
     global.value,
     places.map((entry) => entry.server),

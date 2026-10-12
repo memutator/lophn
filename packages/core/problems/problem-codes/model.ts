@@ -7,7 +7,7 @@ import {
   type ReservedProblemCode,
 } from "../../../protocol/problems/mod.ts";
 
-// 거절은 선언 원문·stack·검증기 문장을 그대로 노출하지 않는다(platform/api#R4).
+// 거절은 선언 원문·stack·검증기 문장을 그대로 노출하지 않는다.
 const INVALID_DECLARATIONS = "problem code 선언이 올바르지 않다";
 
 const RESERVED_EXCEPTION_CODE: ReservedProblemCode["code"] = "_exception";
@@ -34,7 +34,7 @@ export function reservedProblemCodes(): ReservedProblemCode[] {
   return RESERVED_PROBLEM_CODES.map((reserved) => ({ ...reserved }));
 }
 
-// 앱이 아무것도 선언하지 않아도 예약 3종은 언제나 별개로 보고된다(R6).
+// 앱이 아무것도 선언하지 않아도 예약 3종은 언제나 별개로 보고된다.
 export function reportableProblemCodes(
   declarations: readonly ProblemCodeDeclaration[],
 ): ProblemCodeDeclaration[] {

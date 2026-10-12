@@ -15,7 +15,7 @@ export type SpoolFile = {
   mode: number;
 };
 
-// 작업 폴더 0700, spool 0600. credential 파일은 만들지 않는다(problems/tests#R21).
+// 작업 폴더 0700, spool 0600. credential 파일은 만들지 않는다.
 export async function prepareWorkDir(root: string): Promise<void> {
   await Deno.mkdir(root, { recursive: true, mode: 0o700 });
   await Deno.chmod(root, 0o700);

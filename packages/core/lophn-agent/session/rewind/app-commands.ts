@@ -30,7 +30,7 @@ import {
 } from "./settle.ts";
 
 // 앱 단계가 있는 Rewind의 접수(applying)와 그 단계 기록(CheckpointRevert), 끝내기(FinishRevert)다
-// (lophn-agent/revert 앱 복원 실행 경계, R10·R11). 앱 호출은 transaction 밖에서 core의 runtime이 하고
+// (lophn-agent/revert 앱 복원 실행 경계). 앱 호출은 transaction 밖에서 core의 runtime이 하고
 // 여기는 그 결과를 기록만 한다. 규칙:
 //   접수: 사전 검사를 통과한 plan의 모든 항목을 쓴다. 복원할 항목(앱·파일)은 아직 하지 않아 unchanged이고
 //     이유가 없다. 건너뜀·남는 영향은 그 결과로 굳는다. 대화 효과(숨김)는 끝낼 때 한다.

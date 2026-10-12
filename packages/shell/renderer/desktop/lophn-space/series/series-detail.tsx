@@ -59,7 +59,7 @@ type Change =
   | { readonly kind: "failed" };
 
 // 한 가족: 순서대로 key·제목·판, 다음 key 제안과 근거, 멤버 추가, 보관·해제.
-// 제안은 읽기만 한다. 문서·key를 만들거나 예약하지 않는다(documents/series#R6).
+// 제안은 읽기만 한다. 문서·key를 만들거나 예약하지 않는다.
 export function SeriesDetailView(
   { source, id, catalog, onRead, onChanged, onWrite }: SeriesDetailProps,
 ) {
@@ -397,7 +397,7 @@ export function SeriesDetailView(
   );
 }
 
-// 다음 key 제안과 근거. 빈 가족이면 첫 key를 사람이 정한다(documents/series#R7).
+// 다음 key 제안과 근거. 빈 가족이면 첫 key를 사람이 정한다.
 function NextNote(
   { next, members, rule }: {
     next: NextSuggestion | null;

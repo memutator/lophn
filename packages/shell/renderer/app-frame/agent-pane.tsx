@@ -1,4 +1,4 @@
-// 앱 공간의 agent 칸(shell/app-frame#R36~R39). 앱 화면 옆에 Agent 화면(shell/desktop) 하나나, Manage가 여는 앱 자리의
+// 앱 공간의 agent 칸. 앱 화면 옆에 Agent 화면(shell/desktop) 하나나, Manage가 여는 앱 자리의
 // agent 관리 화면(project의 Agents 탭과 같은 AgentsPage)을 둔다. 칸은 둘 중 하나만 보이고 닫을 수 있으며, 창이 넓으면
 // 앱 화면 옆 열이고 좁으면 앱 화면을 덮는다. 덮는 동안에도 앱 view는 숨지 않고 칸이 덮지 않는 영역으로 준다.
 import { type ReactElement, useMemo, useRef } from "react";

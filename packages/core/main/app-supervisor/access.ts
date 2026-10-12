@@ -1,4 +1,4 @@
-// broker의 `BrokerAccess` 어댑터(apps/permissions#R2, R14). 실행 범위는 현재 release 선언 ∩ active grant이고
+// broker의 `BrokerAccess` 어댑터. 실행 범위는 현재 release 선언 ∩ active grant이고
 // 요청마다 core에서 다시 읽는다: 회수는 다음 사용부터 거절되고 교체된 release의 옛 자식은 새 선언으로
 // 접근을 얻지 못한다. 읽기는 supervisor의 machine credential로 core read route를 부른다(`apps/blueprint`와
 // `grants/list`). 범위 계산은 IO 없는 `effectiveScope`가 한다.
@@ -123,7 +123,7 @@ export function createCoreBrokerAccess(deps: {
 }
 
 // 이 앱이 부를 수 있는 다른 앱이다: 현재 선언한 app_connections 가운데 사람이 허락한 app.call grant가
-// 있는 대상(apps/connections#R4). 앱 자식의 Deno 허락에 그 대상의 direct socket을 더하는 근거이고,
+// 있는 대상. 앱 자식의 Deno 허락에 그 대상의 direct socket을 더하는 근거이고,
 // 실제로 부를 수 있는 command는 준비 서비스가 현재 target 프로세스와 맞춰 다시 정한다.
 export function createCoreAppCallTargets(deps: {
   post: CorePost;

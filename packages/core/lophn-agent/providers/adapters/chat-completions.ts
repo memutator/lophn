@@ -1,9 +1,9 @@
-// OpenAI Chat Completions adapter(provider#R3, R25). 요청 번역(messages·tools,
+// OpenAI Chat Completions adapter. 요청 번역(messages·tools,
 // stream=true, stream_options.include_usage)과 SSE 응답 번역(delta.tool_calls를
 // index로 누적, finish_reason 판정, usage 정규화)을 여기 둔다. tool_calls[].id↔
 // tool message tool_call_id 대응, DeepSeek reasoning_content 제외, Gemini OpenAI
 // 호환 endpoint, Ollama·LM Studio·llama.cpp loopback 무인증과 tool call id 누락
-// 처리를 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다(T15).
+// 처리를 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다.
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
@@ -98,7 +98,7 @@ function pairedMessages(
 }
 
 // DeepSeek 필수 quirk: reasoning_content 없는 assistant 턴은 공백 하나로 채운다
-// (빈 문자열은 거절이다). 사람이 읽을 reasoning 본문은 요청에 보내지 않는다(R25).
+// (빈 문자열은 거절이다). 사람이 읽을 reasoning 본문은 요청에 보내지 않는다.
 function applyPadding(
   message: Record<string, unknown>,
   provider?: string,
@@ -116,11 +116,11 @@ export function buildRequest(input: {
   messages: readonly unknown[];
   tools?: readonly ChatTool[];
   max_tokens: number;
-  // provider 정의 key다(R3). model 이름이 아니다.
+  // provider 정의 key다. model 이름이 아니다.
   provider?: string;
   // 지시문은 system message 하나로 온다(prompt-assemble이 번역한다).
   system?: string;
-  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
 }): Record<string, unknown> {
   const messages = pairedMessages(input.messages, input.provider);
@@ -145,7 +145,7 @@ export function buildRequest(input: {
 // tool call 조각. index로 slot을 찾아 더한다(조사 문서 401–551). provider가 id를
 // 빼먹은 조각(Ollama·llama.cpp)은 id가 빈 채로 남고 순서 기준 표시자로 대응한다.
 
-// stream 결과. tool 인자는 finish_reason chunk를 본 것만 완성이다(plan T14).
+// stream 결과. tool 인자는 finish_reason chunk를 본 것만 완성이다.
 export type ChatStreamResult = {
   text: string;
   toolCalls: ToolCall[];
@@ -154,9 +154,9 @@ export type ChatStreamResult = {
   finishReason?: string;
   // usage는 finish chunk보다 앞설 수도 있다(vLLM이 finish chunk를 삼킨다).
   usage: TokenUsage | undefined;
-  // finish_reason 없이 스트림이 끝났다. 단절이다(plan T14).
+  // finish_reason 없이 스트림이 끝났다. 단절이다.
   streamEndedWithoutFinish: boolean;
-  // in-stream error frame의 종류·메시지. 오류 본문은 보존하지 않는다(R19).
+  // in-stream error frame의 종류·메시지. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
   // [DONE] sentinel을 봤다. sentinel 앞에 끝난 것도 단절은 아니다(연결 종료).
@@ -219,7 +219,7 @@ function applyDeltaToolCalls(
 }
 
 // choice 하나를 누적한다. reasoning 본문 필드(reasoning_content 등)는 누적
-// 대상이 아니다(R25) — content만 더하므로 자연히 제외된다.
+// 대상이 아니다 — content만 더하므로 자연히 제외된다.
 function applyChoice(
   out: ChatStreamResult,
   choice: Record<string, unknown>,
@@ -288,7 +288,7 @@ export function applyChatFrames(
 }
 
 // 마친 뒤 finish_reason을 못 본 상태로 끝난 것을 표시한다. finish_reason 없는
-// 종료는 partial이다(plan T14, 조사 문서 690–698).
+// 종료는 partial이다(조사 문서 690–698).
 export function finishChatStream(out: ChatStreamResult): void {
   if (out.finishReason === undefined) {
     out.streamEndedWithoutFinish = true;
@@ -342,17 +342,17 @@ export type Verdict = {
 };
 
 // 판정 표(조사 문서). stop·tool_calls만 complete다. length·단절은 partial이다.
-// finish_reason 없는 종료는 partial이다(plan T14).
+// finish_reason 없는 종료는 partial이다.
 export function judgeChat(out: ChatStreamResult): Verdict {
   if (out.errorType !== undefined || out.errorMessage !== undefined) {
-    // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다(R19).
+    // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다.
     return {
       kind: "failed",
       code: "unknown",
       providerCode: out.errorType,
     };
   }
-  // finish_reason 없이 끝난 스트림은 단절이다(plan T14).
+  // finish_reason 없이 끝난 스트림은 단절이다.
   if (out.finishReason === undefined || out.streamEndedWithoutFinish) {
     return { kind: "partial" };
   }
@@ -385,7 +385,7 @@ export function judgeChat(out: ChatStreamResult): Verdict {
 }
 
 // finishReason을 본 뒤 completedToolIds를 채운다. tool call의 완성 신호는
-// finish_reason chunk다(plan T14). provider가 id를 빼먹은 call은 순서 기준
+// finish_reason chunk다. provider가 id를 빼먹은 call은 순서 기준
 // 표시자로 채운다(Ollama·llama.cpp).
 export function completeToolCalls(out: ChatStreamResult): void {
   if (out.finishReason === undefined) return;

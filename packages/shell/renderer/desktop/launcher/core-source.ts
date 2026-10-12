@@ -88,7 +88,7 @@ export function coreLauncherSource(
     },
 
     async register(draft): Promise<LauncherResult<ProjectCard>> {
-      // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+      // 성공 응답은 route output 그대로다. 추가 포장은 없다.
       const reply = await core.call({
         kind: "command",
         resource: "projects",
@@ -103,7 +103,7 @@ export function coreLauncherSource(
               path: folder.path,
               description: folder.description,
             })),
-            // 등록 직후 추적은 꺼져 있고 규칙도 아직 고르지 않았다(documents/projects#R3).
+            // 등록 직후 추적은 꺼져 있고 규칙도 아직 고르지 않았다.
             tracking: { enabled: false, patterns: [], use_gitignore: false },
           },
           idempotency_key: `projects-create-${draft.id}`,

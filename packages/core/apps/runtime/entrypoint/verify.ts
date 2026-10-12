@@ -1,4 +1,4 @@
-// 매 direct 요청의 로컬 검증(apps/runtime#R11). 본문 actor·effect·caller 주장은 권한 근거가 아니다.
+// 매 direct 요청의 로컬 검증. 본문 actor·effect·caller 주장은 권한 근거가 아니다.
 import type { Clock } from "@lophn/base";
 import { canonicalInputHash, validateInput } from "../../blueprint/mod.ts";
 import type { Blueprint, CommandDeclaration } from "../../blueprint/mod.ts";
@@ -173,7 +173,7 @@ export async function verifyCommandCall(deps: {
       error: reject("unavailable", "writes are closed until open"),
     };
   }
-  // 생략된 입력은 선언 default로 채운 빈 객체에서 시작한다(apps/blueprint#R7).
+  // 생략된 입력은 선언 default로 채운 빈 객체에서 시작한다.
   const supplied = deps.input === undefined && declared.input?.type === "object"
     ? {}
     : deps.input;
@@ -191,7 +191,7 @@ export async function verifyCommandCall(deps: {
   const caller = projectCaller(deps.connection);
   if (declared.confirm && deps.identity.mode === "preview") {
     // preview에는 사람의 approval도 proof도 없다. confirm 명령의 실제 handler는 proof가 있어도
-    // 돌리지 않고, 대역 확인의 성공을 실행 성공으로 보이지 않는다(apps/preview#R5).
+    // 돌리지 않고, 대역 확인의 성공을 실행 성공으로 보이지 않는다.
     return {
       ok: false,
       error: reject("forbidden", "confirm commands are not run in preview"),

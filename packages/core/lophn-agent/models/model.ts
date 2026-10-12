@@ -25,7 +25,7 @@ export function layerRank(source: string): number {
 }
 
 // model identity는 (provider_definition, model_name) 쌍이다. 같은 이름의
-// 직접 제공처와 중계 제공처 항목은 별도 항목으로 유지한다(R1).
+// 직접 제공처와 중계 제공처 항목은 별도 항목으로 유지한다.
 export type EntryIdentity = Readonly<{
   provider_definition: string;
   model_name: string;
@@ -36,7 +36,7 @@ export function entryKey(entry: EntryIdentity): string {
 }
 
 // 같은 identity의 항목이 여러 층에 있을 때 출처 등급이 높은 항목을 남긴다.
-// 등급이 같으면 뒤의 것(나중에 적용된 층)을 남긴다(R3).
+// 등급이 같으면 뒤의 것(나중에 적용된 층)을 남긴다.
 function preferred(previous: CatalogEntry, next: CatalogEntry): CatalogEntry {
   return layerRank(next.source) >= layerRank(previous.source) ? next : previous;
 }
@@ -88,7 +88,7 @@ export function mergeCatalogLayers(layers: CatalogLayers): CatalogEntry[] {
   ]);
 }
 
-// 사용자 보완이 덮을 수 있는 항목 필드. identity·출처·판은 보완 대상이 아니다(R3).
+// 사용자 보완이 덮을 수 있는 항목 필드. identity·출처·판은 보완 대상이 아니다.
 export const OVERRIDABLE_FIELDS = [
   "context_limit",
   "input_limit",
@@ -107,7 +107,7 @@ export type UserPatch = Readonly<
 >;
 
 // 사람 보완은 명시한 항목만 던다. patched 항목은 출처 user가 되지만
-// 같은 identity의 하위 층 항목도 유지된다(R3, R13).
+// 같은 identity의 하위 층 항목도 유지된다.
 export function applyUserPatch(
   entry: CatalogEntry,
   patch: UserPatch,
@@ -129,7 +129,7 @@ export function applyUserPatch(
   };
 }
 
-// 갱신 목록의 항목 전체 검증(R5). 한 항목이라도 검증을 넘지 못하면 전체를 거절한다.
+// 갱신 목록의 항목 전체 검증. 한 항목이라도 검증을 넘지 못하면 전체를 거절한다.
 export function validateCatalogResponse(
   entries: readonly unknown[],
 ): Result<CatalogEntry[]> {
@@ -180,7 +180,7 @@ export function initialState(
   };
 }
 
-// 정상 200. 성공 시각과 실패 표시를 함께 갱신한다(Q19).
+// 정상 200. 성공 시각과 실패 표시를 함께 갱신한다.
 export function stateAfterReceived(
   state: CatalogState,
   atMs: number,
@@ -198,7 +198,7 @@ export function stateAfterReceived(
   };
 }
 
-// 정상 304. 확인 시각만 갱신하고 수신 시각·ETag·정상본을 유지한다(Q19).
+// 정상 304. 확인 시각만 갱신하고 수신 시각·ETag·정상본을 유지한다.
 export function stateAfterChecked(
   state: CatalogState,
   atMs: number,
@@ -214,7 +214,7 @@ export function stateAfterChecked(
 }
 
 // 잘못된 200·timeout·network 실패. 마지막 정상본·성공 시각·ETag를 유지하고
-// 실패 표시만 남긴다(Q19).
+// 실패 표시만 남긴다.
 export function stateAfterFailure(
   state: CatalogState,
   failure: "invalid_input" | "unavailable" | "not_found",
@@ -222,7 +222,7 @@ export function stateAfterFailure(
   return { ...state, last_failure: failure };
 }
 
-// 갱신 시점 판정. 마지막 확인 뒤 24시간이 지나면 갱신한다(R4).
+// 갱신 시점 판정. 마지막 확인 뒤 24시간이 지나면 갱신한다.
 export function refreshDue(state: CatalogState, nowMs: number): boolean {
   if (!state.auto_update) return false;
   if (state.last_checked_at === null) return true;
@@ -264,7 +264,7 @@ export function parseEntries(text: string): CatalogEntry[] | undefined {
   return entries;
 }
 
-// catalog 밖 model을 호출 gate로 넘기는 조건(R13). 확인된 항목이 하나라도 없으면
+// catalog 밖 model을 호출 gate로 넘기는 조건. 확인된 항목이 하나라도 없으면
 // 사용할 수 없다. 임의 한계(false negatives도 0도 128000도 아니다)를 추측하지 않는다.
 export type ResolvedSupport = Readonly<{
   context_limit: number;

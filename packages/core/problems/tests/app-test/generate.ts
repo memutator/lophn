@@ -32,7 +32,7 @@ export type Precomputed = {
 // 묶음만으로 판정하는 검사의 결과이고, 나머지는 test 자식의 관측 frame으로 판정한다.
 export type PlanCheck = HarnessPlanCheck & {
   precomputed: Precomputed | null;
-  // 통과가 증명하는 고정 기준과 입력 범위(problems/tests#R12).
+  // 통과가 증명하는 고정 기준과 입력 범위.
   coverage: CheckCoverage;
 };
 
@@ -58,7 +58,7 @@ export type AppTestInput = {
     | "app_connections"
   >;
   // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema. 이전 release가
-  // 없으면 previous_schema는 null이다(apps/data#R3).
+  // 없으면 previous_schema는 null이다.
   data: { schema: number; previous_schema: number | null };
   // 고정 blueprint blob의 hash. FrozenTest.blueprint와 같아야 한다.
   blueprint_hash: string;
@@ -150,7 +150,7 @@ const HARNESS_REASONS: Record<HarnessCheckName, string> = {
 };
 
 // 필수 검사를 만든다. 검사 목록은 runner의 불변 설치 자료와 고정 blueprint에서만
-// 나온다. bundle 안의 파일은 검사를 더하거나 빼거나 고칠 수 없다(problems/tests#R6).
+// 나온다. bundle 안의 파일은 검사를 더하거나 빼거나 고칠 수 없다.
 export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
   const declared = checkProblemCodeDeclarations(input.blueprint.problem_codes);
   const declarations = declared.ok ? declared.value : [];
@@ -245,7 +245,7 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
     );
   }
   // 앱 계약 검사는 blueprint가 선언한 기능마다 필수다. 선언이 없는 기능의 검사만
-  // 이유 있는 not_applicable이다(problems/tests#R8, R9, R15; apps/blueprint#R21).
+  // 이유 있는 not_applicable이다(apps/blueprint#R21).
   const commands = input.blueprint.commands;
   const secrets = secretNames(input.blueprint.permissions);
   const contract = (
@@ -299,7 +299,7 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
   ) {
     contract(name, revertable, "되돌리기를 지원하는 write command가 없다");
   }
-  // 화면 없는 bundle의 화면 검사만 이유 있는 not_applicable이다(problem-codes#R8).
+  // 화면 없는 bundle의 화면 검사만 이유 있는 not_applicable이다.
   for (
     const path of requiredReportPaths({
       problem_codes: declarations,

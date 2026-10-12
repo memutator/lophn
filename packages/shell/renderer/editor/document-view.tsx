@@ -1,8 +1,8 @@
-// 문서 탭 본문: 같은 기둥에서 읽고 고친다(shell/editor#R4, R8, R9, R16, design-system#R23).
+// 문서 탭 본문: 같은 기둥에서 읽고 고친다.
 // 읽기는 design의 Markdown renderer, 편집은 CodeMirror다. 둘은 같은 ReadingFrame·머리·
 // scroll 칸을 쓰고 본문 자리만 바뀌어 전환 전후 첫 블록 위치가 같다. 편집을 시작하면 main의
 // 파일 adapter로 지금 디스크 글을 열고, 고침은 저장 버튼 없이 저장 흐름(save-state.ts)으로
-// 보낸다(R1, R2, R12). 저장 상태는 머리 메타 줄에, 충돌은 문서 옆 notice와 해결 화면에 보인다(R15).
+// 보낸다. 저장 상태는 머리 메타 줄에, 충돌은 문서 옆 notice와 해결 화면에 보인다.
 import {
   type KeyboardEvent,
   useCallback,
@@ -59,7 +59,7 @@ import type {
 } from "./source.ts";
 import styles from "./document-view.module.css";
 
-/** 탭 제목·tooltip에 쓰는 문서 정보(R4). */
+/** 탭 제목·tooltip에 쓰는 문서 정보. */
 export interface DocumentTabMeta {
   readonly fileName: string;
   readonly title: string;
@@ -75,10 +75,10 @@ export interface EditorDeps {
   readonly menu: MenuOpener;
   /** 파일 통로와 창의 편집 session. 없으면 고친 글은 이 화면의 초안으로만 남는다. */
   readonly files?: EditorSessions;
-  /** 버전 이력·비교·복원 통로(shell#T18). 없으면 비교를 열지 않는다. */
+  /** 버전 이력·비교·복원 통로. 없으면 비교를 열지 않는다. */
   readonly versions?: VersionSource;
   /**
-   * main의 core 통로. core 끊김(desktop#R7)에서 저장 gate를 닫고 확인 시각을 보이려고
+   * main의 core 통로. core 끊김에서 저장 gate를 닫고 확인 시각을 보이려고
    * 연결 상태를 여기서 읽는다. 없으면(통로 없는 테스트) 끊김 줄을 두지 않는다.
    */
   readonly core?: CoreSource;
@@ -197,7 +197,7 @@ export function DocumentView(
     core,
   }: DocumentViewProps,
 ) {
-  // core 끊김(desktop#R7). 통로가 있으면 연결 상태를 따르고 저장 gate를 닫는다.
+  // core 끊김. 통로가 있으면 연결 상태를 따르고 저장 gate를 닫는다.
   const connection = useConnectionSafe(core);
   const [state, setState] = useState<InfoState>({ kind: "loading" });
   const [body, setBody] = useState<BodyState>({ kind: "loading" });
@@ -386,7 +386,7 @@ export function DocumentView(
   const toggleEdit = useCallback(() => {
     if (!canEdit) return;
     if (editing) {
-      // 읽기 전환은 편집 종료다. 마지막 고침을 보내고 version 준비 경계를 연다(R1).
+      // 읽기 전환은 편집 종료다. 마지막 고침을 보내고 version 준비 경계를 연다.
       setEditing(false);
       setResolving(null);
       void opened?.session.flush(true);
@@ -416,7 +416,7 @@ export function DocumentView(
 
   const onDraft = useCallback((next: string) => {
     setDraft(next);
-    // core가 끊겼으면 새 쓰기를 보내지 않는다. 초안은 이 화면에 남고 연결이 돌아오면 쓴다(desktop#R7).
+    // core가 끊겼으면 새 쓰기를 보내지 않는다. 초안은 이 화면에 남고 연결이 돌아오면 쓴다.
     if (connection.state !== "ready") return;
     opened?.session.edit(next);
   }, [opened, connection]);
@@ -600,7 +600,7 @@ export function DocumentView(
       event.stopPropagation();
       toggleEdit();
     } else if (key === "s") {
-      // 명시 저장. 저장 버튼은 없고 이 키는 편집 종료와 같은 경계다(R1).
+      // 명시 저장. 저장 버튼은 없고 이 키는 편집 종료와 같은 경계다.
       event.preventDefault();
       event.stopPropagation();
       void opened?.session.flush(true);
@@ -661,7 +661,7 @@ export function DocumentView(
       when: formatRelativeTime(new Date(info.savedAt), new Date(now())),
     })
     : "";
-  // core가 끊겼으면 저장 불가·초안 유지를 메타 줄에서 함께 보인다(desktop#R7, editor#R12).
+  // core가 끊겼으면 저장 불가·초안 유지를 메타 줄에서 함께 보인다.
   const saving = (facts !== null && saveHeadline(facts).kind !== "none") ||
     connection.state === "stale";
   const meta = saving && facts

@@ -2,12 +2,12 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 
 // 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R12, R15). 계약 schema(mcpServerConfigSchema)가 이미
+// lophn-agent/extensions#R12). 계약 schema(mcpServerConfigSchema)가 이미
 // 전송 방식·값 모양을 거르고, 이 모듈은 그 밖의 누락·상충을 서버별로 본다.
 // 잘못된 서버 하나만 연결하지 않고 고칠 항목을 알리며 다른 서버와 lophn 자체
-// 도구는 그대로다(R12). TLS 검증을 끄는 설정은 없다(R15).
+// 도구는 그대로다. TLS 검증을 끄는 설정은 없다.
 
-// 사람에게 알릴 서버별 고칠 항목이다(R12). 서버 이름과 원문 값 외의 자유
+// 사람에게 알릴 서버별 고칠 항목이다. 서버 이름과 원문 값 외의 자유
 // 원문은 담지 않는다.
 export type McpConfigProblem = {
   server: string;
@@ -15,12 +15,12 @@ export type McpConfigProblem = {
 };
 
 export type McpConfigCheck = {
-  // 연결 대상 서버다. 문제가 있는 서버는 빠진다(R12: 그 서버만 연결 안 함).
+  // 연결 대상 서버다. 문제가 있는 서버는 빠진다(그 서버만 연결 안 함).
   valid: readonly McpServerConfig[];
   problems: readonly McpConfigProblem[];
 };
 
-// HTTP 목적지를 본다(R15). HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
+// HTTP 목적지를 본다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
 // redirect·TLS는 연결할 때 adapter가 본다.
 export function httpEndpointReason(
   url: unknown,
@@ -46,7 +46,7 @@ export function httpEndpointReason(
   return "평문 http는 loopback 주소에만 허용한다. https url로 고친다";
 }
 
-// stdio 실행 파일 검사다(R12). 절대 경로는 계약 schema가 이미 본다.
+// stdio 실행 파일 검사다. 절대 경로는 계약 schema가 이미 본다.
 function stdioReason(server: McpServerConfig): string | null {
   if (server.transport !== "stdio") return null;
   const stdio = server.stdio;
@@ -61,13 +61,13 @@ function stdioReason(server: McpServerConfig): string | null {
   return null;
 }
 
-// HTTP 서버 검사다(R12, R15).
+// HTTP 서버 검사다.
 function httpReason(server: McpServerConfig): string | null {
   if (server.transport !== "http") return null;
   const endpoint = httpEndpointReason(server.http.url);
   if (endpoint !== null) return endpoint;
   // 인증 방식은 계약이 이미 골랐다(mcpAuthSchema). 여기서는 auth 헤더와 추가
-  // 헤더의 이름 상충만 본다(R12).
+  // 헤더의 이름 상충만 본다.
   if (server.http.auth.kind === "api_key") {
     const name = server.http.auth.header_name.toLowerCase();
     if (server.http.headers[name.toLowerCase()] !== undefined) {
@@ -77,7 +77,7 @@ function httpReason(server: McpServerConfig): string | null {
   return null;
 }
 
-// 서버 한 대의 누락·상충을 본다(R12). 계약 schema를 지난 값이다.
+// 서버 한 대의 누락·상충을 본다. 계약 schema를 지난 값이다.
 export function serverConfigReason(server: McpServerConfig): string | null {
   const nameProblem = typeof server.name !== "string" ||
       server.name.length === 0
@@ -87,7 +87,7 @@ export function serverConfigReason(server: McpServerConfig): string | null {
   return stdioReason(server) ?? httpReason(server);
 }
 
-// 서버 목록 전체를 검사한다(R12). 문제 서버는 valid에서 빠지고 문제 사유를
+// 서버 목록 전체를 검사한다. 문제 서버는 valid에서 빠지고 문제 사유를
 // problems로 알린다. 정상 서버는 그대로다.
 export function checkMcpConfig(
   servers: readonly McpServerConfig[],
@@ -112,7 +112,7 @@ export function checkMcpConfig(
       });
       continue;
     }
-    // 같은 이름이 둘이면 뒤 것을 상충으로 본다(R12). 등록 자체가 unique를
+    // 같은 이름이 둘이면 뒤 것을 상충으로 본다. 등록 자체가 unique를
     // 보장하므로(계약) 방어적 확인이다.
     if (seen.has(server.name)) {
       problems.push({
@@ -148,7 +148,7 @@ export function allowRunList(
 }
 
 // `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이 enabled로 등록한 HTTP server의 정확한 `host:port`와,
-// OAuth 방식이면 그 발급자의 `host:port`다(token 교환·갱신은 runtime이 대신 보낸다, R16·R17). 같은 host의 다른
+// OAuth 방식이면 그 발급자의 `host:port`다(token 교환·갱신은 runtime이 대신 보낸다). 같은 host의 다른
 // port, 일반 net, model이 제시한 URL은 없다. 기본 port는 https 443, http 80이다.
 export function allowNetList(
   servers: readonly McpServerConfig[],

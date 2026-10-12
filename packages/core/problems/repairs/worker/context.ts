@@ -1,4 +1,4 @@
-// coding-agent worker kind의 수리 자료 조립(coding-agent#T42, T43; repair-context#R1, R11, R12, R15, R18-R20).
+// coding-agent worker kind의 수리 자료 조립(repair-context#R1, R11, R12, R15, R18-R20).
 // 요청마다 요청자 connection credential로 현재 정본을 core RPC read로 읽어 summary·bundle·more를 만든다.
 // ledger·앱 DB·원본 파일은 열지 않고 완성 묶음을 저장하지 않는다. 글은 core 알려진 값 pipe
 // (`redact_request`)를 지난 것만 쓴다. core의 `/v1/repair_context/*` route가 요청을 이 worker로 넘긴다.

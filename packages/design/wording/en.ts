@@ -909,7 +909,7 @@ export const en = {
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
   "contexts.view.reference": "Reference",
-  // context 화면(shell/workspace#R16~R33): 화면 하나가 쓰는 key는 이름 앞 구간이 그 화면이다.
+  // context 화면: 화면 하나가 쓰는 key는 이름 앞 구간이 그 화면이다.
   "contexts.button.document-open": "Open",
   "contexts.button.frame-ask": "Ask Context Engineer",
   "contexts.button.frame-history": "History",

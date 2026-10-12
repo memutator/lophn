@@ -9,7 +9,7 @@ export function formatLabel(format: string): string {
   return t("documents.label.format-name", { format });
 }
 
-// 검색·view 결과 판단에 필요한 지연·누락만 한 줄씩 보인다(outline-and-search#R14).
+// 검색·view 결과 판단에 필요한 지연·누락만 한 줄씩 보인다.
 // index·재생성 과정은 보이지 않고 지금 상태만 말한다.
 export function CoverageNotices({ coverage }: { coverage: Coverage | null }) {
   const notes = coverageNotes(coverage);

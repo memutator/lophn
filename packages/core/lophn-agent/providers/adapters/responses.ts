@@ -1,9 +1,9 @@
-// OpenAI Responses adapter(provider#R3, R25). 요청 번역(instructions·input items·
+// OpenAI Responses adapter. 요청 번역(instructions·input items·
 // function tools, store=false, stream=true)과 SSE 응답 번역(output_index 누적,
 // output_item.done 확정, response.completed 판정, usage 정규화)을 여기 둔다.
 // function_call.call_id↔function_call_output.call_id 대응과 encrypted reasoning
 // item의 run 메모리 재전송도 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가
-// 맡는다(T15). 실제 OpenAI API는 부르지 않는다.
+// 맡는다. 실제 OpenAI API는 부르지 않는다.
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
@@ -33,7 +33,7 @@ export type ResponsesTool = {
   parameters?: unknown;
 };
 
-// Responses 요청값. store=false와 stream=true는 고정이다(R16).
+// Responses 요청값. store=false와 stream=true는 고정이다.
 export const RESPONSES_REQUEST_FIELDS = {
   store: false,
   stream: true,
@@ -82,7 +82,7 @@ function pairedItems(
     if (typed.type === "reasoning") {
       const encrypted = reasoningItemOf(typed);
       if (encrypted !== undefined) reasoning.push(encrypted);
-      // reasoning item은 요청에 재전송 대상에서 뺀다. run 메모리로만 산다(T14).
+      // reasoning item은 요청에 재전송 대상에서 뺀다. run 메모리로만 산다.
       continue;
     }
     output.push(item);
@@ -101,7 +101,7 @@ export function buildRequest(input: {
   reasoning?: readonly string[];
   // T14: 상태 없이 계속 가능한지 검증 뒤의 결과다.
   stateFree?: { protocol: "openai-responses"; reasoningRequired: boolean };
-  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
 }): { body: Record<string, unknown> } {
   const paired = pairedItems(input.input);
@@ -121,7 +121,7 @@ export function buildRequest(input: {
   // 호출 자리는 invoke.ts다). 메모리 상태가
   // 없을 때(restart·compaction)도 Responses는 계속 가능하다 — reasoning item을
   // 빼도 function_call·call_id 대응이 남는다(architecture §5.2). 통과하지 못하는
-  // protocol(서명 필수 Anthropic)은 messages.ts의 reasoningFor가 실패를 낸다(Q7).
+  // protocol(서명 필수 Anthropic)은 messages.ts의 reasoningFor가 실패를 낸다.
   if (input.reasoning?.length) {
     body.reasoning = { include: ["reasoning.encrypted_content"] };
   }
@@ -130,7 +130,7 @@ export function buildRequest(input: {
 
 // ── SSE 응답 번역 ────────���────────────────────────────────────────────────
 
-// stream 결과. tool 인자는 response.output_item.done을 본 것만 완성이다(plan T14).
+// stream 결과. tool 인자는 response.output_item.done을 본 것만 완성이다.
 export type ResponsesStreamResult = {
   text: string;
   toolCalls: ToolCall[];
@@ -140,10 +140,10 @@ export type ResponsesStreamResult = {
   incompleteReason?: string;
   responseEnded: boolean;
   usage?: TokenUsage;
-  // response.failed의 provider code·message. 오류 본문은 보존하지 않는다(R19).
+  // response.failed의 provider code·message. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
-  // encrypted reasoning 원문들. run 메모리로만 산다(R25).
+  // encrypted reasoning 원문들. run 메모리로만 산다.
   reasoningItems: string[];
   // 만나지 않은 event는 여기 세지 않는다(T13과 같은 근원).
   sawUnknownEvent: boolean;
@@ -161,7 +161,7 @@ export function createResponsesStreamResult(): ResponsesStreamResult {
 }
 
 // reasoning item의 encrypted_content를 결과로 모은다. 사람이 읽을 reasoning
-// 본문(summary text)은 버린다(R25).
+// 본문(summary text)은 버린다.
 function collectReasoning(
   out: ResponsesStreamResult,
   item: Record<string, unknown>,
@@ -225,7 +225,7 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     return;
   }
   if (type === "response.output_item.added") {
-    // delta 누적은 output_item.done이 확정 신호다(T14). added는 관측만 한다.
+    // delta 누적은 output_item.done이 확정 신호다. added는 관측만 한다.
     return;
   }
   if (type === "response.completed" || type === "response.incomplete") {
@@ -261,7 +261,7 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     return;
   }
   // function_call_arguments.delta·reasoning_summary_text.delta 등은 무시한다.
-  // reasoning summary는 사람이 읽을 본문이므로 제외한다(R25).
+  // reasoning summary는 사람이 읽을 본문이므로 제외한다.
   if (
     type.startsWith("reasoning_summary") || type.startsWith("reasoning_text") ||
     type.startsWith("response.output_text.annotation") ||
@@ -289,7 +289,7 @@ export function applyResponsesFrames(
 }
 
 // usage 정규화(조사 문서 표). OpenAI는 cache를 input 합계 안에 둔다. 새 입력은
-// input에서 cached를 빼고 하한 0이다. 값 모름은 0이 아니라 null이다(usage#R6).
+// input에서 cached를 빼고 하한 0이다. 값 모름은 0이 아니라 null이다.
 export function responsesUsage(raw: Record<string, unknown>): TokenUsage {
   const inputDetails = raw.input_tokens_details as
     | { cached_tokens?: unknown }
@@ -331,11 +331,11 @@ export type Verdict = {
 };
 
 // 판정 표(조사 문서). response.completed만 complete다. tool 인자는
-// output_item.done을 본 것만 완성이다(plan T14). incomplete(max_output_tokens
+// output_item.done을 본 것만 완성이다. incomplete(max_output_tokens
 // 포함)·response.failed는 partial/failed이고 tool은 미실행이다.
 export function judgeResponses(out: ResponsesStreamResult): Verdict {
   if (out.responseStatus === "failed") {
-    // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다(R19).
+    // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다.
     return {
       kind: "failed",
       code: "unknown",

@@ -1,4 +1,4 @@
-// 앱 공간(shell/app-frame#R26, architecture/shell 2.4 `/apps/:app`). 얇은 바 아래 본문 전체에
+// 앱 공간(architecture/shell 2.4 `/apps/:app`). 얇은 바 아래 본문 전체에
 // 그 앱의 native view 하나를 붙인다. 운영 패널은 720px로 열고 좁은 창에서는 본문을 덮되 앱
 // view는 덮이지 않는 영역으로 줄어든다. lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다
 // (desktop#R27). 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(R27, EmbeddedView).
@@ -70,7 +70,7 @@ export interface AppSpaceProps {
   issues?: IssuesSource;
   /** 있으면 운영 패널을 Issues 탭으로, 그 문제를 고른 채 연다. */
   issueProblem?: string;
-  /** 운영 패널 Tasks 탭의 통로(shell#T50). 없으면 Tasks 탭은 아직 없다고 보인다. */
+  /** 운영 패널 Tasks 탭의 통로. 없으면 Tasks 탭은 아직 없다고 보인다. */
   tasks?: TasksSource;
   /**
    * 있으면 운영 패널을 Tasks 탭으로 연다. ticket이 있으면 그 Task를 고른 채(취소 링크), create면 새 Task 입력을
@@ -207,7 +207,7 @@ export function AppSpace(
 
   // 창마다 하나인 덮개 목록. 좁은 창의 운영 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
-  // agent 칸(R38)이 열려 있는 동안 운영 패널은 자리를 내준다.
+  // agent 칸이 열려 있는 동안 운영 패널은 자리를 내준다.
   const [pane, setPane] = useState<AgentPaneState | null>(null);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;

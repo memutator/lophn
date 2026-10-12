@@ -72,7 +72,7 @@ export const listSecrets = defineRead({
   name: "ListSecrets",
   input: listSecretsInputSchema,
   output: listSecretsOutputSchema,
-  // coding agent는 secret 이름·설정 여부도 읽지 못한다(coding-agent/cli#R38).
+  // coding agent는 secret 이름·설정 여부도 읽지 못한다.
   actors: ["user", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
@@ -134,7 +134,7 @@ export const removeSecretInputSchema = z.strictObject({
   name: secretNameSchema,
 });
 
-// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다(platform/secrets#R2).
+// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다.
 export const setSecret = defineCommand({
   resource: "secrets",
   method: "set",
@@ -218,7 +218,7 @@ export const secretDestinationSchema = z.discriminatedUnion("kind", [
   }),
   // 같은 기계의 loopback 목적지(127.0.0.1, ::1, localhost)의 HTTP origin이다. 값이 이 기계 밖으로
   // 나가지 않는 로컬 model 서버(Ollama·LM Studio·llama.cpp)에 쓴다. HTTPS 목적지와 같은 취급이
-  // 아니다: kind가 달라 서로 대신하지 못한다(provider#R5).
+  // 아니다: kind가 달라 서로 대신하지 못한다.
   z.strictObject({
     kind: z.literal("loopback_http"),
     origin: z.url().refine((value) => {
@@ -341,7 +341,7 @@ export const secretStoreRefresh = defineWorker({
 });
 
 // 사람이 보호 입력창에 넣은 값이 core를 지나 I/O worker의 keychain adapter로 가는 유일한 HTTP
-// 입구다(platform/secrets#R2). body는 값의 바이트이고 core는 해석·보관 없이 `secret.prepare`
+// 입구다. body는 값의 바이트이고 core는 해석·보관 없이 `secret.prepare`
 // pipe로 흘려 보낸다. 입력 JSON에는 용도·owner·길이만 있고 값은 없다. 출력은 값 없는
 // SecretPreparation이라 이어지는 SetSecret(또는 소유 concern command)이 그대로 쓴다.
 export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
@@ -361,7 +361,7 @@ export const secretInput = defineUpload({
 });
 
 // 다른 concern이 자기 ledger 표에 둔 secret 참조(provider credential 등)를 core의 알려진 값
-// registry에 등록하는 통로(platform/secrets#R1, platform/redaction#R1). 그 표는 소유 concern만
+// registry에 등록하는 통로. 그 표는 소유 concern만
 // 읽으므로 읽는 함수도 소유 concern이 낸다. 값은 이 모양 어디에도 없다.
 export type SecretRefSource = {
   // 소유 concern. 이름 충돌을 막는 접두사다.

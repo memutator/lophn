@@ -1,5 +1,5 @@
 // 설치 사용 안내 읽기 handler(`/v1/guides/list·get·outline·read`, documents/versions
-// #R17, R18). 안내는 사용자 Document가 아니라서 ledger 표·derived store를 읽지 않는다.
+// #R17). 안내는 사용자 Document가 아니라서 ledger 표·derived store를 읽지 않는다.
 // 설치 manifest(port)가 안내와 파일 bytes를 주고, 추출 결과(section)는 extractor port가
 // 요청마다 같은 format 추출 규약으로 낸다. 목차 자르기·본문 조각·cursor·redaction은
 // 문서 outline·읽기와 같은 코드(outline-support)다. 이 모듈은 ledger에 아무것도 쓰지 않고
@@ -367,7 +367,7 @@ export function createGuideHandlers(deps: GuideHandlerDeps): GuideHandlers {
       const target = section === null
         ? undefined
         : extraction.sections.find((item) => item.key === section);
-      // 성공 추출에 key가 없으면 missing이다(R22).
+      // 성공 추출에 key가 없으면 missing이다.
       if (section !== null && target === undefined) {
         return ok({
           ...base,

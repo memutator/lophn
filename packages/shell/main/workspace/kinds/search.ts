@@ -1,4 +1,4 @@
-// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다(shell/workspace#R23). 입력은
+// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다. 입력은
 // 사람이 채운 조건일 뿐이라 현재 보기에는 넣지 않고 복원 때 검색을 다시 계산한다.
 import { z } from "zod";
 
@@ -39,7 +39,7 @@ export type SearchView = {
 export const searchKind = defineTabKind<SearchLayout, SearchHint, SearchView>({
   kind: "search",
   layout,
-  // context가 없어졌거나 선언된 검색이 계약에서 사라졌으면 이유를 가진 자리표시다(R6).
+  // context가 없어졌거나 선언된 검색이 계약에서 사라졌으면 이유를 가진 자리표시다.
   async restore(tab, targets) {
     if (!(await targets.context(tab.context))) {
       return {

@@ -1,4 +1,4 @@
-// section 이력과 두 판의 줄 diff 읽기 handler(documents#T16). route 선언은 contract가 한다
+// section 이력과 두 판의 줄 diff 읽기 handler. route 선언은 contract가 한다
 // (`document.section_history`, `document.diff`). ledger snapshot의 문서·판 metadata와
 // derived store의 section·원문(derived_versions·derived_sections·derived_texts)만 읽는다.
 // 비교 규칙은 model.ts의 공용 section-comparison이고 줄 계산은 diff.ts다. 계산은 reader
@@ -163,7 +163,7 @@ function metaOf(row: Record<string, unknown>): VersionMeta {
 const VERSION_COLUMNS =
   `id, number, content_hash, format_name, module_hash, format_explicit`;
 
-// 문서가 있고 요청 자격이 닿으면 통과다. 보관 문서의 고정 판도 읽힌다(versions#R11).
+// 문서가 있고 요청 자격이 닿으면 통과다. 보관 문서의 고정 판도 읽힌다.
 function readableDocument(
   deps: HistoryHandlerDeps,
   ctx: RequestContext,
@@ -332,7 +332,7 @@ function sectionHistoryPage(
     ],
   ).map(metaOf);
   const page = rows.slice(0, SECTION_HISTORY_PAGE);
-  // 중간 판부터 잘라도 첫 비교는 직전 판과 한다(outline-and-search#R20).
+  // 중간 판부터 잘라도 첫 비교는 직전 판과 한다.
   const previousRow = deps.snapshot.sql.get(
     `SELECT ${VERSION_COLUMNS} FROM versions
      WHERE document = ? AND number < ? ORDER BY number DESC LIMIT 1`,

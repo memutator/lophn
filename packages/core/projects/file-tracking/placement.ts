@@ -1,4 +1,4 @@
-// 문서를 파일로 두기와 빼기의 순서(documents/file-tracking#R13, R14, documents/projects#R12).
+// 문서를 파일로 두기와 빼기의 순서.
 // 디스크 쓰기와 ledger 변경은 한 transaction이 아니다. 그래서 파일 쪽 사실을 먼저 확정하고,
 // 이어지는 연결 확정(추적 규칙, 자리, 원본 연결)은 각각 그 순간의 현재 기준(CAS)으로 따로 한다.
 // 연결 확정이 실패해도 이미 끝난 파일 작업을 되돌리지 않고 결과에 단계별로 남긴다.
@@ -42,7 +42,7 @@ export type PlacementLedger = {
   latest(document: string): Promise<Result<PlacementLatest | null>>;
   // 그 경로에 이미 연결된 문서의 id. 없으면 null이다.
   linked(path: string): Promise<Result<string | null>>;
-  // 새 자리에서 쓸 수 있는 문서 이름. 예약된 이름은 건너뛴다(addressing#R2).
+  // 새 자리에서 쓸 수 있는 문서 이름. 예약된 이름은 건너뛴다.
   placeName(place: PlaceRef, document: Document): Promise<Result<Slug>>;
   // 경로의 각 상위 디렉터리에 걸리는 .gitignore 규칙(root 쪽부터). 디스크를 읽을 수 없는
   // host는 두지 않는다: 그러면 .gitignore가 가리는 파일은 파일을 만든 뒤에야 추적되지 않음이 드러난다.

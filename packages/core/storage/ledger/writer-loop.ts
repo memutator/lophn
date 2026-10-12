@@ -77,7 +77,7 @@ export function serveWriter(
       worker.postMessage({
         id: data.id,
         op: "read-result",
-        // 제출 ctx의 principal·scope를 그대로 믿지 않는다. current 자격을 다시 본다(R13).
+        // 제출 ctx의 principal·scope를 그대로 믿지 않는다. current 자격을 다시 본다.
         body: readOwnResult(
           connection,
           deps.checkCredential,

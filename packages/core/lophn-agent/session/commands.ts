@@ -54,9 +54,9 @@ import { renameSessionTitle } from "./session-title.ts";
 
 export type ConversationDeps = {
   // 같은 Tx에서 run을 접수한다(run-loop AcceptRun). 사람 입력 접수와 담당 run 접수는
-  // 한 transaction이어야 한다(R3, R7). 조립이 run-loop의 accept handler를 건다.
+  // 한 transaction이어야 한다. 조립이 run-loop의 accept handler를 건다.
   acceptRun: AcceptRun;
-  // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다(R20). 기록을 가진 concern마다
+  // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다. 기록을 가진 concern마다
   // 자기 몫을 지우고 조립이 그것들을 잇는다. 메시지는 이 함수를 부르기 전에 지워져 있다.
   deleteSessionRecords: (tx: Tx, session: string) => Result<void>;
   // 메시지 본문의 blob 영구 참조를 지운다(platform/blob-store). 소유 행인 메시지보다 먼저 부른다.
@@ -69,7 +69,7 @@ export type ConversationDeps = {
 
 type PlaceInput = { kind: "project" | "app"; id: string };
 
-// 자리가 role 규칙에 맞는 active project나 app인지(R1, R16). App Engineer와 Operator는
+// 자리가 role 규칙에 맞는 active project나 app인지. App Engineer와 Operator는
 // 담당 범위와 같은 자리, Context Engineer는 project, lophn은 project나 app이다.
 function checkPlace(
   tx: Tx,
@@ -114,7 +114,7 @@ function openedOf(row: SessionRow) {
   };
 }
 
-// archive는 목록 표시만 바꾼다(R19). 이미 그 상태면 이전 결과이고, 낡은 seq의 재전송도 같은
+// archive는 목록 표시만 바꾼다. 이미 그 상태면 이전 결과이고, 낡은 seq의 재전송도 같은
 // 결과를 받는다. 닫힌 세션도 archive를 바꿀 수 있다.
 function toggleArchived(
   tx: Tx,
@@ -247,7 +247,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session === undefined) return sessionNotFound();
         const title = renameSessionTitle(input.title);
         if (!title.ok) return title;
-        // 같은 제목이면 이전 결과다. 닫힌 세션도 이름을 바꾼다(R18).
+        // 같은 제목이면 이전 결과다. 닫힌 세션도 이름을 바꾼다.
         if (session.title === title.value) {
           return ok({
             id: session.id,
@@ -310,7 +310,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (!user.ok) return user;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        // 진행 중이거나 기다리는 run이 있으면 먼저 멈춘 뒤에만 지운다(R20).
+        // 진행 중이거나 기다리는 run이 있으면 먼저 멈춘 뒤에만 지운다.
         if (hasUnfinishedRun(tx, session.id)) {
           return reject("conflict", "a run of the session is not finished");
         }
@@ -396,7 +396,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         }
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        // 닫는 길은 assignment 회수 하나다(R8).
+        // 닫는 길은 assignment 회수 하나다.
         const assignment = loadAssignmentRef(tx, session.assignment);
         if (assignment?.state !== "withdrawn") {
           return reject("forbidden", "the assignment is not withdrawn");
@@ -407,11 +407,11 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
-        // 미종료 run과 대기 요청을 먼저 정리해야 닫는다(R8).
+        // 미종료 run과 대기 요청을 먼저 정리해야 닫는다.
         if (hasUnfinishedRun(tx, session.id)) {
           return reject("conflict", "a run of the session is not finished");
         }
-        // 되돌리기 기록은 session이 열려 있는 동안만 뜻이 있다. 닫히면 지운다(revert R20).
+        // 되돌리기 기록은 session이 열려 있는 동안만 뜻이 있다. 닫히면 지운다.
         const rewound = deleteSessionReverts(tx, session.id);
         if (!rewound.ok) return rewound;
         const closedAt = tx.now();

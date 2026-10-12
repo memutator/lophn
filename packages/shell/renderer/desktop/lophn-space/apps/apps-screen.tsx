@@ -1,5 +1,5 @@
 // lophn 공간 apps 화면. 등록한 앱을 사람이 지은 이름과 상태로 보이고, 열기·보관·꺼내기를 둔다
-// (shell/wording#R4, flow organize-documents). 보관은 되돌릴 수 있어 묻지 않고 하고 결과만
+// (flow organize-documents). 보관은 되돌릴 수 있어 묻지 않고 하고 결과만
 // 알린다. 원시 enum·ID는 보이지 않는다.
 import { useCallback, useEffect, useState } from "react";
 import {

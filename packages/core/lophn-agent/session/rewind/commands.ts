@@ -187,7 +187,7 @@ function headerOf(row: RevertRow, replayed: boolean): Header {
   };
 }
 
-// 같은 id의 재전송: 같은 요청이면 저장된 결과, 다르면 conflict다(R8).
+// 같은 id의 재전송: 같은 요청이면 저장된 결과, 다르면 conflict다.
 function replayOf(
   row: RevertRow,
   same: boolean,
@@ -197,7 +197,7 @@ function replayOf(
     : reject("conflict", "revert id already used for other input");
 }
 
-// session이 열려 있는지 본다. 끝나지 않은 run이 있으면 시작하지 않는다(R15).
+// session이 열려 있는지 본다. 끝나지 않은 run이 있으면 시작하지 않는다.
 function requireIdleSession(tx: Tx, session: string): Result<void> {
   const found = tx.sql.get("select state from sessions where id = ?", [
     session,

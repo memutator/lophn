@@ -34,14 +34,14 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// 자리(project·app) 층의 MCP 서버 목록을 저장하고 읽는다(concern lophn-agent/extensions R32, R33). 서버 등록은
-// 사람만 한다(route actors, R11). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다. 파일은 transaction 안에서 마지막에
+// 자리(project·app) 층의 MCP 서버 목록을 저장하고 읽는다(concern lophn-agent/extensions R32). 서버 등록은
+// 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다. 파일은 transaction 안에서 마지막에
 // 쓰고, 쓰기가 실패하면 handler가 err를 돌려 event까지 전체가 되돌아간다.
 
 // 다른 concern의 값을 읽는 길이다. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type PlaceExtensionLookups = {
   placeExists(place: AgentPlace): boolean;
-  // 전역(Workspace)에 등록된 서버 전부다. 켜짐 여부와 상관없이 이름이 겹치면 거절한다(R33).
+  // 전역(Workspace)에 등록된 서버 전부다. 켜짐 여부와 상관없이 이름이 겹치면 거절한다.
   globalServers(): readonly McpServerConfig[];
   // 전역 층의 skill 출처다. 자리 폴더는 data root와 자리에서 정해진다.
   skillSources(): Omit<SkillSources, "place">;
@@ -108,7 +108,7 @@ function revised(
   });
 }
 
-// 전역 서버와 이름이 겹치거나(R33) 설정이 상충하면(R12) 그 서버만이 아니라 변경 전체를 거절한다.
+// 전역 서버와 이름이 겹치거나 설정이 상충하면 그 서버만이 아니라 변경 전체를 거절한다.
 function checkServers(
   servers: readonly McpServerConfig[],
   global: readonly McpServerConfig[],

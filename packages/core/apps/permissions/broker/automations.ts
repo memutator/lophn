@@ -1,5 +1,5 @@
 // broker `/_lophn/broker/automations/{try_acquire,release}`. 앱 안 clock이 회차를 시작하기 직전에
-// permit을 요청한다(apps/automations#R5, R6, R13). 신원은 자식 연결이 정하고 본문의 release는 연결의
+// permit을 요청한다. 신원은 자식 연결이 정하고 본문의 release는 연결의
 // release와 같아야 한다.
 //
 // external command는 사람이 그 automation을 켠 승인(Grant kind `automation.run`)이 현재 선언과 같은
@@ -65,7 +65,7 @@ export function createAutomationBroker(deps: {
       if (
         input.process_nonce !== child.processNonce || input.mode !== child.mode
       ) return mismatch();
-      // preview·test 자식과 release 없는 자식은 clock을 열지 않는다(R4).
+      // preview·test 자식과 release 없는 자식은 clock을 열지 않는다.
       if (child.mode !== "live" || child.release === null) {
         return unavailable("automation clock is closed for this process");
       }

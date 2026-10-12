@@ -1,6 +1,6 @@
 // CLI argv parser(architecture/coding-agent 5.4). 정본 이름은
 // `lophn <group> <command>`다. 별칭·implicit stdin·unknown option passthrough는
-// 없다(R4). 입력 source는 먼저 exclusive 검사하고 파서 오류도 --json 선택을
+// 없다. 입력 source는 먼저 exclusive 검사하고 파서 오류도 --json 선택을
 // 유지하기 위해 구조화 결과로 낸다.
 import { err, ok, type Result } from "../../base/mod.ts";
 
@@ -98,7 +98,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     parsed.positional.push(arg);
   }
-  // input source는 하나다. 둘 다 있으면 실행 전 거절이다(R4).
+  // input source는 하나다. 둘 다 있으면 실행 전 거절이다.
   if (parsed.input !== undefined && parsed.inputFile !== undefined) {
     parsed.errors.push("input and input_file are exclusive");
   }

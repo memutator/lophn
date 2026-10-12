@@ -1,4 +1,4 @@
-// 형식 문제 줄의 왼쪽 여백 24px 아이콘 14px(shell/editor#R11). 문제 목록은 problem-list.tsx다.
+// 형식 문제 줄의 왼쪽 여백 24px 아이콘 14px. 문제 목록은 problem-list.tsx다.
 import { type Extension, StateEffect, StateField } from "@codemirror/state";
 import { gutter, GutterMarker } from "@codemirror/view";
 import { t } from "@lophn/wording";

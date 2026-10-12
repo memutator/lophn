@@ -1,4 +1,4 @@
-// blob 준비·설치의 순수 규칙(platform/blob-store#R1, R2, R12). IO 없음.
+// blob 준비·설치의 순수 규칙. IO 없음.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -16,7 +16,7 @@ export const PREFIX_CHARS = 2;
 export const BLOB_READ_ONLY_MODE = 0o400;
 
 export type PrepareDecision = {
-  // 기존 blob이 있으면 파일을 새로 쓰지 않는다(R1).
+  // 기존 blob이 있으면 파일을 새로 쓰지 않는다.
   action: "install" | "reuse";
 };
 
@@ -54,7 +54,7 @@ export function sizeVerdict(bytes: number): Result<number> {
   return ok(bytes);
 }
 
-// 예상 hash·크기 불일치는 준비 자체가 잘못된 입력이다(R2).
+// 예상 hash·크기 불일치는 준비 자체가 잘못된 입력이다.
 export function expectedMatches(
   actual: { hash: string; sizeBytes: number },
   expected?: { hash?: string; sizeBytes?: number },

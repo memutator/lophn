@@ -1,7 +1,7 @@
 // 질문 묶음·approval·notification을 core에 묻고 보내는 통로. 모양은 lophn-agent questions,
 // platform approvals·notifications contract에서 이 화면들이 읽는 field만 옮겼다.
 // things-to-confirm, notification chip, 공간 크롬이 같이 쓴다. 질문 묶음은 세션 없는 run의 것만
-// 이 통로로 온다. 세션 있는 run의 묶음은 대화 안 카드가 맡는다(lophn-agent/questions#R17).
+// 이 통로로 온다. 세션 있는 run의 묶음은 대화 안 카드가 맡는다.
 import type { GroupAnswer } from "../../../conversation/question-card/model.ts";
 import type { ConnectionState } from "../../connection/connection.ts";
 
@@ -46,7 +46,7 @@ interface RequestBase {
   readonly session: string | null;
   readonly role: Role | null;
   readonly place: Place | null;
-  /** 이 요청을 기다리며 멈춘 run이 있다. 칸에서 먼저 보인다(desktop#R6). */
+  /** 이 요청을 기다리며 멈춘 run이 있다. 칸에서 먼저 보인다. */
   readonly blocking: boolean;
   readonly createdSeq: string;
   readonly closedSeq: string | null;
@@ -66,7 +66,7 @@ export interface GroupQuestion {
     | { readonly kind: "option"; readonly option: string }
     | { readonly kind: "text" }
     | null;
-  /** 고른 선택지의 action이 실제로 적용됐는지. 답 접수와 따로다(questions#R10). */
+  /** 고른 선택지의 action이 실제로 적용됐는지. 답 접수와 따로다. */
   readonly applied: boolean;
 }
 
@@ -102,7 +102,6 @@ export interface NotificationRow {
   readonly readAt: string | null;
   /**
    * source event에 저장된 발생 시각. 없으면 시각을 그리지 않는다.
-   * (platform/notifications#R3)
    */
   readonly occurredAt?: string;
   /**
@@ -152,7 +151,7 @@ export type ReviewIntent =
   };
 
 export interface RequestSource {
-  /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다(desktop#R7). */
+  /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다. */
   watch(listener: (state: ConnectionState) => void): () => void;
   /** 세션 없는 run의 질문 묶음·approval과 notification. 종류나 개수로 버리지 않는다. */
   overview(): Promise<SourceResult<Overview>>;
@@ -178,7 +177,7 @@ export interface RequestSource {
     group: QuestionGroupRequest,
     reason: string,
   ): Promise<SourceResult<void>>;
-  /** 읽음 표시. 답·승인·문제 닫힘이 아니다(platform/notifications#R6). */
+  /** 읽음 표시. 답·승인·문제 닫힘이 아니다. */
   markRead(notification: NotificationRow): Promise<SourceResult<void>>;
   /** confirmation window를 연다. 결정은 그 창에서만 받는다. */
   review(intent: ReviewIntent): Promise<SourceResult<void>>;

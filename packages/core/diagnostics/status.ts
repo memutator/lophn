@@ -8,7 +8,7 @@ import {
 } from "../../protocol/server/mod.ts";
 import type { ReadHandler } from "../server/mod.ts";
 
-// 구성 요소 하나의 현재 관측. 불가이면 안전한 이유를 함께 둔다(diagnostics R8).
+// 구성 요소 하나의 현재 관측. 불가이면 안전한 이유를 함께 둔다.
 export type ComponentStatus = {
   available: boolean;
   reason?: string;

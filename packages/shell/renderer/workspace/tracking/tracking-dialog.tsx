@@ -51,7 +51,7 @@ type PreviewState =
   | { state: "ready"; preview: Preview };
 
 // 추적 켜기 창. 규칙(처음에는 Markdown과 .gitignore 제안)으로 포함·제외 파일과 이유를 미리 보고,
-// 다른 켜진 추적과 겹치면 막고, 미리 본 바로 그 구성으로만 켠다(documents/projects#R3–R7).
+// 다른 켜진 추적과 겹치면 막고, 미리 본 바로 그 구성으로만 켠다.
 export function TrackingDialog(
   { project: initial, source, onClose, onApplied }: TrackingDialogProps,
 ) {
@@ -299,7 +299,7 @@ interface PreviewStatusProps {
   onAgain: () => void;
 }
 
-// 미리보기 위 한 줄: 준비 중, 포함·제외 수, 또는 대상·영향·다음 행동 하나(shell/wording#R10).
+// 미리보기 위 한 줄: 준비 중, 포함·제외 수, 또는 대상·영향·다음 행동 하나.
 function PreviewStatus(
   {
     preview,

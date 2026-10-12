@@ -1,4 +1,4 @@
-// ticket [Start]의 main 쪽(shell/terminal#R4, R5, R12, R13). 사람 클릭 하나가 일회 human_start_handle과
+// ticket [Start]의 main 쪽. 사람 클릭 하나가 일회 human_start_handle과
 // operation_id를 만들고, main이 core로 ticket 현재 판·connection·등록 폴더를 다시 읽어 `lophn session plan --json`
 // child에 넘긴다. 받은 plan이 사람이 고른 harness·cwd와 다르면 거절하고 다른 것으로 대체하지 않는다. 그 plan을
 // host에 넘기면 host가 PTY를 직접 연다. 같은 시작 요청의 재전달은 같은 runtime만 돌려준다.

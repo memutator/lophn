@@ -9,7 +9,7 @@ import type {
 
 /**
  * 추적 켜기 창이 처음 보이는 규칙. 한 번도 규칙을 고르지 않은 프로젝트는 기본 제안(Markdown과
- * .gitignore)이고, 전에 고른 규칙이 있으면 그것을 켠 채로 다시 보인다(documents/projects#R3).
+ * .gitignore)이고, 전에 고른 규칙이 있으면 그것을 켠 채로 다시 보인다.
  */
 export function startingRules(project: TrackingProject): RuleSet {
   const base = project.tracking.patterns.length === 0
@@ -129,7 +129,7 @@ function within(parent: string, child: string): boolean {
 
 /**
  * 이 프로젝트 폴더와 겹치는 다른 프로젝트의 켜진 추적 폴더. 같은 폴더·조상·자손을 겹침으로
- * 본다(documents/projects#R7). 실제 경로 비교는 core가 적용 때 다시 한다.
+ * 본다. 실제 경로 비교는 core가 적용 때 다시 한다.
  */
 export function overlapOf(
   folders: readonly { readonly path: string }[],
@@ -145,7 +145,7 @@ export function overlapOf(
   return null;
 }
 
-/** 적용 거절의 종류. 각각 사람이 할 다음 행동이 하나다(shell/wording#R10). */
+/** 적용 거절의 종류. 각각 사람이 할 다음 행동이 하나다. */
 export type ApplyFailure =
   | { kind: "changed" }
   | { kind: "overlap"; other: string; path: string }
@@ -171,7 +171,7 @@ export function applyFailure(
 
 /**
  * 미리보기를 못 만든 이유. 폴더를 읽지 못한 것(unavailable·forbidden)만 그 폴더를 이름으로
- * 말하고, 다른 실패는 원인을 추측하지 않는다(shell/wording#R10).
+ * 말하고, 다른 실패는 원인을 추측하지 않는다.
  */
 export type PreviewFailure =
   | { kind: "unreadable"; folder: string | null }

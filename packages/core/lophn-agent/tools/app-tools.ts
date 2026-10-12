@@ -18,7 +18,7 @@ import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { RunCredential, ToolHandler } from "./work.ts";
 
-// 앱 command 자동 tool(concern harness/tools R16, R17). 허락된 앱의 active release blueprint에서 command
+// 앱 command 자동 tool(concern harness/tools R16). 허락된 앱의 active release blueprint에서 command
 // 하나마다 tool 정의 하나를 만든다. 별도 MCP 등록도 app proxy server도 없다. 정의의 입력 schema는
 // blueprint의 InputSchema 그대로이고 목록과 실행 검사가 같은 선언을 쓴다. 소스·원본 파일·secret 값에는
 // 닿는 통로가 없다: 호출은 앱 통로(`app.connect`의 제한 연결과 앱 direct 호출) 하나뿐이다.
@@ -66,20 +66,20 @@ export type AppTool = {
   effect: AppBlueprintCommand["effect"];
   confirm: boolean;
   // blueprint가 되돌리기 지원을 선언하고 대응 command가 이 blueprint에 있다. 이 이름의 command가
-  // revert의 되돌림 단계다(lophn-agent#T48).
+  // revert의 되돌림 단계다.
   revertCommand: string | null;
-  // 위 값이 null이 아닐 때만 되돌리기 지원으로 본다(tool-judgment R11). 선언 `supported`만으로
+  // 위 값이 null이 아닐 때만 되돌리기 지원으로 본다. 선언 `supported`만으로
   // 낮추지 않는다.
   reversible: boolean;
   // 이 정의가 만들어진 선언의 지문. release·입력·effect·confirm·되돌리기 중 하나라도 바뀌면 달라진다.
   definitionHash: string;
   schema: InputSchema | null;
   // 사람의 허락 근거(grant·scope·basis_seq)다. 호출 기록이 이 열로 묶여 revert가 앱의 선언된
-  // revert command를 부른다(lophn-agent#T48).
+  // revert command를 부른다.
   permissionBasis: { grant: string; scope: string; basis_seq: string };
 };
 
-// 대응 command가 검증된 되돌리기만 지원으로 본다(tool-judgment R11). 선언 `supported`만으로 낮추지 않는다.
+// 대응 command가 검증된 되돌리기만 지원으로 본다. 선언 `supported`만으로 낮추지 않는다.
 export function revertCounterpart(
   commands: readonly AppBlueprintCommand[],
   command: AppBlueprintCommand,
@@ -143,7 +143,7 @@ function toolInputSchema(schema: InputSchema | null): Record<string, unknown> {
 }
 
 // 실행 검사다. blueprint의 검사(`validateInput`)를 그대로 쓰되 default를 채우지 않고 값을 바꾸지
-// 않는다(R3). 반환 값은 입력 그대로다.
+// 않는다. 반환 값은 입력 그대로다.
 function toolInputValidator(schema: InputSchema | null): z.ZodType {
   return z.unknown().superRefine((value, context) => {
     const fail = (message: string) =>
@@ -184,7 +184,7 @@ export type AppToolSource = {
   grants: ReadonlyMap<string, readonly AppGrant[]>;
 };
 
-// 역할·현재 허락·assignment의 교집합만 정의가 된다(R17). 범위(AgentAppScope)는 StartRun이 고정한
+// 역할·현재 허락·assignment의 교집합만 정의가 된다. 범위(AgentAppScope)는 StartRun이 고정한
 // 역할·assignment 상한이고, blueprint와 grant는 지금의 선언과 허락이다. 하나라도 빠지면 정의가 없다.
 export async function buildAppTools(
   source: AppToolSource,

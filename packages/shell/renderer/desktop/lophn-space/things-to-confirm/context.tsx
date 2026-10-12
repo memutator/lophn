@@ -1,5 +1,5 @@
 // 창마다 하나인 질문·approval 통로와 쓰던 글의 메모리. things-to-confirm, notification chip,
-// 공간 크롬이 같이 쓴다. 요청을 옮겨도 쓰던 취소 이유가 남는다(desktop#R8).
+// 공간 크롬이 같이 쓴다. 요청을 옮겨도 쓰던 취소 이유가 남는다.
 import { createContext, type ReactNode, useContext } from "react";
 
 import type { RequestSource } from "./source.ts";

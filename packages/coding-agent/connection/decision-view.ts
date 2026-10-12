@@ -1,4 +1,4 @@
-// 질문·approval 읽기 결과의 사람·모델용 모양이다(T16, mcp#R18, cli#R21). MCP tool과
+// 질문·approval 읽기 결과의 사람·모델용 모양이다. MCP tool과
 // CLI command가 같은 상태 이름·문장·결정 화면 링크를 쓰도록 한 곳에 둔다. 읽기 결과만
 // 다루고 결정하지 않는다: 답·허락·거절·사용은 이 파일에 없다.
 import { decisionLink } from "../../protocol/coding-agent/mod.ts";

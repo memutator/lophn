@@ -1,4 +1,4 @@
-// OS 표시 경로(platform/notifications#R9, R10, R12). 이 모듈은 ledger를 쓰지 않는다.
+// OS 표시 경로. 이 모듈은 ledger를 쓰지 않는다.
 // 사람이 켰을 때만 같은 notification의 redaction한 최소 제목·대상 열기를 shell main에 줄
 // 요청 모양으로 만들고, 표시 실패 관측은 ledger 밖 bounded 메모리에만 둔다. 배달 성공·실패용
 // 업무 상태·event·재시도 표는 없다. 재시작 뒤에는 관측이 없으므로 성공으로 채우지 않는다.
@@ -12,7 +12,7 @@ import { redactScreen } from "../../base/redaction/mod.ts";
 import type { NotificationView } from "./model.ts";
 
 // shell main에 주는 전부다. focus·문서·앱을 바꾸라는 필드가 없다. 이동은 사람이 Open을
-// 고른 뒤 shell이 `open`이 가리키는 대상 화면으로 한다(R12).
+// 고른 뒤 shell이 `open`이 가리키는 대상 화면으로 한다.
 export type OsDisplayRequest = {
   notification: string;
   title: { kind: string };

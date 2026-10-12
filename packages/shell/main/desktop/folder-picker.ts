@@ -1,4 +1,4 @@
-// 프로젝트 등록의 OS 폴더 선택기(documents/projects#R1). 등록된 desktop shell 창의 main frame만
+// 프로젝트 등록의 OS 폴더 선택기. 등록된 desktop shell 창의 main frame만
 // 열 수 있고, 고른 경로는 그 창에 붙은 OS dialog에서만 나온다. headless 확인은 사람 화면에
 // dialog를 띄우지 않고, 개발 확인이 준 폴더(`LOPHN_SHELL_PICK_FOLDER`)만 고른 것으로 돌려준다.
 import { isAbsolute } from "node:path";

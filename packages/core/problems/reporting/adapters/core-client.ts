@@ -1,4 +1,4 @@
-// core loopback HTTP client와 진단 전송. collector의 보고 접수 통로가 쓴다(T3).
+// core loopback HTTP client와 진단 전송. collector의 보고 접수 통로가 쓴다.
 // fetch는 주입받는다: core graph의 EXTERNAL_FETCH tripwire가 bare fetch(를
 // 금지하므로 property 접근으로만 부른다. node:http는 graph 어디에도 없다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -37,7 +37,7 @@ function decode(bytes: Uint8Array): unknown {
 }
 
 // record-report command call. JSON body는 envelope({input, idempotency_key,
-// compare, prepared})다. 인증은 Bearer credential이다(R1).
+// compare, prepared})다. 인증은 Bearer credential이다.
 export async function postRecordReport(
   options: CoreClientOptions,
   envelope: {
@@ -74,7 +74,7 @@ export async function postRecordReport(
 }
 
 // 진단 전송. 잘못된 보고 진단은 platform/diagnostics로 가고 재귀 보고하지
-// 않는다(R8). transport 실패는 손실이다: 다시 보고하지 않는다.
+// 않는다. transport 실패는 손실이다: 다시 보고하지 않는다.
 export type DiagnosticsTransport = (request: WorkerRequest) => Promise<void>;
 
 export async function postDiagnostics(
@@ -84,6 +84,6 @@ export async function postDiagnostics(
   try {
     await send(request);
   } catch {
-    // 진단 실패는 손실이다. collector가 다시 보고하지 않는다(R8).
+    // 진단 실패는 손실이다. collector가 다시 보고하지 않는다.
   }
 }

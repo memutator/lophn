@@ -1,4 +1,4 @@
-// 제출 파일의 검사와 읽기다(connection#R10). coding agent가 명시한 파일만 realpath로
+// 제출 파일의 검사와 읽기다. coding agent가 명시한 파일만 realpath로
 // 다시 풀어 submission root 안인지 보고, 운영 data·backup·다른 앱 source로 이어진
 // 경로는 없는 파일과 똑같이 거절한다. 거절 응답에는 해석한 경로도 금지 영역의
 // 경로도 넣지 않는다(운영 data 경로가 통로 출력에 나오지 않는다).

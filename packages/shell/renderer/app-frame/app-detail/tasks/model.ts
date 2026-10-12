@@ -160,7 +160,7 @@ export function startErrorText(reason: string): string {
   }
 }
 
-/** 한 줄 사유: 공백만이 아니고 줄바꿈이 없고 200자 안이다(coding-agent/tickets#R22). */
+/** 한 줄 사유: 공백만이 아니고 줄바꿈이 없고 200자 안이다. */
 export function validReason(text: string): boolean {
   const reason = text.trim();
   return reason !== "" && !/[\r\n]/.test(reason) && [...reason].length <= 200;

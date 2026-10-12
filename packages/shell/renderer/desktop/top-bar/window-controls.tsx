@@ -18,7 +18,7 @@ function bridge(): WindowControlsApi | undefined {
   return (globalThis as { lophnWindow?: WindowControlsApi }).lophnWindow;
 }
 
-// Windows·Linux 상단 바 오른쪽의 창 단추 셋(desktop#R23). 최대화 상태는 main이 알려 준 값을
+// Windows·Linux 상단 바 오른쪽의 창 단추 셋. 최대화 상태는 main이 알려 준 값을
 // 따르고, 통로가 없는 환경(시험·브라우저)에서는 그리지 않는다.
 export function WindowControls(
   { api = bridge() }: { api?: WindowControlsApi },

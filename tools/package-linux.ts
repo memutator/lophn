@@ -1,10 +1,10 @@
-// Linux .deb 설치 묶음을 만든다(platform#T48, platform/install-and-update#R1~R6, R8).
+// Linux .deb 설치 묶음을 만든다.
 //
 //   deno run --allow-all tools/package-linux.ts [--out <dir>] [--skip-shell-build]
 //
 // 산출물: <out>/lophn_<version>_amd64.deb (기본 <out>은 저장소의 build/linux).
 // 이 도구는 build만 한다. 설치·기동·sandbox 실제 확인은 tools/verify-linux-install.ts가 Ubuntu에서
-// 하며, 그 전에는 Linux 배포를 사용 가능으로 표시하지 않는다(R1).
+// 하며, 그 전에는 Linux 배포를 사용 가능으로 표시하지 않는다.
 //
 // 묶음 배치(/opt/lophn/):
 //   lophn-desktop, chrome-sandbox(root 소유 4755), resources/  Electron(electron-builder `--linux dir`)
@@ -224,7 +224,7 @@ async function main(): Promise<void> {
     ], { cwd: shellMain });
   }
 
-  // Electron 앱을 /opt/lophn/에 풀고 Chromium sandbox 실행 파일을 4755로 둔다(R3).
+  // Electron 앱을 /opt/lophn/에 풀고 Chromium sandbox 실행 파일을 4755로 둔다.
   await copy(
     `${shellMain}/release/linux-unpacked`,
     await ensure(inPkg(pkg, layout.root)),

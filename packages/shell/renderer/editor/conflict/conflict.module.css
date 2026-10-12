@@ -1,4 +1,4 @@
-/* 충돌 해결 화면. 도구 줄은 버전 비교와 같은 44px(shell/editor#R13)이고 본문 기둥 안에 둔다. */
+/* 충돌 해결 화면. 도구 줄은 버전 비교와 같은 44px이고 본문 기둥 안에 둔다. */
 .view {
   display: flex;
   flex-direction: column;

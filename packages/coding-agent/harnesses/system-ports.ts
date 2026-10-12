@@ -1,8 +1,8 @@
-// 감지가 쓰는 실제 파일·process 눈이다(coding-agent/harnesses#R2, R3, R12). 감지는 PATH와
+// 감지가 쓰는 실제 파일·process 눈이다. 감지는 PATH와
 // catalog의 fallback 디렉터리만 읽고(detection.ts), probe는 argv만 쓰고 shell을 열지 않으며
 // timeout·출력 상한이 있다. 권한이 없거나 읽지 못한 것은 부재나 성공이 아니라 오류로 돌려
-// 감지가 unknown으로 남게 한다(R3). probe 출력 원문은 반환하지 않고 classifier가 다듬은 안전
-// detail만 낸다(R12).
+// 감지가 unknown으로 남게 한다. probe 출력 원문은 반환하지 않고 classifier가 다듬은 안전
+// detail만 낸다.
 import { err, ok } from "../../base/mod.ts";
 import {
   type ExecPort,

@@ -53,7 +53,7 @@ export function recordCredential(
     connection.exec("begin immediate");
     // 고정 machine credential만 재시작에서 다시 기록한다. 같은 ref가 있으면
     // scope·conditions·state가 같을 때만 건너뛰고, 다르면 기동을 거절한다.
-    // 그 밖 credential은 중복을 그대로 거절한다(coding-agent/tickets#R13).
+    // 그 밖 credential은 중복을 그대로 거절한다.
     const existing = connection.sql.get(
       "select context, state from credentials where credential_ref = ?",
       [parsed.data.credential_ref],
@@ -105,7 +105,7 @@ const FIXED_CREDENTIALS = new Set([
 ]);
 
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다
-// 같은 권한으로 다시 기록한다(platform#T34). 권한이 다르면 위의 비교가 거절한다.
+// 같은 권한으로 다시 기록한다. 권한이 다르면 위의 비교가 거절한다.
 function isFixedCredential(ref: string): boolean {
   return FIXED_CREDENTIALS.has(ref) || /^coding:cac_[0-9a-z]{26}$/.test(ref);
 }

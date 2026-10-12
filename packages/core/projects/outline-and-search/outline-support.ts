@@ -18,7 +18,7 @@ import type { PortLookup, SearchSnapshot } from "./types.ts";
 import { allOmissions, type SearchCoverage } from "./work.ts";
 
 // coverage는 현재 scope의 진실이다. 같은 seq에도 lagging=true를 허용한다.
-// omissions도 허용 집합에서 뺀다. 권한 밖 문서의 누락은 응답에 새지 않는다(R12).
+// omissions도 허용 집합에서 뺀다. 권한 밖 문서의 누락은 응답에 새지 않는다.
 export function coverageOfLike(
   read: DerivedRead,
   ledgerBasisSeq: string,
@@ -184,7 +184,7 @@ export function selectBodyLines(
   return [...selected].sort((a, b) => a - b);
 }
 
-// 추출 상태가 section 읽기를 막을 때의 답. 읽을 수 있으면 null이다(R22).
+// 추출 상태가 section 읽기를 막을 때의 답. 읽을 수 있으면 null이다.
 export function sectionStatusOf(
   status: { status: string; failure_reason: string | null },
 ): { status: string; failure_reason: string | null } | null {
@@ -203,7 +203,7 @@ export function sectionStatusOf(
 export type TextWindowInput = {
   lines: readonly string[];
   selected: readonly number[];
-  // cursor가 묶는 기준. 판·module·선택·원문 hash가 바뀌면 이어 읽지 않는다(R8, R9).
+  // cursor가 묶는 기준. 판·module·선택·원문 hash가 바뀌면 이어 읽지 않는다.
   binding: {
     ver: string;
     module_hash: string;

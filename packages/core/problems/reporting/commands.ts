@@ -44,7 +44,7 @@ function activeReleaseOf(tx: Tx, app: string): string | null {
 
 type AcceptedReport = Output<typeof recordReport>;
 
-// 접수 content hash 비교(R9): 같은 ID·principal·content hash는 원래 결과,
+// 접수 content hash 비교: 같은 ID·principal·content hash는 원래 결과,
 // principal이나 내용이 다르면 conflict다.
 function replayOrConflict(
   sql: Pick<Tx["sql"], "get">,
@@ -149,7 +149,7 @@ export function handleRecordReport(
 ): Result<AcceptedReport, LophnError> {
   const report = input.report;
   const existing = input.existing_problem;
-  // 접수 content hash 비교(R9): 같은 ID·principal·content hash는 원래 결과.
+  // 접수 content hash 비교: 같은 ID·principal·content hash는 원래 결과.
   const prior = replayOrConflict(
     tx.sql,
     report.id,
@@ -181,7 +181,7 @@ export function handleRecordReport(
   }
   const snapshot = input.snapshot;
   const live = report.mode === "live";
-  // preview·test는 problem=null과 진단 scope 필수이고 운영 Problem을 바꾸지 않는다(R4, grouping#R7).
+  // preview·test는 problem=null과 진단 scope 필수이고 운영 Problem을 바꾸지 않는다.
   if (!live && (existing !== null || report.diagnostic_scope === null)) {
     return err({
       code: "invalid_input",
@@ -191,7 +191,7 @@ export function handleRecordReport(
   const key = keyText(input.group_key);
   let problemRow: ProblemRow | null = null;
   if (live) {
-    // (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다(grouping#R10).
+    // (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다.
     problemRow = findProblem(tx.sql, report.app, key);
     if (
       problemRow !== null && existing !== null && problemRow.id !== existing
@@ -215,10 +215,10 @@ export function handleRecordReport(
   // live Problem: 새로 열 문제는 reportRecorded 전에 insert한다. reportRecorded
   // payload는 live 보고에 problem id가 있어야 하므로(위 refine), emit 시점에 id가
   // 있어야 한다. event와 등록, insert는 runTransaction fail-closed rollback 안에
-  // 있다(R10).
+  // 있다.
   let problemId: string | null = null;
   if (live && problemRow === null) {
-    // 없음→open: insert는 emit 전이지만 rollback은 같다(R10). ProblemOpened는
+    // 없음→open: insert는 emit 전이지만 rollback은 같다. ProblemOpened는
     // insert 뒤에 낸다.
     problemId = tx.newId("prb");
     tx.sql.run(
@@ -264,7 +264,7 @@ export function handleRecordReport(
     report.release === activeReleaseOf(tx, report.app)
   ) {
     // closed+현재 활성 release의 운영 보고는 경과 기간·닫힘 이유와 무관하게 같은 ID로
-    // 다시 연다(closing#R11, grouping#R10). 이전 closure는 event에 남는다. 활성 release는
+    // 다시 연다. 이전 closure는 event에 남는다. 활성 release는
     // collector가 보낸 비교 값이 아니라 같은 transaction의 releases 표에서 읽는다.
     tx.sql.run(
       `update problems set status = 'open', closure = NULL where id = ?`,
@@ -276,7 +276,7 @@ export function handleRecordReport(
       decision: null,
     });
   } else if (live && problemRow !== null) {
-    // open/fixing→동일, closed→closed 유지(이전 release의 늦은 보고, closing#R12).
+    // open/fixing→동일, closed→closed 유지(이전 release의 늦은 보고).
     tx.emit(problemObserved, problemRow.id, {
       report: report.id,
       release: report.release,

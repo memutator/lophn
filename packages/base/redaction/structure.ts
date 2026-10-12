@@ -1,6 +1,6 @@
 import { REDACTION_REPLACEMENT } from "./model.ts";
 
-// 구조로 식별하는 인증 값(platform/redaction#R3). 원문 일치와 무관하게 지운다.
+// 구조로 식별하는 인증 값. 원문 일치와 무관하게 지운다.
 
 const SENSITIVE_KEYS =
   /^(?:secret|token|password|credential|authorization|cookie)$/i;
@@ -84,7 +84,7 @@ function walk(
     return { ok: true, value, redacted };
   }
   if (typeof value === "string") {
-    // 중첩 문자열 안의 header·URL 인증도 구조 위치에서 지운다(R3).
+    // 중첩 문자열 안의 header·URL 인증도 구조 위치에서 지운다.
     return {
       ok: true,
       value: redactString(value, location, redacted),

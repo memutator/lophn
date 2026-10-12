@@ -92,10 +92,10 @@ import {
 // run마다 한 번 만들어 기준에 고정하고 이어 하기는 고정한 값을 그대로 쓴다. model 선택의 검증(catalog·
 // credential)과 tool의 소유 계약 연결은 주입한다.
 
-// 이 run의 외부 MCP tool 등록이다(Q16, T37). 등록 화면은 현재 서버 설정과 연결 화면을 읽어
+// 이 run의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어
 // buildMcpTools로 정의를 만들고, Q16 재조회가 끝날 때까지 그 server tool 호출을 막는다.
-// 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다, extensions R32).
-// skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다(R18, R31).
+// 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
+// skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다.
 export type McpSourceOptions = {
   place?: AgentPlace | null;
   skip?: ReadonlySet<string>;
@@ -103,12 +103,12 @@ export type McpSourceOptions = {
 };
 
 export type McpToolkit = {
-  // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처(R11)다.
+  // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처다.
   source(
     assignment: string,
     options?: McpSourceOptions,
   ): Promise<Result<McpToolsSource>>;
-  // 고른 MCP(서버+현재 tool 정확한 쌍, R31)와 safe 표시를 골라낸다.
+  // 고른 MCP(서버+현재 tool 정확한 쌍)와 safe 표시를 골라낸다.
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(Q16 재조회가 끝날 때까지 호출은 거절된다).
   call(assignment: string): McpToolCall;
@@ -136,7 +136,7 @@ export type Toolkit = {
   ): string[];
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
   mcp?(assignment: string): McpToolkit | undefined;
-  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다(harness/tools R21, R22). 없으면
+  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다. 없으면
   // context tool이 없다.
   contexts?: ContextToolkit;
   // 결과를 모르는 쓰기·external의 저장된 결과를 소유 계약에서 조회한다(tool 이름 → 조회). 없는 tool은
@@ -168,7 +168,7 @@ export type PreparerDeps = {
   instructionFilesFor?(run: string): InstructionDeps["files"];
   // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다(extensions R32).
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다.
   skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
@@ -194,7 +194,7 @@ export function readBinding(definition: ToolDefinition): ToolBinding {
 }
 
 // 외부 MCP tool의 연결이다. 대상은 고른 쌍 하나이고 판정이 그 쌍으로 범위와 되돌림을 본다.
-// 분류가 안 됐거나 쓰기·external이면 판정표가 묻는다(R26, R28). 입력 비교 기준은 없다.
+// 분류가 안 됐거나 쓰기·external이면 판정표가 묻는다. 입력 비교 기준은 없다.
 function externalBinding(tool: ExternalTool): ToolBinding {
   return {
     resolve: () =>
@@ -235,7 +235,7 @@ export type PreparerResult =
   };
 
 // 앱 command tool의 원래 호출 계약이다(tool_calls.app_command). revert_command가 있으면 기록이 앱의 선언된
-// revert command를 revert에 싣는다(lophn-agent#T48, R10).
+// revert command를 revert에 싣는다.
 export function appCommandOf(app: AppTool) {
   return {
     app: app.app,
@@ -254,7 +254,7 @@ export function appCommandOf(app: AppTool) {
 export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   const { machine, clock, ids } = deps;
 
-  // 등록된 외부 MCP tool이다(T37). 읽지 못하면 서버 자체가 없는 것과 같은 답이다(R11: fails closed).
+  // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
   async function loadMcp(
     assignment: string,
     options: McpSourceOptions = {},
@@ -276,7 +276,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     pinnedContexts?: readonly ContextToolPin[],
   ) {
     // 역할 상한 ∩ 자리·정의의 권한(resolved agent의 tools)이 이번 run이 제공하는 tool 목록이다. 외부 MCP
-    // tool은 상한 항목이 아니라 agent 정의의 선택 항목이라(agents R18) 정의 이름을 양쪽 이름 목록에
+    // tool은 상한 항목이 아니라 agent 정의의 선택 항목이라 정의 이름을 양쪽 이름 목록에
     // 더한다. 그렇지 않으면 목록 이름 검사가 모두 떨어뜨린다.
     const roleTools = ROLE_CAPS.get(assignment.role)?.tools ?? null;
     const agentTools = agent.tools;
@@ -309,7 +309,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       ? []
       : deps.apps.defineContext(scope.value, loaded.value);
 
-    // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
+    // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
     // 호출 가능으로 두지 않는다).
     const mcpKit = mcp.kit;
@@ -322,15 +322,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         },
         safe_tools: agent.safe_tools,
       });
-      // 켠 MCP가 없으면 제공도 없다(R31).
+      // 켠 MCP가 없으면 제공도 없다.
       if (selection !== null) {
         const built = await buildMcpTools(mcp.source, selection);
-        // 남은 충돌은 등록을 거절한다(R23). 그 server의 정의가 전부 빠진다.
+        // 남은 충돌은 등록을 거절한다. 그 server의 정의가 전부 빠진다.
         if (built.ok) external = built.value;
       }
     }
 
-    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다(harness/tools R21, R22).
+    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다.
     // 판은 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
     const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
       contexts: agent.contexts,
@@ -444,7 +444,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     for (const tool of external) {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
-    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). resume이면
+    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다. resume이면
     // tool 정의와 같은 고정한 판으로 만든다.
     let sourcesRead: Promise<MaterialSource[]> | undefined;
     const contextSources = (): Promise<MaterialSource[]> =>
@@ -505,7 +505,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         run_facts: null,
         session: conversation,
         sources: await contextSources(),
-        // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다(extensions R4, agents R18).
+        // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다.
         skills: ((await deps.skills?.(place)) ?? []).map((entry) => ({
           ...entry,
           selected: resolved.skills.includes(entry.name),
@@ -552,7 +552,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           targets: reach,
           operations: new Set([
             ...runOperations(listed),
-            // ask는 이 run의 자격으로 approval request를 만든다(R28). 쓰기·external tool이 하나라도
+            // ask는 이 run의 자격으로 approval request를 만든다. 쓰기·external tool이 하나라도
             // 있으면 내장·앱·외부 어느 길이든 물을 수 있다.
             ...(external.length > 0 ||
                 listed.some((tool) => tool.effect !== "read")
@@ -573,7 +573,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
             canonical_name: found.definition.name,
           };
         },
-        // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다(R10).
+        // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다.
         // revert_command가 있으면 기록이 앱의 선언된 revert command를 revert에 싣는다.
         appCommand: (definition) => {
           const app = appByName.get(definition.name);
@@ -603,7 +603,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     return { ported, resolver, loopDeps };
   }
 
-  // 시작하지 못한 run을 영구 불가 이유로 끝내고 이유를 결과에 남긴다(run-loop R5). 끝내지 못해도 run은
+  // 시작하지 못한 run을 영구 불가 이유로 끝내고 이유를 결과에 남긴다. 끝내지 못해도 run은
   // 접수 상태로 남아 다음에 다시 시도한다.
   async function closeUnstarted(run: RunRecord, cannot: CannotStart) {
     const result = await storeValue(
@@ -646,9 +646,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     if (!limits.ok) return limits;
 
     // 이번 run의 resolved agent. 층을 합친 값을 run 기준에 고정한다. model이 어느 층에도 없거나 정의 파일이
-    // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다(agents R24, R25).
-    // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다(extensions R32). 켠 서버만 연결한다: 정의가 통째로
-    // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고(R18, R31), 정의가 끈 skill은 resolve가 뺀다(R4).
+    // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다.
+    // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다. 켠 서버만 연결한다: 정의가 통째로
+    // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고, 정의가 끈 skill은 resolve가 뺀다.
     const sessionRecord = run.value.run.session === null
       ? null
       : await readOf(machine, sessionRead, { session: run.value.run.session });
@@ -693,7 +693,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     if (!found.ok) return found;
     const { listed, scope, model, place, contextRead } = found.value;
 
-    // 전체 값은 blob이고 run 기준에는 hash와 칸별 출처만 둔다(agents R25). 기준과 agent blob은 둘 다
+    // 전체 값은 blob이고 run 기준에는 hash와 칸별 출처만 둔다. 기준과 agent blob은 둘 다
     // 영구 참조라 저장한 바이트의 hash로 StartRun에 싣는다.
     const stored = await storeValue(
       deps.blobs,
@@ -720,7 +720,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           definitions_hash: await fingerprint(
             listed.map((tool) => [tool.name, tool.revision]),
           ),
-          // 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다(harness/tools R21).
+          // 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다.
           contexts: contextRead.pins,
         },
         models: { judgment: model.call, organizing: model.call },
@@ -792,7 +792,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   }
 
   // 시작한 run을 저장된 경계에서 잇는 재료다. resolved agent는 run 기준이 고정한 값을 그대로 쓰고(정의·
-  // 설정·Workspace는 다시 읽지 않는다) 한도는 StartRun이 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다(R9).
+  // 설정·Workspace는 다시 읽지 않는다) 한도는 StartRun이 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다.
   async function prepareResume(
     runId: string,
     credentials: RunCredentials,
@@ -807,7 +807,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const assignment = assigned.value.assignment;
     const pinned = await pinnedRun(machine, runId, record.assignment);
     if (!pinned.ok) return pinned;
-    // 이어 하기는 고정한 agent가 켠 서버만 연결한다(R18).
+    // 이어 하기는 고정한 agent가 켠 서버만 연결한다.
     const found = await material(
       record,
       assignment,

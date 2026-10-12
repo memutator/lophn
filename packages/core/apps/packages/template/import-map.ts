@@ -1,7 +1,7 @@
-// 정확한 import map(apps/sdk#R33, R34, R7). 앱이 고르는 설치 SDK Package에서 시작해, 설치 사본의
+// 정확한 import map. 앱이 고르는 설치 SDK Package에서 시작해, 설치 사본의
 // 소스가 import하는 `@lophn/*`와 npm 의존을 끝까지 따라가 정확한 version 하나씩만 담는다. 사본 안에서
 // 풀리지 않는 import와 같은 이름의 다른 pin은 import map을 만들지 않고 실패한다. 실행 때 새 패키지를
-// 내려받거나 다른 version으로 바꾸지 않는다(apps/sdk#R10).
+// 내려받거나 다른 version으로 바꾸지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { type SourceFile, SUPPORT_PACKAGES } from "../vendor.ts";
 
@@ -205,7 +205,7 @@ export type ImportMapResult = {
 };
 
 // 설치 사본에서 정확한 import map을 만든다. `lophn-sdk:<name>@<version>/<경로>`와 정확한 `npm:` pin만
-// 담고 ^·~·latest는 만들지 않는다(apps/sdk#R7).
+// 담고 ^·~·latest는 만들지 않는다.
 export async function buildImportMap(
   input: ImportMapInput,
 ): Promise<Result<ImportMapResult, ImportMapFailure>> {

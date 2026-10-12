@@ -1,4 +1,4 @@
-// Hermes의 배포 catalog다(coding-agent/harnesses#R1·R8, T31). 위치·format은
+// Hermes의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고 검증
 // 근거는 docs/research/coding-agent-harness-integration.md 9.1·9.2·9.5다.
 // [미확인] capability는 unverified로 남고 성공으로 나오지 않는다.
@@ -74,7 +74,7 @@ export const hermes: HarnessDefinition = {
   ],
   // Hermes plugin hook은 `VALID_HOOKS` 이름의 YAML-enabled Python plugin이다
   // (조사 9.5). plugin 디렉터리 상수가 [미확인]이라 lophn이 쓰는 검증 version이
-  // 없어 이번 범위에서 두지 않는다(R11).
+  // 없어 이번 범위에서 두지 않는다.
   hooks: [],
   // 프로젝트 skill은 `skills.trusted_project_dirs`에 있을 때만 읽고 `.hermes.md`
   // `HERMES.md`는 AGENTS.md 체인을 건너뛰게 한다. 깨진 YAML은 메모리에서 기본값

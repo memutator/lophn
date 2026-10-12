@@ -60,7 +60,7 @@ type Cards =
 
 // 이전 lophn 런처 모양: 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section.
 // 준비 전·실패는 기둥 대신 연결 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는
-// 실제 read 결과로만 채운다(desktop#R7, R25).
+// 실제 read 결과로만 채운다.
 export function Launcher(
   {
     source,

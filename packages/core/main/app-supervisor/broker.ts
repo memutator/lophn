@@ -1,4 +1,4 @@
-// 앱 자식마다 broker socket을 열고 서비스 어댑터를 조립한다(apps/permissions#R19, apps/runtime#R6).
+// 앱 자식마다 broker socket을 열고 서비스 어댑터를 조립한다.
 // 업무 규칙은 packages/core/apps/permissions/broker에 있고 여기는 자식 연결 하나에 서비스를 달고 자식이
 // 끝나면 정리하는 연결만 한다. 신원은 자식 연결이 정한다: 서비스는 본문의 신원 주장을 쓰지 않는다.
 // 모르는 경로는 없는 경로와 같은 not_found이고, 아직 이어지지 않은 외부 통로(secret 전송·문서 저장)는
@@ -33,9 +33,9 @@ import type { AutomationPermits } from "../../apps/automations/permits.ts";
 
 export type BrokerAdapters = {
   access: BrokerAccess;
-  // 앱이 보낸 invocation 후행 기록을 core에 전달한다(apps/invocations#R1).
+  // 앱이 보낸 invocation 후행 기록을 core에 전달한다.
   invocations: Pick<InvocationBroker, "submit">;
-  // automation 전체 동시 한도의 permit이다. supervisor에 하나뿐이다(apps/automations#R6).
+  // automation 전체 동시 한도의 permit이다. supervisor에 하나뿐이다.
   permits: AutomationPermits;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];

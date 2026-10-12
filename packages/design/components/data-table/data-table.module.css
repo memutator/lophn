@@ -33,7 +33,7 @@
   padding: var(--space-4);
 }
 
-/* host가 높이를 주지 않아도 큰 표는 머리 + 10행 높이 안에서 표 안쪽이 scroll한다(apps/sdk#R38). */
+/* host가 높이를 주지 않아도 큰 표는 머리 + 10행 높이 안에서 표 안쪽이 scroll한다. */
 .body {
   display: flex;
   flex-direction: column;

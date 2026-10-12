@@ -1,4 +1,4 @@
-// 버전 복원의 main 통로(shell/editor#R14, flow restore-document). renderer는 문서 id와 고른 판
+// 버전 복원의 main 통로(flow restore-document). renderer는 문서 id와 고른 판
 // id만 보낸다. 준비(`documents/prepare`)·파일 쓰기·판 바이트 읽기는 renderer allowlist 밖이라
 // 여기서만 부른다. 복원의 뜻은 documents/versions를 따른다: 고른 판의 원문 blob 참조와 정확한
 // FormatRef로 준비하고 `document.restore`가 최신 판·revision CAS로 새 판을 만든다. 원본 연결
@@ -289,7 +289,7 @@ export function createRestorer(options: RestorerOptions): Restorer {
 
   // 원본 연결 문서: 고른 판의 대표 파일 바이트를 원본 파일 위에 쓴다. 쓰기 기준 hash는 지금 디스크가
   // 아니라 사람이 비교로 본 최신 판의 원문 hash(expected)다. 디스크가 그 hash가 아니면 바깥 편집이
-  // 아직 판이 되지 않았어도 쓰지 않고 충돌로 멈춘다(file-tracking#R11). 쓰기는 같은 hash로 시작 때와
+  // 아직 판이 되지 않았어도 쓰지 않고 충돌로 멈춘다. 쓰기는 같은 hash로 시작 때와
   // 교체 직전에 다시 대조된다. 디스크가 이미 고른 바이트면 쓰지 않거나 같은 바이트를 다시 쓴다.
   async function writeOriginal(
     port: RestorePort,

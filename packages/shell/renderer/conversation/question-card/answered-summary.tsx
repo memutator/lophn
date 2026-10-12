@@ -37,9 +37,9 @@ function answerLabels(
   return labels.join(" · ");
 }
 
-// 카드가 그 자리에 접힌 한 줄 요약으로 남는다(shell/desktop#R46). 문구는 상태를 따른다:
+// 카드가 그 자리에 접힌 한 줄 요약으로 남는다. 문구는 상태를 따른다:
 // "Answered …"(답 접수), "Applying …", "Applied …", "Couldn't apply …", "Skipped", "Expired",
-// "Cancelled". 답 접수와 적용 완료가 같아 보이지 않는다(lophn-agent/questions#R10).
+// "Cancelled". 답 접수와 적용 완료가 같아 보이지 않는다.
 export function AnsweredSummary(
   { group, status, answers }: AnsweredSummaryProps,
 ): ReactElement {

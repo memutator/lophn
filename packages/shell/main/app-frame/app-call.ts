@@ -1,9 +1,9 @@
-// `app:call`의 main service(shell/app-frame#R15). 앱 preload가 보낸 `{command, input}`만 받고,
-// 앱·release·mode·연결은 IPC를 보낸 실제 view에서 정한다(R12). command는 그 view의 고정
+// `app:call`의 main service. 앱 preload가 보낸 `{command, input}`만 받고,
+// 앱·release·mode·연결은 IPC를 보낸 실제 view에서 정한다. command는 그 view의 고정
 // blueprint로 검사하고 default를 적용한 뒤 view 연결의 앱 socket `/_lophn/commands/invoke`로
 // 보낸다(apps/invocations 직접 호출). 응답은 앱 handler의 결과이고 ledger 기록을 기다리지 않는다.
 // confirm command는 사람 approval을 거쳐 받은 proof를 붙여야만 보낸다(platform/approvals).
-// socket 경로·Authorization·proof는 main에만 있고 페이지로 가지 않는다(R9, R13).
+// socket 경로·Authorization·proof는 main에만 있고 페이지로 가지 않는다.
 import type { AppBinding, ConnectTarget, Outcome } from "./app-connection.ts";
 import type { Invoker, InvokeResponse } from "./app-invoke.ts";
 import type { BoundView } from "./registry.ts";
@@ -182,7 +182,7 @@ export function createAppCall(deps: AppCallDeps) {
   const blueprints = new Map<string, Blueprint>();
   const bindings = new Map<string, CallBinding>();
   const pending = new Map<string, Promise<Outcome<CallBinding>>>();
-  // view마다 마지막 호출이 시작 전에 막혔는지(problems/feedback#R4). 보냈으면 다음 제보는 그 호출이
+  // view마다 마지막 호출이 시작 전에 막혔는지. 보냈으면 다음 제보는 그 호출이
   // 막혔다고 말하지 않는다. view가 많아도 자라지 않게 같은 한도로 자른다.
   const starts = new Map<string, "blocked_before_start" | "started">();
 
@@ -278,7 +278,7 @@ export function createAppCall(deps: AppCallDeps) {
   return {
     /**
      * 그 view의 마지막 호출이 입력 검사 등으로 시작되지 못했으면 `blocked_before_start`다. 그 밖에는
-     * 모른다. 보낸 호출을 제보 대상으로 지목하지 않는다(problems/feedback#R3).
+     * 모른다. 보낸 호출을 제보 대상으로 지목하지 않는다.
      */
     commandStart(view_session: string): "blocked_before_start" | "unknown" {
       return starts.get(view_session) === "blocked_before_start"

@@ -1,9 +1,9 @@
-// LaunchPlan을 만든다(coding-agent/sessions#R1–R5, R10, harnesses#R5, T38). plan은 spawn이 아니다.
+// LaunchPlan을 만든다. plan은 spawn이 아니다.
 // shell main이 클릭을 검증하며 다시 읽어 넘긴 ticket·connection 사실과 catalog·현재 감지로 executable·
 // 분리 argv·env·첫 prompt·전달 방식을 정하고 shell terminal host가 그대로 연다. 순수 함수이고 감지·파일
 // 읽기는 호출자가 인자로 준다(architecture). 실행 직전 사실이 달라졌으면 다른 harness로 바꾸거나 다시
-// 감지·재발급하지 않고 conflict·unavailable과 다음 행동으로 끝낸다(R4, harnesses#R5). resume·재시작·자동
-// 재전송은 이 plan에 없다(R10).
+// 감지·재발급하지 않고 conflict·unavailable과 다음 행동으로 끝낸다. resume·재시작·자동
+// 재전송은 이 plan에 없다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   type CodingAgentLaunchPlan,
@@ -58,7 +58,7 @@ function refuse(
   });
 }
 
-// 자기 터미널 안내다(R1). lophn은 process를 열지 않고 사람이 직접 시작한다.
+// 자기 터미널 안내다. lophn은 process를 열지 않고 사람이 직접 시작한다.
 export function guideOf(
   input: Pick<SessionPlanInput, "ticket" | "harness_id">,
   facts: SessionPlanFacts | undefined,
@@ -81,7 +81,7 @@ export function guideOf(
   };
 }
 
-// 제품 version이 catalog 정책을 만족하는지 본다(R4). 이유가 있으면 지원하지 않는다.
+// 제품 version이 catalog 정책을 만족하는지 본다. 이유가 있으면 지원하지 않는다.
 function versionRefusal(
   definition: HarnessDefinition,
   detection: HarnessDetection,

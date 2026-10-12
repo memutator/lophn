@@ -1,5 +1,5 @@
 // `/v1/apps/blueprint`. 앱 하나의 active release에 고정된 blueprint를 command·화면·automation의
-// 설명으로 읽는다(apps/blueprint#R2, R3). 정본은 release에 고정한 blueprint이고 앱 source의 현재 파일이
+// 설명으로 읽는다. 정본은 release에 고정한 blueprint이고 앱 source의 현재 파일이
 // 아니다. release 읽기는 releases 조립이 loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서
 // releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";

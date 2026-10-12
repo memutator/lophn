@@ -72,7 +72,7 @@ export type Supervisor = {
   observation(kind: string): HealthObservation;
   // ready인 child에 json frame을 쓴다. 없으면 unavailable이다.
   send(kind: string, payload: unknown): Promise<StartResult>;
-  // ready인 child에 byte chunk frame을 쓴다. core는 내용을 해석하지 않는다(Q6).
+  // ready인 child에 byte chunk frame을 쓴다. core는 내용을 해석하지 않는다.
   sendBytes(
     kind: string,
     channel: number,

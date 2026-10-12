@@ -38,16 +38,16 @@ import { protectedSetting } from "./protected-settings.ts";
 // `apply_question_option`, requirements questions#R13–R16).
 //
 // - 소유 command는 등록된 것만 부른다(OPTION_ACTION_OWNERS). 자유 답·일반 tool 결과·추천은
-//   동작으로 해석하지 않는다: action은 질문을 만들 때 선택지에 고정된 값뿐이다(R15).
+//   동작으로 해석하지 않는다: action은 질문을 만들 때 선택지에 고정된 값뿐이다.
 // - 사람 결정의 증거는 질문 정본이다. 답한 사람이 고른 option key와 고정 action 전체가 제출 값과
-//   같고, 같은 질문 option을 아직 적용하지 않았을 때만 한 번 통과한다(platform/identity#R14).
+//   같고, 같은 질문 option을 아직 적용하지 않았을 때만 한 번 통과한다.
 //   증거 기록(question_evidence)은 소유 변경과 같은 transaction이라 소유 command가 실패하면 함께
 //   되돌아가고, 그 option은 다시 적용할 수 있는 상태로 남는다.
 // - 소유 command는 같은 Tx에서 부른다. 소유 command가 user만 받으므로(documents move·rename)
 //   Tx의 callChosenOption이 질문 정본과 대조한 뒤 그 호출 한 번만 user 자격(event actor=user,
 //   run=null)으로 넘긴다. 바깥 ApplyQuestionOption의 요청 자격(machine)은 그대로다.
 // - 소유 command의 전제(CAS)가 달라졌으면 답은 그대로 두고 동작은 적용하지 않으며, 달라진 대상과
-//   이유를 오류 details로 돌려준다(R14). 소유 변경이 일부만 남지 않도록 오류는 transaction 전체를
+//   이유를 오류 details로 돌려준다. 소유 변경이 일부만 남지 않도록 오류는 transaction 전체를
 //   되돌린다.
 
 export type OptionActionOwner = {
@@ -135,7 +135,7 @@ const settingsOwner: OptionActionOwner = {
 };
 
 // 앱 등록은 미리 배정한 app ID가 고정 입력에 들어 있어야 하고 그 ID가 대상이다. 비교 기준은 없다:
-// 낡은 전제(같은 slug·ID가 이미 있음)는 등록 command가 conflict로 막는다(apps/registration#R3).
+// 낡은 전제(같은 slug·ID가 이미 있음)는 등록 command가 conflict로 막는다.
 const appCreateOwner: OptionActionOwner = {
   concern: "apps/registration",
   command: appCreate.name,
@@ -157,7 +157,7 @@ const appCreateOwner: OptionActionOwner = {
 };
 
 // 선택지로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다. 권한 부여·외부 효과·
-// 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다(R12). 새 owner 동작은 이 목록에
+// 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다. 새 owner 동작은 이 목록에
 // 더하고 그 owner의 handler를 core 조립이 묶는다(packages/core/lophn-agent/register.ts).
 export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
   documentOwner(documentMove),
@@ -354,7 +354,7 @@ function lastSeq(tx: Tx): bigint {
 }
 
 // platform/ledger의 질문 정본 port가 쓰는 read. 사람이 고른 option의 고정 action이 내는 소유 command
-// 호출(route·입력·CAS)을 돌려준다. ledger가 제출 호출과 대조한다(identity R14).
+// 호출(route·입력·CAS)을 돌려준다. ledger가 제출 호출과 대조한다.
 export function chosenOptionCall(
   tx: Pick<Tx, "sql">,
   question: string,

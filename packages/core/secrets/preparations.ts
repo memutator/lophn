@@ -1,4 +1,4 @@
-// 준비 증거 기록(platform/secrets#R1, R6). I/O worker가 keychain에 값을 둔 뒤 돌려준 값 없는
+// 준비 증거 기록. I/O worker가 keychain에 값을 둔 뒤 돌려준 값 없는
 // SecretPreparation을 core의 writer가 ledger에 남긴다. SetSecret이 이 행을 보고 그 참조가
 // 보호 입력에서 왔음을 확인한다. 값·hash·길이·일부는 이 표에 없다.
 

@@ -1,4 +1,4 @@
-// 문서 편집기(renderer)와 main의 파일 adapter 사이 경계(shell/editor#R1, R2, R12).
+// 문서 편집기(renderer)와 main의 파일 adapter 사이 경계.
 // renderer는 문서 id와 main이 준 session handle만 안다. 실제 경로·FileTarget·core port·token은
 // main에만 있다. 바이트는 renderer가 UTF-8로 만들어 보내고 hash·업로드·쓰기는 main이 한다.
 import { z } from "zod";

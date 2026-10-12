@@ -1,4 +1,4 @@
-// snapshot 로그 조각의 허용된 진단 조회(snapshots#R13, R14, R16, R17). 앱 프로세스는
+// snapshot 로그 조각의 허용된 진단 조회. 앱 프로세스는
 // snapshot 첨부를 직접 읽지 못한다. 고정한 조각은 앱의 임시 log buffer와 독립이라
 // buffer를 비운 뒤에도 같은 blob에서 읽힌다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
@@ -64,7 +64,7 @@ export type PrunedAttachments = {
   screenshot: boolean;
 };
 
-// 용량 정리로 사라진 첨부만 항목 부재를 "정리됨"으로 바꾼다(snapshots#R17).
+// 용량 정리로 사라진 첨부만 항목 부재를 "정리됨"으로 바꾼다.
 // blobs의 hash 참조는 남긴다. 저장돼 있던 다른 부재 이유는 그대로다.
 export function applyPrunedSnapshotAbsence(
   value: Output<typeof getSnapshot>,

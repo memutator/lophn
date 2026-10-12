@@ -1,4 +1,4 @@
-// 앱 전용 창(shell/desktop#R13, R14, shell/app-frame#R18). 창 본문 전체를 앱 view 하나가
+// 앱 전용 창. 창 본문 전체를 앱 view 하나가
 // 채운다. view는 본문 view와 같은 app-frame registry와 Electron adapter로 열어 같은 session·
 // scheme·preload 경계를 쓴다. 창 자신은 shell preload도 앱 preload도 없는 빈 창이다. main은
 // 현재 앱 기록(`apps/get`)에서 채택된 release를 읽고 그 release의 전용 창 screen을 live로 연다.

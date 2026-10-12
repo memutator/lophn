@@ -1,5 +1,5 @@
 // 요청 창의 현재 보기 상태를 renderer의 layout 힌트와 main의 실제 view
-// registry·현재 scope 조합으로 만드는 순수 동작만 둔다(shell/workspace#R9).
+// registry·현재 scope 조합으로 만드는 순수 동작만 둔다.
 // relay publish와 transport는 view-publish.ts가 한다.
 // shell tsc는 packages를 보지 않으므로 값 모양은 contracts/shell/workspace.ts의
 // 값과 같아야 한다(confirmation/types.ts와 같은 이유다).
@@ -7,19 +7,19 @@
 import type { ViewContext, ViewRegistry, ViewScope } from "./kinds/kind.ts";
 import { type HintTab, tabKindOf, type ViewTab } from "./kinds/registry.ts";
 
-// 요약은 UTF-8 2048 bytes, 상세 탭은 한 page 20개다(shell/workspace#R10).
+// 요약은 UTF-8 2048 bytes, 상세 탭은 한 page 20개다.
 export const SUMMARY_MAX_BYTES = 2048;
 export const TAB_PAGE_SIZE = 20;
-// 화면 상태 문자열은 80자를 넘기면 원값 대신 줄인다(platform/redaction#R12).
+// 화면 상태 문자열은 80자를 넘기면 원값 대신 줄인다.
 export const VIEW_STRING_MAX_CHARS = 80;
 
 export type ViewAvailability = "current" | "disconnected" | "unavailable";
 
 // 허용 종류·대상 참조·선택 여부만이다. 본문·편집 초안·터미널 출력·DOM·screenshot은
-// field로도 받지 않는다(shell/workspace#R10, R11). 종류별 모양은 kinds/<kind>.ts가 정한다.
+// field로도 받지 않는다. 종류별 모양은 kinds/<kind>.ts가 정한다.
 export type { HintTab, ViewTab };
 
-// 문서 선택은 판·절·줄 범위만이다. 선택 본문은 없다(shell/workspace#R9).
+// 문서 선택은 판·절·줄 범위만이다. 선택 본문은 없다.
 export type Selection = {
   document: string;
   version: string;
@@ -92,7 +92,7 @@ export type AssembleOutcome =
 
 /**
  * 등록되지 않은 창은 아무 상태도 만들지 않고, 힌트의 범위 밖 대상은 빼고
- * omission으로 표시한다(shell/workspace#R9, R10). generation은 publish가
+ * omission으로 표시한다. generation은 publish가
  * 확정한다 — 자리는 0으로 둔다.
  */
 export function assembleCurrentView(input: {
@@ -240,7 +240,7 @@ function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-/** 상세 탭은 한 page에 TAB_PAGE_SIZE개씩이다(shell/workspace#R10). */
+/** 상세 탭은 한 page에 TAB_PAGE_SIZE개씩이다. */
 export function pageTabs(tabs: readonly ViewTab[]): ViewTab[][] {
   const pages: ViewTab[][] = [];
   for (let start = 0; start < tabs.length; start += TAB_PAGE_SIZE) {
@@ -264,7 +264,7 @@ export type PublishBuild = {
 
 /**
  * relay publish 입력을 만든다. 요약은 UTF-8 2048 bytes 이하로 줄고 잘림·생략·
- * 관측 시각을 요약에 표시한다(shell/workspace#R10). 줄어든 대상은 omission이다.
+ * 관측 시각을 요약에 표시한다. 줄어든 대상은 omission이다.
  */
 export function buildPublishInput(state: CurrentViewState): PublishBuild {
   const entries = state.tabs.map(
@@ -296,7 +296,7 @@ function describeTab(tab: ViewTab): string {
 
 /**
  * 요약의 고정 항목(project·focus·생략 수·관측 시각)은 항상 남기고 탭 항목을
- * 뒤에서부터 뺀다. 관측 시각(shell/workspace#R10)은 마지막까지 남는다.
+ * 뒤에서부터 뺀다. 관측 시각은 마지막까지 남는다.
  */
 function capSummary(
   entries: readonly string[],

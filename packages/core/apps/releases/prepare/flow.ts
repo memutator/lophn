@@ -1,4 +1,4 @@
-// release 준비 흐름(apps/releases#R1–R4, R19, apps/blueprint#R17, apps/sdk#R7, R34).
+// release 준비 흐름.
 // extract → 상한 → UI build → blueprint extract → seal → blob prepare.
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
@@ -48,7 +48,7 @@ export type PrepareReleaseInput = {
   assets?: readonly { path: string; bytes: Uint8Array }[];
   sdkDependencies: readonly { name: string; version: string }[];
   uiDependencies: readonly { name: string; version: string }[];
-  // 설치 SDK 사본의 byte(`sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다(apps/sdk#R10).
+  // 설치 SDK 사본의 byte(`sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다.
   sdkCopies?: readonly { path: string; bytes: Uint8Array }[];
   // bundle 안 상대 경로로 잠근 앱 import map. 있으면 `import-map.json`으로 bundle에 담는다.
   lockedImports?: Readonly<Record<string, string>>;

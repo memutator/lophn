@@ -1,4 +1,4 @@
-// release 준비의 source watch(apps/releases#R3). 준비 도중 원본 변경을 감지한다.
+// release 준비의 source watch. 준비 도중 원본 변경을 감지한다.
 // 도중 변화면 확정하지 않고 source_changed로 취소다. pin은 git HEAD와 지정 commit이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { GitRunner } from "./git-extract.ts";

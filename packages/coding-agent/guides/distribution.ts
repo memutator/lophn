@@ -1,4 +1,4 @@
-// 배포 skill 원본을 읽고 검사해 설치·목록·발견 입력으로 낸다(coding-agent/guides#R1, R2, R4, R20).
+// 배포 skill 원본을 읽고 검사해 설치·목록·발견 입력으로 낸다.
 // 원본은 `<dir>/<name>/SKILL.md`와 그 보조 자료다. 형식 검사(`checkSkill`)와 manifest(version·hash)를 모두
 // 통과한 skill만 설치할 수 있고 통과하지 못한 것은 이유와 함께 목록에만 남는다. symlink는 따라가지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -119,7 +119,7 @@ export async function loadDistribution(
   return ok({ skills, rejected });
 }
 
-// 세션 시작에 발견하는 입력이다. 이름과 설명뿐이고 본문과 보조 자료는 없다(R1).
+// 세션 시작에 발견하는 입력이다. 이름과 설명뿐이고 본문과 보조 자료는 없다.
 export function startupDiscovery(
   skills: readonly DistributedSkill[],
 ): { name: string; description: string }[] {
@@ -129,7 +129,7 @@ export function startupDiscovery(
   }));
 }
 
-// 사용하려고 고른 skill의 본문이다. 고른 것만 읽힌다(R1).
+// 사용하려고 고른 skill의 본문이다. 고른 것만 읽힌다.
 export function selectSkill(
   skills: readonly DistributedSkill[],
   name: string,

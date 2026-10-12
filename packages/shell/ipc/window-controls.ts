@@ -1,4 +1,4 @@
-// desktop 창의 최소화·최대화·닫기(shell/desktop#R23). 창은 시스템 제목 표시줄이 없어서 상단 바가
+// desktop 창의 최소화·최대화·닫기. 창은 시스템 제목 표시줄이 없어서 상단 바가
 // 직접 단추를 그린다. renderer는 동작 이름만 보내고 어느 창인지는 main이 sender로 정한다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 import가 없다.
 
@@ -30,7 +30,7 @@ export interface WindowControlsApi {
   minimize(): Promise<WindowControlReply>;
   /** 최대화면 되돌리고 아니면 최대화한다. */
   toggleMaximize(): Promise<WindowControlReply>;
-  /** 닫기는 종료가 아니다(desktop#R21). 편집기 닫기 확인은 main이 먼저 본다. */
+  /** 닫기는 종료가 아니다. 편집기 닫기 확인은 main이 먼저 본다. */
   close(): Promise<WindowControlReply>;
   /** 최대화·되돌림이 일어날 때마다 알린다. 해제 함수를 돌려준다. */
   subscribe(listener: (state: WindowState) => void): () => void;

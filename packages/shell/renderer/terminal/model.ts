@@ -1,5 +1,5 @@
 // 터미널 탭이 그리는 상태의 순수 규칙. IPC 답을 화면 상태로 옮기고, 종료·거절을
-// 서로 다른 문구로 나눈다. 성공이나 exit code를 추측하지 않는다(shell/terminal#R9).
+// 서로 다른 문구로 나눈다. 성공이나 exit code를 추측하지 않는다.
 import type {
   TerminalFailure,
   TerminalFolderChoice,
@@ -8,7 +8,7 @@ import type {
   TerminalRuntime,
 } from "../../ipc/terminal.ts";
 
-/** 시작하지 않고 멈춘 이유. 다른 폴더로 대신 시작하지 않는다(shell/terminal#R2). */
+/** 시작하지 않고 멈춘 이유. 다른 폴더로 대신 시작하지 않는다. */
 export type Refusal =
   | "no_folder"
   | "not_directory"
@@ -22,7 +22,7 @@ export type Ending = "exited" | "start_failed" | "unknown" | "stop_unconfirmed";
 export type Phase =
   /** 사람이 열었고 main의 답을 기다린다. */
   | { readonly kind: "opening" }
-  /** 등록 폴더가 여럿이다. 고르기 전에는 시작하지 않는다(shell/terminal#R1). */
+  /** 등록 폴더가 여럿이다. 고르기 전에는 시작하지 않는다. */
   | {
     readonly kind: "choose";
     readonly folders: readonly TerminalFolderChoice[];
@@ -36,7 +36,7 @@ export type Phase =
   }
   /**
    * 복원한 탭이거나 runtime을 다시 찾지 못했다. 사람이 누르기 전에는 PTY를
-   * 만들지 않는다(shell/workspace#R7).
+   * 만들지 않는다.
    */
   | { readonly kind: "idle" };
 
@@ -152,7 +152,7 @@ export interface OutputStep {
   readonly writes: readonly string[];
   /** 다음 snapshot의 after_seq. */
   readonly lastSeq: number;
-  /** 상한이나 단절로 빠진 출력이 있다(shell/terminal#R7). */
+  /** 상한이나 단절로 빠진 출력이 있다. */
   readonly missing: boolean;
 }
 

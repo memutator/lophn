@@ -28,7 +28,7 @@ type Loaded<Row> =
 
 type Window = "window-opened" | "window-failed" | null;
 
-// Settings › Providers(shell/desktop#R49). provider는 연결과 인증만 다룬다: model 고르기·기본값
+// Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값
 // 칸이 없다. 위는 연결된 provider(이름, 로그인 방법, [Disconnect]; 사용량 대기나 사용 불가일 때만 그
 // 상태와 다음 행동 한 줄)이고 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는
 // 연결 하나라 계정 목록·순서·끄기·연결 테스트는 없다. [+ Connect]는 Connect dialog를 연다
@@ -236,7 +236,7 @@ function loginMethod(row: ProviderRow): string {
 
 /**
  * 쓸 수 없을 때만 그 상태와 다음 행동 한 줄을 말한다. 사용량 대기는 기다리라고, 요금제 제한은 요금제를
- * 확인하라고, 인증 문제는 Disconnect 뒤 다시 Connect하라고 한다(lophn-agent/harness/provider#R18, R21).
+ * 확인하라고, 인증 문제는 Disconnect 뒤 다시 Connect하라고 한다.
  */
 function statusOf(
   row: ProviderRow,

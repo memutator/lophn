@@ -1,8 +1,8 @@
 // 탭 key와 host runtime의 대응. 탭 전환·공간 이동으로 탭 화면이 사라져도 shell은
-// 그대로이고, 다시 그릴 때 이 대응으로 같은 runtime에 붙는다(shell/terminal#R7).
+// 그대로이고, 다시 그릴 때 이 대응으로 같은 runtime에 붙는다.
 // renderer가 다시 생기면 sessionStorage의 참조만으로 살아 있는 host buffer를 다시
-// 읽는다(R8). 출력·입력은 여기 두지 않는다. Electron을 다시 띄우면 sessionStorage가
-// 비어 탭은 종료된 자리표시가 된다(shell/workspace#R7).
+// 읽는다. 출력·입력은 여기 두지 않는다. Electron을 다시 띄우면 sessionStorage가
+// 비어 탭은 종료된 자리표시가 된다.
 import type { Phase } from "./model.ts";
 
 export interface TerminalEntry {

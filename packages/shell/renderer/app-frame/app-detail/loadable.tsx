@@ -1,5 +1,5 @@
 // 탭 하나의 읽기 상태 틀. 불러오는 중은 300ms 뒤부터 skeleton, 실패는 실패한 대상과 다시
-// 읽기 하나(shell/wording#R10), 읽은 뒤 다시 읽기가 실패하면 마지막으로 확인한 내용과 그 시각을 둔다.
+// 읽기 하나, 읽은 뒤 다시 읽기가 실패하면 마지막으로 확인한 내용과 그 시각을 둔다.
 import type { ReactNode } from "react";
 import {
   ErrorState,

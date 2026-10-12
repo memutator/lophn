@@ -28,7 +28,7 @@ import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 const commands = createConnectionCommands();
 const reads = createConnectionReads();
 
-// 소유 concern(coding-agent/harnesses)의 harness 설정 3개다(platform/settings#R31).
+// 소유 concern(coding-agent/harnesses)의 harness 설정 3개다.
 // 값은 소유 concern의 schema 검증을 따른다. 실행 파일 경로·감지·receipt는
 // machine-local 자료로 분리되고 일반 설정 조립에 들지 않는다.
 // settings registry의 출처는 core 조립의 settings.ts다.
@@ -68,7 +68,7 @@ export const codingAgentConnectionDefinitions = {
     connectionEndChild,
     connectionEndConnection,
   ],
-  // connection credential(keychain의 token)도 알려진 값 registry에 등록·회수된다(connection#R17).
+  // connection credential(keychain의 token)도 알려진 값 registry에 등록·회수된다.
   secretRefs: [createConnectionSecretRefSource()],
   ports: {
     auth: {

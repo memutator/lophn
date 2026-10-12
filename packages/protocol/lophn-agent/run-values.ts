@@ -77,7 +77,7 @@ const pinnedRevisionFields = {
   basis_seq: seqSchema,
 };
 
-// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다(lophn-agent/agents R25).
+// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
 const runBasisAgentFields = {
   hash: sha256Schema,
   sources: resolvedSourcesSchema,

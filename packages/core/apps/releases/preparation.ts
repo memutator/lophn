@@ -1,4 +1,4 @@
-// release 준비 요청의 진행(apps/releases#R19, architecture/apps 7.3). 접수는 release 확정이 아니고
+// release 준비 요청의 진행(architecture/apps 7.3). 접수는 release 확정이 아니고
 // 진행은 core command queue가 아니라 supervisor 메모리다. 메모리를 잃으면(supervisor가 다시 뜸) 이전
 // 요청은 `unknown`이며 성공으로 다시 쓰지 않는다. 준비 한 번의 실제 일(commit 추출·build·봉인)은
 // `PreparationRunner`가 하고 취소는 그 실행의 signal과 종료 확인으로 한다.

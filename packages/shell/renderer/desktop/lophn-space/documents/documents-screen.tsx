@@ -35,7 +35,7 @@ export interface DocumentsScreenProps {
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
-// documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다(desktop#R1).
+// documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다.
 // 검색·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
 export function DocumentsScreen(
   { source, now = Date.now, initialTab = "search", initialRead, sessions }:

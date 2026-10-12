@@ -1,4 +1,4 @@
-// context 탭 kind. context 하나와 그 하위 탭을 연다(shell/workspace#R17). drafting 중인 context도
+// context 탭 kind. context 하나와 그 하위 탭을 연다. drafting 중인 context도
 // 같은 값을 쓴다.
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ export const contextKind = defineTabKind<
 >({
   kind: "context",
   layout,
-  // 없어졌거나 보관된 context는 이유를 가진 자리표시다(R6).
+  // 없어졌거나 보관된 context는 이유를 가진 자리표시다.
   async restore(tab, targets) {
     if (!(await targets.context(tab.context))) {
       return {

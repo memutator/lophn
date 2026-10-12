@@ -12,7 +12,7 @@ import {
   ownAppUrl,
 } from "./network-policy.ts";
 
-// Unix socket HTTP의 가상 host(apps/runtime#R8).
+// Unix socket HTTP의 가상 host.
 export const SOCKET_HOST = "lophn.invalid";
 
 // session 정책이 webContents에서 정해 붙이는 header. 페이지가 같은 이름을 보내도 덮어쓴다.
@@ -107,7 +107,7 @@ function decode(segment: string): string | undefined {
 
 /**
  * view 주소 하나를 `{screen, asset}`으로 좁힌다. scheme·host label·userinfo·port가 이 앱이
- * 아니면 undefined다. custom scheme host는 소문자로 바뀌므로 소문자 label과 비교한다(R11).
+ * 아니면 undefined다. custom scheme host는 소문자로 바뀌므로 소문자 label과 비교한다.
  */
 export function parseAppUrl(
   value: string,

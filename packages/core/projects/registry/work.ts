@@ -20,7 +20,7 @@ export type DirectoryEntry = {
   realPath?: string;
 };
 
-// documents worker(T2)가 채울 자리다. 지금은 주입만 받는다.
+// documents worker가 채울 자리다. 지금은 주입만 받는다.
 export type RootScanner = {
   list(
     root: string,

@@ -1,4 +1,4 @@
-// 신뢰 자식의 blob 준비 요청을 받는 core 쪽 처리(platform Q6, blob-store#R1).
+// 신뢰 자식의 blob 준비 요청을 받는 core 쪽 처리.
 // 자식은 감독 pipe로 blob_prepare_request json을 보내고, core가 준 credit 안에서
 // 자기 channel의 bytes frame을 보내고, end로 닫는다. core는 바이트를 해석하거나 hash하지
 // 않고 core.prepareBlob(I/O worker 중계)으로 넘긴다. principal은 core가 자식 kind에서

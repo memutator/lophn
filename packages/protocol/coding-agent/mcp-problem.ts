@@ -17,7 +17,7 @@ import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 import { cliCommonSchema } from "./cli-core.ts";
 
 // 처리 대상이다. 사람이 조정할 문제(선언의 fixer가 user)와 coding agent가 고칠 문제를 나눈다.
-// owner list read에는 이 filter가 없어 통로가 문제 요약의 next_action으로 가른다(mcp#R24).
+// owner list read에는 이 filter가 없어 통로가 문제 요약의 next_action으로 가른다.
 export const PROBLEM_HANDLERS = ["user", "coding_agent"] as const;
 export const problemHandlerSchema = z.enum(PROBLEM_HANDLERS);
 
@@ -151,7 +151,7 @@ export const cliProblemMoreSchema = withCommon(
   "problem more",
   repairContextMore.input,
 );
-// coding 쓰기는 현재 ticket·claim_seq 필수다(repair-context#R25).
+// coding 쓰기는 현재 ticket·claim_seq 필수다.
 export const cliProblemRecordFixSchema = withCommon(
   "problem record-fix",
   recordProblemFixToolInputSchema,

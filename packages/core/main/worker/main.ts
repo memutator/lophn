@@ -38,7 +38,7 @@ const WORKER_ENTRIES: Readonly<
   [TEST_RUNNER_KIND]: async () => {
     const ready = runnerReady(TEST_RUNNER_KIND);
     if (!ready.ok) throw new Error(ready.error.message);
-    // RequestTest runner service(problems/tests)와 `problems.work` 반응기(problems#T19)가
+    // RequestTest runner service(problems/tests)와 `problems.work` 반응기가
     // 같은 test-runner kind process의 session 하나에서 같이 돈다(stdin 하나).
     await runRunnerService();
   },

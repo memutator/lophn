@@ -35,7 +35,7 @@ type AppValues<P> = { [N in keyof P]: ValueFor<P[N]> };
 type AppArgs<P> = [keyof P] extends [never] ? [values?: Record<string, never>]
   : [values: AppValues<P>];
 
-// 앱의 en catalog용 `t`다(apps/sdk#R41). placeholder 종류는 앱이 catalog에서 생성한
+// 앱의 en catalog용 `t`다. placeholder 종류는 앱이 catalog에서 생성한
 // PlaceholderKinds(generate.ts의 render)를 type으로 준다. key 없음·placeholder 불일치는 compile error다.
 export function createTranslator<
   C extends Readonly<Record<string, string>>,

@@ -1,4 +1,4 @@
-// 앱 템플릿의 파일 묶음과 내용 hash(apps/sdk#R35). 템플릿은 상대 경로와 byte의 묶음이고 별도 상태가
+// 앱 템플릿의 파일 묶음과 내용 hash. 템플릿은 상대 경로와 byte의 묶음이고 별도 상태가
 // 없다. hash는 경로 순으로 정렬한 묶음의 sha256이며 설치 SDK 묶음과 같은 byte 규칙을 쓴다.
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
 import { bundleBytes } from "../install.ts";
@@ -18,7 +18,7 @@ export const BUILTIN_TEMPLATE_DIRECTORY =
 
 const SUFFIX = ".tmpl";
 
-// 앱 템플릿이 반드시 가지는 파일. 이것이 빠진 폴더는 템플릿이 아니다(R33).
+// 앱 템플릿이 반드시 가지는 파일. 이것이 빠진 폴더는 템플릿이 아니다.
 export const REQUIRED_TEMPLATE_FILES = [
   "main.ts",
   "blueprint.ts",

@@ -1,6 +1,6 @@
 import { sha256Hex } from "../mod.ts";
 
-// 고정 gitleaks credential prefix·PEM 규칙 묶음(platform/redaction#R2).
+// 고정 gitleaks credential prefix·PEM 규칙 묶음.
 // 입력과 출력이 같은 content hash를 쓴다. 규칙 갱신은 이 묶음 전체를 바꾼다.
 // 이 목록은 provider 지원 목록이 아니다.
 

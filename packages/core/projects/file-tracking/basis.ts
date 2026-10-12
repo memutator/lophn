@@ -47,7 +47,7 @@ export type ObservationBasisPayload = {
   // 활성 project의 모든 등록 폴더. 파일 쓰기의 root 권한 집합이다.
   folders: ObservationFolderBasis[];
   links: ObservationLinkBasis[];
-  // 정확히 등록된 지침 파일. 일반 root 규칙과 따로 있고 tracking을 껐어도 들어간다(R19).
+  // 정확히 등록된 지침 파일. 일반 root 규칙과 따로 있고 tracking을 껐어도 들어간다.
   // 없으면 빈 목록이다.
   instructions?: ObservationInstructionBasis[];
 };
@@ -324,8 +324,8 @@ export function chunkObservationBasis(
 }
 
 // root 관측 loop를 다시 시작해야 하는 변화의 key. 같으면 loop를 그대로 둔다.
-// 규칙·project 판·root가 바뀌면 전체 대조가 필요하다(file-tracking#R3). 보관된 연결이
-// 풀리는 것(보관 해제)도 현재 파일을 다시 관측해야 하므로 key에 들어간다(R8).
+// 규칙·project 판·root가 바뀌면 전체 대조가 필요하다. 보관된 연결이
+// 풀리는 것(보관 해제)도 현재 파일을 다시 관측해야 하므로 key에 들어간다.
 export function rootSignature(
   root: ObservationRootBasis,
   archivedPaths: readonly string[],

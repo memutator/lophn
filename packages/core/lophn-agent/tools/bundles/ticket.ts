@@ -53,7 +53,7 @@ const create = ticketCreateInputSchema.shape;
 const ready = ticketMakeReadyInputSchema.shape;
 
 // readiness는 모델이 고르지 않는다. 근거·채택 질문·실행 가능한 acceptance check가 모두 있고 모델이
-// 따로 적은 확인할 것이 없을 때만 실행 준비다(roles/app-engineer#R17). 모자란 것은 handler가
+// 따로 적은 확인할 것이 없을 때만 실행 준비다. 모자란 것은 handler가
 // 확인 필요 목록에 적는다.
 export const TICKET_EXTRA_NEEDS_MAX = 9;
 
@@ -105,7 +105,7 @@ export const ticketReadTool = define(
   { ...READ, scopeCheck: OWN },
 );
 // 되돌릴 수 있는 변경이다: claim 전의 ticket은 사람이 취소한다(소유 contract가 판정). approval은 묻지
-// 않는다(harness/tool-judgment#R10).
+// 않는다.
 export const ticketCreateTool = define(
   "ticket.create",
   "Create a ticket for a coding request or feedback of one app. Evidence, adoption questions or an executable acceptance check that is missing leaves the ticket as needs_confirmation with the list of what to confirm; it never starts anything.",

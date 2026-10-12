@@ -1,4 +1,4 @@
-// 일곱 제품의 배포 catalog다(coding-agent/harnesses#R1, T28). 위치·format은
+// 일곱 제품의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고
 // 검증 근거는 docs/research/coding-agent-harness-integration.md 9절이다.
 // [미확인] capability는 unverified로 남고 성공으로 나오지 않는다.

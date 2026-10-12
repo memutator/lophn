@@ -24,7 +24,7 @@ export const FEEDBACK_CAPTURE_MS = 1_500;
 
 /**
  * 사람이 보낸 feedback이 묶인 문제의 문구. problems/problem-codes가 `_feedback`에 정한 값
- * 그대로다(contracts RESERVED_PROBLEM_CODES, shell/wording#R9). shell이 고치거나 합치지 않는다.
+ * 그대로다(contracts RESERVED_PROBLEM_CODES). shell이 고치거나 합치지 않는다.
  */
 export const FEEDBACK_PROBLEM_MESSAGE = "You reported an issue.";
 

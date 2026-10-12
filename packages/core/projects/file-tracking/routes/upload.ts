@@ -1,4 +1,4 @@
-// `/v1/documents/upload` handler(coding-agent#T14). 제출한 파일 하나의 바이트를 core가
+// `/v1/documents/upload` handler. 제출한 파일 하나의 바이트를 core가
 // 해석·hash·보관 없이 blob 준비 중계로 흘려 보낸다. 준비 주체는 요청 credential이라
 // 이어지는 document.prepare·document.save가 같은 주체로 준비 참조를 쓴다. purpose는
 // 문서 원본 파일(document_file)로 고정이고 호출자가 고르지 않는다.

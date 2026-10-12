@@ -15,7 +15,7 @@ export function latestEventSeq(
   return seq === undefined || seq === null ? "0" : String(seq);
 }
 
-// 수리 출처 비교 기준은 문제의 최신 변경 seq다(R3). 제출 때 문제 상태를 읽고,
+// 수리 출처 비교 기준은 문제의 최신 변경 seq다. 제출 때 문제 상태를 읽고,
 // 늦은 제출은 현재 seq와 어긋난다.
 export function staleSeq(submitted: string, current: string): boolean {
   const submittedSeq = parseSeq(submitted);

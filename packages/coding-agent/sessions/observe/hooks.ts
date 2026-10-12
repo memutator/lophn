@@ -1,4 +1,4 @@
-// command hook을 주는 제품(Claude Code·Codex·Gemini CLI)의 normalizer다(sessions#R6, R7, T39, 조사 T6).
+// command hook을 주는 제품(Claude Code·Codex·Gemini CLI)의 normalizer다(조사 T6).
 // payload는 제품이 stdin으로 준 hook JSON이고 `hook_event_name`·`session_id`·`transcript_path`·`cwd`를 읽는다.
 // 표에 없는 event는 상태 evidence가 아니라 null이다. Stop·AfterAgent는 turn 끝이라 ready이고 ended가 아니다.
 // ended는 SessionEnd뿐이며 `clear`는 같은 process의 session 교체라 ended가 아니다.

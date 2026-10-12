@@ -28,7 +28,7 @@ export function parseGroupKey(value: unknown): Result<GroupKey, LophnError> {
   return ok(parsed.data);
 }
 
-// (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다(grouping#R10).
+// (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다.
 // 닫힌 문제도 같은 key로 찾고 기간 상한이 없다.
 export function existingProblem(
   sql: Pick<Tx["sql"], "get">,

@@ -3,7 +3,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 
 // API 쪽과 writer Worker가 주고받는 작은 메시지. 연결 객체는 넘기지 않는다.
-// command 이름은 등록 표의 route.name이다. SQL·파일 경로는 메시지에 없다(R20).
+// command 이름은 등록 표의 route.name이다. SQL·파일 경로는 메시지에 없다.
 
 export type CommandEnvelope = {
   command: string;
@@ -24,7 +24,7 @@ export type CommandSuccess = {
   replayed: boolean;
   first_seq: string | null;
   last_seq: string | null;
-  // commit 뒤에만 켜진다. 배포기는 reader에서 커밋된 event를 읽는다(R5).
+  // commit 뒤에만 켜진다. 배포기는 reader에서 커밋된 event를 읽는다.
   wake: boolean;
 };
 

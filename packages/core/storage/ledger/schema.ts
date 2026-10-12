@@ -91,7 +91,7 @@ create table erase_windows (
 );`,
   },
   {
-    // blob 영구 참조(platform/blob-store#R4). 소유 변경과 같은 transaction에서만 넣고,
+    // blob 영구 참조. 소유 변경과 같은 transaction에서만 넣고,
     // 등록된 참조는 바꾸지 않으며 지우는 것은 session delete의 erase 창 안에서만이다.
     // hash 대상은 파일이므로 FK가 없다.
     id: "blob-refs",
@@ -122,7 +122,7 @@ begin
 end;`,
   },
   {
-    // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다(identity R14).
+    // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다.
     // rollback이면 행이 없고, 재시작·다른 writer에서도 같은 key는 거절된다.
     id: "question-evidence",
     sql: `

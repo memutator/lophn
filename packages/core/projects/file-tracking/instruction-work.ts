@@ -1,4 +1,4 @@
-// 등록된 지침 파일 하나의 관측 loop(file-tracking#R19). root loop와 달리 폴더를 순회하지도
+// 등록된 지침 파일 하나의 관측 loop. root loop와 달리 폴더를 순회하지도
 // watch하지도 않는다: 등록된 exact 경로 하나를 시작할 때, 60초마다, 그리고 같은 파일에 사람이
 // 쓴 직후(nudge) 안정 읽기한다. 파일 읽기는 주입한 port만 부른다.
 import type { Result } from "../../../base/mod.ts";

@@ -1,4 +1,4 @@
-// 세션 시작 summary 조립이다(coding-agent/guides#R21, R22; coding-agent#T35). 요청자 connection의
+// 세션 시작 summary 조립이다(coding-agent#T35). 요청자 connection의
 // credential로 같은 범위의 정본(문제·ticket·connection 읽기)을 읽어 요약만 만든다. 본문·log·첨부·수리
 // 묶음은 읽지 않고 claim·상태를 바꾸는 호출이 이 module에 없다. 어느 읽기든 실패하면 빈 목록으로
 // 바꾸지 않고 그 오류를 그대로 돌려준다. 범위 밖 앱은 없는 앱과 같은 not_found다.
@@ -25,7 +25,7 @@ export const REMAINING_LIMIT = 20;
 const LIST_PAGES = 5;
 const PROBLEM_LIST_LIMIT = 100;
 
-// 착수 지시가 아니라는 안내다. 시작 summary와 skill이 같은 문장을 쓴다(R22).
+// 착수 지시가 아니라는 안내다. 시작 summary와 skill이 같은 문장을 쓴다.
 export const CLAIM_RULE =
   "목록 발견과 이 summary 읽기는 착수 지시가 아니다. 사람이 이 터미널에서 지정했거나 [Start] 첫 prompt가 가리킨 ticket 하나만 MCP로 claim한다";
 

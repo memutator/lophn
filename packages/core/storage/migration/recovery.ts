@@ -42,8 +42,8 @@ export function recoveryName(schemaVersion: number, stamp: string): string {
 }
 
 // migration 적용 전 복구본. SQLite backup API(VACUUM INTO)가 일관된 snapshot을
-// 만들고 attach한 integrity 검사를 통과한 뒤에만 시작 경로로 돌아간다(R3).
-// 어느 곳에서 실패해도 원본 파일은 건드리지 않는다(R18: 성공한 복구본은 남는다).
+// 만들고 attach한 integrity 검사를 통과한 뒤에만 시작 경로로 돌아간다.
+// 어느 곳에서 실패해도 원본 파일은 건드리지 않는다(성공한 복구본은 남는다).
 export async function createRecoveryCopy(
   sourcePath: string,
   deps: RecoveryDeps,

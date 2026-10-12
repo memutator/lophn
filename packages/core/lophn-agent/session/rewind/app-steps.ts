@@ -4,7 +4,7 @@ import type {
   PreparedFile,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
-// 앱 되돌림 단계를 실제로 부르는 쪽(machine runtime)의 순서 규칙이다(lophn-agent/revert R10·R11).
+// 앱 되돌림 단계를 실제로 부르는 쪽(machine runtime)의 순서 규칙이다.
 // Rewind가 applying으로 저장한 revert의 앱 단계를 원래 호출 역순으로 앱의 선언된 revert command에
 // 직접 부르고, 단계마다 CheckpointRevert로 실제 결과를 남기고, 끝나면 FinishRevert를 부른다.
 // 네트워크 호출은 ledger transaction 밖이고 한 transaction으로 묶지 않는다. 읽기·호출·기록은 모두

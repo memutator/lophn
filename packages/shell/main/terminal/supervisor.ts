@@ -1,6 +1,6 @@
 // Electron 실행당 terminal host 하나. 상속 private pipe로 띄우고 감독한다.
 // host가 죽으면 살아 있던 터미널은 unknown이고 자동으로 다시 띄우지 않는다.
-// 사람이 누른 열기·다시 시작만 죽은 host 뒤에 새 host를 하나 띄우고(shell/terminal#R9),
+// 사람이 누른 열기·다시 시작만 죽은 host 뒤에 새 host를 하나 띄우고,
 // 그 host에서 새 터미널을 연다. 옛 입력은 재생하지 않는다.
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -30,7 +30,7 @@ export function createSupervisor(options: {
   entry: string;
   /** host가 요청의 답이 아니라 먼저 보낸 줄(coding TUI 관측). id 없는 `event` 줄이다. */
   onEvent?: (event: unknown) => void;
-  /** host가 끝났거나 멈췄다. 그 host가 연 runtime의 관측은 unknown이 된다(R13). */
+  /** host가 끝났거나 멈췄다. 그 host가 연 runtime의 관측은 unknown이 된다. */
   onHostLost?: () => void;
 }): Supervisor {
   // 창이 뜨자마자 host를 띄우지 않는다. 첫 요청이 child를 만든다.
@@ -110,7 +110,7 @@ export function createSupervisor(options: {
     }
   }
 
-  /** 사람이 누른 열기·다시 시작이 죽은 host 뒤에 새 host를 하나 띄운다(R9). */
+  /** 사람이 누른 열기·다시 시작이 죽은 host 뒤에 새 host를 하나 띄운다. */
   function revive(): HostProcess {
     if (child && !child.killed && !lost) return child;
     child = options.spawnHost(options.entry);
@@ -123,7 +123,7 @@ export function createSupervisor(options: {
     return child;
   }
 
-  /** 결과 불명 터미널의 등록 폴더로 다시 여는 open 요청(R9). */
+  /** 결과 불명 터미널의 등록 폴더로 다시 여는 open 요청. */
   function reopenMessage(terminal: TerminalRuntime): unknown {
     return {
       type: "open",
@@ -139,7 +139,7 @@ export function createSupervisor(options: {
     request(message) {
       const type = (message as { type?: unknown } | null)?.type;
       // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
-      // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다(R13).
+      // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다.
       const current = type === "open" || type === "open-coding" ||
           type === "restart"
         ? revive()
@@ -152,7 +152,7 @@ export function createSupervisor(options: {
         });
       }
       // 죽은 host 뒤 다시 시작은 새 host에 터미널이 없다. 다시 시작을 등록 폴더로
-      // 다시 여는 open으로 옮긴다(shell/terminal#R9). 옛 입력은 재생하지 않는다.
+      // 다시 여는 open으로 옮긴다. 옛 입력은 재생하지 않는다.
       let body: unknown = message;
       if (type === "restart") {
         const ref = (message as { terminal_ref?: unknown }).terminal_ref;
@@ -166,7 +166,7 @@ export function createSupervisor(options: {
             message: "generation does not match",
           });
         }
-        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 [Start]만 있다(R13).
+        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 [Start]만 있다.
         if (terminal.launch_kind === "coding_tui") {
           return Promise.resolve({
             ok: false,

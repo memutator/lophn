@@ -1,4 +1,4 @@
-// backup 복원(apps/data#R7, R11). 실패하면 원본을 그대로 둔다.
+// backup 복원. 실패하면 원본을 그대로 둔다.
 // 복원은 임시 파일에 검증한 뒤 원본과 원자적으로 교체하고, 교체가 실패하면
 // 원본을 되돌린다.
 
@@ -16,7 +16,7 @@ export type RestoredDatabase = {
 const SIDECARS = ["-wal", "-shm"];
 
 // 원본과 sidecar를 같이 옮긴다. 교체가 실패하면 둘 다 원래 자리로 되돌린다.
-// sidecar를 먼저 지우면 rollback이 WAL에만 있던 commit을 잃는다(R7, R11).
+// sidecar를 먼저 지우면 rollback이 WAL에만 있던 commit을 잃는다.
 async function moveAside(
   databasePath: string,
   previous: string,

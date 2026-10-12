@@ -1,5 +1,5 @@
 // Windows 앱 바로가기. 시작 메뉴 lophn 폴더의 shortcut 하나이고 target은 검증된 lophn 실행
-// 경로, 인자는 `--open-app <app ID>`뿐이다(shell/desktop#R14). 쓰기는 Electron
+// 경로, 인자는 `--open-app <app ID>`뿐이다. 쓰기는 Electron
 // `shell.writeShortcutLink`가 한다.
 import { win32 } from "node:path";
 

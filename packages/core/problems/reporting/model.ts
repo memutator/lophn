@@ -3,7 +3,7 @@ import type { LophnError } from "../../../base/mod.ts";
 import { REPORTING_LIMITS } from "../../../protocol/problems/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 
-// 접수 공통 값: 재전송 비교(R9)와 접수 창(R12).
+// 접수 공통 값: 재전송 비교와 접수 창.
 const CONFLICT = "같은 Report ID의 원주체나 내용이 다르다";
 const WINDOW = "접수 빈도 한도를 넘는다";
 
@@ -18,7 +18,7 @@ export type ProblemRow = {
   closure: string | null;
 };
 
-// (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다(grouping#R10).
+// (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다.
 // 닫힌 문제도 같은 key로 찾고 기간 상한이 없다.
 export function findProblem(
   sql: Pick<Tx["sql"], "get">,
@@ -41,7 +41,7 @@ export function findProblem(
   };
 }
 
-// 같은 ID·principal·content hash 재전송은 원래 결과(R9). 비교는 접수 행의
+// 같은 ID·principal·content hash 재전송은 원래 결과. 비교는 접수 행의
 // content_hash와 principal 둘이다.
 export function findReport(
   sql: Pick<Tx["sql"], "get">,

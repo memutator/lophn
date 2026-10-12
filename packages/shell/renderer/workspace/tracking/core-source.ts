@@ -145,7 +145,7 @@ export function coreTrackingSource(core: CoreSource): TrackingSource {
       return { ok: true, value: roots };
     },
 
-    // 끝 page까지 모은다. 적용은 complete인 마지막 page를 근거로 보낸다(documents/projects#R6).
+    // 끝 page까지 모은다. 적용은 complete인 마지막 page를 근거로 보낸다.
     async preview(project, rules): Promise<TrackingResult<Preview>> {
       const entries: PreviewEntry[] = [];
       let cursor: string | undefined;
@@ -188,7 +188,7 @@ export function coreTrackingSource(core: CoreSource): TrackingSource {
     },
 
     async apply(project, preview) {
-      // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+      // 성공 응답은 route output 그대로다. 추가 포장은 없다.
       const reply = await core.call({
         kind: "command",
         resource: "projects",

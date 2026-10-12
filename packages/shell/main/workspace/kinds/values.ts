@@ -4,7 +4,7 @@ import { z } from "zod";
 // 로컬 탭 참조. credential이 아니라 workspace 안 유일 key다(domain-model 제약).
 export const tabKey = z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/);
 
-// 읽던 위치는 section key와 0 이상 scroll offset뿐이다. 본문은 없다(shell/workspace#R8).
+// 읽던 위치는 section key와 0 이상 scroll offset뿐이다. 본문은 없다.
 export const readPositionSchema = z.strictObject({
   section: z.string().min(1).max(128),
   scroll_offset: z.number().min(0).max(Number.MAX_SAFE_INTEGER),

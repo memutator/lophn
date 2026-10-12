@@ -5,7 +5,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { InstructionFile } from "./model.ts";
 
-// 사람 화면의 LOPHN.md 미리보기(lophn-agent/instructions R9). 파일 앞 INSTRUCTION_PREVIEW_MAX_BYTES까지만 본문으로
+// 사람 화면의 LOPHN.md 미리보기. 파일 앞 INSTRUCTION_PREVIEW_MAX_BYTES까지만 본문으로
 // 주고 실제 크기와 잘림을 알린다. 상한이 글자 가운데에 걸리면 그 글자를 빼고 앞에서 끊는다: 반쪽 글자를 대체 문자로
 // 바꿔 보이지 않는다. 파일이 UTF-8이 아니면 고쳐 보이지 않고 invalid_input이다(R7과 같은 규칙).
 export function previewInstruction(

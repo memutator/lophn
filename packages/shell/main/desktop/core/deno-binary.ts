@@ -1,5 +1,5 @@
-// Resolve bundled Deno binary for packaged app (shell#T57, shell/desktop#R20).
-// When packaged, the Deno binary is at the install root (`/opt/lophn/deno`, platform#T48).
+// Resolve bundled Deno binary for packaged app.
+// When packaged, the Deno binary is at the install root (`/opt/lophn/deno`).
 // In development, use the system deno command.
 
 import { packagedInstall } from "../paths.ts";

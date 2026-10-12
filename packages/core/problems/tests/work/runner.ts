@@ -27,7 +27,7 @@ export type RunRequest = {
   preparing: number;
 };
 
-// ledger 시작 시도. 확정(ok)된 뒤에만 spawn한다(problems/tests#R17).
+// ledger 시작 시도. 확정(ok)된 뒤에만 spawn한다.
 // 거절·실패면 자식을 띄우지 않고 Verification도 없다.
 export type StartAttemptCommit = () => Promise<Result<string>>;
 

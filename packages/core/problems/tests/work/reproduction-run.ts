@@ -1,4 +1,4 @@
-// reproduction test 한 건을 실제 runner 경로로 돌린다(problems/tests#R10, R11, R12, R15). before와 after를 차례로,
+// reproduction test 한 건을 실제 runner 경로로 돌린다. before와 after를 차례로,
 // side마다 새 작업 폴더(새 fixture DB)에서 같은 고정 시험·입력·기대·환경으로 돌린다. 앱 source는 읽기 전용
 // 봉인 bundle 사본이고, 운영 DB는 어디에서도 복사하지 않으며 외부 접속은 apps/preview의 고정 대역뿐이다.
 // 판정은 stdout이 아니라 자식의 관측 frame·runner가 직접 관측한 종료·고정 bundle 근거가 정한다. 결과를

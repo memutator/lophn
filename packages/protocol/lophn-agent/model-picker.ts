@@ -1,7 +1,7 @@
 import type { CatalogEntry, OptionAxis } from "./models.ts";
 import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 
-// model 선택 화면이 쓰는 순수 규칙이다(harness/model#R15, R21, R25, R26). 화면(renderer)과 core가
+// model 선택 화면이 쓰는 순수 규칙이다. 화면(renderer)과 core가
 // 같은 입력에 같은 결과를 얻도록 한 곳에 둔다. 의존성·시각·무작위·IO가 없고 zod를 import하지 않는다.
 // 어떤 model에 어떤 축과 값이 있는지는 catalog 자료(CatalogEntry.options)만 말한다.
 
@@ -24,7 +24,7 @@ export type FitResult = {
   notices: OptionNotice[];
 };
 
-// 고른 model이 가진 축만, catalog가 선언한 순서와 표시 이름 그대로 낸다(R21).
+// 고른 model이 가진 축만, catalog가 선언한 순서와 표시 이름 그대로 낸다.
 // options가 null(미확인)이거나 빈 배열(없음)이면 축이 없다.
 export function optionAxesOf(entry: CatalogEntry): AxisView[] {
   return (entry.options ?? []).map((axis) => ({
@@ -55,7 +55,7 @@ function fittedValue(axis: OptionAxis, requested: string): string {
   );
 }
 
-// 사람이 model을 바꿀 때 값을 새 model에 맞춘다(R25). 입력을 바꾸지 않는다.
+// 사람이 model을 바꿀 때 값을 새 model에 맞춘다. 입력을 바꾸지 않는다.
 // - 새 model에 그 축이 없으면 값을 버린다(알림 없음).
 // - 값이 지원되면 그대로 둔다.
 // - 지원되지 않는 effort 값은 더 약하면서 가장 가까운 지원 값으로, 그런 값이 없으면 가장 약한
@@ -81,7 +81,7 @@ export function fitOptionValues(
   return { option_values, notices };
 }
 
-// 선택 화면의 순서 규칙이다(R26). 즐겨찾기 목록은 별표를 찍은 순서의 ModelFavorites.items이고,
+// 선택 화면의 순서 규칙이다. 즐겨찾기 목록은 별표를 찍은 순서의 ModelFavorites.items이고,
 // 이 규칙은 그 순서를 바꾸지 않는다.
 
 // 선택 화면에 보일 수 있는 model 하나다. 연결된 provider의 현재 catalog에서 온다.
@@ -95,7 +95,7 @@ export type PickerLayout = {
   providers: { provider: string; models: PickerModel[] }[];
 };
 
-// model은 provider와 model 이름의 쌍으로 구별한다(harness/model#R1).
+// model은 provider와 model 이름의 쌍으로 구별한다.
 function pairKey(model: PickerModel): string {
   return JSON.stringify([model.provider, model.model_name]);
 }

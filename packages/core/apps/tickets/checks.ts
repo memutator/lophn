@@ -1,4 +1,4 @@
-// ticket machine check(coding-agent/tickets#R7, R8, R18, R19, R20). record_checks는
+// ticket machine check. record_checks는
 // checker machine이 낸 조건별 결과를 최신 completion에만 남기고, 전부 pass면 confirmed,
 // 실제 fail이 있으면 check_failed, 나머지는 reported로 둔다. 결과는 handler가 같은
 // transaction의 정본 사실로 다시 판정해 같을 때만 받는다: machine이 낸 pass도 근거가
@@ -383,7 +383,7 @@ export function createTicketCheckCommands(): {
         if (row["state"] !== "reported") {
           return conflict("ticket is not waiting for checks");
         }
-        // 늦은 옛 completion의 검사가 새 보고의 결과를 덮지 않는다(R20).
+        // 늦은 옛 completion의 검사가 새 보고의 결과를 덮지 않는다.
         if (String(row["completion_seq"]) !== input.completion_seq) {
           return conflict("completion changed");
         }

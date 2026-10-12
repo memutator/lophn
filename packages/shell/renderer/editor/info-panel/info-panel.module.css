@@ -1,4 +1,4 @@
-/* 정보 패널 본문(shell/editor#R6). 안 여백 16px는 작업대 자리가 두고, 여기서는 절 간격 20px와
+/* 정보 패널 본문. 안 여백 16px는 작업대 자리가 두고, 여기서는 절 간격 20px와
    목록 행 32px를 정한다. legacy Inspector·VersionTab의 모양을 따른다. */
 .stack {
   display: flex;

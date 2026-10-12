@@ -182,7 +182,7 @@ export function defineRead<I extends z.ZodType, O extends z.ZodType>(
   return define("read", options);
 }
 
-// 성공은 원본 바이트와 Content-Type이다(platform/api#R3). 실패는 JSON 오류.
+// 성공은 원본 바이트와 Content-Type이다. 실패는 JSON 오류.
 export function defineFile<I extends z.ZodType>(
   options:
     & Omit<DefineOptions<I, { contentType: string }>, "output">

@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { AppTestVerificationFact } from "../../../protocol/problems/mod.ts";
 
-// release 준비가 같은 transaction에서 Verification의 사실만 읽는 조회다(apps/releases#R5).
+// release 준비가 같은 transaction에서 Verification의 사실만 읽는 조회다.
 // 쓰기는 test runner의 RecordVerification뿐이다. 표가 없으면 unavailable이다.
 export function findAppTestVerification(
   sql: Pick<Sql, "get">,
@@ -32,7 +32,7 @@ export function findAppTestVerification(
 }
 
 // 같은 앱·같은 완성 bundle hash로 실제 실행해 통과로 기록된 app test의 id다. 실패·판정 불가·다른 hash는
-// 근거가 아니다(apps/releases#R5). 여럿이면 id가 앞선 하나다.
+// 근거가 아니다. 여럿이면 id가 앞선 하나다.
 export function findPassedAppTest(
   sql: Pick<Sql, "get">,
   app: string,

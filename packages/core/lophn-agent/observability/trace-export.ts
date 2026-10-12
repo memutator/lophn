@@ -1,8 +1,8 @@
-// /v1/agent-traces/export의 product serving(observability#R10, R12, R14, R16, R17).
+// /v1/agent-traces/export의 product serving.
 // export는 ledger event가 없는 runtime 접수라 writer queue 앞의 처리기가 실행한다
 // (connection test와 같은 모양). 대상 trace 조립은 observability/reads의 같은 accessor,
 // 본문은 blob 참조에서, 안전화는 core 알려진 값 registry를 쓰는 제품 redactor다.
-// destination은 로컬 파일 경로뿐이다(R12). 실패는 원본·run을 바꾸지 않는다(R17).
+// destination은 로컬 파일 경로뿐이다. 실패는 원본·run을 바꾸지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   agentTraceExport,
@@ -41,7 +41,7 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// destination에 NDJSON을 쓴다. 로컬 파일뿐이다(R12).
+// destination에 NDJSON을 쓴다. 로컬 파일뿐이다.
 async function writeDestination(
   destination: string,
   lines: string,

@@ -24,7 +24,7 @@ export interface InfoPanelProps {
   placement: InfoPanelPlacement;
   tab: InfoTab;
   onTab: (tab: InfoTab) => void;
-  /** overlay를 Escape·바깥 click으로 닫는다(shell/editor#R6). */
+  /** overlay를 Escape·바깥 click으로 닫는다. */
   onClose?: () => void;
   /** 탭 본문. 없으면 빈 안내를 둔다. 내용은 편집기의 정보 패널(editor/info-panel)이 그린다. */
   children?: ReactNode;
@@ -37,7 +37,7 @@ export function InfoPanel(
   const ref = useRef<HTMLElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
-  // 좁은 창에서 본문을 덮는 동안 앱 view는 숨지 않고 덮이지 않은 폭으로 준다(app-frame#R36).
+  // 좁은 창에서 본문을 덮는 동안 앱 view는 숨지 않고 덮이지 않은 폭으로 준다.
   useViewCover(ref, placement === "overlay");
   // overlay일 때만 Escape와 바깥 click으로 닫는다. dock이면 본문 옆 열이라 그대로 둔다.
   useEffect(() => {

@@ -41,7 +41,7 @@ function isView(value: unknown): value is ConfirmationView {
     typeof (value as { displayId?: unknown }).displayId === "string";
 }
 
-/** 결정 접수와 실제 적용을 구별해 말한다(platform/approvals#R9). */
+/** 결정 접수와 실제 적용을 구별해 말한다. */
 export function outcomeText(
   kind: string | undefined,
   done: Done,
@@ -72,7 +72,7 @@ export function outcomeText(
       : t("confirmation-window.result.decision-received");
   }
   if (kind === "rewind") {
-    // 결정 자체가 적용이라 접수가 아니라 실제 결과를 구별해 말한다(lophn-agent/revert#R3, R11).
+    // 결정 자체가 적용이라 접수가 아니라 실제 결과를 구별해 말한다.
     switch (result.result) {
       case "applying":
         return t("confirmation-window.result.rewind-started");
@@ -141,8 +141,8 @@ function Notice(
 
 /**
  * 표시의 view 종류로 화면을 고른다. 첫 focus는 설명이고 Enter로 제출하지 않으며
- * Escape·닫기는 결정이 아니다(confirmation-window#R4). 무효·만료·결과 모름이면 옛 결정
- * 버튼 없이 이유와 최신 내용 열기만 남긴다(R5).
+ * Escape·닫기는 결정이 아니다. 무효·만료·결과 모름이면 옛 결정
+ * 버튼 없이 이유와 최신 내용 열기만 남긴다.
  */
 export function ConfirmationScreen({ api, theme }: ScreenProps) {
   const [view, setView] = useState<ConfirmationView | null>(null);

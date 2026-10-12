@@ -23,7 +23,7 @@ export function isPending(request: Request): boolean {
 
 /**
  * 기다리는 요청의 순서. 기다리는 것만, run을 멈춘 요청이 먼저고 나머지는 접수(생성 event)
- * 순이다(desktop#R6). 목록을 오가도 이 순서와 요청 자체는 바뀌지 않는다.
+ * 순이다. 목록을 오가도 이 순서와 요청 자체는 바뀌지 않는다.
  */
 export function stripOrder(requests: readonly Request[]): readonly Request[] {
   return requests.filter(isPending).sort((a, b) => {
@@ -38,7 +38,7 @@ export interface WaitingCounts {
   readonly decisions: number;
 }
 
-/** 기다리는 것의 종류별 개수(desktop#R9). */
+/** 기다리는 것의 종류별 개수. */
 export function waitingCounts(requests: readonly Request[]): WaitingCounts {
   let questions = 0;
   let decisions = 0;
@@ -50,7 +50,7 @@ export function waitingCounts(requests: readonly Request[]): WaitingCounts {
   return { questions, decisions };
 }
 
-/** 지난 일. 닫힌 것만 최신(닫힌 event가 늦은 것)부터 둔다(desktop#R9). */
+/** 지난 일. 닫힌 것만 최신(닫힌 event가 늦은 것)부터 둔다. */
 export function pastOrder(requests: readonly Request[]): readonly Request[] {
   return requests.filter((request) => !isPending(request)).sort((a, b) => {
     const order = seq(b.closedSeq) - seq(a.closedSeq);
@@ -119,7 +119,7 @@ export function notificationOrder(
 
 /**
  * chip에 올릴 notification. 읽지 않았고 이 창에서 닫지 않은 것만, 먼저 온 것부터다. 닫기는
- * 이 창의 표시일 뿐 읽음이 아니다(desktop#R10).
+ * 이 창의 표시일 뿐 읽음이 아니다.
  */
 export function chipQueue(
   unread: readonly NotificationRow[],
@@ -140,8 +140,8 @@ function samePlace(a: Place | null, b: Place): boolean {
 }
 
 /**
- * 한 공간에서 기다리는 결정 수. 런처 카드는 approval만(desktop#R26), 프로젝트·앱 공간의
- * 크롬은 그 공간의 질문과 approval 모두를 센다(desktop#R27).
+ * 한 공간에서 기다리는 결정 수. 런처 카드는 approval만, 프로젝트·앱 공간의
+ * 크롬은 그 공간의 질문과 approval 모두를 센다.
  */
 export function placeWaiting(
   requests: readonly Request[],
@@ -164,9 +164,9 @@ export function confirmsWithoutWindow(command: string | null | undefined) {
 
 /**
  * 묶음에서 고른 답이 confirmation window에서만 확정하는 action 선택지이면 그 묶음과 선택지.
- * 고정 action은 질문 하나짜리 묶음에만 있다(questions#R13). app.create·apply_settings는
+ * 고정 action은 질문 하나짜리 묶음에만 있다. app.create·apply_settings는
  * 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정하므로 여기에 걸리지 않는다. 자유 답은 동작으로
- * 해석하지 않는다(R15).
+ * 해석하지 않는다.
  */
 export function reviewTarget(
   group: QuestionGroupRequest,
@@ -183,7 +183,7 @@ export function reviewTarget(
   return { group: group.id, option_key: optionKey };
 }
 
-/** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다(questions#R6). */
+/** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다. */
 export function usableText(text: string): boolean {
   return text.trim().length > 0;
 }

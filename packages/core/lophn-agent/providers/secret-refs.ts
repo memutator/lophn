@@ -1,5 +1,5 @@
 // provider credential이 가리키는 secret 참조를 core의 알려진 값 registry에 등록하는 통로의 이
-// concern 쪽(platform/secrets#R1, platform/redaction#R1). provider_credentials 표는 이 concern만
+// concern 쪽. provider_credentials 표는 이 concern만
 // 읽는다. core는 이 모양(SecretRefSource)만 받아 같은 keychain에서 값을 읽고 등록·회수한다.
 // 값은 이 표에도 이 함수에도 없고 참조만 있다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -49,7 +49,7 @@ export function createProviderSecretRefSource(): SecretRefSource {
 }
 
 // provider endpoint가 credential 값을 받을 수 있는 고정 목적지. HTTPS origin이거나 같은 기계의
-// loopback HTTP origin이고 그 밖(LAN·공개 주소의 HTTP, 모르는 형식)은 없다(provider#R5).
+// loopback HTTP origin이고 그 밖(LAN·공개 주소의 HTTP, 모르는 형식)은 없다.
 export function providerSecretDestination(
   endpoint: string,
 ): SecretDestination | undefined {
@@ -70,9 +70,9 @@ export function providerSecretDestination(
   return undefined;
 }
 
-// 전송 직전에 secret 부착이 대조하는 현재 참조(platform/secrets#R5). ledger의 현재 provider·credential
+// 전송 직전에 secret 부착이 대조하는 현재 참조. ledger의 현재 provider·credential
 // 기록만 보고 값은 보지 않는다. 참조·판이 현재와 다르면(Disconnect한 provider나 교체된 옛 참조)
-// conflict이고, 회수한 credential과 고정할 수 없는 목적지는 forbidden이다(provider#R4).
+// conflict이고, 회수한 credential과 고정할 수 없는 목적지는 forbidden이다.
 export function lookupProviderSecretUse(
   sql: Pick<Sql, "all">,
   use: SecretUse,

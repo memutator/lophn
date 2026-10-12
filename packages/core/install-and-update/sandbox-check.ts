@@ -1,4 +1,4 @@
-// Chromium OS sandbox 검사(platform/install-and-update#R3, platform/security#R4).
+// Chromium OS sandbox 검사.
 // 파일 검사(root 소유·4755)와 실제 실행 검사(renderer process가 sandbox 안에 있는가)를 나눈다.
 // sandbox를 끈 실행(`--no-sandbox`)은 어떤 검사에서도 통과가 아니다.
 

@@ -30,9 +30,9 @@ import {
 // SubmitHandoff는 AcceptRun의 출처 검사 wrapper다. 보낸 run·방향·원래 사람 요청·
 // 근거를 검사한 뒤 run-loop의 AcceptRun handler를 같은 Tx에서 불러 받는 assignment의
 // 독립 run 하나를 접수한다. 송신 사실(받는 run의 source)과 접수·내용 blob 참조 등록이
-// 한 transaction이라 하나라도 실패하면 이전 판 전체가 남는다(R9). 등록 순서는 입력
+// 한 transaction이라 하나라도 실패하면 이전 판 전체가 남는다. 등록 순서는 입력
 // 검사 → 상태 재검사 → 쓰기다. 새 command 권한은 받는 쪽에 옮기지 않는다: 접수한
-// run은 자기 assignment의 scope와 tool 판정을 처음부터 다시 적용받는다(R6).
+// run은 자기 assignment의 scope와 tool 판정을 처음부터 다시 적용받는다.
 
 export type HandoffDeps = {
   // 같은 Tx에서 run을 접수한다(run-loop AcceptRun). 조립이 handler를 건다.
@@ -74,7 +74,7 @@ export function createHandoffCommands(deps: HandoffDeps): {
           return reject("not_found", "run not found");
         }
         // 같은 요청의 재전송은 저장된 결과만 돌려주고 새 run을 만들지 않는다. 받는
-        // assignment가 그 사이 멈췄거나 회수돼도 같다(plan Q24).
+        // assignment가 그 사이 멈췄거나 회수돼도 같다.
         const prior = loadByDedup(tx, input.sender_run, input.dedup_key);
         if (prior !== undefined) {
           if (!sameHandoff(prior, input, input.sender_run, input.dedup_key)) {
@@ -122,7 +122,7 @@ export function createHandoffCommands(deps: HandoffDeps): {
         if (input.receiver_assignment === sender.assignment) {
           return reject("invalid_input", "a handoff must cross assignments");
         }
-        // 담당이 멈췄거나 회수됐으면 시작하지 않는다. 담당 없는 대기열은 없다(R2).
+        // 담당이 멈췄거나 회수됐으면 시작하지 않는다. 담당 없는 대기열은 없다.
         if (to.state !== "enabled") {
           return reject("unavailable", "no assignment can take this handoff");
         }

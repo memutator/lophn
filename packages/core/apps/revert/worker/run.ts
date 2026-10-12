@@ -1,4 +1,4 @@
-// 앱 revert 호출 worker(lophn-agent/revert R10). core 감독이 상시 하나를 띄우고, 사람의
+// 앱 revert 호출 worker. core 감독이 상시 하나를 띄우고, 사람의
 // `RunAppRevert` 뒤 core가 단계마다 `revert.call`을 보낸다. worker는 요청이 싣는 사람
 // credential으로 core loopback의 `apps/connect`를 부르고, 그 연결이 고정한 앱 direct socket으로
 // 단계의 revert command를 request_key=step_key로 한 번 보낸다. worker는 ledger를 열지 않고

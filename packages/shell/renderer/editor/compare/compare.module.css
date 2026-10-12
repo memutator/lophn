@@ -1,4 +1,4 @@
-/* 버전 비교(shell/editor#R13, R14). legacy CompareTab·DiffView의 모양: 44px 도구 줄, 220px 바뀐 절
+/* 버전 비교. legacy CompareTab·DiffView의 모양: 44px 도구 줄, 220px 바뀐 절
    목록, 원문 고정폭 13px/20px, 옛/새 줄 번호 40px씩, 기호 16px, diff 배경과 +/− 기호. */
 .view {
   box-sizing: border-box;

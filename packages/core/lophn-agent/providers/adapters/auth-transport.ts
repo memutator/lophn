@@ -1,7 +1,7 @@
-// 인증 transport(provider#R3, R25; platform#T20 secret 전송 부착). adapter의 이
+// 인증 transport(platform#T20 secret 전송 부착). adapter의 이
 // 파일만 secret 전송 부착을 machine credential으로 부른다(architecture §5.2).
 // API key 값은 transport callback 메모리에서만 산다. 결과·오류·log·run loop·
-// ModelCall blob에는 값이나 header가 남지 않는다(R7, R15).
+// ModelCall blob에는 값이나 header가 남지 않는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
@@ -19,7 +19,7 @@ export type SecretAttachLike = {
   ): Promise<Result<{ sent: boolean }>>;
 };
 
-// invoice가 아니다. protocol이 명시하는 인증 header 종류다(R5).
+// invoice가 아니다. protocol이 명시하는 인증 header 종류다.
 export type AuthKind = "api_key" | "bearer";
 
 export type TransportRequest = {
@@ -83,11 +83,11 @@ export function createAuthTransport(options: {
         context: options.context,
         use: options.use,
         operation: options.operation,
-        // body는 전송 근거다. header 값과 credential 값은 여기 없다(R7).
+        // body는 전송 근거다. header 값과 credential 값은 여기 없다.
         body: { url: request.url, method: request.method },
       };
       const sent = await options.attach.send(input, transmit);
-      // 전송 실패·허용 거절은 그대로. 오류에 header 값·credential 값은 없다(R19).
+      // 전송 실패·허용 거절은 그대로. 오류에 header 값·credential 값은 없다.
       if (!sent.ok) return sent;
       if (response === undefined) {
         // transmit이 부르지 않았다는 것은 attach가 잘못 응답한 것이다.

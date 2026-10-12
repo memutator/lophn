@@ -36,8 +36,7 @@ function Labeled(
   );
 }
 
-// 문서 머리: 제목 20px·메타 12px·편집 ghost·정보 패널·메뉴. 읽기 화면에 primary는 없다
-// (shell/editor#R16).
+// 문서 머리: 제목 20px·메타 12px·편집 ghost·정보 패널·메뉴. 읽기 화면에 primary는 없다.
 export function DocumentHead(
   {
     title,
@@ -113,7 +112,7 @@ export interface StickyHeadBarProps {
   section: string | null;
 }
 
-// 문서 제목이 scroll 칸 위로 사라지면 붙는 32px 머리. 제목과 지금 절이 보인다(R4).
+// 문서 제목이 scroll 칸 위로 사라지면 붙는 32px 머리. 제목과 지금 절이 보인다.
 export function StickyHeadBar({ title, section }: StickyHeadBarProps) {
   return (
     <div className={styles.sticky} data-sticky-head="" aria-hidden="true">

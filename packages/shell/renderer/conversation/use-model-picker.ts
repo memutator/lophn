@@ -1,4 +1,4 @@
-// composer의 model 단추와 picker가 source와 맞물리는 일(shell/desktop#R44, lophn-agent/conversation#R23).
+// composer의 model 단추와 picker가 source와 맞물리는 일.
 // 고른 값은 이 session에만 저장하고, 화면 코드에는 model 이름도 option 값도 없다. 모두 source가 준다.
 import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";

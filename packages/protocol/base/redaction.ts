@@ -46,7 +46,7 @@ export const redactionInputSchema = z.strictObject({
   private_fields: fieldPathsSchema,
 });
 
-// 검출한 값·길이·원문 일부를 담지 않는다(platform/redaction#R6, R7, R17).
+// 검출한 값·길이·원문 일부를 담지 않는다.
 export const redactedItemSchema = z.object({
   location: z.string().min(1),
 });
@@ -128,7 +128,7 @@ export const TRUST_CLASSES = [
 export const trustClassSchema = z.enum(TRUST_CLASSES);
 export type TrustClass = z.infer<typeof trustClassSchema>;
 
-// 출처 불명은 data다(platform/security#R11). 구현은 platform이 entry로 받는다.
+// 출처 불명은 data다. 구현은 platform이 entry로 받는다.
 export type DataEnvelope = {
   trust: TrustClass;
   text: string;

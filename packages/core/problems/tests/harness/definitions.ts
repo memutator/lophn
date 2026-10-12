@@ -22,7 +22,7 @@ export const HARNESS_CHECKS = [
   "permission_denial",
   "view_exception",
   "feedback",
-  // 앱 계약 검사(problems/tests#R8, R9, R15; apps/blueprint#R21)
+  // 앱 계약 검사(apps/blueprint#R21)
   "migration_empty",
   "migration_upgrade",
   "read_contract",
@@ -85,7 +85,7 @@ export const UNDECLARED_PROBE_CODE = "undeclared_probe_code";
 // 화면 검사 host가 판정하지 못했을 때 view 검사 frame의 evidence.view_host 값.
 export const VIEW_HOST_INCONCLUSIVE = "inconclusive";
 
-// 통과가 증명하는 범위(problems/tests#R12). 검사마다 고정 기준과 입력 범위를 runner의
+// 통과가 증명하는 범위. 검사마다 고정 기준과 입력 범위를 runner의
 // 설치 자료로 두고, observations는 이것을 인접 불변식과 따로 적는다.
 export type CheckCoverage = { criteria: string[]; input_range: string };
 

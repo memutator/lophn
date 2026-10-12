@@ -27,8 +27,7 @@ const STATUS_KEYS = {
 } as const;
 
 // 이전 lophn 런처 카드: 폴더 아이콘·이름·대기 pill 한 줄, 목적 두 줄, 상태 한 줄. 카드 전체가
-// 작업대로 가는 단추다. 안쪽 짧은 이름·ID·경로·규칙·문서 수는 펼친 상세에만 둔다
-// (documents/projects#R8, shell/wording#R4, R12).
+// 작업대로 가는 단추다. 안쪽 짧은 이름·ID·경로·규칙·문서 수는 펼친 상세에만 둔다.
 export function ProjectCard({ card, waiting, onOpen }: ProjectCardProps) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();

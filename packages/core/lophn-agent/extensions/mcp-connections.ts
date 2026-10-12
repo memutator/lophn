@@ -16,16 +16,16 @@ import {
 } from "./adapters/mcp-http.ts";
 
 // 바깥 MCP 연결 관리(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R18–R22, R25). 연결은 assignment와 서버 이름의
-// 조합마다 하나다(R18). 같은 assignment의 여러 run이 같은 연결을 쓰고 다른
+// lophn-agent/extensions#R18–R22). 연결은 assignment와 서버 이름의
+// 조합마다 하나다. 같은 assignment의 여러 run이 같은 연결을 쓰고 다른
 // assignment와는 공유하지 않는다. 시계·대기·process 시작·HTTP는 주입한다.
 // 테스트는 가짜 MCP child와 로컬 HTTP server를 끼운다.
 
-// 연결+initialize 합산 기한이다(R19).
+// 연결+initialize 합산 기한이다.
 export const CONNECT_TIMEOUT_MS = 30_000;
-// 전체 tools/list page와 검증의 합산 기한이다(R19).
+// 전체 tools/list page와 검증의 합산 기한이다.
 export const LIST_TIMEOUT_MS = 30_000;
-// 재연결 대기이다(R20). 1초·2초·4초, 최대 세 번.
+// 재연결 대기이다. 1초·2초·4초, 최대 세 번.
 export const RECONNECT_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000];
 
 // 도구 목록 상한이다(질문 Q14). 넘으면 그 서버 목록 전체를 거절한다.
@@ -44,7 +44,7 @@ export type ConnectionState =
   | "failed_temporary"
   | "failed_auth";
 
-// 목록 검증에 실패한 이유다(R22). 사람용 진단이고 server 자유 원문은 없다.
+// 목록 검증에 실패한 이유다. 사람용 진단이고 server 자유 원문은 없다.
 export type ListFailure =
   | "protocol"
   | "repeated_cursor"
@@ -64,7 +64,7 @@ export type McpToolView = {
   schema: Record<string, unknown>;
 };
 
-// 검증을 모두 지난 도구 목록이다(R22). tool_list_hash는 목록 내용의 sha256이다.
+// 검증을 모두 지난 도구 목록이다. tool_list_hash는 목록 내용의 sha256이다.
 export type ToolList = {
   tools: readonly McpToolView[];
   hash: string;
@@ -83,7 +83,7 @@ export type ConnectionView = {
 
 // JSON-RPC over transport 눈이다. stdio·HTTP가 같은 모양을 낸다.
 export type McpTransport = {
-  // 요청 하나를 보내고 응답을 기다린다. 이미 전달한 요청은 재전송하지 않는다(R20).
+  // 요청 하나를 보내고 응답을 기다린다. 이미 전달한 요청은 재전송하지 않는다.
   request(
     method: string,
     params: unknown,
@@ -108,13 +108,13 @@ export type WaitFn = (
   signal: AbortSignal,
 ) => Promise<"elapsed" | "aborted">;
 
-// 기한 timer다. progress로 늘지 않는 단조 시계 기한이다(R19).
+// 기한 timer다. progress로 늘지 않는 단조 시계 기한이다.
 export type DeadlineFn = (
   ms: number,
   signal: AbortSignal,
 ) => Promise<"elapsed" | "aborted">;
 
-// secret 전송 부착 port다(platform/secrets#R5, extensions#R17). 값은 transmit callback의
+// secret 전송 부착 port다. 값은 transmit callback의
 // 인자로만 오고 결과에는 전송 여부뿐이다. provider 전송 부착과 같은 모양이다.
 export type McpSecretAttach = {
   send(
@@ -137,11 +137,11 @@ export type McpConnectionsDeps = {
   ): Promise<Result<StdioSpawn>>;
   // HTTP 연결 열기다. 테스트가 로컬 fake server fetch를 끼운다.
   fetch?: HttpFetch;
-  // HTTP 인증 비밀(bearer·api_key·secret_ref 헤더)의 전송 부착이다(R17). 값은 요청 하나를
+  // HTTP 인증 비밀(bearer·api_key·secret_ref 헤더)의 전송 부착이다. 값은 요청 하나를
   // 보내는 callback 안에서만 쥐고 연결·log·오류에 남지 않는다. 없으면 인증 비밀이 필요한
   // 서버에 요청을 보내지 않는다.
   secrets?: McpSecretAttach;
-  // 서버가 notifications/tools/list_changed를 보냈다(Q16). 조립이 그 server의
+  // 서버가 notifications/tools/list_changed를 보냈다. 조립이 그 server의
   // 도구 목록을 다시 읽을 때까지 새 호출을 막는다. 없으면 알림은 버려진다.
   onListChanged?(server: string): void;
 };
@@ -159,20 +159,20 @@ export type CallOutcome =
   | { kind: "no_connection"; code: string };
 
 export type McpConnections = {
-  // (assignment, server) 연결을 얻거나 만든다(R18). 다른 assignment에는
+  // (assignment, server) 연결을 얻거나 만든다. 다른 assignment에는
   // 별도 연결이 생긴다.
   acquire(
     assignment: string,
     server: McpServerConfig,
     signal: AbortSignal,
   ): Promise<Result<ConnectionView>>;
-  // 이 assignment의 도구 목록이다. 검증을 모두 지난 목록만 온다(R22).
+  // 이 assignment의 도구 목록이다. 검증을 모두 지난 목록만 온다.
   toolList(
     assignment: string,
     server: string,
   ): Promise<Result<ToolList>>;
   // 도구 호출이다. detach 뒤 새 호출은 not_executed이고 연결이 없으면
-  // no_connection이다(R20, R21).
+  // no_connection이다.
   call(
     assignment: string,
     server: string,
@@ -181,17 +181,17 @@ export type McpConnections = {
     signal: AbortSignal,
     timeoutMs: number,
   ): Promise<CallOutcome>;
-  // 뜻하지 않은 끊김 다시 연결이다(R20).
+  // 뜻하지 않은 끊김 다시 연결이다.
   reconnect(
     assignment: string,
     server: string,
   ): Promise<Result<ConnectionView>>;
   // 서버를 떼거나 설정을 회수했다. 새 호출을 막고 진행 호출에 취소를 요청한
-  // 뒤 연결을 닫는다(R21).
+  // 뒤 연결을 닫는다.
   detach(assignment: string, server: string): Promise<void>;
-  // assignment 사용이 끝났다. 이 assignment의 연결을 모두 닫는다(R18).
+  // assignment 사용이 끝났다. 이 assignment의 연결을 모두 닫는다.
   endAssignment(assignment: string): Promise<void>;
-  // 데몬 종료다(R18). 모든 연결을 닫는다.
+  // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;
   views(): readonly ConnectionView[];
 };
@@ -205,9 +205,9 @@ type Entry = {
   toolListHash: string | null;
   retryCount: 0 | 1 | 2 | 3;
   error: string | null;
-  // detach 뒤 새 호출을 막는다(R21).
+  // detach 뒤 새 호출을 막는다.
   acceptingCalls: boolean;
-  // 이미 전달하고 응답을 기다리는 요청이다(R20). 재전송 하지 않는다.
+  // 이미 전달하고 응답을 기다리는 요청이다. 재전송 하지 않는다.
   pending: Set<number>;
   nextId: number;
 };
@@ -216,7 +216,7 @@ function keyOf(assignment: string, server: string): string {
   return `${assignment}\0${server}`;
 }
 
-// assignment 사용이 끝나면 연결을 닫는다(R18). views는 사람용 진단이다.
+// assignment 사용이 끝나면 연결을 닫는다. views는 사람용 진단이다.
 type SecretHeader = {
   ref: string;
   headers(token: string): Record<string, string>;
@@ -309,7 +309,7 @@ export function createMcpConnections(
       return err({ code: "unavailable", message: "HTTP 연결 눈이 없다" });
     }
     const headers: Record<string, string> = {};
-    // 값이 필요한 헤더다. 값은 요청마다 전송 부착이 callback으로만 준다(R17).
+    // 값이 필요한 헤더다. 값은 요청마다 전송 부착이 callback으로만 준다.
     const secretHeaders: SecretHeader[] = [];
     for (const [name, value] of Object.entries(server.http.headers)) {
       if (value.kind === "value") headers[name] = value.value;
@@ -337,8 +337,8 @@ export function createMcpConnections(
           }).headers,
       });
     } else if (auth.kind === "oauth2") {
-      // 로그인 전에는 token 참조가 없다. 도구 호출이 막히도록 요청을 보내지 않는다(R16). 로그인한 서버는 설정이
-      // 가리키는 token 참조를 요청마다 부착으로 청한다: 교환·갱신은 이 연결이 아니라 core의 몫이고(R17) 갱신된
+      // 로그인 전에는 token 참조가 없다. 도구 호출이 막히도록 요청을 보내지 않는다. 로그인한 서버는 설정이
+      // 가리키는 token 참조를 요청마다 부착으로 청한다: 교환·갱신은 이 연결이 아니라 core의 몫이고 갱신된
       // 값도 다음 요청에 그대로 붙는다.
       if (auth.token_ref === null) {
         return err({ code: "forbidden", message: "로그인이 필요하다" });
@@ -358,8 +358,8 @@ export function createMcpConnections(
     }
     const closed: { done: boolean } = { done: false };
     const reverse = new TransformStream<{ id: unknown; method: string }>();
-    // HTTP 전송은 요청에 응답하는 단방향이므로 역방향 요청이 흐르지 않는다(R25).
-    // 자동 주입도 없다(R25). reverse stream은 빈 채로 닫힌다.
+    // HTTP 전송은 요청에 응답하는 단방향이므로 역방향 요청이 흐르지 않는다.
+    // 자동 주입도 없다. reverse stream은 빈 채로 닫힌다.
     let nextId = 1;
     const post: HttpFetch = fetch;
     const url = server.http.url;
@@ -390,7 +390,7 @@ export function createMcpConnections(
             },
             body: JSON.stringify(body),
             signal: requestSignal,
-            // 다른 origin으로 인증 헤더를 옮기지 않는다(R16).
+            // 다른 origin으로 인증 헤더를 옮기지 않는다.
             redirect: "manual",
           });
           if (response.status >= 300 && response.status < 400) {
@@ -451,7 +451,7 @@ export function createMcpConnections(
         return await request(method, params, requestSignal);
       },
       async notify() {
-        // Streamable HTTP의 알림은 응답 없는 POST다. 취소 알림은 close가 보낸다(R21).
+        // Streamable HTTP의 알림은 응답 없는 POST다. 취소 알림은 close가 보낸다.
       },
       reverseRequests() {
         return reverse.readable;
@@ -459,13 +459,13 @@ export function createMcpConnections(
       async close() {
         if (closed.done) return;
         closed.done = true;
-        // 역방향 요청이 흐르지 않으므로 stream을 닫는다(R25).
+        // 역방향 요청이 흐르지 않으므로 stream을 닫는다.
         await reverse.readable.cancel();
       },
     });
   }
 
-  // 연결 열기다. stdio는 deps.openStdio로, http는 openHttp로 연다(R13).
+  // 연결 열기다. stdio는 deps.openStdio로, http는 openHttp로 연다.
   async function openTransport(
     server: McpServerConfig,
     signal: AbortSignal,
@@ -479,7 +479,7 @@ export function createMcpConnections(
     }
     const env: Record<string, string> = {};
     for (const [name, value] of Object.entries(server.stdio.env)) {
-      // secret ref는 부착 경계에서 풀린다. 여기서는 결정된 값만 온다(R14).
+      // secret ref는 부착 경계에서 풀린다. 여기서는 결정된 값만 온다.
       if (value.kind !== "value") continue;
       env[name] = value.value;
     }
@@ -498,7 +498,7 @@ export function createMcpConnections(
   }
 
   // stdio transport다. 줄 단위 JSON-RPC다. 요청 id는 transport마다 센다.
-  // server 이름은 list_changed 알림을 조립에 알릴 때 쓴다(Q16).
+  // server 이름은 list_changed 알림을 조립에 알릴 때 쓴다.
   function stdioTransport(spawn: StdioSpawn, server: string): McpTransport {
     let nextRequestId = 1;
     const pending = new Map<
@@ -535,7 +535,7 @@ export function createMcpConnections(
               if (
                 typeof message.method === "string" && message.id !== undefined
               ) {
-                // 서버의 역방향 요청이다(R25).
+                // 서버의 역방향 요청이다.
                 const writer = reverse.writable.getWriter();
                 try {
                   await writer.write({
@@ -548,7 +548,7 @@ export function createMcpConnections(
                 continue;
               }
               // 서버의 알림이다. 도구 목록이 바뀌면 조립이 재조회할 때까지 그
-              // server의 새 호출을 막는다(Q16). 다른 알림은 버려진다.
+              // server의 새 호출을 막는다. 다른 알림은 버려진다.
               if (
                 typeof message.method === "string" && message.id === undefined
               ) {
@@ -589,7 +589,7 @@ export function createMcpConnections(
           }
         } catch { /* 끊긴 pipe다 */ }
         // pipe가 끊겼다다. 기다리던 요청은 응답이 오지 않는다. 재전송은
-        // reconnect가 결정하고(R20) 여기서는 답을 마쳐야 pending에 남지 않는다.
+        // reconnect가 결정하고 여기서는 답을 마쳐야 pending에 남지 않는다.
         for (const [, settle] of pending) {
           settle(err({ code: "unavailable", message: "pipe가 끊겼다" }));
         }
@@ -629,7 +629,7 @@ export function createMcpConnections(
             if (sent.done) return;
             sent.done = true;
             pending.delete(id);
-            // 이미 전달했을 수 있으므로 uncertain이다(R20).
+            // 이미 전달했을 수 있으므로 uncertain이다.
             resolve(err({ code: "unavailable", message: "중단됐다" }));
           };
           if (signal.aborted) onAbort();
@@ -651,7 +651,7 @@ export function createMcpConnections(
     };
   }
 
-  // 도구 목록 한 page를 읽고 검증한다(R22).
+  // 도구 목록 한 page를 읽고 검증한다.
   function toolReason(tool: unknown): string | null {
     if (tool === null || typeof tool !== "object") {
       return "tool이 객체가 아니다";
@@ -665,7 +665,7 @@ export function createMcpConnections(
       record["description"] !== null &&
       record["description"] !== undefined
     ) return "tool 설명이 문자열이 아니다";
-    // JSON Schema 객체다. 원격 $ref는 없다(R22: 원격 fetch 금지).
+    // JSON Schema 객체다. 원격 $ref는 없다(원격 fetch 금지).
     const schema = record["inputSchema"];
     if (
       schema === null || typeof schema !== "object" || Array.isArray(schema)
@@ -695,7 +695,7 @@ export function createMcpConnections(
     async acquire(assignment, server, signal) {
       const key = keyOf(assignment, server.name);
       const existing = entries.get(key);
-      // 같은 assignment의 연결이 살아 있으면 같은 연결을 쓴다(R18).
+      // 같은 assignment의 연결이 살아 있으면 같은 연결을 쓴다.
       if (existing !== undefined && existing.state === "connected") {
         // 설정 판이 바뀌면 옛 연결을 쓰지 않는다(domain model).
         if (existing.server.revision === server.revision) {
@@ -725,7 +725,7 @@ export function createMcpConnections(
         deadlineSignal.abort();
         return ok(view(entry));
       }
-      // 인증 거절에는 자동 재연결하지 않는다(R20).
+      // 인증 거절에는 자동 재연결하지 않는다.
       entry.state = connected.error.code === "forbidden"
         ? "failed_auth"
         : "failed_temporary";
@@ -751,18 +751,18 @@ export function createMcpConnections(
         return { kind: "no_connection", code: "no_connection" };
       }
       if (!entry.acceptingCalls) {
-        // detach 뒤 새 호출이다. 서버에 닿지 않는다(R21).
+        // detach 뒤 새 호출이다. 서버에 닿지 않는다.
         return { kind: "not_executed", code: "configuration_revoked" };
       }
       if (entry.state !== "connected" || entry.transport === null) {
-        // 연결이 살아 있지 않으면 서버에 닿지 않는다(R20).
+        // 연결이 살아 있지 않으면 서버에 닿지 않는다.
         return { kind: "no_connection", code: "no_connection" };
       }
       const transport = entry.transport;
       const id = entry.nextId++;
       entry.pending.add(id);
       const hard = new AbortController();
-      // 기한은 progress로 늘지 않는다(R19). 전달 뒤 기한 초과는 uncertain이다(R19).
+      // 기한은 progress로 늘지 않는다. 전달 뒤 기한 초과는 uncertain이다.
       const timer = deps.deadline(timeoutMs, hard.signal);
       void timer.then((how) => {
         if (how === "elapsed") hard.abort();
@@ -792,7 +792,7 @@ export function createMcpConnections(
             outcome = { kind: "success", result: response.value };
           }
         } else {
-          // 이미 전달했을 수 있으므로 모두 uncertain이다(R19, R20).
+          // 이미 전달했을 수 있으므로 모두 uncertain이다.
           outcome = { kind: "uncertain", message: response.error.message };
         }
       } finally {
@@ -808,14 +808,14 @@ export function createMcpConnections(
       if (entry === undefined) {
         return err({ code: "not_found", message: "연결이 없다" });
       }
-      // 인증 거절에는 자동 재연결하지 않는다(R20).
+      // 인증 거절에는 자동 재연결하지 않는다.
       if (entry.state === "failed_auth") {
         return err({
           code: "forbidden",
           message: "인증 거절이다. 다시 로그인해야 한다",
         });
       }
-      // 최대 세 번이다(R20). 네 번째는 시도하지 않는다.
+      // 최대 세 번이다. 네 번째는 시도하지 않는다.
       if (entry.retryCount >= 3) {
         return err({
           code: "unavailable",
@@ -827,7 +827,7 @@ export function createMcpConnections(
       const stall = new AbortController();
       await deps.wait(ms, stall.signal);
       stall.abort();
-      // 시도는 성공·실패와 무관하게 센다(R20: 1·2·4초 세 번).
+      // 시도는 성공·실패와 무관하게 센다(1·2·4초 세 번).
       entry.retryCount = (entry.retryCount + 1) as 0 | 1 | 2 | 3;
       entry.state = "connecting";
       entry.acceptingCalls = true;
@@ -873,7 +873,7 @@ export function createMcpConnections(
     },
   };
 
-  // 한 번의 연결+initialize다(R19). 합산 30초 기한이다.
+  // 한 번의 연결+initialize다. 합산 30초 기한이다.
   async function connectOnce(
     entry: Entry,
     deadlineSignal: AbortSignal,
@@ -896,7 +896,7 @@ export function createMcpConnections(
       );
       if (!init.ok) {
         // 인증 거절은 transport가 err code로 옮긴다. HTTP 401은 unavailable로
-        // 감싸서 온다. 여기서 실패 이유를 구별한다(R20).
+        // 감싸서 온다. 여기서 실패 이유를 구별한다.
         const authFailed = init.error.code === "forbidden" ||
           init.error.message.includes("401");
         await transport.close();
@@ -919,7 +919,7 @@ export function createMcpConnections(
     }
   }
 
-  // 전체 tools/list page다(R22). 모든 page를 받아 검증한 뒤에만 목록을 준다.
+  // 전체 tools/list page다. 모든 page를 받아 검증한 뒤에만 목록을 준다.
   async function listAll(entry: Entry): Promise<Result<ToolList>> {
     const transport = entry.transport;
     if (transport === null) {
@@ -966,13 +966,13 @@ export function createMcpConnections(
           }
           const reason = toolReason(tool);
           if (reason !== null) {
-            // 잘못된 tool 하나면 그 서버 목록 전체를 내지 않는다(R22).
+            // 잘못된 tool 하나면 그 서버 목록 전체를 내지 않는다.
             return err({ code: "invalid_input", message: reason });
           }
           const record = tool as Record<string, unknown>;
           const name = record["name"] as string;
           if (seenNames.has(name)) {
-            // 중복 원래 이름이다(R22).
+            // 중복 원래 이름이다.
             return err({
               code: "invalid_input",
               message: "중복 tool 이름이다",
@@ -1004,7 +1004,7 @@ export function createMcpConnections(
           });
         }
         if (seenCursors.has(next)) {
-          // 반복 cursor다(R22). 목록 전체를 내지 않는다.
+          // 반복 cursor다. 목록 전체를 내지 않는다.
           return err({ code: "invalid_input", message: "반복 cursor다" });
         }
         seenCursors.add(next);
@@ -1024,13 +1024,13 @@ export function createMcpConnections(
     return ok({ tools, hash, protocol_version: entry.protocolVersion ?? "" });
   }
 
-  // 떼기다(R21). 새 호출을 막고 진행 호출에 취소를 알린 뒤 닫는다.
+  // 떼기다. 새 호출을 막고 진행 호출에 취소를 알린 뒤 닫는다.
   async function closeEntry(entry: Entry) {
     if (!entry.acceptingCalls) return;
     entry.acceptingCalls = false;
     const transport = entry.transport;
     if (transport !== null) {
-      // 진행 호출에 MCP 취소를 요청한다(R21).
+      // 진행 호출에 MCP 취소를 요청한다.
       for (const id of entry.pending) {
         await transport.notify("notifications/cancelled", {
           requestId: id,

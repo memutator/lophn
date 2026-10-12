@@ -17,7 +17,7 @@ const ID = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const CONCERN = /^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)+$/;
 const DECISION = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 const NONBLANK = /\S/;
-// 공백만이 아닌 한 줄(problems/closing#R8).
+// 공백만이 아닌 한 줄.
 const ONE_LINE = /^[^\r\n]*\S[^\r\n]*$/;
 
 function prefixed(prefix: string) {

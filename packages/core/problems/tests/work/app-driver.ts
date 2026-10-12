@@ -1,4 +1,4 @@
-// runner가 쥐는 실제 AppDriver다(problems/tests#R6–R9, R15). 봉인 bundle 사본을 운영 앱 자식과 같은 Deno
+// runner가 쥐는 실제 AppDriver다. 봉인 bundle 사본을 운영 앱 자식과 같은 Deno
 // flag·진입점·시작 입력(mode=test)으로 띄우고, 서명한 direct 요청으로 command를 부르고, 앱의 SDK 보고가
 // 오는 broker socket을 직접 연다. test 자식(harness)은 이 driver를 private 호출 통로로만 만진다.
 //

@@ -59,7 +59,7 @@ export const registerProvider = defineCommand({
   errors: [...userErrors],
 });
 
-// Disconnect는 provider와 credential(secret)을 함께 지우므로 사람이 확인 창을 거쳐 결정한다(provider#R6).
+// Disconnect는 provider와 credential(secret)을 함께 지우므로 사람이 확인 창을 거쳐 결정한다.
 export const disconnectProvider = defineCommand({
   resource: "providers",
   method: "disconnect",

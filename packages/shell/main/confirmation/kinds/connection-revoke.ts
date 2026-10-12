@@ -1,4 +1,4 @@
-// coding agent 연결 회수(coding-agent#T40, coding-agent/connection#R2). CLI는 창을 열지 않고 결정 화면 링크만
+// coding agent 연결 회수. CLI는 창을 열지 않고 결정 화면 링크만
 // 낸다. 사람이 연결 화면에서 [Revoke]를 누르면 이 종류가 연결의 현재 판을 `ShowCodingAgentConnection`으로
 // 독립해 다시 읽어 정본을 만든다. 표시와 제출은 같은 정본(연결·base_revision)에 묶이고 renderer가 보낸 값은
 // 쓰지 않는다. 다른 연결·낡은 판·닫힌 창의 handle은 core가 거절한다. 회수는 결정 자체가 적용이다.

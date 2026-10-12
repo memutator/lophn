@@ -1,4 +1,4 @@
-// release 준비의 git extract(apps/releases#R2). 연결된 실제 source 경계에서 지정한
+// release 준비의 git extract. 연결된 실제 source 경계에서 지정한
 // commit의 tree object만 읽는다. working tree 변경·uncommitted 파일·symlink 자체·
 // git 관리 정보·개발 credential·agent 도구·임시 설정은 bundle에 넣지 않는다.
 // git 권한은 source 경계의 read뿐이다(architecture/apps 2.1). argv 배열만 쓰고 shell은 쓰지 않는다.
@@ -30,7 +30,7 @@ export type GitRunner = {
 };
 
 export type ExtractInput = {
-  // 연결된 실제 source 경계(app.source_path). 밖의 경로는 거절이다(R2).
+  // 연결된 실제 source 경계(app.source_path). 밖의 경로는 거절이다.
   sourceRoot: string;
   // 완전한 40-hex commit ID다. 단축 hash는 받지 않는다.
   commit: string;
@@ -158,7 +158,7 @@ export function parsePorcelain(output: string): string[] {
   return parseStatusRecords(output).map((record) => record.path);
 }
 
-// commit과 working tree가 다르면 거절이다(R2). tracked 변경은
+// commit과 working tree가 다르면 거절이다. tracked 변경은
 // working_tree_changed, untracked(uncommitted) 파일은 uncommitted_file이다.
 async function rejectDirtyTree(
   git: GitRunner,

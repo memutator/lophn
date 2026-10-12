@@ -205,7 +205,7 @@ function LinePlot(
   );
 }
 
-// 시계열 선 차트. 선은 2px이고 tooltip은 그 시각의 모든 계열을 읽는 십자선이다(shell/design-system#R13).
+// 시계열 선 차트. 선은 2px이고 tooltip은 그 시각의 모든 계열을 읽는 십자선이다.
 export function LineChart(
   {
     x,

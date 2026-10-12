@@ -34,7 +34,7 @@ export const OMISSION_REASONS = [
 ] as const;
 export type OmissionReason = typeof OMISSION_REASONS[number];
 
-// 단독 `*`와 구간 중간 `*`는 원값 경로가 아니다(platform/redaction#R11).
+// 단독 `*`와 구간 중간 `*`는 원값 경로가 아니다.
 export const FIELD_PATH_PATTERN =
   /^(?!\*)[A-Za-z_][A-Za-z0-9_]*(?:\[[0-9]+\]|\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
@@ -59,7 +59,7 @@ export type RedactionInput = {
   private_fields: FieldPath[];
 };
 
-// 검출한 값·길이·원문 일부를 담지 않는다(platform/redaction#R6, R7, R17).
+// 검출한 값·길이·원문 일부를 담지 않는다.
 export type RedactedItem = {
   location: string;
 };

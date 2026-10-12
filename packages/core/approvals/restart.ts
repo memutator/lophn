@@ -7,7 +7,7 @@ import type { RestartObservation } from "../storage/migration/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { deadlineReached } from "./model.ts";
 
-// 허락됐지만 적용되지 않은 request는 가장 최근 것부터 이만큼만 본다. 전체 표 scan을 기다리지 않는다(R15).
+// 허락됐지만 적용되지 않은 request는 가장 최근 것부터 이만큼만 본다. 전체 표 scan을 기다리지 않는다.
 export const RESTART_GRANTED_LIMIT = 200;
 
 function seqText(value: unknown): string {
@@ -55,7 +55,7 @@ export function observeApprovals(
         return {
           target: id,
           baseSeq: seqText(row["closed_seq"]),
-          // 허락은 저장됐지만 소유 접수·변경이 아직 없다. 적용 성공으로 보지 않는다(R9).
+          // 허락은 저장됐지만 소유 접수·변경이 아직 없다. 적용 성공으로 보지 않는다.
           outcome: "not_started",
           evidence: [
             `approval_requests:${id}:granted`,

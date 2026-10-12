@@ -1,5 +1,5 @@
 // [Change]가 줄 아래에 여는 editor. 연결된 provider의 model 목록에서 하나를 고르고, 고른 model의 option 축을
-// 고른다. 목록과 축은 catalog가 준 것을 받은 순서대로 그린다(lophn-agent/harness/model#R8·R21).
+// 고른다. 목록과 축은 catalog가 준 것을 받은 순서대로 그린다.
 // 다른 model을 고르면 앞 model의 option 값은 버리고 새 model의 기본값으로 시작한다.
 import { useState } from "react";
 import type { KeyboardEvent } from "react";

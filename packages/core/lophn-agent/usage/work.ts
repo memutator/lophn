@@ -44,7 +44,7 @@ export function createUsageRebuilder(options: {
   };
 }
 
-// 재계산된 합계. read handler와 같은 근원에서 모은다(Q28). group 기간은
+// 재계산된 합계. read handler와 같은 근원에서 모은다. group 기간은
 // 기록에서 모은다. 기록이 하나도 없으면 1970 기준 폐구간이다.
 export function buildTotals(
   records: readonly ModelCallRecord[],
@@ -52,7 +52,7 @@ export function buildTotals(
     epochMs?: number;
   } = {},
 ): UsageTotal {
-  // call마다 한 번만 센다(R10). distinct model call id다.
+  // call마다 한 번만 센다. distinct model call id다.
   const seen = new Set<string>();
   let duplicates = 0;
   for (const record of records) {
@@ -172,7 +172,7 @@ function sumCosts(list: readonly ModelCallRecord[]): UsageTotal["costs"] {
     if (found.amount !== null && cost.amount !== null) {
       found.amount = decimalSum(found.amount, cost.amount);
     } else {
-      // 하나라도 모르면 그 묶음 금액은 모름이다(R6). 0으로 채우지 않는다.
+      // 하나라도 모르면 그 묶음 금액은 모름이다. 0으로 채우지 않는다.
       found.amount = null;
     }
   }

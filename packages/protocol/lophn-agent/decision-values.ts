@@ -31,7 +31,7 @@ export const answerSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-// 요청의 답. 자유 답은 글을 값으로 싣고 core가 blob으로 준비한다(Q38). 저장·event·record의
+// 요청의 답. 자유 답은 글을 값으로 싣고 core가 blob으로 준비한다. 저장·event·record의
 // 답(answerSchema)은 그 blob의 hash를 가리킨다.
 export const optionAnswerInputSchema = z.strictObject({
   kind: z.literal("option"),
@@ -55,7 +55,7 @@ export type QuestionActionEvidence = z.infer<
   typeof questionActionEvidenceSchema
 >;
 
-// 묶음 전체가 명시 Submit·Skip·취소·만료의 대상이다(questions#R6). 질문 하나만 따로 닫지 않는다.
+// 묶음 전체가 명시 Submit·Skip·취소·만료의 대상이다. 질문 하나만 따로 닫지 않는다.
 export const questionGroupRefSchema = z.strictObject({
   group: idSchema("qgr"),
   created_seq: seqSchema,

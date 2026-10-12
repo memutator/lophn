@@ -7,8 +7,8 @@ import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { ASSIGNMENT_COLUMNS, recordOf, rowOf } from "./model.ts";
 
 // assignment read는 읽힌 자체를 화면 값으로 준다. 현재 run 상태·진행은
-// lophn-agent/harness/run-loop의 run read다(R3). withdrawn도 과거 기록을
-// 그대로 돌려준다(R9, R16).
+// lophn-agent/harness/run-loop의 run read다. withdrawn도 과거 기록을
+// 그대로 돌려준다.
 
 const PAGE = 50;
 

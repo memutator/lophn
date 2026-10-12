@@ -41,7 +41,7 @@ export interface LophnSpaceProps {
   source: LophnSource;
   /** projects 화면의 정리 통로. 없으면 projects는 준비 전 안내다. */
   organize?: OrganizeSource;
-  /** 처음 보일 형제. 없으면 documents다(desktop#R1). */
+  /** 처음 보일 형제. 없으면 documents다. */
   screen?: LophnScreen;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
@@ -137,7 +137,7 @@ export function LophnSpace(
     };
   }, [source, palette.available]);
 
-  // 창 팔레트의 lophn 공간 행(desktop#R30). 고르면 지금 탐색 대상으로만 간다.
+  // 창 팔레트의 lophn 공간 행. 고르면 지금 탐색 대상으로만 간다.
   usePaletteScope(() =>
     lophnScope({
       catalog,

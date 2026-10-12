@@ -1,6 +1,6 @@
-// 앱 화면 검사 host client(problems/tests#R7, R19). runner가 shell이 설치한 host 실행 파일을
+// 앱 화면 검사 host client. runner가 shell이 설치한 host 실행 파일을
 // `--app-screen-test`로 child로 띄우고 상속 fd 3의 JSON lines로 입력 한 줄을 주고 관측 한 줄을
-// 받는다(shell#T46). host는 사람 token·core 연결 없이 임시 userData·메모리 partition·offscreen으로
+// 받는다. host는 사람 token·core 연결 없이 임시 userData·메모리 partition·offscreen으로
 // 돈다. 여기서도 core·collector 주소와 credential, 실제 HOME을 child 환경에 주지 않는다.
 // exit 0과 contract schema·frame 상한 안의 관측 한 줄일 때만 관측이다. exit 2·3·4, 기한, 잘못된
 // 관측은 판정 불가이고 실행 파일을 띄울 수 없으면 unavailable이다. stdout은 판정에 쓰지 않는다.
@@ -18,7 +18,7 @@ import {
 } from "../../../../protocol/shell/mod.ts";
 import type { ScreenHostResult } from "../app-test/screens.ts";
 
-// 관측 frame 상한. host도 같은 값으로 자른다(shell#T46).
+// 관측 frame 상한. host도 같은 값으로 자른다.
 export const SCREEN_OBSERVATION_MAX_BYTES = 65_536;
 // host가 스스로 끝나는 기한(deadline_ms) 뒤에 runner가 더 기다리는 여유.
 export const SCREEN_HOST_GRACE_MS = 30_000;

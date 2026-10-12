@@ -1,4 +1,4 @@
-// 내부 trace 이름. invocation ID와 구별하고 64자까지만 받는다(apps/sdk#R28).
+// 내부 trace 이름. invocation ID와 구별하고 64자까지만 받는다.
 export const TRACE_NAME_MAX_CHARS = 64;
 
 export function traceName(name: string): string {

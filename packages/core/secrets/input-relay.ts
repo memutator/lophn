@@ -1,4 +1,4 @@
-// 보호 입력의 core 쪽 길(platform/secrets#R1, R2, 계획 Q7). 사람의 보호 입력창이 보낸 값의
+// 보호 입력의 core 쪽 길(계획 Q7). 사람의 보호 입력창이 보낸 값의
 // 바이트는 `/v1/secrets/input` upload route로 와서 이 중계를 지나 I/O worker의 `secret.prepare`
 // pipe로만 간다. 지키는 것:
 // - core는 값을 해석·hash·보관하지 않는다. 받은 chunk를 그대로 worker로 넘기고 이어 붙이지

@@ -13,9 +13,9 @@ import {
 } from "./skills.ts";
 
 // 동기 skill 목록(concern lophn-agent/extensions). agents read와 `/` 메뉴는 동기 handler라 비동기 발견
-// (`discoverSkills`, run 준비가 쓴다)을 기다릴 수 없다. 같은 규칙(R1~R3)을 동기 port 위에서 한 번 더 구현하고
+// (`discoverSkills`, run 준비가 쓴다)을 기다릴 수 없다. 같은 규칙을 동기 port 위에서 한 번 더 구현하고
 // 두 구현이 같은 목록을 내는지는 시험이 지킨다. 본문 hash·보조 자료는 만들지 않는다: 이 목록은 이름과 설명,
-// 출처만 보이고 run은 시작할 때 비동기 발견으로 다시 고정한다(R8).
+// 출처만 보이고 run은 시작할 때 비동기 발견으로 다시 고정한다.
 
 // 폴더·파일을 동기로 보는 눈이다. 없으면 null이고 그 밖의 실패는 던진다. symlink는 따라가지 않는다.
 export type SyncSkillFiles = {
@@ -107,7 +107,7 @@ export function listSkillsSync(
     });
   };
 
-  // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다(R1, R3).
+  // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
   // 자리·개인·동봉 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
   const scanFolder = (
     container: string,
@@ -163,7 +163,7 @@ export function listSkillsSync(
 
   if (sources.place !== null) scanFolder(sources.place, "place", false);
   for (const root of sources.registered) {
-    // 등록 폴더 자신이 꾸러미일 수 있다(R1).
+    // 등록 폴더 자신이 꾸러미일 수 있다.
     addBundle(root, "registered");
     scanFolder(root, "registered", true);
   }

@@ -104,7 +104,7 @@ export type UploadHandler = (
 ) => Promise<Result<unknown>>;
 
 // file·worker route가 등록된 worker kind의 감독 pipe로 넘기는 통로. 준비 여부·기한·응답
-// 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다(platform#T12).
+// 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다.
 export type WorkerRouteTarget = {
   forward(
     request: WorkerRequest,
@@ -448,7 +448,7 @@ async function sendCommand(
 ): Promise<HttpResult> {
   const result = await writer.command(ctx, envelope);
   if (!result.ok) return rejected(result.error);
-  // 성공은 등록된 결과 객체를 그대로 200으로 낸다. 추가 포장은 없다(platform/api#R3).
+  // 성공은 등록된 결과 객체를 그대로 200으로 낸다. 추가 포장은 없다.
   const output = route.output.safeParse(result.value.result);
   if (!output.success) {
     return rejected(asInternalError(new Error("command output")));
@@ -614,7 +614,7 @@ export function validMediaType(value: unknown): value is string {
 }
 
 // file route와 같은 길이다. worker route의 JSON 결과·공통 오류는 envelope를 벗기지 않고
-// route 등록 schema로 검사한 뒤 그대로 200·공통 상태로 낸다(platform/api#R3).
+// route 등록 schema로 검사한 뒤 그대로 200·공통 상태로 낸다.
 async function worker(
   route: WorkerRoute,
   value: unknown,
@@ -642,7 +642,7 @@ async function worker(
         message: "사람 결정 확인을 사용할 수 없다",
       });
     }
-    // 소비는 넘기기 전이다. 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다(ledger#R22).
+    // 소비는 넘기기 전이다. 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다.
     const consumed = await consumeRouteConfirmation(
       deps.confirmation,
       route,
@@ -728,7 +728,7 @@ function validBytesPayload(
 }
 
 // worker 오류는 코드만 믿고 message·details는 버린다. worker 문장이 caller에게 새지 않는다
-// (platform/api#R4, platform/redaction). 코드별 안전한 고정 message로 바꾼다.
+// (platform/redaction). 코드별 안전한 고정 message로 바꾼다.
 const WORKER_ERROR_MESSAGES: Record<ErrorCode, string> = {
   invalid_input: "입력이 계약과 다르다",
   unauthorized: "credential이 필요하다",

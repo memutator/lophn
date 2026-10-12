@@ -26,7 +26,7 @@ function choiceOf(
   };
 }
 
-// 처음 값은 모든 slot이 null이고 seq는 "0"이다(R9). 줄이 있는 slot 가운데 가장 큰 seq가 현재 seq다.
+// 처음 값은 모든 slot이 null이고 seq는 "0"이다. 줄이 있는 slot 가운데 가장 큰 seq가 현재 seq다.
 export function loadDefaults(sql: Query): ModelDefaults {
   const defaults: ModelDefaults = {
     lophn: null,
@@ -57,7 +57,7 @@ export function loadDefaults(sql: Query): ModelDefaults {
   return defaults;
 }
 
-// agent의 Workspace 층이 쓰는 값이다(lophn-agent/agents R9): 역할 slot에 고른 선택만 남기고 비운 slot과
+// agent의 Workspace 층이 쓰는 값이다: 역할 slot에 고른 선택만 남기고 비운 slot과
 // 요약용 slot은 뺀다.
 export function workspaceModels(
   defaults: ModelDefaults,

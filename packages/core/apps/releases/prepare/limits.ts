@@ -1,5 +1,5 @@
-// release 준비 상한(apps/releases#R3, R19). 값은 contracts의 상수 하나다.
-// 상한 초과는 부분 bundle을 만들지 않고 실패 이유만 남긴다(R19).
+// release 준비 상한. 값은 contracts의 상수 하나다.
+// 상한 초과는 부분 bundle을 만들지 않고 실패 이유만 남긴다.
 import {
   RELEASE_BUNDLE_MAX_BYTES,
   RELEASE_FILE_MAX_COUNT,

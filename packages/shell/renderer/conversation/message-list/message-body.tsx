@@ -1,4 +1,4 @@
-// Agent 화면 대화 줄 안의 본문(shell/desktop#R40). 확정 메시지 본문을 읽은 결과를 글과 시각 블록으로
+// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 시각 블록으로
 // 보이고, 사람 말 아래에 접수 표시와 전달 상태의 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
 import { IconButton, Tooltip } from "@lophn/design/components";
@@ -52,7 +52,7 @@ export function MessageBody(
   { message, body, fallback, visuals }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
-    // 시각 블록은 본문 순서 그대로 글 사이 자리에 그린다(shell/workspace#R12).
+    // 시각 블록은 본문 순서 그대로 글 사이 자리에 그린다.
     return (
       <div className={styles.body} data-body="ready">
         {body.parts.map((part, index) =>

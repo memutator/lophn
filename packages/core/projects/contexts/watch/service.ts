@@ -1,5 +1,5 @@
 // 활성 context의 계약 경로가 든 폴더를 core가 `Deno.watchFs`로 보고, 바뀌면 그 context의 index를 따라잡게
-// 한다(docs/architecture/documents.md 3.2 "따라잡기", 7.4, documents/contexts#R23). 사람이 열지 않아도 위반이
+// 한다(docs/architecture/documents.md 3.2 "따라잡기", 7.4). 사람이 열지 않아도 위반이
 // 늘면 알리려는 것이 전부라 신호는 힌트일 뿐이다: 변화 목록·이력·event·화면 상태를 만들지 않고, 놓쳐도 다음
 // 검색·열기의 훑기가 따라잡는다.
 //

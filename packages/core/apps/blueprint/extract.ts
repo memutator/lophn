@@ -1,4 +1,4 @@
-// TypeScript blueprint 값 추출(apps/blueprint#R17). core·supervisor 밖 권한 없는
+// TypeScript blueprint 값 추출. core·supervisor 밖 권한 없는
 // Deno 자식에서 최대 10초 수행한다. release에는 정규 JSON을 고정한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { BLUEPRINT_EXTRACT_LIMIT_MS } from "../../../protocol/apps/mod.ts";
@@ -19,7 +19,7 @@ export type ExtractedBlueprint = {
   hashInput: string;
 };
 
-// 추출 자식 상한. 이 안에 끝내지 못하면 SIGKILL이다(R17).
+// 추출 자식 상한. 이 안에 끝내지 못하면 SIGKILL이다.
 export { BLUEPRINT_EXTRACT_LIMIT_MS as EXTRACT_CHILD_LIMIT_MS };
 
 const CHILD = new URL("./extract-child.ts", import.meta.url);

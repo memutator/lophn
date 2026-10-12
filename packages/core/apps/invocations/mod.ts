@@ -1,5 +1,5 @@
 // mod.ts는 runtime-facing 자리다. 앱 runtime이 부르는 cap-schedule host port와 후행 기록 사실의
-// 모양·규칙만 내보낸다(sdk/cap-schedule#R5, platform/responsiveness#R1). 모두 Zod 없이 순수하다.
+// 모양·규칙만 내보낸다. 모두 Zod 없이 순수하다.
 // ledger 조립은 commands.ts·reads.ts·schema.ts·store.ts를 직접 부르고, 전달 목록은 delivery/를 부른다.
 export {
   COMMAND_REJECTION,

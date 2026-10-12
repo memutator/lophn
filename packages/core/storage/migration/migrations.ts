@@ -9,7 +9,7 @@ export type MigrationDeps = {
   clock: Clock;
   // 없으면 복구본을 만들지 않는다(테스트 harness가 쓴다). 있으면 미적용 step이
   // 있을 때 변환 전 schema가 있으면 반드시 만들고 무결성 검사를 통과한 뒤에만
-  // 변환을 시작한다(R3). 변환 전 schema 0인 새 설치는 복구본 대상이 없다.
+  // 변환을 시작한다. 변환 전 schema 0인 새 설치는 복구본 대상이 없다.
   recovery?: {
     // 복구본 폴더의 밑. <root>/backups/migrations/ 밑으로 둔다.
     root: string;
@@ -119,7 +119,7 @@ export async function applyMigrations(
       // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
       recorded.length > 0
     ) {
-      // 복구본은 변환 전 schema 순번과 시각을 name에 넣는다(R3).
+      // 복구본은 변환 전 schema 순번과 시각을 name에 넣는다.
       const stamp = recoveryStamp(deps.clock.now());
       if (!stamp.ok) return stamp;
       const recovery = await createRecoveryCopy(path, {
@@ -127,7 +127,7 @@ export async function applyMigrations(
         schemaVersion: recorded.length,
         stamp: stamp.value,
       });
-      // 복구본 만들기나 검사가 실패하면 원본을 변환하지 않고 시작을 거절한다(R3).
+      // 복구본 만들기나 검사가 실패하면 원본을 변환하지 않고 시작을 거절한다.
       if (!recovery.ok) return recovery;
     }
     for (let index = recorded.length; index < steps.length; index++) {
@@ -139,7 +139,7 @@ export async function applyMigrations(
       );
       if (!applied.ok) return applied;
     }
-    // 완료 뒤 FK·무결성·불변 보호를 검사한다(R5). 실패면 원본이 이미 rollback됐다.
+    // 완료 뒤 FK·무결성·불변 보호를 검사한다. 실패면 원본이 이미 rollback됐다.
     const verified = verifyMigrated(connection.sql, {
       guarded: guardedTables(steps),
     });

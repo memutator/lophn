@@ -29,7 +29,7 @@ export function createReaderRegistration(): ReaderRegistration {
   };
 }
 
-// `subjects` 필터의 범위 판정(platform/api#R5, identity#R8). 어떤 subject를 볼 수 있는지는
+// `subjects` 필터의 범위 판정. 어떤 subject를 볼 수 있는지는
 // event마다 owner의 공개 정책이 정한다. 필터는 정책을 지난 event 위에서만 걸리므로, 볼 수 없는
 // subject는 event가 없는 subject와 똑같이 빈 batch와 같은 `scanned_through_seq`로 답한다.
 // 그래서 여기서 subject별로 거절하지 않는다. 거절하면 "있지만 못 본다"와 "없다"가 갈리고

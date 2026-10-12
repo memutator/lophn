@@ -1,4 +1,4 @@
-// core가 직접 돌리는 구독자(machine principal)가 event를 받는 길(platform/api#R5, ledger#R15).
+// core가 직접 돌리는 구독자(machine principal)가 event를 받는 길.
 // 바깥 구독자와 같은 session(createEventSession)을 쓰되 WebSocket 대신 함수 sink를 둔다.
 // 그래서 같은 events/list 읽기를 지나고, 현재 credential 재검사와 event 공개 정책(owner)을
 // 그대로 받는다. 이 구독자의 자격은 ledger에 기록된 core 내부 machine credential이다.

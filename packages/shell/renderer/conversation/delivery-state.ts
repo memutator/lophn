@@ -1,6 +1,6 @@
-// 보낸 말 하나의 전달 상태(shell/desktop#R8). 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
+// 보낸 말 하나의 전달 상태. 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
-// 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다(lophn-agent/conversation#R2).
+// 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다.
 import type { TextContent } from "./agent-source.ts";
 
 export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
@@ -94,7 +94,7 @@ export function composerLocked(outgoing: Outgoing | null): boolean {
  */
 export const MESSAGE_TEXT_MAX_BYTES = 65536;
 
-/** 보낼 본문 값. 글 part 하나다. hash와 blob은 core가 만든다(lophn-agent Q29). */
+/** 보낼 본문 값. 글 part 하나다. hash와 blob은 core가 만든다. */
 export function textContent(text: string): TextContent {
   return { schema_version: 1, parts: [{ kind: "text", text }] };
 }

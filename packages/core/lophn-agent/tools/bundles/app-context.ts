@@ -142,7 +142,7 @@ export type ScreenReadPlan = {
 };
 
 // 선언한 화면의 read command로 조회할 수 있는지. 선언하지 않은 화면·read가 아닌 command·사람 확인을 요구하는
-// command·허락 없는 command는 같은 답이다(R18).
+// command·허락 없는 command는 같은 답이다.
 export function planScreenRead(
   scope: AgentAppScope,
   state: AppContextState,

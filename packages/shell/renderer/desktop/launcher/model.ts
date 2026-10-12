@@ -5,7 +5,7 @@ import type { FolderDraft, ProjectCard } from "./source.ts";
 export const SHORT_NAME_MAX = 63;
 const FALLBACK_NAME = "project";
 
-/** 카드의 상태 한 줄. 사람이 지금 알아야 할 것 하나만 고른다(documents/projects#R8). */
+/** 카드의 상태 한 줄. 사람이 지금 알아야 할 것 하나만 고른다. */
 export type CardStatus = "tracking" | "not-tracking" | "no-folder";
 
 export function cardStatus(card: ProjectCard): CardStatus {

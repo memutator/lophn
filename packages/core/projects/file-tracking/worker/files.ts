@@ -1,4 +1,4 @@
-// coordinator의 사람 파일 쓰기 처리(file-tracking#R1, R2, R11, R15, R17). core가 user 자격을
+// coordinator의 사람 파일 쓰기 처리. core가 user 자격을
 // 확인하고 바이트를 먼저 보낸 요청을 받아, 목표를 실제 root와 경로로 풀고(범위 밖은 없는
 // 것과 같은 invalid_input), 준비 worker pool에 맡기고, 성공한 작업을 machine credential의
 // `file.record_result`로 기록한다. 파일 결과·기록 결과·version 결과는 따로 낸다: 뒤 단계의
@@ -45,7 +45,7 @@ export type FilesDeps = {
   ): Promise<Result<FileOperationResult, LophnError>>;
   // core에 byte chunk frame을 보낸다(파일 창). 보내지 못하면 던진다.
   sendBytes(channel: number, bytes: Uint8Array): Promise<void>;
-  // 지침 파일에 쓴 직후 그 파일을 바로 다시 관측하게 한다(file-tracking#R19, R20).
+  // 지침 파일에 쓴 직후 그 파일을 바로 다시 관측하게 한다.
   nudge?(path: string): void;
   nowIso(): string;
   watchWaitMs?: number;
@@ -185,7 +185,7 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
         }
       }
       // project 파일의 판은 관측 loop가 만든다. 관측 root가 아닌 폴더(tracking을 끈 project)는
-      // 관측하지 않으니 판 요청에 기다릴 판이 없다(Q28).
+      // 관측하지 않으니 판 요청에 기다릴 판이 없다.
       const versionResultOf = (requested: boolean) =>
         !requested
           ? "not_requested" as const

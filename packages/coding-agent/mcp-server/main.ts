@@ -1,7 +1,7 @@
 // lophn-mcp의 실행 entry다(code-map). 조립만 하고 업무 규칙을 두지 않는다.
 // stdin/stdout으로 stdio transport를 열고, credential provider는 helper loader
 // 자리다(coding-agent/harnesses). label·toolsets·connection은 argv와 환경 설정
-// 순서로 찾는다(connection#R3). core RPC는 소유 route 하나로만 routing한다(R2).
+// 순서로 찾는다. core RPC는 소유 route 하나로만 routing한다.
 import { unixAppDirectTransport } from "../connection/app-direct-unix.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
@@ -81,22 +81,22 @@ export type McpOptions = {
   // credential provider다. 없으면 설치 묶음의 helper `lophn-credential`에서 받는 production provider다
   // (connection#R17). 시험은 fake helper를 끼운다.
   provider?: CredentialProvider;
-  // 제출 root가 거절할 운영 data root다. 없으면 LOPHN_HOME이다(connection#R10).
+  // 제출 root가 거절할 운영 data root다. 없으면 LOPHN_HOME이다.
   dataRoot?: string;
   // 제출 파일 root다. 없으면 작업 위치(--cwd <submission-root>)다.
   submissionRoot?: string;
   // 앱 통로(direct call)다. 없으면 core의 `apps/connect`가 준 socket으로 unix socket transport가
   // 연결한다. 닿는 socket은 실행 argv가 허락한 앱 direct socket의 정확한 경로뿐이고 권한이 없으면
-  // unavailable이다(mcp#R29).
+  // unavailable이다.
   appDirect?: AppDirect;
-  // active release blueprint의 command 정의를 읽는다(T23). 소유 route(apps#T19)가 서면 그 read로
+  // active release blueprint의 command 정의를 읽는다. 소유 route가 서면 그 read로
   // 만든다. 없으면 blueprint 유래 앱 tool은 나오지 않는다.
   appBlueprint?: AppBlueprintSource;
   // 시험이 core 응답을 끼운다. 없으면 전역 fetch다.
   fetch?: RpcFetch;
 };
 
-// tools/call의 실행이다. registry route 하나로만 routing된다(R2).
+// tools/call의 실행이다. registry route 하나로만 routing된다.
 export type ToolRunner = (
   toolName: string,
   route: Parameters<typeof resolveRoute>[1] extends string | undefined ? {
@@ -112,12 +112,12 @@ export type StartedMcp = {
   connection: ConnectionId | undefined;
   // label 표시 순서의 첫 항목이다. argv·환경 설정에서 찾은 값이며 권한과 관계없다.
   label: string | undefined;
-  // clientInfo.name은 label 순서의 마지막 항목이다. 권한과 관계없다(connection#R3).
+  // clientInfo.name은 label 순서의 마지막 항목이다. 권한과 관계없다.
   clientName: string | undefined;
   done: Promise<void>;
 };
 
-// server를 띄운다. stdin이 닫히면 끝난다(R1).
+// server를 띄운다. stdin이 닫히면 끝난다.
 export function startMcpServer(
   options: McpOptions = {},
 ): Promise<Result<StartedMcp, LophnError>> {
@@ -128,7 +128,7 @@ export function startMcpServer(
   };
   const args = options.args ?? Deno.args;
   // 환경은 필요한 이름만 get한다. argv의 --allow-env가 이름 나열이므로 전체 읽기
-  // toObject()는 NotCapable이다(connection#R16).
+  // toObject()는 NotCapable이다.
   const source = options.env ?? readEnv();
   const label = optionValue(args, "--label") ?? source["LOPHN_AGENT_LABEL"] ??
     undefined;
@@ -139,7 +139,7 @@ export function startMcpServer(
   const connection = connectionFromRef(
     optionValue(args, "--connection") ?? source[LOPHN_CONNECTION],
   );
-  // 받은 token을 알려진 값으로 올려 어떤 출력도 이 redaction을 거친다(connection#R17).
+  // 받은 token을 알려진 값으로 올려 어떤 출력도 이 redaction을 거친다.
   const known = createKnownSecretRegistry();
   const redact = options.redact ?? ((text: string) => {
     const stream = createRedactionStream(known);
@@ -148,7 +148,7 @@ export function startMcpServer(
   });
   const rawSink = createMessageSink(streams, redact);
   // protocol 메시지(tool 결과)도 받은 token을 가린다. core가 이미 알려진 값을 가리지만 이 process가
-  // 받은 값은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다(connection#R17).
+  // 받은 값은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다.
   const sink: typeof rawSink = {
     ...rawSink,
     send: (line: string) => rawSink.send(scrubKnown(known, line)),
@@ -168,7 +168,7 @@ export function startMcpServer(
     ? createCoreClient({
       baseUrl: daemon,
       // connection 참조로 시작할 때 helper에서 credential을 한 번 받는다. 평문 파일·user credential
-      // fallback은 없다(connection#R17, mcp-server#R36).
+      // fallback은 없다.
       provider: registeringProvider(
         options.provider ?? createHelperCredentialProvider({
           helper: INSTALLED_HELPER,
@@ -179,8 +179,8 @@ export function startMcpServer(
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     })
     : undefined;
-  // lophn_ticket의 실행이다(T20). claim·renew·release를 실제 core에 보내고
-  // 응답에 connection·claim_seq·expires_at·반납 방법을 남긴다(mcp#R27).
+  // lophn_ticket의 실행이다. claim·renew·release를 실제 core에 보내고
+  // 응답에 connection·claim_seq·expires_at·반납 방법을 남긴다.
   const ticketTool = caller
     ? createTicketTool({
       client: caller,
@@ -188,8 +188,8 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
-  // 문제 tool의 실행이다(T44). 읽기와 지정 ticket의 현재 claim 아래 record_fix·reproduction test만
-  // 소유 route로 보낸다. 문제 직접 claim op는 없다(mcp#R24, R25).
+  // 문제 tool의 실행이다. 읽기와 지정 ticket의 현재 claim 아래 record_fix·reproduction test만
+  // 소유 route로 보낸다. 문제 직접 claim op는 없다.
   const problemTool = caller
     ? createProblemTool({
       client: caller,
@@ -202,9 +202,9 @@ export function startMcpServer(
     (caller
       ? createAppDirect({ client: caller, transport: unixAppDirectTransport() })
       : undefined);
-  // 앱 개발 tool의 실행이다(T21). 소유 route로만 보내고 CLI와 같은 흐름을 쓴다.
-  // 도구 재배포(guides#R17)는 파일 설치라 core route 밖이다: submissionRoot(앱 source
-  // 폴더, --cwd)의 target으로 guides의 syncTools를 돌린다(mcp#R19).
+  // 앱 개발 tool의 실행이다. 소유 route로만 보내고 CLI와 같은 흐름을 쓴다.
+  // 도구 재배포는 파일 설치라 core route 밖이다: submissionRoot(앱 source
+  // 폴더, --cwd)의 target으로 guides의 syncTools를 돌린다.
   const appTool = caller
     ? createAppTool({
       client: caller,
@@ -267,7 +267,7 @@ export function startMcpServer(
       },
     })
     : undefined;
-  // blueprint 유래 앱 read tool이다(T23). app toolset과 blueprint source가 있을 때만 난다.
+  // blueprint 유래 앱 read tool이다. app toolset과 blueprint source가 있을 때만 난다.
   const appCommands = caller && toolsets.includes("app")
     ? createAppCommandTools({
       client: caller,
@@ -282,10 +282,10 @@ export function startMcpServer(
         })),
     })
     : undefined;
-  // 문서 저장·format·series tool의 실행이다(T14). 같은 core client로 소유 route만 부른다.
+  // 문서 저장·format·series tool의 실행이다. 같은 core client로 소유 route만 부른다.
   const submission = {
     // 운영 data root는 제출 파일이 될 수 없다. 앱 source와 이어진 symlink도 실제 경로로 푼 뒤 같이
-    // 거절된다(connection#R10).
+    // 거절된다.
     scope: {
       root: options.submissionRoot ?? Deno.cwd(),
       forbidden: dataRoot === undefined || dataRoot === "" ? [] : [dataRoot],
@@ -307,23 +307,23 @@ export function startMcpServer(
       lophn_series: createSeriesTool({ client: caller }),
     }
     : undefined;
-  // 문서 읽기 tool의 실행이다(T13): 목차·검색·project·목록·이력·본문. 소유 읽기 route만 부른다.
+  // 문서 읽기 tool의 실행이다: 목차·검색·project·목록·이력·본문. 소유 읽기 route만 부른다.
   const readTools = caller
     ? {
       lophn_index: createIndexTool({ client: caller }),
       lophn_project: createProjectTool({ client: caller }),
       lophn_document: createDocumentTool({ client: caller }),
       lophn_read: createReadTool({ client: caller }),
-      // SDK catalog·상세·exact version 안내(T22). source 쓰기 port는 주지 않는다(apply 거절).
+      // SDK catalog·상세·exact version 안내. source 쓰기 port는 주지 않는다(apply 거절).
       lophn_sdk: createSdkTool({ client: caller }),
     }
     : undefined;
-  // 질문·approval 읽기 tool의 실행이다(T16). 읽기 route만 부르고 결정하지 않는다.
+  // 질문·approval 읽기 tool의 실행이다. 읽기 route만 부르고 결정하지 않는다.
   const decisionTools = caller
     ? {
       lophn_question: createQuestionTool({ client: caller }),
       lophn_approval: createApprovalTool({ client: caller }),
-      // 세션 시작 summary 읽기(T35). 읽기 route 하나이고 claim·착수를 하지 않는다.
+      // 세션 시작 summary 읽기. 읽기 route 하나이고 claim·착수를 하지 않는다.
       lophn_session: createSessionTool({ client: caller }),
     }
     : undefined;
@@ -480,7 +480,7 @@ function optionValue(
   return args[index + 1];
 }
 
-// 허용 목록의 이름만 get한다. 전체 읽기 toObject()는 NotCapable이다(connection#R16).
+// 허용 목록의 이름만 get한다. 전체 읽기 toObject()는 NotCapable이다.
 function readEnv(): Record<string, string | undefined> {
   const names = [
     "LOPHN_AGENT_LABEL",

@@ -1,4 +1,4 @@
-// 문제의 사람 결정(problems/closing#R6~R10, shell#T53). app-detail Issues가 고른 결정·한 줄 이유로
+// 문제의 사람 결정. app-detail Issues가 고른 결정·한 줄 이유로
 // 창을 열면, 이 종류가 문제·활성 release·마지막 보고를 독립 read해 정본을 만든다. 표시와 제출은 같은
 // 정본에 묶이고 renderer가 보낸 다른 값은 쓰지 않는다. 결정은 `ApplyProblemDecision`으로 보낸다.
 // route binding이 [choice, problem, …]이라 handle의 대상은 고른 결정이다.

@@ -45,7 +45,7 @@ import type {
   SessionValue,
 } from "./agent-core-source-values.ts";
 
-/** 보호 창을 열 때 main에 보내는 참조. 결정은 그 창에서만 받는다(platform/approvals#R18). */
+/** 보호 창을 열 때 main에 보내는 참조. 결정은 그 창에서만 받는다. */
 export type ConfirmationRequest =
   | {
     readonly kind: "approval_request";
@@ -202,7 +202,7 @@ function createSource(
     return read.ok ? { ok: true, value: read.value.assignment } : read;
   };
 
-  /** 멈추거나 회수된 담당은 새 session도 새 입력도 받지 않는다(conversation#R8). core를 부르지 않고 거절한다. */
+  /** 멈추거나 회수된 담당은 새 session도 새 입력도 받지 않는다. core를 부르지 않고 거절한다. */
   const readEnabled = async (): Promise<
     SourceResult<AssignmentValue & { state: "enabled" }>
   > => {
@@ -281,7 +281,7 @@ function createSource(
       }>("messages", "body", { message });
       if (!read.ok) return read;
       // 시각 블록은 받은 값 그대로 넘긴다. 블록 renderer가 그리기 전에 다시 검사하고 문자열을 text node로만
-      // 그린다(shell/workspace#R12).
+      // 그린다.
       return {
         ok: true,
         value: read.value.content.parts.map((part): BodyPart =>
@@ -333,7 +333,7 @@ function createSource(
           skill: found.action.skill_name,
         });
 
-      // 일하는 중의 사용 여부(commands#R8). blocked는 바로 거절하고 queue는 이번 일이 끝나기를 기다린다.
+      // 일하는 중의 사용 여부. blocked는 바로 거절하고 queue는 이번 일이 끝나기를 기다린다.
       if (entry.whileRunning !== "run") {
         for (let polls = 0;; polls += 1) {
           const latest = await latestOf(session);
@@ -453,7 +453,7 @@ function createSource(
     async answerQuestions({ group, answers }) {
       const read = await readGroup(group);
       if (!read.ok) return read;
-      // 고정 action이 있는 선택지를 고른 답은 일반 답 경로가 아니다(questions#R13). app.create·apply_settings는
+      // 고정 action이 있는 선택지를 고른 답은 일반 답 경로가 아니다. app.create·apply_settings는
       // 고르는 것이 결정이라 확인 창 없이 main이 확정하고, 그 밖의 action은 확인 창에서 결정한다.
       const action = actionChoice(read.value, answers);
       if (action !== null) {

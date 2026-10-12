@@ -1,5 +1,5 @@
 // settings OS notification 자리가 읽고 쓰는 통로. 설정 값만 저장한다. 실제 OS notification은
-// 이 통로에 없다(shell#T56). 모양은 contracts(settings)에서 이 자리가 쓰는 field만 옮긴 것이다.
+// 이 통로에 없다. 모양은 contracts(settings)에서 이 자리가 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };

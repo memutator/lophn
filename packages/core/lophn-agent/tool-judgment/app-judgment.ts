@@ -15,7 +15,7 @@ import {
 import type { InputSchema } from "../../../protocol/apps/mod.ts";
 import type { CallRef, ResolvedAction, ToolBinding } from "./work.ts";
 
-// 앱 command의 판정 근거(tool-judgment R10, R11). 판정표(`judge`)는 효과·confirm·되돌림만 보고 이 파일은
+// 앱 command의 판정 근거. 판정표(`judge`)는 효과·confirm·되돌림만 보고 이 파일은
 // 그 사실을 소유 계약에서 읽는다: 지금의 active release blueprint(효과·confirm·되돌리기 선언과 대응
 // command)와 지금의 agent.commands 허락. model의 설명·undo 문구는 어느 칸에도 들어오지 않는다.
 
@@ -41,7 +41,7 @@ const unavailable = () =>
   });
 
 // 앱 command tool 하나의 소유 계약 연결이다. 정의가 만들어진 선언과 지금의 선언이 하나라도 다르면(release
-// 교체·입력·effect·confirm·되돌리기 변경) 또는 허락이 회수됐으면 err이고 호출은 deny다(R6, tools R17).
+// 교체·입력·effect·confirm·되돌리기 변경) 또는 허락이 회수됐으면 err이고 호출은 deny다.
 export function createAppBinding(
   tool: AppTool,
   ports: AppJudgmentPorts,

@@ -132,7 +132,7 @@ export const APPROVAL_STATUSES = [
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
 export type ApprovalStatus = z.infer<typeof approvalStatusSchema>;
 
-// 허락 범위(platform/approvals#R18). 대화 안 승인 카드의 선택은 Allow once(once)·Allow for this
+// 허락 범위. 대화 안 승인 카드의 선택은 Allow once(once)·Allow for this
 // session(session)·Deny 셋이고 계속 허락(Always)은 없다. 오래 가는 허락은 자리의 권한 규칙이 맡는다.
 export const APPROVAL_GRANT_SCOPES = ["once", "session"] as const;
 export const approvalGrantScopeSchema = z.enum(APPROVAL_GRANT_SCOPES);
@@ -146,11 +146,11 @@ export const approvalRequestSchema = z.object({
   effect: approvalEffectSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
-  // 카드가 session 선택을 보일 수 있나. 생성 뒤 바꾸지 않는다(platform/approvals#R20).
+  // 카드가 session 선택을 보일 수 있나. 생성 뒤 바꾸지 않는다.
   session_grantable: z.boolean(),
   status: approvalStatusSchema,
   // 허락한 범위와 session 허락이 사는 session. granted일 때만 범위가 있고, session 범위일 때만
-  // session이 있다(platform/approvals#R19).
+  // session이 있다.
   grant_scope: approvalGrantScopeSchema.nullable(),
   grant_session: idSchema("ses").nullable(),
   closed_reason_blob: sha256Schema.nullable(),
@@ -158,7 +158,7 @@ export const approvalRequestSchema = z.object({
   closed_seq: seqSchema.nullable(),
 }).refine(
   (value) =>
-    // 종료 이유는 거절·취소에서 적었을 때만 있다(platform/approvals#R14). 만료는 이유 글이 없고
+    // 종료 이유는 거절·취소에서 적었을 때만 있다. 만료는 이유 글이 없고
     // 상태가 곧 이유다. 가짜 hash는 두지 않는다.
     value.status === "pending" || value.status === "granted"
       ? value.closed_reason_blob === null
@@ -284,7 +284,7 @@ export const createApprovalRequestInputSchema = z.strictObject({
   effect: approvalEffectInputSchema,
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
-  // agent tool call의 ask만 true를 싣는다(platform/approvals#R20). 빠지면 false다: 앱 command의
+  // agent tool call의 ask만 true를 싣는다. 빠지면 false다: 앱 command의
   // confirm·앱 permission·release 적용·복원 request는 session 선택이 없는 request다.
   session_grantable: z.boolean().default(false),
 });
@@ -309,13 +309,13 @@ export const grantApprovalRequestInputSchema = z.strictObject({
   created_seq: seqSchema,
   binding_hash: sha256Schema,
   // 사람이 고른 범위이고 confirmation 내용에 묶인다. 빠지면 once다: 한 번 허락은 session 허락을 열지
-  // 않는 좁은 쪽이라 침묵이 넓은 허락이 되지 않는다(R4).
+  // 않는 좁은 쪽이라 침묵이 넓은 허락이 되지 않는다.
   scope: approvalGrantScopeSchema.default("once"),
 });
 export const grantApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
 });
-// confirmation 필수: user 자격만으로 허락하지 않는다(platform/approvals#R3).
+// confirmation 필수: user 자격만으로 허락하지 않는다.
 export const grantApprovalRequest = defineCommand({
   resource: "approvals",
   method: "grant",
@@ -334,14 +334,14 @@ export const rejectApprovalRequestInputSchema = z.strictObject({
   approval: idSchema("apr"),
   created_seq: seqSchema,
   binding_hash: sha256Schema,
-  // 거절 이유 글. 이유 없이도 거절한다(R14). core가 redaction·blob 준비를 하고 command가 영구 참조를
+  // 거절 이유 글. 이유 없이도 거절한다. core가 redaction·blob 준비를 하고 command가 영구 참조를
   // 등록한다.
   closed_reason: approvalTextSchema.nullable(),
 });
 export const rejectApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
 });
-// 거절은 이유 없이 가능하다(platform/approvals#R14).
+// 거절은 이유 없이 가능하다.
 export const rejectApprovalRequest = defineCommand({
   resource: "approvals",
   method: "reject",

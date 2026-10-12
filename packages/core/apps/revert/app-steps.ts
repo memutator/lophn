@@ -1,4 +1,4 @@
-// 앱 단계가 있는 rewind의 이어 실행(lophn-agent/revert 앱 복원 실행 경계, R10·R11). 사람이 확인한
+// 앱 단계가 있는 rewind의 이어 실행(lophn-agent/revert 앱 복원 실행 경계). 사람이 확인한
 // Rewind는 앱 단계가 있으면 applying으로 접수만 한다. rewind 창이 접수 뒤 `RunAppRevert`를 부르면 core가
 // 그 revert를 이어 받는다.
 //   - 실제 복원 호출(사람의 `apps/connect` 연결과 앱 direct socket으로 앱 command 보내기)은 감독 worker

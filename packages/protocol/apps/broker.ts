@@ -59,7 +59,7 @@ export const brokerInvocationSubmitOutputSchema = z.object({
   accepted: z.literal(true),
 });
 
-// core 제어 연결이 살아 있는지. EOF면 새 호출부터 닫는다(apps/runtime#R17).
+// core 제어 연결이 살아 있는지. EOF면 새 호출부터 닫는다.
 export const brokerControlWatchOutputSchema = z.object({ open: z.boolean() });
 
 const automationTurnFields = {
@@ -132,7 +132,7 @@ export const brokerDocumentSaveOutputSchema = z.object({
   version: versionIdSchema.nullable(),
 });
 
-// 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다(apps/sdk#R26).
+// 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다.
 // report id·발생 시각·invocation은 SDK가 첫 전송 전에 고정한 값이다. 없으면 supervisor가
 // id와 시각을 정하고 invocation은 연결하지 않은 것으로 남긴다.
 export const brokerProblemReportInputSchema = z.strictObject({
@@ -172,7 +172,7 @@ export const brokerAppsConnectInputSchema = z.strictObject({
 });
 export const brokerAppsConnectOutputSchema = appConnectOutputSchema;
 
-// 다른 앱의 confirm=true command 호출 준비(apps/connections#R3). 호출한 앱 자식이 정확한 대상·
+// 다른 앱의 confirm=true command 호출 준비. 호출한 앱 자식이 정확한 대상·
 // command·입력의 approval을 요청하고 사람의 결정을 poll로 기다려 서명된 proof를 받는다. 신원은
 // 자식 연결이 정하며 입력 지문은 서비스가 대상의 고정 blueprint로 계산한다. proof는 approval이
 // 적용돼 접수가 확정된 뒤에만 나온다.
@@ -215,7 +215,7 @@ export const brokerAppsConfirmPollOutputSchema = z.discriminatedUnion(
   ],
 );
 
-// capability 거절은 필요한 permission 이름과 scope를 알린다(apps/sdk#R23).
+// capability 거절은 필요한 permission 이름과 scope를 알린다.
 export const brokerPermissionErrorSchema = errorBodySchema.refine(
   (value) =>
     value.error.code !== "forbidden" ||

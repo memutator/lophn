@@ -1,4 +1,4 @@
-// blob 영구 참조 등록(platform/blob-store#R4). 소유 변경과 같은 ledger transaction에서
+// blob 영구 참조 등록. 소유 변경과 같은 ledger transaction에서
 // 준비 참조의 주체·purpose·수명을 확인하고 blob_refs에 넣는다. commit 실패면 참조도 없다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";

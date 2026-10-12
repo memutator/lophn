@@ -1,4 +1,4 @@
-// `/v1/problems/upload_fix_summary` handler(coding-agent#T44). 고친 기록의 summary 바이트를 core가
+// `/v1/problems/upload_fix_summary` handler. 고친 기록의 summary 바이트를 core가
 // 해석·hash·보관 없이 blob 준비 중계로 흘려 보낸다. 준비 주체는 요청 credential이라 이어지는
 // RecordProblemFix가 같은 주체로 준비 참조를 영구 참조로 등록한다(저장 안 된 blob의 hash는
 // 만들지 않는다). purpose와 상한은 problems/repairs가 등록한 값(`fix_summary`)이고 호출자가

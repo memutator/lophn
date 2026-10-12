@@ -91,7 +91,7 @@ export function fakeWatchFs(): FakeWatchFs {
   return Object.assign(open, { watchers });
 }
 
-// source마다 type 하나(T0, T1 …)를 가진 계약.
+// source마다 type 하나(T1 …)를 가진 계약.
 export function contractOf(sources: readonly ContractSource[]): Contract {
   return bundleOf(
     sources.map((source, index) => ({

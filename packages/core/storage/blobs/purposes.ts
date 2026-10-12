@@ -1,8 +1,8 @@
-// 준비 목적 기록의 순수 규칙(platform/blob-store#R8, R13). IO 없음.
+// 준비 목적 기록의 순수 규칙. IO 없음.
 // 준비가 purpose를 남기고, 정지 유지보수의 trimCapacity가 그 기록으로
-// hash → capacity category 할당을 산다(R13). ledger blob_refs는 불변 보호라
+// hash → capacity category 할당을 산다. ledger blob_refs는 불변 보호라
 // purpose를 넣지 못한다(architecture/platform.md 3.1). 참조 행이 있으면
-// 참조 field의 규칙이 보존을 정하고(R4), 없으면 목적 기록의 purpose로 판정한다.
+// 참조 field의 규칙이 보존을 정하고, 없으면 목적 기록의 purpose로 판정한다.
 // 모르는 것은 지우지 않는다(fail-closed): 기록도 규칙도 없는 hash는 bonus
 // permanent로 뺀다. trimCapacity의 할당 밖 category는 invalid_input이라
 // category 문자열은 상한의 4종 안에서만 만든다.
@@ -41,7 +41,7 @@ export function purposesPathFor(
 
 // purpose를 capacity category로 옮긴다. 규칙 밖 purpose면 undefined다.
 // document_files·app_bundle 같은 참조 등록 목적은 category가 없어
-// 정리 대상이 아니다(R13: 상한은 capacity field의 blob뿐이다).
+// 정리 대상이 아니다(상한은 capacity field의 blob뿐이다).
 export function categoryOfPurpose(
   rules: readonly RetentionRule[],
   purpose: string,
@@ -68,14 +68,14 @@ export function parsePurposeRecord(raw: unknown): PurposeRecord | undefined {
 export type AssignmentEntry = { category: string; permanent: boolean };
 
 // trimCapacity의 할당을 산다. 두 근거:
-// - 참조 행(blob_refs의 hash → owner_kind/field)이 있으면 그 field 규칙(R4).
-//   영구 참조 blob은 capacity 상한의 대상이 아니므로 permanent다(R13).
+// - 참조 행(blob_refs의 hash → owner_kind/field)이 있으면 그 field 규칙.
+//   영구 참조 blob은 capacity 상한의 대상이 아니므로 permanent다.
 // - 참조가 없으면 목적 기록의 purpose로: capacity 목적은 그 category,
 //   목록 등록 같은 규칙 밖 목적은 permanent(모르는 것은 지우지 않는다).
 // 규칙 밖 category 문자열은 만들지 않는다(상한의 4종만).
 export function assignmentOf(
   rules: readonly RetentionRule[],
-  // blob_refs의 참조 행 관측. 정지 유지보수에서 읽었다(R8).
+  // blob_refs의 참조 행 관측. 정지 유지보수에서 읽었다.
   references: readonly { hash: string; owner_kind: string; field: string }[],
   // 목적 기록 관측. hash → purpose.
   purposes: ReadonlyMap<string, string>,

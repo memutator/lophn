@@ -1,4 +1,4 @@
-// 화면 context와 agent 주석 등록(apps/sdk#R39, apps/agent-context#R1–R5).
+// 화면 context와 agent 주석 등록.
 //
 // 앱은 blueprint에 선언한 read_command·annotation_targets[].write_command의 handler를 이 함수로
 // 등록한다. 새 예약 command나 DOM 접근 통로는 없고, 등록한 handler는 일반 command 통로(같은 서명·

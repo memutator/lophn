@@ -1,6 +1,6 @@
-// OAuth transport(provider#R5, R12, R13, R16). OAuth HTTP는 HTTPS 목적지만 부르고
+// OAuth transport. OAuth HTTP는 HTTPS 목적지만 부르고
 // redirect는 따라가지 않는다(다른 origin으로 credential을 흘리지 않는다). 사람
-// credential의 loopback callback은 127.0.0.1 실제 listener로만 받는다(R12). fake
+// credential의 loopback callback은 127.0.0.1 실제 listener로만 받는다. fake
 // 브라우저는 열 주소를 돌려주는 port다(실제 OS browser는 여기서 열지 않는다 —
 // shell#T31이 sign_in.url을 OS browser로 연다).
 
@@ -30,13 +30,13 @@ function parseUrl(url: string): URL | null {
   }
 }
 
-// OAuth 목적지는 HTTPS만이다(provider#R5, R13). 파싱 실패는 fail closed다.
+// OAuth 목적지는 HTTPS만이다. 파싱 실패는 fail closed다.
 export function httpsDestination(url: string): URL | null {
   const parsed = parseUrl(url);
   return parsed !== null && parsed.protocol === "https:" ? parsed : null;
 }
 
-// xAI discovery가 알려 준 목적지도 다시 검사한다(R13): HTTPS이고 host가 x.ai 또는
+// xAI discovery가 알려 준 목적지도 다시 검사한다: HTTPS이고 host가 x.ai 또는
 // 그 하위 도메인이어야 한다.
 export function xaiHostAllowed(url: string): boolean {
   const parsed = httpsDestination(url);
@@ -50,7 +50,7 @@ type HttpOutcome =
   | { ok: false; code: "unavailable" | "invalid_input"; message: string };
 
 // OAuth endpoint 하나의 HTTP 요청. redirect는 manual이라 3xx를 응답 그대로 돌려
-// 주고 따라가지 않는다(R16: 다른 목적지에 token을 보내지 않는다). 본문은 상한 안에서
+// 주고 따라가지 않는다(다른 목적지에 token을 보내지 않는다). 본문은 상한 안에서
 // 한 덩어리로 읽는다.
 export async function oauthHttp(
   fetcher: OAuthHttpFetch,
@@ -134,14 +134,14 @@ async function readBounded(
   return new TextDecoder().decode(merged);
 }
 
-// 사람이 돌아온 loopback callback의 값(R12). code·state와, 서버가 보낸 iss다.
+// 사람이 돌아온 loopback callback의 값. code·state와, 서버가 보낸 iss다.
 export type OAuthCallback = {
   code: string;
   state: string;
   iss: string | null;
 };
 
-// loopback callback listener port(provider#R12). 사람이 시작한 browser가 이 주소로
+// loopback callback listener port. 사람이 시작한 browser가 이 주소로
 // 돌아온 요청을 받는다. 제품은 127.0.0.1 실제 listener, 테스트는 가짜를 준다.
 export type OAuthListener = {
   port(): number;
@@ -152,7 +152,7 @@ export type OAuthListener = {
 // callback listener의 실제 open port다. 없으면 begin은 unavailable이다.
 export type OAuthListenerOpener = () => Promise<Result<OAuthListener>>;
 
-// 127.0.0.1 실제 listener(제품용, R12). browser가 돌아온 callback 요청의 code·state·iss를
+// 127.0.0.1 실제 listener(제품용). browser가 돌아온 callback 요청의 code·state·iss를
 // 한 번 받고 200으로 답한다. 받기 전에 끊기면 unavailable이다. listener는 begin에서
 // 열리고 complete·cancel 뒤에 닫는다.
 export function openCallbackListener(): Promise<Result<OAuthListener>> {

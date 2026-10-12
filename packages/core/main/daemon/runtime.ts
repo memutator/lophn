@@ -68,7 +68,7 @@ export type CoreRuntime = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  // 값 없는 secret 준비 증거를 writer가 ledger에 남긴다(platform/secrets#R1).
+  // 값 없는 secret 준비 증거를 writer가 ledger에 남긴다.
   recordSecretPreparation(
     preparation: SecretPreparation,
   ): Promise<Result<void>>;
@@ -80,12 +80,11 @@ export type CoreRuntime = {
   syncSecrets(): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
-  // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
+  // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다.
   sweepTicketClaims(): Promise<void>;
-  // 기한에 도달한 대기 approval request를 만료로 확정한다. 60초 timer와 재시작이 부른다(platform Q25).
+  // 기한에 도달한 대기 approval request를 만료로 확정한다. 60초 timer와 재시작이 부른다.
   sweepApprovalExpiry(): Promise<void>;
-  // 재시작 뒤 접수·실행 중으로 남은 invocation을 미확인으로 확정한다. 기동 때 한 번 돈다
-  // (apps/invocations#R10, platform/backup-and-migration#R16).
+  // 재시작 뒤 접수·실행 중으로 남은 invocation을 미확인으로 확정한다. 기동 때 한 번 돈다.
   sweepInterruptedInvocations(): Promise<void>;
   readers: ReaderPool;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
@@ -143,14 +142,14 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
-  // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다(R9, R10).
+  // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다.
   doctor?: DoctorSource;
   // secret store가 값을 읽는 OS keychain. 참조가 있을 때 처음 한 번 만든다. 제품 기동은
   // 실제 adapter, 테스트는 fake를 준다.
   keychain: () => KeychainAdapter;
   // secret store의 주기 쓸기 간격(ms). 없으면 10분.
   secretSweepMs?: number;
-  // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다(R5).
+  // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다.
   diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
   blob?: {
@@ -211,7 +210,7 @@ export async function openRuntime(input: {
     ...(input.secretSweepMs === undefined
       ? {}
       : { sweepMs: input.secretSweepMs }),
-    // provider credential은 Disconnect로 참조가 사라지면 OS 값도 지운다(platform/secrets#R7).
+    // provider credential은 Disconnect로 참조가 사라지면 OS 값도 지운다.
     reclaim: {
       purpose: "provider_credential",
       owners: [PROVIDER_SECRET_OWNER],
@@ -242,7 +241,7 @@ export async function openRuntime(input: {
     return subscriptions;
   }
   const status = platformStatusReads(input.source, input.clock);
-  // doctor의 무거운 검사는 worker가 한다. core는 그 관측만 읽는다(R9, R10).
+  // doctor의 무거운 검사는 worker가 한다. core는 그 관측만 읽는다.
   const doctor = input.doctor
     ? diagnosticsCheckRead(input.doctor, input.clock)
     : undefined;
@@ -300,7 +299,7 @@ export async function openRuntime(input: {
     ]),
   ]);
   // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
-  // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다(coding-agent#T36).
+  // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.
   reads.set(
     `${packagesGuideBody.resource}/${packagesGuideBody.method}`,
     (ctx, body) =>
@@ -322,7 +321,7 @@ export async function openRuntime(input: {
         body,
       ),
   );
-  // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
+  // OS 표시 전달 상태. get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
   const delivery = createNotificationDelivery({
     clock: input.clock,
     read: (route, ctx, body) => readers.value.read(route, ctx, body),
@@ -460,8 +459,8 @@ export async function openRuntime(input: {
     const timer = setInterval(catchUp, 200);
     return () => clearInterval(timer);
   });
-  // 현재 보기 relay는 ledger 밖 core 메모리다(T57). run→session 확인은 reader가
-  // 등록한 runs/read handler로 한다. 아직 없으면 fail-closed다(identity R3).
+  // 현재 보기 relay는 ledger 밖 core 메모리다. run→session 확인은 reader가
+  // 등록한 runs/read handler로 한다. 아직 없으면 fail-closed다.
   const runRead = reads.get("runs/read");
   const memory = createWorkspaceRelay({
     runSession: runRead && ((ctx, run) => runSessionOf(runRead, ctx, run)),
@@ -499,7 +498,7 @@ export async function openRuntime(input: {
 }
 
 // run → session 확인. 등록된 runs/read handler를 그대로 부른다.
-// 다른 session은 부재와 같다(identity R3, R8).
+// 다른 session은 부재와 같다.
 async function runSessionOf(
   handler: ReadHandler,
   ctx: AuthenticatedContext,
@@ -517,9 +516,9 @@ function settingsModule(): string {
   return new URL("../../config/settings.ts", import.meta.url).href;
 }
 
-// worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고
+// worker가 확인한 backup manifest 읽기. 인증은 API 입구가 이미 끝냈고
 // dispatcher가 schema·output 검사를 한다. 여기서는 data root의 backup folder만
-// 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다(responsiveness#R1).
+// 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다.
 function backupReads(
   dataRoot: string,
 ): [string, ReadHandler][] {
@@ -772,7 +771,7 @@ type BlobRefAuthorizer = (
 ) => Result<void>;
 
 // /v1/blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
-// scope는 시작과 바이트 반환 직전에 다시 검사한다(platform/blob-store#R5).
+// scope는 시작과 바이트 반환 직전에 다시 검사한다.
 function blobReadHandler(
   ledgerPath: string,
   blob: BlobReadSource | undefined,

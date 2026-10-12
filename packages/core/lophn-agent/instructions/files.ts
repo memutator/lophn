@@ -1,8 +1,8 @@
 // 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 ReadInstructionFile은 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project 폴더의
 // LOPHN.md(첫 등록 폴더 바로 아래), 앱 자리 `<data root>/apps/<앱>/LOPHN.md`, 그리고 agent 정의 본문이다.
-// 어느 자리인지는 읽는 쪽이 정하지 않고 그 run의 작업 자리로 정한다(R4). 읽기만 있다. 파일 저장은 사람이
-// editor에서 하고 agent는 만들 길이 없다(R3).
+// 어느 자리인지는 읽는 쪽이 정하지 않고 그 run의 작업 자리로 정한다. 읽기만 있다. 파일 저장은 사람이
+// editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -81,7 +81,7 @@ type RunPlace = {
 };
 
 // run의 작업 자리. App Engineer와 Operator는 담당 범위(scope)로 고정이고 lophn·Context Engineer는
-// 세션을 연 자리다. 세션이 없는 전역 run은 자리가 없다(R4).
+// 세션을 연 자리다. 세션이 없는 전역 run은 자리가 없다.
 function placeOf(snapshot: ReadSnapshot, run: string): Result<RunPlace> {
   const found = snapshot.sql.get(
     "select assignment, session from runs where id = ?",

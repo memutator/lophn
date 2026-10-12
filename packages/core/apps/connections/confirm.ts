@@ -1,4 +1,4 @@
-// A→B confirm=true 호출의 proof 발급(apps/connections#R3, apps/invocations#R7, R8).
+// A→B confirm=true 호출의 proof 발급.
 // 연결 허락(app.call grant)은 사람의 approval을 대신하지 않는다. 사람이 허락한 approval이 적용돼
 // 접수(`invocation.accept_confirm`)가 확정된 뒤에만, 그 접수의 proof를 core 서명 key로 서명해
 // 호출한 앱에게 준다. 호출한 앱은 같은 입력과 함께 target의 direct 호출에 붙이고, target

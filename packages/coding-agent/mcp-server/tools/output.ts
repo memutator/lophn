@@ -1,11 +1,11 @@
-// 문서 tool들이 같이 쓰는 결과 모양이다. server가 mcpToolResult로 두 표현을 만든다(R5).
+// 문서 tool들이 같이 쓰는 결과 모양이다. server가 mcpToolResult로 두 표현을 만든다.
 import type { LophnError } from "../../../base/mod.ts";
 
 export type ToolOutput = {
   summary: string;
   data: unknown;
   next: string[];
-  // 실행 실패·거절은 true다. 성공 결과는 생략한다(R7).
+  // 실행 실패·거절은 true다. 성공 결과는 생략한다.
   isError?: true;
 };
 

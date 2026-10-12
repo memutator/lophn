@@ -1,6 +1,6 @@
-// 실제 HTTP 전송(provider#R19, R20, R25). fetch로 한 번만 보내고 SDK 숨은 retry는
+// 실제 HTTP 전송. fetch로 한 번만 보내고 SDK 숨은 retry는
 // 없다. redirect는 따라가지 않는다: 다른 목적지에 credential을 보내지 않기 위해
-// 3xx는 본문 없는 응답으로 돌려주고 분류가 원인 불명으로 둔다(R5, R16). 응답 body는
+// 3xx는 본문 없는 응답으로 돌려주고 분류가 원인 불명으로 둔다. 응답 body는
 // 성공 SSE만 stream으로 넘기고 나머지는 상한 안에서 한 덩어리로 읽는다(batch/JSON).
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -52,7 +52,7 @@ function isEventStream(headers: Headers): boolean {
   );
 }
 
-// option 값이 요구하는 header(예: Anthropic fast mode의 beta header)를 요청에 더한다(harness/model#R22).
+// option 값이 요구하는 header(예: Anthropic fast mode의 beta header)를 요청에 더한다.
 // 호출 형식이 이미 정한 header는 같은 이름(대소문자 무시)이면 그대로 두고, 인증 header는 이 층 안쪽의
 // 인증 transport가 마지막에 붙이므로 option이 바꾸지 못한다.
 export function withRequestHeaders(

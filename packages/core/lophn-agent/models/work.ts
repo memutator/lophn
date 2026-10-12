@@ -96,9 +96,9 @@ export function catalogPaths(dataRoot: string): {
 export type CatalogRefresher = {
   // 저장된 catalog와 state를 읽는다. 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
   load(): Promise<Result<CatalogStore>>;
-  // 마지막 확인 뒤 24시간이 지났으면 비동기로 갱신을 시작한다. 기다리지 않는다(R4).
+  // 마지막 확인 뒤 24시간이 지났으면 비동기로 갱신을 시작한다. 기다리지 않는다.
   kickAutoUpdate(): void;
-  // 사람의 즉시 새로 받기. TTL을 건너뛰되 검증과 개인 자료 규칙은 유지한다(R4, R6).
+  // 사람의 즉시 새로 받기. TTL을 건너뛰되 검증과 개인 자료 규칙은 유지한다.
   refreshNow(): Promise<Result<CatalogStore>>;
 };
 
@@ -136,12 +136,12 @@ export function createCatalogRefresher(
 
   async function rebuildFromSnapshot(): Promise<Result<CatalogStore>> {
     const snapshot = await input.loadSnapshot();
-    // snapshot 전체 검증(R5). 동봉 자료도 예외가 아니다.
+    // snapshot 전체 검증. 동봉 자료도 예외가 아니다.
     const validated = validateCatalogResponse(snapshot);
     if (!validated.ok) return validated;
     const entries = validated.value;
     const hash = await hashEntries(entries);
-    // 복구 시점을 마지막 확인으로 둔다. 재복구 직후의 중복 갱신을 막는다(R4).
+    // 복구 시점을 마지막 확인으로 둔다. 재복구 직후의 중복 갱신을 막는다.
     const state = stateAfterChecked(
       initialState(true, hash),
       input.clock.nowMs(),
@@ -230,7 +230,7 @@ export function createCatalogRefresher(
       cached = { entries: current.value.entries, state: next };
       return ok(cached!);
     }
-    // JSON 해석을 먼저 하고, 실패면 전체 거절이다(R5).
+    // JSON 해석을 먼저 하고, 실패면 전체 거절이다.
     const bodyParsed = validateCatalogBody(result.body);
     if (!bodyParsed.ok) {
       const next = stateAfterFailure(current.value.state, "invalid_input");
@@ -240,7 +240,7 @@ export function createCatalogRefresher(
       return ok(cached!);
     }
     const incoming = bodyParsed.value;
-    // 항목 schema·값 검증을 마친 뒤에만 교체한다(R5). 한 항목이라도 넘지 못하면
+    // 항목 schema·값 검증을 마친 뒤에만 교체한다. 한 항목이라도 넘지 못하면
     // 전체를 거절하고 마지막 정상본을 유지한다.
     const validated = validateCatalogResponse(incoming);
     if (!validated.ok) {
@@ -250,7 +250,7 @@ export function createCatalogRefresher(
       cached = { entries: current.value.entries, state: next };
       return ok(cached!);
     }
-    // models_dev 층 교체는 accepted response 한 번으로 모델·provider·가격을 함께 바꾼다(R4).
+    // models_dev 층 교체는 accepted response 한 번으로 모델·provider·가격을 함께 바꾼다.
     const layered = await readLayeredFromDisk();
     if (!layered.ok) return layered;
     const merged = mergeCatalogLayers({
@@ -295,7 +295,7 @@ export function createCatalogRefresher(
   };
 }
 
-// 갱신 시점 판정(24시간). 마지막 확인이 없으면 갱신한다(R4).
+// 갱신 시점 판정(24시간). 마지막 확인이 없으면 갱신한다.
 export function refreshDueAt(
   state: CatalogState,
   nowMs: number,

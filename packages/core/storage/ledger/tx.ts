@@ -124,7 +124,7 @@ function rollback(connection: LedgerConnection): Result<never> | undefined {
   }
 }
 
-// fn은 Tx와 seal을 받는다. seal 뒤나 fn이 끝난 뒤 Tx의 모든 입구는 닫힌다(R4).
+// fn은 Tx와 seal을 받는다. seal 뒤나 fn이 끝난 뒤 Tx의 모든 입구는 닫힌다.
 export function runTransaction<T>(
   connection: LedgerConnection,
   ctx: TxContext | (() => Result<TxContext>),
@@ -152,7 +152,7 @@ export function runTransaction<T>(
     } finally {
       built.seal();
     }
-    // handler가 거절 throw를 자체 try/catch로 삼켜도 fail-closed로 유지한다(R12).
+    // handler가 거절 throw를 자체 try/catch로 삼켜도 fail-closed로 유지한다.
     const result = built.failure() ?? handled;
     if (result.ok) connection.exec("commit");
     else {
@@ -260,7 +260,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
         message: "event payload가 schema와 다르다",
       }));
     }
-    // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다(Q19).
+    // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다.
     const inserted = measured(true, () =>
       sql.run(
         "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
@@ -336,7 +336,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
         ));
       return ok(undefined);
     },
-    // 정확한 action 일치 확인과 approval_uses 기록은 소유 변경과 같은 transaction이다(platform#T23).
+    // 정확한 action 일치 확인과 approval_uses 기록은 소유 변경과 같은 transaction이다.
     useApproval(approval, action, use) {
       live();
       return useApprovalRecord(tx, approval, action, use);
@@ -349,7 +349,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       handle: (tx: Tx) => Result<z.output<R["output"]>>,
     ) {
       live();
-      // 사람 결정을 대신하는 유일한 경로(identity R14). 자격은 machine만이다.
+      // 사람 결정을 대신하는 유일한 경로. 자격은 machine만이다.
       if (actorKind(ctx.actor) !== "machine") return CHOSEN_FORBIDDEN;
       if (ports.current?.present(questionOption as PortKey<unknown>) !== true) {
         return CHOSEN_FORBIDDEN;

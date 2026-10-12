@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
-// backup 복원의 main↔core 비공개 통로(platform/backup-and-migration#R13). 사람 결정 handle과
+// backup 복원의 main↔core 비공개 통로. 사람 결정 handle과
 // 같은 pipe를 쓴다. main이 고른 묶음(`created_at`)의 계획을 읽고, 사람이 잃을 범위를 확인한
 // handle(결정 `restore_backup`)로 복원을 청한다. 응답에는 짝 id가 없어 한 번에 하나씩 보낸다.
 

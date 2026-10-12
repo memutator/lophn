@@ -1,4 +1,4 @@
-// runner가 실제로 돌린 뒤(또는 이어받아 runner_lost로 닫을 때) Verification과 그 근거를 만든다(problems/tests#R2, R4).
+// runner가 실제로 돌린 뒤(또는 이어받아 runner_lost로 닫을 때) Verification과 그 근거를 만든다.
 // 모든 hash는 이 함수가 만든 canonical JSON의 sha256이고, 영구 등록할 blob의 bytes도 같이 낸다: 저장하지 않을
 // blob의 hash를 적지 않는다. 판정은 이 함수가 하지 않는다 — 부르는 쪽이 정한 result·reason을 그대로 싣는다.
 import { createHash } from "node:crypto";
@@ -49,7 +49,7 @@ const encode = (text: string) => new TextEncoder().encode(text);
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
 // 한 요청의 Verification은 하나뿐이다. 요청(주체·key·hash)에서 정한 ID를 쓰면 결과를 남기다 끊겨 다시 이어받아도
-// 같은 결과(같은 canonical)라 근거를 새로 만들지 않는다(R3). 요청 hash는 key를 싣지 않으므로 같은 내용의 요청이
+// 같은 결과(같은 canonical)라 근거를 새로 만들지 않는다. 요청 hash는 key를 싣지 않으므로 같은 내용의 요청이
 // 여럿이어도 key가 ID를 가른다.
 export function verificationIdFor(
   requestPrincipal: string,

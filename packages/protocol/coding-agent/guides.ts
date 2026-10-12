@@ -12,7 +12,7 @@ export const DEPLOY_SKILL_NAMES = [
 export type DeploySkillName = (typeof DEPLOY_SKILL_NAMES)[number];
 
 // CodingAgentSkill 값 제약(guides 도메인 모델). 문자 상한은 Unicode code point,
-// 줄 상한은 CRLF를 LF로 정규화한 logical line으로 센다(redesign/coding-agent#Q21).
+// 줄 상한은 CRLF를 LF로 정규화한 logical line으로 센다.
 /** 배포 skill 이름이다. 소문자 영문·숫자·단일 하이픈 1~64자이며 배포 디렉터리 이름과 같다. */
 export const skillNameSchema = z.string().refine(
   (value) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value),
@@ -44,7 +44,7 @@ export const skillBodySchema = z.string().refine(
 /** 배포 skill 부가 metadata다. 문자열에서 문자열로의 map만 허용한다. */
 export const skillMetadataSchema = z.record(z.string(), z.string()).nullable();
 
-// session 시작 hook 출력 상한(guides#R23, R24; architecture 5.5). warning 이상
+// session 시작 hook 출력 상한(architecture 5.5). warning 이상
 // coding_agent 대상 open/fixed 문제 최대 3개와 ticket 요약을 이 안에 넣는다.
 /** hook 출력 최대 줄 수다. */
 export const HOOK_MAX_LINES = 10;

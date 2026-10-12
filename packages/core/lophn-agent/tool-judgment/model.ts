@@ -7,20 +7,20 @@ import type {
 
 // 판정표(domain model lophn-agent/harness/tool-judgment 정책). 순수 함수만 둔다. 저장·
 // 질문·approval 생성은 work.ts가 한다. 입력은 소유 계약과 현재 ledger에서 읽은 사실이고
-// model의 설명·긍정 응답·문서·tool 결과는 어느 칸에도 들어오지 않는다(R7).
+// model의 설명·긍정 응답·문서·tool 결과는 어느 칸에도 들어오지 않는다.
 
 export type Verdict = ToolDecision["decision"];
 export type DecisionEffect = NonNullable<ToolDecision["effect"]>;
 
-// 소유 계약이 말하는 되돌림. 계약이 모르면 unknown이고 보장 없음으로 취급한다(R3).
+// 소유 계약이 말하는 되돌림. 계약이 모르면 unknown이고 보장 없음으로 취급한다.
 export type Reversibility = "reversible" | "irreversible" | "unknown";
 
-// run이 이어진 출처. 사람 요청과 그 handoff만 되돌릴 수 있는 쓰기의 allow 근거가 된다(R3).
+// run이 이어진 출처. 사람 요청과 그 handoff만 되돌릴 수 있는 쓰기의 allow 근거가 된다.
 export type Origin = "human_request" | "handoff";
 
 export type TargetFact = {
   id: string;
-  // 현재 run의 scope가 닿는 대상인지. 범위 밖은 승인으로 열지 않는다(R2).
+  // 현재 run의 scope가 닿는 대상인지. 범위 밖은 승인으로 열지 않는다.
   inScope: boolean;
   reversibility: Reversibility;
 };
@@ -39,7 +39,7 @@ export type CallFacts = {
   // 소유 계약의 효과. 모르면 null이고 deny다.
   effect: ToolEffect | null;
   confirm: boolean;
-  // 같은 run·원래 사람 요청 계보에서 사람이 거절한 같은 동작·대상·입력인지(R9).
+  // 같은 run·원래 사람 요청 계보에서 사람이 거절한 같은 동작·대상·입력인지.
   refused: boolean;
   targets: readonly TargetFact[];
 };
@@ -100,7 +100,7 @@ function verdict(
 const RANK: Readonly<Record<Verdict, number>> = { allow: 0, ask: 1, deny: 2 };
 
 // 호출 전체를 먼저 보는 deny 칸. 위에서 먼저 맞는 것이 이긴다. 목록 밖·범위 밖·확인 실패는
-// 어느 것도 한 번 승인으로 열지 않으므로 ask가 아닌 deny다(R2).
+// 어느 것도 한 번 승인으로 열지 않으므로 ask가 아닌 deny다.
 function callDenial(facts: CallFacts): Judgment | undefined {
   if (!facts.identity) return verdict("deny", "identity_unverified", null);
   if (facts.assignment !== "active") {
@@ -147,7 +147,7 @@ function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
 }
 
 // 여러 대상은 각각 판정하고 하나라도 deny면 전체 deny, deny 없이 ask가 있으면 전체 ask,
-// 모두 allow일 때만 allow다(R5). 일부만 적용하는 결과는 없다.
+// 모두 allow일 때만 allow다. 일부만 적용하는 결과는 없다.
 export function judge(facts: CallFacts): Judgment {
   const denied = callDenial(facts);
   if (denied !== undefined) return denied;
@@ -168,7 +168,7 @@ export function judge(facts: CallFacts): Judgment {
   return result ?? verdict("deny", "target_unknown", null);
 }
 
-// session 허락 칸(R14). 판정표가 ask로 낸 호출만 allow로 낮춘다. deny(거절 억제 포함)는 이미 앞에서
+// session 허락 칸. 판정표가 ask로 낸 호출만 allow로 낮춘다. deny(거절 억제 포함)는 이미 앞에서
 // 걸러졌고 여기서 되살리지 않으며, 호출마다 사람이 정하는 confirm 앱 command도 낮추지 않는다. 효과
 // 판정은 그대로 둬서 되돌릴 수 없는 호출이 되돌릴 수 있는 호출로 기록되지 않는다.
 export function lowerBySessionGrant(
@@ -179,7 +179,7 @@ export function lowerBySessionGrant(
   return verdict("allow", "session_granted", judgment.effect);
 }
 
-// 같은 요청의 비교(R9, RefusalMatch). 객체 키 순서만 무시하고 array 순서·값·null·타입은
+// 같은 요청의 비교(RefusalMatch). 객체 키 순서만 무시하고 array 순서·값·null·타입은
 // 그대로 비교한다. 대상은 집합이라 순서를 맞춘다. 설명·이유·역할·Session은 보지 않는다.
 export function refusalKey(
   action: { operation: string; targets: readonly string[]; input: unknown },
@@ -201,7 +201,7 @@ export function sameLineage(
   return current.origin !== null && current.origin === rejected.origin;
 }
 
-// 진입 직전 재검사가 비교하는 기준(R6). ToolDecision.comparison_basis에 그대로 남는다.
+// 진입 직전 재검사가 비교하는 기준. ToolDecision.comparison_basis에 그대로 남는다.
 export type BasisSnapshot = {
   tool: string;
   definition_revision: string;
@@ -228,7 +228,7 @@ export function sameBasis(
 
 // session 허락이 가리키는 tool이 지금도 같은 tool인지의 기준이다. 허락 때 기록한 판정 기준과 지금
 // 기준에서 tool·동작과 그 계약·정의·연결·agent hash만 본다. 대상·입력·비교 기준은 session 허락이
-// 묶지 않는 값이다(R14). 하나라도 달라지면 옛 허락으로 낮추지 않고 다시 묻는다.
+// 묶지 않는 값이다. 하나라도 달라지면 옛 허락으로 낮추지 않고 다시 묻는다.
 const TOOL_BASIS_KEYS = [
   "tool",
   "operation",

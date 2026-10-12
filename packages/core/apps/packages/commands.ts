@@ -75,7 +75,7 @@ export function createSdkCommands(): {
       handle(tx, ctx, input) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
-        // 개인 Package 등록은 현재 받지 않는다(R6).
+        // 개인 Package 등록은 현재 받지 않는다.
         if (personalRegistrationRejected(input.name)) {
           return forbidden("personal package registration is not provided");
         }
@@ -130,7 +130,7 @@ export function createSdkCommands(): {
           input.version,
         );
         if (stored !== undefined) {
-          // 같은 name·version은 byte·guide hash를 덮지 않는다(R8). 같은 hash면
+          // 같은 name·version은 byte·guide hash를 덮지 않는다. 같은 hash면
           // 같은 사실이므로 그대로 접수하고, 다른 hash면 conflict다.
           const sameBundle = stored["bundle_hash"] === input.bundle_hash;
           const sameGuide = stored["guide_hash"] === input.guide_hash;
@@ -155,7 +155,7 @@ export function createSdkCommands(): {
           }
           return conflict("published version bytes are immutable");
         }
-        // 새 version을 더한다. 기존 version byte·guide는 그대로다(R8, R11).
+        // 새 version을 더한다. 기존 version byte·guide는 그대로다.
         const packageId = current["id"] as string;
         const seq = tx.emit(packageVersionRegistered, packageId, {
           name: input.name,

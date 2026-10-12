@@ -1,5 +1,5 @@
 // 일회 handle 원문은 main 메모리에만 있다. renderer는 displayId만 안다.
-// 발급·검증·소비는 core(platform#T56)가 하고, 여기는 그 참조의 수명만 맡는다.
+// 발급·검증·소비는 core가 하고, 여기는 그 참조의 수명만 맡는다.
 import { createHash } from "node:crypto";
 
 import { canonicalize } from "./canonical.ts";

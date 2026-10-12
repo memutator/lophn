@@ -15,7 +15,7 @@ import {
   brokerAppsConnectInputSchema,
 } from "./broker.ts";
 
-// 앱 쌍 연결 준비·confirm의 core 쪽 입구다(apps/connections#R1–R4). 앱 자식은 broker socket으로만 요청하고
+// 앱 쌍 연결 준비·confirm의 core 쪽 입구다. 앱 자식은 broker socket으로만 요청하고
 // supervisor가 그 자식 연결의 신원을 붙여 이 route로 core의 준비 서비스를 부른다. 서명 key는 core만
 // 쥐므로 서명과 proof 발급은 core에서 한다. machine(supervisor) credential만 받고 신원 주장은 서비스가
 // 현재 supervisor 관측과 맞춰 본다: 옛 프로세스·다른 release의 요청은 거절이다.
@@ -74,7 +74,7 @@ export const appPairConfirmPoll = defineMemory({
 });
 
 // 경로 장부는 core의 준비 서비스가 쥐고, 호출의 start 사실은 supervisor의 broker가 처음 본다. supervisor가
-// 그 사실을 core에 알린다(apps/connections#R5, R7). 알리지 못한 호출은 부모로 알려지지 않아 부모 없음으로
+// 그 사실을 core에 알린다. 알리지 못한 호출은 부모로 알려지지 않아 부모 없음으로
 // 시작한다(plan apps#T15의 한계). 자식 종료는 그 자식의 기억을 비운다.
 export const appPairObserve = defineMemory({
   resource: "apps",

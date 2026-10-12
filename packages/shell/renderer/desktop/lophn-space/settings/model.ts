@@ -1,12 +1,12 @@
-// settings 화면의 순수 규칙. 원시 enum·ID를 화면 말로 바꾸고(shell/wording#R4), 모르는 값을
-// 지어내지 않는다(shell/wording#R10). 화면 컴포넌트와 테스트가 같이 쓴다.
+// settings 화면의 순수 규칙. 원시 enum·ID를 화면 말로 바꾸고, 모르는 값을
+// 지어내지 않는다. 화면 컴포넌트와 테스트가 같이 쓴다.
 import { formatDate, t } from "@lophn/wording";
 
 import type { ApplyAt, AuthWay, ServerAuth, SettingRow } from "./source.ts";
 
 /**
  * 내장 정의가 알려 준 연결 방법만, 정해진 순서(로그인, key)로. 인증 없음은 내장 정의에 없고 직접 만든
- * custom provider의 loopback에만 있어 고르는 방법이 아니다(lophn-agent/harness/provider#R5).
+ * custom provider의 loopback에만 있어 고르는 방법이 아니다.
  */
 export function waysOf(
   ways: readonly AuthWay[],

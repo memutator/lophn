@@ -1,4 +1,4 @@
-// 템플릿 선택 순서(apps/sdk#R35): 사람이 명시한 `LOPHN_APP_TEMPLATE` → 설치 `templates/app` → 내장 검증
+// 템플릿 선택 순서: 사람이 명시한 `LOPHN_APP_TEMPLATE` → 설치 `templates/app` → 내장 검증
 // 템플릿. 명시한 override는 사람의 선택이라 hash를 묻지 않지만 템플릿 모양이 아니면 조용히 다른 후보로
 // 넘어가지 않고 실패한다. 설치 사본과 내장 템플릿은 고정 hash와 byte가 같아야 쓴다. 설치 사본이 다르면
 // 쓰지 않고 이유를 남긴 채 내장 템플릿으로 간다. 내장 템플릿이 고정 hash와 다르면 실패다.

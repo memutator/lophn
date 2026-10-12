@@ -1,4 +1,4 @@
-// core의 blob 준비 중계(blob contract, platform/blob-store#R1, platform Q2·Q6).
+// core의 blob 준비 중계(blob contract).
 // 준비 참조는 principal·purpose·hash·크기와 10분 수명으로 core 메모리에 등록된다.
 // core는 파일을 다시 hash하지 않는다. 바이트는 해석 없이 I/O worker로 흘려보낸다.
 // 순서는 worker_request, bytes(worker가 준 credit 안에서만), end(또는 abort)다.

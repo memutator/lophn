@@ -11,11 +11,11 @@ import {
 } from "../../tools/questions/mod.ts";
 import { oneLine } from "./place-recommendation.ts";
 
-// lophn의 설정 변경 제안(roles/lophn#R21, R22). 순수 함수다. 변경은 현재 값·새 값·영향·적용
+// lophn의 설정 변경 제안. 순수 함수다. 변경은 현재 값·새 값·영향·적용
 // 시점이 고정된 선택지와 추천을 붙인 질문으로만 묻는다. 실제 적용은 사람이 고른 뒤 machine이
-// 소유 command(ApplySettings)로 한다(questions#R13). 자유 답·침묵·추천은 어느 경로에도 action이
+// 소유 command(ApplySettings)로 한다. 자유 답·침묵·추천은 어느 경로에도 action이
 // 없으므로 값을 바꾸지 못한다. 권한 확대·secret 등록·외부 효과 설정은 선택지를 만들지 않고
-// 소유 concern의 보호 화면을 안내한다(R22).
+// 소유 concern의 보호 화면을 안내한다.
 
 const APPLY_WORDS: Record<SettingApplyAt, string> = {
   next_run: "It takes effect from the next run.",

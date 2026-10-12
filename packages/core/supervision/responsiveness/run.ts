@@ -44,7 +44,7 @@ const FAILURE_REASONS = {
   faulted: "stdio failed",
 } as const;
 
-// ready 전 실패는 재기동 대상이다. ready 이후의 끝은 작업을 반복하지 않는다(R17).
+// ready 전 실패는 재기동 대상이다. ready 이후의 끝은 작업을 반복하지 않는다.
 export async function runOnce(slot: Slot, deps: RunDeps): Promise<Outcome> {
   let process: Spawned;
   try {

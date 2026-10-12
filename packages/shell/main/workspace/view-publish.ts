@@ -1,6 +1,6 @@
 // 현재 보기 상태의 relay publish·bind·unpublish transport. 창의 보기
 // generation이 바뀔 때 publish하고, 닫힘·단절에는 unavailable·disconnected를
-// publish한다(shell/workspace#R9, R10). 상태 조립은 current-view.ts가 한다.
+// publish한다. 상태 조립은 current-view.ts가 한다.
 // relay route와 값 제약은 contracts/shell/workspace.ts이고, shell tsc는
 // packages를 보지 않으므로 호출 모양만 여기서 맞춘다.
 import {
@@ -65,7 +65,7 @@ export interface ViewPublishDeps {
 
 /**
  * 창 하나의 publish transport. publish는 additive다 — 이전 publish를 대체하고
- * relay(core)가 session 결합을 유지한다(platform T57). 값은 relay 메모리에만
+ * relay(core)가 session 결합을 유지한다. 값은 relay 메모리에만
  * 있고 ledger·blob·log에 가지 않는다.
  */
 export function createViewPublisher(
@@ -77,7 +77,7 @@ export function createViewPublisher(
     ): Promise<PublishResult> {
       return await send(deps, state);
     },
-    /** 창 닫힘·main 단절에 unavailable을 표시한다(shell/workspace#R9). */
+    /** 창 닫힘·main 단절에 unavailable을 표시한다. */
     async unavailable(
       windowRef: string,
       reason: string,
@@ -165,7 +165,7 @@ async function notify(
     return { ok: false, error: unavailableError() };
   }
   // relay는 현재 상태만 가진다. 부재 창의 publish는 not_found다 — 옛 값을
-  // 지우지 않기 위해 안전한 unavailable 표시만 보낸다(T57, prompt-assemble#R28).
+  // 지우지 않기 위해 안전한 unavailable 표시만 보낸다.
   const result = await relay(core, "publish", {
     window_ref: state.window_ref,
     generation: 0,
@@ -179,7 +179,7 @@ async function notify(
 
 function now(): string {
   // 관측 시각은 이 transport가 아니라 조립이 고정한다. 부재 표시의 시각은
-  // 여기서 고정한다(shell/workspace#R10).
+  // 여기서 고정한다.
   return formatAt(Date.now());
 }
 

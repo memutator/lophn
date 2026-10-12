@@ -2,10 +2,10 @@
 // schema로 이미 검사했다. 아래 모양은 그 schema(assignments·runs·sessions·questions list,
 // runs.read, approvals.list, notifications.list, events.list, blobs.read, questions text·
 // answer·defer·cancel, notifications.read)에서 이 화면들이 읽는 field만 옮긴 것이다. command
-// 성공 응답은 route output 그대로다(envelope 없음, platform/api#R3).
+// 성공 응답은 route output 그대로다(envelope 없음).
 //
 // 질문은 묶음 단위다(questions list·text·answer·defer·cancel). 이 통로는 세션 없는 run의 묶음만
-// 싣는다. 세션 있는 run의 묶음은 그 세션의 대화 안 카드가 맡고(lophn-agent/questions#R17),
+// 싣는다. 세션 있는 run의 묶음은 그 세션의 대화 안 카드가 맡고,
 // 문서가 이 화면에 같이 보이라고 정하지 않았다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { GroupAnswer } from "../../../conversation/question-card/model.ts";
@@ -438,7 +438,7 @@ export function windowConfirmation(): OpenConfirmation | undefined {
     : undefined;
 }
 
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
+// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
 const PARENT_WINDOW = "requesting-window";
 
 export function coreRequestSource(
@@ -486,7 +486,7 @@ export function coreRequestSource(
       const notifications = await readNotifications(core, false);
       // 세션 있는 run의 묶음은 대화 안 카드가 맡는다. 세션 없는 묶음만 이 화면에 싣는다.
       const groupRows = questions.value.filter((item) => item.session === null);
-      // 못 읽은 쪽은 0으로 보이지 않게 표시한다(desktop#R7).
+      // 못 읽은 쪽은 0으로 보이지 않게 표시한다.
       const approvalRows = approvals.ok ? approvals.value.requests : [];
       const subjects: { id: string; seq: string }[] = [];
       for (const item of [...groupRows, ...approvalRows]) {
@@ -572,7 +572,7 @@ export function coreRequestSource(
 
     async answer(group, answers) {
       // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
-      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). app.create·apply_settings만 확인 창 없이
+      // core가 redaction을 거쳐 blob으로 둔다. app.create·apply_settings만 확인 창 없이
       // main이 정본을 다시 읽어 접수한다. 그 밖 action은 화면이 [Review]로 보호 창을 연다.
       const windowless = windowlessChoice(group, answers);
       if (windowless !== null) {
@@ -603,7 +603,7 @@ export function coreRequestSource(
           group: group.id,
           created_seq: group.createdSeq,
           closed_reason: "cancelled",
-          // 이유는 글을 값으로 싣는다. core가 blob으로 둔다(lophn-agent Q38).
+          // 이유는 글을 값으로 싣는다. core가 blob으로 둔다.
           closed_reason_text: reason,
         },
         compare: { created_seq: group.createdSeq },

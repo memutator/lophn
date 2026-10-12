@@ -1,6 +1,6 @@
 import type { JsonObject, JsonValue } from "../../../../protocol/base/mod.ts";
 
-// option 값이 요청 body에 싣는 조각을 호출 형식 adapter가 만든 body에 합친다(harness/model#R22).
+// option 값이 요청 body에 싣는 조각을 호출 형식 adapter가 만든 body에 합친다.
 // 조각은 번역(wire.ts)이 정한 값이고 이 함수는 model 이름이나 호출 형식을 모른다.
 
 function isJsonObject(value: JsonValue | undefined): value is JsonObject {

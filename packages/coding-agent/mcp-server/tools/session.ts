@@ -1,4 +1,4 @@
-// lophn_session tool의 실행이다(coding-agent#T35, guides#R21, R22). summary op는 소유 읽기 route 하나로만
+// lophn_session tool의 실행이다. summary op는 소유 읽기 route 하나로만
 // 보내고 읽기 실패를 빈 목록으로 바꾸지 않는다. 이 tool은 claim·갱신·수리 착수를 하지 않는다. summary를
 // 읽거나 목록에서 ticket을 발견한 것은 착수 지시가 아니다.
 import { MCP_SESSION_ROUTES } from "../../../protocol/coding-agent/mod.ts";

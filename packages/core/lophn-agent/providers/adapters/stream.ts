@@ -1,4 +1,4 @@
-// SSE frame parser(provider#R25). 실제 network는 transport가 읽고 여기는 chunk bytes를
+// SSE frame parser. 실제 network는 transport가 읽고 여기는 chunk bytes를
 // frame으로만 자른다. 완성 줄만 디코딩하므로 UTF-8 멀티바이트가 chunk 경계에서 잘려도
 // 이어 붙는다. 프레임은 \n·\r\n으로 자르고, line·event·전체 크기 상한은 bytes로 센다.
 // 상한을 넘으면 더 받지 않고, 잘린 꼬리는 finish에서 pending으로 남기며 모르는

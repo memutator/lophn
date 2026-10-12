@@ -4,7 +4,7 @@ import { definePort, type PortKey } from "../base/ports.ts";
 import type { ProblemCodeDeclaration } from "./problem-codes.ts";
 
 // 보고 당시 release의 선언 code 문구(apps/releases store가 고정 blueprint에서 읽는다).
-// 구현은 problems가 내놓고 core 조립이 reader·Tx port로 등록한다(problems#T27).
+// 구현은 problems가 내놓고 core 조립이 reader·Tx port로 등록한다.
 export type ProblemWordingFact = {
   // 앱 등록 기록의 사람이 지은 이름(#261 이어받음: fallback에 앱 이름을 붙인다).
   app_name: string;

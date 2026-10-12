@@ -1,4 +1,4 @@
-// 갱신 결과 저장(platform/secrets#R11).
+// 갱신 결과 저장.
 // keychain 준비를 먼저 끝내고 값 없는 SecretPreparation과 CAS만 소유 command에 제출한다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -108,7 +108,7 @@ export function createSecretRefresh(options: {
       if (bytes === undefined) {
         return err({ code: "invalid_input", message: "갱신 값이 없다" });
       }
-      // 준비는 command 밖에서 끝난다. 값은 SecretPreparation에 들어가지 않는다(R11).
+      // 준비는 command 밖에서 끝난다. 값은 SecretPreparation에 들어가지 않는다.
       const prepared = await options.work.prepare(
         {
           context: input.context,

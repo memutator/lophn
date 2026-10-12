@@ -10,7 +10,7 @@ import {
 import type { ReadHandler } from "../server/mod.ts";
 import { matchCredential, patternRevision } from "../../base/redaction/mod.ts";
 
-// doctor가 실제로 검사하는 자료(platform/diagnostics#R9, R10). 원문 key·token·
+// doctor가 실제로 검사하는 자료. 원문 key·token·
 // scope 밖 자료는 이 경계로 들어오지 않는다. 값은 소유 concern의 사실이고 doctor는
 // 관측만 한다.
 
@@ -224,7 +224,7 @@ function runCheck(
 }
 
 // 인증은 API 입구가 이미 끝냈다. 무거운 검사는 worker가 하고 여기서는 그
-// 관측만 읽는다(platform/diagnostics#R9, R10).
+// 관측만 읽는다.
 export function diagnosticsCheckRead(
   source: DoctorSource,
   clock: Clock,
@@ -264,8 +264,7 @@ export function warmPatternRevision(): Promise<string> {
 
 export const DIAGNOSTICS_CHECK_ROUTE = diagnosticsCheck;
 
-// 저장 실패는 플랫폼 실패다. 성공 응답이나 앱 problem으로 바꾸지 않는다
-// (platform/diagnostics#R4).
+// 저장 실패는 플랫폼 실패다. 성공 응답이나 앱 problem으로 바꾸지 않는다.
 export function storageFailure(reason: "disk_full" | "ledger_corrupt"): Result<
   never
 > {
@@ -279,7 +278,7 @@ export function storageFailure(reason: "disk_full" | "ledger_corrupt"): Result<
 }
 
 // 진단 상세는 redaction을 통과한 내용만 준다. 가공하지 못한 원문·stack은
-// 제외하고 이유만 남긴다(platform/diagnostics#R5).
+// 제외하고 이유만 남긴다.
 export function safeDetail(input: {
   message: string | null;
   redacted: boolean;
@@ -294,8 +293,7 @@ export function safeDetail(input: {
   };
 }
 
-// 보안 진단 분류. 원본은 소유 concern의 event이고 여기서는 분류만 구별한다
-// (platform/diagnostics#R6).
+// 보안 진단 분류. 원본은 소유 concern의 event이고 여기서는 분류만 구별한다.
 export const SECURITY_DIAGNOSTIC_KINDS = [
   "permission_grant",
   "permission_revoke",

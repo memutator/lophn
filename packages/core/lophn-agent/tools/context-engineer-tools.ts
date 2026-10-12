@@ -1,4 +1,4 @@
-// Context Engineer만의 tool(lophn-agent/harness/tools#R23, roles/context-engineer#R5, R8, R11, R14, R15)이다.
+// Context Engineer만의 tool이다.
 // 정의는 harness/tools에 있고(harness는 roles를 import하지 않는다) `BUILTIN_TOOLS`가 더한다. 역할 쪽은
 // 이름만 고른다: 역할 상한 이름 표(`agents/role-caps.ts`)가 이 이름을 Context Engineer에게만 연다.
 // 계약은 JSON 선언으로만 쓰고(초안 content는 객체), 코드·shell·파일 쓰기 통로는 없다. 모든 tool은 소유 contract
@@ -399,7 +399,7 @@ function read(
   };
 }
 
-// 한 번에 20개다(R13). 위반 읽기는 core에 limit 20을 보낸다.
+// 한 번에 20개다. 위반 읽기는 core에 limit 20을 보낸다.
 const VIOLATION_LIMIT = PAGE_SIZE;
 
 // 미리보기 page는 core가 30개씩 주므로 앞 20개만 보이고 나머지는 같은 page의 뒤 위치에서 잇는다. 다음 page로

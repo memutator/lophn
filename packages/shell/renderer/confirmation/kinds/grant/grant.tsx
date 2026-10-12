@@ -92,7 +92,7 @@ function limit(key: unknown): string {
   }
 }
 
-/** 요청 범위의 원문. 경로·host·port·secret 이름·command를 줄이지 않고 고정폭으로 보인다(R8). */
+/** 요청 범위의 원문. 경로·host·port·secret 이름·command를 줄이지 않고 고정폭으로 보인다. */
 function scopeRows(
   kind: unknown,
   scope: Record<string, unknown>,
@@ -136,7 +136,7 @@ function scopeRows(
 /**
  * 접근·앱 쌍 허락. 요청 범위(정확한 경로·host·port·secret 이름, 앱 쌍은 부르는 앱 → 대상 앱과
  * command 범위)를 줄이지 않고 고정폭으로 보이고, 파일 읽기와 네트워크 조합 경고와 앱 보호의
- * 한계(apps 소유 key)를 함께 보인다(apps/permissions#R24, R25).
+ * 한계(apps 소유 key)를 함께 보인다.
  */
 export function GrantKind(props: KindProps) {
   const shown = obj(props.view.view);

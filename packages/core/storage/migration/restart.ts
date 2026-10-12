@@ -16,7 +16,7 @@ export type RestartObservation = {
   target: string;
   // 점검 시작에 읽은 관련 변경 위치. 모르는 대상은 "0"이다.
   baseSeq: string;
-  // 실제 관측만. 응답 부재로 not_started를 추정하지 않는다(R16).
+  // 실제 관측만. 응답 부재로 not_started를 추정하지 않는다.
   outcome: "confirmed" | "not_started" | "unknown";
   // 준비·감사·프로세스 종료 등의 실제 근거. 없으면 빈 목록.
   evidence: readonly string[];
@@ -26,12 +26,12 @@ export type RestartObservation = {
 
 export type RestartCheck = {
   // schema 순번과 hash 유효성은 기동의 migration 적용이 이미 검사한다.
-  // 여기서는 중단 흔적의 관측만 남긴다. 전역 barrier를 만들지 않는다(R16).
+  // 여기서는 중단 흔적의 관측만 남긴다. 전역 barrier를 만들지 않는다.
   observations: readonly RestartObservation[];
 };
 
 // 소유 concern이 자기 표를 읽어 낸 관측. 이 모듈은 소유 표를 읽지 않으므로 소유 concern이 함수로 준다.
-// 읽기 전용 SQL과 점검 시각을 받고, 읽지 못하면 unknown과 안전한 이유를 낸다(R16).
+// 읽기 전용 SQL과 점검 시각을 받고, 읽지 못하면 unknown과 안전한 이유를 낸다.
 export type RestartOwner = (
   sql: Pick<Sql, "all">,
   now: string,
@@ -49,7 +49,7 @@ const SAFE_REASON = /^[a-z][a-z0-9_]*$/;
 /**
  * 재시작 뒤 중단 작업 점검. R11의 순서에서 ledger 무결성·schema 점검 다음,
  * API 시작 전에 부른다. 소유 concern의 복구 command가 연결되기 전 영역은
- * unknown 관측값과 근거를 남긴다. 어느 관측도 읽기를 막지 않는다(R15·R16).
+ * unknown 관측값과 근거를 남긴다. 어느 관측도 읽기를 막지 않는다.
  */
 export function checkRestart(
   ledgerPath: string,
@@ -90,7 +90,7 @@ function readRestartTrace(
       : formatSeq(raw);
     // 소유 concern의 복구 command(invocation·release activation·run·approval
     // 대기)가 아직 없어 어느 대상도 실제 관측으로 확정하지 못한다. 대상별
-    // 관측 대신 기동 흔적 하나를 unknown으로 남긴다(R16). reason은 안전한
+    // 관측 대신 기동 흔적 하나를 unknown으로 남긴다. reason은 안전한
     // 모양이고 근거는 ledger 위치뿐이다.
     const reason = "no_recovery_commands_registered";
     if (!SAFE_REASON.test(reason)) {
@@ -115,7 +115,7 @@ function readRestartTrace(
 
 // 위치 읽기가 실패하면(예: events 표가 없는 ledger, 잠깐의 busy) 확정된
 // 위치가 없다는 뜻이다. 값은 unknown과 근거로 남기고 기동을 거절하지 않는다.
-// 읽기 실패가 not_started의 근거가 아니다(R16: 응답 부재로 미실행 추정 불가).
+// 읽기 실패가 not_started의 근거가 아니다(응답 부재로 미실행 추정 불가).
 function sqlGet(
   connection: ReturnType<typeof openConnection> extends Result<infer T> ? T
     : never,

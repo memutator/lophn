@@ -12,7 +12,7 @@ export type NotificationView = {
   target: unknown;
 };
 
-// 표 밖 결정은 계기가 아니다(platform/notifications#R1, R2). 각 트리거의 조건은
+// 표 밖 결정은 계기가 아니다. 각 트리거의 조건은
 // architecture 5.10의 한 행이다: 운영 보고 문제 3가지, 항상 5가지, machine pause,
 // release activation 실패, context 위반 수 증가.
 export function triggerOf(event: string): NotificationTrigger | undefined {
@@ -73,7 +73,7 @@ function targetOf(
   }
 }
 
-// machine이 멈춘 assignment만 계기다. 사람이 직접 멈춘 것은 소식이 아니다(R1).
+// machine이 멈춘 assignment만 계기다. 사람이 직접 멈춘 것은 소식이 아니다.
 function assignmentTriggered(payload: Payload): boolean {
   const reason = payload["reason"];
   return payloadIsObject(reason) && reason["kind"] === "scope_archived";
@@ -101,7 +101,7 @@ export function conditionMet(
   return true;
 }
 
-// 제목·대상은 source 사실에서 만들고 redaction을 거친다(R3). 본문·대화·업무 상태는
+// 제목·대상은 source 사실에서 만들고 redaction을 거친다. 본문·대화·업무 상태는
 // 복사하지 않는다. 화면 문자열 80자 초과는 안전 shape로, private 필드는 통째로 뺀다.
 export function notificationView(
   row: NotificationRow,

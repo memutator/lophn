@@ -1,4 +1,4 @@
-// Context 탭의 Search 하위 탭: 이 context가 선언한 검색과 저장한 보기의 목록(shell/workspace#R22). 하나를
+// Context 탭의 Search 하위 탭: 이 context가 선언한 검색과 저장한 보기의 목록. 하나를
 // 고르면 결과를 여기서 그리지 않고 그 검색을 고른 Search 탭을 여는 일을 부른 쪽에 맡긴다.
 import type { ReactNode } from "react";
 import { EmptyState, ErrorState, Skeleton } from "@lophn/design/components";

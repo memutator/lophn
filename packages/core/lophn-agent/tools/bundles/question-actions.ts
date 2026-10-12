@@ -21,7 +21,7 @@ import { bodyOf } from "./paging.ts";
 
 // 질문 선택지의 고정 action을 모델이 싣지 않고 handler가 읽은 근거로 고정한다(question.submit).
 // 모델은 대상과 새 값만 제안한다. 현재 값·revision·비교 기준은 여기서 소유 contract의 읽기로
-// 얻고, 사람이 고르기 전에는 아무것도 바뀌지 않는다(lophn-agent/questions#R13). 적용은 사람이
+// 얻고, 사람이 고르기 전에는 아무것도 바뀌지 않는다. 적용은 사람이
 // 답을 확정한 뒤 machine이 소유 command로 한다.
 
 // 설정 하나를 새 값으로 바꾸는 제안. 키와 값만 모델 몫이다.

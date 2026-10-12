@@ -1,6 +1,6 @@
 // 문서 읽기와 편집기가 읽는 통로. documents#T6(문서·판), documents#T14(outline·본문
 // 단계 읽기), documents#T9(address)의 read 결과에서 화면이 쓰는 것만 담는다. core를 직접
-// 부르지 않고 화면이 주입한 통로만 쓴다. 저장은 이 통로에 없다(shell#T17).
+// 부르지 않고 화면이 주입한 통로만 쓴다. 저장은 이 통로에 없다.
 import type { LinkTarget } from "./link-picker/link-picker.ts";
 
 export type SourceResult<T> =

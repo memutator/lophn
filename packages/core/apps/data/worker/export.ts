@@ -1,4 +1,4 @@
-// 앱 export 준비(apps/data#R13). data worker가 준비하는 일의 본체다: 배타 lock,
+// 앱 export 준비. data worker가 준비하는 일의 본체다: 배타 lock,
 // SQLite backup API로 WAL의 확정 내용까지 포함한 DB 사본 무결성 확인, ledger에서
 // 읽은 고정 blueprint·release 이력, 봉인 bundle 사본, 설치 SDK 사본 byte를 데이터
 // 영역 안 staging에 모은다. secret 원값·credential은 모으지 않는다. export는

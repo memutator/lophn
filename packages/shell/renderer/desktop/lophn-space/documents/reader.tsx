@@ -65,7 +65,7 @@ type Body =
 const WHOLE = "";
 
 // 고른 문서의 고정 판을 목차부터 읽는다. section을 고르면 그 범위만, [Read more]는 같은
-// 판의 다음 범위만 읽는다(outline-and-search#R7, R8). 최신 판은 따로 알리고 섞지 않는다.
+// 판의 다음 범위만 읽는다. 최신 판은 따로 알리고 섞지 않는다.
 export function Reader(
   { source, target, now, onOpen, onBack, onStep }: ReaderProps,
 ) {

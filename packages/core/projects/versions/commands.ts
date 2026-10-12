@@ -59,7 +59,7 @@ import { authorizeDocument } from "./authorization.ts";
 import { appOutputRejected, releaseClaimed } from "./app-output.ts";
 
 // 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
-// save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
+// save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다.
 export const versionFileField = defineBlobField({
   owner_kind: "document_version",
   field: "file",
@@ -106,7 +106,7 @@ function claimedActor(ctx: RequestContext, prepared: PreparedVersion): boolean {
 }
 
 // 관측 근거가 현재 연결과 다르면 그 제출은 늦다. core는 파일을 다시 읽지 않고
-// conflict만 돌려 다시 관측하게 한다(file-tracking#R7, versions#R13).
+// conflict만 돌려 다시 관측하게 한다.
 // project_revision과 root 제거도 같은 비교다. 준비와 확정 사이에 규칙·연결·보관·
 // root가 바뀌면 basisChanged가 참이고, 그 제출은 conflict다.
 function observationBasisStale(
@@ -153,7 +153,7 @@ function observationBasisStale(
   );
 }
 
-// 원본 연결 문서는 현재 파일 관측의 준비 결과로만 새 판을 확정한다(versions#R13).
+// 원본 연결 문서는 현재 파일 관측의 준비 결과로만 새 판을 확정한다.
 function directSaveOfLinked(
   document: Document | null,
   prepared: PreparedVersion,
@@ -163,7 +163,7 @@ function directSaveOfLinked(
   return source === null || source.kind === "app";
 }
 
-// agent 출력은 일반 문서의 고정 판이다(versions#R14). 파일 관측 source를 주장하지 못하고,
+// agent 출력은 일반 문서의 고정 판이다. 파일 관측 source를 주장하지 못하고,
 // 원본 연결·지침 문서와 보관 문서는 출력 대상이 아니다. 범위 밖 대상의 답은 platform이
 // 이미 정했고(authorizeDocument) 이 규칙은 그 범위 안에서도 쓰지 못하는 상태만 거절한다.
 function agentOutputRejected(
@@ -271,7 +271,7 @@ export function createVersionCommands(
         if (claimed !== undefined) return claimed;
         const existing = loadDocument(tx.sql, input.document);
         if (!existing.ok) return existing;
-        // 앱 자격은 자기 앱 place의 출력만 쓴다(versions#R14). 다른 place의 기존 문서는 없는
+        // 앱 자격은 자기 앱 place의 출력만 쓴다. 다른 place의 기존 문서는 없는
         // 문서와 같은 답이다.
         const appOutput = appOutputRejected(tx, ctx, existing.value, input);
         if (appOutput !== undefined) return appOutput;
@@ -361,11 +361,11 @@ function createDocument(
     return rejected("invalid_input", "new document needs metadata");
   }
   const metadata = prepared.metadata;
-  // 파일 관측이 만드는 첫 문서는 그 파일에 연결된다(versions#R13). 연결이 이미 있거나
+  // 파일 관측이 만드는 첫 문서는 그 파일에 연결된다. 연결이 이미 있거나
   // 같은 경로에 연결된 문서가 있으면 그 제출은 늦다. 새 문서를 두 번째로 만들지 않는다.
   const linked = newFileSource(tx, prepared);
   if (!linked.ok) return linked;
-  // 프로젝트 폴더에서 관측한 새 문서는 그 프로젝트에 둔다(documents Q31).
+  // 프로젝트 폴더에서 관측한 새 문서는 그 프로젝트에 둔다.
   const placed = observedPlacement(tx, metadata, linked.value);
   const candidate: Document = {
     id: prepared.document,
@@ -427,7 +427,7 @@ const NAME_ATTEMPTS = 1000;
 
 // 프로젝트 폴더의 파일을 관측해 만든 첫 문서가 자리 없이 왔으면 그 프로젝트를 자리로 하고
 // 이름은 제목(없으면 파일 이름)에서 정한다. 같은 자리의 이름이 이미 쓰이면 `-2`부터 붙인다
-// (이름은 같은 자리에서 유일하고 옛 예약도 다른 대상이 쓸 수 없다, addressing#R2). 호출자가
+// (이름은 같은 자리에서 유일하고 옛 예약도 다른 대상이 쓸 수 없다). 호출자가
 // 자리나 이름을 정해 보냈으면 그대로 둔다. 파일이 없는 저장(upload·agent)은 자리를 정하지 않는다
 // (addressing#R3). 지침 파일 문서는 프로젝트 문서가 아니라 그대로 둔다.
 function observedPlacement(
@@ -563,7 +563,7 @@ function sameFormat(left: FormatRef, right: FormatRef): boolean {
 
 // 준비 결과가 선택한 옛 판의 바이트와 정확한 FormatRef 그대로인지 본다. core는 파일을
 // 다시 읽지 않는다: 준비가 낸 hash·목록이 선택 판의 행과 같은지만 비교한다. 새로 만든
-// 판은 이 확인을 지난 값으로만 선다(versions#R10).
+// 판은 이 확인을 지난 값으로만 선다.
 function restoresSelected(
   tx: Tx,
   selected: VersionRow,
@@ -605,7 +605,7 @@ function restoresSelected(
 }
 
 // 원본 연결 문서의 restore는 선택 판의 바이트를 사람이 파일에 쓴 뒤 그 파일의 관측 근거로만
-// 선다(versions#R13). 연결과 다른 source·근거 없는 직접 restore는 늦은 요청이다.
+// 선다. 연결과 다른 source·근거 없는 직접 restore는 늦은 요청이다.
 function restoreSourceAllowed(
   document: Document,
   selected: VersionRow,
@@ -651,7 +651,7 @@ function restoreSourceAllowed(
   return ok(undefined);
 }
 
-// 선택한 옛 판의 내용과 정확한 FormatRef로 새 판을 만든다(versions#R10). 최신 판·문서
+// 선택한 옛 판의 내용과 정확한 FormatRef로 새 판을 만든다. 최신 판·문서
 // revision이 읽은 그대로일 때만 하고, 최신과 같은 내용·형식이면 새 판도 event도 없다.
 // 옛 판과 그 event는 그대로 남는다. 제목 보상 값은 요청된 revert(machine)만 보낸다.
 function restoreVersion(
@@ -778,7 +778,7 @@ function mintVersion(
   return ok(version);
 }
 
-// 정규화 목록 blob과 경로별 원문 blob을 판에 묶는다. 등록 실패는 저장 실패다(versions#R5).
+// 정규화 목록 blob과 경로별 원문 blob을 판에 묶는다. 등록 실패는 저장 실패다.
 // 원문 blob은 파일별 준비 참조로 등록한다. 등록하지 않으면 준비 참조 수명이 지나 사라진다.
 function storeVersion(
   tx: Tx,
@@ -962,7 +962,7 @@ function referenceOf(
   return { document: document.id, version: version.id, section: null };
 }
 
-// 저장 결과의 경고는 준비 결과의 validation 진단 가운데 warning severity만 남긴다(R4).
+// 저장 결과의 경고는 준비 결과의 validation 진단 가운데 warning severity만 남긴다.
 // 진단이 blob 참조에 보류된 경우에는 응답 경고가 없다. 진단 위치는 형식을 유지한다.
 function preparedWarnings(prepared: PreparedVersion): SaveResult["warnings"] {
   const { diagnostics } = prepared.validation;

@@ -7,12 +7,12 @@ import type {
   MaterialReference,
 } from "./model.ts";
 
-// 작업 재료 입력을 만든다(lophn-agent/harness/prompt-assemble 요구 R4, R5, R6, R18). 결과 문자열은
+// 작업 재료 입력을 만든다(lophn-agent/harness/prompt-assemble 요구 R4). 결과 문자열은
 // `assemblePrompt`의 `material.materials`로 들어가므로 자료에서 온 글은 모두 safety `wireData`로 이미
 // 포장한다. 주소·version은 machine id라서 포장 밖 머리줄에 둔다.
 
 // context 한 개의 자료. overview와 용어집은 호출한 쪽이 이미 만들었고, 줄일 때는 용어집 → overview 순으로
-// 쪼개 줄이므로 따로 받는다(R18).
+// 쪼개 줄이므로 따로 받는다.
 export type MaterialSource = {
   // context id.
   address: string;
@@ -41,7 +41,7 @@ export type RenderedMaterial = {
   omissions: MaterialOmission[];
 };
 
-// 같은 context·판은 처음 한 번만 남긴다(R5).
+// 같은 context·판은 처음 한 번만 남긴다.
 export function dedupeSources(
   sources: readonly MaterialSource[],
 ): MaterialSource[] {
@@ -127,7 +127,7 @@ async function renderWith(
   return { materials, references, omissions: [...omissions] };
 }
 
-// 중복을 접고 context마다 자료 하나를 초기 입력으로 만든다(R4, R5).
+// 중복을 접고 context마다 자료 하나를 초기 입력으로 만든다.
 export function renderMaterial(
   sources: readonly MaterialSource[],
   options: MaterialRenderOptions,
@@ -137,7 +137,7 @@ export function renderMaterial(
 }
 
 // `blocked: input_over_budget`을 받은 쪽이 부른다. 용어집을 뒤 context부터 한 개씩 줄이고, 그래도 안 맞으면
-// overview를 뒤 context부터 type 이름만 남기고 줄이며, `fits`가 참이 되면 멈춘다(R18). context 이름·id는 늘
+// overview를 뒤 context부터 type 이름만 남기고 줄이며, `fits`가 참이 되면 멈춘다. context 이름·id는 늘
 // 남는다. 줄인 곳은 omissions와 안내 줄에 수와 함께 남는다. 다 줄여도 안 맞으면 fits는 false다.
 export async function shrinkMaterial(
   sources: readonly MaterialSource[],
@@ -168,7 +168,7 @@ export async function shrinkMaterial(
   return { ...rendered, fits: false };
 }
 
-// ---- skill (R6) ----
+// ---- skill ----
 
 export const SKILL_READ_HINT =
   "skill 본문은 이 목록에 없다. 쓰기 전에 skill.read로 읽고, 이력이 줄어 본문이 사라졌으면 다시 읽는다.";

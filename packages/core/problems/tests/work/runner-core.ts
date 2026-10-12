@@ -1,5 +1,5 @@
 // test runner control. core 감독이 하나를 띄우고, 실제 test 자식은 요청마다
-// 이 모듈이 띄운다(problems/tests#R13–R21). credential은 argv에 넣지 않는다.
+// 이 모듈이 띄운다. credential은 argv에 넣지 않는다.
 import { applyMemoryLimit } from "../../../supervision/security/mod.ts";
 import {
   brokerReport,
@@ -33,10 +33,10 @@ import type { SpawnPort } from "./mod.ts";
 export const TEST_RUNNER_KIND = "problems/test-runner";
 
 // core가 감독 pipe로 보내는 `problems.work` 깨움 요청의 op. 본문은 cursor 하나다: core가 ledger의
-// `problems.work` 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다(problems#T19).
+// `problems.work` 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다.
 export const PROBLEMS_WORK_OP = "problems.work";
 
-// 같은 runner service가 도는 `problems.closing` 반응기(problems#T20)의 깨움 op다. 본문은 cursor 하나다.
+// 같은 runner service가 도는 `problems.closing` 반응기의 깨움 op다. 본문은 cursor 하나다.
 export const PROBLEMS_CLOSING_OP = "problems.closing";
 
 export type RunnerChild = {
@@ -54,7 +54,7 @@ export function stopChildren(children: readonly RunnerChild[]): void {
 }
 
 // 메모리 경계는 platform/security가 고른다. 걸 수 없으면 runPrepared가
-// 자식을 띄우지 않는다(problems/tests#R20).
+// 자식을 띄우지 않는다.
 export const platformMemory: MemoryLimitPort = {
   limit(command, args) {
     return applyMemoryLimit(command, args);
@@ -66,7 +66,7 @@ export async function acceptRun(
   options: {
     memory?: MemoryLimitPort;
     spawn?: SpawnPort;
-    // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다(R17).
+    // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다.
     commit?: StartAttemptCommit;
     // 자식이 실제로 시작한 직후 부른다(실제 시작을 ledger에 남기는 자리).
     started?: (
@@ -89,7 +89,7 @@ export async function acceptRun(
 }
 
 // 자식의 private IPC 보고를 그 요청의 mode=test·scope로 collector에 넘긴다.
-// 자식은 collector 주소를 받지 않는다(problems/tests#R17).
+// 자식은 collector 주소를 받지 않는다.
 export function forwardChildReport(
   frame: Uint8Array,
   scope: string,

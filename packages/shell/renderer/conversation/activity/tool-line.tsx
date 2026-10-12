@@ -11,7 +11,7 @@ export interface ToolLineProps {
 }
 
 // 한 줄로 접힌 tool 호출("Read 3 documents ›"). collapsed는 접혀 있고 눌러 펼치며(aria-expanded),
-// expanded는 펼쳐 보이고, hidden은 아무것도 그리지 않는다(shell/desktop#R41, R42).
+// expanded는 펼쳐 보이고, hidden은 아무것도 그리지 않는다.
 export function ToolLine({ tool, detail }: ToolLineProps): ReactElement | null {
   // 눌러 둔 값은 hidden이나 expanded를 지나 collapsed로 돌아와도 남는다.
   const [pressed, setPressed] = useState(false);

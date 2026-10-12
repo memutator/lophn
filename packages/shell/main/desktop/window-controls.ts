@@ -1,4 +1,4 @@
-// desktop 창의 최소화·최대화·닫기(shell/desktop#R23). 등록된 desktop 창 본문만 부를 수 있고,
+// desktop 창의 최소화·최대화·닫기. 등록된 desktop 창 본문만 부를 수 있고,
 // 동작은 부른 그 창에만 간다. 어느 창인지는 renderer가 아니라 sender로 찾는다.
 import { z } from "zod";
 

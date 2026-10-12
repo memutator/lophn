@@ -1,7 +1,7 @@
-// main의 앱 통로 client. 앱 연결은 core의 `POST /v1/apps/connect`(apps#T10)로 얻고, 서명된
+// main의 앱 통로 client. 앱 연결은 core의 `POST /v1/apps/connect`로 얻고, 서명된
 // AppConnection을 그대로 Authorization envelope로 싣는다. 앱·release·mode·bundle은 main이
-// 요청하고 core가 서명한 값만 쓰며 페이지 주장은 들어올 자리가 없다(shell/app-frame#R12).
-// 바깥 host는 apps/permissions의 active net.fetch grant에서 읽는다(apps#T4).
+// 요청하고 core가 서명한 값만 쓰며 페이지 주장은 들어올 자리가 없다.
+// 바깥 host는 apps/permissions의 active net.fetch grant에서 읽는다.
 import type { FetchHost } from "./network-policy.ts";
 
 // shell은 packages/base를 import하지 않는다. core 통로 결과 모양만 맞춘다.

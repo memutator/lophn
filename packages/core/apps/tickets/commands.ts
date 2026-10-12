@@ -1,8 +1,8 @@
-// ticket 생성·ready 전환 command(coding-agent/tickets#R1–R10, R25).
+// ticket 생성·ready 전환 command.
 // 생성·문제 예약은 한 transaction이며 문제당 열린 repair 제약을
-// ticket_open_repair_problems unique로 강제한다(R4). handler는 동기이고
+// ticket_open_repair_problems unique로 강제한다. handler는 동기이고
 // condition_hash는 transaction 안에서 node:crypto로 정규 JSON sha256을 낸다
-// (contracts#T41, problems/tests canonical 선례).
+// (problems/tests canonical 선례).
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
@@ -32,7 +32,7 @@ import {
 } from "./model.ts";
 
 // 문제 read·question read·documents resolve는 소유 구현이 아직 없다(문제#T6,
-// lophn-agent#T24, documents#T9). handler는 port로 대신 주입받는다.
+// lophn-agent#T24). handler는 port로 대신 주입받는다.
 export const QUESTION_ADOPTIONS_PORT = {
   name: "coding-agent.tickets.QuestionAdoptions",
 } as const;
@@ -168,7 +168,7 @@ function writeCreate(
   input: TicketCreateInput,
   readiness: "needs_confirmation" | "ready",
 ): Result<TicketCreateOutput> {
-  // ID는 입력이 아니라 ledger ID source가 만든다(T18: createShape에 id가 없다).
+  // ID는 입력이 아니라 ledger ID source가 만든다(createShape에 id가 없다).
   const id = tx.newId("tkt");
   const seq = tx.emit(ticketCreated, id, {
     app: input.app,
@@ -262,7 +262,7 @@ function makeReady(
   if (outsideAppCondition(ctx, stored.app)) {
     return notFound("ticket does not exist");
   }
-  // 종료(confirm·취소)와 이미 ready인 ticket은 전환하지 않는다(R6, R19).
+  // 종료(confirm·취소)와 이미 ready인 ticket은 전환하지 않는다.
   if (stored.state !== "open" || stored.readiness !== "needs_confirmation") {
     return conflict("ticket is not waiting for confirmation");
   }

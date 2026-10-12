@@ -22,7 +22,7 @@ function grantJson(grant: NonNullable<ReturnType<typeof grantFor>>) {
   };
 }
 
-// 앱 화면 context 읽기와 주석 되쓰기의 판정 근거(tool-judgment R12). 되쓰기도 일반 write 판정을 거친다:
+// 앱 화면 context 읽기와 주석 되쓰기의 판정 근거. 되쓰기도 일반 write 판정을 거친다:
 // 판정표(`judge`)는 효과와 되돌림만 보고, 이 파일은 그 사실을 소유 계약에서 읽는다. 선언한 화면·주석 자리·
 // write command, 지금의 허락, 현재 화면 revision 중 하나라도 맞지 않으면 err이고 호출은 approval 없이
 // deny다. 일반 write처럼 되돌릴 수 있으면 묻지 않고(allow) 되돌릴 수 없으면 묻는다(ask).

@@ -2,7 +2,7 @@
 // command를 실행한다. 업무 규칙을 두지 않고 MCP와 같은 credential provider·client·runner를 잇기만 한다
 // (cli#R1, connection#R6). 표 밖 op와 임의 core API passthrough는 없다. 실행하지 못하는 command는 성공으로
 // 꾸미지 않고 unavailable로 낸다. 사람 전용 command는 연결 참조(LOPHN_CONNECTION)로 시작한
-// coding credential context에서 거절한다(cli#R40).
+// coding credential context에서 거절한다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   type ConnectionId,
@@ -376,7 +376,7 @@ export async function runCliCommand(
   }
   if (name === "ticket create" || name === "ticket cancel") {
     // 사람 전용이다. 연결 참조(coding credential)가 있으면 실행 전 거절이고, 사람은 결정 화면
-    // 링크를 받는다(cli#R37, 질문 Q1).
+    // 링크를 받는다(질문 Q1).
     return ticketHumanOnly(name, input, {
       actor: runtime.actor,
       connected: runtime.client !== undefined,
@@ -384,14 +384,14 @@ export async function runCliCommand(
   }
   if (isProblemHumanOnly(name)) {
     // 사람 전용이다. CLI는 feedback·수리 요청·확인·무시를 접수하지 않는다. 연결 참조(coding
-    // credential)가 있으면 실행 전 거절이고, 사람은 결정 화면 링크와 대기 사실만 받는다(D27, cli#R7, R35).
+    // credential)가 있으면 실행 전 거절이고, 사람은 결정 화면 링크와 대기 사실만 받는다(D27).
     return problemHumanOnly(name, input, {
       actor: runtime.actor,
       connected: runtime.client !== undefined,
     });
   }
   if (name === "ticket claim") {
-    // claim은 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다(cli#R41, mcp#R27).
+    // claim은 MCP의 `lophn_ticket`에만 둔다. CLI는 안내만 한다.
     return ok({
       summary: `${name}은 MCP 연결에서만 한다`,
       data: { command: name, mcp_only: true },
@@ -405,7 +405,7 @@ export async function runCliCommand(
     (HUMAN_ONLY_NAMES as readonly string[]).includes(name) &&
     runtime.actor !== "user"
   ) {
-    // 관리 쓰기·daemon 시작·중지는 coding credential context에서 실행 전 거절이다(cli#R6, R40).
+    // 관리 쓰기·daemon 시작·중지는 coding credential context에서 실행 전 거절이다.
     return err({
       code: "forbidden",
       message: "이 command는 사람 전용이다",
@@ -518,7 +518,7 @@ export async function runCliCommand(
   }
   if (name === "session summary") {
     // 소유 읽기 route `/v1/coding_agent_sessions/summary` 하나다. 연결이 없으면 일반 summary는 거절이고
-    // hook은 빈 값이다(guides#R24).
+    // hook은 빈 값이다.
     return await runSessionSummary(
       input as Parameters<typeof runSessionSummary>[0],
       { client },
@@ -563,8 +563,8 @@ export async function runCliCommand(
       {
         client,
         idempotencyKey: idempotency,
-        // 도구 재배포(guides#R17)는 파일 설치라 core route 밖이다. 검사한 op 입력의
-        // target·names와 연결 참조로 guides의 syncTools를 돌린다(cli#R29).
+        // 도구 재배포는 파일 설치라 core route 밖이다. 검사한 op 입력의
+        // target·names와 연결 참조로 guides의 syncTools를 돌린다.
         sync: async (opInput) => {
           const ref = typeof opInput.connection === "string"
             ? opInput.connection
@@ -616,7 +616,7 @@ export async function runCliCommand(
     return ok(ran);
   }
   if (name.startsWith("problem ")) {
-    // 읽기·record-fix·reproduction test·첨부 열기다. MCP `lophn_problem`과 같은 흐름이다(cli#R33, R34).
+    // 읽기·record-fix·reproduction test·첨부 열기다. MCP `lophn_problem`과 같은 흐름이다.
     const connection = connectionFromRef(
       typeof input.connection === "string"
         ? input.connection
@@ -644,7 +644,7 @@ export async function runCliCommand(
     });
     return ok(ran);
   }
-  // 나머지는 command 표의 소유 읽기 route 하나로만 보낸다(cli#R1). 표 밖 op는 실행 전 거절이다.
+  // 나머지는 command 표의 소유 읽기 route 하나로만 보낸다. 표 밖 op는 실행 전 거절이다.
   const op = typeof input.op === "string" ? input.op : undefined;
   // `document history`는 section을 주면 그 key의 판별 변화 route다(MCP `lophn_document history`와 같다).
   const route: Route | undefined =
@@ -660,7 +660,7 @@ export async function runCliCommand(
   }
   const read = await client.read(route, strip(input));
   if (!read.ok) {
-    // 없는 대상과 범위 밖 대상은 같은 답이다(connection#R5).
+    // 없는 대상과 범위 밖 대상은 같은 답이다.
     return read.error.code === "not_found"
       ? err({ code: "not_found", message: UNREADABLE_MESSAGE })
       : read;
@@ -771,13 +771,13 @@ function connectionReader(client: CoreClient | undefined) {
   };
 }
 
-// `lophn mcp config`: 설정 조각만 낸다. 제품 설정 파일은 읽지도 쓰지도 않는다(cli#R9).
+// `lophn mcp config`: 설정 조각만 낸다. 제품 설정 파일은 읽지도 쓰지도 않는다.
 function mcpConfig(
   input: Record<string, unknown>,
   runtime: CliRuntime,
 ): Result<CommandOutput, LophnError> {
   const request = input as Parameters<typeof mcpConfigOf>[0];
-  // 설정 조각에는 운영 data 위치(daemon 위치 파일)를 싣지 않는다(cli#R9).
+  // 설정 조각에는 운영 data 위치(daemon 위치 파일)를 싣지 않는다.
   const made = mcpConfigOf(request, {
     ...launchBase(runtime, runtime.cwd),
     discoveryFiles: [],
@@ -811,7 +811,7 @@ async function runDaemonCommand(
   return ran;
 }
 
-// 사람이 고른 target 하나만 다룬다. 감지된 다른 제품은 읽지도 쓰지도 않는다(harnesses#R6).
+// 사람이 고른 target 하나만 다룬다. 감지된 다른 제품은 읽지도 쓰지도 않는다.
 async function runHarness(
   name: string,
   input: Record<string, unknown>,

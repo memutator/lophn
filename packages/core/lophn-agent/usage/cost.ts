@@ -5,7 +5,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 
 // 비용은 float 없이 십진수 문자열로만 계산·저장한다(plan 완료: 십진수 문자열로
-// 입력·계산·저장, float 변환 없음). 요율은 1000000 token당 금액이다(Q18).
+// 입력·계산·저장, float 변환 없음). 요율은 1000000 token당 금액이다.
 export const TOKENS_PER_UNIT = "1000000";
 
 // 십진수 문자열은 nonnegativeDecimalSchema(/^(0|[1-9][0-9]*)(\.[0-9]+)?/)다.
@@ -60,7 +60,7 @@ export function decimalMulDiv(tokens: bigint, rate: string): string {
   return trim(scaled, 6);
 }
 
-// 그 call의 과금 token 구간(Q18): 새 입력 + cache 읽기·쓰기는 input 요율에,
+// 그 call의 과금 token 구간: 새 입력 + cache 읽기·쓰기는 input 요율에,
 // reasoning은 reasoning 요율이 있을 때만 각각 곱한다(이중 과금 없음).
 export type ChargedTokens = {
   input: bigint | null;
@@ -95,7 +95,7 @@ export function estimatedCost(
   if (tokens.input === null || tokens.output === null) {
     return { amount: null, rate_basis: null };
   }
-  // 별도 추론 요율이 있으면 출력에서 추론을 빼고 각각 곱한다(Q18).
+  // 별도 추론 요율이 있으면 출력에서 추론을 빼고 각각 곱한다.
   let output = tokens.output;
   if (rate.reasoning !== null && tokens.reasoning !== null) {
     if (usage.reasoning_in_output !== false) {

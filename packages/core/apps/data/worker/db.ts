@@ -1,4 +1,4 @@
-// 앱 DB를 여는 유일한 자리(apps/data#R1). core·supervisor는 이 모듈을 import하지
+// 앱 DB를 여는 유일한 자리. core·supervisor는 이 모듈을 import하지
 // 않는다. 운영 앱 프로세스가 자기 DB를 여는 것과 별개로, data worker만 여기서 연다.
 
 import { backup, DatabaseSync } from "node:sqlite";
@@ -14,12 +14,12 @@ import {
 const HASH_PREFIX = "sha256:";
 
 export type AppDatabase = {
-  // 실제 현재 schema와 마지막 migration 결과(R3). 표가 없으면 schema 0이다.
+  // 실제 현재 schema와 마지막 migration 결과. 표가 없으면 schema 0이다.
   schemaState(): SchemaState;
   integrityOk(): boolean;
-  // SQLite backup API로 WAL까지 포함한 일관된 복사본을 만든다(R5).
+  // SQLite backup API로 WAL까지 포함한 일관된 복사본을 만든다.
   backupTo(destination: string): Promise<Result<void>>;
-  // 단계의 데이터 변경과 schema 번호 갱신을 한 transaction으로 확정한다(R6).
+  // 단계의 데이터 변경과 schema 번호 갱신을 한 transaction으로 확정한다.
   applyStep(
     sql: string,
     next: { dataSchema: number; scriptHash: string; appliedAt: string },
@@ -67,7 +67,7 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
     },
     async backupTo(destination) {
       try {
-        // sqlite backup API다. 본체 파일 복사와 달리 WAL의 확정 내용을 포함한다(R5).
+        // sqlite backup API다. 본체 파일 복사와 달리 WAL의 확정 내용을 포함한다.
         await backup(db, destination);
         return ok(undefined);
       } catch {
@@ -115,7 +115,7 @@ export async function databaseHash(path: string): Promise<Result<string>> {
   }
 }
 
-// 본체 파일 복사. backup API와 구별하기 위한 비교 대상이며 유효 backup이 아니다(R5).
+// 본체 파일 복사. backup API와 구별하기 위한 비교 대상이며 유효 backup이 아니다.
 export async function copyDatabaseFile(
   source: string,
   destination: string,

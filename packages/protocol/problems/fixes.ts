@@ -40,7 +40,7 @@ export const fixRecordInputSchema = z.strictObject({
 export type FixRecord = z.infer<typeof fixRecordSchema>;
 
 // summary blob의 준비 증거다(hash만 싣는 기록은 가리키는 바이트가 저장된 blob이어야 한다).
-// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다(contracts#T40).
+// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다.
 export const fixSummaryBlobSchema = z.strictObject(preparedBlobSchema.shape)
   .refine(
     (value) => value.purpose === "fix_summary",

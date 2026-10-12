@@ -94,7 +94,7 @@ const commandErrors = [
   "unavailable",
 ] as const;
 // 본문은 값 그대로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 command가 영구
-// 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다(Q29).
+// 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다.
 export const receiveMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
@@ -108,7 +108,7 @@ export const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),
   session_state_seq: seqSchema,
   assignment_revision: revision,
-  // paused·withdrawn은 새 입력을 거절한다(conversation#R8).
+  // paused·withdrawn은 새 입력을 거절한다.
   assignment_state: z.literal("enabled"),
 });
 export const receiveMessage = defineCommand({

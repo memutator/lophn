@@ -1,4 +1,4 @@
-// Settings › Agents가 읽고 쓰는 통로(shell/desktop#R50). 모든 project에 적용되는 agent 기본값을
+// Settings › Agents가 읽고 쓰는 통로. 모든 project에 적용되는 agent 기본값을
 // 한 곳에서 보고 바꾼다. 모양은 contracts(lophn-agent/models의 ModelDefaults·CatalogEntry,
 // providers, instructions, skill-settings·mcp-settings)에서 이 화면이 쓰는 field만 옮긴 것이다.
 // model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가 준다(lophn-agent/harness/model).

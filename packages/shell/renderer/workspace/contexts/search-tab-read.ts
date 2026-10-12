@@ -1,4 +1,4 @@
-// Search 탭이 source에서 읽는 값 하나의 상태(shell/workspace#R23). key가 바뀌면 다시 읽고,
+// Search 탭이 source에서 읽는 값 하나의 상태. key가 바뀌면 다시 읽고,
 // reload는 같은 key를 다시 읽는다(앞서 읽은 값은 새 값이 올 때까지 보인다).
 import { useCallback, useEffect, useState } from "react";
 

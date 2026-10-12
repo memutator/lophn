@@ -1,5 +1,5 @@
 // Issues 탭의 순수 계산. 안쪽 값(status·closure·test state)을 tone과 선택지로 바꾸는 자리이고
-// 문장은 problems가 정한 값을 그대로 쓴다(shell/wording#R9). 상태 이름만 shell이 말한다.
+// 문장은 problems가 정한 값을 그대로 쓴다. 상태 이름만 shell이 말한다.
 import type { StatusTone } from "@lophn/design";
 import { t } from "@lophn/wording";
 
@@ -82,7 +82,7 @@ export function choiceOptions(view: IssueView): readonly ChoiceOption[] {
   ];
 }
 
-/** 한 줄 이유: 공백만이 아니고 줄바꿈이 없다(closing#R8). */
+/** 한 줄 이유: 공백만이 아니고 줄바꿈이 없다. */
 export function isOneLine(text: string): boolean {
   return /^[^\r\n]*\S[^\r\n]*$/.test(text);
 }

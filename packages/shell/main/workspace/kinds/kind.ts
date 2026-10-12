@@ -1,4 +1,4 @@
-// 탭 kind registry의 main 쪽 모양이다(shell/workspace#R14). kind마다 파일 하나가 아래를 모두 선언하고,
+// 탭 kind registry의 main 쪽 모양이다. kind마다 파일 하나가 아래를 모두 선언하고,
 // layout schema·복원·현재 보기 조립·힌트 읽기는 이 목록을 돌 뿐 kind 이름으로 가르지 않는다.
 // kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { z } from "zod";
@@ -37,7 +37,7 @@ export interface RestoreTargets {
   agent(agent: string, session: string | null): Promise<boolean>;
 }
 
-/** 힌트의 참조를 현재 허용 대상과 대조하는 통로(shell/workspace#R10). */
+/** 힌트의 참조를 현재 허용 대상과 대조하는 통로. */
 export interface ViewScope {
   project(id: string): boolean;
   /** 그룹(`document`·`app`처럼 kind가 정한 이름)의 참조가 지금 허용 대상인지. */
@@ -73,7 +73,7 @@ export interface ViewRegistry {
 export interface ViewContext {
   readonly scope: ViewScope;
   readonly registry: ViewRegistry;
-  /** 80자 넘는 화면 문자열을 줄인다(platform/redaction#R12). */
+  /** 80자 넘는 화면 문자열을 줄인다. */
   truncate(value: string): string;
   /** 비어 있지 않고 80자 이하인 참조인지. */
   refOk(value: unknown): value is string;

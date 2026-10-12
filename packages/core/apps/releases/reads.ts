@@ -1,4 +1,4 @@
-// releases.list·get·compare(apps/releases#R1, R9–R11, R17). 불변 Release를 준비 순서로 읽고, 이전
+// releases.list·get·compare. 불변 Release를 준비 순서로 읽고, 이전
 // release와의 비교를 고정 blueprint 둘로 만든다. 범위 밖 앱의 release는 없는 것과 같다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";

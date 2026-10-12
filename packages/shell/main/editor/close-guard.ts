@@ -1,4 +1,4 @@
-// 창 닫기 guard(shell/editor#R1). 창 닫기는 OS가 하는 일이라 main이 먼저 막고 그 창의 renderer에
+// 창 닫기 guard. 창 닫기는 OS가 하는 일이라 main이 먼저 막고 그 창의 renderer에
 // 묻는다. renderer는 마지막 고침을 보내 편집을 끝내고, 쓰기 실패·불명·충돌이 남으면 사람에게
 // overlay dialog로 묻는다. legacy close-guard의 규칙을 따른다:
 // - renderer가 답하지 않으면(멈춤·다시 불러옴) 기한 뒤 닫는다. 창이 영원히 닫히지 않게 하지 않는다.

@@ -41,7 +41,7 @@ const LOOPBACK = ["localhost", "127.0.0.1", "::1"] as const;
 
 // Unix socket HTTP의 가상 host다. Deno는 socket 위 HTTP 요청에도 이 host의 net 허락을 요구하고
 // socket 듣기·연결에도 `unix:<경로>` net 허락을 요구한다(Deno 2.9.7 실측: 읽기·쓰기 허락만으로는
-// Deno.serve의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다(apps/runtime#R8).
+// Deno.serve의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다.
 const SOCKET_HOST = "lophn.invalid";
 
 const FIXED = [
@@ -175,7 +175,7 @@ export function socketFlags(
   return ok([read.value!, write.value!, net.value!]);
 }
 
-// 이 앱이 부를 수 있는 다른 앱의 direct socket에 닿는 Deno flag다(apps/connections#R4). source 앱 자식은
+// 이 앱이 부를 수 있는 다른 앱의 direct socket에 닿는 Deno flag다. source 앱 자식은
 // 자기 두 socket만 열려 있어 target의 direct socket에 연결하면 NotCapable이다. 허락은 그 target의
 // 고정 자리 socket의 읽기·쓰기·연결이고 외부 host나 broker socket은 넣지 않는다.
 export function pairSocketFlags(

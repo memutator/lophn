@@ -1,4 +1,4 @@
-// approval 설명 글의 저장(platform/approvals#R1, R2). 글은 요청에 값으로 실려 오고 core가
+// approval 설명 글의 저장. 글은 요청에 값으로 실려 오고 core가
 // redaction을 거쳐 같은 UTF-8 bytes로 blob을 준비해 두었다. 이 파일은 그 글에서 hash와 준비
 // 증거를 같은 값으로 다시 만들고 같은 transaction에서 영구 참조를 등록한다. 살아 있는 준비가
 // 없으면 등록이 거절되어 request 전체가 되돌아간다.

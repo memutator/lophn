@@ -1,7 +1,7 @@
-// Issues 화면이 core의 GetProblem을 읽는 자리(problems#T22). 받는 값은 contracts의
+// Issues 화면이 core의 GetProblem을 읽는 자리. 받는 값은 contracts의
 // `getProblemUserOutputSchema`(ID 없는 `problem`과 사용자용 `detail`)이고, 아래 모양은 그 schema에서
 // 이 화면이 읽는 field만 옮긴 것이다. 내부 `problem.work`·`problem.interpretation`(ticket·version ID)은
-// 읽지 않는다. 담당·수리·결과·닫힘 문구는 problems가 정한 en 그대로다(shell/wording#R9).
+// 읽지 않는다. 담당·수리·결과·닫힘 문구는 problems가 정한 en 그대로다.
 import type {
   IssueClosure,
   IssueRecorded,

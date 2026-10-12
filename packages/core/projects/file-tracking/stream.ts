@@ -1,4 +1,4 @@
-// 같은 읽기 stream에서 hash와 blob을 만든다(file-tracking#R6). 파일 전체를 모으지 않는다.
+// 같은 읽기 stream에서 hash와 blob을 만든다. 파일 전체를 모으지 않는다.
 // chunk를 받는 족족 hash에 더하고 sink로 넘긴다. 파일을 여는 것은 호출자다.
 import { createHash, type Hash } from "node:crypto";
 import { err, ok, type Result } from "../../../base/mod.ts";

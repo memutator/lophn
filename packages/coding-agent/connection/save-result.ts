@@ -1,5 +1,5 @@
 // 저장 결과를 사람·모델이 읽는 한 모양으로 만든다. MCP `lophn_save`와 CLI `save`가
-// 같은 요약·data·다음 조회를 낸다(cli#R1, mcp#R13). 고정 주소·판·unchanged·검사 경고를
+// 같은 요약·data·다음 조회를 낸다. 고정 주소·판·unchanged·검사 경고를
 // 그대로 담고 본문은 담지 않는다.
 import type { LophnError } from "../../base/mod.ts";
 import { formatAddress } from "../../protocol/projects/mod.ts";
@@ -35,7 +35,7 @@ export function describeSave(outcome: SaveOutcome): SaveReport {
     "lophn_read로 고정 판을 읽어 저장된 내용을 확인한다",
   ];
   if (!outcome.placed) {
-    // 자리 선택은 사람의 관점 정리다. 원본 파일을 옮기거나 지우지 않는다(R15).
+    // 자리 선택은 사람의 관점 정리다. 원본 파일을 옮기거나 지우지 않는다.
     next.unshift(
       "자리 없이 저장했다. document id가 고정 주소다. 자리 선택은 사람이 lophn 화면에서 한다",
     );

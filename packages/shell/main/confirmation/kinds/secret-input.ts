@@ -21,7 +21,7 @@ export const SET_SECRET = "SetSecret";
 export const REGISTER_PROVIDER = "RegisterProvider";
 // provider 끊기(Disconnect): provider와 credential(secret)을 함께 지우므로 확인 창의 handle을 거친다.
 export const DISCONNECT_PROVIDER = "DisconnectProvider";
-// OAuth 로그인 완료(lophn-agent#T16). oauth credential의 값은 secret store에 가지
+// OAuth 로그인 완료. oauth credential의 값은 secret store에 가지
 // 않고 login-complete 교환의 submission으로만 간다(R11: 값은 보호 제출이지 보관이
 // 아니다).
 export const COMPLETE_PROVIDER_LOGIN = "CompleteProviderLogin";
@@ -227,7 +227,7 @@ export function createSecretSubmitter(
         built = disconnectCommandOf(content);
       } else if (isOAuthLogin(content)) {
         // OAuth 로그인은 값을 secret store에 보관하지 않는다. 값은 login-complete
-        // 교환의 submission으로만 간다(lophn-agent#T16, R11).
+        // 교환의 submission으로만 간다.
         const raw = record(commandInput).value;
         if (typeof raw !== "string" || raw.trim().length === 0) {
           return { ok: false, error: safeError("invalid_input") };
@@ -331,7 +331,7 @@ async function storeValue(
   return { ok: true, evidence };
 }
 
-/** OAuth 로그인 완료인지. 값은 secret store에 가지 않는다(lophn-agent#T16, R11). */
+/** OAuth 로그인 완료인지. 값은 secret store에 가지 않는다. */
 function isOAuthLogin(content: Record<string, unknown>): boolean {
   return record(content.connect).kind === "oauth";
 }

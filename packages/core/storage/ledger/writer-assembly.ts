@@ -151,7 +151,7 @@ export async function assembleWriter(
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,
-    // 준비 참조는 writer 메모리에 있다. core가 준비 성공을 알리고, 등록은 그 메모리를 본다(R4).
+    // 준비 참조는 writer 메모리에 있다. core가 준비 성공을 알리고, 등록은 그 메모리를 본다.
     registerBlobRef: (reference) => {
       const tx = currentTx;
       if (!tx) {

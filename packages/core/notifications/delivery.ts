@@ -1,4 +1,4 @@
-// OS 표시 전달 상태의 core 조립(platform/notifications#R9, R10). core 시작마다 ledger 밖
+// OS 표시 전달 상태의 core 조립. core 시작마다 ledger 밖
 // 관측 보관 하나를 만들고, 그 값으로 notifications get·list·display 응답을 꾸미고, shell main이
 // 알리는 표시 실패를 받는다. ledger 표·event·재시도 상태는 만들지 않는다. 재시작하면 관측이
 // 없으므로 켜 둔 사람에게는 unconfirmed로 답한다.
@@ -87,7 +87,7 @@ export function createNotificationDelivery(options: {
         }
         : value;
     },
-    // 켜지 않았으면 OS로 줄 것이 없다(R9).
+    // 켜지 않았으면 OS로 줄 것이 없다.
     "notifications/display": (value, on) =>
       on ? value : { ...value, display: null },
   };

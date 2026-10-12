@@ -1,4 +1,4 @@
-// coding agent 연결 화면의 main 쪽(shell#T50, shell/desktop#R19). renderer는 "이 harness로 연결"이라는 고정
+// coding agent 연결 화면의 main 쪽. renderer는 "이 harness로 연결"이라는 고정
 // intent와 사람이 고른 harness·이름·범위만 보내고, 이 모듈이 그 intent를 따로 다시 검사한다: 모양, 지금
 // 감지된 harness인지, 앱 하나 범위면 그 앱의 source 폴더가 있는지. 설치 target(환경·profile·경로)은 main이
 // 감지 기록과 앱 기록에서 만들고 renderer가 보낸 값은 쓰지 않는다.
@@ -346,7 +346,7 @@ export function createCodingConnection(
   return {
     detect,
     async connect(raw) {
-      // renderer가 보낸 고정 intent를 이 자리에서 다시 검사한다(desktop#R19).
+      // renderer가 보낸 고정 intent를 이 자리에서 다시 검사한다.
       const parsed = connectRequestSchema.safeParse(raw);
       if (!parsed.success) {
         return fail("invalid_input", "connect request is not valid");

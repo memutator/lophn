@@ -3,7 +3,7 @@
 // 옮긴 화면 값이다. renderer는 contracts를 type check하지 않으므로 id는 문자열이다. 이 interface를 구현하는 쪽
 // (core source)이 contract 값 이름과 화면 값을 잇는다.
 //
-// source는 agent 하나에 묶여 있다. 화면이 열려 있는 동안 agent는 바뀌지 않는다(shell/desktop#R38).
+// source는 agent 하나에 묶여 있다. 화면이 열려 있는 동안 agent는 바뀌지 않는다.
 import type { ConnectionState } from "../desktop/connection/connection.ts";
 import type { EditView, TaskView, ToolLineView } from "./activity/model.ts";
 import type {
@@ -38,10 +38,10 @@ export type AgentRole =
 /** 화면이 고정해 보이는 agent와 그 자리. 머리·composer의 자리 이름·권한 요약이 여기서 온다. */
 export interface AgentFace extends HeaderAgent {
   readonly role: AgentRole;
-  /** paused와 withdrawn은 새 입력을 받지 않는다(lophn-agent/conversation#R8). */
+  /** paused와 withdrawn은 새 입력을 받지 않는다. */
   readonly state: "enabled" | "paused" | "withdrawn";
   readonly place: { readonly kind: "project" | "app"; readonly name: string };
-  /** 그 session의 실제 권한을 한 줄로 요약한 글(shell/desktop#R43). */
+  /** 그 session의 실제 권한을 한 줄로 요약한 글. */
   readonly permissionSummary: string;
 }
 
@@ -53,7 +53,7 @@ export interface SessionEntry extends Omit<SessionLine, "group" | "title"> {
   readonly closed: boolean;
 }
 
-/** 답 아래에 두는 결과. 실제로 만들거나 바꾼 문서·context만이다(lophn-agent/conversation#R4). */
+/** 답 아래에 두는 결과. 실제로 만들거나 바꾼 문서·context만이다. */
 export type ResultLink =
   | { readonly kind: "document"; readonly document: string }
   | { readonly kind: "context"; readonly context: string }
@@ -89,19 +89,19 @@ export interface ThreadMessage extends EntryBase {
   /** 이 메시지를 맡은 run. 끝났는지를 같이 줘서 문서로 남기기의 진행을 셀 수 있다. */
   readonly run: { readonly id: string; readonly ended: boolean } | null;
   readonly mode: "request" | "correction" | null;
-  /** model 판단에 처음 반영됐는지. 접수와 따로 보인다(conversation#R3). */
+  /** model 판단에 처음 반영됐는지. 접수와 따로 보인다. */
   readonly applied: boolean;
   readonly results: readonly ResultLink[];
 }
 
-/** run trace에서 그린 tool 줄(shell/desktop#R41). trace에 없는 줄은 없다. */
+/** run trace에서 그린 tool 줄. trace에 없는 줄은 없다. */
 export interface ThreadTools extends EntryBase {
   readonly kind: "tools";
   readonly tool: ToolLineView;
 }
 
 /**
- * 이 편집을 지금 Undo할 수 있는가(lophn-agent/revert#R19). 지금 파일이 그 call이 쓴 내용과 같고 더 나중 편집이
+ * 이 편집을 지금 Undo할 수 있는가. 지금 파일이 그 call이 쓴 내용과 같고 더 나중 편집이
  * 없을 때만 true다. 아니면 사전 검사가 낸 이유 코드를 준다. 어느 call의 편집인지 모르면 reason은 `unknown`이다.
  */
 export type EditUndo =
@@ -150,7 +150,7 @@ export interface RewindResultView {
 }
 
 /**
- * rewind가 숨긴 구간(lophn-agent/revert#R16). 메시지는 지워지지 않고 한 줄로 접히며, 펼치면 숨긴 줄을 읽기만 한다.
+ * rewind가 숨긴 구간. 메시지는 지워지지 않고 한 줄로 접히며, 펼치면 숨긴 줄을 읽기만 한다.
  * 숨긴 줄 안의 메시지는 다시 시점으로 고를 수 없다.
  */
 export interface ThreadHidden extends EntryBase {
@@ -207,7 +207,7 @@ export interface ThreadView {
   } | null;
   /** 일하는 중의 할 일 목록. 일하지 않으면 비어 있다. */
   readonly tasks: readonly TaskView[];
-  /** 결정을 기다리는 승인 요청 하나. 없으면 null이다(shell/desktop#R47). */
+  /** 결정을 기다리는 승인 요청 하나. 없으면 null이다. */
   readonly approval: ApprovalCardRequest | null;
 }
 
@@ -222,7 +222,7 @@ export interface ModelView {
   readonly notices: readonly PickerNoticeView[];
 }
 
-/** 대화 입력 위에 놓이는 안내 한 줄. 지금 일에 필요한 행동 하나만 말한다(desktop#R7). */
+/** 대화 입력 위에 놓이는 안내 한 줄. 지금 일에 필요한 행동 하나만 말한다. */
 export type AgentNotice =
   | { readonly kind: "provider-lost" }
   | {
@@ -236,7 +236,7 @@ export type AgentNotice =
 
 export interface SendInput {
   readonly session: string;
-  /** 메시지 id와 idempotency key. 같은 id·key로 다시 보내면 core가 이전 결과를 돌려준다(conversation#R2). */
+  /** 메시지 id와 idempotency key. 같은 id·key로 다시 보내면 core가 이전 결과를 돌려준다. */
   readonly id: string;
   readonly key: string;
   readonly text: string;
@@ -263,7 +263,7 @@ export interface RewindPoint {
 }
 
 export interface RewindMenuView {
-  /** 끝나지 않았거나 기다리는 work가 있다. 먼저 멈춰야 한다(R15). */
+  /** 끝나지 않았거나 기다리는 work가 있다. 먼저 멈춰야 한다. */
   readonly running: boolean;
   /** 숨긴 구간 밖의 사람 메시지, 오래된 순이다. */
   readonly points: readonly RewindPoint[];
@@ -285,7 +285,7 @@ export interface RewindPreviewView {
 }
 
 export interface AgentViewSource {
-  /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다(desktop#R7). */
+  /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다. */
   watch(listener: (state: ConnectionState) => void): () => void;
 
   // 읽기. session이 null이면 아직 만들지 않은 새 session이다(shell/desktop AgentViewState).
@@ -301,7 +301,7 @@ export interface AgentViewSource {
     session: string | null,
   ): Promise<SourceResult<readonly AgentNotice[]>>;
 
-  // model(session 범위, conversation#R23). session이 null이면 source가 고른 값을 쥐고 있다가
+  // model(session 범위). session이 null이면 source가 고른 값을 쥐고 있다가
   // openSession 때 그 session에 저장한다. query는 검색칸의 글이고 layout이 그것을 따른다.
   model(
     session: string | null,
@@ -331,7 +331,7 @@ export interface AgentViewSource {
     query: string,
   ): Promise<SourceResult<readonly SlashGroupView[]>>;
   /**
-   * role 명령과 skill 명령. 정한 prompt나 skill 이름이 든 사람의 메시지로 접수한다(commands#R9).
+   * role 명령과 skill 명령. 정한 prompt나 skill 이름이 든 사람의 메시지로 접수한다.
    * 일하는 중이면 이번 일이 끝난 뒤 실행하는 것(queue)은 source가 기다린다.
    */
   runCommand(
@@ -348,20 +348,20 @@ export interface AgentViewSource {
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
   unarchiveSession(session: string): Promise<SourceResult<void>>;
-  /** 되돌릴 수 없다. 진행 중이거나 기다리는 run이 있으면 conflict다(conversation#R20). */
+  /** 되돌릴 수 없다. 진행 중이거나 기다리는 run이 있으면 conflict다. */
   deleteSession(session: string): Promise<SourceResult<void>>;
   /** 같은 agent·자리의 새 session `id`로 복사한다. through가 null이면 마지막 확정 메시지까지다. */
   forkSession(
     input: { id: string; session: string; through: string | null },
   ): Promise<SourceResult<void>>;
-  /** 사람이 부른 요약. 실패해도 session과 원문은 그대로다(conversation#R10). */
+  /** 사람이 부른 요약. 실패해도 session과 원문은 그대로다. */
   compactSession(session: string): Promise<SourceResult<void>>;
 
   // 메시지와 run
   send(input: SendInput): Promise<SourceResult<void>>;
   stop(run: string, key: string): Promise<SourceResult<void>>;
 
-  // 질문 묶음과 승인(shell/desktop#R46·R47)
+  // 질문 묶음과 승인
   answerQuestions(
     input: { group: string; answers: readonly GroupAnswer[] },
   ): Promise<SourceResult<void>>;

@@ -4,7 +4,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { parsePlaceMcpFile, PLACE_MCP_FILE } from "./place-store.ts";
 
-// 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions R32, R33). agent-runtime child의 Deno 권한
+// 모든 자리의 MCP 서버 모음(concern lophn-agent/extensions R32). agent-runtime child의 Deno 권한
 // (`--allow-run`·`--allow-net`)은 띄울 때 정해지므로 core가 모든 자리 파일의 서버를 한 번에 모아 전역 서버와 함께
 // 권한 목록을 만든다. 권한은 서버가 선언한 실행 파일과 host:port만이다. 파일 IO는 비동기 port로 받는다.
 
@@ -21,7 +21,7 @@ const PLACE_ID = /^(prj|app)_[0-9a-z]+$/;
 export type PlaceMcpEntry = { place: AgentPlace; server: McpServerConfig };
 
 // `<root>/projects/*`와 `<root>/apps/*`의 `mcp-servers.json`이 가진 서버를 자리 id 순으로 모은다. 틀린 파일이나
-// 읽지 못한 파일은 그 자리 서버만 빠진다(R12). 자리 id 모양이 아닌 폴더는 자리가 아니다.
+// 읽지 못한 파일은 그 자리 서버만 빠진다. 자리 id 모양이 아닌 폴더는 자리가 아니다.
 export async function collectPlaceMcpServers(
   root: string,
   source: PlaceServerSource,
@@ -31,7 +31,7 @@ export async function collectPlaceMcpServers(
   );
 }
 
-// collectPlaceMcpServers와 같되 서버마다 등록된 자리를 붙인다. OAuth 시작이 자리로 서버를 고른다(R16).
+// collectPlaceMcpServers와 같되 서버마다 등록된 자리를 붙인다. OAuth 시작이 자리로 서버를 고른다.
 export async function collectPlaceMcpEntries(
   root: string,
   source: PlaceServerSource,
@@ -67,7 +67,7 @@ export async function collectPlaceMcpEntries(
   return found;
 }
 
-// 전역 서버가 먼저고, 전역과 이름이 같은 자리 서버는 쓰지 않는다(R33). 서로 다른 자리의 같은 이름은 둘 다
+// 전역 서버가 먼저고, 전역과 이름이 같은 자리 서버는 쓰지 않는다. 서로 다른 자리의 같은 이름은 둘 다
 // 남는다: 자리마다 다른 서버이고 권한은 둘 다 필요하다.
 export function mergeMcpServers(
   global: readonly McpServerConfig[],

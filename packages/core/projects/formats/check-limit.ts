@@ -1,7 +1,7 @@
 // 검사가 읽는 대표 파일이 검사 한도(contracts의 FORMAT_CHECK_CONTENT_MAX_BYTES)를 넘을 때의
 // 검사 결과. 검사를 하지 못한 것을 통과로 꾸미지 않고 한도를 밝힌다(architecture/documents
-// 2.2). 명시 format은 error라 저장 전 검사가 실패하고(formats#R4, 저장은 invalid_input),
-// 미지정 새 문서는 warning이라 원문은 그대로 저장된다(formats#R5). 같은 입력의 저장 준비와
+// 2.2). 명시 format은 error라 저장 전 검사가 실패하고(저장은 invalid_input),
+// 미지정 새 문서는 warning이라 원문은 그대로 저장된다. 같은 입력의 저장 준비와
 // 사전 검사(`/v1/formats/validate`)가 같은 결과를 보게 이 한 곳에서 만든다.
 import {
   FORMAT_CHECK_CONTENT_MAX_BYTES,

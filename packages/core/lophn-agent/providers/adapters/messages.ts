@@ -1,4 +1,4 @@
-// Anthropic Messages adapter(provider#R3, R25, R26). 요청 번역(system·messages·tools,
+// Anthropic Messages adapter. 요청 번역(system·messages·tools,
 // tool_use.id↔tool_result 대응, cache 표시, opaque 상태 재전송)과 SSE 응답 번역
 // (frame 누적, complete/partial/refused/failed 판정, usage 정규화)을 여기 둔다.
 // 오류 코드의 HTTP·본문 분류는 나중 작업이 failures.ts로 맡는다(provider#R19-R24).
@@ -9,7 +9,7 @@ import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
-// prompt-assemble이 준 경계 위치(plan T13: 최대 3곳). Anthropic breakpoint
+// prompt-assemble이 준 경계 위치(최대 3곳). Anthropic breakpoint
 // 상한은 4개라 3개는 상한 안이다(조사 문서, OpenCode 234–251).
 export const ANTHROPIC_CACHE_BOUNDARY_MAX = 3;
 
@@ -25,13 +25,13 @@ export function boundaryCount(boundaries: CacheBoundaries): number {
 }
 
 // Anthropic thinking.signature와 redacted_thinking.data 원문. 사람이 읽을
-// 본문(thinking text)은 상태에 두지 않는다(R25).
+// 본문(thinking text)은 상태에 두지 않는다.
 export type OpaqueReasoningState = {
   signature?: string;
   data?: string;
 };
 
-// 같은 run·같은 provider·같은 model 메모리에서만 재사용한다(R25). provider나
+// 같은 run·같은 provider·같은 model 메모리에서만 재사용한다. provider나
 // model이 바뀌면 버리고, run 종료 시 폐기한다. blob·trace에 남지 않는다.
 export type ReasoningMemory = {
   get(
@@ -202,7 +202,7 @@ export function buildRequest(input: {
   tools?: readonly ToolDefinition[];
   boundaries?: CacheBoundaries;
   reasoning?: OpaqueReasoningState | undefined;
-  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
 }): Record<string, unknown> {
   const boundaries = input.boundaries ??
@@ -226,7 +226,7 @@ export function buildRequest(input: {
 
 export type ToolCall = { id: string; name: string; args: string };
 
-// stream 결과. tool 인자는 content_block_stop을 본 것만 완성이다(plan T13).
+// stream 결과. tool 인자는 content_block_stop을 본 것만 완성이다.
 export type StreamResult = {
   text: string;
   toolCalls: ToolCall[];
@@ -240,7 +240,7 @@ export type StreamResult = {
   // content_block 계열 frame이 가리킨 가장 큰 index. 없으면 -1이다.
   lastBlock: number;
   usage?: TokenUsage;
-  // error frame의 provider type·message. 오류 본문은 보존하지 않는다(R19).
+  // error frame의 provider type·message. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
   // 만난 event 종류(관측 기록). 모르는 event는 여기 세지 않는다.
@@ -343,7 +343,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
       if (slot !== undefined) slot.args += delta.partial_json;
       return;
     }
-    // thinking_delta는 사람이 읽을 본문이다. 제외한다(R25).
+    // thinking_delta는 사람이 읽을 본문이다. 제외한다.
     return;
   }
   if (type === "content_block_stop") {
@@ -408,7 +408,7 @@ function mergeUsage(
 }
 
 // usage 정규화(조사 문서 표). Anthropic input은 cache를 제외해 본다. 값 모름은 0이
-// 아니라 null이다(usage#R6).
+// 아니라 null이다.
 export function anthropicUsage(raw: Record<string, unknown>): TokenUsage {
   const details = raw.output_tokens_details as
     | { thinking_tokens?: unknown }
@@ -442,7 +442,7 @@ export type Verdict = {
   providerCode?: string;
 };
 
-// 조사 문서 판정 표. stop reason을 본 뒤에만 complete가 가능하다(plan T13).
+// 조사 문서 판정 표. stop reason을 본 뒤에만 complete가 가능하다.
 // tool 인자는 content_block_stop과 JSON 검증 뒤에만 완성이다.
 export function judge(out: StreamResult): Verdict {
   if (out.errorType !== undefined) return streamError(out);
@@ -469,7 +469,7 @@ export function judge(out: StreamResult): Verdict {
     }
     return { kind: "complete" };
   }
-  // refusal·sensitive는 응답 거절이다(R23).
+  // refusal·sensitive는 응답 거절이다.
   if (out.stopReason === "refusal" || out.stopReason === "sensitive") {
     return { kind: "refused", providerCode: out.stopReason };
   }
@@ -488,13 +488,13 @@ export function judge(out: StreamResult): Verdict {
   return { kind: "partial" };
 }
 
-// in-stream error frame의 종류. HTTP·본문 분류는 failures.ts가 맡는다(T15).
+// in-stream error frame의 종류. HTTP·본문 분류는 failures.ts가 맡는다.
 function streamError(out: StreamResult): Verdict {
   const type = out.errorType ?? "";
   if (type === "overloaded_error" || type === "rate_limit_error") {
     return { kind: "failed", code: "temporary", providerCode: type };
   }
-  // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다(R19).
+  // 원인을 모르는 종류는 unknown이다. 인증 실패로 올리지 않는다.
   return { kind: "failed", code: "unknown", providerCode: type || undefined };
 }
 

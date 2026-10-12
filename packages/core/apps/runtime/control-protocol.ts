@@ -15,7 +15,7 @@ export const SUPERVISOR_OPS = {
   logs: "apps.logs",
   // 그 nonce의 프로세스를 새 nonce로 다시 띄운다.
   restart: "apps.restart",
-  // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다(apps/permissions#R20).
+  // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다.
   block: "apps.block",
   // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
   viewClosed: "apps.view_closed",

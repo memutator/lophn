@@ -1,5 +1,5 @@
 // reproduction test 자식(플랫폼 harness)의 본문이다. runner가 쥔 AppDriver를 private 호출 통로로만 만져
-// 고정 증상 정의의 probe와 인접 command를 한 번씩 부르고, 관측 frame을 낸다(problems/tests#R10, R12, R15).
+// 고정 증상 정의의 probe와 인접 command를 한 번씩 부르고, 관측 frame을 낸다.
 // 앱 code·DB·net은 직접 만지지 않는다. 외부 접속은 runner가 연 고정 대역뿐이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { canonicalHash } from "../canonical.ts";

@@ -1,7 +1,7 @@
 import type { PreviewItem } from "../../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 
-// 앱 write의 되돌림 분류(lophn-agent/revert R9·R10·R18). checkpoint 이후 같은 session의 성공한 앱
+// 앱 write의 되돌림 분류. checkpoint 이후 같은 session의 성공한 앱
 // write를 apps/blueprint의 선언(revert command)과 apps/invocations의 receipt로 판정한다. 근거가
 // 없는 write는 되돌렸다고 쓰지 않고 남는 영향으로 올린다.
 

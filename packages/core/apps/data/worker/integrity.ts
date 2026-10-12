@@ -1,4 +1,4 @@
-// backup·복원 결과의 실제 확인(apps/data#R5, R14). schema 통과를 업무 정확성으로
+// backup·복원 결과의 실제 확인. schema 통과를 업무 정확성으로
 // 표시하지 않는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -9,7 +9,7 @@ export type VerifiedDatabase = {
   state: SchemaState;
   databaseHash: string;
   integrityOk: true;
-  // schema 검사는 업무 규칙 검사가 아니다(R14). 항상 null이다.
+  // schema 검사는 업무 규칙 검사가 아니다. 항상 null이다.
   check: SchemaCheck;
 };
 

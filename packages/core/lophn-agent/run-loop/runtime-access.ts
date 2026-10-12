@@ -99,12 +99,12 @@ export const RUNTIME_MACHINE_ROUTES = [
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   sessionCompactRequests,
   sessionSummary,
-  // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다(prompt-assemble#R31).
+  // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다.
   rewindList,
   compactSession,
   failSessionCompact,
   settingsGet,
-  // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다(instructions R5, R8).
+  // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다.
   instructionRead,
   startRun,
   checkpointRun,
@@ -136,14 +136,14 @@ export const RUNTIME_MACHINE_ROUTES = [
   questionText,
   cancelQuestionGroup,
   applyQuestionOption,
-  // MCP OAuth 발급자 호출을 core 대신 보낸다(extensions R16, R17): core에는 외부 fetch가 없다.
+  // MCP OAuth 발급자 호출을 core 대신 보낸다: core에는 외부 fetch가 없다.
   mcpAuthRequestTake,
   mcpAuthRequestDone,
-  // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다(revert R15).
+  // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
   // run 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
-  // 계약·검색)를 run을 시작하기 전에 읽는다(lophn-agent/harness/tools#R21).
+  // 계약·검색)를 run을 시작하기 전에 읽는다.
   contextListRoute,
   contextGetRoute,
   contextContractRoute,
@@ -171,16 +171,16 @@ export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
   ]),
 ];
 
-// 외부 MCP tool이 쓰는 operation이다(T37). 소유 contract와, 미분류·쓰기·external 호출이 사람에게
-// 묻는 approval request 생성이다(R28). 요청자는 이 run의 agent 자격과 같아야 한다.
+// 외부 MCP tool이 쓰는 operation이다. 소유 contract와, 미분류·쓰기·external 호출이 사람에게
+// 묻는 approval request 생성이다. 요청자는 이 run의 agent 자격과 같아야 한다.
 export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
   EXTERNAL_TOOL_CONTRACT,
   createApprovalRequest.name,
 ];
 
 // prompt의 context 자료(overview·용어집)를 run을 시작할 때 읽는 route의 operation이다. run의 agent 자격으로
-// 읽으므로 모든 역할의 상한에 읽기로만 더한다(prompt-assemble#R4, presets#R17). 앱 하나에 묶인 agent가 어느
-// context를 보는지는 core가 정한다(roles/app-engineer#R2).
+// 읽으므로 모든 역할의 상한에 읽기로만 더한다. 앱 하나에 묶인 agent가 어느
+// context를 보는지는 core가 정한다.
 const CONTEXT_MATERIAL_READS: readonly string[] = [
   contextListRoute.name,
   contextGetRoute.name,
@@ -196,7 +196,7 @@ export function roleOperations(role: string): readonly string[] {
   if (cap === undefined) return [];
   const names = new Set(cap.tools);
   // context 읽기다. 선언 검색 tool(origin context)은 이름이 동적이라 상한 이름에 없고, 개체 읽기를 가진 역할이
-  // 선택한 context의 검색과 개체를 읽는다(harness/tools#R21, R22).
+  // 선택한 context의 검색과 개체를 읽는다.
   const contextRead = names.has(CONTEXT_ENTITY_TOOL)
     ? [CONTEXT_SEARCH_CONTRACT, CONTEXT_ENTITY_CONTRACT]
     : [];
@@ -205,7 +205,7 @@ export function roleOperations(role: string): readonly string[] {
     ...contextRead,
     ...CONTEXT_MATERIAL_READS,
   ];
-  // 외부 MCP tool의 소유 contract다(T37). 확장 선택은 상한 항목이 아니라 preset의
+  // 외부 MCP tool의 소유 contract다. 확장 선택은 상한 항목이 아니라 preset의
   // 선택 항목이라(presets role-caps R5) 상한 이름에 넣지 않고 contract만 더한다.
   // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
   // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.

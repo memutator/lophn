@@ -1,4 +1,4 @@
-// Agent 화면(shell/desktop#R37~R48): 한 agent의 한 session을 보이는 탭 본문. header, 대화, 대화 안 질문 묶음,
+// Agent 화면: 한 agent의 한 session을 보이는 탭 본문. header, 대화, 대화 안 질문 묶음,
 // composer 위의 승인 카드, 진행, composer를 부품 그대로 묶는다. core와는 AgentViewSource로만 말하고
 // 탭을 열고 닫는 일, 문서와 설정으로 가는 일은 host가 한다.
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -60,13 +60,13 @@ import styles from "./agent-view.module.css";
 export interface AgentViewHost {
   /** 결과 링크와 편집 카드의 [Open]이 그 문서(의 판)를 연다. */
   openResult?: (document: string, version: string | null) => void;
-  /** 대화 속 context 이름 링크가 그 context의 탭을 여는 길(shell/workspace#R31). */
+  /** 대화 속 context 이름 링크가 그 context의 탭을 여는 길. */
   contexts?: ContextLinks;
   /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
   openPermissions: () => void;
   /** Change defaults…(defaults)와 `/skills`·`/mcp`가 Settings › Agents로 간다. */
   openAgentSettings: (target: "defaults" | "skills" | "mcp") => void;
-  /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다(R48). */
+  /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다. */
   openForked: (session: string) => void;
   showUsage: () => void;
   /** 탭·칸만 닫는다. session은 그대로 남는다. */
@@ -79,7 +79,7 @@ export interface AgentViewHost {
 
 export interface AgentViewProps {
   source: AgentViewSource;
-  /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다(desktop#R8). */
+  /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   drafts: DraftStore;
   /** 보고 있는 session. null은 아직 만들지 않은 새 session이고 첫 말을 보낼 때 만든다. */
   session: string | null;
@@ -170,7 +170,7 @@ export function AgentView(props: AgentViewProps) {
     } else fail();
   };
 
-  // rewind가 새로 숨긴 구간이 생기면 고른 메시지의 원문을 입력창에 채운다(lophn-agent/revert#R16). 처음 열었을 때
+  // rewind가 새로 숨긴 구간이 생기면 고른 메시지의 원문을 입력창에 채운다. 처음 열었을 때
   // 이미 있던 구간이나, 이미 쓰던 글이 있으면 건드리지 않는다.
   const seenHidden = useRef<{ session: string; reverts: Set<string> } | null>(
     null,
@@ -299,7 +299,7 @@ export function AgentView(props: AgentViewProps) {
 
   // 시각 블록을 문서로 남겨 달라는 요청을 대화 입력으로 보낸다(lophn-agent Q45 (6)). 따로 저장
   // contract를 부르지 않고 agent가 visual.prepare_document와 문서 tool로 준비·저장한다. 작성 중인
-  // 글과 focus·읽던 위치는 건드리지 않는다(shell/workspace#R13).
+  // 글과 focus·읽던 위치는 건드리지 않는다.
   const saveVisual = async (request: SaveRequest) => {
     if (session === null || !sendable || composerLocked(draft.outgoing)) return;
     const text = t("conversation.body.save-visual-request", {
@@ -322,7 +322,7 @@ export function AgentView(props: AgentViewProps) {
     await deliver(session, outgoing);
   };
 
-  // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다(desktop#R8).
+  // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다.
   const check = async () => {
     const outgoing = draft.outgoing;
     if (session === null || outgoing === null) return;

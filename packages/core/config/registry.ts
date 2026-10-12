@@ -1,4 +1,4 @@
-// 등록된 SettingDefinition의 메모리 목록이다(R1, R4). 등록 검증은 여기서 끝난다.
+// 등록된 SettingDefinition의 메모리 목록이다. 등록 검증은 여기서 끝난다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
@@ -18,7 +18,7 @@ const MESSAGE_KEY_FIELDS = [
 
 const KEY_PATTERN = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)+$/;
 
-// 뜻·종류·기본값·허용값·층·적용 시점이 없으면 등록을 거절한다(R1, R4).
+// 뜻·종류·기본값·허용값·층·적용 시점이 없으면 등록을 거절한다.
 export function validateDefinition(
   definition: SettingDefinition,
 ): Result<void> {
@@ -84,7 +84,7 @@ export function validateDefinition(
     });
   }
   if (definition.required && !definition.default_present) {
-    // required이고 default가 없는 항목은 사람의 선택이 필수다(R4).
+    // required이고 default가 없는 항목은 사람의 선택이 필수다.
   }
   const constraints = (definition.constraints ?? {}) as Record<string, unknown>;
   if (

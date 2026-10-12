@@ -1,4 +1,4 @@
-// 사람 화면 repair 준비(coding-agent/tickets#R24, R26).
+// 사람 화면 repair 준비.
 // 열린 문제 하나의 제목·무엇과 왜·고정 근거·acceptance check를 이미 있는
 // 증상·snapshot·채택 자료로만 만든다. ticket.create schema를 그대로 통과해야
 // 하고, 없는 reproduction 기준·채택 답은 만들지 않는다. 화면 ticket은
@@ -117,7 +117,7 @@ export function prepareRepairTicket(
   facts: RepairPrepareFacts,
   request: RepairPrepareRequest,
 ): Result<RepairPrepareOutcome> {
-  // 요청 표시는 준비 값에 들어가지 않는다(R24).
+  // 요청 표시는 준비 값에 들어가지 않는다.
   void request.priority;
   void request.requested;
   const problem = facts.problem;

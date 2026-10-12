@@ -16,7 +16,7 @@ import {
 
 export const releaseIdSchema = idSchema("rel");
 
-// 화면 이름. 입력한 이름을 보존하므로 slug 문법을 강제하지 않는다(apps/registration#R7).
+// 화면 이름. 입력한 이름을 보존하므로 slug 문법을 강제하지 않는다.
 export const appNameSchema = z.string().min(1);
 // 한 줄 목적. 빈 문자열과 줄바꿈은 금지다(domain-model apps/registration).
 export const appDescriptionSchema = z.string().min(1).refine(

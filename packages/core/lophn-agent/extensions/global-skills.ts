@@ -15,7 +15,7 @@ import {
 
 // 전역(Workspace) 층의 skill 목록을 사람 화면에 준다(concern lophn-agent/extensions R1, R32; open-issues
 // shell/desktop#Q22). 자리 폴더는 보지 않는다: 자리 skill은 place-extension-settings가 맡는다. 끈 skill도 목록에 남고
-// enabled만 false라서 화면이 다시 켤 수 있다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다(R30).
+// enabled만 false라서 화면이 다시 켤 수 있다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다.
 
 // 다른 concern의 값을 읽는 길이다. 정본은 각 concern(platform/settings)이고 여기서는 읽기만 한다.
 export type GlobalSkillLookups = {

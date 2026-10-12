@@ -1,5 +1,5 @@
 // create_notification은 계기 표의 source 사실만 notification으로 만들고,
-// mark_notification_read는 읽음 표시만 남긴다(R5, R6). 둘 다 본문·결정을 만들지 않는다.
+// mark_notification_read는 읽음 표시만 남긴다. 둘 다 본문·결정을 만들지 않는다.
 
 import { err, ok } from "../../base/mod.ts";
 import type { RequestContext, Tx } from "../../protocol/server/mod.ts";
@@ -71,7 +71,7 @@ export const markNotificationReadCommand = defineSyncCommand(
     if (row === undefined) {
       return err({ code: "not_found", message: "notification이 없다" });
     }
-    // 읽음은 승인·답·닫힘이 아니다. notification 상태만 바꾼다(R6).
+    // 읽음은 승인·답·닫힘이 아니다. notification 상태만 바꾼다.
     const marked = markRead(tx.sql, input.notification, tx.now());
     if (marked === undefined) {
       return err({ code: "not_found", message: "notification이 없다" });

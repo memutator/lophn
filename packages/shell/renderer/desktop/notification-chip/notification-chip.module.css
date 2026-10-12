@@ -7,7 +7,7 @@
   z-index: var(--z-toast);
 }
 
-/* 대기 개수 글자 pill. 색이 아니라 글로 개수를 읽는다(desktop#R26). */
+/* 대기 개수 글자 pill. 색이 아니라 글로 개수를 읽는다. */
 .pill {
   box-sizing: border-box;
   display: inline-flex;

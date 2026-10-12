@@ -11,7 +11,7 @@ export interface NoticeAskProps {
   onAsk: (request: AskRequest) => void;
 }
 
-// NoticeCard의 actions 자리에 놓는 [Ask <agent 이름>] 단추(shell/desktop#R35). ask가 있을 때만
+// NoticeCard의 actions 자리에 놓는 [Ask <agent 이름>] 단추. ask가 있을 때만
 // 단추를 그리고 아니면 아무것도 그리지 않는다. 단추는 `data-action="ask-agent"`다.
 export function NoticeAsk({ ask, onAsk }: NoticeAskProps): ReactNode {
   if (ask === null) return null;

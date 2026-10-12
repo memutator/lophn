@@ -122,7 +122,7 @@ function cell<Row>(
   }
 }
 
-// 행 36/44px, sticky 머리, 1px subtle 구분선, 줄무늬 없음(shell/design-system#R30).
+// 행 36/44px, sticky 머리, 1px subtle 구분선, 줄무늬 없음.
 export function Table<Row>(
   {
     columns,

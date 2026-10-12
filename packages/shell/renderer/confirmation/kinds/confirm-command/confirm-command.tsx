@@ -18,7 +18,7 @@ import styles from "../kinds.module.css";
 /**
  * 앱 command 한 번 확인. label·설명·effect는 apps가 지금 고정 blueprint에서 읽은 값이다. 정확한
  * 입력은 접수 입력에 묶인 지문으로만 확인하고(요청에 입력 본문은 없다), diff로 못 보이는 동작은
- * 현재·바뀐 뒤 설명을 세로로 둔다. 안전 preview는 apps/preview 결과가 없으면 없다고 한다(R10).
+ * 현재·바뀐 뒤 설명을 세로로 둔다. 안전 preview는 apps/preview 결과가 없으면 없다고 한다.
  */
 export function ConfirmCommandKind(props: KindProps) {
   const shown = obj(props.view.view);

@@ -6,19 +6,19 @@ import type {
 import { handoffAllowed } from "@lophn/protocol/lophn-agent";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// App Engineer 인터뷰 규칙(roles/app-engineer R4, R7, R8). 순수 함수다: IO·시계·model
+// App Engineer 인터뷰 규칙. 순수 함수다: IO·시계·model
 // 호출이 없다. 질문 생성·저장은 question.submit이, 답의 설계상 해석과 선택지 문장은 model이
 // 맡는다. 이 모듈은 상한과 보류의 모양만 정한다.
 
-// 인터뷰 하나의 추가 결정 질문 상한(R7).
+// 인터뷰 하나의 추가 결정 질문 상한.
 export const INTERVIEW_QUESTION_MAX = 12;
-// 선택형 질문의 선택지 수(R7).
+// 선택형 질문의 선택지 수.
 export const OPTION_MIN = 2;
 export const OPTION_MAX = 3;
-// 명세 하나가 드러내는 가정 상한(R8).
+// 명세 하나가 드러내는 가정 상한.
 export const ASSUMPTION_MAX = 3;
 
-// 앱 목적과 SDK는 lophn의 기획에서 시작한다(R4). 기획이 없으면 목적을 비워 두고 기획을
+// 앱 목적과 SDK는 lophn의 기획에서 시작한다. 기획이 없으면 목적을 비워 두고 기획을
 // 요청해야 한다고 알린다: 앱 목적도 SDK 후보도 App Engineer가 지어내지 않는다.
 export type PlanBasis = {
   purpose: string;
@@ -54,7 +54,7 @@ export function interviewBasis(input: {
   };
 }
 
-// 결정의 주인이다(R4). 앱 통합·공용 SDK 판단은 lophn, 용어집 초안과 context 경계 설계는
+// 결정의 주인이다. 앱 통합·공용 SDK 판단은 lophn, 용어집 초안과 context 경계 설계는
 // Context Engineer, 나머지 앱 설계는 App Engineer다.
 export type DecisionOwner = "lophn" | "context_engineer" | "app_engineer";
 
@@ -71,7 +71,7 @@ export function decisionOwner(topic: string): DecisionOwner {
   return "app_engineer";
 }
 
-// 다른 역할이 맡은 결정을 handoff로 넘기는 초안이다(R4). SDK 재사용 변경과 용어집 초안에는
+// 다른 역할이 맡은 결정을 handoff로 넘기는 초안이다. SDK 재사용 변경과 용어집 초안에는
 // 고정 근거를 붙이고, 방향은 lophn-agent/handoff의 허용 방향을 따른다. 담당 밖이 아니면
 // 넘기지 않는다.
 export function routeDecision(input: {
@@ -113,7 +113,7 @@ export function routeDecision(input: {
   });
 }
 
-// 다음 인터뷰 단계다(R7). 충분히 답한 결정은 다시 묻지 않고, 열세 번째 결정 질문 대신 남은
+// 다음 인터뷰 단계다. 충분히 답한 결정은 다시 묻지 않고, 열세 번째 결정 질문 대신 남은
 // 결정을 정리해 사람에게 보인다.
 export type InterviewStep =
   | { kind: "ask"; topic: string }
@@ -136,7 +136,7 @@ export function nextInterviewStep(input: {
   return { kind: "ask", topic: remaining[0]! };
 }
 
-// 선택형 질문 초안이다(R7). 선택지는 설명이 있는 2~3개이고 추천은 근거가 있는 하나다.
+// 선택형 질문 초안이다. 선택지는 설명이 있는 2~3개이고 추천은 근거가 있는 하나다.
 export type ChoiceQuestion = {
   prompt: string;
   options: QuestionOption[];
@@ -175,7 +175,7 @@ export function checkChoiceQuestion(
   return { ok: problems.length === 0, problems };
 }
 
-// 답의 설계상 해석을 사람의 말로 되읽는 글이다(R8). 내부 id와 계약 용어를 싣지 않는다.
+// 답의 설계상 해석을 사람의 말로 되읽는 글이다. 내부 id와 계약 용어를 싣지 않는다.
 const INTERNAL = /\b(?:doc|ver|qst|run|app|tck|prb)_[0-9a-z]{26}\b|\bR\d+\b/;
 
 export function checkReadBack(
@@ -187,7 +187,7 @@ export function checkReadBack(
   return { ok: problems.length === 0, problems };
 }
 
-// 티켓 작성 가능 여부(R8). 범위·사용 동작·acceptance check의 답이 없으면 관련 티켓은 보류하고
+// 티켓 작성 가능 여부. 범위·사용 동작·acceptance check의 답이 없으면 관련 티켓은 보류하고
 // 필요한 답을 설명한다. 가정이 상한을 넘으면 숨겨 넣지 않고 보류한다.
 export const REQUIRED_ANSWERS = ["scope", "behavior", "acceptance"] as const;
 export type RequiredAnswer = (typeof REQUIRED_ANSWERS)[number];

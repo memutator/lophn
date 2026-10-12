@@ -7,7 +7,7 @@ import {
   validateOptionValues,
 } from "../models/mod.ts";
 
-// 세션에 저장하기 전 model 선택 검사다(conversation#R23, harness/model#R10·R24). 기본값 저장과 같은 규칙이다.
+// 세션에 저장하기 전 model 선택 검사다. 기본값 저장과 같은 규칙이다.
 // - provider 기록이 없으면 not_found.
 // - provider의 현재 목록에 없는 이름은 거절하고, 목록을 확인하지 못했으면(동봉 catalog에 그 provider 정의가
 //   없으면) 미확인으로 저장한다.

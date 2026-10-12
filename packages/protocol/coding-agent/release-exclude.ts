@@ -1,4 +1,4 @@
-// release bundle에서 빼는 개발 도구 경로다(guides#R19). apps의 bundle 준비가
+// release bundle에서 빼는 개발 도구 경로다. apps의 bundle 준비가
 // git tree를 읽을 때 이 목록과 일치하는 경로를 bundle에 넣지 않는다. 안내·skill·
 // hook·CLI wrapper·제품 local MCP 설정이 앱 실행 코드나 공유 credential로 퍼지지
 // 않게 한다.
@@ -15,7 +15,7 @@ export const RELEASE_EXCLUDE_PATHS = [
   "skills/lophn-build-app",
   "skills/lophn-repair",
   ".lophn/skills",
-  // 제품 local hook 설정. source의 ignore 안내에 들어간다(guides#R19).
+  // 제품 local hook 설정. source의 ignore 안내에 들어간다.
   ".lophn/hooks",
 ] as const;
 

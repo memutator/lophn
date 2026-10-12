@@ -8,7 +8,7 @@ import { pseudonym, selectSafeFields } from "./fields.ts";
 import { matchCredential } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
 
-// 표본 원값은 명시 경로만 secret 처리 뒤 남긴다(platform/redaction#R10, R11).
+// 표본 원값은 명시 경로만 secret 처리 뒤 남긴다.
 // ID형 문자열은 그 표본 안에서만 통하는 가명이다.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,7 +28,7 @@ function joinPath(location: string, key: string): string {
 }
 
 function secretText(value: string, registry?: KnownSecretRegistry): string {
-  // 알려진 secret을 긴 값부터 지운 뒤 패턴을 지운다(R10). 길이는 남기지 않는다.
+  // 알려진 secret을 긴 값부터 지운 뒤 패턴을 지운다. 길이는 남기지 않는다.
   let out = "";
   let rest = value;
   while (rest.length > 0) {

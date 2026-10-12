@@ -1,4 +1,4 @@
-// core가 secret store를 열 때 읽는 ledger의 현재 참조(platform/secrets#R1). 이름과
+// core가 secret store를 열 때 읽는 ledger의 현재 참조. 이름과
 // sealed_ref만 있고 값·hash·길이는 ledger에 없다. sealed_ref는 core가 keychain에서 값을
 // 읽을 때만 쓰고 API·event·log로 나가지 않는다.
 

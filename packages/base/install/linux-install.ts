@@ -1,4 +1,4 @@
-// Linux .deb 설치 묶음의 자리와 설치 때 쓰는 script 본문(platform/install-and-update#R2~R6, R8).
+// Linux .deb 설치 묶음의 자리와 설치 때 쓰는 script 본문.
 // 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package-linux.ts)와 설치 검사
 // (tools/verify-linux-install.ts), core 조립이 같은 값을 쓴다.
 
@@ -9,9 +9,9 @@ export const LINUX_INSTALL_ROOT = "/opt/lophn";
 // 설치 묶음 안의 자리. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
 export type LinuxInstallLayout = {
   root: string;
-  // 설치된 Deno binary. 플랫폼 process·migration·MCP·CLI가 모두 이 binary로 시작한다(R5).
+  // 설치된 Deno binary. 플랫폼 process·migration·MCP·CLI가 모두 이 binary로 시작한다.
   deno: string;
-  // 플랫폼 source·lock·vendor. deno.json, deno.lock, vendor/, node_modules/가 함께 있다(R4).
+  // 플랫폼 source·lock·vendor. deno.json, deno.lock, vendor/, node_modules/가 함께 있다.
   platform: string;
   // 빌드된 desktop 화면(renderer dist).
   desktop: string;
@@ -46,7 +46,7 @@ export function linuxInstallLayout(
   };
 }
 
-// 설치 실행 이름. .deb에서는 셋 모두 /usr/bin에서 찾는다(R6).
+// 설치 실행 이름. .deb에서는 셋 모두 /usr/bin에서 찾는다.
 export const LINUX_LAUNCHERS = {
   desktop: "/usr/bin/lophn-desktop",
   cli: "/usr/bin/lophn",
@@ -61,7 +61,7 @@ export function credentialLoaderIdentity(
   return layout.credentialHelper;
 }
 
-// Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다(R8).
+// Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다.
 export function denoCacheDir(home: string): string {
   return `${home.replace(/\/$/, "")}/.cache/lophn/deno`;
 }
@@ -126,7 +126,7 @@ const CLI_FALLBACK_BINS = [
 const CLI_ENV =
   "LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_TERMINAL_OBSERVE,HOME,DENO_DIR,PATH,XDG_RUNTIME_DIR,TMPDIR,CODEX_HOME,XDG_CONFIG_HOME,HERMES_HOME";
 
-// `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 helper로만 받는다(R6).
+// `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 helper로만 받는다.
 // 설치·감지·daemon·`sdk add --apply`가 요구하는 write·run은 정확한 경로와 파일로만 연다
 // (open-issues coding-agent/mcp-server#Q9): 쓰기는 `<H>/integrations`와 instance lock 파일, 실행은 helper·
 // 설치 Deno·`lophn-desktop`, 읽기는 PATH 폴더를 더한다. 선택한 제품 설정 파일·앱 source의 `deno.json`·
@@ -198,7 +198,7 @@ export function mcpLauncher(layout: LinuxInstallLayout): string {
 }
 
 // Electron의 launcher는 Chromium sandbox 파일 옆의 실행 파일 그대로를 쓴다. sandbox를 끄는 flag를
-// 붙이는 launcher는 만들지 않는다(R3).
+// 붙이는 launcher는 만들지 않는다.
 export const DESKTOP_LAUNCHER_TARGET = "/opt/lophn/lophn-desktop";
 
 // Electron이 다시 쓰는 실행 의존성. .deb는 이 목록을 그대로 Depends에 둔다.
@@ -239,7 +239,7 @@ export function debControl(input: {
 export const SANDBOX_MODE = 0o4755;
 
 // 설치 뒤 script. Chromium sandbox 파일을 root 소유·4755로 두고 그렇지 않으면 설치를 실패시킨다.
-// sandbox를 끄는 대안은 안내하지 않는다(R3, security#R4). 데이터 폴더는 건드리지 않는다.
+// sandbox를 끄는 대안은 안내하지 않는다. 데이터 폴더는 건드리지 않는다.
 export function postinstScript(layout: LinuxInstallLayout): string {
   const sandbox = layout.chromeSandbox;
   return [

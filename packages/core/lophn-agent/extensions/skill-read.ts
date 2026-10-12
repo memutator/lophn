@@ -6,8 +6,8 @@ import { SKILL_MANIFEST, type SkillFilesPort } from "./skills.ts";
 // 선택한 skill 읽기(concern lophn-agent/extensions). `skill.read`는 이름으로만
 // 부르고 경로 입력은 없다(architecture §5.3 선택 skill). 읽기 앞에 RunBasis에
 // 고정한 hash와 현재 파일을 비교한다(architecture §5.5): 다르거나 없으면
-// 실패다(R8). 본문은 전체이거나 실패이고 부분 성공은 없다(R6). 보조 자료는
-// 제목 목록만 돌려주고 자동으로 본문을 읽지 않는다(R5, R6).
+// 실패다. 본문은 전체이거나 실패이고 부분 성공은 없다. 보조 자료는
+// 제목 목록만 돌려주고 자동으로 본문을 읽지 않는다.
 
 export type SkillReadErrorCode =
   | "not_selected"
@@ -18,7 +18,7 @@ export type SkillReadErrorCode =
 
 export type SkillReadFailure = {
   code: SkillReadErrorCode;
-  // 사람용 이유다. 절대 경로가 나가지 않도록 만들어 쓴다(R5).
+  // 사람용 이유다. 절대 경로가 나가지 않도록 만들어 쓴다.
   message: string;
 };
 
@@ -26,7 +26,7 @@ export type SkillReadResult = {
   name: string;
   // 성공이면 SKILL.md의 frontmatter를 뺀 전체 본문이다. 실패면 null이다.
   body: string | null;
-  // 보조 자료 제목 목록이다. 자동 본문 읽기는 없다(R6).
+  // 보조 자료 제목 목록이다. 자동 본문 읽기는 없다.
   supplemental_titles: readonly string[];
   // 실패 이유다. 성공이면 null이다.
   error: SkillReadFailure | null;
@@ -35,15 +35,15 @@ export type SkillReadResult = {
 export type SkillReadInput = {
   port: SkillFilesPort;
   entries: readonly SkillEntry[];
-  // 이번 run에 제공한 skill 이름이다(R4).
+  // 이번 run에 제공한 skill 이름이다.
   name: string;
   // RunBasis에 고정한 content hash다. 없으면 이번 run에 고정하지 않은
-  // 이름이다(R8).
+  // 이름이다.
   pinned_hash: string | null;
   max_file_bytes: number;
 };
 
-// 목록의 entry로 읽는다. 이름은 정확히 하나만 받는다(R30): 대상 찾기는
+// 목록의 entry로 읽는다. 이름은 정확히 하나만 받는다: 대상 찾기는
 // 등록에 고정한 발견 목록에서만 하고 이 경로에서 새로 찾지 않는다.
 export async function readSkill(
   input: SkillReadInput,
@@ -159,7 +159,7 @@ export type SkillSupplementalReadInput = {
   max_file_bytes: number;
 };
 
-// 보조 자료 본문이다(R7). 제목으로만 고른 UTF-8 문서를 읽고 경로 입력은
+// 보조 자료 본문이다. 제목으로만 고른 UTF-8 문서를 읽고 경로 입력은
 // 없다(architecture §5.5 `skill.read_supplemental(name,title)`): 경로는
 // 발견이 고정한 relative_path다. `..`·절대 경로·symlink·실행 파일은 거절이다.
 // 스크립트를 실행하지 않는다: 이 경로에는 run tool이 없다.
@@ -275,7 +275,7 @@ export async function readSkillSupplemental(
 }
 
 // 보조 자료 제목은 발견이 만든 `{파일명에서 .md를 뺀 값}`이다. 경로로 쓰지
-// 않는다(R7): `/`·`\`·`..`·빈 값은 거절이다.
+// 않는다: `/`·`\`·`..`·빈 값은 거절이다.
 function checkTitle(title: string): boolean {
   if (title.length === 0 || title.length > 128) return false;
   if (title.includes("/") || title.includes("\\")) return false;
@@ -283,7 +283,7 @@ function checkTitle(title: string): boolean {
   return true;
 }
 
-// frontmatter 다음 줄부터 본문이다(R6). 검사는 discovery가 했다.
+// frontmatter 다음 줄부터 본문이다. 검사는 discovery가 했다.
 function parseFrontmatterBody(source: string): string | null {
   if (!source.startsWith("---")) return null;
   const lines = source.split("\n");

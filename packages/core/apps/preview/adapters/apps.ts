@@ -1,4 +1,4 @@
-// 다른 앱 조회 대역(apps/preview#R4). preview는 다른 앱의 실제 connection을 받지 못하고, 대역도
+// 다른 앱 조회 대역. preview는 다른 앱의 실제 connection을 받지 못하고, 대역도
 // 가짜 connection을 만들지 않는다. 대상 앱이 있든 없든 같은 거절이라 존재를 새지 않는다. 시도한
 // 대상과 command는 메모리에 남겨 preview 확인에서 볼 수 있다.
 import type { Result } from "../../../../base/mod.ts";

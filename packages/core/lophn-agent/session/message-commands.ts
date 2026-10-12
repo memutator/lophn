@@ -50,7 +50,7 @@ import { titleOnReceive } from "./session-title.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
 // 하나다. 실패하면 이전 판 전체가 유지된다. 같은 ID의 재전송은 내용이 같으면 이전
-// 결과, 다르면 conflict다(R2). 본문은 값으로 받는다. core가 redaction을 거쳐 blob으로
+// 결과, 다르면 conflict다. 본문은 값으로 받는다. core가 redaction을 거쳐 blob으로
 // 준비해 두었고, 이 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다
 // (Q29). 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
 // principal, 본문 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가 되돌아간다.
@@ -266,7 +266,7 @@ export function receiveWith(
   if (assignment === undefined) {
     return reject("not_found", "assignment not found");
   }
-  // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 입력을 받지 않는다(R8).
+  // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 입력을 받지 않는다.
   if (assignment.state !== "enabled") {
     return reject(
       "forbidden",
@@ -291,7 +291,7 @@ export function receiveWith(
       run = target.id;
     } else {
       // 종료가 확정된 뒤에 온 수정은 끝난 run을 다시 열지 않고 새 담당 run에
-      // 접수한다(R7). 같은 transaction이라 담당은 정확히 하나다.
+      // 접수한다. 같은 transaction이라 담당은 정확히 하나다.
       const accepted = acceptForMessage(
         tx,
         ctx,
@@ -346,7 +346,7 @@ export function receiveWith(
   // 새 사람 메시지가 접수되면 앞 rewind의 redo는 확정(closed)된다.
   const closed = closeAvailableRedo(tx, session.id);
   if (!closed.ok) return closed;
-  // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다(R18). 상태 seq는
+  // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다. 상태 seq는
   // 바꾸지 않는다: 바로 이어 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
   const title = titleOnReceive({
     title: session.title,

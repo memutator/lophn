@@ -1,9 +1,9 @@
-// ticket 쓰기 op의 공통 흐름이다(coding-agent#T25, mcp#R27, R28, cli#R36). MCP `lophn_ticket`
-// 과 CLI `ticket`이 같은 소유 route·같은 입력·같은 결과를 쓴다(cli#R1, connection#R6).
+// ticket 쓰기 op의 공통 흐름이다. MCP `lophn_ticket`
+// 과 CLI `ticket`이 같은 소유 route·같은 입력·같은 결과를 쓴다.
 // 완료 보고는 summary 본문을 받아 hash를 내고 `tickets/upload_summary`로 바이트를 올린 뒤 그
 // 준비 참조로 `report_completion`을 보낸다. completion seq는 입력이 아니고 core가 부여한다.
 // 통로는 기한을 정하거나 claim을 갱신하지 않는다: 만료·반납·취소 뒤 보고는 core의 거절이
-// 그대로 나온다(mcp#R27).
+// 그대로 나온다.
 import { type LophnError, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   ticketChecks,

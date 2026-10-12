@@ -65,7 +65,7 @@ contextBridge.exposeInMainWorld(
           return { ok: false, code: "unavailable" };
         }
       },
-      // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다(R7).
+      // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다.
       async openExternal(url: string): Promise<OpenExternalReply> {
         try {
           return await ipcRenderer.invoke(
@@ -81,7 +81,7 @@ contextBridge.exposeInMainWorld(
     })
     : createShellApi(ipcRenderer, role),
 );
-// [Report a problem] dialog의 제출·취소는 overlay view만 갖는다(shell/app-frame#R31).
+// [Report a problem] dialog의 제출·취소는 overlay view만 갖는다.
 if (role === "overlay") {
   contextBridge.exposeInMainWorld(
     "lophnFeedback",
@@ -116,7 +116,7 @@ if (role === "shell") {
       } satisfies FolderPickerApi,
     ),
   );
-  // 상단 바의 최소화·최대화·닫기(shell/desktop#R23). 동작 이름만 보내고 창은 main이 정한다.
+  // 상단 바의 최소화·최대화·닫기. 동작 이름만 보내고 창은 main이 정한다.
   contextBridge.exposeInMainWorld(
     "lophnWindow",
     createWindowControlsApi(ipcRenderer),
@@ -129,9 +129,9 @@ if (role === "shell") {
     "lophnAppWindows",
     createAppWindowsApi(ipcRenderer),
   );
-  // 문서 편집기의 파일 통로(shell/editor#R1). 경로·core port는 main에만 있다.
+  // 문서 편집기의 파일 통로. 경로·core port는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
-  // settings backup 복원(shell#T58). 묶음 하나만 보내고 계획·handle은 main에만 있다.
+  // settings backup 복원. 묶음 하나만 보내고 계획·handle은 main에만 있다.
   contextBridge.exposeInMainWorld(
     "lophnRestore",
     createRestoreApi(ipcRenderer),
@@ -170,12 +170,12 @@ if (role === "shell") {
       },
     }),
   );
-  // 작업대 layout(shell/workspace#R6). 탭과 정보 패널만 보내고 main이 다시 검사한다.
+  // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld(
     "lophnLayout",
     createLayoutApi(ipcRenderer),
   );
-  // [Instructions]: 지침 파일을 같은 편집기로 연다(shell/editor#R17). 경로는 main에만 있다.
+  // [Instructions]: 지침 파일을 같은 편집기로 연다. 경로는 main에만 있다.
   contextBridge.exposeInMainWorld(
     "lophnInstructions",
     createInstructionsApi(ipcRenderer),

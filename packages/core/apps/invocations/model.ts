@@ -21,7 +21,7 @@ function terminal(status: Invocation["status"]): boolean {
 }
 
 // 같은 시작 사실인지. 모든 필드가 같을 때만 재전송이다. confirm 접수(accepted)는 실제 시작이
-// 아직 없으므로 started_at 말고 접수가 고정한 대상·주체·호출자가 같은지만 본다(R9).
+// 아직 없으므로 started_at 말고 접수가 고정한 대상·주체·호출자가 같은지만 본다.
 export function startedFactsMatch(
   current: Invocation,
   input: InvocationRecordStartedInput,
@@ -63,7 +63,7 @@ export function deniedFactsMatch(
     JSON.stringify(current.summary) === JSON.stringify(input.summary);
 }
 
-// summary의 민감 key를 구조로 지운다. 원문 일치와 무관하다(platform/redaction#R3).
+// summary의 민감 key를 구조로 지운다. 원문 일치와 무관하다.
 const SENSITIVE_KEYS =
   /^(?:secret|token|password|credential|authorization|cookie)$/i;
 
@@ -90,7 +90,7 @@ export function redactSummary(
   return walk(summary, 0) as InvocationRecordFinishedInput["summary"];
 }
 
-// 늦은 시작은 terminal을 running으로 되돌리지 않는다(R6). terminal 뒤 같은 사실은
+// 늦은 시작은 terminal을 running으로 되돌리지 않는다. terminal 뒤 같은 사실은
 // 그대로다. absent(null) row는 record_started가 만들고, record_finished·
 // record_denied는 만들지 않는다(R10 가짜 Invocation 금지).
 export function applyStarted(
@@ -120,14 +120,14 @@ export function applyStarted(
     return conflict("invocation facts differ");
   }
   // 접수만 있던 confirm 호출은 실제 시작을 관측한 뒤에야 running이 된다. 시작 시각은
-  // 접수 시각으로 채우지 않고 관측한 값 그대로다(R9). 그 밖의 재전송은 무변경이다.
+  // 접수 시각으로 채우지 않고 관측한 값 그대로다. 그 밖의 재전송은 무변경이다.
   if (current.status === "accepted") {
     return ok({ ...current, status: "running", started_at: input.started_at });
   }
   return ok(null);
 }
 
-// 확정한 종료와 충돌하는 늦은 사실은 거절한다(R6). unknown이 실제 성공과 경쟁하면
+// 확정한 종료와 충돌하는 늦은 사실은 거절한다. unknown이 실제 성공과 경쟁하면
 // 먼저 확정된 terminal을 유지한다(같은 사실이 아닌 이상 conflict).
 export function applyFinished(
   current: Invocation | null,
@@ -150,13 +150,13 @@ export function applyFinished(
   });
 }
 
-// handler를 부르기 전 거절(R10). running 뒤의 denied는 전이가 아니다.
+// handler를 부르기 전 거절. running 뒤의 denied는 전이가 아니다.
 export function applyDenied(
   current: Invocation | null,
   input: InvocationRecordDeniedInput,
 ): Result<Invocation | null> {
   // 접수 없이 handler 전에 거절된 알려진 호출(인증된 연결·선언된 command)은 거절 행으로 남는다.
-  // 실제 시작이 없으므로 started_at은 없고 approval·입력 지문도 없다(R2, R9).
+  // 실제 시작이 없으므로 started_at은 없고 approval·입력 지문도 없다.
   if (current === null) {
     return ok({
       id: input.invocation,

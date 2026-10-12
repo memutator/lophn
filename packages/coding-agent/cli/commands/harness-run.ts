@@ -1,6 +1,6 @@
-// `lophn harness` command의 실행이다(coding-agent/cli#R40, harnesses#R2, R3, R6, R9, T36). 표(harness.ts)는
+// `lophn harness` command의 실행이다. 표(harness.ts)는
 // 입력 검사를, 여기는 이미 있는 catalog·감지·설치 engine을 부르는 일만 한다. 새 규칙이 없다.
-// plan·install·update·remove는 사람이 고른 exact target 하나만 다루고(R6) coding credential은 거절한다
+// plan·install·update·remove는 사람이 고른 exact target 하나만 다루고 coding credential은 거절한다
 // (cli#R40). 감지는 `detect`가 저장 결과를, `refresh`만 사람 요청 재감지를 먹는다(R2).
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type {

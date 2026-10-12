@@ -19,7 +19,7 @@ import { productEnvironment, resolveAgent } from "./mod.ts";
 import { workspaceModels } from "../models/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// run을 준비할 때 resolved agent를 만드는 길이다(lophn-agent/agents R25~R27). 층은 core의 읽기 route로
+// run을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로
 // 모은다: Workspace(역할별 기본 model), 자리 설정, 정의 파일, 자리의 active context. 정의 파일은 core가
 // 읽어 검사한 값이고 runtime은 파일을 직접 열지 않는다. 합치는 규칙은 agents의 resolveAgent다.
 
@@ -35,7 +35,7 @@ type AssignmentRecord = {
   scope: { kind: string; id: string | null };
 };
 
-// 시작할 수 없는 이유. 영구히 없는 필수 설정·대상이라 run을 이유와 함께 끝낸다(run-loop R5).
+// 시작할 수 없는 이유. 영구히 없는 필수 설정·대상이라 run을 이유와 함께 끝낸다.
 export type CannotStart = {
   reason: "configuration_unavailable" | "target_unavailable";
   why: "model_required" | "agent_invalid" | "agent_missing" | "no_place";
@@ -61,7 +61,7 @@ function placeOfScope(
     : null;
 }
 
-// built-in agent의 자리는 session의 작업 자리다(R27). session 없는 run(handoff로 받은 일)은 보낸 run의
+// built-in agent의 자리는 session의 작업 자리다. session 없는 run(handoff로 받은 일)은 보낸 run의
 // 자리를 따른다. Operator는 assignment의 scope다.
 // session은 run이 속한 session의 기록이다(run.session이 null이면 null).
 export async function placeOfRun(
@@ -156,7 +156,7 @@ export async function resolveRunAgent(
   },
 ): Promise<Result<RunAgent>> {
   const { run, assignment } = input;
-  // 이 run의 session이 고른 model은 가장 높은 층이다(R27). run을 준비하는 지금 읽은 값이 이 run에 고정되고,
+  // 이 run의 session이 고른 model은 가장 높은 층이다. run을 준비하는 지금 읽은 값이 이 run에 고정되고,
   // 그 뒤에 바뀐 선택은 다음 run부터 쓴다.
   const sessionRecord = run.session === null
     ? null
@@ -234,7 +234,7 @@ export async function resolveRunAgent(
   return resolved;
 }
 
-// 이어 하기는 run 기준이 고정한 resolved agent를 그대로 쓴다(R26). 정의·설정·Workspace는 다시 읽지 않는다.
+// 이어 하기는 run 기준이 고정한 resolved agent를 그대로 쓴다. 정의·설정·Workspace는 다시 읽지 않는다.
 // `contexts`는 같은 run 기준이 싣은 선언 검색 정의의 판들(`tools.contexts`)이다. 모양은 쓰는 쪽이 검사한다.
 export async function pinnedRun(
   machine: CoreCall,

@@ -85,7 +85,7 @@ const BUILTIN_TABLE: Record<
   },
 };
 
-// 모든 agent 공통 전역 built-in 여덟 개를 고정 순서로 준다(R2).
+// 모든 agent 공통 전역 built-in 여덟 개를 고정 순서로 준다.
 export function builtinCommands(): readonly CommandEntry[] {
   return BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
     name: id,
@@ -148,12 +148,12 @@ const ROLE_COMMANDS: Record<AgentRole, readonly CommandEntry[]> = {
 };
 
 // 그 role의 built-in이다. lophn은 New app · Repair app, Context Engineer는 Check
-// contracts · New context, App Engineer와 Operator는 빈 목록이다(R3).
+// contracts · New context, App Engineer와 Operator는 빈 목록이다.
 export function roleCommands(role: AgentRole): readonly CommandEntry[] {
   return ROLE_COMMANDS[role].map((entry) => structuredClone(entry));
 }
 
-// 이름 영문 사전순이고, 같은 이름은 place가 workspace보다 앞이다(R6, R7).
+// 이름 영문 사전순이고, 같은 이름은 place가 workspace보다 앞이다.
 function compareSkills(a: RegistrySkill, b: RegistrySkill): number {
   if (a.name !== b.name) return a.name < b.name ? -1 : 1;
   if (a.origin === b.origin) return 0;
@@ -167,7 +167,7 @@ export function buildRegistry(input: RegistryInput): CommandRegistry {
   for (const entry of builtins) reserved.set(entry.name, "builtin");
   for (const entry of roles) reserved.set(entry.name, "role");
 
-  // 끈 skill은 없는 것과 같다(R7). 예약된 이름의 skill은 목록에서 빠지고 알림이 된다(R5).
+  // 끈 skill은 없는 것과 같다. 예약된 이름의 skill은 목록에서 빠지고 알림이 된다.
   const selected = input.skills.filter((skill) => skill.selected)
     .toSorted(compareSkills);
   const usable = selected.filter((skill) => !reserved.has(skill.name));
@@ -182,7 +182,7 @@ export function buildRegistry(input: RegistryInput): CommandRegistry {
     }
   }
 
-  // 출처는 같은 이름이 둘 이상일 때만 붙인다(R6, R7).
+  // 출처는 같은 이름이 둘 이상일 때만 붙인다.
   const counts = new Map<string, number>();
   for (const skill of usable) {
     counts.set(skill.name, (counts.get(skill.name) ?? 0) + 1);

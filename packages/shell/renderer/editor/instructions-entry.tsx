@@ -1,4 +1,4 @@
-// [Instructions] 진입(shell/editor#R17, flow edit-instructions). 전역(settings)·project(project-workspace)·
+// [Instructions] 진입(flow edit-instructions). 전역(settings)·project(project-workspace)·
 // app(app-detail) 화면이 이 진입을 놓고, 누르면 지침 파일을 일반 문서와 같은 lophn 편집기로 연다.
 // main이 exact 지침 파일만 resolve하고 renderer는 문서 id만 받는다(경로·안쪽 version ID는 기본
 // 화면에 없다). 파일이 없으면 빈 초안이고 사람의 첫 저장이 파일을 만든다. 그 초안은 창의 편집
@@ -276,7 +276,7 @@ function statusText(facts: DraftDocumentFacts): string {
 
 // 파일이 아직 없다. 빈 초안을 고치고 편집 종료(읽기 전환·CommandOrControl+S·화면 떠남·창 닫기)가
 // 사람의 첫 저장으로 파일을 만든다. 초안 보존(draft)과 파일 쓰기·판 확정(pending·saved)은 다른
-// 상태로 보인다(shell/editor#R2). 저장 버튼은 없다(R12).
+// 상태로 보인다. 저장 버튼은 없다.
 function InstructionsDraft(
   { place, source, sessions, onSaved }: {
     place: InstructionsPlace;
@@ -322,7 +322,7 @@ function InstructionsDraft(
     const stop = session.subscribe(setFacts);
     return () => {
       stop();
-      // 화면을 떠나는 것도 편집 종료다. 고친 글이 있으면 첫 저장을 한다(R1).
+      // 화면을 떠나는 것도 편집 종료다. 고친 글이 있으면 첫 저장을 한다.
       sessions.releaseDraft(key);
     };
   }, [session, sessions, key]);

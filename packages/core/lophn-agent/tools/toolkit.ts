@@ -76,7 +76,7 @@ export function createBuiltinToolkit(options: {
           run: run.seat.run,
           assignment: run.seat.assignment,
         })),
-    // 선택한 context의 선언 검색 tool·개체 읽기 tool(harness/tools R21, R22). 정의 재료는 machine 자격으로 읽고
+    // 선택한 context의 선언 검색 tool·개체 읽기 tool. 정의 재료는 machine 자격으로 읽고
     // 호출은 run의 agent 자격으로 부른다.
     contexts: createContextToolkit({
       machine: options.machine,
@@ -108,7 +108,7 @@ export function createBuiltinToolkit(options: {
           });
         },
       });
-      // lophn의 모든 project context 조회(roles/lophn R3). overview 글은 prompt 자료와 같은 함수로 만든다.
+      // lophn의 모든 project context 조회. overview 글은 prompt 자료와 같은 함수로 만든다.
       return new Map([
         ...builtin,
         ...createContextLookupToolHandlers(contract, renderContextMaterial),

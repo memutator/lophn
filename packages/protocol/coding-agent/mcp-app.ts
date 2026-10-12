@@ -53,7 +53,7 @@ const appReaderInput = z.discriminatedUnion("op", [
   appRuntime.input.extend({ op: z.literal("blueprint") }),
   invocationsList.input.omit({ limit: true }).extend({
     op: z.literal("invocations"),
-    // plan 완료 기준은 페이지당 최대 20개다(mcp#R32). owner 200을 20으로 묶는다.
+    // plan 완료 기준은 페이지당 최대 20개다. owner 200을 20으로 묶는다.
     limit: z.number().int().min(1).max(20).optional(),
   }),
   invocationsGet.input.extend({
@@ -66,7 +66,7 @@ const appReaderInput = z.discriminatedUnion("op", [
   commandOpInput,
 ]);
 
-// SDK tool은 catalog 검색·상세·exact version 추가뿐이다(mcp#R22, R23). owner route 입력에
+// SDK tool은 catalog 검색·상세·exact version 추가뿐이다. owner route 입력에
 // 통로가 쓰는 field만 더한다: catalog의 설명·API 이름 검색어(`query`), show의 고를 version,
 // add의 source 반영 선택(`apply`)과 반영할 앱. 더한 field는 owner route로 보내지 않는다.
 export const sdkCatalogFields = {
@@ -89,7 +89,7 @@ const sdkInput = z.discriminatedUnion("op", [
 ]);
 
 // ticket tool은 목록·본문·조건 검사와 claim 읽기·갱신·반납·release 연결·완료 보고다.
-// create·cancel·check 판정·start·resume·permission 응답 op는 없다(mcp#R26, R27, R37).
+// create·cancel·check 판정·start·resume·permission 응답 op는 없다.
 const ticketInput = z.discriminatedUnion("op", [
   ticketList.input.extend({ op: z.literal("list") }),
   ticketShow.input.extend({ op: z.literal("show") }),
@@ -180,7 +180,7 @@ export function mcpAppTool(name: string) {
   return { ...tool, readOnlyHint: readOnlyHint(tool.name) };
 }
 
-// blueprint 유래 read tool 이름이다(mcp#R34, R35). Gemini CLI가 `mcp_<server>_<tool>`
+// blueprint 유래 read tool 이름이다. Gemini CLI가 `mcp_<server>_<tool>`
 // 을 63자에서 해시 없이 자르므로 app ID는 sha256 hex의 앞 12자, command 이름은 sha256
 // hex의 앞 16자로 줄여 전체 39자에 둔다. 원 앱 이름과 command 이름은 description에
 // 넣는다.
@@ -196,7 +196,7 @@ export function appToolName(
   }`;
 }
 
-// blueprint 유래 read tool의 바깥 입력이다(mcp#R35). command input과 겹치지 않는
+// blueprint 유래 read tool의 바깥 입력이다. command input과 겹치지 않는
 // 객체에 두고 같은 앱 통로 client로 호출한다. environment 생략은 preview다.
 export const appCommandToolInputSchema = z.strictObject({
   input: z.unknown().optional(),

@@ -113,5 +113,5 @@ export function parseClientEventFrame(text: string): Result<ClientEventFrame> {
   return ok(client.data);
 }
 
-// 처리 위치 P 다음 재생 시작(platform/ledger#R15). from_seq는 그 위치를 포함한다.
+// 처리 위치 P 다음 재생 시작. from_seq는 그 위치를 포함한다.
 export { nextFromSeq };

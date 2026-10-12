@@ -65,7 +65,7 @@ export function summaryBodyHash(text: string): Promise<string> {
 
 export type ClampResult =
   | { status: "within"; text: string }
-  // 다시 줄여야 한다. 문장 중간을 잘라 맞춘 결과는 내보내지 않는다(R20).
+  // 다시 줄여야 한다. 문장 중간을 잘라 맞춘 결과는 내보내지 않는다.
   | { status: "over"; text: string | null; attempt: number };
 
 // 마지막 온전한 문장 경계만 남긴 줄임이다. 쉼표·공백 같은 중간 경계는 잘라 맞추지 않는다.
@@ -81,7 +81,7 @@ function lastSentenceEnd(text: string): number {
 }
 
 // cap 안으로 문장 경계에서 다시 줄인다. 문장 경계가 없으면 줄이지 못하므로
-// 원문을 내보내지 않는다(R20). attempt는 이번이 몇째 재축소인지고, 상한을 넘으면
+// 원문을 내보내지 않는다. attempt는 이번이 몇째 재축소인지고, 상한을 넘으면
 // "over"를 돌려 저장된 완성 summary로 쓰지 않는다.
 export function clampSummaryText(
   text: string,
@@ -128,7 +128,7 @@ export function assertsNoPreferenceGeneralization(
   return !joined.includes("늘") && !joined.includes("항상");
 }
 
-// ---- 이후 call의 조립 (R3, R23) ----
+// ---- 이후 call의 조립 ----
 
 // session의 확정 메시지 하나. 사람의 말은 user이고 agent의 답과 machine의 확인은 assistant다.
 export type SessionMessage = {
@@ -138,7 +138,7 @@ export type SessionMessage = {
 };
 
 // rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
-// 빠진다(conversation#R25).
+// 빠진다.
 export type FoldedMessages = {
   from_seq: bigint;
   through_seq: bigint;
@@ -225,7 +225,7 @@ export function sessionMaterial(conversation: SessionConversation): {
   };
 }
 
-// ---- 요약 요청 (R13–R15, R19–R21) ----
+// ---- 요약 요청 ----
 
 // 요약 재료의 한 메시지가 머리에 붙이는 말 이름의 크기(byte 근사). chunk 계산이 쓴다.
 const MESSAGE_FRAME_BYTES = 16;
@@ -303,7 +303,7 @@ function frameBytes(message: SessionMessage): number {
   return encoder.encode(message.text).byteLength + MESSAGE_FRAME_BYTES;
 }
 
-// 요약 재료를 순서를 지킨 chunk로 나눈다(R15). 한 chunk의 크기는 maxBytes 이하이고 어떤 메시지도 빠지지
+// 요약 재료를 순서를 지킨 chunk로 나눈다. 한 chunk의 크기는 maxBytes 이하이고 어떤 메시지도 빠지지
 // 않는다. 한 메시지가 한 chunk보다 크면 몰래 자르지 않고 null이다(압축 실패).
 export function splitSummaryMaterial(
   messages: readonly SessionMessage[],

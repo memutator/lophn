@@ -57,7 +57,7 @@ export interface CoreLink {
     body: unknown,
     kind?: "read" | "worker" | "memory",
   ): Promise<SourceResult<T>>;
-  /** command 하나. 성공 응답은 route output 그대로다(platform/api#R3). */
+  /** command 하나. 성공 응답은 route output 그대로다. */
   command<T>(
     resource: string,
     method: string,

@@ -10,7 +10,7 @@ export type InvocationContext = {
   command?: string | null;
   inputHash?: string | null;
   // 이 호출을 다른 앱에게서 받았다면 그 앱의 인증된 출처 식별이다(받은 연결의 caller).
-  // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다(apps/connections#R7).
+  // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다.
   caller?: {
     app: string;
     release: string;

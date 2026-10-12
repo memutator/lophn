@@ -25,7 +25,7 @@ export function contentReference(value: unknown): BlobReference {
 // 등록 오류 중 이 command들이 낼 수 있는 코드만 그대로 두고 나머지는 입력 거절로 바꾼다.
 const PASSED = new Set(["invalid_input", "forbidden", "unavailable"]);
 
-// 내용으로 주소를 정한 참조를 이 transaction에 등록한다(platform/blob-store#R4). 준비 참조는 요청 자격의
+// 내용으로 주소를 정한 참조를 이 transaction에 등록한다. 준비 참조는 요청 자격의
 // 이름으로 있어야 한다. 이미 등록된 내용이면 새로 등록하지 않고 그 참조를 돌려준다(재전송·같은 내용).
 // registered_seq는 이 transaction 시점의 마지막 event다(내용 주소라 어느 event가 처음 올렸는지는 뜻이 없다).
 export function registerContextContent(

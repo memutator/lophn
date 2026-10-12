@@ -1,4 +1,4 @@
-// process stack의 앱 source frame 위치 찾기(snapshots#R11, R6). 당시 release의
+// process stack의 앱 source frame 위치 찾기. 당시 release의
 // 읽기 전용 준비 폴더(`apps/<app>/bundles/<hash>/`)의 source map으로 원래
 // 상대 path를 찾는다. 준비 폴더 밖 path·symlink는 읽지 않고 이유를 남긴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 // 함수가 problems에서 닿지 않으므로 이 leaf가 문자만 반복한다.
 const SOURCE_MAP_COPY = "app.js.map";
 
-// source map 실패 이유. 값은 공백 아닌 누락 이유 하나다(snapshots#R4).
+// source map 실패 이유. 값은 공백 아닌 누락 이유 하나다.
 export type SourceMapFailure = {
   code: "invalid_input" | "unavailable";
   message: string;
@@ -17,7 +17,7 @@ async function readIfInside(
   root: string,
   path: string,
 ): Promise<Result<string, SourceMapFailure>> {
-  // NUL·backslash·".."은 준비 폴더 밖으로 나가는 path다(R6).
+  // NUL·backslash·".."은 준비 폴더 밖으로 나가는 path다.
   if (path.includes("\u0000") || path.includes("\\")) {
     return err({
       code: "invalid_input",
@@ -33,7 +33,7 @@ async function readIfInside(
   }
   const full = `${root}/${path}`;
   try {
-    // symlink는 읽지 않는다: 준비 폴더 밖을 가리킬 수 있다(R6).
+    // symlink는 읽지 않는다: 준비 폴더 밖을 가리킬 수 있다.
     const info = await Deno.lstat(full);
     if (info.isSymlink) {
       return err({
@@ -55,7 +55,7 @@ async function readIfInside(
 
 export { readIfInside };
 
-// bundle 사본의 source map 파일을 읽는다. map이 없으면 그 이유를 돌려준다(R11).
+// bundle 사본의 source map 파일을 읽는다. map이 없으면 그 이유를 돌려준다.
 export async function readSourceMap(
   copyRoot: string,
 ): Promise<Result<string, SourceMapFailure>> {
@@ -122,7 +122,7 @@ export async function readBundleManifest(
 }
 
 // bundle 내 hash로 준비 폴더의 파일 내용을 읽는다. manifest에 없으면 이유를
-// 돌려준다(snapshots#R11).
+// 돌려준다.
 export async function readBundledFile(
   copyRoot: string,
   manifest: BundledManifest,

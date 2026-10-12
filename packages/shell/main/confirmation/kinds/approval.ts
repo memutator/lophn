@@ -48,7 +48,7 @@ export async function readApproval(
   const read = await core.internal("read", "approvals", "text", { approval });
   if (!read.ok) return readFailure(read);
   const words = record(read.value);
-  // session 허락은 session_grantable인 request만 갖는다(platform/approvals#R20). 아니면 session을
+  // session 허락은 session_grantable인 request만 갖는다. 아니면 session을
   // 미리 골라도 once만 있고, 미리 고른 결정을 request가 허락하는 범위로 좁혀 view에 싣는다.
   const sessionGrantable = request.session_grantable === true;
   const chosen: ApprovalPreselect =

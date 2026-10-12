@@ -1,7 +1,7 @@
-// provider 실패 분류(provider#R19–R24). 순수 함수만. IO 없다. HTTP status·
+// provider 실패 분류. 순수 함수만. IO 없다. HTTP status·
 // header·응답 본문 문구를 contract의 ProviderFailure 코드로 옮긴다. 구조화 코드
 // 우선·문구 후순위의 단계 분류다(조사 문서 "오류 분류 순서"). 분류 근거가
-// 안전하지 않으면 unknown이다. 인증 실패로 추측하지 않는다(provider#R19). 오류
+// 안전하지 않으면 unknown이다. 인증 실패로 추측하지 않는다. 오류
 // 본문 원문은 여기에도 어디에도 남지 않는다.
 
 import { USAGE_WAIT_DEFAULT_MS } from "../../../protocol/lophn-agent/mod.ts";
@@ -10,7 +10,7 @@ import type { PROVIDER_FAILURES } from "../../../protocol/lophn-agent/mod.ts";
 
 type ProviderFailure = (typeof PROVIDER_FAILURES)[number];
 
-// ---- Retry-After 해석(provider#R20) ----
+// ---- Retry-After 해석 ----
 
 // 순서: retry-after-ms → retry-after(숫자 초 또는 HTTP-date) → reset header.
 // "retry after" 문구가 "resets in"보다 우선이다(Hermes 조사 93–101).
@@ -116,7 +116,7 @@ function messageResetMs(message: string | undefined): number | null {
   return null;
 }
 
-// ---- 본문 문구(provider#R23) ----
+// ---- 본문 문구 ----
 
 // overflow 문구(Pi OVERFLOW_PATTERNS 기준). provider별 문구를 한 목록으로 모으되
 // byte·메모리 한도 문구는 여기에 두지 않는다.
@@ -156,7 +156,7 @@ export function isMemoryCeilingMessage(message: string): boolean {
   return MEMORY_CEILING_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-// ---- 구조화 코드(provider#R20, R21, R22, R23) ----
+// ---- 구조화 코드 ----
 
 const CONTEXT_EXCEEDED_CODES: readonly string[] = ["context_length_exceeded"];
 const CREDENTIAL_CODES: readonly string[] = [
@@ -194,7 +194,7 @@ function codeOf(
 // ---- 분류 입력 ----
 
 // 오류가 온 자리. HTTP status·header·구조화 code·사람이 읽을 message 파편만
-// 받는다. 원문 본문은 받지 않고 열지도 않는다(R19).
+// 받는다. 원문 본문은 받지 않고 열지도 않는다.
 export type FailureInput = {
   kind: "http" | "stream_error";
   status: number | null;
@@ -207,7 +207,7 @@ export type FailureInput = {
   cancelled?: boolean;
   // 지금 시각(ms). 429 경계와 reset default에 쓴다.
   nowMs: number;
-  // 429 경계(ms). 기본은 30_000이고 이 안이면 일시 실패다(R20).
+  // 429 경계(ms). 기본은 30_000이고 이 안이면 일시 실패다.
   temporary_ms?: number;
 };
 
@@ -225,7 +225,7 @@ export type FailureVerdict = {
     | null;
   finish_reason: string | null;
   http_status: number | null;
-  // provider가 준 구조화 code 중 안전한 토큰 꼴만이다. 본문 문구는 아니다(R19).
+  // provider가 준 구조화 code 중 안전한 토큰 꼴만이다. 본문 문구는 아니다.
   provider_code: string | null;
 };
 
@@ -235,7 +235,7 @@ const SAFE_PROVIDER_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 export function failureVerdict(input: FailureInput): FailureVerdict {
   const core = coreVerdict(input);
-  // 구조화 code만 안전한 토큰이면 남긴다. 본문 문구와 원문은 남기지 않는다(R19).
+  // 구조화 code만 안전한 토큰이면 남긴다. 본문 문구와 원문은 남기지 않는다.
   const code = input.code !== undefined && SAFE_PROVIDER_CODE.test(input.code)
     ? input.code
     : null;
@@ -243,7 +243,7 @@ export function failureVerdict(input: FailureInput): FailureVerdict {
 }
 
 function coreVerdict(input: FailureInput): CoreVerdict {
-  // 1. 사람 취소 → cancelled(R23). 원문은 남지 않는다.
+  // 1. 사람 취소 → cancelled. 원문은 남지 않는다.
   if (input.cancelled === true) {
     return {
       code: "cancelled",
@@ -282,7 +282,7 @@ function coreVerdict(input: FailureInput): CoreVerdict {
       http_status: input.status,
     };
   }
-  // 5. 남은 것은 unknown이다. 인증 실패로 올리지 않는다(provider#R19).
+  // 5. 남은 것은 unknown이다. 인증 실패로 올리지 않는다.
   return {
     code: "unknown",
     retry_at_ms: null,
@@ -307,7 +307,7 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     return { code: "context_exceeded", ...blank };
   }
   if (codeOf(CREDENTIAL_CODES, code) !== null) {
-    // 사용량 제한과 인증 폐기를 구별한다(provider#R21).
+    // 사용량 제한과 인증 폐기를 구별한다.
     return {
       code: "credential_unavailable",
       ...blank,
@@ -322,7 +322,7 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
   }
   if (code === "invalid_request_error") {
     // Anthropic은 문맥 초과도 이 type으로 알린다. 한계 문구가 있으면 문맥 초과,
-    // 없으면 검증 실패다. 인증 실패로 추측하지 않는다(R19).
+    // 없으면 검증 실패다. 인증 실패로 추측하지 않는다.
     const fragment = input.message ?? "";
     if (fragment.length > 0 && isOverflowMessage(fragment)) {
       return { code: "context_exceeded", ...blank };
@@ -337,7 +337,7 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     // status 단계의 규칙이 판한다. 429가 아니면 reset 근거 없이 temporary다.
     return input.status === 429 ? rateVerdict(input) : null;
   }
-  // 모르는 코드는 다음 단계로 내려간다. 인증 실패로 추측하지 않는다(R19).
+  // 모르는 코드는 다음 단계로 내려간다. 인증 실패로 추측하지 않는다.
   return null;
 }
 
@@ -428,7 +428,7 @@ function disconnectVerdict(input: FailureInput): CoreVerdict {
 
 // 429와 과부하 코드 계열. retry 시각이 30초(주는 쪽이 정한 상한) 이내로 확인되면
 // temporary(시각 전달), 초과·미상이면 credential_unavailable이다. 미상의
-// usage_wait는 1시간이다(provider#R24).
+// usage_wait는 1시간이다.
 function rateVerdict(input: FailureInput): CoreVerdict {
   const status = input.status;
   const boundary = input.temporary_ms ?? 30_000;
@@ -442,7 +442,7 @@ function rateVerdict(input: FailureInput): CoreVerdict {
     http_status: status,
   };
   if (reset !== null && reset <= boundary) {
-    // temporary의 retry_at은 시각 전달이다(provider#R20).
+    // temporary의 retry_at은 시각 전달이다.
     return {
       code: "temporary",
       retry_at_ms: input.nowMs + reset,
@@ -455,7 +455,7 @@ function rateVerdict(input: FailureInput): CoreVerdict {
   return {
     code: "credential_unavailable",
     retry_at_ms: null,
-    // 서버가 준 reset 시각까지 유지하고 시각을 모르면 1시간이다(R24).
+    // 서버가 준 reset 시각까지 유지하고 시각을 모르면 1시간이다.
     until_ms: input.nowMs + (reset ?? USAGE_WAIT_DEFAULT_MS),
     unavailable_reason: "quota",
     ...base,
@@ -480,7 +480,7 @@ export function outcomeFromVerdict(
   };
 }
 
-// ---- HTTP 응답·본문 안의 오류(provider#R19–R23) ----
+// ---- HTTP 응답·본문 안의 오류 ----
 
 // 오류 본문에서 읽는 조각의 크기 상한. 이 안의 조각만 분류에 쓰고 버린다.
 export const ERROR_BODY_MAX_BYTES = 65_536;

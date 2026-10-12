@@ -27,7 +27,7 @@ export interface AppDetailProps {
   onPreview(next: PreviewOpen | null): void;
   /** app 층 [Instructions]. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
-  /** Issues(T53)·Tasks(T50) 탭 내용. 없으면 아직 없다고 보인다. */
+  /** Issues·Tasks 탭 내용. 없으면 아직 없다고 보인다. */
   issues?: ReactNode;
   tasks?: ReactNode;
   /** 처음 열 탭. 접수된 문제로 올 때는 issues, 맡길 일의 링크로 올 때는 tasks다. */

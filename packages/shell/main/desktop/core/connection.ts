@@ -98,7 +98,7 @@ export interface CoreConnection {
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;
-  /** backup 복원 pipe(shell#T58). supervise.ts의 CoreProcess를 그대로 받는다. */
+  /** backup 복원 pipe. supervise.ts의 CoreProcess를 그대로 받는다. */
   restorePipe(): RestorePipe;
 }
 
@@ -122,7 +122,7 @@ export function startCoreConnection(
   };
 
   // hello 하나에 session·구독을 연다. 복원 뒤 core가 같은 pipe로 보내는 새 hello에도
-  // 같은 값(새 epoch·token·port)으로 다시 연다(shell#T58).
+  // 같은 값(새 epoch·token·port)으로 다시 연다.
   const greet = (hello: {
     readonly user_token: string;
     readonly api_port: number;
@@ -249,7 +249,7 @@ export function startCoreConnection(
     diagnostic(message) {
       return core.diagnostic(message);
     },
-    /** backup 복원 pipe(shell#T58). supervise.ts의 CoreProcess를 그대로 받는다. */
+    /** backup 복원 pipe. supervise.ts의 CoreProcess를 그대로 받는다. */
     restorePipe(): RestorePipe {
       return {
         get phase() {

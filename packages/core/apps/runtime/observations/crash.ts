@@ -1,4 +1,4 @@
-// 앱 프로세스 실패의 근거를 구별해 problems에 보낸다(R28). 예상 밖 종료, 기동 실패와
+// 앱 프로세스 실패의 근거를 구별해 problems에 보낸다. 예상 밖 종료, 기동 실패와
 // ready timeout, crash loop, V8 OOM은 서로 다른 근거 이름으로 남고 의도된 정지는
 // 보내지 않는다. 전송은 problems의 process_exit 관측(/v1/problems/observe-exception)이고
 // 어느 앱·release인지는 본문이 아니라 인증된 process observer 결속이 정한다.
@@ -20,7 +20,7 @@ export type CrashEvidence = (typeof CRASH_EVIDENCE)[number];
 export type CrashEvent =
   | {
     kind: "exit";
-    // 정지 요청 전에 의도된 종료로 표시한 종료다(R18).
+    // 정지 요청 전에 의도된 종료로 표시한 종료다.
     intended: boolean;
     // 신호로 죽었으면 null이다.
     exitCode: number | null;
@@ -76,7 +76,7 @@ function messageOf(event: CrashEvent, evidence: CrashEvidence): string {
 }
 
 export type CrashObserver = {
-  // 의도된 정지면 undefined다(R28).
+  // 의도된 정지면 undefined다.
   observe(event: CrashEvent): Promise<CrashOutcome | undefined>;
 };
 

@@ -1,4 +1,4 @@
-// Rewind menu(lophn-agent/revert#R3·R12·R14~R16). 메시지의 "Rewind to here"와 header ⋯의 "Rewind…"가 여는 같은
+// Rewind menu. 메시지의 "Rewind to here"와 header ⋯의 "Rewind…"가 여는 같은
 // menu다. 선택지 셋, 막힌 선택지의 이유, 고른 범위의 preview(복원할 것·건너뛰는 것·남는 영향), 늘 보이는 바깥 변경
 // 안내, 실행 중 work 안내를 보인다. 적용은 확인 창이 맡으므로 menu는 고른 시점과 범위를 부르는 쪽에 넘기는 데까지만
 // 한다. 결정은 그 창에서만 낸다.
@@ -68,7 +68,7 @@ function choiceHint(choice: RewindChoice): string {
 
 function startError(code: string): string {
   switch (code) {
-    // 먼저 멈춰야 하는 경우다(R15).
+    // 먼저 멈춰야 하는 경우다.
     case "conflict":
       return t("conversation.rewind.running");
     case "summary_failed":

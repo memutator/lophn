@@ -1,4 +1,4 @@
-// Search 탭의 본문(shell/workspace#R23~R27): 고른 검색의 제목, 입력 form, [Save as view]의 이름 칸,
+// Search 탭의 본문: 고른 검색의 제목, 입력 form, [Save as view]의 이름 칸,
 // 결과. 입력을 바꾸는 일은 곧바로 state로 알리고, 결과는 [Search]를 눌러야 바뀐 입력으로 다시 읽는다.
 import { type ReactNode, useState } from "react";
 import {

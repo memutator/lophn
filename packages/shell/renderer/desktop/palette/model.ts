@@ -1,4 +1,4 @@
-// 명령 팔레트의 순수 규칙. 공간마다 묶음 순서가 정해져 있고(shell/desktop#R30) 행은
+// 명령 팔레트의 순수 규칙. 공간마다 묶음 순서가 정해져 있고 행은
 // 그 공간의 지금 탐색 대상만 가리킨다. overlay에는 행 id·이름만 가고 대상은 여기 남는다.
 import type { OverlayModel, PaletteIcon } from "../../../ipc/overlay.ts";
 

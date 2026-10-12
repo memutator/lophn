@@ -15,7 +15,7 @@ import {
   type SnapshotBlobPrepare,
 } from "./prepare.ts";
 
-// apps.logs read와 같은 입력이다. 앱은 credential에서 온 값만 쓴다(snapshots#R6).
+// apps.logs read와 같은 입력이다. 앱은 credential에서 온 값만 쓴다.
 export type AppLogQuery = {
   app: string;
   invocation?: string;
@@ -35,7 +35,7 @@ export type AppLogFeed = {
 export type AppLogSource = (query: AppLogQuery) => Promise<Result<AppLogFeed>>;
 
 export type LogCollectionDeps = {
-  // 진단 상세 수집 설정. 꺼져 있으면 새 수집만 멈춘다(snapshots#R7). null은 설정을
+  // 진단 상세 수집 설정. 꺼져 있으면 새 수집만 멈춘다. null은 설정을
   // 읽지 못한 것이다: 사람이 껐을 수 있으므로 모으지 않고 읽지 못했다고 남긴다.
   detailCollection: boolean | null;
   source: AppLogSource | null;
@@ -45,7 +45,7 @@ export type LogCollectionDeps = {
   redact: (text: string) => Promise<string | null>;
   // 로그를 얻은 시각이 source에 없을 때만 쓴다.
   nowAt: string;
-  // 이 항목에 남은 조립 기한과 큰 자료 준비 예산(snapshots#R18, R20).
+  // 이 항목에 남은 조립 기한과 큰 자료 준비 예산.
   remainingMs: number;
   remainingLargeBytes: number;
 };
@@ -130,7 +130,7 @@ function scopeOf(
 }
 
 // 알려진 invocation으로 좁힌 최근 로그 조각을 모은다. 연결 없는 로그는 앱 로그
-// 조각이다. 한 줄 길이의 별도 기본값은 없고 총 bytes로만 제한한다(snapshots#R12).
+// 조각이다. 한 줄 길이의 별도 기본값은 없고 총 bytes로만 제한한다.
 export async function collectLogEvidence(
   input: { app: string; invocation: string | null },
   deps: LogCollectionDeps,
@@ -227,7 +227,7 @@ async function prepare(
       bytesStream(new TextEncoder().encode(text)),
     );
     if (prepared.ok) return { ok: true, value: prepared.value };
-    // 저장 공간 부족은 새 수집을 제한하되 기존 자료를 지우지 않는다(R19).
+    // 저장 공간 부족은 새 수집을 제한하되 기존 자료를 지우지 않는다.
     return {
       ok: false,
       reason: prepared.error.code === "unavailable"

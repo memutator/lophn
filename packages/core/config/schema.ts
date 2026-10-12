@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../protocol/server/mod.ts";
 
-// 선택 원본은 ledger 하나다(R2). setting_choices는 현재 선택만 담는다.
+// 선택 원본은 ledger 하나다. setting_choices는 현재 선택만 담는다.
 // setting_revisions는 불변 판이며 UPDATE·DELETE가 금지된다(domain model).
 // settings_state는 현재 적용 판 singleton이다.
 export const SETTINGS_SCHEMA_STEPS: SchemaStep[] = [

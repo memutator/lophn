@@ -1,9 +1,9 @@
-// OpenAI 호환 공통 레이어(provider#R3, R5, R25). endpoint path 결합(/v1 중복 없음),
+// OpenAI 호환 공통 레이어. endpoint path 결합(/v1 중복 없음),
 // redirect 목적지 검사(다른 목적지에 credential 없음), provider 정의가 명시하는
 // 호환 quirk(DeepSeek·OpenRouter 등), protocol별 state-free 계속 검증, 시그니처
 // 비교(T13이 넘긴 것)를 여기 둔다. 형식은 model 이름이 아니라 provider 정의가
-// 명시한다(R3). Gemini는 Chat Completions 호환 연결이고 네이티브 Google 형식은
-// 받지 않는다(R3).
+// 명시한다. Gemini는 Chat Completions 호환 연결이고 네이티브 Google 형식은
+// 받지 않는다.
 
 // endpoint는 API base이고 adapter가 표의 path를 붙인다(architecture §5.2). base가
 // 이미 /v1으로 끝나면 path의 /v1을 붙이지 않는다.
@@ -49,11 +49,11 @@ export type CompatQuirks = {
   // 1685–1693). 없는 턴은 공백 하나로 채운다(빈 문자열은 거절이다).
   reasoning_content_required: boolean;
   // OpenRouter reasoning_details는 구조 배열이지 사람이 읽을 본문이 아니다.
-  // 무시한다(R25).
+  // 무시한다.
   reasoning_details_ignored: boolean;
 };
 
-// provider 정의 key만 본다. model 이름 substring으로 quirk를 추론하지 않는다(R3).
+// provider 정의 key만 본다. model 이름 substring으로 quirk를 추론하지 않는다.
 const QUIRKS: Record<string, CompatQuirks> = {
   deepseek: {
     reasoning_content_required: true,
@@ -103,7 +103,7 @@ export function verifyStateFree(input: {
   };
 }
 
-// 시그니처 비교(plan T14, T13이 넘긴 것). 블록의 signature와 메모리의 signature가
+// 시그니처 비교(T13이 넘긴 것). 블록의 signature와 메모리의 signature가
 // 같을 때만 재전송 대상이다. 다르거나 한쪽이 없으면 깨진 턴으로 보고 그 시그니처를
 // 재전송하지 않는다(Hermes 487–524).
 export function signatureAgrees(

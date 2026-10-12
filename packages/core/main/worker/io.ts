@@ -64,7 +64,7 @@ import {
 // 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
 export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
-// blob GC check 주기(R10: 기동 시와 매일). 관측은 삭제가 아니다.
+// blob GC check 주기(기동 시와 매일). 관측은 삭제가 아니다.
 export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // worker가 받아 두기로 한 blob 바이트 전체의 상한(credit budget). 모든 blob.prepare
@@ -119,7 +119,7 @@ export type PlatformIoOptions = {
   suffix?: () => string;
 };
 
-// byte chunk는 제어 메시지가 아니다. 요청의 channel에 묶인다(Q6).
+// byte chunk는 제어 메시지가 아니다. 요청의 channel에 묶인다.
 export async function createPlatformIo(
   options: PlatformIoOptions,
 ): Promise<ChildSession> {
@@ -140,13 +140,13 @@ export async function createPlatformIo(
     suffix: options.suffix ?? (() => crypto.randomUUID()),
   });
   const settings = options.settings ?? createSettingsPipe();
-  // blob 준비는 요청 json에 앞서(뒤에) 오는 byte chunk를 channel별로 모은다(Q6).
+  // blob 준비는 요청 json에 앞서(뒤에) 오는 byte chunk를 channel별로 모은다.
   // core는 해석·hash 없이 넘기고, 이 worker만 모아 내용을 만든다.
   const pending = new Map<
     number,
     { chunks: Uint8Array[]; request?: BlobPipeRequest }
   >();
-  // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다(Q6). 준비는 chunk가 오는 동안
+  // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다. 준비는 chunk가 오는 동안
   // 이미 hash·write를 시작하고, 받아 둔 바이트는 credit window를 넘지 않는다.
   const prepares = new Map<number, PrepareStream>();
   // 모든 준비가 나눠 쓰는 credit budget의 남은 양.
@@ -279,7 +279,7 @@ export async function createPlatformIo(
   }
 
   // blob.prepare를 받는다. core의 chunk가 오는 대로 blob store가 읽어 hash·write하고,
-  // 읽어 간 만큼만 credit을 다시 준다(Q2·Q6). 응답은 준비가 끝난 뒤에 따로 보낸다.
+  // 읽어 간 만큼만 credit을 다시 준다. 응답은 준비가 끝난 뒤에 따로 보낸다.
   async function startPrepare(request: BlobPipeRequest, channel: number) {
     if (prepares.has(channel)) {
       // 같은 channel을 다시 열면 진행 중인 준비는 건드리지 않는다.
@@ -493,7 +493,7 @@ export async function createPlatformIo(
     },
     async onParent(message) {
       if (message.type !== "worker_request") return;
-      // blob.prepare는 worker_request의 channel에 묶인 byte chunk로 온다(Q6).
+      // blob.prepare는 worker_request의 channel에 묶인 byte chunk로 온다.
       // core는 해석·hash 없이 backpressure를 지키며 넘기고, 설치는 이 worker만 한다.
       const request = message as unknown as BlobPipeRequest & {
         channel?: number;
@@ -509,7 +509,7 @@ export async function createPlatformIo(
         return;
       }
       // settings 교환은 channel에 묶인 byte chunk로 온다. import는 문서를 모아
-      // parse하고, export는 JSON payload의 mutations를 stringify한다(R3, R26).
+      // parse하고, export는 JSON payload의 mutations를 stringify한다.
       // byte chunk는 요청 json보다 먼저 도착해 있다.
       if (
         request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP
@@ -694,7 +694,7 @@ export async function createPlatformIo(
   return session;
 }
 
-// 하루 backup 만들기(R8, R9). ledger 파일 이름은 데이터 root의 lophn.db다
+// 하루 backup 만들기. ledger 파일 이름은 데이터 root의 lophn.db다
 // (architecture 3.1). schema 판은 설치된 마지막 migration version이다.
 async function runDailyBackup(root: string, clock: Clock): Promise<void> {
   const ledgerPath = `${root}/lophn.db`;
@@ -726,8 +726,8 @@ function installedSchemaVersion(root: string): number {
   }
 }
 
-// GC 관측의 설치 blob 파일 목록(R10). hash 폴더 2자 아래 나머지 62자다.
-// core는 파일을 열지 않는다(responsiveness#R1). 관측 실패는 없다고 본다.
+// GC 관측의 설치 blob 파일 목록. hash 폴더 2자 아래 나머지 62자다.
+// core는 파일을 열지 않는다. 관측 실패는 없다고 본다.
 export async function listInstalledBlobs(
   root: string,
 ): Promise<
@@ -781,7 +781,7 @@ export async function listInstalledBlobs(
   return ok(found);
 }
 
-// backup 폴더의 pending 표시 관측(T41). GC는 이것이 남아 있으면 실행하지 않는다.
+// backup 폴더의 pending 표시 관측. GC는 이것이 남아 있으면 실행하지 않는다.
 export async function listBackupPending(
   root: string,
 ): Promise<Result<readonly { name: string; pending: boolean }[]>> {
@@ -806,7 +806,7 @@ export async function listBackupPending(
 
 export type BackupTick = {
   // check 한 번. due면 만들기를 scheduler에 낸다. 만들기가 아직 끝나지 않으면
-  // 건너뛴다: 두 snapshot이 겹치지 않는다(R9). completion이 끝나면 다시 본다(R12).
+  // 건너뛴다: 두 snapshot이 겹치지 않는다. completion이 끝나면 다시 본다.
   tick(): void;
   // 만들기가 진행 중인지. 테스트가 끝남을 기다린다.
   readonly inFlight: boolean;
@@ -816,7 +816,7 @@ export type BackupTick = {
 };
 
 // 하루 backup의 주기 check. entry가 interval마다 tick()을 부른다. 만들기는
-// scheduler에 낸다: 복사·hash가 응답을 막지 않는다(responsiveness#R1).
+// scheduler에 낸다: 복사·hash가 응답을 막지 않는다.
 export function createBackupTick(
   root: string,
   clock: Clock = systemClock,
@@ -827,7 +827,7 @@ export function createBackupTick(
   return {
     tick() {
       if (inFlight) return;
-      // due 판정 전에 세운다. 판정을 기다리는 동안 온 다음 tick이 같이 submit하지 않는다(R9).
+      // due 판정 전에 세운다. 판정을 기다리는 동안 온 다음 tick이 같이 submit하지 않는다.
       inFlight = true;
       void (async () => {
         let due = false;
@@ -855,7 +855,7 @@ export function createBackupTick(
         }
         settled.push(
           submission.value.result.then(() => {}, () => {}).finally(() => {
-            // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기
+            // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다. 만들기
             // 자체가 manifest 전에 실패하면 pending folder만 남는다.
             inFlight = false;
           }),
@@ -890,7 +890,7 @@ export async function runPlatformIo(root: string): Promise<void> {
     catalog: { components: ["platform/core", "platform/io"], locations: {} },
     // Product authority is supplied by core/T9 composition, not inferred from hello.
     currentAuthority: () => undefined,
-    // 보호 입력은 OS keychain adapter로만 간다(platform/secrets#R1, R2, R8). 준비 증거는
+    // 보호 입력은 OS keychain adapter로만 간다. 준비 증거는
     // 응답으로 core에 돌려주고 core의 writer가 ledger에 남긴다: 이 worker는 ledger를 쓰지 않고
     // 값을 registry에도 두지 않는다.
     secrets: createSecretPipe({
@@ -905,7 +905,7 @@ export async function runPlatformIo(root: string): Promise<void> {
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
   const backup = createBackupTick(root);
   const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
-  // blob GC 관측(R10). 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
+  // blob GC 관측. 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
   // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은
   // 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced, R9: 참조를
   // 모르는 상태의 기록은 유예기간의 근거를 흐트러뜨린다). 기록 남기기·지우기는

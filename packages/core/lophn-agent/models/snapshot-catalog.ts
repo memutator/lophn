@@ -9,8 +9,8 @@ const entries: CatalogEntry[] = parseEntries(
   JSON.stringify(snapshotJson),
 ) ?? [];
 
-// model identity(provider_definition, model_name)의 catalog 조회(T4). 파생
-// catalog 파일 read는 reader worker 등록 경로다(plan/lophn-agent Q28).
+// model identity(provider_definition, model_name)의 catalog 조회. 파생
+// catalog 파일 read는 reader worker 등록 경로다.
 export function snapshotCatalogEntry(
   providerDefinition: string,
   modelName: string,
@@ -21,7 +21,7 @@ export function snapshotCatalogEntry(
   ) ?? undefined;
 }
 
-// provider 정의 목록에 그 model 이름이 있는지다(R10). snapshot에 그 provider 정의의 model이 하나도 없으면
+// provider 정의 목록에 그 model 이름이 있는지다. snapshot에 그 provider 정의의 model이 하나도 없으면
 // 목록을 확인할 수 없으므로 null이고, 있으면 그 목록에 이름이 있는지다.
 export function snapshotModelListed(
   providerDefinition: string,

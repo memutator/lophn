@@ -2,7 +2,7 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 
 // 사람이 구한 package의 로컬 안내 metadata다. OS 검증 결과는 metadata만으로
-// 증명하지 않으며, 실제 배포 검증 전에는 available로 승격하지 않는다(R13, P11).
+// 증명하지 않으며, 실제 배포 검증 전에는 available로 승격하지 않는다(P11).
 const packageSchema = z.object({
   version: z.string().min(1),
   os: z.enum(["linux", "darwin", "windows"]),

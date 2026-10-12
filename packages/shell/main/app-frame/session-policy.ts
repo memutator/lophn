@@ -63,7 +63,7 @@ export function createDocumentSessions() {
 // ── 앱 session ──────────────────────────────────────────────────────────────
 // 운영 앱은 `persist:app-<app>:live`, preview는 `persist:app-<app>:preview-<bundle hash>`다.
 // 같은 앱·모드 view는 partition을 함께 쓰고, 다른 앱·preview·문서·shell과는 cookie·
-// localStorage·IndexedDB·cache를 나누지 않는다(shell/app-frame#R1, R8). webRequest listener는
+// localStorage·IndexedDB·cache를 나누지 않는다. webRequest listener는
 // session마다 하나라서 network 판정·view header·protocol handler를 여기서 한 번만 단다.
 
 export function appPartition(
@@ -76,7 +76,7 @@ export function appPartition(
     : `persist:app-${app}:preview-${bundleHash}`;
 }
 
-/** `app_<ULID>` → `app-<ULID 소문자>`. custom scheme host는 소문자 DNS label이다(R11). */
+/** `app_<ULID>` → `app-<ULID 소문자>`. custom scheme host는 소문자 DNS label이다. */
 export function appHostLabel(app: string): string {
   return `app-${app.slice("app_".length).toLowerCase()}`;
 }

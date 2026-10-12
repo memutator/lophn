@@ -1,4 +1,4 @@
-// [Report a problem] 독립 버튼(shell/app-frame#R31, R32, R34). 앱 공간 바·앱 패널·세션 카드의 shell
+// [Report a problem] 독립 버튼. 앱 공간 바·앱 패널·세션 카드의 shell
 // 크롬에 두고 그 자리의 실제 view(view_session)에 묶는다. 누르면 main이 버튼 시점 view를 고정하고
 // 그 view를 먼저 캡처한 뒤 overlay에 dialog를 연다. 버튼은 shell renderer에 있어 앱 view가 crash·
 // 무한 loop여도 동작한다. renderer는 view_session만 보내고 앱·release·화면은 main이 정한다.

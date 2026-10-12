@@ -11,7 +11,7 @@ export interface PointerDrag {
 
 /**
  * sidebar 폭·칸 경계 drag. 놓으면 drag-end, Esc나 pointercancel이면 drag-cancel을
- * 낸다. overlay pointer DTO(shell#T10)와 같은 두 끝이다.
+ * 낸다. overlay pointer DTO와 같은 두 끝이다.
  */
 export function startPointerDrag(
   event: ReactPointerEvent<HTMLElement>,

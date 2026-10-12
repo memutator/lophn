@@ -48,8 +48,8 @@ type Change =
   | { readonly kind: "changed" }
   | { readonly kind: "failed" };
 
-// 프로젝트 하나: 이름·목적 바꾸기, 보관·해제, 소속 문서 정리와 export(shell/desktop#R28).
-// 보관은 프로젝트를 목록에서 숨길 뿐 소속 문서를 보관하거나 지우지 않는다(projects#R11).
+// 프로젝트 하나: 이름·목적 바꾸기, 보관·해제, 소속 문서 정리와 export.
+// 보관은 프로젝트를 목록에서 숨길 뿐 소속 문서를 보관하거나 지우지 않는다.
 export function ProjectDetail(
   { source, project, onChanged, onLatest, onOpenDocument }: ProjectDetailProps,
 ) {
@@ -76,7 +76,7 @@ export function ProjectDetail(
     };
   }, [source, project.id, attempt]);
 
-  // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다(addressing#R2).
+  // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다.
   const conflictKind = async (): Promise<Change> => {
     const again = await source.projects();
     const current = again.ok

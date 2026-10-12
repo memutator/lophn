@@ -14,7 +14,7 @@ const withCommon = <T extends z.ZodRawShape>(
   input: z.ZodObject<T>,
 ) => input.extend({ command: z.literal(command), ...common });
 
-// `lophn doctor`의 입력(cli#R10). target·profile과 함께 daemon·인증·설정과 네
+// `lophn doctor`의 입력. target·profile과 함께 daemon·인증·설정과 네
 // loading 단계 결과를 낸다. app은 공통 선택값에 더해 앱 안내 loading 대상이다.
 export const cliDoctorSchema = withCommon(
   "doctor",
@@ -23,7 +23,7 @@ export const cliDoctorSchema = withCommon(
   }),
 );
 
-// `lophn daemon start|stop|status|logs`(cli#R8). start·stop은 사람 전용이라
+// `lophn daemon start|stop|status|logs`. start·stop은 사람 전용이라
 // coding credential이 부르지 못하고 status·logs는 token 없이 읽는다.
 export const cliDaemonStartSchema = withCommon(
   "daemon start",
@@ -52,7 +52,7 @@ const commonWith = <T extends z.ZodRawShape>(
   required: T,
 ) => z.strictObject({ command: z.literal(command), ...common, ...required });
 
-// `lophn mcp config`(cli#R9). 선택 제품의 executable·분리 argv·환경 조각만
+// `lophn mcp config`. 선택 제품의 executable·분리 argv·환경 조각만
 // 문자열로 반환하고 제품 설정 파일은 고치지 않는다. scope는 user|app이며
 // connection이 필수다.
 export const cliMcpConfigSchema = commonWith("mcp config", {
@@ -113,7 +113,7 @@ export const cliHarnessRemoveSchema = withCommon(
   }),
 );
 
-// `lophn skills list|install`(cli#R10). 목록은 이름·설명·version을 읽고 설치는
+// `lophn skills list|install`. 목록은 이름·설명·version을 읽고 설치는
 // 사람이 고른 catalog target에 한다.
 export const cliSkillsListSchema = withCommon(
   "skills list",
@@ -127,7 +127,7 @@ export const cliSkillsInstallSchema = withCommon(
   }),
 );
 
-// `lophn connection list|show|create|revoke|install`(cli#R6, R7, R8).
+// `lophn connection list|show|create|revoke|install`.
 // create·install은 사람 전용, revoke는 사람 전용에 confirmation window를 쓴다.
 export const cliConnectionListSchema = withCommon(
   "connection list",
@@ -157,7 +157,7 @@ export const cliConnectionInstallSchema = withCommon(
   }),
 );
 
-// `lophn session summary|plan`(cli#R40). summary는 lophn_session 결과를 내고
+// `lophn session summary|plan`. summary는 lophn_session 결과를 내고
 // hook mode일 때 출력 상한이 guides.ts에 있다. plan의 stdin·stdout은 launch.ts
 // 의 sessionPlan 입출력을 그대로 한다.
 export const cliSessionSummarySchema = withCommon(
@@ -165,7 +165,7 @@ export const cliSessionSummarySchema = withCommon(
   z.strictObject({
     ...CodingAgentSessionSummaryInputSchema.shape,
     hook: z.boolean().optional(),
-    // 설치한 hook command가 소유 항목을 찾는 표식이다. 실행에는 쓰지 않는다(harnesses#R11).
+    // 설치한 hook command가 소유 항목을 찾는 표식이다. 실행에는 쓰지 않는다.
     owner: z.string().min(1).optional(),
   }),
 );
@@ -177,7 +177,7 @@ export const cliSessionPlanSchema = withCommon(
 );
 export const cliSessionPlanOutputSchema = sessionPlanOutputSchema;
 // `lophn session observe --hook <harness>`는 제품 hook·plugin·extension이 stdin으로 준 payload를 정규화해
-// `LOPHN_TERMINAL_OBSERVE` socket에만 쓴다(sessions#R6). 환경에 socket이 없으면 아무것도 보내지 않는다.
+// `LOPHN_TERMINAL_OBSERVE` socket에만 쓴다. 환경에 socket이 없으면 아무것도 보내지 않는다.
 export const cliSessionObserveSchema = withCommon(
   "session observe",
   z.strictObject({
@@ -227,13 +227,13 @@ export const HUMAN_ONLY_NAMES = [
   "harness update",
   "harness remove",
   "skills install",
-  // 시작 계획은 사람 클릭을 검증한 shell main만 부른다(sessions#R2).
+  // 시작 계획은 사람 클릭을 검증한 shell main만 부른다.
   "session plan",
 ] as const;
 
 export type HumanOnlyName = (typeof HUMAN_ONLY_NAMES)[number];
 
-// 사람이 confirmation window를 쓰는 command다(cli#R7). revoke만 그렇다.
+// 사람이 confirmation window를 쓰는 command다. revoke만 그렇다.
 export const CONFIRMATION_NAMES = ["connection revoke"] as const;
 
 export const CLI_SETUP_COMMANDS = [

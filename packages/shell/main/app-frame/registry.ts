@@ -1,8 +1,8 @@
-// 앱 view registry. `appFrame.open/replace/close`(contracts#T38)의 main service다. 연결은
+// 앱 view registry. `appFrame.open/replace/close`의 main service다. 연결은
 // 앱 통로로 main이 얻고 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다
 // (shell/app-frame#R12, R19). 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
-// view_session과 generation으로 진단을 남긴다(R22). view가 있다는 것만으로 권한이 생기지
-// 않는다(R20): view는 main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는
+// view_session과 generation으로 진단을 남긴다. view가 있다는 것만으로 권한이 생기지
+// 않는다: view는 main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는
 // 없다. command는 `app:call`(app-call.ts)이 이 view의 신원으로 따로 얻은 연결로만 부른다.
 import {
   appEntryUrl,

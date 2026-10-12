@@ -1,6 +1,6 @@
-// 조건별 판정(coding-agent/tickets#R7, R8, R18, R19). 순수 함수다. model 호출도 I/O도 없다.
+// 조건별 판정. 순수 함수다. model 호출도 I/O도 없다.
 // 근거는 core가 읽어 준 사실뿐이다: 같은 app·bundle hash의 Verification, 앱 정본의 active
-// release. shell 성공 문장·완료 summary·agent의 주장은 근거가 아니다(R18).
+// release. shell 성공 문장·완료 summary·agent의 주장은 근거가 아니다.
 // 없는 근거는 inconclusive다(P11). 실제로 일어난 실패만 fail이다(P10).
 import { applyProblemDecision } from "../../../../protocol/problems/mod.ts";
 import type {
@@ -29,7 +29,7 @@ export type ConditionDecision = {
 
 export type TicketOutcome = "confirmed" | "check_failed" | "reported";
 
-// 전부 pass일 때만 confirmed, 실제 fail 하나면 check_failed, 나머지는 reported다(R19).
+// 전부 pass일 때만 confirmed, 실제 fail 하나면 check_failed, 나머지는 reported다.
 export function outcomeOf(results: readonly CheckResult[]): TicketOutcome {
   if (results.includes("fail")) return "check_failed";
   if (results.length > 0 && results.every((result) => result === "pass")) {
@@ -38,7 +38,7 @@ export function outcomeOf(results: readonly CheckResult[]): TicketOutcome {
   return "reported";
 }
 
-// 수리 ticket의 조건이 연결 문제를 빠짐없이 덮지 않으면 전부 pass여도 confirmed가 아니다(R9).
+// 수리 ticket의 조건이 연결 문제를 빠짐없이 덮지 않으면 전부 pass여도 confirmed가 아니다.
 // 일부 문제만 통과했거나 대상 문제가 전부 빠진 ticket은 자동으로 확인되지 않는다.
 function repairCoverageGap(work: CheckWork): string | null {
   const repair = work.conditions.some((condition) =>
@@ -242,7 +242,7 @@ function reproduction(
   );
 }
 
-// 이 보고의 고친 release로 닫힌 문제인지. 닫힘은 problems/closing이 이미 정했다(R21).
+// 이 보고의 고친 release로 닫힌 문제인지. 닫힘은 problems/closing이 이미 정했다.
 function closedByReport(
   work: CheckWork,
   fact: ProblemFact | undefined,
@@ -299,7 +299,7 @@ function problemsClosed(
 }
 
 // "내가 확인함"이다. 문제 닫힘 가운데 사람 결정이 이 release를 확인한 닫힘(user_confirmed)만
-// 센다. Verification이 아니고 "테스트로 확인됨"으로 세지 않는다(R9). 사람이 이 release에서
+// 센다. Verification이 아니고 "테스트로 확인됨"으로 세지 않는다. 사람이 이 release에서
 // "아직입니다"(not_fixed)라고 했고 그 뒤 닫힘이 없으면 실제로 일어난 실패다.
 function humanConfirmation(
   work: CheckWork,

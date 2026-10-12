@@ -49,14 +49,14 @@ export type DesiredApp = {
   dataPath: string;
 };
 
-// 프로세스 실패의 근거가 되는 사실. 조립이 problems 관측(crash)으로 바꾼다(R28).
+// 프로세스 실패의 근거가 되는 사실. 조립이 problems 관측(crash)으로 바꾼다.
 export type SupervisorEvent =
   | {
     kind: "exit";
     app: string;
     desired: DesiredApp;
     processNonce: string;
-    // 정지 요청 전에 의도된 종료로 표시한 종료다(R18).
+    // 정지 요청 전에 의도된 종료로 표시한 종료다.
     intended: boolean;
     exitCode: number | null;
   }
@@ -101,7 +101,7 @@ export type SupervisorDeps = {
     direct: string,
     desired: DesiredApp,
   ) => Promise<boolean>;
-  // 사람의 멈춤·release 교체에서 새 command·clock을 닫고 진행 호출 종료를 요청한다(R15).
+  // 사람의 멈춤·release 교체에서 새 command·clock을 닫고 진행 호출 종료를 요청한다.
   // 연결하지 않으면 요청할 통로가 없으므로 유예 없이 바로 강제 종료한다.
   requestStop?: (
     child: AppChild,
@@ -116,7 +116,7 @@ export type SupervisorDeps = {
   childExited?: (processNonce: string) => void;
 };
 
-// 진행 호출 종료 요청 뒤 강제 종료까지의 유예다(R15).
+// 진행 호출 종료 요청 뒤 강제 종료까지의 유예다.
 export const STOP_GRACE_MS = 10_000;
 
 export type SpawnRequest = {
@@ -170,7 +170,7 @@ export type Supervisor = {
   // 원하는 상태를 반영한다. 겹쳐 불러도 같은 앱의 자식은 하나다.
   reconcile(desired: DesiredApp): Promise<void>;
   // 그 nonce의 자식을 정지 확인 뒤 새 nonce로 다시 띄운다. 이미 다른 자식이면 하지 않는다.
-  // 회수된 credential·줄어든 agent 허락의 이전 통로를 닫는 길이다(apps Q5).
+  // 회수된 credential·줄어든 agent 허락의 이전 통로를 닫는 길이다.
   restart(app: string, nonce: string): Promise<boolean>;
   // activation: 그 앱의 자식을 의도된 종료로 끝내고 OS 종료를 확인한 뒤 새 시작을 막는다. true만 종료
   // 확인이다. 자식이 없으면 곧바로 true다. 이미 붙들고 있으면 남은 자식(후보)의 종료만 다시 확인한다.
@@ -215,7 +215,7 @@ type AppRuntime = {
   // 진행 중인 reconcile이 있으면 다음 요청은 그 뒤로 붙는다.
   pending: Promise<void>;
   // activation이 이 앱을 붙들고 있다. 이전 자식은 종료를 확인했고 core가 알리는 원하는 상태는
-  // 저장만 하며 시작하지 않는다. `resume`이 풀고 그때의 원하는 상태로 맞춘다(apps/releases#R13).
+  // 저장만 하며 시작하지 않는다. `resume`이 풀고 그때의 원하는 상태로 맞춘다.
   paused: boolean;
 };
 
@@ -318,7 +318,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
           tracked.desired,
         );
       } catch {
-        // 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다(R15).
+        // 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다.
       }
       // 앱이 스스로 끝나거나 유예가 지나면 그때 강제 종료로 넘어간다.
       await Promise.race([
@@ -727,7 +727,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         // 검사를 통과한 자식만 ready다. 띄운 직후나 probe 중에는 아니다.
         ready: live && tracked.probed,
         accepting: live && tracked.probed && tracked.opened && !runtime.held,
-        // 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식이다(R15).
+        // 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식이다.
         ...(tracked !== undefined && tracked.intended !== undefined
           ? { reason: TERMINATING }
           : runtime.held && desired?.runEnabled

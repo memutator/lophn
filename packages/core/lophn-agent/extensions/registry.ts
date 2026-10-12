@@ -36,10 +36,10 @@ export type ExtensionRegistryDeps = {
 };
 
 export type ExtensionRegistry = {
-  // 이 자리의 agent가 발견하는 skill이다. 자리 폴더가 먼저고 같은 이름은 먼저 발견한 하나다(R1, R3, R33).
+  // 이 자리의 agent가 발견하는 skill이다. 자리 폴더가 먼저고 같은 이름은 먼저 발견한 하나다.
   skills(place: AgentPlace): SkillListing;
-  // 이 자리의 agent가 고를 수 있는 서버다. 전역 서버가 먼저고 자리 서버가 이어진다(R32). 전역과 이름이 겹치는
-  // 자리 서버는 쓰지 않는다: 등록은 거절하지만 파일을 손으로 고쳐도 서버 이름이 하나의 서버를 가리킨다(R33).
+  // 이 자리의 agent가 고를 수 있는 서버다. 전역 서버가 먼저고 자리 서버가 이어진다. 전역과 이름이 겹치는
+  // 자리 서버는 쓰지 않는다: 등록은 거절하지만 파일을 손으로 고쳐도 서버 이름이 하나의 서버를 가리킨다.
   mcpServers(place: AgentPlace): readonly McpServerConfig[];
 };
 
@@ -99,8 +99,8 @@ export function createExtensionRegistry(
   };
 }
 
-// agent 정의가 고를 수 있는 tool이다: enabled 서버가 분류에 적은 원래 tool 이름(R31). 새 tool은 기본 켬이지만
-// 허락이 아니다(R24).
+// agent 정의가 고를 수 있는 tool이다: enabled 서버가 분류에 적은 원래 tool 이름. 새 tool은 기본 켬이지만
+// 허락이 아니다.
 export function mcpToolsOf(servers: readonly McpServerConfig[]): McpTool[] {
   return servers.filter((server) => server.enabled).flatMap((server) =>
     Object.keys(server.classifications).map((tool) => ({
@@ -110,8 +110,8 @@ export function mcpToolsOf(servers: readonly McpServerConfig[]): McpTool[] {
   );
 }
 
-// `/` 메뉴의 skill 한 줄이다(lophn-agent/commands R7). 자리 층의 것은 place, 나머지 전역 층은 workspace이고
-// agent 정의가 끈 정확한 이름은 selected=false다. 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다(R30).
+// `/` 메뉴의 skill 한 줄이다. 자리 층의 것은 place, 나머지 전역 층은 workspace이고
+// agent 정의가 끈 정확한 이름은 selected=false다. 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다.
 export function commandSkillsOf(
   entries: readonly SkillSummary[],
   skillsOff: readonly string[],

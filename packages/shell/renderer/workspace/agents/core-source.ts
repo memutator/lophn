@@ -1,7 +1,7 @@
-// AgentsSource를 제품 core로 잇는다(shell/workspace#R36~R44). token·port는 main에 있고 이 쪽은 route 이름과
+// AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과
 // 입력만 보낸다. 응답은 main의 contract client가 route output schema로 이미 검사했으므로 화면이 읽는 field만
 // 골라 source 모양으로 옮긴다. 실패는 core의 오류 code(`not_found`, `conflict`, `unavailable`…)를 message로
-// 돌려주고, 저장 거절(invalid_input)은 details의 항목별 이유(R24)를 issues로 그대로 싣는다.
+// 돌려주고, 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 //
 // 자리 설정과 자리의 MCP server 목록은 파일 전체를 덮어쓰는 route(`ChangePlaceAgentSettings`·
 // `ChangePlaceExtensionSettings`)라서 하나를 바꿀 때 그 자리에서 읽은 값 위에 그 칸만 바꿔 읽을 때의 hash로 보낸다.

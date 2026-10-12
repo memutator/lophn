@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { READING_WIDTHS, type ReadingWidth } from "./model.ts";
 
-// 전역 읽기 폭 선택의 저장은 platform settings가 맡는다. 이 interface로만 읽고 쓴다(R23).
+// 전역 읽기 폭 선택의 저장은 platform settings가 맡는다. 이 interface로만 읽고 쓴다.
 export interface ReadingWidthSetting {
   read(): ReadingWidth;
   write(width: ReadingWidth): void;

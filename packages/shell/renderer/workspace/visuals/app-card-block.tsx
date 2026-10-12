@@ -1,4 +1,4 @@
-// 세션 앱 카드(shell/workspace#R12, shell/app-frame#R33–R35). 답 안의 app_card 블록을 그 앱의
+// 세션 앱 카드. 답 안의 app_card 블록을 그 앱의
 // card 크기 화면으로 main이 연 native view에 보인다. 카드는 만든 때의 판에 고정된 live 표시이며
 // 지금 판이 다르면 contract_changed, 앱이 없어지면 unavailable로 두고 다른 판으로 바꾸지 않는다
 // (lophn-agent/visuals AppCardReference). view는 message·block 표시 참조에 묶여 열리고 보이는

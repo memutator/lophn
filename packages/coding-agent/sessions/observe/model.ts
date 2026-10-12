@@ -1,7 +1,7 @@
-// harness별 normalizer가 공유하는 값과 observation 조립이다(coding-agent/sessions#R6–R9, T39). 순수 함수이고
+// harness별 normalizer가 공유하는 값과 observation 조립이다. 순수 함수이고
 // 시각은 호출자가 준다(architecture). normalizer는 payload의 native event 하나를 상태 evidence로 바꿀 뿐 ticket
-// claim·connection·process 소유를 건드리지 않고(R9), payload가 주장하는 runtime_ref·origin·connection·ticket은
-// 쓰지 않는다. 그 값은 terminal host가 자기 등록 channel에서 붙인다(R8).
+// claim·connection·process 소유를 건드리지 않고, payload가 주장하는 runtime_ref·origin·connection·ticket은
+// 쓰지 않는다. 그 값은 terminal host가 자기 등록 channel에서 붙인다.
 import {
   type EvidenceSource,
   type HarnessId,
@@ -26,7 +26,7 @@ export type Evidence = {
   source: EvidenceSource;
   // 어떤 native event인지 가리키는 안전한 참조다. payload 원문이 아니다.
   ref: string;
-  // native ID는 harness가 실제로 준 값뿐이다. 없으면 null이고 다른 ID로 채우지 않는다(R7).
+  // native ID는 harness가 실제로 준 값뿐이다. 없으면 null이고 다른 ID로 채우지 않는다.
   session: { kind: string; id: string; transcriptPath: string | null } | null;
   cwd: string | null;
   reason: string | null;
@@ -76,7 +76,7 @@ export function observationOf(
     profile_id: null,
     catalog_revision: CATALOG_REVISION,
     adapter_revision: ADAPTER_REVISION,
-    // helper는 lophn이 연 process인지 모른다. 소유 표시는 host가 자기 runtime에만 붙인다(R8).
+    // helper는 lophn이 연 process인지 모른다. 소유 표시는 host가 자기 runtime에만 붙인다.
     origin: "external_terminal",
     runtime_ref: null,
     connection: null,

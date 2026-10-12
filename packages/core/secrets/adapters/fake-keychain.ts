@@ -9,7 +9,7 @@ import {
 
 export type FakeKeychain = KeychainAdapter & {
   setStatus(status: KeychainStatus): void;
-  // 삭제를 관측 전까지 보류한다. 완료 표시는 실제 확인 뒤에만 가능하다(R7).
+  // 삭제를 관측 전까지 보류한다. 완료 표시는 실제 확인 뒤에만 가능하다.
   holdRemovals(held: boolean): void;
   confirmRemovals(): void;
   readonly stored: ReadonlyMap<string, Uint8Array>;

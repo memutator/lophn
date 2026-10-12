@@ -1,4 +1,4 @@
-// 수리 자료 텍스트의 계수 단위와 data fence(repair-context#R19, R5-R10).
+// 수리 자료 텍스트의 계수 단위와 data fence(R5-R10).
 // 계수 단위: `자`는 Unicode code point, 줄은 CRLF·CR을 LF로 바꾼 logical line이다.
 // 끝 newline은 줄을 더하지 않는다.
 

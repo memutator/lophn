@@ -122,7 +122,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       port: requested,
       hostname: LOOPBACK[0],
       onListen: ({ port }) => {
-        // 원격 bind 설정은 없다. IPv6 loopback은 같은 port에만 붙인다(security R6, R7).
+        // 원격 bind 설정은 없다. IPv6 loopback은 같은 port에만 붙인다.
         let v6: Deno.HttpServer | undefined;
         try {
           v6 = Deno.serve({
@@ -160,7 +160,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       try {
         return await respond(request, port);
       } catch {
-        // 경계 밖 throw는 stack·원문 없이 internal이다(platform/api#R4).
+        // 경계 밖 throw는 stack·원문 없이 internal이다.
         return json(failure({ code: "internal", message: "internal error" }));
       }
     }
@@ -184,7 +184,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         port,
       }, options.credentials);
       if (!decision.ok) {
-        // 무인증·Origin 거부는 안전 log만. ledger event는 없다(diagnostics R7).
+        // 무인증·Origin 거부는 안전 log만. ledger event는 없다.
         options.logger?.warn({
           component: "api",
           event: origin !== null ? "origin_rejected" : "auth_rejected",
@@ -321,7 +321,7 @@ function held(
   }, { highWaterMark: 0 });
 }
 
-// 회수·정지 제어만 예약 영역(responsiveness R3)으로 입장시킨다. caller의 priority 주장은
+// 회수·정지 제어만 예약 영역으로 입장시킨다. caller의 priority 주장은
 // 입력에 없다. 입장 영역은 route가 등록한 command 이름으로 정한다.
 const CONTROL_OPERATIONS = new Set([
   "cancel_approval_request",

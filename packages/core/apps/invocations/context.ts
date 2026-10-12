@@ -11,7 +11,7 @@ export type InvocationContext = {
   command?: string | null;
   inputHash?: string | null;
   // 이 호출을 다른 앱에게서 받았다면 그 앱의 인증된 출처 식별이다(받은 연결의 caller).
-  // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다(apps/connections#R7).
+  // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다.
   caller?: {
     app: string;
     release: string;
@@ -33,7 +33,7 @@ export type SchedulePort = {
 
 export const SCHEDULE_PORT = Symbol.for("lophn.cap-schedule");
 
-// 명령이 지나간 단계의 표시(apps/invocations#R11). 로컬 저장과 외부 전송처럼 따로 끝나는 일을
+// 명령이 지나간 단계의 표시. 로컬 저장과 외부 전송처럼 따로 끝나는 일을
 // invocation 요약에 따로 남긴다. 단계 이름은 trace 이름 규칙(64자)을 따르고 호출 문맥의
 // invocation에 붙는다. 문맥이 없으면 아무것도 하지 않는다.
 export type InvocationStageState = "completed" | "failed" | "unknown";

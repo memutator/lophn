@@ -10,7 +10,7 @@ import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import { fileHash, parsePlaceMcpFile, placeMcpPathOf } from "./mod.ts";
 import type { McpAuthTarget } from "./mcp-auth-control.ts";
 
-// 로그인이 끝난 서버의 설정에 token 참조(`token_ref`)를 쓰거나 지운다(extensions#R16, R17). 참조는 값이 아니라
+// 로그인이 끝난 서버의 설정에 token 참조(`token_ref`)를 쓰거나 지운다. 참조는 값이 아니라
 // 서버(자리+이름)에서 정해지는 이름이다. 설정을 바꾸는 길은 사람이 설정을 바꾸는 것과 같다: 전역 서버는 settings
 // 의 ApplySettings(설정 판 비교), 자리 서버는 ChangePlaceExtensionSettings(파일 hash 비교)다. 서버 판은 바뀐
 // 설정에 맞춰 올라가서 그 서버의 옛 연결이 새 설정으로 다시 열린다. 사람이 그 사이에 설정을 바꿨으면 한 번 더

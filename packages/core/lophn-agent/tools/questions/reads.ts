@@ -22,7 +22,7 @@ import {
 // read는 pool read다. handler는 동기 Result를 돌려준다. user·machine·coding_agent는
 // 모든 묶음을 보고 agent는 자기 assignment의 run 묶음만 본다. 그 밖(다른
 // assignment의 agent, app)은 없는 묶음과 똑같이 답한다. 닫힌 묶음도 저장된 본문·
-// 답·닫은 이유를 그대로 읽고, 답 접수와 적용은 applied로 구별한다(R10).
+// 답·닫은 이유를 그대로 읽고, 답 접수와 적용은 applied로 구별한다.
 
 const PAGE = 50;
 

@@ -397,7 +397,7 @@ import {
   skillFoldersSetting,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
+// approval 만료 정리 간격. ticket claim 정리와 같은 60초다.
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
 
 // 시작 순서: lock → ledger schema step → writer·reader → event 배포 → API → I/O worker 감독.
@@ -499,7 +499,7 @@ export type Core = {
   dataRoot: string;
   // 부모 pipe의 종료 감시가 끝나면 resolve된다. 부모가 없으면 이미 끝난 상태다.
   done: Promise<void>;
-  // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다(ledger R21).
+  // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다.
   shutdown(): Promise<void>;
   // 신뢰 main용 안내·정지 입구다. HTTP command나 자동 update 경로가 아니다.
   updateNotice(
@@ -508,13 +508,13 @@ export type Core = {
   ): Result<UpdateNotice>;
   stopForUpdate(): Promise<Result<void>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
+  // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다.
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // blob 준비에서 core가 바이트를 쥐고 있는 양의 관측(자식 쪽 대기열과 중계의 chunk).
   // 한도는 BLOB_RELAY_BUFFER_MAX_BYTES다. core는 큰 blob을 통째로 모으지 않는다.
   readonly blobBuffer: BufferGauge;
-  // 신뢰 자식(문서 worker, report collector)의 blob 준비 요청 처리(Q6). 자식 kind의
+  // 신뢰 자식(문서 worker, report collector)의 blob 준비 요청 처리. 자식 kind의
   // supervisor callback이 onMessage·onFrame을 이 값에 넘기고, 자식이 멈추면 close한다.
   // 허용 kind는 child-blob-prepare.ts의 목록뿐이다.
   childBlobPrepare(
@@ -536,18 +536,18 @@ export type Core = {
     prepared: PreparedRelayResult,
     nowMs: number,
   ): Promise<Result<void>>;
-  // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
+  // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다.
   sweepTicketClaims(): Promise<void>;
   // 보고된 ticket의 조건을 checker worker가 정본으로 다시 비교하게 한다. 감독 worker가 없으면
-  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(coding-agent#T26).
+  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다.
   sweepTicketChecks(): Promise<Result<unknown>>;
   // `problems.work` 반응기가 저장된 cursor 뒤 ticket event를 따라잡게 한다. test-runner worker가 없으면
-  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다(problems#T19).
+  // unavailable이다. event 구독자와 시험이 같은 함수를 부른다.
   sweepProblemsWork(): Promise<Result<unknown>>;
   // `problems.closing` 반응기가 저장된 cursor 뒤 closing event를 따라잡게 한다. 같은 test-runner
-  // worker가 closing credential 없이 뜨면 unavailable이다(problems#T20).
+  // worker가 closing credential 없이 뜨면 unavailable이다.
   sweepProblemsClosing(): Promise<Result<unknown>>;
-  // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
+  // 사람이 잃을 범위를 확인한 backup 복원. handle은
   // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
   // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
   // 묶음으로 ledger를 바꾼다. 끝나면 이 core는 종료한 상태다(lock 해제). 같은 data root를 다시
@@ -561,7 +561,7 @@ export type Core = {
   // 확인한 restore가 이 core를 멈췄는가. 멈췄으면 같은 data root로 다시 `startCore`해야 한다
   // (packages/core/main/daemon/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
   restoreStopped(): boolean;
-  // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
+  // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다.
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
   sweepInterruptedInvocations(): Promise<void>;
@@ -574,7 +574,7 @@ export type Core = {
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
   // testCredentials일 때만 있다. event dispatcher에 올라 있는 session 수다. 닫힌 WebSocket
-  // 연결이 session을 남기지 않는지 본다(platform/api#R5).
+  // 연결이 session을 남기지 않는지 본다.
   eventSessions?(): number;
   // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
   confirmation?(body: {
@@ -617,11 +617,11 @@ async function open(
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
   const collectorChannel = createDocumentsChannel();
   // problems test runner 요청 통로. 접수된 요청 한 건을 보내고 끝맺음을 받는다. 같은
-  // process의 session이 `problems.work` 깨움(problems#T19)도 받으므로 통로 하나를 나눠 쓴다.
+  // process의 session이 `problems.work` 깨움도 받으므로 통로 하나를 나눠 쓴다.
   const runnerChannel = createDocumentsChannel();
-  // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T26).
+  // ticket checker worker 요청 통로. 같은 통로 모양을 쓴다.
   const checkerChannel = createDocumentsChannel();
-  // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
+  // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다.
   const repairChannel = createDocumentsChannel();
   // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent/revert).
   const revertChannel = createDocumentsChannel();
@@ -653,7 +653,7 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
-  // MCP OAuth token 보관이다(extensions#R17). 값은 OS keychain에만 있고, 보관이 가진 참조는 알려진 값 registry에
+  // MCP OAuth token 보관이다. 값은 OS keychain에만 있고, 보관이 가진 참조는 알려진 값 registry에
   // 올라 model로 가는 글과 저장할 글에서 지워진다. 제품 기동은 OS keychain adapter, 시험은 fake다.
   let mcpKeychain: KeychainAdapter | undefined;
   const mcpVault = createMcpOAuthVault({
@@ -695,7 +695,7 @@ async function open(
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // 현재 보기 relay는 팀 조립 밖 memory route다. registry에 없으면 handler가
-  // 있어도 lookup이 route not found를 반환한다(shell/workspace#R9).
+  // 있어도 lookup이 route not found를 반환한다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
   const allRoutes = [
     ...ROUTES,
@@ -726,9 +726,9 @@ async function open(
   const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
   if (!ledgerId.ok) return ledgerId;
   // 중단 작업 점검 → cursor 복원 치는 R11 순서다. SQLite 복구·schema 점검 뒤
-  // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다(R15). 소유
+  // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다. 소유
   // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
-  // 읽기 열기를 막지 않는다(R16). 점검 관측은 status에 더하지 않는다: 상태는
+  // 읽기 열기를 막지 않는다. 점검 관측은 status에 더하지 않는다: 상태는
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
@@ -766,7 +766,7 @@ async function open(
     },
     { name: "document.save", actors: ["machine"], kind: "command" },
     { name: "document.prepare", actors: ["machine"], kind: "command" },
-    // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
+    // 파일 작업 결과 기록. 사람 요청에 결합해 받은 worker만 쓴다.
     { name: "file.record_result", actors: ["machine"], kind: "command" },
     // context worker(machine)가 검사 결과와 위반 수를 기록한다(documents/contexts).
     ...CONTEXT_WORKER_OPERATIONS.map((name): OperationPolicy => ({
@@ -774,16 +774,16 @@ async function open(
       actors: ["machine"],
       kind: "command",
     })),
-    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
+    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation.
     ...appsOperationPolicies(),
     // problems report collector(machine)가 보고를 제출한다.
     ...collectorOperationPolicies(),
-    // problems test runner(machine)가 요청 기록을 잇고 결과를 남긴다(problems/tests#R1, R4, R17).
+    // problems test runner(machine)가 요청 기록을 잇고 결과를 남긴다.
     ...testRunnerPolicies(),
-    // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다(coding-agent#T26).
+    // ticket checker(machine)가 판정 사실을 읽고 결과를 기록한다.
     ...ticketCheckerPolicies(),
     // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다.
-    // 같은 kind의 `problems.closing` 반응기도 CloseProblemVerified를 낸다(problems#T20).
+    // 같은 kind의 `problems.closing` 반응기도 CloseProblemVerified를 낸다.
     ...problemsWorkPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
@@ -877,11 +877,11 @@ async function open(
   } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
-  // 활성 context의 계약 경로 폴더를 보고 바뀌면 index를 따라잡게 하는 감시(documents/contexts#R23).
+  // 활성 context의 계약 경로 폴더를 보고 바뀌면 index를 따라잡게 하는 감시.
   let contextsWatch: ContextsWatch | undefined;
-  // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
+  // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화.
   let basisSync: BasisSync | undefined;
-  // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
+  // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화.
   let searchSync: SearchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
@@ -900,7 +900,7 @@ async function open(
     schema: LEDGER_SCHEMA_STEPS.length + assembled.value.schemaSteps.length,
     dataRoot: root.path,
     // ledger를 만들거나 복원할 때마다 새로 정한 식별(data root의 ledger-id). 내용은 노출하지 않는다.
-    // derived는 출처에 이 값을 적고 다르면 버리고 다시 만든다(backup-and-migration#R14).
+    // derived는 출처에 이 값을 적고 다르면 버리고 다시 만든다.
     ledgerId: ledgerId.value,
     components() {
       return [
@@ -964,7 +964,7 @@ async function open(
   registerRepairReads(runtime, repairChannel);
   registerSessionReads(runtime, repairChannel);
   // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
-  // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
+  // 만료 정리를 거절하므로 기동을 여기서 멈춘다.
   const sweepCredential = await runtime.record({
     principal: "machine:ticket-claims",
     actor: "machine",
@@ -980,14 +980,14 @@ async function open(
     return sweepCredential;
   }
   // approval 만료 정리(machine:approval-expiry)의 자격 기록. 기록이 없으면 reader·writer가 정리를
-  // 거절해 대기가 영원히 pending으로 남으므로 기동을 여기서 멈춘다(platform/approvals#R12).
+  // 거절해 대기가 영원히 pending으로 남으므로 기동을 여기서 멈춘다.
   const expiryCredential = await runtime.record(APPROVAL_EXPIRY_CONTEXT);
   if (!expiryCredential.ok) {
     await runtime.close();
     return expiryCredential;
   }
   // 재시작 때 접수·실행 중 invocation을 미확인으로 확정하는 core 내부 자격의 기록이다. 기록이 없으면
-  // writer가 확정을 거절해 행이 계속 남으므로 기동을 여기서 멈춘다(apps/invocations#R10).
+  // writer가 확정을 거절해 행이 계속 남으므로 기동을 여기서 멈춘다.
   const recoveryCredential = await runtime.record(
     INVOCATION_RECOVERY_CONTEXT as never,
   );
@@ -1030,14 +1030,14 @@ async function open(
     await runtime.close();
     return appRevertCredential;
   }
-  // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
+  // trace export의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
   const traceExportSecrets: TraceExportWriterDeps = {
     ledgerPath,
     readBlob: (hash, offset, length) =>
       blobRead.deps.read(hash, offset, length),
     known: () => knownSecrets,
   };
-  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). 업무 규칙은 extensions의 mcp-oauth에 있고
+  // MCP OAuth의 시작·완료·상태·취소 입구다. 업무 규칙은 extensions의 mcp-oauth에 있고
   // (concern lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구와 재료를 끼운다.
   // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
   // - token은 OS keychain(mcpVault)에만 두고 설정은 서버에서 정해지는 참조(`token_ref`)만 가리킨다.
@@ -1322,9 +1322,9 @@ async function open(
       // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다.
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
-      // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
-      // OAuth 로그인(provider#R12–R16, D31)도 writer queue 앞에서 listener와 network를
+      // 닿기 전에 고정 판 본문의 출현을 확인한다.
+      // trace export는 writer queue 앞에서 로컬 파일에 쓴다.
+      // OAuth 로그인(D31)도 writer queue 앞에서 listener와 network를
       // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
         withProviderLogin(
@@ -1375,7 +1375,7 @@ async function open(
           ),
         ),
         () => appsControl.connector.sweep(),
-        // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
+        // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다.
         (connection) => coding?.authority.endConnection(connection),
       ),
       reads: runtime.reads,
@@ -1404,7 +1404,7 @@ async function open(
         ] as const,
         // 요약 요청(사람)과 가져가기·끝내기(runtime)의 입구다.
         ...rewindSummaries.handlers,
-        // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 등록한 http 서버의
+        // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 등록한 http 서버의
         // oauth2 인증 방식만 잡는다. verifier·state·token은 core 안에만 산다(값은 응답·ledger·log
         // 어디에도 옮기지 않는다).
         ...mcpAuthControl.handlers,
@@ -1436,7 +1436,7 @@ async function open(
       subscriptions: runtime.subscriptions,
       track: (session) => runtime.track(session),
       // 확인이 필요한 file·worker route(files.delete)는 writer Worker의 registry가 한 번에
-      // 검증·소비한 뒤에만 worker로 넘어간다(platform#T56, ledger#R22).
+      // 검증·소비한 뒤에만 worker로 넘어간다.
       confirmation: {
         useOnce: (use) =>
           runtime!.confirmation({
@@ -1451,7 +1451,7 @@ async function open(
       registry: routes,
       // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
       // worker route serving map. document.prepare는 제품 기동이 항상 넣고,
-      // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
+      // 테스트 seam이 준 route를 같은 map에 더한다. resource/method가
       // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
@@ -1469,7 +1469,7 @@ async function open(
         `${secretInput.resource}/${secretInput.method}`,
         secretInputHandler(secretInputRelay),
       ], [
-        // profile 이미지 올리기: 자리·역할은 reader가 보고 파일은 core가 비동기로 쓴다(agents#R13).
+        // profile 이미지 올리기: 자리·역할은 reader가 보고 파일은 core가 비동기로 쓴다.
         `${agentProfilesUpload.resource}/${agentProfilesUpload.method}`,
         agentProfileHandlers(runtime.readers, root.path).upload,
       ]]),
@@ -1598,7 +1598,7 @@ async function open(
             mergedWorkers(
               mergedWorkers(
                 prepareWorkers,
-                // 앱 export serving(apps/data#R13). 준비는 core graph 밖 프로세스가 한다.
+                // 앱 export serving. 준비는 core graph 밖 프로세스가 한다.
                 appExportWorkers({
                   dataRoot: root.path,
                   ledgerPath,
@@ -1623,7 +1623,7 @@ async function open(
                     ready: () => validateWiring.readBlob !== undefined,
                   },
                 }),
-                // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다(problems#T16).
+                // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다.
                 withViewBinding(
                   mergedWorkers(
                     collectorWorkers({
@@ -1717,7 +1717,7 @@ async function open(
     runtime?.prunePrepared(clock.nowMs());
   }, 60_000);
   // ticket claim 만료·회수 정리. 60초마다와 재시작 때 후보를 읽고 expire_claim을
-  // 제출한다. timer는 표를 쓰지 않는다(coding-agent/tickets#R13).
+  // 제출한다. timer는 표를 쓰지 않는다.
   const claimSweep = setInterval(
     () => runtime?.sweepTicketClaims(),
     ticketClaimSweepIntervalMs,
@@ -1826,7 +1826,7 @@ async function open(
       });
     announceHello();
     // 자식의 blob 준비 요청(원문 → document_file blob)은 시작마다 새 handler가 받는다.
-    // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다(platform Q6).
+    // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다.
     // 나머지 메시지의 worker_response는 통로가 요청 id로 맞춘다.
     let childBlob: ChildBlobPrepare | undefined;
     const newBlobHandler = () =>
@@ -1922,7 +1922,7 @@ async function open(
       ? await io.start(spec, documentsHello, freshCallbacks())
       : undefined;
     if (started?.ok) bindDocumentsChannel();
-    // root가 바뀌면 documents worker만 새 권한으로 다시 띄운다(file-tracking#R3).
+    // root가 바뀌면 documents worker만 새 권한으로 다시 띄운다.
     // 시작 읽기가 실패했으면 known은 비어 있고 다음 확인이 맞춘다.
     rootsWatch = watchTrackingRoots({
       roots: trackingRoots,
@@ -2184,7 +2184,7 @@ async function open(
         ),
       ]]),
     });
-    // 같은 process 안의 `problems.work` 반응기(problems#T19)가 쓰는 machine credential이다.
+    // 같은 process 안의 `problems.work` 반응기가 쓰는 machine credential이다.
     // 요청별 runner credential은 요청 본문으로 가므로 hello credential과 겹치지 않는다.
     const workIssued = await productRegistry.issue({
       actor: "machine",
@@ -2333,7 +2333,7 @@ async function open(
       }
     }
   }
-  // problems/test-runner. `problems.work` 반응기가 도는 상시 worker다(problems#T19). ticket event를
+  // problems/test-runner. `problems.work` 반응기가 도는 상시 worker다. ticket event를
   // 읽어 문제 work·status를 ReconcileProblemWork로 맞춘다. 감독이 없는 harness와 그 command를 등록하지
   // 않은 조립은 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 문제 진행 표시가 갱신되지 않을 뿐
   // ticket 정본은 그대로다(없는 반응을 성공으로 꾸미지 않는다). runner process는 위의 RequestTest
@@ -2355,7 +2355,7 @@ async function open(
         runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
     });
     // 같은 runner 안의 `problems.closing` 반응기는 worker의 machine credential(위 발급)로
-    // cursor 뒤 closing event를 따라잡는다(problems#T20). 조건 판정은 command가 정본에서
+    // cursor 뒤 closing event를 따라잡는다. 조건 판정은 command가 정본에서
     // 다시 한다. 이 구독자는 깨움 신호만 낸다.
     problemsClosingFeed = startProblemsClosingFeed({
       runtime,
@@ -2435,7 +2435,7 @@ async function open(
     ledgerPath,
   });
   // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
-  // 멈추며 cursor를 올린다(lophn-agent/assignments#R1). lophn-agent 팀이 조립에 없으면 반응할
+  // 멈추며 cursor를 올린다. lophn-agent 팀이 조립에 없으면 반응할
   // command가 없으므로 열지 않는다.
   const assignmentReactions =
     assembled.value.commands.some((c) =>
@@ -2451,7 +2451,7 @@ async function open(
     basis: () => basisSync,
     search: () => searchSync,
   });
-  // 내장 lophn·Context Engineer assignment 준비(lophn-agent/assignments#R2). 이미 있으면 아무것도
+  // 내장 lophn·Context Engineer assignment 준비. 이미 있으면 아무것도
   // 보내지 않는다.
   // 준비하지 못해도 core는 선다: 실패는 diagnostics 기록만 남기고(lophn이 아직 준비되지
   // 않았다는 대화 쪽 표시는 그대로), 대기 뒤 한 번 다시 시도하며 다음 기동도 다시 한다.
@@ -2839,7 +2839,7 @@ async function open(
         stopped = true;
         // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
         // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
-        // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
+        // 정지 유지보수는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
         // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
         const stoppedAt: {
           preparationsBlocked: boolean;
@@ -2872,7 +2872,7 @@ async function open(
           closeChildBlob?.();
           closeCollectorBlob?.();
           closeTestRunner?.();
-          // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+          // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다.
           runtime?.memory.disconnect();
           // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
           // 새 command 입장이 실제로 닫힌 것이다.
@@ -2894,7 +2894,7 @@ async function open(
           await runtime?.close();
           stoppedAt.writerStopped = true;
           // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
-          // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
+          // 읽기는 core graph 밖 프로세스의 몫이다. 관측을
           // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
           // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
           if (pendingRestore !== undefined) {
@@ -2989,8 +2989,8 @@ function seedOf(random: RandomSource): number {
   return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
 }
 
-// 정지 유지보수 프로세스(platform/blob-store#R8, R9, R10, T44). 파일 작업과
-// ledger 읽기는 core graph 밖이다(responsiveness#R1). 세 정지 조건은 종료
+// 정지 유지보수 프로세스. 파일 작업과
+// ledger 읽기는 core graph 밖이다. 세 정지 조건은 종료
 // 순서가 실제로 끝난 뒤의 관측값이라 상수 true를 넘기지 않는다. 프로세스가
 // 실패하거나 blob_refs를 읽지 못하면 아무것도 지우지 않고(fail-closed), 종료는
 // 그대로 끝난다. 실패는 diagnostics 로그만 남긴다.
@@ -3072,7 +3072,7 @@ async function runStoppedMaintenance(input: {
 }
 
 // restore 프로세스 입구(packages/core/main/worker/restore-entry.ts)를 띄워 정지한 data root를
-// 복원한다. 파일 복사·hash·검증은 core graph 밖 프로세스의 몫이다(responsiveness#R1).
+// 복원한다. 파일 복사·hash·검증은 core graph 밖 프로세스의 몫이다.
 // 어떤 실패도 현재 자료를 바꾸지 않은 채 오류로 돌아온다.
 const RESTORE_TIMEOUT_MS = 10 * 60_000;
 
@@ -3162,7 +3162,7 @@ async function runStoppedRestore(input: {
 }
 
 // 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.
-// 원문·경로·hash는 넣지 않고 분류만 남긴다(diagnostics#R5).
+// 원문·경로·hash는 넣지 않고 분류만 남긴다.
 async function noteMaintenanceFailure(
   dataRoot: string,
   timedOut = false,
@@ -3297,7 +3297,7 @@ function repoRoot(): string {
 }
 
 function denoDir(): string {
-  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다.
   let configured: string | undefined;
   try {
     configured = Deno.env.get("DENO_DIR");
@@ -3308,7 +3308,7 @@ function denoDir(): string {
 }
 
 // platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
-// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
+// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측에만 쓴다. node:fs statfs는
 // Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
@@ -3411,7 +3411,7 @@ function blobRelayFor(
 } {
   const registry = createPreparationRegistry();
   const relay = createBlobPrepareRelay({
-    // 해석·hash 없이 I/O worker로 넘긴다(Q6). worker가 준 credit 안에서만 보내고,
+    // 해석·hash 없이 I/O worker로 넘긴다. worker가 준 credit 안에서만 보내고,
     // frame writer가 pipe backpressure를 지킨다.
     send: async (payload) => {
       const sent = await io.send("platform/io", payload);
@@ -3468,7 +3468,7 @@ function startPlatformIo(
   dataRoot: string,
   epoch: string,
   port: number,
-  // blob 준비 중계. worker_response와 byte chunk 소비를 묶는다(Q6).
+  // blob 준비 중계. worker_response와 byte chunk 소비를 묶는다.
   blob?: {
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;

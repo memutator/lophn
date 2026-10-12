@@ -59,7 +59,7 @@ import {
 
 export const DOCUMENT_TOOL_REVISION = "2026-10-06";
 
-// 한 page 본문의 codepoint 수. 4 byte 문자만 있어도 24 KiB 안에 들게 24576 / 4보다 작게 둔다(R14).
+// 한 page 본문의 codepoint 수. 4 byte 문자만 있어도 24 KiB 안에 들게 24576 / 4보다 작게 둔다.
 export const DOCUMENT_READ_CODEPOINTS = 6000;
 
 function define(
@@ -142,7 +142,7 @@ const diffInput = z.strictObject({
 });
 
 // 저장 근거. relied_on은 모델이 의지한 고정 참조이고 missing은 모자란 자료의 이름이다.
-// 읽었는지는 모델의 말이 아니라 이 run의 읽기 기록(handler)이 정한다(roles/common R10).
+// 읽었는지는 모델의 말이 아니라 이 run의 읽기 기록(handler)이 정한다.
 const evidenceInput = z.strictObject({
   relied_on: z.array(z.strictObject({
     document: documentIdSchema,
@@ -485,7 +485,7 @@ export function createDocumentToolHandlers(
   );
 
   // 본문 읽기 셋은 같은 contract를 다른 좁은 입력으로 부른다. 한 page의 본문은 24 KiB와 300줄
-  // 안으로 앞부분만 두고(R14), 덜어 낸 구간은 줄 범위로 이어 읽도록 알린다.
+  // 안으로 앞부분만 두고, 덜어 낸 구간은 줄 범위로 이어 읽도록 알린다.
   async function readBody(
     summary: string,
     scope: string,
@@ -730,7 +730,7 @@ export function createDocumentToolHandlers(
         ? "version saved"
         : "no new version: the content is the same as the latest",
       content: {
-        // 접수·version 확정·파일 반영은 서로 다른 사실이다(roles/common R10). agent 출력은
+        // 접수·version 확정·파일 반영은 서로 다른 사실이다. agent 출력은
         // 저장된 판일 뿐 원본 파일을 쓰지 않으므로 파일 반영은 해당 없음이다.
         accepted: true,
         version_confirmed: true,

@@ -1,6 +1,6 @@
 // Tasks 탭(flow manage-tickets, start-coding-agent). 목록은 Task 제목·상태·다음 행동이고, 상세는 [Start]·TUI
 // 상태·복사할 요청 문장·검사·취소를 보인다. 사람이 새 Task를 만드는 입구도 여기다. 사람이 누르는 것이 허락이라
-// 시작·취소·생성에는 확인 창이 없다(coding-agent/tickets#R22, sessions#R2). 문구는 coding-agent가 정한 상태
+// 시작·취소·생성에는 확인 창이 없다. 문구는 coding-agent가 정한 상태
 // 값을 wording key로 바꾼 것이다.
 import { useState } from "react";
 import {

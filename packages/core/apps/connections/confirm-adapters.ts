@@ -1,10 +1,10 @@
-// A→B confirm=true 호출의 core 쪽 어댑터(apps/connections#R3). 준비 서비스(`createPairConfirmer`)가 쓰는
+// A→B confirm=true 호출의 core 쪽 어댑터. 준비 서비스(`createPairConfirmer`)가 쓰는
 // approval 생성·상태·적용과 접수 재조회를 core의 approval command·ledger에 잇는다.
 //   - 생성: 요청자는 호출한 앱 자신이다(`create_approval_request`는 요청자와 자격이 같아야 한다). 그 앱의
 //     짧은 app credential을 발급해 같은 core 입구(approval 글 준비를 지나는 writer)로 낸다.
 //   - 상태: 사람이 결정했는지는 ledger의 approval 행을 읽는다(결정은 shell의 confirmation window가 한다).
 //   - 적용: machine이 `apply_approved_action`을 낸다. 접수(`invocation.accept_confirm`)는 같은
-//     transaction에서 dispatch된다(platform Q28).
+//     transaction에서 dispatch된다.
 //   - 접수 재조회: core에 저장된 접수 사실(invocations의 approval과 InvocationAccepted 시각)에서 proof payload를
 //     다시 만든다. 접수가 없으면 not_found다.
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";

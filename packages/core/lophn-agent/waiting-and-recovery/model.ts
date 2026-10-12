@@ -2,7 +2,7 @@ import type { SqlParams, SqlRow } from "../../../protocol/server/mod.ts";
 
 // 사람 기다림의 판정과 읽기 조회. 순수 함수와 읽기 조회만 있다. 쓰기는 commands.ts가 한다.
 // 판정은 domain-model lophn-agent/harness/waiting-and-recovery의 "기다림의 끝" 표 그대로다.
-// 결정 값(답·허락)은 입력으로 받지 않는다. 요청을 소유한 영역의 ledger 행만 읽는다(R5, R11).
+// 결정 값(답·허락)은 입력으로 받지 않는다. 요청을 소유한 영역의 ledger 행만 읽는다.
 
 export type WaitKind = "question" | "approval";
 
@@ -28,7 +28,7 @@ function text(value: unknown): string | null {
 export type QuestionFacts = {
   status: "pending" | "answered" | "expired" | "cancelled";
   // 고른 선택지에 고정 action이 있는지. 자유 답과 action 없는 선택지는 false다. 고정 action이
-  // 있는 질문은 질문 하나짜리 묶음이라(questions#R13) 묶음 전체의 사실이다.
+  // 있는 질문은 질문 하나짜리 묶음이라 묶음 전체의 사실이다.
   chosenHasAction: boolean;
   // action의 실제 적용 결과(questions의 `applied`).
   applied: boolean;
@@ -36,12 +36,12 @@ export type QuestionFacts = {
 
 export type QuestionVerdict =
   | { kind: "pending" }
-  // 답은 받았지만 고정 action의 적용을 아직 확인하지 못했다. 접수와 적용은 다르다(R5).
+  // 답은 받았지만 고정 action의 적용을 아직 확인하지 못했다. 접수와 적용은 다르다.
   | { kind: "action_pending" }
   | { kind: "resume"; result: "resumed"; reason: "question_answered" }
   | { kind: "stop"; result: "stopped_no_answer"; reason: "no_answer" };
 
-// 질문 묶음의 답이면 같은 run 재개, 만료·미루기·취소는 답 없음 종료다(R1). 답이 아닌 것으로
+// 질문 묶음의 답이면 같은 run 재개, 만료·미루기·취소는 답 없음 종료다. 답이 아닌 것으로
 // 재개하지 않고 추정 답도 만들지 않는다. 묶음은 한 번에 답하므로 일부만 답한 상태는 없다.
 export function questionVerdict(facts: QuestionFacts): QuestionVerdict {
   if (facts.status === "pending") return { kind: "pending" };
@@ -81,7 +81,7 @@ export type ApprovalVerdict =
   | { kind: "inconsistent"; why: string };
 
 // approval 결정 하나가 고정 call에 어떻게 반영됐는지. 과거 허락이 달라진 동작을 시작하지
-// 못하므로(R2) 허락만으로는 해소하지 않고 재검사가 끝난 call 상태를 요구한다.
+// 못하므로 허락만으로는 해소하지 않고 재검사가 끝난 call 상태를 요구한다.
 export function approvalVerdict(
   status: ApprovalStatus,
   call: CallFacts | undefined,
@@ -122,7 +122,7 @@ export function approvalVerdict(
   return { kind: "needs_close" };
 }
 
-// 기다림이 끝난 이유의 구별(R3). 어느 것도 허락으로 바꾸지 않는다.
+// 기다림이 끝난 이유의 구별. 어느 것도 허락으로 바꾸지 않는다.
 export type WaitEndKind =
   | "denied_by_rule"
   | "rejected_by_person"
@@ -167,7 +167,7 @@ export function endOfApproval(status: ApprovalStatus): WaitEnd | null {
 }
 
 // ---------------------------------------------------------------------------
-// 보이는 기다림(R6)과 retry 대기(R7), 순수 함수
+// 보이는 기다림과 retry 대기, 순수 함수
 // ---------------------------------------------------------------------------
 
 export type WaitReason =
@@ -275,7 +275,7 @@ export type RetryWaitResult = {
   may_retry: boolean;
 };
 
-// 재시작 뒤 retry 대기 하나를 잇는 규칙(R7). 예정 시각은 처음부터 다시 재지 않고 남은 간격만
+// 재시작 뒤 retry 대기 하나를 잇는 규칙. 예정 시각은 처음부터 다시 재지 않고 남은 간격만
 // 기다리며 사용 횟수는 그대로 보존한다. 멈춤·steering·한도는 대기를 즉시 깨운다. 사람
 // 기다림은 실패 횟수가 아니므로 used를 늘리지 않는다.
 export function retryWait(input: RetryWaitInput): RetryWaitResult {
@@ -298,7 +298,7 @@ export function retryWait(input: RetryWaitInput): RetryWaitResult {
   };
 }
 
-// 사람 기다림은 실패 횟수에 세지 않는다(R7). 기다림 때문에 실패·retry 수가 바뀌지 않는다.
+// 사람 기다림은 실패 횟수에 세지 않는다. 기다림 때문에 실패·retry 수가 바뀌지 않는다.
 export function waitCountsAsFailure(): false {
   return false;
 }

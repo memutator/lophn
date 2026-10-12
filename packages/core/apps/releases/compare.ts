@@ -1,4 +1,4 @@
-// 이전 release와의 비교(apps/releases#R9, R10, R11, R18). 고정 blueprint 둘의 정적 비교다.
+// 이전 release와의 비교. 고정 blueprint 둘의 정적 비교다.
 // 같은 입력 schema라는 이유로 호환을 주장하지 않는다: 효과·확인·되돌림이 바뀌면 동작 변경이고,
 // 이름·설명만 바뀐 것은 따로 낸다. 업무 의미의 동일성은 증명하지 않으므로 바뀐 것이 있으면
 // `review_required`다. 데이터 계약은 apps/data 근거(`data_schema`·`data_changes`), 접근 요청은
@@ -131,7 +131,7 @@ export function compareReleases(input: {
       a.label === b.label && a.path === b.path && same(a.sizes, b.sizes),
   );
   // 열린 problem 여부는 problems의 몫이다. 선언이 삭제되거나 바뀐 code를 모두 경고로 올리고
-  // 이것은 문제를 고쳤다는 근거도 닫힘도 아니다(R18).
+  // 이것은 문제를 고쳤다는 근거도 닫힘도 아니다.
   const warnings: string[] = [];
   const nowCodes = new Map(
     blueprint.problem_codes.map((entry) => [entry.code, entry]),

@@ -1,10 +1,10 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
 // Streamable HTTP MCP 전송(concern lophn-agent/extensions, requirements
-// lophn-agent/extensions#R13, R15). Streamable HTTP만 지원하고 SSE로 자동
-// 전환하지 않는다(R13). HTTPS가 기본이고 평문 HTTP는 loopback뿐이다(R15).
+// lophn-agent/extensions#R13). Streamable HTTP만 지원하고 SSE로 자동
+// 전환하지 않는다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
 // 다른 origin(host·scheme·port)으로의 redirect는 거절이다(질문 Q13). TLS 검증을
-// 끄는 설정은 제공하지 않는다(R15).
+// 끄는 설정은 제공하지 않는다.
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
@@ -31,7 +31,7 @@ export type HttpResponse = {
 // fetch 눈이다. 테스트가 끼운다. redirect는 따라가지 않고 응답 그대로 본다.
 export type HttpFetch = (url: string, init: RequestInit) => Promise<Response>;
 
-// 평문 HTTP 목적지 검사다(R15). HTTPS와 loopback HTTP만 온다.
+// 평문 HTTP 목적지 검사다. HTTPS와 loopback HTTP만 온다.
 export function endpointReason(url: string): string | null {
   let parsed: URL;
   try {
@@ -56,7 +56,7 @@ export type HttpRequestResult =
   | { ok: false; reason: "unavailable"; detail: string }
   | { ok: false; reason: "invalid"; detail: string };
 
-// 한 번의 HTTP 요청이다(R15). redirect는 따라가지 않고 원래 origin이 아닌
+// 한 번의 HTTP 요청이다. redirect는 따라가지 않고 원래 origin이 아닌
 // 목적지를 거절한다. 인증 헤더는 이 모듈이 결정하지 않고 init에 담아 온다.
 export async function httpRequest(
   fetchImpl: HttpFetch,
@@ -124,7 +124,7 @@ export function redirectOriginRejected(
   return "다른 origin(host·scheme·port)으로의 redirect다";
 }
 
-// initialize 요청 본문이다(MCP initialize). capabilities는 비어 있다(R25):
+// initialize 요청 본문이다(MCP initialize). capabilities는 비어 있다:
 // sampling·elicitation·roots를 지원하지 않는다.
 export function initializeBody(): Record<string, unknown> {
   return {
@@ -173,7 +173,7 @@ export function rpcResultOf(
 }
 
 // 서버가 reverse 기능(sampling·elicitation·roots)을 요청할 때 같은 id로
-// `-32601`(method not found)을 답한다(R25).
+// `-32601`(method not found)을 답한다.
 export function unsupportedReverseResponse(
   id: unknown,
 ): Record<string, unknown> {

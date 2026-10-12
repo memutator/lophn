@@ -1,4 +1,4 @@
-// `problems.work` 반응기의 core 쪽 연결(problems#T19). 반응기 자체는 제품 core가 감독하는 상시 worker
+// `problems.work` 반응기의 core 쪽 연결. 반응기 자체는 제품 core가 감독하는 상시 worker
 // kind `problems/test-runner` 안에서 돈다. 이 파일은 그 worker가 core에 낼 수 있는 machine credential의
 // operation, ticket event를 worker 자격에게 여는 공개 정책, `problems.work` cursor 전진 자격, 그리고
 // worker를 깨우는 core 안 구독자(machine:problems-work-feed)다. event는 깨우는 신호이고 payload로
@@ -51,7 +51,7 @@ export const PROBLEMS_WORK_OPERATIONS = [
 
 // machine은 command kind만 받으므로 worker가 읽는 read operation도 command kind로 올린다.
 // GetProblem 정책은 report collector 쪽이 이미 올려 두어 겹치지 않게 뺀다. CloseProblemVerified는
-// 같은 worker kind의 `problems.closing` 반응기가 내는 반응 command다(problems#T20).
+// 같은 worker kind의 `problems.closing` 반응기가 내는 반응 command다.
 export function problemsWorkPolicies(): OperationPolicy[] {
   return [
     eventsList.name,

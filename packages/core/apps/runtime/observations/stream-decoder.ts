@@ -1,6 +1,6 @@
 // 앱 자식의 stdout/stderr를 줄 단위로 읽는 streaming decoder. 줄바꿈이 없는 출력도
 // byte 상한 안에서만 쥐고 있고, 상한을 넘은 줄은 redaction 전에 자르지 않고
-// 통째로 버린다. 잘린 secret 일부가 새지 않는다는 안전성을 모르기 때문이다(R26).
+// 통째로 버린다. 잘린 secret 일부가 새지 않는다는 안전성을 모르기 때문이다.
 
 // 한 줄이 redaction을 받기 전에 메모리에 머무를 수 있는 byte 상한이다.
 export const LOG_PENDING_LINE_MAX_BYTES = 16 * 1024;

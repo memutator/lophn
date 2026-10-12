@@ -1,4 +1,4 @@
-// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다(shell/workspace#R23, R27). 입력은
+// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다. 입력은
 // 사람이 채운 조건일 뿐이라 현재 보기에는 선언된 검색의 key만 보내고 복원하면 검색을 다시 계산한다.
 import { paletteIcons } from "../../icons/mod.ts";
 
@@ -39,7 +39,7 @@ export function openSearch(host: TabHost, state: SearchTabState): void {
 
 /**
  * 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 그 context의 Search 탭이 열려 있으면 새 탭
- * 대신 그 탭을 골라 검색을 바꾸고, 없으면 새로 연다(workspace#R22).
+ * 대신 그 탭을 골라 검색을 바꾸고, 없으면 새로 연다.
  */
 export function openSearchFor(host: TabHost, state: SearchTabState): void {
   const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>

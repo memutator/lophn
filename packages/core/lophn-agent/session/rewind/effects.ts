@@ -4,7 +4,7 @@ import { isFinishedSummaryCall } from "../mod.ts";
 import { cancelGroupsFrom } from "../../tools/questions/mod.ts";
 import type { RewindEffects } from "./mod.ts";
 
-// rewind가 대화 밖에 미치는 효과의 조립이다(lophn-agent/revert "대화 밖 상태", R15). 질문(lophn-agent)과
+// rewind가 대화 밖에 미치는 효과의 조립이다(lophn-agent/revert "대화 밖 상태"). 질문(lophn-agent)과
 // approval(platform)을 한 transaction에서 만지므로 두 concern을 잇는 core가 맡는다.
 export function createRewindEffects(): RewindEffects {
   return {

@@ -1,4 +1,4 @@
-// 준비 route의 format 검사(file-tracking#R5, versions#R4). core는 파일을 열지 않는다: I/O
+// 준비 route의 format 검사. core는 파일을 열지 않는다: I/O
 // worker가 설치한 원문 blob을 창 단위로 읽어 감독 pipe의 byte chunk frame으로 documents
 // coordinator에 넘기고, 같은 channel을 가리키는 `documents.validate_files` 요청을 보낸다.
 // coordinator가 권한 없는 format runner로 검사하고 그 결과를 돌려준다. 바이트는 core

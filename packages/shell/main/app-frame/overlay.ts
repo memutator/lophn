@@ -419,7 +419,7 @@ export function createOverlay(options: OverlayOptions) {
       return success(null);
     },
     /**
-     * main이 [Report a problem] dialog를 연다(shell/app-frame#R31). shell renderer의 open과 달리
+     * main이 [Report a problem] dialog를 연다. shell renderer의 open과 달리
      * 창 본문 전체에 그리고 앱 view는 숨기지 않는다. 닫기는 closeFeedback만 한다.
      */
     openFeedback(draftRef: string): boolean {
@@ -445,7 +445,7 @@ export function createOverlay(options: OverlayOptions) {
       finish(surface, "completed");
       sync();
     },
-    /** lophn dialog·sheet가 떠 있다. 그동안은 앱 view를 캡처하지 않는다(problems/feedback#R5). */
+    /** lophn dialog·sheet가 떠 있다. 그동안은 앱 view를 캡처하지 않는다. */
     dialogOpen(): boolean {
       return [...surfaces.values()].some((surface) =>
         surface.kind === "dialog" || surface.kind === "sheet"

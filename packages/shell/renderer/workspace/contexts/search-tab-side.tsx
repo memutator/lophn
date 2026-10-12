@@ -1,4 +1,4 @@
-// Search 탭의 왼쪽 열(shell/workspace#R23, R27): context 고르기 · "Open context" · 선언된 검색 ·
+// Search 탭의 왼쪽 열: context 고르기 · "Open context" · 선언된 검색 ·
 // Saved views. 순서가 화면 순서다.
 import type { ReactNode } from "react";
 import {

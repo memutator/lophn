@@ -1,4 +1,4 @@
-// OS keychain 경계(platform/secrets#R1, R8). 값은 이 경계의 메모리와 keychain에만 둔다.
+// OS keychain 경계. 값은 이 경계의 메모리와 keychain에만 둔다.
 // 원값·길이·일부·keychain 내부 경로는 오류와 log에 넣지 않는다.
 
 import { err, type Result } from "../../../base/mod.ts";
@@ -17,7 +17,7 @@ export type KeychainItem = {
 export type KeychainStatus = "available" | "unavailable";
 
 export type KeychainAdapter = {
-  // 잠김·없음은 secret 기능만 unavailable. 파일·환경 변수 fallback은 없다(R8).
+  // 잠김·없음은 secret 기능만 unavailable. 파일·환경 변수 fallback은 없다.
   status(): Promise<KeychainStatus>;
   // 저장한 불투명 참조를 돌려준다. 값은 참조에 들어가지 않는다.
   store(item: KeychainItem): Promise<Result<string>>;

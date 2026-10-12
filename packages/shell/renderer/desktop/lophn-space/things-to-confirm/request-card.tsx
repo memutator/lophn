@@ -29,7 +29,7 @@ export interface RequestCardProps {
   now?: () => number;
 }
 
-// 질문 묶음 하나 또는 approval 하나. 묶음은 대화 안 카드와 같은 묶음 카드로 그리고(questions#R17),
+// 질문 묶음 하나 또는 approval 하나. 묶음은 대화 안 카드와 같은 묶음 카드로 그리고,
 // approval은 [Review]로 confirmation window를 연다. 고르는 것만으로는 아무것도 보내지 않는다.
 export function RequestCard(props: RequestCardProps) {
   const { request } = props;

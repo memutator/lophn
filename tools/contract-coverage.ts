@@ -1,6 +1,6 @@
 // docs/architecture/*.md의 "## 5." 절에서 route 경로와 event 이름을 읽어
 // ALL_ROUTES·ALL_EVENTS에 있는 것·없는 것을 최상위·절마다 보인다.
-// 빠짐이 있으면 exit 1이다(관문, contracts#T46).
+// 빠짐이 있으면 exit 1이다(관문).
 
 import { ALL_EVENTS, ALL_ROUTES } from "@lophn/protocol";
 

@@ -167,7 +167,7 @@ async function readMeta(
 }
 
 // 파일을 쓰고, 새 working copy라면 metadata를 한 번 만든다. metadata 실패는 이미 성공한
-// 파일 쓰기를 실패로 바꾸지 않는다(file-tracking#R15).
+// 파일 쓰기를 실패로 바꾸지 않는다.
 export async function writeLocation(
   deps: FileDeps,
   request: PrepWrite,

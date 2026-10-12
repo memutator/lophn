@@ -18,7 +18,7 @@ export const FEEDBACK_LIMITS = {
 
 export type FeedbackCaller = { actor: string; surface: string };
 
-// 사람이 쓴 글은 인증된 shell의 user만 낼 수 있다(R1). app·agent·다른 user 통로는
+// 사람이 쓴 글은 인증된 shell의 user만 낼 수 있다. app·agent·다른 user 통로는
 // 사람의 경험을 대신 쓸 수 없고, 거절 사유로 어떤 대상의 존재도 알리지 않는다.
 export function requireShellUser(caller: FeedbackCaller): Result<void> {
   return caller.actor === "user" && caller.surface === "shell"
@@ -29,7 +29,7 @@ export function requireShellUser(caller: FeedbackCaller): Result<void> {
     });
 }
 
-// redaction을 통과한 글은 공백 외 1~500 Unicode scalar여야 한다(R1).
+// redaction을 통과한 글은 공백 외 1~500 Unicode scalar여야 한다.
 export function checkFeedbackText(text: string): Result<string> {
   const parsed = feedbackTextSchema.safeParse(text);
   return parsed.success ? ok(parsed.data) : err({
@@ -38,7 +38,7 @@ export function checkFeedbackText(text: string): Result<string> {
   });
 }
 
-// ---- screenshot (R8) ----
+// ---- screenshot ----
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const IHDR_LENGTH = 13;
@@ -95,7 +95,7 @@ export function inspectPng(bytes: Uint8Array): Result<PngHeader> {
   return ok({ width, height });
 }
 
-// ---- 전송 한도 (R9) ----
+// ---- 전송 한도 ----
 
 const encoder = new TextEncoder();
 
@@ -129,12 +129,12 @@ export function checkStateBytes(text: string): Result<void> {
     });
 }
 
-// ---- 지목 대상 (R3, R4) ----
+// ---- 지목 대상 ----
 
 export type CommandStart = "started" | "blocked_before_start" | "unknown";
 
 // 사람이 [문제 알리기]를 누른 시점에 shell이 고정한 지목. 마지막 요청이나 시간 근접으로
-// 고르지 않는다. 모르는 것은 null이다(R3).
+// 고르지 않는다. 모르는 것은 null이다.
 export type FeedbackTargets = {
   // 사람이 본 결과를 낸 실제 invocation.
   invocation: string | null;
@@ -153,7 +153,7 @@ const target = (id: string | null): TargetState =>
   id === null ? { state: "unknown" } : { state: "known", id };
 
 export type ResolvedTargets = {
-  // 실제로 연결한 invocation. 실행 전 실패와 모름에는 없다(R4).
+  // 실제로 연결한 invocation. 실행 전 실패와 모름에는 없다.
   invocation: string | null;
   invocation_missing: string | null;
   state: {
@@ -203,7 +203,7 @@ export function resolveTargets(
   });
 }
 
-// ---- 안전한 화면 상태 (R7) ----
+// ---- 안전한 화면 상태 ----
 
 export type ScreenFacts = {
   tab: string | null;
@@ -306,14 +306,14 @@ export function safeScreenState(
   };
 }
 
-// ---- 묶기 (grouping#R6, R14) ----
+// ---- 묶기 ----
 
 export type SelectedProblem = { id: string; app: string; group_key: GroupKey };
 
 // 기존 문제에는 같은 앱의 명시적 선택일 때만 덧붙인다. 그 밖에는 이 Report 자기 ID로
 // 새 문제를 만든다: 비슷한 글이나 같은 화면은 같은 결함의 증거가 아니다. 다른 앱의
 // 문제와 없는 문제는 구별하지 않는다. 비운영 보고는 운영 문제를 만들지 않으므로 선택이
-// 있어도 쓰지 않는다. "직접 해 봤지만 안 됩니다"도 이 경로의 새 Report다(R14).
+// 있어도 쓰지 않는다. "직접 해 봤지만 안 됩니다"도 이 경로의 새 Report다.
 export function feedbackGroup(
   reportId: string,
   app: string,

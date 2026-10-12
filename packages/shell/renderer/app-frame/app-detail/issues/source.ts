@@ -1,14 +1,14 @@
 // Issues 탭이 읽고 쓰는 통로. 모양은 contracts의 ListProblems·GetProblem(`detail` 포함)에서 이
 // 화면이 쓰는 field만 옮긴 것이다. 화면은 내부 `problem.work`·`problem.interpretation`이 아니라
-// 사용자용 `detail`만 읽는다(problems#T22). 문구(label·attention 같은 en 문장)는 problems가 정한
-// 값 그대로이고 화면이 다시 해석하거나 합치지 않는다(shell/wording#R9).
+// 사용자용 `detail`만 읽는다. 문구(label·attention 같은 en 문장)는 problems가 정한
+// 값 그대로이고 화면이 다시 해석하거나 합치지 않는다.
 import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
 
 export type IssueStatus = "open" | "fixing" | "closed";
 
-/** 닫힌 이유 네 가지. 서로 다른 사실이다(problems/closing#R2). */
+/** 닫힌 이유 네 가지. 서로 다른 사실이다. */
 export type IssueClosure =
   | "verified"
   | "user_confirmed"

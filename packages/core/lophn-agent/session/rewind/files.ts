@@ -1,4 +1,4 @@
-// session 되돌리기의 문서 파일 흐름(lophn-agent/revert R17, 복원 쓰기). 파일 쓰기·hash 계산·복원 내용 준비는
+// session 되돌리기의 문서 파일 흐름(복원 쓰기). 파일 쓰기·hash 계산·복원 내용 준비는
 // ledger transaction 안에서 할 수 없으므로 writer queue 앞의 처리기가 Rewind·UndoEdit·Redo를 가로채 순서를
 // 잇는다: 관측 → 판정 → 준비 → command → 설치(→ 건너뛴 경로가 있으면 AmendRevertInstall). command는 파일을
 // 쓰지 않고 준비한 관측(input.files)으로 다시 판정해 기록만 확정한다. 파일 일은 모두 async API다.

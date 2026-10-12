@@ -1,4 +1,4 @@
-// project의 Agents 탭 본문(shell/workspace#R36·R37). 위에서부터 agent 카드(lophn · Context Engineer · Operator들),
+// project의 Agents 탭 본문. 위에서부터 agent 카드(lophn · Context Engineer · Operator들),
 // [+ New Operator], 그리고 Instructions · Models for this project · Skills · MCP servers · Permissions 구역과
 // 맨 아래 "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. 카드에는 일정·마지막
 // 실행 줄이 없다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡고, 탭 안에서 본문을 바꾸는 일은 탭 쪽 몫이다.

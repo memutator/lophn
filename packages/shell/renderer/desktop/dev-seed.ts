@@ -72,7 +72,7 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
 };
 
 // mock 모드의 context 화면 예시(검색 결과·Overview 예시·위반)가 가리키는 문서. 문서 목록에는 오르지
-// 않고 경로로만 찾아 열린다(shell/workspace#R26).
+// 않고 경로로만 찾아 열린다.
 const CONTEXT_FOLDER = "/work/lophn";
 const CONTEXT_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> =
   Object.fromEntries([

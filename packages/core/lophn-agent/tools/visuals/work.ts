@@ -4,18 +4,18 @@ import {
   type VisualBlock,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
-// 문서로 남기기의 준비(lophn-agent/visuals#R6, R7). 확정 메시지에서 고른 블록의 고정 명세·설명·출처와
+// 문서로 남기기의 준비. 확정 메시지에서 고른 블록의 고정 명세·설명·출처와
 // 그 순간의 데이터를 실행 코드 없는 HTML 글로 만든다. 글만 만든다: blob 준비·hash 계산·문서 저장은
 // 이 모듈이 하지 않는다. 저장은 문서 tool이 글 값으로 별도로 하고 core가 redaction과 blob을 맡는다.
 // 그래서 준비를 마쳤다는 것이 저장했다는 뜻이 아니고, 저장 전에는 본문 hash가 없다.
 //
-// 그림은 공용 SDK가 그린다(apps/sdk#R38). 이 HTML은 SDK의 정적 그림 대신 같은 데이터를 읽을 수 있는
+// 그림은 공용 SDK가 그린다. 이 HTML은 SDK의 정적 그림 대신 같은 데이터를 읽을 수 있는
 // 표와 목록으로 담는다. script·style·iframe·외부 자원·앱 token은 어디에도 넣지 않는다.
 
 export type PreparedBlockSnapshot = {
   block_key: string;
   // captured면 redaction된 snapshot JSON과 hash·시각이 있다. snapshot을 얻지 못하면
-  // unavailable이고 고정 참조만 남는다(R7). hash는 core가 준비한 blob의 hash다.
+  // unavailable이고 고정 참조만 남는다. hash는 core가 준비한 blob의 hash다.
   status: "captured" | "unavailable";
   captured_at: string | null;
   snapshot: string | null;
@@ -183,7 +183,7 @@ function cardRows(
   const { app, release, view } = block.payload;
   const capture = captures.find((entry) => entry.block_key === block.key);
   if (capture !== undefined) {
-    // redaction된 snapshot과 고정 참조를 남긴다(R7). live 화면·credential은 넣지 않는다.
+    // redaction된 snapshot과 고정 참조를 남긴다. live 화면·credential은 넣지 않는다.
     return [
       `<p>App card of app ${e(app)} release ${e(release)} view ${e(view)}.</p>`,
       `<h4>Snapshot</h4>`,
@@ -242,7 +242,7 @@ export function prepareVisualDocument(input: {
   // 고정 근거: 읽은 메시지 본문의 hash다(ReadMessageBody가 돌려준 값).
   source_body: string;
   blocks: readonly VisualBlock[];
-  // 앱 카드의 redaction된 snapshot이다(R7). agent_context read 결과(app.screen_context)
+  // 앱 카드의 redaction된 snapshot이다. agent_context read 결과(app.screen_context)
   // 가 준 값으로, 준비 때 그 값과 시각·hash를 그대로 싣는다. snapshot을 얻지 못한 카드는
   // 이 입력에 없고 unavailable이 된다.
   captures?: readonly CardCapture[];
@@ -284,7 +284,7 @@ export function prepareVisualDocument(input: {
   const snapshots: PreparedBlockSnapshot[] = [];
   for (const block of input.blocks) {
     if (block.kind !== "app_card") continue;
-    // agent_context read 결과의 redaction된 snapshot이다(R7). 준비 입력에 있던
+    // agent_context read 결과의 redaction된 snapshot이다. 준비 입력에 있던
     // 값과 시각·hash를 그대로 싣는다. 없는 카드는 unavailable과 참조만이다.
     const capture = captures.find((entry) => entry.block_key === block.key);
     snapshots.push(

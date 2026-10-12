@@ -1,7 +1,7 @@
 // settings update 통로의 main 쪽. 사람이 고른 로컬 metadata만 읽고, core가 보고한 schema
 // 판과 이 OS로 안내를 만든다. 적용은 그 파일로 플랫폼을 정상 정지한 뒤 설치 파일만 바꾼다.
 // 데이터 폴더는 지우지 않는다. 패키지를 받지 않고, 프로세스를 다시 띄우지 않는다.
-// 배포 검증 결과는 여기서 만들지 않는다(platform/install-and-update#R1, R13, R14).
+// 배포 검증 결과는 여기서 만들지 않는다.
 import {
   copyFile,
   lstat,

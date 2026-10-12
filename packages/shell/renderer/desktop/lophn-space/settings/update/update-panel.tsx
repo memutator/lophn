@@ -1,4 +1,4 @@
-// settings의 update 자리(shell#T58, platform#T50에서 넘어온 것). 새 version·지원 OS·schema
+// settings의 update 자리(platform#T50에서 넘어온 것). 새 version·지원 OS·schema
 // 호환·정상 정지·재시작 필요만 보인다. 자동 다운로드·재시작은 없다. 설치 파일 교체는
 // 화면에 보이지 않는다.
 import { useCallback, useState } from "react";

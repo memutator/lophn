@@ -24,7 +24,7 @@ const workPlaceOutputBranches = [
 ] as const;
 
 // 개설 자리. file cwd가 아니고, kind와 id 접두사 짝만 local syntax로 고정한다. Lophn Workspace에는
-// session이 없으므로 전역 자리(global)가 없다(conversation#R16).
+// session이 없으므로 전역 자리(global)가 없다.
 export const workPlaceSchema = z.discriminatedUnion("kind", workPlaceBranches);
 
 export const workPlaceOutputSchema = z.discriminatedUnion(

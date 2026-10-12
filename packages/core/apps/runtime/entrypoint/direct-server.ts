@@ -9,7 +9,7 @@ import type { RuntimeState } from "./state.ts";
 
 // shutdown 요청을 받은 프로세스는 새 호출을 닫은 채 진행 중인 호출이 끝나는 대로 스스로 끝난다.
 // 유예(grace_ms)가 지나도 끝나지 않은 호출은 기다리지 않는다. 그래도 끝나지 않으면 supervisor가
-// 유예 뒤 강제 종료한다(R15).
+// 유예 뒤 강제 종료한다.
 function exitWhenIdle(
   state: RuntimeState,
   graceMs: number,

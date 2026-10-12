@@ -1,4 +1,4 @@
-// fake coding agent 수리 script(coding-agent#T47). repair ticket claim →
+// fake coding agent 수리 script. repair ticket claim →
 // summary·bundle·more → reproduction test → record_fix → lophn_app release_prepare
 // → report. claim_seq·problem seq·fix seq·ticket revision은 앞 응답에서 채운다.
 // 돌지 않은 test의 verification을 만들지 않는다. release_prepare는 release id를

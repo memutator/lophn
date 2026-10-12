@@ -1,4 +1,4 @@
-// 파일 하나를 정확히 추적에 넣는 규칙(documents/projects#R12). 문서를 파일로 둘 때 그 경로가
+// 파일 하나를 정확히 추적에 넣는 규칙. 문서를 파일로 둘 때 그 경로가
 // 규칙 밖이면 그 파일 하나의 include만 규칙 끝에 더한다. 마지막 일치가 이기므로 앞의 exclude도
 // 이기지만 .git·lophn data와 .gitignore는 이기지 못한다(호출자가 판정으로 다시 확인한다).
 import { err, ok, type Result } from "../../../base/mod.ts";

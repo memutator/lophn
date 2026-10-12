@@ -2,7 +2,7 @@ import { z } from "zod";
 import { commandKeySchema } from "../apps/channel-values.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 
-// 외부 링크 상한(shell/app-frame#R5). 8193자는 열지 않는다.
+// 외부 링크 상한. 8193자는 열지 않는다.
 export const EXTERNAL_URL_MAX_CHARS = 8192;
 
 function externalUrlAllowed(value: string): boolean {
@@ -58,7 +58,7 @@ export type LophnApp = {
   openExternal(url: string): Promise<void>;
 };
 
-// 기록에 남기는 것만. query·fragment는 넣지 않는다(shell/app-frame#R6).
+// 기록에 남기는 것만. query·fragment는 넣지 않는다.
 export function externalLinkRecord(
   url: string,
 ): { origin: string; path: string } {

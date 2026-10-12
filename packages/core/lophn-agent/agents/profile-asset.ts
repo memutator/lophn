@@ -16,7 +16,7 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import { agentFileName, agentsDirectory } from "./store.ts";
 
-// 사람이 올린 profile 이미지(R13)다. 받는 형식은 png·jpg·webp뿐이고 형식은 내용의 첫 byte로 확인한다.
+// 사람이 올린 profile 이미지다. 받는 형식은 png·jpg·webp뿐이고 형식은 내용의 첫 byte로 확인한다.
 // Content-Type 선언과 맞지 않으면 거절한다. 바이트는 글과 달리 UTF-8로 바꾸지 않는다.
 // 자리와 assignment의 판정(있는지, 어느 역할인지, 정의의 profile)은 읽기 concern이 맡고 여기서는 파일만 다룬다.
 // 정의의 profile에 이미지 이름을 잇는 것은 SaveAgent가 한다.
@@ -145,7 +145,7 @@ function imageFolder(
 }
 
 // 저장한 정의가 가리키지 않는 `avatar.*` 경로다. 정의가 이미지를 가리키면 그 파일만 남기고, icon이거나
-// profile이 없으면 이미지 파일을 모두 지운다(R13). SaveAgent가 저장 뒤에 지운다.
+// profile이 없으면 이미지 파일을 모두 지운다. SaveAgent가 저장 뒤에 지운다.
 export function staleImagePaths(
   root: string,
   place: AgentPlace,

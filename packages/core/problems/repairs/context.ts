@@ -1,4 +1,4 @@
-// repair context의 core 쪽 연결(coding-agent#T43). `/v1/repair_context/summary|bundle|more`는 coding-agent
+// repair context의 core 쪽 연결. `/v1/repair_context/summary|bundle|more`는 coding-agent
 // worker가 조립한다. core는 요청자 connection의 credential(Bearer token)을 요청마다 worker에 실어 보내고,
 // worker가 그 credential로 core loopback에서 정본을 읽게 한다. worker는 자기 machine credential이 없어
 // 범위 밖 근거를 대신 읽을 수 없다. 응답은 route output(공통 필드 포함)으로 검증된다.

@@ -14,13 +14,13 @@ import {
 import type { ContractCall } from "./bundles/common.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 선언 검색 tool과 개체 읽기 tool의 재료 읽기와 handler 연결이다(lophn-agent/harness/tools R21, R22).
+// 선언 검색 tool과 개체 읽기 tool의 재료 읽기와 handler 연결이다.
 // resolved agent의 context(`ResolvedAgent.contexts`)들의 적용된 판(`context.contract`)을 run을 시작하기 전에 한 번
 // 읽어 정의를 만들고(Run.basis의 정의 hash가 이 정의를 고정한다) 호출은 run의 agent 자격으로 core의
 // `context.search`·`context.entity`를 부른다.
 
 // run이 정의를 만든 판의 고정이다. Run.basis의 `tools.contexts`에 실리고 resume은 이 판으로 정의를 다시 만든다
-// (lophn-agent/harness/tools R21: 판이 바뀌어도 진행 중인 run은 옛 정의로 계속한다).
+// (판이 바뀌어도 진행 중인 run은 옛 정의로 계속한다).
 export type ContextToolPin = {
   context: string;
   bundle: string;

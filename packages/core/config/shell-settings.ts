@@ -1,5 +1,5 @@
 // shell이 core에 등록하는 것. 전역 읽기 폭과 OS notification opt-in 설정 항목이다(contracts#T24
-// settings registry, shell/design-system#R23, platform/notifications#R9). shell은 이 key를
+// settings registry). shell은 이 key를
 // settings.get·apply로만 읽고 쓴다.
 import { z } from "zod";
 import { defineSetting } from "../../protocol/config/mod.ts";
@@ -26,7 +26,7 @@ export const readingWidthSetting = defineSetting({
   value_type: z.enum(["narrow", "default", "wide"]),
 });
 
-// OS notification은 사람이 켰을 때만 올린다(platform/notifications#R9). Electron main이
+// OS notification은 사람이 켰을 때만 올린다. Electron main이
 // 새 notification이 도착할 때마다 지금 값을 읽는다(main/desktop/os-notification.ts).
 export const osNotificationsSetting = defineSetting({
   key: "shell.os_notifications",
@@ -50,7 +50,7 @@ export const osNotificationsSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// core 조립의 settings.ts가 모으는 shell 등록 항목이다(platform/settings#R31).
+// core 조립의 settings.ts가 모으는 shell 등록 항목이다.
 export const shellDefinitions = {
   settings: [readingWidthSetting, osNotificationsSetting],
 };

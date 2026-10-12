@@ -26,7 +26,7 @@ type Entry = {
   targetRef: string;
   contentHash: string;
   allowedDecisions: readonly string[];
-  // 발급 시각에서 120초와 대상 기한 중 이른 시각(architecture/shell#Q1).
+  // 발급 시각에서 120초와 대상 기한 중 이른 시각.
   expiresAtMs: number;
   // transaction이 잡고 있는 사용. commit 실패면 이 예약만 푼다.
   reserved: boolean;

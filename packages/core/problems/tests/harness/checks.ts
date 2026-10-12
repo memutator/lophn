@@ -17,7 +17,7 @@ import {
 import type { Emitter } from "./emit.ts";
 import { scanCodeUsage, type SourceFile } from "./source-scan.ts";
 
-// 고정 기준과 따로 관측한 인접 불변식(problems/tests#R12).
+// 고정 기준과 따로 관측한 인접 불변식.
 export type AdjacentInvariant = { name: string; held: boolean };
 
 type Verdict = {
@@ -596,7 +596,7 @@ function run(name: string, input: ChecksInput): Promise<Verdict> {
 
 // 앱이 쓴 실패 경로 test가 부르는 도우미. 실제 앱 command에 fixture 실패를
 // 주입하고, 그 호출 안에서 선언 code의 보고가 접수됐을 때만 통과한다. 호출
-// 밖에서 SDK를 직접 부른 보고는 이 호출의 근거가 아니다(problem-codes#R9).
+// 밖에서 SDK를 직접 부른 보고는 이 호출의 근거가 아니다.
 export async function observeFailurePath(input: {
   driver: AppDriver;
   plan: HarnessPlan;
@@ -649,7 +649,7 @@ export async function observeFailurePath(input: {
 }
 
 // 앱이 쓴 실패 경로 test가 SDK의 reportProblem만 직접 부른 경우다. 그 보고는 실제 command 호출 안에서
-// 나지 않았으므로 선언 code의 실패 경로 근거가 아니다(problem-codes#R9). 보고가 접수됐는지는
+// 나지 않았으므로 선언 code의 실패 경로 근거가 아니다. 보고가 접수됐는지는
 // 관측하지만 expectation은 늘 충족되지 않는다.
 export async function observeDirectFailurePath(input: {
   driver: AppDriver;

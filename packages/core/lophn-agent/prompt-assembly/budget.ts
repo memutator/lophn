@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ModelLimits, WirePack } from "./model.ts";
 
-// 입력 예산과 전체 wire 크기다(R9). cache 적중도 창 점유를 줄이지 않으므로 빼지 않는다.
+// 입력 예산과 전체 wire 크기다. cache 적중도 창 점유를 줄이지 않으므로 빼지 않는다.
 
 // min(입력 한계, 전체 문맥 − 예약 출력). 예약 출력이 출력 한계를 넘거나 예산이 0 이하면 호출할 수 없다.
 export function inputBudget(

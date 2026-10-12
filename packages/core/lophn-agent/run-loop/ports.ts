@@ -52,7 +52,7 @@ export type RunContext = {
   purpose: string | null;
   run_facts: string | null;
   // 이 run의 요청 앞에 있던 session의 대화다. Compact한 session이면 요약과 그것이 덮은 구간 뒤의 원문이고,
-  // 덮은 구간의 원문은 이후 call의 입력에 넣지 않는다(prompt-assemble R3, R23).
+  // 덮은 구간의 원문은 이후 call의 입력에 넣지 않는다.
   session: SessionConversation;
   sources: readonly MaterialSource[];
   skills: readonly SkillEntry[];
@@ -84,7 +84,7 @@ export type ModelAttempt = {
 export type ModelPort = {
   // 선택한 provider adapter의 `buildRequest` 번역과 opaque 상태 byte 수(prompt-assemble의 pack).
   pack: WirePacker;
-  // provider·계정·model을 쓸 수 있는지. 끄면 새 call을 보내지 않는다(R25).
+  // provider·계정·model을 쓸 수 있는지. 끄면 새 call을 보내지 않는다.
   available(): Promise<boolean>;
   call(
     request: ModelCallRequest,
@@ -94,9 +94,9 @@ export type ModelPort = {
 
 export type ToolInfo = {
   effect: "read" | "write" | "external";
-  // 최초 호출의 중복 효과 없음이 계약으로 보장되는 쓰기인지(R24).
+  // 최초 호출의 중복 효과 없음이 계약으로 보장되는 쓰기인지.
   idempotent: boolean;
-  // 외부 MCP tool이면 그 서버 이름. 연결 제거 때 새 진입을 막는 단위다(R25).
+  // 외부 MCP tool이면 그 서버 이름. 연결 제거 때 새 진입을 막는 단위다.
   server: string | null;
 };
 
@@ -120,8 +120,7 @@ export type ToolDone = {
   status: "success" | "failure" | "uncertain" | "not_executed";
   code: string;
   result: ToolResult;
-  // 이 call이 만든 질문. 질문은 추정 답으로 진행하지 않으므로 run은 이 질문의 답을 기다린다
-  // (lophn-agent/harness/waiting-and-recovery R1).
+  // 이 call이 만든 질문. 질문은 추정 답으로 진행하지 않으므로 run은 이 질문의 답을 기다린다.
   asked?: string;
 };
 
@@ -228,7 +227,7 @@ export type LoopDeps = {
   abortGraceMs?: number;
 };
 
-// 저장된 경계에서 같은 run을 잇는 재료다(lophn-agent/harness/waiting-and-recovery R8, R9). 이력과
+// 저장된 경계에서 같은 run을 잇는 재료다. 이력과
 // 사실은 ledger에서 다시 만든 것이고, 이미 확정한 model 응답과 tool 결과는 다시 부르지 않는다.
 export type ResumeState = {
   history: HistoryMessage[];
@@ -246,7 +245,7 @@ export type ResumeState = {
     // 사람의 허락으로 진입이 이미 기록된 call: 요청 key → ToolCall ID. 판정 없이 실행한다.
     started: Record<string, string>;
   } | null;
-  // 일시 실패 뒤 retry를 기다리는 중이었다. 예정 시각과 쓴 횟수를 그대로 잇는다(R7).
+  // 일시 실패 뒤 retry를 기다리는 중이었다. 예정 시각과 쓴 횟수를 그대로 잇는다.
   retry: { previous: string; retries: number; retry_at: string | null } | null;
 };
 

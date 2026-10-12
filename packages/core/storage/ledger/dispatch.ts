@@ -15,7 +15,7 @@ import {
   handlerResult,
 } from "./command-outcome.ts";
 
-// 바깥 command 하나가 transaction을 연다. 안쪽 call은 새 transaction·commit을 만들지 않는다(R3).
+// 바깥 command 하나가 transaction을 연다. 안쪽 call은 새 transaction·commit을 만들지 않는다.
 export const CALL_MAX_DEPTH = 4;
 
 export type CommandDispatch = {
@@ -59,7 +59,7 @@ export function createCommandDispatch(
     }
     const checked = admit(definition.value, ctx, run, input, compare);
     if (!checked.ok) return checked;
-    // 안쪽 call도 바깥 run 판정을 다시 받는다. 끝난 run의 새 대상 변경은 거절한다(R11).
+    // 안쪽 call도 바깥 run 판정을 다시 받는다. 끝난 run의 새 대상 변경은 거절한다.
     const admitted = admitAgentRun(
       tx,
       request,

@@ -1,4 +1,4 @@
-// `problems.work` 반응기의 core loopback HTTP 통로(problems#T19). test-runner worker가 hello가 준
+// `problems.work` 반응기의 core loopback HTTP 통로. test-runner worker가 hello가 준
 // machine credential로 event 읽기·문제 기준 읽기·반응 command·cursor 전진을 낸다. ledger를 직접 열지
 // 않는다. fetch는 주입받는다(EXTERNAL_FETCH tripwire: bare fetch 대신 property 접근으로 넘긴다).
 import { err, ERROR_CODES, ok, type Result } from "../../../../base/mod.ts";

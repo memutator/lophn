@@ -14,7 +14,7 @@ import type { PreparedFile } from "../../../../protocol/lophn-agent/mod.ts";
 import type { FileStat, JudgedFile } from "./judge.ts";
 import type { RewindStore } from "./store.ts";
 
-// 문서 파일 복원의 transaction 밖 일이다(lophn-agent/revert "복원 쓰기", R17). 순서는 관측 →
+// 문서 파일 복원의 transaction 밖 일이다(lophn-agent/revert "복원 쓰기"). 순서는 관측 →
 // prepareRestore → (Rewind command) → installRestore다. 파일 일은 모두 async API다: core가 import하는
 // 모듈이라 동기 file API를 두지 않는다(동기 관측은 prepare.ts, reader Worker용). root는 project 폴더의
 // 절대 경로이고 path는 그 기준 상대 경로다.

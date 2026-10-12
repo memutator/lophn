@@ -1,5 +1,5 @@
 // 현재 RuntimeState와 최대 200줄 log의 read. ledger write queue를 거치지 않는다.
-// 관측·log source는 조립이 주입하고, 없으면 null·none으로 명시한다(R13, R14).
+// 관측·log source는 조립이 주입하고, 없으면 null·none으로 명시한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
@@ -48,9 +48,9 @@ export type RuntimeLogSource = (
 } | undefined;
 
 export type RuntimeReadDeps = {
-  // 현재 supervisor 관측. 없으면 observation은 null이다(R13).
+  // 현재 supervisor 관측. 없으면 observation은 null이다.
   observation?: RuntimeObservationSource;
-  // supervisor log buffer 조회. 없으면 state는 none이다(R26).
+  // supervisor log buffer 조회. 없으면 state는 none이다.
   logs?: RuntimeLogSource;
 };
 
@@ -76,7 +76,7 @@ export function createRuntimeReads(
         const source = deps.observation?.(input.app);
         const observation = source?.observation ?? null;
         const observed_at = source?.observed_at ?? null;
-        // 관측이 없으면 과거 event만으로 running이라 하지 않는다(R13).
+        // 관측이 없으면 과거 event만으로 running이라 하지 않는다.
         const state: RuntimeState = projection(app.value, observation);
         return ok({
           app: app.value.id,
@@ -107,7 +107,7 @@ export function createRuntimeReads(
         if (denied(access)) return notFound();
         if (!access.ok) return access;
         const limit = input.limit ?? DEFAULT_LOG_LIMIT;
-        // source 없음. 존재하지 않는 수집 값을 만들지 않는다(R14).
+        // source 없음. 존재하지 않는 수집 값을 만들지 않는다.
         const feed = deps.logs?.(input.app, {
           invocation: input.invocation,
           limit,
@@ -141,7 +141,7 @@ export type MainRead = (
 ) => Result<unknown> | Promise<Result<unknown>>;
 
 // 메인 스레드에서만 닿는 supervisor 메모리. reader Worker는 이 값을 볼 수 없어서 reader가 먼저
-// 접근 판정과 ledger 기준 값을 만들고, 메인이 현재 관측·log로 덮는다(R13, R14).
+// 접근 판정과 ledger 기준 값을 만들고, 메인이 현재 관측·log로 덮는다.
 export type RuntimeSources = {
   // 질의가 실패하면 그 관측은 없는 것이다. 과거 event로 생존을 추정하지 않는다.
   observation(app: string): Promise<Result<RuntimeObservation | null>>;
@@ -224,7 +224,7 @@ export function withRuntimeLogs(
       ...(query.max_bytes === undefined ? {} : { max_bytes: query.max_bytes }),
       ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
     });
-    // supervisor에 닿지 못하면 source가 없는 것이다. 없는 log를 만들지 않는다(R14).
+    // supervisor에 닿지 못하면 source가 없는 것이다. 없는 log를 만들지 않는다.
     if (!feed.ok) return pooled;
     const lines: string[] = [];
     for (const line of feed.value.lines) {

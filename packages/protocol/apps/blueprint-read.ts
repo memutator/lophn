@@ -7,7 +7,7 @@ import { appIdSchema } from "../projects/values.ts";
 import { appInputSchema, releaseIdSchema } from "./apps.ts";
 import { permissionRequirementSchema } from "./permissions.ts";
 
-// 앱 하나의 active release 고정 blueprint를 사람과 agent가 읽는 모양이다(apps/blueprint#R2·R3).
+// 앱 하나의 active release 고정 blueprint를 사람과 agent가 읽는 모양이다.
 // 선언 전체가 아니라 command·화면·automation의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
 // 없는 앱은 같은 not_found로 답한다.
 export const appBlueprintCommandSchema = z.object({
@@ -43,7 +43,7 @@ export const appBlueprintAutomationSchema = z.object({
   ]),
 });
 
-// 화면 context 선언의 읽는 모양이다(apps/agent-context#R1). 화면마다 상태를 읽는 command와 주석을 받는
+// 화면 context 선언의 읽는 모양이다. 화면마다 상태를 읽는 command와 주석을 받는
 // 자리·write command만 싣는다. 민감 칸 path는 앱 host의 제거 규칙이라 읽는 쪽에 싣지 않는다.
 export const appBlueprintAgentContextSchema = z.object({
   screen: z.string().min(1),
@@ -59,7 +59,7 @@ export type AppBlueprintAgentContext = z.infer<
 >;
 
 // 설명·구조 검증·실제 test 통과는 서로 다른 근거다. 설명이 완성됐거나 구조가 맞다는 것만으로
-// test 성공을 표시하지 않는다(apps/blueprint#R3).
+// test 성공을 표시하지 않는다.
 export const appBlueprintEvidenceSchema = z.object({
   description: z.object({
     complete: z.boolean(),

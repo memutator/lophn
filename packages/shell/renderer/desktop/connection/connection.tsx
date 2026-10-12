@@ -64,7 +64,7 @@ export interface ConnectionGateProps {
 }
 
 // 준비 전·실패는 본문 대신 640px 기둥에 놓인다. 준비 전은 자리 모양만, 실패는 다음 행동
-// 하나를 보인다(desktop#R7, wording#R10). 이전 lophn의 DaemonGate 모양이다.
+// 하나를 보인다. 이전 lophn의 DaemonGate 모양이다.
 export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   if (connection.state === "failed") {
     return (
@@ -125,7 +125,7 @@ export interface ConnectionNoticeProps {
   formatTime?: (confirmedAt: number) => string;
 }
 
-// 단절은 마지막 화면을 그대로 두고 위에 한 줄로 최신 확인 못함·확인 시각·다시 연결을 보인다(desktop#R7).
+// 단절은 마지막 화면을 그대로 두고 위에 한 줄로 최신 확인 못함·확인 시각·다시 연결을 보인다.
 export function ConnectionNotice(
   { connection, onRetry, formatTime = absoluteTime }: ConnectionNoticeProps,
 ) {
@@ -173,7 +173,7 @@ export interface ProviderNoticeProps {
 }
 
 // provider 끊김: 로컬 문서·앱·터미널은 그대로 두고 대화에만 필요한 행동 한 줄(설정으로
-// 연결·다시 연결)을 보인다(desktop#R7). core가 준비되지 않았거나 아직 읽지 못했으면 null이다.
+// 연결·다시 연결)을 보인다. core가 준비되지 않았거나 아직 읽지 못했으면 null이다.
 export function ProviderNotice(
   { facts, onSettings, onRefresh }: ProviderNoticeProps,
 ) {

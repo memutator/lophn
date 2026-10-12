@@ -1,4 +1,4 @@
-// helper `lophn-credential`의 처리 본문이다(coding-agent/connection#R17, platform/identity#R15).
+// helper `lophn-credential`의 처리 본문이다.
 // 설치 묶음의 compile binary가 이 파일만 담는다. 그래서 의존성이 없고 상수는 계약
 // (contracts/coding-agent connection-auth)과 같은 값이며 테스트가 같은지 본다.
 //

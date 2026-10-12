@@ -1,4 +1,4 @@
-// activation 단계의 port와 한 단계씩의 일(apps/releases#R13, R14, apps/data#R4, R11). 이 모듈은 supervisor·
+// activation 단계의 port와 한 단계씩의 일. 이 모듈은 supervisor·
 // data worker·core command를 직접 부르지 않고 port로만 부른다. 조립(apps/app-supervisor)이 실제 구현을
 // 끼우고 시험은 같은 port의 대역을 끼운다. port는 던지지 않고 Result를 낸다: 던지는 것은 부른 쪽 process가
 // 끊긴 것이라 이 모듈이 삼키지 않는다(끊긴 시도는 `recoverActivation`이 ledger와 실제 관측으로 잇는다).
@@ -136,7 +136,7 @@ export async function quiesce(
   return await ports.supervisor.stopCandidate(app);
 }
 
-// 종료를 확인한 앱 DB가 시작 때의 schema 그대로이고 온전한지 본다(apps/releases#R12).
+// 종료를 확인한 앱 DB가 시작 때의 schema 그대로이고 온전한지 본다.
 export async function schemaIsExpected(
   ports: ActivationPorts,
   attempt: Attempt,

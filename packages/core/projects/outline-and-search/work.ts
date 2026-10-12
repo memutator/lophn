@@ -273,7 +273,7 @@ function writeEvent(
   });
 }
 
-// 낡은 index 행이 있어도 현재 ledger 상태의 보관 문서는 기본 결과에서 뺀다(R17).
+// 낡은 index 행이 있어도 현재 ledger 상태의 보관 문서는 기본 결과에서 뺀다.
 // 실패 판은 이유를 남기고 cursor가 진행해도 omissions로 돌려준다.
 function pendingOmissions(
   sql: DerivedRead["sql"],

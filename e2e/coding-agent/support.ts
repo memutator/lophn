@@ -1,4 +1,4 @@
-// coding-agent slice E2E 자리(coding-agent#T41). harness home·PATH·lophn CLI를 시험 temp dir에만
+// coding-agent slice E2E 자리. harness home·PATH·lophn CLI를 시험 temp dir에만
 // 둔다. PATH는 fixture bin과 deno·시스템 dir뿐이라 사람이 설치한 실제 coding agent 제품
 // (~/.local/bin 같은 자리)을 감지·실행하지 않는다. HOME도 temp라 ~/.codex·~/.claude는 비어 있다.
 import { dirname, join } from "node:path";

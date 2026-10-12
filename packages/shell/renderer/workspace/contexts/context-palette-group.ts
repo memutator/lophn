@@ -1,4 +1,4 @@
-// 상단 검색(Ctrl+K) 팔레트의 "Contexts" 묶음(shell/workspace#R31). context 이름이 후보가 되고
+// 상단 검색(Ctrl+K) 팔레트의 "Contexts" 묶음. context 이름이 후보가 되고
 // 고르면 그 Context 탭을 연다. 팔레트 자체는 design의 Palette이고 이 함수가 그 항목을 만든다.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 이 파일은 아래 key만 t()로 쓴다:
 //   contexts.label.palette-detail

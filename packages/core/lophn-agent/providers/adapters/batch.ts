@@ -1,4 +1,4 @@
-// batch(JSON) 응답 본문을 stream과 같은 frame 열로 옮긴다(provider#R25). 성공 응답이
+// batch(JSON) 응답 본문을 stream과 같은 frame 열로 옮긴다. 성공 응답이
 // SSE가 아니라 한 덩어리 JSON으로 와도(stream을 무시하는 호환 서버·고정 응답 서버)
 // 같은 collector와 판정 표를 쓰게 하려는 것이다. 판정 규칙을 둘로 나누지 않는다.
 // 읽을 수 없는 본문은 null이다. 호출자는 원인 불명으로 둔다.
@@ -58,7 +58,7 @@ function messagesFrames(root: Json): SseFrame[] {
         },
       }));
     } else {
-      // thinking 같은 사람이 읽을 본문 block은 버린다(R25).
+      // thinking 같은 사람이 읽을 본문 block은 버린다.
       continue;
     }
     frames.push(frame("content_block_stop", {

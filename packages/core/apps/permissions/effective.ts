@@ -6,7 +6,7 @@ import type {
 } from "../../../protocol/apps/mod.ts";
 import type { AppDeclarations } from "./declarations.ts";
 
-// 실행 범위 = 현재 release 요구 ∩ 현재 active grant(apps/permissions#R2).
+// 실행 범위 = 현재 release 요구 ∩ 현재 active grant.
 // 읽는 쪽(supervisor·broker)이 grants.list의 결과와 현재 선언으로 계산한다. 이 함수는 IO가 없다.
 
 type AccessKind = Exclude<

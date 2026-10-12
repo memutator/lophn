@@ -1,4 +1,4 @@
-// 시각 블록 틀(shell/workspace#R12, R13). 제목·설명·관측 시각·출처와 내용 또는 이용 불가 이유,
+// 시각 블록 틀. 제목·설명·관측 시각·출처와 내용 또는 이용 불가 이유,
 // [Save as document]와 저장 뒤 고정 문서 링크를 한 자리에 둔다. 블록마다 따로 검사하고 따로 그려
 // 한 블록의 실패·빈 값·열 수 없는 출처가 다른 블록이나 입력을 막지 않는다. 틀은 focus를 스스로
 // 옮기지 않고 scroll을 건드리지 않는다.
@@ -261,7 +261,7 @@ export function VisualBlock({ message, block, host }: VisualBlockProps) {
       />
     );
   } else {
-    // 앱 카드는 그 앱의 card 화면을 main이 연 앱 frame으로 보인다(shell#T44).
+    // 앱 카드는 그 앱의 card 화면을 main이 연 앱 frame으로 보인다.
     content = (
       <AppCardBlock
         content={checked.content}

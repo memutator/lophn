@@ -1,4 +1,4 @@
-// series command의 route 표다(T12·T14, cli#R20). series는 자리별 목록·규칙·정렬된
+// series command의 route 표다. series는 자리별 목록·규칙·정렬된
 // 인스턴스·다음 key 제안만 읽는다. 새 series 등록 command는 없고 화면에서 한다.
 import {
   cliSeriesListSchema,

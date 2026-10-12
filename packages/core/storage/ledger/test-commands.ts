@@ -279,7 +279,7 @@ export const markAlphaCommand = defineSyncCommand(
   markAlpha,
   (tx, _ctx, input, compare) => {
     const current = alphaHead(tx, input.name);
-    // 기준이 있으면 지금 행과 비교한다. 하나라도 다르면 이 command만 거절한다(R12).
+    // 기준이 있으면 지금 행과 비교한다. 하나라도 다르면 이 command만 거절한다.
     if (compare?.seq !== undefined && compare.seq !== current) {
       return err({
         code: "conflict",

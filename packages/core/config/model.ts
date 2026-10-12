@@ -1,5 +1,5 @@
-// settings 병합·검증·resolve의 순수 함수(platform/settings#R8, R9, R11-R16). IO 없다.
-// 메시지는 항목·기대·고칠 방법만 알리고 secret 원문과 입력 문서 전체를 담지 않는다(R14).
+// settings 병합·검증·resolve의 순수 함수(R11-R16). IO 없다.
+// 메시지는 항목·기대·고칠 방법만 알리고 secret 원문과 입력 문서 전체를 담지 않는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import { matchCredential } from "../../base/redaction/mod.ts";
@@ -80,7 +80,7 @@ function typeName(schema: unknown): string {
     : "unknown";
 }
 
-// value_type의 껍질을 벗긴 뒤 object면 항목별, array면 전체, 그 외 scalar 교체다(R8, R9).
+// value_type의 껍질을 벗긴 뒤 object면 항목별, array면 전체, 그 외 scalar 교체다.
 function valueShape(definition: SettingDefinition): {
   kind: "object" | "array" | "scalar";
   type: string;
@@ -174,7 +174,7 @@ export function effectiveSetting(
   };
 }
 
-// 한 층의 문법·알려진 항목·타입·범위·허용 층을 먼저 검사한다(R11, R12).
+// 한 층의 문법·알려진 항목·타입·범위·허용 층을 먼저 검사한다.
 export function validateChoice(
   definitions: readonly SettingDefinition[],
   choice: unknown,
@@ -358,7 +358,7 @@ export function validateConstraints(
   return ok(undefined);
 }
 
-// 소유 concern의 검증이 필요한 항목은 대상 관계를 이 모듈이 끝내지 않는다(R13).
+// 소유 concern의 검증이 필요한 항목은 대상 관계를 이 모듈이 끝내지 않는다.
 export function requiresOwnerCheck(
   definition: SettingDefinition,
 ): boolean {
@@ -369,7 +369,7 @@ export function requiresOwnerCheck(
   );
 }
 
-// 오프라인 미확인은 constraints가 허용할 때만 받는다(R13).
+// 오프라인 미확인은 constraints가 허용할 때만 받는다.
 export function offlineAllowed(
   definition: SettingDefinition,
   resolved: { offline_unconfirmed?: boolean },

@@ -136,7 +136,7 @@ export const runBody = defineRead({
 // 사람 화면이 열어 보는 같은 저장 본문(run 근거·tool 입력·tool 결과)이다. ReadRunBody와 달리 사람만
 // 읽고, core가 지금의 redaction(고정 검출 규칙과 알려진 secret 값)을 한 번 더 거친 값만 준다. 안전화를
 // 끝내지 못하면 값을 주지 않는다. model 응답은 판단 요약이 아니라 사고 원문일 수 있어 사람에게 열지
-// 않는다(observability#R22). 값이 상한을 넘으면 JSON 글의 앞부분만 주고 `truncated`로 알린다.
+// 않는다. 값이 상한을 넘으면 JSON 글의 앞부분만 주고 `truncated`로 알린다.
 // 범위 밖 대상은 없는 대상과 똑같이 not_found다.
 export const RUN_BODY_VIEW_KINDS = [
   "run_basis",

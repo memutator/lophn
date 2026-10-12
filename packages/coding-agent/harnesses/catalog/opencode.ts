@@ -1,4 +1,4 @@
-// OpenCode의 배포 catalog다(coding-agent/harnesses#R1, T30). 위치·format은
+// OpenCode의 배포 catalog다. 위치·format은
 // docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고
 // 검증 근거는 docs/research/coding-agent-harness-integration.md 9절이다.
 import {

@@ -1,4 +1,4 @@
-// grant 변경의 적용 순서다(apps/permissions#R20, R21, R22, R29). 새 호출 차단 -> 기존 자식 종료 확인
+// grant 변경의 적용 순서다. 새 호출 차단 -> 기존 자식 종료 확인
 // -> 새 범위로 재시작. 종료를 확인하지 못하면 새 자식을 띄우지 않고 회수도 완료로 표시하지 않는다.
 // 이미 한 업무 쓰기나 외부 전송을 취소하지 않는다. 막는 것은 앞으로의 접근뿐이다.
 import { type LophnError, ok, type Result } from "../../../../base/mod.ts";
@@ -57,7 +57,7 @@ export type GrantApplier = {
   created(grant: Pick<Grant, "app" | "kind">): Promise<ApplyOutcome>;
   // 회수 요청. 종료 확인 뒤에만 core가 revoked로 확정한다.
   revoke(grant: Pick<Grant, "id" | "app" | "kind">): Promise<ApplyOutcome>;
-  // secret 값 교체·삭제. 사용 앱을 종료 확인과 새 nonce로 다시 시작한다(R17).
+  // secret 값 교체·삭제. 사용 앱을 종료 확인과 새 nonce로 다시 시작한다.
   secretChanged(
     name: string,
   ): Promise<Result<{ app: string; outcome: ApplyOutcome }[]>>;
@@ -129,7 +129,7 @@ export function createGrantApplier(deps: ApplyGrantDeps): GrantApplier {
         }
         block(grant.app);
         const stopped = await deps.processes.stop(grant.app);
-        // 종료를 확인하지 못하면 통로를 끊었다는 이유만으로 회수 완료라고 하지 않는다(R21).
+        // 종료를 확인하지 못하면 통로를 끊었다는 이유만으로 회수 완료라고 하지 않는다.
         if (!stopped.confirmed) {
           return { state: "in_progress", reason: UNCONFIRMED };
         }

@@ -22,7 +22,7 @@ export type AutomationSpec = {
   input?: unknown;
 };
 
-// 회차를 시작하지 못한 이유. invocation이 아니라 시작하지 못했다는 사실이다(apps/automations#R10).
+// 회차를 시작하지 못한 이유. invocation이 아니라 시작하지 못했다는 사실이다.
 export type SkipReason =
   | "channel_closed"
   | "schema_mismatch"
@@ -127,7 +127,7 @@ export function createAutomationClock(options: {
   async function fire(entry: Entry): Promise<void> {
     if (!ports.open()) return skip(entry, "channel_closed");
     if (!ports.schemaOk()) return skip(entry, "schema_mismatch");
-    // 동기 구간에서 먼저 점유해 같은 key의 두 회차가 겹치지 않게 한다(R5).
+    // 동기 구간에서 먼저 점유해 같은 key의 두 회차가 겹치지 않게 한다.
     if (entry.running !== null) return skip(entry, "in_progress");
     entry.running = "pending";
     try {
@@ -159,7 +159,7 @@ export function createAutomationClock(options: {
       const stopTimer = ports.after(acquired.timeout_ms, () => {
         started.timedOut();
       });
-      // 실제 handler 종료 때만 점유를 푼다. timeout은 점유를 풀지 않는다(R6, R9).
+      // 실제 handler 종료 때만 점유를 푼다. timeout은 점유를 풀지 않는다.
       void started.done.catch(() => undefined).finally(() => {
         stopTimer();
         entry.running = null;
@@ -182,7 +182,7 @@ export function createAutomationClock(options: {
         when.kind !== "interval" || entry.next_tick === null ||
         now < entry.next_tick
       ) continue;
-      // 가장 가까운 지난 배수만 본다. 그 회차가 지연 한계를 넘었으면 복귀 전 놓친 것이다(R7).
+      // 가장 가까운 지난 배수만 본다. 그 회차가 지연 한계를 넘었으면 복귀 전 놓친 것이다.
       const turns = Math.floor((now - startedTick) / when.interval_ms);
       const turnTick = startedTick + turns * when.interval_ms;
       entry.next_tick = turnTick + when.interval_ms;
@@ -207,7 +207,7 @@ export function createAutomationClock(options: {
         if (entry.spec.when.kind !== "on_start" || entry.on_start_fired) {
           continue;
         }
-        // 시작 회차는 접수 결과와 상관없이 한 번뿐이다. 재시작이 새 시작이다(R3).
+        // 시작 회차는 접수 결과와 상관없이 한 번뿐이다. 재시작이 새 시작이다.
         entry.on_start_fired = true;
         void fire(entry);
       }

@@ -1,5 +1,5 @@
-// context series kind의 다음 이름 읽기 tool(lophn-agent/harness/tools#R24)이다. 옛 series 가족 읽기 통로
-// (`series.next`, documents/series#R9)를 대체한다. 문서를 만들거나 series를 등록·변경하지 않고 이름만
+// context series kind의 다음 이름 읽기 tool이다. 옛 series 가족 읽기 통로
+// (`series.next`)를 대체한다. 문서를 만들거나 series를 등록·변경하지 않고 이름만
 // 돌려준다. 문서를 저장하는 일은 각 역할의 문서 저장 범위를 따르는 다른 tool의 몫이다.
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";

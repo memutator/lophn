@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 
-// 숨김 구간과 접힘 구간(lophn-agent/revert "Revert 불변 조건", conversation#R25). Message는 바꾸지 않고
+// 숨김 구간과 접힘 구간(lophn-agent/revert "Revert 불변 조건"). Message는 바꾸지 않고
 // reverts 행에서 읽는다.
 //
 // 숨김 구간은 rewind가 적용된 순간 있던 메시지, 곧 boundary_seq부터 그 결과 event(result_seq)까지다. 그

@@ -23,7 +23,7 @@ import {
 // 문제 해석 참조 설정 묶음(concern harness/tools R8). tool 하나는 소유 contract
 // 하나다(problems/grouping의 LinkProblemInterpretation, ToolCall과 같은 transaction에서
 // tx.call로 부른다). 연결은 해석 문서의 고정 version·절 참조뿐이고 문제 상태(claim·닫힘)는
-// command가 바꾸지 않는다(roles/app-engineer#R15).
+// command가 바꾸지 않는다.
 //
 // version 존재·호출자 읽기 가능·절 존재는 command가 보지 않으므로 handler가 command
 // 전에 읽어 확인한다(problems#T19에서 넘어온 것). reader는 documents의 get(version
@@ -36,10 +36,10 @@ export const PROBLEM_INTERPRETATION_TOOL_REVISION = "2026-10-08";
 
 const setInput = z.strictObject({
   problem: linkProblemInterpretationInputSchema.shape.problem,
-  // 해석 문서의 ID다. version·절 참조는 이 해석 문서의 판을 가리킨다(R15).
+  // 해석 문서의 ID다. version·절 참조는 이 해석 문서의 판을 가리킨다.
   document: documentGet.input.shape.document,
   interpretation: interpretationLinkInputSchema.nullable(),
-  // 연결의 해설이다(R14). 이전 참조와 다음 참조가 왜 연결되는지 남긴다.
+  // 연결의 해설이다. 이전 참조와 다음 참조가 왜 연결되는지 남긴다.
   explanation: z.string().regex(/\S/).max(500),
 });
 
@@ -88,7 +88,7 @@ function readerOf(
         run,
       );
       if (!read.ok) {
-        // 없는 version과 읽기 권한 밖은 같은 false다(problems/grouping#R13).
+        // 없는 version과 읽기 권한 밖은 같은 false다.
         return read.error.code === "not_found" ? ok(false) : read;
       }
       const versionId = (read.value as { version?: { id?: unknown } }).version
@@ -107,7 +107,7 @@ function readerOf(
   };
 }
 
-// command 전 read 단계의 검사(problems/grouping#R13, problems#T19에서 넘어온 것).
+// command 전 read 단계의 검사(problems#T19에서 넘어온 것).
 // 연결할 version과 절이 readable이고 found일 때만 통과한다.
 async function checkLink(
   reader: LinkReader,

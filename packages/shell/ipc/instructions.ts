@@ -1,4 +1,4 @@
-// 지침 파일([Instructions])을 같은 편집기로 여는 경계(shell/editor#R17). renderer는 층(전역·project·app)과
+// 지침 파일([Instructions])을 같은 편집기로 여는 경계. renderer는 층(전역·project·app)과
 // 그 자리 id만 보낸다. exact 등록 경로·instruction target 이름은 main이 resolve하고 renderer에는
 // 문서 id만 돌려준다. 파일이 아직 없으면 문서도 없고, 사람의 첫 저장이 파일을 만든다.
 import { z } from "zod";

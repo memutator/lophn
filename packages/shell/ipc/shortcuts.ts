@@ -6,7 +6,7 @@
 export const WINDOW_SHORTCUT_CHANNEL = "shell:shortcut";
 
 /**
- * 창 안에서만 듣는 키(shell/desktop#R18). 전역 팔레트 CommandOrControl+Shift+K는
+ * 창 안에서만 듣는 키. 전역 팔레트 CommandOrControl+Shift+K는
  * 전역 등록이 맡고(main/desktop/global-shortcut.ts) 이 표에 넣지 않는다. 전역 Ctrl+K는
  * 어디서도 등록하지 않는다.
  */
@@ -25,7 +25,7 @@ export interface ShortcutApi {
   subscribe(listener: (shortcut: WindowShortcut) => void): () => void;
 }
 
-/** OS 전역 단축키 하나(shell#T56). main만 등록하고 renderer는 키 이름을 그릴 때만 본다. */
+/** OS 전역 단축키 하나. main만 등록하고 renderer는 키 이름을 그릴 때만 본다. */
 export const GLOBAL_PALETTE_ACCELERATOR = "CommandOrControl+Shift+K";
 
 /** main이 창 하나를 앞으로 가져온 뒤 그 shell renderer로 보내는 channel. */
@@ -38,7 +38,7 @@ export const DESKTOP_INTENT_CHANNEL = "shell:intent";
 export const DESKTOP_INTENTS = ["global-palette", "things-to-confirm"] as const;
 
 /**
- * `lophn://things-to-confirm/<id>` 링크(desktop#R14). things-to-confirm에서 그 요청을 고른
+ * `lophn://things-to-confirm/<id>` 링크. things-to-confirm에서 그 요청을 고른
  * 화면을 연다. confirmation window는 열지 않는다(사람이 그 화면에서 누를 때 연다).
  */
 export interface ConfirmTargetIntent {
@@ -47,7 +47,7 @@ export interface ConfirmTargetIntent {
 }
 
 /**
- * [Report a problem]으로 접수된 feedback이 묶인 Issue(problems/feedback#R13). 그 앱 공간을 연다.
+ * [Report a problem]으로 접수된 feedback이 묶인 Issue. 그 앱 공간을 연다.
  * 앱·문제 ID는 main이 접수 결과에서 정하고 화면에는 보이지 않는다.
  */
 export interface AppIssueIntent {

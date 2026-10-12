@@ -12,8 +12,8 @@
 //   backoff로 재시도한다. 참조가 하나도 없으면 keychain을 열지 않는다.
 // - keychain이 없는 환경은 secret 기능만 unavailable이다. 파일 볼트·환경 변수 fallback은 없다.
 // - 회수 대상 owner(provider credential)의 참조가 ledger에서 사라지면 그 값을 OS keychain에서도
-//   지운다(platform/secrets#R7, provider#R6). ledger transaction과 keychain 삭제는 같은 원자 작업이
-//   아니므로 확정 뒤에 지우고, 지우지 못한 값은 시작 때와 주기 쓸기가 다시 지운다(R6).
+//   지운다. ledger transaction과 keychain 삭제는 같은 원자 작업이
+//   아니므로 확정 뒤에 지우고, 지우지 못한 값은 시작 때와 주기 쓸기가 다시 지운다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type CommandEnvelope,

@@ -1,8 +1,8 @@
-// 앱 패널·카드 위의 shell 크롬(shell/app-frame#R34). 앱 이름·모드·연결 상태와 그 view에 묶인
+// 앱 패널·카드 위의 shell 크롬. 앱 이름·모드·연결 상태와 그 view에 묶인
 // [Report a problem]을 앱 bounds 밖 shell renderer에 둔다. 앱 화면이 멈추거나 깨져도 이 줄은
 // shell이 그리므로 그대로 동작한다. 버튼은 이 크롬이 감싼 view_session 하나에만 묶인다.
 // 화면이 멈추거나 crash하면 그 상태와 [Open again]을 둔다. 새 view는 사람이 누를 때만 지금
-// 연결로 연다(shell/app-frame#R21, architecture/shell 실패 표).
+// 연결로 연다(architecture/shell 실패 표).
 import { Button, StatusMark } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 

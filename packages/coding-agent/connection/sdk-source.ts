@@ -1,4 +1,4 @@
-// CLI `sdk add --apply`의 앱 source 파일 통로다(T22·T36, mcp#R23, cli#R30). 이 통로는 앱 source의
+// CLI `sdk add --apply`의 앱 source 파일 통로다. 이 통로는 앱 source의
 // `deno.json` 한 파일만 읽고 쓰고, 이어서 설치된 Deno 하나로 `deno.lock`을 다시 만든다. 일반 파일
 // 쓰기·실행이 아니다: 실행 권한은 `--allow-write=<source>/deno.json,<source>/deno.lock`·
 // `--allow-run=<설치 Deno>`의 정확한 경로이고(MCP에는 이 통로가 없다), 이 port는 그 밖의 파일 이름과

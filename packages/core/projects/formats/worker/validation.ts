@@ -1,4 +1,4 @@
-// 저장 준비의 format 검사(file-tracking#R5, versions#R4). core의 준비 route가 원문 바이트를
+// 저장 준비의 format 검사. core의 준비 route가 원문 바이트를
 // 감독 pipe의 byte chunk frame으로 보내고, 같은 channel을 가리키는 `documents.validate_files`
 // 요청을 보낸다. coordinator가 그 바이트를 format runner(권한 없는 QuickJS 호출 하나)에
 // 넘기고, runner 출력을 host가 다시 검사한 결과를 돌려준다. 바이트는 이 호출 동안만

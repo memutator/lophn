@@ -1,5 +1,5 @@
 // 줄 단위 diff의 순수 계산. 두 고정 판의 줄 목록을 bounded Myers 방식으로 비교해 변경
-// block을 낸다(documents/outline-and-search#R21). 파일·SQL·시각이 없다. 호출하는 쪽(reader
+// block을 낸다. 파일·SQL·시각이 없다. 호출하는 쪽(reader
 // Worker의 diff handler)이 core 밖에서 돌리고, 한 번의 응답은 변경 block 단위로 끊어
 // cursor로 이어 읽는다. 없는 줄을 지어내지 않는다: 계산 한도를 넘은 구간은 줄 수준의
 // 일치를 찾지 못한 채 "앞 구간 전부 삭제 + 뒤 구간 전부 추가"인 한 block이다(적용하면 같은

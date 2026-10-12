@@ -1,4 +1,4 @@
-// I/O worker의 settings 교환 경계(platform/settings#R3, R26).
+// I/O worker의 settings 교환 경계.
 // UTF-8 TOML 1.0 format version 1의 parse·redaction·stringify는 이 worker만 한다.
 // core는 해석 없이 bytes를 넘긴다. mutation의 항목·값·층·비교 기준 검사와 적용은
 // ApplySettings command의 몫이다. 이 pipe는 문서 모양만 만든다.
@@ -37,7 +37,7 @@ type SettingsPipeErrorCode = ErrorCode;
 
 export type SettingsPipe = {
   // bytes callback은 core가 교환 문서 bytes를 메모리로 넘길 때 부른다.
-  // parse·stringify 밖에 IO·치환·실행 경로는 없다(R3).
+  // parse·stringify 밖에 IO·치환·실행 경로는 없다.
   handle(
     request: SettingsPipeRequest,
     bytes: () => Promise<Uint8Array | undefined>,
@@ -73,7 +73,7 @@ export function createSettingsPipe(_deps: SettingsPipeDeps = {}): SettingsPipe {
         }
         let text: string;
         try {
-          // UTF-8이 아니면 전체 거절한다(R3).
+          // UTF-8이 아니면 전체 거절한다.
           text = new TextDecoder("utf-8", { fatal: true }).decode(raw);
         } catch {
           return failure(

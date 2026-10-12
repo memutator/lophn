@@ -18,7 +18,7 @@ export type ScenarioOptions = {
   target: string;
   warmup: number;
   repetitions: number;
-  /** 실패한 표본의 분류. 없으면 일반 요청이다(R10). */
+  /** 실패한 표본의 분류. 없으면 일반 요청이다. */
   exception?: RequestSample["exception"];
 };
 
@@ -49,7 +49,7 @@ export async function runScenario(
     const attempt = await send();
     const elapsed = clock.nowMs() - sentAt;
     const outcome: RequestOutcome = attempt.outcome;
-    // 실패한 시도는 reason을 예외 기록으로 남긴다(R10). 기록된 표본에 끝 상태가 있다.
+    // 실패한 시도는 reason을 예외 기록으로 남긴다. 기록된 표본에 끝 상태가 있다.
     const reason = attempt.outcome === "error" ? attempt.reason : undefined;
     samples.push({
       outcome,

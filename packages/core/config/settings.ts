@@ -1,7 +1,7 @@
 // platform이 만드는 settings registry 출처. 여러 팀이 같은 route(/v1/settings/*)에
 // 붙는 곳이라 registry는 platform 팀(code-map 의존 규칙)이 만든다. 각 팀은 자기
 // 등록 파일의 setting 항목만 고친다: coding-agent는 coding-agent.ts의 harness
-// 설정 3개다(platform/settings#R31). route는 contract ROUTES가 이미 고정하므로
+// 설정 3개다. route는 contract ROUTES가 이미 고정하므로
 // 여기서 route를 다시 등록하지 않는다. 설정값은 사람이 명시 apply한 선택과 ledger
 // 기록만 바꾼다.
 import {

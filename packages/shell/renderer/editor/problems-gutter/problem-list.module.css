@@ -1,4 +1,4 @@
-/* 형식 문제 목록: 최대 200px, 넘치면 scroll(shell/editor#R11). */
+/* 형식 문제 목록: 최대 200px, 넘치면 scroll. */
 .list {
   max-height: var(--editor-problem-list);
   margin-top: var(--space-8);

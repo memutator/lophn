@@ -1,4 +1,4 @@
-// 탭 kind registry의 renderer 쪽 모양이다(shell/workspace#R14). kind마다 파일 하나가 이름·layout
+// 탭 kind registry의 renderer 쪽 모양이다. kind마다 파일 하나가 이름·layout
 // 값 읽기와 쓰기·현재 보기 힌트·본문·열기 진입을 모두 선언하고, 탭 줄·layout map·view hint·칸은
 // 이 목록을 돌 뿐 kind 이름으로 가르지 않는다. kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { ReactNode } from "react";
@@ -47,7 +47,7 @@ export interface TabLauncher {
   available(host: TabHost): boolean;
   /**
    * 열 대상을 하나 골라야 하는 kind(Context)가 준다. 주면 단추는 이 목록의 메뉴를 열고 고른 항목
-   * 의 id로 open을 부른다(workspace#R15).
+   * 의 id로 open을 부른다.
    */
   choices?(host: TabHost): readonly LauncherChoice[];
   open(host: TabHost, choice?: string): void;
@@ -56,7 +56,7 @@ export interface TabLauncher {
 export interface TabKindDef {
   /** TabLayout.kind에 쓰는 이름. registry 안 유일. */
   readonly kind: string;
-  /** 탭 줄에 쓰는 종류 글자의 wording key(workspace#R1). */
+  /** 탭 줄에 쓰는 종류 글자의 wording key. */
   readonly labelKey: MessageKey;
   readonly icon: IconProps["icon"];
   /** 팔레트 탭 행의 아이콘. 없으면 일반 탭이다. */

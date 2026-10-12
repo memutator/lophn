@@ -128,7 +128,7 @@ export function DocumentPanel(
   const detail = loaded.detail;
   const reload = () => setAttempt((value) => value + 1);
 
-  // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다(addressing#R2).
+  // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다.
   const conflictKind = async (): Promise<Change> => {
     const again = await source.document(detail.id);
     return again.ok && again.value.revision === detail.revision

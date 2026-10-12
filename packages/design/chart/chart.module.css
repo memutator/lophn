@@ -208,7 +208,7 @@
   justify-content: flex-end;
 }
 
-/* 여러 행 tooltip은 popover 표면이고 값 글자는 중립색이다(shell/design-system#R41). */
+/* 여러 행 tooltip은 popover 표면이고 값 글자는 중립색이다. */
 .tooltip {
   display: grid;
   grid-template-columns: auto auto auto;

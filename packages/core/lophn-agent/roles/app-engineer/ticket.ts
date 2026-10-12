@@ -1,11 +1,11 @@
 import { missingForReady } from "../../tools/mod.ts";
 
-// App Engineer의 ticket 준비 검사(roles/app-engineer R16, R17, R22). 순수 함수다: IO·시계·model
+// App Engineer의 ticket 준비 검사. 순수 함수다: IO·시계·model
 // 호출이 없다. ticket 생성·전환은 harness/tools의 `ticket.create`·`ticket.make_ready`가, 준비 상태의
 // 소유 규칙은 coding-agent/tickets가 맡는다. 이 모듈은 무엇을 어떤 단위의 ticket으로 만들고 무엇이
-// 모자라 확인 필요로 남는지의 모양만 정한다. claim·시작·보고는 이 역할에 없다(R22).
+// 모자라 확인 필요로 남는지의 모양만 정한다. claim·시작·보고는 이 역할에 없다.
 
-// ticket 하나가 담는 요구의 상한이다(R17, 고정 결과 상한 "ticket 요구 6개").
+// ticket 하나가 담는 요구의 상한이다(고정 결과 상한 "ticket 요구 6개").
 export const TICKET_REQUIREMENT_MAX = 6;
 // 한 수리 ticket이 묶는 문제의 상한이다(contract 상한).
 export const REPAIR_PROBLEM_MAX = 12;
@@ -20,7 +20,7 @@ export type TicketUnit = {
   parts: number;
 };
 
-// 큰 일은 흐름 경계로 나누고 흐름 하나는 최대 6개 요구까지만 한 ticket에 둔다(R17). 한 흐름이
+// 큰 일은 흐름 경계로 나누고 흐름 하나는 최대 6개 요구까지만 한 ticket에 둔다. 한 흐름이
 // 6개를 넘으면 순서대로 6개씩 나눈다. 흐름의 처음 나온 순서와 요구의 입력 순서를 지킨다.
 export function splitTicketUnits(
   items: readonly FlowRequirement[],
@@ -57,7 +57,7 @@ export type TicketPreparation = {
   needs: string[];
 };
 
-// ticket 하나의 준비 상태다(R17). 채택한 고정 설계 근거(고정 참조)·채택 질문·실행 가능한
+// ticket 하나의 준비 상태다. 채택한 고정 설계 근거(고정 참조)·채택 질문·실행 가능한
 // acceptance check가 모두 있고 요구가 흐름 하나에 6개 이하일 때만 ready이고, 모자라면 ticket을 버리지
 // 않고 확인 필요 목록과 함께 needs_confirmation으로 남긴다.
 export function prepareTicket(input: {
@@ -81,7 +81,7 @@ export function prepareTicket(input: {
 
 export type RepairCandidate = {
   problem: string;
-  // 원인 가설과 알려진 해결 조건. 같은 둘이면 한 ticket으로 묶는다(R16).
+  // 원인 가설과 알려진 해결 조건. 같은 둘이면 한 ticket으로 묶는다.
   cause: string;
   resolution: string;
   // 가설을 근거로 확인했는지. 확인하지 못한 가설은 확인됨으로 쓰지 않는다.
@@ -97,7 +97,7 @@ export type RepairBundle = {
   needs: string[];
 };
 
-// 같은 원인 가설과 같은 해결 조건의 문제를 한 수리 묶음으로 묶는다(R16). 묶음은 문제 12개를 넘지
+// 같은 원인 가설과 같은 해결 조건의 문제를 한 수리 묶음으로 묶는다. 묶음은 문제 12개를 넘지
 // 않고 넘으면 순서대로 나눈다. 가설이 확인되지 않았거나 재현이 불가·미정인 문제가 하나라도 있으면
 // 그 묶음은 필요한 확인을 남긴다.
 export function bundleRepairs(
@@ -143,12 +143,12 @@ export type CodingRequest = {
 };
 
 // 직접 coding 요청·피드백·구현·수리는 모두 ticket이다. 설정 변경만 필요한 일은 coding ticket이
-// 아니다(R16): 설정은 사람이 정하는 경로로 안내한다.
+// 아니다: 설정은 사람이 정하는 경로로 안내한다.
 export function ticketRoute(request: CodingRequest): "ticket" | "setting" {
   return request.change === "setting_only" ? "setting" : "ticket";
 }
 
-// 사람이 [Start]를 누르거나 자기 터미널에서 직접 시작하는 일은 이 역할의 동작이 아니다(R22). 이
+// 사람이 [Start]를 누르거나 자기 터미널에서 직접 시작하는 일은 이 역할의 동작이 아니다. 이
 // 역할의 ticket 제공 이름 중 시작·claim·보고를 뜻하는 이름은 없어야 한다.
 export const TICKET_FORBIDDEN_TOOL_NAMES: readonly string[] = [
   "ticket.claim",

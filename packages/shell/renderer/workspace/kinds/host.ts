@@ -1,5 +1,5 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
-// 통로를 건드린다(shell/workspace#R14).
+// 통로를 건드린다.
 import type {
   CompareTarget,
   DocumentTabMeta,
@@ -49,13 +49,13 @@ export interface ContextsSlice {
   titleOf(context: string): string | undefined;
   /** context 목록 한 줄이 바뀌면 달라지는 표. 열린 Context 탭이 다시 읽을 때를 안다. 목록에 없으면 undefined. */
   stampOf(context: string): string | undefined;
-  /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다(R22). */
+  /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다. */
   openSearch(state: SearchTabState): void;
-  /** 검색 결과·Overview 예시의 도메인 객체를 그 문서 탭으로 연다(workspace#R26). */
+  /** 검색 결과·Overview 예시의 도메인 객체를 그 문서 탭으로 연다. */
   openPath(path: string): void;
   /** Context Engineer와 말하는 대화를 연다(오늘의 대화 도크). */
   askContextEngineer(): void;
-  /** [New context]. 대화를 열고 만드는 중인 context가 생기면 그 탭을 남긴다(workspace#R30). */
+  /** [New context]. 대화를 열고 만드는 중인 context가 생기면 그 탭을 남긴다. */
   newContext(): void;
 }
 
@@ -74,13 +74,13 @@ export interface AgentsSlice {
 export interface AgentViewSlice {
   /** agent와 자리로 그 agent의 source를 얻는다. */
   readonly factory: AgentViewSourceFactory;
-  /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다(desktop#R8). */
+  /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   readonly drafts: DraftStore;
   readonly ticks?: Ticks;
   readonly now?: () => number;
   /** 결과 링크와 편집 카드의 [Open]이 그 문서 탭을 연다. */
   openResult(document: string, version: string | null): void;
-  /** 대화 속 context 이름 링크가 그 Context 탭을 연다(R31). 통로가 없으면 링크를 그리지 않는다. */
+  /** 대화 속 context 이름 링크가 그 Context 탭을 연다. 통로가 없으면 링크를 그리지 않는다. */
   readonly contexts?: ContextLinks;
   /** Change defaults…와 `/skills`·`/mcp`가 lophn 공간의 Settings › Agents로 간다. */
   openSettings(): void;

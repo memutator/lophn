@@ -1,4 +1,4 @@
-// 창 열기 intent(shell/desktop#R13, R14). OS가 넘기는 실행 인자와 URL에서 읽는 것은
+// 창 열기 intent. OS가 넘기는 실행 인자와 URL에서 읽는 것은
 // `--quit`, `--open-app <app ID>`, `lophn://things-to-confirm/<id>` 셋뿐이다. 모양이 조금이라도
 // 다르면 아무 대상도 열지 않고 기본 창 요청으로 읽는다. 앱 코드·경로·token·port는 받을 자리가
 // 없다. 모양은 contracts/shell/launch.ts의 `launchIntentSchema`·`thingsToConfirmLinkSchema`다
@@ -15,7 +15,7 @@ const APP_ID = new RegExp(`^app_${ULID}$`);
 const CONFIRM_LINK = new RegExp(
   `^lophn://things-to-confirm/((?:apr|qst)_${ULID})$`,
 );
-// coding agent CLI가 사람 결정이 필요하다고 낼 때 가리키는 대상이다(coding-agent#T40, T25): 연결 회수
+// coding agent CLI가 사람 결정이 필요하다고 낼 때 가리키는 대상이다: 연결 회수
 // (`cac_`), ticket 취소(`tkt_`), ticket 생성(`app_`). 링크는 그 화면만 열고 아무것도 실행하지 않는다.
 const CODING_LINK = new RegExp(
   `^lophn://things-to-confirm/((?:cac|tkt|app)_${ULID})$`,
@@ -24,7 +24,7 @@ const CODING_LINK = new RegExp(
 export type OpenIntent =
   /** 대상 없는 새 기본 창. */
   | { kind: "window" }
-  /** 창 없는 종료 요청(desktop#R21). */
+  /** 창 없는 종료 요청. */
   | { kind: "quit" }
   /** 그 앱의 전용 창. */
   | { kind: "app"; app: string }

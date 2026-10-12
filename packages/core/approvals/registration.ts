@@ -1,4 +1,4 @@
-// approval의 core 등록(platform#T21, T22). schema·command·read·blob field를 한 자리에서 낸다.
+// approval의 core 등록. schema·command·read·blob field를 한 자리에서 낸다.
 // core writer가 teamModules로 이 파일을 다시 import하므로 createCoreRegistration만 둔다.
 
 import type { CommandRoute } from "../../protocol/base/mod.ts";

@@ -1,4 +1,4 @@
-// 판이 아직 없는 새 문서의 편집(flow write-series 2·5, shell/editor#R1, R2). 원본 파일도 working
+// 판이 아직 없는 새 문서의 편집(flow write-series 2·5). 원본 파일도 working
 // copy도 없어 입력 멈춤에 쓸 곳이 없다. 글은 이 창이 들고 있고, 편집 종료(읽기 전환·
 // CommandOrControl+S·화면 떠남·창 닫기)가 main의 편집 통로로 첫 판을 만든다. 첫 판 전의 작성은
 // 가족 draft(key·예정 문서)가 보존하고, 첫 판 저장이 같은 transaction에서 멤버 가입과 draft
@@ -10,7 +10,7 @@ import type { CreateReport, EditorReply } from "../../ipc/editor.ts";
  * draft: 첫 판이 아직 없다(글은 이 창에, key·예정 문서는 가족 draft에). saving: 첫 판을 만드는 중.
  * saved: 첫 판이 생겼다. conflict: 그 사이 key·가족이 바뀌어 저장하지 않았다. failed·offline:
  * 저장하지 않았다. unknown: 저장했는지 모른다. pending: 파일은 썼고 첫 판은 documents의 관측을
- * 기다린다(지침 파일의 첫 저장, shell/editor#R2·R17).
+ * 기다린다(지침 파일의 첫 저장).
  */
 export type DraftDocumentState =
   | "draft"

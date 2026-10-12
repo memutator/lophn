@@ -1,9 +1,8 @@
-// main이 창 밖에서 온 일로 이 창에 시키는 것(shell#T56). 전역 팔레트 키는 지금 공간과
-// 상관없이 lophn 전체 팔레트를 열고(창 안 팔레트는 지금 공간의 행을 여닫는다, desktop#R18),
-// OS notification 클릭은 things-to-confirm을 열 뿐 읽음·결정이 아니다(desktop#R10).
+// main이 창 밖에서 온 일로 이 창에 시키는 것. 전역 팔레트 키는 지금 공간과
+// 상관없이 lophn 전체 팔레트를 열고(창 안 팔레트는 지금 공간의 행을 여닫는다),
+// OS notification 클릭은 things-to-confirm을 열 뿐 읽음·결정이 아니다.
 // `lophn://things-to-confirm/<id>` 링크는 그 요청을 고른 things-to-confirm을 열고 confirmation
-// window는 열지 않는다(desktop#R14). [Report a problem]의 [View issue]는 그 앱 공간을 연다
-// (problems/feedback#R13).
+// window는 열지 않는다. [Report a problem]의 [View issue]는 그 앱 공간을 연다.
 import { useEffect, useRef } from "react";
 
 import type { IntentApi } from "../../ipc/shortcuts.ts";

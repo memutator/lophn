@@ -1,4 +1,4 @@
-// 막대 plot. 묶음·누적 막대와 분포가 같이 쓴다. 막대·점은 항목 tooltip이다(shell/design-system#R13).
+// 막대 plot. 묶음·누적 막대와 분포가 같이 쓴다. 막대·점은 항목 tooltip이다.
 // @ts-types="@types/d3-scale"
 import { scaleBand } from "d3-scale";
 import { axisNumber, type ChartLocale, exactNumber } from "./format.ts";

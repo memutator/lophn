@@ -1,4 +1,4 @@
-// coding TUI의 첫 prompt 전달(shell/terminal#R12, coding-agent/sessions#R5, R10).
+// coding TUI의 첫 prompt 전달.
 // argv 방식은 harness가 스스로 submit하므로 PTY에 입력을 쓰지 않는다. stdin_after_ready는 plan의
 // readiness 신호를 spawn부터 deadline_ms 안에 보면 정확히 한 번만 쓴다. 쓰기를 시도한 뒤에는 결과를
 // 확인하지 못하므로 재전송·재spawn·resume이 없다. 이 module은 contracts를 import하지 않는다.

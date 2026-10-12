@@ -13,7 +13,7 @@ import type { SchemaStep, SqlParam } from "../../../protocol/server/mod.ts";
 // (platform ledger schema와 같은 근원). 삭제는 RESTRICT로 사실을 남긴다.
 // run이 없는 call은 Compact의 요약 call이다. 요약 call은 run과 agent 대신 session을 가리키고
 // session을 지울 때 함께 지운다. provider는 Disconnect로 지워지므로 provider와 credential은
-// 외래 키가 아니라 그 시점의 값으로 남긴다(provider#R6).
+// 외래 키가 아니라 그 시점의 값으로 남긴다.
 
 export const usageSchemaSteps: readonly SchemaStep[] = [
   {
@@ -101,7 +101,7 @@ create index model_call_supplements_event
   },
 ];
 
-// setReadBigInts가 INTEGER 열을 bigint로 준다(platform/ledger#R9). handler가
+// setReadBigInts가 INTEGER 열을 bigint로 준다. handler가
 // 매개변수로 넘기는 STATE 열 값은 Number()-변환 후 그대로 쓴다.
 export type CallRow = Record<string, SqlParam>;
 
@@ -176,7 +176,7 @@ export function callFromRow(
   return record;
 }
 
-// 시작 기록은 run·purpose·target 별 한 번이다(R1).
+// 시작 기록은 run·purpose·target 별 한 번이다.
 export function assertCall(
   record: unknown,
 ): Result<ModelCallRecord> {

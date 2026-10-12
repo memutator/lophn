@@ -1,5 +1,5 @@
 // OS 사용자 환경에서 플랫폼이 만든 token·connection·handle·내부 endpoint를 뺀다.
-// 일반 shell에는 플랫폼 credential을 넣지 않는다(shell/terminal#R5).
+// 일반 shell에는 플랫폼 credential을 넣지 않는다.
 
 const SECRET_NAME =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|KEYCHAIN|HANDLE|API_KEY|AUTH)/i;

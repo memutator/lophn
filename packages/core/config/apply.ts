@@ -43,7 +43,7 @@ function readState(tx: Tx): StateRow {
   };
 }
 
-// 편집을 시작한 판이 현재 판이어야 한다(R19). 충돌하면 현재 판을 알려 다시 확인하게 한다.
+// 편집을 시작한 판이 현재 판이어야 한다. 충돌하면 현재 판을 알려 다시 확인하게 한다.
 function compareAgrees(
   state: StateRow,
   compare: { revision: number; defaults_revision: string },
@@ -101,7 +101,7 @@ function affectedConcerns(
   return [...owners].sort();
 }
 
-// 같은 layer·key 중복과 모르는 항목을 먼저 거절한다(R12, R18).
+// 같은 layer·key 중복과 모르는 항목을 먼저 거절한다.
 function prepareMutations(
   registry: SettingRegistry,
   mutations: readonly SettingMutation[],
@@ -134,9 +134,9 @@ export type SettingsBridge = {
   optionSource: SettingOptionSource;
 };
 
-// 모든 영향 concern의 적용값까지 검증한 뒤 전부 저장 또는 전부 거절한다(R17, R18).
+// 모든 영향 concern의 적용값까지 검증한 뒤 전부 저장 또는 전부 거절한다.
 // apply는 사람의 명시 apply 또는 사람 결정 근거를 검증한 machine apply만 받는다.
-// agent 제안·문서 변경은 이 route에 오지 않는다(R17, R29).
+// agent 제안·문서 변경은 이 route에 오지 않는다.
 export function createSettingsCommands(
   registry: SettingRegistry,
   bridge?: SettingsBridge,
@@ -148,8 +148,8 @@ export function createSettingsCommands(
     apply: {
       route: applySettings,
       handle(tx, ctx, input, compare) {
-        // 사람 apply는 user만이다(route actors). machine reload와 구별한다(R17).
-        // machine apply는 질문 고정 option action 근거를 검증한 것만 받는다(R29).
+        // 사람 apply는 user만이다(route actors). machine reload와 구별한다.
+        // machine apply는 질문 고정 option action 근거를 검증한 것만 받는다.
         const actor = ctx.actor;
         if (actor !== "user" && !actor.startsWith("user:")) {
           if (actor !== "machine") {
@@ -158,7 +158,7 @@ export function createSettingsCommands(
               message: "설정 apply는 user만 한다",
             });
           }
-          // 근거가 없는 machine apply는 사람 apply가 아니다(R29).
+          // 근거가 없는 machine apply는 사람 apply가 아니다.
           if (input.evidence === undefined) {
             return err({
               code: "forbidden",
@@ -166,7 +166,7 @@ export function createSettingsCommands(
             });
           }
           // 근거 판별. 사람이 실제 고른 option의 고정 action과 제출 변경 전체가
-          // 같아야 한 번 통과한다(R29). 답 없음·사람 아닌 답·다른 option은 거절이다.
+          // 같아야 한 번 통과한다. 답 없음·사람 아닌 답·다른 option은 거절이다.
           const verified = verifySettingEvidence(
             ctx,
             input.changes,
@@ -199,7 +199,7 @@ export function createSettingsCommands(
         const prepared = prepareMutations(registry, input.changes);
         if (!prepared.ok) return prepared;
         const mutations = prepared.value;
-        // 각 변경을 choice schema로 검사한다(R11, R15).
+        // 각 변경을 choice schema로 검사한다.
         const validated: {
           mutation: SettingMutation;
           choice: SettingChoice | undefined;
@@ -231,7 +231,7 @@ export function createSettingsCommands(
           // apply 뒤 이 항목의 값. delete는 선택이 없어진다.
           const after = mutation.action === "set" ? mutation.value : undefined;
           if (after === undefined) {
-            // 선택 삭제는 낮은 층을 따른다(R9). builtin 기본값이 없으면 검사하지 않는다.
+            // 선택 삭제는 낮은 층을 따른다. builtin 기본값이 없으면 검사하지 않는다.
             if (!definition.default_present) continue;
             const checked = validateResolved(
               definition,
@@ -243,7 +243,7 @@ export function createSettingsCommands(
           const checked = validateResolved(definition, after);
           if (!checked.ok) return checked;
         }
-        // 같은 내용으로 다시 apply하면 새 판이 아니다(R20).
+        // 같은 내용으로 다시 apply하면 새 판이 아니다.
         const changed = validated.some(({ mutation, choice }) => {
           const before = beforeChoices.get(mutation.key);
           if (mutation.action === "delete") return before !== undefined;
@@ -256,7 +256,7 @@ export function createSettingsCommands(
             applied: [],
           });
         }
-        // 바뀐 항목만 revision에 남긴다(R20).
+        // 바뀐 항목만 revision에 남긴다.
         const changedMutations = validated.filter(({ mutation, choice }) => {
           const before = beforeChoices.get(mutation.key);
           if (mutation.action === "delete") return before !== undefined;
@@ -299,7 +299,7 @@ export function createSettingsCommands(
             tx.now(),
           ],
         );
-        // 선택 원본은 setting_choices에만 둔다(R2). 적용값을 다시 저장하지 않는다.
+        // 선택 원본은 setting_choices에만 둔다. 적용값을 다시 저장하지 않는다.
         for (const { mutation, choice } of changedMutations) {
           if (mutation.action === "delete") {
             tx.sql.run(
@@ -352,12 +352,12 @@ export function createSettingsCommands(
           });
         }
         const state = readState(tx);
-        // reload는 저장 선택과 현재 내장 기본값을 처음부터 병합해 통째로 교체한다(R21).
+        // reload는 저장 선택과 현재 내장 기본값을 처음부터 병합해 통째로 교체한다.
         const choices = loadChoices(tx.sql);
         const keys = choices.map((choice) => choice.key);
         for (const choice of choices) {
           const definition = registry.definition(choice.key);
-          // 저장 선택이 현재 registry에 없으면 전체를 거절하고 마지막 성공 판을 유지한다(R22).
+          // 저장 선택이 현재 registry에 없으면 전체를 거절하고 마지막 성공 판을 유지한다.
           if (definition === undefined) {
             return err({
               code: "invalid_input",
@@ -373,13 +373,13 @@ export function createSettingsCommands(
           }
           const checked = validateChoice(registry.definitions, choice);
           if (!checked.ok) return checked;
-          // 병합 뒤 범위를 다시 검사한다(R22). 기본값이 바뀌어도 마지막 성공 판을 유지한다.
+          // 병합 뒤 범위를 다시 검사한다. 기본값이 바뀌어도 마지막 성공 판을 유지한다.
           if (definition.default_present) {
             const range = validateConstraints(definition, choice.value);
             if (!range.ok) return range;
           }
         }
-        // 선택과 registry 판이 마지막 성공 판과 같으면 새 판이 아니다(R20).
+        // 선택과 registry 판이 마지막 성공 판과 같으면 새 판이 아니다.
         if (state.defaults_revision === registry.defaultsRevision) {
           return ok({
             revision: state.revision,
@@ -387,7 +387,7 @@ export function createSettingsCommands(
             applied: [],
           });
         }
-        // 여기까지 오면 현재 선택·기본값이 검증을 모두 통과했다. 실패면 위에서 이미 거절했다(R22).
+        // 여기까지 오면 현재 선택·기본값이 검증을 모두 통과했다. 실패면 위에서 이미 거절했다.
         const revision = state.revision + 1;
         const concerns = affectedConcerns(registry, keys);
         ensureInitialRecord(tx, registry);
@@ -488,7 +488,7 @@ export function settingsHistoryRead(
           "select revision, previous_revision, changes, affected_concerns, defaults_revision, actor, at from setting_revisions where revision > ? order by revision desc limit ?",
           [after, limit],
         );
-      // 첫 시작과 unchanged reload는 setting_revisions에 row가 없다(R20, R23).
+      // 첫 시작과 unchanged reload는 setting_revisions에 row가 없다.
       const revisions = rows.map((row) => settingRevision(row));
       return ok({
         revisions,

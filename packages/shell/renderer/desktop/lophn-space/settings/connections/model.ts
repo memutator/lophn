@@ -1,5 +1,5 @@
 // coding agent 연결 화면의 순수 계산: 안쪽 값(harness id, discovery, 단계 이름)을 en 문구와 tone으로 바꾼다.
-// 안쪽 이름은 화면에 그대로 나가지 않고 wording key가 사람 말로 바꾼다(shell/wording#R4).
+// 안쪽 이름은 화면에 그대로 나가지 않고 wording key가 사람 말로 바꾼다.
 import type { StatusTone } from "@lophn/design";
 import { t } from "@lophn/wording";
 

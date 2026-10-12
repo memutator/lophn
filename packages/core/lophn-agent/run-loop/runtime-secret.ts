@@ -46,7 +46,7 @@ export function createAgentRuntimeSecrets(deps: {
   // child kind·task. machine 자격을 만드는 근거이고 child가 정하지 못한다.
   process: string;
   task: string;
-  // MCP OAuth token의 대조다(extensions#R17). OAuth token 참조가 아니면 undefined를 돌려 아래 설정 대조가 맡는다.
+  // MCP OAuth token의 대조다. OAuth token 참조가 아니면 undefined를 돌려 아래 설정 대조가 맡는다.
   // 만료가 가까우면 여기서 갱신한 뒤 현재 접근 token의 참조를 준다.
   mcpOAuth?: (use: SecretUse) => Promise<Result<McpTokenUse> | undefined>;
 }): AgentRuntimeSecrets {

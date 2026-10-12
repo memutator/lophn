@@ -13,7 +13,7 @@ export interface TerminalDeps {
   readonly bridge: TerminalApi | null;
   readonly store: TerminalStore;
   readonly createView: (host: HTMLElement) => TerminalView;
-  /** 살아 있는 터미널 닫기를 사람에게 묻는다. true일 때만 닫는다(shell/terminal#R10). */
+  /** 살아 있는 터미널 닫기를 사람에게 묻는다. true일 때만 닫는다. */
   readonly confirmClose: () => Promise<boolean>;
   /** 출력 당겨 읽기 간격. */
   readonly pollMs?: number;

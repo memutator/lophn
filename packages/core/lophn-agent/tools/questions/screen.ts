@@ -3,7 +3,7 @@ import type {
   RedactionResult,
 } from "../../../../base/redaction/mod.ts";
 
-// 질문의 자유 답은 blob으로 준비하기 전에 secret인지 먼저 본다(R11). 비밀번호·API
+// 질문의 자유 답은 blob으로 준비하기 전에 secret인지 먼저 본다. 비밀번호·API
 // key·token 평문은 일반 저장(blob·세션·model 입력·event)에 들어가지 않는다. 판정은
 // platform/redaction이 하고 이 파일은 그 결과를 답의 길로 바꾼다. 판정을 못 하면
 // 막는다(fail closed, 질문 Q23): 그 답은 저장되지 않고 질문은 미답으로 남는다.
@@ -23,7 +23,7 @@ export type SecureInputGuidance = {
 export type AnswerScreen =
   // 일반 저장해도 되는 답 글이다.
   | { status: "accepted"; text: string }
-  // 빈 답·공백만 있는 답은 답이 아니다(R6).
+  // 빈 답·공백만 있는 답은 답이 아니다.
   | { status: "blank" }
   // secret으로 판정했다. 글을 돌려주지 않고 보호 입력을 안내한다.
   | { status: "secure_input"; guidance: SecureInputGuidance }

@@ -1,4 +1,4 @@
-// lophn 화면 전용 icon 묶음. 화면이 lucide를 직접 들이지 않도록 여기서 고른다(shell/design-system#R43).
+// lophn 화면 전용 icon 묶음. 화면이 lucide를 직접 들이지 않도록 여기서 고른다.
 export { appSpaceIcons } from "./app-space.ts";
 export {
   connectionFailedIcon,

@@ -6,7 +6,7 @@ import type {
   SearchConditions,
 } from "./source.ts";
 
-/** lophn 공간의 여섯 형제. 중간 계층이 없다(desktop#R28). */
+/** lophn 공간의 여섯 형제. 중간 계층이 없다. */
 export const LOPHN_SCREENS = [
   "projects",
   "documents",
@@ -17,7 +17,7 @@ export const LOPHN_SCREENS = [
 
 export type LophnScreen = typeof LOPHN_SCREENS[number];
 
-/** lophn 공간에 들어오면 문서 탐색이 먼저다(desktop#R1). */
+/** lophn 공간에 들어오면 문서 탐색이 먼저다. */
 export const DEFAULT_SCREEN: LophnScreen = "documents";
 
 export const EMPTY_CONDITIONS: SearchConditions = {
@@ -69,7 +69,7 @@ export function searchBody(
 export type CoverageNote = "lagging" | "rebuilding" | "omissions";
 
 /**
- * 결과 판단에 필요한 지연·누락만 고른다(outline-and-search#R14). 재생성 중이면
+ * 결과 판단에 필요한 지연·누락만 고른다. 재생성 중이면
  * 지연은 따로 말하지 않는다.
  */
 export function coverageNotes(coverage: Coverage | null): CoverageNote[] {
@@ -113,7 +113,7 @@ export function placeTitle(catalog: Catalog, place: PlaceRef): string | null {
   return list.find((item) => item.id === place.id)?.title ?? null;
 }
 
-/** 판이 최신이 아니면 최신 판을 따로 보인다(outline-and-search#R8). */
+/** 판이 최신이 아니면 최신 판을 따로 보인다. */
 export function isLatest(version: string, latestVersion: string): boolean {
   return version === latestVersion;
 }

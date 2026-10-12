@@ -4,7 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { defineRead } from "../base/route.ts";
 import { ticketCreateInputSchema } from "./ticket-routes.ts";
 
-// 사람 화면 repair 준비(coding-agent/tickets#R24, R26).
+// 사람 화면 repair 준비.
 // create 입력은 ticket.create와 같은 schema다. 이 read는 ticket을 만들지 않고
 // priority·requested로 claim·approval을 만들지 않는다.
 const engineerLinkSchema = z.strictObject({

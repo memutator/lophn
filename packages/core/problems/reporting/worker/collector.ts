@@ -1,7 +1,7 @@
 // report collector worker. core 감독이 띄우고 이 모듈이 보고 접수 통로를
-// 조립한다(problems/reporting#R1, R2, R8, R16; plan problems T3). credential에서
+// 조립한다(plan problems T3). credential에서
 // 출처를 정하고 본문 주장은 따르지 않는다. redaction은 이 worker가 ledger에 닿기
-// 전에 거친다(R1).
+// 전에 거친다.
 import {
   err,
   type ErrorCode,
@@ -225,7 +225,7 @@ function workerRequest(
   return ok(message as WorkerRequest);
 }
 
-// 보고 접수. 본문은 contract가 다시 본다(R1).
+// 보고 접수. 본문은 contract가 다시 본다.
 export function acceptReportPayload(
   payload: unknown,
 ): Result<ReportProblemIngress, { code: "invalid_input"; message: string }> {
@@ -426,7 +426,7 @@ function createByteInbox() {
 }
 
 // 로그 증거의 출처. 기본은 core loopback의 apps.logs와 settings.get이고, 테스트와
-// 다른 조립은 port를 바꿔 끼운다. 설정을 읽지 못하면 null이다(snapshots#R7).
+// 다른 조립은 port를 바꿔 끼운다. 설정을 읽지 못하면 null이다.
 export type CollectorLogs = {
   source: AppLogSource | null;
   detailCollection: () => Promise<boolean | null>;
@@ -444,7 +444,7 @@ type OccurrenceReplay = {
   acceptance: ReportAcceptance;
 };
 
-// 같은 worker 안의 재전송. 조립 시각이 달라도 같은 발생이면 저장한 접수를 돌려준다(R9).
+// 같은 worker 안의 재전송. 조립 시각이 달라도 같은 발생이면 저장한 접수를 돌려준다.
 export type OccurrenceReplays = {
   lookup(reportId: string): OccurrenceReplay | undefined;
   remember(
@@ -478,7 +478,7 @@ function occurrenceFingerprint(parts: {
   return sha256Hex(JSON.stringify(parts));
 }
 
-// app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다(R1, T3).
+// app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다.
 // text·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
 // app·release·process·mode·bundle_hash·diagnostic_scope 주장은 hello scope
 // targets(credential)에서 온다.
@@ -495,7 +495,7 @@ export async function acceptReportProblem(
   const startedMs = Date.now();
   const parsed = acceptReportPayload(payload);
   if (!parsed.ok) {
-    // 잘못된 보고 진단은 원래 제출의 rpt ID에서 결정적으로 정한다(R8).
+    // 잘못된 보고 진단은 원래 제출의 rpt ID에서 결정적으로 정한다.
     // transport 실패는 손실이다: 다시 보고하지 않는다.
     await invalidReportDiagnostic({
       reportId: typeof payload === "object" && payload !== null &&
@@ -508,7 +508,7 @@ export async function acceptReportProblem(
     throw parsed.error;
   }
   // app·mode 주장은 credential 위치에서만 온다. 없으면 추측값을 만들지 않고
-  // 잘못된 보고 진단으로 거절한다(T3).
+  // 잘못된 보고 진단으로 거절한다.
   if (position.claims.app === undefined || position.claims.mode === undefined) {
     await invalidReportDiagnostic({
       reportId: parsed.value.report_id,
@@ -517,7 +517,7 @@ export async function acceptReportProblem(
     });
     throw new Error("report credential has no app or mode claim");
   }
-  // 조립값은 접수 본문이 검증한 필드만 이름으로 둔다(R1).
+  // 조립값은 접수 본문이 검증한 필드만 이름으로 둔다.
   const { report_id, code, observed_at, text, details } = parsed.value;
   const textContent = await redactOutcome(redaction, text, "text/plain");
   const detailsContent = await redactOutcome(
@@ -549,13 +549,13 @@ export async function acceptReportProblem(
     : details !== undefined && detailsValue === null
     ? detailsContent.reason
     : null;
-  // redaction이 비운 값을 내면 hash 없이 ledger에 닿는다(R1).
+  // redaction이 비운 값을 내면 hash 없이 ledger에 닿는다.
   // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
-  // 접수 본문의 report_id가 곧 제출 rpt ID다(R1).
+  // 접수 본문의 report_id가 곧 제출 rpt ID다.
   const snapshotId = await pendingSnapshotId(report_id);
   // redaction을 통과한 text·details를 blob 준비해 Report.text·details에 싣는다
-  // (T4: T3에서 넘어온 것). 준비는 core blob prepare 경계로 간다. 넘치는 본문은
-  // 항목 상한(automatic_body_bytes)에서 제외하고 이유를 남긴다(R5, R20).
+  // (T3에서 넘어온 것). 준비는 core blob prepare 경계로 간다. 넘치는 본문은
+  // 항목 상한(automatic_body_bytes)에서 제외하고 이유를 남긴다.
   const preparedText = await prepareContent(
     session,
     "report_text",
@@ -569,7 +569,7 @@ export async function acceptReportProblem(
     REPORTING_LIMITS.automatic_body_bytes,
   );
   const claims = position.claims;
-  // SDK가 실제로 연결한 invocation만 담고 근접 추정은 없다(snapshots#R8, R9).
+  // SDK가 실제로 연결한 invocation만 담고 근접 추정은 없다.
   const linked = parsed.value.invocation ?? null;
   const arrived = await confirmInvocation(client, linked);
   const logEvidence = await collectLogEvidence(
@@ -638,9 +638,9 @@ export async function acceptReportProblem(
   return acceptance;
 }
 
-// redaction을 통과한 inline content를 core blob prepare로 준비한다(T4).
+// redaction을 통과한 inline content를 core blob prepare로 준비한다.
 // 내용이 없거나 항목 상한을 넘거나 준비가 실패하면 null이다: 항목의 이유는
-// 다음 보고에 남기고 접수 자체는 계속한다(R5). 원문은 bounded memory에서만 있다.
+// 다음 보고에 남기고 접수 자체는 계속한다. 원문은 bounded memory에서만 있다.
 async function prepareContent(
   session: Pick<ChildSession, "prepareBlob">,
   purpose: string,
@@ -666,7 +666,7 @@ async function prepareContent(
 
 // core blob prepare 경계. collector는 별도 process라 감독 pipe의 blob 준비 통로
 // (session.prepareBlob)로 core에 청한다. hash와 준비 참조는 core가 I/O worker에서 받은
-// 값이고 collector가 정하지 않는다. 준비가 실패하면 null이다: 이유를 남기고 접수한다(R5).
+// 값이고 collector가 정하지 않는다. 준비가 실패하면 null이다: 이유를 남기고 접수한다.
 async function prepareBlobBytes(
   session: Pick<ChildSession, "prepareBlob">,
   purpose: string,
@@ -699,7 +699,7 @@ async function pendingSnapshotId(reportId: string): Promise<string> {
   return `snp_${first}${digest.slice(1, 26)}`;
 }
 
-// text를 준비한다. redaction 엔진을 거치고 비운 값은 null content다(R1).
+// text를 준비한다. redaction 엔진을 거치고 비운 값은 null content다.
 // 서브미션은 passed일 때만 진행한다. 엔진이 secret 형태를 지우지 못하면
 // (omitted·partial) 원문이 남지 않게 null content로 둔다.
 async function redactText(
@@ -717,7 +717,7 @@ async function redactText(
 
 type RedactedBody = { value: string | null; reason: string | null };
 
-// 본문이 없으면 뺄 원문이 없다. passed가 아니면 원문 없이 생략 이유만 남긴다(R14).
+// 본문이 없으면 뺄 원문이 없다. passed가 아니면 원문 없이 생략 이유만 남긴다.
 async function redactOutcome(
   redaction: RedactionEngine,
   body: string | undefined,
@@ -752,7 +752,7 @@ async function redactOutcome(
 }
 
 // redaction 엔진 호출 하나. passed가 아니면 null로 둔다: 부분 지워진 값도
-// permanent content로 남기지 않는다(R1).
+// permanent content로 남기지 않는다.
 async function redact(options: {
   redaction: RedactionEngine;
   body: string;
@@ -767,7 +767,7 @@ async function redact(options: {
 }
 
 // 준비 입���을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
-// 쥐고 개수·바이트 한도를 넘는 새 입력은 손실 이유다(R16). acceptance는 ok payload다.
+// 쥐고 개수·바이트 한도를 넘는 새 입력은 손실 이유다. acceptance는 ok payload다.
 async function submit(
   client: CoreClientOptions,
   report: RecordReportInput["report"],
@@ -789,7 +789,7 @@ async function submit(
   queue: ReturnType<typeof createCollectorQueue>,
   _session: ChildSession,
 ): Promise<unknown> {
-  // captured_at(조립 시각)은 report.observed_at(발생 시각)과 따로 둔다(R1).
+  // captured_at(조립 시각)은 report.observed_at(발생 시각)과 따로 둔다.
   const snapshot: RecordReportInput["snapshot"] = {
     id: report.snapshot,
     captured_at: atNow(),
@@ -817,7 +817,7 @@ async function submit(
       blob: { ...entry.prepared },
     },
   }));
-  // content hash는 접수 내용(원문 제외 조립값)에서 결정적으로 정한다(R9).
+  // content hash는 접수 내용(원문 제외 조립값)에서 결정적으로 정한다.
   const contentHash = await fingerprint(
     contentHashOf({
       report,
@@ -858,7 +858,7 @@ async function submit(
       },
     },
   };
-  // 대기 큐에 같은 고정 input을 넣는다(R16). 한도를 넘는 새 입력은 손실 이유고
+  // 대기 큐에 같은 고정 input을 넣는다. 한도를 넘는 새 입력은 손실 이유고
   // 다시 보고하지 않는다.
   const frozen = freezeDeep(input);
   const over = queue.admit(report.id, frozen);
@@ -882,7 +882,7 @@ async function submit(
     (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     "response lost",
   );
-  // send가 끝난 뒤에만 큐에서 빠진다(R16).
+  // send가 끝난 뒤에만 큐에서 빠진다.
   queue.release(report.id);
   if (completion.status !== "accepted") {
     throw new Error(completion.reason.message);
@@ -896,8 +896,8 @@ function atNow(): string {
 
 // exception 출처 보고 접수(process_observer·view_observer). 본문은 redaction 뒤
 // ledger에 닿는다. 예외 진단 원문은 bounded memory에서만 있고 permanent content는
-// hash뿐이다(R8, R10). stack은 준비 폴더 source로 위치를 찾고, invocation은
-// 실제 연결한 ID만 기록 도착을 확인한다(snapshots#R8, R9, R11).
+// hash뿐이다. stack은 준비 폴더 source로 위치를 찾고, invocation은
+// 실제 연결한 ID만 기록 도착을 확인한다.
 export async function observeExceptionPayload(
   payload: unknown,
   client: CoreClientOptions,
@@ -912,18 +912,18 @@ export async function observeExceptionPayload(
     throw new Error("invalid exception observation body");
   }
   const observation = parsed.data;
-  // app 주장은 credential 위치에서만 온다. 없으면 추측값을 만들지 않고 거절한다(T3).
+  // app 주장은 credential 위치에서만 온다. 없으면 추측값을 만들지 않고 거절한다.
   if (position.claims.app === undefined || position.claims.mode === undefined) {
     throw new Error("exception credential has no app or mode claim");
   }
   // observation kind에서 원본 origin을 정한다. render_error는 view_observer,
-  // process_exit·error·unhandledrejection는 process_observer다(reporting#R2).
+  // process_exit·error·unhandledrejection는 process_observer다.
   const origin = observation.observation === "render_error"
     ? "view_observer"
     : "process_observer";
-  // raw 문��는 bounded memory에서 redaction을 거친다(R1). fail-closed:
-  // 통과하지 못한 문자는 원문 대신 null + missing reason이다(R4). 이름도
-  // 엔진을 거친다: safe 모양이어도 secret pattern 값이 든 이름은 지운다(R10).
+  // raw 문��는 bounded memory에서 redaction을 거친다. fail-closed:
+  // 통과하지 못한 문자는 원문 대신 null + missing reason이다. 이름도
+  // 엔진을 거친다: safe 모양이어도 secret pattern 값이 든 이름은 지운다.
   const rawError = observation.error;
   const redactedName = rawError === null
     ? ""
@@ -950,7 +950,7 @@ export async function observeExceptionPayload(
     : redactedStack === null
     ? { reason: "redaction" }
     : null;
-  // 전체 조립은 2,000ms다(snapshots#R18). 단조 시계는 assembleException이 본다.
+  // 전체 조립은 2,000ms다. 단조 시계는 assembleException이 본다.
   const assembled = await assembleException(
     {
       report_id: observation.report_id,
@@ -964,7 +964,7 @@ export async function observeExceptionPayload(
         stack_missing_reason: stackMissing,
       },
       error_missing_reason: observation.error_missing_reason,
-      // invocation이 없으면 이유를 남긴다(snapshots#R4, R9).
+      // invocation이 없으면 이유를 남긴다.
       invocation: observation.invocation,
     },
     {
@@ -973,7 +973,7 @@ export async function observeExceptionPayload(
     },
     {
       // stack blob 준비는 core blob prepare 경계로 간다. 준비가 실패해도
-      // 남은 자료로 접수한다(R5).
+      // 남은 자료로 접수한다.
       blobPrepare: {
         prepare: (input, bytes) => prepareViaStream(session, input, bytes),
       },
@@ -982,7 +982,7 @@ export async function observeExceptionPayload(
       },
       nowAt: atNow(),
       principal: "collector",
-      // 로그는 계정 credential의 앱 것만 묻는다. 수집 설정은 새 수집만 멈춘다(R6, R7).
+      // 로그는 계정 credential의 앱 것만 묻는다. 수집 설정은 새 수집만 멈춘다.
       logs: {
         detailCollection: await logs.detailCollection(),
         source: logs.source,
@@ -994,8 +994,8 @@ export async function observeExceptionPayload(
     throw new Error("exception snapshot assembly failed");
   }
   const result = assembled.value;
-  // 조립값은 snapshot input schema를 그대로 통과한다(R2). 통과하지 못하면
-  // 접수하지 않는다: 잘못된 snapshot은 loss 이유다(R5).
+  // 조립값은 snapshot input schema를 그대로 통과한다. 통과하지 못하면
+  // 접수하지 않는다: 잘못된 snapshot은 loss 이유다.
   const checked = snapshotInputSchema.safeParse(result.snapshot);
   if (!checked.success) {
     throw new Error("assembled snapshot does not pass snapshot schema");
@@ -1026,8 +1026,8 @@ export async function observeExceptionPayload(
     client,
     observation.invocation,
   );
-  // 기록 도착을 확인한 뒤 invocation 증거를 갱신한다(R8, R9). 근접 추정은 없다:
-  // 도착하지 않은 기록은 그 이유만 남긴다(reporting#R14).
+  // 기록 도착을 확인한 뒤 invocation 증거를 갱신한다. 근접 추정은 없다:
+  // 도착하지 않은 기록은 그 이유만 남긴다.
   const snapshot: RecordReportInput["snapshot"] = invocation === undefined
     ? {
       ...result.snapshot,
@@ -1060,7 +1060,7 @@ export async function observeExceptionPayload(
 }
 
 // exception 보고 제출. origin은 observation kind에서 온 process_observer·
-// view_observer다(reporting#R2: 출처 위조는 ledger가 refines로 거절한다).
+// view_observer다(출처 위조는 ledger가 refines로 거절한다).
 async function submitException(
   client: CoreClientOptions,
   report: RecordReportInput["report"],
@@ -1175,7 +1175,7 @@ async function submitException(
 }
 
 // exception observation의 error name을 redaction한다. 이름은 안전한 오류 이름만
-// 남긴다(snapshots#R10: 안전한 오류 이름).
+// 남긴다(안전한 오류 이름).
 
 // collector의 준비 폴더 출처. bundleCopyPath가 `apps/<app>/bundles/<hash>`를 붙이므로
 // 여기 값은 LOPHN_HOME이다. env가 없으면 null이다.
@@ -1191,7 +1191,7 @@ function collectorAppsRoot(): string | null {
 
 // stack blob 준비를 stream으로 받는 platform blob prepare 모양. 바이트를 모아 크기를
 // 정한 뒤 감독 pipe의 blob 준비 통로로 core에 청한다. principal·expectedHash는 core가
-// kind에서 정하므로 보내지 않는다. 준비가 실패하면 오류를 돌려주고 남은 자료로 접수한다(R5).
+// kind에서 정하므로 보내지 않는다. 준비가 실패하면 오류를 돌려주고 남은 자료로 접수한다.
 async function prepareViaStream(
   session: Pick<ChildSession, "prepareBlob">,
   input: { principal: string; purpose: string; expectedHash?: string },
@@ -1229,9 +1229,9 @@ async function prepareViaStream(
   });
 }
 
-// 실제 연결한 invocation ID만 기록 도착을 확인한다(snapshots#R8, R9). 근접
+// 실제 연결한 invocation ID만 기록 도착을 확인한다. 근접
 // 추정은 없다: ID가 없으면 확인하지 않는다. 기록이 아직 없으면 그 이유만 남기고
-// 접수는 계속한다(R9, reporting#R14).
+// 접수는 계속한다.
 async function confirmInvocation(
   client: CoreClientOptions,
   invocation:
@@ -1268,7 +1268,7 @@ async function confirmInvocation(
   }
 }
 
-// view 출처 exception 보고 접수(reporting#R5, R6). 모든 observation 종류(error,
+// view 출처 exception 보고 접수. 모든 observation 종류(error,
 // unhandledrejection, render_error)를 view_observer 출처로 받는다. view stack은
 // 수집하지 않고, 다른 처리는 process exception과 같다.
 export async function observeViewErrorPayload(
@@ -1288,9 +1288,9 @@ export async function observeViewErrorPayload(
   }
   const { app, release, mode, bundle_hash } = parsedView.data.view;
   const obs = parsedView.data.observation;
-  // view error는 항상 view_observer 출처다(reporting#R5).
+  // view error는 항상 view_observer 출처다.
   const origin = "view_observer" as const;
-  // raw 문자는 bounded memory에서 redaction을 거친다(R1).
+  // raw 문자는 bounded memory에서 redaction을 거친다.
   const rawError = obs.error;
   const redactedName = rawError === null
     ? ""
@@ -1307,7 +1307,7 @@ export async function observeViewErrorPayload(
     ? { reason: "redaction" }
     : null;
   const stackMissing = { reason: "view_stack_not_collected" };
-  // view error는 stack을 수집하지 않는다(reporting#R5).
+  // view error는 stack을 수집하지 않는다.
   const redactedStack = null;
   // 조립은 process exception과 같다.
   const assembled = await assembleException(
@@ -1409,7 +1409,7 @@ export async function observeViewErrorPayload(
   );
 }
 
-// shell user의 feedback 접수(feedback#R1–R10, grouping#R6). core는 사람 자격을 인증하고 호출자
+// shell user의 feedback 접수. core는 사람 자격을 인증하고 호출자
 // 출처(caller)와 선택한 PNG 바이트를 해석 없이 넘긴다. 검증·redaction·blob 준비·조립은
 // assembleFeedback이 하고 이 함수는 제품 의존(redaction, core 읽기, blob 준비)을 꽂아 record-report로
 // 제출한다. 조립이 거절한 사유는 코드 그대로 호출자에게 간다.

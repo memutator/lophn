@@ -71,7 +71,7 @@ export function matchCodepointRange(
 }
 
 // 줄 목록 안 query 일치 줄을 찾는다. ranges 없이 결과가 없으면 200 codepoint
-// 서문 발췌로 돌아간다(R18).
+// 서문 발췌로 돌아간다.
 export function matchingLines(
   lines: readonly string[],
   query: string,
@@ -413,7 +413,7 @@ function encodeCursorValue(
 }
 
 // 선택 줄��� codepoint 예산 안에서 자른다. 긴 한 줄도 줄 안 codepoint 위치로
-// 겹침·누락 없이 이어 읽는다(R7). pieces는 "\n"으로 붙고, 붙임 줄바꿈도 예산에
+// 겹침·누락 없이 이어 읽는다. pieces는 "\n"으로 붙고, 붙임 줄바꿈도 예산에
 // 센다. 범위는 1-based inclusive range로 연속 줄을 묶는다. 다음
 // 위치({line, codepoint})를 준다.
 export type BodyChunk = {
@@ -482,9 +482,9 @@ export function bodyChunk(
 export const SEARCH_QUIET_MS = 500;
 
 // section-comparison: 같은 module의 section key와 body_hash만 비교하는 순수 규칙이다.
-// section 이력·diff(documents#T16)가 쓴다.
+// section 이력·diff가 쓴다.
 // 이름 변경·유사도·hash 일치로 의미상의 대응을 추측하지 않는다: 이름이 바뀌면 옛 key는
-// 소실이고 새 key는 추가다(outline-and-search#R19). body_hash 규약은 format module 묶음
+// 소실이고 새 key는 추가다. body_hash 규약은 format module 묶음
 // 한 곳에 있으므로 module_hash가 다른 두 판은 비교하지 않는다.
 export type SectionSide = {
   key: string;
@@ -552,7 +552,7 @@ function changeOf(
 
 // 두 판의 모든 key를 비교한다. 앞 판이 없으면(첫 판) 뒤 판의 모든 section이 추가다.
 // 살아 있는 행(변경 없음·수정·추가)은 뒤 판의 position 순이고, 소실 행은 그 뒤에
-// 앞 판의 position 순으로 모은다(outline-and-search#R20).
+// 앞 판의 position 순으로 모은다.
 export function compareSections(
   before: SectionSnapshot | null,
   after: SectionSnapshot,
@@ -622,7 +622,7 @@ export type SectionHistoryOmission = { version: string; reason: string };
 
 // 한 key의 이력. chain은 번호 순의 연속한 판이고 첫 판은 보여 줄 첫 판의 직전 판(없으면
 // 첫 판 자체가 문서의 첫 판)이다. shown은 chain 중 행을 낼 첫 index다: 중간 판부터 잘라도
-// 그 판의 첫 비교는 직전 판과 한다(outline-and-search#R20). 비교하는 두 판 중 하나가
+// 그 판의 첫 비교는 직전 판과 한다. 비교하는 두 판 중 하나가
 // unknown이면 행을 만들지 않고 그 판의 누락으로 남긴다.
 export function sectionHistory<F>(
   chain: readonly ComparedVersion<F>[],

@@ -1,6 +1,6 @@
-// 앱 출력 저장 범위(documents/versions#R14, apps/blueprint#R13). 앱은 자기 앱 place에만 새
+// 앱 출력 저장 범위. 앱은 자기 앱 place에만 새
 // 문서를 만들고 새 판을 더한다. 어느 (앱 자리, 출력 이름)이 선언된 출력인지는 broker가 선언과
-// grant로 이미 확인했고(apps/permissions#R13), 여기서는 요청 자격의 app id와 문서 자리만 본다.
+// grant로 이미 확인했고, 여기서는 요청 자격의 app id와 문서 자리만 본다.
 import { err, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import type {

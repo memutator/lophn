@@ -1,5 +1,5 @@
 // 창의 layout 힌트를 현재 보기로 조립해 relay에 publish하고, 사람 메시지를
-// 보내기 전에 그 창과 session을 bind한다(shell/workspace#R9, R10). 창 신원은
+// 보내기 전에 그 창과 session을 bind한다. 창 신원은
 // main이 정한다. 힌트의 대상은 scope 읽기가 허용한 것만 남긴다.
 import { appViewContext, type AppViewSource } from "./app-view-context.ts";
 import {
@@ -98,7 +98,7 @@ async function applyHint(
     0,
   );
   // 마지막 탭을 닫아 비었으면(판을 기다리는 탭도 없다) 이전에 publish한 보기를 빈 보기로 바꾼다.
-  // 그대로 두면 agent가 닫힌 탭을 지금 열린 탭으로 읽는다(prompt-assemble#R28).
+  // 그대로 두면 agent가 닫힌 탭을 지금 열린 탭으로 읽는다.
   const clearing = !parsed.pending && (known.get(windowRef)?.tabs ?? 0) > 0;
   if (hintedTabs === 0 && !clearing) {
     if (parsed.pending) markPending(known, windowRef);
@@ -189,7 +189,7 @@ async function scopeFor(
       projects.add(project);
     });
   }
-  // 어떤 대상을 읽을지는 kind의 선언이 정한다(shell/workspace#R14).
+  // 어떤 대상을 읽을지는 kind의 선언이 정한다.
   const reader: ScopeReads = {
     allow(group, ref, resource, body) {
       read(`${group}:${ref}`, resource, body, () => {

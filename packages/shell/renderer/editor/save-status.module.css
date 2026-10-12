@@ -1,4 +1,4 @@
-/* 메타 줄의 저장 상태(shell/editor#R2, R12). 글자는 메타 줄 12px를 그대로 쓴다. */
+/* 메타 줄의 저장 상태. 글자는 메타 줄 12px를 그대로 쓴다. */
 .status {
   display: inline-flex;
   align-items: center;

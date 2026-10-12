@@ -1,7 +1,7 @@
-// TOML 설정 merge다(coding-agent/harnesses#R8, T29·T30). lophn 소유 테이블만
+// TOML 설정 merge다. lophn 소유 테이블만
 // 텍스트 패치로 고치고 주석·빈 줄·다른 테이블은 그대로 둔다. 제품 자신의
 // `mcp add` 명령은 파일 전체를 다시 직렬화하고 동명 항목을 묻지 않고 바꾸므로
-// 부르지 않는다(조사 9.6, R8). 깨진 TOML은 무변경이다(조사 9.2).
+// 부르지 않는다(조사 9.6). 깨진 TOML은 무변경이다(조사 9.2).
 import { parse } from "@std/toml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
@@ -111,8 +111,8 @@ function rendered(lines: readonly string[]): string {
   return `${lines.join("\n")}\n`;
 }
 
-// 소유 테이블만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다. 다른 테이블의
-// 바이트는 하나도 가리지 않는다(T30).
+// 소유 테이블만 넣는다. 같은 값이면 파일을 바꾸지 않는다. 다른 테이블의
+// 바이트는 하나도 가리지 않는다.
 export function setOwned(text: string, key: string, value: Table): SetOutcome {
   const parsed = parseToml(text);
   if (!parsed.ok) return parsed.error;
@@ -126,7 +126,7 @@ export function setOwned(text: string, key: string, value: Table): SetOutcome {
   const replacement = tableLines(key, value);
   const header = findHeader(body, key);
   if (header !== null) {
-    // 헤더 행은 유지하고 몸만 바꾼다(T30). 헤더 스타일도 사람의 것을 둔다.
+    // 헤더 행은 유지하고 몸만 바꾼다. 헤더 스타일도 사람의 것을 둔다.
     const end = bodyEnd(body, header);
     const patched = [
       ...body.slice(0, header + 1),

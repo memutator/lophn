@@ -1,4 +1,4 @@
-// 봉인 bundle 사본에서 앱 자식의 시작 입력을 만든다(apps/releases#R4, apps/runtime#R8). 운영 DesiredApp과
+// 봉인 bundle 사본에서 앱 자식의 시작 입력을 만든다. 운영 DesiredApp과
 // preview의 `PreviewBundle`이 같은 함수로 사본의 entry·import map·command·화면·data schema·flag를 읽는다.
 // 사본의 모양: manifest.json, blueprint.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
 // screens/, 설치 SDK 사본 sdk/<이름>/<version>/, 앱 deno.lock, migrations/<from>-<to>.sql. 자식의 읽기 허락은
@@ -37,7 +37,7 @@ export type BundleParts = {
   importMap: string;
   commands: string[];
   screens: ScreenSizes;
-  // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다(apps/data#R3).
+  // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
 };
 
@@ -56,7 +56,7 @@ export function dataSchemaOf(manifest: BundleManifest): number {
   return schema;
 }
 
-// release.prepare의 data_changes다(apps/data#R8). 사본의 `migrations/<from>-<to>.sql`마다 한 단계이고
+// release.prepare의 data_changes다. 사본의 `migrations/<from>-<to>.sql`마다 한 단계이고
 // script_hash는 그 파일 byte의 sha256이다. data worker가 같은 파일을 같은 hash로 확인한다
 // (`scriptFromBundle`). 설명은 파일 앞의 `--` 주석 줄이고 없으면 schema 번호 이동이다.
 export async function dataChangesOf(

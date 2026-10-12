@@ -1,4 +1,4 @@
-// derived store가 지금 ledger의 것인지 확인하는 문(platform#T42, platform/backup-and-migration#R14).
+// derived store가 지금 ledger의 것인지 확인하는 문.
 // ledger를 새로 만들거나 backup에서 복원하면 `/v1/platform/status`의 `ledger_id`가 바뀌고, 그때
 // store가 옛 ledger의 seq를 가리키는 cursor를 쥐고 있으면 복원 ledger의 같은 숫자 seq를 건너뛴다.
 // coordinator는 hello 뒤 machine credential로 core의 식별을 읽어 store를 맞추고, 맞출 때까지 search

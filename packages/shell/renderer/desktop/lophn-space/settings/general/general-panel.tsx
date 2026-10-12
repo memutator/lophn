@@ -1,7 +1,7 @@
 // settings의 일반 자리. 설정 값을 보인다. model 기본값과 모든 project의 지침은 Agents 자리가 맡고
-// 여기에는 없다(shell/desktop#R50).
+// 여기에는 없다.
 // 설정 값은 정의(이름)·현재 적용값을 기본으로 보이고 효력 시점·기본값·바뀐 출처는 펼친 곳에 둔다
-// (shell/wording#R13, ui-ux G2). 값을 지어내지 않는다: 정해지지 않은 값은 정해지지 않았다고 말한다.
+// (ui-ux G2). 값을 지어내지 않는다: 정해지지 않은 값은 정해지지 않았다고 말한다.
 import { useCallback, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
 import { t } from "@lophn/wording";

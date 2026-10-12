@@ -1,4 +1,4 @@
-// 첫 prompt다(coding-agent/sessions#R3). 지정 ticket 읽기·MCP claim·작업·완료 보고 지시와 근거 읽을
+// 첫 prompt다. 지정 ticket 읽기·MCP claim·작업·완료 보고 지시와 근거 읽을
 // 곳만 담는다. ticket 본문·token·전체 log·수리 묶음은 복제하지 않는다. 근거는 참조(문제 ID·source
 // 상대 경로)뿐이고 실제 계약은 agent가 MCP로 읽는다.
 import type {

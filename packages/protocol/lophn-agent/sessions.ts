@@ -13,7 +13,7 @@ import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 // command도 없다: 사람이 session을 치우는 길은 archive와 delete다.
 
 // 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 이모지나 결합 문자를 중간에서
-// 자르지 않는다. 자동 제목은 앞 60자, 사람이 rename한 제목은 120자 이하다(conversation#R18).
+// 자르지 않는다. 자동 제목은 앞 60자, 사람이 rename한 제목은 120자 이하다.
 export const SESSION_AUTO_TITLE_MAX = 60;
 export const SESSION_RENAME_TITLE_MAX = 120;
 
@@ -36,7 +36,7 @@ export const sessionTitleSchema = z.string()
   );
 
 export const SESSION_STATES = ["open", "closed"] as const;
-// 사람이 닫는 이유는 없다. assignment 회수만 session을 닫는다(conversation#R8).
+// 사람이 닫는 이유는 없다. assignment 회수만 session을 닫는다.
 export const SESSION_CLOSED_REASONS = ["assignment_withdrawn"] as const;
 
 const forkOriginFields = {
@@ -46,7 +46,7 @@ const forkOriginFields = {
 export const forkOriginSchema = z.strictObject(forkOriginFields);
 export const forkOriginOutputSchema = z.object(forkOriginFields);
 
-// toast에서 연 첫 context. 사건 글을 복사하지 않고 참조만 둔다(conversation#R22). 대상은
+// toast에서 연 첫 context. 사건 글을 복사하지 않고 참조만 둔다. 대상은
 // 사건이 가리키는 소유 concern의 ID다: 문제·앱·context·release.
 const openingTargetSchema = z.union([
   idSchema("prb"),
@@ -77,7 +77,7 @@ const sessionFields = {
   state: z.enum(SESSION_STATES),
   forked_from: forkOriginOutputSchema.nullable(),
   opening_context: openingContextOutputSchema.nullable(),
-  // null이면 agent 기본값을 따른다. 다음 run부터 resolve한다(conversation#R23).
+  // null이면 agent 기본값을 따른다. 다음 run부터 resolve한다.
   model_selection: modelChoiceOutputSchema.nullable(),
   compaction: compactionOutputSchema.nullable(),
   closed_reason: z.enum(SESSION_CLOSED_REASONS).nullable(),
@@ -130,7 +130,7 @@ export const deleteSessionInputSchema = z.strictObject({
 export const deleteSessionCompareSchema = stateSeqCompareSchema;
 
 // Fork: 같은 agent·같은 자리의 새 session. 사람이 고른 지점(through_seq)까지의 확정 메시지만
-// 복사한다(conversation#R9).
+// 복사한다.
 export const forkSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   source: idSchema("ses"),
@@ -142,7 +142,7 @@ export const forkSessionInputSchema = z.strictObject({
 // Compact는 두 걸음이다. 사람이 요청하면(RequestSessionCompact) runtime이 앞 구간을 요약하는 model
 // call을 하고, 끝까지 성공한 그 call을 구간과 함께 session에 이어(CompactSession) 요청을 끝낸다.
 // 실패하면 이유와 함께 요청만 닫는다(FailSessionCompact). 어느 쪽이든 원문과 session의 나머지는
-// 바뀌지 않는다(conversation#R10).
+// 바뀌지 않는다.
 export const COMPACT_FAILURE_REASONS = [
   "nothing_to_summarize",
   "model_unavailable",
@@ -270,7 +270,7 @@ export const unarchiveSession = defineCommand({
 });
 
 // 되돌릴 수 없다. 진행 중·대기 중 run이 있으면 conflict, 그 run이 만든 문서·앱 변경은 지우지
-// 않는다(conversation#R20). 결과는 지운 사실의 최소 기록뿐이다.
+// 않는다. 결과는 지운 사실의 최소 기록뿐이다.
 export const deleteSession = defineCommand({
   resource: "sessions",
   method: "delete",
@@ -417,7 +417,7 @@ export const sessionRead = defineRead({
 });
 
 // 목록은 agent(assignment)와 자리별이다: 둘은 필수이고 다른 agent나 다른 자리의 session은
-// 섞이지 않는다(conversation#R21). archived는 기본에서 뺀다(`exclude`, 생략과 같다);
+// 섞이지 않는다. archived는 기본에서 뺀다(`exclude`, 생략과 같다);
 // Archived 보기는 `only`다. 제목 검색은 이 결과에서 제목만 대상으로 하는 화면의 거름이며
 // 메시지 본문은 읽지 않는다.
 export const SESSION_ARCHIVED_FILTERS = ["exclude", "include", "only"] as const;
@@ -467,9 +467,9 @@ export const sessionCompactRequests = defineRead({
 });
 
 // Compact가 session에 이은 요약의 본문이다. 요약은 원문을 대체하지 않는 derived라 호출의 출력이
-// 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다(conversation#R10). `revert`를 주면 그
+// 정본이고, 사람 화면은 이 본문을 일반 agent 답과 구별해 보인다. `revert`를 주면 그
 // rewind("Summarize from here")가 접은 구간의 요약을 읽는다: compaction은 접힌 구간의 끝(result_seq)과
-// 그 요약 call이다(lophn-agent/revert R15).
+// 그 요약 call이다.
 export const sessionSummary = defineRead({
   resource: "sessions",
   method: "summary",

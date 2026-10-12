@@ -10,7 +10,7 @@ import {
 import { LIMIT_KEYS } from "./flags.ts";
 import type { ResolvedRequirement } from "./model.ts";
 
-// confirmation window가 grant 결정 앞에서 보여 주는 자료다(apps/permissions#R24, R25).
+// confirmation window가 grant 결정 앞에서 보여 주는 자료다.
 // 요구(kind·정규 scope·reason), 조합 경고, Deno 한계 문구 key만 담는다. 문구 본문은
 // design wording catalog의 몫이라 여기에는 key만 둔다. 이 자료를 만드는 것이 grant를 주는 것은
 // 아니다: 아무 grant도 자동으로 만들지 않는다.

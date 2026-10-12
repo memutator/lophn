@@ -1,4 +1,4 @@
-// 문서를 파일로 두기의 main 통로(documents/file-tracking#R13, flow organize-documents). renderer는
+// 문서를 파일로 두기의 main 통로(flow organize-documents). renderer는
 // 문서·판·프로젝트·새 경로만 보낸다. 파일 쓰기(`files/write`)는 renderer allowlist 밖이라 여기서만
 // 부른다. 쓸 바이트는 그 판의 유일한 파일 원본 참조(`existing`)이고 새 바이트를 올리지 않는다.
 // core가 파일을 쓴 뒤 원본 연결·추적 규칙·자리를 각각 확정하고 단계별 결과를 돌려준다. 결과는

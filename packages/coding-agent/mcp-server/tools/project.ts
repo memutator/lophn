@@ -1,6 +1,6 @@
-// lophn_project tool의 실행이다(T13, mcp#R9). list·show·current는 읽기 route 하나로만
+// lophn_project tool의 실행이다. list·show·current는 읽기 route 하나로만
 // 보내고 등록·변경 op가 없다. coding agent에게 위치는 탐색용이라 절대 경로·폴더 목록·
-// tracking 규칙·폴더별 문서 수는 내지 않는다(documents/projects#R9): core가 이미 agent
+// tracking 규칙·폴더별 문서 수는 내지 않는다: core가 이미 agent
 // 투영으로 걷어 내지만 이 tool도 허용한 필드만 골라 내서 어떤 응답이 와도 새지 않는다.
 // current는 호출자의 경로를 받지 않는다. core가 연결 credential의 고정 근거로 푼다.
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";

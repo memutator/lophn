@@ -29,7 +29,7 @@ import {
 // 접근 token이 만료되기 이 시간 전부터 갱신한다(요청이 가는 도중 만료되는 일을 줄인다).
 export const REFRESH_SKEW_MS = 60_000;
 
-// 로그인·갱신이 서버를 가리키는 설정의 지금 값이다. token이 이 값들과 묶여 있어야 쓴다(R17).
+// 로그인·갱신이 서버를 가리키는 설정의 지금 값이다. token이 이 값들과 묶여 있어야 쓴다.
 export type McpOAuthServer = {
   key: McpAuthKey;
   issuer: string;
@@ -60,7 +60,7 @@ export type McpOAuth = {
   cancel(server: Pick<McpOAuthServer, "key">): Promise<boolean>;
   report(server: McpOAuthServer): Promise<McpAuthReport>;
   // 연결이 붙일 접근 token의 보관 참조다. 값이 아니라 참조다. 로그인이 필요하면 forbidden(재인증 필요),
-  // 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다(R17).
+  // 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다.
   access(server: McpOAuthServer): Promise<Result<{ sealedRef: string }>>;
   // 기다리는 모든 로그인을 그만둔다.
   endAll(): Promise<void>;
@@ -105,7 +105,7 @@ export function createMcpOAuth(options: {
     return session;
   }
 
-  // 보관한 grant가 지금 설정의 발급자·URL·client와 같은지 본다(R17).
+  // 보관한 grant가 지금 설정의 발급자·URL·client와 같은지 본다.
   function bound(grant: McpGrant, server: McpOAuthServer): boolean {
     const side = (issuer: string, url: string) => ({
       issuer,
@@ -139,7 +139,7 @@ export function createMcpOAuth(options: {
     const grant = loaded.value;
     if (grant === null) return reauth();
     if (!bound(grant, server)) {
-      // 발급자·URL·client가 바뀌었다. 옛 비밀은 쓰지 않고 지운다(R17).
+      // 발급자·URL·client가 바뀌었다. 옛 비밀은 쓰지 않고 지운다.
       await discard(key, null);
       return reauth("설정이 바뀌어 다시 로그인해야 한다");
     }
@@ -276,7 +276,7 @@ export function createMcpOAuth(options: {
     async access(server) {
       if (!pointed(server)) return reauth();
       const id = mcpAuthKeyId(server.key);
-      // 같은 서버에 같은 설정으로 동시에 온 요청은 한 번의 확인·갱신을 같이 기다린다(R17).
+      // 같은 서버에 같은 설정으로 동시에 온 요청은 한 번의 확인·갱신을 같이 기다린다.
       const flightId =
         `${id}\0${server.issuer}\0${server.serverUrl}\0${server.clientId}`;
       let flight = flights.get(flightId);

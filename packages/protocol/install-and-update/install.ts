@@ -19,7 +19,7 @@ export const INSTALL_COMMANDS = [
   "lophn-mcp",
 ] as const;
 
-// Linux 기본값(platform/install-and-update#R7, R8). 다른 OS 경로는 문서에 없다.
+// Linux 기본값. 다른 OS 경로는 문서에 없다.
 export const LINUX_DATA_ROOT = "~/.lophn";
 export const LINUX_DATA_ROOT_ENV = "LOPHN_HOME";
 export const LINUX_DENO_CACHE = "~/.cache/lophn/deno";
@@ -38,7 +38,7 @@ export const installCommandSchema = z.enum(INSTALL_COMMANDS);
 
 export type InstallCommand = z.infer<typeof installCommandSchema>;
 
-// 검증 전에는 사용 가능으로 표시하지 않는다(platform/install-and-update#R1).
+// 검증 전에는 사용 가능으로 표시하지 않는다.
 export const INSTALL_READINESS = ["verified", "unverified"] as const;
 
 export const installReadinessSchema = z.enum(INSTALL_READINESS);
@@ -141,7 +141,7 @@ export const updateNoticeSchema = z.object({
 
 export type UpdateNotice = z.infer<typeof updateNoticeSchema>;
 
-// 같은 데이터 폴더의 writer는 하나다(platform/install-and-update#R10, shell/desktop#R20).
+// 같은 데이터 폴더의 writer는 하나다.
 export const INSTANCE_STATES = ["absent", "running", "conflict"] as const;
 
 export const instanceStateSchema = z.enum(INSTANCE_STATES);

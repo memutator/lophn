@@ -1,6 +1,6 @@
 // blueprint가 사람과 agent에게 무엇을 설명하는지, 비어 있는 자리가 어디인지 본다
 // (apps/blueprint#R2). 구조가 맞는지(`validateBlueprint`)와 실제 test 통과(problems/tests)와는
-// 다른 근거이고 이 파일은 설명의 빈자리만 센다(R3).
+// 다른 근거이고 이 파일은 설명의 빈자리만 센다.
 import type { Blueprint, InputSchema } from "./mod.ts";
 
 function blank(value: string | undefined): boolean {

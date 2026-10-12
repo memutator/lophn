@@ -89,7 +89,7 @@ const appCommandFields = {
     basis_seq: z.string().regex(/^[0-9]+$/),
   }),
   context_binding: z.record(z.string(), z.json()).nullable(),
-  // 이 값이 있으면 tool_calls.app_command로 묶이고 revert가 앱의 선언된 revert command를 부른다(R10).
+  // 이 값이 있으면 tool_calls.app_command로 묶이고 revert가 앱의 선언된 revert command를 부른다.
   revert_command: z.string().min(1).optional(),
 };
 

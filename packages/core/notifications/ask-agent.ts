@@ -8,7 +8,7 @@ import {
 import type { Seq } from "../../protocol/base/mod.ts";
 import { triggerOf } from "./model.ts";
 
-// 계기 종류가 정한 부를 agent와 첫 context 모양이다(platform/notifications#R13).
+// 계기 종류가 정한 부를 agent와 첫 context 모양이다.
 // 계기 표(contract)의 한 행이며 notification 내용이나 대상 문서의 내용을 읽지 않는다.
 export type AskAgent = {
   role: NotificationAskRole;
@@ -27,7 +27,7 @@ export type AskSource = {
   project?: string;
 };
 
-// Ask가 내는 전부다(platform/notifications#R14). Agent 탭을 열 role과 자리, 세션의
+// Ask가 내는 전부다. Agent 탭을 열 role과 자리, 세션의
 // opening_context(→ lophn-agent/conversation)가 될 대상 참조뿐이다. run·message·읽음·
 // notification 본문 복사본은 담지 않는다. 탭을 여는 일은 command도 event도 아니다.
 export type AskTab = {
@@ -68,7 +68,7 @@ export function askTab(source: AskSource): AskTab | null {
   };
 }
 
-// 알림 행에 싣는 [Ask <agent 이름>] 값(platform/notifications#R13, R14). 계기 표가 부를 agent와
+// 알림 행에 싣는 [Ask <agent 이름>] 값. 계기 표가 부를 agent와
 // 첫 context 모양을 정하고 source 사실이 자리(앱 또는 project)와 대상 id를 채운다. agent가
 // 없는 계기, 자리나 대상 id를 알 수 없는 사실, 모양이 맞지 않는 id는 null이다(보기만). 열
 // 자리를 짐작하지 않는다.

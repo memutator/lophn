@@ -29,9 +29,9 @@ import {
 } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
 
-// 읽기는 동기 handler다. 목록의 정본은 assignment이고(R7) 정의 파일은 읽을 때마다 같은 검사를 한다(R24).
+// 읽기는 동기 handler다. 목록의 정본은 assignment이고 정의 파일은 읽을 때마다 같은 검사를 한다.
 
-// 목록은 lophn, Context Engineer 또는 App Engineer, Operator 순서다(shell/workspace R36).
+// 목록은 lophn, Context Engineer 또는 App Engineer, Operator 순서다.
 const LIST_ORDER = ["lophn", "context_engineer", "app_engineer", "operator"];
 
 const DEFAULT_SOURCE: ValueSource = { layer: "default", place: null };

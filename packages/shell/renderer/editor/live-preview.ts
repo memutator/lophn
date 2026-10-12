@@ -135,7 +135,7 @@ class ImageWidget extends WidgetType {
   toDOM(): HTMLElement {
     const wrap = document.createElement("span");
     wrap.className = "cm-lp-image";
-    // 실패에는 아이콘과 alt를 보인다(shell/editor#R10).
+    // 실패에는 아이콘과 alt를 보인다.
     const fallback = () => {
       wrap.textContent = "";
       wrap.classList.remove("cm-lp-image-loading");
@@ -218,7 +218,7 @@ class FrontmatterWidget extends WidgetType {
       JSON.stringify(other.fields) === JSON.stringify(this.fields);
   }
   toDOM(view: EditorView): HTMLElement {
-    // key/value 두 열(shell/editor#R10).
+    // key/value 두 열.
     const wrap = document.createElement("div");
     wrap.className = "cm-lp-props";
     const head = document.createElement("div");

@@ -1,7 +1,7 @@
-// settings 교환 TOML의 parse·export 순수 함수(platform/settings#R3, R26).
+// settings 교환 TOML의 parse·export 순수 함수.
 // UTF-8 TOML 1.0 format version 1만 받는다. JSON5·YAML·환경 치환·include·
 // command 실행·원격 URL은 문법 자체가 없으므로 parse가 거절한다.
-// 메시지는 기대 format·고칠 방법만 알리고 입력 문서 전체와 값 원문을 담지 않는다(R14).
+// 메시지는 기대 format·고칠 방법만 알리고 입력 문서 전체와 값 원문을 담지 않는다.
 
 import { parse, stringify } from "@std/toml";
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -159,7 +159,7 @@ function rejectUnsafeStrings(
   return ok(undefined);
 }
 
-// parse는 UTF-8 TOML 1.0 format version 1 교환 문서만 받는다(R3, R26).
+// parse는 UTF-8 TOML 1.0 format version 1 교환 문서만 받는다.
 // mutation 검사는 소유 concern의 validateChoice·ApplySettings가 한다. 여기서는
 // 문서 모양·허용되지 않은 값 모양만 거절한다.
 export function parseSettingsTOML(
@@ -220,7 +220,7 @@ export function parseSettingsTOML(
     });
   }
   if (version !== SETTINGS_EXCHANGE_FORMAT_VERSION) {
-    // 알 수 없는 version은 전체 거절한다(R26). 옛 항목 변환은 실제 항목
+    // 알 수 없는 version은 전체 거절한다. 옛 항목 변환은 실제 항목
     // 변경이 있는 lophn update에서 명시적으로 제공한다.
     return err({
       code: "invalid_input",

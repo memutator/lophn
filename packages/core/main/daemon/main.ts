@@ -41,7 +41,7 @@ const parent = Deno.stdin.isTerminal()
   ? undefined
   : { stdin: Deno.stdin.readable, stdout: Deno.stdout.writable };
 
-// 확인한 backup 복원은 이 core를 멈춘다(platform/backup-and-migration#R13). 복원이 끝나면 같은
+// 확인한 backup 복원은 이 core를 멈춘다. 복원이 끝나면 같은
 // data root로 다시 시작해 새 epoch·새 ledger_id·새 hello로 이어 간다. 복원이 실패해도 현재
 // 자료는 그대로라 같은 방식으로 다시 시작한다. 시작이 실패하면 프로세스가 끝난다.
 let core: Core | undefined;
@@ -85,7 +85,7 @@ for (;;) {
   }
   core = started.value;
   // 보호 통로: helper가 이어 주는 소유자 전용 unix socket(Linux). 열지 못해도 core는 시작하고,
-  // coding credential 전달만 unavailable로 남는다(secrets#R12).
+  // coding credential 전달만 unavailable로 남는다.
   const credentialSocket = Deno.build.os === "linux" && core.codingCredentials
     ? await serveCredentialSocket({
       dataRoot: core.dataRoot,

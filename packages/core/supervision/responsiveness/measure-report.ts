@@ -1,7 +1,7 @@
 // 측정 결과 보고의 순수 논리(docs/plan/platform.md T51 두 번째 확인). 대상별
 // 요약·목표 판정·측정 조건을 한 보고로 모은다. 오류를 빠른 성공으로 계산하지
-// 않는다(R8): outcome 개수는 분포와 별개로 남기고, 모든 요청은 어느 끝 상태든
-// 가진다(R8, R10).
+// 않는다: outcome 개수는 분포와 별개로 남기고, 모든 요청은 어느 끝 상태든
+// 가진다.
 
 import {
   type Distribution,
@@ -23,10 +23,10 @@ export type TargetReport = {
   ended: number;
   errors: number;
   timeouts: number;
-  /** queue 대기·실행 분포. 기록된 표본만 포함한다(R8). */
+  /** queue 대기·실행 분포. 기록된 표본만 포함한다. */
   queueWait?: { p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number };
   execution?: { p50Ms: number; p95Ms: number; p99Ms: number; maxMs: number };
-  /** 측정 예외를 분류해 남긴다(R10). */
+  /** 측정 예외를 분류해 남긴다. */
   exceptions?: { kind: string; count: number }[];
 };
 
@@ -34,7 +34,7 @@ export type TargetReport = {
 export type MeasureReport = {
   conditions: MeasureConditions;
   targets: TargetReport[];
-  /** 모든 요청이 끝 상태를 가지는지. 거짓이면 측정 누락이다(R8). */
+  /** 모든 요청이 끝 상태를 가지는지. 거짓이면 측정 누락이다. */
   complete: boolean;
 };
 
@@ -90,7 +90,7 @@ export function reportTarget(entry: TargetSamples): TargetReport {
   };
 }
 
-/** 끝 상태가 없는 요청이 있는지. 있으면 보고가 불완전이다(R8). */
+/** 끝 상태가 없는 요청이 있는지. 있으면 보고가 불완전이다. */
 export function isComplete(entries: readonly TargetSamples[]): boolean {
   return entries.every((entry) =>
     entry.samples.every((sample) =>

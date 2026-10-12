@@ -1,4 +1,4 @@
-// Context 화면들의 ContextsSource를 제품 core로 잇는다(shell/workspace#R16~R29). token·port는
+// Context 화면들의 ContextsSource를 제품 core로 잇는다. token·port는
 // main에 있고 이 쪽은 route 이름과 입력만 보낸다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했으므로 화면이 읽는 field만 골라 source 모양으로 옮긴다. 실패는 core의 오류
 // code(`not_found`, `conflict`, `unavailable`…)를 message로 돌려준다. 색인(context worker)이 안 떠

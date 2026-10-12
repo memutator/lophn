@@ -1,4 +1,4 @@
-// 기한에 도달한 대기 request를 찾는 core 내부 read(platform/approvals#R12, R15).
+// 기한에 도달한 대기 request를 찾는 core 내부 read.
 // 기한 뒤의 결정·사용은 command가 이미 거절하므로 안전은 지켜지지만, pending이 expired로 바뀌려면
 // machine이 `expire_approval_request`를 내야 한다. core의 주기 정리(packages/core/main/daemon/runtime.ts)가 이 후보를
 // 읽고 command를 제출한다. read는 표를 쓰지 않고 시각은 호출자가 넘기므로 테스트가 시계를 주입한다.

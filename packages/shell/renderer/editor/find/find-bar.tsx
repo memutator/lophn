@@ -45,7 +45,7 @@ function Action(
   );
 }
 
-// 편집 칸 위에 붙는 찾기 줄 36px·입력 28px(shell/editor#R11).
+// 편집 칸 위에 붙는 찾기 줄 36px·입력 28px.
 export function FindBar(
   {
     query,

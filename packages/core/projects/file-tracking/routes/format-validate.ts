@@ -1,4 +1,4 @@
-// `/v1/formats/validate` worker route 조립(coding-agent#T14, mcp#R14). 제출한 파일 bytes를
+// `/v1/formats/validate` worker route 조립. 제출한 파일 bytes를
 // 저장 없이 format 실행으로 검사한다. 준비 route와 같은 검사 통로(documents-validate.ts)를
 // 쓴다: 원문 blob은 I/O worker에서 읽어 documents coordinator의 format runner로 간다.
 // 판·문서·준비 참조는 만들지 않는다. blob은 요청 credential이 upload로 준비해 아직 살아

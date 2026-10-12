@@ -1,4 +1,4 @@
-// 디렉터리 내용의 hash다(coding-agent/harnesses#R7, guides#R4). 설치가 기록하는
+// 디렉터리 내용의 hash다. 설치가 기록하는
 // digest와 제거가 비교하는 digest가 같은 모양이어야 한다. 파일별 hash를 경로
 // 순으로 모아 하나로 접는다.
 import { sha256Hex } from "../../../base/mod.ts";

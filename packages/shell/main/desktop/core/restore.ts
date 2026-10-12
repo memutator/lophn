@@ -1,8 +1,8 @@
-// settings backup 복원(shell#T58, platform#T42에서 넘어온 것). renderer가 고른 묶음 하나의
+// settings backup 복원(platform#T42에서 넘어온 것). renderer가 고른 묶음 하나의
 // 복원 계획(잃을 최신 기록 범위)을 core 감독 pipe로 읽고, 사람이 확인하면 결정 handle을
 // pipe로 발급해 복원을 청한다. 계획 응답은 contract `restore_plan`(lost·target·content_hash)이고
 // 응답 결정 handle은 connection.registerConfirmation이 발급한다(confirmation_handle_register).
-// 결정 이름은 `restore_backup` 하나뿐이다(platform/backup-and-migration#R13). 이 모듈은 계획과
+// 결정 이름은 `restore_backup` 하나뿐이다. 이 모듈은 계획과
 // 결과의 바깥 모양만 돌려준다: pipe frame·handle 원문은 여기와 supervise.ts에만 있다.
 import type {
   MainHello,

@@ -16,7 +16,7 @@ export interface ChipProps {
   onDismiss: (id: string) => void;
 }
 
-// 사람의 답을 기다리는 안내는 하나만 보이고 나머지는 개수로 붙인다. timer가 없어 저절로 사라지지 않는다(R35).
+// 사람의 답을 기다리는 안내는 하나만 보이고 나머지는 개수로 붙인다. timer가 없어 저절로 사라지지 않는다.
 export function Chip({ items, onView, onDismiss }: ChipProps) {
   const [first] = items;
   if (!first) return null;

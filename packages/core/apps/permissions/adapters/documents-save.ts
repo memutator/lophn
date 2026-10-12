@@ -1,4 +1,4 @@
-// broker의 `DocumentsSave` port를 실제 앱 자격의 문서 저장에 잇는 어댑터(documents#T31).
+// broker의 `DocumentsSave` port를 실제 앱 자격의 문서 저장에 잇는 어댑터.
 // broker는 선언한 key와 정확한 grant를 이미 확인했고 늘 자식의 앱 자리와 같은 재전송 key로
 // 부른다. 여기서는 documents의 일반 저장 통로를 그 자식의 app credential로 지난다:
 //   앱 자리의 (앱 place, 출력 이름) 문서 찾기 → bytes를 core `documents/upload`로 준비 →
@@ -6,7 +6,7 @@
 // 문서·판·hash·blob은 documents와 core가 만든다. 이 어댑터는 순서와 입력만 잇고 hash를
 // 꾸미지 않는다: core가 실제 bytes와 선언한 hash·크기가 같을 때만 준비를 끝낸다.
 // 앱 자리 밖으로 가는 길은 없다. place는 늘 `{kind: "app", id: 자식의 app}`이고 본문이
-// 정하지 못하며, 앱 자격이 다른 자리에 쓰는 일은 documents가 거절한다(versions#R14).
+// 정하지 못하며, 앱 자격이 다른 자리에 쓰는 일은 documents가 거절한다.
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
 import {
@@ -105,7 +105,7 @@ function reject(
 }
 
 // 새 문서 id는 (앱, 출력 key, 재전송 key)에서 정한다. 같은 저장의 재전송이 같은 문서를 가리켜
-// 새 문서가 하나 더 생기지 않고(versions#R8), 다른 앱의 같은 재전송 key와 겹치지 않는다.
+// 새 문서가 하나 더 생기지 않고, 다른 앱의 같은 재전송 key와 겹치지 않는다.
 // ULID 모양(128bit)이다.
 export async function appDocumentId(
   app: string,

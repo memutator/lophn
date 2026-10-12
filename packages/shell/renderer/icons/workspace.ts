@@ -29,7 +29,7 @@ export const workspaceIcons = {
   terminal: SquareTerminal,
   appPanel: AppWindow,
   notices: Bell,
-  // Operator editor의 [Delete Operator]와 [Upload image](shell/workspace#R38, R39).
+  // Operator editor의 [Delete Operator]와 [Upload image].
   trash: Trash2,
   upload: Upload,
 } as const satisfies Record<string, LucideIcon>;

@@ -1,4 +1,4 @@
-// 알려진 secret 원문은 보호 메모리에만 둔다(platform/redaction#R1).
+// 알려진 secret 원문은 보호 메모리에만 둔다.
 // 이 목록을 agent·앱·test 결과로 내보내지 않는다.
 
 // 읽기만 하는 얼굴. 등록·회수·개수 없이 일치 검사만 한다. 값 목록을 내보내지 않는다.
@@ -76,7 +76,7 @@ export function createKnownSecretRegistry(): KnownSecretRegistry {
   };
 }
 
-// 1자·2자는 단어 경계에서만 맞춘다. 긴 값의 부분 일치는 그대로 지운다(R1).
+// 1자·2자는 단어 경계에서만 맞춘다. 긴 값의 부분 일치는 그대로 지운다.
 function boundedIndex(text: string, value: string): number {
   let from = 0;
   while (from <= text.length - value.length) {

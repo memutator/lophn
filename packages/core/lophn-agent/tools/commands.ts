@@ -28,7 +28,7 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import { callColumns, callFromRow, type CallRow } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
-// 입력·출력 원문은 열에 없고 redaction을 거친 blob hash만 남는다(R15).
+// 입력·출력 원문은 열에 없고 redaction을 거친 blob hash만 남는다.
 
 export const toolCallBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
@@ -114,7 +114,7 @@ function insertCall(
     input.tool,
     input.definition_revision,
     input.effect,
-    // 앱 command 원래 호출의 계약이다(app command tool만 싣는다, lophn-agent#T48).
+    // 앱 command 원래 호출의 계약이다(app command tool만 싣는다).
     input.app_command === undefined ? null : JSON.stringify(input.app_command),
     input.confirm ? 1 : 0,
     input.extension === null ? null : JSON.stringify(input.extension),
@@ -322,7 +322,7 @@ export function createToolCommands(): {
         if (duplicateRequest(tx, request)) {
           return conflict("tool call request already recorded");
         }
-        // 후행 기록은 실제 순서대로 네 event를 남긴다(R15). 읽기 응답은 이
+        // 후행 기록은 실제 순서대로 네 event를 남긴다. 읽기 응답은 이
         // 저장을 기다리지 않는다. 저장은 다음 model 판단 전에 한다.
         tx.emit(toolCallRequested, request.id, {
           run: request.run,

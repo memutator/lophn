@@ -1,4 +1,4 @@
-// contexts 탭 kind. 이 프로젝트의 context를 카드로 나열한다(shell/workspace#R16). 대상 필드가
+// contexts 탭 kind. 이 프로젝트의 context를 카드로 나열한다. 대상 필드가
 // 없고 탭은 프로젝트에 하나다.
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";

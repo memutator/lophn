@@ -604,7 +604,7 @@ export function createReaderRegistration(): ReaderRegistration {
           return read.ok ? ok({ ...read.value, next_cursor: null }) : read;
         },
       },
-      // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이
+      // coordinator가 파일을 관측할 근거. core만 부르는 내부 read다. 활성이고 tracking이
       // 켜진 project의 root·규칙(roots), 활성 project의 모든 등록 폴더(folders: 파일 쓰기의
       // root 권한 집합이고 tracking을 껐어도 들어간다), 그 project 파일에 연결된 문서(links,
       // 경로 page)다. roots와 folders는 같은 snapshot의 한 응답이다.
@@ -622,7 +622,7 @@ export function createReaderRegistration(): ReaderRegistration {
           );
           if (part === "roots") {
             // 등록된 지침 파일(전역·project)과 그 파일에 이미 연결된 문서. 일반 tracking 규칙과 따로
-            // 있고 tracking을 껐어도 들어간다(file-tracking#R19). 파일은 보지 않는다.
+            // 있고 tracking을 껐어도 들어간다. 파일은 보지 않는다.
             const dataRoot = dataRootOf(snapshot);
             if (!dataRoot.ok) return dataRoot;
             const documents = loadInstructionDocuments(snapshot.sql);

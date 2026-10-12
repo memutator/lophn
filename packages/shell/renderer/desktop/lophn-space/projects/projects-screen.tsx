@@ -22,7 +22,7 @@ type Rows =
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // projects 화면. 왼쪽 목록 칸에서 프로젝트를 고르고 오른쪽에서 이름·목적·보관과 소속 문서
-// 정리·export를 한다(shell/desktop#R28, flow organize-documents의 사람 갈래). 기본 목록은 고를
+// 정리·export를 한다(flow organize-documents의 사람 갈래). 기본 목록은 고를
 // 대상과 필요한 상태만 보이고 폴더·추적 설정 같은 상세는 작업대에서 본다.
 export function ProjectsScreen({ source, lophn }: ProjectsScreenProps) {
   const [rows, setRows] = useState<Rows>({ kind: "loading" });

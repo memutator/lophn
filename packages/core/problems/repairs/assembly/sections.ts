@@ -1,4 +1,4 @@
-// 15절 조립(repair-context#R3-R10, R18, R19). 절 순서는 contracts의 SECTION_KINDS가 정하고
+// 15절 조립(repair-context#R3-R10). 절 순서는 contracts의 SECTION_KINDS가 정하고
 // 줄·자·개수 상한은 SECTION_LIMITS를 쓴다. 사람 말·앱 문자열·log 원문은 모두 redaction을
 // 지난 뒤 data fence 안에만 둔다. 빠진 근거는 빠졌다고 적고 채우지 않는다.
 import {
@@ -38,7 +38,7 @@ export type SectionContext = {
 };
 
 const L = SECTION_LIMITS;
-// 머리 정보는 6줄 이하다(repair-context#R4).
+// 머리 정보는 6줄 이하다.
 const HEAD_LINES = 6;
 const REDACTED_REASON = "redaction이 이 자료를 통과시키지 않아 내용을 뺐다";
 const NO_BLOB_PATH = "이 연결로 읽는 blob 통로가 없다";
@@ -59,7 +59,7 @@ function problemOf(
   };
 }
 
-// 읽을 수 없는 문제는 없는 문제와 같은 문장이다(connection#R5).
+// 읽을 수 없는 문제는 없는 문제와 같은 문장이다.
 function readable(problem: ProblemFacts): boolean {
   return problem.problem.ok;
 }
@@ -81,7 +81,7 @@ function atOf(text: string | null | undefined): string {
 
 function headSection(facts: TargetFacts): RepairContextSection | null {
   const draft = new Draft("target_symptom", null, HEAD_LINES);
-  // 머리 정보는 6줄 이하다(repair-context#R4). target_symptom 절의 문제 없는 공통 머리다.
+  // 머리 정보는 6줄 이하다. target_symptom 절의 문제 없는 공통 머리다.
   const lines: string[] = [];
   const ticket = facts.ticket;
   let target =
@@ -940,7 +940,7 @@ async function attachmentsSection(
     } else if (images < L.attachments.image_metadata) {
       images += 1;
       // 이미지 내용은 이 통로가 보내지 않는다(redaction이 image/png를 지원하지 않는다). 크기와 첨부 열기
-      // 참조만 낸다(repair-context#R17).
+      // 참조만 낸다.
       const size = item.detail.value.attachments?.find((attachment) =>
         attachment.hash === screen.screenshot
       )?.size_bytes;

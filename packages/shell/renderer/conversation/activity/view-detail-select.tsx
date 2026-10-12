@@ -16,7 +16,7 @@ const OPTIONS: readonly { value: ViewDetail; label: MessageKey }[] = [
   { value: "everything", label: "conversation.label.view-everything" },
 ];
 
-// header의 보기 상세 select. Messages·Compact·Everything을 이 순서로 고른다(shell/desktop#R42).
+// header의 보기 상세 select. Messages·Compact·Everything을 이 순서로 고른다.
 // Select는 Field label이 필요하다. header에서는 label을 눈에서만 감추고 이름으로 남긴다.
 // 고른 값은 tool 줄의 detail만 바꾸고 메시지와 카드는 그대로다.
 export function ViewDetailSelect(

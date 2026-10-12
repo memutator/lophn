@@ -1,4 +1,4 @@
-// /v1/apps/export의 worker route 서빙(apps/data#R13, architecture/apps 5.4). 단독 data
+// /v1/apps/export의 worker route 서빙(architecture/apps 5.4). 단독 data
 // worker가 준보하는 앱 export다. 준비 본체는 worker/export.ts가 하고, 이 모듈은 거기에
 // 필요한 것을 core 조립에서 주입받아 모은다: ledger 읽기(snapshot), 요청 자격 재검사
 // (current), 앱 접근 판정(TargetAuthorization port), 데이터 root.
@@ -8,7 +8,7 @@
 // data worker(worker/export.ts의 openAppDatabase)만 한다(정책 "writer").
 //
 // secret 원값·credential·앱 외부 자료는 export에 모이지 않는다. 앱 외부 자료(첨부·
-// files 영역) 포함 여부는 contract의 includes_external_data로 명시한다(R13): 앱 export는
+// files 영역) 포함 여부는 contract의 includes_external_data로 명시한다: 앱 export는
 // 앱 폴더 안의 것만 모으므로 늘 false다.
 import {
   err,

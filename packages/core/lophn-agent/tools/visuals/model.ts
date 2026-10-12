@@ -7,7 +7,7 @@ import {
   visualBlockInputSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
-// 시각 블록의 owner 검사(lophn-agent/visuals#R1–R3, R5). contract schema는 모양과 상한을 한꺼번에
+// 시각 블록의 owner 검사. contract schema는 모양과 상한을 한꺼번에
 // 검사해 어느 상한을 넘었는지 말하지 못하고, 임의 문자열에 lexical 검사를 하지 않는다(그 일은 owner
 // 몫이다). 이 모듈은 검사 순서를 고정하고(parse → 블록 수 → 종류별 상한 → 모양 → 키 → markup·URL →
 // 마지막에 bytes 합계) 어느 블록·어느 상한인지 값 없이 알려 준다. 어느 단계에서 실패해도 아무것도

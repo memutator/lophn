@@ -1,7 +1,7 @@
-// 일곱 제품의 감지 조립이다(coding-agent/harnesses#R2, R3, R4, T36, cli#R40). 최초 감지는
+// 일곱 제품의 감지 조립이다. 최초 감지는
 // PATH와 catalog의 fallback 위치만 읽고 version·auth probe를 돌리지 않는다. 사람이 요청한 재감지
 // (`refresh`)만 별도 version·auth probe까지 돌린다. 결과는 저장해 두고 화면 재진입이나 빈 결과로
-// 다시 감지하지 않는다(R2): 저장한 결과는 환경·catalog revision이 같으면 그대로 쓴다.
+// 다시 감지하지 않는다: 저장한 결과는 환경·catalog revision이 같으면 그대로 쓴다.
 import { ok, type Result } from "../../base/mod.ts";
 import {
   type HarnessDetection,
@@ -24,7 +24,7 @@ import {
 import type { HarnessDefinition, ProbeSeat } from "./model.ts";
 import { CATALOG_REVISION } from "./model.ts";
 
-// 지금은 native host만 감지한다(R4). identity는 이 컴퓨터의 native 표식이고 WSL·remote는 없다.
+// 지금은 native host만 감지한다. identity는 이 컴퓨터의 native 표식이고 WSL·remote는 없다.
 export const NATIVE_ENVIRONMENT: HarnessEnvironment = {
   kind: "host",
   identity: "native",
@@ -201,7 +201,7 @@ export function parseDetections(
 }
 
 // 감지 결과를 receipt·journal과 같은 `<home>/.lophn/integrations/` local metadata로 저장한다.
-// 원문 출력·token은 담지 않는다(R12). 쓰기는 temp·rename이고 실패는 저장 안 됨으로 돌려준다.
+// 원문 출력·token은 담지 않는다. 쓰기는 temp·rename이고 실패는 저장 안 됨으로 돌려준다.
 export function detectionCacheOf(
   home: string,
   files: FilePort,

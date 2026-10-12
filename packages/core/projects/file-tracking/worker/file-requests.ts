@@ -1,4 +1,4 @@
-// 준비 worker가 받는 사람 파일 작업 요청(file-tracking#R11, R12). coordinator가 목표를 실제
+// 준비 worker가 받는 사람 파일 작업 요청. coordinator가 목표를 실제
 // root와 경로로 풀어 보낸 요청을 packages의 알고리즘(files.ts·prepared-files.ts)에 넘긴다.
 // 이 프로세스는 신뢰한 코드지만 요청마다 경로가 root 안의 일반 파일인지 다시 본다.
 // 알고리즘 실패는 공통 오류 코드 그대로 돌려주고 경로·본문은 응답에 넣지 않는다.

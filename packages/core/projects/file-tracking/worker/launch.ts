@@ -17,7 +17,7 @@ function codeReads(): string[] {
     /\/$/,
     "",
   );
-  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다.
   const home = Deno.env.get("HOME");
   let configured: string | undefined;
   try {

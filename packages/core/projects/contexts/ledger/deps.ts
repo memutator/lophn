@@ -1,7 +1,7 @@
 // ContextLedgerDeps의 실제 구현: content blob 읽기, derived index 읽기, 선언 검색 실행, hash,
 // Context Engineer 판별, 위반 넘김 Run. command를 실행하는 writer Worker와 read를 실행하는 reader
 // Worker 안에서만 올라온다(contexts-api.ts의 loadContextsRuntime). node:sqlite와 동기 file API를
-// 쓰므로 core 본체의 module graph에 들어오면 안 된다(platform/responsiveness#R1).
+// 쓰므로 core 본체의 module graph에 들어오면 안 된다.
 // 그래서 index 저장소는 packages/core/projects/contexts/mod.ts barrel이 아니라 index/mod.ts를 직접 연다.
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";

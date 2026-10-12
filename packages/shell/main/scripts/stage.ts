@@ -1,4 +1,4 @@
-// Stages everything electron-builder bundles as extraResources (shell#T57).
+// Stages everything electron-builder bundles as extraResources.
 //
 //   npm run stage [--skip-renderer-build]
 //

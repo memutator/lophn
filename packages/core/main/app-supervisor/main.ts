@@ -118,7 +118,7 @@ const preparation = dataRoot === undefined
 
 const assembled = assembleSupervisor({
   ...(preparation === undefined ? {} : { preparation }),
-  // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다(apps/data#R1).
+  // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다.
   ...(dataRoot === undefined ? {} : {
     data: createChildDataRunner({
       dataRoot,
@@ -128,7 +128,7 @@ const assembled = assembleSupervisor({
     }),
   }),
   childExited: (nonce) => delivery.childExited(nonce),
-  // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다(apps/invocations#R1).
+  // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다.
   invocations: delivery.broker,
   clock: systemClock,
   ids: createIdSource({
@@ -165,7 +165,7 @@ const assembled = assembleSupervisor({
     return { status: response.status, body: await readBody(response) };
   },
   async direct(endpoint, request) {
-    // 앱 socket HTTP다. 가상 host lophn.invalid만 쓴다(apps/runtime#R8).
+    // 앱 socket HTTP다. 가상 host lophn.invalid만 쓴다.
     const client = Deno.createHttpClient({
       proxy: { transport: "unix", path: endpoint },
     });

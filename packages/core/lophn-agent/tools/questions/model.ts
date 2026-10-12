@@ -220,7 +220,7 @@ export function evidenceKey(question: string, option: string): string {
   return `${question}\u0000${option}`;
 }
 
-// 사람이 고른 선택지의 고정 action을 실제로 적용했는지. 답 접수와 적용 완료는 다르다(R10).
+// 사람이 고른 선택지의 고정 action을 실제로 적용했는지. 답 접수와 적용 완료는 다르다.
 // 자유 답·답 없음·종료한 묶음은 적용한 일이 없다. 표가 없는 harness는 적용 기록도 없다.
 export function appliedOf(
   lookup: Lookup,
@@ -245,7 +245,7 @@ export function appliedOf(
 }
 
 // 사람이 고른 선택지와 그 고정 action. 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리
-// 묶음이라(R13) 묶음에서 많아야 하나다. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
+// 묶음이라 묶음에서 많아야 하나다. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
 export function chosenActionOf(
   group: QuestionGroup,
 ): { question: QuestionRow; key: string; action: OptionAction } | undefined {
@@ -265,7 +265,7 @@ export function chosenActionOf(
   return undefined;
 }
 
-// 채택은 answered 묶음에 속한 질문이 고른 선택지의 adoption으로만 판정한다(R16). 새 version은
+// 채택은 answered 묶음에 속한 질문이 고른 선택지의 adoption으로만 판정한다. 새 version은
 // 자동 채택하지 않는다: 같은 질문의 답은 그때 고정한 document·version만 가리킨다. 채택을 근거로
 // 쓰는 ticket·handoff는 이 값의 document·version과 질문 ID를 함께 보관한다.
 export type Adoption = {
@@ -348,7 +348,7 @@ export function settingChangesOf(
   return parsed;
 }
 
-// 선택지의 근거·채택 참조는 그 document의 실제 불변 version이어야 한다(R16). 판 표(documents/
+// 선택지의 근거·채택 참조는 그 document의 실제 불변 version이어야 한다. 판 표(documents/
 // versions)는 소유 concern의 것이라 읽기만 한다. 판 표가 없는 등록(문서 concern 없는 harness)은
 // 확인할 판이 없으므로 통과한다.
 export function fixedVersionsExist(

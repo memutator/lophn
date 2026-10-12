@@ -125,7 +125,7 @@ function CommandChange({ change }: { change: Record<string, unknown> }) {
 /**
  * 이전 release와 비교한 바뀐 것. 화면·command(입력·효과·확인·되돌림)·automation·접근 추가와 축소·
  * 데이터 변경과 손실 설명을 한 묶음씩 보인다. 정적 비교는 업무 의미의 동일을 증명하지 못하므로
- * "검토 필요"는 apps가 준 review_required를 그대로 말한다(apps/releases#R9, R10).
+ * "검토 필요"는 apps가 준 review_required를 그대로 말한다.
  */
 export function Changes({ compare }: { compare: Record<string, unknown> }) {
   const commandChanges = arr(compare.command_changes);
@@ -321,7 +321,7 @@ export function Changes({ compare }: { compare: Record<string, unknown> }) {
 /**
  * release activation. 정확한 release의 바뀐 것을 apps가 다시 비교한 값으로 보이고, 결정은 approval의
  * 허락·거절·취소와 같다. 적용(activation 시작)은 요청자가 이 결정의 증거로 따로 한다.
- * 안전 preview는 apps/preview가 읽기로 준 결과가 있을 때만 말하고 없으면 없다고 한다(R10).
+ * 안전 preview는 apps/preview가 읽기로 준 결과가 있을 때만 말하고 없으면 없다고 한다.
  */
 export function ReleaseActivationKind(props: KindProps) {
   const shown = obj(props.view.view);

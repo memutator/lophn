@@ -2,7 +2,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model apps/sdk의 ledger 표. release 참조는 releases 표의 위치가 다른
 // 조립이므로 물리 FK를 두지 않고, bundle_hash·guide_hash의 실제 byte는 blob이다.
-// 공개한 name·version은 바꾸거나 지우지 않는다(R8) — trigger가 update·delete를 막는다.
+// 공개한 name·version은 바꾸거나 지우지 않는다 — trigger가 update·delete를 막는다.
 export const sdkSchemaSteps: readonly SchemaStep[] = [{
   id: "apps.sdk.tables",
   sql: `

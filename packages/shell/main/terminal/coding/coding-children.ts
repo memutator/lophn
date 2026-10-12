@@ -1,4 +1,4 @@
-// 신뢰 감독(shell main)의 coding child 등록(platform#T34 후속, platform/identity#R15). terminal host가
+// 신뢰 감독(shell main)의 coding child 등록(platform#T34 후속). terminal host가
 // lophn이 띄운 TUI 아래에서 관측한 MCP·CLI process를 core의 보호 전달 경계에 등록·해제한다. main은 자기
 // 사람 credential(`CoreSession.internal`)로 core의 `register_child`·`end_child`·`end_connection` route를 부르고
 // 이 route는 사람 credential에만 열려 있다(coding agent·app·agent는 403). scope는 보내지 않고 core가 ledger의

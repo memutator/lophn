@@ -2,8 +2,8 @@ import { z } from "zod";
 import { dataChangeSchema, dataResultSchema } from "./releases.ts";
 
 // data worker job 입력. migration·backup·restore 프로세스와 problems test runner가
-// 같은 진입점으로 읽는다(apps/plan T17).
-// inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 하는 작업이다(apps/releases#R12).
+// 같은 진입점으로 읽는다.
+// inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 하는 작업이다.
 export const DATA_JOB_KINDS = [
   "inspect",
   "backup",
@@ -35,11 +35,11 @@ const dataJobFields = {
   invocation: z.string().regex(/^inv_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
 };
 
-// stdin JSON 한 줄. token과 secret은 argv·환경에 없다(apps/runtime#R7).
+// stdin JSON 한 줄. token과 secret은 argv·환경에 없다.
 export const dataJobInputSchema = z.strictObject(dataJobFields);
 export type DataJobInput = z.infer<typeof dataJobInputSchema>;
 
-// 결과는 DataResult다(apps/data#R3). problems test runner도 같은 결과를 낸다.
+// 결과는 DataResult다. problems test runner도 같은 결과를 낸다.
 // migration 결과에는 invocation이 필수고 성공 제출은 integrity_ok true다.
 export const dataJobOutputSchema = z.strictObject({
   result: dataResultSchema,

@@ -1,4 +1,4 @@
-// 해석 연결의 read 단계(problems/grouping#R13, R14; 질문 Q13). 고정 version이 있고 호출자가 읽을 수
+// 해석 연결의 read 단계(질문 Q13). 고정 version이 있고 호출자가 읽을 수
 // 있는지, 절이 그 version에 있는지는 derived라 command가 아니라 command 전에 읽어서 확인한다.
 // documents의 `/v1/documents/get`·`history`와 `/v1/outline/document`(ver 지정)를 읽는 쪽이
 // reader를 주입한다. 이 단계는 문서를 바꾸지 않고 문제 표도 읽지 않는다.

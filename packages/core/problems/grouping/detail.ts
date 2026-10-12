@@ -9,7 +9,7 @@ import type {
   TestSummaryState,
 } from "../../../protocol/problems/mod.ts";
 
-// 사용자용 문제 상세 projection(grouping#R12, closing#R13, tests#R5). 읽은 사실에서 사람이 아는
+// 사용자용 문제 상세 projection. 읽은 사실에서 사람이 아는
 // en 문구만 만든다. 모르는 사실(undefined)은 성공이나 없음이 아니라 "모름"으로 보인다(P11).
 // 닫힘 4종·테스트 결과·고쳤다는 주장은 서로 다른 값으로 따로 낸다(P10).
 export type DetailFacts = {
@@ -71,7 +71,7 @@ const RECORDED_LABEL: Record<ProblemTestRecord["state"], string> = {
   not_run: "has not run",
 };
 
-// 운영에 적용되지 않은 수리다. app test 통과나 준비만으로는 닫지 않는다(closing#R2, R4).
+// 운영에 적용되지 않은 수리다. app test 통과나 준비만으로는 닫지 않는다.
 const NOT_IN_USE = "The fixed version is not in use, so this stays open.";
 
 const TESTS_LABEL: Record<TestSummaryState, string> = {

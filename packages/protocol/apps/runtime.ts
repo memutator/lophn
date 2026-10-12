@@ -221,7 +221,7 @@ export const appLogs = defineRead({
   errors: readErrors,
 });
 
-// 선언·실행 가능 여부·실제 관측을 구분해 보여 준다(apps/automations#R10).
+// 선언·실행 가능 여부·실제 관측을 구분해 보여 준다.
 export const automationViewSchema = z.object({
   key: z.string().min(1),
   declared: z.boolean(),

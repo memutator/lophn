@@ -1,4 +1,4 @@
-// secret.export·secret.import(platform/secrets#R9).
+// secret.export·secret.import.
 // keychain 읽기·쓰기는 이 경계의 메모리에서만 하고, 참조 교체는 기존 SetSecret 준비 흐름이다.
 // import가 하나라도 실패하면 새 참조를 하나도 제출하지 않는다. 기존 참조는 그대로다.
 

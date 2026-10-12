@@ -1,4 +1,4 @@
-// activation 한 시도를 순서대로 진행한다(apps/releases#R13, R14, apps/data#R4, architecture/apps 7.4).
+// activation 한 시도를 순서대로 진행한다(architecture/apps 7.4).
 // ReleaseActivationStarted 뒤에 supervisor가 부르고 순서는 이전 자식 종료 확인 → 실제 schema 확인 → (필요하면)
 // 보호 backup 확정 → migration → 새 앱 준비 확인(probe) → complete_activation commit → 업무 통로 open이다.
 // 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않고, commit 전 실패는 복원·fail_activation·이전 release
@@ -19,7 +19,7 @@ import {
 import { recoverActivation, rollback } from "./recovery.ts";
 
 // 새 업무 통로를 열고(commit 뒤에만) 열지 못하면 같은 release를 다시 준비해 연다. 이때 옛 backup은
-// 어떤 경우에도 쓰지 않는다: ledger가 이미 새 release를 채택했다(apps/data#R12).
+// 어떤 경우에도 쓰지 않는다: ledger가 이미 새 release를 채택했다.
 async function openAfterCommit(
   ports: ActivationPorts,
   attempt: Attempt,
@@ -37,11 +37,11 @@ export async function runActivation(
   const attempt = attemptOf(release);
   if (attempt === undefined) return { status: "none" };
 
-  // 1. 이전 자식의 종료를 확인한다. 확인 전에는 데이터 작업도 새 자식도 없다(apps/releases#R13).
+  // 1. 이전 자식의 종료를 확인한다. 확인 전에는 데이터 작업도 새 자식도 없다.
   if (!await ports.supervisor.stopCurrent(attempt.app)) {
     return unavailable("termination_unconfirmed");
   }
-  // 2. 종료한 앱 DB의 실제 schema가 시작 때의 값 그대로인지 확인한다(apps/releases#R12).
+  // 2. 종료한 앱 DB의 실제 schema가 시작 때의 값 그대로인지 확인한다.
   if (!await schemaIsExpected(ports, attempt)) {
     return await rollback(
       ports,
@@ -51,7 +51,7 @@ export async function runActivation(
     );
   }
 
-  // 3. 변경이 필요하면 보호 backup 참조를 ledger에 확정한 뒤에만 migration을 시작한다(apps/data#R4).
+  // 3. 변경이 필요하면 보호 backup 참조를 ledger에 확정한 뒤에만 migration을 시작한다.
   let backupHash: string | null = null;
   let result;
   if (needsMigration(attempt)) {

@@ -1,6 +1,6 @@
 // 고정 문서 참조. 블록 출처의 문서 판과 문서로 남긴 뒤의 고정 문서 링크를 같은 모양으로 보인다
 // (shell/workspace#R13). 누르면 host가 그 판을 연다: 실행 가능한 문서 format은 격리 문서 view
-// (shell#T33)로, 그 밖은 읽기 화면으로 연다. 이름은 문서 read로 따로 읽고, 읽지 못하면 열 수 없는
+//로, 그 밖은 읽기 화면으로 연다. 이름은 문서 read로 따로 읽고, 읽지 못하면 열 수 없는
 // 문서로 두며 다른 문서나 최신 판으로 바꾸지 않는다.
 import { useEffect, useState } from "react";
 import { Icon, iconPixels } from "@lophn/design/components";

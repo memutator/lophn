@@ -1,5 +1,5 @@
 // 한 session 화면(thread): 확정 메시지, run의 tool 줄·편집 카드·끝 줄, 대화 안 질문 묶음, 지금 일, 승인.
-// tool 줄·편집 카드·끝 줄은 메시지가 아니라 run 기록에서 그린다(shell/desktop#R41). 기록에 없는 줄은 그리지
+// tool 줄·편집 카드·끝 줄은 메시지가 아니라 run 기록에서 그린다. 기록에 없는 줄은 그리지
 // 않는다. 줄 순서는 원장 seq이고, 메시지가 아닌 줄은 그 run의 메시지에 맞춰 둔다.
 import { t } from "@lophn/wording";
 

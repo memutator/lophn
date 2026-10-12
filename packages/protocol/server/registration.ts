@@ -46,7 +46,7 @@ export interface Tx {
   registerBlobRef(
     reference: BlobRefRegistration,
   ): Result<PermanentBlobReference>;
-  // 반응 command의 소유 변경과 subscriber 처리 위치를 같은 transaction에 확정한다(platform/ledger#R15).
+  // 반응 command의 소유 변경과 subscriber 처리 위치를 같은 transaction에 확정한다.
   // 위치가 줄어들면 err이고 handler는 그 결과를 그대로 돌려 전체를 rollback한다.
   advanceSubscriberCursor(
     subscriber: string,
@@ -128,9 +128,9 @@ export type ApiReadDefinition<R extends ReadRoute = ReadRoute> = {
 // - core registry는 event type마다 owner policy 하나를 고정한다. 같은 type에 policy가 두 개면 기동을 거부한다(safe 오류).
 // - policy나 event가 등록되어 있지 않으면 fail-closed다(숨김).
 // - hook은 같은 ReadSnapshot, 지금 인증된 RequestContext(ctx.credential_ref로 현재 scope를 다시 검사), 그리고 검사 중인 그 envelope 하나를 받는다.
-//   본문뿐 아니라 제목·주소·존재·개수·관계·근거가 새지 않게 subject와 payload가 참조하는 것을 전부 본다(platform/identity#R8).
-// - ok(false), 또는 not_found·forbidden은 그 event를 빼는 것이고 batch는 계속 진행한다. scanned_through_seq는 숨긴 event를 지나간 위치다(platform/ledger#R15).
-// - unavailable·internal, throw, Promise, Result가 아닌 값은 숨김으로 바꾸지 않는다. 전체 batch가 안전하게 실패한다(platform/api#R7).
+//   본문뿐 아니라 제목·주소·존재·개수·관계·근거가 새지 않게 subject와 payload가 참조하는 것을 전부 본다.
+// - ok(false), 또는 not_found·forbidden은 그 event를 빼는 것이고 batch는 계속 진행한다. scanned_through_seq는 숨긴 event를 지나간 위치다.
+// - unavailable·internal, throw, Promise, Result가 아닌 값은 숨김으로 바꾸지 않는다. 전체 batch가 안전하게 실패한다.
 // - 그 밖의 오류 코드도 owner denied로 삼키지 않는다. runtime이 안전 batch 오류로 처리한다.
 //
 // 이 type은 등록 모양과 호출 형태(동기 Result, 읽기 전용 snapshot)만 고정한다.

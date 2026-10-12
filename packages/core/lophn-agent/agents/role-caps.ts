@@ -1,15 +1,15 @@
-// 제품이 고정하는 역할별 상한 표(lophn-agent/agents R20)다. core는 platform/responsiveness#R1의
+// 제품이 고정하는 역할별 상한 표다. core는 platform/responsiveness#R1의
 // core import 검사가 packages/core/lophn-agent/roles/를 막으므로, core가 부르는 검증은 이 leaf의
 // 표를 읽는다. roles/common/mod.ts가 같은 표를 runtime에 재노출한다. 상한은 이름 목록이고
 // wildcard·병합은 없다. 확장 선택(MCP·skill)은 상한 항목이 아니라 agent 정의의 선택 항목이다.
 
-// 역할 상한 밖 내장 tool은 정의로도 넓히지 못한다(R20, R21).
+// 역할 상한 밖 내장 tool은 정의로도 넓히지 못한다.
 export type RoleCap = {
   tools: readonly string[];
 };
 
 // 공통 기본 tool 묶음의 개별 동작이다(domain model presets의 common 목록). 각
-// 역할의 기본 preset은 이 목록에서 자기 범위만 고른다(R4).
+// 역할의 기본 preset은 이 목록에서 자기 범위만 고른다.
 export const DOCUMENT_READ_TOOLS: readonly string[] = Object.freeze([
   "document.list",
   "document.outline",
@@ -29,13 +29,13 @@ const FORMAT_TOOLS: readonly string[] = Object.freeze([
 ]);
 
 // context 개체 읽기와 다음 이름 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이
-// 정한다(harness/tools#R21). 개체 읽기는 선택한 context 안에서만 읽힌다. 네 역할 모두 가진다(R22, R24).
+// 정한다. 개체 읽기는 선택한 context 안에서만 읽힌다. 네 역할 모두 가진다.
 const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
   "context.read_entity",
   "series.next_name",
 ]);
 
-// Context Engineer만의 context 생성·계약·초안·미리보기·제출·위반·용어집 tool이다(harness/tools#R23). 이름은
+// Context Engineer만의 context 생성·계약·초안·미리보기·제출·위반·용어집 tool이다. 이름은
 // `harness/tools/context-engineer-tools.ts`가 정한 값과 같다(presets는 harness를 import하지 않는다).
 export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
   "context.create",
@@ -48,7 +48,7 @@ export const CONTEXT_ENGINEER_ONLY_TOOLS: readonly string[] = Object.freeze([
   "context.glossary_write",
 ]);
 
-// lophn만의 모든 project context 조회 tool이다(roles/lophn#R3). prompt 자료는 project 안에 머물고(presets#R17)
+// lophn만의 모든 project context 조회 tool이다. prompt 자료는 project 안에 머물고
 // 이 셋이 모든 project의 context 목록·overview·용어집과 문서 경로를 덮는 context를 읽는다. 이름은
 // `harness/tools/context-lookup-tools.ts`가 정한 값과 같다.
 export const CONTEXT_LOOKUP_ONLY_TOOLS: readonly string[] = Object.freeze([
@@ -63,7 +63,7 @@ const ASK_TOOLS: readonly string[] = Object.freeze([
   "approval.read_decision",
 ]);
 
-// 네 역할의 공통 읽기·format·묻기 동작이다(R4). 역할 상한은 이 목록에 역할별
+// 네 역할의 공통 읽기·format·묻기 동작이다. 역할 상한은 이 목록에 역할별
 // 추가 동작을 더한 교집합이다.
 const COMMON_READ_TOOLS: readonly string[] = Object.freeze([
   ...DOCUMENT_READ_TOOLS,
@@ -76,10 +76,10 @@ function cap(tools: readonly string[]): RoleCap {
   return Object.freeze({ tools: Object.freeze([...tools]) });
 }
 
-// 역할 상한 표다(presets#R9). lophn은 전체 범위 조회·coding 요청·제품 안내·run
+// 역할 상한 표다. lophn은 전체 범위 조회·coding 요청·제품 안내·run
 // 결과 저장을, App Engineer는 담당 앱 하나의 설계 참조·해석 연결·ticket 생성을,
 // Context Engineer는 앱 metadata 조회·승인 초안을,
-// Operator는 승인된 앱 read command와 승인한 남길 문서만 상한에 둔다(R11).
+// Operator는 승인된 앱 read command와 승인한 남길 문서만 상한에 둔다.
 export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
   [
     [
@@ -209,9 +209,9 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
   ],
 );
 
-// 앱 command 노출 규칙 표다(roles/common#R11). 노출 상한은 역할이고 실제 호출은
+// 앱 command 노출 규칙 표다. 노출 상한은 역할이고 실제 호출은
 // 그때의 현재 허락·assignment 승인·harness/tool-judgment 효과 판정의 교집합이다.
-// ask는 노출된 command 중 되돌릴 수 없거나 심각한 효과만 묻는 표시다(R11).
+// ask는 노출된 command 중 되돌릴 수 없거나 심각한 효과만 묻는 표시다.
 export type AppCommandExposure = Readonly<{
   // 노출할 효과 상한이다. 이 값 밖 효과는 노출하지 않는다.
   effects: readonly ("read" | "write" | "external")[];
@@ -221,7 +221,7 @@ export type AppCommandExposure = Readonly<{
   // assigned_app은 담당 앱 하나, approved_reads는 assignment에 승인된 read,
   // none은 실행 없음이다.
   execution: "permitted_apps" | "assigned_app" | "approved_reads" | "none";
-  // 노출된 command 중 되돌릴 수 없거나 심각한 효과만 묻는지다(R11).
+  // 노출된 command 중 되돌릴 수 없거나 심각한 효과만 묻는지다.
   ask: boolean;
 }>;
 

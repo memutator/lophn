@@ -1,7 +1,7 @@
 // 앱 view registry를 Electron에 잇는다. 모든 앱 view는 같은 격리 기본값(sandbox·context
-// isolation·web security·Node 없음)과 앱 preload를 쓰고(shell/app-frame#R2, R3), 새 창·
-// webview·scheme 밖 탐색·download·장치 권한을 거절한다(R4). 본문 view·앱 전용 창이 같은
-// 이 adapter를 지나 같은 session·scheme·preload 경계를 쓴다(R18, shell/desktop#R13).
+// isolation·web security·Node 없음)과 앱 preload를 쓰고, 새 창·
+// webview·scheme 밖 탐색·download·장치 권한을 거절한다. 본문 view·앱 전용 창이 같은
+// 이 adapter를 지나 같은 session·scheme·preload 경계를 쓴다.
 import {
   type BrowserWindow,
   type Event as ElectronEvent,
@@ -116,7 +116,7 @@ export function electronAppViews(input: ElectronAppViewsInput): {
         view.webContents.isFocused();
     },
     // 그 view의 webContents만 찍는다. 창·overlay·다른 view는 담지 않는다. 긴 변이 1,600px를
-    // 넘으면 비율대로 줄인다(problems/feedback#R8).
+    // 넘으면 비율대로 줄인다.
     async capture(adapter) {
       const view = native.get(adapter);
       if (view === undefined || view.webContents.isDestroyed()) {

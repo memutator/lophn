@@ -1,4 +1,4 @@
-// 제품 core가 문서 route를 서빙하는 조립(documents#T11). 두 길이다.
+// 제품 core가 문서 route를 서빙하는 조립. 두 길이다.
 // - 감독 pipe: documents coordinator에게 worker_request를 보내 답을 받는다(FileStatus).
 //   pipe contract는 늘리지 않는다: 기존 worker_request·worker_response envelope다.
 // - reader pool: outline·읽기·search·view open·export는 reader Worker의 snapshot으로

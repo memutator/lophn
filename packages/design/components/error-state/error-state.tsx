@@ -6,7 +6,7 @@ import { iconPixels } from "../shared.ts";
 import styles from "../state.module.css";
 
 export interface ErrorStateProps {
-  // 불러오지 못한 대상의 사람 말 이름. 원인은 추측하지 않는다(shell/wording#R10).
+  // 불러오지 못한 대상의 사람 말 이름. 원인은 추측하지 않는다.
   target: string;
   onRetry: () => void;
 }

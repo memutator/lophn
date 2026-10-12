@@ -1,6 +1,6 @@
 // 앱 데이터 결과 기록(apps/data command). DB open·backup·script run·restore는
 // transaction 밖 data worker가 하고, 여기 command는 짧은 참조·결과 저장만 한다.
-// 업무 저장과 ledger 기록이 함께 rollback된다고 표시하지 않는다(apps/data#R2).
+// 업무 저장과 ledger 기록이 함께 rollback된다고 표시하지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -284,7 +284,7 @@ export function createDataCommands(
   };
 }
 
-// 업무 저장과 ledger 기록의 경계(R2). 둘은 원자적으로 함께 끝나지 않으며,
+// 업무 저장과 ledger 기록의 경계. 둘은 원자적으로 함께 끝나지 않으며,
 // 사이에 실패가 나도 함께 rollback됐다고 말하지 않는다.
 export type BoundaryFact = {
   businessSaved: boolean;

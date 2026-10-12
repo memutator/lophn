@@ -79,7 +79,7 @@ export const recommendationSchema = z.strictObject({
 });
 export const recommendationOutputSchema = z.object(recommendationFields);
 
-// 묶음은 질문 1~4개다(questions#R1). 질문 하나는 독립 결정 하나만 담는다.
+// 묶음은 질문 1~4개다. 질문 하나는 독립 결정 하나만 담는다.
 export const QUESTION_GROUP_MIN_QUESTIONS = 1;
 export const QUESTION_GROUP_MAX_QUESTIONS = 4;
 
@@ -127,7 +127,7 @@ type FixedActionQuestion = {
   options: readonly { action: unknown }[];
 };
 
-// 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
+// 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다.
 // 다른 질문의 답과 한 Submit에 섞으면 무엇을 확정했는지 흐려진다.
 export function groupAgreesWithFixedActions(
   questions: readonly FixedActionQuestion[],

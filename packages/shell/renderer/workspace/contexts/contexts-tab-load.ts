@@ -1,4 +1,4 @@
-// Contexts 탭이 카드마다 읽는 값(shell/workspace#R16). 목록 하나와 context마다 종류·판 이력·
+// Contexts 탭이 카드마다 읽는 값. 목록 하나와 context마다 종류·판 이력·
 // Operator 수를 함께 읽는다. 목록이나 판 이력을 읽지 못하면 null이다(화면은 다시 읽기를 보인다).
 // 종류는 색인(context worker)이, Operator 수는 agents가 따로 답하므로 그 둘이 안 오면 카드는
 // 그 줄만 빼고 보인다.

@@ -1,4 +1,4 @@
-// 전역 팔레트(shell/desktop#R18). OS 전역 단축키는 CommandOrControl+Shift+K 하나만 등록한다.
+// 전역 팔레트. OS 전역 단축키는 CommandOrControl+Shift+K 하나만 등록한다.
 // 다른 앱에 focus가 있어도 lophn 창을 앞으로 가져와 lophn 전체 팔레트를 연다. 창 안 팔레트
 // (CommandOrControl+K, 지금 공간의 행을 여닫는다)와 다른 동작이다. 전역 Ctrl+K는 등록하지 않는다.
 // 등록이 실패하면 사용 불가로 안내하고 다른 key를 대신 차지하지 않는다. 종료 때 자기 key만 푼다.

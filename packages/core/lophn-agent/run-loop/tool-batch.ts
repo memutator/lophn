@@ -14,7 +14,7 @@ import {
   toolRetryDelayMs,
 } from "./retry.ts";
 
-// 한 model 응답의 tool 묶음 처리(requirements lophn-agent/harness/run-loop R12, R13, R15).
+// 한 model 응답의 tool 묶음 처리(requirements lophn-agent/harness/run-loop R12).
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
 
@@ -109,7 +109,7 @@ export function parseToolArgs(
 }
 
 // 호출자가 abort를 요청한 뒤 grace 안에 돌아오지 않으면 기다리지 않는다. 늦은 결과는 감사 기록만
-// 보완한다(R16).
+// 보완한다.
 export async function awaitAbortable<T>(
   promise: Promise<T>,
   signal: AbortSignal,
@@ -236,7 +236,7 @@ export async function runToolBatch(
       current.kind === "done" && toolMayRetry(info) &&
       toolFailureRetryable(current) && retries < TOOL_RETRY_MAX
     ) {
-      // 다음 진입 전에 대기와 멈춤·새 입력·한도를 다시 본다(R24). 매 진입은 판정을 다시 한다.
+      // 다음 진입 전에 대기와 멈춤·새 입력·한도를 다시 본다. 매 진입은 판정을 다시 한다.
       const link = control.signalFor(info.server);
       let how: "elapsed" | "aborted";
       try {
@@ -281,7 +281,7 @@ export async function runToolBatch(
     return toResult(request, current, entries);
   }
 
-  // 시작 직전에 멈춤·한도·설정 회수·새 입력을 다시 본다(R9, R10, R15, R25). 막히면 미실행이다.
+  // 시작 직전에 멈춤·한도·설정 회수·새 입력을 다시 본다. 막히면 미실행이다.
   async function one(index: number, hold_: string | null): Promise<CallResult> {
     const request = requests[index];
     const info = infos[index];
@@ -338,7 +338,7 @@ export async function runToolBatch(
       continue;
     }
     // 쓰기·external이 거절되거나 최종 실패·불명확이면 나머지는 시작하지 않는다. 읽기와 없는 tool의
-    // 실패는 뒤 동작을 막지 않는다(R13).
+    // 실패는 뒤 동작을 막지 않는다.
     const effect = infos[index]?.effect;
     if (
       skip === null && effect !== undefined && effect !== "read" &&

@@ -1,4 +1,4 @@
-// 정지 유지보수 프로세스 입구(platform/blob-store#R8, R9, R10, T44).
+// 정지 유지보수 프로세스 입구.
 // core 종료 조립이 세 정지 조건을 실제 관측으로 채워 이 프로세스를 띄운다.
 // blob_refs는 writer를 닫은 뒤 read-only로 읽는다. 읽지 못하면 아무것도
 // 지우지 않는다(fail-closed). 파일 작업은 core graph 밖인 이 프로세스의 몫이다.

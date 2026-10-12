@@ -1,4 +1,4 @@
-// effective root·version 판정이다(coding-agent/harnesses#R4, T30). resolver는
+// effective root·version 판정이다. resolver는
 // catalog root_resolver의 참조 adapter다. env·cwd는 인자로 받는다(architecture).
 // 사람의 실제 home은 읽지 않고 home 값도 인자로만 받는다.
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -12,7 +12,7 @@ export type RootInputs = {
   cwd?: string;
 };
 
-// catalog root_resolver를 실제 root로 풀어 준다(R4). default는 조사 문서의
+// catalog root_resolver를 실제 root로 풀어 준다. default는 조사 문서의
 // documented 값이다(home → ~/.codex·~/.hermes, $XDG_CONFIG_HOME → ~/.config).
 export function rootOf(
   resolver: string,
@@ -23,7 +23,7 @@ export function rootOf(
     case "home":
       return ok(home);
     case "codex_home":
-      // CODEX_HOME이 있으면 그 아래다(guides#R18). 없으면 문서 default ~/.codex다.
+      // CODEX_HOME이 있으면 그 아래다. 없으면 문서 default ~/.codex다.
       return ok(
         inputs.env.get("CODEX_HOME")?.replace(/\/$/, "") ??
           `${home}/.codex`,
@@ -58,7 +58,7 @@ export function rootOf(
   }
 }
 
-// version의 대소 판정이다(R11). 검증 version minimum만큼 있을 때만
+// version의 대소 판정이다. 검증 version minimum만큼 있을 때만
 // version-sensitive event를 설치한다. 숫자 조각별로 비교하고 빠진 조각은 0이다.
 export function versionAtLeast(version: string, minimum: string): boolean {
   const parse = (value: string) =>

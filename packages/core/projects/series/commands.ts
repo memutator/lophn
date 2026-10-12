@@ -64,7 +64,7 @@ function actorAllowed(
 // 가족 가입·변경은 사람과 허용된 coding agent·app이다(route actors).
 const MEMBER_ACTORS = ["user", "coding_agent", "app"] as const;
 
-// lophn agent는 가족 mutation tool이 없다(series#R9).
+// lophn agent는 가족 mutation tool이 없다.
 function isLophnAgent(ctx: RequestContext): boolean {
   return parseActor(ctx.actor)?.kind === "agent";
 }
@@ -99,7 +99,7 @@ export function createSeriesCommands(): {
         if (Object.keys(compare).length !== 0) {
           return rejected("invalid_input", "create takes no compare fields");
         }
-        // 앱은 자기 앱 place에만 가족을 등록한다(series#R1, versions#R14의 앱 범위).
+        // 앱은 자기 앱 place에만 가족을 등록한다(versions#R14의 앱 범위).
         const app = actingApp(ctx);
         if (app !== null && !isAppPlace(app, input.place)) {
           return rejected("forbidden", "app registers series in its own place");
@@ -446,7 +446,7 @@ export function createSeriesCommands(): {
             before_instance: before,
             before_revision: current.revision,
           });
-          // 가입 관계만 제거한다. key 예약과 문서·판은 남는다(series#R2, R13).
+          // 가입 관계만 제거한다. key 예약과 문서·판은 남는다.
           deleteInstance(tx, current.id, input.document);
           return ok({ ...current, revision: seq });
         });
@@ -600,7 +600,7 @@ function outputDraft(
   };
 }
 
-// 멤버 검사. 같은 자리·같은 format의 확정 문서만 가입한다(series#R2, R3).
+// 멤버 검사. 같은 자리·같은 format의 확정 문서만 가입한다.
 function checkMembership(
   tx: Tx,
   current: Series,
@@ -648,7 +648,7 @@ function checkOrderBasis(
 }
 
 // 가입 검사. 이미 멤버·다른 문서가 예약한 key·가족 안 중복 key·자리와 format이다.
-// 제거된 key 예약은 남는다. 다른 Document가 같은 key를 다시 쓰면 거절이다(R2, R3).
+// 제거된 key 예약은 남는다. 다른 Document가 같은 key를 다시 쓰면 거절이다.
 export function checkJoin(
   tx: Tx,
   current: Series,
@@ -675,7 +675,7 @@ export function checkJoin(
   return checkMembership(tx, current, document);
 }
 
-// 가입 확정. 일치 draft(document·key)는 가입과 함께 비운다(T17).
+// 가입 확정. 일치 draft(document·key)는 가입과 함께 비운다.
 // series.add_instance와 document.save의 가입이 같은 쓰기를 쓴다.
 // 돌려주는 가족은 draft·revision이 반영된 값이고 가족 행 갱신은 호출자가 한다.
 export function applyJoin(
@@ -714,7 +714,7 @@ export function applyJoin(
     return rejected("internal", "series instance is invalid");
   }
   insertInstance(tx, parsed.data);
-  // 첫 예약만 더한다. 남아 있는 예약의 재가입은 같은 first_seq를 유지한다(R2).
+  // 첫 예약만 더한다. 남아 있는 예약의 재가입은 같은 first_seq를 유지한다.
   const held = loadKeyReservation(tx.sql, current.id, key);
   if (!held.ok) return held;
   if (held.value === null) {

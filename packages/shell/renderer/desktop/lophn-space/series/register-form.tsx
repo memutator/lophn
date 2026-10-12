@@ -28,7 +28,7 @@ export interface RegisterSeriesProps {
 
 type Problem = "name" | "title" | "rule";
 
-// series 등록: 자리·이름·제목·format·정렬·다음 이름 규칙(documents/series#R1).
+// series 등록: 자리·이름·제목·format·정렬·다음 이름 규칙.
 // 첫 key는 등록 뒤 첫 멤버를 더할 때 사람이 정한다.
 export function RegisterSeries(
   { source, catalog, formats, onRegistered }: RegisterSeriesProps,

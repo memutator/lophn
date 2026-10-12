@@ -13,7 +13,7 @@ import {
   ticketKindSchema,
 } from "./ticket-values.ts";
 
-// 사람 화면용 ticket read(coding-agent/tickets#R27). 여섯 진행 state와 readiness는 서로 다른 화면 상태
+// 사람 화면용 ticket read. 여섯 진행 state와 readiness는 서로 다른 화면 상태
 // 값 일곱 개로 나온다. 화면 말로 바꾸는 것은 shell이다(shell wording). 이 값들은 저장하지 않고
 // 정본 state·readiness에서 읽을 때마다 계산한다.
 export const TICKET_SCREEN_STATES = [

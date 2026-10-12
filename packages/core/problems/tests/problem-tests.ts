@@ -7,7 +7,7 @@ import type {
 import type { TestConnection } from "./model.ts";
 import { loadRecords } from "./records.ts";
 
-// 문제 상세가 읽는 테스트 사실이다(problems/tests#R5, problems#T22). core 조립이
+// 문제 상세가 읽는 테스트 사실이다. core 조립이
 // `ProblemTestPort`로 reader에 등록한다. 결과 없는 요청은 접수만 됨 → pending, 실제 시작 뒤 →
 // running이고, 기록된 Verification은 pass·fail·inconclusive → pass·fail·unconfirmed다. 종류마다
 // 지금 값 하나만 준다: 결과를 기다리는 요청이 있으면 그 요청이, 없으면 마지막 Verification이다.
@@ -90,7 +90,7 @@ export function problemTestLookup(
   }
 }
 
-// 지금 값(종류마다 하나)과 따로, 이 문제의 실제 결과를 접지 않고 남긴다(tests#R4, R5).
+// 지금 값(종류마다 하나)과 따로, 이 문제의 실제 결과를 접지 않고 남긴다.
 // reproduction은 문제의 Verification 전부다. app test는 문제 열이 없으므로 마지막
 // ProblemFixRecorded의 after release와 같은 bundle만 붙인다. 준비 실패는 Verification이
 // 없으므로 not_run이고, 통과로 만들지 않는다. 종료 시각은 실행 증거에서만 온다.

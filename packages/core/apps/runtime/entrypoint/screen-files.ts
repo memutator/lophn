@@ -1,4 +1,4 @@
-// 앱 bundle 사본의 화면 자원을 직접 내주는 읽기(apps/runtime, shell#T37). 화면 build 결과는
+// 앱 bundle 사본의 화면 자원을 직접 내주는 읽기(apps/runtime). 화면 build 결과는
 // bundle의 `screens/<screen key>/<path>`에 있고, 요청 경로는 그 screen 아래 상대 경로뿐이다.
 // 다른 screen이나 bundle 밖 경로는 파일이 있어도 내주지 않는다. 쓰기는 하지 않는다.
 import { screenAssetPath } from "./wire.ts";

@@ -61,7 +61,7 @@ function allowed(
   return ok(seriesId);
 }
 
-// 가족 목차. 상세(get)와 목차(outline/series)가 같은 기준·순서를 쓴다(R4, R12).
+// 가족 목차. 상세(get)와 목차(outline/series)가 같은 기준·순서를 쓴다.
 function entriesOf(
   sql: Parameters<typeof loadSeries>[0],
   family: Series,

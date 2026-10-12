@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-// lophn 화면이 공용 UI SDK의 첫 소비자다(apps/sdk#R21). 앱이 쓰는 것과 같은 overlay·조작을 그린다.
+// lophn 화면이 공용 UI SDK의 첫 소비자다. 앱이 쓰는 것과 같은 overlay·조작을 그린다.
 import {
   Button,
   type Clock,
@@ -132,7 +132,7 @@ export function SurfaceView(
         />
       );
     case "notification": {
-      // toast 행동은 최대 2개다(shell/design-system#R33). 앞의 두 행동만 보인다.
+      // toast 행동은 최대 2개다. 앞의 두 행동만 보인다.
       const [first, second] = enabled as ToastAction[];
       return (
         <ToastStack>

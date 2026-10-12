@@ -1,5 +1,5 @@
 // 앱 socket의 command 호출 client(apps/runtime direct socket `/_lophn/commands/invoke`). socket
-// 경로·Authorization은 main에만 있다(shell/app-frame#R9).
+// 경로·Authorization은 main에만 있다.
 import { request as httpRequest } from "node:http";
 
 import { SOCKET_HOST } from "./app-protocol.ts";

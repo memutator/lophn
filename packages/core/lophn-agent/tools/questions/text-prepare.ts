@@ -1,4 +1,4 @@
-// 질문 글의 core 쪽 길(lophn-agent/questions, plan Q38). 호출자(shell·runtime)는 blob을
+// 질문 글의 core 쪽 길(lophn-agent/questions). 호출자(shell·runtime)는 blob을
 // 준비하지 않고 글 값을 요청에 싣는다. core가 command 앞에서 글을 redaction해(자유 답은
 // secret 판정까지) UTF-8 bytes로 blob을 준비하고, command가 같은 transaction에서 영구
 // 참조를 등록한다. 읽기(ReadQuestionText)는 packages/core/lophn-agent/register.ts가 message 읽기와
@@ -37,7 +37,7 @@ const SOURCE = {
 };
 
 type Slot = {
-  // 자유 답은 secret 판정을 거쳐 막는다(R11). 나머지 글은 secret 부분을 가린다.
+  // 자유 답은 secret 판정을 거쳐 막는다. 나머지 글은 secret 부분을 가린다.
   answer: boolean;
   read(): unknown;
   write(text: string): void;

@@ -1,7 +1,7 @@
 // model 호출 공통 interface(architecture §5.2). runtime 내부 interface는
 // `invokeModelCall(input, signal)`이다. 세 adapter(anthropic-messages·
 // openai-responses·openai-chat-completions)가 같은 입력·출력을 갖는다. SDK의
-// 숨은 retry는 0이다: retry 횟수·간격·총 시도 수의 주인은 run-loop다(provider#R20).
+// 숨은 retry는 0이다: retry 횟수·간격·총 시도 수의 주인은 run-loop다.
 
 import type { Result } from "../../../base/mod.ts";
 import type {
@@ -24,14 +24,14 @@ export type ModelCallInput = {
   model: CallModel;
   // endpoint는 API base다. adapter가 표의 path를 붙인다.
   endpoint: string;
-  // 보호한 prompt와 context_basis hash. 값은 여기 없다(R7).
+  // 보호한 prompt와 context_basis hash. 값은 여기 없다.
   inputHash: string;
   contextBasisHash: string;
   // 전송할 본문(adapter가 번역한 wire bytes).
   body: Record<string, unknown>;
   // prompt-assemble이 준 cache 경계는 buildRequest에서 이미 표시됐다.
   timeoutMs: number | null;
-  // token 사용량 정의 판. 보고 사용량에 붙는다(usage#R6).
+  // token 사용량 정의 판. 보고 사용량에 붙는다.
   usageRevision: string;
   // 재전송 대상 opaque 추론이 있는 요청의 state-free 계속 검증 입력이다(질문 Q7).
   continuation?: { pendingReasoning: boolean; reasoningRequired: boolean };
@@ -56,7 +56,7 @@ export type InvokeModelCall = (
   signal: AbortSignal,
 ) => Promise<Result<ModelCallOutput>>;
 
-// SDK 숨은 retry 0. 호출은 한 번이다. 재시도는 run-loop가 새 ModelCall로 한다(R20).
+// SDK 숨은 retry 0. 호출은 한 번이다. 재시도는 run-loop가 새 ModelCall로 한다.
 export const SDK_RETRIES = 0;
 
 // parser 상한 실패는 일시가 아니라 요청 크기 문제다. over 종류를 그대로 전달한다.

@@ -1,4 +1,4 @@
-// confirm 실행 marker(apps/invocations#R7, R8, R19). handler를 부르기 전에 접수한 inv ID를 메모리에
+// confirm 실행 marker. handler를 부르기 전에 접수한 inv ID를 메모리에
 // 넣어 같은 proof가 두 번 와도 한 번만 실행한다. 프로세스당 한도에 닿으면 기존 marker를 버리지 않고
 // 새 접수를 거절한다. 만료된 proof는 어차피 거절되므로 가득 찼을 때만 그런 marker를 비운다.
 import { CONFIRM_MARKER_LIMIT } from "./limits.ts";

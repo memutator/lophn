@@ -1,4 +1,4 @@
-// test runner의 core 쪽 연결(problems/tests#R1, R4, R5, R17, R21). 접수된 RequestTest를 runner(상시 worker kind
+// test runner의 core 쪽 연결. 접수된 RequestTest를 runner(상시 worker kind
 // `problems/test-runner`)가 정확히 한 번 시작하게 하고, runner가 끝난 뒤 이미 시작을 시도한 요청을 이어받게 한다.
 //
 // 정본은 problems 소유 `test_requests` 기록(append-only)이다. 이 모듈은 그 기록을 읽어 다음 일을 정한다:

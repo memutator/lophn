@@ -2,7 +2,7 @@
 // cli#R40). catalog에서 resource를 만들고(builder), root별 plan을 세워(plan), hash를 관측한 뒤
 // receipt와 함께 쓴다(apply). 고른 target 하나만 바꾸고 다른 제품·profile은 읽지도 쓰지도 않는다.
 // 설치 결과는 resource별 변경·무변경·건너뜀·충돌·실패이고 일부 실패를 전체 성공으로 표시하지
-// 않는다. 설치 실패는 이미 발급한 credential의 재발급·회수를 하지 않는다(connection#R12): 이
+// 않는다. 설치 실패는 이미 발급한 credential의 재발급·회수를 하지 않는다: 이
 // module은 credential을 모른다. 설정에는 connection 참조만 쓴다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
@@ -165,7 +165,7 @@ export async function planSelected(
   return await runSelected(input, dryRunPorts(ports), "install");
 }
 
-// `harness update`: receipt가 있는 target의 소유 resource만 새로 쓴다(R7). receipt 없는 target의
+// `harness update`: receipt가 있는 target의 소유 resource만 새로 쓴다. receipt 없는 target의
 // 설치는 install이 한다.
 export async function updateSelected(
   input: InstallInput,
@@ -180,7 +180,7 @@ export async function updateSelected(
   return await runSelected(input, ports, "update");
 }
 
-// `harness remove`: receipt의 소유 resource만 지운다. 사람이 고친 것은 conflict로 남긴다(R7).
+// `harness remove`: receipt의 소유 resource만 지운다. 사람이 고친 것은 conflict로 남긴다.
 export async function removeSelected(
   input: InstallInput,
   ports: InstallPorts,
@@ -344,7 +344,7 @@ async function runSelected(
 // 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
 // open-issues coding-agent/mcp-server#Q9). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
 // 시작 summary hook(검증한 제품의 `summary` 목적 hook)의 설정 파일을 더하고 상태 수집 hook의 파일은 더하지
-// 않는다(coding-agent#T35). skill은 `selectedSkillDirs`가 따로 낸다.
+// 않는다. skill은 `selectedSkillDirs`가 따로 낸다.
 // 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
 export function selectedWriteFiles(
   target: IntegrationTarget,
@@ -394,7 +394,7 @@ export function selectedWriteFiles(
       if (!added.ok) return added;
     }
   }
-  // 시작 summary hook의 설정 파일이다. 상태 수집 hook은 이 설치에 없어 그 파일은 더하지 않는다(guides#R25).
+  // 시작 summary hook의 설정 파일이다. 상태 수집 hook은 이 설치에 없어 그 파일은 더하지 않는다.
   for (const hook of definition.hooks) {
     if (
       hook.purpose !== "summary" || hook.capability !== "supported" ||
@@ -407,7 +407,7 @@ export function selectedWriteFiles(
 }
 
 // 고른 target의 skill root 아래에 lophn skill `names`가 놓일 디렉터리의 정확한 절대 경로다(`skills install`의
-// CLI launcher 권한 계산, T33). 설치 root 폴더 전체가 아니라 lophn skill 이름의 디렉터리만 나오고, 사람의
+// CLI launcher 권한 계산). 설치 root 폴더 전체가 아니라 lophn skill 이름의 디렉터리만 나오고, 사람의
 // 다른 skill 디렉터리·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.
 export function selectedSkillDirs(
   target: IntegrationTarget,

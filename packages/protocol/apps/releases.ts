@@ -17,13 +17,13 @@ import { readyAttestationSchema } from "./runtime.ts";
 
 const MIB = 1024 * 1024;
 
-// 준비 상한(apps/releases#R19). 상한 초과·취소·worker 종료의 부분 결과는
+// 준비 상한. 상한 초과·취소·worker 종료의 부분 결과는
 // release.prepare 입력으로 확정하지 않는다.
 export const RELEASE_SOURCE_MAX_BYTES = 64 * MIB;
 export const RELEASE_BUNDLE_MAX_BYTES = 256 * MIB;
 export const RELEASE_FILE_MAX_COUNT = 10_000;
 export const RELEASE_PREPARATION_LIMIT_MS = 300_000;
-// blueprint TS 추출 자식 상한(apps/blueprint#R17).
+// blueprint TS 추출 자식 상한.
 export const BLUEPRINT_EXTRACT_LIMIT_MS = 10_000;
 
 export const RELEASE_STATUSES = [
@@ -36,7 +36,7 @@ export const RELEASE_STATUSES = [
 export const releaseStatusValueSchema = z.enum(RELEASE_STATUSES);
 export type ReleaseStatus = z.infer<typeof releaseStatusValueSchema>;
 
-// 준비 출처. 새 coding 준비는 필수이고 null은 과거 이력만 담는다(apps/releases#R6·R7).
+// 준비 출처. 새 coding 준비는 필수이고 null은 과거 이력만 담는다.
 // claim 상태의 사본이 아니라 claim 출처 seq다.
 function ticketSourceSchemas(strict: boolean) {
   const object = strict ? z.strictObject : z.object;
@@ -51,7 +51,7 @@ export const ticketSourceSchema = ticketSourceSchemas(false);
 export const ticketSourceInputSchema = ticketSourceSchemas(true);
 export type TicketSource = z.infer<typeof ticketSourceSchema>;
 
-// schema 단계 값. from은 출발점, to는 도착점이며 to > from이다(apps/data#R3).
+// schema 단계 값. from은 출발점, to는 도착점이며 to > from이다.
 export const dataChangeSchema = z.object({
   from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -103,7 +103,7 @@ export const bundleManifestSchema = z.object({
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
 // command 하나의 바뀐 점. `kinds`는 입력·효과·확인·되돌림 지원이고 설명·이름만 바뀐 것은
-// `description_only_commands`로 구별한다(apps/releases#R10). 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
+// `description_only_commands`로 구별한다. 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
 export const COMMAND_CHANGE_KINDS = [
   "input",
   "effect",
@@ -123,7 +123,7 @@ export type CommandChange = z.infer<typeof commandChangeSchema>;
 
 // 이전 release와 사람에게 보여줄 비교. 같은 입력 schema만으로 호환을 주장하지 않는다.
 // 데이터 계약(`data_schema`·`data_changes`)은 apps/data, 접근 요청(`added_permissions`·
-// `removed_permissions`)은 apps/permissions의 근거로 따로 둔다(apps/releases#R11).
+// `removed_permissions`)은 apps/permissions의 근거로 따로 둔다.
 export const releaseComparisonSchema = z.object({
   previous_release: releaseIdSchema.nullable(),
   added_permissions: z.array(z.string().min(1)),
@@ -143,7 +143,7 @@ export const releaseComparisonSchema = z.object({
   added_screens: z.array(z.string().min(1)),
   removed_screens: z.array(z.string().min(1)),
   changed_screens: z.array(z.string().min(1)),
-  // 선언이 삭제되거나 바뀐 problem code. 열린 problem이 있어도 닫힘 근거가 아니다(apps/releases#R18).
+  // 선언이 삭제되거나 바뀐 problem code. 열린 problem이 있어도 닫힘 근거가 아니다.
   added_problem_code_warnings: z.array(z.string().min(1)),
   data_schema: z.object({
     from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -151,7 +151,7 @@ export const releaseComparisonSchema = z.object({
   }),
   data_changes: z.array(dataChangeSchema),
   // 정적 비교는 업무 의미의 동일성을 증명하지 못한다. 이전 release가 있고 바뀐 것이 있으면 true이며
-  // 호환이라고 자동 표시하지 않는다(apps/releases#R10).
+  // 호환이라고 자동 표시하지 않는다.
   review_required: z.boolean(),
 });
 export type ReleaseComparison = z.infer<typeof releaseComparisonSchema>;
@@ -186,10 +186,10 @@ function releaseSchemas(strict: boolean) {
       summary: z.string().min(1),
     }).nullable(),
   };
-  // activating·failed에는 마지막 시도가 필수다(apps/releases#R12·R15).
+  // activating·failed에는 마지막 시도가 필수다.
   const needsActivation = (value: { status: ReleaseStatus }) =>
     value.status === "activating" || value.status === "failed";
-  // failed에는 실패 근거 요약이 필수다(apps/releases#R15).
+  // failed에는 실패 근거 요약이 필수다.
   const needsFailure = (value: { status: ReleaseStatus }) =>
     value.status === "failed";
   return z.object(fields).refine(
@@ -205,7 +205,7 @@ export const releaseSchema = releaseSchemas(false);
 export const releaseInputSchema = releaseSchemas(true);
 export type Release = z.infer<typeof releaseSchema>;
 
-// 앱 전용 프로세스의 결과. 시도·실제 schema·무결성을 core가 검증한다(apps/data#R3).
+// 앱 전용 프로세스의 결과. 시도·실제 schema·무결성을 core가 검증한다.
 export const dataResultSchema = z.object({
   release: releaseIdSchema,
   activation_seq: z.string().refine((value) => value !== "0", {
@@ -218,7 +218,7 @@ export const dataResultSchema = z.object({
 export type DataResult = z.infer<typeof dataResultSchema>;
 
 const releaseRecordActors = ["machine"] as const;
-// 준비 접수와 진행 조회는 coding agent 통로도 보낸다(architecture/apps 7.3, coding-agent#T21).
+// 준비 접수와 진행 조회는 coding agent 통로도 보낸다(architecture/apps 7.3).
 // 접수는 요청일 뿐 release 확정이 아니고 확정(prepare)은 machine만 한다.
 const releaseRequestActors = ["coding_agent", "machine"] as const;
 
@@ -294,7 +294,7 @@ const releasePrepareInputSchema = z.strictObject({
   bundle_hash: sha256Schema,
   blueprint_hash: sha256Schema,
   // 정규 blueprint JSON. core는 파일을 읽지 않으므로 준비한 bundle 안의 `blueprint.json` 그대로를
-  // 싣고, core가 검증기와 hash로 `blueprint_hash`와 같은지 확인한다(apps/releases#R1).
+  // 싣고, core가 검증기와 hash로 `blueprint_hash`와 같은지 확인한다.
   blueprint: z.record(z.string(), z.unknown()),
   manifest: bundleManifestSchema,
   data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -324,7 +324,7 @@ export const releasePrepare = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
-// activation 시작. release·approval·schema·grants를 다시 CAS한다(apps/releases#R12).
+// activation 시작. release·approval·schema·grants를 다시 CAS한다.
 const releaseStartActivationInputSchema = z.strictObject({
   release: releaseIdSchema,
   approval: approvalIdSchema,
@@ -351,7 +351,7 @@ export const releaseStartActivation = defineCommand({
   errors: ["forbidden", "conflict", "invalid_input"],
 });
 
-// 복구 참조 확정. migration 전 보호 backup을 먼저 ledger에 확정한다(apps/data#R4).
+// 복구 참조 확정. migration 전 보호 backup을 먼저 ledger에 확정한다.
 const releaseRecordBackupInputSchema = z.strictObject({
   release: releaseIdSchema,
   activation_seq: z.string().refine((value) => value !== "0", {
@@ -376,7 +376,7 @@ export const releaseRecordBackup = defineCommand({
   errors: ["conflict", "invalid_input", "unavailable"],
 });
 
-// migration 결과 확정. 성공 제출은 integrity_ok true만 받는다(apps/data#R6).
+// migration 결과 확정. 성공 제출은 integrity_ok true만 받는다.
 const releaseRecordDataChangeInputSchema = z.strictObject({
   result: dataResultSchema,
 });
@@ -393,7 +393,7 @@ export const releaseRecordDataChange = defineCommand({
   errors: ["conflict", "invalid_input", "unavailable"],
 });
 
-// 실패 복원 결과 확정(apps/data#R7·R11).
+// 실패 복원 결과 확정.
 const releaseRecordDataRestoreInputSchema = z.strictObject({
   result: dataResultSchema,
   backup_hash: sha256Schema,
@@ -411,7 +411,7 @@ export const releaseRecordDataRestore = defineCommand({
   errors: ["conflict", "invalid_input", "unavailable"],
 });
 
-// 새 active 참조와 이전 superseded를 같은 transaction으로 확정한다(apps/releases#R14).
+// 새 active 참조와 이전 superseded를 같은 transaction으로 확정한다.
 const releaseCompleteActivationInputSchema = z.strictObject({
   release: releaseIdSchema,
   started_seq: z.string().refine((value) => value !== "0", {
@@ -434,7 +434,7 @@ export const releaseCompleteActivation = defineCommand({
   errors: ["conflict", "unavailable"],
 });
 
-// activation 실패. 실패 근거와 이전 활성 참조를 남긴다(apps/releases#R15).
+// activation 실패. 실패 근거와 이전 활성 참조를 남긴다.
 const releaseFailActivationInputSchema = z.strictObject({
   release: releaseIdSchema,
   started_seq: z.string().refine((value) => value !== "0", {
@@ -470,7 +470,7 @@ const readErrors = [
 
 export const RELEASE_LIST_MAX_COUNT = 200;
 
-// release 목록. 불변 Release를 준비 순서로 보여준다(apps/releases#R1).
+// release 목록. 불변 Release를 준비 순서로 보여준다.
 export const releasesListInputSchema = z.strictObject({
   app: appIdSchema.optional(),
   status: releaseStatusValueSchema.optional(),
@@ -506,7 +506,7 @@ export const releasesGet = defineRead({
   errors: readErrors,
 });
 
-// 이전 release와의 비교 열람. 사람이 activation 전에 확인한다(apps/releases#R9·R10).
+// 이전 release와의 비교 열람. 사람이 activation 전에 확인한다.
 export const releasesCompareInputSchema = z.strictObject({
   release: releaseIdSchema,
   previous_release: releaseIdSchema.optional(),

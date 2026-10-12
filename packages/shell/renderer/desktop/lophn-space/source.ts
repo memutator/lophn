@@ -124,7 +124,7 @@ export type SeriesOrder =
     readonly direction: "ascending" | "descending";
   };
 
-/** 가족이 보존하는 작성 중 값(documents/series#R11). 첫 판 전에는 문서가 아니다. */
+/** 가족이 보존하는 작성 중 값. 첫 판 전에는 문서가 아니다. */
 export interface SeriesDraft {
   /** 첫 판을 저장하면 이 id의 문서가 생기고 멤버가 된다. */
   readonly document: string;

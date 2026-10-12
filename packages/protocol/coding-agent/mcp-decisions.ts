@@ -59,7 +59,7 @@ export function mcpDecisionTool(name: string) {
 }
 
 // 질문·approval 대기는 사람이 결정하는 화면에서 열린다. confirmation window를 열지
-// 않고 링크만 낸다(cli#R7·R21).
+// 않고 링크만 낸다.
 export function decisionLink(id: string): string {
   return thingsToConfirmLinkSchema.parse(`lophn://things-to-confirm/${id}`);
 }

@@ -21,7 +21,7 @@ export interface ContextTabBodyProps {
   readonly sub: SubTab;
   readonly onSub: (sub: SubTab) => void;
   readonly onOpenDocument: OpenDocument;
-  /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다(R22). */
+  /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다. */
   readonly onOpenSearch: (state: SearchTabState) => void;
   /** [Ask Context Engineer]와 [History]. */
   readonly onAsk: () => void;

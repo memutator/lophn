@@ -1,4 +1,4 @@
-// 폐기되거나 다른 앱으로 교체된 view를 앱 runtime에 알린다(apps/agent-context#R5). shell은
+// 폐기되거나 다른 앱으로 교체된 view를 앱 runtime에 알린다. shell은
 // 앱 machine 연결이 없으므로 core의 `apps.view_closed`가 그 앱의 지금 live 프로세스에
 // `control/view-closed`로 중계한다. 그 뒤 runtime은 그 view_session의 context 조회·주석을
 // 받지 않는다. preview 프로세스는 live supervisor 밖이라 보내지 않는다.

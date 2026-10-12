@@ -1,4 +1,4 @@
-// 전역 읽기 폭 선택을 platform settings에 둔다(shell/design-system#R23). 화면은 design의
+// 전역 읽기 폭 선택을 platform settings에 둔다. 화면은 design의
 // ReadingWidthSetting interface로만 읽고 쓴다. localStorage를 따로 정본으로 두지 않는다.
 import {
   DEFAULT_READING_WIDTH,
@@ -20,7 +20,7 @@ interface SettingsGet {
   defaults_revision: string;
 }
 
-// 성공 응답은 route output(SettingsApplyResult) 그대로다. 추가 포장은 없다(platform/api#R3).
+// 성공 응답은 route output(SettingsApplyResult) 그대로다. 추가 포장은 없다.
 interface ApplyReply {
   revision: number;
 }

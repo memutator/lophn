@@ -1,5 +1,5 @@
 // app-detail의 순수 계산. 안쪽 값(상태 enum·command key·ID)을 사람 말로 바꾸는 자리이고, 원문은
-// 화면의 자세히 보기에서만 쓴다(shell/wording#R4, R12).
+// 화면의 자세히 보기에서만 쓴다.
 import type { StatusTone } from "@lophn/design";
 import { t } from "@lophn/wording";
 

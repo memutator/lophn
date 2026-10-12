@@ -52,7 +52,7 @@ import { checkOptionAction } from "./option-actions.ts";
 // 전체를 닫는다. 순수 검사는 group.ts가 하고 이 파일은 저장·event·CAS를 맡는다.
 // 글(본문·이유·설명·추천·자유 답·취소 이유)은 값으로 받는다. core가 redaction(자유 답은
 // screen.ts의 secret 판정까지)을 거쳐 blob으로 준비해 두었고, 이 command가 같은
-// transaction에서 그 blob의 영구 참조를 등록한다(Q38). 준비 증거는 같은 값에서 정해진다:
+// transaction에서 그 blob의 영구 참조를 등록한다. 준비 증거는 같은 값에서 정해진다:
 // UTF-8 bytes의 hash·크기, 보낸 자격의 principal, 글 purpose. 살아 있는 준비가 없으면
 // 등록이 거절되어 전체가 되돌아간다.
 
@@ -100,7 +100,7 @@ function closedOutput(
   return ok({ id: group.id, status, closed_seq: closedSeq, replayed });
 }
 
-// 답은 now < expires_at일 때만 받는다. 경계 시각부터는 받지 않는다(R7).
+// 답은 now < expires_at일 때만 받는다. 경계 시각부터는 받지 않는다.
 function pastDeadline(group: QuestionGroup, now: string): boolean {
   return group.expires_at !== null &&
     Date.parse(now) >= Date.parse(group.expires_at);
@@ -164,8 +164,8 @@ type AnswerInput = {
 
 // 일반 답(binding이 null)과 action 답(binding이 있음)이 같은 규칙을 쓴다. 다른 점은 선택지의
 // 고정 action뿐이다: action이 있는 선택지는 사람 결정 확인을 거친 action 답으로만 받고
-// (platform/identity#R14, user token은 클릭의 증거가 아니다), action이 없는 선택지와 자유 답은
-// 확인 없이 받는다. action 답은 질문 하나짜리 묶음이다(R13).
+// (user token은 클릭의 증거가 아니다), action이 없는 선택지와 자유 답은
+// 확인 없이 받는다. action 답은 질문 하나짜리 묶음이다.
 type Binding = { hash: string; question: string };
 
 function storedAnswerOf(
@@ -267,7 +267,7 @@ function answerHandle(
     if (one.text !== null) texts.push(one.text);
   }
   if (group.status !== "pending") {
-    // 같은 답의 재전송은 저장된 결과만 돌려주고 새 결정으로 쓰지 않는다(R9).
+    // 같은 답의 재전송은 저장된 결과만 돌려주고 새 결정으로 쓰지 않는다.
     if (isReplay(group, stored, binding)) {
       return closedOutput(group, "answered", group.closed_seq!, true);
     }
@@ -360,11 +360,11 @@ function createHandle(
   if (assignmentState(tx, run.assignment) !== "enabled") {
     return reject("forbidden", "the assignment is not enabled");
   }
-  // 세션은 선택이다. 있으면 run의 세션이어야 한다(R2).
+  // 세션은 선택이다. 있으면 run의 세션이어야 한다.
   if (input.session !== null && input.session !== run.session) {
     return reject("invalid_input", "session does not belong to the run");
   }
-  // run 하나에 답을 기다리는 묶음은 하나다(R2).
+  // run 하나에 답을 기다리는 묶음은 하나다.
   if (
     tx.sql.get(
       "select 1 as found from question_groups where run = ? and status = 'pending'",
@@ -373,7 +373,7 @@ function createHandle(
   ) {
     return reject("conflict", "the run already waits for an answer");
   }
-  // 묶음 안과 이미 받은 답에서 같은 본문을 다시 묻지 않는다(R1).
+  // 묶음 안과 이미 받은 답에서 같은 본문을 다시 묻지 않는다.
   const asked = new Set<string>();
   for (const question of content.questions) {
     if (asked.has(question.prompt_blob)) {
@@ -404,7 +404,7 @@ function createHandle(
     for (const option of question.options) {
       if (option.action !== null) {
         // 권한 부여·외부 효과·등록되지 않은 동작은 선택지로 열 수 없고, 등록된 동작도
-        // 소유 command 입력·CAS·지문이 맞아야 고정한다(R12, R13).
+        // 소유 command 입력·CAS·지문이 맞아야 고정한다.
         const checked = checkOptionAction(question.id, option.action);
         if (!checked.ok) return checked;
       }
@@ -510,7 +510,7 @@ export function createQuestionCommands(): {
         ) {
           return reject("conflict", "question group changed");
         }
-        // 미루기는 답이 아니다. 묶음 전체를 답 없음으로 닫는다(R6, R8).
+        // 미루기는 답이 아니다. 묶음 전체를 답 없음으로 닫는다.
         const deferral = deferGroup(
           groupStateOf(group),
           input.created_seq,
@@ -561,7 +561,7 @@ export function createQuestionCommands(): {
           return reject("conflict", "the question group is already closed");
         }
         // 묶음을 낸 agent만 자기 묶음을 거두고, machine은 원래 일이 끝났거나 전제가
-        // 바뀐(superseded) 묶음만 닫는다(R9).
+        // 바뀐(superseded) 묶음만 닫는다.
         if (actor.kind === "agent" && group.created_by !== ctx.actor) {
           return reject("forbidden", "only the asking agent cancels it");
         }
@@ -615,7 +615,7 @@ export function createQuestionCommands(): {
         if (group.status !== "pending") {
           return reject("conflict", "the question group is already closed");
         }
-        // 기한이 없거나 아직 오지 않은 묶음은 닫지 않는다(R7).
+        // 기한이 없거나 아직 오지 않은 묶음은 닫지 않는다.
         if (group.expires_at === null || !pastDeadline(group, tx.now())) {
           return reject("conflict", "the deadline has not passed");
         }

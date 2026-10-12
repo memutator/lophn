@@ -1,4 +1,4 @@
-// 내장 템플릿의 고정 값(apps/sdk#R35, R7). 템플릿 파일을 바꾸면 hash도 바뀌고, 이 값은 template_test가
+// 내장 템플릿의 고정 값. 템플릿 파일을 바꾸면 hash도 바뀌고, 이 값은 template_test가
 // 새 값을 알려 준다. 공개한 판을 조용히 바꾸지 않도록 값은 템플릿과 같은 PR에서만 바꾼다.
 import type { PackageRef } from "./import-map.ts";
 

@@ -61,7 +61,7 @@ import {
 import type { AppOffer } from "../run-loop/mod.ts";
 import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// agent runtime의 앱 command 연결(lophn-agent/harness/tools R8, R16, R17). 이 run이 부를 수 있는 앱
+// agent runtime의 앱 command 연결. 이 run이 부를 수 있는 앱
 // command의 선언과 사람의 허락을 apps 계약 읽기로 모으고(StartRun의 AgentAppScope 입력과 tool 정의의
 // 재료), 호출은 core의 `apps/connect`가 준 제한 연결로 앱 direct socket에 보낸다. 앱 소스·원본 파일·
 // secret 값에는 닿지 않고 별도 MCP 서버도 없다.
@@ -83,13 +83,13 @@ export type AppToolkit = {
   ): ReadonlyMap<string, ToolHandler>;
   lookups(tools: readonly AppTool[]): ReadonlyMap<string, ToolLookup>;
   // 화면 context 조회(`app.screen_context`)와 주석 쓰기(`app.annotate`). 앱이 선언한 화면·주석 자리와
-  // 현재 허락, 역할·assignment 범위가 하나라도 열어 둔 것만 정의가 된다(tools R18).
+  // 현재 허락, 역할·assignment 범위가 하나라도 열어 둔 것만 정의가 된다.
   defineContext(
     scope: AgentAppScope,
     loaded: AppLoad,
   ): readonly ToolDefinition[];
   // `session`은 이 run이 묶인 대화 session이다. 입력의 view_session은 그 session의 사람 창에 열린 그 앱의
-  // 패널 탭의 것일 때만 믿고, 아니면 없는 대상과 같은 답이다(apps/agent-context#R2).
+  // 패널 탭의 것일 때만 믿고, 아니면 없는 대상과 같은 답이다.
   contextBinding(
     tool: ToolDefinition,
     scope: AgentAppScope,

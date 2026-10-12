@@ -23,7 +23,7 @@ export function runnerSockets(
 }
 
 // 메모리 상한(systemd-run·prlimit)과 프로세스 그룹(setsid)을 거는 platform 도구다. runner가 자식을
-// 띄우는 길이라 정확한 절대 경로만 --allow-run에 더한다(platform/security, problems/tests#R20).
+// 띄우는 길이라 정확한 절대 경로만 --allow-run에 더한다(platform/security).
 // 그룹 도구는 실제로 있는지 `Deno.stat`으로 확인하므로 읽기도 그 경로만 허락한다.
 const GROUP_TOOLS = ["/usr/bin/setsid", "/usr/bin/perl"] as const;
 

@@ -1,4 +1,4 @@
-// timeout·복구는 자식 프로세스 그룹 전체를 죽인다(problems/tests#R20). 그룹을 나누는
+// timeout·복구는 자식 프로세스 그룹 전체를 죽인다. 그룹을 나누는
 // 방법은 OS마다 다르다. Linux는 setsid, macOS는 setsid 바이너리가 없어 perl의
 // setpgrp로 나눈다. 둘 다 없으면 시작 전에 unavailable이다.
 

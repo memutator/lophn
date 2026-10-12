@@ -1,4 +1,4 @@
-// MCP·CLI가 같은 core client를 쓰는 자리(connection#R15, cli#R1).
+// MCP·CLI가 같은 core client를 쓰는 자리.
 // POST /v1/<resource>/<method>에 Authorization bearer로 붙고 쓰기는
 // idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
 // 않고 effect_unknown 진단과 원래 key·commands/result 대상 read 안내를 돌려준다.
@@ -91,9 +91,9 @@ export function effectUnknown(
   });
 }
 
-// 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다(connection#R5, mcp-server#R30). core가
+// 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다. core가
 // 준 not_found의 메시지·details를 버려 제목·본문·건수·첨부는 물론 존재 여부도 새지 않게 하고,
-// MCP와 CLI가 이 client 하나를 지나므로 두 통로의 거절이 같다(connection#R6).
+// MCP와 CLI가 이 client 하나를 지나므로 두 통로의 거절이 같다.
 export { UNREADABLE_MESSAGE } from "../unreadable.ts";
 
 function sameAsAbsent<T>(result: Result<T>): Result<T> {

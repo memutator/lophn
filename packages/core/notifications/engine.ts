@@ -1,6 +1,6 @@
 // core의 독립 비동기 루프가 notifications cursor부터 event batch를 읽고, 계기가
-// 있으면 create_notification을, 없으면 cursor만 올린다(R1, R2). 본문 조립·OS 표시·
-// model 호출은 하지 않는다(R8). 전달 실패로 버리지 않고 그 위치에서 멈춘다.
+// 있으면 create_notification을, 없으면 cursor만 올린다. 본문 조립·OS 표시·
+// model 호출은 하지 않는다. 전달 실패로 버리지 않고 그 위치에서 멈춘다.
 
 import { err, nextFromSeq, ok, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
@@ -97,7 +97,7 @@ export function notificationsEngine(
         const trigger = triggerOf(event.type);
         // 계기 표의 event여도 조건이 아니면(사람이 직접 멈춘 assignment 등) 계기가 아니다.
         // create_notification은 조건 밖 source를 거절하므로, 여기서 먼저 걸러 cursor만 올린다.
-        // 거르지 않으면 그 event에서 같은 거절을 되풀이하며 뒤의 계기를 영영 못 만든다(R2).
+        // 거르지 않으면 그 event에서 같은 거절을 되풀이하며 뒤의 계기를 영영 못 만든다.
         if (trigger !== undefined && conditionMet(trigger, event.payload)) {
           const key = await reactionIdempotencyKey({
             subscriber: NOTIFICATION_SUBSCRIBER,
@@ -120,7 +120,7 @@ export function notificationsEngine(
           });
           if (!created.ok) return created;
         } else {
-          // 계기 없는 구간은 cursor만 전진한다(R2).
+          // 계기 없는 구간은 cursor만 전진한다.
           const advanced = await command(machine, {
             command: "AdvanceSubscriberCursor",
             input: {
@@ -137,7 +137,7 @@ export function notificationsEngine(
         scanned = through;
       }
       // 공개 정책이 숨긴 event는 batch에 없다. 그 구간도 읽은 것이므로 cursor를 batch가 훑은
-      // 끝까지 올린다. 올리지 않으면 숨은 event만 있는 구간에서 같은 batch를 계속 다시 읽는다(R2).
+      // 끝까지 올린다. 올리지 않으면 숨은 event만 있는 구간에서 같은 batch를 계속 다시 읽는다.
       const through = read.value.scanned_through_seq;
       if (!closed && BigInt(through) > BigInt(scanned)) {
         const advanced = await command(machine, {

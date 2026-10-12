@@ -1,4 +1,4 @@
-// CLI 출력 계층(architecture/coding-agent 5.1, cli#R2·R3). 기계 출력과 진단은
+// CLI 출력 계층(architecture/coding-agent 5.1). 기계 출력과 진단은
 // 분리한다. --json이면 stdout에 JSON 하나와 마지막 newline만 쓰고 stderr에는
 // redaction된 진단만 보낸다. 사람 출력은 같은 data를 줄로 표현한다. redaction은
 // 조립이 끼워 준다(mcp-server/stdio의 같은 모양, entry가 자기 기준으로 거른다).
@@ -12,7 +12,7 @@ export type OutputWriter = {
   result(result: AgentResult): Promise<void>;
   failure(failure: AgentFailure): Promise<void>;
   diagnostic(message: string): Promise<void>;
-  // 제품 hook이 context로 읽는 글 그대로다. 빈 글은 아무것도 쓰지 않는다(guides#R24).
+  // 제품 hook이 context로 읽는 글 그대로다. 빈 글은 아무것도 쓰지 않는다.
   raw(text: string): Promise<void>;
   exitCode(failure: AgentFailure | undefined): number;
 };

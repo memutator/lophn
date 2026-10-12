@@ -10,17 +10,17 @@ import { skillPrompt, withArgument } from "./role-prompts.ts";
 // `/` 명령 실행(concern lophn-agent/commands). 명령이 session에 일으키는 일은 모두 port로
 // 부른다: port는 사람의 자격으로 conversation command(OpenSession·RenameSession·ArchiveSession·
 // ForkSession·RequestSessionCompact)와 ReceiveMessage를 부르는 얇은 연결이라, 명령이 일반 입력과 다른
-// 권한을 갖지 않는다(R9, R10). 이 모듈은 어느 명령이 무엇을 부를지만 정한다.
+// 권한을 갖지 않는다. 이 모듈은 어느 명령이 무엇을 부를지만 정한다.
 
 export type CommandPorts = {
   newSession(): Promise<Result<{ session: string }>>;
   renameSession(title: string): Promise<Result<unknown>>;
   archiveSession(): Promise<Result<unknown>>;
-  // Compact는 요청만 한다. 요약은 agent runtime이 하고 CompactSession으로 끝난다(conversation#R10).
+  // Compact는 요청만 한다. 요약은 agent runtime이 하고 CompactSession으로 끝난다.
   requestCompact(): Promise<Result<unknown>>;
   forkSession(): Promise<Result<{ session: string }>>;
   // 사람이 보낸 다음 요청 메시지로 접수한다. 일이 도는 중이면 conversation이 그 일 뒤에 새 run으로
-  // 처리한다(conversation#R6).
+  // 처리한다.
   sendMessage(text: string): Promise<Result<unknown>>;
 };
 
@@ -29,14 +29,14 @@ export type CommandScreen = "mcp" | "skills" | "permissions";
 export type CommandOutcome =
   // `/`로 시작하지 않는 입력이다. 호출자가 일반 메시지로 보낸다.
   | { kind: "message" }
-  // 맞는 명령이 없다. 명령으로도 일반 메시지로도 보내지 않는다(R11).
+  // 맞는 명령이 없다. 명령으로도 일반 메시지로도 보내지 않는다.
   | { kind: "unknown_command"; name: string }
   | { kind: "choose_skill"; name: string; candidates: readonly CommandEntry[] }
   // 이름 뒤에 글이 있어야 하는 명령(Rename)이다.
   | { kind: "needs_argument"; command: string }
-  // 작업 중에는 못 쓰는 명령이다(R8).
+  // 작업 중에는 못 쓰는 명령이다.
   | { kind: "blocked"; command: string }
-  // 이번 일이 끝난 뒤 실행하려고 줄 세웠다(R8).
+  // 이번 일이 끝난 뒤 실행하려고 줄 세웠다.
   | { kind: "queued"; command: string }
   | { kind: "open_screen"; screen: CommandScreen }
   | { kind: "done"; command: string }
@@ -131,7 +131,7 @@ function runBuiltin(
       return requested(id, ports.requestCompact());
     case "fork":
       return opened(id, ports.forkSession());
-    // 화면을 열 뿐이다. 명령 자체로 권한이나 설정을 바꾸지 않는다(R10).
+    // 화면을 열 뿐이다. 명령 자체로 권한이나 설정을 바꾸지 않는다.
     case "mcp":
     case "skills":
     case "permissions":
@@ -157,7 +157,7 @@ async function send(
 
 // 제출한 입력 하나를 registry대로 실행한다. 작업 중 값(while_running)이 정하는 대로: blocked는 부르지
 // 않고, queue는 일이 끝난 뒤로 미루고(role·skill 메시지는 다음 요청으로 접수해 conversation이 줄을
-// 세운다), run은 바로 부른다(R8).
+// 세운다), run은 바로 부른다.
 export async function runCommand(
   deps: CommandDeps,
   input: { text: string; working: boolean },

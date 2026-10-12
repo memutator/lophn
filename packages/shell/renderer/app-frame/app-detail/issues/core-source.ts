@@ -1,4 +1,4 @@
-// IssuesSource를 main의 core 통로로 만든다(shell#T53). 응답은 main의 contract client가 route
+// IssuesSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route
 // output schema로 이미 검사했다. 아래 모양은 ListProblems·GetProblem(`detail`)에서 이 화면이
 // 읽는 field만 옮긴 것이다. 결정은 여기서 쓰지 않고 보호 창(owner decision)을 열기만 한다.
 import type { CoreCall } from "../../../../ipc/core.ts";
@@ -20,7 +20,7 @@ import type {
 
 /** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 10;
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다(contracts#T13).
+// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
 const PARENT_WINDOW = "requesting-window";
 // main confirmation kinds/problem-decision.ts와 같은 값이다.
 const CONCERN = "problems/closing";

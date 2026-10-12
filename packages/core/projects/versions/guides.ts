@@ -1,4 +1,4 @@
-// 설치 묶음의 사용 안내(BundledGuide) manifest reader(documents/versions#R17, R18).
+// 설치 묶음의 사용 안내(BundledGuide) manifest reader.
 // 안내는 사용자 Document가 아니다: ledger 표·entity ID·place·tracking·Version 번호가
 // 없고 이 파일은 ledger에 아무것도 쓰지 않는다. 설치 폴더의 `guides/`에서 고정 manifest
 // (lophn_version·title·content_hash·files)와 읽기 전용 파일 bytes를 읽는다.
@@ -67,7 +67,7 @@ function parseManifest(bytes: Uint8Array): Result<InstalledGuides> {
   const seen = new Set<string>();
   for (const guide of guides) {
     const primary = guide.files.find((file) => file.primary);
-    // 안내 하나의 content_hash는 대표 파일의 실제 bytes hash다(lophn-agent Q27).
+    // 안내 하나의 content_hash는 대표 파일의 실제 bytes hash다.
     if (
       guide.lophn_version !== lophn_version || primary === undefined ||
       primary.blob_hash !== guide.content_hash

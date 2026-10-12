@@ -1,4 +1,4 @@
-// 앱 화면 검사 host의 Electron 조립(shell#T46). `entry.ts`가 `--app-screen-test`일 때만 이
+// 앱 화면 검사 host의 Electron 조립. `entry.ts`가 `--app-screen-test`일 때만 이
 // bundle을 연다. desktop main의 데이터 root·사람 token·core 연결·single instance·collector를
 // 하나도 쓰지 않는다. userData는 실행마다 새 임시 폴더, 앱 view는 `app-test-<run>` 메모리
 // partition이고 모든 표면은 `show: false`·offscreen이라 OS에 창이 보이지 않는다. 앱 view는 운영과

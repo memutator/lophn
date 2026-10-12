@@ -1,5 +1,5 @@
 // 데스크톱 shell 크롬(상단 바·런처·연결 화면)이 쓰는 Lucide 아이콘. 화면이 lucide를 직접 들이지 않도록
-// 이 묶음이 고른다(shell/design-system#R43).
+// 이 묶음이 고른다.
 import {
   CircleX,
   CloudOff,
@@ -23,7 +23,7 @@ export const connectionFailedIcon: LucideIcon = CircleX;
 export const connectionStaleIcon: LucideIcon = CloudOff;
 /** 열 것이 없는 런처. */
 export const launcherEmptyIcon: LucideIcon = FolderPlus;
-/** 상단 바 창 단추(shell/desktop#R23). */
+/** 상단 바 창 단추. */
 export const windowMinimizeIcon: LucideIcon = Minus;
 export const windowMaximizeIcon: LucideIcon = Square;
 /** 최대화 상태에서 되돌리는 단추. */

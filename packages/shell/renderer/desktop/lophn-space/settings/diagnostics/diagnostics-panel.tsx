@@ -1,4 +1,4 @@
-// settings의 진단 자리(shell#T58). 보안 상태 점검(doctor) 결과는 영향 한 문장과 다음 행동으로만
+// settings의 진단 자리. 보안 상태 점검(doctor) 결과는 영향 한 문장과 다음 행동으로만
 // 보이고 원문(check 이름·finding message·코드)은 개발자 diagnostics 펼침에만 둔다
 // (shell/wording#R8, R10). 사람이 누를 때만 검사를 돌린다.
 import { useState } from "react";

@@ -1,5 +1,5 @@
-// rewind가 숨긴 구간(lophn-agent/revert#R16). 메시지는 지워지지 않고 thread에서 한 줄로 접힌다. 그 줄이 숨긴
-// 수와 실제 복원·건너뜀 결과를 말하고(R3), 펼치면 숨긴 줄을 읽기만 하며, redo를 할 수 있는 동안만 Redo가 있다.
+// rewind가 숨긴 구간. 메시지는 지워지지 않고 thread에서 한 줄로 접힌다. 그 줄이 숨긴
+// 수와 실제 복원·건너뜀 결과를 말하고, 펼치면 숨긴 줄을 읽기만 하며, redo를 할 수 있는 동안만 Redo가 있다.
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "@lophn/design/components";
 import { t } from "@lophn/wording";

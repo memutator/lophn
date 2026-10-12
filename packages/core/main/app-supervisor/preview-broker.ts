@@ -1,4 +1,4 @@
-// preview 자식의 broker 서비스 조립(apps/preview#R4, R7, R8, R9). 외부에 닿는 서비스(net·secret·문서·다른 앱)는
+// preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret·문서·다른 앱)는
 // 모두 대역이고, 기록(invocation)만 운영과 같은 전달 목록으로 가되 mode로 구별된다. 선언은 그 bundle의
 // 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
@@ -45,7 +45,7 @@ export async function previewScopeFromBundle(info: {
   }
 }
 
-// preview의 보고는 개발 진단이고 운영 problem을 열거나 닫지 않는다(R8). 진단 전달 길(preview 전용
+// preview의 보고는 개발 진단이고 운영 problem을 열거나 닫지 않는다. 진단 전달 길(preview 전용
 // credential)이 아직 없어서 전달하지 않고 이유를 낸다. 성공을 꾸미지 않는다.
 const closedProblems: ProblemsReport = {
   report: () =>

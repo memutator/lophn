@@ -1,4 +1,4 @@
-// app test의 고정 시험(FrozenTest)을 봉인 bundle 사본에서 정한다(problems/tests#R6, R12). 요청한 쪽과 runner가
+// app test의 고정 시험(FrozenTest)을 봉인 bundle 사본에서 정한다. 요청한 쪽과 runner가
 // 같은 함수로 같은 시험·hash를 얻으므로 RequestTest의 `test`와 runner가 돌린 시험이 어긋나면 runner가
 // 실행하지 않는다. FrozenTest의 모든 hash는 이 함수가 내는 blob의 sha256이고, Verification이 영구 등록하는
 // blob(hash→bytes)도 여기서 같이 낸다: 저장하지 않은 blob의 hash를 적지 않는다.

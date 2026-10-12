@@ -17,7 +17,7 @@ import { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
 // 주면 strict authorize가 forbidden이다. domain key는 owner가 준 값만 본다.
 // coding agent의 앱 범위(`targets.app`)는 조건에서 채우지 않는다. 채우면 owner가 앱을 말하지
 // 않은 target(다른 앱·project 문서, project·context 읽기)이 자기 앱으로 통과한다. owner가 target의
-// 앱을 직접 줘야 하고(connection#R5, platform/identity R3) 주지 않으면 forbidden이다.
+// 앱을 직접 줘야 하고 주지 않으면 forbidden이다.
 export function createTargetAuthorizer(
   ctx: RequestContext | undefined,
 ): TargetAuthorizer {
@@ -37,7 +37,7 @@ export function createTargetAuthorizer(
 //   예외는 handoff 고정 근거다. owner가 판 주소(`version`)를 준 읽기에서 (문서, 판)이
 //   `conditions.evidence`에 있을 때만 열린다.
 // - context: owner가 그 context의 계약이 app-data로 읽는 앱의 ID들을 `apps`로 주고 담당 앱이 거기 있을 때만
-//   열린다(roles/app-engineer#R2). owner가 앱을 말하지 않으면 context target은 범위 밖이다.
+//   열린다. owner가 앱을 말하지 않으면 context target은 범위 밖이다.
 function outsideBoundApp(
   ctx: RequestContext,
   target: AuthorizationTarget,

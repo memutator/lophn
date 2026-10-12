@@ -1,4 +1,4 @@
-// skill 발견 root의 가림·가려짐 판정이다(coding-agent/guides#R5, T30). 순수
+// skill 발견 root의 가림·가려짐 판정이다. 순수
 // 값이다. 제품이 읽는 root는 설치 root 하나가 아니라 `.agents/skills`·
 // `.claude/skills` 같은 다른 root도 있어서(조사 skills-and-guides) 설치 root에
 // 동명 skill이 없어도 다른 root의 동명 skill이 lophn skill을 가리거나 사람의
@@ -68,7 +68,7 @@ export function skillShadowsOf(
   return found;
 }
 
-// 사람이 볼 제품별 skill 발견 위치 안내다(guides#R5). trust·consent는 사람
+// 사람이 볼 제품별 skill 발견 위치 안내다. trust·consent는 사람
 // 결정이고 lophn이 자동으로 넓히지 않는다.
 export function skillGuidanceOf(definition: HarnessDefinition): string[] {
   const roots = discoveryOf(definition).map((entry) =>

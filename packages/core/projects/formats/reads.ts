@@ -58,7 +58,7 @@ export function createFormatHandlers(
   const lookup = async (hash: string) => {
     const looked = await findModule(hash, preserved);
     if (looked.found || bytes === undefined) return looked;
-    // blob 보존의 참조에서 hash로 되찾는다. 없는 hash는 누락이다(R20).
+    // blob 보존의 참조에서 hash로 되찾는다. 없는 hash는 누락이다.
     return await moduleFrom(hash, bytes);
   };
   return {

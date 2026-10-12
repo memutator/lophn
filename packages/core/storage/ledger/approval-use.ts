@@ -1,4 +1,4 @@
-// approval 한 번 사용의 공통 검사와 기록(platform/approvals#R7, R11, R12, R13).
+// approval 한 번 사용의 공통 검사와 기록.
 // `Tx.useApproval`의 실제 구현이다. 정확한 action 일치 확인과 `approval_uses` INSERT는 소유 변경과
 // 같은 transaction에서 한다. 실패하면 err이고 부른 쪽이 그 결과를 돌려주어 전체가 rollback한다.
 // 표는 platform/approvals가 만들고 이 함수가 쓴다: 사용 기록은 이 공통 함수만 쓴다(domain model).
@@ -42,7 +42,7 @@ function deadlineReached(expiresAt: string | null, now: string): boolean {
 }
 
 // 지금 이 action으로 이 approval을 쓸 수 있는지 본다. 기록은 바꾸지 않는다.
-// 허락됨·기한 전·정확한 action 일치·원래 run 진행 중이어야 한다(R5, R11, R12, R13).
+// 허락됨·기한 전·정확한 action 일치·원래 run 진행 중이어야 한다.
 export function usableApproval(
   tx: Tx,
   approval: string,
@@ -82,7 +82,7 @@ export function usableApproval(
   } catch {
     return err({ code: "internal", message: "approval 기록을 읽지 못했다" });
   }
-  // 호출자·동작·대상·전체 입력·비교 기준 중 하나라도 다르면 새 request가 필요하다(R5, R10).
+  // 호출자·동작·대상·전체 입력·비교 기준 중 하나라도 다르면 새 request가 필요하다.
   if (canonicalize(stored) !== canonicalize(action)) {
     return err({
       code: "conflict",
@@ -122,7 +122,7 @@ function eventAfter(tx: Tx, seq: string, after: bigint): boolean {
     undefined;
 }
 
-// 이미 저장된 사용. 같은 허락의 재호출이 같은 receipt를 돌려받는 데 쓴다(R7).
+// 이미 저장된 사용. 같은 허락의 재호출이 같은 receipt를 돌려받는 데 쓴다.
 export function recordedUse(
   tx: Tx,
   approval: string,

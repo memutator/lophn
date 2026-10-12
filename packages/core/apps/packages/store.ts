@@ -44,7 +44,7 @@ export function loadAllPackageRows(sql: Query): SqlRow[] {
   return sql.all("SELECT * FROM packages ORDER BY name", []);
 }
 
-// release의 고정 blueprint sdk_dependencies에서 사용처를 찾는다(apps/sdk#R6).
+// release의 고정 blueprint sdk_dependencies에서 사용처를 찾는다.
 // blueprint blob의 내용은 releases 조립이 잠그므로 여기서는 잡힌 참조만 본다.
 // releases 모듈이 없는 동안은 사용처가 비어 있고, T27·T6이 실제 사용처를 잠근다.
 export function loadUsages(

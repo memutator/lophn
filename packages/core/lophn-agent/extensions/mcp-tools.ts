@@ -18,10 +18,10 @@ import type {
   ToolHandler,
 } from "../tools/mod.ts";
 
-// 외부 MCP tool 자동 등록(lophn-agent#T37, requirements lophn-agent/extensions#R23, R24, R26–R29, R31).
+// 외부 MCP tool 자동 등록(requirements lophn-agent/extensions#R23).
 // 연결 관리(mcp-connections.ts)가 검증을 모두 지난 목록을 주면 원래 쌍마다 호출 이름·정의 hash·사람 분류를
 // 붙여 harness/tools의 ToolDefinition으로 만든다. 사람의 설정(registry)과 preset 선택만이 출처이며
-// 문서·skill·server 응답은 어느 정의에도 들어가지 않는다(R11, R26).
+// 문서·skill·server 응답은 어느 정의에도 들어가지 않는다.
 
 // 소유 contract 이름 하나다. 외부 tool 호출은 MCP 통로 하나뿐이다. 판정·실행이 이 이름 하나를 본다.
 export const EXTERNAL_TOOL_CONTRACT = "external_mcp_call";
@@ -31,7 +31,7 @@ export const EXTERNAL_TOOL_CONCERN = "lophn-agent/extensions";
 
 // 서버+tool 쌍 하나의 대상 ID다. approval의 대상은 고정 ID 모양(`xxx_` + 26자)이어야 해서 정확한 쌍
 // UTF-8 `JSON.stringify([server, tool])`의 SHA-256 앞 128 bit를 ULID 문자로 적는다. 같은 쌍은 늘
-// 같은 ID이고 이름 충돌 처리와 무관하다(R23, R31).
+// 같은 ID이고 이름 충돌 처리와 무관하다.
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 export async function externalToolTargetId(
   server: string,
@@ -50,7 +50,7 @@ export async function externalToolTargetId(
   return "mcp_" + text;
 }
 
-// 내장 묶음과 같은 실패 종류다. 목록·실행이 같은 종류를 쓴다(R2, tools).
+// 내장 묶음과 같은 실패 종류다. 목록·실행이 같은 종류를 쓴다(tools).
 const EXTERNAL_TOOL_ERRORS: readonly string[] = [
   "invalid_input",
   "not_found",
@@ -63,7 +63,7 @@ const EXTERNAL_TOOL_ERRORS: readonly string[] = [
 export const EXTERNAL_TOOL_PREFIX = "ext_";
 
 // 서버의 원래 tool 하나다. 목록 검증(mcp-connections)을 지난 view에 MCP 행동 hints를 얹은 값이다.
-// hints는 사람 제안 참고일 뿐 분류·승인 근거가 아니다(R28).
+// hints는 사람 제안 참고일 뿐 분류·승인 근거가 아니다.
 export type McpToolEntry = {
   server: string;
   // 서버가 알려준 원래 tool 이름이다.
@@ -78,30 +78,30 @@ export type McpToolEntry = {
   };
 };
 
-// 등록된 서버 설정이다. 사람의 분류(classifications) 원본이 여기 있다(R26, R27).
+// 등록된 서버 설정이다. 사람의 분류(classifications) 원본이 여기 있다.
 export type McpToolsSource = {
-  // 이름 → 설정. 존재하지 않는 서버는 연결도 정의도 없다(R11).
+  // 이름 → 설정. 존재하지 않는 서버는 연결도 정의도 없다.
   servers: ReadonlyMap<string, McpServerConfig>;
   // 검증을 모두 지난 tool 목록이다(mcp-connections toolList).
   tools: readonly McpToolEntry[];
 };
 
-// 사람이 고른 preset MCP 선택이다(R31). 정확한 쌍만, wildcard는 없다.
+// 사람이 고른 preset MCP 선택이다. 정확한 쌍만, wildcard는 없다.
 export type McpSelection = {
   servers: readonly string[];
   tools: readonly { server_name: string; original_tool: string }[];
-  // 안전 표시다(R28). 이 쌍만 confirm 질문을 건너뛴다.
+  // 안전 표시다. 이 쌍만 confirm 질문을 건너뛴다.
   safe_tools: readonly { server_name: string; original_tool: string }[];
 };
 
-// 기본 이름이다(Q15, R23). 서버·tool 원래 이름의 지원 문자만 남기고 축약한다.
+// 기본 이름이다. 서버·tool 원래 이름의 지원 문자만 남기고 축약한다.
 export function baseExternalToolName(server: string, original: string): string {
   const serverPart = server.replace(/[^A-Za-z0-9_-]+/g, "_");
   const toolPart = original.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 40);
   return `${EXTERNAL_TOOL_PREFIX}${serverPart.slice(0, 16)}_${toolPart}`;
 }
 
-// 충돌 묶음의 suffix다(Q15, R23). 원래 쌍 UTF-8 `JSON.stringify([server, tool])`의
+// 충돌 묶음의 suffix다. 원래 쌍 UTF-8 `JSON.stringify([server, tool])`의
 // SHA-256 앞 8자라 등록 순서와 무관하다.
 export function externalToolHashSuffix(
   server: string,
@@ -113,7 +113,7 @@ export function externalToolHashSuffix(
 }
 
 // 정의를 만들기 전 이름·충돌 묶음을 정한다. 기본 이름이 겹치는 쌍은 묶음 전체에
-// suffix를 붙인다(Q15). 남은 충돌은 등록을 거절한다(R23).
+// suffix를 붙인다. 남은 충돌은 등록을 거절한다.
 export async function assignExternalToolNames(
   pairs: readonly { server: string; original: string }[],
 ): Promise<
@@ -139,7 +139,7 @@ export async function assignExternalToolNames(
       canonical.set(`${pair.server}\0${pair.original}`, renamed);
     }
   }
-  // 남은 충돌은 등록 거절이다(R23). 숫자로 우회하지 않는다.
+  // 남은 충돌은 등록 거절이다. 숫자로 우회하지 않는다.
   const seen = new Set<string>();
   for (const [key, name] of canonical) {
     if (seen.has(name)) {
@@ -155,9 +155,9 @@ export async function assignExternalToolNames(
   return ok(canonical);
 }
 
-// 사람 분류가 묶인 정의의 지문이다(R24). 원본 정의의 name·description·inputSchema·hints만
-// 본다. 하나라도 바뀌면 hash가 달라져 사람의 기존 분류를 이어 쓰지 않는다(R24). hints는
-// hash 재료일 뿐 분류 근거가 아니다(R28).
+// 사람 분류가 묶인 정의의 지문이다. 원본 정의의 name·description·inputSchema·hints만
+// 본다. 하나라도 바뀌면 hash가 달라져 사람의 기존 분류를 이어 쓰지 않는다. hints는
+// hash 재료일 뿐 분류 근거가 아니다.
 export function mcpToolDefinitionHash(entry: McpToolEntry): Promise<string> {
   return fingerprint({
     name: entry.original,
@@ -167,8 +167,8 @@ export function mcpToolDefinitionHash(entry: McpToolEntry): Promise<string> {
   });
 }
 
-// 분류의 schema_hash가 현재 정의 hash와 같을 때만 사람 분류가 유효하다(R24). 바뀐 정의·
-// 분류가 없는 tool은 미분류 기본(external, 되돌림 모름 → confirm asks)으로 판정한다(R26, R28).
+// 분류의 schema_hash가 현재 정의 hash와 같을 때만 사람 분류가 유효하다. 바뀐 정의·
+// 분류가 없는 tool은 미분류 기본(external, 되돌림 모름 → confirm asks)으로 판정한다.
 export function classificationOf(
   entry: McpToolEntry,
   server: McpServerConfig,
@@ -185,7 +185,7 @@ export function classificationOf(
   };
 }
 
-// 여러 행동을 한 tool이 제공하면 가장 넓은 분류 하나를 적용한다(R27):
+// 여러 행동을 한 tool이 제공하면 가장 넓은 분류 하나를 적용한다:
 // external > write > read.
 export function widestEffect(effects: readonly ToolEffect[]): ToolEffect {
   if (effects.includes("external")) return "external";
@@ -218,9 +218,9 @@ function toolInputSchema(entry: McpToolEntry): Record<string, unknown> {
 export type ExternalTool = {
   definition: ToolDefinition;
   server: string;
-  // 서버가 알려준 원래 tool 이름이다. routing은 호출 이름이 아니라 이 이름으로 돌아간다(R23).
+  // 서버가 알려준 원래 tool 이름이다. routing은 호출 이름이 아니라 이 이름으로 돌아간다.
   original: string;
-  // 서버 설정 판이다(기록·판정 근거의 configuration_revision, R24).
+  // 서버 설정 판이다(기록·판정 근거의 configuration_revision).
   configurationRevision: number;
   effect: ToolEffect;
   confirm: boolean;
@@ -231,17 +231,17 @@ export type ExternalTool = {
   target: string;
 };
 
-// 검증을 지난 목록과 사람 분류·preset 선택을 ToolDefinition으로 만든다(R23, R26, R31). 사람의
-// registry와 preset 선택만이 출처다: 어느 문서·skill·server 응답도 정의를 늘리지 않는다(R11).
+// 검증을 지난 목록과 사람 분류·preset 선택을 ToolDefinition으로 만든다. 사람의
+// registry와 preset 선택만이 출처다: 어느 문서·skill·server 응답도 정의를 늘리지 않는다.
 // 등록되지 않은 서버의 tool은 정의가 없다(없는 것과 같은 답). preset 선택 밖 tool도 정의가
-// 없다(R31: 서버 전체·미래 tool 선택 없음).
+// 없다(서버 전체·미래 tool 선택 없음).
 export async function buildMcpTools(
   source: McpToolsSource,
   selection: McpSelection | null,
 ): Promise<
   Result<readonly ExternalTool[], { code: "conflict"; message: string }>
 > {
-  // 선택이 아직 고정되지 않았으면 제공도 없다(R31). 선택된 서버·쌍만 남긴다.
+  // 선택이 아직 고정되지 않았으면 제공도 없다. 선택된 서버·쌍만 남긴다.
   if (selection === null) return ok([]);
   const selectedServers = new Set(selection.servers);
   const selectedPairs = new Set(selection.tools.map(pairKey));
@@ -262,14 +262,14 @@ export async function buildMcpTools(
   const tools: ExternalTool[] = [];
   for (const entry of offered) {
     const server = source.servers.get(entry.server);
-    // 등록되지 않은 서버는 정의가 없다(R11: 사람만 서버를 정한다).
+    // 등록되지 않은 서버는 정의가 없다(사람만 서버를 정한다).
     if (server === undefined) continue;
     const name = names.value.get(`${entry.server}\0${entry.original}`)!;
     const definitionHash = await mcpToolDefinitionHash(entry);
     const classification = classificationOf(entry, server, definitionHash);
-    // safe 표시다(R28): 분류 기록이 아예 없는 tool은 사람이 그 tool을 직접 본
+    // safe 표시다: 분류 기록이 아예 없는 tool은 사람이 그 tool을 직접 본
     // 표시 그대로 유효하다. 분류가 있었는데 정의 hash가 바뀐 tool은 분류와 함께
-    // 무효다(R24): safe 표시의 전제인 분류 일치가 무너진다.
+    // 무효다: safe 표시의 전제인 분류 일치가 무너진다.
     const hasClassification =
       server.classifications[entry.original] !== undefined;
     const safe = (!hasClassification || classification.classified) &&
@@ -293,16 +293,16 @@ export async function buildMcpTools(
       description: `MCP tool ${entry.original} of server ${entry.server}: ${
         entry.description ?? "(no description)"
       } (${notes.join("; ")})`,
-      // revision은 정의 hash에서 온다. hash가 바뀌면 판정 근거도 새로 읽는다(R24).
+      // revision은 정의 hash에서 온다. hash가 바뀌면 판정 근거도 새로 읽는다.
       revision: definitionHash.slice(0, 16),
       input: OBJECT_INPUT,
       inputSchema: toolInputSchema(entry),
       effect: classification.effect,
-      // 안전 표시는 confirm 질문 하나만 건너뛴다(R28). 역할 상한·confirm=true는 넓히지 못한다.
+      // 안전 표시는 confirm 질문 하나만 건너뛴다. 역할 상한·confirm=true는 넓히지 못한다.
       confirm: classification.effect !== "read" && !safe,
       contract: EXTERNAL_TOOL_CONTRACT,
       scopeCheck: "tools the preset selection and role cap allow",
-      // external은 되돌림 보장이 없다(R28). write는 사람 선언만으로 보지 않는다.
+      // external은 되돌림 보장이 없다. write는 사람 선언만으로 보지 않는다.
       reversible,
       idempotent: classification.effect === "read",
       errors: EXTERNAL_TOOL_ERRORS,
@@ -327,7 +327,7 @@ export async function buildMcpTools(
 // ---- 호출 ----
 
 export type McpInvokeCall = {
-  // 사람이 붙인 서버 이름이다(R23: 원래 서버·tool로 정확히 돌아간다).
+  // 사람이 붙인 서버 이름이다(원래 서버·tool로 정확히 돌아간다).
   server: string;
   original: string;
   input: unknown;
@@ -346,7 +346,7 @@ export type McpToolCall = (
   call: McpInvokeCall,
 ) => Promise<Result<unknown>>;
 
-// 외부 MCP tool의 handler다. 판정과 진입 기록은 이 handler 앞에서 끝났다(R29). 서버·원래
+// 외부 MCP tool의 handler다. 판정과 진입 기록은 이 handler 앞에서 끝났다. 서버·원래
 // 이름·입력을 그대로 MCP 통로에 넘긴다(호출 이름이 아니라 원래 쌍으로 routing한다).
 export function createMcpToolHandlers(
   tools: readonly ExternalTool[],

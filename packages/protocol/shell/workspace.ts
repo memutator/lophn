@@ -11,11 +11,11 @@ import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 
-// 요약은 UTF-8 2048 bytes, 탭 상세는 한 page 20개(shell/workspace#R10).
+// 요약은 UTF-8 2048 bytes, 탭 상세는 한 page 20개.
 export const SUMMARY_MAX_BYTES = 2048;
 export const TAB_PAGE_SIZE = 20;
 
-// 화면 상태 문자열은 80자를 넘기면 원값 대신 안전한 형태로 줄인다(platform/redaction#R12).
+// 화면 상태 문자열은 80자를 넘기면 원값 대신 안전한 형태로 줄인다.
 export const VIEW_STRING_MAX_CHARS = 80;
 
 export const VIEW_AVAILABILITY = [
@@ -35,7 +35,7 @@ export const TAB_KINDS = [
   "agent",
 ] as const;
 
-// Context 탭의 하위 탭. 순서가 화면 순서다(shell/workspace#R17).
+// Context 탭의 하위 탭. 순서가 화면 순서다.
 export const CONTEXT_SUB_TABS = [
   "overview",
   "search",
@@ -251,7 +251,7 @@ export const workspaceUnpublish = defineMemory({
 });
 
 // next_page는 다음 page의 index다. page를 준 read는 그 index의 tab_page를 돌려준다.
-// 요약만 주는 첫 read는 tab_page를 생략한다(shell/workspace#R10).
+// 요약만 주는 첫 read는 tab_page를 생략한다.
 const currentReadSchema = z.object({
   availability: z.literal("current"),
   observed_at: atSchema,

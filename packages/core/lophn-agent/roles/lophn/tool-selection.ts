@@ -3,7 +3,7 @@ import { BUILTIN_TOOLS } from "../../tools/mod.ts";
 import type { CapabilityScope, ToolDefinition } from "../../tools/mod.ts";
 import { ROLE_CAPS } from "../../agents/mod.ts";
 
-// lophn 역할의 tool 선택(roles/lophn#R1–R5). 목록은 lophn 상한(ROLE_CAPS 표)과
+// lophn 역할의 tool 선택. 목록은 lophn 상한(ROLE_CAPS 표)과
 // lophn 기본 preset 선택의 교집합으로, 실제 정의는 내장 묶음에서 본다. 선택이
 // 아직 고정되지 않은 기본 preset(null)은 빈 목록이고(fail closed), 목록 자체는
 // 이 함수를 같은 입력으로 부르면 같다.

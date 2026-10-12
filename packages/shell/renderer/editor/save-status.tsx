@@ -1,4 +1,4 @@
-// 머리 메타 줄의 저장 상태와 펼치는 상세(shell/editor#R2, R11, R12). 메타 줄에는 지금 결과나
+// 머리 메타 줄의 저장 상태와 펼치는 상세. 메타 줄에는 지금 결과나
 // 다음 행동 하나만 두고, 디스크 저장·기록·version·형식 검사의 단계별 사실과 안 시각은 상세에서
 // 펼친다. legacy SaveStatus의 모양(경고·실패만 아이콘, 행동은 글자 버튼)을 옮겼다.
 import { useEffect, useRef, useState } from "react";
@@ -66,7 +66,7 @@ export interface SaveStatusProps {
   detailsOpen: boolean;
   onToggleDetails: () => void;
   onAction: (action: Exclude<SaveAction, null>) => void;
-  /** main↔core 연결. 끊기면 저장 불가·초안 유지를 이 줄에서 함께 보인다(desktop#R7). */
+  /** main↔core 연결. 끊기면 저장 불가·초안 유지를 이 줄에서 함께 보인다. */
   connection?: ConnectionState;
   /** 확인 시각의 표시. 테스트가 고정한다. */
   formatTime?: (confirmedAt: number) => string;

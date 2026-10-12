@@ -46,7 +46,7 @@ function byteLength(text: string): number {
 }
 
 // 탭 종류마다 줄에 쓰는 대상 문자열이다. 종류를 더하면 contracts의 ViewTab과 함께 여기에 한 줄을 더해야
-// 컴파일된다(shell/workspace#R14).
+// 컴파일된다.
 type TabTarget = {
   [K in ViewTab["kind"]]: (tab: Extract<ViewTab, { kind: K }>) => string;
 };

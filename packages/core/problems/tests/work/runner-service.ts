@@ -1,8 +1,8 @@
-// test runner control의 상시 service다(problems/tests#R1, R4, R5, R17, R21). core 감독이 하나를 띄우고, core가
+// test runner control의 상시 service다. core 감독이 하나를 띄우고, core가
 // 감독 pipe로 보내는 요청 한 건(`problems.test.run`)을 받아 실제 runner 경로(app-test-run.ts)로 돌린다.
 // 시작 시도·실제 시작·결과는 요청별 좁은 machine credential로 core command에 남기고, 앱의 보고는 요청별
 // app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 같은 session이
-// `problems.work`(problems#T19)·`problems.closing`(problems#T20) 깨움도 받는다. 돌리지 못한 요청은
+// `problems.work`·`problems.closing` 깨움도 받는다. 돌리지 못한 요청은
 // 이유와 함께 끝난다: 조용히 두거나 성공으로 꾸미지 않는다.
 //
 // 이 모듈은 core graph 밖이다(worker). 요청 credential은 argv·log에 싣지 않는다.
@@ -871,7 +871,7 @@ export async function runRequest(
   };
 }
 
-// runner가 바뀐 뒤 이미 시작 시도를 남긴 요청을 이어받는다. 다시 시작하지 않는다(R17). 실제 시작을 관측한
+// runner가 바뀐 뒤 이미 시작 시도를 남긴 요청을 이어받는다. 다시 시작하지 않는다. 실제 시작을 관측한
 // 요청은 runner_lost inconclusive로, 시작 여부를 모르면 시작 불명으로 남긴다.
 export async function recoverRequest(
   job: RecoverJob,
@@ -1002,7 +1002,7 @@ export type RunnerWorkerOptions = {
   // hello가 준 machine credential과 core api port로 `problems.work` 반응 통로를 만든다.
   // 없으면 깨움 요청(`problems.work`)은 unknown op로 끝난다.
   ports?(position: { credential: string; api_port: number }): WorkReactionPorts;
-  // 같은 session 안의 `problems.closing` 반응기(problems#T20)의 통로다. 없으면 그 op는
+  // 같은 session 안의 `problems.closing` 반응기의 통로다. 없으면 그 op는
   // unavailable이다.
   closing?(
     position: { credential: string; api_port: number },
@@ -1050,7 +1050,7 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
       const request = requestOf(message);
       if (request === undefined) return;
       const op = request.op;
-      // `problems.work` 깨움(problems#T19)은 cursor 뒤 ticket event를 따라잡는다. 성공한
+      // `problems.work` 깨움은 cursor 뒤 ticket event를 따라잡는다. 성공한
       // 위치는 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
       if (op === PROBLEMS_WORK_OP) {
         const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
@@ -1089,7 +1089,7 @@ export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
           : fail("unavailable", "problems work reaction failed"));
         return;
       }
-      // `problems.closing` 깨움(problems#T20)은 같은 runner의 다른 반응기다. 통로가 없으면
+      // `problems.closing` 깨움은 같은 runner의 다른 반응기다. 통로가 없으면
       // unavailable이다. 두 반응기는 요청을 하나씩 차례로 처리하고, 성공한 위치는 각자
       // 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
       if (op === PROBLEMS_CLOSING_OP) {

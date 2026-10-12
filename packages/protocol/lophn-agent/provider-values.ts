@@ -232,7 +232,7 @@ const providerFields = {
   definition: providerDefinitionSchema,
   endpoint: z.string(),
   protocol: providerProtocolSchema,
-  // provider에는 credential이 정확히 하나다. 계정 목록·순서·켜기 상태는 없다(provider#R8).
+  // provider에는 credential이 정확히 하나다. 계정 목록·순서·켜기 상태는 없다.
   credential: providerCredentialSchema,
   revision: positiveIntegerSchema,
 };

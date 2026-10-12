@@ -1,8 +1,8 @@
 // model 호출 한 번의 실제 HTTP 실행(architecture §5.2 invokeModelCall; provider#R19–R23,
 // R25). 인증 부착은 AuthTransport 하나를 거친다. 호출은 한 번이다: SDK 숨은 retry는
-// 없고 재시도는 run-loop가 새 ModelCall로 한다(R20). 응답은 두 길이다. 성공 SSE는
+// 없고 재시도는 run-loop가 새 ModelCall로 한다. 응답은 두 길이다. 성공 SSE는
 // protocol별 parser가 읽고, 그 밖의 응답(오류 status·JSON)은 상한 안 본문 한 덩어리로
-// 읽어 failures.ts가 분류한다. 오류 본문 원문은 어디에도 남기지 않는다(R19).
+// 읽어 failures.ts가 분류한다. 오류 본문 원문은 어디에도 남기지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
@@ -231,7 +231,7 @@ export function createInvokeModelCall(deps: InvokeDeps): InvokeModelCall {
         return done(abortOutcome(signal, null));
       }
       if (how === "connection_failed") {
-        // 연결 실패는 일시 실패다(R20).
+        // 연결 실패는 일시 실패다.
         return doneFailed(classifyHttpFailureDisconnect());
       }
       // 보내기 전에 막혔다(secret 부착 거절 등). 모델 시도가 아니다.

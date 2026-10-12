@@ -244,7 +244,7 @@ export const requestTestInputSchema = z.strictObject({
   // 쪽을 쓴다). 생략하면 method의 timeout_ms다. 요청 identity(request hash)에는 들어가지 않는다.
   timeout_ms: integer.min(1).max(TEST_EXECUTION_LIMITS.timeout_ms).optional(),
   // coding agent의 reproduction 요청이 기대는 ticket의 현재 claim이다. core가 접수 때 그 연결의 현재 claim과 맞는지
-  // 다시 확인한다(coding-agent/mcp-server#R25, cli#R34). 권한 확인이라 요청 identity(request hash)에는
+  // 다시 확인한다. 권한 확인이라 요청 identity(request hash)에는
   // 들어가지 않는다. 사람·machine 요청은 싣지 않는다.
   ticket_source: z.strictObject({
     ticket: idSchema("tkt"),

@@ -1,4 +1,4 @@
-// coding connection credential의 OS keychain 준비·읽기·정리(platform/secrets#R12).
+// coding connection credential의 OS keychain 준비·읽기·정리.
 // 앱 secret·provider 인증과 용도가 다르다. 위치는 connection에서 정해지는 고정 참조 하나라서
 // 읽는 쪽이 ledger 표나 다른 secret 이름 공간을 거치지 않는다. 원문은 이 module의 호출 인자와
 // keychain에만 있고 오류·log에는 참조도 값도 싣지 않는다. 평문 파일·환경 변수 fallback은 없다.

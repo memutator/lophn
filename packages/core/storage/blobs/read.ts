@@ -1,4 +1,4 @@
-// blob 읽기(platform/blob-store#R5, R6, R7, platform/identity#R9).
+// blob 읽기.
 // hash가 아니라 허용 owner·고정 판·field의 참조에서 시작하고 매 조각마다 scope를 다시 검사한다.
 // 참조된 blob이 없거나 hash가 다르면 unavailable이며 빈 내용을 돌려주지 않는다.
 
@@ -46,7 +46,7 @@ export type BlobReadDeps = {
   bytes: BlobBytes;
 };
 
-// 참조 행에서 시작한다. hash만 아는 읽기는 이 행이 없으면 거절된다(R5).
+// 참조 행에서 시작한다. hash만 아는 읽기는 이 행이 없으면 거절된다.
 export function storedRef(
   sql: Pick<Sql, "get">,
   input: Pick<BlobReadInput, "owner_kind" | "owner_key" | "field">,

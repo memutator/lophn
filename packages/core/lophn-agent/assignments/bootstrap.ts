@@ -1,4 +1,4 @@
-// 내장 assignment 준비(lophn-agent/assignments#R2). 새 데이터 root에는 거두지 않은 lophn과
+// 내장 assignment 준비. 새 데이터 root에는 거두지 않은 lophn과
 // Context Engineer 전역 assignment가 각각 하나 있어야 한다. 만드는 command
 // (CreateBuiltinAssignment)는 machine 전용이고 부르는 자리가 core 기동뿐이라 여기서 한다.
 // 이미 있으면 아무것도 보내지 않으므로 재시작은 중복을 만들지 않는다.

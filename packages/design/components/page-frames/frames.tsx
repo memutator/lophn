@@ -46,22 +46,22 @@ function Column(
   );
 }
 
-// 폼 640px(R21).
+// 폼 640px.
 export function FormFrame(props: FrameProps) {
   return <Column frame="form" {...props} />;
 }
 
-// 런처 1040px(R22).
+// 런처 1040px.
 export function LauncherFrame(props: FrameProps) {
   return <Column frame="launcher" {...props} />;
 }
 
-// 프로젝트 개요 800px(R22).
+// 프로젝트 개요 800px.
 export function OverviewFrame(props: FrameProps) {
   return <Column frame="overview" {...props} />;
 }
 
-// 최대 1440px, 12열, 간격 16px(R21).
+// 최대 1440px, 12열, 간격 16px.
 export function DashboardFrame({ header, children }: FrameProps) {
   const { ref, pad } = usePane();
   return (
@@ -92,13 +92,13 @@ export function DashboardCell(
 export interface ListDetailFrameProps {
   list: ReactNode;
   detail: ReactNode;
-  // 640px 미만 칸에서 보이는 한 쪽(R24). 넓은 칸에서는 둘 다 보인다.
+  // 640px 미만 칸에서 보이는 한 쪽. 넓은 칸에서는 둘 다 보인다.
   active?: "list" | "detail";
   // 좁은 칸의 상세에서 목록으로 돌아가는 버튼을 그린다.
   onBack?: () => void;
 }
 
-// 목록 360px과 나머지 상세. 전체 폭이다(R21). 640px 미만 칸은 한 쪽씩 보인다(R24).
+// 목록 360px과 나머지 상세. 전체 폭이다. 640px 미만 칸은 한 쪽씩 보인다.
 export function ListDetailFrame(
   { list, detail, active = "list", onBack }: ListDetailFrameProps,
 ) {
@@ -136,7 +136,7 @@ export function ListDetailFrame(
   );
 }
 
-// 전체 폭 표. 머리만 칸 여백을 쓰고 표는 칸 끝까지 간다(R21, R30).
+// 전체 폭 표. 머리만 칸 여백을 쓰고 표는 칸 끝까지 간다.
 export function TableFrame({ header, children }: FrameProps) {
   const { ref, pad } = usePane();
   return (

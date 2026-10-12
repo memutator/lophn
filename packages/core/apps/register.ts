@@ -119,7 +119,7 @@ export function createLedgerRegistration(
   const reads = createAppsReads();
   const invocations = createInvocationsCommands();
   // confirm 접수는 approval 사용과 같은 transaction에서 apply_approved_action이 부르는
-  // dispatchable machine command다(platform Q28).
+  // dispatchable machine command다.
   const confirm = createConfirmCommands();
   const invocationReads = createInvocationsReads();
   const sdk = createSdkCommands();
@@ -130,7 +130,7 @@ export function createLedgerRegistration(
     activationAttemptGate,
   );
   // record_*는 supervisor의 machine 통보다. 관측 없는 Tx projection은
-  // 과거 event만으로 running이라 하지 않는다(R13).
+  // 과거 event만으로 running이라 하지 않는다.
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
   // 선언·실행 가능 여부·관측을 구분하는 read. 관측은 apps-control이 메인에서 덮는다.
@@ -143,7 +143,7 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
-    // 보호 backup blob(일반 blob 읽기 없음, apps/data#R4)과 공개 SDK 사용 안내 blob(일반 읽기 허용, apps/sdk#R3).
+    // 보호 backup blob(일반 blob 읽기 없음)과 공개 SDK 사용 안내 blob(일반 읽기 허용).
     blobFields: [BACKUP_BLOB_FIELD, PACKAGE_GUIDE_BLOB_FIELD],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
@@ -152,7 +152,7 @@ export function createLedgerRegistration(
       // SDK 안내 원문 읽기다. route만 선언하고 handler는 blob 바이트 통로를 가진 core 조립(runtime)이 붙인다.
       unattachedGuideBodyRead,
     ],
-    // place_names 표는 documents 등록의 몫이다(R6, R10).
+    // place_names 표는 documents 등록의 몫이다.
     schemaSteps: [
       ...appsSchemaSteps,
       ...releasesSchemaSteps,
@@ -207,7 +207,7 @@ export function createLedgerRegistration(
       sdkReads.usage,
     ],
     // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
-    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1). apps.view_closed도 같은 어댑터가
+    // 거치지 않는다(architecture/apps 5.1). apps.view_closed도 같은 어댑터가
     // 닫힌 화면 view를 지금 live 자식에 중계할 뿐 ledger를 쓰지 않는다.
     // 앱 쌍 연결 준비·confirm·경로 장부 통보도 supervisor(machine)의 같은 제어 어댑터다.
     // agent confirm proof 서명도 그 어댑터다. 접수는 ledger command가 이미 했고 서명은 core key다.
@@ -224,7 +224,7 @@ export function createLedgerRegistration(
       releasePreparation,
       releaseCancelPreparation,
     ],
-    // 앱 export 준비(apps/data#R13). 준비 본체는 data worker 모듈(worker/export.ts)이 하고,
+    // 앱 export 준비. 준비 본체는 data worker 모듈(worker/export.ts)이 하고,
     // serving은 core 조립이 연결한다. 제품 기동에는 serving이 아직 없다(준비 중·완성·실패
     // 구별은 contract의 state로 내놓는다).
     workerRoutes: [appExport],
@@ -237,7 +237,7 @@ export function createLedgerRegistration(
           get: (app: string) => lookupAppRegistration(tx.sql, app),
         }),
       },
-      // 앱 secret 전송의 현재 grant 판정이다(platform/secrets#R10, apps/permissions#R14).
+      // 앱 secret 전송의 현재 grant 판정이다.
       {
         key: SecretAllowance,
         create: (tx) => createSecretAllowance(tx),
@@ -246,13 +246,13 @@ export function createLedgerRegistration(
       // (apps/permissions#R2). 준비 때 고정한 blueprint에서 만든 값을 읽는다.
       { key: currentDeclarations, create: () => releaseDeclarations },
       // release 준비는 같은 bundle hash의 통과한 app test와 현재 ticket claim을 같은 transaction에서
-      // 다시 확인한다(apps/releases#R5, R6). 구현은 problems·coding-agent 소유 읽기다.
+      // 다시 확인한다. 구현은 problems·coding-agent 소유 읽기다.
       {
         key: AppTestVerificationLookupPort,
         create: (tx) => (verification: string) =>
           findAppTestVerification(tx.sql, verification),
       },
-      // 보고 당시 release의 선언 code 문구다(problems#T27). problems의 문구 projection이
+      // 보고 당시 release의 선언 code 문구다. problems의 문구 projection이
       // 같은 snapshot sql로 읽는다.
       { key: ProblemWordingPort, create: () => releaseWording },
       {
@@ -270,14 +270,14 @@ export function createLedgerRegistration(
   };
 }
 
-// release 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 열고,
+// release 계기 event의 공개 정책. notifications 구독자에게만 열고,
 // 다른 apps event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
       notificationsOnlyVisibility(releaseActivationFailed),
       // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)와
-      // `problems.closing` 반응기의 깨움 신호로만 열린다(coding-agent#T26, problems#T20).
+      // `problems.closing` 반응기의 깨움 신호로만 열린다.
       // 다른 자격이 보는 것은 그대로 숨김이다.
       visibleToProblemsClosing(ticketCheckFeedVisibility(releaseActivated)),
       visibleToProblemsClosing(ticketCheckFeedVisibility(releaseSuperseded)),
@@ -318,7 +318,7 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.usage,
     ],
     // 선언 port의 고정 값이다. grants.list의 표시 자료와 apps.automations가 같은 key로 읽는다.
-    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다(problems#T27).
+    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다.
     ports: new Map<unknown, unknown>([
       [
         currentDeclarations,

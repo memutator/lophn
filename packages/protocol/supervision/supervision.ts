@@ -69,7 +69,7 @@ export const streamCreditSchema = z.strictObject({
   channel: streamChannel,
   window: count,
 });
-// 자식이 core에 blob 준비를 청하는 통로(platform Q6). 자식이 새 stream channel을
+// 자식이 core에 blob 준비를 청하는 통로. 자식이 새 stream channel을
 // 정해 json 요청을 보내고, core가 credit을 주면 그 channel의 bytes frame을 credit
 // 안에서만 보내고, end(또는 abort)로 닫는다. core는 결과를 blob_prepare_result로 돌려준다.
 // principal·expected_hash는 요청에 없다: principal은 core가 자식 kind에서 정하고 hash는
@@ -159,7 +159,7 @@ export const appCredentialRequestSchema = z.strictObject({
   type: z.literal("app_credential_request"),
   request_id: opaque,
   app: idSchema("app"),
-  // 준비 전 bundle의 preview는 release가 없다(apps/preview#R9). 가짜 release를 만들지 않는다.
+  // 준비 전 bundle의 preview는 release가 없다. 가짜 release를 만들지 않는다.
   release: idSchema("rel").nullable(),
   process: opaque,
   mode: opaque,

@@ -11,7 +11,7 @@ import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 import { callableIn, issuesOfError, type PlaceView } from "./inspect.ts";
 import { permissionIssues } from "./resolve.ts";
 
-// 저장 때의 전체 검사(R24). 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 자리 Operator 사이의
+// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 자리 Operator 사이의
 // 이름 중복, context 참조, 권한 상한. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
 
 export function invalidInput(issues: AgentIssue[]): Result<never> {
@@ -55,7 +55,7 @@ function duplicateName(
   return ok(false);
 }
 
-// 정의 ⊆ 자리 ⊆ Workspace 기본이고 정의 ⊆ RoleCaps다(R20, R21). 층에 권한 칸이 없으면 거르지 않는다.
+// 정의 ⊆ 자리 ⊆ Workspace 기본이고 정의 ⊆ RoleCaps다. 층에 권한 칸이 없으면 거르지 않는다.
 function capIssues(
   tools: readonly string[],
   layers: readonly (readonly string[] | undefined)[],
@@ -124,7 +124,7 @@ export function checkSave(input: {
   return ok(text.value);
 }
 
-// 자리 설정의 권한은 Workspace 기본의 부분집합이어야 한다(R10, R21).
+// 자리 설정의 권한은 Workspace 기본의 부분집합이어야 한다.
 export function checkSettings(input: {
   settings: AgentSettings;
   workspace: AgentSettings;

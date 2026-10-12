@@ -1,4 +1,4 @@
-// migration 전 보호 backup(apps/data#R5, R10). SQLite backup API로 WAL까지 포함한
+// migration 전 보호 backup. SQLite backup API로 WAL까지 포함한
 // 일관된 복사본을 만들고 무결성·schema를 확인한 뒤에만 backup으로 남긴다.
 // 본체 파일 복사는 유효 backup이 아니다. 최근 5개를 유지하되 진행 중 복원이
 // 참조하는 backup은 보존 한도 때문에 없애지 않는다.
@@ -19,7 +19,7 @@ export type AppBackup = {
 };
 
 export type RetainInput = {
-  // 진행 중 복원이 참조하는 backup 이름. 완료 전에는 삭제하지 않는다(R10).
+  // 진행 중 복원이 참조하는 backup 이름. 완료 전에는 삭제하지 않는다.
   protectedNames: readonly string[];
 };
 
@@ -78,7 +78,7 @@ export async function createAppBackup(
   return ok({ name, verified: verified.value });
 }
 
-// 보존 한도. 진행 중 참조는 한도 밖이어도 남긴다(R10).
+// 보존 한도. 진행 중 참조는 한도 밖이어도 남긴다.
 export async function retainAppBackups(
   dataArea: string,
   input: RetainInput,

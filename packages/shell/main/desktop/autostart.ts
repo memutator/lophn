@@ -1,4 +1,4 @@
-// 로그인 자동 시작(desktop#R11, R21). 검증된 실행 경로와 창 없는 시작 intent `--tray`만
+// 로그인 자동 시작. 검증된 실행 경로와 창 없는 시작 intent `--tray`만
 // OS에 등록한다. Linux는 XDG autostart entry, 그 외는 Electron login item이다. OS 쪽은
 // 주입한 adapter로만 만진다. 상태의 정본은 OS 등록 자체이고 따로 설정 값을 두지 않는다.
 import {

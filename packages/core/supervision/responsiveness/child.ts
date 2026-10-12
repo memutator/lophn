@@ -56,7 +56,7 @@ export type ChildSession = {
   // stream 하나를 닫는다. end는 정상 끝, abort는 중단이다.
   sendEnd(channel: number): Promise<void>;
   sendAbort(channel: number): Promise<void>;
-  // core에 blob 준비를 청한다(platform Q6). core가 credit을 주는 만큼만 바이트를 보내고,
+  // core에 blob 준비를 청한다. core가 credit을 주는 만큼만 바이트를 보내고,
   // 결과의 hash·참조는 core가 I/O worker에서 받은 값이다. credit·결과 메시지는 handler
   // 처리 중에도 바로 소비하므로, 요청을 처리하는 handler 안에서 불러도 막히지 않는다.
   // core가 이 kind에 허용하지 않았으면 forbidden이다.

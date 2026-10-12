@@ -50,7 +50,7 @@ export type StoredBlock =
     sources: unknown;
   };
 
-// 저장된 블록을 읽는다(R5). 앱·화면·release를 더는 열 수 없거나 명세 판이 달라져 검사를 통과하지
+// 저장된 블록을 읽는다. 앱·화면·release를 더는 열 수 없거나 명세 판이 달라져 검사를 통과하지
 // 못하는 블록도 메시지 읽기를 막지 않고, 원래 값과 이용 불가를 함께 돌려준다.
 export function readStoredBlock(raw: unknown): StoredBlock {
   const parsed = visualBlockSchema.safeParse(raw);

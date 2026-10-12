@@ -1,4 +1,4 @@
-// app_panel 탭 kind. 앱의 panel 화면 하나를 연다(shell/workspace#R5, R7, R11).
+// app_panel 탭 kind. 앱의 panel 화면 하나를 연다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

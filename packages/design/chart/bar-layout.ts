@@ -1,4 +1,4 @@
-// 막대 geometry와 hover 자리. 순수 함수(shell/design-system#R13, R41).
+// 막대 geometry와 hover 자리. 순수 함수.
 import { GEOMETRY, groupLayout, stackSegments } from "./geometry.ts";
 import type { ColoredSeries } from "./palette.ts";
 import type { Slot } from "./types.ts";

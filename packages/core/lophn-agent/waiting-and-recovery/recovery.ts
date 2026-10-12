@@ -17,7 +17,7 @@ import {
   type ResumeState,
 } from "../run-loop/mod.ts";
 
-// 중단 뒤 복구의 순수 규칙(lophn-agent/harness/waiting-and-recovery R8–R10). ledger 사실에서 어디까지
+// 중단 뒤 복구의 순수 규칙. ledger 사실에서 어디까지
 // 확정됐는지(경계)를 정하고, 이미 확정한 model 응답과 tool 결과로 이력을 다시 만든다. 읽기·쓰기는
 // 모른다. 같은 규칙을 core의 RecoverRun 검증과 runtime의 복구가 함께 쓴다.
 
@@ -420,7 +420,7 @@ export async function rebuildResume(input: {
 }
 
 // ---------------------------------------------------------------------------
-// 압축 summary 복구(R12)
+// 압축 summary 복구
 // ---------------------------------------------------------------------------
 
 // ledger에 남은 summary 요약 call 하나와 그 근거다. 값은 호출자가 ModelCall 행(purpose, run,

@@ -1,4 +1,4 @@
-// 준비 참조 registry의 순수 규칙(platform/blob-store#R1). IO 없음.
+// 준비 참조 registry의 순수 규칙. IO 없음.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -66,7 +66,7 @@ export function registerRef(
   ]);
 }
 
-// 만기 참조는 registry에서 떨어진다. 파일은 GC(T44)가 맡는다.
+// 만기 참조는 registry에서 떨어진다. 파일은 GC가 맡는다.
 export function expiredRefs(
   refs: readonly PreparationRef[],
   nowMs: number,

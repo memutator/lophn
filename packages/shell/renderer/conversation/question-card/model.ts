@@ -15,7 +15,7 @@ export interface QuestionView {
   /** 질문 ID(qst_…). */
   id: string;
   prompt: string;
-  /** 질문의 자세한 이유. 기본 화면에는 없고 카드 머리의 Details를 펼치면 보인다(questions#R4). */
+  /** 질문의 자세한 이유. 기본 화면에는 없고 카드 머리의 Details를 펼치면 보인다. */
   reason: string;
   options: readonly QuestionOptionView[];
   /** 추천: 선택지 하나와 이유. 선택지가 없으면 option_key가 null이다. 자동 선택하지 않는다. */
@@ -28,9 +28,9 @@ export interface QuestionView {
 export interface QuestionGroupView {
   /** 묶음 ID(qgr_…). */
   id: string;
-  /** 묻는 agent의 이름. 고정 글자가 아니라 그 agent의 이름이다(shell/desktop#R40). */
+  /** 묻는 agent의 이름. 고정 글자가 아니라 그 agent의 이름이다. */
   agentName: string;
-  /** 명시 기한(AT 문자열). 없으면 null이다. 있으면 기본 화면에 남은 시간을 보인다(questions#R4, R7). */
+  /** 명시 기한(AT 문자열). 없으면 null이다. 있으면 기본 화면에 남은 시간을 보인다. */
   expires_at: string | null;
   /** 질문 1~4개. 묶음 안 순서 그대로다. */
   questions: readonly QuestionView[];
@@ -45,7 +45,7 @@ export type GroupAnswer = {
 };
 
 /**
- * 접힌 요약의 상태(questions#R10). 답 접수(answered)와 고정 action 선택지의 적용(applying·applied·
+ * 접힌 요약의 상태. 답 접수(answered)와 고정 action 선택지의 적용(applying·applied·
  * apply_failed)을 구별하고, 답 없이 닫힌 묶음(skipped·expired·cancelled)은 답이 없다.
  */
 export type AnswerSummaryStatus =
@@ -57,7 +57,7 @@ export type AnswerSummaryStatus =
   | "expired"
   | "cancelled";
 
-/** 이 수 이하의 질문은 한 카드에 모두 펼치고 넘으면 하나씩 넘긴다(shell/desktop#R46). */
+/** 이 수 이하의 질문은 한 카드에 모두 펼치고 넘으면 하나씩 넘긴다. */
 export const QUESTION_CARD_SPREAD_MAX = 3;
 
 /** 한 질문에서 고른 것. Other는 쓴 글이 따로 있어야 답이 된다. */

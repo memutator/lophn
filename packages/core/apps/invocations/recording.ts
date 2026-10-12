@@ -1,4 +1,4 @@
-// 어떤 호출을 invocation으로 남기는지와 후행 기록 사실의 모양(apps/invocations#R2, R18).
+// 어떤 호출을 invocation으로 남기는지와 후행 기록 사실의 모양.
 // 앱 runtime(Zod 없음)도 쓰므로 순수 타입과 규칙만 둔다. 값의 검증은 core command가 한다.
 
 export type RecordedJson =
@@ -77,7 +77,7 @@ export type RecordingSubject = {
 };
 
 // confirm·write·external·automation(읽기 포함)·앱 시작·데이터 변경은 항상 남기고,
-// 그 밖의 일반 읽기는 실패·거절만 남긴다. 호출자 종류(직접·다른 앱·agent)는 규칙을 바꾸지 않는다(R18).
+// 그 밖의 일반 읽기는 실패·거절만 남긴다. 호출자 종류(직접·다른 앱·agent)는 규칙을 바꾸지 않는다.
 export function recordingMode(subject: RecordingSubject): RecordingMode {
   if (subject.operation !== "command") return "always";
   if (subject.confirm === true) return "always";
@@ -85,7 +85,7 @@ export function recordingMode(subject: RecordingSubject): RecordingMode {
   return subject.effect === "read" ? "on_failure" : "always";
 }
 
-// 후행 전달 메시지의 중복 방지 key. 같은 (inv ID, 사실)은 같은 메시지다(R6).
+// 후행 전달 메시지의 중복 방지 key. 같은 (inv ID, 사실)은 같은 메시지다.
 export function deliveryKey(invocation: string, fact: RecordedFact): string {
   return `${invocation}:${fact}`;
 }

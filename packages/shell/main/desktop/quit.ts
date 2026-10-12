@@ -1,4 +1,4 @@
-// 명시 종료(desktop#R21). 창 닫기는 종료가 아니다. tray의 Quit과 second-instance `--quit`만
+// 명시 종료. 창 닫기는 종료가 아니다. tray의 Quit과 second-instance `--quit`만
 // main과 그 아래 core를 멈춘다. 진행 중 터미널·저장이 있으면 먼저 사람에게 확인한다.
 // 일반 preload·renderer에 종료 통로를 두지 않는다.
 import { type PlainKey, word } from "./wording.ts";
@@ -119,7 +119,7 @@ export interface QuitOptions {
   log?: (message: string) => void;
 }
 
-/** 명시 종료를 순서대로 밟는다. 자동 종료는 아니다(R21). */
+/** 명시 종료를 순서대로 밟는다. 자동 종료는 아니다. */
 export function requestQuit(options: QuitOptions): void {
   if (options.windows.hasWindows()) {
     if (options.confirmWithWindows !== undefined) {

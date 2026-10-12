@@ -1,6 +1,6 @@
-// problem command의 route 표와 실행이다(T44, cli#R7, R26, R33, R34, R35). 읽기·record-fix·
+// problem command의 route 표와 실행이다. 읽기·record-fix·
 // test는 MCP `lophn_problem`과 같은 op·같은 소유 route·같은 흐름(connection/problem-ops)이다: 같은
-// credential·입력의 결과와 거절이 같다(cli#R1). `attachment open`은 허용된 첨부의 안전한 참조만 낸다.
+// credential·입력의 결과와 거절이 같다. `attachment open`은 허용된 첨부의 안전한 참조만 낸다.
 //
 // 사람 command(`report`·`request-repair`·`confirm`·`dismiss`)는 CLI가 접수하지 않는다(lead 결정 D27,
 // problems/feedback#R1). report는 shell의 문제 알리기 화면 안내, request-repair는 담당 agent의 ticket
@@ -38,7 +38,7 @@ import {
 } from "../../connection/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
-// CLI command 이름 → MCP op다. 이 표 하나로 두 통로의 대응이 정해진다(cli#R1).
+// CLI command 이름 → MCP op다. 이 표 하나로 두 통로의 대응이 정해진다.
 export const CLI_PROBLEM_OPS = {
   "problem list": "list",
   "problem show": "show",
@@ -125,7 +125,7 @@ export function isProblemOpName(name: string): name is CliProblemOpName {
 }
 
 // command 하나를 실행한다. 결과 모양은 MCP와 같은 {summary, data, next}이고 isError면 CLI는
-// 성공 exit로 처리하지 않는다(cli#R26).
+// 성공 exit로 처리하지 않는다.
 export async function runProblem(
   name: CliProblemOpName | "problem attachment open",
   input: Record<string, unknown>,
@@ -181,7 +181,7 @@ function linkOf(
 
 // 사람 전용 문제 command다. coding credential(연결 참조로 시작한 context)은 실행 전 거절이다. 사람의
 // CLI도 feedback·수리 요청·확인·무시를 접수하지 않는다: 결정 화면 링크와 대기 사실만 내고 이 호출은
-// 아무것도 만들거나 닫지 않았다(D27, cli#R7, R35). 요청만으로 coding agent를 띄우지도 않는다.
+// 아무것도 만들거나 닫지 않았다(D27). 요청만으로 coding agent를 띄우지도 않는다.
 export function problemHumanOnly(
   name: ProblemHumanOnly,
   input: Record<string, unknown>,

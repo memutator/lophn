@@ -1,4 +1,4 @@
-// Agent 화면이 core의 현재 기록을 읽어 맞추는 일. 끊기면 마지막 내용과 확인 시각을 둔다(shell/desktop#R7).
+// Agent 화면이 core의 현재 기록을 읽어 맞추는 일. 끊기면 마지막 내용과 확인 시각을 둔다.
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ConnectionState } from "../desktop/connection/connection.ts";

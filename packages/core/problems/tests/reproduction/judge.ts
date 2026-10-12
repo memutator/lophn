@@ -1,4 +1,4 @@
-// reproduction 판정이다(problems/tests#R10, R11, R12; problems/problem-codes#R10). runner가 시작한
+// reproduction 판정이다(problems/problem-codes#R10). runner가 시작한
 // before·after 실행의 lifecycle과 harness의 관측 frame, 고정 근거(blueprint 선언·source의 보고 호출)를
 // 함께 읽어 pass·fail·inconclusive를 정한다. 관측한 값은 runner가 같은 고정 증상 정의로 다시 판정해
 // harness가 쓴 symptom_reproduced·expectation_met와 어긋나면 판정 불가다.
@@ -76,7 +76,7 @@ export type ReproductionObservations = {
   external_effects: {
     invocations: { side: ReproductionSide; invocation: string }[];
   };
-  // 격리 사실(problems/tests#R13, R15). runner가 직접 확인한 값이다. 운영 DB 복사와 실계정 재전송은 없다.
+  // 격리 사실. runner가 직접 확인한 값이다. 운영 DB 복사와 실계정 재전송은 없다.
   isolation: {
     sides: {
       side: ReproductionSide;
@@ -381,7 +381,7 @@ export function judgeReproduction(input: {
   const a = parsed.get("after")!;
   if (!b.ok || !a.ok) return inconclusive("관측을 읽을 수 없다");
 
-  // 약화 검사(problems/tests#R11, problems/problem-codes#R10): 고정된 이전·이후 근거만 쓴다.
+  // 약화 검사: 고정된 이전·이후 근거만 쓴다.
   const check = (
     name: string,
     weakened: boolean,

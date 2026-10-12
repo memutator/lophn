@@ -1,5 +1,5 @@
-// context 탭 kind. context 하나와 그 하위 탭을 연다(shell/workspace#R17). 여는 길은 모두
-// openContext 하나를 부른다(R31).
+// context 탭 kind. context 하나와 그 하위 탭을 연다. 여는 길은 모두
+// openContext 하나를 부른다.
 import { workspaceIcons } from "../../icons/mod.ts";
 
 import { ContextTabBody } from "../contexts/context-tab-body.tsx";
@@ -102,7 +102,7 @@ export const contextKind: TabKindDef = {
       />
     );
   },
-  // `+` › Context: 이 프로젝트의 context 목록에서 하나를 골라 그 탭을 연다(R15).
+  // `+` › Context: 이 프로젝트의 context 목록에서 하나를 골라 그 탭을 연다.
   launcher: {
     labelKey: "contexts.label.frame-chip",
     available: (host) => host.contexts !== null,

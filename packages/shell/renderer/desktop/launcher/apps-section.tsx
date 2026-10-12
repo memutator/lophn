@@ -37,7 +37,7 @@ type Loaded =
   | { readonly state: "ready"; readonly rows: readonly AppRow[] };
 
 // 프로젝트 section 아래의 앱 section. 보관하지 않은 앱만 카드로 보이고, 카드 전체가 그 앱 공간으로
-// 가는 단추다(shell/desktop#R25). 목록과 실행 상태는 lophn 공간 apps 화면과 같은 통로로 읽는다.
+// 가는 단추다. 목록과 실행 상태는 lophn 공간 apps 화면과 같은 통로로 읽는다.
 export function AppsSection({ source, onApp, onLophn }: AppsSectionProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [runs, setRuns] = useState<Readonly<Record<string, RunState>> | null>(

@@ -1,7 +1,7 @@
 // broker `/_lophn/broker/documents/save`. 앱은 선언한 자기 앱 문서 key와 정확한 사람 grant가 모두
-// 있을 때만 저장한다(apps/permissions#R13). 저장 대상은 항상 (그 자식의 앱 자리, key)이고, 본문이
+// 있을 때만 저장한다. 저장 대상은 항상 (그 자식의 앱 자리, key)이고, 본문이
 // 다른 앱 자리를 가리킬 방법은 없다. 같은 key로 다시 저장하면 같은 문서의 새 version으로 이어지는
-// 일은 documents/versions가 (앱 자리, key)와 재전송 key로 처리한다(apps/blueprint#R13).
+// 일은 documents/versions가 (앱 자리, key)와 재전송 key로 처리한다.
 import type { Result } from "../../../../base/mod.ts";
 import {
   brokerDocumentSaveInputSchema,

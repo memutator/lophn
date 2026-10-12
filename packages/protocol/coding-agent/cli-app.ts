@@ -53,7 +53,7 @@ const withCommon = <T extends z.ZodRawShape>(
   );
 };
 
-// `lophn app ...`(cli#R24). list·show·path는 apps.list·get 결과, register는
+// `lophn app ...`. list·show·path는 apps.list·get 결과, register는
 // apps.create, source는 apps.connect_source다.
 export const cliAppListSchema = withCommon("app list", appList.input);
 export const cliAppShowSchema = withCommon("app show", appGet.input);
@@ -67,12 +67,12 @@ export const cliAppSourceSchema = withCommon(
   "app source",
   appConnectSource.input,
 );
-// validate는 준비 접수의 blueprint diagnostics·bundle_hash를 낸다(mcp#R20).
+// validate는 준비 접수의 blueprint diagnostics·bundle_hash를 낸다.
 export const cliAppValidateSchema = withCommon(
   "app validate",
   releasePrepareBundle.input,
 );
-// test는 problems RequestTest의 소유 contract 입력을 그대로 받는다(cli#R26).
+// test는 problems RequestTest의 소유 contract 입력을 그대로 받는다.
 export const cliAppTestSchema = withCommon("app test", requestTest.input);
 export const cliAppPreviewStartSchema = withCommon(
   "app preview start",
@@ -96,7 +96,7 @@ export const cliAppInvocationsSchema = withCommon(
   invocationsList.input,
 );
 export const cliAppLogsSchema = withCommon("app logs", appLogs.input);
-// sync-tools는 재배포 접수다(mcp#R19, cli#R29). 파일별 결과는 host가 낸다.
+// sync-tools는 재배포 접수다. 파일별 결과는 host가 낸다.
 // 대상은 사람이 고른 exact target 하나고(--target), names는 설치할 skill이다.
 export const cliAppSyncToolsSchema = withCommon(
   "app sync-tools",
@@ -106,7 +106,7 @@ export const cliAppSyncToolsSchema = withCommon(
   }),
 );
 
-// `lophn sdk catalog|show|add`(cli#R30). catalog는 검색, show는 상세, add는
+// `lophn sdk catalog|show|add`. catalog는 검색, show는 상세, add는
 // exact version 추가다.
 // 더한 field는 MCP `lophn_sdk`과 같다. add의 반영 앱은 공통 `--app`이다.
 export const cliSdkCatalogSchema = withCommon(
@@ -122,11 +122,11 @@ export const cliSdkAddSchema = withCommon(
   packagesGuide.input.extend({ apply: sdkAddFields.apply }),
 );
 
-// `lophn app command|invocation|automation run`(cli#R31, R32). command는
+// `lophn app command|invocation|automation run`. command는
 // appRuntime.input, invocation은 invocationsGet.input, automation run도 같은
 // command 경계를 쓴다.
 // `command` 이름은 CLI command 이름 literal이 쓰므로 앱 command key는 `name`이다. 그 command의
-// JSON 입력은 공통 `--input`/`--input-file`이 싣고, 환경은 preview가 기본이다(cli#R31).
+// JSON 입력은 공통 `--input`/`--input-file`이 싣고, 환경은 preview가 기본이다.
 export const cliAppCommandSchema = withCommon(
   "app command",
   appRuntime.input.extend({
@@ -135,7 +135,7 @@ export const cliAppCommandSchema = withCommon(
     timeout_ms: z.number().int().min(1).optional(),
   }),
 );
-// invocation은 같은 환경의 기록만 읽는다. 환경 기본은 preview다(cli#R32, mcp#R29).
+// invocation은 같은 환경의 기록만 읽는다. 환경 기본은 preview다.
 export const cliAppInvocationSchema = withCommon(
   "app invocation",
   invocationsGet.input.extend({
@@ -148,7 +148,7 @@ export const cliAppAutomationRunSchema = withCommon(
   appRuntime.input,
 );
 
-// 사람 전용 `app start|stop|release activate`(cli#R7). coding credential은 거절이고
+// 사람 전용 `app start|stop|release activate`. coding credential은 거절이고
 // 결정 화면 링크·대기 사실만 낸다.
 const APP_HUMAN_ONLY_NAMES = [
   "app start",
@@ -170,7 +170,7 @@ export const cliAppReleaseActivateSchema = withCommon(
 );
 export type CliAppHumanOnlyName = (typeof APP_HUMAN_ONLY_NAMES)[number];
 
-// `lophn ticket ...`(cli#R36, R41). list·show·checks는 읽기, claim은 MCP 안내,
+// `lophn ticket ...`. list·show·checks는 읽기, claim은 MCP 안내,
 // renew·release·report는 대응 contract 입력이다.
 export const cliTicketListSchema = withCommon(
   "ticket list",
@@ -184,7 +184,7 @@ export const cliTicketChecksSchema = withCommon(
   "ticket checks",
   ticketChecks.input,
 );
-// CLI claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다(cli#R41).
+// CLI claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다.
 export const cliTicketClaimSchema = withCommon(
   "ticket claim",
   z.strictObject({ ticket: ticketShowInputSchema.shape.ticket }),
@@ -198,13 +198,13 @@ export const cliTicketReleaseSchema = withCommon(
   ticketReleaseClaim.input,
 );
 // 완료 보고는 summary 본문을 받는다. completion seq는 입력이 아니고 통로가 upload_summary로
-// 올린 준비 참조로 보낸다(cli#R36).
+// 올린 준비 참조로 보낸다.
 export const cliTicketReportSchema = withCommon(
   "ticket report",
   ticketReportToolInputSchema,
 );
 
-// 사람 전용 `ticket create|cancel`(cli#R37). 같은 필수 입력 검사와 취소 사유를 소유 입력으로
+// 사람 전용 `ticket create|cancel`. 같은 필수 입력 검사와 취소 사유를 소유 입력으로
 // 검사한다. CLI는 사람 credential을 읽지 않으므로 실행하지 않고 결정 화면 링크로 넘긴다
 // (coding-agent 계획 질문 Q1). coding credential에는 이 command도 목표 수정·공개·확인 판정·
 // test result 작성도 없다.

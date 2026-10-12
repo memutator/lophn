@@ -1,6 +1,6 @@
 import { useRef } from "react";
 
-// 닫히거나 unmount될 때 focus를 연 자리로 돌려준다(R2). Radix Dialog는 자기 Trigger로만 돌려주므로
+// 닫히거나 unmount될 때 focus를 연 자리로 돌려준다. Radix Dialog는 자기 Trigger로만 돌려주므로
 // trigger 없이 연 dialog는 열 때의 focus 자리를 기억한다. overlay view처럼 연 자리가 다른 renderer에
 // 있으면 returnFocus를 끄고 focus를 옮기지 않는다.
 export function useReturnFocus(returnFocus: boolean) {

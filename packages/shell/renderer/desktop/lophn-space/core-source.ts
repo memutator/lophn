@@ -148,7 +148,7 @@ async function command<T>(
   input: unknown,
   compare: unknown,
 ): Promise<SourceResult<T>> {
-  // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+  // 성공 응답은 route output 그대로다. 추가 포장은 없다.
   return await call<T>(core, "command", resource, method, {
     input,
     idempotency_key: `${resource}-${method}-${crypto.randomUUID()}`,
@@ -281,7 +281,7 @@ export function coreLophnSource(
       };
     },
 
-    // 검색 index는 보관 문서를 넣지 않는다(outline-and-search#R17). 보관 포함은 보관 목록의
+    // 검색 index는 보관 문서를 넣지 않는다. 보관 포함은 보관 목록의
     // 제목으로 찾고 그 문서의 마지막 판을 연다.
     async archived(conditions) {
       const needle = conditions.query.trim().toLowerCase();
@@ -340,7 +340,7 @@ export function coreLophnSource(
       let first: OutlineValue | null = null;
       let cursor: string | undefined;
       for (let page = 0; page < PAGE_LIMIT; page += 1) {
-        // 이어 보는 page는 처음 page가 고른 판을 그대로 쓴다(outline-and-search#R8).
+        // 이어 보는 page는 처음 page가 고른 판을 그대로 쓴다.
         const fixed: string | null = first === null ? version : first.version;
         const result: SourceResult<OutlineValue> = await call<OutlineValue>(
           core,

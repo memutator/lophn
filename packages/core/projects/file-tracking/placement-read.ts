@@ -57,7 +57,7 @@ const EMPTY: PlacementRead = {
   name: null,
 };
 
-// 같은 자리의 문서 이름은 유일하고 옛 예약도 다른 대상이 쓰지 못한다(addressing#R2).
+// 같은 자리의 문서 이름은 유일하고 옛 예약도 다른 대상이 쓰지 못한다.
 // 제목(없으면 파일 이름)에서 정하고 쓰였으면 `-2`부터 붙인다. 정하지 못하면 null이다.
 function freeName(
   sql: Sql,

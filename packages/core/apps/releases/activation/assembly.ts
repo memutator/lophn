@@ -1,4 +1,4 @@
-// core 안 activation 조립(apps/releases#R8, R12–R16, apps/data#R4, R11). 두 일을 한다.
+// core 안 activation 조립. 두 일을 한다.
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
 //      만들어 supervisor에 알린다(`bundleFlags`). 앱 코드는 신뢰하지 않으므로 선언 ∩ active grant 밖의 접근은
 //      flag에 없다.

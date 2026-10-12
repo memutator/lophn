@@ -1,4 +1,4 @@
-// approval command의 route 표와 `approval open` 실행이다(T16, cli#R7·R21). list·show는
+// approval command의 route 표와 `approval open` 실행이다. list·show는
 // 소유 읽기 route로 core에 닿는다. open은 결정 화면 링크와 대기 사실만 낸다: confirmation
 // window를 열지 않고 TTY의 yes나 옵션으로 허락하지 않는다. 허락·거절·사용 command는
 // 표에 없다(승인은 사람 confirmation window에서만 한다).
@@ -31,7 +31,7 @@ export const APPROVAL_COMMANDS: readonly CommandEntry[] = [
     input: cliApprovalShowSchema,
     monoRoute: approvalsGet,
   },
-  // open은 결정 화면 링크와 대기 사실만 낸다. 허락을 입력받지 않는다(cli#R21).
+  // open은 결정 화면 링크와 대기 사실만 낸다. 허락을 입력받지 않는다.
   {
     name: "approval open",
     input: cliApprovalOpenSchema,

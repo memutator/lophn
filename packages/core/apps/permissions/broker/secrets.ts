@@ -1,7 +1,7 @@
 // broker `/_lophn/broker/secrets/use`. 앱 입력은 SecretUseContext와 목적지뿐이고 원값을 읽거나
 // 바꾸는 통로가 아니다. 선언 이름∩grant와 그 목적지의 net.fetch host·port를 검사한 뒤 플랫폼
 // 전송부가 전송 직전에 인증 값을 붙이고, 앱에는 안전한 사용 결과만 돌려준다.
-// 누가 command를 불렀는지(사람 화면·agent·automation·다른 앱)로 막지 않는다(apps/permissions#R14).
+// 누가 command를 불렀는지(사람 화면·agent·automation·다른 앱)로 막지 않는다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
   brokerSecretUseInputSchema,
@@ -40,7 +40,7 @@ export type SecretDeliveryRequest = {
   inputHash: string;
   name: string;
   destination: SecretUseDestination;
-  // 전송부가 redirect·목적지 변경을 만날 때마다 부른다. 거절이면 그 전달을 멈춘다(R16).
+  // 전송부가 redirect·목적지 변경을 만날 때마다 부른다. 거절이면 그 전달을 멈춘다.
   recheck(destination: SecretUseDestination): Promise<Result<void>>;
 };
 
@@ -49,7 +49,7 @@ export interface SecretDelivery {
   use(request: SecretDeliveryRequest): Promise<Result<{ sent: true }>>;
 }
 
-// platform/redaction의 알려진 값 등록이다. 등록에 성공해야 값이 경계를 나갈 수 있다(R16).
+// platform/redaction의 알려진 값 등록이다. 등록에 성공해야 값이 경계를 나갈 수 있다.
 export interface RedactionGate {
   ensure(name: string): Promise<Result<void>> | Result<void>;
 }

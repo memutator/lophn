@@ -1,4 +1,4 @@
-// 앱 view 하나를 창 본문에 붙이고 떼는 규칙(shell/app-frame#R28, R29). registry가 view마다
+// 앱 view 하나를 창 본문에 붙이고 떼는 규칙. registry가 view마다
 // 부르고, 실제 native 붙이기·떼기는 이 함수들만 한다.
 // - 보이라는 요청(빈 bounds가 아닌 bounds)이 있고 지금 contents의 첫 load가 끝났을 때만 붙인다.
 //   준비 전에 온 bounds는 마지막 것만 기억한다.

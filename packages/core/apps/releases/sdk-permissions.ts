@@ -1,4 +1,4 @@
-// release 준비가 blueprint의 `sdk_dependencies`와 `permissions`를 맞춰 보는 검사다(apps/sdk#R22).
+// release 준비가 blueprint의 `sdk_dependencies`와 `permissions`를 맞춰 보는 검사다.
 // core는 SDK 코드를 import하지 않아서 각 capability package의 `REQUIRED_PERMISSIONS`를 같은 값으로
 // 옮겨 쓴다. SDK의 `checkDeclaration`과 같은 결과여야 하며 e2e/sdk/permission-table_test.ts가
 // 두 표를 대조한다. 검사도 import도 grant를 주지 않는다.

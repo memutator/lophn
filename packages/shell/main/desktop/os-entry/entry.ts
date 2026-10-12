@@ -1,4 +1,4 @@
-// 앱을 OS 앱 바로가기로 등록하고 지운다(shell/desktop#R14). 각 OS 등록은 고정 앱 ID를
+// 앱을 OS 앱 바로가기로 등록하고 지운다. 각 OS 등록은 고정 앱 ID를
 // `--open-app` intent로 lophn 실행 파일에 넘길 뿐이고 앱 코드·source path·token·port를
 // 담지 않는다. packaged 실행 파일만 등록하고, OS 쪽은 주입한 adapter로만 만진다.
 import { join } from "node:path";

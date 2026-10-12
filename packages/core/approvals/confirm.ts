@@ -1,4 +1,4 @@
-// 사람이 확인해야 하는 앱 command(confirm)의 approval request 규칙(platform/approvals#R8).
+// 사람이 확인해야 하는 앱 command(confirm)의 approval request 규칙.
 // concern은 `apps/invocations`, command는 접수 command `invocation.accept_confirm`이다. 그 접수와
 // approval 사용은 `apply_approved_action`이 한 transaction에서 확정한다(소유 command를 부르고 그
 // event를 receipt로 `Tx.useApproval`). 그래서 action의 input은 접수 command의 입력 그대로다.
@@ -106,7 +106,7 @@ function callOf(action: ApprovalAction): string | undefined {
 
 // 같은 호출을 위해 이미 대기 중이거나 허락된 request가 있으면 그 approval id를 돌려준다.
 // agent의 사전 질문과 앱의 confirm이 겹쳐도 한 호출에는 approval 하나만 있고, 둘 다 그 approval을 쓰므로
-// 한 번만 소비된다(R8). 거절·만료·취소된 request는 새 결정을 막지 않는다.
+// 한 번만 소비된다. 거절·만료·취소된 request는 새 결정을 막지 않는다.
 export function overlappingConfirm(
   tx: Pick<Tx, "sql">,
   approval: string,

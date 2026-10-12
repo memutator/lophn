@@ -65,7 +65,7 @@ const readErrors = [
 
 export const PACKAGE_LIST_MAX_COUNT = 200;
 
-// 공개 catalog 목록. @me 이름이 있으면 @lophn보다 먼저 정렬한다(apps/sdk#R6).
+// 공개 catalog 목록. @me 이름이 있으면 @lophn보다 먼저 정렬한다.
 // 정렬은 snapshot을 읽는 구체 목록 구현이 하고, contract는 page schema만 정한다.
 export const packagesListInputSchema = z.strictObject({
   name: packageNameSchema.optional(),
@@ -102,7 +102,7 @@ export const packagesVersions = defineRead({
   errors: readErrors,
 });
 
-// 해당 version의 사용 안내. 정확한 version만 받는다(apps/sdk#R7).
+// 해당 version의 사용 안내. 정확한 version만 받는다.
 export const packagesGuideInputSchema = z.strictObject({
   name: packageNameSchema,
   version: packageVersionNameSchema,
@@ -142,7 +142,7 @@ export const packagesGuideBody = defineRead({
   errors: readErrors,
 });
 
-// release의 고정 sdk_dependencies로 찾은 사용처(apps/sdk#R6).
+// release의 고정 sdk_dependencies로 찾은 사용처.
 export const packagesUsageInputSchema = z.strictObject({
   name: packageNameSchema,
   version: packageVersionNameSchema,

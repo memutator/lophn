@@ -32,7 +32,7 @@ export interface ExitBannerProps {
 }
 
 // 출력 옆의 상태 줄. 확인된 exit code·시작 실패·결과 불명·종료 확인 실패·아직
-// 시작 안 함을 다른 문구와 아이콘으로 보인다(shell/terminal#R9). 다시 시작은 자동이
+// 시작 안 함을 다른 문구와 아이콘으로 보인다. 다시 시작은 자동이
 // 아니다.
 export function ExitBanner(
   { state, onRestart, variant = "bar" }: ExitBannerProps,
@@ -94,7 +94,7 @@ export function ExitBanner(
   );
 }
 
-// 상한·단절로 빠진 출력이 있다는 표시(shell/terminal#R7).
+// 상한·단절로 빠진 출력이 있다는 표시.
 export function MissingOutput() {
   return (
     <div className={styles.missing} data-output-missing="">

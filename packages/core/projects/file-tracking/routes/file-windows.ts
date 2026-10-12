@@ -1,5 +1,5 @@
 // coordinator가 파일 읽기의 한 창으로 보내는 byte chunk frame을 받는 core 쪽 우편함
-// (documents#T12, `files.read`). core가 창 하나를 요청하기 전에 channel을 열고, coordinator가
+// (`files.read`). core가 창 하나를 요청하기 전에 channel을 열고, coordinator가
 // 응답 전에 그 channel로 바이트를 보내고(같은 pipe의 순서), 응답이 오면 가져간다. 열려 있지
 // 않은 channel의 frame은 버린다(blob 준비 channel과 섞이지 않는다). 한 창의 상한을 넘는
 // 바이트는 받지 않아 core 메모리는 열린 창 몇 개를 넘지 않는다.

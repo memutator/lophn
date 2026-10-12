@@ -1,4 +1,4 @@
-// 머리의 session popover 안쪽(shell/desktop#R39). 검색, Today·Earlier 목록, 줄 단추, Archived, New session.
+// 머리의 session popover 안쪽. 검색, Today·Earlier 목록, 줄 단추, Archived, New session.
 // popover가 열려 있는 동안만 mount되므로 검색어·이름 고치기·삭제 확인 같은 지역 상태는 닫으면 사라진다.
 import {
   type KeyboardEvent,

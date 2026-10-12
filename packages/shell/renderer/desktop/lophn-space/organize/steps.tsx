@@ -37,7 +37,7 @@ function StepRows(
 }
 
 // 파일로 두기 결과. 파일 쓰기와 그 뒤 연결 단계(원본 연결, 추적 규칙, 자리)를 따로 보인다.
-// 뒤 단계 실패가 파일 성공을 지우지 않는다(documents/file-tracking#R13).
+// 뒤 단계 실패가 파일 성공을 지우지 않는다.
 export function PlaceResult({ outcome }: { outcome: PlaceOutcome }) {
   const fileText = outcome.file === "written"
     ? t("projects.result.file-written")

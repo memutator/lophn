@@ -31,7 +31,7 @@ export type QuestionEvidenceUse = {
   reserve(question: string, option: string): Result<void>;
 };
 
-// machine이 user로 기록할 수 있는 유일한 예외(identity R14). 정본 option의 고정 action과
+// machine이 user로 기록할 수 있는 유일한 예외. 정본 option의 고정 action과
 // 제출 동작 전체·CAS가 같고 되돌릴 수 있을 때만 한 번 통과한다.
 export async function verifyQuestionEvidence(
   ctx: AuthenticatedContext,

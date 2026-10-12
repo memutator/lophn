@@ -1,4 +1,4 @@
-// 버전 비교 화면(shell/editor#R13, R14, flow restore-document 2·3·5·6단계). 문서 탭 본문 자리에
+// 버전 비교 화면(flow restore-document 2·3·5·6단계). 문서 탭 본문 자리에
 // 44px 도구 줄과 220px 바뀐 절 목록, 원문 13px/20px 줄 비교를 그린다. 줄 diff는 documents가
 // 계산하고(documents.diff) 여기서는 두 판 본문과 맞춰 그리기만 한다. +/− 기호를 색과 함께 써서
 // 색 없이도 읽히고, 같은 두 판이면 en message key의 These versions are identical를 보인다.

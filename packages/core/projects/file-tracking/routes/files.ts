@@ -1,4 +1,4 @@
-// 사람 파일 route와 `/v1/projects/preview_tracking`을 core가 서빙하는 조립(documents#T12).
+// 사람 파일 route와 `/v1/projects/preview_tracking`을 core가 서빙하는 조립.
 // core는 파일을 열지 않는다. user 자격과 요청 credential이 만든 준비 참조를 확인하고, 원문
 // blob을 I/O worker에서 읽어 감독 pipe의 byte chunk frame으로 documents coordinator에 넘기고,
 // 같은 channel을 가리키는 요청을 보낸다(documents-validate.ts와 같은 길). 목표 풀이·원자 교체·
@@ -208,7 +208,7 @@ export function fileWorkers(
     request: WorkerRequest,
     target: FileTarget,
   ): Promise<Result<WorkingCopyCheck | undefined>> {
-    // 지침 파일은 coordinator가 exact 등록과 맞춰 본다(file-tracking#R19).
+    // 지침 파일은 coordinator가 exact 등록과 맞춰 본다.
     if (target.kind === "project_file" || target.kind === "instruction_file") {
       return ok(undefined);
     }
@@ -316,7 +316,7 @@ export function fileWorkers(
     }
     const blob = source;
     // instruction_file 목표는 coordinator가 exact 등록과 맞춰 본다. 등록에 없는 경로·층은 같은
-    // not available이다(file-tracking#R19, R20).
+    // not available이다.
     let copy: WorkingCopyBasis | undefined;
     if (input.target.kind === "working_copy") {
       const version = input.version_request;
@@ -578,7 +578,7 @@ export function fileWorkers(
   }
 
   // 충돌이면 새 기준(그 문서의 지금 최신 판)을 결과에 싣는다. 읽지 못하면 싣지 않는다:
-  // 충돌은 그대로이고 사람은 `document.get`으로 최신 판을 읽는다(Q26).
+  // 충돌은 그대로이고 사람은 `document.get`으로 최신 판을 읽는다.
   async function withLatest(
     request: WorkerRequest,
     document: string,

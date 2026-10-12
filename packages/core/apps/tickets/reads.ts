@@ -1,6 +1,6 @@
-// ticket read(coding-agent/tickets#R10, T18). list는 요약만, show는 고정 근거와
+// ticket read. list는 요약만, show는 고정 근거와
 // 조건 hash까지, checks는 최신 보고의 조건별 결과를 준다. 상대 위치·조건 원문은
-// 범위를 넓히지 않는다(R25).
+// 범위를 넓히지 않는다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -61,7 +61,7 @@ function readinessOf(value: unknown): TicketReadiness {
   return value === "ready" ? "ready" : "needs_confirmation";
 }
 
-// 사람 화면 상태. 여섯 state와 readiness가 서로 다른 값 일곱 개로 나온다(R27).
+// 사람 화면 상태. 여섯 state와 readiness가 서로 다른 값 일곱 개로 나온다.
 // readiness는 open일 때만 다른 화면 상태가 된다(ready 뒤 되돌림이 없어 claim 뒤 state는 모두 ready다).
 export function screenStateOf(
   state: TicketState,
@@ -178,8 +178,8 @@ function visible(ctx: RequestContext): Result<void> {
 }
 
 // coding agent는 연결 범위의 앱 ticket만 본다. 범위는 owner(여기)가 ticket의 앱을 target에 줘서
-// 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5). 앱 하나에 묶인 agent
-// (App Engineer의 `conditions.app`)도 같은 방식으로 담당 앱의 ticket만 본다(lophn-agent/roles/app-engineer#R2).
+// 맞춘다. 범위 밖 ticket은 없는 ticket과 같은 답이다. 앱 하나에 묶인 agent
+// (App Engineer의 `conditions.app`)도 같은 방식으로 담당 앱의 ticket만 본다.
 function inCodingScope(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
@@ -195,11 +195,11 @@ function inCodingScope(
 }
 
 // checkTicketClaim은 read가 아니라 같은 transaction의 검사다. release 준비와
-// 완료 보고가 현재 claim·기한·연결·seq를 즉시 확인한다(R13). 기한을 연장하지 않는다.
+// 완료 보고가 현재 claim·기한·연결·seq를 즉시 확인한다. 기한을 연장하지 않는다.
 export { checkTicketClaim };
 
 // 만료·회수 정리 후보. 감독 timer가 60초마다와 재시작 때 읽고 expire_claim을
-// 제출한다. 회수 connection은 호출자가 넘긴다(R13).
+// 제출한다. 회수 connection은 호출자가 넘긴다.
 const claimSweep = defineRead({
   resource: "tickets",
   method: "claim_sweep",
@@ -434,7 +434,7 @@ export function createTicketReads(): {
       route: claimSweep,
       handle(snapshot, _ctx, input) {
         // 회수 connection은 호출자가 표를 못 보는 machine이다. 이 read가
-        // coding_agent_connections에서 revoked id를 읽어 후보에 더한다(R13).
+        // coding_agent_connections에서 revoked id를 읽어 후보에 더한다.
         // 표가 없으면(ticket만 등록한 기동) 만료 후보만 본다.
         const revoked = [...input.revoked];
         try {
@@ -543,7 +543,7 @@ export function createTicketReads(): {
   };
 }
 
-// 기본 data 모양. 기한·연결·조건·보고·test 원문은 이 값에 없다(R27).
+// 기본 data 모양. 기한·연결·조건·보고·test 원문은 이 값에 없다.
 function screenSummary(row: Record<string, unknown>): TicketScreenSummary {
   const state = stateOf(row.state);
   const readiness = readinessOf(row.readiness);

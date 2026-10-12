@@ -19,10 +19,10 @@ import {
 } from "./export.ts";
 export type { ExportRedactor };
 
-// trace export의 무거운 일(observability#R10, R12, R14, R16, R17). trace 조립은
+// trace export의 무거운 일. trace 조립은
 // reads.ts의 같은 accessor를 쓰고, 본문은 blob 참조에서 읽은 뒤 redaction·절단해
 // destination 파일에 쓴다. export는 업무 event가 없는 runtime 접수다: 원본·run을
-// 바꾸지 않고 event도 만들지 않는다(R17). network 접근은 없다(R12) — destination은
+// 바꾸지 않고 event도 만들지 않는다. network 접근은 없다 — destination은
 // 로컬 파일 경로뿐이다.
 
 export type TraceExportRequest = Input<typeof agentTraceExport>;
@@ -52,7 +52,7 @@ export type TraceExportDeps = {
   body: ExportBodySource | undefined;
   // platform redaction과 같은 모양의 주입 값. 없으면 내보내지 않는다(fail-closed).
   redactor: ExportRedactor | undefined;
-  // destination에 NDJSON을 쓴다. 로컬 파일·stream뿐이다(R12). 쓴 바이트 수를 돌려준다.
+  // destination에 NDJSON을 쓴다. 로컬 파일·stream뿐이다. 쓴 바이트 수를 돌려준다.
   write(destination: string, lines: string): Promise<Result<number>>;
 };
 
@@ -136,7 +136,7 @@ async function readBodyBytes(
 }
 
 // blob 하나를 redaction 뒤 잘라 하나의 exported 값으로 만든다. 안전화를 끝내지 못한
-// 값과 사라진 원본은 본문 대신 별도 필드의 제외 이유로 남는다(R10).
+// 값과 사라진 원본은 본문 대신 별도 필드의 제외 이유로 남는다.
 async function exportBlob(
   deps: TraceExportDeps,
   record: ContentRecord,
@@ -318,7 +318,7 @@ export function createTraceExport(
 }
 
 // export의 route 등록 자리다. 실제 실행은 ledger writer 처리기 밖에서 한다(파일
-// 쓰기가 transaction 안에 있을 수 없다, R17). 등록은 writer 앞 처리기가 볼
+// 쓰기가 transaction 안에 있을 수 없다). 등록은 writer 앞 처리기가 볼
 // 이름과 대상 route를 여는 자리다(connection test와 같은 모양).
 export const traceExportCommand: CommandDefinition<typeof agentTraceExport> = {
   route: agentTraceExport,

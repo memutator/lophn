@@ -2,17 +2,17 @@ import type { PlaceRef } from "@lophn/protocol/projects";
 import type { QuestionOption } from "@lophn/protocol/lophn-agent";
 import { moveOptionAction } from "../../tools/questions/mod.ts";
 
-// lophn의 문서 자리 추천(roles/lophn#R14, R15). 순수 함수다: IO·시계·model 호출이 없다.
+// lophn의 문서 자리 추천. 순수 함수다: IO·시계·model 호출이 없다.
 // 문서를 열람한 날짜나 역참조가 바뀐다고 run이 생기지 않는다. 사람이 요청한 run이 이 함수에
 // 그 순간의 사실을 넘길 때만 추천이 만들어진다(자동 주기 검토·보고 run 없음).
 // 어느 context의 자료로도 잡히지 않은 문서는 호출자가 core의 `context.containing` 읽기(project + path)로
 // 얻은 목록을 `containing`에 넘겨 알린다. 이 함수는 읽지 않는다.
-// 이동은 선택지의 고정 action이고(questions#R13), 사람이 고르기 전에는 아무것도 바뀌지 않는다.
+// 이동은 선택지의 고정 action이고, 사람이 고르기 전에는 아무것도 바뀌지 않는다.
 
-// run당 추천 문서 수 상한(R14).
+// run당 추천 문서 수 상한.
 export const RECOMMENDATION_LIMIT = 5;
 
-// 보조 근거(R15): 최근 30일 서로 다른 날 열람, 역참조, 자료로 잡은 context 수의 하한.
+// 보조 근거: 최근 30일 서로 다른 날 열람, 역참조, 자료로 잡은 context 수의 하한.
 export const SUPPORT_THRESHOLDS = {
   viewed_days_30d: 4,
   backrefs: 2,
@@ -68,7 +68,7 @@ export type PlaceTarget = {
   // 선택지를 만든 때 읽은 문서 revision. 이동의 비교 기준이다.
   revision: string;
   hasPlace: boolean;
-  // 이 문서의 경로를 Source로 덮는 context들(R14: 어느 context의 자료로도 잡히지 않으면 빈 목록).
+  // 이 문서의 경로를 Source로 덮는 context들(어느 context의 자료로도 잡히지 않으면 빈 목록).
   // 자리가 없는 문서는 경로가 없어 빈 목록이다.
   containing: readonly ContainingContext[];
   // 앞에 있을수록 좋은 후보다. 비면 이동 선택지를 만들지 않는다.
@@ -153,7 +153,7 @@ function draftOf(target: PlaceTarget): QuestionDraft | undefined {
   };
 }
 
-// run 하나의 추천. 대상은 입력 순서대로 최대 5개이고 나머지는 skipped로 센다(R14).
+// run 하나의 추천. 대상은 입력 순서대로 최대 5개이고 나머지는 skipped로 센다.
 export function recommendPlaces(
   targets: readonly PlaceTarget[],
 ): PlaceRecommendations {

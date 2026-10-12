@@ -1,4 +1,4 @@
-// coding agent 연결·[Start]의 renderer IPC(shell#T50). desktop 창 본문만 부르고, 호출 이름과 모양을 schema로
+// coding agent 연결·[Start]의 renderer IPC. desktop 창 본문만 부르고, 호출 이름과 모양을 schema로
 // 거른 뒤 연결은 coding-connection이, 시작은 coding-start가 다시 검사한다. 사람이 누른 [Start]가 허락이라서
 // 확인 창이 없다. 한 클릭이 일회 handle을 발급하고 곧바로 그 handle로 시작한다.
 import {

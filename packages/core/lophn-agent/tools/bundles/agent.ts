@@ -35,7 +35,7 @@ import type { RunCredential, ToolHandler } from "../work.ts";
 // 사람 결정·agent 일 tool 묶음(concern harness/tools, domain model presets의 공통·역할
 // 묶음). 이름은 `<영역>.<동작>`이고 tool 하나는 소유 contract 하나다. preset·assignment
 // tool은 구성·판·담당 현황을 읽기만 한다. 실제 생성·변경·적용은 사람 결정의 owner command
-// 몫이라 이 묶음에 변경 tool은 없다(R10). 초안 제출(`approval.submit_assignment`)은
+// 몫이라 이 묶음에 변경 tool은 없다. 초안 제출(`approval.submit_assignment`)은
 // Operator 승인 bundle 묶음을 정하는 lophn-agent#T52가 여기 둔다.
 
 export const AGENT_TOOL_REVISION = "2026-10-07";
@@ -90,7 +90,7 @@ const questionSubmitQuestion = z.strictObject({
   }).nullable(),
 });
 
-// 한 번에 질문 1~4개의 묶음을 낸다(questions#R1). 사람은 묶음 전체에 Submit 한 번으로 답한다.
+// 한 번에 질문 1~4개의 묶음을 낸다. 사람은 묶음 전체에 Submit 한 번으로 답한다.
 // 기한은 묶음 하나가 가진다.
 export const questionSubmitInput = z.strictObject({
   questions: z.array(questionSubmitQuestion)
@@ -110,17 +110,17 @@ const runResultInput = z.strictObject({ run: idSchema("run") });
 
 // 모델이 보내는 handoff 입력이다. 보낸 run·원래 사람 요청·보낸 역할·내용 hash·수신 run ID는
 // 모델이 정하지 않는다. 호출 run의 사실과 core 준비 값에서 handler가 채운다. 발신 권한·
-// approval·세션·tool 기록을 실을 필드가 없다(handoff R4, R6).
+// approval·세션·tool 기록을 실을 필드가 없다.
 export const handoffSubmitInput = z.strictObject({
   receiver_assignment: idSchema("asg"),
   to_role: roleKindSchema,
   ...handoffContentSchema.shape,
   references: z.array(handoffReferenceSchema),
-  // 같은 handoff를 다시 보낼 때 같은 값을 쓴다. 같은 값은 수신 run 하나만 만든다(R9).
+  // 같은 handoff를 다시 보낼 때 같은 값을 쓴다. 같은 값은 수신 run 하나만 만든다.
   dedup_key: z.string().min(1).max(128).regex(/^[^\p{Cc}]*\S[^\p{Cc}]*$/u),
 });
 
-// 몫이라 이 묶음에 변경 tool은 없다(R10). 초안·approval 제출(`approval.submit_assignment`)은
+// 몫이라 이 묶음에 변경 tool은 없다. 초안·approval 제출(`approval.submit_assignment`)은
 // bundle 모양을 정하는 lophn-agent#T52가 같은 묶음에 더한다.
 const handoffStatusInput = z.strictObject({
   dedup_key: z.string().min(1).max(128),
@@ -241,7 +241,7 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
-      // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
+      // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다.
       // 읽기·고정 전에 먼저 거절한다. command도 같은 검사를 한다.
       const proposesAction = value.questions.some((question) =>
         question.options.some((option) =>

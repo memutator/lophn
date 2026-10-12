@@ -16,7 +16,7 @@ import { parseActor } from "../../../../protocol/base/mod.ts";
 import type { RewindStore } from "./store.ts";
 
 // 문서 tool이 파일을 쓰기 직전에 pre-image를 남기는 기록(RecordRewindFile)과, 그 호출을 쓰기에
-// 감싸는 harness 쪽 배선이다(lophn-agent/revert R13·R14).
+// 감싸는 harness 쪽 배선이다.
 // 실제 문서 쓰기 tool(harness/tools/bundles/document.ts의 document.create·document.save_version)에
 // 이 배선을 거는 일은 documents가 파일 기반 쓰기로 바뀐 뒤 따로 한다(지금 그 tool은 documents의
 // version 저장 contract를 부른다).
@@ -123,7 +123,7 @@ function result(
   });
 }
 
-// 한도 판정(R14)과 같은 `(tool_call, path)` 중복 처리는 이 command가 한다. 한도를 넘는 쓰기는 막지
+// 한도 판정과 같은 `(tool_call, path)` 중복 처리는 이 command가 한다. 한도를 넘는 쓰기는 막지
 // 않고 그 checkpoint를 `files_restorable=false`로 낮춘다. 한 번 낮아진 checkpoint는 되돌아가지 않고 이유도
 // 처음 것을 지킨다. 이유: 크기가 한도(10 MB)를 넘으면 `limit_file`, 크기는 한도 안인데 blob이 없으면(저장소
 // 쓰기 실패) `record_failed`, 개수·총량은 `limit_count`·`limit_total`.

@@ -11,7 +11,7 @@ import { Icon } from "../icon.tsx";
 import { iconPixels } from "../shared.ts";
 import styles from "./status-mark.module.css";
 
-// tokens.status의 아이콘 이름과 같은 Lucide 아이콘(shell/design-system#R10).
+// tokens.status의 아이콘 이름과 같은 Lucide 아이콘.
 export const STATUS_ICONS: Record<StatusTone, LucideIcon> = {
   good: CircleCheck,
   warning: TriangleAlert,

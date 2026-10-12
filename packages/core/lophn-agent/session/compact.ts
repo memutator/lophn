@@ -25,7 +25,7 @@ import {
   type SessionRow,
 } from "./model.ts";
 
-// Compact(R10). 사람이 부를 때만 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다.
+// Compact. 사람이 부를 때만 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다.
 // 요약 call은 짧은 transaction 안에서 부를 수 없어서 세 걸음으로 나눈다. 사람이 요청하고(Request),
 // runtime이 prompt-assemble의 요약 규칙으로 요약하는 model call을 하고(Workspace의 Model for
 // summaries, 비면 session agent의 model), 끝까지 성공한 그 call을 구간과 함께 session에 이어 요청을
@@ -86,7 +86,7 @@ function summaryCall(
 }
 
 // 요약은 Workspace의 Model for summaries로 만든다. 그 칸이 비어 있으면 session agent의 model을
-// 쓰므로 어느 model이든 받는다(harness/model#R8).
+// 쓰므로 어느 model이든 받는다.
 function usesSummariesModel(
   tx: { sql: Pick<Tx["sql"], "get"> },
   call: SummaryCall,
@@ -100,7 +100,7 @@ function usesSummariesModel(
     slot["model_name"] === call.model_name;
 }
 
-// rewind의 "Summarize from here"도 Compact와 같은 요약 call을 쓴다(revert R15). 이 session에 묶여 끝까지
+// rewind의 "Summarize from here"도 Compact와 같은 요약 call을 쓴다. 이 session에 묶여 끝까지
 // 성공하고 Model for summaries로 만든 call인가.
 export function isFinishedSummaryCall(
   lookup: { sql: Pick<Tx["sql"], "get"> },

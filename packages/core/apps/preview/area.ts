@@ -1,4 +1,4 @@
-// preview의 disposable 영역(apps/preview#R2). `apps/<app ID>/preview/<process nonce>/`에 만들고
+// preview의 disposable 영역. `apps/<app ID>/preview/<process nonce>/`에 만들고
 // fixture를 `app.sqlite`로 놓는다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
 // 폐기한다. core 안에서 쓰므로 동기 파일 I/O를 쓰지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";

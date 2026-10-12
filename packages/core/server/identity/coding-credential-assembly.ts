@@ -1,4 +1,4 @@
-// coding agent connection credential의 core 조립(platform#T34, identity#R5·R15, secrets#R12).
+// coding agent connection credential의 core 조립.
 // 인증 경계(packages/core/server/identity의 authority)에 ledger의 connection 현재 상태 읽기와 OS
 // keychain을 이어 주고, 인증된 coding context를 ledger credential 기록에 남기며, 시작 때 active
 // connection 색인과 중단 고아 정리를 비치명적으로 맞춘다. keychain adapter는 호출자가 준다:
@@ -250,7 +250,7 @@ async function note(dataRoot: string, at: string, step: string): Promise<void> {
   }
 }
 
-// 사람의 연결 결정 입구의 처리기다(connection#R2). 사람 credential의 요청만 이 route에 닿는다
+// 사람의 연결 결정 입구의 처리기다. 사람 credential의 요청만 이 route에 닿는다
 // (route actors가 user). 인증 경계가 token을 자동 발급해 keychain에 준비하고, 검증 hash만 같은 사람
 // credential로 connection create command에 제출한다. 결과는 connection 참조뿐이다.
 export function connectHandler(
@@ -284,7 +284,7 @@ export function connectHandler(
   };
 }
 
-// 연결 회수가 commit되면 응답 전에 그 credential로 연 앱 통로를 바로 닫는다(connection#R8). 닫는 일은
+// 연결 회수가 commit되면 응답 전에 그 credential로 연 앱 통로를 바로 닫는다. 닫는 일은
 // 앱 connector의 검사(회수된 credential의 connection이 연 프로세스 통로를 닫는다)이고, 1초 timer를
 // 기다리지 않는다. 회수 결과는 닫는 일의 성패와 상관없이 그대로다.
 export function withRevocationSweep(
@@ -308,7 +308,7 @@ export function withRevocationSweep(
   };
 }
 
-// 신뢰 감독(shell main)의 child 등록·해제 입구의 처리기다(platform/identity#R15). route actors가 user라 사람
+// 신뢰 감독(shell main)의 child 등록·해제 입구의 처리기다. route actors가 user라 사람
 // credential의 요청만 닿고 coding_agent·app·agent는 route 앞에서 403이다. 결과에는 token·scope가 없다.
 export function registerChildHandler(
   coding: Pick<CodingCredentials, "registerChild">,

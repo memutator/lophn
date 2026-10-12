@@ -1,6 +1,6 @@
-// 앱 개발 op의 공통 실행이다(T21, mcp#R19·R20·R21·R29·R32·R33, cli#R24–R28·R31·R32).
+// 앱 개발 op의 공통 실행이다.
 // MCP `lophn_app`과 CLI `app …`이 이 한 흐름을 지나므로 같은 credential·입력의 결과와 거절이
-// 같다(connection#R6, cli#R1). op마다 소유 route로만 보내고 임의 core API는 부르지 않는다.
+// 같다. op마다 소유 route로만 보내고 임의 core API는 부르지 않는다.
 // 오래 걸리는 일(test·preview 시작·release 준비)은 접수와 다음 read로 나눠 돌려주고, 기다릴 때는
 // 알림을 보낸다: 기다림은 OpenCode 기본 tool timeout 30초 안에서 끝난다(조사 T1).
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
@@ -43,7 +43,7 @@ import type { FlowClient } from "./document-save.ts";
 
 // op마다 첫 소유 route다. sync_tools는 재배포가 core route 밖 파일 설치라 contract가 입력을
 // 빌린 appRuntime을 가리키고, 실행은 guides의 syncTools가 한다(아래). command의 첫 core 요청은
-// 앱 통로를 여는 apps/connect이고 그 뒤는 core를 지나지 않는다(mcp#R29).
+// 앱 통로를 여는 apps/connect이고 그 뒤는 core를 지나지 않는다.
 export const APP_OP_ROUTES = {
   list: appList,
   show: appGet,
@@ -91,12 +91,12 @@ export const APP_OP_CLI_NAMES: Record<AppOp, string> = {
   command: "app command",
 };
 
-// 한 번에 읽는 invocation 수와 log 줄 수의 상한이다(mcp#R32, apps/runtime#R27).
+// 한 번에 읽는 invocation 수와 log 줄 수의 상한이다.
 export const INVOCATION_PAGE_MAX = 20;
 export const LOG_LINES_MAX = 200;
 
 // app test 기본 timeout이다. 요청이 timeout_ms를 주지 않으면 이 값을 요청에 명시해 runner에
-// 넘긴다. runner는 동결 test method의 timeout_ms와 짧은 쪽을 쓴다(mcp#R33).
+// 넘긴다. runner는 동결 test method의 timeout_ms와 짧은 쪽을 쓴다.
 export const APP_TEST_TIMEOUT_MS = TEST_EXECUTION_LIMITS.timeout_ms;
 
 // 접수 뒤 결과를 기다리는 한도다. OpenCode 기본 tool timeout 30초보다 짧게 끝낸다.
@@ -106,7 +106,7 @@ export type AppOpOutput = {
   summary: string;
   data: unknown;
   next: string[];
-  // 실패·거절·검사 실패는 true다. 성공 결과는 생략한다(R7).
+  // 실패·거절·검사 실패는 true다. 성공 결과는 생략한다.
   isError?: true;
 };
 
@@ -115,7 +115,7 @@ export type AppOpDeps = {
   idempotencyKey: () => string;
   // 앱 통로다. 없으면 command op는 `unavailable`이다.
   direct?: AppDirect;
-  // 도구 재배포다(guides#R17). 검사한 입력(op·target·names)을 받아 guides의 syncTools를
+  // 도구 재배포다. 검사한 입력(op·target·names)을 받아 guides의 syncTools를
   // 돌린다. 파일 설치라 core route 밖이고 host(entry)가 끼운다. 없으면 sync_tools는
   // `unavailable`이다.
   sync?: (input: Obj) => Promise<
@@ -285,7 +285,7 @@ export async function runAppOp(
   }
 }
 
-// 도구 재배포다(guides#R17, mcp#R19, cli#R29). 사람이 고른 target 하나의 앱 범위에
+// 도구 재배포다. 사람이 고른 target 하나의 앱 범위에
 // MCP 설정·skill·관리 구간 안내·ignore 안내를 다시 맞춘다. 파일 설치라 core route 밖이다:
 // 실행은 host가 끼운 sync port가 guides의 syncTools로 하고 이 흐름은 결과를 항목별로
 // 풀어 낸다. user target은 syncTools가 거절한다.
@@ -333,7 +333,7 @@ async function listApps(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
   };
 }
 
-// source 미연결·active release 없음은 없는 이유로 구별해 낸다(cli#R24).
+// source 미연결·active release 없음은 없는 이유로 구별해 낸다.
 function describeApp(app: Obj): string {
   const source = str(app.source_path) === undefined
     ? "source 미연결"
@@ -361,8 +361,8 @@ async function showApp(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
 }
 
 // 가벼운 등록이다: 이름·한 줄 목적만 받고 source·release·기획 판 없이 성공한다. 구현 시작
-// source 연결은 따로다(cli#R25). 전체 범위 연결만 등록한다: 판정은 core가 하고 앱 범위
-// 연결의 요청은 거절이다(connection#R4).
+// source 연결은 따로다. 전체 범위 연결만 등록한다: 판정은 core가 하고 앱 범위
+// 연결의 요청은 거절이다.
 async function registerApp(
   input: Obj,
   deps: AppOpDeps,
@@ -428,9 +428,9 @@ function preparationView(value: Preparation): Obj {
   };
 }
 
-// validate는 blueprint 구조 검사다. 실제 Verification(test result)과 구별해 표시한다(mcp#R20).
+// validate는 blueprint 구조 검사다. 실제 Verification(test result)과 구별해 표시한다.
 // release_prepare는 ticket·claim_seq가 필수이고(ticket 없는 작업·문제 직접 준비는 거절), 같은
-// 묶음 hash의 app test 통과 근거가 있어야 준비로 이어진다(mcp#R21).
+// 묶음 hash의 app test 통과 근거가 있어야 준비로 이어진다.
 async function prepareBundle(
   op: "validate" | "release_prepare",
   input: Obj,
@@ -604,12 +604,12 @@ type TestRequestView = {
 };
 
 // 실제 app test는 runner에 요청한다. 접수·준비 실패·시작 불명·실행 중·통과·실패·timeout·
-// 판정 불가를 구별하고, 결과는 problems의 Verification만 낸다(mcp#R20·R33, cli#R26).
+// 판정 불가를 구별하고, 결과는 problems의 Verification만 낸다.
 async function requestAppTest(
   input: Obj,
   deps: AppOpDeps,
 ): Promise<AppOpOutput> {
-  // 기본 timeout도 생략하지 않고 요청에 명시한다(mcp#R33).
+  // 기본 timeout도 생략하지 않고 요청에 명시한다.
   const timeoutMs = typeof input.timeout_ms === "number"
     ? input.timeout_ms
     : APP_TEST_TIMEOUT_MS;
@@ -762,7 +762,7 @@ type PreviewObservation = {
 };
 
 // preview는 fixture 격리 세션이다. 운영 active release와 운영 data를 건드리지 않고 accepting이
-// 항상 false인 개발 통로다(mcp#R20).
+// 항상 false인 개발 통로다.
 async function startPreview(
   input: Obj,
   deps: AppOpDeps,
@@ -843,7 +843,7 @@ async function stopPreview(
   };
 }
 
-// 개발 상태다: 운영 active release와 현재 preview를 따로 낸다(cli#R24).
+// 개발 상태다: 운영 active release와 현재 preview를 따로 낸다.
 // active release에 고정된 blueprint다. 설명·구조 검증·실제 test 통과는 다른 근거로 표시한다
 // (apps/blueprint#R3). 범위 밖·없는 앱·active release 없는 앱은 같은 not_found라 합쳐 낸다.
 async function readBlueprint(
@@ -942,7 +942,7 @@ async function listInvocations(
 }
 
 // invocation은 같은 환경(기본 preview)의 것만 읽는다. 다른 환경의 기록은 없는 것과 같은 답이고
-// 대상 환경을 바꾸어 다시 조회하지 않는다(mcp#R29).
+// 대상 환경을 바꾸어 다시 조회하지 않는다.
 async function showInvocation(
   input: Obj,
   deps: AppOpDeps,
@@ -1024,7 +1024,7 @@ async function readLogs(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
 
 // 앱 통로로 read 효과·confirm 없는 command를 부른다. 환경은 preview가 기본이고 preview가 없으면
 // 운영 앱으로 대신 부르지 않는다. coding credential의 판정은 host가 하고 여기서는 결과 불명과
-// 실제 실패를 구별해 낸다(mcp#R29, cli#R31, R32).
+// 실제 실패를 구별해 낸다.
 async function callCommand(
   input: Obj,
   deps: AppOpDeps,
@@ -1162,7 +1162,7 @@ function describeInvoke(
 }
 
 // 사람만 하는 앱 결정이다. CLI에서는 coding credential이 거절되고 결정 화면 링크와 사실만
-// 나온다: confirmation window를 열지 않고 yes·옵션으로 승인하지 않는다(cli#R7, R27, R31).
+// 나온다: confirmation window를 열지 않고 yes·옵션으로 승인하지 않는다.
 export const APP_HUMAN_ONLY = [
   "app start",
   "app stop",

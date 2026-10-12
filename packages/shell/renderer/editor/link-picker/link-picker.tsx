@@ -18,7 +18,7 @@ export interface LinkPickerProps {
 }
 
 /**
- * `[[` 링크 고르기 320px popover·32px 행(shell/editor#R11). query는 편집기에 치는 글이라
+ * `[[` 링크 고르기 320px popover·32px 행. query는 편집기에 치는 글이라
  * 이 목록에는 입력이 없다. 편집기가 focus를 지키고 화살표·Enter를 넘겨 준다. 그래서
  * overlay view로 focus를 옮기지 않고 편집 칸 위 popover 층(z 230)에 그린다.
  */

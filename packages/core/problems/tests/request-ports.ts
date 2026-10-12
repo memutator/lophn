@@ -1,4 +1,4 @@
-// problems test 요청의 제품 tx port다(problems/tests#R1–R5). 접수 준비는 같은 transaction에서 읽은 앱·참조·
+// problems test 요청의 제품 tx port다. 접수 준비는 같은 transaction에서 읽은 앱·참조·
 // release 사실로 만들고, 결과 근거는 runner가 RecordVerification 앞에 남긴 기록을 읽는다. 하네스가 값을 밀어
 // 넣는 길이 아니다.
 import type {

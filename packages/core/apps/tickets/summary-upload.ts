@@ -1,4 +1,4 @@
-// `/v1/tickets/upload_summary` handler(coding-agent#T36). 완료 보고의 summary 바이트를 core가
+// `/v1/tickets/upload_summary` handler. 완료 보고의 summary 바이트를 core가
 // 해석·hash·보관 없이 blob 준비 중계로 흘려 보낸다. 준비 주체는 요청 credential이라 이어지는
 // report_completion이 같은 주체로 준비 참조를 영구 참조로 등록한다(저장 안 된 blob의 hash는
 // 만들지 않는다). purpose와 상한은 ticket concern이 등록한 값(`ticketDefinitions.blobPurposes`)이고

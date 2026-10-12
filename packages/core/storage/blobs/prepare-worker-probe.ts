@@ -1,4 +1,4 @@
-// 제품 I/O worker 권한 모양의 blob 준비 실측 entry(platform/blob-store#R12).
+// 제품 I/O worker 권한 모양의 blob 준비 실측 entry.
 // core의 platformIoSpec과 같은 권한(--allow-read/write root, --allow-sys=statfs, run 없음)에서
 // 실제 여유를 관측하고 준비가 성공하는지 본다. 출력은 결과 표식뿐이고 경로·내용은 출력하지 않는다.
 import { createHash } from "node:crypto";

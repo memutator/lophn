@@ -108,7 +108,7 @@ function configuredRefs(
   }
 }
 
-// runtime가 MCP HTTP 요청에 붙일 인증 비밀의 전송 부착 대조다(platform/secrets#R5, extensions#R17).
+// runtime가 MCP HTTP 요청에 붙일 인증 비밀의 전송 부착 대조다.
 // 설정은 `sec:<이름>`만 갖고 sealed_ref는 core 밖으로 나가지 않으므로 runtime은 그 이름을
 // `use.sealed_ref`에 담아 청한다. 이 함수가 현재 설정과 secrets 표로 정확한 참조·판을 채운다.
 // 그 이름을 참조하는 켜진 HTTP server가 있고 그 server URL의 origin이 청한 목적지와 같을 때만

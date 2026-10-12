@@ -44,7 +44,7 @@ export type ValidateError = {
   message: string;
 };
 
-// validate port. 운영 wiring은 formats read(T4)의 format.validate pipe고, 테스트는
+// validate port. 운영 wiring은 formats read의 format.validate pipe고, 테스트는
 // outcome을 주입한다. 파일 바이트는 준비 worker가 guest 입력으로 바꿔 넘긴다.
 export type ValidatePort = (
   files: readonly ContentFile[],
@@ -95,7 +95,7 @@ export type PreparedResult = Omit<PreparedVersion, "validation"> & {
 
 export type PrepareError = { code: string; message: string };
 
-// explicit가 아닌 format에서 구조 진단이 warning으로 내려간다(R5). 나머지 class는 그대로다.
+// explicit가 아닌 format에서 구조 진단이 warning으로 내려간다. 나머지 class는 그대로다.
 const STRUCTURE_CODES = new Set(["invalid_structure", "duplicate_anchor"]);
 
 function recastDiagnostic(
@@ -179,7 +179,7 @@ export function createPrepareAssembly(deps: PrepareDeps) {
   return async function prepare(
     request: PrepareRequest,
   ): Promise<Result<PreparedResult, PrepareError>> {
-    // 파일 목록 검사(R5). 위험 경로·접근 실패는 구조 경고로 낮추지 않는다.
+    // 파일 목록 검사. 위험 경로·접근 실패는 구조 경고로 낮추지 않는다.
     const issues = checkFileList(
       request.files.map((file) => ({
         path: file.path,

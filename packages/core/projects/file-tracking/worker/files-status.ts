@@ -1,4 +1,4 @@
-// 사람 파일 읽기와 상태(file-tracking#R9). project 파일의 상태는 관측 loop의 메모리고,
+// 사람 파일 읽기와 상태. project 파일의 상태는 관측 loop의 메모리고,
 // working copy의 상태는 읽을 때 사본과 metadata로 계산한다. 읽기 실패를 부재로 꾸미지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";

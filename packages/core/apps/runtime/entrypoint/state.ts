@@ -19,9 +19,9 @@ export type InvocationRecord = {
   progress: InvocationProgress;
   result?: Json;
   recorded: boolean;
-  // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다(apps/invocations#R11).
+  // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다.
   cancelRequested?: boolean;
-  // handler가 효과 전에 받지 않겠다고 알린 호출(apps/agent-context#R5). 효과 없음이 알려진 실패다.
+  // handler가 효과 전에 받지 않겠다고 알린 호출. 효과 없음이 알려진 실패다.
   rejection?: { code: string; message: string };
   // 종료 사실(timeout의 결과 모름)을 이미 보냈다. 늦은 handler 종료가 그 사실을 바꾸지 않는다.
   settled?: boolean;

@@ -1,4 +1,4 @@
-// checker 한 번의 일(coding-agent/tickets#R18, R19, R20). 보고된 ticket의 사실을 읽고
+// checker 한 번의 일. 보고된 ticket의 사실을 읽고
 // 판정해 record_checks로 낸다. 재시작 뒤 이어하기와 event 뒤 다시 비교하기가 같은 함수다:
 // 정본 비교만 하며 model 호출은 없다. fetch를 모르고 CheckerClient만 부른다.
 import { ok, type Result } from "../../../../base/mod.ts";

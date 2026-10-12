@@ -63,7 +63,7 @@ export const problemSchema = z.object({
 );
 export type Problem = z.infer<typeof problemSchema>;
 
-// 사용자 호출자에게 주는 문제(grouping#R12, problems#T22). 내부 `problemSchema`에서 ticket·version
+// 사용자 호출자에게 주는 문제. 내부 `problemSchema`에서 ticket·version
 // 연결 식별자(`work`·`interpretation`)와 묶음 키를 뺀 것이다. 담당·수리 상태는 `detail`이 en으로
 // 대신한다. strict라 내부 문제를 그대로 넘기면 거부한다. 기존 `getProblem` output은 바꾸지 않는다.
 export const userProblemSchema = z.strictObject({
@@ -89,7 +89,7 @@ export function userProblemOf(problem: Problem): UserProblem {
   };
 }
 
-// 목록은 앱·증상·진행만 준다. claim·기한·연결 식별자는 넣지 않는다(grouping#R11, R12).
+// 목록은 앱·증상·진행만 준다. claim·기한·연결 식별자는 넣지 않는다.
 export const problemSummarySchema = z.object({
   id: idSchema("prb"),
   app: idSchema("app"),
@@ -131,7 +131,7 @@ export const reconcileProblemWork = defineCommand({
   output: reconcileProblemWorkOutputSchema,
   compare: reconcileProblemWorkCompareSchema,
   actors: ["machine"],
-  // 열린 repair ticket을 이미 가진 문제에 다른 열린 ticket을 이으려 하면 invalid_input이다(grouping#R8).
+  // 열린 repair ticket을 이미 가진 문제에 다른 열린 ticket을 이으려 하면 invalid_input이다.
   errors: ["not_found", "conflict", "forbidden", "invalid_input"],
 });
 
@@ -182,17 +182,17 @@ export const getProblemInputSchema = z.strictObject({
 export const getProblemOutputSchema = withReadCommon(z.object({
   // 내부 contract(ticket·version ID 포함)다. 사람에게 보이는 상세는 `detail`이다.
   problem: problemSchema,
-  // 사용자용 상세(grouping#R12, closing#R13, tests#R5). 식별자·claim·기한이 없다.
+  // 사용자용 상세. 식별자·claim·기한이 없다.
   detail: problemDetailSchema.optional(),
   text: z.string().nullable(),
   report_count: z.number().int().nonnegative(),
   first_observed_at: z.string().nullable(),
   last_observed_at: z.string().nullable(),
-  // 처음·최근 보고가 당시 실행하던 release다. 보고가 release를 모르면 null이다(grouping#R11).
+  // 처음·최근 보고가 당시 실행하던 release다. 보고가 release를 모르면 null이다.
   first_release: idSchema("rel").nullable(),
   last_release: idSchema("rel").nullable(),
 }));
-// 사용자 화면·CLI가 읽는 GetProblem 모양(problems#T22). `problem`은 ID 없는 사용자용이고 `detail`은
+// 사용자 화면·CLI가 읽는 GetProblem 모양. `problem`은 ID 없는 사용자용이고 `detail`은
 // 반드시 있다. 같은 read의 output에서 `userProblemReadOf`로 만든다(additive: route output은 그대로다).
 export const getProblemUserOutputSchema = withReadCommon(z.object({
   problem: userProblemSchema,

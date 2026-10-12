@@ -1,4 +1,4 @@
-// model picker가 받는 화면 값(shell/desktop#R44). 그리는 쪽(model-picker.tsx)과 값을 만드는 쪽이 같이 쓰며,
+// model picker가 받는 화면 값. 그리는 쪽(model-picker.tsx)과 값을 만드는 쪽이 같이 쓰며,
 // CSS를 부르는 component 없이 type만 가져올 수 있게 따로 둔다.
 
 /** model 하나. 같은 이름이 provider마다 있을 수 있어 provider와 이름의 쌍으로 구별한다. */
@@ -22,7 +22,7 @@ export interface PickerProviderGroup {
   readonly models: readonly PickerModelRow[];
 }
 
-/** 검색을 반영한 목록. Favorites는 별표를 찍은 순서 그대로이고 검색 중에도 먼저다(R26). */
+/** 검색을 반영한 목록. Favorites는 별표를 찍은 순서 그대로이고 검색 중에도 먼저다. */
 export interface PickerLayoutView {
   readonly favorites: readonly PickerModelRow[];
   readonly providers: readonly PickerProviderGroup[];
@@ -68,11 +68,11 @@ export interface ModelPickerProps {
   /** 별표를 눌렀다. 줄을 고른 것으로 치지 않는다. */
   onToggleFavorite: (model: PickerModelRef) => void;
   onOptionChange: (axis: string, value: string) => void;
-  /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다(R50). */
+  /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. */
   onChangeDefaults: () => void;
   /**
    * 고른 값이 어디에 적용되는지. 기본 session은 이 session에만(composer)이고, definition은 agent 정의의 model을
-   * 정하는 editor 칸(shell/workspace#R41)이라 설명이 달라진다.
+   * 정하는 editor 칸이라 설명이 달라진다.
    */
   scope?: "session" | "definition";
 }

@@ -29,7 +29,7 @@ function parsePayload(raw: unknown): unknown {
   }
 }
 
-// Ask가 연 탭의 자리다(R14). 앱 문제는 source payload가, release는 그 release를 만든 사실
+// Ask가 연 탭의 자리다. 앱 문제는 source payload가, release는 그 release를 만든 사실
 // (ReleasePrepared)이 앱을 가진다. context 위반은 그 context를 만든 사실(ContextCreated)이
 // project를 가진다. 알 수 없으면 null이다.
 function placeOf(
@@ -97,7 +97,7 @@ type GetRoute = typeof notificationsGet;
 type ListRoute = typeof notificationsList;
 type DisplayRoute = typeof notificationsDisplay;
 
-// get은 source 사실과 읽음을 그대로 본다(R3, R11). 현재 대상 상태는 read가
+// get은 source 사실과 읽음을 그대로 본다. 현재 대상 상태는 read가
 // 조립하지 않는다. 결과 열기 경로는 source_event가 가리킨다.
 export function notificationsGetRead(): ReadDefinition<GetRoute> {
   return {
@@ -132,7 +132,7 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
   };
 }
 
-// 발생 순서대로 모두 읽는다(R11). 임의 종류·고정 개수로 생략하지 않고 page로 나눈다.
+// 발생 순서대로 모두 읽는다. 임의 종류·고정 개수로 생략하지 않고 page로 나눈다.
 export function notificationsListRead(): ReadDefinition<ListRoute> {
   return {
     route: notificationsList,
@@ -188,7 +188,7 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
   };
 }
 
-// shell main이 OS에 올릴 요청이다(R9). 제목·열 곳은 source 사실에서 redaction을 거쳐 만든다.
+// shell main이 OS에 올릴 요청이다. 제목·열 곳은 source 사실에서 redaction을 거쳐 만든다.
 // 사람이 켰는지는 settings 값이라 이 read가 아니라 core 조립이 본다(켜지 않았으면 display를
 // 비운다). 없는 notification은 not_found다.
 export function notificationsDisplayRead(): ReadDefinition<DisplayRoute> {

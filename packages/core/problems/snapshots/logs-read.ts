@@ -1,4 +1,4 @@
-// GetSnapshotLogs가 core 안에서 읽는 통로(snapshots#R13, R16, R17). 증거 행은 ledger를
+// GetSnapshotLogs가 core 안에서 읽는 통로. 증거 행은 ledger를
 // 읽기 전용 connection으로 짧게 열어 읽고, 바이트는 blob store의 읽기 통로로 받는다.
 // 정리된 첨부(PNG·로그 조각·stack)는 store가 구별한 pruned를 GetSnapshot의 "정리됨"으로 잇는다.
 // core만 import한다(reader Worker와 settings 조립은 sqlite 의존을 끌어오지 않는다).

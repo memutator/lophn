@@ -27,11 +27,11 @@ export interface ConnectDialogProps {
   onConnected: () => void;
 }
 
-// Connect dialog(shell/desktop#R49). 내장 정의는 "Connect <이름>" 제목 아래 그 정의가 지원하는 로그인
+// Connect dialog. 내장 정의는 "Connect <이름>" 제목 아래 그 정의가 지원하는 로그인
 // 방법을 고르게 하고(model 단계는 없다), custom 정의는 "Custom provider" 제목의 form(Provider ID,
 // Display name, Base URL, "Add an API key (optional)")과 [Cancel] [Connect]를 보인다. 인증 없음은 고르는
-// 방법이 아니다: 직접 만든 provider의 이 컴퓨터 주소에 key를 더하지 않으면 그것이다(provider#R5).
-// API key 값은 이 form이 받지 않는다. 고르면 보호 창이 열린다(platform/secrets#R2).
+// 방법이 아니다: 직접 만든 provider의 이 컴퓨터 주소에 key를 더하지 않으면 그것이다.
+// API key 값은 이 form이 받지 않는다. 고르면 보호 창이 열린다.
 export function ConnectDialog(props: ConnectDialogProps): ReactNode {
   // 정의가 바뀌면 입력과 오류를 새로 시작하도록 key를 정의로 둔다.
   return props.definition === null ? null : (
@@ -118,7 +118,7 @@ function MethodButton(
     onChoose: () => void;
   },
 ): ReactNode {
-  // 공식 로그인은 lophn 이름으로 허용된 것이 확인되지 않았으면 고를 수 없다(lophn-agent/harness/provider#R1).
+  // 공식 로그인은 lophn 이름으로 허용된 것이 확인되지 않았으면 고를 수 없다.
   const blocked = way === "oauth" && definition.signIn?.verified !== true;
   return (
     <button
@@ -162,7 +162,7 @@ function methodHint(way: Exclude<AuthWay, "none">): string {
 const ID_SHAPE = /^[a-z0-9_-]+$/;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** https 주소이거나 이 컴퓨터(127.0.0.1·::1·localhost)의 http 주소만 받는다(lophn-agent/harness/provider#R5). */
+/** https 주소이거나 이 컴퓨터(127.0.0.1·::1·localhost)의 http 주소만 받는다. */
 function baseUrlOk(value: string): boolean {
   let url: URL;
   try {
@@ -174,7 +174,7 @@ function baseUrlOk(value: string): boolean {
   return url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname);
 }
 
-/** 웹 주소는 key 없이 연결할 수 없다. 인증 없음은 이 컴퓨터의 주소에만 있다(provider#R5). */
+/** 웹 주소는 key 없이 연결할 수 없다. 인증 없음은 이 컴퓨터의 주소에만 있다. */
 function needsKey(value: string): boolean {
   return value.trim().startsWith("https://");
 }

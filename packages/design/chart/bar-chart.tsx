@@ -25,7 +25,7 @@ export interface BarChartProps extends ChartStateProps, ChartLocaleProps {
   xLabel: string;
 }
 
-// 막대와 누적 막대. 막대는 최대 24px, data 끝 radius 4px, 사이 2px이다(shell/design-system#R41).
+// 막대와 누적 막대. 막대는 최대 24px, data 끝 radius 4px, 사이 2px이다.
 export function BarChart(
   {
     categories,

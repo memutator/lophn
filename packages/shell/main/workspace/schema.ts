@@ -42,7 +42,7 @@ export const layoutPaneSchema = z.strictObject({
 
 export type LayoutPane = z.infer<typeof layoutPaneSchema>;
 
-// 정보 패널은 공간별 열림·마지막 탭만 남긴다(shell/editor#R6).
+// 정보 패널은 공간별 열림·마지막 탭만 남긴다.
 export const informationPanelSchema = z.strictObject({
   open: z.boolean(),
   tab: z.enum(["info", "versions", "contexts"]),

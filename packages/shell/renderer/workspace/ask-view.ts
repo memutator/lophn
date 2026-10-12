@@ -1,4 +1,4 @@
-// notification의 [Ask <agent 이름>]이 쓰는 값(shell/desktop#R35, platform/notifications#R13·R14).
+// notification의 [Ask <agent 이름>]이 쓰는 값.
 // 어느 계기에 [Ask]가 붙고 무엇을 첫 context로 싣는지는 core가 계기 표로 계산해(platform의
 // notifications/ask-agent.ts) 알림 행에 실어 보낸다. 이 화면은 표를 모르고 받은 값을 그대로 쓴다.
 
@@ -10,7 +10,7 @@ export type AskTarget = "problem" | "release";
 
 /**
  * [Ask <agent>]가 callback에 싣는 전부다. Agent 탭을 열 role과 자리, 첫 context가 될 대상
- * 참조뿐이다. 메시지·run·notification 본문 복사본은 없고 보내는 일도 없다(platform/notifications#R14).
+ * 참조뿐이다. 메시지·run·notification 본문 복사본은 없고 보내는 일도 없다.
  */
 export interface AskRequest {
   readonly notification: string;

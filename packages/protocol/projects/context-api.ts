@@ -739,7 +739,7 @@ export type ContextSeriesNextRead = z.infer<
 // ---------- route ----------
 
 const AGENT_AND_USER = ["user", "agent"] as const;
-// coding agent에게는 context command·읽기 통로가 없다(documents/contexts#R27).
+// coding agent에게는 context command·읽기 통로가 없다.
 const READ_ACTORS = ["user", "agent"] as const;
 // agent runtime의 machine 자격만 run 시작 전 tool 정의·prompt 자료를 만들 재료로 list·get·contract를 읽는다.
 // 어느 machine이 읽는지는 handler가 principal로 가린다(documents/contexts 읽기).

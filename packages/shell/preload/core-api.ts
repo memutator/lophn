@@ -1,6 +1,6 @@
 // renderer가 보는 `lophnCore`. 연결 상태는 구독을 시작하는 순간 main에서 지금 값을 한 번 받고
 // 이후 변화는 main이 민 것을 따른다. 앱 공간에서 런처로 돌아오거나 창을 다시 읽어 renderer가 새로
-// 구독해도 main이 이미 보낸 상태를 놓치지 않는다(shell/desktop#R7). token·port는 이 통로에 없다.
+// 구독해도 main이 이미 보낸 상태를 놓치지 않는다. token·port는 이 통로에 없다.
 import {
   type ConnectionState,
   connectionStateSchema,

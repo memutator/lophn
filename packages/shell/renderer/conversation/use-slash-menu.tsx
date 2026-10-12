@@ -1,4 +1,4 @@
-// composer 위 `/` 명령 메뉴가 source·키보드와 맞물리는 일(shell/desktop#R45, lophn-agent/commands).
+// composer 위 `/` 명령 메뉴가 source·키보드와 맞물리는 일(lophn-agent/commands).
 // 목록·거르기·예약 이름은 source가 계산하고, 여기서는 열고 닫기, 줄 옮기기, 제출한 `/…`의 판정만 한다.
 import {
   type KeyboardEvent,

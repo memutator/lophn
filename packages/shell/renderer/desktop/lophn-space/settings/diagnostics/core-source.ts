@@ -74,7 +74,7 @@ export function coreDiagnosticsSource(core: CoreSource): DiagnosticsSource {
           check,
           finding: {
             impact,
-            // 원문 finding message. 개발자 diagnostics 펼침에만 보인다(shell/wording#R8).
+            // 원문 finding message. 개발자 diagnostics 펼침에만 보인다.
             raw: message ?? "",
             at: entry.observed_at,
           },

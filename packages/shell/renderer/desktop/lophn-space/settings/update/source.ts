@@ -1,5 +1,5 @@
 // settings update 자리가 읽고 청하는 통로. 사람이 고른 로컬 package metadata 후보 선택 UI와
-// 안내만 있다. 자동 다운로드·설치·재시작은 없다(platform/install-and-update#R13). 모양은
+// 안내만 있다. 자동 다운로드·설치·재시작은 없다. 모양은
 // platform#T50의 updateNotice·stopForUpdate 입구에서 이 자리가 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../source.ts";
 

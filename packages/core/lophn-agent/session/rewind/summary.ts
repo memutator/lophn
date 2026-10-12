@@ -10,7 +10,7 @@ import type { MemoryHandler } from "../../../server/mod.ts";
 import { assertCheckpointVisible } from "./mod.ts";
 import type { RewindFilesDeps } from "./files.ts";
 
-// "Summarize from here"의 요약 요청 대기열(lophn-agent/revert R15). Compact와 같은 모양이다: 사람이 요청하면
+// "Summarize from here"의 요약 요청 대기열. Compact와 같은 모양이다: 사람이 요청하면
 // runtime이 요약 call(Model for summaries)을 하고 끝낸 call을 돌려주며, 사람이 그 call로 Rewind(summarize)를
 // 확인한다. 대기열은 core의 작업 메모리다. 요약 call 자체는 model call 기록에 남고, session이 바뀌는 것은 Rewind가
 // 확정할 때뿐이라 요청이 사라져도(core 재시작, 기한) 잃는 것은 없다. 사람이 다시 요청하면 된다.

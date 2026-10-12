@@ -49,9 +49,9 @@ export type MainDeps = {
   dataSchema: number;
   // 예외 보고는 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
   reportTransport: (input: unknown) => Promise<unknown>;
-  // 앱 code의 reportProblem 보고 transport. 없으면 reporter를 설치하지 않는다(apps/sdk#R33).
+  // 앱 code의 reportProblem 보고 transport. 없으면 reporter를 설치하지 않는다.
   problemTransport?: (input: unknown) => Promise<unknown>;
-  // 화면 자원. 실제 앱 프로세스는 bundle 사본의 screens/에서 읽는다(shell#T37).
+  // 화면 자원. 실제 앱 프로세스는 bundle 사본의 screens/에서 읽는다.
   screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
   contentType?: (path: string) => string;
   // automation 시계의 tick·타이머. 시험이 가짜 시계를 준다.
@@ -158,7 +158,7 @@ export async function run(): Promise<void> {
 
 if (import.meta.main) await run();
 
-// supervisor(T8)와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
+// supervisor와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
 // 줄에서, blueprint와 화면 자원은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
 // 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
 async function boot(): Promise<void> {

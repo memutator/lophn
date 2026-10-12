@@ -1,7 +1,7 @@
 // runner가 test 앱 대신 여는 Unix socket의 command 호출 자리(apps/runtime direct socket
 // `/_lophn/commands/invoke`). 화면 검사 host의 화면이 `lophnApp.call`로 부르면 shell main이
 // 이 socket에 빈 Authorization으로 POST한다. test 앱 socket은 연결 증명 없이 받는다: 이 socket은
-// 임시 작업 폴더의 0700 Unix socket이고 host child만 경로를 안다(shell#T46).
+// 임시 작업 폴더의 0700 Unix socket이고 host child만 경로를 안다.
 import type { Result } from "../../../../base/mod.ts";
 
 export const TEST_APP_INVOKE_PATH = "/_lophn/commands/invoke";

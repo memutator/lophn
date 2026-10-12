@@ -24,7 +24,7 @@ const FIX_PAGE = 100;
 type FixRowSeq = { seq: bigint; row: Record<string, unknown> };
 
 // 고친 기록은 event seq가 identity다. 과거 null 출처도 그 당시 payload 그대로
-// 읽는다(R4). 정렬은 기록 event seq 내림차순이고 cursor는 마지막 seq다.
+// 읽는다. 정렬은 기록 event seq 내림차순이고 cursor는 마지막 seq다.
 export const listProblemFixesRead: ReadDefinition<typeof listProblemFixes> = {
   route: listProblemFixes,
   handle(

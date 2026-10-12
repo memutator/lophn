@@ -16,7 +16,7 @@ export const PREPARATION_SLOTS = 2;
 // 결과 command 동시 제출 한도. platform command 접수 한도에 맞춘 고정 값이다.
 export const SUBMIT_CONCURRENCY = 2;
 
-// 안정 읽기 관측까지의 조용한 구간과 재시도 한도(R4).
+// 안정 읽기 관측까지의 조용한 구간과 재시도 한도.
 export const QUIET_MS = 750;
 export const STABLE_READ_RETRIES = 3;
 
@@ -160,10 +160,10 @@ export type CoordinatorDepsLike = {
   newRequestId(): string;
 };
 
-// ── 저장 준비 경로(documents T8): 준비 worker의 파일 목록 검사와 canonical 목록 ──
+// ── 저장 준비 경로: 준비 worker의 파일 목록 검사와 canonical 목록 ──
 
 // 준비 worker가 파일 목록 검사에서 내는 진단 code. 위험 경로·접근 실패는
-// 구조 경고로 낮추지 않는다(R5).
+// 구조 경고로 낮추지 않는다.
 export type FileListIssueCode =
   | "invalid_path"
   | "duplicate_path"
@@ -183,7 +183,7 @@ export function isSafeRelativePath(path: string): boolean {
   return path.split("/").every((part) => part && part !== "." && part !== "..");
 }
 
-// 준비 worker의 파일 목록 검사(R5). 안전한 상대 경로·유일 경로·대표 파일 하나·
+// 준비 worker의 파일 목록 검사. 안전한 상대 경로·유일 경로·대표 파일 하나·
 // 바이트 수를 검사한다. byte 해석은 준비 worker가 넘긴 수다.
 export function checkFileList(
   files: readonly { path: string; bytes: number; primary: boolean }[],
@@ -229,7 +229,7 @@ export function checkFileList(
   return issues;
 }
 
-// 같은 stream의 hash와 blob 준비 port(R6). 준비 worker는 파일 바이트를 한 번만 읽고
+// 같은 stream의 hash와 blob 준비 port. 준비 worker는 파일 바이트를 한 번만 읽고
 // 그 stream에서 SHA-256과 blob 내구 저장을 같이 만든다. 결과는 canonical 목록
 // blob의 hash와 살아 있는 준비 참조다.
 export type FilePreparationOutcome = {

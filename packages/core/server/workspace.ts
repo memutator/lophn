@@ -13,11 +13,11 @@ import {
 import { createKnownSecretRegistry } from "../../base/redaction/mod.ts";
 import type { MemoryHandler } from "./dispatch.ts";
 
-// 현재 보기 relay(shell/workspace#R9, R10). 값은 이 모듈의 core 메모리에만 있고
-// ledger·blob·log에 가지 않는다(T57).
+// 현재 보기 relay. 값은 이 모듈의 core 메모리에만 있고
+// ledger·blob·log에 가지 않는다.
 export const WORKSPACE_MEMORY_ROUTES: readonly Route[] = WORKSPACE_ROUTES;
 
-// 창 수 상한. 크기는 창 수 × (2048 bytes + 탭 page)로 묶인다(T57).
+// 창 수 상한. 크기는 창 수 × (2048 bytes + 탭 page)로 묶인다.
 export const WORKSPACE_MAX_WINDOWS = 64;
 
 // relay 값 하나. publish가 보낸 상태와 session 결합만 담는다.
@@ -31,7 +31,7 @@ type WindowState = {
 };
 
 export type WorkspaceRelayDeps = {
-  // run → session 확인. 없으면 read는 fail-closed다(T57, identity R3).
+  // run → session 확인. 없으면 read는 fail-closed다.
   runSession?: (ctx: AuthenticatedContext, run: string) =>
     | Promise<
       Result<string | null>
@@ -42,9 +42,9 @@ export type WorkspaceRelayDeps = {
 export type WorkspaceRelay = {
   routes: readonly Route[];
   handlers: Map<string, MemoryHandler>;
-  // redaction 알려진 값 registry. 등록된 secret이 relay 반환에 새지 않게 한다(T57).
+  // redaction 알려진 값 registry. 등록된 secret이 relay 반환에 새지 않게 한다.
   registry: KnownSecretRegistry;
-  // main 연결이 끊기거나 core epoch가 바뀌면 그 main의 값을 모두 disconnected로 바꾼다(T57).
+  // main 연결이 끊기거나 core epoch가 바뀌면 그 main의 값을 모두 disconnected로 바꾼다.
   disconnect(): void;
 };
 
@@ -137,7 +137,7 @@ export function createWorkspaceRelay(
 
   handlers.set("workspace/read", async (ctx, input) => {
     const record = input as { session: string; page?: number };
-    // agent는 자기 run의 session만 읽는다(identity R3). run→session 확인은
+    // agent는 자기 run의 session만 읽는다. run→session 확인은
     // 주입한 resolver로 한다. 없으면 fail-closed다.
     const run = ctx.conditions.run;
     if (!run || !deps.runSession) {
@@ -158,7 +158,7 @@ export function createWorkspaceRelay(
     if (page < 0 || page >= window.tab_pages.length) {
       return absent("unavailable", "page outside range");
     }
-    // 반환 전에 redaction을 거친다(redaction R5). JSON 순환은 구조 검사에서 걸린다.
+    // 반환 전에 redaction을 거친다. JSON 순환은 구조 검사에서 걸린다.
     const payload = {
       availability: "current",
       observed_at: window.observed_at,
@@ -209,7 +209,7 @@ function absent(
   availability: "disconnected" | "unavailable",
   reason: string,
 ): Result<WorkspaceReadOutput> {
-  // 옛 값을 current로 주지 않는다(T57, prompt-assemble#R28).
+  // 옛 값을 current로 주지 않는다.
   const shaped = workspaceReadOutputSchema.safeParse({ availability, reason });
   if (!shaped.success) {
     return err({ code: "unavailable", message: "workspace read unavailable" });

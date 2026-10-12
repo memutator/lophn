@@ -87,8 +87,8 @@ function normalized(scope: GrantPermissionScope): Result<void> {
   return ok(undefined);
 }
 
-// source를 감싸거나 source 안인 경로는 grant로 허락하지 않는다(R4, R7). 원장이 아는 앱 source만
-// 본다. 실제 경로 해석과 credential·데이터 root는 부여 준비와 flag 계산(T3)이 한다.
+// source를 감싸거나 source 안인 경로는 grant로 허락하지 않는다. 원장이 아는 앱 source만
+// 본다. 실제 경로 해석과 credential·데이터 root는 부여 준비와 flag 계산이 한다.
 function outsideSources(tx: Tx, scope: GrantPermissionScope): Result<void> {
   if (scope.kind !== "fs.read" && scope.kind !== "fs.write") {
     return ok(undefined);
@@ -113,7 +113,7 @@ function tableExists(tx: Tx, name: string): boolean {
   ) !== undefined;
 }
 
-// grant 하나는 그것을 정확히 허락한 approval 하나에서만 나온다(R1). 사용 기록은 approval 적용이
+// grant 하나는 그것을 정확히 허락한 approval 하나에서만 나온다. 사용 기록은 approval 적용이
 // 같은 transaction에서 남기고, 한 approval은 grants.approval unique가 한 grant로 묶는다.
 function checkApproval(
   tx: Tx,
@@ -396,7 +396,7 @@ export function createGrantCommands(): {
         if (compare.grants_seq !== grantsSeq(tx.sql, grant.app)) {
           return conflict("the grant set changed");
         }
-        // 회수 요청 접수와 실제 완료는 다르다(R21). 살아 있는 프로세스의 종료 확인이 없으면
+        // 회수 요청 접수와 실제 완료는 다르다. 살아 있는 프로세스의 종료 확인이 없으면
         // revoked로 확정하지 않는다. automation.run은 프로세스 재시작 없이 다음 회차부터 막힌다.
         if (grant.kind !== "automation.run") {
           const fact = lastProcessFact(tx.sql, grant.app);

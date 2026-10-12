@@ -1,39 +1,39 @@
 // project-workspace 틀의 순수 규칙. 화면은 이 값을 그대로 그린다.
 // 치수는 shell/desktop#R22, shell/editor#R3·R5, shell/design-system#R24·R25를 따른다.
 
-/** sidebar 기본 폭. drag로 200~400px, 접힘 56px(desktop#R22, design-system#R24). */
+/** sidebar 기본 폭. drag로 200~400px, 접힘 56px. */
 export const SIDEBAR_WIDTH = 240;
 export const SIDEBAR_MIN = 200;
 export const SIDEBAR_MAX = 400;
 export const SIDEBAR_COLLAPSED = 56;
-/** 탐색 행 높이(desktop#R22). */
+/** 탐색 행 높이. */
 export const SIDEBAR_ROW = 32;
 
-/** 반응형 경계(design-system#R24). */
+/** 반응형 경계. */
 export const BREAKPOINT_SM = 640;
 export const BREAKPOINT_MD = 1024;
 
-/** 상단 바 높이(desktop#R22). */
+/** 상단 바 높이. */
 export const TOP_BAR_HEIGHT = 48;
-/** 본문 여백. 창 1024px 미만은 좌우 16px(desktop#R22). */
+/** 본문 여백. 창 1024px 미만은 좌우 16px. */
 export const BODY_PADDING_X = 32;
 export const BODY_PADDING_TOP = 24;
 export const BODY_PADDING_X_NARROW = 16;
 
-/** 탭 줄 높이(workspace#R2)와 탭 폭(editor#R3). */
+/** 탭 줄 높이와 탭 폭. */
 export const TAB_STRIP_HEIGHT = 36;
 export const TAB_MIN = 120;
 export const TAB_MAX = 220;
 export const TAB_PINNED = 36;
 export const TAB_CLOSE = 20;
 
-/** 칸 최소 폭·경계·잡는 영역(editor#R5, workspace#R4). */
+/** 칸 최소 폭·경계·잡는 영역. */
 export const PANE_MIN = 480;
 export const SPLIT_DIVIDER = 1;
 export const SPLIT_GRAB = 8;
 export const SPLIT_EQUAL = 0.5;
 
-/** 정보 패널이 dock되려면 남는 본문 폭(design-system#R25). */
+/** 정보 패널이 dock되려면 남는 본문 폭. */
 export const INFO_PANEL_BODY_MIN = 720;
 /** 정보 패널 폭. */
 export const INFO_PANEL_WIDTH = 320;
@@ -41,7 +41,7 @@ export const INFO_PANEL_WIDTH = 320;
 export type SidebarMode = "open" | "collapsed" | "hidden";
 
 export interface SidebarState {
-  /** 사람이 drag로 고른 폭. 자동으로 다시 접지 않는다(design-system#R24). */
+  /** 사람이 drag로 고른 폭. 자동으로 다시 접지 않는다. */
   readonly chosenWidth: number;
   /** 사람이 접힘 버튼을 눌렀는지. */
   readonly collapsedByUser: boolean;
@@ -51,7 +51,7 @@ export interface SidebarView {
   readonly mode: SidebarMode;
   /** 화면에 차지하는 폭. hidden은 0. */
   readonly width: number;
-  /** 런처 복귀를 상단 바로 옮겨야 하는지(desktop#R26). */
+  /** 런처 복귀를 상단 바로 옮겨야 하는지. */
   readonly launcherInTopBar: boolean;
 }
 
@@ -88,23 +88,23 @@ export function clampSidebar(width: number): number {
   return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(width)));
 }
 
-/** 본문 좌우 여백. 창 1024px 미만은 16px다(desktop#R22). */
+/** 본문 좌우 여백. 창 1024px 미만은 16px다. */
 export function bodyPaddingX(windowWidth: number): number {
   return windowWidth < BREAKPOINT_MD ? BODY_PADDING_X_NARROW : BODY_PADDING_X;
 }
 
-/** 탭 종류의 이름. 등록된 kind는 kinds/registry.ts가 정한다(workspace#R14). */
+/** 탭 종류의 이름. 등록된 kind는 kinds/registry.ts가 정한다. */
 export type TabKind = string;
 
 export interface TabItem {
   readonly key: string;
   readonly kind: TabKind;
   readonly title: string;
-  /** 고정 탭은 36px로 접는다(editor#R3). */
+  /** 고정 탭은 36px로 접는다. */
   readonly pinned?: boolean;
-  /** terminal 탭의 시작 폴더 참조. 사람이 다시 시작할 때 쓴다(workspace#R7). */
+  /** terminal 탭의 시작 폴더 참조. 사람이 다시 시작할 때 쓴다. */
   readonly folder?: string;
-  /** 앱 패널 탭의 앱과 panel 크기를 선언한 화면. 고르기 전에는 없다(workspace#R5). */
+  /** 앱 패널 탭의 앱과 panel 크기를 선언한 화면. 고르기 전에는 없다. */
   readonly app?: string;
   readonly screen?: string;
   /** 위 필드에 없는 kind의 layout 값. 이 값이 무엇인지는 그 kind의 선언이 안다. */
@@ -138,7 +138,7 @@ export function normalizePane(pane: PaneState): PaneState {
 }
 
 /**
- * 탭을 다른 칸으로 옮긴다(workspace#R3). 원본 칸의 순서에서 빼고 대상 칸 끝에
+ * 탭을 다른 칸으로 옮긴다. 원본 칸의 순서에서 빼고 대상 칸 끝에
  * 붙인다. 옮긴 탭이 선택이 되고 focus는 대상 칸으로 간다.
  */
 export function moveTab(
@@ -176,7 +176,7 @@ export function moveTab(
 
 /**
  * 넘치는 탭 줄의 scroll offset. 선택 탭의 [start, end)가 줄 안에 들어오게 가두고
- * 페이지 가로 scroll은 만들지 않는다(workspace#R2). 탭 폭은 내용에 따라 120~220px라서
+ * 페이지 가로 scroll은 만들지 않는다. 탭 폭은 내용에 따라 120~220px라서
  * 화면이 잰 위치를 넘긴다.
  */
 export function revealScroll(
@@ -230,7 +230,7 @@ function dropEmptyPane(view: WorkspaceView): WorkspaceView {
 }
 
 /**
- * 한 칸의 선택 탭을 새 오른쪽 칸으로 보낸다(workspace#R3). 탭이 둘 이상일 때만
+ * 한 칸의 선택 탭을 새 오른쪽 칸으로 보낸다. 탭이 둘 이상일 때만
  * 나눈다. 이미 두 칸이면 그대로다.
  */
 export function splitPane(view: WorkspaceView): WorkspaceView {
@@ -240,7 +240,7 @@ export function splitPane(view: WorkspaceView): WorkspaceView {
 }
 
 export interface SplitLayout {
-  /** 화면에 그릴 칸 수. 폭이 부족하면 1이다(workspace#R4). */
+  /** 화면에 그릴 칸 수. 폭이 부족하면 1이다. */
   readonly visiblePanes: 1 | 2;
   /** 왼쪽 칸 폭. 한 칸 보기에서는 전체 폭. */
   readonly leftWidth: number;
@@ -250,7 +250,7 @@ export interface SplitLayout {
 }
 
 /**
- * 두 칸을 그릴 폭이 있는지. 각 칸 480px와 경계 1px가 필요하다(editor#R5).
+ * 두 칸을 그릴 폭이 있는지. 각 칸 480px와 경계 1px가 필요하다.
  * 부족하면 저장된 비율·탭 소속을 바꾸지 않고 한 칸 보기로 표시한다.
  */
 export function splitLayout(
@@ -290,7 +290,7 @@ export type InfoPanelPlacement = "docked" | "overlay" | "hidden";
 
 /**
  * 정보 패널 자리. 본문 720px 또는 두 칸과 경계를 남길 때만 dock하고 아니면
- * overlay다(design-system#R25). 닫혀 있으면 hidden이다.
+ * overlay다. 닫혀 있으면 hidden이다.
  */
 export function infoPanelPlacement(
   open: boolean,
@@ -329,7 +329,7 @@ export type DragOutcome =
   | { type: "drag-cancel" };
 
 /**
- * drag 연결(shell#T10). drag-end의 마지막 DTO만 적용하고 drag-cancel은 버린다.
+ * drag 연결. drag-end의 마지막 DTO만 적용하고 drag-cancel은 버린다.
  * 실제 앱 native bounds 적용은 T39가 맡는다.
  */
 export function applyDrag<T>(

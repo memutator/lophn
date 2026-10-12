@@ -105,7 +105,7 @@ export function replay(row: StoredRow): Result<{
   });
 }
 
-// compare의 각 기준을 현재 행과 비교한다. 하나라도 다르면 handler 전에 conflict다(R12).
+// compare의 각 기준을 현재 행과 비교한다. 하나라도 다르면 handler 전에 conflict다.
 // 기준 없는 생성은 빈 객체다. 도메인 표가 아직 없으면 그 키는 handler가 거절한다.
 export function casAgrees(
   sql: Sql,
@@ -166,7 +166,7 @@ export function authorityTarget(
   return target;
 }
 
-// 저장·송신할 JSON은 같은 leaf의 validateOutput이 정한다(R3, R5). raw 비JSON·-0은 schema strip 전에
+// 저장·송신할 JSON은 같은 leaf의 validateOutput이 정한다. raw 비JSON·-0은 schema strip 전에
 // internal이고, schema를 지난 최종 JSON이 다시 schema를 지나 같은 값이어야 한다.
 function failureBody(raw: unknown): Result<never> {
   const body = validateOutput(errorBodySchema, { error: raw });

@@ -99,9 +99,9 @@ export type ToolSetup = {
   // 외부 MCP tool의 서버 이름. 없으면 내장·앱 tool이다.
   server?(definition: ToolDefinition): string | null;
   // 앱 command tool의 원래 호출 계약(AppCommandBinding)이다. 없으면 앱 tool이 아니다. 기록이
-  // 이 값을 tool_calls.app_command로 묶어 revert가 앱의 선언된 revert command를 부른다(R10).
+  // 이 값을 tool_calls.app_command로 묶어 revert가 앱의 선언된 revert command를 부른다.
   appCommand?(definition: ToolDefinition): unknown;
-  // 외부 MCP tool의 기록 확장이다(T37). 없는 tool·내장·앱은 null이다.
+  // 외부 MCP tool의 기록 확장이다. 없는 tool·내장·앱은 null이다.
   extension?(definition: ToolDefinition): {
     server_name: string;
     configuration_revision: number;
@@ -242,7 +242,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       if (!body.ok) return body;
       request = body.value;
     }
-    // handoff로 시작한 run은 맡긴 내용(무엇·왜·제외·기대 결과)이 자기 요청이다(handoff#R5).
+    // handoff로 시작한 run은 맡긴 내용(무엇·왜·제외·기대 결과)이 자기 요청이다.
     if (source.kind === "handoff") {
       const body = await readOf(machine, runBody, {
         kind: "handoff_content",
@@ -332,7 +332,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       usage: EMPTY_USAGE(model.usageRevision),
       cost: UNKNOWN_COST,
     };
-    // 수정 입력의 처음 반영은 시작 기록과 같은 transaction이다(Q30).
+    // 수정 입력의 처음 반영은 시작 기록과 같은 transaction이다.
     const started = await commandOf(
       machine,
       startModelCall,
@@ -463,7 +463,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         definition_revision: definition?.revision ?? "unlisted",
         effect: definition?.effect ?? "read",
         confirm: definition?.confirm ?? false,
-        // 외부 MCP tool의 원래 서버·tool 쌍이다(T37). 내장·앱·없는 tool은 null이다.
+        // 외부 MCP tool의 원래 서버·tool 쌍이다. 내장·앱·없는 tool은 null이다.
         extension: definition === undefined
           ? null
           : deps.tools.extension?.(definition) ?? null,
@@ -648,7 +648,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   }
 
   // 사람의 허락으로 진입이 이미 기록된 call. 현재 기록을 읽어 시작만 있을 때 실행하고, 이미 끝났으면
-  // 기록한 결과를 돌려준다. 다시 판정하거나 진입을 기록하지 않는다(R11).
+  // 기록한 결과를 돌려준다. 다시 판정하거나 진입을 기록하지 않는다.
   async function resumeTool(
     call: ToolCallRequest,
     id: string,
@@ -707,7 +707,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   }
 
   // 질문 묶음을 만든 call의 결과에서 묶음 ID를 읽는다. 질문은 추정 답으로 진행하지 않으므로 run은
-  // 그 묶음의 답을 기다린다(waiting-and-recovery R1).
+  // 그 묶음의 답을 기다린다.
   function askedQuestion(tool: string, result: ToolResult): string | undefined {
     if (tool !== questionSubmitTool.name) return undefined;
     const content = result.content;
@@ -833,7 +833,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     async answer(text) {
       // 세션 없는 주기 run은 답을 남길 대화가 없다. 결과는 run 결과와 출력 문서가 낸다.
       if (seat.session === null || text.trim() === "") return ok(undefined);
-      // 결과 링크는 이 run이 실제로 저장한 문서 판뿐이다(conversation#R4).
+      // 결과 링크는 이 run이 실제로 저장한 문서 판뿐이다.
       const saved = await resultLinks(machine, seat.run);
       if (!saved.ok) return saved;
       const recorded = await commandOf(

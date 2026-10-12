@@ -1,6 +1,6 @@
-// test runner가 요청 기록을 잇는 owner command와 제품 접수·결과 근거 port(problems/tests#R4, R5, R17, R21).
+// test runner가 요청 기록을 잇는 owner command와 제품 접수·결과 근거 port.
 // runner는 요청별 좁은 machine credential로만 이 command를 부른다. 시작 시도는 한 요청에 한 번만 확정한다:
-// 두 번째 시작 시도는 누구의 것이든 conflict라 같은 요청은 다시 시작하지 않는다(R17).
+// 두 번째 시작 시도는 누구의 것이든 conflict라 같은 요청은 다시 시작하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type CommandDefinition,

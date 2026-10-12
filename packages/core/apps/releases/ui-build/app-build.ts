@@ -1,4 +1,4 @@
-// 앱 화면 build의 신뢰된 실행(apps/releases#R3, apps/sdk#R10, R34). 앱 source는 신뢰하지 않으므로 준비는
+// 앱 화면 build의 신뢰된 실행. 앱 source는 신뢰하지 않으므로 준비는
 // 앱이 쓴 `scripts/build-ui.ts`를 실행하지 않고 이 파일이 같은 일을 한다. esbuild 입력은 staging의
 // `src/screens/<key>/main.tsx`로 고정이고 출력은 `dist/screens/<key>/`뿐이다. 앱 코드는 번들될 뿐 실행되지
 // 않는다. 호출자가 run은 deno·esbuild 실행 파일만, write는 staging만, env는 이름만 허락해 띄운다.

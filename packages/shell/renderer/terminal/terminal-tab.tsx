@@ -33,7 +33,7 @@ export interface TerminalTabProps {
   project: string;
   /** layout에 남은 시작 폴더. 복원한 탭을 사람이 다시 시작할 때 쓴다. */
   folderRef: string | null;
-  /** focus 칸의 고른 탭이다. 이때만 입력·resize를 보낸다(shell/terminal#R3). */
+  /** focus 칸의 고른 탭이다. 이때만 입력·resize를 보낸다. */
   active: boolean;
   deps: TerminalDeps;
   /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
@@ -63,7 +63,7 @@ function sameRuntime(a: Phase, b: Phase): boolean {
 
 // 프로젝트 작업대의 터미널 탭. PTY는 host가 갖고 이 화면은 보이고 입력을 넘길
 // 뿐이다. 탭을 숨기거나 옮겨도 shell은 그대로이고 다시 그리면 같은 runtime에
-// 붙는다(shell/terminal#R7, R8).
+// 붙는다.
 export function TerminalTab(
   { tabKey, project, folderRef, active, deps, onStarted }: TerminalTabProps,
 ) {
@@ -156,7 +156,7 @@ export function TerminalTab(
     }
   }, [bridge, store, tabKey, project, begin]);
 
-  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다(R9).
+  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다.
   const restart = useCallback(async () => {
     const current = store.get(tabKey);
     const ended = current?.phase.kind === "ended" ? current.phase : null;
@@ -209,7 +209,7 @@ export function TerminalTab(
   }, [deps, store, tabKey, bridge]);
 
   // 처음 그릴 때: 살아 있는 runtime이 있으면 다시 붙고, 사람이 연 탭이면 시작하고,
-  // 복원한 탭이면 누를 때까지 기다린다(shell/workspace#R7).
+  // 복원한 탭이면 누를 때까지 기다린다.
   useEffect(() => {
     lastSeqRef.current = 0;
     const current = store.get(tabKey);
@@ -271,7 +271,7 @@ export function TerminalTab(
     // liveKey가 runtime의 ref·generation을 대신한다.
   }, [liveKey]);
 
-  // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다(R3).
+  // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
   const boundRef = entry?.terminalRef ?? null;
   const boundGeneration = entry?.generation ?? 0;
   useEffect(() => {

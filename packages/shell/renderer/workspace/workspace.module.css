@@ -45,7 +45,7 @@
 }
 
 /* 떠 있는 안내 층: 추적 꺼짐·Operator·읽기 실패. 본문 높이를 쓰지 않고 왼쪽 아래에 뜬다.
-   오른쪽 아래는 notification chip 한 칸의 자리다(shell/desktop#R10, #R27). */
+   오른쪽 아래는 notification chip 한 칸의 자리다(#R27). */
 .notices {
   position: absolute;
   bottom: var(--space-6);
@@ -58,7 +58,7 @@
   pointer-events: none;
 }
 
-/* 문서 탭 tooltip: 문서 제목과 상대 경로 두 줄(shell/editor#R4). */
+/* 문서 탭 tooltip: 문서 제목과 상대 경로 두 줄. */
 .tabTip {
   display: flex;
   flex-direction: column;

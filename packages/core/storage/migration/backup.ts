@@ -14,7 +14,7 @@ import {
 } from "../../../protocol/storage/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
-// 하루 주기(R12: 매일 1회).
+// 하루 주기(매일 1회).
 export const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // manifest 파일 이름. backup 폴더의 이것만 산다. 없으면 아직 만들기 중인 folder다.
@@ -29,7 +29,7 @@ export const BACKUP_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
 
 export const BACKUP_DIR_NAME = "backups";
 
-// 최근 완료 묶음 보존 수(R12).
+// 최근 완료 묶음 보존 수.
 export const BACKUP_KEEP_COMPLETE = 7;
 
 // clock 시각(YYYY-MM-DDTHH:mm:ss.sssZ)을 filename-safe 폴더 stamp로 바꾼다.
@@ -99,7 +99,7 @@ export async function stampFolders(backupsRoot: string): Promise<string[]> {
 }
 
 // /v1/backups/list. manifest이 있는 folder만 산다. 만들기 중 folder는 manifest
-// 전이라 목록에 없다. 실패·미완성 manifest도 완료 것과 구별해 내놓는다(R10, R12).
+// 전이라 목록에 없다. 실패·미완성 manifest도 완료 것과 구별해 내놓는다.
 export async function listBackups(
   root: string,
 ): Promise<{ backups: BackupManifest[] }> {
@@ -139,7 +139,7 @@ export async function findBackupDirectory(
   return undefined;
 }
 
-// 최근 완료 묶음 keep개를 남긴다(R12). 판정은 완료 folder뿐이다. 만들기 중·실패
+// 최근 완료 묶음 keep개를 남긴다. 판정은 완료 folder뿐이다. 만들기 중·실패
 // folder는 지우지 않는다: 실패 때문에 마지막 완료를 지우는 일이 없어야 한다.
 export async function retainBackups(
   root: string,
@@ -168,7 +168,7 @@ export async function retainBackups(
 }
 
 // snapshot S의 blob을 <stamp>/blobs/sha256/<2>/<62>로 복사하고 실제 바이트를
-// 다시 검증한다(R10). 원본 blob은 0400 파일이므로 그대로 읽어 온긴다. 같은 blob을
+// 다시 검증한다. 원본 blob은 0400 파일이므로 그대로 읽어 온긴다. 같은 blob을
 // 가리키는 blob_refs 행이 여러 개여도 복사는 한 번이다(같은 hash 대상 재쓰기 금지).
 async function copyBlobs(
   root: string,
@@ -186,10 +186,10 @@ async function copyBlobs(
     try {
       bytes = await Deno.readFile(source);
     } catch {
-      // blob 존재 실패다. 참조가 남았도 실제 내용이 빠진 묶음은 미완성이다(R10).
+      // blob 존재 실패다. 참조가 남았도 실제 내용이 빠진 묶음은 미완성이다.
       return err({ code: "unavailable", message: "snapshot blob이 없다" });
     }
-    // 실제 sha256을 다시 계산한다. 등록 hash와 다르면 검증 실패다(R10).
+    // 실제 sha256을 다시 계산한다. 등록 hash와 다르면 검증 실패다.
     const digest = await sha256Hex(bytes);
     if (digest !== hash) {
       return err({
@@ -215,7 +215,7 @@ async function copyBlobs(
 }
 
 // blob_refs와 through_seq는 snapshot S에 고정된다. 열린 원본에서 따로 읽으면
-// vacuum과 시점이 어긋나므로, S를 만든 copy 안에서 읽는다(R8, R9). SQLite
+// vacuum과 시점이 어긋나므로, S를 만든 copy 안에서 읽는다. SQLite
 // 연결은 ledger 연결(sql 경계)로 열고, 이 모듈은 DatabaseSync를 import하지 않는다.
 export function snapshotRefs(
   copyPath: string,
@@ -290,7 +290,7 @@ export function verifyCopyIntegrity(copyPath: string): boolean {
   }
 }
 
-// manifest는 folder의 마지막이다. 이것 전까지 folder는 만들기 중이다(R10).
+// manifest는 folder의 마지막이다. 이것 전까지 folder는 만들기 중이다.
 async function installManifest(
   directory: string,
   manifest: BackupManifest,
@@ -313,7 +313,7 @@ async function installManifest(
   return ok(undefined);
 }
 
-// 하루 backup 만들기(R8, R9). SQLite online backup(VACUUM INTO)이 일관된
+// 하루 backup 만들기. SQLite online backup(VACUUM INTO)이 일관된
 // snapshot S를 만들고, S 안의 blob_refs를 읽어 blob을 복사·검증한 뒤 manifest를
 // 설치한다. 중간이 실패하면 manifest 전이므로 아무것도 complete되지 않는다.
 // 만들기 중 GC·삭제 막기는 backup.pending 표시로 보인다(T44가 문을 연다).
@@ -341,7 +341,7 @@ export async function createBackup(
   } catch {
     return err({ code: "unavailable", message: "folder를 만들지 못했다" });
   }
-  // 만들기가 끝나기 전 GC·삭제를 막는다(R10). 검사가 통과한 뒤 manifest 설치와
+  // 만들기가 끝나기 전 GC·삭제를 막는다. 검사가 통과한 뒤 manifest 설치와
   // 같이 뗀다.
   try {
     await Deno.writeTextFile(
@@ -352,7 +352,7 @@ export async function createBackup(
   } catch {
     return err({ code: "unavailable", message: "진행 표시를 남기지 못했다" });
   }
-  // SQLite online backup은 열린 WAL db에서 일관된 snapshot을 만든다(R9). 원본을
+  // SQLite online backup은 열린 WAL db에서 일관된 snapshot을 만든다. 원본을
   // 쓰지 않는다. backup API는 권한을 제한한 I/O worker에서도 돈다(VACUUM INTO는 attach가
   // 막혀 거기서 실패한다).
   const opened = openConnection(ledgerPath);
@@ -380,7 +380,7 @@ export async function createBackup(
     `${directory}/${BACKUP_LEDGER_PATH}`,
   );
   if (!throughSeq.ok) return throughSeq;
-  // copy의 SQLite 무결성 검사도 ledger 경계의 integrityOk로 본다(R10).
+  // copy의 SQLite 무결성 검사도 ledger 경계의 integrityOk로 본다.
   const integrityPassed = verifyCopyIntegrity(
     `${directory}/${BACKUP_LEDGER_PATH}`,
   );
@@ -398,7 +398,7 @@ export async function createBackup(
     return err({ code: "unavailable", message: "snapshot을 읽지 못했다" });
   }
   const ledgerHash = await sha256Hex(ledgerBytes);
-  // blob을 복사하고 존재·실제 sha256을 검증한다(R10).
+  // blob을 복사하고 존재·실제 sha256을 검증한다.
   const copied = await copyBlobs(deps.root, directory, refs.value);
   if (!copied.ok) return copied;
   const manifest: BackupManifest = {
@@ -421,7 +421,7 @@ export async function createBackup(
   // manifest 설치가 끝나야 complete다. 이것 전까지 folder는 pending이다.
   const installed = await installManifest(directory, manifest);
   if (!installed.ok) return installed;
-  // 최근 완료 7개를 보존한다. 실패·pending folder는 지우지 않는다(R12).
+  // 최근 완료 7개를 보존한다. 실패·pending folder는 지우지 않는다.
   const kept = await retainBackups(deps.root, BACKUP_KEEP_COMPLETE);
   if (!kept.ok) return kept;
   return ok(manifest);
@@ -432,7 +432,7 @@ export function backupBlobPath(hash: string): string {
   return `blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
 }
 
-// 하루가 지났는지 판정한다(R12: 매일 1회). 마지막 완료 manifest의 created_at에서
+// 하루가 지났는지 판정한다(매일 1회). 마지막 완료 manifest의 created_at에서
 // 24시간이 지났으면 만들 차례다. 완료 manifest가 없으면 처음 만든다.
 export async function backupDue(
   root: string,

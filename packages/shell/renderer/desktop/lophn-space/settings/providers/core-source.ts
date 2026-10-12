@@ -1,12 +1,12 @@
-// ProviderSettingsSource를 main의 core 통로로 만든다(shell/desktop#R49). 응답은 main의 contract
+// ProviderSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract
 // client가 route output schema로 이미 검사했다. 아래 모양은 그 schema(providers)에서 이 화면이 읽는
 // field만 옮긴 것이다. secret 값은 이 파일을 지나지 않는다: key·로그인 응답은 보호 창이 받고 여기서는
-// 창 열기만 한다(platform/secrets#R2).
+// 창 열기만 한다.
 //
 // provider 하나에는 연결(credential) 하나라 Connect는 provider와 credential을 함께 받는
 // RegisterProvider 하나다. key로 연결하는 일은 이 통로가 core를 부르지 않고 등록 정보를 실은 보호 창을
 // 열면 그 창이 값을 받아 RegisterProvider를 부른다. 끊기도 확인 창을 열 뿐이다: 결정은 그 창에서만
-// 받는다(lophn-agent/harness/provider#R6).
+// 받는다.
 import { t } from "@lophn/wording";
 
 import type { OpenExternalApi } from "../../../../../ipc/open-external.ts";
@@ -307,7 +307,7 @@ export function coreProviderSettingsSource(
     async registerCustom(input: CustomProviderInput) {
       const base = input.baseUrl.replace(/\/+$/, "");
       const remote = base.startsWith("https://");
-      // 웹 주소는 key가 있어야 한다. 인증 없음은 이 컴퓨터의 주소에만 있다(provider#R5).
+      // 웹 주소는 key가 있어야 한다. 인증 없음은 이 컴퓨터의 주소에만 있다.
       if (remote && !input.withKey) {
         return { ok: false, code: "invalid_input" };
       }

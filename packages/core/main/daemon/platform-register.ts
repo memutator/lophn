@@ -174,7 +174,7 @@ export function createCoreRegistration() {
   return {
     commands: platformDefinitions.commands,
     blobFields: platformDefinitions.blobFields,
-    // notifications 구독자만 자기 cursor를 올린다(platform/notifications#R1, R2).
+    // notifications 구독자만 자기 cursor를 올린다.
     subscribers: platformSubscribers(),
   };
 }
@@ -185,7 +185,7 @@ export function platformSubscribers(): SubscriberBinding[] {
       name: NOTIFICATION_SUBSCRIBER,
       authorize: (ctx) => ok(isNotifications(ctx)),
     },
-    // AppCreated 반응 구독자만 자기 cursor를 올린다(assignments#R1).
+    // AppCreated 반응 구독자만 자기 cursor를 올린다.
     {
       name: ASSIGNMENT_SUBSCRIBER,
       authorize: (ctx) => ok(isAssignmentReactions(ctx)),

@@ -83,7 +83,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       },
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
-    // 외부 MCP 연결과 등록 통로다(Q16, T37). 프로세스 수명의 상태는 entry에서
+    // 외부 MCP 연결과 등록 통로다. 프로세스 수명의 상태는 entry에서
     // 만들어 넘기므로(architecture) productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
@@ -99,10 +99,10 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       toolkit: productToolkit({
         machine: calls.machine,
         ids,
-        // 외부 MCP tool 등록 통로다(Q16, T37). 등록·재조회는 mcp-toolkit이 소유한다.
+        // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (assignment: string) => mcpKit.toolkit(assignment),
       }),
-      // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회(lophn-agent/harness/tools R16).
+      // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회.
       apps: createAppToolkit({ machine: calls.machine }),
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
@@ -124,7 +124,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           (input) => readOf(calls.machine, instructionRead, input),
         ),
       redact: calls.redact,
-      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다(extensions R1, R32). 설정이 없으면 빈 목록이다.
+      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 설정이 없으면 빈 목록이다.
       skills: (place) =>
         registeredSkillEntries(calls.machine, productSkillStores(place)),
     });
@@ -146,7 +146,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
 export const PUMP_IDLE_MS = 500;
 export const PUMP_WAITING_MS = 2_000;
 
-// 제품 MCP 연결 눈이다(Q16, T37). 실제 stdio process를 열고(spawnStdioMcp) 단조
+// 제품 MCP 연결 눈이다. 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
 export function mcpConnectionsDeps(
   secrets?: McpConnectionsDeps["secrets"],
@@ -168,7 +168,7 @@ export function mcpConnectionsDeps(
       }),
     // HTTP MCP는 core가 child 권한에 더한 등록 server의 정확한 host:port로만 닿는다.
     fetch: (url, init) => fetch(url, init),
-    // bearer·api_key·secret_ref 헤더의 값은 core가 감독 pipe로 요청마다 한 번 건넨다(R17).
+    // bearer·api_key·secret_ref 헤더의 값은 core가 감독 pipe로 요청마다 한 번 건넨다.
     ...(secrets === undefined ? {} : { secrets }),
     openStdio: (_server, input, signal) => {
       void signal;

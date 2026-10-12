@@ -14,14 +14,14 @@ import { sourceRelativePathSchema, ticketIdSchema } from "./ticket-values.ts";
 // TUI 프로세스 env에는 connection 참조 값만 넘긴다(→ coding-agent/connection).
 export const LOPHN_CONNECTION = "LOPHN_CONNECTION";
 
-// 끝난 방식은 자기 터미널 안내와 terminal_tui 둘뿐이다(sessions#R1).
+// 끝난 방식은 자기 터미널 안내와 terminal_tui 둘뿐이다.
 export const LAUNCH_METHODS = ["terminal_tui"] as const;
 
 export const launchMethodSchema = z.literal("terminal_tui");
 
 export type LaunchMethod = (typeof LAUNCH_METHODS)[number];
 
-// 자기 터미널 안내는 lophn이 process를 열지 않는 방식이다(sessions#R1). plan이 아니라 안내를 낸다.
+// 자기 터미널 안내는 lophn이 process를 열지 않는 방식이다. plan이 아니라 안내를 낸다.
 export const OWN_TERMINAL_METHOD = "own_terminal";
 
 // 결과 유실·재시작은 실패도 성공도 아니다. 이유와 함께 unknown으로 둔다.
@@ -57,7 +57,7 @@ export const launchResultBodySchema = z.object({
 
 export type LaunchResultBody = z.infer<typeof launchResultBodySchema>;
 
-// readiness 신호는 adapter가 정하고 기한은 spawn부터 센다(sessions#R5).
+// readiness 신호는 adapter가 정하고 기한은 spawn부터 센다.
 export const PROMPT_DELIVERY_MODES = ["argv", "stdin_after_ready"] as const;
 
 export const promptDeliveryModeSchema = z.enum(PROMPT_DELIVERY_MODES);
@@ -120,7 +120,7 @@ export const codingAgentLaunchPlanSchema = z.object({
 export type CodingAgentLaunchPlan = z.infer<typeof codingAgentLaunchPlanSchema>;
 
 // shell main이 user 자격으로 다시 읽은 현재 사실이다. plan child는 core를 읽지 않고(connection credential
-// 전달은 등록된 child만 받는다) 이 값을 쓴다. 없으면 plan은 시작하지 않는다(sessions#R4).
+// 전달은 등록된 child만 받는다) 이 값을 쓴다. 없으면 plan은 시작하지 않는다.
 export const sessionPlanFactsSchema = z.object({
   ticket_app: idSchema("app"),
   screen_state: ticketScreenStateSchema,

@@ -8,7 +8,7 @@ import { fitJson } from "../result.ts";
 import { bodyOf, continuation, wrap } from "./paging.ts";
 
 // 시각 묶음이 저장된 메시지 본문을 읽어 보여 주는 모양이다. 저장된 명세는 값 그대로 두고 크기
-// 상한 안의 창으로만 나눈다(R19).
+// 상한 안의 창으로만 나눈다.
 
 // 한 번에 읽는 항목 수(표 행, 차트 점, 도표 node·edge)의 상한이다. 24 KiB 상한이 먼저 닿으면 더 적다.
 const READ_ITEMS = 100;

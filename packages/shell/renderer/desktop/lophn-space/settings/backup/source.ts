@@ -19,7 +19,7 @@ export interface BackupRow {
   readonly sizeBytes: number;
 }
 
-/** 복원 계획. 잃을 최신 기록 범위와 확인 기준이다(platform#T42). */
+/** 복원 계획. 잃을 최신 기록 범위와 확인 기준이다. */
 export interface RestorePlanView {
   readonly createdAt: string;
   readonly throughSeq: string;

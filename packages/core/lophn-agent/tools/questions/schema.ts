@@ -11,10 +11,10 @@ import {
 // domain-model lophn-agent/questions의 `question_groups`·`questions` 표. 묶음은 상태·기한·
 // 종료를 갖고 질문은 묶음 안의 값(본문 hash·선택지·추천·답)을 갖는다.
 //
-// 같은 run에 답을 기다리는 묶음은 하나다(partial unique, R2). 내용(run·session·기한과 묶음 안
-// 질문의 본문·이유·선택지·추천)은 생성 뒤 덮어쓰지 않고(R5), 닫힌 묶음은 다시 바뀌지 않으며(R9),
+// 같은 run에 답을 기다리는 묶음은 하나다(partial unique). 내용(run·session·기한과 묶음 안
+// 질문의 본문·이유·선택지·추천)은 생성 뒤 덮어쓰지 않고, 닫힌 묶음은 다시 바뀌지 않으며,
 // 지움은 진행 중인 run의 묶음을 막고, 끝난 run의 묶음은 DeleteSession이 지운다(erase.ts). 질문의 답은 묶음이 answered가 될 때 한 번에 채운다: 일부
-// 질문만 답한 저장은 없다(R4). 본문은 열에 없고 blob hash만 남는다. session은 conversation의
+// 질문만 답한 저장은 없다. 본문은 열에 없고 blob hash만 남는다. session은 conversation의
 // sessions 표를 소유한 concern 몫이라 참조 검사 없이 ID만 두고 run의 session과 같은지 command가
 // 본다.
 export const questionSchemaSteps: readonly SchemaStep[] = [
@@ -105,7 +105,7 @@ end;`,
 // 질문의 본문·이유·선택지 설명·추천 설명·자유 답·닫은 이유는 blob 참조만 남는다. 참조의 owner는
 // 묶음이다(owner_key는 묶음 ID). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람, 그
 // assignment의 agent, machine, 글 일부는 coding_agent)는 ReadQuestionText가 판정한다(질문 답의
-// secret 경계는 screen.ts, R11).
+// secret 경계는 screen.ts).
 export const questionBodyFields: readonly BlobFieldDefinition[] = Object.values(
   QUESTION_BLOB_FIELDS,
 ).map((field) =>

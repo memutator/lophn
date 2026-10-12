@@ -120,7 +120,7 @@ function viewsOf(
       release: declarations.release,
     };
     if (closed !== null) return { ...view, reason: closed };
-    // external 회차는 켜는 승인 전에는 돌지 않는다(R13).
+    // external 회차는 켜는 승인 전에는 돌지 않는다.
     if (declared.external && !approved.has(declared.key)) {
       return {
         ...view,

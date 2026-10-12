@@ -35,7 +35,7 @@ function loopback(value: string): boolean {
 }
 
 // Connect: provider와 그 credential 하나를 함께 받는다. secret 원값은 받지 않고 보호 입력이 보관한 뒤의
-// 준비 증거만 받는다. 인증 없음(none)은 custom provider의 loopback 주소에만 있고 증거가 없다(provider#R5).
+// 준비 증거만 받는다. 인증 없음(none)은 custom provider의 loopback 주소에만 있고 증거가 없다.
 export const registerProviderInputSchema = z.strictObject({
   id: idSchema("pvd"),
   name: nonblankSchema,
@@ -67,7 +67,7 @@ export const providerRevisionCompareSchema = z.strictObject({
   revision: positiveIntegerSchema,
 });
 
-// Disconnect: provider와 그 credential(secret)을 함께 지운다. 확인 창을 거친다(provider#R6).
+// Disconnect: provider와 그 credential(secret)을 함께 지운다. 확인 창을 거친다.
 export const disconnectProviderInputSchema = z.strictObject({
   provider: idSchema("pvd"),
 });

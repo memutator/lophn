@@ -5,7 +5,7 @@ import type {
 } from "../../../protocol/base/mod.ts";
 
 // lophn-agent/harness/safety가 쓰는 자료 경계 표식 모양. platform은 이 표식을
-// 쓰지 않지만 직렬화하는 문자열이 이 표식을 흉내 내면 안 된다(platform/security#R10).
+// 쓰지 않지만 직렬화하는 문자열이 이 표식을 흉내 내면 안 된다.
 export const DATA_START_MARKER = "~~~data";
 export const DATA_END_MARKER = "~~~";
 
@@ -22,7 +22,7 @@ export type DataOrigin = {
 };
 
 // 문서·제목·주소·앱 응답·log·summary·수리 자료는 분류 없이 쓸 수 없다.
-// 이 재료는 항상 data다. 출처를 알면 source·revision을 그대로 남긴다(R11).
+// 이 재료는 항상 data다. 출처를 알면 source·revision을 그대로 남긴다.
 export function dataEnvelope(text: string, origin?: DataOrigin): DataEnvelope {
   return {
     trust: "data",
@@ -39,7 +39,7 @@ export function defuseBoundaryMarkers(text: string): string {
   );
 }
 
-// 출처 불명은 data다(platform/security#R11). source 없는 신뢰 주장은 승격 절차를
+// 출처 불명은 data다. source 없는 신뢰 주장은 승격 절차를
 // 거치지 않았으므로 물린다. 실제 승격 검사는 identity·approvals 입구가 한다.
 function demoted(value: DataEnvelope): DataEnvelope {
   return {

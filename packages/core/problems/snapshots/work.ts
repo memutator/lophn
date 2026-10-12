@@ -1,4 +1,4 @@
-// exception snapshot 조립(snapshots#R1–R6, R8–R11, R18, R20; plan problems T4).
+// exception snapshot 조립(plan problems T4).
 // raw 문자는 인증된 observer → collector bounded memory에만 있다. 이 조립은
 // redaction → stack blob 준비 → source map 위치 찾기 → 지문 key까지를
 // bounded memory에서 끝내고 permanent content는 hash뿐이다.
@@ -88,7 +88,7 @@ function stackBytesOf(stack: string, limit: number): {
   };
 }
 
-// prepared 출처의 앱 frame 위치 찾기(snapshots#R11). source map으로 stack의
+// prepared 출처의 앱 frame 위치 찾기. source map으로 stack의
 // 생성 위치를 원본 상대 path·줄로 찾는다: 위치를 아는 stack은 같은 생성 위치의
 // mapping만 취하고, 준비 폴더 밖 path는 읽지 않는다.
 export async function resolveStackFrames(
@@ -130,7 +130,7 @@ export async function resolveStackFrames(
   if (!map.ok) {
     return { frames: [], source_missing_reason: map.error.message };
   }
-  // 최초 mappings를 풀기 전 크기 한도는 stack_bytes다(snapshots#R18).
+  // 최초 mappings를 풀기 전 크기 한도는 stack_bytes다.
   if (new TextEncoder().encode(map.value).length > LIMITS.stack_bytes) {
     return { frames: [], source_missing_reason: "source map이 limit를 넘는다" };
   }
@@ -160,7 +160,7 @@ export async function resolveStackFrames(
   const frames: SourceFrame[] = [];
   if (positional !== null) {
     // 위치 원문을 아는 stack은 같은 줄에서 대상 열 이하 가장 큰 표지 하나만
-    // 취한다(source map 탐색 규칙, snapshots#R11). stack 열은 1-based,
+    // 취한다(source map 탐색 규칙). stack 열은 1-based,
     // source map 열은 0-based다.
     const target = positional.column - 1;
     let chosen: {
@@ -198,7 +198,7 @@ export async function resolveStackFrames(
         source_missing_reason: "stack 위치의 source map 표지가 없다",
       };
     }
-    // sources를 준비 폴더 안 상대 path로 좁힌다(snapshots#R6).
+    // sources를 준비 폴더 안 상대 path로 좁힌다.
     const path = relativeToFolder(sourceName);
     if (path === null) {
       return {
@@ -225,10 +225,10 @@ export async function resolveStackFrames(
     if (frames.length >= LIMITS.snapshot_frames) return;
     const sourceName = sources[entry.sourceIndex];
     if (typeof sourceName !== "string") return;
-    // sources를 준비 폴더 안 상대 path로 좁힌다(snapshots#R6).
+    // sources를 준비 폴더 안 상대 path로 좁힌다.
     const path = relativeToFolder(sourceName);
     if (path === null) {
-      // 준비 폴더 밖 소스는 위치 원본을 남기지 않는다(R6).
+      // 준비 폴더 밖 소스는 위치 원본을 남기지 않는다.
       return;
     }
     frames.push({
@@ -254,7 +254,7 @@ export async function resolveStackFrames(
 }
 
 // 준비 폴더 밖 소스 이름 판정. webpack:/~ / file: / absolute 모양은
-// 준비 폴더 안 상대 path가 아니다(snapshots#R6).
+// 준비 폴더 안 상대 path가 아니다.
 const OUTSIDE_SOURCE = /^[A-Za-z][A-Za-z0-9+.-]*:|^[\\/]|^[A-Za-z]:|\.\.|\\/;
 
 type StackSite = {
@@ -384,7 +384,7 @@ function walkAllMappings(
     originalColumn: number;
   }) => void,
 ): Result<true, SourceMapFailure> {
-  // mappings 크기 한도는 stack_bytes다: 이 안에서만 푼다(R18).
+  // mappings 크기 한도는 stack_bytes다: 이 안에서만 푼다.
   if (new TextEncoder().encode(mappings).length > LIMITS.stack_bytes) {
     return err({ code: "unavailable", message: "source map이 limit를 넘는다" });
   }
@@ -480,15 +480,15 @@ export type AssemblyDeps = {
   blobPrepare: SnapshotBlobPrepare;
   // 당시 release의 읽기 전용 준비 폴더 출처.
   folder: PreparedFolderSource;
-  // 접수 시각 원문(UTC ISO). 수집 시각은 별도로 둔다(snapshots#R1).
+  // 접수 시각 원문(UTC ISO). 수집 시각은 별도로 둔다.
   nowAt: string;
   // principal은 report 원주체와 같아야 한다(registerBlobs의 원주체 검사).
   principal: string;
-  // 조립 기한 재는 단조 시계. 기본은 Date.now다(테스트가 시계를 준다, snapshots#R18).
+  // 조립 기한 재는 단조 시계. 기본은 Date.now다(테스트가 시계를 준다).
   monotonicNow?: () => number;
-  // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다(이유로 남는다, snapshots#R4).
+  // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다(이유로 남는다).
   logs?: {
-    // 진단 상세 수집 설정. 꺼져 있으면 새 로그를 모으지 않는다(snapshots#R7).
+    // 진단 상세 수집 설정. 꺼져 있으면 새 로그를 모으지 않는다.
     // null은 설정을 읽지 못한 것이다.
     detailCollection: boolean | null;
     source: AppLogSource | null;
@@ -506,7 +506,7 @@ export type AssembledException = {
 };
 
 // exception observation에서 SnapshotInput과 지문 key를 조립한다(snapshots#R1–R6,
-// R8–R11, R18, R20; grouping#R2, R3). raw 문자는 결과에 남지 않는다.
+// R8–R11, R18, R20). raw 문자는 결과에 남지 않는다.
 export async function assembleException(
   input: ObservedExceptionInput,
   evidence: {
@@ -520,7 +520,7 @@ export async function assembleException(
   const startedAt = deps.nowAt;
   const collectLogs = (stackBytes: number) =>
     collectLogEvidence(
-      // app은 credential에서 온 값이다. 로그 내용이나 observation이 바꾸지 못한다(R6).
+      // app은 credential에서 온 값이다. 로그 내용이나 observation이 바꾸지 못한다.
       { app: evidence.app, invocation: input.invocation?.id ?? null },
       {
         detailCollection: deps.logs === undefined
@@ -531,13 +531,13 @@ export async function assembleException(
         blobPrepare: deps.blobPrepare,
         principal: deps.principal,
         nowAt: deps.nowAt,
-        // 전체 조립 기한은 2,000ms다(snapshots#R18). 로그는 남은 시간만 쓴다.
+        // 전체 조립 기한은 2,000ms다. 로그는 남은 시간만 쓴다.
         remainingMs: LIMITS.snapshot_assembly_ms -
           (monotonicNow() - startedMs),
         remainingLargeBytes: LIMITS.snapshot_large_bytes - stackBytes,
       },
     );
-  // raw error는 observation schema가 검증한 것만 이름으로 둔다(R1).
+  // raw error는 observation schema가 검증한 것만 이름으로 둔다.
   const rawError = input.error;
   const invocation = input.invocation;
   const snapshotId = `snp_${input.report_id.slice("rpt_".length)}`;
@@ -599,7 +599,7 @@ export async function assembleException(
       stackHash = prepared.value.hash;
       stackPrepared = prepared.value;
     } else {
-      // blob 저장 실패는 그 항목의 이유를 고정하고 남은 자료로 접수한다(R5).
+      // blob 저장 실패는 그 항목의 이유를 고정하고 남은 자료로 접수한다.
       truncationNotes.push(
         `stack blob 준비 실패(${prepared.error.message}); stack hash는 남기지 않는다`,
       );

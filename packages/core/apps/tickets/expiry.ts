@@ -1,4 +1,4 @@
-// claim 기한 규칙(coding-agent/tickets#R12, R13). 기한은 claim·명시 갱신 시각부터
+// claim 기한 규칙. 기한은 claim·명시 갱신 시각부터
 // 정확히 3,600,000ms다. 읽기·release 준비·무호출은 기한을 바꾸지 않는다.
 // 만료 정리는 60초마다·재시작 때 하되, 정리 전이라도 쓰기는 즉시 기한을 검사한다.
 export const CLAIM_DURATION_MS = 3_600_000;
@@ -27,7 +27,7 @@ export type ClaimCheck = { ok: true; expires_at: string; app?: string } | {
   reason: ClaimReject;
 };
 
-// 경계는 거절이다. now가 기한과 같으면 이미 만료다(R12).
+// 경계는 거절이다. now가 기한과 같으면 이미 만료다.
 export function expired(expiresAtMs: number, nowMs: number): boolean {
   return nowMs >= expiresAtMs;
 }
@@ -36,8 +36,8 @@ export function expiresAt(fromMs: number): number {
   return fromMs + CLAIM_DURATION_MS;
 }
 
-// 현재 claim 검사. 정리 전이라도 만료·회수·다른 seq는 즉시 거절한다(R13).
-// connection 회수는 claim 행이 남아 있어도 거절한다(connection#R8).
+// 현재 claim 검사. 정리 전이라도 만료·회수·다른 seq는 즉시 거절한다.
+// connection 회수는 claim 행이 남아 있어도 거절한다.
 export function checkClaim(input: {
   state: string;
   readiness: string;

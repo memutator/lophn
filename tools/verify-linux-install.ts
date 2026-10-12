@@ -1,11 +1,11 @@
-// 설치된 Linux 묶음의 실제 확인이다(platform#T48, platform/install-and-update#R1~R6, R8, security#R4).
+// 설치된 Linux 묶음의 실제 확인이다.
 //
 //   deno run --allow-all tools/verify-linux-install.ts [--root /opt/lophn] [--bin /usr/bin]
 //
 // Ubuntu 24.04 이상에서 .deb를 설치한 뒤 부른다. 사람의 데이터 폴더는 절대 열지 않는다:
 // 모든 실행은 이 도구가 만든 임시 HOME·LOPHN_HOME을 쓴다. `--root`에 `dpkg-deb -x`로 푼 임시
 // 폴더를 줄 수도 있다: 그때 root 소유·4755와 실제 sandbox 항목은 통과가 아니라 "미확인"이고,
-// 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다(R1).
+// 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다.
 import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
 import {
   checkRunningSandbox,
@@ -164,7 +164,7 @@ async function runLauncher(
   }
 }
 
-// 문서 format runner의 wasm이 cache 없이 설치 묶음의 node_modules에서 찾아진다(R4).
+// 문서 format runner의 wasm이 cache 없이 설치 묶음의 node_modules에서 찾아진다.
 async function checkFormatRunnerWasm(): Promise<void> {
   const contract =
     `${layout.platform}/packages/core/projects/formats/guest/contract.ts`;

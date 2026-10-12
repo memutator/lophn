@@ -25,7 +25,7 @@ export const harnessEnvironmentSchema = z.object({
 
 export type HarnessEnvironment = z.infer<typeof harnessEnvironmentSchema>;
 
-// PATH와 정한 bounded fallback만 읽는다(harnesses#R2). home 전체 순회는 없다.
+// PATH와 정한 bounded fallback만 읽는다. home 전체 순회는 없다.
 export const DISCOVERY_RESULTS = [
   "unobserved",
   "detected",
@@ -46,7 +46,7 @@ export const harnessCandidateSchema = z.object({
 
 export type HarnessCandidate = z.infer<typeof harnessCandidateSchema>;
 
-// parsed version 성공만 verified다. 존재만으로 인정하지 않는다(harnesses#R3).
+// parsed version 성공만 verified다. 존재만으로 인정하지 않는다.
 export const VERSION_RESULTS = ["verified", "unknown", "error"] as const;
 
 export const versionResultSchema = z.enum(VERSION_RESULTS);
@@ -66,7 +66,7 @@ export const harnessVersionSchema = pairedReason({
 
 export type HarnessVersion = z.infer<typeof harnessVersionSchema>;
 
-// auth 파일 존재만으로 verified 금지(harnesses#R3). 원문은 없다(R12).
+// auth 파일 존재만으로 verified 금지. 원문은 없다.
 export const AUTH_RESULTS = [
   "verified",
   "not_verified",
@@ -88,7 +88,7 @@ export const harnessAuthSchema = z.object({
 
 export type HarnessAuth = z.infer<typeof harnessAuthSchema>;
 
-// raw stdout는 없다. classifier·timeout·side effects만 남긴다(harnesses#R12).
+// raw stdout는 없다. classifier·timeout·side effects만 남긴다.
 export const harnessProbeResultSchema = z.object({
   probe: z.string().min(1),
   outcome: z.string().min(1),
@@ -188,7 +188,7 @@ export const componentObservationSchema = z.object({
 
 export type ComponentObservation = z.infer<typeof componentObservationSchema>;
 
-// 네 stage 각각 한 번씩이다(harnesses#R10). current 파일이 loading success가 아니다.
+// 네 stage 각각 한 번씩이다. current 파일이 loading success가 아니다.
 export const LOADING_STAGES = [
   "mcp_initialize",
   "tool_discovery",
@@ -239,7 +239,7 @@ export type HarnessIntegrationObservation = z.infer<
   typeof harnessIntegrationObservationSchema
 >;
 
-// 설치는 resource별 outcome과 receipt 결과를 낸다(harnesses#R9).
+// 설치는 resource별 outcome과 receipt 결과를 낸다.
 export const RECEIPT_OUTCOMES = [
   "changed",
   "unchanged",
@@ -261,7 +261,7 @@ export const resourceInstallResultSchema = z.object({
 
 export type ResourceInstallResult = z.infer<typeof resourceInstallResultSchema>;
 
-// 비었으면 enabled·detected·검증된 후보 하나를 제안한다(harnesses#R5).
+// 비었으면 enabled·detected·검증된 후보 하나를 제안한다.
 export const harnessSuggestionSchema = z.object({
   suggested_harness: harnessIdSchema.nullable(),
   candidates: z.array(harnessCandidateSchema),

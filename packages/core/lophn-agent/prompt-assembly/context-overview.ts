@@ -1,4 +1,4 @@
-// context 자료(lophn-agent/harness/prompt-assemble#R4, R5)다. resolved agent의 context(`ResolvedAgent.contexts`)마다
+// context 자료다. resolved agent의 context(`ResolvedAgent.contexts`)마다
 // overview(type·뜻·개수, type 사이 관계)와 용어집을 core 읽기로 모아 prompt 자료 글로 만든다. 어느 context인지는
 // agent 층이 정한다: Operator는 정의가 고른 것, built-in은 자리 project의 active 전부, App Engineer는 앱 자리에서
 // 그 앱을 읽는 context다(lophn-agent/agents).
@@ -93,7 +93,7 @@ export type ContextMaterial = {
   title: string;
   bundle_hash: string;
   text: string;
-  // prompt 축소(prompt-assemble R18)가 단계별로 쓰는 조각이다. `text`는 머리와 이 조각의 합이다.
+  // prompt 축소가 단계별로 쓰는 조각이다. `text`는 머리와 이 조각의 합이다.
   overview: string;
   glossary: string;
   type_names: readonly string[];

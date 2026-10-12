@@ -1,4 +1,4 @@
-// documents coordinator의 search consumer 조립(documents#T21). derived store를 열고
+// documents coordinator의 search consumer 조립. derived store를 열고
 // (유일한 writer), core가 event 구독에서 읽어 보낸 event와 저장 판의 원문으로 section 추출 →
 // 결과·FTS·cursor를 한 derived transaction에 쓴다. 원문 바이트는 요청 앞에 byte chunk
 // frame으로 와서 inbox에 있고, 추출은 권한 없는 format runner가 한다.

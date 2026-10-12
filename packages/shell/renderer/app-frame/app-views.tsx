@@ -1,4 +1,4 @@
-// 프로젝트 앱 패널 탭과 세션 앱 카드가 같이 쓰는 창 통로(shell/app-frame#R33). view는 shell
+// 프로젝트 앱 패널 탭과 세션 앱 카드가 같이 쓰는 창 통로. view는 shell
 // preload의 view 통로로 main이 열고, 이름·판은 core의 app read로 읽는다. 앱 UI 코드와 앱 scheme
 // 자원은 여기 오지 않는다. 창마다 하나를 provider로 둔다.
 import { createContext, useContext } from "react";
@@ -112,7 +112,7 @@ interface BlueprintValue {
 const APP_PAGE_LIMIT = 10;
 
 /**
- * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언(shell/workspace#R5). 활성 앱 목록(core `apps.list`)에서
+ * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언. 활성 앱 목록(core `apps.list`)에서
  * 판이 채택된 앱의 blueprint(`apps.blueprint`)를 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
  * 목록을 읽지 못하면 실패다.
  */

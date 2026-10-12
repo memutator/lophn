@@ -4,8 +4,8 @@ import type { Clock } from "../../../base/mod.ts";
 
 // skill 발견·검증·선택(concern lophn-agent/extensions). 파일 IO는 FilesPort로
 // 끼운다. 이 모듈은 사람의 실제 home·app 소스·다른 harness 보관소를 열지 않는다:
-// 부르는 쪽이 발견 root·개인 보관소·동봉 폴더를 정해서 준다(R1). 테스트는
-// temp dir만 쓴다. 발견 cache는 없다(R8): run 경계마다 다시 스캔해서 RunBasis에
+// 부르는 쪽이 발견 root·개인 보관소·동봉 폴더를 정해서 준다. 테스트는
+// temp dir만 쓴다. 발견 cache는 없다: run 경계마다 다시 스캔해서 RunBasis에
 // 고정할 content hash를 만든다.
 
 // 폴더·파일을 보는 눈이다. runtime은 실제 폴더 port를, 테스트는 temp dir
@@ -29,7 +29,7 @@ export type SkillScope = "place" | "registered" | "personal" | "bundled";
 
 export type SkillSupplemental = {
   title: string;
-  // bundle 폴더 안의 상대 경로다. `..`·절대 경로는 발견에서 제외한다(R7).
+  // bundle 폴더 안의 상대 경로다. `..`·절대 경로는 발견에서 제외한다.
   relative_path: string;
   hash: string;
 };
@@ -37,27 +37,27 @@ export type SkillSupplemental = {
 export type SkillEntry = {
   name: string;
   description: string;
-  // SKILL.md 원문의 sha256이다. run 시작에 RunBasis로 고정한다(R8).
+  // SKILL.md 원문의 sha256이다. run 시작에 RunBasis로 고정한다.
   content_hash: string;
   source_kind: SkillScope;
   // registered root의 등록 순번이다. personal·bundled에는 없다.
   folder_order: number | null;
-  // platform이 읽는 절대 위치다. agent prompt에는 나가지 않는다(R5).
+  // platform이 읽는 절대 위치다. agent prompt에는 나가지 않는다.
   bundle_path: string;
   supplemental: readonly SkillSupplemental[];
-  // 발견 목록과 preset의 정확한 이름 선택의 교집합이다(R4, R30).
+  // 발견 목록과 preset의 정확한 이름 선택의 교집합이다.
   selected: boolean;
   discovered_at: string;
 };
 
-// 사람에게 알릴 제외 진단이다(R2, R3). bundle_path처럼 진단은 사람용이고
+// 사람에게 알릴 제외 진단이다. bundle_path처럼 진단은 사람용이고
 // agent prompt에는 나가지 않는다.
 export type SkillSkipped = {
   path: string;
   reason: string;
 };
 
-// 같은 이름으로 밀려난 발견이다(R3). 먼저 발견한 것 하나만 남는다.
+// 같은 이름으로 밀려난 발견이다. 먼저 발견한 것 하나만 남는다.
 export type SkillShadowing = {
   name: string;
   kept_bundle: string;
@@ -68,23 +68,23 @@ export type SkillDiscovery = {
   entries: readonly SkillEntry[];
   skipped: readonly SkillSkipped[];
   shadowing: readonly SkillShadowing[];
-  // preset이 골랐지만 발견하지 못한 이름이다(R4).
+  // preset이 골랐지만 발견하지 못한 이름이다.
   missing: readonly string[];
 };
 
-// 형식 상한이다(R2).
+// 형식 상한이다.
 export const SKILL_NAME_MAX = 64;
 export const SKILL_DESCRIPTION_MAX = 1024;
 
 // bundle 폴더 안의 manifest 이름이다.
 export const SKILL_MANIFEST = "SKILL.md";
 
-// 본문이 이 상한을 넘으면 읽기는 전체를 주지 못하고 실패다(R6).
+// 본문이 이 상한을 넘으면 읽기는 전체를 주지 못하고 실패다.
 export const SKILL_BODY_MAX_BYTES = 24 * 1024;
 
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-// skill 이름 검사다(R2). 고치지 않는다: 대문자·연속 하이픈·앞뒤 하이픈은
+// skill 이름 검사다. 고치지 않는다: 대문자·연속 하이픈·앞뒤 하이픈은
 // 제외 사유다.
 export function skillNameReason(name: unknown): string | null {
   if (typeof name !== "string" || name.length === 0) {
@@ -99,7 +99,7 @@ export function skillNameReason(name: unknown): string | null {
   return null;
 }
 
-// 설명 검사다(R2). 공백만으로 되지 않은 1~1,024자다.
+// 설명 검사다. 공백만으로 되지 않은 1~1,024자다.
 export function skillDescriptionReason(description: unknown): string | null {
   if (typeof description !== "string" || !/\S/.test(description)) {
     return "skill description is missing";
@@ -116,7 +116,7 @@ export type SkillFrontmatter = {
   body: string;
 };
 
-// YAML 머리에서 name·description만 단순행으로 본다(R2). 전체 YAML을 풀지
+// YAML 머리에서 name·description만 단순행으로 본다. 전체 YAML을 풀지
 // 않는다: 블록·flow 표기·중복 key·닫히지 않은 fence는 고치지 않고 실패 사유다.
 // 모르는 단순 key는 지우지 않고 무시한다(Agent Skills 형식의 다른 기록 필드를
 // 남기기 위해서다).
@@ -167,7 +167,7 @@ export function parseSkillFrontmatter(
 }
 
 // 단순 scalar만 받는다. 따옴표는 한 겹까지만 벗긴다. 블록·flow 표기는
-// 고치지 않는다(R2).
+// 고치지 않는다.
 function scalarReasonOrValue(raw: string): string | { value: string } {
   const value = raw.replace(/^\s+/, "").replace(/\s+$/, "");
   if (value.length === 0) return { value: "" };
@@ -203,25 +203,25 @@ type Candidate = {
 export type SkillDiscoveryInput = {
   port: SkillFilesPort;
   clock: Clock;
-  // 그 agent 자리(project·app)의 skill 폴더다. 가장 먼저 찾고(R1, R32) 폴더 자신은 꾸러미가 아니라
+  // 그 agent 자리(project·app)의 skill 폴더다. 가장 먼저 찾고 폴더 자신은 꾸러미가 아니라
   // 꾸러미를 담는 폴더다. 없으면 null이다.
   place_store?: string | null;
-  // 등록 root는 사람이 정한 등록 순서 그대로다(R1).
+  // 등록 root는 사람이 정한 등록 순서 그대로다.
   registered_roots: readonly string[];
   // 개인 skill 보관소 폴더다. 없으면 null이다.
   personal_store: string | null;
   // 동봉 skill 폴더다(설치 bundle의 assets/skills). 없으면 null이다.
   bundled_root: string | null;
-  // manifest·보조 파일 읽기 상한이다(R6).
+  // manifest·보조 파일 읽기 상한이다.
   max_file_bytes: number;
-  // preset이 고른 정확한 skill 이름이다(R4). null은 아직 고정이 아니고
-  // 빈 목록은 0개다(R30).
+  // preset이 고른 정확한 skill 이름이다. null은 아직 고정이 아니고
+  // 빈 목록은 0개다.
   selection: readonly string[] | null;
 };
 
-// 발견은 run 경계에서만 한다(R8). 자리→등록 root 순서→개인→동봉 순서로 폴더 자신과
-// 바로 아래 skill 꾸러미만 본다(R1, R32). 같은 이름은 먼저 발견한 것을 남기고(R3),
-// selection은 정확한 이름 목록의 교집합이다(R4, R30).
+// 발견은 run 경계에서만 한다. 자리→등록 root 순서→개인→동봉 순서로 폴더 자신과
+// 바로 아래 skill 꾸러미만 본다. 같은 이름은 먼저 발견한 것을 남기고,
+// selection은 정확한 이름 목록의 교집합이다.
 export async function discoverSkills(
   input: SkillDiscoveryInput,
 ): Promise<Result<SkillDiscovery>> {
@@ -313,8 +313,8 @@ export async function discoverSkills(
   return ok({ entries, skipped, shadowing, missing });
 }
 
-// 선택 목록 자체의 거절이다(R30). 정확한 이름 형식만 받고 중복과 전체 선택
-// 표식은 거절이다. 발견 밖 이름은 거절이 아니라 누락 알림이다(R4).
+// 선택 목록 자체의 거절이다. 정확한 이름 형식만 받고 중복과 전체 선택
+// 표식은 거절이다. 발견 밖 이름은 거절이 아니라 누락 알림이다.
 function checkSelectionInput(
   selection: readonly string[] | null,
 ): Result<void> {
@@ -336,9 +336,9 @@ function checkSelectionInput(
   return ok(undefined);
 }
 
-// preset 저장 검사다(R30). 정확한 이름만 받는다: 형식이 맞지 않는 이름·중복·
+// preset 저장 검사다. 정확한 이름만 받는다: 형식이 맞지 않는 이름·중복·
 // 전체 선택 표식은 거절이고 발견 목록에 없는 이름도 거절이다(사람이 로컬
-// 꾸러미를 준비해 등록한 뒤에만 목록에 온다, R10).
+// 꾸러미를 준비해 등록한 뒤에만 목록에 온다).
 export function validateSkillSelection(
   discovered: readonly { readonly name: string }[],
   selection: readonly string[],
@@ -357,7 +357,7 @@ export function validateSkillSelection(
   return ok(undefined);
 }
 
-// prompt에 나가는 skill 절이다(R5). 이름과 설명만 이름 사전순이다. 본문·보조
+// prompt에 나가는 skill 절이다. 이름과 설명만 이름 사전순이다. 본문·보조
 // 자료·bundle 경로·설치 명령·로컬 주소는 나가지 않는다.
 export function skillPromptSection(
   entries: readonly SkillEntry[],
@@ -385,12 +385,12 @@ async function scanRoot(
   scope: SkillScope,
   order: number,
 ): Promise<void> {
-  // root 자신이 skill 꾸러미일 수 있다(R1: 폴더 자체).
+  // root 자신이 skill 꾸러미일 수 있다(폴더 자체).
   await addBundle(input, candidates, skipped, root, scope, order);
   await scanFoldersOnly(input, candidates, skipped, listed, root, scope, order);
 }
 
-// root의 바로 아래 skill 꾸러미를 사전순으로 본다(R1, R3). 폴더 이름은 그
+// root의 바로 아래 skill 꾸러미를 사전순으로 본다. 폴더 이름은 그
 // 범위 안의 순서 key다.
 async function scanFoldersOnly(
   input: SkillDiscoveryInput,
@@ -464,7 +464,7 @@ export function folderSkipReason(
   }
 }
 
-// 한 skill 꾸러미를 읽는다(R1, R2). manifest가 없거나 잘못된 형식은 이유와
+// 한 skill 꾸러미를 읽는다. manifest가 없거나 잘못된 형식은 이유와
 // 함께 제외하고 고치지 않는다.
 async function addBundle(
   input: SkillDiscoveryInput,
@@ -524,8 +524,8 @@ async function addBundle(
   });
 }
 
-// 보조 자료는 bundle 폴더 안의 UTF-8 Markdown 파일뿐이다(R7). 밖을 가리키는
-// symlink·실행 파일은 제외하고 이유를 남긴다(R7).
+// 보조 자료는 bundle 폴더 안의 UTF-8 Markdown 파일뿐이다. 밖을 가리키는
+// symlink·실행 파일은 제외하고 이유를 남긴다.
 async function scanSupplemental(
   input: SkillDiscoveryInput,
   skipped: SkillSkipped[],

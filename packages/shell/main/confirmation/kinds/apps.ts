@@ -2,7 +2,7 @@
 // 넷 다 platform approval request로 온다(고정 concern·command). 요청이 싣고 온 정확한 동작(대상·입력·
 // 비교 기준)은 approvals/get의 값 그대로이고, 그 위에 사람이 읽을 사실은 apps read를 독립으로
 // 다시 읽어 만든다. 요청자가 쓴 글은 이 사실을 바꾸지 못한다. 하나라도 못 읽거나 요청과 지금 apps의
-// 사실이 어긋나면 일부만 보이지 않고 읽기 실패다(shell/confirmation-window#R5).
+// 사실이 어긋나면 일부만 보이지 않고 읽기 실패다.
 // 결정 제출·binding은 approval 종류와 같다(approval.ts). 여기는 표시 값만 만든다.
 import { canonicalize } from "../canonical.ts";
 import { failed, type KindCore, readFailure, record, text } from "./core.ts";

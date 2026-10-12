@@ -1,4 +1,4 @@
-// 화면 context 입력의 검사(apps/agent-context#R1, R2, R5). release bundle에 들어가는 플랫폼 진입
+// 화면 context 입력의 검사. release bundle에 들어가는 플랫폼 진입
 // 파일이라 의존성이 없다(Zod·npm 금지). 값의 정본은 packages/protocol/apps/agent-context.ts이고
 // schema_test.ts가 같은 모양인지 확인한다.
 

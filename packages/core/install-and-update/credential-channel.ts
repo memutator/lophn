@@ -1,4 +1,4 @@
-// Linux의 `ProtectedChannel` 구현이다(platform/identity#R15, → redesign/propagate#Q2).
+// Linux의 `ProtectedChannel` 구현이다(→ redesign/propagate#Q2).
 // core가 데이터 root의 `run/`(0700) 안에 소유자 전용(0600) unix socket을 열고, helper
 // `lophn-credential`이 이어 준 연결 하나가 지정 child 하나의 non-inheritable 통로다. 연결은 요청 하나를
 // 받고 응답 하나를 쓴 뒤 닫는다. 응답에 token을 쓰는 것은 `authority.deliver`가 active connection·

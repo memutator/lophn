@@ -22,7 +22,7 @@ export const BUNDLE_PATH = new URL("./bundle.js", import.meta.url);
 // runner client의 spawn flags와 launcher의 launch spec이 같은 근원으로 쓴다.
 export function runnerWasmPath(): string {
   const resolved = import.meta.resolve("quickjs-emscripten");
-  // 설치 묶음은 의존성을 platform/node_modules에 두고 cache 없이 시작한다(install-and-update#R4).
+  // 설치 묶음은 의존성을 platform/node_modules에 두고 cache 없이 시작한다.
   // wasm 패키지의 실제 자리는 같은 version의 `.deno/@jitl+quickjs-wasmfile-release-sync@<version>`이다.
   const installed = resolved.match(
     /^(file:\/\/\/.+\/node_modules\/\.deno\/)quickjs-emscripten@([^/]+)\/node_modules\/quickjs-emscripten\/dist\//,

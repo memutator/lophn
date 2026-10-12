@@ -11,7 +11,7 @@ import type { SummaryRef } from "./summary.ts";
 
 export type { SummaryRef } from "./summary.ts";
 
-// prompt 조립의 값과 입력이다(lophn-agent/harness/prompt-assemble 요구 R1–R3, R7–R9, R24, R30).
+// prompt 조립의 값과 입력이다(lophn-agent/harness/prompt-assemble 요구 R1–R3).
 // 순수 값만 두고 I/O와 hash는 work.ts가 한다. 자료·tool 결과의 포장(`~~~data`)은 safety가 하고
 // 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
@@ -36,7 +36,7 @@ export type PromptTool = {
   input_schema: unknown;
 };
 
-// 이력에 들어오는 조각. reasoning 본문은 조립에서 빠진다(R24).
+// 이력에 들어오는 조각. reasoning 본문은 조립에서 빠진다.
 export type HistoryPart =
   | { kind: "text"; text: string }
   | { kind: "tool_use"; id: string; name: string; input: unknown }
@@ -58,7 +58,7 @@ export type PromptMessage = {
 // 한 층의 system 본문. 층마다 하나이고 끝이 cache 경계다.
 export type SystemBlock = { layer: SystemLayerKind; text: string };
 
-// provider 중립 요청. 번역은 adapter가 하고 tools는 이번 call의 목록만이다(R7).
+// provider 중립 요청. 번역은 adapter가 하고 tools는 이번 call의 목록만이다.
 export type PromptRequest = {
   system: SystemBlock[];
   tools: PromptTool[];
@@ -69,7 +69,7 @@ export type WorkMaterial = {
   // 목적·대상, 현재 run 사실
   purpose: string | null;
   run_facts: string | null;
-  // 사람이 부른 Compact가 만든 요약. 요약이 덮은 구간의 원문은 이력에 없다(R23).
+  // 사람이 부른 Compact가 만든 요약. 요약이 덮은 구간의 원문은 이력에 없다.
   compact_summary: string | null;
   // 이미 포장된 자료 목록(목차·요약)
   materials: readonly string[];
@@ -86,11 +86,11 @@ export type ModelLimits = {
   output_limit: number;
 };
 
-// 실제로 넣은 자료 근거와 생략(R4, R18). 본문 없이 context id·판 hash·깊이만 남긴다.
+// 실제로 넣은 자료 근거와 생략. 본문 없이 context id·판 hash·깊이만 남긴다.
 export type MaterialReference = {
   address: string;
   version: string | null;
-  // full은 overview와 용어집, overview_only는 용어집을 뺀 것, names_only는 type 이름만 남긴 것이다(R18).
+  // full은 overview와 용어집, overview_only는 용어집을 뺀 것, names_only는 type 이름만 남긴 것이다.
   depth: "full" | "overview_only" | "names_only";
 };
 
@@ -103,7 +103,7 @@ export type MaterialOmission = {
   detail?: string;
 };
 
-// 실제 포함한 화면 근거(R28). 본문은 입력 blob에 있고 여기엔 포함한 값과 수집 시각만 둔다.
+// 실제 포함한 화면 근거. 본문은 입력 blob에 있고 여기엔 포함한 값과 수집 시각만 둔다.
 export type TurnContextBasis = {
   collected_at: string;
   timezone: string | null;
@@ -140,7 +140,7 @@ export type PromptInput = {
   tools: readonly PromptTool[];
   // 제품 역할 지시와 켜진 skill 목록이다. agent 정의 본문은 여기 없고 사람 지침 층 끝에 온다.
   role: { instructions: string } | null;
-  // 지침 층을 고르는 작업 자리 근거. 탭은 여기 없다(R30).
+  // 지침 층을 고르는 작업 자리 근거. 탭은 여기 없다.
   work: { role: AgentRole; session: WorkPlace; scope: AssignmentScope };
   material: WorkMaterial;
   // 이번 judgment turn의 동적 context(포장 끝). 없으면 null.
@@ -163,7 +163,7 @@ export type CacheBoundary = {
   prefix_hash: string;
 };
 
-// 본문 없는 지침 근거(R30).
+// 본문 없는 지침 근거.
 export type InstructionBasis = {
   kind: InstructionLayerKind;
   place: string | null;

@@ -1,4 +1,4 @@
-// 버전 이력·비교·복원이 읽는 통로(shell/editor#R6, R13, R14). documents#T16(section 이력·
+// 버전 이력·비교·복원이 읽는 통로. documents#T16(section 이력·
 // diff·restore), documents#T6(문서·판)의 결과에서 화면이 쓰는 것만 담는다. core를 직접
 // 부르지 않고 화면이 주입한 통로만 쓴다. 복원은 main의 편집 통로가 준비·파일 쓰기와 함께 한다.
 import type { RestoreReport } from "../../../ipc/editor.ts";

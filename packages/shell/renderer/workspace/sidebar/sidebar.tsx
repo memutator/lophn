@@ -30,23 +30,23 @@ export interface SidebarProps {
   files?: readonly FileRow[];
   /** focus 칸의 활성 탭. 그 문서 행을 고른 행으로 보인다. */
   current?: string | null;
-  /** 런처로 돌아간다(desktop#R26). 접힘 때는 상단 바가 대신한다. */
+  /** 런처로 돌아간다. 접힘 때는 상단 바가 대신한다. */
   onLauncher: () => void;
   /** 접힘을 사람이 바꾼다. */
   onToggle: () => void;
   /** 문서 행을 눌러 탭을 연다. */
   onOpenDocument: (document: DocumentRow) => void;
-  /** Contexts 행을 눌러 Contexts 탭을 연다(workspace#R31). 없으면 행을 두지 않는다. */
+  /** Contexts 행을 눌러 Contexts 탭을 연다. 없으면 행을 두지 않는다. */
   onOpenContexts?: () => void;
-  /** Agents 묶음(workspace#R34). 없으면 묶음을 두지 않는다. */
+  /** Agents 묶음. 없으면 묶음을 두지 않는다. */
   agents?: AgentsSectionProps;
-  /** 접힌 sidebar의 바로 가기 rail 단추(workspace#R32). 없으면 접힌 sidebar에는 접기 단추만 있다. */
+  /** 접힌 sidebar의 바로 가기 rail 단추. 없으면 접힌 sidebar에는 접기 단추만 있다. */
   onRail?: (action: RailAction) => void;
   /** 오른쪽 가장자리 drag로 폭을 바꾼다. 열렸을 때만 준다. */
   onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
-// 작업대 sidebar. 프로젝트 폴더·문서·연관 컨텍스트만 보인다(desktop#R28).
+// 작업대 sidebar. 프로젝트 폴더·문서·연관 컨텍스트만 보인다.
 export function Sidebar(
   {
     mode,

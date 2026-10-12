@@ -11,7 +11,7 @@ export interface ProblemListProps {
   onSelect: (line: number) => void;
 }
 
-// 편집 칸 아래 형식 문제 목록. 최대 200px에서 scroll한다(shell/editor#R11).
+// 편집 칸 아래 형식 문제 목록. 최대 200px에서 scroll한다.
 export function ProblemList({ problems, onSelect }: ProblemListProps) {
   return (
     <section

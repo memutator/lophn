@@ -1,8 +1,8 @@
 // `lophn doctor` command다(coding-agent/cli#R10, harnesses#R3·R10,
-// connection#R13·R14, T32). daemon·인증·설정과 harnesses의 네 loading 단계를
+// connection#R13·R14). daemon·인증·설정과 harnesses의 네 loading 단계를
 // 서로 섞지 않고 각각 성공·실패·확인 못함, 이유, 다음 확인으로 낸다. 읽기만
 // 한다. 파일·workspace·trust·권한·credential을 바꾸거나 넓히지 않고
-// credential 원문은 받지도 내지도 않는다(R12). daemon 상태·connection 읽기·
+// credential 원문은 받지도 내지도 않는다. daemon 상태·connection 읽기·
 // credential 사용 가능 여부·파일·MCP probe는 port로 받고(daemon.ts와 같은
 // 모양) 조립이 실제 구현을 끼운다.
 import { err, ok, type Result } from "../../../base/mod.ts";

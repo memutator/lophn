@@ -71,7 +71,7 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("approval_request"),
     approval: idSchema("apr"),
     // 대화 안 승인 카드가 미리 고른 결정. 창은 이 선택을 보이게 열 뿐 결정을 제출하지 않는다.
-    // 계속 허락(Always)은 없다(platform/approvals#R18).
+    // 계속 허락(Always)은 없다.
     preselect: z.enum(["allow_once", "allow_session", "deny"]).optional(),
   }),
   // 고정 action 선택지는 질문 하나짜리 묶음에만 있다. 정본 참조는 묶음이다.

@@ -1,4 +1,4 @@
-// 문제 진행(work)과 해석 연결 command(problems/grouping#R8, R9, R13, R14).
+// 문제 진행(work)과 해석 연결 command.
 // handler는 동기이고 같은 transaction에서 coding-agent의 ticket 표와 lophn-agent의
 // assignment 표를 직접 읽는다(repairs/commands.ts가 ticket 표를 읽는 선례). 다른 최상위의
 // 코드는 import하지 않는다.
@@ -80,9 +80,9 @@ function endReason(
     : "released";
 }
 
-// 열린 repair ticket 하나만 문제의 work로 잇는다(R8). 유효 claim이 있을 때만 fixing이고
-// 그 밖에는 open이다(R9). ticket 정본의 현재 상태에서 다시 계산하므로 같은 입력은 같은 결과다.
-// 닫힌 문제는 status를 건드리지 않는다: ticket event가 열거나 닫지 않는다(R9).
+// 열린 repair ticket 하나만 문제의 work로 잇는다. 유효 claim이 있을 때만 fixing이고
+// 그 밖에는 open이다. ticket 정본의 현재 상태에서 다시 계산하므로 같은 입력은 같은 결과다.
+// 닫힌 문제는 status를 건드리지 않는다: ticket event가 열거나 닫지 않는다.
 export function handleReconcileProblemWork(
   tx: Tx,
   _ctx: RequestContext,
@@ -113,7 +113,7 @@ export function handleReconcileProblemWork(
   if (cause === undefined || cause["subject"] !== input.ticket) {
     return notFound();
   }
-  // 읽은 문제 기준이 그대로일 때만 바꾼다(R14).
+  // 읽은 문제 기준이 그대로일 때만 바꾼다.
   if (problemSeq(tx.sql, input.problem) !== compare.problem_seq) {
     return conflict("문제가 바뀌었다");
   }
@@ -125,7 +125,7 @@ export function handleReconcileProblemWork(
   } catch { /* 이유만 읽는 값이라 깨졌으면 반납으로 본다 */ }
   const causeEvent = { type: String(cause["type"]), payload };
 
-  // 이미 다른 ticket이 work면 열린 ticket 둘은 연결하지 않는다(R8). 그 ticket이 끝났거나
+  // 이미 다른 ticket이 work면 열린 ticket 둘은 연결하지 않는다. 그 ticket이 끝났거나
   // 사라졌으면 낡은 연결이라 바꿔 이을 수 있다.
   let stale: { ticket: string; state: TicketRow } | null = null;
   if (work !== null && work !== input.ticket) {
@@ -209,10 +209,10 @@ function sameLink(left: Link | null, right: Link | null): boolean {
   return left.version === right.version && left.section === right.section;
 }
 
-// 해석 연결은 담당 App Engineer만 한다(R13). 그 앱의 enabled App Engineer assignment가 호출자일
+// 해석 연결은 담당 App Engineer만 한다. 그 앱의 enabled App Engineer assignment가 호출자일
 // 때만이고, assignment가 아닌 agent는 forbidden이다. 다른 앱의 AE와 없는 문제는 같은
 // not_found다. 문제 진행은 건드리지 않는다. version·section 존재는 command 전 read 단계가
-// 보므로(interpretation.ts) 이 handler는 version 참조와 문제 seq만 CAS로 본다(R14).
+// 보므로(interpretation.ts) 이 handler는 version 참조와 문제 seq만 CAS로 본다.
 export function handleLinkProblemInterpretation(
   tx: Tx,
   ctx: RequestContext,
@@ -248,7 +248,7 @@ export function handleLinkProblemInterpretation(
       ? null
       : String(row["interpretation_section"]),
   };
-  // 같은 이전 상태를 읽은 두 변경 중 뒤의 것이 낡았다(R14).
+  // 같은 이전 상태를 읽은 두 변경 중 뒤의 것이 낡았다.
   if (problemSeq(tx.sql, input.problem) !== compare.problem_seq) {
     return conflict("문제가 바뀌었다");
   }

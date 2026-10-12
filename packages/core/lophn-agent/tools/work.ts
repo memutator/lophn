@@ -38,7 +38,7 @@ export type ExecutionOutcome = {
   definitionRevision: string;
   effect: ToolDefinition["effect"];
   confirm: boolean;
-  // 원래 입력의 fingerprint. ledger에 쓰지 않는다. run-loop(T22)가 RecordToolRequest.input에 redaction 뒤 hash를 넣는다.
+  // 원래 입력의 fingerprint. ledger에 쓰지 않는다. run-loop가 RecordToolRequest.input에 redaction 뒤 hash를 넣는다.
   inputHash: string;
   result: ToolResult;
   outcome: ToolOutcome;
@@ -46,7 +46,7 @@ export type ExecutionOutcome = {
   executed: boolean;
 };
 
-// 기계가 구별하는 코드는 유지하고, 문장만 안전하게 고정한다(R12). forbidden과
+// 기계가 구별하는 코드는 유지하고, 문장만 안전하게 고정한다. forbidden과
 // not_found는 같은 문장이라 범위 밖 대상의 이름·존재가 새지 않는다.
 const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
   invalid_input: "tool input is not valid",
@@ -143,7 +143,7 @@ export async function executeTool(
   if (!produced.ok) {
     const code = FAILURE_CODES.get(produced.error.code) ?? "internal";
     // 범위 밖과 없는 대상은 같은 문장이다. handler 문장은 대상 이름·존재를
-    // 담을 수 있으므로 공통 코드 문장만 돌려준다(R12).
+    // 담을 수 있으므로 공통 코드 문장만 돌려준다.
     const summary = FAILURE_SUMMARIES[code] ?? "tool call failed";
     return {
       ...failure(code, summary),

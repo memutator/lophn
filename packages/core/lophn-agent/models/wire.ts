@@ -31,7 +31,7 @@ type EffortPiece = (
   axis: OptionAxis,
 ) => JsonObject | undefined;
 
-// 표에 없는 effort 값은 undefined다. 가까운 값으로 바꾸지 않는다(R24).
+// 표에 없는 effort 값은 undefined다. 가까운 값으로 바꾸지 않는다.
 function lookup(
   table: Readonly<Record<string, string>>,
   value: string,
@@ -47,7 +47,7 @@ const MESSAGES_EFFORT_NAMES: Readonly<Record<string, string>> = {
   maximum: "max",
 };
 
-// 예산 축이면 확인된 최소·최대 안으로 제한한 thinking 예산을, 아니면 effort 이름을 싣는다(R17).
+// 예산 축이면 확인된 최소·최대 안으로 제한한 thinking 예산을, 아니면 effort 이름을 싣는다.
 const messagesEffort: EffortPiece = (value, axis) => {
   if (value === "off") {
     const piece: JsonObject = { thinking: { type: "disabled" } };
@@ -148,7 +148,7 @@ function invalid(message: string): Result<never> {
 
 // option_values는 options.ts가 default를 채운 뒤의 값이다(없는 축은 요청에 필드가 없다).
 // 없는 축·값이거나 그 호출 형식의 표에 없는 effort 값이면 다른 값으로 바꾸지 않고
-// invalid_input으로 실패한다(R24).
+// invalid_input으로 실패한다.
 export function translateOptions(
   input: {
     protocol: WireProtocol;

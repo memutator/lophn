@@ -67,7 +67,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* 안 여백 16px(shell/editor#R6). 본문이 길면 패널 안에서 scroll한다. */
+/* 안 여백 16px. 본문이 길면 패널 안에서 scroll한다. */
 .body {
   box-sizing: border-box;
   flex: 1;

@@ -232,7 +232,7 @@ export function configureDerived(db: DatabaseSync): Result<void> {
   }
 }
 
-// 요청 하나의 직접 추출(R15)을 담는 메모리 derived. 파일에 쓰지 않고 요청이 끝나면 닫는다.
+// 요청 하나의 직접 추출을 담는 메모리 derived. 파일에 쓰지 않고 요청이 끝나면 닫는다.
 // 같은 schema·같은 read 모양이라 읽기 handler는 파일 derived와 똑같이 읽는다.
 export type TransientDerived = {
   readonly read: DerivedRead;

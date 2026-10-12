@@ -1,4 +1,4 @@
-// broker `/_lophn/broker/apps/confirm/{request,poll}`의 apps 쪽 구현(apps/connections#R3).
+// broker `/_lophn/broker/apps/confirm/{request,poll}`의 apps 쪽 구현.
 // 호출한 앱 자식 연결의 신원으로 confirm=true command의 approval을 요청하고 결과를 poll로 받는다.
 // 소켓을 오래 잡지 않도록 poll의 기다림은 짧게 제한한다. 본문은 신원·입력 지문을 주장하지 못한다.
 import { err, type Result } from "../../../../base/mod.ts";

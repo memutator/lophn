@@ -1,4 +1,4 @@
-// blob GC와 보존 정리의 순수 규칙(platform/blob-store#R8, R9, R10, R11, R13).
+// blob GC와 보존 정리의 순수 규칙.
 // IO 없음. 참조 대조·유예기간·종류별 상한 판정만 하고, 파일 관측과 삭제는
 // I/O worker의 몫이다(core는 다시 하지 않는다).
 
@@ -9,18 +9,18 @@ import {
   type BlobRetentionCategory,
 } from "../../../protocol/storage/mod.ts";
 
-// 정리한 blob을 읽으면 이 이유다(R13: "정리됨"). contracts의 안전 이유 하나다.
+// 정리한 blob을 읽으면 이 이유다("정리됨"). contracts의 안전 이유 하나다.
 export type PrunedReason = "pruned";
 
 // 설치 blob 하나의 관측값. hash는 경로이고, 마지막 관측은 설치 파일의 시각이다.
 export type InstalledBlob = {
   hash: string;
-  // 파일 mtime. 참조 없음을 확인한 때부터 유예기간을 센다(R9).
+  // 파일 mtime. 참조 없음을 확인한 때부터 유예기간을 센다.
   observedAtMs: number;
   sizeBytes: number;
 };
 
-// 종류별 용량 상한(R13: 측정해 고정한 값). 큰 자료는 무제한으로 약속할 수 없다.
+// 종류별 용량 상한(측정해 고정한 값). 큰 자료는 무제한으로 약속할 수 없다.
 // 변경 기록·결정·확정 결과(retention permanent)는 상한의 대상이 아니다.
 export const BLOB_CAPACITY_MAX_BYTES: Readonly<
   Record<BlobRetentionCategory, number>
@@ -32,7 +32,7 @@ export const BLOB_CAPACITY_MAX_BYTES: Readonly<
 };
 
 // 등록 field에서 보존 규칙 목록을 산다. permanent는 GC·용량 정리의 대상이
-// 아니다(R13). capacity만 종류별 상한 판정을 받는다.
+// 아니다. capacity만 종류별 상한 판정을 받는다.
 export type RetentionRule = {
   owner_kind: string;
   field: string;
@@ -55,15 +55,15 @@ export function retentionRules(
   return rules;
 }
 
-// 참조된 hash 집합. 대조는 이 집합 하나로 한다(R8: 고정 ledger의 모든 참조).
+// 참조된 hash 집합. 대조는 이 집합 하나로 한다(고정 ledger의 모든 참조).
 export function referencedOf(
   refs: readonly { hash: string }[],
 ): ReadonlySet<string> {
   return new Set(refs.map((ref) => ref.hash));
 }
 
-// 고정 참조와 대조해 미참조 설치 blob을 산다(R8). 참조된 blob은 목록에
-// 넣지 않는다: 경합의 어느 순간에도 근거를 지우지 않는다(R4, R8).
+// 고정 참조와 대조해 미참조 설치 blob을 산다. 참조된 blob은 목록에
+// 넣지 않는다: 경합의 어느 순간에도 근거를 지우지 않는다.
 export function unreferencedOf(
   installed: readonly InstalledBlob[],
   referenced: ReadonlySet<string>,
@@ -71,7 +71,7 @@ export function unreferencedOf(
   return installed.filter((blob) => !referenced.has(blob.hash));
 }
 
-// 미참조 확인 시각부터 7일 유예기간이 지났는지(R9). 지나지 않으면 삭제
+// 미참조 확인 시각부터 7일 유예기간이 지났는지. 지나지 않으면 삭제
 // 자격이 없다. 설치 직후 commit 전 종료의 고아가 즉시 사라지지 않는다.
 export function gracePassed(
   observedAtMs: number,
@@ -81,7 +81,7 @@ export function gracePassed(
   return nowMs - observedAtMs >= graceMs;
 }
 
-// 실제 삭제 자격이 있는 blob. 미참조 + 유예기간 통과(R8, R9).
+// 실제 삭제 자격이 있는 blob. 미참조 + 유예기간 통과.
 export function deletableOf(
   installed: readonly InstalledBlob[],
   referenced: ReadonlySet<string>,
@@ -93,7 +93,7 @@ export function deletableOf(
   );
 }
 
-// 유지보수 아님을 확인한 임시 준비 파일만 정리 자격이 있다(R9). 살아 있는
+// 유지보수 아님을 확인한 임시 준비 파일만 정리 자격이 있다. 살아 있는
 // 준비(진행 중)가 아니어야 한다. 관측은 파일 시각 하나다.
 export function staleTemporary(
   observedAtMs: number,
@@ -104,8 +104,8 @@ export function staleTemporary(
 }
 
 // backup이 진행 중인지. backup.pending 표시가 남아 있으면 만들기 중이거나
-// 실패한 folder다(T41). GC는 backup 중 불가하고, 이 folder가 담는 blob은
-// 물리 삭제 대상에서 뺀다(T41, R11).
+// 실패한 folder다. GC는 backup 중 불가하고, 이 folder가 담는 blob은
+// 물리 삭제 대상에서 뺀다.
 export function backupPendingFolders(
   entries: readonly { name: string; pending: boolean }[],
 ): readonly string[] {
@@ -113,7 +113,7 @@ export function backupPendingFolders(
 }
 
 // capacity field의 보존 규칙 하나. category는 큰 자료 종류이고, 상한은
-// BLOB_CAPACITY_MAX_BYTES다(R13).
+// BLOB_CAPACITY_MAX_BYTES다.
 export function capacityRuleOf(
   rules: readonly RetentionRule[],
   ownerKind: string,
@@ -144,7 +144,7 @@ export type GcDisposition =
   | { kind: "deleted" }
   | { kind: "kept" };
 
-// 종류별 용량 초과 판정(R13). category별 합이 상한을 넘으면 초과다.
+// 종류별 용량 초과 판정. category별 합이 상한을 넘으면 초과다.
 // 초과분은 설치량 기준이고, 상한의 대상은 capacity field뿐이다.
 export type CapacityUsage = {
   category: BlobRetentionCategory;
@@ -182,16 +182,16 @@ export function capacityUsage(
   return usages;
 }
 
-// 용량 정리 대상. 초과 종류에서 오래된 것부터 상한 안으로 줄인다(R13).
+// 용량 정리 대상. 초과 종류에서 오래된 것부터 상한 안으로 줄인다.
 // 대상은 capacity field의 blob뿐이고, 참조된 큰 자료도 정리 대상이다.
-// 변경 기록·결정·확정 결과(retention permanent)는 대상에서 뺀다(R13).
+// 변경 기록·결정·확정 결과(retention permanent)는 대상에서 뺀다.
 export function trimTargets(
   usage: readonly CapacityUsage[],
   candidates: readonly (InstalledBlob & {
     category: BlobRetentionCategory;
-    // 오래된 것부터 정리한다(R13). 등록이 오래된 것이 기준이다.
+    // 오래된 것부터 정리한다. 등록이 오래된 것이 기준이다.
     registeredAtMs: number;
-    // permanent field의 blob은 대상에서 뺀다(R13).
+    // permanent field의 blob은 대상에서 뺀다.
     permanent: boolean;
   })[],
 ): readonly string[] {

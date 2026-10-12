@@ -1,5 +1,5 @@
 // search 후보 집합. 권한 밖 ID는 후보 단계에서 빠지고, 보관 문서는 현재 ledger
-// 상태로 빠진다(R17). 없는 대상과 같은 응답을 위해 존재를 새지 않는다.
+// 상태로 빠진다. 없는 대상과 같은 응답을 위해 존재를 새지 않는다.
 import {
   type RequestContext,
   TargetAuthorization,

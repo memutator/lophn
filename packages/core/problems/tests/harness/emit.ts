@@ -18,7 +18,7 @@ const encoder = new TextEncoder();
 
 // side와 고정 test hash는 harness가 붙인다. 앱 test code가 다른 side나 hash로
 // frame을 만들 수 없다. frame당 65,536 bytes, side 합 1,048,576 bytes를 넘기는
-// frame은 보내지 않고 거절한다(problems/tests#R19). write는 private IPC 쪽이다.
+// frame은 보내지 않고 거절한다. write는 private IPC 쪽이다.
 export function createEmitter(options: {
   side: TestObservationFrame["side"];
   test_hash: string;

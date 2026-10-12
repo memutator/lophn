@@ -1,4 +1,4 @@
-// 의존성 없는 blueprint 정본(apps/blueprint#R16).
+// 의존성 없는 blueprint 정본.
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
 
 import {

@@ -113,7 +113,7 @@ export function grantsSeq(sql: Query, app: string): string {
 }
 
 // 앱에 activation이 진행 중이면 true. 시작 event는 있고 그 seq를 started_seq로 가리키는 성공·실패 event가
-// 아직 없는 경우다(apps/releases#R13). release 표가 아니라 ledger event를 근거로 본다.
+// 아직 없는 경우다. release 표가 아니라 ledger event를 근거로 본다.
 export function activationInProgress(sql: Query, app: string): boolean {
   return sql.get(
     `SELECT 1 AS found FROM events s

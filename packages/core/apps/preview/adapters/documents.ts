@@ -1,4 +1,4 @@
-// 문서 저장 대역(apps/preview#R4). 실제 documents 저장과 version 생성 없이 같은 규칙(기대 version
+// 문서 저장 대역. 실제 documents 저장과 version 생성 없이 같은 규칙(기대 version
 // 충돌, 같은 재전송 key는 같은 결과)을 메모리에서 지킨다. 앱 쪽 대역은
 // packages/sdk/cap-save의 createSaveStandIn이고, 이 대역은 broker 통로로 직접 온 요청을 같은 규칙으로
 // 받는 server 쪽이다. 저장한 version은 preview 종료와 함께 사라진다.

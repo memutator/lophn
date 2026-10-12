@@ -1,7 +1,7 @@
 // live preview가 그릴 것을 syntax tree와 선택에서 계산한 순수 span이다. CodeMirror
 // decoration으로 바꾸는 일은 live-preview.ts가 한다. DOM 없이 테스트하려고 나눴다.
 //
-// 규칙 하나(shell/editor#R9): 커서나 선택이 요소 안에 있으면 그 요소는 원문을 보이고
+// 규칙 하나: 커서나 선택이 요소 안에 있으면 그 요소는 원문을 보이고
 // 표지 문자는 muted로 남는다. 밖이면 표지를 숨기고 읽기 모양으로 그린다.
 import type { EditorState, Text } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";

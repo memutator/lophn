@@ -103,7 +103,7 @@ import {
 } from "./closing/connection.ts";
 
 // ticket checker 구독자(machine:ticket-check-feed)도 깨움 신호로 보는 event다(coding-agent#T26,
-// T45). `problems.closing` 반응기(problems#T20)도 문제 상태·활성 release를 다시 읽는 신호로 본다.
+// T45). `problems.closing` 반응기도 문제 상태·활성 release를 다시 읽는 신호로 본다.
 // 그 밖의 자격은 owner 정책이 그대로 판단한다.
 function visibleToChecker<D extends EventDefinition>(
   owner: EventVisibilityDefinition<D>,
@@ -163,7 +163,7 @@ function testRunnerWorkers(): KindLaunchSpec[] {
   return spec ? [spec] : [];
 }
 
-// report collector는 보고 접수 통로다(T3). core loopback에만 닿고 준비 폴더만
+// report collector는 보고 접수 통로다. core loopback에만 닿고 준비 폴더만
 // 읽는다(architecture/problems 2.2). 자식 실행 권한이 없으므로 Deno 실행 파일을
 // 받지 않는다.
 function reportCollectorWorkers(): KindLaunchSpec[] {
@@ -225,8 +225,7 @@ export const problemsReportDefinitions = {
     closeProblemVerifiedCommand,
     applyProblemDecisionCommand,
   ],
-  // `problems.work`·`problems.closing` 반응기(test-runner kind)만 자기 cursor를 올린다
-  // (problems/grouping#R9, problems/closing#R5).
+  // `problems.work`·`problems.closing` 반응기(test-runner kind)만 자기 cursor를 올린다.
   subscribers: [...problemsWorkSubscribers(), ...problemsClosingSubscribers()],
   reads: [
     listProblemsRead,
@@ -235,25 +234,25 @@ export const problemsReportDefinitions = {
     getReportRead,
     listProblemFixesRead,
   ],
-  // GetSnapshot은 blob 정리 여부를 보느라 pool 밖에서 연다(snapshots#R17).
+  // GetSnapshot은 blob 정리 여부를 보느라 pool 밖에서 연다.
   apiReads: [unattachedReportBodyRead, snapshotViewApiRead()],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
-  // 보고 접수 worker route(T3, T16). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
+  // 보고 접수 worker route. dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
   // observe-exception은 예외 진단을 collector로 넘기고(process 출처),
-  // observe-view-error는 view exception을 collector로 넘긴다(view 출처, reporting#R5, R6).
-  // submit-feedback은 shell user의 제보를 collector로 넘긴다(feedback#R1; 선택한 PNG는 바이트 body).
+  // observe-view-error는 view exception을 collector로 넘긴다(view 출처).
+  // submit-feedback은 shell user의 제보를 collector로 넘긴다(선택한 PNG는 바이트 body).
   workerRoutes: [
     reportProblem,
     observeException,
     observeViewError,
     submitFeedback,
   ],
-  // 고친 기록 summary의 blob 준비 route(coding-agent#T44). 바이트는 core 핸들러가 준비 중계로 흘린다.
+  // 고친 기록 summary의 blob 준비 route. 바이트는 core 핸들러가 준비 중계로 흘린다.
   uploadRoutes: [problemsUploadFixSummary],
 };
 
-// 진단 상세 수집 on/off(snapshots#R7). 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의
+// 진단 상세 수집 on/off. 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의
 // 정책 읽기와 필수 invocation 기록은 그대로다. collector가 매 접수마다 이 값을 읽는다.
 export const detailCollectionSetting = defineSetting({
   key: DETAIL_COLLECTION_SETTING_KEY,
@@ -277,7 +276,7 @@ export const detailCollectionSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// core 조립의 settings.ts가 모으는 problems 등록 항목이다(platform/settings#R31).
+// core 조립의 settings.ts가 모으는 problems 등록 항목이다.
 export const problemsDefinitions = { settings: [detailCollectionSetting] };
 
 // GetSnapshotLogs는 ledger snapshot 없이 바이트를 기다리는 core read다. core가 기동 때
@@ -302,7 +301,7 @@ export function createLedgerRegistration(
 }
 
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
-// 만든다(platform/ledger#R15). 정책이 없는 problems event는 숨김이다.
+// 만든다. 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     events: [
@@ -314,7 +313,7 @@ export function createEventRegistration(): EventRegistration {
     ],
     visibility: [
       ...problemsTestDefinitions.visibility,
-      // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.
+      // notifications 계기다. notifications 구독자에게만 연다.
       notificationsOnlyVisibility(problemOpened),
       // 닫힘·재발은 보고된 ticket의 남은 조건을 다시 비교하는 신호이기도 하다.
       visibleToChecker(notificationsOnlyVisibility(problemReopened)),
@@ -330,9 +329,9 @@ export function createEventRegistration(): EventRegistration {
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
 // 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
-// (problems#T22)가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
+//가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
 // `ProblemWorkPort`로, 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로 등록한다.
-// 목록·상세 문구는 보고 당시 release 선언이다(problems#T27). 구현은 apps/releases이고,
+// 목록·상세 문구는 보고 당시 release 선언이다. 구현은 apps/releases이고,
 // apps reader에만 두면 이 read가 port를 못 봐 선언 문구가 fallback이 된다.
 export function createReaderRegistration(): ReaderRegistration {
   return {

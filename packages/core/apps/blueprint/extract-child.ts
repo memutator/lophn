@@ -1,4 +1,4 @@
-// 권한 없는 blueprint 추출 자식(apps/blueprint#R17).
+// 권한 없는 blueprint 추출 자식.
 // --allow-* 없이 띄우므로 파일·network·env는 Deno가 거절한다. 값은 argv로만 받고
 // 정규 JSON 한 줄을 stdout에 남긴다. 부모는 10초 뒤 SIGKILL로 끝낸다.
 // 정본의 Zod 없는 파일만 직접 import한다. contracts/apps/mod.ts는 읽기 권한이 필요하다.

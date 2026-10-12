@@ -2,7 +2,7 @@
 // packages/protocol/projects/search.ts). 입력 검사와 operation scope는 dispatch가
 // 이미 본다. 여기서는 ledger snapshot의 문서·판 metadata와 derived store의
 // search_rows·search_fts를 읽는다. 권한 밖 ID는 후보 단계에서 빼고 count·rank·page와
-// omissions도 허용 집합에서 계산한다(outline-and-search#R12, R14, R17).
+// omissions도 허용 집합에서 계산한다.
 // read는 derived writer 연결이 아니라 openDerivedRead의 query_only 연결이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LineRange } from "../../../protocol/projects/mod.ts";
@@ -114,7 +114,7 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
       );
       if (coverage.rebuilding || coverage.lagging) {
         // 재생성 중·뒤처짐이면 결과 없이 진실만 낸다. 빈 검색을 원본 부재로 판정하지
-        // 않는다(R14). omissions도 허용 집합에서 뺀다(존재를 새지 않는다).
+        // 않는다. omissions도 허용 집합에서 뺀다(존재를 새지 않는다).
         return ok({
           results: [],
           coverage,
@@ -443,7 +443,7 @@ function documentRanges(
   return mapped;
 }
 
-// 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).
+// 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다.
 function lineRanges(body: string, query: string): LineRange[] {
   const rest = trimmedQuery(query);
   if (rest.length === 0) return [];
@@ -516,15 +516,15 @@ function indexedOf(
   };
 }
 
-// 요약 없는 문서의 서문 발췌. 요약과 구분이다(R18).
+// 요약 없는 문서의 서문 발췌. 요약과 구분이다.
 export function excerptOf(text: string): string {
   return preambleExcerpt(text);
 }
 
 // outline·단계적 읽기 handler. root·place·document outline·본문 읽기를
 // ledger snapshot(문서·판 metadata)과 derived store(sections·texts·extraction
-// 상태)로 조립한다. 목록에 본문을 싣지 않는다(R1). 목록의 본문 자리는
-// 발췌와 요약뿐이다(R3). count·순서·길이도 허용 집합에서 계산한다.
+// 상태)로 조립한다. 목록에 본문을 싣지 않는다. 목록의 본문 자리는
+// 발췌와 요약뿐이다. count·순서·길이도 허용 집합에서 계산한다.
 // scope 밖 대상은 존재를 새지 않는다. 없는 대상과 같은 응답이다.
 import type {
   ContentFileReference,
@@ -837,7 +837,7 @@ function placeDocumentCount(
 }
 
 // place 갱신 순 목록. 이름·제목·format·선택 판·갱신 시각·발췌·section 수다.
-// 본문을 싣지 않는다(R1). agent 경로·디스크 상태도 없다(R3).
+// 본문을 싣지 않는다. agent 경로·디스크 상태도 없다.
 function buildPlaceEntries(
   deps: OutlineHandlerDeps,
   ctx: RequestContext,
@@ -1152,7 +1152,7 @@ function numberCell(value: unknown): number {
 }
 
 // 본문 읽기. section·자식 포함·줄 범위 선택, 12,000 codepoint 예산, 이어 읽기.
-// outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판을 유지한다(R8).
+// outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판을 유지한다.
 // 원문 파일 참조는 모든 답에 싣는다: 계약은 unverified·unsupported 판에 그 참조를
 // 요구하고, 호출자가 documents/file로 원문을 열게 한다.
 function readDocumentBody(
@@ -1182,7 +1182,7 @@ function readSelectedBody(
     `SELECT id, place_kind, place_id, latest_version, status FROM documents WHERE id = ?`,
     [document],
   );
-  // 보관한 문서도 확정한 판은 읽는다(versions#R11, outline-and-search#R17). 보관은 목록·검색에서
+  // 보관한 문서도 확정한 판은 읽는다. 보관은 목록·검색에서
   // 빼는 상태일 뿐 판 읽기를 막지 않는다.
   if (row === undefined) return deny();
   if (
@@ -1216,7 +1216,7 @@ function readSelectedBody(
   const section = input.section ?? null;
   const includeChildren = input.include_children ?? false;
   const budget = input.max_codepoints ?? READ_CODEPOINT_BUDGET;
-  // 추출 상태. failed·unverified는 unverified, unsupported는 그대로다(R22).
+  // 추출 상태. failed·unverified는 unverified, unsupported는 그대로다.
   const status = extractedStatus(deps, requested);
   const term = sectionStatusOf(status);
   if (term !== null) {
@@ -1239,7 +1239,7 @@ function readSelectedBody(
       as_of_seq: deps.snapshot.as_of_seq,
     });
   }
-  // 성공 추출에 key 없음은 missing이다(R22).
+  // 성공 추출에 key 없음은 missing이다.
   if (section !== null && !versionHasSection(deps, requested, section)) {
     return ok({
       document,
@@ -1265,7 +1265,7 @@ function readSelectedBody(
     [requested],
   );
   if (content === undefined) {
-    // derived에 없다. 직접 추출(R15)을 시도하고 미완료로 답한다. worker 조립이
+    // derived에 없다. 직접 추출을 시도하고 미완료로 답한다. worker 조립이
     // extract를 넣는다. 없는 조립도 검색을 기다리지 않고 미완료 하나다.
     if (deps.extract !== undefined) {
       deps.extract({ document, version: requested });
@@ -1396,7 +1396,7 @@ export function createOutlineHandlers(
   return {
     root(ctx, input) {
       // root도 contract 입력을 받는다. estimated token 예산과 cursor offset이다.
-      // 자리 없는 문서 묶음과 예산 초과는 개수로만 답한다(존재를 새지 않는다(R14)).
+      // 자리 없는 문서 묶음과 예산 초과는 개수로만 답한다(존재를 새지 않는다).
       const budget = input.estimated_token_budget ?? ROOT_BUDGET;
       const cursorState = input.cursor === undefined
         ? ok({ offset: 0 })
@@ -1505,7 +1505,7 @@ export function createOutlineHandlers(
         `SELECT place_kind, place_id, status FROM documents WHERE id = ?`,
         [document],
       );
-      // 보관한 문서도 확정한 판의 목차는 읽는다(versions#R11).
+      // 보관한 문서도 확정한 판의 목차는 읽는다.
       if (row === undefined) return deny();
       if (
         !authorizeTarget(

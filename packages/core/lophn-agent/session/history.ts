@@ -20,7 +20,7 @@ import {
 } from "./rewind/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 새 run의 prompt가 쓰는 session의 이전 대화다(lophn-agent/harness/prompt-assemble R3, R23, R31). Compact한
+// 새 run의 prompt가 쓰는 session의 이전 대화다. Compact한
 // session이면 요약과 그것이 덮은 구간 뒤의 원문만 읽는다: 덮인 구간의 원문은 읽지도 않는다(원문은 session에
 // 그대로 있고 화면도 그대로다). rewind가 숨긴 구간과 "Summarize from here"가 접은 구간의 원문도 읽지 않는다:
 // 숨긴 구간은 입력에 들지 않고 접힌 구간은 그 요약이 맡는다. 숨김·접힘을 읽지 못하면 숨긴 내용이 새지 않게

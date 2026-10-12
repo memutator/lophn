@@ -1,4 +1,4 @@
-// doctor의 무거운 검사(platform/diagnostics#R9, R10). SDK 같은 version의 hash
+// doctor의 무거운 검사. SDK 같은 version의 hash
 // 차이, 실행 자격 보관의 권한, grant 위험, log의 미가공 key 패턴을 데이터 root에서
 // 읽고 원문 없이 관측만 돌려준다. 결과에는 secret·token·경로·문서 원문이 없다.
 

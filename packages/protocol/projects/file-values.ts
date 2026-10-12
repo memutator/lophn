@@ -71,7 +71,7 @@ const versionRequestFields = {
 export const fileVersionRequestSchema = z.strictObject(versionRequestFields);
 export const fileVersionRequestOutputSchema = z.object(versionRequestFields);
 
-// 문서를 이 새 파일에 둔다(documents/file-tracking#R13). 쓸 바이트는 content의 `existing` 원본
+// 문서를 이 새 파일에 둔다. 쓸 바이트는 content의 `existing` 원본
 // 참조(그 판의 유일한 파일)다. core가 파일을 쓴 뒤 원본 연결·추적 규칙·자리를 각각 확정한다.
 const placeIntentFields = {
   document: documentIdSchema,

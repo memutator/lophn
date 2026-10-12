@@ -1,4 +1,4 @@
-// supervisor 쪽 invocation 후행 전달 조립(apps/invocations#R1, R5, R19). 앱이 broker로 보낸 기록 사실을
+// supervisor 쪽 invocation 후행 전달 조립. 앱이 broker로 보낸 기록 사실을
 // 유한한 메모리 목록에 두고 machine credential로 core의 record_* command에 보낸다. 업무 응답은 이 전달을
 // 기다리지 않는다. 한도 초과와 반복하지 않는 실패는 redaction된 손실 진단 frame으로 core에 알린다.
 import type { Clock } from "../../../../base/mod.ts";

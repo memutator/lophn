@@ -109,7 +109,7 @@ export function createTerminalIpc(deps: {
           columns: 80,
           rows: 24,
         });
-        // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다(shell/terminal#R1).
+        // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다.
         if (!reply.ok && reply.reason === "choose_folder") {
           return {
             ...reply,

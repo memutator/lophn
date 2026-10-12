@@ -21,7 +21,7 @@ export interface WaitingPillProps {
   onOpen?: () => void;
 }
 
-// 결정 대기 개수의 글자 pill. 색이 아니라 "2 decisions waiting" 글로 읽는다(desktop#R26).
+// 결정 대기 개수의 글자 pill. 색이 아니라 "2 decisions waiting" 글로 읽는다.
 // 0이면 그리지 않는다. 런처 카드와 공간 크롬이 같은 모양을 쓴다.
 export function WaitingPill({ count, onOpen }: WaitingPillProps) {
   if (count <= 0) return null;
@@ -86,7 +86,7 @@ export function useRequestOverview(): {
   return { deps, requests, connection };
 }
 
-// 프로젝트·앱 공간의 lophn 크롬. 그 공간의 결정 대기와 lophn 장애 안내만 둔다(desktop#R27).
+// 프로젝트·앱 공간의 lophn 크롬. 그 공간의 결정 대기와 lophn 장애 안내만 둔다.
 // 전역 관리 크롬은 두지 않는다.
 export function SpaceDecisions({ place, onOpen }: SpaceDecisionsProps) {
   const { deps, requests, connection } = useRequestOverview();

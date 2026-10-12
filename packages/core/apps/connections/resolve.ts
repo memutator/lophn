@@ -1,4 +1,4 @@
-// 앱 쌍의 호출 범위 계산(apps/connections#R1, R2). 순수 함수이고 IO가 없다.
+// 앱 쌍의 호출 범위 계산. 순수 함수이고 IO가 없다.
 // 범위 = source release.app_connections의 대상 command ∩ source→target active app.call grant의
 // command ∩ target의 현재 command. 방향은 source → target 하나뿐이다.
 import type { Grant } from "../../../protocol/apps/mod.ts";
@@ -54,7 +54,7 @@ export type Resolution =
   | { kind: "scoped"; commands: string[]; grant: string };
 
 // requested가 모두 범위 안이어야 한다. 새 command·선언에서 빠진 command·대상에서 사라진
-// command는 옛 grant로 부를 수 없다(R2).
+// command는 옛 grant로 부를 수 없다.
 export function resolveCall(
   input: PairInput & {
     targetCommands: readonly string[];

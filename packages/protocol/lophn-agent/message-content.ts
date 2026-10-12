@@ -100,4 +100,4 @@ export type MessageContent = z.infer<typeof messageContentSchema>;
 
 // 요청은 본문 값(MessageContent)을 싣는다. renderer·shell·runtime은 blob을 준비하지
 // 않는다: core가 redaction을 거친 값을 blob으로 준비하고 command가 같은 transaction에서
-// 영구 참조를 등록한다(lophn-agent Q29). ledger에는 그 blob의 hash만 남는다.
+// 영구 참조를 등록한다. ledger에는 그 blob의 hash만 남는다.

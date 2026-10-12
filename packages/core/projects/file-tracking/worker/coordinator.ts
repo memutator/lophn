@@ -338,7 +338,7 @@ export async function runCoordinator(root: string): Promise<void> {
     console.error(...args);
   // FileStatus 메모리. 관측이 채우고 core의 documents.file_status 요청이 읽는다.
   const status = createStatusRecorder();
-  // core가 감독 pipe로 보낸 관측 근거(Q15). 반영되면 root별 관측 loop를 맞춘다.
+  // core가 감독 pipe로 보낸 관측 근거. 반영되면 root별 관측 loop를 맞춘다.
   const basis = createBasisStore();
   // format 검사 입력(원문 바이트)을 요청 앞에 받아 두는 곳과 runner 호출.
   const inbox = createByteInbox();
@@ -351,7 +351,7 @@ export async function runCoordinator(root: string): Promise<void> {
   // 원문으로 채운다. 못 열면 search 요청은 unavailable이고 빈 index로 꾸미지 않는다.
   const store = openSearchStore(root);
   // store가 지금 ledger의 것임을 확인하는 문. core가 search consumer 통로로 보낸 `ledger_id`로
-  // 맞춘다. 복원한 ledger의 derived는 옛 cursor를 버리고 처음부터 다시 만든다(platform#T42).
+  // 맞춘다. 복원한 ledger의 derived는 옛 cursor를 버리고 처음부터 다시 만든다.
   const ledgerGate = store.ok
     ? createLedgerGate({ store: store.value })
     : undefined;
@@ -449,7 +449,7 @@ export async function runCoordinator(root: string): Promise<void> {
         basis,
         BASIS_RETRY_WAIT_MS,
       );
-      // 등록된 지침 파일은 일반 root 규칙과 따로, exact 경로만 관측한다(file-tracking#R19).
+      // 등록된 지침 파일은 일반 root 규칙과 따로, exact 경로만 관측한다.
       const instructionPorts = {
         client,
         prepareBlob,

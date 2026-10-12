@@ -137,7 +137,7 @@ export function Desktop(
   // 앱 행은 그 앱 공간으로 간다. 앱 통로가 없는 창은 apps 형제 화면으로 간다.
   const appSpace = (app: string) =>
     apps ? setRoute(openApp(app)) : visit(openLophn("apps"));
-  // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다(desktop#R14).
+  // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다.
   const confirmTarget = (request?: string) =>
     request === undefined
       ? thingsToConfirm()
@@ -172,7 +172,7 @@ export function Desktop(
     setVisits((value) => value + 1);
     setRoute({ ...openApp(app), issueProblem: problem });
   };
-  // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
+  // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다.
   const go = (target: LophnTarget) => {
     if (target.kind === "launcher") launcher();
     else if (target.kind === "project") setRoute(openProject(target.id));
@@ -300,7 +300,7 @@ export function Desktop(
       />
     );
   }
-  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 같은 자리에서 받는다(desktop#R18).
+  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 같은 자리에서 받는다.
   return (
     <PaletteProvider deps={palette} onLauncher={launcher}>
       {space}

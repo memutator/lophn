@@ -7,7 +7,7 @@ export interface IconProps {
   className?: string;
 }
 
-// 모든 Lucide 아이콘은 선 1.5로 그린다(shell/design-system#R43).
+// 모든 Lucide 아이콘은 선 1.5로 그린다.
 export function Icon({ icon: Glyph, pixels, className }: IconProps) {
   return (
     <Glyph

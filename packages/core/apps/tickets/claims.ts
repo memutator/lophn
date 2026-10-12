@@ -1,4 +1,4 @@
-// ticket claim command(coding-agent/tickets#R11–R14, R16). claim은 범위 안
+// ticket claim command. claim은 범위 안
 // coding_agent connection만, readiness ready·state open|check_failed·claim 없음·
 // base_revision 일치일 때만 성공한다. 같은 ticket의 동시 claim은 ticket_claims의
 // PK(ticket) unique가 하나만 남긴다. 한 connection의 여러 ticket claim은 막지 않는다.
@@ -122,7 +122,7 @@ export function revisionAgrees(
   return stored === base && base === compare;
 }
 
-// 범위 안 connection만 claim한다. all은 모든 앱, app은 그 앱 하나다(R11).
+// 범위 안 connection만 claim한다. all은 모든 앱, app은 그 앱 하나다.
 export function inScope(auth: ConnectionAuth, app: string): boolean {
   return auth.scope.kind === "all" || auth.scope.app === app;
 }
@@ -200,7 +200,7 @@ function claimTicket(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return notFound("ticket does not exist");
   const stored = ticket.value;
-  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다.
   if (!inScope(auth.value, stored.app)) {
     return notFound("ticket does not exist");
   }
@@ -339,7 +339,7 @@ function currentClaim(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return forbidden("ticket does not exist");
   const stored = ticket.value;
-  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다.
   if (!inScope(auth.value, stored.app)) {
     return forbidden("ticket does not exist");
   }
@@ -372,7 +372,7 @@ function endClaim(
     claim_seq: held.claim.seq,
     reason,
   });
-  // 현재 claim 행만 지운다. 과거 완료 보고·check·completion_seq는 남긴다(R14).
+  // 현재 claim 행만 지운다. 과거 완료 보고·check·completion_seq는 남긴다.
   const removed = tx.sql.run(
     "DELETE FROM ticket_claims WHERE ticket = ? AND claim_seq = ?",
     [held.ticket.id, held.claim.seq],
@@ -407,7 +407,7 @@ export function expiredClaims(
 }
 
 // checkTicketClaim. 같은 transaction의 다른 command가 현재 claim을 확인한다.
-// 읽기·준비는 claim 기한을 연장하지 않는다(R12, R13).
+// 읽기·준비는 claim 기한을 연장하지 않는다.
 export function checkTicketClaim(
   tx: Tx,
   input: {

@@ -19,7 +19,7 @@ type SchemaOf<R extends Route> = Extract<R["output"], z.ZodType>;
 type CallBody<R extends Route> = R extends CommandRoute ? CommandRequest<R>
   : z.input<R["input"]>;
 
-// 성공한 command도 read처럼 등록된 결과 객체를 그대로 200으로 받는다(platform/api#R3).
+// 성공한 command도 read처럼 등록된 결과 객체를 그대로 200으로 받는다.
 type CallResult<R extends Route> = R extends { kind: "file" } ? FileBody
   : z.output<SchemaOf<R>>;
 

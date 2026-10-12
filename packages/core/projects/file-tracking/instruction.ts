@@ -1,4 +1,4 @@
-// 지침 파일(LOPHN.md)의 exact 등록과 그 파일 관측의 순수 규칙(file-tracking#R19, R20).
+// 지침 파일(LOPHN.md)의 exact 등록과 그 파일 관측의 순수 규칙.
 // 일반 Project tracking과 별개다: 폴더를 재귀로 돌지 않고, 부모 폴더를 거슬러 올라가지 않고,
 // cwd를 추측하지 않는다. 등록은 documents가 data root와 활성 Project 폴더에서 스스로 정한다
 // (lophn-agent/instructions는 층 이름만 갖는다). 전역은 `<data root>/LOPHN.md` 한 파일, project는

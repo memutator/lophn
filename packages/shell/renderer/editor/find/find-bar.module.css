@@ -1,4 +1,4 @@
-/* 찾기 줄 36px·입력 28px. 편집 칸 위에 붙어 scroll해도 남는다(shell/editor#R11). */
+/* 찾기 줄 36px·입력 28px. 편집 칸 위에 붙어 scroll해도 남는다. */
 .bar {
   position: sticky;
   top: var(--space-0);

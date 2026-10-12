@@ -23,7 +23,7 @@ import { approvalVerdict, type CallFacts } from "./model.ts";
 // 사람 기다림의 결정 반영(wait resolver). command 밖의 일이고 결과는 command로 남긴다. 결정 전달은
 // event나 입력 payload의 값을 믿지 않고 ledger의 현재 요청과 고정 call을 읽는다. event가 유실돼도
 // 같은 읽기로 다시 만나고, 각 단계는 읽은 현재 상태에서 이어 가므로 어느 지점에서 죽어도 같은
-// 결정을 한 번만 반영한다(R5, R11). 허락은 시작이 아니다: 재검사를 통과한 call만 시작한다(R2).
+// 결정을 한 번만 반영한다. 허락은 시작이 아니다: 재검사를 통과한 call만 시작한다.
 
 type JudgmentPort = {
   admit(
@@ -62,9 +62,9 @@ export type WaitStep =
   // 아직 사람의 결정이 없다.
   | { kind: "pending"; request: string }
   // 답은 받았지만 고정 action의 적용이 아직이다(접수와 적용은 다르다). 전제가 달라져 적용하지
-  // 못했다면 why가 달라진 이유다(questions#R14).
+  // 못했다면 why가 달라진 이유다.
   | { kind: "action_pending"; request: string; why?: string }
-  // 미시작을 확인하지 못했다. approval을 쓰지 않고 그대로 둔다(R11).
+  // 미시작을 확인하지 못했다. approval을 쓰지 않고 그대로 둔다.
   | { kind: "unverified"; request: string; why: string }
   | {
     kind: "resolved";
@@ -158,7 +158,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
   // (questions#R13). 답 저장 → 적용 → ResolveRunWait는 각각 따로 확정되고 읽은 현재 사실에서
   // 이어 가므로 어느 지점에서 죽어도 적용은 한 번이다: 적용했다면 `applied`가 이미 참이라 다시
   // 부르지 않고, 적용 중 죽었다면 transaction이 통째로 되돌아가 처음부터 다시 적용한다.
-  // 전제가 달라져 적용하지 못하면 답은 그대로 두고 재개하지 않는다(questions#R14).
+  // 전제가 달라져 적용하지 못하면 답은 그대로 두고 재개하지 않는다.
   async function applyChosen(
     record: z.output<typeof questionRead.output>["group"],
   ): Promise<Result<{ applied: boolean; why?: string }>> {
@@ -210,7 +210,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     return applied;
   }
 
-  // 질문 묶음을 본다. 묶음 전체의 답·만료·미루기·취소만 결정이다(R1).
+  // 질문 묶음을 본다. 묶음 전체의 답·만료·미루기·취소만 결정이다.
   async function settleQuestion(
     run: { id: string; state_seq: string },
     request: string,
@@ -235,7 +235,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
   }
 
   // 허락은 재검사를 통과한 call만 시작한다. 거절·만료·취소·재검사 실패는 call을 미실행으로
-  // 닫는다. 두 경우 모두 읽은 현재 상태에서 이어 가므로 되풀이해도 한 번만 반영한다(R2, R11).
+  // 닫는다. 두 경우 모두 읽은 현재 상태에서 이어 가므로 되풀이해도 한 번만 반영한다.
   async function settleApproval(
     run: { id: string; state_seq: string },
     request: string,
@@ -287,7 +287,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
   }
 
   // 재검사를 통과하면 시작을 기록하고, 아니면 미실행으로 닫는다. 읽을 수 없는 사실이 있으면
-  // 허락을 쓰지 않는다(R11: 미시작을 확인하지 못한 approval은 사용하지 않는다).
+  // 허락을 쓰지 않는다(미시작을 확인하지 못한 approval은 사용하지 않는다).
   async function recheckAndStart(
     request: string,
     used: boolean,
@@ -357,7 +357,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
       : await settleApproval(reference, current.waiting_on);
   }
 
-  // 재시작 뒤 기다리는 run을 모두 다시 만난다. event 유실도 같은 읽기로 이어진다(R11).
+  // 재시작 뒤 기다리는 run을 모두 다시 만난다. event 유실도 같은 읽기로 이어진다.
   async function recover(): Promise<Result<{ run: string; step: WaitStep }[]>> {
     const listed = await post(deps.machine, runList, { state: "waiting_user" });
     if (!listed.ok) return listed;
@@ -370,7 +370,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     return ok(steps);
   }
 
-  // 명시 수정으로 옛 요청을 취소하고 수정을 반영한다(R4). 요청 소유 영역이 먼저 취소하고 고정
+  // 명시 수정으로 옛 요청을 취소하고 수정을 반영한다. 요청 소유 영역이 먼저 취소하고 고정
   // call을 미실행으로 닫은 뒤 CorrectWaitingRun이 run을 잇거나 답 없음으로 끝내며 수정 입력을
   // 새 담당에 보존한다. 사람이 이미 정한 요청(답·허락·거절)은 수정으로 덮지 않는다.
   async function correct(

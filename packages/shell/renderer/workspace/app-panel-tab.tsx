@@ -1,4 +1,4 @@
-// 프로젝트 작업대의 앱 패널 탭(shell/workspace#R5, shell/app-frame#R33–R35). blueprint가 panel
+// 프로젝트 작업대의 앱 패널 탭. blueprint가 panel
 // 크기를 선언한 화면만 탭에 열고, 전체 화면만 선언한 앱은 앱 공간으로 열기를 안내한다. 탭의
 // 앱 view는 앱 공간과 같은 앱·판·mode 신원과 격리로 main이 열고(size만 panel), 크롬은 이 탭의
 // shell renderer가 그린다. 탭이 안 보이면 view를 남긴 채 숨기고, 닫으면 폐기한다.

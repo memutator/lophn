@@ -25,7 +25,7 @@ export function emptySides(): Record<ObservationSide, SideObservations> {
 }
 
 // private IPC JSON. frame 65,536 bytes, side 합 1,048,576 bytes를 넘기면
-// 그 side는 inconclusive다(problems/tests#R19). stdout 문자열은 여기 들어오지 않는다.
+// 그 side는 inconclusive다. stdout 문자열은 여기 들어오지 않는다.
 export function acceptFrame(
   sides: Record<ObservationSide, SideObservations>,
   bytes: Uint8Array,

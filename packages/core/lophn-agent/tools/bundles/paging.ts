@@ -10,13 +10,13 @@ import {
 import type { RunCredential } from "../work.ts";
 import type { ContractCall } from "./common.ts";
 
-// 목록·검색·이력·검사 진단의 이어 보기. 소유 contract의 cursor를 조건과 함께 감싼다(R13).
+// 목록·검색·이력·검사 진단의 이어 보기. 소유 contract의 cursor를 조건과 함께 감싼다.
 
 export function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 이어 보기 위치. 조건이 다른 목록에서 온 cursor는 거절한다(R13).
+// 이어 보기 위치. 조건이 다른 목록에서 온 cursor는 거절한다.
 export function resume(
   given: string | undefined,
   scope: string,
@@ -60,7 +60,7 @@ export function bodyOf(value: unknown): Body {
 }
 
 // 목록·검색·이력의 한 page. 앞 20개만 보이고, 소유 contract가 더 줬거나 상한에 걸려 덜어 낸
-// 항목은 같은 page의 뒤 위치(skip)에서 이어 읽는다. 항목을 잃지 않는다(R13, R14).
+// 항목은 같은 page의 뒤 위치(skip)에서 이어 읽는다. 항목을 잃지 않는다.
 export function windowedResult(
   summary: string,
   scope: string,

@@ -1,4 +1,4 @@
-// lophn이 연 coding TUI마다 만드는 관측 socket(shell/terminal#R12, coding-agent/sessions#R6).
+// lophn이 연 coding TUI마다 만드는 관측 socket.
 // 0700 폴더 안의 무작위 이름 Unix socket(Windows는 무작위 named pipe)이고 경로만 환경
 // `LOPHN_TERMINAL_OBSERVE`로 간다. observation 전용이라 connection credential·token과 섞지 않는다. 한 줄은
 // harnessSessionObservation NDJSON이고 64KiB 안이다. host는 이 socket 하나가 runtime 하나라는 사실로
@@ -17,7 +17,7 @@ import {
   observeEnvelopeSchema,
 } from "../../protocol/coding-agent/mod.ts";
 
-/** observe 줄 한 개의 상한이다(coding-agent#T39). */
+/** observe 줄 한 개의 상한이다. */
 export const OBSERVE_LINE_LIMIT_BYTES = 64 * 1024;
 
 export type ObserveSocketOptions = {

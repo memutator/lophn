@@ -8,7 +8,7 @@ import { advanceSubscriberCursor } from "../../../protocol/events/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { runAdmission } from "./run-admission.ts";
 
-// 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다(R22, domain model).
+// 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다(domain model).
 export const advanceSubscriberCursorCommand = defineSyncCommand(
   advanceSubscriberCursor,
   (tx: Tx, _ctx: RequestContext, input, _compare) => {
@@ -43,9 +43,9 @@ export function runDisposition(definition: CommandDefinition): RunDisposition {
   };
 }
 
-// agent command는 자격에 묶인 run만 받는다. 끝난 run은 감사 보완만 통과한다(ledger R11).
+// agent command는 자격에 묶인 run만 받는다. 끝난 run은 감사 보완만 통과한다.
 // 판정은 lophn-agent의 run 유효성 read가 한다. port가 없으면 fail closed다.
-// run ledger(lophn-agent T10)가 등록하기 전에는 제품에서 agent command가 막힌다.
+// run ledger가 등록하기 전에는 제품에서 agent command가 막힌다.
 export function admitAgentRun(
   tx: Tx,
   ctx: RequestContext,

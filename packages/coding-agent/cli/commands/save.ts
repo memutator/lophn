@@ -1,6 +1,6 @@
-// save command다(T14, cli#R15·R16). 위치 인자 파일 묶음의 첫 파일이 primary이고
-// 정본 저장만 한다: 자리 놓기·원본 제거·보관 복귀 command는 없다(cli#R16). 파일은
-// submission root 안에서 realpath로 다시 검사한 뒤(connection#R10) bytes만 core의
+// save command다. 위치 인자 파일 묶음의 첫 파일이 primary이고
+// 정본 저장만 한다: 자리 놓기·원본 제거·보관 복귀 command는 없다. 파일은
+// submission root 안에서 realpath로 다시 검사한 뒤 bytes만 core의
 // blob 준비로 넘기고, 준비·저장은 MCP `lophn_save`와 같은 통로를 쓴다.
 import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";

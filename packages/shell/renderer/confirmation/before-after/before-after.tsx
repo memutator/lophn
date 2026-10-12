@@ -9,7 +9,7 @@ export interface BeforeAfterProps {
   change: Change | undefined;
 }
 
-// 현재·바뀐 뒤를 세로로 둔다. 색 없이 +/−·글로 구별한다(confirmation-window#R3).
+// 현재·바뀐 뒤를 세로로 둔다. 색 없이 +/−·글로 구별한다.
 export function BeforeAfter({ change }: BeforeAfterProps) {
   if (change === undefined) {
     return (

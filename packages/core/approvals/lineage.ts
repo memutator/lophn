@@ -1,4 +1,4 @@
-// run 사실 port. 거절 억제(platform/approvals#R16)의 계보 판정과 session 허락(R19)의 session을
+// run 사실 port. 거절 억제의 계보 판정과 session 허락의 session을
 // 읽는다. platform은 run을 직접 읽지 않는다.
 // lophn-agent가 같은 Tx에서 run의 source로 채운다(runs/read의 source.message 또는 handoff의
 // original_message와 같은 값). origin이 같으면 같은 원래 사람 요청에서 이어진 run이다.

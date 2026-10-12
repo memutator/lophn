@@ -1,11 +1,11 @@
-// ticket command의 route 표와 실행이다(T20·T25, cli#R36, R37, R41). list·show·checks는 소유
+// ticket command의 route 표와 실행이다. list·show·checks는 소유
 // read route로 core에 닿는다. `ticket claim`은 MCP 연결·지정 ticket 안내로만 끝나고 claim을
 // 만들지 않는다(cli#R41 — 외부 세션의 claim은 MCP로 수행한다). renew·release·report는 MCP
 // `lophn_ticket`과 같은 소유 route·같은 흐름이다(connection/ticket-ops). report는 summary를
 // 올린 준비 참조로 보내고 completion seq를 입력받지 않는다. 표가 기한이나 자동 갱신을 덧붙이지
-// 않는다(mcp#R27). create·cancel은 사람 전용이다: CLI는 사람 credential을 읽지 않으므로
+// 않는다. create·cancel은 사람 전용이다: CLI는 사람 credential을 읽지 않으므로
 // 같은 필수 입력 검사만 하고 결정 화면 링크로 넘긴다(coding-agent 계획 질문 Q1). coding
-// credential에는 이 둘도 목표 수정·공개·확인 판정·test result 작성도 없다(cli#R37).
+// credential에는 이 둘도 목표 수정·공개·확인 판정·test result 작성도 없다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {
   cliTicketCancelSchema,
@@ -51,7 +51,7 @@ export const TICKET_COMMANDS: readonly CommandEntry[] = [
     monoRoute: ticketChecks,
   },
   {
-    // claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다(cli#R41).
+    // claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다.
     // route가 없으므로 표 밖 op와 같은 실행 전 거절이다(types.ts).
     name: "ticket claim",
     input: cliTicketClaimSchema,
@@ -71,7 +71,7 @@ export const TICKET_COMMANDS: readonly CommandEntry[] = [
     input: cliTicketReportSchema,
     monoRoute: ticketReportCompletion,
   },
-  // 사람 전용이라 route가 없다. 실행하지 않고 결정 화면 링크로 넘긴다(cli#R37).
+  // 사람 전용이라 route가 없다. 실행하지 않고 결정 화면 링크로 넘긴다.
   { name: "ticket create", input: cliTicketCreateSchema },
   { name: "ticket cancel", input: cliTicketCancelSchema },
 ];
@@ -145,7 +145,7 @@ export type TicketHumanOnlyOutput = {
 
 // 사람 전용 ticket 생성·취소다. coding credential(연결 참조로 시작한 context)은 실행 전 거절이다.
 // 사람의 CLI는 core에 쓰지 않는다: 같은 필수 입력 검사를 이미 통과한 입력을 결정 화면 링크로
-// 넘기고, 사람이 그 화면에서 누르면 확인 창 없이 적용된다(cli#R37). 이 호출은 아무것도 만들거나
+// 넘기고, 사람이 그 화면에서 누르면 확인 창 없이 적용된다. 이 호출은 아무것도 만들거나
 // 취소하지 않았다.
 export function ticketHumanOnly(
   name: "ticket create" | "ticket cancel",

@@ -1,7 +1,7 @@
 // core 안의 assignments 반응 구독자(machine:lophn-agent-assignments). 독립 비동기 루프가
 // `lophn-agent-assignments` cursor 뒤 event를 읽고, AppCreated면 거두지 않은 App Engineer
 // assignment를 만들고 자리(project·app)가 보관되면 그 자리의 켜진 assignment를 멈추고 보관이
-// 풀리면 멈춘 assignment를 다시 켜며, 나머지는 cursor만 올린다(lophn-agent/assignments#R1, R14, Q7).
+// 풀리면 멈춘 assignment를 다시 켜며, 나머지는 cursor만 올린다.
 // 본문 조립·model 호출은 하지 않는다.
 //
 // event는 깨우는 신호다. 구독이 (다시) 열릴 때와 event가 올 때 cursor부터 따라잡고, 실패하면

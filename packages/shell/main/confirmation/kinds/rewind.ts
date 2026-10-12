@@ -1,9 +1,9 @@
-// session 되돌리기(rewind) 확인(lophn-agent/revert#R3, #R7, #R15). 대화의 rewind menu가 고른 session·checkpoint·범위로
+// session 되돌리기(rewind) 확인(#R7, #R15). 대화의 rewind menu가 고른 session·checkpoint·범위로
 // 창을 열면, 이 종류가 `rewind/preview`를 독립 read해 정본을 만든다. 표시와 제출은 같은 정본에 묶이고 renderer가 보낸
 // 다른 값은 쓰지 않는다. 결정은 `Rewind`로 보내고 결정 자체가 적용이다. 건너뛰는 것이나 남는 영향이 있으면 정본이
 // accept_remaining=true로 묶고 2차 확인으로 그 목록을 다시 보인 뒤에만 제출할 수 있다(사람이 확인한 결정이 있어야
 // 복원 가능한 것을 적용한다). 문서 파일은 core가 확인 뒤에 관측·준비·설치하므로(files) 여기서 읽지 않는다.
-// 앱 복원 단계가 있어 applying으로 접수되면 같은 revert를 core의 `RunAppRevert`로 이어 실행한다(lophn-agent#T48).
+// 앱 복원 단계가 있어 applying으로 접수되면 같은 revert를 core의 `RunAppRevert`로 이어 실행한다.
 import type { LiveHandle } from "../handle.ts";
 import type { ConfirmationIntent, ConfirmationResult } from "../types.ts";
 import {
@@ -136,7 +136,7 @@ export async function readRewind(
   const restore = itemsOf(shown.restore);
   const skip = itemsOf(shown.skip);
   const remain = itemsOf(shown.remain);
-  // 건너뛰는 것이나 남는 영향이 있으면 사람이 그 목록을 확인한 결정만 적용한다(R7).
+  // 건너뛰는 것이나 남는 영향이 있으면 사람이 그 목록을 확인한 결정만 적용한다.
   const left = skip.length + remain.length > 0;
   const bound = bindingOf(BINDING, {
     id: state.idFor(windowId),

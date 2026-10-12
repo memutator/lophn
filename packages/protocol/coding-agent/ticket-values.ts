@@ -3,7 +3,7 @@ import { addressSchema } from "../projects/address.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
-// 앱 source 안 상대 위치. 절대 경로·루트 밖 `..`·빈 조각은 거절한다(R10).
+// 앱 source 안 상대 위치. 절대 경로·루트 밖 `..`·빈 조각은 거절한다.
 export const sourceRelativePathSchema = z.string().min(1).refine(
   (value) =>
     value === "." ||
@@ -47,7 +47,7 @@ const noShell = z.string().min(1).refine(
   { message: "shell string" },
 );
 
-// executable은 공백 금지. argv 항목은 공백을 그대로 둔다(R10).
+// executable은 공백 금지. argv 항목은 공백을 그대로 둔다.
 const executableSchema = noShell.refine(
   (value) =>
     /\S/.test(value) && !/^[\\/]/.test(value) && !/^[A-Za-z]:/.test(value),
@@ -72,7 +72,7 @@ const testCommandFields = {
 const marker = (kind: "app_test" | "release_active" | "problems_closed") =>
   z.strictObject({ kind: z.literal(kind) });
 
-// human_confirmation은 어느 문제의 reproduction을 대신하는지 problem을 갖는다(Q18).
+// human_confirmation은 어느 문제의 reproduction을 대신하는지 problem을 갖는다.
 export const acceptanceCheckInputSchema = z.discriminatedUnion("kind", [
   z.strictObject(testCommandFields),
   marker("app_test"),

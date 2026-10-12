@@ -1,4 +1,4 @@
-// lophn_format tool의 실행이다(T14, mcp#R14). list·show는 설치된 선언을 읽고,
+// lophn_format tool의 실행이다. list·show는 설치된 선언을 읽고,
 // validate는 파일 bytes 검사를 format 실행(worker) 요청으로 보낸다. 검사 결과를
 // 호출자가 주장하는 입력은 없다: 입력 hash와 명시 여부는 이 tool이 정한다.
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";

@@ -1,4 +1,4 @@
-// [Report a problem]의 main 쪽(shell/app-frame#R31, R32, R34, problems/feedback#R5, R6, R10–R13).
+// [Report a problem]의 main 쪽.
 // 버튼을 누른 desktop renderer가 view_session만 보내면 main이 그 시점의 view
 // `{view_session, generation, app, release, mode, screen, observedAt}`를 고정하고, 그 앱 view의
 // 캡처를 먼저 요청한 뒤 같은 창 overlay에 dialog를 연다. 앱 view는 숨기지 않는다. 보호 창·lophn
@@ -105,7 +105,7 @@ export interface FeedbackDeps {
   commandStart?(view_session: string): "blocked_before_start" | "unknown";
   /**
    * 이 Report ID가 이미 접수됐는지 읽는다(problems GetReport). 접수됐으면 그 결과, 없으면 null이고
-   * 읽지 못하면 ok: false다. 응답을 잃은 제출을 다시 보내기 전에 쓴다(problems/reporting#R9).
+   * 읽지 못하면 ok: false다. 응답을 잃은 제출을 다시 보내기 전에 쓴다.
    */
   lookup(report: string): Promise<
     | { ok: true; value: FeedbackAccepted | null }
@@ -157,7 +157,7 @@ function sha256(bytes: Uint8Array | string): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-// URL은 path만 남긴다. query 값과 fragment는 화면 상태로 보내지 않는다(problems/feedback#R7).
+// URL은 path만 남긴다. query 값과 fragment는 화면 상태로 보내지 않는다.
 function pathOf(url: string | null): string | null {
   if (url === null) return null;
   try {
@@ -422,7 +422,7 @@ export function createFeedback(deps: FeedbackDeps) {
       return reply;
     },
 
-    /** 미제출 초안은 버린다. 이미 접수한 Report는 지우지 않는다(problems/feedback#R12). */
+    /** 미제출 초안은 버린다. 이미 접수한 Report는 지우지 않는다. */
     cancel(event: IpcEvent, input: unknown): FeedbackReply<null> {
       const checked = guard(event, OVERLAY_HOST, feedbackCancelSchema, input);
       if (!checked.ok) return checked;
@@ -433,7 +433,7 @@ export function createFeedback(deps: FeedbackDeps) {
       return { ok: true, value: null };
     },
 
-    /** 접수 뒤 묶인 Issue로 간다(problems/feedback#R13). */
+    /** 접수 뒤 묶인 Issue로 간다. */
     openIssue(event: IpcEvent, input: unknown): FeedbackReply<null> {
       const checked = guard(event, OVERLAY_HOST, feedbackCancelSchema, input);
       if (!checked.ok) return checked;

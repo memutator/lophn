@@ -1,4 +1,4 @@
-// index·search command의 route 표다(T12, cli#R11). 소유 route는 contracts의
+// index·search command의 route 표다. 소유 route는 contracts의
 // documents table 그대로다. MCP가 없는 세션에서도 같은 route로 core에 닿는다
 // (cli#R1). 등록·보관·연결 command는 화면의 몫이며 표에 없다(cli#R22).
 import {

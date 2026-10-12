@@ -1,10 +1,10 @@
 import type { RunSource } from "@lophn/protocol/lophn-agent";
 
-// App Engineer의 시작 계기와 읽기 범위(roles/app-engineer R1, R2). 순수 함수다. 실제 읽기
+// App Engineer의 시작 계기와 읽기 범위. 순수 함수다. 실제 읽기
 // 집행은 core의 documents·앱 읽기 통로가 하고, 이 모듈은 어떤 요청이 범위 안인지의 계약을
 // 정한다(handoff#R6이 한시적 고정 근거 읽기를 이 계약에 맡긴다).
 
-// 시작 계기다(R1). 사람 요청(message)과 그 요청을 잇는 handoff만 App Engineer를 시작한다.
+// 시작 계기다. 사람 요청(message)과 그 요청을 잇는 handoff만 App Engineer를 시작한다.
 // 주기 회차는 operator의 것이고, 문제 발생이나 release activation 같은 자료 변화는 run의
 // 출처가 아니다.
 export function mayStart(source: RunSource | { kind: string }): boolean {

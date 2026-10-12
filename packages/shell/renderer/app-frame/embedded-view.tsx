@@ -1,8 +1,8 @@
 // 앱 native view의 자리. 앱 공간·탭 패널·세션 카드가 본문 경계에 이 자리를 두면 main이 그
 // 경계 안에 앱 view를 붙인다. 앱은 자기 페이지 머리부터 그리고 바깥 크롬은 이 자리 밖의 shell이
-// 그린다(shell/app-frame#R25). 앱 UI 코드는 여기 import하지 않는다(R19).
+// 그린다. 앱 UI 코드는 여기 import하지 않는다.
 //
-// 순서(R29): 안 보이게 되면(탭 전환·공간 이동·닫기) cleanup에서 바로 숨기거나 닫는다. React는
+// 순서: 안 보이게 되면(탭 전환·공간 이동·닫기) cleanup에서 바로 숨기거나 닫는다. React는
 // 한 commit에서 옛 effect의 cleanup을 새 effect보다 먼저 돌리므로 새 view의 열기·bounds보다
 // 옛 view 숨김이 먼저 main에 간다. 새 view는 main이 준비를 확인한 뒤에 붙인다.
 import {
@@ -37,7 +37,7 @@ export { createViewCovers };
 
 /**
  * 좁은 창에서 본문을 덮는 패널(대화·정보·운영 패널)이 부른다. 덮는 동안 앱 view는 숨지 않고
- * 덮이지 않는 영역으로 줄고, 닫으면 원래 bounds로 돌아온다(R26, R36).
+ * 덮이지 않는 영역으로 줄고, 닫으면 원래 bounds로 돌아온다.
  */
 export function useViewCover(
   ref: { readonly current: Element | null },

@@ -22,7 +22,7 @@ export const SCREENS = [
   "common",
 ];
 
-// 앱 catalog는 앱의 screen key를 첫 구간으로 쓴다(apps/sdk#R41). 기본은 lophn 화면 목록이다.
+// 앱 catalog는 앱의 screen key를 첫 구간으로 쓴다. 기본은 lophn 화면 목록이다.
 export function keyShape(screens: readonly string[] = SCREENS): RegExp {
   return new RegExp(
     `^(?:${

@@ -11,7 +11,7 @@ export type ChildHandle = {
   stdout: ReadableStream<Uint8Array> | null;
   stderr: ReadableStream<Uint8Array> | null;
   // timeout·복구는 이 프로세스 그룹 전체를 죽인다. prlimit·systemd-run 뒤의
-  // Deno와 그 손자까지 회수한다(problems/tests#R20).
+  // Deno와 그 손자까지 회수한다.
   killGroup(signal?: Deno.Signal): void;
   status(): Promise<Deno.CommandStatus>;
 };
@@ -24,7 +24,7 @@ export type SpawnPort = {
 };
 
 // platform/security applyMemoryLimit와 같은 모양. problems는 그 구현을
-// import하지 않고 runner가 넘긴다(problems/tests#R20).
+// import하지 않고 runner가 넘긴다.
 export type MemoryLimitPort = {
   limit(
     command: string,
@@ -119,8 +119,8 @@ async function drain(
   }
 }
 
-// 시작 시도가 ledger에 확정된 뒤에만 부른다(problems/tests#R17).
-// 메모리 경계를 걸 수 없으면 자식을 띄우지 않고 unavailable이다(problems/tests#R20).
+// 시작 시도가 ledger에 확정된 뒤에만 부른다.
+// 메모리 경계를 걸 수 없으면 자식을 띄우지 않고 unavailable이다.
 export async function startChild(
   prepared: PreparedCommand,
   options: {
@@ -142,7 +142,7 @@ export async function startChild(
   if (!limited.ok) {
     return err({ code: "unavailable", message: UNAVAILABLE });
   }
-  // 자식은 core·collector 주소와 credential을 받지 않는다(problems/tests#R17).
+  // 자식은 core·collector 주소와 credential을 받지 않는다.
   const launch = childLaunch(limited.value.args, prepared.env);
   if (!launch.ok) return launch;
   const spawn = options.spawn ?? await systemSpawn(options.os ?? Deno.build.os);

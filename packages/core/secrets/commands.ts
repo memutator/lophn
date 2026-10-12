@@ -1,4 +1,4 @@
-// SetSecret·RemoveSecret은 참조와 판만 다룬다(platform/secrets#R6).
+// SetSecret·RemoveSecret은 참조와 판만 다룬다.
 // OS 준비는 command 밖에서 끝났고, 값은 이 경계에 오지 않는다.
 
 import { err, ok } from "../../base/mod.ts";
@@ -90,7 +90,7 @@ export const removeSecretCommand = defineSyncCommand(
       [applied.value.name, applied.value.sealedRef, applied.value.revision],
     );
     tx.emit(secretRemoved, `secret:${input.name}`, { name: input.name });
-    // 참조 차단만 확정한다. OS 삭제·프로세스 종료는 아직 관측하지 않았다(R7).
+    // 참조 차단만 확정한다. OS 삭제·프로세스 종료는 아직 관측하지 않았다.
     return ok({
       reference_blocked: true,
       os_deleted: false,

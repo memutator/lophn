@@ -1,4 +1,4 @@
-// 외부 전송 대역(apps/preview#R4). 네트워크에 나가지 않는다. 선언한 host·port만 받고 요청은 메모리에만
+// 외부 전송 대역. 네트워크에 나가지 않는다. 선언한 host·port만 받고 요청은 메모리에만
 // 남기며 응답은 주입한 값(기본: 상태 200, 빈 본문)이다. loopback은 선언했어도 받지 않는다:
 // preview에는 실제 loopback 듣기·플랫폼 port 접근이 없다.
 import { ok, type Result } from "../../../../base/mod.ts";

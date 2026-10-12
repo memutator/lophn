@@ -1,8 +1,8 @@
 // ticket 완료 보고·취소 command(coding-agent/tickets#R15, R17, R22, R23,
 // connection#R18). 보고는 현재 유효 claim과 release 역조회가 같은 transaction에서
-// 지나고, 접수 때 claim을 끝낸다(R17). 취소는 user라면 확인 창 없이, revert 적용
-// machine이라면 외부 claim·보고·결과가 한 번도 없을 때만 성공한다(R22).
-// 취소 직후 옛 claim의 갱신·보고는 claim 행 삭제와 state 전이로 거절된다(R23).
+// 지나고, 접수 때 claim을 끝낸다. 취소는 user라면 확인 창 없이, revert 적용
+// machine이라면 외부 claim·보고·결과가 한 번도 없을 때만 성공한다.
+// 취소 직후 옛 claim의 갱신·보고는 claim 행 삭제와 state 전이로 거절된다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import {
@@ -77,7 +77,7 @@ export function createTicketFinishCommands(): {
   };
 }
 
-// 보고 접수는 claim을 끝낸다. 관계 검사와 새 event·표 갱신은 한 transaction이다(R17).
+// 보고 접수는 claim을 끝낸다. 관계 검사와 새 event·표 갱신은 한 transaction이다.
 function reportCompletion(
   tx: Tx,
   ctx: RequestContext,
@@ -95,7 +95,7 @@ function reportCompletion(
   if (!ticket.ok) return ticket;
   if (ticket.value === null) return notFound("ticket does not exist");
   const stored = ticket.value;
-  // 범위 밖 ticket은 없는 ticket과 같은 답이다(connection#R5).
+  // 범위 밖 ticket은 없는 ticket과 같은 답이다.
   if (!inScope(auth.value, stored.app)) {
     return notFound("ticket does not exist");
   }
@@ -118,7 +118,7 @@ function reportCompletion(
   const registered = tx.port(appRegistrationLookup).get(stored.app);
   if (!registered.ok) return registered;
   if (registered.value === null) return notFound("app does not exist");
-  // 검사한 claim에 같은 앱의 release가 준비돼 있어야 한다(R15).
+  // 검사한 claim에 같은 앱의 release가 준비돼 있어야 한다.
   const source = releaseSource(tx.sql, input.completion.release);
   if (source === null) return notFound("release does not exist");
   if (
@@ -184,7 +184,7 @@ function reportCompletion(
       JSON.stringify(input.completion.verifications),
     ],
   );
-  // 접수 때 claim을 끝낸다(R17). ticket은 reported로 남고 machine 검사 전까지
+  // 접수 때 claim을 끝낸다. ticket은 reported로 남고 machine 검사 전까지
   // confirmed가 되지 않는다.
   tx.sql.run(
     "DELETE FROM ticket_claims WHERE ticket = ? AND claim_seq = ?",
@@ -207,7 +207,7 @@ type ReleaseSourceRow = {
   ticket_source: { ticket: string; claim_seq: string } | null;
 };
 
-// release 역조회. ticket_source는 claim 출처의 사본이 아니라 원 seq다(R15).
+// release 역조회. ticket_source는 claim 출처의 사본이 아니라 원 seq다.
 function releaseSource(
   sql: Pick<Tx["sql"], "get">,
   release: string,
@@ -226,7 +226,7 @@ function releaseSource(
 }
 
 // 완료 보고 참조. outputs는 문서 version, verifications는 실제 runner 기록이고
-// fix_records는 이 ticket claim의 고친 기록이다(R17, R15).
+// fix_records는 이 ticket claim의 고친 기록이다.
 function completionReferences(
   tx: Tx,
   ticket: string,
@@ -284,7 +284,7 @@ function completionReferences(
       return invalid("fix record problem is not in this ticket");
     }
   }
-  // repair는 대상 문제 각각의 고친 기록이 필수다(R17).
+  // repair는 대상 문제 각각의 고친 기록이 필수다.
   if (kind === "repair") {
     for (const problem of stored.problems) {
       const covered = completion.fix_records.some((seq) => {
@@ -316,7 +316,7 @@ function cancelTicket(
   if (!row.ok) return row;
   if (row.value === null) return notFound("ticket does not exist");
   const stored = row.value;
-  // 종료된 ticket은 다시 취소하지 않는다(R19).
+  // 종료된 ticket은 다시 취소하지 않는다.
   if (stored.state === "confirmed" || stored.state === "cancelled") {
     return conflict("ticket is already ended");
   }
@@ -325,7 +325,7 @@ function cancelTicket(
   ) {
     return conflict("ticket revision changed");
   }
-  // revert 적용 machine은 외부 claim·보고·결과가 한 번도 없을 때만 취소한다(R22).
+  // revert 적용 machine은 외부 claim·보고·결과가 한 번도 없을 때만 취소한다.
   const parts = parseActorKind(ctx.actor);
   if (parts === "machine") {
     if (externalHistory(tx.sql, input.ticket)) {
@@ -343,7 +343,7 @@ function cancelTicket(
     completion_seq: stored.completion_seq,
     fix_records: completionFixRecords(tx.sql, input.ticket),
   });
-  // 종료 전 현재 claim을 반납한다. 과거 완료 보고·check는 남는다(R23).
+  // 종료 전 현재 claim을 반납한다. 과거 완료 보고·check는 남는다.
   tx.sql.run(
     "DELETE FROM ticket_claims WHERE ticket = ?",
     [input.ticket],
@@ -361,7 +361,7 @@ function cancelTicket(
   return ok({ ticket: input.ticket, state: "cancelled" });
 }
 
-// 과거 완료 보고가 가리킨 고친 기록. 취소에도 보존 사실을 남긴다(R23).
+// 과거 완료 보고가 가리킨 고친 기록. 취소에도 보존 사실을 남긴다.
 function completionFixRecords(
   sql: Pick<Tx["sql"], "get">,
   ticket: string,
@@ -380,7 +380,7 @@ function completionFixRecords(
   return Array.isArray(parsed) ? parsed.map(String) : [];
 }
 
-// 취소할 수 없는 외부 이력. claim·보고·결과 중 하나라도 있으면 있다(R22).
+// 취소할 수 없는 외부 이력. claim·보고·결과 중 하나라도 있으면 있다.
 function externalHistory(
   sql: Pick<Tx["sql"], "get">,
   ticket: string,

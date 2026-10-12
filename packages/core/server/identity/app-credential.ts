@@ -18,7 +18,7 @@ export type AppCredentialResponse = {
   expires_at?: string;
 };
 
-// 앱 supervisor만 부른다. 앱 사용자 코드에 노출하는 발급 경로가 아니다(R4).
+// 앱 supervisor만 부른다. 앱 사용자 코드에 노출하는 발급 경로가 아니다.
 export type AppCredentialIssuer = {
   // 감독 pipe의 발급 요청을 받아 응답 schema 모양으로 돌려준다.
   // token은 이 응답에만 있고 결과·오류·log에 남기지 않는다.

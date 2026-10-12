@@ -1,4 +1,4 @@
-// /v1/apps/export의 product serving(apps/data#R13). reader pool은 동기 handler만 받고 export
+// /v1/apps/export의 product serving. reader pool은 동기 handler만 받고 export
 // 준비는 파일·DB 작업이라 pool로 못 돈다. 그래서 worker route target으로 core의 worker route
 // map에 직접 붙인다. ledger 읽기·요청 자격 재검사·앱 접근 판정은 core 안에서 하고(ledger
 // 연결은 요청마다 열고 읽은 뒤 닫는다), 앱 DB를 여는 준비 본체는 core graph 밖 프로세스

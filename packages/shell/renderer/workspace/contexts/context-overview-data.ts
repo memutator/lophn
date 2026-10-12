@@ -1,5 +1,4 @@
-// Overview 카드와 화살표를 계약과 개수에서 뽑는다. 순서는 계약의 type·관계 순서를 그대로 따른다
-// (shell/workspace#R18).
+// Overview 카드와 화살표를 계약과 개수에서 뽑는다. 순서는 계약의 type·관계 순서를 그대로 따른다.
 import type { BundleContent, ContextOverview } from "./source.ts";
 
 export interface EntityCard {

@@ -190,7 +190,7 @@ import {
 import { contextStatusOf } from "../projects/contexts/mod.ts";
 import { createMcpSecretRefSource } from "./extensions/mod.ts";
 
-// 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(packages/core/lophn-agent/extensions/skill-folders.ts)이
+// 설치 묶음에 동봉된 skill 폴더다. runtime의 skill 발견(packages/core/lophn-agent/extensions/skill-folders.ts)이
 // 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이라 읽기 허락도 더하지 않는다.
 const BUNDLED_SKILLS_ROOT = new URL("../../../assets/skills", import.meta.url)
   .pathname;
@@ -266,7 +266,7 @@ export function agentRuntimeLaunchSpec(input: {
 }
 
 // catalog 자동 갱신 on/off 정의 등록(contracts#T24 settings registry). 사람이
-// 끄면 정상본·snapshot만 쓴다(R6). machine_local이고 다음 기동부터 적용한다.
+// 끄면 정상본·snapshot만 쓴다. machine_local이고 다음 기동부터 적용한다.
 export const catalogAutoUpdateSetting = defineSetting({
   key: "lophn-agent.model.catalog_auto_update",
   owner: "lophn-agent/harness/model",
@@ -288,8 +288,8 @@ export const catalogAutoUpdateSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// run 한도 정의 등록(contracts#T24 settings registry, lophn-agent#T12). 공통 설정
-// 하나씩이고 양의 정수만 받는다(run-loop R20). 0·무제한·역할의 인상은 없다. 사람이
+// run 한도 정의 등록(contracts#T24 settings registry). 공통 설정
+// 하나씩이고 양의 정수만 받는다. 0·무제한·역할의 인상은 없다. 사람이
 // 바꾸고 다음 run부터 적용하며 run은 시작할 때 값을 고정한다.
 function runLimitSetting(
   key: keyof typeof RUN_LIMIT_SETTING_KEYS,
@@ -346,7 +346,7 @@ export const runActiveSetting = runLimitSetting(
 // harness/usage). 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
 const modelCommands = createModelCommands(modelCommandDeps);
-// 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
+// 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다.
 const usage = createUsageCommands({
   applyMessages: (tx, ctx, input, compare) =>
     conversationCommands.apply.handle(tx, ctx, input, compare),
@@ -356,7 +356,7 @@ const modelReads = createModelReads();
 const usageReads = createUsageReads();
 
 // provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이 없으면 undefined로
-// fail-closed다(R6, harness/model#R10).
+// fail-closed다.
 function providerDefinitionKey(
   sql: Pick<Tx["sql"], "get">,
   provider: string,
@@ -373,7 +373,7 @@ function providerDefinitionKey(
   }
 }
 
-// model 기본값 저장 검사 deps(harness/model#R10, R24). 목록과 catalog는 동봉 snapshot에서 읽는다.
+// model 기본값 저장 검사 deps. 목록과 catalog는 동봉 snapshot에서 읽는다.
 function modelCommandDeps(tx: Tx): ModelCommandDeps {
   return {
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
@@ -389,11 +389,11 @@ const assignmentReads = createAssignmentReads();
 
 // run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
-// 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다(run-loop R14).
+// 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
-// DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다(conversation#R20). run을 가리키는 표마다
+// DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다. run을 가리키는 표마다
 // 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
 // 가리킨다), 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
@@ -528,7 +528,7 @@ const waitCommands = createWaitCommands({
 // agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
-// platform/ledger의 callChosenOption이 대조하는 질문 정본(identity R14). 사람이 고른 option의
+// platform/ledger의 callChosenOption이 대조하는 질문 정본. 사람이 고른 option의
 // 고정 action이 내는 소유 command 호출을 같은 Tx에서 읽어 준다.
 const questionOptionPort = defineTxPort(questionOption, (tx) => ({
   chosen: (question: string) => chosenOptionCall(tx, question),
@@ -544,10 +544,10 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
-// approval이 쓰는 run 사실이다. 거절 억제(platform/approvals#R16)의 계보 판정: 사람 요청에서 시작한 run은
+// approval이 쓰는 run 사실이다. 거절 억제의 계보 판정: 사람 요청에서 시작한 run은
 // 그 message, handoff run은 runs/read의 source.original_message다. AcceptRun이 handoff의 original_message가
 // sender chain의 시작과 같은지 검사하므로 한 번의 조회로 계보가 정해진다. 주기 회차는 계보가 없다.
-// session 허락(platform/approvals#R19)의 session은 run이 속한 session이다.
+// session 허락의 session은 run이 속한 session이다.
 const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
   session: (run: string) => {
     const row = tx.sql.get("select session from runs where id = ?", [run]);
@@ -630,7 +630,7 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
   return shaped.success ? shaped.data : [];
 }
 
-// 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더(extensions R1).
+// 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더.
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
 ): Omit<SkillSources, "place"> {
@@ -643,7 +643,7 @@ function globalSkillSources(
 }
 
 // 동기 file 읽기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는 동기 file API를
-// 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+// 두지 않으므로 adapter는 이 module이 올라올 때 URL로 연다.
 const NODE_EXTENSION_FILES = new URL(
   "./extensions/adapters/node-fs.ts",
   import.meta.url,
@@ -657,7 +657,7 @@ const { createNodePlaceFiles, createNodeSkillFiles } = await import(
 const placeFiles = createNodePlaceFiles();
 const skillFiles = createNodeSkillFiles();
 
-// 한 읽기에서 쓰는 동기 등록부다(extensions R32): 전역 층에 그 자리 층을 더한 skill·MCP 목록을 준다. data root를
+// 한 읽기에서 쓰는 동기 등록부다: 전역 층에 그 자리 층을 더한 skill·MCP 목록을 준다. data root를
 // 모르면 null이다.
 function extensionRegistry(
   sql: Pick<Tx["sql"], "get" | "all">,
@@ -733,7 +733,7 @@ export function agentLookups(
           [place.id],
         )
         : []).map((row) => String(row["id"])),
-    // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다(extensions R32). 한 읽기 안에서
+    // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다. 한 읽기 안에서
     // 같은 자리는 같은 목록이다.
     skills: (place) =>
       registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
@@ -748,7 +748,7 @@ export function agentLookups(
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
-// 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+// 동기 file API를 두지 않으므로 adapter는 이 module이 올라올 때 URL로 연다.
 const NODE_AGENT_FILES = new URL(
   "./agents/adapters/node-fs.ts",
   import.meta.url,
@@ -778,7 +778,7 @@ export function agentProfileHandlers(
 }
 
 // 새 Operator 저장(SaveAgent)과 Operator 삭제(DeleteAgent)가 같은 transaction에서 assignment command를
-// 부른다(lophn-agent/assignments#R4, R9). 파일 쓰기가 실패하면 SaveAgent가 err를 돌려 방금 만든
+// 부른다. 파일 쓰기가 실패하면 SaveAgent가 err를 돌려 방금 만든
 // assignment와 event까지 되돌아간다.
 function operatorAssignmentWriter(tx: Tx): AssignmentWriter {
   return {
@@ -819,7 +819,7 @@ const agentDeps: AgentDeps = {
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);
 
-// skill·MCP의 자리 층(concern extensions R32, R33): 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
+// skill·MCP의 자리 층(concern extensions R32): 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
 // 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
 const placeExtensionDeps: PlaceExtensionDeps = {
   files: placeFiles,
@@ -842,7 +842,7 @@ const globalSkillReads = createGlobalSkillReads({
   }),
 });
 
-// 그 agent 정의가 끈 skill 이름이다(agents R18, extensions R30). 정의를 읽지 못하면 끈 것이 없다.
+// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
 function skillsOffOf(
   sql: Pick<Tx["sql"], "get" | "all">,
   session: { assignment: string; role: AgentRole; work_place: AgentPlace },
@@ -862,7 +862,7 @@ function skillsOffOf(
 }
 
 // `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-// 자리에서 그 agent가 쓸 수 있는 것이다: 전역 층에 자리 층을 더하고, agent 정의가 끈 것은 selected=false다(commands R7).
+// 자리에서 그 agent가 쓸 수 있는 것이다: 전역 층에 자리 층을 더하고, agent 정의가 끈 것은 selected=false다.
 const commandReads = createCommandReads({
   skills: (sql, session) =>
     commandSkillsOf(
@@ -872,7 +872,7 @@ const commandReads = createCommandReads({
 });
 
 export const lophnAgentDefinitions = {
-  // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
+  // settings registry 출처의 항목이다. core 조립의 settings.ts가 모은다.
   settings: [
     catalogAutoUpdateSetting,
     skillFoldersSetting,
@@ -1002,8 +1002,8 @@ export const lophnAgentDefinitions = {
     instructionReadRoute(),
     instructionPreviewRoute(),
   ],
-  // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
-  // 메시지 본문은 영구 참조다(conversation#R2).
+  // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
+  // 메시지 본문은 영구 참조다.
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
@@ -1037,7 +1037,7 @@ export const lophnAgentDefinitions = {
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes: [agentProfilesUpload],
   files: [agentProfilesRead],
-  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 core 조립(packages/core/lophn-agent/register.ts)이
+  // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
   // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
 };
 
@@ -1110,12 +1110,12 @@ export function createLedgerRegistration(
         ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
         redact: environment.redactBody ?? UNATTACHED_REDACT,
       }),
-      // 연결 가능 provider의 내장 정의(provider#R1)는 ledger row가 아니라 동봉
+      // 연결 가능 provider의 내장 정의는 ledger row가 아니라 동봉
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),
     ],
     // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
-    // registry에 등록·회수된다(platform/secrets#R1). MCP 참조는 extensions
+    // registry에 등록·회수된다. MCP 참조는 extensions
     // secret-refs의 통로다(#294).
     secretRefs: [
       createProviderSecretRefSource(),
@@ -1124,7 +1124,7 @@ export function createLedgerRegistration(
   };
 }
 
-// question·assignment 계기 event의 공개 정책(platform/notifications#R1)은 notifications
+// question·assignment 계기 event의 공개 정책은 notifications
 // 구독자에게만 연다. 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
@@ -1139,7 +1139,7 @@ export function createEventRegistration(): EventRegistration {
       // 되돌리기 결과는 session을 보는 사람(shell)과 machine(observability·prompt 조립)이 읽는다. agent는
       // 읽지 않는다: Undo는 사실 메시지로, 숨김 구간은 입력 조립으로 전해지고 event 자체는 필요 없다.
       ...REVERT_EVENTS.map((event) => userAndMachineVisibility(event)),
-      // Disconnect한 provider로 진행 중인 run의 호출을 멈추려고 runtime이 따라 읽는다(provider#R4).
+      // Disconnect한 provider로 진행 중인 run의 호출을 멈추려고 runtime이 따라 읽는다.
       machineOnlyVisibility(providerDisconnected),
     ],
   };

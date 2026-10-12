@@ -195,7 +195,7 @@ export function loadLinkedDocuments(
 }
 
 // 등록된 지침 파일에 연결된 문서(보관 포함)와 최신 판의 원본 hash다. 일반 project 파일의 연결과
-// 따로 읽는다(file-tracking#R19). 지침 파일은 몇 개 되지 않아 한 번에 읽는다.
+// 따로 읽는다. 지침 파일은 몇 개 되지 않아 한 번에 읽는다.
 export function loadInstructionDocuments(
   sql: Pick<Sql, "all">,
 ): Result<LinkedDocument[]> {
@@ -304,7 +304,7 @@ export function assembleVersion(
 ): Result<Version> {
   const files = loadFiles(sql, row.id);
   if (!files.ok) return files;
-  // 파일 목록 행은 준비 worker가 남긴다(documents T8). 없으면 정규화 목록 blob 참조다.
+  // 파일 목록 행은 준비 worker가 남긴다. 없으면 정규화 목록 blob 참조다.
   const listed = files.value.length > 0
     ? files.value
     : { hash: row.files_hash, size_bytes: 0 };

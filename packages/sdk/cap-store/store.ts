@@ -1,4 +1,4 @@
-// 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client다(apps/sdk#R24). 추가 permission은 없다.
+// 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client다. 추가 permission은 없다.
 // 앱 프로세스는 자기 data 영역에만 읽기·쓰기 flag가 있고 다른 앱 DB·플랫폼 파일은 flag가 없다.
 // schema 번호와 migration 이력은 data worker가 쓰는 같은 표(lophn_data_schema)를 쓴다.
 import { DatabaseSync } from "node:sqlite";
@@ -24,7 +24,7 @@ const SCHEMA_SQL = [
 export type Migration = {
   from: number;
   to: number;
-  // 한 단계의 SQL이다. 공개한 단계는 고치지 않고 새 단계를 더한다(apps/data#R8).
+  // 한 단계의 SQL이다. 공개한 단계는 고치지 않고 새 단계를 더한다.
   sql: string;
 };
 

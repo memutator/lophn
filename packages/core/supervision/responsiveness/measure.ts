@@ -40,7 +40,7 @@ export type MeasureTarget = {
   exception?: RequestSample["exception"];
 };
 
-/** 목표 백분위와 한계 p95·p99 ms(platform/responsiveness R6·R7). */
+/** 목표 백분위와 한계 p95·p99 ms. */
 export type Goal = {
   p95Ms: number;
   p99Ms: number;

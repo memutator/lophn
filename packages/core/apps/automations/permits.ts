@@ -1,4 +1,4 @@
-// automation 전체 동시 invocation 한도의 메모리 permit이다(apps/automations#R5, R6). supervisor
+// automation 전체 동시 invocation 한도의 메모리 permit이다. supervisor
 // 프로세스가 앱 자식마다 같은 인스턴스를 쓴다. 대기열이 없다. 즉시 받지 못하면 그 회차는 건너뛴다.
 // permit은 실제 handler 종료(앱의 release 요청)나 자식 종료 확인 때만 돌려받는다. timeout이나 취소
 // 요청으로 풀지 않는다.

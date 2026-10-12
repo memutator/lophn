@@ -1,4 +1,4 @@
-// A→B confirm=true 호출의 approval 요청과 결과 수령(apps/connections#R3). 호출한 앱 자식이 broker로
+// A→B confirm=true 호출의 approval 요청과 결과 수령. 호출한 앱 자식이 broker로
 // 정확한 (대상 앱·release·command·입력)의 approval을 요청하고, 사람의 결정을 짧은 poll로 기다려
 // 서명된 proof를 받는다. 신원은 자식 연결이 정하고 입력 지문은 대상의 고정 blueprint로 계산한다.
 // proof는 approval이 적용돼 접수가 확정된 뒤에만 나오므로 approval은 한 번만 쓰인다.

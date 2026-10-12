@@ -1,4 +1,4 @@
-// secret 참조의 순수 전이(platform/secrets#R4, R6, R7). IO 없음.
+// secret 참조의 순수 전이. IO 없음.
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
@@ -18,7 +18,7 @@ export type SecretCompare =
   | { sealed_ref: null; revision: null }
   | { sealed_ref: string; revision: number };
 
-// 부재와 이름 부재 CAS는 같은 자리로 본다. 권한 밖 이름은 이 함수에 오지 않는다(R4).
+// 부재와 이름 부재 CAS는 같은 자리로 본다. 권한 밖 이름은 이 함수에 오지 않는다.
 export function compareMatches(
   current: SecretRecord | undefined,
   compare: SecretCompare,
@@ -68,8 +68,8 @@ export function toStatus(
     : { name, configured: true, revision: record.revision };
 }
 
-// 세 사실은 각각 관측한다. 하나를 다른 하나에서 추론하지 않는다(R7).
-// redirect는 새 전송이다. 목적지가 바뀌면 인증을 넘기지 않는다(platform/security#R9).
+// 세 사실은 각각 관측한다. 하나를 다른 하나에서 추론하지 않는다.
+// redirect는 새 전송이다. 목적지가 바뀌면 인증을 넘기지 않는다.
 export function destinationHost(destination: SecretDestination): string {
   return destination.kind === "mcp"
     ? destination.server_connection
@@ -84,7 +84,7 @@ export function sameDestination(
     current.kind === next.kind;
 }
 
-// 참조·판·용도가 현재 허용과 같고 목적지가 같아야 값을 붙인다(platform/secrets#R5).
+// 참조·판·용도가 현재 허용과 같고 목적지가 같아야 값을 붙인다.
 export function attachAllowed(
   current: {
     sealedRef: string;

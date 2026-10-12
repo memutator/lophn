@@ -38,7 +38,7 @@ import {
 } from "./bundles/ticket.ts";
 import { VISUAL_TOOL_NAMES, VISUAL_TOOLS } from "./bundles/visual.ts";
 
-// tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다(R2).
+// tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다.
 // 내장 이름은 `<영역>.<동작>` 점 표기다(domain model ToolDefinition).
 
 // `context`는 적용된 context 판의 선언 검색에서 만든 정의다(app command 정의처럼 이름이 동적이다).
@@ -52,7 +52,7 @@ export type ToolDefinition = {
   // model에 보이는 입력 JSON Schema. 없으면 `input`에서 만든다. 앱 command처럼 선언이 이미 JSON Schema인 정의가
   // 자기 schema를 그대로 보이려고 쓴다. 실행 검사는 어느 쪽이든 `input`이 한다.
   inputSchema?: Record<string, unknown>;
-  // 효과 선언이 없으면 제공도 호출도 없다(R4). 그래서 타입에서 필수로 둔다.
+  // 효과 선언이 없으면 제공도 호출도 없다. 그래서 타입에서 필수로 둔다.
   effect: ToolEffect;
   confirm: boolean;
   // 소유 contract 이름 하나. 여러 영역의 숨은 절차는 없다.
@@ -70,7 +70,7 @@ export type ToolCatalog = {
   definitions: readonly ToolDefinition[];
 };
 
-// 내장 tool은 문서·앱·context와 agent 일만 다룬다(R1). shell·임의 파일·임의 URL·
+// 내장 tool은 문서·앱·context와 agent 일만 다룬다. shell·임의 파일·임의 URL·
 // 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...DOCUMENT_TOOLS,
@@ -84,15 +84,15 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...VISUAL_TOOLS,
   ...GUIDE_TOOLS,
   ...AGENT_TOOLS,
-  // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다(R23). 역할 상한 이름 표가 그 역할에게만 연다.
+  // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다. 역할 상한 이름 표가 그 역할에게만 연다.
   ...CONTEXT_ENGINEER_TOOLS,
-  // lophn만의 모든 project context 조회 tool이다(roles/lophn#R3). 역할 상한 이름 표가 그 역할에게만 연다.
+  // lophn만의 모든 project context 조회 tool이다. 역할 상한 이름 표가 그 역할에게만 연다.
   ...CONTEXT_LOOKUP_TOOLS,
-  // 모든 역할이 쓰는 다음 이름 읽기다(R24).
+  // 모든 역할이 쓰는 다음 이름 읽기다.
   ...SERIES_NEXT_TOOLS,
 ];
 
-// preset이 이름으로 고르는 tool 묶음이다(presets#R7). 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
+// preset이 이름으로 고르는 tool 묶음이다. 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
 // 새 동작이 생겨도 옛 판은 늘지 않는다. 묶음은 이름 목록일 뿐 권한이 아니다. 역할 상한과 현재
 // scope, 판정이 그 뒤에 따로 적용된다. 쓰기 묶음은 읽기 묶음과 따로 골라야 한다.
 export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
@@ -111,15 +111,15 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   // 개체 읽기와 다음 이름 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
   // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
   ["context-read", [CONTEXT_ENTITY_TOOL, SERIES_NEXT_TOOL]],
-  // Context Engineer의 context 생성·계약·초안·미리보기·제출·위반·용어집 여덟 동작이다(R23). 역할 상한이 그 역할에게만
+  // Context Engineer의 context 생성·계약·초안·미리보기·제출·위반·용어집 여덟 동작이다. 역할 상한이 그 역할에게만
   // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
   ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
-  // lophn의 모든 project context 조회 셋이다(roles/lophn#R3). 역할 상한이 lophn에게만 열어서 다른 역할의 preset이
+  // lophn의 모든 project context 조회 셋이다. 역할 상한이 lophn에게만 열어서 다른 역할의 preset이
   // 이 묶음을 고르면 저장이 거절된다.
   ["context-lookup", CONTEXT_LOOKUP_TOOL_NAME_LIST],
 ]);
 
-// 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
+// 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다.
 export const FORBIDDEN_TOOL_NAMES: readonly string[] = [
   "shell",
   "shell.exec",
@@ -154,7 +154,7 @@ export type CapabilityScope = {
   contexts?: readonly string[] | null;
 };
 
-// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→context→외부다(R5).
+// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→context→외부다.
 // 같은 판의 같은 bytes를 유지하려고 입력 순서를 그대로 두고 이름 중복은 먼저 온
 // 정의를 남긴다. 금지 이름은 어느 출처든 빠진다.
 export function listTools(
@@ -180,7 +180,7 @@ export function listTools(
   ) {
     if (FORBIDDEN.has(definition.name)) continue;
     // 선언 검색 정의도 이름이 동적이다. preset의 context 선택이 그 context를 덮을 때만 들어온다. 선택이
-    // 비었거나 없으면 하나도 없다(fail closed). 역할·assignment 범위는 정의를 만들 때 이미 적용했다(R21).
+    // 비었거나 없으면 하나도 없다(fail closed). 역할·assignment 범위는 정의를 만들 때 이미 적용했다.
     if (definition.origin === "context") {
       if (
         definition.context === undefined || !covered.has(definition.context)
@@ -191,7 +191,7 @@ export function listTools(
       continue;
     }
     // 앱 command 정의는 이름이 동적이라 preset·역할 이름 목록에 없다. 역할·현재 허락·assignment의
-    // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다(R17).
+    // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다.
     if (
       definition.origin !== "app" &&
       (!allowed.has(definition.name) || !role.has(definition.name))
@@ -208,10 +208,10 @@ export function listTools(
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // 판정이 Operator의 쓰기 대상 문서가 담당 자리에 있는지 같은 자격으로 `document.get`을 읽어 본다
-  // (harness/tool-judgment, roles/operator#R7).
+  // (harness/tool-judgment).
   ["SaveToolDocument", ["document.prepare", "document.save", "document.get"]],
   // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
-  // 참조를 읽어 확인한다(problems#T19, problems/grouping#R13).
+  // 참조를 읽어 확인한다.
   [
     "LinkProblemInterpretation",
     ["document.get", "document.read", "GetProblem"],
@@ -221,13 +221,13 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["GetSettings", ["SettingsDefinitions"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],
-  // 사람의 정의 답은 질문 묶음 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
+  // 사람의 정의 답은 질문 묶음 정본(답·고정 action)을 읽은 뒤에만 전달한다.
   ["ApplyQuestionOption", ["ReadQuestionGroup"]],
   // Context Engineer의 계약 읽기는 같은 자격으로 만드는 중인 판(`context.draft`)을 함께 읽고, 용어집 쓰기는
-  // 항목을 지울 때 `glossary.remove`를 부른다(harness/tools#R23).
+  // 항목을 지울 때 `glossary.remove`를 부른다.
   ["context.contract", ["context.draft"]],
   ["glossary.set", ["glossary.remove"]],
-  // lophn의 context 조회는 project 목록과 context 목록·계약·개수·용어집을 같은 자격으로 함께 읽는다(roles/lophn#R3).
+  // lophn의 context 조회는 project 목록과 context 목록·계약·개수·용어집을 같은 자격으로 함께 읽는다.
   ...CONTEXT_LOOKUP_SUPPORTING,
 ]);
 
@@ -246,7 +246,7 @@ export function runOperations(
   return [...operations];
 }
 
-// 실행은 목록과 같은 정의를 찾는다(R2). 등록되지 않은 이름은 없다.
+// 실행은 목록과 같은 정의를 찾는다. 등록되지 않은 이름은 없다.
 export function findTool(
   listed: readonly ToolDefinition[],
   name: string,

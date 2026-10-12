@@ -22,7 +22,7 @@ import {
   type SessionRow,
 } from "./model.ts";
 
-// Fork(R9). 같은 agent·같은 자리의 새 session을 만들고 고른 지점까지의 확정 메시지를 복사한다.
+// Fork. 같은 agent·같은 자리의 새 session을 만들고 고른 지점까지의 확정 메시지를 복사한다.
 // rewind가 숨긴 구간의 메시지는 복사하지 않는다. 복사본은 지난 발언이라 run·mode·최초 반영이 없다. run·질문·approval request·model call은 복사하지
 // 않으므로 새 판단이 과거의 결정이나 효과를 재사용하지 않는다.
 
@@ -79,14 +79,14 @@ export function createForkCommand(): CommandDefinition<typeof forkSession> {
       if (assignment === undefined) {
         return reject("not_found", "assignment not found");
       }
-      // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 session을 받지 않는다(R8).
+      // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 session을 받지 않는다.
       if (assignment.state !== "enabled") {
         return reject(
           "forbidden",
           "only an enabled assignment takes a session",
         );
       }
-      // 끝나지 않은 run이 있으면 복사본이 어느 시점인지 정할 수 없다(conversation#Q6).
+      // 끝나지 않은 run이 있으면 복사본이 어느 시점인지 정할 수 없다.
       if (hasUnfinishedRun(tx, source.id)) {
         return reject("conflict", "a run of the session is not finished");
       }
@@ -101,7 +101,7 @@ export function createForkCommand(): CommandDefinition<typeof forkSession> {
           "the chosen point is not a confirmed message of the session",
         );
       }
-      // rewind가 숨긴 구간은 복사하지 않는다(R25). redo를 쓰면 다시 보이는 메시지라 그때부터 복사한다.
+      // rewind가 숨긴 구간은 복사하지 않는다. redo를 쓰면 다시 보이는 메시지라 그때부터 복사한다.
       const hidden = hiddenRanges(tx, source.id);
       const originals = tx.sql.all(
         `select ${MESSAGE_COLUMNS} from messages

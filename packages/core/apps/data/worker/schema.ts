@@ -1,4 +1,4 @@
-// 앱 DB schema 규칙(apps/data#R3, R8, R14). IO 없음.
+// 앱 DB schema 규칙. IO 없음.
 // schema 번호는 0부터 허용하고 DB 미사용 앱은 초기 migration을 요구하지 않는다.
 // 공개한 migration은 새 파일로만 추가하며 내용을 고치지 않는다.
 
@@ -8,7 +8,7 @@ import type { DataChange } from "../../../../protocol/apps/mod.ts";
 // 앱 DB가 자기 상태를 보관하는 표. schema 번호와 마지막 migration 결과만 담는다.
 export const APP_SCHEMA_TABLE = "lophn_data_schema";
 
-// 행은 항상 하나다. 단계마다 행을 쌓으면 첫 행이 옛 schema로 남는다(R3).
+// 행은 항상 하나다. 단계마다 행을 쌓으면 첫 행이 옛 schema로 남는다.
 export const APP_SCHEMA_SQL = [
   `create table if not exists ${APP_SCHEMA_TABLE} (`,
   "  id integer primary key check (id = 1),",
@@ -52,7 +52,7 @@ export function migrationChanged(
     published.script_hash !== candidate.script_hash;
 }
 
-// 현재 schema에서 목표까지의 연속 경로. 건너뛰기는 순서대로만 적용한다(R7).
+// 현재 schema에서 목표까지의 연속 경로. 건너뛰기는 순서대로만 적용한다.
 // 목표와 현재가 같으면 빈 경로다. DB 미사용(schema 0, 변경 없음)도 여기 해당한다.
 export function migrationPath(
   current: number,
@@ -81,7 +81,7 @@ export function migrationPath(
   return ok({ steps });
 }
 
-// schema 통과는 업무 정확성이 아니다(R14). 형태 검사와 업무 규칙 검사는 다른 결과다.
+// schema 통과는 업무 정확성이 아니다. 형태 검사와 업무 규칙 검사는 다른 결과다.
 export type SchemaCheck = {
   schemaOk: boolean;
   businessCorrect: null;

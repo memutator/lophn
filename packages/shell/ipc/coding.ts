@@ -1,4 +1,4 @@
-// coding agent 연결과 [Start]의 shell IPC 경계(shell#T50, shell/desktop#R19). renderer는 고정 intent와
+// coding agent 연결과 [Start]의 shell IPC 경계. renderer는 고정 intent와
 // 사람이 고른 값만 보내고 main이 따로 다시 검사한다. token·경로 설정·credential은 이 통로에 없다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 zod 말고 import가 없다.
 import { z } from "zod";

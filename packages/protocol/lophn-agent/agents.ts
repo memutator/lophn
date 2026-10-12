@@ -30,8 +30,8 @@ import {
 import { modelChoiceOutputSchema } from "./models.ts";
 import { agentRoleSchema } from "./scope.ts";
 
-// 읽기·쓰기 route는 사람(editor)이 쓴다. 정의를 쓰고 지우는 길은 agent에게 열지 않는다(R8).
-// invalid_input의 details는 항목별 이유(`agentIssuesDetailsSchema`)다(R24).
+// 읽기·쓰기 route는 사람(editor)이 쓴다. 정의를 쓰고 지우는 길은 agent에게 열지 않는다.
+// invalid_input의 details는 항목별 이유(`agentIssuesDetailsSchema`)다.
 const writeErrors = [
   "invalid_input",
   "unauthorized",
@@ -50,7 +50,7 @@ const readErrors = [
 
 const readActors = ["user", "machine"] as const;
 
-// 저장·삭제가 비교하는 파일 hash다. 새 Operator나 파일이 아직 없는 built-in은 null이다(R4).
+// 저장·삭제가 비교하는 파일 hash다. 새 Operator나 파일이 아직 없는 built-in은 null이다.
 const saveCompareSchema = z.strictObject({ hash: sha256Schema.nullable() });
 const deleteCompareSchema = z.strictObject({ hash: sha256Schema });
 
@@ -62,8 +62,8 @@ export const readAgentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
 });
 
-// assignment를 생략하면 새 Operator다(assignments R4). built-in은 전역 assignment ID를 싣는다.
-// definition은 파일 전체의 새 내용이다: 없는 칸은 지워진다(R4, R11).
+// assignment를 생략하면 새 Operator다. built-in은 전역 assignment ID를 싣는다.
+// definition은 파일 전체의 새 내용이다: 없는 칸은 지워진다.
 export const saveAgentInputSchema = z.strictObject({
   place: agentPlaceSchema,
   assignment: idSchema("asg").optional(),
@@ -103,7 +103,7 @@ export const agentsList = defineRead({
 });
 
 // 정의와 칸별 값·출처를 돌려준다. 파일이 없으면 definition과 hash가 null이고, 파일이 틀렸으면 definition은
-// null, hash는 그 파일의 hash, issues는 이유다(R24).
+// null, hash는 그 파일의 hash, issues는 이유다.
 export const agentsRead = defineRead({
   resource: "agents",
   method: "read",
@@ -185,7 +185,7 @@ export const agentProfilesRead = defineFile({
 });
 
 // 자리 층만 다룬다. Workspace의 역할별 기본 model은 `agent-model-defaults`, 기본 권한은 platform/settings가 맡는다.
-// 이 자리가 가진 칸과, 칸을 비운 role의 실제 model과 그 출처(자리·Workspace·기본값)를 돌려준다(R12).
+// 이 자리가 가진 칸과, 칸을 비운 role의 실제 model과 그 출처(자리·Workspace·기본값)를 돌려준다.
 // hash는 이 파일의 내용 hash이고 파일이 없으면 null이다.
 export const placeAgentSettingsRead = defineRead({
   resource: "place-agent-settings",
@@ -205,7 +205,7 @@ export const placeAgentSettingsRead = defineRead({
   errors: [...readErrors],
 });
 
-// settings는 이 자리 파일의 새 내용 전체다: 없는 칸은 지워진다(R11).
+// settings는 이 자리 파일의 새 내용 전체다: 없는 칸은 지워진다.
 export const placeAgentSettingsChange = defineCommand({
   resource: "place-agent-settings",
   method: "change",
@@ -220,7 +220,7 @@ export const placeAgentSettingsChange = defineCommand({
   errors: [...writeErrors],
 });
 
-// 저장·삭제는 누가(envelope actor) 언제 어느 자리의 어느 agent에서 했는지만 남기고 내용의 전후는 hash뿐이다(R28).
+// 저장·삭제는 누가(envelope actor) 언제 어느 자리의 어느 agent에서 했는지만 남기고 내용의 전후는 hash뿐이다.
 export const agentSaved = defineEvent("AgentSaved", {
   subject: idSchema("asg"),
   payload: z.object({

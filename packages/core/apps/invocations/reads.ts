@@ -155,7 +155,7 @@ export function createInvocationsReads(): {
             });
           }
         }
-        // 기록이 없으면 그 부재를 그대로 표시한다(R10). denied-scope row는
+        // 기록이 없으면 그 부재를 그대로 표시한다. denied-scope row는
         // 부재와 같은 모양이 아니다. 알려진 ID는 null로 표시하지 않는다.
         return ok({
           invocation: invocation.value,

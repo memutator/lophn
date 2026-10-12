@@ -54,7 +54,7 @@ import {
   runToolBatch,
 } from "./tool-batch.ts";
 
-// turn 하나(requirements lophn-agent/harness/run-loop R9–R11, R23). 순서는 멈춤 확인 → 접수 입력
+// turn 하나(requirements lophn-agent/harness/run-loop R9–R11). 순서는 멈춤 확인 → 접수 입력
 // 선택 → 한도 검사 → prompt 조립 → 조립 뒤 입력·멈춤 재확인 → model call 하나(완전 응답 확인) →
 // tool 묶음 → 결과 기록 → 계속·종료 판정이다. 판단은 model이 하고 이 순서와 확인은 machine이 한다.
 
@@ -127,7 +127,7 @@ async function confirmedFacts(state: LoopState): Promise<ConfirmedFacts> {
   };
 }
 
-// 정리는 machine이 확정한 사실만으로 한다. model을 다시 부르지 않는다(R22).
+// 정리는 machine이 확정한 사실만으로 한다. model을 다시 부르지 않는다.
 async function finishWith(
   state: LoopState,
   outcome: FinishRequest["outcome"],
@@ -330,7 +330,7 @@ async function prepare(
     if (assembled.status === "blocked") {
       return await blockedEnd(state, assembled.reason);
     }
-    // 오래 조립하는 사이 도착한 멈춤과 수정 입력을 놓치지 않는다(R9).
+    // 오래 조립하는 사이 도착한 멈춤과 수정 입력을 놓치지 않는다.
     const reason = await stopped(state);
     if (reason !== null) return stoppedEnd(reason);
     const again = await deps.ports.inputs();
@@ -387,7 +387,7 @@ async function callModel(
   let previous: string | null = null;
   let retries = 0;
   // 재시작 뒤 retry 대기를 잇는다. 예정 시각은 처음부터 다시 재지 않고 남은 간격만 기다리며 쓴 횟수는
-  // 그대로다(R7).
+  // 그대로다.
   const resumed = state.resume.retry;
   state.resume.retry = null;
   if (resumed !== null) {
@@ -431,7 +431,7 @@ async function callModel(
     >(limiter, "judgment", async () => {
       const call = linked(state.control.signal);
       state.modelCalls.add(call);
-      // 진행 없는 시간·전체 시간 한도에 닿으면 이 호출을 중단한다(R20, R21).
+      // 진행 없는 시간·전체 시간 한도에 닿으면 이 호출을 중단한다.
       const deadline = limiter.nextDeadlineMs();
       if (deadline !== null) {
         void (deps.deadline ?? abortableWait)(deadline, call.signal).then(
@@ -487,7 +487,7 @@ async function callModel(
         end: await failWith(state, failureReason(outcome.code)),
       };
     }
-    // 일시 실패만 같은 입력으로 다시 보낸다. 서버 최소 시각을 지킨다(R23).
+    // 일시 실패만 같은 입력으로 다시 보낸다. 서버 최소 시각을 지킨다.
     retries += 1;
     const delay = modelRetryDelayMs(
       retries,
@@ -557,7 +557,7 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   // 1. 멈춤 확인
   const reason = await stopped(state);
   if (reason !== null) return stoppedEnd(reason);
-  // 복구·결정 뒤 재개: 이미 받은 완전한 응답의 남은 일부터 잇는다. model을 다시 부르지 않는다(R8).
+  // 복구·결정 뒤 재개: 이미 받은 완전한 응답의 남은 일부터 잇는다. model을 다시 부르지 않는다.
   const pending = state.resume.pending;
   if (pending !== null) {
     state.resume.pending = null;
@@ -586,7 +586,7 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   if (step.kind === "restart") return continueTurn;
   const attempt = step.attempt;
   if (step.kind === "partial") {
-    // 불완전한 응답의 tool은 하나도 시작하지 않고 잘림 사실만 다음 판단에 전한다(R11).
+    // 불완전한 응답의 tool은 하나도 시작하지 않고 잘림 사실만 다음 판단에 전한다.
     const why = attempt.outcome.finish_reason ?? "unknown";
     appendUser(state, [{
       kind: "text",
@@ -666,7 +666,7 @@ async function afterModel(
   }
   state.history.push({ role: "user", parts: answers });
   record(state, batch.results);
-  // 확정한 tool 결과는 진행이다(R21).
+  // 확정한 tool 결과는 진행이다.
   if (batch.results.some((result) => result.entries > 0)) limiter.toolResult();
   await ports.checkpoint(limiter.snapshot());
   // 9. 계속·종료 판정
@@ -680,7 +680,7 @@ async function afterModel(
   return continueTurn;
 }
 
-// tool 없는 완전한 답. 미반영 steering이 있으면 종료하지 않고 새 판단으로 간다(R14).
+// tool 없는 완전한 답. 미반영 steering이 있으면 종료하지 않고 새 판단으로 간다.
 async function conclude(
   state: LoopState,
   text: string,

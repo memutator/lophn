@@ -1,5 +1,5 @@
 // Linux 앱 바로가기. XDG applications 폴더의 `.desktop` 하나이고 Exec는 따옴표로 묶은 검증된
-// lophn 실행 경로와 `--open-app <app ID>`뿐이다(shell/desktop#R14).
+// lophn 실행 경로와 `--open-app <app ID>`뿐이다.
 import { join } from "node:path";
 
 import { OPEN_APP_FLAG } from "../open-intent.ts";

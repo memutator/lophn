@@ -1,9 +1,9 @@
-// lophn_ticket tool의 실행이다(T20·T25, mcp#R26, R27, R28). registry route로만 dispatch한
+// lophn_ticket tool의 실행이다. registry route로만 dispatch한
 // 입력을 core RPC 하나로 보내고, 대응 contract 출력을 그대로 돌려준다. claim·
 // renew·release는 실제 실행이며 응답에 connection·claim_seq·expires_at·반납
-// 방법을 남긴다. 통로가 기한이나 자동 갱신을 덧붙이지 않는다(mcp#R27, cli#R41).
+// 방법을 남긴다. 통로가 기한이나 자동 갱신을 덧붙이지 않는다.
 // start·resume·harness 설치·permission 응답 op는 소유 route가 없어 discovery와
-// 직접 호출 모두에서 거절이다(mcp#R37). 문제 직접 claim op도 없다(tickets#R16).
+// 직접 호출 모두에서 거절이다. 문제 직접 claim op도 없다.
 import type { Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
 import {
@@ -19,7 +19,7 @@ import {
 import type { Route } from "../../../protocol/base/mod.ts";
 import { commandsResult } from "../../../protocol/server/mod.ts";
 
-// tools/call의 실행 결과다. server가 mcpToolResult로 두 표현을 만든다(R5).
+// tools/call의 실행 결과다. server가 mcpToolResult로 두 표현을 만든다.
 export type TicketToolResult = {
   summary: string;
   data: unknown;
@@ -75,7 +75,7 @@ function failure(error: LophnError): TicketToolResult {
 
 // list·show·checks·claim·renew·release·report를 소유 route로 core에 보낸다(report는 upload_summary로
 // summary를 먼저 올린 뒤 준비 참조로 보낸다).
-// 입력 검사는 registry(route input)가 실행 전에 했다(R6).
+// 입력 검사는 registry(route input)가 실행 전에 했다.
 export function createTicketTool(
   deps: TicketToolDeps,
 ): (
@@ -118,7 +118,7 @@ export function createTicketTool(
     // 싣는다(만료·취소 뒤 쓰기의 거절은 core가 한다. 통로가 기한을 정하거나 갱신하지 않는다).
     const { op: _op, ...body } = input;
     if (op === "report") {
-      // summary를 올린 준비 참조로 보고한다. completion seq는 입력이 아니다(mcp#R28).
+      // summary를 올린 준비 참조로 보고한다. completion seq는 입력이 아니다.
       return await reportTicket(reportInputOf(body), deps);
     }
     const sent = await deps.client.command(
@@ -135,7 +135,7 @@ export function createTicketTool(
       return {
         summary: claimSummary(value, op === "claim" ? "claim했다" : "갱신했다"),
         data: value,
-        // 반납 방법을 응답에 남긴다. 통로가 갱신 주기를 대신하지 않는다(mcp#R27).
+        // 반납 방법을 응답에 남긴다. 통로가 갱신 주기를 대신하지 않는다.
         next: claimNext(value),
       };
     }

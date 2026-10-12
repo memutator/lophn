@@ -8,7 +8,7 @@ import type {
 // catalog 자료(CatalogEntry.options)만 말하고 이 모듈은 그 목록을 코드에 적지 않는다.
 // 요청 필드로 옮기는 일은 wire.ts의 몫이다.
 
-// 저장·호출 전에 없는 축이나 지원하지 않는 값을 invalid_input으로 거절한다(R24).
+// 저장·호출 전에 없는 축이나 지원하지 않는 값을 invalid_input으로 거절한다.
 // 다른 값으로 조용히 바꾸지 않고, 통과한 값은 입력과 같다. 맡김(없는 축)은 그대로 둔다.
 export function validateOptionValues(
   entry: CatalogEntry,
@@ -34,7 +34,7 @@ export function validateOptionValues(
 }
 
 // 검증한 뒤 호출에 쓸 값을 정한다. 값이 없는 축은 catalog가 확인한 default_value가 있으면
-// 그 값을 채우고, 없으면 그 축을 비워 둔다(R16).
+// 그 값을 채우고, 없으면 그 축을 비워 둔다.
 export function resolveOptionValues(
   entry: CatalogEntry,
   values: OptionValues,

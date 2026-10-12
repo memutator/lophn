@@ -179,7 +179,7 @@ const SUPERVISOR_OPERATIONS = [
   appPairConfirmRequest.name,
   appPairConfirmPoll.name,
   appPairObserve.name,
-  // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
+  // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다.
   appBlueprint.name,
   grantsList.name,
   // 앱이 broker로 보낸 invocation 기록은 이 자격이 core command로 전달한다.
@@ -256,7 +256,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
     // 호출한 앱 자신이 다른 앱의 confirm 호출 approval을 요청한다(요청자는 자격과 같아야 한다). core가
     // 그 요청 한 번을 위해서만 짧은 app credential을 발급한다. 앱 자식에게 주는 credential에는 없다.
     { name: createApprovalRequest.name, actors: ["app"], kind: "command" },
-    // preview는 사람(전체 user 상한)과 coding agent가 연다(apps/preview#R1).
+    // preview는 사람(전체 user 상한)과 coding agent가 연다.
     ...[previewsStart, previewsGet, previewsStop].map((
       route,
     ): OperationPolicy => ({
@@ -264,7 +264,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["coding_agent"],
       kind: "read",
     })),
-    // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다(coding-agent#T36).
+    // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다.
     { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
@@ -410,7 +410,7 @@ export function ledgerPreviewReleases(ledgerPath: string): PreviewReleases {
 }
 
 // confirm=true command의 입력 지문이다. 대상 release의 고정 blueprint로 계산하고 confirm 선언이 없는
-// command나 선언 schema에 맞지 않는 입력은 invalid_input이다(apps/connections#R3).
+// command나 선언 schema에 맞지 않는 입력은 invalid_input이다.
 export function ledgerConfirmTargets(ledgerPath: string): ConfirmTargets {
   return {
     async prepare(request) {
@@ -780,7 +780,7 @@ export async function createAppsControl(
     if (!source.ok) return source;
     const read = await client.releasePreparation(body.app, body.request_key);
     if (!read.ok || finalizer === null) return read;
-    // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다(apps/releases#R5, R6).
+    // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
     const finalized = await finalizer.observe(read.value);
     if (finalized.ok) return read;
     // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
@@ -1154,7 +1154,7 @@ export function appSupervisorSpec(input: {
     allow_read: [input.dataRoot, repoRoot(), denoDir(), sockets, "/proc"],
     allow_write: [sockets],
     // core loopback과 앱 socket 자리의 정확한 경로다. Deno net 허락은 unix 경로의 폴더 prefix를
-    // 받지 않으므로 자리를 미리 허락한다. 가상 host는 socket 위 HTTP의 필수 통로다(R8).
+    // 받지 않으므로 자리를 미리 허락한다. 가상 host는 socket 위 HTTP의 필수 통로다.
     allow_net: [
       `127.0.0.1:${input.apiPort}`,
       "lophn.invalid",

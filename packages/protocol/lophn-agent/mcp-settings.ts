@@ -126,7 +126,7 @@ export const mcpServersSetting = defineSetting({
 
 const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 
-// MCP OAuth 2.1의 시작 입구다(extensions#R16, shell#T31에서 넘어온 것의 route 절반).
+// MCP OAuth 2.1의 시작 입구다(shell#T31에서 넘어온 것의 route 절반).
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
 // 사람이 OS browser에서 열 authorization 주소와 callback port를 돌려준다. verifier·state는
 // 값이므로 응답 어디에도 옮기지 않고 core의 작업 메모리(packages/core/lophn-agent/extensions/
@@ -136,12 +136,12 @@ const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 // 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다
 // (extensions R33). 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
-  // 등록한 서버 이름이다. 계약 serverFields의 nameSchema(extensions R12)다.
+  // 등록한 서버 이름이다. 계약 serverFields의 nameSchema다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 서버가 등록된 자리다. 전역(Workspace) 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
   // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
   place: mcpAuthPlaceSchema,
-  // 사람이 등록한 client_id다(R16: 동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
+  // 사람이 등록한 client_id다(동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(128)).max(32),
 });
@@ -149,7 +149,7 @@ export const mcpAuthBeginOutputSchema = z.object({
   // 사람이 OS browser에서 열 주소다(shell#T31이 크롬 링크로 연다). 값 없는 안내라
   // secret이 아니다.
   url: z.string(),
-  // 사람 credential의 loopback callback port다(127.0.0.1, extensions R16).
+  // 사람 credential의 loopback callback port다(127.0.0.1).
   callback_port: z.number().int().positive(),
 });
 
@@ -169,9 +169,9 @@ export const mcpAuthBegin = defineMemory({
   ],
 });
 
-// MCP OAuth 2.1의 완료 입구다(extensions#R16, R17). 사람이 돌아온 callback의 code·state를
+// MCP OAuth 2.1의 완료 입구다. 사람이 돌아온 callback의 code·state를
 // 받아 lophn이 token 교환을 마친다. state는 시작이 만든 무작위 값과 같아야 하고(잘못된
-// 반환 검증 값은 거절이다, extensions R16), 교환한 token은 OS keychain에만 보관하고 설정의
+// 반환 검증 값은 거절이다), 교환한 token은 OS keychain에만 보관하고 설정의
 // `token_ref`가 그 보관을 가리키게 쓴다. 성공·실패의 상태는 `/v1/agent-mcp-auth/state` read로만
 // 보인다: token·verifier·state 값은 응답 어디에도 없다.
 export const mcpAuthCompleteInputSchema = z.strictObject({
@@ -202,11 +202,11 @@ export const mcpAuthComplete = defineMemory({
   ],
 });
 
-// 로그인 상태 read다(extensions#R16, R17). 서버(이름+자리)마다 지금 상태와 실패 이유 코드만 돌려준다.
+// 로그인 상태 read다. 서버(이름+자리)마다 지금 상태와 실패 이유 코드만 돌려준다.
 // 상태는 끝난 세션의 기억이 아니라 core가 지금 쥔 것이다: 진행 중인 로그인(작업 메모리), 마지막 실패,
 // 그리고 keychain에 보관한 token이 지금 설정(발급자·URL·client, token 참조)과 맞는지다.
 // - none: 로그인하지 않았거나 설정이 바뀌어 옛 token을 쓰지 않는다.
-// - in_progress: 사람이 browser에서 돌아오기를 기다린다(시한 안, extensions R16).
+// - in_progress: 사람이 browser에서 돌아오기를 기다린다(시한 안).
 // - signed_in: 쓸 수 있는 token이 있다.
 // - failed: 마지막 시도나 갱신이 실패했고 reason이 이유다. 새로 시작하면 지워진다.
 // 등록하지 않은 서버나 OAuth가 아닌 서버는 none이다. token·verifier·state·code 값이 들어갈 칸은 없다.
@@ -255,7 +255,7 @@ export const mcpAuthState = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-// 기다리는 로그인을 사람이 그만둔다(extensions#R16). browser를 닫았거나 주소를 열지 못한 로그인이
+// 기다리는 로그인을 사람이 그만둔다. browser를 닫았거나 주소를 열지 못한 로그인이
 // 작업 메모리에 남아 다시 시작할 때 conflict가 나지 않게 한다. 진행 중인 것이 없으면 아무것도 바꾸지
 // 않고 cancelled가 false다. 이미 보관한 token은 건드리지 않는다.
 export const mcpAuthCancelInputSchema = z.strictObject({
@@ -327,7 +327,7 @@ export const mcpAuthRequestDone = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-// 자리(project·app) 층의 MCP 서버 목록이다(extensions R32, R33; domain model PlaceExtensionSettings).
+// 자리(project·app) 층의 MCP 서버 목록이다(domain model PlaceExtensionSettings).
 // 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다(open-issues extensions#Q8).
 // 어느 서버·tool을 쓸지는 agent 정의가 고르므로 이 목록에는 끈 것 칸이 없다.
 const placeServersSchema = z.array(mcpServerConfigSchema).max(32).refine(
@@ -377,7 +377,7 @@ export const placeExtensionSettingsRead = defineRead({
   errors: [...readErrors],
 });
 
-// 서버 등록은 사람만 정한다(R11). 파일 hash를 비교하고(없는 파일은 null) 전역 서버와 이름이 겹치면 거절한다(R33).
+// 서버 등록은 사람만 정한다. 파일 hash를 비교하고(없는 파일은 null) 전역 서버와 이름이 겹치면 거절한다.
 export const placeExtensionSettingsChange = defineCommand({
   resource: "place-extension-settings",
   method: "change",

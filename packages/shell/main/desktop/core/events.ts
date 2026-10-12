@@ -28,7 +28,7 @@ export interface EventSink {
   caughtUp(): void;
   /**
    * socket으로 지금 도착한 event. 붙을 때·재연결 때 따라잡은 목록은 cursor만 옮기고 여기로
-   * 보내지 않는다. 놓친 진행을 연속 재생하지 않는다(shell/desktop#R7).
+   * 보내지 않는다. 놓친 진행을 연속 재생하지 않는다.
    */
   arrived?(events: readonly EventEnvelope[]): void;
 }

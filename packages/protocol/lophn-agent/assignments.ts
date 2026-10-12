@@ -43,7 +43,7 @@ export const createBuiltinAssignmentInputSchema = z.strictObject({
   message: "builtin assignment scope is not all",
 });
 
-// 자리(project·app)의 보관·보관 해제 반응 구독자다. notification 구독자와 같은 등록 규칙을 쓴다(R1).
+// 자리(project·app)의 보관·보관 해제 반응 구독자다. notification 구독자와 같은 등록 규칙을 쓴다.
 export const ASSIGNMENT_SUBSCRIBER = "lophn-agent-assignments";
 
 export const createAppEngineerAssignmentInputSchema = z.strictObject({
@@ -58,7 +58,7 @@ export const createAppEngineerAssignmentInputSchema = z.strictObject({
   subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
 });
 
-// 사람이 새 Operator 정의를 저장할 때 SaveAgent가 같은 transaction에서 부른다(R4).
+// 사람이 새 Operator 정의를 저장할 때 SaveAgent가 같은 transaction에서 부른다.
 export const createOperatorAssignmentInputSchema = z.strictObject({
   id: idSchema("asg"),
   scope: operatorScopeSchema,
@@ -67,7 +67,7 @@ export const createOperatorAssignmentInputSchema = z.strictObject({
 export const pauseAssignmentInputSchema = z.strictObject({
   assignment: idSchema("asg"),
   reason: pauseReasonSchema,
-  // 자리 보관 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다(R1).
+  // 자리 보관 반응의 멈춤과 cursor 전진을 같은 transaction에 확정한다.
   // 마지막 반응만 이 둘을 싣는다. 반응 없이 내는 멈춤은 비워 둔다.
   processed_through_seq: seqSchema.optional(),
   subscriber: z.literal(ASSIGNMENT_SUBSCRIBER).optional(),
@@ -112,7 +112,7 @@ export const createBuiltinAssignment = defineCommand({
   errors: [...errors],
 });
 
-// 반응 command의 비교 기준은 기록된 cursor다(R1, createNotification과 같은 모양).
+// 반응 command의 비교 기준은 기록된 cursor다(createNotification과 같은 모양).
 export const createAppEngineerAssignmentCompareSchema = z.strictObject({
   processed_through_seq: seqSchema.optional(),
 });

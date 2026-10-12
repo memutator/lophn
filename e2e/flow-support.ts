@@ -382,7 +382,7 @@ export type TrackingOptions = {
 };
 
 /**
- * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다, documents/projects#R3).
+ * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다).
  * 화면 조작(launcher 등록 dialog)은 first-project 1·2·4 시험이 보고, 다른 시험은 준비로 같은 사람
  * command를 core 통로로 낸다.
  */

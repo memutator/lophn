@@ -7,7 +7,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 답 메시지의 결과 링크(lophn-agent/conversation#R4)다. 이 run이 실제로 저장한 문서 판과 다룬 context만 싣는다.
+// 답 메시지의 결과 링크다. 이 run이 실제로 저장한 문서 판과 다룬 context만 싣는다.
 // 문서 판은 문서 저장 tool의 call 중 성공했고 새 판이 확정된 결과(`status: saved`)뿐이다. 계획이나 같은 내용이라
 // 새 판이 없는 호출, 실패·불명확한 호출은 링크가 아니다. 같은 문서를 여러 번 저장했으면 마지막 판이다.
 const SAVE_TOOLS = new Set(["document.create", "document.save_version"]);

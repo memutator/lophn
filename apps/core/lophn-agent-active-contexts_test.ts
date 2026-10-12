@@ -4,6 +4,10 @@
 // context 표와 context_app_data·apps 표만 만들어 조회를 직접 부른다.
 import { DatabaseSync } from "node:sqlite";
 import { assertEquals } from "@std/assert";
+import type {
+  SqlParams,
+  SqlRow,
+} from "../../packages/contracts/platform/mod.ts";
 import { agentLookups } from "./lophn-agent.ts";
 
 const P1 = "prj_01arz3ndektsv4rrffq69g5fa1";
@@ -35,15 +39,10 @@ function lookups() {
       ('${ctx(2)}', 'other');
   `);
   const sql = {
-    get: (query: string, params: readonly unknown[] = []) =>
-      db.prepare(query).get(...(params as never[])) as
-        | Record<string, unknown>
-        | undefined,
-    all: (query: string, params: readonly unknown[] = []) =>
-      db.prepare(query).all(...(params as never[])) as Record<
-        string,
-        unknown
-      >[],
+    get: (query: string, params: SqlParams = []) =>
+      db.prepare(query).get(...(params as never[])) as SqlRow | undefined,
+    all: (query: string, params: SqlParams = []) =>
+      db.prepare(query).all(...(params as never[])) as SqlRow[],
   };
   return { db, lookups: agentLookups(sql) };
 }

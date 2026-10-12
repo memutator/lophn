@@ -90,7 +90,12 @@ function windowInstructions(): InstructionsApi | undefined {
   return bridge && typeof bridge.open === "function" ? bridge : undefined;
 }
 
-const placeOf = (project: string) => ({ kind: "project", id: project });
+// 자리는 id 접두사가 정한다(`app_…`는 앱 자리, 그 밖은 project). 앱 공간의 관리 화면이 같은 source를 쓴다.
+const isApp = (place: string) => place.startsWith("app_");
+const placeOf = (place: string) => ({
+  kind: isApp(place) ? "app" : "project",
+  id: place,
+});
 
 /** 오류의 details가 항목별 이유 목록이면 그대로, 아니면 빈 목록이다(이유를 꾸며 내지 않는다). */
 function issuesOf(error: unknown): AgentIssue[] {
@@ -203,7 +208,7 @@ export function coreAgentsSource(
     if (instructions === undefined) return "";
     try {
       const opened = await instructions.open({
-        target: { layer: "project", place: project },
+        target: { layer: isApp(project) ? "app" : "project", place: project },
       });
       if (
         !opened.ok || opened.value.document === null ||

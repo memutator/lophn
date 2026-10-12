@@ -362,11 +362,13 @@ export const en = {
   "app-space.button.manage-agents": "Manage",
   "app-space.button.new-window": "Open in new window",
   "app-space.button.remove-shortcut": "Remove from app menu",
+  "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
   "app-space.empty.no-version": "This app has nothing to show yet.",
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
+  "app-space.heading.agents": "Agents",
   "app-space.heading.app-details": "App details",
   "app-space.heading.this-computer": "On this computer",
   "app-space.label.agent-select": "Agent",

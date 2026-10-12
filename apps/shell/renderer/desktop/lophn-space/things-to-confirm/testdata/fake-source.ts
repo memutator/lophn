@@ -1,20 +1,27 @@
-// 질문 칸·things-to-confirm·chip 테스트의 RequestSource. 요청과 notification을 메모리에 두고
+// things-to-confirm·chip 테스트의 RequestSource. 요청과 notification을 메모리에 두고
 // 보낸 것을 기록한다. 답의 결과와 연결 상태는 테스트가 정한다.
 import type { ConnectionState } from "../../../connection/connection.ts";
+import type { GroupAnswer } from "../../../../conversation/question-card/model.ts";
 import type {
-  Answer,
   ApprovalRequest,
+  GroupQuestion,
   NotificationRow,
-  QuestionRequest,
-  QuestionText,
+  QuestionGroupRequest,
+  QuestionGroupText,
   Request,
   RequestSource,
   ReviewIntent,
   SourceResult,
 } from "../source.ts";
 
-export function questionId(n: number): string {
-  return `qst_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
+/** 묶음 n의 ID(qgr_…). 질문 요청의 id다. */
+export function groupId(n: number): string {
+  return `qgr_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
+}
+
+/** 묶음 n의 index번째(1부터) 질문 ID(qst_…). */
+export function questionId(n: number, index = 1): string {
+  return `qst_0${index}h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
 }
 
 export function approvalId(n: number): string {
@@ -25,17 +32,40 @@ export function sessionOf(n: number): string {
   return `ses_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
 }
 
+/** 질문 하나. 고치지 않으면 선택지 둘(추천 keep)이고 답이 없다. */
+export function groupQuestion(
+  n: number,
+  index: number,
+  patch: Partial<GroupQuestion> = {},
+): GroupQuestion {
+  return {
+    id: questionId(n, index),
+    options: [
+      { key: "keep", label: "Keep both files", action: false },
+      { key: "merge", label: "Merge them", action: false },
+    ],
+    recommended: "keep",
+    answer: null,
+    applied: false,
+    ...patch,
+  };
+}
+
+/**
+ * 세션 없는 run의 질문 묶음. 고치지 않으면 질문 하나짜리이고 기다리는 중이다. 이 화면은 세션
+ * 없는 묶음만 받으므로 session은 null이다.
+ */
 export function question(
   n: number,
-  patch: Partial<QuestionRequest> = {},
-): QuestionRequest {
+  patch: Partial<QuestionGroupRequest> = {},
+): QuestionGroupRequest {
   return {
     kind: "question",
-    id: questionId(n),
+    id: groupId(n),
     run: `run_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`,
-    session: sessionOf(1),
+    session: null,
     role: "lophn",
-    place: { kind: "global" },
+    place: null,
     blocking: false,
     createdSeq: String(n * 10),
     closedSeq: null,
@@ -43,14 +73,8 @@ export function question(
     closedAt: null,
     expiresAt: null,
     status: "pending",
-    options: [
-      { key: "keep", label: "Keep both files", action: false },
-      { key: "merge", label: "Merge them", action: false },
-    ],
-    recommended: "keep",
-    answer: null,
     closedReason: null,
-    applied: false,
+    questions: [groupQuestion(n, 1)],
     ...patch,
   };
 }
@@ -92,21 +116,31 @@ export function notification(
   };
 }
 
-/** 질문의 글. 고치지 않으면 선택지마다 설명이 있는 기본 글이다. */
+/**
+ * 묶음의 글. 고치지 않으면 질문마다 본문·이유·선택지 설명이 있는 기본 글이다. 첫 질문의 본문은
+ * "Which copy of the notes should stay?", 그다음은 "Question 2?"처럼 번호가 붙는다.
+ */
 export function questionText(
-  request: QuestionRequest,
-  patch: Partial<QuestionText> = {},
-): QuestionText {
+  request: QuestionGroupRequest,
+  patch: Partial<QuestionGroupText> = {},
+): QuestionGroupText {
   return {
-    prompt: "Which copy of the notes should stay?",
-    reason: "Both copies changed since yesterday.",
-    options: new Map(
-      request.options.map((option) => [option.key, `About: ${option.label}`]),
-    ),
-    recommendation: request.recommended === null
-      ? null
-      : "The newer copy has this week's numbers.",
-    answer: null,
+    questions: request.questions.map((entry, index) => ({
+      id: entry.id,
+      prompt: index === 0
+        ? "Which copy of the notes should stay?"
+        : `Question ${index + 1}?`,
+      reason: index === 0
+        ? "Both copies changed since yesterday."
+        : `Reason ${index + 1}`,
+      options: new Map(
+        entry.options.map((option) => [option.key, `About: ${option.label}`]),
+      ),
+      recommendation: entry.recommended === null
+        ? null
+        : "The newer copy has this week's numbers.",
+      answer: null,
+    })),
     closedReason: null,
     ...patch,
   };
@@ -116,8 +150,8 @@ export interface FakeRequests {
   requests: Request[];
   notifications: NotificationRow[];
   reasons: Record<string, string | null>;
-  /** 질문별 글. 없으면 questionText 기본 글, null이면 읽지 못한다. */
-  texts: Record<string, QuestionText | null>;
+  /** 묶음별 글. 없으면 questionText 기본 글, null이면 읽지 못한다. */
+  texts: Record<string, QuestionGroupText | null>;
   /** 다음 답·미루기·취소의 결과. 비면 접수한다. */
   replies: SourceResult<void>[];
   /** review가 열리는지. false면 이 창에 보호 창 통로가 없다. */
@@ -126,11 +160,13 @@ export interface FakeRequests {
   /** approval·notification 목록을 읽지 못한다(그 route가 없는 core). */
   approvalsFail: boolean;
   notificationsFail: boolean;
-  answered: { question: string; answer: Answer }[];
-  /** 글을 읽은 질문 id. */
+  /** 보낸 묶음 답. */
+  answered: { group: string; answers: readonly GroupAnswer[] }[];
+  /** 글을 읽은 묶음 id. */
   textReads: string[];
+  /** 미룬 묶음 id. */
   deferred: string[];
-  cancelled: { question: string; reason: string }[];
+  cancelled: { group: string; reason: string }[];
   marked: string[];
   reviewed: ReviewIntent[];
   reads: number;
@@ -160,7 +196,7 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
   const reply = (): SourceResult<void> =>
     state.replies.shift() ?? { ok: true, value: undefined };
   const failed = { ok: false as const, code: "unavailable" };
-  const close = (id: string, patch: Partial<QuestionRequest>) => {
+  const close = (id: string, patch: Partial<QuestionGroupRequest>) => {
     state.requests = state.requests.map((request) =>
       request.id === id && request.kind === "question"
         ? { ...request, ...patch, closedSeq: "999" }
@@ -190,16 +226,6 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
         },
       });
     },
-    pending(session) {
-      state.reads += 1;
-      if (state.readsFail) return Promise.resolve(failed);
-      return Promise.resolve({
-        ok: true,
-        value: state.requests.filter((request) =>
-          request.status === "pending" && request.session === session
-        ),
-      });
-    },
     unread() {
       state.reads += 1;
       if (state.readsFail) return Promise.resolve(failed);
@@ -220,26 +246,39 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
       if (found === null) return Promise.resolve(failed);
       const current = state.requests.find((request) =>
         request.id === target.id
-      ) as QuestionRequest | undefined;
+      ) as QuestionGroupRequest | undefined;
       return Promise.resolve({
         ok: true,
         value: found ?? questionText(current ?? target),
       });
     },
-    answer(target, answer) {
-      state.answered.push({ question: target.id, answer });
+    answer(target, answers) {
+      state.answered.push({ group: target.id, answers });
       const result = reply();
       if (result.ok) {
-        if (answer.kind === "text") {
-          state.texts[target.id] = questionText(target, {
-            answer: answer.text,
-          });
-        }
+        const base = state.texts[target.id] ?? questionText(target);
+        state.texts[target.id] = {
+          ...base,
+          questions: base.questions.map((entry) => {
+            const given = answers.find((item) => item.question === entry.id);
+            return given?.answer.kind === "text"
+              ? { ...entry, answer: given.answer.text }
+              : entry;
+          }),
+        };
         close(target.id, {
           status: "answered",
-          answer: answer.kind === "option"
-            ? { kind: "option", option: answer.option }
-            : { kind: "text" },
+          questions: target.questions.map((entry) => {
+            const given = answers.find((item) => item.question === entry.id);
+            return {
+              ...entry,
+              answer: given === undefined
+                ? null
+                : given.answer.kind === "option"
+                ? { kind: "option" as const, option: given.answer.option_key }
+                : { kind: "text" as const },
+            };
+          }),
         });
       }
       return Promise.resolve(result);
@@ -253,7 +292,7 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
       return Promise.resolve(result);
     },
     cancel(target, reason) {
-      state.cancelled.push({ question: target.id, reason });
+      state.cancelled.push({ group: target.id, reason });
       const result = reply();
       if (result.ok) {
         state.texts[target.id] = questionText(target, { closedReason: reason });

@@ -6,6 +6,10 @@ export const SEED_SESSION = "ses_01k6qs0000000000000000000a";
 export const SEED_GROUP = "qgr_01k6qs0000000000000000000a";
 export const SEED_QUESTION = "qst_01k6qs0000000000000000000a";
 export const SEED_APPROVAL = "apr_01k6qs0000000000000000000a";
+/** handoff로 받은 run(세션 없음)과 그 run의 질문 묶음. */
+export const SEED_HANDOFF_RUN = "run_01k6qs0000000000000000000b";
+export const SEED_HANDOFF_GROUP = "qgr_01k6qs0000000000000000000b";
+export const SEED_HANDOFF_QUESTION = "qst_01k6qs0000000000000000000b";
 
 export const SEED_PROMPT = "Which copy of the weekly notes should stay?";
 export const SEED_REASON =
@@ -24,3 +28,21 @@ export const SEED_OPTIONS = [
 ] as const;
 export const SEED_RECOMMENDED = "newer";
 export const SEED_WHY = "The newer copy already includes the older edits.";
+
+export const SEED_HANDOFF_PROMPT =
+  "Which folder should the handoff notes go to?";
+export const SEED_HANDOFF_REASON =
+  "The handoff came without a destination, and two folders fit.";
+export const SEED_HANDOFF_OPTIONS = [
+  {
+    key: "docs",
+    label: "docs/",
+    description: "Next to the other written notes.",
+  },
+  {
+    key: "inbox",
+    label: "inbox/",
+    description: "Where unsorted notes wait.",
+  },
+] as const;
+export const SEED_HANDOFF_WHY = "The written notes already live in docs/.";

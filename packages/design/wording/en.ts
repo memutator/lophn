@@ -2803,9 +2803,9 @@ export const en = {
     "lophn lost track of this shell, so how it ended is unknown.",
   "terminal.title.close": "Close this terminal?",
   "things-to-confirm.button.answer-next": "Answer the next question",
-  "things-to-confirm.button.cancel-question": "Cancel this question",
-  "things-to-confirm.button.confirm-cancel": "Cancel the question",
-  "things-to-confirm.button.keep-question": "Keep the question",
+  "things-to-confirm.button.cancel-question": "Cancel these questions",
+  "things-to-confirm.button.confirm-cancel": "Cancel the questions",
+  "things-to-confirm.button.keep-question": "Keep the questions",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
   "things-to-confirm.button.open-document": "Open the document",
@@ -2818,13 +2818,13 @@ export const en = {
   "things-to-confirm.empty.pick": "Pick something on the left to see it here.",
   "things-to-confirm.empty.waiting": "Nothing is waiting for you.",
   "things-to-confirm.error.cancel-failed":
-    "Couldn't cancel this question. Try again.",
+    "Couldn't cancel these questions. Try again.",
   "things-to-confirm.error.changed":
     "This changed since you opened it. Showing the latest.",
   "things-to-confirm.error.decisions-unavailable":
     "Couldn't load decisions right now.",
   "things-to-confirm.error.later-failed":
-    "Couldn't put this question off. Try again.",
+    "Couldn't skip these questions. Try again.",
   "things-to-confirm.error.load-failed":
     "Couldn't load what's waiting for you. Try again.",
   "things-to-confirm.error.mark-read-failed":
@@ -2839,6 +2839,7 @@ export const en = {
   "things-to-confirm.error.send-failed":
     "Couldn't send your answer. Try again.",
   "things-to-confirm.error.too-long": "This is too long to send. Shorten it.",
+  "things-to-confirm.label.agent-unknown": "An agent",
   "things-to-confirm.label.blocking": "Work is paused until you answer",
   "things-to-confirm.label.cancel-reason": "Why cancel it?",
   "things-to-confirm.label.count-decisions":

@@ -32,7 +32,6 @@ const AUTH_ENDPOINT = "https://issuer.example.test/authorize";
 const TOKEN_ENDPOINT = "https://issuer.example.test/token";
 const REGISTRATION_ENDPOINT = "https://issuer.example.test/register";
 const ACCESS = "at-test-1";
-const NEXT_ACCESS = "at-test-2";
 const REFRESH = "rt-test-1";
 const NOW = clock.nowMs();
 

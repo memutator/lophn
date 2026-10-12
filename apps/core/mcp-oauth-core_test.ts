@@ -26,14 +26,6 @@ import { MACHINE_TOKEN, USER_TOKEN } from "./testing/tool-judgment-world.ts";
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const ISSUER = "https://issuer.example.test";
 
-// runtime의 machine 자격이다. 발급자 호출을 대신 보내는 두 입구와, 사람 전용 입구를 부르면 거절되는지 보려는
-// 상태 읽기다.
-const MACHINE_OPERATIONS = [
-  "TakeMcpAuthRequest",
-  "FinishMcpAuthRequest",
-  "ReadMcpAuthState",
-];
-
 const USER_OPERATIONS = [
   "SettingsDefinitions",
   "GetSettings",

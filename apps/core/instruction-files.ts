@@ -8,6 +8,8 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type AgentRole,
+  INSTRUCTION_PREVIEW_MAX_BYTES,
+  instructionPreview,
   instructionRead,
   type WorkPlace,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -28,6 +30,7 @@ import {
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
   type InstructionLayerKind,
+  previewInstruction,
 } from "../../packages/lophn-agent/instructions/mod.ts";
 
 const FILE_NAME = "LOPHN.md";
@@ -40,9 +43,11 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "instruction not found" });
 }
 
-// 처음 INSTRUCTION_FILE_MAX_BYTES까지만 읽고 실제 크기를 함께 낸다. 파일이 없으면 null,
-// 있는데 읽지 못하면(폴더·권한) unavailable이다.
-function openFile(path: string): Result<InstructionFile | null> {
+// 처음 maxBytes까지만 읽고 실제 크기를 함께 낸다. 파일이 없으면 null, 있는데 읽지 못하면(폴더·권한) unavailable이다.
+function openFile(
+  path: string,
+  maxBytes = INSTRUCTION_FILE_MAX_BYTES,
+): Result<InstructionFile | null> {
   let file: Deno.FsFile;
   try {
     file = Deno.openSync(path, { read: true });
@@ -53,7 +58,7 @@ function openFile(path: string): Result<InstructionFile | null> {
     const stat = file.statSync();
     if (!stat.isFile) return unavailable();
     const bytes = new Uint8Array(
-      Math.min(stat.size, INSTRUCTION_FILE_MAX_BYTES),
+      Math.min(stat.size, maxBytes),
     );
     let read = 0;
     while (read < bytes.length) {
@@ -185,6 +190,46 @@ export function instructionReadHandler(): ReadDefinition<
   };
 }
 
+// PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. run을 모르고 전역 층
+// 하나뿐이다. 읽는 길은 ReadInstructionFile과 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
+export function instructionPreviewHandler(): ReadDefinition<
+  typeof instructionPreview
+> {
+  return {
+    route: instructionPreview,
+    handle(snapshot) {
+      try {
+        const root = dataRootOf(snapshot.sql, undefined);
+        if (!root.ok) return unavailable();
+        const file = openFile(
+          `${root.value}/${FILE_NAME}`,
+          INSTRUCTION_PREVIEW_MAX_BYTES,
+        );
+        if (!file.ok) return file;
+        if (file.value === null) {
+          return ok({
+            preview: null,
+            as_of_seq: snapshot.as_of_seq,
+            next_cursor: null,
+          });
+        }
+        const preview = previewInstruction(file.value);
+        if (!preview.ok) return preview;
+        return ok({
+          preview: preview.value,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      } catch {
+        return unavailable();
+      }
+    },
+  };
+}
+
 export function createReaderRegistration(): ReaderRegistration {
-  return { reads: [instructionReadHandler()], ports: new Map() };
+  return {
+    reads: [instructionReadHandler(), instructionPreviewHandler()],
+    ports: new Map(),
+  };
 }

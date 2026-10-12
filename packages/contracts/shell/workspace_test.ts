@@ -381,6 +381,30 @@ Deno.test(
 );
 
 Deno.test(
+  "shell/workspace#R14 [agent-I34]: 현재 보기는 Agents 탭을 key만으로 받고 열어 둔 agent나 본문은 받지 않는다",
+  () => {
+    const tab = { key: "agents", kind: "agents", selected: true };
+    assert(viewTabSchema.safeParse(tab).success);
+    assert(
+      workspaceReadOutputSchema.safeParse({
+        availability: "current",
+        observed_at: AT,
+        generation: 1,
+        summary: "s",
+        tab_page: [tab],
+      }).success,
+    );
+    assert(
+      !viewTabSchema.safeParse({
+        ...tab,
+        agent: "asg_01h455vb4pex5v6nkc6gd5fdw1",
+      }).success,
+    );
+    assert((TAB_KINDS as readonly string[]).includes("agents"));
+  },
+);
+
+Deno.test(
   "shell/workspace#R14 [ctx-I53]: 현재 보기는 Contexts·Context·Search 탭을 context 참조·하위 탭·선언된 검색 key로만 받는다",
   () => {
     for (

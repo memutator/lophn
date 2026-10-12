@@ -94,3 +94,14 @@ Deno.test("shell/workspace#R14 [ctx-I53]: mock 작업대는 Contexts 탭 통로�
   const document = await mock.editor.source.document(experiment.document);
   assert(document.ok);
 });
+
+Deno.test("shell/workspace#R36 [agent-I34]: mock 작업대는 Agents 탭 통로를 준다", async () => {
+  const mock = devMock("?mock");
+  assert(mock !== null);
+  const agents = mock.workspace.agentsSource;
+  assert(agents !== undefined);
+  const overview = await agents.overview("prj_mock");
+  assert(overview.ok);
+  assert(overview.value.agents.some((row) => row.kind === "operator"));
+  assert(overview.value.agents.some((row) => row.role === "lophn"));
+});

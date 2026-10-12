@@ -954,7 +954,7 @@ export function createFakeContextsSource(
   const itemOf = (id: string) => items.find((item) => item.id === id);
   const missing = <T>(): ReadResult<T> => ({
     ok: false,
-    message: "context not found",
+    message: "not_found",
   });
 
   const glossary = new Map(
@@ -1031,7 +1031,7 @@ export function createFakeContextsSource(
         search.name === request.search
       );
       if (declared === undefined) {
-        return Promise.resolve({ ok: false, message: "search not found" });
+        return Promise.resolve({ ok: false, message: "not_found" });
       }
       const rows = request.search === "findings_about_change"
         ? findingRows(request.inputs)
@@ -1127,7 +1127,7 @@ export function createFakeContextsSource(
           glossary.set(context, list.map((item, i) => i === at ? next : item));
           return Promise.resolve(ok(next));
         }
-        return Promise.resolve({ ok: false, message: "entry not found" });
+        return Promise.resolve({ ok: false, message: "not_found" });
       }
       const created: GlossaryEntry = {
         id: request.id,
@@ -1155,7 +1155,7 @@ export function createFakeContextsSource(
           return Promise.resolve(ok({ entry: request.entry }));
         }
       }
-      return Promise.resolve({ ok: false, message: "entry not found" });
+      return Promise.resolve({ ok: false, message: "not_found" });
     },
     handOffViolations(request): Promise<CommandResult<HandOffResult>> {
       calls.push({ command: "handOffViolations", request });
@@ -1184,7 +1184,7 @@ export function createFakeContextsSource(
       calls.push({ command: "rollback", request });
       return Promise.resolve({
         ok: false,
-        message: "the fake source does not roll back",
+        message: "unavailable",
       });
     },
   };

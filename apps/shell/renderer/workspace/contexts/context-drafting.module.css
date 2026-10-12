@@ -41,8 +41,8 @@
   align-items: center;
   gap: var(--space-3);
   margin: var(--space-0);
-  font-size: var(--type-heading-size);
-  line-height: var(--type-heading-line);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
 }
 
 .chip {

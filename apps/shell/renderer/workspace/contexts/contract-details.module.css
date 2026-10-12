@@ -55,7 +55,7 @@
 .edgeLabel {
   fill: var(--color-text-secondary);
   stroke: var(--color-surface-base);
-  stroke-width: 4px;
+  stroke-width: var(--space-2);
   paint-order: stroke;
   font-family: var(--font-sans);
   font-size: var(--type-small-size);
@@ -63,7 +63,8 @@
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-container-panel),
+    1fr));
   gap: var(--space-5);
 }
 

@@ -882,13 +882,19 @@ export type PlaceholderKinds = {
   "contexts.button.violations-send": Record<never, never>;
   "contexts.button.violations-send-all": Record<never, never>;
   "contexts.empty.document-none": Record<never, never>;
-  "contexts.empty.frame-missing": Record<never, never>;
   "contexts.empty.glossary-none": Record<never, never>;
   "contexts.empty.results-none": Record<never, never>;
   "contexts.empty.search-no-searches": Record<never, never>;
   "contexts.empty.tab-none": Record<never, never>;
   "contexts.empty.violations-none": Record<never, never>;
   "contexts.error.glossary-failed": Record<never, never>;
+  "contexts.error.reason-conflict": Record<never, never>;
+  "contexts.error.reason-forbidden": Record<never, never>;
+  "contexts.error.reason-internal": Record<never, never>;
+  "contexts.error.reason-invalid-input": Record<never, never>;
+  "contexts.error.reason-not-found": Record<never, never>;
+  "contexts.error.reason-unauthorized": Record<never, never>;
+  "contexts.error.reason-unavailable": Record<never, never>;
   "contexts.error.search-save-failed": Record<never, never>;
   "contexts.error.violations-send-failed": Record<never, never>;
   "contexts.heading.composition-title": Record<never, never>;
@@ -966,10 +972,6 @@ export type PlaceholderKinds = {
   "contexts.label.drafting-chip": Record<never, never>;
   "contexts.label.drafting-draft": Record<never, never>;
   "contexts.label.drafting-progress": Record<never, never>;
-  "contexts.label.drafting-read": {
-    places: "plural";
-    documents: "plural";
-  };
   "contexts.label.drafting-reading": Record<never, never>;
   "contexts.label.drafting-status": {
     step: "string";
@@ -1064,6 +1066,9 @@ export type PlaceholderKinds = {
   "contexts.note.drafting-later": Record<never, never>;
   "contexts.note.drafting-not-final": Record<never, never>;
   "contexts.note.glossary-purpose": Record<never, never>;
+  "contexts.note.input-required": {
+    inputs: "string";
+  };
   "contexts.note.input-unsupported": {
     type: "string";
   };
@@ -1395,7 +1400,6 @@ export type PlaceholderKinds = {
   };
   "document.label.info-archived": Record<never, never>;
   "document.label.versions-target": Record<never, never>;
-  "document.label.contexts-target": Record<never, never>;
   "document.label.info-target": Record<never, never>;
   "document.label.compare-target": Record<never, never>;
   "document.notice.no-document": Record<never, never>;
@@ -1617,13 +1621,11 @@ export type PlaceholderKinds = {
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
-  "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
-  "project-workspace.heading.contexts": Record<never, never>;
   "project-workspace.heading.documents": Record<never, never>;
   "project-workspace.heading.folders": Record<never, never>;
   "project-workspace.heading.left-out": Record<never, never>;
@@ -1642,7 +1644,6 @@ export type PlaceholderKinds = {
   "project-workspace.label.info-tab-versions": Record<never, never>;
   "project-workspace.label.kind-app-panel": Record<never, never>;
   "project-workspace.label.kind-document-editor": Record<never, never>;
-  "project-workspace.label.kind-document-viewer": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
   "project-workspace.label.more-files": {
     count: "plural";

@@ -10,10 +10,7 @@ import {
   type Result,
 } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
-import type {
-  Frame,
-  WorkerRequest,
-} from "../../../../protocol/supervision/mod.ts";
+import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import {
   observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,
@@ -65,6 +62,7 @@ import {
   snapshotInputSchema,
 } from "../../../../protocol/problems/mod.ts";
 import type { ReportBlobInput } from "../../../../protocol/problems/mod.ts";
+import type { Frame } from "../../../../protocol/base/mod.ts";
 
 // registerBlobs의 원주체 검사는 report.principal과 source.blob.principal이
 // 같은지 본다. 준비는 항상 principal "collector"로 등록된다.

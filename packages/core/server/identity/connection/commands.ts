@@ -8,14 +8,16 @@ import {
   connectionPrincipal,
   connectionRevoke,
 } from "../../../../protocol/coding-agent/mod.ts";
+import type {
+  CommandDefinition,
+  RequestContext,
+  Tx,
+} from "../../../../protocol/server/mod.ts";
 import {
-  type CommandDefinition,
   type ConfirmationRef,
   confirmationRefSchema,
-  type RequestContext,
-  type Tx,
-} from "../../../../protocol/server/mod.ts";
-import { parseActor } from "../../../../protocol/base/mod.ts";
+  parseActor,
+} from "../../../../protocol/base/mod.ts";
 import { assertConnection, nextState, scopeColumns } from "./model.ts";
 import { insertConnection, loadConnection, markRevoked } from "./store.ts";
 

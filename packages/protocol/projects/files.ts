@@ -5,7 +5,7 @@ import {
   defineRead,
   defineWorker,
 } from "../base/route.ts";
-import { defineDecision } from "../server/confirmation-handle.ts";
+import { defineDecision } from "../base/confirmation-handle.ts";
 import { defineEvent } from "../events/events.ts";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { sha256Schema } from "../base/values.ts";

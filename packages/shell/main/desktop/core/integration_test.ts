@@ -6,12 +6,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { type ChildProcess, spawn } from "node:child_process";
 
-import { FrameDecoder, mainHelloSchema } from "../../../../protocol/supervision/mod.ts";
+import { mainHelloSchema } from "../../../../protocol/supervision/mod.ts";
 
 import { openSession } from "./client.ts";
 import { subscribe } from "./events.ts";
 import { nodeSockets } from "./node-io.ts";
 import { optInFromSettings, OS_NOTIFICATIONS_KEY } from "../os-notification.ts";
+import { FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 /** main.ts는 Deno 권한과 Worker가 필요하다. 부모 pipe로 실제 core를 띄운다. */
 function spawnCore(home: string, repoRoot: string): ChildProcess {

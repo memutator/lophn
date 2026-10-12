@@ -2,10 +2,7 @@
 // 유한한 메모리 목록에 두고 machine credential로 core의 record_* command에 보낸다. 업무 응답은 이 전달을
 // 기다리지 않는다. 한도 초과와 반복하지 않는 실패는 redaction된 손실 진단 frame으로 core에 알린다.
 import type { Clock } from "../../../../base/mod.ts";
-import {
-  type Diagnostic,
-  encodeFrame,
-} from "../../../../protocol/supervision/mod.ts";
+import type { Diagnostic } from "../../../../protocol/supervision/mod.ts";
 import {
   type CoreRecord,
   createInvocationBroker,
@@ -20,6 +17,7 @@ import {
   type LossReport,
 } from "./queue.ts";
 import { deliveryKey } from "../mod.ts";
+import { encodeFrame } from "../../../../protocol/base/mod.ts";
 
 // core 응답을 전달 결과로 읽는다. 닿지 않거나 5xx면 unavailable이고 그 밖의 거절은 core가 말한 code다.
 function outcomeOf(status: number, body: unknown): DeliveryOutcome {

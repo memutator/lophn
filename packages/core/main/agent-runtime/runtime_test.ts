@@ -1,9 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok, type Result } from "../../../base/mod.ts";
-import {
-  encodeFrame,
-  FrameDecoder,
-} from "../../../protocol/supervision/mod.ts";
+import { encodeFrame, FrameDecoder } from "../../../protocol/base/mod.ts";
 import { redact, startAgentRuntime } from "./main.ts";
 
 const HELLO = {

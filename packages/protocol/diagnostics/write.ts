@@ -21,7 +21,7 @@ export const DIAGNOSTICS_WRITE_OP = "platform.diagnostics.write";
 
 export const DIAGNOSTICS_WRITE_MAX_RECORDS = 256;
 // host queue가 이미 받아 둔 기록들의 byte 상한. control frame 전체 상한은
-// supervision의 CONTROL_MAX_BYTES(256KiB)와 codec이 강제한다. 여기서는 더 낮추지 않는다.
+// pipe frame의 CONTROL_MAX_BYTES(256KiB)와 codec이 강제한다. 여기서는 더 낮추지 않는다.
 export const DIAGNOSTICS_WRITE_MAX_PENDING_BYTES = 1024 * 1024;
 
 const count = z.number().refine((n) => Number.isSafeInteger(n) && n >= 0, {

@@ -10,10 +10,7 @@
 // - 순서는 byte chunk(worker가 channel별로 받아 둔다)가 먼저고 worker_request가 나중이다.
 //   중간에 끊기면 abort로 worker가 받아 둔 chunk를 비우게 한다.
 import { err, type ErrorCode, ok, type Result } from "../../base/mod.ts";
-import {
-  type ChildMessage,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../../protocol/supervision/mod.ts";
+import type { ChildMessage } from "../../protocol/supervision/mod.ts";
 import {
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,
@@ -22,6 +19,7 @@ import {
   secretPreparationSchema,
 } from "../../protocol/secrets/mod.ts";
 import type { UploadHandler } from "../server/mod.ts";
+import { STREAM_CHUNK_MAX_BYTES } from "../../protocol/base/mod.ts";
 
 // I/O worker의 응답을 기다리는 시간. keychain 잠금 해제 같은 사람 상호작용은 이 안에 없다.
 export const SECRET_INPUT_RESPONSE_MS = 30_000;

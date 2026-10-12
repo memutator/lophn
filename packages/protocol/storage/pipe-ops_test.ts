@@ -14,11 +14,10 @@ import {
   blobReadPipeInputSchema,
 } from "./pipe-ops.ts";
 import {
-  encodeFrame,
-  FrameDecoder,
   workerRequestSchema,
   workerResponseSchema,
 } from "../supervision/supervision.ts";
+import { encodeFrame, FrameDecoder } from "../base/frame.ts";
 
 const hash = "a".repeat(64);
 const input = {

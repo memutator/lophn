@@ -5,12 +5,11 @@ import {
   connectionRevokeInputSchema,
   connectionRevokeOutputSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
+import type { RequestContext, Tx } from "../../../../protocol/server/mod.ts";
 import {
   confirmationRefSchema,
-  type RequestContext,
-  type Tx,
-} from "../../../../protocol/server/mod.ts";
-import { defineCommand } from "../../../../protocol/base/mod.ts";
+  defineCommand,
+} from "../../../../protocol/base/mod.ts";
 import { connectionSchemaSteps } from "./schema.ts";
 import { createConnectionCommands, revokeConnection } from "./commands.ts";
 import { createConnectionReads } from "./reads.ts";

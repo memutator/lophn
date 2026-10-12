@@ -6,9 +6,7 @@ import {
   BLOB_PREPARE_CREDIT_WINDOW,
   type ChildMessage,
   childMessageSchema,
-  type Frame,
   type ParentMessage,
-  STREAM_CHUNK_MAX_BYTES,
 } from "../../../protocol/supervision/mod.ts";
 import { objectPathFor, tmpDirFor } from "./mod.ts";
 import {
@@ -30,6 +28,10 @@ import {
   patternBytes,
   type Scenario,
 } from "../../testing/blob-prepare-child.ts";
+import {
+  type Frame,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../protocol/base/mod.ts";
 
 const FIXTURE = new URL("../../testing/blob-prepare-child.ts", import.meta.url)
   .pathname;

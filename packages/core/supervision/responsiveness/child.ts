@@ -1,10 +1,8 @@
 import {
   type ChildMessage,
   childMessageSchema,
-  type Frame,
   type ParentMessage,
   parentMessageSchema,
-  STREAM_CHUNK_MAX_BYTES,
 } from "../../../protocol/supervision/mod.ts";
 import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 import {
@@ -18,6 +16,10 @@ import {
   createFrameWriter,
   readFrames,
 } from "./frames.ts";
+import {
+  type Frame,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../protocol/base/mod.ts";
 
 export type ChildStreams = {
   stdin: ByteReader;

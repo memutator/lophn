@@ -6,7 +6,7 @@ import {
 import { runIdSchema } from "./ids.ts";
 import { seqSchema } from "./values.ts";
 import type { CommandRoute, ReadRoute } from "./route.ts";
-import { confirmationRefSchema } from "../server/confirmation-handle.ts";
+import { confirmationRefSchema } from "./confirmation-handle.ts";
 
 const encoder = new TextEncoder();
 

@@ -1,4 +1,3 @@
-export * from "./confirmation-handle.ts";
 export * from "./identity.ts";
 export * from "./question-option.ts";
 export * from "./registration.ts";

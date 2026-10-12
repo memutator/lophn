@@ -6,16 +6,13 @@
 // 본다. harness의 fileLedger나 직접 insert는 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import {
-  encodeFrame,
-  FrameDecoder,
-  type KindLaunchSpec,
-} from "../../../protocol/supervision/mod.ts";
+import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import { manualClock, seededRandom } from "../../../base/mod.ts";
 import { launchArgv } from "../../supervision/security/mod.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "../tests/runner.ts";
 import { startCore } from "../../main/daemon/core.ts";
 import { problemsReportDefinitions } from "../register.ts";
+import { encodeFrame, FrameDecoder } from "../../../protocol/base/mod.ts";
 
 const NOW_MS = Date.UTC(2026, 9, 4, 12, 0, 0);
 const AT = "2026-10-04T12:00:00.000Z";

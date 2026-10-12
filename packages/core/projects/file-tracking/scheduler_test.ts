@@ -6,7 +6,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../protocol/supervision/mod.ts";
+} from "../../../protocol/base/mod.ts";
 import {
   type Candidate,
   CANDIDATE_LIMIT,

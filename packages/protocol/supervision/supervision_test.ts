@@ -13,9 +13,6 @@ import {
   coreToMainMessageSchema,
   DIAGNOSTIC_KINDS,
   diagnosticSchema,
-  encodeFrame,
-  type Frame,
-  FrameDecoder,
   helloSchema,
   INTERNAL_ERROR_CLASSES,
   kindLaunchSpecSchema,
@@ -32,11 +29,16 @@ import {
   secretSendResponseSchema,
   stoppedSchema,
   stopSchema,
-  STREAM_CHUNK_MAX_BYTES,
   streamCreditSchema,
   workerRequestSchema,
   workerResponseSchema,
 } from "./supervision.ts";
+import {
+  encodeFrame,
+  type Frame,
+  FrameDecoder,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../base/frame.ts";
 const suffix = "01arz3ndektsv4rrffq69g5fav";
 const observedAt = "2026-10-04T00:00:00.000Z";
 const observation = { component: "platform/io", observed_at: observedAt };

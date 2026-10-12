@@ -1,8 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import {
-  encodeFrame,
-  mainHelloSchema,
-} from "../../../protocol/supervision/mod.ts";
+import { mainHelloSchema } from "../../../protocol/supervision/mod.ts";
 import { readFrames } from "../../supervision/responsiveness/mod.ts";
 import {
   type ParentPipe,
@@ -10,6 +7,7 @@ import {
   shellViewLog,
   watchParent,
 } from "./parent.ts";
+import { encodeFrame } from "../../../protocol/base/mod.ts";
 
 const lifetime = {
   type: "diagnostic",

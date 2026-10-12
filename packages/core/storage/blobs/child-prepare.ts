@@ -10,7 +10,6 @@ import {
   BLOB_PREPARE_ERROR_CODES,
   type BlobPrepareRequest,
   type ChildMessage,
-  type Frame,
   type ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
 import { BLOB_PREPARE_MAX_BYTES } from "../../../protocol/storage/mod.ts";
@@ -21,6 +20,7 @@ import {
 import type { BlobPrepareCall } from "../../main/daemon/core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./prepare-relay.ts";
 import { problemsReportDefinitions } from "../../problems/register.ts";
+import type { Frame } from "../../../protocol/base/mod.ts";
 
 // kind별 허용. kind가 여기 없으면 요청은 forbidden이다(자식 spec이 준 권한이 아니라
 // core가 정한 목록이다). 상한은 purpose를 등록한 소유 concern의 max_size_bytes다.

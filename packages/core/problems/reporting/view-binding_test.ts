@@ -3,11 +3,9 @@
 // binding은 그 core의 signer가 서명한 AppConnection이다. harness의 직접 insert는 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import {
-  encodeFrame,
-  FrameDecoder,
-  type WorkerRequest,
-  type WorkerResponse,
+import type {
+  WorkerRequest,
+  WorkerResponse,
 } from "../../../protocol/supervision/mod.ts";
 import { manualClock, ok, seededRandom } from "../../../base/mod.ts";
 import { createCoreSigner } from "../../apps/runtime/signing.ts";
@@ -16,6 +14,7 @@ import type { WorkerRouteTarget } from "../../supervision/responsiveness/mod.ts"
 import { COLLECTOR_KIND, reportCollectorSpec } from "../tests/runner.ts";
 import { startCore } from "../../main/daemon/core.ts";
 import { problemsReportDefinitions } from "../register.ts";
+import { encodeFrame, FrameDecoder } from "../../../protocol/base/mod.ts";
 
 const NOW_MS = Date.UTC(2026, 9, 4, 12, 0, 0);
 const AT = "2026-10-04T12:00:00.000Z";

@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { createCoreHarness } from "../../testing/core.ts";
 import { createLedgerRegistration } from "../register.ts";
-import { FrameDecoder } from "../../../protocol/supervision/mod.ts";
+import { FrameDecoder } from "../../../protocol/base/mod.ts";
 import {
   INVOCATION_DELIVERY_BACKOFF_MAX_MS,
   INVOCATION_DELIVERY_MAX_BYTES,

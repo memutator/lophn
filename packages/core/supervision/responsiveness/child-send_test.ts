@@ -1,11 +1,8 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import {
-  encodeFrame,
-  FrameDecoder,
-  type ParentMessage,
-} from "../../../protocol/supervision/mod.ts";
+import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
 import type { ByteReader } from "./frames.ts";
 import { type ChildHandlers, type ChildSession, startChild } from "./child.ts";
+import { encodeFrame, FrameDecoder } from "../../../protocol/base/mod.ts";
 
 const HELLO = {
   type: "hello" as const,

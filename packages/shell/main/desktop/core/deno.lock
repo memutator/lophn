@@ -85,6 +85,17 @@
       "jsr:@lophn/blueprint@1.0.0": {},
       "jsr:@lophn/cap-problem@1.0.0": {},
       "jsr:@lophn/cap-schedule@1.0.0": {},
+      "jsr:@lophn/chart": {
+        "dependencies": [
+          "npm:@types/d3-scale@4.0.9",
+          "npm:@types/d3-shape@3.2.0",
+          "npm:@types/react@19.3.0",
+          "npm:d3-scale@4.0.2",
+          "npm:d3-shape@3.2.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
       "jsr:@lophn/coding-agent": {},
       "jsr:@lophn/design": {
         "dependencies": [
@@ -123,6 +134,7 @@
           "npm:@xterm/xterm@6.0.0",
           "npm:esbuild@0.28.2",
           "npm:happy-dom@20.14.5",
+          "npm:lucide-react@1.51.0",
           "npm:react-dom@19.3.0",
           "npm:react@19.3.0"
         ]
@@ -137,11 +149,7 @@
       },
       "jsr:@lophn/ui-chart@1.0.0": {
         "dependencies": [
-          "npm:@types/d3-scale@4.0.9",
-          "npm:@types/d3-shape@3.2.0",
           "npm:@types/react@19.3.0",
-          "npm:d3-scale@4.0.2",
-          "npm:d3-shape@3.2.0",
           "npm:lucide-react@1.51.0",
           "npm:react@19.3.0"
         ]

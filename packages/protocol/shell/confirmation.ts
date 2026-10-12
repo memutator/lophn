@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { errorBodySchema } from "../base/errors.ts";
 import { ID_PREFIXES, type IdPrefix, idSchema } from "../base/ids.ts";
-import { decisionNameSchema } from "../server/confirmation-handle.ts";
+import { decisionNameSchema } from "../base/confirmation-handle.ts";
 import {
   providerDefinitionSchema,
   providerProtocolSchema,

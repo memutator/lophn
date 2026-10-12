@@ -6,12 +6,12 @@ import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import {
   coreToMainMessageSchema,
-  encodeFrame,
   type MainHello,
   mainHelloSchema,
 } from "../../../protocol/supervision/mod.ts";
 import { backupStamp, createBackup, RESTORE_DECISION } from "./mod.ts";
 import { readFrames } from "../../supervision/responsiveness/mod.ts";
+import { encodeFrame } from "../../../protocol/base/mod.ts";
 
 type Json = Record<string, unknown>;
 

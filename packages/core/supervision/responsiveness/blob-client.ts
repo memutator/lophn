@@ -9,9 +9,9 @@ import {
   blobPrepareResultSchema,
   type ChildMessage,
   type ParentMessage,
-  STREAM_CHUNK_MAX_BYTES,
 } from "../../../protocol/supervision/mod.ts";
 import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
+import { STREAM_CHUNK_MAX_BYTES } from "../../../protocol/base/mod.ts";
 
 export type BlobPrepareInput = {
   purpose: string;

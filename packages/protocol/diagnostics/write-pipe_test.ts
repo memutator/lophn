@@ -12,11 +12,7 @@ import {
 import { PIPE_OPS } from "../storage/pipe-ops.ts";
 import { ROUTES } from "../registry.ts";
 import { routePath } from "../base/route.ts";
-import {
-  CONTROL_MAX_BYTES,
-  encodeFrame,
-  FrameDecoder,
-} from "../supervision/supervision.ts";
+import { CONTROL_MAX_BYTES, encodeFrame, FrameDecoder } from "../base/frame.ts";
 
 const observedAt = "2026-10-04T00:00:00.000Z";
 const observation = { component: "platform/io", observed_at: observedAt };

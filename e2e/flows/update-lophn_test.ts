@@ -45,8 +45,6 @@ import {
   seedLedger,
 } from "../../packages/core/testing/app-export-fixtures.ts";
 import {
-  encodeFrame,
-  FrameDecoder,
   type MainHello,
   mainHelloSchema,
   mainToCoreMessageSchema,
@@ -76,6 +74,7 @@ import {
   removeHome,
   untilDocuments,
 } from "../flow-support.ts";
+import { encodeFrame, FrameDecoder } from "../../packages/protocol/base/mod.ts";
 
 const OFFERED = "0.9.0";
 const UNVERIFIED =

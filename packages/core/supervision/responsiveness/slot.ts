@@ -1,12 +1,12 @@
 import type {
   ChildMessage,
-  Frame,
   KindLaunchSpec,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
 import type { FrameWriter } from "./frames.ts";
 import { ADAPTER_MS, GROUP_CONFIRM_MS } from "./group.ts";
 import { LEADER_EXIT_MS, type Spawned } from "./process.ts";
+import type { Frame } from "../../../protocol/base/mod.ts";
 
 // architecture 2.3의 고정 값. 설정으로 늘리지 않는다.
 export const READY_MS = 10_000;

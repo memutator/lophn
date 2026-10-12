@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atSchema, sha256Schema } from "../base/values.ts";
+import { atSchema, sha256Schema } from "./values.ts";
 
 // 발급 시각에서 120초. 실제 기한은 이것과 대상 기한 중 이른 시각이다.
 export const CONFIRMATION_HANDLE_TTL_MS = 120_000;

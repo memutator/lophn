@@ -5,8 +5,6 @@
 // core의 관측 질의를 기다리는 동안에도 다음 frame을 읽어야 한다.
 import {
   appCredentialResponseSchema,
-  encodeFrame,
-  FrameDecoder,
   helloSchema,
   stopSchema,
   workerRequestEnvelopeSchema,
@@ -14,6 +12,7 @@ import {
 import type { ErrorCode } from "../../../../base/mod.ts";
 import type { z } from "zod";
 import type { Supervisor } from "./supervisor.ts";
+import { encodeFrame, FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 type AppCredentialResponse = z.infer<typeof appCredentialResponseSchema>;
 

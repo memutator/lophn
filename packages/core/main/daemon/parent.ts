@@ -2,10 +2,9 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   coreToMainMessageSchema,
   type Diagnostic,
-  type Frame,
   mainToCoreMessageSchema,
 } from "../../../protocol/supervision/mod.ts";
-import type { Route } from "../../../protocol/base/mod.ts";
+import type { Frame, Route } from "../../../protocol/base/mod.ts";
 import type {
   RestoreOutcome,
   RestorePlan,

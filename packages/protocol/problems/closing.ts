@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineCommand } from "../base/route.ts";
-import { defineDecision } from "../server/confirmation-handle.ts";
+import { defineDecision } from "../base/confirmation-handle.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";

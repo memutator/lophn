@@ -1,7 +1,6 @@
 import {
   type ChildMessage,
   childMessageSchema,
-  type Frame,
 } from "../../../protocol/supervision/mod.ts";
 import { launchArgv } from "../security/mod.ts";
 import {
@@ -22,6 +21,7 @@ import {
   type Slot,
   STDERR_LINE_MAX,
 } from "./slot.ts";
+import type { Frame } from "../../../protocol/base/mod.ts";
 
 export type Outcome = "failed" | "ready-ended" | "stopped";
 

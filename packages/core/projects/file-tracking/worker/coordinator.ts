@@ -2,7 +2,6 @@
 // round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts#T6
 // supervision 하나다. kind와 root는 환경으로만 받는다.
 import {
-  type Frame,
   type KindLaunchSpec,
   type ParentMessage,
   processKindSchema,
@@ -78,6 +77,7 @@ import {
   PREPARATION_SLOTS,
   type PrepareSlot,
 } from "../mod.ts";
+import type { Frame } from "../../../../protocol/base/mod.ts";
 
 export type CoordinatorOptions = {
   root: string;

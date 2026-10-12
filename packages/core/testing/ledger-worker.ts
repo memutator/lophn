@@ -8,7 +8,7 @@ import { executeRead, readKey } from "../storage/ledger/reads.ts";
 import { openConnection } from "../storage/ledger/mod.ts";
 import { serveWriter, type WorkerSelf } from "../storage/ledger/writer-loop.ts";
 import type { WriterResponse } from "../storage/ledger/writer-message.ts";
-import { confirmationHandleRegisterSchema } from "../../protocol/server/mod.ts";
+import { confirmationHandleRegisterSchema } from "../../protocol/base/mod.ts";
 import { assemble } from "./ledger-registration.ts";
 import type { TestBoot, TestRequest } from "./ledger-types.ts";
 

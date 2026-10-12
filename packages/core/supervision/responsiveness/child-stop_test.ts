@@ -1,10 +1,5 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import {
-  encodeFrame,
-  FrameDecoder,
-  type ParentMessage,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/supervision/mod.ts";
+import type { ParentMessage } from "../../../protocol/supervision/mod.ts";
 import type { ByteReader } from "./frames.ts";
 import {
   type ChildHandlers,
@@ -12,6 +7,11 @@ import {
   READ_AHEAD_MAX_FRAMES,
   startChild,
 } from "./child.ts";
+import {
+  encodeFrame,
+  FrameDecoder,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../protocol/base/mod.ts";
 
 const HELLO = {
   type: "hello" as const,

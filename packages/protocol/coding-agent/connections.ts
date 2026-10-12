@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { defineDecision } from "../server/confirmation-handle.ts";
+import { defineDecision } from "../base/confirmation-handle.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";

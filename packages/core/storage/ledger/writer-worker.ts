@@ -92,7 +92,7 @@ async function handle(
 ): Promise<void> {
   if (data.op === "confirmation") {
     const { confirmationHandleRegisterSchema } = await import(
-      "../../../protocol/server/mod.ts"
+      "../../../protocol/base/mod.ts"
     );
     const registry = registration.confirmationRegistry;
     if (data.action === "clear") {

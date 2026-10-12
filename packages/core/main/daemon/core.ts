@@ -14,12 +14,11 @@ import type {
 import { settingsGet } from "../../../protocol/config/mod.ts";
 import type {
   ChildMessage,
-  Frame,
   KindLaunchSpec,
   ParentMessage,
   WorkerRequest,
 } from "../../../protocol/supervision/mod.ts";
-import type { ReadRoute } from "../../../protocol/base/mod.ts";
+import type { Frame, ReadRoute } from "../../../protocol/base/mod.ts";
 import { createApprovalRequest } from "../../../protocol/approvals/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
 import { secretInput } from "../../../protocol/secrets/mod.ts";

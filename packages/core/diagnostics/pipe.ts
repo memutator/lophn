@@ -1,8 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  CONTROL_MAX_BYTES,
-  type Diagnostic,
-  type WorkerRequest,
+import type {
+  Diagnostic,
+  WorkerRequest,
 } from "../../protocol/supervision/mod.ts";
 import {
   DIAGNOSTICS_WRITE_MAX_PENDING_BYTES,
@@ -12,6 +11,7 @@ import {
   diagnosticsWriteRequestSchema,
 } from "../../protocol/diagnostics/mod.ts";
 import type { SafeLog } from "./log.ts";
+import { CONTROL_MAX_BYTES } from "../../protocol/base/mod.ts";
 
 // The owner supplies current authority, never a principal/process/scope submitted in payload.
 export type DiagnosticAuthority = {

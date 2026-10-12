@@ -6,10 +6,7 @@ import {
 } from "./blob.ts";
 import { defineWorker } from "../base/route.ts";
 import { redactionCheck } from "../base/redaction.ts";
-import {
-  type Frame,
-  STREAM_CHUNK_MAX_BYTES,
-} from "../supervision/supervision.ts";
+import { type Frame, STREAM_CHUNK_MAX_BYTES } from "../base/frame.ts";
 import { sha256Schema } from "../base/values.ts";
 
 export const BLOB_PREPARE_OP = "blob.prepare";

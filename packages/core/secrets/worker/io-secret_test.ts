@@ -7,7 +7,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../protocol/supervision/mod.ts";
+} from "../../../protocol/base/mod.ts";
 import {
   SECRET_INPUT_MAX_BYTES,
   SECRET_PREPARE_OP,

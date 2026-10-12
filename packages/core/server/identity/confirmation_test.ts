@@ -3,7 +3,7 @@ import { manualClock, seededRandom } from "../../../base/mod.ts";
 import {
   CONFIRMATION_HANDLE_TTL_MS,
   type ConfirmationHandleRegister,
-} from "../../../protocol/server/mod.ts";
+} from "../../../protocol/base/mod.ts";
 import { confirmationBinding } from "./confirmation-binding.ts";
 import { ConfirmationRegistry } from "./confirmation.ts";
 import { consumeRouteConfirmation } from "./confirmation-route.ts";

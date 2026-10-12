@@ -5,7 +5,7 @@ import { FORMAT_CHECK_CONTENT_MAX_BYTES } from "../../../protocol/projects/mod.t
 import {
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/supervision/mod.ts";
+} from "../../../protocol/base/mod.ts";
 // architecture 2.1의 stdio frame 요청 본문. op별 입력·출력 schema는
 // 소유 contracts가 worker_response 경계에서 다시 검사한다.
 export type RequestPayload = {

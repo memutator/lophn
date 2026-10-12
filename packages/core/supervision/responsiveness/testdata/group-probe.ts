@@ -2,10 +2,7 @@
 // --allow-run=<설치된 deno>,/usr/bin/kill --allow-env=NODE_V8_COVERAGE --allow-read=<testdata>.
 // shell·C fixture 없이 실제 product spawnProcess·createSupervisor로 group 종료를 확인한다.
 import { manualClock } from "../../../../base/mod.ts";
-import {
-  encodeFrame,
-  type Frame,
-} from "../../../../protocol/supervision/mod.ts";
+import { encodeFrame, type Frame } from "../../../../protocol/base/mod.ts";
 import { readFrames } from "../frames.ts";
 import { checkKillAdapter, spawnProcess } from "../process.ts";
 import { createSupervisor } from "../supervisor.ts";

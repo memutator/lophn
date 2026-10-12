@@ -9,13 +9,15 @@ import {
   type AuthenticatedContext,
   type CommandDefinition,
   commandsResult,
-  type ConfirmationRef,
-  confirmationRefSchema,
   type RequestContext,
   type Sql,
   type Tx,
 } from "../../../protocol/server/mod.ts";
-import { idempotencyKeySchema } from "../../../protocol/base/mod.ts";
+import {
+  type ConfirmationRef,
+  confirmationRefSchema,
+  idempotencyKeySchema,
+} from "../../../protocol/base/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 import {
   confirmationBinding,

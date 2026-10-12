@@ -10,6 +10,7 @@ import {
 import {
   approval,
   fakeRequests,
+  groupQuestion,
   notification,
   question,
 } from "../lophn-space/things-to-confirm/testdata/fake-source.ts";
@@ -147,8 +148,12 @@ export function mockRequests(): RequestSource {
       }),
       question(3, {
         status: "answered",
-        answer: { kind: "option", option: "keep" },
-        applied: true,
+        questions: [
+          groupQuestion(3, 1, {
+            answer: { kind: "option", option: "keep" },
+            applied: true,
+          }),
+        ],
         closedAt: now - 60 * MINUTE,
       }),
       question(4, {

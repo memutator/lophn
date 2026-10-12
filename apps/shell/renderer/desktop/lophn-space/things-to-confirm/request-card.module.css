@@ -1,4 +1,4 @@
-/* legacy lophn 결정 카드: 머리 한 줄, 설명, 선택지 행, 아래 끝 행동. 색 없이 글과 모양으로 읽는다. */
+/* 결정(approval) 카드와 질문 묶음 패널이 같이 쓰는 틀: 머리 한 줄, 글, 아래 끝 행동. 색 없이 글과 모양으로 읽는다. */
 .card {
   display: flex;
   flex-direction: column;
@@ -64,101 +64,6 @@
   line-height: var(--type-caption-line);
 }
 
-.options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-/* 선택지 한 행. 고르면 점이 차고 배경이 옅게 바뀐다. 고르는 것은 답이 아니다. */
-.option {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--control-md-height);
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-base);
-  color: var(--color-text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.option:hover {
-  background: var(--color-surface-subtle);
-}
-
-.option:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: var(--border-focus-offset);
-}
-
-.option[aria-checked="true"] {
-  border-color: var(--color-border-strong);
-  background: var(--color-surface-muted);
-}
-
-.dot {
-  box-sizing: border-box;
-  flex: none;
-  width: var(--space-5);
-  height: var(--space-5);
-  border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-}
-
-.option[aria-checked="true"] .dot {
-  border-width: var(--space-2);
-  border-color: var(--color-text-primary);
-}
-
-/* 선택지 이름과 그 아래 설명. 설명은 agent가 쓴 글이라 줄바꿈을 그대로 둔다. */
-.optionText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: var(--space-0);
-}
-
-.optionLabel {
-  overflow-wrap: anywhere;
-}
-
-.optionDescription {
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* 추천 이유. 이름 한 줄과 글. */
-.why {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-0);
-}
-
-.whyLabel {
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.mark {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
 .card textarea {
   resize: none;
 }
@@ -174,10 +79,4 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-.secondary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
 }

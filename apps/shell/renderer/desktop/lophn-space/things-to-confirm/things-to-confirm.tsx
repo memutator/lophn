@@ -17,7 +17,6 @@ import {
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { ConnectionState } from "../../connection/connection.ts";
-import { RequestCard } from "../../../conversation/question-strip/request-card.tsx";
 import { intervalTicks, type RequestDeps } from "./context.tsx";
 import { eventTitle, requestTitle, roleLabel, statusOf } from "./labels.ts";
 import {
@@ -32,6 +31,7 @@ import {
   stripOrder,
   waitingCounts,
 } from "./model.ts";
+import { RequestCard } from "./request-card.tsx";
 import type { NotificationRow, Overview, Request, Role } from "./source.ts";
 import styles from "./things-to-confirm.module.css";
 

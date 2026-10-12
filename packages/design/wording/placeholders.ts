@@ -2908,6 +2908,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.error.review-unavailable": Record<never, never>;
   "things-to-confirm.error.send-failed": Record<never, never>;
   "things-to-confirm.error.too-long": Record<never, never>;
+  "things-to-confirm.label.agent-unknown": Record<never, never>;
   "things-to-confirm.label.blocking": Record<never, never>;
   "things-to-confirm.label.cancel-reason": Record<never, never>;
   "things-to-confirm.label.count-decisions": {

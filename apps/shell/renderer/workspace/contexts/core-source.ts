@@ -105,34 +105,28 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
     return { ok: true, value: { items: all, next: cursor ?? null } };
   };
 
-  // 이 context를 정의 `contexts`에 고른 Operator의 수다(lophn-agent/agents). context는 project 안에만 있고
-  // Operator의 정의도 그 project 자리의 파일이라, 그 project의 Operator를 읽어 센다.
+  // 이 project의 Operator가 정의 `contexts`에 고른 context별 수다(lophn-agent/agents). context는 project 안에만
+  // 있고 Operator의 정의도 그 project 자리의 파일이라, 그 project의 Operator를 한 번씩만 읽어 센다.
   const countOperators = async (
-    context: string,
-  ): Promise<ReadResult<number>> => {
-    const found = await read<{ context: { project: string } }>(
-      "contexts",
-      "get",
-      { context },
-    );
-    if (!found.ok) return found;
-    const place = { kind: "project", id: found.value.context.project };
+    project: string,
+  ): Promise<ReadResult<ReadonlyMap<string, number>>> => {
+    const place = { kind: "project", id: project };
     const listed = await read<
       { agents: readonly { assignment: string; kind: string }[] }
     >("agents", "list", { place });
     if (!listed.ok) return listed;
-    let count = 0;
+    const counts = new Map<string, number>();
     for (const row of listed.value.agents) {
       if (row.kind !== "operator") continue;
       const agent = await read<
         { definition: { contexts?: readonly string[] } | null }
       >("agents", "read", { place, assignment: row.assignment });
       if (!agent.ok) return agent;
-      if (agent.value.definition?.contexts?.includes(context) === true) {
-        count += 1;
+      for (const context of agent.value.definition?.contexts ?? []) {
+        counts.set(context, (counts.get(context) ?? 0) + 1);
       }
     }
-    return { ok: true, value: count };
+    return { ok: true, value: counts };
   };
 
   return {
@@ -292,7 +286,7 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
       return result.ok ? { ok: true, value: result.value.contexts } : result;
     },
 
-    operatorCount: countOperators,
+    operatorCounts: countOperators,
 
     saveView: (request) => command("contexts", "save_view", request),
 

@@ -692,7 +692,7 @@ function placeExists(
   ) !== undefined;
 }
 
-function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
+export function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
   let registry: ExtensionRegistry | null | undefined;
   const registryOf = (): ExtensionRegistry | null => {
     if (registry === undefined) registry = extensionRegistry(sql);
@@ -717,14 +717,24 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
       const row = sql.get("select project from contexts where id = ?", [id]);
       return row === undefined ? null : String(row["project"]);
     },
-    activeContexts: (place) =>
-      place.kind === "project"
+    // project 자리는 그 project의 active context 전부이고, App Engineer가 앱 자리에 있으면 적용된 판이 그 앱을
+    // app-data source로 읽는 active context 전부다(context.list의 app 거르기와 같다). context_app_data는 앱
+    // slug를 담는다. 그 밖의 앱 자리는 없다.
+    activeContexts: (place, role) =>
+      (place.kind === "project"
         ? sql.all(
           "select id from contexts where project = ? and status = 'active' order by id",
           [place.id],
         )
-          .map((row) => String(row["id"]))
-        : [],
+        : role === "app_engineer"
+        ? sql.all(
+          `select c.id from contexts c where c.status = 'active' and exists (
+             select 1 from context_app_data d join apps a on a.slug = d.app
+             where d.context = c.id and a.id = ?
+           ) order by c.id`,
+          [place.id],
+        )
+        : []).map((row) => String(row["id"])),
     // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다(extensions R32). 한 읽기 안에서
     // 같은 자리는 같은 목록이다.
     skills: (place) =>

@@ -1723,7 +1723,7 @@ export const en = {
   "project-workspace.notice.agent-editor-body-help":
     "The agent reads project instructions first, then these.",
   "project-workspace.notice.agent-editor-issue":
-    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} archivedReference {This context is archived, so pick an active one} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and Workspace defaults.",
   "project-workspace.notice.agent-editor-wider-help":

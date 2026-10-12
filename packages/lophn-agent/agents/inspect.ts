@@ -162,7 +162,7 @@ export function inspectAgent(
       default_profile: DEFAULT_PROFILES[ref.role],
       skills: context.lookups.skills(place),
       mcp: context.lookups.mcp(place),
-      active_contexts: context.lookups.activeContexts(place),
+      active_contexts: context.lookups.activeContexts(place, ref.role),
     },
   });
   if (!effective.ok) return effective;

@@ -296,6 +296,7 @@ export const AGENT_ISSUE_CODES = [
   "duplicate",
   "too_large",
   "missing_reference",
+  "archived_reference",
   "over_cap",
 ] as const;
 export const agentIssueCodeSchema = z.enum(AGENT_ISSUE_CODES);

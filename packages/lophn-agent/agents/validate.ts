@@ -91,18 +91,19 @@ export function checkSave(input: {
       if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
     }
     if (place.kind === "project") {
-      // 없는 context와 다른 project의 context는 고를 수 없다. 만드는 중이거나 보관한 context는
-      // 실제 context라 고를 수 있다(보관한 것은 실행 때 자료에서 빠진다).
+      // 없는 context와 다른 project의 context는 `missing_reference`, 보관한 context는
+      // `archived_reference`로 고를 수 없다. 만드는 중인 context는 고를 수 있다. 저장한 뒤 보관된
+      // context는 정의에 그대로 두고 실행 때만 자료에서 뺀다(resolve).
       (definition.contexts ?? []).forEach((id, index) => {
         const lookups = view.context.lookups;
-        if (
-          lookups.contextStatus(id) === null ||
-          lookups.contextProject(id) !== place.id
-        ) {
-          addAll(issues, [{
-            field: `contexts.${index}`,
-            code: "missing_reference",
-          }]);
+        const status = lookups.contextStatus(id);
+        const code = status === null || lookups.contextProject(id) !== place.id
+          ? "missing_reference"
+          : status === "archived"
+          ? "archived_reference"
+          : null;
+        if (code !== null) {
+          addAll(issues, [{ field: `contexts.${index}`, code }]);
         }
       });
     }

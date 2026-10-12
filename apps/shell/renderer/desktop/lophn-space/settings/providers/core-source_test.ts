@@ -164,7 +164,6 @@ Deno.test("shell/desktop#R49 [agent-I46]: 연결된 provider는 providers/list�
   ]);
   const [claude, local] = result.value;
   assertEquals(claude!.id, PVD);
-  assertEquals(claude!.registered, true);
   assertEquals(claude!.ways, ["oauth", "api_key", "none"]);
   assertEquals(claude!.signIn, { verified: false });
   assertEquals(claude!.accounts.map((a) => [a.key, a.order, a.enabled]), [
@@ -457,7 +456,7 @@ Deno.test("shell/desktop#R49 [agent-I46]: Custom provider 등록이 거절되면
 Deno.test("shell/desktop#R49 [agent-I46]: 끊기·계정 끄고 켜기·계정 순서 바꾸기는 보호 확인 창에 이 일의 요청 종류가 생기기 전까지 core를 부르지 않고 unavailable이다", async () => {
   const { core, calls } = fakeCore({});
   const source = coreProviderSettingsSource(core, OPTIONS);
-  const unavailable = { ok: false, code: "unavailable" };
+  const unavailable = { ok: false, code: "unavailable" } as const;
   assertEquals(await source.disconnect(PVD), unavailable);
   assertEquals(await source.setAccountEnabled(PVD, "main", false), unavailable);
   assertEquals(

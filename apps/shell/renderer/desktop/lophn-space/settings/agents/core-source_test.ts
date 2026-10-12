@@ -389,7 +389,7 @@ Deno.test("shell/desktop#R50 [agent-I46]: server를 켜고 끄면 설정의 serv
 Deno.test("shell/desktop#R50 [agent-I46]: skill 켜고 끄기·server 더하기·LOPHN.md 열기는 이 통로에 core route가 없어 core를 부르지 않고 unavailable이다", async () => {
   const { core, calls } = fakeCore({});
   const source = coreAgentsSettingsSource(core, OPTIONS);
-  const unavailable = { ok: false, code: "unavailable" };
+  const unavailable = { ok: false, code: "unavailable" } as const;
   assertEquals(await source.setSkillEnabled("notes", false), unavailable);
   assertEquals(await source.addServer(), unavailable);
   assertEquals(await source.openInstructions(), unavailable);

@@ -1,5 +1,15 @@
 import { assert, assertEquals } from "@std/assert";
-import type { AgentDefinition } from "../../packages/contracts/lophn-agent/mod.ts";
+import { ok } from "../../packages/base/mod.ts";
+import {
+  type AgentDefinition,
+  skillFoldersSetting,
+  skillsOffSetting,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  routePath,
+  settingsGet,
+} from "../../packages/contracts/platform/mod.ts";
+import type { CoreCall } from "./core-call.ts";
 import type { CoreCalls } from "./main.ts";
 import { productDriver } from "./product-driver.ts";
 import { discoverProductSkills, productSkillStores } from "./skill-folders.ts";
@@ -346,3 +356,74 @@ function fakeCalls(
     workspaceModels: { lophn: MODEL() },
   }).calls;
 }
+
+// 설정 두 줄만 답하는 machine 호출이다. 값이 없는 key는 설정하지 않은 것(resolved false)으로 답한다.
+function machineWithSettings(values: Record<string, unknown>): CoreCall {
+  return (path, body) => {
+    assertEquals(path, routePath(settingsGet));
+    const keys = (body as { keys: string[] }).keys;
+    return Promise.resolve(ok({
+      settings: keys.map((key) => ({
+        key,
+        resolved: key in values,
+        value: values[key] ?? null,
+        source_layer: key in values ? "common" : null,
+        choices: [],
+        revision: 1,
+        apply_at: "next_run",
+      })),
+      revision: 1,
+      defaults_revision: "defaults-1",
+      as_of_seq: "1",
+      next_cursor: null,
+    }));
+  };
+}
+
+Deno.test("extensions#R4 shell/desktop#Q22 [agent-I49]: 전역에서 끈 skill은 run이 발견하는 목록에서 빠지고 자리 층의 같은 이름은 남는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-global-off-" });
+  const registered = `${home}/registered`;
+  const personal = `${home}/data/skills`;
+  const bundled = `${home}/install/assets/skills`;
+  const place = `${home}/data/projects/${PRJ}/skills`;
+  try {
+    await writeSkill(registered, "team-style", "Registered");
+    await writeSkill(registered, "audit", "Registered audit");
+    await writeSkill(personal, "personal-notes", "Personal");
+    await writeSkill(bundled, "bundled-help", "Bundled");
+    await writeSkill(place, "audit", "Place audit");
+    const machine = machineWithSettings({
+      [skillFoldersSetting.key]: [registered],
+      [skillsOffSetting.key]: ["team-style", "bundled-help", "audit", "gone"],
+    });
+    const found = await discoverProductSkills(machine, {
+      place,
+      personal,
+      bundled,
+    });
+    assert(found !== null);
+    assertEquals(
+      found.entries.map((entry) => [entry.name, entry.source_kind]),
+      [["audit", "place"], ["personal-notes", "personal"]],
+    );
+    // 끈 설정이 없거나 비어 있으면 아무것도 가리지 않는다.
+    for (
+      const values of [
+        { [skillFoldersSetting.key]: [registered] },
+        { [skillFoldersSetting.key]: [registered], [skillsOffSetting.key]: [] },
+      ]
+    ) {
+      const all = await discoverProductSkills(machineWithSettings(values), {
+        personal,
+        bundled,
+      });
+      assert(all !== null);
+      assertEquals(
+        all.entries.map((entry) => entry.name),
+        ["audit", "team-style", "personal-notes", "bundled-help"],
+      );
+    }
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});

@@ -179,14 +179,16 @@ const asg = "asg_01arz3ndektsv4rrffq69g5fav";
 const projectPlace = { kind: "project", id: prj };
 const appPlace = { kind: "app", id: app };
 
-Deno.test("lophn-agent/extensions#R32 [agent-I19b]: two routes read and change the MCP servers of one place, and a person alone changes them", () => {
+Deno.test("lophn-agent/extensions#R32 [agent-I19b, agent-I49]: two routes read and change the MCP servers of one place, a person alone changes them, and the global skills list is read beside them", () => {
   assertEquals(EXTENSION_ROUTES.map(routePath), [
     "/v1/place-extension-settings/read",
     "/v1/place-extension-settings/change",
+    "/v1/global-skills/read",
   ]);
   assertEquals(EXTENSION_ROUTES.map((route) => route.kind), [
     "read",
     "command",
+    "read",
   ]);
   assertEquals(placeExtensionSettingsRead.name, "ReadPlaceExtensionSettings");
   assertEquals(

@@ -72,6 +72,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
       "shell.os_notifications",
       "lophn-agent.model.catalog_auto_update",
       "lophn-agent.extensions.skill_folders",
+      "lophn-agent.extensions.skills_off",
       "lophn-agent.extensions.mcp_servers",
       "lophn-agent.run.model_attempts",
       "lophn-agent.run.stall_ms",

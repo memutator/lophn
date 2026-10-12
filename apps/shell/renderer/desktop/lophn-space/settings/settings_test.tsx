@@ -73,6 +73,12 @@ Deno.test("shell/wording#R13: 설정 값은 정의와 현재 적용값을 기본
           "Registered external MCP servers.",
           [],
         ),
+        // [agent-I49] 전역에서 끈 skill 이름은 Agents 자리의 스위치로 바꾸므로 General에 줄이 없다.
+        setting(
+          "lophn-agent.extensions.skills_off",
+          "Names of the skills switched off for every agent.",
+          ["review-notes"],
+        ),
       ],
     },
   });
@@ -473,6 +479,22 @@ Deno.test("shell/desktop#R50, shell/editor#R17 [agent-I46]: Agents의 LOPHN.md [
   assertEquals(opened, 1);
   assertEquals(fake.calls.filter((call) => call[0] === "instructions"), []);
   assertEquals(view.container.querySelector("[data-notice='failed']"), null);
+});
+
+Deno.test("shell/desktop#R50, lophn-agent/extensions#R11 [agent-I49]: Agents의 [Add server]는 server form을 가진 Tools and skills 자리로 옮기고 Agents 통로의 더하기는 부르지 않는다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeAgents();
+  using view = render(<SettingsScreen source={source} agents={fake.source} />);
+  pressTab(byText(view.container, "Agents"));
+  await flush();
+  click(buttonText(view.container, "Add server"));
+  await flush();
+  assertEquals(
+    find(view.container, "[role=tab][aria-selected=true]").textContent,
+    "Tools and skills",
+  );
+  find(view.container, "[data-settings-panel='extensions']");
+  assertEquals(fake.calls.filter((call) => call[0] === "add-server"), []);
 });
 
 Deno.test("shell/desktop#R50 [agent-I46]: 전역 지침 편집기를 열 통로가 없는 창은 [Edit]이 열지 못했다고 알린다", async () => {

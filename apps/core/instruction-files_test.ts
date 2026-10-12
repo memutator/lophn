@@ -12,7 +12,11 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import { instructionRead } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  INSTRUCTION_PREVIEW_MAX_BYTES,
+  instructionPreview,
+  instructionRead,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
@@ -135,12 +139,14 @@ function codeOf(reply: ReturnType<typeof readOnce>): string {
   return reply.ok ? "ok" : reply.error.code;
 }
 
-Deno.test("lophn-agent/instructions#R1 R4 [agent-I19]: reader 등록은 ReadInstructionFile 하나를 서빙한다", () => {
+Deno.test("lophn-agent/instructions#R1 R4 R9 [agent-I19, agent-I49]: reader 등록은 machine의 ReadInstructionFile과 사람 화면의 PreviewGlobalInstructions를 서빙한다", () => {
   const registration = createReaderRegistration();
   assertEquals(registration.reads.map((entry) => entry.route.name), [
     instructionRead.name,
+    instructionPreview.name,
   ]);
   assertEquals(registration.reads[0].route, instructionRead);
+  assertEquals(registration.reads[1].route, instructionPreview);
 });
 
 Deno.test("lophn-agent/instructions#R1 R4 R5 [agent-I19]: project 세션 run은 data root의 전역과 project 첫 폴더의 LOPHN.md와 그 자리 agent 정의 본문을 읽고 app 층은 없는 대상이며 AGENTS.md는 읽지 않는다", async () => {
@@ -285,6 +291,134 @@ Deno.test("lophn-agent/instructions#R8 [agent-I19]: 읽을 때마다 파일을 �
     );
     await Deno.remove(`${f.root}/LOPHN.md`);
     assertEquals(textOf(f.read(RUN_SESSION, "global")), null);
+  } finally {
+    await f.close();
+  }
+});
+
+const previewRead = createReaderRegistration().reads[1];
+
+const person: RequestContext = {
+  principal: "user",
+  actor: "user",
+  scope: { operations: [instructionPreview.name], targets: {} },
+  conditions: {},
+  credential_ref: "cred-instr-preview-user",
+};
+
+// 미리보기는 run을 모른다: 전역 LOPHN.md(data root)만 본다. ledger 모양의 temp DB는 data root를 알리는 용도다.
+async function previewFixture() {
+  const root = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-instr-preview-" }),
+  );
+  const db = new DatabaseSync(`${root}/lophn.db`);
+  return {
+    root,
+    preview() {
+      const snapshot: ReadSnapshot = {
+        sql: {
+          get: (text, params) =>
+            db.prepare(text).get(...(params as never[])) as never,
+          all: (text, params) =>
+            db.prepare(text).all(...(params as never[])) as never,
+        },
+        as_of_seq: "9",
+        port: () => {
+          throw new Error("no port");
+        },
+      };
+      return previewRead.handle(snapshot, person, {} as never);
+    },
+    async close() {
+      db.close();
+      await Deno.remove(root, { recursive: true });
+    },
+  };
+}
+
+type PreviewValue = {
+  preview: { text: string; size_bytes: number; truncated: boolean } | null;
+  as_of_seq: string;
+};
+
+Deno.test("lophn-agent/instructions#R2 R9 [agent-I49]: 전역 미리보기는 data root의 LOPHN.md 앞부분이고 파일이 없으면 null이며 빈 파일과 구별하고 파일을 만들지 않는다", async () => {
+  const f = await previewFixture();
+  try {
+    const absent = f.preview();
+    assert(absent.ok, absent.ok ? "" : absent.error.message);
+    assertEquals((absent.value as PreviewValue).preview, null);
+    assertEquals(
+      await Deno.stat(`${f.root}/LOPHN.md`).catch(() => null),
+      null,
+    );
+
+    await Deno.writeTextFile(`${f.root}/LOPHN.md`, "");
+    const empty = f.preview();
+    assert(empty.ok);
+    assertEquals((empty.value as PreviewValue).preview, {
+      text: "",
+      size_bytes: 0,
+      truncated: false,
+    });
+
+    await Deno.writeTextFile(`${f.root}/LOPHN.md`, "# Rules\nBe brief.\n");
+    const short = f.preview();
+    assert(short.ok);
+    assertEquals((short.value as PreviewValue).preview, {
+      text: "# Rules\nBe brief.\n",
+      size_bytes: 18,
+      truncated: false,
+    });
+    // 응답은 ledger 위치를 싣고 경로를 싣지 않으며 contract output schema를 통과한다.
+    assertEquals((short.value as PreviewValue).as_of_seq, "9");
+    assert(!JSON.stringify(short.value).includes(f.root));
+    assert(instructionPreview.output.safeParse(short.value).success);
+  } finally {
+    await f.close();
+  }
+});
+
+Deno.test("lophn-agent/instructions#R7 R9 [agent-I49]: 긴 파일은 미리보기 상한까지만 주고 실제 크기와 잘림을 알리며 읽을 때마다 파일을 다시 읽는다", async () => {
+  const f = await previewFixture();
+  try {
+    await Deno.writeTextFile(
+      `${f.root}/LOPHN.md`,
+      "a".repeat(INSTRUCTION_FILE_MAX_BYTES * 3),
+    );
+    const big = f.preview();
+    assert(big.ok);
+    const value = (big.value as PreviewValue).preview!;
+    assertEquals(value.text.length, INSTRUCTION_PREVIEW_MAX_BYTES);
+    assertEquals(value.size_bytes, INSTRUCTION_FILE_MAX_BYTES * 3);
+    assertEquals(value.truncated, true);
+
+    await Deno.writeTextFile(`${f.root}/LOPHN.md`, "short now\n");
+    const edited = f.preview();
+    assert(edited.ok);
+    assertEquals((edited.value as PreviewValue).preview?.text, "short now\n");
+  } finally {
+    await f.close();
+  }
+});
+
+Deno.test("lophn-agent/instructions#R7 R9 [agent-I49]: 읽지 못하는 파일은 unavailable이고 UTF-8이 아닌 파일은 invalid_input이며 경로가 새지 않는다", async () => {
+  const f = await previewFixture();
+  try {
+    await Deno.mkdir(`${f.root}/LOPHN.md`);
+    const unreadable = f.preview();
+    assert(!unreadable.ok);
+    assertEquals(unreadable.error.code, "unavailable");
+    assert(!unreadable.error.message.includes(f.root));
+
+    await Deno.remove(`${f.root}/LOPHN.md`);
+    await Deno.writeFile(
+      `${f.root}/LOPHN.md`,
+      Uint8Array.from([0x61, 0xff, 0xfe]),
+    );
+    const broken = f.preview();
+    assert(!broken.ok);
+    assertEquals(broken.error.code, "invalid_input");
+    assert(!broken.error.message.includes(f.root));
   } finally {
     await f.close();
   }
@@ -525,5 +659,88 @@ Deno.test("lophn-agent/instructions#R4 R5 R8 [agent-I19]: 실제 core에서 runt
     await core.shutdown();
     await Deno.remove(home, { recursive: true });
     await Deno.remove(folder, { recursive: true });
+  }
+});
+
+Deno.test("lophn-agent/instructions#R9 [agent-I49]: 실제 core에서 사람은 전역 LOPHN.md 미리보기를 읽고 machine 자격은 거절되며 응답에 경로가 없다", async () => {
+  const home = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-agent-instr-preview-" }),
+  );
+  await Deno.writeTextFile(
+    `${home}/LOPHN.md`,
+    "# global\nPrefer short answers.\n",
+  );
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [
+      { createLedgerRegistration },
+      { lophnAgentDefinitions },
+      { createLedgerRegistration: createLophnAgentRegistration },
+    ],
+    teamModules: [
+      new URL("./documents.ts", import.meta.url).href,
+      new URL("./lophn-agent.ts", import.meta.url).href,
+    ],
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    random: seededRandom(44),
+    testCredentials: true,
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  const core = started.value;
+  assert(core.acceptTestCredential);
+  const previewScope = {
+    operations: [instructionPreview.name],
+    targets: {},
+  };
+  const user = {
+    principal: "user",
+    actor: "user" as const,
+    scope: previewScope,
+    conditions: {},
+    credential_ref: "cred-instr-preview-core-user",
+  };
+  const machineContext = {
+    ...machine,
+    scope: previewScope,
+    credential_ref: "cred-instr-preview-core-machine",
+  };
+  for (
+    const [context, token] of [[user, USER], [machineContext, MACHINE]] as const
+  ) {
+    assert((await core.acceptTestCredential(context, token)).ok);
+    assert((await core.record(context)).ok);
+  }
+  async function previewAs(token: string) {
+    const response = await fetch(
+      `http://127.0.0.1:${core.port}${routePath(instructionPreview)}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: "{}",
+      },
+    );
+    return { status: response.status, body: await response.json() };
+  }
+  try {
+    const byUser = await previewAs(USER);
+    assertEquals(byUser.status, 200, JSON.stringify(byUser.body));
+    assertEquals(byUser.body.preview, {
+      text: "# global\nPrefer short answers.\n",
+      size_bytes: 31,
+      truncated: false,
+    });
+    assert(!JSON.stringify(byUser.body).includes(home));
+    // 사람이 아닌 자격은 같은 scope여도 거절이다(route actors는 user뿐).
+    const byMachine = await previewAs(MACHINE);
+    assertEquals(byMachine.status, 403, JSON.stringify(byMachine.body));
+    assertEquals(byMachine.body.error?.code, "forbidden");
+    assertEquals(byMachine.body.preview, undefined);
+  } finally {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
   }
 });

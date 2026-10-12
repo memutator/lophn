@@ -20,4 +20,4 @@ export {
   type ScatterPoint,
   type Series,
   SLOT_COUNT,
-} from "@lophn/design/components";
+} from "@lophn/chart";

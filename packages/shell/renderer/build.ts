@@ -128,13 +128,14 @@ export async function build(
       config.imports ?? {},
       pathToFileURL(join(here, "deno.json")),
     );
-    // 공통 UI와 SDK가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
+    // 공통 UI와 SDK가 쓰는 React·Radix·Lucide·d3·wording·chart를 같은 map에서 찾는다.
     const design = new URL(
       "../../design/",
       pathToFileURL(`${here}/`),
     );
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
+    await addPackage(imports, new URL("chart/", design));
     for (
       const name of [
         "tokens",

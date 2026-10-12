@@ -39,10 +39,12 @@ async function importMap(
     imports[key] = value;
   };
   const wording = new URL("wording/", design);
+  const chart = new URL("chart/", design);
   const sdk = new URL("../sdk/", design);
   const packages = [
     design,
     wording,
+    chart,
     ...[
       "tokens/",
       "ui-reading/",

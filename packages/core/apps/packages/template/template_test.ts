@@ -316,6 +316,36 @@ Deno.test("apps/sdk#R33 apps/sdk#R34 apps/sdk#R7: 템플릿 import map은 설치
   }
 });
 
+Deno.test("apps/sdk#R34 apps/sdk#R7: d3와 @lophn/chart는 ui-chart를 고른 앱의 import map에만 있다", async () => {
+  const installed = await installedHome(["@lophn/ui-chart"]);
+  try {
+    const without = await buildImportMap({
+      sdkRoot: installed.sdkRoot,
+      roots: TEMPLATE_ROOTS,
+      extra: TEMPLATE_EXTRA_IMPORTS,
+    });
+    assert(without.ok, without.ok ? "" : without.error.message);
+    const plain = Object.keys(without.value.map.imports);
+    assertEquals(plain.filter((key) => /^(@types\/)?d3-/.test(key)), []);
+    assertEquals(plain.includes("@lophn/chart"), false);
+    const withChart = await buildImportMap({
+      sdkRoot: installed.sdkRoot,
+      roots: [...TEMPLATE_ROOTS, { name: "@lophn/ui-chart", version: "1.0.0" }],
+      extra: TEMPLATE_EXTRA_IMPORTS,
+    });
+    assert(withChart.ok, withChart.ok ? "" : withChart.error.message);
+    const imports = withChart.value.map.imports;
+    assertEquals(
+      imports["@lophn/chart"],
+      "lophn-sdk:@lophn/chart@1.0.0/mod.ts",
+    );
+    assertEquals(imports["d3-scale"], "npm:d3-scale@4.0.2");
+    assertEquals(imports["d3-shape"], "npm:d3-shape@3.2.0");
+  } finally {
+    await installed.dispose();
+  }
+});
+
 // R4의 이름 가운데 packages/sdk에 소스가 있는 것. 새 Package가 들어오면 같은 시험이 그것도 덮는다.
 const SDK_NAMES = [
   "blueprint",

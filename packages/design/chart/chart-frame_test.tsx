@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
-import { focus, isFocused, manualTimer, one } from "../testing.ts";
+import { focus, isFocused, manualTimer, one } from "../components/testing.ts";
 import { LineChart } from "./line-chart.tsx";
 import { sized, state } from "./testing.tsx";
 

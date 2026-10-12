@@ -194,7 +194,7 @@ export type ImportMapInput = {
   roots: readonly PackageRef[];
   // 사본이 import하지 않아도 앱 화면이 직접 쓰는 npm 이름(예: react-dom/client).
   extra?: readonly string[];
-  // roots에 없는 Package의 version. 지원 소스(design·wording)의 version은 기본으로 안다.
+  // roots에 없는 Package의 version. 지원 소스(design·wording·chart)의 version은 기본으로 안다.
   versions?: Readonly<Record<string, string>>;
 };
 

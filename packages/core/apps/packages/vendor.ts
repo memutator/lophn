@@ -60,7 +60,7 @@ export const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
 };
 
 // 설치 사본의 한 부분이면서 catalog Package가 아닌 지원 소스다. 공용 UI Package가 import하는
-// `@lophn/design`·`@lophn/wording`이 여기다(shell#T40·T41). catalog에 등록하지 않고 같은 sdk/<name>/<version>/
+// `@lophn/design`·`@lophn/wording`·`@lophn/chart`가 여기다(shell#T40·T41). catalog에 등록하지 않고 같은 sdk/<name>/<version>/
 // 자리에 읽기 전용으로 풀어 앱 import map이 푼다.
 export type SupportPackage = {
   name: string;
@@ -79,11 +79,12 @@ export const SUPPORT_PACKAGES: readonly SupportPackage[] = [
     name: "@lophn/design",
     version: SUPPORT_VERSION,
     source: "design",
-    // 시험·생성 도구·다른 Package(wording)는 사본에 넣지 않는다.
+    // 시험·생성 도구·다른 Package(wording·chart)는 사본에 넣지 않는다.
     skipNames: [
       "testdata",
       "style-check",
       "wording",
+      "chart",
       "component-tests.ts",
     ],
     skipSuffixes: ["_test.ts", "_test.tsx"],
@@ -96,6 +97,14 @@ export const SUPPORT_PACKAGES: readonly SupportPackage[] = [
     // 화면 검사라 protocol를 import하므로 사본에 넣지 않는다.
     skipNames: ["testdata", "repo-check.ts"],
     skipSuffixes: ["_test.ts"],
+  },
+  {
+    name: "@lophn/chart",
+    version: SUPPORT_VERSION,
+    source: "design/chart",
+    // 시험 도우미(testing.tsx)는 사본에 넣지 않는다.
+    skipNames: ["testdata", "testing.tsx"],
+    skipSuffixes: ["_test.ts", "_test.tsx"],
   },
 ];
 

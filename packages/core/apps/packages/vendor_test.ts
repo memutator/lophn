@@ -133,8 +133,12 @@ Deno.test("apps/sdk#R13 apps/sdk#R9: 지원 소스는 시험·다른 Package를 
     const wording = await installSupportPackage("@lophn/wording", {
       dataRoot: home,
     });
-    assert(design.ok && wording.ok);
+    const chart = await installSupportPackage("@lophn/chart", {
+      dataRoot: home,
+    });
+    assert(design.ok && wording.ok && chart.ok);
     assertEquals(design.value.install_path, `${home}/sdk/design/1.0.0`);
+    assertEquals(chart.value.install_path, `${home}/sdk/chart/1.0.0`);
     assertEquals(wording.value.install_path, `${home}/sdk/wording/1.0.0`);
     // 공용 UI가 읽는 진입과 token·글꼴, wording의 검사·생성 도구가 있다.
     for (
@@ -150,13 +154,23 @@ Deno.test("apps/sdk#R13 apps/sdk#R9: 지원 소스는 시험·다른 Package를 
     for (const path of ["mod.ts", "check.ts", "generate.ts"]) {
       assert(wording.value.files.includes(path), `wording has no ${path}`);
     }
-    // 시험·fixture·wording(별도 Package)은 design 사본에 없다.
+    for (const path of ["mod.ts", "deno.json", "chart.module.css"]) {
+      assert(chart.value.files.includes(path), `chart has no ${path}`);
+    }
+    // 시험·fixture·wording·chart(별도 Package)는 design 사본에 없다.
     assert(!design.value.files.some((path) => /_test\.tsx?$/.test(path)));
     assert(!design.value.files.some((path) => path.startsWith("wording/")));
+    assert(!design.value.files.some((path) => path.startsWith("chart/")));
+    // chart 사본에도 시험과 시험 도우미(testing.tsx)가 없다.
+    assert(
+      !chart.value.files.some((path) =>
+        /_test\.tsx?$|testing\.tsx$/.test(path)
+      ),
+    );
     assert(
       !wording.value.files.some((path) => /_test\.tsx?$|testdata/.test(path)),
     );
-    for (const copy of [design.value, wording.value]) {
+    for (const copy of [design.value, wording.value, chart.value]) {
       const permissions = await verifyInstallPermissions(copy.install_path);
       assert(permissions.ok, permissions.ok ? "" : permissions.error.message);
     }

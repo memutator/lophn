@@ -4,6 +4,7 @@ import { registerComponentTests } from "./component-tests.ts";
 
 const bundled = await registerComponentTests([
   new URL("./components/", import.meta.url),
+  new URL("./chart/", import.meta.url),
   new URL("./reading/", import.meta.url),
   new URL("../sdk/ui-reading/", import.meta.url),
   new URL("../sdk/ui-filter/", import.meta.url),

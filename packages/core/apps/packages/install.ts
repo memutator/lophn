@@ -279,7 +279,7 @@ export async function installPackage(
   });
 }
 
-// 지원 소스(@lophn/design·@lophn/wording)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
+// 지원 소스(@lophn/design·@lophn/wording·@lophn/chart)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
 export type SupportInstallResult = {
   name: string;
   version: string;

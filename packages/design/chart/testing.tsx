@@ -1,7 +1,7 @@
 // 차트 테스트 전용. 칸 폭을 정해 그리고 상태 입력의 기본값을 준다.
 import type { ReactNode } from "react";
-import { ResizeSourceProvider } from "../resize.ts";
-import { manualResize, render } from "../testing.ts";
+import { ResizeSourceProvider } from "@lophn/design/components";
+import { manualResize, render } from "../components/testing.ts";
 
 export function sized(node: ReactNode, width = 640) {
   const resize = manualResize();

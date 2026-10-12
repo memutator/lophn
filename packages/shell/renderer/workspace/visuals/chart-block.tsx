@@ -2,13 +2,8 @@
 // point 목록을 SDK의 선언형 입력(범주·시간 축과 계열 값)으로 옮길 뿐 식이나 HTML은 넘기지 않는다.
 // SDK가 그릴 수 없는 조합(범주·숫자 축의 선, 시간 축의 산점, 한 계열의 같은 x)은 값을 바꾸거나 버리지
 // 않고 같은 데이터를 표로 보인다. null은 결측이며 0으로 바꾸지 않는다.
-import {
-  BarChart,
-  DataTable,
-  LineChart,
-  ScatterChart,
-  type TableColumn,
-} from "@lophn/design/components";
+import { BarChart, LineChart, ScatterChart } from "@lophn/chart";
+import { DataTable, type TableColumn } from "@lophn/design/components";
 import { formatNumber, t } from "@lophn/wording";
 
 import { planChart } from "./chart-plan.ts";

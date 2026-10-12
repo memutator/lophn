@@ -1,6 +1,6 @@
 import { assert } from "@std/assert";
 import { act } from "react";
-import { one, press } from "../testing.ts";
+import { one, press } from "../components/testing.ts";
 import { BarChart } from "./bar-chart.tsx";
 import { ScatterChart } from "./scatter-chart.tsx";
 import { textWidth } from "./geometry.ts";

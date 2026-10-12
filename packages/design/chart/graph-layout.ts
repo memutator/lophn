@@ -2,7 +2,7 @@
 // 순환은 입력 순서의 DFS로 끊고, 되돌아가는 edge는 층을 정하는 데 쓰지 않는다.
 // @ts-types="@types/d3-shape"
 import { linkHorizontal } from "d3-shape";
-import { tokens } from "../../tokens.ts";
+import { tokens } from "@lophn/design";
 import { largest, textWidth } from "./geometry.ts";
 import type { GraphEdge, GraphNode } from "./types.ts";
 

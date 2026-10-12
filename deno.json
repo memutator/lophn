@@ -4,7 +4,8 @@
     "./packages/sdk/*",
     "./packages/shell/renderer",
     "./tools/wireframes",
-    "./packages/design/wording"
+    "./packages/design/wording",
+    "./packages/design/chart"
   ],
   "lock": {
     "frozen": true

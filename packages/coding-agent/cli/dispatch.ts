@@ -3,12 +3,7 @@
 // (cli#R1, connection#R6). 표 밖 op와 임의 core API passthrough는 없다. 실행하지 못하는 command는 성공으로
 // 꾸미지 않고 unavailable로 낸다. 사람 전용 command는 연결 참조(LOPHN_CONNECTION)로 시작한
 // coding credential context에서 거절한다(cli#R40).
-import {
-  err,
-  type LophnError,
-  ok,
-  type Result,
-} from "../../packages/base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   type ConnectionId,
   connectionShow,
@@ -16,71 +11,58 @@ import {
   HUMAN_ONLY_NAMES,
   type IntegrationTarget,
   LOPHN_CONNECTION,
-} from "../../packages/protocol/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   connectionFromRef,
   type CoreClient,
   UNREADABLE_MESSAGE,
-} from "../../packages/coding-agent/connection/client/core.ts";
-import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
-import { createSdkSourcePort } from "../../packages/coding-agent/connection/sdk-source.ts";
-import {
-  systemExecPort,
-  systemFilesPort,
-} from "../../packages/coding-agent/harnesses/system-ports.ts";
+} from "../connection/client/core.ts";
+import { uploadPrepareBytes } from "../connection/mod.ts";
+import { createSdkSourcePort } from "../connection/sdk-source.ts";
+import { systemExecPort, systemFilesPort } from "../harnesses/system-ports.ts";
 import {
   type CommandOutput,
   connectionRevokeGuide,
   humanDecisionGuide,
   runConnectionInstall,
-} from "../../packages/coding-agent/cli/commands/connection.ts";
-import { runApp } from "../../packages/coding-agent/cli/commands/app.ts";
-import { runApprovalOpen } from "../../packages/coding-agent/cli/commands/approval.ts";
+} from "./commands/connection.ts";
+import { runApp } from "./commands/app.ts";
+import { runApprovalOpen } from "./commands/approval.ts";
 import {
   type DaemonLogFiles,
   type DaemonPort,
   runDaemon,
-} from "../../packages/coding-agent/cli/commands/daemon.ts";
+} from "./commands/daemon.ts";
 import {
   type HarnessWriteName,
   runHarnessDetect,
   runHarnessInspect,
   runHarnessList,
   runHarnessWrite,
-} from "../../packages/coding-agent/cli/commands/harness-run.ts";
-import { mcpConfigOf } from "../../packages/coding-agent/cli/commands/mcp.ts";
-import {
-  doctorOf,
-  doctorSummary,
-} from "../../packages/coding-agent/cli/commands/doctor.ts";
+} from "./commands/harness-run.ts";
+import { mcpConfigOf } from "./commands/mcp.ts";
+import { doctorOf, doctorSummary } from "./commands/doctor.ts";
 import {
   isProblemHumanOnly,
   problemHumanOnly,
   runProblem,
-} from "../../packages/coding-agent/cli/commands/problem.ts";
-import { runQuestionOpen } from "../../packages/coding-agent/cli/commands/question.ts";
-import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
-import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
+} from "./commands/problem.ts";
+import { runQuestionOpen } from "./commands/question.ts";
+import { runSave } from "./commands/save.ts";
+import { runSdk } from "./commands/sdk.ts";
 import {
   runSessionObserve,
   runSessionPlan,
   runSessionSummary,
-} from "../../packages/coding-agent/cli/commands/session.ts";
+} from "./commands/session.ts";
 import {
   runTicketWrite,
   ticketHumanOnly,
   type TicketWriteName,
-} from "../../packages/coding-agent/cli/commands/ticket.ts";
-import {
-  runSkillsInstall,
-  runSkillsList,
-} from "../../packages/coding-agent/cli/commands/skills.ts";
-import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
-import {
-  installSkills,
-  loadDistribution,
-  syncTools,
-} from "../../packages/coding-agent/guides/mod.ts";
+} from "./commands/ticket.ts";
+import { runSkillsInstall, runSkillsList } from "./commands/skills.ts";
+import { findCommand } from "./registry.ts";
+import { installSkills, loadDistribution, syncTools } from "../guides/mod.ts";
 import {
   catalogOf,
   detectHarnesses,
@@ -99,17 +81,17 @@ import {
   removeSelected,
   stdioMcpProbe,
   updateSelected,
-} from "../../packages/coding-agent/harnesses/mod.ts";
+} from "../harnesses/mod.ts";
 import {
   daemonStart,
   daemonStatus,
   daemonStop,
   readRunMetadata,
-} from "../../packages/core/install-and-update/mod.ts";
-import { appDirectSocketPaths } from "../../packages/protocol/apps/mod.ts";
-import { documentSectionHistory } from "../../packages/protocol/projects/mod.ts";
-import type { Route } from "../../packages/protocol/platform/mod.ts";
-import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
+} from "../../core/install-and-update/mod.ts";
+import { appDirectSocketPaths } from "../../protocol/apps/mod.ts";
+import { documentSectionHistory } from "../../protocol/projects/mod.ts";
+import type { Route } from "../../protocol/platform/mod.ts";
+import type { CredentialProvider } from "../connection/credential/provider.ts";
 
 // 공통 option(출력·연결·daemon·CAS·key·입력 source)은 route 입력이 아니다.
 const COMMON_KEYS = new Set([

@@ -2,9 +2,9 @@
 // temp dir이고 감지 파일 눈·probe·daemon 판정·launcher는 fake다. 사람의 실제 home·data root·harness 설정은
 // 열지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { err, ok } from "../../packages/base/mod.ts";
-import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
-import type { ExecPort } from "../../packages/coding-agent/harnesses/mod.ts";
+import { err, ok } from "../../base/mod.ts";
+import { createHelperCredentialProvider } from "../connection/credential/helper.ts";
+import type { ExecPort } from "../harnesses/mod.ts";
 import { cliMain, type CliOptions } from "./main.ts";
 import type { CliPorts } from "./dispatch.ts";
 

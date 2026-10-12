@@ -2,16 +2,13 @@
 // 준 payload를 정규화해 관측 socket에만 쓰고, 환경에 socket이 없으면 아무것도 읽거나 보내지 않으며, core·credential을
 // 부르지 않는다. 실제 harness는 띄우지 않는다. 사람의 실제 home·data root는 열지 않고 socket은 temp dir에 만든다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { err, ok } from "../../packages/base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   CREDENTIAL_DELIVERY_FAILURES,
   harnessSessionObservationSchema,
-} from "../../packages/protocol/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import { cliMain, type CliOptions } from "./main.ts";
-import {
-  planSelection,
-  selectionFlags,
-} from "../../packages/coding-agent/cli/mod.ts";
+import { planSelection, selectionFlags } from "./mod.ts";
 
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 

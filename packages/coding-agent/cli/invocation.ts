@@ -1,9 +1,9 @@
 // CLI argv에서 command 이름과 입력을 읽는 공용 조각이다. 실행(main.ts)과 launcher의 권한 계획(launch.ts)이
 // 같은 argv를 같은 규칙으로 읽도록 한 곳에 둔다. 출력·실행은 하지 않는다.
-import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { findCommand } from "../../packages/coding-agent/cli/mod.ts";
-import type { ParsedArgs } from "../../packages/coding-agent/cli/parser.ts";
-import type { AgentFailure } from "../../packages/protocol/coding-agent/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import { findCommand } from "./mod.ts";
+import type { ParsedArgs } from "./parser.ts";
+import type { AgentFailure } from "../../protocol/coding-agent/mod.ts";
 
 function safeJson(text: string): Result<unknown, AgentFailure> {
   try {

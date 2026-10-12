@@ -2,78 +2,68 @@
 // stdin/stdout으로 stdio transport를 열고, credential provider는 helper loader
 // 자리다(coding-agent/harnesses). label·toolsets·connection은 argv와 환경 설정
 // 순서로 찾는다(connection#R3). core RPC는 소유 route 하나로만 routing한다(R2).
-import { unixAppDirectTransport } from "../../packages/coding-agent/connection/app-direct-unix.ts";
-import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { LophnError } from "../../packages/base/mod.ts";
+import { unixAppDirectTransport } from "../connection/app-direct-unix.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import type { LophnError } from "../../base/mod.ts";
 import {
   type ConnectionId,
   LOPHN_CONNECTION,
   parseToolsets,
   type Toolset,
-} from "../../packages/protocol/coding-agent/mod.ts";
-import { connectionFromRef } from "../../packages/coding-agent/connection/client/core.ts";
-import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { connectionFromRef } from "../connection/client/core.ts";
+import type { CredentialProvider } from "../connection/credential/provider.ts";
 import {
   createHelperCredentialProvider,
   registeringProvider,
-} from "../../packages/coding-agent/connection/credential/helper.ts";
+} from "../connection/credential/helper.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
-} from "../../packages/base/redaction/mod.ts";
-import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
+} from "../../base/redaction/mod.ts";
+import { createCoreClient } from "../connection/client/core.ts";
 import {
   REDACTION_REPLACEMENT,
   type RpcFetch,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../protocol/platform/mod.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
-} from "../../packages/coding-agent/connection/client/daemon.ts";
-import { isEffectUnknown } from "../../packages/coding-agent/connection/client/core.ts";
+} from "../connection/client/daemon.ts";
+import { isEffectUnknown } from "../connection/client/core.ts";
 import {
   createHandler,
   createMessageSink,
   resolveRoute,
   startLineReader,
   type StdioStreams,
-} from "../../packages/coding-agent/mcp-server/mod.ts";
+} from "./mod.ts";
 import {
   type AppDirect,
   createAppDirect,
   uploadPrepareBytes,
-} from "../../packages/coding-agent/connection/mod.ts";
-import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
-import {
-  loadDistribution,
-  syncTools,
-} from "../../packages/coding-agent/guides/mod.ts";
-import {
-  filePort,
-  integrationsStore,
-  launchOf,
-} from "../../packages/coding-agent/harnesses/mod.ts";
-import { createSdkTool } from "../../packages/coding-agent/mcp-server/tools/sdk.ts";
+} from "../connection/mod.ts";
+import { createAppTool } from "./tools/app.ts";
+import { loadDistribution, syncTools } from "../guides/mod.ts";
+import { filePort, integrationsStore, launchOf } from "../harnesses/mod.ts";
+import { createSdkTool } from "./tools/sdk.ts";
 import {
   type AppBlueprintSource,
   appBlueprintSourceOf,
   createAppCommandTools,
-} from "../../packages/coding-agent/mcp-server/tools/app-commands.ts";
-import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
-import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
-import { createProblemTool } from "../../packages/coding-agent/mcp-server/tools/problem.ts";
-import { createProjectTool } from "../../packages/coding-agent/mcp-server/tools/project.ts";
-import { createReadTool } from "../../packages/coding-agent/mcp-server/tools/read.ts";
-import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
-import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
-import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
-import { createSessionTool } from "../../packages/coding-agent/mcp-server/tools/session.ts";
-import { createSaveTool } from "../../packages/coding-agent/mcp-server/tools/save.ts";
-import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/series.ts";
-import {
-  createTicketTool,
-  TICKET_TOOL_NAME,
-} from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
+} from "./tools/app-commands.ts";
+import { createDocumentTool } from "./tools/document.ts";
+import { createIndexTool } from "./tools/index.ts";
+import { createProblemTool } from "./tools/problem.ts";
+import { createProjectTool } from "./tools/project.ts";
+import { createReadTool } from "./tools/read.ts";
+import { createFormatTool } from "./tools/format.ts";
+import { createApprovalTool } from "./tools/approval.ts";
+import { createQuestionTool } from "./tools/question.ts";
+import { createSessionTool } from "./tools/session.ts";
+import { createSaveTool } from "./tools/save.ts";
+import { createSeriesTool } from "./tools/series.ts";
+import { createTicketTool, TICKET_TOOL_NAME } from "./tools/ticket.ts";
 
 type Streams = {
   stdin: ReadableStream<Uint8Array>;

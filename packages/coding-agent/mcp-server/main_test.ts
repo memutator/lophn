@@ -1,7 +1,7 @@
 // MCP 실행 entry의 credential 조립 시험이다(connection#R17, mcp-server#R36). helper는 temp dir의 sh
 // script 대역이고 core 응답은 주입한 fetch다. 사람의 실제 keychain·data root·harness 설정은 열지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
+import { createHelperCredentialProvider } from "../connection/credential/helper.ts";
 import { startMcpServer } from "./main.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";

@@ -4,7 +4,7 @@
 // MCP `lophn_document history`와 같다. core·I/O worker는 실제 자식 프로세스이고 데이터 root·작업 폴더는
 // temp dir이며 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { cliMain } from "../cli/main.ts";
+import { cliMain } from "../../packages/coding-agent/cli/main.ts";
 import { saveFromPaths } from "../../packages/coding-agent/connection/mod.ts";
 import {
   DOCUMENT_OPERATIONS,

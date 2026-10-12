@@ -9,34 +9,30 @@ import {
   parseArgs,
   splitCommand,
   VERSION_COMMAND,
-} from "../../packages/coding-agent/cli/mod.ts";
-import {
-  commandHelp,
-  helpJson,
-  helpText,
-} from "../../packages/coding-agent/cli/help.ts";
-import { createOutput } from "../../packages/coding-agent/cli/output.ts";
-import type { ParsedArgs } from "../../packages/coding-agent/cli/parser.ts";
-import type { AgentFailure } from "../../packages/protocol/coding-agent/mod.ts";
+} from "./mod.ts";
+import { commandHelp, helpJson, helpText } from "./help.ts";
+import { createOutput } from "./output.ts";
+import type { ParsedArgs } from "./parser.ts";
+import type { AgentFailure } from "../../protocol/coding-agent/mod.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
   resolveDaemonAddress,
-} from "../../packages/coding-agent/connection/client/daemon.ts";
+} from "../connection/client/daemon.ts";
 import {
   connectionFromRef,
   createCoreClient,
-} from "../../packages/coding-agent/connection/client/core.ts";
+} from "../connection/client/core.ts";
 import {
   createHelperCredentialProvider,
   registeringProvider,
-} from "../../packages/coding-agent/connection/credential/helper.ts";
-import { LOPHN_CONNECTION } from "../../packages/protocol/coding-agent/mod.ts";
-import { REDACTION_REPLACEMENT } from "../../packages/protocol/platform/mod.ts";
+} from "../connection/credential/helper.ts";
+import { LOPHN_CONNECTION } from "../../protocol/coding-agent/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../protocol/platform/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
-} from "../../packages/base/redaction/mod.ts";
+} from "../../base/redaction/mod.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
 import {
   actorOf,
@@ -45,8 +41,8 @@ import {
   type CliPorts,
   runCliCommand,
 } from "./dispatch.ts";
-import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
-import type { RpcFetch } from "../../packages/protocol/platform/mod.ts";
+import type { CredentialProvider } from "../connection/credential/provider.ts";
+import type { RpcFetch } from "../../protocol/platform/mod.ts";
 
 const VERSION = "0.1.0";
 

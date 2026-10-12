@@ -7,7 +7,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { codingAgentLaunchPlanSchema } from "../../packages/protocol/coding-agent/mod.ts";
 import { createFakeKeychain } from "../../packages/core/secrets/mod.ts";
-import { cliMain } from "../cli/main.ts";
+import { cliMain } from "../../packages/coding-agent/cli/main.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "./documents.ts";

@@ -8,30 +8,30 @@ import {
   parseArgs,
   planSelection,
   selectionFlags,
-} from "../../packages/coding-agent/cli/mod.ts";
+} from "./mod.ts";
 import {
   discover,
   HARNESS_CATALOG,
   NATIVE_ENVIRONMENT,
-} from "../../packages/coding-agent/harnesses/mod.ts";
-import { systemFilesPort } from "../../packages/coding-agent/harnesses/system-ports.ts";
+} from "../harnesses/mod.ts";
+import { systemFilesPort } from "../harnesses/system-ports.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
-} from "../../packages/coding-agent/connection/client/daemon.ts";
+} from "../connection/client/daemon.ts";
 import {
   connectionFromRef,
   createCoreClient,
-} from "../../packages/coding-agent/connection/client/core.ts";
-import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
-import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
-import { appGet } from "../../packages/protocol/apps/mod.ts";
+} from "../connection/client/core.ts";
+import { createHelperCredentialProvider } from "../connection/credential/helper.ts";
+import type { CredentialProvider } from "../connection/credential/provider.ts";
+import { appGet } from "../../protocol/apps/mod.ts";
 import {
   type AgentFailure,
   LOPHN_CONNECTION,
-} from "../../packages/protocol/coding-agent/mod.ts";
-import type { RpcFetch } from "../../packages/protocol/platform/mod.ts";
-import type { Result } from "../../packages/base/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import type { RpcFetch } from "../../protocol/platform/mod.ts";
+import type { Result } from "../../base/mod.ts";
 import { ambientEnv } from "./dispatch.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
 

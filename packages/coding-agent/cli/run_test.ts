@@ -1,8 +1,8 @@
 // CLI 실행 조립 시험이다(cli#R1, R2, R40, connection#R5·R6·R17). helper는 temp dir의 sh script 대역이고 core
 // 응답은 주입한 fetch다. 사람의 실제 keychain·data root·harness 설정은 열지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
-import { UNREADABLE_MESSAGE } from "../../packages/coding-agent/connection/unreadable.ts";
+import { createHelperCredentialProvider } from "../connection/credential/helper.ts";
+import { UNREADABLE_MESSAGE } from "../connection/unreadable.ts";
 import { cliMain, type CliOptions } from "./main.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";

@@ -12,7 +12,8 @@ if (import.meta.main) {
     args: [
       "run",
       "--allow-all",
-      new URL("../../apps/mcp/main.ts", import.meta.url).pathname,
+      new URL("../../packages/coding-agent/mcp-server/main.ts", import.meta.url)
+        .pathname,
     ],
     steps: [],
   });

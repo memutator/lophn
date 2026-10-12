@@ -10,21 +10,18 @@ import {
   cliStaticFlags,
   planSelection,
   selectionFlags,
-} from "../../packages/coding-agent/cli/mod.ts";
-import type {
-  CliLaunchInputs,
-  CliSelection,
-} from "../../packages/coding-agent/cli/mod.ts";
-import { DETECTION_FALLBACK_DIRS } from "../../packages/coding-agent/harnesses/mod.ts";
+} from "./mod.ts";
+import type { CliLaunchInputs, CliSelection } from "./mod.ts";
+import { DETECTION_FALLBACK_DIRS } from "../harnesses/mod.ts";
 import {
   cliLauncher,
   linuxInstallLayout,
-} from "../../packages/core/install-and-update/mod.ts";
-import { planCliPermissions } from "./launch.ts";
+} from "../../core/install-and-update/mod.ts";
+import { planCliPermissions } from "./launch-entry.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";
 const TOKEN = "t".repeat(43);
-const REPO = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 
 const SHOWN = {
   connection: {

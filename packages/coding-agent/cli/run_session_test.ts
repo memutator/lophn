@@ -2,7 +2,7 @@
 // temp dir이고 감지 파일 눈·launcher는 fake다. 사람의 실제 home·data root·harness 설정은 열지 않고 실제
 // harness도 띄우지 않는다. plan은 spawn이 아니라서 launcher가 한 번도 불리지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { err, ok } from "../../packages/base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import { cliMain, type CliOptions } from "./main.ts";
 import type { CliPorts } from "./dispatch.ts";
 

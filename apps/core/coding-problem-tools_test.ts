@@ -20,7 +20,7 @@ import {
   openWorld,
   type World,
 } from "../../packages/core/apps/runtime/world_test.ts";
-import { cliMain } from "../cli/main.ts";
+import { cliMain } from "../../packages/coding-agent/cli/main.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import {
   problemsReportDefinitions,

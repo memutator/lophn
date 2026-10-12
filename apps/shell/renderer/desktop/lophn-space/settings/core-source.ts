@@ -249,18 +249,19 @@ function choiceOf(value: SelectionValue | null): ModelChoice | null {
     : { provider: value.provider, model: value.model_name };
 }
 
+// 설정 화면은 role별 기본값 네 칸 가운데 lophn 칸을 For decisions로, summaries 칸을 For
+// summaries로 보인다. 나머지 role 칸은 읽지도 바꾸지도 않는다(바꾸는 slot만 싣는다).
 function defaultsOf(
   value: {
-    judgment: SelectionValue | null;
-    organizing: SelectionValue | null;
+    lophn: SelectionValue | null;
+    summaries: SelectionValue | null;
     settings_seq: string;
   },
 ): ModelDefaults {
   return {
-    decisions: choiceOf(value.judgment),
-    summaries: choiceOf(value.organizing),
+    decisions: choiceOf(value.lophn),
+    summaries: choiceOf(value.summaries),
     seq: value.settings_seq,
-    raw: { decisions: value.judgment, summaries: value.organizing },
   };
 }
 
@@ -661,27 +662,21 @@ export function coreSettingsSource(
     },
 
     async setModelDefault(use, pick, defaults) {
+      // 바꾸는 slot만 싣는다. 계정은 provider가 고르므로 model 선택에 싣지 않는다.
       const chosen = {
         provider: pick.provider,
-        credentials: [...pick.accounts],
         model_name: pick.model,
-        reasoning_level: "provider_default",
-        options: {},
+        option_values: {},
       };
-      const input = {
-        judgment: use === "decisions" ? chosen : defaults.raw.decisions,
-        organizing: use === "summaries" ? chosen : defaults.raw.summaries,
-        settings_seq: defaults.seq,
-      };
-      const changed = await command<
-        Parameters<typeof defaultsOf>[0]
-      >(core, "agent-model-defaults", "change", {
-        input,
+      const changed = await command<{
+        defaults: Parameters<typeof defaultsOf>[0];
+      }>(core, "agent-model-defaults", "change", {
+        input: { [use === "decisions" ? "lophn" : "summaries"]: chosen },
         compare: { settings_seq: defaults.seq },
         key: `model-defaults-${use}-${random()}`,
       });
       return changed.ok
-        ? { ok: true, value: defaultsOf(changed.value) }
+        ? { ok: true, value: defaultsOf(changed.value.defaults) }
         : changed;
     },
 

@@ -114,7 +114,6 @@ export const EMPTY_DEFAULTS: ModelDefaults = {
   decisions: null,
   summaries: null,
   seq: "9",
-  raw: { decisions: null, summaries: null },
 };
 
 export function fakeSettings(options: FakeSettingsOptions = {}) {

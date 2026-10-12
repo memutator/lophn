@@ -1,7 +1,9 @@
 // question-core.ts가 실제 core에 심는 질문·approval의 id와 글. 실제 core 테스트와 headless
 // 확인이 같은 값을 본다. 이 파일은 아무것도 import하지 않는다(renderer bundle에도 들어간다).
 
+export const SEED_PROJECT = "prj_01k6qs0000000000000000000a";
 export const SEED_SESSION = "ses_01k6qs0000000000000000000a";
+export const SEED_GROUP = "qgr_01k6qs0000000000000000000a";
 export const SEED_QUESTION = "qst_01k6qs0000000000000000000a";
 export const SEED_APPROVAL = "apr_01k6qs0000000000000000000a";
 

@@ -1,16 +1,18 @@
 // RequestSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
-// schema로 이미 검사했다. 아래 모양은 그 schema(assignments·runs·sessions·questions list,
-// runs.read, approvals.list, notifications.list, events.list, blobs.read, questions text·
-// answer·defer·cancel, notifications.read)에서 이 화면들이 읽는 field만 옮긴 것이다. command
-// 성공 응답은 route output 그대로다(envelope 없음, platform/api#R3).
+// schema로 이미 검사했다. 아래 모양은 그 schema(assignments·runs·sessions list, runs.read,
+// approvals.list, notifications.list, events.list, blobs.read, notifications.read)에서 이
+// 화면들이 읽는 field만 옮긴 것이다. command 성공 응답은 route output 그대로다(envelope
+// 없음, platform/api#R3).
+//
+// 질문은 묶음(questions list·text·answer·defer·cancel이 묶음 단위)이고 이 화면의 요청 모양은
+// 질문 하나다. 묶음을 이 화면에 맞추려면 화면 동작을 새로 만들어야 하므로 질문 묶음은 아직
+// 읽지 않는다. 질문 묶음은 대화 안 카드(shell/desktop#R46)가 맡는다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { confirmsWithoutWindow } from "./model.ts";
 import type {
   ApprovalRequest,
   NotificationRow,
   Place,
-  QuestionRequest,
   Request,
   RequestSource,
   ReviewIntent,
@@ -36,28 +38,7 @@ interface RunValue {
 
 interface SessionValue {
   id: string;
-  work_place:
-    | { kind: "global"; id: null }
-    | { kind: "project"; id: string }
-    | { kind: "app"; id: string };
-}
-
-interface QuestionValue {
-  id: string;
-  run: string;
-  session: string | null;
-  options: { key: string; label: string; action: unknown | null }[];
-  recommendation: { option_key: string | null } | null;
-  expires_at: string | null;
-  status: QuestionRequest["status"];
-  answer:
-    | { kind: "option"; option_key: string }
-    | { kind: "text"; text_blob: string }
-    | null;
-  closed_reason: QuestionRequest["closedReason"];
-  created_seq: string;
-  closed_seq: string | null;
-  applied: boolean;
+  work_place: { kind: "project"; id: string } | { kind: "app"; id: string };
 }
 
 interface ApprovalValue {
@@ -76,15 +57,6 @@ interface NotificationValue {
   occurred_at?: string;
   document?: string | null;
   delivery?: { state: string; reason?: string };
-}
-
-interface QuestionTextValue {
-  prompt: string;
-  reason: string;
-  options: { key: string; description: string }[];
-  recommendation: { option_key: string | null; explanation: string } | null;
-  answer_text: string | null;
-  closed_reason_text: string | null;
 }
 
 interface EventValue {
@@ -106,12 +78,6 @@ const SUBJECT_CHUNK = 100;
 /** approval 설명은 앞부분만 읽는다. */
 const REASON_BYTES = 4096;
 
-const QUESTION_EVENTS = [
-  "QuestionCreated",
-  "QuestionAnswered",
-  "QuestionExpired",
-  "QuestionCancelled",
-];
 const APPROVAL_EVENTS = [
   "ApprovalRequestCreated",
   "ApprovalRequestGranted",
@@ -176,25 +142,35 @@ async function pages<T, V extends Page>(
   return { ok: true, value: found };
 }
 
-// 같은 답을 다시 보내면 같은 key가 되도록 답을 줄인 값. core로 가는 글이나 blob hash가
-// 아니라 idempotency key의 꼬리일 뿐이다.
-async function keyTag(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, 32);
+// 세션 목록은 담당과 자리를 모두 알아야 읽을 수 있어 모두 읽을 수 없다. 요청이 걸린 run의
+// 세션만 하나씩 읽는다. 읽지 못한 세션의 요청은 자리 없이 보인다.
+async function sessionsOf(
+  core: CoreSource,
+  approvals: readonly ApprovalValue[],
+  runs: ReadonlyMap<string, RunValue>,
+): Promise<Map<string, SessionValue>> {
+  const found = new Map<string, SessionValue>();
+  for (const approval of approvals) {
+    const session = approval.run === null
+      ? null
+      : runs.get(approval.run)?.session ?? null;
+    if (session === null || found.has(session)) continue;
+    const read = await call<{ session: SessionValue }>(
+      core,
+      "read",
+      "sessions",
+      "read",
+      { session },
+    );
+    if (read.ok) found.set(session, read.value.session);
+  }
+  return found;
 }
 
 function placeOf(session: SessionValue | undefined): Place | null {
   if (session === undefined) return null;
   const place = session.work_place;
-  return place.kind === "global"
-    ? { kind: "global" }
-    : { kind: place.kind, id: place.id };
+  return { kind: place.kind, id: place.id };
 }
 
 interface Links {
@@ -203,48 +179,6 @@ interface Links {
   readonly sessions: ReadonlyMap<string, SessionValue>;
   readonly waiting: ReadonlySet<string>;
   readonly times: ReadonlyMap<string, number>;
-}
-
-function commandOf(action: unknown): string | null {
-  if (action === null || typeof action !== "object") return null;
-  const command = (action as { command?: unknown }).command;
-  return typeof command === "string" ? command : null;
-}
-
-function questionOf(value: QuestionValue, links: Links): QuestionRequest {
-  const run = links.runs.get(value.run);
-  const session = value.session ?? run?.session ?? null;
-  return {
-    kind: "question",
-    id: value.id,
-    run: value.run,
-    session,
-    role: run ? links.roles.get(run.assignment) ?? null : null,
-    place: placeOf(session === null ? undefined : links.sessions.get(session)),
-    blocking: links.waiting.has(value.id),
-    createdSeq: value.created_seq,
-    closedSeq: value.closed_seq,
-    createdAt: links.times.get(value.created_seq) ?? null,
-    closedAt: value.closed_seq === null
-      ? null
-      : links.times.get(value.closed_seq) ?? null,
-    expiresAt: value.expires_at,
-    status: value.status,
-    options: value.options.map((option) => ({
-      key: option.key,
-      label: option.label,
-      action: option.action !== null,
-      command: commandOf(option.action),
-    })),
-    recommended: value.recommendation?.option_key ?? null,
-    answer: value.answer === null
-      ? null
-      : value.answer.kind === "option"
-      ? { kind: "option", option: value.answer.option_key }
-      : { kind: "text" },
-    closedReason: value.closed_reason,
-    applied: value.applied,
-  };
 }
 
 function approvalOf(value: ApprovalValue, links: Links): ApprovalRequest {
@@ -334,7 +268,7 @@ async function eventTimes(
         head_seq: string;
       }>(core, "read", "events", "list", {
         after_seq: String(after < 0n ? 0n : after),
-        types: [...QUESTION_EVENTS, ...APPROVAL_EVENTS],
+        types: APPROVAL_EVENTS,
         subjects: [...new Set(chunk.map((item) => item.id))],
       });
       if (!read.ok) return times;
@@ -348,37 +282,6 @@ async function eventTimes(
     }
   }
   return times;
-}
-
-type ConfirmTerm = (input: {
-  question: string;
-  option_key: string;
-}) => Promise<{ ok: true } | { ok: false; code: string }>;
-
-/** term.define·app.create 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
-function termConfirmation(): ConfirmTerm | undefined {
-  const shell = (globalThis as {
-    lophnShell?: { confirmTermDefinition?: ConfirmTerm };
-  }).lophnShell;
-  return typeof shell?.confirmTermDefinition === "function"
-    ? (input) => shell.confirmTermDefinition!(input)
-    : undefined;
-}
-
-async function confirmTerm(
-  question: string,
-  option: string,
-): Promise<SourceResult<void>> {
-  const confirm = termConfirmation();
-  if (confirm === undefined) return { ok: false, code: "unavailable" };
-  try {
-    const sent = await confirm({ question, option_key: option });
-    return sent.ok
-      ? { ok: true, value: undefined }
-      : { ok: false, code: sent.code };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
 }
 
 /** preload의 보호 창 열기를 찾는다. 이 창에 없으면 undefined다. */
@@ -418,16 +321,6 @@ export function coreRequestSource(
         (value) => value.runs,
       );
       if (!runs.ok) return runs;
-      const sessions = await pages<
-        SessionValue,
-        Page & { sessions: SessionValue[] }
-      >(core, "sessions", "list", {}, (value) => value.sessions);
-      if (!sessions.ok) return sessions;
-      const questions = await pages<
-        QuestionValue,
-        Page & { questions: QuestionValue[] }
-      >(core, "questions", "list", {}, (value) => value.questions);
-      if (!questions.ok) return questions;
       const approvals = await call<{ requests: ApprovalValue[] }>(
         core,
         "read",
@@ -436,17 +329,17 @@ export function coreRequestSource(
         {},
       );
       const notifications = await readNotifications(core, false);
-      // approval·notification을 읽지 못해도 질문은 보인다. 못 읽은 쪽은 0으로 보이지 않게
-      // 표시한다(desktop#R7).
+      // 못 읽은 쪽은 0으로 보이지 않게 표시한다(desktop#R7).
       const approvalRows = approvals.ok ? approvals.value.requests : [];
       const subjects: { id: string; seq: string }[] = [];
-      for (const item of [...questions.value, ...approvalRows]) {
+      for (const item of approvalRows) {
         subjects.push({ id: item.id, seq: item.created_seq });
       }
+      const runById = new Map(runs.value.map((run) => [run.id, run]));
       const links: Links = {
-        runs: new Map(runs.value.map((run) => [run.id, run])),
+        runs: runById,
         roles: new Map(assignments.value.map((item) => [item.id, item.role])),
-        sessions: new Map(sessions.value.map((item) => [item.id, item])),
+        sessions: await sessionsOf(core, approvalRows, runById),
         waiting: new Set(
           runs.value.flatMap((run) =>
             run.waiting_on === null ? [] : [run.waiting_on]
@@ -456,10 +349,9 @@ export function coreRequestSource(
           ? new Map()
           : await eventTimes(core, subjects),
       };
-      const requests: Request[] = [
-        ...questions.value.map((value) => questionOf(value, links)),
-        ...approvalRows.map((value) => approvalOf(value, links)),
-      ];
+      const requests: Request[] = approvalRows.map((value) =>
+        approvalOf(value, links)
+      );
       return {
         ok: true,
         value: {
@@ -473,17 +365,6 @@ export function coreRequestSource(
 
     async pending(session) {
       // 하나씩 읽는다(overview와 같은 이유).
-      const questions = await pages<
-        QuestionValue,
-        Page & { questions: QuestionValue[] }
-      >(
-        core,
-        "questions",
-        "list",
-        { status: "pending" },
-        (value) => value.questions,
-      );
-      if (!questions.ok) return questions;
       const approvals = await call<{ requests: ApprovalValue[] }>(
         core,
         "read",
@@ -499,7 +380,6 @@ export function coreRequestSource(
         (value) => value.runs,
       );
       if (!waiting.ok) return waiting;
-      // approval을 읽지 못하면 질문만 칸에 둔다. 없는 것으로 말하지 않을 뿐 칸은 비우지 않는다.
       const approvalRows = approvals.ok ? approvals.value.requests : [];
       // approval은 run의 세션으로 고른다. 칸에 보일 것만 run을 하나씩 읽는다.
       const runs = new Map(waiting.value.map((run) => [run.id, run]));
@@ -526,10 +406,9 @@ export function coreRequestSource(
         ),
         times: new Map(),
       };
-      const requests: Request[] = [
-        ...questions.value.map((value) => questionOf(value, links)),
-        ...approvalRows.map((value) => approvalOf(value, links)),
-      ];
+      const requests: Request[] = approvalRows.map((value) =>
+        approvalOf(value, links)
+      );
       return {
         ok: true,
         value: requests.filter((request) => request.session === session),
@@ -557,77 +436,11 @@ export function coreRequestSource(
       };
     },
 
-    async text(question) {
-      const read = await call<QuestionTextValue>(
-        core,
-        "read",
-        "questions",
-        "text",
-        { question: question.id },
-      );
-      if (!read.ok) return read;
-      const value = read.value;
-      return {
-        ok: true,
-        value: {
-          prompt: value.prompt,
-          reason: value.reason,
-          options: new Map(
-            value.options.map((option) => [option.key, option.description]),
-          ),
-          recommendation: value.recommendation?.explanation ?? null,
-          answer: value.answer_text,
-          closedReason: value.closed_reason_text,
-        },
-      };
-    },
-
-    async answer(question, answer) {
-      // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
-      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define·app.create만 확인 창 없이
-      // main이 정본을 다시 읽어 접수한다. 그 밖 action은 [Review]로 보호 창을 연다.
-      if (answer.kind === "option") {
-        const chosen = question.options.find((option) =>
-          option.key === answer.option
-        );
-        if (confirmsWithoutWindow(chosen?.command)) {
-          return await confirmTerm(question.id, answer.option);
-        }
-      }
-      const value = answer.kind === "option"
-        ? { kind: "option", option_key: answer.option }
-        : { kind: "text", text: answer.text };
-      const tag = await keyTag(JSON.stringify(value));
-      return command(core, "questions", "answer", {
-        input: {
-          question: question.id,
-          created_seq: question.createdSeq,
-          answer: value,
-        },
-        compare: { created_seq: question.createdSeq },
-        key: `questions-answer-${question.id}-${tag}`,
-      });
-    },
-
-    defer: (question) =>
-      command(core, "questions", "defer", {
-        input: { question: question.id, created_seq: question.createdSeq },
-        compare: { created_seq: question.createdSeq },
-        key: `questions-defer-${question.id}`,
-      }),
-
-    cancel: (question, reason) =>
-      command(core, "questions", "cancel", {
-        input: {
-          question: question.id,
-          created_seq: question.createdSeq,
-          closed_reason: "cancelled",
-          // 이유는 글을 값으로 싣는다. core가 blob으로 둔다(lophn-agent Q38).
-          closed_reason_text: reason,
-        },
-        compare: { created_seq: question.createdSeq },
-        key: `questions-cancel-${question.id}`,
-      }),
+    // 질문 요청은 만들지 않으므로(위 설명) 질문 쪽 통로는 닿지 않는다. 닿으면 못 한다고 답한다.
+    text: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    answer: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    defer: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    cancel: () => Promise.resolve({ ok: false, code: "unavailable" }),
 
     markRead: (notification) =>
       command(core, "notifications", "read", {

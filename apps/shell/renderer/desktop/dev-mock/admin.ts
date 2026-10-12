@@ -202,7 +202,6 @@ export function mockSettings(): SettingsSource {
       decisions: { provider: CLAUDE, model: "claude-a" },
       summaries: { provider: CLAUDE, model: "claude-b" },
       seq: "9",
-      raw: { decisions: null, summaries: null },
     },
     settings: {
       rows: [

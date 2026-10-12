@@ -88,7 +88,11 @@ export interface ConversationSource {
   watch(listener: (state: ConnectionState) => void): () => void;
   /** 사람이 대화하는 lophn 역할의 담당. 없으면 null이다. */
   agent(): Promise<SourceResult<Agent | null>>;
-  sessions(agent: string): Promise<SourceResult<readonly SessionRow[]>>;
+  /** 그 담당이 그 자리에서 연 세션. 세션은 담당과 자리 하나에 속한다(conversation#R16). */
+  sessions(
+    agent: string,
+    workPlace: WorkPlace,
+  ): Promise<SourceResult<readonly SessionRow[]>>;
   messages(session: string): Promise<SourceResult<readonly MessageRow[]>>;
   runs(agent: string): Promise<SourceResult<readonly RunRow[]>>;
   openSession(

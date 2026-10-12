@@ -535,26 +535,25 @@ Deno.test("platform/secrets#R2, shell/wording#R10: key·로그인 응답·교체
   });
 });
 
-Deno.test("lophn-agent/harness/model#R9, shell/wording#R13: model 기본값은 읽은 비교 기준과 바꾸지 않는 쪽 원본을 그대로 돌려보내 한쪽만 바꾼다", async () => {
-  const decisions = {
+Deno.test("lophn-agent/harness/model#R9, shell/wording#R13: model 기본값은 읽은 비교 기준으로 바꾸는 slot만 싣는다", async () => {
+  const lophn = {
     provider: PVD,
-    credentials: ["main"],
     model_name: "m1",
-    reasoning_level: "high",
-    options: { a: 1 },
+    option_values: { effort: "high" },
+  };
+  const slots = {
+    lophn,
+    context_engineer: null,
+    app_engineer: null,
+    operator: null,
+    summaries: null,
   };
   const { core, calls } = fakeCore({
     "read:agent-model-defaults/read": () =>
-      ok({
-        defaults: { judgment: decisions, organizing: null, settings_seq: "9" },
-      }),
+      ok({ defaults: { ...slots, settings_seq: "9" } }),
     "command:agent-model-defaults/change": (body) => {
       const input = (body as { input: Record<string, unknown> }).input;
-      return ok({
-        judgment: input.judgment,
-        organizing: input.organizing,
-        settings_seq: "10",
-      });
+      return ok({ defaults: { ...slots, ...input, settings_seq: "10" } });
     },
   });
   const source = coreSettingsSource(core, OPTIONS);
@@ -571,16 +570,9 @@ Deno.test("lophn-agent/harness/model#R9, shell/wording#R13: model 기본값은 �
   const body = calls[1]!.body as Record<string, unknown>;
   assertEquals(body.compare, { settings_seq: "9" });
   assertEquals(body.input, {
-    judgment: decisions,
-    organizing: {
-      provider: PVD,
-      credentials: ["spare", "main"],
-      model_name: "m2",
-      reasoning_level: "provider_default",
-      options: {},
-    },
-    settings_seq: "9",
+    summaries: { provider: PVD, model_name: "m2", option_values: {} },
   });
+  assertEquals(saved.value.decisions, { provider: PVD, model: "m1" });
   assertEquals(saved.value.summaries, { provider: PVD, model: "m2" });
   assertEquals(saved.value.seq, "10");
 });
@@ -827,6 +819,15 @@ Deno.test("shell/wording#R10: 도구 server는 기존 설정 뒤에 stdio 또는
   }
 });
 
+const NO_DEFAULTS = {
+  lophn: null,
+  context_engineer: null,
+  app_engineer: null,
+  operator: null,
+  summaries: null,
+  settings_seq: "9",
+};
+
 Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract route의 schema를 그대로 통과한다", async () => {
   const route = (kind: string, resource: string, method: string) =>
     ALL_ROUTES.find((candidate) =>
@@ -841,13 +842,9 @@ Deno.test("shell/wording#R10: 보내는 입력과 비교 기준은 contract rout
     "read:providers/list": answer({ providers: [], next_cursor: null }),
     "read:providers/definitions": answer({ definitions: DEFINITIONS }),
     "command:providers/register": answer({ provider: {} }),
-    "read:agent-model-defaults/read": answer({
-      defaults: { judgment: null, organizing: null, settings_seq: "9" },
-    }),
+    "read:agent-model-defaults/read": answer({ defaults: NO_DEFAULTS }),
     "command:agent-model-defaults/change": answer({
-      judgment: null,
-      organizing: null,
-      settings_seq: "10",
+      defaults: { ...NO_DEFAULTS, settings_seq: "10" },
     }),
     "command:providers/test": answer({ check: null, timeout_ms: 30_000 }),
     "command:providers/login-begin": answer({

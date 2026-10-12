@@ -2,9 +2,9 @@
 // 확인이 별도 프로세스로 띄운다. renderer bundle에는 들어가지 않는다.
 //
 // apps/core/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 세션의 run을
-// machine이 시작하고 그 run의 agent가 글이 있는 질문을 만든다. coding agent는 세션 없는
+// machine이 시작하고 그 run의 agent가 글이 있는 질문 묶음(질문 하나)을 만든다. coding agent는 세션 없는
 // approval request를 하나 만든다. 모두 실제 HTTP route로 보낸다. 그런 뒤에야 core가 부모
-// pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 질문이 이미 있다.
+// pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 질문 묶음이 이미 있다.
 //
 //   LOPHN_HOME=$(mktemp -d) deno run --allow-all apps/shell/renderer/testdata/question-core.ts
 //   ... --seed-only  # 심고 바로 멈춘다(그 root로 shell을 headless로 띄울 때)
@@ -15,7 +15,9 @@
 // 불러 필요한 모양만 적는다.
 import {
   SEED_APPROVAL,
+  SEED_GROUP,
   SEED_OPTIONS,
+  SEED_PROJECT,
   SEED_PROMPT,
   SEED_QUESTION,
   SEED_REASON,
@@ -243,15 +245,31 @@ async function seed(): Promise<void> {
     assignment_revision: lophn.revision,
     assignment_state: lophn.state,
   };
+  // 세션은 프로젝트 하나에 속한다(전역 자리는 없다).
+  await post(
+    "projects/create",
+    command(
+      {
+        id: SEED_PROJECT,
+        name: "weekly",
+        title: "Weekly",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      "seed-project",
+      {},
+    ),
+    user,
+  );
   await post(
     "sessions/open",
     command(
       {
         id: SEED_SESSION,
         assignment: lophn.id,
-        role: lophn.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: SEED_PROJECT },
+        opening_context: null,
       },
       "seed-open-session",
       assignmentCompare,
@@ -306,8 +324,8 @@ async function seed(): Promise<void> {
     machine,
   );
 
-  // 그 run의 agent가 글이 있는 질문을 낸다.
-  const agent = await grant(`agent:${lophn.id}`, ["CreateQuestion"], {
+  // 그 run의 agent가 글이 있는 질문 하나짜리 묶음을 낸다.
+  const agent = await grant(`agent:${lophn.id}`, ["CreateQuestionGroup"], {
     assignment: lophn.id,
     run,
   });
@@ -315,19 +333,25 @@ async function seed(): Promise<void> {
     "questions/create",
     command(
       {
-        id: SEED_QUESTION,
+        id: SEED_GROUP,
         run,
         session: SEED_SESSION,
-        prompt: SEED_PROMPT,
-        reason: SEED_REASON,
-        options: SEED_OPTIONS.map((option) => ({
-          ...option,
-          evidence: [],
-          adoption: null,
-          action: null,
-        })),
-        recommendation: { option_key: SEED_RECOMMENDED, explanation: SEED_WHY },
         expires_at: null,
+        questions: [{
+          id: SEED_QUESTION,
+          prompt: SEED_PROMPT,
+          reason: SEED_REASON,
+          options: SEED_OPTIONS.map((option) => ({
+            ...option,
+            evidence: [],
+            adoption: null,
+            action: null,
+          })),
+          recommendation: {
+            option_key: SEED_RECOMMENDED,
+            explanation: SEED_WHY,
+          },
+        }],
       },
       "seed-question",
       {},

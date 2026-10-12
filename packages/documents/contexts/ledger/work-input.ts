@@ -6,6 +6,7 @@ import {
   bundleContentSchema,
   type ContextWorkInput,
   contextWorkInputRoute,
+  contextWorkListRoute,
 } from "../../../contracts/documents/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
 import type {
@@ -16,8 +17,12 @@ import type {
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";
+import { appCommandsOf, externalTypesRead } from "./work-environment.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
+type Deps =
+  & Pick<ContextLedgerDeps, "blobs" | "index">
+  & Partial<Pick<ContextLedgerDeps, "appCommandEffect">>;
 
 // documents/projects의 project_folders 표에서 등록 순서대로 읽는다.
 function foldersOf(sql: Reader, project: string): string[] {
@@ -29,7 +34,7 @@ function foldersOf(sql: Reader, project: string): string[] {
 
 // context.preview가 읽는 draft 판 하나. 판 하나의 content blob만 읽는다.
 function draftInput(
-  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  deps: Deps,
   snapshot: ReadSnapshot,
   contextId: string,
   bundleId: string,
@@ -56,6 +61,8 @@ function draftInput(
   const project = sql.get("SELECT status FROM projects WHERE id = ?", [
     context.project,
   ]);
+  const external = externalTypesRead(sql, deps, context);
+  if (!external.ok) return external;
   return ok({
     context: context.id,
     roots: project?.status === "archived"
@@ -66,14 +73,15 @@ function draftInput(
     candidate: null,
     draft: { bundle: row.id, content: row.content },
     user_saved_views: [],
-    external_types: [],
+    external_types: external.value,
+    app_commands: appCommandsOf(row.content, deps.appCommandEffect),
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
   });
 }
 
 export function contextWorkInputRead(
-  deps: Pick<ContextLedgerDeps, "blobs" | "index">,
+  deps: Deps,
 ): ReadDefinition<typeof contextWorkInputRoute> {
   return {
     route: contextWorkInputRoute,
@@ -150,6 +158,13 @@ export function contextWorkInputRead(
       const project = sql.get("SELECT status FROM projects WHERE id = ?", [
         context.project,
       ]);
+      // 검사할 판이 있을 때만 환경을 싣는다. 적용 판만 묻는 입력(index)은 쓰지 않는다.
+      let external_types: ContextWorkInput["external_types"] = [];
+      if (candidate !== null) {
+        const read = externalTypesRead(sql, deps, context);
+        if (!read.ok) return read;
+        external_types = read.value;
+      }
       return ok({
         context: context.id,
         // 보관된 project의 폴더는 읽지 않는다.
@@ -167,8 +182,74 @@ export function contextWorkInputRead(
             search: view.search,
             inputs: view.inputs,
           })),
-        // 다른 context의 public type을 쓰는 참조는 아직 해석하지 않는다.
-        external_types: [],
+        external_types,
+        app_commands: candidate === null
+          ? []
+          : appCommandsOf(candidate.content, deps.appCommandEffect),
+        as_of_seq: snapshot.as_of_seq,
+        next_cursor: null,
+      });
+    },
+  };
+}
+
+// core가 시작할 때와 변화 감시가 감시 집합을 정할 때 읽는 목록(`context.work_list`). 활성 context와 도는
+// 검사만 담고 blob은 열지 않는다. 폴더는 project마다 한 번 읽는다.
+export function contextWorkListRead(): ReadDefinition<
+  typeof contextWorkListRoute
+> {
+  return {
+    route: contextWorkListRoute,
+    handle(snapshot, ctx) {
+      if (parseActor(ctx.actor)?.kind !== "machine") {
+        return err({
+          code: "forbidden",
+          message: "only a machine reads the context work list",
+        });
+      }
+      const sql = snapshot.sql;
+      const folders = new Map<string, string[]>();
+      const rootsOf = (project: string, archived = false): string[] => {
+        if (archived) return [];
+        let roots = folders.get(project);
+        if (roots === undefined) {
+          roots = foldersOf(sql, project);
+          folders.set(project, roots);
+        }
+        return roots;
+      };
+      const contexts = sql.all(
+        `SELECT c.id AS context, c.project AS project, b.bundle_hash AS bundle_hash
+           FROM contexts c
+           JOIN context_bundles b ON b.id = c.applied_bundle
+           JOIN projects p ON p.id = c.project
+          WHERE c.status = 'active' AND p.status <> 'archived'
+            AND b.bundle_hash IS NOT NULL
+          ORDER BY c.id`,
+        [],
+      ).map((row) => ({
+        context: String(row.context),
+        roots: rootsOf(String(row.project)),
+        bundle_hash: String(row.bundle_hash),
+      }));
+      const checks = sql.all(
+        `SELECT k.id AS "check", k.context AS context, c.project AS project,
+                p.status AS project_status
+           FROM context_checks k
+           JOIN context_bundles b ON b.id = k.bundle
+           JOIN contexts c ON c.id = k.context
+           JOIN projects p ON p.id = c.project
+          WHERE k.status = 'running' AND b.status = 'checking'
+          ORDER BY k.started_at, k.id`,
+        [],
+      ).map((row) => ({
+        context: String(row.context),
+        check: String(row.check),
+        roots: rootsOf(String(row.project), row.project_status === "archived"),
+      }));
+      return ok({
+        contexts,
+        checks,
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       });

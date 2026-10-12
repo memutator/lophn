@@ -11,6 +11,7 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import { readOf } from "./core-call.ts";
+import type { ContextToolPin } from "./context-search.ts";
 
 export type ContextMaterialInput = {
   context: { id: string; title: string };
@@ -18,8 +19,9 @@ export type ContextMaterialInput = {
   bundle_hash: string;
   // 적용된 판의 계약(`context.contract`의 content.contract).
   contract: Contract;
-  // run을 시작할 때 센 type별 개체 수(`context.overview`의 types). 빠진 type은 0이다.
-  counts: readonly { type: string; count: number }[];
+  // run을 시작할 때 센 type별 개체 수(`context.overview`의 types). 빠진 type은 0이다. null이면 센 값이
+  // 이 판의 것이 아니라서(고정한 판이 더는 적용되어 있지 않다) 개수를 싣지 않는다.
+  counts: readonly { type: string; count: number }[] | null;
   // `glossary.list`가 준 순서 그대로.
   glossary: readonly { term: string; meaning: string }[];
 };
@@ -45,12 +47,16 @@ export type ContextMaterialParts = {
 export function renderContextParts(
   input: ContextMaterialInput,
 ): ContextMaterialParts {
-  const counted = new Map(input.counts.map((item) => [item.type, item.count]));
+  const counted = new Map(
+    (input.counts ?? []).map((item) => [item.type, item.count]),
+  );
   const types = input.contract.types;
   const lines = ["type:"];
   for (const type of types) {
     lines.push(
-      `- ${type.name}: ${type.summary} (${counted.get(type.name) ?? 0}개)`,
+      input.counts === null
+        ? `- ${type.name}: ${type.summary}`
+        : `- ${type.name}: ${type.summary} (${counted.get(type.name) ?? 0}개)`,
     );
   }
   const relations = types.flatMap((type) =>
@@ -99,10 +105,9 @@ export type ContextMaterialSelection = { kind: string; target: string | null };
 // preset의 context 선택 중 `work_place`·`assignment_scope`를 loadContextMaterials가 읽는 선택으로 푼다
 // (presets: `work_place`는 세션 작업 자리, `assignment_scope`는 담당 범위에서 resolve한다).
 // - `work_place`: 작업 자리가 project면 그 project, 아니면 자료가 없다.
-// - `assignment_scope`: 담당 범위가 project면 그 project다. 담당 범위가 앱(App Engineer)이면 작업 자리의
-//   project 안에서 `all`로 읽는다. 어느 context가 보이는지는 core가 정한다: 앱 하나에 묶인 agent의
-//   목록과 읽기는 그 앱을 app-data source로 읽는 context만 낸다(roles/app-engineer#R2).
-//   그 밖의 담당 범위도 작업 자리의 project 안에서 읽는다.
+// - `assignment_scope`: 담당 범위가 project면 그 project다. 담당 범위가 앱(App Engineer)이면 작업 자리와
+//   상관없이 그 앱을 app-data source로 읽는 active context들(`app_readers`)이다(`context.list`의 app
+//   거르기, roles/app-engineer#R2). preset 자신의 `app` 선택은 context가 아니다. 그 밖의 담당 범위는 작업 자리의 project 안에서 `all`로 읽는다.
 // 다른 선택은 그대로 둔다.
 export function resolveContextSelections(
   selections: readonly ContextMaterialSelection[],
@@ -121,6 +126,8 @@ export function resolveContextSelections(
       resolved.push(
         input.scope.kind === "project" && input.scope.id !== null
           ? { kind: "project", target: input.scope.id }
+          : input.scope.kind === "app" && input.scope.id !== null
+          ? { kind: "app_readers", target: input.scope.id }
           : { kind: "all", target: null },
       );
     } else {
@@ -135,59 +142,105 @@ export type ContextMaterialSet = {
   materials: readonly ContextMaterial[];
   // 자료가 0개인 이유(project가 정해지지 않음). 자료가 있으면 null이다.
   reason: string | null;
+  // 고른 context인데 읽지 못해 자료에 싣지 못한 것과 그 이유. 보관·초안 context와 적용된 판이 없는 context는
+  // 읽지 못한 것이 아니라서 들지 않는다.
+  omitted: readonly ContextMaterialOmission[];
+};
+
+// 읽지 못한 context 하나. `title`은 이름을 읽었으면 그 이름, 아니면 id다.
+export type ContextMaterialOmission = {
+  context: string;
+  title: string;
+  reason: string;
 };
 
 const NO_PROJECT_REASON =
   "project가 정해지지 않아 context 자료를 싣지 않았다. project를 정하면 다음 run부터 싣는다.";
 
-// 한 context의 자료를 읽는다. 적용된 판이 없거나 읽을 수 없거나 active가 아니면 null이다(조용히 뺀다).
+// 한 context의 자료를 읽는다. active가 아니거나 적용된 판이 없으면 null이다(조용히 뺀다). 읽지 못한 것은
+// `omission`으로 이유를 돌려준다.
+// `pin`이 있으면(resume) 지금 적용된 판이 아니라 run이 시작할 때 고정한 판의 계약으로 만든다. 읽은 판의
+// hash가 pin과 다르면 뺀다(fail closed). 개수는 적용된 판의 index에서 읽으므로 고정한 판이 더는 적용되어
+// 있지 않으면 싣지 않는다.
+type Loaded =
+  | { kind: "material"; material: ContextMaterial }
+  | { kind: "omitted"; omission: ContextMaterialOmission }
+  | { kind: "none" };
+
 async function loadOne(
   agent: CoreCall,
   context: string,
-): Promise<ContextMaterial | null> {
+  pin?: ContextToolPin,
+): Promise<Loaded> {
+  const none: Loaded = { kind: "none" };
+  const failed = (title: string, reason: string): Loaded => ({
+    kind: "omitted",
+    omission: { context, title, reason },
+  });
   const got = await readOf(agent, contextGetRoute, { context });
-  if (!got.ok || got.value.context.status !== "active") return null;
+  if (!got.ok) return failed(context, `읽지 못했다(${got.error.code})`);
+  if (got.value.context.status !== "active") return none;
+  const title = pin?.title ?? got.value.context.title;
   const [contract, overview, glossary] = await Promise.all([
-    readOf(agent, contextContractRoute, { context }),
+    readOf(agent, contextContractRoute, {
+      context,
+      ...(pin === undefined ? {} : { bundle: pin.bundle }),
+    }),
     readOf(agent, contextOverviewRoute, { context }),
     readOf(agent, glossaryListRoute, { context }),
   ]);
-  if (!contract.ok || !overview.ok || !glossary.ok) return null;
+  if (!contract.ok) {
+    return failed(title, `계약을 읽지 못했다(${contract.error.code})`);
+  }
+  if (!glossary.ok) {
+    return failed(title, `용어집을 읽지 못했다(${glossary.error.code})`);
+  }
   const hash = contract.value.bundle_hash;
   const content = contract.value.content;
-  if (hash === null || content === null) return null;
-  // 개수는 판과 같은 시점에 읽은 것만 쓴다. 두 읽기가 다른 판을 가리키면 섞지 않고 뺀다.
-  if (overview.value.bundle_hash !== hash) return null;
+  if (hash === null || content === null) return none;
+  if (pin !== undefined && hash !== pin.bundle_hash) {
+    return failed(title, "run이 시작할 때 고정한 판과 읽은 판이 다르다");
+  }
+  // 개수는 판과 같은 시점에 읽은 것만 쓴다. 두 읽기가 다른 판을 가리키면 섞지 않고 뺀다(고정한 판은 개수만 뺀다).
+  let counts: ContextMaterialInput["counts"] = null;
+  if (overview.ok && overview.value.bundle_hash === hash) {
+    counts = overview.value.types;
+  } else if (pin === undefined) {
+    return failed(title, "계약과 개수가 서로 다른 판을 가리켜 싣지 못했다");
+  }
   const input: ContextMaterialInput = {
-    context: { id: context, title: got.value.context.title },
+    context: { id: context, title },
     bundle_hash: hash,
     contract: content.contract,
-    counts: overview.value.types,
+    counts,
     glossary: glossary.value.entries,
   };
   const parts = renderContextParts(input);
   return {
-    context,
-    title: input.context.title,
-    bundle_hash: hash,
-    text: [parts.head, parts.overview, parts.glossary].join("\n"),
-    overview: parts.overview,
-    glossary: parts.glossary,
-    type_names: parts.type_names,
-    glossary_empty: parts.glossary_empty,
+    kind: "material",
+    material: {
+      context,
+      title: input.context.title,
+      bundle_hash: hash,
+      text: [parts.head, parts.overview, parts.glossary].join("\n"),
+      overview: parts.overview,
+      glossary: parts.glossary,
+      type_names: parts.type_names,
+      glossary_empty: parts.glossary_empty,
+    },
   };
 }
 
-// project의 active context id들. `context.list` 순서(제목, id)다.
+// project 또는 app의 active context id들. `context.list` 순서(제목, id)다.
 async function activeContexts(
   agent: CoreCall,
-  project: string,
+  filter: { project: string } | { app: string },
 ): Promise<string[]> {
   const found: string[] = [];
   let cursor: string | undefined;
   for (;;) {
     const page = await readOf(agent, contextListRoute, {
-      project,
+      ...filter,
       status: "active",
       ...(cursor === undefined ? {} : { cursor }),
     });
@@ -201,14 +254,16 @@ async function activeContexts(
 }
 
 // run을 시작할 때 한 번 읽는다. `all`·`project` 선택은 그 project의 active context들로 풀리고
-// (`context` 선택은 그 context 하나) 보관·초안 context, 읽을 수 없는 context, 적용된 판이 없는 context는
-// 조용히 뺀다. 읽기만 한다(`context.list|get|contract|overview`, `glossary.list`).
+// (`context` 선택은 그 context 하나, `app_readers` 선택은 그 앱을 읽는 active context들) 보관·초안 context, 읽을 수
+// 없는 context, 적용된 판이 없는 context는 조용히 뺀다. 읽기만 한다(`context.list|get|contract|overview`,
+// `glossary.list`). `pins`가 있으면(resume) 그 context는 고정한 판의 계약으로 만든다.
 export async function loadContextMaterials(
   agent: CoreCall,
   input: {
     // 세션 작업 자리 또는 담당 범위의 project. 정해지지 않았으면 null이다.
     project: string | null;
     selections: readonly ContextMaterialSelection[];
+    pins?: readonly ContextToolPin[];
   },
 ): Promise<ContextMaterialSet> {
   const wanted: string[] = [];
@@ -217,19 +272,29 @@ export async function loadContextMaterials(
     if (selection.kind === "context" && selection.target !== null) {
       wanted.push(selection.target);
     } else if (selection.kind === "project" && selection.target !== null) {
-      wanted.push(...await activeContexts(agent, selection.target));
+      wanted.push(
+        ...await activeContexts(agent, { project: selection.target }),
+      );
+    } else if (selection.kind === "app_readers" && selection.target !== null) {
+      wanted.push(...await activeContexts(agent, { app: selection.target }));
     } else if (selection.kind === "all") {
       if (input.project === null) missingProject = true;
-      else wanted.push(...await activeContexts(agent, input.project));
+      else {
+        wanted.push(...await activeContexts(agent, { project: input.project }));
+      }
     }
   }
+  const pinned = new Map(input.pins?.map((pin) => [pin.context, pin]));
   const materials: ContextMaterial[] = [];
+  const omitted: ContextMaterialOmission[] = [];
   for (const context of new Set(wanted)) {
-    const material = await loadOne(agent, context);
-    if (material !== null) materials.push(material);
+    const loaded = await loadOne(agent, context, pinned.get(context));
+    if (loaded.kind === "material") materials.push(loaded.material);
+    else if (loaded.kind === "omitted") omitted.push(loaded.omission);
   }
   return {
     materials,
+    omitted,
     reason: materials.length === 0 && missingProject ? NO_PROJECT_REASON : null,
   };
 }

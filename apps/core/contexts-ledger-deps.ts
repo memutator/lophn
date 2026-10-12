@@ -1,4 +1,4 @@
-// ContextLedgerDeps의 실제 구현: content blob 파일, derived index 읽기, 선언 검색 실행, hash,
+// ContextLedgerDeps의 실제 구현: content blob 읽기, derived index 읽기, 선언 검색 실행, hash,
 // Context Engineer 판별, 위반 넘김 Run. command를 실행하는 writer Worker와 read를 실행하는 reader
 // Worker 안에서만 올라온다(contexts-api.ts의 loadContextsRuntime). node:sqlite와 동기 file API를
 // 쓰므로 core 본체의 module graph에 들어오면 안 된다(platform/responsiveness#R1).
@@ -6,25 +6,14 @@
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../packages/base/mod.ts";
-import type {
-  BlobFieldDefinition,
-  RequestContext,
-  Sql,
-  SqlRow,
-  Tx,
-} from "../../packages/contracts/platform/mod.ts";
+import type { Sql, SqlRow } from "../../packages/contracts/platform/mod.ts";
 import {
   type BundleContent,
   bundleContentSchema,
   type StoredViolation,
 } from "../../packages/contracts/documents/mod.ts";
+import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
 import {
-  createPreparationRegistry,
-  objectPathFor,
-  registerBlobRef,
-} from "../../packages/platform/blob-store/mod.ts";
-import {
-  type BlobReference,
   type ContextBlobs,
   type ContextIndexPort,
   type EntityRow,
@@ -45,18 +34,9 @@ import {
   startRequest,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  contextContentField,
-  ContextDepRefused,
-  ContextDepUnavailable,
-  type ContextsRuntime,
-} from "./contexts-api.ts";
-import { violationRequestText } from "./contexts-handoff.ts";
-
-// blob을 올릴 때 준비 주체와 purpose. 준비 중계를 거치지 않고 writer가 직접 쓰는 값이라 이름을
-// 고정한다. 등록 함수의 검사(주체 일치, field 정의)는 그대로 지난다.
-const BLOB_PRINCIPAL = "documents:contexts";
-const BLOB_PURPOSE = "context_content";
+import { loadActiveBlueprint } from "../../packages/apps/releases/store.ts";
+import { ContextDepRefused, type ContextsRuntime } from "./contexts-api.ts";
+import { handOffContent } from "./contexts-handoff.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 
@@ -79,82 +59,6 @@ function dataRootOf(sql: Reader): Result<string> {
 
 export function contextsIndexPath(root: string): string {
   return `${root}/derived/contexts.sqlite`;
-}
-
-// 완성 blob을 설치한다. 있으면 다시 쓰지 않는다. 임시 파일에 쓰고 fsync한 뒤 rename한다.
-function installBlob(root: string, hash: string, bytes: Uint8Array): void {
-  const path = objectPathFor(root, hash);
-  try {
-    Deno.statSync(path);
-    return;
-  } catch { /* 없으면 설치한다 */ }
-  const directory = path.slice(0, path.lastIndexOf("/"));
-  Deno.mkdirSync(directory, { recursive: true });
-  const temporary = `${root}/blobs/tmp/context-${crypto.randomUUID()}`;
-  Deno.mkdirSync(`${root}/blobs/tmp`, { recursive: true });
-  const file = Deno.openSync(temporary, {
-    write: true,
-    createNew: true,
-    mode: 0o400,
-  });
-  try {
-    file.writeSync(bytes);
-    file.syncSync();
-  } finally {
-    file.close();
-  }
-  Deno.renameSync(temporary, path);
-}
-
-const FIELDS: readonly BlobFieldDefinition[] = [contextContentField];
-
-// 내용으로 주소를 정한 blob 참조를 이 transaction에 등록한다(platform/blob-store#R4).
-function registerContent(tx: Tx, reference: BlobReference): void {
-  const owner = {
-    owner_kind: contextContentField.owner_kind,
-    owner_key: reference.hash,
-    field: contextContentField.field,
-  };
-  const existing = tx.sql.get(
-    `SELECT hash FROM blob_refs
-     WHERE owner_kind = ? AND owner_key = ? AND field = ? AND hash = ?`,
-    [owner.owner_kind, owner.owner_key, owner.field, reference.hash],
-  );
-  if (existing !== undefined) return;
-  const prepared = {
-    preparation: reference.hash,
-    principal: BLOB_PRINCIPAL,
-    purpose: BLOB_PURPOSE,
-    hash: reference.hash,
-    size_bytes: reference.size_bytes,
-  };
-  const preparations = createPreparationRegistry();
-  const noted = preparations.register(prepared, 0);
-  if (!noted.ok) throw new Error(noted.error.message);
-  const current: RequestContext = {
-    principal: BLOB_PRINCIPAL,
-    actor: "machine",
-    scope: { operations: [], targets: {} },
-    conditions: {},
-    credential_ref: BLOB_PRINCIPAL,
-  };
-  // registered_seq는 genesis event를 가리킨다(documents/versions의 저장과 같은 값이다): 이 blob
-  // 참조는 내용 주소라 어느 event가 처음 올렸는지가 뜻이 없다.
-  const registered = registerBlobRef(
-    tx.sql,
-    {
-      preparations,
-      fields: FIELDS,
-      nowMs: () => 0,
-      current: () => current,
-    },
-    {
-      ...owner,
-      registered_seq: "1",
-      source: { kind: "prepared", blob: prepared },
-    },
-  );
-  if (!registered.ok) throw new Error(registered.error.message);
 }
 
 function isEntry(value: unknown): value is Record<string, unknown> {
@@ -290,15 +194,6 @@ export function createContextsRuntime(): ContextsRuntime {
       } catch { /* 아래 오류 */ }
       return err({ code: "internal", message: "context blob이 JSON이 아니다" });
     },
-    put(tx, value) {
-      const base = dataRootOf(tx.sql);
-      if (!base.ok) throw new ContextDepUnavailable(base.error.message);
-      const bytes = new TextEncoder().encode(canonicalize(value));
-      const reference = { hash: sha256(bytes), size_bytes: bytes.length };
-      installBlob(base.value, reference.hash, bytes);
-      registerContent(tx, reference);
-      return reference;
-    },
   };
 
   const index: ContextIndexPort = {
@@ -368,29 +263,18 @@ export function createContextsRuntime(): ContextsRuntime {
         if (owner === undefined) {
           throw new ContextDepRefused("not_found", "context not found");
         }
-        const evidence = blobs.read(request.evidence);
-        if (!evidence.ok) {
-          throw new ContextDepUnavailable(evidence.error.message);
+        // 요청 글은 근거 값에서 만든다. 그 blob은 호출 경계가 같은 값으로 미리 준비했고 여기서는
+        // 요청 자격의 준비 참조로 등록만 한다(파일을 쓰지 않는다).
+        const content = handOffContent(request.evidenceValue);
+        const body = request.registerContent(content);
+        if (!body.ok) {
+          throw new ContextDepRefused(body.error.code, body.error.message);
         }
-        const content = {
-          schema_version: 1 as const,
-          parts: [{
-            kind: "text" as const,
-            text: violationRequestText(evidence.value),
-          }],
-        };
-        const body = blobs.put(tx, content);
         const started = startRequest(conversationDeps, tx, {
           role: "context_engineer",
           work_place: { kind: "project", id: String(owner["project"]) },
           content,
-          body: {
-            owner_kind: contextContentField.owner_kind,
-            owner_key: body.hash,
-            field: contextContentField.field,
-            hash: body.hash,
-            registered_seq: "1",
-          },
+          body: body.value,
         });
         if (started.ok) return started.value.run;
         // 세션·Run 접수가 거절한 코드 그대로 답한다(없는 project는 not_found, 받을 assignment가 없으면
@@ -422,6 +306,26 @@ export function createContextsRuntime(): ContextsRuntime {
         } catch {
           // apps 표가 없는 조립에서는 앱이 없다.
           return [];
+        }
+      },
+      // 검사 환경의 앱 command 효과: active 앱의 active release에 고정된 blueprint의 command 선언
+      // (`app.blueprint`가 읽어 주는 것과 같다). 앱을 부르지 않는다.
+      appCommandEffect(app, command) {
+        if (current === undefined) return undefined;
+        try {
+          const row = current.get(
+            "SELECT id FROM apps WHERE slug = ? AND status = 'active'",
+            [app],
+          );
+          if (row === undefined) return undefined;
+          const stored = loadActiveBlueprint(current, String(row["id"]));
+          if (!stored.ok || stored.value === null) return undefined;
+          return stored.value.blueprint.commands.find((declared) =>
+            declared.key === command
+          )?.effect;
+        } catch {
+          // apps·releases 표가 없는 조립에서는 앱 선언이 없다.
+          return undefined;
         }
       },
     },

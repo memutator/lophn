@@ -1,11 +1,10 @@
 // context API command: context.record_violations·hand_off_violations.
 import { err, ok } from "../../../base/mod.ts";
-import type { StoredViolation } from "../../../contracts/documents/mod.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import {
   buildEvidence,
+  chooseViolations,
   keyOfViolation,
-  sameViolationKey,
 } from "./commands-violations-evidence.ts";
 import type { ContextApiCommands } from "./commands.ts";
 import type { ContextApiDeps, ContextApiState } from "./state.ts";
@@ -82,41 +81,31 @@ export function createViolationCommands(
           });
         }
         const stored = state.violations.get(context.id) ?? [];
-        let chosen: StoredViolation[];
-        if (input.violations === undefined) {
-          chosen = [...stored];
-        } else {
-          chosen = [];
-          for (const wanted of input.violations) {
-            const found = stored.find((row) =>
-              sameViolationKey(keyOfViolation(row), wanted)
-            );
-            if (!found) {
-              return err({
-                code: "invalid_input",
-                message: "violation is not in the context",
-                details: { path: wanted.path },
-              });
-            }
-            if (chosen.includes(found)) {
-              return err({
-                code: "invalid_input",
-                message: "duplicate violation key",
-              });
-            }
-            chosen.push(found);
-          }
+        const picked = chooseViolations(stored, input.violations);
+        if (!picked.ok) {
+          return err({
+            code: "invalid_input",
+            message: picked.reason === "missing"
+              ? "violation is not in the context"
+              : "duplicate violation key",
+            ...(picked.reason === "missing"
+              ? { details: { path: picked.path } }
+              : {}),
+          });
         }
+        const chosen = picked.value;
         if (chosen.length === 0) {
           return err({
             code: "invalid_input",
             message: "there are no violations to hand off",
           });
         }
-        const evidence = deps.putBlob(buildEvidence(state, context, chosen));
+        const evidenceValue = buildEvidence(state, context, chosen);
+        const evidence = deps.putBlob(evidenceValue);
         const run = deps.startHandOffRun({
           context: context.id,
           evidence,
+          evidenceValue,
           violations: chosen,
         });
         emitEvent(state, deps, {

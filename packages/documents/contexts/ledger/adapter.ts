@@ -22,7 +22,7 @@
 //   3. 실행. createContextApiCommands(state, handlerDeps)의 handler를 부른다.
 //        handlerDeps.now = command를 시작할 때 부른 tx.now()의 값(platform 시계는 부를 때마다 달라질 수
 //        있어 한 transaction에 시각 하나를 고정한다), newId = tx.newId, hash = deps.hash,
-//        putBlob = (value) => deps.blobs.put(tx, value) (같은 value는 한 번만 올린다),
+//        putBlob = (value) => 값의 참조(hash, 크기)만 계산한다(파일을 쓰지 않는다. 같은 value는 한 참조),
 //        startHandOffRun = (request) => deps.startHandOffRun(tx, request),
 //        emit = (event) => tx.emit(CONTEXT_API_EVENTS에서 type으로 찾은 정의, event.subject, event.payload).
 //        없는 type이면 던진다(internal). actor는 tx의 자격에서 정해지므로 넘기지 않는다.
@@ -30,8 +30,9 @@
 //        (hand-off Run, blob 등록)가 사이에 끼어도 seq가 어긋나지 않는다. head를 읽거나 맞추는 일이 없다.
 //   4. 실패(Result err)면 아무것도 쓰지 않고 그 err를 돌려준다. handler는 거절을 낼 때까지 emit하지
 //      않는다(검사가 emit 앞이다).
-//   5. 성공이면 event는 이미 냈다(3). 이 단계에서 할 일은 없다. 실패하면 platform이 transaction을
-//        rollback하므로 낸 event도 사라진다.
+//   5. 성공이면 event는 이미 냈다(3). handler가 가리킨 content blob의 영구 참조를 tx.registerBlobRef로
+//        등록한다(준비는 호출 경계가 요청 자격으로 끝냈다. 준비가 없으면 err). 실패하면 platform이
+//        transaction을 rollback하므로 낸 event도 참조도 사라진다.
 //   6. 쓰기. 적재한 값과 handler가 남긴 값을 표마다 비교해 달라진 행만 쓴다
 //        (변경 행 한도 1000에 event 행이 든다). 순서: 검사, 물러나는 판(applied가 아니게 된 것),
 //        applied가 된 판, context, saved view, 용어 항목, 지운 saved view·항목 순. 물러나는 판을 먼저
@@ -60,21 +61,23 @@
 //
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
 // 읽기마다 적재 범위: context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
-// 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project와 그 context·판(content 없음), context.get·bundles·
+// 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project(또는 app이면 context_app_data로 고른 context들)와 그 context·판(content 없음), context.get·bundles·
 // glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
 // (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
-// 표시)·overview·search·contract·input_options는 적용된 판의 content, context.draft는 판과 검사와
+// 표시)·overview·search·contract·input_options는 적용된 판의 content(context.contract의 bundle 지정은 그 판의 content), context.draft는 판과 검사와
 // 만드는 중인 판 하나(draft, 없으면 검사 중인 판, 없으면 마지막 failed 판)의 content,
 // context.containing은 project의 active context들의 적용된 판 content다.
 // 위반·개체·index 갱신 실패는 deps.index가 준다.
 //
-// platform이 주지 않아 deps로 받는 것: blob 읽기·올리기, 위반 넘김 Run 만들기, Context Engineer 판별,
+// platform이 주지 않아 deps로 받는 것: blob 읽기, 위반 넘김 Run 만들기, Context Engineer 판별,
 // derived index.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { StoredViolation } from "../../../contracts/documents/mod.ts";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
 import type {
   CommandDefinition,
+  PermanentBlobReference,
   ReadDefinition,
   RequestContext,
   Tx,
@@ -94,12 +97,12 @@ import {
   isAppBound,
 } from "./app-bound.ts";
 
-// content blob을 읽고 올린다. platform/blob-store가 구현한다.
+// content blob을 읽는다. 쓰는 길은 없다: 바이트는 호출 경계(core)가 command 앞에서 호출자 자격으로
+// platform/blob-store에 준비하고, adapter는 같은 값에서 같은 hash를 만들어 tx.registerBlobRef로
+// 소유 변경과 같은 transaction에 영구 참조만 등록한다(content-blobs.ts).
 export interface ContextBlobs {
   // 참조가 가리키는 BundleContent JSON을 읽는다. 없거나 hash가 다르면 internal이다.
   read(reference: BlobReference): Result<Record<string, unknown>>;
-  // 값을 올리고 참조를 돌려준다(tx.registerBlobRef로 소유 변경과 같은 transaction에 등록한다).
-  put(tx: Tx, value: unknown): BlobReference;
 }
 
 // derived 저장소(개체, 위반, index 신선도)다. ledger 표가 아니고 index 작업(ctx-I-index)이 구현한다.
@@ -131,7 +134,11 @@ export type ContextLedgerDeps = {
     request: {
       context: string;
       evidence: BlobReference;
+      evidenceValue: Record<string, unknown>;
       violations: readonly StoredViolation[];
+      // 값을 content blob의 영구 참조로 등록한다(요청 자격이 준비한 바이트여야 한다). 요청 글이 근거와
+      // 같은 길로 blob이 된다.
+      registerContent(value: unknown): Result<PermanentBlobReference>;
     },
   ): string;
   // `agent:asg_…`의 assignment가 Context Engineer 역할인가.
@@ -139,6 +146,12 @@ export type ContextLedgerDeps = {
   // app-data source의 앱 slug들이 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 읽기 권한이 쓴다.
   // 등록되지 않은 slug는 빠지고, 앱 등록이 없는 조립에서는 빈 목록이다.
   appIds(slugs: readonly string[]): readonly string[];
+  // 앱 slug의 active release가 선언한 command의 효과다(검사 환경 `app_commands`). 앱이 없거나 보관됐거나
+  // active release가 없거나 그 release에 command가 없으면 undefined다. 앱 등록이 없는 조립에서도 undefined다.
+  appCommandEffect?(
+    app: string,
+    command: string,
+  ): "read" | "write" | "external" | undefined;
 };
 
 // context worker의 좁은 machine 자격이 가지는 operation이다(credential scope.operations).
@@ -150,8 +163,9 @@ export const CONTEXT_WORKER_OPERATIONS = [
 // platform ctx를 handler의 actor로 바꾼다.
 //   user -> user, coding_agent:… -> coding_agent,
 //   agent:asg_… -> agent (isContextEngineer면 context_engineer, 아니면 other),
-//   machine -> machine (scope.operations가 비어 있지 않고 모두 CONTEXT_WORKER_OPERATIONS이면
-//              context_worker, 아니면 other).
+//   machine -> machine (principal이 AGENT_RUNTIME_PRINCIPAL이면 agent_runtime: context.list·get·contract만
+//              읽는다. scope.operations가 비어 있지 않고 모두 CONTEXT_WORKER_OPERATIONS이면 context_worker,
+//              아니면 other).
 // route의 actors 목록에 없는 app:… 자격은 envelope가 먼저 막지만 여기서도 forbidden이다.
 export function mapActor(
   ctx: RequestContext,
@@ -178,7 +192,11 @@ export function mapActor(
       return ok({
         kind: "machine",
         actor: ctx.actor,
-        scope: worker ? "context_worker" : "other",
+        scope: ctx.principal === AGENT_RUNTIME_PRINCIPAL
+          ? "agent_runtime"
+          : worker
+          ? "context_worker"
+          : "other",
       });
     }
     default:
@@ -200,7 +218,7 @@ export function contextLedgerCommands(
       }
       const actor = mapActor(ctx, deps);
       return actor.ok
-        ? entry.run(deps, tx, actor.value, input, compare)
+        ? entry.run(deps, tx, ctx, actor.value, input, compare)
         : actor;
     },
   }));

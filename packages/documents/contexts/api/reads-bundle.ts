@@ -5,6 +5,7 @@ import type { ContextApiReads } from "./reads.ts";
 import {
   appliedBundleOf,
   checkReader,
+  checkRuntimeReader,
   common,
   currentBundleOf,
   notFound,
@@ -22,10 +23,30 @@ function summaryOf(row: BundleRow): BundleSummary {
 export function createBundleReads(state: ContextApiState): Handlers {
   // 적용된 판의 내용이다. 보관된 context도 마지막으로 적용된 판을 보인다.
   const contextContract: Handlers["contextContract"] = ({ actor, input }) => {
-    const allowed = checkReader(actor);
+    const allowed = checkRuntimeReader(actor);
     if (!allowed.ok) return allowed;
     const context = state.contexts.get(input.context);
     if (context === undefined) return notFound("context", input.context);
+    // bundle을 지정하면 그 context의 submit된 이후 판(checking, failed, applied, superseded)이다. 판의 내용은
+    // submit 뒤 바뀌지 않으므로 적용된 판이 바뀐 뒤에도 읽는다. 없는 판, 다른 context의 판, draft, discarded는
+    // 없는 것과 같다.
+    if (input.bundle !== undefined) {
+      const row = state.bundles.get(input.bundle);
+      if (
+        row === undefined || row.context !== context.id ||
+        row.status === "draft" || row.status === "discarded" ||
+        row.bundle_hash === null
+      ) return notFound("bundle", input.bundle);
+      const content = parseContent(row);
+      if (!content.ok) return content;
+      return ok({
+        context: context.id,
+        bundle: row.id,
+        bundle_hash: row.bundle_hash,
+        content: content.value,
+        ...common(state),
+      });
+    }
     const applied = appliedBundleOf(state, context);
     if (applied === null) {
       return ok({

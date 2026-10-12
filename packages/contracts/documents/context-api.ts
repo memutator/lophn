@@ -26,6 +26,7 @@ import {
 } from "./context-contract.ts";
 import { publicPage, publicRead, readCursorSchema } from "./read-values.ts";
 import {
+  appIdSchema,
   projectIdSchema,
   relativePathSchema,
   revisionSchema,
@@ -458,13 +459,18 @@ export const CONTEXT_PAGE_DEFAULT = 30;
 export const CONTEXT_PAGE_MAX = 100;
 const pageLimitSchema = z.number().int().min(1).max(CONTEXT_PAGE_MAX);
 
+// project와 app 중 정확히 하나로 거른다. app은 적용된 판이 그 앱을 app-data Source로 읽는 context다.
 export const contextListRequestSchema = z.strictObject({
-  project: projectIdSchema,
+  project: projectIdSchema.optional(),
+  app: appIdSchema.optional(),
   // 없으면 보관되지 않은 것(drafting, active), all이면 보관된 것까지
   status: z.enum([...CONTEXT_STATUSES, "all"]).optional(),
   cursor: readCursorSchema.optional(),
   limit: pageLimitSchema.optional(),
-});
+}).refine(
+  (value) => (value.project === undefined) !== (value.app === undefined),
+  { message: "expected exactly one of project and app" },
+);
 // 제목의 code unit 순, 같으면 id 순
 export const contextListReadSchema = publicPage(z.object({
   contexts: z.array(contextListItemSchema).max(CONTEXT_PAGE_MAX),
@@ -490,8 +496,10 @@ export const contextOverviewReadSchema = publicRead(z.object({
   violation_count: countSchema,
 }));
 
-// 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다.
+// 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다. context는 다른 context의 개체를 가리킬 때만 있고
+// (`context.entity`의 다른 context 관계 대상) 그 context의 ID다. 없으면 ref를 준 context의 개체다.
 export const entityRefSchema = z.strictObject({
+  context: ctxIdSchema.optional(),
   type: contractTypeNameSchema,
   key: nonblankSchema,
   path: relativePathSchema,
@@ -532,7 +540,13 @@ export const contextSearchReadSchema = publicPage(z.object({
   rows: z.array(searchRowSchema).max(SEARCH_PAGE_SIZE_MAX),
 }));
 
-// 적용된 판의 내용(계약, 검색, saved view 정의, 예). 적용된 판이 없으면 bundle, bundle_hash, content가 모두 null이다.
+export const contextContractRequestSchema = z.strictObject({
+  context: ctxIdSchema,
+  // 없으면 적용된 판이다. 있으면 그 context의 submit된 이후 판(checking, failed, applied, superseded)이다.
+  bundle: bundleIdSchema.optional(),
+});
+// 읽은 판의 내용(계약, 검색, saved view 정의, 예). bundle 지정이 없고 적용된 판이 없으면 bundle,
+// bundle_hash, content가 모두 null이다.
 export const contextContractReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   bundle: bundleIdSchema.nullable(),
@@ -732,6 +746,9 @@ export type ContextSeriesNextRead = z.infer<
 const AGENT_AND_USER = ["user", "agent"] as const;
 // coding agent에게는 context command·읽기 통로가 없다(documents/contexts#R27).
 const READ_ACTORS = ["user", "agent"] as const;
+// agent runtime의 machine 자격만 run 시작 전 tool 정의·prompt 자료를 만들 재료로 list·get·contract를 읽는다.
+// 어느 machine이 읽는지는 handler가 principal로 가린다(documents/contexts 읽기).
+const RUNTIME_READ_ACTORS = ["user", "agent", "machine"] as const;
 const READ_ERRORS = [
   "invalid_input",
   "unauthorized",
@@ -905,7 +922,7 @@ export const contextListRoute = defineRead({
   name: "context.list",
   input: contextListRequestSchema,
   output: contextListReadSchema,
-  actors: READ_ACTORS,
+  actors: RUNTIME_READ_ACTORS,
   errors: READ_ERRORS,
 });
 export const contextGetRoute = defineRead({
@@ -914,7 +931,7 @@ export const contextGetRoute = defineRead({
   name: "context.get",
   input: contextTargetRequestSchema,
   output: contextGetReadSchema,
-  actors: READ_ACTORS,
+  actors: RUNTIME_READ_ACTORS,
   errors: READ_ERRORS,
 });
 export const contextOverviewRoute = defineRead({
@@ -930,9 +947,9 @@ export const contextContractRoute = defineRead({
   resource: "contexts",
   method: "contract",
   name: "context.contract",
-  input: contextTargetRequestSchema,
+  input: contextContractRequestSchema,
   output: contextContractReadSchema,
-  actors: READ_ACTORS,
+  actors: RUNTIME_READ_ACTORS,
   errors: READ_ERRORS,
 });
 export const contextDraftRoute = defineRead({
@@ -1230,3 +1247,4 @@ export const CONTEXT_API_EVENTS = [
   glossaryEntrySetEvent,
   glossaryEntryRemovedEvent,
 ] as const;
+export * from "./context-api-content.ts";

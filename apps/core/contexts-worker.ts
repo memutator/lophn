@@ -6,7 +6,8 @@
 // - `context.index`: 검색·overview·input 후보·개체·series 다음 이름·context 열기·위반 목록을 읽기 전에
 //   그 context의 index를 따라잡는다. 같은 context에 이미 도는 scan이 있으면 그 결과를 기다리고, 직전
 //   scan이 끝난 지 2초 안이면 새로 요청하지 않는다. 기한 안에 끝나지 않으면 있던 index로 답한다.
-// - `context.check`: bundle.submit이 받아들여지면 후보 판을 worker에 보낸다.
+// - `context.check`: bundle.submit이 받아들여지면 후보 판을 worker에 보낸다. 답이 오지 않아 checking으로
+//   남은 후보는 core가 시작할 때 `recover`가 다시 보낸다.
 // - 결과 제출: worker는 core에 닿지 않고 낼 command를 답에 싣는다. core가 요청의 context·bundle·check와
 //   맞는지 다시 보고 좁은 machine 자격으로 낸다.
 //
@@ -16,7 +17,6 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   bundleSubmitRoute,
   CONTEXT_WORK_OPS,
-  type ContextCheckRequest,
   contextCheckResponseSchema,
   contextEntityRoute,
   contextGetRoute,
@@ -31,6 +31,7 @@ import {
   type ContextSubmission,
   contextViolationsRoute,
   type ContextWorkInput,
+  type ContextWorkList,
 } from "../../packages/contracts/documents/mod.ts";
 import { parseActor } from "../../packages/contracts/platform/mod.ts";
 import type {
@@ -153,6 +154,10 @@ export type ContextsProcessDeps = {
 export type ContextsProcess = {
   // worker가 이 Project 폴더들을 읽을 수 있게 띄운다. 이미 그렇게 떠 있으면 그대로 둔다.
   ensure(roots: readonly string[]): Promise<boolean>;
+  // 읽을 Project 폴더 전체가 이것이라고 알린다. 떠 있는 worker가 이 밖의 폴더를 읽을 수 있게 떠 있으면
+  // 이 폴더들로만 다시 띄운다(폴더가 빠진 일 하나가 다시 띄운다). worker가 없으면 아무것도 하지 않는다.
+  // 폴더가 늘 때는 일이 `ensure`로 스스로 요청하므로 여기서 늘리지 않는다.
+  retain(roots: readonly string[]): Promise<void>;
   request(
     op: string,
     payload: unknown,
@@ -227,17 +232,22 @@ export function createContextsProcess(
       chain = run.catch(() => undefined);
       return run;
     },
+    retain(roots) {
+      const run = chain.then(async () => {
+        if (allowed === undefined || gaveUp) return;
+        const keep = allowed.filter((root) => roots.includes(root));
+        if (keep.length === allowed.length) return;
+        await launch(keep);
+      });
+      chain = run.catch(() => undefined);
+      return run;
+    },
     request: (op, payload, timeoutMs) =>
       deps.channel.request(op, payload, timeoutMs),
   };
 }
 
 // ── 일 보내기 ─────────────────────────────────────────────────────────
-
-export type ContextCheckEnvironment = {
-  appCommands: ContextCheckRequest["app_commands"];
-  externalTypes: ContextCheckRequest["external_types"];
-};
 
 export type ContextsDispatchDeps = {
   process: ContextsProcess;
@@ -249,12 +259,10 @@ export type ContextsDispatchDeps = {
   >;
   // 좁은 machine 자격으로 command를 낸다.
   command(envelope: CommandEnvelope): Promise<Result<unknown>>;
-  // 검사 환경 중 core가 모르는 것: 앱 쪽이 알려 주는 앱 read 명령의 효과, 다른 context가 내놓는 public
-  // type(그 참조 형식은 아직 정해지지 않았다). 없으면 알려 줄 것이 없는 것이라 앱 데이터 type이나 다른
-  // context 참조가 든 판은 검사를 통과하지 못한다.
-  environment?(): Promise<ContextCheckEnvironment>;
   // scan을 위해 읽은 입력을 알린다. 변화 감시(contexts-watch.ts)가 감시 폴더를 이 입력에 맞춘다.
   observed?(input: ContextWorkInput): void;
+  // 활성 context와 아직 도는 검사의 목록(`context.work_list`). `recover`가 읽는다.
+  list?(): Promise<Result<ContextWorkList>>;
   // 단조 시계(ms). 기한과 2초 규칙만 쓴다.
   nowMs(): number;
   sleep?(ms: number): Promise<void>;
@@ -268,8 +276,12 @@ export type ContextsDispatcher = {
     context: string,
     options?: { force?: boolean },
   ): Promise<{ stale: boolean }>;
-  // bundle.submit이 받아들인 검사를 worker에 보낸다. 끝날 때까지(재시도 포함) 기다린다.
+  // bundle.submit이 받아들인 검사를 worker에 보낸다. 끝날 때까지(재시도 포함) 기다린다. 같은 check가
+  // 이미 보내지는 중이면 그 결과를 기다린다.
   runCheck(input: { context: string; check: string }): Promise<boolean>;
+  // core가 시작할 때 부른다: 결과를 받지 못해 아직 도는 검사(checking으로 남은 후보)를 다시 보낸다.
+  // 보낸 검사 수를 돌려준다. 목록을 읽지 못하면 0이고 다음 시작이 다시 시도한다.
+  recover(): Promise<number>;
   // `context.preview`: 만드는 중인 판을 지금 파일에 돌려 한 page를 돌려준다. 결과를 온전히 만들지 못하면
   // 부분 결과 없이 unavailable이다. 판단·파일·ledger·index는 바꾸지 않는다.
   preview(
@@ -415,8 +427,6 @@ export function createContextsDispatcher(
     if (!(await deps.process.ensure(read.value.roots))) {
       return err({ code: "unavailable", message: "context worker is down" });
     }
-    const environment = await deps.environment?.() ??
-      { appCommands: [], externalTypes: [] };
     const answered = await deps.process.request(
       CONTEXT_WORK_OPS.check,
       {
@@ -426,11 +436,9 @@ export function createContextsDispatcher(
         bundle_hash: candidate.bundle_hash,
         roots: read.value.roots,
         user_saved_views: read.value.user_saved_views,
-        external_types: [
-          ...read.value.external_types,
-          ...environment.externalTypes,
-        ],
-        app_commands: environment.appCommands,
+        // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
+        external_types: read.value.external_types,
+        app_commands: read.value.app_commands,
       },
       CONTEXT_CHECK_TIMEOUT_MS,
     );
@@ -453,7 +461,21 @@ export function createContextsDispatcher(
     return ok(parsed.data.status === "passed");
   }
 
-  async function runCheck(
+  const checking = new Map<string, Promise<boolean>>();
+
+  function runCheck(
+    input: { context: string; check: string },
+  ): Promise<boolean> {
+    const running = checking.get(input.check);
+    if (running !== undefined) return running;
+    const run = sendCheck(input);
+    checking.set(input.check, run);
+    const done = () => checking.delete(input.check);
+    run.then(done, done);
+    return run;
+  }
+
+  async function sendCheck(
     input: { context: string; check: string },
   ): Promise<boolean> {
     for (let attempt = 0;; attempt++) {
@@ -481,6 +503,22 @@ export function createContextsDispatcher(
     }
   }
 
+  async function recover(): Promise<number> {
+    const listed = await deps.list?.();
+    if (listed === undefined) return 0;
+    if (!listed.ok) {
+      deps.log?.(
+        `context.work_list: ${listed.error.code}: ${listed.error.message}`,
+      );
+      return 0;
+    }
+    const sent = listed.value.checks;
+    await Promise.all(
+      sent.map(({ context, check }) => runCheck({ context, check })),
+    );
+    return sent.length;
+  }
+
   async function preview(
     input: { context: string; bundle: string; cursor?: string },
   ): Promise<Result<ContextPreviewRead>> {
@@ -503,19 +541,15 @@ export function createContextsDispatcher(
     if (!(await deps.process.ensure(read.value.roots))) {
       return err({ code: "unavailable", message: "context worker is down" });
     }
-    const environment = await deps.environment?.() ??
-      { appCommands: [], externalTypes: [] };
     const answered = await deps.process.request(
       CONTEXT_WORK_OPS.preview,
       {
         context: input.context,
         draft: draft.content,
         roots: read.value.roots,
-        external_types: [
-          ...read.value.external_types,
-          ...environment.externalTypes,
-        ],
-        app_commands: environment.appCommands,
+        // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
+        external_types: read.value.external_types,
+        app_commands: read.value.app_commands,
       },
       CONTEXT_PREVIEW_TIMEOUT_MS,
     );
@@ -540,6 +574,7 @@ export function createContextsDispatcher(
   return {
     ensureFresh,
     runCheck,
+    recover,
     preview: (input) =>
       preview(input).catch((): Result<ContextPreviewRead> =>
         err({ code: "unavailable", message: "preview dispatch failed" })

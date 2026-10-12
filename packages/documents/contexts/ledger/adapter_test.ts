@@ -2,6 +2,7 @@
 // 같은지 본다. 시각은 두 쪽의 시계가 달라 "<at>"으로 바꿔 견주고, 시각 자체는 따로 시험한다.
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
+import { AGENT_RUNTIME_PRINCIPAL } from "../../../contracts/lophn-agent/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   bundleDiscardDraftRoute,
@@ -17,6 +18,7 @@ import {
   contextContractRoute,
   contextCreateRoute,
   contextDraftRoute,
+  contextEntityRoute,
   contextGetRoute,
   contextHandOffViolationsRoute,
   contextInputOptionsRoute,
@@ -68,6 +70,8 @@ import {
   contextLedgerReads,
   mapActor,
 } from "./adapter.ts";
+import { contentReference } from "./content-blobs.ts";
+import { contextWorkInputRead, contextWorkListRead } from "./work-input.ts";
 import {
   type LedgerFixture,
   ledgerFixture,
@@ -223,7 +227,6 @@ function sqlApi(
           ? err({ code: "internal", message: "blob is missing" })
           : ok(value as Record<string, unknown>);
       },
-      put: (_tx, value) => t.deps.putBlob(value),
     },
     index: {
       violations: (context) => violations.get(context) ?? [],
@@ -238,7 +241,12 @@ function sqlApi(
     },
     execute: () => [],
     hash: t.hash,
-    startHandOffRun: (_tx, request) => t.deps.startHandOffRun(request),
+    startHandOffRun: (_tx, request) => {
+      // 근거 blob은 호출 경계가 미리 준비한 것으로 본다(시험의 blob 저장소가 그 바이트다).
+      t.blobs.set(request.evidence.hash, request.evidenceValue);
+      const { registerContent: _register, ...plain } = request;
+      return t.deps.startHandOffRun(plain);
+    },
     isContextEngineer: (assignment) => assignment === id("asg", 1),
     appIds: () => [],
   };
@@ -268,6 +276,11 @@ function sqlApi(
         (tx) => def.handle(tx, ctx, input as never, (compare ?? {}) as never),
         ctx.actor,
       ) as Result<Output<typeof route>>;
+      // 초안 내용의 바이트도 호출 경계가 command 앞에 준비한다. 받아들여진 초안만 저장소에 둔다.
+      if (result.ok && route.name === bundleSaveDraftRoute.name) {
+        const content = (input as { content: unknown }).content;
+        t.blobs.set(contentReference(content).hash, content);
+      }
       transcript.push(plain({ call: `${route.name} by ${who}`, result }));
       return result;
     },
@@ -1412,26 +1425,19 @@ Deno.test("documents/contexts#R19 [ctx-I34a]: bundle content blobs are read only
   }
 });
 
-Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside the same transaction (the hand-off Run, a blob registration) take their own seqs, and the context events and row revisions get the real next seqs", () => {
+Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside the same transaction (the hand-off Run) take their own seqs, and the context events and row revisions get the real next seqs", () => {
   const foreign = { type: "ForeignEvent", payload: z.object({}) };
-  const sql = sqlApi({}, (base) => ({
+  const sql = sqlApi({}, () => ({
     startHandOffRun: (tx, request) => {
       const run = id("run", 500);
       tx.emit(foreign, run, {});
       assert(request.violations.length > 0);
       return run;
     },
-    blobs: {
-      read: (reference) => base.blobs.read(reference),
-      put: (tx, value) => {
-        tx.emit(foreign, "blob", {});
-        return base.blobs.put(tx, value);
-      },
-    },
   }));
   try {
     createContext(sql);
-    // save_draft: blob 등록 event가 먼저 나가고 DraftSaved가 그 다음 seq를 받는다
+    // save_draft: blob 등록은 event를 내지 않아 DraftSaved가 바로 다음 seq를 받는다
     const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
       context: ids.context,
       content: minimalContent(),
@@ -1442,14 +1448,13 @@ Deno.test("documents/contexts#R3 [ctx-I34a]: events another concern emits inside
       );
     assertEquals(sql.events().map((event) => event.type), [
       "ContextCreated",
-      "ForeignEvent",
       "ContextBundleDraftSaved",
     ]);
-    assertEquals(seqOf("ContextBundleDraftSaved"), ["103"]);
-    assertEquals(draft.revision, "103");
+    assertEquals(seqOf("ContextBundleDraftSaved"), ["102"]);
+    assertEquals(draft.revision, "102");
     assertEquals(
       sql.ledger.sql.get("SELECT revision FROM context_bundles", []),
-      { revision: "103" },
+      { revision: "102" },
     );
     // 판을 적용하고 위반을 넘긴다
     const submitted = value(
@@ -2118,5 +2123,766 @@ Deno.test("documents/contexts#R3 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: a
     assertEquals(api.ledger.emitted.length, events);
   } finally {
     world.api.ledger.close();
+  }
+});
+
+// context.work_list is an internal read core registers beside context.work_input, not a public route
+function workList(api: SqlApi, who: Who) {
+  return contextWorkListRead().handle(
+    api.ledger.snapshot(),
+    requestContext(actors[who].actor),
+    {},
+  );
+}
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list names the active contexts with their folders and applied hash, and the checks still running, for a machine only", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a", "/work/b"]);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    // active, applied
+    const applied = createContext(api);
+    const active = applyBundle(api, ids.context);
+    // drafting: nothing applied, nothing running
+    createContext(api, { id: id("ctx", 3), title: "Drafting" });
+    value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: id("ctx", 3),
+      content: minimalContent(),
+    }));
+    // a candidate still being checked (no result yet)
+    const waiting = createContext(api, { id: id("ctx", 4), title: "Waiting" });
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: waiting.id,
+      content: minimalContent(),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    assert(applied.id === ids.context);
+
+    const listed = value(workList(api, "worker"));
+    assertEquals(listed.contexts, [{
+      context: ids.context,
+      roots: ["/work/a", "/work/b"],
+      bundle_hash: active.submitted.bundle_hash,
+    }]);
+    assertEquals(listed.checks, [{
+      context: waiting.id,
+      check: submitted.check,
+      roots: ["/work/a", "/work/b"],
+    }]);
+    assertEquals(listed.next_cursor, null);
+
+    // a finished check leaves the list and the context joins the active ones
+    value(api.command(bundleFinishCheckRoute, "worker", {
+      check: submitted.check!,
+      result: "passed",
+      bundle_hash: submitted.bundle_hash!,
+      snapshot_hash: SNAPSHOT,
+      findings: [],
+      violation_count: 0,
+    }));
+    const after = value(workList(api, "worker"));
+    assertEquals(after.checks, []);
+    assertEquals(after.contexts.map((entry) => entry.context), [
+      ids.context,
+      waiting.id,
+    ]);
+
+    // not a machine
+    for (const who of ["user", "engineer"] as const) {
+      const refused = workList(api, who);
+      assertEquals(code(refused), "forbidden");
+    }
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: context.work_list leaves out the contexts of an archived project and gives a running check of one no folders", () => {
+  const api = sqlApi();
+  try {
+    api.ledger.seedFolders(ids.project, ["/work/a"]);
+    value(api.command(contextCreateRoute, "user", {
+      id: ids.otherContext,
+      project: ids.otherProject,
+      title: "Other",
+      purpose: "Another project",
+    }));
+    applyBundle(api, ids.otherContext);
+    api.ledger.seedFolders(ids.otherProject, ["/work/other"]);
+    createContext(api);
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    }));
+    value(api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }));
+    assertEquals(
+      value(workList(api, "worker")).contexts.map((
+        entry,
+      ) => entry.context),
+      [ids.otherContext],
+    );
+
+    api.ledger.archiveProject(ids.otherProject);
+    api.ledger.archiveProject(ids.project);
+    const listed = value(workList(api, "worker"));
+    assertEquals(listed.contexts, []);
+    assertEquals(listed.checks.map((entry) => entry.roots), [[]]);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+// ---------- agent runtime의 재료 읽기 (ctx-I56b) ----------
+
+// core가 runtime child에 주는 machine 자격의 모양이다: principal이 `machine:agent-runtime`이고 scope는 runtime이
+// 부르는 route 전부다(context.list·get·contract는 그중 셋이다).
+function runtimeContext(principal = AGENT_RUNTIME_PRINCIPAL): RequestContext {
+  return {
+    ...requestContext("machine", [
+      "context.list",
+      "context.get",
+      "context.contract",
+      "context.overview",
+      "run.read",
+    ]),
+    principal,
+  } as RequestContext;
+}
+
+function runtimeWorld() {
+  const api = sqlApi({}, () => ({
+    appIds: (slugs) => slugs.flatMap((slug) => APP_IDS[slug] ?? []),
+  }));
+  createContext(api);
+  const first = applyBundle(api, ids.context, readingApps("calendar"));
+  const second = applyBundle(api, ids.context, readingApps("calendar", "mail"));
+  createContext(api, { id: OTHER_CONTEXT, title: "Other" });
+  applyBundle(api, OTHER_CONTEXT, readingApps("mail"));
+  createContext(api, { id: id("ctx", 3), title: "Plain" });
+  applyBundle(api, id("ctx", 3), minimalContent());
+  const reads = new Map(
+    contextLedgerReads(api.deps).map((def) => [def.route.name, def]),
+  );
+  const read = (ctx: RequestContext, name: string, input: unknown) =>
+    reads.get(name)!.handle(
+      api.ledger.snapshot(),
+      ctx,
+      input as never,
+    ) as Result<Record<string, unknown>>;
+  return { api, read, first, second };
+}
+
+Deno.test("documents/contexts#R27 [ctx-I56b]: mapActor takes only the agent-runtime principal as the runtime machine, whatever operations it has", () => {
+  const deps = { isContextEngineer: () => false };
+  const mapped = (principal: string) => {
+    const result = mapActor(runtimeContext(principal), deps);
+    return result.ok ? result.value : result.error.code;
+  };
+  assertEquals(mapped(AGENT_RUNTIME_PRINCIPAL), actors.runtime);
+  // 다른 machine principal은 같은 operation을 가져도 예외가 아니다.
+  assertEquals(mapped("machine:agent-runtime-hosts"), actors.otherMachine);
+  assertEquals(mapped("machine:context-worker"), actors.otherMachine);
+  // context worker의 좁은 자격은 그대로 context_worker다.
+  assertEquals(
+    mapActor(requestContext("machine", WORKER_OPERATIONS), deps),
+    ok(actors.worker),
+  );
+});
+
+Deno.test("documents/contexts#R19 [ctx-I56b]: the runtime machine reads context.list, get and contract from the ledger and every other read is forbidden", () => {
+  const world = runtimeWorld();
+  try {
+    const { read } = world;
+    const runtime = runtimeContext();
+    const listed = read(runtime, "context.list", { project: ids.project });
+    assert(listed.ok, JSON.stringify(listed));
+    assertEquals((listed.value["contexts"] as unknown[]).length, 3);
+    assert(read(runtime, "context.get", { context: ids.context }).ok);
+    const contract = read(runtime, "context.contract", {
+      context: ids.context,
+    });
+    assert(contract.ok);
+    assertEquals(contract.value["bundle"], world.second.bundle.id);
+    for (
+      const [name, input] of [
+        ["context.overview", { context: ids.context }],
+        ["context.draft", { context: ids.context }],
+        ["context.bundles", { context: ids.context }],
+        ["glossary.list", { context: ids.context }],
+        ["context.violations", { context: ids.context }],
+      ] as const
+    ) {
+      const reply = read(runtime, name, input);
+      assert(!reply.ok, name);
+      assertEquals(reply.error.code, "forbidden", name);
+    }
+    // 다른 machine principal은 list도 못 읽는다.
+    const other = read(
+      runtimeContext("machine:agent-runtime-hosts"),
+      "context.list",
+      { project: ids.project },
+    );
+    assert(!other.ok);
+    assertEquals(other.error.code, "forbidden");
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R15 [ctx-I56b]: context.contract with a bundle reads that submitted bundle from the ledger, including a superseded one", () => {
+  const world = runtimeWorld();
+  try {
+    const { read, api } = world;
+    const runtime = runtimeContext();
+    const old = world.first.bundle.id;
+    const before = api.blobReads.length;
+    const reply = read(runtime, "context.contract", {
+      context: ids.context,
+      bundle: old,
+    });
+    assert(reply.ok, JSON.stringify(reply));
+    assertEquals(reply.value["bundle"], old);
+    assertEquals(reply.value["bundle_hash"], world.first.bundle.bundle_hash);
+    // 지금 적용된 판과 다른 내용이다(읽은 앱 수가 다르다).
+    const types = (reply.value["content"] as {
+      contract: { types: unknown[] };
+    }).contract.types;
+    const applied = read(runtime, "context.contract", { context: ids.context });
+    assert(applied.ok);
+    assertEquals(
+      (applied.value["content"] as { contract: { types: unknown[] } })
+        .contract.types.length - types.length,
+      1,
+    );
+    assert(api.blobReads.length - before > 0);
+    // 다른 context의 판, 없는 판은 not_found다.
+    const foreign = String(
+      api.ledger.sql.get(
+        "SELECT applied_bundle AS id FROM contexts WHERE id = ?",
+        [OTHER_CONTEXT],
+      )!.id,
+    );
+    for (const bundle of [foreign, ids.missingBundle]) {
+      const refused = read(runtime, "context.contract", {
+        context: ids.context,
+        bundle,
+      });
+      assert(!refused.ok);
+      assertEquals(refused.error.code, "not_found");
+    }
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R1 [ctx-I56b]: context.list with app returns the active contexts whose applied bundle reads that app, from context_app_data", () => {
+  const world = runtimeWorld();
+  try {
+    const { read } = world;
+    const ids_ = (ctx: RequestContext, input: unknown) => {
+      const reply = read(ctx, "context.list", input);
+      assert(reply.ok, JSON.stringify(reply));
+      return (reply.value["contexts"] as { id: string }[]).map((c) => c.id);
+    };
+    const runtime = runtimeContext();
+    // 제목 순: Experiments, Other. 첫 context는 두 번째 판에서 calendar와 mail을 모두 읽는다.
+    assertEquals(ids_(runtime, { app: CALENDAR }), [ids.context]);
+    assertEquals(ids_(runtime, { app: MAIL }), [ids.context, OTHER_CONTEXT]);
+    assertEquals(ids_(runtime, { app: id("app", 9) }), []);
+    assertEquals(
+      ids_(requestContext(actors.otherAgent.actor), { app: MAIL }),
+      [ids.context, OTHER_CONTEXT],
+    );
+    // 앱 하나에 묶인 agent는 자기 앱을 읽는 줄만 본다(app-bound 걸러내기가 그대로다).
+    const bound = world.api.read(contextListRoute, "otherAgent", { app: MAIL });
+    assert(bound.ok);
+    assertEquals(bound.value.contexts.length, 2);
+    // project 거르기는 그대로다.
+    assertEquals(ids_(runtime, { project: ids.project }).length, 3);
+  } finally {
+    world.api.ledger.close();
+  }
+});
+
+// ---------- content blob: 호출 경계가 준비하고 adapter는 등록만 한다 [ctx-I65] ----------
+
+const blobRefCount = (api: SqlApi) =>
+  api.ledger.sql.get("SELECT count(*) AS n FROM blob_refs", [])?.["n"];
+
+Deno.test("documents/contexts#R19 [ctx-I65]: save_draft registers the content ref as prepared by the caller, at the DraftSaved seq, and the deps have no put", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const content = minimalContent();
+    const draft = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    const reference = contentReference(content);
+    // 준비 증거의 주체가 요청 자격이고(platform이 현재 자격과 맞춘다) 목적은 context content다.
+    assertEquals(sql.ledger.registrations, [{
+      owner_kind: "context_content",
+      owner_key: reference.hash,
+      field: "content",
+      registered_seq: draft.revision,
+      source: {
+        kind: "prepared",
+        blob: {
+          preparation: reference.hash,
+          principal: actors.engineer.actor,
+          purpose: "context_content",
+          hash: reference.hash,
+          size_bytes: reference.size_bytes,
+        },
+      },
+    }]);
+    assertEquals(blobRefCount(sql), 1);
+    // 쓰는 길 자체가 없다: transaction 안에서 파일을 쓸 수 없다.
+    assertEquals("put" in sql.deps.blobs, false);
+    // 내용으로 주소를 정하므로 같은 값은 같은 hash다.
+    assertEquals(
+      contentReference({ b: 1, a: [2] }),
+      contentReference({ a: [2], b: 1 }),
+    );
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-I65]: saving the same content again re-registers nothing new", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const content = minimalContent();
+    const first = value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    value(
+      sql.command(bundleDiscardDraftRoute, "engineer", { bundle: first.id }, {
+        base_revision: first.revision,
+      }),
+    );
+    value(sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content,
+    }));
+    assertEquals(sql.ledger.registrations.length, 1);
+    assertEquals(blobRefCount(sql), 1);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R19 [ctx-I65]: content the caller did not prepare is refused and leaves no event, row or reference", () => {
+  const sql = sqlApi();
+  try {
+    createContext(sql);
+    const before = sql.ledger.dump();
+    const eventsBefore = sql.events().length;
+    sql.ledger.unprepared.value = true;
+    const refused = sql.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: minimalContent(),
+    });
+    assertEquals(code(refused), "invalid_input");
+    assertEquals(sql.ledger.dump(), before);
+    assertEquals(sql.events().length, eventsBefore);
+    assertEquals(sql.ledger.registrations.length, 0);
+    assertEquals(blobRefCount(sql), 0);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R25 [ctx-I65]: the hand-off evidence and request text are registered as the user prepared them, and a rolled-back hand-off leaves no reference", () => {
+  const body = { schema_version: 1, parts: [{ kind: "text", text: "go" }] };
+  let fail = false;
+  const sql = sqlApi({}, () => ({
+    startHandOffRun: (_tx, request) => {
+      const registered = request.registerContent(body);
+      assert(registered.ok);
+      // 같은 값을 다시 등록해도 새 참조를 만들지 않고 이미 있는 참조를 돌려준다.
+      const again = request.registerContent(body);
+      assertEquals(again, registered);
+      if (fail) throw new Error("no enabled Context Engineer");
+      return id("run", 700);
+    },
+  }));
+  try {
+    createContext(sql);
+    applyBundle(sql, ids.context);
+    sql.seedViolations(ids.context, [violation()]);
+    const refs = blobRefCount(sql);
+    const registered = sql.ledger.registrations.length;
+
+    fail = true;
+    let thrown = false;
+    try {
+      sql.command(contextHandOffViolationsRoute, "user", {
+        context: ids.context,
+      });
+    } catch {
+      thrown = true;
+    }
+    assert(thrown);
+    assertEquals(blobRefCount(sql), refs);
+    assertEquals(sql.ledger.registrations.length, registered);
+    assert(
+      !sql.events().some((event) =>
+        event.type === "ContextViolationsHandedOff"
+      ),
+    );
+
+    fail = false;
+    const handed = value(sql.command(contextHandOffViolationsRoute, "user", {
+      context: ids.context,
+    }));
+    assertEquals(handed.run, id("run", 700));
+    const added = sql.ledger.registrations.slice(registered);
+    // 근거(adapter가 handler 뒤에 등록)와 요청 글(deps가 요청 중에 등록)이 모두 user가 준비한 바이트다.
+    assertEquals(added.length, 2);
+    for (const reference of added) {
+      assert(reference.source.kind === "prepared");
+      assertEquals(reference.source.blob.principal, "person");
+      assertEquals(reference.source.blob.purpose, "context_content");
+    }
+    assertEquals(
+      added.map((reference) => reference.owner_key).includes(
+        contentReference(body).hash,
+      ),
+      true,
+    );
+    assertEquals(blobRefCount(sql), Number(refs) + 2);
+  } finally {
+    sql.ledger.close();
+  }
+});
+
+// ---------- 검사 환경: 다른 context의 type과 앱 command 효과 (ctx-I36) ----------
+
+// 문서 type 하나. field는 id 하나다.
+function docsType(name: string, visibility: "public" | "private") {
+  return {
+    name,
+    summary: `${name} documents`,
+    visibility,
+    source: { kind: "docs", paths: [`${name.toLowerCase()}/*.md`] },
+    key: "id",
+    fields: [{
+      name: "id",
+      from: { kind: "path", capture: "file" },
+      value_type: "string",
+      required: false,
+      visibility,
+    }, {
+      name: "weight",
+      from: { kind: "frontmatter", key: "weight" },
+      value_type: "number",
+      required: false,
+      visibility: "private",
+    }],
+    relations: [],
+    rules: [],
+  };
+}
+
+function appDataType(name: string, app: string, command: string) {
+  return {
+    name,
+    summary: `${name} from ${app}`,
+    visibility: "private",
+    source: { kind: "app-data", app, command, result_path: ["items"] },
+    key: "id",
+    fields: [{
+      name: "id",
+      from: { kind: "item", key_path: ["id"] },
+      value_type: "string",
+      required: false,
+      visibility: "private",
+    }],
+    relations: [],
+    rules: [],
+  };
+}
+
+const contentOf = (...types: unknown[]) => ({
+  schema: 1,
+  contract: { types },
+  searches: [],
+  saved_views: [],
+  examples: [],
+});
+
+const RUBRICS = id("ctx", 2);
+const DRAFTING = id("ctx", 3);
+const OLD = id("ctx", 4);
+const ELSEWHERE = id("ctx", 5);
+
+function environmentApi() {
+  const api = sqlApi({}, () => ({
+    appCommandEffect: (app, command) =>
+      app !== "calendar"
+        ? undefined
+        : ({ "events.list": "read", "events.create": "write" } as const)[
+          command as "events.list"
+        ],
+  }));
+  api.ledger.seedFolders(ids.project, ["/work/a"]);
+  createContext(api);
+  createContext(api, { id: RUBRICS, title: "rubrics" });
+  applyBundle(
+    api,
+    RUBRICS,
+    contentOf(docsType("Rubric", "public"), docsType("Draft", "private")),
+  );
+  createContext(api, { id: DRAFTING, title: "Drafting" });
+  value(api.command(bundleSaveDraftRoute, "engineer", {
+    context: DRAFTING,
+    content: contentOf(docsType("Notes", "public")),
+  }));
+  createContext(api, { id: OLD, title: "Old" });
+  applyBundle(api, OLD, contentOf(docsType("Legacy", "public")));
+  const old = value(api.read(contextGetRoute, "user", { context: OLD }))
+    .context;
+  value(api.command(contextArchiveRoute, "user", { context: OLD }, {
+    base_revision: old.revision,
+  }));
+  value(api.command(contextCreateRoute, "user", {
+    id: ELSEWHERE,
+    project: ids.otherProject,
+    title: "elsewhere",
+    purpose: "Another project",
+  }));
+  applyBundle(api, ELSEWHERE, contentOf(docsType("Stranger", "public")));
+  return api;
+}
+
+function workInput(
+  api: SqlApi,
+  input: { context: string; check?: string; bundle?: string },
+) {
+  return contextWorkInputRead(api.deps).handle(
+    api.ledger.snapshot(),
+    requestContext(actors.worker.actor),
+    input,
+  );
+}
+
+Deno.test("documents/contexts#R14 [ctx-I36]: context.work_input gives a check the types of the other active contexts of its project, private ones marked, and nobody else's", () => {
+  const api = environmentApi();
+  try {
+    applyBundle(api, ids.context, contentOf(docsType("Own", "public")));
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: contentOf(docsType("Own", "public")),
+    }));
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    const input = value(workInput(api, {
+      context: ids.context,
+      check: submitted.check!,
+    }));
+    // rubrics만이다: 자기 자신, drafting, archived, 다른 project의 context는 없다.
+    assertEquals(input.external_types, [
+      {
+        context: "rubrics",
+        name: "Rubric",
+        visibility: "public",
+        key: "id",
+        fields: [
+          { name: "id", visibility: "public", value_type: "string" },
+          { name: "weight", visibility: "private", value_type: "number" },
+        ],
+      },
+      {
+        context: "rubrics",
+        name: "Draft",
+        visibility: "private",
+        key: "id",
+        fields: [
+          { name: "id", visibility: "private", value_type: "string" },
+          { name: "weight", visibility: "private", value_type: "number" },
+        ],
+      },
+    ]);
+    assertEquals(input.app_commands, []);
+
+    // 적용 판만 묻는 입력(index)은 환경을 쓰지 않는다.
+    const applied = value(workInput(api, { context: ids.context }));
+    assertEquals(applied.external_types, []);
+    assertEquals(applied.app_commands, []);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R12 [ctx-I36]: context.work_input gives a check and a preview the effect of each app command the contract reads, and leaves out the ones the app does not declare", () => {
+  const api = environmentApi();
+  try {
+    const reading = contentOf(
+      appDataType("Event", "calendar", "events.list"),
+      appDataType("Created", "calendar", "events.create"),
+      appDataType("Again", "calendar", "events.list"),
+      appDataType("Gone", "calendar", "events.drop"),
+      appDataType("Mail", "mail", "inbox"),
+    );
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: reading,
+    }));
+    // preview: draft 판
+    const previewed = value(workInput(api, {
+      context: ids.context,
+      bundle: draft.id,
+    }));
+    const expected = [
+      { app: "calendar", command: "events.create", effect: "write" },
+      { app: "calendar", command: "events.list", effect: "read" },
+    ];
+    assertEquals(previewed.app_commands, expected);
+    assertEquals(
+      previewed.external_types.map((type) => `${type.context}/${type.name}`),
+      ["rubrics/Rubric", "rubrics/Draft"],
+    );
+    // check: 후보 판
+    const submitted = value(
+      api.command(bundleSubmitRoute, "engineer", { bundle: draft.id }),
+    );
+    const checked = value(workInput(api, {
+      context: ids.context,
+      check: submitted.check!,
+    }));
+    assertEquals(checked.app_commands, expected);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R12 [ctx-I36]: without an app registration no command effect is given and the check sees the command as unknown", () => {
+  const api = sqlApi();
+  try {
+    createContext(api);
+    const draft = value(api.command(bundleSaveDraftRoute, "engineer", {
+      context: ids.context,
+      content: contentOf(appDataType("Event", "calendar", "events.list")),
+    }));
+    const input = value(workInput(api, {
+      context: ids.context,
+      bundle: draft.id,
+    }));
+    assertEquals(input.app_commands, []);
+    assertEquals(input.external_types, []);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+// ---------- context.entity가 다른 context의 관계 대상을 읽는다 (ctx-I36) ----------
+
+function gradedContent(to: string) {
+  const experiment = docsType("Experiment", "public");
+  return contentOf({
+    ...experiment,
+    fields: [
+      ...experiment.fields,
+      {
+        name: "rubric",
+        from: { kind: "frontmatter", key: "rubric" },
+        value_type: "string",
+        required: false,
+        visibility: "private",
+      },
+    ],
+    relations: [{
+      name: "graded_by",
+      label: "graded by",
+      to,
+      via: "rubric",
+      cardinality: "optional",
+      visibility: "private",
+    }],
+  });
+}
+
+const rubricRow = (key: string): EntityRow => ({
+  type: "Rubric",
+  key,
+  path: `rubric/${key}.md`,
+  section: null,
+  fields: { id: key },
+  links: [],
+});
+
+function entityWorld(to = "rubrics/Rubric") {
+  const api = environmentApi();
+  applyBundle(api, ids.context, gradedContent(to));
+  api.seedEntities(ids.context, [{
+    type: "Experiment",
+    key: "001",
+    path: "experiment/001.md",
+    section: null,
+    fields: { id: "001", rubric: "quality" },
+    links: [{ relation: "graded_by", target_key: "quality" }],
+  }]);
+  api.seedEntities(RUBRICS, [rubricRow("quality"), rubricRow("speed")]);
+  return api;
+}
+
+const gradedTargets = (api: SqlApi) => {
+  const read = value(api.read(contextEntityRoute, "user", {
+    context: ids.context,
+    type: "Experiment",
+    key: "001",
+  }));
+  return read.relations.find((relation) => relation.name === "graded_by")!
+    .targets;
+};
+
+Deno.test("documents/contexts#R14 #R16 [ctx-I36]: context.entity reads the target of a relation to another context from that context's index and names the context in the ref", () => {
+  const api = entityWorld();
+  try {
+    assertEquals(gradedTargets(api), [{
+      context: RUBRICS,
+      type: "Rubric",
+      key: "quality",
+      path: "rubric/quality.md",
+      section: null,
+    }]);
+  } finally {
+    api.ledger.close();
+  }
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a relation to a context that is missing, archived, in another project, drafting or has the type private or absent has no targets", () => {
+  for (
+    const to of [
+      "ghost/Rubric",
+      "Old/Legacy",
+      "elsewhere/Stranger",
+      "Drafting/Notes",
+      "rubrics/Draft",
+      "rubrics/Missing",
+    ]
+  ) {
+    const api = entityWorld(to);
+    try {
+      assertEquals(gradedTargets(api), [], to);
+    } finally {
+      api.ledger.close();
+    }
+  }
+});
+
+Deno.test("documents/contexts#R14 [ctx-I36]: a target the other context's index does not have is skipped", () => {
+  const api = entityWorld();
+  try {
+    api.seedEntities(RUBRICS, [rubricRow("speed")]);
+    assertEquals(gradedTargets(api), []);
+  } finally {
+    api.ledger.close();
   }
 });

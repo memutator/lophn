@@ -1,6 +1,7 @@
 // context worker와 core 사이의 계약(docs/architecture/documents.md 2.4). 공개 route가 아니다.
 // - 감독 pipe의 worker_request: `context.index`, `context.check`의 요청과 답.
 // - core가 요청을 만들 때 reader Worker에서 읽는 내부 read `context.work_input`.
+// - core가 시작할 때와 감시 집합을 정할 때 읽는 내부 read `context.work_list`.
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 낼 command(`context.record_violations`,
 // `bundle.finish_check`)는 답에 실어 보내고, core가 좁은 machine 자격으로 낸다.
 import { z } from "zod";
@@ -38,7 +39,8 @@ const savedViewSchema = z.strictObject({
   inputs: z.record(z.string(), z.unknown()),
 });
 
-// 같은 project의 다른 context가 내놓은 type(validate의 ExternalType).
+// 같은 project의 다른 active context가 적용한 판의 type(validate의 ExternalType). context는 그 context의
+// title이고 관계의 `<title>/<Type>` 참조가 이것으로 찾는다.
 const externalTypeSchema = z.strictObject({
   context: z.string().min(1),
   name: contractTypeNameSchema,
@@ -51,7 +53,7 @@ const externalTypeSchema = z.strictObject({
   })),
 });
 
-// 앱 read 명령의 효과. 앱 데이터는 읽지 않고 계약이 가리키는 명령의 효과만 검사한다.
+// 앱 command 선언의 효과(앱 등록의 active release). 앱 데이터는 읽지 않고 계약이 가리키는 command의 효과만 검사한다.
 const appCommandSchema = z.strictObject({
   app: z.string().min(1),
   command: z.string().min(1),
@@ -170,7 +172,9 @@ export const contextWorkInputReadSchema = withReadCommon(z.object({
     content: z.record(z.string(), z.unknown()),
   }).nullable(),
   user_saved_views: z.array(savedViewSchema),
+  // 검사할 판(후보 또는 draft)이 읽는 다른 context의 type과 앱 command 효과. 적용 판만 묻는 입력(index)은 비어 있다.
   external_types: z.array(externalTypeSchema),
+  app_commands: z.array(appCommandSchema),
 }));
 export type ContextWorkInput = z.infer<typeof contextWorkInputReadSchema>;
 
@@ -189,4 +193,37 @@ export const contextWorkInputRoute = defineRead({
     "unavailable",
     "internal",
   ],
+});
+
+// ---------- core가 읽는 내부 목록 `context.work_list` ----------
+
+// 활성 context(보관되지 않은 project의 것)와 아직 도는 검사의 목록이다. core가 시작할 때 도는 검사를
+// 다시 보내고, 변화 감시가 감시할 context를 정하고, worker가 읽을 폴더 집합을 맞추는 데 쓴다. 내용(blob)은
+// 읽지 않는다. 필요한 context는 `context.work_input`으로 따로 읽는다.
+export const contextWorkListRequestSchema = z.strictObject({});
+export const contextWorkListReadSchema = withReadCommon(z.object({
+  // 적용 판이 있는 context. 보관된 project의 context는 없다. context id 순.
+  contexts: z.array(z.strictObject({
+    context: ctxIdSchema,
+    roots: rootsSchema,
+    bundle_hash: sha256Schema,
+  })),
+  // 아직 결과가 나지 않은 검사(검사 중인 판의 running check). 시작 순.
+  checks: z.array(z.strictObject({
+    context: ctxIdSchema,
+    check: checkIdSchema,
+    roots: rootsSchema,
+  })),
+}));
+export type ContextWorkList = z.infer<typeof contextWorkListReadSchema>;
+
+// 공개 route 목록(CONTEXT_API_ROUTES)에 넣지 않는다. core가 소유자로 읽는 내부 read다.
+export const contextWorkListRoute = defineRead({
+  resource: "contexts",
+  method: "work_list",
+  name: "context.work_list",
+  input: contextWorkListRequestSchema,
+  output: contextWorkListReadSchema,
+  actors: ["machine"],
+  errors: ["unavailable", "internal"],
 });

@@ -12,6 +12,7 @@ import {
 import {
   bundleContentSchema,
   type ContextWorkInput,
+  type ContextWorkList,
 } from "../../packages/contracts/documents/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -19,15 +20,23 @@ import {
   fakeTimer,
   fakeWatchFs,
 } from "../../packages/documents/contexts/watch/testing.ts";
-import { sampleEnv } from "../../packages/documents/contexts/validate/sample.ts";
 import { createContextsWatch } from "./contexts-watch.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
+import { seedLedger } from "./testing/app-export-fixtures.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
+import {
+  CALENDAR_BLUEPRINT,
+  RUBRICS_CONTEXT,
+  RUBRICS_TITLE,
+  rubricsContract,
+  writeRubricFiles,
+} from "./contexts-testing.ts";
 
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -144,26 +153,17 @@ async function open(
       { createLedgerRegistration },
       { lophnAgentDefinitions },
       { createLedgerRegistration: createLophnAgentRegistration },
+      // 앱 등록: 검사 환경의 앱 command 효과는 앱 registry(apps·releases 표)에서 읽는다.
+      { createLedgerRegistration: createAppsRegistration },
     ],
     teamModules: [
       new URL("./documents.ts", import.meta.url).href,
       new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./apps.ts", import.meta.url).href,
     ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(41),
     testCredentials: true,
-    // 앱 쪽이 알려 주는 앱 read 명령의 효과(fixture 계약의 app-data type이 가리키는 명령)와 다른
-    // context의 public type(fixture 관계의 `rubrics/Rubric`).
-    contextCheckEnvironment: () =>
-      Promise.resolve({
-        appCommands: [
-          { app: "calendar", command: "events.list", effect: "read" as const },
-        ],
-        externalTypes: sampleEnv().externalTypes.map((type) => ({
-          ...type,
-          fields: [...type.fields],
-        })),
-      }),
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
   await using guard = closeUnlessKept(async () => {
@@ -252,8 +252,22 @@ async function withCore(
     await Deno.makeTempDir({ prefix: "lophn-contexts-worker-project-" }),
   );
   await copyFixture(folder);
+  await writeRubricFiles(folder);
   const core = await open(home, folder);
   try {
+    // fixture 계약이 기대는 환경을 진짜 데이터로 둔다: 같은 Project의 `rubrics` context와 앱 `calendar`.
+    seedLedger(home, CALENDAR_BLUEPRINT, "b".repeat(64), 0);
+    await submit(core, rubricsContract(), "rubrics", {
+      id: RUBRICS_CONTEXT,
+      title: RUBRICS_TITLE,
+    });
+    await until("the rubrics bundle", async () => {
+      const history = await post(core, "user", "contexts/bundles", {
+        context: RUBRICS_CONTEXT,
+      });
+      const first = (history.body["bundles"] as { bundle: Json }[])[0];
+      return first?.bundle["status"] === "checking" ? undefined : first;
+    }).then((done) => assertEquals(done.bundle["status"], "applied"));
     await run(core, home, folder);
   } finally {
     await core.shutdown();
@@ -277,15 +291,20 @@ async function until<T>(
 }
 
 // 초안 저장 → 제출. worker가 검사를 끝낼 때까지 기다리지 않는다.
-async function submit(core: Core, content: Json, key: string): Promise<void> {
+async function submit(
+  core: Core,
+  content: Json,
+  key: string,
+  target = { id: CONTEXT, title: "Evaluation" },
+): Promise<void> {
   const created = await post(
     core,
     "user",
     "contexts/create",
     command({
-      id: CONTEXT,
+      id: target.id,
       project: PROJECT,
-      title: "Evaluation",
+      title: target.title,
       purpose: "Experiments and their findings",
     }, `create-${key}`),
   );
@@ -294,7 +313,7 @@ async function submit(core: Core, content: Json, key: string): Promise<void> {
     core,
     "engineer",
     "contexts/save_draft",
-    command({ context: CONTEXT, content }, `draft-${key}`),
+    command({ context: target.id, content }, `draft-${key}`),
   );
   assertEquals(draft.status, 200, JSON.stringify(draft.body));
   const submitted = await post(
@@ -380,6 +399,7 @@ function inputOf(
     candidate: null,
     user_saved_views: [],
     external_types: [],
+    app_commands: [],
     as_of_seq: "1",
     next_cursor: null,
     complete: true,
@@ -395,9 +415,24 @@ function setup(
   const caught: string[] = [];
   const opened: string[] = [];
   let active = [...inputs.keys()];
+  const reads: string[] = [];
   const watch = createContextsWatch({
-    listActive: () => Promise.resolve(ok(active)),
+    list: () =>
+      Promise.resolve(ok({
+        contexts: active.map((context) => {
+          const input = inputs.get(context);
+          return {
+            context,
+            roots: input?.roots ?? ["/p"],
+            bundle_hash: input?.applied?.bundle_hash ?? "a".repeat(64),
+          };
+        }),
+        checks: [],
+        as_of_seq: "1",
+        next_cursor: null,
+      } as ContextWorkList)),
     readInput: ({ context }): Promise<Result<ContextWorkInput>> => {
+      reads.push(context);
       const input = inputs.get(context);
       return Promise.resolve(
         input === undefined
@@ -421,6 +456,7 @@ function setup(
     watchFs,
     caught,
     opened,
+    reads,
     inputs,
     setActive: (next: string[]) => active = next,
   };
@@ -556,6 +592,7 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: a project command re-reads the acti
   );
   const { watch, watchFs } = state;
   await watch.start();
+  assertEquals(state.reads.sort(), [CTX_A, CTX_B]);
 
   state.setActive([CTX_A]);
   watch.onCommand("project.archive", { project: "prj_x" });
@@ -564,6 +601,8 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: a project command re-reads the acti
     watchFs.watchers.map((w) => [w.path, w.closed]),
     [["/p/docs", false], ["/p/plans", true]],
   );
+  // the list already says the remaining context's folders and bundle are the same: its contract is not read again
+  assertEquals(state.reads.length, 2);
 
   // 관계없는 command는 아무것도 읽지 않는다.
   watch.onCommand("document.create", {});
@@ -590,4 +629,32 @@ Deno.test("documents/contexts#R23 [ctx-T9d]: stopping closes every watcher and l
   watch.observe(inputOf(CTX_A, ["docs/*.md"]));
   await flush();
   assertEquals(watchFs.watchers.length, 1);
+});
+
+Deno.test("documents/contexts#R23 [ctx-I67]: the watch asks for the list, reads a contract only when its context's folders or bundle changed, and a context without folders is not watched", async () => {
+  const state = setup(
+    new Map([
+      [CTX_A, inputOf(CTX_A, ["docs/*.md"])],
+      [CTX_B, inputOf(CTX_B, ["plans/*.md"], [])],
+    ]),
+  );
+  await state.watch.start();
+  assertEquals(state.reads, [CTX_A]);
+  assertEquals([...state.watch.watching().keys()], [CTX_A]);
+
+  // a project command with the same list reads nothing
+  state.watch.onCommand("project.update", { project: "prj_x" });
+  await flush();
+  assertEquals(state.reads, [CTX_A]);
+
+  // another folder or another bundle reads that context again
+  state.inputs.set(CTX_A, inputOf(CTX_A, ["docs/*.md"], ["/p", "/q"]));
+  state.watch.onCommand("project.update", { project: "prj_x" });
+  await flush();
+  assertEquals(state.reads, [CTX_A, CTX_A]);
+  assertEquals(
+    state.watchFs.watchers.filter((w) => !w.closed).map((w) => w.path).sort(),
+    ["/p/docs", "/q/docs"],
+  );
+  state.watch.stop();
 });

@@ -39,6 +39,7 @@ import type {
   Output,
   ReadRoute,
   ReadSnapshot,
+  RequestContext,
   Tx,
 } from "../../../contracts/platform/mod.ts";
 import type { ContextApiActor } from "../api/state.ts";
@@ -56,6 +57,7 @@ export type CommandEntry<R extends CommandRoute = CommandRoute> = {
   run(
     deps: ContextLedgerDeps,
     tx: Tx,
+    ctx: RequestContext,
     actor: ContextApiActor,
     input: Input<R>,
     compare: Compare<R>,
@@ -78,8 +80,8 @@ const command = <R extends CommandRoute>(
   plan: CommandSpec<R>["plan"],
 ): CommandEntry<R> => ({
   route,
-  run: (deps, tx, actor, input, compare) =>
-    runCommand({ handler, plan }, deps, tx, actor, input, compare),
+  run: (deps, tx, ctx, actor, input, compare) =>
+    runCommand({ handler, plan }, deps, tx, ctx, actor, input, compare),
 });
 
 const read = <R extends ReadRoute>(
@@ -220,7 +222,10 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
   read(
     contextListRoute,
     (r) => r.contextList,
-    (_sql, input) => ({ project: input.project, bundles: true }),
+    (_sql, input) =>
+      input.project !== undefined
+        ? { project: input.project, bundles: true }
+        : { app: input.app, bundles: true },
   ),
   read(
     contextGetRoute,
@@ -243,7 +248,9 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
     (_sql, input) => ({
       context: input.context,
       bundles: true,
-      content: "applied",
+      content: input.bundle === undefined
+        ? "applied"
+        : { bundle: input.bundle },
     }),
   ),
   read(

@@ -142,8 +142,28 @@ Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R2 lophn-agent/c
     assert(restored.ok);
     assertEquals(restored.value[0]!.archived, false);
 
-    // Fork는 마지막 확정 메시지까지 복사한 새 session이다.
+    // 모델이 없어 run은 시작하지 못하고 접수된 채로 있다. 일이 끝나지 않은 session은 Fork할 수 없다(R9).
+    const working = await source.thread(session);
+    assert(working.ok && working.value.run !== null);
+    assertEquals(working.value.run.phase, "working");
     const fork = newId("ses");
+    assertEquals(
+      await source.forkSession({ id: fork, session, through: null }),
+      { ok: false, code: "conflict" },
+    );
+    assertEquals(await source.stop(working.value.run.id, newId("stop")), {
+      ok: true,
+      value: undefined,
+    });
+    const stopped = await source.thread(session);
+    assert(stopped.ok);
+    assertEquals(stopped.value.run?.phase, "ended");
+    assertEquals(
+      stopped.value.entries.map((entry) => entry.kind),
+      ["message", "run-end"],
+    );
+
+    // Fork는 마지막 확정 메시지까지 복사한 새 session이다.
     assertEquals(
       await source.forkSession({ id: fork, session, through: null }),
       { ok: true, value: undefined },

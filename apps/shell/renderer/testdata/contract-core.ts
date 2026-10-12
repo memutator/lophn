@@ -2,6 +2,7 @@
 // test는 이것으로 source가 보낸 입력이 실제 core가 받을 모양인지, fake의 응답이 실제 core가 낼 모양인지
 // 확인한다. 어긋남은 호출을 막지 않고 violations에 모은다(source가 오류로 삼켜 가리지 않게). test 끝에서
 // `verify()`로 한 번에 단언한다.
+import { z } from "zod";
 import { ALL_ROUTES } from "../../../../packages/contracts/mod.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import type { CoreReply } from "../../ipc/core-api.ts";
@@ -101,9 +102,12 @@ export function contractCore(
             prepared?: unknown;
           };
           parse(`${key} input`, route.input, body.input);
-          if (route.compare !== undefined) {
-            parse(`${key} compare`, route.compare, body.compare);
-          }
+          // 비교 기준을 선언하지 않은 route의 기본은 빈 객체다(commandRequestSchema).
+          parse(
+            `${key} compare`,
+            route.compare ?? z.strictObject({}),
+            body.compare,
+          );
           if (
             typeof body.idempotency_key !== "string" ||
             body.idempotency_key === ""

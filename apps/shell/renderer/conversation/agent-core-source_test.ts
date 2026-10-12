@@ -32,6 +32,7 @@ import {
   WORK_PLACE,
 } from "../testdata/agent-core-fixtures.ts";
 import {
+  type ContractCore,
   contractCore,
   fail,
   type Handlers,
@@ -177,6 +178,17 @@ const DEPS: AgentCoreDeps = {
   confirmWithoutWindow: undefined,
 };
 
+const live: ContractCore[] = [];
+
+/** 각 test가 끝나면 그 안에서 만든 fake core의 입력·응답이 contract에 맞았는지 확인한다. */
+function test(name: string, run: () => void | Promise<void>): void {
+  Deno.test(name, async () => {
+    live.length = 0;
+    await run();
+    for (const harness of live) harness.verify();
+  });
+}
+
 function sourceOf(
   handlers: Handlers,
   place: { kind: "global" | "project" | "app"; id: string } = {
@@ -187,6 +199,7 @@ function sourceOf(
   assignmentId: string = LOPHN,
 ) {
   const harness = contractCore(handlers, CHECKED);
+  live.push(harness);
   const source = coreAgentViewSourceFactory(harness.core, deps)({
     assignment: assignmentId,
     place,
@@ -223,7 +236,7 @@ function eventsFor(
 
 // ---------------------------------------------------------------- agent
 
-Deno.test("shell/desktop#R38 shell/desktop#R43 [agent-I33b]: agent는 담당·정의 목록·자리·권한 규칙을 읽어 이름·얼굴·자리 이름·권한 요약으로 옮긴다", async () => {
+test("shell/desktop#R38 shell/desktop#R43 [agent-I33b]: agent는 담당·정의 목록·자리·권한 규칙을 읽어 이름·얼굴·자리 이름·권한 요약으로 옮긴다", async () => {
   const w = sourceOf(world());
   const face = await w.source.agent();
   assertEquals(face, {
@@ -243,7 +256,7 @@ Deno.test("shell/desktop#R38 shell/desktop#R43 [agent-I33b]: agent는 담당·�
   w.verify();
 });
 
-Deno.test("shell/desktop#R43 [agent-I33b]: 허락한 tool이 없으면 요약은 Ask first뿐이고 앱 자리는 app을 읽어 앱 이름을 쓴다", async () => {
+test("shell/desktop#R43 [agent-I33b]: 허락한 tool이 없으면 요약은 Ask first뿐이고 앱 자리는 app을 읽어 앱 이름을 쓴다", async () => {
   const w = sourceOf(
     world({
       "read:agents/read": () => ok(agentRead([])),
@@ -267,7 +280,7 @@ Deno.test("shell/desktop#R43 [agent-I33b]: 허락한 tool이 없으면 요약은
   w.verify();
 });
 
-Deno.test("lophn-agent/assignments#R5 shell/desktop#R38 [agent-I33b]: 회수된 담당은 withdrawn으로, 없는 담당은 not_found로 알리고 이미지 profile은 이름 이니셜로 그린다", async () => {
+test("lophn-agent/assignments#R5 shell/desktop#R38 [agent-I33b]: 회수된 담당은 withdrawn으로, 없는 담당은 not_found로 알리고 이미지 profile은 이름 이니셜로 그린다", async () => {
   const withdrawn = sourceOf(world({
     "read:assignments/read": () =>
       ok({ assignment: assignment({ state: "withdrawn" }), ...META }),
@@ -291,7 +304,7 @@ Deno.test("lophn-agent/assignments#R5 shell/desktop#R38 [agent-I33b]: 회수된 
   assertEquals(await gone.source.agent(), { ok: false, code: "not_found" });
 });
 
-Deno.test("shell/desktop#R38 [agent-I33b]: 전역 자리에서는 정의 목록을 자리 없이 읽지 않고 built-in 이름을 쓰며 자리 이름은 비어 있다", async () => {
+test("shell/desktop#R38 [agent-I33b]: 전역 자리에서는 정의 목록을 자리 없이 읽지 않고 built-in 이름을 쓰며 자리 이름은 비어 있다", async () => {
   const w = sourceOf(
     world(),
     { kind: "global", id: "" },
@@ -303,7 +316,7 @@ Deno.test("shell/desktop#R38 [agent-I33b]: 전역 자리에서는 정의 목록�
   assertEquals(routesOf(w.calls), ["read:assignments/read"]);
 });
 
-Deno.test("shell/desktop#R38 [agent-I33b]: Operator는 정의 목록의 이름과 얼굴을 쓴다", async () => {
+test("shell/desktop#R38 [agent-I33b]: Operator는 정의 목록의 이름과 얼굴을 쓴다", async () => {
   const w = sourceOf(
     world({
       "read:assignments/read": () =>
@@ -343,7 +356,7 @@ Deno.test("shell/desktop#R38 [agent-I33b]: Operator는 정의 목록의 이름�
 
 // ---------------------------------------------------------------- sessions
 
-Deno.test("lophn-agent/conversation#R21 shell/desktop#R39 [agent-I33b]: session 목록은 그 담당·자리의 archived까지 읽고 마지막 run의 상태와 시각을 줄에 싣는다", async () => {
+test("lophn-agent/conversation#R21 shell/desktop#R39 [agent-I33b]: session 목록은 그 담당·자리의 archived까지 읽고 마지막 run의 상태와 시각을 줄에 싣는다", async () => {
   const w = sourceOf(world({
     "read:runs/list": () =>
       ok(listed("runs", [
@@ -398,7 +411,7 @@ Deno.test("lophn-agent/conversation#R21 shell/desktop#R39 [agent-I33b]: session 
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R21 [agent-I33b]: run이 없는 session의 시각은 그 session의 마지막 변경 event 시각이고 닫힌 session은 closed다", async () => {
+test("lophn-agent/conversation#R21 [agent-I33b]: run이 없는 session의 시각은 그 session의 마지막 변경 event 시각이고 닫힌 session은 closed다", async () => {
   const w = sourceOf(world({
     "read:sessions/list": () =>
       ok(listed("sessions", [
@@ -422,7 +435,7 @@ Deno.test("lophn-agent/conversation#R21 [agent-I33b]: run이 없는 session의 �
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R16 [agent-I33b]: 전역 자리에는 session이 없어 core에 묻지 않고, 열기도 거절한다", async () => {
+test("lophn-agent/conversation#R16 [agent-I33b]: 전역 자리에는 session이 없어 core에 묻지 않고, 열기도 거절한다", async () => {
   const w = sourceOf(world(), { kind: "global", id: "" });
   assertEquals(await w.source.sessions(), { ok: true, value: [] });
   assertEquals(
@@ -432,7 +445,7 @@ Deno.test("lophn-agent/conversation#R16 [agent-I33b]: 전역 자리에는 sessio
   assertEquals(w.calls.length, 0);
 });
 
-Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R16 [agent-I33b]: session 열기는 그 담당의 revision과 상태, 이 자리를 싣고 같은 id면 같은 key다", async () => {
+test("lophn-agent/conversation#R1 lophn-agent/conversation#R16 [agent-I33b]: session 열기는 그 담당의 revision과 상태, 이 자리를 싣고 같은 id면 같은 key다", async () => {
   const opened = session(9, { state_seq: "90" });
   const w = sourceOf(world({
     "command:sessions/open": () =>
@@ -464,7 +477,7 @@ Deno.test("lophn-agent/conversation#R1 lophn-agent/conversation#R16 [agent-I33b]
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R8 [agent-I33b]: 멈춘 담당의 session 열기는 core의 거절 code를 그대로 돌려준다", async () => {
+test("lophn-agent/conversation#R8 [agent-I33b]: 멈춘 담당은 새 session도 새 입력도 받지 않아 core의 비교 기준(enabled)을 어기는 command를 보내지 않고 conflict로 거절한다", async () => {
   const w = sourceOf(world({
     "read:assignments/read": () =>
       ok({
@@ -478,14 +491,26 @@ Deno.test("lophn-agent/conversation#R8 [agent-I33b]: 멈춘 담당의 session �
         }),
         ...META,
       }),
-    "command:sessions/open": () => fail("conflict"),
   }));
-  // paused는 compare 모양(enabled만)에 맞지 않아 core가 거절한다. source는 읽은 값을 그대로 싣는다.
-  const result = await w.source.openSession({ id: id("ses", 9), contexts: [] });
-  assertEquals(result, { ok: false, code: "conflict" });
+  assertEquals(
+    await w.source.openSession({ id: id("ses", 9), contexts: [] }),
+    { ok: false, code: "conflict" },
+  );
+  assertEquals(
+    await w.source.send({
+      session: SESSION,
+      id: id("msg", 6),
+      key: "k",
+      text: "x",
+      mode: "request",
+      run: null,
+    }),
+    { ok: false, code: "conflict" },
+  );
+  assertEquals(w.calls.filter((call) => call.kind === "command").length, 0);
 });
 
-Deno.test("lophn-agent/conversation#R18 lophn-agent/conversation#R20 [agent-I33b]: rename·archive·unarchive·delete는 읽은 state_seq를 비교 기준으로 보낸다", async () => {
+test("lophn-agent/conversation#R18 lophn-agent/conversation#R20 [agent-I33b]: rename·archive·unarchive·delete는 읽은 state_seq를 비교 기준으로 보낸다", async () => {
   const w = sourceOf(world({
     "command:sessions/rename": () =>
       ok({ id: SESSION, title: "Week 41", state_seq: "11" }),
@@ -495,7 +520,7 @@ Deno.test("lophn-agent/conversation#R18 lophn-agent/conversation#R20 [agent-I33b
       ok({ id: SESSION, archived: false, state_seq: "13" }),
     "command:sessions/delete": () => ok({ id: SESSION, deleted_at: at(0) }),
   }));
-  const ok1 = { ok: true, value: undefined };
+  const ok1 = { ok: true, value: undefined } as const;
   assertEquals(await w.source.renameSession(SESSION, "Week 41"), ok1);
   assertEquals(await w.source.archiveSession(SESSION), ok1);
   assertEquals(await w.source.unarchiveSession(SESSION), ok1);
@@ -517,7 +542,7 @@ Deno.test("lophn-agent/conversation#R18 lophn-agent/conversation#R20 [agent-I33b
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R20 [agent-I33b]: 진행 중 run이 있는 session 지우기는 conflict로, 없는 session은 not_found로 알린다", async () => {
+test("lophn-agent/conversation#R20 [agent-I33b]: 진행 중 run이 있는 session 지우기는 conflict로, 없는 session은 not_found로 알린다", async () => {
   const conflict = sourceOf(world({
     "command:sessions/delete": () => fail("conflict"),
   }));
@@ -538,7 +563,7 @@ Deno.test("lophn-agent/conversation#R20 [agent-I33b]: 진행 중 run이 있는 s
   );
 });
 
-Deno.test("lophn-agent/conversation#R9 [agent-I33b]: Fork는 고른 메시지의 seq까지, 지점이 없으면 마지막 확정 메시지까지 복사하도록 새 id로 보낸다", async () => {
+test("lophn-agent/conversation#R9 [agent-I33b]: Fork는 고른 메시지의 seq까지, 지점이 없으면 마지막 확정 메시지까지 복사하도록 새 id로 보낸다", async () => {
   const messages = [
     message(1, {}, 21),
     message(2, { actor: `agent:${LOPHN}` }, 23),
@@ -582,7 +607,7 @@ Deno.test("lophn-agent/conversation#R9 [agent-I33b]: Fork는 고른 메시지의
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R9 [agent-I33b]: 복사할 메시지가 없거나 지점이 이 session에 없으면 core를 부르지 않고 invalid_input이다", async () => {
+test("lophn-agent/conversation#R9 [agent-I33b]: 복사할 메시지가 없거나 지점이 이 session에 없으면 core를 부르지 않고 invalid_input이다", async () => {
   const w = sourceOf(world({
     "read:messages/list": () => ok({ messages: [], ...META }),
   }));
@@ -605,7 +630,7 @@ Deno.test("lophn-agent/conversation#R9 [agent-I33b]: 복사할 메시지가 없�
   assertEquals(w.calls.filter((call) => call.kind === "command").length, 0);
 });
 
-Deno.test("lophn-agent/conversation#R10 [agent-I33b]: Compact는 열린 session의 state_seq로 요약을 요청한다", async () => {
+test("lophn-agent/conversation#R10 [agent-I33b]: Compact는 열린 session의 state_seq로 요약을 요청한다", async () => {
   const w = sourceOf(world({
     "command:sessions/request-compact": () =>
       ok({ id: SESSION, request_seq: "101" }),
@@ -623,7 +648,7 @@ Deno.test("lophn-agent/conversation#R10 [agent-I33b]: Compact는 열린 session�
 
 // ---------------------------------------------------------------- send and stop
 
-Deno.test("lophn-agent/conversation#R2 lophn-agent/conversation#R3 [agent-I33b]: 보내기는 글을 본문 값으로, 읽은 session·담당 상태를 비교 기준으로 싣고 호출자의 key를 그대로 쓴다", async () => {
+test("lophn-agent/conversation#R2 lophn-agent/conversation#R3 [agent-I33b]: 보내기는 글을 본문 값으로, 읽은 session·담당 상태를 비교 기준으로 싣고 호출자의 key를 그대로 쓴다", async () => {
   const sent = message(5, {}, 61);
   const w = sourceOf(world({
     "command:messages/receive": () => ok(sent),
@@ -658,7 +683,7 @@ Deno.test("lophn-agent/conversation#R2 lophn-agent/conversation#R3 [agent-I33b]:
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R3 [agent-I33b]: 진행 중 수정은 목표 run을 싣고, 거절 code(conflict)와 읽지 못한 session의 code는 그대로 돌려준다", async () => {
+test("lophn-agent/conversation#R3 [agent-I33b]: 진행 중 수정은 목표 run을 싣고, 거절 code(conflict)와 읽지 못한 session의 code는 그대로 돌려준다", async () => {
   const w = sourceOf(world({
     "command:messages/receive": () => fail("conflict"),
   }));
@@ -695,7 +720,7 @@ Deno.test("lophn-agent/conversation#R3 [agent-I33b]: 진행 중 수정은 목표
   );
 });
 
-Deno.test("lophn-agent/conversation#R3 [agent-I33b]: core 통로가 끊겨 던지면 결과를 모르는 unavailable로 알린다", async () => {
+test("lophn-agent/conversation#R3 [agent-I33b]: core 통로가 끊겨 던지면 결과를 모르는 unavailable로 알린다", async () => {
   const source = coreAgentViewSourceFactory({
     subscribe: () => () => {},
     call: () => Promise.reject(new Error("socket closed")),
@@ -713,7 +738,7 @@ Deno.test("lophn-agent/conversation#R3 [agent-I33b]: core 통로가 끊겨 던�
   );
 });
 
-Deno.test("lophn-agent/harness/run-loop shell/desktop#R42 [agent-I33b]: Stop은 run의 state_seq를 비교 기준으로 user_stopped로 멈춘다", async () => {
+test("lophn-agent/harness/run-loop shell/desktop#R42 [agent-I33b]: Stop은 run의 state_seq를 비교 기준으로 user_stopped로 멈춘다", async () => {
   const w = sourceOf(world({
     "read:runs/read": () => ok({ run: run(1, { state_seq: "44" }), ...META }),
     "command:runs/stop": () =>
@@ -745,7 +770,7 @@ Deno.test("lophn-agent/harness/run-loop shell/desktop#R42 [agent-I33b]: Stop은 
 
 // ---------------------------------------------------------------- body and titles
 
-Deno.test("lophn-agent/conversation#R4 shell/workspace#R12 [agent-I33b]: 본문은 글 part와 시각 block을 그대로 옮기고 문서 제목은 document.get의 제목이다", async () => {
+test("lophn-agent/conversation#R4 shell/workspace#R12 [agent-I33b]: 본문은 글 part와 시각 block을 그대로 옮기고 문서 제목은 document.get의 제목이다", async () => {
   const block = tableBlock;
   const w = sourceOf(world({
     "read:messages/body": () =>
@@ -861,7 +886,7 @@ function finishedThreadWorld(): Handlers {
   });
 }
 
-Deno.test("shell/desktop#R40 shell/desktop#R41 [agent-I33b]: thread는 메시지·tool 줄·편집 카드·Worked for를 seq 순서로 잇고 재시도한 호출은 마지막 시도 하나만 보인다", async () => {
+test("shell/desktop#R40 shell/desktop#R41 [agent-I33b]: thread는 메시지·tool 줄·편집 카드·Worked for를 seq 순서로 잇고 재시도한 호출은 마지막 시도 하나만 보인다", async () => {
   const w = sourceOf(finishedThreadWorld());
   const read = await w.source.thread(SESSION);
   assert(read.ok);
@@ -945,7 +970,7 @@ Deno.test("shell/desktop#R40 shell/desktop#R41 [agent-I33b]: thread는 메시지
   w.verify();
 });
 
-Deno.test("shell/desktop#R41 [agent-I33b]: 끝난 run의 tool·편집 줄은 다시 읽지 않고 다음 poll에서 기억한 값을 쓴다", async () => {
+test("shell/desktop#R41 [agent-I33b]: 끝난 run의 tool·편집 줄은 다시 읽지 않고 다음 poll에서 기억한 값을 쓴다", async () => {
   const w = sourceOf(finishedThreadWorld());
   await w.source.thread(SESSION);
   const first =
@@ -963,7 +988,7 @@ Deno.test("shell/desktop#R41 [agent-I33b]: 끝난 run의 tool·편집 줄은 다
   assertEquals(total, 2);
 });
 
-Deno.test("shell/desktop#R41 [agent-I33b]: 처음 만든 문서의 편집 카드는 본문 줄 수를 더한 줄로 세고 멈춘 run은 stopped로 끝난다", async () => {
+test("shell/desktop#R41 [agent-I33b]: 처음 만든 문서의 편집 카드는 본문 줄 수를 더한 줄로 세고 멈춘 run은 stopped로 끝난다", async () => {
   const user = message(1, {}, 21);
   const agent = message(2, {
     actor: `agent:${LOPHN}`,
@@ -1016,7 +1041,7 @@ Deno.test("shell/desktop#R41 [agent-I33b]: 처음 만든 문서의 편집 카드
   );
 });
 
-Deno.test("shell/desktop#R41 [agent-I33b]: 편집 내용을 읽지 못하면 그 카드만 그리지 않는다(trace에 없는 줄은 없다)", async () => {
+test("shell/desktop#R41 [agent-I33b]: 편집 내용을 읽지 못하면 그 카드만 그리지 않는다(trace에 없는 줄은 없다)", async () => {
   const handlers = finishedThreadWorld();
   const w = sourceOf({
     ...handlers,
@@ -1030,7 +1055,7 @@ Deno.test("shell/desktop#R41 [agent-I33b]: 편집 내용을 읽지 못하면 그
   );
 });
 
-Deno.test("lophn-agent/conversation#R3 shell/desktop#R42 [agent-I33b]: 일하는 중인 run은 working이고 가장 늦게 접수된 run이 지금 일이며 Worked for는 끝난 run에만 붙는다", async () => {
+test("lophn-agent/conversation#R3 shell/desktop#R42 [agent-I33b]: 일하는 중인 run은 working이고 가장 늦게 접수된 run이 지금 일이며 Worked for는 끝난 run에만 붙는다", async () => {
   const user = message(1, {}, 21);
   const w = sourceOf(world({
     "read:messages/list": () => ok({ messages: [user], ...META }),
@@ -1057,7 +1082,7 @@ Deno.test("lophn-agent/conversation#R3 shell/desktop#R42 [agent-I33b]: 일하는
   assertEquals(message1.run, { id: id("run", 1), ended: true });
 });
 
-Deno.test("lophn-agent/questions#R17 shell/desktop#R46 [agent-I33b]: 질문 묶음은 글을 읽어 카드 값으로 옮기고 답을 기다리는 카드는 answered가 null이다", async () => {
+test("lophn-agent/questions#R17 shell/desktop#R46 [agent-I33b]: 질문 묶음은 글을 읽어 카드 값으로 옮기고 답을 기다리는 카드는 answered가 null이다", async () => {
   const user = message(1, {}, 21);
   const w = sourceOf(world({
     "read:messages/list": () => ok({ messages: [user], ...META }),
@@ -1108,7 +1133,7 @@ Deno.test("lophn-agent/questions#R17 shell/desktop#R46 [agent-I33b]: 질문 묶�
   w.verify();
 });
 
-Deno.test("lophn-agent/questions#R10 shell/desktop#R46 [agent-I33b]: 답한 묶음은 질문별 답을, 미룬 묶음은 skipped를, 기한이 지난 묶음은 expired를, 적용된 고정 action은 applied를 요약으로 남긴다", async () => {
+test("lophn-agent/questions#R10 shell/desktop#R46 [agent-I33b]: 답한 묶음은 질문별 답을, 미룬 묶음은 skipped를, 기한이 지난 묶음은 expired를, 적용된 고정 action은 applied를 요약으로 남긴다", async () => {
   const answeredGroup = questionGroup(1, {
     status: "answered",
     closed_seq: "50",
@@ -1213,7 +1238,7 @@ Deno.test("lophn-agent/questions#R10 shell/desktop#R46 [agent-I33b]: 답한 묶�
   ]);
 });
 
-Deno.test("platform/approvals#R18 platform/approvals#R20 shell/desktop#R47 [agent-I33b]: run이 승인을 기다리면 approval을 읽어 카드 값으로 옮기고 session 허락 가능 여부를 싣는다", async () => {
+test("platform/approvals#R18 platform/approvals#R20 shell/desktop#R47 [agent-I33b]: run이 승인을 기다리면 approval을 읽어 카드 값으로 옮기고 session 허락 가능 여부를 싣는다", async () => {
   const user = message(1, {}, 21);
   const w = sourceOf(world({
     "read:messages/list": () => ok({ messages: [user], ...META }),
@@ -1288,7 +1313,7 @@ Deno.test("platform/approvals#R18 platform/approvals#R20 shell/desktop#R47 [agen
   assertEquals(second.value.approval?.allowSession, false);
 });
 
-Deno.test("shell/desktop#R38 [agent-I33b]: 없는 session의 thread는 not_found이고 읽기가 실패하면 그 code를 돌려준다", async () => {
+test("shell/desktop#R38 [agent-I33b]: 없는 session의 thread는 not_found이고 읽기가 실패하면 그 code를 돌려준다", async () => {
   const missing = sourceOf(world({
     "read:sessions/read": () => fail("not_found"),
   }));
@@ -1310,7 +1335,7 @@ Deno.test("shell/desktop#R38 [agent-I33b]: 없는 session의 thread는 not_found
 
 // ---------------------------------------------------------------- notices
 
-Deno.test("shell/desktop#R7 [agent-I33b]: 쓸 수 있는 provider가 하나도 없으면 provider-lost를 알리고 읽지 못하면 안내를 읽지 못한 것으로 둔다", async () => {
+test("shell/desktop#R7 [agent-I33b]: 쓸 수 있는 provider가 하나도 없으면 provider-lost를 알리고 읽지 못하면 안내를 읽지 못한 것으로 둔다", async () => {
   const lost = sourceOf(world({
     "read:providers/list": () =>
       ok({
@@ -1347,7 +1372,7 @@ Deno.test("shell/desktop#R7 [agent-I33b]: 쓸 수 있는 provider가 하나도 �
   });
 });
 
-Deno.test("shell/desktop#R7 lophn-agent/harness/model [agent-I33b]: 마지막 run의 외부 연결 호출이 일시 실패면 연결 이름과 확정된 다음 시도 시각을 알린다", async () => {
+test("shell/desktop#R7 lophn-agent/harness/model [agent-I33b]: 마지막 run의 외부 연결 호출이 일시 실패면 연결 이름과 확정된 다음 시도 시각을 알린다", async () => {
   const call = (over: Record<string, unknown>) => ({
     id: id("mcl", 1),
     run: id("run", 2),
@@ -1437,7 +1462,7 @@ function modelWorld(over: Handlers = {}): Handlers {
   });
 }
 
-Deno.test("shell/desktop#R44 lophn-agent/conversation#R23 [agent-I33b]: model 보기는 session이 고른 값이 없으면 agent 기본값을 현재로 하고 Favorites·provider 묶음·option 축을 catalog에서 만든다", async () => {
+test("shell/desktop#R44 lophn-agent/conversation#R23 [agent-I33b]: model 보기는 session이 고른 값이 없으면 agent 기본값을 현재로 하고 Favorites·provider 묶음·option 축을 catalog에서 만든다", async () => {
   const w = sourceOf(modelWorld());
   const view = await w.source.model(SESSION, "");
   assertEquals(view, {
@@ -1507,7 +1532,17 @@ Deno.test("shell/desktop#R44 lophn-agent/conversation#R23 [agent-I33b]: model �
   assertEquals(haiku.value.axes, []);
 });
 
-Deno.test("shell/desktop#R44 lophn-agent/harness/model#R25 [agent-I33b]: model을 고르면 이 session에만 저장하고 지원하지 않는 option 값은 가까운 약한 값으로 맞춰 알린다", async () => {
+test("shell/desktop#R44 [agent-I33b]: catalog를 읽지 못해도 model 보기는 현재 model의 이름을 보이고 고를 목록만 비운다", async () => {
+  const w = sourceOf(modelWorld({
+    "read:agent-model-catalog/read": () => fail("unavailable"),
+  }));
+  const view = await w.source.model(SESSION, "");
+  assert(view.ok);
+  assertEquals(view.value.currentLabel, "Sonnet 5.5");
+  assertEquals(view.value.layout.providers, []);
+});
+
+test("shell/desktop#R44 lophn-agent/harness/model#R25 [agent-I33b]: model을 고르면 이 session에만 저장하고 지원하지 않는 option 값은 가까운 약한 값으로 맞춰 알린다", async () => {
   const high = { ...SONNET, option_values: { effort: "high" } };
   const catalog = {
     ...CATALOG,
@@ -1565,7 +1600,7 @@ Deno.test("shell/desktop#R44 lophn-agent/harness/model#R25 [agent-I33b]: model�
   w.verify();
 });
 
-Deno.test("shell/desktop#R44 [agent-I33b]: option 값을 고르면 같은 model의 값만 바꿔 저장한다", async () => {
+test("shell/desktop#R44 [agent-I33b]: option 값을 고르면 같은 model의 값만 바꿔 저장한다", async () => {
   const w = sourceOf(modelWorld({
     "command:sessions/change-model": (body) =>
       ok({ id: SESSION, model_selection: body.model, state_seq: "11" }),
@@ -1582,7 +1617,7 @@ Deno.test("shell/desktop#R44 [agent-I33b]: option 값을 고르면 같은 model�
   });
 });
 
-Deno.test("shell/desktop#R44 lophn-agent/harness/model#R26 [agent-I33b]: 즐겨찾기는 session이 아니라 사람의 것이라 별표를 찍으면 맨 끝에 붙고 읽은 settings_seq를 비교 기준으로 쓴다", async () => {
+test("shell/desktop#R44 lophn-agent/harness/model#R26 [agent-I33b]: 즐겨찾기는 session이 아니라 사람의 것이라 별표를 찍으면 맨 끝에 붙고 읽은 settings_seq를 비교 기준으로 쓴다", async () => {
   const w = sourceOf(modelWorld({
     "command:model-favorites/change": (body) =>
       ok({ favorites: { items: body.items, settings_seq: "6" } }),
@@ -1615,7 +1650,7 @@ Deno.test("shell/desktop#R44 lophn-agent/harness/model#R26 [agent-I33b]: 즐겨�
   w.verify();
 });
 
-Deno.test("lophn-agent/conversation#R23 [agent-I33b]: 아직 session이 없을 때 고른 model은 source가 쥐고 있다가 session을 열 때 그 session에 저장한다", async () => {
+test("lophn-agent/conversation#R23 [agent-I33b]: 아직 session이 없을 때 고른 model은 source가 쥐고 있다가 session을 열 때 그 session에 저장한다", async () => {
   const opened = id("ses", 9);
   const w = sourceOf(modelWorld({
     "command:sessions/open": () =>
@@ -1710,7 +1745,7 @@ function registry() {
   };
 }
 
-Deno.test("lophn-agent/commands#R1 shell/desktop#R45 [agent-I33b]: `/` 목록은 그 session의 registry를 Commands·<agent 이름>·Skills 묶음으로 나누고 query로 거른다", async () => {
+test("lophn-agent/commands#R1 shell/desktop#R45 [agent-I33b]: `/` 목록은 그 session의 registry를 Commands·<agent 이름>·Skills 묶음으로 나누고 query로 거른다", async () => {
   const w = sourceOf(world({
     "read:commands/list": () => ok(registry()),
   }));
@@ -1752,7 +1787,7 @@ Deno.test("lophn-agent/commands#R1 shell/desktop#R45 [agent-I33b]: `/` 목록은
   );
 });
 
-Deno.test("lophn-agent/commands#R1 [agent-I33b]: session이 없으면 같은 agent의 가장 최근 session의 registry에서 session이 있어야 하는 명령을 뺀다", async () => {
+test("lophn-agent/commands#R1 [agent-I33b]: session이 없으면 같은 agent의 가장 최근 session의 registry에서 session이 있어야 하는 명령을 뺀다", async () => {
   const w = sourceOf(world({
     "read:commands/list": () => ok(registry()),
   }));
@@ -1769,7 +1804,7 @@ Deno.test("lophn-agent/commands#R1 [agent-I33b]: session이 없으면 같은 age
   );
 });
 
-Deno.test("lophn-agent/commands#R1 [agent-I33b]: session이 하나도 없으면 session 없이 쓸 수 있는 전역 명령만 보인다", async () => {
+test("lophn-agent/commands#R1 [agent-I33b]: session이 하나도 없으면 session 없이 쓸 수 있는 전역 명령만 보인다", async () => {
   const w = sourceOf(world({
     "read:sessions/list": () => ok(listed("sessions", [])),
   }));
@@ -1791,7 +1826,7 @@ function commandWorld(over: Handlers = {}): Handlers {
   });
 }
 
-Deno.test("lophn-agent/commands#R9 [agent-I33b]: role의 prompt 명령은 정한 prompt를, skill 명령은 그 skill 이름이 든 말을 사람이 보낸 메시지로 접수한다", async () => {
+test("lophn-agent/commands#R9 [agent-I33b]: role의 prompt 명령은 정한 prompt를, skill 명령은 그 skill 이름이 든 말을 사람이 보낸 메시지로 접수한다", async () => {
   const w = sourceOf(commandWorld());
   const entries = await w.source.commands(SESSION, "");
   assert(entries.ok);
@@ -1831,7 +1866,7 @@ Deno.test("lophn-agent/commands#R9 [agent-I33b]: role의 prompt 명령은 정한
   w.verify();
 });
 
-Deno.test("lophn-agent/commands#R9 [agent-I33b]: tool을 실행하는 명령은 renderer가 실행할 길이 없어 unavailable이고 built-in은 source가 아니라 화면이 한다", async () => {
+test("lophn-agent/commands#R9 [agent-I33b]: tool을 실행하는 명령은 renderer가 실행할 길이 없어 unavailable이고 built-in은 source가 아니라 화면이 한다", async () => {
   const w = sourceOf(commandWorld());
   const entries = await w.source.commands(SESSION, "");
   assert(entries.ok);
@@ -1855,7 +1890,7 @@ Deno.test("lophn-agent/commands#R9 [agent-I33b]: tool을 실행하는 명령은 
   assertEquals(w.calls.filter((call) => call.method === "receive").length, 0);
 });
 
-Deno.test("lophn-agent/commands#R8 [agent-I33b]: 일하는 중이면 queue 명령은 이번 일이 끝난 뒤 접수하고, blocked 명령은 바로 conflict다", async () => {
+test("lophn-agent/commands#R8 [agent-I33b]: 일하는 중이면 queue 명령은 이번 일이 끝난 뒤 접수하고, blocked 명령은 바로 conflict다", async () => {
   let reads = 0;
   const waits: number[] = [];
   const w = sourceOf(
@@ -1906,7 +1941,7 @@ Deno.test("lophn-agent/commands#R8 [agent-I33b]: 일하는 중이면 queue 명�
   );
 });
 
-Deno.test("lophn-agent/commands#R8 [agent-I33b]: 끝나기를 끝없이 기다리지 않고 한도를 넘으면 conflict로 알린다", async () => {
+test("lophn-agent/commands#R8 [agent-I33b]: 끝나기를 끝없이 기다리지 않고 한도를 넘으면 conflict로 알린다", async () => {
   const w = sourceOf(
     commandWorld({
       "read:runs/list": () =>
@@ -1927,7 +1962,7 @@ Deno.test("lophn-agent/commands#R8 [agent-I33b]: 끝나기를 끝없이 기다�
 
 // ---------------------------------------------------------------- questions and approvals
 
-Deno.test("lophn-agent/questions#R6 shell/desktop#R46 [agent-I33b]: 묶음 답은 읽은 created_seq를 비교 기준으로 질문별 답을 한 번에 보내고 같은 답은 같은 key다", async () => {
+test("lophn-agent/questions#R6 shell/desktop#R46 [agent-I33b]: 묶음 답은 읽은 created_seq를 비교 기준으로 질문별 답을 한 번에 보내고 같은 답은 같은 key다", async () => {
   const group = questionGroup(1);
   const answers = [{
     question: id("qst", 1),
@@ -1981,7 +2016,7 @@ Deno.test("lophn-agent/questions#R6 shell/desktop#R46 [agent-I33b]: 묶음 답�
   w.verify();
 });
 
-Deno.test("lophn-agent/questions#R6 [agent-I33b]: Skip은 묶음 전체를 답 없이 미루고 이미 닫힌 묶음의 code는 그대로 돌려준다", async () => {
+test("lophn-agent/questions#R6 [agent-I33b]: Skip은 묶음 전체를 답 없이 미루고 이미 닫힌 묶음의 code는 그대로 돌려준다", async () => {
   const w = sourceOf(world({
     "read:questions/read": () => ok({ group: questionGroup(1), ...META }),
     "command:questions/defer": () =>
@@ -2035,7 +2070,7 @@ function actionGroup(command: string) {
   });
 }
 
-Deno.test("lophn-agent/questions#R13 [agent-I33b]: 고정 action 선택지의 답은 일반 답 경로가 아니라 확인 없이 확정하는 통로(app.create·apply_settings)나 확인 창으로 간다", async () => {
+test("lophn-agent/questions#R13 [agent-I33b]: 고정 action 선택지의 답은 일반 답 경로가 아니라 확인 없이 확정하는 통로(app.create·apply_settings)나 확인 창으로 간다", async () => {
   const answers = [{
     question: id("qst", 1),
     answer: { kind: "option" as const, option_key: "apply" },
@@ -2098,7 +2133,7 @@ Deno.test("lophn-agent/questions#R13 [agent-I33b]: 고정 action 선택지의 �
   );
 });
 
-Deno.test("platform/approvals#R18 shell/desktop#R47 [agent-I33b]: 승인 카드의 단추는 결정이 아니라 미리 고른 choice로 confirmation window를 여는 것이다", async () => {
+test("platform/approvals#R18 shell/desktop#R47 [agent-I33b]: 승인 카드의 단추는 결정이 아니라 미리 고른 choice로 confirmation window를 여는 것이다", async () => {
   const opened: unknown[] = [];
   const w = sourceOf(world(), undefined, {
     ...DEPS,
@@ -2124,7 +2159,7 @@ Deno.test("platform/approvals#R18 shell/desktop#R47 [agent-I33b]: 승인 카드�
   assertEquals(w.calls.length, 0);
 });
 
-Deno.test("platform/approvals#R18 [agent-I33b]: 창을 열 수 없거나 열지 못하면 그 이유를 돌려주고 결정을 내지 않는다", async () => {
+test("platform/approvals#R18 [agent-I33b]: 창을 열 수 없거나 열지 못하면 그 이유를 돌려주고 결정을 내지 않는다", async () => {
   const none = sourceOf(world());
   assertEquals(
     await none.source.openApproval({ approval: id("apr", 1), choice: "deny" }),
@@ -2156,9 +2191,9 @@ Deno.test("platform/approvals#R18 [agent-I33b]: 창을 열 수 없거나 열지 
 
 // ---------------------------------------------------------------- the rest
 
-Deno.test("lophn-agent/revert [agent-I33b]: 되돌리기는 revert 화면 task가 붙이기 전까지 unavailable이고 core를 부르지 않는다", async () => {
+test("lophn-agent/revert [agent-I33b]: 되돌리기는 revert 화면 task가 붙이기 전까지 unavailable이고 core를 부르지 않는다", async () => {
   const w = sourceOf(world());
-  const unavailable = { ok: false, code: "unavailable" };
+  const unavailable = { ok: false, code: "unavailable" } as const;
   assertEquals(await w.source.rewind(SESSION, id("msg", 1)), unavailable);
   assertEquals(await w.source.rewind(SESSION, null), unavailable);
   assertEquals(await w.source.undoEdit(VER2), unavailable);
@@ -2166,7 +2201,7 @@ Deno.test("lophn-agent/revert [agent-I33b]: 되돌리기는 revert 화면 task�
   assertEquals(w.calls.length, 0);
 });
 
-Deno.test("shell/desktop#R7 [agent-I33b]: watch는 main이 미는 연결 상태를 그대로 듣고 해제하면 더 받지 않는다", () => {
+test("shell/desktop#R7 [agent-I33b]: watch는 main이 미는 연결 상태를 그대로 듣고 해제하면 더 받지 않는다", () => {
   const w = sourceOf(world());
   const seen: string[] = [];
   const stop = w.source.watch((state) => seen.push(state.state));
@@ -2176,7 +2211,7 @@ Deno.test("shell/desktop#R7 [agent-I33b]: watch는 main이 미는 연결 상태�
   assertEquals(seen, ["stale"]);
 });
 
-Deno.test("shell/desktop#R7 [agent-I33b]: 한 source의 읽기는 한꺼번에 많이 보내지 않는다(core reader가 한 사람의 동시 읽기를 제한한다)", async () => {
+test("shell/desktop#R7 [agent-I33b]: 한 source의 읽기는 한꺼번에 많이 보내지 않는다(core reader가 한 사람의 동시 읽기를 제한한다)", async () => {
   const harness = contractCore(world(), CHECKED, { delayMs: 5 });
   const source = coreAgentViewSourceFactory(harness.core, DEPS)({
     assignment: LOPHN,

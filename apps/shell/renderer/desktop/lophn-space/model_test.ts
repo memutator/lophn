@@ -29,6 +29,10 @@ Deno.test("shell/desktop#R28: lophn 공간은 projects, documents, contexts, app
   ]);
 });
 
+Deno.test("shell/desktop#R28: lophn 공간 화면 목록에 roles가 없다", () => {
+  assert(!(LOPHN_SCREENS as readonly string[]).includes("roles"));
+});
+
 Deno.test("shell/desktop#R1: lophn 공간에 들어오면 documents가 먼저다", () => {
   assertEquals(DEFAULT_SCREEN, "documents");
 });

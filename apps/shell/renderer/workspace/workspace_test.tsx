@@ -649,3 +649,28 @@ Deno.test("shell/desktop#R27: 추적 꺼짐·Operator 안내는 본문 위 줄�
   assert(view.container.querySelector("[data-notices] [data-tracking='off']"));
   assertEquals(view.container.querySelector("[data-show-notices]"), null);
 });
+
+Deno.test("shell/desktop#R28: 작업대에 Operator 안내가 그려지지 않는다", async () => {
+  const { source } = sourceOf();
+  // 옛 Operator 안내 통로를 넘겨도 그리지 않는다. 타입에 없는 prop이라 spread로 넘긴다.
+  const retired = {
+    operators: {
+      operators: () => Promise.resolve({ ok: true, value: [] }),
+    },
+    onAttachOperator: () => {},
+    onOpenOperator: () => {},
+  };
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      {...retired}
+    />,
+  );
+  await flush();
+  assertEquals(view.container.querySelector("[data-operator-entry]"), null);
+});

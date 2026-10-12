@@ -80,6 +80,11 @@ export interface FakeSettingsOptions {
   pickedFolder?: string | null;
   /** 설정 바꾸기 결과 code. 없으면 성공이다. */
   applyCode?: string;
+  /** OAuth 로그인. begin이 실패하는 code, 끝나기를 기다리는 약속(없으면 바로 끝난다). */
+  signIn?: {
+    beginCode?: string;
+    finish?: Promise<SourceResult<null>>;
+  };
 }
 
 export function fakeSettings(options: FakeSettingsOptions = {}) {
@@ -130,6 +135,17 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
         : Promise.resolve({ ok: true, value: null });
     },
     enterServerCredential: (secret) => opened(["server-credential", secret]),
+    beginSignIn(row) {
+      calls.push(["sign-in-begin", row.name, row.signIn?.place ?? null]);
+      return options.signIn?.beginCode
+        ? failed(options.signIn.beginCode)
+        : Promise.resolve({ ok: true, value: { callbackPort: 4321 } });
+    },
+    finishSignIn(row, callbackPort) {
+      calls.push(["sign-in-finish", row.name, callbackPort]);
+      return options.signIn?.finish ??
+        Promise.resolve({ ok: true, value: null });
+    },
   };
   return { source, calls };
 }
@@ -145,6 +161,7 @@ export function server(
     auth: "none",
     secret: null,
     credential: null,
+    signIn: null,
     ...options,
   };
 }

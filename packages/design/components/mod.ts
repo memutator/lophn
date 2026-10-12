@@ -46,6 +46,12 @@ export {
 } from "./error-state/error-state.tsx";
 export { StaleNote, type StaleNoteProps } from "./stale-note/stale-note.tsx";
 export {
+  Avatar,
+  type AvatarProfile,
+  type AvatarProps,
+  type AvatarSize,
+} from "./avatar/avatar.tsx";
+export {
   AuthorMark,
   type AuthorMarkProps,
 } from "./author-mark/author-mark.tsx";

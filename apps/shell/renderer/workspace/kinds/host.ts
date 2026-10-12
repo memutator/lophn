@@ -9,6 +9,11 @@ import type { DocumentRow } from "../source.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
 import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
+import type { AgentsSource } from "../agents/source.ts";
+import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
+import type { Ticks } from "../../conversation/agent-view-data.ts";
+import type { DraftStore } from "../../conversation/drafts.ts";
+import type { ContextLinks } from "../../conversation/result-links.tsx";
 import type { ReadPosition } from "./kind.ts";
 
 /** 문서 탭이 작업대와 나누는 상태. 정보 패널과 현재 보기 힌트가 같이 읽는다. */
@@ -54,6 +59,35 @@ export interface ContextsSlice {
   newContext(): void;
 }
 
+/** Agents 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.agents는 null이다. */
+export interface AgentsSlice {
+  readonly source: AgentsSource;
+  /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
+  changed(): void;
+  /** project의 LOPHN.md 편집을 연다. */
+  editInstructions(): void;
+  /** lophn 공간으로 간다(model 기본값·skill·MCP 등록이 있는 곳). */
+  openLophn(): void;
+}
+
+/** Agent 탭이 작업대와 나누는 것. 통로(agentViewSource)가 없으면 host.agentView는 null이다. */
+export interface AgentViewSlice {
+  /** agent와 자리로 그 agent의 source를 얻는다. */
+  readonly factory: AgentViewSourceFactory;
+  /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다(desktop#R8). */
+  readonly drafts: DraftStore;
+  readonly ticks?: Ticks;
+  readonly now?: () => number;
+  /** 결과 링크와 편집 카드의 [Open]이 그 문서 탭을 연다. */
+  openResult(document: string, version: string | null): void;
+  /** 대화 속 context 이름 링크가 그 Context 탭을 연다(R31). 통로가 없으면 링크를 그리지 않는다. */
+  readonly contexts?: ContextLinks;
+  /** Change defaults…와 `/skills`·`/mcp`가 lophn 공간의 Settings › Agents로 간다. */
+  openSettings(): void;
+  /** provider 끊김 줄의 행동이 설정의 연결 자리로 간다. 없으면 그 행동을 두지 않는다. */
+  readonly openConnections?: () => void;
+}
+
 export interface TabHost {
   readonly projectId: string;
   readonly projectTitle: string | undefined;
@@ -77,4 +111,6 @@ export interface TabHost {
   readonly document: DocumentSlice;
   readonly appPanel: AppPanelSlice;
   readonly contexts: ContextsSlice | null;
+  readonly agents: AgentsSlice | null;
+  readonly agentView: AgentViewSlice | null;
 }

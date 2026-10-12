@@ -1,4 +1,5 @@
 export { waitSchemaSteps } from "./schema.ts";
+export { deleteSessionWaitResolutions } from "./erase.ts";
 export { createWaitCommands, type WaitDeps } from "./commands.ts";
 export {
   type RunBodyEnvironment,

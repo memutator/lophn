@@ -644,10 +644,11 @@ function decision(value: "allow" | "ask" | "deny") {
     reason: "scope allows it",
     effect: "read" as const,
     assignment_revision: 1,
-    preset_revision: 1,
+    agent_hash: "ab".repeat(32),
     contract_revision: "2026-01-01",
     comparison_basis: null,
     approval: null,
+    session_grant: null,
   };
 }
 

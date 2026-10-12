@@ -219,8 +219,9 @@ const PARSER_IMPORT = "@lezer/markdown";
 const PARSER_FILE = "reading/markdown/parse.ts";
 // 가상 scroll 자리 높이만 CSSOM으로 쓴다. 값은 행 수 × 행 token이다.
 const CSSOM_FILE = "components/table/viewport.ts";
+// 장식 아이콘만 막는다. 즐겨찾기 별(`Star`)은 model picker의 기능 단추다(shell/desktop#R44).
 const FORBIDDEN_ICONS =
-  /\b(Sparkles?|WandSparkles|Stars?|Loader(Circle|Pinwheel)?|PartyPopper)\b/;
+  /\b(Sparkles?|WandSparkles|Stars|Loader(Circle|Pinwheel)?|PartyPopper)\b/;
 
 Deno.test("shell/design-system#R43: 컴포넌트 재료는 CSS Modules·Radix Primitives·Lucide뿐이다", async () => {
   const files = await designSources([".ts", ".tsx"]);

@@ -1,156 +1,24 @@
-import { createHash } from "node:crypto";
-import { canonicalize } from "../../base/mod.ts";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
-  type CreateQuestionInput,
-  QUESTION_BLOB_FIELDS,
-  QUESTION_BLOB_OWNER_KIND,
-  QUESTION_TEXT_PURPOSE,
+  type CreateQuestionGroupInput,
+  type OptionAction,
+  optionActionSchema,
+  QUESTION_GROUP_MAX_QUESTIONS,
   type questionList,
   type QuestionOption,
-  questionTextBytes,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
-  type BlobFieldDefinition,
-  defineBlobField,
   type Output,
-  type RequestContext,
-  type SchemaStep,
   type SettingMutation,
   settingMutationSchema,
   type SqlParams,
   type SqlRow,
-  type Tx,
 } from "../../contracts/platform/mod.ts";
+import type { GroupState, GroupStatus } from "./group.ts";
+import type { StoredGroupContent } from "./text-blobs.ts";
 
-// domain-model lophn-agent/questions의 `questions` 표와 row 변환. 순수 함수와 읽기
-// 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는 reads.ts가 맡는다.
-
-// 질문 하나는 run의 답 기다림 하나다(partial unique, R2). 내용(본문·이유·options·
-// 추천·기한·run·session)은 생성 뒤 덮어쓰지 않고(R5), 닫힌 질문은 다시 바뀌지
-// 않으며(R9), 삭제는 모두 막아 기록을 남긴다. 본문은 열에 없고 blob hash만 남는다.
-// session은 conversation의 sessions 표를 소유한 concern 몫이라 참조 검사 없이 ID만
-// 두고 run의 session과 같은지 command가 본다.
-export const questionSchemaSteps: readonly SchemaStep[] = [
-  {
-    id: "lophn-agent.questions.tables",
-    sql: `
-create table questions (
-  id text primary key,
-  run text not null references runs (id) on delete restrict,
-  session text,
-  created_by text not null check (length(created_by) > 0),
-  prompt_blob text not null check (length(prompt_blob) = 64),
-  reason_blob text not null check (length(reason_blob) = 64),
-  options text not null check (json_valid(options)),
-  recommendation text check (recommendation is null or json_valid(recommendation)),
-  expires_at text,
-  status text not null check (status in ('pending', 'answered', 'expired', 'cancelled')),
-  answer text check (answer is null or json_valid(answer)),
-  binding_hash text check (binding_hash is null or length(binding_hash) = 64),
-  closed_reason text check (closed_reason in ('deferred', 'cancelled', 'superseded', 'expired')),
-  closed_reason_blob text check (closed_reason_blob is null or length(closed_reason_blob) = 64),
-  created_seq integer not null unique check (created_seq >= 1),
-  closed_seq integer unique check (closed_seq is null or closed_seq > created_seq),
-  check ((status = 'pending') = (closed_seq is null)),
-  check ((status = 'answered') = (answer is not null)),
-  check (binding_hash is null or status = 'answered'),
-  check ((status in ('expired', 'cancelled')) = (closed_reason is not null)),
-  check (status != 'expired' or closed_reason = 'expired'),
-  check (status != 'cancelled' or closed_reason in ('deferred', 'cancelled', 'superseded')),
-  check ((closed_reason in ('cancelled', 'superseded')) = (closed_reason_blob is not null)),
-  check (status in ('expired', 'cancelled') or closed_reason_blob is null)
-) strict;
-create unique index questions_run_pending on questions (run) where status = 'pending';
-create index questions_pending_expiry on questions (status, expires_at) where status = 'pending';
-create index questions_run_created on questions (run, created_seq);
-create index questions_session_created on questions (session, created_seq);
-create trigger questions_content_immutable
-before update of id, run, session, created_by, prompt_blob, reason_blob, options,
-  recommendation, expires_at, created_seq on questions
-begin
-  select raise(abort, 'a question is never overwritten');
-end;
-create trigger questions_closed_terminal
-before update on questions
-when old.status != 'pending'
-begin
-  select raise(abort, 'a closed question is never reopened');
-end;
-create trigger questions_no_delete
-before delete on questions
-begin
-  select raise(abort, 'questions are kept');
-end;`,
-  },
-];
-
-// 질문의 본문·이유·선택지 설명·추천 설명·자유 답·닫은 이유는 blob 참조만 남는다.
-// 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람, 그 assignment의 agent, machine,
-// 글 일부는 coding_agent)는 ReadQuestionText가 판정한다(질문 답의 secret 경계는
-// screen.ts, R11).
-export const questionBodyFields: readonly BlobFieldDefinition[] = Object.values(
-  QUESTION_BLOB_FIELDS,
-).map((field) =>
-  defineBlobField({
-    owner_kind: QUESTION_BLOB_OWNER_KIND,
-    field,
-    retention: { kind: "permanent" },
-    general_read: false,
-  })
-);
-
-// 글 값의 blob 증거. core가 같은 UTF-8 bytes로 준비했으므로 같은 글은 항상 같은 hash다.
-// 재전송의 지문도 값으로 정해져 준비 참조의 수명과 상관없다.
-export type TextBlob = {
-  hash: string;
-  evidence: {
-    preparation: string;
-    principal: string;
-    purpose: string;
-    hash: string;
-    size_bytes: number;
-  };
-};
-
-export function textBlob(ctx: RequestContext, text: string): TextBlob {
-  const bytes = questionTextBytes(text);
-  const hash = createHash("sha256").update(bytes).digest("hex");
-  return {
-    hash,
-    evidence: {
-      preparation: hash,
-      principal: ctx.principal,
-      purpose: QUESTION_TEXT_PURPOSE,
-      hash,
-      size_bytes: bytes.length,
-    },
-  };
-}
-
-// 같은 (질문, field, hash)는 한 번만 등록한다. 서로 다른 선택지의 같은 설명은 한 참조다.
-export function registerTextBlobs(
-  tx: Tx,
-  question: string,
-  seq: string,
-  blobs: readonly { field: string; blob: TextBlob }[],
-): Result<void> {
-  const seen = new Set<string>();
-  for (const { field, blob } of blobs) {
-    const key = `${field}:${blob.hash}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const registered = tx.registerBlobRef({
-      owner_kind: QUESTION_BLOB_OWNER_KIND,
-      owner_key: question,
-      field,
-      registered_seq: seq,
-      source: { kind: "prepared", blob: blob.evidence },
-    });
-    if (!registered.ok) return err(registered.error);
-  }
-  return ok(undefined);
-}
+// domain-model lophn-agent/questions의 `question_groups`·`questions` 표 row 변환과 읽기 조회.
+// 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는 reads.ts가 맡는다.
 
 type Lookup = {
   sql: { get: (query: string, params: SqlParams) => SqlRow | undefined };
@@ -160,18 +28,13 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-export type QuestionRow = {
+export type GroupRow = {
   id: string;
   run: string;
   session: string | null;
   created_by: string;
-  prompt_blob: string;
-  reason_blob: string;
-  options: string;
-  recommendation: string | null;
   expires_at: string | null;
-  status: "pending" | "answered" | "expired" | "cancelled";
-  answer: string | null;
+  status: GroupStatus;
   binding_hash: string | null;
   closed_reason: string | null;
   closed_reason_blob: string | null;
@@ -179,23 +42,35 @@ export type QuestionRow = {
   closed_seq: string | null;
 };
 
-export const QUESTION_COLUMNS = `id, run, session, created_by, prompt_blob,
-  reason_blob, options, recommendation, expires_at, status, answer, binding_hash,
-  closed_reason, closed_reason_blob, created_seq, closed_seq`;
+export type QuestionRow = {
+  id: string;
+  group: string;
+  position: number;
+  prompt_blob: string;
+  reason_blob: string;
+  options: string;
+  recommendation: string | null;
+  answer: string | null;
+};
 
-export function questionRowOf(row: SqlRow): QuestionRow {
+// 묶음과 그 질문(position 순서). 묶음의 내용은 질문을 값으로 품지 않고 `questions` 행을
+// `group`으로 모은 것이다.
+export type QuestionGroup = GroupRow & { questions: QuestionRow[] };
+
+export const GROUP_COLUMNS = `id, run, session, created_by, expires_at, status,
+  binding_hash, closed_reason, closed_reason_blob, created_seq, closed_seq`;
+
+export const QUESTION_COLUMNS =
+  `id, "group", position, prompt_blob, reason_blob, options, recommendation, answer`;
+
+export function groupRowOf(row: SqlRow): GroupRow {
   return {
     id: String(row["id"]),
     run: String(row["run"]),
     session: text(row["session"]),
     created_by: String(row["created_by"]),
-    prompt_blob: String(row["prompt_blob"]),
-    reason_blob: String(row["reason_blob"]),
-    options: String(row["options"]),
-    recommendation: text(row["recommendation"]),
     expires_at: text(row["expires_at"]),
-    status: String(row["status"]) as QuestionRow["status"],
-    answer: text(row["answer"]),
+    status: String(row["status"]) as GroupStatus,
     binding_hash: text(row["binding_hash"]),
     closed_reason: text(row["closed_reason"]),
     closed_reason_blob: text(row["closed_reason_blob"]),
@@ -204,15 +79,63 @@ export function questionRowOf(row: SqlRow): QuestionRow {
   };
 }
 
-export function loadQuestion(
+export function questionRowOf(row: SqlRow): QuestionRow {
+  return {
+    id: String(row["id"]),
+    group: String(row["group"]),
+    position: Number(row["position"]),
+    prompt_blob: String(row["prompt_blob"]),
+    reason_blob: String(row["reason_blob"]),
+    options: String(row["options"]),
+    recommendation: text(row["recommendation"]),
+    answer: text(row["answer"]),
+  };
+}
+
+// 묶음의 질문은 많아야 4개이고 position이 1부터 연속이다. ReadQuestionText의 snapshot은
+// `get`만 주므로 위치 하나씩 읽는다.
+export function loadQuestions(lookup: Lookup, group: string): QuestionRow[] {
+  const questions: QuestionRow[] = [];
+  for (let position = 1; position <= QUESTION_GROUP_MAX_QUESTIONS; position++) {
+    const row = lookup.sql.get(
+      `select ${QUESTION_COLUMNS} from questions where "group" = ? and position = ?`,
+      [group, position],
+    );
+    if (row === undefined) break;
+    questions.push(questionRowOf(row));
+  }
+  return questions;
+}
+
+export function loadGroup(
   lookup: Lookup,
   id: string,
-): QuestionRow | undefined {
+): QuestionGroup | undefined {
   const row = lookup.sql.get(
-    `select ${QUESTION_COLUMNS} from questions where id = ?`,
+    `select ${GROUP_COLUMNS} from question_groups where id = ?`,
     [id],
   );
-  return row === undefined ? undefined : questionRowOf(row);
+  return row === undefined
+    ? undefined
+    : { ...groupRowOf(row), questions: loadQuestions(lookup, id) };
+}
+
+// 질문 ID로 그 묶음을 찾는다. 질문 ID를 다른 concern이 가리키므로(선택지 적용 근거·채택)
+// 이 길이 필요하다.
+export function loadGroupOfQuestion(
+  lookup: Lookup,
+  question: string,
+): { group: QuestionGroup; question: QuestionRow } | undefined {
+  const row = lookup.sql.get(
+    `select "group" from questions where id = ?`,
+    [question],
+  );
+  if (row === undefined) return undefined;
+  const group = loadGroup(lookup, String(row["group"]));
+  const found = group?.questions.find((one) => one.id === question);
+  return group === undefined || found === undefined
+    ? undefined
+    : { group, question: found };
 }
 
 export type RunRef = {
@@ -222,7 +145,10 @@ export type RunRef = {
   state: string;
 };
 
-export function loadRunRef(lookup: Lookup, id: string): RunRef | undefined {
+export function loadRunRef(
+  lookup: Lookup,
+  id: string,
+): RunRef | undefined {
   const row = lookup.sql.get(
     "select id, assignment, session, state from runs where id = ?",
     [id],
@@ -245,7 +171,46 @@ export function assignmentState(
   return row === undefined ? undefined : String(row["state"]);
 }
 
-export type QuestionRecord = Output<typeof questionList>["questions"][number];
+type StoredOption = {
+  key: string;
+  action: unknown;
+  adoption:
+    | { document: string; version: string; section: string | null }
+    | null;
+};
+
+export function optionsOf(question: QuestionRow): StoredOption[] {
+  return JSON.parse(question.options) as StoredOption[];
+}
+
+type StoredAnswer = { kind: string; option_key: string | null };
+
+function answerOf(question: QuestionRow): StoredAnswer | null {
+  return question.answer === null
+    ? null
+    : JSON.parse(question.answer) as StoredAnswer;
+}
+
+// group.ts의 순수 검사가 읽는 모양. 같은 검사를 두 벌 두지 않는다.
+export function groupStateOf(group: QuestionGroup): GroupState {
+  return {
+    status: group.status,
+    created_seq: group.created_seq,
+    expires_at: group.expires_at,
+    questions: group.questions.map((question) => ({
+      id: question.id,
+      options: optionsOf(question).map((option) => ({
+        key: option.key,
+        action: option.action,
+      })),
+      recommendation: question.recommendation === null
+        ? null
+        : JSON.parse(question.recommendation) as { option_key: string | null },
+    })),
+  };
+}
+
+export type QuestionGroupRecord = Output<typeof questionList>["groups"][number];
 
 // 같은 질문 option을 사람 결정으로 적용한 기록의 key. 적용 기록은 platform/ledger의
 // question_evidence(identity R14의 일회 표)이고 이 concern에는 적용 상태 표가 없다.
@@ -254,26 +219,52 @@ export function evidenceKey(question: string, option: string): string {
 }
 
 // 사람이 고른 선택지의 고정 action을 실제로 적용했는지. 답 접수와 적용 완료는 다르다(R10).
-// 자유 답·답 없음·종료한 질문은 적용한 일이 없다. 표가 없는 harness는 적용 기록도 없다.
-export function appliedOf(lookup: Lookup, row: QuestionRow): boolean {
-  if (row.status !== "answered" || row.answer === null) return false;
-  const answer = JSON.parse(row.answer) as {
-    kind: string;
-    option_key: string | null;
-  };
-  if (answer.kind !== "option" || answer.option_key === null) return false;
+// 자유 답·답 없음·종료한 묶음은 적용한 일이 없다. 표가 없는 harness는 적용 기록도 없다.
+export function appliedOf(
+  lookup: Lookup,
+  group: QuestionGroup,
+  question: QuestionRow,
+): boolean {
+  if (group.status !== "answered") return false;
+  const answer = answerOf(question);
+  if (
+    answer === null || answer.kind !== "option" || answer.option_key === null
+  ) {
+    return false;
+  }
   try {
     return lookup.sql.get(
       "select 1 as found from question_evidence where evidence_key = ?",
-      [evidenceKey(row.id, answer.option_key)],
+      [evidenceKey(question.id, answer.option_key)],
     ) !== undefined;
   } catch {
     return false;
   }
 }
 
-// 채택은 answered 질문이 고른 선택지의 adoption으로만 판정한다(R16). 새 version은 자동
-// 채택하지 않는다: 같은 질문의 답은 그때 고정한 document·version만 가리킨다. 채택을 근거로
+// 사람이 고른 선택지와 그 고정 action. 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리
+// 묶음이라(R13) 묶음에서 많아야 하나다. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
+export function chosenActionOf(
+  group: QuestionGroup,
+): { question: QuestionRow; key: string; action: OptionAction } | undefined {
+  if (group.status !== "answered") return undefined;
+  for (const question of group.questions) {
+    const answer = answerOf(question);
+    if (answer === null || answer.kind !== "option") continue;
+    const option = optionsOf(question).find((candidate) =>
+      candidate.key === answer.option_key
+    );
+    if (option === undefined || option.action === null) continue;
+    const parsed = optionActionSchema.safeParse(option.action);
+    if (parsed.success && answer.option_key !== null) {
+      return { question, key: answer.option_key, action: parsed.data };
+    }
+  }
+  return undefined;
+}
+
+// 채택은 answered 묶음에 속한 질문이 고른 선택지의 adoption으로만 판정한다(R16). 새 version은
+// 자동 채택하지 않는다: 같은 질문의 답은 그때 고정한 document·version만 가리킨다. 채택을 근거로
 // 쓰는 ticket·handoff는 이 값의 document·version과 질문 ID를 함께 보관한다.
 export type Adoption = {
   question: string;
@@ -282,49 +273,54 @@ export type Adoption = {
   section: string | null;
 };
 
-export function adoptionOf(row: QuestionRow): Adoption | null {
-  if (row.status !== "answered" || row.answer === null) return null;
-  const answer = JSON.parse(row.answer) as {
-    kind: string;
-    option_key: string | null;
-  };
-  if (answer.kind !== "option") return null;
-  const options = JSON.parse(row.options) as {
-    key: string;
-    adoption:
-      | { document: string; version: string; section: string | null }
-      | null;
-  }[];
-  const chosen = options.find((option) => option.key === answer.option_key);
-  if (chosen === undefined || chosen.adoption === null) return null;
-  return {
-    question: row.id,
-    document: chosen.adoption.document,
-    version: chosen.adoption.version,
-    section: chosen.adoption.section,
-  };
+export function adoptionsOf(group: QuestionGroup): Adoption[] {
+  if (group.status !== "answered") return [];
+  const adopted: Adoption[] = [];
+  for (const question of group.questions) {
+    const answer = answerOf(question);
+    if (answer === null || answer.kind !== "option") continue;
+    const chosen = optionsOf(question).find((option) =>
+      option.key === answer.option_key
+    );
+    if (chosen === undefined || chosen.adoption === null) continue;
+    adopted.push({
+      question: question.id,
+      document: chosen.adoption.document,
+      version: chosen.adoption.version,
+      section: chosen.adoption.section,
+    });
+  }
+  return adopted;
 }
 
-export function recordOf(row: QuestionRow, applied: boolean): QuestionRecord {
+export function recordOf(
+  group: QuestionGroup,
+  applied: (question: QuestionRow) => boolean,
+): QuestionGroupRecord {
   return {
-    id: row.id,
-    run: row.run,
-    session: row.session,
-    prompt_blob: row.prompt_blob,
-    reason_blob: row.reason_blob,
-    options: JSON.parse(row.options),
-    recommendation: row.recommendation === null
-      ? null
-      : JSON.parse(row.recommendation),
-    expires_at: row.expires_at,
-    status: row.status,
-    answer: row.answer === null ? null : JSON.parse(row.answer),
-    closed_reason: row.closed_reason,
-    closed_reason_blob: row.closed_reason_blob,
-    created_seq: row.created_seq,
-    closed_seq: row.closed_seq,
-    applied,
-  } as QuestionRecord;
+    id: group.id,
+    run: group.run,
+    session: group.session,
+    expires_at: group.expires_at,
+    status: group.status,
+    closed_reason: group.closed_reason,
+    closed_reason_blob: group.closed_reason_blob,
+    created_seq: group.created_seq,
+    closed_seq: group.closed_seq,
+    questions: group.questions.map((question) => ({
+      id: question.id,
+      group: question.group,
+      position: question.position,
+      prompt_blob: question.prompt_blob,
+      reason_blob: question.reason_blob,
+      options: JSON.parse(question.options),
+      recommendation: question.recommendation === null
+        ? null
+        : JSON.parse(question.recommendation),
+      answer: question.answer === null ? null : JSON.parse(question.answer),
+      applied: applied(question),
+    })),
+  } as QuestionGroupRecord;
 }
 
 // 선택지의 고정 action이 platform/settings 변경이면 그 변경 목록을 낸다.
@@ -348,49 +344,6 @@ export function settingChangesOf(
     parsed.push(one.data);
   }
   return parsed;
-}
-
-// 저장되는 모양의 질문 내용. 요청의 글은 blob hash로 바뀌어 있다.
-export type StoredQuestionContent = {
-  prompt_blob: string;
-  reason_blob: string;
-  options: unknown[];
-  recommendation: unknown;
-  blobs: { field: string; blob: TextBlob }[];
-};
-
-export function storedContent(
-  ctx: RequestContext,
-  input: CreateQuestionInput,
-): StoredQuestionContent {
-  const prompt = textBlob(ctx, input.prompt);
-  const reason = textBlob(ctx, input.reason);
-  const blobs: StoredQuestionContent["blobs"] = [
-    { field: QUESTION_BLOB_FIELDS.prompt, blob: prompt },
-    { field: QUESTION_BLOB_FIELDS.reason, blob: reason },
-  ];
-  const options = input.options.map((option) => {
-    const { description, ...rest } = option;
-    const blob = textBlob(ctx, description);
-    blobs.push({ field: QUESTION_BLOB_FIELDS.optionDescription, blob });
-    return { ...rest, description_blob: blob.hash };
-  });
-  let recommendation: unknown = null;
-  if (input.recommendation !== null) {
-    const blob = textBlob(ctx, input.recommendation.explanation);
-    blobs.push({ field: QUESTION_BLOB_FIELDS.recommendation, blob });
-    recommendation = {
-      option_key: input.recommendation.option_key,
-      explanation_blob: blob.hash,
-    };
-  }
-  return {
-    prompt_blob: prompt.hash,
-    reason_blob: reason.hash,
-    options,
-    recommendation,
-    blobs,
-  };
 }
 
 // 선택지의 근거·채택 참조는 그 document의 실제 불변 version이어야 한다(R16). 판 표(documents/
@@ -424,17 +377,24 @@ export function fixedVersionsExist(
   return ok(undefined);
 }
 
+// 이미 저장된 묶음이 같은 요청의 내용인지(재전송 판정). 질문 순서와 값이 모두 같아야 한다.
 export function sameContent(
-  row: QuestionRow,
-  input: CreateQuestionInput,
-  stored: StoredQuestionContent,
+  group: QuestionGroup,
+  input: CreateQuestionGroupInput,
+  stored: StoredGroupContent,
 ): boolean {
-  return row.run === input.run && row.session === input.session &&
-    row.prompt_blob === stored.prompt_blob &&
-    row.reason_blob === stored.reason_blob &&
-    row.expires_at === input.expires_at &&
-    canonicalize(JSON.parse(row.options)) === canonicalize(stored.options) &&
-    canonicalize(
-        row.recommendation === null ? null : JSON.parse(row.recommendation),
-      ) === canonicalize(stored.recommendation);
+  if (
+    group.run !== input.run || group.session !== input.session ||
+    group.expires_at !== input.expires_at ||
+    group.questions.length !== stored.questions.length
+  ) return false;
+  return group.questions.every((row, index) => {
+    const next = stored.questions[index]!;
+    return row.id === next.id && row.prompt_blob === next.prompt_blob &&
+      row.reason_blob === next.reason_blob &&
+      canonicalize(JSON.parse(row.options)) === canonicalize(next.options) &&
+      canonicalize(
+          row.recommendation === null ? null : JSON.parse(row.recommendation),
+        ) === canonicalize(next.recommendation);
+  });
 }

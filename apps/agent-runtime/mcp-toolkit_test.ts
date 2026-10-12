@@ -3,7 +3,11 @@
 // 실제 model provider에 닿지 않는다. 파일은 temp dir만 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../packages/base/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  mcpServersSetting,
+  placeExtensionSettingsRead,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import { routePath } from "../../packages/contracts/platform/mod.ts";
 import {
   checkMcpConfig,
   type McpConnectionsDeps,
@@ -13,6 +17,7 @@ import type { StdioSpawnInput } from "../../packages/lophn-agent/extensions/mod.
 import { ok, type Result } from "../../packages/base/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { CoreCall } from "./core-call.ts";
+import type { McpToolkit } from "./prepare.ts";
 import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
 
 const clock = manualClock(0);
@@ -240,4 +245,169 @@ Deno.test("lophn-agent/extensions#R12: 문제·비활성 서버는 source 목록
   const invalid = checkMcpConfig([bad as never]);
   assert(invalid.ok);
   assertEquals(invalid.value.valid.length, 0);
+});
+
+// ---- 자리 층(agent-I19b) ----
+const PRJ_PLACE = {
+  kind: "project" as const,
+  id: "prj_01arz3ndektsv4rrffq69g5fa1",
+};
+const OTHER_PLACE = {
+  kind: "project" as const,
+  id: "prj_01arz3ndektsv4rrffq69g5fa9",
+};
+
+function named(name: string, revision = 1) {
+  return { ...stdioServer(revision), name };
+}
+
+// 전역 설정(settings/get)과 자리별 서버 목록(place-extension-settings/read)에 답하는 core다.
+function routedCalls(
+  global: readonly unknown[],
+  places: Record<string, readonly unknown[]>,
+  failPlaceRead = false,
+): CoreCall {
+  const settings = settingsGetBody(global);
+  return (path, request) => {
+    if (path === routePath(placeExtensionSettingsRead)) {
+      if (failPlaceRead) {
+        return Promise.resolve(
+          {
+            ok: false,
+            error: { code: "unavailable", message: "down" },
+          } as Result<unknown>,
+        );
+      }
+      const place = (request as { place: { id: string } }).place;
+      return Promise.resolve(ok({
+        place: (request as { place: unknown }).place,
+        settings: { revision: 1, mcp_servers: places[place.id] ?? [] },
+        hash: null,
+        skills: [],
+        shadowed: [],
+        skipped: [],
+        as_of_seq: "1",
+        next_cursor: null,
+      }) as Result<unknown>);
+    }
+    return settings(path, request);
+  };
+}
+
+async function sourced(
+  kit: ReturnType<typeof createMcpToolkit>,
+  assignment: string,
+  options: Parameters<McpToolkit["source"]>[1],
+) {
+  const source = await kit.toolkit(assignment).source(assignment, options);
+  assert(source.ok, source.ok ? "" : source.error.message);
+  return {
+    servers: [...source.value.servers.keys()].sort(),
+    tools: [...new Set(source.value.tools.map((tool) => tool.server))].sort(),
+    revision: (name: string) => source.value.servers.get(name)?.revision,
+  };
+}
+
+Deno.test("lophn-agent/extensions#R32 [agent-I19b]: 자리의 MCP 서버는 그 자리에서 여는 agent의 연결에만 더해진다", async () => {
+  childPath = await writeChild();
+  const kit = createMcpToolkit({
+    machine: routedCalls([named("notes")], {
+      [PRJ_PLACE.id]: [named("scoped")],
+    }),
+    connections: connectionsDeps(),
+  });
+  try {
+    const here = await sourced(kit, "assignment-1", { place: PRJ_PLACE });
+    assertEquals(here.servers, ["notes", "scoped"]);
+    assertEquals(here.tools, ["notes", "scoped"]);
+    const elsewhere = await sourced(kit, "assignment-2", {
+      place: OTHER_PLACE,
+    });
+    assertEquals(elsewhere.servers, ["notes"]);
+    // 자리를 모르는 연결은 전역 서버만 쓴다.
+    const none = await sourced(kit, "assignment-3", { place: null });
+    assertEquals(none.servers, ["notes"]);
+  } finally {
+    await kit.endAll();
+    await Deno.remove(childPath!, { recursive: true }).catch(() => {});
+  }
+});
+
+Deno.test("lophn-agent/extensions#R33 [agent-I19b]: 전역과 같은 이름의 자리 서버는 쓰지 않고 자리 서버를 읽지 못하면 전역 서버만 남는다", async () => {
+  childPath = await writeChild();
+  try {
+    const clash = createMcpToolkit({
+      machine: routedCalls([named("notes", 1)], {
+        [PRJ_PLACE.id]: [named("notes", 9)],
+      }),
+      connections: connectionsDeps(),
+    });
+    try {
+      const seen = await sourced(clash, "assignment-1", { place: PRJ_PLACE });
+      assertEquals(seen.servers, ["notes"]);
+      assertEquals(seen.revision("notes"), 1);
+    } finally {
+      await clash.endAll();
+    }
+    const down = createMcpToolkit({
+      machine: routedCalls([named("notes")], {}, true),
+      connections: connectionsDeps(),
+    });
+    try {
+      const seen = await sourced(down, "assignment-1", { place: PRJ_PLACE });
+      assertEquals(seen.servers, ["notes"]);
+    } finally {
+      await down.endAll();
+    }
+  } finally {
+    await Deno.remove(childPath!, { recursive: true }).catch(() => {});
+  }
+});
+
+Deno.test("lophn-agent/extensions#R18 lophn-agent/extensions#R31 [agent-I19b]: agent 정의가 통째로 끈 서버는 연결하지 않는다", async () => {
+  childPath = await writeChild();
+  const kit = createMcpToolkit({
+    machine: routedCalls([named("notes")], {
+      [PRJ_PLACE.id]: [named("scoped")],
+    }),
+    connections: connectionsDeps(),
+  });
+  try {
+    const skipped = await sourced(kit, "assignment-1", {
+      place: PRJ_PLACE,
+      skip: new Set(["scoped"]),
+    });
+    assertEquals(skipped.servers, ["notes"]);
+    assertEquals(skipped.tools, ["notes"]);
+    const allOff = await sourced(kit, "assignment-2", {
+      place: PRJ_PLACE,
+      skip: new Set(["notes", "scoped"]),
+    });
+    assertEquals(allOff.servers, []);
+    assertEquals(allOff.tools, []);
+  } finally {
+    await kit.endAll();
+    await Deno.remove(childPath!, { recursive: true }).catch(() => {});
+  }
+});
+
+Deno.test("lophn-agent/extensions#R18 [agent-I19b]: an agent that is resumed connects only the servers it has turned on", async () => {
+  childPath = await writeChild();
+  const kit = createMcpToolkit({
+    machine: routedCalls([named("notes")], {
+      [PRJ_PLACE.id]: [named("scoped")],
+    }),
+    connections: connectionsDeps(),
+  });
+  try {
+    const kept = await sourced(kit, "assignment-1", {
+      place: PRJ_PLACE,
+      only: new Set(["scoped"]),
+    });
+    assertEquals(kept.servers, ["scoped"]);
+    assertEquals(kept.tools, ["scoped"]);
+  } finally {
+    await kit.endAll();
+    await Deno.remove(childPath!, { recursive: true }).catch(() => {});
+  }
 });

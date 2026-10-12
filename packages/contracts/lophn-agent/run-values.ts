@@ -7,6 +7,7 @@ import {
   sha256Schema,
 } from "../platform/mod.ts";
 import { sectionKeySchema } from "../documents/mod.ts";
+import { resolvedSourcesSchema } from "./agent-values.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import {
   resolvedModelOutputSchema,
@@ -42,12 +43,6 @@ const messageSourceFields = {
   message: idSchema("msg"),
 };
 
-const scheduleSourceFields = {
-  kind: z.literal("schedule"),
-  assignment_revision: positiveRevisionSchema,
-  scheduled_at: atSchema,
-};
-
 const handoffSourceFields = {
   kind: z.literal("handoff"),
   sender_run: idSchema("run"),
@@ -65,13 +60,11 @@ const handoffSourceOutputFields = {
 // 다른 가지 필드는 strict object가 거절한다. 같은 assignment·self 검사는 runtime이다.
 export const runSourceSchema = z.discriminatedUnion("kind", [
   z.strictObject(messageSourceFields),
-  z.strictObject(scheduleSourceFields),
   z.strictObject(handoffSourceFields),
 ]);
 
 export const runSourceOutputSchema = z.discriminatedUnion("kind", [
   z.object(messageSourceFields),
-  z.object(scheduleSourceFields),
   z.object(handoffSourceOutputFields),
 ]);
 
@@ -84,14 +77,13 @@ const pinnedRevisionFields = {
   basis_seq: seqSchema,
 };
 
-export const runBasisPresetSchema = z.strictObject({
-  ...pinnedRevisionFields,
-  id: idSchema("pst"),
-});
-export const runBasisPresetOutputSchema = z.object({
-  ...pinnedRevisionFields,
-  id: idSchema("pst"),
-});
+// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다(lophn-agent/agents R25).
+const runBasisAgentFields = {
+  hash: sha256Schema,
+  sources: resolvedSourcesSchema,
+};
+export const runBasisAgentSchema = z.strictObject(runBasisAgentFields);
+export const runBasisAgentOutputSchema = z.object(runBasisAgentFields);
 export const runBasisAssignmentSchema = z.strictObject({
   ...pinnedRevisionFields,
   id: idSchema("asg"),
@@ -131,7 +123,7 @@ export const DEFAULT_RUN_LIMITS = {
 } as const;
 
 export const runBasisSchema = z.strictObject({
-  preset: runBasisPresetSchema,
+  agent: runBasisAgentSchema,
   assignment: runBasisAssignmentSchema,
   tools: z.strictObject({
     revision: positiveRevisionSchema,
@@ -140,7 +132,6 @@ export const runBasisSchema = z.strictObject({
   }),
   extensions: z.strictObject({
     settings_revision: positiveRevisionSchema,
-    preset_selection: sha256Schema,
     skill_hashes: z.array(sha256Schema),
     mcp_config_revisions: z.array(positiveRevisionSchema),
     mcp_tool_definition_hashes: z.array(sha256Schema),
@@ -157,7 +148,7 @@ export const runBasisSchema = z.strictObject({
 });
 
 export const runBasisOutputSchema = z.object({
-  preset: runBasisPresetOutputSchema,
+  agent: runBasisAgentOutputSchema,
   assignment: runBasisAssignmentOutputSchema,
   tools: z.object({
     revision: positiveRevisionSchema,
@@ -166,7 +157,6 @@ export const runBasisOutputSchema = z.object({
   }),
   extensions: z.object({
     settings_revision: positiveRevisionSchema,
-    preset_selection: sha256Schema,
     skill_hashes: z.array(sha256Schema),
     mcp_config_revisions: z.array(positiveRevisionSchema),
     mcp_tool_definition_hashes: z.array(sha256Schema),
@@ -198,7 +188,7 @@ export const runElapsedOutputSchema = z.object(elapsedFields);
 export type RunElapsed = z.infer<typeof runElapsedSchema>;
 
 export const RUN_OUTCOME_REASONS = {
-  completed: ["answer_completed", "no_change"],
+  completed: ["answer_completed"],
   failed: [
     "model_error",
     "tool_error",
@@ -261,7 +251,8 @@ export const RUN_STATES = [
 
 export const runStateSchema = z.enum(RUN_STATES);
 
-export const waitingOnSchema = z.union([idSchema("qst"), idSchema("apr")]);
+// 기다리는 요청은 질문 묶음(qgr) 또는 approval request(apr) 하나다.
+export const waitingOnSchema = z.union([idSchema("qgr"), idSchema("apr")]);
 
 export function nonSelfRunLinks(value: {
   id: string;

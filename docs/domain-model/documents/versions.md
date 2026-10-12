@@ -170,7 +170,7 @@ project_file과 instruction_file의 tagged union이다.
 | `document.unarchive` | `user` | `document` | `base_revision`, 현재 `archived` | `DocumentUnarchived` | `not_found`, `conflict`, `forbidden` |
 | `document.restore` | `user`, 요청된 revert의 `machine` | `document, restore_version`, 준비 결과; revert는 제목 보상 값 | `base_version`, `base_revision`; 원본 연결이면 사람 파일 쓰기·관측 근거도 필수 | `DocumentSaved`, `DocumentRestored`; 제목 변경 시 `DocumentUpdated` | `not_found`, `invalid_input`, `conflict`, `forbidden`, `unavailable` |
 
-저장 scope는 → platform/identity, coding-agent/connection, lophn-agent/assignments, apps/blueprint이다. Operator는 assignment의 기존 Document에만 새 판을 쓰며 새 Document·자리·형식을 바꾸지 않는다. 앱은 자기 앱 place의 선언된 출력 이름만 쓴다. 허용 범위가 없는 place null도 거절한다.
+저장 scope는 → platform/identity, coding-agent/connection, lophn-agent/assignments, apps/blueprint이다. agent(Operator 포함)가 어느 Document에 쓸 수 있는지는 documents가 판정하지 않고 lophn-agent/harness/tool-judgment가 쓰기마다 정한다(Operator는 정의의 권한 안에서 담당 자리의 Document). 앱은 자기 앱 place의 선언된 출력 이름만 쓴다. 허용 범위가 없는 place null도 거절한다.
 
 ## event
 
@@ -192,13 +192,13 @@ project_file과 instruction_file의 tagged union이다.
 
 ## 정할 것
 
-- 독립 산출물 가족은 → documents/series를 따른다. Operator는 기존 출력 Document에 새 Version만 쓴다.
+- 독립 산출물 가족은 → documents/series를 따른다. Operator는 담당 자리의 Document에 새 Version을 쓴다(→ lophn-agent/roles/operator).
 - 문서·판 영구 삭제는 두지 않는다. 보관만 제공하고 고정 근거·address 예약·blob은 남긴다.
 - content_hash는 고정 필드 JSON을 codepoint 순으로 정렬한 UTF-8의 SHA-256이다. 준비 처리와 blob 참조 검증이 같은 규약을 쓴다.
 
 ## 지침 FileSource와 write 보호
 
-→ lophn-agent/instructions의 InstructionLocation 또는 InstructionAttachment가 가리키는 문서는 instruction 대상이다. 이 분류는 이름·현재 place·본문만으로 추정하지 않고 정확한 등록 locator 또는 preset의 document 참조로 확인한다. 해당 문서의 agent/coding_agent/app create·save·title/move·source 변경은 현재 분류를 검사해 forbidden이다. 사람 파일 작업과 해당 locator를 관측한 좁은 machine만 Version을 확정한다. 지침 파일을 다른 출력으로 선택해도 금지를 해제하지 못한다.
+→ lophn-agent/instructions의 InstructionLocation이 가리키는 문서는 instruction 대상이다. 이 분류는 이름·현재 place·본문만으로 추정하지 않고 정확한 등록 locator로 확인한다. 해당 문서의 agent/coding_agent/app create·save·title/move·source 변경은 현재 분류를 검사해 forbidden이다. 사람 파일 작업과 해당 locator를 관측한 좁은 machine만 Version을 확정한다. 지침 파일을 다른 출력으로 선택해도 금지를 해제하지 못한다.
 
 FileSource는 `{kind: project_file, project, path}` 또는 `{kind: instruction_file, instruction_target, project?, path}`의 tagged union이다. 기존 source는 project_file로 해석한다. instruction_target은 → lophn-agent/instructions의 exact 층·대상·파일 등록 참조이며 global은 project=null, project/app은 등록 관계가 확인된 Project를 가리킨다. preset 첨부는 사람이 연결한 원본 범위를 따른다. 현재 place와 source는 여전히 독립이며 전역 지침은 사용자 Project나 system place를 자동 만들지 않고 place/name=null을 허용하는 지침 source 문서다.
 

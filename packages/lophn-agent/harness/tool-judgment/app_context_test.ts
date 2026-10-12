@@ -490,7 +490,6 @@ async function judged(
         id: target.id,
         inScope: true,
         reversibility: target.reversibility,
-        declared: false,
       }))
       : [],
   };

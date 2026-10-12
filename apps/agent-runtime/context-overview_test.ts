@@ -1,6 +1,6 @@
-// lophn-agent/presets#R17 lophn-agent/roles/app-engineer#R2 [ctx-I58b]: preset의 `work_place`·`assignment_scope`
-// context 선택을 푸는 순수 함수와, App Engineer(앱 하나에 묶인 credential)의 prompt 자료가 담당 앱을
-// app-data로 읽는 context의 overview·용어집을 싣는지 본다. core는 `CoreCall` fake로 흉내 내고, 앱 하나에
+// lophn-agent/roles/app-engineer#R2 [ctx-I58b]: resolved agent의 context가 prompt 자료로 읽힌다. App Engineer
+// (앱 하나에 묶인 credential)의 자료가 담당 앱을 app-data로 읽는 context의 overview·용어집을 싣는지 본다. 어느
+// context인지는 agent 층이 정한다(agent-layers). core는 `CoreCall` fake로 흉내 내고, 앱 하나에
 // 묶인 credential에는 그 앱을 읽는 context만 보이는 core의 답(목록은 그 줄만, 나머지는 not_found)을 따른다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
@@ -19,10 +19,7 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
-import {
-  loadContextMaterials,
-  resolveContextSelections,
-} from "./context-overview.ts";
+import { loadContextMaterials } from "./context-overview.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {
@@ -41,50 +38,6 @@ const MAIL_CTX = id("ctx", 2);
 const PLAIN_CTX = id("ctx", 3);
 const META = { as_of_seq: "9", complete: true, next_cursor: null };
 const AT = "2026-10-12T00:00:00.000Z";
-
-const project = { kind: "project", id: PROJECT } as const;
-const app = { kind: "app", id: id("app", 1) } as const;
-const global = { kind: "global", id: null } as const;
-
-Deno.test("lophn-agent/presets#R17 [ctx-I58b]: work_place는 작업 자리의 project로, assignment_scope는 담당 범위로 풀리고 다른 선택은 그대로다", () => {
-  const all = { kind: "all", target: null };
-  const doc = { kind: "document", target: "doc_x" };
-  const resolve = (
-    selections: { kind: string; target: string | null }[],
-    place: { kind: string; id: string | null },
-    scope: { kind: string; id: string | null },
-  ) => resolveContextSelections(selections, { place, scope });
-
-  assertEquals(
-    resolve([{ kind: "work_place", target: null }], project, global),
-    [{ kind: "project", target: PROJECT }],
-  );
-  // 작업 자리가 project가 아니면 work_place는 자료가 없다.
-  assertEquals(
-    resolve([{ kind: "work_place", target: null }], app, global),
-    [],
-  );
-  assertEquals(
-    resolve([{ kind: "work_place", target: null }], global, global),
-    [],
-  );
-
-  const scoped = [{ kind: "assignment_scope", target: null }];
-  assertEquals(resolve(scoped, global, { kind: "project", id: PROJECT }), [
-    { kind: "project", target: PROJECT },
-  ]);
-  // 담당 범위가 앱이면 작업 자리와 상관없이 그 앱을 읽는 context들이다(`context.list`의 app 거르기).
-  const byApp = [{ kind: "app_readers", target: app.id }];
-  assertEquals(resolve(scoped, project, app), byApp);
-  assertEquals(resolve(scoped, global, app), byApp);
-  assertEquals(resolve(scoped, app, app), byApp);
-  assertEquals(resolve(scoped, global, global), [all]);
-
-  assertEquals(
-    resolve([all, doc, { kind: "context", target: CALENDAR_CTX }], global, app),
-    [all, doc, { kind: "context", target: CALENDAR_CTX }],
-  );
-});
 
 function contentReading(app: string | null) {
   return bundleContentSchema.parse({
@@ -240,20 +193,14 @@ function boundCore(bound: string | null) {
   return { call, seen };
 }
 
-Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 assignment_scope 선택은 담당 앱을 app-data로 읽는 context의 overview와 용어집을 prompt 자료로 싣는다", async () => {
+Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 resolved agent context는 담당 앱을 app-data로 읽는 context의 overview와 용어집을 prompt 자료로 싣는다", async () => {
   const core = boundCore(APP);
-  const selections = resolveContextSelections(
-    [{ kind: "assignment_scope", target: null }],
-    { place: project, scope: app },
-  );
-  assertEquals(selections, [{ kind: "app_readers", target: app.id }]);
+  // agent 층이 담당 앱을 읽는 context만 골라 준다. 앱을 읽지 않는 context는 core가 이 credential에 보이지 않는다.
   const set = await loadContextMaterials(core.call, {
-    project: PROJECT,
-    selections,
+    contexts: [CALENDAR_CTX, MAIL_CTX],
   });
-  // 다른 앱을 읽는 context와 앱 data를 읽지 않는 context는 자료에 없다.
+  // 다른 앱을 읽는 context는 자료에 없다.
   assertEquals(set.materials.map((item) => item.context), [CALENDAR_CTX]);
-  assertEquals(set.reason, null);
   const [material] = set.materials;
   assertEquals(
     material!.text,
@@ -266,11 +213,10 @@ Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 assignm
       "- 일정: 달력에 적은 약속 하나",
     ].join("\n"),
   );
-  // 읽기만 했고 R2가 말한 읽기(list·get·contract·overview·glossary)뿐이다.
+  // 읽기만 했고 R2가 말한 읽기(get·contract·overview·glossary)뿐이다.
   assertEquals(
     new Set(core.seen.map((entry) => entry.path)),
     new Set([
-      routePath(contextListRoute),
       routePath(contextGetRoute),
       routePath(contextContractRoute),
       routePath(contextOverviewRoute),
@@ -279,49 +225,17 @@ Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I58b]: App Engineer의 assignm
   );
 });
 
-Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 작업 자리가 project가 아니어도 App Engineer의 자료는 담당 앱을 읽는 context의 것이다. 이름으로 고른 다른 앱의 context는 싣지 않는다", async () => {
+Deno.test("lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 이름으로 고른 다른 앱의 context와 없는 context는 싣지 않는다", async () => {
   const core = boundCore(APP);
-  const selections = resolveContextSelections(
-    [{ kind: "assignment_scope", target: null }],
-    { place: global, scope: { kind: "app", id: APP_IDS[APP]! } },
-  );
-  const set = await loadContextMaterials(core.call, {
-    project: null,
-    selections,
-  });
-  assertEquals(set.materials.map((item) => item.context), [CALENDAR_CTX]);
-  assertEquals(set.reason, null);
-  // 첫 읽기는 app으로 거른 목록이다(project 없이).
-  const listed = core.seen.find((entry) =>
-    entry.path === routePath(contextListRoute)
-  );
-  assertEquals(listed?.body, { app: APP_IDS[APP], status: "active" });
-
-  // 앱 ID가 다른 앱이면 그 앱을 읽는 context가 없어 자료가 없고 이유도 없다.
-  const none = await loadContextMaterials(boundCore(null).call, {
-    project: null,
-    selections: [{ kind: "app_readers", target: id("app", 9) }],
-  });
-  assertEquals(none.materials, []);
-  assertEquals(none.reason, null);
-
   const named = await loadContextMaterials(core.call, {
-    project: PROJECT,
-    selections: [{ kind: "context", target: MAIL_CTX }, {
-      kind: "context",
-      target: id("ctx", 99),
-    }],
+    contexts: [MAIL_CTX, id("ctx", 99)],
   });
   assertEquals(named.materials, []);
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I58b]: 앱에 묶이지 않은 역할의 assignment_scope는 project의 모든 active context를 싣는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I58b]: 앱에 묶이지 않은 역할의 resolved agent context는 모두 싣는다", async () => {
   const set = await loadContextMaterials(boundCore(null).call, {
-    project: PROJECT,
-    selections: resolveContextSelections(
-      [{ kind: "assignment_scope", target: null }],
-      { place: global, scope: { kind: "project", id: PROJECT } },
-    ),
+    contexts: [CALENDAR_CTX, MAIL_CTX, PLAIN_CTX],
   });
   assertEquals(set.materials.map((item) => item.context), [
     CALENDAR_CTX,
@@ -330,16 +244,11 @@ Deno.test("lophn-agent/presets#R17 [ctx-I58b]: 앱에 묶이지 않은 역할의
   ]);
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I56b]: 고른 context를 읽지 못하면 조용히 빼지 않고 context마다 이유를 남기고 보관·판 없는 context는 이유 없이 뺀다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I56b]: 고른 context를 읽지 못하면 조용히 빼지 않고 context마다 이유를 남기고 보관·판 없는 context는 이유 없이 뺀다", async () => {
   const core = boundCore(APP);
   // 담당 앱이 읽지 않는 context(get이 not_found)와 없는 context는 이유가 남는다.
   const set = await loadContextMaterials(core.call, {
-    project: PROJECT,
-    selections: [
-      { kind: "context", target: CALENDAR_CTX },
-      { kind: "context", target: MAIL_CTX },
-      { kind: "context", target: id("ctx", 99) },
-    ],
+    contexts: [CALENDAR_CTX, MAIL_CTX, id("ctx", 99)],
   });
   assertEquals(set.materials.map((item) => item.context), [CALENDAR_CTX]);
   assertEquals(set.omitted.map((item) => item.context), [
@@ -357,8 +266,7 @@ Deno.test("lophn-agent/presets#R17 [ctx-I56b]: 고른 context를 읽지 못하�
       ? Promise.resolve(err({ code: "unavailable", message: "down" }))
       : core.call(path, body);
   const down = await loadContextMaterials(failing, {
-    project: PROJECT,
-    selections: [{ kind: "context", target: CALENDAR_CTX }],
+    contexts: [CALENDAR_CTX],
   });
   assertEquals(down.materials, []);
   assertEquals(down.omitted, [{
@@ -378,8 +286,7 @@ Deno.test("lophn-agent/presets#R17 [ctx-I56b]: 고른 context를 읽지 못하�
       });
     });
   const quiet = await loadContextMaterials(inactive, {
-    project: PROJECT,
-    selections: [{ kind: "context", target: CALENDAR_CTX }],
+    contexts: [CALENDAR_CTX],
   });
   assertEquals([quiet.materials, quiet.omitted], [[], []]);
 });

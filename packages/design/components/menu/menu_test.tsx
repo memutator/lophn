@@ -95,3 +95,37 @@ Deno.test("shell/design-system#R20: dialog 안 menu는 sibling으로 dialog 위�
   assert(isFocused(trigger), "focus did not return to the menu trigger");
   await unmountSettled(view);
 });
+
+Deno.test("shell/design-system#R33: menu 줄은 leading·label 요소·data 표식을 그대로 그리고 글 label 줄은 그대로다", async () => {
+  const chosen: string[] = [];
+  using view = render(
+    <Menu
+      trigger={<button type="button">More</button>}
+      items={[
+        {
+          id: "a",
+          leading: <span data-lead="">L</span>,
+          label: <span data-name="">Alpha</span>,
+          textValue: "Alpha",
+          data: { "data-row": "a" },
+        },
+        { id: "b", label: "Beta" },
+      ]}
+      onSelect={(id) => chosen.push(id)}
+    />,
+  );
+  const trigger = one(view.container, "button");
+  focus(trigger);
+  await pressAsync(trigger, "Enter");
+  const rows = [...menu()!.querySelectorAll<HTMLElement>("[role=menuitem]")];
+  assertEquals(rows.length, 2);
+  assertEquals(rows[0].getAttribute("data-row"), "a");
+  const lead = one(rows[0], "[data-lead]");
+  const name = one(rows[0], "[data-name]");
+  assert(lead.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assertEquals(rows[1].textContent, "Beta");
+  assertEquals(rows[1].hasAttribute("data-row"), false);
+  assertEquals(style(rows[0]).height, "32px");
+  await pressAsync(document.activeElement!, "Enter");
+  assertEquals(chosen, ["a"]);
+});

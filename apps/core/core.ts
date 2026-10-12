@@ -6,7 +6,7 @@ import {
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
-import { createIdSource, err, ok } from "../../packages/base/mod.ts";
+import { createIdSource, err, ok, sha256Hex } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
@@ -42,10 +42,6 @@ import {
   startAgentRuntimeChild,
 } from "./agent-runtime.ts";
 import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
-import {
-  CONNECTION_TEST_CONTEXT,
-  withConnectionTest,
-} from "./provider-connection-test.ts";
 import {
   type TraceExportWriterDeps,
   withTraceExport,
@@ -88,9 +84,16 @@ import {
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type KeychainAdapter,
+  randomSealedRef,
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { createMcpOAuthVault } from "../../packages/lophn-agent/extensions/mod.ts";
+import { createMcpAuthRequests } from "./mcp-auth-requests.ts";
+import {
+  createRewindSummaries,
+  rewindSummaryTarget,
+} from "./rewind-summary.ts";
 import {
   connectionConnect,
   connectionEndChild,
@@ -294,9 +297,7 @@ import {
 } from "./ticket-checker.ts";
 import {
   APP_REVERT_CONTEXT,
-  APP_REVERT_PRINCIPAL,
   type AppRevertCaller,
-  appRevertPolicies,
   createAppRevert,
 } from "./app-revert.ts";
 import {
@@ -329,14 +330,23 @@ import {
   BOOTSTRAP_RETRY_MS,
   bootstrapBuiltinAssignments,
   noteBootstrapFailure,
-  readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
-import type { ProductRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   createApprovalTextPreparer,
   withApprovalText,
 } from "./approval-text.ts";
 import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
+import { createRewindStore } from "../../packages/lophn-agent/revert/mod.ts";
+import {
+  amendInstall,
+  ledgerSnapshot,
+  REWIND_INSTALL_CONTEXT,
+  withRewindFiles,
+} from "./rewind-files.ts";
+import { answeredFacts } from "./rewind-facts.ts";
+import { projectRootOf } from "./rewind-root.ts";
+import { reconcileRewindInstalls } from "./rewind-recover.ts";
+import { REWIND_SWEEP_INTERVAL_MS, sweepRewind } from "./rewind-sweep.ts";
 import { toolDocumentWorkers } from "./tool-documents.ts";
 import {
   type BodyPrepare,
@@ -345,58 +355,24 @@ import {
   withMessageBody,
 } from "./message-body.ts";
 import {
-  instructionAccess,
-  instructionFilesEnvironment,
-  ledgerHead,
-} from "./instruction-files.ts";
-import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
-import {
   createQuestionTextPreparer,
   withQuestionText,
 } from "./question-text.ts";
 import { assemble, type TeamModule } from "./registration.ts";
+import { mcpServerSnapshot, registeredMcpServers } from "./mcp-snapshot.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
+import { agentProfileHandlers } from "./lophn-agent.ts";
+import { createMcpAuthControl, openMcpCallbackListener } from "./mcp-auth.ts";
+import { createMcpTokenRefWriter } from "./mcp-token-ref.ts";
 import {
-  createMcpAuthControl,
-  openMcpCallbackListener,
-} from "./lophn-agent.ts";
-import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
-import {
-  mcpServersSetting,
+  agentProfilesRead,
+  agentProfilesUpload,
   skillFoldersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { settingsGet } from "../../packages/contracts/platform/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
-
-// 등록한 MCP server 설정의 snapshot 재료다(extensions R11). ledger 경로의 setting_choices
-// 행을 readOnly로 열어 형식 검사를 지난 server 목록으로 옮긴다(credentials 열기와 별개다).
-// credentials 열림이 실패해도 설정 읽기는 readOnly라 그대로 온다.
-function mcpServerSnapshot(
-  ledgerPath: string,
-): Promise<Result<McpServerConfig[]>> {
-  const opened = openConnection(ledgerPath);
-  if (!opened.ok) return Promise.resolve(opened);
-  try {
-    const rows = opened.value.sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length === 0) return Promise.resolve(ok([]));
-    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
-    const shaped = mcpServersSetting.value_type.safeParse(parsed);
-    if (!shaped.success) {
-      return Promise.resolve(ok([]));
-    }
-    return Promise.resolve(ok(shaped.data));
-  } catch {
-    return Promise.resolve(ok([]));
-  } finally {
-    opened.value.close();
-  }
-}
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
@@ -425,7 +401,7 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
-  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent#T48). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
+  // 앱 revert 단계의 호출자를 바꾼다(lophn-agent/revert). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
   // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
   appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
@@ -439,13 +415,13 @@ export type CoreOptions = {
   maintenanceTimeoutMs?: number;
   // restore 프로세스 시간 제한. 없으면 10분. 테스트가 줄인다.
   restoreTimeoutMs?: number;
-  // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
-  // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
-  roleAsset?: (role: ProductRole) => Promise<Result<Uint8Array>>;
+  // 내장 assignment 준비의 재시도 대기(ms). 제품 기동은 60초 뒤 한 번 다시 시도한다.
   bootstrapRetryMs?: number;
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // secret store의 주기 쓸기 간격(ms). 없으면 10분. 테스트가 줄인다.
+  secretSweepMs?: number;
   // coding agent connection credential을 준비·읽는 keychain adapter. 없으면 coding credential 인증은
   // 꺼져 있다. 제품 main만 OS adapter를 주고 테스트는 fake를 준다(사람의 실제 keychain에 닿지 않는다).
   codingKeychain?: KeychainAdapter;
@@ -525,8 +501,6 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
-  // lophn agent runtime이 model call 직전에 사람 지침(LOPHN.md)의 확정 판을 읽는 통로다. 읽기만 있다.
-  instructionFiles: InstructionFiles;
   // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
   appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
@@ -626,14 +600,17 @@ async function open(
   const checkerChannel = createDocumentsChannel();
   // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다(coding-agent#T43).
   const repairChannel = createDocumentsChannel();
-  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent#T48).
+  // 앱 revert 호출 worker 요청 통로. 같은 통로 모양을 쓴다(lophn-agent/revert).
   const revertChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
+  const rewindStore = createRewindStore(root.path);
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
-    withDocumentsReader(options.teamModules ?? []),
+    withInstructionReader(
+      withRewindReader(withDocumentsReader(options.teamModules ?? [])),
+    ),
   );
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
@@ -653,19 +630,19 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
-  // 사람 지침 파일의 확정 판 읽기. runtime에는 ReadInstructionFile 하나로만 닿는다.
-  const instructionFiles = instructionFilesEnvironment({
-    ledgerPath,
-    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  // MCP OAuth token 보관이다(extensions#R17). 값은 OS keychain에만 있고, 보관이 가진 참조는 알려진 값 registry에
+  // 올라 model로 가는 글과 저장할 글에서 지워진다. 제품 기동은 OS keychain adapter, 시험은 fake다.
+  let mcpKeychain: KeychainAdapter | undefined;
+  const mcpVault = createMcpOAuthVault({
+    keychain: () =>
+      mcpKeychain ??= options.secretKeychain ?? options.codingKeychain ??
+        productKeychain(),
+    randomRef: randomSealedRef,
   });
   const assembled = withPlatform(
     assemble(options.teams, {
-      instructionFiles: {
-        files: instructionFiles,
-        permit: instructionAccess(ledgerPath),
-        asOfSeq: () => ledgerHead(ledgerPath),
-      },
       status: statusMemoryVia(documentsChannel),
+      mcpOAuthRefs: () => mcpVault.refs(),
       // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
       snapshotLogs: snapshotLogsEnvironment({
         ledgerPath,
@@ -785,8 +762,6 @@ async function open(
     // test-runner kind의 `problems.work` 반응기(machine)가 event를 읽고 문제 work를 맞춘다.
     // 같은 kind의 `problems.closing` 반응기도 CloseProblemVerified를 낸다(problems#T20).
     ...problemsWorkPolicies(),
-    // 앱 revert 단계의 기록·끝내기(core 내부 machine, lophn-agent#T48).
-    ...appRevertPolicies(),
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     ...(options.agentRuntime ? agentRuntimePolicies(allRoutes) : []),
     // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -956,6 +931,9 @@ async function open(
     // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
     keychain: () =>
       options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
+    ...(options.secretSweepMs === undefined
+      ? {}
+      : { secretSweepMs: options.secretSweepMs }),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -1016,30 +994,19 @@ async function open(
     await runtime.close();
     return appsControlCredential;
   }
-  // 앱 revert 이어 실행(lophn-agent#T48)이 단계를 기록하고 끝내는 core 내부 자격 기록.
+  // 되돌리기 설치가 건너뛴 경로를 결과에 반영하는 core 내부 machine 자격 기록. 기록이 없으면 writer가
+  // AmendRevertInstall을 거절해 복원하지 못한 파일이 복원됐다고 남으므로 기동을 여기서 멈춘다.
+  const rewindInstallCredential = await runtime.record(REWIND_INSTALL_CONTEXT);
+  if (!rewindInstallCredential.ok) {
+    await runtime.close();
+    return rewindInstallCredential;
+  }
+  // 앱 revert 이어 실행(lophn-agent/revert)이 단계를 기록하고 끝내는 core 내부 자격 기록.
   const appRevertCredential = await runtime.record(APP_REVERT_CONTEXT);
   if (!appRevertCredential.ok) {
     await runtime.close();
     return appRevertCredential;
   }
-  // 명시 연결 test(provider#R30)가 model call 기록·provider 상태를 쓰는 core 내부
-  // machine 자격 기록. 기록이 없으면 StartModelCall이 거절해 test가 실패한다.
-  const connectionTestCredential = await runtime.record(
-    CONNECTION_TEST_CONTEXT,
-  );
-  if (!connectionTestCredential.ok) {
-    await runtime.close();
-    return connectionTestCredential;
-  }
-  // call 기록의 id는 core의 ULID source로 낸다(idSchema("mcl")).
-  const connectionTestIds = createIdSource({ clock, random });
-  const connectionTestSecrets = {
-    ledgerPath,
-    keychain: () =>
-      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
-    known: () => runtime?.knownSecrets,
-    newCallId: () => connectionTestIds.newId("mcl"),
-  };
   // trace export(observability#R17)의 ledger 경로와 blob 읽기 통로다. 계기 기록이 없다.
   const traceExportSecrets: TraceExportWriterDeps = {
     ledgerPath,
@@ -1047,28 +1014,30 @@ async function open(
       blobRead.deps.read(hash, offset, length),
     known: () => knownSecrets,
   };
-  // MCP OAuth의 시작·완료 입구다(extensions R16, shell#T31에서 넘어온 것의 route 절반).
-  // 업무 규칙은 extensions의 mcp-auth에 있고(concern lophn-agent/extensions, code-map
-  // 의존 규칙) 여기는 core의 memory route 입구와 snapshot 재료를 끼운다.
-  // - verifier·state·access token은 memory 작업 메모리에만 산다.
-  // - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
-  //   `sec:mcp-<server>`를 가리킨다(shell#T31 규칙). 이 입구는 그 값의 전송 callback이
-  //   아니라 작업 상태만 기록한다.
-  const mcpAuthControl = createMcpAuthControl({
-    fetch: undefined,
-    openListener: openMcpCallbackListener,
-    snapshot: () => mcpServerSnapshot(ledgerPath),
-    nowMs: () => clock.nowMs(),
+  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). 업무 규칙은 extensions의 mcp-oauth에 있고
+  // (concern lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구와 재료를 끼운다.
+  // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
+  // - token은 OS keychain(mcpVault)에만 두고 설정은 서버에서 정해지는 참조(`token_ref`)만 가리킨다.
+  // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 대기열에 놓고 agent runtime이 가져가 대신
+  // 보낸다(mcp-auth-requests.ts).
+  const mcpAuthRequests = createMcpAuthRequests({
+    newId: () => crypto.randomUUID(),
   });
-  // OAuth 로그인(provider#R12–R16, D31)의 writer queue 앞 처리기 재료다. 활성 gate는
-  // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리고, 테스트가
-  // 대신 준다. login 세션과 token 값은 처리기 메모리에만 있다(R6, R7).
-  const providerLoginSecrets = {
-    ledgerPath,
-    keychain: () =>
-      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
-    known: () => runtime?.knownSecrets,
-  };
+  const mcpAuthControl = createMcpAuthControl({
+    fetch: mcpAuthRequests.fetch,
+    openListener: openMcpCallbackListener,
+    registered: () => registeredMcpServers(ledgerPath),
+    vault: mcpVault,
+    nowMs: () => clock.nowMs(),
+    writeTokenRef: createMcpTokenRefWriter({
+      dataRoot: root.path,
+      read: (route, ctx, input) =>
+        runtime!.readers.read(route, ctx as never, input),
+      command: (ctx, envelope) =>
+        runtime!.writer.command(ctx as never, envelope as never),
+    }),
+    syncSecrets: () => runtime!.syncSecrets(),
+  });
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
   // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
@@ -1232,6 +1201,21 @@ async function open(
   // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
   // 메시지 본문 준비 통로도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 unavailable이다.
   const bodyPrepare: { current?: BodyPrepare } = {};
+  // 되돌리기의 파일 일(관측·준비·설치)이 쓰는 통로다. 쓰기 앞 처리기와 앱 단계 이어 실행이 같이 쓴다.
+  const rewindFilesDeps = {
+    snapshot: <T>(read: Parameters<typeof ledgerSnapshot<T>>[1]) =>
+      ledgerSnapshot(ledgerPath, read),
+    rootOf: projectRootOf,
+    answeredFacts,
+    store: rewindStore,
+    relay: () => bodyPrepare.current,
+  };
+  // "Summarize from here"의 요약 요청 대기열이다. 사람이 요청하면 runtime이 가져가 요약 call을 한다.
+  const rewindSummaries = createRewindSummaries({
+    resolve: rewindSummaryTarget(rewindFilesDeps.snapshot),
+    newId: () => crypto.randomUUID(),
+    now: () => clock.nowMs(),
+  });
   // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
   const secretInputRelay: { current?: SecretInputRelay } = {};
   const validateWiring: {
@@ -1316,14 +1300,13 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      // 명시 연결 test(provider#R29, R30)는 writer queue 앞에서 네트워크를 기다린다.
       // trace export(observability#R17)는 writer queue 앞에서 로컬 파일에 쓴다.
       // OAuth 로그인(provider#R12–R16, D31)도 writer queue 앞에서 listener와 network를
       // 기다린다. login 세션은 처리기 메모리에만 있다.
       writer: withRevocationSweep(
         withProviderLogin(
-          withTraceExport(
-            withConnectionTest(
+          withRewindFiles(
+            withTraceExport(
               withReleasePreparation(
                 withPlacementReservation(
                   withApprovalText(
@@ -1363,11 +1346,10 @@ async function open(
                 appsControl.commands,
                 appsControl.grantChange,
               ),
-              connectionTestSecrets,
+              traceExportSecrets,
             ),
-            traceExportSecrets,
+            rewindFilesDeps,
           ),
-          providerLoginSecrets,
         ),
         () => appsControl.connector.sweep(),
         // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다(platform/identity#R15).
@@ -1379,30 +1361,31 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
-        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent#T48). 실제 복원 호출은 감독
+        // 확인한 revert의 앱 단계를 이어 실행한다(lophn-agent/revert). 실제 복원 호출은 감독
         // worker(apps/revert)가 호출자의 credential으로 하고 core는 결과를 받아 판정한다.
         [
           `${runAppRevert.resource}/${runAppRevert.method}`,
           createAppRevert({
-            ledgerPath,
+            snapshot: rewindFilesDeps.snapshot,
+            rootOf: rewindFilesDeps.rootOf,
+            answeredFacts: rewindFilesDeps.answeredFacts,
+            store: rewindFilesDeps.store,
             caller: options.appRevertCaller ??
               ((_ctx, credential) =>
                 workerAppCaller({
                   channel: revertChannel,
                   credential,
                 })),
-            command: (ctx, envelope) =>
-              runtime?.writer.command(ctx as never, envelope as never),
-            machine: () => {
-              const current = runtime?.current(APP_REVERT_PRINCIPAL);
-              return current?.ok ? current.value : undefined;
-            },
+            writer: () => runtime?.writer,
           }),
         ] as const,
-        // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 등록한 http 서버의
-        // oauth2 인증 방식만 잠근다. verifier·state·access token은 memory 작업
-        // 메모리에만 산다(값은 응답·ledger·log 어디에도 옮기지 않는다).
+        // 요약 요청(사람)과 가져가기·끝내기(runtime)의 입구다.
+        ...rewindSummaries.handlers,
+        // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 등록한 http 서버의
+        // oauth2 인증 방식만 잡는다. verifier·state·token은 core 안에만 산다(값은 응답·ledger·log
+        // 어디에도 옮기지 않는다).
         ...mcpAuthControl.handlers,
+        ...mcpAuthRequests.handlers,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [
@@ -1462,6 +1445,10 @@ async function open(
         // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
         `${secretInput.resource}/${secretInput.method}`,
         secretInputHandler(secretInputRelay),
+      ], [
+        // profile 이미지 올리기: 자리·역할은 reader가 보고 파일은 core가 비동기로 쓴다(agents#R13).
+        `${agentProfilesUpload.resource}/${agentProfilesUpload.method}`,
+        agentProfileHandlers(runtime.readers, root.path).upload,
       ]]),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       fileStreams: new Map([
@@ -1491,6 +1478,11 @@ async function open(
               operation: filesRead.name,
             }) as ReturnType<FilesRouteDeps["copyCheck"]>,
         }),
+        // profile 이미지 읽기: 정의의 profile이 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
+        [
+          `${agentProfilesRead.resource}/${agentProfilesRead.method}`,
+          agentProfileHandlers(runtime.readers, root.path).file,
+        ],
       ]),
       workers: mergedWorkers(
         fileWorkers({
@@ -1714,12 +1706,31 @@ async function open(
     APPROVAL_EXPIRY_SWEEP_INTERVAL_MS,
   );
   await runtime?.sweepApprovalExpiry();
+  // 설치 전에 죽어 파일이 복원되지 않은 항목을 결과에 반영한다. 한 번만 돈다.
+  await reconcileRewindInstalls({
+    snapshot: (read) => ledgerSnapshot(ledgerPath, read),
+    rootOf: projectRootOf,
+    amend: async (revert, paths) =>
+      await amendInstall(
+        runtime!.writer,
+        revert,
+        paths,
+        `rewind-recover:${revert}:${await sha256Hex(paths.join("\n"))}`,
+      ),
+  }).catch(() => 0);
+  // 되돌리기 저장소의 고아 저장물과 닫히거나 지워진 session의 디렉터리를 쓴다. 시작 때와 한 시간마다다.
+  const rewindSweep = () =>
+    sweepRewind({ ledgerPath, store: rewindStore, nowMs: clock.nowMs() })
+      .catch(() => undefined);
+  const rewindSweepTimer = setInterval(rewindSweep, REWIND_SWEEP_INTERVAL_MS);
+  await rewindSweep();
   // 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 한 번만 돈다.
   await runtime?.sweepInterruptedInvocations();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
     clearInterval(approvalSweep);
+    clearInterval(rewindSweepTimer);
     rootsWatch?.stop();
   };
   // 보호 입력의 값은 I/O worker로만 간다. 준비 증거(값 없음)는 writer가 ledger에 남긴다.
@@ -2369,8 +2380,8 @@ async function open(
     }
   }
   // apps/revert. 확인한 revert의 앱 단계를 호출자의 credential로 실제로 부르는 상시 worker다
-  // (lophn-agent#T48). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
-  // 사람의 run_apps 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
+  // (lophn-agent/revert). 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다:
+  // 사람의 RunAppRevert 이어 실행이 failure로 닿지 않는다(접수는 applying으로 남는다).
   if (io) {
     const spec = revertWorkerSpec({
       socketRoot: appSocketRoot(appsRuntimeDir),
@@ -2417,8 +2428,8 @@ async function open(
     basis: () => basisSync,
     search: () => searchSync,
   });
-  // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
-  // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
+  // 내장 lophn·Context Engineer assignment 준비(lophn-agent/assignments#R2). 이미 있으면 아무것도
+  // 보내지 않는다.
   // 준비하지 못해도 core는 선다: 실패는 diagnostics 기록만 남기고(lophn이 아직 준비되지
   // 않았다는 대화 쪽 표시는 그대로), 대기 뒤 한 번 다시 시도하며 다음 기동도 다시 한다.
   const bootstrapState: {
@@ -2436,8 +2447,6 @@ async function open(
           record: (context) => runtime!.record(context),
           read: (route, context, input) =>
             runtime!.readers.read(route, context as RequestContext, input),
-          asset: options.roleAsset ?? readRoleAsset,
-          prepare: blobRelay ? (call) => blobRelay.prepare(call) : undefined,
           ids: createIdSource({ clock, random }),
         });
       } catch {
@@ -2586,6 +2595,7 @@ async function open(
         known: () => runtime?.knownSecrets,
         process: AGENT_RUNTIME_KIND,
         task: AGENT_RUNTIME_TASK,
+        mcpOAuth: mcpAuthControl.tokenUse,
       }),
       readMcpServers: () => mcpServerSnapshot(ledgerPath),
       readProviders: async (context) => {
@@ -2599,13 +2609,11 @@ async function open(
           );
           if (!read.ok) return read;
           const page = read.value as {
-            providers: { endpoint: string; enabled: boolean }[];
+            providers: { endpoint: string }[];
             next_cursor?: string | null;
           };
           for (const provider of page.providers) {
-            const host = provider.enabled
-              ? providerHost(provider.endpoint)
-              : undefined;
+            const host = providerHost(provider.endpoint);
             if (host !== undefined) hosts.add(host);
           }
           if (page.next_cursor === null || page.next_cursor === undefined) {
@@ -2667,7 +2675,6 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
-    instructionFiles,
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepTicketChecks: () =>
       checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
@@ -2835,6 +2842,8 @@ async function open(
           contextsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();
+          // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.
+          await mcpAuthControl.endAll();
           basisSync?.stop();
           searchSync?.stop();
           closeChildBlob?.();
@@ -3167,6 +3176,20 @@ function withPlatformModule(modules: readonly string[]): string[] {
 
 function withDocumentsReader(modules: readonly string[]): string[] {
   const reader = new URL("./documents-reader.ts", import.meta.url).href;
+  return modules.includes(reader) ? [...modules] : [...modules, reader];
+}
+
+// LOPHN.md와 agent 정의 본문을 파일에서 읽는 ReadInstructionFile의 reader 등록도 항상 붙는다
+// (instruction-files.ts). 동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
+// session 되돌리기 읽기(rewind-reader.ts)의 reader 등록도 항상 붙는다. preview가 지금의 파일을 동기로 읽으므로
+// 동기 file API는 reader Worker 안에서만 쓰고 core가 정적으로 import하지 않는다.
+function withRewindReader(modules: readonly string[]): string[] {
+  const reader = new URL("./rewind-reader.ts", import.meta.url).href;
+  return modules.includes(reader) ? [...modules] : [...modules, reader];
+}
+
+function withInstructionReader(modules: readonly string[]): string[] {
+  const reader = new URL("./instruction-files.ts", import.meta.url).href;
   return modules.includes(reader) ? [...modules] : [...modules, reader];
 }
 

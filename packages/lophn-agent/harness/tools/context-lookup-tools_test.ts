@@ -16,7 +16,7 @@ import {
   runOperations,
   TOOL_BUNDLES,
 } from "./mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {

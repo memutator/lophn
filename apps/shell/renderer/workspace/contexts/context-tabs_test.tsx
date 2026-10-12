@@ -1,8 +1,7 @@
 // Contexts·Context·Search 탭 kind와 여는 길(shell/workspace#R14, R15, R26, R29~R32). 화면 하나하나는
 // 각자의 시험이 보고 여기서는 작업대에 올려 열리는 탭과 저장되는 layout을 본다.
 import { assert, assertEquals } from "@std/assert";
-import { t } from "@lophn/wording";
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import {
   click,
   focus,
@@ -16,15 +15,6 @@ import {
   CONTEXT_SUB_TABS,
   TAB_KINDS,
 } from "../../../../../packages/contracts/shell/workspace.ts";
-import { ConversationProvider } from "../../conversation/dock-slot.tsx";
-import { DraftStore } from "../../conversation/drafts.ts";
-import type { Agent, ConversationSource } from "../../conversation/source.ts";
-import {
-  agentMessage,
-  fakeSource as fakeConversation,
-  manualTicks,
-  sessionId,
-} from "../../conversation/testdata/fake-source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import { readingWidthStore } from "../../editor/reading-width.ts";
 import { TerminalStore } from "../../terminal/store.ts";
@@ -62,10 +52,6 @@ interface Options {
   readonly layout?: unknown;
   readonly contexts?: ContextsSource | null;
   readonly timer?: ReturnType<typeof manualTimer>;
-  readonly conversation?: boolean;
-  /** 창의 대화 통로. 없으면 빈 fake다. */
-  readonly chat?: ConversationSource;
-  readonly drafts?: DraftStore;
   readonly editor?: EditorDeps;
 }
 
@@ -125,20 +111,7 @@ function mount(options: Options = {}) {
       }}
     />
   );
-  const wrapped: ReactNode = options.conversation
-    ? (
-      <ConversationProvider
-        deps={{
-          source: options.chat ?? fakeConversation().source,
-          drafts: options.drafts ?? new DraftStore(),
-          ticks: manualTicks().ticks,
-        }}
-      >
-        {body}
-      </ConversationProvider>
-    )
-    : body;
-  return { view: render(wrapped), saved };
+  return { view: render(body), saved };
 }
 
 const flush = settleReads;
@@ -180,8 +153,6 @@ Deno.test("shell/workspace#R14 [ctx-I53]: registry에 Contexts·Context·Search 
     assert(names.includes(kind), `${kind} is not registered`);
     assert((TAB_KINDS as readonly string[]).includes(kind));
   }
-  // Agent 탭은 다른 일이 맡는다.
-  assertEquals(names.includes("agent"), false);
   assertEquals(tabKindLabel("contexts"), "Contexts");
   assertEquals(tabKindLabel("context"), "Context");
   assertEquals(tabKindLabel("search"), "Search");
@@ -566,7 +537,7 @@ Deno.test("shell/workspace#R23 [ctx-I53]: Search 탭에서 입력과 선택을 �
 });
 
 Deno.test("shell/workspace#R32 [ctx-I53]: 접힌 sidebar는 바로 가기 rail만 보이고 단추마다 그 종류의 탭을 연다", async () => {
-  const { view } = mount({ conversation: true });
+  const { view } = mount();
   using _ = view;
   await flush();
   click(one(view.container, "[data-sidebar-toggle]"));
@@ -609,12 +580,6 @@ Deno.test("shell/workspace#R32 [ctx-I53]: 접힌 sidebar는 바로 가기 rail�
   // Search는 열려 있는 Search 탭을 고를 뿐 하나 더 만들지 않는다.
   await press("search");
   assertEquals(searches().length, 1);
-  assertEquals(view.container.querySelector("[data-dock]"), null);
-  await press("agent");
-  assert(
-    view.container.querySelector("[data-dock]"),
-    "the conversation did not open",
-  );
 });
 
 Deno.test("shell/workspace#R32 [ctx-I53]: context가 하나도 없으면 rail의 Search는 Search 탭 대신 Contexts 탭을 연다", async () => {
@@ -748,42 +713,6 @@ Deno.test("shell/workspace#R31 [ctx-I53]: 여섯째 길 — 위반이 늘어 뜬
   assertEquals(view.container.querySelector("[data-violation-toasts]"), null);
 });
 
-Deno.test("shell/workspace#R31 [ctx-I53]: 아홉째 길 — [New context]는 대화를 열고 만드는 중인 context가 생기면 그 drafting 탭을 남긴다", async () => {
-  const base = createFakeContextsSource();
-  let started = false;
-  const contexts: ContextsSource = {
-    ...base,
-    list: async (project) => {
-      const read = await base.list(project);
-      return started && read.ok
-        ? { ok: true, value: [...read.value, RELEASE_NOTES_ITEM] }
-        : read;
-    },
-  };
-  const timer = manualTimer();
-  const { view } = mount({ contexts, timer, conversation: true });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-contexts-row]"));
-  await flush();
-  assertEquals(view.container.querySelector("[data-dock]"), null);
-  click(buttonNamed(view.container, "New context")!);
-  await flush();
-  assert(
-    view.container.querySelector("[data-dock]"),
-    "the conversation did not open",
-  );
-  // 아직 만드는 중인 context가 없으니 탭도 없다.
-  assertEquals(tabKeys(view.container), ["contexts"]);
-  started = true;
-  timer.advance(30_000);
-  await flush();
-  assertEquals(tabKeys(view.container), [
-    "contexts",
-    contextKey(RELEASE_NOTES),
-  ]);
-});
-
 Deno.test("shell/workspace#R31 [ctx-I53]: 누르지 않은 채 생긴 만드는 중인 context는 탭을 열지 않는다", async () => {
   const base = createFakeContextsSource();
   let started = false;
@@ -797,7 +726,7 @@ Deno.test("shell/workspace#R31 [ctx-I53]: 누르지 않은 채 생긴 만드는 
     },
   };
   const timer = manualTimer();
-  const { view } = mount({ contexts, timer, conversation: true });
+  const { view } = mount({ contexts, timer });
   using _ = view;
   await flush();
   started = true;
@@ -840,155 +769,6 @@ Deno.test("shell/workspace#R14 [ctx-I53]: 같은 key의 탭이 다른 칸에 있
   const panes = saved.at(-1)!.panes;
   assertEquals(panes.map((pane) => pane.tabs.length), [1, 1]);
   assertEquals(panes[1]!.selected_tab, "contexts");
-});
-
-// 아홉째 길의 대화 쪽. 창의 대화 통로가 담당 역할을 묻는 대로 Context Engineer 담당을 돌려주고
-// 열린 세션의 작업 자리를 기록한다.
-function engineerChat() {
-  const engineer: Agent = {
-    id: "asg_01h455vb4pex5v6nkc6gd5fdw9",
-    state: "enabled",
-    revision: 3,
-    role: "context_engineer",
-  };
-  const fake = fakeConversation({ sessions: [] });
-  const asked: (string | undefined)[] = [];
-  const source: ConversationSource = {
-    ...fake.source,
-    agent: (role) => {
-      asked.push(role);
-      return Promise.resolve({
-        ok: true,
-        value: role === "context_engineer" ? engineer : {
-          id: "asg_01h455vb4pex5v6nkc6gd5fdw1",
-          state: "enabled",
-          revision: 1,
-        },
-      });
-    },
-  };
-  return { source, asked, fake, engineer };
-}
-
-Deno.test("shell/workspace#R30 [ctx-I58i]: [New context]는 Context Engineer와 이 프로젝트를 작업 자리로 하는 새 세션을 열어 대화로 보인다", async () => {
-  const chat = engineerChat();
-  const drafts = new DraftStore();
-  const { view } = mount({ chat: chat.source, drafts, conversation: true });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-contexts-row]"));
-  await flush();
-  click(buttonNamed(view.container, "New context")!);
-  await flush();
-  assert(view.container.querySelector("[data-dock]"), "the dock did not open");
-  // 담당은 Context Engineer로 물었고 세션은 이 프로젝트에서 새로 열렸다.
-  assert(chat.asked.includes("context_engineer"));
-  assertEquals(chat.fake.state.opened.length, 1);
-  assertEquals(chat.fake.state.opened[0]!.workPlace, {
-    kind: "project",
-    id: "prj_1",
-  });
-  assertEquals(drafts.selected(), chat.fake.state.opened[0]!.id);
-  // 열린 세션의 입력칸이 바로 보인다.
-  assert(view.container.querySelector("[data-composer-input]"));
-});
-
-Deno.test("shell/workspace#R30 [ctx-I58j]: [New context]가 연 대화의 입력칸은 Context Engineer의 첫 질문을 기다리지 않고 말할 거리를 안내한다", async () => {
-  const chat = engineerChat();
-  const { view } = mount({ chat: chat.source, conversation: true });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-contexts-row]"));
-  await flush();
-  click(buttonNamed(view.container, "New context")!);
-  await flush();
-  const input = one(view.container, "[data-composer-input]");
-  assertEquals(
-    (input as HTMLTextAreaElement).placeholder,
-    t("conversation.placeholder.new-context"),
-  );
-});
-
-Deno.test("shell/workspace#R30 [ctx-I58i]: Context Engineer 담당이 없으면 세션을 열지 않고 대화만 열어 담당 없음을 보인다", async () => {
-  const chat = engineerChat();
-  const fake = fakeConversation({ sessions: [], agent: null });
-  const source: ConversationSource = {
-    ...chat.source,
-    agent: () => fake.source.agent(),
-  };
-  const { view } = mount({ chat: source, conversation: true });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-contexts-row]"));
-  await flush();
-  click(buttonNamed(view.container, "New context")!);
-  await flush();
-  assert(view.container.querySelector("[data-dock]"));
-  assertEquals(fake.state.opened.length, 0);
-  assert(view.container.querySelector("[data-no-agent]"));
-});
-
-Deno.test("shell/workspace#R30 [ctx-I58i]: 대화를 연 동안은 3초마다 목록을 읽어 만들어진 context의 drafting 탭을 바로 남긴다", async () => {
-  const base = createFakeContextsSource();
-  let created = false;
-  const contexts: ContextsSource = {
-    ...base,
-    list: async (project) => {
-      const read = await base.list(project);
-      return created && read.ok
-        ? { ok: true, value: [...read.value, RELEASE_NOTES_ITEM] }
-        : read;
-    },
-  };
-  const chat = engineerChat();
-  const timer = manualTimer();
-  const { view } = mount({
-    contexts,
-    timer,
-    chat: chat.source,
-    conversation: true,
-  });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-contexts-row]"));
-  await flush();
-  click(buttonNamed(view.container, "New context")!);
-  await flush();
-  assertEquals(tabKeys(view.container), ["contexts"]);
-  created = true;
-  timer.advance(3_000);
-  await flush();
-  assertEquals(tabKeys(view.container), [
-    "contexts",
-    contextKey(RELEASE_NOTES),
-  ]);
-});
-
-Deno.test("shell/workspace#R31 [ctx-I58i]: 여덟째 길 — 대화 속 context 이름 링크는 그 context의 Context 탭을 연다", async () => {
-  const chat = fakeConversation({
-    messages: {
-      [sessionId(1)]: [
-        agentMessage(1, [{ kind: "context", context: HARNESS }]),
-      ],
-    },
-  });
-  const { view, saved } = mount({ chat: chat.source, conversation: true });
-  using _ = view;
-  await flush();
-  click(one(view.container, "[data-dock-toggle]"));
-  await flush();
-  const link = one(view.container, "[data-dock] [data-result-context]");
-  assertEquals(link.dataset.resultContext, HARNESS);
-  // 이름은 작업대가 읽어 둔 context 목록에서 온다.
-  assertEquals(norm(link), "harness");
-  click(link);
-  await flush();
-  assertEquals(tabKeys(view.container), [contextKey(HARNESS)]);
-  assertEquals(lastTabs(saved)[0]!.context, HARNESS);
-  // 이미 열려 있으면 새로 붙이지 않고 그 탭을 고른다.
-  click(link);
-  await flush();
-  assertEquals(tabKeys(view.container), [contextKey(HARNESS)]);
 });
 
 // 만드는 중인 release-notes가 core에서 바뀌는 것을 흉내 낸다. 단계는 draft 판이, 상태는 active 전환이 바꾼다.

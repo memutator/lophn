@@ -4,6 +4,7 @@ import {
   defineSetting,
   type KindLaunchSpec,
   questionOption,
+  type ReadDefinition,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
@@ -12,30 +13,44 @@ import {
   runAdmission,
 } from "../../packages/platform/ledger/mod.ts";
 import {
+  agentProfilesRead,
+  agentProfilesUpload,
   assignmentPaused,
-  InstructionAttachments,
-  OperatorOutput,
+  createOperatorAssignment,
+  finishRewindSummary,
+  instructionPreview,
+  instructionRead,
+  providerDisconnected,
   questionCreated,
+  readRewindSummary,
+  requestRewindSummary,
+  REVERT_EVENTS,
   runAccepted,
   runAppRevert,
   runFinished,
   runStarted,
+  takeRewindSummaryRequest,
+  withdrawAssignment,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { instructionReadApi } from "../../packages/lophn-agent/instructions/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
   EventDefinition,
   EventVisibilityDefinition,
+  SqlRow,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,
+  eraseApprovalRequests,
 } from "../../packages/platform/approvals/mod.ts";
+import { eraseBlobRefs } from "../../packages/platform/blob-store/mod.ts";
 import {
-  createModelDefaultsCommands,
-  createModelDefaultsReads,
+  createModelCommands,
+  createModelReads,
+  loadWorkspaceModels,
+  type ModelCommandDeps,
   modelSchemaSteps,
   snapshotCatalogEntry,
   snapshotModelListed,
@@ -50,33 +65,45 @@ import {
 import {
   createUsageCommands,
   createUsageReads,
+  deleteSessionModelCalls,
   modelCallBodyFields,
   usageSchemaSteps,
 } from "../../packages/lophn-agent/harness/usage/mod.ts";
-import {
-  createPresetCommands,
-  createPresetReads,
-  instructionAttachmentsOf,
-  presetSchemaSteps,
-  ROLE_CAPS,
-} from "../../packages/lophn-agent/presets/mod.ts";
 import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
 } from "../../packages/lophn-agent/assignments/mod.ts";
 import {
+  type AgentDeps,
+  agentFileName,
+  type AgentFileSystem,
+  type AgentLookups,
+  type AssignmentRef,
+  type AssignmentWriter,
+  createAgentCommands,
+  createAgentReads,
+  createAgentStore,
+  parseAgentFile,
+  type ProfileAssetDeps,
+  type ProfileFileHandler,
+  profileImageFileHandler,
+  type ProfileImageFiles,
+  profileImageUploadHandler,
+  type ProfileReaders,
+  type ProfileUploadHandler,
+  roleCapsOf,
+} from "../../packages/lophn-agent/agents/mod.ts";
+import {
   createRunCommands,
   createRunReads,
+  deleteSessionRuns,
   RUN_LIMIT_SETTING_KEYS,
   runBodyFields,
   runSchemaSteps,
+  sessionRunIds,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import {
-  createSchedulingCommands,
-  createSchedulingReads,
-  schedulingSchemaSteps,
-} from "../../packages/lophn-agent/scheduling/mod.ts";
+import { createCommandReads } from "../../packages/lophn-agent/commands/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -85,12 +112,15 @@ import {
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
+  recordFactMessage,
+  sessionSummaryRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
   chosenOptionCall,
   createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
+  deleteSessionQuestions,
   OPTION_ACTION_OWNERS,
   type OptionOwnerHandlers,
   questionBodyFields,
@@ -108,20 +138,23 @@ import {
 } from "../../packages/lophn-agent/observability/mod.ts";
 import {
   createRevertCommands,
-  createRevertEventVisibility,
   createRevertReads,
-  defaultRevertOwners,
+  latestAppRevision,
   revertSchemaSteps,
 } from "../../packages/lophn-agent/revert/mod.ts";
+import { createRewindEffects } from "./rewind-effects.ts";
+import { answeredFacts } from "./rewind-facts.ts";
+import { projectRootOf } from "./rewind-root.ts";
 import {
   createToolCommands,
   createToolReads,
-  TOOL_BUNDLES,
+  deleteSessionToolCalls,
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   createWaitCommands,
+  deleteSessionWaitResolutions,
   runBodyRead,
   runBodyViewRead,
   waitSchemaSteps,
@@ -131,24 +164,39 @@ import {
   SOCKET_HOST,
 } from "../../packages/contracts/apps/mod.ts";
 import {
+  type AgentPlace,
+  type AgentRole,
   DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
-  mcpAuthBeginInputSchema,
+  mcpAuthCancel,
   mcpAuthComplete,
-  mcpAuthCompleteInputSchema,
+  mcpAuthRequestDone,
+  mcpAuthRequestTake,
+  mcpAuthState,
   type McpServerConfig,
   mcpServersSetting,
   skillFoldersSetting,
+  skillsOffSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   allowNetList,
   allowRunList,
+  commandSkillsOf,
+  createExtensionRegistry,
+  createGlobalSkillReads,
+  createPlaceExtensionCommands,
+  createPlaceExtensionReads,
+  dataRootOf,
+  type ExtensionRegistry,
+  mcpToolsOf,
+  type PlaceExtensionDeps,
+  type PlaceFiles,
+  type SkillSources,
+  type SyncSkillFiles,
 } from "../../packages/lophn-agent/extensions/mod.ts";
 import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
-import { createMcpAuth } from "../../packages/lophn-agent/extensions/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
-import type { HttpFetch } from "../../packages/lophn-agent/extensions/adapters/mcp-http.ts";
 
 // 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
 // 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이라 읽기 허락도 더하지 않는다.
@@ -303,89 +351,47 @@ export const runActiveSetting = runLimitSetting(
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
 // model 기본값(concern harness/model)과 model call 기록·사용량 읽기(concern
-// harness/usage). 시작·마침·보완은 machine 전용이다. preset ledger는 같은
-// wire에 더한다.
+// harness/usage). 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
-const modelCommands = createModelDefaultsCommands();
+const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
 const usage = createUsageCommands({
   applyMessages: (tx, ctx, input, compare) =>
     conversationCommands.apply.handle(tx, ctx, input, compare),
 });
 const reads = createProviderReads();
-const modelReads = createModelDefaultsReads();
+const modelReads = createModelReads();
 const usageReads = createUsageReads();
 
-// preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
-// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이 정한 문서·format
-// 묶음 판이다(TOOL_BUNDLES). 역할 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
-// harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
-// 표·provider_credentials 표에서 읽는다(R6, R10).
-function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
-  // MCP server 설정은 setting_choices 행(platform/settings)에 있다. 형식 검사는
-  // mcpServersSetting.value_type이 결정하고, 검사를 통과한 server만 deps에 온다.
-  // 없거나 형식 검사를 통과하지 못한 server는 presets이 그 server를 거절한다(R11).
-  const mcpServers = new Map<string, McpServerConfig>();
+// provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이 없으면 undefined로
+// fail-closed다(R6, harness/model#R10).
+function providerDefinitionKey(
+  sql: Pick<Tx["sql"], "get">,
+  provider: string,
+): string | undefined {
   try {
-    const rows = sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
+    const row = sql.get(
+      "select definition_key from providers where id = ?",
+      [provider],
     );
-    if (rows.length > 0) {
-      const parsed: unknown = JSON.parse(String(rows[0]["value"]));
-      const shaped = mcpServersSetting.value_type.safeParse(parsed);
-      if (shaped.success) {
-        // value_type은 server 목록의 배열이다. 배열을 그대로 펼쳐 이름으로 둔다.
-        for (const config of shaped.data) {
-          mcpServers.set(config.name, config);
-        }
-      }
-    }
+    const key = row === undefined ? undefined : row["definition_key"];
+    return typeof key === "string" && key.length > 0 ? key : undefined;
   } catch {
-    // 읽지 못하면 빈 목록으로 fail-closed다. 그 server는 presets이 거절한다.
+    return undefined;
   }
-  return {
-    bundles: TOOL_BUNDLES,
-    mcpServers,
-    roleCaps: ROLE_CAPS,
-    // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
-    // undefined로 fail-closed다(R6).
-    definitionKey: (provider: string) => {
-      try {
-        const row = sql.get(
-          "select definition_key from providers where id = ?",
-          [provider],
-        );
-        const key = row === undefined ? undefined : row["definition_key"];
-        return typeof key === "string" && key.length > 0 ? key : undefined;
-      } catch {
-        return undefined;
-      }
-    },
-    contextStatus: (context: string) => contextStatusOf(sql, context),
-    catalogEntry: (providerDefinition: string, modelName: string) =>
-      snapshotCatalogEntry(providerDefinition, modelName),
-    modelListed: (providerDefinition: string, modelName: string) =>
-      snapshotModelListed(providerDefinition, modelName),
-    // credential은 provider_credentials 표의 현재 key 목록이다. 조회에 실패한
-    // provider는 빈 목록으로 not_found다(R6).
-    credentialKeys: (provider: string) => {
-      try {
-        return sql
-          .all(
-            "select key from provider_credentials where provider = ? order by order_index",
-            [provider],
-          )
-          .map((row) => String(row["key"]));
-      } catch {
-        return [] as const;
-      }
-    },
-  } as const;
 }
 
-const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
-const presetReads = createPresetReads();
+// model 기본값 저장 검사 deps(harness/model#R10, R24). 목록과 catalog는 동봉 snapshot에서 읽는다.
+function modelCommandDeps(tx: Tx): ModelCommandDeps {
+  return {
+    definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
+    modelListed: (providerDefinition, modelName) =>
+      snapshotModelListed(providerDefinition, modelName),
+    catalogEntry: (providerDefinition, modelName) =>
+      snapshotCatalogEntry(providerDefinition, modelName),
+  };
+}
+
 const assignmentCommands = createAssignmentCommands();
 const assignmentReads = createAssignmentReads();
 
@@ -395,14 +401,25 @@ const assignmentReads = createAssignmentReads();
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
-// Operator 주기 회차(concern scheduling). 회차 접수는 run-loop의 AcceptRun handler를
-// 같은 Tx에서 부르고, 접수·기록·last_due_at 이동이 한 transaction이다(scheduling R4).
-// AcceptRun은 machine 전용 기록이고 이 명령도 machine만 부르므로 자격은 그대로다.
-const schedulingCommands = createSchedulingCommands({
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, ctx, input, compare),
-});
-const schedulingReads = createSchedulingReads();
+// DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다(conversation#R20). run을 가리키는 표마다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
+// 가리킨다), 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
+// 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
+function deleteSessionRecords(tx: Tx, session: string): Result<void> {
+  const steps: (() => Result<void>)[] = [
+    () => eraseApprovalRequests(tx, sessionRunIds(tx, session)),
+    () => deleteSessionWaitResolutions(tx, session),
+    () => deleteSessionQuestions(tx, session, eraseBlobRefs),
+    () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
+    () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
+    () => deleteSessionRuns(tx, session, eraseBlobRefs),
+  ];
+  for (const step of steps) {
+    const erased = step();
+    if (!erased.ok) return erased;
+  }
+  return ok(undefined);
+}
 
 // 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
 // transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
@@ -411,6 +428,8 @@ const schedulingReads = createSchedulingReads();
 const conversationCommands = createConversationCommands({
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+  deleteSessionRecords,
+  eraseBlobRefs,
 });
 const conversationReads = createConversationReads();
 
@@ -440,15 +459,24 @@ const handoffReads = createHandoffReads({
   },
 });
 
-// run revert(concern revert). 종료한 run의 event 전체를 owner별로 분류해 복원 가능한 변경을
-// 소유 concern의 새 변경으로 되돌린다. 문서 복원은 documents가 dispatchable로 선언한
-// `document.archive`·`document.restore`를 같은 Tx에서 부르고(`tx.call`), 과거 사실은 모두
-// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 되돌림 단계(lophn-agent#T48)는
-// run이 applying으로 저장한 revert에 대해 machine이 단계를 CheckpointRevert로 기록하고
-// 전체가 끝났으면 FinishRevert로 끝낸다. 실제 앱 호출은 runtime이 direct call로 한다.
-const revertOwners = defaultRevertOwners();
-const revertCommands = createRevertCommands({ owners: revertOwners });
-const revertReads = createRevertReads({ owners: revertOwners });
+// session 되돌리기(concern revert). 쓰기 직전 기록(RecordRewindFile), Rewind·UndoEdit·Redo, 설치 정정
+// (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
+// 파일 관측·준비·설치는 ledger transaction 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer
+// queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(질문·approval 취소, 읽은 상태)는
+// rewind-effects.ts가 조립하고 질문 답·승인 결정은 rewind-facts.ts가 남는 사실로 알린다. 앱 단계가 있는
+// Rewind는 applying 접수까지만 command가 하고, 이어 실행(RunAppRevert, app-revert.ts)이 CheckpointRevert·
+// FinishRevert를 낸다.
+const revertDeps = {
+  rootOf: projectRootOf,
+  appRevision: latestAppRevision,
+  recordFact: recordFactMessage,
+  answeredFacts,
+  effects: createRewindEffects(),
+};
+const revertCommands = createRevertCommands(revertDeps);
+// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind-reader.ts)이 서빙한다. 여기 정의는
+// core의 route 등록이고 core에서는 실행되지 않는다.
+const revertReads = createRevertReads(revertDeps);
 
 // run·session·독립 호출의 trace 조회와 export(concern observability). trace는 저장하지 않고
 // 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
@@ -505,7 +533,7 @@ const waitCommands = createWaitCommands({
     conversationCommands.assign.handle(tx, ctx, input, compare),
 });
 
-// agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
+// agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
 // platform/ledger의 callChosenOption이 대조하는 질문 정본(identity R14). 사람이 고른 option의
@@ -524,10 +552,17 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
-// approval 거절 억제(platform/approvals#R16)가 쓰는 run 계보 판정이다. 사람 요청에서 시작한 run은
+// approval이 쓰는 run 사실이다. 거절 억제(platform/approvals#R16)의 계보 판정: 사람 요청에서 시작한 run은
 // 그 message, handoff run은 runs/read의 source.original_message다. AcceptRun이 handoff의 original_message가
 // sender chain의 시작과 같은지 검사하므로 한 번의 조회로 계보가 정해진다. 주기 회차는 계보가 없다.
+// session 허락(platform/approvals#R19)의 session은 run이 속한 session이다.
 const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
+  session: (run: string) => {
+    const row = tx.sql.get("select session from runs where id = ?", [run]);
+    return row === undefined || row["session"] === null
+      ? null
+      : String(row["session"]);
+  },
   origin: (run: string) => {
     const row = tx.sql.get(
       `select source_kind, source_message, source_original_message
@@ -543,53 +578,313 @@ const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
   },
 }));
 
-// documents가 document.save·update의 같은 Tx에서 묻는 지침 문서 판정이다(documents/versions#R20).
-// 지금 preset 판의 지침 첨부가 그 문서를 가리키면 비어 있지 않은 목록이다. 분류는 현재 상태로만 한다.
-const instructionAttachmentsPort = defineTxPort(
-  InstructionAttachments,
-  (tx) => ({
-    attachments: (document: string) => {
-      const found = instructionAttachmentsOf(tx.sql, document);
-      return found.ok
-        ? ok(found.value.map(({ preset, revision }) => ({ preset, revision })))
-        : found;
+// agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
+// 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
+function agentAssignmentRef(row: SqlRow): AssignmentRef {
+  return {
+    id: String(row["id"]),
+    role: String(row["role"]) as AssignmentRef["role"],
+    scope: row["scope_kind"] === "all" ? { kind: "all" } : {
+      kind: String(row["scope_kind"]) as "project" | "app",
+      id: String(row["scope_id"]),
     },
-  }),
-);
+    state: String(row["state"]) as AssignmentRef["state"],
+    revision: Number(row["revision"]),
+  };
+}
 
-// documents가 document.save의 같은 Tx에서 묻는 Operator 출력 판정이다(documents/versions#R14).
-// 그 문서를 남길 문서로 선언한 assignment의 지금 판이다. 선언 표는 적용마다 통째로 다시 쓰이므로
-// 지금 선언만 남아 있다. 없으면 null이고 withdrawn도 그대로 돌려준다.
-const operatorOutputPort = defineTxPort(OperatorOutput, (tx) => ({
-  output: (document: string) => {
-    const row = tx.sql.get(
-      `select a.id, a.revision, a.state from assignments a
-         join assignment_outputs o on o.assignment_id = a.id
-         where o.document_id = ? and o.owns_output = 1
-         order by a.id limit 1`,
-      [document],
+const ASSIGNMENT_COLUMNS =
+  "id, role, scope_kind, scope_id, state, revision from assignments";
+
+// settings registry 값을 읽는다. 없거나 형식이 틀리면 undefined다(fail closed).
+function settingValue(
+  sql: Pick<Tx["sql"], "all">,
+  key: string,
+): unknown {
+  try {
+    const rows = sql.all(
+      "select value from setting_choices where key = ?",
+      [key],
     );
-    if (row === undefined) return ok(null);
-    return ok({
-      assignment: String(row["id"]),
-      revision: Number(row["revision"]),
-      state: String(row["state"]) as "enabled" | "paused" | "withdrawn",
-    });
-  },
-  isOperator: (assignment: string) =>
-    ok(
-      tx.sql.get(
-        "select 1 as found from assignments where id = ? and role = 'operator'",
+    if (rows.length === 0) return undefined;
+    return JSON.parse(String(rows[0]["value"]));
+  } catch {
+    return undefined;
+  }
+}
+
+// 전역(Workspace)에 등록된 외부 MCP server 전부다. 읽지 못하면 빈 목록이다.
+function registeredMcpServers(
+  sql: Pick<Tx["sql"], "all">,
+): McpServerConfig[] {
+  const shaped = mcpServersSetting.value_type.safeParse(
+    settingValue(sql, mcpServersSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
+function registeredSkillFolders(sql: Pick<Tx["sql"], "all">): string[] {
+  const shaped = skillFoldersSetting.value_type.safeParse(
+    settingValue(sql, skillFoldersSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
+// 전역에서 끈 skill의 정확한 이름이다(open-issues shell/desktop#Q22). 읽지 못하면 끈 것이 없다.
+function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
+  const shaped = skillsOffSetting.value_type.safeParse(
+    settingValue(sql, skillsOffSetting.key),
+  );
+  return shaped.success ? shaped.data : [];
+}
+
+// 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더(extensions R1).
+function globalSkillSources(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): Omit<SkillSources, "place"> {
+  const root = dataRootOf(sql, undefined);
+  return {
+    registered: registeredSkillFolders(sql),
+    personal: root.ok ? `${root.value}/skills` : null,
+    bundled: BUNDLED_SKILLS_ROOT,
+  };
+}
+
+// 동기 file 읽기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는 동기 file API를
+// 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+const NODE_EXTENSION_FILES = new URL(
+  "../../packages/lophn-agent/extensions/adapters/node-fs.ts",
+  import.meta.url,
+).href;
+const { createNodePlaceFiles, createNodeSkillFiles } = await import(
+  NODE_EXTENSION_FILES
+) as {
+  createNodePlaceFiles(): PlaceFiles;
+  createNodeSkillFiles(): SyncSkillFiles;
+};
+const placeFiles = createNodePlaceFiles();
+const skillFiles = createNodeSkillFiles();
+
+// 한 읽기에서 쓰는 동기 등록부다(extensions R32): 전역 층에 그 자리 층을 더한 skill·MCP 목록을 준다. data root를
+// 모르면 null이다.
+function extensionRegistry(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): ExtensionRegistry | null {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return null;
+  return createExtensionRegistry({
+    root: root.value,
+    files: placeFiles,
+    skillFiles,
+    global: {
+      servers: registeredMcpServers(sql),
+      skills: globalSkillSources(sql),
+      skillsOff: registeredSkillsOff(sql),
+    },
+  });
+}
+
+function placeExists(
+  sql: Pick<Tx["sql"], "get">,
+  place: AgentPlace,
+): boolean {
+  return sql.get(
+    place.kind === "project"
+      ? "select 1 as found from projects where id = ?"
+      : "select 1 as found from apps where id = ?",
+    [place.id],
+  ) !== undefined;
+}
+
+export function agentLookups(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): AgentLookups {
+  let registry: ExtensionRegistry | null | undefined;
+  const registryOf = (): ExtensionRegistry | null => {
+    if (registry === undefined) registry = extensionRegistry(sql);
+    return registry;
+  };
+  return {
+    placeExists: (place) => placeExists(sql, place),
+    assignments: (place) =>
+      sql.all(
+        `select ${ASSIGNMENT_COLUMNS} where state != 'withdrawn'
+           and (scope_kind = 'all' or (scope_kind = ? and scope_id = ?))
+         order by id`,
+        [place.kind, place.id],
+      ).map(agentAssignmentRef),
+    assignment: (id) => {
+      const row = sql.get(`select ${ASSIGNMENT_COLUMNS} where id = ?`, [id]);
+      return row === undefined ? null : agentAssignmentRef(row);
+    },
+    // context는 project 안에만 있다(documents/contexts). 만드는 중(drafting)인 context도 실제 context다.
+    contextStatus: (id) => contextStatusOf(sql, id) ?? null,
+    contextProject: (id) => {
+      const row = sql.get("select project from contexts where id = ?", [id]);
+      return row === undefined ? null : String(row["project"]);
+    },
+    // project 자리는 그 project의 active context 전부이고, App Engineer가 앱 자리에 있으면 적용된 판이 그 앱을
+    // app-data source로 읽는 active context 전부다(context.list의 app 거르기와 같다). context_app_data는 앱
+    // slug를 담는다. 그 밖의 앱 자리는 없다.
+    activeContexts: (place, role) =>
+      (place.kind === "project"
+        ? sql.all(
+          "select id from contexts where project = ? and status = 'active' order by id",
+          [place.id],
+        )
+        : role === "app_engineer"
+        ? sql.all(
+          `select c.id from contexts c where c.status = 'active' and exists (
+             select 1 from context_app_data d join apps a on a.slug = d.app
+             where d.context = c.id and a.id = ?
+           ) order by c.id`,
+          [place.id],
+        )
+        : []).map((row) => String(row["id"])),
+    // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다(extensions R32). 한 읽기 안에서
+    // 같은 자리는 같은 목록이다.
+    skills: (place) =>
+      registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
+    mcp: (place) =>
+      mcpToolsOf(
+        registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
+      ),
+    // Workspace 층: 역할별 기본 model(agent_model_defaults의 role slot). 기본 권한 설정은 아직 없어
+    // 권한 층은 비어 있다.
+    workspace: () => ({ models: loadWorkspaceModels(sql) }),
+  };
+}
+
+// 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
+// 동기 file API를 두지 않으므로(platform/responsiveness#R1) adapter는 이 module이 올라올 때 URL로 연다.
+const NODE_AGENT_FILES = new URL(
+  "../../packages/lophn-agent/agents/adapters/node-fs.ts",
+  import.meta.url,
+).href;
+const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(
+  NODE_AGENT_FILES
+) as {
+  createNodeAgentFiles(): AgentFileSystem;
+  createNodeProfileImageFiles(): ProfileImageFiles;
+};
+
+// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리·역할의 판정은
+// runtime의 reader가 하고, 파일은 이 adapter로 core 프로세스에서 비동기로 읽고 쓴다.
+export function agentProfileHandlers(
+  readers: ProfileReaders,
+  dataRoot: string,
+): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
+  const deps: ProfileAssetDeps = {
+    root: dataRoot,
+    files: createNodeProfileImageFiles(),
+    readers,
+  };
+  return {
+    upload: profileImageUploadHandler(deps),
+    file: profileImageFileHandler(deps),
+  };
+}
+
+// 새 Operator 저장(SaveAgent)과 Operator 삭제(DeleteAgent)가 같은 transaction에서 assignment command를
+// 부른다(lophn-agent/assignments#R4, R9). 파일 쓰기가 실패하면 SaveAgent가 err를 돌려 방금 만든
+// assignment와 event까지 되돌아간다.
+function operatorAssignmentWriter(tx: Tx): AssignmentWriter {
+  return {
+    createOperator(place) {
+      const id = tx.newId("asg");
+      const created = tx.call(
+        createOperatorAssignment,
+        { id, scope: place },
+        {},
+      );
+      return created.ok ? ok(id) : created;
+    },
+    withdraw(assignment) {
+      const row = tx.sql.get(
+        `select ${ASSIGNMENT_COLUMNS} where id = ?`,
         [assignment],
-      ) !== undefined,
+      );
+      if (row === undefined) {
+        return err({ code: "not_found", message: "assignment not found" });
+      }
+      const ref = agentAssignmentRef(row);
+      const withdrawn = tx.call(
+        withdrawAssignment,
+        { assignment },
+        { revision: ref.revision, state: ref.state as "enabled" | "paused" },
+      );
+      return withdrawn.ok ? ok(undefined) : withdrawn;
+    },
+  };
+}
+
+const agentDeps: AgentDeps = {
+  files: createNodeAgentFiles(),
+  lookups: agentLookups,
+  assignmentWriter: operatorAssignmentWriter,
+  roleCaps: roleCapsOf,
+};
+const agentCommands = createAgentCommands(agentDeps);
+const agentReads = createAgentReads(agentDeps);
+
+// skill·MCP의 자리 층(concern extensions R32, R33): 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
+// 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
+const placeExtensionDeps: PlaceExtensionDeps = {
+  files: placeFiles,
+  skillFiles,
+  lookups: (sql) => ({
+    placeExists: (place) => placeExists(sql, place),
+    globalServers: () => registeredMcpServers(sql),
+    skillSources: () => globalSkillSources(sql),
+  }),
+};
+const placeExtensionCommands = createPlaceExtensionCommands(placeExtensionDeps);
+const placeExtensionReads = createPlaceExtensionReads(placeExtensionDeps);
+
+// 전역 층의 skill 목록을 사람 화면에 준다(Settings › Agents). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+const globalSkillReads = createGlobalSkillReads({
+  skillFiles,
+  lookups: (sql) => ({
+    skillSources: () => globalSkillSources(sql),
+    skillsOff: () => registeredSkillsOff(sql),
+  }),
+});
+
+// 그 agent 정의가 끈 skill 이름이다(agents R18, extensions R30). 정의를 읽지 못하면 끈 것이 없다.
+function skillsOffOf(
+  sql: Pick<Tx["sql"], "get" | "all">,
+  session: { assignment: string; role: AgentRole; work_place: AgentPlace },
+): readonly string[] {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return [];
+  const file = createAgentStore(agentDeps.files, root.value).read(
+    session.work_place,
+    agentFileName(session.role, session.assignment),
+  );
+  if (!file.ok || file.value === null) return [];
+  const parsed = parseAgentFile(file.value.text, {
+    role: session.role,
+    place: session.work_place.kind,
+  });
+  return parsed.ok ? parsed.value.skills_off ?? [] : [];
+}
+
+// `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
+// 자리에서 그 agent가 쓸 수 있는 것이다: 전역 층에 자리 층을 더하고, agent 정의가 끈 것은 selected=false다(commands R7).
+const commandReads = createCommandReads({
+  skills: (sql, session) =>
+    commandSkillsOf(
+      extensionRegistry(sql)?.skills(session.work_place).entries ?? [],
+      skillsOffOf(sql, session),
     ),
-}));
+});
 
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
     catalogAutoUpdateSetting,
     skillFoldersSetting,
+    skillsOffSetting,
     mcpServersSetting,
     runModelAttemptsSetting,
     runStallSetting,
@@ -599,10 +894,8 @@ export const lophnAgentDefinitions = {
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
-    ...presetSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
-    ...schedulingSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
@@ -611,42 +904,45 @@ export const lophnAgentDefinitions = {
   ],
   commands: [
     commands.register,
-    commands.change,
-    commands.registerCredential,
-    commands.changeCredentials,
+    commands.disconnect,
     commands.refreshCredential,
     commands.recordAvailability,
-    commands.recordCheck,
-    commands.test,
     commands.beginLogin,
     commands.completeLogin,
     commands.cancelLogin,
-    modelCommands.change,
+    modelCommands.changeDefaults,
+    modelCommands.changeFavorites,
     usage.start,
     usage.finish,
     usage.supplement,
-    presetCommands.registerDefault,
-    presetCommands.create,
-    presetCommands.revise,
     assignmentCommands.createBuiltin,
     assignmentCommands.createAppEngineer,
-    assignmentCommands.applyOperator,
-    assignmentCommands.changePreset,
+    assignmentCommands.createOperator,
     assignmentCommands.pause,
     assignmentCommands.resume,
     assignmentCommands.withdraw,
+    agentCommands.save,
+    agentCommands.delete,
+    agentCommands.changeSettings,
+    placeExtensionCommands.change,
     runCommands.accept,
     runCommands.start,
     runCommands.checkpoint,
     runCommands.finish,
     runCommands.stop,
     runCommands.confirmNext,
-    schedulingCommands.process,
     conversationCommands.open,
-    conversationCommands.changeWorkPlace,
+    conversationCommands.rename,
+    conversationCommands.archive,
+    conversationCommands.unarchive,
+    conversationCommands.delete,
+    conversationCommands.changeModel,
+    conversationCommands.fork,
+    conversationCommands.requestCompact,
+    conversationCommands.compact,
+    conversationCommands.failCompact,
     conversationCommands.close,
     conversationCommands.receive,
-    conversationCommands.executeStored,
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,
@@ -668,42 +964,51 @@ export const lophnAgentDefinitions = {
     waitCommands.resolve,
     waitCommands.correct,
     waitCommands.recover,
-    revertCommands.run,
-    traceExportCommand,
+    revertCommands.record,
+    revertCommands.rewind,
+    revertCommands.undo,
+    revertCommands.redo,
     revertCommands.checkpoint,
     revertCommands.finish,
+    revertCommands.amend,
+    traceExportCommand,
   ],
   reads: [
     reads.read,
     reads.list,
-    reads.credentialList,
     modelReads.defaults,
+    modelReads.favorites,
     modelReads.catalog,
     usageReads.read,
     usageReads.list,
     usageReads.usage,
-    presetReads.read,
-    presetReads.list,
-    presetReads.instructionAttachments,
     assignmentReads.read,
     assignmentReads.list,
-    assignmentReads.outputs,
+    agentReads.list,
+    agentReads.read,
+    agentReads.settings,
+    placeExtensionReads.read,
+    globalSkillReads.read,
     runReads.read,
     runReads.list,
     runReads.result,
-    schedulingReads.list,
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
+    conversationReads.compactRequests,
+    commandReads.list,
     handoffReads.status,
     handoffReads.result,
     toolReads.read,
     toolReads.list,
     questionReads.read,
     questionReads.list,
-    revertReads.preview,
-    revertReads.list,
     traceReads.read,
+    revertReads.preview,
+    revertReads.checkpoints,
+    revertReads.list,
+    instructionReadRoute(),
+    instructionPreviewRoute(),
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
   // 메시지 본문은 영구 참조다(conversation#R2).
@@ -718,266 +1023,31 @@ export const lophnAgentDefinitions = {
   ports: [
     runAdmissionPort,
     approvalLineagePort,
-    instructionAttachmentsPort,
-    operatorOutputPort,
     questionOptionPort,
   ],
   workers: [],
-  // 확인한 revert의 앱 단계를 이어 실행하는 core 메모리 route다. handler는 core 조립이 붙인다(T48).
-  memoryRoutes: [runAppRevert, mcpAuthBegin, mcpAuthComplete],
+  // 확인한 rewind의 앱 단계를 이어 실행하는 core 메모리 route와 MCP OAuth 입구다.
+  memoryRoutes: [
+    runAppRevert,
+    requestRewindSummary,
+    readRewindSummary,
+    takeRewindSummaryRequest,
+    finishRewindSummary,
+    mcpAuthBegin,
+    mcpAuthComplete,
+    mcpAuthState,
+    mcpAuthCancel,
+    mcpAuthRequestTake,
+    mcpAuthRequestDone,
+  ],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
-  // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 core 조립(apps/core)이
-  // createMcpAuthControl로 붙인다. route만 등록한다.
+  // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
+  uploadRoutes: [agentProfilesUpload],
+  files: [agentProfilesRead],
+  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 core 조립(apps/core)이
+  // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
 };
-
-// MCP OAuth 2.1의 시작·완료 runtime 제어 작업이다(extensions R16, R17, shell#T31에서
-// 넘어온 것의 route 절반). settings 화면의 도구 server 추가가 고르는 `oauth2` 인증 방식의
-// 시작(사람이 OS browser에서 열 authorization 주소와 callback port)과 완료(사람이 돌아온
-// callback으로 token 교환)를 잇는다. 업무 규칙은 extensions의 mcp-auth에 있고(concern
-// lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구를 끼운다.
-// - verifier·state·access token은 값이다: memory route 작업 메모리에만 산다. 응답·log·
-//   ledger·event 어디에도 옮기지 않는다(extensions R7의 골자, shell#T31 골자).
-// - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
-//   `sec:mcp-<server>`를 가리킨다(shell#T31에서 넘어온 규칙). 이 route는 그 값의 전송
-//   callback이 아니라 작업 상태만 기록한다.
-// - ledger를 거치지 않는다: 작업 메모리가 곧 상태다(architecture/apps 5.1의 골자).
-type McpAuthMemoryHandler = (
-  ctx: unknown,
-  input: unknown,
-) => Promise<Result<unknown>>;
-
-export type McpAuthControlDeps = {
-  // 실제 token 교환·갱신이 쓰는 fetch 눈이다(concern extensions). 테스트가 가짜를 끼운다.
-  fetch?: HttpFetch;
-  // 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만
-  // 듣는다. 테스트가 가짜를 끼우므로 사람의 실제 OS browser는 열지 않는다.
-  openListener(): Promise<
-    Result<
-      import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
-    >
-  >;
-  // 등록한 MCP server 설정의 snapshot 읽기다. 제품 main은 ledger 경로를 주고,
-  // 시험이 기록을 끼운다. 설정이 없는 등록은 not_found다(architecture 관례).
-  snapshot?: () => Promise<Result<McpServerConfig[]>>;
-  nowMs(): number;
-};
-
-// 등록한 MCP server 설정을 읽는 눈이다. 조입이 실제 snapshot 읽기를 붙인다.
-export function createMcpAuthControl(
-  deps: McpAuthControlDeps,
-): {
-  handlers: ReadonlyMap<string, McpAuthMemoryHandler>;
-  endAll(): void;
-} {
-  const auths = new Map<
-    string,
-    ReturnType<typeof createMcpAuth>
-  >();
-  const opened = new Map<
-    string,
-    import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
-  >();
-
-  function authOf(name: string) {
-    const found = auths.get(name);
-    if (found !== undefined) return found;
-    const made = createMcpAuth({ nowMs: deps.nowMs });
-    auths.set(name, made);
-    return made;
-  }
-
-  async function registeredServerOf(
-    name: string,
-  ): Promise<Result<McpServerConfig>> {
-    const loaded = await (deps.snapshot?.() ?? Promise.resolve(
-      ok([] as McpServerConfig[]),
-    ));
-    if (!loaded.ok) return loaded;
-    const found = loaded.value.find((server) => server.name === name);
-    if (found === undefined) {
-      return err({ code: "not_found", message: "등록한 서버가 아니다" });
-    }
-    return ok(found);
-  }
-
-  const begin: McpAuthMemoryHandler = async (_ctx, input) => {
-    const parsed = mcpAuthBeginInputSchema.safeParse(input);
-    if (!parsed.success) {
-      return err({
-        code: "invalid_input",
-        message: "서버 이름이 올바르지 않다",
-      });
-    }
-    const name = parsed.data.name;
-    // 등록한 서버 설정이다(shell#T31에서 넘어온 규칙): 등록 밖 서버 이름은
-    // not_found다(architecture 관례의 not_found, extensions R11의 골자).
-    const config = await registeredServerOf(name);
-    if (!config.ok) return config;
-    if (config.value.transport !== "http") {
-      return err({
-        code: "invalid_input",
-        message: "oauth2 인증은 http 서버만 고른다",
-      });
-    }
-    const httpAuth = config.value.http.auth;
-    if (httpAuth.kind !== "oauth2") {
-      return err({
-        code: "invalid_input",
-        message: "oauth2 인증 방식이 아니다",
-      });
-    }
-    // 사람 credential의 callback listener다(extensions R16: 사람 credential의
-    // loopback callback). 실제 loopback listener는 port에서 만든다.
-    const listener = await deps.openListener();
-    if (!listener.ok) return listener;
-    opened.set(name, listener.value);
-    const begun = await authOf(name).begin({
-      authorizationEndpoint: `${httpAuth.issuer}/authorize`,
-      tokenEndpoint: `${httpAuth.issuer}/token`,
-      clientId: httpAuth.client_id,
-      scopes: parsed.data.scopes,
-      listener: listener.value,
-    });
-    if (!begun.ok) return begun;
-    return ok({
-      url: begun.value.url.href,
-      callback_port: listener.value.port(),
-    });
-  };
-
-  const complete: McpAuthMemoryHandler = async (_ctx, input) => {
-    const parsed = mcpAuthCompleteInputSchema.safeParse(input);
-    if (!parsed.success) {
-      return err({
-        code: "invalid_input",
-        message: "서버 이름이 올바르지 않다",
-      });
-    }
-    const name = parsed.data.name;
-    const config = await registeredServerOf(name);
-    if (!config.ok) return config;
-    const fetch = deps.fetch;
-    if (fetch === undefined) {
-      return err({ code: "unavailable", message: "token 교환 눈이 없다" });
-    }
-    const done = await authOf(name).complete({
-      fetch,
-      signal: new AbortController().signal,
-    });
-    if (!done.ok) return done;
-    return done;
-  };
-
-  return {
-    handlers: new Map([
-      [`${mcpAuthBegin.resource}/${mcpAuthBegin.method}`, begin],
-      [`${mcpAuthComplete.resource}/${mcpAuthComplete.method}`, complete],
-    ]),
-    endAll() {
-    },
-  };
-}
-
-// 사람 credential의 loopback callback listener다(extensions R16). 127.0.0.1에만 듣는다.
-// 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state를 옮긴다. 실제 browser 열기는
-// shell#T31이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 요청 하나를 마치면 닫는다.
-// 요청이 몇 분을 넘기면 AbortSignal이 일찍 끊고 unavailable 돌아온다.
-export const MCP_CALLBACK_WAIT_MS = 5 * 60_000;
-
-export function openMcpCallbackListener(): Promise<
-  Result<
-    import("../../packages/lophn-agent/extensions/mod.ts").CallbackListener
-  >
-> {
-  const settled: { code: string | null; state: string | null } = {
-    code: null,
-    state: null,
-  };
-  let accepted: (() => void) | undefined;
-  const waiters: () => void = () => {
-    accepted?.();
-  };
-  const incoming = new Promise<void>((resolve) => {
-    accepted = resolve;
-  });
-  let http: Deno.HttpServer<Deno.NetAddr>;
-  try {
-    http = Deno.serve(
-      { hostname: "127.0.0.1", port: 0, onListen: () => {} },
-      (request: Request) => {
-        const url = new URL(request.url);
-        const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state");
-        if (code === null || code.length === 0 || state === null) {
-          return new Response("요청 값이 부족하다", { status: 400 });
-        }
-        settled.code = code;
-        settled.state = state;
-        waiters();
-        return new Response("", { status: 200 });
-      },
-    );
-  } catch {
-    return Promise.resolve(err({
-      code: "unavailable",
-      message: "loopback callback port를 열 수 없다",
-    }));
-  }
-  const port = http.addr.port;
-  return Promise.resolve({
-    ok: true,
-    value: {
-      port: () => port,
-      receive(signal: AbortSignal) {
-        const merged = new AbortController();
-        if (signal.aborted) merged.abort();
-        else {
-          signal.addEventListener("abort", () => merged.abort(), {
-            once: true,
-          });
-        }
-        void merged.signal;
-        const arrived = Promise.race([
-          incoming,
-          new Promise<null>((resolve) => {
-            if (merged.signal.aborted) resolve(null);
-            else {
-              merged.signal.addEventListener("abort", () => resolve(null), {
-                once: true,
-              });
-            }
-          }),
-        ]);
-        return arrived.then((how): Result<{
-          code: string;
-          state: string;
-          iss: string | null;
-        }> => {
-          if (how === null) {
-            return err({
-              code: "unavailable",
-              message: "callback이 오지 않았다",
-            });
-          }
-          if (settled.code === null || settled.state === null) {
-            return err({
-              code: "unavailable",
-              message: "callback이 오지 않았다",
-            });
-          }
-          return {
-            ok: true,
-            value: { code: settled.code, state: settled.state, iss: null },
-          };
-        });
-      },
-      close(): Promise<void> {
-        return Promise.resolve(http.shutdown());
-      },
-    },
-  });
-}
 
 // ReadMessageBody는 ledger snapshot 없이 blob 바이트를 기다리는 core read다. core가 기동
 // 때 environment로 읽기 통로를 넣고, 넣지 않은 등록(harness)은 unavailable이다.
@@ -998,45 +1068,48 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
 // 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
 const UNATTACHED_REDACT = (): string | null => null;
 
-// ReadInstructionFile은 등록 지침 파일의 확정 판을 core가 읽어 runtime에 주는 통로다. 붙이지 않은
-// 등록(harness)은 unavailable이다.
-const UNATTACHED_INSTRUCTION_FILES = {
-  files: {
-    registered: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable" as const,
-          message: "지침 읽기 통로가 붙어 있지 않다",
-        }),
-      ),
-    attached: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable" as const,
-          message: "지침 읽기 통로가 붙어 있지 않다",
-        }),
-      ),
-    projectOf: () => Promise.resolve(ok(null)),
-  },
-  permit: () =>
-    err({ code: "not_found" as const, message: "instruction not found" }),
-  asOfSeq: () => ok("0"),
-};
+// ReadInstructionFile은 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는
+// core module graph에 들일 수 없어 서빙은 instruction-files.ts의 reader 등록이 한다(core.ts가 reader module로
+// 붙인다). 여기 handler는 route를 registry에 올리는 자리이고 실행되지 않는다.
+function instructionReadRoute(): ReadDefinition<typeof instructionRead> {
+  return {
+    route: instructionRead,
+    handle() {
+      return err({
+        code: "unavailable" as const,
+        message: "지침 읽기는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
+// PreviewGlobalInstructions도 같은 reader Worker가 서빙한다(instruction-files.ts). 사람 화면의 읽기다.
+function instructionPreviewRoute(): ReadDefinition<typeof instructionPreview> {
+  return {
+    route: instructionPreview,
+    handle() {
+      return err({
+        code: "unavailable" as const,
+        message: "지침 미리보기는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
 
 export function createLedgerRegistration(
   environment: {
     messageBody?: MessageBodyEnvironment;
-    instructionFiles?: Parameters<typeof instructionReadApi>[0];
     redactBody?: (text: string) => string | null;
+    // OAuth token 보관(core 조립이 만든다)이 가진 알려진 값 참조다. 없는 등록은 설정이 가리키는 참조만 읽는다.
+    mcpOAuthRefs?: () => readonly { name: string; sealedRef: string }[];
   } = {},
 ) {
   return {
     // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
-      instructionReadApi(
-        environment.instructionFiles ?? UNATTACHED_INSTRUCTION_FILES,
-      ),
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // Compact가 session에 이은 요약의 본문도 같은 읽기 통로로 읽는다.
+      sessionSummaryRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
@@ -1052,13 +1125,15 @@ export function createLedgerRegistration(
     // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
     // registry에 등록·회수된다(platform/secrets#R1). MCP 참조는 extensions
     // secret-refs의 통로다(#294).
-    secretRefs: [createProviderSecretRefSource(), createMcpSecretRefSource()],
+    secretRefs: [
+      createProviderSecretRefSource(),
+      createMcpSecretRefSource(environment.mcpOAuthRefs),
+    ],
   };
 }
 
 // question·assignment 계기 event의 공개 정책(platform/notifications#R1)은 notifications
-// 구독자에게만 연다. revert event는 사람과 그 run의 assignment agent에게 연다(revert/visibility.ts).
-// 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
+// 구독자에게만 연다. 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
@@ -1069,8 +1144,22 @@ export function createEventRegistration(): EventRegistration {
       machineOnlyVisibility(runAccepted),
       machineOnlyVisibility(runStarted),
       machineOnlyVisibility(runFinished),
-      ...createRevertEventVisibility(),
+      // 되돌리기 결과는 session을 보는 사람(shell)과 machine(observability·prompt 조립)이 읽는다. agent는
+      // 읽지 않는다: Undo는 사실 메시지로, 숨김 구간은 입력 조립으로 전해지고 event 자체는 필요 없다.
+      ...REVERT_EVENTS.map((event) => userAndMachineVisibility(event)),
+      // Disconnect한 provider로 진행 중인 run의 호출을 멈추려고 runtime이 따라 읽는다(provider#R4).
+      machineOnlyVisibility(providerDisconnected),
     ],
+  };
+}
+
+function userAndMachineVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return {
+    event,
+    handle: (_snapshot, ctx) =>
+      ok(ctx.actor === "user" || ctx.actor === "machine"),
   };
 }
 
@@ -1087,33 +1176,32 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       reads.read,
       reads.list,
-      reads.credentialList,
       modelReads.defaults,
+      modelReads.favorites,
       modelReads.catalog,
       usageReads.read,
       usageReads.list,
       usageReads.usage,
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
+      agentReads.list,
+      agentReads.read,
+      agentReads.settings,
+      placeExtensionReads.read,
       runReads.read,
       runReads.list,
       runReads.result,
-      schedulingReads.list,
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
+      conversationReads.compactRequests,
+      commandReads.list,
       handoffReads.status,
       handoffReads.result,
       toolReads.read,
       toolReads.list,
       questionReads.read,
       questionReads.list,
-      revertReads.preview,
-      revertReads.list,
       traceReads.read,
     ],
     ports: new Map(),

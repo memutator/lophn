@@ -1,16 +1,30 @@
 export {
   type Adoption,
-  adoptionOf,
+  adoptionsOf,
   appliedOf,
+  chosenActionOf,
   evidenceKey,
-  loadQuestion,
-  questionBodyFields,
-  type QuestionRecord,
+  type GroupRow,
+  loadGroup,
+  loadGroupOfQuestion,
+  type QuestionGroup,
+  type QuestionGroupRecord,
   type QuestionRow,
-  questionSchemaSteps,
   settingChangesOf,
 } from "./model.ts";
+export { questionBodyFields, questionSchemaSteps } from "./schema.ts";
 export { createQuestionCommands } from "./commands.ts";
+export { deleteSessionQuestions } from "./erase.ts";
+export { cancelGroupsFrom } from "./rewound.ts";
+export {
+  checkGroupOpen,
+  collectGroupAnswers,
+  deferGroup,
+  type GroupAnswerInput,
+  type GroupQuestionShape,
+  type GroupState,
+  validateNewGroup,
+} from "./group.ts";
 export {
   appCreateOptionAction,
   buildOptionAction,

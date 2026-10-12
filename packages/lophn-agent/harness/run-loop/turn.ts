@@ -13,6 +13,7 @@ import {
   type PromptInput,
   type RenderedMaterial,
   renderMaterial,
+  sessionMaterial,
   shrinkMaterial,
   skillInstructionText,
   type TurnContext,
@@ -283,24 +284,23 @@ async function prepare(
     const turn = await gatherView(state, context);
     const options = { collected_at: deps.clock.now() };
     const skills = skillInstructionText(context.skills);
+    const conversation = sessionMaterial(context.session);
     const build = (material: RenderedMaterial): PromptInput => ({
       product: context.product,
       role: context.role === null ? null : {
         instructions: skills === null
           ? context.role.instructions
           : `${context.role.instructions}\n\n${skills}`,
-        preset_prompt: context.role.preset_prompt,
       },
       tools: context.tools,
       work: context.work,
-      attachments: context.attachments,
       material: {
         purpose: context.purpose,
         run_facts: context.run_facts,
-        continuation_summary: context.continuation_summary,
+        compact_summary: conversation.compact_summary,
         materials: material.materials,
         compaction_summary: null,
-        history: state.history,
+        history: [...conversation.history, ...state.history],
         request: inputs.request,
         steering: inputs.steering.map((item) => item.text),
       },

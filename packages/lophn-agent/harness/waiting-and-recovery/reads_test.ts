@@ -185,3 +185,49 @@ Deno.test("lophn-agent/handoff#R5: the machine reads the handoff content a recei
   assert(!other.ok);
   assertEquals(other.error.code, "not_found");
 });
+
+Deno.test("lophn-agent/agents#R26: the machine reads the resolved agent a run fixed by its own blob reference, and no one else does", async () => {
+  const agent = { assignment: "asg_01h455vb4pex5v6nkc6gd5fd01", hash: "a" };
+  const bytes = encoder.encode(JSON.stringify(agent));
+  const hash = await sha256Hex(bytes);
+  const queries: string[] = [];
+  const read = runBodyRead({
+    snapshot<T>(
+      read: (
+        sql: { get(query: string, params: SqlParams): SqlRow | undefined },
+        asOfSeq: string,
+      ) => Result<T>,
+    ) {
+      return read({
+        get(query, params): SqlRow | undefined {
+          queries.push(query);
+          if (!query.includes("from blob_refs") || !params.includes(RUN)) {
+            return undefined;
+          }
+          return { run: RUN, hash, size_bytes: bytes.length };
+        },
+      }, "9");
+    },
+    bytes: (want, offset, length) =>
+      Promise.resolve(
+        want === hash
+          ? ok({
+            hash,
+            sizeBytes: bytes.length,
+            bytes: bytes.slice(offset, offset + length),
+          })
+          : err({ code: "not_found", message: "missing" }),
+      ),
+  });
+  const result = await read.handle(ctx("machine"), {
+    kind: "run_agent",
+    id: RUN,
+  });
+  assert(result.ok);
+  assertEquals(result.value.run, RUN);
+  assertEquals(result.value.value, agent);
+  assert(queries[0]!.includes("field = 'agent'"));
+  const other = await read.handle(ctx("user"), { kind: "run_agent", id: RUN });
+  assert(!other.ok);
+  assertEquals(other.error.code, "not_found");
+});

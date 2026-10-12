@@ -1,5 +1,6 @@
 export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
 export { createApplyCommand } from "./apply.ts";
+export { eraseApprovalRequests } from "./erase.ts";
 export {
   checkConfirmAction,
   CONFIRM_COMMAND,
@@ -21,9 +22,11 @@ export {
   deadlineValid,
   descriptionPresent,
   externalDescribed,
+  grantScopeAllowed,
   immutableFields,
   isClosed,
   repairDescribed,
+  sessionGrantableValid,
 } from "./model.ts";
 export { type ApprovalRunLineage, approvalRunLineage } from "./lineage.ts";
 export { observeApprovals, RESTART_GRANTED_LIMIT } from "./restart.ts";

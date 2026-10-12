@@ -4,7 +4,7 @@ concerns: [lophn-agent/observability]
 ---
 # lophn-agent/observability
 
-원본 run·호출·변경을 한 trace로 되짚는 범위, trace 화면에서 확인할 근거, 로컬 파일 export와 보존 정책을 맡는다; 사용량 합계는 lophn-agent/harness/usage, 실제 삭제는 platform/ledger와 platform/blob-store가 맡는다.
+원본 run·호출·변경을 한 trace로 되짚는 범위, trace 화면에서 확인할 근거, 보존 정책을 맡는다; 사용량 합계는 lophn-agent/harness/usage, 실제 삭제는 platform/ledger와 platform/blob-store가 맡는다.
 
 ## 요구
 
@@ -55,36 +55,16 @@ concerns: [lophn-agent/observability]
 - 확인: 보존된 실제 입력·응답은 원본으로 열리고 비밀·내부 추론과 관측용 중복 본문은 없으며 redaction은 platform/redaction을 따른다.
 - 의도: lophn-agent#I7
 
-**[R10]** export에 선택한 내용은 platform/redaction 뒤 값 하나당 UTF-8 32,768바이트 이내의 앞부분만 포함하고 잘림·제외·원본 참조를 본문과 분리하며 복구용 원본에는 이 상한을 적용하지 않는다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 한글 내용의 export가 UTF-8 경계를 지키고 잘림을 별도 표시하며 긴 복구 원본의 뒷부분은 그대로 읽힌다.
-- 의도: lophn-agent#I7
-
-**[R11]** 확정 전 스트리밍 조각과 진행 말은 영구 trace·재생·export에 넣지 않고 확정 본문은 소유 원본을 참조한다.
+**[R11]** 확정 전 스트리밍 조각과 진행 말은 영구 trace·재생에 넣지 않고 확정 본문은 소유 원본을 참조한다.
 - 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
 - 확인: 스트림 종료 뒤 조각 재생이 없으며 확정된 메시지와 호출의 원본 링크만 조회된다.
 - 의도: lophn-agent#I7
 
-### export와 범위
+### 범위
 
-**[R12]** 관측 기록은 platform/ledger·platform/blob-store가 관리하는 로컬 원본을 이용하며 네트워크 export와 제삼자 사용량 분석 전송은 하지 않는다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
+**[R12]** 관측 기록은 platform/ledger·platform/blob-store가 관리하는 로컬 원본을 이용하며 관측 기록을 네트워크로 보내거나 제삼자 사용량 분석으로 전송하지 않는다.
+- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않고, 관측 기록이 기기 밖으로 나가지 않게 한다.
 - 확인: 실행할 때 관측용 외부 요청은 없으며, 인터넷 없이도 trace와 비용을 조회할 수 있다.
-- 의도: lophn-agent#I7
-
-**[R14]** 로컬 파일 내보내기는 UTF-8 NDJSON으로 문서 형식 버전 1과 trace별 기록을 남긴다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 파일의 각 줄을 독립된 JSON으로 읽어 형식 버전과 기록 관계를 복원할 수 있다.
-- 의도: lophn-agent#I7
-
-**[R16]** 파일 export는 메타데이터만 기본으로 보내고 사용자는 export마다 메시지·model 입력·model 출력·도구 입력·도구 출력 중 포함할 종류를 다시 고른다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 보호된 원본에 도구 결과가 있어도 기본 export에는 본문이 없고 해당 종류를 선택한 export에만 redaction과 내용 상한을 적용한 본문이 포함된다.
-- 의도: lophn-agent#I7
-
-**[R17]** 내보내기 실패는 로컬 원본과 실행 결과를 바꾸거나 모델 호출을 재시도시키지 않으며, 보낸 기록 수와 보내지 못한 기록 수를 구별하여 반환한다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 수집기를 중단한 채 내보내기를 실행해도 로컬 조회와 원래 작업 결과가 유지되고, 실패 수가 0인 성공으로 표시되지 않으며 유료 모델 호출이 추가되지 않는다.
 - 의도: lophn-agent#I7
 
 **[R18]** trace 조회는 호출 수·차단 수·오류·시간·근거의 사실만 계산하고 사용량·비용은 lophn-agent/harness/usage, 품질 점수·통과 기준은 lophn-agent/evaluation을 가리킨다.
@@ -138,7 +118,7 @@ concerns: [lophn-agent/observability]
 
 ## 버린 것
 
-- 다섯 종류별 local 본문 기록 opt-in — 복구·이어가기에 필요한 세션·호출 본문을 보호 처리하여 기본 저장하므로 export 선택만 유지한다.
+- 다섯 종류별 local 본문 기록 opt-in — 복구·Compact에 필요한 세션·호출 본문을 보호 처리하여 기본 저장한다.
 - subagent trace와 자동 대체 model trace 예시 — subagent와 자동 model 대체를 새 설계에서 제공하지 않는다.
-- 네트워크 export와 OTLP/HTTP Protobuf, OpenTelemetry·GenAI Semantic Conventions 변환 — MVP는 로컬 NDJSON 파일 export만 둔다.
 - 자동 만료를 두지 않고 181일 상세·15일 본문을 그대로 둔다는 보존 — 큰 자료는 용량 상한을 넘으면 오래된 것부터 정리한다.
+- 로컬 파일 export 전부(옛 R10 내용 상한·R14 NDJSON·R16 포함 종류 선택·R17 실패 수 구별; R12의 "외부로 보내지 않는다"는 export와 상관없는 성질이라 남겼다)와 네트워크 export·OTLP·OpenTelemetry 변환 — 사람이 정했다: backup과 export 기능은 완전히 제거한다. trace는 앱 안에서 조회만 한다.

@@ -81,7 +81,9 @@ Deno.test("documents/contexts#R1 [ctx-I39b]: 실제 core: context를 만들면 �
       ok: true,
       value: [],
     });
-    assertEquals(await source.operatorCount(id), { ok: true, value: 0 });
+    const counts = await source.operatorCounts(project);
+    assert(counts.ok, JSON.stringify(counts));
+    assertEquals(counts.value.get(id) ?? 0, 0);
 
     // 없는 context는 not_found로 읽힌다.
     assertEquals(await source.get(newId("ctx")), {

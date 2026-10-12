@@ -76,21 +76,24 @@ Created actor는 machine, Read actor는 user다. 두 event의 envelope run은 nu
 
 이 표의 event만 notification을 만든다. 각 소유 concern은 조건을 판정할 근거를 자기 event payload 또는 고정 참조로 제공한다.
 
-| event | 소유 concern | 조건 | notification |
-|---|---|---|---|
-| `ProblemOpened` | → problems/grouping | 운영 보고에서 생긴 문제 | source_seq 하나당 1개 |
-| `ProblemReopened` | → problems/grouping | 운영 보고의 재발 | source_seq 하나당 1개 |
-| `ProblemClosed` | → problems/closing | 운영 보고의 문제 | source_seq 하나당 1개 |
-| `ApprovalRequestCreated` | → platform/approvals | 항상 | source_seq 하나당 1개 |
-| `QuestionCreated` | → lophn-agent/questions | 항상 | source_seq 하나당 1개 |
-| `TicketConfirmed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
-| `TicketCheckFailed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 |
-| `AssignmentPaused` | → lophn-agent/assignments | actor=machine; 원인=반복 실패 또는 대상 보관 | source_seq 하나당 1개 |
-| `ReleaseActivationFailed` | → apps/releases | 항상 | source_seq 하나당 1개 |
-| `ContextViolationsRecorded` | → documents/contexts | payload의 `after`가 `before`(그 context의 직전 기록 수; 첫 기록은 0)보다 큼 | source_seq 하나당 1개; 대상=그 context(Context 탭의 위반을 연다); 문구=계기 이름. 줄거나 같으면 없음; 위반별·이력 notification 없음 |
+| event | 소유 concern | 조건 | notification | `ask_agent` | Ask가 붙이는 첫 context |
+|---|---|---|---|---|---|
+| `ProblemOpened` | → problems/grouping | 운영 보고에서 생긴 문제 | source_seq 하나당 1개 | App Engineer | 문제와 그 앱의 참조 |
+| `ProblemReopened` | → problems/grouping | 운영 보고의 재발 | source_seq 하나당 1개 | 없음 | — |
+| `ProblemClosed` | → problems/closing | 운영 보고의 문제 | source_seq 하나당 1개 | 없음 | — |
+| `ApprovalRequestCreated` | → platform/approvals | 항상 | source_seq 하나당 1개 | 없음 | — |
+| `QuestionCreated` | → lophn-agent/questions | 항상 | source_seq 하나당 1개 | 없음 | — |
+| `TicketConfirmed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 | 없음 | — |
+| `TicketCheckFailed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 | 없음 | — |
+| `AssignmentPaused` | → lophn-agent/assignments | actor=machine; 원인=`scope_archived`(대상 보관) | source_seq 하나당 1개 | 없음 | — |
+| `ReleaseActivationFailed` | → apps/releases | 항상 | source_seq 하나당 1개 | App Engineer | 앱과 release의 참조 |
+| `ContextViolationsRecorded` | → documents/contexts | payload의 `after`가 `before`(그 context의 직전 기록 수; 첫 기록은 0)보다 큼; 줄거나 같으면 없음 | source_seq 하나당 1개; 대상=그 context(toast [View]는 그 context의 Violations 하위 탭을 연다); 문구=계기 이름; 위반별·이력 notification 없음 | Context Engineer | 위반된 context(계약)의 참조 |
+
+`ask_agent`는 notification 종류마다 고정된 값이며 notification 내용이나 대상 문서의 내용을 읽어 정하지 않는다. 이 표에 없는 종류는 `ask_agent`가 없다(보기만).
 
 - **표 밖 계기 금지.** 같은 문제의 추가 report·TicketCreated/Claimed/ClaimReleased/CompletionReported/Cancelled·handoff 종료·RunFinished·일반 문서 저장은 notification을 만들지 않는다.
 - **agent 비기동.** 생성·배달·읽음은 새 agent run이나 닫힌 세션 재개의 계기가 아니다. 기존 질문·approval 대기 해제는 해당 concern의 결정 event로만 처리한다.
+- **agent 부르기(Ask).** `ask_agent`가 있는 notification에서 사람이 Ask를 고르면 그 role의 Agent 탭을 notification 대상이 속한 자리(위반된 context의 project, 앱)에서 열고 표의 첫 context 참조를 session의 `opening_context`(→ lophn-agent/conversation)로 붙인다. context는 대상의 참조이고 본문·위반 목록·오류 log의 복사본이 아니며 그 내용은 agent가 tool로 읽는다. 탭을 여는 것은 command도 event도 만들지 않고 run을 시작하지 않는다: 사람이 첫 메시지를 보낼 때 평소처럼 run이 시작된다. 읽음과 Ask는 독립이다. → platform/notifications#R13, platform/notifications#R14
 - **내용 비복제.** 열린 세션에 보여 줄 때도 같은 notification을 참조한다. role 발언·Message로 원래 사실을 다시 저장하지 않는다. → lophn-agent/conversation
 - **OS 표시.** OS notification은 사람이 켰을 때만 같은 notification의 최소 안전 제목·대상 열기를 표시하는 경로다. domain 상태·새 계기·배달 성공 표를 만들지 않는다. secret·원문을 내보내지 않으며 실제 OS 표시와 tray는 → shell/desktop, platform/redaction. → platform/notifications#R9
 - **작업 유지.** 자동 표시로 입력 focus·현재 문서·앱을 바꾸지 않는다. 사람이 명시적으로 대상 열기를 골랐을 때만 이동한다. → platform/notifications#R12

@@ -19,7 +19,10 @@ export {
   createAuthTransport,
   type SecretAttachLike,
 } from "./adapters/auth-transport.ts";
-export { createFetchTransport } from "./adapters/transport.ts";
+export {
+  createFetchTransport,
+  withRequestHeaders,
+} from "./adapters/transport.ts";
 export { billingRouteOf, credentialUsable } from "./credentials.ts";
 export { listProviders, loadProvider } from "./store.ts";
 export {
@@ -48,9 +51,4 @@ export {
   type RefreshFacts,
   unauthorizedRetry,
 } from "./refresh.ts";
-export {
-  type ConnectionTestDeps,
-  type ConnectionTestPort,
-  type InvokeModelCall,
-  runConnectionTest,
-} from "./work.ts";
+export type { InvokeModelCall } from "./work.ts";

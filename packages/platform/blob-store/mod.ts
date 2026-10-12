@@ -41,6 +41,7 @@ export {
   unavailableAnswer,
 } from "./refs.ts";
 export { createBlobRegistrar, registerBlobRef } from "./register.ts";
+export { eraseBlobRefs } from "./erase.ts";
 export {
   type AssignmentEntry,
   assignmentOf,

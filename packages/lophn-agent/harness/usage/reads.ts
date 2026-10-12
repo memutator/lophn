@@ -67,9 +67,9 @@ function loadRows(
   },
 ): Result<ModelCallRecord[]> {
   const rows = sql.all(
-    `select id, run, session, model_use, preset, purpose, test_request,
-       attempt_kind, attempt_order, retry_of, credential_change_of,
-       provider, credential_key, credential_revision, model_name, protocol,
+    `select id, run, session, model_use, agent_hash, purpose,
+       attempt_kind, attempt_order, retry_of,
+       provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
        started_at, finished_at, duration_ms, first_output_ms, outcome,
        usage, cost
@@ -189,9 +189,9 @@ export function createUsageReads(): {
       route: modelCallRead,
       handle(snapshot, _ctx, input) {
         const row = snapshot.sql.get(
-          `select id, run, session, model_use, preset, purpose, test_request,
-             attempt_kind, attempt_order, retry_of, credential_change_of,
-             provider, credential_key, credential_revision, model_name, protocol,
+          `select id, run, session, model_use, agent_hash, purpose,
+             attempt_kind, attempt_order, retry_of,
+             provider, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,
              started_at, finished_at, duration_ms, first_output_ms, outcome,
              usage, cost
@@ -271,19 +271,15 @@ export function createUsageReads(): {
           clauses.push("model_name like ? escape '\\'");
           params.push(`%${escapeLike(input.model)}%`);
         }
-        if (input.credential_key !== undefined) {
-          clauses.push("credential_key = ?");
-          params.push(input.credential_key);
-        }
         if (input.currency !== undefined) {
           // cost JSON의 currency 필터. 같은 kind·통화 묶음만 남긴s다.
           clauses.push("json_extract(cost, '$.currency') = ?");
           params.push(input.currency);
         }
         const rows = snapshot.sql.all(
-          `select id, run, session, model_use, preset, purpose, test_request,
-             attempt_kind, attempt_order, retry_of, credential_change_of,
-             provider, credential_key, credential_revision, model_name, protocol,
+          `select id, run, session, model_use, agent_hash, purpose,
+             attempt_kind, attempt_order, retry_of,
+             provider, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,
              started_at, finished_at, duration_ms, first_output_ms, outcome,
              usage, cost
@@ -307,7 +303,6 @@ export function createUsageReads(): {
             // role filter는 위에서 되돌렸다. group 기록도 모름이다.
             role: null,
             model: input.model ?? null,
-            credential_key: input.credential_key ?? null,
             from_at: input.from_at,
             through_at: input.through_at,
             currency: input.currency ?? null,

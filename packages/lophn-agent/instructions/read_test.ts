@@ -1,161 +1,118 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type InstructionLocation,
+  INSTRUCTION_READ_MAX_BASE64,
   instructionRead,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
+  decodeInstructionFile,
+  encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
-  type InstructionFiles,
   instructionFilesOverCore,
-  instructionReadApi,
+  type InstructionLayerKind,
   resolveInstructions,
 } from "./mod.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
-const GLOBAL_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
-const PROJECT_DOC = "doc_01arz3ndektsv4rrffq69g5faw";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
-const PRESET_DOC = "doc_01arz3ndektsv4rrffq69g5faz";
 const encoder = new TextEncoder();
 
-type Stored = { document: string; version: string; text: string };
-
-// core 쪽: 확정 판을 가진 가짜 InstructionFiles를 ReadInstructionFile route 정의로 감싼다.
-// runtime 쪽: route의 input·output schema를 거쳐 InstructionFiles 어댑터로 읽는다.
-function viaRoute(seed: {
-  registered: Record<string, Stored>;
-  attached?: Record<string, Stored>;
-  failing?: string[];
-}) {
-  const core: InstructionFiles = {
-    registered(location: InstructionLocation) {
-      const key = `${location.layer}:${location.place}`;
-      if (seed.failing?.includes(key)) {
-        return Promise.resolve(
-          err({ code: "unavailable", message: "/private/path/LOPHN.md" }),
-        );
-      }
-      const stored = seed.registered[key];
-      return Promise.resolve(ok(stored === undefined ? null : fileOf(stored)));
-    },
-    attached(document: string) {
-      const stored = seed.attached?.[document];
-      return Promise.resolve(
-        stored === undefined
-          ? err({ code: "not_found", message: "no document" })
-          : ok(fileOf(stored)),
-      );
-    },
-    projectOf: () => Promise.resolve(ok(null)),
-  };
-  const api = instructionReadApi({
-    files: core,
-    permit: () => ok(undefined),
-    asOfSeq: () => ok("7"),
-  });
-  const files = instructionFilesOverCore(RUN, async (input) => {
-    const parsed = instructionRead.input.parse(input);
-    const reply = await api.handle(
-      {} as never,
-      parsed,
-    );
-    if (!reply.ok) return reply;
-    return ok(instructionRead.output.parse(reply.value));
-  });
-  return { files, registered: seed.registered };
-}
-
-function fileOf(stored: Stored): InstructionFile {
-  const bytes = encoder.encode(stored.text);
+function fileOf(text: string): InstructionFile {
+  const bytes = encoder.encode(text);
   return {
-    document: stored.document,
-    version: stored.version,
     size_bytes: bytes.length,
     bytes: bytes.slice(0, INSTRUCTION_FILE_MAX_BYTES),
   };
 }
 
-const global: Stored = {
-  document: GLOBAL_DOC,
-  version: "ver_01arz3ndektsv4rrffq69g5fav",
-  text: "전역 지침 — prefer short answers\n",
-};
-const project: Stored = {
-  document: PROJECT_DOC,
-  version: "ver_01arz3ndektsv4rrffq69g5faw",
-  text: "project rules\n",
-};
+// core 쪽을 흉내 내는 가짜: route의 input·output schema를 거쳐 층별 파일을 돌려준다.
+function viaRoute(seed: {
+  files: Partial<Record<InstructionLayerKind, string>>;
+  failing?: InstructionLayerKind[];
+}) {
+  const asked: unknown[] = [];
+  const files = instructionFilesOverCore(RUN, (input) => {
+    const parsed = instructionRead.input.parse(input);
+    asked.push(parsed);
+    if (seed.failing?.includes(parsed.layer)) {
+      return Promise.resolve(
+        err({ code: "unavailable", message: "/private/path/LOPHN.md" }),
+      );
+    }
+    const text = seed.files[parsed.layer];
+    return Promise.resolve(ok(instructionRead.output.parse({
+      file: text === undefined ? null : encodeInstructionFile(fileOf(text)),
+      as_of_seq: "7",
+      next_cursor: null,
+    })));
+  });
+  return { files, asked, stored: seed.files };
+}
 
-function resolve(
-  files: InstructionFiles,
-  attachments: { document: string; order: number }[] = [],
-) {
+function resolve(files: ReturnType<typeof viaRoute>["files"]) {
   return resolveInstructions(
     { files, redact: (text) => text },
-    { place: { kind: "project", id: PROJECT }, attachments },
+    { place: { kind: "project", id: PROJECT } },
   );
 }
 
-Deno.test("lophn-agent/instructions#R4 R5: ReadInstructionFile은 machine만 읽는 route이고 runtime은 이 route로 전역→project→preset 순 확정 판을 UTF-8 그대로 받는다", async () => {
+Deno.test("lophn-agent/instructions#R4 R5 [agent-I19]: ReadInstructionFile은 machine만 읽는 route이고 입력은 run과 층 하나이며 runtime은 이 route로 전역 → project → agent 본문을 UTF-8 그대로 받는다", async () => {
   assertEquals(instructionRead.actors, ["machine"]);
-  const { files } = viaRoute({
-    registered: { "global:global": global, [`project:${PROJECT}`]: project },
-    attached: {
-      [PRESET_DOC]: { ...project, document: PRESET_DOC, text: "preset\n" },
-    },
+  const global = "전역 지침 — prefer short answers\n";
+  const { files, asked } = viaRoute({
+    files: { global, project: "project rules\n", agent: "agent rules\n" },
   });
-  const resolved = await resolve(files, [{ document: PRESET_DOC, order: 0 }]);
+  const resolved = await resolve(files);
   assert(resolved.ok);
   assertEquals(resolved.value.status, "ready");
   assertEquals(resolved.value.layers.map((layer) => layer.kind), [
     "global",
     "project",
-    "preset",
+    "agent",
   ]);
   assertEquals(resolved.value.layers.map((layer) => layer.text), [
-    global.text,
-    project.text,
-    "preset\n",
+    global,
+    "project rules\n",
+    "agent rules\n",
   ]);
-  assertEquals(resolved.value.layers[0].version, global.version);
+  // 읽기 입력에는 자리 id가 없다. 어느 자리인지는 core가 run으로 정한다.
+  assertEquals(asked, [
+    { run: RUN, layer: "global" },
+    { run: RUN, layer: "project" },
+    { run: RUN, layer: "agent" },
+  ]);
   // 로컬 경로는 어느 칸에도 없다.
   assert(!JSON.stringify(resolved.value).includes("/private"));
 });
 
-Deno.test("lophn-agent/instructions#R8: 읽을 때마다 현재 확정 판을 다시 읽어 변경한 지침은 다음 call부터 새 version으로 보인다", async () => {
-  const source = viaRoute({ registered: { "global:global": global } });
+Deno.test("lophn-agent/instructions#R8 [agent-I19]: 읽을 때마다 파일을 다시 읽어 저장한 지침은 다음 call부터 새 hash로 보인다", async () => {
+  const source = viaRoute({ files: { global: "first\n" } });
   const first = await resolve(source.files);
   assert(first.ok);
-  source.registered["global:global"] = {
-    ...global,
-    version: "ver_01arz3ndektsv4rrffq69g5fax",
-    text: "edited\n",
-  };
+  source.stored.global = "edited\n";
   const second = await resolve(source.files);
   assert(second.ok);
-  assertEquals(first.value.layers[0].text, global.text);
+  assertEquals(first.value.layers[0].text, "first\n");
   assertEquals(second.value.layers[0].text, "edited\n");
-  assert(second.value.layers[0].version !== first.value.layers[0].version);
   assert(
     second.value.layers[0].source_hash !== first.value.layers[0].source_hash,
   );
 });
 
-Deno.test("lophn-agent/instructions#R2 R7: 연결된 문서가 없는 자리는 부재, 읽지 못함·상한 초과는 본문을 보내지 않고 call을 멈춘다", async () => {
-  const absent = viaRoute({ registered: {} });
-  const none = await resolve(absent.files);
+Deno.test("lophn-agent/instructions#R2 R7 [agent-I19]: 파일이 없는 층은 부재, 읽지 못함·상한 초과는 본문을 보내지 않고 call을 멈춘다", async () => {
+  const none = await resolve(viaRoute({ files: {} }).files);
   assert(none.ok);
   assertEquals(none.value.status, "ready");
   assertEquals(none.value.layers.map((layer) => layer.status), [
     "absent",
     "absent",
+    "absent",
   ]);
 
   const failing = viaRoute({
-    registered: { "global:global": global },
-    failing: [`project:${PROJECT}`],
+    files: { global: "x\n" },
+    failing: ["project"],
   });
   const failed = await resolve(failing.files);
   assert(failed.ok);
@@ -163,11 +120,8 @@ Deno.test("lophn-agent/instructions#R2 R7: 연결된 문서가 없는 자리는 
   assert(failed.value.layers.every((layer) => layer.text === null));
   assert(!JSON.stringify(failed.value).includes("/private"));
 
-  const large = viaRoute({
-    registered: {
-      "global:global": { ...global, text: "a".repeat(40_000) },
-    },
-  });
+  // core는 처음 32 KiB만 보내고 size_bytes로 실제 크기를 알린다. 읽는 쪽이 상한 초과로 멈춘다.
+  const large = viaRoute({ files: { global: "a".repeat(40_000) } });
   const grown = await resolve(large.files);
   assert(grown.ok);
   assertEquals(grown.value.status, "blocked");
@@ -175,65 +129,75 @@ Deno.test("lophn-agent/instructions#R2 R7: 연결된 문서가 없는 자리는 
   assertEquals(grown.value.layers[0].bytes, 40_000);
 });
 
-Deno.test("lophn-agent/instructions#R2: 읽는 입력은 등록 자리나 붙은 문서 하나뿐이고 둘을 함께 주거나 경로를 주면 거절된다", () => {
+Deno.test("lophn-agent/instructions#R2 [agent-I19]: 읽는 입력은 run과 층 하나뿐이고 자리 id·문서 id·경로를 주면 거절된다", () => {
+  for (const layer of ["global", "project", "app", "agent"]) {
+    assert(instructionRead.input.safeParse({ run: RUN, layer }).success);
+  }
   assert(
-    instructionRead.input.safeParse({ run: RUN, document: PRESET_DOC }).success,
+    !instructionRead.input.safeParse({ run: RUN, layer: "preset" }).success,
   );
+  assert(!instructionRead.input.safeParse({ run: RUN }).success);
   assert(
-    instructionRead.input.safeParse({
+    !instructionRead.input.safeParse({
       run: RUN,
-      location: { layer: "global", place: "global" },
+      layer: "project",
+      place: PROJECT,
     }).success,
   );
   assert(
     !instructionRead.input.safeParse({
       run: RUN,
-      document: PRESET_DOC,
-      location: { layer: "global", place: "global" },
+      layer: "global",
+      document: "doc_01arz3ndektsv4rrffq69g5faz",
     }).success,
   );
   assert(
-    !instructionRead.input.safeParse({ run: RUN, path: "/etc/passwd" }).success,
+    !instructionRead.input.safeParse({ run: RUN, layer: "global", path: "/x" })
+      .success,
   );
 });
 
+Deno.test("lophn-agent/instructions#R7 [agent-I19]: 읽기 응답은 문서·판 칸 없이 크기와 본문뿐이고 32 KiB 본문이 한 응답에 들어간다", () => {
+  const bytes = new Uint8Array(INSTRUCTION_FILE_MAX_BYTES).fill(0x61);
+  const encoded = encodeInstructionFile({ size_bytes: bytes.length, bytes });
+  assertEquals(Object.keys(encoded).sort(), ["content_base64", "size_bytes"]);
+  assert(encoded.content_base64.length <= INSTRUCTION_READ_MAX_BASE64);
+  const reply = instructionRead.output.safeParse({
+    file: encoded,
+    as_of_seq: "1",
+    next_cursor: null,
+  });
+  assert(reply.success);
+  // 문서·판 칸이 있는 옛 응답은 걸러지거나 거절되어 어느 쪽이든 결과에 남지 않는다.
+  const old = instructionRead.output.safeParse({
+    file: { ...encoded, document: "doc_01arz3ndektsv4rrffq69g5faz" },
+    as_of_seq: "1",
+    next_cursor: null,
+  });
+  assert(
+    !old.success ||
+      !("document" in (old.data.file as unknown as Record<string, unknown>)),
+  );
+  const decoded = decodeInstructionFile(encoded);
+  assert(decoded.ok);
+  assertEquals(decoded.value.bytes, bytes);
+  assertEquals(decoded.value.size_bytes, bytes.length);
+});
+
 // 읽기 통로가 err를 그대로 올리는지(오류를 부재로 바꾸지 않는다).
-Deno.test("lophn-agent/instructions#R7: 읽기 오류는 부재로 바뀌지 않고 err로 전해진다", async () => {
-  const files = instructionFilesOverCore(
+Deno.test("lophn-agent/instructions#R7 [agent-I19]: 읽기 오류는 부재로 바뀌지 않고 err로 전해지며 깨진 본문도 err다", async () => {
+  const failing = instructionFilesOverCore(
     RUN,
     (): Promise<Result<never>> =>
       Promise.resolve(err({ code: "unavailable", message: "x" })),
   );
-  const read = await files.registered({ layer: "global", place: "global" });
+  const read = await failing.read("global");
   assertEquals(read.ok, false);
-});
 
-Deno.test("lophn-agent/instructions#R2: 읽기 정의는 허락되지 않은 대상을 permit이 막으면 파일을 읽지 않고 그 오류를 그대로 낸다", async () => {
-  let read = 0;
-  const api = instructionReadApi({
-    files: {
-      registered: () => {
-        read += 1;
-        return Promise.resolve(ok(null));
-      },
-      attached: () => {
-        read += 1;
-        return Promise.resolve(err({ code: "not_found", message: "x" }));
-      },
-      projectOf: () => Promise.resolve(ok(null)),
-    },
-    permit: () => err({ code: "not_found", message: "instruction not found" }),
-    asOfSeq: () => ok("1"),
-  });
-  for (
-    const input of [
-      { run: RUN, document: PRESET_DOC },
-      { run: RUN, location: { layer: "project" as const, place: PROJECT } },
-    ]
-  ) {
-    const reply = await api.handle({} as never, input);
-    assert(!reply.ok);
-    assertEquals(reply.error.code, "not_found");
-  }
-  assertEquals(read, 0);
+  const broken = instructionFilesOverCore(RUN, () =>
+    Promise.resolve(ok({
+      file: { size_bytes: 3, content_base64: "***not base64***" },
+    })));
+  const decoded = await broken.read("global");
+  assertEquals(decoded.ok, false);
 });

@@ -19,6 +19,50 @@ export {
   validateSkillSelection,
 } from "./skills.ts";
 export {
+  listSkillsSync,
+  type SkillListing,
+  type SkillSources,
+  type SyncSkillFiles,
+} from "./skills-sync.ts";
+export {
+  createGlobalSkillReads,
+  type GlobalSkillDeps,
+  type GlobalSkillLookups,
+} from "./global-skills.ts";
+export {
+  dataRootOf,
+  fileHash,
+  parsePlaceMcpFile,
+  PLACE_MCP_FILE,
+  PLACE_SKILLS_DIR,
+  type PlaceFiles,
+  placeFolderOf,
+  type PlaceMcpFile,
+  placeMcpPathOf,
+  placeSkillsOf,
+  serializePlaceMcpFile,
+} from "./place-store.ts";
+export {
+  createPlaceExtensionCommands,
+  createPlaceExtensionReads,
+  type PlaceExtensionDeps,
+  type PlaceExtensionLookups,
+} from "./place-settings.ts";
+export {
+  collectPlaceMcpEntries,
+  collectPlaceMcpServers,
+  mergeMcpServers,
+  type PlaceMcpEntry,
+  type PlaceServerSource,
+} from "./place-servers.ts";
+export {
+  commandSkillsOf,
+  createExtensionRegistry,
+  type ExtensionRegistry,
+  type ExtensionRegistryDeps,
+  mcpToolsOf,
+} from "./registry.ts";
+export {
   readSkill,
   readSkillSupplemental,
   type SkillReadErrorCode,
@@ -107,6 +151,24 @@ export {
   MCP_SECRET_OWNER,
 } from "./secret-refs.ts";
 export {
+  createMcpOAuth,
+  type McpAuthReport,
+  type McpOAuth,
+  type McpOAuthServer,
+  REFRESH_SKEW_MS,
+} from "./mcp-oauth.ts";
+export {
+  createMcpOAuthVault,
+  type McpAuthKey,
+  mcpAuthKeyId,
+  type McpGrant,
+  type McpGrantBinding,
+  type McpOAuthVault,
+  mcpTokenRef,
+  type McpVaultKeychain,
+} from "./mcp-oauth-vault.ts";
+export {
+  type AuthDeadline,
   authHeaders,
   authorizationUrl,
   type AuthState,
@@ -118,6 +180,7 @@ export {
   type CredentialBinding,
   exchangeToken,
   type HttpAuth,
+  MCP_AUTH_WAIT_MS,
   type OAuthBinding,
   type OAuthStartInput,
   pkceChallengeS256,
@@ -125,4 +188,5 @@ export {
   type Registration,
   type TokenExchangeInput,
   type TokenExchangeOutcome,
+  type TokenGrant,
 } from "./mcp-auth.ts";

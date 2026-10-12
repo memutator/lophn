@@ -5,10 +5,7 @@
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import {
-  mcpServersSetting,
-  registerProviderCredential,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   setSecret,
@@ -43,6 +40,7 @@ import { inProcessIo } from "./testing/in-process-io.ts";
 
 const PVD = "pvd_01arz3ndektsv4rrffq69g5fav";
 const SES = "ses_01arz3ndektsv4rrffq69g5fav";
+const SESSION_PLACE = "prj_01arz3ndektsv4rrffq69g5fav";
 const USER_TOKEN = "e".repeat(43);
 const USER_OPERATIONS = [
   "ListAssignments",
@@ -50,7 +48,6 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
-  "RegisterProviderCredential",
   "ChangeModelDefaults",
   "ReadModelDefaults",
   "ReadRun",
@@ -211,6 +208,7 @@ async function chooseModel(world: World): Promise<void> {
       },
       endpoint: provider.url,
       protocol: "anthropic-messages",
+      credential: { kind: "none", preparation: null },
     }),
   );
   assertEquals(registered.status, 200, JSON.stringify(registered.body));
@@ -228,15 +226,7 @@ async function chooseModel(world: World): Promise<void> {
     "agent-model-defaults/change",
     USER_TOKEN,
     command({
-      judgment: {
-        provider: PVD,
-        credentials: [],
-        model_name: MODEL,
-        reasoning_level: "provider_default",
-        options: {},
-      },
-      organizing: null,
-      settings_seq: seq,
+      lophn: { provider: PVD, model_name: MODEL, option_values: {} },
     }, { compare: { settings_seq: seq } }),
   );
   assertEquals(changed.status, 200, JSON.stringify(changed.body));
@@ -256,6 +246,21 @@ async function ask(world: World, text: string, id: string): Promise<string> {
     session: SES,
   });
   if (existing.status !== 200) {
+    // 세션은 쓸 수 있는 project 하나를 자리로 받는다.
+    const place = await call(
+      server,
+      "projects/create",
+      USER_TOKEN,
+      command({
+        id: SESSION_PLACE,
+        name: "session-place",
+        title: "session-place",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      }),
+    );
+    assertEquals(place.status, 200, JSON.stringify(place.body));
     const opened = await call(
       server,
       "sessions/open",
@@ -263,9 +268,8 @@ async function ask(world: World, text: string, id: string): Promise<string> {
       command({
         id: SES,
         assignment: lophn.id,
-        role: "lophn",
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: SESSION_PLACE },
+        opening_context: null,
       }, {
         compare: {
           assignment_revision: lophn.revision,
@@ -940,7 +944,7 @@ function keyedProvider(
   };
 }
 
-// 사람이 API key provider를 등록한다: 값은 keychain에 있고 ledger에는 준비 증거와 참조만 남는다.
+// 사람이 API key provider를 연결한다: 값은 keychain에 있고 ledger에는 준비 증거와 참조만 남는다.
 async function chooseKeyedModel(
   world: World,
   keychain: FakeKeychain,
@@ -948,6 +952,24 @@ async function chooseKeyedModel(
   endpoint: string,
 ): Promise<void> {
   const { server } = world;
+  const stored = await keychain.store({
+    name: `${PVD}/main`,
+    purpose: "provider_credential",
+    owner: PVD,
+    value: new TextEncoder().encode(API_KEY),
+  });
+  assert(stored.ok);
+  const preparation = `prep-${crypto.randomUUID()}`;
+  const db = new DatabaseSync(`${world.home}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.prepare(
+      "INSERT INTO secret_preparations (preparation, sealed_ref, purpose, owner) VALUES (?, ?, 'provider_credential', ?)",
+    ).run(preparation, stored.value, PVD);
+  } finally {
+    db.close();
+  }
+  // Connect는 provider와 그 credential 하나를 함께 둔다.
   const registered = await call(
     server,
     "providers/register",
@@ -966,68 +988,18 @@ async function chooseKeyedModel(
       },
       endpoint,
       protocol: wire.protocol,
+      credential: {
+        kind: "api_key",
+        preparation: {
+          preparation,
+          sealed_ref: stored.value,
+          purpose: "provider_credential",
+          owner: PVD,
+        },
+      },
     }),
   );
   assertEquals(registered.status, 200, JSON.stringify(registered.body));
-  const stored = await keychain.store({
-    name: `${PVD}/main`,
-    purpose: "provider_credential",
-    owner: PVD,
-    value: new TextEncoder().encode(API_KEY),
-  });
-  assert(stored.ok);
-  const preparation = `prep-${crypto.randomUUID()}`;
-  const db = new DatabaseSync(`${world.home}/lophn.db`);
-  try {
-    db.exec("PRAGMA busy_timeout = 5000");
-    db.prepare(
-      "INSERT INTO secret_preparations (preparation, sealed_ref, purpose, owner) VALUES (?, ?, 'provider_credential', ?)",
-    ).run(preparation, stored.value, PVD);
-  } finally {
-    db.close();
-  }
-  const input = {
-    provider: PVD,
-    key: "main",
-    kind: "api_key",
-    label: "main key",
-    preparation: {
-      preparation,
-      sealed_ref: stored.value,
-      purpose: "provider_credential",
-      owner: PVD,
-    },
-    account: null,
-    organization: null,
-    plan: null,
-    dedup_fingerprint: "a".repeat(64),
-  };
-  const binding = await confirmationBinding(registerProviderCredential, input);
-  assert(binding);
-  const issued = await world.core.confirmation?.({
-    action: "issue",
-    request: {
-      type: "confirmation_handle_register",
-      window_id: `win-${crypto.randomUUID()}`,
-      target_ref: binding.target,
-      content_hash: binding.content,
-      allowed_decisions: [registerProviderCredential.name],
-      expires_at: new Date(Date.now() + 600_000).toISOString(),
-    },
-  });
-  assert(issued?.ok, JSON.stringify(issued));
-  const revision = (registered.body["provider"] as { revision: number })
-    .revision;
-  const added = await call(
-    server,
-    "provider-credentials/register",
-    USER_TOKEN,
-    command(input, {
-      compare: { revision },
-      confirmation: (issued.value as { confirmation: string }).confirmation,
-    }),
-  );
-  assertEquals(added.status, 200, JSON.stringify(added.body));
   const defaults = await call(
     server,
     "agent-model-defaults/read",
@@ -1041,15 +1013,7 @@ async function chooseKeyedModel(
     "agent-model-defaults/change",
     USER_TOKEN,
     command({
-      judgment: {
-        provider: PVD,
-        credentials: ["main"],
-        model_name: wire.model,
-        reasoning_level: "provider_default",
-        options: {},
-      },
-      organizing: null,
-      settings_seq: seq,
+      lophn: { provider: PVD, model_name: wire.model, option_values: {} },
     }, { compare: { settings_seq: seq } }),
   );
   assertEquals(changed.status, 200, JSON.stringify(changed.body));

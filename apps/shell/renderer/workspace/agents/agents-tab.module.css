@@ -1,0 +1,187 @@
+/* project의 Agents 탭. 카드 목록 아래에 구역이 쌓이고, 구역 머리는 제목과 오른쪽 단추 하나다. */
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: calc(var(--page-reading-wide) + var(--layout-pane-padding-wide) *
+    2);
+  margin: var(--space-0) auto;
+  padding: var(--layout-pane-padding-wide);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+.title {
+  margin: var(--space-0);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(var(--space-0), 1fr));
+  gap: var(--space-5);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  min-width: var(--space-0);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.name {
+  margin: var(--space-0);
+  overflow: hidden;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kind {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  list-style: none;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--control-sm-height);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.lead {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.preview {
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roles {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.role {
+  display: grid;
+  grid-template-columns: var(--layout-container-card) minmax(var(--space-0),
+    1fr) auto;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.roleLabel {
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.roleLine {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.roleControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.toggle {
+  padding: var(--space-2) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.stored {
+  padding-top: var(--space-4);
+}

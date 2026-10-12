@@ -78,11 +78,9 @@ const model = {
   provider: PVDR,
   name: "gpt",
   protocol: "openai-responses" as const,
-  credential_key: null,
   credential_revision: null,
   options: {},
-  requested_reasoning: "provider_default" as const,
-  applied_reasoning: null,
+  option_values: { requested: {}, applied: {} },
   limits: {
     context_limit: 128000,
     input_limit: 120000,
@@ -118,13 +116,11 @@ const started = {
   run: RUN,
   session: SESSION,
   model_use: "judgment" as const,
-  preset: { id: "pst_01arz3ndektsv4rrffq69g5fav", revision: 1 },
+  agent_hash: "ab".repeat(32),
   purpose: "judgment" as const,
-  test_request: null,
   attempt_kind: "initial" as const,
   attempt_order: 1,
   retry_of: null,
-  credential_change_of: null,
   model,
   input: HASH,
   context_basis: HASH,
@@ -193,8 +189,8 @@ async function seedProvider(h: LedgerHarness): Promise<void> {
       id: PVDR,
       name: "Loopback provider",
       definition: {
-        key: "ollama",
-        display_name: "Ollama",
+        key: "my-local",
+        display_name: "My local",
         protocols: ["openai-responses"],
         auth_kinds: ["none"],
         models_endpoint: null,
@@ -203,6 +199,7 @@ async function seedProvider(h: LedgerHarness): Promise<void> {
       },
       endpoint: "http://127.0.0.1:8080/v1",
       protocol: "openai-responses",
+      credential: { kind: "none", preparation: null },
     }),
   );
   keep(registered);
@@ -235,7 +232,6 @@ async function startCall(
         call,
         applied_messages: [],
         state_seq: "4",
-        timeout_ms: null,
       }),
     ),
   );
@@ -261,7 +257,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call stores once and repeats 
         call: started,
         applied_messages: [],
         state_seq: "4",
-        timeout_ms: null,
       }),
     );
     assert(first.ok, first.ok ? undefined : JSON.stringify(first.error));
@@ -272,7 +267,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call stores once and repeats 
         call: { ...started, id: CALL },
         applied_messages: [],
         state_seq: "4",
-        timeout_ms: null,
       }, { idempotency_key: `k-${idempotency + 1}` }),
     );
     code(repeated, "conflict");
@@ -292,7 +286,6 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -333,7 +326,6 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
           call: retry,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -347,7 +339,6 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
         call: retry,
         applied_messages: [],
         state_seq: "4",
-        timeout_ms: null,
       }),
     );
     code(repeated, "conflict");
@@ -362,7 +353,7 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
   }
 });
 
-Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one record each", async () => {
+Deno.test("lophn-agent/harness/usage#R1: a call after a credential failure is a new record, never a move to another credential", async () => {
   const h = await open();
   try {
     await seedProvider(h);
@@ -373,7 +364,6 @@ Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one reco
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -399,29 +389,29 @@ Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one reco
         }),
       ),
     );
-    // credential change attempt도 새 기록이다.
-    const changed = {
+    // 같은 provider의 retry도 새 기록이다. 다른 credential로 옮기는 시도는 없다.
+    const retried = {
       ...started,
       id: CALL2,
-      attempt_kind: "credential_change" as const,
+      attempt_kind: "retry" as const,
       attempt_order: 2,
-      retry_of: null,
-      credential_change_of: CALL,
+      retry_of: CALL,
     };
     keep(
       await h.command(
         machineCred,
         envelope("StartModelCall", {
-          call: changed,
+          call: retried,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
     const record = await readCall(h, CALL2);
-    assertEquals(record["attempt_kind"], "credential_change");
-    assertEquals(record["credential_change_of"], CALL);
+    assertEquals(record["attempt_kind"], "retry");
+    assertEquals(record["retry_of"], CALL);
+    assertEquals("credential_change_of" in record, false);
+    assertEquals("credential_key" in (record["model"] as object), false);
     const list = keep(
       await h.read({ resource: "model-calls", method: "list" }, userCred, {
         run: RUN,
@@ -443,7 +433,6 @@ Deno.test("lophn-agent/harness/usage#R1: a start that fails to store sends nothi
         call: started,
         applied_messages: [],
         state_seq: "4",
-        timeout_ms: null,
       }),
     );
     code(blocked, "unavailable");
@@ -459,25 +448,37 @@ Deno.test("lophn-agent/harness/usage#R1: a start that fails to store sends nothi
   }
 });
 
-Deno.test("lophn-agent/harness/usage#R2: a call records use, choice, model and billing route", async () => {
+Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a call records use, agent hash, choice, option values, model and billing route", async () => {
   const h = await open();
   try {
     await seedProvider(h);
+    const optionValues = {
+      requested: { effort: "very_high" },
+      applied: { effort: "high" },
+    };
     keep(
       await h.command(
         machineCred,
         envelope("StartModelCall", {
-          call: started,
+          call: {
+            ...started,
+            model: { ...model, option_values: optionValues },
+          },
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
     const record = await readCall(h, CALL);
     assertEquals(record["model_use"], "judgment");
+    assertEquals(record["agent_hash"], "ab".repeat(32));
+    assertEquals("preset" in record, false);
     assertEquals(record["purpose"], "judgment");
     assertEquals((record["model"] as Record<string, unknown>)["name"], "gpt");
+    assertEquals(
+      (record["model"] as Record<string, unknown>)["option_values"],
+      optionValues,
+    );
     assertEquals(
       (record["model"] as Record<string, unknown>)["billing_route"],
       "api",
@@ -499,7 +500,6 @@ Deno.test("lophn-agent/harness/usage#R3: finish keeps outcome, timing, no error 
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -549,7 +549,6 @@ Deno.test("lophn-agent/harness/usage#R3: a failed outcome keeps kind and code, n
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -597,7 +596,6 @@ Deno.test("lophn-agent/harness/usage#R4: input and output keep blob refs, finish
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -664,7 +662,6 @@ Deno.test("lophn-agent/harness/usage#R5: cache in input and reasoning in output 
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -721,7 +718,6 @@ Deno.test("lophn-agent/harness/usage#R6: unknown usage stays null, not zero", as
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -770,7 +766,6 @@ Deno.test("lophn-agent/harness/usage#R7: the five cost kinds stay apart", async 
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -833,7 +828,6 @@ Deno.test("lophn-agent/harness/usage#R8: estimated amount keeps basis and curren
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -904,7 +898,6 @@ Deno.test("lophn-agent/harness/usage#R9: supplement appends a late fact without 
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -977,7 +970,6 @@ Deno.test("lophn-agent/harness/usage#R10: usage read counts each call once", asy
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -1051,7 +1043,6 @@ Deno.test("lophn-agent/harness/usage#R11: no amount cost gate on records", async
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -1112,7 +1103,6 @@ Deno.test("lophn-agent/harness/usage#R2: supplement CAS rejects a stale state_se
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -1183,9 +1173,9 @@ type UsageTotalLike = {
 
 async function readRows(h: LedgerHarness): Promise<ModelCallRecord[]> {
   const rows = (await h.inspect(
-    `select id, run, session, model_use, preset, purpose, test_request,
-       attempt_kind, attempt_order, retry_of, credential_change_of,
-       provider, credential_key, credential_revision, model_name, protocol,
+    `select id, run, session, model_use, agent_hash, purpose,
+       attempt_kind, attempt_order, retry_of,
+       provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
        started_at, finished_at, duration_ms, first_output_ms, outcome,
        usage, cost
@@ -1207,7 +1197,6 @@ Deno.test("lophn-agent/harness/usage#R10: rebuild gives the same totals", async 
           call: started,
           applied_messages: [],
           state_seq: "4",
-          timeout_ms: null,
         }),
       ),
     );
@@ -1552,3 +1541,70 @@ Deno.test(
     }
   },
 );
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call is recorded with a session and no run, one attempt order per session", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    const summary = {
+      ...started,
+      run: null,
+      model_use: "organizing" as const,
+      agent_hash: null,
+      purpose: "conversation_compression" as const,
+    };
+    await startCall(h, summary);
+    const recorded = await readCall(h, CALL);
+    assertEquals(recorded["run"], null);
+    assertEquals(recorded["session"], SESSION);
+    assertEquals(recorded["agent_hash"], null);
+    assertEquals(recorded["model_use"], "organizing");
+    assertEquals(recorded["purpose"], "conversation_compression");
+
+    // 같은 session의 같은 시도 순번을 다시 쓸 수 없다. 다음 시도는 다음 순번이다.
+    const again = await h.command(
+      machineCred,
+      envelope("StartModelCall", {
+        call: { ...summary, id: CALL2 },
+        applied_messages: [],
+        state_seq: "4",
+      }),
+    );
+    code(again, "conflict");
+    await startCall(h, { ...summary, id: CALL2, attempt_order: 2 });
+    const list = keep(
+      await h.read({ resource: "model-calls", method: "list" }, userCred, {
+        session: SESSION,
+      }),
+    ) as { calls: { id: string; run: string | null }[] };
+    assertEquals(list.calls.map((entry) => entry.id), [CALL, CALL2]);
+    assert(list.calls.every((entry) => entry.run === null));
+
+    // 끝난 요약 call은 run 있는 call과 같은 길로 완료된다.
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: HASH,
+          outcome: {
+            kind: "complete",
+            code: null,
+            retry_at: null,
+            finish_reason: "end_turn",
+            http_status: 200,
+            provider_code: null,
+          },
+          usage,
+          cost: unknownCost,
+          duration_ms: 10,
+          first_output_ms: 5,
+          state_seq: "5",
+        }),
+      ),
+    );
+    assertEquals((await readCall(h, CALL))["state"], "finished");
+  } finally {
+    await h.close();
+  }
+});

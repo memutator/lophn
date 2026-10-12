@@ -54,60 +54,11 @@ export type QuestionActionEvidence = z.infer<
   typeof questionActionEvidenceSchema
 >;
 
-export const questionRefSchema = z.strictObject({
-  question: idSchema("qst"),
+// 묶음 전체가 명시 Submit·Skip·취소·만료의 대상이다(questions#R6). 질문 하나만 따로 닫지 않는다.
+export const questionGroupRefSchema = z.strictObject({
+  group: idSchema("qgr"),
   created_seq: seqSchema,
 });
-
-export const revertOutcomeSchema = z.enum([
-  "applying",
-  "applied",
-  "partial",
-  "uncertain",
-  "blocked",
-]);
-
-export const revertCapabilitySchema = z.enum([
-  "reversible",
-  "retained",
-  "irreversible",
-  "conflict",
-]);
-
-// 분류·차단 이유 코드. 화면 문장은 이 코드로 wording을 고른다. 값은 글이나 secret이 아니다.
-export const REVERT_REASON_CODES = [
-  "audit_fact",
-  "external_effect",
-  "later_change",
-  "linked_document",
-  "not_agent_output",
-  "title_change",
-  "no_previous_version",
-  "unclassified_document_event",
-  "unclassified_event",
-  "blocked_conflict",
-  "blocked_irreversible",
-  "blocked_dependency",
-  "blocked_not_prepared",
-  "stale_preview",
-  // 앱 revert의 결과(lophn-agent#T48). checkpoint가 단계 실패·응답 유실을 기록하고, 앞 단계가
-  // 끝나지 않아 시작하지 않은 단계와 적용하지 못한 ledger 묶음은 app_not_started로 남는다.
-  "app_failed",
-  "app_uncertain",
-  "app_not_started",
-] as const;
-export const revertReasonSchema = z.enum(REVERT_REASON_CODES);
-export type RevertReason = z.infer<typeof revertReasonSchema>;
-
-export const revertResultSchema = z.enum([
-  "restored",
-  "retained",
-  "irreversible",
-  "conflict",
-  "unchanged",
-  "failure",
-  "uncertain",
-]);
 
 export const roleKindSchema = z.enum([
   "lophn",

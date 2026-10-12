@@ -12,7 +12,6 @@ export const LOPHN_SCREENS = [
   "documents",
   "apps",
   "things-to-confirm",
-  "roles",
   "settings",
 ] as const;
 

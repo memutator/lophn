@@ -44,6 +44,7 @@ import {
   type Reply,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { setAssignmentState } from "./testing/assignment-state.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -144,7 +145,7 @@ const AGENT_OPERATIONS = [
   "ReadHandoffStatus",
   "ReadHandoffResult",
   "ReadRun",
-  "CreateQuestion",
+  "CreateQuestionGroup",
   "create_approval_request",
 ];
 
@@ -218,7 +219,7 @@ async function open(): Promise<World> {
       "grant_approval_request",
       "GetApproval",
       "ListApprovals",
-      "AnswerQuestion",
+      "AnswerQuestionGroup",
       "PauseAssignment",
       "ResumeAssignment",
       "StopRun",
@@ -467,17 +468,7 @@ Deno.test("lophn-agent/handoff#R2: 받을 assignment가 없거나 멈췄으면 �
     assertEquals(codeOf(self), "invalid_input");
 
     // 사람이 받는 assignment를 멈추면 새 handoff는 시작되지 않는다.
-    const paused = await send(
-      world,
-      "assignments/pause",
-      world.user,
-      {
-        assignment: world.editor.id,
-        reason: { kind: "user", detail: "잠시 멈춘다", runs: [], target: null },
-      },
-      { revision: world.editor.revision, state: "enabled" },
-    );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "paused");
     const stopped = await submit(
       world,
       sender,
@@ -517,23 +508,27 @@ Deno.test("lophn-agent/handoff#R3: 설명과 고정 근거가 빠진 전달은 �
     assertEquals(codeOf(extra), "invalid_input");
 
     // 답이 없는 질문과 다른 판을 채택한 질문은 근거가 될 수 없다.
+    const group = id("qgr", 1);
     const question = id("qst", 1);
     const created = await send(world, "questions/create", sender, {
-      id: question,
+      id: group,
       run: RUN_A,
       session: null,
-      prompt: "어느 정리 방안으로 갈까요",
-      reason: "두 방안 중 하나를 채택해야 한다",
-      options: [{
-        key: "one",
-        label: "첫째",
-        description: "첫째 방안",
-        evidence: [],
-        adoption: { document: DOC, version: VER_ONE, section: null },
-        action: null,
-      }],
-      recommendation: null,
       expires_at: null,
+      questions: [{
+        id: question,
+        prompt: "어느 정리 방안으로 갈까요",
+        reason: "두 방안 중 하나를 채택해야 한다",
+        options: [{
+          key: "one",
+          label: "첫째",
+          description: "첫째 방안",
+          evidence: [],
+          adoption: { document: DOC, version: VER_ONE, section: null },
+          action: null,
+        }],
+        recommendation: null,
+      }],
     });
     assertEquals(created.status, 200, JSON.stringify(created.body));
     const adopting = [{ ...REFERENCE, question }];
@@ -552,9 +547,12 @@ Deno.test("lophn-agent/handoff#R3: 설명과 고정 근거가 빠진 전달은 �
       "questions/answer",
       world.user,
       {
-        question,
+        group,
         created_seq: createdSeq,
-        answer: { kind: "option", option_key: "one" },
+        answers: [{
+          question,
+          answer: { kind: "option", option_key: "one" },
+        }],
       },
       { created_seq: createdSeq },
     );
@@ -971,30 +969,13 @@ Deno.test("lophn-agent/handoff#R9: 같은 handoff 재전송은 수신 run 하나
     assertEquals(runsCount(world), runs);
 
     // 받는 assignment가 멈춰도 같은 요청의 replay는 저장된 결과를 준다(새 run은 없다).
-    const paused = await send(
-      world,
-      "assignments/pause",
-      world.user,
-      {
-        assignment: world.editor.id,
-        reason: { kind: "user", detail: "잠시 멈춘다", runs: [], target: null },
-      },
-      { revision: world.editor.revision, state: "enabled" },
-    );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "paused");
     const afterPause = await submit(world, sender, submission(world));
     assertEquals(afterPause.status, 200, JSON.stringify(afterPause.body));
     assertEquals(runsCount(world), runs);
 
     // 끝난 수신 run에 대한 멈춤은 기존 결과를 돌려주고 바꾸지 않는다(run-loop 규칙).
-    const resumed = await send(
-      world,
-      "assignments/resume",
-      world.user,
-      { assignment: world.editor.id },
-      { revision: world.editor.revision + 1, state: "paused" },
-    );
-    assertEquals(resumed.status, 200, JSON.stringify(resumed.body));
+    setAssignmentState(world.server.dataRoot, world.editor.id, "enabled");
     await startRun(world, RUN_B, world.editor);
     const done = await finishRun(world, RUN_B);
     assertEquals(done.status, 200, JSON.stringify(done.body));

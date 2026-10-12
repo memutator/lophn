@@ -9,14 +9,7 @@ import {
   type ChildSession,
   startChild,
 } from "../../packages/platform/responsiveness/mod.ts";
-import { systemClock } from "../../packages/base/mod.ts";
-import { processAssignmentOccurrence } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
-  createOccurrenceClock,
-  type ProcessOccurrence,
-} from "../../packages/lophn-agent/scheduling/mod.ts";
-import {
-  abortableWait,
   type CoreRead,
   createRunCredentials,
   createRunSelector,
@@ -32,16 +25,18 @@ import {
 } from "./catalog.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "./core-call.ts";
-import { readOf } from "./core-call.ts";
 import type { BlobPort } from "./run-blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
 import { createRedactLink, type Redactor } from "./redact-link.ts";
 import { createSecretLink } from "./secret-link.ts";
+import { startMcpAuthPump } from "./mcp-auth-pump.ts";
 import type { SecretAttachLike } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { redact } from "./redact.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 export { redact };
+import type { Compactor } from "./compact.ts";
 import { productDriver, startRunPump } from "./product-driver.ts";
+import { createProviderWatch } from "./provider-watch.ts";
 import {
   createRunDriver,
   type DriveDeps,
@@ -97,16 +92,17 @@ export async function startAgentRuntime(input: {
   dataRoot?: string;
   // 접수된 run을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
   pump?: boolean;
-  // 주기 회차 시계를 돌릴지. 기본은 실제 core loopback에 붙었을 때만 돈다.
-  occurrences?: boolean;
   // run 시작 재료(basis 준비, StartRun, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 run의
   // agent 자격 호출)을 받아 `createRunPreparer` 같은 것을 돌려준다.
   driver?: (
     calls: CoreCalls,
-  ) => Pick<
-    DriveDeps,
-    "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
-  >;
+  ) =>
+    & Pick<
+      DriveDeps,
+      "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
+    >
+    // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
+    & { compactor?: Compactor };
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -138,25 +134,7 @@ export async function startAgentRuntime(input: {
     process: "agent-runtime",
   });
   let driver: RunDriver | undefined;
-  const occurrenceStop = new AbortController();
   const pumpStop = new AbortController();
-  function startOccurrences(machine: CoreCall, read: CoreRead): void {
-    const clock = createOccurrenceClock({
-      clock: systemClock,
-      read,
-      process: (body) =>
-        readOf(machine, processAssignmentOccurrence, body) as ReturnType<
-          ProcessOccurrence
-        >,
-    });
-    void clock.run({
-      wait: async (ms) => {
-        await abortableWait(ms, occurrenceStop.signal);
-      },
-      stopped: () => occurrenceStop.signal.aborted,
-    }).catch(() => {});
-  }
-
   const child = startChild(
     {
       stdin: { read: streamReader(streams.stdin) },
@@ -216,11 +194,6 @@ export async function startAgentRuntime(input: {
                 ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
               }),
           };
-          // 주기 회차 시계. 승인된 Operator 주기마다 회차를 machine 자격으로 처리한다(scheduling#R4).
-          // 주입한 read로 도는 시험은 기본으로 켜지 않는다.
-          if (input.occurrences ?? input.read === undefined) {
-            startOccurrences(calls.machine, read);
-          }
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
           refresher?.kickAutoUpdate();
@@ -239,7 +212,6 @@ export async function startAgentRuntime(input: {
         // 종료 요청·pipe 닫힘·core 종료 모두 여기로 온다. 새 진입은 이 순간부터 막힌다.
         // stopped ack는 cleanup 안에서만 통과한다. 그 전에 보내면 거절된다.
         stopped = true;
-        occurrenceStop.abort();
         pumpStop.abort();
         // 감독 상실: 진행 loop의 새 진입을 막고 들고 있는 credential을 모두 끝낸다.
         if (driver !== undefined) driver.endAll();
@@ -273,8 +245,17 @@ export async function startAgentRuntime(input: {
   // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
   let recovered: RecoverReport[] = [];
   let pumping: Promise<void> = Promise.resolve();
+  // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다(extensions R16, R17).
+  // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
+  const authPumping = input.pump === true
+    ? startMcpAuthPump({
+      call: calls!.machine,
+      fetch: input.fetch ?? fetch,
+      signal: pumpStop.signal,
+    })
+    : Promise.resolve();
   if (input.driver !== undefined) {
-    const driverDeps = input.driver(calls!);
+    const { compactor, ...driverDeps } = input.driver(calls!);
     driver = createRunDriver({ selector, credentials, ...driverDeps });
     const report = await driver.recover();
     if (report.ok) recovered = report.value;
@@ -282,9 +263,15 @@ export async function startAgentRuntime(input: {
     if (input.pump === true) {
       pumping = startRunPump({
         driver,
+        providerWatch: createProviderWatch({
+          read: selectorRead!,
+          cursor: startup!.eventCursor,
+          revokeProvider: (provider) => driver!.revokeProvider(provider),
+        }),
         ...(driverDeps.liveRuns === undefined
           ? {}
           : { liveRuns: driverDeps.liveRuns }),
+        ...(compactor === undefined ? {} : { compactor }),
         signal: pumpStop.signal,
       });
     }
@@ -301,10 +288,10 @@ export async function startAgentRuntime(input: {
     done: running,
     async shutdown() {
       stopped = true;
-      occurrenceStop.abort();
       pumpStop.abort();
       await running;
       await pumping;
+      await authPumping;
     },
   };
   return ok(runtime);

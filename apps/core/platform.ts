@@ -66,12 +66,12 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
   credential_ref: NOTIFICATIONS_PRINCIPAL,
 };
 
-// AppCreated 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
+// AppCreated·자리 보관 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
 // 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다. 구독자 이름은
 // contracts의 ASSIGNMENT_SUBSCRIBER("lophn-agent-assignments")다.
 export const ASSIGNMENT_REACTIONS_PRINCIPAL = "machine:lophn-agent-assignments";
 
-// 읽기(event·assignment·preset)와 생성·멈춤·cursor 전진 operation만 둔다. assignment 본문 조립은
+// 읽기(event·assignment)와 생성·멈춤·재개·cursor 전진 operation만 둔다. assignment 본문 조립은
 // 하지 않는다.
 export const ASSIGNMENT_REACTIONS_CONTEXT: RequestContext = {
   principal: ASSIGNMENT_REACTIONS_PRINCIPAL,

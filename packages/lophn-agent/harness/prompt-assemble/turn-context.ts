@@ -59,6 +59,9 @@ const TAB_TARGET: TabTarget = {
       tab.view_session === undefined ? "" : ` view_session=${tab.view_session}`
     }`,
   contexts: () => "list",
+  // Agents·Agent 탭은 view에 종류와 선택만 싣는다. 대화 내용과 대상은 넣지 않는다.
+  agents: () => "list",
+  agent: () => "conversation",
   context: (tab) => `${tab.context} ${tab.sub_tab}`,
   search: (tab) =>
     `${tab.context}${

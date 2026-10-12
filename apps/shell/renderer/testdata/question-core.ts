@@ -2,9 +2,10 @@
 // 확인이 별도 프로세스로 띄운다. renderer bundle에는 들어가지 않는다.
 //
 // apps/core/main.ts처럼 core를 띄우되 test credential 입구를 열어, 사람이 연 세션의 run을
-// machine이 시작하고 그 run의 agent가 글이 있는 질문을 만든다. coding agent는 세션 없는
-// approval request를 하나 만든다. 모두 실제 HTTP route로 보낸다. 그런 뒤에야 core가 부모
-// pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 질문이 이미 있다.
+// machine이 시작하고 그 run의 agent가 글이 있는 질문 묶음(질문 하나)을 만든다. 그 run의 일을 다른
+// assignment가 handoff로 받아(세션 없는 run) 그 run의 agent도 질문 묶음 하나를 만든다. coding
+// agent는 세션 없는 approval request를 하나 만든다. 모두 실제 HTTP route로 보낸다. 그런 뒤에야 core가 부모
+// pipe에 쓴 hello frame을 stdout으로 넘기므로, 부모가 hello를 읽으면 질문 묶음이 이미 있다.
 //
 //   LOPHN_HOME=$(mktemp -d) deno run --allow-all apps/shell/renderer/testdata/question-core.ts
 //   ... --seed-only  # 심고 바로 멈춘다(그 root로 shell을 headless로 띄울 때)
@@ -15,7 +16,16 @@
 // 불러 필요한 모양만 적는다.
 import {
   SEED_APPROVAL,
+  SEED_GROUP,
+  SEED_HANDOFF_GROUP,
+  SEED_HANDOFF_OPTIONS,
+  SEED_HANDOFF_PROMPT,
+  SEED_HANDOFF_QUESTION,
+  SEED_HANDOFF_REASON,
+  SEED_HANDOFF_RUN,
+  SEED_HANDOFF_WHY,
   SEED_OPTIONS,
+  SEED_PROJECT,
   SEED_PROMPT,
   SEED_QUESTION,
   SEED_REASON,
@@ -233,6 +243,8 @@ async function grant(
 
 type Assignment = { id: string; role: string; revision: number; state: string };
 
+const MESSAGE = "msg_01k6qs0000000000000000000a";
+
 async function seed(): Promise<void> {
   const user = await userToken();
   const listed = await post("assignments/list", {}, user) as {
@@ -243,15 +255,31 @@ async function seed(): Promise<void> {
     assignment_revision: lophn.revision,
     assignment_state: lophn.state,
   };
+  // 세션은 프로젝트 하나에 속한다(전역 자리는 없다).
+  await post(
+    "projects/create",
+    command(
+      {
+        id: SEED_PROJECT,
+        name: "weekly",
+        title: "Weekly",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      "seed-project",
+      {},
+    ),
+    user,
+  );
   await post(
     "sessions/open",
     command(
       {
         id: SEED_SESSION,
         assignment: lophn.id,
-        role: lophn.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: SEED_PROJECT },
+        opening_context: null,
       },
       "seed-open-session",
       assignmentCompare,
@@ -267,7 +295,7 @@ async function seed(): Promise<void> {
     "messages/receive",
     command(
       {
-        id: "msg_01k6qs0000000000000000000a",
+        id: MESSAGE,
         session: SEED_SESSION,
         content: {
           schema_version: 1,
@@ -306,8 +334,8 @@ async function seed(): Promise<void> {
     machine,
   );
 
-  // 그 run의 agent가 글이 있는 질문을 낸다.
-  const agent = await grant(`agent:${lophn.id}`, ["CreateQuestion"], {
+  // 그 run의 agent가 글이 있는 질문 하나짜리 묶음을 낸다.
+  const agent = await grant(`agent:${lophn.id}`, ["CreateQuestionGroup"], {
     assignment: lophn.id,
     run,
   });
@@ -315,25 +343,123 @@ async function seed(): Promise<void> {
     "questions/create",
     command(
       {
-        id: SEED_QUESTION,
+        id: SEED_GROUP,
         run,
         session: SEED_SESSION,
-        prompt: SEED_PROMPT,
-        reason: SEED_REASON,
-        options: SEED_OPTIONS.map((option) => ({
-          ...option,
-          evidence: [],
-          adoption: null,
-          action: null,
-        })),
-        recommendation: { option_key: SEED_RECOMMENDED, explanation: SEED_WHY },
         expires_at: null,
+        questions: [{
+          id: SEED_QUESTION,
+          prompt: SEED_PROMPT,
+          reason: SEED_REASON,
+          options: SEED_OPTIONS.map((option) => ({
+            ...option,
+            evidence: [],
+            adoption: null,
+            action: null,
+          })),
+          recommendation: {
+            option_key: SEED_RECOMMENDED,
+            explanation: SEED_WHY,
+          },
+        }],
       },
       "seed-question",
       {},
       run,
     ),
     agent,
+  );
+
+  // 그 run이 일을 handoff로 넘긴다. 받는 assignment의 run은 세션이 없다. 받는 쪽은 Operator가
+  // 아닌 다른 역할이다. 보낸 run의 사람 요청(message)을 이어 받는 run으로 접수한다.
+  const receiver = listed.assignments.find((item) =>
+    item.role !== "lophn" && item.role !== "operator"
+  );
+  if (receiver === undefined) {
+    throw new Error("handoff를 받을 assignment가 없다");
+  }
+  const accepting = await grant("machine", [
+    "AcceptRun",
+    "ReadRun",
+    "StartRun",
+  ]);
+  await post(
+    "runs/accept",
+    command(
+      {
+        id: SEED_HANDOFF_RUN,
+        assignment: receiver.id,
+        session: null,
+        source: {
+          kind: "handoff",
+          sender_run: run,
+          original_message: MESSAGE,
+          body: "c".repeat(64),
+          references: [],
+          dedup_key: "seed-handoff",
+        },
+        continued_from: null,
+        start_after: null,
+      },
+      "seed-accept-handoff-run",
+      { assignment_revision: receiver.revision },
+    ),
+    accepting,
+  );
+  const handoffRun = await post(
+    "runs/read",
+    { run: SEED_HANDOFF_RUN },
+    accepting,
+  ) as { run: { state_seq: string } };
+  await post(
+    "runs/start",
+    command(
+      {
+        run: SEED_HANDOFF_RUN,
+        basis: "b".repeat(64),
+        limits: { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 },
+        scope: { role: receiver.role, assignment: receiver.id, apps: [] },
+      },
+      "seed-start-handoff-run",
+      { state_seq: handoffRun.run.state_seq },
+    ),
+    accepting,
+  );
+  // 받은 run의 agent가 세션 없는 질문 묶음을 낸다.
+  const receiverAgent = await grant(
+    `agent:${receiver.id}`,
+    ["CreateQuestionGroup"],
+    { assignment: receiver.id, run: SEED_HANDOFF_RUN },
+  );
+  await post(
+    "questions/create",
+    command(
+      {
+        id: SEED_HANDOFF_GROUP,
+        run: SEED_HANDOFF_RUN,
+        session: null,
+        expires_at: null,
+        questions: [{
+          id: SEED_HANDOFF_QUESTION,
+          prompt: SEED_HANDOFF_PROMPT,
+          reason: SEED_HANDOFF_REASON,
+          options: SEED_HANDOFF_OPTIONS.map((option) => ({
+            ...option,
+            evidence: [],
+            adoption: null,
+            action: null,
+          })),
+          recommendation: {
+            option_key: SEED_HANDOFF_OPTIONS[0].key,
+            explanation: SEED_HANDOFF_WHY,
+          },
+        }],
+      },
+      "seed-handoff-question",
+      {},
+      SEED_HANDOFF_RUN,
+    ),
+    receiverAgent,
   );
 
   // coding agent의 세션 없는 approval request. notification 계기다.

@@ -18,26 +18,24 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
   const decision = (view.decisions ?? [])[0];
   const configured = shown.configured === true;
   const [value, setValue] = useState("");
-  const revoking = entry === "revoke";
-  const replacing = entry === "replace";
-  const display: Display = revoking
+  // provider 끊기(Disconnect)는 받을 값이 없다. 확인만 받는다.
+  const disconnecting = entry === "disconnect";
+  const display: Display = disconnecting
     ? {
-      title: t("confirmation-window.secret-revoke.title", { name }),
-      subject: t("confirmation-window.secret-revoke.subject"),
+      title: t("confirmation-window.secret-disconnect.title", { name }),
+      subject: t("confirmation-window.secret-disconnect.subject"),
       path: name === "" ? undefined : name,
-      effect: t("confirmation-window.secret-revoke.effect"),
+      effect: t("confirmation-window.secret-disconnect.effect"),
       reversible: true,
-      revertNote: t("confirmation-window.secret-revoke.revert"),
+      revertNote: t("confirmation-window.secret-disconnect.revert"),
       noteOnly: true,
-      action: t("confirmation-window.button.remove"),
+      action: t("confirmation-window.button.disconnect"),
       details: [],
       noChange: true,
     }
     : {
       title: entry === "code"
         ? t("confirmation-window.secret-code.title")
-        : replacing
-        ? t("confirmation-window.secret-replace.title", { name })
         : entry === "key"
         ? t("confirmation-window.secret-key.title", { name })
         : t("confirmation-window.secret-app.title", { name }),
@@ -45,31 +43,22 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
       path: name === "" ? undefined : name,
       effect: configured
         ? t("confirmation-window.secret.configured", { name })
-        : replacing
-        ? t("confirmation-window.secret-replace.effect")
         : t("confirmation-window.secret.effect"),
       reversible: true,
-      revertNote: replacing
-        ? t("confirmation-window.secret-replace.revert")
-        : t("confirmation-window.secret.revert"),
+      revertNote: t("confirmation-window.secret.revert"),
       noteOnly: true,
-      action: replacing
-        ? t("confirmation-window.button.replace")
-        : t("confirmation-window.button.save"),
+      action: t("confirmation-window.button.save"),
       details: [],
       noChange: true,
     };
   const label = entry === "code"
     ? t("confirmation-window.label.secret-code")
-    : replacing
-    ? t("confirmation-window.label.secret-new-key")
     : entry === "key"
     ? t("confirmation-window.label.secret-key")
     : t("confirmation-window.label.secret-value");
   const send = () => {
     if (decision === undefined) return;
-    // 삭제는 보낼 값이 없다.
-    if (revoking) {
+    if (disconnecting) {
       decide(decision, {});
       return;
     }
@@ -82,18 +71,20 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
   return (
     <ConfirmationLayout
       display={display}
-      input={decision === undefined || revoking ? null : (
-        <Field label={label}>
-          <Input
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            data-secret="input"
-            value={value}
-            onChange={(event) => setValue(event.currentTarget.value)}
-          />
-        </Field>
-      )}
+      input={decision === undefined || disconnecting
+        ? null
+        : (
+          <Field label={label}>
+            <Input
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              data-secret="input"
+              value={value}
+              onChange={(event) => setValue(event.currentTarget.value)}
+            />
+          </Field>
+        )}
       actions={
         <>
           <Button variant="ghost" data-action="cancel" onClick={cancel}>
@@ -103,7 +94,7 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
             <Button
               variant="primary"
               data-decision={decision}
-              disabled={busy || (!revoking && value === "")}
+              disabled={busy || (!disconnecting && value === "")}
               onClick={send}
             >
               {display.action}

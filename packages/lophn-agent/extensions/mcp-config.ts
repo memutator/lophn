@@ -147,20 +147,31 @@ export function allowRunList(
   return [...names].sort();
 }
 
-// `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이 enabled로 등록한 HTTP server의 정확한
-// `host:port`만 둔다. 같은 host의 다른 port, 일반 net, model이 제시한 URL은 없다. 기본 port는
-// https 443, http 80이다.
+// `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이 enabled로 등록한 HTTP server의 정확한 `host:port`와,
+// OAuth 방식이면 그 발급자의 `host:port`다(token 교환·갱신은 runtime이 대신 보낸다, R16·R17). 같은 host의 다른
+// port, 일반 net, model이 제시한 URL은 없다. 기본 port는 https 443, http 80이다.
 export function allowNetList(
   servers: readonly McpServerConfig[],
 ): string[] {
   const hosts = new Set<string>();
+  const add = (address: string) => {
+    const url = new URL(address);
+    const port = url.port || (url.protocol === "https:" ? "443" : "80");
+    hosts.add(`${url.hostname}:${port}`);
+  };
   for (const server of servers) {
     if (!server.enabled) continue;
     if (server.transport !== "http") continue;
     if (httpEndpointReason(server.http.url) !== null) continue;
-    const url = new URL(server.http.url);
-    const port = url.port || (url.protocol === "https:" ? "443" : "80");
-    hosts.add(`${url.hostname}:${port}`);
+    add(server.http.url);
+    // 발급자는 계약이 https만 받는다. 모양이 이상한 값은 건너뛴다.
+    if (server.http.auth.kind === "oauth2") {
+      try {
+        add(server.http.auth.issuer);
+      } catch {
+        // 권한을 더하지 않는다.
+      }
+    }
   }
   return [...hosts].sort();
 }

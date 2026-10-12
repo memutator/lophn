@@ -1,4 +1,5 @@
 export { usageSchemaSteps } from "./model.ts";
+export { deleteSessionModelCalls } from "./erase.ts";
 export {
   createUsageCommands,
   modelCallBodyFields,

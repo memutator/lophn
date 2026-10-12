@@ -5,6 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Script } from "../../tools/fake-provider/mod.ts";
 import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import { setAssignmentState } from "./testing/assignment-state.ts";
 import { decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {
   count,
@@ -323,16 +324,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R9: 멈춘 assignment의 run
     await runUntilDead(world, {
       die: { when: "after", path: "/v1/tool-calls/finish", nth: 2 },
     });
-    const paused = await world.post("assignments/pause", USER_TOKEN, {
-      assignment: world.assignment.id,
-      reason: {
-        kind: "user",
-        detail: "paused while the runtime was down",
-        runs: [],
-        target: null,
-      },
-    }, { revision: world.assignment.revision, state: "enabled" });
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.assignment.id, "paused");
 
     const report = await world.runtime().driver.recover();
     assert(report.ok);
@@ -612,10 +604,10 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R8: ReadRunBody는 machine�
     );
     const basis = await body("run_basis", world.run);
     assertEquals(basis.status, 200);
-    assert(
-      (basis.body["value"] as { preset: { id: string } }).preset.id.startsWith(
-        "pst_",
-      ),
+    // 기준은 고정한 resolved agent의 hash를 담는다.
+    assertEquals(
+      (basis.body["value"] as { agent: { hash: string } }).agent.hash.length,
+      64,
     );
     // 없는 대상, 다른 자격, 종류와 맞지 않는 ID는 값을 주지 않는다.
     assertEquals(

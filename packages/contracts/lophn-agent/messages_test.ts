@@ -10,8 +10,6 @@ import {
   assignMessage,
   assignMessageCompareSchema,
   assignMessageInputSchema,
-  executeStoredRequest,
-  executeStoredRequestCompareSchema,
   MESSAGE_EVENTS,
   MESSAGE_ROUTES,
   messageAssigned,
@@ -46,7 +44,7 @@ import {
 
 const ctx = apr.replace("apr_", "ctx_");
 
-const paused = {
+const unassigned = {
   id: msg,
   session: ses,
   actor: "user",
@@ -55,12 +53,12 @@ const paused = {
   mode: "request",
   applied_at_call: null,
   links: [],
+  copied_from: null,
 };
 
-Deno.test("lophn-agent/conversation#R3: seven message routes and four events reject a closed compare", () => {
+Deno.test("lophn-agent/conversation#R3: six message routes and four events reject a closed compare", () => {
   assertEquals(MESSAGE_ROUTES.map(routePath), [
     "/v1/messages/receive",
-    "/v1/messages/execute-stored",
     "/v1/messages/record",
     "/v1/messages/apply",
     "/v1/messages/assign",
@@ -74,7 +72,6 @@ Deno.test("lophn-agent/conversation#R3: seven message routes and four events rej
     "MessageAssigned",
   ]);
   assertEquals(receiveMessage.actors, ["user"]);
-  assertEquals(executeStoredRequest.actors, ["user"]);
   assertEquals(recordMessage.actors, ["agent", "machine"]);
   assertEquals(applyMessages.actors, ["machine"]);
   assertEquals(assignMessage.actors, ["machine"]);
@@ -89,18 +86,18 @@ Deno.test("lophn-agent/conversation#R3: seven message routes and four events rej
 });
 
 Deno.test("lophn-agent/conversation#R5: user mode is required and correction names a run", () => {
-  assert(messageSchema.safeParse(paused).success);
+  assert(messageSchema.safeParse(unassigned).success);
   assert(
     messageSchema.safeParse({
-      ...paused,
+      ...unassigned,
       mode: "correction",
       run,
     }).success,
   );
-  assert(!messageSchema.safeParse({ ...paused, mode: null }).success);
+  assert(!messageSchema.safeParse({ ...unassigned, mode: null }).success);
   assert(
     !messageSchema.safeParse({
-      ...paused,
+      ...unassigned,
       mode: "correction",
       run: null,
     }).success,
@@ -201,6 +198,7 @@ Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: a context link names one cont
       mode: null,
       applied_at_call: null,
       links,
+      copied_from: null,
     }).success;
   assert(stored([{ kind: "context", context: ctx }]));
   assert(!stored([{ kind: "context", context: doc }]));
@@ -263,7 +261,7 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
   );
   assert(
     messageSchema.safeParse({
-      ...paused,
+      ...unassigned,
       actor: "machine",
       mode: null,
       run,
@@ -272,15 +270,14 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
   );
   assert(
     !messageSchema.safeParse({
-      ...paused,
+      ...unassigned,
       actor: `agent:${asg}`,
       mode: "request",
     }).success,
   );
 });
 
-Deno.test("lophn-agent/conversation#R14: paused request stays unrun until the person chooses it", () => {
-  assert(messageSchema.safeParse(paused).success);
+Deno.test("lophn-agent/conversation#R8: paused and withdrawn assignments take no new input", () => {
   assert(
     receiveMessageInputSchema.safeParse({
       id: msg,
@@ -295,67 +292,63 @@ Deno.test("lophn-agent/conversation#R14: paused request stays unrun until the pe
     "session_state",
     "session_state_seq",
   ]);
-  assert(
-    receiveMessageCompareSchema.safeParse({
-      session_state: "open",
-      session_state_seq: "2",
-      assignment_revision: 3,
-      assignment_state: "paused",
-    }).success,
-  );
-  assert(
-    !receiveMessageCompareSchema.safeParse({
-      session_state: "open",
-      session_state_seq: "2",
-      assignment_revision: "3",
-      assignment_state: "paused",
-    }).success,
-  );
-  assert(
-    !receiveMessageCompareSchema.safeParse({
-      session_state: "closed",
-      session_state_seq: "2",
-      assignment_revision: 3,
-      assignment_state: "enabled",
-    }).success,
-  );
-  const choice = {
-    assignment_revision: 4,
-    assignment_state: "enabled",
+  const compare = {
     session_state: "open",
-    session_state_seq: "8",
-    message_state_seq: "8",
-    actor: "user",
-    mode: "request",
-    run: null,
-    applied_at_call: null,
+    session_state_seq: "2",
+    assignment_revision: 3,
+    assignment_state: "enabled",
   };
-  assert(executeStoredRequestCompareSchema.safeParse(choice).success);
+  assert(receiveMessageCompareSchema.safeParse(compare).success);
+  for (const assignment_state of ["paused", "withdrawn"]) {
+    assert(
+      !receiveMessageCompareSchema.safeParse({ ...compare, assignment_state })
+        .success,
+    );
+  }
   assert(
-    !executeStoredRequestCompareSchema.safeParse({
-      ...choice,
-      assignment_state: "paused",
+    !receiveMessageCompareSchema.safeParse({
+      ...compare,
+      assignment_revision: "3",
     }).success,
   );
   assert(
-    !executeStoredRequestCompareSchema.safeParse({ ...choice, run }).success,
-  );
-  assert(
-    !executeStoredRequestCompareSchema.safeParse({
-      ...choice,
-      mode: "correction",
+    !receiveMessageCompareSchema.safeParse({
+      ...compare,
+      session_state: "closed",
     }).success,
   );
-  assert(
-    !executeStoredRequestCompareSchema.safeParse({
-      ...choice,
-      resume: true,
-    }).success,
-  );
-  assertEquals(executeStoredRequest.input.shape.message !== undefined, true);
+  // 보존한 요청을 사람이 골라 실행하는 길은 없다(paused에서는 입력을 받지 않는다).
+  assert(!MESSAGE_ROUTES.some((route) => route.method === "execute-stored"));
 });
 
-Deno.test("lophn-agent/conversation#R9: continuation does not copy a message or its links", () => {
+Deno.test("lophn-agent/conversation#R9: a fork copy is a past utterance without run, mode or application", () => {
+  const original = "msg_01arz3ndektsv4rrffq69g5faw";
+  const copy = {
+    ...unassigned,
+    mode: null,
+    copied_from: original,
+  };
+  assert(messageSchema.safeParse(copy).success);
+  // 복사본은 지난 발언이다: 새 run이나 correction의 대상, 미반영 입력이 되지 않는다.
+  assert(!messageSchema.safeParse({ ...copy, mode: "request" }).success);
+  assert(!messageSchema.safeParse({ ...copy, run }).success);
+  assert(!messageSchema.safeParse({ ...copy, applied_at_call: mcl }).success);
+  assert(
+    messageSchema.safeParse({
+      ...copy,
+      actor: `agent:${asg}`,
+    }).success,
+  );
+  // 입력 접수에는 복사 출처가 없다: 복사는 ForkSession만 한다.
+  assert(
+    !receiveMessageInputSchema.safeParse({
+      id: msg,
+      session: ses,
+      content,
+      mode: "request",
+      copied_from: original,
+    }).success,
+  );
   assert(
     !receiveMessageInputSchema.safeParse({
       id: msg,
@@ -367,7 +360,7 @@ Deno.test("lophn-agent/conversation#R9: continuation does not copy a message or 
   );
   assert(
     !messageSchema.safeParse({
-      ...paused,
+      ...unassigned,
       links: [{ kind: "session", session: ses }],
     }).success,
   );
@@ -395,7 +388,7 @@ Deno.test("lophn-agent/conversation#R16: message route does not carry a work pla
   );
 });
 
-Deno.test("lophn-agent/conversation#R17: message assign compare is run seq, not a place change", () => {
+Deno.test("lophn-agent/conversation#R16: message assign compare is run seq, not a place change", () => {
   assert(
     !assignMessageInputSchema.safeParse({
       message: msg,

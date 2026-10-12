@@ -81,10 +81,10 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | lophn-agent/roles/app-engineer | packages/lophn-agent/roles/app-engineer/ |
 | lophn-agent/roles/context-engineer | packages/lophn-agent/roles/context-engineer/ |
 | lophn-agent/roles/operator | packages/lophn-agent/roles/operator/ |
-| lophn-agent/presets | packages/lophn-agent/presets/ |
+| lophn-agent/agents | packages/lophn-agent/agents/ · 역할별 tool 상한 `role-caps.ts`도 이 자리로 옮겨 온다(옛 `presets/role-caps.ts`) |
 | lophn-agent/instructions | packages/lophn-agent/instructions/ |
 | lophn-agent/assignments | packages/lophn-agent/assignments/ |
-| lophn-agent/scheduling | packages/lophn-agent/scheduling/ |
+| lophn-agent/scheduling | 보류 — 코드 자리 없음(`packages/lophn-agent/scheduling/`은 지운다). 다시 할 때 agent 정의 위에 새로 정한다 |
 | lophn-agent/conversation | packages/lophn-agent/conversation/ |
 | lophn-agent/handoff | packages/lophn-agent/handoff/ |
 | lophn-agent/harness/run-loop | packages/lophn-agent/harness/run-loop/ |
@@ -100,6 +100,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | lophn-agent/revert | packages/lophn-agent/revert/ |
 | lophn-agent/visuals | packages/lophn-agent/visuals/ |
 | lophn-agent/extensions | packages/lophn-agent/extensions/ |
+| lophn-agent/commands | packages/lophn-agent/commands/ |
 | lophn-agent/observability | packages/lophn-agent/observability/ |
 | lophn-agent/evaluation | packages/lophn-agent/evaluation/ |
 | coding-agent/connection | packages/coding-agent/connection/ |
@@ -110,7 +111,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | coding-agent/guides | packages/coding-agent/guides/ |
 | coding-agent/repair-context | packages/coding-agent/repair-context/ |
 | coding-agent/tickets | packages/coding-agent/tickets/ |
-| shell/desktop | apps/shell/main/desktop/ · apps/shell/renderer/desktop/ |
+| shell/desktop | apps/shell/main/desktop/ · apps/shell/renderer/desktop/ · apps/shell/renderer/conversation/ (Agent component — project Agent 탭과 앱 공간이 같이 씀) |
 | shell/workspace | apps/shell/main/workspace/ · apps/shell/renderer/workspace/ |
 | shell/terminal | apps/shell/main/terminal/ · apps/shell/terminal-host/ · apps/shell/renderer/terminal/ |
 | shell/confirmation-window | apps/shell/main/confirmation/ · apps/shell/renderer/confirmation/ |

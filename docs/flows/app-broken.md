@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [problems/problem-codes, problems/reporting, problems/snapshots, problems/grouping, platform/redaction, platform/notifications, lophn-agent/roles/app-engineer, lophn-agent/questions, coding-agent/tickets, coding-agent/repair-context, coding-agent/connection, problems/tests, problems/repairs, apps/releases, apps/data, problems/closing, platform/approvals, shell/confirmation-window, lophn-agent/presets, coding-agent/harnesses, coding-agent/sessions, shell/terminal]
+concerns: [problems/problem-codes, problems/reporting, problems/snapshots, problems/grouping, platform/redaction, platform/notifications, lophn-agent/roles/app-engineer, lophn-agent/questions, coding-agent/tickets, coding-agent/repair-context, coding-agent/connection, problems/tests, problems/repairs, apps/releases, apps/data, problems/closing, platform/approvals, shell/confirmation-window, lophn-agent/agents, coding-agent/harnesses, coding-agent/sessions, shell/terminal]
 ---
 # 앱 이상을 확인하고 수리를 맡긴다
 

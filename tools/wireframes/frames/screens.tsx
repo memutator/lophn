@@ -61,11 +61,16 @@ import {
 } from "./compositions/project-pages.tsx";
 import {
   AgentApproval,
+  AgentCommands,
+  AgentCommandsFiltered,
   AgentConversation,
+  AgentModelChanged,
   AgentModelPicker,
   AgentQuestion,
   AgentQuestionAnswered,
   AgentRewind,
+  AgentSessions,
+  AgentSessionsEdit,
   AgentSidebar,
   AgentToast,
   AgentToastOpened,
@@ -184,7 +189,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "lophn-things-to-confirm": () => (
     <MockDesktop route={openLophn("things-to-confirm")} />
   ),
-  "lophn-roles": () => <MockDesktop route={openLophn("roles")} />,
   "settings-connections": () => settings("connections"),
   "settings-coding": () => settings("coding"),
   "settings-extensions": () => settings("extensions"),
@@ -212,9 +216,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
     />
   ),
   "app-space": () => <MockDesktop route={openApp(APP_BUDGET)} />,
-  "conversation-dock": () => (
-    <MockDesktop route={openLophn("projects")} dockOpen />
-  ),
   "new-tab-kinds": () => <TabKinds />,
   "new-tab-menu": () => <NewTabMenu />,
   "new-context-overview": () => <ContextOverview />,
@@ -236,6 +237,11 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-agent-toast-opened": () => <AgentToastOpened />,
   "new-agent-conversation": () => <AgentConversation />,
   "new-agent-model-picker": () => <AgentModelPicker />,
+  "new-agent-model-changed": () => <AgentModelChanged />,
+  "new-agent-sessions": () => <AgentSessions />,
+  "new-agent-sessions-edit": () => <AgentSessionsEdit />,
+  "new-agent-commands": () => <AgentCommands />,
+  "new-agent-commands-filtered": () => <AgentCommandsFiltered />,
   "new-agent-question": () => <AgentQuestion />,
   "new-agent-question-answered": () => <AgentQuestionAnswered />,
   "new-agent-approval": () => <AgentApproval />,

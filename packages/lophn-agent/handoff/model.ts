@@ -188,13 +188,16 @@ export function loadHandoffRun(
 }
 
 // 채택 질문의 답. 질문은 answered이고 고른 선택지의 adoption이 이 고정 판과 같아야 한다
-// (R3). 다른 판의 채택 답이나 최신 주소는 거절한다. 선택지·답의 원본은 questions 표다.
+// (R3). 다른 판의 채택 답이나 최신 주소는 거절한다. 선택지·답의 원본은 questions 표이고
+// 질문이 답으로 닫혔는지는 질문이 든 묶음(question_groups)의 상태가 정한다.
 export function adoptionOf(
   lookup: Lookup,
   question: string,
 ): { document: string; version: string; section: string | null } | undefined {
   const row = lookup.sql.get(
-    "select status, answer, options from questions where id = ?",
+    `select g.status as status, q.answer as answer, q.options as options
+     from questions q join question_groups g on g.id = q."group"
+     where q.id = ?`,
     [question],
   );
   if (row === undefined || row["status"] !== "answered") return undefined;

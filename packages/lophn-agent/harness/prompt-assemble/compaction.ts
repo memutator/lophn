@@ -62,7 +62,7 @@ export const SHRINK_RESULT_CODE_POINTS = 2000;
 export const SHRINK_RESULT_HEAD = 1000;
 export const SHRINK_RESULT_TAIL = 1000;
 
-// R20·Q12의 이어가기 본문 상한·재축소 횟수는 summary.ts가 둔다.
+// R20의 Compact 본문 상한은 summaryOutputCap과 같고 재축소 횟수는 summary.ts가 둔다.
 
 // R12. 텍스트를 code point 기준으로 앞·뒤를 남겨 축소한다. 원본은 바꾸지 않고 잘린
 // 위치를 문자 경계로 둔다. code point 수는 [...text].length다.
@@ -75,7 +75,7 @@ export function shrinkResultText(text: string): string | null {
 }
 
 // R11. 이력을 보호 밖 오래된 것부터 요약 후보로 분할한다. 최근 이력 예산의
-// byte 상한 안에서 call·result 짝 경계에서 자른다. 보호(제품·역할·preset·사람 지침·현재
+// byte 상한 안에서 call·result 짝 경계에서 자른다. 보호(제품·역할·사람 지침·현재
 // 목적·요청 전문·steering)는 애초에 이력에 없다.
 export function historyCut(history: readonly HistoryMessage[]): number {
   // call(tool_use)과 result(tool_result)를 나누지 않는다: 자르는 index는

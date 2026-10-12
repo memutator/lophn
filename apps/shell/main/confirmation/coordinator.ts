@@ -22,6 +22,7 @@ import {
   type LiveHandle,
 } from "./handle.ts";
 import type { HeadlessMode } from "../desktop/headless.ts";
+import { chosenPreselect } from "./choice.ts";
 import { decide } from "./decide.ts";
 import {
   type ConfirmationHost,
@@ -173,7 +174,8 @@ interface LiveWindow {
   readonly opened: OpenedConfirmation;
   readonly parentId: string;
   readonly opener: Opener | undefined;
-  readonly intent: ConfirmationIntent;
+  /** 사람이 창에서 범위를 바꾸면 미리 고른 결정(preselect)이 따라 바뀐다. */
+  intent: ConfirmationIntent;
   readonly windowId: string;
   displayId: string;
   basis: string;
@@ -184,6 +186,15 @@ interface LiveWindow {
 }
 
 const STALE = "대상이 바뀌었거나 연결을 확인할 수 없다";
+
+/** handle을 만든 정본의 binding 내용에 묶인 허락 범위. 없으면 once(기본값)다. */
+function scopeOf(canonical: Canonical | null): "once" | "session" {
+  const content = canonical?.content;
+  const scope = content !== null && typeof content === "object"
+    ? (content as { scope?: unknown }).scope
+    : undefined;
+  return scope === "session" ? "session" : "once";
+}
 
 /** renderer로 나가는 표시. gate 원문·handle은 넣지 않고 상태 이름과 결정만 싣는다. */
 function displayOf(live: {
@@ -366,6 +377,58 @@ export function createCoordinator(options: CoordinatorOptions) {
   }
 
   /**
+   * 사람이 고른 범위가 handle이 묶인 범위와 다르면 handle을 그 범위에 다시 묶는다. 범위는
+   * confirmation 내용에 묶이므로 once handle로 session을 허락할 수 없고, 거절은 범위가 없는 내용이다.
+   * 제출한 결정이 정하는 범위만 쓰고 session을 받아 주지 않는 request는 once로 바꿔 보내지 않는다.
+   */
+  async function rebindChoice(
+    live: LiveWindow,
+    input: { displayId: string; decision: string; commandInput?: unknown },
+  ): Promise<
+    | { ok: true; displayId: string }
+    | { ok: false; error: { code: string; message: string } }
+  > {
+    const keep = { ok: true as const, displayId: input.displayId };
+    const chosen = chosenPreselect(input.decision, input.commandInput);
+    if (!chosen.ok) {
+      return {
+        ok: false,
+        error: { code: "invalid_input", message: "허락 범위가 아니다" },
+      };
+    }
+    const handle = table.find(live.displayId);
+    if (
+      chosen.preselect === null || live.gate.state !== "ready" ||
+      live.displayId !== input.displayId || handle === undefined ||
+      handle.spent || live.intent.kind !== "approval_request"
+    ) return keep;
+    const wantsSession = chosen.preselect === "allow_session";
+    const boundSession = scopeOf(live.canonical) === "session";
+    if (wantsSession === boundSession) return keep;
+    live.intent = { ...live.intent, preselect: chosen.preselect };
+    const reopened = await reopen(live);
+    if (!reopened.ok) return reopened;
+    if (wantsSession && scopeOf(live.canonical) !== "session") {
+      return {
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: "이 요청은 session 허락이 아니다",
+        },
+      };
+    }
+    return { ok: true, displayId: live.displayId };
+  }
+
+  /** 옛 handle을 무효로 하고 같은 창에서 정본을 다시 읽어 새 표시와 handle을 고정한다. */
+  async function reopen(live: LiveWindow) {
+    await invalidate(live, "replaced");
+    live.basis = "";
+    live.gate = { state: "checking" };
+    return await fix(live);
+  }
+
+  /**
    * 값을 받은 뒤에만 handle을 만드는 결정. 제출 직전 정본을 다시 읽어 같을 때만 보내고,
    * 같은 표시에서 두 번 보내지 않는다. 값은 commandInput에만 있고 여기 남기지 않는다.
    */
@@ -533,14 +596,20 @@ export function createCoordinator(options: CoordinatorOptions) {
     },
 
     /** 제출 직전 정본을 다시 읽는다. 바뀌었으면 옛 버튼을 없앤다. */
-    async submit(input: {
+    async submit(submitted: {
       windowId: string;
       displayId: string;
       decision: string;
       commandInput?: unknown;
       confirmedSecond?: boolean;
     }) {
-      const live = windows.get(input.windowId);
+      const live = windows.get(submitted.windowId);
+      let input = submitted;
+      if (live !== undefined && live.intent.kind === "approval_request") {
+        const rebound = await rebindChoice(live, input);
+        if (!rebound.ok) return rebound;
+        input = { ...input, displayId: rebound.displayId };
+      }
       const result = live?.canonical?.handle === "deferred"
         ? await submitDeferred(live, input)
         : await decide({
@@ -573,10 +642,7 @@ export function createCoordinator(options: CoordinatorOptions) {
       const live = windows.get(windowId);
       if (live === undefined) return null;
       if (live.gate.state === "submitted") return displayOf(live);
-      await invalidate(live, "replaced");
-      live.basis = "";
-      live.gate = { state: "checking" };
-      await fix(live);
+      await reopen(live);
       return displayOf(live);
     },
 

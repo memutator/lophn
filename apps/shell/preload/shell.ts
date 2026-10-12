@@ -53,7 +53,7 @@ contextBridge.exposeInMainWorld(
       onConfirmationEnded: createConfirmationEndedSubscriber(ipcRenderer),
       // app.create·apply_settings 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
       async confirmWithoutWindow(input: {
-        question: string;
+        group: string;
         option_key: string;
       }): Promise<WindowlessConfirmationReply> {
         try {

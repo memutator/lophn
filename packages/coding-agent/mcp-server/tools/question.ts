@@ -37,11 +37,11 @@ export function createQuestionTool(
     }
     const value = read.value as Record<string, unknown>;
     if (op === "list") {
-      const rows = (value.questions as QuestionRecord[] | undefined) ?? [];
+      const rows = (value.groups as QuestionRecord[] | undefined) ?? [];
       const waiting = rows.filter((row) => row.status === "pending").length;
       return {
-        summary: `질문 ${rows.length}개, 대기 ${waiting}개`,
-        data: { ...value, questions: rows.map(questionView) },
+        summary: `질문 묶음 ${rows.length}개, 대기 ${waiting}개`,
+        data: { ...value, groups: rows.map(questionView) },
         next: [
           "lophn_question show로 이유·option·고정 action을 읽는다",
           ...(value.next_cursor === null || value.next_cursor === undefined
@@ -52,10 +52,10 @@ export function createQuestionTool(
         ],
       };
     }
-    const shown = questionView(value.question as QuestionRecord);
+    const shown = questionView(value.group as QuestionRecord);
     return {
-      summary: `질문 ${shown.id}: ${questionStateText(shown.state)}`,
-      data: { ...value, question: shown },
+      summary: `질문 묶음 ${shown.id}: ${questionStateText(shown.state)}`,
+      data: { ...value, group: shown },
       next: shown.waiting
         ? [
           `사람이 ${shown.decision_link}에서 답한다. coding agent는 답하거나 적용하지 않는다`,

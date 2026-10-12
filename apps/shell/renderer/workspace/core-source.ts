@@ -8,6 +8,7 @@ import type {
   LayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreContextsSource } from "./contexts/core-source.ts";
 import type {
   DocumentRow,
@@ -173,6 +174,9 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
     // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다(shell/workspace#R16~R29).
     contextsSource: coreContextsSource(core),
+
+    // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다(shell/workspace#R34, R36~R44).
+    agentsSource: coreAgentsSource(core),
 
     documents: (id) => projectDocuments(core, id),
 

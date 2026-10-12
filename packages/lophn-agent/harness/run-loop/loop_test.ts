@@ -197,7 +197,7 @@ function rig(setup: Setup) {
 
   const context: RunContext = {
     product: { instructions: "PRODUCT" },
-    role: { instructions: "ROLE", preset_prompt: null },
+    role: { instructions: "ROLE" },
     tools: [{
       name: "doc.read",
       description: "read",
@@ -208,10 +208,9 @@ function rig(setup: Setup) {
       session: { kind: "project", id: PROJECT },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     purpose: null,
     run_facts: null,
-    continuation_summary: null,
+    session: { compaction: null, messages: [] },
     sources: [],
     skills: [],
     timezone: "Asia/Seoul",
@@ -332,10 +331,7 @@ function rig(setup: Setup) {
     random: setup.random ?? (() => 0.5),
     instructions: {
       files: {
-        registered: () => Promise.resolve(ok(null)),
-        attached: () =>
-          Promise.resolve(err({ code: "not_found", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
+        read: () => Promise.resolve(ok(null)),
       },
       redact: (text) => text,
     },
@@ -1273,4 +1269,60 @@ Deno.test("lophn-agent/harness/run-loop#R25: MCP 연결을 제거하면 그 서�
       assertEquals(r.finishes[0].facts.unknown_effects, ["a:unconfirmed"]);
     }
   }
+});
+
+// ---- Compact [agent-I16b] ----
+
+const COMPACTED_SESSION: RunContext["session"] = {
+  compaction: { through_seq: 4n, text: "SUMMARY OF THE EARLIER TALK" },
+  messages: [
+    { seq: 1n, role: "user", text: "COVERED ask" },
+    { seq: 2n, role: "assistant", text: "COVERED answer" },
+    { seq: 4n, role: "assistant", text: "COVERED last" },
+    { seq: 5n, role: "user", text: "AFTER ask" },
+    { seq: 6n, role: "assistant", text: "AFTER answer" },
+  ],
+};
+
+Deno.test("lophn-agent/harness/prompt-assemble#R23 [agent-I16b]: Compact한 session의 다음 run은 매 call 입력에 요약과 그 뒤 원문만 넣고 덮은 원문은 넣지 않으며 현재 요청은 그 뒤에 온다", async () => {
+  const r = rig({
+    model: [
+      reply({ calls: [call("t1", "doc.read")] }),
+      reply({ text: "done" }),
+    ],
+    tools: { "doc.read": { info: READ } },
+    context: { session: COMPACTED_SESSION },
+  });
+  const end = await r.run();
+  assertEquals(end.kind, "finished");
+  assertEquals(r.requests.length, 2);
+  for (const request of r.requests) {
+    const text = textOf(request);
+    assertStringIncludes(text, "## Compact summary");
+    assert(!text.includes("COVERED"));
+    const order = [
+      "SUMMARY OF THE EARLIER TALK",
+      "AFTER ask",
+      "AFTER answer",
+      "REQUEST",
+    ].map((needle) => text.indexOf(needle));
+    assert(order.every((index) => index >= 0), text);
+    assertEquals(order, [...order].sort((a, b) => a - b));
+  }
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R23 [agent-I16b]: 요약이 없는 session은 요약 머리말 없이 원문 이력만 넣는다", async () => {
+  const r = rig({
+    model: [reply({ text: "done" })],
+    context: {
+      session: {
+        compaction: null,
+        messages: [{ seq: 1n, role: "user", text: "EARLIER ask" }],
+      },
+    },
+  });
+  await r.run();
+  const text = textOf(r.requests[0]!);
+  assert(!text.includes("Compact summary"));
+  assert(text.indexOf("EARLIER ask") < text.indexOf("REQUEST"));
 });

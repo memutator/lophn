@@ -1,6 +1,6 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/app-engineer, lophn-agent/conversation, lophn-agent/questions, documents/versions, apps/blueprint, apps/sdk, coding-agent/tickets, coding-agent/connection, problems/tests, apps/preview, apps/releases, apps/data, apps/permissions, apps/runtime, platform/approvals, shell/confirmation-window, shell/wording, lophn-agent/presets, coding-agent/harnesses, coding-agent/sessions, shell/terminal]
+concerns: [lophn-agent/roles/app-engineer, lophn-agent/conversation, lophn-agent/questions, documents/versions, apps/blueprint, apps/sdk, coding-agent/tickets, coding-agent/connection, problems/tests, apps/preview, apps/releases, apps/data, apps/permissions, apps/runtime, platform/approvals, shell/confirmation-window, shell/wording, lophn-agent/agents, coding-agent/harnesses, coding-agent/sessions, shell/terminal]
 ---
 # 쓰던 앱을 원하는 방식으로 바꾼다
 

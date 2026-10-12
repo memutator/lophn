@@ -5,6 +5,8 @@
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
+import type { JsonObject } from "../../../../contracts/platform/mod.ts";
+import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // prompt-assemble이 준 경계 위치(plan T13: 최대 3곳). Anthropic breakpoint
@@ -200,6 +202,8 @@ export function buildRequest(input: {
   tools?: readonly ToolDefinition[];
   boundaries?: CacheBoundaries;
   reasoning?: OpaqueReasoningState | undefined;
+  // option 값이 싣는 조각이다(harness/model#R22). 만든 body에 깊게 합친다.
+  request_patch?: JsonObject;
 }): Record<string, unknown> {
   const boundaries = input.boundaries ??
     { system: false, tools: false, final_user: false };
@@ -215,7 +219,7 @@ export function buildRequest(input: {
   if (input.tools?.length) {
     body.tools = markLast(input.tools, boundaries.tools);
   }
-  return body;
+  return mergeRequestPatch(body, input.request_patch);
 }
 
 // ── SSE 응답 번역 ─────────────────────────────────────────────────────────

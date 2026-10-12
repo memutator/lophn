@@ -227,14 +227,10 @@ Deno.test("platform/notifications#R1: 사람이 직접 멈춘 assignment는 계�
       revision: 1,
       previous_revision: 0,
       reason: {
-        kind: "consecutive_failures",
-        detail: "3번 연속 실패했다",
-        runs: [
-          "run_01arz3ndektsv4rrffq69g5fav",
-          "run_01arz3ndektsv4rrffq69g5fbv",
-          "run_01arz3ndektsv4rrffq69g5fcv",
-        ],
-        target: null,
+        kind: "scope_archived",
+        detail: "앱을 보관했다",
+        runs: [],
+        target: "app_01arz3ndektsv4rrffq69g5fav",
       },
       definition_hash: "a".repeat(64),
     }) === true,
@@ -924,10 +920,10 @@ Deno.test(
           revision: 1,
           previous_revision: 0,
           reason: {
-            kind: "consecutive_failures",
-            detail: "3번 연속 실패했다",
+            kind: "scope_archived",
+            detail: "앱을 보관했다",
             runs: [],
-            target: null,
+            target: "app_01arz3ndektsv4rrffq69g5fav",
           },
           definition_hash: "a".repeat(64),
         },
@@ -1011,3 +1007,180 @@ Deno.test(
     }
   },
 );
+
+// Ask 값은 읽을 때 계기 표와 source 사실로 계산한다(platform/notifications#R13, R14).
+const ASK_APP = "app_01arz3ndektsv4rrffq69g5fav";
+const ASK_PROBLEM = "prb_01arz3ndektsv4rrffq69g5fav";
+const ASK_RELEASE = "rel_01arz3ndektsv4rrffq69g5fav";
+
+async function seedAll(connection: Conn): Promise<void> {
+  const sources = connection.sql.all(
+    "select cast(seq as text) as seq, type from events order by seq",
+    [],
+  );
+  for (const [index, source] of sources.entries()) {
+    if (
+      source["type"] === "ReleasePrepared"
+    ) continue;
+    const seeded = await seedNotification(
+      connection,
+      {
+        seq: String(source["seq"]),
+        type: String(source["type"]),
+        subject: "unused",
+      },
+      `ask-${index}`,
+    );
+    assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
+  }
+}
+
+function askSnapshot(connection: Conn) {
+  return {
+    sql: connection.sql,
+    as_of_seq: "1",
+    port() {
+      throw new Error("port 없음");
+    },
+  };
+}
+
+Deno.test("platform/notifications#R13, R14 [agent-I18b]: 앱 문제 열림과 release 실패 행은 App Engineer ask를 싣고 그 밖의 계기는 null이다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-ask-" });
+  const connection = await schema(dir);
+  try {
+    emitSource(connection, "ProblemOpened", ASK_PROBLEM, {
+      app: ASK_APP,
+      group_key: "k",
+      report: "rpt_01arz3ndektsv4rrffq69g5fav",
+    });
+    emitSource(connection, "ReleasePrepared", ASK_RELEASE, {
+      app: ASK_APP,
+      number: 3,
+    });
+    emitSource(connection, "ReleaseActivationFailed", ASK_RELEASE, {
+      started_seq: "2",
+      failure: { code: "x", summary: "y" },
+    });
+    emitSource(connection, "ProblemReopened", ASK_PROBLEM, {
+      app: ASK_APP,
+      report: "rpt_01arz3ndektsv4rrffq69g5fav",
+    });
+    emitSource(connection, "ProblemClosed", ASK_PROBLEM, {});
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    await seedAll(connection);
+    const list = notificationsListRead();
+    const listed = list.handle(askSnapshot(connection), user(), {});
+    assert(listed.ok, listed.ok ? "" : JSON.stringify(listed.error));
+    const parsed = list.route.output.safeParse(listed.value);
+    assert(parsed.success, JSON.stringify(parsed.error));
+    const byEvent = new Map(
+      parsed.data.notifications.map((row) => [row.source_event, row]),
+    );
+    assertEquals(byEvent.get("ProblemOpened")?.ask, {
+      role: "app_engineer",
+      agent_name: "App Engineer",
+      first_context: {
+        work_place: { kind: "app", id: ASK_APP },
+        target: { kind: "problem", id: ASK_PROBLEM },
+      },
+    });
+    // release 사건은 app이 payload에 없다: 그 release를 만든 사실에서 앱을 읽는다.
+    assertEquals(byEvent.get("ReleaseActivationFailed")?.ask, {
+      role: "app_engineer",
+      agent_name: "App Engineer",
+      first_context: {
+        work_place: { kind: "app", id: ASK_APP },
+        target: { kind: "release", id: ASK_RELEASE },
+      },
+    });
+    for (
+      const event of ["ProblemReopened", "ProblemClosed", "QuestionCreated"]
+    ) {
+      // 값이 있는 null이다: 키가 없는 것(다른 actor)과 다르다.
+      const row = byEvent.get(event);
+      assert(row !== undefined && "ask" in row, event);
+      assertEquals(row.ask, null, event);
+    }
+    assertEquals(parsed.data.notifications.length, 5);
+
+    // get도 같은 값을 낸다.
+    const get = notificationsGetRead();
+    const opened = byEvent.get("ProblemOpened")?.notification.id;
+    assert(opened);
+    const got = get.handle(askSnapshot(connection), user(), {
+      notification: opened,
+    });
+    assert(got.ok, got.ok ? "" : JSON.stringify(got.error));
+    const gotParsed = get.route.output.safeParse(got.value);
+    assert(gotParsed.success);
+    assertEquals(gotParsed.data.ask, byEvent.get("ProblemOpened")?.ask);
+    assertEquals(
+      Object.keys(gotParsed.data.ask ?? {}).sort(),
+      ["agent_name", "first_context", "role"],
+    );
+    // 본문·payload 복사본은 ask에 없다.
+    const text = JSON.stringify(gotParsed.data.ask);
+    for (const forbidden of ["group_key", "report", "failure", "summary"]) {
+      assert(!text.includes(forbidden), forbidden);
+    }
+
+    // 사람 줄이 아닌 actor에게는 ask 키도 없다.
+    const hidden = list.handle(askSnapshot(connection), machine(), {});
+    assert(hidden.ok);
+    const hiddenParsed = list.route.output.safeParse(hidden.value);
+    assert(hiddenParsed.success);
+    for (const row of hiddenParsed.data.notifications) {
+      assertEquals("ask" in row, false);
+    }
+    const machineGot = get.handle(askSnapshot(connection), machine(), {
+      notification: opened,
+    });
+    assert(machineGot.ok);
+    assertEquals("ask" in (machineGot.value as object), false);
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/notifications#R14 [agent-I18b]: 대상 앱을 알 수 없으면 ask는 null이다 - 열 자리를 짐작하지 않는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-ask-none-" });
+  const connection = await schema(dir);
+  try {
+    // payload에 앱이 없는 문제, release를 만든 사실이 없는 release 실패.
+    emitSource(connection, "ProblemOpened", ASK_PROBLEM, {
+      group_key: "k",
+      report: "rpt_01arz3ndektsv4rrffq69g5fav",
+    });
+    emitSource(connection, "ReleaseActivationFailed", ASK_RELEASE, {
+      started_seq: "2",
+      failure: { code: "x", summary: "y" },
+    });
+    // 다른 release를 만든 사실은 이 release의 앱이 아니다.
+    emitSource(
+      connection,
+      "ReleasePrepared",
+      "rel_01arz3ndektsv4rrffq69g5fb0",
+      { app: ASK_APP, number: 1 },
+    );
+    await seedAll(connection);
+    const list = notificationsListRead();
+    const listed = list.handle(askSnapshot(connection), user(), {});
+    assert(listed.ok, listed.ok ? "" : JSON.stringify(listed.error));
+    const parsed = list.route.output.safeParse(listed.value);
+    assert(parsed.success, JSON.stringify(parsed.error));
+    assertEquals(
+      parsed.data.notifications.map((row) => [row.source_event, row.ask]),
+      [["ProblemOpened", null], ["ReleaseActivationFailed", null]],
+    );
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});

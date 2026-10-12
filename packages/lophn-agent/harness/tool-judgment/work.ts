@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import {
   type Clock,
   err,
@@ -18,6 +17,7 @@ import {
   type ToolDecision,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../../contracts/apps/mod.ts";
+import { documentGet } from "../../../contracts/documents/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
@@ -27,7 +27,6 @@ import {
   approvalsList,
   createApprovalRequest,
   type JsonObject,
-  routePath,
 } from "../../../contracts/platform/mod.ts";
 import {
   checkInput,
@@ -36,26 +35,24 @@ import {
   type ToolDefinition,
   unchanged,
 } from "../tools/mod.ts";
+import { type CoreCall, post } from "./core-call.ts";
 import {
   type BasisSnapshot,
   type CallFacts,
   judge,
   type Judgment,
+  lowerBySessionGrant,
   type Origin,
   refusalKey,
   type Reversibility,
   sameBasis,
   sameLineage,
 } from "./model.ts";
+import { findSessionGrant } from "./session-grant.ts";
 
 // 호출 판정과 진입 직전 재검사. command 밖의 일이고 결과는 command로 남긴다. 판정은 model.ts의
 // 판정표가 하고 여기는 사실을 읽고 기록과 approval 생성·적용을 잇는다. model의 말은 어느
 // 사실에도 들어오지 않는다(R7). core 읽기와 command는 주입한 호출로만 한다.
-
-export type CoreCall = (
-  path: string,
-  body: unknown,
-) => Promise<Result<unknown>>;
 
 // 소유 계약이 입력에서 읽은 정확한 동작. 모르거나 읽지 못하면 err이고 deny다(R2).
 export type ResolvedAction = {
@@ -95,6 +92,8 @@ export type JudgmentDeps = {
   // 이 run에 묶인 agent 자격. approval request만 이 자격으로 만든다(요청자는 자격과 같다).
   agent: CoreCall;
   assignment: string;
+  // run 기준이 고정한 resolved agent의 hash. 판정 기록과 같은 tool 비교(session 허락)의 기준이다.
+  agentHash: string;
   credential: RunCredential;
   // run이 고정한 제공 목록과 각 tool의 소유 계약 연결.
   listed: readonly ToolDefinition[];
@@ -120,24 +119,13 @@ type Gathered = {
   resolved: ResolvedAction | null;
   input: JsonObject | null;
   assignmentRevision: number | null;
-  presetRevision: number | null;
+  // run을 읽지 못했으면 null이다.
+  agentHash: string | null;
   runStateSeq: string | null;
   origin: { id: string | null; run: string } | null;
+  // 이 run이 속한 session. session 허락을 찾는 범위다.
+  session: string | null;
 };
-
-async function post<O extends z.ZodType>(
-  call: CoreCall,
-  route: { resource: string; method: string; output: O },
-  body: unknown,
-): Promise<Result<z.output<O>>> {
-  const reply = await call(routePath(route), body);
-  if (!reply.ok) return reply;
-  const parsed = route.output.safeParse(reply.value);
-  if (!parsed.success) {
-    return err({ code: "unavailable", message: "unexpected core reply" });
-  }
-  return ok(parsed.data);
-}
 
 function jsonObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -149,10 +137,7 @@ function originOf(
   if (source.kind === "message") {
     return { id: source.message ?? null, kind: "human_request" };
   }
-  if (source.kind === "handoff") {
-    return { id: source.original_message ?? null, kind: "handoff" };
-  }
-  return { id: null, kind: "periodic" };
+  return { id: source.original_message ?? null, kind: "handoff" };
 }
 
 // confirm 접수의 같은 동작은 앱·release·command·입력 지문이다. approval·key·caller는
@@ -164,6 +149,26 @@ function confirmRefusalInput(value: JsonObject): JsonObject {
     command: value["command"],
     input_hash: value["input_hash"],
   };
+}
+
+// Operator의 쓰기가 닿는 대상이 그 Operator의 담당 자리(project 또는 앱)에 속하는지. 문서 쓰기는
+// 대상이 저장할 문서(자리를 소유 계약이 말한다)이거나 새 문서를 놓을 자리 자체다. 읽지 못한 문서,
+// 자리가 없는 문서, 다른 자리의 문서는 모두 같은 답(false)이라 존재가 새지 않는다. 쓸 수 있는 tool은
+// 정의의 권한이 이미 걸러서 제공했고(roleAllows), 이 검사는 그 안에서 자리만 본다.
+async function inOperatorPlace(
+  deps: JudgmentDeps,
+  place: { kind: string; id: string | null },
+  target: string,
+): Promise<boolean> {
+  if (place.id === null) return false;
+  if (target.startsWith("prj_") || target.startsWith("app_")) {
+    return target === place.id;
+  }
+  if (!target.startsWith("doc_")) return false;
+  const read = await post(deps.agent, documentGet, { document: target });
+  if (!read.ok) return false;
+  const where = read.value.document.place;
+  return where !== null && where.kind === place.kind && where.id === place.id;
 }
 
 // 사람이 거절한 같은 동작이 이 run의 계보에 있는지(R9). 거절만 본다. 만료·취소·기술 실패는
@@ -249,17 +254,18 @@ async function gather(
   const connection = definition?.origin === "external"
     ? deps.mcpConnection(definition)
     : undefined;
-  // R4: 주기 run은 assignment가 선언한 남길 문서·읽을 자료의 쓰기만 열린다. 선언은
-  // assignment 읽기의 outputs와 읽기 선언 표에서 읽는다.
-  const declaredOutputs = assignment === undefined
-    ? new Set<string>()
-    : new Set(assignment.outputs.map((output) => output.document));
-  const targets = (action?.targets ?? []).map((target) => ({
-    id: target.id,
-    inScope: deps.credential.targets.has(target.id),
-    declared: declaredOutputs.has(target.id),
-    reversibility: target.reversibility,
-  }));
+  // Operator의 문서 쓰기는 정의의 권한 안(제공된 tool)에서 담당 자리의 문서에만 닿는다. 자리 밖은
+  // 승인으로 열지 않는 범위 밖이다. 그다음 판정은 다른 agent와 같다(roles/operator#R7).
+  const placed = assignment?.role === "operator" &&
+    action?.concern === "documents/versions";
+  const targets = await Promise.all(
+    (action?.targets ?? []).map(async (target) => ({
+      id: target.id,
+      inScope: deps.credential.targets.has(target.id) &&
+        (!placed || await inOperatorPlace(deps, assignment.scope, target.id)),
+      reversibility: target.reversibility,
+    })),
+  );
   const refused = action !== null && input !== null && record !== undefined &&
       origin !== null
     ? await refusedBefore(
@@ -323,8 +329,7 @@ async function gather(
       targets: action.targets.map((target) => target.id),
       comparison: action.comparison,
       mcp_configuration_revision: connection?.revision ?? null,
-      assignment_revision: assignment.revision,
-      preset_revision: assignment.preset_revision,
+      agent_hash: deps.agentHash,
     };
   }
   return {
@@ -333,11 +338,12 @@ async function gather(
     resolved: action,
     input,
     assignmentRevision: assignment?.revision ?? null,
-    presetRevision: assignment?.preset_revision ?? null,
+    agentHash: record === undefined ? null : deps.agentHash,
     runStateSeq: record?.state_seq ?? null,
     origin: record === undefined || origin === null
       ? null
       : { id: origin.id, run: record.id },
+    session: record?.session ?? null,
   };
 }
 
@@ -407,6 +413,29 @@ export function createToolJudgment(deps: JudgmentDeps) {
     return ok(nextSeq(request.stateSeq));
   }
 
+  // 판정표 뒤에 session 허락 칸을 적용한다. ask로 판정된 호출만 같은 session의 같은 tool·동작에 대한
+  // 허락이 있을 때 allow로 낮아지고, 낮춘 근거 request를 함께 돌려준다. confirm 앱 command는 낮추지
+  // 않는다(R14).
+  async function judgeWithSessionGrant(
+    gathered: Gathered,
+  ): Promise<{ judgment: Judgment; grant: string | null }> {
+    const judgment = judge(gathered.facts);
+    const { resolved, basis, session } = gathered;
+    if (
+      judgment.decision !== "ask" || gathered.facts.confirm ||
+      resolved === null || resolved.confirm !== undefined ||
+      basis === null || session === null
+    ) return { judgment, grant: null };
+    const grant = await findSessionGrant(deps.machine, {
+      session,
+      concern: resolved.concern,
+      basis,
+    });
+    return grant === undefined
+      ? { judgment, grant: null }
+      : { judgment: lowerBySessionGrant(gathered.facts, judgment), grant };
+  }
+
   // 설명은 이 call 하나를 가리킨다. 승인은 그 call 하나에만 쓰므로 같은 동작의 다른 call은 다른
   // approval이 필요하다.
   function reasonOf(request: CallRequest, targets: readonly string[]): string {
@@ -472,6 +501,10 @@ export function createToolJudgment(deps: JudgmentDeps) {
       },
       action,
       expires_at: formatAt(deps.clock.nowMs() + deps.approvalTtlMs),
+      // 카드가 Allow for this session을 보일 수 있는 ask는 session 있는 run의 tool call ask이고 사람이
+      // 호출마다 확인하는 앱 command(confirm)가 아닌 것이다(platform/approvals#R20).
+      session_grantable: resolved.confirm === undefined &&
+        gathered.session !== null,
     };
     const created = await post(deps.agent, createApprovalRequest, {
       input: body,
@@ -493,7 +526,8 @@ export function createToolJudgment(deps: JudgmentDeps) {
   // approval request도 만들지 않는다(R1). 쓰기·승인 필요 호출의 시작은 이 기록 뒤에만 한다.
   async function decide(request: CallRequest): Promise<Result<Decided>> {
     const gathered = await gather(deps, request);
-    let judgment = judge(gathered.facts);
+    const judged = await judgeWithSessionGrant(gathered);
+    let judgment = judged.judgment;
     let approval: string | null = null;
     if (judgment.decision === "ask") {
       if (gathered.resolved === null || gathered.input === null) {
@@ -513,10 +547,12 @@ export function createToolJudgment(deps: JudgmentDeps) {
       reason: judgment.reason,
       effect: judgment.effect,
       assignment_revision: gathered.assignmentRevision,
-      preset_revision: gathered.presetRevision,
+      agent_hash: gathered.agentHash,
       contract_revision: gathered.resolved?.contractRevision ?? null,
       comparison_basis: gathered.basis,
       approval: judgment.decision === "ask" ? approval : null,
+      // 낮춘 allow만 근거 request를 남긴다. 판정이 다시 계산돼 ask·deny가 되면 근거도 없다.
+      session_grant: judgment.code === "session_granted" ? judged.grant : null,
     };
     const recorded = await record(request, decision);
     if (!recorded.ok) return recorded;
@@ -592,14 +628,18 @@ export function createToolJudgment(deps: JudgmentDeps) {
       }
     }
     const gathered = await gather(deps, request);
-    const current = judge(gathered.facts);
+    // 낮춘 allow의 재검사는 session 허락이 지금도 서 있어야 allow다. 사람의 한 번 허락을 기다린
+    // 호출은 그 사이 생긴 session 허락으로 판정을 바꾸지 않는다.
+    const current = recorded.decision === "allow"
+      ? (await judgeWithSessionGrant(gathered)).judgment
+      : judge(gathered.facts);
     if (current.decision === "deny") {
       return ok({ kind: "denied", reason: current.reason });
     }
     if (
       current.decision !== recorded.decision || gathered.basis === null ||
       gathered.assignmentRevision !== recorded.assignment_revision ||
-      gathered.presetRevision !== recorded.preset_revision ||
+      gathered.agentHash !== recorded.agent_hash ||
       !sameBasis(recorded.comparison_basis, gathered.basis)
     ) return ok({ kind: "changed" });
     if (approval === undefined || recorded.approval === null) {

@@ -82,7 +82,7 @@ function readHello(stdout: ReadableStream<Uint8Array>): Promise<Hello> {
   });
 }
 
-/** 질문 하나·approval 하나를 심고 hello를 주는 core. question-seed.ts의 값이다. */
+/** 질문 묶음 하나(질문 하나)·approval 하나를 심고 hello를 주는 core. question-seed.ts의 값이다. */
 export const QUESTION_CORE = "apps/shell/renderer/testdata/question-core.ts";
 
 export async function startRealCore(

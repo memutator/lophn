@@ -43,7 +43,7 @@ type World = WaitingWorld & {
 };
 
 async function open(): Promise<World> {
-  const world = await openWaitingWorld({ documents: true });
+  const world = await openWaitingWorld();
   const work = await Deno.realPath(
     await Deno.makeTempDir({ prefix: "lophn-option-actions-work-" }),
   );
@@ -143,6 +143,7 @@ async function askMove(
   over: { base_revision?: string; target?: string; seat?: Seat } = {},
 ) {
   counter += 1;
+  const group = id("qgr", 100 + counter);
   const question = id("qst", 100 + counter);
   const action = moveOptionAction({
     document: over.target ?? document,
@@ -157,31 +158,34 @@ async function askMove(
     request: {
       kind: "question",
       input: {
-        id: question,
+        id: group,
         run,
         session: null,
-        prompt: `Move this document? (${question})`,
-        reason: "It belongs with the other project.",
-        options: [
-          {
-            key: "move",
-            label: "Move",
-            description: "Move it to the other project.",
-            evidence: [],
-            adoption: null,
-            action,
-          },
-          {
-            key: "leave",
-            label: "Leave it",
-            description: "Keep it where it is.",
-            evidence: [],
-            adoption: null,
-            action: null,
-          },
-        ],
-        recommendation: { option_key: "move", explanation: "Same topic." },
         expires_at: null,
+        questions: [{
+          id: question,
+          prompt: `Move this document? (${question})`,
+          reason: "It belongs with the other project.",
+          options: [
+            {
+              key: "move",
+              label: "Move",
+              description: "Move it to the other project.",
+              evidence: [],
+              adoption: null,
+              action,
+            },
+            {
+              key: "leave",
+              label: "Leave it",
+              description: "Keep it where it is.",
+              evidence: [],
+              adoption: null,
+              action: null,
+            },
+          ],
+          recommendation: { option_key: "move", explanation: "Same topic." },
+        }],
       },
     },
     call: null,
@@ -189,21 +193,21 @@ async function askMove(
     state_seq: (state.body["run"] as { state_seq: string }).state_seq,
   });
   assertEquals(waited.status, 200, JSON.stringify(waited.body));
-  const read = await world.read("questions/read", MACHINE_TOKEN, { question });
-  const created = (read.body["question"] as { created_seq: string })
-    .created_seq;
-  return { question, action, created };
+  const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+  const created = (read.body["group"] as { created_seq: string }).created_seq;
+  return { group, question, action, created };
 }
 
 async function choose(
   world: World,
+  group: string,
   question: string,
   created: string,
   action: { binding_hash: string },
   option = "move",
 ) {
   const input = {
-    question,
+    group,
     created_seq: created,
     answer: { kind: "option", option_key: option },
     binding_hash: action.binding_hash,
@@ -225,10 +229,9 @@ function applyBody(question: string, action: unknown, world: World) {
   const seq = String(
     inspect(
       world.server,
-      "select closed_seq as s from questions where id = ?",
-      [
-        question,
-      ],
+      `select g.closed_seq as s from questions q
+       join question_groups g on g.id = q."group" where q.id = ?`,
+      [question],
     )[0]!["s"],
   );
   return {
@@ -245,11 +248,14 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 문서가 그대로이고
   try {
     const { document } = await world.seed("report", "# Report\n");
     const before = placeOf(world, document);
-    const { question, action, created } = await askMove(world, document);
+    const { group, question, action, created } = await askMove(
+      world,
+      document,
+    );
     // 질문을 만든 것만으로는 아무것도 바뀌지 않는다.
     assertEquals(placeOf(world, document), before);
     assertEquals(count(world.server, MOVED), 0);
-    await choose(world, question, created, action);
+    await choose(world, group, question, created, action);
     // 답을 접수했을 뿐 적용은 아니다.
     assertEquals(placeOf(world, document), before);
     assertEquals(count(world.server, MOVED), 0);
@@ -273,11 +279,10 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 문서가 그대로이고
     );
     assertEquals(moved[0]!["actor"], "user");
     assertEquals(moved[0]!["run"], null);
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
     assertEquals(
-      (read.body["question"] as { applied: boolean }).applied,
+      (read.body["group"] as { questions: { applied: boolean }[] })
+        .questions[0].applied,
       true,
     );
     // 같은 선택지의 두 번째 적용은 conflict이고 이동도 일회 기록도 더하지 않는다.
@@ -298,8 +303,11 @@ Deno.test("lophn-agent/questions#R14: 질문 뒤 문서가 바뀌면 답은 남�
   const world = await open();
   try {
     const { document } = await world.seed("report", "# Report\n");
-    const { question, action, created } = await askMove(world, document);
-    await choose(world, question, created, action);
+    const { group, question, action, created } = await askMove(
+      world,
+      document,
+    );
+    await choose(world, group, question, created, action);
     // 질문 뒤 사람이 문서 이름을 바꿨다. 질문이 고정한 기준 revision은 낡았다.
     const renamed = await world.post(
       "documents/rename",
@@ -325,17 +333,14 @@ Deno.test("lophn-agent/questions#R14: 질문 뒤 문서가 바뀌면 답은 남�
     assertEquals(count(world.server, MOVED), 0);
     assertEquals(count(world.server, EVIDENCE), 0);
     // 답은 그대로다.
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
-    const record = read.body["question"] as {
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+    const record = read.body["group"] as {
       status: string;
-      applied: boolean;
-      answer: { option_key: string };
+      questions: { applied: boolean; answer: { option_key: string } }[];
     };
     assertEquals(record.status, "answered");
-    assertEquals(record.answer.option_key, "move");
-    assertEquals(record.applied, false);
+    assertEquals(record.questions[0].answer.option_key, "move");
+    assertEquals(record.questions[0].applied, false);
   } finally {
     await world.async_dispose();
   }
@@ -346,15 +351,21 @@ Deno.test("lophn-agent/questions#R13: 고르지 않은 선택지의 근거로는
   try {
     const { document } = await world.seed("report", "# Report\n");
     const before = placeOf(world, document);
-    const { question, action, created } = await askMove(world, document);
+    const { group, question, action, created } = await askMove(
+      world,
+      document,
+    );
     // 이동하지 않는 선택지를 골랐다. 이동 action을 적용할 근거가 아니다.
     const left = await world.post(
       "questions/answer",
       USER_TOKEN,
       {
-        question,
+        group,
         created_seq: created,
-        answer: { kind: "option", option_key: "leave" },
+        answers: [{
+          question,
+          answer: { kind: "option", option_key: "leave" },
+        }],
       },
       { created_seq: created },
     );
@@ -382,7 +393,13 @@ Deno.test("lophn-agent/questions#R13: 범위 밖 문서와 없는 문서는 같�
       target: ABSENT_DOCUMENT,
       base_revision: "1",
     });
-    await choose(world, absent.question, absent.created, absent.action);
+    await choose(
+      world,
+      absent.group,
+      absent.question,
+      absent.created,
+      absent.action,
+    );
     const missing = await world.post(
       "questions/apply-option",
       MACHINE_TOKEN,
@@ -406,7 +423,13 @@ Deno.test("lophn-agent/questions#R13: 범위 밖 문서와 없는 문서는 같�
     );
     // 앞 질문이 끝나지 않은 run은 새 질문을 받지 않으므로 다른 assignment의 run으로 묻는다.
     const moved = await askMove(world, document, { seat: world.editor });
-    await choose(world, moved.question, moved.created, moved.action);
+    await choose(
+      world,
+      moved.group,
+      moved.question,
+      moved.created,
+      moved.action,
+    );
     const outside = await world.post(
       "questions/apply-option",
       SCOPED_TOKEN,
@@ -434,21 +457,24 @@ Deno.test("lophn-agent/questions#R16: 채택 선택지의 고정 version은 그 
         request: {
           kind: "question",
           input: {
-            id: id("qst", 150 + counter),
+            id: id("qgr", 150 + counter),
             run,
             session: null,
-            prompt: `Adopt this design? (${counter})`,
-            reason: "It is the design to build.",
-            options: [{
-              key: "adopt",
-              label: "Adopt",
-              description: "Build exactly this version.",
-              evidence: [],
-              adoption: reference,
-              action: null,
-            }],
-            recommendation: null,
             expires_at: null,
+            questions: [{
+              id: id("qst", 150 + counter),
+              prompt: `Adopt this design? (${counter})`,
+              reason: "It is the design to build.",
+              options: [{
+                key: "adopt",
+                label: "Adopt",
+                description: "Build exactly this version.",
+                evidence: [],
+                adoption: reference,
+                action: null,
+              }],
+              recommendation: null,
+            }],
           },
         },
         call: null,
@@ -474,7 +500,8 @@ Deno.test("lophn-agent/questions#R16: 채택 선택지의 고정 version은 그 
     assertEquals(real.status, 200, JSON.stringify(real.body));
     const stored = inspect(
       world.server,
-      "select options from questions where run = ?",
+      `select q.options as options from questions q
+       join question_groups g on g.id = q."group" where g.run = ?`,
       [world.lophn.run],
     );
     const options = JSON.parse(String(stored[0]!["options"])) as {

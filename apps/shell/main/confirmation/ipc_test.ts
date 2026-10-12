@@ -94,7 +94,7 @@ test("shell/confirmation-window#R1, shell/confirmation-window#R6: 창 열기는 
   assert.equal(JSON.stringify([opened, shown, decided]).includes(REF), false);
 });
 
-test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교체·삭제 열기는 계정 key와 행동만 받고 등록 정보나 값을 함께 받지 않는다", async () => {
+test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: provider 연결·끊기 열기는 provider 전체를 가리키고 계정 key·교체·회수나 값을 함께 받지 않는다", async () => {
   const { env, call } = wire();
   const owner = "pvd_01h455vb4pex5v6nkc6gd5fd01";
   const open = (request: Record<string, unknown>) =>
@@ -103,14 +103,32 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교�
       parentWindow: "window-1",
     }) as Promise<{ code?: string }>;
   const purpose = "provider_credential";
+  const connect = {
+    name: "Anthropic",
+    definition: {
+      key: "anthropic",
+      display_name: "Anthropic",
+      protocols: ["anthropic-messages"],
+      auth_kinds: ["api_key"],
+      models_endpoint: "https://api.anthropic.com/v1/models",
+      oauth: null,
+      revision: "2026-10",
+    },
+    endpoint: "https://api.anthropic.com/v1",
+    protocol: "anthropic-messages",
+    kind: "api_key",
+  };
   for (
     const bad of [
-      { purpose, change: { key: "main", action: "delete" } },
-      { purpose, change: { key: "main", action: "revoke", value: "x" } },
-      { purpose: "app_secret", change: { key: "main", action: "revoke" } },
+      { purpose, change: { key: "main", action: "revoke" } },
+      { purpose, change: { key: "main", action: "replace" } },
+      { purpose: "app_secret", disconnect: true },
+      { purpose, disconnect: true, connect },
+      { purpose, disconnect: false },
+      { purpose, connect: { ...connect, value: "x" } },
+      { purpose, connect: { ...connect, kind: "oauth" } },
       {
         purpose,
-        change: { key: "main", action: "revoke" },
         credential: {
           key: "main",
           kind: "api_key",
@@ -125,19 +143,11 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교�
     assert.equal((await open(bad)).code, "invalid_input");
   }
   assert.equal(env.windows.length, 0);
-  // 등록 정보의 지문은 선택이다. 값에서 main이 만든다.
-  const registering = await open({
-    purpose,
-    credential: {
-      key: "key-1",
-      kind: "api_key",
-      label: "Main",
-      account: null,
-      organization: null,
-      plan: null,
-    },
-  });
-  assert.notEqual(registering.code, "invalid_input");
+  assert.notEqual((await open({ purpose, connect })).code, "invalid_input");
+  assert.notEqual(
+    (await open({ purpose, disconnect: true })).code,
+    "invalid_input",
+  );
 });
 
 test("shell/confirmation-window#R4: 닫기는 결정이 아니고 창을 닫는다", async () => {
@@ -278,4 +288,73 @@ test("shell/confirmation-window#R9: 일반 preload의 끝남 구독은 windowId�
   assert.deepEqual(got, [{ windowId: "cfw_1", ended: "closed" }]);
   off();
   assert.equal(listeners.size, 0);
+});
+
+test("shell/desktop#R47, shell/confirmation-window#R1 [agent-I42]: 창 열기는 미리 고른 범위를 받고 계속 허락 같은 값은 받지 않으며 열어도 결정은 제출되지 않는다", async () => {
+  const { env, call } = wire();
+  for (const preselect of ["always", "allow_forever", "once", "", null, 1]) {
+    const bad = await call("shell:confirmation-open", 100, {
+      request: { ...INTENT, preselect },
+      parentWindow: "window-1",
+    }) as { code?: string };
+    assert.equal(bad.code, "invalid_input", String(preselect));
+  }
+  assert.equal(env.windows.length, 0);
+  for (const preselect of ["allow_once", "allow_session", "deny"]) {
+    const opened = await call("shell:confirmation-open", 100, {
+      request: { ...INTENT, preselect },
+      parentWindow: "window-1",
+    }) as { windowId?: string; code?: string };
+    assert.equal(typeof opened.windowId, "string", preselect);
+    assert.equal(env.canon.intents.at(-1)?.kind, "approval_request");
+    assert.deepEqual(env.canon.intents.at(-1), { ...INTENT, preselect });
+  }
+  // 열기만으로 허락·거절이 제출되지 않는다.
+  assert.equal(env.submitted.length, 0);
+  // 다른 종류에는 미리 고른 범위가 없다.
+  const other = await call("shell:confirmation-open", 100, {
+    request: {
+      kind: "question_option_action",
+      group: "qgr_00000000000000000000000001",
+      option_key: "a",
+      preselect: "allow_once",
+    },
+    parentWindow: "window-1",
+  }) as { code?: string };
+  assert.equal(other.code, "invalid_input");
+});
+
+test("shell/confirmation-window#R5, lophn-agent/questions#R13: question_option_action intent는 묶음 id를 받고 질문 id만 든 옛 모양은 받지 않는다", async () => {
+  const { env, call } = wire();
+  const group = "qgr_00000000000000000000000001";
+  const opened = await call("shell:confirmation-open", 100, {
+    request: { kind: "question_option_action", group, option_key: "a" },
+    parentWindow: "window-1",
+  }) as { windowId?: string };
+  assert.equal(typeof opened.windowId, "string");
+  assert.deepEqual(env.canon.intents.at(-1), {
+    kind: "question_option_action",
+    group,
+    option_key: "a",
+  });
+  for (
+    const request of [
+      {
+        kind: "question_option_action",
+        question: "qst_00000000000000000000000001",
+        option_key: "a",
+      },
+      {
+        kind: "question_option_action",
+        group: "qst_00000000000000000000000001",
+        option_key: "a",
+      },
+    ]
+  ) {
+    const refused = await call("shell:confirmation-open", 100, {
+      request,
+      parentWindow: "window-1",
+    }) as { code?: string };
+    assert.equal(refused.code, "invalid_input");
+  }
 });

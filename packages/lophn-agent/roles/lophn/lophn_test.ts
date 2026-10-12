@@ -1,11 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import type { CatalogEntry } from "@lophn/contracts/lophn-agent";
 import { ok } from "../../../base/mod.ts";
-import {
-  productPresetDefinition,
-  validateModelSelection,
-} from "../../presets/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { ROLE_CAPS } from "../../agents/mod.ts";
 import { checkOptionAction, moveOptionAction } from "../../questions/mod.ts";
 import {
   AGENT_TOOLS,
@@ -14,7 +9,6 @@ import {
   executeTool,
   listTools,
   type RunCredential,
-  TOOL_BUNDLES,
 } from "../../harness/tools/mod.ts";
 import { createAgentToolHandlers } from "../../harness/tools/mod.ts";
 import { HANDOFF_DIRECTIONS } from "@lophn/contracts/lophn-agent";
@@ -91,7 +85,6 @@ Deno.test("lophn-agent/roles/lophn#R1: lophn's tool selection holds planning, re
       "document.list",
       "document.create",
       "question.submit",
-      "preset.list",
       "visual.show",
       "lophn.guide",
       "setting.read",
@@ -234,11 +227,9 @@ Deno.test("lophn-agent/roles/lophn#R4: requests in lophn scope list preset reads
       `lophn must not list ${name}`,
     );
   }
-  // preset·assignment 조회, 질문·ticket 생성이 상한에 있고 정의가 있어 모두 목록에 있다(R4).
+  // assignment 조회, 질문·ticket 생성이 상한에 있고 정의가 있어 모두 목록에 있다(R4).
   for (
     const name of [
-      "preset.list",
-      "preset.read",
       "assignment.list",
       "assignment.read",
       "question.submit",
@@ -552,13 +543,13 @@ Deno.test("lophn-agent/roles/lophn#R11: the chosen and rejected options become t
   assert(body.includes(NO_HANDOFF_WORD) === false);
 });
 
-Deno.test("lophn-agent/roles/lophn#R13: the handoff content the lophn role submits is bounded to app-outside reuse, project planning and place choices", () => {
-  const submission = draftSubmission({
+Deno.test("lophn-agent/roles/lophn#R13 [agent-I13]: the handoff content the lophn role submits is bounded to app-outside reuse, project planning and place choices", () => {
+  const submission = draftSubmission([{
     prompt: "App Engineer에게 SDK 예제를 넘길까요",
     reason: "새 앱 기획에서 SDK 재사용이 필요하다",
     options: [],
     recommendation: null,
-  });
+  }]);
   assertEquals(submission.expires_at, null);
   // handoff 방향은 lophn-agent/handoff의 현재 집합이다. lophn은 App Engineer와
   // Context Engineer로만 내주고 Operator 방향은 없다(R13).
@@ -607,7 +598,7 @@ Deno.test("lophn-agent/roles/lophn#R13: the handoff content the lophn role submi
   );
 });
 
-Deno.test("lophn-agent/roles/lophn#R16: the intent and taste question asks and keeps the plan undecided when no answer comes", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: the intent and taste question asks and keeps the plan undecided when no answer comes", () => {
   const draft = intentQuestion("collect the Mahas launch notes", [
     "existing project first",
     "widen the reading context",
@@ -626,12 +617,12 @@ Deno.test("lophn-agent/roles/lophn#R16: the intent and taste question asks and k
     draft.options.some((option) => option.key === "decide-later"),
   );
   // 제출 값이 question.submit의 모양과 맞는다(R16).
-  const submission = draftSubmission(draft, "2026-10-07T00:00:00Z");
+  const submission = draftSubmission([draft], "2026-10-07T00:00:00Z");
   assertEquals(submission.expires_at, "2026-10-07T00:00:00Z");
   assertEquals(checkDraftSubmission(submission), { ok: true });
 });
 
-Deno.test("lophn-agent/roles/lophn#R16: a place recommendation draft keeps its fixed move action through submission", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: a place recommendation draft keeps its fixed move action through submission", () => {
   const recommendations = recommendPlaces([target(0)]);
   assert(recommendations.drafts.length === 1);
   const draft = recommendations.drafts[0]!;
@@ -641,19 +632,46 @@ Deno.test("lophn-agent/roles/lophn#R16: a place recommendation draft keeps its f
   assert(move.action !== null);
   const bindingBefore = move.action.binding_hash;
   // 제출은 대상·값 후보와 설명만 옮기고 고정 action은 그대로 실린다(T29).
-  const submission = draftSubmission(draft);
-  const moved = submission.options.find((option) => option.key === "move-1");
+  const submission = draftSubmission([draft]);
+  const moved = submission.questions[0]!.options.find((option) =>
+    option.key === "move-1"
+  );
   assert(moved !== undefined);
   assertEquals(moved.action, move.action);
   assertEquals(moved.action?.binding_hash, bindingBefore);
   assertEquals(checkDraftSubmission(submission), { ok: true });
   // 유지 선택지는 action이 null이다(R5, R16).
-  const keep = submission.options.find((option) => option.key === "leave-it");
+  const keep = submission.questions[0]!.options.find((option) =>
+    option.key === "leave-it"
+  );
   assert(keep !== undefined);
   assertEquals(keep.action, null);
 });
 
-Deno.test("lophn-agent/roles/lophn#R5: a setting change question keeps its fixed apply_settings action through submission", () => {
+Deno.test("lophn-agent/roles/lophn#R16 [agent-I13]: independent draft questions go as one group of up to four and a fixed-action draft goes alone", () => {
+  const first = intentQuestion("collect the notes", ["existing project first"]);
+  const second = intentQuestion("name the plan", ["short name"]);
+  // 독립 질문은 한 묶음에 순서대로 실린다.
+  const group = draftSubmission([first, second]);
+  assertEquals(group.questions.map((question) => question.prompt), [
+    first.prompt,
+    second.prompt,
+  ]);
+  assertEquals(checkDraftSubmission(group), { ok: true });
+  // 고정 action이 있는 draft는 다른 질문과 한 묶음으로 낼 수 없다(questions#R13).
+  const moving = recommendPlaces([target(0)]).drafts[0]!;
+  assertEquals(checkDraftSubmission(draftSubmission([moving])), { ok: true });
+  const mixed = checkDraftSubmission(draftSubmission([first, moving]));
+  assertEquals(mixed.ok, false);
+  // 묶음은 질문 1~4개다(questions#R1).
+  const five = checkDraftSubmission(
+    draftSubmission([first, second, first, second, first]),
+  );
+  assertEquals(five.ok, false);
+  assertEquals(checkDraftSubmission(draftSubmission([])).ok, false);
+});
+
+Deno.test("lophn-agent/roles/lophn#R5 [agent-I13]: a setting change question keeps its fixed apply_settings action through submission", () => {
   const definition = {
     key: "platform.reads.page",
     owner: "platform/settings",
@@ -698,8 +716,8 @@ Deno.test("lophn-agent/roles/lophn#R5: a setting change question keeps its fixed
   assert(change !== undefined);
   assert(change.action !== null);
   // settingsOptionAction이 고정한 action이 그대로 실린다(T29). hash는 바뀌지 않는다.
-  const submission = draftSubmission(proposal.draft);
-  const submitted = submission.options.find((option) =>
+  const submission = draftSubmission([proposal.draft]);
+  const submitted = submission.questions[0]!.options.find((option) =>
     option.key === "change"
   );
   assert(submitted !== undefined);
@@ -709,76 +727,7 @@ Deno.test("lophn-agent/roles/lophn#R5: a setting change question keeps its fixed
   assertEquals(checkOptionAction(QUESTION, change.action).ok, true);
 });
 
-Deno.test("lophn-agent/roles/lophn#R19: planning, reuse and guidance runs fix their judgment and organizing model through the preset selection", () => {
-  // 판 용도는 judgment·organizing 둘이고 preset 선택으로 고정한다(R19). 제품
-  // 기본 preset은 사람이 provider를 고르기 전까지 model·organizing_model이
-  // null(미준비)이다.
-  const preset = productPresetDefinition("lophn", "sha256:prompt");
-  assert(preset !== undefined);
-  assertEquals(preset.model, null);
-  assertEquals(preset.organizing_model, null);
-  // organizing이 비면 같은 판의 model을 쓴다(presets#R13, harness/model#R19).
-  const entry: CatalogEntry = {
-    provider_definition: "pd_1",
-    model_name: "claude-haiku-4-5",
-    context_limit: 200000,
-    input_limit: 190000,
-    output_limit: 8000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    reasoning: {
-      mode: "toggle",
-      levels: ["off", "low"],
-      minimum_budget: 0,
-      maximum_budget: 8000,
-      default_level: "off",
-    },
-    preview: null,
-    deprecated: null,
-    source: "user",
-    source_revision: "r1",
-    checked_at: null,
-    received_at: null,
-    price_basis: null,
-  };
-  const deps = {
-    definitionKey: (_provider: string) => "pd_1",
-    modelListed: () => true,
-    credentialKeys: (_provider: string) => ["main"] as const,
-    catalogEntry: () => entry,
-  };
-  const judgment = validateModelSelection("model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "off",
-    options: {},
-  }, deps);
-  assert(judgment.ok);
-  assertEquals(judgment.value?.purpose, "judgment");
-  // organizing_model은 같은 selection 입력으로 organizing 용도로 고정된다(R19).
-  const organizing = validateModelSelection("organizing_model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "claude-haiku-4-5",
-    reasoning_level: "off",
-    options: {},
-  }, deps);
-  assert(organizing.ok);
-  assertEquals(organizing.value?.purpose, "organizing");
-  // 목록에 없는 model은 저장 거절이다(presets#R10).
-  const listed = validateModelSelection("model", {
-    provider: "anthropic",
-    credentials: ["main"],
-    model_name: "no-such-model",
-    reasoning_level: "off",
-    options: {},
-  }, { ...deps, modelListed: () => false });
-  assertEquals(listed.ok, false);
-});
-
-Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model-fixed action", async () => {
+Deno.test("lophn-agent/roles/lophn#R19 [agent-I13]: the question submit tool rejects a model-fixed action", async () => {
   // question.submit tool은 선택지 action을 null로만 받는다(T29). 모델이 고정
   // action을 싣는 값은 거절이다 → roles/lophn의 수집 통로(draftSubmission)만
   // 고정 action을 실는다.
@@ -809,15 +758,15 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
   const credential: RunCredential = {
     run: RUN,
     targets: new Set(),
-    operations: new Set(["CreateQuestion"]),
+    operations: new Set(["CreateQuestionGroup"]),
   };
-  const base = {
+  const question = {
     prompt: "어느 쪽으로 갈까요",
     reason: "취향이 갈린다",
     options: [],
     recommendation: null,
-    expires_at: null,
   };
+  const base = { questions: [question], expires_at: null };
   const asked = await executeTool(
     { listed, handlers: createAgentToolHandlers(ports), credential },
     "question.submit",
@@ -829,18 +778,21 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
     "question.submit",
     {
       ...base,
-      options: [{
-        key: "move-1",
-        label: "Move to the Mahas project",
-        description: "Move the note.",
-        evidence: [],
-        adoption: null,
-        action: moveOptionAction({
-          document: DOC,
-          place: { kind: "project", id: PROJECT },
-          name: "moved",
-          base_revision: "1",
-        }),
+      questions: [{
+        ...question,
+        options: [{
+          key: "move-1",
+          label: "Move to the Mahas project",
+          description: "Move the note.",
+          evidence: [],
+          adoption: null,
+          action: moveOptionAction({
+            document: DOC,
+            place: { kind: "project", id: PROJECT },
+            name: "moved",
+            base_revision: "1",
+          }),
+        }],
       }],
     },
   );
@@ -950,28 +902,13 @@ Deno.test("lophn-agent/roles/lophn#R3 [ctx-I58g]: the prompt tells when to use t
   }
   // prompt 자료는 고른 context에 머물고 조회 tool은 개체·검색 결과를 읽지 못한다고 말한다.
   assert(prompt.includes("다른 project의 context는 조회 tool로"));
-  // 기본 preset은 이 셋을 묶음 하나로 고르고 나머지 상한 동작은 하나씩 고른다.
-  const preset = productPresetDefinition("lophn", "sha256:prompt");
-  assertEquals(preset.capability.bundles, [
-    { name: "context-lookup", revision: 1 },
-  ]);
-  const single = preset.capability.tools.map((entry) => entry.tool);
-  for (const tool of TOOL_BUNDLES.get("context-lookup")!) {
-    assertEquals(single.includes(tool), false, tool);
-  }
-  assertEquals(
-    [...single, ...TOOL_BUNDLES.get("context-lookup")!].sort(),
-    [...lophn.tools].sort(),
-  );
-  // 다른 역할의 기본 preset은 이 묶음을 고르지 않는다.
-  for (const role of ["app_engineer", "context_engineer"] as const) {
-    const other = productPresetDefinition(role, "sha256:prompt");
-    assertEquals(
-      other.capability.bundles.map((bundle) => bundle.name).includes(
-        "context-lookup",
-      ),
-      false,
-      role,
-    );
+  // 이 셋은 역할 상한이 lophn에게만 연다. 다른 역할의 상한에는 없다.
+  for (const role of ["app_engineer", "context_engineer", "operator"]) {
+    const cap = ROLE_CAPS.get(role)!;
+    for (
+      const tool of ["context.list", "context.overview", "context.containing"]
+    ) {
+      assertEquals(cap.tools.includes(tool), false, `${role} ${tool}`);
+    }
   }
 });

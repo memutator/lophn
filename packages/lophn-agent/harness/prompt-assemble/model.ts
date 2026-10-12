@@ -22,13 +22,13 @@ export const COUNT_METHOD = "wire-utf8-bytes.1";
 
 export type PromptLayerKind =
   | "product"
-  | "role_preset"
+  | "role_agent"
   | "user_instructions"
   | "work_material"
   | "turn_context";
 
 // system 쪽 세 층. 각 층의 끝이 cache 경계 하나다.
-export type SystemLayerKind = "product" | "role_preset" | "user_instructions";
+export type SystemLayerKind = "product" | "role_agent" | "user_instructions";
 
 export type PromptTool = {
   name: string;
@@ -69,7 +69,8 @@ export type WorkMaterial = {
   // 목적·대상, 현재 run 사실
   purpose: string | null;
   run_facts: string | null;
-  continuation_summary: string | null;
+  // 사람이 부른 Compact가 만든 요약. 요약이 덮은 구간의 원문은 이력에 없다(R23).
+  compact_summary: string | null;
   // 이미 포장된 자료 목록(목차·요약)
   materials: readonly string[];
   compaction_summary: string | null;
@@ -117,7 +118,7 @@ export type TurnContextBasis = {
   bytes: number;
 };
 
-// 실제 포함한 원문 세션·구간 근거다(T28 이어가기·압축). 명시 세션만 쓰고 원래
+// 실제 포함한 원문 세션·구간 근거다(T28 압축). 명시 세션만 쓰고 원래
 // 순서·구간을 보존한다.
 export type MessageRange = {
   session: string;
@@ -129,7 +130,7 @@ export type PromptEvidence = {
   references: readonly MaterialReference[];
   omissions: readonly MaterialOmission[];
   turn_context: TurnContextBasis | null;
-  // compaction·continuation이 더한 원문 구간과 summary 근거다. 없으면 비운다.
+  // compaction이 더한 원문 구간과 summary 근거다. 없으면 비운다.
   message_ranges?: readonly MessageRange[];
   summaries?: readonly SummaryRef[];
 };
@@ -137,10 +138,10 @@ export type PromptEvidence = {
 export type PromptInput = {
   product: { instructions: string } | null;
   tools: readonly PromptTool[];
-  role: { instructions: string; preset_prompt: string | null } | null;
+  // 제품 역할 지시와 켜진 skill 목록이다. agent 정의 본문은 여기 없고 사람 지침 층 끝에 온다.
+  role: { instructions: string } | null;
   // 지침 층을 고르는 작업 자리 근거. 탭은 여기 없다(R30).
   work: { role: AgentRole; session: WorkPlace; scope: AssignmentScope };
-  attachments: readonly { document: string; order: number }[];
   material: WorkMaterial;
   // 이번 judgment turn의 동적 context(포장 끝). 없으면 null.
   turn_context: string | null;
@@ -166,8 +167,6 @@ export type CacheBoundary = {
 export type InstructionBasis = {
   kind: InstructionLayerKind;
   place: string | null;
-  document: string | null;
-  version: string | null;
   source_hash: string | null;
   transmitted_hash: string | null;
   status: InstructionStatus;
@@ -183,7 +182,7 @@ export type ContextBasis = {
   references: MaterialReference[];
   omissions: MaterialOmission[];
   turn_context: TurnContextBasis | null;
-  // T28 compaction·continuation이 더한 원문 구간과 summary 근거다. 기본 []다.
+  // T28 compaction이 더한 원문 구간과 summary 근거다. 기본 []다.
   message_ranges: MessageRange[];
   summaries: SummaryRef[];
   tool_names: string[];

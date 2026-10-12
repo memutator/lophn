@@ -14,6 +14,7 @@ import { Button, Field, Select } from "@lophn/ui-control";
 
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import tableStyles from "../../../../packages/design/components/table/table.module.css";
+import { operatorsUsing } from "./agents-data.ts";
 import { ViewBar } from "./documents.tsx";
 import { Link } from "./link.tsx";
 import {
@@ -67,7 +68,7 @@ export function ContextsBody({ open }: { open: Open }) {
       version: "Version r3, tests passed",
       violations: "2 violations",
       warn: true,
-      used: "Used by 1 Operator",
+      used: `Used by ${operatorsUsing("eval").join(", ") || "no Operator"}`,
     },
     {
       name: "harness",
@@ -76,7 +77,7 @@ export function ContextsBody({ open }: { open: Open }) {
       version: "Version r5, tests passed",
       violations: "no violations",
       warn: false,
-      used: "Used by 2 Operators",
+      used: `Used by ${operatorsUsing("harness").join(", ") || "no Operator"}`,
     },
   ];
   return (

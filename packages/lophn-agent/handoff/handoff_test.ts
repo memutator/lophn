@@ -29,6 +29,7 @@ const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const VER = "ver_01arz3ndektsv4rrffq69g5fav";
 const OTHER_VER = "ver_01arz3ndektsv4rrffq69g5fbw";
 const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const GROUP = "qgr_01arz3ndektsv4rrffq69g5fav";
 const SENDER = "run_01arz3ndektsv4rrffq69g5fav";
 const RECEIVER = "run_01arz3ndektsv4rrffq69g5fbw";
 const ASG_SENDER = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -55,7 +56,10 @@ function open(): DatabaseSync {
       source_kind text, source_sender_run text, source_dedup_key text,
       source_original_message text, result text, accepted_seq integer
     );
-    create table questions (id text primary key, status text, answer text, options text);
+    create table question_groups (id text primary key, status text);
+    create table questions (
+      id text primary key, "group" text, answer text, options text
+    );
   `);
   return db;
 }
@@ -199,15 +203,20 @@ Deno.test("lophn-agent/handoff#R3: 근거 고정 판이 있어야 하고 질문�
     key: "one",
     adoption: { document: DOC, version: VER, section: null },
   }, { key: "none", adoption: null }];
-  db.prepare("insert into questions values (?, 'pending', null, ?)").run(
+  db.prepare("insert into question_groups values (?, 'pending')").run(GROUP);
+  db.prepare("insert into questions values (?, ?, null, ?)").run(
     QUESTION,
+    GROUP,
     JSON.stringify(options),
   );
   assertEquals(adoptionOf(lookup, QUESTION), undefined);
   assertEquals(checkReferences(lookup, "lophn", [asked]).ok, false);
-  db.prepare(
-    "update questions set status = 'answered', answer = ? where id = ?",
-  ).run(JSON.stringify({ kind: "option", option_key: "one" }), QUESTION);
+  db.prepare("update question_groups set status = 'answered' where id = ?")
+    .run(GROUP);
+  db.prepare("update questions set answer = ? where id = ?").run(
+    JSON.stringify({ kind: "option", option_key: "one" }),
+    QUESTION,
+  );
   assertEquals(adoptionOf(lookup, QUESTION), {
     document: DOC,
     version: VER,
@@ -248,13 +257,12 @@ Deno.test("lophn-agent/handoff#R4: 내용은 정규 직렬화 bytes의 hash 하�
   assertEquals(field.general_read, false);
 });
 
-Deno.test("lophn-agent/handoff#R5: 사람 요청과 그 handoff로 이어진 run만 원래 요청이 있고 주기 run은 없다", () => {
+Deno.test("lophn-agent/handoff#R5: 사람 요청과 그 handoff로 이어진 run은 원래 요청이 있다", () => {
   assertEquals(humanOrigin({ kind: "message", message: MSG }), MSG);
   assertEquals(
     humanOrigin({ kind: "handoff", original_message: MSG }),
     MSG,
   );
-  assertEquals(humanOrigin({ kind: "schedule" }), null);
 });
 
 Deno.test("lophn-agent/handoff#R8: 끝난 run의 결과는 문서 고정 version 또는 산출물이 없는 이유 둘 중 하나이고 끝나기 전에는 비어 있다", () => {

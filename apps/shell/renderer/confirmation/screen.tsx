@@ -23,7 +23,7 @@ import { GrantKind } from "./kinds/grant/grant.tsx";
 import { OptionActionKind } from "./kinds/option-action/option-action.tsx";
 import { ReleaseActivationKind } from "./kinds/release-activation/release-activation.tsx";
 import { ProblemDecisionKind } from "./kinds/problem-decision/problem-decision.tsx";
-import { RevertKind } from "./kinds/revert/revert.tsx";
+import { RewindKind } from "./kinds/rewind/rewind.tsx";
 import { SecretInputKind } from "./kinds/secret-input/secret-input.tsx";
 import type { KindProps } from "./kinds/exact.tsx";
 import layout from "./layout/layout.module.css";
@@ -62,20 +62,6 @@ export function outcomeText(
       name: result.secret_ref ?? "",
     });
   }
-  if (kind === "revert") {
-    switch (result.result) {
-      case "applied":
-        return t("confirmation-window.result.undone");
-      case "partial":
-        return t("confirmation-window.result.partly-undone");
-      case "blocked":
-        return t("confirmation-window.result.not-undone");
-      case "uncertain":
-        return t("confirmation-window.result.undo-unknown");
-      default:
-        return t("confirmation-window.result.undoing");
-    }
-  }
   if (kind === "connection_revoke") {
     return t("confirmation-window.result.connection-revoked");
   }
@@ -84,6 +70,21 @@ export function outcomeText(
     return result.result === "applied"
       ? t("confirmation-window.result.decision-saved")
       : t("confirmation-window.result.decision-received");
+  }
+  if (kind === "rewind") {
+    // 결정 자체가 적용이라 접수가 아니라 실제 결과를 구별해 말한다(lophn-agent/revert#R3, R11).
+    switch (result.result) {
+      case "applying":
+        return t("confirmation-window.result.rewind-started");
+      case "partial":
+        return t("confirmation-window.result.rewind-partly");
+      case "uncertain":
+        return t("confirmation-window.result.rewind-unknown");
+      case "blocked":
+        return t("confirmation-window.result.rewind-blocked");
+      default:
+        return t("confirmation-window.result.rewound");
+    }
   }
   if (done.decision === GRANT) return t("confirmation-window.result.allowed");
   if (done.decision === REJECT) return t("confirmation-window.result.rejected");
@@ -291,12 +292,12 @@ export function ConfirmationScreen({ api, theme }: ScreenProps) {
     ? <AutomationKind {...props} />
     : kind === "option_action"
     ? <OptionActionKind {...props} />
-    : kind === "revert"
-    ? <RevertKind {...props} />
     : kind === "connection_revoke"
     ? <ConnectionRevokeKind {...props} />
     : kind === "problem_decision"
     ? <ProblemDecisionKind {...props} />
+    : kind === "rewind"
+    ? <RewindKind {...props} />
     : kind === "secret"
     ? <SecretInputKind {...props} />
     : view.request.kind === "owner_decision"

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -26,13 +26,11 @@ import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
 import type { TrackingSource } from "../workspace/tracking/source.ts";
-import type { OperatorEntrySource } from "../workspace/operator-entry.tsx";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
-import type { RolesSource } from "./lophn-space/roles/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { SettingsPanels } from "./lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
@@ -42,6 +40,7 @@ import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
+import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -72,8 +71,6 @@ export interface DesktopProps {
   instructions?: InstructionsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
-  /** roles 화면 통로. 없으면 roles는 준비 전 안내다. */
-  roles?: RolesSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** settings의 backup·update·진단·notification 탭 통로. 없는 탭은 두지 않는다. */
@@ -92,6 +89,8 @@ export interface DesktopProps {
   tasks?: TasksSource;
   /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
+  /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
+  agentViewSource?: AgentViewSourceFactory;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -112,7 +111,6 @@ export function Desktop(
     intents,
     instructions,
     apps,
-    roles,
     settings,
     settingsPanels,
     appDetail,
@@ -122,29 +120,10 @@ export function Desktop(
     coding,
     tasks,
     issues,
+    agentViewSource,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
-  // 작업대가 이 프로젝트에 붙은 Operator를 읽는 통로. roles 통로의 목록에서 프로젝트 것만 고른다.
-  const operators = useMemo<OperatorEntrySource | undefined>(
-    () =>
-      roles === undefined ? undefined : {
-        async operators(project) {
-          const rows = await roles.roles();
-          if (!rows.ok) return rows;
-          return {
-            ok: true,
-            value: rows.value.flatMap((row) =>
-              row.role === "operator" && row.scope.kind === "project" &&
-                row.scope.id === project && row.state !== "withdrawn"
-                ? [{ id: row.id, state: row.state }]
-                : []
-            ),
-          };
-        },
-      },
-    [roles],
-  );
   // things-to-confirm으로 간 횟수. 이미 lophn 공간이어도 그 형제를 다시 연다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
@@ -210,11 +189,6 @@ export function Desktop(
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
   const live = connection.state === "ready" || connection.state === "stale";
-  // core 연결이 (다시) 준비된 횟수. roles 화면이 재연결 뒤 현재 기록을 다시 읽는다.
-  const [ready, setReady] = useState(0);
-  useEffect(() => {
-    if (connection.state === "ready") setReady((value) => value + 1);
-  }, [connection.state]);
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace && live) {
     space = (
@@ -226,16 +200,17 @@ export function Desktop(
         onLauncher={launcher}
         onLophn={lophnSpace}
         onThingsToConfirm={thingsToConfirm}
+        onProjectInstructions={instructions
+          ? () =>
+            setRoute(openInstructions({
+              layer: "project",
+              place: route.project!,
+            }))
+          : undefined}
         editor={editor}
         terminal={terminal}
         tracking={tracking}
-        operators={operators}
-        onAttachOperator={(project) =>
-          visit({
-            ...openLophn("roles"),
-            attach: { kind: "project", id: project },
-          })}
-        onOpenOperator={(role) => visit({ ...openLophn("roles"), role })}
+        agentViewSource={agentViewSource}
       />
     );
   } else if (
@@ -269,6 +244,9 @@ export function Desktop(
         taskTarget={route.taskTarget}
         issues={issues}
         issueProblem={route.issueProblem}
+        agents={workspace?.agentsSource}
+        agentViewSource={agentViewSource}
+        onSettings={() => visit(openLophn("settings"))}
         onInstructions={instructions
           ? () =>
             setRoute(openInstructions({ layer: "app", place: route.app! }))
@@ -294,16 +272,12 @@ export function Desktop(
         screen={route.screen}
         initialRead={route.read}
         initialRequest={route.request}
-        connected={ready}
         windowWidth={windowWidth}
         {...(editor?.files ? { sessions: editor.files } : {})}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
         onApp={appSpace}
-        roles={roles}
-        initialRole={route.role}
-        initialAttach={route.attach}
         settings={settings}
         settingsPanels={settingsPanels}
         coding={coding}

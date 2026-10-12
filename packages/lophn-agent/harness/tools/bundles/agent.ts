@@ -1,28 +1,18 @@
 import { z } from "zod";
-import {
-  err,
-  fingerprint,
-  ok,
-  type Result,
-  sha256Hex,
-} from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   agentRoleSchema,
   fixedVersionReferenceSchema,
   handoffContentSchema,
   handoffReferenceSchema,
-  operatorApprovalBundleSchema,
+  QUESTION_GROUP_MAX_QUESTIONS,
+  QUESTION_GROUP_MIN_QUESTIONS,
   questionTextSchema,
   readCursorSchema,
   roleKindSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { appCreateInputSchema } from "../../../../contracts/apps/mod.ts";
-import {
-  type ApprovalAction,
-  approvalBindingHash,
-  atSchema,
-  idSchema,
-} from "../../../../contracts/platform/mod.ts";
+import { atSchema, idSchema } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
 import { appCreateOptionAction } from "../../../questions/mod.ts";
 import {
@@ -89,7 +79,8 @@ const questionOption = z.strictObject({
   document_move: fixedDocumentMove.optional(),
 });
 
-export const questionSubmitInput = z.strictObject({
+// 질문 하나는 독립 결정 하나다. 묶음의 ID와 질문 ID는 모델이 정하지 않고 handler가 배정한다.
+const questionSubmitQuestion = z.strictObject({
   prompt: questionTextSchema,
   reason: questionTextSchema,
   options: z.array(questionOption),
@@ -97,16 +88,19 @@ export const questionSubmitInput = z.strictObject({
     option_key: z.string().regex(/\S/).nullable(),
     explanation: questionTextSchema,
   }).nullable(),
+});
+
+// 한 번에 질문 1~4개의 묶음을 낸다(questions#R1). 사람은 묶음 전체에 Submit 한 번으로 답한다.
+// 기한은 묶음 하나가 가진다.
+export const questionSubmitInput = z.strictObject({
+  questions: z.array(questionSubmitQuestion)
+    .min(QUESTION_GROUP_MIN_QUESTIONS)
+    .max(QUESTION_GROUP_MAX_QUESTIONS),
   expires_at: atSchema.nullable(),
 });
 
-const questionReadInput = z.strictObject({ question: idSchema("qst") });
+const questionReadInput = z.strictObject({ group: idSchema("qgr") });
 const approvalReadInput = z.strictObject({ approval: idSchema("apr") });
-const presetListInput = z.strictObject({
-  kind: agentRoleSchema.optional(),
-  cursor: readCursorSchema.optional(),
-});
-const presetReadInput = z.strictObject({ preset: idSchema("pst") });
 const assignmentListInput = z.strictObject({
   role: agentRoleSchema.optional(),
   cursor: readCursorSchema.optional(),
@@ -133,15 +127,11 @@ const handoffStatusInput = z.strictObject({
 });
 const handoffResultInput = z.strictObject({ receiver_run: idSchema("run") });
 
-// Operator 초안 제출의 입력은 승인에 묶일 bundle 전체다(presets#R15, assignments#R5).
-// 사람이 검토·승인한 모양 그대로 적용되는 값이고 모델이 자유 텍스트로 쓰지 않는다.
-export const approvalSubmitAssignmentInput = operatorApprovalBundleSchema;
-
 export const questionSubmitTool = define(
   "question.submit",
-  "Ask the person one question that needs their intent, taste, or interpretation.",
+  "Ask the person one to four independent questions at once, each needing their intent, taste, or interpretation. A question whose option fixes an action is the only question of its group.",
   questionSubmitInput,
-  "CreateQuestion",
+  "CreateQuestionGroup",
   {
     effect: "write",
     scopeCheck: "the calling run",
@@ -151,10 +141,10 @@ export const questionSubmitTool = define(
 );
 export const questionReadDecisionTool = define(
   "question.read_decision",
-  "Read a question of this assignment and the answer, if any.",
+  "Read a question group of this assignment and the answers, if any.",
   questionReadInput,
-  "ReadQuestion",
-  { ...READ, scopeCheck: "questions of this assignment" },
+  "ReadQuestionGroup",
+  { ...READ, scopeCheck: "question groups of this assignment" },
 );
 export const approvalReadDecisionTool = define(
   "approval.read_decision",
@@ -162,20 +152,6 @@ export const approvalReadDecisionTool = define(
   approvalReadInput,
   "GetApproval",
   { ...READ, scopeCheck: "approvals the run asked for" },
-);
-export const presetListTool = define(
-  "preset.list",
-  "List presets. This changes nothing.",
-  presetListInput,
-  "ListPresets",
-  { ...READ, scopeCheck: "readable presets" },
-);
-export const presetReadTool = define(
-  "preset.read",
-  "Read one preset. This changes nothing.",
-  presetReadInput,
-  "ReadPreset",
-  { ...READ, scopeCheck: "readable presets" },
 );
 export const assignmentListTool = define(
   "assignment.list",
@@ -225,43 +201,22 @@ export const handoffReadResultTool = define(
   { ...READ, scopeCheck: "handoffs this assignment sent or received" },
 );
 
-// Operator 초안 제출(presets#R15, assignments#R4, tool-judgment#R8). 초안 bundle은
-// 사람 리뷰용이다: scope·outputs·read 선언·schedule·전후 이유가 묶인다. 승인에
-// 고정하는 동작은 승인 후 apply다(assignments#R5): 이 tool은 제출만 하고
-// platform/approvals의 소유 contract로 사람 결정을 연다(P9). bundle 모양은
-// contracts의 operatorApprovalBundleSchema다(lophn-agent#T52).
-export const approvalSubmitAssignmentTool = define(
-  "approval.submit_assignment",
-  "Submit an Operator assignment draft bundle for a person to review and approve.",
-  approvalSubmitAssignmentInput,
-  "create_approval_request",
-  {
-    effect: "write",
-    scopeCheck: "the drafting role's proposal",
-    reversible: true,
-    idempotent: true,
-  },
-);
-
 export const AGENT_TOOLS: readonly ToolDefinition[] = [
   questionSubmitTool,
   questionReadDecisionTool,
   approvalReadDecisionTool,
-  presetListTool,
-  presetReadTool,
   assignmentListTool,
   assignmentReadTool,
   runReadResultTool,
   handoffSubmitTool,
   handoffReadStatusTool,
   handoffReadResultTool,
-  approvalSubmitAssignmentTool,
 ];
 
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
 export type AgentToolPorts = ContractCall & {
-  newId(prefix: "qst" | "run" | "msg" | "apr" | "asg" | "app"): string;
+  newId(prefix: "qgr" | "qst" | "run" | "msg" | "apr" | "asg" | "app"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청,
   // 초안 제출의 요청 assignment를 정한다.
   runFacts(run: string): Promise<
@@ -286,67 +241,90 @@ export function createAgentToolHandlers(
       const value = input as z.infer<typeof questionSubmitInput>;
       const facts = await ports.runFacts(credential.run);
       if (!facts.ok) return facts;
-      const id = ports.newId("qst");
-      const options = [];
-      for (const option of value.options) {
-        const {
-          app_registration: registration,
-          setting_change: setting,
-          document_move: move,
-          ...rest
-        } = option;
-        const fixes = [registration, setting, move].filter((
-          fixed,
-        ) => fixed !== undefined).length;
-        if (fixes > 1) {
-          return err({
-            code: "invalid_input",
-            message: "an option fixes one action",
-          });
-        }
-        if (setting !== undefined || move !== undefined) {
-          const run = { ports, run: credential.run };
-          const action = setting !== undefined
-            ? await settingChangeAction(run, id, setting)
-            : await documentMoveAction(run, move!);
-          if (!action.ok) return action;
-          options.push({ ...rest, action: action.value });
-          continue;
-        }
-        if (registration !== undefined) {
-          // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
-          const [plan, ...others] = rest.evidence;
-          if (
-            plan === undefined || others.length > 0 || plan.section !== null
-          ) {
+      // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음으로만 낸다(questions#R13).
+      // 읽기·고정 전에 먼저 거절한다. command도 같은 검사를 한다.
+      const proposesAction = value.questions.some((question) =>
+        question.options.some((option) =>
+          option.app_registration !== undefined ||
+          option.setting_change !== undefined ||
+          option.document_move !== undefined
+        )
+      );
+      if (proposesAction && value.questions.length > 1) {
+        return err({
+          code: "invalid_input",
+          message: "a question with a fixed action must be a group of one",
+        });
+      }
+      const group = ports.newId("qgr");
+      const questions = [];
+      for (const question of value.questions) {
+        const id = ports.newId("qst");
+        const options = [];
+        for (const option of question.options) {
+          const {
+            app_registration: registration,
+            setting_change: setting,
+            document_move: move,
+            ...rest
+          } = option;
+          const fixes = [registration, setting, move].filter((
+            fixed,
+          ) => fixed !== undefined).length;
+          if (fixes > 1) {
             return err({
               code: "invalid_input",
-              message:
-                "a registration option names the plan it registers from as its one evidence",
+              message: "an option fixes one action",
             });
           }
-          options.push({
-            ...rest,
-            action: appCreateOptionAction({
-              id: ports.newId("app"),
-              ...registration,
-              planning_version: plan.version,
-            }),
-          });
-          continue;
+          if (setting !== undefined || move !== undefined) {
+            const run = { ports, run: credential.run };
+            const action = setting !== undefined
+              ? await settingChangeAction(run, id, setting)
+              : await documentMoveAction(run, move!);
+            if (!action.ok) return action;
+            options.push({ ...rest, action: action.value });
+            continue;
+          }
+          if (registration !== undefined) {
+            // 등록 근거 판은 선택지의 근거 하나다. 그 판이 실제 판인지는 질문 command가 확인한다.
+            const [plan, ...others] = rest.evidence;
+            if (
+              plan === undefined || others.length > 0 || plan.section !== null
+            ) {
+              return err({
+                code: "invalid_input",
+                message:
+                  "a registration option names the plan it registers from as its one evidence",
+              });
+            }
+            options.push({
+              ...rest,
+              action: appCreateOptionAction({
+                id: ports.newId("app"),
+                ...registration,
+                planning_version: plan.version,
+              }),
+            });
+            continue;
+          }
+          options.push(rest);
         }
-        options.push(rest);
+        questions.push({
+          id,
+          prompt: question.prompt,
+          reason: question.reason,
+          options,
+          recommendation: question.recommendation,
+        });
       }
       const created = await ports.call(
-        "CreateQuestion",
+        "CreateQuestionGroup",
         {
-          id,
+          id: group,
           run: credential.run,
           session: facts.value.session,
-          prompt: value.prompt,
-          reason: value.reason,
-          options,
-          recommendation: value.recommendation,
+          questions,
           expires_at: value.expires_at,
         },
         credential.run,
@@ -355,14 +333,12 @@ export function createAgentToolHandlers(
           : { idempotency_key: credential.call },
       );
       if (!created.ok) return created;
-      return ok(success("question asked", created.value));
+      return ok(success("question group asked", created.value));
     },
   );
   const passes: [ToolDefinition, string][] = [
     [questionReadDecisionTool, "question read"],
     [approvalReadDecisionTool, "approval read"],
-    [presetListTool, "presets listed"],
-    [presetReadTool, "preset read"],
     [assignmentListTool, "assignments listed"],
     [assignmentReadTool, "assignment read"],
     [runReadResultTool, "run result read"],
@@ -424,87 +400,6 @@ export function createAgentToolHandlers(
       }, credential.run);
       if (!sent.ok) return sent;
       return ok(success("handoff sent", sent.value));
-    },
-  );
-  // 초안 번들은 승인의 action 입력에 apply가 받는 모양 그대로 실린다
-  // (lophn-agent#T53, shell#T54에서 넘어온 것). id·요청자·run·기한은 모델이
-  // 정하지 않는다: handler가 호출 run의 사실과 core 준비 값에서 채운다(P9, R4).
-  // 대상은 승인이 묶을 assignment 하나다(생성은 preset 판 reviewer가 고른다).
-  //
-  // 접수 필드의 id는 초안 번들의 지문에서 만든 고정 id다: 같은 초안은 같은
-  // approval·slot id를 내므로 같은 지문이 같은 승인 요청을 가리키고, 거절된 같은
-  // 초안의 재제출은 승인 금지 계보(rejectedInLineage, platform/approvals#R16)가
-  // 같은 지문으로 다시 묻지 않는다. 모델이 고르는 값은 대상·값 후보뿐이다.
-  const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
-
-  // 초안 번들의 지문에서 ULID 모양의 고정 tail을 만든다. 같은 key는 같은 id다.
-  async function keyedTail(key: string): Promise<string> {
-    const hex = await sha256Hex(key);
-    let value = 0n;
-    for (let index = 0; index < 25; index += 1) {
-      value = (value << 8n) | BigInt(parseInt(hex.slice(index, index + 2), 16));
-    }
-    // 첫 글자는 시각 48bit의 상위 bit라 0~7만 된다(ids.ts ULID).
-    const head = Number(value >> 195n) % 8;
-    let tail = CROCKFORD[head]!;
-    for (let position = 24; position >= 0; position -= 1) {
-      tail += CROCKFORD[Number((value >> BigInt(position * 5)) & 31n)]!;
-    }
-    return tail;
-  }
-
-  handlers.set(
-    approvalSubmitAssignmentTool.name,
-    async (input, credential: RunCredential) => {
-      const value = input as z.infer<typeof approvalSubmitAssignmentInput>;
-      const facts = await ports.runFacts(credential.run);
-      if (!facts.ok) return facts;
-      // approval에 고정하는 동작은 승인 뒤 사람이 결정하고 machine이 내는
-      // ApplyOperatorAssignment다(assignments#R5). action의 입력은 apply
-      // contract가 받는 모양 그대로다(lophn-agent#T53의 입력 모양 맞춤): 접수
-      // 필드(approval·id)를 채우고 결정 seq는 허락이 확정하는 것이라 생략하고
-      // apply handler가 승인 기록으로 맞춘다. 초안 번들은 사람이 검토한 모양
-      // 그대로 실린다: creating 초안의 assignment는 null이다.
-      const applyInput = {
-        approval: `apr_${await keyedTail(
-          `approval:${credential.run}:${await fingerprint(value)}`,
-        )}`,
-        id: value.assignment ??
-          `asg_${await keyedTail(
-            `slot:${credential.run}:${await fingerprint(value)}`,
-          )}`,
-        bundle: value,
-      };
-      const base = {
-        concern: "lophn-agent/assignments",
-        command: "ApplyOperatorAssignment",
-        caller: `agent:${facts.value.assignment}` as ApprovalAction["caller"],
-        targets: [applyInput.id],
-        input: { kind: "inline" as const, value: applyInput },
-        input_hash: await fingerprint(applyInput),
-        comparison: {},
-      };
-      const action: ApprovalAction = {
-        ...base,
-        binding_hash: await approvalBindingHash({ ...base, binding_hash: "0" }),
-      };
-      // 이 tool은 제출만 한다: 적용은 승인 뒤 사람 decision의 apply다.
-      const submitted = await ports.call("create_approval_request", {
-        id: applyInput.approval,
-        requester: `agent:${facts.value.assignment}`,
-        run: credential.run,
-        reason: value.reason,
-        effect: {
-          changes: "an Operator assignment draft applied as reviewed",
-          external: null,
-          reversible: true,
-          reversibility: "the person can pause or withdraw the assignment",
-        },
-        action,
-        expires_at: null,
-      }, credential.run);
-      if (!submitted.ok) return submitted;
-      return ok(success("assignment draft submitted", submitted.value));
     },
   );
   return handlers;

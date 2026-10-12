@@ -1,6 +1,6 @@
 // Context Engineer만의 tool(lophn-agent/harness/tools#R23, roles/context-engineer#R5, R8, R11, R14, R15)이다.
 // 정의는 harness/tools에 있고(harness는 roles를 import하지 않는다) `BUILTIN_TOOLS`가 더한다. 역할 쪽은
-// 이름만 고른다: 역할 상한 이름 표(`presets/role-caps.ts`)가 이 이름을 Context Engineer에게만 연다.
+// 이름만 고른다: 역할 상한 이름 표(`agents/role-caps.ts`)가 이 이름을 Context Engineer에게만 연다.
 // 계약은 JSON 선언으로만 쓰고(초안 content는 객체), 코드·shell·파일 쓰기 통로는 없다. 모든 tool은 소유 contract
 // 하나를 부르는 얇은 handler다: 초안 쓰기·판 제출·용어집 쓰기는 core가 검사하고, 판 적용은 check를
 // 통과한 뒤 core가 한다.

@@ -162,10 +162,10 @@ async function fixture(): Promise<Fixture & { hash: string }> {
 function seed(f: Fixture, hash: string, size: number, ref = hash) {
   const assignment = id("asg", 1);
   f.db.prepare(
-    `insert into sessions (id, assignment, role, work_place_kind, work_place_id,
-       work_place_revision, state, created_seq, state_seq)
-     values (?, ?, 'lophn', 'global', null, 1, 'open', 1, 1)`,
-  ).run(id("ses", 1), assignment);
+    `insert into sessions (id, assignment, work_place_kind, work_place_id,
+       state, created_seq, state_seq)
+     values (?, ?, 'project', ?, 'open', 1, 1)`,
+  ).run(id("ses", 1), assignment, id("prj", 1));
   f.db.prepare(
     `insert into messages (id, session, actor, body, mode, links, created_seq,
        state_seq) values (?, ?, 'user', ?, 'request', '[]', 2, 2)`,

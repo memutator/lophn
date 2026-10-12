@@ -1,7 +1,7 @@
 // lophn만의 context 조회 tool 셋(roles/lophn#R3, R14)이다. prompt 자료는 preset이
 // 고른 project 안에 머물고(presets#R17) 이 tool들이 모든 project의 context를 읽는 길을 따로 연다: 모든 project의
 // active context 목록, context 하나의 overview·용어집, 문서 경로를 덮는 context. 정의는 harness/tools에 있고
-// `BUILTIN_TOOLS`가 더하며 역할 상한(`presets/role-caps.ts`)이 이 이름을 lophn에게만 연다. 모두 읽기이고
+// `BUILTIN_TOOLS`가 더하며 역할 상한(`agents/role-caps.ts`)이 이 이름을 lophn에게만 연다. 모두 읽기이고
 // 소유 contract를 부르는 얇은 handler다. overview 글은 prompt 자료와 같은 글꼴이어야 하므로 글로 바꾸는
 // 함수를 runtime 조립이 넣는다(packages는 apps를 import하지 않는다).
 import { z } from "zod";

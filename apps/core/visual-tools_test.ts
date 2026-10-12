@@ -29,6 +29,7 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
   createLedgerRegistration,
   lophnAgentDefinitions,
@@ -59,8 +60,15 @@ async function start(f: Fixture): Promise<Core> {
   const started = await startCore({
     lophnHome: f.home,
     port: 0,
-    teams: [{ lophnAgentDefinitions }, { createLedgerRegistration }],
-    teamModules: [new URL("./lophn-agent.ts", import.meta.url).href],
+    teams: [
+      { lophnAgentDefinitions },
+      { createLedgerRegistration },
+      { createLedgerRegistration: documentsRegistration },
+    ],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: f.clock,
     random: seededRandom(300 + ++f.starts),
     testCredentials: true,
@@ -78,6 +86,7 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "ReadMessageBody",
+  "project.create",
 ];
 
 async function grant(
@@ -140,6 +149,25 @@ async function openRun(f: Fixture, core: Core) {
   const lophn = (listed.body as { assignments: Assignment[] }).assignments
     .find((entry) => entry.role === "lophn")!;
   const session = id("ses", 1);
+  // 세션은 쓸 수 있는 project 하나를 자리로 받는다.
+  const place = await post(
+    core.port,
+    "projects/create",
+    command(
+      {
+        id: id("prj", 1),
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      "place",
+      {},
+    ),
+    user,
+  );
+  assertEquals(place.status, 200, JSON.stringify(place.body));
   const opened = await post(
     core.port,
     "sessions/open",
@@ -147,9 +175,8 @@ async function openRun(f: Fixture, core: Core) {
       {
         id: session,
         assignment: lophn.id,
-        role: lophn.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: id("prj", 1) },
+        opening_context: null,
       },
       "open",
       { assignment_revision: lophn.revision, assignment_state: lophn.state },

@@ -122,7 +122,7 @@ Deno.test("shell/workspace#R16 [ctx-I39b]: 색인이나 Operator 수를 읽지 �
     ...fake,
     overview: () =>
       Promise.resolve({ ok: false as const, message: "unavailable" }),
-    operatorCount: () =>
+    operatorCounts: () =>
       Promise.resolve({ ok: false as const, message: "unavailable" }),
   };
   using view = tab({}, source);
@@ -137,4 +137,20 @@ Deno.test("shell/workspace#R16 [ctx-I39b]: 색인이나 Operator 수를 읽지 �
     "Version r5, tests passed",
     "no violations",
   ]);
+});
+
+Deno.test("shell/workspace#R16 [ctx-I54]: Operator 수는 탭을 읽을 때 project마다 한 번만 묻는다", async () => {
+  const fake = createFakeContextsSource();
+  const asked: string[] = [];
+  const source = {
+    ...fake,
+    operatorCounts: (project: string) => {
+      asked.push(project);
+      return fake.operatorCounts(project);
+    },
+  };
+  using view = tab({}, source);
+  await settle();
+  assertEquals(all(view.container, "[data-context-card]").length, 2);
+  assertEquals(asked, [PROJECT]);
 });

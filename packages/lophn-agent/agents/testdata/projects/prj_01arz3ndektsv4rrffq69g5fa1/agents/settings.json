@@ -1,0 +1,30 @@
+{
+  "models": {
+    "lophn": {
+      "provider": "pvd_01arz3ndektsv4rrffq69g5fc2",
+      "model_name": "claude-sonnet",
+      "option_values": { "effort": "high" }
+    }
+  },
+  "permissions": {
+    "tools": [
+      "document.list",
+      "document.outline",
+      "document.search",
+      "document.read_section",
+      "document.create",
+      "context.read_entity",
+      "context.read_contract",
+      "context.draft",
+      "context.preview",
+      "context.submit",
+      "app.list",
+      "app.read",
+      "app.command_metadata",
+      "app.call_read_command",
+      "ticket.create",
+      "visual.show",
+      "question.submit"
+    ]
+  }
+}

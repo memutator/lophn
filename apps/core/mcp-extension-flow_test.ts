@@ -4,11 +4,10 @@
 // 바꾼 뒤(assignments/change-preset), 접수된 run이 external MCP tool을 통해
 // 가짜 stdio MCP child를 부르는지 본다. 사람의 실제 registry·실제 MCP server·실제 model
 // provider에 닿지 않는다.
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
-import { createHash } from "node:crypto";
 import {
   createIdSource,
-  err,
   formatAt,
   manualClock,
   ok,
@@ -52,6 +51,7 @@ import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
 import { createRunDriver } from "../agent-runtime/run-driver.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
 import { startCore } from "./core.ts";
+import { createLedgerRegistration as documentsRegistration } from "./documents.ts";
 import {
   createLedgerRegistration,
   lophnAgentDefinitions,
@@ -66,6 +66,7 @@ import { MACHINE_TOKEN, USER_TOKEN } from "./testing/tool-judgment-world.ts";
 
 const PVD = "pvd_01arz3ndektsv4rrffq69g5fav";
 const SES = "ses_01arz3ndektsv4rrffq69g5fav";
+const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
 
 // run이 제공하는 tool의 contract다. user 자격의 scope에도 들어 있다. 답 기록은
@@ -83,12 +84,14 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
-  "CreatePreset",
-  "ChangeAssignmentPreset",
+  "SaveAgent",
   "ReadAssignment",
   "SettingsDefinitions",
   "GetSettings",
   "ApplySettings",
+  "ReadModelDefaults",
+  "ChangeModelDefaults",
+  "project.create",
 ];
 
 const MACHINE_OPERATIONS = [
@@ -102,7 +105,8 @@ function context(
   ref = "none",
 ): AuthenticatedContext {
   return {
-    principal: actor,
+    // 제품 runtime의 machine 자격이다. context 읽기가 이 principal만 연다(documents/contexts).
+    principal: actor === "machine" ? AGENT_RUNTIME_PRINCIPAL : actor,
     actor,
     scope: { operations: [...operations], targets },
     conditions: targets,
@@ -168,40 +172,26 @@ async function writeChild(): Promise<string> {
   return path;
 }
 
-// ---- preset 판 fixture ----
-// 제품 기본 preset에 MCP 선택을 얹은 user 판이다. 고른 정확한 쌍만 선택한다(R31: 서버 전체
-// 선택은 없다). read_note는 분류(read·reversible)와 safe 표시가 있고 scan_note는 미분류이며
-// write_note는 어느 시나리오에서도 선택 밖이라 정의도 호출도 없다.
-function userPresetDefinition(
-  prompt: string,
+// ---- agent 정의 fixture ----
+// 등록한 server의 MCP tool은 기본으로 켜져 있다. 시나리오가 고른 정확한 쌍(R31: 서버 전체
+// 선택은 없다)만 남기도록 나머지를 mcp_off로 끄고 safe 표시는 safe_tools로 둔다. read_note는
+// 분류(read·reversible)와 safe 표시가 있고 scan_note는 미분류이며 write_note는 어느 시나리오에서도
+// 선택 밖이라 정의도 호출도 없다.
+const NOTE_TOOLS = ["read_note", "write_note", "scan_note"] as const;
+
+function lophnDefinition(
   selected: readonly string[],
   safe: readonly string[],
 ) {
   return {
-    kind: "lophn",
-    name: "MCP review",
-    origin: "user",
-    prompt,
-    capability: { bundles: [], tools: [] },
-    context: [{ kind: "all", target: null, section: null }],
-    mcp: {
-      servers: ["notes"],
-      tools: selected.map((original_tool) => ({
-        server_name: "notes",
-        original_tool,
-      })),
-    },
+    body: "",
+    mcp_off: NOTE_TOOLS.filter((tool) => !selected.includes(tool)).map((
+      original_tool,
+    ) => ({ server_name: "notes", original_tool })),
     safe_tools: safe.map((original_tool) => ({
       server_name: "notes",
       original_tool,
     })),
-    skills: [],
-    // model 선택은 없다. provider ledger 검사(providers 표·credential 확인)를
-    // 건너뛴다(presets/capability validateModelSelection). run이 쓸 model은 이
-    // 테스트의 resolveModel stub이 낸다.
-    model: null,
-    organizing_model: null,
-    instructions: [],
   };
 }
 
@@ -262,8 +252,14 @@ async function runScenario(scenario: Scenario): Promise<void> {
   const started = await startCore({
     lophnHome: home,
     port: 0,
-    teams: [{ lophnAgentDefinitions, createLedgerRegistration }],
-    teamModules: [new URL("./lophn-agent.ts", import.meta.url).href],
+    teams: [
+      { lophnAgentDefinitions, createLedgerRegistration },
+      { createLedgerRegistration: documentsRegistration },
+    ],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock,
     random: seededRandom(61),
     testCredentials: true,
@@ -384,9 +380,32 @@ async function runScenario(scenario: Scenario): Promise<void> {
         },
         endpoint: provider.url,
         protocol: "anthropic-messages",
+        credential: { kind: "none", preparation: null },
       }),
     );
     assertEquals(registered.status, 200, JSON.stringify(registered.body));
+    // lophn이 쓸 model은 Workspace의 role slot이 정한다(catalog에 있는 이름이어야 한다).
+    const defaults = await call(
+      server,
+      "agent-model-defaults/read",
+      USER_TOKEN,
+      {},
+    );
+    const seq = (defaults.body["defaults"] as { settings_seq: string })
+      .settings_seq;
+    const chosen = await call(
+      server,
+      "agent-model-defaults/change",
+      USER_TOKEN,
+      command({
+        lophn: {
+          provider: PVD,
+          model_name: "claude-sonnet-4-5",
+          option_values: {},
+        },
+      }, { compare: { settings_seq: seq } }),
+    );
+    assertEquals(chosen.status, 200, JSON.stringify(chosen.body));
 
     // assignment를 찾는다.
     const listed = await call(server, "assignments/list", MACHINE_TOKEN, {});
@@ -397,43 +416,35 @@ async function runScenario(scenario: Scenario): Promise<void> {
     }[]).find((entry) => entry.role === "lophn");
     assert(lophn !== undefined);
 
-    // 사람이 MCP 선택을 얹은 user preset을 만든다(presets/create).
-    const prompt = createHash("sha256").update("user prompt", "utf8").digest(
-      "hex",
-    );
-    const definition = userPresetDefinition(
-      prompt,
-      scenario.selected,
-      scenario.safe,
-    );
-    const created = await call(
-      server,
-      "presets/create",
-      USER_TOKEN,
-      command({
-        id: "pst_01arz3ndektsv4rrffq69g5fav",
-        definition,
-        copied_from: null,
-      }),
-    );
-    assertEquals(created.status, 200, JSON.stringify(created.body));
-
-    // assignment의 preset을 바꾼다(CAS revision+role).
-    const changed = await call(
-      server,
-      "assignments/change-preset",
-      USER_TOKEN,
-      command({
-        assignment: lophn.id,
-        preset: "pst_01arz3ndektsv4rrffq69g5fav",
-        preset_revision: 1,
-      }, {
-        compare: { revision: lophn.revision, role: "lophn" },
-      }),
-    );
-    assertEquals(changed.status, 200, JSON.stringify(changed.body));
-
     // session과 사람 요청 접수.
+    // 세션은 쓸 수 있는 project 하나를 자리로 받는다.
+    const place = await call(
+      server,
+      "projects/create",
+      USER_TOKEN,
+      command({
+        id: PROJECT,
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      }),
+    );
+    assertEquals(place.status, 200, JSON.stringify(place.body));
+
+    // 사람이 이 project 자리의 lophn 정의에 MCP 선택을 둔다(agents/save).
+    const saved = await call(
+      server,
+      "agents/save",
+      USER_TOKEN,
+      command({
+        place: { kind: "project", id: PROJECT },
+        assignment: lophn.id,
+        definition: lophnDefinition(scenario.selected, scenario.safe),
+      }, { compare: { hash: null } }),
+    );
+    assertEquals(saved.status, 200, JSON.stringify(saved.body));
     const opened = await call(
       server,
       "sessions/open",
@@ -441,12 +452,11 @@ async function runScenario(scenario: Scenario): Promise<void> {
       command({
         id: SES,
         assignment: lophn.id,
-        role: "lophn",
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: PROJECT },
+        opening_context: null,
       }, {
         compare: {
-          assignment_revision: lophn.revision + 1,
+          assignment_revision: lophn.revision,
           assignment_state: "enabled",
         },
       }),
@@ -473,7 +483,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
           session_state_seq:
             (session.body as { session: { state_seq: string } }).session
               .state_seq,
-          assignment_revision: lophn.revision + 1,
+          assignment_revision: lophn.revision,
           assignment_state: "enabled",
         },
       }),
@@ -558,11 +568,8 @@ async function runScenario(scenario: Scenario): Promise<void> {
       provider: PVD,
       name: "fixture-model",
       protocol: "anthropic-messages",
-      credential_key: null,
       credential_revision: null,
-      options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 200000,
         input_limit: 150000,
@@ -597,7 +604,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
       blobs: {
         async prepare(purpose, bytes) {
           const prepared = await core.prepareBlob({
-            principal: "machine",
+            principal: AGENT_RUNTIME_PRINCIPAL,
             purpose,
             bytes: new ReadableStream({
               start(controller) {
@@ -615,10 +622,9 @@ async function runScenario(scenario: Scenario): Promise<void> {
         },
       },
       agentCall: (token) => agentCall({ port: core.port, token }),
-      resolveModel: ({ preset }) =>
+      resolveModel: () =>
         Promise.resolve(ok({
           call: model,
-          preset,
           endpoint: provider.url,
           usageRevision: "usage-1",
           timeoutMs: 20_000,
@@ -636,10 +642,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
       rolePrompt: () => Promise.resolve(ok("ROLE RULES")),
       instructions: {
         files: {
-          registered: () => Promise.resolve(ok(null)),
-          attached: () =>
-            Promise.resolve(err({ code: "not_found", message: "none" })),
-          projectOf: () => Promise.resolve(ok(null)),
+          read: () => Promise.resolve(ok(null)),
         },
         redact: (text) => text,
       },

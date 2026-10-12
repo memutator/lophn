@@ -1,25 +1,96 @@
 import { err, ok } from "../../base/mod.ts";
 import {
   atSchema,
+  type NotificationAsk,
   notificationsDisplay,
   notificationsGet,
   notificationsList,
   type ReadDefinition,
 } from "../../contracts/platform/mod.ts";
+import { notificationAsk } from "./ask-agent.ts";
 import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";
 import { notificationOf, readNotificationRow } from "./store.ts";
 
-// 사람 줄만 본다. 다른 actor에게는 source 시각을 열지 않고 payload는 어디에도 없다.
+type Sql = Parameters<
+  ReadDefinition<typeof notificationsGet>["handle"]
+>[0]["sql"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parsePayload(raw: unknown): unknown {
+  if (typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// Ask가 연 탭의 자리다(R14). 앱 문제는 source payload가, release는 그 release를 만든 사실
+// (ReleasePrepared)이 앱을 가진다. context 위반은 그 context를 만든 사실(ContextCreated)이
+// project를 가진다. 알 수 없으면 null이다.
+function placeOf(
+  sql: Sql,
+  event: string,
+  subject: unknown,
+  payload: unknown,
+): string | null {
+  if (event === "ProblemOpened") {
+    const app = isRecord(payload) ? payload["app"] : undefined;
+    return typeof app === "string" ? app : null;
+  }
+  if (event === "ReleaseActivationFailed" && typeof subject === "string") {
+    const prepared = sql.get(
+      "select payload from events where type = 'ReleasePrepared' and subject = ? order by seq limit 1",
+      [subject],
+    );
+    const record = parsePayload(prepared?.["payload"]);
+    const app = isRecord(record) ? record["app"] : undefined;
+    return typeof app === "string" ? app : null;
+  }
+  if (event === "ContextViolationsRecorded" && typeof subject === "string") {
+    const created = sql.get(
+      "select payload from events where type = 'ContextCreated' and subject = ? order by seq limit 1",
+      [subject],
+    );
+    const record = parsePayload(created?.["payload"]);
+    const project = isRecord(record) ? record["project"] : undefined;
+    return typeof project === "string" ? project : null;
+  }
+  return null;
+}
+
+type Source = {
+  sql: Sql;
+  event: string;
+  subject: unknown;
+  at: unknown;
+  payload: unknown;
+};
+
+// 사람 줄만 본다. 다른 actor에게는 source 시각·ask를 열지 않고 payload는 어디에도 없다.
 function lineFacts(
   actor: string,
-  at: unknown,
-): { occurred_at?: string } {
+  source: Source,
+): { occurred_at?: string; ask?: NotificationAsk | null } {
   if (actor !== "user") return {};
+  const { event, at, payload } = source;
+  const facts: { occurred_at?: string; ask: NotificationAsk | null } = {
+    ask: typeof source.subject === "string"
+      ? notificationAsk(
+        event,
+        source.subject,
+        placeOf(source.sql, event, source.subject, payload),
+      )
+      : null,
+  };
   if (typeof at === "string" && atSchema.safeParse(at).success) {
-    return { occurred_at: at };
+    facts.occurred_at = at;
   }
-  return {};
+  return facts;
 }
 
 type GetRoute = typeof notificationsGet;
@@ -37,7 +108,7 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
         return err({ code: "not_found", message: "notification이 없다" });
       }
       const source = snapshot.sql.get(
-        "select at from events where seq = ?",
+        "select at, subject, payload from events where seq = ?",
         [BigInt(row.notification.source_seq)],
       );
       return ok({
@@ -47,7 +118,13 @@ export function notificationsGetRead(): ReadDefinition<GetRoute> {
           read_at: row.notification.read_at,
         },
         source_event: row.source_event,
-        ...lineFacts(ctx.actor, source?.["at"]),
+        ...lineFacts(ctx.actor, {
+          sql: snapshot.sql,
+          event: row.source_event,
+          subject: source?.["subject"],
+          at: source?.["at"],
+          payload: parsePayload(source?.["payload"]),
+        }),
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       } as never);
@@ -77,7 +154,8 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
            from notifications ${where} order by source_seq limit ?
          )
          select source.*, events.type as source_event,
-                events.at as source_at
+                events.at as source_at, events.subject as source_subject,
+                events.payload as source_payload
          from source join events on events.seq = cast(source.source_seq as integer)
          order by cast(source.source_seq as integer)`,
         [...params, limit],
@@ -89,7 +167,13 @@ export function notificationsListRead(): ReadDefinition<ListRoute> {
           read_at: row["read_at"] === null ? null : String(row["read_at"]),
         },
         source_event: String(row["source_event"]),
-        ...lineFacts(ctx.actor, row["source_at"]),
+        ...lineFacts(ctx.actor, {
+          sql: snapshot.sql,
+          event: String(row["source_event"]),
+          subject: row["source_subject"],
+          at: row["source_at"],
+          payload: parsePayload(row["source_payload"]),
+        }),
       }));
       const last = rows.length
         ? String(rows[rows.length - 1]["source_seq"])

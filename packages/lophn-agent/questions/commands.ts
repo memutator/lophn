@@ -1,11 +1,11 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
-  answerQuestion,
   answerQuestionAction,
-  cancelQuestion,
-  createQuestion,
-  deferQuestion,
-  expireQuestion,
+  answerQuestionGroup,
+  cancelQuestionGroup,
+  createQuestionGroup,
+  deferQuestionGroup,
+  expireQuestionGroup,
   QUESTION_BLOB_FIELDS,
   questionAnswered,
   questionCancelled,
@@ -20,28 +20,41 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
+  checkGroupOpen,
+  collectGroupAnswers,
+  deferGroup,
+  type GroupAnswerInput,
+  validateNewGroup,
+} from "./group.ts";
+import {
   assignmentState,
   fixedVersionsExist,
-  loadQuestion,
+  groupStateOf,
+  loadGroup,
   loadRunRef,
-  type QuestionRow,
-  registerTextBlobs,
-  type RunRef,
+  optionsOf,
+  type QuestionGroup,
   sameContent,
   settingChangesOf,
+} from "./model.ts";
+import type { RunRef } from "./model.ts";
+import {
+  registerTextBlobs,
   storedContent,
   type TextBlob,
   textBlob,
-} from "./model.ts";
+} from "./text-blobs.ts";
 import { checkOptionAction } from "./option-actions.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
-// 하나다. 실패하면 이전 판 전체가 유지된다. 글(본문·이유·설명·추천·자유 답·취소
-// 이유)은 값으로 받는다. core가 redaction(자유 답은 screen.ts의 secret 판정까지)을
-// 거쳐 blob으로 준비해 두었고, 이 command가 같은 transaction에서 그 blob의 영구
-// 참조를 등록한다(Q38). 준비 증거는 같은 값에서 정해진다: UTF-8 bytes의 hash·크기,
-// 보낸 자격의 principal, 글 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가
-// 되돌아간다.
+// 하나다. 실패하면 이전 판 전체가 유지된다. 묶음은 한 단위다: 만들 때 질문 1~4개가 함께
+// 저장되고, 답은 묶음 전체에 한 번이며(일부만 답한 저장은 없다), Skip·취소·만료도 묶음
+// 전체를 닫는다. 순수 검사는 group.ts가 하고 이 파일은 저장·event·CAS를 맡는다.
+// 글(본문·이유·설명·추천·자유 답·취소 이유)은 값으로 받는다. core가 redaction(자유 답은
+// screen.ts의 secret 판정까지)을 거쳐 blob으로 준비해 두었고, 이 command가 같은
+// transaction에서 그 blob의 영구 참조를 등록한다(Q38). 준비 증거는 같은 값에서 정해진다:
+// UTF-8 bytes의 hash·크기, 보낸 자격의 principal, 글 purpose. 살아 있는 준비가 없으면
+// 등록이 거절되어 전체가 되돌아간다.
 
 type Code = "invalid_input" | "conflict" | "not_found" | "forbidden";
 
@@ -49,8 +62,8 @@ function reject(code: Code, message: string): Result<never> {
   return err({ code, message });
 }
 
-function questionNotFound(): Result<never> {
-  return reject("not_found", "question not found");
+function groupNotFound(): Result<never> {
+  return reject("not_found", "question group not found");
 }
 
 function requireUser(ctx: RequestContext): Result<void> {
@@ -60,8 +73,8 @@ function requireUser(ctx: RequestContext): Result<void> {
   );
 }
 
-// agent 자격은 자기 assignment의 run 질문만 다룬다. 자격에 run이 묶여 있으면 그
-// run의 질문만이다. 그 밖은 없는 질문과 똑같이 답한다.
+// agent 자격은 자기 assignment의 run 묶음만 다룬다. 자격에 run이 묶여 있으면 그
+// run의 묶음만이다. 그 밖은 없는 묶음과 똑같이 답한다.
 function agentOwns(ctx: RequestContext, run: RunRef): boolean {
   const actor = parseActor(ctx.actor);
   if (actor === undefined || actor.kind !== "agent") return false;
@@ -69,378 +82,487 @@ function agentOwns(ctx: RequestContext, run: RunRef): boolean {
   return ctx.run === undefined || ctx.run === null || ctx.run === run.id;
 }
 
+export type ClosedStatus = "answered" | "expired" | "cancelled";
+
 type ClosedOutput = {
   id: string;
-  status: "answered" | "expired" | "cancelled";
+  status: ClosedStatus;
   closed_seq: string;
   replayed: boolean;
 };
 
 function closedOutput(
-  row: QuestionRow,
-  status: "answered" | "expired" | "cancelled",
+  group: QuestionGroup,
+  status: ClosedStatus,
   closedSeq: string,
   replayed: boolean,
 ): Result<ClosedOutput> {
-  return ok({ id: row.id, status, closed_seq: closedSeq, replayed });
+  return ok({ id: group.id, status, closed_seq: closedSeq, replayed });
 }
 
 // 답은 now < expires_at일 때만 받는다. 경계 시각부터는 받지 않는다(R7).
-function pastDeadline(row: QuestionRow, now: string): boolean {
-  return row.expires_at !== null &&
-    Date.parse(now) >= Date.parse(row.expires_at);
+function pastDeadline(group: QuestionGroup, now: string): boolean {
+  return group.expires_at !== null &&
+    Date.parse(now) >= Date.parse(group.expires_at);
 }
 
-function closeRow(
+export function closeGroup(
   tx: Tx,
-  row: QuestionRow,
+  group: Pick<QuestionGroup, "id">,
   closed: {
-    status: "answered" | "expired" | "cancelled";
+    status: ClosedStatus;
     seq: string;
-    answer?: string;
     bindingHash?: string | null;
     reason?: string;
     reasonBlob?: string;
   },
 ): void {
   tx.sql.run(
-    `update questions set status = ?, answer = ?, binding_hash = ?,
+    `update question_groups set status = ?, binding_hash = ?,
        closed_reason = ?, closed_reason_blob = ?, closed_seq = ?
      where id = ?`,
     [
       closed.status,
-      closed.answer ?? null,
       closed.bindingHash ?? null,
       closed.reason ?? null,
       closed.reasonBlob ?? null,
       Number(closed.seq),
-      row.id,
+      group.id,
     ],
   );
 }
 
-type LoadedPending = { row: QuestionRow; run: RunRef };
+type LoadedPending = { group: QuestionGroup; run: RunRef };
 
-// 질문을 읽고 호출자가 볼 수 있는지 본다. 보이지 않으면 없는 질문과 같다.
+// 묶음을 읽고 호출자가 볼 수 있는지 본다. 보이지 않으면 없는 묶음과 같다.
 function loadVisible(
   tx: Tx,
   id: string,
   visible: (run: RunRef) => boolean,
 ): Result<LoadedPending> {
-  const row = loadQuestion(tx, id);
-  if (row === undefined) return questionNotFound();
-  const run = loadRunRef(tx, row.run);
-  if (run === undefined || !visible(run)) return questionNotFound();
-  return ok({ row, run });
+  const group = loadGroup(tx, id);
+  if (group === undefined) return groupNotFound();
+  const run = loadRunRef(tx, group.run);
+  if (run === undefined || !visible(run)) return groupNotFound();
+  return ok({ group, run });
 }
 
 type StoredAnswer =
   | { kind: "option"; option_key: string; text_blob: null }
   | { kind: "text"; option_key: null; text_blob: string };
 
-type AnswerInput = {
+type SubmittedAnswer = {
   question: string;
-  created_seq: string;
-  answer:
-    | { kind: "option"; option_key: string }
-    | { kind: "text"; text: string };
+  answer: GroupAnswerInput["answer"];
 };
 
-// 일반 답(binding이 null)과 action 답(binding_hash가 있음)이 같은 규칙을 쓴다. 다른 점은
-// 선택지의 고정 action뿐이다: action이 있는 선택지는 사람 결정 확인을 거친 action 답으로만
-// 받고(platform/identity#R14, user token은 클릭의 증거가 아니다), action이 없는 선택지와
-// 자유 답은 확인 없이 받는다.
+type AnswerInput = {
+  group: string;
+  created_seq: string;
+  answers: SubmittedAnswer[];
+};
+
+// 일반 답(binding이 null)과 action 답(binding이 있음)이 같은 규칙을 쓴다. 다른 점은 선택지의
+// 고정 action뿐이다: action이 있는 선택지는 사람 결정 확인을 거친 action 답으로만 받고
+// (platform/identity#R14, user token은 클릭의 증거가 아니다), action이 없는 선택지와 자유 답은
+// 확인 없이 받는다. action 답은 질문 하나짜리 묶음이다(R13).
+type Binding = { hash: string; question: string };
+
+function storedAnswerOf(
+  ctx: RequestContext,
+  answer: SubmittedAnswer["answer"],
+): { stored: StoredAnswer; text: TextBlob | null } {
+  if (answer.kind === "option") {
+    return {
+      stored: {
+        kind: "option",
+        option_key: answer.option_key,
+        text_blob: null,
+      },
+      text: null,
+    };
+  }
+  const text = textBlob(ctx, answer.text);
+  return {
+    stored: { kind: "text", option_key: null, text_blob: text.hash },
+    text,
+  };
+}
+
+// 같은 답의 재전송이면 저장된 결과를 돌려준다. 묶음 전체가 같아야 한다.
+function isReplay(
+  group: QuestionGroup,
+  stored: Map<string, StoredAnswer>,
+  binding: Binding | null,
+): boolean {
+  return group.status === "answered" && group.closed_seq !== null &&
+    group.binding_hash === (binding?.hash ?? null) &&
+    stored.size === group.questions.length &&
+    group.questions.every((question) => {
+      const next = stored.get(question.id);
+      return next !== undefined && question.answer !== null &&
+        canonicalize(JSON.parse(question.answer)) === canonicalize(next);
+    });
+}
+
+function checkActionAnswer(
+  group: QuestionGroup,
+  answers: SubmittedAnswer[],
+  binding: Binding,
+): Result<GroupAnswerInput[]> {
+  const only = group.questions[0];
+  const entry = answers[0];
+  if (
+    group.questions.length !== 1 || only === undefined || entry === undefined ||
+    answers.length !== 1 || entry.question !== only.id ||
+    binding.question !== only.id
+  ) {
+    return reject(
+      "invalid_input",
+      "an action answer is the answer of a group of one question",
+    );
+  }
+  if (entry.answer.kind !== "option") {
+    return reject("invalid_input", "an action answer picks an option");
+  }
+  const key = entry.answer.option_key;
+  const chosen = optionsOf(only).find((option) => option.key === key);
+  if (chosen === undefined) return reject("invalid_input", "unknown option");
+  if (chosen.action === null) {
+    return reject("invalid_input", "this option has no action");
+  }
+  // 고정 action 선택은 만든 때의 내용과 같은 binding이어야 한다.
+  if (
+    binding.hash !== (chosen.action as { binding_hash: string }).binding_hash
+  ) {
+    return reject("conflict", "the action content changed");
+  }
+  return ok([entry]);
+}
+
 function answerHandle(
   tx: Tx,
   ctx: RequestContext,
   input: AnswerInput,
   compare: { created_seq: string },
-  binding: string | null,
+  binding: Binding | null,
 ): Result<ClosedOutput> {
   const user = requireUser(ctx);
   if (!user.ok) return user;
-  const loaded = loadVisible(tx, input.question, () => true);
+  const loaded = loadVisible(tx, input.group, () => true);
   if (!loaded.ok) return loaded;
-  const { row, run } = loaded.value;
-  if (row.created_seq !== compare.created_seq) {
-    return reject("conflict", "question changed");
+  const { group, run } = loaded.value;
+  if (
+    group.created_seq !== compare.created_seq ||
+    group.created_seq !== input.created_seq
+  ) {
+    return reject("conflict", "question group changed");
   }
-  if (row.created_seq !== input.created_seq) {
-    return reject("conflict", "question changed");
+  // 글은 값이다. 같은 글은 항상 같은 hash라 재전송 판정에 준비 참조가 필요 없다.
+  const texts: TextBlob[] = [];
+  const stored = new Map<string, StoredAnswer>();
+  for (const entry of input.answers) {
+    const one = storedAnswerOf(ctx, entry.answer);
+    stored.set(entry.question, one.stored);
+    if (one.text !== null) texts.push(one.text);
   }
-  const answer = input.answer;
-  let text: TextBlob | null = null;
-  let stored: StoredAnswer;
-  if (answer.kind === "option") {
-    stored = {
-      kind: "option",
-      option_key: answer.option_key,
-      text_blob: null,
-    };
-  } else {
-    text = textBlob(ctx, answer.text);
-    stored = { kind: "text", option_key: null, text_blob: text.hash };
-  }
-  if (row.status !== "pending") {
-    // 같은 답의 재전송은 저장된 결과만 돌려주고 새 결정으로 쓰지 않는다.
-    if (
-      row.status === "answered" && row.answer !== null &&
-      row.closed_seq !== null &&
-      canonicalize(JSON.parse(row.answer)) === canonicalize(stored) &&
-      row.binding_hash === binding
-    ) {
-      return closedOutput(row, "answered", row.closed_seq, true);
+  if (group.status !== "pending") {
+    // 같은 답의 재전송은 저장된 결과만 돌려주고 새 결정으로 쓰지 않는다(R9).
+    if (isReplay(group, stored, binding)) {
+      return closedOutput(group, "answered", group.closed_seq!, true);
     }
-    return reject("conflict", "the question is already closed");
+    return reject("conflict", "the question group is already closed");
   }
   if (run.state === "finished") {
     return reject("conflict", "the run is finished");
   }
-  if (pastDeadline(row, tx.now())) {
-    return reject("conflict", "the deadline has passed");
-  }
-  const options = JSON.parse(row.options) as {
-    key: string;
-    action: { binding_hash: string } | null;
-  }[];
-  let bindingHash: string | null = null;
-  if (stored.kind === "option") {
-    const chosen = options.find((option) => option.key === stored.option_key);
-    if (chosen === undefined) {
-      return reject("invalid_input", "unknown option");
-    }
-    if (chosen.action === null) {
-      if (binding !== null) {
-        return reject("invalid_input", "this option has no action");
-      }
-    } else if (binding === null) {
-      // 고정 action이 있는 선택지는 확인 없이 답으로 받지 않는다.
-      return reject("forbidden", "this option needs a confirmation");
-    } else {
-      // 고정 action 선택은 만든 때의 내용과 같은 binding이어야 한다.
-      if (binding !== chosen.action.binding_hash) {
-        return reject("conflict", "the action content changed");
-      }
-      bindingHash = binding;
-    }
-  }
-  const seq = tx.emit(questionAnswered, row.id, {
-    created_seq: row.created_seq,
-    answer: stored,
-    binding_hash: bindingHash,
+  const open = checkGroupOpen(group, tx.now());
+  if (!open.ok) return open;
+  const answers = binding === null
+    ? collectGroupAnswers(groupStateOf(group), input.answers)
+    : checkActionAnswer(group, input.answers, binding);
+  if (!answers.ok) return answers;
+  const seq = tx.emit(questionAnswered, group.id, {
+    created_seq: group.created_seq,
+    answers: group.questions.map((question) => ({
+      question: question.id,
+      answer: stored.get(question.id)!,
+    })),
+    binding_hash: binding?.hash ?? null,
   });
-  closeRow(tx, row, {
+  closeGroup(tx, group, {
     status: "answered",
     seq,
-    answer: JSON.stringify(stored),
-    bindingHash,
+    bindingHash: binding?.hash ?? null,
   });
-  if (text !== null) {
-    const registered = registerTextBlobs(tx, row.id, seq, [{
-      field: QUESTION_BLOB_FIELDS.answer,
-      blob: text,
-    }]);
-    if (!registered.ok) return registered;
+  for (const question of group.questions) {
+    tx.sql.run("update questions set answer = ? where id = ?", [
+      JSON.stringify(stored.get(question.id)),
+      question.id,
+    ]);
   }
-  return closedOutput(row, "answered", seq, false);
+  const registered = registerTextBlobs(
+    tx,
+    group.id,
+    seq,
+    texts.map((blob) => ({ field: QUESTION_BLOB_FIELDS.answer, blob })),
+  );
+  if (!registered.ok) return registered;
+  return closedOutput(group, "answered", seq, false);
+}
+
+function createHandle(
+  tx: Tx,
+  ctx: RequestContext,
+  input: Input<typeof createQuestionGroup>,
+): Result<{ id: string; status: "pending"; created_seq: string }> {
+  const actor = parseActor(ctx.actor);
+  if (actor === undefined || actor.kind !== "agent") {
+    return reject("forbidden", "only an agent asks a question");
+  }
+  const run = loadRunRef(tx, input.run);
+  if (run === undefined || !agentOwns(ctx, run)) {
+    return reject("not_found", "run not found");
+  }
+  const shape = validateNewGroup(input.questions);
+  if (!shape.ok) return shape;
+  const content = storedContent(ctx, input);
+  const existing = loadGroup(tx, input.id);
+  if (existing !== undefined) {
+    if (!sameContent(existing, input, content)) {
+      return reject("conflict", "question group id already used");
+    }
+    if (existing.status !== "pending") {
+      return reject("conflict", "the question group is already closed");
+    }
+    return ok({
+      id: existing.id,
+      status: "pending" as const,
+      created_seq: existing.created_seq,
+    });
+  }
+  for (const question of input.questions) {
+    if (
+      tx.sql.get("select 1 as found from questions where id = ?", [
+        question.id,
+      ]) !== undefined
+    ) {
+      return reject("conflict", "question id already used");
+    }
+  }
+  // 끝난 run은 새 묶음을 받지 않는다. 시작 전·이미 답을 기다리는 run도 같다.
+  if (run.state === "finished") {
+    return reject("forbidden", "the run is finished");
+  }
+  if (run.state !== "running") {
+    return reject("conflict", "the run is not running");
+  }
+  if (assignmentState(tx, run.assignment) !== "enabled") {
+    return reject("forbidden", "the assignment is not enabled");
+  }
+  // 세션은 선택이다. 있으면 run의 세션이어야 한다(R2).
+  if (input.session !== null && input.session !== run.session) {
+    return reject("invalid_input", "session does not belong to the run");
+  }
+  // run 하나에 답을 기다리는 묶음은 하나다(R2).
+  if (
+    tx.sql.get(
+      "select 1 as found from question_groups where run = ? and status = 'pending'",
+      [run.id],
+    ) !== undefined
+  ) {
+    return reject("conflict", "the run already waits for an answer");
+  }
+  // 묶음 안과 이미 받은 답에서 같은 본문을 다시 묻지 않는다(R1).
+  const asked = new Set<string>();
+  for (const question of content.questions) {
+    if (asked.has(question.prompt_blob)) {
+      return reject("invalid_input", "the group asks the same question twice");
+    }
+    asked.add(question.prompt_blob);
+    if (
+      tx.sql.get(
+        `select 1 as found from questions q
+         join question_groups g on g.id = q."group"
+         where g.run = ? and g.status = 'answered' and q.prompt_blob = ?`,
+        [run.id, question.prompt_blob],
+      ) !== undefined
+    ) {
+      return reject("conflict", "this question was already answered");
+    }
+  }
+  const now = tx.now();
+  if (
+    input.expires_at !== null &&
+    Date.parse(input.expires_at) <= Date.parse(now)
+  ) {
+    return reject("invalid_input", "the deadline must be in the future");
+  }
+  const summary = [];
+  for (const question of input.questions) {
+    const options = [];
+    for (const option of question.options) {
+      if (option.action !== null) {
+        // 권한 부여·외부 효과·등록되지 않은 동작은 선택지로 열 수 없고, 등록된 동작도
+        // 소유 command 입력·CAS·지문이 맞아야 고정한다(R12, R13).
+        const checked = checkOptionAction(question.id, option.action);
+        if (!checked.ok) return checked;
+      }
+      const fixed = fixedVersionsExist(tx, option);
+      if (!fixed.ok) return fixed;
+      const changes = settingChangesOf(option);
+      if (changes === undefined) {
+        return reject("invalid_input", "settings action has no changes");
+      }
+      options.push({ key: option.key, changes: changes ?? null });
+    }
+    summary.push({ id: question.id, options });
+  }
+  const seq = tx.emit(questionCreated, input.id, {
+    run: input.run,
+    session: input.session,
+    questions: summary,
+  });
+  tx.sql.run(
+    `insert into question_groups (id, run, session, created_by, expires_at,
+       status, created_seq)
+     values (?, ?, ?, ?, ?, 'pending', ?)`,
+    [
+      input.id,
+      input.run,
+      input.session,
+      ctx.actor,
+      input.expires_at,
+      Number(seq),
+    ],
+  );
+  content.questions.forEach((question, index) => {
+    tx.sql.run(
+      `insert into questions (id, "group", position, prompt_blob, reason_blob,
+         options, recommendation)
+       values (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        question.id,
+        input.id,
+        index + 1,
+        question.prompt_blob,
+        question.reason_blob,
+        JSON.stringify(question.options),
+        question.recommendation === null
+          ? null
+          : JSON.stringify(question.recommendation),
+      ],
+    );
+  });
+  const registered = registerTextBlobs(tx, input.id, seq, content.blobs);
+  if (!registered.ok) return registered;
+  return ok({ id: input.id, status: "pending" as const, created_seq: seq });
 }
 
 export function createQuestionCommands(): {
-  create: CommandDefinition<typeof createQuestion>;
-  answer: CommandDefinition<typeof answerQuestion>;
+  create: CommandDefinition<typeof createQuestionGroup>;
+  answer: CommandDefinition<typeof answerQuestionGroup>;
   answerAction: CommandDefinition<typeof answerQuestionAction>;
-  defer: CommandDefinition<typeof deferQuestion>;
-  cancel: CommandDefinition<typeof cancelQuestion>;
-  expire: CommandDefinition<typeof expireQuestion>;
+  defer: CommandDefinition<typeof deferQuestionGroup>;
+  cancel: CommandDefinition<typeof cancelQuestionGroup>;
+  expire: CommandDefinition<typeof expireQuestionGroup>;
 } {
   return {
     create: {
-      route: createQuestion,
-      handle(tx, ctx, input: Input<typeof createQuestion>) {
-        const actor = parseActor(ctx.actor);
-        if (actor === undefined || actor.kind !== "agent") {
-          return reject("forbidden", "only an agent asks a question");
-        }
-        const run = loadRunRef(tx, input.run);
-        if (run === undefined || !agentOwns(ctx, run)) {
-          return reject("not_found", "run not found");
-        }
-        const content = storedContent(ctx, input);
-        const existing = loadQuestion(tx, input.id);
-        if (existing !== undefined) {
-          if (!sameContent(existing, input, content)) {
-            return reject("conflict", "question id already used");
-          }
-          if (existing.status !== "pending") {
-            return reject("conflict", "the question is already closed");
-          }
-          return ok({
-            id: existing.id,
-            status: "pending" as const,
-            created_seq: existing.created_seq,
-          });
-        }
-        // 끝난 run은 새 질문을 받지 않는다. 시작 전·이미 답을 기다리는 run도 같다.
-        if (run.state === "finished") {
-          return reject("forbidden", "the run is finished");
-        }
-        if (run.state !== "running") {
-          return reject("conflict", "the run is not running");
-        }
-        if (assignmentState(tx, run.assignment) !== "enabled") {
-          return reject("forbidden", "the assignment is not enabled");
-        }
-        // 세션은 선택이다. 있으면 run의 세션이어야 한다(R2).
-        if (input.session !== null && input.session !== run.session) {
-          return reject("invalid_input", "session does not belong to the run");
-        }
-        // run 하나에 답을 기다리는 질문은 하나다(R2).
-        if (
-          tx.sql.get(
-            "select 1 as found from questions where run = ? and status = 'pending'",
-            [run.id],
-          ) !== undefined
-        ) {
-          return reject("conflict", "the run already waits for an answer");
-        }
-        // 이미 받은 답을 같은 본문으로 다시 묻지 않는다(R1).
-        if (
-          tx.sql.get(
-            `select 1 as found from questions
-             where run = ? and status = 'answered' and prompt_blob = ?`,
-            [run.id, content.prompt_blob],
-          ) !== undefined
-        ) {
-          return reject("conflict", "this question was already answered");
-        }
-        const now = tx.now();
-        if (
-          input.expires_at !== null &&
-          Date.parse(input.expires_at) <= Date.parse(now)
-        ) {
-          return reject("invalid_input", "the deadline must be in the future");
-        }
-        const summary = [];
-        for (const option of input.options) {
-          if (option.action !== null) {
-            // 권한 부여·외부 효과·등록되지 않은 동작은 선택지로 열 수 없고, 등록된 동작도
-            // 소유 command 입력·CAS·지문이 맞아야 고정한다(R12, R13).
-            const checked = checkOptionAction(input.id, option.action);
-            if (!checked.ok) return checked;
-          }
-          const fixed = fixedVersionsExist(tx, option);
-          if (!fixed.ok) return fixed;
-          const changes = settingChangesOf(option);
-          if (changes === undefined) {
-            return reject("invalid_input", "settings action has no changes");
-          }
-          summary.push({ key: option.key, changes: changes ?? null });
-        }
-        const seq = tx.emit(questionCreated, input.id, {
-          run: input.run,
-          session: input.session,
-          options: summary,
-        });
-        tx.sql.run(
-          `insert into questions (id, run, session, created_by, prompt_blob,
-             reason_blob, options, recommendation, expires_at, status,
-             created_seq)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-          [
-            input.id,
-            input.run,
-            input.session,
-            ctx.actor,
-            content.prompt_blob,
-            content.reason_blob,
-            JSON.stringify(content.options),
-            content.recommendation === null
-              ? null
-              : JSON.stringify(content.recommendation),
-            input.expires_at,
-            Number(seq),
-          ],
-        );
-        const registered = registerTextBlobs(tx, input.id, seq, content.blobs);
-        if (!registered.ok) return registered;
-        return ok({
-          id: input.id,
-          status: "pending" as const,
-          created_seq: seq,
-        });
-      },
+      route: createQuestionGroup,
+      handle: (tx, ctx, input: Input<typeof createQuestionGroup>) =>
+        createHandle(tx, ctx, input),
     },
     answer: {
-      route: answerQuestion,
-      handle: (tx, ctx, input: Input<typeof answerQuestion>, compare) =>
+      route: answerQuestionGroup,
+      handle: (tx, ctx, input: Input<typeof answerQuestionGroup>, compare) =>
         answerHandle(tx, ctx, input, compare, null),
     },
     answerAction: {
       route: answerQuestionAction,
       handle: (tx, ctx, input: Input<typeof answerQuestionAction>, compare) =>
-        answerHandle(tx, ctx, input, compare, input.binding_hash),
+        answerHandle(
+          tx,
+          ctx,
+          {
+            group: input.group,
+            created_seq: input.created_seq,
+            answers: [{
+              question: input.evidence.question,
+              answer: input.answer,
+            }],
+          },
+          compare,
+          { hash: input.binding_hash, question: input.evidence.question },
+        ),
     },
     defer: {
-      route: deferQuestion,
-      handle(tx, ctx, input: Input<typeof deferQuestion>, compare) {
+      route: deferQuestionGroup,
+      handle(tx, ctx, input: Input<typeof deferQuestionGroup>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const loaded = loadVisible(tx, input.question, () => true);
+        const loaded = loadVisible(tx, input.group, () => true);
         if (!loaded.ok) return loaded;
-        const { row } = loaded.value;
+        const { group } = loaded.value;
         if (
-          row.created_seq !== compare.created_seq ||
-          row.created_seq !== input.created_seq
+          group.created_seq !== compare.created_seq ||
+          group.created_seq !== input.created_seq
         ) {
-          return reject("conflict", "question changed");
+          return reject("conflict", "question group changed");
         }
-        if (row.status !== "pending") {
-          return reject("conflict", "the question is already closed");
-        }
-        // 미루기는 답이 아니다. 답 없음으로 닫는다(R6, R8).
-        const seq = tx.emit(questionCancelled, row.id, {
-          created_seq: row.created_seq,
+        // 미루기는 답이 아니다. 묶음 전체를 답 없음으로 닫는다(R6, R8).
+        const deferral = deferGroup(
+          groupStateOf(group),
+          input.created_seq,
+          tx.now(),
+        );
+        if (!deferral.ok) return deferral;
+        const seq = tx.emit(questionCancelled, group.id, {
+          created_seq: group.created_seq,
           closed_reason_blob: null,
           deferred: true,
         });
-        closeRow(tx, row, {
-          status: "cancelled",
+        closeGroup(tx, group, {
+          status: deferral.value.status,
           seq,
-          reason: "deferred",
+          reason: deferral.value.closed_reason,
         });
-        return closedOutput(row, "cancelled", seq, false);
+        return closedOutput(group, "cancelled", seq, false);
       },
     },
     cancel: {
-      route: cancelQuestion,
-      handle(tx, ctx, input: Input<typeof cancelQuestion>, compare) {
+      route: cancelQuestionGroup,
+      handle(tx, ctx, input: Input<typeof cancelQuestionGroup>, compare) {
         const actor = parseActor(ctx.actor);
         if (
           actor === undefined ||
           (actor.kind !== "user" && actor.kind !== "agent" &&
             actor.kind !== "machine")
         ) {
-          return reject("forbidden", "this actor cannot cancel a question");
+          return reject(
+            "forbidden",
+            "this actor cannot cancel a question group",
+          );
         }
         const loaded = loadVisible(
           tx,
-          input.question,
+          input.group,
           (run) => actor.kind !== "agent" || agentOwns(ctx, run),
         );
         if (!loaded.ok) return loaded;
-        const { row, run } = loaded.value;
+        const { group, run } = loaded.value;
         if (
-          row.created_seq !== compare.created_seq ||
-          row.created_seq !== input.created_seq
+          group.created_seq !== compare.created_seq ||
+          group.created_seq !== input.created_seq
         ) {
-          return reject("conflict", "question changed");
+          return reject("conflict", "question group changed");
         }
-        if (row.status !== "pending") {
-          return reject("conflict", "the question is already closed");
+        if (group.status !== "pending") {
+          return reject("conflict", "the question group is already closed");
         }
-        // 질문한 agent만 자기 질문을 거두고, machine은 원래 일이 끝났거나 전제가
-        // 바뀐(superseded) 질문만 닫는다(R9).
-        if (actor.kind === "agent" && row.created_by !== ctx.actor) {
+        // 묶음을 낸 agent만 자기 묶음을 거두고, machine은 원래 일이 끝났거나 전제가
+        // 바뀐(superseded) 묶음만 닫는다(R9).
+        if (actor.kind === "agent" && group.created_by !== ctx.actor) {
           return reject("forbidden", "only the asking agent cancels it");
         }
         if (
@@ -449,60 +571,63 @@ export function createQuestionCommands(): {
         ) {
           return reject(
             "forbidden",
-            "a running question closes only with a changed premise",
+            "a running question group closes only with a changed premise",
           );
         }
         const reason = textBlob(ctx, input.closed_reason_text);
-        const seq = tx.emit(questionCancelled, row.id, {
-          created_seq: row.created_seq,
+        const seq = tx.emit(questionCancelled, group.id, {
+          created_seq: group.created_seq,
           closed_reason_blob: reason.hash,
           deferred: false,
         });
-        closeRow(tx, row, {
+        closeGroup(tx, group, {
           status: "cancelled",
           seq,
           reason: input.closed_reason,
           reasonBlob: reason.hash,
         });
-        const registered = registerTextBlobs(tx, row.id, seq, [{
+        const registered = registerTextBlobs(tx, group.id, seq, [{
           field: QUESTION_BLOB_FIELDS.closed,
           blob: reason,
         }]);
         if (!registered.ok) return registered;
-        return closedOutput(row, "cancelled", seq, false);
+        return closedOutput(group, "cancelled", seq, false);
       },
     },
     expire: {
-      route: expireQuestion,
-      handle(tx, ctx, input: Input<typeof expireQuestion>, compare) {
+      route: expireQuestionGroup,
+      handle(tx, ctx, input: Input<typeof expireQuestionGroup>, compare) {
         if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "only the machine expires a question");
+          return reject(
+            "forbidden",
+            "only the machine expires a question group",
+          );
         }
-        const loaded = loadVisible(tx, input.question, () => true);
+        const loaded = loadVisible(tx, input.group, () => true);
         if (!loaded.ok) return loaded;
-        const { row } = loaded.value;
+        const { group } = loaded.value;
         if (
-          row.created_seq !== compare.created_seq ||
-          row.created_seq !== input.created_seq
+          group.created_seq !== compare.created_seq ||
+          group.created_seq !== input.created_seq
         ) {
-          return reject("conflict", "question changed");
+          return reject("conflict", "question group changed");
         }
-        if (row.status !== "pending") {
-          return reject("conflict", "the question is already closed");
+        if (group.status !== "pending") {
+          return reject("conflict", "the question group is already closed");
         }
-        // 기한이 없거나 아직 오지 않은 질문은 닫지 않는다(R7).
-        if (row.expires_at === null || !pastDeadline(row, tx.now())) {
+        // 기한이 없거나 아직 오지 않은 묶음은 닫지 않는다(R7).
+        if (group.expires_at === null || !pastDeadline(group, tx.now())) {
           return reject("conflict", "the deadline has not passed");
         }
-        const seq = tx.emit(questionExpired, row.id, {
-          created_seq: row.created_seq,
+        const seq = tx.emit(questionExpired, group.id, {
+          created_seq: group.created_seq,
         });
-        closeRow(tx, row, {
+        closeGroup(tx, group, {
           status: "expired",
           seq,
           reason: "expired",
         });
-        return closedOutput(row, "expired", seq, false);
+        return closedOutput(group, "expired", seq, false);
       },
     },
   };

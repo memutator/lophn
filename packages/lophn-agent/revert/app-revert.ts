@@ -1,174 +1,183 @@
-import { err } from "../../base/mod.ts";
-import {
-  type AppRevertBinding,
-  appRevertBindingSchema,
-  TOOL_CALL_EVENTS,
-  toolCallFinished,
-} from "../../contracts/lophn-agent/mod.ts";
-import {
-  type GroupDraft,
-  type RevertOwner,
-  sortSeqs,
-  targetOf,
-} from "./model.ts";
+import type { PreviewItem } from "../../contracts/lophn-agent/mod.ts";
+import type { Sql } from "../../contracts/platform/mod.ts";
 
-// 앱 되돌림 근거의 복원 판정(apps/invocations). 다른 owner는 apps/invocations의 표를 모르지만
-// 이 owner 하나만 원래 run의 tool_calls를 읽는다(lophn-agent#T48): run의 ToolCallFinished를
-// 대상(ToolCall)별로 묶고, 기록이 되돌리기 지원 앱 write(app_command.revert_command)이며
-// result.content.revert receipt가 남은 것은 AppRevertBinding이 있는 reversible 묶음이다.
-// 감사 사실(run 재시작 기록·읽기·실패·근거가 없는 호출)은 유지이고 복원 command는 없다.
-// 실제 앱 revert 호출과 단계 기록은 commands.ts의 checkpoint·finish가 하고, 이 owner의
-// restore는 호출하지 않는다.
+// 앱 write의 되돌림 분류(lophn-agent/revert R9·R10·R18). checkpoint 이후 같은 session의 성공한 앱
+// write를 apps/blueprint의 선언(revert command)과 apps/invocations의 receipt로 판정한다. 근거가
+// 없는 write는 되돌렸다고 쓰지 않고 남는 영향으로 올린다.
 
-export const APP_REVERT_OWNER = "apps/invocations";
+// ToolCall 기록에서 읽은 성공한 앱 write 하나.
+export type AppWriteCall = {
+  tool_call: string;
+  // 성공 완료의 seq. 이 순서가 원래 호출 순서다.
+  seq: string;
+  command: {
+    app: string;
+    release: string;
+    command: string;
+    // 앱이 revert command를 선언하지 않았으면 null.
+    revert_command: string | null;
+  };
+  // 성공 출력의 revert 영수증. 앱이 돌려주지 않았으면 null.
+  receipt: {
+    invocation: string;
+    receipt: string;
+    expected_revision: string;
+  } | null;
+};
 
-const OWNED = new Set<string>(TOOL_CALL_EVENTS.map((event) => event.type));
-const FINISHED = toolCallFinished.type;
+type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
-// 기록의 app_command(JSON 열 값)를 되돌림 근거로 좁힌다. revert_command가 없으면 되돌리기를
-// 선언하지 않은 호출이다.
-function bindingOf(
-  toolCall: string,
-  appCommand: unknown,
-  result: unknown,
-): AppRevertBinding | null {
-  if (typeof appCommand !== "object" || appCommand === null) return null;
-  const command = appCommand as Record<string, unknown>;
-  if (typeof command.revert_command !== "string") return null;
-  // result.content.revert가 receipt의 근거다(T44). content는 JSON 문자열로 남는다.
-  let content: unknown;
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function parseJson(value: unknown): unknown {
+  if (typeof value !== "string") return null;
   try {
-    const stored = (result as Record<string, unknown> | null)?.["content"];
-    const parsed = typeof stored === "string" ? JSON.parse(stored) : stored;
-    content = (parsed as Record<string, unknown> | null)?.["revert"];
+    return JSON.parse(value);
   } catch {
     return null;
   }
-  if (typeof content !== "object" || content === null) return null;
-  const receipt = content as Record<string, unknown>;
-  // step_key는 아직 prefix(저장한 revert나 run)를 모른다. 자리 표시로 파싱하고,
-  // classify가 prefix를 붙여 다시 파싱한다.
-  const parsed = appRevertBindingSchema.safeParse({
-    app: command.app,
-    release: command.release,
-    command: command.command,
-    tool_call: toolCall,
-    invocation: receipt.invocation,
-    receipt: receipt.receipt,
-    expected_revision: receipt.expected_revision,
-    revert_command: command.revert_command,
-    step_key: "-",
-    revert_invocation: receipt.revert_invocation ?? null,
+}
+
+// tool_calls.result의 content에서 revert 영수증을 좁힌다. content는 객체이거나 그 JSON 문자열이다.
+function receiptOf(result: unknown): AppWriteCall["receipt"] {
+  const content = (result as { content?: unknown } | null)?.content;
+  const body = typeof content === "string" ? parseJson(content) : content;
+  const revert = (body as { revert?: unknown } | null)?.revert;
+  if (typeof revert !== "object" || revert === null) return null;
+  const record = revert as Record<string, unknown>;
+  const invocation = text(record["invocation"]);
+  const receipt = text(record["receipt"]);
+  const expected = text(record["expected_revision"]);
+  return invocation === null || receipt === null || expected === null
+    ? null
+    : { invocation, receipt, expected_revision: expected };
+}
+
+// tool_calls에서 session의 checkpoint 이후(state_seq가 after_seq보다 큰) 성공한(outcome.kind=success)
+// 앱 write(app_command가 있고 effect가 write·external)를 호출 순서(state_seq 오름차순)로 읽는다.
+// 읽기·실패·거절·앱 command가 아닌 호출은 들지 않는다. revert_command와 영수증은 app_command와
+// result.content.revert에서 좁힌다.
+export function readAppWrites(
+  lookup: Lookup,
+  input: { session: string; after_seq: string },
+): AppWriteCall[] {
+  const rows = lookup.sql.all(
+    `select t.id as id, t.state_seq as seq, t.app_command as app_command, t.result as result
+       from tool_calls t join runs r on r.id = t.run
+      where r.session = ? and t.app_command is not null
+        and t.effect in ('write', 'external') and t.state_seq > ?
+        and json_extract(t.outcome, '$.kind') = 'success'
+      order by t.state_seq`,
+    [input.session, Number(input.after_seq)],
+  );
+  const calls: AppWriteCall[] = [];
+  for (const row of rows) {
+    const command = parseJson(row["app_command"]) as
+      | Record<string, unknown>
+      | null;
+    const app = text(command?.["app"]);
+    const release = text(command?.["release"]);
+    const name = text(command?.["command"]);
+    if (app === null || release === null || name === null) continue;
+    calls.push({
+      tool_call: String(row["id"]),
+      seq: String(row["seq"]),
+      command: {
+        app,
+        release,
+        command: name,
+        revert_command: text(command?.["revert_command"]),
+      },
+      receipt: receiptOf(parseJson(row["result"])),
+    });
+  }
+  return calls;
+}
+
+// 앱의 지금 revision으로 platform이 알 수 있는 값이다. 앱 data의 revision은 앱이 소유하므로 읽을 통로가
+// 없고, ledger에 남은 가장 최근 성공 write의 영수증(그 write 직후의 revision)을 쓴다. 영수증이 없으면
+// null이다. 이 값 뒤에 앱이 바꾼 것은 앱이 revert command의 CAS로 거절한다.
+export function latestAppRevision(
+  app: string,
+  lookup: Lookup,
+): string | null {
+  const rows = lookup.sql.all(
+    `select result from tool_calls
+      where json_extract(app_command, '$.app') = ?
+        and effect in ('write', 'external')
+        and json_extract(outcome, '$.kind') = 'success'
+      order by state_seq desc limit 20`,
+    [app],
+  );
+  for (const row of rows) {
+    const receipt = receiptOf(parseJson(row["result"]));
+    if (receipt !== null) return receipt.expected_revision;
+  }
+  return null;
+}
+
+// 호출 순서의 역순(실행 순서)으로 PreviewItem(class="app", target=tool_call, source=[tool_call])을
+// 만든다. ordinal은 0부터다.
+//   revert_command 없음            → remain `no_revert_command`
+//   revert_command 있고 영수증 없음 → remain `no_receipt`
+//   둘 다 있음                     → plan=restore, app_revert 근거(step_key는 `${revert ?? "preview"}:${invocation}`)
+// 같은 앱에서 실행 순서로 첫 복원 단계(가장 나중 write)만 revisions의 지금 revision과 expected_revision을
+// 비교한다. 다르거나 알 수 없으면(revisions에 없거나 null) 그 단계와 같은 앱의 더 앞선 복원 단계도
+// 모두 skip `app_revision_changed`로 돌린다(근거는 남긴다). 다른 앱은 독립이다.
+export function classifyAppWrites(input: {
+  revert: string | null;
+  calls: readonly AppWriteCall[];
+  revisions: ReadonlyMap<string, string | null>;
+}): PreviewItem[] {
+  const owner = input.revert ?? "preview";
+  // 앱마다 첫 복원 단계의 검사 결과다. 한 번 막히면 그 앱의 뒤 단계는 모두 막힌다.
+  const blocked = new Map<string, boolean>();
+  return [...input.calls].reverse().map((call, ordinal): PreviewItem => {
+    const base = {
+      ordinal,
+      class: "app" as const,
+      target: call.tool_call,
+      source: [call.tool_call],
+    };
+    const { revert_command, app, release, command } = call.command;
+    if (revert_command === null) {
+      return {
+        ...base,
+        plan: "remain",
+        reason: "no_revert_command",
+        app_revert: null,
+      };
+    }
+    if (call.receipt === null) {
+      return {
+        ...base,
+        plan: "remain",
+        reason: "no_receipt",
+        app_revert: null,
+      };
+    }
+    const app_revert = {
+      app,
+      release,
+      command,
+      tool_call: call.tool_call,
+      invocation: call.receipt.invocation,
+      receipt: call.receipt.receipt,
+      expected_revision: call.receipt.expected_revision,
+      revert_command,
+      step_key: `${owner}:${call.receipt.invocation}`,
+      revert_invocation: null,
+    };
+    if (!blocked.has(app)) {
+      blocked.set(
+        app,
+        input.revisions.get(app) !== call.receipt.expected_revision,
+      );
+    }
+    return blocked.get(app) === true
+      ? { ...base, plan: "skip", reason: "app_revision_changed", app_revert }
+      : { ...base, plan: "restore", reason: null, app_revert };
   });
-  return parsed.success ? parsed.data : null;
-}
-
-function retainedDraft(
-  target: string | null,
-  seqs: readonly string[],
-): GroupDraft {
-  return {
-    owner: APP_REVERT_OWNER,
-    target,
-    source_seqs: sortSeqs(seqs),
-    capability: "retained",
-    reason: "audit_fact",
-    comparison: null,
-    before_ref: null,
-    dependencies: [],
-    app_revert: null,
-  };
-}
-
-export function createAppRevertOwner(): RevertOwner {
-  return {
-    concern: APP_REVERT_OWNER,
-    claims: (type) => OWNED.has(type),
-    classify({ run, events, lookup, revert }) {
-      // tool_calls 표가 같은 wire에 없는 등록(revert engine만 붙인 harness)은 기록이
-      // 없는 것이다. 문서 표가 없는 조회(handoffReads.savedVersion)와 같은 관용이다.
-      let calls: Map<string, { app_command: unknown; result: unknown }>;
-      try {
-        const rows = lookup.sql.all(
-          `select id, app_command, result from tool_calls where run = ?`,
-          [run],
-        );
-        calls = new Map(
-          rows.map((row) => [String(row["id"]), {
-            app_command: row["app_command"] === null
-              ? null
-              : JSON.parse(String(row["app_command"])),
-            result: row["result"] === null
-              ? null
-              : JSON.parse(String(row["result"])),
-          }]),
-        );
-      } catch {
-        calls = new Map();
-      }
-      // step_key의 앞부분은 저장한 revert id다. preview는 저장한 revert가 없어 run을 쓴다.
-      const prefix = revert === "" ? run : revert;
-      const drafts: GroupDraft[] = [];
-      const bySubject = new Map<string, string[]>();
-      for (const event of events) {
-        const key = event.subject ?? "";
-        const list = bySubject.get(key) ?? [];
-        list.push(event.seq);
-        bySubject.set(key, list);
-      }
-      for (const [toolCall, seqs] of bySubject.entries()) {
-        // subject가 target이 아니면 run 재시작 기록 같은 과거 사실이다(R8).
-        if (toolCall === "" || targetOf(toolCall) === null) {
-          drafts.push(retainedDraft(null, seqs));
-          continue;
-        }
-        // 되돌림 근거는 완료 event에서 본다. 완료 뒤 보충이 있어도 완료가 근거다.
-        const finished = events.find((event) =>
-          event.type === FINISHED && seqs.includes(event.seq)
-        );
-        const binding = finished === undefined ? null : bindingOf(
-          toolCall,
-          calls.get(toolCall)?.app_command ?? null,
-          calls.get(toolCall)?.result ?? null,
-        );
-        if (finished !== undefined && binding !== null) {
-          const prepared = appRevertBindingSchema.safeParse({
-            ...binding,
-            step_key: `${prefix}:${binding.invocation}`,
-          });
-          drafts.push({
-            owner: APP_REVERT_OWNER,
-            target: toolCall,
-            source_seqs: sortSeqs(seqs),
-            capability: "reversible",
-            reason: null,
-            comparison: {
-              kind: "app",
-              app: binding.app,
-              release: binding.release,
-              command: binding.command,
-              expected_revision: binding.expected_revision,
-            },
-            // step_key는 revert id를 앞에 두므로 preview와 적용이 달라 지문에 넣지 않는다.
-            before_ref: {
-              kind: "app",
-              tool_call: binding.tool_call,
-              invocation: binding.invocation,
-            },
-            dependencies: [],
-            app_revert: prepared.success ? prepared.data : null,
-          });
-          continue;
-        }
-        drafts.push(retainedDraft(targetOf(toolCall), seqs));
-      }
-      return drafts;
-    },
-    restore() {
-      return err({
-        code: "invalid_input",
-        message: "an app revert step is recorded by the checkpoint",
-      });
-    },
-  };
 }

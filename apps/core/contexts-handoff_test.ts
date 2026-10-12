@@ -78,6 +78,16 @@ function contextOf(
 }
 
 type Engineer = { id: string; revision: number };
+
+// 그 project에서 Context Engineer가 연 세션들. 세션 목록은 담당과 자리로 묻는다.
+async function sessionsOf(core: Core, engineer: Engineer) {
+  const listed = await post(core, "user", "sessions/list", {
+    assignment: engineer.id,
+    work_place: { kind: "project", id: PROJECT },
+  });
+  assertEquals(listed.status, 200, JSON.stringify(listed.body));
+  return listed.body["sessions"];
+}
 let projectRevision: unknown;
 
 async function open(
@@ -431,48 +441,6 @@ Deno.test("documents/contexts#R25 [ctx-I58h]: without keys it hands off every vi
   });
 });
 
-Deno.test("documents/contexts#R25 [ctx-I58h]: with no enabled Context Engineer the hand-off is unavailable and leaves nothing", async () => {
-  await withCore(async (core, engineer) => {
-    await seedViolations(core);
-    const paused = await post(
-      core,
-      "user",
-      "assignments/pause",
-      command(
-        {
-          assignment: engineer.id,
-          reason: { kind: "user", detail: "pause", runs: [], target: null },
-        },
-        "pause-engineer",
-        { revision: engineer.revision, state: "enabled" },
-      ),
-    );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
-    const runsBefore = await post(core, "user", "runs/list", {});
-    const sessionsBefore = await post(core, "user", "sessions/list", {});
-
-    const handed = await post(
-      core,
-      "user",
-      "contexts/hand_off_violations",
-      command({ context: CONTEXT }, "hand-off-paused"),
-    );
-    assertEquals(handed.status, 503, JSON.stringify(handed.body));
-    assertEquals(
-      (await violationsOf(core)).map((item) => item["handed_off"]),
-      [false, false],
-    );
-    assertEquals(
-      (await post(core, "user", "runs/list", {})).body["runs"],
-      runsBefore.body["runs"],
-    );
-    assertEquals(
-      (await post(core, "user", "sessions/list", {})).body["sessions"],
-      sessionsBefore.body["sessions"],
-    );
-  });
-});
-
 Deno.test("documents/contexts#R25 [ctx-I58h]: the request text names each violation's file, section, rule and rule definition, and a long list is cut with the rest counted", () => {
   const one = violationRequestText({
     context: CONTEXT,
@@ -517,7 +485,7 @@ Deno.test("documents/contexts#R25 [ctx-I58h]: the request text names each violat
 });
 
 Deno.test("documents/contexts#R25 [ctx-I58h]: when the project can no longer take a session the hand-off answers not_found and leaves nothing", async () => {
-  await withCore(async (core) => {
+  await withCore(async (core, engineer) => {
     await seedViolations(core);
     const archived = await post(
       core,
@@ -545,7 +513,7 @@ Deno.test("documents/contexts#R25 [ctx-I58h]: when the project can no longer tak
       runsBefore.body["runs"],
     );
     assertEquals(
-      (await post(core, "user", "sessions/list", {})).body["sessions"],
+      await sessionsOf(core, engineer),
       [],
     );
   });
@@ -618,30 +586,26 @@ Deno.test("documents/contexts#R25 [ctx-I65]: a hand-off registers the evidence a
 });
 
 Deno.test("documents/contexts#R25 [ctx-I65]: a rolled-back hand-off leaves no content reference and a draft refused by the handler registers none", async () => {
-  await withCore(async (core, engineer) => {
+  await withCore(async (core) => {
     await seedViolations(core);
     const before = contentRefs(core);
-    const paused = await post(
+    // 그 project가 보관되면 세션을 열지 못해 위반 넘김이 거절된다. 내용 blob 참조는 그 바깥 transaction과 함께 되돌아간다.
+    const archived = await post(
       core,
       "user",
-      "assignments/pause",
-      command(
-        {
-          assignment: engineer.id,
-          reason: { kind: "user", detail: "pause", runs: [], target: null },
-        },
-        "pause-engineer-refs",
-        { revision: engineer.revision, state: "enabled" },
-      ),
+      "projects/archive",
+      command({ project: PROJECT }, "archive-project-refs", {
+        base_revision: projectRevision,
+      }),
     );
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    assertEquals(archived.status, 200, JSON.stringify(archived.body));
     const handed = await post(
       core,
       "user",
       "contexts/hand_off_violations",
       command({ context: CONTEXT }, "hand-off-rolled-back"),
     );
-    assertEquals(handed.status, 503, JSON.stringify(handed.body));
+    assertEquals(handed.status, 404, JSON.stringify(handed.body));
     // 준비한 bytes는 남아 있어도(수명이 지나면 사라진다) 참조는 transaction과 함께 되돌아갔다.
     assertEquals(contentRefs(core), before);
 

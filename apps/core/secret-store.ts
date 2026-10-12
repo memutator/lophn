@@ -11,6 +11,9 @@
 //   값을 모른 채 원문을 내보내지 않게 redactor는 null로 답한다(fail-closed). 다시 읽을 때까지
 //   backoff로 재시도한다. 참조가 하나도 없으면 keychain을 열지 않는다.
 // - keychain이 없는 환경은 secret 기능만 unavailable이다. 파일 볼트·환경 변수 fallback은 없다.
+// - 회수 대상 owner(provider credential)의 참조가 ledger에서 사라지면 그 값을 OS keychain에서도
+//   지운다(platform/secrets#R7, provider#R6). ledger transaction과 keychain 삭제는 같은 원자 작업이
+//   아니므로 확정 뒤에 지우고, 지우지 못한 값은 시작 때와 주기 쓸기가 다시 지운다(R6).
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type CommandEnvelope,
@@ -20,6 +23,7 @@ import {
   type Writer,
 } from "../../packages/platform/ledger/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
+import type { SecretPurpose } from "../../packages/contracts/platform/mod.ts";
 import {
   type KeychainAdapter,
   productKeychain,
@@ -38,6 +42,12 @@ export type SecretStore = {
   // 않는다. ready는 현재 참조의 값을 모두 읽어 등록했을 때만 true라서, 모르는 채로 원문을
   // 내보내는 안전화가 스스로 막는다(fail-closed).
   readonly known: KnownSecretMatch;
+  // 이미 열린 keychain에서만 쓴다(sync가 참조 때문에 열었거나 Connect·Disconnect가 열었을 때). 열린 적이
+  // 없으면 아무것도 하지 않고 ok다. ledger가 가리키지 않는 회수 대상 용도의 keychain 항목을 지운다. 보호
+  // 입력을 마치고 참조가 확정되기 전의 값과 구별할 수 없으므로 기본은 두 번 연속 고아로 본 것만 지운다. immediate는 보호 입력이
+  // 아직 없을 때(core가 막 뜰 때)만 쓰고 본 고아를 바로 지운다. 지우지 못한 항목이 있거나 목록을
+  // 낼 수 없으면 err이고, 지우지 못한 항목은 남겨 다음 쓸기가 다시 지운다.
+  sweep(options?: { immediate?: boolean }): Promise<Result<void>>;
   // timer를 멈추고 core 쪽 값을 비운다(JS 메모리의 완전한 지움은 보장하지 않는다).
   stop(): void;
 };
@@ -51,14 +61,21 @@ export type SecretStoreDeps = {
   // 다른 concern이 자기 ledger 표에 둔 secret 참조(provider credential 등). 값은 그 owner의
   // 참조로 같은 keychain에서 읽고 같은 등록·회수 통로로 넣는다.
   sources?: readonly SecretRefSource[];
+  // 참조가 사라지면 OS 값도 지우는 owner와 그 keychain 용도. 없으면 값을 회수만 한다.
+  reclaim?: { purpose: SecretPurpose; owners: readonly string[] };
   retryMs?: number;
   maxRetryMs?: number;
+  // 주기 쓸기 간격. 지우지 못한 값을 다시 지우는 안전망이다.
+  sweepMs?: number;
 };
+
+const OWNER_SEPARATOR = "\u0000";
 
 type Held = { sealedRef: string; value: string };
 
 export function openSecretStore(deps: SecretStoreDeps): SecretStore {
   const initial = deps.retryMs ?? 2_000;
+  const reclaimOwners = new Set(deps.reclaim?.owners ?? []);
   const ceiling = deps.maxRetryMs ?? 30_000;
   // core 보호 메모리의 알려진 값. 이름마다 현재 참조와 읽은 값이다.
   const held = new Map<string, Held>();
@@ -71,6 +88,13 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
   let stopped = false;
   let delay = initial;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // 지난 쓸기에서 ledger가 가리키지 않던 항목. 두 번 연속 보면 지운다.
+  let suspects = new Set<string>();
+  let sweeping: ReturnType<typeof setInterval> | undefined;
+  if (deps.reclaim !== undefined) {
+    sweeping = setInterval(() => void sweep(), deps.sweepMs ?? 600_000);
+    Deno.unrefTimer(sweeping as unknown as number);
+  }
 
   function retry() {
     if (stopped || timer !== undefined) return;
@@ -91,13 +115,16 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
       const refs = readSecretRefs(opened.value.sql);
       if (!refs.ok) return refs;
       for (const ref of refs.value) {
-        current.set(`platform\u0000${ref.name}`, ref.sealedRef);
+        current.set(`platform${OWNER_SEPARATOR}${ref.name}`, ref.sealedRef);
       }
       for (const source of deps.sources ?? []) {
         const owned = source.read(opened.value.sql);
         if (!owned.ok) return owned;
         for (const ref of owned.value) {
-          current.set(`${source.owner}\u0000${ref.name}`, ref.sealedRef);
+          current.set(
+            `${source.owner}${OWNER_SEPARATOR}${ref.name}`,
+            ref.sealedRef,
+          );
         }
       }
     } finally {
@@ -151,6 +178,16 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
     if (!revoked.ok) return revoked;
     held.clear();
     for (const [name, value] of next) held.set(name, value);
+    // 참조는 이미 확정으로 사라졌고 알려진 값도 회수했다. 이제 OS 값을 지운다. 지우지 못해도 위의
+    // 차단은 그대로이고 남은 값은 쓸기가 다시 지운다.
+    const live = new Set(current.values());
+    for (const [name, value] of dropped) {
+      if (!reclaimOwners.has(name.slice(0, name.indexOf(OWNER_SEPARATOR)))) {
+        continue;
+      }
+      if (live.has(value.sealedRef)) continue;
+      await keychain?.remove(value.sealedRef);
+    }
     if (incomplete !== undefined) return incomplete;
     const readied = await deps.channel.setReady(true);
     if (readied.ok) ready = true;
@@ -192,8 +229,59 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
     return started;
   }
 
+  async function sweep(
+    options?: { immediate?: boolean },
+  ): Promise<Result<void>> {
+    const reclaim = deps.reclaim;
+    // 이미 연 keychain에서만 쓴다. 참조가 없어 열린 적이 없으면 쓸 것이 없다(R1: 참조 없는 core는 keychain을
+    // 열지 않는다).
+    if (reclaim === undefined || stopped || keychain === undefined) {
+      return ok(undefined);
+    }
+    const unavailable = err({
+      code: "unavailable" as const,
+      message: "keychain 항목을 쓸지 못했다",
+    });
+    if (
+      await keychain.status() !== "available" || keychain.listRefs === undefined
+    ) return unavailable;
+    // 목록을 먼저, ledger를 나중에 읽는다. 목록에 든 항목을 가리키는 참조가 그 사이에 확정됐으면 보인다.
+    const listed = await keychain.listRefs(reclaim.purpose, "");
+    if (!listed.ok) return unavailable;
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return opened;
+    const referenced = new Set<string>();
+    try {
+      for (const source of deps.sources ?? []) {
+        if (!reclaimOwners.has(source.owner)) continue;
+        const owned = source.read(opened.value.sql);
+        if (!owned.ok) return owned;
+        for (const ref of owned.value) referenced.add(ref.sealedRef);
+      }
+    } finally {
+      opened.value.close();
+    }
+    const next = new Set<string>();
+    let failed = false;
+    for (const ref of listed.value) {
+      if (referenced.has(ref)) continue;
+      if (options?.immediate !== true && !suspects.has(ref)) {
+        next.add(ref);
+        continue;
+      }
+      const removed = await keychain.remove(ref);
+      if (!removed.ok && removed.error.code !== "not_found") {
+        failed = true;
+        next.add(ref);
+      }
+    }
+    suspects = next;
+    return failed ? unavailable : ok(undefined);
+  }
+
   return {
     sync,
+    sweep,
     known: {
       match: (text) => coreKnown.match(text),
       get ready() {
@@ -204,6 +292,8 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
       stopped = true;
       clearTimeout(timer);
       timer = undefined;
+      clearInterval(sweeping);
+      sweeping = undefined;
       held.clear();
       coreKnown.clear();
       ready = false;

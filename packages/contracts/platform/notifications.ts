@@ -12,60 +12,103 @@ export const notificationSchema = z.object({
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
-// 계기 표는 source event 이름과 생성 조건만 적는다(architecture/platform 5.10).
-// payload type은 소유 contracts가 나중에 준다. 아직 없는 event는 이름 문자열만 쓴다.
+// 계기 표는 source event 이름과 생성 조건, 사람이 Ask를 골랐을 때 부를 agent를 적는다
+// (architecture/platform 5.10, platform/notifications#R13). payload type은 소유 contracts가
+// 나중에 준다. 아직 없는 event는 이름 문자열만 쓴다.
+//
+// ask_agent는 계기 종류마다 고정된 role이거나 null(보기만)이다. 내용을 읽어 정하지 않는다.
+// first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조의 모양이다: work_place는 탭을
+// 여는 자리(앱 또는 project), target은 opening_context가 가리키는 대상 종류다. ask_agent가
+// null이면 null이다. 계약 위반 계기(ContextViolationsRecorded)는 Context Engineer를 project
+// 자리에서 부르고 위반된 context를 첫 context로 붙인다.
+export const NOTIFICATION_ASK_ROLES = [
+  "app_engineer",
+  "context_engineer",
+] as const;
+export type NotificationAskRole = (typeof NOTIFICATION_ASK_ROLES)[number];
+
+export type NotificationFirstContext =
+  | { readonly work_place: "app"; readonly target: "problem" | "release" }
+  | { readonly work_place: "project"; readonly target: "context" };
+
 export const NOTIFICATION_TRIGGERS = [
   {
     event: "ProblemOpened",
     owner: "problems/grouping",
     condition: "operational_report",
+    ask_agent: "app_engineer",
+    first_context: { work_place: "app", target: "problem" },
   },
   {
     event: "ProblemReopened",
     owner: "problems/grouping",
     condition: "operational_report",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "ProblemClosed",
     owner: "problems/closing",
     condition: "operational_report",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "ApprovalRequestCreated",
     owner: "platform/approvals",
     condition: "always",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "QuestionCreated",
     owner: "lophn-agent/questions",
     condition: "always",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "TicketConfirmed",
     owner: "coding-agent/tickets",
     condition: "always",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "TicketCheckFailed",
     owner: "coding-agent/tickets",
     condition: "always",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "AssignmentPaused",
     owner: "lophn-agent/assignments",
-    condition: "machine_repeated_failure_or_archived_target",
+    condition: "scope_archived",
+    ask_agent: null,
+    first_context: null,
   },
   {
     event: "ReleaseActivationFailed",
     owner: "apps/releases",
     condition: "always",
+    ask_agent: "app_engineer",
+    first_context: { work_place: "app", target: "release" },
   },
   {
     event: "ContextViolationsRecorded",
     owner: "documents/contexts",
     condition: "count_rose",
+    ask_agent: "context_engineer",
+    first_context: { work_place: "project", target: "context" },
   },
-] as const;
+] as const satisfies readonly {
+  event: string;
+  owner: string;
+  condition: string;
+  ask_agent: NotificationAskRole | null;
+  first_context: NotificationFirstContext | null;
+}[];
 export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number];
 
 const triggerEventSchema = z.enum(
@@ -110,8 +153,43 @@ export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
 // 사람 줄이 source event에서 읽는 당시 시각이다(platform/notifications#R3). payload 자체는 없다.
+//
+// ask는 [Ask <agent 이름>]이 쓰는 값이다(platform/notifications#R13, R14). core가 계기 표와
+// source 사실로 계산해 싣고 화면은 받은 값만 그린다. 부를 agent가 없는 계기는 null이다.
+// first_context는 Ask가 연 Agent 탭에 첫 context로 붙는 참조뿐이다: 앱 자리와 문제 또는
+// release 대상의 id, 또는 project 자리와 위반된 context의 id. notification 본문 복사본·
+// run·message는 실을 자리가 없다.
+export const notificationAskSchema = z.strictObject({
+  role: z.enum(NOTIFICATION_ASK_ROLES),
+  agent_name: z.string().min(1),
+  first_context: z.union([
+    z.strictObject({
+      work_place: z.strictObject({
+        kind: z.literal("app"),
+        id: idSchema("app"),
+      }),
+      target: z.discriminatedUnion("kind", [
+        z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
+        z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
+      ]),
+    }),
+    z.strictObject({
+      work_place: z.strictObject({
+        kind: z.literal("project"),
+        id: idSchema("prj"),
+      }),
+      target: z.strictObject({
+        kind: z.literal("context"),
+        id: idSchema("ctx"),
+      }),
+    }),
+  ]),
+});
+export type NotificationAsk = z.infer<typeof notificationAskSchema>;
+
 const notificationLineSchema = {
   occurred_at: atSchema.optional(),
+  ask: notificationAskSchema.nullable().optional(),
 };
 
 export const notificationsGetOutputSchema = withReadCommon(z.object({

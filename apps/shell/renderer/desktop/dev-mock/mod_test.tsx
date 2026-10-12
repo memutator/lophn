@@ -19,12 +19,14 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const projects = await mock.launcher.projects();
   assert(projects.ok && projects.value.length >= 2);
 
-  const roles = await mock.roles.roles();
-  assert(roles.ok && roles.value.length >= 2);
-
-  const providers = await mock.settings.providers();
+  const providers = await mock.settingsPanels.providers!.connected();
   assert(providers.ok && providers.value.length >= 2);
-  assert(providers.value.some((row) => row.accounts.length > 0));
+  assert(providers.value.some((row) => row.state === "available"));
+  const available = await mock.settingsPanels.providers!.available();
+  assert(available.ok && available.value.length >= 2);
+  const agents = await mock.settingsPanels.agents!.read();
+  assert(agents.ok && agents.value.providers.length >= 1);
+  assert(agents.value.defaults.lophn !== null);
 
   const apps = await mock.apps.list();
   assert(apps.ok && apps.value.length >= 1);
@@ -91,4 +93,42 @@ Deno.test("shell/workspace#R14 [ctx-I53]: mock 작업대는 Contexts 탭 통로�
   assert(experiment !== undefined);
   const document = await mock.editor.source.document(experiment.document);
   assert(document.ok);
+});
+
+Deno.test("shell/workspace#R36 [agent-I34]: mock 작업대는 Agents 탭 통로를 준다", async () => {
+  const mock = devMock("?mock");
+  assert(mock !== null);
+  const agents = mock.workspace.agentsSource;
+  assert(agents !== undefined);
+  const overview = await agents.overview("prj_mock");
+  assert(overview.ok);
+  assert(overview.value.agents.some((row) => row.kind === "operator"));
+  assert(overview.value.agents.some((row) => row.role === "lophn"));
+});
+
+Deno.test("shell/desktop#R38 [agent-I33b]: mock 모드는 Agent view의 source factory도 메모리 통로로 주고 같은 agent를 다시 얻으면 같은 기록을 본다", async () => {
+  const mock = devMock("?mock");
+  assert(mock !== null);
+  const agent = {
+    assignment: "asg_01k6q000000000000000000001",
+    place: { kind: "project" as const, id: "prj_mock" },
+  };
+  const source = mock.agentViewSource(agent);
+  const face = await source.agent();
+  assert(face.ok);
+  const sessions = await source.sessions();
+  assert(sessions.ok && sessions.value.length >= 1);
+  const first = sessions.value[0]!;
+  const thread = await source.thread(first.id);
+  assert(thread.ok && thread.value.entries.length >= 1);
+  assertEquals(await source.renameSession(first.id, "Renamed"), {
+    ok: true,
+    value: undefined,
+  });
+  const again = await mock.agentViewSource(agent).sessions();
+  assert(again.ok);
+  assertEquals(
+    again.value.find((row) => row.id === first.id)?.title,
+    "Renamed",
+  );
 });

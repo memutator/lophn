@@ -116,6 +116,7 @@ export const seedQuestion = defineCommand({
   method: "seed-question",
   name: "settings.tests.seed_question",
   input: z.object({
+    group: z.string(),
     question: z.string(),
     option_key: z.string(),
     changes: z.array(z.json()),
@@ -138,11 +139,16 @@ const seedQuestionCommand: CommandDefinition<typeof seedQuestion> = {
       "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
       [
         "QuestionCreated",
-        input.question,
+        input.group,
         _ctx.actor,
         null,
         JSON.stringify({
-          options: [{ key: input.option_key, changes: input.changes }],
+          run: "run_01arz3ndektsv4rrffq69g5fav",
+          session: null,
+          questions: [{
+            id: input.question,
+            options: [{ key: input.option_key, changes: input.changes }],
+          }],
         }),
         tx.now(),
       ],
@@ -152,18 +158,21 @@ const seedQuestionCommand: CommandDefinition<typeof seedQuestion> = {
         "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
         [
           "QuestionAnswered",
-          input.question,
+          input.group,
           input.answer_actor,
           null,
           JSON.stringify({
             created_seq: "1",
-            answer: input.answer_option === null
-              ? { kind: "text", option_key: null, text_blob: "0".repeat(64) }
-              : {
-                kind: "option",
-                option_key: input.answer_option,
-                text_blob: null,
-              },
+            answers: [{
+              question: input.question,
+              answer: input.answer_option === null
+                ? { kind: "text", option_key: null, text_blob: "0".repeat(64) }
+                : {
+                  kind: "option",
+                  option_key: input.answer_option,
+                  text_blob: null,
+                },
+            }],
             binding_hash: null,
           }),
           tx.now(),

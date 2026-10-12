@@ -1,54 +1,30 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   messagesList,
+  sessionCompactRequests,
   sessionList,
   sessionRead,
 } from "../../contracts/lophn-agent/mod.ts";
-import {
-  parseActor,
-  type ReadDefinition,
-  type RequestContext,
-} from "../../contracts/platform/mod.ts";
+import type { ReadDefinition } from "../../contracts/platform/mod.ts";
+import { sessionVisible, visibleAssignment } from "./guards.ts";
 import {
   loadSession,
   MESSAGE_COLUMNS,
   messageRowOf,
   SESSION_COLUMNS,
   sessionRecordOf,
-  type SessionRow,
   sessionRowOf,
   snapshotOf,
 } from "./model.ts";
 
-// read는 pool read다. handler는 동기 Result를 돌려준다. user·machine은 모든
-// 세션을 보고 agent는 자기 assignment의 세션만 본다. 그 밖(다른 assignment의
-// agent, coding_agent, app)은 없는 세션과 똑같이 답한다. 닫힌 세션도 원문을
-// 그대로 읽는다(R8).
+// read는 pool read다. handler는 동기 Result를 돌려준다. 보이는 범위는 guards.ts가 정한다.
+// 닫힌 세션도 원문을 그대로 읽는다(R8).
 
 const PAGE = 50;
 const PAGE_MAX = 200;
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "session not found" });
-}
-
-// null은 제한 없음, 문자열은 그 assignment만, undefined는 아무것도 보지 못함.
-function visibleAssignment(
-  ctx: RequestContext,
-): string | null | undefined {
-  const actor = parseActor(ctx.actor);
-  if (actor === undefined) return undefined;
-  if (actor.kind === "user" || actor.kind === "machine") return null;
-  if (actor.kind === "agent") return actor.id;
-  return undefined;
-}
-
-export function sessionVisible(
-  ctx: RequestContext,
-  session: SessionRow,
-): boolean {
-  const scope = visibleAssignment(ctx);
-  return scope === null || scope === session.assignment;
 }
 
 function cursorAfter(cursor: string | undefined): Result<bigint | null> {
@@ -77,6 +53,7 @@ export function createConversationReads(): {
   session: ReadDefinition<typeof sessionRead>;
   sessions: ReadDefinition<typeof sessionList>;
   messages: ReadDefinition<typeof messagesList>;
+  compactRequests: ReadDefinition<typeof sessionCompactRequests>;
 } {
   return {
     session: {
@@ -102,17 +79,26 @@ export function createConversationReads(): {
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
+        // 다른 agent의 목록을 이름으로 물어도 비어 있다(R21).
         if (scope === undefined) return empty;
-        if (
-          scope !== null && input.assignment !== undefined &&
-          input.assignment !== scope
-        ) return empty;
-        const clauses = ["created_seq > ?"];
-        const params: (string | bigint)[] = [after.value ?? 0n];
-        const assignment = scope ?? input.assignment;
-        if (assignment !== undefined && assignment !== null) {
-          clauses.push("assignment = ?");
-          params.push(assignment);
+        if (scope !== null && input.assignment !== scope) return empty;
+        // 목록은 agent와 자리별이다. 제목 검색은 화면이 이 결과의 제목만 거른다.
+        const clauses = [
+          "created_seq > ?",
+          "assignment = ?",
+          "work_place_kind = ?",
+          "work_place_id = ?",
+        ];
+        const params: (string | bigint)[] = [
+          after.value ?? 0n,
+          input.assignment,
+          input.work_place.kind,
+          input.work_place.id,
+        ];
+        const archived = input.archived ?? "exclude";
+        if (archived !== "include") {
+          clauses.push("archived = ?");
+          params.push(archived === "only" ? 1n : 0n);
         }
         const rows = snapshot.sql.all(
           `select ${SESSION_COLUMNS} from sessions
@@ -127,6 +113,37 @@ export function createConversationReads(): {
           next_cursor: rows.length > PAGE && last !== undefined
             ? cursorOf(last.created_seq)
             : null,
+        });
+      },
+    },
+    // runtime이 요약을 시작할 Compact 요청이다. 끝나지 않은 run이 있는 session의 요청은 그 run이 끝날 때까지
+    // 나오지 않고(그 사이에 요약을 시작하지 않는다) 가장 오래된 요청부터 나온다.
+    compactRequests: {
+      route: sessionCompactRequests,
+      handle(snapshot) {
+        const rows = snapshot.sql.all(
+          `select cast(r.request_seq as text) as request_seq, s.id as id,
+             s.assignment as assignment, s.work_place_kind as kind,
+             s.work_place_id as place
+           from session_compact_requests r join sessions s on s.id = r.session
+           where r.state = 'requested' and s.state = 'open'
+             and not exists (
+               select 1 from runs where session = s.id and state != 'finished')
+           order by r.request_seq limit ?`,
+          [PAGE],
+        );
+        return ok({
+          requests: rows.map((row) => ({
+            session: String(row["id"]),
+            assignment: String(row["assignment"]),
+            work_place: {
+              kind: String(row["kind"]),
+              id: String(row["place"]),
+            } as never,
+            request_seq: String(row["request_seq"]),
+          })),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
         });
       },
     },

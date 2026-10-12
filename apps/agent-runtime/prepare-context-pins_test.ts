@@ -1,5 +1,7 @@
 // lophn-agent/harness/tools#R21: 선언 검색 tool은 run이 시작할 때 고정한 판으로 만든 정의를 resume 뒤에도 쓴다.
-// core는 fake다: preset·assignment·run·context 읽기와 run basis blob만 갖고 model·네트워크는 부르지 않는다.
+// core는 fake다: 가짜 core(testing/world.ts)가 agent·session·run을 답하고 이 시험이 context 읽기와 run 기준
+// blob만 더한다. model·네트워크는 부르지 않는다. 읽을 context는 resolved agent의 context(Operator의 정의가
+// 고른 context)다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { z } from "zod";
 import {
@@ -13,13 +15,12 @@ import {
   bundleContentSchema,
   contextContractRoute,
   contextGetRoute,
+  contextListRoute,
   contextOverviewRoute,
   glossaryListRoute,
 } from "../../packages/contracts/documents/mod.ts";
 import {
-  assignmentRead,
   modelCallList,
-  presetRead,
   recoverRun,
   runBody,
   runRead,
@@ -28,9 +29,7 @@ import {
 import {
   eventsList,
   routePath,
-  settingsGet,
 } from "../../packages/contracts/platform/mod.ts";
-import { RUN_LIMIT_SETTING_KEYS } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   type ContextBundleReader,
@@ -39,21 +38,22 @@ import {
 } from "./context-search.ts";
 import { createRunPreparer } from "./prepare.ts";
 import { productToolkit } from "./product-driver.ts";
+import {
+  ASG,
+  AT,
+  HASH,
+  MODEL,
+  MSG,
+  openWorld,
+  PRJ,
+  RUN,
+} from "./testing/world.ts";
 
-const S = "01arz3ndektsv4rrffq69g5fav";
-const RUN = `run_${S}`;
-const ASG = `asg_${S}`;
-const PST = `pst_${S}`;
-const PVD = `pvd_${S}`;
-const MSG = `msg_${S}`;
 const CTX = "ctx_01arz3ndektsv4rrffq69g5faa";
-const PRJ = "prj_01arz3ndektsv4rrffq69g5fav";
 const BUNDLE_1 = "cbn_01arz3ndektsv4rrffq69g5fa1";
 const BUNDLE_2 = "cbn_01arz3ndektsv4rrffq69g5fa2";
-const HASH = "ab".repeat(32);
 const HASH_1 = "a1".repeat(32);
 const HASH_2 = "a2".repeat(32);
-const AT = "2026-10-05T00:00:00.000Z";
 const META = { as_of_seq: "5", next_cursor: null };
 
 function content(searchTitle: string, summary = "요리 하나") {
@@ -84,7 +84,7 @@ function content(searchTitle: string, summary = "요리 하나") {
 
 type Applied = { bundle: string; hash: string; content: unknown } | null;
 
-// 시험이 바꾸는 core의 context 한 개와 run basis blob.
+// 시험이 바꾸는 core의 context 한 개와 run이 고정한 blob. 읽을 context는 Operator의 정의가 고른 이 하나다.
 function scene() {
   const state = {
     status: "active" as "active" | "archived",
@@ -100,6 +100,14 @@ function scene() {
     // `context.contract`를 부른 입력 기록이다.
     contractCalls: [] as Record<string, unknown>[],
   };
+  const base = openWorld({
+    role: "operator",
+    session: null,
+    workspaceModels: { operator: MODEL() },
+    definition: { name: "Recipes", contexts: [CTX], body: "" },
+    activeContexts: [CTX],
+  });
+  // run이 고정한 blob(목적별 마지막 값)이다. resume은 이것을 읽는다.
   const blobs = new Map<string, unknown>();
   const reply = (schema: z.ZodType, value: unknown) => {
     const parsed = schema.safeParse(value);
@@ -152,91 +160,33 @@ function scene() {
         ...META,
       });
     }
-    if (path === routePath(assignmentRead)) {
-      return reply(assignmentRead.output, {
-        assignment: {
-          id: ASG,
-          role: "lophn",
-          preset: PST,
-          preset_revision: 1,
-          scope: { kind: "all", id: null },
-          outputs: [],
-          read_apps: [],
-          read_commands: [],
-          schedule: null,
-          approval: null,
-          state: "enabled",
-          pause_reason: null,
-          last_due_at: null,
-          revision: 1,
-        },
-        ...META,
-      });
-    }
-    if (path === routePath(presetRead)) {
-      return reply(presetRead.output, {
-        preset: {
-          id: PST,
-          revision: 1,
-          definition_hash: HASH,
-          definition: {
-            kind: "lophn",
-            name: "lophn",
-            origin: "product",
-            prompt: HASH,
-            capability: { bundles: [], tools: [] },
-            context: [{ kind: "context", target: CTX, section: null }],
-            mcp: { servers: [], tools: [] },
-            safe_tools: [],
-            skills: [],
-            model: {
-              provider: PVD,
-              credentials: [],
-              model_name: "gpt",
-              reasoning_level: "low",
-              options: {},
-            },
-            organizing_model: null,
-            instructions: [],
-          },
-        },
-        ...META,
-      });
-    }
-    if (path === routePath(settingsGet)) {
-      const keys = (input["keys"] as readonly string[] | undefined) ?? [];
-      const values = new Map<string, unknown>([
-        [RUN_LIMIT_SETTING_KEYS.model_attempts, 30],
-        [RUN_LIMIT_SETTING_KEYS.stall_ms, 300_000],
-        [RUN_LIMIT_SETTING_KEYS.active_ms, 1_800_000],
-      ]);
-      return reply(settingsGet.output, {
-        settings: keys.map((key) => ({
-          key,
-          resolved: values.has(key),
-          value: values.get(key) ?? null,
-          source_layer: values.has(key) ? "common" : null,
-          choices: [],
-          revision: 1,
-          apply_at: "next_run",
-        })),
-        revision: 1,
-        defaults_revision: "defaults-1",
-        ...META,
-      });
-    }
     if (path === routePath(runBody)) {
-      const stored = [...blobs.entries()].at(-1);
+      const kind = String(input["kind"]);
+      const stored = blobs.get(kind);
       if (stored === undefined) {
-        return Promise.resolve(err({ code: "not_found", message: "no basis" }));
+        return Promise.resolve(err({ code: "not_found", message: "no blob" }));
       }
       return reply(runBody.output, {
-        kind: "run_basis",
+        kind,
         id: RUN,
         run: RUN,
-        hash: stored[0],
-        size_bytes: JSON.stringify(stored[1]).length,
-        value: stored[1],
+        hash: HASH,
+        size_bytes: JSON.stringify(stored).length,
+        value: stored,
+        ...META,
+      });
+    }
+    if (path === routePath(contextListRoute)) {
+      return reply(contextListRoute.output, {
+        contexts: state.status === "active" && state.applied !== null
+          ? [{
+            ...contextValue(),
+            applied_number: 1,
+            draft_bundle: null,
+            checking_bundle: null,
+          }]
+          : [],
+        complete: true,
         ...META,
       });
     }
@@ -318,11 +268,9 @@ function scene() {
         outcome: null,
       });
     }
-    return Promise.resolve(
-      err({ code: "not_found", message: `no fixture for ${path}` }),
-    );
+    return base.calls.machine(path, body);
   };
-  return { state, blobs, machine };
+  return { state, blobs, machine, base };
 }
 
 // 읽을 수 있는 옛 판. 판 내용은 submit 뒤 바뀌지 않으므로 지금 적용된 판이 바뀐 뒤에도 같은 값이다.
@@ -350,17 +298,18 @@ function preparer(
     machine: world.machine,
     agentCall: () => world.machine,
     blobs: {
-      async prepare(_purpose, bytes) {
+      async prepare(purpose, bytes) {
         const digest = new Uint8Array(
           await crypto.subtle.digest("SHA-256", bytes as BufferSource),
         );
         const hash = [...digest].map((b) => b.toString(16).padStart(2, "0"))
           .join("");
-        world.blobs.set(hash, JSON.parse(new TextDecoder().decode(bytes)));
+        // run 기준은 run_basis, resolved agent는 run_agent 목적으로 온다. resume이 읽는 이름과 같다.
+        world.blobs.set(purpose, JSON.parse(new TextDecoder().decode(bytes)));
         return ok({ hash, size_bytes: bytes.length });
       },
     },
-    resolveModel: ({ preset }) =>
+    resolveModel: ({ model }) =>
       Promise.resolve(ok({
         call: {
           limits: {
@@ -369,7 +318,7 @@ function preparer(
             output_limit: 8000,
           },
         },
-        preset,
+        model,
         endpoint: "http://127.0.0.1:9",
         usageRevision: "usage-1",
         timeoutMs: null,
@@ -392,11 +341,8 @@ function preparer(
     rolePrompt: () => Promise.resolve(ok("role")),
     instructions: {
       files: {
-        registered: () =>
+        read: () =>
           Promise.resolve(err({ code: "unavailable", message: "none" })),
-        attached: () =>
-          Promise.resolve(err({ code: "unavailable", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
       },
       redact: (text: string) => Promise.resolve(text),
     },
@@ -420,6 +366,7 @@ async function startContext(
     run: RUN,
     assignment: ASG,
     stateSeq: "1",
+    session: null,
     reason: "priority",
   });
   assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
@@ -477,7 +424,7 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56c]: Run.basis는 선언 검색 
   const world = scene();
   const tools = await start(world, HISTORY);
   assertEquals(tools.length, 1);
-  const basis = [...world.blobs.values()].at(-1) as {
+  const basis = world.blobs.get("run_basis") as {
     tools: { contexts: unknown };
   };
   assertEquals(basis.tools.contexts, [{

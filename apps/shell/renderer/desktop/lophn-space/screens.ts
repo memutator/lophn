@@ -9,7 +9,6 @@ const ICONS: Record<LophnScreen, IconProps["icon"]> = {
   documents: lophnSpaceIcons.documents,
   apps: lophnSpaceIcons.apps,
   "things-to-confirm": lophnSpaceIcons.thingsToConfirm,
-  roles: lophnSpaceIcons.roles,
   settings: lophnSpaceIcons.settings,
 };
 
@@ -23,8 +22,6 @@ export function screenLabel(screen: LophnScreen): string {
       return t("apps.title.screen");
     case "things-to-confirm":
       return t("things-to-confirm.title.screen");
-    case "roles":
-      return t("roles.title.screen");
     case "settings":
       return t("settings.title.screen");
   }

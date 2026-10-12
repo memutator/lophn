@@ -1,0 +1,345 @@
+[
+  {
+    "provider_definition": "anthropic",
+    "model_name": "claude-sonnet-4-5",
+    "context_limit": 200000,
+    "input_limit": 190000,
+    "output_limit": 64000,
+    "supports_tools": true,
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": {
+          "minimum": 1024,
+          "maximum": 24000
+        }
+      }
+    ],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  },
+  {
+    "provider_definition": "anthropic",
+    "model_name": "claude-opus-4-8",
+    "context_limit": 1000000,
+    "input_limit": 968000,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": "high",
+        "budget": null
+      },
+      {
+        "id": "speed",
+        "label": "Speed",
+        "values": [
+          {
+            "value": "standard",
+            "label": "Standard",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {}
+            }
+          },
+          {
+            "value": "fast",
+            "label": "Fast",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {
+                "speed": "fast"
+              },
+              "headers": {
+                "anthropic-beta": "fast-mode-2026-02-01"
+              }
+            }
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  },
+  {
+    "provider_definition": "openai",
+    "model_name": "gpt-5-5",
+    "context_limit": 400000,
+    "input_limit": 272000,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "minimal",
+            "label": "Minimal",
+            "wire": null
+          },
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      },
+      {
+        "id": "speed",
+        "label": "Speed",
+        "values": [
+          {
+            "value": "standard",
+            "label": "Standard",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {
+                "service_tier": "default"
+              }
+            }
+          },
+          {
+            "value": "fast",
+            "label": "Fast",
+            "wire": {
+              "kind": "body_patch",
+              "patch": {
+                "service_tier": "priority"
+              }
+            }
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  },
+  {
+    "provider_definition": "openai",
+    "model_name": "gpt-4-1",
+    "context_limit": 1047576,
+    "input_limit": 1014808,
+    "output_limit": 32768,
+    "supports_tools": true,
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  },
+  {
+    "provider_definition": "xai",
+    "model_name": "grok-3-mini",
+    "context_limit": 131072,
+    "input_limit": 122880,
+    "output_limit": 8192,
+    "supports_tools": true,
+    "input_media": [
+      "text"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": "low",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  },
+  {
+    "provider_definition": "xai",
+    "model_name": "grok-4",
+    "context_limit": 256000,
+    "input_limit": 223232,
+    "output_limit": 32768,
+    "supports_tools": true,
+    "input_media": [
+      "text",
+      "image"
+    ],
+    "output_media": [
+      "text"
+    ],
+    "options": [
+      {
+        "id": "speed",
+        "label": "Speed",
+        "values": [
+          {
+            "value": "standard",
+            "label": "Standard",
+            "wire": {
+              "kind": "model_id",
+              "model_name": "grok-4"
+            }
+          },
+          {
+            "value": "fast",
+            "label": "Fast",
+            "wire": {
+              "kind": "model_id",
+              "model_name": "grok-4-fast"
+            }
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  }
+]

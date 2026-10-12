@@ -76,10 +76,7 @@ function targetOf(
 // machine이 멈춘 assignment만 계기다. 사람이 직접 멈춘 것은 소식이 아니다(R1).
 function assignmentTriggered(payload: Payload): boolean {
   const reason = payload["reason"];
-  return payloadIsObject(reason) &&
-    (reason["kind"] === "consecutive_failures" ||
-      reason["kind"] === "scope_archived" ||
-      reason["kind"] === "output_archived");
+  return payloadIsObject(reason) && reason["kind"] === "scope_archived";
 }
 
 // 위반 수가 직전 기록보다 늘었을 때만 계기다. 줄거나 같으면 소식이 아니다(첫 기록의 before는 0).

@@ -1,7 +1,9 @@
 // OAuth 로그인 command(provider#R1, R12–R16, D31)의 HTTP 요청을 core가 답한다.
 // 사람의 요청만 이 route에 닿는다(route actors가 user). ledger이 아니라 writer queue
 // 앞의 처리기로 돈다: OAuth network(등록·token 교환·device poll)와 callback listener가
-// 기다리므로 ledger transaction 안에 있을 수 없다(withConnectionTest와 같은 모양).
+// 기다리므로 ledger transaction 안에 있을 수 없다.
+// Connect가 credential까지 받는 RegisterProvider 하나라 로그인은 provider가 등록되기 전에 시작한다:
+// begin은 만들 provider의 ID와 내장 정의 key를 받고 정의는 내장 목록에서 찾는다(provider#R12).
 // login 세션(state·nonce·verifier·device_code)은 이 처리기의 메모리에만 있고
 // ledger·event·log에는 남지 않는다(R6, R7). 활성 gate(D31)는 verified_for_lophn과
 // live 확인 env(LOPHN_LIVE_PROVIDER=1) 둘이 모두 열려 있을 때만 통과한다.
@@ -12,13 +14,11 @@ import {
   loginBeginOutputSchema,
   loginCancelInputSchema,
   loginCompleteInputSchema,
-  type ProviderRecord,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
+  builtinProviderDefinition,
   createProviderOAuth,
-  loadProvider,
   type OAuthBegin,
-  type OAuthTokenBundle,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import type {
   OAuthListener,
@@ -26,13 +26,10 @@ import type {
 import {
   openCallbackListener,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
-import { openConnection } from "../../packages/platform/ledger/mod.ts";
 import type {
   CommandSuccess,
-  KnownSecretMatch,
   Writer,
 } from "../../packages/platform/ledger/mod.ts";
-import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
 
 export const PROVIDER_LOGIN_LIVE_ENV = "LOPHN_LIVE_PROVIDER";
 
@@ -43,9 +40,6 @@ function liveGateOf(env = Deno.env.get(PROVIDER_LOGIN_LIVE_ENV)): boolean {
 }
 
 export type ProviderLoginWriterDeps = {
-  ledgerPath: string;
-  keychain: () => KeychainAdapter;
-  known: () => KnownSecretMatch | undefined;
   // 테스트가 D31 활성 gate와 OAuth HTTP를 대신 준다. 없으면 제품 env 판정과
   // 실제 network(비활성)다.
   liveGate?: () => boolean;
@@ -54,10 +48,10 @@ export type ProviderLoginWriterDeps = {
 };
 
 // writer queue 앞의 처리기. login 세 command만 가로채고 나머지 command와 Writer
-// 동작은 그대로다(withConnectionTest와 같은 모양).
+// 동작은 그대로다.
 export function withProviderLogin(
   writer: Writer,
-  deps: ProviderLoginWriterDeps,
+  deps: ProviderLoginWriterDeps = {},
 ): Writer {
   const gate = deps.liveGate ?? liveGateOf;
   const login = createProviderOAuth({
@@ -73,13 +67,13 @@ export function withProviderLogin(
       envelope,
     ): Promise<Result<CommandSuccess>> {
       if (envelope.command === "BeginProviderLogin") {
-        return await loginResult(beginCommand(login, deps, envelope.input));
+        return await loginResult(beginCommand(login, envelope.input));
       }
       if (envelope.command === "CompleteProviderLogin") {
-        return await loginResult(completeCommand(login, deps, envelope.input));
+        return await loginResult(completeCommand(login, envelope.input));
       }
       if (envelope.command === "CancelProviderLogin") {
-        return await loginResult(cancelCommand(login, deps, envelope.input));
+        return await loginResult(cancelCommand(login, envelope.input));
       }
       return await writer.command(ctx, envelope);
     },
@@ -102,29 +96,8 @@ function loginResult(
   );
 }
 
-function providerNotFound(): Result<never> {
-  return err({ code: "not_found", message: "provider not found" });
-}
-
-function providerOf(
-  deps: ProviderLoginWriterDeps,
-  id: string,
-): Promise<Result<ProviderRecord>> {
-  const opened = openConnection(deps.ledgerPath);
-  if (!opened.ok) return Promise.resolve(opened);
-  try {
-    const loaded = loadProvider(opened.value.sql, id);
-    if (!loaded.ok) return Promise.resolve(loaded);
-    if (loaded.value === null) return Promise.resolve(providerNotFound());
-    return Promise.resolve(ok(loaded.value));
-  } finally {
-    opened.value.close();
-  }
-}
-
 async function beginCommand(
   login: ReturnType<typeof createProviderOAuth>,
-  deps: ProviderLoginWriterDeps,
   input: unknown,
 ): Promise<Result<unknown>> {
   const parsed = loginBeginInputSchema.safeParse(input);
@@ -134,9 +107,9 @@ async function beginCommand(
       message: "login begin input is wrong",
     });
   }
-  const provider = await providerOf(deps, parsed.data.provider);
-  if (!provider.ok) return provider;
-  const begun = await login.begin(provider.value.id, provider.value.definition);
+  const definition = builtinProviderDefinition(parsed.data.definition);
+  if (!definition.ok) return definition;
+  const begun = await login.begin(parsed.data.provider, definition.value);
   if (!begun.ok) return begun;
   return ok(parseBeginOutput(begun.value));
 }
@@ -162,7 +135,6 @@ function parseBeginOutput(begun: OAuthBegin): unknown {
 
 async function completeCommand(
   login: ReturnType<typeof createProviderOAuth>,
-  deps: ProviderLoginWriterDeps,
   input: unknown,
 ): Promise<Result<unknown>> {
   const parsed = loginCompleteInputSchema.safeParse(input);
@@ -172,20 +144,17 @@ async function completeCommand(
       message: "login complete input is wrong",
     });
   }
-  const provider = await providerOf(deps, parsed.data.provider);
-  if (!provider.ok) return provider;
   const bundle = await login.complete(
-    provider.value.id,
+    parsed.data.provider,
     parsed.data.login,
     parsed.data.submission,
   );
   if (!bundle.ok) return bundle;
-  return ok(provider.value);
+  return ok({ completed: true });
 }
 
 async function cancelCommand(
   login: ReturnType<typeof createProviderOAuth>,
-  deps: ProviderLoginWriterDeps,
   input: unknown,
 ): Promise<Result<unknown>> {
   const parsed = loginCancelInputSchema.safeParse(input);
@@ -195,30 +164,9 @@ async function cancelCommand(
       message: "login cancel input is wrong",
     });
   }
-  const provider = await providerOf(deps, parsed.data.provider);
-  if (!provider.ok) return provider;
-  const cancelled = await login.cancel(provider.value.id, parsed.data.login);
+  const cancelled = await login.cancel(parsed.data.provider, parsed.data.login);
   if (!cancelled.ok) return cancelled;
   return ok({ cancelled: true });
-}
-
-// login token 묶음의 secret 보관이다. 값은 keychain으로만 가고 ledger에는 참조만
-// 남는다(R7). 이 보관은 complete command의 ledger transaction 밖에서 우선 끝나고,
-// 그 참조를 RegisterProviderCredential 입력으로 준���.
-export function tokenBundleOf(
-  bundle: OAuthTokenBundle,
-): {
-  access_token: string;
-  refresh_token: string | null;
-  expires_at: number | null;
-} {
-  return {
-    access_token: bundle.access_token,
-    refresh_token: bundle.refresh_token,
-    expires_at: bundle.expires_in === 0
-      ? null
-      : Date.now() + bundle.expires_in * 1000,
-  };
 }
 
 // loopback callback listener의 제품 open port다(127.0.0.1 실제 listener, R12).

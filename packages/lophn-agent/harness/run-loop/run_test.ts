@@ -1,6 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { createHash } from "node:crypto";
-import { canonicalize, type Result } from "../../../base/mod.ts";
+import type { Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
@@ -9,10 +8,7 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
-import {
-  envelope as assignmentEnvelope,
-  presetDefinitionJson,
-} from "./testing/mod.ts";
+import { envelope as assignmentEnvelope } from "./testing/mod.ts";
 
 // run ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓴다.
 // 재시작·kill 시험과 operator 회차는 apps/core/testing/lophn-agent-runs_test.ts에 있다.
@@ -20,11 +16,8 @@ import {
 const NOW = Date.UTC(2026, 0, 1);
 
 const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
-  "WithdrawAssignment",
+  "SeedAssignmentState",
   "AcceptRun",
   "StartRun",
   "CheckpointRun",
@@ -60,8 +53,6 @@ function id(prefix: string, n: number): string {
   return `${prefix}_01arz3ndektsv4rrffq69g5f${ALPHA[n >> 5]}${ALPHA[n & 31]}`;
 }
 
-const PRESET_LOPHN = id("pst", 1);
-const PRESET_CE = id("pst", 2);
 const ASG_LOPHN = id("asg", 1);
 const ASG_CE = id("asg", 2);
 const BASIS = "b".repeat(64);
@@ -80,12 +71,6 @@ function agentCred(assignment: string): AuthenticatedContext {
 
 function scopeOf(assignment: string, role: string) {
   return { role, assignment, apps: [] };
-}
-
-function hashOf(definition: Record<string, unknown>): string {
-  return createHash("sha256").update(canonicalize(definition), "utf8").digest(
-    "hex",
-  );
 }
 
 function value<T>(result: Result<T>): T {
@@ -117,35 +102,29 @@ async function open(): Promise<LedgerHarness> {
 
 async function seed(h: LedgerHarness) {
   for (
-    const [preset, kind, assignment] of [
-      [PRESET_LOPHN, "lophn", ASG_LOPHN],
-      [PRESET_CE, "context_engineer", ASG_CE],
+    const [role, assignment] of [
+      ["lophn", ASG_LOPHN],
+      ["context_engineer", ASG_CE],
     ] as const
   ) {
-    const definition = presetDefinitionJson(kind);
-    value(
-      await h.command(
-        machineCred,
-        assignmentEnvelope("RegisterDefaultPreset", {
-          id: preset,
-          definition,
-          definition_hash: hashOf(definition),
-        }),
-      ),
-    );
     value(
       await h.command(
         machineCred,
         assignmentEnvelope("CreateBuiltinAssignment", {
           id: assignment,
-          preset,
-          preset_revision: 1,
-          role: kind,
+          role,
           scope: { kind: "all", id: null },
         }),
       ),
     );
   }
+}
+
+function pauseAssignment(h: LedgerHarness, assignment: string) {
+  return h.command(
+    machineCred,
+    assignmentEnvelope("SeedAssignmentState", { assignment, state: "paused" }),
+  );
 }
 
 type Accept = {
@@ -260,19 +239,6 @@ Deno.test("lophn-agent/harness/run-loop#R1: only a person request, an operator r
       await accept(h, { run: id("run", 9), message: id("msg", 9) }, userCred),
       "forbidden",
     );
-    // 주기 회차는 operator만, session 없이 받는다.
-    code(
-      await accept(h, {
-        run: id("run", 9),
-        session: null,
-        source: {
-          kind: "schedule",
-          assignment_revision: 1,
-          scheduled_at: "2026-01-01T00:00:00.000Z",
-        },
-      }),
-      "invalid_input",
-    );
     // 원래 사람 요청에서 이어진 handoff 하나.
     const handoff = (run: string, original: string, key: string) =>
       accept(h, {
@@ -313,15 +279,7 @@ Deno.test("lophn-agent/harness/run-loop#R1: only a person request, an operator r
     assertEquals(source.body, "d".repeat(64));
     assertEquals(await runCount(h), 2n);
     // assignment 변경이나 결과 도착은 새 run을 만들지 않는다.
-    value(
-      await h.command(
-        userCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_CE,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    value(await pauseAssignment(h, ASG_CE));
     value(await start(h, id("run", 1)));
     value(await finish(h, id("run", 1), ok));
     assertEquals(await runCount(h), 2n);
@@ -429,23 +387,124 @@ Deno.test("lophn-agent/harness/run-loop#R2: acceptance is stored before the answ
   }
 });
 
-Deno.test("lophn-agent/harness/run-loop#R3: one live run per assignment and unrelated assignments never wait", async () => {
+Deno.test("lophn-agent/harness/run-loop#R3 [agent-I40]: two sessions of one assignment run at once while a second run in the same session waits", async () => {
   const h = await open();
   try {
     await seed(h);
-    value(await accept(h, { run: id("run", 1), message: id("msg", 1) }));
-    value(await accept(h, { run: id("run", 2), message: id("msg", 2) }));
+    const ses1 = id("ses", 1);
+    const ses2 = id("ses", 2);
+    value(
+      await accept(h, {
+        run: id("run", 1),
+        message: id("msg", 1),
+        session: ses1,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 2),
+        message: id("msg", 2),
+        session: ses1,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 3),
+        message: id("msg", 3),
+        session: ses2,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 4),
+        assignment: ASG_CE,
+        message: id("msg", 4),
+        session: id("ses", 3),
+      }),
+    );
+    value(await start(h, id("run", 1)));
+    // 같은 session의 둘째는 시작하지 못한다.
+    code(await start(h, id("run", 2)), "conflict");
+    // 같은 lophn assignment의 다른 session은 기다리지 않아 두 run이 함께 running이다.
+    value(await start(h, id("run", 3)));
+    assertEquals((await runOf(h, id("run", 1))).state, "running");
+    assertEquals((await runOf(h, id("run", 3))).state, "running");
+    // 무관한 assignment도 기다리지 않는다.
+    value(await start(h, id("run", 4), ASG_CE));
+    // 저장 계층의 partial unique도 session 단위로 같은 규칙을 지킨다.
+    const probe = await h.probeWrite(
+      "update runs set state = 'running', basis = ?, started_at = ?, limits = ? where id = ?",
+      [BASIS, "2026-01-01T00:00:00.000Z", JSON.stringify(LIMITS), id("run", 2)],
+    );
+    assert(!probe.ok);
+    // 끝난 session이 풀리면 그 session의 둘째가 시작한다. 다른 session은 영향이 없다.
+    value(await finish(h, id("run", 1), ok));
+    value(await start(h, id("run", 2)));
+    assertEquals((await runOf(h, id("run", 3))).state, "running");
+    // 진행 중인 run이 같은 assignment의 서로 다른 session임을 표에서도 확인한다.
+    const live = rows(
+      await h.inspect(
+        "select session from runs where assignment = ? and state = 'running' order by session",
+        [ASG_LOPHN],
+      ),
+    );
+    assertEquals(live.map((row) => row["session"]), [ses1, ses2]);
+    value(await finish(h, id("run", 2), ok));
+    // scope가 다른 assignment·role이면 시작하지 못한다.
+    value(
+      await accept(h, {
+        run: id("run", 5),
+        message: id("msg", 5),
+        session: ses1,
+      }),
+    );
+    code(
+      await h.command(
+        machineCred,
+        assignmentEnvelope("StartRun", {
+          run: id("run", 5),
+          basis: BASIS,
+          limits: LIMITS,
+          scope: scopeOf(ASG_CE, "context_engineer"),
+        }, { state_seq: await stateSeq(h, id("run", 5)) }),
+      ),
+      "forbidden",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R3 [agent-I40]: runs without a session are held to one live run per assignment", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    // session 없는 run(handoff로 받은 일 등) 둘은 assignment 단위로 막힌다.
+    value(
+      await accept(h, {
+        run: id("run", 1),
+        message: id("msg", 1),
+        session: null,
+      }),
+    );
+    value(
+      await accept(h, {
+        run: id("run", 2),
+        message: id("msg", 2),
+        session: null,
+      }),
+    );
     value(
       await accept(h, {
         run: id("run", 3),
         assignment: ASG_CE,
         message: id("msg", 3),
+        session: null,
       }),
     );
     value(await start(h, id("run", 1)));
-    // 같은 assignment의 둘째는 시작하지 못한다.
     code(await start(h, id("run", 2)), "conflict");
-    // 무관한 assignment는 기다리지 않는다.
+    // 다른 assignment의 session 없는 run은 기다리지 않는다.
     value(await start(h, id("run", 3), ASG_CE));
     // 저장 계층의 partial unique도 같은 규칙을 지킨다.
     const probe = await h.probeWrite(
@@ -455,21 +514,6 @@ Deno.test("lophn-agent/harness/run-loop#R3: one live run per assignment and unre
     assert(!probe.ok);
     value(await finish(h, id("run", 1), ok));
     value(await start(h, id("run", 2)));
-    // scope가 다른 assignment·role이면 시작하지 못한다.
-    value(await finish(h, id("run", 2), ok));
-    value(await accept(h, { run: id("run", 4), message: id("msg", 4) }));
-    code(
-      await h.command(
-        machineCred,
-        assignmentEnvelope("StartRun", {
-          run: id("run", 4),
-          basis: BASIS,
-          limits: LIMITS,
-          scope: scopeOf(ASG_CE, "context_engineer"),
-        }, { state_seq: await stateSeq(h, id("run", 4)) }),
-      ),
-      "forbidden",
-    );
   } finally {
     await h.close();
   }
@@ -766,15 +810,7 @@ Deno.test("lophn-agent/harness/run-loop#R17: a stopped run is never resumed and 
       await stop(h, id("run", 2), "stop-m", machineCred, "assignment_paused"),
       "forbidden",
     );
-    value(
-      await h.command(
-        userCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: { kind: "user", detail: "잠시", runs: [], target: null },
-        }, { revision: 1, state: "enabled" }),
-      ),
-    );
+    value(await pauseAssignment(h, ASG_LOPHN));
     value(
       await stop(h, id("run", 2), "stop-m", machineCred, "assignment_paused"),
     );
@@ -847,61 +883,6 @@ Deno.test("lophn-agent/harness/run-loop#R18: outcome kinds, reasons and the star
     }
     // 이미 저장한 변경은 되돌리지 않는다: 실패·멈춤 뒤에도 run 행만 확정된다.
     assertEquals((await runOf(h, id("run", 2))).state, "finished");
-  } finally {
-    await h.close();
-  }
-});
-
-Deno.test("lophn-agent/harness/run-loop#R18 lophn-agent/assignments#R10: three started final failures from real FinishRun let the machine pause pass", async () => {
-  const h = await open();
-  try {
-    await seed(h);
-    const pause = async (runs: string[]) =>
-      await h.command(
-        machineCred,
-        assignmentEnvelope("PauseAssignment", {
-          assignment: ASG_LOPHN,
-          reason: {
-            kind: "consecutive_failures",
-            detail: "최종 실패 3회",
-            runs,
-            target: null,
-          },
-        }, { revision: 1, state: "enabled" }),
-      );
-    // 시작한 최종 실패 두 번과 시작 못 한 실패 하나는 세 번이 아니다.
-    for (const n of [1, 2]) {
-      value(await accept(h, { run: id("run", n), message: id("msg", n) }));
-      value(await start(h, id("run", n)));
-      value(await finish(h, id("run", n), failed));
-    }
-    value(await accept(h, { run: id("run", 3), message: id("msg", 3) }));
-    value(
-      await finish(h, id("run", 3), {
-        kind: "failed",
-        reason: "target_unavailable",
-      }),
-    );
-    code(await pause([id("run", 1), id("run", 2), id("run", 3)]), "forbidden");
-    // 세 번째 시작한 최종 실패가 실제 command로 쌓이면 근거가 통과한다.
-    value(await accept(h, { run: id("run", 4), message: id("msg", 4) }));
-    value(await start(h, id("run", 4)));
-    value(
-      await finish(h, id("run", 4), { kind: "failed", reason: "tool_error" }),
-    );
-    // 근거로 신고한 run이 실제 묶음과 다르면 거절이다.
-    code(await pause([id("run", 1), id("run", 2), id("run", 3)]), "forbidden");
-    value(await pause([id("run", 1), id("run", 2), id("run", 4)]));
-    const assignment = value(
-      await h.read({ resource: "assignments", method: "read" }, userCred, {
-        assignment: ASG_LOPHN,
-      }),
-    ) as { assignment: { state: string; pause_reason: { kind: string } } };
-    assertEquals(assignment.assignment.state, "paused");
-    assertEquals(
-      assignment.assignment.pause_reason.kind,
-      "consecutive_failures",
-    );
   } finally {
     await h.close();
   }

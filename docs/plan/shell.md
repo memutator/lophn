@@ -1389,6 +1389,28 @@ concerns: [shell]
   - 사람 결정을 따른다: provider는 계정·인증만이고 model은 agent 정의와 대화 composer에서 고른다. lophn agent 지침은 LOPHN.md이고 agent 정의는 project 폴더가 아니라 lophn에 저장된다. 내보내기 기능은 그리지 않는다.
   - `tools/wireframes/pages_test.ts`가 새 설계 page 수와 Agent 묶음 page 존재, 대화 dock page 없음, 새 설계 page 제목·설명에 conversation 없음, 내보내기 문구 없음을 본다(맞는 shell 요구가 없어 이름이 `shell#T69`로 시작한다).
 
+### T70 wireframes: agent 화면 고침
+
+- 상태: 완료 (#606)
+- 등급: frontend
+- concern: shell/desktop
+- 요구: 없음 — 개발 도구
+- 자리: tools/wireframes/ (T69 위에 고친다)
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: desktop
+- 선행: T69
+- 완료: 아래 확인이 통과한다
+  - 사람 지적 일곱 가지를 따른다. Operator는 agent라서 예시 이름이 Eval analyst · Experiment planner이고 schedule·last run·Run now·What it does·Leaves documents in은 어느 화면에도 없다. composer에는 agent를 고르는 칸이 없고 agent는 탭 머리(agent header)에 [avatar] 이름 · session 제목 ▾로 고정이다. sidebar에는 session 목록이 없다.
+  - 새 page: Agent · session switcher(검색 input, 그 agent의 session만, hover 줄의 Rename·Archive·Delete, Archived, + New session), Agent · session rename and delete, Agent · commands(`/` 메뉴 묶음 셋: Commands · agent 이름 · Skills, skill 출처 badge 없음), Agent · commands filtered(맞는 글자 굵게, 작업 중 Fork 흐리게), Agent · model changed(없는 option 값을 가까운 약한 값으로 맞추고 한 줄 알림).
+  - 채팅은 채팅방 모양이다. 내 메시지는 오른쪽 bubble, agent 메시지는 왼쪽에 avatar(24px)·이름·시각이 첫 메시지에만 붙고, tool 줄·카드는 agent 쪽 열 안에 있다. agent마다 profile(icon 또는 올린 이미지)이 있고 Agents 탭 카드·sidebar·탭 머리·메시지·편집 form이 같은 avatar를 쓴다.
+  - Operator editor는 Profile · Name · Instructions(읽기 전용 project LOPHN.md 블록 + agent 지침) · Model(상속 표시·Changed·Reset·고른 model의 option 축) · Contexts(N:M, 0개 허용) · Skills · MCP · Permissions 순서이고, built-in [Open]은 Name 고정·Contexts 칸 없음이다.
+  - model picker는 Favorites 묶음이 맨 위(별표 순서 그대로)이고 provider 묶음, 고른 model의 option 축(effort 밖의 Speed 포함)이 보인다. provider → model → option 예시 data는 `models-data.ts` 하나에 있고 화면 code에 model 이름 분기가 없다. ProjectApp에서 별을 누르면 Favorites에 들고 난다.
+  - ProjectApp에서 동작한다: agent header의 session switcher(검색·rename·archive·delete 확인·새 session), 입력칸의 `/` 메뉴(글자를 더 치면 걸러짐), 별표, 사람을 기다리는 session의 탭 상태 점.
+  - toast는 lophn이 가진 사건(context 계약 위반)으로 바뀌고 [Ask Context Engineer]가 그 사건을 첫 context chip으로 붙인 새 Agent 탭을 연다. Violations 화면에는 agent를 부르는 단추가 없다.
+  - 설정 층: Workspace › Settings › Agents의 Default models 표(lophn · Context Engineer · App Engineer · Operators, option 값까지), project Agents 탭의 Models for this project, Operator editor의 상속·Changed·Reset.
+  - `tools/wireframes/pages_test.ts`가 새 page 존재, 새 설계 page 제목·설명에 schedule·conversation 말이 없음, model picker data가 data 파일 하나에서 옴을 본다(이름이 `shell#T70`으로 시작한다).
+
 ## 요구 덮기
 
 shell 최상위의 요구는 8개 leaf에 180개이고 모두 위 작업의 `요구:`에 들어 있다.

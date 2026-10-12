@@ -1,10 +1,9 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// Operator 회차의 결과 판정(roles/operator R6, R7, R8). 순수 함수다: IO·시계·model
+// Operator run 하나의 결과 판정(roles/operator R6, R7, R8). 순수 함수다: IO·시계·model
 // 호출이 없다. 실제 읽기·저장은 harness/tools 묶음의 tool과 documents/versions가
 // 하고, 이 모듈은 모델이 남긴 결과를 사실·판단·불확실함으로 구분해 무엇이 새
-// version이 되고 무엇이 무변화 끝냄인지의 계약만 정한다. 무변화는 실패가 아니고
-// 같은 내용을 형식상 덧쌓지 않는다(R6).
+// version이 되는지의 계약만 정한다.
 
 // 결과의 세 구분이다(R6). 확인한 사실과 판단과 불확실함이 섞이지 않는다.
 export type OutcomePoint = {
@@ -23,8 +22,8 @@ export type EvidenceAddress = {
   section: string | null;
 };
 
-// 회차 결과다(R6 표). kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
-export type OccurrenceOutcome =
+// Operator run 하나의 결과다(R6 표). kind가 하나인 결과 하나다. 선언된 남길 문서만 쓴다.
+export type OperatorRunOutcome =
   // 갱신 조건을 충족해 남길 내용이다(R6 표 갱신 결과). 승인된 update_condition에
   // 맞을 때만 새 Version이다.
   | {
@@ -33,14 +32,6 @@ export type OccurrenceOutcome =
     evidence: EvidenceAddress[];
     // 선언한 판단 항목이다(R1). prompt에 적은 항목 그대로다.
     declared_items: string[];
-    update_condition: string;
-  }
-  // 갱신 조건을 충족하지 않은 근거다(R6 표 무변화). 새 Version 0개고 Run
-  // 결과는 `completed`(no_change)다.
-  | {
-    kind: "no_change";
-    points: OutcomePoint;
-    evidence: EvidenceAddress[];
     update_condition: string;
   }
   // 실제 저장된 문서·Version과 미저장·실패 내용이다(R6 표 부분). 일부 저장을
@@ -61,41 +52,6 @@ export type OccurrenceOutcome =
     document: string;
   };
 
-// 무변화 판정이다(R6). 갱신 조건을 충족하지 않은 근거가 있으면 새 version 없이
-// 무변화로 끝낸다. 근거가 비었으면 부족 자료다: 없는 근거를 성공 보고로 채우지
-// 않는다. ok가 아닌 결과는 회차가 `no_change`가 아니다.
-export function noChange(
-  output: {
-    points: OutcomePoint;
-    evidence: EvidenceAddress[];
-    update_condition: string;
-  },
-): Result<Extract<OccurrenceOutcome, { kind: "no_change" }>> {
-  if (output.update_condition.trim() === "") {
-    return err({ code: "invalid_input", message: "update condition is blank" });
-  }
-  const points = output.points;
-  if (points.fact.trim() === "") {
-    return err({ code: "invalid_input", message: "checked fact is blank" });
-  }
-  if (points.judgment.trim() === "") {
-    return err({ code: "invalid_input", message: "judgment is blank" });
-  }
-  if (points.uncertainty.trim() === "") {
-    return err({ code: "invalid_input", message: "uncertainty is blank" });
-  }
-  // 근거 없는 무변화는 없는 근거를 성공 보고로 채우는 것이다(R6).
-  if (output.evidence.length === 0) {
-    return err({ code: "invalid_input", message: "no-change needs evidence" });
-  }
-  return ok({
-    kind: "no_change",
-    points,
-    evidence: [...output.evidence],
-    update_condition: output.update_condition,
-  });
-}
-
 // 갱신 조건을 충족했을 때 남길 결과다(R6 표 갱신 결과). 사실·판단·불확실함의 세
 // 구분과 고정 근거 주소와 선언한 판단 항목이 모두 있어야 새 Version이다.
 export function update(
@@ -105,7 +61,7 @@ export function update(
     declared_items: string[];
     update_condition: string;
   },
-): Result<Extract<OccurrenceOutcome, { kind: "update" }>> {
+): Result<Extract<OperatorRunOutcome, { kind: "update" }>> {
   if (output.update_condition.trim() === "") {
     return err({ code: "invalid_input", message: "update condition is blank" });
   }
@@ -135,15 +91,4 @@ export function update(
     declared_items: [...output.declared_items],
     update_condition: output.update_condition,
   });
-}
-
-// 회차가 끝났을 때의 run 결과 이유다(R6, assignments/scheduling 규칙). 무변화는
-// 성공 완료의 한 갈래다: failed가 아니고 streak를 초기화한다(assignments#R11의
-// `clearsBundle`과 같은 사실).
-export function outcomeOf(
-  outcome: OccurrenceOutcome,
-): { kind: "completed"; reason: "answer_completed" | "no_change" } {
-  return outcome.kind === "no_change"
-    ? { kind: "completed", reason: "no_change" }
-    : { kind: "completed", reason: "answer_completed" };
 }

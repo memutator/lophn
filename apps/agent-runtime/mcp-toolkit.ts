@@ -2,7 +2,11 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type {
   McpServerConfig,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  type AgentPlace,
+  mcpServersSetting,
+  placeExtensionSettingsRead,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import { settingsGet } from "../../packages/contracts/platform/mod.ts";
 import type { ToolDefinition } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
@@ -15,7 +19,7 @@ import {
   type McpToolEntry,
 } from "../../packages/lophn-agent/extensions/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
-import type { McpToolkit } from "./prepare.ts";
+import type { McpSourceOptions, McpToolkit } from "./prepare.ts";
 
 // 제품 runtime의 외부 MCP tool 등록이다(Q16, T37). 사람의 registry(
 // `lophn-agent.extensions.mcp_servers` 설정)와 preset 선택만이 출처이며 연결과
@@ -112,6 +116,27 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     return ok(shaped.data);
   }
 
+  // 이 자리의 agent가 고를 수 있는 서버다: 전역 서버가 먼저고 그 자리 층의 서버가 이어진다(extensions R32).
+  // 전역과 이름이 겹치는 자리 서버는 쓰지 않는다(R33). 자리 층을 읽지 못하면 그 층이 없는 것과 같다: 전역
+  // 서버만 남긴다(R11: fails closed).
+  async function serversOf(
+    place: AgentPlace | null,
+  ): Promise<Result<readonly McpServerConfig[]>> {
+    const global = await registeredServers();
+    if (!global.ok || place === null) return global;
+    const own = await readOf(deps.machine, placeExtensionSettingsRead, {
+      place,
+    });
+    if (!own.ok) return global;
+    const taken = new Set(global.value.map((server) => server.name));
+    return ok([
+      ...global.value,
+      ...own.value.settings.mcp_servers.filter((server) =>
+        !taken.has(server.name)
+      ),
+    ]);
+  }
+
   // 전체 tools/list를 다시 읽는다(Q16). 끝나면 fresh, 못 하면 failed다.
   async function requery(
     assignment: string,
@@ -145,8 +170,8 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
 
   function makeToolkit(assignmentId: string): McpToolkit {
     return {
-      async source(assignment: string) {
-        const registered = await registeredServers();
+      async source(assignment: string, options?: McpSourceOptions) {
+        const registered = await serversOf(options?.place ?? null);
         if (!registered.ok) return registered;
         const byServer = knownOf(assignment);
         byServer.clear();
@@ -161,6 +186,11 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         const tools: McpToolEntry[] = [];
         for (const server of checked.value.valid) {
           if (!server.enabled) continue;
+          // agent 정의가 통째로 끈 서버는 연결하지 않는다(R18, R31).
+          if (options?.skip?.has(server.name)) continue;
+          if (options?.only !== undefined && !options.only.has(server.name)) {
+            continue;
+          }
           if (stateOf(assignment, server.name) === "failed") continue;
           const attached = await attach(assignment, server);
           if (!attached) continue;

@@ -10,7 +10,7 @@ import type { TeamModule } from "./registration.ts";
 
 type Reply = { status: number; body: Record<string, unknown> };
 
-const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const QUESTION = "qgr_01arz3ndektsv4rrffq69g5fav";
 const MODULES = ["./testing/notification-sources.ts", "./lophn-agent.ts"].map(
   (path) => new URL(path, import.meta.url).href,
 );
@@ -123,7 +123,7 @@ async function emitQuestion(core: Core, token: string): Promise<Listed> {
       payload: {
         run: "run_01arz3ndektsv4rrffq69g5fav",
         session: null,
-        options: [],
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
       },
     },
     idempotency_key: "emit-question",

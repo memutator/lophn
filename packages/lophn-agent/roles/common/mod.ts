@@ -3,4 +3,4 @@ export {
   type AppCommandExposure,
   DOCUMENT_READ_TOOLS,
   ROLE_CAPS,
-} from "../../presets/mod.ts";
+} from "../../agents/mod.ts";

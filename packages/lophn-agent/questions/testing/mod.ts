@@ -18,7 +18,6 @@ import {
 // 실제 provider를 부르지 않는다.
 
 export const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
   "PauseAssignment",
   "WithdrawAssignment",
@@ -31,14 +30,15 @@ export const OPERATIONS = [
   "ReceiveMessage",
   "ReadSession",
   "ListMessages",
-  "CreateQuestion",
-  "AnswerQuestion",
+  "CreateQuestionGroup",
+  "AnswerQuestionGroup",
   "AnswerQuestionAction",
-  "DeferQuestion",
-  "CancelQuestion",
-  "ExpireQuestion",
-  "ReadQuestion",
-  "ListQuestions",
+  "DeferQuestionGroup",
+  "CancelQuestionGroup",
+  "ExpireQuestionGroup",
+  "ReadQuestionGroup",
+  "ListQuestionGroups",
+  "SeedProject",
   "SeedSettingChoice",
   "AdvanceQuestionClock",
   "SettingsDefinitions",
@@ -79,6 +79,46 @@ export function agentRun(
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 export function id(prefix: string, n: number): string {
   return `${prefix}_01arz3ndektsv4rrffq69g5f${ALPHA[n >> 5]}${ALPHA[n & 31]}`;
+}
+
+// 질문 묶음 입력 조각. 선택지는 설명 글을 값으로 싣고(Q38) 질문 ID는 n으로 정한다.
+export function optionOf(key: string, action: unknown = null) {
+  return {
+    key,
+    label: `Option ${key}`,
+    description: `Description of ${key}`,
+    evidence: [],
+    adoption: null,
+    action,
+  };
+}
+
+export function questionOf(n: number, extra: Record<string, unknown> = {}) {
+  return {
+    id: id("qst", n),
+    prompt: `Prompt ${n}`,
+    reason: `Reason ${n}`,
+    options: [],
+    recommendation: null,
+    ...extra,
+  };
+}
+
+// 묶음 하나(qgr n)를 만드는 입력. 질문은 questionOf로 만든 것을 순서대로 싣는다.
+export function groupOf(
+  n: number,
+  run: string,
+  questions: readonly unknown[],
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    id: id("qgr", n),
+    run,
+    session: null,
+    expires_at: null,
+    questions,
+    ...extra,
+  };
 }
 
 // 본문 hash 자리표. 시험마다 다른 값이면 충분하다.

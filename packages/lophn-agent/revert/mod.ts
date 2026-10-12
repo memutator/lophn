@@ -1,18 +1,44 @@
 export { revertSchemaSteps } from "./schema.ts";
-export { createRevertCommands, type RevertDeps } from "./commands.ts";
-export { createRevertReads, type RevertReadDeps } from "./reads.ts";
-export { createRevertEventVisibility } from "./visibility.ts";
-export { defaultRevertOwners } from "./owners.ts";
-export { createAuditOwners } from "./audit-owners.ts";
+export { type CheckpointMessage, createCheckpoint } from "./checkpoints.ts";
 export {
-  createInterpretationOwner,
-  INTERPRETATION_REVERT_OWNER,
-} from "./interpretation-owner.ts";
+  createRecordRewindFile,
+  recordBeforeWrite,
+  type RecordedWrite,
+  type RecorderPorts,
+} from "./record.ts";
 export {
-  createDocumentsOwner,
-  DOCUMENTS_REVERT_OWNER,
-} from "./documents-owner.ts";
-export { APP_REVERT_OWNER, createAppRevertOwner } from "./app-revert.ts";
+  createRewindStore,
+  type RewindStore,
+  type StoredBlob,
+} from "./store.ts";
+export { deleteSessionReverts, eraseSessionStore } from "./erase.ts";
+export { sweepRewindStore } from "./sweep.ts";
+export {
+  findUninstalled,
+  type UninstalledCandidate,
+  uninstalledCandidates,
+} from "./recover.ts";
+export { closeAvailableRedo } from "./redo-close.ts";
+export {
+  assertCheckpointVisible,
+  type FoldedRange,
+  foldedRanges,
+  foldsOf,
+  hiddenFromSeq,
+  type HiddenRange,
+  hiddenRanges,
+  hiddenRangesOf,
+  inHiddenRange,
+  type RevertRow,
+} from "./hidden.ts";
+export {
+  createRevertCommands,
+  type RevertDeps,
+  type RewindEffects,
+} from "./commands.ts";
+export { createRevertReads } from "./reads.ts";
+export { hasAppSteps } from "./app-commands.ts";
+export { latestAppRevision } from "./app-revert.ts";
 export {
   type AppStepCall,
   type AppStepPorts,
@@ -22,19 +48,21 @@ export {
   type StoredRevert,
   type StoredStep,
 } from "./app-steps.ts";
-export { buildRevertInput, type PrepareGroup } from "./work.ts";
 export {
-  bindingHash,
-  buildGroups,
-  type Capability,
-  type ChangeResult,
-  decide,
-  type GroupDraft,
-  hashOf,
-  type OwnerContext,
-  type ReasonCode,
-  type RevertGroup,
-  type RevertOwner,
-  type RevertRunGroup,
-  type RunEvent,
-} from "./model.ts";
+  observationOf,
+  type PlanDeps,
+  planRewind,
+  type PreviewFact,
+  type RewindPlan,
+  type RewindTarget,
+} from "./preview.ts";
+export type { FileStat, JudgedFile } from "./judge.ts";
+// 동기 관측(prepare.ts의 observeFiles)은 core가 import하지 않으므로 여기 없다. reader Worker의 모듈이
+// 그 파일을 직접 import한다.
+export {
+  installRedo,
+  installRestore,
+  type InstallResult,
+  observeFilesAsync,
+  prepareRestore,
+} from "./restore.ts";

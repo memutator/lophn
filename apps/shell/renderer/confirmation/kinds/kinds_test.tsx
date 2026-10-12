@@ -15,10 +15,8 @@ import { ConfirmationScreen } from "../screen.tsx";
 
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+const GRP = "qgr_01arz3ndektsv4rrffq69g5fav";
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
-const DOC_B = "doc_01arz3ndektsv4rrffq69g5faw";
-const RUN = "run_01arz3ndektsv4rrffq69g5fav";
-const RVT = "rvt_01arz3ndektsv4rrffq69g5fav";
 const HASH = "b".repeat(64);
 
 type Sent = Parameters<ConfirmationFrameApi["submit"]>[0];
@@ -171,10 +169,119 @@ Deno.test("platform/approvals#R9, platform/approvals#R13, platform/approvals#R14
   assert(withdrawn.textContent?.includes("You cancelled this request."));
 });
 
+function scoped(
+  preselect: "allow_once" | "allow_session" | "deny",
+  sessionGrantable = true,
+): ConfirmationView {
+  return {
+    ...approval,
+    view: { ...approval.view, session_grantable: sessionGrantable, preselect },
+  };
+}
+
+Deno.test("shell/desktop#R47, platform/approvals#R19 [agent-I42]: session 허락이 되는 request는 Allow once와 Allow for this session을 고를 수 있고 미리 고른 쪽이 먼저 눈에 띈다", async () => {
+  const session = await show(fakeApi(scoped("allow_session")).api);
+  const once = button(
+    session,
+    "[data-decision=grant_approval_request][data-scope=once]",
+  );
+  const forSession = button(
+    session,
+    "[data-decision=grant_approval_request][data-scope=session]",
+  );
+  assertEquals(once.textContent, "Allow once");
+  assertEquals(forSession.textContent, "Allow for this session");
+  assertEquals(forSession.getAttribute("data-preselected"), "true");
+  assertEquals(once.getAttribute("data-preselected"), null);
+  assertEquals(
+    button(session, "[data-decision=reject_approval_request]").getAttribute(
+      "data-preselected",
+    ),
+    null,
+  );
+  // 미리 골라도 첫 focus는 설명이고 결정은 누르기 전에 제출되지 않는다.
+  assertEquals(document.activeElement?.getAttribute("data-focus"), "first");
+
+  const preOnce = await show(fakeApi(scoped("allow_once")).api);
+  assertEquals(
+    button(preOnce, "[data-scope=once]").getAttribute("data-preselected"),
+    "true",
+  );
+  assertEquals(
+    button(preOnce, "[data-scope=session]").getAttribute("data-preselected"),
+    null,
+  );
+});
+
+Deno.test("shell/desktop#R47 [agent-I42]: Deny도 미리 고를 수 있고 어느 쪽이든 누르기 전에는 제출하지 않는다", async () => {
+  const denying = fakeApi(scoped("deny"));
+  const root = await show(denying.api);
+  const reject = button(root, "[data-decision=reject_approval_request]");
+  assertEquals(reject.getAttribute("data-preselected"), "true");
+  assertEquals(
+    button(root, "[data-scope=once]").getAttribute("data-preselected"),
+    null,
+  );
+  assertEquals(
+    button(root, "[data-scope=session]").getAttribute("data-preselected"),
+    null,
+  );
+  assertEquals(denying.sent.length, 0);
+});
+
+Deno.test("platform/approvals#R19, shell/confirmation-window#R1 [agent-I42]: 고른 범위가 허락 제출에 실린다. once는 기본값이라 싣지 않고 거절에는 범위가 없다", async () => {
+  const sessionSent = fakeApi(scoped("allow_once"));
+  const forSession = await show(sessionSent.api);
+  click(button(forSession, "[data-scope=session]"));
+  await settle();
+  assertEquals(sessionSent.sent, [{
+    displayId: "dsp_1",
+    decision: "grant_approval_request",
+    input: { scope: "session" },
+  }]);
+  assert(forSession.textContent?.includes("It hasn't happened yet"));
+
+  const onceSent = fakeApi(scoped("allow_session"));
+  const once = await show(onceSent.api);
+  click(button(once, "[data-scope=once]"));
+  await settle();
+  assertEquals(onceSent.sent, [{
+    displayId: "dsp_1",
+    decision: "grant_approval_request",
+  }]);
+
+  const rejectSent = fakeApi(scoped("allow_session"));
+  const rejected = await show(rejectSent.api);
+  click(button(rejected, "[data-decision=reject_approval_request]"));
+  await settle();
+  assertEquals(rejectSent.sent, [{
+    displayId: "dsp_1",
+    decision: "reject_approval_request",
+  }]);
+});
+
+Deno.test("platform/approvals#R20, platform/approvals#R18 [agent-I42]: session 허락이 아닌 request는 once만 있고 어떤 request에도 Always가 없다", async () => {
+  for (const view of [scoped("allow_session", false), approval]) {
+    const root = await show(fakeApi(view).api);
+    assertEquals(root.querySelector("[data-scope=session]"), null);
+    const once = button(
+      root,
+      "[data-decision=grant_approval_request]",
+    );
+    assertEquals(once.textContent, "Allow once");
+    assertEquals(root.textContent?.includes("for this session"), false);
+    assertEquals(/always/i.test(root.textContent ?? ""), false);
+  }
+  const root = await show(fakeApi(scoped("allow_session")).api);
+  assertEquals(/always/i.test(root.textContent ?? ""), false);
+  assertEquals(root.querySelector("[data-scope=always]"), null);
+});
+
 const optionAction: ConfirmationView = {
   displayId: "dsp_2",
   request: {
     kind: "question_option_action",
+    group: GRP,
     question: QST,
     option_key: "move",
     created_seq: "20",
@@ -231,149 +338,6 @@ Deno.test("shell/confirmation-window#R2, lophn-agent/questions#R13: option actio
   assert(root.textContent?.includes("Your answer is saved."));
 });
 
-function revertView(allowPartial: boolean, decisions: string[]) {
-  return {
-    displayId: "dsp_3",
-    request: {
-      kind: "owner_decision",
-      concern: "lophn-agent/revert",
-      decision: "RevertRun",
-      targets: [RUN],
-      input: {
-        kind: "inline",
-        value: {
-          id: RVT,
-          run: RUN,
-          allow_partial: allowPartial,
-          preview_hash: HASH,
-        },
-      },
-      comparison: { preview_hash: HASH },
-    },
-    view: {
-      kind: "revert",
-      allow_partial: allowPartial,
-      groups: [
-        {
-          ordinal: 0,
-          owner: "documents/versions",
-          target: DOC,
-          capability: "reversible",
-          reason: null,
-          change: "restore",
-          included: true,
-        },
-        {
-          ordinal: 1,
-          owner: "documents/versions",
-          target: DOC_B,
-          capability: "conflict",
-          reason: "later_change",
-          change: "document",
-          included: false,
-        },
-        {
-          ordinal: 2,
-          owner: "lophn-agent/questions",
-          target: null,
-          capability: "retained",
-          reason: "audit_fact",
-          change: null,
-          included: false,
-        },
-      ],
-    },
-    state: "ready",
-    decisions,
-    second: allowPartial,
-  } satisfies ConfirmationView;
-}
-
-Deno.test("lophn-agent/revert#R11: revert 창은 앱 단계의 실패·응답 유실·미시작 이유를 고정 코드로 문장으로 말한다", async () => {
-  const base = revertView(false, []);
-  const view = {
-    ...base,
-    view: {
-      ...base.view,
-      groups: ["app_failed", "app_uncertain", "app_not_started"].map((
-        reason,
-        ordinal,
-      ) => ({
-        ordinal,
-        owner: "apps/invocations",
-        target: null,
-        capability: "irreversible" as const,
-        reason,
-        change: "app",
-        included: false,
-      })),
-    },
-  } satisfies ConfirmationView;
-  const root = await show(fakeApi(view).api);
-  const lines = [...root.querySelectorAll("[data-capability]")].map((group) =>
-    group.textContent
-  );
-  assert(lines[0]?.includes("The app couldn't undo this change."));
-  assert(lines[1]?.includes("its answer never arrived"));
-  assert(lines[2]?.includes("an earlier step didn't finish"));
-});
-
-Deno.test("lophn-agent/revert#R3, lophn-agent/revert#R7: revert 창은 복원 가능·불가·충돌·남을 영향을 보이고 안전하지 않은 부분은 2차 확인 뒤에만 빼고 적용한다", async () => {
-  const { api, sent } = fakeApi(
-    revertView(true, ["RevertRun"]),
-    {
-      outcome: "decided",
-      receipt: { kind: "entity", id: RVT },
-      result: "partial",
-    },
-  );
-  const root = await show(api);
-  assertEquals(
-    root.querySelector("h1")?.textContent,
-    "Undo the changes from this work?",
-  );
-  const groups = [...root.querySelectorAll("[data-capability]")];
-  assertEquals(
-    groups.map((group) => [
-      group.getAttribute("data-capability"),
-      group.getAttribute("data-included"),
-    ]),
-    [["reversible", "true"], ["conflict", "false"], ["retained", "false"]],
-  );
-  assert(groups[0]!.textContent?.includes("Will be undone"));
-  assert(groups[1]!.textContent?.includes("It changed again after this work."));
-  assert(groups[2]!.textContent?.includes("This is a record of what happened"));
-  assert(
-    button(root, "[data-section=effect]").textContent?.includes(
-      "Only the changes marked Will be undone are undone.",
-    ),
-  );
-  // 첫 누름은 남을 영향을 다시 보이는 단계로 갈 뿐 제출하지 않는다.
-  click(button(root, "[data-decision=RevertRun]"));
-  await settle();
-  assertEquals(sent.length, 0);
-  assertEquals(root.querySelector("h1")?.textContent, "Some changes will stay");
-  assertEquals(
-    [...root.querySelectorAll("[data-capability]")].map((group) =>
-      group.getAttribute("data-capability")
-    ),
-    ["conflict", "retained"],
-  );
-  click(button(root, "[data-step=second]"));
-  await settle();
-  assertEquals(sent, [{
-    displayId: "dsp_3",
-    decision: "RevertRun",
-    confirmedSecond: true,
-  }]);
-  assert(root.textContent?.includes("Some changes were undone."));
-
-  const nothing = fakeApi(revertView(false, []));
-  const none = await show(nothing.api);
-  assertEquals(none.querySelector("[data-decision]"), null);
-  assert(none.textContent?.includes("Nothing listed here can be undone."));
-});
-
 const secret: ConfirmationView = {
   displayId: "dsp_4",
   request: {
@@ -425,14 +389,14 @@ Deno.test("platform/secrets#R2, shell/confirmation-window#R6: secret 입력은 �
   const code = fakeApi({
     ...secret,
     view: { ...secret.view, entry: "code", name: "ChatGPT" },
-    decisions: ["RegisterProviderCredential"],
+    decisions: ["CompleteProviderLogin"],
   });
   const pasted = await show(code.api);
   assertEquals(pasted.querySelector("h1")?.textContent, "Finish signing in?");
   assert(pasted.textContent?.includes("Code or final address"));
 });
 
-const account: ConfirmationView = {
+const connection: ConfirmationView = {
   ...secret,
   displayId: "dsp_5",
   request: {
@@ -443,63 +407,47 @@ const account: ConfirmationView = {
   view: {
     kind: "secret",
     purpose: "provider_credential",
-    name: "Work key",
+    name: "Claude",
     provider: "Claude",
-    configured: false,
-    entry: "replace",
+    configured: true,
+    entry: "disconnect",
   },
-  decisions: ["ChangeProviderCredentials"],
+  decisions: ["DisconnectProvider"],
 };
 
-Deno.test("lophn-agent/harness/provider#R6, platform/secrets#R2: 계정 교체는 새 key를 보호 입력칸으로만 받고 삭제는 입력칸 없이 그 계정을 새 일에서 막는다", async () => {
-  const value = "sk-new-key-correct-horse-9";
-  const replaced = fakeApi(account, {
+Deno.test("lophn-agent/harness/provider#R6, shell/confirmation-window#R5: provider 끊기는 입력칸 없이 확인만 받고 provider와 그 key·로그인을 지운다고 말한다", async () => {
+  const { api, sent } = fakeApi(connection, {
     outcome: "decided",
-    secret_ref: "Work key",
-    stored: "stored",
+    secret_ref: "Claude",
+    stored: "revoked",
   });
-  const root = await show(replaced.api);
-  assertEquals(
-    root.querySelector("h1")?.textContent,
-    "Replace the key for Work key?",
-  );
-  const input = button(root, "[data-secret=input]") as HTMLInputElement;
-  assertEquals(input.type, "password");
-  assert(root.textContent?.includes("New key"));
-  const replace = button(root, "[data-decision=ChangeProviderCredentials]");
-  assertEquals(replace.textContent, "Replace");
-  assertEquals((replace as HTMLButtonElement).disabled, true);
-  type(input, value);
-  click(button(root, "[data-decision=ChangeProviderCredentials]"));
-  await settle();
-  assertEquals(replaced.sent, [{
-    displayId: "dsp_5",
-    decision: "ChangeProviderCredentials",
-    input: { value },
-  }]);
-  assert(root.textContent?.includes("Work key is saved."));
-  assertEquals(root.innerHTML.includes(value), false);
-
-  const removed = fakeApi(
-    { ...account, view: { ...account.view, entry: "revoke" } },
-    { outcome: "decided", secret_ref: "Work key", stored: "revoked" },
-  );
-  const gone = await show(removed.api);
-  assertEquals(gone.querySelector("h1")?.textContent, "Remove Work key?");
-  assertEquals(gone.querySelector("input"), null);
-  const remove = button(gone, "[data-decision=ChangeProviderCredentials]");
-  assertEquals(remove.textContent, "Remove");
-  assertEquals((remove as HTMLButtonElement).disabled, false);
-  click(remove);
+  const root = await show(api);
+  assertEquals(root.querySelector("h1")?.textContent, "Disconnect Claude?");
+  assertEquals(root.querySelector("input"), null);
+  assert(root.textContent?.includes("deletes the saved key or sign-in"));
+  const disconnect = button(root, "[data-decision=DisconnectProvider]");
+  assertEquals(disconnect.textContent, "Disconnect");
+  assertEquals((disconnect as HTMLButtonElement).disabled, false);
+  click(disconnect);
   await settle();
   // 보낼 값이 없다. 결정 이름만 간다.
-  assertEquals(removed.sent, [{
-    displayId: "dsp_5",
-    decision: "ChangeProviderCredentials",
-  }]);
-  // 막은 것만 말한다. 값을 지웠다고 하지 않는다.
-  assert(gone.textContent?.includes("Work key won't be used for new work."));
-  assertEquals(gone.textContent?.includes("deleted"), false);
+  assertEquals(sent, [{ displayId: "dsp_5", decision: "DisconnectProvider" }]);
+});
+
+Deno.test("platform/secrets#R2, shell/confirmation-window#R6: 연결의 key와 로그인 code는 보호 입력칸으로만 받고 교체·삭제 모양은 없다", async () => {
+  const key = fakeApi({
+    ...connection,
+    view: { ...connection.view, entry: "key", configured: false },
+    decisions: ["RegisterProvider"],
+  });
+  const root = await show(key.api);
+  assertEquals(root.querySelector("h1")?.textContent, "Add the key Claude?");
+  const input = button(root, "[data-secret=input]") as HTMLInputElement;
+  assertEquals(input.type, "password");
+  // 옛 계정 교체·삭제 말은 이 창에 없다.
+  for (const gone of ["Replace", "New key", "Remove"]) {
+    assertEquals(root.textContent?.includes(gone), false, gone);
+  }
 });
 
 Deno.test("shell/confirmation-window#R5: 대상이 바뀌거나 만료되면 옛 결정 버튼 없이 이유와 최신 내용 열기만 남는다", async () => {

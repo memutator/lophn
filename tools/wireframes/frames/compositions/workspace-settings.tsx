@@ -17,7 +17,9 @@ import {
   GLOBAL_LOPHN_MD_PREVIEW,
   GLOBAL_MCP,
   GLOBAL_SKILLS,
+  ROLE_MODELS,
 } from "./agents-data.ts";
+import { selectionLabel } from "./model-options.ts";
 import { ToggleList } from "./agents-tab.tsx";
 import styles from "./compose.module.css";
 import a from "./agents.module.css";
@@ -44,13 +46,12 @@ const NAV: readonly { id: SettingsPane; label: string }[] = [
 const CONNECTED: readonly { name: string; how: string }[] = [
   { name: "Anthropic", how: "Signed in (Max)" },
   { name: "OpenAI", how: "API key" },
-  { name: "OpenRouter", how: "API key" },
+  { name: "xAI", how: "API key" },
 ];
 
 const AVAILABLE: readonly { name: string; hint: string }[] = [
   { name: "Google", hint: "Gemini models" },
-  { name: "xAI", hint: "Grok models" },
-  { name: "Ollama (local)", hint: "Models on this computer" },
+  { name: "OpenRouter", hint: "Models from many providers" },
   { name: "Custom provider", hint: "Any OpenAI-compatible endpoint" },
 ];
 
@@ -66,8 +67,6 @@ function Methods({ provider }: { provider: string }) {
       { name: "Sign in with Claude", hint: "Opens your browser" },
       { name: "API key", hint: "Paste a key" },
     ]
-    : provider.startsWith("Ollama")
-    ? [{ name: "Local server", hint: "http://localhost:11434" }]
     : [{ name: "API key", hint: "Paste a key" }];
   return (
     <>
@@ -160,7 +159,7 @@ function ProviderRow(
   );
 }
 
-/** A9: Settings › Providers. 계정과 인증만이고 model은 여기서 고르지 않는다. */
+/** A9: Settings › Providers. 연결과 인증만이고 model은 여기서 고르지 않는다. */
 export function ProvidersPane(
   { onConnect }: { onConnect: (provider: string) => void },
 ) {
@@ -168,8 +167,8 @@ export function ProvidersPane(
     <div className={a.setPage}>
       <h1 className={styles.searchTitle}>Providers</h1>
       <p className={a.setLead}>
-        A provider is an account and how you sign in to it. You choose models
-        per agent and per session, not here.
+        A provider is a service you connect with one key or sign-in. You choose
+        models per agent and per session, not here.
       </p>
       <section>
         <h2 className={a.setSectionTitle}>Connected</h2>
@@ -239,13 +238,6 @@ export function ConnectDialog(
   );
 }
 
-const DEFAULT_MODELS = [
-  { agent: "lophn", model: "Sonnet 5.5", effort: "Medium" },
-  { agent: "Context Engineer", model: "Sonnet 5.5", effort: "High" },
-  { agent: "App Engineer", model: "Opus 5.5", effort: "High" },
-  { agent: "Operators", model: "Haiku 5.5", effort: "Low" },
-] as const;
-
 /** A10: Settings › Agents. 모든 project에 적용되는 기본값. */
 export function AgentsPane() {
   return (
@@ -256,11 +248,15 @@ export function AgentsPane() {
       </p>
       <section>
         <h2 className={a.setSectionTitle}>Default models</h2>
+        <p className={a.setLead}>
+          Model and its options per role. A project or an Operator can change
+          them.
+        </p>
         <div className={tableStyles.scroller}>
           <table className={tableStyles.table} data-density="comfortable">
             <thead>
               <tr>
-                {["Agent", "Model", "Effort", ""].map((header, index) => (
+                {["Agent", "Model", ""].map((header, index) => (
                   <th
                     key={index}
                     scope="col"
@@ -273,11 +269,12 @@ export function AgentsPane() {
               </tr>
             </thead>
             <tbody>
-              {DEFAULT_MODELS.map((row) => (
-                <tr key={row.agent} className={tableStyles.row}>
-                  <td className={tableStyles.text}>{row.agent}</td>
-                  <td className={tableStyles.text}>{row.model}</td>
-                  <td className={tableStyles.text}>{row.effort}</td>
+              {ROLE_MODELS.map((row) => (
+                <tr key={row.role} className={tableStyles.row}>
+                  <td className={tableStyles.text}>{row.role}</td>
+                  <td className={tableStyles.text}>
+                    {selectionLabel(row.workspace)}
+                  </td>
                   <td className={tableStyles.text}>
                     <Button size="sm">Change</Button>
                   </td>

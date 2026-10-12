@@ -61,9 +61,18 @@ export const startRunInputSchema = z.strictObject({
   basis: sha256Schema,
   // 준비한 basis blob의 크기. 있으면 command가 영구 참조를 등록한다.
   basis_size: blobSizeSchema.optional(),
+  // 고정한 resolved agent 전체 값의 blob(hash는 blob 바이트의 hash이고 기준의 agent.hash와 다르다). 이어 하기가
+  // 이 blob을 그대로 쓴다. 두 칸은 함께 오고, 있으면 command가 영구 참조를 등록한다.
+  agent: sha256Schema.optional(),
+  agent_size: blobSizeSchema.optional(),
   limits: runLimitsSchema,
   scope: agentAppScopeSchema,
-});
+}).refine(
+  (value) => (value.agent === undefined) === (value.agent_size === undefined),
+  {
+    message: "agent and agent_size come together",
+  },
+);
 
 export const startRunCompareSchema = z.strictObject(stateSeq);
 

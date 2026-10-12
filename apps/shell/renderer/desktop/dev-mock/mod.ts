@@ -9,25 +9,24 @@ import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
 import type { TasksSource } from "../../app-frame/app-detail/tasks/source.ts";
-import type { ConversationSource } from "../../conversation/source.ts";
+import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
 import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
 import type { OrganizeSource } from "../lophn-space/organize/source.ts";
-import type { RolesSource } from "../lophn-space/roles/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { LophnSource } from "../lophn-space/source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
+import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
 import {
   mockApps,
   mockCoding,
-  mockRoles,
   mockSettings,
   mockSettingsPanels,
 } from "./admin.ts";
@@ -40,7 +39,8 @@ import {
   mockTasks,
   mockViews,
 } from "./app-space.ts";
-import { mockConversation, mockCore, mockRequests } from "./conversation.ts";
+import { mockAgentViewSource } from "./agent.ts";
+import { mockCore, mockRequests } from "./requests.ts";
 import { mockLophn, mockOrganize } from "./documents.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
@@ -53,7 +53,6 @@ export interface DevMock {
   readonly lophn: LophnSource;
   readonly organize: OrganizeSource;
   readonly apps: AppsSource;
-  readonly roles: RolesSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
   readonly coding: CodingConnectionsSource;
@@ -64,7 +63,8 @@ export interface DevMock {
   readonly appViews: AppViewsDeps;
   readonly appWindows: LophnAppWindowsApi;
   readonly feedback: LophnShellFeedbackBegin;
-  readonly conversation: ConversationSource;
+  /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
+  readonly agentViewSource: AgentViewSourceFactory;
   readonly requests: RequestSource;
   readonly instructions: InstructionsApi;
 }
@@ -92,6 +92,8 @@ export function devMock(
       ...bench.source,
       // Contexts·Context·Search 탭은 화면 시험이 쓰는 fake를 그대로 읽는다. 만드는 중인 context도 있다.
       contextsSource: createFakeContextsSource({ drafting: true }),
+      // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
+      agentsSource: createFakeAgentsSource(),
       // 검색 결과·Overview 예시가 가리키는 문서도 파일로 잡혀 탭으로 열린다.
       files: async (project) => {
         const read = await bench.source.files(project);
@@ -114,7 +116,6 @@ export function devMock(
     lophn: mockLophn(),
     organize: mockOrganize(),
     apps: mockApps(),
-    roles: mockRoles(),
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
     coding: mockCoding(),
@@ -125,7 +126,7 @@ export function devMock(
     appViews: mockAppViews(views),
     appWindows: mockAppWindows(),
     feedback: mockFeedback(),
-    conversation: mockConversation(),
+    agentViewSource: mockAgentViewSource(),
     requests: mockRequests(),
     instructions: mockInstructions(),
   };

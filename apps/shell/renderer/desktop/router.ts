@@ -18,10 +18,6 @@ export interface Route {
   readonly read?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
   readonly request?: string;
-  /** roles에서 처음 열 역할(작업대의 붙은 Operator). */
-  readonly role?: string;
-  /** roles에서 Operator를 붙이는 화면으로 연다(작업대의 [Attach an Operator]). */
-  readonly attach?: { readonly kind: "project" | "app"; readonly id: string };
   /** settings에서 먼저 보일 coding agent 연결. `lophn://things-to-confirm/<cac id>` 링크가 쓴다. */
   readonly connection?: string;
   /** app 공간에서 Tasks 탭으로 열 대상. 취소·생성 링크가 쓴다. */

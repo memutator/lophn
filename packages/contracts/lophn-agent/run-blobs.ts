@@ -7,6 +7,7 @@ import type { RequestContext, Tx } from "../platform/mod.ts";
 // transaction에서 영구 참조를 등록하고, 준비하지 않은 hash는 참조가 되지 못한다.
 export const RUN_BLOB_PURPOSES = {
   run_basis: "run_basis",
+  run_agent: "run_agent",
   run_result: "run_result",
   model_call_input: "model_call_input",
   model_call_basis: "model_call_basis",

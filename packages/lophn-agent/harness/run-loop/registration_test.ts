@@ -3,19 +3,13 @@ import { ok } from "../../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../../contracts/platform/mod.ts";
 import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  presetSchemaSteps,
-} from "../../presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
 } from "../../assignments/mod.ts";
-import { presetValidateDeps } from "./testing/mod.ts";
 import { createRunCommands, createRunReads, runSchemaSteps } from "./mod.ts";
 
-// run ledger 테스트 등록. preset·assignment 표와 같은 wire에 run 명령·읽기를
+// run ledger 테스트 등록. assignment 표와 같은 wire에 run 명령·읽기를
 // 붙인다. 미반영 steering을 담는 입력 표는 lophn-agent/conversation 소유이므로
 // 이 fixture가 같은 모양의 자리(steering_inputs)를 따로 둬서 종료 경계 규칙을
 // 실제 SQL로 확인한다. 실제 provider를 부르지 않는다.
@@ -44,9 +38,23 @@ export const seedSettingChoiceRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// assignment가 멈추거나 거둬진 상태를 심는다. 멈춤을 낳는 자리 보관 event는 이 leaf의 관심이 아니고
+// run-loop는 assignment의 지금 상태만 읽으므로 표를 바로 고친다.
+export const seedAssignmentStateRoute = defineCommand({
+  resource: "assignment-state-fixture",
+  method: "seed",
+  name: "SeedAssignmentState",
+  input: z.strictObject({
+    assignment: z.string(),
+    state: z.enum(["paused", "withdrawn"]),
+  }),
+  output: z.strictObject({ assignment: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
 export function createLedgerTestRegistration(): LedgerTestRegistration {
-  const presetCommands = createPresetCommands(presetValidateDeps());
-  const presetReads = createPresetReads();
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({
@@ -59,7 +67,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const runReads = createRunReads();
   return {
     schemaSteps: [
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       {
@@ -74,13 +81,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     commands: [
-      presetCommands.registerDefault,
-      presetCommands.create,
-      presetCommands.revise,
       assignmentCommands.createBuiltin,
       assignmentCommands.createAppEngineer,
-      assignmentCommands.applyOperator,
-      assignmentCommands.changePreset,
+      assignmentCommands.createOperator,
       assignmentCommands.pause,
       assignmentCommands.resume,
       assignmentCommands.withdraw,
@@ -92,6 +95,23 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       runCommands.confirmNext,
     ],
     testCommands: [{
+      route: seedAssignmentStateRoute,
+      handle(tx, _ctx, input) {
+        const seeded = input as { assignment: string; state: string };
+        const paused = seeded.state === "paused";
+        tx.sql.run(
+          `update assignments set state = ?, revision = revision + 1,
+             pause_detail = ?, pause_target = ? where id = ?`,
+          [
+            seeded.state,
+            paused ? "The place was archived." : null,
+            paused ? "prj_01arz3ndektsv4rrffq69g5fav" : null,
+            seeded.assignment,
+          ],
+        );
+        return ok({ assignment: seeded.assignment });
+      },
+    }, {
       route: seedSettingChoiceRoute,
       handle(tx, _ctx, input) {
         const seeded = input as { key: string; value: unknown };
@@ -113,12 +133,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     }],
     reads: [
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       runReads.read,
       runReads.list,
       runReads.result,

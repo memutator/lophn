@@ -9,7 +9,7 @@ import {
 } from "./messages.ts";
 import { body, mcl, msg, msg2, run, ses } from "./message-fixtures.ts";
 
-const paused = {
+const unassigned = {
   id: msg,
   session: ses,
   actor: "user",
@@ -18,11 +18,12 @@ const paused = {
   mode: "request",
   applied_at_call: null,
   links: [],
+  copied_from: null,
 };
 
 Deno.test("lophn-agent/conversation#R5: list and apply keep created order without claiming first application", () => {
   const snapshot = {
-    message: { ...paused, run, actor: "machine", mode: null },
+    message: { ...unassigned, run, actor: "machine", mode: null },
     created_seq: "3",
     state_seq: "4",
   };
@@ -87,7 +88,7 @@ Deno.test("lophn-agent/conversation#R5: list and apply keep created order withou
 });
 
 Deno.test("lophn-agent/conversation#R5: malformed seq values fail without throwing", () => {
-  const snapshot = { message: paused, created_seq: "3", state_seq: "4" };
+  const snapshot = { message: unassigned, created_seq: "3", state_seq: "4" };
   for (const invalid of ["bad", "01", "-1", "1.5", ""]) {
     assert(
       !messagesListInputSchema.safeParse({

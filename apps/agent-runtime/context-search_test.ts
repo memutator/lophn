@@ -20,13 +20,12 @@ import {
   TOOL_BUNDLES,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
+import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   contextReadToolsFor,
   type ContextToolkit,
   createContextToolkit,
-  projectOf,
 } from "./context-search.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";
 
@@ -218,115 +217,43 @@ function kit(entries: Entry[] = ENTRIES): ContextToolkit & { seen: string[] } {
   };
 }
 
-Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: all·project 선택은 담당 project의 active context로 풀리고 초안·보관·판 없는 context는 조용히 빠진다", async () => {
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: resolved agent의 context 중 active이고 적용된 판이 있는 것만 정의 재료가 되고 초안·보관·판 없는 context는 조용히 빠진다", async () => {
   const toolkit = kit();
   const loaded = await toolkit.load({
-    project: PRJ,
-    selections: [{ kind: "all", target: null }],
+    contexts: [
+      CTX_A,
+      CTX_B,
+      CTX_ARCHIVED,
+      CTX_DRAFT,
+      CTX_NO_BUNDLE,
+      "ctx_01arz3ndektsv4rrffq69g5fzz",
+    ],
   });
   assertEquals(loaded.map((c) => c.id), [CTX_A, CTX_B]);
   assertEquals(loaded[0]!.bundle_hash, "a".repeat(64));
   assertEquals(loaded[0]!.title, "Recipes");
   assertEquals(loaded[0]!.content.searches[0]!.name, "all_recipes");
 
-  // project 선택도 같은 project다. 같은 context는 한 번만 든다.
-  const again = await toolkit.load({
-    project: PRJ,
-    selections: [
-      { kind: "project", target: PRJ },
-      { kind: "context", target: CTX_B },
-      { kind: "all", target: null },
-    ],
-  });
-  assertEquals(again.map((c) => c.id), [CTX_A, CTX_B]);
+  // 같은 context는 한 번만 들고 순서는 agent의 순서다.
+  const again = await toolkit.load({ contexts: [CTX_B, CTX_A, CTX_B] });
+  assertEquals(again.map((c) => c.id), [CTX_B, CTX_A]);
 });
 
-Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: project가 없으면 all은 context 0개이고 context 선택은 담당 project 밖이면 빠진다", async () => {
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: context가 없으면 정의 재료도 core 읽기도 없고 어느 project의 context인지는 agent 층이 정한 대로 읽는다", async () => {
   const toolkit = kit();
+  assertEquals(await toolkit.load({ contexts: [] }), []);
+  assertEquals(toolkit.seen, []);
+  // agent 층이 앱을 읽는 context로 준 다른 project의 context도 그대로 읽는다.
   assertEquals(
-    await toolkit.load({
-      project: null,
-      selections: [{ kind: "all", target: null }],
-    }),
-    [],
-  );
-  // 다른 project의 context를 골라도 담당 project 밖이면 읽지 않는다.
-  assertEquals(
-    (await toolkit.load({
-      project: PRJ,
-      selections: [{ kind: "context", target: CTX_ELSEWHERE }],
-    })).length,
-    0,
-  );
-  // project가 정해지지 않았을 때 context 선택은 그 context 하나다.
-  assertEquals(
-    (await toolkit.load({
-      project: null,
-      selections: [{ kind: "context", target: CTX_ELSEWHERE }],
-    })).map((c) => c.id),
+    (await toolkit.load({ contexts: [CTX_ELSEWHERE] })).map((c) => c.id),
     [CTX_ELSEWHERE],
   );
-  // 보관·초안·판 없는 context, 없는 context, app·document·sdk 선택은 context가 아니다.
-  assertEquals(
-    await toolkit.load({
-      project: PRJ,
-      selections: [
-        { kind: "context", target: CTX_ARCHIVED },
-        { kind: "context", target: CTX_DRAFT },
-        { kind: "context", target: CTX_NO_BUNDLE },
-        { kind: "context", target: "ctx_01arz3ndektsv4rrffq69g5fzz" },
-        { kind: "app", target: "app_01arz3ndektsv4rrffq69g5fav" },
-        { kind: "document", target: "doc_01arz3ndektsv4rrffq69g5fav" },
-      ],
-    }),
-    [],
-  );
 });
 
-Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 작업 자리가 담당 범위를 넓히지 못한다", () => {
-  assertEquals(
-    projectOf({ kind: "project", id: PRJ } as never, {
-      kind: "project",
-      id: PRJ,
-    }),
-    PRJ,
-  );
-  assertEquals(
-    projectOf({ kind: "project", id: PRJ } as never, { kind: "all", id: null }),
-    PRJ,
-  );
-  assertEquals(
-    projectOf({ kind: "project", id: PRJ_OTHER } as never, {
-      kind: "project",
-      id: PRJ,
-    }),
-    null,
-  );
-  assertEquals(
-    projectOf({ kind: "global", id: null } as never, {
-      kind: "project",
-      id: PRJ,
-    }),
-    PRJ,
-  );
-  assertEquals(
-    projectOf({ kind: "app", id: "app_01arz3ndektsv4rrffq69g5fav" } as never, {
-      kind: "app",
-      id: "app_01arz3ndektsv4rrffq69g5fav",
-    }),
-    null,
-  );
-});
-
-const PLACE = { kind: "project", id: PRJ } as never;
-const SCOPE = { kind: "project", id: PRJ };
-
-Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 고른 context의 검색 tool만 목록에 들고 개체 읽기는 preset·역할이 이름으로 고를 때 든다", async () => {
+Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 고른 context의 검색 tool만 목록에 들고 개체 읽기는 agent의 tools에 이름이 있을 때 든다", async () => {
   const toolkit = kit();
   const tools = await contextReadToolsFor(toolkit, {
-    place: PLACE,
-    scope: SCOPE,
-    selections: [{ kind: "context", target: CTX_A }],
+    contexts: [CTX_A],
   });
   assertEquals(tools.contexts, [CTX_A]);
   assertEquals(tools.search.length, 1);
@@ -339,7 +266,7 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 고른 context의 검색 too
     external: [],
   };
   const roleTools = ROLE_CAPS.get("operator")!.tools;
-  // 개체 읽기는 preset이 이름으로 고른다. 검색 tool은 context 선택이 정한다.
+  // 개체 읽기는 agent의 tools가 이름으로 고른다. 검색 tool은 agent의 context가 정한다.
   const listed = listTools(source, {
     presetTools: [CONTEXT_ENTITY_TOOL],
     roleTools,
@@ -358,27 +285,17 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 고른 context의 검색 too
   });
   assertEquals(without.map((d) => d.origin), ["context"]);
 
-  // 선택한 context가 없으면 tool이 하나도 없다. context 도구 묶음이 없는 runtime도 같다.
-  const empty = await contextReadToolsFor(toolkit, {
-    place: PLACE,
-    scope: SCOPE,
-    selections: [],
-  });
+  // agent에 context가 없으면 tool이 하나도 없다. context 도구 묶음이 없는 runtime도 같다.
+  const empty = await contextReadToolsFor(toolkit, { contexts: [] });
   assertEquals([empty.search, empty.entity, empty.contexts], [[], null, []]);
-  const none = await contextReadToolsFor(undefined, {
-    place: PLACE,
-    scope: SCOPE,
-    selections: [{ kind: "all", target: null }],
-  });
+  const none = await contextReadToolsFor(undefined, { contexts: [CTX_A] });
   assertEquals([none.search, none.entity, none.contexts], [[], null, []]);
 });
 
 Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: 판이 바뀌면 Run.basis의 정의 hash가 달라지고 같은 판이면 같다", async () => {
   const hashOf = async (entries: Entry[]) => {
     const tools = await contextReadToolsFor(kit(entries), {
-      place: PLACE,
-      scope: SCOPE,
-      selections: [{ kind: "all", target: null }],
+      contexts: [CTX_A, CTX_B],
     });
     const listed = listTools(
       {
@@ -425,11 +342,7 @@ Deno.test("lophn-agent/harness/tools#R22 [ctx-I56]: 네 역할 모두 개체 읽
 
 Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: handler는 agent 자격의 열린 route로 검색 page 20개와 개체 하나를 읽고 열리지 않은 contract는 없는 것과 같다", async () => {
   const toolkit = kit();
-  const tools = await contextReadToolsFor(toolkit, {
-    place: PLACE,
-    scope: SCOPE,
-    selections: [{ kind: "context", target: CTX_A }],
-  });
+  const tools = await contextReadToolsFor(toolkit, { contexts: [CTX_A] });
   const calls: { path: string; body: Record<string, unknown> }[] = [];
   const agent: CoreCall = (path, body) => {
     calls.push({ path, body: body as Record<string, unknown> });
@@ -487,36 +400,16 @@ Deno.test("lophn-agent/harness/tools#R21 [ctx-I56]: handler는 agent 자격의 �
   assertEquals(contextEntityRoute.name, "context.entity");
 });
 
-Deno.test("lophn-agent/harness/tools#R21 lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 담당 범위가 앱이면 assignment_scope 선택은 작업 자리 project와 상관없이 그 앱을 읽는 active context로 풀린다", async () => {
-  const entries: Entry[] = [
-    ...ENTRIES.map((entry) =>
-      entry.id === CTX_A || entry.id === CTX_ELSEWHERE
-        ? { ...entry, app: "app_01arz3ndektsv4rrffq69g5fav" }
-        : entry
-    ),
-  ];
-  const toolkit = kit(entries);
-  const loaded = await toolkit.load({
-    project: null,
-    app: "app_01arz3ndektsv4rrffq69g5fav",
-    selections: [{ kind: "assignment_scope", target: null }],
-  });
-  // 작업 자리 project가 없어도, 다른 project에 있는 context도 앱이 읽으면 든다.
+Deno.test("lophn-agent/harness/tools#R21 lophn-agent/roles/app-engineer#R2 [ctx-I56b]: 앱 자리의 App Engineer가 받은 context는 다른 project에 있어도 정의 재료가 된다", async () => {
+  const toolkit = kit();
+  // agent 층이 담당 앱을 읽는 active context로 준 목록이다(agent-layers).
+  const loaded = await toolkit.load({ contexts: [CTX_A, CTX_ELSEWHERE] });
   assertEquals(loaded.map((c) => c.id), [CTX_A, CTX_ELSEWHERE]);
 
   const tools = await contextReadToolsFor(toolkit, {
-    place: { kind: "global", id: null },
-    scope: { kind: "app", id: "app_01arz3ndektsv4rrffq69g5fav" },
-    selections: [{ kind: "assignment_scope", target: null }],
+    contexts: [CTX_A, CTX_ELSEWHERE],
   });
   assertEquals(tools.contexts, [CTX_A, CTX_ELSEWHERE]);
-
-  // 앱에 묶이지 않은 담당 범위는 그대로 project로 푼다.
-  const byProject = await toolkit.load({
-    project: PRJ,
-    selections: [{ kind: "assignment_scope", target: null }],
-  });
-  assertEquals(byProject.map((c) => c.id), [CTX_A, CTX_B]);
 });
 
 Deno.test("lophn-agent/harness/tools#R21 [ctx-I56b]: 제품 toolkit은 고정한 판을 machine 자격의 context.contract {bundle}로 읽어 지금 적용된 판이 아니어도 정의를 다시 만든다", async () => {

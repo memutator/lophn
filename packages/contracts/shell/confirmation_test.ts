@@ -19,6 +19,7 @@ import { EVENTS } from "./mod.ts";
 
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+const QGR = "qgr_01arz3ndektsv4rrffq69g5fav";
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const HASH = "ab".repeat(32);
 
@@ -68,6 +69,27 @@ Deno.test(
     assert(
       confirmationRequestSchema.safeParse({
         kind: "question_option_action",
+        group: QGR,
+        question: QST,
+        option_key: "keep",
+        created_seq: "4",
+        binding_hash: HASH,
+      }).success,
+    );
+    // 고정 action 답은 묶음을 정본으로 가리킨다. 질문 id만 든 옛 모양은 받지 않는다.
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "question_option_action",
+        question: QST,
+        option_key: "keep",
+        created_seq: "4",
+        binding_hash: HASH,
+      }).success,
+    );
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "question_option_action",
+        group: QST,
         question: QST,
         option_key: "keep",
         created_seq: "4",
@@ -246,41 +268,78 @@ Deno.test(
   },
 );
 
-const RUN = "run_01arz3ndektsv4rrffq69g5fav";
+const SES = "ses_01arz3ndektsv4rrffq69g5fav";
+const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
+const MCL = "mcl_01arz3ndektsv4rrffq69g5fav";
 const RVT = "rvt_01arz3ndektsv4rrffq69g5fav";
 
 Deno.test(
   "shell/confirmation-window#R2, lophn-agent/revert#R2: owner decision 열기는 대상 ID를, provider credential 입력은 값 아닌 등록 정보만 싣는다",
   () => {
-    const revert = confirmationOpenIntentSchema.parse({
-      request: {
-        kind: "owner_decision",
-        concern: "lophn-agent/revert",
-        decision: "RevertRun",
-        targets: [RUN],
-      },
-      parentWindow: "win-1",
-    });
-    assertEquals(revert.request.kind, "owner_decision");
+    // Rewind는 session과 checkpoint 메시지, 고른 범위를 가리킨다(summarize는 끝난 요약 call도).
+    for (const choice of ["restore_all", "messages_only"] as const) {
+      const revert = confirmationOpenIntentSchema.parse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG],
+          choice,
+        },
+        parentWindow: "win-1",
+      });
+      assertEquals(revert.request.kind, "owner_decision");
+    }
+    assert(
+      confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG, MCL],
+          choice: "summarize",
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
     assert(
       !confirmationOpenIntentSchema.safeParse({
         request: {
           kind: "owner_decision",
           concern: "lophn-agent/revert",
-          decision: "RevertRun",
-          targets: [RUN, RUN],
+          decision: "Rewind",
+          targets: [SES, SES],
+          choice: "restore_all",
         },
         parentWindow: "win-1",
       }).success,
     );
-    const credential = {
-      key: "main",
+    assert(
+      !confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "Rewind",
+          targets: [SES, MSG],
+          choice: "everything",
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+    const connect = {
+      name: "Anthropic",
+      definition: {
+        key: "anthropic",
+        display_name: "Anthropic",
+        protocols: ["anthropic-messages"],
+        auth_kinds: ["api_key"],
+        models_endpoint: "https://api.anthropic.com/v1/models",
+        oauth: null,
+        revision: "2026-10",
+      },
+      endpoint: "https://api.anthropic.com/v1",
+      protocol: "anthropic-messages",
       kind: "api_key",
-      label: "Main key",
-      account: null,
-      organization: null,
-      plan: null,
-      dedup_fingerprint: HASH,
     };
     assert(
       confirmationOpenIntentSchema.safeParse({
@@ -288,7 +347,7 @@ Deno.test(
           kind: "secret_input",
           owner: "pvd_01arz3ndektsv4rrffq69g5fav",
           purpose: "provider_credential",
-          credential,
+          connect,
         },
         parentWindow: "win-1",
       }).success,
@@ -299,7 +358,7 @@ Deno.test(
           kind: "secret_input",
           owner: "weather.key",
           purpose: "app_secret",
-          credential,
+          connect,
         },
         parentWindow: "win-1",
       }).success,
@@ -310,7 +369,7 @@ Deno.test(
           kind: "secret_input",
           owner: "pvd_01arz3ndektsv4rrffq69g5fav",
           purpose: "provider_credential",
-          credential: { ...credential, value: "raw-secret" },
+          connect: { ...connect, value: "raw-secret" },
         },
         parentWindow: "win-1",
       }).success,
@@ -319,7 +378,7 @@ Deno.test(
 );
 
 Deno.test(
-  "shell/confirmation-window#R6, lophn-agent/harness/provider#R6: 등록한 계정의 교체·삭제 열기는 계정 key와 행동만 싣고 등록 정보나 다른 목적과 함께 오지 않는다",
+  "shell/confirmation-window#R6, lophn-agent/harness/provider#R6: provider 연결(Connect)과 끊기(Disconnect) 열기는 provider 전체를 가리키고 계정 key·교체·회수나 다른 목적과 함께 오지 않는다",
   () => {
     const owner = "pvd_01arz3ndektsv4rrffq69g5fav";
     const open = (request: Record<string, unknown>) =>
@@ -328,20 +387,48 @@ Deno.test(
         parentWindow: "win-1",
       }).success;
     const purpose = "provider_credential";
-    assert(open({ purpose, change: { key: "main", action: "replace" } }));
-    assert(open({ purpose, change: { key: "main", action: "revoke" } }));
-    assert(!open({ purpose, change: { key: "main", action: "delete" } }));
-    assert(!open({ purpose, change: { key: "main", action: "revoke", v: 1 } }));
+    const definition = {
+      key: "openai",
+      display_name: "OpenAI",
+      protocols: ["openai-responses"],
+      auth_kinds: ["api_key", "oauth"],
+      models_endpoint: "https://api.openai.com/v1/models",
+      oauth: {
+        product: "chatgpt",
+        flow: "device_code_then_pkce_paste_url",
+        issuer: "https://auth.openai.com",
+        authorization_endpoint: "https://auth.openai.com/authorize",
+        token_endpoint: "https://auth.openai.com/token",
+        allowed_call_origins: ["https://api.openai.com"],
+        scopes: ["openid"],
+        verified_for_lophn: false,
+      },
+      revision: "2026-10",
+    };
+    const connect = {
+      name: "OpenAI",
+      definition,
+      endpoint: "https://api.openai.com/v1",
+      protocol: "openai-responses",
+      kind: "api_key",
+    };
+    assert(open({ purpose, disconnect: true }));
+    assert(!open({ purpose, disconnect: false }));
+    assert(!open({ purpose: "app_secret", disconnect: true }));
+    assert(!open({ purpose, disconnect: true, connect }));
+    assert(open({ purpose, connect }));
+    // OAuth 로그인은 시작한 login handle을 싣고, key는 싣지 않는다.
     assert(
-      !open({
-        purpose: "app_secret",
-        change: { key: "main", action: "revoke" },
-      }),
+      open({ purpose, connect: { ...connect, kind: "oauth", login: "h" } }),
     );
+    assert(!open({ purpose, connect: { ...connect, kind: "oauth" } }));
+    assert(!open({ purpose, connect: { ...connect, login: "h" } }));
+    // 계정 교체·회수와 옛 등록 정보 field는 없다.
+    assert(!open({ purpose, change: { key: "main", action: "replace" } }));
+    assert(!open({ purpose, change: { key: "main", action: "revoke" } }));
     assert(
       !open({
         purpose,
-        change: { key: "main", action: "revoke" },
         credential: {
           key: "main",
           kind: "api_key",
@@ -349,14 +436,13 @@ Deno.test(
           account: null,
           organization: null,
           plan: null,
-          dedup_fingerprint: HASH,
         },
       }),
     );
     assert(
       confirmationOutcomeSchema.safeParse({
         outcome: "decided",
-        secret_ref: "Main key",
+        secret_ref: "OpenAI",
         stored: "revoked",
       }).success,
     );
@@ -371,25 +457,27 @@ Deno.test(
       request: {
         kind: "owner_decision",
         concern: "lophn-agent/revert",
-        decision: "RevertRun",
-        targets: [RUN],
+        decision: "Rewind",
+        targets: [SES, MSG],
         input: {
           kind: "inline",
           value: {
             id: RVT,
-            run: RUN,
-            allow_partial: true,
+            session: SES,
+            checkpoint: MSG,
+            choice: "restore_all",
+            accept_remaining: true,
             preview_hash: HASH,
           },
         },
         comparison: { preview_hash: HASH },
       },
-      view: { kind: "revert", groups: [] },
+      view: { kind: "rewind", restore: [], skip: [], remain: [] },
       state: "ready",
-      decisions: ["RevertRun"],
+      decisions: ["Rewind"],
       second: true,
     });
-    assertEquals(display.decisions, ["RevertRun"]);
+    assertEquals(display.decisions, ["Rewind"]);
     assert(
       !confirmationDisplaySchema.safeParse({ ...display, state: "granted" })
         .success,
@@ -416,6 +504,40 @@ Deno.test(
         outcome: "decided",
         receipt: { kind: "entity", id: APR },
         result: "done",
+      }).success,
+    );
+  },
+);
+
+Deno.test(
+  "shell/desktop#R47, platform/approvals#R18 [agent-I42]: approval 열기는 미리 고른 범위(allow_once·allow_session·deny)를 받고 계속 허락은 받지 않는다",
+  () => {
+    for (const preselect of ["allow_once", "allow_session", "deny"]) {
+      assert(
+        confirmationOpenIntentSchema.safeParse({
+          request: { kind: "approval_request", approval: APR, preselect },
+          parentWindow: "win-1",
+        }).success,
+        preselect,
+      );
+    }
+    for (const preselect of ["always", "allow_always", "once", "", null]) {
+      assert(
+        !confirmationOpenIntentSchema.safeParse({
+          request: { kind: "approval_request", approval: APR, preselect },
+          parentWindow: "win-1",
+        }).success,
+        String(preselect),
+      );
+    }
+    // 고정된 요청(표시 request)에는 미리 고른 범위가 없다.
+    assert(
+      !confirmationRequestSchema.safeParse({
+        kind: "approval_request",
+        approval: APR,
+        created_seq: "4",
+        binding_hash: HASH,
+        preselect: "allow_once",
       }).success,
     );
   },

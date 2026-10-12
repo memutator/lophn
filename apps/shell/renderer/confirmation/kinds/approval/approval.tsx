@@ -24,7 +24,7 @@ export function ApprovalKind(props: KindProps) {
       t("confirmation-window.approval.no-external"),
     reversible: shown.reversible === true,
     revertNote: str(shown.reversibility),
-    action: t("confirmation-window.button.allow"),
+    action: t("confirmation-window.button.allow-once"),
     details: facts([
       [t("confirmation-window.label.requested-by"), str(shown.requester)],
       [t("confirmation-window.label.reason"), str(shown.reason)],
@@ -44,6 +44,10 @@ export function ApprovalKind(props: KindProps) {
 /**
  * approval request의 결정 틀. 앱 결정 네 종류도 같은 허락·거절·취소와 같은 이유 입력을 쓴다.
  * 종류마다 다른 것은 표시(display)와 정확한 동작 자리(exact)뿐이다.
+ *
+ * session 허락이 되는 request(view.session_grantable)는 Allow once와 Allow for this session을
+ * 따로 고르고, 대화 카드가 미리 고른 결정(view.preselect)은 눈에 띄게(primary) 보일 뿐 누르기 전에는
+ * 제출하지 않는다. 계속 허락(Always)은 없다. once는 기본값이라 입력에 싣지 않는다.
  */
 export function ApprovalDecision(
   { view, decide, cancel, busy, display, exact }: KindProps & {
@@ -52,6 +56,9 @@ export function ApprovalDecision(
   },
 ) {
   const decisions = view.decisions ?? [];
+  const shown = obj(view.view);
+  const sessionGrantable = shown.session_grantable === true;
+  const preselect = str(shown.preselect);
   const [reason, setReason] = useState("");
   const withReason = () => reason.trim() === "" ? {} : { input: { reason } };
   return (
@@ -89,8 +96,9 @@ export function ApprovalDecision(
           {decisions.includes(REJECT)
             ? (
               <Button
-                variant="secondary"
+                variant={preselect === "deny" ? "primary" : "secondary"}
                 data-decision={REJECT}
+                data-preselected={preselect === "deny" ? "true" : undefined}
                 disabled={busy}
                 onClick={() => decide(REJECT, withReason())}
               >
@@ -98,11 +106,35 @@ export function ApprovalDecision(
               </Button>
             )
             : null}
+          {decisions.includes(GRANT) && sessionGrantable
+            ? (
+              <Button
+                variant={preselect === "allow_session"
+                  ? "primary"
+                  : "secondary"}
+                data-decision={GRANT}
+                data-scope="session"
+                data-preselected={preselect === "allow_session"
+                  ? "true"
+                  : undefined}
+                disabled={busy}
+                onClick={() => decide(GRANT, { input: { scope: "session" } })}
+              >
+                {t("confirmation-window.button.allow-session")}
+              </Button>
+            )
+            : null}
           {decisions.includes(GRANT)
             ? (
               <Button
-                variant="primary"
+                variant={preselect === undefined || preselect === "allow_once"
+                  ? "primary"
+                  : "secondary"}
                 data-decision={GRANT}
+                data-scope="once"
+                data-preselected={preselect === "allow_once"
+                  ? "true"
+                  : undefined}
                 disabled={busy}
                 onClick={() => decide(GRANT)}
               >

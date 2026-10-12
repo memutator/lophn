@@ -1,6 +1,8 @@
-// 질문·approval·notification을 core에 묻고 보내는 통로. 모양은 lophn-agent questions,
+// 질문 묶음·approval·notification을 core에 묻고 보내는 통로. 모양은 lophn-agent questions,
 // platform approvals·notifications contract에서 이 화면들이 읽는 field만 옮겼다.
-// 질문 칸(conversation/question-strip), things-to-confirm, notification chip이 같이 쓴다.
+// things-to-confirm, notification chip, 공간 크롬이 같이 쓴다. 질문 묶음은 세션 없는 run의 것만
+// 이 통로로 온다. 세션 있는 run의 묶음은 대화 안 카드가 맡는다(lophn-agent/questions#R17).
+import type { GroupAnswer } from "../../../conversation/question-card/model.ts";
 import type { ConnectionState } from "../../connection/connection.ts";
 
 export type SourceResult<T> =
@@ -54,23 +56,34 @@ interface RequestBase {
   readonly expiresAt: string | null;
 }
 
-export interface QuestionRequest extends RequestBase {
-  readonly kind: "question";
-  readonly status: QuestionStatus;
+/** 묶음 안 질문 하나의 읽는 값. 본문·이유·선택지 설명은 글 읽기(text)가 따로 준다. */
+export interface GroupQuestion {
+  /** 질문 ID(qst_…). */
+  readonly id: string;
   readonly options: readonly QuestionOption[];
   readonly recommended: string | null;
   readonly answer:
     | { readonly kind: "option"; readonly option: string }
     | { readonly kind: "text" }
     | null;
+  /** 고른 선택지의 action이 실제로 적용됐는지. 답 접수와 따로다(questions#R10). */
+  readonly applied: boolean;
+}
+
+/**
+ * 질문 묶음 하나(질문 1~4개). id는 묶음 ID(qgr_…)이고 createdSeq는 묶음을 만든 event 번호라
+ * 답·미루기·취소가 이 번호를 싣는다. 묶음 전체가 답·미루기·취소·만료의 대상이다.
+ */
+export interface QuestionGroupRequest extends RequestBase {
+  readonly kind: "question";
+  readonly status: QuestionStatus;
   readonly closedReason:
     | "deferred"
     | "cancelled"
     | "superseded"
     | "expired"
     | null;
-  /** 고른 선택지의 action이 실제로 적용됐는지. 답 접수와 따로다(questions#R10). */
-  readonly applied: boolean;
+  readonly questions: readonly GroupQuestion[];
 }
 
 export interface ApprovalRequest extends RequestBase {
@@ -79,7 +92,7 @@ export interface ApprovalRequest extends RequestBase {
   readonly reversible: boolean;
 }
 
-export type Request = QuestionRequest | ApprovalRequest;
+export type Request = QuestionGroupRequest | ApprovalRequest;
 
 /** notification이 가리키는 원래 사실. 이름은 platform 계기 표의 event다. */
 export interface NotificationRow {
@@ -108,22 +121,22 @@ export interface Overview {
   readonly notificationsRead: boolean;
 }
 
-export type Answer =
-  | { readonly kind: "option"; readonly option: string }
-  | { readonly kind: "text"; readonly text: string };
-
 /**
- * 질문의 글. core가 redaction을 거쳐 둔 값이다(lophn-agent ReadQuestionText). 화면은 React
+ * 묶음의 글. core가 redaction을 거쳐 둔 값이다(lophn-agent ReadQuestionText). 화면은 React
  * 글로만 그린다.
  */
-export interface QuestionText {
-  readonly prompt: string;
-  readonly reason: string;
-  /** 선택지 key별 설명. */
-  readonly options: ReadonlyMap<string, string>;
-  readonly recommendation: string | null;
-  /** 자유 답의 글. 선택지 답·미답이면 null이다. */
-  readonly answer: string | null;
+export interface QuestionGroupText {
+  /** 묶음 안 순서 그대로 질문마다의 글. */
+  readonly questions: readonly {
+    readonly id: string;
+    readonly prompt: string;
+    readonly reason: string;
+    /** 선택지 key별 설명. */
+    readonly options: ReadonlyMap<string, string>;
+    readonly recommendation: string | null;
+    /** 자유 답의 글. 선택지 답·미답이면 null이다. */
+    readonly answer: string | null;
+  }[];
   /** 취소 이유의 글. 미루기·만료·미종료면 null이다. */
   readonly closedReason: string | null;
 }
@@ -133,36 +146,36 @@ export type ReviewIntent =
   | { readonly kind: "approval_request"; readonly approval: string }
   | {
     readonly kind: "question_option_action";
-    readonly question: string;
+    /** 질문 하나짜리 묶음 id. 정본 참조다. */
+    readonly group: string;
     readonly option_key: string;
   };
 
 export interface RequestSource {
   /** main이 미는 연결 상태. 끊겨도 화면은 마지막 내용을 둔다(desktop#R7). */
   watch(listener: (state: ConnectionState) => void): () => void;
-  /** 모든 질문·approval과 notification. 종류나 개수로 버리지 않는다. */
+  /** 세션 없는 run의 질문 묶음·approval과 notification. 종류나 개수로 버리지 않는다. */
   overview(): Promise<SourceResult<Overview>>;
-  /** 한 세션에 걸린 기다리는 요청. 질문 칸이 읽는다. */
-  pending(session: string): Promise<SourceResult<readonly Request[]>>;
   /** 읽지 않은 notification. chip이 읽는다. */
   unread(): Promise<SourceResult<readonly NotificationRow[]>>;
   /** approval의 설명 글. 읽을 수 없으면 null이다. */
   reason(request: ApprovalRequest): Promise<SourceResult<string | null>>;
-  /** 질문의 본문·이유·선택지 설명·추천 이유와 남은 답·취소 글. */
-  text(question: QuestionRequest): Promise<SourceResult<QuestionText>>;
+  /** 묶음의 질문 본문·이유·선택지 설명·추천 이유와 남은 답·취소 글. */
+  text(group: QuestionGroupRequest): Promise<SourceResult<QuestionGroupText>>;
   /**
-   * action 없는 선택지 답이나 자유 답. 확인 handle 없이 일반 답 경로로 간다. 같은 질문·답이면
-   * 같은 key라 다시 보내도 답이 하나다.
+   * 묶음 전체의 답. 질문마다 답 하나씩이고 일부만 보내지 않는다. 같은 묶음·답이면 같은 key라
+   * 다시 보내도 답이 하나다. 고정 action 답은 이 통로가 아니라 review로 간다(term.define·
+   * app.create·apply_settings만 확인 창 없이 main이 확정한다).
    */
   answer(
-    question: QuestionRequest,
-    answer: Answer,
+    group: QuestionGroupRequest,
+    answers: readonly GroupAnswer[],
   ): Promise<SourceResult<void>>;
-  /** 미루기. 답 없음으로 닫는다. */
-  defer(question: QuestionRequest): Promise<SourceResult<void>>;
+  /** Skip. 묶음 전체를 답 없음으로 닫는다. */
+  defer(group: QuestionGroupRequest): Promise<SourceResult<void>>;
   /** 이유 글을 남기는 취소. */
   cancel(
-    question: QuestionRequest,
+    group: QuestionGroupRequest,
     reason: string,
   ): Promise<SourceResult<void>>;
   /** 읽음 표시. 답·승인·문제 닫힘이 아니다(platform/notifications#R6). */

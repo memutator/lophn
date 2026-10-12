@@ -5,18 +5,19 @@ import {
   type BasisSnapshot,
   type CallFacts,
   judge,
+  lowerBySessionGrant,
   type Origin,
   refusalKey,
   type Reversibility,
   sameBasis,
   sameLineage,
+  sameToolBasis,
   type TargetFact,
 } from "./mod.ts";
 
 const TARGET: TargetFact = {
   id: "doc_01h455vb4pex5v6nkc6gd5fdw1",
   inScope: true,
-  declared: true,
   reversibility: "reversible",
 };
 
@@ -106,25 +107,19 @@ Deno.test("lophn-agent/harness/tool-judgment#R3: 범위 안 읽기와 사람 요
   assertEquals(judge(facts({ roleAllows: false })).decision, "deny");
 });
 
-Deno.test("lophn-agent/harness/tool-judgment#R4: 주기 run은 선언된 남길 문서의 새 version만 allow로 저장하고 선언 밖 쓰기는 approval request 없이 거절된다", () => {
-  // 선언된 남길 문서의 쓰기는 재확인 없이 allow다(R4).
-  assertEquals(judge(facts({ origin: "periodic" })).decision, "allow");
+Deno.test("lophn-agent/harness/tool-judgment#R3 lophn-agent/roles/operator#R7 [agent-R10]: 남길 문서 선언이 없으므로 문서 쓰기는 출처가 사람 요청이면 일반 판정을 따르고 선언 여부는 판정에 들어가지 않는다", () => {
+  // 대상 사실에 선언 칸이 없다: 되돌릴 수 있는 쓰기는 allow, 보장 없는 쓰기는 ask, 범위 밖은 deny다.
+  assert(!("declared" in TARGET));
+  assertEquals(judge(facts()).decision, "allow");
+  assertEquals(judge(facts()).effect, "reversible_write");
   assertEquals(
-    judge(facts({ origin: "periodic" })).effect,
-    "reversible_write",
+    judge(facts({ targets: [target("1", { reversibility: "unknown" })] }))
+      .decision,
+    "ask",
   );
-  // 선언 밖 문서 쓰기는 ask가 아니라 deny다(R4).
   assertEquals(
-    judge(facts({
-      origin: "periodic",
-      targets: [target("2", { declared: false })],
-    })).decision,
+    judge(facts({ targets: [target("1", { inScope: false })] })).decision,
     "deny",
-  );
-  // 주기 run의 읽기는 여전히 allow다(R4).
-  assertEquals(
-    judge(facts({ origin: "periodic", effect: "read" })).decision,
-    "allow",
   );
 });
 
@@ -140,18 +135,10 @@ Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하�
     "deny",
   );
   assertEquals(judge(facts({ targets: [outside, asks] })).decision, "deny");
-  // 되돌릴 수 있는 쓰기와 주기 run의 deny가 섞이지 않게: 선언 안 된 대상이 섞이면 deny다.
-  assertEquals(
-    judge(facts({
-      origin: "periodic",
-      targets: [target("1", { declared: false })],
-    })).decision,
-    "deny",
-  );
 });
 
 Deno.test("lophn-agent/harness/tool-judgment#R7: 판정은 사실만 입력으로 받고 어떤 조합에서도 되돌릴 수 없는 call·confirm을 allow로 낮추는 모드가 없다", () => {
-  const origins: Origin[] = ["human_request", "handoff", "periodic"];
+  const origins: Origin[] = ["human_request", "handoff"];
   const reversibility: Reversibility[] = [
     "reversible",
     "irreversible",
@@ -176,7 +163,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R7: 판정은 사실만 입력으�
       }
     }
   }
-  assertEquals(checked, 54);
+  assertEquals(checked, 36);
   // confirm=true는 read여도 호출 전에 ask다.
   assertEquals(judge(facts({ effect: "read", confirm: true })).decision, "ask");
 });
@@ -246,16 +233,14 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
     targets: ["doc_a"],
     comparison: { basis: "current", doc: { v: 1 } },
     mcp_configuration_revision: null,
-    assignment_revision: 2,
-    preset_revision: 3,
+    agent_hash: "a".repeat(64),
   };
   const recorded = JSON.parse(JSON.stringify(basis));
   assert(sameBasis(recorded, basis));
   assert(
     sameBasis(
       {
-        preset_revision: 3,
-        assignment_revision: 2,
+        agent_hash: "a".repeat(64),
         mcp_configuration_revision: null,
         comparison: { doc: { v: 1 }, basis: "current" },
         targets: ["doc_a"],
@@ -279,8 +264,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
     { targets: ["doc_a", "doc_b"] },
     { comparison: { basis: "stale" } },
     { mcp_configuration_revision: 4 },
-    { assignment_revision: 3 },
-    { preset_revision: 4 },
+    { agent_hash: "b".repeat(64) },
   ];
   for (const over of changed) {
     assert(!sameBasis(recorded, { ...basis, ...over }), JSON.stringify(over));
@@ -288,4 +272,122 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 확인한 기준이 하나라�
   // 기록이 없거나 모양이 다르면 옛 허락을 쓰지 않는다.
   assert(!sameBasis(null, basis));
   assert(!sameBasis("basis", basis));
+});
+
+// session 허락은 ask를 allow로 낮추는 한 칸이다. 그 밖의 칸은 그대로다(R14).
+function lowered(over: Partial<CallFacts> = {}) {
+  const input = facts(over);
+  return lowerBySessionGrant(input, judge(input));
+}
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: session 허락은 ask로 판정될 호출을 새 approval request 없이 allow로 낮춘다", () => {
+  const asking: Partial<CallFacts>[] = [
+    { targets: [target("1", { reversibility: "irreversible" })] },
+    { targets: [target("1", { reversibility: "unknown" })] },
+    { effect: "external" },
+    // 대상 여러 개: ask가 하나라도 있으면 전체가 ask였다가 전체가 allow로 낮아진다.
+    {
+      targets: [target("1"), target("2", { reversibility: "irreversible" })],
+    },
+  ];
+  for (const over of asking) {
+    assertEquals(judge(facts(over)).decision, "ask");
+    const result = lowered(over);
+    assertEquals(result.decision, "allow");
+    assertEquals(result.code, "session_granted");
+    assert(result.reason.trim().length > 0);
+    // 효과 판정은 그대로다: 되돌릴 수 없는 호출이 되돌릴 수 있는 호출이 되지 않는다.
+    assertEquals(result.effect, judge(facts(over)).effect);
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: deny와 거절 억제와 confirm 앱 command는 session 허락으로 낮아지지 않는다", () => {
+  const irreversible = [target("1", { reversibility: "irreversible" })];
+  // 거절은 session 허락보다 앞선다: 같은 동작을 Deny한 뒤에는 허락이 있어도 deny다.
+  const refused = lowered({ targets: irreversible, refused: true });
+  assertEquals(refused.decision, "deny");
+  assertEquals(refused.code, "refused_before");
+  const denied: Partial<CallFacts>[] = [
+    { identity: false },
+    { assignment: "paused" },
+    { run: "ended" },
+    { listed: false },
+    { roleAllows: false },
+    { connection: "lost", effect: "external" },
+    { targets: [target("1", { inScope: false })] },
+    {
+      targets: [
+        target("1", { reversibility: "irreversible" }),
+        target("2", { inScope: false }),
+      ],
+    },
+  ];
+  for (const over of denied) {
+    assertEquals(lowered(over).decision, "deny", JSON.stringify(over));
+  }
+  // confirm=true는 read여도 호출마다 사람이 정한다.
+  for (const effect of ["read", "write", "external"] as const) {
+    const result = lowered({ effect, confirm: true });
+    assertEquals(result.decision, "ask", effect);
+    assertEquals(result.code, "confirm_required");
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: ask가 아닌 판정은 그대로 둔다", () => {
+  for (const over of [{ effect: "read" as const }, {}]) {
+    const before = judge(facts(over));
+    assertEquals(before.decision, "allow");
+    assertEquals(lowered(over), before);
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I14]: 같은 tool의 비교는 계약·정의·연결·agent hash만 보고 대상·입력은 보지 않는다", () => {
+  const recorded: BasisSnapshot = {
+    tool: "document.remove",
+    definition_revision: "tools-1",
+    description_hash: "aa".repeat(32),
+    contract_revision: "documents-1",
+    operation: "document.remove",
+    input_hash: "bb".repeat(32),
+    targets: ["doc_01h455vb4pex5v6nkc6gd5fdw1"],
+    comparison: { seq: "41" },
+    mcp_configuration_revision: 4,
+    agent_hash: "a".repeat(64),
+  };
+  assert(sameToolBasis(recorded, recorded));
+  // 대상·입력·비교 기준이 달라도 같은 tool이다.
+  assert(sameToolBasis(recorded, {
+    ...recorded,
+    input_hash: "cc".repeat(32),
+    targets: ["doc_01h455vb4pex5v6nkc6gd5fdw2"],
+    comparison: { seq: "99" },
+  }));
+  const changes: Partial<BasisSnapshot>[] = [
+    { tool: "document.archive" },
+    { operation: "document.move" },
+    { definition_revision: "tools-2" },
+    { description_hash: "dd".repeat(32) },
+    { contract_revision: "documents-2" },
+    { mcp_configuration_revision: 5 },
+    { mcp_configuration_revision: null },
+    { agent_hash: "b".repeat(64) },
+  ];
+  for (const change of changes) {
+    assert(
+      !sameToolBasis(recorded, { ...recorded, ...change }),
+      JSON.stringify(change),
+    );
+  }
+  for (const broken of [null, undefined, "x", 1, [], {}]) {
+    assert(!sameToolBasis(broken, recorded));
+  }
+  // 옛 assignment·preset 판 칸은 기준에서 빠졌다. 있어도 비교하지 않고, agent hash가 없으면 같은 tool이 아니다.
+  assert(
+    sameToolBasis(
+      { ...recorded, assignment_revision: 9, preset_revision: 9 },
+      recorded,
+    ),
+  );
+  const { agent_hash: _dropped, ...withoutAgent } = recorded;
+  assert(!sameToolBasis(withoutAgent, recorded));
 });

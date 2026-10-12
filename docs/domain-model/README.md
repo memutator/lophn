@@ -12,7 +12,7 @@ lophn이 **무엇을 기억하는가**를 concern별로 적는다. 파일 하나
 
 ## entity 지도
 
-ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item, preset 구성 같은 것)는 entity 안의 값이거나 ID 없는 기록이다. 표 이름은 각 파일의 "ledger 표"에서 가져왔다.
+ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item, agent 정의의 칸 같은 것)는 entity 안의 값이거나 ID 없는 기록이다. 표 이름은 각 파일의 "ledger 표"에서 가져왔다.
 
 | concern | entity (접두사) | ledger 표 |
 |---|---|---|
@@ -39,9 +39,9 @@ ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item
 | [problems/grouping](problems/grouping.md) | Problem `prb` | `problems` |
 | [problems/snapshots](problems/snapshots.md) | Snapshot `snp` | `snapshots` |
 | [problems/tests](problems/tests.md) | Verification `vrf` | `verifications`, `verification_reports` |
-| [lophn-agent/presets](lophn-agent/presets.md) | Preset `pst` | `presets`, `preset_revisions` |
-| [lophn-agent/assignments](lophn-agent/assignments.md) | Assignment `asg` | `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` |
-| [lophn-agent/scheduling](lophn-agent/scheduling.md) | | `assignment_schedule_occurrences` |
+| [lophn-agent/agents](lophn-agent/agents.md) | AgentDefinition(파일, ID 접두사 없음) | 없음(app data의 파일) |
+| [lophn-agent/assignments](lophn-agent/assignments.md) | Assignment `asg` | `assignments` |
+| [lophn-agent/scheduling](lophn-agent/scheduling.md) | 보류 | 보류 |
 | [lophn-agent/conversation](lophn-agent/conversation.md) | Session `ses`, Message `msg` | `sessions`, `messages` |
 | [lophn-agent/questions](lophn-agent/questions.md) | Question `qst` | `questions` |
 | [lophn-agent/revert](lophn-agent/revert.md) | Revert `rvt` | `reverts`, `revert_changes`, `revert_change_sources`, `revert_change_compensations` |
@@ -73,9 +73,9 @@ entity나 표 없이 값·정책만 가진 concern: platform/identity, redaction
  Ticket ─── App · Problem · acceptance check ─── Verification
    └──< claim ─── CodingAgentConnection(scope: 전체 | App 하나)
 
- Preset 고정 판 ──< Assignment(범위: Project | App | 전역) ──< Run ──< ModelCall ─── Provider
+ AgentDefinition(파일) ─── Assignment(범위: Project | App | 전역) ──< Run ──< ModelCall ─── Provider
                                                          ├──< ToolCall
-                                                         ├── source: 사람 요청 | 주기 회차 | handoff
+                                                         ├── source: 사람 요청 | handoff
                                                          └── Session ──< Message
  Question ─── Run (Session은 있을 때만)       Revert ─── Run 하나의 변경 전체
  ApprovalRequest ─── 정확한 대상·입력          Notification ←── 정해진 event

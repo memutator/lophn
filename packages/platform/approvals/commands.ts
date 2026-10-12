@@ -13,6 +13,7 @@ import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type Actor,
   APPROVAL_TEXT_FIELDS,
+  type ApprovalGrantScope,
   type ApprovalRequest,
   approvalRequestCancelled,
   approvalRequestCreated,
@@ -37,6 +38,8 @@ import {
   closeAllowed,
   deadlineReached,
   deadlineValid,
+  grantScopeAllowed,
+  sessionGrantableValid,
 } from "./model.ts";
 import { registerTextBlobs, storedText, textBlob } from "./text.ts";
 
@@ -49,7 +52,10 @@ type StoredRow = {
   action: string;
   action_binding_hash: string;
   expires_at: string | null;
+  session_grantable: bigint | number;
   status: string;
+  grant_scope: string | null;
+  grant_session: string | null;
   closed_reason_blob: string | null;
   created_seq: bigint | number;
   closed_seq: bigint | number | null;
@@ -57,7 +63,8 @@ type StoredRow = {
 
 const REQUEST_COLUMNS =
   `id, requester, run, reason_blob, effect, action, action_binding_hash,
-  expires_at, status, closed_reason_blob, created_seq, closed_seq`;
+  expires_at, session_grantable, status, grant_scope, grant_session,
+  closed_reason_blob, created_seq, closed_seq`;
 
 function seqText(value: bigint | number): string {
   return typeof value === "bigint" ? value.toString() : String(value);
@@ -66,6 +73,7 @@ function seqText(value: bigint | number): string {
 function rowOf(row: Record<string, unknown>): Result<StoredRow> {
   const created = row["created_seq"];
   const closed = row["closed_seq"];
+  const grantable = row["session_grantable"];
   if (
     typeof row["id"] !== "string" ||
     typeof row["requester"] !== "string" ||
@@ -75,7 +83,11 @@ function rowOf(row: Record<string, unknown>): Result<StoredRow> {
     typeof row["action"] !== "string" ||
     typeof row["action_binding_hash"] !== "string" ||
     (row["expires_at"] !== null && typeof row["expires_at"] !== "string") ||
+    (typeof grantable !== "bigint" && typeof grantable !== "number") ||
     typeof row["status"] !== "string" ||
+    (row["grant_scope"] !== null && typeof row["grant_scope"] !== "string") ||
+    (row["grant_session"] !== null &&
+      typeof row["grant_session"] !== "string") ||
     (row["closed_reason_blob"] !== null &&
       typeof row["closed_reason_blob"] !== "string") ||
     (typeof created !== "bigint" && typeof created !== "number") ||
@@ -93,7 +105,10 @@ function rowOf(row: Record<string, unknown>): Result<StoredRow> {
     action: row["action"],
     action_binding_hash: row["action_binding_hash"],
     expires_at: row["expires_at"],
+    session_grantable: grantable,
     status: row["status"],
+    grant_scope: row["grant_scope"],
+    grant_session: row["grant_session"],
     closed_reason_blob: row["closed_reason_blob"],
     created_seq: created,
     closed_seq: closed,
@@ -117,7 +132,10 @@ function requestOf(row: StoredRow): Result<ApprovalRequest> {
     effect,
     action,
     expires_at: row.expires_at,
+    session_grantable: Number(row.session_grantable) === 1,
     status: row.status,
+    grant_scope: row.grant_scope,
+    grant_session: row.grant_session,
     closed_reason_blob: row.closed_reason_blob,
     created_seq: seqText(row.created_seq),
     closed_seq: row.closed_seq === null ? null : seqText(row.closed_seq),
@@ -138,6 +156,14 @@ function loadRequest(tx: Tx, id: string): Result<StoredRow | undefined> {
   );
   if (row === undefined) return ok(undefined);
   return rowOf(row);
+}
+
+// lophn-agent가 채우는 run 사실(lineage.ts). 등록에 port가 없으면(run이 없는 core) 모르는 것이다.
+function runFacts(tx: Tx) {
+  const lookup = tx as Tx & { portLookup?: { present(key: object): boolean } };
+  return lookup.portLookup?.present(approvalRunLineage) === true
+    ? tx.port(approvalRunLineage)
+    : undefined;
 }
 
 export function createApprovalCommands(): {
@@ -162,6 +188,9 @@ export function createApprovalCommands(): {
     },
     cancel: {
       route: cancelApprovalRequest,
+      // 다른 concern의 command가 같은 transaction에서 취소한다(lophn-agent/revert: rewind가 숨기는 구간에서
+      // 기다리던 request).
+      dispatchable: true,
       handle(tx, ctx, input, compare) {
         return cancelRequest(tx, ctx, input, compare);
       },
@@ -240,6 +269,17 @@ function createRequest(
       details: { rejected_approval: rejected.value },
     });
   }
+  // session 허락은 session 있는 run의 agent tool call ask에만 켠다(R20).
+  const grantable = sessionGrantableValid({
+    sessionGrantable: input.session_grantable,
+    requester: input.requester,
+    run: input.run,
+    session: input.run === null
+      ? null
+      : runFacts(tx)?.session(input.run) ?? null,
+    action: input.action,
+  });
+  if (!grantable.ok) return grantable;
   const text = storedText(ctx, input);
   const created = tx.emit(approvalRequestCreated, input.id, {
     binding_hash: input.action.binding_hash,
@@ -249,8 +289,9 @@ function createRequest(
   tx.sql.run(
     `insert into approval_requests
        (id, requester, run, reason_blob, effect, action, action_binding_hash,
-        expires_at, status, closed_reason_blob, created_seq, closed_seq)
-     values (?, ?, ?, ?, ?, ?, ?, ?, 'pending', null, ?, null)`,
+        expires_at, session_grantable, status, grant_scope, grant_session,
+        closed_reason_blob, created_seq, closed_seq)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', null, null, null, ?, null)`,
     [
       input.id,
       input.requester,
@@ -260,6 +301,7 @@ function createRequest(
       JSON.stringify(input.action),
       input.action.binding_hash,
       input.expires_at,
+      input.session_grantable ? 1 : 0,
       BigInt(created),
     ],
   );
@@ -285,11 +327,8 @@ function rejectedInLineage(
     [input.action.concern, input.action.command, input.action.input_hash],
   );
   const targets = canonicalize(input.action.targets);
-  const lookup = tx as Tx & { portLookup?: { present(key: object): boolean } };
   // 계보 판정이 없는 등록(run이 없는 core)에서는 같은 run만 같은 계보다.
-  const lineage = lookup.portLookup?.present(approvalRunLineage) === true
-    ? tx.port(approvalRunLineage)
-    : undefined;
+  const lineage = runFacts(tx);
   const origin = lineage?.origin(input.run) ?? null;
   for (const row of rows) {
     let action: { targets?: unknown };
@@ -379,7 +418,12 @@ type ClosedStatus = "granted" | "rejected" | "expired" | "cancelled";
 
 // 거절·취소의 reason은 적은 글 값이다. 만료는 이유 글이 없다.
 type Closing =
-  | { kind: "granted"; bindingHash: string }
+  | {
+    kind: "granted";
+    bindingHash: string;
+    scope: ApprovalGrantScope;
+    session: string | null;
+  }
   | { kind: "rejected"; reason: string | null }
   | { kind: "cancelled"; reason: string | null }
   | { kind: "expired" };
@@ -393,6 +437,7 @@ function decideRequest(
     approval: string;
     created_seq: string;
     binding_hash: string;
+    scope?: ApprovalGrantScope;
     closed_reason?: string | null;
   },
   compare: { created_seq: string } | undefined,
@@ -417,15 +462,38 @@ function decideRequest(
   if (deadlineReached(loaded.value.expires_at, tx.now())) {
     return err({ code: "conflict", message: "기한이 지나 결정할 수 없다" });
   }
-  return closeRequest(
-    tx,
-    ctx,
-    loaded.value,
-    decision,
-    decision === "granted"
-      ? { kind: "granted", bindingHash: loaded.value.action_binding_hash }
-      : { kind: "rejected", reason: input.closed_reason ?? null },
+  if (decision === "rejected") {
+    return closeRequest(tx, ctx, loaded.value, decision, {
+      kind: "rejected",
+      reason: input.closed_reason ?? null,
+    });
+  }
+  // 허락 범위는 once와 session이다. session은 session_grantable인 request만 고르고, 허락이 사는
+  // session은 입력이 아니라 request의 run에서 읽는다(R18, R19, R20).
+  const scope = input.scope ?? "once";
+  const allowed = grantScopeAllowed(
+    Number(loaded.value.session_grantable) === 1,
+    scope,
   );
+  if (!allowed.ok) return allowed;
+  let session: string | null = null;
+  if (scope === "session") {
+    session = loaded.value.run === null
+      ? null
+      : runFacts(tx)?.session(loaded.value.run) ?? null;
+    if (session === null) {
+      return err({
+        code: "conflict",
+        message: "session 허락을 걸 session을 알 수 없다",
+      });
+    }
+  }
+  return closeRequest(tx, ctx, loaded.value, decision, {
+    kind: "granted",
+    bindingHash: loaded.value.action_binding_hash,
+    scope,
+    session,
+  });
 }
 
 function closeRequest(
@@ -442,6 +510,8 @@ function closeRequest(
     closed = tx.emit(approvalRequestGranted, row.id, {
       created_seq: createdSeq,
       binding_hash: closing.bindingHash,
+      scope: closing.scope,
+      session: closing.session,
     });
   } else if (closing.kind === "expired") {
     // 만료는 이유 글이 없다. 상태가 곧 이유이고 가짜 hash를 두지 않는다.
@@ -467,9 +537,17 @@ function closeRequest(
   }
   tx.sql.run(
     `update approval_requests
-       set status = ?, closed_reason_blob = ?, closed_seq = ?
+       set status = ?, grant_scope = ?, grant_session = ?,
+           closed_reason_blob = ?, closed_seq = ?
      where id = ? and status = 'pending'`,
-    [status, reason?.hash ?? null, BigInt(closed), row.id],
+    [
+      status,
+      closing.kind === "granted" ? closing.scope : null,
+      closing.kind === "granted" ? closing.session : null,
+      reason?.hash ?? null,
+      BigInt(closed),
+      row.id,
+    ],
   );
   const stored = loadRequest(tx, row.id);
   if (!stored.ok) return stored;

@@ -41,19 +41,16 @@ export function instructionsText(layers: readonly InstructionLayer[]): string {
   return sections.join("\n\n");
 }
 
-// 제품 → 역할+preset → 사람 지침 순의 system 층. 사람 지침이 없으면 그 층은 없다.
+// 제품 → 역할(role_agent) → 사람 지침 순의 system 층. 사람 지침이 없으면 그 층은 없다. agent 정의 본문은
+// 사람이 쓴 지침이라 사람 지침 층 끝에 온다.
 export function systemBlocks(input: {
   product: string;
   role: string;
-  preset: string | null;
   instructions: string;
 }): SystemBlock[] {
-  const role = input.preset === null || input.preset.trim() === ""
-    ? input.role
-    : `${input.role}\n\n${input.preset}`;
   const blocks: SystemBlock[] = [
     { layer: "product", text: input.product },
-    { layer: "role_preset", text: role },
+    { layer: "role_agent", text: input.role },
   ];
   if (input.instructions !== "") {
     blocks.push({ layer: "user_instructions", text: input.instructions });
@@ -83,7 +80,7 @@ function historyMessages(history: readonly HistoryMessage[]): PromptMessage[] {
   return messages;
 }
 
-// 목적·run 사실 → 이어가기 summary → 자료 → 압축 summary → 이력 → 현재 요청·미반영 steering.
+// 목적·run 사실 → Compact summary → 자료 → 압축 summary → 이력 → 현재 요청·미반영 steering.
 // 없는 부분은 만들지 않고 생략한다. 동적 turn context는 여기 없다.
 export function workMessages(material: WorkMaterial): PromptMessage[] {
   const sections: string[] = [];
@@ -93,8 +90,8 @@ export function workMessages(material: WorkMaterial): PromptMessage[] {
   if (present(material.run_facts)) {
     sections.push(`## 현재 run 사실\n${material.run_facts}`);
   }
-  if (present(material.continuation_summary)) {
-    sections.push(`## 이어가기 summary\n${material.continuation_summary}`);
+  if (present(material.compact_summary)) {
+    sections.push(`## Compact summary\n${material.compact_summary}`);
   }
   const materials = material.materials.filter((text) => text.trim() !== "");
   if (materials.length > 0) sections.push(`## 자료\n${materials.join("\n\n")}`);

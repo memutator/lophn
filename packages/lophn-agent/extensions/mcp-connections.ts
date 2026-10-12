@@ -336,8 +336,18 @@ export function createMcpConnections(
             header_name: auth.header_name,
           }).headers,
       });
+    } else if (auth.kind === "oauth2") {
+      // 로그인 전에는 token 참조가 없다. 도구 호출이 막히도록 요청을 보내지 않는다(R16). 로그인한 서버는 설정이
+      // 가리키는 token 참조를 요청마다 부착으로 청한다: 교환·갱신은 이 연결이 아니라 core의 몫이고(R17) 갱신된
+      // 값도 다음 요청에 그대로 붙는다.
+      if (auth.token_ref === null) {
+        return err({ code: "forbidden", message: "로그인이 필요하다" });
+      }
+      secretHeaders.push({
+        ref: auth.token_ref,
+        headers: (token) => authHeaders({ kind: "bearer", token }).headers,
+      });
     }
-    // oauth2의 token 교환·갱신은 이 부착이 아니라 별도 흐름이다(R16).
     const destination = secretDestinationOf(server.http.url);
     const secrets = deps.secrets;
     if (

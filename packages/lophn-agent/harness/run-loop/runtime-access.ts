@@ -1,4 +1,4 @@
-import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { OPTION_ACTION_OPERATIONS } from "../../questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
@@ -17,23 +17,28 @@ import {
 } from "../../../contracts/documents/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../../extensions/mod.ts";
 import {
+  agentsRead,
   applyQuestionOption,
   assignmentList,
   assignmentRead,
-  cancelQuestion,
+  cancelQuestionGroup,
   checkpointRun,
+  compactSession,
   correctWaitingRun,
   decideToolCall,
+  failSessionCompact,
   finishModelCall,
+  finishRewindSummary,
   finishRun,
   finishToolCall,
   instructionRead,
+  mcpAuthRequestDone,
+  mcpAuthRequestTake,
   messageBody,
   messagesList,
   modelCallList,
   modelDefaultsRead,
-  presetRead,
-  processAssignmentOccurrence,
+  placeAgentSettingsRead,
   providerRead,
   questionRead,
   questionText,
@@ -41,14 +46,18 @@ import {
   recordToolRequest,
   recoverRun,
   resolveRunWait,
+  rewindList,
   runBody,
   runList,
   runRead,
+  sessionCompactRequests,
   sessionRead,
+  sessionSummary,
   startModelCall,
   startRun,
   startToolCall,
   stopRun,
+  takeRewindSummaryRequest,
   toolCallList,
   toolCallRead,
   waitRun,
@@ -82,10 +91,18 @@ export const RUNTIME_MACHINE_ROUTES = [
   runRead,
   assignmentList,
   assignmentRead,
-  presetRead,
+  agentsRead,
+  placeAgentSettingsRead,
   providerRead,
   modelDefaultsRead,
   sessionRead,
+  // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
+  sessionCompactRequests,
+  sessionSummary,
+  // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다(prompt-assemble#R31).
+  rewindList,
+  compactSession,
+  failSessionCompact,
   settingsGet,
   // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다(instructions R5, R8).
   instructionRead,
@@ -117,11 +134,16 @@ export const RUNTIME_MACHINE_ROUTES = [
   cancelApprovalRequest,
   questionRead,
   questionText,
-  cancelQuestion,
+  cancelQuestionGroup,
   applyQuestionOption,
-  processAssignmentOccurrence,
-  // 선언 검색 tool의 정의 재료다. 고른 context의 적용된 판(계약·검색)을 run을 시작하기 전에 읽는다
-  // (lophn-agent/harness/tools#R21).
+  // MCP OAuth 발급자 호출을 core 대신 보낸다(extensions R16, R17): core에는 외부 fetch가 없다.
+  mcpAuthRequestTake,
+  mcpAuthRequestDone,
+  // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다(revert R15).
+  takeRewindSummaryRequest,
+  finishRewindSummary,
+  // run 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
+  // 계약·검색)를 run을 시작하기 전에 읽는다(lophn-agent/harness/tools#R21).
   contextListRoute,
   contextGetRoute,
   contextContractRoute,

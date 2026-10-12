@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { err, ok } from "../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import type { SkillEntry } from "../../extensions/mod.ts";
 import { DATA_START_MARKER } from "../safety/mod.ts";
 import {
@@ -123,10 +123,7 @@ const packer: WirePacker = (request) => ({
 });
 const deps: PromptDeps = {
   files: {
-    registered: () => Promise.resolve(ok(null)),
-    attached: () =>
-      Promise.resolve(err({ code: "not_found", message: "none" })),
-    projectOf: () => Promise.resolve(ok(null)),
+    read: () => Promise.resolve(ok(null)),
   },
   redact: (text) => text,
   pack: packer,
@@ -136,17 +133,16 @@ function promptWith(materials: string[], contextLimit: number): PromptInput {
   return {
     product: { instructions: "PRODUCT" },
     tools: [],
-    role: { instructions: "ROLE", preset_prompt: null },
+    role: { instructions: "ROLE" },
     work: {
       role: "lophn",
       session: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     material: {
       purpose: null,
       run_facts: null,
-      continuation_summary: null,
+      compact_summary: null,
       materials,
       compaction_summary: null,
       history: [],

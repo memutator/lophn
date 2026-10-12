@@ -11,7 +11,10 @@ import {
   type EventDefinition,
 } from "../../../packages/contracts/platform/mod.ts";
 import { releaseActivationFailed } from "../../../packages/contracts/apps/mod.ts";
-import { contextViolationsRecordedEvent } from "../../../packages/contracts/documents/mod.ts";
+import {
+  contextCreatedEvent,
+  contextViolationsRecordedEvent,
+} from "../../../packages/contracts/documents/mod.ts";
 import {
   ticketCheckFailed,
   ticketConfirmed,
@@ -36,6 +39,8 @@ const SOURCES: readonly EventDefinition[] = [
   ticketCheckFailed,
   releaseActivationFailed,
   contextViolationsRecordedEvent,
+  // 계기가 아니다. 계약 위반의 Ask가 context의 project를 이 사실에서 읽는다(platform/notifications#R14).
+  contextCreatedEvent,
 ];
 
 const input = z.strictObject({

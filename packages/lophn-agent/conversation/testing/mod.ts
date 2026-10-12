@@ -18,11 +18,9 @@ import {
 // 않는다. 실제 provider를 부르지 않는다.
 
 export const OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
   "CreateAppEngineerAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
+  "SeedAssignmentState",
   "WithdrawAssignment",
   "AcceptRun",
   "StartRun",
@@ -32,22 +30,42 @@ export const OPERATIONS = [
   "ReadRun",
   "ListRuns",
   "OpenSession",
-  "ChangeSessionWorkPlace",
+  "RenameSession",
+  "ArchiveSession",
+  "UnarchiveSession",
+  "DeleteSession",
+  "ChangeSessionModel",
+  "ForkSession",
+  "RequestSessionCompact",
+  "CompactSession",
+  "FailSessionCompact",
   "CloseSession",
   "ReceiveMessage",
-  "ExecuteStoredRequest",
   "RecordMessage",
   "ApplyMessages",
   "AssignMessage",
   "ReadSession",
   "ListSessions",
+  "ListSessionCompactRequests",
+  "ReadSessionSummary",
   "ListMessages",
   "RegisterProvider",
   "StartModelCall",
+  "FinishModelCall",
   "SeedTargetFixture",
   "SeedOperatorFixture",
   "SeedAcceptFailure",
+  "SeedSummariesModel",
   "SeedUnpreparedBody",
+  "SeedFactMessage",
+  "RecordRewindFile",
+  "Rewind",
+  "UndoEdit",
+  "Redo",
+  "AmendRevertInstall",
+  "PreviewRewind",
+  "ListRewindCheckpoints",
+  "ListReverts",
   "StartRequestFixture",
   "CommandResult",
 ];
@@ -129,15 +147,15 @@ export function registerMessageBodyRef(
     return err({ code: "forbidden", message: "field is not defined" });
   }
   if (value.source.kind === "existing") {
-    // 이미 다른 owner가 참조한 blob을 가리키는 등록이다. 그 참조 행이 있어야 한다.
-    const held = value.source.reference;
-    const row = tx.sql.get(
+    // Fork가 복사한 메시지의 본문이다: 이미 등록된 같은 blob 참조에서만 허락한다.
+    const original = value.source.reference;
+    const found = tx.sql.get(
       `select size_bytes from blob_refs
        where owner_kind = ? and owner_key = ? and field = ? and hash = ?`,
-      [held.owner_kind, held.owner_key, held.field, held.hash],
+      [original.owner_kind, original.owner_key, original.field, original.hash],
     );
-    if (row === undefined) {
-      return err({ code: "forbidden", message: "no existing blob reference" });
+    if (found === undefined) {
+      return err({ code: "forbidden", message: "no such blob reference" });
     }
     tx.sql.run(
       `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
@@ -146,8 +164,8 @@ export function registerMessageBodyRef(
         value.owner_kind,
         value.owner_key,
         value.field,
-        held.hash,
-        row["size_bytes"] as number,
+        original.hash,
+        found["size_bytes"] ?? 0,
         BigInt(value.registered_seq),
       ],
     );
@@ -155,7 +173,7 @@ export function registerMessageBodyRef(
       owner_kind: value.owner_kind,
       owner_key: value.owner_key,
       field: value.field,
-      hash: held.hash,
+      hash: original.hash,
       registered_seq: value.registered_seq,
     });
   }

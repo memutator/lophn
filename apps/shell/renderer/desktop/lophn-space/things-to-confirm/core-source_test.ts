@@ -6,10 +6,10 @@ import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { coreRequestSource } from "./core-source.ts";
-import { QUESTION_TEXT_MAX_BYTES } from "./model.ts";
-import type { QuestionRequest, ReviewIntent } from "./source.ts";
-import { questionContract } from "./testdata/question-contract.ts";
+import type { QuestionGroupRequest, ReviewIntent } from "./source.ts";
 
+const GRP = "qgr_01k6aaaaaaaaaaaaaaaaaaaaa1";
+const GRP2 = "qgr_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const QST = "qst_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const QST2 = "qst_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const APR = "apr_01k6aaaaaaaaaaaaaaaaaaaaa1";
@@ -18,7 +18,6 @@ const RUN = "run_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const RUN2 = "run_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const ASG = "asg_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const SES = "ses_01k6aaaaaaaaaaaaaaaaaaaaa1";
-const SES2 = "ses_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const PRJ = "prj_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const NTF = "ntf_01k6aaaaaaaaaaaaaaaaaaaaa1";
 
@@ -44,44 +43,6 @@ function name(call: CoreCall): string {
 
 const ok = (value: unknown): CoreReply => ({ ok: true, value });
 
-function questionValue(patch: Record<string, unknown> = {}) {
-  return {
-    id: QST,
-    run: RUN,
-    session: SES,
-    prompt_blob: "a".repeat(64),
-    reason_blob: "b".repeat(64),
-    options: [
-      {
-        key: "keep",
-        label: "Keep both files",
-        description_blob: "c".repeat(64),
-        evidence: [],
-        adoption: null,
-        action: null,
-      },
-      {
-        key: "move",
-        label: "Move it",
-        description_blob: "d".repeat(64),
-        evidence: [],
-        adoption: null,
-        action: { concern: "platform/settings", command: "apply_settings" },
-      },
-    ],
-    recommendation: { option_key: "keep", explanation_blob: "e".repeat(64) },
-    expires_at: null,
-    status: "pending",
-    answer: null,
-    closed_reason: null,
-    closed_reason_blob: null,
-    created_seq: "10",
-    closed_seq: null,
-    applied: false,
-    ...patch,
-  };
-}
-
 function approvalValue(patch: Record<string, unknown> = {}) {
   return {
     id: APR,
@@ -98,12 +59,63 @@ function approvalValue(patch: Record<string, unknown> = {}) {
   };
 }
 
-const QUESTION: QuestionRequest = {
+const HASH = "f".repeat(64);
+
+function groupValue(patch: Record<string, unknown> = {}) {
+  return {
+    id: GRP,
+    run: RUN,
+    session: null,
+    expires_at: null,
+    status: "pending",
+    closed_reason: null,
+    closed_reason_blob: null,
+    created_seq: "10",
+    closed_seq: null,
+    questions: [{
+      id: QST,
+      group: GRP,
+      position: 1,
+      prompt_blob: HASH,
+      reason_blob: HASH,
+      options: [
+        {
+          key: "keep",
+          label: "Keep both files",
+          description_blob: HASH,
+          evidence: [],
+          adoption: null,
+          action: null,
+        },
+        {
+          key: "move",
+          label: "Move it",
+          description_blob: HASH,
+          evidence: [],
+          adoption: null,
+          action: {
+            concern: "documents/terms",
+            command: "term.define",
+            targets: [],
+            input: { kind: "inline", value: {} },
+            comparison: {},
+          },
+        },
+      ],
+      recommendation: { option_key: "keep", explanation_blob: HASH },
+      answer: null,
+      applied: false,
+    }],
+    ...patch,
+  };
+}
+
+const GROUP: QuestionGroupRequest = {
   kind: "question",
-  id: QST,
+  id: GRP,
   run: RUN,
-  session: SES,
-  role: "lophn",
+  session: null,
+  role: "operator",
   place: null,
   blocking: false,
   createdSeq: "10",
@@ -112,130 +124,378 @@ const QUESTION: QuestionRequest = {
   closedAt: null,
   expiresAt: null,
   status: "pending",
-  options: [{ key: "keep", label: "Keep both files", action: false }],
-  recommended: null,
-  answer: null,
   closedReason: null,
-  applied: false,
+  questions: [
+    {
+      id: QST,
+      options: [
+        {
+          key: "keep",
+          label: "Keep both files",
+          action: false,
+          command: null,
+        },
+        { key: "move", label: "Move it", action: true, command: "term.define" },
+      ],
+      recommended: "keep",
+      answer: null,
+      applied: false,
+    },
+    {
+      id: QST2,
+      options: [{ key: "yes", label: "Yes", action: false, command: null }],
+      recommended: null,
+      answer: null,
+      applied: false,
+    },
+  ],
 };
 
-Deno.test("lophn-agent/questions#R6: action 없는 답은 확인 handle 없이 questions/answer로 가고 자유 답은 글을 값으로 싣는다", async () => {
-  const contract = await questionContract();
-  const { core, calls } = coreOf(() => ok({}));
-  const source = coreRequestSource(core, undefined);
-  assertEquals(
-    await source.answer(QUESTION, { kind: "option", option: "keep" }),
-    { ok: true, value: undefined },
-  );
-  await source.answer(QUESTION, { kind: "option", option: "keep" });
-  await source.answer(QUESTION, { kind: "text", text: "Keep the newer one" });
-  assertEquals(calls.map(name), [
-    "command:questions/answer",
-    "command:questions/answer",
-    "command:questions/answer",
-  ]);
-  const [first, again, text] = calls.map((call) =>
-    call.body as {
-      input: Record<string, unknown>;
-      idempotency_key: string;
-      compare: unknown;
-      prepared: unknown[];
-      confirmation?: unknown;
+Deno.test("lophn-agent/questions#R2 [I45]: 세션 없는 run의 묶음만 전체 목록에 싣고 역할·기다림·시각은 run·event에서 채운다", async () => {
+  const { core, calls } = coreOf((call) => {
+    switch (name(call)) {
+      case "read:assignments/list":
+        return ok({
+          assignments: [{ id: ASG, role: "operator" }],
+          next_cursor: null,
+        });
+      case "read:runs/list":
+        return ok({
+          runs: [
+            { id: RUN, assignment: ASG, session: null, waiting_on: GRP },
+            { id: RUN2, assignment: ASG, session: SES, waiting_on: GRP2 },
+          ],
+          next_cursor: null,
+        });
+      case "read:questions/list":
+        return ok({
+          groups: [
+            groupValue({
+              expires_at: "2026-10-07T00:00:00.000Z",
+              questions: [
+                ...groupValue().questions,
+                {
+                  ...groupValue().questions[0],
+                  id: QST2,
+                  position: 2,
+                  options: [{
+                    key: "yes",
+                    label: "Yes",
+                    description_blob: HASH,
+                    evidence: [],
+                    adoption: null,
+                    action: null,
+                  }],
+                  recommendation: null,
+                },
+              ],
+            }),
+            // 세션 있는 run의 묶음은 대화 안 카드가 맡는다.
+            groupValue({ id: GRP2, run: RUN2, session: SES }),
+          ],
+          next_cursor: null,
+        });
+      case "read:approvals/list":
+        return ok({ requests: [] });
+      case "read:notifications/list":
+        return ok({ notifications: [] });
+      case "read:events/list":
+        return ok({
+          events: [{ seq: "10", at: "2026-10-06T08:00:00.000Z" }],
+          scanned_through_seq: "10",
+          head_seq: "10",
+        });
+      default:
+        return ok({});
     }
+  });
+  const overview = await coreRequestSource(core, undefined).overview();
+  assert(overview.ok);
+  assertEquals(overview.value.requests, [{
+    ...GROUP,
+    expiresAt: "2026-10-07T00:00:00.000Z",
+    blocking: true,
+    createdAt: Date.parse("2026-10-06T08:00:00.000Z"),
+  }]);
+  assertEquals(
+    calls.find((call) => name(call) === "read:questions/list")?.body,
+    {},
   );
-  assertEquals(first!.input, {
-    question: QST,
-    created_seq: "10",
-    answer: { kind: "option", option_key: "keep" },
-  });
-  assertEquals(first!.compare, { created_seq: "10" });
-  assertEquals(first!.prepared, []);
-  // 일반 답에는 확인 handle이 없다. action 답 route의 handle은 보호 창이 맡는다.
-  assertEquals("confirmation" in first!, false);
-  assert(first!.idempotency_key.startsWith(`questions-answer-${QST}-`));
-  assert(new TextEncoder().encode(first!.idempotency_key).length <= 128);
-  assertEquals(again!.idempotency_key, first!.idempotency_key);
-  assert(text!.idempotency_key !== first!.idempotency_key);
-  assertEquals(text!.input["answer"], {
-    kind: "text",
-    text: "Keep the newer one",
-  });
-  for (const body of [first!, text!]) {
-    assert(contract.answerQuestion.input.safeParse(body.input).success);
-    // action 답 route는 binding_hash·evidence가 없으면 받지 않는다.
-    assert(!contract.answerQuestionAction.input.safeParse(body.input).success);
+  const events = calls.find((call) => name(call) === "read:events/list");
+  const body = events!.body as { types: string[]; subjects: string[] };
+  assertEquals(body.subjects, [GRP]);
+  for (
+    const type of [
+      "QuestionCreated",
+      "QuestionAnswered",
+      "QuestionExpired",
+      "QuestionCancelled",
+    ]
+  ) {
+    assert(body.types.includes(type), type);
   }
-  assertEquals(contract.answerQuestionAction.binding, [
-    "question",
-    "created_seq",
-    "answer",
-    "binding_hash",
-  ]);
 });
 
-Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 command이고 취소만 이유 글을 값으로 싣는다", async () => {
-  const contract = await questionContract();
-  const { core, calls } = coreOf(() => ok({}));
-  const source = coreRequestSource(core, undefined);
-  await source.defer(QUESTION);
-  await source.cancel(QUESTION, "Not needed anymore");
-  assertEquals(calls.map(name), [
-    "command:questions/defer",
-    "command:questions/cancel",
-  ]);
-  const deferred = (calls[0]!.body as { input: unknown }).input;
-  const cancelled = (calls[1]!.body as { input: unknown }).input;
-  assertEquals(deferred, { question: QST, created_seq: "10" });
-  assertEquals(cancelled, {
-    question: QST,
-    created_seq: "10",
-    closed_reason: "cancelled",
-    closed_reason_text: "Not needed anymore",
+Deno.test("lophn-agent/questions#R10 [I45]: 닫힌 묶음은 답의 종류와 닫힌 이유와 적용 여부를 싣는다", async () => {
+  const closed = (
+    id: string,
+    patch: Record<string, unknown>,
+    answer: unknown = null,
+  ) => {
+    const base = groupValue({ id, created_seq: "10", ...patch });
+    return {
+      ...base,
+      questions: base.questions.map((entry) => ({
+        ...entry,
+        group: id,
+        answer,
+        applied: answer !== null,
+      })),
+    };
+  };
+  const { core } = coreOf((call) => {
+    switch (name(call)) {
+      case "read:questions/list":
+        return ok({
+          groups: [
+            closed(GRP, { status: "answered", closed_seq: "11" }, {
+              kind: "option",
+              option_key: "move",
+              text_blob: null,
+            }),
+            closed(GRP2, { status: "answered", closed_seq: "12" }, {
+              kind: "text",
+              option_key: null,
+              text_blob: HASH,
+            }),
+            closed("qgr_01k6aaaaaaaaaaaaaaaaaaaaa3", {
+              status: "cancelled",
+              closed_seq: "13",
+              closed_reason: "deferred",
+            }),
+            closed("qgr_01k6aaaaaaaaaaaaaaaaaaaaa4", {
+              status: "expired",
+              closed_seq: "14",
+              closed_reason: "expired",
+            }),
+          ],
+          next_cursor: null,
+        });
+      case "read:events/list":
+        return ok({ events: [], scanned_through_seq: "14", head_seq: "14" });
+      default:
+        return ok({
+          assignments: [],
+          runs: [],
+          requests: [],
+          notifications: [],
+          next_cursor: null,
+        });
+    }
   });
-  assert(contract.deferQuestion.input.safeParse(deferred).success);
-  assert(contract.cancelQuestion.input.safeParse(cancelled).success);
-  const failing = coreRequestSource(
-    coreOf(() => ({ ok: false, error: { code: "conflict", message: "" } }))
-      .core,
-    undefined,
+  const overview = await coreRequestSource(core, undefined).overview();
+  assert(overview.ok);
+  const groups = overview.value.requests.flatMap((request) =>
+    request.kind === "question" ? [request] : []
   );
-  assertEquals(await failing.defer(QUESTION), {
+  assertEquals(
+    groups.map((group) => [group.status, group.closedReason, group.closedSeq]),
+    [
+      ["answered", null, "11"],
+      ["answered", null, "12"],
+      ["cancelled", "deferred", "13"],
+      ["expired", "expired", "14"],
+    ],
+  );
+  assertEquals(groups[0]!.questions[0]!.answer, {
+    kind: "option",
+    option: "move",
+  });
+  assertEquals(groups[0]!.questions[0]!.applied, true);
+  assertEquals(groups[1]!.questions[0]!.answer, { kind: "text" });
+  assertEquals(groups[2]!.questions[0]!.answer, null);
+  assertEquals(groups[2]!.questions[0]!.applied, false);
+});
+
+Deno.test("lophn-agent/questions#R4 [I45]: 묶음의 글은 ReadQuestionText 하나로 읽는다", async () => {
+  const { core, calls } = coreOf(() =>
+    ok({
+      group: GRP,
+      questions: [
+        {
+          question: QST,
+          prompt: "Which copy should stay?",
+          reason: "Both changed.",
+          options: [{ key: "keep", description: "Keep both" }],
+          recommendation: { option_key: "keep", explanation: "Newest wins" },
+          answer_text: "Own words",
+        },
+        {
+          question: QST2,
+          prompt: "Include regressions?",
+          reason: "Longer report.",
+          options: [{ key: "yes", description: "List them" }],
+          recommendation: null,
+          answer_text: null,
+        },
+      ],
+      closed_reason_text: "Not needed",
+    })
+  );
+  const text = await coreRequestSource(core, undefined).text(GROUP);
+  assert(text.ok);
+  assertEquals(calls.map((call) => [name(call), call.body]), [[
+    "read:questions/text",
+    { group: GRP },
+  ]]);
+  assertEquals(text.value.closedReason, "Not needed");
+  assertEquals(text.value.questions.map((entry) => entry.id), [QST, QST2]);
+  assertEquals(text.value.questions[0], {
+    id: QST,
+    prompt: "Which copy should stay?",
+    reason: "Both changed.",
+    options: new Map([["keep", "Keep both"]]),
+    recommendation: "Newest wins",
+    answer: "Own words",
+  });
+  assertEquals(text.value.questions[1]!.recommendation, null);
+  assertEquals(text.value.questions[1]!.answer, null);
+});
+
+Deno.test("lophn-agent/questions#R4, R6 [I45]: 묶음 답은 AnswerQuestionGroup 한 번에 모든 답을 싣고 같은 답을 다시 보내면 같은 key다", async () => {
+  const { core, calls } = coreOf(() => ok({ id: GRP }));
+  const source = coreRequestSource(core, undefined);
+  const answers = [
+    { question: QST, answer: { kind: "option" as const, option_key: "keep" } },
+    { question: QST2, answer: { kind: "text" as const, text: "Own words" } },
+  ];
+  assertEquals(await source.answer(GROUP, answers), {
+    ok: true,
+    value: undefined,
+  });
+  assertEquals(calls.map(name), ["command:questions/answer"]);
+  const sent = calls[0]!.body as {
+    input: unknown;
+    idempotency_key: string;
+    compare: unknown;
+    prepared: unknown[];
+  };
+  assertEquals(sent.input, { group: GRP, created_seq: "10", answers });
+  assertEquals(sent.compare, { created_seq: "10" });
+  assertEquals(sent.prepared, []);
+  assert(sent.idempotency_key.startsWith(`questions-answer-${GRP}-`));
+  await source.answer(GROUP, answers);
+  await source.answer(GROUP, [
+    answers[0]!,
+    { question: QST2, answer: { kind: "text", text: "Other words" } },
+  ]);
+  const keys = calls.map((call) =>
+    (call.body as { idempotency_key: string }).idempotency_key
+  );
+  assertEquals(keys[1], keys[0]);
+  assert(keys[2] !== keys[0]);
+});
+
+Deno.test("lophn-agent/questions#R6 [I45]: 답이 거절되면 core의 오류 코드를 돌려준다", async () => {
+  const { core } = coreOf(() => ({
+    ok: false,
+    error: { code: "conflict", message: "" },
+  }));
+  const source = coreRequestSource(core, undefined);
+  assertEquals(
+    await source.answer(GROUP, [{
+      question: QST,
+      answer: { kind: "option", option_key: "keep" },
+    }]),
+    { ok: false, code: "conflict" },
+  );
+  assertEquals(await source.defer(GROUP), { ok: false, code: "conflict" });
+  assertEquals(await source.cancel(GROUP, "Not needed"), {
     ok: false,
     code: "conflict",
   });
 });
 
-Deno.test("lophn-agent/questions#R4: 질문의 글은 questions/text로 읽고 선택지 설명은 key로 찾는다", async () => {
-  const contract = await questionContract();
-  // 칸이 보내기 전에 막는 상한이 contract의 상한과 같다.
-  assertEquals(QUESTION_TEXT_MAX_BYTES, contract.QUESTION_TEXT_MAX_BYTES);
-  let reply: CoreReply = ok({
-    question: QST,
-    prompt: "Which copy should stay?",
-    reason: "Both changed.",
-    options: [{ key: "keep", description: "Keep both, renamed." }],
-    recommendation: { option_key: "keep", explanation: "Nothing is lost." },
-    answer_text: null,
-    closed_reason_text: null,
-  });
-  const { core, calls } = coreOf(() => reply);
+Deno.test("lophn-agent/questions#R6, R8 [I45]: Skip과 취소는 묶음 전체를 닫는 별도 요청이고 취소는 이유 글을 값으로 싣는다", async () => {
+  const { core, calls } = coreOf(() => ok({ id: GRP }));
   const source = coreRequestSource(core, undefined);
-  const read = await source.text(QUESTION);
-  assert(read.ok);
-  assertEquals(read.value.prompt, "Which copy should stay?");
-  assertEquals(read.value.reason, "Both changed.");
-  assertEquals(read.value.options.get("keep"), "Keep both, renamed.");
-  assertEquals(read.value.recommendation, "Nothing is lost.");
-  assertEquals(read.value.answer, null);
-  assertEquals(read.value.closedReason, null);
-  assertEquals(calls.map(name), ["read:questions/text"]);
-  assertEquals(calls[0]!.body, { question: QST });
-  assert(contract.questionText.input.safeParse(calls[0]!.body).success);
-  reply = { ok: false, error: { code: "unavailable", message: "" } };
-  assertEquals(await source.text(QUESTION), {
-    ok: false,
-    code: "unavailable",
+  assertEquals(await source.defer(GROUP), { ok: true, value: undefined });
+  assertEquals(await source.cancel(GROUP, "No longer needed"), {
+    ok: true,
+    value: undefined,
   });
+  assertEquals(calls.map(name), [
+    "command:questions/defer",
+    "command:questions/cancel",
+  ]);
+  const [defer, cancel] = calls.map((call) =>
+    call.body as {
+      input: unknown;
+      idempotency_key: string;
+      compare: unknown;
+    }
+  );
+  assertEquals(defer!.input, { group: GRP, created_seq: "10" });
+  assertEquals(defer!.compare, { created_seq: "10" });
+  assertEquals(defer!.idempotency_key, `questions-defer-${GRP}`);
+  assertEquals(cancel!.input, {
+    group: GRP,
+    created_seq: "10",
+    closed_reason: "cancelled",
+    closed_reason_text: "No longer needed",
+  });
+  assertEquals(cancel!.compare, { created_seq: "10" });
+  assertEquals(cancel!.idempotency_key, `questions-cancel-${GRP}`);
+});
+
+Deno.test("lophn-agent/questions#R13 [I45]: app.create·apply_settings를 고른 질문 하나짜리 묶음은 확인 창 없이 main 통로로 확정하고 통로가 없으면 못 한다고 답한다", async () => {
+  const sent: unknown[] = [];
+  const shell = globalThis as {
+    lophnShell?: {
+      confirmWithoutWindow?: (input: unknown) => Promise<unknown>;
+    };
+  };
+  const before = shell.lophnShell;
+  // 창 없이 확정하는 고정 action은 app.create·apply_settings뿐이다. term.define은 확인 창으로 간다.
+  const first = GROUP.questions[0]!;
+  const single: QuestionGroupRequest = {
+    ...GROUP,
+    questions: [{
+      ...first,
+      options: first.options.map((option) =>
+        option.key === "move" ? { ...option, command: "app.create" } : option
+      ),
+    }],
+  };
+  const pick = [{
+    question: QST,
+    answer: { kind: "option" as const, option_key: "move" },
+  }];
+  try {
+    const { core, calls } = coreOf(() => ok({}));
+    const source = coreRequestSource(core, undefined);
+    shell.lophnShell = undefined;
+    assertEquals(await source.answer(single, pick), {
+      ok: false,
+      code: "unavailable",
+    });
+    shell.lophnShell = {
+      confirmWithoutWindow: (input) => {
+        sent.push(input);
+        return Promise.resolve({ ok: true });
+      },
+    };
+    assertEquals(await source.answer(single, pick), {
+      ok: true,
+      value: undefined,
+    });
+    // main 통로도 질문 id가 아니라 묶음 id를 받는다.
+    assertEquals(sent, [{ group: GRP, option_key: "move" }]);
+    // 이 길은 답 command를 renderer가 직접 보내지 않는다.
+    assertEquals(calls, []);
+  } finally {
+    shell.lophnShell = before;
+  }
 });
 
 Deno.test("platform/notifications#R5: 읽음 표시는 notifications/read 하나이고 목록은 source seq 다음부터 끝까지 읽는다", async () => {
@@ -318,64 +578,7 @@ Deno.test("platform/notifications#R10: 목록의 OS 전달 실패 이유만 row�
   assert(!("osFailure" in unread.value[2]!));
 });
 
-Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 그 요청을 기다리면 먼저 둘 표시를 단다", async () => {
-  const { core, calls } = coreOf((call) => {
-    switch (name(call)) {
-      case "read:questions/list":
-        return ok({
-          questions: [
-            questionValue(),
-            questionValue({ id: QST2, session: SES2, run: RUN2 }),
-          ],
-          next_cursor: null,
-        });
-      case "read:approvals/list":
-        return ok({
-          requests: [
-            approvalValue(),
-            approvalValue({ id: APR2, run: null }),
-          ],
-        });
-      case "read:runs/list":
-        return ok({
-          runs: [{ id: RUN, assignment: ASG, session: SES, waiting_on: QST }],
-          next_cursor: null,
-        });
-      case "read:runs/read":
-        return ok({
-          run: { id: RUN2, assignment: ASG, session: SES, waiting_on: null },
-        });
-      default:
-        return ok({});
-    }
-  });
-  const source = coreRequestSource(core, undefined);
-  const pending = await source.pending(SES);
-  assert(pending.ok);
-  assertEquals(pending.value.map((request) => request.id), [QST, APR]);
-  assertEquals(pending.value.map((request) => request.blocking), [true, false]);
-  const first = pending.value[0]!;
-  assert(first.kind === "question");
-  assertEquals(first.options, [
-    { key: "keep", label: "Keep both files", action: false, command: null },
-    {
-      key: "move",
-      label: "Move it",
-      action: true,
-      command: "apply_settings",
-    },
-  ]);
-  assertEquals(first.recommended, "keep");
-  const bodies = Object.fromEntries(
-    calls.map((call) => [name(call), call.body]),
-  );
-  assertEquals(bodies["read:questions/list"], { status: "pending" });
-  assertEquals(bodies["read:approvals/list"], { status: "pending" });
-  assertEquals(bodies["read:runs/list"], { state: "waiting_user" });
-  assertEquals(bodies["read:runs/read"], { run: RUN2 });
-});
-
-Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세션·event에서 채운다", async () => {
+Deno.test("shell/desktop#R9 [I45]: 전체 목록은 역할·자리·시각을 run·세션·event에서 채운다", async () => {
   const { core, calls } = coreOf((call) => {
     switch (name(call)) {
       case "read:assignments/list":
@@ -391,23 +594,19 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
           ],
           next_cursor: null,
         });
-      case "read:sessions/list":
+      case "read:sessions/read":
         return ok({
-          sessions: [{ id: SES, work_place: { kind: "project", id: PRJ } }],
-          next_cursor: null,
-        });
-      case "read:questions/list":
-        return ok({
-          questions: [questionValue({
-            status: "answered",
-            answer: { kind: "option", option_key: "move", text_blob: null },
-            closed_seq: "15",
-            applied: true,
-          })],
-          next_cursor: null,
+          session: { id: SES, work_place: { kind: "project", id: PRJ } },
         });
       case "read:approvals/list":
-        return ok({ requests: [approvalValue()] });
+        return ok({
+          requests: [
+            approvalValue(),
+            approvalValue({ id: APR2, run: RUN, created_seq: "10" }),
+          ],
+        });
+      case "read:questions/list":
+        return ok({ groups: [], next_cursor: null });
       case "read:notifications/list":
         return ok({ notifications: [] });
       case "read:events/list":
@@ -427,20 +626,19 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
   const source = coreRequestSource(core, undefined);
   const overview = await source.overview();
   assert(overview.ok);
-  const [question, approval] = overview.value.requests;
-  assert(question?.kind === "question");
-  assertEquals(question.role, "operator");
-  assertEquals(question.place, { kind: "project", id: PRJ });
-  assertEquals(question.answer, { kind: "option", option: "move" });
-  assertEquals(question.applied, true);
-  assertEquals(question.createdAt, Date.parse("2026-10-06T08:00:00.000Z"));
-  assertEquals(question.closedAt, Date.parse("2026-10-06T08:30:00.000Z"));
+  const [approval, placed] = overview.value.requests;
   assert(approval?.kind === "approval");
   assertEquals(approval.session, null);
   assertEquals(approval.place, null);
   assertEquals(approval.blocking, true);
   assertEquals(approval.reversible, true);
   assertEquals(approval.createdAt, Date.parse("2026-10-06T08:45:00.000Z"));
+  assert(placed?.kind === "approval");
+  assertEquals(placed.role, "operator");
+  assertEquals(placed.session, SES);
+  assertEquals(placed.place, { kind: "project", id: PRJ });
+  assertEquals(placed.blocking, false);
+  assertEquals(placed.createdAt, Date.parse("2026-10-06T08:00:00.000Z"));
   const events = calls.find((call) => name(call) === "read:events/list");
   const body = events!.body as {
     after_seq: string;
@@ -448,21 +646,24 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
     subjects: string[];
   };
   assertEquals(body.after_seq, "9");
-  assertEquals(body.subjects, [QST, APR]);
-  assert(body.types.includes("QuestionCreated"));
+  assertEquals(body.subjects, [APR, APR2]);
   assert(body.types.includes("ApprovalRequestGranted"));
-  // 목록은 filter 없이 모두 읽는다.
+  // 목록은 filter 없이 모두 읽는다. 세션은 목록이 아니라 요청이 걸린 세션만 하나씩 읽는다.
   for (
     const route of [
       "read:assignments/list",
       "read:runs/list",
-      "read:sessions/list",
       "read:questions/list",
       "read:approvals/list",
     ]
   ) {
     assertEquals(calls.find((call) => name(call) === route)?.body, {});
   }
+  assertEquals(calls.map(name).includes("read:sessions/list"), false);
+  assertEquals(
+    calls.find((call) => name(call) === "read:sessions/read")?.body,
+    { session: SES },
+  );
 });
 
 Deno.test("shell/desktop#R6: [Review]는 preload의 보호 창 열기로만 가고 없으면 열 수 없다고 돌려준다", async () => {
@@ -524,21 +725,17 @@ Deno.test("platform/approvals#R1: approval 설명은 blobs/read로 읽고 글이
   assertEquals(await source.reason(approval), { ok: true, value: null });
 });
 
-Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 질문만 돌려주고 못 읽은 쪽을 표시한다", async () => {
+Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 못 읽은 쪽을 표시한다", async () => {
   const { core } = coreOf((call) => {
     switch (name(call)) {
       case "read:approvals/list":
       case "read:notifications/list":
         return { ok: false, error: { code: "not_found", message: "" } };
-      case "read:questions/list":
-        return ok({ questions: [questionValue()], next_cursor: null });
-      case "read:events/list":
-        return ok({ events: [], scanned_through_seq: "10", head_seq: "10" });
       default:
         return ok({
           assignments: [],
           runs: [],
-          sessions: [],
+          groups: [],
           next_cursor: null,
         });
     }
@@ -546,10 +743,19 @@ Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 �
   const source = coreRequestSource(core, undefined);
   const overview = await source.overview();
   assert(overview.ok);
-  assertEquals(overview.value.requests.map((request) => request.id), [QST]);
+  assertEquals(overview.value.requests, []);
   assertEquals(overview.value.approvalsRead, false);
   assertEquals(overview.value.notificationsRead, false);
-  const pending = await source.pending(SES);
-  assert(pending.ok);
-  assertEquals(pending.value.map((request) => request.id), [QST]);
+});
+
+Deno.test("shell/desktop#R7 [I45]: 묶음 목록을 읽지 못하면 질문이 없다고 말하지 않고 전체 읽기를 실패로 돌려준다", async () => {
+  const { core } = coreOf((call) =>
+    name(call) === "read:questions/list"
+      ? { ok: false, error: { code: "unavailable", message: "" } }
+      : ok({ assignments: [], runs: [], next_cursor: null })
+  );
+  assertEquals(await coreRequestSource(core, undefined).overview(), {
+    ok: false,
+    code: "unavailable",
+  });
 });

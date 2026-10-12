@@ -18,7 +18,7 @@ import {
   type Route,
 } from "../../../apps/shell/renderer/desktop/router.ts";
 import { AppViewsProvider } from "../../../apps/shell/renderer/app-frame/app-views.tsx";
-import { ConversationProvider } from "../../../apps/shell/renderer/conversation/dock-slot.tsx";
+import { ConversationProvider } from "../../../apps/shell/renderer/conversation/window-deps.tsx";
 import { DraftStore } from "../../../apps/shell/renderer/conversation/drafts.ts";
 import {
   RequestDrafts,
@@ -55,8 +55,6 @@ export interface MockDesktopProps {
   readonly openTerminal?: string;
   /** 프로젝트가 하나도 없는 런처로 그린다. */
   readonly emptyLauncher?: boolean;
-  /** 대화 도크를 연 채로 시작한다. */
-  readonly dockOpen?: boolean;
   /** 이 core 연결 상태를 고정한다(시작 실패 화면). */
   readonly core?: CoreSource;
   /** Settings에서 열 탭. 탭이 화면 안 상태라서 화면이 뜬 뒤 눌러 고른다. */
@@ -106,7 +104,7 @@ function pressSettingsTab(value: SettingsTab): boolean {
 }
 
 export function MockDesktop(props: MockDesktopProps) {
-  const { route = LAUNCHER, panes, openTerminal, dockOpen, core } = props;
+  const { route = LAUNCHER, panes, openTerminal, core } = props;
   const { settingsTab, emptyLauncher } = props;
   useEffect(() => {
     if (settingsTab === undefined) return;
@@ -145,18 +143,12 @@ export function MockDesktop(props: MockDesktopProps) {
         : mock.launcher,
       workspace,
       terminal,
-      conversation: {
-        source: mock.conversation,
-        drafts: new DraftStore(),
-        startOpen: dockOpen === true,
-        core: mock.core,
-        onSettings: () => {},
-      },
+      conversation: { drafts: new DraftStore(), onSettings: () => {} },
       requests: { source: mock.requests, drafts: new RequestDrafts() },
       // 버린 Backup 탭은 gallery에 없다.
       settingsPanels: { ...mock.settingsPanels, backup: undefined },
     };
-  }, [panes, openTerminal, dockOpen, emptyLauncher]);
+  }, [panes, openTerminal, emptyLauncher]);
   const { mock } = wiring;
   return (
     <AppViewsProvider value={mock.appViews}>
@@ -172,7 +164,6 @@ export function MockDesktop(props: MockDesktopProps) {
             organize={mock.organize}
             projects={wiring.projects}
             apps={mock.apps}
-            roles={mock.roles}
             settings={mock.settings}
             settingsPanels={wiring.settingsPanels}
             coding={mock.coding}

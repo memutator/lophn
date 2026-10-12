@@ -43,7 +43,7 @@ export type QuestionOpenDeps = { client: Pick<FlowClient, "read"> };
 export type QuestionOpenReport = {
   summary: string;
   data: {
-    question: string;
+    group: string;
     state: string;
     waiting: boolean;
     decision_link: string | null;
@@ -56,19 +56,17 @@ export type QuestionOpenReport = {
 // 질문을 한 번 읽어 대기 사실과 결정 화면 링크를 낸다. 대기가 아니면 열 결정이 없다.
 // 읽기 실패(범위 밖·없는 질문)는 core 오류 그대로다. 질문은 이 호출로 바뀌지 않는다.
 export async function runQuestionOpen(
-  input: { question: string },
+  input: { group: string },
   deps: QuestionOpenDeps,
 ): Promise<Result<QuestionOpenReport, LophnError>> {
-  const read = await deps.client.read(questionRead, {
-    question: input.question,
-  });
+  const read = await deps.client.read(questionRead, { group: input.group });
   if (!read.ok) return err(read.error);
-  const record = (read.value as { question: QuestionRecord }).question;
+  const record = (read.value as { group: QuestionRecord }).group;
   const shown = questionView(record);
   return ok({
-    summary: `질문 ${shown.id}: ${questionStateText(shown.state)}`,
+    summary: `질문 묶음 ${shown.id}: ${questionStateText(shown.state)}`,
     data: {
-      question: shown.id,
+      group: shown.id,
       state: shown.state,
       waiting: shown.waiting,
       decision_link: shown.decision_link,

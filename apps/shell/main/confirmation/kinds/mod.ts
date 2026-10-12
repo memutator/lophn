@@ -25,20 +25,21 @@ import {
 import { failed, type KindCore, record, type Sent } from "./core.ts";
 import { readOptionAction, submitOptionAction } from "./option-action.ts";
 import {
+  isRewind,
+  newRevertId,
+  readRewind,
+  REWIND,
+  REWIND_CONCERN,
+  rewindState,
+  submitRewind,
+} from "./rewind.ts";
+import {
   APPLY_PROBLEM_DECISION,
   isProblemDecision,
   PROBLEM_CONCERN,
   readProblemDecision,
   submitProblemDecision,
 } from "./problem-decision.ts";
-import {
-  newRevertId,
-  readRevert,
-  REVERT_CONCERN,
-  REVERT_RUN,
-  revertState,
-  submitRevert,
-} from "./revert.ts";
 import { createSecretSubmitter, readSecretInput } from "./secret-input.ts";
 
 export type { KindCore } from "./core.ts";
@@ -62,14 +63,14 @@ export function createKinds(options: KindsOptions): {
   canon: CanonPort;
   submit: SubmitPort;
   deferred: DeferredPort;
-  /** 창이 닫히면 그 창의 고정 revert id와 preview를 버린다. */
+  /** 창이 닫히면 그 창이 고정한 결정을 버린다. */
   closed(windowId: string): void;
 } {
-  const reverts = revertState(() =>
-    newRevertId(options.clock.now(), options.random)
-  );
   // 결과를 모르면 같은 handle·같은 결정으로 다시 보내 receipt만 받는다(idempotency).
   const apps = appDecisions(() => options.clock.now(), options.random);
+  const rewinds = rewindState(() =>
+    newRevertId(options.clock.now(), options.random)
+  );
   const sentWith = new Map<string, { decision: string; input: unknown }>();
 
   const canon: CanonPort = {
@@ -78,9 +79,9 @@ export function createKinds(options: KindsOptions): {
       if (core === null) return Promise.resolve(NOT_READY);
       switch (intent.kind) {
         case "approval_request":
-          return readApproval(core, intent.approval);
+          return readApproval(core, intent.approval, intent.preselect);
         case "question_option_action":
-          return readOptionAction(core, intent.question, intent.option_key);
+          return readOptionAction(core, intent.group, intent.option_key);
         case "owner_decision": {
           const run = intent.targets?.[0];
           if (
@@ -90,15 +91,11 @@ export function createKinds(options: KindsOptions): {
           ) {
             return readConnectionRevoke(core, run);
           }
-          if (
-            intent.concern === REVERT_CONCERN &&
-            intent.decision === REVERT_RUN && run !== undefined &&
-            intent.targets?.length === 1
-          ) {
-            return readRevert(core, reverts, windowId, run);
-          }
           if (isProblemDecision(intent)) {
             return readProblemDecision(core, intent);
+          }
+          if (isRewind(intent)) {
+            return readRewind(core, rewinds, windowId, intent);
           }
           return apps.read(core, intent, windowId);
         }
@@ -125,6 +122,10 @@ export function createKinds(options: KindsOptions): {
         createdSeq: request.created_seq,
         bindingHash: request.binding_hash,
         commandInput,
+        // scope는 handle을 만든 정본의 binding 내용에서만 온다.
+        scope: record(canonical?.content).scope === "session"
+          ? "session"
+          : "once",
       });
       if (!sent.ok || decision !== GRANT) return sent;
       return await apps.apply(core, request.approval) ?? sent;
@@ -132,20 +133,11 @@ export function createKinds(options: KindsOptions): {
     if (request?.kind === "question_option_action") {
       return submitOptionAction(core, {
         handle,
+        group: request.group,
         question: request.question,
         optionKey: request.option_key,
         createdSeq: request.created_seq,
         bindingHash: request.binding_hash,
-      });
-    }
-    if (
-      request?.kind === "owner_decision" &&
-      request.concern === REVERT_CONCERN &&
-      decision === REVERT_RUN && request.input.kind === "inline"
-    ) {
-      return submitRevert(core, reverts, {
-        handle,
-        content: record(canonical?.content),
       });
     }
     if (
@@ -166,6 +158,17 @@ export function createKinds(options: KindsOptions): {
       return submitProblemDecision(core, {
         handle,
         content: record(canonical?.content),
+      });
+    }
+    if (
+      request?.kind === "owner_decision" &&
+      request.concern === REWIND_CONCERN && decision === REWIND &&
+      request.input.kind === "inline"
+    ) {
+      return submitRewind(core, {
+        handle,
+        content: record(canonical?.content),
+        summaryCall: request.targets[2] ?? null,
       });
     }
     return Promise.resolve({
@@ -199,8 +202,8 @@ export function createKinds(options: KindsOptions): {
       options.clock,
     ),
     closed(windowId) {
-      reverts.forget(windowId);
       apps.forget(windowId);
+      rewinds.forget(windowId);
     },
   };
 }

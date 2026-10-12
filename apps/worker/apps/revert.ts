@@ -1,5 +1,5 @@
-// 앱 revert 호출 worker(lophn-agent#T48, R10). core 감독이 상시 하나를 띄우고, 사람의
-// `reverts/run_apps` 접수 뒤 core가 단계마다 `revert.call`을 보낸다. worker는 요청이 싣는 사람
+// 앱 revert 호출 worker(lophn-agent/revert R10). core 감독이 상시 하나를 띄우고, 사람의
+// `RunAppRevert` 뒤 core가 단계마다 `revert.call`을 보낸다. worker는 요청이 싣는 사람
 // credential으로 core loopback의 `apps/connect`를 부르고, 그 연결이 고정한 앱 direct socket으로
 // 단계의 revert command를 request_key=step_key로 한 번 보낸다. worker는 ledger를 열지 않고
 // 앱 단계의 판정(복원·미시작·불명확)도 하지 않는다: 결과를 그대로 돌려 core가 판정한다.
@@ -31,7 +31,7 @@ const PLACEHOLDER_SCREEN = "main";
 
 // worker가 core loopback에 낼 호출 결과다(lophn-agent/revert app-steps의 AppStepResult와 같은 모양).
 export type RevertCallResult = {
-  result: "restored" | "failure" | "conflict" | "uncertain";
+  result: "restored" | "failure" | "uncertain";
   invocation: string | null;
 };
 
@@ -43,7 +43,7 @@ class RevertRejection extends Error {
   }
 }
 
-// 요청 payload. credential은 run_apps를 부른 사람의 Bearer token이고 core가 요청마다 싣는다.
+// 요청 payload. credential은 RunAppRevert를 부른 사람의 Bearer token이고 core가 요청마다 싣는다.
 export type RevertCallPayload = {
   credential: string;
   binding: AppRevertBinding;
@@ -62,8 +62,8 @@ function payloadOf(request: WorkerRequest): RevertCallPayload {
 
 // 저장한 revert 단계의 근거로 앱의 revert command를 한 번 보낸다. 사람의 apps/connect 연결을
 // 열어 release가 같을 때만 request_key=step_key로 보낸다(앱이 같은 key의 재전송에 같은 결과를
-// 돌려주므로 중복 실행되지 않는다). 앱에 닿지 못했으면 failure, 앱이 conflict로 거절했으면
-// conflict, 보낸 뒤 응답을 잃었으면 uncertain이다(되돌렸는지 결과 query로 묻지 않는다).
+// 돌려주므로 중복 실행되지 않는다). 앱에 닿지 못했거나 앱이 거절했으면(새 충돌, 확인 proof가 필요한
+// command 포함) failure, 보낸 뒤 응답을 잃었으면 uncertain이다(되돌렸는지 결과 query로 묻지 않는다).
 export async function acceptRevertCall(
   request: WorkerRequest,
   deps: {
@@ -105,12 +105,7 @@ export async function acceptRevertCall(
     },
     request_key: binding.step_key,
   });
-  if (!sent.ok) {
-    return {
-      result: sent.error.code === "conflict" ? "conflict" : "failure",
-      invocation: null,
-    };
-  }
+  if (!sent.ok) return notSent;
   if (sent.value.kind === "unknown") {
     return { result: "uncertain", invocation: null };
   }

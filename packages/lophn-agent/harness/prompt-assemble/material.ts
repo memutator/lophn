@@ -173,7 +173,7 @@ export async function shrinkMaterial(
 export const SKILL_READ_HINT =
   "skill 본문은 이 목록에 없다. 쓰기 전에 skill.read로 읽고, 이력이 줄어 본문이 사라졌으면 다시 읽는다.";
 
-// preset이 고른 skill의 이름·설명만 역할 지시 끝에 붙일 글로 만든다. 이름 사전순, 본문은 없다.
+// agent가 고른 skill의 이름·설명만 역할 지시(role_agent) 끝에 붙일 글로 만든다. 이름 사전순, 본문은 없다.
 export function skillInstructionText(
   entries: readonly SkillEntry[],
 ): string | null {

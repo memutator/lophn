@@ -19,6 +19,10 @@ import {
   type SnapshotLoader,
 } from "./work.ts";
 import { fetchCatalog, type HttpFetch } from "./adapters/models-dev.ts";
+import {
+  snapshotCatalogEntry,
+  snapshotModelListed,
+} from "./snapshot-catalog.ts";
 
 const START = Date.UTC(2026, 9, 5, 0, 0, 0);
 
@@ -32,13 +36,13 @@ function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
     supports_tools: true,
     input_media: ["text"],
     output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["medium"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "medium",
-    },
+    options: [{
+      id: "effort",
+      label: "Effort",
+      values: [{ value: "medium", label: "Medium", wire: null }],
+      default_value: "medium",
+      budget: null,
+    }],
     preview: null,
     deprecated: null,
     source: "models_dev",
@@ -109,13 +113,7 @@ const SNAPSHOT: CatalogEntry[] = [
     provider_definition: "openrouter",
     model_name: "anthropic/claude-sonnet-4-5",
     input_limit: null,
-    reasoning: {
-      mode: "unknown",
-      levels: [],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
+    options: null,
     source: "release_snapshot",
     source_revision: "2026-10-release",
   }),
@@ -129,13 +127,7 @@ Deno.test("lophn-agent/harness/model#R1: identity pairs keep direct and relay en
     provider_definition: "openrouter",
     model_name: "gpt-5",
     input_limit: null,
-    reasoning: {
-      mode: "unknown",
-      levels: [],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: null,
-    },
+    options: null,
   });
   const merged = mergeCatalogLayers({
     release_snapshot: [direct, relay],
@@ -637,4 +629,82 @@ Deno.test("lophn-agent/harness/model#R5: a failed fetch keeps the last success t
   assertEquals(refill.value.state.last_failure, "unavailable");
   // 항목은 유지된다.
   assertEquals(refill.value.entries, seeded.value.entries);
+});
+
+// R3, R21: 사람 보완이 option 축만 덮고 다른 한계·가격은 그대로다. 축을 모르던 항목에도 더할 수 있다.
+Deno.test("lophn-agent/harness/model#R21 [agent-I15]: a user patch supplies option axes without touching other facts", () => {
+  const base = entry({ options: null });
+  const axes: CatalogEntry["options"] = [{
+    id: "effort",
+    label: "Effort",
+    values: [
+      { value: "low", label: "Low", wire: null },
+      { value: "high", label: "High", wire: null },
+    ],
+    default_value: "low",
+    budget: null,
+  }];
+  const patched = applyUserPatch(
+    base,
+    { options: axes },
+    "patch-2",
+    formatAt(START + 1),
+  );
+  assertEquals(patched.options, axes);
+  assertEquals(patched.source, "user");
+  assertEquals(patched.context_limit, base.context_limit);
+  assertEquals(patched.price_basis, base.price_basis);
+  // option을 싣지 않은 patch는 이미 있는 축을 건드리지 않는다.
+  const untouched = applyUserPatch(
+    patched,
+    { output_limit: 1000 },
+    "patch-3",
+    formatAt(START + 2),
+  );
+  assertEquals(untouched.options, axes);
+});
+
+// R2, R21: 동봉 snapshot의 option 축은 자료로만 말한다. 확인된 축은 선언 그대로이고 모르는 model은 null이다.
+Deno.test("lophn-agent/harness/model#R21 [agent-I15]: the bundled snapshot declares option axes as data", () => {
+  const gpt = snapshotCatalogEntry("openai", "gpt-5");
+  assertEquals(gpt?.options?.map((axis) => axis.id), ["effort"]);
+  const effort = gpt?.options?.[0];
+  assertEquals(effort?.values.map((value) => value.value), [
+    "minimal",
+    "low",
+    "medium",
+    "high",
+  ]);
+  assertEquals(effort?.default_value, "medium");
+  // 예산 방식 model의 effort 축은 확인된 예산 범위를 가진다(R17).
+  const sonnet = snapshotCatalogEntry("anthropic", "claude-sonnet-4-5");
+  assertEquals(sonnet?.options?.[0]?.budget, {
+    minimum: 1024,
+    maximum: 64000,
+  });
+  assertEquals(sonnet?.options?.[0]?.values.map((value) => value.value), [
+    "off",
+    "low",
+    "medium",
+    "high",
+    "maximum",
+  ]);
+  // 켜고 끄기만 받는 model은 끔·높음 둘뿐이다(R17).
+  const qwen = snapshotCatalogEntry("ollama", "qwen3:8b");
+  assertEquals(qwen?.options?.[0]?.values.map((value) => value.value), [
+    "off",
+    "high",
+  ]);
+  // option을 아직 모르는 중계 제공처 model은 null이다(R16).
+  assertEquals(
+    snapshotCatalogEntry("openrouter", "anthropic/claude-sonnet-4-5")?.options,
+    null,
+  );
+});
+
+// R10: 동봉 snapshot이 아는 provider 정의는 목록 안팎을 가르고, 모르는 provider 정의는 목록을 확인할 수 없어 null이다.
+Deno.test("lophn-agent/harness/model#R10 [agent-I15]: the bundled list answers only for provider definitions it knows", () => {
+  assertEquals(snapshotModelListed("openai", "gpt-5"), true);
+  assertEquals(snapshotModelListed("openai", "gpt-0"), false);
+  assertEquals(snapshotModelListed("some-new-provider", "any-model"), null);
 });

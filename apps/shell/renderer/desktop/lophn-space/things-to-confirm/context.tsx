@@ -1,5 +1,5 @@
-// 창마다 하나인 질문·approval 통로와 고르던 답의 메모리. 대화 도크의 칸, things-to-confirm,
-// notification chip이 같이 쓴다. 칸을 옮겨도 고른 답과 쓰던 글이 남는다(desktop#R8).
+// 창마다 하나인 질문·approval 통로와 쓰던 글의 메모리. things-to-confirm, notification chip,
+// 공간 크롬이 같이 쓴다. 요청을 옮겨도 쓰던 취소 이유가 남는다(desktop#R8).
 import { createContext, type ReactNode, useContext } from "react";
 
 import type { RequestSource } from "./source.ts";
@@ -14,17 +14,16 @@ export const intervalTicks: Ticks = (listener) => {
   return () => clearInterval(id);
 };
 
-/** 한 요청에 사람이 고르거나 쓰던 것. 보내기 전에는 아무 결정도 아니다. */
+/**
+ * 한 요청에 사람이 쓰던 것. 보내기 전에는 아무 결정도 아니다. 묶음 카드의 고른 답과 자유 답은
+ * 카드가 자기 안에 둔다.
+ */
 export interface CardDraft {
-  readonly option: string | null;
-  readonly text: string;
   readonly cancelling: boolean;
   readonly reason: string;
 }
 
 export const EMPTY_DRAFT: CardDraft = {
-  option: null,
-  text: "",
   cancelling: false,
   reason: "",
 };
@@ -66,7 +65,7 @@ export function RequestsProvider(
   );
 }
 
-/** 통로가 없으면(통로 없는 테스트·화면) 칸·chip을 두지 않는다. */
+/** 통로가 없으면(통로 없는 테스트·화면) chip과 공간 크롬의 대기 수를 두지 않는다. */
 export function useRequests(): RequestDeps | null {
   return useContext(RequestContext);
 }

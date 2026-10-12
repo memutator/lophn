@@ -207,7 +207,9 @@ export function listTools(
 // 받는 저장은 core가 같은 자격으로 `document.prepare`·`document.save`를 부른다(documents의
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  ["SaveToolDocument", ["document.prepare", "document.save"]],
+  // 판정이 Operator의 쓰기 대상 문서가 담당 자리에 있는지 같은 자격으로 `document.get`을 읽어 본다
+  // (harness/tool-judgment, roles/operator#R7).
+  ["SaveToolDocument", ["document.prepare", "document.save", "document.get"]],
   // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
   // 참조를 읽어 확인한다(problems#T19, problems/grouping#R13).
   [
@@ -219,8 +221,8 @@ const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["GetSettings", ["SettingsDefinitions"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],
-  // 사람의 정의 답은 질문 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
-  ["ApplyQuestionOption", ["ReadQuestion"]],
+  // 사람의 정의 답은 질문 묶음 정본(답·고정 action)을 읽은 뒤에만 전달한다(questions#R13).
+  ["ApplyQuestionOption", ["ReadQuestionGroup"]],
   // Context Engineer의 계약 읽기는 같은 자격으로 만드는 중인 판(`context.draft`)을 함께 읽고, 용어집 쓰기는
   // 항목을 지울 때 `glossary.remove`를 부른다(harness/tools#R23).
   ["context.contract", ["context.draft"]],

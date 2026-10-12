@@ -14,30 +14,39 @@ import {
 const suffix = "01arz3ndektsv4rrffq69g5fav";
 const run = `run_${suffix}`;
 const otherRun = "run_01arz3ndektsv4rrffq69g5faw";
+const group = `qgr_${suffix}`;
 const question = `qst_${suffix}`;
 const approval = `apr_${suffix}`;
 const call = `tcl_${suffix}`;
 const hash = "c".repeat(64);
 const questionInput = {
-  id: question,
+  id: group,
   run,
   session: null,
-  prompt: "Which one?",
-  reason: "Both are fine.",
-  options: [],
-  recommendation: null,
   expires_at: null,
+  questions: [{
+    id: question,
+    prompt: "Which one?",
+    reason: "Both are fine.",
+    options: [],
+    recommendation: null,
+  }],
 };
 // 요청은 글을 값으로 싣고 대기 결과는 저장된 질문(blob hash)을 돌려준다(Q38).
 const storedQuestion = {
-  id: question,
+  id: group,
   run,
   session: null,
-  prompt_blob: hash,
-  reason_blob: hash,
-  options: [],
-  recommendation: null,
   expires_at: null,
+  questions: [{
+    id: question,
+    group,
+    position: 1,
+    prompt_blob: hash,
+    reason_blob: hash,
+    options: [],
+    recommendation: null,
+  }],
 };
 // 승인 요청도 설명 글을 값으로 싣고 대기 결과는 저장된 요청(blob hash)을 돌려준다.
 const approvalInput = {
@@ -79,7 +88,7 @@ const storedApproval = {
 };
 const resolution = {
   run,
-  request: question,
+  request: group,
   decision_seq: "4",
   tool_call: null,
   result: "resumed",
@@ -121,8 +130,8 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: WaitRun carries exact ne
         run,
         request: {
           kind: "question",
-          question,
-          command: "create_question",
+          question: group,
+          command: "create_question_group",
           body: hash,
           prepared: [],
         },
@@ -134,7 +143,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: WaitRun carries exact ne
     run,
     state: "waiting_user",
     state_seq: "3",
-    waiting_on: question,
+    waiting_on: group,
     request: {
       ...request,
       future: true,
@@ -250,7 +259,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: late finished approval p
     }).success,
   );
   const event = {
-    request: question,
+    request: group,
     decision_seq: "4",
     resolution: { ...resolution, future: true },
     future: true,

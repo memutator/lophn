@@ -1,0 +1,102 @@
+{
+  "assignment": "asg_01arz3ndektsv4rrffq69g5fa5",
+  "role": "app_engineer",
+  "place": {
+    "kind": "app",
+    "id": "app_01arz3ndektsv4rrffq69g5fa2"
+  },
+  "name": "App Engineer",
+  "profile": {
+    "kind": "icon",
+    "icon": "apps"
+  },
+  "agent_instructions": "146d37f352105a371a2e7f9868ad14258e4247a916d8a1635ffbe7ab0805c43f",
+  "model": {
+    "provider": "pvd_01arz3ndektsv4rrffq69g5fc1",
+    "model_name": "gpt-5",
+    "option_values": {}
+  },
+  "tools": [
+    "document.list",
+    "document.read_section",
+    "app.read",
+    "app.blueprint",
+    "problem.set_interpretation",
+    "ticket.create",
+    "question.submit"
+  ],
+  "skills": [
+    "slides",
+    "spreadsheet"
+  ],
+  "mcp": [
+    {
+      "server_name": "web",
+      "original_tool": "fetch"
+    },
+    {
+      "server_name": "web",
+      "original_tool": "search"
+    },
+    {
+      "server_name": "files",
+      "original_tool": "read"
+    }
+  ],
+  "contexts": [],
+  "contexts_reason": null,
+  "app_reads": [],
+  "safe_tools": [],
+  "sources": {
+    "name": {
+      "layer": "default",
+      "place": null
+    },
+    "profile": {
+      "layer": "default",
+      "place": null
+    },
+    "agent_instructions": {
+      "layer": "definition",
+      "place": {
+        "kind": "app",
+        "id": "app_01arz3ndektsv4rrffq69g5fa2"
+      }
+    },
+    "model": {
+      "layer": "definition",
+      "place": {
+        "kind": "app",
+        "id": "app_01arz3ndektsv4rrffq69g5fa2"
+      }
+    },
+    "tools": {
+      "layer": "place",
+      "place": {
+        "kind": "app",
+        "id": "app_01arz3ndektsv4rrffq69g5fa2"
+      }
+    },
+    "skills": {
+      "layer": "default",
+      "place": null
+    },
+    "mcp": {
+      "layer": "default",
+      "place": null
+    },
+    "contexts": {
+      "layer": "default",
+      "place": null
+    },
+    "app_reads": {
+      "layer": "default",
+      "place": null
+    },
+    "safe_tools": {
+      "layer": "default",
+      "place": null
+    }
+  },
+  "hash": "24f739562dd725bcf41620f9593fb7b68c658884e94b89bdc9c185cbdbb0ba35"
+}

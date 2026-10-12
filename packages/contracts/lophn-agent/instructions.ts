@@ -1,12 +1,5 @@
 import { z } from "zod";
-import type { Result } from "../../base/mod.ts";
-import {
-  definePort,
-  defineRead,
-  idSchema,
-  withReadCommon,
-} from "../platform/mod.ts";
-import { positiveRevisionSchema } from "./run-values.ts";
+import { defineRead, idSchema, withReadCommon } from "../platform/mod.ts";
 
 export const INSTRUCTION_LAYERS = ["global", "project", "app"] as const;
 
@@ -21,23 +14,28 @@ export const instructionLocationOutputSchema = z.object(locationFields);
 
 export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 
-// agent runtime이 model call 직전마다 읽는 사람 지침의 확정 판이다(R4, R5, R8). machine만 읽는다.
-// 읽는 대상은 정해진 등록 자리(`location`)나 preset 판에 붙은 문서(`document`) 둘뿐이고, 경로·부모 폴더를
-// 거슬러 찾지 않는다. 본문은 core가 blob에서 읽어 base64로 준다. 파일이 상한(32 KiB)을 넘으면 본문은
-// 처음 32 KiB까지만 주고 `size_bytes`는 실제 크기다(읽는 쪽이 상한 초과로 call을 멈춘다). 등록 자리에
-// 연결된 문서가 없으면 `file`이 null(부재)이고, 읽지 못하면 unavailable이다. 로컬 경로는 어느 칸에도 없다.
+// agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다(R4, R5, R8). machine만 읽는다.
+// 어느 자리의 파일인지는 입력에 없다. core가 `run`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
+// project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 run의 agent 정의 본문이다.
+// 작업 자리에 없는 층(project 자리 run의 app 층 등)은 없는 대상과 같은 not_found다. 본문은 core가 파일에서
+// 읽어 base64로 준다. 파일이 상한(32 KiB)을 넘으면 본문은 처음 32 KiB까지만 주고 `size_bytes`는 실제
+// 크기다(읽는 쪽이 상한 초과로 call을 멈춘다). 파일이 없으면 `file`이 null(부재)이고, 있는데 읽지 못하면
+// unavailable이다. 로컬 경로는 어느 칸에도 없다.
 export const INSTRUCTION_READ_MAX_BASE64 = 43_700;
 
-// 읽는 쪽은 어느 run을 위해 읽는지 `run`으로 밝힌다. core는 그 run의 작업 자리(전역과 그 run의 project·app)
-// 와 그 run의 preset에 붙은 지침 문서만 읽게 하고, 그 밖은 없는 대상과 똑같이 not_found다.
-export const instructionReadInputSchema = z.union([
-  z.strictObject({ run: idSchema("run"), location: instructionLocationSchema }),
-  z.strictObject({ run: idSchema("run"), document: idSchema("doc") }),
-]);
+export const INSTRUCTION_READ_LAYERS = [
+  "global",
+  "project",
+  "app",
+  "agent",
+] as const;
+
+export const instructionReadInputSchema = z.strictObject({
+  run: idSchema("run"),
+  layer: z.enum(INSTRUCTION_READ_LAYERS),
+});
 
 export const instructionReadFileSchema = z.object({
-  document: idSchema("doc"),
-  version: idSchema("ver"),
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   content_base64: z.string().max(INSTRUCTION_READ_MAX_BASE64),
 });
@@ -62,68 +60,41 @@ export const instructionRead = defineRead({
   ],
 });
 
-export const INSTRUCTION_ROUTES = [instructionRead] as const;
-
-// 한 문서가 어느 preset 판의 몇 번째 지침인지. order는 그 판 안 적용 순서다.
-const attachmentFields = {
-  preset: idSchema("pst"),
-  revision: positiveRevisionSchema,
-  document: idSchema("doc"),
-  order: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-};
-
-export const instructionAttachmentSchema = z.strictObject(attachmentFields);
-export const instructionAttachmentOutputSchema = z.object(attachmentFields);
-
-export type InstructionAttachment = z.infer<typeof instructionAttachmentSchema>;
-
-const presetRevisionFields = {
-  preset: idSchema("pst"),
-  revision: positiveRevisionSchema,
-};
-
-export const instructionAttachmentRefSchema = z.strictObject(
-  presetRevisionFields,
-);
-export const instructionAttachmentRefOutputSchema = z.object(
-  presetRevisionFields,
-);
-
-export type InstructionAttachmentRef = z.infer<
-  typeof instructionAttachmentRefSchema
->;
-
-// documents가 document.save·move·set_source의 transaction에서 현재 상태로 판정한다.
-// 결과가 비어 있지 않으면 agent·coding_agent·app 쓰기는 forbidden이다.
-export interface InstructionAttachmentsLookup {
-  attachments(document: string): Result<InstructionAttachmentRef[]>;
-}
-
-export const InstructionAttachments = definePort<InstructionAttachmentsLookup>(
-  "InstructionAttachments",
-);
-
 export const ASSIGNMENT_STATES = ["enabled", "paused", "withdrawn"] as const;
 
-const operatorOutputFields = {
-  assignment: idSchema("asg"),
-  revision: positiveRevisionSchema,
-  state: z.enum(ASSIGNMENT_STATES),
-};
+// 사람이 Settings › Agents에서 모든 project의 LOPHN.md 앞부분을 보는 읽기다(R9). machine의 ReadInstructionFile과
+// 따로 두어 사람 자격으로 읽는다. 입력이 없다: 전역 층 하나뿐이라 run·층·경로를 받지 않는다. 파일이 없으면
+// `preview`가 null이고 빈 파일은 본문이 빈 미리보기다. 읽는 파일은 같은 core 길이라 로컬 경로는 어느 칸에도 없다.
+// 상한은 요구가 정하지 않아 추천값을 둔다: 화면 한 칸에 보이는 앞부분이라 4 KiB다(32 KiB 파일 상한의 1/8).
+// 본문은 사람이 쓴 파일 그대로의 앞부분이다. 상한이 글자 가운데에 걸리면 그 글자 앞에서 끊고 `truncated`가 true다.
+export const INSTRUCTION_PREVIEW_MAX_BYTES = 4096;
 
-export const operatorOutputRefSchema = z.strictObject(operatorOutputFields);
-export const operatorOutputRefOutputSchema = z.object(operatorOutputFields);
+export const instructionPreviewSchema = z.object({
+  text: z.string().max(INSTRUCTION_PREVIEW_MAX_BYTES),
+  size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  truncated: z.boolean(),
+});
 
-export type OperatorOutputRef = z.infer<typeof operatorOutputRefSchema>;
+export type InstructionPreview = z.infer<typeof instructionPreviewSchema>;
 
-// 그 문서를 출력으로 가진 Operator가 없으면 null.
-export interface OperatorOutputLookup {
-  output(document: string): Result<OperatorOutputRef | null>;
-  // 그 assignment가 Operator인지. agent credential의 상한(scope.agent)은 ledger의 현재 자격에
-  // 실리지 않으므로 documents가 Operator 자격의 저장 범위를 정할 때 같은 Tx에서 묻는다.
-  isOperator(assignment: string): Result<boolean>;
-}
+export const instructionPreview = defineRead({
+  resource: "instructions",
+  method: "preview",
+  name: "PreviewGlobalInstructions",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({
+    preview: instructionPreviewSchema.nullable(),
+  })),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "unavailable",
+  ],
+});
 
-export const OperatorOutput = definePort<OperatorOutputLookup>(
-  "OperatorOutput",
-);
+export const INSTRUCTION_ROUTES = [
+  instructionRead,
+  instructionPreview,
+] as const;

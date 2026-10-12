@@ -79,6 +79,7 @@ import { createNotificationDelivery } from "./notification-delivery.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
+import { PROVIDER_SECRET_OWNER } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
 import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
 
@@ -97,6 +98,9 @@ export type CoreRuntime = {
   // 알려진 secret 값과 일치하는 부분을 찾는 얼굴. 값 목록은 내보내지 않는다. core 프로세스 안의
   // 안전화(메시지 본문)가 쓴다.
   knownSecrets: KnownSecretMatch;
+  // ledger 밖에서 바뀐 secret 보관(MCP OAuth token의 교환·갱신)을 알려진 값 registry에 맞춘다. 새 값이 안전화에
+  // 들고 옛 값이 회수된 뒤에 끝난다.
+  syncSecrets(): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
@@ -167,6 +171,8 @@ export async function openRuntime(input: {
   // secret store가 값을 읽는 OS keychain. 참조가 있을 때 처음 한 번 만든다. 제품 기동은
   // 실제 adapter, 테스트는 fake를 준다.
   keychain: () => KeychainAdapter;
+  // secret store의 주기 쓸기 간격(ms). 없으면 10분.
+  secretSweepMs?: number;
   // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다(R5).
   diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
@@ -227,9 +233,21 @@ export async function openRuntime(input: {
     channel: readers.value.known,
     keychain: input.keychain,
     sources: input.assembled.secretRefs,
+    ...(input.secretSweepMs === undefined
+      ? {}
+      : { sweepMs: input.secretSweepMs }),
+    // provider credential은 Disconnect로 참조가 사라지면 OS 값도 지운다(platform/secrets#R7).
+    reclaim: {
+      purpose: "provider_credential",
+      owners: [PROVIDER_SECRET_OWNER],
+    },
   });
   resync.run = () => secretStore.sync();
   await secretStore.sync();
+  // 이전 실행이 지우지 못하고 남긴 provider 값을 쓸어 낸다. 참조 때문에 keychain이 이미 열렸을 때만 쓴다
+  // (참조 없는 core는 keychain을 열지 않는다). 기동 중에는 보호 입력이 아직 없어 바로 지운다. 지우지 못해도
+  // 기동은 막지 않고 주기 쓸기가 이어서 지운다.
+  await secretStore.sweep({ immediate: true });
   const writer = withSecretSync(
     openedWriter.writer,
     secretStore.sync,
@@ -479,6 +497,7 @@ export async function openRuntime(input: {
     record: openedWriter.record,
     recordSecretPreparation: openedWriter.recordSecretPreparation,
     knownSecrets: secretStore.known,
+    syncSecrets: () => secretStore.sync(),
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,

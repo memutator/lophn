@@ -106,10 +106,10 @@ Deno.test("flow manage-coding-access 1, coding-agent#T40: coding 통로가 있�
       tab,
     ) => tab.textContent);
     assert(tabs.includes("Coding agents"));
-    // 링크가 없으면 처음 탭은 그대로 모델 연결이다.
+    // 링크가 없으면 처음 탭은 nav의 첫 자리(General)다.
     assertEquals(
       find(view.container, "[role='tab'][data-state='active']").textContent,
-      "Connections",
+      "General",
     );
     assertEquals(coding.calls.detect, 0);
   }

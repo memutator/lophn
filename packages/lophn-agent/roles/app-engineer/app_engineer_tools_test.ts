@@ -33,7 +33,7 @@ import {
   createAppBinding,
   judge,
 } from "../../harness/tool-judgment/mod.ts";
-import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../agents/mod.ts";
 import { appEngineerOffers, appEngineerTools } from "./mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
@@ -235,7 +235,6 @@ Deno.test("lophn-agent/roles/app-engineer#R5: AE 목록은 담당 범위 조회�
       "snapshot.read",
       "verification.read",
       "repair.read",
-      "preset.read",
       "assignment.read",
       "run.read_result",
       "handoff.read_status",
@@ -448,7 +447,6 @@ Deno.test("lophn-agent/roles/app-engineer#R21: AE에게 제공된 command의 판
         id: target.id,
         inScope: true,
         reversibility: target.reversibility,
-        declared: false,
       })),
     };
     return { judgment: judge(facts), action: resolved.value };

@@ -1,6 +1,6 @@
 // Contexts 탭이 카드마다 읽는 값(shell/workspace#R16). 목록 하나와 context마다 종류·판 이력·
 // Operator 수를 함께 읽는다. 목록이나 판 이력을 읽지 못하면 null이다(화면은 다시 읽기를 보인다).
-// 종류는 색인(context worker)이, Operator 수는 preset이 따로 답하므로 그 둘이 안 오면 카드는
+// 종류는 색인(context worker)이, Operator 수는 agents가 따로 답하므로 그 둘이 안 오면 카드는
 // 그 줄만 빼고 보인다.
 import type { ContextListItem, ContextsSource } from "./source.ts";
 
@@ -22,8 +22,11 @@ export async function loadCards(
 ): Promise<readonly CardData[] | null> {
   const list = await source.list(project);
   if (!list.ok) return null;
+  // Operator는 project마다 한 번만 읽고 context별 수로 센다.
+  if (list.value.length === 0) return [];
+  const operators = await source.operatorCounts(project);
   const cards = await Promise.all(
-    list.value.map((item) => loadCard(source, item)),
+    list.value.map((item) => loadCard(source, item, operators)),
   );
   return cards.includes(null) ? null : cards as CardData[];
 }
@@ -31,11 +34,11 @@ export async function loadCards(
 async function loadCard(
   source: ContextsSource,
   item: ContextListItem,
+  operators: Awaited<ReturnType<ContextsSource["operatorCounts"]>>,
 ): Promise<CardData | null> {
-  const [overview, bundles, operators] = await Promise.all([
+  const [overview, bundles] = await Promise.all([
     source.overview(item.id),
     source.bundles(item.id),
-    source.operatorCount(item.id),
   ]);
   if (!bundles.ok) return null;
   const applied = bundles.value.find((entry) =>
@@ -52,6 +55,6 @@ async function loadCard(
       : status === "failed"
       ? "failed"
       : "passed",
-    operators: operators.ok ? operators.value : null,
+    operators: operators.ok ? operators.value.get(item.id) ?? 0 : null,
   };
 }

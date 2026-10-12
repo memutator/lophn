@@ -1,108 +1,145 @@
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
 
-// domain-model lophn-agent/revert의 ledger 표. run과 event 표 뒤에 만든다.
-// 최종 결과 행은 trigger가 다시 바꾸거나 지우지 못하게 막아 복원 사실을 한 번만 확정한다.
-// 원래 event와 보상 event는 이 표가 가리키기만 하고 복사하지 않는다(source·compensation 표).
-// applying 헤더는 최종 outcome·result_seq로 한 번만 바뀐다(앱 단계가 있는 revert, 앱 복원 작업).
+// domain-model lophn-agent/revert의 ledger 표 넷. messages·sessions·tool_calls·events 뒤에 만든다.
+//
+// checkpoints는 run을 시작하는 사람 메시지 하나다(ReceiveMessage가 같은 transaction에서 만든다).
+// files_restorable은 한 번 낮아지면 되돌아가지 않고 이유도 처음 것을 지킨다.
+// rewind_files는 문서 tool이 쓰기 직전에 tool call마다 남기는 기록이다. seq는 그 tool call의
+// state_seq다: 한 session의 tool call은 차례로 돌아 같은 경로의 기록 순서를 이 값이 정한다. 기록은
+// 한도 정리·session 삭제·닫힘이 지우는 것 말고는 바꾸지 않고, 바뀌는 것은 reverted_by뿐이다.
+// reverts는 rewind·Undo 한 번의 시도다. 최종 결과(outcome·result_seq)는 applying에서 한 번만 바뀌고,
+// redo는 최종 결과 뒤에는 available에서 done·closed로만 간다.
+// revert_items는 결과 항목이다. 끝난 항목은 고치지 않는다. 예외는 설치가 건너뛴 문서 파일을
+// skipped(edited_outside)로 고치는 AmendRevertInstall 하나다.
+// blocked revert는 revert_items 행이 없다. reverts.checkpoint는 사람 메시지 id를 가리킨다.
+// correction 메시지로 하는 messages_only rewind는 checkpoints 행이 없는 메시지를 고르므로 FK는
+// messages(id)다.
 export const revertSchemaSteps: readonly SchemaStep[] = [
   {
     id: "lophn-agent.revert.tables",
     sql: `
+create table checkpoints (
+  message text primary key references messages (id) on delete restrict,
+  session text not null references sessions (id) on delete restrict,
+  files_restorable integer not null default 1 check (files_restorable in (0, 1)),
+  files_reason text check (files_reason is null or files_reason in ('limit_total', 'limit_file', 'limit_count', 'record_failed')),
+  check ((files_restorable = 1) = (files_reason is null))
+) strict;
+create index checkpoints_session on checkpoints (session, message);
+create index checkpoints_session_restorable on checkpoints (session, files_restorable);
+create trigger checkpoints_identity_immutable
+before update of message, session on checkpoints
+begin
+  select raise(abort, 'a checkpoint is never moved');
+end;
+create trigger checkpoints_files_lowered_once
+before update of files_restorable, files_reason on checkpoints
+when old.files_restorable = 0
+  and (new.files_restorable != 0 or new.files_reason is not old.files_reason)
+begin
+  select raise(abort, 'a checkpoint whose files cannot be restored stays so');
+end;
 create table reverts (
   id text primary key,
-  run text not null references runs (id) on delete restrict,
-  allow_partial integer not null check (allow_partial in (0, 1)),
+  session text not null references sessions (id) on delete restrict,
+  kind text not null check (kind in ('rewind', 'undo')),
+  choice text check (choice is null or choice in ('restore_all', 'messages_only', 'summarize')),
+  checkpoint text references messages (id) on delete restrict,
+  tool_call text references tool_calls (id) on delete restrict,
+  boundary_seq integer check (boundary_seq is null or boundary_seq >= 1),
+  summary_call text,
   outcome text not null check (outcome in ('applying', 'applied', 'partial', 'uncertain', 'blocked')),
+  redo text not null check (redo in ('none', 'available', 'done', 'closed')),
   preview_hash text not null check (length(preview_hash) = 64),
-  created_seq integer not null unique references events (seq),
-  state_seq integer not null check (state_seq >= created_seq),
   result_seq integer unique references events (seq),
-  check ((outcome = 'applying') = (result_seq is null))
+  check (
+    (kind = 'rewind' and choice is not null and checkpoint is not null and boundary_seq is not null and tool_call is null)
+    or (kind = 'undo' and choice is null and checkpoint is null and boundary_seq is null and tool_call is not null)
+  ),
+  check ((choice is 'summarize') = (summary_call is not null)),
+  check ((outcome = 'applying') = (result_seq is null)),
+  check (outcome = 'applied' or redo = 'none')
 ) strict;
-create unique index reverts_run_active on reverts (run)
-  where outcome in ('applying', 'applied', 'partial', 'uncertain');
-create index reverts_run_result on reverts (run, result_seq);
+create unique index reverts_session_applying on reverts (session) where outcome = 'applying';
+create index reverts_session_result on reverts (session, result_seq);
+create index reverts_session_redo on reverts (session, redo);
 create trigger reverts_identity_immutable
-before update of id, run, allow_partial, preview_hash, created_seq on reverts
+before update of id, session, kind, choice, checkpoint, tool_call, boundary_seq, summary_call, preview_hash on reverts
 begin
   select raise(abort, 'a revert attempt is never rewritten');
 end;
-create trigger reverts_result_terminal
-before update on reverts
+create trigger reverts_result_final
+before update of outcome, result_seq on reverts
 when old.outcome != 'applying'
 begin
   select raise(abort, 'a revert result is final');
 end;
-create trigger reverts_no_delete
-before delete on reverts
+create trigger reverts_redo_forward
+before update of redo on reverts
+when old.outcome != 'applying'
+  and not (old.redo = 'available' and new.redo in ('done', 'closed'))
 begin
-  select raise(abort, 'reverts are kept');
+  select raise(abort, 'redo only moves forward');
 end;
-create table revert_changes (
+create table rewind_files (
+  tool_call text not null references tool_calls (id) on delete restrict,
+  path text not null check (length(path) > 0),
+  checkpoint text not null references checkpoints (message) on delete restrict,
+  seq integer not null check (seq >= 0),
+  before_exists integer not null check (before_exists in (0, 1)),
+  before_sha256 text check (before_sha256 is null or length(before_sha256) = 64),
+  before_blob text check (before_blob is null or length(before_blob) = 64),
+  before_size integer check (before_size is null or before_size >= 0),
+  after_exists integer not null check (after_exists in (0, 1)),
+  after_sha256 text check (after_sha256 is null or length(after_sha256) = 64),
+  moved_from text check (moved_from is null or length(moved_from) > 0),
+  reverted_by text references reverts (id) on delete restrict,
+  primary key (tool_call, path),
+  check ((before_exists = 1) = (before_sha256 is not null)),
+  check ((before_exists = 1) = (before_size is not null)),
+  check (before_blob is null or before_blob = before_sha256),
+  check ((after_exists = 1) = (after_sha256 is not null))
+) strict;
+create index rewind_files_checkpoint_path on rewind_files (checkpoint, path, seq);
+create index rewind_files_path_seq on rewind_files (path, seq);
+create index rewind_files_reverted_by on rewind_files (reverted_by);
+create trigger rewind_files_immutable
+before update of tool_call, path, checkpoint, seq, before_exists, before_sha256, before_blob, before_size, after_exists, after_sha256, moved_from on rewind_files
+begin
+  select raise(abort, 'a rewind record is never rewritten');
+end;
+create table revert_items (
   revert text not null references reverts (id) on delete restrict,
   ordinal integer not null check (ordinal >= 0),
-  owner text not null check (length(owner) > 0),
-  target text,
-  capability text not null check (capability in ('reversible', 'retained', 'irreversible', 'conflict')),
-  result text not null check (result in ('restored', 'retained', 'irreversible', 'conflict', 'unchanged', 'failure', 'uncertain')),
-  reason text check (reason is null or reason in ('audit_fact', 'external_effect', 'later_change', 'linked_document', 'not_agent_output', 'title_change', 'no_previous_version', 'unclassified_document_event', 'unclassified_event', 'blocked_conflict', 'blocked_irreversible', 'blocked_dependency', 'blocked_not_prepared', 'stale_preview', 'app_failed', 'app_uncertain', 'app_not_started')),
+  class text not null check (class in ('file', 'app', 'fact')),
+  target text not null check (length(target) > 0),
+  source text not null check (json_valid(source)),
+  plan text not null check (plan in ('restore', 'skip', 'remain')),
+  result text not null check (result in ('restored', 'skipped', 'remained', 'failure', 'uncertain', 'unchanged')),
+  reason text check (reason is null or reason in ('edited_outside', 'chain_broken', 'no_pre_image', 'link_path', 'rename_blocked', 'created_edited', 'no_receipt', 'no_revert_command', 'app_revision_changed', 'external_effect', 'already_reverted', 'answered_fact', 'app_failed', 'app_uncertain', 'app_not_started', 'app_not_settled', 'later_edit')),
   app_revert text check (app_revert is null or json_valid(app_revert)),
+  restored_sha256 text check (restored_sha256 is null or length(restored_sha256) = 64),
+  redo_ref text check (redo_ref is null or length(redo_ref) = 64),
   primary key (revert, ordinal),
-  check (result = 'restored' or reason is not null),
-  check (capability != 'retained' or result = 'retained'),
-  check (capability != 'irreversible' or result = 'irreversible'),
-  check (capability != 'conflict' or result in ('conflict', 'unchanged', 'failure', 'uncertain')),
-  check (capability != 'reversible' or result in ('restored', 'unchanged', 'failure', 'uncertain'))
+  check (result != 'restored' or reason is null),
+  check ((result = 'remained') = (plan = 'remain')),
+  check (class = 'app' or app_revert is null)
 ) strict;
-create index revert_changes_owner_target on revert_changes (owner, target);
-create trigger revert_changes_final_rows
-before update on revert_changes
-when (select outcome from reverts where id = old.revert) != 'applying'
-  or old.result != 'unchanged'
+create index revert_items_class_target on revert_items (class, target);
+create trigger revert_items_identity_immutable
+before update of revert, ordinal, class, target, source, plan on revert_items
 begin
-  select raise(abort, 'a revert result is final');
+  select raise(abort, 'a revert item is never rewritten');
 end;
-create trigger revert_changes_no_delete
-before delete on revert_changes
+create trigger revert_items_settled
+before update on revert_items
+when (old.result != 'unchanged' or old.reason is not null)
+  and not (
+    old.class = 'file' and old.plan = 'restore' and old.result = 'restored'
+    and new.result = 'skipped' and new.reason = 'edited_outside'
+  )
 begin
-  select raise(abort, 'revert changes are kept');
-end;
-create table revert_change_sources (
-  revert text not null,
-  ordinal integer not null,
-  source_seq integer not null references events (seq),
-  primary key (revert, source_seq),
-  foreign key (revert, ordinal) references revert_changes (revert, ordinal) on delete restrict
-) strict;
-create index revert_change_sources_order on revert_change_sources (revert, ordinal, source_seq);
-create index revert_change_sources_seq on revert_change_sources (source_seq);
-create trigger revert_change_sources_immutable
-before update on revert_change_sources
-begin
-  select raise(abort, 'revert sources are never rewritten');
-end;
-create trigger revert_change_sources_no_delete
-before delete on revert_change_sources
-begin
-  select raise(abort, 'revert sources are kept');
-end;
-create table revert_change_compensations (
-  revert text not null,
-  ordinal integer not null,
-  restored_seq integer not null references events (seq),
-  primary key (revert, ordinal, restored_seq),
-  foreign key (revert, ordinal) references revert_changes (revert, ordinal) on delete restrict
-) strict;
-create index revert_change_compensations_seq on revert_change_compensations (restored_seq);
-create trigger revert_change_compensations_immutable
-before update on revert_change_compensations
-begin
-  select raise(abort, 'revert compensations are never rewritten');
-end;
-create trigger revert_change_compensations_no_delete
-before delete on revert_change_compensations
-begin
-  select raise(abort, 'revert compensations are kept');
+  select raise(abort, 'a settled revert item is final');
 end;`,
   },
 ];

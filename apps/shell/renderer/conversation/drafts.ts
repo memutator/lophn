@@ -4,7 +4,7 @@
 // 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
 // 않는다.
 import type { Outgoing, SendMode } from "./delivery-state.ts";
-import type { BodyPart } from "./source.ts";
+import type { BodyPart } from "./agent-source.ts";
 
 export interface Draft {
   readonly text: string;

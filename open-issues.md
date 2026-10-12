@@ -4,8 +4,8 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 801건(재연결 뒤 8건 포함): 추천대로 637, 다르게 정함 32, 대체됨 93, 이미
-  정함 30, 사람이 정할 것 2
+- 모두 896건(재연결 뒤 8건 포함): 추천대로 735, 다르게 정함 34, 대체됨 93, 이미
+  정함 32, 사람이 정할 것 2
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
 ## 사람이 정할 것
@@ -57,13 +57,14 @@
 | D31  | provider 로그인: Anthropic은 API key만 쓴다(Claude OAuth는 첫 판에서 뺀다. Anthropic이 제3자 앱의 Claude.ai 로그인을 금지한다). ChatGPT는 공식 Sign in with ChatGPT로, xAI는 SuperGrok OAuth로 로그인한다(xAI가 OAuth를 열었다). 그 밖은 API key와 로컬 연결이다.                                                                                                                                                                                                                                                                                                                                                                              |
 | D32  | screenshot redaction을 하지 않는다. 문제 보고는 사람이 자기 앱을 쓰다 직접 보내는 피드백이므로, screenshot은 사람이 미리 보고 고른 것만 가리지 않은 그대로 첨부한다. 보호 화면·private 영역 판정과 첨부 차단(platform/redaction 옛 R13, platform#T37)은 뺀다. 글·화면 상태의 redaction은 그대로다.                                                                                                                                                                                                                                                                                                                                             |
 | D33  | intent 고침(2026-10-11, 사람이 정하고 lead에게 고치라고 맡김): documents I2 버림(문서 판을 남기지 않는다 — "하지 않는 것"으로 옮김), documents "하지 않는 것"의 "용어의 뜻을 agent가 대신 확정하지 않는다" 삭제(용어집은 agent용이고 Context Engineer와 사람이 정한다), documents 신호 "오래된 링크로도 당시의 글을 찾는다" → "그 글", platform I7에서 backup과 복원 삭제(backup·export 기능 삭제), lophn-agent I7 되돌리기는 session이 살아 있는 동안만. 부딪히는 요구(documents#I2를 가리키는 versions·file-tracking·outline-and-search 등, platform#I7의 backup 요구, lophn-agent/revert)는 D 단계에서 번호를 유지한 채 고치고 여기에 남긴다. documents#I2를 가리키는 요구가 없어지면 I2 줄을 지운다. |
+| D34  | intent 고침(2026-10-12, 사람이 lead에게 맡김 — agent 재설계): lophn-agent I3에서 "지금 보는 화면에서" 삭제(agent는 sidebar·toast로만 부르고, 열린 탭은 I10으로 안다), I4 "반복해서 맡길 일" → "일을 맡길 agent를 필요한 만큼 만든다"(Operator는 schedule 작업이 아니다), I5 preset → 전역 기본값 + 프로젝트·앱과 agent마다 바꾼 것만. 부딪히는 요구(presets·assignments·scheduling 등)는 agent track docs가 번호를 유지한 채 고치거나 "버린 것"으로 옮긴다. |
 
 큰 질문(H1–H8, G1–G3)의 답은 D23–D25와 D29에 있다. G1(git)과 G2(problem 문서
 타입 없음)도 정했다.
 
 ## 결정 기록
 
-### platform (87)
+### platform (92)
 
 | id                               | 질문                                                                                                                                                     | 판정        | 결정                                                                                                                                                                                                                         |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -154,6 +155,11 @@
 | redesign/propagate#Q1            | 공개 설정 key와 machine-local profile 선택의 정확한 저장 schema를 어디서 확정할까?                                                                       | 추천대로    | 공통 registry는 enabled·nullable 기본/profile 선택만; local path·관측은 harness owner                                                                                                                                        |
 | redesign/propagate#Q2            | OS별 coding credential 보호 process-local 전달은 무엇으로 구현할까?                                                                                      | 추천대로    | 실제 loader·child generation·connection 결합을 검증; argv·일반 env·PTY 금지                                                                                                                                                  |
 | redesign/propagate#Q8            | 옛 일반 설정의 role 층과 Role ID를 새 Preset 구성으로 언제 migrate할까?                                                                                  | 추천대로    | 두 원본 금지; source 기록을 보존한 명시 migration을 실제 구현 schema 변경에서 설계                                                                                                                                           |
+| platform/approvals#Q2 | 대화 안 승인 카드의 범위. wireframe에는 Allow once·this session·Always가 있다. | 추천대로 | Allow once·Allow for this session·Deny. 오래 가는 허락은 Agents 탭 권한 규칙에서만 둔다(tool-judgment가 지속 허락을 일부러 없앤 것과 맞춘다). |
+| platform/notifications#Q5 | 어떤 알림에서 agent를 부르나(사람: 프로그램은 문서 내용을 판단하지 못한다). | 추천대로 | 계기 표에 `ask_agent` 칸을 둔다: context 계약 위반 → Context Engineer, 앱 문제(ProblemOpened·ReleaseActivationFailed) → App Engineer. 나머지 계기는 [View]만 둔다. [Ask]는 계기의 target을 첫 context로 붙여 Agent 탭을 연다. |
+| platform/approvals#Q3 | session 허락이 묶는 범위. | 추천대로 | 같은 session의 같은 tool(MCP 서버 포함)·같은 동작까지. 대상·입력은 묶지 않는다. confirm 앱 command·앱 permission·release 적용·복원은 session 선택이 없다. |
+| platform/approvals#Q4 | 대화 안 승인 카드에서 결정하면 shell/confirmation-window#R1(결정은 confirmation window에서만)과 부딪힌다. | 추천대로 | 카드는 요청 요약과 [Allow ▾]·[Deny]를 보이고, 누르면 고른 범위를 미리 고른 confirmation window가 열려 결정은 그 창에서만 제출한다. 카드에서 바로 결정되지 않는다(shell/desktop#R47). |
+| platform/approvals#Q5 | Operator assignment 허락 approval을 없애도 되나. | 추천대로 | 없앤다(lophn-agent/assignments#Q5). |
 
 ### documents (111)
 
@@ -421,7 +427,7 @@
 | problems/tests#Q5         | cgroup이 없는 macOS에서 Deno test 자식을 어떻게 둘까. Q8의 soft 상한과 #193의 Deno soft 거절이 부딪힌다.                          | 미정        | 사람이 정할 것. 추천은 macOS Deno test 자식을 시작 전 `unavailable`로 거절(#193, R20)                                                                                 |
 | problems/tests#Q6         | app test의 정적 code 사용 검사가 literal이 아닌(계산한) code의 `reportProblem` 자리를 어떻게 다룰까.                          | 추천대로    | 선언 안 되었거나 예약된 code를 literal로 보고하는 자리는 정적 fail이다. 정적으로 code를 알 수 없는 자리는 세어 observations에 적고(`dynamic_sites`), 필수 dynamic guard 검사(`code_usage_dynamic`)가 선언 밖·예약 code의 직접 보고를 실제 보고 통로의 guard가 거절하는 것을 보였을 때만 app test가 통과한다(problems#T12) |
 
-### lophn-agent (215)
+### lophn-agent (250)
 
 | id                                          | 질문                                                                                                                                      | 판정        | 결정                                                                                                                                                                  |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -470,7 +476,7 @@
 | lophn-agent/handoff#Q1                      | 같은 원래 사람 요청의 handoff 순환·총 사슬 길이를 어떻게 제한할까.                                                                        | 추천대로    | 첫 판은 각 run 한도만 적용하고 실제 순환 기록이 생기면 재방문 금지 검토                                                                                               |
 | lophn-agent/harness/model#Q1                | 공개 가격 외 계약 가격을 사람이 별도 출처로 보완할 것인가?                                                                                | 추천대로    | 공개 catalog 가격만 쓴다. 계약 가격 보완은 두지 않는다(MVP)                                                                                                           |
 | lophn-agent/harness/model#Q2                | catalog 밖 model의 128,000·8,192 token·tool 지원 가정을 허용할 것인가?                                                                    | 추천대로    | 확인 정보 또는 사람 명시 정보만                                                                                                                                       |
-| lophn-agent/harness/model#Q3                | 첫 설치의 두 model slot을 어떤 목록·순서로 추천할 것인가?                                                                                 | 대체됨      | 기본 preset의 model로 정한다(결정 10)                                                                                                                                 |
+| lophn-agent/harness/model#Q3                | 첫 설치의 두 model slot을 어떤 목록·순서로 추천할 것인가?                                                                                 | 대체됨      | role별 기본 model과 option 값은 Workspace에 두고 처음엔 비어 있다(model#Q10, 2026-10-12 agent 재설계). 옛 결정 "기본 preset의 model"은 preset 삭제로 대체됨 |
 | lophn-agent/harness/model#Q4                | 2,048·8,192·16,384·32,768 추론 예산이 품질 차이를 만드는가?                                                                               | 추천대로    | 초기 값 유지 후 lophn-agent/evaluation으로 비교                                                                                                                       |
 | lophn-agent/harness/model#Q5                | 강도·예산·토글을 함께 선언한 model의 추론 선택 우선순위는 무엇인가?                                                                       | 추천대로    | provider별 확인된 방식 하나만 제공                                                                                                                                    |
 | lophn-agent/harness/model#Q6                | 첫 판 model input에 이미지를 포함할 것인가?                                                                                               | 추천대로    | 첫 판 텍스트만                                                                                                                                                        |
@@ -491,7 +497,7 @@
 | lophn-agent/harness/provider#Q2             | ChatGPT·xAI 제3자 OAuth client 발급과 공식 허용 범위는 무엇인가?                                                                          | 추천대로    | 전용 발급 우선, 허용 범위 확인 전 비활성                                                                                                                              |
 | lophn-agent/harness/provider#Q3             | SuperGrok 표준·Heavy 중 어느 요금제가 OAuth 추론을 받는가?                                                                                | 추천대로    | 표준·Heavy 각각 검증하고 X Premium+와 구별                                                                                                                            |
 | lophn-agent/harness/provider#Q4             | Claude·ChatGPT 사용량 조회가 lophn 식별로 허용되며 5시간·7일 창과 정확한 리셋을 주는가?                                                   | 추천대로    | header 우선, 허용된 경우만 설정 열 때 조회, 주기 계정 폴링 없음                                                                                                       |
-| lophn-agent/harness/provider#Q5             | 온보딩 건너뛰기와 인증 전 slot 진행 금지를 어떻게 함께 지키는가?                                                                          | 대체됨      | preset이 provider·model을 고른다(결정 10)                                                                                                                             |
+| lophn-agent/harness/provider#Q5             | 온보딩 건너뛰기와 인증 전 slot 진행 금지를 어떻게 함께 지키는가?                                                                          | 대체됨      | provider는 계정·인증만 다루고 model은 agent 정의·Workspace 기본값·session이 고른다(model#Q10, 2026-10-12). 옛 결정 "preset이 provider·model을 고른다"는 preset 삭제로 대체됨 |
 | lophn-agent/harness/provider#Q6             | 첫 provider 인증 범위와 안전한 secret 보관 불가 환경은 어떻게 처리하는가?                                                                 | 추천대로    | 지원 목록 유지, 보관 불가 처리는 platform/secrets 참조                                                                                                                |
 | lophn-agent/harness/provider#Q7             | PV-16·PV-18의 버림 판정과 credential 하나 제한이 이번 추가 지시·현재 domain model의 여러 credential 요구와 충돌한다.                      | 추천대로    | 이번 추가 지시대로 여러 credential 유지                                                                                                                               |
 | lophn-agent/harness/provider#Q8             | PV-25와 초안 domain model의 추론 서명 전면 제외가 충돌했고 현재 provider domain model은 필수 opaque 상태의 비영속 재사용으…               | 추천대로    | 본문 제외·opaque 상태만 비영속 재사용                                                                                                                                 |
@@ -642,6 +648,79 @@
 | redesign/lophn-agent#Q97                    | 공통 첫 한도 30회·300000ms·1800000ms 및 사람 기다림 제외를 확정할지, 역할별 한도를 둘지.                                                  | 추천대로    | 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정                                                                                                              |
 | redesign/lophn-agent#Q98                    | OAuth 제품별 lophn 사용 허용·실제 호출 검증 결과와 공식 endpoint·client 식별 값. 미검증 정의는 활성화하지 않는다.                         | 추천대로    | 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정                                                                                                              |
 | redesign/lophn-agent#Q99                    | 첫 판의 지원 API key·loopback 연결·검증된 OAuth 조합. keychain 없는 환경 정책은 → platform/secrets.                                       | 추천대로    | 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정                                                                                                              |
+| lophn-agent/presets#Q2 | agent 재설계(2026-10-12)에서 agent 정의를 어떤 모양으로 어디에 두나. 사람은 "app data의 project별 폴더"로 정했다. | 추천대로 | 정의 하나 = Markdown + frontmatter 파일 하나(`<data root>/{projects,apps}/<place-id>/agents/<agent-id>.md`, 본문 = 그 agent instructions). built-in(lophn·Context Engineer·App Engineer)은 코드가 정의하고 사람이 바꾼 칸만 override 파일로 둔다. 판(version)은 없고 저장은 덮어쓰기다. |
+| lophn-agent/presets#Q3 | agent 설정을 어느 층에 두고 어떻게 합치나. | 추천대로 | 기본값 < 전역(Workspace) < 자리(project 또는 app) < Operator < session. 칸마다 둘 수 있는 층을 정하고, Operator는 바꾼 칸만 저장해 나머지는 위 층을 따른다. Operator 권한은 자리 권한보다 넓힐 수 없다. 화면은 값의 출처를 한 줄로 보인다. |
+| lophn-agent/presets#Q4 | agent profile(icon 또는 사용자가 올린 이미지)을 어떻게 저장하나. | 추천대로 | icon은 design icon id, image는 png·jpg·webp 1 MB 이하(svg는 받지 않음)를 agent 정의 옆 `avatar.<ext>`로 둔다. design system에 `Avatar` component를 새로 둔다. |
+| lophn-agent/assignments#Q3 | preset(판)·assignment·scheduling을 새 agent 모델에서 어떻게 하나. | 추천대로 | (agent-S1 설계 pass, `.dev-data/agent-design.md`) preset(판·제품 preset·명시 적용)은 없앤다. assignment는 "자리에 놓인 agent 하나"의 실행 정체(id·role·scope·state·revision)로 남기고 preset 판·주기·남길 문서·읽을 앱·승인 칸만 뗀다 — run·session·question·credential 등 81파일이 쓰는 id는 그대로다(없애면 바꿀 소스 178파일, 남기면 97파일). built-in은 지금처럼 lophn·Context Engineer 전역 하나, App Engineer 앱마다 하나이고 자리별 설정은 session의 work_place로 고른다. Operator는 정의 파일 하나(이름 = assignment id) = assignment 하나. schedule은 보류라 scheduling 코드와 요구를 지운다. 사람이 editor에서 만들고 고치는 것은 바로 저장한다. |
+| lophn-agent/harness/model#Q10 | 기본 model을 무엇마다 두나. 지금은 용도 둘(decisions·summaries)이다. | 추천대로 | role 넷(lophn·Context Engineer·App Engineer·Operators)마다 model + option 값. summaries는 Workspace의 "Model for summaries" 한 칸(전역)으로 남긴다. |
+| lophn-agent/harness/model#Q11 | model마다 다른 effort와 effort 밖 option(OpenAI service_tier priority, xAI grok fast)을 하드코딩 없이 어떻게 두나. | 추천대로 | catalog 항목에 `options: [{id, label, values: [{value, label, wire}]}]`를 둔다. `wire`는 요청 body patch 또는 보낼 model id 바꾸기다. 지금 reasoning levels는 effort 축으로 옮긴다. 코드에는 protocol마다 option → 요청 필드 표 하나만 두고 model id 분기는 두지 않는다. 지원 안 되는 값은 실패로 보이고, model을 바꿔 값이 없으면 가까운 약한 값으로 맞추고 알린다. 표시 이름은 very_high → XHigh, maximum → Max. |
+| lophn-agent/harness/model#Q12 | 별표한 model을 picker 어디에 두나. | 추천대로 | Workspace(사람 전역)에 순서 있는 즐겨찾기 목록을 둔다. picker 맨 위 Favorites 묶음에 별표 순서 그대로(provider로 다시 묶지 않음) 보이고, 검색 중에도 먼저 보인다. 최근 사용 묶음은 첫 판에 없다. |
+| lophn-agent/conversation#Q2 | session 목록을 탭 머리 popover로 옮기면(사람 결정) session에 무엇이 필요한가. | 추천대로 | 제목(첫 사람 메시지 앞 60자, rename 가능), archive(목록에서 숨김, 다시 열면 풀림), delete(session·메시지·run 기록 삭제, 확인 dialog), 제목만 찾는 검색. session은 agent 하나와 자리 하나에 고정한다. toast에서 연 session은 첫 context를 `opening_context`로 가진다. Lophn Workspace의 전역 session은 없앤다. |
+| lophn-agent/conversation#Q3 | `/` 메뉴(전역 built-in, role built-in, skills — 사람 결정)의 첫 목록. | 추천대로 | 전역은 New session·Rename·Archive·Compact·Fork·MCP·Skills·Permissions(Feedback은 보낼 곳이 없어 뺀다). role은 lophn — New app·Repair app, Context Engineer — Check contracts·New context, App Engineer·Operator는 없다. built-in 이름은 예약해 skill이 덮지 못한다. |
+| lophn-agent/questions#Q4 | 여러 질문을 한 카드로 묻게 하면(사람 결정) 지금의 run당 대기 질문 하나 제약은 어떻게 하나. | 추천대로 | 질문 tool 한 번 = 묶음 하나(질문 1~4), run당 대기 묶음 하나. Submit 한 번에 답을 모두 보내고, Skip은 묶음을 미룬다. 선택지·Other·추천 표시는 그대로다. |
+| lophn-agent/instructions#Q1 | LOPHN.md를 어디 두나(agent 정의는 app data). | 다르게 정함 | 추천은 app data였으나 사람이 "project 경로에다 둬, 그게 너무 일반적인 규격이라서"로 정했다. 전역 `~/.lophn/LOPHN.md`, project LOPHN.md는 project 폴더, app LOPHN.md는 앱 자리. document·판을 쓰지 않고 매 call 직전 파일을 읽는다. |
+| lophn-agent/extensions#Q7 | skill·MCP를 어느 층에 등록하고 어떻게 고르나. | 추천대로 | 등록은 전역(Workspace)과 자리(project·app)에 한다. 고르기는 agent 정의에서 한다(기본 전부 켬, 끈 것만 저장). `/` 메뉴 Skills는 그 agent가 쓸 수 있는 skill 전부를 출처 구분 없이 보인다. |
+| lophn-agent/assignments#Q4 | 새 화면에 멈춤·다시 시작이 없고, 연속 실패·output 보관 pause는 production에서 내는 곳이 없다. assignment 상태를 어떻게 하나. | 추천대로 | 사람 Pause·Resume 명령과 연속 실패·output_archived pause(근거 검사 포함)를 지운다. paused는 앱·project 보관에 따른 `scope_archived`만 남는다. Operator를 그만 쓰려면 지운다(withdraw). |
+| lophn-agent/assignments#Q5 | agent가 Operator를 제안하는 길(`approval.submit_assignment`, Context Engineer의 Operator 초안)을 어떻게 하나. | 추천대로 | 첫 판에서 지운다. Operator는 사람이 Agents 탭 editor에서 만든다. 필요해지면 질문 카드 → 사람이 editor에서 확인하는 길로 다시 만든다. |
+| lophn-agent/assignments#Q6 | assignment의 `read_apps`·`read_commands`(Operator가 읽을 앱 명령)는 어디로 가나. | 추천대로 | 앱 Operator 정의의 `app_reads` 칸으로 옮긴다(앱에는 context가 없으니 editor의 Contexts 칸 대신 App data 칸). |
+| lophn-agent/harness/run-loop#Q9 | assignment마다 running·waiting_user run이 하나뿐인데 lophn은 전역 assignment 하나라 Agent 탭 둘에서 동시에 돌 수 없다. | 추천대로 | 동시 run 제한을 session 단위로 바꾼다(session마다 하나). session 없는 run(handoff 수신 등)은 지금처럼 assignment 단위다. run selector도 session 단위 후보로. |
+| lophn-agent/agents#Q1 | 남길 문서를 없앤 뒤 Operator가 문서를 쓸 수 있는 범위. | 추천대로 | 정의의 권한 안에서 자리의 문서에 쓰고, 쓰기마다 판정은 lophn-agent/harness/tool-judgment가 한다. |
+| lophn-agent/agents#Q2 | 자리(project·app) 층 설정을 어떤 모양으로 저장하나. | 추천대로 | `<자리>/agents/settings.md`(frontmatter만): role별 model·option과 권한 규칙 두 칸. 파일 모양은 agent 정의 파일과 같다(domain-model agents "파일 모양"). (고침, agent-S11 리뷰: 자리 skill·MCP 등록은 settings.md에 넣지 않고 lophn-agent/extensions의 PlaceExtensionSettings가 맡는다 — extensions#Q8.) |
+| lophn-agent/assignments#Q7 | 사람 Resume이 없어진 뒤 대상(앱·project) 보관이 풀리면 멈춘 assignment는. | 추천대로 | machine이 멈춤을 푼다(옛 "자동 재개 없음"을 바꾼다 — paused는 scope_archived만 남았다). |
+| lophn-agent/commands#Q1 | 같은 이름 skill 둘이 메뉴에 오는 경우(commands R6)가 extensions R3·R33(같은 이름은 먼저 발견한 하나)과 겹친다. | 추천대로 | extensions R3 유지. commands R6은 registry 안전장치로 둔다. |
+| lophn-agent/commands#Q2 | 맞는 명령이 없는 `/…` 제출을 일반 메시지로 보내나. | 추천대로 | 보내지 않고 알 수 없는 명령으로 알린다. |
+| lophn-agent/extensions#Q8 | 자리 층의 skill 폴더·MCP 저장 위치와 contract. | 추천대로 | agent 정의와 같은 자리 폴더(`<data root>/{projects,apps}/<id>/`) 아래에 두되 `agents/settings.md`와 따로 둔다. 값 모양은 platform/settings. (고침, agent-S11 리뷰: settings.md는 model·권한 두 칸뿐이다 — agents#Q2.) (agent-I19b: 자리 폴더 아래 `skills/`와 `mcp-servers.json`으로 정했다.) |
+| lophn-agent/harness/provider#Q11 | 계정을 agent별로 고정하고 싶을 때. | 추천대로 | 첫 판은 provider의 계정 순서와 계정 사용 끄기만. agent·기본값·session은 provider와 model만 고른다. |
+| lophn-agent/harness/model#Q13 | effort처럼 wire가 비어 있는 option 값. | 추천대로 | 호출 형식 표가 번역한다. |
+| lophn-agent/harness/model#Q14 | model을 바꿀 때 option 값 맞춤 규칙의 세부. | 추천대로 | 같은 축에서 요청값보다 약하면서 가장 가까운 지원 값, 없으면 가장 약한 지원 값. off는 맞춤 목표가 아니다. |
+| lophn-agent/harness/model#Q15 | catalog에서 사라진 model이 즐겨찾기에 있으면. | 추천대로 | 지우지 않고 숨기며 순서를 보존한다. |
+| lophn-agent/conversation#Q4 | 사람이 session을 끝내는 길(Close)이 새 화면에 없으면 closed는. | 추천대로 | closed는 assignment withdrawn일 때만 machine이 만든다. 사람은 archive(숨김)·delete(삭제)로 치운다. |
+| lophn-agent/conversation#Q5 | 사람 Pause·Resume을 없앤 뒤 옛 R14(paused 동안 요청 보존·명시 실행)는. | 추천대로 | 버린다. paused(scope_archived)에서는 읽기만 되고 새 입력을 거절한다. ExecuteStoredRequest를 지운다. |
+| lophn-agent/conversation#Q6 | Fork와 Compact의 뜻과 범위. | 추천대로 | Fork는 고른 지점까지 확정 메시지를 새 session에 복사한다(run·질문·approval·효과는 복사 안 함). Compact는 사람이 부를 때만 앞 구간을 요약해 이후 call에 쓰고 원문은 남긴다. command는 끝나지 않은 run이 있으면 거절하고, `/`에서 부른 Compact는 일이 끝날 때까지 줄 세운다(commands R8). |
+| lophn-agent/conversation#Q7 | session delete와 platform/ledger#R10(event·확정 결과는 지우지 않는다). | 추천대로 | 사람이 요청한 session delete는 정리와 다르다. session·메시지·그 run의 호출·tool·사용량·trace·질문·approval·rewind 기록과 blob 참조를 지우고 `SessionDeleted`만 남긴다. 그 run이 만든 문서·release·앱 data 변경은 지우지 않는다. 방식은 platform/ledger가 정한다. |
+| lophn-agent/conversation#Q8 | composer에서 고른 model은 언제부터. | 추천대로 | 다음 run부터. 진행 중 run은 시작 때 고정한 값으로 끝까지 간다. |
+| lophn-agent/questions#Q5 | 질문 묶음에서 고정 동작(option action) 선택지와 일부만 답한 Submit. | 추천대로 | 고정 동작 선택지가 있는 질문은 1개짜리 묶음으로만 낸다. Submit은 모든 질문에 답해야 하고 일부 답은 저장하지 않는다. |
+| lophn-agent/questions#Q6 | 질문 묶음 도입에 따른 ID와 event. | 추천대로 | 새 `qgr`(QuestionGroup)이 상태·기한·종료를 갖고 `qst`는 id를 유지한다. Run.waiting_on은 `qgr`. event 이름은 그대로이고 subject가 묶음이다. |
+| lophn-agent/harness/run-loop#Q10 | scheduling 보류로 주기 일을 셋째 우선순위로 둔 selector 규칙은. | 추천대로 | 우선순위를 둘(사람이 지금 기다리는 일, 사람의 한 번짜리 일)로 줄이고 8개 연속 규칙은 그대로. 후보는 session마다 센다. |
+| lophn-agent/harness/provider#Q12 | provider 안의 계정 순서·사용 끄기(provider#R6·R8)를 Settings › Providers 어디서 하나. 화면 요구가 없었다. | 추천대로 | 연결된 provider를 펼치면 계정 목록이 보이고 순서를 바꾸고 계정마다 사용을 끈다(shell/desktop#R49). 바꾼 순서는 다음 run부터. |
+| lophn-agent/revert#Q5 | 사람이 바깥에서 고친 파일을 rewind가 만나면. | 추천대로 | 파일 단위로 건너뛰고 목록으로 알린다. "그래도 복원"은 없다. |
+| lophn-agent/revert#Q6 | rewind의 문서 파일 복원 쓰기는 누가 어떻게. | 추천대로 | 사람이 시작한 동작으로 lophn이 쓰기 직전 hash를 다시 비교하고 원자 교체로 쓴다. 문서 판·파일 추적은 쓰지 않는다(사람 결정으로 삭제). pre-image를 남기는 지점은 문서 tool과 harness 사이 contract 변경이 필요하다. |
+| lophn-agent/revert#Q7 | pre-image 한도를 넘는 쓰기. | 추천대로 | 쓰기는 허용하고 그 checkpoint를 "파일 복원 불가"로 표시한다. |
+| lophn-agent/revert#Q8 | redo를 두나. | 추천대로 | 다음 메시지 전까지만. 앱 write를 되돌린 rewind에는 redo가 없다. |
+| lophn-agent/revert#Q9 | 앱과 문서를 어떤 순서로 되돌리나. | 추천대로 | 앱 먼저, 문서 나중. 앱 효과가 부분·불명이면 문서 복원은 시작하지 않는다. |
+| lophn-agent/revert#Q10 | 앱의 지금 revision을 platform이 어떻게 읽나. 앱 data의 revision은 앱이 소유해 읽을 통로가 없고, receipt의 `expected_revision`은 앱이 write 직후 돌려준 값이다. | 추천대로 | ledger에 남은 가장 최근 성공 write의 영수증(`expected_revision`)을 그 앱의 지금 revision으로 쓴다(agent write만 보인다). 그 뒤 사람 화면·automation이 바꾼 것은 보이지 않고, 앱이 revert command의 CAS로 거절해 failure(`app_failed`)가 된다. 앱이 지금 revision을 읽는 통로를 선언하면 그것으로 바꾼다(apps 쪽 확인 필요). |
+| lophn-agent/revert#Q11 | 앱의 revert command 자체가 confirm이면. | 추천대로 | 원래 write approval을 재사용하지 않는다. proof 없이 부르면 앱이 거절해 failure로 남는다. 새 사람 확인(approval, 접수, proof)은 rewind 확인 창(agent-RW3e)이 붙인 뒤 `RunAppRevert`가 proof를 실어 보낸다. |
+| lophn-agent/revert#Q12 | `RunAppRevert`의 입력 `files`(앱 단계 뒤에 복원할 문서 파일 준비)를 누가 채우나. | 추천대로 | core가 앱 단계가 모두 끝난 뒤 파일을 다시 관측·준비하므로 호출자(shell)가 채우지 않는다. 입력은 쓰지 않으니 contract에서 뺀다. |
+| lophn-agent/agents#Q3 | 새 Operator는 첫 저장 전에 assignment가 없어 profile 이미지를 올릴 수 없다(upload는 assignment 필수). | 추천대로 | [Upload image]는 첫 저장 뒤에 켜진다. 그 전에는 icon만 고르고 "Save first to upload an image"를 보인다. upload가 임시 자리를 받는 길은 두지 않는다. |
+| lophn-agent/agents#Q4 | Agents 탭 카드의 "n contexts · n skills · n MCP"(shell/workspace#R36)를 그릴 값이 목록 행에 없다. | 추천대로 | `AgentListRow`에 `counts`(contexts는 built-in이면 null, skills·mcp는 켜진 수, 파일이 틀린 행은 셋 다 null)를 더한다(agent-I9). |
+| lophn-agent/agents#Q5 | 값 출처의 정의 층 이름이 작업 지시(`agent`)와 domain model(`definition`)에서 다르다. | 추천대로 | contract·domain은 `definition`. 화면의 출처 문구는 shell/wording이 정한다. |
+| shell/desktop#Q13 | 승인 카드에 Stop을 두나(lead 지시가 R47과 달랐다). | 추천대로 | 두지 않는다. 일을 멈추는 것은 composer의 Stop이고 거절과 다르다(R47). Deny 옆 Esc 안내는 둔다. |
+| shell/desktop#Q14 | 질문 카드의 "상세"(자세한 이유·관련 일, questions#R4)와 기한을 어디에 두나. | 추천대로 | 기본 화면에 기한이 있으면 남은 시간과 무응답 결과, 카드 머리의 "Details" 펼침에 자세한 이유(와 contract에 있으면 역할·관련 일). |
+| shell/desktop#Q15 | 접힌 질문 요약이 고정 action 적용·Skip·만료·취소와 답 접수/적용 완료(questions#R10)를 어떻게 보이나. | 추천대로 | 상태별 문구: Answered / Applying / Applied / Couldn't apply / Skipped / Expired / Cancelled. 접수와 적용 완료를 같은 모양으로 보이지 않는다. |
+| shell/desktop#Q16 | 편집 카드 [Undo] 뒤 모습(R41에 없음). | 추천대로 | "Undid the edit to <path>"와 redo가 가능한 동안(다음 메시지 전, revert#Q8)만 [Redo]. |
+| shell/desktop#Q17 | 머리 ⋯ 메뉴(R38)와 메시지 묶음 안 tool 줄·카드 자리(R40)를 어느 task가 그리나. | 추천대로 | 둘 다 agent-I21·I22(머리·메시지 배치). 보기 상세 select(R42)는 agent-I27. |
+| shell/desktop#Q18 | renderer는 contracts·design·sdk만 import해서 `orderPicker`·`fitOptionValues`·`listCommands`·`resolveSubmission`을 못 부른다. picker 정렬·값 맞춤·`/` 거르기는 어디서 계산하나. | 추천대로 | 화면 component는 계산 결과를 props로 받는다. 화면과 core가 같이 쓰는 순수 규칙(picker 정렬, 즐겨찾기 토글, option 값 맞춤 알림, `/` 거르기)은 `packages/contracts/lophn-agent/`로 옮겨 core와 renderer source가 같은 함수를 쓴다(agent-I41). 제출 해석(알 수 없는 명령)은 core에 남는다. |
+| shell/desktop#Q19 | R43이 "일하는 중 send 자리가 Stop"과 "send 옆 select"를 함께 말한다. | 추천대로 | 일하는 중에는 Stop이 send 자리를 차지하고 select(Change this work / Next request)는 Stop 옆에 둔다. 글은 Enter로 보낸다. |
+| lophn-agent/commands#Q3 | 같은 이름 skill 둘(commands R6 안전장치)이 `/`에 보일 때 출처를 어떤 글로 보이나. | 추천대로 | 이름 오른쪽 회색 작은 글로 자리 이름("Project"·"App") 또는 "Workspace". |
+| lophn-agent/agents#Q6 | agent 정의·settings.md 파일 쓰기가 writer의 command 안에서 동기로 돈다(platform/responsiveness#R1은 file 일을 command 흐름 밖에 두라고 한다). | 추천대로 | 파일은 32KB 이하 하나라 지금은 writer 안에서 쓴다. file adapter는 documents-reader처럼 core가 정적으로 import하지 않고 Worker가 URL로 연다. writer 지연 test에 걸리면 저장을 event+blob 뒤 projector 쓰기로 옮긴다. |
+| lophn-agent/agents#Q7 | contexts 표에 project 열이 없어 "그 project의 context인지"를 검사할 수 없다. | 추천대로 | 지금은 존재만 본다(없는 id만 missing_reference). CTX track과 합칠 때 context의 자리 열로 좁힌다(W2). |
+| shell/workspace#Q10 | sidebar Agents 묶음의 agent 줄에 답을 기다리는 session 점을 두나(R34에 없음, R35는 탭 줄만). | 추천대로 | 둔다. 그 agent에 기다리는 session이 있으면 줄 안에 점과 "Waiting for you" 접근 이름. session 목록은 여전히 sidebar에 없다. |
+| shell/workspace#Q11 | sidebar Manage 자리: R34는 묶음 마지막 줄, wireframe은 제목 줄 오른쪽. | 추천대로 | 요구대로 마지막 줄. |
+| shell/workspace#Q12 | Agents 탭·editor의 권한 고르기 단위와 목록의 출처. | 추천대로 | 개별 동작 이름 하나마다 switch. 고를 수 있는 동작 목록은 role 상한, 켜짐은 자리 `settings.permissions`, 오래 가는 허락(platform/approvals)도 같은 규칙 목록의 한 줄로 보인다. 자리보다 넓은 것은 비활성. |
+| shell/workspace#Q13 | project 자리의 role model 줄을 비우는 단추 이름·자리(R37에 없음). | 추천대로 | 값을 고른 줄에만 "Use Workspace default". |
+| shell/workspace#Q14 | editor Model 칸이 composer의 model picker를 다시 쓰면 "Only this session" 설명이 틀린다. | 추천대로 | picker에 scope(session·definition)를 두고 정의용 설명을 쓴다(agent-I29). |
+| shell/desktop#Q20 | 알림의 [Ask <agent>]를 붙일지와 첫 context를 화면이 계기 표로 계산하나. | 추천대로 | core가 `platform/notifications/ask-agent.ts`로 계산해 알림 행에 `ask`(agent·role·첫 context)를 싣고 화면은 그 값만 그린다(agent-I18b). 표를 renderer에 두 벌 두지 않는다. |
+| shell/desktop#Q21 | Settings › Agents의 기본 권한 칸(R50)의 값 contract가 없다. | 추천대로 | platform/settings의 Workspace 설정에 `agent_permissions`(개별 동작 이름 목록)를 둔다. 화면은 그 contract가 생긴 뒤(별도 task). |
+| shell/desktop#Q22 | 전역 skill·MCP의 켜고 끄기 단위. | 추천대로 | 전역 등록 목록에서 skill 하나·MCP 서버 하나 단위로 켜고 끈다(lophn-agent/extensions의 ExtensionSettings). agent 정의의 `skills_off`·`mcp_off`와 따로다. |
+| shell/desktop#Q23 | 알림 chip(목록)에도 [Ask]를 두나. | 추천대로 | 두지 않는다. [Ask]는 toast와 알림 카드에만(R35). |
+| platform/notifications#Q6 | `ContextWatchedItemChanged`의 `ask_agent`가 null이라 계약 위반 → Context Engineer를 단언할 수 없다. | 추천대로 | CTX track과 합칠 때 그 행에 `context_engineer`와 계약 종류 첫 context를 채운다(W3). |
+| lophn-agent/extensions#Q9 | agent-runtime child의 `--allow-run`·`--allow-net`이 모든 자리 MCP 서버를 합친 목록이다. | 추천대로 | child가 하나라 합친다. 어느 자리에서 쓸지는 run 준비가 자리별로 고르고, 서버가 선언한 실행 파일·host:port만 더하며 와일드카드는 없다. |
+| lophn-agent/extensions#Q10 | 다른 자리에 같은 이름 MCP 서버가 있으면 OAuth begin이 어느 서버인지 모른다(입력에 자리가 없다). | 추천대로 | begin 입력에 자리(place)를 더한다(후속 작은 task). 그 전까지는 자리 id 순 첫 서버. |
+| lophn-agent/extensions#Q11 | MCP OAuth 로그인에서 사람이 browser에서 돌아오기를 얼마나 기다리나. 요구가 시한을 정하지 않는다. | 추천대로 | 5분(`MCP_AUTH_WAIT_MS`). 계정을 고르고 허락하는 데 충분하고, 닫힌 browser가 작업 메모리를 오래 잡지 않는다. 시한이 지나면 `callback_timeout`으로 실패하고 다시 시작할 수 있다. 사람은 `CancelMcpAuth`로 그 전에 그만둘 수 있다. |
+| lophn-agent/extensions#Q12 | MCP OAuth token을 platform `secrets` 표(SetSecret)에 둘까. SetSecret은 보호 입력의 app_secret만 받고 확인이 필요해 core 안에서 쓸 수 없다. | 추천대로 | 코딩 credential처럼 고정 위치 OS keychain 항목으로 둔다(서버마다 token 항목 둘과 meta 하나). 설정의 `token_ref`는 `sec:mcp-oauth:<자리>:<이름>`으로 이 보관을 가리킨다. platform에 machine이 쓰는 secret 보관 command가 생기면 그쪽으로 옮긴다(platform 소유자 검토). |
+| lophn-agent/extensions#Q13 | MCP OAuth 발급자 호출을 어느 프로세스가 보내나. core module graph에는 외부 fetch가 없고(platform/responsiveness#R1), 제품 core의 `--allow-net`은 loopback뿐이다. | 추천대로 | agent runtime이 보낸다(architecture: runtime `--allow-net`에 등록 OAuth 서버의 발급자). core가 요청을 대기열에 놓고 runtime의 pump가 machine route 둘(`TakeMcpAuthRequest`·`FinishMcpAuthRequest`)로 가져가 대신 보낸다. 갱신 token과 새 token이 loopback으로 runtime을 지나는 것은 받아들인다. |
+| lophn-agent/extensions#Q14 | MCP OAuth의 authorization·token endpoint를 어떻게 알아내나. | 추천대로 | 지금은 발급자 주소 뒤에 `/authorize`·`/token`을 붙이는 관례다(등록 정보에 endpoint가 없다). RFC 8414 발견은 그 관례로 안 되는 실제 서버를 만나면 더한다. client secret(`client_secret_ref`)도 같은 때 더한다(지금은 공개 client + PKCE). |
+| shell/design-system#Q7 | Avatar icon id 집합의 정본과 모르는 id의 대체 icon. | 추천대로 | design system이 icon 집합의 정본을 갖고, 모르는 id는 기본 agent icon으로 그린다(이니셜 아님). contract는 id 모양만 본다. |
 
 ### coding-agent (88)
 
@@ -739,7 +818,7 @@
 | redesign/propagate#Q4          | reproduction 없는 코드 수리의 ticket 준비와 보호된 사람 문제 확인을 어떻게 맞출까?                                              | 추천대로    | ticket 없는 direct repair는 금지; 보호된 사람 확인을 유지하되 ticket owner의 reproduction 조건을 별도 결정                                           |
 | redesign/propagate#Q7          | 새 앱의 [Start]는 source→project 연결을 요구하지만 source 연결은 첫 coding 작업에서 준비한다. 최초 연결을 어느 단계에서 만들까? | 추천대로    | 사람의 기존 project/source 연결이 있으면 Start; 없으면 추측 없이 준비 차단·직접 터미널 안내. sessions owner가 bootstrap 계약 확정                    |
 
-### shell (47)
+### shell (60)
 
 | id                           | 질문                                                                                                                        | 판정      | 결정                                                                                                                                                          |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -793,6 +872,19 @@
 | shell/workspace#Q5 | Context 탭 Glossary 하위 탭의 화면 모양. | 추천대로 | wireframe에 먼저 그린 뒤 정한다. |
 | shell/workspace#Q6 | Search 탭 결과의 page 크기. | 추천대로 | 25줄(R25). 입력은 16개·4 KiB까지(domain model). documents/contexts 검색 cursor page(30, 최대 100)와 맞출지는 spec 때 본다. |
 | ux#Q1                        | shell/wording이 en-only 시작과 message key를 요구하지만 key 이름 규칙, ICU MessageFormat, 날짜·숫자·상대 시각의 I…          | 추천대로  | A. 다음 요구를 shell/wording에 추가한다: "**[R16]** 화면 message key는 `<screen>.<part>.<name>` 패턴을 쓰고 en 문구는 ICU MessageFo…                          |
+| shell/desktop#Q4 | Lophn Workspace의 Roles 화면을 어떻게 하나. | 추천대로 | 지운다. 진행·멈춤은 Agent 탭 진행 chip·Stop, 만든 문서는 편집 카드, 검토는 tool 줄 펼침, 사용량은 Agent 탭 메뉴 Usage, Undo는 편집 카드로 가고 trace export는 지운다. 목록·설정은 Agents 탭과 Operator editor가 가져간다. |
+| shell/desktop#Q5 | things-to-confirm 화면은 어떻게 하나. | 이미 정함 | 보류(사람: "일단 이건 패스"). 화면과 `RequestCard`는 그대로 두고 Agent 탭의 질문·승인 카드는 새 component로 만든다. |
+| shell/desktop#Q6 | composer의 권한 칸에 무엇을 두나. | 추천대로 | 새 권한 모드를 만들지 않는다. 그 session의 실제 권한 요약(자리 권한 규칙 + 이 session에서 허락한 것)을 보이고 누르면 Agents 탭 권한으로 간다. |
+| shell/desktop#Q7 | tool 호출 줄·편집 카드·진행 chip의 데이터는 어디서 오나. | 추천대로 | 메시지 part를 늘리지 않고 run trace read에서 그린다. |
+| shell/desktop#Q8 | Agent 탭·Agents 탭·Settings › Agents 화면 code를 어디 두나. | 추천대로 | Agent 탭 본문은 `renderer/conversation/`을 옮기지 않고 그 안에 둔다. Agents 탭·Operator editor는 `renderer/workspace/agents/`(aggregator test 같이), Settings › Agents는 `renderer/desktop/lophn-space/settings/agents/`. code-map에 줄을 먼저 둔다. |
+| shell/app-frame#Q3 | 앱 공간에서 agent를 어떻게 부르나. | 다르게 정함 | 추천(project sidebar에서 App Engineer)은 앱을 project 안으로 잘못 본 것이었다. 사람이 정했다: 앱 공간도 project와 같은 agent component를 쓰고 lophn·App Engineer·그 앱의 Operator를 쓴다. lophn sidebar는 쓰지 않고 title bar window controls 옆 agent select로 부른다. Context Engineer는 project에만 둔다. |
+| shell/workspace#Q7 | Agents 탭에 project 권한 규칙 구역을 두나. Operator 권한 "project보다 넓힐 수 없음"이 가리키는 화면이 없다. | 추천대로 | Skills·MCP servers 다음에 Permissions 구역. 오래 가는 허락은 여기서만(platform/approvals#Q2). |
+| shell/workspace#Q8 | Operator를 지우는 단추 자리. | 추천대로 | Operator editor 맨 아래 [Delete Operator](휴지통) 하나, 확인 한 번. 지우기 = assignment withdraw + 정의 파일 삭제. |
+| shell/workspace#Q9 | Violations의 [Send to Context Engineer]와 Search 탭의 [Ask Context Engineer]도 "부르는 곳은 sidebar와 toast뿐"에 걸린다. | 추천대로 | 둘 다 지운다. 위반은 계약 위반 toast의 [Ask Context Engineer]로 넘기고, 그 session은 첫 context chip만으로 글 없이 보낼 수 있다(shell/desktop#R43). |
+| shell/desktop#Q9 | 일하는 중 보내는 말의 "현재 일 수정 / 다음 요청" 구분이 새 composer에서 어떻게 보이나. | 추천대로 | 일하는 중에만 send 옆에 작은 select(Change this work / Next request). |
+| shell/desktop#Q10 | 질문 묶음 카드는 사람 결정상 대화 안 카드인데 wireframe은 composer 위 dock이다. | 추천대로 | 대화 안 카드(R46), 답하면 접힌 요약으로 그 자리에 남는다. composer 위에 붙는 것은 승인 카드뿐. |
+| shell/desktop#Q11 | Fork가 복사할 "고른 지점"을 어디서 고르나. | 추천대로 | 내 메시지 hover의 "Fork from here"(그 메시지까지). header ⋯ 메뉴와 `/`의 Fork는 마지막 확정 메시지까지(shell/desktop#R48). |
+| shell/desktop#Q12 | header ⋯ 메뉴의 Close는 무엇을 닫나(사람이 session을 끝내는 길은 없다). | 추천대로 | Close tab — 탭·칸만 닫고 session은 남는다(shell/desktop#R38). |
 
 ### domain model 사이 (14)
 

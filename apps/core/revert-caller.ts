@@ -1,5 +1,5 @@
-// 앱 revert 호출 worker의 core 쪽 연결(lophn-agent#T48). 제품 core가 감독하는 상시 worker kind
-// `apps/revert`의 launch spec과, 사람의 `reverts/run_apps`가 단계마다 호출을 청하는 통로다.
+// 앱 revert 호출 worker의 core 쪽 연결(lophn-agent/revert). 제품 core가 감독하는 상시 worker kind
+// `apps/revert`의 launch spec과, 사람의 `RunAppRevert`가 단계마다 호출을 청하는 통로다.
 // worker의 실제 호출(`apps/connect` 연결과 앱 direct socket)은 apps/worker/apps/revert.ts가 하고,
 // core는 호출자의 credential을 요청에 실어 보내고 worker가 돌려준 결과를 받아 판정한다.
 // worker는 자기 machine credential이 없어 호출자 주장을 대신하지 않는다.
@@ -7,6 +7,8 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { type AppRevertBinding } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import type { AppStepResult } from "../../packages/lophn-agent/revert/mod.ts";
+import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
+import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";
 
 export const REVERT_WORKER_KIND = "apps/revert";
@@ -42,9 +44,6 @@ export function revertWorkerSpec(
   return checked.value;
 }
 
-import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
-import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
-
 // worker 응답을 호출 결과로 옮긴다. 어긋난 모양은 failure다.
 function shapeOf(value: unknown): Result<AppStepResult> {
   if (typeof value !== "object" || value === null) {
@@ -54,15 +53,14 @@ function shapeOf(value: unknown): Result<AppStepResult> {
   const result = record["result"];
   const invocation = record["invocation"];
   return ok({
-    result: result === "restored" || result === "conflict" ||
-        result === "uncertain"
+    result: result === "restored" || result === "uncertain"
       ? result
       : "failure",
     invocation: typeof invocation === "string" ? invocation : null,
-  } as AppStepResult);
+  });
 }
 
-// 사람의 run_apps가 단계마다 worker에게 호출을 청는 호출자다. 호출자의 credential을
+// 사람의 RunAppRevert가 단계마다 worker에게 호출을 청하는 호출자다. 호출자의 credential을
 // 요청에 싣는다(worker가 그 token으로 apps/connect를 다시 연다). credential이 없거나
 // worker에 닿지 못하면 failure다. core가 그 결과를 그대로 기록한다.
 export function workerAppCaller(options: {

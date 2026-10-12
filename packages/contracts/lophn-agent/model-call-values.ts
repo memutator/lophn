@@ -14,7 +14,6 @@ import {
   nonnegativeDecimalSchema,
   priceBasisOutputSchema,
   priceBasisSchema,
-  reasoningLevelSchema,
 } from "./resolved-model.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
@@ -33,9 +32,9 @@ export const MODEL_PURPOSES = [
   "judgment",
   "title_summary",
   "conversation_compression",
-  "connection_test",
 ] as const;
-export const ATTEMPT_KINDS = ["initial", "retry", "credential_change"] as const;
+// credential이 provider에 하나라 같은 provider·model의 다른 credential로 옮기는 시도는 없다.
+export const ATTEMPT_KINDS = ["initial", "retry"] as const;
 export const MODEL_OUTCOMES = [
   "complete",
   "partial",
@@ -56,20 +55,6 @@ export const BILLING_ROUTES = [
   "extra_usage",
   "unknown",
 ] as const;
-
-const presetRefFields = {
-  id: idSchema("pst"),
-  revision: positiveIntegerSchema,
-};
-export const modelCallPresetRefSchema = z.strictObject(presetRefFields);
-export const modelCallPresetRefOutputSchema = z.object(presetRefFields);
-
-const testRequestFields = {
-  command_key: nonblankSchema,
-  test_kind: z.enum(["text", "tool_call"]),
-};
-export const modelCallTestRequestSchema = z.strictObject(testRequestFields);
-export const modelCallTestRequestOutputSchema = z.object(testRequestFields);
 
 const tokenFields = {
   input: nonnegativeIntegerSchema.nullable(),
@@ -158,39 +143,35 @@ const limitFields = {
 export const callModelLimitsSchema = z.strictObject(limitFields);
 export const callModelLimitsOutputSchema = z.object(limitFields);
 
+// option 축 id마다 고른 값이다. requested는 agent가 고른 값이고 applied는 맞춤과 기본값을 채운 뒤 요청에
+// 실제로 실은 값이다. 둘이 다르면 맞춘 것이 기록에 남는다.
+const optionMapSchema = z.record(nonblankSchema, nonblankSchema);
+const callOptionValuesFields = {
+  requested: optionMapSchema,
+  applied: optionMapSchema,
+};
+export const callOptionValuesSchema = z.strictObject(callOptionValuesFields);
+export const callOptionValuesOutputSchema = z.object(callOptionValuesFields);
+
 const callModelFields = {
   provider: idSchema("pvd"),
   name: nonblankSchema,
   protocol: providerProtocolSchema,
-  credential_key: nonblankSchema.nullable(),
+  // 호출 때 고정한 provider의 credential 판. 인증 없음(custom provider의 loopback)만 null이다.
   credential_revision: positiveIntegerSchema.nullable(),
-  options: jsonObjectSchema,
-  requested_reasoning: reasoningLevelSchema.nullable(),
-  applied_reasoning: reasoningLevelSchema.nullable(),
+  option_values: callOptionValuesSchema,
   limits: callModelLimitsSchema,
   catalog_basis: jsonObjectSchema,
   price_basis: priceBasisSchema.nullable(),
   billing_route: z.enum(BILLING_ROUTES),
 };
 
-function callModelShape(value: {
-  credential_key: string | null;
-  credential_revision: number | null;
-}): boolean {
-  return (value.credential_key === null) ===
-    (value.credential_revision === null);
-}
-
-export const callModelSchema = z.strictObject(callModelFields).refine(
-  callModelShape,
-  { message: "credential key and revision must be recorded together" },
-);
+export const callModelSchema = z.strictObject(callModelFields);
 export const callModelOutputSchema = z.object({
   ...callModelFields,
+  option_values: callOptionValuesOutputSchema,
   limits: callModelLimitsOutputSchema,
   price_basis: priceBasisOutputSchema.nullable(),
-}).refine(callModelShape, {
-  message: "credential key and revision must be recorded together",
 });
 export type CallModel = z.infer<typeof callModelSchema>;
 
@@ -199,13 +180,11 @@ const modelCallFields = {
   run: idSchema("run").nullable(),
   session: idSchema("ses").nullable(),
   model_use: z.enum(MODEL_USE_KINDS).nullable(),
-  preset: modelCallPresetRefSchema.nullable(),
+  agent_hash: sha256Schema.nullable(),
   purpose: z.enum(MODEL_PURPOSES),
-  test_request: modelCallTestRequestSchema.nullable(),
   attempt_kind: z.enum(ATTEMPT_KINDS),
   attempt_order: positiveIntegerSchema,
   retry_of: idSchema("mcl").nullable(),
-  credential_change_of: idSchema("mcl").nullable(),
   model: callModelSchema,
   input: sha256Schema,
   context_basis: sha256Schema,
@@ -224,28 +203,24 @@ function modelCallShape(value: {
   run: string | null;
   session: string | null;
   model_use: string | null;
-  preset: unknown;
+  agent_hash: string | null;
   purpose: (typeof MODEL_PURPOSES)[number];
-  test_request: unknown;
   attempt_kind: (typeof ATTEMPT_KINDS)[number];
   retry_of: string | null;
-  credential_change_of: string | null;
   output: string | null;
   state: "started" | "finished";
   finished_at: string | null;
   outcome: { kind: (typeof MODEL_OUTCOMES)[number] } | null;
 }): boolean {
-  const test = value.purpose === "connection_test";
   const attached = value.run !== null && value.session !== null &&
-    value.model_use !== null && value.preset !== null &&
-    value.test_request === null;
-  const detached = value.run === null && value.model_use === null &&
-    value.preset === null && value.test_request !== null;
+    value.model_use !== null && value.agent_hash !== null;
+  // Compact의 요약 call은 run과 agent 대신 session을 가리킨다. run이 없는 session도 요약한다.
+  const summary = value.run === null && value.session !== null &&
+    value.model_use === "organizing" && value.agent_hash === null &&
+    value.purpose === "conversation_compression";
   const finished = value.state === "finished";
-  return (test ? detached : attached) &&
+  return (attached || summary) &&
     (value.attempt_kind === "retry") === (value.retry_of !== null) &&
-    (value.attempt_kind === "credential_change") ===
-      (value.credential_change_of !== null) &&
     finished === (value.finished_at !== null && value.outcome !== null) &&
     (value.output === null || finished) &&
     (value.outcome?.kind === "partial" ? value.output !== null : true);
@@ -253,8 +228,6 @@ function modelCallShape(value: {
 
 export const modelCallRecordSchema = z.object({
   ...modelCallFields,
-  preset: modelCallPresetRefOutputSchema.nullable(),
-  test_request: modelCallTestRequestOutputSchema.nullable(),
   model: callModelOutputSchema,
   outcome: modelOutcomeOutputSchema.nullable(),
   usage: tokenUsageOutputSchema,
@@ -263,5 +236,3 @@ export const modelCallRecordSchema = z.object({
   message: "model call purpose, attempt and outcome do not agree",
 });
 export type ModelCallRecord = z.infer<typeof modelCallRecordSchema>;
-
-export const MODEL_CALL_TEST_TIMEOUT_MS = 30_000;

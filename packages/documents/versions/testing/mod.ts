@@ -16,12 +16,6 @@ import {
   type TargetAuthorizer,
   type Tx,
 } from "../../../contracts/platform/mod.ts";
-import {
-  InstructionAttachments,
-  type InstructionAttachmentsLookup,
-  OperatorOutput,
-  type OperatorOutputLookup,
-} from "../../../contracts/lophn-agent/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../mod.ts";
 
@@ -46,19 +40,8 @@ function crockford(value: number): string {
   return out;
 }
 
-export function versionFixture(
-  authorize: TargetAuthorizer = allowAll,
-  instructionAttachments: InstructionAttachmentsLookup = {
-    attachments: () => ok([]),
-  },
-  operatorOutput: OperatorOutputLookup = {
-    output: () => ok(null),
-    isOperator: () => ok(false),
-  },
-) {
+export function versionFixture(authorize: TargetAuthorizer = allowAll) {
   const authorizer = { current: authorize };
-  const instructionAttachmentsImpl = { current: instructionAttachments };
-  const operatorOutputImpl = { current: operatorOutput };
   const directory = Deno.makeTempDirSync({ prefix: "versions-test-" });
   const db = new DatabaseSync(`${directory}/ledger.sqlite`);
   db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;");
@@ -135,12 +118,6 @@ export function versionFixture(
           if (Object.is(key, appRegistrationLookup)) return appLookup as T;
           if (Object.is(key, TargetAuthorization)) {
             return authorizer.current as T;
-          }
-          if (Object.is(key, InstructionAttachments)) {
-            return instructionAttachmentsImpl.current as T;
-          }
-          if (Object.is(key, OperatorOutput)) {
-            return operatorOutputImpl.current as T;
           }
           throw new Error("unregistered document port");
         },

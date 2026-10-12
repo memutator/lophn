@@ -1,50 +1,30 @@
 import { assert, assertEquals } from "@std/assert";
-import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { grantsList } from "../../packages/contracts/apps/mod.ts";
+import { ok } from "../../packages/base/mod.ts";
 import {
-  assignmentRead,
-  type CatalogEntry,
-  mcpServersSetting,
-  presetRead,
-  providerRead,
-  runRead,
+  type AgentDefinition,
   skillFoldersSetting,
+  skillsOffSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   routePath,
   settingsGet,
 } from "../../packages/contracts/platform/mod.ts";
-import { RUN_LIMIT_SETTING_KEYS } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import type { CatalogRefresherHandle } from "./catalog.ts";
 import type { CoreCall } from "./core-call.ts";
 import type { CoreCalls } from "./main.ts";
 import { productDriver } from "./product-driver.ts";
-import { discoverProductSkills } from "./skill-folders.ts";
-
-const SUFFIX = "01arz3ndektsv4rrffq69g5fav";
-const RUN = `run_${SUFFIX}`;
-const ASG = `asg_${SUFFIX}`;
-const PST = `pst_${SUFFIX}`;
-const PVD = `pvd_${SUFFIX}`;
-const MSG = `msg_${SUFFIX}`;
-const HASH = "ab".repeat(32);
-const AT = "2026-10-05T00:00:00.000Z";
-
-function readMeta() {
-  return { as_of_seq: "1", next_cursor: null };
-}
-
-function setting(key: string, value: unknown, resolved: boolean) {
-  return {
-    key,
-    resolved,
-    value: resolved ? value : null,
-    source_layer: resolved ? "common" as const : null,
-    choices: [],
-    revision: 1,
-    apply_at: "next_run" as const,
-  };
-}
+import { discoverProductSkills, productSkillStores } from "./skill-folders.ts";
+import {
+  APP,
+  ASG,
+  HASH,
+  MODEL,
+  openWorld,
+  OTHER_PRJ,
+  PRJ,
+  RUN,
+  SES,
+  type WorldOptions,
+} from "./testing/world.ts";
 
 Deno.test("extensions#R1: 등록 폴더의 유효한 SKILL.md만 run context skills에 남고 잘못된 이름은 빠진다", async () => {
   const home = await Deno.makeTempDir({ prefix: "lophn-skill-scan-" });
@@ -78,6 +58,7 @@ Deno.test("extensions#R1: 등록 폴더의 유효한 SKILL.md만 run context ski
       run: RUN,
       assignment: ASG,
       stateSeq: "1",
+      session: SES,
       reason: "priority",
     });
     assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
@@ -168,7 +149,7 @@ Deno.test("extensions#R1 extensions#R3: 등록 폴더, 개인 보관소, 동봉 
   }
 });
 
-Deno.test("extensions#R1 extensions#R4: 제품 run은 data root의 개인 보관소를 찾고 preset이 고른 정확한 이름만 선택으로 싣는다", async () => {
+Deno.test("extensions#R1 extensions#R4 lophn-agent/agents#R18: 제품 run은 data root의 개인 보관소를 찾고 agent 정의가 끄지 않은 skill만 선택으로 싣는다", async () => {
   const home = await Deno.makeTempDir({ prefix: "lophn-skill-personal-" });
   const previous = Deno.env.get("LOPHN_HOME");
   try {
@@ -176,12 +157,16 @@ Deno.test("extensions#R1 extensions#R4: 제품 run은 data root의 개인 보관
     await writeSkill(`${home}/skills`, "other-notes", "Not chosen");
     Deno.env.set("LOPHN_HOME", home);
     const driver = productDriver()(
-      fakeCalls(`${home}/registered`, ["personal-notes"]),
+      fakeCalls(`${home}/registered`, {
+        skills_off: ["other-notes"],
+        body: "",
+      }),
     );
     const prepared = await driver.prepare({
       run: RUN,
       assignment: ASG,
       stateSeq: "1",
+      session: SES,
       reason: "priority",
     });
     assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
@@ -202,218 +187,243 @@ Deno.test("extensions#R1 extensions#R4: 제품 run은 data root의 개인 보관
   }
 });
 
-function fakeCalls(root: string, skills: readonly string[] = []): CoreCalls {
-  const machine: CoreCall = (path, body) => {
-    if (path === routePath(runRead)) return reply(runRead.output, runRecord());
-    if (path === routePath(assignmentRead)) {
-      return reply(assignmentRead.output, assignmentRecord());
-    }
-    if (path === routePath(presetRead)) {
-      return reply(presetRead.output, presetRecord(skills));
-    }
-    if (path === routePath(providerRead)) {
-      return reply(providerRead.output, providerRecord());
-    }
-    if (path === routePath(grantsList)) {
-      return reply(grantsList.output, { grants: [], ...readMeta() });
-    }
-    if (path === routePath(settingsGet)) {
-      const keys = (body as { keys?: readonly string[] }).keys ?? [];
-      return reply(settingsGet.output, settingsRecord(root, keys));
-    }
-    return Promise.resolve(
-      err({ code: "not_found", message: `no fixture for ${path}` }),
+Deno.test("extensions#R1 extensions#R33 [agent-I19b]: 자리 skill 폴더가 등록 폴더보다 먼저고 같은 이름은 자리의 것을 쓰며 자리 밖 폴더는 찾지 않는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-place-" });
+  const registered = `${home}/registered`;
+  const personal = `${home}/data/skills`;
+  const place = `${home}/data/projects/${PRJ}/skills`;
+  try {
+    await writeSkill(place, "review-notes", "Place review notes");
+    await writeSkill(place, "phroner-style", "Only this project");
+    await writeSkill(registered, "review-notes", "Registered review notes");
+    await writeSkill(registered, "audit", "Registered audit");
+    await writeSkill(personal, "personal-notes", "Personal notes");
+    // 다른 project의 skill 폴더는 이 자리의 stores에 없으므로 찾지 않는다.
+    await writeSkill(
+      `${home}/data/projects/${OTHER_PRJ}/skills`,
+      "other-project",
+      "Another project",
     );
-  };
-  const entry: CatalogEntry = {
-    provider_definition: "local",
-    model_name: "gpt",
-    context_limit: 128000,
-    input_limit: 120000,
-    output_limit: 8000,
-    supports_tools: true,
-    input_media: ["text"],
-    output_media: ["text"],
-    reasoning: {
-      mode: "named",
-      levels: ["low", "high"],
-      minimum_budget: null,
-      maximum_budget: null,
-      default_level: "low",
-    },
-    preview: false,
-    deprecated: null,
-    source: "models_dev",
-    source_revision: "2026-10",
-    checked_at: AT,
-    received_at: AT,
-    price_basis: null,
-  };
-  const store = {
-    entries: [entry],
-    state: {
-      auto_update: false,
-      etag: null,
-      last_checked_at: null,
-      last_received_at: null,
-      last_failure: null,
-      snapshot_hash: HASH,
-    },
-  };
-  const catalog: CatalogRefresherHandle = {
-    load: () => Promise.resolve(ok(store)),
-    kickAutoUpdate() {},
-    refreshNow: () => Promise.resolve(ok(store)),
-  };
-  return {
-    machine,
-    agentCall: () => () =>
-      Promise.resolve(err({ code: "unavailable", message: "no agent call" })),
-    blobs: {
-      prepare: (_purpose, bytes) =>
-        Promise.resolve(ok({ hash: HASH, size_bytes: bytes.length })),
-    },
-    redact: (text) => Promise.resolve(text),
-    catalog,
-  };
-}
 
-function reply(
-  schema: {
-    safeParse(
-      value: unknown,
-    ): { success: boolean; error?: { message: string } };
-  },
-  value: unknown,
-): Promise<Result<unknown>> {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) {
-    return Promise.resolve(err({
-      code: "internal",
-      message: parsed.error?.message ?? "fixture does not match",
-    }));
+    const found = await discoverProductSkills(
+      fakeCalls(registered).machine,
+      { place, personal, bundled: null },
+    );
+    assert(found !== null);
+    assertEquals(
+      found.entries.map((entry) => [entry.name, entry.source_kind]),
+      [
+        ["phroner-style", "place"],
+        ["review-notes", "place"],
+        ["audit", "registered"],
+        ["personal-notes", "personal"],
+      ],
+    );
+    assertEquals(found.entries[1].description, "Place review notes");
+    assertEquals(
+      found.shadowing.map((each) => [each.name, each.dropped_bundle]),
+      [["review-notes", `${registered}/review-notes`]],
+    );
+
+    // 아직 만들지 않은 자리 폴더는 그 출처가 비어 있을 뿐 제외 진단이 아니다.
+    const empty = await discoverProductSkills(
+      fakeCalls(registered).machine,
+      { place: `${home}/data/projects/none/skills`, personal, bundled: null },
+    );
+    assert(empty !== null);
+    assertEquals(empty.skipped, []);
+    assertEquals(empty.entries.map((entry) => entry.name), [
+      "audit",
+      "review-notes",
+      "personal-notes",
+    ]);
+  } finally {
+    await Deno.remove(home, { recursive: true });
   }
-  return Promise.resolve(ok(value));
-}
+});
 
-function settingsRecord(root: string, keys: readonly string[]) {
-  const values = new Map<string, unknown>([
-    [skillFoldersSetting.key, [root]],
-    [mcpServersSetting.key, []],
-    [RUN_LIMIT_SETTING_KEYS.model_attempts, 30],
-    [RUN_LIMIT_SETTING_KEYS.stall_ms, 300_000],
-    [RUN_LIMIT_SETTING_KEYS.active_ms, 1_800_000],
-  ]);
-  return {
-    settings: keys.map((key) =>
-      setting(key, values.get(key) ?? null, values.has(key))
-    ),
-    revision: 1,
-    defaults_revision: "defaults-1",
-    ...readMeta(),
-  };
-}
+Deno.test("extensions#R32 [agent-I19b]: 자리의 skill 폴더는 data root 아래 그 자리의 폴더이고 자리가 없으면 없다", () => {
+  const previous = Deno.env.get("LOPHN_HOME");
+  try {
+    Deno.env.set("LOPHN_HOME", "/data/home/");
+    assertEquals(
+      productSkillStores({ kind: "project", id: PRJ }).place,
+      `/data/home/projects/${PRJ}/skills`,
+    );
+    assertEquals(
+      productSkillStores({ kind: "app", id: APP }).place,
+      `/data/home/apps/${APP}/skills`,
+    );
+    assertEquals(productSkillStores(null).place, null);
+  } finally {
+    if (previous === undefined) Deno.env.delete("LOPHN_HOME");
+    else Deno.env.set("LOPHN_HOME", previous);
+  }
+});
 
-function runRecord() {
-  return {
-    run: {
-      id: RUN,
+type PreparedWorld = {
+  names: [string, boolean][];
+};
+
+// LOPHN_HOME 아래에 자리 skill을 놓고 run을 준비해 run context가 싣는 skill 목록을 본다.
+async function skillsOfRun(
+  home: string,
+  options: WorldOptions,
+): Promise<PreparedWorld> {
+  const previous = Deno.env.get("LOPHN_HOME");
+  try {
+    Deno.env.set("LOPHN_HOME", home);
+    const world = openWorld({
+      workspaceModels: { lophn: MODEL(), operator: MODEL() },
+      ...options,
+    });
+    const prepared = await productDriver()(world.calls).prepare({
+      run: RUN,
       assignment: ASG,
-      session: null,
-      source: { kind: "message", message: MSG },
-      continued_from: null,
-      start_after: null,
-      start_confirmed_seq: null,
-      state: "accepted",
-      basis: null,
-      waiting_on: null,
-      started_at: null,
-      limits: { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 },
-      elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
-      finished_at: null,
-      outcome: null,
-      result: null,
-      state_seq: "1",
-      accepted_seq: "1",
-    },
-    ...readMeta(),
+      stateSeq: "1",
+      session: options.session === null ? null : SES,
+      reason: "priority",
+    });
+    assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+    const loop = prepared.value.loop(
+      { run: RUN, assignment: ASG, token: "token", credential_ref: "cred" },
+      { run: RUN, state_seq: "1", basis: HASH },
+    );
+    const context = await loop.deps.ports.context();
+    assert(context.ok, context.ok ? "" : JSON.stringify(context.error));
+    return {
+      names: context.value.skills.map((
+        skill,
+      ) => [skill.name, skill.selected]),
+    };
+  } finally {
+    if (previous === undefined) Deno.env.delete("LOPHN_HOME");
+    else Deno.env.set("LOPHN_HOME", previous);
+  }
+}
+
+Deno.test("extensions#R32 extensions#R4 lophn-agent/agents#R18 [agent-I19b]: 한 자리에서 여는 agent는 그 자리의 skill만 더 받고 agent 정의가 끈 것은 꺼진 채 싣는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-run-place-" });
+  try {
+    await writeSkill(`${home}/skills`, "personal-notes", "Personal");
+    await writeSkill(`${home}/projects/${PRJ}/skills`, "here-only", "Here");
+    await writeSkill(`${home}/projects/${PRJ}/skills`, "turn-off", "Off");
+    await writeSkill(
+      `${home}/projects/${OTHER_PRJ}/skills`,
+      "there-only",
+      "There",
+    );
+    await writeSkill(`${home}/apps/${APP}/skills`, "app-only", "App");
+
+    // project 자리의 session: 그 자리의 skill과 전역의 skill이다.
+    const inProject = await skillsOfRun(home, {
+      session: { kind: "project", id: PRJ },
+      definition: { skills_off: ["turn-off"], body: "" },
+    });
+    assertEquals(inProject.names, [
+      ["here-only", true],
+      ["turn-off", false],
+      ["personal-notes", true],
+    ]);
+
+    // 다른 project와 앱에서 여는 같은 built-in agent는 이 자리의 skill을 받지 않는다.
+    const inOther = await skillsOfRun(home, {
+      session: { kind: "project", id: OTHER_PRJ },
+    });
+    assertEquals(inOther.names, [
+      ["there-only", true],
+      ["personal-notes", true],
+    ]);
+    const inApp = await skillsOfRun(home, {
+      session: { kind: "app", id: APP },
+    });
+    assertEquals(inApp.names, [
+      ["app-only", true],
+      ["personal-notes", true],
+    ]);
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+function fakeCalls(
+  root: string,
+  definition: AgentDefinition | null = null,
+): CoreCalls {
+  return openWorld({
+    skillRoot: root,
+    definition,
+    workspaceModels: { lophn: MODEL() },
+  }).calls;
+}
+
+// 설정 두 줄만 답하는 machine 호출이다. 값이 없는 key는 설정하지 않은 것(resolved false)으로 답한다.
+function machineWithSettings(values: Record<string, unknown>): CoreCall {
+  return (path, body) => {
+    assertEquals(path, routePath(settingsGet));
+    const keys = (body as { keys: string[] }).keys;
+    return Promise.resolve(ok({
+      settings: keys.map((key) => ({
+        key,
+        resolved: key in values,
+        value: values[key] ?? null,
+        source_layer: key in values ? "common" : null,
+        choices: [],
+        revision: 1,
+        apply_at: "next_run",
+      })),
+      revision: 1,
+      defaults_revision: "defaults-1",
+      as_of_seq: "1",
+      next_cursor: null,
+    }));
   };
 }
 
-function assignmentRecord() {
-  return {
-    assignment: {
-      id: ASG,
-      role: "lophn",
-      preset: PST,
-      preset_revision: 1,
-      scope: { kind: "all", id: null },
-      outputs: [],
-      read_apps: [],
-      read_commands: [],
-      schedule: null,
-      approval: null,
-      state: "enabled",
-      pause_reason: null,
-      last_due_at: null,
-      revision: 1,
-    },
-    ...readMeta(),
-  };
-}
-
-function presetRecord(skills: readonly string[]) {
-  return {
-    preset: {
-      id: PST,
-      revision: 1,
-      definition_hash: HASH,
-      definition: {
-        kind: "lophn",
-        name: "lophn",
-        origin: "product",
-        prompt: HASH,
-        capability: { bundles: [], tools: [] },
-        context: [],
-        mcp: { servers: [], tools: [] },
-        safe_tools: [],
-        skills,
-        model: {
-          provider: PVD,
-          credentials: [],
-          model_name: "gpt",
-          reasoning_level: "low",
-          options: {},
-        },
-        organizing_model: null,
-        instructions: [],
-      },
-    },
-    ...readMeta(),
-  };
-}
-
-function providerRecord() {
-  return {
-    provider: {
-      id: PVD,
-      name: "Local",
-      definition: {
-        key: "local",
-        display_name: "Local",
-        protocols: ["openai-responses"],
-        auth_kinds: ["none"],
-        models_endpoint: null,
-        oauth: null,
-        revision: "2026-10",
-      },
-      endpoint: "http://127.0.0.1:9",
-      protocol: "openai-responses",
-      enabled: true,
-      credentials: [],
-      last_check: null,
-      revision: 1,
-    },
-    ...readMeta(),
-  };
-}
+Deno.test("extensions#R4 shell/desktop#Q22 [agent-I49]: 전역에서 끈 skill은 run이 발견하는 목록에서 빠지고 자리 층의 같은 이름은 남는다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-skill-global-off-" });
+  const registered = `${home}/registered`;
+  const personal = `${home}/data/skills`;
+  const bundled = `${home}/install/assets/skills`;
+  const place = `${home}/data/projects/${PRJ}/skills`;
+  try {
+    await writeSkill(registered, "team-style", "Registered");
+    await writeSkill(registered, "audit", "Registered audit");
+    await writeSkill(personal, "personal-notes", "Personal");
+    await writeSkill(bundled, "bundled-help", "Bundled");
+    await writeSkill(place, "audit", "Place audit");
+    const machine = machineWithSettings({
+      [skillFoldersSetting.key]: [registered],
+      [skillsOffSetting.key]: ["team-style", "bundled-help", "audit", "gone"],
+    });
+    const found = await discoverProductSkills(machine, {
+      place,
+      personal,
+      bundled,
+    });
+    assert(found !== null);
+    assertEquals(
+      found.entries.map((entry) => [entry.name, entry.source_kind]),
+      [["audit", "place"], ["personal-notes", "personal"]],
+    );
+    // 끈 설정이 없거나 비어 있으면 아무것도 가리지 않는다.
+    for (
+      const values of [
+        { [skillFoldersSetting.key]: [registered] },
+        { [skillFoldersSetting.key]: [registered], [skillsOffSetting.key]: [] },
+      ]
+    ) {
+      const all = await discoverProductSkills(machineWithSettings(values), {
+        personal,
+        bundled,
+      });
+      assert(all !== null);
+      assertEquals(
+        all.entries.map((entry) => entry.name),
+        ["audit", "team-style", "personal-notes", "bundled-help"],
+      );
+    }
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});

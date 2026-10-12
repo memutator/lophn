@@ -50,18 +50,23 @@ import type {
   EditorDeps,
 } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
-import type { ContextsSlice, TabHost } from "./kinds/host.ts";
+import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type {
+  AgentsSlice,
+  AgentViewSlice,
+  ContextsSlice,
+  TabHost,
+} from "./kinds/host.ts";
 import type { RailAction } from "./contexts/shortcut-rail.tsx";
-import {
-  contextEngineerSource,
-  startContextEngineerSession,
-} from "./contexts/context-engineer-conversation.ts";
 import { useContextWatch } from "./contexts/context-watch.ts";
 import { contextStamp } from "./contexts/use-context-read.ts";
 import { DocumentContexts } from "./contexts/document-contexts.tsx";
 import { settleContextTabs } from "./contexts/settle-tabs.ts";
+import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { ViolationToast } from "./contexts/violation-toast.tsx";
 import { openContext } from "./kinds/context.tsx";
+import { openAgent, type OpenAgentInput } from "./kinds/agent.tsx";
+import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf, tabKinds } from "./kinds/registry.ts";
@@ -71,24 +76,31 @@ import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { TrackingStrip } from "./tracking/tracking.tsx";
 import type { TrackingSource } from "./tracking/source.ts";
-import { OperatorEntry, type OperatorEntrySource } from "./operator-entry.tsx";
 import { NoticeCard } from "./notice-card.tsx";
-import {
-  DockSlot,
-  DockToggle,
-  useConversation,
-} from "../conversation/dock-slot.tsx";
-import {
-  DOCK_WIDTH,
-  dockPlacement,
-  infoPanelShown,
-} from "../conversation/model.ts";
+import { useConversation } from "../conversation/window-deps.tsx";
+import { DraftStore } from "../conversation/drafts.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import {
   createViewCovers,
   ViewCoversProvider,
 } from "../app-frame/embedded-view.tsx";
+import { agentOf } from "./agent/tab-fields.ts";
+import type { SidebarAgent } from "./sidebar/agents-section.tsx";
 import styles from "./workspace.module.css";
+
+/** Context Engineer의 Agent 탭이 열려 있는지. [New context] 뒤 만드는 중인 context를 빨리 읽을 때를 안다. */
+function engineerTabOpen(
+  view: WorkspaceView,
+  agents: readonly SidebarAgent[],
+): boolean {
+  const engineer = agents.find((agent) => agent.role === "context_engineer");
+  return engineer !== undefined &&
+    view.panes.some((pane) =>
+      pane.tabs.some((tab) =>
+        tab.kind === "agent" && agentOf(tab) === engineer.assignment
+      )
+    );
+}
 
 export interface WorkspaceProps {
   projectId: string;
@@ -103,20 +115,23 @@ export interface WorkspaceProps {
   onLophn: () => void;
   /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
   onThingsToConfirm?: () => void;
+  /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
+  onProjectInstructions?: () => void;
   /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
   terminal?: TerminalDeps;
   /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
   tracking?: TrackingSource;
-  /** 이 프로젝트에 붙은 Operator를 읽는 통로. 없으면 Operator 안내 줄을 두지 않는다. */
-  operators?: OperatorEntrySource;
-  /** roles 화면에서 이 프로젝트에 Operator를 붙이는 화면을 연다. */
-  onAttachOperator?: (project: string) => void;
-  /** roles 화면에서 붙은 Operator 하나를 연다. */
-  onOpenOperator?: (operator: string) => void;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
+  /**
+   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수(shell/workspace#R33, shell/desktop#R37). 없으면
+   * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
+   * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
+   * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
+   */
+  agentViewSource?: AgentViewSourceFactory;
   /** context 목록을 다시 읽고 toast가 닫히는 시간을 재는 timer. 시험이 시간을 세우려고 준다. */
   timer?: Timer & Clock;
 }
@@ -153,17 +168,20 @@ export function Workspace(props: WorkspaceProps) {
     onLauncher,
     onLophn,
     onThingsToConfirm,
+    onProjectInstructions,
     terminal,
     editor,
     tracking,
-    operators,
-    onAttachOperator,
-    onOpenOperator,
     timer,
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const contextsSource = source.contextsSource;
-  // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
+  // Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
+  const agentsSource = source.agentsSource;
+  const sidebarAgents = useSidebarAgents(agentsSource, projectId);
+  // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
+  const agentViewSource = props.agentViewSource;
+  // 앱 패널 view와 본문을 덮는 패널(정보 패널)이 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
@@ -174,18 +192,14 @@ export function Workspace(props: WorkspaceProps) {
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  // 떠 있는 안내(추적 꺼짐·Operator·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
+  // 떠 있는 안내(추적 꺼짐·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
-  const hasNotices = loaded.failed || tracking !== undefined ||
-    (operators !== undefined && onAttachOperator !== undefined &&
-      onOpenOperator !== undefined);
+  const hasNotices = loaded.failed || tracking !== undefined;
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
-  // 대화 도크. 정보 패널 자리를 임시로 쓰고 닫으면 정보 패널이 돌아온다(desktop#R2, R29).
   const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(
-    conversation?.startOpen === true,
-  );
+  // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
+  const localDrafts = useMemo(() => new DraftStore(), []);
   // 위반이 늘어 알리는 toast. context마다 하나이고 닫거나 [View]를 누르면 빠진다(workspace#R29).
   const [toasts, setToasts] = useState<
     readonly { context: string; title: string; count: number }[]
@@ -193,10 +207,6 @@ export function Workspace(props: WorkspaceProps) {
   // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시(workspace#R30).
   const expectDraft = useRef(false);
   const [expectingDraft, setExpectingDraft] = useState(false);
-  // 도크가 누구와 말하는지. [New context]와 [Ask Context Engineer]는 Context Engineer다(R30).
-  const [dockRole, setDockRole] = useState<"lophn" | "context_engineer">(
-    "lophn",
-  );
   const leaveDraft = useRef<(context: string, title: string) => void>(() => {});
   const watch = useContextWatch(
     contextsSource,
@@ -215,7 +225,7 @@ export function Workspace(props: WorkspaceProps) {
       },
     },
     timer,
-    expectingDraft && dockOpen && dockRole === "context_engineer",
+    expectingDraft && engineerTabOpen(view, sidebarAgents.agents),
   );
   // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
   const [tabMeta, setTabMeta] = useState<
@@ -307,16 +317,12 @@ export function Workspace(props: WorkspaceProps) {
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
-  const dock = dockPlacement(dockOpen && conversation !== null, contentWidth);
-  const infoShown = infoPanelShown(infoOpen, dock);
   const infoPlacement = infoPanelPlacement(
-    infoShown,
+    infoOpen,
     contentWidth,
     view.panes.length,
   );
-  const panesWidth = dock === "docked"
-    ? contentWidth - DOCK_WIDTH
-    : infoPlacement === "docked"
+  const panesWidth = infoPlacement === "docked"
     ? contentWidth - INFO_PANEL_WIDTH
     : contentWidth;
 
@@ -521,7 +527,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // CommandOrControl+Alt+B는 정보 패널을 여닫는다(editor#R6).
   const toggleInfo = useRef(() => {});
-  toggleInfo.current = () => setInfo(!infoShown, infoTab);
+  toggleInfo.current = () => setInfo(!infoOpen, infoTab);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
@@ -535,39 +541,9 @@ export function Workspace(props: WorkspaceProps) {
   }, []);
 
   const setInfo = (open: boolean, tab: InfoTab) => {
-    // 정보 패널을 사람이 열면 그 자리를 쓰던 도크는 닫힌다. 둘을 쌓지 않는다(desktop#R29).
-    if (open) setDockOpen(false);
     setInfoOpen(open);
     setInfoTab(tab);
     persist(view, { open, tab });
-  };
-
-  // 대화를 연다. Agent 탭은 다른 일이 맡고 지금은 오늘의 대화 도크가 들어가는 길이다(workspace#R33).
-  const openConversation = () => {
-    if (conversation === null) return;
-    setDockRole("lophn");
-    setDockOpen(true);
-  };
-
-  // Context Engineer와의 대화를 연다. 새 context를 시작하면 이 프로젝트를 작업 자리로 하는 새 세션을
-  // 먼저 열어 고른다(workspace#R30). 세션을 못 열어도 대화는 열려 그 이유를 대화 화면이 보인다.
-  const engineerSource = useMemo(
-    () =>
-      conversation === null ? null : contextEngineerSource(conversation.source),
-    [conversation],
-  );
-  const openEngineer = async (fresh: boolean) => {
-    if (conversation === null || engineerSource === null) return;
-    if (fresh) {
-      await startContextEngineerSession(
-        engineerSource,
-        conversation.drafts,
-        projectId,
-        conversation.now ?? Date.now,
-      );
-    }
-    setDockRole("context_engineer");
-    setDockOpen(true);
   };
 
   // 검색 결과·Overview 예시의 도메인 객체는 그 문서 탭으로 간다(workspace#R26). 경로는 등록 폴더
@@ -577,6 +553,17 @@ export function Workspace(props: WorkspaceProps) {
       loaded.files.find((item) => item.path.endsWith(`/${path}`));
     if (file === undefined) return;
     openDocumentTab(host, { id: file.document, title: file.title });
+  };
+
+  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
+  const openRole = (
+    role: SidebarAgent["role"],
+    extra: Pick<OpenAgentInput, "chips" | "hint"> = {},
+  ): boolean => {
+    const row = sidebarAgents.agents.find((agent) => agent.role === role);
+    if (agentViewSource === undefined || row === undefined) return false;
+    openAgent(host, { assignment: row.assignment, name: row.name, ...extra });
+    return true;
   };
 
   const contexts: ContextsSlice | null = contextsSource === undefined ? null : {
@@ -589,12 +576,52 @@ export function Workspace(props: WorkspaceProps) {
     },
     openPath,
     openSearch: (state) => openSearchFor(host, state),
-    askContextEngineer: () => void openEngineer(false),
-    newContext: () => {
-      expectDraft.current = true;
-      setExpectingDraft(true);
-      void openEngineer(true);
+    askContextEngineer: () => {
+      openRole("context_engineer");
     },
+    newContext: () => {
+      // 첫 안내를 입력칸에 싣고, 대화가 context를 만들기 시작하면 그 탭을 남긴다(R30).
+      const opened = openRole("context_engineer", {
+        hint: t("conversation.placeholder.new-context"),
+      });
+      if (opened) {
+        expectDraft.current = true;
+        setExpectingDraft(true);
+      }
+    },
+  };
+
+  const agentView: AgentViewSlice | null = agentViewSource === undefined
+    ? null
+    : {
+      factory: agentViewSource,
+      drafts: conversation?.drafts ?? localDrafts,
+      ...(conversation?.ticks === undefined
+        ? {}
+        : { ticks: conversation.ticks }),
+      ...(conversation?.now === undefined ? {} : { now: conversation.now }),
+      openResult: (id) => {
+        const row = loaded.documents.find((item) => item.id === id);
+        openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
+      },
+      ...(contextsSource === undefined ? {} : {
+        contexts: {
+          open: (id: string) => openContext(host, id),
+          titleOf: (id: string) =>
+            watch.list.find((item) => item.id === id)?.title,
+        },
+      }),
+      openSettings: onLophn,
+      ...(conversation?.onSettings === undefined
+        ? {}
+        : { openConnections: conversation.onSettings }),
+    };
+
+  const agents: AgentsSlice | null = agentsSource === undefined ? null : {
+    source: agentsSource,
+    changed: sidebarAgents.reload,
+    editInstructions: () => onProjectInstructions?.(),
+    openLophn: onLophn,
   };
 
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다(workspace#R14). 본문·열기·닫기 확인·열기 단추는
@@ -610,8 +637,8 @@ export function Workspace(props: WorkspaceProps) {
     removeTab,
     document: {
       rows: loaded.documents,
-      infoShown,
-      toggleInfo: () => setInfo(!infoShown, infoTab),
+      infoShown: infoOpen,
+      toggleInfo: () => setInfo(!infoOpen, infoTab),
       fileName: (id) => tabMeta[id]?.fileName,
       compareOf: (id) => compares[id] ?? null,
       showCompare,
@@ -622,6 +649,8 @@ export function Workspace(props: WorkspaceProps) {
     },
     appPanel: { noteSession },
     contexts,
+    agents,
+    agentView,
   };
   leaveDraft.current = (context, title) =>
     openContext(host, context, "overview", title);
@@ -666,7 +695,7 @@ export function Workspace(props: WorkspaceProps) {
   // 접힌 sidebar의 바로 가기 rail(workspace#R32). 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
-    else if (action === "agent") openConversation();
+    else if (action === "agent") openRole("lophn");
     else if (contexts === null) return;
     else if (action === "contexts") openContexts(host);
     else openSearchShortcut(host);
@@ -704,6 +733,12 @@ export function Workspace(props: WorkspaceProps) {
     })
   );
 
+  // [Ask]는 Agent 탭이 열 수 있고 Context Engineer가 이 project에 있을 때만 단추가 된다.
+  const engineerName = agentViewSource === undefined
+    ? undefined
+    : sidebarAgents.agents.find((agent) => agent.role === "context_engineer")
+      ?.name;
+
   return (
     <ViewCoversProvider value={covers}>
       <div className={styles.workspace} data-space="project" ref={frameRef}>
@@ -724,6 +759,19 @@ export function Workspace(props: WorkspaceProps) {
           onOpenContexts={contexts === null
             ? undefined
             : () => openContexts(host)}
+          agents={agents === null ? undefined : {
+            agents: sidebarAgents.agents,
+            // 줄을 누르면 그 agent의 Agent 탭이 열린다(R34). 통로가 없으면 열 탭이 없다.
+            onOpenAgent: (assignment) => {
+              const row = sidebarAgents.agents.find((agent) =>
+                agent.assignment === assignment
+              );
+              if (row !== undefined) {
+                openAgent(host, { assignment, name: row.name });
+              }
+            },
+            onManage: () => openAgents(host),
+          }}
           onRail={onRail}
           onResizeStart={(event) => {
             const start = sidebar.chosenWidth;
@@ -774,17 +822,6 @@ export function Workspace(props: WorkspaceProps) {
                     )
                     : null}
                   <PaletteButton />
-                  {conversation
-                    ? (
-                      <DockToggle
-                        open={dockOpen}
-                        onToggle={() => {
-                          if (!dockOpen) setDockRole("lophn");
-                          setDockOpen(!dockOpen);
-                        }}
-                      />
-                    )
-                    : null}
                   <LophnEntry onLophn={onLophn} />
                 </span>
               }
@@ -815,25 +852,14 @@ export function Workspace(props: WorkspaceProps) {
                       />
                     )
                     : null}
-                  {operators && onAttachOperator && onOpenOperator
-                    ? (
-                      <OperatorEntry
-                        project={projectId}
-                        source={operators}
-                        onAttach={onAttachOperator}
-                        onOpen={onOpenOperator}
-                        onDismiss={hideNotices}
-                      />
-                    )
-                    : null}
                 </div>
               )}
             <Panes
               view={view}
               bodyWidth={panesWidth}
               windowWidth={measuredWindow}
-              infoOpen={infoShown}
-              onToggleInfo={() => setInfo(!infoShown, infoTab)}
+              infoOpen={infoOpen}
+              onToggleInfo={() => setInfo(!infoOpen, infoTab)}
               onSelect={(pane, key) =>
                 update({
                   ...view,
@@ -895,6 +921,20 @@ export function Workspace(props: WorkspaceProps) {
                       title={toast.title}
                       count={toast.count}
                       timer={timer}
+                      ask={engineerName === undefined ? undefined : {
+                        agentName: engineerName,
+                        // 위반된 context가 첫 chip으로 붙은 새 Agent 탭을 연다. 보내는 것은 없다(desktop#R35).
+                        onAsk: () => {
+                          openRole("context_engineer", {
+                            chips: [{ id: toast.context, label: toast.title }],
+                          });
+                          setToasts((current) =>
+                            current.filter((item) =>
+                              item.context !== toast.context
+                            )
+                          );
+                        },
+                      }}
                       onView={() => {
                         openContext(host, toast.context, "violations");
                         setToasts((current) =>
@@ -914,26 +954,6 @@ export function Workspace(props: WorkspaceProps) {
                 </div>
               )
               : null}
-            <DockSlot
-              key={dockRole}
-              placement={dock}
-              workPlace={{ kind: "project", id: projectId }}
-              source={dockRole === "context_engineer"
-                ? engineerSource ?? undefined
-                : undefined}
-              contexts={contextsSource === undefined ? undefined : {
-                open: (id) => openContext(host, id),
-                titleOf: (id) =>
-                  watch.list.find((item) => item.id === id)?.title,
-              }}
-              onClose={() => setDockOpen(false)}
-              onOpenResult={(id) => {
-                const row = loaded.documents.find((item) => item.id === id);
-                openDocument(
-                  row ?? { id, title: tabMeta[id]?.fileName ?? id },
-                );
-              }}
-            />
           </div>
         </div>
       </div>

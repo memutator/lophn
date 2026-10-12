@@ -14,10 +14,10 @@ import {
 } from "./cli-decisions.ts";
 import { CLI_CORE_NAMES, cliCommonSchema } from "./cli-core.ts";
 
-const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+const QST = "qgr_01arz3ndektsv4rrffq69g5fav";
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 
-Deno.test("coding-agent/cli#R21: 결정 command는 질문·approval의 list·show·open뿐이다", () => {
+Deno.test("coding-agent/cli#R21: 결정 command는 질문과 approval의 list·show·open뿐이다", () => {
   assertEquals(CLI_DECISION_NAMES, [
     "question list",
     "question show",
@@ -39,7 +39,7 @@ Deno.test("coding-agent/cli#R21: 결정 command는 질문·approval의 list·sho
 
 Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open은 링크만 낸다", () => {
   cliQuestionListSchema.parse({ command: "question list", status: "pending" });
-  cliQuestionShowSchema.parse({ command: "question show", question: QST });
+  cliQuestionShowSchema.parse({ command: "question show", group: QST });
   cliApprovalListSchema.parse({
     command: "approval list",
     status: "pending",
@@ -49,7 +49,7 @@ Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open
 
   cliQuestionOpenSchema.parse({
     command: "question open",
-    question: QST,
+    group: QST,
     json: true,
   });
   cliApprovalOpenSchema.parse({ command: "approval open", approval: APR });
@@ -71,7 +71,7 @@ Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open
     assertEquals(
       cliQuestionOpenSchema.safeParse({
         command: "question open",
-        question: QST,
+        group: QST,
         ...fields,
       }).success,
       false,
@@ -98,7 +98,7 @@ Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open
     ]
   ) {
     assertEquals(
-      cliQuestionOpenSchema.safeParse({ command, question: QST }).success,
+      cliQuestionOpenSchema.safeParse({ command, group: QST }).success,
       false,
     );
     assertEquals(
@@ -109,7 +109,7 @@ Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open
   assertEquals(
     cliQuestionOpenSchema.safeParse({
       command: "question open",
-      question: "qst_bad",
+      group: "qgr_bad",
     })
       .success,
     false,
@@ -126,18 +126,24 @@ Deno.test("coding-agent/cli#R21: command 입력은 owner route 입력을 그대�
     "assignment",
     "cursor",
     "run",
+    "session",
     "status",
   ]);
   assertEquals(
     fields(cliQuestionListSchema),
     Object.keys(questionList.input.shape).sort(),
   );
-  assertEquals(fields(cliQuestionShowSchema), ["question"]);
+  assertEquals(fields(cliQuestionShowSchema), ["group"]);
   assertEquals(
     fields(cliQuestionShowSchema),
     Object.keys(questionRead.input.shape).sort(),
   );
-  assertEquals(fields(cliApprovalListSchema), ["limit", "run", "status"]);
+  assertEquals(fields(cliApprovalListSchema), [
+    "grant_session",
+    "limit",
+    "run",
+    "status",
+  ]);
   assertEquals(
     fields(cliApprovalListSchema),
     Object.keys(approvalsList.input.shape).sort(),
@@ -159,8 +165,8 @@ Deno.test("coding-agent/cli#R21: command 입력은 owner route 입력을 그대�
     );
   }
   // --app은 CLI 공통 선택값이라 tool filter가 아니다(architecture 5.4).
-  cliQuestionListSchema.parse({
-    command: "question list",
+  cliApprovalListSchema.parse({
+    command: "approval list",
     app: "app_01arz3ndektsv4rrffq69g5fav",
   });
 });

@@ -3,6 +3,12 @@ import { assert, assertEquals } from "@std/assert";
 
 import { DISCARDED_NAME, DISCARDED_SCREENS, PAGES, PARTS } from "./pages.ts";
 import { WAYS } from "./frames/compositions/ways.ts";
+import { MODEL_CATALOG } from "./frames/compositions/models-data.ts";
+import {
+  initialSelection,
+  selectionLabel,
+  switchModel,
+} from "./frames/compositions/model-options.ts";
 
 Deno.test("shell#T66: 버린 화면은 page 목록에 없다", () => {
   const screens = new Set(PAGES.map((page) => page.screen as string));
@@ -36,9 +42,9 @@ Deno.test("shell#T66: 모든 page에 제목·badge·설명이 있고 id는 겹�
   }
 });
 
-Deno.test("shell#T66: 새 설계 page 서른 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
+Deno.test("shell#T66: 새 설계 page 서른다섯 개는 모두 새 설계 badge와 한국어 설명을 갖는다", () => {
   const fresh = PAGES.filter((page) => page.part === "new");
-  assertEquals(fresh.length, 30);
+  assertEquals(fresh.length, 35);
   // 지금은 Domain model이 아니라 Overview다.
   assert(fresh.every((page) => !/Domain model/.test(page.title)));
   assert(fresh.some((page) => page.title === "Context tab · Overview"));
@@ -122,7 +128,6 @@ Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 �
     ) => page.title.split(" · ")[0]),
   );
   assertEquals(groups, new Set(["Agent", "Workspace"]));
-  assert(fresh.every((page) => page.screen !== "conversation-dock"));
   // agent 대화 탭 kind의 이름은 Agent다(Conversation이 아니다).
   assert(
     !fresh.some((page) =>
@@ -132,5 +137,64 @@ Deno.test("shell#T69: Agent·Project Agents·Workspace Settings page가 있고 �
   // 내보내기 기능은 없다.
   assert(
     !fresh.some((page) => /export/i.test(`${page.title} ${page.description}`)),
+  );
+});
+
+Deno.test("shell#T70: session switcher·commands·model changed page가 있고 새 설계 page에 schedule·conversation 말이 없다", () => {
+  const fresh = PAGES.filter((page) => page.part === "new");
+  const titles = fresh.map((page) => page.title);
+  for (
+    const title of [
+      "Agent · session switcher",
+      "Agent · session rename and delete",
+      "Agent · commands",
+      "Agent · commands filtered",
+      "Agent · model changed",
+    ]
+  ) {
+    assert(titles.includes(title), `${title}: page 없음`);
+  }
+  // Operator는 agent라서 일정 작업 말이 없고, 탭 kind 이름은 Agent다.
+  for (const page of fresh) {
+    const text = `${page.title} ${page.description}`;
+    assert(!/schedule|conversation|last run|run now/i.test(text), page.id);
+    assert(!/program이 판정/.test(text), `${page.id}: program이 판정`);
+  }
+  // sidebar에는 session 목록이 없다: Agent · sidebar 설명이 session 목록을 sidebar 밖으로 보낸다.
+  const sidebar = fresh.find((page) => page.id === "new-agent-sidebar");
+  assert(
+    sidebar !== undefined &&
+      /session 목록은 sidebar에 없/.test(sidebar.description),
+  );
+});
+
+Deno.test("shell#T70: model picker의 목록과 option은 data 파일 하나에서 오고 고르는 규칙이 그 data만 읽는다", () => {
+  // data: provider → model → option 축. model마다 축이 다르고 effort 밖의 축도 있다.
+  const models = MODEL_CATALOG.flatMap((group) => group.models);
+  const byName = (name: string) => models.find((model) => model.name === name);
+  assert(MODEL_CATALOG.length >= 3);
+  assertEquals(byName("Haiku 5.5")?.options.length, 0);
+  const efforts = (name: string) =>
+    byName(name)?.options.find((axis) => axis.id === "effort")?.values.length;
+  assert(efforts("GPT-6.1 Sol") !== efforts("Sonnet 5.5"));
+  assert(byName("Grok 4.7")?.options.every((axis) => axis.id !== "effort"));
+  assert(
+    models.some((model) => model.options.some((axis) => axis.id === "speed")),
+  );
+  // 고르는 규칙(model-options.ts)은 이 data만 읽는다: model을 바꾸면 없는 값이 가까운 약한 값으로 맞춰진다.
+  const sol = {
+    model: "GPT-6.1 Sol",
+    values: { effort: "XHigh", speed: "Priority" },
+  };
+  assertEquals(selectionLabel(sol), "GPT-6.1 Sol · XHigh · Priority");
+  const sonnet = switchModel(sol, "Sonnet 5.5");
+  assertEquals(sonnet.selection.values, { effort: "High" });
+  assertEquals(sonnet.notes, [
+    "Effort set to High — XHigh isn't available for Sonnet 5.5.",
+  ]);
+  assertEquals(switchModel(sol, "Haiku 5.5").selection.values, {});
+  assertEquals(
+    selectionLabel(initialSelection("Opus 5.5")),
+    "Opus 5.5 · Medium",
   );
 });

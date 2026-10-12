@@ -1,10 +1,14 @@
-import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type CatalogEntry,
   changeModelDefaults,
+  changeModelFavorites,
+  MODEL_DEFAULT_SLOTS,
+  type ModelChoice,
   type ModelDefaults,
   modelDefaultsChanged,
-  type presetModelSelectionSchema,
+  type ModelDefaultSlot,
+  modelFavoritesChanged,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -12,153 +16,171 @@ import {
   type RequestContext,
   type Tx,
 } from "../../../contracts/platform/mod.ts";
+import { validateOptionValues } from "./options.ts";
+import { loadDefaults, loadFavorites } from "./store.ts";
 
-type PresetModelSelection = z.infer<typeof presetModelSelectionSchema>;
-
-// 등록 순서: actor 검사 → 입력(schema·provider FK는 registry·DB) → CAS → 쓰기 →
+// 등록 순서: actor 검사 → 입력(schema는 registry, provider·목록·option은 여기) → CAS → 쓰기 →
 // event. 짧은 transaction 하나다.
+
+// 저장 검사가 provider와 catalog에서 알아야 하는 것이다. 같은 Tx의 provider 표와 동봉·갱신 catalog에서
+// 채운다. 이 모듈은 그 출처를 모른다.
+export type ModelCommandDeps = {
+  // provider 기록의 provider 정의 key다. 기록이 없으면 undefined다.
+  definitionKey(provider: string): string | undefined;
+  // provider 정의의 확인된 model 목록에 그 이름이 있는지다. 목록을 확인하지 못했으면 null이다(R10).
+  modelListed(definition: string, modelName: string): boolean | null;
+  catalogEntry(
+    definition: string,
+    modelName: string,
+  ): CatalogEntry | undefined;
+};
 
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : err({
     code: "forbidden",
-    message: "model defaults are user only",
+    message: "model settings are user only",
   });
 }
 
-function storedDefaults(tx: Tx): {
-  judgment: ModelDefaults["judgment"];
-  organizing: ModelDefaults["organizing"];
-  settings_seq: string | null;
-} {
-  const rows = tx.sql.all(
-    "select purpose, provider, credentials, model_name, reasoning_level, options, settings_seq from agent_model_defaults",
-    [],
-  );
-  let judgment: ModelDefaults["judgment"] = null;
-  let organizing: ModelDefaults["organizing"] = null;
-  let settingsSeq: string | null = null;
-  for (const row of rows) {
-    let selection: PresetModelSelection | null = null;
-    if (row["provider"] !== null) {
-      const parsed = {
-        provider: String(row["provider"]),
-        credentials: JSON.parse(String(row["credentials"])) as string[],
-        model_name: String(row["model_name"]),
-        reasoning_level: String(row["reasoning_level"]),
-        options: JSON.parse(String(row["options"])),
-      } as PresetModelSelection;
-      selection = parsed;
-    }
-    if (String(row["purpose"]) === "judgment") judgment = selection;
-    else organizing = selection;
-    const seq = row["settings_seq"] === null
-      ? null
-      : String(row["settings_seq"]);
-    if (
-      seq !== null &&
-      (settingsSeq === null || BigInt(seq) > BigInt(settingsSeq))
-    ) {
-      settingsSeq = seq;
-    }
-  }
-  return { judgment, organizing, settings_seq: settingsSeq };
+function conflict(): Result<never> {
+  return err({ code: "conflict", message: "settings seq가 바뀌었다" });
 }
 
-function upsert(
+// 저장 때 provider 목록에 없는 이름은 거절하고 목록을 확인하지 못했으면 미확인으로 저장한다(R10).
+// 고른 option 값은 그 model의 축과 값 안에 있어야 한다. catalog 항목이 없으면 축을 모르므로 값 없이만
+// 저장한다(R16, R24). 호출 때의 한계 검사는 run 준비의 몫이다.
+function checkChoice(
+  deps: ModelCommandDeps,
+  slot: string,
+  choice: ModelChoice,
+): Result<void> {
+  const definition = deps.definitionKey(choice.provider);
+  if (definition === undefined) {
+    return err({
+      code: "not_found",
+      message: `${slot}: provider를 찾을 수 없다`,
+    });
+  }
+  if (deps.modelListed(definition, choice.model_name) === false) {
+    return err({
+      code: "invalid_input",
+      message: `${slot}: provider 목록에 없는 model 이름이다`,
+    });
+  }
+  const entry = deps.catalogEntry(definition, choice.model_name);
+  if (entry === undefined) {
+    return Object.keys(choice.option_values).length === 0
+      ? ok(undefined)
+      : err({
+        code: "invalid_input",
+        message:
+          `${slot}: option을 확인할 수 없는 model에는 option 값을 고를 수 없다`,
+      });
+  }
+  const checked = validateOptionValues(entry, choice.option_values);
+  return checked.ok ? ok(undefined) : err({
+    code: "invalid_input",
+    message: `${slot}: ${checked.error.message}`,
+  });
+}
+
+function upsertSlot(
   tx: Tx,
-  purpose: "judgment" | "organizing",
-  selection: ModelDefaults["judgment"],
+  slot: ModelDefaultSlot,
+  choice: ModelChoice | null,
   settingsSeq: string,
 ): void {
-  const existing = tx.sql.get(
-    "select settings_seq from agent_model_defaults where purpose = ?",
-    [purpose],
-  );
-  const options = JSON.stringify(selection?.options ?? {});
-  const credentials = JSON.stringify(selection?.credentials ?? []);
-  if (selection === null) {
-    // null은 선택만 지우고 행을 남긴다. 설정 seq는 유지해 CAS 근거가 남는다.
-    if (existing === undefined) {
-      tx.sql.run(
-        `insert into agent_model_defaults
-          (purpose, provider, credentials, model_name, reasoning_level, options, settings_seq)
-         values (?, null, ?, null, null, ?, ?)`,
-        [purpose, "[]", options, settingsSeq],
-      );
-      return;
-    }
-    tx.sql.run(
-      "update agent_model_defaults set provider = null, credentials = ?, model_name = null, reasoning_level = null, options = ?, settings_seq = ? where purpose = ?",
-      [credentials, options, settingsSeq, purpose],
-    );
-    return;
-  }
-  if (existing === undefined) {
-    tx.sql.run(
-      `insert into agent_model_defaults
-        (purpose, provider, credentials, model_name, reasoning_level, options, settings_seq)
-       values (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        purpose,
-        selection.provider,
-        credentials,
-        selection.model_name,
-        selection.reasoning_level,
-        options,
-        settingsSeq,
-      ],
-    );
-    return;
-  }
+  // null은 선택만 지우고 줄을 남긴다. 설정 seq는 유지해 CAS 근거가 남는다.
   tx.sql.run(
-    `update agent_model_defaults set
-       provider = ?, credentials = ?, model_name = ?, reasoning_level = ?, options = ?, settings_seq = ?
-     where purpose = ?`,
+    `insert into agent_model_defaults
+       (slot, provider, model_name, option_values, settings_seq)
+     values (?, ?, ?, ?, ?)
+     on conflict (slot) do update set
+       provider = excluded.provider,
+       model_name = excluded.model_name,
+       option_values = excluded.option_values,
+       settings_seq = excluded.settings_seq`,
     [
-      selection.provider,
-      credentials,
-      selection.model_name,
-      selection.reasoning_level,
-      options,
+      slot,
+      choice?.provider ?? null,
+      choice?.model_name ?? null,
+      JSON.stringify(choice?.option_values ?? {}),
       settingsSeq,
-      purpose,
     ],
   );
 }
 
-export function createModelDefaultsCommands(): {
-  change: CommandDefinition<typeof changeModelDefaults>;
+export function createModelCommands(
+  deps: ModelCommandDeps | ((tx: Tx) => ModelCommandDeps),
+): {
+  changeDefaults: CommandDefinition<typeof changeModelDefaults>;
+  changeFavorites: CommandDefinition<typeof changeModelFavorites>;
 } {
+  const resolve = (tx: Tx): ModelCommandDeps =>
+    typeof deps === "function" ? deps(tx) : deps;
   return {
-    change: {
+    changeDefaults: {
       route: changeModelDefaults,
       handle(tx, ctx, input, compare) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        const current = storedDefaults(tx);
-        // 처음 저장은 settings_seq 0과 비교한다. 이전 변경이 없으면 0이다.
-        const previousSeq = current.settings_seq ?? "0";
-        if (previousSeq !== compare.settings_seq) {
-          return err({
-            code: "conflict",
-            message: "settings seq가 바뀌었다",
-          });
+        const changed = MODEL_DEFAULT_SLOTS.filter((slot) =>
+          input[slot] !== undefined
+        );
+        const known = resolve(tx);
+        for (const slot of changed) {
+          const choice = input[slot];
+          if (choice === null || choice === undefined) continue;
+          const checked = checkChoice(known, slot, choice);
+          if (!checked.ok) return checked;
         }
+        const current = loadDefaults(tx.sql);
+        if (current.settings_seq !== compare.settings_seq) return conflict();
+        const next: ModelDefaults = { ...current };
+        for (const slot of changed) next[slot] = input[slot] ?? null;
+        // 새 seq는 이 event의 seq라 payload에는 비교한 이전 seq를 싣는다.
         const nextSeq = tx.emit(modelDefaultsChanged, null, {
-          settings_seq: compare.settings_seq,
-          defaults: {
-            judgment: input.judgment,
-            organizing: input.organizing,
-            settings_seq: compare.settings_seq,
-          },
+          settings_seq: current.settings_seq,
+          slots: changed,
+          defaults: next,
         });
-        // 두 용도에 각각 upsert다. null도 행을 남겨 설정 seq가 유지된다.
-        upsert(tx, "judgment", input.judgment, nextSeq);
-        upsert(tx, "organizing", input.organizing, nextSeq);
+        for (const slot of changed) {
+          upsertSlot(tx, slot, next[slot], nextSeq);
+        }
+        return ok({ defaults: { ...next, settings_seq: nextSeq } });
+      },
+    },
+    changeFavorites: {
+      route: changeModelFavorites,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        // 즐겨찾기는 catalog에서 사라져도 지우지 않는다(R12). 목록과 catalog는 보지 않고 provider만 본다.
+        const known = resolve(tx);
+        for (const item of input.items) {
+          if (known.definitionKey(item.provider) === undefined) {
+            return err({
+              code: "not_found",
+              message: "즐겨찾기의 provider를 찾을 수 없다",
+            });
+          }
+        }
+        const current = loadFavorites(tx.sql);
+        if (current.settings_seq !== compare.settings_seq) return conflict();
+        const nextSeq = tx.emit(modelFavoritesChanged, null, {
+          settings_seq: current.settings_seq,
+          items: input.items,
+        });
+        // 목록을 통째로 바꾼다. rank를 0부터 빈틈 없이 다시 매긴다.
+        tx.sql.run("delete from model_favorites", []);
+        input.items.forEach((item, rank) => {
+          tx.sql.run(
+            "insert into model_favorites (provider, model_name, rank) values (?, ?, ?)",
+            [item.provider, item.model_name, rank],
+          );
+        });
         return ok({
-          judgment: input.judgment,
-          organizing: input.organizing,
-          settings_seq: nextSeq,
+          favorites: { items: input.items, settings_seq: nextSeq },
         });
       },
     },

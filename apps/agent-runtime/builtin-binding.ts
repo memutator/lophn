@@ -160,13 +160,6 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
     targets: (input) => [text(input["receiver_assignment"])],
     changes: () => "hands work to another assignment",
   }],
-  ["approval.submit_assignment", {
-    concern: "lophn-agent/assignments",
-    targets: (input, run) => [
-      text(input["assignment"] ?? input["preset"] ?? run.assignment),
-    ],
-    changes: () => "submits an assignment draft for a person to review",
-  }],
 ]);
 
 function unavailable(): Result<never> {

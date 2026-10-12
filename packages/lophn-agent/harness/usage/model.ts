@@ -11,6 +11,9 @@ import type { SchemaStep, SqlParam } from "../../../contracts/platform/mod.ts";
 // 한 행이고, model_call_supplements는 보완 근거의 append 표다. credential 값은
 // 열에 없고 참조만 남는다. run·session FK는 runs·sessions 표가 생길 때 더한다
 // (platform ledger schema와 같은 근원). 삭제는 RESTRICT로 사실을 남긴다.
+// run이 없는 call은 Compact의 요약 call이다. 요약 call은 run과 agent 대신 session을 가리키고
+// session을 지울 때 함께 지운다. provider는 Disconnect로 지워지므로 provider와 credential은
+// 외래 키가 아니라 그 시점의 값으로 남긴다(provider#R6).
 
 export const usageSchemaSteps: readonly SchemaStep[] = [
   {
@@ -21,15 +24,12 @@ create table model_calls (
   run text,
   session text,
   model_use text check (model_use in ('judgment', 'organizing')),
-  preset text check (preset is null or json_valid(preset)),
-  purpose text not null check (purpose in ('judgment', 'title_summary', 'conversation_compression', 'connection_test')),
-  test_request text check (test_request is not null or json_valid(test_request)),
-  attempt_kind text not null check (attempt_kind in ('initial', 'retry', 'credential_change')),
+  agent_hash text check (agent_hash is null or length(agent_hash) = 64),
+  purpose text not null check (purpose in ('judgment', 'title_summary', 'conversation_compression')),
+  attempt_kind text not null check (attempt_kind in ('initial', 'retry')),
   attempt_order integer not null check (attempt_order >= 1),
   retry_of text references model_calls (id) on delete restrict,
-  credential_change_of text references model_calls (id) on delete restrict,
   provider text not null,
-  credential_key text,
   credential_revision integer,
   model_name text not null check (length(trim(model_name)) > 0),
   protocol text not null check (protocol in ('anthropic-messages', 'openai-responses', 'openai-chat-completions')),
@@ -46,30 +46,17 @@ create table model_calls (
   outcome text check (outcome is null or json_valid(outcome)),
   usage text not null check (json_valid(usage)),
   cost text not null check (json_valid(cost)),
-  foreign key (provider) references providers (id) on delete restrict,
-  foreign key (provider, credential_key)
-    references provider_credentials (provider, key) on delete restrict,
   check (
-    (purpose = 'connection_test') =
-    (run is null and session is null and model_use is null and preset is null and test_request is not null)
-  ),
-  check (
-    (purpose <> 'connection_test') =
-    (run is not null and session is not null and model_use is not null and preset is not null and test_request is null)
+    (run is not null and session is not null and model_use is not null and agent_hash is not null) or
+    (run is null and session is not null and model_use is 'organizing' and agent_hash is null and purpose = 'conversation_compression')
   ),
   check (
     (attempt_kind = 'retry') = (retry_of is not null)
   ),
   check (
-    (attempt_kind = 'credential_change') = (credential_change_of is not null)
-  ),
-  check (
     (state = 'finished') = (finished_at is not null and outcome is not null)
   ),
   check (output is null or state = 'finished'),
-  check (
-    (credential_key is null) = (credential_revision is null)
-  ),
   check (
     (duration_ms is null or duration_ms >= 0) and
     (first_output_ms is null or first_output_ms >= 0)
@@ -77,8 +64,8 @@ create table model_calls (
 ) strict;
 create unique index model_calls_run_attempt
   on model_calls (run, attempt_order) where run is not null;
-create unique index model_calls_test_attempt
-  on model_calls (test_request, attempt_order) where purpose = 'connection_test';
+create unique index model_calls_session_attempt
+  on model_calls (session, attempt_order) where run is null and session is not null;
 create index model_calls_run_state on model_calls (run, state);
 create index model_calls_session_started on model_calls (session, started_at);
 create index model_calls_model_use_purpose_started
@@ -88,6 +75,12 @@ create index model_calls_provider_model_started
 create index model_calls_retry_of on model_calls (retry_of);
 create trigger model_calls_no_delete
 before delete on model_calls
+when not exists (
+  select 1 from runs where id = old.run and session is not null and state = 'finished'
+) and not (
+  old.run is null and old.session is not null and
+  not exists (select 1 from runs where session = old.session and state <> 'finished')
+)
 begin
   select raise(abort, 'model call records are kept');
 end;
@@ -149,21 +142,13 @@ export function callFromRow(
     model_use: row["model_use"] === null
       ? null
       : row["model_use"] as ModelCallRecord["model_use"],
-    preset: row["preset"] === null
-      ? null
-      : parseJson(row["preset"]) as ModelCallRecord["preset"],
+    agent_hash: row["agent_hash"] === null ? null : String(row["agent_hash"]),
     purpose: row["purpose"] as ModelCallRecord["purpose"],
-    test_request: row["test_request"] === null
-      ? null
-      : parseJson(row["test_request"]) as ModelCallRecord["test_request"],
     attempt_kind: row["attempt_kind"] as ModelCallRecord["attempt_kind"],
     attempt_order: Number(row["attempt_order"]),
     retry_of: row["retry_of"] === null
       ? null
       : String(row["retry_of"] as string),
-    credential_change_of: row["credential_change_of"] === null
-      ? null
-      : String(row["credential_change_of"] as string),
     model,
     input: String(row["input"]),
     context_basis: String(row["context_basis"]),

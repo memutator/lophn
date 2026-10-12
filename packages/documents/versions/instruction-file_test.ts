@@ -1,5 +1,4 @@
 import { assert, assertEquals } from "@std/assert";
-import { err, ok } from "../../base/mod.ts";
 import { createVersionCommands } from "./commands.ts";
 import {
   file,
@@ -53,15 +52,6 @@ function revisionOf(fixture: ReturnType<typeof versionFixture>): string {
     fixture.sql.get("SELECT revision FROM documents WHERE id = ?", [ids.doc])
       ?.["revision"],
   );
-}
-
-function attached() {
-  return {
-    attachments: (document: string) =>
-      document === ids.doc
-        ? ok([{ preset: "pst_01arz3ndektsv4rrffq69g5fav", revision: 1 }])
-        : ok([]),
-  };
 }
 
 // 전역 지침 파일을 관측한 판. place·name은 null이고 project도 null이다.
@@ -191,86 +181,8 @@ Deno.test("documents/file-tracking#R19: 같은 지침 파일을 두 번째 문�
   }
 });
 
-Deno.test("documents/versions#R20 documents/file-tracking#R20: preset 지침 첨부 문서의 agent·coding_agent·app save는 forbidden이고 user는 허용한다", () => {
-  const fixture = versionFixture(undefined, attached());
-  try {
-    const created = keep(save(
-      fixture,
-      preparedInput(ids.doc, [file("LOPHN.md", true, 100)]),
-    ));
-    const base = created.version;
-    for (
-      const actor of NON_HUMAN
-    ) {
-      const result = save(
-        fixture,
-        preparedInput(ids.doc, [file("LOPHN.md", true, 101)], {
-          base_version: base,
-          source: actor === APP
-            ? {
-              kind: "app",
-              app: ids.app,
-              release: "rel_01arz3ndektsv4rrffq69g5fav",
-            }
-            : null,
-        }),
-        userContext(actor),
-        base,
-      );
-      assert(!result.ok, actor);
-      // 앱 자리 밖 문서는 앱에 없는 문서와 같은 답이다(versions#R14).
-      assertEquals(result.error.code, expectedSaveCode(actor), actor);
-    }
-    const human = save(
-      fixture,
-      preparedInput(ids.doc, [file("LOPHN.md", true, 101)], {
-        base_version: base,
-        content_hash: "ef".repeat(32),
-        metadata: undefined,
-        idempotency_key: "save-2",
-      }),
-      userContext(),
-      base,
-    );
-    assert(human.ok, JSON.stringify(human));
-  } finally {
-    fixture.close();
-  }
-});
-
-Deno.test("documents/versions#R20: 지침 첨부 문서의 제목 변경도 agent·coding_agent·app에 forbidden이고 user는 허용한다", () => {
-  const fixture = versionFixture(undefined, attached());
-  try {
-    keep(save(
-      fixture,
-      preparedInput(ids.doc, [file("LOPHN.md", true, 100)]),
-    ));
-    const revision = revisionOf(fixture);
-    for (
-      const actor of NON_HUMAN
-    ) {
-      const result = update(fixture, actor, revision);
-      assert(!result.ok, actor);
-      assertEquals(result.error.code, "forbidden", actor);
-    }
-    assert(update(fixture, "user", revision).ok);
-  } finally {
-    fixture.close();
-  }
-});
-
-Deno.test("documents/file-tracking#R20 documents/versions#R20: instruction_file에 연결된 문서는 첨부가 없어도 agent·coding_agent·app가 못 쓰고 다른 출력으로 지정해도 풀리지 않는다", () => {
-  const output = {
-    output: () =>
-      ok({
-        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
-        revision: 1,
-        state: "enabled" as const,
-      }),
-    isOperator: (assignment: string) =>
-      ok(assignment === "asg_01arz3ndektsv4rrffq69g5fav"),
-  };
-  const fixture = versionFixture(undefined, undefined, output);
+Deno.test("documents/file-tracking#R20 documents/versions#R20: instruction_file에 연결된 문서는 agent·coding_agent·app가 새 판도 제목 변경도 못 한다", () => {
+  const fixture = versionFixture();
   try {
     const created = keep(save(
       fixture,
@@ -323,34 +235,5 @@ Deno.test("documents/versions#R20: agent·coding_agent·app는 instruction_file 
     );
   } finally {
     fixture.close();
-  }
-});
-
-Deno.test("documents/versions#R20: 첨부가 가리키는 새 문서 id를 agent가 만들 수 없고 판정 port가 실패하면 쓰기를 거절한다", () => {
-  const attachedNew = versionFixture(undefined, attached());
-  try {
-    const created = save(
-      attachedNew,
-      preparedInput(ids.doc, [file("LOPHN.md", true, 100)]),
-      userContext(AGENT),
-    );
-    assert(!created.ok);
-    assertEquals(created.error.code, "forbidden");
-  } finally {
-    attachedNew.close();
-  }
-  const broken = versionFixture(undefined, {
-    attachments: () => err({ code: "unavailable", message: "lookup failed" }),
-  });
-  try {
-    const result = save(
-      broken,
-      preparedInput(ids.doc, [file("note.md", true, 100)]),
-      userContext(AGENT),
-    );
-    assert(!result.ok);
-    assertEquals(result.error.code, "unavailable");
-  } finally {
-    broken.close();
   }
 });

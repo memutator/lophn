@@ -60,7 +60,6 @@ export async function assemblePrompt(
   const place = instructionPlace(input.work);
   const resolved = await resolveInstructions(deps, {
     place,
-    attachments: input.attachments,
   });
   if (!resolved.ok) {
     return blocked("instructions_unavailable", "사람 지침을 읽지 못했다");
@@ -74,7 +73,6 @@ export async function assemblePrompt(
   const system = systemBlocks({
     product: input.product.instructions,
     role: input.role.instructions,
-    preset: input.role.preset_prompt,
     instructions: instructionsText(resolution.layers),
   });
 
@@ -85,7 +83,7 @@ export async function assemblePrompt(
     messages: workMessages({
       purpose: null,
       run_facts: null,
-      continuation_summary: null,
+      compact_summary: null,
       materials: [],
       compaction_summary: null,
       history: [],
@@ -119,7 +117,7 @@ export async function assemblePrompt(
   const layers: PromptLayer[] = [];
   const contents: [PromptLayerKind, unknown][] = [
     ["product", { instructions: productLayer.text, tools }],
-    ["role_preset", { instructions: roleLayer.text }],
+    ["role_agent", { instructions: roleLayer.text }],
     ["user_instructions", { text: instructionLayer?.text ?? "" }],
     ["work_material", { messages: work }],
   ];
@@ -148,8 +146,6 @@ export async function assemblePrompt(
       layers: resolution.layers.map((layer) => ({
         kind: layer.kind,
         place: layer.place,
-        document: layer.document,
-        version: layer.version,
         source_hash: layer.source_hash,
         transmitted_hash: layer.transmitted_hash,
         status: layer.status,
@@ -165,7 +161,7 @@ export async function assemblePrompt(
     references: [...(input.evidence?.references ?? [])],
     omissions: [...(input.evidence?.omissions ?? [])],
     turn_context: input.evidence?.turn_context ?? null,
-    // T28 compaction·continuation이 더한 원문 구간과 summary 근거다. 없으면 비운다.
+    // T28 compaction이 더한 원문 구간과 summary 근거다. 없으면 비운다.
     message_ranges: [...(input.evidence?.message_ranges ?? [])],
     summaries: [...(input.evidence?.summaries ?? [])],
     tool_names: tools.map((tool) => tool.name),

@@ -9,10 +9,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import {
-  changeProviderCredentials,
-  registerProviderCredential,
-} from "../../packages/contracts/lophn-agent/mod.ts";
+import { disconnectProvider } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   FrameDecoder,
   removeSecret,
@@ -63,8 +60,8 @@ const OPERATIONS = [
   "ReceiveMessage",
   "ReadMessageBody",
   "RegisterProvider",
-  "RegisterProviderCredential",
-  "ChangeProviderCredentials",
+  "DisconnectProvider",
+  "project.create",
 ];
 
 const ANTHROPIC = {
@@ -99,6 +96,7 @@ async function boot(
   home: string,
   keychain: FakeKeychain,
   restart: boolean,
+  secretSweepMs?: number,
 ): Promise<{ core: Core; io: ReturnType<typeof inProcessIo> }> {
   // 값이 닿는 곳은 fake keychain뿐이다. 증거는 응답으로 돌려주고 core가 남긴다.
   const io = inProcessIo({
@@ -126,6 +124,7 @@ async function boot(
     random: seededRandom(restart ? 12 : 11),
     testCredentials: true,
     secretKeychain: keychain,
+    ...(secretSweepMs === undefined ? {} : { secretSweepMs }),
     spawn: io.spawn,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
@@ -222,8 +221,7 @@ async function handleFor(
   route:
     | typeof setSecret
     | typeof removeSecret
-    | typeof registerProviderCredential
-    | typeof changeProviderCredentials,
+    | typeof disconnectProvider,
   input: unknown,
 ): Promise<string> {
   const binding = await confirmationBinding(route, input);
@@ -402,13 +400,27 @@ class Conversation {
     assertEquals(listed.status, 200, JSON.stringify(body));
     const lophn = body.assignments.find((entry) => entry.role === "lophn")!;
     const session = id("ses", number);
+    // 세션은 쓸 수 있는 project 하나를 자리로 받는다. 같은 key라 다시 만들어도 같은 결과다.
+    const place = await post(core, "projects/create", {
+      input: {
+        id: id("prj", 1),
+        name: "alpha",
+        title: "alpha",
+        purpose: "",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      idempotency_key: "place-secret-input",
+      compare: {},
+      prepared: [],
+    });
+    assertEquals(place.status, 200, await place.text());
     const opened = await post(core, "sessions/open", {
       input: {
         id: session,
         assignment: lophn.id,
-        role: lophn.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: id("prj", 1) },
+        opening_context: null,
       },
       idempotency_key: `open-secret-input-${number}`,
       compare: {
@@ -665,28 +677,12 @@ Deno.test("platform/secrets#R2: 선언한 크기와 다른 body는 keychain에 �
 
 // provider credential(lophn-agent 소유 ledger 표)의 값도 같은 보호 입력으로 넣고 같은 registry에
 // 등록·회수된다. 참조를 확정하는 command는 provider의 command이고 core는 그 owner의 참조를 읽는다.
-Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값도 알려진 값으로 등록되고 교체하면 옛 값이 회수된다", async () => {
+// provider에는 credential이 하나라 값을 바꾸려면 Disconnect 뒤 다시 Connect한다.
+Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값도 Connect로 알려진 값이 되고 Disconnect하면 회수된다", async () => {
   const opened = await open();
   try {
     const version = await seed(opened);
     const provider = id("pvd", 1);
-    const registered = await post(opened.core, "providers/register", {
-      input: {
-        id: provider,
-        name: "Anthropic",
-        definition: ANTHROPIC,
-        endpoint: "https://api.anthropic.com",
-        protocol: "anthropic-messages",
-      },
-      idempotency_key: "provider-1",
-      compare: {},
-      prepared: [],
-    });
-    const created = await registered.json() as {
-      provider: { revision: number };
-    };
-    assertEquals(registered.status, 200, JSON.stringify(created));
-
     const prepare = async (value: string) => {
       const response = await inputValue(
         opened.core,
@@ -699,33 +695,26 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값
       assertEquals(response.status, 200, JSON.stringify(evidence));
       return evidence;
     };
-    const first = await prepare(FIRST);
-    const registerInput = {
-      provider,
-      key: "main",
-      kind: "api_key",
-      label: "main key",
-      preparation: first,
-      account: null,
-      organization: null,
-      plan: null,
-      dedup_fingerprint: "a".repeat(64),
+    const connect = async (value: string, key: string) => {
+      const response = await post(opened.core, "providers/register", {
+        input: {
+          id: provider,
+          name: "Anthropic",
+          definition: ANTHROPIC,
+          endpoint: "https://api.anthropic.com",
+          protocol: "anthropic-messages",
+          credential: { kind: "api_key", preparation: await prepare(value) },
+        },
+        idempotency_key: key,
+        compare: {},
+        prepared: [],
+      });
+      const body = await response.json() as { provider: { revision: number } };
+      assertEquals(response.status, 200, JSON.stringify(body));
+      return body.provider.revision;
     };
-    const added = await post(opened.core, "provider-credentials/register", {
-      input: registerInput,
-      idempotency_key: "credential-1",
-      compare: { revision: created.provider.revision },
-      prepared: [],
-      confirmation: await handleFor(
-        opened.core,
-        registerProviderCredential,
-        registerInput,
-      ),
-    });
-    const addedBody = await added.json() as {
-      provider: { revision: number };
-    };
-    assertEquals(added.status, 200, JSON.stringify(addedBody));
+
+    const revision = await connect(FIRST, "connect-1");
     const masked = await readText(opened.core, version);
     assert(
       !masked?.includes(FIRST),
@@ -733,32 +722,23 @@ Deno.test("platform/secrets#R1 platform/redaction#R1: provider credential의 값
     );
     assert(masked?.includes(SECOND));
 
-    // 교체: 새 값이 알려지고 옛 값은 회수된다.
-    const second = await prepare(SECOND);
-    const changeInput = {
-      provider,
-      credentials: [{
-        key: "main",
-        revision: 1,
-        replacement: second,
-        order: 0,
-        revoke: false,
-      }],
-    };
-    const changed = await post(opened.core, "provider-credentials/change", {
-      input: changeInput,
-      idempotency_key: "credential-2",
-      compare: { revision: addedBody.provider.revision },
+    // Disconnect: 확인 창을 거쳐 provider와 credential을 지우고 옛 값을 회수한다.
+    const input = { provider };
+    const disconnected = await post(opened.core, "providers/disconnect", {
+      input,
+      idempotency_key: "disconnect-1",
+      compare: { revision },
       prepared: [],
-      confirmation: await handleFor(
-        opened.core,
-        changeProviderCredentials,
-        changeInput,
-      ),
+      confirmation: await handleFor(opened.core, disconnectProvider, input),
     });
-    assertEquals(changed.status, 200, await changed.clone().text());
+    assertEquals(disconnected.status, 200, await disconnected.clone().text());
+    const revoked = await readText(opened.core, version);
+    assert(revoked?.includes(FIRST), "Disconnect한 옛 값이 계속 가려진다");
+
+    // 같은 ID로 다시 Connect하면 새 값이 알려진다.
+    await connect(SECOND, "connect-2");
     const replaced = await readText(opened.core, version);
-    assert(replaced?.includes(FIRST), "교체된 옛 값이 계속 가려진다");
+    assert(replaced?.includes(FIRST), "옛 값이 다시 가려진다");
     assert(!replaced?.includes(SECOND), "새 값이 가려지지 않았다");
   } finally {
     await close(opened);
@@ -794,5 +774,206 @@ Deno.test("platform/secrets#R8 lophn-agent/conversation#R2: keychain이 잠긴 �
     opened.store.close();
     await core?.shutdown();
     await Deno.remove(opened.home, { recursive: true });
+  }
+});
+
+// ---- provider Disconnect와 OS keychain [agent-I53] ----
+
+// 보호 입력 → RegisterProvider까지 사람이 하는 Connect.
+async function connectValue(
+  opened: Opened,
+  provider: string,
+  value: string,
+  key: string,
+): Promise<{ ref: string; revision: number }> {
+  const response = await inputValue(
+    opened.core,
+    provider,
+    value,
+    undefined,
+    "provider_credential",
+  );
+  const evidence = await response.json() as Preparation;
+  assertEquals(response.status, 200, JSON.stringify(evidence));
+  const registered = await post(opened.core, "providers/register", {
+    input: {
+      id: provider,
+      name: "Anthropic",
+      definition: ANTHROPIC,
+      endpoint: "https://api.anthropic.com",
+      protocol: "anthropic-messages",
+      credential: { kind: "api_key", preparation: evidence },
+    },
+    idempotency_key: key,
+    compare: {},
+    prepared: [],
+  });
+  const body = await registered.json() as { provider: { revision: number } };
+  assertEquals(registered.status, 200, JSON.stringify(body));
+  return { ref: evidence.sealed_ref, revision: body.provider.revision };
+}
+
+// 확인 창을 거친 Disconnect.
+async function disconnectValue(
+  opened: Opened,
+  provider: string,
+  revision: number,
+  key: string,
+): Promise<void> {
+  const input = { provider };
+  const response = await post(opened.core, "providers/disconnect", {
+    input,
+    idempotency_key: key,
+    compare: { revision },
+    prepared: [],
+    confirmation: await handleFor(opened.core, disconnectProvider, input),
+  });
+  assertEquals(response.status, 200, await response.clone().text());
+}
+
+function storedValues(keychain: FakeKeychain): string[] {
+  return [...keychain.stored.values()].map((bytes) =>
+    new TextDecoder().decode(bytes)
+  ).sort();
+}
+
+Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R7 [agent-I53]: Disconnect하면 응답 전에 그 provider의 secret이 OS keychain에서 지워지고 다른 provider의 secret은 남는다", async () => {
+  const opened = await open();
+  try {
+    const first = await connectValue(opened, id("pvd", 1), FIRST, "connect-1");
+    const second = await connectValue(
+      opened,
+      id("pvd", 2),
+      SECOND,
+      "connect-2",
+    );
+    assertEquals(storedValues(opened.keychain), [FIRST, SECOND].sort());
+
+    await disconnectValue(opened, id("pvd", 1), first.revision, "disconnect-1");
+
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    assert(opened.keychain.stored.has(second.ref));
+    assertEquals(storedValues(opened.keychain), [SECOND]);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("lophn-agent/harness/provider#R6 platform/secrets#R1 platform/secrets#R6 [agent-I53b]: keychain 삭제가 실패해도 Disconnect는 확정이고 재기동만으로는 keychain을 열지 않으며 새 Connect가 연 뒤 주기 쓸기가 남은 secret을 지운다", async () => {
+  const opened = await open();
+  let core: Core | undefined;
+  try {
+    const first = await connectValue(opened, id("pvd", 1), FIRST, "connect-1");
+
+    // ledger는 확정이지만 OS 삭제는 확인되지 않는다. 이 사실을 지운 것으로 꾸미지 않는다(R7).
+    opened.keychain.holdRemovals(true);
+    await disconnectValue(opened, id("pvd", 1), first.revision, "disconnect-1");
+    assert(opened.keychain.stored.has(first.ref), "삭제 실패가 숨겨졌다");
+
+    // keychain이 풀린 뒤 core가 다시 떠도 참조가 없으면 keychain을 열지 않아 남은 값은 그대로다(R1).
+    opened.keychain.holdRemovals(false);
+    opened.keychain.confirmRemovals();
+    await opened.core.shutdown();
+    core = (await boot(opened.home, opened.keychain, true, 100)).core;
+    assert(opened.keychain.stored.has(first.ref), "재기동이 keychain을 열었다");
+
+    // 새 Connect가 keychain을 열면 주기 쓸기가 ledger가 가리키지 않는 값을 두 번 연속 본 뒤 지운다.
+    const other = await connectValue(
+      { ...opened, core },
+      id("pvd", 2),
+      SECOND,
+      "connect-2",
+    );
+    const deadline = Date.now() + 15_000;
+    while (opened.keychain.stored.has(first.ref) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    // ledger가 가리키는 값은 건드리지 않는다.
+    assert(opened.keychain.stored.has(other.ref));
+  } finally {
+    opened.store.close();
+    await core?.shutdown();
+    await Deno.remove(opened.home, { recursive: true });
+  }
+});
+
+Deno.test("lophn-agent/harness/provider#R8 [agent-I53]: Disconnect 뒤 같은 ID로 다시 Connect하면 새 secret만 keychain에 있고 옛 secret은 없다", async () => {
+  const opened = await open();
+  try {
+    const provider = id("pvd", 1);
+    const first = await connectValue(opened, provider, FIRST, "connect-1");
+    await disconnectValue(opened, provider, first.revision, "disconnect-1");
+    assertEquals(storedValues(opened.keychain), []);
+
+    const second = await connectValue(opened, provider, SECOND, "connect-2");
+    assertEquals(opened.keychain.stored.has(first.ref), false);
+    assertEquals(storedValues(opened.keychain), [SECOND]);
+    assert(opened.keychain.stored.has(second.ref));
+    assert(first.ref !== second.ref);
+  } finally {
+    await close(opened);
+  }
+});
+
+// agent runtime(machine 자격)만 ProviderDisconnected를 따라 읽어 진행 run을 회수한다. 사람·agent·app은
+// 이 event를 보지 못한다(run 접수·시작·끝남과 같은 공개 범위).
+Deno.test("lophn-agent/harness/provider#R4 [agent-I53]: ProviderDisconnected event는 machine 자격만 읽고 사람 자격에는 보이지 않는다", async () => {
+  const opened = await open();
+  try {
+    const machineToken = "m".repeat(43);
+    const userToken = "u".repeat(43);
+    const credentials: [AuthenticatedContext, string][] = [
+      [{
+        principal: "machine:agent-runtime",
+        actor: "machine",
+        scope: { operations: ["ListEvents"], targets: {} },
+        conditions: {},
+        credential_ref: "cred-machine-events",
+      }, machineToken],
+      [{
+        principal: "user-2",
+        actor: "user",
+        scope: { operations: ["ListEvents"], targets: {} },
+        conditions: {},
+        credential_ref: "cred-user-events",
+      }, userToken],
+    ];
+    for (const [context, token] of credentials) {
+      assert((await opened.core.acceptTestCredential?.(context, token))?.ok);
+      assert((await opened.core.record(context)).ok);
+    }
+    const provider = id("pvd", 1);
+    const first = await connectValue(opened, provider, FIRST, "connect-1");
+    await disconnectValue(opened, provider, first.revision, "disconnect-1");
+
+    const list = async (token: string) => {
+      const response = await fetch(
+        `http://127.0.0.1:${opened.core.port}/v1/events/list`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            after_seq: "0",
+            types: ["ProviderDisconnected"],
+          }),
+        },
+      );
+      const body = await response.json() as {
+        events: { type: string; subject: string }[];
+      };
+      assertEquals(response.status, 200, JSON.stringify(body));
+      return body.events;
+    };
+    assertEquals(
+      (await list(machineToken)).map((event) => [event.type, event.subject]),
+      [["ProviderDisconnected", provider]],
+    );
+    assertEquals(await list(userToken), []);
+  } finally {
+    await close(opened);
   }
 });

@@ -480,14 +480,9 @@ Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: 용어집은 core�
 
 Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: 로드한 자료의 본문은 같은 판과 같은 개수에서 렌더 결과와 byte가 같고 두 번 읽어도 같다", async () => {
   const state = world();
-  const first = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [{ kind: "project", target: PROJECT }],
-  });
-  const second = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [{ kind: "project", target: PROJECT }],
-  });
+  const contexts = [CTX_EXPERIMENTS, CTX_RECIPES];
+  const first = await loadContextMaterials(core(state).call, { contexts });
+  const second = await loadContextMaterials(core(state).call, { contexts });
   assertEquals(second, first);
   const experiments = first.materials.find((m) =>
     m.context === CTX_EXPERIMENTS
@@ -496,26 +491,20 @@ Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: 로드한 자료의
   assertEquals(experiments.text, GOLDEN);
   assertEquals(experiments.title, "Experiments");
   assertEquals(experiments.bundle_hash, "a".repeat(64));
-  assertEquals(first.reason, null);
+  assertEquals(first.omitted, []);
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: 새 판이 적용되면 다음 run부터 새 hash와 새 계약의 자료가 쓰이고 개수만 바뀌면 hash는 그대로다", async () => {
   const state = world();
-  const selections = [{ kind: "context", target: CTX_EXPERIMENTS }];
-  const before = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections,
-  });
+  const contexts = [CTX_EXPERIMENTS];
+  const before = await loadContextMaterials(core(state).call, { contexts });
 
   const experiments = state.contexts[0]!;
   experiments.counts = [{ type: "Experiment", count: 99 }, {
     type: "Scenario",
     count: 5,
   }];
-  const grown = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections,
-  });
+  const grown = await loadContextMaterials(core(state).call, { contexts });
   assertEquals(
     grown.materials[0]!.bundle_hash,
     before.materials[0]!.bundle_hash,
@@ -527,139 +516,90 @@ Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: 새 판이 적용�
   experiments.hash = "e".repeat(64);
   experiments.content = recipesContent() as never;
   experiments.counts = [{ type: "Recipe", count: 2 }];
-  const replaced = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections,
-  });
+  const replaced = await loadContextMaterials(core(state).call, { contexts });
   assertEquals(replaced.materials[0]!.bundle_hash, "e".repeat(64));
   assert(replaced.materials[0]!.text.includes("- Recipe: 요리 하나 (2개)"));
   assert(!replaced.materials[0]!.text.includes("- Experiment:"));
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: all과 project와 context 선택이 같은 context를 가리켜도 자료는 한 번만 들어간다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: resolved agent의 context에 같은 context가 여러 번 있어도 자료는 한 번만 들어가고 순서는 agent의 순서다", async () => {
   const state = world();
   const set = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [
-      { kind: "all", target: null },
-      { kind: "project", target: PROJECT },
-      { kind: "context", target: CTX_EXPERIMENTS },
-    ],
+    contexts: [CTX_RECIPES, CTX_EXPERIMENTS, CTX_RECIPES],
   });
-  assertEquals(ids(set), [CTX_EXPERIMENTS, CTX_RECIPES]);
+  assertEquals(ids(set), [CTX_RECIPES, CTX_EXPERIMENTS]);
 });
 
-// ---- presets#R17: 선택이 project의 active context로 풀린다 ----
+// ---- agents#R15, R16: 자료는 resolved agent의 context만이다 ----
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: all 선택은 session project의 active context들로 풀리고 보관·초안 context와 다른 project의 context는 빠진다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55]: resolved agent의 context마다 머리에 이름과 id가 있고 읽기 route만 부른다", async () => {
   const fake = core(world());
   const set = await loadContextMaterials(fake.call, {
-    project: PROJECT,
-    selections: [{ kind: "all", target: null }],
+    contexts: [CTX_EXPERIMENTS, CTX_RECIPES],
   });
   assertEquals(ids(set), [CTX_EXPERIMENTS, CTX_RECIPES]);
-  assertEquals(set.reason, null);
-  // 머리에 이름과 id가 있다.
   for (const material of set.materials) {
     assertEquals(
       material.text.split("\n")[0],
       `[context] ${material.title} | ${material.context}`,
     );
   }
-  // 읽기만 한다.
+  // 읽기만 한다. 어느 context인지는 agent 층이 정했으므로 목록은 읽지 않는다.
   for (const path of fake.paths) assert(READ_PATHS.has(path), path);
+  assert(!fake.paths.includes(routePath(contextListRoute)));
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: project 선택은 그 project의 active context들로 풀리고 읽을 자격이 없는 project는 아무것도 드러내지 않고 빠진다", async () => {
-  const state = world();
-  const own = await loadContextMaterials(core(state).call, {
-    project: null,
-    selections: [{ kind: "project", target: PROJECT }],
-  });
-  assertEquals(ids(own), [CTX_EXPERIMENTS, CTX_RECIPES]);
-
-  const foreign = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [{ kind: "project", target: OTHER_PROJECT }],
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55]: 읽을 자격이 없는 project의 context는 아무것도 드러내지 않고 빠진다", async () => {
+  const foreign = await loadContextMaterials(core(world()).call, {
+    contexts: [CTX_FOREIGN],
   });
   assertEquals(foreign.materials, []);
   assertEquals(JSON.stringify(foreign).includes("Foreign"), false);
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: 하나를 보관하면 다음 run부터 자료에서 빠진다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R5 [ctx-I55]: context를 보관하면 다음 run부터 자료에서 빠진다", async () => {
   const state = world();
-  const selections = [{ kind: "all", target: null }];
+  const contexts = [CTX_EXPERIMENTS, CTX_RECIPES];
   assertEquals(
-    ids(
-      await loadContextMaterials(core(state).call, {
-        project: PROJECT,
-        selections,
-      }),
-    ),
+    ids(await loadContextMaterials(core(state).call, { contexts })),
     [CTX_EXPERIMENTS, CTX_RECIPES],
   );
   state.contexts.find((item) => item.id === CTX_RECIPES)!.status = "archived";
   assertEquals(
-    ids(
-      await loadContextMaterials(core(state).call, {
-        project: PROJECT,
-        selections,
-      }),
-    ),
+    ids(await loadContextMaterials(core(state).call, { contexts })),
     [CTX_EXPERIMENTS],
   );
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: project가 정해지지 않으면 all 선택은 자료 0개와 그 이유를 낸다", async () => {
-  const fake = core(world());
-  const set = await loadContextMaterials(fake.call, {
-    project: null,
-    selections: [{ kind: "all", target: null }],
-  });
-  assertEquals(set.materials, []);
-  assert(set.reason !== null && set.reason.trim().length > 0);
-  assertEquals(fake.paths, []);
-});
-
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: context 선택은 그 context 하나만 가리키고 보관된 context와 없는 context는 자료가 없다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55]: 보관된 context와 초안 context와 없는 context는 자료가 없다", async () => {
   const state = world();
   const picked = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [{ kind: "context", target: CTX_RECIPES }],
+    contexts: [CTX_RECIPES],
   });
   assertEquals(ids(picked), [CTX_RECIPES]);
 
   const gone = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [
-      { kind: "context", target: CTX_OLD },
-      { kind: "context", target: CTX_DRAFT },
-      { kind: "context", target: id("ctx", 99) },
-    ],
+    contexts: [CTX_OLD, CTX_DRAFT],
   });
   assertEquals(gone.materials, []);
+  // 보관·초안은 읽지 못한 것이 아니라서 이유 줄도 남기지 않는다.
+  assertEquals(gone.omitted, []);
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: 계약을 읽을 수 없는 context는 부분 자료 없이 통째로 빠지고 나머지는 남는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55]: 계약을 읽을 수 없는 context는 부분 자료 없이 통째로 빠지고 나머지는 남는다", async () => {
   const state = world();
   state.contexts[0]!.broken = true;
   const set = await loadContextMaterials(core(state).call, {
-    project: PROJECT,
-    selections: [{ kind: "all", target: null }],
+    contexts: [CTX_EXPERIMENTS, CTX_RECIPES],
   });
   assertEquals(ids(set), [CTX_RECIPES]);
+  assertEquals(set.omitted.map((item) => item.context), [CTX_EXPERIMENTS]);
 });
 
-Deno.test("lophn-agent/presets#R17 [ctx-I55]: 문서·앱·sdk 같은 context가 아닌 선택은 context 자료를 더하지 않는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55]: resolved agent에 context가 없으면 자료 0개이고 core를 부르지 않는다", async () => {
   const fake = core(world());
-  const set = await loadContextMaterials(fake.call, {
-    project: PROJECT,
-    selections: [
-      { kind: "document", target: id("doc", 1) },
-      { kind: "app", target: id("app", 1) },
-      { kind: "sdk", target: "sdk" },
-    ],
-  });
+  const set = await loadContextMaterials(fake.call, { contexts: [] });
   assertEquals(set.materials, []);
+  assertEquals(set.omitted, []);
   assertEquals(fake.paths, []);
 });

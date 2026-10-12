@@ -60,6 +60,9 @@ create index tool_calls_tool_outcome
   on tool_calls (tool, json_extract(outcome, '$.kind'));
 create trigger tool_calls_no_delete
 before delete on tool_calls
+when not exists (
+  select 1 from runs where id = old.run and session is not null and state = 'finished'
+)
 begin
   select raise(abort, 'tool call records are kept');
 end;

@@ -359,15 +359,19 @@ export const en = {
   "app-space.button.add-shortcut": "Add to app menu",
   "app-space.button.app-details": "App details",
   "app-space.button.documents": "Documents",
+  "app-space.button.manage-agents": "Manage",
   "app-space.button.new-window": "Open in new window",
   "app-space.button.remove-shortcut": "Remove from app menu",
+  "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
   "app-space.empty.no-version": "This app has nothing to show yet.",
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
+  "app-space.heading.agents": "Agents",
   "app-space.heading.app-details": "App details",
   "app-space.heading.this-computer": "On this computer",
+  "app-space.label.agent-select": "Agent",
   "app-space.label.this-app": "this app",
   "app-space.notice.shortcut-added": "Added to your computer's app menu.",
   "app-space.notice.shortcut-failed":
@@ -408,6 +412,7 @@ export const en = {
   "common.activity.app": "App activity",
   "common.author.label": "Written by {author}",
   "common.button.apply": "Apply",
+  "common.button.ask-agent": "Ask {agent}",
   "common.button.back": "Back",
   "common.button.cancel": "Cancel",
   "common.button.clear": "Clear",
@@ -562,13 +567,13 @@ export const en = {
   "confirmation-window.approval.no-external":
     "Nothing outside lophn is affected.",
   "confirmation-window.approval.title": "Allow this action?",
-  "confirmation-window.button.allow": "Allow",
   "confirmation-window.button.back": "Back",
   "confirmation-window.button.cancel-request": "Cancel request",
   "confirmation-window.button.choose": "Choose this option",
   "confirmation-window.button.close": "Close",
   "confirmation-window.button.reject": "Reject",
   "confirmation-window.button.save": "Save",
+  "confirmation-window.button.disconnect": "Disconnect",
   "confirmation-window.button.remove": "Remove",
   "confirmation-window.button.replace": "Replace",
   "confirmation-window.button.undo": "Undo changes",
@@ -706,8 +711,41 @@ export const en = {
   "confirmation-window.revert.title": "Undo the changes from this work?",
   "confirmation-window.revert.unknown":
     "Whether this can be undone isn't known.",
+  "confirmation-window.button.rewind": "Rewind",
+  "confirmation-window.button.rewind-anyway": "Rewind anyway",
+  "confirmation-window.button.summarize": "Summarize",
+  "confirmation-window.title.rewind-messages-only": "Rewind messages only?",
+  "confirmation-window.title.rewind-restore-all":
+    "Rewind messages and documents?",
+  "confirmation-window.title.rewind-second": "Some things stay as they are",
+  "confirmation-window.title.rewind-summarize": "Summarize from here?",
+  "confirmation-window.rewind.second-body":
+    "These are not restored. The rest will be rewound if you go on.",
+  "confirmation-window.rewind.subject-messages-only":
+    "The messages after this point are hidden. Documents and app data stay as they are.",
+  "confirmation-window.rewind.subject-restore-all":
+    "The messages after this point are hidden, and the documents and app data that changed since are put back as far as lophn can.",
+  "confirmation-window.rewind.subject-summarize":
+    "The messages from this point on are folded into a summary. Documents and app data stay as they are.",
+  "confirmation-window.result.rewind-blocked":
+    "Nothing changed. The list changed since you looked, so choose again.",
+  "confirmation-window.result.rewind-partly":
+    "Some of it was rewound. The rest stays as it is, and the conversation lists it.",
+  "confirmation-window.result.rewind-started":
+    "Rewinding. lophn is undoing the app changes, and the result will show in the conversation.",
+  "confirmation-window.result.rewind-unknown":
+    "Some results aren't known yet. Nothing will be repeated.",
+  "confirmation-window.result.rewound":
+    "Rewound. The conversation shows what changed.",
   "confirmation-window.secret-app.title": "Save a value for {name}?",
   "confirmation-window.secret-code.title": "Finish signing in?",
+  "confirmation-window.secret-disconnect.effect":
+    "lophn deletes the saved key or sign-in for this provider. Agents that use it can't start until you connect it again.",
+  "confirmation-window.secret-disconnect.revert":
+    "You can connect the provider again later.",
+  "confirmation-window.secret-disconnect.subject":
+    "This provider is connected with one key or sign-in. Nothing needs to be typed to disconnect it.",
+  "confirmation-window.secret-disconnect.title": "Disconnect {name}?",
   "confirmation-window.secret-key.title": "Add the key {name}?",
   "confirmation-window.secret-replace.effect":
     "lophn uses the new key for this account from now on.",
@@ -744,6 +782,7 @@ export const en = {
     "{app} will use {command} on its own each time it starts.",
   "confirmation-window.button.allow-access": "Allow access",
   "confirmation-window.button.allow-once": "Allow once",
+  "confirmation-window.button.allow-session": "Allow for this session",
   "confirmation-window.button.turn-on": "Turn on automation",
   "confirmation-window.button.use-version": "Use this version",
   "confirmation-window.confirm.input-note":
@@ -1027,23 +1066,62 @@ export const en = {
   "contexts.title.tab-screen": "Contexts in {project}",
   "contexts.title.toast-violations":
     "{title}: {count, plural, one {# document doesn't match the contract} other {# documents don't match the contract}}",
+  "conversation.body.delete-session":
+    'Delete "{title}"? This can\'t be undone.',
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
+  "conversation.body.skill-command-request":
+    'Use the "{skill}" skill for this request.',
+  "conversation.button.approval-allow": "Allow",
+  "conversation.button.approval-allow-once": "Allow once",
+  "conversation.button.approval-allow-scope": "Allow scope",
+  "conversation.button.approval-allow-session": "Allow for this session",
+  "conversation.button.approval-deny": "Deny",
+  "conversation.button.archive": "Archive",
+  "conversation.button.archived-toggle": "Archived ({count, number})",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.check-result": "Check the result",
+  "conversation.button.attach": "Add attachment",
+  "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.close": "Close conversation",
+  "conversation.button.close-tab": "Close tab",
+  "conversation.button.delete": "Delete",
+  "conversation.button.edit-open": "Open",
+  "conversation.button.edit-undo": "Undo",
+  "conversation.button.fork": "Fork",
+  "conversation.button.fork-here": "Fork from here",
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.mode-correction": "Send as a change to the current work",
   "conversation.button.mode-request": "Send as a new request",
   "conversation.button.new-session": "New conversation",
+  "conversation.button.favorite-add": "Add {model} to favorites",
+  "conversation.button.favorite-remove": "Remove {model} from favorites",
+  "conversation.button.hidden-hide": "Hide",
+  "conversation.button.hidden-show": "Show",
+  "conversation.button.redo": "Redo",
+  "conversation.button.rewind-go": "Rewind",
+  "conversation.button.summarize-go": "Summarize",
+  "conversation.button.summarizing": "Summarizing…",
   "conversation.button.next-request": "Next request",
   "conversation.button.open": "Open conversation",
   "conversation.button.previous-request": "Previous request",
+  "conversation.button.question-details": "Details",
+  "conversation.button.question-next": "Next",
+  "conversation.button.question-skip": "Skip",
+  "conversation.button.question-submit": "Submit",
+  "conversation.button.remove-context": "Remove context",
+  "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
+  "conversation.button.restore": "Restore",
+  "conversation.button.rewind": "Rewind…",
+  "conversation.button.rewind-here": "Rewind to here",
+  "conversation.button.save": "Save",
   "conversation.button.save-visual": "Save as document",
   "conversation.button.send": "Send",
+  "conversation.button.session-new": "New session",
   "conversation.button.show-all-results": "Show all results",
   "conversation.button.stop": "Stop",
+  "conversation.button.usage": "Usage",
   "conversation.button.visual-read-description": "Read the description",
   "conversation.empty.no-agent": "lophn isn't set up for conversations yet.",
   "conversation.empty.no-messages":
@@ -1053,18 +1131,24 @@ export const en = {
   "conversation.empty.visual-no-data": "This visual has no data.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
+  "conversation.error.action-failed": "That didn't work. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
+  "conversation.label.approval": "Approval",
+  "conversation.label.approval-esc": "Esc",
+  "conversation.label.approval-preview": "Preview",
   "conversation.label.author-check": "Checked by lophn",
   "conversation.label.author-lophn": "lophn",
   "conversation.label.author-you": "You",
   "conversation.label.composer-correction": "Change to the current work",
   "conversation.label.composer-request": "New request",
+  "conversation.label.composer-message": "Message",
   "conversation.label.correction": "Change",
+  "conversation.label.delete-session": "Delete {title}",
   "conversation.label.delivery-applied": "Taken into account",
   "conversation.label.delivery-not-sent": "Not sent",
   "conversation.label.delivery-received": "Received",
@@ -1072,20 +1156,93 @@ export const en = {
   "conversation.label.delivery-sending": "Sending",
   "conversation.label.delivery-unconfirmed": "Not confirmed",
   "conversation.label.document": "Document",
+  "conversation.label.duration-days-hours": "{days, number}d {hours, number}h",
+  "conversation.label.duration-hours-minutes":
+    "{hours, number}h {minutes, number}m",
+  "conversation.label.duration-minutes": "{minutes, number}m",
+  "conversation.label.duration-minutes-seconds":
+    "{minutes, number}m {seconds, number}s",
+  "conversation.label.duration-seconds": "{seconds, number}s",
+  "conversation.label.edit-made": "Edited",
+  "conversation.label.edit-undone": "Undid the edit to",
+  "conversation.label.rewind-hidden":
+    "Rewound here · {count, plural, one {# message} other {# messages}} hidden",
+  "conversation.label.rewind-item-answer": "An answer you gave",
+  "conversation.label.rewind-item-app": "An app change",
+  "conversation.label.rewind-item-approval": "An approval decision",
+  "conversation.label.rewind-item-external": "A request that already went out",
+  "conversation.label.rewind-item-fact": "Something that already happened",
+  "conversation.label.rewind-loading": "Checking what would change…",
+  "conversation.label.rewind-messages-only": "Restore messages only",
+  "conversation.label.rewind-point": "Rewind to",
+  "conversation.label.rewind-remain": "Stays as it is",
+  "conversation.label.rewind-restore": "Will be restored",
+  "conversation.label.rewind-restore-all": "Restore messages and documents",
+  "conversation.label.rewind-skip": "Will be skipped",
+  "conversation.label.rewind-summarize": "Summarize from here",
+  "conversation.label.favorites": "Favorites",
+  "conversation.label.group-earlier": "Earlier",
+  "conversation.label.model-list": "Models",
+  "conversation.label.model-unknown": "Model",
+  "conversation.label.more-actions": "More",
   "conversation.label.more-results":
     "{count, plural, one {+# more} other {+# more}}",
+  "conversation.label.permission-summary":
+    "{count, plural, =0 {Ask first} one {Ask first, # tool allowed} other {Ask first, # tools allowed}}",
+  "conversation.label.question-answered":
+    "Answered {count, plural, one {# question} other {# questions}}: {answers}",
+  "conversation.label.question-apply-failed": "Couldn't apply: {answers}",
+  "conversation.label.question-applied": "Applied: {answers}",
+  "conversation.label.question-applying": "Applying: {answers}",
+  "conversation.label.question-asking":
+    "{agent} is asking {count, plural, one {# question} other {# questions}}",
+  "conversation.label.question-cancelled": "Cancelled",
+  "conversation.label.question-expired": "Expired",
+  "conversation.label.question-expires": "Expires in {remaining}",
+  "conversation.label.question-expires-now": "Expiring now",
+  "conversation.label.question-own-answer": "Type your own answer: {prompt}",
+  "conversation.label.question-own-answer-placeholder": "Type your own answer",
+  "conversation.label.question-paused": "Work is paused until you answer",
+  "conversation.label.question-recommended": "(Recommended)",
+  "conversation.label.question-skipped": "Skipped",
+  "conversation.label.rename-session": "Rename {title}",
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
   "conversation.label.results": "Results",
+  "conversation.label.search-models": "Search models",
+  "conversation.label.search-sessions": "Search {agent} sessions",
+  "conversation.label.send-correction": "Change this work",
+  "conversation.label.send-mode": "Send as",
+  "conversation.label.send-request": "Next request",
   "conversation.label.session": "Conversation {number, number}",
   "conversation.label.session-ended": "Conversation {number, number}, ended",
+  "conversation.label.session-list": "{agent} sessions",
+  "conversation.label.session-untitled": "New session",
   "conversation.label.sessions": "Conversations",
+  "conversation.label.since-now": "now",
+  "conversation.label.slash-blocked": "Not while {agent} is working",
+  "conversation.label.slash-menu": "Commands",
+  "conversation.label.slash-origin-place": "Project",
+  "conversation.label.slash-origin-workspace": "Workspace",
+  "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.status-done": "Done",
   "conversation.label.status-in-progress": "In progress",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-waiting": "Waiting",
+  "conversation.label.status-working": "Working",
+  "conversation.label.tasks": "Tasks",
+  "conversation.label.tasks-progress":
+    "Tasks · {done, number} of {total, number}",
+  "conversation.label.view-compact": "Compact",
+  "conversation.label.view-detail": "View detail",
+  "conversation.label.view-everything": "Everything",
+  "conversation.label.view-messages": "Messages",
   "conversation.label.visual-axes": "{y} by {x}",
   "conversation.label.visual-document-unavailable": "Document you can't open",
+  "conversation.label.tool-read-documents":
+    "{count, plural, one {Read # document} other {Read # documents}}",
+  "conversation.label.tool-used":
+    "{count, plural, one {Used {tool}} other {Used {tool} # times}}",
   "conversation.label.visual-no": "No",
   "conversation.label.visual-observed": "Observed {at}",
   "conversation.label.visual-saved": "Saved as a document",
@@ -1094,6 +1251,7 @@ export const en = {
   "conversation.label.visual-sources": "Sources",
   "conversation.label.visual-untitled": "Visual",
   "conversation.label.visual-yes": "Yes",
+  "conversation.label.worked-for": "Worked for {duration}",
   "conversation.notice.ended":
     "This conversation has ended. You can read it but not reply.",
   "conversation.notice.external-failed":
@@ -1105,15 +1263,29 @@ export const en = {
   "conversation.notice.external-waiting":
     "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
+  "conversation.notice.model-definition":
+    "This agent's model. Clear it to use the project default.",
+  "conversation.notice.model-session-only":
+    "Only this session. Default comes from the agent.",
+  "conversation.notice.model-value-fitted":
+    "{axis} set to {to}. {from} isn't available for {model}.",
+  "conversation.notice.no-model-options": "No options for this model.",
+  "conversation.notice.no-models": "No models match.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
   "conversation.notice.not-sent":
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.agent-paused":
+    "This agent is paused. You can read the conversation, but it takes no new messages.",
   "conversation.notice.provider-lost":
     "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "conversation.notice.paused":
     "This role is paused. New requests are kept and start only after you resume it.",
+  "conversation.notice.session-no-match": "No sessions match.",
+  "conversation.notice.slash-choose":
+    "More than one skill is named /{name}. Choose which one to use.",
+  "conversation.notice.slash-no-match": "No commands match.",
   "conversation.notice.stale":
     "Couldn't check for new messages. Last checked {age}.",
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
@@ -1139,7 +1311,78 @@ export const en = {
     "This visual's data doesn't match what can be shown.",
   "conversation.placeholder.new-context":
     "Say what this context should cover. The Context Engineer will ask for whatever else it needs.",
+  "conversation.placeholder.ask":
+    "Ask {agent}… Type / for commands and skills.",
   "conversation.title.dock": "Conversation",
+  "conversation.title.rewind": "Rewind to here",
+  "conversation.title.new-session": "New session",
+  "conversation.rewind.hint-messages-only":
+    "Hides the messages after this one. Documents and app data stay as they are.",
+  "conversation.rewind.hint-restore-all":
+    "Hides the messages after this one and puts back the documents and app data that changed since.",
+  "conversation.rewind.hint-summarize":
+    "Folds everything after this message into a summary. Documents and app data stay as they are.",
+  "conversation.rewind.note":
+    "Changes made outside this session are not restored.",
+  "conversation.rewind.preview-failed":
+    "Couldn't load what would change. Try again.",
+  "conversation.rewind.redo-no": "This can't be redone.",
+  "conversation.rewind.redo-yes":
+    "You can redo this until you send your next message.",
+  "conversation.rewind.result-left":
+    "Restored {restored, plural, one {# file} other {# files}}, but {left, plural, one {# item stays as it was} other {# items stay as they were}}.",
+  "conversation.rewind.result-restored":
+    "Restored {count, plural, one {# file} other {# files}}.",
+  "conversation.rewind.running":
+    "Stop the work in progress first, then rewind.",
+  "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
+  "conversation.rewind.summary-failed":
+    "Couldn't summarize this part, so nothing changed.",
+  "conversation.rewind-block.copied":
+    "Copied from another conversation, so only messages can be restored.",
+  "conversation.rewind-block.correction":
+    "Sent while work was in progress, so only messages can be restored.",
+  "conversation.rewind-block.limit-count":
+    "This point is too old, so documents from it can't be restored.",
+  "conversation.rewind-block.limit-file":
+    "A file here was too large to keep, so documents from this point can't be restored.",
+  "conversation.rewind-block.limit-total":
+    "Too many earlier changes were kept, so documents from this point can't be restored.",
+  "conversation.rewind-block.record-failed":
+    "lophn couldn't keep the earlier content of a file here, so documents from this point can't be restored.",
+  "conversation.rewind-why.answered-fact":
+    "Your answers and decisions stay in the conversation.",
+  "conversation.rewind-why.app-failed": "The app couldn't undo this change.",
+  "conversation.rewind-why.app-not-settled":
+    "This wasn't started because the app changes didn't all finish.",
+  "conversation.rewind-why.app-not-started":
+    "This wasn't started because an earlier step didn't finish.",
+  "conversation.rewind-why.app-revision-changed":
+    "The app's data changed since, so this change and the earlier ones from the same app aren't undone.",
+  "conversation.rewind-why.app-uncertain":
+    "The app was asked to undo this, but its answer never arrived. lophn can't tell if it worked.",
+  "conversation.rewind-why.already-reverted": "This was already undone.",
+  "conversation.rewind-why.chain-broken":
+    "This file was edited between lophn's changes, so it is left as it is.",
+  "conversation.rewind-why.created-edited":
+    "lophn created this file, but it was edited since, so it isn't deleted.",
+  "conversation.rewind-why.edited-outside":
+    "This file changed after lophn wrote it, so it is left as it is.",
+  "conversation.rewind-why.external-effect":
+    "This already reached something outside lophn.",
+  "conversation.rewind-why.later-edit":
+    "A later edit changed the same file, so only that one can be undone first.",
+  "conversation.rewind-why.link-path":
+    "This path is a link, so it is left as it is.",
+  "conversation.rewind-why.no-pre-image":
+    "The earlier content of this file wasn't kept.",
+  "conversation.rewind-why.no-receipt":
+    "The app didn't give a way to undo this change.",
+  "conversation.rewind-why.no-revert-command":
+    "The app has no way to undo this change.",
+  "conversation.rewind-why.rename-blocked":
+    "Another file is at the old name, so the rename isn't undone.",
+  "conversation.rewind-why.unknown": "lophn can't undo this edit.",
   "document.button.back-to-editing": "Back to editing",
   "document.button.check-again": "Check again",
   "document.button.check-task": "Check task",
@@ -1546,6 +1789,7 @@ export const en = {
   "launcher.title.schema-incompatible": "lophn needs an update",
   "launcher.title.start-failed": "lophn didn't start",
   "project-workspace.button.add-rule": "Add rule",
+  "project-workspace.button.agent": "Agent",
   "project-workspace.button.attach-operator": "Attach an Operator",
   "project-workspace.button.see-operators": "See Operators",
   "project-workspace.button.close-tab": "Close tab",
@@ -1554,6 +1798,7 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
+  "project-workspace.button.manage-agents": "Manage",
   "project-workspace.button.open-app-panel": "Open app in tab",
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
@@ -1561,20 +1806,124 @@ export const en = {
   "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
+  "project-workspace.button.add-server": "Add server",
+  "project-workspace.button.add-skill": "Add skill",
+  "project-workspace.button.edit-instructions": "Edit",
+  "project-workspace.button.new-operator": "New Operator",
+  "project-workspace.button.open-agent": "Open",
+  "project-workspace.button.use-workspace-default": "Use Workspace default",
+  "project-workspace.button.agent-editor-add-context": "Add context",
+  "project-workspace.button.agent-editor-delete": "Delete Operator",
+  "project-workspace.button.agent-editor-delete-confirm": "Delete",
+  "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
+  "project-workspace.button.agent-editor-reset-model": "Reset",
+  "project-workspace.button.agent-editor-save": "Save",
+  "project-workspace.button.agent-editor-upload-image": "Upload image",
+  "project-workspace.empty.agent-editor-no-contexts":
+    "No contexts. This operator works with project documents only.",
+  "project-workspace.empty.agent-editor-no-mcp":
+    "This project has no MCP servers yet.",
+  "project-workspace.empty.agent-editor-no-project":
+    "This project has no instructions yet.",
+  "project-workspace.empty.agent-editor-no-skills":
+    "This project has no skills yet.",
+  "project-workspace.heading.agent-editor-contexts": "Contexts",
+  "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
+  "project-workspace.heading.agent-editor-mcp": "MCP servers",
+  "project-workspace.heading.agent-editor-model": "Model",
+  "project-workspace.heading.agent-editor-permissions": "Permissions",
+  "project-workspace.heading.agent-editor-profile": "Profile",
+  "project-workspace.heading.agent-editor-skills": "Skills",
+  "project-workspace.label.agent-editor-built-in":
+    "Built-in instructions (read only)",
+  "project-workspace.label.agent-editor-icons": "Icon",
+  "project-workspace.label.agent-editor-image-file": "Image file",
+  "project-workspace.label.agent-editor-instructions": "Instructions",
+  "project-workspace.label.agent-editor-model-changed": "Changed",
+  "project-workspace.label.agent-editor-model-inherit":
+    "Use project default — {model} (from {source})",
+  "project-workspace.label.agent-editor-model-unset":
+    "Use project default — none chosen yet",
+  "project-workspace.label.agent-editor-name": "Name",
+  "project-workspace.label.agent-editor-project-instructions":
+    "Project instructions · LOPHN.md — shared by every agent in {project}",
+  "project-workspace.label.agent-editor-remove-context": "Remove {name}",
+  "project-workspace.label.agent-editor-source":
+    "{layer, select, workspace {Workspace} project {project} app {app} agent {this agent} other {lophn}}",
+  "project-workspace.notice.agent-editor-delete-body":
+    "Its open sessions close. The conversations stay.",
+  "project-workspace.notice.agent-editor-body-help":
+    "The agent reads project instructions first, then these.",
+  "project-workspace.notice.agent-editor-issue":
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} archivedReference {This context is archived, so pick an active one} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+  "project-workspace.notice.agent-editor-model-help":
+    "Only the fields you change are saved; the rest follow project and Workspace defaults.",
+  "project-workspace.notice.agent-not-ready":
+    "Conversations aren't ready yet. Try again in a moment.",
+  "project-workspace.notice.agents-change-failed":
+    "Couldn't change that. Nothing changed.",
+  "project-workspace.notice.agents-delete-failed":
+    "Couldn't delete this agent. Nothing changed.",
+  "project-workspace.notice.agents-save-conflict":
+    "This agent changed after you opened it. Cancel and open it again.",
+  "project-workspace.notice.agents-save-failed":
+    "Couldn't save this agent. Nothing changed.",
+  "project-workspace.notice.agents-upload-failed":
+    "Couldn't upload that image. Nothing changed.",
+  "project-workspace.notice.agent-editor-wider-help":
+    "Can't be wider than the project's permissions.",
+  "project-workspace.notice.agent-editor-save-first":
+    "Save first to upload an image.",
+  "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
+  "project-workspace.empty.no-instructions": "LOPHN.md is empty.",
+  "project-workspace.empty.no-mcp-servers": "No MCP servers registered yet.",
+  "project-workspace.empty.no-permission-rules": "No permission rules yet.",
+  "project-workspace.empty.no-skills": "No skills registered yet.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
+  "project-workspace.heading.agents": "Agents",
+  "project-workspace.heading.contexts": "Contexts",
   "project-workspace.heading.documents": "Documents",
   "project-workspace.heading.folders": "Folders",
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
+  "project-workspace.heading.agents-in-project": "Agents in {project}",
+  "project-workspace.heading.agents-new-operator": "New Operator",
+  "project-workspace.heading.instructions": "Instructions",
+  "project-workspace.heading.mcp-servers": "MCP servers",
+  "project-workspace.heading.models-for-project": "Models for this project",
+  "project-workspace.heading.permissions": "Permissions",
+  "project-workspace.heading.skills": "Skills",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.info.instructions-file":
+    "Your project's AGENTS.md is for coding agents. lophn agents read LOPHN.md.",
+  "project-workspace.info.models-follow-default":
+    "Leave a row alone and it follows the Workspace default.",
+  "project-workspace.info.permissions-lead":
+    "Permissions that last are decided only here.",
+  "project-workspace.info.stored-in-lophn":
+    "Agent definitions are stored in lophn, not in your project folder.",
   "project-workspace.label.operators":
     "{count, plural, one {# Operator repeats a check here} other {# Operators repeat checks here}}",
   "project-workspace.label.operators-none":
     "No Operator repeats a check here yet",
+  "project-workspace.label.agent-waiting": "Waiting for you",
+  "project-workspace.label.agents-target": "the agents",
+  "project-workspace.label.avatar-icon-dock": "Chat",
+  "project-workspace.label.avatar-icon-roles": "People",
+  "project-workspace.label.avatar-icon-contexts": "Library",
+  "project-workspace.label.avatar-icon-documents": "Documents",
+  "project-workspace.label.avatar-icon-apps": "Apps",
+  "project-workspace.label.avatar-icon-search": "Search",
+  "project-workspace.label.avatar-icon-series": "Series",
+  "project-workspace.label.avatar-icon-bookmark": "Bookmark",
+  "project-workspace.label.avatar-icon-terminal": "Terminal",
+  "project-workspace.label.avatar-icon-read": "Reading",
+  "project-workspace.label.avatar-icon-edit": "Pencil",
+  "project-workspace.label.avatar-icon-compare": "Compare",
   "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
@@ -1585,6 +1934,8 @@ export const en = {
   "project-workspace.label.kind-app-panel": "App panel",
   "project-workspace.label.kind-document-editor": "Document editor",
   "project-workspace.label.kind-terminal": "Terminal",
+  "project-workspace.label.kind-agents": "Agents",
+  "project-workspace.label.kind-agent": "Agent",
   "project-workspace.label.more-files":
     "{count, plural, one {+# more file} other {+# more files}}",
   "project-workspace.label.path": "Path",
@@ -1602,6 +1953,27 @@ export const en = {
   "project-workspace.label.rule-include": "Track",
   "project-workspace.label.rule-pattern": "Pattern",
   "project-workspace.label.tabs": "Tabs",
+  "project-workspace.label.agent-counts-built-in":
+    "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
+  "project-workspace.label.agent-counts-operator":
+    "{contexts, plural, one {# context} other {# contexts}} · {skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
+  "project-workspace.label.agent-counts-unknown":
+    "Can't count until its file is fixed",
+  "project-workspace.label.agent-kind-built-in": "Built in",
+  "project-workspace.label.agent-kind-operator": "Operator",
+  "project-workspace.label.agent-no-model": "No model",
+  "project-workspace.label.instructions-shared":
+    "Shared by every agent in {project}",
+  "project-workspace.label.model-default": "Use Workspace default ({model})",
+  "project-workspace.label.model-default-none": "No model chosen yet",
+  "project-workspace.label.model-overrides": "{model} · overrides Workspace",
+  "project-workspace.label.open-agent-named": "Open {name}",
+  "project-workspace.label.reset-model-named":
+    "Use Workspace default for {role}",
+  "project-workspace.label.role-app-engineer": "App Engineer",
+  "project-workspace.label.role-context-engineer": "Context Engineer",
+  "project-workspace.label.role-lophn": "lophn",
+  "project-workspace.label.role-operators": "Operators",
   "project-workspace.sidebar.label": "Project",
   "project-workspace.title.tracking": "Track files in {project}",
   "project-workspace.tracking.apply-failed":
@@ -2273,6 +2645,7 @@ export const en = {
   "settings.button.save": "Save",
   "settings.button.sign-in": "Sign in with {name}",
   "settings.button.sign-in-again": "Sign in again",
+  "settings.button.server-sign-in": "Sign in",
   "settings.button.test": "Test connection",
   "settings.defaults.current": "{model} on {name}.",
   "settings.defaults.decisions-help":
@@ -2291,6 +2664,33 @@ export const en = {
     "This changed somewhere else. The latest is shown. Try again.",
   "settings.error.window":
     "The window didn't open. Nothing changed. Try again.",
+  "settings.agents.action-failed":
+    "That didn't work. Nothing changed. Try again.",
+  "settings.agents.intro":
+    "These apply to every project unless a project or an Operator sets its own.",
+  "settings.agents.no-instructions": "No instructions yet.",
+  "settings.agents.no-options": "No options for this model.",
+  "settings.agents.no-servers": "No MCP servers yet.",
+  "settings.agents.no-skills": "No skills yet.",
+  "settings.agents.options-unknown": "Options for this model aren't known yet.",
+  "settings.button.add-skill": "Add skill",
+  "settings.button.change": "Change",
+  "settings.button.edit": "Edit",
+  "settings.heading.agents-defaults": "Default models",
+  "settings.heading.agents-instructions": "Instructions for all projects",
+  "settings.heading.agents-servers": "MCP servers (all projects)",
+  "settings.heading.agents-skills": "Skills (all projects)",
+  "settings.heading.agents-summaries": "Model for summaries",
+  "settings.label.agents-target": "your agent settings",
+  "settings.label.model-line": "{name} · {model}",
+  "settings.label.not-chosen": "Not chosen",
+  "settings.label.option-pair": "{axis}: {value}",
+  "settings.label.role-app-engineer": "App Engineer",
+  "settings.label.role-context-engineer": "Context Engineer",
+  "settings.label.role-lophn": "lophn",
+  "settings.label.role-operator": "Operators",
+  "settings.label.status-connected": "Connected",
+  "settings.label.status-needs-sign-in": "Needs sign-in",
   "settings.extensions.folder-added":
     "{name} is added. New work can use its skills.",
   "settings.extensions.folder-failed":
@@ -2363,6 +2763,8 @@ export const en = {
   "settings.label.state-sign-in-problem": "Sign-in problem",
   "settings.label.state-signed-out": "Signed out",
   "settings.label.tab-connections": "Connections",
+  "settings.label.tab-providers": "Providers",
+  "settings.label.tab-agents": "Agents",
   "settings.label.tab-backup": "Backup",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
@@ -2433,8 +2835,27 @@ export const en = {
   "settings.server.name-help": "A short name you will recognize.",
   "settings.server.program-help":
     "The full path of the program to start on this computer.",
-  "settings.server.sign-in-absent":
-    "Signing in to this server isn't available yet.",
+  "settings.server.sign-in-busy":
+    "A sign-in for this server is already waiting. Finish it in your browser.",
+  "settings.server.sign-in-failed":
+    "Couldn't sign in to {name}. Nothing changed. Try again.",
+  "settings.server.sign-in-needed":
+    "Sign in before new work can use this server.",
+  "settings.server.sign-in-reason-callback-timeout":
+    "The sign-in wasn't finished in time. Try again.",
+  "settings.server.sign-in-reason-exchange-failed":
+    "The service didn't accept the sign-in. Try again.",
+  "settings.server.sign-in-reason-expired":
+    "This sign-in expired. Sign in again.",
+  "settings.server.sign-in-reason-refresh-rejected":
+    "The service ended this sign-in. Sign in again.",
+  "settings.server.sign-in-reason-state-mismatch":
+    "The sign-in page sent back something unexpected, so it was rejected. Try again.",
+  "settings.server.sign-in-reason-store-failed":
+    "The sign-in couldn't be saved on this computer. Try again.",
+  "settings.server.sign-in-not-opened":
+    "The sign-in page didn't open. Try again.",
+  "settings.server.signed-in": "Signed in.",
   "settings.sign-in.absent":
     "Signing in with {name} isn't available in this version yet.",
   "settings.sign-in.code": "Enter this code on the page: {code}.",
@@ -2469,6 +2890,54 @@ export const en = {
   "settings.usage.loading": "Reading use and cost.",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
+  "settings.button.disconnect": "Disconnect",
+  "settings.heading.connected": "Connected",
+  "settings.heading.add-provider": "Add a provider",
+  "settings.title.connect-provider": "Connect {name}",
+  "settings.title.custom-provider": "Custom provider",
+  "settings.label.custom-provider-hint": "Any OpenAI-compatible endpoint",
+  "settings.status.plan-access":
+    "Your plan doesn't allow this. Check that your plan includes it.",
+  "settings.status.sign-in-problem":
+    "There's a sign-in problem. Disconnect, then connect again.",
+  "settings.status.usage-limit":
+    "Usage limit reached. Wait for the limit to reset.",
+  "settings.notice.provider-lead":
+    "A provider is a service you connect with one key or sign-in. You choose models per agent and per session, not here.",
+  "settings.notice.next-run": "Changes apply to new work.",
+  "settings.notice.none-connected": "No providers are connected yet.",
+  "settings.error.reorder": "Couldn't change the order. Try again.",
+  "settings.error.account-enabled": "Couldn't change this account. Try again.",
+  "settings.label.available-target": "the providers you can add",
+  "settings.label.login-signed-in": "Signed in",
+  "settings.label.login-signed-in-plan": "Signed in ({plan})",
+  "settings.label.move-account-up": "Move {name} up",
+  "settings.label.move-account-down": "Move {name} down",
+  "settings.label.use-account": "Use {name}",
+  "settings.label.sign-in-how": "How do you want to sign in to {name}?",
+  "settings.label.method-sign-in": "Sign in with {product}",
+  "settings.label.method-opens-browser": "Opens your browser",
+  "settings.label.method-paste-key": "Paste a key",
+  "settings.label.method-local": "Local server",
+  "settings.label.method-local-hint": "Runs on this computer",
+  "settings.notice.method-unverified": "Not confirmed to work with lophn yet.",
+  "settings.error.connect-failed":
+    "Couldn't connect. Nothing changed. Try again.",
+  "settings.notice.custom-key-required":
+    "A web address needs an API key. Check the box below.",
+  "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
+  "settings.label.custom-id": "Provider ID",
+  "settings.label.custom-name": "Display name",
+  "settings.label.custom-url": "Base URL",
+  "settings.label.custom-key": "Add an API key (optional)",
+  "settings.notice.custom-id-help":
+    "Lowercase letters, numbers, hyphens or underscores.",
+  "settings.error.custom-id":
+    "Use lowercase letters, numbers, hyphens or underscores.",
+  "settings.error.custom-name": "Enter a display name.",
+  "settings.error.custom-url": "Use https, or http only for this computer.",
+  "settings.notice.custom-key-help":
+    "You enter the key in a protected window after you connect.",
   "settings.title.screen": "Settings",
   "settings.button.cancel": "Cancel",
   "settings.button.connect": "Connect",
@@ -2591,9 +3060,9 @@ export const en = {
     "lophn lost track of this shell, so how it ended is unknown.",
   "terminal.title.close": "Close this terminal?",
   "things-to-confirm.button.answer-next": "Answer the next question",
-  "things-to-confirm.button.cancel-question": "Cancel this question",
-  "things-to-confirm.button.confirm-cancel": "Cancel the question",
-  "things-to-confirm.button.keep-question": "Keep the question",
+  "things-to-confirm.button.cancel-question": "Cancel these questions",
+  "things-to-confirm.button.confirm-cancel": "Cancel the questions",
+  "things-to-confirm.button.keep-question": "Keep the questions",
   "things-to-confirm.button.later": "Answer later",
   "things-to-confirm.button.mark-read": "Mark as read",
   "things-to-confirm.button.review": "Review",
@@ -2605,13 +3074,13 @@ export const en = {
   "things-to-confirm.empty.pick": "Pick something on the left to see it here.",
   "things-to-confirm.empty.waiting": "Nothing is waiting for you.",
   "things-to-confirm.error.cancel-failed":
-    "Couldn't cancel this question. Try again.",
+    "Couldn't cancel these questions. Try again.",
   "things-to-confirm.error.changed":
     "This changed since you opened it. Showing the latest.",
   "things-to-confirm.error.decisions-unavailable":
     "Couldn't load decisions right now.",
   "things-to-confirm.error.later-failed":
-    "Couldn't put this question off. Try again.",
+    "Couldn't skip these questions. Try again.",
   "things-to-confirm.error.load-failed":
     "Couldn't load what's waiting for you. Try again.",
   "things-to-confirm.error.mark-read-failed":
@@ -2626,6 +3095,7 @@ export const en = {
   "things-to-confirm.error.send-failed":
     "Couldn't send your answer. Try again.",
   "things-to-confirm.error.too-long": "This is too long to send. Shorten it.",
+  "things-to-confirm.label.agent-unknown": "An agent",
   "things-to-confirm.label.blocking": "Work is paused until you answer",
   "things-to-confirm.label.cancel-reason": "Why cancel it?",
   "things-to-confirm.label.count-decisions":

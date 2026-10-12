@@ -1,11 +1,10 @@
 // run 선택·한도 테스트가 함께 쓰는 실제 ledger 도우미. 등록 executor(harness)와 임시
 // ledger 파일을 쓴다. harness Worker가 registration_test.ts를 import하므로 이 파일은
 // mod.ts와 나누어 둔다(그 graph에 harness를 끌어들이면 Worker가 뜨지 못한다).
-import { createHash } from "node:crypto";
-import { canonicalize, ok, type Result } from "../../../../base/mod.ts";
+import { ok, type Result } from "../../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../../contracts/platform/mod.ts";
 import type { SqlRow } from "../../../../contracts/platform/mod.ts";
-import { envelope, presetDefinitionJson } from "./mod.ts";
+import { envelope } from "./mod.ts";
 
 export { envelope };
 import type { CoreRead } from "../startup.ts";
@@ -36,11 +35,8 @@ export type LedgerHarness = {
 export const RUN_NOW = Date.UTC(2026, 0, 1);
 
 export const RUN_OPERATIONS = [
-  "RegisterDefaultPreset",
   "CreateBuiltinAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
-  "WithdrawAssignment",
+  "SeedAssignmentState",
   "AcceptRun",
   "StartRun",
   "CheckpointRun",
@@ -91,47 +87,41 @@ export function must<T>(result: Result<T>): T {
   return result.value;
 }
 
-function hashOf(definition: Record<string, unknown>): string {
-  return createHash("sha256").update(canonicalize(definition), "utf8").digest(
-    "hex",
-  );
-}
-
 // lophn(전역 하나)과 Context Engineer(전역 하나) assignment.
 export const ASG_LOPHN = runId("asg", 1);
 export const ASG_CE = runId("asg", 2);
 
 export async function seedAssignments(h: LedgerHarness): Promise<void> {
   for (
-    const [preset, kind, assignment] of [
-      [runId("pst", 1), "lophn", ASG_LOPHN],
-      [runId("pst", 2), "context_engineer", ASG_CE],
+    const [role, assignment] of [
+      ["lophn", ASG_LOPHN],
+      ["context_engineer", ASG_CE],
     ] as const
   ) {
-    const definition = presetDefinitionJson(kind);
-    must(
-      await h.command(
-        machineCredential,
-        envelope("RegisterDefaultPreset", {
-          id: preset,
-          definition,
-          definition_hash: hashOf(definition),
-        }),
-      ),
-    );
     must(
       await h.command(
         machineCredential,
         envelope("CreateBuiltinAssignment", {
           id: assignment,
-          preset,
-          preset_revision: 1,
-          role: kind,
+          role,
           scope: { kind: "all", id: null },
         }),
       ),
     );
   }
+}
+
+// assignment를 멈춘 상태로 만든다(registration_test.ts의 SeedAssignmentState).
+export async function pauseAssignmentFixture(
+  h: LedgerHarness,
+  assignment: string,
+): Promise<void> {
+  must(
+    await h.command(
+      machineCredential,
+      envelope("SeedAssignmentState", { assignment, state: "paused" }),
+    ),
+  );
 }
 
 export type AcceptInput = {

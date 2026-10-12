@@ -18,12 +18,7 @@ import type {
   AppFrameViewState,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
-import {
-  DockSlot,
-  DockToggle,
-  useConversation,
-} from "../conversation/dock-slot.tsx";
-import { dockPlacement } from "../conversation/model.ts";
+import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
 import {
   type AppStatus,
@@ -34,6 +29,7 @@ import type {
   AppsSource,
   RunState,
 } from "../desktop/lophn-space/apps/source.ts";
+import type { AgentsSource } from "../workspace/agents/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
 import type { PreviewOpen } from "./app-detail/model.ts";
 import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
@@ -42,11 +38,17 @@ import { withReportAgain } from "./app-detail/issues/report-again.ts";
 import { TasksTab } from "./app-detail/tasks/tasks-tab.tsx";
 import type { TasksSource } from "./app-detail/tasks/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
+import {
+  AgentPane,
+  agentPanePlacement,
+  type AgentPaneState,
+} from "./agent-pane.tsx";
+import { AgentSelect } from "./agent-select.tsx";
+import { useAppAgents } from "./app-agents.ts";
 import { AppBar } from "./app-bar.tsx";
 import {
   createViewCovers,
   EmbeddedView,
-  useViewCover,
   ViewCoversProvider,
 } from "./embedded-view.tsx";
 import { OpsPanelFrame, opsPanelPlacement } from "./ops-panel-frame.tsx";
@@ -75,8 +77,16 @@ export interface AppSpaceProps {
    * 펼친 채(생성 링크) 연다.
    */
   taskTarget?: { readonly ticket: string | null; readonly create: boolean };
+  /**
+   * 이 앱 자리의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
+   */
+  agents?: AgentsSource;
+  /** Agent 칸이 agent 하나의 통로를 얻는 함수. 없으면 칸이 "준비 안 됨"이다. */
+  agentViewSource?: AgentViewSourceFactory;
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
+  /** Settings로 간다(Agent 칸·관리 칸의 기본 model·확장 등록·연결). 없으면 그 단추는 아무것도 하지 않는다. */
+  onSettings?: () => void;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
@@ -172,7 +182,10 @@ export function AppSpace(
     issueProblem,
     tasks,
     taskTarget,
+    agents,
+    agentViewSource,
     onInstructions,
+    onSettings,
     windowWidth,
     onLauncher,
     onDocuments,
@@ -192,19 +205,23 @@ export function AppSpace(
   const contentSize = useObservedSize(contentRef);
   const width = frameSize?.width ?? windowWidth;
 
-  // 창마다 하나인 덮개 목록. 좁은 창의 운영 패널·대화 도크가 앱 view 자리를 덮는다.
+  // 창마다 하나인 덮개 목록. 좁은 창의 운영 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
-  const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(false);
-  const dock = dockPlacement(
-    dockOpen && conversation !== null,
+  // agent 칸(R38)이 열려 있는 동안 운영 패널은 자리를 내준다.
+  const [pane, setPane] = useState<AgentPaneState | null>(null);
+  const agentList = useAppAgents(agents, app);
+  const paneShown = pane !== null && agents !== undefined;
+  const agentPane = agentPanePlacement(
+    paneShown,
     contentSize?.width ?? width,
   );
-  // 도크가 열리면 운영 패널은 자리를 내주고, 닫히면 사람이 둔 상태로 돌아간다.
   const [detailsOpen, setDetailsOpen] = useState(
     issueProblem !== undefined || taskTarget !== undefined,
   );
-  const ops = opsPanelPlacement(detailsOpen && dock === "hidden", width);
+  const ops = opsPanelPlacement(
+    detailsOpen && !paneShown,
+    width,
+  );
 
   // 운영과 분리된 preview. 열려 있는 동안 본문은 그 preview이고 사람이 닫으면 앱으로 돌아온다.
   const [preview, setPreview] = useState<PreviewOpen | null>(null);
@@ -345,8 +362,14 @@ export function AppSpace(
           name={row?.name ?? null}
           status={status}
           onLauncher={onLauncher}
-          detailsOpen={detailsOpen}
-          onDetails={() => setDetailsOpen(!detailsOpen)}
+          detailsOpen={detailsOpen && !paneShown}
+          onDetails={() => {
+            // 칸이 열려 있으면 운영 패널을 열며 칸을 닫는다.
+            if (paneShown) {
+              setPane(null);
+              setDetailsOpen(true);
+            } else setDetailsOpen(!detailsOpen);
+          }}
           onDocuments={onDocuments}
           onNewWindow={windows && row && !row.archived
             ? () => {
@@ -370,11 +393,18 @@ export function AppSpace(
               onOpen={onThingsToConfirm}
             />
           }
-          tools={conversation
+          agentSelect={agents
             ? (
-              <DockToggle
-                open={dockOpen}
-                onToggle={() => setDockOpen(!dockOpen)}
+              <AgentSelect
+                agents={agentList.agents}
+                onOpenAgent={(assignment) =>
+                  setPane((current) =>
+                    current?.mode === "agent" &&
+                      current.assignment === assignment
+                      ? current
+                      : { mode: "agent", assignment, session: null }
+                  )}
+                onManage={() => setPane({ mode: "manage", agent: null })}
               />
             )
             : null}
@@ -478,32 +508,26 @@ export function AppSpace(
               )
               : null}
           </OpsPanelFrame>
-          <DockCover dock={dock} content={contentRef} />
-          <DockSlot
-            placement={dock}
-            workPlace={{ kind: "app", id: app }}
-            onClose={() => setDockOpen(false)}
-            onOpenResult={onOpenResult}
-          />
+          {agents !== undefined && pane !== null && agentPane !== "hidden"
+            ? (
+              <AgentPane
+                state={pane}
+                placement={agentPane}
+                app={app}
+                appName={row?.name ?? ""}
+                source={agents}
+                {...(agentViewSource === undefined ? {} : { agentViewSource })}
+                onState={setPane}
+                onClose={() => setPane(null)}
+                {...(onOpenResult === undefined ? {} : { onOpenResult })}
+                {...(onInstructions === undefined ? {} : { onInstructions })}
+                {...(onSettings === undefined ? {} : { onSettings })}
+                onChanged={agentList.reload}
+              />
+            )
+            : null}
         </div>
       </ViewCoversProvider>
     </div>
   );
-}
-
-// 좁은 창에서 대화 도크가 본문을 덮으면 앱 view는 덮이지 않는 영역으로 준다(R36). 도크는
-// 대화 쪽 컴포넌트라 이 공간 안의 그 요소를 찾아 덮개로 둔다.
-function DockCover(
-  { dock, content }: {
-    dock: ReturnType<typeof dockPlacement>;
-    content: { readonly current: Element | null };
-  },
-) {
-  const ref = useMemo(() => ({
-    get current(): Element | null {
-      return content.current?.querySelector("[data-dock='overlay']") ?? null;
-    },
-  }), [content]);
-  useViewCover(ref, dock === "overlay");
-  return null;
 }

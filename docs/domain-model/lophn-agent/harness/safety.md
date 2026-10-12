@@ -28,13 +28,13 @@ ToolCall 기록에서 계산하며 독립 entity·ledger 표가 없다. call은 
 
 - 사람 거절·미실행은 실패 수에 넣지 않는다. 다른 요청의 성공·model 변경·compaction·재시작은 누적을 풀지 않는다.
 - canonical 비교는 문자열 공백·배열 순서·대상 배열 순서·생략과 빈 값·null을 보존한다.
-- assignment 연속 실패·paused 판정은 → lophn-agent/assignments이며 여기서 카운터·상태를 정의하지 않는다.
+- assignment 상태는 → lophn-agent/assignments이며 여기서 카운터·상태를 정의하지 않는다.
 
 ## PromptSource (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `system_role / preset_prompt / user_instruction / user_direct / machine_fact / data` | 아니오 | 아래 구분; model이나 자료가 지정 불가 | 신뢰 유형 |
+| `kind` | `system_role / agent_instructions / user_instruction / user_direct / machine_fact / data` | 아니오 | 아래 구분; model이나 자료가 지정 불가 | 신뢰 유형 |
 | `source_ref` | 실제 대상·call·메시지 참조 | 예 | data에는 실제 출처 필요; scope 검사 | 출처 |
 | `version / range` | 고정 판 / 반환 구간 | 예 | 자료에서 확인된 값 | 읽은 근거 |
 | `collected_at` | 시각 | 아니오 | machine 확인 | 수집 |
@@ -43,8 +43,8 @@ ToolCall 기록에서 계산하며 독립 entity·ledger 표가 없다. call은 
 
 | kind | 허용 내용 |
 |---|---|
-| `system_role` | 제품 공통·고정 역할 지시; Preset 편집으로 변경 불가 |
-| `preset_prompt` | 사람이 저장하고 Assignment에 적용한 고정 Preset 판의 prompt; 제품 금지·상한을 넓히지 못함 |
+| `system_role` | 제품 공통·고정 역할 지시; agent 정의 편집으로 변경 불가 |
+| `agent_instructions` | 사람이 저장한 agent 정의의 지침 본문(run에 고정한 resolved agent); 제품 금지·상한을 넓히지 못함 |
 | `user_instruction` | instructions contract로 작업 자리와 첨부에서 읽은 실제 사람 지침·확정 Version; 일반 문서의 주장으로 지정 불가 |
 | `user_direct` | 이번 세션에서 user가 직접 낸 request·correction 및 전용 결정 |
 | `machine_fact` | ledger가 확인한 사실·실제 contract 결과의 상태·참조 |

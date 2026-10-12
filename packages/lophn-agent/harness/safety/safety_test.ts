@@ -188,7 +188,7 @@ Deno.test("lophn-agent/harness/safety#R4: 차단 전에는 run을 끝내지 않�
 // R5 fixture: 다섯 출처.
 const FIVE_KINDS: PromptSourceKind[] = [
   "system_role",
-  "preset_prompt",
+  "agent_instructions",
   "user_instruction",
   "user_direct",
   "machine_fact",
@@ -198,6 +198,11 @@ const FIVE_KINDS: PromptSourceKind[] = [
 Deno.test("lophn-agent/harness/safety#R5: 다섯 출처 구별과 출처 미상은 자료다", () => {
   assertEquals(classifySource(FIVE_KINDS.slice(0, 5)), "system_role");
   assertEquals(classifySource(["user_direct"]), "user_direct");
+  // 사람이 저장한 agent 정의의 지침 본문은 자기 이름의 출처다(옛 preset_prompt 이름은 없다).
+  assertEquals(
+    classifySource(["agent_instructions"]),
+    "agent_instructions",
+  );
   assertEquals(classifySource(["machine_fact"]), "machine_fact");
   // 분류 없으면 자료다.
   assertEquals(classifySource([]), "data");

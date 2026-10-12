@@ -32,7 +32,6 @@ const SCREENS: readonly LophnScreen[] = [
   "projects",
   "apps",
   "things-to-confirm",
-  "roles",
   "settings",
 ];
 

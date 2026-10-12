@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { atSchema, idSchema, jsonObjectSchema } from "../platform/mod.ts";
+import { EFFORT_VALUES } from "./option-axes.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -8,17 +9,19 @@ const positiveIntegerSchema = z.number().int().positive();
 const nonnegativeIntegerSchema = z.number().int().nonnegative();
 export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
-export const REASONING_LEVELS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "very_high",
-  "maximum",
-  "provider_default",
-] as const;
-export const reasoningLevelSchema = z.enum(REASONING_LEVELS);
+export const effortValueSchema = z.enum(EFFORT_VALUES);
+export type EffortValue = z.infer<typeof effortValueSchema>;
+// 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.
+export const EFFORT_LABELS = {
+  off: "Off",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  very_high: "XHigh",
+  maximum: "Max",
+} as const satisfies Record<EffortValue, string>;
+
 export const MODEL_MEDIA = ["text", "image", "audio", "video"] as const;
 const mediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
   (values) => values.includes("text") && new Set(values).size === values.length,
@@ -86,18 +89,17 @@ export const priceBasisOutputSchema = z.object({
   rates: z.array(priceRateOutputSchema).min(1),
 }).refine(disjointRates, { message: "overlapping context price intervals" });
 
-const credentialsSchema = z.array(nonblankSchema).refine(
-  (values) => new Set(values).size === values.length,
-  { message: "duplicate credential key" },
-);
 const resolvedModelFields = {
   purpose: z.enum(["judgment", "organizing"]),
-  credentials: credentialsSchema,
+  // run 시작에 고정한 provider의 credential 판. 인증 없음(custom provider의 loopback)만 null이다.
+  credential_revision: positiveIntegerSchema.nullable(),
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
+  sent_model_name: nonblankSchema,
   verification: z.enum(["verified", "unverified"]),
-  options: jsonObjectSchema,
-  reasoning_level: reasoningLevelSchema,
+  option_values: z.record(nonblankSchema, nonblankSchema),
+  request_patch: jsonObjectSchema,
+  request_headers: z.record(nonblankSchema, nonblankSchema),
   context_limit: positiveIntegerSchema,
   input_limit: positiveIntegerSchema,
   output_limit: positiveIntegerSchema,

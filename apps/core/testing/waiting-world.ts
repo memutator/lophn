@@ -60,6 +60,8 @@ import {
 export { count, inspect, MACHINE_TOKEN, OTHER_TARGET, TARGET, USER_TOKEN };
 
 const BASIS = "b".repeat(64);
+// 시험이 만드는 project와 겹치지 않는 번호다.
+const PLACE_PROJECT = id("prj", 250);
 const LIMITS = { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 };
 
 const MACHINE_OPERATIONS = [
@@ -74,10 +76,10 @@ const MACHINE_OPERATIONS = [
   "WaitRun",
   "ResolveRunWait",
   "CorrectWaitingRun",
-  "ReadQuestion",
+  "ReadQuestionGroup",
   "ReadQuestionText",
-  "ExpireQuestion",
-  "CancelQuestion",
+  "ExpireQuestionGroup",
+  "CancelQuestionGroup",
   "RecordToolRequest",
   "DecideToolCall",
   "StartToolCall",
@@ -110,11 +112,11 @@ const USER_OPERATIONS = [
   "ReceiveMessage",
   "ReadRun",
   "StopRun",
-  "AnswerQuestion",
+  "AnswerQuestionGroup",
   "AnswerQuestionAction",
-  "DeferQuestion",
-  "CancelQuestion",
-  "ReadQuestion",
+  "DeferQuestionGroup",
+  "CancelQuestionGroup",
+  "ReadQuestionGroup",
   "ReadQuestionText",
   "grant_approval_request",
   "reject_approval_request",
@@ -195,9 +197,9 @@ export async function acceptCredential(
 
 let tokens = 0;
 
-// documents를 함께 띄우면 문서 자리 이동 같은 소유 command의 option action을 실제 문서로 본다.
-// apps는 앱 등록의 option action을 본다(place 이름 공간이 documents 등록의 몫이라 documents도 띄운다).
-export type WaitingWorldOptions = { documents?: boolean; apps?: boolean };
+// documents는 항상 띄운다: 세션이 자리로 받는 project가 documents 등록의 몫이고, 문서 자리
+// 이동 같은 소유 command의 option action을 실제 문서로 본다. apps는 앱 등록의 option action을 본다.
+export type WaitingWorldOptions = { apps?: boolean };
 
 export async function openWaitingWorld(
   options: WaitingWorldOptions = {},
@@ -210,9 +212,7 @@ export async function openWaitingWorld(
     teams: [
       { lophnAgentDefinitions, createLedgerRegistration },
       approvalOwner,
-      ...(options.documents || options.apps
-        ? [{ createLedgerRegistration: createDocumentsRegistration }]
-        : []),
+      { createLedgerRegistration: createDocumentsRegistration },
       ...(options.apps
         ? [{ createLedgerRegistration: createAppsRegistration }]
         : []),
@@ -220,9 +220,7 @@ export async function openWaitingWorld(
     teamModules: [
       new URL("../lophn-agent.ts", import.meta.url).href,
       new URL("./approval-owner.ts", import.meta.url).href,
-      ...(options.documents || options.apps
-        ? [new URL("../documents.ts", import.meta.url).href]
-        : []),
+      new URL("../documents.ts", import.meta.url).href,
       ...(options.apps ? [new URL("../apps.ts", import.meta.url).href] : []),
     ],
     clock,
@@ -255,6 +253,16 @@ export async function openWaitingWorld(
   assertEquals(listed.status, 200, JSON.stringify(listed.body));
   const assignments = listed.body["assignments"] as Assignment[];
   const ids = createIdSource({ clock, random: seededRandom(78) });
+  // 세션은 쓸 수 있는 project 하나를 자리로 받는다(Context Engineer는 project만 받는다).
+  const project = await post("projects/create", USER_TOKEN, {
+    id: PLACE_PROJECT,
+    name: "session-place",
+    title: "session-place",
+    purpose: "",
+    folders: [],
+    tracking: { enabled: false, patterns: [], use_gitignore: false },
+  });
+  assertEquals(project.status, 200, JSON.stringify(project.body));
   let order = 0;
   const seat = async (role: string): Promise<Seat> => {
     const assignment = assignments.find((entry) => entry.role === role);
@@ -268,9 +276,8 @@ export async function openWaitingWorld(
       {
         id: session,
         assignment: assignment.id,
-        role: assignment.role,
-        work_place: { kind: "global", id: null },
-        continued_from: null,
+        work_place: { kind: "project", id: PLACE_PROJECT },
+        opening_context: null,
       },
       { assignment_revision: assignment.revision, assignment_state: "enabled" },
     );
@@ -325,8 +332,8 @@ export async function openWaitingWorld(
         [
           "create_approval_request",
           "ReadApprovalText",
-          "CreateQuestion",
-          "ReadQuestion",
+          "CreateQuestionGroup",
+          "ReadQuestionGroup",
           "ReadQuestionText",
         ],
         { assignment: assignment.id, run },
@@ -419,6 +426,7 @@ export function judgmentFor(
     bindings: new Map(
       tools.map((item) => [item.definition.name, item.binding]),
     ),
+    agentHash: "ab".repeat(32),
     mcpConnection: () => ({ revision: 1 }),
     approvalTtlMs: 600_000,
     ...over,

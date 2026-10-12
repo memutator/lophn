@@ -355,14 +355,18 @@ export type PlaceholderKinds = {
   "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
   "app-space.button.documents": Record<never, never>;
+  "app-space.button.manage-agents": Record<never, never>;
   "app-space.button.new-window": Record<never, never>;
   "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.empty.agent-not-ready": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
   "app-space.empty.no-version": Record<never, never>;
   "app-space.empty.not-found": Record<never, never>;
   "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.heading.agents": Record<never, never>;
   "app-space.heading.app-details": Record<never, never>;
   "app-space.heading.this-computer": Record<never, never>;
+  "app-space.label.agent-select": Record<never, never>;
   "app-space.label.this-app": Record<never, never>;
   "app-space.notice.shortcut-added": Record<never, never>;
   "app-space.notice.shortcut-failed": Record<never, never>;
@@ -409,6 +413,9 @@ export type PlaceholderKinds = {
     author: "string";
   };
   "common.button.apply": Record<never, never>;
+  "common.button.ask-agent": {
+    agent: "string";
+  };
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.clear": Record<never, never>;
@@ -582,13 +589,13 @@ export type PlaceholderKinds = {
   "confirmation-window.revert.possible": Record<never, never>;
   "confirmation-window.approval.no-external": Record<never, never>;
   "confirmation-window.approval.title": Record<never, never>;
-  "confirmation-window.button.allow": Record<never, never>;
   "confirmation-window.button.back": Record<never, never>;
   "confirmation-window.button.cancel-request": Record<never, never>;
   "confirmation-window.button.choose": Record<never, never>;
   "confirmation-window.button.close": Record<never, never>;
   "confirmation-window.button.reject": Record<never, never>;
   "confirmation-window.button.save": Record<never, never>;
+  "confirmation-window.button.disconnect": Record<never, never>;
   "confirmation-window.button.remove": Record<never, never>;
   "confirmation-window.button.replace": Record<never, never>;
   "confirmation-window.button.undo": Record<never, never>;
@@ -686,10 +693,32 @@ export type PlaceholderKinds = {
   };
   "confirmation-window.revert.title": Record<never, never>;
   "confirmation-window.revert.unknown": Record<never, never>;
+  "confirmation-window.button.rewind": Record<never, never>;
+  "confirmation-window.button.rewind-anyway": Record<never, never>;
+  "confirmation-window.button.summarize": Record<never, never>;
+  "confirmation-window.title.rewind-messages-only": Record<never, never>;
+  "confirmation-window.title.rewind-restore-all": Record<never, never>;
+  "confirmation-window.title.rewind-second": Record<never, never>;
+  "confirmation-window.title.rewind-summarize": Record<never, never>;
+  "confirmation-window.rewind.second-body": Record<never, never>;
+  "confirmation-window.rewind.subject-messages-only": Record<never, never>;
+  "confirmation-window.rewind.subject-restore-all": Record<never, never>;
+  "confirmation-window.rewind.subject-summarize": Record<never, never>;
+  "confirmation-window.result.rewind-blocked": Record<never, never>;
+  "confirmation-window.result.rewind-partly": Record<never, never>;
+  "confirmation-window.result.rewind-started": Record<never, never>;
+  "confirmation-window.result.rewind-unknown": Record<never, never>;
+  "confirmation-window.result.rewound": Record<never, never>;
   "confirmation-window.secret-app.title": {
     name: "string";
   };
   "confirmation-window.secret-code.title": Record<never, never>;
+  "confirmation-window.secret-disconnect.effect": Record<never, never>;
+  "confirmation-window.secret-disconnect.revert": Record<never, never>;
+  "confirmation-window.secret-disconnect.subject": Record<never, never>;
+  "confirmation-window.secret-disconnect.title": {
+    name: "string";
+  };
   "confirmation-window.secret-key.title": {
     name: "string";
   };
@@ -731,6 +760,7 @@ export type PlaceholderKinds = {
   };
   "confirmation-window.button.allow-access": Record<never, never>;
   "confirmation-window.button.allow-once": Record<never, never>;
+  "confirmation-window.button.allow-session": Record<never, never>;
   "confirmation-window.button.turn-on": Record<never, never>;
   "confirmation-window.button.use-version": Record<never, never>;
   "confirmation-window.confirm.input-note": Record<never, never>;
@@ -1083,42 +1113,97 @@ export type PlaceholderKinds = {
     title: "string";
     count: "plural";
   };
+  "conversation.body.delete-session": {
+    title: "string";
+  };
   "conversation.body.save-visual-request": {
     title: "string";
     block: "string";
     message: "string";
   };
+  "conversation.body.skill-command-request": {
+    skill: "string";
+  };
+  "conversation.button.approval-allow": Record<never, never>;
+  "conversation.button.approval-allow-once": Record<never, never>;
+  "conversation.button.approval-allow-scope": Record<never, never>;
+  "conversation.button.approval-allow-session": Record<never, never>;
+  "conversation.button.approval-deny": Record<never, never>;
+  "conversation.button.archive": Record<never, never>;
+  "conversation.button.archived-toggle": {
+    count: "number";
+  };
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.check-result": Record<never, never>;
+  "conversation.button.attach": Record<never, never>;
+  "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.close": Record<never, never>;
+  "conversation.button.close-tab": Record<never, never>;
+  "conversation.button.delete": Record<never, never>;
+  "conversation.button.edit-open": Record<never, never>;
+  "conversation.button.edit-undo": Record<never, never>;
+  "conversation.button.fork": Record<never, never>;
+  "conversation.button.fork-here": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.mode-correction": Record<never, never>;
   "conversation.button.mode-request": Record<never, never>;
   "conversation.button.new-session": Record<never, never>;
+  "conversation.button.favorite-add": {
+    model: "string";
+  };
+  "conversation.button.favorite-remove": {
+    model: "string";
+  };
+  "conversation.button.hidden-hide": Record<never, never>;
+  "conversation.button.hidden-show": Record<never, never>;
+  "conversation.button.redo": Record<never, never>;
+  "conversation.button.rewind-go": Record<never, never>;
+  "conversation.button.summarize-go": Record<never, never>;
+  "conversation.button.summarizing": Record<never, never>;
   "conversation.button.next-request": Record<never, never>;
   "conversation.button.open": Record<never, never>;
   "conversation.button.previous-request": Record<never, never>;
+  "conversation.button.question-details": Record<never, never>;
+  "conversation.button.question-next": Record<never, never>;
+  "conversation.button.question-skip": Record<never, never>;
+  "conversation.button.question-submit": Record<never, never>;
+  "conversation.button.remove-context": Record<never, never>;
+  "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
+  "conversation.button.restore": Record<never, never>;
+  "conversation.button.rewind": Record<never, never>;
+  "conversation.button.rewind-here": Record<never, never>;
+  "conversation.button.save": Record<never, never>;
   "conversation.button.save-visual": Record<never, never>;
   "conversation.button.send": Record<never, never>;
+  "conversation.button.session-new": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
+  "conversation.button.usage": Record<never, never>;
   "conversation.button.visual-read-description": Record<never, never>;
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.empty.no-session": Record<never, never>;
   "conversation.empty.visual-no-data": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
+  "conversation.error.action-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
   "conversation.error.too-long": Record<never, never>;
+  "conversation.label.approval": Record<never, never>;
+  "conversation.label.approval-esc": Record<never, never>;
+  "conversation.label.approval-preview": Record<never, never>;
   "conversation.label.author-check": Record<never, never>;
   "conversation.label.author-lophn": Record<never, never>;
   "conversation.label.author-you": Record<never, never>;
   "conversation.label.composer-correction": Record<never, never>;
   "conversation.label.composer-request": Record<never, never>;
+  "conversation.label.composer-message": Record<never, never>;
   "conversation.label.correction": Record<never, never>;
+  "conversation.label.delete-session": {
+    title: "string";
+  };
   "conversation.label.delivery-applied": Record<never, never>;
   "conversation.label.delivery-not-sent": Record<never, never>;
   "conversation.label.delivery-received": Record<never, never>;
@@ -1126,8 +1211,85 @@ export type PlaceholderKinds = {
   "conversation.label.delivery-sending": Record<never, never>;
   "conversation.label.delivery-unconfirmed": Record<never, never>;
   "conversation.label.document": Record<never, never>;
+  "conversation.label.duration-days-hours": {
+    days: "number";
+    hours: "number";
+  };
+  "conversation.label.duration-hours-minutes": {
+    hours: "number";
+    minutes: "number";
+  };
+  "conversation.label.duration-minutes": {
+    minutes: "number";
+  };
+  "conversation.label.duration-minutes-seconds": {
+    minutes: "number";
+    seconds: "number";
+  };
+  "conversation.label.duration-seconds": {
+    seconds: "number";
+  };
+  "conversation.label.edit-made": Record<never, never>;
+  "conversation.label.edit-undone": Record<never, never>;
+  "conversation.label.rewind-hidden": {
+    count: "plural";
+  };
+  "conversation.label.rewind-item-answer": Record<never, never>;
+  "conversation.label.rewind-item-app": Record<never, never>;
+  "conversation.label.rewind-item-approval": Record<never, never>;
+  "conversation.label.rewind-item-external": Record<never, never>;
+  "conversation.label.rewind-item-fact": Record<never, never>;
+  "conversation.label.rewind-loading": Record<never, never>;
+  "conversation.label.rewind-messages-only": Record<never, never>;
+  "conversation.label.rewind-point": Record<never, never>;
+  "conversation.label.rewind-remain": Record<never, never>;
+  "conversation.label.rewind-restore": Record<never, never>;
+  "conversation.label.rewind-restore-all": Record<never, never>;
+  "conversation.label.rewind-skip": Record<never, never>;
+  "conversation.label.rewind-summarize": Record<never, never>;
+  "conversation.label.favorites": Record<never, never>;
+  "conversation.label.group-earlier": Record<never, never>;
+  "conversation.label.model-list": Record<never, never>;
+  "conversation.label.model-unknown": Record<never, never>;
+  "conversation.label.more-actions": Record<never, never>;
   "conversation.label.more-results": {
     count: "plural";
+  };
+  "conversation.label.permission-summary": {
+    count: "plural";
+  };
+  "conversation.label.question-answered": {
+    count: "plural";
+    answers: "string";
+  };
+  "conversation.label.question-apply-failed": {
+    answers: "string";
+  };
+  "conversation.label.question-applied": {
+    answers: "string";
+  };
+  "conversation.label.question-applying": {
+    answers: "string";
+  };
+  "conversation.label.question-asking": {
+    agent: "string";
+    count: "plural";
+  };
+  "conversation.label.question-cancelled": Record<never, never>;
+  "conversation.label.question-expired": Record<never, never>;
+  "conversation.label.question-expires": {
+    remaining: "string";
+  };
+  "conversation.label.question-expires-now": Record<never, never>;
+  "conversation.label.question-own-answer": {
+    prompt: "string";
+  };
+  "conversation.label.question-own-answer-placeholder": Record<never, never>;
+  "conversation.label.question-paused": Record<never, never>;
+  "conversation.label.question-recommended": Record<never, never>;
+  "conversation.label.question-skipped": Record<never, never>;
+  "conversation.label.rename-session": {
+    title: "string";
   };
   "conversation.label.request-position": {
     current: "number";
@@ -1135,22 +1297,60 @@ export type PlaceholderKinds = {
   };
   "conversation.label.requests": Record<never, never>;
   "conversation.label.results": Record<never, never>;
+  "conversation.label.search-models": Record<never, never>;
+  "conversation.label.search-sessions": {
+    agent: "string";
+  };
+  "conversation.label.send-correction": Record<never, never>;
+  "conversation.label.send-mode": Record<never, never>;
+  "conversation.label.send-request": Record<never, never>;
   "conversation.label.session": {
     number: "number";
   };
   "conversation.label.session-ended": {
     number: "number";
   };
+  "conversation.label.session-list": {
+    agent: "string";
+  };
+  "conversation.label.session-untitled": Record<never, never>;
   "conversation.label.sessions": Record<never, never>;
+  "conversation.label.since-now": Record<never, never>;
+  "conversation.label.slash-blocked": {
+    agent: "string";
+  };
+  "conversation.label.slash-menu": Record<never, never>;
+  "conversation.label.slash-origin-place": Record<never, never>;
+  "conversation.label.slash-origin-workspace": Record<never, never>;
+  "conversation.label.slash-unknown": {
+    name: "string";
+  };
   "conversation.label.status-done": Record<never, never>;
   "conversation.label.status-in-progress": Record<never, never>;
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-waiting": Record<never, never>;
+  "conversation.label.status-working": Record<never, never>;
+  "conversation.label.tasks": Record<never, never>;
+  "conversation.label.tasks-progress": {
+    done: "number";
+    total: "number";
+  };
+  "conversation.label.view-compact": Record<never, never>;
+  "conversation.label.view-detail": Record<never, never>;
+  "conversation.label.view-everything": Record<never, never>;
+  "conversation.label.view-messages": Record<never, never>;
   "conversation.label.visual-axes": {
     y: "string";
     x: "string";
   };
   "conversation.label.visual-document-unavailable": Record<never, never>;
+  "conversation.label.tool-read-documents": {
+    count: "plural";
+  };
+  "conversation.label.tool-used": {
+    count: "plural";
+    tool: "string";
+  };
   "conversation.label.visual-no": Record<never, never>;
   "conversation.label.visual-observed": {
     at: "string";
@@ -1165,6 +1365,9 @@ export type PlaceholderKinds = {
   "conversation.label.visual-sources": Record<never, never>;
   "conversation.label.visual-untitled": Record<never, never>;
   "conversation.label.visual-yes": Record<never, never>;
+  "conversation.label.worked-for": {
+    duration: "string";
+  };
   "conversation.notice.ended": Record<never, never>;
   "conversation.notice.external-failed": {
     connection: "string";
@@ -1179,11 +1382,27 @@ export type PlaceholderKinds = {
     connection: "string";
   };
   "conversation.notice.message-loading": Record<never, never>;
+  "conversation.notice.model-definition": Record<never, never>;
+  "conversation.notice.model-session-only": Record<never, never>;
+  "conversation.notice.model-value-fitted": {
+    axis: "string";
+    to: "string";
+    from: "string";
+    model: "string";
+  };
+  "conversation.notice.no-model-options": Record<never, never>;
+  "conversation.notice.no-models": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.agent-paused": Record<never, never>;
   "conversation.notice.provider-lost": Record<never, never>;
   "conversation.notice.paused": Record<never, never>;
+  "conversation.notice.session-no-match": Record<never, never>;
+  "conversation.notice.slash-choose": {
+    name: "string";
+  };
+  "conversation.notice.slash-no-match": Record<never, never>;
   "conversation.notice.stale": {
     age: "string";
   };
@@ -1200,7 +1419,53 @@ export type PlaceholderKinds = {
   "conversation.notice.visual-unavailable-markup": Record<never, never>;
   "conversation.notice.visual-unavailable-shape": Record<never, never>;
   "conversation.placeholder.new-context": Record<never, never>;
+  "conversation.placeholder.ask": {
+    agent: "string";
+  };
   "conversation.title.dock": Record<never, never>;
+  "conversation.title.rewind": Record<never, never>;
+  "conversation.title.new-session": Record<never, never>;
+  "conversation.rewind.hint-messages-only": Record<never, never>;
+  "conversation.rewind.hint-restore-all": Record<never, never>;
+  "conversation.rewind.hint-summarize": Record<never, never>;
+  "conversation.rewind.note": Record<never, never>;
+  "conversation.rewind.preview-failed": Record<never, never>;
+  "conversation.rewind.redo-no": Record<never, never>;
+  "conversation.rewind.redo-yes": Record<never, never>;
+  "conversation.rewind.result-left": {
+    restored: "plural";
+    left: "plural";
+  };
+  "conversation.rewind.result-restored": {
+    count: "plural";
+  };
+  "conversation.rewind.running": Record<never, never>;
+  "conversation.rewind.start-failed": Record<never, never>;
+  "conversation.rewind.summary-failed": Record<never, never>;
+  "conversation.rewind-block.copied": Record<never, never>;
+  "conversation.rewind-block.correction": Record<never, never>;
+  "conversation.rewind-block.limit-count": Record<never, never>;
+  "conversation.rewind-block.limit-file": Record<never, never>;
+  "conversation.rewind-block.limit-total": Record<never, never>;
+  "conversation.rewind-block.record-failed": Record<never, never>;
+  "conversation.rewind-why.answered-fact": Record<never, never>;
+  "conversation.rewind-why.app-failed": Record<never, never>;
+  "conversation.rewind-why.app-not-settled": Record<never, never>;
+  "conversation.rewind-why.app-not-started": Record<never, never>;
+  "conversation.rewind-why.app-revision-changed": Record<never, never>;
+  "conversation.rewind-why.app-uncertain": Record<never, never>;
+  "conversation.rewind-why.already-reverted": Record<never, never>;
+  "conversation.rewind-why.chain-broken": Record<never, never>;
+  "conversation.rewind-why.created-edited": Record<never, never>;
+  "conversation.rewind-why.edited-outside": Record<never, never>;
+  "conversation.rewind-why.external-effect": Record<never, never>;
+  "conversation.rewind-why.later-edit": Record<never, never>;
+  "conversation.rewind-why.link-path": Record<never, never>;
+  "conversation.rewind-why.no-pre-image": Record<never, never>;
+  "conversation.rewind-why.no-receipt": Record<never, never>;
+  "conversation.rewind-why.no-revert-command": Record<never, never>;
+  "conversation.rewind-why.rename-blocked": Record<never, never>;
+  "conversation.rewind-why.unknown": Record<never, never>;
   "document.button.back-to-editing": Record<never, never>;
   "document.button.check-again": Record<never, never>;
   "document.button.check-task": Record<never, never>;
@@ -1606,6 +1871,7 @@ export type PlaceholderKinds = {
   "launcher.title.schema-incompatible": Record<never, never>;
   "launcher.title.start-failed": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
+  "project-workspace.button.agent": Record<never, never>;
   "project-workspace.button.attach-operator": Record<never, never>;
   "project-workspace.button.see-operators": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
@@ -1614,6 +1880,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.manage-agents": Record<never, never>;
   "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
@@ -1621,20 +1888,114 @@ export type PlaceholderKinds = {
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.button.turn-on-tracking": Record<never, never>;
+  "project-workspace.button.add-server": Record<never, never>;
+  "project-workspace.button.add-skill": Record<never, never>;
+  "project-workspace.button.edit-instructions": Record<never, never>;
+  "project-workspace.button.new-operator": Record<never, never>;
+  "project-workspace.button.open-agent": Record<never, never>;
+  "project-workspace.button.use-workspace-default": Record<never, never>;
+  "project-workspace.button.agent-editor-add-context": Record<never, never>;
+  "project-workspace.button.agent-editor-delete": Record<never, never>;
+  "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
+  "project-workspace.button.agent-editor-edit-project": Record<never, never>;
+  "project-workspace.button.agent-editor-reset-model": Record<never, never>;
+  "project-workspace.button.agent-editor-save": Record<never, never>;
+  "project-workspace.button.agent-editor-upload-image": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-contexts": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-mcp": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-project": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-skills": Record<never, never>;
+  "project-workspace.heading.agent-editor-contexts": Record<never, never>;
+  "project-workspace.heading.agent-editor-delete-title": {
+    name: "string";
+  };
+  "project-workspace.heading.agent-editor-mcp": Record<never, never>;
+  "project-workspace.heading.agent-editor-model": Record<never, never>;
+  "project-workspace.heading.agent-editor-permissions": Record<never, never>;
+  "project-workspace.heading.agent-editor-profile": Record<never, never>;
+  "project-workspace.heading.agent-editor-skills": Record<never, never>;
+  "project-workspace.label.agent-editor-built-in": Record<never, never>;
+  "project-workspace.label.agent-editor-icons": Record<never, never>;
+  "project-workspace.label.agent-editor-image-file": Record<never, never>;
+  "project-workspace.label.agent-editor-instructions": Record<never, never>;
+  "project-workspace.label.agent-editor-model-changed": Record<never, never>;
+  "project-workspace.label.agent-editor-model-inherit": {
+    model: "string";
+    source: "string";
+  };
+  "project-workspace.label.agent-editor-model-unset": Record<never, never>;
+  "project-workspace.label.agent-editor-name": Record<never, never>;
+  "project-workspace.label.agent-editor-project-instructions": {
+    project: "string";
+  };
+  "project-workspace.label.agent-editor-remove-context": {
+    name: "string";
+  };
+  "project-workspace.label.agent-editor-source": {
+    layer: "string";
+  };
+  "project-workspace.notice.agent-editor-delete-body": Record<never, never>;
+  "project-workspace.notice.agent-editor-body-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-issue": {
+    code: "string";
+  };
+  "project-workspace.notice.agent-editor-model-help": Record<never, never>;
+  "project-workspace.notice.agent-not-ready": Record<never, never>;
+  "project-workspace.notice.agents-change-failed": Record<never, never>;
+  "project-workspace.notice.agents-delete-failed": Record<never, never>;
+  "project-workspace.notice.agents-save-conflict": Record<never, never>;
+  "project-workspace.notice.agents-save-failed": Record<never, never>;
+  "project-workspace.notice.agents-upload-failed": Record<never, never>;
+  "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-save-first": Record<never, never>;
+  "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
+  "project-workspace.empty.no-instructions": Record<never, never>;
+  "project-workspace.empty.no-mcp-servers": Record<never, never>;
+  "project-workspace.empty.no-permission-rules": Record<never, never>;
+  "project-workspace.empty.no-skills": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
+  "project-workspace.heading.agents": Record<never, never>;
+  "project-workspace.heading.contexts": Record<never, never>;
   "project-workspace.heading.documents": Record<never, never>;
   "project-workspace.heading.folders": Record<never, never>;
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
+  "project-workspace.heading.agents-in-project": {
+    project: "string";
+  };
+  "project-workspace.heading.agents-new-operator": Record<never, never>;
+  "project-workspace.heading.instructions": Record<never, never>;
+  "project-workspace.heading.mcp-servers": Record<never, never>;
+  "project-workspace.heading.models-for-project": Record<never, never>;
+  "project-workspace.heading.permissions": Record<never, never>;
+  "project-workspace.heading.skills": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.info.instructions-file": Record<never, never>;
+  "project-workspace.info.models-follow-default": Record<never, never>;
+  "project-workspace.info.permissions-lead": Record<never, never>;
+  "project-workspace.info.stored-in-lophn": Record<never, never>;
   "project-workspace.label.operators": {
     count: "plural";
   };
   "project-workspace.label.operators-none": Record<never, never>;
+  "project-workspace.label.agent-waiting": Record<never, never>;
+  "project-workspace.label.agents-target": Record<never, never>;
+  "project-workspace.label.avatar-icon-dock": Record<never, never>;
+  "project-workspace.label.avatar-icon-roles": Record<never, never>;
+  "project-workspace.label.avatar-icon-contexts": Record<never, never>;
+  "project-workspace.label.avatar-icon-documents": Record<never, never>;
+  "project-workspace.label.avatar-icon-apps": Record<never, never>;
+  "project-workspace.label.avatar-icon-search": Record<never, never>;
+  "project-workspace.label.avatar-icon-series": Record<never, never>;
+  "project-workspace.label.avatar-icon-bookmark": Record<never, never>;
+  "project-workspace.label.avatar-icon-terminal": Record<never, never>;
+  "project-workspace.label.avatar-icon-read": Record<never, never>;
+  "project-workspace.label.avatar-icon-edit": Record<never, never>;
+  "project-workspace.label.avatar-icon-compare": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
@@ -1645,6 +2006,8 @@ export type PlaceholderKinds = {
   "project-workspace.label.kind-app-panel": Record<never, never>;
   "project-workspace.label.kind-document-editor": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
+  "project-workspace.label.kind-agents": Record<never, never>;
+  "project-workspace.label.kind-agent": Record<never, never>;
   "project-workspace.label.more-files": {
     count: "plural";
   };
@@ -1667,6 +2030,39 @@ export type PlaceholderKinds = {
   "project-workspace.label.rule-include": Record<never, never>;
   "project-workspace.label.rule-pattern": Record<never, never>;
   "project-workspace.label.tabs": Record<never, never>;
+  "project-workspace.label.agent-counts-built-in": {
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-operator": {
+    contexts: "plural";
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-unknown": Record<never, never>;
+  "project-workspace.label.agent-kind-built-in": Record<never, never>;
+  "project-workspace.label.agent-kind-operator": Record<never, never>;
+  "project-workspace.label.agent-no-model": Record<never, never>;
+  "project-workspace.label.instructions-shared": {
+    project: "string";
+  };
+  "project-workspace.label.model-default": {
+    model: "string";
+  };
+  "project-workspace.label.model-default-none": Record<never, never>;
+  "project-workspace.label.model-overrides": {
+    model: "string";
+  };
+  "project-workspace.label.open-agent-named": {
+    name: "string";
+  };
+  "project-workspace.label.reset-model-named": {
+    role: "string";
+  };
+  "project-workspace.label.role-app-engineer": Record<never, never>;
+  "project-workspace.label.role-context-engineer": Record<never, never>;
+  "project-workspace.label.role-lophn": Record<never, never>;
+  "project-workspace.label.role-operators": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
   "project-workspace.title.tracking": {
     project: "string";
@@ -2338,6 +2734,7 @@ export type PlaceholderKinds = {
     name: "string";
   };
   "settings.button.sign-in-again": Record<never, never>;
+  "settings.button.server-sign-in": Record<never, never>;
   "settings.button.test": Record<never, never>;
   "settings.defaults.current": {
     model: "string";
@@ -2353,6 +2750,37 @@ export type PlaceholderKinds = {
   "settings.defaults.unreadable": Record<never, never>;
   "settings.error.changed": Record<never, never>;
   "settings.error.window": Record<never, never>;
+  "settings.agents.action-failed": Record<never, never>;
+  "settings.agents.intro": Record<never, never>;
+  "settings.agents.no-instructions": Record<never, never>;
+  "settings.agents.no-options": Record<never, never>;
+  "settings.agents.no-servers": Record<never, never>;
+  "settings.agents.no-skills": Record<never, never>;
+  "settings.agents.options-unknown": Record<never, never>;
+  "settings.button.add-skill": Record<never, never>;
+  "settings.button.change": Record<never, never>;
+  "settings.button.edit": Record<never, never>;
+  "settings.heading.agents-defaults": Record<never, never>;
+  "settings.heading.agents-instructions": Record<never, never>;
+  "settings.heading.agents-servers": Record<never, never>;
+  "settings.heading.agents-skills": Record<never, never>;
+  "settings.heading.agents-summaries": Record<never, never>;
+  "settings.label.agents-target": Record<never, never>;
+  "settings.label.model-line": {
+    name: "string";
+    model: "string";
+  };
+  "settings.label.not-chosen": Record<never, never>;
+  "settings.label.option-pair": {
+    axis: "string";
+    value: "string";
+  };
+  "settings.label.role-app-engineer": Record<never, never>;
+  "settings.label.role-context-engineer": Record<never, never>;
+  "settings.label.role-lophn": Record<never, never>;
+  "settings.label.role-operator": Record<never, never>;
+  "settings.label.status-connected": Record<never, never>;
+  "settings.label.status-needs-sign-in": Record<never, never>;
   "settings.extensions.folder-added": {
     name: "string";
   };
@@ -2433,6 +2861,8 @@ export type PlaceholderKinds = {
   "settings.label.state-sign-in-problem": Record<never, never>;
   "settings.label.state-signed-out": Record<never, never>;
   "settings.label.tab-connections": Record<never, never>;
+  "settings.label.tab-providers": Record<never, never>;
+  "settings.label.tab-agents": Record<never, never>;
   "settings.label.tab-backup": Record<never, never>;
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
@@ -2494,7 +2924,19 @@ export type PlaceholderKinds = {
   "settings.server.error-url": Record<never, never>;
   "settings.server.name-help": Record<never, never>;
   "settings.server.program-help": Record<never, never>;
-  "settings.server.sign-in-absent": Record<never, never>;
+  "settings.server.sign-in-busy": Record<never, never>;
+  "settings.server.sign-in-failed": {
+    name: "string";
+  };
+  "settings.server.sign-in-needed": Record<never, never>;
+  "settings.server.sign-in-reason-callback-timeout": Record<never, never>;
+  "settings.server.sign-in-reason-exchange-failed": Record<never, never>;
+  "settings.server.sign-in-reason-expired": Record<never, never>;
+  "settings.server.sign-in-reason-refresh-rejected": Record<never, never>;
+  "settings.server.sign-in-reason-state-mismatch": Record<never, never>;
+  "settings.server.sign-in-reason-store-failed": Record<never, never>;
+  "settings.server.sign-in-not-opened": Record<never, never>;
+  "settings.server.signed-in": Record<never, never>;
   "settings.sign-in.absent": {
     name: "string";
   };
@@ -2533,6 +2975,59 @@ export type PlaceholderKinds = {
   "settings.usage.loading": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
+  "settings.button.disconnect": Record<never, never>;
+  "settings.heading.connected": Record<never, never>;
+  "settings.heading.add-provider": Record<never, never>;
+  "settings.title.connect-provider": {
+    name: "string";
+  };
+  "settings.title.custom-provider": Record<never, never>;
+  "settings.label.custom-provider-hint": Record<never, never>;
+  "settings.status.plan-access": Record<never, never>;
+  "settings.status.sign-in-problem": Record<never, never>;
+  "settings.status.usage-limit": Record<never, never>;
+  "settings.notice.provider-lead": Record<never, never>;
+  "settings.notice.next-run": Record<never, never>;
+  "settings.notice.none-connected": Record<never, never>;
+  "settings.error.reorder": Record<never, never>;
+  "settings.error.account-enabled": Record<never, never>;
+  "settings.label.available-target": Record<never, never>;
+  "settings.label.login-signed-in": Record<never, never>;
+  "settings.label.login-signed-in-plan": {
+    plan: "string";
+  };
+  "settings.label.move-account-up": {
+    name: "string";
+  };
+  "settings.label.move-account-down": {
+    name: "string";
+  };
+  "settings.label.use-account": {
+    name: "string";
+  };
+  "settings.label.sign-in-how": {
+    name: "string";
+  };
+  "settings.label.method-sign-in": {
+    product: "string";
+  };
+  "settings.label.method-opens-browser": Record<never, never>;
+  "settings.label.method-paste-key": Record<never, never>;
+  "settings.label.method-local": Record<never, never>;
+  "settings.label.method-local-hint": Record<never, never>;
+  "settings.notice.method-unverified": Record<never, never>;
+  "settings.error.connect-failed": Record<never, never>;
+  "settings.notice.custom-key-required": Record<never, never>;
+  "settings.notice.custom-lead": Record<never, never>;
+  "settings.label.custom-id": Record<never, never>;
+  "settings.label.custom-name": Record<never, never>;
+  "settings.label.custom-url": Record<never, never>;
+  "settings.label.custom-key": Record<never, never>;
+  "settings.notice.custom-id-help": Record<never, never>;
+  "settings.error.custom-id": Record<never, never>;
+  "settings.error.custom-name": Record<never, never>;
+  "settings.error.custom-url": Record<never, never>;
+  "settings.notice.custom-key-help": Record<never, never>;
   "settings.title.screen": Record<never, never>;
   "settings.button.cancel": Record<never, never>;
   "settings.button.connect": Record<never, never>;
@@ -2683,6 +3178,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.error.review-unavailable": Record<never, never>;
   "things-to-confirm.error.send-failed": Record<never, never>;
   "things-to-confirm.error.too-long": Record<never, never>;
+  "things-to-confirm.label.agent-unknown": Record<never, never>;
   "things-to-confirm.label.blocking": Record<never, never>;
   "things-to-confirm.label.cancel-reason": Record<never, never>;
   "things-to-confirm.label.count-decisions": {

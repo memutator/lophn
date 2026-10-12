@@ -1,681 +1,667 @@
-import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  checkpointRevert,
-  finishRevert,
+  amendRevertInstall,
+  type checkpointRevert,
+  type finishRevert,
+  type recordRewindFile,
+  redo,
+  revertAmended,
   revertApplied,
   revertBlocked,
-  revertFinished,
-  revertRun,
-  revertStarted,
+  type RevertItem,
+  revertRedone,
+  rewind,
+  undoEdit,
 } from "../../contracts/lophn-agent/mod.ts";
-import type { RevertRunGroup } from "./model.ts";
 import {
   type CommandDefinition,
   type Input,
   type Output,
   parseActor,
+  type RequestContext,
+  type Sql,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
-  activeRevert,
-  bindingHash,
-  buildGroups,
-  type Capability,
-  type ChangeOutcome,
-  type ChangeResult,
-  decide,
-  hasRestorable,
-  headSeq,
-  loadRevert,
-  loadRunRef,
-  matchInput,
-  type Outcome,
-  type ReasonCode,
-  resultCounts,
-  resultsOf,
-  type RevertGroup,
-  type RevertOwner,
-  type RevertRecordRow,
-  seqsBetween,
-  sourceKey,
-  stripPrepared,
-} from "./model.ts";
+  createAppStepCommands,
+  hasAppSteps,
+  startApplying,
+} from "./app-commands.ts";
+import type { FileStat } from "./judge.ts";
+import {
+  type PlanDeps,
+  planRewind,
+  type PreviewFact,
+  type RewindPlan,
+  type RewindTarget,
+} from "./preview.ts";
+import { assertCheckpointVisible, hiddenRanges } from "./hidden.ts";
+import { createRecordRewindFile } from "./record.ts";
+import {
+  countsOf,
+  insertItems,
+  leftSomething,
+  markReverted,
+  observedOf,
+  releaseReverted,
+  type SettledItem,
+  settleItems,
+} from "./settle.ts";
 
-// RevertRun은 종료한 run의 확정 변경 전체를 소유 concern의 새 변경으로 되돌리는 사람의 결정이다.
-// 같은 transaction에서 현재 판을 전부 다시 판정해 사람이 본 preview와 비교하고(R3, R4), 막을
-// 이유가 없을 때만 복원 가능한 묶음 전체를 한 번에 적용한다(R7). 막으면 어떤 변경도 하지 않고
-// 현재 판정의 blocked 결과를 저장한다. 복원은 과거 사실을 지우지 않고 owner의 새 변경으로
-// 남으며(R5) 같은 요청을 반복해도 한 번만 적용된다(R8). 앱 되돌림 단계가 있는 revert(R10)는
-// ledger 적용 없이 applying 헤더와 미확정 행만 저장하고 끝난다: 실제 앱 호출은 이 command를
-// 부른 쪽(machine runtime, runAppSteps)이 앱의 선언된 revert command를 직접 부르고, 단계 하나마다
-// CheckpointRevert를, 전체가 끝났으면 FinishRevert를 다시 부른다. 단계 기록은 step_key로
-// 같은 시도를 한 번만 받고(R8), 시작 전 실패는 blocked, 시작 뒤 실패·충돌·응답 유실은
-// 실제 복원·미시작·불명확을 행마다 보존한다(R11). 네트워크와 ledger를 한 transaction으로
-// 주장하지 않는다.
+// 되돌리기 command들(lophn-agent/revert). Rewind·UndoEdit·Redo·AmendRevertInstall은 문서 파일까지 여기서
+// 확정한다. 앱 단계가 있는 Rewind와 CheckpointRevert·FinishRevert는 app-commands.ts다. 이미 숨긴
+// 구간의 checkpoint는 invalid_input이고(hidden.ts) summarize는 숨긴 메시지를 품은 구간을 접지 않는다.
+// RecordRewindFile은 record.ts다.
+//
+// 규칙(시험 rewind_test·rewind_effects_test가 정한다). Rewind·UndoEdit·Redo는 사람만 부른다(그 밖은
+// forbidden). 같은 id를 다시 보내면 저장된 결과를 replayed=true로 돌려주고 아무것도 다시 하지 않는다. 파일
+// 복원은 command 안에서 하지 않는다: core가 observeFiles → planRewind → prepareRestore → command →
+// installRestore 순서로 잇고, command는 input.files의 관측으로 다시 판정해 같은 transaction에서 기록만
+// 확정한다. 준비가 받쳐 주지 않는 복원은 restored로 쓰지 않는다.
+//
+// Rewind: 앱 복원 단계가 있으면 applying으로 접수만 하고(app-commands.ts) 앱 호출 뒤 FinishRevert가 끝낸다.
+//   없는 session은 not_found, 닫혔으면 forbidden, 끝나지 않은 run이나 applying revert가 있으면
+//   conflict. choice=summarize인데 effects.summaryOk가 아니면 invalid_input이고 아무것도 바뀌지 않는다.
+//   preview_hash가 다르거나 건너뜀·남는 영향이 있는데 accept_remaining이 아니면 blocked(항목 없음)로 기록한다.
+//   아니면 restore_all·messages_only는 effects.cancelWaiting과 resetReadState를 부르고(실패하면 command 전체가
+//   되돌려진다) applied로 확정한다. restore_all은 복원한 항목의 기록에 reverted_by를 표시한다.
+// UndoEdit: preview_hash가 다르거나 복원 대상이 없으면 blocked. 아니면 reverted_by를 표시하고 사실 메시지
+//   ("Undid edit to <경로>")를 같은 transaction에서 남긴다. redo는 없다.
+// Redo: redo=available이고 사람이 본 결과 event일 때만. 복원했던 파일 중 지금 hash가 복원한 내용과 같은 것만
+//   기록의 reverted_by를 풀어 다시 rewind할 수 있게 한다.
+// AmendRevertInstall(machine): 설치가 hash 불일치로 건너뛴 문서 파일 항목을 skipped(edited_outside)로 한 번
+//   고치고 그 기록의 reverted_by를 풀며 redo 근거에서 뺀다.
+// CheckpointRevert·FinishRevert(machine)는 app-commands.ts다.
 
-export type RevertDeps = {
-  // 소유 concern별 분류·복원. 앞선 owner가 먼저 event type을 맡는다.
-  owners: readonly RevertOwner[];
+// 대화 쪽 효과를 core 조립이 주입하는 port다. 시험은 가짜로 대신한다.
+export type RewindEffects = {
+  // 같은 session의 완전 성공한 요약 model call인가(choice=summarize의 근거).
+  summaryOk(
+    lookup: { sql: Pick<Sql, "get" | "all"> },
+    input: { session: string; call: string },
+  ): boolean;
+  // 숨김 시작 이후에 기다리던 질문 묶음·approval request를 취소한다.
+  cancelWaiting(
+    tx: Tx,
+    input: { session: string; from_seq: string },
+  ): Result<{ questions: number; approvals: number }>;
+  // harness가 읽은 문서의 상태(읽은 hash 등)를 숨김 시작 이전 기준으로 다시 잡는다.
+  resetReadState(
+    tx: Tx,
+    input: { session: string; before_seq: string },
+  ): Result<void>;
 };
 
-type Code =
-  | "invalid_input"
-  | "forbidden"
-  | "conflict"
-  | "not_found"
-  | "unavailable";
+export type RevertDeps = {
+  // 경로마다 지금 파일 상태를 동기로 읽는다(preview 읽기가 쓴다). command는 읽지 않고 준비한 관측으로
+  // 판정하므로 command만 올리는 쪽은 주지 않는다. 없으면 preview 읽기는 unavailable이다.
+  observe?(root: string, paths: readonly string[]): Map<string, FileStat>;
+  // session 자리의 project 폴더(절대 경로).
+  rootOf(lookup: { sql: Pick<Sql, "get" | "all"> }, session: string): string;
+  // 앱의 지금 revision. 앱이 없거나 알 수 없으면 null이다(apps 소유 CAS의 읽기 통로).
+  appRevision(
+    app: string,
+    lookup: { sql: Pick<Sql, "get" | "all"> },
+  ): string | null;
+  // 되돌려지지 않는 질문 답·승인 결정(answered_fact)을 숨김 시작 이후에서 모은다. 질문과 approval의 표는
+  // 다른 concern의 것이라 core 조립이 읽어 준다. 없으면 이 사실을 알리지 않는다.
+  answeredFacts?(
+    lookup: { sql: Pick<Sql, "get" | "all"> },
+    input: { session: string; from_seq: string },
+  ): PreviewFact[];
+  // 숨김 구간의 대화 효과. 없으면 Rewind는 unavailable이다(숨기지 못하는 rewind를 적용됐다고 하지 않는다).
+  effects?: RewindEffects;
+  // Undo가 session에 사실 메시지를 남긴다("Undid edit to <경로>", machine 메시지). principal은 본문
+  // blob을 준비한 사람의 자격이다.
+  recordFact(
+    tx: Tx,
+    input: { session: string; text: string; principal: string },
+  ): Result<string>;
+};
 
-function reject(code: Code, message: string): Result<never> {
+type Header = Output<typeof rewind>;
+type RevertRow = {
+  id: string;
+  session: string;
+  kind: "rewind" | "undo";
+  choice: string | null;
+  checkpoint: string | null;
+  tool_call: string | null;
+  boundary_seq: string | null;
+  outcome: Header["outcome"];
+  redo: Header["redo"];
+  result_seq: string | null;
+};
+
+function reject(
+  code:
+    | "invalid_input"
+    | "forbidden"
+    | "not_found"
+    | "conflict"
+    | "unavailable",
+  message: string,
+): Result<never> {
   return err({ code, message });
 }
 
-type Header = Output<typeof revertRun>;
+function requireUser(ctx: RequestContext): Result<void> {
+  return parseActor(ctx.actor)?.kind === "user"
+    ? ok(undefined)
+    : reject("forbidden", "only a person rewinds or undoes");
+}
 
-function headerOf(row: RevertRecordRow, replayed: boolean): Header {
+function loadRevert(tx: Tx, id: string): RevertRow | undefined {
+  const row = tx.sql.get(
+    `select id, session, kind, choice, checkpoint, tool_call,
+            cast(boundary_seq as text) as boundary_seq, outcome, redo,
+            cast(result_seq as text) as result_seq
+       from reverts where id = ?`,
+    [id],
+  );
+  if (row === undefined) return undefined;
+  const text = (value: unknown) => value === null ? null : String(value);
+  return {
+    id: String(row["id"]),
+    session: String(row["session"]),
+    kind: String(row["kind"]) as RevertRow["kind"],
+    choice: text(row["choice"]),
+    checkpoint: text(row["checkpoint"]),
+    tool_call: text(row["tool_call"]),
+    boundary_seq: text(row["boundary_seq"]),
+    outcome: String(row["outcome"]) as RevertRow["outcome"],
+    redo: String(row["redo"]) as RevertRow["redo"],
+    result_seq: text(row["result_seq"]),
+  };
+}
+
+function headerOf(row: RevertRow, replayed: boolean): Header {
   return {
     id: row.id,
-    run: row.run,
+    session: row.session,
+    kind: row.kind,
     outcome: row.outcome,
+    redo: row.redo,
     result_seq: row.result_seq,
     replayed,
   };
 }
 
-function record(
-  tx: Tx,
-  input: {
-    id: string;
-    run: string;
-    allow_partial: boolean;
-    preview_hash: string;
-  },
-  outcome: Exclude<Outcome, "applying">,
-  seq: string,
-  changes: readonly ChangeResult[],
-): void {
-  tx.sql.run(
-    `insert into reverts
-       (id, run, allow_partial, outcome, preview_hash, created_seq, state_seq, result_seq)
-     values (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      input.id,
-      input.run,
-      input.allow_partial ? 1 : 0,
-      outcome,
-      input.preview_hash,
-      BigInt(seq),
-      BigInt(seq),
-      BigInt(seq),
-    ],
-  );
-  insertChanges(tx, input.id, changes);
-}
-
-// applying 헤더는 결과 event가 없다(state_seq만, result_seq는 null). 앱 단계 기록이 state_seq를
-// 바꾸고 FinishRevert가 최종 결과 event로 result_seq를 한 번 채운다.
-function recordApplying(
-  tx: Tx,
-  input: {
-    id: string;
-    run: string;
-    allow_partial: boolean;
-    preview_hash: string;
-  },
-  seq: string,
-  changes: readonly ChangeResult[],
-): void {
-  tx.sql.run(
-    `insert into reverts
-       (id, run, allow_partial, outcome, preview_hash, created_seq, state_seq, result_seq)
-     values (?, ?, ?, 'applying', ?, ?, ?, null)`,
-    [
-      input.id,
-      input.run,
-      input.allow_partial ? 1 : 0,
-      input.preview_hash,
-      BigInt(seq),
-      BigInt(seq),
-    ],
-  );
-  insertChanges(tx, input.id, changes);
-}
-
-function insertChanges(
-  tx: Tx,
-  revert: string,
-  changes: readonly ChangeResult[],
-): void {
-  for (const change of changes) {
-    tx.sql.run(
-      `insert into revert_changes
-         (revert, ordinal, owner, target, capability, result, reason, app_revert)
-       values (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        revert,
-        change.ordinal,
-        change.owner,
-        change.target,
-        change.capability,
-        change.result,
-        change.reason,
-        change.app_revert === null ? null : JSON.stringify(change.app_revert),
-      ],
-    );
-    for (const source of change.source_seqs) {
-      tx.sql.run(
-        `insert into revert_change_sources (revert, ordinal, source_seq)
-         values (?, ?, ?)`,
-        [revert, change.ordinal, BigInt(source)],
-      );
-    }
-    for (const restored of change.restored_seqs) {
-      tx.sql.run(
-        `insert into revert_change_compensations (revert, ordinal, restored_seq)
-         values (?, ?, ?)`,
-        [revert, change.ordinal, BigInt(restored)],
-      );
-    }
-  }
-}
-
-function blocked(
-  tx: Tx,
-  input: Input<typeof revertRun>,
-  groups: readonly RevertGroup[],
-  reason: ReasonCode,
+// 같은 id의 재전송: 같은 요청이면 저장된 결과, 다르면 conflict다(R8).
+function replayOf(
+  row: RevertRow,
+  same: boolean,
 ): Result<Header> {
-  const changes = resultsOf(groups, new Map(), reason);
-  const seq = tx.emit(revertBlocked, input.id, {
-    run: input.run,
-    results: resultCounts(changes),
-  });
-  record(tx, input, "blocked", seq, changes);
-  return ok({
-    id: input.id,
-    run: input.run,
-    outcome: "blocked",
-    result_seq: seq,
-    replayed: false,
-  });
+  return same
+    ? ok(headerOf(row, true))
+    : reject("conflict", "revert id already used for other input");
 }
 
-// CheckpointRevert가 받는 호출 결과와 저장하는 행이다. 시작 전·시작 뒤 실패·충돌·응답 유실이
-// 서로 다른 행으로 남는다(R11).
-const APP_STEP_RESULTS: Partial<
-  Record<string, { result: ChangeOutcome; reason: ReasonCode | null }>
-> = {
-  restored: { result: "restored", reason: null },
-  failure: { result: "failure", reason: "app_failed" },
-  conflict: { result: "failure", reason: "later_change" },
-  uncertain: { result: "uncertain", reason: "app_uncertain" },
+// session이 열려 있는지 본다. 끝나지 않은 run이 있으면 시작하지 않는다(R15).
+function requireIdleSession(tx: Tx, session: string): Result<void> {
+  const found = tx.sql.get("select state from sessions where id = ?", [
+    session,
+  ]);
+  if (found === undefined) return reject("not_found", "session not found");
+  if (found["state"] !== "open") {
+    return reject("forbidden", "a closed session cannot be rewound");
+  }
+  if (
+    tx.sql.get(
+      "select 1 as found from reverts where session = ? and outcome = 'applying'",
+      [session],
+    ) !== undefined
+  ) return reject("conflict", "a revert is already applying");
+  return ok(undefined);
+}
+
+function hasActiveRun(tx: Tx, session: string): boolean {
+  return tx.sql.get(
+    "select 1 as found from runs where session = ? and state != 'finished' limit 1",
+    [session],
+  ) !== undefined;
+}
+
+type NewRevert = {
+  id: string;
+  session: string;
+  target: RewindTarget;
+  preview_hash: string;
+  summary_call: string | null;
+  boundary_seq: string | null;
+  outcome: "applied" | "blocked";
+  redo: Header["redo"];
+  result_seq: string;
 };
 
-// 앱 단계가 있는 묶음만 골라 원래 호출 역순(ordinal 내림)으로 정렬한다.
-function appGroups(groups: readonly RevertGroup[]): RevertGroup[] {
-  return groups.filter((group) => group.app_revert !== null)
-    .sort((a, b) => b.ordinal - a.ordinal);
+function insertRevert(tx: Tx, revert: NewRevert): RevertRow {
+  const rewound = revert.target.kind === "rewind";
+  tx.sql.run(
+    `insert into reverts
+       (id, session, kind, choice, checkpoint, tool_call, boundary_seq, summary_call,
+        outcome, redo, preview_hash, result_seq)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      revert.id,
+      revert.session,
+      revert.target.kind,
+      revert.target.kind === "rewind" ? revert.target.choice : null,
+      revert.target.kind === "rewind" ? revert.target.checkpoint : null,
+      revert.target.kind === "undo" ? revert.target.tool_call : null,
+      rewound && revert.boundary_seq !== null
+        ? Number(revert.boundary_seq)
+        : null,
+      revert.summary_call,
+      revert.outcome,
+      revert.redo,
+      revert.preview_hash,
+      Number(revert.result_seq),
+    ],
+  );
+  return loadRevert(tx, revert.id)!;
+}
+
+// 아무것도 복원하지 않은 결과를 확정한다. 항목은 남기지 않고 현재 판정의 수만 event에 싣는다.
+function block(
+  tx: Tx,
+  input: {
+    id: string;
+    session: string;
+    target: RewindTarget;
+    preview_hash: string;
+    summary_call: string | null;
+  },
+  plan: RewindPlan,
+): Result<Header> {
+  const results = countsOf([
+    ...plan.preview.restore.map(() => "unchanged" as const),
+    ...plan.preview.skip.map(() => "skipped" as const),
+    ...plan.preview.remain.map(() => "remained" as const),
+  ]);
+  const seq = tx.emit(revertBlocked, input.id, {
+    session: input.session,
+    results,
+  });
+  const row = insertRevert(tx, {
+    ...input,
+    boundary_seq: boundaryOf(tx, input.target),
+    outcome: "blocked",
+    redo: "none",
+    result_seq: seq,
+  });
+  return ok(headerOf(row, false));
+}
+
+// 접는 구간(고른 메시지부터 지금까지)에 이미 숨긴 메시지가 있으면 요약이 숨긴 내용을 품지 않으므로 접지 못한다.
+// 숨김을 풀거나(redo) 그 뒤의 메시지부터 접는다.
+function foldable(tx: Tx, session: string, checkpoint: string): Result<void> {
+  const boundary = tx.sql.get(
+    "select created_seq from messages where id = ? and session = ?",
+    [checkpoint, session],
+  );
+  if (boundary === undefined) return ok(undefined);
+  const from = Number(boundary["created_seq"]);
+  return hiddenRanges(tx, session).some((range) =>
+      Number(range.through_seq) >= from
+    )
+    ? reject("invalid_input", "the range to fold holds hidden messages")
+    : ok(undefined);
+}
+
+function boundaryOf(tx: Tx, target: RewindTarget): string | null {
+  if (target.kind !== "rewind") return null;
+  const found = tx.sql.get(
+    "select created_seq from messages where id = ?",
+    [target.checkpoint],
+  );
+  return found === undefined ? null : String(found["created_seq"]);
+}
+
+function needsAccept(plan: RewindPlan): boolean {
+  return plan.preview.skip.length > 0 || plan.preview.remain.length > 0;
+}
+
+// 항목을 쓰고 복원한 기록에 표시한 뒤 applied 결과를 확정한다.
+function apply(
+  tx: Tx,
+  input: {
+    id: string;
+    session: string;
+    target: RewindTarget;
+    preview_hash: string;
+    summary_call: string | null;
+    redo: Header["redo"];
+  },
+  settled: readonly SettledItem[],
+): Header {
+  const counts = countsOf(settled.map((entry) => entry.result));
+  const boundary_seq = boundaryOf(tx, input.target);
+  const seq = tx.emit(revertApplied, input.id, {
+    session: input.session,
+    kind: input.target.kind,
+    choice: input.target.kind === "rewind" ? input.target.choice : null,
+    partial: leftSomething(counts),
+    results: counts,
+    boundary_seq,
+    redo: input.redo,
+  });
+  const row = insertRevert(tx, {
+    ...input,
+    boundary_seq,
+    outcome: "applied",
+    result_seq: seq,
+  });
+  insertItems(tx, input.id, settled);
+  for (const entry of settled) {
+    if (entry.restored !== null) markReverted(tx, input.id, entry.restored);
+  }
+  return headerOf(row, false);
 }
 
 export function createRevertCommands(deps: RevertDeps): {
-  run: CommandDefinition<typeof revertRun>;
+  record: CommandDefinition<typeof recordRewindFile>;
+  rewind: CommandDefinition<typeof rewind>;
+  undo: CommandDefinition<typeof undoEdit>;
+  redo: CommandDefinition<typeof redo>;
   checkpoint: CommandDefinition<typeof checkpointRevert>;
   finish: CommandDefinition<typeof finishRevert>;
+  amend: CommandDefinition<typeof amendRevertInstall>;
 } {
-  const ownerOf = (concern: string) =>
-    deps.owners.find((owner) => owner.concern === concern);
+  const planDeps: PlanDeps = deps;
+  const appSteps = createAppStepCommands(deps);
+
+  function handleRewind(
+    tx: Tx,
+    ctx: RequestContext,
+    input: Input<typeof rewind>,
+  ): Result<Header> {
+    const user = requireUser(ctx);
+    if (!user.ok) return user;
+    const existing = loadRevert(tx, input.id);
+    if (existing !== undefined) {
+      return replayOf(
+        existing,
+        existing.kind === "rewind" && existing.session === input.session &&
+          existing.checkpoint === input.checkpoint &&
+          existing.choice === input.choice,
+      );
+    }
+    const idle = requireIdleSession(tx, input.session);
+    if (!idle.ok) return idle;
+    if (hasActiveRun(tx, input.session)) {
+      return reject("conflict", "stop the running work before rewinding");
+    }
+    const visible = assertCheckpointVisible(
+      tx,
+      input.session,
+      input.checkpoint,
+    );
+    if (!visible.ok) return visible;
+    if (input.choice === "summarize") {
+      const folding = foldable(tx, input.session, input.checkpoint);
+      if (!folding.ok) return folding;
+    }
+    const effects = deps.effects;
+    if (effects === undefined) {
+      return reject("unavailable", "rewind is not available yet");
+    }
+    if (
+      input.choice === "summarize" &&
+      !effects.summaryOk(tx, {
+        session: input.session,
+        call: input.summary_call!,
+      })
+    ) {
+      return reject("invalid_input", "the summary did not fully succeed");
+    }
+    const target: RewindTarget = {
+      kind: "rewind",
+      session: input.session,
+      checkpoint: input.checkpoint,
+      choice: input.choice,
+    };
+    const planned = planRewind(tx, planDeps, target, {
+      observed: observedOf(input.files),
+      revert: input.id,
+    });
+    if (!planned.ok) return planned;
+    const plan = planned.value;
+    const request = {
+      id: input.id,
+      session: input.session,
+      target,
+      preview_hash: input.preview_hash,
+      summary_call: input.summary_call,
+    };
+    if (
+      plan.preview.preview_hash !== input.preview_hash ||
+      (needsAccept(plan) && !input.accept_remaining)
+    ) return block(tx, request, plan);
+    const boundary = boundaryOf(tx, target)!;
+    // 앱 복원이 있으면 접수만 한다. 대화 효과와 문서 파일은 앱 단계가 끝난 뒤 FinishRevert가 한다.
+    if (hasAppSteps(plan)) {
+      return ok(startApplying(tx, {
+        id: input.id,
+        session: input.session,
+        checkpoint: input.checkpoint,
+        choice: "restore_all",
+        preview_hash: input.preview_hash,
+        boundary_seq: boundary,
+      }, plan));
+    }
+    if (input.choice !== "summarize") {
+      const cancelled = effects.cancelWaiting(tx, {
+        session: input.session,
+        from_seq: boundary,
+      });
+      if (!cancelled.ok) return cancelled;
+      const reset = effects.resetReadState(tx, {
+        session: input.session,
+        before_seq: boundary,
+      });
+      if (!reset.ok) return reset;
+    }
+    const settled = settleItems(plan, input.files, true);
+    return ok(apply(tx, {
+      ...request,
+      redo: input.choice === "summarize" ? "none" : "available",
+    }, settled));
+  }
+
+  function handleUndo(
+    tx: Tx,
+    ctx: RequestContext,
+    input: Input<typeof undoEdit>,
+  ): Result<Header> {
+    const user = requireUser(ctx);
+    if (!user.ok) return user;
+    const existing = loadRevert(tx, input.id);
+    if (existing !== undefined) {
+      return replayOf(
+        existing,
+        existing.kind === "undo" && existing.session === input.session &&
+          existing.tool_call === input.tool_call,
+      );
+    }
+    const idle = requireIdleSession(tx, input.session);
+    if (!idle.ok) return idle;
+    const target: RewindTarget = {
+      kind: "undo",
+      session: input.session,
+      tool_call: input.tool_call,
+    };
+    const planned = planRewind(tx, planDeps, target, {
+      observed: observedOf(input.files),
+    });
+    if (!planned.ok) return planned;
+    const plan = planned.value;
+    if (writingNow(tx, input.session, plan)) {
+      return reject("conflict", "a running run is writing this file");
+    }
+    const request = {
+      id: input.id,
+      session: input.session,
+      target,
+      preview_hash: input.preview_hash,
+      summary_call: null,
+    };
+    const settled = settleItems(plan, input.files, false);
+    if (
+      plan.preview.preview_hash !== input.preview_hash ||
+      !settled.some((entry) => entry.restored !== null)
+    ) return block(tx, request, plan);
+    for (const entry of settled) {
+      if (entry.restored === null) continue;
+      const fact = deps.recordFact(tx, {
+        session: input.session,
+        text: `Undid edit to ${entry.restored.path}`,
+        principal: ctx.principal,
+      });
+      if (!fact.ok) return fact;
+    }
+    return ok(apply(tx, { ...request, redo: "none" }, settled));
+  }
+
+  function handleRedo(
+    tx: Tx,
+    ctx: RequestContext,
+    input: Input<typeof redo>,
+  ): Result<Header> {
+    const user = requireUser(ctx);
+    if (!user.ok) return user;
+    const row = loadRevert(tx, input.revert);
+    if (row === undefined) return reject("not_found", "revert not found");
+    if (row.redo !== "available") {
+      return reject("conflict", "there is nothing to redo");
+    }
+    if (row.result_seq !== input.result_seq) {
+      return reject("conflict", "the revert changed since it was shown");
+    }
+    const open = tx.sql.get("select state from sessions where id = ?", [
+      row.session,
+    ]);
+    if (open?.["state"] !== "open") {
+      return reject("forbidden", "a closed session cannot redo");
+    }
+    const observed = observedOf(input.files);
+    let files = 0;
+    for (
+      const item of tx.sql.all(
+        `select target, source, restored_sha256 from revert_items
+          where revert = ? and class = 'file' and result = 'restored'`,
+        [row.id],
+      )
+    ) {
+      const now = observed.get(String(item["target"]));
+      const restored = item["restored_sha256"] === null
+        ? null
+        : String(item["restored_sha256"]);
+      if (now === undefined || now.link || now.sha256 !== restored) continue;
+      releaseReverted(
+        tx,
+        row.id,
+        JSON.parse(String(item["source"])) as string[],
+        String(item["target"]),
+      );
+      files += 1;
+    }
+    const messages = Number(
+      tx.sql.get(
+        `select count(*) as n from messages
+          where session = ? and created_seq >= ? and created_seq <= ?`,
+        [row.session, Number(row.boundary_seq), Number(row.result_seq)],
+      )!["n"],
+    );
+    tx.sql.run("update reverts set redo = 'done' where id = ?", [row.id]);
+    tx.emit(revertRedone, row.id, { session: row.session, messages, files });
+    return ok(headerOf({ ...row, redo: "done" }, false));
+  }
+
+  function handleAmend(
+    tx: Tx,
+    ctx: RequestContext,
+    input: Input<typeof amendRevertInstall>,
+  ): Result<Header> {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return reject("forbidden", "only the runtime amends an install");
+    }
+    const row = loadRevert(tx, input.revert);
+    if (row === undefined) return reject("not_found", "revert not found");
+    if (row.outcome !== "applied") {
+      return reject("conflict", "only an applied revert is amended");
+    }
+    const amended: { ordinal: number; source: string[]; path: string }[] = [];
+    for (const path of input.paths) {
+      const item = tx.sql.get(
+        `select ordinal, source from revert_items
+          where revert = ? and class = 'file' and target = ?
+            and plan = 'restore' and result = 'restored'`,
+        [row.id, path],
+      );
+      if (item === undefined) {
+        return reject("conflict", "the path was not restored by this revert");
+      }
+      amended.push({
+        ordinal: Number(item["ordinal"]),
+        source: JSON.parse(String(item["source"])) as string[],
+        path,
+      });
+    }
+    for (const entry of amended) {
+      tx.sql.run(
+        `update revert_items
+            set result = 'skipped', reason = 'edited_outside',
+                restored_sha256 = null, redo_ref = null
+          where revert = ? and ordinal = ?`,
+        [row.id, entry.ordinal],
+      );
+      releaseReverted(tx, row.id, entry.source, entry.path);
+    }
+    const results = countsOf(
+      tx.sql.all("select result from revert_items where revert = ?", [row.id])
+        .map((item) => String(item["result"]) as RevertItem["result"]),
+    );
+    tx.emit(revertAmended, row.id, {
+      session: row.session,
+      amended: amended.length,
+      results,
+    });
+    return ok(headerOf(row, false));
+  }
+
   return {
-    run: {
-      route: revertRun,
-      handle(tx, ctx, input: Input<typeof revertRun>, compare) {
-        // 사람만 요청한다. agent가 대신 적용하거나 원래 run을 다시 시작하는 길은 없다(R2).
-        if (parseActor(ctx.actor)?.kind !== "user") {
-          return reject("forbidden", "only a person reverts a run");
-        }
-        if (compare.preview_hash !== input.preview_hash) {
-          return reject("conflict", "the decision is not for this preview");
-        }
-        // 같은 시도의 반복은 저장된 현재 결과를 돌려주고 다시 적용하지 않는다(R8).
-        const prior = loadRevert(tx, input.id);
-        if (prior !== undefined) {
-          if (
-            prior.run !== input.run ||
-            prior.allow_partial !== input.allow_partial ||
-            prior.preview_hash !== input.preview_hash
-          ) {
-            return reject(
-              "conflict",
-              "the same revert id had other content",
-            );
-          }
-          return ok(headerOf(prior, true));
-        }
-        const run = loadRunRef(tx, input.run);
-        if (run === undefined) return reject("not_found", "run not found");
-        // 진행 중이거나 사람을 기다리는 run은 먼저 멈춰 실제 종료를 확인해야 한다(R1).
-        if (run.state !== "finished") {
-          return reject("conflict", "the run has not finished");
-        }
-        if (activeRevert(tx, input.run) !== undefined) {
-          return reject("conflict", "the run already has a revert");
-        }
-        const groups = buildGroups(tx, input.run, deps.owners, input.id);
-        if (groups.length === 0) {
-          return reject("invalid_input", "the run has no confirmed change");
-        }
-        // 사람이 본 판이 아니면 고정 내용을 적용하지 않고 현재 판정의 blocked 결과를 남긴다.
-        // 조용히 고쳐서 적용하지 않는다(R4).
-        if (bindingHash(input.run, groups) !== input.preview_hash) {
-          return blocked(tx, input, groups, "stale_preview");
-        }
-        const matched = matchInput(groups, input.groups);
-        if (!matched.ok) return matched;
-        const steps = appGroups(groups);
-        // 앱 복원 준비는 문서 restore 준비(prepared)와 같은 입력 항목이다. 앱 단계가 있으면
-        // 준비 검사는 그 단계를 부르는 쪽이 direct call에서 한다.
-        const readiness = new Map<number, ReasonCode | null>();
-        for (const group of groups) {
-          if (group.capability !== "reversible") continue;
-          if (group.app_revert !== null) continue;
-          const owner = ownerOf(group.owner);
-          const item = matched.value.get(group.source_seqs.join(","));
-          if (owner === undefined || item === undefined) {
-            return reject("unavailable", "no owner can restore this group");
-          }
-          const ready = owner.ready?.(group, item) ?? ok(null);
-          if (!ready.ok) return ready;
-          readiness.set(group.ordinal, ready.value);
-        }
-        const decision = decide(groups, input.allow_partial, readiness);
-        if (decision.kind === "blocked") {
-          return blocked(tx, input, groups, decision.reason);
-        }
-        if (steps.length > 0) {
-          // 앱 단계가 있다: ledger 적용 없이 applying 헤더·미확정 행만 저장한다(R10).
-          // ledger 복원은 FinishRevert가 앱 단계가 모두 끝난 뒤 한다(R11).
-          // 아직 아무것도 시작하지 않았다: 복원 가능 묶음은 app_not_started인 unchanged로 둔다.
-          const changes = resultsOf(groups, new Map(), "app_not_started");
-          const seq = tx.emit(revertStarted, input.id, {
-            run: input.run,
-            preview_hash: input.preview_hash,
-            steps: steps.map((group) => group.app_revert!.step_key),
-          });
-          recordApplying(tx, input, seq, changes);
-          return ok({
-            id: input.id,
-            run: input.run,
-            outcome: "applying",
-            result_seq: null,
-            replayed: false,
-          });
-        }
-        if (!hasRestorable(groups)) {
-          return reject("invalid_input", "the run has nothing to restore");
-        }
-        // 가능한 변경 전체를 나중 변경부터 소유 concern의 새 변경으로 되돌린다. 하나라도 실패하면
-        // 오류로 끝나 이 transaction의 모든 복원이 함께 취소된다(일부만 남지 않는다).
-        const restored = new Map<number, string[]>();
-        const order = groups.filter((group) =>
-          group.capability === "reversible"
-        )
-          .sort((a, b) => b.ordinal - a.ordinal);
-        for (const group of order) {
-          const owner = ownerOf(group.owner) as RevertOwner;
-          const item = matched.value.get(group.source_seqs.join(","));
-          const before = headSeq(tx.sql);
-          const done = owner.restore(tx, group, item!);
-          if (!done.ok) return done;
-          restored.set(group.ordinal, seqsBetween(tx.sql, before));
-        }
-        const changes = resultsOf(groups, restored, null);
-        const partial = groups.some((group) =>
-          group.capability === "irreversible"
-        );
-        const seq = tx.emit(revertApplied, input.id, {
-          run: input.run,
-          allow_partial: input.allow_partial,
-          partial,
-          results: resultCounts(changes),
-        });
-        record(tx, input, "applied", seq, changes);
-        return ok({
-          id: input.id,
-          run: input.run,
-          outcome: "applied",
-          result_seq: seq,
-          replayed: false,
-        });
-      },
+    record: createRecordRewindFile(),
+    rewind: {
+      route: rewind,
+      handle: (tx, ctx, input) => handleRewind(tx, ctx, input),
     },
-    checkpoint: {
-      route: checkpointRevert,
-      handle(tx, ctx, input: Input<typeof checkpointRevert>) {
-        // 호출은 이 command를 부르는 machine runtime(runAppSteps)이 하고, 단계 기록만 machine이 한다.
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "only the runtime records a step");
-        }
-        const revert = loadRevert(tx, input.revert);
-        if (revert === undefined) {
-          return reject("not_found", "revert not found");
-        }
-        if (revert.outcome !== "applying") {
-          return reject("conflict", "the revert is not applying");
-        }
-        // step_key 조회로 같은 단계의 반복 기록을 한 번만 받는다(R8).
-        // 앱이 돌려준 결과는 저장하는 모양으로 옮긴다. 복원 가능 묶음의 충돌은 실패와 같은 행이고
-        // 이유가 later_change다(revert_changes check).
-        const stored = APP_STEP_RESULTS[input.result];
-        if (stored === undefined) {
-          return reject("invalid_input", "a step result is a call outcome");
-        }
-        const row = tx.sql.get(
-          `select ordinal, result, app_revert from revert_changes
-           where revert = ? and app_revert is not null
-             and json_extract(app_revert, '$.step_key') = ?`,
-          [input.revert, input.step_key],
-        );
-        if (row === undefined) {
-          return reject("not_found", "no step has this step_key");
-        }
-        if (String(row["result"]) !== "unchanged") {
-          // 이미 결과가 확정한 단계다. 같은 기록은 다시 바꾸지 않는다(R8).
-          if (String(row["result"]) === stored.result) {
-            return ok({
-              revert: input.revert,
-              step_key: input.step_key,
-              recorded: false,
-            });
-          }
-          return reject(
-            "conflict",
-            "this step already has a different result",
-          );
-        }
-        // 복원했다는 기록은 그 호출이 남긴 실제 Invocation을 가져야 한다.
-        if (stored.result === "restored" && input.invocation === null) {
-          return reject(
-            "invalid_input",
-            "a restored step needs the invocation of its revert call",
-          );
-        }
-        // 아직 미확정 unchanged 행만 실제 결과로 한 번 바꾼다. 앱 revert command 호출의 실제
-        // Invocation은 단계 근거의 revert_invocation에 남고 원래 write의 invocation은 그대로다.
-        tx.sql.run(
-          `update revert_changes
-           set result = ?, reason = ?,
-               app_revert = json_set(app_revert, '$.revert_invocation', ?)
-           where revert = ? and ordinal = ?`,
-          [
-            stored.result,
-            stored.reason,
-            input.invocation,
-            input.revert,
-            Number(row["ordinal"]),
-          ],
-        );
-        // 앱 단계가 있으면 state_seq가 단계마다 바뀐다. revert_changes에는 그 열이 없으므로
-        // 헤더 state_seq만 단계마다 바꾼다.
-        tx.sql.run(
-          `update reverts set state_seq = state_seq + 1 where id = ?`,
-          [input.revert],
-        );
-        return ok({
-          revert: input.revert,
-          step_key: input.step_key,
-          recorded: true,
-        });
-      },
+    undo: {
+      route: undoEdit,
+      handle: (tx, ctx, input) => handleUndo(tx, ctx, input),
     },
-    finish: {
-      route: finishRevert,
-      handle(tx, ctx, input: Input<typeof finishRevert>) {
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "only the runtime finishes a revert");
-        }
-        const revert = loadRevert(tx, input.revert);
-        if (revert === undefined) {
-          return reject("not_found", "revert not found");
-        }
-        if (revert.outcome !== "applying") {
-          return reject("conflict", "the revert is not applying");
-        }
-        const rows = tx.sql.all(
-          `select ordinal, owner, target, capability, result, reason, app_revert
-             from revert_changes where revert = ? order by ordinal`,
-          [input.revert],
-        );
-        const changes: {
-          ordinal: number;
-          owner: string;
-          target: string | null;
-          capability: string;
-          result: string;
-          reason: string | null;
-          app_revert: {
-            app: string;
-            release: string;
-            command: string;
-            invocation: string;
-            step_key: string;
-          } | null;
-          sources: string[];
-        }[] = [];
-        for (const row of rows) {
-          const sources = tx.sql.all(
-            `select cast(source_seq as text) as seq from revert_change_sources
-             where revert = ? and ordinal = ? order by source_seq`,
-            [input.revert, Number(row["ordinal"])],
-          ).map((item) => String(item["seq"]));
-          changes.push({
-            ordinal: Number(row["ordinal"]),
-            owner: String(row["owner"]),
-            target: row["target"] === null ? null : String(row["target"]),
-            capability: String(row["capability"]),
-            result: String(row["result"]),
-            reason: row["reason"] === null ? null : String(row["reason"]),
-            app_revert: row["app_revert"] === null
-              ? null
-              : JSON.parse(String(row["app_revert"])),
-            sources,
-          });
-        }
-        const app = changes.filter((change) => change.app_revert !== null);
-        // step_keys는 모든 앱 단계를 덮는다. 덮지 않으면 입력이 어긋난 것이다.
-        if (
-          app.length !== input.step_keys.length ||
-          !app.every((change) =>
-            input.step_keys.includes(change.app_revert!.step_key)
-          )
-        ) {
-          return reject(
-            "invalid_input",
-            "the step keys are not the steps of this revert",
-          );
-        }
-        // machine이 건넨 groups는 RevertRun이 받은 입력의 묶음(준비 결과 포함)이다(R11).
-        // source_seqs로 저장한 묶음에 맞춘다.
-        const given = new Map<string, RevertRunGroup>();
-        for (const item of input.groups ?? []) {
-          given.set(sourceKey(item.source_seqs), item);
-        }
-        // 기록이 없는 단계는 시작하지 않은 것이다(앞 단계가 실패해 부르는 쪽이 멈췄다). 시작 뒤
-        // 결과를 모르는 단계는 uncertain으로 기록되어 온다. 둘을 구별해 남긴다(R11).
-        const unrecorded = app.filter((change) =>
-          change.result === "unchanged"
-        );
-        const failed = app.filter((change) => change.result === "failure");
-        const uncertain = app.filter((change) => change.result === "uncertain");
-        const stopped = failed.length + uncertain.length + unrecorded.length;
-        const ledger = changes.filter((change) =>
-          change.capability === "reversible" && change.app_revert === null
-        );
-        const restored = new Map<number, string[]>();
-        // 복원하지 못한 ledger 묶음의 새 이유다. 없으면 저장한 이유(app_not_started)가 그대로다.
-        const moved = new Map<number, ReasonCode>();
-        // groups가 없으면 ledger 묶음을 복원하지 않고 끝낸다. 부르는 쪽이 owner의 새 conflict로
-        // 앞선 끝내기가 거절된 뒤 앱 결과만 확정할 때 쓴다(이미 성공한 앱 복원은 partial로 남는다).
-        if (stopped === 0 && ledger.length > 0 && given.size > 0) {
-          // 앱 단계가 전부 복원됐을 때만, 지금 판정으로 owner CAS를 다시 검사한다. 하나라도 그 사이
-          // 새 변경(conflict)이나 준비 불충족이 생겼으면 ledger는 하나도 복원하지 않는다. owner가
-          // 복원 중 거절하면 이 끝내기 전체가 취소된다.
-          const current = new Map(
-            buildGroups(tx, revert.run, deps.owners, input.revert).map((
-              group,
-            ) => [sourceKey(group.source_seqs), group]),
-          );
-          const ready: {
-            ordinal: number;
-            owner: RevertOwner;
-            group: RevertGroup;
-            item: RevertRunGroup;
-          }[] = [];
-          for (const change of ledger) {
-            const key = sourceKey(change.sources);
-            const item = given.get(key);
-            const group = current.get(key);
-            if (item === undefined) {
-              return reject(
-                "invalid_input",
-                "a restorable ledger group has no input",
-              );
-            }
-            const owner = ownerOf(change.owner);
-            if (owner === undefined) {
-              return reject("unavailable", "no owner can restore this group");
-            }
-            if (
-              group === undefined || group.capability !== "reversible" ||
-              canonicalize(stripPrepared(item.comparison)) !==
-                canonicalize(group.comparison ?? {})
-            ) {
-              moved.set(change.ordinal, "later_change");
-              continue;
-            }
-            const readiness = owner.ready?.(group, item) ?? ok(null);
-            if (!readiness.ok) return readiness;
-            if (readiness.value !== null) {
-              moved.set(change.ordinal, readiness.value);
-              continue;
-            }
-            ready.push({ ordinal: change.ordinal, owner, group, item });
-          }
-          if (moved.size === 0) {
-            // 나중 변경부터 소유 concern의 새 변경으로 되돌린다.
-            for (const one of ready.sort((a, b) => b.ordinal - a.ordinal)) {
-              const before = headSeq(tx.sql);
-              const done = one.owner.restore(tx, one.group, one.item);
-              if (!done.ok) return done;
-              restored.set(one.ordinal, seqsBetween(tx.sql, before));
-            }
-          }
-        }
-        const finalChanges: ChangeResult[] = changes.map((change) => {
-          const seqs = restored.get(change.ordinal) ?? [];
-          if (change.app_revert !== null) {
-            // 앱 단계: machine이 기록한 결과를 그대로 확정한다. 기록이 없는 단계는 시작하지
-            // 않은 것이다(R11).
-            return {
-              ordinal: change.ordinal,
-              owner: change.owner,
-              target: change.target,
-              source_seqs: change.sources,
-              capability: "reversible",
-              result: change.result as ChangeOutcome,
-              reason: change.reason as ReasonCode | null,
-              restored_seqs: [],
-              app_revert: null,
-            };
-          }
-          // 제약이 견준 값이다(check table 열의 CHECK). 바꾸지 않고 읽는다.
-          const capability = change.capability as Capability;
-          if (capability === "reversible") {
-            return {
-              ordinal: change.ordinal,
-              owner: change.owner,
-              target: change.target,
-              source_seqs: change.sources,
-              capability,
-              result: seqs.length > 0
-                ? "restored" as const
-                : "unchanged" as const,
-              reason: seqs.length > 0 ? null : (moved.get(change.ordinal) ??
-                (change.reason as ReasonCode | null)),
-              restored_seqs: seqs,
-              app_revert: null,
-            };
-          }
-          return {
-            ordinal: change.ordinal,
-            owner: change.owner,
-            target: change.target,
-            source_seqs: change.sources,
-            capability,
-            result: change.result as ChangeOutcome,
-            reason: change.reason as ReasonCode | null,
-            restored_seqs: seqs,
-            app_revert: null,
-          };
-        });
-        // 응답 유실이 있으면 uncertain이다. 그 밖에 복원하지 못한 복원 가능 묶음(앱 단계의 실패·
-        // 미시작, 적용하지 못한 ledger 묶음)이 있으면 partial이고, 전부 복원했을 때만 applied다.
-        const outcome: Outcome = uncertain.length > 0
-          ? "uncertain"
-          : finalChanges.some((change) =>
-              change.capability === "reversible" && change.result !== "restored"
-            )
-          ? "partial"
-          : "applied";
-        const partial = finalChanges.some((change) =>
-          change.capability === "irreversible"
-        );
-        const seq = outcome === "applied"
-          ? tx.emit(revertApplied, input.revert, {
-            run: revert.run,
-            allow_partial: revert.allow_partial,
-            partial,
-            results: resultCounts(finalChanges),
-          })
-          : tx.emit(revertFinished, input.revert, {
-            run: revert.run,
-            outcome,
-            results: resultCounts(finalChanges),
-          });
-        // 최종 행은 이 transaction에서 한 번 확정한다. 기록된 앱 단계의 행은 이미 확정이다.
-        for (const change of finalChanges) {
-          if (restored.has(change.ordinal)) {
-            tx.sql.run(
-              `update revert_changes set result = ?, reason = ?
-               where revert = ? and ordinal = ?`,
-              [change.result, change.reason, input.revert, change.ordinal],
-            );
-            for (const restoredSeq of change.restored_seqs) {
-              tx.sql.run(
-                `insert into revert_change_compensations (revert, ordinal, restored_seq)
-                 values (?, ?, ?)`,
-                [input.revert, change.ordinal, BigInt(restoredSeq)],
-              );
-            }
-          } else if (moved.has(change.ordinal)) {
-            tx.sql.run(
-              `update revert_changes set reason = ?
-               where revert = ? and ordinal = ?`,
-              [moved.get(change.ordinal)!, input.revert, change.ordinal],
-            );
-          }
-        }
-        tx.sql.run(
-          `update reverts
-           set outcome = ?, state_seq = state_seq + 1, result_seq = ?
-           where id = ?`,
-          [outcome, BigInt(seq), input.revert],
-        );
-        return ok({
-          id: input.revert,
-          run: revert.run,
-          outcome,
-          result_seq: seq,
-          replayed: false,
-        });
-      },
+    redo: {
+      route: redo,
+      handle: (tx, ctx, input) => handleRedo(tx, ctx, input),
+    },
+    checkpoint: appSteps.checkpoint,
+    finish: appSteps.finish,
+    amend: {
+      route: amendRevertInstall,
+      handle: (tx, ctx, input) => handleAmend(tx, ctx, input),
     },
   };
+}
+
+// 끝나지 않은 run이 이 경로를 쓴 기록이 있으면 Undo가 그 run과 겹친다.
+function writingNow(tx: Tx, session: string, plan: RewindPlan): boolean {
+  return plan.judged.some((file) =>
+    tx.sql.get(
+      `select 1 as found
+         from rewind_files f
+         join tool_calls t on t.id = f.tool_call
+         join runs r on r.id = t.run
+        where r.session = ? and r.state != 'finished' and f.path = ? limit 1`,
+      [session, file.path],
+    ) !== undefined
+  );
 }

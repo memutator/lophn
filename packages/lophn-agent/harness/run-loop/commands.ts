@@ -48,6 +48,13 @@ export const runBodyFields: readonly BlobFieldDefinition[] = [
     retention: { kind: "permanent" },
     general_read: false,
   }),
+  // 고정한 resolved agent의 전체 값이다. 이어 하기가 이 blob을 그대로 쓴다(lophn-agent/agents R26).
+  defineBlobField({
+    owner_kind: "run",
+    field: "agent",
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
   defineBlobField({
     owner_kind: "run",
     field: "result",
@@ -133,14 +140,23 @@ function sha256(value: unknown): string {
   return createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
 }
 
-// 같은 assignment의 접수 순서상 먼저 시작할 수 있는 run이 있는지(R3, R6).
+// 같은 session(session 없는 run은 같은 assignment의 session 없는 run)의 접수 순서상
+// 먼저 시작할 수 있는 run이 있는지(R3, R6).
 function earlierStartable(tx: Tx, row: RunRow): boolean {
-  const earlier = tx.sql.all(
-    `select ${RUN_COLUMNS} from runs
-     where assignment = ? and state = 'accepted' and accepted_seq < ?
-     order by accepted_seq`,
-    [row.assignment, Number(row.accepted_seq)],
-  ).map(rowOf);
+  const earlier = (row.session === null
+    ? tx.sql.all(
+      `select ${RUN_COLUMNS} from runs
+       where assignment = ? and session is null and state = 'accepted'
+         and accepted_seq < ?
+       order by accepted_seq`,
+      [row.assignment, Number(row.accepted_seq)],
+    )
+    : tx.sql.all(
+      `select ${RUN_COLUMNS} from runs
+       where session = ? and state = 'accepted' and accepted_seq < ?
+       order by accepted_seq`,
+      [row.session, Number(row.accepted_seq)],
+    )).map(rowOf);
   return earlier.some((candidate) =>
     predecessorAllows(
       candidate,
@@ -230,17 +246,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           return reject("conflict", "assignment changed");
         }
         const source = input.source;
-        if (source.kind === "schedule") {
-          if (assignment.role !== "operator" || input.session !== null) {
-            return reject(
-              "invalid_input",
-              "scheduled runs belong to an operator without a session",
-            );
-          }
-          if (source.assignment_revision !== assignment.revision) {
-            return reject("conflict", "schedule used another revision");
-          }
-        }
         if (source.kind === "handoff") {
           if (assignment.role === "operator") {
             return reject("invalid_input", "operators take no handoff");
@@ -281,12 +286,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             `select ${RUN_COLUMNS} from runs where source_message = ?`,
             [source.message],
           )
-          : source.kind === "schedule"
-          ? tx.sql.get(
-            `select ${RUN_COLUMNS} from runs where assignment = ?
-               and source_assignment_revision = ? and source_scheduled_at = ?`,
-            [input.assignment, source.assignment_revision, source.scheduled_at],
-          )
           : tx.sql.get(
             `select ${RUN_COLUMNS} from runs
              where source_sender_run = ? and source_dedup_key = ?`,
@@ -316,10 +315,10 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
         }
         tx.sql.run(
           `insert into runs (id, assignment, session, source, source_kind,
-             source_message, source_assignment_revision, source_scheduled_at,
-             source_sender_run, source_original_message, source_dedup_key,
-             continued_from, start_after, state, state_seq, accepted_seq)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?)`,
+             source_message, source_sender_run, source_original_message,
+             source_dedup_key, continued_from, start_after, state, state_seq,
+             accepted_seq)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?)`,
           [
             input.id,
             input.assignment,
@@ -327,8 +326,6 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             JSON.stringify(source),
             source.kind,
             columns.message,
-            columns.revision,
-            columns.scheduledAt,
             columns.sender,
             columns.originalMessage,
             columns.dedupKey,
@@ -384,13 +381,25 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             "limits do not match the current run limit settings",
           );
         }
-        const active = tx.sql.get(
-          `select id from runs where assignment = ?
-           and state in ('running', 'waiting_user')`,
-          [row.assignment],
-        );
+        // 진행 중·사람 기다림 run은 session마다 하나, session 없는 run은 assignment마다 하나다.
+        const active = row.session === null
+          ? tx.sql.get(
+            `select id from runs where assignment = ? and session is null
+             and state in ('running', 'waiting_user')`,
+            [row.assignment],
+          )
+          : tx.sql.get(
+            `select id from runs where session = ?
+             and state in ('running', 'waiting_user')`,
+            [row.session],
+          );
         if (active !== undefined) {
-          return reject("conflict", "the assignment already has a live run");
+          return reject(
+            "conflict",
+            row.session === null
+              ? "the assignment already has a live run without a session"
+              : "the session already has a live run",
+          );
         }
         const predecessor = row.start_after === null
           ? undefined
@@ -419,6 +428,18 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
             hash: input.basis,
             size: input.basis_size,
             purpose: RUN_BLOB_PURPOSES.run_basis,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
+        if (input.agent !== undefined && input.agent_size !== undefined) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "run",
+            owner_key: row.id,
+            field: "agent",
+            hash: input.agent,
+            size: input.agent_size,
+            purpose: RUN_BLOB_PURPOSES.run_agent,
             seq,
           });
           if (!registered.ok) return registered;

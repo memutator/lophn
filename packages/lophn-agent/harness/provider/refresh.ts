@@ -46,7 +46,7 @@ export function refreshDue(
 }
 
 // R18: OAuth 401의 복구 예산은 갱신 한 번과 동일 요청 재전송 한 번이다. 재전송은
-// 새 ModelCall(attempt kind credential_change)로 남는다.
+// 새 ModelCall로 남는다(run 한도에 센다).
 export type UnauthorizedRetry = {
   refresh: boolean;
   retry: boolean;
@@ -69,7 +69,6 @@ export type OAuthRefreshPort = {
   // secret 재조회(R17). 갱신 직전 credential의 현재 참조·판을 다시 읽는다.
   current(
     provider: string,
-    key: string,
   ): Promise<
     Result<{
       sealed_ref: string;
@@ -100,7 +99,6 @@ export type OAuthRefreshPort = {
   // 새 token 보관이다(R17). 보관 실패는 새 token을 반환하지 않는다.
   save(
     provider: string,
-    key: string,
     next: {
       bundle: {
         access_token: string;
@@ -123,7 +121,6 @@ export type OAuthRefreshOutcome =
 // 만료 60초 전 갱신 판정. 만료를 모르면 갱신 대상이 아니다(R17).
 export type RefreshFacts = {
   provider: string;
-  key: string;
   token_endpoint: string;
   client_id: string | null;
   resource: string | null;
@@ -131,8 +128,9 @@ export type RefreshFacts = {
 
 export function createOAuthRefresher(deps: {
   port: OAuthRefreshPort;
-  // machine 경계의 credential별 lock이다(R17). 같은 credential key의 갱신을 하나로
-  // 좁힌다. 두 프로세스가 같은 port로 같은 credential을 잠그면 network은 한 번이다.
+  // machine 경계의 credential별 lock이다(R17). provider당 credential이 하나라 lock key는 provider다.
+  // 같은 credential의 갱신을 하나로 좁힌다. 두 프로세스가 같은 port로 같은 credential을 잠그면
+  // network은 한 번이다.
   lock: {
     run<T>(key: string, next: () => Promise<T>): Promise<T>;
   };
@@ -147,9 +145,9 @@ export function createOAuthRefresher(deps: {
   return {
     async refresh(facts, signal) {
       // credential별 lock이다(R17). 같은 credential의 동시 갱신은 하나로 좁혀진다.
-      return await deps.lock.run(`${facts.provider}/${facts.key}`, async () => {
+      return await deps.lock.run(facts.provider, async () => {
         // secret을 다시 읽는다(R17). 갱신 직전의 현재 참조·판이다.
-        const current = await deps.port.current(facts.provider, facts.key);
+        const current = await deps.port.current(facts.provider);
         if (!current.ok) return current;
         const held = current.value;
         if (
@@ -196,7 +194,7 @@ export function createOAuthRefresher(deps: {
           });
         }
         // 새 token 보관이다(R17). 성공 뒤에 잠금을 풀고 사용한다.
-        const saved = await deps.port.save(facts.provider, facts.key, {
+        const saved = await deps.port.save(facts.provider, {
           bundle: {
             access_token: next.value.access_token,
             // 새 refresh token이 없으면 이전 것을 유지한다(R17).

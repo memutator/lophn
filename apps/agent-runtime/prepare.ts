@@ -9,11 +9,12 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  type AgentPlace,
   assignmentRead,
   finishRun,
-  presetRead,
+  type ModelChoice,
+  type ResolvedAgent,
   RUN_BLOB_PURPOSES,
-  runBody,
   runList,
   runRead,
   sessionRead,
@@ -26,7 +27,7 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import type { InstructionDeps } from "../../packages/lophn-agent/instructions/mod.ts";
 import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
+import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
 import {
   abortableWait,
   type AgentRunCredential,
@@ -44,13 +45,15 @@ import {
   recoverRunFromLedger,
   type ToolLookup,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
-import type { MaterialSource } from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
+import type {
+  MaterialSource,
+  SessionConversation,
+} from "../../packages/lophn-agent/harness/prompt-assemble/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
   listTools,
   runOperations,
-  TOOL_BUNDLES,
   type ToolDefinition,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
@@ -61,14 +64,17 @@ import {
   type ContextToolkit,
   type ContextToolPin,
   pinsOf,
-  projectOf,
 } from "./context-search.ts";
+import { loadContextMaterials } from "./context-overview.ts";
 import {
-  loadContextMaterials,
-  resolveContextSelections,
-} from "./context-overview.ts";
+  type CannotStart,
+  pinnedRun,
+  placeOfRun,
+  resolveRunAgent,
+} from "./agent-layers.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
+import { readSessionConversation } from "./session-history.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./run-blobs.ts";
 import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
@@ -83,15 +89,28 @@ import {
 } from "../../packages/lophn-agent/extensions/mod.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
-// preset 판, 역할 상한과 preset이 고른 tool 목록, 적용 한도, StartRun이 확정할 AgentAppScope, 고정할
-// run 근거(basis)를 만든다. model 선택의 검증(catalog·credential)과 tool의 소유 계약 연결은 주입한다.
+// 이번 run의 resolved agent(층을 합친 값, lophn-agent/agents), 역할 상한과 resolved agent가 받은 tool
+// 목록, 적용 한도, StartRun이 확정할 AgentAppScope, 고정할 run 근거(basis)를 만든다. resolved agent는
+// run마다 한 번 만들어 기준에 고정하고 이어 하기는 고정한 값을 그대로 쓴다. model 선택의 검증(catalog·
+// credential)과 tool의 소유 계약 연결은 주입한다.
 
 // 이 run의 외부 MCP tool 등록이다(Q16, T37). 등록 화면은 현재 서버 설정과 연결 화면을 읽어
 // buildMcpTools로 정의를 만들고, Q16 재조회가 끝날 때까지 그 server tool 호출을 막는다.
+// 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다, extensions R32).
+// skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다(R18, R31).
+export type McpSourceOptions = {
+  place?: AgentPlace | null;
+  skip?: ReadonlySet<string>;
+  only?: ReadonlySet<string>;
+};
+
 export type McpToolkit = {
   // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처(R11)다.
-  source(assignment: string): Promise<Result<McpToolsSource>>;
-  // preset 판의 MCP 선택(서버+현재 tool 정확한 쌍, R31)과 safe 표시를 골라낸다.
+  source(
+    assignment: string,
+    options?: McpSourceOptions,
+  ): Promise<Result<McpToolsSource>>;
+  // 고른 MCP(서버+현재 tool 정확한 쌍, R31)와 safe 표시를 골라낸다.
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(Q16 재조회가 끝날 때까지 호출은 거절된다).
   call(assignment: string): McpToolCall;
@@ -134,11 +153,10 @@ export type PreparerDeps = {
   machine: CoreCall;
   // run의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
-  // preset의 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
-  resolveModel(input: {
-    preset: { id: string; revision: number };
-    definition: unknown;
-  }): Promise<Result<ModelBinding>>;
+  // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
+  resolveModel(
+    input: { model: ModelChoice; purpose?: "judgment" | "organizing" },
+  ): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // 앱 command 선언과 사람 허락. 없으면 앱 command 없는 scope다.
   offers?(assignment: { id: string }): Promise<readonly AppOffer[]>;
@@ -148,11 +166,12 @@ export type PreparerDeps = {
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
   // run마다 그 run으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 run의 작업 자리와
-  // preset 첨부만 읽게 한다).
+  // 첨부만 읽게 한다).
   instructionFilesFor?(run: string): InstructionDeps["files"];
   // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  skills?(): Promise<readonly SkillEntry[]>;
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다(extensions R32).
+  skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
   approvalTtlMs?: number;
@@ -201,14 +220,6 @@ function externalBinding(tool: ExternalTool): ToolBinding {
   };
 }
 
-function placeOf(
-  scope: { kind: string; id: string | null },
-): WorkPlace {
-  return (scope.kind === "all"
-    ? { kind: "global", id: null }
-    : { kind: scope.kind, id: scope.id }) as WorkPlace;
-}
-
 type RunRecord = z.output<typeof runRead.output>["run"];
 type AssignmentRecord = z.output<typeof assignmentRead.output>["assignment"];
 
@@ -245,32 +256,32 @@ export function appCommandOf(app: AppTool) {
 export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   const { machine, clock, ids } = deps;
 
-  // run과 assignment, 고른 preset 판으로 이번 run의 tool·scope·model을 모은다.
+  // 등록된 외부 MCP tool이다(T37). 읽지 못하면 서버 자체가 없는 것과 같은 답이다(R11: fails closed).
+  async function loadMcp(
+    assignment: string,
+    options: McpSourceOptions = {},
+  ) {
+    const kit = deps.toolkit.mcp?.(assignment);
+    if (kit === undefined) return { kit, source: null };
+    const source = await kit.source(assignment, options);
+    return { kit, source: source.ok ? source.value : null };
+  }
+  type LoadedMcp = Awaited<ReturnType<typeof loadMcp>>;
+
+  // run과 assignment, 이번 run의 resolved agent로 tool·scope·model을 모은다. `pinnedContexts`는 resume에서
+  // run이 시작할 때 선언 검색 정의를 만든 판들이다. 없으면 resolved agent의 context의 지금 적용된 판으로 만든다.
   async function material(
     run: RunRecord,
     assignment: AssignmentRecord,
-    pinned: { id: string; revision: number },
-    // resume: run이 시작할 때 정의를 만든 판들. 없으면 preset 선택의 지금 적용된 판으로 만든다.
+    agent: ResolvedAgent,
+    mcp: LoadedMcp,
     pinnedContexts?: readonly ContextToolPin[],
   ) {
-    const read = await readOf(machine, presetRead, {
-      preset: pinned.id,
-      revision: pinned.revision,
-    });
-    if (!read.ok) return read;
-    const preset = read.value.preset;
-    const definition = preset.definition;
-
-    // 역할 상한 ∩ preset 선택이 이번 run이 제공하는 tool 목록이다. 외부 MCP tool은
-    // 상한 항목이 아니라 preset의 선택 항목이라(presets role-caps R5) 정의 이름을
-    // 양쪽 이름 목록에 더한다. 그렇지 않으면 목록 이름 검사가 모두 떨어뜨린다.
+    // 역할 상한 ∩ 자리·정의의 권한(resolved agent의 tools)이 이번 run이 제공하는 tool 목록이다. 외부 MCP
+    // tool은 상한 항목이 아니라 agent 정의의 선택 항목이라(agents R18) 정의 이름을 양쪽 이름 목록에
+    // 더한다. 그렇지 않으면 목록 이름 검사가 모두 떨어뜨린다.
     const roleTools = ROLE_CAPS.get(assignment.role)?.tools ?? null;
-    const presetTools = [
-      ...definition.capability.bundles.flatMap((bundle) =>
-        TOOL_BUNDLES.get(bundle.name) ?? []
-      ),
-      ...definition.capability.tools.map((tool) => tool.tool),
-    ];
+    const agentTools = agent.tools;
 
     // 앱 command의 선언과 사람의 허락. 읽지 못하면 앱 command 없는 scope다(fail closed).
     const loaded = deps.apps === undefined ? undefined : await deps.apps.load();
@@ -283,8 +294,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       role: assignment.role,
       assignment: assignment.id,
       work: assignment.scope,
-      read_apps: assignment.read_apps,
-      read_commands: assignment.read_commands,
+      read_apps: [...new Set(agent.app_reads.map((read) => read.app))],
+      read_commands: agent.app_reads,
       offers,
     });
     if (!scope.ok) return scope;
@@ -300,38 +311,31 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       ? []
       : deps.apps.defineContext(scope.value, loaded.value);
 
-    // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 preset 선택만이 출처이며,
+    // 외부 MCP tool 등록이다(T37). 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(Q16: 재조회 실패는 옛 정의를
     // 호출 가능으로 두지 않는다).
-    const mcpKit = deps.toolkit.mcp?.(assignment.id);
+    const mcpKit = mcp.kit;
     let external: readonly ExternalTool[] = [];
-    if (mcpKit !== undefined) {
-      const source = await mcpKit.source(assignment.id);
-      // 설정을 읽지 못하면 서버 자체가 없는 것과 같은 답이다(R11: fails closed).
-      if (source.ok) {
-        const selection = mcpKit.selection(definition);
-        // 선택이 아직 고정되지 않았으면 제공도 없다(R31).
-        if (selection !== null) {
-          const built = await buildMcpTools(source.value, selection);
-          // 남은 충돌은 등록을 거절한다(R23). 그 server의 정의가 전부 빠진다.
-          if (built.ok) external = built.value;
-        }
+    if (mcpKit !== undefined && mcp.source !== null) {
+      const selection = mcpKit.selection({
+        mcp: {
+          servers: [...new Set(agent.mcp.map((tool) => tool.server_name))],
+          tools: agent.mcp,
+        },
+        safe_tools: agent.safe_tools,
+      });
+      // 켠 MCP가 없으면 제공도 없다(R31).
+      if (selection !== null) {
+        const built = await buildMcpTools(mcp.source, selection);
+        // 남은 충돌은 등록을 거절한다(R23). 그 server의 정의가 전부 빠진다.
+        if (built.ok) external = built.value;
       }
     }
 
-    // 선언 검색 tool과 개체 읽기 tool은 preset이 고른 context의 적용된 판에서 만든다(R21, R22). 판은
-    // 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
-    let place: WorkPlace = placeOf(assignment.scope);
-    if (run.session !== null) {
-      const session = await readOf(machine, sessionRead, {
-        session: run.session,
-      });
-      if (session.ok) place = session.value.session.work_place as WorkPlace;
-    }
+    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다(harness/tools R21, R22).
+    // 판은 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
     const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
-      place,
-      scope: assignment.scope,
-      selections: definition.context,
+      contexts: agent.contexts,
       ...(pinnedContexts === undefined ? {} : { pinned: pinnedContexts }),
     });
 
@@ -350,8 +354,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       },
       {
         presetTools: external.length === 0
-          ? presetTools
-          : [...presetTools, ...external.map((tool) => tool.definition.name)],
+          ? agentTools
+          : [...agentTools, ...external.map((tool) => tool.definition.name)],
         roleTools: roleTools === null || external.length === 0 ? roleTools : [
           ...roleTools,
           ...external.map((tool) => tool.definition.name),
@@ -360,20 +364,17 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       },
     );
 
-    const model = await deps.resolveModel({
-      preset: { id: preset.id, revision: preset.revision },
-      definition,
-    });
+    const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
+    const place: WorkPlace = agent.place;
     const seat: RunSeat = {
       run: run.id,
       assignment: assignment.id,
       session: run.session,
     };
     return ok({
-      preset,
-      definition,
+      agent,
       listed,
       appTools,
       contextTools,
@@ -385,6 +386,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       model: model.value,
       place,
       seat,
+      // 이 run의 요청 메시지. 이전 대화는 이 메시지 앞까지다.
+      request: run.source.kind === "message" ? run.source.message : null,
       mcpKit,
     });
   }
@@ -400,7 +403,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     assignment: AssignmentRecord,
     agent: CoreCall,
   ) {
-    const { seat, listed, model, definition, place, external } = m;
+    const { seat, listed, model, agent: resolved, place, external } = m;
     const toolkit = deps.toolkit;
     const externalByName = new Map(
       external.map((tool) => [tool.definition.name, tool]),
@@ -443,17 +446,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     for (const tool of external) {
       bindings.set(tool.definition.name, externalBinding(tool));
     }
-    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). 선택 중
-    // `assignment_scope`·`work_place`는 담당 범위와 작업 자리에서 푼다(resolveContextSelections).
+    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다(prompt-assemble R5). resume이면
+    // tool 정의와 같은 고정한 판으로 만든다.
     let sourcesRead: Promise<MaterialSource[]> | undefined;
     const contextSources = (): Promise<MaterialSource[]> =>
       sourcesRead ??= loadContextMaterials(agent, {
-        // 선언 검색 tool과 같은 project 계산이라 prompt 자료와 tool이 같은 context를 가리킨다.
-        project: projectOf(place, assignment.scope),
-        selections: resolveContextSelections(definition.context, {
-          place,
-          scope: assignment.scope,
-        }),
+        contexts: resolved.contexts,
         ...(m.pinnedContexts === undefined ? {} : { pins: m.pinnedContexts }),
       }).then((set) => [
         ...set.materials.map((item) => ({
@@ -477,12 +475,23 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           unavailable: item.reason,
         })),
       ]);
+    // session의 이전 대화는 run마다 한 번 읽는다. 일하는 run이 있는 session은 Compact하지 않으므로 run 안에서
+    // 바뀌지 않는다.
+    let conversation: SessionConversation | undefined;
     const context = async (): Promise<Result<RunContext>> => {
       const role = await deps.rolePrompt(assignment.role);
       if (!role.ok) return role;
+      if (conversation === undefined) {
+        const read = await readSessionConversation(machine, {
+          session: seat.session,
+          request: m.request,
+        });
+        if (!read.ok) return read;
+        conversation = read.value;
+      }
       return ok({
         product: { instructions: deps.product },
-        role: { instructions: role.value, preset_prompt: null },
+        role: { instructions: role.value },
         tools: listed.map((tool) => ({
           name: tool.name,
           description: tool.description,
@@ -493,15 +502,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           session: place,
           scope: assignment.scope,
         },
-        attachments: definition.instructions,
+        attachments: [],
         purpose: null,
         run_facts: null,
-        continuation_summary: null,
+        session: conversation,
         sources: await contextSources(),
-        // 발견한 skill 중 preset이 고른 정확한 이름만 prompt에 오른다(extensions R4).
-        skills: ((await deps.skills?.()) ?? []).map((entry) => ({
+        // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다(extensions R4, agents R18).
+        skills: ((await deps.skills?.(place)) ?? []).map((entry) => ({
           ...entry,
-          selected: definition.skills.includes(entry.name),
+          selected: resolved.skills.includes(entry.name),
         })),
         timezone: deps.timezone?.() ?? null,
         limits: {
@@ -523,6 +532,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       agent,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
+      agentHash: resolved.hash,
       model,
       tools: {
         listed,
@@ -595,6 +605,30 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     return { ported, resolver, loopDeps };
   }
 
+  // 시작하지 못한 run을 영구 불가 이유로 끝내고 이유를 결과에 남긴다(run-loop R5). 끝내지 못해도 run은
+  // 접수 상태로 남아 다음에 다시 시도한다.
+  async function closeUnstarted(run: RunRecord, cannot: CannotStart) {
+    const result = await storeValue(
+      deps.blobs,
+      deps.instructions.redact,
+      RUN_BLOB_PURPOSES.run_result,
+      { run: run.id, why: cannot.why },
+    );
+    if (!result.ok) return;
+    await commandOf(
+      machine,
+      finishRun,
+      {
+        run: run.id,
+        outcome: { kind: "failed", reason: cannot.reason },
+        result: result.value.hash,
+        result_size: result.value.size,
+      },
+      { state_seq: run.state_seq },
+      `${run.id}:finish:${cannot.why}`,
+    );
+  }
+
   async function prepare(
     selection: Selection,
   ): Promise<Result<PreparedRun>> {
@@ -613,25 +647,70 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const limits = resolveRunLimits(settings.value.settings);
     if (!limits.ok) return limits;
 
-    const found = await material(run.value.run, assignment, {
-      id: assignment.preset,
-      revision: assignment.preset_revision,
+    // 이번 run의 resolved agent. 층을 합친 값을 run 기준에 고정한다. model이 어느 층에도 없거나 정의 파일이
+    // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다(agents R24, R25).
+    // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다(extensions R32). 켠 서버만 연결한다: 정의가 통째로
+    // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고(R18, R31), 정의가 끈 skill은 resolve가 뺀다(R4).
+    const sessionRecord = run.value.run.session === null
+      ? null
+      : await readOf(machine, sessionRead, { session: run.value.run.session });
+    if (sessionRecord !== null && !sessionRecord.ok) return sessionRecord;
+    const placed = await placeOfRun(
+      machine,
+      run.value.run,
+      assignment,
+      sessionRecord === null ? null : sessionRecord.value.session,
+    );
+    if (!placed.ok) return placed;
+    const skills = (await deps.skills?.(placed.value)) ?? [];
+    let mcp: LoadedMcp | undefined;
+    const made = await resolveRunAgent(machine, {
+      run: run.value.run,
+      assignment,
+      skills: skills.map((entry) => entry.name),
+      mcp: async (off, place) => {
+        mcp = await loadMcp(assignment.id, { place, skip: off });
+        return (mcp.source?.tools ?? []).map((tool) => ({
+          server_name: tool.server,
+          original_tool: tool.original,
+        }));
+      },
     });
-    if (!found.ok) return found;
-    const { preset, listed, scope, model, place, contextRead } = found.value;
+    if (!made.ok) return made;
+    if (made.value.kind === "cannot_start") {
+      await closeUnstarted(run.value.run, made.value);
+      return err({
+        code: "unavailable",
+        message: `the run cannot start: ${made.value.why}`,
+      });
+    }
+    const agent = made.value.agent;
 
-    // run 근거는 영구 참조다. 저장한 바이트의 hash로 StartRun에 싣는다.
+    const found = await material(
+      run.value.run,
+      assignment,
+      agent,
+      mcp ?? await loadMcp(assignment.id, { place: agent.place }),
+    );
+    if (!found.ok) return found;
+    const { listed, scope, model, place, contextRead } = found.value;
+
+    // 전체 값은 blob이고 run 기준에는 hash와 칸별 출처만 둔다(agents R25). 기준과 agent blob은 둘 다
+    // 영구 참조라 저장한 바이트의 hash로 StartRun에 싣는다.
+    const stored = await storeValue(
+      deps.blobs,
+      deps.instructions.redact,
+      RUN_BLOB_PURPOSES.run_agent,
+      agent,
+    );
+    if (!stored.ok) return stored;
+
     const basis = await storeValue(
       deps.blobs,
       deps.instructions.redact,
       RUN_BLOB_PURPOSES.run_basis,
       {
-        preset: {
-          id: preset.id,
-          revision: preset.revision,
-          snapshot_hash: preset.definition_hash,
-          basis_seq: run.value.as_of_seq,
-        },
+        agent: { hash: agent.hash, sources: agent.sources },
         assignment: {
           id: assignment.id,
           revision: assignment.revision,
@@ -660,6 +739,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         stateSeq: selection.stateSeq,
         basis: basis.value.hash,
         basisSize: basis.value.size,
+        agent: stored.value.hash,
+        agentSize: stored.value.size,
         limits: limits.value,
         scope,
       },
@@ -673,6 +754,9 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
             ...(input.basisSize === undefined
               ? {}
               : { basis_size: input.basisSize }),
+            ...(input.agent === undefined || input.agentSize === undefined
+              ? {}
+              : { agent: input.agent, agent_size: input.agentSize }),
             limits: input.limits,
             scope: input.scope,
           },
@@ -694,6 +778,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           deps.agentCall(credential.token),
         );
         return {
+          provider: found.value.model.call.provider,
           settle: () => built.resolver.settle(selection.run),
           deps: built.loopDeps,
           input: {
@@ -708,8 +793,8 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     });
   }
 
-  // 시작한 run을 저장된 경계에서 잇는 재료다. preset은 run basis가 고정한 판을 쓰고 한도는 StartRun이
-  // 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다(R9).
+  // 시작한 run을 저장된 경계에서 잇는 재료다. resolved agent는 run 기준이 고정한 값을 그대로 쓰고(정의·
+  // 설정·Workspace는 다시 읽지 않는다) 한도는 StartRun이 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다(R9).
   async function prepareResume(
     runId: string,
     credentials: RunCredentials,
@@ -722,27 +807,19 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     });
     if (!assigned.ok) return assigned;
     const assignment = assigned.value.assignment;
-    const basis = await readOf(machine, runBody, {
-      kind: "run_basis",
-      id: runId,
-    });
-    if (!basis.ok) return basis;
-    const recorded = basis.value.value as {
-      preset?: { id?: string; revision?: number };
-      tools?: { contexts?: unknown };
-    };
-    const pinned = recorded.preset;
-    if (pinned?.id === undefined || pinned.revision === undefined) {
-      return err({
-        code: "unavailable",
-        message: "the run basis is unreadable",
-      });
-    }
+    const pinned = await pinnedRun(machine, runId, record.assignment);
+    if (!pinned.ok) return pinned;
+    // 이어 하기는 고정한 agent가 켠 서버만 연결한다(R18).
     const found = await material(
       record,
       assignment,
-      { id: pinned.id, revision: pinned.revision },
-      pinsOf(recorded.tools?.contexts),
+      pinned.value.agent,
+      await loadMcp(assignment.id, {
+        place: pinned.value.agent.place,
+        only: new Set(pinned.value.agent.mcp.map((tool) => tool.server_name)),
+      }),
+      // 선언 검색 정의를 만든 판도 run 기준이 고정한 값이다. 지금 적용된 판이 아니라 이 판으로 다시 만든다.
+      pinsOf(pinned.value.contexts),
     );
     if (!found.ok) return found;
     const holder: { agent?: CoreCall } = {};
@@ -803,6 +880,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         return ok({
           kind: "resumed" as const,
           credential: held!,
+          provider: found.value.model.call.provider,
           deps: built.loopDeps,
           settle: () => built.resolver.settle(runId),
           input: {

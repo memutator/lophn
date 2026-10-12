@@ -382,27 +382,6 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
   const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-asg-" });
   const connection = await schema(dir);
   try {
-    // 반복 실패로 machine이 멈춘다.
-    emitSource(
-      connection,
-      "AssignmentPaused",
-      "asg_01arz3ndektsv4rrffq69g5fav",
-      {
-        revision: 1,
-        previous_revision: 0,
-        reason: {
-          kind: "consecutive_failures",
-          detail: "3번 연속 실패했다",
-          runs: [
-            "run_01arz3ndektsv4rrffq69g5fav",
-            "run_01arz3ndektsv4rrffq69g5fbv",
-            "run_01arz3ndektsv4rrffq69g5fcv",
-          ],
-          target: null,
-        },
-        definition_hash: "a".repeat(64),
-      },
-    );
     // 대상 보관으로 machine이 멈춘다.
     emitSource(
       connection,
@@ -416,23 +395,6 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
           detail: "앱을 보관했다",
           runs: [],
           target: APP,
-        },
-        definition_hash: "a".repeat(64),
-      },
-    );
-    // 출력 보관으로 machine이 멈춘다.
-    emitSource(
-      connection,
-      "AssignmentPaused",
-      "asg_01arz3ndektsv4rrffq69g5fcv",
-      {
-        revision: 1,
-        previous_revision: 0,
-        reason: {
-          kind: "output_archived",
-          detail: "출력을 보관했다",
-          runs: [],
-          target: "doc_01arz3ndektsv4rrffq69g5fav",
         },
         definition_hash: "a".repeat(64),
       },
@@ -458,8 +420,8 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
       "select cast(seq as text) as seq from events where type = 'AssignmentPaused' order by seq",
       [],
     );
-    assertEquals(rows.length, 4);
-    for (const row of rows.slice(0, 3)) {
+    assertEquals(rows.length, 2);
+    for (const row of rows.slice(0, 1)) {
       const seeded = await seedNotification(
         connection,
         {
@@ -474,7 +436,7 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
     const rejected = await seedNotification(
       connection,
       {
-        seq: String(rows[3]["seq"]),
+        seq: String(rows[1]["seq"]),
         type: "AssignmentPaused",
         subject: "asg_01arz3ndektsv4rrffq69g5fdv",
       },
@@ -482,7 +444,7 @@ Deno.test("platform/notifications#R1: machine이 멈춘 assignment만 계기다"
     );
     assert(!rejected.ok);
     if (!rejected.ok) assertEquals(rejected.error.code, "forbidden");
-    assertEquals(notificationCount(connection), 3n);
+    assertEquals(notificationCount(connection), 1n);
   } finally {
     connection.close();
     await Deno.remove(dir, { recursive: true });
@@ -782,8 +744,12 @@ Deno.test("platform/notifications#R1, R11: engine step은 계기와 계기 아�
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     emitSource(
       connection,
@@ -865,8 +831,12 @@ Deno.test("platform/notifications#R2: engine step은 조건 밖 계기(사람이
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     const engine = notificationsEngine({
       backend,
@@ -901,8 +871,12 @@ Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음
     emitSource(
       connection,
       "QuestionCreated",
-      "qst_01arz3ndektsv4rrffq69g5fav",
-      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+      "qgr_01arz3ndektsv4rrffq69g5fav",
+      {
+        run: "run_01arz3ndektsv4rrffq69g5fav",
+        session: null,
+        questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
+      },
     );
     emitSource(
       connection,
@@ -1227,8 +1201,8 @@ Deno.test("platform/notifications#R1, R2: ticket 확인 완료·검사 실패만
   }
 });
 
-const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
-const QUESTION_TWO = "qst_01arz3ndektsv4rrffq69g5fb0";
+const QUESTION = "qgr_01arz3ndektsv4rrffq69g5fav";
+const QUESTION_TWO = "qgr_01arz3ndektsv4rrffq69g5fb0";
 
 Deno.test("platform/notifications#R1, R11: batch가 작아도 cursor 바로 뒤 계기 event를 건너뛰지 않는다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-engine-small-" });
@@ -1238,10 +1212,12 @@ Deno.test("platform/notifications#R1, R11: batch가 작아도 cursor 바로 뒤 
     emitSource(connection, "QuestionCreated", QUESTION, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
     });
     emitSource(connection, "QuestionCreated", QUESTION_TWO, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fb0" }],
     });
     const engine = notificationsEngine({
       backend,
@@ -1305,6 +1281,7 @@ Deno.test("platform/notifications#R2: 공개 정책이 숨긴 event만 있는 �
     emitSource(connection, "QuestionCreated", QUESTION, {
       run: "run_01arz3ndektsv4rrffq69g5fav",
       session: null,
+      questions: [{ id: "qst_01arz3ndektsv4rrffq69g5fav" }],
     });
     const second = await engine.step();
     assert(second.ok, second.ok ? "" : JSON.stringify(second.error));

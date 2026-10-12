@@ -73,9 +73,9 @@ concerns: [lophn-agent/harness/waiting-and-recovery]
 - 확인: 결정 전달 직후 중단과 event 유실을 테스트하고 같은 승인으로 두 call이 시작되지 않는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
-**[R12]** 완성 압축 summary는 lophn-agent/harness/prompt-assemble의 실제 완성 출력과 원문 보호 범위를 다시 조립하여 같은 run에 복구하고 세션 이어가기 summary와 합치지 않는다.
+**[R12]** 완성 압축 summary는 lophn-agent/harness/prompt-assemble의 실제 완성 출력과 원문 보호 범위를 다시 조립하여 같은 run에 복구하고 사람이 부른 Compact summary와 합치지 않는다.
 - 이유: derived cache 유실로 원문 경계나 요약의 용도가 바뀌지 않는다.
-- 확인: cache 제거 뒤 완성 호출 근거로 복구하고 압축·이어가기의 적용 범위가 구별되는지 확인한다.
+- 확인: cache 제거 뒤 완성 호출 근거로 복구하고 자동 압축(같은 run)과 Compact(같은 session)의 적용 범위가 구별되는지 확인한다.
 - 의도: lophn-agent/harness#I2
 
 ## 버린 것

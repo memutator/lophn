@@ -3,12 +3,11 @@ import { assertEquals } from "@std/assert";
 import { eventTitle } from "./labels.ts";
 import {
   chipQueue,
-  currentIndex,
-  needsReview,
   notificationTarget,
   passes,
   pastOrder,
   placeWaiting,
+  reviewTarget,
   stripOrder,
   usableText,
   waitingCounts,
@@ -16,6 +15,8 @@ import {
 import {
   approval,
   approvalId,
+  groupId,
+  groupQuestion,
   notification,
   question,
   questionId,
@@ -24,7 +25,7 @@ import {
 const NOW = Date.parse("2026-10-06T09:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
 
-Deno.test("shell/desktop#R6: 칸은 run을 멈춘 요청을 먼저, 나머지를 접수 순으로 두고 닫힌 요청은 빼며 고른 요청을 계속 가리킨다", () => {
+Deno.test("shell/desktop#R9 [I45]: 기다리는 요청은 run을 멈춘 요청을 먼저, 나머지를 접수 순으로 두고 닫힌 요청은 뺀다", () => {
   const ordered = stripOrder([
     question(3),
     approval(1),
@@ -33,15 +34,11 @@ Deno.test("shell/desktop#R6: 칸은 run을 멈춘 요청을 먼저, 나머지를
     approval(5, { blocking: true }),
   ]);
   assertEquals(ordered.map((request) => request.id), [
-    questionId(2),
+    groupId(2),
     approvalId(5),
     approvalId(1),
-    questionId(3),
+    groupId(3),
   ]);
-  assertEquals(currentIndex(ordered, approvalId(1)), 2);
-  // 고른 요청이 닫혀 빠지면 첫 요청으로 돌아간다. 다른 요청을 대신 고른 것으로 보지 않는다.
-  assertEquals(currentIndex(ordered, questionId(4)), 0);
-  assertEquals(currentIndex([], null), -1);
 });
 
 Deno.test("shell/desktop#R9: 기다리는 것은 종류별로 세고 지난 일은 닫힌 순서의 최신부터 둔다", () => {
@@ -60,8 +57,8 @@ Deno.test("shell/desktop#R9: 기다리는 것은 종류별로 세고 지난 일�
   assertEquals(waitingCounts(requests), { questions: 2, decisions: 1 });
   assertEquals(pastOrder(requests).map((request) => request.id), [
     approvalId(5),
-    questionId(6),
-    questionId(4),
+    groupId(6),
+    groupId(4),
   ]);
 });
 
@@ -124,11 +121,11 @@ Deno.test("shell/desktop#R10: chip은 읽지 않았고 이 창에서 닫지 않�
   );
 });
 
-Deno.test("shell/desktop#R9: 질문·approval notification은 원래 생성 event로 그 요청을 가리키고 다른 계기는 가리키지 않는다", () => {
+Deno.test("shell/desktop#R9 [I45]: 질문 묶음·approval notification은 원래 생성 event로 그 요청을 가리키고 다른 계기는 가리키지 않는다", () => {
   const requests = [question(1), approval(2)];
   assertEquals(
     notificationTarget(notification(1, "QuestionCreated", "10"), requests)?.id,
-    questionId(1),
+    groupId(1),
   );
   assertEquals(
     notificationTarget(
@@ -170,28 +167,85 @@ Deno.test("shell/desktop#R26, R27: 공간의 대기 수는 그 공간만 세고 
   assertEquals(placeWaiting(requests, { kind: "global" }, "all"), 0);
 });
 
-Deno.test("lophn-agent/questions#R6: 공백뿐인 글은 답이 아니고 action 선택지만 review로 간다", () => {
+Deno.test("lophn-agent/questions#R6 [I45]: 공백뿐인 글은 답이 아니다", () => {
   assertEquals(usableText("  \n "), false);
   assertEquals(usableText("Keep it"), true);
+});
+
+Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질문 하나짜리 묶음에서 고른 action 선택지뿐이고 app.create·apply_settings는 열지 않는다", () => {
   const withAction = question(1, {
-    options: [
-      { key: "move", label: "Move it", action: true },
-      { key: "stay", label: "Leave it", action: false },
+    questions: [groupQuestion(1, 1, {
+      options: [
+        {
+          key: "move",
+          label: "Move it",
+          action: true,
+          command: "document.move",
+        },
+        { key: "stay", label: "Leave it", action: false },
+      ],
+    })],
+  });
+  const pick = (key: string) => [{
+    question: questionId(1, 1),
+    answer: { kind: "option" as const, option_key: key },
+  }];
+  // 정본 참조는 묶음이다. 질문 id를 싣지 않는다.
+  assertEquals(reviewTarget(withAction, pick("move")), {
+    group: groupId(1),
+    option_key: "move",
+  });
+  assertEquals(reviewTarget(withAction, pick("stay")), null);
+  // 질문이 둘 이상인 묶음에는 확인 창으로 가는 길이 없다(action 선택지는 질문 하나짜리에만 있다).
+  const two = question(1, {
+    questions: [
+      withAction.questions[0]!,
+      groupQuestion(1, 2, {
+        options: [{ key: "ok", label: "Fine", action: false }],
+      }),
     ],
   });
-  assertEquals(needsReview(withAction, "move"), true);
-  assertEquals(needsReview(withAction, "stay"), false);
-  assertEquals(needsReview(withAction, null), false);
-  const inner = question(2, {
-    options: [
-      { key: "move", label: "Move it", action: true, command: "document.move" },
-      { key: "app", label: "Register", action: true, command: "app.create" },
-      { key: "set", label: "Change", action: true, command: "apply_settings" },
-    ],
+  assertEquals(reviewTarget(two, pick("move")), null);
+  assertEquals(reviewTarget(withAction, []), null);
+  assertEquals(
+    reviewTarget(withAction, [{
+      question: questionId(1, 1),
+      answer: { kind: "text", text: "Another place" },
+    }]),
+    null,
+  );
+  const term = question(2, {
+    questions: [groupQuestion(2, 1, {
+      options: [
+        { key: "use", label: "정산주기", action: true, command: "term.define" },
+        { key: "app", label: "Register", action: true, command: "app.create" },
+        {
+          key: "set",
+          label: "Change",
+          action: true,
+          command: "apply_settings",
+        },
+      ],
+    })],
   });
-  assertEquals(needsReview(inner, "set"), false);
-  assertEquals(needsReview(inner, "app"), false);
-  assertEquals(needsReview(inner, "move"), true);
+  // term.define은 확인 창으로 확정한다. app.create·apply_settings만 창 없이 확정한다.
+  assertEquals(
+    reviewTarget(term, [{
+      question: questionId(2, 1),
+      answer: { kind: "option", option_key: "use" },
+    }]),
+    { group: groupId(2), option_key: "use" },
+  );
+  for (const key of ["app", "set"]) {
+    assertEquals(
+      reviewTarget(term, [{
+        question: questionId(2, 1),
+        answer: { kind: "option", option_key: key },
+      }]),
+      null,
+      key,
+    );
+  }
 });
 
 Deno.test("[ctx-I35] platform/notifications#R3: context 위반 수 계기는 자기 이름으로 말하고 일반 안내가 아니다", () => {

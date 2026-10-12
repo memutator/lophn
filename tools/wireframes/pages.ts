@@ -77,7 +77,6 @@ export type ScreenId =
   | "lophn-projects"
   | "lophn-apps"
   | "lophn-things-to-confirm"
-  | "lophn-roles"
   | "settings-connections"
   | "settings-coding"
   | "settings-extensions"
@@ -89,7 +88,6 @@ export type ScreenId =
   | "project-terminal"
   | "project-app-panel"
   | "app-space"
-  | "conversation-dock"
   | "new-tab-kinds"
   | "new-tab-menu"
   | "new-context-overview"
@@ -111,6 +109,11 @@ export type ScreenId =
   | "new-agent-toast-opened"
   | "new-agent-conversation"
   | "new-agent-model-picker"
+  | "new-agent-model-changed"
+  | "new-agent-sessions"
+  | "new-agent-sessions-edit"
+  | "new-agent-commands"
+  | "new-agent-commands-filtered"
   | "new-agent-question"
   | "new-agent-question-answered"
   | "new-agent-approval"
@@ -384,17 +387,10 @@ export const PAGES: readonly WireframePage[] = [
     "lophn-things-to-confirm",
   ),
   now(
-    "lophn-roles",
-    "Lophn Workspace · Roles",
-    ["manage-operator", "set-up-operator"],
-    "lophn 공간의 Roles. 역할마다 하는 일·만든 것·대화·작업 검토·Preset을 본다.",
-    "lophn-roles",
-  ),
-  now(
     "settings-connections",
     "Settings · Connections",
-    ["connect-provider", "manage-provider-accounts"],
-    "Settings의 Connections 탭. provider와 계정 목록, 연결 상태와 다음 행동. key는 이 화면이 받지 않고 보호 창이 받는다.",
+    ["connect-provider", "manage-provider-connection"],
+    "Settings의 Connections 탭. 연결된 provider와 연결 상태·다음 행동. key는 이 화면이 받지 않고 보호 창이 받는다.",
     "settings-connections",
   ),
   now(
@@ -467,13 +463,6 @@ export const PAGES: readonly WireframePage[] = [
     "앱 공간. 상단 바에 앱 이름과 [Report a problem], 본문에 앱 view, 운영 탭(Tasks·Issues 등). 앱 view는 안내 상자로 그린다.",
     "app-space",
   ),
-  now(
-    "conversation-dock",
-    "Conversation dock",
-    ["ask-lophn-help"],
-    "공간 오른쪽에 여는 대화 도크. lophn과 나눈 말, 시각 블록(표·차트), 결과 문서 링크가 보인다.",
-    "conversation-dock",
-  ),
   fresh(
     "new-project-tabs",
     "Project · tab kinds",
@@ -525,13 +514,13 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-context-violations",
     "Context tab · Violations",
-    "문서가 계약을 어기면 program이 찾아 알리고, 단추 하나로 Context Engineer에게 넘긴다. 근거는 자동으로 붙는다.",
+    "문서가 계약을 어기면 lophn이 찾아 알린다. 이 화면에는 위반 목록만 있고 agent를 부르는 단추는 없다. Context Engineer는 위반 toast의 [Ask Context Engineer]로 부른다.",
     "new-context-violations",
   ),
   fresh(
     "new-violation-toast",
     "Contract violation toast",
-    "위반이 생기면 오른쪽 아래 toast로 알린다. 누르면 그 context의 Violations가 열린다.",
+    "위반이 생기면 오른쪽 아래 toast로 알린다. [Ask Context Engineer]는 위반을 첫 context로 붙인 Agent 탭을, [View]는 그 context의 Violations를 연다.",
     "new-violation-toast",
   ),
   fresh(
@@ -573,32 +562,38 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-agent-sidebar",
     "Agent · sidebar",
-    "agent는 project sidebar의 Agents 묶음에서만 부른다. agent를 누르면 새 Agent 탭이 열리고, 최근 session은 상태(Waiting for you·Working·Done)와 함께 그 아래 Sessions에 있다. 접힌 바로 가기 막대의 Agent 단추를 누르면 lophn의 새 Agent 탭이 열린다.",
+    "agent는 project sidebar의 Agents 묶음(lophn·Context Engineer·Operator)에서만 부른다. agent를 누르면 그 agent의 새 Agent 탭이 열린다. session 목록은 sidebar에 없고 탭의 agent header에서 바꾼다. 접힌 바로 가기 막대의 Agent 단추는 lophn의 새 Agent 탭을 연다.",
     "new-agent-sidebar",
   ),
   fresh(
     "new-agent-toast",
     "Agent · toast with context",
-    '사람 대신 program이 "agent를 불러야 할 일"을 판정하면 toast로 알린다. [Ask lophn]을 누르면 그 일을 첫 context로 붙인 Agent 탭이 열린다. [View]는 검색 탭을 연다.',
+    "lophn이 가진 사건(context 계약 검사, 앱 build·실행 오류)이 생기면 toast로 알린다. 사건 종류마다 부를 agent가 정해져 있다. [Ask Context Engineer]를 누르면 그 사건을 첫 context로 붙인 Agent 탭이 열리고, [View]는 eval Context 탭의 Violations를 연다.",
     "new-agent-toast",
   ),
   fresh(
     "new-agent-toast-opened",
     "Agent · tab from toast",
-    "[Ask lophn]을 누른 결과. 새 Agent 탭의 composer 위에 toast가 가리킨 일이 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
+    "[Ask Context Engineer]를 누른 결과. Context Engineer의 새 Agent 탭에 사건(eval 위반 2개)이 composer 위 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
     "new-agent-toast-opened",
   ),
   fresh(
     "new-agent-conversation",
     "Agent · tab",
-    "agent와는 Agent 탭에서 이야기한다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip 한 자리에 보인다. composer 안 아래 줄에 agent·model, 입력칸 밖 아래 줄에 project·권한을 둔다.",
+    "agent와는 Agent 탭에서 이야기한다. 탭 머리(agent header)에 agent와 session 제목이 고정으로 보이고, 내 메시지는 오른쪽 bubble, agent 메시지는 왼쪽에 avatar·이름·시각과 함께 놓인다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip에 보인다. composer 안 아래 줄에는 model, 입력칸 밖 아래 줄에는 project·권한이 있고 agent를 고르는 칸은 없다.",
     "new-agent-conversation",
   ),
   fresh(
     "new-agent-model-picker",
     "Agent · model picker",
-    "composer의 model을 누르면 연결된 provider별 model과 effort를 고른다. 바꾼 값은 이 session에만 쓰이고 기본값은 agent 정의에서 온다. 기본값은 Workspace › Settings › Agents에서 바꾼다.",
+    "composer의 model을 누르면 Favorites(별표 찍은 순서 그대로)가 맨 위에, 그 아래 provider별 model이 나오고, 고른 model이 가진 option 축만 보인다. option은 effort 밖에도 있다(Speed). 목록과 option 값은 모두 catalog data에서 오고, 바꾼 값은 이 session에만 쓰인다.",
     "new-agent-model-picker",
+  ),
+  fresh(
+    "new-agent-model-changed",
+    "Agent · model changed",
+    "model을 바꿔 지금 option 값이 없으면 같은 축의 가까운 약한 값으로 맞추고 한 줄로 알린다. 예: GPT-6.1 Sol의 XHigh를 Sonnet 5.5로 바꾸면 High로 맞춘다.",
+    "new-agent-model-changed",
   ),
   fresh(
     "new-agent-question",
@@ -625,15 +620,39 @@ export const PAGES: readonly WireframePage[] = [
     "new-agent-rewind",
   ),
   fresh(
+    "new-agent-sessions",
+    "Agent · session switcher",
+    "agent header의 session 제목을 누르면 열리는 switcher. 위에 검색 input, 그 agent의 session만 Today·Earlier로 묶어 보이고, 줄에 올리면 Rename·Archive·Delete가 나온다. 아래에 Archived와 + New session이 있다. session 목록은 sidebar에 없다.",
+    "new-agent-sessions",
+  ),
+  fresh(
+    "new-agent-sessions-edit",
+    "Agent · session rename and delete",
+    "같은 switcher에서 Rename을 누른 줄은 이름 고치기 input으로 바뀌고, Delete를 누르면 되돌릴 수 없다는 확인이 그 줄에 붙는다.",
+    "new-agent-sessions-edit",
+  ),
+  fresh(
+    "new-agent-commands",
+    "Agent · commands",
+    "입력칸에 /를 치면 composer 위로 메뉴가 뜬다. 묶음은 셋: 모든 agent 공통 Commands, 이 agent 전용 built-in(이름이 agent 이름), Skills. skill은 전역과 agent 전용을 가르지 않고 출처 badge도 없다. Context Engineer 탭에서는 둘째 묶음이 바뀌고 Operator 탭에는 둘째 묶음이 없다.",
+    "new-agent-commands",
+  ),
+  fresh(
+    "new-agent-commands-filtered",
+    "Agent · commands filtered",
+    "/co처럼 더 치면 이름이나 설명에 맞는 것만 남고 맞는 글자가 굵게 보인다. 맞는 게 없는 묶음은 숨는다. agent가 일하는 중이면 지금 못 쓰는 Fork가 흐리게 보이고 이유를 말한다.",
+    "new-agent-commands-filtered",
+  ),
+  fresh(
     "new-project-agents",
     "Project · Agents tab",
-    "project의 agent를 한곳에서 본다. 기본 agent와 이 project의 Operator, 이 project에서 agent가 쓰는 지침(LOPHN.md)·skill·MCP가 여기 있다. sidebar Agents 묶음 머리의 Manage와 + 메뉴로 연다.",
+    "project의 agent를 한곳에서 본다. 기본 agent와 이 project의 Operator(avatar·model·붙은 context·skill·MCP 수), 같이 쓰는 지침(LOPHN.md), role별 model, skill, MCP가 여기 있다. sidebar Agents 묶음 머리의 Manage와 + 메뉴로 연다.",
     "new-project-agents",
   ),
   fresh(
     "new-operator-editor",
     "Project · Operator editor",
-    "Operator 하나는 이름·하는 일·지침·주기·model·읽을 context·skill·MCP·권한으로 이루어진다. 정의는 project 폴더가 아니라 lophn에 저장된다.",
+    "Operator도 agent다. 일정 작업이 아니라 project의 일을 하는 agent이고, 프로필(icon 또는 올린 이미지)·이름·지침(project의 LOPHN.md와 이 agent의 지침을 같이)·model·붙일 context(N:M, 0개도 된다)·skill·MCP·권한으로 이루어진다. 정의는 project 폴더가 아니라 lophn에 저장된다.",
     "new-operator-editor",
   ),
   fresh(
@@ -651,7 +670,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-settings-agents",
     "Workspace · Settings › Agents",
-    "모든 project에 적용되는 agent 기본값은 Workspace에서 정한다. 역할별 기본 model, 전역 지침(LOPHN.md), 전역 skill과 MCP, 기본 권한이 여기 있다.",
+    "모든 project에 적용되는 agent 기본값은 Workspace에서 정한다. 역할(lophn·Context Engineer·Operators)별 기본 model과 option 값, 전역 지침(LOPHN.md), 전역 skill과 MCP, 기본 권한이 여기 있다. project나 Operator가 바꾸지 않으면 이 값을 따른다.",
     "new-settings-agents",
   ),
 ];

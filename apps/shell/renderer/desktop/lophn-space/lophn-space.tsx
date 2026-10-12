@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -18,12 +18,6 @@ import { LophnSidebar } from "./sidebar/sidebar.tsx";
 import { DocumentsScreen } from "./documents/documents-screen.tsx";
 import type { ReaderTarget } from "./documents/reader.tsx";
 import {
-  DockSlot,
-  DockToggle,
-  useConversation,
-} from "../../conversation/dock-slot.tsx";
-import { dockPlacement } from "../../conversation/model.ts";
-import {
   PaletteButton,
   usePaletteEnv,
   usePaletteScope,
@@ -35,8 +29,6 @@ import type { OrganizeSource } from "./organize/source.ts";
 import { useRequests } from "./things-to-confirm/context.tsx";
 import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
-import { RolesScreen } from "./roles/roles-screen.tsx";
-import type { RolesSource } from "./roles/source.ts";
 import {
   type SettingsPanels,
   SettingsScreen,
@@ -64,18 +56,10 @@ export interface LophnSpaceProps {
   initialRequest?: string;
   /** 창의 편집 session 묶음. documents 화면의 series 새 멤버 쓰기가 쓴다. */
   sessions?: EditorSessions;
-  /** core 연결이 (다시) 준비될 때마다 오른다. roles가 현재 기록을 다시 읽는다. */
-  connected?: number;
   /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
   onApp?: (app: string) => void;
-  /** roles 화면 통로. 없으면 roles는 준비 전 안내다. */
-  roles?: RolesSource;
-  /** roles 화면에서 처음 열 역할. */
-  initialRole?: string;
-  /** roles 화면에서 이 곳에 Operator를 붙이는 화면으로 연다. */
-  initialAttach?: { readonly kind: "project" | "app"; readonly id: string };
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
@@ -103,12 +87,8 @@ export function LophnSpace(
     initialRead,
     initialRequest,
     sessions,
-    connected = 0,
     apps,
     onApp,
-    roles,
-    initialRole,
-    initialAttach,
     settings,
     onInstructions,
     coding,
@@ -122,20 +102,9 @@ export function LophnSpace(
     collapsedByUser: false,
   });
   const frameRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
-  const contentSize = useObservedSize(contentRef);
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
-  // 대화 도크. lophn 공간에는 정보 패널이 없어 본문만 민다(desktop#R2).
-  const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(
-    conversation?.startOpen === true,
-  );
-  const dock = dockPlacement(
-    dockOpen && conversation !== null,
-    contentSize?.width ?? windowWidth - shown.width,
-  );
-  // 대화의 결과 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
+  // 팔레트나 바깥 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
   const [reading, setReading] = useState<
     { readonly target: ReaderTarget; readonly count: number } | null
   >(
@@ -152,8 +121,6 @@ export function LophnSpace(
   );
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
-  // roles 화면이 담당 범위의 이름을 읽는 통로. source가 같으면 같은 함수다.
-  const catalogOf = useCallback(() => source.catalog(), [source]);
   // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.
   const requests = useRequests();
 
@@ -238,19 +205,11 @@ export function LophnSpace(
             trailing={
               <span className={styles.trailing}>
                 <PaletteButton />
-                {conversation
-                  ? (
-                    <DockToggle
-                      open={dockOpen}
-                      onToggle={() => setDockOpen(!dockOpen)}
-                    />
-                  )
-                  : null}
               </span>
             }
           />
         </div>
-        <div className={styles.content} ref={contentRef}>
+        <div className={styles.content}>
           {current === "documents"
             ? (
               <DocumentsScreen
@@ -263,26 +222,6 @@ export function LophnSpace(
             )
             : current === "apps" && apps && onApp
             ? <AppsScreen source={apps} onOpen={onApp} />
-            : current === "roles" && roles
-            ? (
-              <RolesScreen
-                source={roles}
-                catalog={catalogOf}
-                initialRole={initialRole}
-                initialAttach={initialAttach}
-                connected={connected}
-                now={now}
-                onRead={(document, version) => {
-                  setCurrent("documents");
-                  setReading((last) => ({
-                    target: { document, version, section: null },
-                    count: (last?.count ?? 0) + 1,
-                  }));
-                }}
-                onConfirm={() => setCurrent("things-to-confirm")}
-                onApp={onApp}
-              />
-            )
             : current === "settings" && settings
             ? (
               <SettingsScreen
@@ -291,7 +230,6 @@ export function LophnSpace(
                 coding={coding}
                 initialConnection={initialConnection}
                 onInstructions={onInstructions}
-                onAsk={conversation ? () => setDockOpen(true) : undefined}
               />
             )
             : current === "things-to-confirm" && requests !== null
@@ -308,18 +246,6 @@ export function LophnSpace(
                 {t("common.empty.not-ready")}
               </p>
             )}
-          <DockSlot
-            placement={dock}
-            workPlace={{ kind: "global", id: null }}
-            onClose={() => setDockOpen(false)}
-            onOpenResult={(document, version) => {
-              setCurrent("documents");
-              setReading((previous) => ({
-                target: { document, version, section: null },
-                count: (previous?.count ?? 0) + 1,
-              }));
-            }}
-          />
         </div>
       </div>
     </div>

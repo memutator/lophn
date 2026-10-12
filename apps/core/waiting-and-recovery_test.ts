@@ -55,27 +55,37 @@ async function stateSeqOf(world: WaitingWorld, run: string): Promise<string> {
 
 let questionCounter = 0;
 
-// 질문을 만들어 run을 기다리게 한다. 글은 값으로 싣는다(core가 blob으로 준비한다).
+// 묶음 하나는 질문 하나를 담는다. 같은 번호의 질문 ID를 묶음 ID에서 얻는다.
+function questionOf(group: string): string {
+  return group.replace("qgr_", "qst_");
+}
+
+// 질문 묶음을 만들어 run을 기다리게 한다. 글은 값으로 싣는다(core가 blob으로 준비한다).
+// over의 expires_at은 묶음의 기한이고 나머지는 묶음 안 질문의 값이다.
 async function askQuestionWith(
   world: WaitingWorld,
   seat: Seat,
-  question: string,
+  group: string,
   over: Record<string, unknown> = {},
 ) {
+  const { expires_at = null, ...asked } = over;
   return await world.post("runs/wait", MACHINE_TOKEN, {
     run: seat.run,
     request: {
       kind: "question",
       input: {
-        id: question,
+        id: group,
         run: seat.run,
         session: null,
-        prompt: "어느 쪽으로 정리할까요?",
-        reason: "두 방향이 모두 가능해서 정해야 합니다",
-        options: [],
-        recommendation: null,
-        expires_at: null,
-        ...over,
+        expires_at,
+        questions: [{
+          id: questionOf(group),
+          prompt: "어느 쪽으로 정리할까요?",
+          reason: "두 방향이 모두 가능해서 정해야 합니다",
+          options: [],
+          recommendation: null,
+          ...asked,
+        }],
       },
     },
     call: null,
@@ -88,25 +98,28 @@ async function askQuestion(
   over: Record<string, unknown> = {},
 ) {
   questionCounter += 1;
-  const question = id("qst", questionCounter);
+  const group = id("qgr", questionCounter);
   return {
-    question,
-    waited: await askQuestionWith(world, seat, question, over),
+    group,
+    waited: await askQuestionWith(world, seat, group, over),
   };
 }
 
-async function createdSeq(world: WaitingWorld, question: string) {
-  const read = await world.read("questions/read", MACHINE_TOKEN, { question });
+async function createdSeq(world: WaitingWorld, group: string) {
+  const read = await world.read("questions/read", MACHINE_TOKEN, { group });
   assertEquals(read.status, 200, JSON.stringify(read.body));
-  return (read.body["question"] as { created_seq: string }).created_seq;
+  return (read.body["group"] as { created_seq: string }).created_seq;
 }
 
-async function answer(world: WaitingWorld, question: string, text: string) {
+async function answer(world: WaitingWorld, group: string, text: string) {
   return await world.post("questions/answer", USER_TOKEN, {
-    question,
-    created_seq: await createdSeq(world, question),
-    answer: { kind: "text", text },
-  }, { created_seq: await createdSeq(world, question) });
+    group,
+    created_seq: await createdSeq(world, group),
+    answers: [{
+      question: questionOf(group),
+      answer: { kind: "text", text },
+    }],
+  }, { created_seq: await createdSeq(world, group) });
 }
 
 function resolver(world: WaitingWorld, seat: Seat) {
@@ -117,35 +130,38 @@ function resolver(world: WaitingWorld, seat: Seat) {
 Deno.test("lophn-agent/harness/waiting-and-recovery#R1: 질문을 기다리는 run은 사람이 답하기 전에는 재개하지 않고 답하면 같은 run이 재개된다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question, waited } = await askQuestion(world, world.lophn);
+    const { group, waited } = await askQuestion(world, world.lophn);
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
     const body = waited.body as {
       state: string;
       waiting_on: string;
-      request: { kind: string; input: { prompt_blob: string } };
+      request: { kind: string };
     };
     assertEquals(body.state, "waiting_user");
-    assertEquals(body.waiting_on, question);
+    assertEquals(body.waiting_on, group);
     assertEquals(body.request.kind, "question");
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
-    assertEquals(runRow(world, world.lophn.run)["waiting_on"], question);
+    assertEquals(runRow(world, world.lophn.run)["waiting_on"], group);
     assertEquals(count(world.server, WAITED), 1);
 
     // 질문 글은 값으로 실려 왔고 core가 blob으로 준비해 읽을 수 있다.
-    const text = await world.read("questions/text", USER_TOKEN, { question });
+    const text = await world.read("questions/text", USER_TOKEN, { group });
     assertEquals(text.status, 200, JSON.stringify(text.body));
-    assertEquals(text.body["prompt"], "어느 쪽으로 정리할까요?");
+    assertEquals(
+      (text.body["questions"] as { prompt: string }[])[0].prompt,
+      "어느 쪽으로 정리할까요?",
+    );
 
     const step = resolver(world, world.lophn);
     // 답이 없으면 추정 답으로 진행하지 않고 그대로 기다린다.
     const before = await step.settle(world.lophn.run);
     assert(before.ok);
-    assertEquals(before.value, { kind: "pending", request: question });
+    assertEquals(before.value, { kind: "pending", request: group });
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
     assertEquals(count(world.server, RESUMED), 0);
 
     // 사람이 답하면 같은 run이 재개된다.
-    const given = await answer(world, question, "첫 번째 방향으로 정리하세요");
+    const given = await answer(world, group, "첫 번째 방향으로 정리하세요");
     assertEquals(given.status, 200, JSON.stringify(given.body));
     const after = await step.settle(world.lophn.run);
     assert(after.ok, after.ok ? "" : JSON.stringify(after.error));
@@ -170,23 +186,23 @@ for (const way of ["defer", "cancel", "expire"] as const) {
     const world = await openWaitingWorld();
     try {
       const expiry = new Date(world.clock.nowMs() + 60_000).toISOString();
-      const { question, waited } = await askQuestion(
+      const { group, waited } = await askQuestion(
         world,
         world.lophn,
         way === "expire" ? { expires_at: expiry } : {},
       );
       assertEquals(waited.status, 200, JSON.stringify(waited.body));
-      const created = await createdSeq(world, question);
+      const created = await createdSeq(world, group);
       const compare = { created_seq: created };
       let closed;
       if (way === "defer") {
         closed = await world.post("questions/defer", USER_TOKEN, {
-          question,
+          group,
           created_seq: created,
         }, compare);
       } else if (way === "cancel") {
         closed = await world.post("questions/cancel", USER_TOKEN, {
-          question,
+          group,
           created_seq: created,
           closed_reason: "cancelled",
           closed_reason_text: "더는 필요하지 않습니다",
@@ -194,7 +210,7 @@ for (const way of ["defer", "cancel", "expire"] as const) {
       } else {
         await world.advance(60_000);
         closed = await world.post("questions/expire", MACHINE_TOKEN, {
-          question,
+          group,
           created_seq: created,
         }, compare);
       }
@@ -570,7 +586,7 @@ function messageRow(world: WaitingWorld, message: string) {
 Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 대기 중 일반 메시지는 답이 아니고 기다림을 풀지 않으며 새 일은 다음 접수로 보존된다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question, waited } = await askQuestion(world, world.lophn);
+    const { group, waited } = await askQuestion(world, world.lophn);
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
     const message = await send(world, world.lophn, "request", "그냥 다른 말");
     // 새 요청은 다른 담당 run에 접수되지만 이 run의 질문은 그대로 답을 기다린다.
@@ -580,11 +596,11 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 대기 중 일반 메시
     const step = resolver(world, world.lophn);
     const waiting = await step.settle(world.lophn.run);
     assert(waiting.ok);
-    assertEquals(waiting.value, { kind: "pending", request: question });
+    assertEquals(waiting.value, { kind: "pending", request: group });
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
     assertEquals(
-      inspect(world.server, "select status from questions where id = ?", [
-        question,
+      inspect(world.server, "select status from question_groups where id = ?", [
+        group,
       ])[0]!["status"],
       "pending",
     );
@@ -609,7 +625,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 대기 중 일반 메시
 Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 명시 수정이 옛 질문을 취소하면 답 없음으로 끝나고 수정 입력은 새 담당 run에 보존된다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question, waited } = await askQuestion(world, world.lophn);
+    const { group, waited } = await askQuestion(world, world.lophn);
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
     const correction = await send(
       world,
@@ -622,10 +638,10 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 명시 수정이 옛 질
     const early = await world.post("runs/correct-waiting", MACHINE_TOKEN, {
       run: world.lophn.run,
       message: correction,
-      request: question,
+      request: group,
     }, {
       state_seq: await stateSeqOf(world, world.lophn.run),
-      waiting_on: question,
+      waiting_on: group,
     });
     assertEquals(codeOf(early), "conflict");
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
@@ -640,8 +656,8 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 명시 수정이 옛 질
     assertEquals(old["outcome_reason"], "no_answer");
     const asked = inspect(
       world.server,
-      "select status, closed_reason from questions where id = ?",
-      [question],
+      "select status, closed_reason from question_groups where id = ?",
+      [group],
     )[0]!;
     assertEquals(asked["status"], "cancelled");
     assertEquals(asked["closed_reason"], "superseded");
@@ -708,8 +724,8 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 명시 수정이 옛 app
 Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 사람이 이미 답한 질문은 수정이 덮지 않고 그 답을 먼저 반영한다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question } = await askQuestion(world, world.lophn);
-    const given = await answer(world, question, "이 방향으로 하세요");
+    const { group } = await askQuestion(world, world.lophn);
+    const given = await answer(world, group, "이 방향으로 하세요");
     assertEquals(given.status, 200, JSON.stringify(given.body));
     const correction = await send(
       world,
@@ -746,14 +762,17 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 기다리는 run은 다�
       request: {
         kind: "question",
         input: {
-          id: id("qst", 90),
+          id: id("qgr", 90),
           run: world.editor.run,
           session: null,
-          prompt: "p",
-          reason: "r",
-          options: [],
-          recommendation: null,
           expires_at: null,
+          questions: [{
+            id: id("qst", 90),
+            prompt: "p",
+            reason: "r",
+            options: [],
+            recommendation: null,
+          }],
         },
       },
       call: null,
@@ -763,11 +782,11 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4: 기다리는 run은 다�
     // 기다리지 않는 run의 결정 반영은 대상이 없다.
     const none = await world.post("runs/resolve-wait", MACHINE_TOKEN, {
       run: world.editor.run,
-      request: first.question,
+      request: first.group,
       decision_seq: "1",
     }, {
       state_seq: await stateSeqOf(world, world.editor.run),
-      waiting_on: first.question,
+      waiting_on: first.group,
     });
     assertEquals(codeOf(none), "not_found");
   } finally {
@@ -780,7 +799,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4 #R5: 기다리는 중 멈
   try {
     const asked = await askApproval(world, world.lophn);
     assertEquals(asked.waited.status, 200, JSON.stringify(asked.waited.body));
-    const { question, waited } = await askQuestion(world, world.editor);
+    const { group, waited } = await askQuestion(world, world.editor);
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
     for (const seat of [world.lophn, world.editor]) {
       const stopped = await world.post("runs/stop", USER_TOKEN, {
@@ -792,7 +811,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R4 #R5: 기다리는 중 멈
       assertEquals(runRow(world, seat.run)["state"], "finished");
     }
     // 끝난 run의 질문은 답을 받지 않는다.
-    const late = await answer(world, question, "늦은 답");
+    const late = await answer(world, group, "늦은 답");
     assertEquals(codeOf(late), "conflict");
     // approval 허락은 접수되지만 끝난 run에는 새 동작이 없다.
     await humanDecides(world, asked.approval, "grant");
@@ -871,10 +890,11 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R2: WaitRun이 approval 요�
         reason: "needs a person",
         effect: "irreversible",
         assignment_revision: seat.assignment.revision,
-        preset_revision: 1,
+        agent_hash: "ab".repeat(32),
         contract_revision: "1",
         comparison_basis: { basis: "current" },
         approval,
+        session_grant: null,
       },
     }, { state_seq: "0" });
     assertEquals(decided.status, 200, JSON.stringify(decided.body));
@@ -982,14 +1002,15 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
   const world = await openWaitingWorld();
   try {
     questionCounter += 1;
-    const question = id("qst", questionCounter);
-    const waited = await askQuestionWith(world, world.lophn, question, {
+    const group = id("qgr", questionCounter);
+    const question = questionOf(group);
+    const waited = await askQuestionWith(world, world.lophn, group, {
       options: [option("plain"), option("apply", settingsAction(question))],
     });
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
-    const created = await createdSeq(world, question);
+    const created = await createdSeq(world, group);
     const input = {
-      question,
+      group,
       created_seq: created,
       answer: { kind: "option", option_key: "apply" },
       binding_hash: settingsAction(question).binding_hash,
@@ -1010,32 +1031,28 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
     );
     assertEquals(reply.status, 200, JSON.stringify(reply.body));
     // 답은 접수됐다(질문은 answered). 그러나 action은 적용되지 않았다.
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
-    const record = read.body["question"] as {
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+    const record = read.body["group"] as {
       status: string;
-      applied: boolean;
+      questions: { applied: boolean }[];
     };
     assertEquals(record.status, "answered");
-    assertEquals(record.applied, false);
+    assertEquals(record.questions[0].applied, false);
     // 적용 전에 결정을 반영하라고 해도 재개하지 않는다.
     const decisionSeq = String(
       inspect(
         world.server,
-        "select closed_seq as s from questions where id = ?",
-        [
-          question,
-        ],
+        "select closed_seq as s from question_groups where id = ?",
+        [group],
       )[0]!["s"],
     );
     const early = await world.post("runs/resolve-wait", MACHINE_TOKEN, {
       run: world.lophn.run,
-      request: question,
+      request: group,
       decision_seq: decisionSeq,
     }, {
       state_seq: await stateSeqOf(world, world.lophn.run),
-      waiting_on: question,
+      waiting_on: group,
     });
     assertEquals(early.status, 409, JSON.stringify(early.body));
     // 해소기는 적용을 시도하지만 설정 판이 질문을 만든 때와 달라져(기준 불일치) 적용하지 못한다.
@@ -1044,16 +1061,14 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
     const held = await step.settle(world.lophn.run);
     assert(held.ok, held.ok ? "" : JSON.stringify(held.error));
     assert(held.value.kind === "action_pending");
-    assertEquals(held.value.request, question);
+    assertEquals(held.value.request, group);
     assert(held.value.why !== undefined && held.value.why.length > 0);
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
     assertEquals(count(world.server, RESUMED), 0);
     assertEquals(count(world.server, RESOLUTIONS), 0);
-    const kept = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
+    const kept = await world.read("questions/read", MACHINE_TOKEN, { group });
     assertEquals(
-      (kept.body["question"] as { status: string }).status,
+      (kept.body["group"] as { status: string }).status,
       "answered",
     );
   } finally {
@@ -1064,8 +1079,8 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
 Deno.test("lophn-agent/harness/waiting-and-recovery#R11: 답을 저장한 직후 중단돼도 재시작이 현재 결정을 조회해 같은 run을 한 번만 재개한다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question } = await askQuestion(world, world.lophn);
-    const given = await answer(world, question, "이 방향으로 하세요");
+    const { group } = await askQuestion(world, world.lophn);
+    const given = await answer(world, group, "이 방향으로 하세요");
     assertEquals(given.status, 200, JSON.stringify(given.body));
     // 결정 전달(event)을 처리하기 전에 죽었다. 재시작한 해소기가 ledger를 직접 읽는다.
     const restarted = resolver(world, world.lophn);
@@ -1081,19 +1096,17 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R11: 답을 저장한 직후
     const decisionSeq = String(
       inspect(
         world.server,
-        "select closed_seq as s from questions where id = ?",
-        [
-          question,
-        ],
+        "select closed_seq as s from question_groups where id = ?",
+        [group],
       )[0]!["s"],
     );
     const again = await world.post("runs/resolve-wait", MACHINE_TOKEN, {
       run: world.lophn.run,
-      request: question,
+      request: group,
       decision_seq: decisionSeq,
     }, {
       state_seq: await stateSeqOf(world, world.lophn.run),
-      waiting_on: question,
+      waiting_on: group,
     });
     assertEquals(again.status, 200, JSON.stringify(again.body));
     assertEquals(
@@ -1137,7 +1150,8 @@ async function askAndChoose(
 ) {
   const basis = await readingWidth(world);
   questionCounter += 1;
-  const question = id("qst", questionCounter);
+  const group = id("qgr", questionCounter);
+  const question = questionOf(group);
   const action = settingsOptionAction({
     question,
     changes: [{
@@ -1149,15 +1163,15 @@ async function askAndChoose(
     revision: stale ? basis.revision + 5 : basis.revision,
     defaults_revision: basis.defaults_revision,
   });
-  const waited = await askQuestionWith(world, seat, question, {
+  const waited = await askQuestionWith(world, seat, group, {
     prompt: `Which reading width? (${question})`,
     options: [option("plain"), option("apply", action)],
     recommendation: { option_key: "apply", explanation: "It reads better." },
   });
   assertEquals(waited.status, 200, JSON.stringify(waited.body));
-  const created = await createdSeq(world, question);
+  const created = await createdSeq(world, group);
   const input = {
-    question,
+    group,
     created_seq: created,
     answer: { kind: "option", option_key: "apply" },
     binding_hash: action.binding_hash,
@@ -1173,7 +1187,7 @@ async function askAndChoose(
     }),
   );
   assertEquals(reply.status, 200, JSON.stringify(reply.body));
-  return { question, action };
+  return { group, question, action };
 }
 
 function applyBody(
@@ -1195,10 +1209,9 @@ function answeredSeqOf(world: WaitingWorld, question: string): string {
   return String(
     inspect(
       world.server,
-      "select closed_seq as s from questions where id = ?",
-      [
-        question,
-      ],
+      `select g.closed_seq as s from questions q
+       join question_groups g on g.id = q."group" where q.id = ?`,
+      [question],
     )[0]!["s"],
   );
 }
@@ -1207,7 +1220,7 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 적용이 없고 고른 �
   const world = await openWaitingWorld();
   try {
     const before = await readingWidth(world);
-    const { question } = await askAndChoose(world, world.lophn, "wide");
+    const { group } = await askAndChoose(world, world.lophn, "wide");
     // 답을 접수했을 뿐 변경은 없다.
     assertEquals((await readingWidth(world)).revision, before.revision);
     assertEquals(count(world.server, SETTINGS_CHANGED), 0);
@@ -1224,11 +1237,10 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 적용이 없고 고른 �
     assertEquals(count(world.server, APPLIED), 1);
     assertEquals(count(world.server, RESUMED), 1);
     // 적용은 질문 읽기에 적용 결과로 드러나고 사람의 답과 구별된다.
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
     assertEquals(
-      (read.body["question"] as { applied: boolean }).applied,
+      (read.body["group"] as { questions: { applied: boolean }[] })
+        .questions[0].applied,
       true,
     );
     // 근거를 검증한 적용은 사람 결정이라 actor=user, run=null로 남는다(identity R14).
@@ -1309,7 +1321,7 @@ Deno.test("lophn-agent/questions#R13: 답 저장 직후와 적용 직후에 죽�
 Deno.test("lophn-agent/questions#R14: 질문 뒤 설정이 바뀌면 답은 남고 적용은 일어나지 않으며 달라진 대상과 이유를 알리고 재개하지 않는다", async () => {
   const world = await openWaitingWorld();
   try {
-    const { question, action } = await askAndChoose(
+    const { group, question, action } = await askAndChoose(
       world,
       world.lophn,
       "wide",
@@ -1327,17 +1339,14 @@ Deno.test("lophn-agent/questions#R14: 질문 뒤 설정이 바뀌면 답은 남�
     assertEquals(count(world.server, RESUMED), 0);
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
     // 답은 그대로이고 적용 안 됨으로 읽힌다.
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
-    const record = read.body["question"] as {
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+    const record = read.body["group"] as {
       status: string;
-      applied: boolean;
-      answer: { option_key: string };
+      questions: { applied: boolean; answer: { option_key: string } }[];
     };
     assertEquals(record.status, "answered");
-    assertEquals(record.answer.option_key, "apply");
-    assertEquals(record.applied, false);
+    assertEquals(record.questions[0].answer.option_key, "apply");
+    assertEquals(record.questions[0].applied, false);
     // 직접 적용해도 같다: 달라진 대상(질문 ID)과 이유를 오류가 알린다.
     const direct = await world.post(
       "questions/apply-option",
@@ -1362,7 +1371,8 @@ Deno.test("lophn-agent/questions#R15: 자유 답·다른 선택지·바뀐 actio
     // 자유 답으로 끝난 질문은 적용할 command가 없다.
     const basis = await readingWidth(world);
     questionCounter += 1;
-    const free = id("qst", questionCounter);
+    const freeGroup = id("qgr", questionCounter);
+    const free = questionOf(freeGroup);
     const action = settingsOptionAction({
       question: free,
       changes: [{
@@ -1374,11 +1384,15 @@ Deno.test("lophn-agent/questions#R15: 자유 답·다른 선택지·바뀐 actio
       revision: basis.revision,
       defaults_revision: basis.defaults_revision,
     });
-    const waited = await askQuestionWith(world, world.lophn, free, {
+    const waited = await askQuestionWith(world, world.lophn, freeGroup, {
       options: [option("apply", action)],
     });
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
-    const given = await answer(world, free, "그 설정을 wide로 바꿔 주세요");
+    const given = await answer(
+      world,
+      freeGroup,
+      "그 설정을 wide로 바꿔 주세요",
+    );
     assertEquals(given.status, 200, JSON.stringify(given.body));
     const seq = answeredSeqOf(world, free);
     const refused = await world.post(
@@ -1439,85 +1453,93 @@ Deno.test("lophn-agent/questions#R15: 자유 답·다른 선택지·바뀐 actio
   }
 });
 
-Deno.test("lophn-agent/harness/waiting-and-recovery#R1: tool이 먼저 만든 질문을 읽어 같은 내용으로 WaitRun하면 새 질문 없이 그 질문을 대기에 잇는다", async () => {
+Deno.test("lophn-agent/harness/waiting-and-recovery#R1: tool이 먼저 만든 질문 묶음을 읽어 같은 내용으로 WaitRun하면 새 묶음 없이 그 묶음을 대기에 잇는다", async () => {
   const world = await openWaitingWorld();
   try {
     const seat = world.lophn;
-    const question = id("qst", 901);
+    const group = id("qgr", 901);
     const created = {
-      id: question,
+      id: group,
       run: seat.run,
       session: seat.session,
       expires_at: null,
-      prompt: "어느 쪽으로 정리할까요?",
-      reason: "두 방향이 모두 가능해서 정해야 합니다",
-      options: [
-        {
-          key: "a",
-          label: "A로",
-          evidence: [],
-          adoption: null,
-          action: null,
-          description: "A 설명",
-        },
-        {
-          key: "b",
-          label: "B로",
-          evidence: [],
-          adoption: null,
-          action: null,
-          description: "B 설명",
-        },
-      ],
-      recommendation: { option_key: "a", explanation: "A가 더 가깝습니다" },
+      questions: [{
+        id: id("qst", 901),
+        prompt: "어느 쪽으로 정리할까요?",
+        reason: "두 방향이 모두 가능해서 정해야 합니다",
+        options: [
+          {
+            key: "a",
+            label: "A로",
+            evidence: [],
+            adoption: null,
+            action: null,
+            description: "A 설명",
+          },
+          {
+            key: "b",
+            label: "B로",
+            evidence: [],
+            adoption: null,
+            action: null,
+            description: "B 설명",
+          },
+        ],
+        recommendation: { option_key: "a", explanation: "A가 더 가깝습니다" },
+      }],
     };
     const made = await world.post("questions/create", seat.agentToken, created);
     assertEquals(made.status, 200, JSON.stringify(made.body));
-    // 질문을 만든 call은 끝났고 run은 아직 running이다.
+    // 묶음을 만든 call은 끝났고 run은 아직 running이다.
     assertEquals(runRow(world, seat.run)["state"], "running");
-    const read = await world.read("questions/read", MACHINE_TOKEN, {
-      question,
-    });
-    const text = await world.read("questions/text", MACHINE_TOKEN, {
-      question,
-    });
+    const read = await world.read("questions/read", MACHINE_TOKEN, { group });
+    const text = await world.read("questions/text", MACHINE_TOKEN, { group });
     assertEquals(read.status, 200, JSON.stringify(read.body));
     assertEquals(text.status, 200, JSON.stringify(text.body));
-    const stored = read.body["question"] as {
-      options: { key: string; description_blob: string }[];
-      recommendation: { option_key: string | null };
-    };
-    const words = text.body as {
-      prompt: string;
-      reason: string;
-      options: { key: string; description: string }[];
-      recommendation: { explanation: string };
-    };
+    const stored = (read.body["group"] as {
+      questions: { recommendation: { option_key: string | null } }[];
+    }).questions[0];
+    const words = (text.body as {
+      questions: {
+        prompt: string;
+        reason: string;
+        options: { key: string; description: string }[];
+        recommendation: { explanation: string };
+      }[];
+    }).questions[0];
+    const asked = created.questions[0];
     const waited = await world.post("runs/wait", MACHINE_TOKEN, {
       run: seat.run,
       request: {
         kind: "question",
         input: {
           ...created,
-          prompt: words.prompt,
-          reason: words.reason,
-          options: created.options.map((option) => ({
-            ...option,
-            description: words.options.find((item) => item.key === option.key)!
-              .description,
-          })),
-          recommendation: {
-            option_key: stored.recommendation.option_key,
-            explanation: words.recommendation.explanation,
-          },
+          questions: [{
+            ...asked,
+            prompt: words.prompt,
+            reason: words.reason,
+            options: asked.options.map((option) => ({
+              ...option,
+              description: words.options.find((item) =>
+                item.key === option.key
+              )!.description,
+            })),
+            recommendation: {
+              option_key: stored.recommendation.option_key,
+              explanation: words.recommendation.explanation,
+            },
+          }],
         },
       },
       call: null,
     }, { state_seq: await stateSeqOf(world, seat.run) });
     assertEquals(waited.status, 200, JSON.stringify(waited.body));
     assertEquals(runRow(world, seat.run)["state"], "waiting_user");
-    assertEquals(runRow(world, seat.run)["waiting_on"], question);
-    assertEquals(count(world.server, "select count(*) as n from questions"), 1);
+    assertEquals(runRow(world, seat.run)["waiting_on"], group);
+    assertEquals(
+      count(world.server, "select count(*) as n from question_groups"),
+      1,
+    );
   } finally {
     await world.dispose();
   }

@@ -3,11 +3,6 @@ import { manualClock, ok } from "../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
-  createPresetCommands,
-  createPresetReads,
-  presetSchemaSteps,
-} from "../presets/mod.ts";
-import {
   assignmentSchemaSteps,
   createAssignmentCommands,
   createAssignmentReads,
@@ -15,6 +10,7 @@ import {
 import {
   createRunCommands,
   createRunReads,
+  deleteSessionRuns,
   runSchemaSteps,
 } from "../harness/run-loop/mod.ts";
 import {
@@ -23,12 +19,14 @@ import {
   createConversationReads,
   hasUnappliedSteering,
 } from "../conversation/mod.ts";
-import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
 import { registerMessageBodyRef } from "../conversation/testing/mod.ts";
+import { toolsSchemaSteps } from "../harness/tools/mod.ts";
+import { revertSchemaSteps } from "../revert/mod.ts";
 import { registerQuestionTextRef } from "./testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
+  deleteSessionQuestions,
   questionSchemaSteps,
 } from "./mod.ts";
 
@@ -50,6 +48,18 @@ const advanceClockRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// 세션을 여는 자리(project)는 그 concern이 남긴 생성 event로 확인한다. 이 시험은 그 event만 심는다.
+const seedProjectRoute = defineCommand({
+  resource: "project-fixture",
+  method: "seed",
+  name: "SeedProject",
+  input: z.strictObject({ id: z.string() }),
+  output: z.strictObject({ id: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
 const seedSettingChoiceRoute = defineCommand({
   resource: "setting-choice-fixture",
   method: "seed",
@@ -63,8 +73,6 @@ const seedSettingChoiceRoute = defineCommand({
 
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const clock = manualClock(CLOCK_START);
-  const presetCommands = createPresetCommands(presetValidateDeps());
-  const presetReads = createPresetReads();
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   const runCommands = createRunCommands({ hasUnappliedSteering });
@@ -72,6 +80,16 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   // 세션·메시지는 일반 사람 말이 질문의 답이 되지 않는지 보는 데 쓴다(R6). 접수는 제품
   // 조립과 같이 run-loop의 AcceptRun을 같은 Tx에서 부른다.
   const conversationCommands = createConversationCommands({
+    // 제품 조립과 같다. 질문 묶음은 run을 가리키므로 run 기록보다 먼저 지운다.
+    // 본문 참조 지움은 platform 몫이고 core 시험(apps/core/testing)이 본다.
+    deleteSessionRecords: (tx, session) => {
+      const keepRefs = () => ok(undefined);
+      const questions = deleteSessionQuestions(tx, session, keepRefs);
+      return questions.ok
+        ? deleteSessionRuns(tx, session, keepRefs)
+        : questions;
+    },
+    eraseBlobRefs: () => ok(undefined),
     acceptRun: (tx, ctx, input, compare) =>
       runCommands.accept.handle(
         tx,
@@ -91,10 +109,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         ? registerQuestionTextRef(tx, ctx, reference)
         : registerMessageBodyRef(tx, ctx, reference),
     schemaSteps: [
-      ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
       ...conversationSchemaSteps,
+      ...toolsSchemaSteps,
+      ...revertSchemaSteps,
       ...questionSchemaSteps,
       {
         id: "questions.test.setting-choices",
@@ -103,13 +122,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     commands: [
-      presetCommands.registerDefault,
-      presetCommands.create,
-      presetCommands.revise,
       assignmentCommands.createBuiltin,
       assignmentCommands.createAppEngineer,
-      assignmentCommands.applyOperator,
-      assignmentCommands.changePreset,
+      assignmentCommands.createOperator,
       assignmentCommands.pause,
       assignmentCommands.resume,
       assignmentCommands.withdraw,
@@ -138,6 +153,18 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
         },
       },
       {
+        route: seedProjectRoute,
+        handle(tx, _ctx, input) {
+          const seeded = input as { id: string };
+          tx.sql.run(
+            `insert into events (type, subject, actor, run, payload, at)
+             values ('ProjectCreated', ?, 'machine', null, '{}', ?)`,
+            [seeded.id, tx.now()],
+          );
+          return ok({ id: seeded.id });
+        },
+      },
+      {
         route: seedSettingChoiceRoute,
         handle(tx, _ctx, input) {
           const seeded = input as { key: string; value: unknown };
@@ -150,12 +177,8 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       },
     ],
     reads: [
-      presetReads.read,
-      presetReads.list,
-      presetReads.instructionAttachments,
       assignmentReads.read,
       assignmentReads.list,
-      assignmentReads.outputs,
       runReads.read,
       runReads.list,
       runReads.result,

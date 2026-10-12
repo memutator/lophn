@@ -57,7 +57,7 @@ function notFound(): Result<never> {
 function unavailableProvider(): Result<never> {
   return err({
     code: "unavailable",
-    message: "provider or credential is not registered",
+    message: "provider is not connected",
   });
 }
 
@@ -71,9 +71,9 @@ function requireMachine(ctx: RequestContext): Result<void> {
 
 function loadCall(tx: Tx, id: string): Result<CallRow> {
   const row = tx.sql.get(
-    `select id, run, session, model_use, preset, purpose, test_request,
-       attempt_kind, attempt_order, retry_of, credential_change_of,
-       provider, credential_key, credential_revision, model_name, protocol,
+    `select id, run, session, model_use, agent_hash, purpose,
+       attempt_kind, attempt_order, retry_of,
+       provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
        started_at, finished_at, duration_ms, first_output_ms, outcome,
        usage, cost
@@ -103,27 +103,24 @@ function checkRevision(
 function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
   tx.sql.run(
     `insert into model_calls (
-       id, run, session, model_use, preset, purpose, test_request,
-       attempt_kind, attempt_order, retry_of, credential_change_of,
-       provider, credential_key, credential_revision, model_name, protocol,
+       id, run, session, model_use, agent_hash, purpose,
+       attempt_kind, attempt_order, retry_of,
+       provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
        started_at, finished_at, duration_ms, first_output_ms, outcome,
        usage, cost
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       call.id,
       call.run,
       call.session,
       call.model_use,
-      call.preset === null ? null : JSON.stringify(call.preset),
+      call.agent_hash,
       call.purpose,
-      call.test_request === null ? null : JSON.stringify(call.test_request),
       call.attempt_kind,
       call.attempt_order,
       call.retry_of,
-      call.credential_change_of,
       call.model.provider,
-      call.model.credential_key,
       call.model.credential_revision,
       call.model.name,
       call.model.protocol,
@@ -144,25 +141,17 @@ function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
   );
 }
 
-// provider와 credential 등록은 StartModelCall의 unavailable 근원이다. 문맥
-// 구간 기준은 call 자격 검사의 몫이다(run-loop, Q5).
+// 연결된 provider는 StartModelCall의 unavailable 근원이다. Disconnect한 provider에는 새 호출을 시작하지
+// 않는다(provider#R4). 문맥 구간 기준은 call 자격 검사의 몫이다(run-loop, Q5).
 function checkProvider(
   tx: Tx,
   call: ModelCallRecord,
 ): Result<void> {
   const row = tx.sql.get(
-    "select id, enabled from providers where id = ?",
+    "select id from providers where id = ?",
     [call.model.provider],
   );
-  if (row === undefined) return unavailableProvider();
-  if (!boolOf(row["enabled"])) {
-    return unavailableProvider();
-  }
-  return ok(undefined);
-}
-
-function boolOf(value: unknown): boolean {
-  return value === 1 || value === 1n || value === true;
+  return row === undefined ? unavailableProvider() : ok(undefined);
 }
 
 // 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다(Q30). 반영 command는
@@ -189,9 +178,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (!trusted.ok) return trusted;
         const call = assertCall(input.call);
         if (!call.ok) return call;
-        // 입력 schema refine이 started·결과 없음·초기 비용 unknown·test
-        // timeout 조건을 이미 본다. connection_test는 명시 user 요청이며
-        // 가짜 run·세션은 없다(테이블 check와 입력 refine이 같이 본다).
+        // 입력 schema refine이 started·결과 없음·초기 비용 unknown 조건을 이미 본다.
         const registered = checkProvider(tx, call.value);
         if (!registered.ok) return registered;
         // 같은 id 재시작은 R1의 시도마다 한 번이다. 유니크 PK가 막기 전에
@@ -202,6 +189,17 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         );
         if (existing !== undefined) {
           return conflict("model call attempt already recorded");
+        }
+        // run이 없는 요약 call은 session마다 시도 순번이 하나다.
+        if (call.value.run === null && call.value.session !== null) {
+          const sameAttempt = tx.sql.get(
+            `select id from model_calls
+             where session = ? and run is null and attempt_order = ?`,
+            [call.value.session, call.value.attempt_order],
+          );
+          if (sameAttempt !== undefined) {
+            return conflict("model call attempt already recorded");
+          }
         }
         const seq = tx.emit(modelCallStarted, call.value.id, {
           run: call.value.run,

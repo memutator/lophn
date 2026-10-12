@@ -159,7 +159,7 @@ function rig(
     context: () =>
       Promise.resolve(ok({
         product: { instructions: "PRODUCT" },
-        role: { instructions: "ROLE", preset_prompt: null },
+        role: { instructions: "ROLE" },
         tools: [{
           name: "doc.write",
           description: "write",
@@ -167,13 +167,12 @@ function rig(
         }],
         work: {
           role: "lophn",
-          session: { kind: "global", id: null },
+          session: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
           scope: { kind: "all", id: null },
         },
-        attachments: [],
         purpose: null,
         run_facts: null,
-        continuation_summary: null,
+        session: { compaction: null, messages: [] },
         sources: [],
         skills: [],
         timezone: null,
@@ -248,10 +247,7 @@ function rig(
     random: () => 0.5,
     instructions: {
       files: {
-        registered: () => Promise.resolve(ok(null)),
-        attached: () =>
-          Promise.resolve(err({ code: "not_found", message: "none" })),
-        projectOf: () => Promise.resolve(ok(null)),
+        read: () => Promise.resolve(ok(null)),
       },
       redact: (text) => text,
     },

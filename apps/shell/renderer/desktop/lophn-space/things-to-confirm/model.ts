@@ -1,8 +1,9 @@
-// 질문 칸·things-to-confirm·chip의 순수 규칙. 화면은 이 값을 그대로 그린다.
+// things-to-confirm·chip·공간 크롬의 순수 규칙. 화면은 이 값을 그대로 그린다.
+import type { GroupAnswer } from "../../../conversation/question-card/model.ts";
 import type {
   NotificationRow,
   Place,
-  QuestionRequest,
+  QuestionGroupRequest,
   Request,
   Role,
 } from "./source.ts";
@@ -21,8 +22,8 @@ export function isPending(request: Request): boolean {
 }
 
 /**
- * 칸에 보일 순서. 기다리는 것만, run을 멈춘 요청이 먼저고 나머지는 접수(생성 event) 순이다
- * (desktop#R6). 앞뒤로 오가도 이 순서와 요청 자체는 바뀌지 않는다.
+ * 기다리는 요청의 순서. 기다리는 것만, run을 멈춘 요청이 먼저고 나머지는 접수(생성 event)
+ * 순이다(desktop#R6). 목록을 오가도 이 순서와 요청 자체는 바뀌지 않는다.
  */
 export function stripOrder(requests: readonly Request[]): readonly Request[] {
   return requests.filter(isPending).sort((a, b) => {
@@ -30,18 +31,6 @@ export function stripOrder(requests: readonly Request[]): readonly Request[] {
     const order = seq(a.createdSeq) - seq(b.createdSeq);
     return order < 0n ? -1 : order > 0n ? 1 : 0;
   });
-}
-
-/** 칸이 지금 가리키는 요청의 자리. 목록이 바뀌어도 같은 요청을 계속 가리킨다. */
-export function currentIndex(
-  ordered: readonly Request[],
-  chosen: string | null,
-): number {
-  if (ordered.length === 0) return -1;
-  const found = chosen === null
-    ? -1
-    : ordered.findIndex((request) => request.id === chosen);
-  return found === -1 ? 0 : found;
 }
 
 export interface WaitingCounts {
@@ -173,15 +162,25 @@ export function confirmsWithoutWindow(command: string | null | undefined) {
   return command === "app.create" || command === "apply_settings";
 }
 
-/** 이 선택지는 confirmation window에서만 답을 확정한다. app.create·apply_settings는 아니다(되돌릴 수 있는 안쪽 동작). */
-export function needsReview(
-  question: QuestionRequest,
-  option: string | null,
-): boolean {
-  if (option === null) return false;
-  const chosen = question.options.find((item) => item.key === option);
-  if (chosen === undefined || !chosen.action) return false;
-  return !confirmsWithoutWindow(chosen.command);
+/**
+ * 묶음에서 고른 답이 confirmation window에서만 확정하는 action 선택지이면 그 묶음과 선택지.
+ * 고정 action은 질문 하나짜리 묶음에만 있다(questions#R13). app.create·apply_settings는
+ * 되돌릴 수 있는 안쪽 동작이라 확인 창 없이 확정하므로 여기에 걸리지 않는다. 자유 답은 동작으로
+ * 해석하지 않는다(R15).
+ */
+export function reviewTarget(
+  group: QuestionGroupRequest,
+  answers: readonly GroupAnswer[],
+): { group: string; option_key: string } | null {
+  if (group.questions.length !== 1) return null;
+  const only = group.questions[0]!;
+  const given = answers.find((entry) => entry.question === only.id);
+  if (given === undefined || given.answer.kind !== "option") return null;
+  const optionKey = given.answer.option_key;
+  const chosen = only.options.find((item) => item.key === optionKey);
+  if (chosen === undefined || !chosen.action) return null;
+  if (confirmsWithoutWindow(chosen.command)) return null;
+  return { group: group.id, option_key: optionKey };
 }
 
 /** 보낼 수 있는 자유 답. 공백뿐인 글은 답이 아니다(questions#R6). */

@@ -4,10 +4,16 @@ import {
   finishModelCallInputSchema,
   MODEL_CALL_EVENTS,
   MODEL_CALL_ROUTES,
+  modelCallStarted,
   startModelCallInputSchema,
   supplementModelCallInputSchema,
 } from "./model-calls.ts";
-import { callCostSchema, modelCallRecordSchema } from "./model-call-values.ts";
+import {
+  callCostSchema,
+  callModelOutputSchema,
+  callModelSchema,
+  modelCallRecordSchema,
+} from "./model-call-values.ts";
 import { priceBasisSchema } from "./resolved-model.ts";
 
 const suffix = "01arz3ndektsv4rrffq69g5fav";
@@ -38,11 +44,8 @@ const model = {
   provider: `pvd_${suffix}`,
   name: "gpt",
   protocol: "openai-responses" as const,
-  credential_key: "personal",
   credential_revision: 1,
-  options: {},
-  requested_reasoning: "provider_default" as const,
-  applied_reasoning: null,
+  option_values: { requested: {}, applied: {} },
   limits: {
     context_limit: 128000,
     input_limit: 120000,
@@ -70,13 +73,11 @@ const started = {
   run,
   session,
   model_use: "judgment" as const,
-  preset: { id: `pst_${suffix}`, revision: 1 },
+  agent_hash: hash,
   purpose: "judgment" as const,
-  test_request: null,
   attempt_kind: "initial" as const,
   attempt_order: 1,
   retry_of: null,
-  credential_change_of: null,
   model,
   input: hash,
   context_basis: hash,
@@ -118,7 +119,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call has no result and an unk
       call: started,
       applied_messages: [`msg_${suffix}`],
       state_seq: "4",
-      timeout_ms: null,
     }).success,
   );
   assert(
@@ -129,7 +129,6 @@ Deno.test("lophn-agent/harness/usage#R1: a started call has no result and an unk
       },
       applied_messages: [],
       state_seq: "4",
-      timeout_ms: null,
     }).success,
   );
 });
@@ -247,28 +246,32 @@ Deno.test("lophn-agent/harness/usage#R9: a supplement adds a late fact without a
   );
 });
 
-Deno.test("lophn-agent/harness/usage#R2: a connection test has no run and the fixed timeout", () => {
+Deno.test("lophn-agent/harness/usage#R2: a call attaches to a run and an agent, and a connection test is not a kind of call", () => {
   const test = {
     ...started,
     run: null,
     session: null,
     model_use: null,
-    preset: null,
-    purpose: "connection_test" as const,
-    test_request: { command_key: "test-1", test_kind: "tool_call" as const },
+    agent_hash: null,
   };
-  assert(modelCallRecordSchema.safeParse(test).success);
+  assert(!modelCallRecordSchema.safeParse(test).success);
   assert(
-    startModelCallInputSchema.safeParse({
-      call: test,
-      applied_messages: [],
-      state_seq: "4",
-      timeout_ms: 30_000,
+    !modelCallRecordSchema.safeParse({
+      ...started,
+      purpose: "connection_test",
     }).success,
   );
   assert(
     !startModelCallInputSchema.safeParse({
       call: { ...started, secret: "raw" },
+      applied_messages: [],
+      state_seq: "4",
+    }).success,
+  );
+  // 명시 연결 test가 쓰던 고정 timeout 칸은 없다.
+  assert(
+    !startModelCallInputSchema.safeParse({
+      call: started,
       applied_messages: [],
       state_seq: "4",
       timeout_ms: null,
@@ -279,4 +282,108 @@ Deno.test("lophn-agent/harness/usage#R2: a connection test has no run and the fi
 Deno.test("lophn-agent/harness/model#R7: a call reuses the resolved price basis", () => {
   assert(priceBasisSchema.safeParse(price).success);
   assert(!priceBasisSchema.safeParse({ ...price, currency: "KRW" }).success);
+});
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I10b]: a run call names the agent hash", () => {
+  const start = (call: unknown) =>
+    startModelCallInputSchema.safeParse({
+      call,
+      applied_messages: [],
+      state_seq: "4",
+    }).success;
+  assert(start(started));
+  assert(!start({ ...started, agent_hash: null }));
+  assert(!start({ ...started, agent_hash: "not-a-hash" }));
+  // 옛 preset ref 칸은 기록에 없다.
+  assert(!start({ ...started, preset: { id: `pst_${suffix}`, revision: 1 } }));
+});
+
+Deno.test("lophn-agent/harness/usage#R4 [agent-I10b]: a call keeps the requested and the applied option values", () => {
+  const withValues = (option_values: unknown) => ({
+    ...started,
+    model: { ...model, option_values },
+  });
+  const both = {
+    requested: { effort: "very_high" },
+    applied: { effort: "high", speed: "standard" },
+  };
+  const parsed = modelCallRecordSchema.safeParse(withValues(both));
+  assert(parsed.success);
+  assertEquals(parsed.data.model.option_values, both);
+  assert(
+    !modelCallRecordSchema.safeParse(withValues({ requested: {} })).success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse(
+      withValues({ requested: { effort: 3 }, applied: {} }),
+    ).success,
+  );
+});
+
+Deno.test("lophn-agent/harness/usage#R4 [agent-R12]: a call keeps its option values in option_values only, with no second options field", () => {
+  assert(callModelSchema.safeParse(model).success);
+  assert(!callModelSchema.safeParse({ ...model, options: {} }).success);
+  const parsed = callModelOutputSchema.parse({ ...model, options: { a: "b" } });
+  assert(!("options" in parsed));
+});
+
+Deno.test("lophn-agent/harness/usage#R2 [agent-I16b]: a Compact summary call belongs to a session with no run and no agent", () => {
+  const summary = {
+    ...started,
+    run: null,
+    model_use: "organizing" as const,
+    agent_hash: null,
+    purpose: "conversation_compression" as const,
+  };
+  assert(modelCallRecordSchema.safeParse(summary).success);
+  assert(
+    startModelCallInputSchema.safeParse({
+      call: summary,
+      applied_messages: [],
+      state_seq: "4",
+    }).success,
+  );
+  // 요약 call은 run 대신 session을 가리킨다. session이 없으면 어디에도 묶이지 않는다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, session: null }).success,
+  );
+  // run이 없는 call은 agent를 가리키지 않고 정리(organizing) 용도다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, agent_hash: hash }).success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, model_use: "judgment" })
+      .success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, model_use: null }).success,
+  );
+  // run 없는 판단 call은 없다. 판단과 제목 요약은 run에 묶인다.
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, purpose: "judgment" })
+      .success,
+  );
+  assert(
+    !modelCallRecordSchema.safeParse({ ...summary, purpose: "title_summary" })
+      .success,
+  );
+  // run에 묶인 압축 call은 그대로 run과 agent를 가진다.
+  assert(
+    modelCallRecordSchema.safeParse({
+      ...started,
+      model_use: "organizing" as const,
+      purpose: "conversation_compression" as const,
+    }).success,
+  );
+  assert(
+    modelCallStarted.payload.safeParse({
+      run: null,
+      session,
+      model_use: "organizing",
+      purpose: "conversation_compression",
+      model: callModelOutputSchema.parse(model),
+      input: hash,
+      context_basis: hash,
+    }).success,
+  );
 });

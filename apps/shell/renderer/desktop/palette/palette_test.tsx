@@ -376,11 +376,29 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트의 앱·행동은 지금 �
   await win.choose("Groceries");
   assertEquals(space(), "apps");
   await win.press("palette");
-  await win.choose("Go to Roles");
-  assertEquals(space(), "roles");
+  await win.choose("Go to Settings");
+  assertEquals(space(), "settings");
   await win.press("palette");
   await win.choose("Back to launcher");
   assert(!view.container.querySelector("[data-space='lophn']"));
+});
+
+Deno.test("shell/desktop#R28: lophn 공간 팔레트에 Go to Roles가 없다", async () => {
+  const win = fakeWindow();
+  const { source } = fakeSource();
+  using view = render(
+    <Desktop
+      source={core}
+      initial={openLophn()}
+      lophn={source}
+      palette={win.deps}
+    />,
+  );
+  await flush();
+  await win.press("palette");
+  const labels = win.model().choices.map((choice) => choice.label);
+  assert(!labels.some((label) => label.includes("Roles")), "Roles in palette");
+  assert(view.container.querySelector("[data-space='lophn']"));
 });
 
 Deno.test("shell/desktop#R30: 앱 통로가 있는 창에서 팔레트의 앱 행은 그 앱 공간으로 간다", async () => {

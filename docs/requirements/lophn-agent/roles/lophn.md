@@ -25,7 +25,7 @@ concerns: [lophn-agent/roles/lophn]
 - 확인: 전체 목록과 필요한 문서는 읽지만 앱 목록에서 소스나 업무 DB 원문을 얻지 못하는지 확인한다.
 - 의도: lophn-agent#I1
 
-**[R4]** lophn은 preset capability 안에서 문서·context·project·format·SDK·앱·problem·ticket·preset·assignment 조회, 요청 문서 저장·ticket 생성, 질문·안내·공개 설정·허락된 앱 command·시각·handoff를 쓰되 직접 구현·claim·coding agent 시작은 하지 않는다.
+**[R4]** lophn은 정의의 권한 안에서 문서·context·project·format·SDK·앱·problem·ticket·assignment 조회, 요청 문서 저장·ticket 생성, 질문·안내·공개 설정·허락된 앱 command·시각·handoff를 쓰되 직접 구현·claim·coding agent 시작은 하지 않는다.
 - 이유: 다른 역할의 편집과 앱 계약 밖 운영 권한을 주지 않는다.
 - 확인: 허락된 앱 명령만 역할 범위에서 실행되고 blueprint 수정·문서 이동·이름 변경·삭제 동작은 제공 목록에 없는지 본다.
 - 의도: lophn-agent#I1
@@ -104,9 +104,9 @@ concerns: [lophn-agent/roles/lophn]
 - 확인: 실제 근거를 따라갈 수 있고 자료 없는 수치를 만들어 넣거나 해석을 6줄 이상 쓰지 않는지 본다.
 - 의도: lophn-agent#I1, lophn-agent#I7
 
-**[R19]** 기획·재사용·자리 선택·운영 해석·사용 안내·사람 답은 judgment, 이미 있는 제목·요약은 organizing 용도이며 실제 provider·model·계정은 preset 선택으로 고정한다.
+**[R19]** 기획·재사용·자리 선택·운영 해석·사용 안내·사람 답은 judgment, 이미 있는 제목·요약은 organizing 용도이며 judgment는 resolved agent의 model·provider으로 run에 고정하고 organizing은 Workspace의 Model for summaries를 쓴다.
 - 이유: 역할의 선택과 표현 작업을 구별한다.
-- 확인: 재사용 선택과 제목 호출의 용도가 구별되고 실제 model은 고정 Preset 선택이며 organizing 미선택이면 같은 model인지 본다.
+- 확인: 재사용 선택과 제목 호출의 용도가 구별되고 judgment 호출은 run에 고정된 agent model을 쓰고 Model for summaries가 비어 있으면 제목 호출도 같은 model인지 본다.
 - 의도: lophn-agent#I5
 
 ### 새 기능

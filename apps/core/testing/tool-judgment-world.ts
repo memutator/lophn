@@ -39,6 +39,7 @@ import { startFakeProvider } from "../../../tools/fake-provider/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import { lophnAgentDefinitions } from "../lophn-agent.ts";
 import * as approvalOwner from "./approval-owner.ts";
+import { insertOperatorAssignment } from "./assignment-state.ts";
 import {
   call,
   command,
@@ -67,6 +68,8 @@ export const APPROVALS = "select count(*) as n from approval_requests";
 export const NOTES =
   "select count(*) as n from events where type = 'OwnedNoteRecorded'";
 export const USES = "select count(*) as n from approval_uses";
+// run 기준이 고정한 resolved agent의 지문 자리다. 판정 기록과 session 허락 비교가 이 값을 쓴다.
+export const AGENT_HASH = "ab".repeat(32);
 export const QUESTIONS = "select count(*) as n from questions";
 
 const MACHINE_OPERATIONS = [
@@ -315,14 +318,48 @@ export type Kit = {
   judgment: ReturnType<typeof createToolJudgment>;
 };
 
+// Operator assignment 하나와 그 run 하나. 사람이 만든 Operator가 사람 요청(message)으로 시작한 run이다.
+export type Seat = { run: string; assignment: Assignment; token: string };
+
+export async function openOperator(
+  world: World,
+  scope: { kind: "project" | "app"; id: string },
+  seat: { assignment: string; run: string; message: string; token: string },
+): Promise<Seat> {
+  insertOperatorAssignment(world.server.dataRoot, seat.assignment, scope);
+  const assignment: Assignment = {
+    id: seat.assignment,
+    role: "operator",
+    revision: 1,
+  };
+  const accepted = await world.post("runs/accept", MACHINE_TOKEN, {
+    id: seat.run,
+    assignment: assignment.id,
+    session: null,
+    source: { kind: "message", message: seat.message },
+    continued_from: null,
+    start_after: null,
+  }, { assignment_revision: assignment.revision });
+  assertEquals(accepted.status, 200, JSON.stringify(accepted.body));
+  await accept(
+    world.core,
+    context(`agent:${assignment.id}`, [
+      "create_approval_request",
+      "ReadApprovalText",
+    ], { assignment: assignment.id, run: seat.run }),
+    seat.token,
+  );
+  return { run: seat.run, assignment, token: seat.token };
+}
+
 export function kit(
   world: World,
-  key: RunKey,
+  key: RunKey | Seat,
   tools: readonly { definition: ToolDefinition; binding: ToolBinding }[],
   over: Partial<JudgmentDeps> = {},
   targets: readonly string[] = [TARGET, OTHER_TARGET],
 ): Kit {
-  const entry = world.runs[key];
+  const entry = typeof key === "string" ? world.runs[key] : key;
   const deps: JudgmentDeps = {
     clock: world.clock,
     ids: world.ids,
@@ -338,6 +375,7 @@ export function kit(
     bindings: new Map(
       tools.map((item) => [item.definition.name, item.binding]),
     ),
+    agentHash: AGENT_HASH,
     mcpConnection: () => ({ revision: 1 }),
     approvalTtlMs: 600_000,
     ...over,
@@ -453,11 +491,8 @@ export async function modelAsks(
       provider: id("pvd", 1),
       name: "fixture-model",
       protocol,
-      credential_key: "key-a",
       credential_revision: 1,
-      options: {},
-      requested_reasoning: null,
-      applied_reasoning: null,
+      option_values: { requested: {}, applied: {} },
       limits: {
         context_limit: 1000,
         input_limit: 900,

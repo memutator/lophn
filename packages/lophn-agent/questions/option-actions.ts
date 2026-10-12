@@ -15,7 +15,6 @@ import {
 import {
   applyQuestionOption,
   type OptionAction,
-  optionActionSchema,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   applySettings,
@@ -28,7 +27,7 @@ import {
   type SettingMutation,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { loadQuestion, type QuestionRow } from "./model.ts";
+import { chosenActionOf, loadGroupOfQuestion } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 
 // 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(domain model lophn-agent/questions
@@ -350,45 +349,25 @@ function lastSeq(tx: Tx): bigint {
   return typeof seq === "bigint" ? seq : BigInt(String(seq ?? 0));
 }
 
-// 사람이 고른 option과 그 고정 action. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
-function chosenOf(
-  row: QuestionRow,
-): { key: string; action: OptionAction } | undefined {
-  if (row.status !== "answered" || row.answer === null) return undefined;
-  const answer = JSON.parse(row.answer) as {
-    kind: string;
-    option_key: string | null;
-  };
-  if (answer.kind !== "option" || answer.option_key === null) return undefined;
-  const options = JSON.parse(row.options) as {
-    key: string;
-    action: unknown;
-  }[];
-  const option = options.find((candidate) =>
-    candidate.key === answer.option_key
-  );
-  if (option === undefined || option.action === null) return undefined;
-  const parsed = optionActionSchema.safeParse(option.action);
-  return parsed.success
-    ? { key: answer.option_key, action: parsed.data }
-    : undefined;
-}
-
 // platform/ledger의 질문 정본 port가 쓰는 read. 사람이 고른 option의 고정 action이 내는 소유 command
 // 호출(route·입력·CAS)을 돌려준다. ledger가 제출 호출과 대조한다(identity R14).
 export function chosenOptionCall(
   tx: Pick<Tx, "sql">,
   question: string,
 ): Result<ChosenOptionCall> {
-  const row = loadQuestion(tx, question);
-  const chosen = row === undefined ? undefined : chosenOf(row);
+  const found = loadGroupOfQuestion(tx, question);
+  const chosen = found === undefined ? undefined : chosenActionOf(found.group);
   const owner = chosen === undefined
     ? undefined
     : findOptionOwner(chosen.action);
-  if (row === undefined || chosen === undefined || owner === undefined) {
+  if (
+    found === undefined || chosen === undefined ||
+    chosen.question.id !== question ||
+    owner === undefined
+  ) {
     return err({ code: "not_found", message: "no chosen option action" });
   }
-  const prepared = owner.prepare(row.id, chosen.action);
+  const prepared = owner.prepare(question, chosen.action);
   if (!prepared.ok) return prepared;
   return ok({
     option: chosen.key,
@@ -413,19 +392,21 @@ export function createApplyQuestionOption(
           message: "only the machine applies a chosen option",
         });
       }
-      const row = loadQuestion(tx, input.question);
-      if (row === undefined) {
+      const found = loadGroupOfQuestion(tx, input.question);
+      if (found === undefined) {
         return err({ code: "not_found", message: "question not found" });
       }
+      const { group } = found;
       // 증거: 답한 사람이 고른 option의 고정 action과 제출 action 전체가 같아야 한다.
       // 답이 없거나 다른 option이거나 자유 답이면 사람이 고른 근거가 아니다.
-      const chosen = chosenOf(row);
+      const chosen = chosenActionOf(group);
       if (
-        chosen === undefined || chosen.key !== input.evidence.option ||
-        row.closed_seq !== input.answered_seq ||
+        chosen === undefined || chosen.question.id !== input.question ||
+        chosen.key !== input.evidence.option ||
+        group.closed_seq !== input.answered_seq ||
         input.option_key !== input.evidence.option ||
         canonicalize(chosen.action) !== canonicalize(input.action) ||
-        row.binding_hash !== input.action.binding_hash
+        group.binding_hash !== input.action.binding_hash
       ) {
         return err({
           code: "forbidden",
@@ -442,7 +423,7 @@ export function createApplyQuestionOption(
           message: "the action owner is not registered",
         });
       }
-      const prepared = owner.prepare(row.id, input.action);
+      const prepared = owner.prepare(input.question, input.action);
       if (!prepared.ok) return prepared;
       if (tx.callChosenOption === undefined) {
         return err({
@@ -478,7 +459,7 @@ export function createApplyQuestionOption(
               code: "conflict",
               message: result.error.message,
               details: {
-                question: row.id,
+                question: input.question,
                 option_key: input.option_key,
                 targets: input.action.targets,
                 reason: result.error.message,
@@ -491,7 +472,7 @@ export function createApplyQuestionOption(
       if (!applied.ok) return applied;
       const after = lastSeq(tx);
       return ok({
-        question: row.id,
+        question: input.question,
         option_key: input.option_key,
         applied: true,
         receipt_seq: after > before ? formatSeq(after) : null,

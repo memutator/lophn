@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   applyQuestionOption,
-  cancelQuestion,
+  cancelQuestionGroup,
   correctWaitingRun,
   questionRead,
   resolveRunWait,
@@ -160,30 +160,46 @@ export function createWaitResolver(deps: WaitWorkDeps) {
   // 부르지 않고, 적용 중 죽었다면 transaction이 통째로 되돌아가 처음부터 다시 적용한다.
   // 전제가 달라져 적용하지 못하면 답은 그대로 두고 재개하지 않는다(questions#R14).
   async function applyChosen(
-    record: z.output<typeof questionRead.output>["question"],
+    record: z.output<typeof questionRead.output>["group"],
   ): Promise<Result<{ applied: boolean; why?: string }>> {
-    const answer = record.answer;
-    if (record.status !== "answered" || answer === null) {
+    if (record.status !== "answered" || record.closed_seq === null) {
       return ok({ applied: true });
     }
-    if (answer.kind !== "option") return ok({ applied: true });
-    const chosen = record.options.find((option) =>
-      option.key === answer.option_key
-    );
-    if (chosen === undefined || chosen.action === null) {
-      return ok({ applied: true });
+    // 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리 묶음이라 적용할 것은 많아야 하나다.
+    for (const question of record.questions) {
+      const answer = question.answer;
+      if (answer === null || answer.kind !== "option") continue;
+      const chosen = question.options.find((option) =>
+        option.key === answer.option_key
+      );
+      if (chosen === undefined || chosen.action === null) continue;
+      if (question.applied) continue;
+      const applied = await applyOne(
+        question.id,
+        record.closed_seq,
+        chosen.key,
+        chosen.action,
+      );
+      if (!applied.ok || !applied.value.applied) return applied;
     }
-    if (record.applied) return ok({ applied: true });
-    if (record.closed_seq === null) return ok({ applied: true });
+    return ok({ applied: true });
+  }
+
+  async function applyOne(
+    question: string,
+    answeredSeq: string,
+    key: string,
+    action: z.input<typeof applyQuestionOption.input>["action"],
+  ): Promise<Result<{ applied: boolean; why?: string }>> {
     const applied = await post(deps.machine, applyQuestionOption, {
       input: {
-        question: record.id,
-        answered_seq: record.closed_seq,
-        option_key: chosen.key,
-        action: chosen.action,
-        evidence: { question: record.id, option: chosen.key },
+        question,
+        answered_seq: answeredSeq,
+        option_key: key,
+        action,
+        evidence: { question, option: key },
       },
-      idempotency_key: `${record.id}:${chosen.key}:apply`,
+      idempotency_key: `${question}:${key}:apply`,
       compare: {},
       prepared: [],
     });
@@ -194,14 +210,14 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     return applied;
   }
 
-  // 질문 하나를 본다. 사람의 답·만료·미루기·취소만 결정이다(R1).
+  // 질문 묶음을 본다. 묶음 전체의 답·만료·미루기·취소만 결정이다(R1).
   async function settleQuestion(
     run: { id: string; state_seq: string },
     request: string,
   ): Promise<Result<WaitStep>> {
-    const read = await post(deps.machine, questionRead, { question: request });
+    const read = await post(deps.machine, questionRead, { group: request });
     if (!read.ok) return read;
-    const question = read.value.question;
+    const question = read.value.group;
     if (question.status === "pending" || question.closed_seq === null) {
       return ok({ kind: "pending", request });
     }
@@ -336,7 +352,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
       return ok({ kind: "idle" });
     }
     const reference = { id: current.id, state_seq: current.state_seq };
-    return current.waiting_on.startsWith("qst_")
+    return current.waiting_on.startsWith("qgr_")
       ? await settleQuestion(reference, current.waiting_on)
       : await settleApproval(reference, current.waiting_on);
   }
@@ -368,16 +384,16 @@ export function createWaitResolver(deps: WaitWorkDeps) {
       return ok({ kind: "idle" });
     }
     const request = current.waiting_on;
-    if (request.startsWith("qst_")) {
+    if (request.startsWith("qgr_")) {
       const question = await post(deps.machine, questionRead, {
-        question: request,
+        group: request,
       });
       if (!question.ok) return question;
-      const record = question.value.question;
+      const record = question.value.group;
       if (record.status === "pending") {
-        const cancelled = await post(deps.machine, cancelQuestion, {
+        const cancelled = await post(deps.machine, cancelQuestionGroup, {
           input: {
-            question: request,
+            group: request,
             created_seq: record.created_seq,
             closed_reason: "superseded",
             closed_reason_text: SUPERSEDED_TEXT,

@@ -1,5 +1,5 @@
 import { assert } from "@std/assert";
-import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
+import { ROLE_CAPS } from "../../packages/lophn-agent/agents/mod.ts";
 import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { agentRuntimePolicies } from "./agent-runtime.ts";
 

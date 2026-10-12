@@ -4,9 +4,9 @@
 // 값은 이 표에도 이 함수에도 없고 참조만 있다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  changeProviderCredentials,
+  disconnectProvider,
   refreshProviderCredential,
-  registerProviderCredential,
+  registerProvider,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type {
   SecretDestination,
@@ -20,21 +20,21 @@ export const PROVIDER_SECRET_OWNER = "lophn-agent/harness/provider";
 export function createProviderSecretRefSource(): SecretRefSource {
   return {
     owner: PROVIDER_SECRET_OWNER,
-    // credential의 secret 참조를 만들거나 바꾸거나 비우는 command다.
+    // credential의 secret 참조를 만들거나 바꾸거나 지우는 command다: Connect, 갱신, Disconnect.
     commands: [
-      registerProviderCredential.name,
-      changeProviderCredentials.name,
+      registerProvider.name,
       refreshProviderCredential.name,
+      disconnectProvider.name,
     ],
     read(sql) {
       try {
         return ok(
           sql.all(
-            `select provider, key, secret_sealed_ref from provider_credentials
-             where secret_sealed_ref is not null order by provider, key`,
+            `select provider, secret_sealed_ref from provider_credentials
+             where secret_sealed_ref is not null order by provider`,
             [],
           ).map((row) => ({
-            name: `${String(row["provider"])}/${String(row["key"])}`,
+            name: String(row["provider"]),
             sealedRef: String(row["secret_sealed_ref"]),
           })),
         );
@@ -71,8 +71,8 @@ export function providerSecretDestination(
 }
 
 // 전송 직전에 secret 부착이 대조하는 현재 참조(platform/secrets#R5). ledger의 현재 provider·credential
-// 기록만 보고 값은 보지 않는다. 참조·판이 현재와 다르면(교체·삭제된 옛 참조) conflict이고, 꺼진
-// provider·credential과 회수한 credential, 고정할 수 없는 목적지는 forbidden이다(provider#R4).
+// 기록만 보고 값은 보지 않는다. 참조·판이 현재와 다르면(Disconnect한 provider나 교체된 옛 참조)
+// conflict이고, 회수한 credential과 고정할 수 없는 목적지는 forbidden이다(provider#R4).
 export function lookupProviderSecretUse(
   sql: Pick<Sql, "all">,
   use: SecretUse,
@@ -86,9 +86,8 @@ export function lookupProviderSecretUse(
   let rows: Record<string, unknown>[];
   try {
     rows = sql.all(
-      `select c.secret_name, c.secret_sealed_ref, c.secret_revision,
-              c.enabled as credential_enabled, c.state, p.endpoint,
-              p.enabled as provider_enabled
+      `select c.secret_name, c.secret_sealed_ref, c.secret_revision, c.state,
+              p.endpoint
          from provider_credentials c join providers p on p.id = c.provider
         where c.secret_sealed_ref = ?`,
       [use.sealed_ref],
@@ -104,10 +103,7 @@ export function lookupProviderSecretUse(
     return err({ code: "conflict", message: "현재 참조와 판이 다르다" });
   }
   const destination = providerSecretDestination(String(row["endpoint"]));
-  if (
-    destination === undefined || Number(row["provider_enabled"]) !== 1 ||
-    Number(row["credential_enabled"]) !== 1 || row["state"] === "revoked"
-  ) {
+  if (destination === undefined || row["state"] === "revoked") {
     return err({ code: "forbidden", message: "secret 전송을 허용하지 않는다" });
   }
   return ok({

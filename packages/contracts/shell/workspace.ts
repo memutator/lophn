@@ -31,6 +31,8 @@ export const TAB_KINDS = [
   "contexts",
   "context",
   "search",
+  "agents",
+  "agent",
 ] as const;
 
 // Context 탭의 하위 탭. 순서가 화면 순서다(shell/workspace#R17).
@@ -94,6 +96,10 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
     view_session: viewString.optional(),
   }),
   z.strictObject({ ...tabBase, kind: z.literal("contexts") }),
+  // Agents 탭은 project에 하나이고 대상 필드가 없다. 열어 둔 agent는 layout 파일에만 남는다.
+  z.strictObject({ ...tabBase, kind: z.literal("agents") }),
+  // Agent 탭도 종류와 선택 여부만이다. agent·자리·session은 layout 파일에만 남고 대화 내용은 넣지 않는다.
+  z.strictObject({ ...tabBase, kind: z.literal("agent") }),
   z.strictObject({
     ...tabBase,
     kind: z.literal("context"),
@@ -133,6 +139,8 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
     view_session: viewString.optional(),
   }),
   z.object({ ...tabBase, kind: z.literal("contexts") }),
+  z.object({ ...tabBase, kind: z.literal("agents") }),
+  z.object({ ...tabBase, kind: z.literal("agent") }),
   z.object({
     ...tabBase,
     kind: z.literal("context"),

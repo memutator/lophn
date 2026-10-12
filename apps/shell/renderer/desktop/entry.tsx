@@ -27,8 +27,8 @@ import {
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
-import { ConversationProvider } from "../conversation/dock-slot.tsx";
-import { coreConversationSource } from "../conversation/core-source.ts";
+import { ConversationProvider } from "../conversation/window-deps.tsx";
+import { coreAgentViewSourceFactory } from "../conversation/agent-core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import {
   RequestDrafts,
@@ -42,8 +42,9 @@ import {
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
-import { coreRolesSource } from "./lophn-space/roles/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
+import { coreProviderSettingsSource } from "./lophn-space/settings/providers/core-source.ts";
+import { coreAgentsSettingsSource } from "./lophn-space/settings/agents/core-source.ts";
 import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
 import { coreNotificationsSource } from "./lophn-space/settings/notifications/core-source.ts";
 import { coreUpdateSource } from "./lophn-space/settings/update/core-source.ts";
@@ -79,14 +80,15 @@ const organize = mock?.organize ?? coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
-// roles 화면. 하는 일·만든 것·대화·작업 검토·Preset. 되돌리기는 보호 창이 받는다.
-const roles = mock?.roles ?? coreRolesSource(core);
-// settings 화면. 연결·계정·확장·일반 설정. key·로그인 응답은 보호 창이 받는다.
+// settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
-// settings의 운영 탭(shell#T58). backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
+// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 운영 탭(shell#T58).
+// key·로그인 응답은 보호 창이 받는다. backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
 // update는 사람이 고른 로컬 파일의 안내와 정상 정지다(`lophnUpdate`). 다운로드·재시작은 없다.
 // OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다(platform/notifications#R9).
 const settingsPanels = mock?.settingsPanels ?? {
+  providers: coreProviderSettingsSource(core),
+  agents: coreAgentsSettingsSource(core),
   backup: coreBackupSource(core),
   update: coreUpdateSource(core),
   notifications: coreNotificationsSource(core),
@@ -105,31 +107,30 @@ const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 const tracking = bench ? undefined : coreTrackingSource(core);
-// 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
-// 도크의 provider 끊김 줄(desktop#R7)은 같은 core 통로에서 계정 상태를 읽고, 행동은
-// lophn 공간 settings로 간다.
+// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8). provider 끊김 줄(desktop#R7)의
+// 행동은 lophn 공간 settings로 간다.
 const conversation = {
-  source: mock?.conversation ?? coreConversationSource(core),
   drafts: new DraftStore(),
-  startOpen: location.hash === "#conversation",
-  core,
   onSettings: () => {
     location.hash = "#settings";
   },
 };
-// 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
+// Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
+const agentViewSource = mock?.agentViewSource ??
+  coreAgentViewSourceFactory(core);
+// 창마다 하나인 질문·approval 통로와 고르던 답. things-to-confirm·chip이 같이 쓴다.
 const requests = {
   source: mock?.requests ?? coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
-// 개발 확인용 시작 자리. `#roles`면 roles 형제부터, `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
-// 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
+// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터,
+// `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
 // 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
-  : location.hash === "#lophn" || location.hash === "#conversation"
+  : location.hash === "#lophn"
   ? openLophn()
   : location.hash === "#things-to-confirm"
   ? openLophn("things-to-confirm")
@@ -150,8 +151,6 @@ const start: Route | undefined = seed
   ? openLophn("apps")
   : location.hash === "#settings"
   ? openLophn("settings")
-  : location.hash === "#roles"
-  ? openLophn("roles")
   : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
@@ -212,7 +211,6 @@ mount(
             tracking={tracking}
             intents={bridges.lophnIntents}
             apps={apps}
-            roles={roles}
             settings={settings}
             settingsPanels={settingsPanels}
             coding={coding}
@@ -223,6 +221,7 @@ mount(
             appWindows={mock?.appWindows ?? bridges.lophnAppWindows}
             feedback={feedback}
             instructions={mock?.instructions ?? windowInstructionsSource()}
+            agentViewSource={agentViewSource}
           />
         </RequestsProvider>
       </ConversationProvider>

@@ -17,7 +17,14 @@ import {
   startRunInputSchema,
 } from "./runs.ts";
 
-import { runList, runRead, runResult } from "./run-reads.ts";
+import {
+  RUN_BODY_KINDS,
+  runBody,
+  runList,
+  runRead,
+  runResult,
+} from "./run-reads.ts";
+import { RUN_BLOB_PURPOSES } from "./run-blobs.ts";
 
 const run = "run_01arz3ndektsv4rrffq69g5fav";
 const assignment = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -92,7 +99,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: state fields stay coupled across th
       state: "waiting_user",
       basis: hash,
       started_at: at,
-      waiting_on: "qst_01arz3ndektsv4rrffq69g5fav",
+      waiting_on: "qgr_01arz3ndektsv4rrffq69g5fav",
     }).success,
   );
   assert(
@@ -112,7 +119,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: state fields stay coupled across th
       ...base,
       state: "finished",
       finished_at: at,
-      outcome: { kind: "completed", reason: "no_change" },
+      outcome: { kind: "completed", reason: "answer_completed" },
     }).success,
   );
   assert(
@@ -180,6 +187,43 @@ Deno.test("lophn-agent/harness/run-loop#R6: finish event keeps started paired wi
   );
 });
 
+Deno.test("lophn-agent/agents#R25: StartRun fixes the resolved agent blob together with its size, and ReadRunBody reads it", () => {
+  const input = {
+    run,
+    basis: hash,
+    basis_size: 10,
+    limits: DEFAULT_RUN_LIMITS,
+    scope: { role: "lophn", assignment, apps: [] },
+  };
+  assert(startRunInputSchema.safeParse(input).success);
+  assert(
+    startRunInputSchema.safeParse({ ...input, agent: hash, agent_size: 20 })
+      .success,
+  );
+  // 한쪽만 오면 영구 참조를 등록할 수 없다.
+  assert(!startRunInputSchema.safeParse({ ...input, agent: hash }).success);
+  assert(
+    !startRunInputSchema.safeParse({ ...input, agent_size: 20 }).success,
+  );
+  assert(
+    !startRunInputSchema.safeParse({
+      ...input,
+      agent: "short",
+      agent_size: 20,
+    }).success,
+  );
+  assertEquals(RUN_BLOB_PURPOSES.run_agent, "run_agent");
+  assert(RUN_BODY_KINDS.includes("run_agent"));
+  assert(runBody.input.safeParse({ kind: "run_agent", id: run }).success);
+  assert(
+    !runBody.input.safeParse({
+      kind: "run_agent",
+      id: "mcl_01arz3ndektsv4rrffq69g5fav",
+    })
+      .success,
+  );
+});
+
 Deno.test("lophn-agent/harness/run-loop#R19: terminal unstarted runs keep null basis and zero elapsed", () => {
   const terminal = {
     ...base,
@@ -200,7 +244,7 @@ Deno.test("lophn-agent/harness/run-loop#R19: terminal unstarted runs keep null b
       { ...terminal, start_confirmed_seq: "1" },
       { ...terminal, continued_from: run },
       { ...terminal, start_after: run },
-      { ...terminal, waiting_on: "qst_01arz3ndektsv4rrffq69g5fav" },
+      { ...terminal, waiting_on: "qgr_01arz3ndektsv4rrffq69g5fav" },
     ]
   ) assert(!runRecordSchema.safeParse(value).success);
   assert(
@@ -272,7 +316,7 @@ Deno.test("lophn-agent/handoff#R8: run result carries an immutable blob and cano
   const result = {
     run,
     state: "finished",
-    outcome: { kind: "completed", reason: "no_change", future: true },
+    outcome: { kind: "completed", reason: "answer_completed", future: true },
     result: hash,
     as_of_seq: "20",
     next_cursor: null,

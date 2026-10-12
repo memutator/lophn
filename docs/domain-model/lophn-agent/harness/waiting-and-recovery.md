@@ -13,8 +13,8 @@ Run의 기다림 결정 반영과 확인된 경계의 복구 기록을 정의한
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `run` | `run` ID | 아니오 | waiting_on의 요청과 일치 | 재개 또는 종료 대상 |
-| `request` | `qst / apr` ID | 아니오 | Run.waiting_on과 같음 | 결정 대상 |
-| `decision_seq` | seq | 아니오 | Question.closed_seq 또는 ApprovalRequest.closed_seq와 일치; 요청 소유 영역의 확정 결정 event | 중복 반영 key |
+| `request` | `qgr / apr` ID | 아니오 | Run.waiting_on과 같음 | 결정 대상 |
+| `decision_seq` | seq | 아니오 | QuestionGroup.closed_seq 또는 ApprovalRequest.closed_seq와 일치; 요청 소유 영역의 확정 결정 event | 중복 반영 key |
 | `tool_call` | `tcl` ID | 예 | approval에 필수; 요청의 고정 call; → lophn-agent/harness/tools | 재검사 대상 |
 | `result` | `resumed / stopped_no_answer / call_started / call_not_executed / ignored_finished` | 아니오 | 아래 표와 일치 | 적용 결과 |
 | `reason` | 안전한 짧은 코드 | 아니오 | 결정 값 자체를 입력으로 신뢰하지 않음 | 재검사 또는 미실행 이유 |
@@ -23,8 +23,8 @@ Run의 기다림 결정 반영과 확인된 경계의 복구 기록을 정의한
 
 | 요청·결정 | call 처리 | Run 처리 | 이유 |
 |---|---|---|---|
-| 질문 답 | 선택지 action은 질문 영역의 실제 적용 결과 확인 | 같은 run `running` | `question_answered` |
-| 질문 만료·미루기·취소 | 미시작 call 정리 | `finished`, outcome `stopped` | `no_answer` |
+| 질문 묶음 답 | 선택지 action은 질문 영역의 실제 적용 결과 확인 | 같은 run `running` | `question_answered` |
+| 질문 묶음 만료·Skip(미루기)·취소 | 미시작 call 정리 | `finished`, outcome `stopped` | `no_answer` |
 | 승인 허락·재검사 통과 | 고정 call만 한 번 시작 | 같은 run `running` | `approval_allowed` |
 | 승인 허락·재검사 실패 | 고정 call 미실행 | 같은 run `running`, 새 판단 | 현재 상태·scope·입력·비교 기준의 안전한 오류 |
 | 승인 거절·만료·취소 | 고정 call 미실행 | 같은 run `running`, 새 판단 | `human_decision` |
@@ -32,8 +32,8 @@ Run의 기다림 결정 반영과 확인된 경계의 복구 기록을 정의한
 
 - 사람 거절·만료·취소로 미실행한 call은 tool·run 실패 수에 넣지 않는다.
 - run 자체 멈춤·종료가 먼저 확정되면 새 판단을 시작하지 않는다.
-- 일반 세션 메시지는 기다림을 풀지 않는다. 명시적 방향 수정은 옛 요청 취소와 미시작 call 정리를 묶는다. 질문 취소는 `no_answer` 종료이며 미반영 correction은 새 담당 run에 보존한다. 승인 취소는 같은 run의 새 판단으로 잇는다.
-- Question.run은 필수이며 session은 선택이다. 있으면 run의 session과 같아야 한다. 세션 없는 run의 질문에 가짜 세션을 만들지 않는다.
+- 일반 세션 메시지는 기다림을 풀지 않는다. 명시적 방향 수정은 옛 요청 취소와 미시작 call 정리를 묶는다. 질문 묶음의 Skip·취소는 `no_answer` 종료이며 미반영 correction은 새 담당 run에 보존한다. 승인 취소는 같은 run의 새 판단으로 잇는다.
+- QuestionGroup.run은 필수이며 session은 선택이다. 있으면 run의 session과 같아야 한다. 세션 없는 run의 질문 묶음에 가짜 세션을 만들지 않는다.
 
 ### 전이
 
@@ -41,7 +41,7 @@ Run의 기다림 결정 반영과 확인된 경계의 복구 기록을 정의한
 |---|---|---|---|---|
 | `running` | `waiting_user` | machine | 질문·approval 생성과 waiting_on 연결 원자 확정 | `RunWaited` |
 | `waiting_user` | `running` | machine | 유효 미반영 결정; 위 표; 현재 assignment·scope·멈춤 재검사 | `RunResumed` |
-| `waiting_user` | `finished` | machine | 질문 답 없음 또는 run 멈춤 | `RunFinished` → lophn-agent/harness/run-loop |
+| `waiting_user` | `finished` | machine | 질문 묶음의 답 없음 또는 run 멈춤 | `RunFinished` → lophn-agent/harness/run-loop |
 | `accepted / running / waiting_user` | 같은 상태 또는 확인 가능한 진행 상태 | machine | 아래 복구 표; 누적 한도·현재 자격 유효 | `RunRecovered` |
 
 ## RecoveryBasis (값)

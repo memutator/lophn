@@ -1,6 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { InstructionLocation } from "../../../contracts/lophn-agent/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
@@ -20,8 +19,7 @@ import {
 } from "./mod.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
-const GLOBAL_DOC = "doc_01arz3ndektsv4rrffq69g5fav";
-const PROJECT_DOC = "doc_01arz3ndektsv4rrffq69g5faw";
+const APP = "app_01arz3ndektsv4rrffq69g5fav";
 
 const encoder = new TextEncoder();
 
@@ -29,46 +27,46 @@ const encoder = new TextEncoder();
 function instructionSource(seed: {
   global?: string;
   project?: string;
+  agent?: string;
   failing?: boolean;
 }) {
-  const texts = { global: seed.global, project: seed.project };
-  const state = { reads: 0, versions: 1 };
-  function fileOf(document: string, text: string): InstructionFile {
+  const texts = {
+    global: seed.global,
+    project: seed.project,
+    agent: seed.agent,
+  };
+  const state = { reads: 0, edits: 0 };
+  function fileOf(text: string): InstructionFile {
     const bytes = encoder.encode(text);
     return {
-      document,
-      version: `ver_${state.versions}`,
       size_bytes: bytes.length,
       bytes: bytes.slice(0, INSTRUCTION_FILE_MAX_BYTES),
     };
   }
   const files: InstructionFiles = {
-    registered(location: InstructionLocation) {
+    read(layer) {
       state.reads++;
       if (seed.failing) {
         return Promise.resolve(
           err({ code: "unavailable", message: "/private/LOPHN.md" }),
         );
       }
-      const text = location.layer === "global" ? texts.global : texts.project;
-      const document = location.layer === "global" ? GLOBAL_DOC : PROJECT_DOC;
-      return Promise.resolve(
-        ok(text === undefined ? null : fileOf(document, text)),
-      );
-    },
-    attached() {
-      return Promise.resolve(err({ code: "not_found", message: "none" }));
-    },
-    projectOf() {
-      return Promise.resolve(ok(null));
+      const text = layer === "global"
+        ? texts.global
+        : layer === "project"
+        ? texts.project
+        : layer === "agent"
+        ? texts.agent
+        : undefined;
+      return Promise.resolve(ok(text === undefined ? null : fileOf(text)));
     },
   };
   return {
     files,
     state,
-    edit(layer: "global" | "project", text: string) {
+    edit(layer: "global" | "project" | "agent", text: string) {
       texts[layer] = text;
-      state.versions++;
+      state.edits++;
     },
   };
 }
@@ -109,17 +107,16 @@ function inputOf(overrides: Partial<PromptInput> = {}): PromptInput {
   return {
     product: { instructions: "PRODUCT RULES" },
     tools: TOOLS,
-    role: { instructions: "ROLE RULES", preset_prompt: "PRESET PROMPT" },
+    role: { instructions: "ROLE RULES" },
     work: {
       role: "lophn",
       session: { kind: "project", id: PROJECT },
       scope: { kind: "all", id: null },
     },
-    attachments: [],
     material: {
       purpose: "PURPOSE",
       run_facts: "RUN FACTS",
-      continuation_summary: "CONTINUATION",
+      compact_summary: "COMPACT SUMMARY",
       materials: ["MATERIAL A", "MATERIAL B"],
       compaction_summary: "COMPACTION",
       history: [
@@ -167,7 +164,7 @@ function bytesOf(value: unknown): string {
   return JSON.stringify(value);
 }
 
-Deno.test("lophn-agent/harness/prompt-assemble#R2: 제품·역할+preset·사람 지침 층이 순서대로 놓이고 이력·자료는 그 뒤, 동적 context는 맨 끝이다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R2: 제품·역할(role_agent)·사람 지침 층이 순서대로 놓이고 이력·자료는 그 뒤, 동적 context는 맨 끝이다", async () => {
   const source = instructionSource({
     global: "GLOBAL RULE",
     project: "PROJECT RULE",
@@ -175,7 +172,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 제품·역할+preset·사람
   const assembly = ready(await assemblePrompt(depsOf(source), inputOf()));
   assertEquals(assembly.layers.map((layer) => layer.kind), [
     "product",
-    "role_preset",
+    "role_agent",
     "user_instructions",
     "work_material",
     "turn_context",
@@ -183,11 +180,11 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 제품·역할+preset·사람
   const system = assembly.request.system;
   assertEquals(system.map((block) => block.layer), [
     "product",
-    "role_preset",
+    "role_agent",
     "user_instructions",
   ]);
   assertEquals(system[0].text, "PRODUCT RULES");
-  assertEquals(system[1].text, "ROLE RULES\n\nPRESET PROMPT");
+  assertEquals(system[1].text, "ROLE RULES");
   // 전역 → project 순
   assert(
     system[2].text.indexOf("GLOBAL RULE") <
@@ -198,6 +195,41 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 제품·역할+preset·사람
   // 이력과 자료는 system 층에 섞이지 않는다.
   assert(!bytesOf(system).includes("HISTORY USER"));
   assert(!bytesOf(system).includes("MATERIAL A"));
+});
+
+Deno.test("lophn-agent/harness/prompt-assemble#R2 [agent-I10b]: agent 정의 본문은 사람 지침 층의 맨 끝에 있고 역할 층(role_agent)에는 제품 역할 지시만 있다", async () => {
+  const source = instructionSource({
+    global: "GLOBAL RULE",
+    project: "PROJECT RULE",
+    agent: "AGENT BODY",
+  });
+  const input = inputOf({
+    // 옛 role.preset_prompt 칸을 실어도 역할 층에 들어가지 않는다.
+    role: { instructions: "ROLE RULES", preset_prompt: "OLD PRESET" } as never,
+  });
+  const assembly = ready(await assemblePrompt(depsOf(source), input));
+  const system = assembly.request.system;
+  assertEquals(system[1].layer, "role_agent");
+  assertEquals(system[1].text, "ROLE RULES");
+  assert(!bytesOf(assembly.request).includes("OLD PRESET"));
+  const human = system[2].text;
+  assertEquals(system[2].layer, "user_instructions");
+  assert(human.indexOf("GLOBAL RULE") < human.indexOf("PROJECT RULE"));
+  assert(human.indexOf("PROJECT RULE") < human.indexOf("AGENT BODY"));
+  assertEquals(
+    assembly.basis.instructions.layers.map((layer) => layer.kind),
+    ["global", "project", "agent"],
+  );
+  // agent 본문이 바뀌어도 제품·역할 층 hash는 그대로이고 사람 지침 층만 바뀐다.
+  source.edit("agent", "AGENT BODY 2");
+  const edited = ready(await assemblePrompt(depsOf(source), input));
+  const hash = (made: PromptAssembly, kind: string) =>
+    made.layers.find((layer) => layer.kind === kind)!.hash;
+  assertEquals(hash(edited, "role_agent"), hash(assembly, "role_agent"));
+  assertNotEquals(
+    hash(edited, "user_instructions"),
+    hash(assembly, "user_instructions"),
+  );
 });
 
 Deno.test("lophn-agent/harness/prompt-assemble#R2: 필수 제품·역할·지침이 없으면 조립하지 않고 호출하지 않는다", async () => {
@@ -212,7 +244,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 필수 제품·역할·지침
   );
   const blankRole = await assemblePrompt(
     depsOf(source),
-    inputOf({ role: { instructions: "  ", preset_prompt: null } }),
+    inputOf({ role: { instructions: "  " } }),
   );
   assertEquals(
     blankRole.status === "blocked" && blankRole.reason,
@@ -237,7 +269,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R2: 필수 제품·역할·지침
   );
 });
 
-Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 사실 → 이어가기 summary → 자료 → 압축 summary → 이력 → 현재 요청·steering 순이고 요청·steering은 빠짐없다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R3 [agent-I16b]: 작업 재료는 목적·run 사실 → Compact summary → 자료 → 압축 summary → 이력 → 현재 요청·steering 순이고 요청·steering은 빠짐없다", async () => {
   const source = instructionSource({});
   const assembly = ready(await assemblePrompt(depsOf(source), inputOf()));
   const text = assembly.request.messages.map((message) =>
@@ -247,10 +279,12 @@ Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 
         : part.name
     ).join("\n")
   ).join("\n");
+  // Compact가 만든 요약은 사람의 말이나 agent의 답이 아니라 요약이라고 머리에 밝힌다.
+  assert(text.includes("## Compact summary\nCOMPACT SUMMARY"));
   const order = [
     "PURPOSE",
     "RUN FACTS",
-    "CONTINUATION",
+    "COMPACT SUMMARY",
     "MATERIAL A",
     "MATERIAL B",
     "COMPACTION",
@@ -282,7 +316,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 
         material: {
           purpose: null,
           run_facts: null,
-          continuation_summary: null,
+          compact_summary: null,
           materials: [],
           compaction_summary: null,
           history: [],
@@ -297,7 +331,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R3: 작업 재료는 목적·run 
   ]);
   assertEquals(bare.layers.map((layer) => layer.kind), [
     "product",
-    "role_preset",
+    "role_agent",
     "user_instructions",
     "work_material",
   ]);
@@ -311,7 +345,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R1: 같은 재료·지침·자리
   assertEquals(again.input_hash, first.input_hash);
   assertEquals(again.basis_hash, first.basis_hash);
   // 매 call 지침을 다시 읽는다.
-  assertEquals(source.state.reads, 4);
+  assertEquals(source.state.reads, 6);
 
   // tool 목록·schema key 순서가 달라도 같은 prompt다.
   const shuffled = ready(
@@ -349,14 +383,14 @@ Deno.test("lophn-agent/harness/prompt-assemble#R1: 같은 재료·지침·자리
   const hash = (assembly: PromptAssembly, kind: string) =>
     assembly.layers.find((layer) => layer.kind === kind)!.hash;
   assertEquals(hash(edited, "product"), hash(first, "product"));
-  assertEquals(hash(edited, "role_preset"), hash(first, "role_preset"));
+  assertEquals(hash(edited, "role_agent"), hash(first, "role_agent"));
   assertNotEquals(
     hash(edited, "user_instructions"),
     hash(first, "user_instructions"),
   );
   assertNotEquals(
-    edited.basis.instructions.layers[0].version,
-    first.basis.instructions.layers[0].version,
+    edited.basis.instructions.layers[0].source_hash,
+    first.basis.instructions.layers[0].source_hash,
   );
   assert(edited.request.system[2].text.includes("RULE TWO"));
 });
@@ -379,28 +413,30 @@ Deno.test("lophn-agent/harness/prompt-assemble#R30: 지침은 작업 자리로 r
   assertEquals(layers.map((layer) => [layer.kind, layer.place, layer.status]), [
     ["global", null, "present"],
     ["project", PROJECT, "present"],
+    ["agent", null, "absent"],
   ]);
-  assertEquals(layers[0].document, GLOBAL_DOC);
   assert(layers[0].source_hash !== null && layers[0].transmitted_hash !== null);
   assertEquals(layers[0].bytes, "GLOBAL SECRET RULE".length);
   // basis에는 지침 본문이 없다.
   assert(!bytesOf(first.basis).includes("GLOBAL SECRET RULE"));
   assert(!bytesOf(first.basis).includes("PROJECT RULE"));
-  // 명시 자리 변경은 다음 call에서 다른 층을 읽는다.
-  const global = ready(
+  // 자리가 다른 session은 다른 층을 읽는다.
+  const app = ready(
     await assemblePrompt(
       depsOf(source),
       inputOf({
         work: {
           role: "lophn",
-          session: { kind: "global", id: null },
+          session: { kind: "app", id: APP },
           scope: { kind: "all", id: null },
         },
       }),
     ),
   );
-  assertEquals(global.basis.instructions.layers.map((layer) => layer.kind), [
+  assertEquals(app.basis.instructions.layers.map((layer) => layer.kind), [
     "global",
+    "app",
+    "agent",
   ]);
 });
 
@@ -429,7 +465,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R8: cache 경계는 구조로 최
   const first = ready(await assemblePrompt(depsOf(source), inputOf()));
   assertEquals(first.cache_boundaries.map((boundary) => boundary.after), [
     "product",
-    "role_preset",
+    "role_agent",
     "user_instructions",
   ]);
   assertEquals(first.basis.cache_boundaries, first.cache_boundaries);
@@ -524,7 +560,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R8: Anthropic wire marker는 세 
   assertEquals(anthropicSystem(bare.request).length, 2);
   assertEquals(bare.cache_boundaries.map((boundary) => boundary.after), [
     "product",
-    "role_preset",
+    "role_agent",
   ]);
 });
 

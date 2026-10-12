@@ -16,16 +16,13 @@ export type DecisionEffect = NonNullable<ToolDecision["effect"]>;
 export type Reversibility = "reversible" | "irreversible" | "unknown";
 
 // run이 이어진 출처. 사람 요청과 그 handoff만 되돌릴 수 있는 쓰기의 allow 근거가 된다(R3).
-export type Origin = "human_request" | "handoff" | "periodic";
+export type Origin = "human_request" | "handoff";
 
 export type TargetFact = {
   id: string;
   // 현재 run의 scope가 닿는 대상인지. 범위 밖은 승인으로 열지 않는다(R2).
   inScope: boolean;
   reversibility: Reversibility;
-  // 이 run의 assignment가 선언한 남길 문서·읽을 자료인지(R4). 선언 밖 쓰기는
-  // 승인으로 열지 않는다.
-  declared: boolean;
 };
 
 export type CallFacts = {
@@ -62,7 +59,8 @@ export type ReasonCode =
   | "external_effect"
   | "not_reversible"
   | "within_scope_read"
-  | "reversible_write";
+  | "reversible_write"
+  | "session_granted";
 
 // 이유 문장은 고정이다. 범위 밖 대상과 없는 대상이 같은 문장이라 존재가 새지 않는다.
 const REASONS: Readonly<Record<ReasonCode, string>> = {
@@ -81,6 +79,7 @@ const REASONS: Readonly<Record<ReasonCode, string>> = {
   not_reversible: "this call cannot be reverted",
   within_scope_read: "a read inside the current scope",
   reversible_write: "a revertible write for a person's request",
+  session_granted: "a person allowed this kind of call for this session",
 };
 
 export type Judgment = {
@@ -126,9 +125,7 @@ function callDenial(facts: CallFacts): Judgment | undefined {
 }
 
 // 대상 하나의 칸. 읽기는 allow, 책임이 유효한 되돌릴 수 있는 쓰기는 사람 요청 계보에서만
-// allow, 보장 없는 쓰기와 외부 효과는 ask다. 주기 run은 assignment가 선언한 남길 문서·읽을
-// 자료의 쓰기만 allow이고 선언 밖은 승인으로 열지 않는다(R4). 표에 없는 조합은 추측하지
-// 않고 deny다.
+// allow, 보장 없는 쓰기와 외부 효과는 ask다. 표에 없는 조합은 추측하지 않고 deny다.
 function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
   if (facts.confirm) {
     return verdict(
@@ -146,13 +143,6 @@ function targetJudgment(facts: CallFacts, target: TargetFact): Judgment {
   if (target.reversibility !== "reversible") {
     return verdict("ask", "not_reversible", "irreversible");
   }
-  if (facts.origin === "periodic") {
-    // 선언된 문서의 새 version은 승인된 반복 책임 안이다(R4). 선언 밖은 승인으로
-    // 열지 않고 deny다.
-    return target.declared
-      ? verdict("allow", "reversible_write", "reversible_write")
-      : verdict("deny", "outside_responsibility", "reversible_write");
-  }
   return verdict("allow", "reversible_write", "reversible_write");
 }
 
@@ -165,7 +155,6 @@ export function judge(facts: CallFacts): Judgment {
     ? [{
       id: "",
       inScope: true,
-      declared: false,
       reversibility: "reversible" as const,
     }]
     : facts.targets;
@@ -177,6 +166,17 @@ export function judge(facts: CallFacts): Judgment {
     }
   }
   return result ?? verdict("deny", "target_unknown", null);
+}
+
+// session 허락 칸(R14). 판정표가 ask로 낸 호출만 allow로 낮춘다. deny(거절 억제 포함)는 이미 앞에서
+// 걸러졌고 여기서 되살리지 않으며, 호출마다 사람이 정하는 confirm 앱 command도 낮추지 않는다. 효과
+// 판정은 그대로 둬서 되돌릴 수 없는 호출이 되돌릴 수 있는 호출로 기록되지 않는다.
+export function lowerBySessionGrant(
+  facts: CallFacts,
+  judgment: Judgment,
+): Judgment {
+  if (judgment.decision !== "ask" || facts.confirm) return judgment;
+  return verdict("allow", "session_granted", judgment.effect);
 }
 
 // 같은 요청의 비교(R9, RefusalMatch). 객체 키 순서만 무시하고 array 순서·값·null·타입은
@@ -213,8 +213,8 @@ export type BasisSnapshot = {
   comparison: JsonObject;
   // 외부 MCP tool의 연결 설정 판. 그 밖에는 null이다.
   mcp_configuration_revision: number | null;
-  assignment_revision: number;
-  preset_revision: number;
+  // run 기준이 고정한 resolved agent의 hash. agent 정의가 바뀌면 달라진다.
+  agent_hash: string;
 };
 
 // 확인한 대상·입력·계약·연결·scope가 하나라도 달라지면 옛 판정과 허락을 쓰지 않는다.
@@ -224,4 +224,31 @@ export function sameBasis(
 ): boolean {
   if (recorded === null || typeof recorded !== "object") return false;
   return canonicalize(recorded) === canonicalize(current);
+}
+
+// session 허락이 가리키는 tool이 지금도 같은 tool인지의 기준이다. 허락 때 기록한 판정 기준과 지금
+// 기준에서 tool·동작과 그 계약·정의·연결·agent hash만 본다. 대상·입력·비교 기준은 session 허락이
+// 묶지 않는 값이다(R14). 하나라도 달라지면 옛 허락으로 낮추지 않고 다시 묻는다.
+const TOOL_BASIS_KEYS = [
+  "tool",
+  "operation",
+  "definition_revision",
+  "description_hash",
+  "contract_revision",
+  "mcp_configuration_revision",
+  "agent_hash",
+] as const;
+
+export function sameToolBasis(
+  recorded: unknown,
+  current: BasisSnapshot,
+): boolean {
+  if (
+    recorded === null || typeof recorded !== "object" ||
+    Array.isArray(recorded)
+  ) return false;
+  const before = recorded as Record<string, unknown>;
+  return TOOL_BASIS_KEYS.every((key) =>
+    key in before && canonicalize(before[key]) === canonicalize(current[key])
+  );
 }

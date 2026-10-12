@@ -30,8 +30,8 @@ import {
   readViolations,
 } from "../../packages/documents/contexts/index/mod.ts";
 import {
-  type ConversationDeps,
   startRequest,
+  type StartRequestDeps,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import { createRunCommands } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { loadActiveBlueprint } from "../../packages/apps/releases/store.ts";
@@ -160,7 +160,7 @@ function flatten(
 // 요청 접수는 run-loop의 AcceptRun을 같은 transaction에서 부른다. AcceptRun은 machine 전용 기록이라
 // 이 접수에 한해 machine 자격으로 바꿔 넘긴다(apps/core/lophn-agent.ts의 조립과 같다).
 const runCommands = createRunCommands();
-const conversationDeps: ConversationDeps = {
+const conversationDeps: StartRequestDeps = {
   acceptRun: (tx, ctx, input, compare) =>
     runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
 };

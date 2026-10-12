@@ -16,6 +16,7 @@ function liveTargets(): RestoreTargets {
     canRead: () => Promise.resolve(true),
     context: () => Promise.resolve(true),
     declaredSearch: () => Promise.resolve(true),
+    agent: () => Promise.resolve(true),
   };
 }
 

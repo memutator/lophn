@@ -1,4 +1,4 @@
-// settings 화면(shell#T31). 연결·계정·확장·일반 설정과 전역 [Instructions] 진입, 설정의 뜻 묻기.
+// settings 화면(shell#T31). Providers·Agents·확장·일반 설정, 전역 지침 편집기로 가는 길, 설정의 뜻 묻기.
 // 값은 가짜 통로가 기록한다. secret 값은 이 통로에 없고 보호 창이 받는다.
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
@@ -19,23 +19,16 @@ import { fakeBackup } from "./backup/testdata/fake-source.ts";
 import { fakeDiagnostics } from "./diagnostics/testdata/fake-source.ts";
 import { fakeNotifications } from "./notifications/testdata/fake-source.ts";
 import { fakeUpdate } from "./update/testdata/fake-source.ts";
+import { fakeAgents } from "./agents/testdata/fake-agents.ts";
 import {
-  account,
-  CHATGPT,
-  CLAUDE,
-  fakeSettings,
-  LOCAL,
-  provider,
-  server,
-  setting,
-} from "./testdata/fake-settings.ts";
-import type { AccountRow, ProviderRow } from "./source.ts";
-
-const AT = "2026-10-06T15:40:00.000Z";
-
-function claude(accounts: readonly AccountRow[]): ProviderRow {
-  return provider(CLAUDE, "Claude", { ways: ["api_key"], accounts });
-}
+  ANTHROPIC,
+  fakeProviders,
+  OPENAI,
+  XAI,
+} from "./providers/testdata/fake-providers.ts";
+import { buttonText } from "./testdata/field.ts";
+import { fakeSettings, server, setting } from "./testdata/fake-settings.ts";
+import type { ServerSignIn, SettingsSource } from "./source.ts";
 
 // 왼쪽 nav 단추를 누른다.
 const pressTab = click;
@@ -43,610 +36,6 @@ const pressTab = click;
 function textOf(root: Element): string {
   return root.textContent ?? "";
 }
-
-Deno.test("shell/wording#R10: 연결 카드는 contract가 알려 준 인증 방식만 보이고 API 과금·구독 한도·이 컴퓨터를 구별하며 key는 입력칸이 아니라 보호 창으로만 받는다", async () => {
-  const { source, calls } = fakeSettings({
-    providers: [
-      claude([]),
-      provider(CHATGPT, "ChatGPT", {
-        ways: ["oauth"],
-        signIn: { verified: true },
-      }),
-      provider(LOCAL, "Local model", { ways: ["none"], local: true }),
-    ],
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  const cards = [...view.container.querySelectorAll("[data-provider-ways]")];
-  assertEquals(cards.length, 3);
-  const rows = cards.map((card) =>
-    [...card.querySelectorAll("[data-way]")].map((row) =>
-      row.getAttribute("data-way")
-    )
-  );
-  // 이름 순서(ChatGPT, Claude, Local model)로, 각 연결의 방식만 있다.
-  assertEquals(rows, [["oauth"], ["api_key"], ["none"]]);
-  const text = textOf(view.container);
-  assert(text.includes("Billed by use on your API account"));
-  assert(text.includes("Uses your subscription limits"));
-  assert(text.includes("Runs on this computer"));
-  // 금액을 모르면 지어내지 않는다. 계정이 없으면 비용 줄도 없다.
-  assert(!/\$\d/.test(text));
-  assert(text.includes("Not tested yet."));
-  // key는 입력칸이 아니라 보호 창으로 받는다: 이름만 정하고 [Continue]로 창을 연다.
-  assertEquals(view.container.querySelector("input[type='password']"), null);
-  const claudeCard = cards[1]!.parentElement!;
-  click(find(claudeCard, "[data-action='add-key']"));
-  const nameInput = find(claudeCard, "[data-add-key] input");
-  assert(nameInput.getAttribute("type") !== "password");
-  assertEquals(
-    find(claudeCard, "[data-action='continue-key']").hasAttribute("disabled"),
-    true,
-  );
-  typeInto(nameInput, "Work account");
-  click(find(claudeCard, "[data-action='continue-key']"));
-  await flush();
-  assertEquals(calls.find((call) => call[0] === "connect-key"), [
-    "connect-key",
-    CLAUDE,
-    "Work account",
-  ]);
-  assertEquals(
-    find(view.container, "[data-notice='window-opened']").textContent,
-    "Finish in the window that opened. This list updates when you come back.",
-  );
-});
-
-Deno.test("shell/wording#R10: 보호 창을 열지 못하면 아무것도 바뀌지 않았다고 말하고 다시 시도하게 한다", async () => {
-  const { source } = fakeSettings({
-    providers: [claude([])],
-    windowCode: "unavailable",
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  click(find(view.container, "[data-action='add-key']"));
-  typeInto(find(view.container, "[data-add-key] input"), "Work");
-  click(find(view.container, "[data-action='continue-key']"));
-  await flush();
-  assertEquals(
-    find(view.container, "[data-notice='window-failed']").textContent,
-    "The window didn't open. Nothing changed. Try again.",
-  );
-});
-
-Deno.test("shell/app-frame#R7: 공식 로그인 단추는 확인 창 없이 OS browser로 열고 코드와 다음 행동만 보이며 취소하면 로그인을 닫는다", async () => {
-  const chatgpt = provider(CHATGPT, "ChatGPT", {
-    ways: ["oauth"],
-    signIn: { verified: true },
-  });
-  const { source, calls } = fakeSettings({
-    providers: [chatgpt],
-    signIn: {
-      login: "login-1",
-      url: "https://auth.example.com/device?state=SECRET#frag",
-      code: "ABCD-1234",
-      paste: true,
-    },
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  click(find(view.container, "[data-action='sign-in']"));
-  await flush();
-  // 열기 요청은 URL 하나다. 확인 창을 거치지 않고 보호 창도 열지 않는다.
-  assertEquals(calls.filter((call) => call[0] === "open-link"), [[
-    "open-link",
-    "https://auth.example.com/device?state=SECRET#frag",
-  ]]);
-  assertEquals(calls.some((call) => call[0] === "connect-key"), false);
-  const waiting = find(view.container, "[data-sign-in='waiting']");
-  assertEquals(
-    find(waiting, "p").textContent,
-    "Complete the sign-in in your browser.",
-  );
-  assertEquals(
-    find(waiting, "[data-sign-in-code]").textContent,
-    "Enter this code on the page: ABCD-1234.",
-  );
-  // 화면 어디에도 주소의 query·fragment가 없다.
-  assert(!textOf(view.container).includes("SECRET"));
-  // 최종 주소를 붙여 넣는 방식이면 그 값은 보호 창이 받는다.
-  click(find(view.container, "[data-action='enter-response']"));
-  await flush();
-  assertEquals(calls.find((call) => call[0] === "sign-in-response"), [
-    "sign-in-response",
-    CHATGPT,
-    "ChatGPT",
-  ]);
-  click(find(view.container, "[data-action='cancel-sign-in']"));
-  await flush();
-  assertEquals(calls.find((call) => call[0] === "cancel-sign-in"), [
-    "cancel-sign-in",
-    CHATGPT,
-    "login-1",
-  ]);
-  assertEquals(view.container.querySelector("[data-sign-in='waiting']"), null);
-});
-
-Deno.test("shell/app-frame#R7: 브라우저가 열리지 않으면 다시 열게 하고, 로그인 통로가 아직 없으면 없다고 말하며, lophn이 확인하지 못한 로그인은 누르지 못한다", async () => {
-  const chatgpt = provider(CHATGPT, "ChatGPT", {
-    ways: ["oauth"],
-    signIn: { verified: true },
-  });
-  const closed = fakeSettings({
-    providers: [chatgpt],
-    signIn: {
-      login: "login-1",
-      url: "https://auth.example.com/device",
-      code: null,
-      paste: false,
-    },
-    linkOpens: false,
-  });
-  using first = render(<SettingsScreen source={closed.source} />);
-  await flush();
-  click(find(first.container, "[data-action='sign-in']"));
-  await flush();
-  assertEquals(
-    find(first.container, "[data-sign-in='waiting'] p").textContent,
-    "The sign-in page didn't open. Open it again to continue.",
-  );
-  click(find(first.container, "[data-action='open-again']"));
-  await flush();
-  assertEquals(
-    closed.calls.filter((call) => call[0] === "open-link").length,
-    2,
-  );
-
-  const absent = fakeSettings({ providers: [chatgpt] });
-  using second = render(<SettingsScreen source={absent.source} />);
-  await flush();
-  click(find(second.container, "[data-action='sign-in']"));
-  await flush();
-  assertEquals(
-    find(second.container, "[data-sign-in='absent']").textContent,
-    "Signing in with ChatGPT isn't available in this version yet.",
-  );
-
-  const unverified = fakeSettings({
-    providers: [provider(CHATGPT, "ChatGPT", {
-      ways: ["oauth"],
-      signIn: { verified: false },
-    })],
-  });
-  using third = render(<SettingsScreen source={unverified.source} />);
-  await flush();
-  assertEquals(
-    find(third.container, "[data-action='sign-in']").hasAttribute("disabled"),
-    true,
-  );
-  assertEquals(
-    find(third.container, "[data-sign-in='unverified']").textContent,
-    "Signing in with this account isn't confirmed to work with lophn yet.",
-  );
-});
-
-Deno.test("shell/wording#R10: 계정은 사람이 정한 순서와 상태, 확인된 계정 정보만 보이고 사용량 한도는 리셋 시각을, 인증 문제는 교체·로그인을 다음 행동 하나로 말한다", async () => {
-  const { source } = fakeSettings({
-    providers: [
-      claude([
-        account("b", "Backup key", {
-          order: 1,
-          state: "usage_wait",
-          reason: "quota",
-          until: AT,
-        }),
-        account("a", "Work key", {
-          order: 0,
-          account: "me@example.com",
-          plan: "Max",
-        }),
-        account("c", "Old key", {
-          order: 2,
-          state: "rejected",
-          reason: "authentication",
-        }),
-        account("d", "Plan key", {
-          order: 3,
-          state: "rejected",
-          reason: "plan_access",
-        }),
-        account("e", "Gone key", {
-          order: 4,
-          state: "revoked",
-          reason: "authentication",
-        }),
-        account("f", "Login", {
-          order: 5,
-          way: "oauth",
-          state: "rejected",
-          reason: "refresh_revoked",
-        }),
-      ]),
-    ],
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  const rows = [...view.container.querySelectorAll("[data-account-row]")];
-  assertEquals(
-    rows.map((row) => row.getAttribute("data-order")),
-    ["0", "1", "2", "3", "4", "5"],
-  );
-  assertEquals(rows.map((row) => row.getAttribute("data-status")), [
-    "ready",
-    "limit",
-    "sign-in-problem",
-    "plan",
-    "removed",
-    "signed-out",
-  ]);
-  const first = textOf(rows[0]!);
-  assert(first.includes("me@example.com · Max"));
-  // 확인하지 않은 계정·조직은 말하지 않는다.
-  assert(!textOf(rows[2]!).includes("@"));
-  // 사용량 한도: 한도와 인증 문제를 섞지 않고 리셋 시각을 보인다.
-  const limit = textOf(rows[1]!);
-  assert(limit.includes("Usage limit reached"));
-  assert(
-    /Wait for the limit to reset\. It is expected around Oct \d+, .*\./.test(
-      limit,
-    ),
-    limit,
-  );
-  assert(!limit.includes("Sign-in problem"));
-  // 다음 행동은 하나다. 인증 문제는 key 교체, 로그인은 다시 로그인이다.
-  assertEquals(
-    rows.map((row) =>
-      row.querySelector("[data-next]")?.getAttribute("data-next") ?? null
-    ),
-    [null, "wait", "replace-key", "check-plan", "add-account", "sign-in"],
-  );
-  assert(
-    textOf(rows[2]!).includes("Replace the key to use this account again."),
-  );
-  assert(textOf(rows[5]!).includes("Sign in again to use this account."));
-  assert(rows[5]!.querySelector("[data-action='sign-in-again']"));
-  // 삭제한 계정은 더 지우지 못한다.
-  assertEquals(rows[4]!.querySelector("[data-action='remove']"), null);
-});
-
-Deno.test("shell/wording#R10: 계정 교체·삭제는 그 계정을 대상으로 보호 창을 열고 열린 창만 알리며 로그인 다시 하기는 같은 로그인 흐름이다", async () => {
-  const { source, calls } = fakeSettings({
-    providers: [
-      claude([
-        account("a", "Work key", { order: 0 }),
-        account("c", "Old key", {
-          order: 1,
-          state: "rejected",
-          reason: "authentication",
-        }),
-      ]),
-      provider(CHATGPT, "ChatGPT", {
-        ways: ["oauth"],
-        signIn: { verified: true },
-        accounts: [
-          account("l", "Login", {
-            way: "oauth",
-            state: "rejected",
-            reason: "refresh_revoked",
-          }),
-        ],
-      }),
-    ],
-    signIn: { login: "login-2", url: null, code: null, paste: false },
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  const rows = [...view.container.querySelectorAll("[data-account-row]")];
-  // ChatGPT 카드가 먼저(이름 순서)라 Login, Work key, Old key 순이다.
-  click(find(rows[1]!, "[data-action='replace-key']"));
-  await flush();
-  click(find(rows[2]!, "[data-action='remove']"));
-  await flush();
-  assertEquals(
-    calls.filter((call) =>
-      call[0] === "replace-key" || call[0] === "remove-account"
-    ),
-    [
-      ["replace-key", CLAUDE, "a"],
-      ["remove-account", CLAUDE, "c"],
-    ],
-  );
-  // 값을 넣는 입력칸은 이 화면 어디에도 없다.
-  assertEquals(view.container.querySelector("input[type='password']"), null);
-  click(find(rows[0]!, "[data-action='sign-in-again']"));
-  await flush();
-  assertEquals(calls.some((call) => call[0] === "begin-sign-in"), true);
-  assertEquals(
-    find(view.container, "[data-sign-in='waiting'] p").textContent,
-    "No sign-in page was provided. Cancel and try again.",
-  );
-});
-
-Deno.test("shell/wording#R10: 사용량 비용은 실제 청구·추정·구독 포함·무료·모름을 구별하고 모름을 0으로 채우지 않으며 읽지 못하면 그렇게 말한다", async () => {
-  const { source } = fakeSettings({
-    providers: [
-      claude([
-        account("a", "Work key", { order: 0 }),
-        account("b", "Plan key", { order: 1, way: "oauth" }),
-        account("c", "Quiet key", { order: 2 }),
-      ]),
-    ],
-    usage: {
-      a: {
-        calls: 5,
-        complete: false,
-        costs: [
-          { kind: "reported", amount: "1.25", currency: "USD", calls: 2 },
-          { kind: "estimated", amount: "0.5", currency: "USD", calls: 1 },
-          { kind: "unknown", amount: null, currency: null, calls: 2 },
-        ],
-      },
-      b: {
-        calls: 3,
-        complete: true,
-        costs: [
-          { kind: "subscription", amount: null, currency: null, calls: 3 },
-        ],
-      },
-    },
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  const usage = [...view.container.querySelectorAll("[data-usage]")].map(
-    textOf,
-  );
-  assertEquals(
-    usage[0],
-    "Last 30 days · $1.25 · About $0.50 · 2 calls, cost unknown · Some records are missing",
-  );
-  assertEquals(usage[1], "Last 30 days · 3 calls in your plan");
-  assertEquals(usage[2], "Last 30 days · No use");
-  assert(!usage.join(" ").includes("$0.00"));
-
-  const broken = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    usageFail: true,
-  });
-  using failed = render(<SettingsScreen source={broken.source} />);
-  await flush();
-  assertEquals(
-    find(failed.container, "[data-usage='failed']").textContent,
-    "Use and cost couldn't be read right now.",
-  );
-});
-
-Deno.test("shell/wording#R10: 연결 테스트는 사람이 누를 때만 부르고 두 종류 결과와 모르는 비용을 보이며, 통로가 없거나 실패하면 성공으로 채우지 않는다", async () => {
-  const models = { "claude-def": ["claude-large", "claude-small"] };
-  const ok = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    models,
-  });
-  using view = render(<SettingsScreen source={ok.source} />);
-  await flush();
-  // 화면을 연 것만으로는 부르지 않는다.
-  assertEquals(ok.calls.filter((call) => call[0] === "test").length, 0);
-  assertEquals(ok.calls.filter((call) => call[0] === "models").length, 0);
-  click(find(view.container, "[data-action='test']"));
-  await flush();
-  assertEquals(ok.calls.filter((call) => call[0] === "test").length, 0);
-  assertEquals(
-    find(view.container, "[data-test-panel] p").textContent,
-    "This sends a small made-up message. None of your documents or conversations are sent.",
-  );
-  click(find(view.container, "[data-action='start-test']"));
-  await flush();
-  assertEquals(ok.calls.filter((call) => call[0] === "test"), [[
-    "test",
-    CLAUDE,
-    "a",
-    "claude-large",
-  ]]);
-  assertEquals(
-    [...view.container.querySelectorAll("[data-test-result]")].map(textOf),
-    ["Text messages worked.", "Tool use worked."],
-  );
-  assert(
-    textOf(view.container).includes(
-      "If the cost wasn't reported, it shows as unknown above.",
-    ),
-  );
-  // 테스트 뒤 사용량을 다시 읽는다. 테스트로 생긴 비용을 지어내지 않는다.
-  assertEquals(ok.calls.filter((call) => call[0] === "usage").length, 2);
-
-  const mixed = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    models,
-    testResults: [
-      { kind: "text", result: "failure", timeoutSeconds: 30 },
-      { kind: "tool_call", result: null, timeoutSeconds: 30 },
-    ],
-  });
-  using second = render(<SettingsScreen source={mixed.source} />);
-  await flush();
-  click(find(second.container, "[data-action='test']"));
-  await flush();
-  click(find(second.container, "[data-action='start-test']"));
-  await flush();
-  assertEquals(
-    [...second.container.querySelectorAll("[data-test-result]")].map((
-      row,
-    ) => [textOf(row), row.getAttribute("data-result")]),
-    [
-      ["Text messages didn't work.", "failure"],
-      ["Tool use wasn't tested.", "none"],
-    ],
-  );
-
-  const absent = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    models,
-    testCode: "not_found",
-  });
-  using third = render(<SettingsScreen source={absent.source} />);
-  await flush();
-  click(find(third.container, "[data-action='test']"));
-  await flush();
-  click(find(third.container, "[data-action='start-test']"));
-  await flush();
-  assertEquals(
-    find(third.container, "[data-test='absent']").textContent,
-    "Connection tests aren't available in this version yet.",
-  );
-  assertEquals(third.container.querySelector("[data-test-results]"), null);
-
-  const noModels = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-  });
-  using fourth = render(<SettingsScreen source={noModels.source} />);
-  await flush();
-  click(find(fourth.container, "[data-action='test']"));
-  await flush();
-  assertEquals(
-    find(fourth.container, "[data-test='no-models']").textContent,
-    "The models for this connection couldn't be listed, so it can't be tested yet.",
-  );
-});
-
-Deno.test("shell/wording#R10: 사용량 한도 대기 중인 계정은 테스트로 대기를 우회하지 못하고 마지막 테스트 결과와 안 한 테스트를 구별한다", async () => {
-  const { source } = fakeSettings({
-    providers: [
-      {
-        ...claude([
-          account("a", "Waiting key", {
-            state: "usage_wait",
-            reason: "quota",
-            until: AT,
-          }),
-        ]),
-        lastCheck: { at: AT, result: "failure", kind: "text", model: "m" },
-      },
-    ],
-  });
-  using view = render(<SettingsScreen source={source} />);
-  await flush();
-  assertEquals(view.container.querySelector("[data-action='test']"), null);
-  assertEquals(
-    find(view.container, "[data-last-check='failure']").textContent?.includes(
-      "didn't work",
-    ),
-    true,
-  );
-});
-
-Deno.test("shell/wording#R13: 일반 자리의 model 선택은 For decisions·For summaries 라벨이고 쓸 수 있는 계정이 있는 연결만 고르며 기본값만 바꾼다", async () => {
-  const { source, calls } = fakeSettings({
-    providers: [
-      claude([
-        account("a", "Work key", { order: 1 }),
-        account("b", "First key", { order: 0 }),
-        account("c", "Old key", {
-          order: 2,
-          state: "rejected",
-          reason: "authentication",
-        }),
-      ]),
-      provider(CHATGPT, "ChatGPT", {
-        ways: ["oauth"],
-        signIn: { verified: true },
-      }),
-    ],
-    models: { "claude-def": ["claude-large", "claude-small"] },
-    defaults: {
-      decisions: { provider: CLAUDE, model: "claude-small" },
-      summaries: null,
-      seq: "9",
-      raw: { decisions: { provider: CLAUDE }, summaries: null },
-    },
-  });
-  using view = render(<SettingsScreen source={source} />);
-  pressTab(byText(view.container, "General"));
-  await flush();
-  const decisions = find(view.container, "[data-model-use='decisions']");
-  const summaries = find(view.container, "[data-model-use='summaries']");
-  assertEquals(find(decisions, "h3").textContent, "For decisions");
-  assertEquals(find(summaries, "h3").textContent, "For summaries");
-  assertEquals(
-    find(decisions, "[data-model-current]").textContent,
-    "claude-small on Claude.",
-  );
-  assertEquals(
-    find(summaries, "[data-model-current]").textContent,
-    "No model is chosen yet.",
-  );
-  // 안쪽 개념 이름이 라벨에 없다.
-  const text = textOf(find(view.container, "[data-models]"));
-  for (const raw of ["judgment", "organizing", "provider"]) {
-    assert(!text.toLowerCase().includes(raw), raw);
-  }
-  // 저장: 계정은 쓸 수 있는 것만, 사람이 정한 순서로 보낸다. 기존 Preset 얘기는 하지 않는다.
-  click(find(summaries, "[data-action='save-model']"));
-  await flush();
-  assertEquals(calls.find((call) => call[0] === "set-default"), [
-    "set-default",
-    "summaries",
-    CLAUDE,
-    "claude-large",
-    ["b", "a"],
-    "9",
-  ]);
-  assertEquals(
-    find(summaries, "[data-notice]").textContent,
-    "Saved. New Presets will start with this model.",
-  );
-  assertEquals(
-    find(summaries, "[data-model-current]").textContent,
-    "claude-large on Claude.",
-  );
-});
-
-Deno.test("shell/wording#R13: model 기본값이 다른 곳에서 바뀌었으면 최신을 다시 읽게 하고 이유 없는 실패는 그대로임을 말한다", async () => {
-  const stale = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    models: { "claude-def": ["claude-large"] },
-    setDefaultCode: "conflict",
-  });
-  using view = render(<SettingsScreen source={stale.source} />);
-  pressTab(byText(view.container, "General"));
-  await flush();
-  const before =
-    stale.calls.filter((call) => call[0] === "model-defaults").length;
-  click(
-    find(
-      view.container,
-      "[data-model-use='decisions'] [data-action='save-model']",
-    ),
-  );
-  await flush();
-  assertEquals(
-    find(view.container, "[data-model-use='decisions'] [data-notice]")
-      .textContent,
-    "This changed somewhere else. The latest is shown. Try again.",
-  );
-  assertEquals(
-    stale.calls.filter((call) => call[0] === "model-defaults").length,
-    before + 1,
-  );
-  const failed = fakeSettings({
-    providers: [claude([account("a", "Work key")])],
-    models: { "claude-def": ["claude-large"] },
-    setDefaultCode: "unavailable",
-  });
-  using second = render(<SettingsScreen source={failed.source} />);
-  pressTab(byText(second.container, "General"));
-  await flush();
-  click(
-    find(
-      second.container,
-      "[data-model-use='decisions'] [data-action='save-model']",
-    ),
-  );
-  await flush();
-  assertEquals(
-    find(second.container, "[data-model-use='decisions'] [data-notice]")
-      .textContent,
-    "Couldn't save the choice. Nothing changed.",
-  );
-});
 
 Deno.test("shell/wording#R13: 설정 값은 정의와 현재 적용값을 기본으로 보이고 효력 시점·기본값·출처는 펼친 곳에 두며 정해지지 않은 값을 지어내지 않는다", async () => {
   const { source } = fakeSettings({
@@ -684,6 +73,12 @@ Deno.test("shell/wording#R13: 설정 값은 정의와 현재 적용값을 기본
           "lophn-agent.extensions.mcp_servers",
           "Registered external MCP servers.",
           [],
+        ),
+        // [agent-I49] 전역에서 끈 skill 이름은 Agents 자리의 스위치로 바꾸므로 General에 줄이 없다.
+        setting(
+          "lophn-agent.extensions.skills_off",
+          "Names of the skills switched off for every agent.",
+          ["review-notes"],
         ),
       ],
     },
@@ -858,7 +253,6 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
           secret: "mcp-search",
           credential: "set",
         }),
-        server("odd", { auth: "oauth2" }),
         server("flaky", {
           auth: "bearer",
           secret: "mcp-flaky",
@@ -885,11 +279,6 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
     "Whether a credential is saved couldn't be checked.",
   );
   assertEquals(credential("local"), null);
-  assert(
-    textOf(find(view.container, "[data-server='odd']")).includes(
-      "Signing in to this server isn't available yet.",
-    ),
-  );
   // 값이 없는 server만 [Enter credential]이 있고, 눌러도 이름만 넘어가 창이 연다.
   assertEquals(
     view.container.querySelectorAll("[data-action='enter-credential']").length,
@@ -913,26 +302,301 @@ Deno.test("shell/wording#R10: 도구 server의 credential 값은 이 화면이 �
   );
 });
 
-Deno.test("shell/wording#R10: 읽지 못한 자리는 대상과 다시 시도를 보이고 연결이 하나도 없으면 한 문장만 보인다", async () => {
-  const failed = fakeSettings({ providersFail: true, settingsFail: true });
+const signInOf = (
+  state: ServerSignIn["state"],
+  reason: ServerSignIn["reason"] = null,
+): ServerSignIn => ({
+  place: null,
+  clientId: "lophn-client",
+  scopes: ["read"],
+  state,
+  reason,
+});
+
+function signInServers() {
+  return [
+    server("fresh", { auth: "oauth2", signIn: signInOf("none") }),
+    server("stored", { auth: "oauth2", signIn: signInOf("signed_in") }),
+    server("waiting", { auth: "oauth2", signIn: signInOf("in_progress") }),
+    server("broken", {
+      auth: "oauth2",
+      signIn: signInOf("failed", "refresh_rejected"),
+    }),
+    server("blind", { auth: "oauth2", signIn: signInOf("unknown") }),
+    server("notes", {
+      auth: "bearer",
+      secret: "mcp-notes",
+      credential: "missing",
+    }),
+    server("local", { transport: "stdio" }),
+  ];
+}
+
+const signInRow = (container: Element, name: string) =>
+  find(container, `[data-server='${name}']`);
+
+const stateLine = (row: Element) => row.querySelector("[data-sign-in-state]");
+
+async function openTools(source: SettingsSource) {
+  const view = render(<SettingsScreen source={source} />);
+  pressTab(byText(view.container, "Tools and skills"));
+  await flush();
+  return view;
+}
+
+Deno.test("lophn-agent/extensions#R16 #R17 shell/desktop#R50 [agent-I52]: Tools and skills는 OAuth server 줄마다 core가 읽은 로그인 상태를 말하고 [Sign in]은 로그인이 필요한 줄에, [Cancel sign-in]은 기다리는 줄에만 둔다", async () => {
+  const { source } = fakeSettings({ settings: { servers: signInServers() } });
+  using view = await openTools(source);
+  const lines = (name: string) => {
+    const line = stateLine(signInRow(view.container, name));
+    return line === null
+      ? null
+      : [line.getAttribute("data-sign-in-state"), line.textContent];
+  };
+  assertEquals(lines("fresh"), [
+    "none",
+    "Sign in before new work can use this server.",
+  ]);
+  assertEquals(lines("stored"), ["signed_in", "Signed in."]);
+  assertEquals(lines("waiting"), [
+    "in_progress",
+    "Complete the sign-in in your browser.",
+  ]);
+  assertEquals(lines("broken"), [
+    "failed",
+    "The service ended this sign-in. Sign in again.",
+  ]);
+  // 상태를 읽지 못한 줄은 아는 척하지 않는다.
+  assertEquals(lines("blind"), null);
+  assertEquals(lines("notes"), null);
+  assertEquals(lines("local"), null);
+  const has = (name: string, action: string) =>
+    signInRow(view.container, name).querySelector(
+      `[data-action='${action}']`,
+    ) !== null;
+  for (
+    const [name, signIn, cancel] of [
+      ["fresh", true, false],
+      ["stored", false, false],
+      ["waiting", false, true],
+      ["broken", true, false],
+      ["blind", true, false],
+      ["notes", false, false],
+      ["local", false, false],
+    ] as const
+  ) {
+    assertEquals([name, has(name, "sign-in"), has(name, "cancel-sign-in")], [
+      name,
+      signIn,
+      cancel,
+    ]);
+  }
+  assertEquals(
+    textOf(find(signInRow(view.container, "fresh"), "[data-action='sign-in']")),
+    "Sign in",
+  );
+  assertEquals(
+    textOf(
+      find(
+        signInRow(view.container, "waiting"),
+        "[data-action='cancel-sign-in']",
+      ),
+    ),
+    "Cancel sign-in",
+  );
+  // 로그인 안내는 "아직 안 된다"고 말하지 않는다. credential을 넣는 server의 [Enter credential]은 그대로다.
+  assert(!textOf(view.container).includes("isn't available yet"));
+  assertEquals(
+    view.container.querySelectorAll("[data-action='enter-credential']").length,
+    1,
+  );
+});
+
+Deno.test("lophn-agent/extensions#R16 shell/app-frame#R7 [agent-I52]: [Sign in]은 그 server의 자리로 시작해 기다리는 동안 core의 in_progress를 보이고, 끝난 뒤 Signed in은 core가 다시 읽어 준 상태다", async () => {
+  let release!: (result: { ok: true; value: null }) => void;
+  const finish = new Promise<{ ok: true; value: null }>((resolve) => {
+    release = resolve;
+  });
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => String(call[0]).startsWith("sign-in")),
+    [["sign-in-begin", "fresh", null], ["sign-in-finish", "fresh", 4321]],
+  );
+  // 기다리는 줄은 core가 말한 in_progress이고 같은 줄을 다시 시작하는 대신 그만둘 수 있다.
+  assertEquals(
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["in_progress", "Complete the sign-in in your browser."],
+  );
+  assertEquals(row.querySelector("[data-action='sign-in']"), null);
+  assert(row.querySelector("[data-action='cancel-sign-in']") !== null);
+  const reads = calls.filter((call) => call[0] === "settings").length;
+  release({ ok: true, value: null });
+  await flush();
+  assert(calls.filter((call) => call[0] === "settings").length > reads);
+  assertEquals(
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["signed_in", "Signed in."],
+  );
+  assertEquals(row.querySelector("[data-action='sign-in']"), null);
+  assertEquals(row.querySelector("[data-action='cancel-sign-in']"), null);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: core가 아직 로그인했다고 하지 않으면 끝났다고 말하지 않고 다시 로그인할 수 있다", async () => {
+  const { source } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { stateStaysAfterFinish: true },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assert(!textOf(row).includes("Signed in"));
+  assertEquals(
+    find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+  assert(row.querySelector("[data-action='sign-in']") !== null);
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: [Cancel sign-in]은 기다리는 로그인을 그만두고 실패로 말하지 않으며 [Sign in]이 돌아온다", async () => {
+  const never = new Promise<{ ok: true; value: null }>(() => {});
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish: never },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  click(find(row, "[data-action='cancel-sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => call[0] === "sign-in-cancel"),
+    [["sign-in-cancel", "fresh", null]],
+  );
+  assertEquals(
+    find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+  assertEquals(row.querySelector("[data-sign-in]"), null);
+  assertEquals(row.querySelector("[data-action='cancel-sign-in']"), null);
+  assertEquals(
+    find(row, "[data-action='sign-in']").hasAttribute("disabled"),
+    false,
+  );
+  // 이미 core에 기다리는 로그인이 남은 줄(창을 닫았다 다시 연 경우)도 같은 버튼으로 그만둔다.
+  const waiting = signInRow(view.container, "waiting");
+  click(find(waiting, "[data-action='cancel-sign-in']"));
+  await flush();
+  assertEquals(
+    calls.filter((call) => call[0] === "sign-in-cancel").map((call) => call[1]),
+    ["fresh", "waiting"],
+  );
+  assertEquals(
+    find(waiting, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+    "none",
+  );
+});
+
+Deno.test("lophn-agent/extensions#R16 [agent-I52]: 로그인이 시작되지 않으면 그 줄에 이유 한 줄을 보이고 다시 시도할 수 있으며, 시작 뒤 실패한 이유는 core가 말한 코드다", async () => {
+  const cases: [{ beginCode: string }, string, string, string[]][] = [
+    [
+      { beginCode: "conflict" },
+      "busy",
+      "A sign-in for this server is already waiting. Finish it in your browser.",
+      ["sign-in-begin"],
+    ],
+    [
+      { beginCode: "not_opened" },
+      "not-opened",
+      "The sign-in page didn't open. Try again.",
+      ["sign-in-begin"],
+    ],
+    [
+      { beginCode: "unavailable" },
+      "failed",
+      "Couldn't sign in to fresh. Nothing changed. Try again.",
+      ["sign-in-begin"],
+    ],
+  ];
+  for (const [signIn, kind, text, steps] of cases) {
+    const { source, calls } = fakeSettings({
+      settings: { servers: signInServers() },
+      signIn: { beginCode: signIn.beginCode },
+    });
+    using view = await openTools(source);
+    const row = signInRow(view.container, "fresh");
+    click(find(row, "[data-action='sign-in']"));
+    await flush();
+    const line = find(row, "[data-sign-in]");
+    assertEquals([line.getAttribute("data-sign-in"), line.textContent], [
+      kind,
+      text,
+    ]);
+    assertEquals(
+      calls.map((call) => call[0]).filter((name) =>
+        `${name}`.startsWith("sign-in")
+      ),
+      steps,
+    );
+    // 다시 누를 수 있다.
+    assertEquals(
+      find(row, "[data-action='sign-in']").hasAttribute("disabled"),
+      false,
+    );
+  }
+  // 시작한 로그인이 끝내 거절되면 줄은 core가 읽어 준 실패 이유를 말한다.
+  const { source, calls } = fakeSettings({
+    settings: { servers: signInServers() },
+    signIn: { finish: Promise.resolve({ ok: false, code: "rejected" }) },
+  });
+  using view = await openTools(source);
+  const row = signInRow(view.container, "fresh");
+  click(find(row, "[data-action='sign-in']"));
+  await flush();
+  assertEquals(
+    calls.map((call) => call[0]).filter((name) =>
+      `${name}`.startsWith("sign-in")
+    ),
+    ["sign-in-begin", "sign-in-finish"],
+  );
+  assertEquals(
+    [
+      find(row, "[data-sign-in-state]").getAttribute("data-sign-in-state"),
+      find(row, "[data-sign-in-state]").textContent,
+    ],
+    ["failed", "The service didn't accept the sign-in. Try again."],
+  );
+  assert(row.querySelector("[data-action='sign-in']") !== null);
+});
+
+Deno.test("shell/wording#R10: 읽지 못한 자리는 대상과 다시 시도를 보인다", async () => {
+  const failed = fakeSettings({ settingsFail: true });
   using view = render(<SettingsScreen source={failed.source} />);
+  pressTab(byText(view.container, "General"));
   await flush();
   assertEquals(
     find(view.container, "[data-state='error'] p").textContent,
-    "Couldn't load your connections.",
+    "Couldn't load your settings.",
   );
   pressTab(byText(view.container, "Tools and skills"));
   await flush();
   assertEquals(
     find(view.container, "[data-state='error'] p").textContent,
     "Couldn't load your tools and skills.",
-  );
-  const empty = fakeSettings();
-  using second = render(<SettingsScreen source={empty.source} />);
-  await flush();
-  assertEquals(
-    find(second.container, "[data-settings-panel]").textContent,
-    "No connections are available yet. They appear here once lophn can set them up.",
   );
 });
 
@@ -944,7 +608,184 @@ const ready: CoreSource = {
   call: () => Promise.resolve({ ok: true, value: {} }),
 };
 
-Deno.test("shell/wording#R10: 전역 [Instructions] 단추는 settings에서 전역 지침 편집기를 열고 돌아오면 settings이며, 설정의 뜻은 대화 도크로 묻는다", async () => {
+Deno.test("shell/desktop#R49 [agent-I46]: Providers 자리는 새 provider list를 그리고 model 고르기 칸이 없으며 옛 연결 카드는 없다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeProviders();
+  using view = render(
+    <SettingsScreen source={source} providers={fake.source} />,
+  );
+  pressTab(byText(view.container, "Providers"));
+  await flush();
+  assertEquals(
+    find(view.container, "[role=tab][aria-selected=true]").textContent,
+    "Providers",
+  );
+  assertEquals(view.container.querySelector("h1")?.textContent, "Providers");
+  const panel = find(view.container, "[data-settings-panel='providers']");
+  assertEquals(
+    [...panel.querySelectorAll("h2")].map(textOf),
+    ["Connected", "Add a provider"],
+  );
+  assertEquals(
+    [...panel.querySelectorAll("[data-provider]")].map((row) =>
+      row.getAttribute("data-provider")
+    ),
+    [ANTHROPIC, OPENAI, XAI],
+  );
+  // provider는 계정만 다룬다: model을 고르는 칸도, 옛 연결 카드의 key 더하기·테스트도 없다.
+  assertEquals(panel.querySelectorAll("select, [role='combobox']").length, 0);
+  assertEquals(panel.querySelector("[data-provider-ways]"), null);
+  assertEquals(panel.querySelector("[data-action='add-key']"), null);
+  assertEquals(panel.querySelector("[data-test-panel]"), null);
+});
+
+Deno.test("shell/desktop#R49 [agent-I46]: Add a provider의 [Connect]는 Connect dialog를 열고 고른 방법이 provider 통로로 가며 dialog에도 model 고르기가 없다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeProviders();
+  using view = render(
+    <SettingsScreen source={source} providers={fake.source} />,
+  );
+  pressTab(byText(view.container, "Providers"));
+  await flush();
+  click(
+    find(view.container, "[data-available='google'] [data-action='connect']"),
+  );
+  await flush();
+  const dialog = find(document.body, "[role='dialog']");
+  assertEquals(find(dialog, "h2").textContent, "Connect Google");
+  assertEquals(dialog.querySelectorAll("select, [role='combobox']").length, 0);
+  click(find(dialog, "[data-method='api_key']"));
+  await flush();
+  assertEquals(fake.calls.find((call) => call[0] === "connect"), [
+    "connect",
+    "google",
+    "api_key",
+  ]);
+});
+
+Deno.test("shell/desktop#R49 [agent-I46]: Providers를 읽지 못하면 그 자리만 대상과 다시 시도를 보인다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeProviders({ failing: { connected: "unavailable" } });
+  using view = render(
+    <SettingsScreen source={source} providers={fake.source} />,
+  );
+  pressTab(byText(view.container, "Providers"));
+  await flush();
+  assertEquals(
+    find(view.container, "[data-state='error'] p").textContent,
+    "Couldn't load your connections.",
+  );
+  pressTab(byText(view.container, "General"));
+  await flush();
+  assertEquals(view.container.querySelector("[data-state='error']"), null);
+});
+
+Deno.test("shell/desktop#R50 [agent-I46]: Agents 자리는 새 Agents 패널을 그리고 읽은 기본값을 보인다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeAgents();
+  using view = render(<SettingsScreen source={source} agents={fake.source} />);
+  pressTab(byText(view.container, "Agents"));
+  await flush();
+  assertEquals(
+    find(view.container, "[role=tab][aria-selected=true]").textContent,
+    "Agents",
+  );
+  assertEquals(view.container.querySelector("h1")?.textContent, "Agents");
+  const panel = find(view.container, "[data-settings-panel='agents']");
+  assertEquals(
+    [...panel.querySelectorAll("h2")].map(textOf),
+    [
+      "Default models",
+      "Model for summaries",
+      "Instructions for all projects",
+      "Skills (all projects)",
+      "MCP servers (all projects)",
+    ],
+  );
+  assertEquals(
+    [...panel.querySelectorAll("[data-slot]")].map((row) =>
+      row.getAttribute("data-slot")
+    ),
+    ["lophn", "context_engineer", "app_engineer", "operator", "summaries"],
+  );
+  assert(fake.counts.reads >= 1);
+});
+
+Deno.test("shell/desktop#R50 [agent-I46]: General에는 Models와 Instructions 칸이 없고 설정 값만 있다", async () => {
+  const { source, calls } = fakeSettings({
+    settings: { rows: [setting("shell.reading_width", "Width.", "default")] },
+  });
+  using view = render(
+    <SettingsScreen
+      source={source}
+      onInstructions={() => {}}
+      agents={fakeAgents().source}
+    />,
+  );
+  pressTab(byText(view.container, "General"));
+  await flush();
+  const panel = find(view.container, "[data-settings-panel='general']");
+  assertEquals(
+    [...panel.querySelectorAll("h2")].map(textOf),
+    ["Settings"],
+  );
+  assertEquals(panel.querySelector("[data-models]"), null);
+  assertEquals(panel.querySelector("[data-instructions]"), null);
+  assertEquals(panel.querySelector("[data-open-instructions]"), null);
+  assert(!textOf(panel).includes("For decisions"));
+  // General은 settings 값만 읽는다. provider와 model 기본값은 읽지 않는다.
+  assert(calls.length > 0 && calls.every((call) => call[0] === "settings"));
+});
+
+Deno.test("shell/desktop#R50, shell/editor#R17 [agent-I46]: Agents의 LOPHN.md [Edit]은 전역 지침 편집기를 여는 통로를 부르고 Agents 통로의 열기는 부르지 않는다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeAgents();
+  let opened = 0;
+  using view = render(
+    <SettingsScreen
+      source={source}
+      agents={fake.source}
+      onInstructions={() => opened++}
+    />,
+  );
+  pressTab(byText(view.container, "Agents"));
+  await flush();
+  click(buttonText(view.container, "Edit"));
+  await flush();
+  assertEquals(opened, 1);
+  assertEquals(fake.calls.filter((call) => call[0] === "instructions"), []);
+  assertEquals(view.container.querySelector("[data-notice='failed']"), null);
+});
+
+Deno.test("shell/desktop#R50, lophn-agent/extensions#R11 [agent-I49]: Agents의 [Add server]는 server form을 가진 Tools and skills 자리로 옮기고 Agents 통로의 더하기는 부르지 않는다", async () => {
+  const { source } = fakeSettings();
+  const fake = fakeAgents();
+  using view = render(<SettingsScreen source={source} agents={fake.source} />);
+  pressTab(byText(view.container, "Agents"));
+  await flush();
+  click(buttonText(view.container, "Add server"));
+  await flush();
+  assertEquals(
+    find(view.container, "[role=tab][aria-selected=true]").textContent,
+    "Tools and skills",
+  );
+  find(view.container, "[data-settings-panel='extensions']");
+  assertEquals(fake.calls.filter((call) => call[0] === "add-server"), []);
+});
+
+Deno.test("shell/desktop#R50 [agent-I46]: 전역 지침 편집기를 열 통로가 없는 창은 [Edit]이 열지 못했다고 알린다", async () => {
+  const { source } = fakeSettings();
+  using view = render(
+    <SettingsScreen source={source} agents={fakeAgents().source} />,
+  );
+  pressTab(byText(view.container, "Agents"));
+  await flush();
+  click(buttonText(view.container, "Edit"));
+  await flush();
+  find(view.container, "[data-notice='failed']");
+});
+
+Deno.test("shell/wording#R10: 전역 지침 편집기는 Agents의 [Edit]이 열고 돌아오면 settings이다", async () => {
   const { source } = fakeSettings({ settings: { rows: [] } });
   const opens: unknown[] = [];
   const instructions: InstructionsSource = {
@@ -961,15 +802,16 @@ Deno.test("shell/wording#R10: 전역 [Instructions] 단추는 settings에서 전
       initial={openLophn("settings")}
       lophn={lophn}
       settings={source}
+      settingsPanels={{ agents: fakeAgents().source }}
       instructions={instructions}
       editor={{} as unknown as EditorDeps}
       windowWidth={1280}
     />,
   );
   await flush();
-  pressTab(byText(view.container, "General"));
+  pressTab(byText(view.container, "Agents"));
   await flush();
-  click(find(view.container, "[data-open-instructions]"));
+  click(buttonText(view.container, "Edit"));
   await flush();
   const space = find(view.container, "[data-space='instructions']");
   assertEquals(space.getAttribute("data-instructions"), "global");
@@ -984,43 +826,16 @@ Deno.test("shell/wording#R10: 전역 [Instructions] 단추는 settings에서 전
   );
 });
 
-Deno.test("shell/wording#R13: 단추가 없는 창은 [Instructions]·Ask lophn을 두지 않고 있는 창은 눌러 연다", async () => {
-  const { source } = fakeSettings({ settings: { rows: [] } });
+Deno.test("shell/desktop#R31, shell/desktop#R50 [agent-I46]: settings는 왼쪽 세로 nav에 자리를 묶어 두고 통로가 있는 자리만 보이며 General 다음에 Providers와 Agents가 있고 backup은 두지 않는다", async () => {
+  const { source } = fakeSettings();
   using bare = render(<SettingsScreen source={source} />);
   await flush();
-  assertEquals(bare.container.querySelector("[data-action='ask-lophn']"), null);
-  pressTab(byText(bare.container, "General"));
-  await flush();
-  assertEquals(bare.container.querySelector("[data-open-instructions]"), null);
-  let asked = 0;
-  let opened = 0;
-  using wired = render(
-    <SettingsScreen
-      source={source}
-      onAsk={() => asked++}
-      onInstructions={() => opened++}
-    />,
-  );
-  await flush();
-  click(find(wired.container, "[data-action='ask-lophn']"));
-  assertEquals(asked, 1);
-  pressTab(byText(wired.container, "General"));
-  await flush();
-  click(find(wired.container, "[data-open-instructions]"));
-  assertEquals(opened, 1);
-});
-
-Deno.test("shell/desktop#R31: settings는 왼쪽 세로 nav에 자리를 묶어 두고 통로가 있는 자리만 보이며 backup은 두지 않는다", async () => {
-  const { source } = fakeSettings({ providers: [claude([])] });
-  using bare = render(<SettingsScreen source={source} />);
-  await flush();
-  // 통로가 없으면 그 자리를 두지 않는다. 연결·도구·일반 자리는 늘 선다.
+  // 통로가 없으면 그 자리를 두지 않는다. 일반·도구 자리는 늘 선다.
   const navLabels = (root: Element) =>
     [...root.querySelectorAll("[data-settings-nav]")].map(
       (item) => textOf(item).trim(),
     );
-  const bareItems = navLabels(bare.container);
-  assertEquals(bareItems, ["Connections", "Tools and skills", "General"]);
+  assertEquals(navLabels(bare.container), ["General", "Tools and skills"]);
 
   const update = fakeUpdate({ picked: null });
   const diag = fakeDiagnostics();
@@ -1029,6 +844,8 @@ Deno.test("shell/desktop#R31: settings는 왼쪽 세로 nav에 자리를 묶어 
   using wired = render(
     <SettingsScreen
       source={source}
+      providers={fakeProviders().source}
+      agents={fakeAgents().source}
       backup={backup.source}
       update={update.source}
       diagnostics={diag.source}
@@ -1036,23 +853,25 @@ Deno.test("shell/desktop#R31: settings는 왼쪽 세로 nav에 자리를 묶어 
     />,
   );
   await flush();
-  // backup 통로가 와도 nav에 backup 자리를 두지 않는다.
+  // backup 통로가 와도 nav에 backup 자리를 두지 않는다. 옛 Connections 자리는 Providers가 되었다.
   assertEquals(navLabels(wired.container), [
-    "Connections",
-    "Tools and skills",
     "General",
+    "Providers",
+    "Agents",
+    "Tools and skills",
     "Notifications",
     "Update lophn",
     "Diagnose",
   ]);
+  assert(!navLabels(wired.container).includes("Connections"));
   const groups = [...wired.container.querySelectorAll("nav h2")].map(
     (heading) => textOf(heading).trim(),
   );
-  assertEquals(groups, ["Integrations", "Preferences", "System"]);
+  assertEquals(groups, ["Preferences", "Integrations", "System"]);
   // 고른 자리는 aria-selected로 표시하고 그 자리 하나만 가운데 column에 그린다.
   assertEquals(
     find(wired.container, "[role=tab][aria-selected=true]").textContent,
-    "Connections",
+    "General",
   );
   assertEquals(wired.container.querySelector("[data-backup]"), null);
   pressTab(byText(wired.container, "Diagnose"));

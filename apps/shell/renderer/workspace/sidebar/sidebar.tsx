@@ -17,6 +17,7 @@ import type { DocumentRow, FileRow, ProjectView } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import { CONTEXTS_TAB_KEY } from "../kinds/contexts.tsx";
 import { type RailAction, ShortcutRail } from "../contexts/shortcut-rail.tsx";
+import { AgentsSection, type AgentsSectionProps } from "./agents-section.tsx";
 import styles from "./sidebar.module.css";
 
 export interface SidebarProps {
@@ -37,6 +38,8 @@ export interface SidebarProps {
   onOpenDocument: (document: DocumentRow) => void;
   /** Contexts 행을 눌러 Contexts 탭을 연다(workspace#R31). 없으면 행을 두지 않는다. */
   onOpenContexts?: () => void;
+  /** Agents 묶음(workspace#R34). 없으면 묶음을 두지 않는다. */
+  agents?: AgentsSectionProps;
   /** 접힌 sidebar의 바로 가기 rail 단추(workspace#R32). 없으면 접힌 sidebar에는 접기 단추만 있다. */
   onRail?: (action: RailAction) => void;
   /** 오른쪽 가장자리 drag로 폭을 바꾼다. 열렸을 때만 준다. */
@@ -56,6 +59,7 @@ export function Sidebar(
     onToggle,
     onOpenDocument,
     onOpenContexts,
+    agents,
     onRail,
     onResizeStart,
   }: SidebarProps,
@@ -189,6 +193,7 @@ export function Sidebar(
                 </section>
               )
               : null}
+            {agents ? <AgentsSection {...agents} /> : null}
           </div>
         )}
       {onResizeStart && !collapsed

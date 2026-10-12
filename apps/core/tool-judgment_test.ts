@@ -4,10 +4,23 @@
 // 전용 `record_owned_note`(dispatchable)이고 몇 번 일어났는지는 그 event 수로 센다. 실제 provider와
 // 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { ApprovalRequest } from "../../packages/contracts/platform/mod.ts";
-import type { ToolDecision } from "../../packages/contracts/lophn-agent/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
+import {
+  type ApprovalRequest,
+  approvalsList,
+  eventsList,
+  routePath,
+} from "../../packages/contracts/platform/mod.ts";
+import {
+  runRead,
+  sessionRead,
+  type ToolDecision,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import type { CoreCall } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
+import { setAssignmentState } from "./testing/assignment-state.ts";
 import { codeOf, decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {
+  AGENT_HASH,
   APPROVALS,
   binding,
   count,
@@ -348,16 +361,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R2: 확인 못 한 인증·효과·
     assertEquals(count(world.server, APPROVALS), 0);
 
     // assignment가 멈추면 같은 호출이 deny다(회수도 같은 칸이다).
-    const paused = await world.post("assignments/pause", USER_TOKEN, {
-      assignment: world.lophn.id,
-      reason: {
-        kind: "user",
-        detail: "paused for test",
-        runs: [],
-        target: null,
-      },
-    }, { revision: world.lophn.revision, state: "enabled" });
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.lophn.id, "paused");
     const decision = await record({});
     assertEquals(decision.decision, "deny");
     assertEquals(count(world.server, APPROVALS), 0);
@@ -584,16 +588,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R6: 승인 대기 중 입력·scope
     assertEquals(same.value.kind, "enter");
 
     // assignment가 멈추면 허락이 있어도 진입하지 않는다.
-    const paused = await world.post("assignments/pause", USER_TOKEN, {
-      assignment: world.lophn.id,
-      reason: {
-        kind: "user",
-        detail: "paused for test",
-        runs: [],
-        target: null,
-      },
-    }, { revision: world.lophn.revision, state: "enabled" });
-    assertEquals(paused.status, 200, JSON.stringify(paused.body));
+    setAssignmentState(world.server.dataRoot, world.lophn.id, "paused");
     assertEquals(await admit({}), "denied");
     assertEquals(count(world.server, NOTES), 0);
   } finally {
@@ -767,6 +762,190 @@ Deno.test("lophn-agent/harness/tool-judgment#R6 #R7: 승인은 그 call 하나�
     assertEquals(waiting.value.kind, "waiting");
     assertEquals(count(world.server, NOTES), 1);
     assertEquals(count(world.server, USES), 1);
+  } finally {
+    await world.dispose();
+  }
+});
+
+// ---- agent-I10b: 판정 기록의 agent hash와 session 허락 근거 ----
+
+const SESSION = "ses_01h455vb4pex5v6nkc6gd5fdw1";
+const OTHER_AGENT_HASH = "cd".repeat(32);
+const SESSION_GRANT_SEQ = "30";
+
+function openSession(assignment: string) {
+  return {
+    id: SESSION,
+    assignment,
+    work_place: { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5fdw1" },
+    title: null,
+    archived: false,
+    state: "open",
+    forked_from: null,
+    opening_context: null,
+    model_selection: null,
+    compaction: null,
+    closed_reason: null,
+    closed_at: null,
+    state_seq: "10",
+  };
+}
+
+// 실제 core에 session 허락 한 칸만 덧댄다. run 자체와 tool call 기록, 판정 기록은 실제 ledger이고, run은
+// session에 속한 것으로 읽히며 granted request 하나가 그 session의 Allow for this session으로 보인다.
+function sessionCore(
+  world: World,
+  granted: ApprovalRequest | null,
+): CoreCall {
+  const common = { as_of_seq: "99", next_cursor: null };
+  return async (path, body) => {
+    const input = body as Record<string, unknown>;
+    if (path === routePath(sessionRead)) {
+      return ok({ session: openSession(world.lophn.id), ...common });
+    }
+    if (path === routePath(eventsList)) {
+      return ok({
+        events: [],
+        scanned_through_seq: "99",
+        head_seq: "99",
+        ...common,
+      });
+    }
+    if (path === routePath(approvalsList) && input["status"] === "granted") {
+      return ok({
+        requests: granted === null ? [] : [{
+          ...granted,
+          status: "granted",
+          grant_scope: "session",
+          grant_session: SESSION,
+          session_grantable: true,
+          closed_seq: SESSION_GRANT_SEQ,
+        }],
+        ...common,
+      });
+    }
+    const real = await world.machine(path, body);
+    if (!real.ok || path !== routePath(runRead)) return real;
+    const reply = real.value as { run: Record<string, unknown> };
+    return ok({ ...reply, run: { ...reply.run, session: SESSION } });
+  };
+}
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I10b]: 판정 기록은 run이 고정한 agent hash를 남기고 옛 preset 판 칸은 없다", async () => {
+  const world = await openWorld();
+  try {
+    const asked = await decideAsModel(world, "a", noteRecord, "recorded-note");
+    assertEquals(asked.decided.decision.decision, "ask");
+    assertEquals(asked.decided.decision.agent_hash, AGENT_HASH);
+    assertEquals(asked.decided.decision.session_grant, null);
+    const read = await decideAsModel(world, "a", noteRead, "read-note");
+    assertEquals(read.decided.decision.decision, "allow");
+    const row = stateOf(world, read.request.toolCall);
+    const stored = JSON.parse(String(row["decision"])) as Record<
+      string,
+      unknown
+    >;
+    assertEquals(stored["agent_hash"], AGENT_HASH);
+    assertEquals(stored["session_grant"], null);
+    assertEquals("preset_revision" in stored, false);
+    // 진입 직전 재검사는 run이 고정한 agent hash가 같을 때만 기록한 판정을 쓴다.
+    const live = { ...read.request, stateSeq: read.decided.stateSeq };
+    const same = await read.harness.judgment.admit(live, read.decided.decision);
+    assert(same.ok);
+    assertEquals(same.value.kind, "enter");
+    const other = kit(world, "a", [noteRecord, noteDraft, noteRead], {
+      agentHash: OTHER_AGENT_HASH,
+    });
+    const changed = await other.judgment.admit(live, read.decided.decision);
+    assert(changed.ok);
+    assertEquals(changed.value, { kind: "changed" });
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I10b]: session 허락으로 ask를 낮춘 호출은 근거 approval request를 남기고 새 request를 만들지 않는다", async () => {
+  const world = await openWorld();
+  try {
+    const first = await decideAsModel(world, "a", noteRecord, "first-note");
+    const approval = first.decided.decision.approval;
+    assert(approval !== null);
+    const granted = await approvalOf(world, approval);
+    const tools = [noteRecord, noteDraft, noteRead];
+    const lowered = kit(world, "a", tools, {
+      machine: sessionCore(world, granted),
+    });
+    // 같은 tool·동작이면 다른 입력도 같은 허락 아래다.
+    const asked = await modelAsks("again", "note.record", { note: "next" });
+    const request = await requested(
+      world,
+      world.runs.a.run,
+      noteRecord.definition,
+      asked.input,
+    );
+    const decided = await lowered.judgment.decide(request);
+    assert(decided.ok, decided.ok ? "" : JSON.stringify(decided.error));
+    assertEquals(decided.value.decision.decision, "allow");
+    assertEquals(decided.value.decision.effect, "irreversible");
+    assertEquals(decided.value.decision.session_grant, approval);
+    assertEquals(decided.value.decision.approval, null);
+    assertEquals(decided.value.decision.agent_hash, AGENT_HASH);
+    assertEquals(count(world.server, APPROVALS), 1);
+    // 근거는 ledger 기록에도 남는다.
+    const stored = JSON.parse(
+      String(stateOf(world, request.toolCall)["decision"]),
+    ) as ToolDecision;
+    assertEquals(stored.session_grant, approval);
+    assertEquals(stored.approval, null);
+
+    // 허락이 서 있는 동안 진입한다.
+    const live = { ...request, stateSeq: decided.value.stateSeq };
+    const entered = await lowered.judgment.admit(live, decided.value.decision);
+    assert(entered.ok);
+    assertEquals(entered.value, { kind: "enter", approval: null });
+    // 허락이 사라지면 낮춘 allow로 진입하지 않는다.
+    const revoked = kit(world, "a", tools, {
+      machine: sessionCore(world, null),
+    });
+    const after = await revoked.judgment.admit(live, decided.value.decision);
+    assert(after.ok);
+    assertEquals(after.value, { kind: "changed" });
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R14 [agent-I10b]: agent hash가 달라진 뒤에는 옛 session 허락으로 낮추지 않고 다시 묻는다", async () => {
+  const world = await openWorld();
+  try {
+    const first = await decideAsModel(world, "a", noteRecord, "first-note");
+    const approval = first.decided.decision.approval;
+    assert(approval !== null);
+    const granted = await approvalOf(world, approval);
+    // 낮추지 못하면 approval request를 만들러 agent 자격을 부른다. 그 호출을 세고 막는다.
+    const asks: string[] = [];
+    const harness = kit(world, "a", [noteRecord, noteDraft, noteRead], {
+      machine: sessionCore(world, granted),
+      agentHash: OTHER_AGENT_HASH,
+      agent: (path) => {
+        asks.push(path);
+        return Promise.resolve(
+          err({ code: "unavailable", message: "blocked by the test" }),
+        );
+      },
+    });
+    const asked = await modelAsks("again", "note.record", { note: "next" });
+    const request = await requested(
+      world,
+      world.runs.a.run,
+      noteRecord.definition,
+      asked.input,
+    );
+    const decided = await harness.judgment.decide(request);
+    assert(!decided.ok);
+    assertEquals(asks.length, 1);
+    assert(asks[0].endsWith("approvals/create"), asks[0]);
+    assertEquals(stateOf(world, request.toolCall)["decision"], null);
   } finally {
     await world.dispose();
   }

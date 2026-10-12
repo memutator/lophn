@@ -79,11 +79,33 @@ export interface ServerPlace {
   readonly id: string;
 }
 
-/** OAuth 로그인을 시작하는 데 필요한 것. 켜져 있고 token이 저장돼 있지 않은 server에만 있다. */
+/**
+ * core가 읽어 준 로그인 상태. 끝난 세션의 기억이 아니라 core가 지금 쥔 값이다. 읽지 못했으면 unknown이다.
+ * - none: 로그인하지 않았다. in_progress: browser에서 돌아오기를 기다린다. signed_in: 쓸 수 있는 token이 있다.
+ * - failed: 마지막 시도나 갱신이 실패했고 reason이 이유 코드다.
+ */
+export type ServerSignInState =
+  | "none"
+  | "in_progress"
+  | "signed_in"
+  | "failed"
+  | "unknown";
+
+export type ServerSignInReason =
+  | "callback_timeout"
+  | "state_mismatch"
+  | "exchange_failed"
+  | "refresh_rejected"
+  | "expired"
+  | "store_failed";
+
+/** 켜진 OAuth server의 로그인. 시작하는 데 필요한 것과 core가 읽어 준 상태다. */
 export interface ServerSignIn {
   readonly place: ServerPlace | null;
   readonly clientId: string;
   readonly scopes: readonly string[];
+  readonly state: ServerSignInState;
+  readonly reason: ServerSignInReason | null;
 }
 
 /** 등록한 MCP server 하나. credential 값은 어디에도 없다. */
@@ -95,7 +117,7 @@ export interface ServerRow {
   /** credential이 필요한 server만. 값이 들어갈 보관 이름과 저장됐는지(이름만 본다). */
   readonly secret: string | null;
   readonly credential: "set" | "missing" | "unknown" | null;
-  /** 로그인이 필요한 OAuth server만. 아니면 null이다. */
+  /** 켜진 OAuth server만. 아니면 null이다. */
   readonly signIn: ServerSignIn | null;
 }
 
@@ -143,4 +165,6 @@ export interface SettingsSource {
     server: ServerRow,
     callbackPort: number,
   ): Promise<SourceResult<null>>;
+  /** 기다리는 로그인을 그만둔다. 기다리던 finishSignIn은 conflict로 끝난다. */
+  cancelSignIn(server: ServerRow): Promise<SourceResult<null>>;
 }

@@ -83,9 +83,12 @@ import {
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type KeychainAdapter,
+  randomSealedRef,
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { createMcpOAuthVault } from "../../packages/lophn-agent/extensions/mod.ts";
+import { createMcpAuthRequests } from "./mcp-auth-requests.ts";
 import {
   connectionConnect,
   connectionEndChild,
@@ -324,11 +327,9 @@ import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "./apps-export.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
-import {
-  agentProfileHandlers,
-  createMcpAuthControl,
-  openMcpCallbackListener,
-} from "./lophn-agent.ts";
+import { agentProfileHandlers } from "./lophn-agent.ts";
+import { createMcpAuthControl, openMcpCallbackListener } from "./mcp-auth.ts";
+import { createMcpTokenRefWriter } from "./mcp-token-ref.ts";
 import {
   agentProfilesRead,
   agentProfilesUpload,
@@ -581,9 +582,19 @@ async function open(
     ledgerPath,
     read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
   });
+  // MCP OAuth token 보관이다(extensions#R17). 값은 OS keychain에만 있고, 보관이 가진 참조는 알려진 값 registry에
+  // 올라 model로 가는 글과 저장할 글에서 지워진다. 제품 기동은 OS keychain adapter, 시험은 fake다.
+  let mcpKeychain: KeychainAdapter | undefined;
+  const mcpVault = createMcpOAuthVault({
+    keychain: () =>
+      mcpKeychain ??= options.secretKeychain ?? options.codingKeychain ??
+        productKeychain(),
+    randomRef: randomSealedRef,
+  });
   const assembled = withPlatform(
     assemble(options.teams, {
       status: statusMemoryVia(documentsChannel),
+      mcpOAuthRefs: () => mcpVault.refs(),
       // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
       snapshotLogs: snapshotLogsEnvironment({
         ledgerPath,
@@ -946,18 +957,29 @@ async function open(
       blobRead.deps.read(hash, offset, length),
     known: () => knownSecrets,
   };
-  // MCP OAuth의 시작·완료 입구다(extensions R16, shell#T31에서 넘어온 것의 route 절반).
-  // 업무 규칙은 extensions의 mcp-auth에 있고(concern lophn-agent/extensions, code-map
-  // 의존 규칙) 여기는 core의 memory route 입구와 snapshot 재료를 끼운다.
-  // - verifier·state·access token은 memory 작업 메모리에만 산다.
-  // - credential 값 보관은 보호 창의 `SetSecret`(이름 `mcp-<server>`)이 하고 설정은
-  //   `sec:mcp-<server>`를 가리킨다(shell#T31 규칙). 이 입구는 그 값의 전송 callback이
-  //   아니라 작업 상태만 기록한다.
+  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). 업무 규칙은 extensions의 mcp-oauth에 있고
+  // (concern lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구와 재료를 끼운다.
+  // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
+  // - token은 OS keychain(mcpVault)에만 두고 설정은 서버에서 정해지는 참조(`token_ref`)만 가리킨다.
+  // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 대기열에 놓고 agent runtime이 가져가 대신
+  // 보낸다(mcp-auth-requests.ts).
+  const mcpAuthRequests = createMcpAuthRequests({
+    newId: () => crypto.randomUUID(),
+  });
   const mcpAuthControl = createMcpAuthControl({
-    fetch: undefined,
+    fetch: mcpAuthRequests.fetch,
     openListener: openMcpCallbackListener,
     registered: () => registeredMcpServers(ledgerPath),
+    vault: mcpVault,
     nowMs: () => clock.nowMs(),
+    writeTokenRef: createMcpTokenRefWriter({
+      dataRoot: root.path,
+      read: (route, ctx, input) =>
+        runtime!.readers.read(route, ctx as never, input),
+      command: (ctx, envelope) =>
+        runtime!.writer.command(ctx as never, envelope as never),
+    }),
+    syncSecrets: () => runtime!.syncSecrets(),
   });
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
@@ -1269,10 +1291,11 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
-        // MCP OAuth의 시작·완료 입구다(extensions R16). handler는 등록한 http 서버의
-        // oauth2 인증 방식만 잠근다. verifier·state·access token은 memory 작업
-        // 메모리에만 산다(값은 응답·ledger·log 어디에도 옮기지 않는다).
+        // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). handler는 등록한 http 서버의
+        // oauth2 인증 방식만 잡는다. verifier·state·token은 core 안에만 산다(값은 응답·ledger·log
+        // 어디에도 옮기지 않는다).
         ...mcpAuthControl.handlers,
+        ...mcpAuthRequests.handlers,
         // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
         ...(coding
           ? [
@@ -2358,6 +2381,7 @@ async function open(
         known: () => runtime?.knownSecrets,
         process: AGENT_RUNTIME_KIND,
         task: AGENT_RUNTIME_TASK,
+        mcpOAuth: mcpAuthControl.tokenUse,
       }),
       readMcpServers: () => mcpServerSnapshot(ledgerPath),
       readProviders: async (context) => {
@@ -2603,6 +2627,8 @@ async function open(
           rootsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();
+          // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.
+          await mcpAuthControl.endAll();
           basisSync?.stop();
           searchSync?.stop();
           watchSync?.stop();

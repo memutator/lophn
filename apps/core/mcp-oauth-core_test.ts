@@ -6,7 +6,10 @@ import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { mcpServersSetting } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import { mcpTokenRef } from "../../packages/lophn-agent/extensions/mod.ts";
+import {
+  MCP_SECRET_OWNER,
+  mcpTokenRef,
+} from "../../packages/lophn-agent/extensions/mod.ts";
 import { createFakeKeychain } from "../../packages/platform/secrets/mod.ts";
 import { machineCall } from "../agent-runtime/core-http.ts";
 import { startMcpAuthPump } from "../agent-runtime/mcp-auth-pump.ts";
@@ -16,6 +19,7 @@ import {
   createLedgerRegistration,
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
+import { assemble } from "./registration.ts";
 import { call, command, type Server } from "./testing/approvals-fixture.ts";
 import { MACHINE_TOKEN, USER_TOKEN } from "./testing/tool-judgment-world.ts";
 
@@ -478,4 +482,30 @@ Deno.test("lophn-agent/extensions#R16 [agent-I52]: through a real core a waiting
     await issuer.shutdown();
     await Deno.remove(home, { recursive: true });
   }
+});
+
+Deno.test("platform/secrets#R1 platform/redaction#R1 lophn-agent/extensions#R17 [agent-I52]: core's assembly hands the OAuth token references to the secret store, so a stored token is a known value that gets redacted", () => {
+  const refs = [
+    { name: "mcp-oauth/global/notes/access", sealedRef: "sealed-access" },
+    { name: "mcp-oauth/global/notes/refresh", sealedRef: "sealed-refresh" },
+  ];
+  const assembled = assemble([{ createLedgerRegistration }], {
+    mcpOAuthRefs: () => refs,
+  });
+  assert(assembled.ok, assembled.ok ? "" : JSON.stringify(assembled.error));
+  const source = assembled.value.secretRefs.find((entry) =>
+    entry.owner === MCP_SECRET_OWNER
+  );
+  assert(source !== undefined);
+  const read = source.read({ all: () => [] });
+  assert(read.ok);
+  assertEquals(read.value, refs);
+  // 보관이 비어 있으면 설정이 가리키는 참조만 있는 이전과 같다.
+  const plain = assemble([{ createLedgerRegistration }], {});
+  assert(plain.ok);
+  const empty = plain.value.secretRefs.find((entry) =>
+    entry.owner === MCP_SECRET_OWNER
+  )!.read({ all: () => [] });
+  assert(empty.ok);
+  assertEquals(empty.value, []);
 });

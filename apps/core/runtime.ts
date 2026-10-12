@@ -97,6 +97,9 @@ export type CoreRuntime = {
   // 알려진 secret 값과 일치하는 부분을 찾는 얼굴. 값 목록은 내보내지 않는다. core 프로세스 안의
   // 안전화(메시지 본문)가 쓴다.
   knownSecrets: KnownSecretMatch;
+  // ledger 밖에서 바뀐 secret 보관(MCP OAuth token의 교환·갱신)을 알려진 값 registry에 맞춘다. 새 값이 안전화에
+  // 들고 옛 값이 회수된 뒤에 끝난다.
+  syncSecrets(): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
@@ -479,6 +482,7 @@ export async function openRuntime(input: {
     record: openedWriter.record,
     recordSecretPreparation: openedWriter.recordSecretPreparation,
     knownSecrets: secretStore.known,
+    syncSecrets: () => secretStore.sync(),
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,

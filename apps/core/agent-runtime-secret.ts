@@ -3,6 +3,7 @@ import {
   type AuthenticatedContext,
   secretSendRequestSchema,
   type SecretSendResponse,
+  type SecretUse,
   type SecretValue,
   type Sql,
 } from "../../packages/contracts/platform/mod.ts";
@@ -17,6 +18,7 @@ import {
   type KeychainAdapter,
   SECRET_SEND,
 } from "../../packages/platform/secrets/mod.ts";
+import type { McpTokenUse } from "./mcp-auth.ts";
 
 // agent runtime의 secret 전송 부착 요청(감독 pipe `secret_send_request`)을 core가 답한다
 // (lophn-agent/harness/provider#R7, platform/secrets#R5). platform의 `createSecretAttach`가 machine
@@ -43,6 +45,9 @@ export function createAgentRuntimeSecrets(deps: {
   // child kind·task. machine 자격을 만드는 근거이고 child가 정하지 못한다.
   process: string;
   task: string;
+  // MCP OAuth token의 대조다(extensions#R17). OAuth token 참조가 아니면 undefined를 돌려 아래 설정 대조가 맡는다.
+  // 만료가 가까우면 여기서 갱신한 뒤 현재 접근 token의 참조를 준다.
+  mcpOAuth?: (use: SecretUse) => Promise<Result<McpTokenUse> | undefined>;
 }): AgentRuntimeSecrets {
   const context: AuthenticatedContext = {
     principal: "machine:agent-runtime-secret",
@@ -92,7 +97,8 @@ export function createAgentRuntimeSecrets(deps: {
       let use = request.use;
       let mcp: ReturnType<typeof lookupMcpSecretUse> | undefined;
       if (use.purpose === "external_mcp_credential") {
-        const looked = lookupCurrent((sql) => lookupMcpSecretUse(sql, use));
+        const looked = (await deps.mcpOAuth?.(use)) ??
+          lookupCurrent((sql) => lookupMcpSecretUse(sql, use));
         if (!looked.ok) return failed(looked.error);
         mcp = looked;
         use = {

@@ -18,7 +18,11 @@ import {
   EXTENSION_EVENTS,
   EXTENSION_ROUTES,
   mcpAuthBegin,
+  mcpAuthCancel,
   mcpAuthComplete,
+  mcpAuthRequestDone,
+  mcpAuthRequestTake,
+  mcpAuthState,
 } from "./mcp-settings.ts";
 
 export const ROUTES = [
@@ -39,10 +43,15 @@ export const ROUTES = [
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
   ...EXTENSION_ROUTES,
-  // MCP OAuth의 시작·완료 입구다(extensions R16). ledger queue를 거치지 않는
+  // MCP OAuth의 시작·완료·상태·취소 입구다(extensions R16, R17). ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,
   mcpAuthComplete,
+  mcpAuthState,
+  mcpAuthCancel,
+  // runtime이 발급자 호출을 대신 보내는 machine 입구다.
+  mcpAuthRequestTake,
+  mcpAuthRequestDone,
 ] as const;
 
 export const EVENTS = [

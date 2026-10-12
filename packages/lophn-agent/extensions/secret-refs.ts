@@ -33,8 +33,8 @@ function secretRefsOf(value: unknown): string[] {
     record["auth"] !== undefined && typeof record["auth"] === "object" &&
     record["auth"] !== null
   ) {
-    // oauth2의 client_secret_ref·token_ref다.
-    for (const field of ["client_secret_ref", "token_ref"]) {
+    // oauth2의 client_secret_ref다. token_ref는 secrets 표가 아니라 OAuth token 보관(mcp-oauth-vault)을 가리킨다.
+    for (const field of ["client_secret_ref"]) {
       const ref = (record["auth"] as Record<string, unknown>)[field];
       if (typeof ref === "string") refs.push(ref);
     }
@@ -54,46 +54,58 @@ function nameOf(ref: string): string | null {
 
 // MCP server 설정이 가리키는 secret 참조를 읽는다(platform#T19 후속 #294).
 // provider credential과 같은 모양이다(contracts/platform/secrets SecretRefSource).
-export function createMcpSecretRefSource(): SecretRefSource {
+// extra는 OAuth token 보관(mcp-oauth-vault)이 가진 참조다. 그 참조는 ledger 표가 아니라 keychain의 고정 meta가
+// 가리키므로 보관이 읽거나 저장한 것만 나온다. 값은 어디에도 없다.
+export function createMcpSecretRefSource(
+  extra: () => readonly { name: string; sealedRef: string }[] = () => [],
+): SecretRefSource {
   return {
     owner: MCP_SECRET_OWNER,
     // 설정이 바뀌는 계기다(ApplySettings가 setting_choices를 쓴다). SetSecret·
     // RemoveSecret은 core가 기본으로 다시 맞춘다(secret-store SECRET_COMMANDS).
     commands: ["ApplySettings"],
     read(sql: Pick<Sql, "all">): Result<{ name: string; sealedRef: string }[]> {
-      try {
-        const rows = sql.all(
-          "select layer, key, value from setting_choices where key = ?",
-          [mcpServersSetting.key],
-        );
-        if (rows.length === 0) return ok([]);
-        const parsed: unknown = JSON.parse(String(rows[0]["value"]));
-        const names = new Set<string>();
-        for (const ref of secretRefsOf(parsed)) {
-          const name = nameOf(ref);
-          if (name === null) continue;
-          names.add(name);
-        }
-        if (names.size === 0) return ok([]);
-        // 참조가 있는 이름만 secrets 표에서 읽는다. 없는 이름은 설정이 참조를
-        // 가리키지 않은 것이므로 건너뛴다.
-        const placeholders = [...names].map(() => "?").join(", ");
-        const secretRows = sql.all(
-          `select name, sealed_ref from secrets where name in (${placeholders}) order by name`,
-          [...names],
-        );
-        return ok(secretRows.map((row) => ({
-          name: String(row["name"]),
-          sealedRef: String(row["sealed_ref"]),
-        })));
-      } catch {
-        return err({
-          code: "unavailable",
-          message: "MCP credential 참조를 읽지 못했다",
-        });
-      }
+      const configured = configuredRefs(sql);
+      if (!configured.ok) return configured;
+      return ok([...configured.value, ...extra()]);
     },
   };
+}
+
+function configuredRefs(
+  sql: Pick<Sql, "all">,
+): Result<{ name: string; sealedRef: string }[]> {
+  try {
+    const rows = sql.all(
+      "select layer, key, value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length === 0) return ok([]);
+    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
+    const names = new Set<string>();
+    for (const ref of secretRefsOf(parsed)) {
+      const name = nameOf(ref);
+      if (name === null) continue;
+      names.add(name);
+    }
+    if (names.size === 0) return ok([]);
+    // 참조가 있는 이름만 secrets 표에서 읽는다. 없는 이름은 설정이 참조를
+    // 가리키지 않은 것이므로 건너뛴다.
+    const placeholders = [...names].map(() => "?").join(", ");
+    const secretRows = sql.all(
+      `select name, sealed_ref from secrets where name in (${placeholders}) order by name`,
+      [...names],
+    );
+    return ok(secretRows.map((row) => ({
+      name: String(row["name"]),
+      sealedRef: String(row["sealed_ref"]),
+    })));
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "MCP credential 참조를 읽지 못했다",
+    });
+  }
 }
 
 // runtime가 MCP HTTP 요청에 붙일 인증 비밀의 전송 부착 대조다(platform/secrets#R5, extensions#R17).

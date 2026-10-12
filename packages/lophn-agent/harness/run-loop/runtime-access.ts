@@ -21,6 +21,8 @@ import {
   finishRun,
   finishToolCall,
   instructionRead,
+  mcpAuthRequestDone,
+  mcpAuthRequestTake,
   messageBody,
   messagesList,
   modelCallList,
@@ -122,6 +124,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   questionText,
   cancelQuestionGroup,
   applyQuestionOption,
+  // MCP OAuth 발급자 호출을 core 대신 보낸다(extensions R16, R17): core에는 외부 fetch가 없다.
+  mcpAuthRequestTake,
+  mcpAuthRequestDone,
   // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
   appBlueprint,
   grantsList,

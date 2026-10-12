@@ -97,6 +97,15 @@ Deno.test("tools/check-deps: workspace 이름으로 import해도 같은 표를 �
   );
 });
 
+test("test 코드는 package 규칙을 보지 않고 제품 코드는 본다", {
+  "packages/coding-agent/mod.ts": "",
+  "packages/core/apps/flow_test.ts": 'import "../../coding-agent/mod.ts";',
+  "packages/core/testing/world.ts": 'import "../../coding-agent/mod.ts";',
+  "packages/core/apps/testdata/fake.ts":
+    'import "../../../coding-agent/mod.ts";',
+  "packages/core/apps/work.ts": 'import "../../coding-agent/mod.ts";',
+}, ["package"]);
+
 test("자기 package 안은 깊이와 상관없이 통과", {
   "packages/core/apps/mod.ts": 'import "../projects/work.ts";',
   "packages/core/projects/work.ts": 'import "../main/daemon/mod.ts";',

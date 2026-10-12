@@ -123,6 +123,10 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     }
     if (!/\.tsx?$/.test(file)) continue;
     const test = file.endsWith("_test.ts");
+    // test 코드는 package 규칙에서 뺀다. 여러 package를 같이 띄우는 통합 test가 있어서다.
+    // core를 import하는 것만은 test도 core 안에서만 한다.
+    const testCode = /_test\.tsx?$/.test(file) ||
+      /\/(?:testing|testdata)\//.test(file);
     const source = await Deno.readTextFile(`${root}/${file}`);
     sources.set(file, source);
     for (const { specifier, line } of readImports(source)) {
@@ -174,7 +178,8 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         ? target.split("/")[1]
         : undefined;
       if (
-        own && own in PACKAGE_DEPENDENCIES && targetPackage &&
+        !(testCode && targetPackage !== "core") && own &&
+        own in PACKAGE_DEPENDENCIES && targetPackage &&
         targetPackage !== own &&
         !PACKAGE_DEPENDENCIES[own].includes(targetPackage) &&
         !(targetPackage === "coding-agent" && own === "shell" &&

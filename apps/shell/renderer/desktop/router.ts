@@ -18,8 +18,6 @@ export interface Route {
   readonly read?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
   readonly request?: string;
-  /** contexts에서 처음 열 Focus. 팔레트·정보 패널의 컨텍스트 탭이 쓴다. */
-  readonly focus?: string;
   /** settings에서 먼저 보일 coding agent 연결. `lophn://things-to-confirm/<cac id>` 링크가 쓴다. */
   readonly connection?: string;
   /** app 공간에서 Tasks 탭으로 열 대상. 취소·생성 링크가 쓴다. */

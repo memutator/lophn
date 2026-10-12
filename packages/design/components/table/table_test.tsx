@@ -264,3 +264,91 @@ Deno.test("shell/design-system#R30: 기본 viewport는 DOM scroll 위치를 읽�
   assertThrows(() => reservedHeight(-1, "compact"));
   assertThrows(() => reservedHeight(1.5, "compact"));
 });
+
+function linkTable(opened: File[], rows: File[]) {
+  return (
+    <Table
+      columns={[
+        {
+          id: "name",
+          header: "Name",
+          kind: "link",
+          value: (row: File) => row.name === "" ? undefined : row.name,
+          onOpen: (row: File) => opened.push(row),
+        },
+      ]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+    />
+  );
+}
+
+Deno.test("shell/design-system#R30 [ctx-I54]: 링크 칸은 글을 담은 link 버튼이고 click과 Enter에 행을 넘겨 연다", () => {
+  const opened: File[] = [];
+  const rows = files(2).map((row, index) => ({
+    ...row,
+    name: `exp-00${index}`,
+  }));
+  using view = render(linkTable(opened, rows));
+  const links = [
+    ...view.container.querySelectorAll("td[data-kind=link] button"),
+  ];
+  assertEquals(links.map((item) => item.textContent), ["exp-000", "exp-001"]);
+  assertEquals(links[0].getAttribute("type"), "button");
+  assertEquals(style(links[0]).textDecoration, "underline");
+  assertEquals(style(links[0]).color, "#1f66c1");
+  click(links[1]);
+  assertEquals(opened, [rows[1]]);
+  const enter = new KeyboardEvent("keydown", {
+    key: "Enter",
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    links[0].dispatchEvent(enter);
+  });
+  assertEquals(opened, [rows[1], rows[0]]);
+  // 기본 동작(합성 click)이 한 번 더 열지 않도록 막는다.
+  assert(enter.defaultPrevented);
+});
+
+Deno.test("shell/design-system#R30 [ctx-I54]: 값이 비면 링크 칸은 버튼 없는 빈 칸이다", () => {
+  const opened: File[] = [];
+  const rows = files(1).map((row) => ({ ...row, name: "" }));
+  using view = render(linkTable(opened, rows));
+  const cell = one(view.container, "td[data-kind=link]");
+  assertEquals(cell.querySelector("button"), null);
+  assertEquals(cell.textContent, "");
+});
+
+Deno.test("shell/design-system#R30 [ctx-T10c]: 링크 칸 column의 dataAttributes가 단추에 달리고 type·class는 바뀌지 않는다", () => {
+  const rows = files(2).map((row, index) => ({
+    ...row,
+    name: `exp-00${index}`,
+  }));
+  using view = render(
+    <Table
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: File) => row.name,
+        onOpen: () => {},
+        dataAttributes: { "data-open-document": "", "data-target": "doc" },
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+    />,
+  );
+  const links = [
+    ...view.container.querySelectorAll("td[data-kind=link] > button"),
+  ];
+  assertEquals(links.length, 2);
+  for (const link of links) {
+    assertEquals(link.getAttribute("data-open-document"), "");
+    assertEquals(link.getAttribute("data-target"), "doc");
+    assertEquals(link.getAttribute("type"), "button");
+  }
+});

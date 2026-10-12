@@ -369,7 +369,6 @@ export function createDocumentToolHandlers(
       const scope = scopeOf("document.search", {
         query: value.query,
         place: value.place ?? null,
-        context: value.context ?? null,
         formats: value.formats ?? null,
       });
       const resumed = resume(value.cursor, scope);
@@ -378,7 +377,6 @@ export function createDocumentToolHandlers(
       const read = await ports.call(searchQuery.name, {
         query: value.query,
         ...(value.place === undefined ? {} : { place: value.place }),
-        ...(value.context === undefined ? {} : { context: value.context }),
         ...(value.formats === undefined ? {} : { formats: value.formats }),
         limit: PAGE_SIZE,
         ...(inner === null ? {} : { cursor: inner }),

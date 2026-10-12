@@ -3,7 +3,6 @@ import type { Result } from "../../base/mod.ts";
 import {
   adoptionsOf,
   checkOptionAction,
-  defineTermOptionAction,
   moveOptionAction,
   OPTION_ACTION_OPERATIONS,
   OPTION_ACTION_OWNERS,
@@ -155,101 +154,12 @@ Deno.test("lophn-agent/questions#R13: 적용 자격이 가져야 하는 operatio
       "app.create",
       "document.move",
       "document.rename",
-      "term.define",
     ],
   );
   for (const owner of OPTION_ACTION_OWNERS) {
     // 적용 route는 사람 결정 근거를 검증한 뒤에만 부르므로 소유 command가 user를 받아야 한다.
     assert(owner.route.actors.includes("user"), owner.command);
   }
-});
-
-Deno.test("lophn-agent/questions#R13: 용어 정의의 고정 action은 대상·입력·비교 기준과 지문이 맞을 때만 선택지가 된다", () => {
-  const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
-  const TERM = "trm_01arz3ndektsv4rrffq69g5fav";
-  // 이미 있는 후보의 정의. 용어·이름·뜻과 기준 revision이 고정된다.
-  const define = defineTermOptionAction({
-    term: TERM,
-    name: "범위",
-    definition: "이번 판단의 대상",
-    base_revision: "7",
-  });
-  assertEquals(code(checkOptionAction(QUESTION, define)), "ok");
-  assertEquals(define.targets, [TERM]);
-  assertEquals(define.comparison, { base_revision: "7" });
-  assertEquals(define.input, {
-    kind: "inline",
-    value: { term: TERM, name: "범위", definition: "이번 판단의 대상" },
-  });
-  // 새 등록의 정의. context·id·이름·뜻이 고정되고 비교 기준은 없다.
-  const fresh = defineTermOptionAction({
-    context: CONTEXT,
-    id: TERM,
-    name: "직접",
-    definition: "바로 정의",
-  });
-  assertEquals(code(checkOptionAction(QUESTION, fresh)), "ok");
-  assertEquals(fresh.targets, [TERM]);
-  assertEquals(fresh.comparison, {});
-
-  // 대상이 입력의 용어와 다르면 고정한 대상이 아니다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, { ...define, targets: [OTHER_DOC] })),
-    "invalid_input",
-  );
-  // 새 등록의 대상이 context가 아니라 id와 다르면 고정한 대상이 아니다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, { ...fresh, targets: [CONTEXT] })),
-    "invalid_input",
-  );
-  // 입력을 지문과 다르게 바꾸면 거절한다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, {
-      ...define,
-      input: {
-        kind: "inline",
-        value: { term: DOC, name: "범위", definition: "다른 뜻" },
-      },
-    })),
-    "invalid_input",
-  );
-  // 비교 기준을 지문과 다르게 바꾸면 거절한다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, {
-      ...define,
-      comparison: { base_revision: "8" },
-    })),
-    "invalid_input",
-  );
-  // 이미 있는 용어 모양과 새 등록 모양을 섞은 입력은 소유 command가 받지 않는다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, {
-      ...define,
-      input: {
-        kind: "inline",
-        value: {
-          term: DOC,
-          context: CONTEXT,
-          name: "범위",
-          definition: "이번 판단의 대상",
-        },
-      },
-    })),
-    "invalid_input",
-  );
-  // 두 모양 모두 아닌 입력도 받지 않는다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, {
-      ...define,
-      input: { kind: "inline", value: { name: "범위", definition: "뜻" } },
-    })),
-    "invalid_input",
-  );
-  // 이미 있는 용어의 정의는 비교 기준이 없으면 거절한다.
-  assertEquals(
-    code(checkOptionAction(QUESTION, { ...define, comparison: {} })),
-    "invalid_input",
-  );
 });
 
 function group(

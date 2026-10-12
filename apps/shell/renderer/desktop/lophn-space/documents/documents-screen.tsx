@@ -10,10 +10,9 @@ import { SeriesPanel } from "../series/series-panel.tsx";
 import { RegisterSeries } from "../series/register-form.tsx";
 import { Reader, type ReaderTarget } from "./reader.tsx";
 import { SearchPanel } from "./search-panel.tsx";
-import { ViewsPanel } from "./views-panel.tsx";
 import styles from "./documents.module.css";
 
-export type DocumentsTab = "search" | "views" | "series";
+export type DocumentsTab = "search" | "series";
 
 type Detail =
   | { readonly kind: "none" }
@@ -34,10 +33,10 @@ export interface DocumentsScreenProps {
   sessions?: EditorSessions;
 }
 
-const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
+const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다(desktop#R1).
-// 검색·saved view·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
+// 검색·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
 export function DocumentsScreen(
   { source, now = Date.now, initialTab = "search", initialRead, sessions }:
     DocumentsScreenProps,
@@ -50,8 +49,6 @@ export function DocumentsScreen(
   );
   // series 목록을 다시 읽게 하는 표시. 등록·보관 뒤 올린다.
   const [seriesRevision, setSeriesRevision] = useState(0);
-  // 저장한 보기 목록을 다시 읽게 하는 표시. 검색 칸에서 저장한 뒤 올린다.
-  const [viewsRevision, setViewsRevision] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -172,11 +169,10 @@ export function DocumentsScreen(
         >
           <TabList>
             <Tab value="search">{t("documents.label.tab-search")}</Tab>
-            <Tab value="views">{t("documents.label.tab-views")}</Tab>
             <Tab value="series">{t("documents.label.tab-series")}</Tab>
           </TabList>
         </Tabs>
-        {/* 탭을 옮겨도 검색어·결과·연 보기를 잃지 않게 세 칸을 모두 두고 숨긴다. */}
+        {/* 탭을 옮겨도 검색어·결과를 잃지 않게 두 칸을 모두 두고 숨긴다. */}
         <div hidden={tab !== "search"} data-tab-panel="search">
           <SearchPanel
             source={source}
@@ -184,17 +180,6 @@ export function DocumentsScreen(
             formats={formats}
             current={currentDocument}
             onRead={read}
-            onViewSaved={() => setViewsRevision((value) => value + 1)}
-          />
-        </div>
-        <div hidden={tab !== "views"} data-tab-panel="views">
-          <ViewsPanel
-            source={source}
-            revision={viewsRevision}
-            current={currentDocument}
-            now={now}
-            onRead={read}
-            onSearch={() => setTab("search")}
           />
         </div>
         <div hidden={tab !== "series"} data-tab-panel="series">

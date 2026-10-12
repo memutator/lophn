@@ -65,8 +65,8 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
       "TicketConfirmed",
       "TicketCheckFailed",
       "AssignmentPaused",
-      "ContextWatchedItemChanged",
       "ReleaseActivationFailed",
+      "ContextViolationsRecorded",
     ],
   );
   for (const trigger of NOTIFICATION_TRIGGERS) {
@@ -94,16 +94,16 @@ Deno.test("platform/notifications#R1, platform/notifications#R2: 계기 표는 s
   );
 });
 
-Deno.test("platform/notifications#R13: 계기 표의 ask_agent는 종류마다 고정이고 앱 문제 둘만 App Engineer다", () => {
+Deno.test("platform/notifications#R13: 계기 표의 ask_agent는 종류마다 고정이고 앱 문제 둘은 App Engineer, 계약 위반은 Context Engineer다", () => {
   const asks = NOTIFICATION_TRIGGERS.filter((trigger) =>
     trigger.ask_agent !== null
   );
-  // 계약 위반 행의 Context Engineer는 그 계기를 바꾸는 context track 뒤에 채운다.
   assertEquals(
     asks.map((trigger) => [trigger.event, trigger.ask_agent]),
     [
       ["ProblemOpened", "app_engineer"],
       ["ReleaseActivationFailed", "app_engineer"],
+      ["ContextViolationsRecorded", "context_engineer"],
     ],
   );
   for (const trigger of NOTIFICATION_TRIGGERS) {
@@ -142,6 +142,11 @@ Deno.test("platform/notifications#R14: 첫 context 참조는 앱 자리와 문�
   assertEquals(byEvent["ReleaseActivationFailed"].first_context, {
     work_place: "app",
     target: "release",
+  });
+  // 계약 위반은 그 context가 속한 project 자리에서 Context Engineer 탭을 열고 context를 첫 context로 붙인다.
+  assertEquals(byEvent["ContextViolationsRecorded"].first_context, {
+    work_place: "project",
+    target: "context",
   });
 });
 
@@ -250,30 +255,21 @@ Deno.test("platform/notifications#R10: delivery는 고정 상태 셋뿐이고 de
   }
 });
 
-Deno.test("platform/notifications#R3: get·list의 당시 시각과 문서 참조는 선택이고 문서 id가 아니면 거절한다", () => {
-  const item = { notification, source_event: "ContextWatchedItemChanged" };
+Deno.test("platform/notifications#R3: get·list의 당시 시각은 선택이고 시각이 아니면 거절한다", () => {
+  const item = { notification, source_event: "QuestionCreated" };
   const common = { as_of_seq: "42", next_cursor: null };
   const at = "2026-10-04T00:00:00.000Z";
-  const document = "doc_01arz3ndektsv4rrffq69g5fav";
   assert(
     notificationsGet.output.safeParse({
       ...item,
       ...common,
       occurred_at: at,
-      document,
     }).success,
   );
   assert(
     notificationsList.output.safeParse({
-      notifications: [{ ...item, occurred_at: at, document: null }, item],
+      notifications: [{ ...item, occurred_at: at }, item],
       ...common,
-    }).success,
-  );
-  assert(
-    !notificationsGet.output.safeParse({
-      ...item,
-      ...common,
-      document: "glossary",
     }).success,
   );
   assert(
@@ -433,4 +429,59 @@ Deno.test("platform/notifications#R10: 전달 실패 보고 route는 shell(user)
   ) {
     assert(!reportOsDelivery.input.safeParse(bad).success);
   }
+});
+
+Deno.test("platform/notifications#R13, R14: 계약 위반 행의 ask는 project 자리와 context 대상이고 앱 자리와 섞이지 않는다", () => {
+  const item = { notification, source_event: "ContextViolationsRecorded" };
+  const common = { as_of_seq: "42", next_cursor: null };
+  const ask = {
+    role: "context_engineer",
+    agent_name: "Context Engineer",
+    first_context: {
+      work_place: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
+      target: { kind: "context", id: "ctx_01arz3ndektsv4rrffq69g5fav" },
+    },
+  };
+  const parses = (value: unknown) =>
+    notificationsGet.output.safeParse({ ...item, ...common, ask: value })
+      .success;
+  assert(parses(ask));
+  // 앱 자리에 context 대상, project 자리에 문제 대상, 모르는 field는 거절한다.
+  assert(
+    !parses({
+      ...ask,
+      first_context: {
+        ...ask.first_context,
+        work_place: { kind: "app", id: "app_01arz3ndektsv4rrffq69g5fav" },
+      },
+    }),
+  );
+  assert(
+    !parses({
+      ...ask,
+      first_context: {
+        ...ask.first_context,
+        target: { kind: "problem", id: "prb_01arz3ndektsv4rrffq69g5fav" },
+      },
+    }),
+  );
+  assert(
+    !parses({
+      ...ask,
+      first_context: { ...ask.first_context, body: "x" },
+    }),
+  );
+});
+
+Deno.test("[ctx-I35] platform/notifications#R1 platform/notifications#R13: context 위반 수 계기는 documents/contexts 소유이고 늘었을 때만 조건이며 Context Engineer를 project 자리에서 부른다", () => {
+  const trigger = NOTIFICATION_TRIGGERS.find((item) =>
+    item.event === "ContextViolationsRecorded"
+  );
+  assertEquals(trigger, {
+    event: "ContextViolationsRecorded",
+    owner: "documents/contexts",
+    condition: "count_rose",
+    ask_agent: "context_engineer",
+    first_context: { work_place: "project", target: "context" },
+  });
 });

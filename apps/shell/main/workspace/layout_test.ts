@@ -28,7 +28,6 @@ import {
 } from "./layout-store.ts";
 
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fdw1";
-const VER = "ver_01h455vb4pex5v6nkc6gd5fdw1";
 const PRJ = "prj_01h455vb4pex5v6nkc6gd5fdw1";
 
 function sampleLayout() {
@@ -51,12 +50,7 @@ function sampleLayout() {
         selected_tab: "t1",
       },
       {
-        tabs: [{
-          kind: "document_viewer",
-          key: "t3",
-          document: DOC,
-          version: VER,
-        }],
+        tabs: [{ kind: "document_editor", key: "t3", document: DOC }],
         selected_tab: "t3",
       },
     ],
@@ -228,4 +222,47 @@ test("shell/workspace#R7: 빈 layout은 안전한 기본값을 가진다", () =>
   assert.equal(empty.split_ratio, 0.5);
   assert.deepEqual(empty.panes, [{ tabs: [], selected_tab: null }]);
   assert.deepEqual(empty.information_panel, { open: false, tab: "info" });
+});
+
+test("shell/workspace#R14 [ctx-I37]: 옛 document_viewer 탭은 자리표시 없이 건너뛰고 나머지 탭의 순서와 선택을 지킨다", () => {
+  const raw = (selected: string) => ({
+    schema_version: SCHEMA_VERSION,
+    layout: {
+      schema_version: SCHEMA_VERSION,
+      project: PRJ,
+      window_bounds: { x: 0, y: 0, width: 1280, height: 800 },
+      last_space: "project",
+      panes: [{
+        tabs: [
+          { kind: "document_editor", key: "a", document: DOC },
+          {
+            kind: "document_viewer",
+            key: "old",
+            document: DOC,
+            version: "ver_01h455vb4pex5v6nkc6gd5fdw1",
+          },
+          { kind: "terminal", key: "b", project_folder: "work" },
+        ],
+        selected_tab: selected,
+      }],
+      split_ratio: 0.5,
+      focused_pane: 0,
+      information_panel: { open: false, tab: "info" },
+    },
+  });
+  const kept = parseLayoutFile(raw("b"));
+  assert.ok(kept.ok);
+  if (!kept.ok) return;
+  assert.deepEqual(
+    kept.layout.panes[0]!.tabs.map((tab) => tab.key),
+    ["a", "b"],
+  );
+  assert.equal(kept.layout.panes[0]!.selected_tab, "b");
+  // 선택이 건너뛴 탭이었으면 첫 남은 탭으로 옮긴다.
+  const moved = parseLayoutFile(raw("old"));
+  assert.ok(moved.ok);
+  if (!moved.ok) return;
+  assert.equal(moved.layout.panes[0]!.selected_tab, "a");
+  // 저장 전 검증(validateLayout)은 모르는 kind를 받지 않는다.
+  assert.equal(validateLayout(raw("b").layout).ok, false);
 });

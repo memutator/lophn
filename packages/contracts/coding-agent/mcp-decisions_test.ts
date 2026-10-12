@@ -169,7 +169,10 @@ Deno.test("coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그�
     false,
   );
   assertEquals(
-    tool("lophn_approval").input.safeParse({ op: "show", approval: CTX })
+    tool("lophn_approval").input.safeParse({
+      op: "show",
+      approval: "ctx_01arz3ndektsv4rrffq69g5fav",
+    })
       .success,
     false,
   );
@@ -206,4 +209,15 @@ Deno.test("coding-agent/mcp-server#R18: op의 read route 오류 코드는 공통
   ) {
     for (const code of route.errors) assert(known.has(code));
   }
+});
+
+Deno.test("coding-agent/mcp-server#R38 [ctx-R7]: the decision tools carry no context or term tool", () => {
+  assertEquals(
+    MCP_DECISION_TOOLS.map((item) => item.name).filter((name) =>
+      name.includes("context")
+    ),
+    [],
+  );
+  assertEquals("lophn_context" in MCP_DECISION_ROUTES, false);
+  assertEquals(mcpDecisionTool("lophn_context"), undefined);
 });

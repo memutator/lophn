@@ -1,6 +1,6 @@
 // 제품 core 통로의 WorkspaceSource. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다.
 // 응답은 main의 contract client가 route output schema로 이미 검사했다. 아래 응답 모양은
-// projects.get, documents.list·get, contexts.list, files.list schema에서 작업대가 읽는 field만
+// projects.get, documents.list·get, context.list, files.list schema에서 작업대가 읽는 field만
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
 import type {
@@ -8,8 +8,8 @@ import type {
   LayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { coreContextsSource } from "./contexts/core-source.ts";
 import type {
-  ContextRow,
   DocumentRow,
   FileRow,
   LayoutRead,
@@ -40,15 +40,6 @@ interface DocumentGetValue {
       | { kind: "instruction_file"; path: string }
       | null;
   };
-}
-
-interface ContextListValue {
-  contexts: {
-    id: string;
-    title: string;
-    items: { target: { kind: string; document?: string } }[];
-  }[];
-  next_cursor: string | null;
 }
 
 interface FileListValue {
@@ -180,42 +171,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
   return {
     project,
 
-    documents: (id) => projectDocuments(core, id),
+    // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다(shell/workspace#R16~R29).
+    contextsSource: coreContextsSource(core),
 
-    // 연관 컨텍스트: 이 프로젝트의 문서를 하나라도 담은 활성 컨텍스트.
-    async contexts(id) {
-      const documents = await projectDocuments(core, id);
-      if (!documents.ok) return documents;
-      const ids = new Set(documents.value.map((row) => row.id));
-      const contexts = await collect<ContextRow & { documents: string[] }>(
-        core,
-        "contexts",
-        "list",
-        { status: "active" },
-        (value) => {
-          const page = value as ContextListValue;
-          return {
-            items: page.contexts.map((context) => ({
-              id: context.id,
-              title: context.title,
-              documents: context.items.flatMap((item) =>
-                item.target.kind === "document" && item.target.document
-                  ? [item.target.document]
-                  : []
-              ),
-            })),
-            next: page.next_cursor,
-          };
-        },
-      );
-      if (!contexts.ok) return contexts;
-      return {
-        ok: true,
-        value: contexts.value
-          .filter((context) => context.documents.some((doc) => ids.has(doc)))
-          .map((context) => ({ id: context.id, title: context.title })),
-      };
-    },
+    documents: (id) => projectDocuments(core, id),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

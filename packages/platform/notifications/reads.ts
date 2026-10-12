@@ -1,7 +1,6 @@
 import { err, ok } from "../../base/mod.ts";
 import {
   atSchema,
-  idSchema,
   type NotificationAsk,
   notificationsDisplay,
   notificationsGet,
@@ -12,8 +11,6 @@ import { notificationAsk } from "./ask-agent.ts";
 import { notificationView } from "./model.ts";
 import { osDisplayRequest } from "./os-display.ts";
 import { notificationOf, readNotificationRow } from "./store.ts";
-
-const documentId = idSchema("doc");
 
 type Sql = Parameters<
   ReadDefinition<typeof notificationsGet>["handle"]
@@ -32,20 +29,10 @@ function parsePayload(raw: unknown): unknown {
   }
 }
 
-// ContextWatchedItemChanged가 저장한 문서 참조만. 없거나 id가 아니면 null이다.
-function documentOf(event: string, payload: unknown): string | null {
-  if (event !== "ContextWatchedItemChanged" || !isRecord(payload)) return null;
-  const target = payload["target"];
-  if (!isRecord(target) || target["kind"] !== "document") return null;
-  const document = target["document"];
-  return typeof document === "string" && documentId.safeParse(document).success
-    ? document
-    : null;
-}
-
-// Ask가 연 탭의 자리가 될 앱이다(R14). 문제는 source payload가, release는 그 release를 만든
-// 사실(ReleasePrepared)이 앱을 가진다. 알 수 없으면 null이다.
-function appOf(
+// Ask가 연 탭의 자리다(R14). 앱 문제는 source payload가, release는 그 release를 만든 사실
+// (ReleasePrepared)이 앱을 가진다. context 위반은 그 context를 만든 사실(ContextCreated)이
+// project를 가진다. 알 수 없으면 null이다.
+function placeOf(
   sql: Sql,
   event: string,
   subject: unknown,
@@ -64,6 +51,15 @@ function appOf(
     const app = isRecord(record) ? record["app"] : undefined;
     return typeof app === "string" ? app : null;
   }
+  if (event === "ContextViolationsRecorded" && typeof subject === "string") {
+    const created = sql.get(
+      "select payload from events where type = 'ContextCreated' and subject = ? order by seq limit 1",
+      [subject],
+    );
+    const record = parsePayload(created?.["payload"]);
+    const project = isRecord(record) ? record["project"] : undefined;
+    return typeof project === "string" ? project : null;
+  }
   return null;
 }
 
@@ -75,28 +71,19 @@ type Source = {
   payload: unknown;
 };
 
-// 사람 줄만 본다. 다른 actor에게는 source 시각·문서 참조·ask를 열지 않고 payload는 어디에도 없다.
+// 사람 줄만 본다. 다른 actor에게는 source 시각·ask를 열지 않고 payload는 어디에도 없다.
 function lineFacts(
   actor: string,
   source: Source,
-): {
-  occurred_at?: string;
-  document?: string | null;
-  ask?: NotificationAsk | null;
-} {
+): { occurred_at?: string; ask?: NotificationAsk | null } {
   if (actor !== "user") return {};
   const { event, at, payload } = source;
-  const facts: {
-    occurred_at?: string;
-    document: string | null;
-    ask: NotificationAsk | null;
-  } = {
-    document: documentOf(event, payload),
+  const facts: { occurred_at?: string; ask: NotificationAsk | null } = {
     ask: typeof source.subject === "string"
       ? notificationAsk(
         event,
         source.subject,
-        appOf(source.sql, event, source.subject, payload),
+        placeOf(source.sql, event, source.subject, payload),
       )
       : null,
   };

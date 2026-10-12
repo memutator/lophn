@@ -34,7 +34,8 @@ export type ResolveEnvironment = {
   // 이 자리에 등록된 skill 이름과 MCP tool(등록 순서).
   skills: readonly string[];
   mcp: readonly McpTool[];
-  // 자리 project의 active context(자리가 project가 아니면 빈 목록). 보관한 context는 들어 있지 않다.
+  // 자리 project의 active context다. App Engineer가 앱 자리에서 열리면 그 앱을 app-data source로 읽는 active
+  // context다(documents/contexts). 그 밖에 자리가 project가 아니면 빈 목록이다. 보관한 context는 들어 있지 않다.
   active_contexts: readonly string[];
 };
 
@@ -61,8 +62,8 @@ export type ResolveInput = {
 //   동작은 정의에 있어도 빠지고, 정의에 적은 동작만 남으므로 role_caps에 동작이 늘어도 좁힌 정의는 늘지 않는다.
 // - skills·mcp는 등록된 것 가운데 skills_off·mcp_off에 없는 것(등록 순서)이다. 등록에 없는 끈 기록은 무시한다.
 // - contexts는 Operator면 정의가 고른 것 가운데 active인 것(정의 순서), built-in이면 active 전부(주어진 순서)다.
-//   built-in이 앱 자리에서 열리면 []와 `contexts_reason: "no_project"`다. built-in은 정의의 name·contexts·
-//   app_reads를 쓰지 않는다.
+//   App Engineer가 앱 자리에서 열리면 환경이 준 그 앱의 active context 전부이고, 다른 built-in이 앱 자리에서
+//   열리면 []와 `contexts_reason: "no_project"`다. built-in은 정의의 name·contexts·app_reads를 쓰지 않는다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 // - sources: 값마다 그 값을 준 층. 정의는 칸을 실제로 가질 때만(profile·model·permissions·본문·비어 있지 않은
 //   목록) `definition`이고 아니면 `default`다. place와 definition 층은 resolved agent의 place를 싣는다.
@@ -145,7 +146,7 @@ export async function resolveAgent(
       contexts = picked.filter((id) => active.has(id));
       if (picked.length > 0) contextsSource = fromDefinition;
     }
-  } else if (place.kind === "project") {
+  } else if (place.kind === "project" || role === "app_engineer") {
     contexts = [...environment.active_contexts];
   } else {
     contextsReason = "no_project";

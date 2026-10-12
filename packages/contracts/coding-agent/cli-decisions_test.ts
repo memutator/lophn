@@ -170,3 +170,16 @@ Deno.test("coding-agent/cli#R21: command 입력은 owner route 입력을 그대�
     app: "app_01arz3ndektsv4rrffq69g5fav",
   });
 });
+
+Deno.test("coding-agent/cli#R42 [ctx-R7]: the decision commands carry no context command", () => {
+  assertEquals(
+    CLI_DECISION_NAMES.filter((name) => name.startsWith("context")),
+    [],
+  );
+  assertEquals(
+    CLI_DECISION_COMMANDS.map((schema) => schema.shape.command.value).filter(
+      (name) => name.startsWith("context"),
+    ),
+    [],
+  );
+});

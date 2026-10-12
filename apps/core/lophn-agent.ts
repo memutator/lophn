@@ -191,6 +191,7 @@ import {
   type SkillSources,
   type SyncSkillFiles,
 } from "../../packages/lophn-agent/extensions/mod.ts";
+import { contextStatusOf } from "../../packages/documents/contexts/mod.ts";
 import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 
 // 설치 묶음에 동봉된 skill 폴더다(extensions R1). runtime의 skill 발견(apps/agent-runtime/skill-folders.ts)이
@@ -710,20 +711,17 @@ function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
       const row = sql.get(`select ${ASSIGNMENT_COLUMNS} where id = ?`, [id]);
       return row === undefined ? null : agentAssignmentRef(row);
     },
-    // context는 project에 속하지 않고 workspace 전체에 있다(documents/contexts 표에 project 열이 없다).
-    contextStatus: (id) => {
-      const row = sql.get("select status from contexts where id = ?", [id]);
-      return row === undefined
-        ? null
-        : String(row["status"]) === "active"
-        ? "active"
-        : "archived";
+    // context는 project 안에만 있다(documents/contexts). 만드는 중(drafting)인 context도 실제 context다.
+    contextStatus: (id) => contextStatusOf(sql, id) ?? null,
+    contextProject: (id) => {
+      const row = sql.get("select project from contexts where id = ?", [id]);
+      return row === undefined ? null : String(row["project"]);
     },
     activeContexts: (place) =>
       place.kind === "project"
         ? sql.all(
-          "select id from contexts where status = 'active' order by id",
-          [],
+          "select id from contexts where project = ? and status = 'active' order by id",
+          [place.id],
         )
           .map((row) => String(row["id"]))
         : [],

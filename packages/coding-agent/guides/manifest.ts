@@ -21,7 +21,7 @@ export const SKILL_RELEASES: readonly SkillRelease[] = [
   {
     name: "lophn-navigate",
     version: "1.0.1",
-    hash: "de7f295c9a797e4da15226627cd2645607313dadb51f247a63e455e059c35887",
+    hash: "22307b8425ae2d69dd9cb53cf2bbe7ee6f1677548168dc0b4b2e4d68d269dae9",
   },
   {
     name: "lophn-repair",

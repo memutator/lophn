@@ -13,7 +13,7 @@ import { ROLE_CAPS } from "../../agents/mod.ts";
 //
 // 담당 앱 command tool은 이름 목록이 아니라 blueprint 정의와 AgentAppScope
 // (harness/run-loop/scope.ts)의 교집합이라 여기에 없다(R21). 앱 command 노출
-// 상한은 APP_COMMAND_EXPOSURE 표가 둔다(presets/role-caps.ts).
+// 상한은 APP_COMMAND_EXPOSURE 표가 둔다(agents/role-caps.ts).
 //
 // ticket 읽기·생성·전환(`ticket.list`·`ticket.read`·`ticket.create`·`ticket.make_ready`)은
 // harness/tools의 ticket 묶음이 정의하고 준비 검사는 ./ticket.ts가 둔다(R6, R16, R17). 문제 해석

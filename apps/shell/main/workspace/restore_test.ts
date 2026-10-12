@@ -6,16 +6,16 @@ import { validateLayout } from "./layout.ts";
 import { restoreLayout, restoreTab, type RestoreTargets } from "./restore.ts";
 
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fdw1";
-const VER = "ver_01h455vb4pex5v6nkc6gd5fdw1";
 const PRJ = "prj_01h455vb4pex5v6nkc6gd5fdw1";
 
 /** 통과하는 가짜 대상. 모든 대상이 살아 있고 읽을 수 있다. */
 function liveTargets(): RestoreTargets {
   return {
-    document: () => Promise.resolve(true),
     documentExists: () => Promise.resolve(true),
     app: () => Promise.resolve(true),
     canRead: () => Promise.resolve(true),
+    context: () => Promise.resolve(true),
+    declaredSearch: () => Promise.resolve(true),
   };
 }
 
@@ -42,8 +42,8 @@ test("shell/workspace#R7: 없는 문서는 이유를 가진 자리표시다", as
     { kind: "document_editor", key: "t1", document: DOC },
     targets,
   );
-  assert.equal(editor.kind, "placeholder");
-  if (editor.kind === "placeholder") {
+  assert.equal(editor?.kind, "placeholder");
+  if (editor?.kind === "placeholder") {
     assert.equal(editor.reason, "document_missing");
     assert.equal(editor.title, DOC);
   }
@@ -63,8 +63,8 @@ test("shell/workspace#R7: 사용할 수 없는 앱은 이유를 가진 자리표
     },
     targets,
   );
-  assert.equal(panel.kind, "placeholder");
-  if (panel.kind === "placeholder") {
+  assert.equal(panel?.kind, "placeholder");
+  if (panel?.kind === "placeholder") {
     assert.equal(panel.reason, "app_unavailable");
   }
 });
@@ -74,13 +74,13 @@ test("shell/workspace#R7: 권한이 없는 문서는 자리표시다", async () 
     ...liveTargets(),
     canRead: () => Promise.resolve(false),
   };
-  const viewer = await restoreTab(
-    { kind: "document_viewer", key: "t1", document: DOC, version: VER },
+  const editor = await restoreTab(
+    { kind: "document_editor", key: "t1", document: DOC },
     targets,
   );
-  assert.equal(viewer.kind, "placeholder");
-  if (viewer.kind === "placeholder") {
-    assert.equal(viewer.reason, "no_permission");
+  assert.equal(editor?.kind, "placeholder");
+  if (editor?.kind === "placeholder") {
+    assert.equal(editor.reason, "no_permission");
   }
 });
 

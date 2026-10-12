@@ -23,6 +23,7 @@ import {
   openLophn,
   openSession,
   output,
+  type Place,
   PLACES,
   PROJECT,
   PROJECT_OTHER,
@@ -506,6 +507,53 @@ Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message lin
       "invalid_input",
     );
     assertEquals(await count(h, "messages"), 4);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/conversation#R4 [ctx-I58j]: a context link needs a context that was created", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const session = await openLophn(h);
+    const run = await runningRun(h, session, id("msg", 1));
+    const ctx = id("ctx", 1);
+    const record = (message: string, links: unknown[]) =>
+      h.command(
+        machineCred,
+        envelope("RecordMessage", {
+          id: message,
+          session,
+          run,
+          content: textContent("a context to look at"),
+          links,
+        }),
+      );
+    // 아직 없는 context는 링크가 될 수 없다.
+    code(
+      await record(id("msg", 2), [{ kind: "context", context: ctx }]),
+      "invalid_input",
+    );
+    value(
+      await h.command(
+        machineCred,
+        envelope("SeedTargetFixture", {
+          type: "ContextCreated",
+          subject: ctx,
+          payload: {},
+        }),
+      ),
+    );
+    const linked = output<Snapshot>(
+      await record(id("msg", 2), [{ kind: "context", context: ctx }]),
+    );
+    assertEquals(linked.message["links"], [{ kind: "context", context: ctx }]);
+    // 다른 context의 링크는 이 context의 것이 아니다.
+    code(
+      await record(id("msg", 3), [{ kind: "context", context: id("ctx", 2) }]),
+      "invalid_input",
+    );
   } finally {
     await h.close();
   }
@@ -1266,6 +1314,113 @@ Deno.test("lophn-agent/conversation#R4: a recorded machine body is text only and
       "invalid_input",
     );
     assertEquals((await blobRefsOf(h, id("msg", 3))).length, 0);
+  } finally {
+    await h.close();
+  }
+});
+
+function startRequestOf(h: LedgerHarness, text: string, place: Place) {
+  return h.command(
+    machineCred,
+    envelope("StartRequestFixture", {
+      role: "context_engineer",
+      work_place: place,
+      text,
+    }),
+  );
+}
+
+Deno.test("lophn-agent/conversation#R1 #R3 [ctx-I58h]: a request started for a person opens a session at the given work place, stores the user request and accepts one run in one transaction", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const started = output<{ session: string; message: string; run: string }>(
+      await startRequestOf(h, "Look at these violations.", PLACES.project),
+    );
+    // 세션은 Context Engineer의 새 세션이고 작업 자리는 넘겨받은 자리다.
+    const session = (await sql(
+      h,
+      "select assignment, work_place_kind, work_place_id, state from sessions where id = ?",
+      [started.session],
+    ))[0]!;
+    assertEquals(String(session["assignment"]), ASG_CE);
+    assertEquals(String(session["work_place_kind"]), "project");
+    assertEquals(String(session["work_place_id"]), PROJECT);
+    assertEquals(String(session["state"]), "open");
+    // message는 사람 요청이고 본문 blob 참조가 message 소유로 하나 있다.
+    const message = (await sql(
+      h,
+      "select session, actor, mode, run, body from messages where id = ?",
+      [started.message],
+    ))[0]!;
+    assertEquals(String(message["session"]), started.session);
+    assertEquals(String(message["actor"]), "user");
+    assertEquals(String(message["mode"]), "request");
+    assertEquals(String(message["run"]), started.run);
+    assertEquals(
+      String(message["body"]),
+      bodyHashOf("Look at these violations."),
+    );
+    assertEquals(
+      await count(
+        h,
+        "blob_refs",
+        `owner_kind = 'message' and owner_key = '${started.message}' and field = 'body'`,
+      ),
+      1,
+    );
+    // run은 이 message에서 시작한 Context Engineer의 접수된 run 하나다.
+    const run = (await sql(
+      h,
+      "select assignment, session, source_kind, source_message, state from runs where id = ?",
+      [started.run],
+    ))[0]!;
+    assertEquals(String(run["assignment"]), ASG_CE);
+    assertEquals(String(run["session"]), started.session);
+    assertEquals(String(run["source_kind"]), "message");
+    assertEquals(String(run["source_message"]), started.message);
+    assertEquals(String(run["state"]), "accepted");
+    assertEquals(
+      (await eventsOf(h, "SessionOpened", started.session)).length,
+      1,
+    );
+    assertEquals(
+      (await eventsOf(h, "MessageReceived", started.message)).length,
+      1,
+    );
+    assertEquals((await eventsOf(h, "RunAccepted", started.run)).length, 1);
+    // 두 번 보내면 각자 새 세션·message·run이다(한 번의 단추가 한 요청이다).
+    const second = output<{ run: string }>(
+      await startRequestOf(h, "Another.", PLACES.project),
+    );
+    assert(second.run !== started.run);
+    assertEquals(await count(h, "runs"), 2);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/conversation#R14 [ctx-I58h]: with no enabled assignment for the role the request is unavailable and leaves no session, message or run", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    await setAssignmentState(h, ASG_CE, "paused");
+    code(
+      await startRequestOf(h, "Look at these violations.", PLACES.project),
+      "unavailable",
+    );
+    assertEquals(await count(h, "sessions"), 0);
+    assertEquals(await count(h, "messages"), 0);
+    assertEquals(await count(h, "runs"), 0);
+    // 작업 자리가 실제 project가 아니면 세션을 열 때 거절되어 아무것도 남지 않는다.
+    await setAssignmentState(h, ASG_CE, "enabled");
+    code(
+      await startRequestOf(h, "Look.", { kind: "project", id: id("prj", 9) }),
+      "not_found",
+    );
+    assertEquals(await count(h, "sessions"), 0);
+    assertEquals(await count(h, "messages"), 0);
+    assertEquals(await count(h, "runs"), 0);
   } finally {
     await h.close();
   }

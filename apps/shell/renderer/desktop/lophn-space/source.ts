@@ -1,5 +1,5 @@
 // lophn 공간 화면이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
-// core-source.ts만 안다. 모양은 contracts(search·views·series·outline·documents)에서
+// core-source.ts만 안다. 모양은 contracts(search·series·outline·documents)에서
 // 이 화면이 쓰는 field만 옮긴 것이다(contracts를 들이면 zod가 renderer bundle에 들어간다).
 
 export type SourceResult<T> =
@@ -18,23 +18,21 @@ export interface Named {
   readonly title: string;
 }
 
-/** 전체 목차에서 고르는 자리와 context. 조건 선택지로만 쓴다. */
+/** 전체 목차에서 고르는 자리. 조건 선택지로만 쓴다. */
 export interface Catalog {
   readonly projects: readonly Named[];
   readonly apps: readonly Named[];
-  readonly contexts: readonly Named[];
 }
 
 export interface SearchConditions {
   readonly query: string;
   readonly place: PlaceRef | null;
-  readonly context: string | null;
   readonly format: string | null;
   /** 보관 문서도 제목으로 찾는다. 검색 index는 보관 문서를 넣지 않는다. */
   readonly includeArchived: boolean;
 }
 
-/** 검색·view가 반영한 범위. 지연·재생성·누락만 화면이 판단에 쓴다. */
+/** 검색이 반영한 범위. 지연·재생성·누락만 화면이 판단에 쓴다. */
 export interface Coverage {
   readonly lagging: boolean;
   readonly rebuilding: boolean;
@@ -65,36 +63,6 @@ export interface ArchivedHit {
   readonly version: string;
   readonly title: string;
   readonly format: string;
-}
-
-export interface ViewFilter {
-  readonly text: string | null;
-  readonly context: string | null;
-  readonly format: string | null;
-  readonly status: "active" | "archived" | "all";
-}
-
-export interface SavedView {
-  readonly id: string;
-  readonly name: string;
-  readonly place: PlaceRef | null;
-  readonly filter: ViewFilter;
-  readonly revision: string;
-}
-
-export interface ViewEntry {
-  readonly document: string;
-  readonly title: string;
-  readonly version: string;
-  readonly latestVersion: string;
-  readonly savedAt: number;
-  readonly excerpt: string | null;
-}
-
-export interface ViewPage {
-  readonly entries: readonly ViewEntry[];
-  readonly coverage: Coverage | null;
-  readonly nextCursor: string | null;
 }
 
 export interface OutlineSection {
@@ -230,12 +198,6 @@ export interface LophnSource {
   archived(
     conditions: SearchConditions,
   ): Promise<SourceResult<readonly ArchivedHit[]>>;
-  views(): Promise<SourceResult<readonly SavedView[]>>;
-  saveView(
-    name: string,
-    conditions: SearchConditions,
-  ): Promise<SourceResult<SavedView>>;
-  openView(view: string, cursor?: string): Promise<SourceResult<ViewPage>>;
   head(document: string, version: string): Promise<SourceResult<DocumentHead>>;
   outline(
     document: string,

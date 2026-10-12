@@ -38,7 +38,6 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const search = await mock.lophn.search({
     query: "budget",
     place: null,
-    context: null,
     format: null,
     includeArchived: false,
   });
@@ -46,7 +45,6 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const nothing = await mock.lophn.search({
     query: "no such words anywhere",
     place: null,
-    context: null,
     format: null,
     includeArchived: false,
   });
@@ -76,4 +74,23 @@ Deno.test("dev-mock: 쓰기는 메모리에서만 끝난다(등록은 목록에 
     body: {},
   });
   assertEquals(reply.ok, false);
+});
+
+Deno.test("shell/workspace#R14 [ctx-I53]: mock 작업대는 Contexts 탭 통로와 검색 결과가 가리키는 문서를 준다", async () => {
+  const mock = devMock("?mock");
+  assert(mock !== null);
+  const contexts = mock.workspace.contextsSource;
+  assert(contexts !== undefined);
+  const list = await contexts.list("prj_mock");
+  assert(list.ok && list.value.some((item) => item.status === "drafting"));
+  assert(list.ok && list.value.some((item) => item.status === "active"));
+  // 검색 결과가 가리키는 경로는 문서로 잡힌 파일이고 그 문서를 편집기가 읽는다.
+  const files = await mock.workspace.files("prj_mock");
+  assert(files.ok);
+  const experiment = files.value.find((file) =>
+    file.path === "eval/experiments/exp-008-query-tools.md"
+  );
+  assert(experiment !== undefined);
+  const document = await mock.editor.source.document(experiment.document);
+  assert(document.ok);
 });

@@ -12,7 +12,7 @@ import { ROLE_CAPS } from "../../agents/mod.ts";
 //
 // 승인된 앱 read command(`app.call_read_command`·`app.command_metadata`)는 이름 목록이
 // 아니라 blueprint 정의와 AgentAppScope(harness/run-loop/scope.ts)의 교집합이라
-// 여기에 없다(R4, R5). 노출 상한은 APP_COMMAND_EXPOSURE 표가 둔다(presets/role-caps.ts).
+// 여기에 없다(R4, R5). 노출 상한은 APP_COMMAND_EXPOSURE 표가 둔다(agents/role-caps.ts).
 //
 // 문서 새 version(`document.save_version`)은 정의의 권한에 있을 때만 제공되는 내장 tool이다.
 // 어느 문서에 쓸 수 있는지(담당 자리)와 되돌림·ask 판정은 쓰기마다 harness/tool-judgment가

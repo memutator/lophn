@@ -448,17 +448,24 @@ Deno.test("lophn-agent/questions#R6, R8 [I45]: Skip과 취소는 묶음 전체�
   assertEquals(cancel!.idempotency_key, `questions-cancel-${GRP}`);
 });
 
-Deno.test("lophn-agent/questions#R13 [I45]: term.define·app.create를 고른 질문 하나짜리 묶음은 확인 창 없이 main 통로로 확정하고 통로가 없으면 못 한다고 답한다", async () => {
+Deno.test("lophn-agent/questions#R13 [I45]: app.create·apply_settings를 고른 질문 하나짜리 묶음은 확인 창 없이 main 통로로 확정하고 통로가 없으면 못 한다고 답한다", async () => {
   const sent: unknown[] = [];
   const shell = globalThis as {
     lophnShell?: {
-      confirmTermDefinition?: (input: unknown) => Promise<unknown>;
+      confirmWithoutWindow?: (input: unknown) => Promise<unknown>;
     };
   };
   const before = shell.lophnShell;
+  // 창 없이 확정하는 고정 action은 app.create·apply_settings뿐이다. term.define은 확인 창으로 간다.
+  const first = GROUP.questions[0]!;
   const single: QuestionGroupRequest = {
     ...GROUP,
-    questions: [GROUP.questions[0]!],
+    questions: [{
+      ...first,
+      options: first.options.map((option) =>
+        option.key === "move" ? { ...option, command: "app.create" } : option
+      ),
+    }],
   };
   const pick = [{
     question: QST,
@@ -473,7 +480,7 @@ Deno.test("lophn-agent/questions#R13 [I45]: term.define·app.create를 고른 �
       code: "unavailable",
     });
     shell.lophnShell = {
-      confirmTermDefinition: (input) => {
+      confirmWithoutWindow: (input) => {
         sent.push(input);
         return Promise.resolve({ ok: true });
       },

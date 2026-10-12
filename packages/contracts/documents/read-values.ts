@@ -11,12 +11,10 @@ import { contentFileOutputSchema } from "./versions.ts";
 
 export const ROOT_ESTIMATED_TOKEN_BUDGET = 1500;
 export const PLACE_ESTIMATED_TOKEN_BUDGET = 3000;
-export const CONTEXT_ESTIMATED_TOKEN_BUDGET = 3000;
 export const DOCUMENT_ESTIMATED_TOKEN_BUDGET = 2000;
 export const DOCUMENT_OUTLINE_DEPTH = 2;
 export const READ_CODEPOINT_BUDGET = 12000;
 export const EXCERPT_CODEPOINT_LIMIT = 200;
-export const GLOSSARY_FIRST_PAGE_LIMIT = 30;
 export const readActors = ["user", "coding_agent", "agent", "app"] as const;
 export const readErrors = ERROR_CODES;
 export const countSchema = z.number().int().nonnegative().max(

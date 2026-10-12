@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
+import { t } from "@lophn/wording";
 import { act } from "react";
 import {
   click,
@@ -17,6 +18,7 @@ import type { WorkspaceSource } from "../workspace/source.ts";
 import { LophnSpace } from "../desktop/lophn-space/lophn-space.tsx";
 import { fakeSource as fakeLophnSource } from "../desktop/lophn-space/testdata/fake-source.ts";
 import {
+  AGENT,
   agentMessage,
   fakeSource,
   manualTicks,
@@ -96,7 +98,6 @@ function workspaceSource(): WorkspaceSource {
         ok: true,
         value: [{ id: "doc_1", title: "notes" }],
       }),
-    contexts: () => Promise.resolve({ ok: true, value: [] }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "absent" }),
@@ -300,6 +301,89 @@ Deno.test("shell/desktop#R3: 결과 5개 중 처음 3개와 남은 개수를 보
   assertEquals(all[3]!.textContent, "Budget");
   for (const item of all) click(item);
   assertEquals(opened, ["doc_1", "doc_2", "doc_3", "doc_4", "doc_5"]);
+});
+
+Deno.test("shell/workspace#R31 [ctx-I58i]: 답 아래 context 링크는 알려진 이름으로 보이고 누르면 그 context를 연다", async () => {
+  const fake = fakeSource({
+    messages: {
+      [sessionId(1)]: [
+        agentMessage(1, [
+          { kind: "context", context: "ctx_known" },
+          { kind: "context", context: "ctx_unknown" },
+          { kind: "document", document: "doc_1" },
+        ]),
+      ],
+    },
+    titles: { doc_1: "Weekly summary" },
+  });
+  const opened: string[] = [];
+  using view = render(
+    <Dock
+      source={fake.source}
+      drafts={new DraftStore()}
+      placement="docked"
+      workPlace={{ kind: "global", id: null }}
+      onClose={() => {}}
+      contexts={{
+        open: (context) => opened.push(context),
+        titleOf: (context) => context === "ctx_known" ? "harness" : undefined,
+      }}
+      ticks={manualTicks().ticks}
+      now={() => NOW}
+    />,
+  );
+  await flush();
+  const links = [...view.container.querySelectorAll("[data-result-context]")];
+  assertEquals(links.map((item) => item.textContent), ["harness", "Context"]);
+  click(links[0] as HTMLElement);
+  click(links[1] as HTMLElement);
+  assertEquals(opened, ["ctx_known", "ctx_unknown"]);
+  // 문서 링크는 그대로 문서 이름으로 보인다.
+  assertEquals(
+    find(view.container, "[data-result]").textContent,
+    "Weekly summary",
+  );
+});
+
+Deno.test("shell/workspace#R31 [ctx-I58i]: 열 길이 없는 대화의 context 링크는 누를 수 없다", async () => {
+  const fake = fakeSource({
+    messages: {
+      [sessionId(1)]: [
+        agentMessage(1, [{ kind: "context", context: "ctx_a" }]),
+      ],
+    },
+  });
+  using view = render(dockOf(fake));
+  await flush();
+  assertEquals(
+    (find(view.container, "[data-result-context]") as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+});
+
+Deno.test("shell/workspace#R30 [ctx-I58j]: 비어 있는 Context Engineer 대화의 입력칸은 첫 안내를 보이고 말이 오가면 안내가 없다", async () => {
+  const engineer = { ...AGENT, role: "context_engineer" as const };
+  const empty = fakeSource({ agent: engineer });
+  using first = render(dockOf(empty));
+  await flush();
+  assertEquals(
+    composer(first.container).placeholder,
+    t("conversation.placeholder.new-context"),
+  );
+  const talked = fakeSource({
+    agent: engineer,
+    messages: { [sessionId(1)]: [agentMessage(1)] },
+  });
+  using second = render(dockOf(talked));
+  await flush();
+  assertEquals(composer(second.container).placeholder, "");
+});
+
+Deno.test("shell/workspace#R30 [ctx-I58j]: lophn 대화의 비어 있는 입력칸에는 첫 안내가 없다", async () => {
+  using view = render(dockOf(fakeSource()));
+  await flush();
+  assertEquals(composer(view.container).placeholder, "");
 });
 
 Deno.test("shell/desktop#R8: 작성 중 말·커서는 도크를 닫았다 열고 세션을 바꿔도 세션마다 남는다", async () => {

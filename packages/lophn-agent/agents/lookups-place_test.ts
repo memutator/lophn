@@ -42,6 +42,7 @@ function deps(asked: AgentPlace[]): AgentDeps {
     }],
     assignment: () => null,
     contextStatus: () => null,
+    contextProject: () => null,
     activeContexts: () => [],
     skills: (place) => {
       asked.push(place);

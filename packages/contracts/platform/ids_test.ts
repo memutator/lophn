@@ -4,13 +4,15 @@ import { ID_PREFIXES, idSchema, runIdSchema } from "./ids.ts";
 const ULID = "01h455vb4pex5v6nkc6gd5fdw1";
 
 Deno.test(
-  "platform/ledger#R8: ID 접두사는 domain model 표의 30개다",
+  "platform/ledger#R8: ID 접두사는 domain model 표의 33개다",
   () => {
     assertEquals(Object.keys(ID_PREFIXES).sort(), [
       "app",
       "apr",
       "asg",
       "cac",
+      "cbn",
+      "chk",
       "ctx",
       "doc",
       "grt",
@@ -39,7 +41,7 @@ Deno.test(
       "viw",
       "vrf",
     ]);
-    assertEquals(Object.keys(ID_PREFIXES).length, 31);
+    assertEquals(Object.keys(ID_PREFIXES).length, 33);
     assertEquals(ID_PREFIXES.run, "Run");
   },
 );

@@ -12,13 +12,9 @@ import {
   roleKindSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { appCreateInputSchema } from "../../../../contracts/apps/mod.ts";
-import { termGet } from "../../../../contracts/documents/mod.ts";
 import { atSchema, idSchema } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
-import {
-  appCreateOptionAction,
-  defineTermOptionAction,
-} from "../../../questions/mod.ts";
+import { appCreateOptionAction } from "../../../questions/mod.ts";
 import {
   type ContractCall,
   defineBuiltin,
@@ -61,22 +57,15 @@ function define(
   );
 }
 
-// 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 기존 후보의 정의는
-// `term_definition`으로, 새 앱 등록은 `app_registration`으로만 제안할 수 있고, handler가
-// 고정 action을 만든다. term.define은 읽은 후보의 이름·revision으로 고정하고(뜻 글의
-// blob hash는 만들지 않는다), app.create는 handler가 앱 ID를 미리 배정하고 선택지의 근거
-// 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)과 문서 자리
+// 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 새 앱 등록은 `app_registration`으로만
+// 제안할 수 있고, handler가 고정 action을 만든다. app.create는 handler가 앱 ID를 미리 배정하고
+// 선택지의 근거 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)과 문서 자리
 // 이동(`document_move`)도 대상과 새 값만 제안하고 현재 값·revision 같은 비교 기준은 handler가
 // 읽어 고정한다(question-actions.ts).
 const fixedAppRegistration = appCreateInputSchema.pick({
   slug: true,
   name: true,
   description: true,
-});
-const fixedTermDefinition = z.strictObject({
-  term: idSchema("trm"),
-  name: questionTextSchema,
-  definition: questionTextSchema,
 });
 const questionOption = z.strictObject({
   key: z.string().regex(/\S/),
@@ -85,7 +74,6 @@ const questionOption = z.strictObject({
   evidence: z.array(fixedVersionReferenceSchema),
   adoption: fixedVersionReferenceSchema.nullable(),
   action: z.null(),
-  term_definition: fixedTermDefinition.optional(),
   app_registration: fixedAppRegistration.optional(),
   setting_change: fixedSettingChange.optional(),
   document_move: fixedDocumentMove.optional(),
@@ -241,14 +229,6 @@ export type AgentToolPorts = ContractCall & {
   >;
 };
 
-type ReadCandidate = {
-  id: string;
-  name: string;
-  definition: string | null;
-  revision: string;
-  status: string;
-};
-
 // 정의별 handler다. 입력은 실행기가 정의 schema로 이미 검사했다. 소유 contract가 거절하면
 // 그 오류를 그대로 돌려주고 실행기가 안전한 문장으로 포장한다(범위 밖은 없는 대상과 같다).
 export function createAgentToolHandlers(
@@ -265,7 +245,6 @@ export function createAgentToolHandlers(
       // 읽기·고정 전에 먼저 거절한다. command도 같은 검사를 한다.
       const proposesAction = value.questions.some((question) =>
         question.options.some((option) =>
-          option.term_definition !== undefined ||
           option.app_registration !== undefined ||
           option.setting_change !== undefined ||
           option.document_move !== undefined
@@ -284,13 +263,12 @@ export function createAgentToolHandlers(
         const options = [];
         for (const option of question.options) {
           const {
-            term_definition: proposed,
             app_registration: registration,
             setting_change: setting,
             document_move: move,
             ...rest
           } = option;
-          const fixes = [proposed, registration, setting, move].filter((
+          const fixes = [registration, setting, move].filter((
             fixed,
           ) => fixed !== undefined).length;
           if (fixes > 1) {
@@ -330,42 +308,7 @@ export function createAgentToolHandlers(
             });
             continue;
           }
-          if (proposed === undefined) {
-            options.push(rest);
-            continue;
-          }
-          // 이름·revision·context는 모델 입력이 아니라 읽은 후보가 고정한다.
-          const read = await ports.call(
-            termGet.name,
-            { term: proposed.term },
-            credential.run,
-          );
-          if (!read.ok) return read;
-          const term = (read.value as { term?: ReadCandidate }).term;
-          if (
-            term === undefined || term.id !== proposed.term ||
-            term.status !== "active" || term.definition !== null
-          ) {
-            return err({
-              code: "invalid_input",
-              message: "a definition option needs an open candidate",
-            });
-          }
-          if (term.name !== proposed.name) {
-            return err({
-              code: "invalid_input",
-              message: "defining a term does not rename it",
-            });
-          }
-          options.push({
-            ...rest,
-            action: defineTermOptionAction({
-              term: term.id,
-              name: term.name,
-              definition: proposed.definition,
-              base_revision: term.revision,
-            }),
-          });
+          options.push(rest);
         }
         questions.push({
           id,

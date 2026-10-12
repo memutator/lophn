@@ -91,7 +91,6 @@ interface NotificationValue {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
   occurred_at?: string;
-  document?: string | null;
   delivery?: { state: string; reason?: string };
 }
 
@@ -317,13 +316,10 @@ function notificationOf(value: NotificationValue): NotificationRow {
 
 function lineOf(
   value: NotificationValue,
-): Pick<NotificationRow, "occurredAt" | "document"> {
-  const facts: { occurredAt?: string; document?: string } = {};
+): Pick<NotificationRow, "occurredAt"> {
+  const facts: { occurredAt?: string } = {};
   if (typeof value.occurred_at === "string" && value.occurred_at.length > 0) {
     facts.occurredAt = value.occurred_at;
-  }
-  if (typeof value.document === "string" && value.document.length > 0) {
-    facts.document = value.document;
   }
   return facts;
 }
@@ -384,26 +380,26 @@ async function eventTimes(
   return times;
 }
 
-type ConfirmTerm = (input: {
+type ConfirmWithoutWindow = (input: {
   group: string;
   option_key: string;
 }) => Promise<{ ok: true } | { ok: false; code: string }>;
 
-/** term.define·app.create 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
-function termConfirmation(): ConfirmTerm | undefined {
+/** app.create·apply_settings 확정. 확인 창을 열지 않는 main 통로다. 이 창에 없으면 undefined다. */
+function windowlessConfirmation(): ConfirmWithoutWindow | undefined {
   const shell = (globalThis as {
-    lophnShell?: { confirmTermDefinition?: ConfirmTerm };
+    lophnShell?: { confirmWithoutWindow?: ConfirmWithoutWindow };
   }).lophnShell;
-  return typeof shell?.confirmTermDefinition === "function"
-    ? (input) => shell.confirmTermDefinition!(input)
+  return typeof shell?.confirmWithoutWindow === "function"
+    ? (input) => shell.confirmWithoutWindow!(input)
     : undefined;
 }
 
-async function confirmTerm(
+async function confirmWithoutWindow(
   group: string,
   option: string,
 ): Promise<SourceResult<void>> {
-  const confirm = termConfirmation();
+  const confirm = windowlessConfirmation();
   if (confirm === undefined) return { ok: false, code: "unavailable" };
   try {
     const sent = await confirm({ group, option_key: option });
@@ -416,7 +412,7 @@ async function confirmTerm(
 }
 
 // 확인 창 없이 확정하는 고정 action 답이면 그 묶음과 선택지. 질문 하나짜리 묶음에만 있다.
-function termChoice(
+function windowlessChoice(
   group: QuestionGroupRequest,
   answers: readonly GroupAnswer[],
 ): { group: string; option: string } | null {
@@ -576,10 +572,12 @@ export function coreRequestSource(
 
     async answer(group, answers) {
       // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
-      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define·app.create만 확인 창 없이
+      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). app.create·apply_settings만 확인 창 없이
       // main이 정본을 다시 읽어 접수한다. 그 밖 action은 화면이 [Review]로 보호 창을 연다.
-      const term = termChoice(group, answers);
-      if (term !== null) return await confirmTerm(term.group, term.option);
+      const windowless = windowlessChoice(group, answers);
+      if (windowless !== null) {
+        return await confirmWithoutWindow(windowless.group, windowless.option);
+      }
       const tag = await keyTag(JSON.stringify(answers));
       return command(core, "questions", "answer", {
         input: {

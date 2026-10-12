@@ -86,8 +86,8 @@ Created actor는 machine, Read actor는 user다. 두 event의 envelope run은 nu
 | `TicketConfirmed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 | 없음 | — |
 | `TicketCheckFailed` | → coding-agent/tickets | 항상 | source_seq 하나당 1개 | 없음 | — |
 | `AssignmentPaused` | → lophn-agent/assignments | actor=machine; 원인=`scope_archived`(대상 보관) | source_seq 하나당 1개 | 없음 | — |
-| `ContextViolationsRecorded` | → documents/contexts | machine이 위반 수 증가(after > before)를 기록한 event; 줄거나 같으면 없음 | source_seq 하나당 1개 | Context Engineer | context(계약)와 기록한 적용 판 `bundle_hash`의 참조 |
 | `ReleaseActivationFailed` | → apps/releases | 항상 | source_seq 하나당 1개 | App Engineer | 앱과 release의 참조 |
+| `ContextViolationsRecorded` | → documents/contexts | payload의 `after`가 `before`(그 context의 직전 기록 수; 첫 기록은 0)보다 큼; 줄거나 같으면 없음 | source_seq 하나당 1개; 대상=그 context(toast [View]는 그 context의 Violations 하위 탭을 연다); 문구=계기 이름; 위반별·이력 notification 없음 | Context Engineer | 위반된 context(계약)의 참조 |
 
 `ask_agent`는 notification 종류마다 고정된 값이며 notification 내용이나 대상 문서의 내용을 읽어 정하지 않는다. 이 표에 없는 종류는 `ask_agent`가 없다(보기만).
 

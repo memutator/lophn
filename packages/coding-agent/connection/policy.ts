@@ -27,7 +27,6 @@ export const FORBIDDEN_ACTIONS = [
   "connection.widen",
   "project.register",
   "project.tracking",
-  "term.define",
   "assignment.change",
   "ticket.goal",
   "ticket.confirm",
@@ -71,13 +70,6 @@ export const FORBIDDEN_ROUTES: Readonly<
     "project.set_tracking",
     "project.preview_tracking",
     "project.unarchive",
-  ],
-  "term.define": [
-    "term.propose",
-    "term.define",
-    "term.update",
-    "term.archive",
-    "term.unarchive",
   ],
   "assignment.change": [
     "CreateOperatorAssignment",

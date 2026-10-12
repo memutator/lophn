@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { contextList } from "../../packages/contracts/documents/mod.ts";
+import { contextListRoute } from "../../packages/contracts/documents/mod.ts";
 import {
   type AgentIssue,
   type AgentPlace,
@@ -104,23 +104,33 @@ export async function placeOfRun(
   return ok(placeOfScope(assignment.scope));
 }
 
+// 이 자리의 agent가 읽을 active context다. project 자리는 그 project의 context 전부이고, App Engineer가 앱
+// 자리에서 열리면 그 앱을 app-data source로 읽는 context 전부다(`context.list`의 app 거르기). 그 밖의 앱
+// 자리는 context 자료가 없다.
 async function activeContexts(
   machine: CoreCall,
   place: AgentPlace,
+  role: ResolvedAgent["role"],
 ): Promise<Result<string[]>> {
-  if (place.kind !== "project") return ok([]);
+  const filter = place.kind === "project"
+    ? { project: place.id }
+    : role === "app_engineer"
+    ? { app: place.id }
+    : null;
+  if (filter === null) return ok([]);
   const ids: string[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_CONTEXT_PAGES; page += 1) {
-    const listed = await readOf(machine, contextList, {
+    const listed = await readOf(machine, contextListRoute, {
+      ...filter,
       status: "active",
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (!listed.ok) return listed;
-    for (const context of listed.value.contexts) ids.push(context.id);
-    if (listed.value.complete || listed.value.next_cursor === null) {
-      return ok(ids);
+    for (const context of listed.value.contexts) {
+      if (context.status === "active") ids.push(context.id);
     }
+    if (listed.value.next_cursor === null) return ok(ids);
     cursor = listed.value.next_cursor;
   }
   return err({ code: "unavailable", message: "the context list is too long" });
@@ -189,7 +199,7 @@ export async function resolveRunAgent(
     models: workspaceModels(defaults.value.defaults),
   };
 
-  const contexts = await activeContexts(machine, place);
+  const contexts = await activeContexts(machine, place, assignment.role);
   if (!contexts.ok) return contexts;
 
   const serversOff = new Set(
@@ -228,11 +238,12 @@ export async function resolveRunAgent(
 }
 
 // 이어 하기는 run 기준이 고정한 resolved agent를 그대로 쓴다(R26). 정의·설정·Workspace는 다시 읽지 않는다.
-export async function pinnedRunAgent(
+// `contexts`는 같은 run 기준이 싣은 선언 검색 정의의 판들(`tools.contexts`)이다. 모양은 쓰는 쪽이 검사한다.
+export async function pinnedRun(
   machine: CoreCall,
   run: string,
   assignment: string,
-): Promise<Result<ResolvedAgent>> {
+): Promise<Result<{ agent: ResolvedAgent; contexts: unknown }>> {
   const unreadable = () =>
     err({
       code: "unavailable" as const,
@@ -240,7 +251,9 @@ export async function pinnedRunAgent(
     });
   const basis = await readOf(machine, runBody, { kind: "run_basis", id: run });
   if (!basis.ok) return basis;
-  const fixed = basis.value.value as { agent?: { hash?: string } } | null;
+  const fixed = basis.value.value as
+    | { agent?: { hash?: string }; tools?: { contexts?: unknown } }
+    | null;
   if (fixed?.agent?.hash === undefined) return unreadable();
   const body = await readOf(machine, runBody, { kind: "run_agent", id: run });
   if (!body.ok) return body;
@@ -249,5 +262,14 @@ export async function pinnedRunAgent(
     !parsed.success || parsed.data.hash !== fixed.agent.hash ||
     parsed.data.assignment !== assignment
   ) return unreadable();
-  return ok(parsed.data);
+  return ok({ agent: parsed.data, contexts: fixed.tools?.contexts });
+}
+
+export async function pinnedRunAgent(
+  machine: CoreCall,
+  run: string,
+  assignment: string,
+): Promise<Result<ResolvedAgent>> {
+  const pinned = await pinnedRun(machine, run, assignment);
+  return pinned.ok ? ok(pinned.value.agent) : pinned;
 }

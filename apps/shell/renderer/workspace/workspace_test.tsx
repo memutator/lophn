@@ -11,6 +11,7 @@ import type { WorkspaceSource } from "./source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { readingWidthStore } from "../editor/reading-width.ts";
 import type { TrackingSource } from "./tracking/source.ts";
+import { createFakeContextsSource } from "./contexts/fake-source.ts";
 
 function sourceOf(layout: unknown = null): {
   source: WorkspaceSource;
@@ -34,12 +35,8 @@ function sourceOf(layout: unknown = null): {
           ok: true,
           value: [{ id: "doc_1", title: "notes" }],
         }),
-      contexts: () =>
-        Promise.resolve({
-          ok: true,
-          value: [{ id: "ctx_1", title: "design" }],
-        }),
       files: () => Promise.resolve({ ok: true, value: [] }),
+      contextsSource: createFakeContextsSource(),
       readLayout: () =>
         Promise.resolve(
           layout === null
@@ -60,7 +57,7 @@ async function flush(): Promise<void> {
   });
 }
 
-Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨텍스트를 읽어 sidebar에 보인다", async () => {
+Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서를 읽어 sidebar에 보이고 Contexts는 한 행이다", async () => {
   const { source } = sourceOf();
   using view = render(
     <Workspace
@@ -86,12 +83,13 @@ Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨�
     "notes",
   );
   assertEquals(
-    view.container.querySelector("[data-context]")?.textContent,
-    "design",
+    view.container.querySelector("[data-contexts-row]")?.textContent,
+    "Contexts",
   );
+  assertEquals(view.container.querySelectorAll("[data-context]").length, 0);
 });
 
-Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 컨텍스트 행은 onContext로 이어진다", async () => {
+Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리고 Contexts 행은 Contexts 탭을 연다", async () => {
   const { source } = sourceOf();
   const base = source.files;
   source.files = (project) =>
@@ -104,7 +102,6 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
         title: "notes",
       }],
     }));
-  const contexts: string[] = [];
   using view = render(
     <Workspace
       projectId="prj_1"
@@ -113,7 +110,6 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
       bodyWidth={1200}
       onLauncher={() => {}}
       onLophn={() => {}}
-      onContext={(context) => contexts.push(context)}
     />,
   );
   await flush();
@@ -129,9 +125,15 @@ Deno.test("shell/desktop#R28: sidebar의 폴더 안 문서는 탭으로 열리�
     "doc_1",
   );
   act(() =>
-    (view.container.querySelector("[data-context]") as HTMLElement).click()
+    (view.container.querySelector("[data-contexts-row]") as HTMLElement)
+      .click()
   );
-  assertEquals(contexts, ["ctx_1"]);
+  assertEquals(
+    [...view.container.querySelectorAll("[data-tab]")].map((tab) =>
+      tab.getAttribute("data-tab")
+    ),
+    ["doc_1", "contexts"],
+  );
 });
 
 Deno.test("shell/workspace#R6: 저장된 layout의 탭·칸·선택을 복원해 그린다", async () => {
@@ -392,8 +394,13 @@ Deno.test("shell/editor#R4: 문서 탭은 문서 읽기 화면을 그리고 탭 
   const title = view.container.querySelector("[data-tab='doc_1'] span")
     ?.textContent;
   assertEquals(title, "notes.md");
-  const last = saved.at(-1) as { panes: { tabs: { title: string }[] }[] };
-  assertEquals(last.panes[0]!.tabs[0]!.title, "notes.md");
+  // 파일에는 schema 필드만 남는다. 탭 제목은 저장하지 않고 열 때 다시 읽는다(workspace#R6).
+  const last = saved.at(-1) as { panes: { tabs: unknown[] }[] };
+  assertEquals(JSON.stringify(last).includes("notes.md"), false);
+  assertEquals(
+    last.panes[0]!.tabs.every((stored) => !("title" in (stored as object))),
+    true,
+  );
 });
 
 function ctrlAltB(): void {
@@ -554,7 +561,6 @@ Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 �
           },
         }),
       sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
-      contexts: () => Promise.resolve({ ok: true, value: [] }),
       restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
     },
   };

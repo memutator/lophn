@@ -865,93 +865,236 @@ export type PlaceholderKinds = {
     number: "number";
     app: "string";
   };
-  "contexts.button.archive": Record<never, never>;
-  "contexts.button.ask": Record<never, never>;
-  "contexts.button.change": Record<never, never>;
-  "contexts.button.decide": Record<never, never>;
-  "contexts.button.export": Record<never, never>;
-  "contexts.button.later": Record<never, never>;
-  "contexts.button.new-meaning": Record<never, never>;
-  "contexts.button.open": Record<never, never>;
-  "contexts.button.open-after": Record<never, never>;
-  "contexts.button.open-before": Record<never, never>;
-  "contexts.button.save-meaning": Record<never, never>;
-  "contexts.button.show-latest": Record<never, never>;
-  "contexts.button.unarchive": Record<never, never>;
-  "contexts.empty.candidates": Record<never, never>;
-  "contexts.empty.definitions": Record<never, never>;
-  "contexts.empty.no-focus": Record<never, never>;
-  "contexts.empty.perspective": Record<never, never>;
-  "contexts.empty.pick-focus": Record<never, never>;
-  "contexts.error.change-failed": Record<never, never>;
-  "contexts.error.changed": Record<never, never>;
-  "contexts.error.define-failed": Record<never, never>;
-  "contexts.error.export-failed": Record<never, never>;
-  "contexts.error.meaning-changed": Record<never, never>;
-  "contexts.heading.candidates": Record<never, never>;
-  "contexts.heading.definitions": Record<never, never>;
-  "contexts.label.archived": Record<never, never>;
-  "contexts.label.evidence": Record<never, never>;
-  "contexts.label.evidence-lines": {
-    start: "number";
-    end: "number";
-  };
-  "contexts.label.evidence-more": {
-    count: "plural";
-  };
-  "contexts.label.export-app": {
-    title: "string";
-  };
-  "contexts.label.export-section": {
-    title: "string";
-    section: "string";
-  };
-  "contexts.label.gaps": Record<never, never>;
-  "contexts.label.item-count": {
-    count: "plural";
-  };
-  "contexts.label.meaning": Record<never, never>;
-  "contexts.label.read-version": Record<never, never>;
-  "contexts.label.reason": Record<never, never>;
-  "contexts.label.section": {
-    section: "string";
-  };
-  "contexts.label.show-archived": Record<never, never>;
-  "contexts.label.tab-materials": Record<never, never>;
-  "contexts.label.tab-meanings": Record<never, never>;
   "contexts.label.target-focus": Record<never, never>;
   "contexts.label.target-list": Record<never, never>;
-  "contexts.label.target-meanings": Record<never, never>;
-  "contexts.label.untitled": Record<never, never>;
-  "contexts.label.watch-added": Record<never, never>;
-  "contexts.label.watch-changed": Record<never, never>;
-  "contexts.label.watch-missing": Record<never, never>;
-  "contexts.label.watch-quiet": Record<never, never>;
-  "contexts.label.watch-unread": Record<never, never>;
-  "contexts.label.watch-unverified": Record<never, never>;
-  "contexts.label.word": Record<never, never>;
-  "contexts.notice.archived": Record<never, never>;
-  "contexts.notice.deferred": Record<never, never>;
-  "contexts.notice.gap-no-version": Record<never, never>;
-  "contexts.notice.gap-section-missing": Record<never, never>;
-  "contexts.notice.gap-section-unverified": Record<never, never>;
-  "contexts.notice.gap-unreadable": Record<never, never>;
-  "contexts.notice.gap-unsupported": Record<never, never>;
-  "contexts.notice.partial": Record<never, never>;
-  "contexts.notice.watch-app": Record<never, never>;
-  "contexts.notice.watch-format": Record<never, never>;
-  "contexts.notice.watch-missing": Record<never, never>;
-  "contexts.notice.watch-other": Record<never, never>;
-  "contexts.notice.watch-pending": Record<never, never>;
-  "contexts.notice.watch-unavailable": Record<never, never>;
-  "contexts.notice.write-own": Record<never, never>;
-  "contexts.title.focus": {
-    title: "string";
-  };
-  "contexts.title.screen": Record<never, never>;
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "contexts.button.document-open": Record<never, never>;
+  "contexts.button.frame-ask": Record<never, never>;
+  "contexts.button.frame-history": Record<never, never>;
+  "contexts.button.glossary-add": Record<never, never>;
+  "contexts.button.glossary-add-term": Record<never, never>;
+  "contexts.button.glossary-cancel": Record<never, never>;
+  "contexts.button.glossary-delete": Record<never, never>;
+  "contexts.button.glossary-edit": Record<never, never>;
+  "contexts.button.glossary-save": Record<never, never>;
+  "contexts.button.input-ask": Record<never, never>;
+  "contexts.button.input-save-view": Record<never, never>;
+  "contexts.button.input-search": Record<never, never>;
+  "contexts.button.overview-see-all": {
+    count: "string";
+  };
+  "contexts.button.results-next": Record<never, never>;
+  "contexts.button.results-prev": Record<never, never>;
+  "contexts.button.search-open-context": Record<never, never>;
+  "contexts.button.search-save": Record<never, never>;
+  "contexts.button.tab-new-context": Record<never, never>;
+  "contexts.button.tab-open": Record<never, never>;
+  "contexts.button.violations-send": Record<never, never>;
+  "contexts.button.violations-send-all": Record<never, never>;
+  "contexts.empty.document-none": Record<never, never>;
+  "contexts.empty.glossary-none": Record<never, never>;
+  "contexts.empty.results-none": Record<never, never>;
+  "contexts.empty.search-no-searches": Record<never, never>;
+  "contexts.empty.tab-none": Record<never, never>;
+  "contexts.empty.violations-none": Record<never, never>;
+  "contexts.error.glossary-failed": Record<never, never>;
+  "contexts.error.reason-conflict": Record<never, never>;
+  "contexts.error.reason-forbidden": Record<never, never>;
+  "contexts.error.reason-internal": Record<never, never>;
+  "contexts.error.reason-invalid-input": Record<never, never>;
+  "contexts.error.reason-not-found": Record<never, never>;
+  "contexts.error.reason-unauthorized": Record<never, never>;
+  "contexts.error.reason-unavailable": Record<never, never>;
+  "contexts.error.search-save-failed": Record<never, never>;
+  "contexts.error.violations-send-failed": Record<never, never>;
+  "contexts.heading.composition-title": Record<never, never>;
+  "contexts.heading.contract-fields": Record<never, never>;
+  "contexts.heading.contract-relations": Record<never, never>;
+  "contexts.heading.contract-searches": Record<never, never>;
+  "contexts.heading.drafting-overview": Record<never, never>;
+  "contexts.heading.search-saved-views": Record<never, never>;
+  "contexts.heading.search-searches": Record<never, never>;
+  "contexts.label.composition-documents": {
+    type: "string";
+    count: "plural";
+    path: "string";
+  };
+  "contexts.label.composition-folders": {
+    type: "string";
+    count: "plural";
+    path: "string";
+  };
+  "contexts.label.composition-from-section": {
+    name: "string";
+    heading: "string";
+  };
+  "contexts.label.composition-has": {
+    fields: "string";
+  };
+  "contexts.label.composition-link": {
+    label: "string";
+    target: "string";
+  };
+  "contexts.label.composition-link-outside": {
+    label: "string";
+    target: "string";
+    context: "string";
+  };
+  "contexts.label.composition-links": {
+    links: "string";
+  };
+  "contexts.label.composition-uses": {
+    context: "string";
+    types: "string";
+  };
+  "contexts.label.contract-diagram": Record<never, never>;
+  "contexts.label.contract-documents": {
+    count: "plural";
+  };
+  "contexts.label.contract-examples-fail": {
+    count: "plural";
+  };
+  "contexts.label.contract-examples-pass": {
+    count: "plural";
+  };
+  "contexts.label.contract-field-section": {
+    name: "string";
+    heading: "string";
+  };
+  "contexts.label.contract-field-values": {
+    name: "string";
+    values: "string";
+  };
+  "contexts.label.contract-kind": {
+    kind: "string";
+  };
+  "contexts.label.contract-public": Record<never, never>;
+  "contexts.label.contract-relation": {
+    name: "string";
+    target: "string";
+  };
+  "contexts.label.document-role": {
+    article: "string";
+    type: "string";
+  };
+  "contexts.label.drafting-apply": Record<never, never>;
+  "contexts.label.drafting-checks": Record<never, never>;
+  "contexts.label.drafting-chip": Record<never, never>;
+  "contexts.label.drafting-draft": Record<never, never>;
+  "contexts.label.drafting-progress": Record<never, never>;
+  "contexts.label.drafting-reading": Record<never, never>;
+  "contexts.label.drafting-status": {
+    step: "string";
+  };
+  "contexts.label.frame-chip": Record<never, never>;
+  "contexts.label.frame-kept-up-to-date": Record<never, never>;
+  "contexts.label.frame-note": Record<never, never>;
+  "contexts.label.frame-sub-tabs": Record<never, never>;
+  "contexts.label.frame-version-checking": {
+    number: "string";
+    when: "string";
+  };
+  "contexts.label.frame-version-failed": {
+    number: "string";
+    when: "string";
+  };
+  "contexts.label.frame-version-passed": {
+    number: "string";
+    when: "string";
+  };
+  "contexts.label.glossary-by-agent": Record<never, never>;
+  "contexts.label.glossary-by-user": Record<never, never>;
+  "contexts.label.glossary-meaning": Record<never, never>;
+  "contexts.label.glossary-term": Record<never, never>;
+  "contexts.label.input-chip-on": {
+    value: "string";
+  };
+  "contexts.label.input-from": Record<never, never>;
+  "contexts.label.input-no-matches": Record<never, never>;
+  "contexts.label.input-to": Record<never, never>;
+  "contexts.label.overview-diagram": Record<never, never>;
+  "contexts.label.overview-from": {
+    context: "string";
+  };
+  "contexts.label.overview-has": {
+    fields: "string";
+  };
+  "contexts.label.palette-detail": Record<never, never>;
+  "contexts.label.rail-agent": Record<never, never>;
+  "contexts.label.rail-contexts": Record<never, never>;
+  "contexts.label.rail-saved-views": Record<never, never>;
+  "contexts.label.rail-search": Record<never, never>;
+  "contexts.label.rail-shortcuts": Record<never, never>;
+  "contexts.label.rail-terminal": Record<never, never>;
+  "contexts.label.results-count": {
+    count: "plural";
+    singular: "string";
+    plural: "string";
+  };
+  "contexts.label.results-pager": Record<never, never>;
+  "contexts.label.results-range": {
+    from: "number";
+    to: "number";
+    total: "number";
+  };
+  "contexts.label.search-context": Record<never, never>;
+  "contexts.label.search-view-broken": Record<never, never>;
+  "contexts.label.search-view-name": Record<never, never>;
+  "contexts.label.sub-contract": Record<never, never>;
+  "contexts.label.sub-glossary": Record<never, never>;
+  "contexts.label.sub-overview": Record<never, never>;
+  "contexts.label.sub-search": Record<never, never>;
+  "contexts.label.sub-violations": Record<never, never>;
+  "contexts.label.sub-violations-count": {
+    count: "string";
+  };
+  "contexts.label.tab-kinds": {
+    count: "plural";
+    names: "string";
+  };
+  "contexts.label.tab-no-violations": Record<never, never>;
+  "contexts.label.tab-operators": {
+    count: "plural";
+  };
+  "contexts.label.tab-version-checking": {
+    number: "string";
+  };
+  "contexts.label.tab-version-failed": {
+    number: "string";
+  };
+  "contexts.label.tab-version-none": Record<never, never>;
+  "contexts.label.tab-version-passed": {
+    number: "string";
+  };
+  "contexts.label.tab-violations": {
+    count: "plural";
+  };
+  "contexts.label.violations-on-it": Record<never, never>;
+  "contexts.label.violations-rule": {
+    rule: "string";
+  };
+  "contexts.note.drafting-later": Record<never, never>;
+  "contexts.note.drafting-not-final": Record<never, never>;
+  "contexts.note.glossary-purpose": Record<never, never>;
+  "contexts.note.input-required": {
+    inputs: "string";
+  };
+  "contexts.note.input-unsupported": {
+    type: "string";
+  };
+  "contexts.note.overview-example": Record<never, never>;
+  "contexts.note.search-no-saved-views": Record<never, never>;
+  "contexts.note.search-pick": Record<never, never>;
+  "contexts.note.tab-new-context": Record<never, never>;
+  "contexts.title.tab-screen": {
+    project: "string";
+  };
+  "contexts.title.toast-violations": {
+    title: "string";
+    count: "plural";
+  };
   "conversation.body.delete-session": {
     title: "string";
   };
@@ -1219,6 +1362,7 @@ export type PlaceholderKinds = {
   "conversation.notice.visual-unavailable-kind": Record<never, never>;
   "conversation.notice.visual-unavailable-markup": Record<never, never>;
   "conversation.notice.visual-unavailable-shape": Record<never, never>;
+  "conversation.placeholder.new-context": Record<never, never>;
   "conversation.title.dock": Record<never, never>;
   "document.button.back-to-editing": Record<never, never>;
   "document.button.check-again": Record<never, never>;
@@ -1419,7 +1563,6 @@ export type PlaceholderKinds = {
   };
   "document.label.info-archived": Record<never, never>;
   "document.label.versions-target": Record<never, never>;
-  "document.label.contexts-target": Record<never, never>;
   "document.label.info-target": Record<never, never>;
   "document.label.compare-target": Record<never, never>;
   "document.notice.no-document": Record<never, never>;
@@ -1450,10 +1593,8 @@ export type PlaceholderKinds = {
   "documents.button.archive-series": Record<never, never>;
   "documents.button.back-to-series": Record<never, never>;
   "documents.button.clear-conditions": Record<never, never>;
-  "documents.button.confirm-save-view": Record<never, never>;
   "documents.button.continue-draft": Record<never, never>;
   "documents.button.discard-draft": Record<never, never>;
-  "documents.button.go-search": Record<never, never>;
   "documents.button.include-archived": Record<never, never>;
   "documents.button.more-results": Record<never, never>;
   "documents.button.next-in-series": Record<never, never>;
@@ -1464,7 +1605,6 @@ export type PlaceholderKinds = {
   "documents.button.read-more": Record<never, never>;
   "documents.button.register": Record<never, never>;
   "documents.button.register-series": Record<never, never>;
-  "documents.button.save-view": Record<never, never>;
   "documents.button.search": Record<never, never>;
   "documents.button.search-again": Record<never, never>;
   "documents.button.unarchive-series": Record<never, never>;
@@ -1475,10 +1615,8 @@ export type PlaceholderKinds = {
   "documents.empty.no-matches-not-yet": Record<never, never>;
   "documents.empty.no-members": Record<never, never>;
   "documents.empty.no-series": Record<never, never>;
-  "documents.empty.no-views": Record<never, never>;
   "documents.empty.pick-document": Record<never, never>;
   "documents.empty.start": Record<never, never>;
-  "documents.empty.view-empty": Record<never, never>;
   "documents.error.change-failed": Record<never, never>;
   "documents.error.changed": Record<never, never>;
   "documents.error.key-taken": Record<never, never>;
@@ -1488,25 +1626,21 @@ export type PlaceholderKinds = {
   "documents.error.read-failed": Record<never, never>;
   "documents.error.register-failed": Record<never, never>;
   "documents.error.rule-invalid": Record<never, never>;
-  "documents.error.save-view-failed": Record<never, never>;
   "documents.error.section-missing": Record<never, never>;
   "documents.error.section-unsupported": Record<never, never>;
   "documents.error.section-unverified": Record<never, never>;
   "documents.error.series-taken": Record<never, never>;
   "documents.error.text-hidden": Record<never, never>;
   "documents.error.title-missing": Record<never, never>;
-  "documents.error.view-name-taken": Record<never, never>;
   "documents.heading.members": Record<never, never>;
   "documents.heading.next": Record<never, never>;
   "documents.heading.register-series": Record<never, never>;
-  "documents.label.any-focus": Record<never, never>;
   "documents.label.any-format": Record<never, never>;
   "documents.label.any-place": Record<never, never>;
   "documents.label.archived": Record<never, never>;
   "documents.label.archived-results": Record<never, never>;
   "documents.label.choose-document": Record<never, never>;
   "documents.label.choose-place": Record<never, never>;
-  "documents.label.focus": Record<never, never>;
   "documents.label.format": Record<never, never>;
   "documents.label.format-name": {
     format: "string";
@@ -1526,9 +1660,6 @@ export type PlaceholderKinds = {
   "documents.label.order-descending": Record<never, never>;
   "documents.label.place": Record<never, never>;
   "documents.label.query": Record<never, never>;
-  "documents.label.saved-when": {
-    when: "string";
-  };
   "documents.label.series-meta": {
     place: "string";
     count: "plural";
@@ -1542,16 +1673,10 @@ export type PlaceholderKinds = {
   "documents.label.show-archived-series": Record<never, never>;
   "documents.label.tab-search": Record<never, never>;
   "documents.label.tab-series": Record<never, never>;
-  "documents.label.tab-views": Record<never, never>;
   "documents.label.target-document": Record<never, never>;
   "documents.label.target-results": Record<never, never>;
   "documents.label.target-series": Record<never, never>;
   "documents.label.target-series-list": Record<never, never>;
-  "documents.label.target-view": {
-    name: "string";
-  };
-  "documents.label.target-views": Record<never, never>;
-  "documents.label.view-name": Record<never, never>;
   "documents.label.whole-document": Record<never, never>;
   "documents.notice.archived-document": Record<never, never>;
   "documents.notice.draft": {
@@ -1580,10 +1705,6 @@ export type PlaceholderKinds = {
     rule: "string";
   };
   "documents.notice.suggestion-taken": Record<never, never>;
-  "documents.notice.view-rebuilt": Record<never, never>;
-  "documents.notice.view-saved": {
-    name: "string";
-  };
   "documents.status.draft": Record<never, never>;
   "documents.status.draft-conflict": Record<never, never>;
   "documents.status.draft-failed": Record<never, never>;
@@ -1762,7 +1883,6 @@ export type PlaceholderKinds = {
   "project-workspace.label.info-tab-versions": Record<never, never>;
   "project-workspace.label.kind-app-panel": Record<never, never>;
   "project-workspace.label.kind-document-editor": Record<never, never>;
-  "project-workspace.label.kind-document-viewer": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
   "project-workspace.label.more-files": {
     count: "plural";
@@ -2914,7 +3034,6 @@ export type PlaceholderKinds = {
   "things-to-confirm.button.keep-question": Record<never, never>;
   "things-to-confirm.button.later": Record<never, never>;
   "things-to-confirm.button.mark-read": Record<never, never>;
-  "things-to-confirm.button.open-document": Record<never, never>;
   "things-to-confirm.button.review": Record<never, never>;
   "things-to-confirm.button.review-next": Record<never, never>;
   "things-to-confirm.button.send-answer": Record<never, never>;
@@ -2950,16 +3069,15 @@ export type PlaceholderKinds = {
   };
   "things-to-confirm.label.event-activation-failed": Record<never, never>;
   "things-to-confirm.label.event-decision": Record<never, never>;
-  "things-to-confirm.label.event-focus-changed": Record<never, never>;
   "things-to-confirm.label.event-issue-closed": Record<never, never>;
   "things-to-confirm.label.event-issue-opened": Record<never, never>;
   "things-to-confirm.label.event-issue-reopened": Record<never, never>;
   "things-to-confirm.label.event-other": Record<never, never>;
-  "things-to-confirm.label.event-other-document": Record<never, never>;
   "things-to-confirm.label.event-paused": Record<never, never>;
   "things-to-confirm.label.event-question": Record<never, never>;
   "things-to-confirm.label.event-task-check-failed": Record<never, never>;
   "things-to-confirm.label.event-task-confirmed": Record<never, never>;
+  "things-to-confirm.label.event-violations-rose": Record<never, never>;
   "things-to-confirm.label.expires": {
     when: "string";
   };

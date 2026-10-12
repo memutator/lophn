@@ -102,7 +102,7 @@ null은 agent 기본값을 따른다. 이 값은 Run 시작 때 resolve해 RunBa
 | `run` | `run` ID | 예 | 있으면 같은 세션·assignment; Fork로 복사한 메시지는 null; → lophn-agent/harness/run-loop | 담당 또는 답을 만든 run |
 | `mode` | `request / correction` | 예 | 접수한 user 입력에 필수; agent·machine 발언과 Fork 복사본에는 null | 새 일 / steering |
 | `applied_at_call` | `mcl` ID | 예 | 최초 한 번만 설정; 같은 담당 run; → lophn-agent/harness/usage | 이 입력을 처음 포함한 call |
-| `links` | 대상 참조 배열 | 아니오 | 기본 `[]`; 실제 존재하는 대상만; 계획은 생성 링크가 아님 | 문서·version·질문·approval request·call 연결 |
+| `links` | 대상 참조 배열 | 아니오 | 기본 `[]`; 실제 존재하는 대상만; 계획은 생성 링크가 아님 | 문서·version·context·질문·approval request·call 연결 |
 | `copied_from` | `msg` ID | 예 | Fork 복사본에만; 불변; FK 아님 | 복사한 원래 메시지 |
 
 ### 상태
@@ -135,7 +135,7 @@ null은 agent 기본값을 따른다. 이 값은 Run 시작 때 resolve해 RunBa
 
 요청은 본문을 hash가 아니라 값으로 싣는다. core가 값을 redaction해 정규 직렬화 bytes의 blob으로 준비하고 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다. `body`는 그 blob의 hash다. 정규 직렬화 상한은 사람·machine 64KiB, agent 240KiB다. 확정 메시지 하나의 본문은 사람·그 assignment의 agent·machine만 읽고(`ReadMessageBody`), 그 밖은 없는 메시지와 같다.
 
-MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: VisualBlock}`의 tagged 값이다. VisualBlock은 → lophn-agent/visuals가 정의한다. legacy text blob은 text part 하나로 읽는다. 사람 입력은 text만, agent 답은 text·visual, machine 확인은 text만 허용한다. `RecordMessage`는 한 번의 저장에서 모든 part와 출처·상한을 검사하며 부분 저장하지 않는다. 시각 블록 key는 Message 안에서 unique다. `links`에는 실제 문서·call 참조를 유지하며 블록 계획을 문서 생성 링크로 넣지 않는다. 앱 카드 view의 현재 표시 상태는 derived이며 원래 MessageContent를 바꾸지 않는다.
+MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: VisualBlock}`의 tagged 값이다. VisualBlock은 → lophn-agent/visuals가 정의한다. legacy text blob은 text part 하나로 읽는다. 사람 입력은 text만, agent 답은 text·visual, machine 확인은 text만 허용한다. `RecordMessage`는 한 번의 저장에서 모든 part와 출처·상한을 검사하며 부분 저장하지 않는다. 시각 블록 key는 Message 안에서 unique다. `links`에는 실제 문서·call 참조를 유지하며 블록 계획을 문서 생성 링크로 넣지 않는다. 앱 카드 view의 현재 표시 상태는 derived이며 원래 MessageContent를 바꾸지 않는다. context 링크(`{kind: context, context}`)는 `ContextCreated`가 있는 context만 가리키고, 답 메시지에는 그 run이 `context.create`로 만들었거나 `context.read_contract`로 계약을 읽은 context를 건다. 목록·검색 결과의 context는 링크가 아니다.
 
 ## 관계
 

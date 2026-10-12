@@ -94,7 +94,7 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 |---|---|---|
 | `agents/` | 없음(정의·자리 설정은 app data 파일) | 새 Operator 저장은 assignment 생성 뒤 파일 쓰기이고 파일 쓰기가 실패하면 그 assignment를 거둔다 |
 | `assignments/` | `assignments` | role·scope·상태·`revision`(CAS); 담당 project·앱 보관에 따른 pause·재개 |
-| `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영 |
+| `conversation/` | `sessions`, `messages` | 사람 메시지와 담당 run 접수; model 시작과 message 반영; 다른 concern의 사람 단추 한 번(context 위반 넘기기)을 새 세션·사람 요청·run으로 접수하는 `startRequest`(같은 transaction 안에서만 호출) |
 | `harness/run-loop/` | `runs` | 진행 하나, 고정 basis, 정상 종료와 correction 순서 |
 | `harness/waiting-and-recovery/` | `run_wait_resolutions` | 요청 생성·waiting 연결; `(run,request,decision_seq)` 한 번 반영 |
 | `harness/provider/` | `providers`, `provider_credentials`, `provider_credential_model_blocks` | provider당 credential 하나의 secret 참조 판·대기 시각·model별 제한 |
@@ -328,7 +328,7 @@ event는 `ToolCallRequested`, `ToolCallDecided`, `ToolCallStarted`, `ToolCallFin
 | 묶음 | 이름 |
 |---|---|
 | document | `document.list`, `document.outline`, `document.search`, `document.read_version`, `document.read_section`, `document.read_range`, `document.history`, `document.diff`, `document.create`, `document.save_version` |
-| context·term | `context.list`, `context.read`, `context.items`, `context.terms`, `context.document_membership`, `context.create`, `context.rename`, `context.set_purpose`, `context.archive`, `context.add_item`, `context.update_item`, `context.remove_item`, `term.read`, `term.propose_candidate`, `term.update_candidate`, `term.remove_candidate`, `term.submit_definition_answer` |
+| context·series | 선언 검색마다 `ctx_<ctx ULID>_<검색 slug>_<hash8>`, `context.read_entity`, `series.next_name`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write` |
 | format·SDK | `format.list`, `format.rules`, `format.examples`, `format.validate`, `sdk.list`, `sdk.contract`, `sdk.examples` |
 | 시각·제품 안내 | `visual.show`, `visual.read`, `visual.prepare_document`, `lophn.guide`, `setting.read` |
 | project·app | `project.list`, `project.read`, `app.list`, `app.read`, `app.read_purpose`, `app.blueprint`, `app.commands`, `app.releases`, `app.health`, `app.invocations`, `app.command_metadata`, `app.call_read_command` |

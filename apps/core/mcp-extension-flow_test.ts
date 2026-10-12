@@ -4,6 +4,7 @@
 // 바꾼 뒤(assignments/change-preset), 접수된 run이 external MCP tool을 통해
 // 가짜 stdio MCP child를 부르는지 본다. 사람의 실제 registry·실제 MCP server·실제 model
 // provider에 닿지 않는다.
+import { AGENT_RUNTIME_PRINCIPAL } from "../../packages/contracts/lophn-agent/mod.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
@@ -104,7 +105,8 @@ function context(
   ref = "none",
 ): AuthenticatedContext {
   return {
-    principal: actor,
+    // 제품 runtime의 machine 자격이다. context 읽기가 이 principal만 연다(documents/contexts).
+    principal: actor === "machine" ? AGENT_RUNTIME_PRINCIPAL : actor,
     actor,
     scope: { operations: [...operations], targets },
     conditions: targets,
@@ -602,7 +604,7 @@ async function runScenario(scenario: Scenario): Promise<void> {
       blobs: {
         async prepare(purpose, bytes) {
           const prepared = await core.prepareBlob({
-            principal: "machine",
+            principal: AGENT_RUNTIME_PRINCIPAL,
             purpose,
             bytes: new ReadableStream({
               start(controller) {

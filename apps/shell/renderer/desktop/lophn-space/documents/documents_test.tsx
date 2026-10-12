@@ -15,7 +15,6 @@ import {
   byText,
   find,
   flush,
-  pressTab,
   submit,
   typeInto,
 } from "../testdata/dom.ts";
@@ -107,7 +106,7 @@ Deno.test("shell/desktop#R1: 검색 결과는 제목과 짧은 근거만 보이�
   await unmountSettled(view);
 });
 
-Deno.test("shell/desktop#R1: 프로젝트·앱·focus·format 조건으로 좁히면 같은 검색어로 다시 찾는다", async () => {
+Deno.test("shell/desktop#R1: 프로젝트·앱·format 조건으로 좁히면 같은 검색어로 다시 찾는다", async () => {
   const { source, of } = fakeSource({
     search: () => ({ ok: true, value: PAGE }),
   });
@@ -119,10 +118,8 @@ Deno.test("shell/desktop#R1: 프로젝트·앱·focus·format 조건으로 좁�
   const byApp = of("search").at(-1)!.args[0] as SearchConditions;
   assertEquals(byApp.place, { kind: "app", id: "app_1" });
   assertEquals(byApp.query, "goals");
-  await choose(fieldTrigger(view.container, "Context"), 1);
   await choose(fieldTrigger(view.container, "Format"), 2);
   const narrowed = of("search").at(-1)!.args[0] as SearchConditions;
-  assertEquals(narrowed.context, "ctx_1");
   assertEquals(narrowed.format, "pdf");
   assertEquals(narrowed.place, { kind: "app", id: "app_1" });
   await unmountSettled(view);
@@ -183,85 +180,6 @@ Deno.test("shell/desktop#R1: 보관을 빼고 찾은 빈 결과는 보관 포함
   click(find(archived, "[data-hit='doc_9']"));
   await flush();
   assertEquals(of("outline")[0]!.args, ["doc_9", "ver_9"]);
-  await unmountSettled(view);
-});
-
-Deno.test("shell/desktop#R1: saved view는 지금 조건을 이름 붙여 저장하고 열 때마다 조건으로 다시 찾는다", async () => {
-  const views = [{
-    id: "viw_1",
-    name: "Release goals",
-    place: null,
-    filter: {
-      text: "goals",
-      context: null,
-      format: null,
-      status: "all" as const,
-    },
-    revision: "1",
-  }];
-  const { source, of } = fakeSource({
-    search: () => ({ ok: true, value: PAGE }),
-    views,
-    openView: () => ({
-      ok: true,
-      value: {
-        entries: [{
-          document: "doc_1",
-          title: "Release notes",
-          version: "ver_1",
-          latestVersion: "ver_2",
-          savedAt: 0,
-          excerpt: "First lines",
-        }],
-        coverage: { lagging: true, rebuilding: false, omissions: 0 },
-        nextCursor: null,
-      },
-    }),
-  });
-  const view = render(<DocumentsScreen source={source} now={() => 0} />);
-  await flush();
-  await search(view.container, "goals");
-  click(
-    find(view.container, "[data-include-archived] button, [role=checkbox]"),
-  );
-  await flush();
-  click(find(view.container, "[data-save-view]"));
-  await flush();
-  typeInto(find(document.body, "[data-view-name]"), "Release goals");
-  submit(find(document.body, "[data-save-view-form]"));
-  await flush();
-  const [name, conditions] = of("saveView")[0]!.args as [
-    string,
-    SearchConditions,
-  ];
-  assertEquals(name, "Release goals");
-  assertEquals(conditions.query, "goals");
-  assertEquals(conditions.includeArchived, true);
-  // 저장은 검색을 다시 부르지 않는다.
-  const searches = of("search").length;
-  assert(find(view.container, "[data-view-saved]"));
-
-  pressTab(byText(view.container, "Saved views"));
-  await flush();
-  const panel = find(view.container, "[data-tab-panel='views']");
-  assert(!panel.hidden);
-  click(find(panel, "[data-view='viw_1']"));
-  await flush();
-  click(find(panel, "[data-view='viw_1']"));
-  await flush();
-  assertEquals(of("openView").map((call) => call.args[0]), ["viw_1", "viw_1"]);
-  assertEquals(of("search").length, searches);
-  const opened = find(panel, "[data-opened-view='viw_1']");
-  assert(
-    opened.textContent?.includes(
-      "This list is found again from the view's conditions each time you open it.",
-    ),
-  );
-  assert(opened.querySelector("[data-coverage-note='lagging']"));
-  assert(opened.textContent?.includes("Newer version available"));
-  click(find(opened, "[data-hit='doc_1']"));
-  await flush();
-  assertEquals(of("outline").at(-1)!.args, ["doc_1", "ver_1"]);
   await unmountSettled(view);
 });
 

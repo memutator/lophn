@@ -40,9 +40,13 @@ const indexInput = z.discriminatedUnion("op", [
   outlinePlace.input.extend({ op: z.literal("place") }),
   outlineDocument.input.extend({ op: z.literal("document") }),
   outlineDocument.input.extend({ op: z.literal("section") }),
-  searchQuery.input.omit({ limit: true }).extend({ op: z.literal("search") }),
+  searchQuery.input.omit({ limit: true }).extend({
+    op: z.literal("search"),
+  }),
   // status는 한 쪽에 담기는 읽기라 이어 읽기가 없다. cursor는 입력에 없다.
-  searchStatus.input.extend({ op: z.literal("status") }),
+  searchStatus.input.extend({
+    op: z.literal("status"),
+  }),
 ]);
 
 const projectInput = z.discriminatedUnion("op", [

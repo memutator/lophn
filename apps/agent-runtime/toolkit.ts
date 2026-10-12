@@ -11,10 +11,13 @@ import {
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import {
   createBuiltinToolHandlers,
+  createContextLookupToolHandlers,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 import { builtinBinding } from "./builtin-binding.ts";
+import { renderContextMaterial } from "./context-overview.ts";
+import { contextBundleReader, createContextToolkit } from "./context-search.ts";
 import type { Toolkit } from "./prepare.ts";
 import type { RunSeat } from "./core-ports.ts";
 
@@ -81,9 +84,17 @@ export function createBuiltinToolkit(options: {
           run: run.seat.run,
           assignment: run.seat.assignment,
         })),
+    // 선택한 context의 선언 검색 tool·개체 읽기 tool(harness/tools R21, R22). 정의 재료는 machine 자격으로 읽고
+    // 호출은 run의 agent 자격으로 부른다.
+    contexts: createContextToolkit({
+      machine: options.machine,
+      contract: (agent) => createContractCall(options.routes, agent),
+      bundle: contextBundleReader(options.machine),
+    }),
     handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler> {
-      return createBuiltinToolHandlers({
-        ...createContractCall(options.routes, agent),
+      const contract = createContractCall(options.routes, agent);
+      const builtin = createBuiltinToolHandlers({
+        ...contract,
         newId: (prefix) => options.ids.newId(prefix),
         async runFacts(run) {
           const read = await readOf(options.machine, runRead, { run });
@@ -105,6 +116,11 @@ export function createBuiltinToolkit(options: {
           });
         },
       });
+      // lophn의 모든 project context 조회(roles/lophn R3). overview 글은 prompt 자료와 같은 함수로 만든다.
+      return new Map([
+        ...builtin,
+        ...createContextLookupToolHandlers(contract, renderContextMaterial),
+      ]);
     },
   };
 }

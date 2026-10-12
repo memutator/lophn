@@ -89,18 +89,6 @@ Deno.test("lophn-agent/roles/common#R4: common read tool selection is fixed per 
       );
     }
   }
-  // Context Engineer는 전체 context·term 관리를 맡는다(R4).
-  const ce = capOf("context_engineer").tools;
-  assert(ce.includes("context.create"));
-  assert(ce.includes("context.add_item"));
-  assert(ce.includes("term.propose_candidate"));
-  // Operator는 context.read·items·terms만이고 목록·소속 조회는 없다(R4).
-  const op = capOf("operator").tools;
-  assert(op.includes("context.read"));
-  assert(op.includes("context.items"));
-  assert(op.includes("context.terms"));
-  assertEquals(op.includes("context.list"), false);
-  assertEquals(op.includes("context.document_membership"), false);
 });
 
 Deno.test("lophn-agent/roles/common#R5: MCP and skill choices are preset items and direct source, app DB, secret reads are absent", () => {

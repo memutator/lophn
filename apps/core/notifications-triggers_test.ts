@@ -38,6 +38,8 @@ function id(prefix: string, n: number): string {
   return `${prefix}_${"0".repeat(25)}${n}`;
 }
 
+const HASH = "ab".repeat(32);
+
 const CLOSURE = {
   reason: "verified",
   basis_seq: "1",
@@ -104,19 +106,13 @@ const SOURCES: Record<string, { subject: string; payload: unknown }> = {
     subject: id("tkt", 2),
     payload: { ...TICKET_BASE, failed_conditions: [0] },
   },
-  ContextWatchedItemChanged: {
-    subject: id("ctx", 1),
-    payload: {
-      target: { kind: "document", document: id("doc", 1), section: null },
-      before_version: null,
-      after_version: id("ver", 1),
-      source_seq: "1",
-      change_kind: "content_changed",
-    },
-  },
   ReleaseActivationFailed: {
     subject: id("rel", 1),
     payload: { started_seq: "1", failure: { code: "x", summary: "y" } },
+  },
+  ContextViolationsRecorded: {
+    subject: id("ctx", 1),
+    payload: { before: 1, after: 3, bundle_hash: HASH },
   },
 };
 
@@ -202,7 +198,11 @@ const EVENT_TYPES = NOTIFICATION_TRIGGERS.map((trigger) => trigger.event)
   // ApprovalRequestCreated는 platform 소유이고 platform_test.ts가 실제 생성 command로 본다.
   .filter((event) => event !== "ApprovalRequestCreated");
 
-Deno.test("platform/notifications#R1: 소유 concern 계기 event 아홉 중 platform 밖 여덟이 core에서 listable notification이 된다", async () => {
+function isHiddenFromUser(event: string): boolean {
+  return event !== "ContextViolationsRecorded";
+}
+
+Deno.test("platform/notifications#R1: 소유 concern 계기 event 열 중 platform 밖 아홉이 core에서 listable notification이 된다", async () => {
   assertEquals(Object.keys(SOURCES).sort(), [...EVENT_TYPES].sort());
   await withCore(async (harness) => {
     const user = await login(harness, "user", "user-1", [
@@ -227,6 +227,31 @@ Deno.test("platform/notifications#R1: 소유 concern 계기 event 아홉 중 pla
       notification: items[0].notification.id,
     });
     assertEquals(got.status, 200, JSON.stringify(got.body));
+  });
+});
+
+Deno.test("[ctx-I35] platform/notifications#R1: context 위반 수가 줄거나 같은 기록은 notification이 되지 않고 늘면 하나가 된다", async () => {
+  await withCore(async (harness) => {
+    const user = await login(harness, "user", "user-1", [
+      "notification_source.emit",
+      "ListNotifications",
+    ]);
+    const emitCounts = (before: number, after: number) =>
+      emit(harness, user, "ContextViolationsRecorded", {
+        subject: id("ctx", 1),
+        payload: { before, after, bundle_hash: HASH },
+      });
+    await emitCounts(5, 1);
+    await emitCounts(2, 2);
+    await emitCounts(0, 4);
+    const items = await listedEvents(harness, user, 1);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const again = await listedEvents(harness, user, 1);
+    assertEquals(
+      items.map((item) => item.source_event),
+      ["ContextViolationsRecorded"],
+    );
+    assertEquals(again.length, 1);
   });
 });
 
@@ -290,7 +315,8 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
       types: ["VerificationRecorded"],
     });
     assertEquals(absentUser.status, 200, "user");
-    for (const event of EVENT_TYPES) {
+    // context event는 documents 정책이 사람(user)에게 공개한다(Context 탭이 읽는다).
+    for (const event of EVENT_TYPES.filter(isHiddenFromUser)) {
       const present = await call(harness, "events/list", user, {
         after_seq: "0",
         types: [event],
@@ -307,7 +333,8 @@ Deno.test("platform/notifications#R1 platform/identity#R8: agent·app·coding ag
     assert(
       visible.every((event) =>
         event.type === "NotificationCreated" ||
-        event.type === "NotificationRead"
+        event.type === "NotificationRead" ||
+        event.type === "ContextViolationsRecorded"
       ),
       JSON.stringify(visible.map((event) => event.type)),
     );
@@ -353,5 +380,66 @@ Deno.test("platform/notifications#R13, R14 [agent-I18b]: core의 list·get 행�
     assertEquals(got.body["ask"], problem.ask);
     // 보기만 하는 계기와, 그 release를 만든 사실이 없어 앱을 모르는 release 실패는 null이다.
     assertEquals(items.slice(1).map((item) => item.ask), [null, null, null]);
+  });
+});
+
+Deno.test("platform/notifications#R13, R14 [agent-I18b]: 계약 위반 행의 Ask는 Context Engineer를 그 context의 project 자리에서 부르고 context를 첫 context로 싣고 run을 만들지 않는다", async () => {
+  await withCore(async (harness) => {
+    const user = await login(harness, "user", "user-1", [
+      "notification_source.emit",
+      "ListNotifications",
+      "GetNotification",
+      "ListEvents",
+    ]);
+    const context = id("ctx", 1);
+    const project = id("prj", 1);
+    // 그 context를 만든 사실이 project를 가진다.
+    await emit(harness, user, "ContextCreated", {
+      subject: context,
+      payload: { project, title: "Experiments", purpose: "Track them" },
+    });
+    await emit(harness, user, "ContextViolationsRecorded", {
+      subject: context,
+      payload: { before: 0, after: 2, bundle_hash: HASH },
+    });
+    // 만든 사실이 없는 context는 project를 알 수 없어 Ask가 없다(열 자리를 짐작하지 않는다).
+    await emit(harness, user, "ContextViolationsRecorded", {
+      subject: id("ctx", 2),
+      payload: { before: 0, after: 1, bundle_hash: HASH },
+    });
+    const items = await listedEvents(harness, user, 2) as (Listed & {
+      ask?: unknown;
+    })[];
+    assertEquals(items.map((item) => item.source_event), [
+      "ContextViolationsRecorded",
+      "ContextViolationsRecorded",
+    ]);
+    assertEquals(items[0].ask, {
+      role: "context_engineer",
+      agent_name: "Context Engineer",
+      first_context: {
+        work_place: { kind: "project", id: project },
+        target: { kind: "context", id: context },
+      },
+    });
+    assertEquals(items[1].ask, null);
+    const got = await call(harness, "notifications/get", user, {
+      notification: items[0].notification.id,
+    });
+    assertEquals(got.status, 200, JSON.stringify(got.body));
+    assertEquals(got.body["ask"], items[0].ask);
+    // notification과 Ask 값만으로는 agent의 run도 session도 생기지 않는다: 값만 읽었다.
+    const events = await call(harness, "events/list", user, { after_seq: "0" });
+    assertEquals(events.status, 200);
+    const types = (events.body["events"] as { type: string }[]).map((event) =>
+      event.type
+    );
+    assertEquals(
+      types.filter((type) =>
+        type === "RunAccepted" || type === "SessionOpened" ||
+        type === "MessageReceived"
+      ),
+      [],
+    );
   });
 });

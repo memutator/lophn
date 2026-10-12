@@ -13,7 +13,7 @@ import {
   sessionRead,
   sessionSummary,
 } from "../../packages/contracts/lophn-agent/mod.ts";
-import { contextList as documentContextList } from "../../packages/contracts/documents/mod.ts";
+import { contextListRoute as documentContextList } from "../../packages/contracts/documents/mod.ts";
 import { routePath } from "../../packages/contracts/platform/mod.ts";
 import {
   productEnvironment,
@@ -121,6 +121,24 @@ Deno.test("lophn-agent/agents#R16 [agent-I10a]: a built-in agent in an app place
   assertEquals(agent.contexts, []);
   assertEquals(agent.contexts_reason, "no_project");
   assertEquals(world.bodiesOf(routePath(documentContextList)), []);
+});
+
+Deno.test("lophn-agent/agents#R16 [agent-I10a]: App Engineer in its app gets the active contexts that read that app, asked for by the app and not by a project", async () => {
+  const { world, prepared } = await prepare({
+    role: "app_engineer",
+    scope: { kind: "app", id: APP },
+    session: { kind: "app", id: APP },
+    workspaceModels: { app_engineer: MODEL() },
+    activeContexts: [CTX1, CTX2],
+  });
+  assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+  const agent = resolvedAgentSchema.parse(world.blob("run_agent"));
+  assertEquals(agent.contexts, [CTX1, CTX2]);
+  assertEquals(agent.contexts_reason, null);
+  assertEquals(world.bodiesOf(routePath(documentContextList)), [{
+    app: APP,
+    status: "active",
+  }]);
 });
 
 Deno.test("lophn-agent/agents#R9 lophn-agent/agents#R15 [agent-I10a]: an Operator takes its definition's model, contexts and the assignment's place even without a session", async () => {

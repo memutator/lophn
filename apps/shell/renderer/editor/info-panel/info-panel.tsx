@@ -7,7 +7,6 @@ import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { DocumentFacts, VersionSource } from "../versions/source.ts";
 import { saverLabel, VersionsTab } from "../versions/versions-tab.tsx";
-import { ContextsTab } from "./contexts-tab.tsx";
 import styles from "./info-panel.module.css";
 
 export type InfoTabId = "info" | "versions" | "contexts";
@@ -22,8 +21,6 @@ export interface DocumentInfoPanelProps {
   /** 복원 뒤 다시 읽게 바꾸는 값. */
   refresh?: number;
   onCompare: (document: string, before: string, after: string) => void;
-  /** 컨텍스트 탭에서 고른 Focus를 연다. */
-  onOpenContext?: (context: string) => void;
   now?: () => number;
 }
 
@@ -131,7 +128,6 @@ export function DocumentInfoPanel(
     viewing = null,
     refresh = 0,
     onCompare,
-    onOpenContext,
     now = Date.now,
   }: DocumentInfoPanelProps,
 ) {
@@ -151,13 +147,9 @@ export function DocumentInfoPanel(
     );
   }
   if (tab === "contexts") {
-    return (
-      <ContextsTab
-        document={document}
-        source={source}
-        onOpen={onOpenContext}
-      />
-    );
+    // 문서가 든 context는 작업대가 context.containing으로 읽어 이 자리에 DocumentContexts를 낀다
+    // (shell/workspace#R28). 그 통로가 없는 창에는 보일 context가 없다.
+    return <p className={styles.muted}>{t("document.empty.contexts")}</p>;
   }
   return (
     <InfoTab document={document} source={source} refresh={refresh} now={now} />

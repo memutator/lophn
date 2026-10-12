@@ -25,7 +25,7 @@ export interface QuestionOption {
   /** 고정 action이 있으면 보통 confirmation window에서만 확정한다. */
   readonly action: boolean;
   /**
-   * action의 command. term.define·app.create는 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
+   * action의 command. app.create는 질문 답의 확정으로 적용하고 확인 창을 열지 않는다.
    * action이 없으면 null이다.
    */
   readonly command?: string | null;
@@ -105,10 +105,6 @@ export interface NotificationRow {
    * (platform/notifications#R3)
    */
   readonly occurredAt?: string;
-  /**
-   * source event에 저장된 문서. 없으면 링크를 그리지 않는다.
-   */
-  readonly document?: string;
   /**
    * OS notification으로 올리지 못한 이유. core가 이번 실행에서 본 것만 온다
    * (platform/notifications#R10). 없으면 실패를 본 적이 없다.

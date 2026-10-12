@@ -168,17 +168,34 @@ import {
   PREPARE_BASE_ROUTE,
   SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
-  TERM_OCCURRENCE_ROUTE,
-  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { createDocumentsRespawner } from "./documents-respawn.ts";
+import {
+  CONTEXT_WORKER_OPERATIONS,
+  contextWorkerCredential,
+} from "./contexts-api.ts";
+import {
+  createContextBlobPreparer,
+  withContextBlobs,
+} from "./contexts-blob.ts";
+import {
+  type ContextsDispatchDeps,
+  contextsStagingPath,
+  createContextsDispatcher,
+  createContextsHost,
+  createContextsProcess,
+} from "./contexts-worker.ts";
+import {
+  type ContextsWatch,
+  createContextsWatch,
+  denoWatchFs,
+} from "./contexts-watch.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
-import { withTermOccurrence } from "./documents-term-check.ts";
 import {
   createPlacementReservations,
   withPlacementReservation,
@@ -188,11 +205,6 @@ import {
   type SearchVersion,
   watchSearchIndex,
 } from "./documents-search.ts";
-import {
-  watchContextChanges,
-  type WatchInput,
-  type WatchSync,
-} from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
 import { startAssignmentReactions } from "./assignment-reactions.ts";
 import {
@@ -213,7 +225,13 @@ import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
-import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
+import {
+  contextWorkInputReadSchema,
+  contextWorkInputRoute,
+  contextWorkListReadSchema,
+  contextWorkListRoute,
+  projectTrackingRoots,
+} from "../../packages/contracts/documents/mod.ts";
 import {
   greet,
   type ParentPipe,
@@ -408,6 +426,9 @@ export type CoreOptions = {
   // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
   // 쥔 I/O worker). 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
+  // 테스트가 context worker를 띄우지 않을 때만 끈다(worker의 결과를 손으로 내는 시험). 제품 기동은 항상
+  // 띄운다.
+  contextWorker?: boolean;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
@@ -720,12 +741,12 @@ async function open(
     { name: "document.prepare", actors: ["machine"], kind: "command" },
     // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
     { name: "file.record_result", actors: ["machine"], kind: "command" },
-    // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
-    {
-      name: "context.record_watch_change",
+    // context worker(machine)가 검사 결과와 위반 수를 기록한다(documents/contexts).
+    ...CONTEXT_WORKER_OPERATIONS.map((name): OperationPolicy => ({
+      name,
       actors: ["machine"],
       kind: "command",
-    },
+    })),
     // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
     ...appsOperationPolicies(),
     // problems report collector(machine)가 보고를 제출한다.
@@ -829,12 +850,12 @@ async function open(
   } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
+  // 활성 context의 계약 경로 폴더를 보고 바뀌면 index를 따라잡게 하는 감시(documents/contexts#R23).
+  let contextsWatch: ContextsWatch | undefined;
   // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
   let basisSync: BasisSync | undefined;
   // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
   let searchSync: SearchSync | undefined;
-  // coordinator의 context watch consumer에 저장 event를 보내는 동기화(documents#T24).
-  let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
@@ -1120,6 +1141,10 @@ async function open(
       : { sweepMs: options.appsSweepMs }),
   });
   appsControl.overlayReads(runtime.reads);
+  // context index를 읽는 읽기는 읽기 전에 index를 따라잡고, bundle.submit은 검사를 worker에 보낸다.
+  // worker를 띄울 수 있는 조립(io 감독이 있는 core)에서만 아래에서 dispatcher가 붙는다.
+  const contextsHost = createContextsHost();
+  contextsHost.overlayReads(runtime.reads);
   // documents 구독자(machine:documents-feed)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 event 공개를 판단한다.
   const feedCredential = await runtime.record(DOCUMENTS_FEED_CONTEXT);
@@ -1140,7 +1165,6 @@ async function open(
           "document.prepare",
           "document.save",
           "file.record_result",
-          "context.record_watch_change",
         ],
         targets: { task: "documents" },
       },
@@ -1275,37 +1299,37 @@ async function open(
             withTraceExport(
               withReleasePreparation(
                 withPlacementReservation(
-                  withTermOccurrence(
-                    withApprovalText(
-                      withQuestionText(
-                        withHandoffBody(
-                          withMessageBody(
-                            runtime.writer,
-                            createMessageBodyPreparer({
+                  withApprovalText(
+                    withQuestionText(
+                      withHandoffBody(
+                        withMessageBody(
+                          // context의 초안·위반 넘김 근거는 호출자 자격으로 command 앞에 준비한다.
+                          withContextBlobs(
+                            contextsHost.wrapWriter(runtime.writer),
+                            createContextBlobPreparer({
                               relay: () => bodyPrepare.current,
-                              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
-                              known: () => runtime?.knownSecrets,
+                              reads: () => runtime?.reads,
                             }),
                           ),
-                          createHandoffBodyPreparer({
+                          createMessageBodyPreparer({
                             relay: () => bodyPrepare.current,
+                            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                             known: () => runtime?.knownSecrets,
                           }),
                         ),
-                        createQuestionTextPreparer({
+                        createHandoffBodyPreparer({
                           relay: () => bodyPrepare.current,
+                          known: () => runtime?.knownSecrets,
                         }),
                       ),
-                      createApprovalTextPreparer({
+                      createQuestionTextPreparer({
                         relay: () => bodyPrepare.current,
-                        known: () => runtime?.knownSecrets,
                       }),
                     ),
-                    (ctx, command, input) =>
-                      runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-                        command,
-                        input,
-                      }),
+                    createApprovalTextPreparer({
+                      relay: () => bodyPrepare.current,
+                      known: () => runtime?.knownSecrets,
+                    }),
                   ),
                   placementReservations,
                 ),
@@ -1922,26 +1946,105 @@ async function open(
       streamer: coordinatorStreamer,
       ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
-      // 추출이 끝나면 그 판의 미확인 watch 비교를 다시 확인할 수 있다.
-      onSettled: () => void watchSync?.check(),
     });
-    watchSync = watchContextChanges({
-      events: runtime.events,
-      context: DOCUMENTS_FEED_CONTEXT,
-      request: (op, payload, timeoutMs) =>
-        documentsChannel.request(op, payload, timeoutMs),
-      inputOf: async (event): Promise<Result<WatchInput>> => {
+  }
+  // documents/contexts. index를 갱신하고 판을 검사하는 context worker(documents 2.4)다. 첫 요청에서 띄우고
+  // 상주한다. 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 읽기는 있던
+  // index로 답하고(없으면 unavailable) 제출된 판은 checking으로 남는다.
+  if (io && options.contextWorker !== false) {
+    const issued = await productRegistry.issue(contextWorkerCredential());
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    if (issued.ok && recorded.ok) {
+      const credentialRef = issued.value.credential_ref;
+      const contextsChannel = createDocumentsChannel();
+      const contextsProcess = createContextsProcess({
+        supervisor: io,
+        channel: contextsChannel,
+        dataRoot: root.path,
+        epoch,
+        apiPort: server.port,
+        prepare: async () => {
+          await Deno.mkdir(`${root.path}/derived`, { recursive: true });
+          await Deno.mkdir(contextsStagingPath(root.path), { recursive: true });
+        },
+      });
+      const readContextInput: ContextsDispatchDeps["readInput"] = async (
+        input,
+      ) => {
         const read = await runtime!.readers.read(
-          WATCH_INPUT_ROUTE,
-          watchReader,
-          event,
+          contextWorkInputRoute,
+          contextsInputReader,
+          input,
         );
         if (!read.ok) return read;
-        return ok(read.value as WatchInput);
-      },
-      ledgerId: ledgerId.value,
-      retryMs: DOCUMENTS_SEARCH_RETRY_MS,
-    });
+        const parsed = contextWorkInputReadSchema.safeParse(read.value);
+        return parsed.success ? ok(parsed.data) : err({
+          code: "internal" as const,
+          message: "the context worker input is not valid",
+        });
+      };
+      // 활성 context와 도는 검사의 목록. 읽을 때마다 worker가 읽을 폴더 전체를 맞춘다(빠진 폴더는 다음에
+      // 다시 띄울 때 권한에서 빠진다).
+      const listContextWork: NonNullable<ContextsDispatchDeps["list"]> =
+        async () => {
+          const read = await runtime!.readers.read(
+            contextWorkListRoute,
+            contextsInputReader,
+            {},
+          );
+          if (!read.ok) return read;
+          const parsed = contextWorkListReadSchema.safeParse(read.value);
+          if (!parsed.success) {
+            return err({
+              code: "internal" as const,
+              message: "the context work list is not valid",
+            });
+          }
+          contextsProcess.retain([
+            ...new Set([
+              ...parsed.data.contexts.flatMap((entry) => entry.roots),
+              ...parsed.data.checks.flatMap((entry) => entry.roots),
+            ]),
+          ]).catch((error) =>
+            console.error(`context worker: ${String(error)}`)
+          );
+          return ok(parsed.data);
+        };
+      const contextsWatchHandle = createContextsWatch({
+        list: listContextWork,
+        readInput: readContextInput,
+        catchUp: (context) => dispatcher.ensureFresh(context, { force: true }),
+        watchFs: denoWatchFs,
+        log: (message) => console.error(message),
+      });
+      contextsWatch = contextsWatchHandle;
+      contextsHost.onAccepted(contextsWatchHandle.onCommand);
+      const dispatcher = createContextsDispatcher({
+        process: contextsProcess,
+        readInput: readContextInput,
+        observed: (input) => contextsWatchHandle.observe(input),
+        list: listContextWork,
+        command: (envelope) => {
+          const ctx = runtime!.current(credentialRef);
+          return ctx.ok
+            ? runtime!.writer.command(ctx.value as never, envelope)
+            : Promise.resolve(ctx);
+        },
+        nowMs: () => performance.now(),
+        log: (message) => console.error(`context worker: ${message}`),
+      });
+      contextsHost.attach(dispatcher);
+      void contextsWatchHandle.start();
+      // 이전 실행에서 결과를 받지 못한 검사는 checking으로 남아 있다. 다시 보낸다.
+      void dispatcher.recover();
+    }
   }
   // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
   // worker다. 감독이 없는 harness와 problems를 등록하지 않은 조립은 띄우지 않는다. 띄우지
@@ -2312,7 +2415,6 @@ async function open(
     roots: () => rootsWatch,
     basis: () => basisSync,
     search: () => searchSync,
-    watch: () => watchSync,
   });
   // 내장 lophn·Context Engineer assignment 준비(lophn-agent/assignments#R2). 이미 있으면 아무것도
   // 보내지 않는다.
@@ -2725,13 +2827,13 @@ async function open(
           // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
           await assignmentReactions?.stop();
           rootsWatch?.stop();
+          contextsWatch?.stop();
           respawnStop?.();
           agentRuntime?.stop();
           // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.
           await mcpAuthControl.endAll();
           basisSync?.stop();
           searchSync?.stop();
-          watchSync?.stop();
           closeChildBlob?.();
           closeCollectorBlob?.();
           closeTestRunner?.();
@@ -3095,6 +3197,19 @@ const basisReader: RequestContext = {
   credential_ref: "machine:documents-basis",
 };
 
+// context worker 일의 입력(적용 판·검사할 후보 판)과 활성 context 목록을 reader에서 읽는 자격. core가
+// reader에 넘기는 context라 발급 자격이 아니다. 둘 다 machine 전용 내부 read다.
+const contextsInputReader: RequestContext = {
+  principal: "machine:contexts-dispatch",
+  actor: "machine",
+  scope: {
+    operations: [contextWorkInputRoute.name, contextWorkListRoute.name],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: "machine:contexts-dispatch",
+};
+
 // search consumer가 저장 판 행을 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
 const searchReader: RequestContext = {
   principal: "machine:documents-search",
@@ -3102,15 +3217,6 @@ const searchReader: RequestContext = {
   scope: { operations: [SEARCH_VERSION_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-search",
-};
-
-// watch consumer가 저장 event의 비교 근거를 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
-const watchReader: RequestContext = {
-  principal: "machine:documents-watch",
-  actor: "machine",
-  scope: { operations: [WATCH_INPUT_ROUTE.name], targets: {} },
-  conditions: {},
-  credential_ref: "machine:documents-watch",
 };
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.

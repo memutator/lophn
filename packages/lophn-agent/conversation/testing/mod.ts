@@ -66,6 +66,7 @@ export const OPERATIONS = [
   "PreviewRewind",
   "ListRewindCheckpoints",
   "ListReverts",
+  "StartRequestFixture",
   "CommandResult",
 ];
 

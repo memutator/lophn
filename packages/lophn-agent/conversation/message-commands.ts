@@ -21,6 +21,7 @@ import {
   type Compare,
   type Input,
   parseActor,
+  type PermanentBlobReference,
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
@@ -118,13 +119,16 @@ function registerBody(
   message: string,
   seq: string,
   body: BodyBlob,
+  existing?: PermanentBlobReference,
 ): Result<void> {
   const registered = tx.registerBlobRef({
     owner_kind: MESSAGE_BODY_OWNER_KIND,
     owner_key: message,
     field: MESSAGE_BODY_FIELD,
     registered_seq: seq,
-    source: { kind: "prepared", blob: body.evidence },
+    source: existing === undefined
+      ? { kind: "prepared", blob: body.evidence }
+      : { kind: "existing", reference: existing },
   });
   return registered.ok ? ok(undefined) : registered;
 }
@@ -160,11 +164,13 @@ function insertMessage(
   );
 }
 
-function stored(row: MessageRow | undefined): Result<{
+export type ReceivedMessage = {
   message: ReturnType<typeof snapshotOf>["message"];
   created_seq: string;
   state_seq: string;
-}> {
+};
+
+function stored(row: MessageRow | undefined): Result<ReceivedMessage> {
   return row === undefined ? messageNotFound() : ok(snapshotOf(row));
 }
 
@@ -218,6 +224,145 @@ export function recordFactMessage(
   return registered.ok ? ok(id) : registered;
 }
 
+// ReceiveMessage의 본체. `existingBody`가 있으면 본문 blob은 이미 저장되고 참조가 등록된 값이다(다른
+// concern이 사람 한 번의 요청에서 만든 요청; request.ts). 없으면 core가 준비한 blob의 준비 증거로
+// 영구 참조를 등록한다.
+export function receiveWith(
+  accept: AcceptRun,
+  tx: Tx,
+  ctx: RequestContext,
+  input: Input<typeof receiveMessage>,
+  compare: Compare<typeof receiveMessage>,
+  existingBody: PermanentBlobReference | undefined,
+): Result<ReceivedMessage> {
+  const user = requireUser(ctx);
+  if (!user.ok) return user;
+  const body = bodyBlob(ctx.principal, input.content);
+  if (existingBody !== undefined && existingBody.hash !== body.hash) {
+    return reject("invalid_input", "the stored body is not this content");
+  }
+  const existing = loadMessage(tx, input.id);
+  if (existing !== undefined) {
+    const target = existing.run === null
+      ? undefined
+      : loadRunRef(tx, existing.run);
+    const same = existing.actor === "user" &&
+      existing.session === input.session &&
+      existing.body === body.hash && existing.mode === input.mode &&
+      (input.mode === "request"
+        ? input.run === undefined
+        : existing.run === input.run ||
+          target?.source_message === existing.id);
+    return same
+      ? stored(existing)
+      : reject("conflict", "message id already used for other input");
+  }
+  const session = loadSession(tx, input.session);
+  if (session === undefined) return sessionNotFound();
+  if (session.state !== "open") {
+    return reject("forbidden", "a closed session takes no new input");
+  }
+  const assignment = loadAssignmentRef(tx, session.assignment);
+  if (assignment === undefined) {
+    return reject("not_found", "assignment not found");
+  }
+  // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 입력을 받지 않는다(R8).
+  if (assignment.state !== "enabled") {
+    return reject(
+      "forbidden",
+      "a paused or withdrawn assignment takes no input",
+    );
+  }
+  if (
+    session.state_seq !== compare.session_state_seq ||
+    assignment.revision !== compare.assignment_revision
+  ) {
+    return reject("conflict", "session or assignment changed");
+  }
+  const firstRequest = !hasPersonRequest(tx, session.id);
+  let run: string;
+  if (input.mode === "correction") {
+    const target = loadRunRef(tx, input.run as string);
+    if (
+      target === undefined || target.session !== session.id ||
+      target.assignment !== session.assignment
+    ) return reject("not_found", "run not found");
+    if (target.state !== "finished") {
+      run = target.id;
+    } else {
+      // 종료가 확정된 뒤에 온 수정은 끝난 run을 다시 열지 않고 새 담당 run에
+      // 접수한다(R7). 같은 transaction이라 담당은 정확히 하나다.
+      const accepted = acceptForMessage(
+        tx,
+        ctx,
+        accept,
+        session,
+        assignment.revision,
+        input.id,
+      );
+      if (!accepted.ok) return accepted;
+      run = accepted.value;
+    }
+  } else if (input.run !== undefined) {
+    return reject("invalid_input", "a next request names no target run");
+  } else {
+    const accepted = acceptForMessage(
+      tx,
+      ctx,
+      accept,
+      session,
+      assignment.revision,
+      input.id,
+    );
+    if (!accepted.ok) return accepted;
+    run = accepted.value;
+  }
+  const seq = tx.emit(messageReceived, input.id, {
+    session: session.id,
+    run,
+    mode: input.mode,
+    body: body.hash,
+  });
+  insertMessage(tx, {
+    id: input.id,
+    session: session.id,
+    actor: ctx.actor,
+    body: body.hash,
+    run,
+    mode: input.mode,
+    links: "[]",
+  }, seq);
+  const registered = registerBody(tx, input.id, seq, body, existingBody);
+  if (!registered.ok) return registered;
+  // 사람 request는 되돌아갈 지점(Checkpoint)이다. 같은 transaction에서 만든다.
+  const checkpoint = createCheckpoint(tx, {
+    id: input.id,
+    session: session.id,
+    actor: ctx.actor,
+    mode: input.mode,
+    copied_from: null,
+  });
+  if (!checkpoint.ok) return checkpoint;
+  // 새 사람 메시지가 접수되면 앞 rewind의 redo는 확정(closed)된다.
+  const closed = closeAvailableRedo(tx, session.id);
+  if (!closed.ok) return closed;
+  // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다(R18). 상태 seq는
+  // 바꾸지 않는다: 바로 이어 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
+  const title = titleOnReceive({
+    title: session.title,
+    first_request: firstRequest,
+    mode: input.mode,
+    text: textOf(input.content),
+  });
+  if (title !== session.title) {
+    tx.sql.run("update sessions set title = ? where id = ?", [
+      title,
+      session.id,
+    ]);
+  }
+  return stored(loadMessage(tx, input.id));
+}
+
 export function createMessageCommands(accept: AcceptRun): {
   receive: CommandDefinition<typeof receiveMessage>;
   record: CommandDefinition<typeof recordMessage>;
@@ -228,129 +373,7 @@ export function createMessageCommands(accept: AcceptRun): {
     receive: {
       route: receiveMessage,
       handle(tx, ctx, input: Input<typeof receiveMessage>, compare) {
-        const user = requireUser(ctx);
-        if (!user.ok) return user;
-        const body = bodyBlob(ctx.principal, input.content);
-        const existing = loadMessage(tx, input.id);
-        if (existing !== undefined) {
-          const target = existing.run === null
-            ? undefined
-            : loadRunRef(tx, existing.run);
-          const same = existing.actor === "user" &&
-            existing.session === input.session &&
-            existing.body === body.hash && existing.mode === input.mode &&
-            (input.mode === "request"
-              ? input.run === undefined
-              : existing.run === input.run ||
-                target?.source_message === existing.id);
-          return same
-            ? stored(existing)
-            : reject("conflict", "message id already used for other input");
-        }
-        const session = loadSession(tx, input.session);
-        if (session === undefined) return sessionNotFound();
-        if (session.state !== "open") {
-          return reject("forbidden", "a closed session takes no new input");
-        }
-        const assignment = loadAssignmentRef(tx, session.assignment);
-        if (assignment === undefined) {
-          return reject("not_found", "assignment not found");
-        }
-        // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 입력을 받지 않는다(R8).
-        if (assignment.state !== "enabled") {
-          return reject(
-            "forbidden",
-            "a paused or withdrawn assignment takes no input",
-          );
-        }
-        if (
-          session.state_seq !== compare.session_state_seq ||
-          assignment.revision !== compare.assignment_revision
-        ) {
-          return reject("conflict", "session or assignment changed");
-        }
-        const firstRequest = !hasPersonRequest(tx, session.id);
-        let run: string;
-        if (input.mode === "correction") {
-          const target = loadRunRef(tx, input.run as string);
-          if (
-            target === undefined || target.session !== session.id ||
-            target.assignment !== session.assignment
-          ) return reject("not_found", "run not found");
-          if (target.state !== "finished") {
-            run = target.id;
-          } else {
-            // 종료가 확정된 뒤에 온 수정은 끝난 run을 다시 열지 않고 새 담당 run에
-            // 접수한다(R7). 같은 transaction이라 담당은 정확히 하나다.
-            const accepted = acceptForMessage(
-              tx,
-              ctx,
-              accept,
-              session,
-              assignment.revision,
-              input.id,
-            );
-            if (!accepted.ok) return accepted;
-            run = accepted.value;
-          }
-        } else if (input.run !== undefined) {
-          return reject("invalid_input", "a next request names no target run");
-        } else {
-          const accepted = acceptForMessage(
-            tx,
-            ctx,
-            accept,
-            session,
-            assignment.revision,
-            input.id,
-          );
-          if (!accepted.ok) return accepted;
-          run = accepted.value;
-        }
-        const seq = tx.emit(messageReceived, input.id, {
-          session: session.id,
-          run,
-          mode: input.mode,
-          body: body.hash,
-        });
-        insertMessage(tx, {
-          id: input.id,
-          session: session.id,
-          actor: ctx.actor,
-          body: body.hash,
-          run,
-          mode: input.mode,
-          links: "[]",
-        }, seq);
-        const registered = registerBody(tx, input.id, seq, body);
-        if (!registered.ok) return registered;
-        // 사람 request는 되돌아갈 지점(Checkpoint)이다. 같은 transaction에서 만든다.
-        const checkpoint = createCheckpoint(tx, {
-          id: input.id,
-          session: session.id,
-          actor: ctx.actor,
-          mode: input.mode,
-          copied_from: null,
-        });
-        if (!checkpoint.ok) return checkpoint;
-        // 새 사람 메시지가 접수되면 앞 rewind의 redo는 확정(closed)된다.
-        const closed = closeAvailableRedo(tx, session.id);
-        if (!closed.ok) return closed;
-        // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다(R18). 상태 seq는
-        // 바꾸지 않는다: 바로 이어 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
-        const title = titleOnReceive({
-          title: session.title,
-          first_request: firstRequest,
-          mode: input.mode,
-          text: textOf(input.content),
-        });
-        if (title !== session.title) {
-          tx.sql.run("update sessions set title = ? where id = ?", [
-            title,
-            session.id,
-          ]);
-        }
-        return stored(loadMessage(tx, input.id));
+        return receiveWith(accept, tx, ctx, input, compare, undefined);
       },
     },
     record: {

@@ -45,7 +45,6 @@ function source(layout: unknown): WorkspaceSource {
       }),
     documents: () =>
       Promise.resolve({ ok: true, value: [{ id: "doc_1", title: "notes" }] }),
-    contexts: () => Promise.resolve({ ok: true, value: [] }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () => Promise.resolve({ ok: true, available: true, layout }),
     saveLayout: () => Promise.resolve({ ok: true }),

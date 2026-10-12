@@ -169,7 +169,6 @@ export function MockDesktop(props: MockDesktopProps) {
             editor={{ ...mock.editor, menu: NO_OVERLAY_MENU }}
             terminal={wiring.terminal}
             lophn={mock.lophn}
-            contexts={mock.contexts}
             organize={mock.organize}
             projects={wiring.projects}
             apps={mock.apps}

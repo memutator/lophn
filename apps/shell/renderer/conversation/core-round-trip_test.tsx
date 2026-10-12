@@ -176,3 +176,62 @@ Deno.test("lophn-agent/conversation#R2: 실제 core에서 도크가 글을 conte
     await core.stop();
   }
 });
+
+Deno.test("lophn-agent/conversation#R16 [ctx-I58i]: 실제 core에서 Context Engineer 담당을 물어 이 프로젝트를 작업 자리로 하는 세션을 연다", async () => {
+  const core = await startRealCore();
+  try {
+    const source = coreConversationSource(core.source);
+    const lophn = await source.agent();
+    const engineer = await source.agent("context_engineer");
+    assert(lophn.ok && lophn.value !== null);
+    assert(engineer.ok && engineer.value !== null);
+    // 새 데이터 root에는 lophn과 Context Engineer의 전역 담당이 각각 있다.
+    assert(engineer.value.id !== lophn.value.id);
+    assertEquals(engineer.value.role, "context_engineer");
+    assertEquals(lophn.value.role, undefined);
+
+    const project = "prj_01h455vb4pex5v6nkc6gd5fz02";
+    const folder = await Deno.makeTempDir();
+    try {
+      const created = await core.source.call({
+        kind: "command",
+        resource: "projects",
+        method: "create",
+        body: {
+          input: {
+            id: project,
+            name: "alpha",
+            title: "Alpha",
+            purpose: "",
+            folders: [{ path: folder, description: "a" }],
+            tracking: { enabled: false, patterns: [], use_gitignore: false },
+          },
+          idempotency_key: "create-project",
+          compare: {},
+          prepared: [],
+        },
+      });
+      assert(created.ok, JSON.stringify(created));
+      const opened = await source.openSession({
+        id: "ses_01h455vb4pex5v6nkc6gd5fz01",
+        agent: engineer.value,
+        workPlace: { kind: "project", id: project },
+      });
+      assert(opened.ok, opened.ok ? "" : opened.code);
+      const place = { kind: "project" as const, id: project };
+      const sessions = await source.sessions(engineer.value.id, place);
+      assert(sessions.ok);
+      assertEquals(sessions.value.map((item) => item.id), [opened.value.id]);
+      // 다른 역할의 세션 목록에는 보이지 않는다.
+      const other = await source.sessions(lophn.value.id, place);
+      assert(other.ok);
+      assertEquals(other.value, []);
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+    }
+  } catch (error) {
+    throw new Error(`${(error as Error).message}\n--- core ---\n${core.log()}`);
+  } finally {
+    await core.stop();
+  }
+});

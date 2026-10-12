@@ -51,8 +51,8 @@ import {
 } from "./core/layout-ipc.ts";
 import { createLayoutStore } from "../workspace/layout-store.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
-import { TERM_DEFINITION_CHANNEL } from "../../ipc/term-definition.ts";
-import { confirmTermDefinition } from "../confirmation/term-definition.ts";
+import { WINDOWLESS_CONFIRMATION_CHANNEL } from "../../ipc/windowless-confirmation.ts";
+import { confirmWithoutWindow } from "../confirmation/windowless-confirmation.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -1157,8 +1157,8 @@ ipcMain.handle(
   }),
 );
 
-// term.define 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
-ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
+// app.create·apply_settings 선택지의 확정. 확인 창을 열지 않고 정본의 그 command만 접수한다.
+ipcMain.handle(WINDOWLESS_CONFIRMATION_CHANNEL, async (event, input) => {
   const body = input as { group?: unknown; option_key?: unknown };
   if (
     typeof body?.group !== "string" || typeof body.option_key !== "string"
@@ -1172,7 +1172,7 @@ ipcMain.handle(TERM_DEFINITION_CHANNEL, async (event, input) => {
   if (window === undefined || session === null) {
     return { ok: false, code: "unavailable" };
   }
-  return await confirmTermDefinition({
+  return await confirmWithoutWindow({
     core: session,
     register: (request) => core.registerConfirmation(request),
     windowId: windowRef(window),
@@ -1261,7 +1261,7 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   ipcMain.removeHandler(WINDOW_CONTROL_CHANNEL);
   ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
-  ipcMain.removeHandler(TERM_DEFINITION_CHANNEL);
+  ipcMain.removeHandler(WINDOWLESS_CONFIRMATION_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
   removeAppWindowIpc(appWindowIpcMain);
@@ -1564,7 +1564,6 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
     // lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
     // `apps`는 apps 형제부터, `settings`는 settings 형제부터, `app:<id>`는 그 앱 공간부터 연다.
-    // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
@@ -1574,10 +1573,6 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${desktopUrl}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
       ? `${desktopUrl}#things-to-confirm`
-      : /^contexts(:ctx_[0-9a-z]{26})?$/.test(
-          process.env.LOPHN_SHELL_START ?? "",
-        )
-      ? `${desktopUrl}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
       : process.env.LOPHN_SHELL_START === "projects"
       ? `${desktopUrl}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
@@ -1660,20 +1655,15 @@ function openDesktopWindow(): BrowserWindow | undefined {
         });
         window.on("closed", () => windows.delete(window));
         // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다(desktop#R23).
-        for (
-          const change of [
-            "maximize",
-            "unmaximize",
-            "enter-full-screen",
-            "leave-full-screen",
-          ] as const
-        ) {
-          window.on(change, () => {
-            if (!window.isDestroyed()) {
-              window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
-            }
-          });
-        }
+        const sendWindowState = () => {
+          if (!window.isDestroyed()) {
+            window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
+          }
+        };
+        window.on("maximize", sendWindowState);
+        window.on("unmaximize", sendWindowState);
+        window.on("enter-full-screen", sendWindowState);
+        window.on("leave-full-screen", sendWindowState);
         // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
         window.webContents.on("did-finish-load", () => {
           if (!window.isDestroyed()) {

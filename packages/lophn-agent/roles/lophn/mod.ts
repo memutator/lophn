@@ -27,7 +27,9 @@ export {
   sectionText,
 } from "./guide-answer.ts";
 export {
+  type ContainingContext,
   oneLine,
+  type PlaceActivity,
   type PlaceCandidate,
   type PlaceRecommendations,
   type PlaceTarget,
@@ -55,6 +57,7 @@ export {
 } from "./work.ts";
 export {
   checkPlan,
+  CONTEXT_ENGINEER_ROLE,
   NO_HANDOFF_WORD,
   oneSentence,
   PLAN_OPTION_WORDS,

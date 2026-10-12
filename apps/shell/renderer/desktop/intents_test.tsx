@@ -171,7 +171,7 @@ Deno.test("shell/desktop#R18: 전역 팔레트는 런처에서도 lophn 전체 �
   assertEquals(model.label, "Search lophn");
   assertEquals(
     [...new Set(model.choices.map((choice) => choice.group))],
-    ["Projects", "Contexts", "Apps", "Actions"],
+    ["Projects", "Apps", "Actions"],
   );
   // 이미 열려 있으면 그대로 둔다.
   await win.send("global-palette");
@@ -212,9 +212,6 @@ Deno.test("shell/desktop#R18: 전역 팔레트의 결과는 프로젝트·형제
     />,
   );
   await flush();
-  await win.send("global-palette");
-  await win.choose("Release");
-  assertEquals(screen(view.container), "contexts");
   await win.send("global-palette");
   await win.choose("Groceries");
   assertEquals(screen(view.container), "apps");

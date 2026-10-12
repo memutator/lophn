@@ -37,16 +37,15 @@ function liveRegistry(): ViewRegistry {
 function fullScope(): ViewScope {
   return {
     project: () => true,
-    document: () => true,
-    app: () => true,
+    allows: () => true,
   };
 }
 
 function narrowScope(allowed: string): ViewScope {
   return {
     project: (id) => id === allowed,
-    document: (doc) => doc === DOC,
-    app: (app) => app === APP,
+    allows: (group, ref) =>
+      group === "document" ? ref === DOC : group === "app" && ref === APP,
   };
 }
 
@@ -123,12 +122,7 @@ test("shell/workspace#R9: 두 창은 각자의 탭과 선택만 묶는다", () =
       panes: [
         {
           tabs: [
-            {
-              kind: "document_viewer",
-              key: "t3",
-              document: DOC2,
-              version: VER,
-            },
+            { kind: "document_editor", key: "t3", document: DOC2 },
           ],
           selected: "t3",
         },

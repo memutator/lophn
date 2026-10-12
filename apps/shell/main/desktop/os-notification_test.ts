@@ -132,6 +132,7 @@ test("platform/notifications#R9: 올리는 문구는 core가 준 계기 종류�
     ["ProblemOpened", "An issue was reported"],
     ["TicketCheckFailed", "A task's check failed"],
     ["ReleaseActivationFailed", "An app version couldn't start"],
+    ["ContextViolationsRecorded", "A context has more violations"],
     ["ToString", en["common.notification.body"]],
     ["__proto__", en["common.notification.body"]],
   ];

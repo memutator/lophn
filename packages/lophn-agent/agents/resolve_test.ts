@@ -485,6 +485,27 @@ Deno.test("lophn-agent/agents#R16 [agent-I2]: a built-in agent gets every active
   assertEquals(operatorInApp.contexts_reason, null);
 });
 
+Deno.test("lophn-agent/agents#R16 [agent-I2]: App Engineer in its app gets the active contexts that read that app and no reason, while lophn in an app still gets none", async () => {
+  const engineer = input(named("app-engineer"));
+  const withApp = {
+    ...engineer,
+    environment: { ...engineer.environment, active_contexts: [CTX2, CTX1] },
+  };
+  const got = await resolved(withApp);
+  assertEquals(got.contexts, [CTX2, CTX1]);
+  assertEquals(got.contexts_reason, null);
+  const none = await resolved(engineer);
+  assertEquals(none.contexts, []);
+  assertEquals(none.contexts_reason, null);
+  const lophn = input(named("app-lophn-without-file"));
+  const lophnApp = await resolved({
+    ...lophn,
+    environment: { ...lophn.environment, active_contexts: [CTX1] },
+  });
+  assertEquals(lophnApp.contexts, []);
+  assertEquals(lophnApp.contexts_reason, "no_project");
+});
+
 Deno.test("lophn-agent/agents#R17 [agent-I2]: an app Operator keeps the app commands it chose and a built-in agent keeps none", async () => {
   const watcher = await resolved(input(named("app-operator-status-watcher")));
   assertEquals(watcher.app_reads, [

@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import type {
   CommandEnvelope,
   CommandSuccess,

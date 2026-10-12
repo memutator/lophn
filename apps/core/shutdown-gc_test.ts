@@ -7,7 +7,7 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import { BLOB_UNREFERENCED_GRACE_MS } from "../../packages/protocol/platform/mod.ts";
+import { BLOB_UNREFERENCED_GRACE_MS } from "../../packages/protocol/server/mod.ts";
 import { startCore } from "./core.ts";
 import { createCoreRegistration } from "./testing/blob-registration.ts";
 import { acquireInstanceLock } from "../../packages/core/install-and-update/mod.ts";

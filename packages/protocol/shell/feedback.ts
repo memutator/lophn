@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sha256Schema } from "../platform/values.ts";
+import { sha256Schema } from "../base/values.ts";
 import {
   FEEDBACK_CAPTURE_BLOCKS,
   feedbackTextSchema,

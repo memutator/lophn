@@ -3,7 +3,7 @@
 // 보고는 shell main 대신 시험이 route를 직접 부른다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createCoreRegistration } from "./testing/notification-sources.ts";
 import type { TeamModule } from "./registration.ts";

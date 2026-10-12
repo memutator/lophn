@@ -12,7 +12,7 @@ import {
   type SchemaStep,
   type SqlParams,
   type SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // 본문 blob은 영구 보존이다(R2). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
 // 그 assignment의 agent, machine)는 ReadMessageBody가 판정한다.

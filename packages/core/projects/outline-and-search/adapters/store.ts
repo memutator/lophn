@@ -3,10 +3,7 @@
 // read 연결은 query_only로 열어 쓰기가 없다.
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import type {
-  SchemaStep,
-  SqlParams,
-} from "../../../../protocol/platform/mod.ts";
+import type { SchemaStep, SqlParams } from "../../../../protocol/server/mod.ts";
 import { outlineAndSearchSchemaSteps } from "../schema.ts";
 
 export type DerivedStoreWrite = {

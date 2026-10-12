@@ -4,7 +4,7 @@
 
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "../storage/ledger/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";

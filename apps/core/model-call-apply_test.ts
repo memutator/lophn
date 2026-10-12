@@ -1,7 +1,7 @@
 // lophn-agent/harness/run-loop: 수정 입력의 처음 반영(ApplyMessages)은 ModelCall 시작과 같은 transaction이다
 // (Q30). 실제 core(임시 LOPHN_HOME, 실제 ledger)에서 시작이 반영과 함께 남거나 함께 남지 않는지 본다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { call, command, count, inspect } from "./testing/approvals-fixture.ts";
 import {
   acceptCredential,

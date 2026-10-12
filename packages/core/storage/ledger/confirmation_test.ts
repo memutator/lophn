@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

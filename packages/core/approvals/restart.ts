@@ -4,7 +4,7 @@
 // 관측은 현재 표의 상태이고, 읽지 못하면 unknown과 안전한 이유다.
 // 미결정 대기와 허락됐지만 아직 적용되지 않은 request만 낸다. 끝난 결정·적용된 사용은 끝난 일이다.
 import type { RestartObservation } from "../storage/migration/mod.ts";
-import type { Sql } from "../../protocol/platform/mod.ts";
+import type { Sql } from "../../protocol/server/mod.ts";
 import { deadlineReached } from "./model.ts";
 
 // 허락됐지만 적용되지 않은 request는 가장 최근 것부터 이만큼만 본다. 전체 표 scan을 기다리지 않는다(R15).

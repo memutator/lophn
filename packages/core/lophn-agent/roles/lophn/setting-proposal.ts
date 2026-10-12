@@ -2,7 +2,7 @@ import type {
   EffectiveSetting,
   SettingApplyAt,
   SettingDefinitionOutput,
-} from "@lophn/protocol/platform";
+} from "@lophn/protocol/server";
 import type { QuestionOption } from "@lophn/protocol/lophn-agent";
 import { canonicalize } from "@lophn/base";
 import {

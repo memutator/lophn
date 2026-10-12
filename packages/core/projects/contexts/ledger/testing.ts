@@ -16,7 +16,7 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { projectsSchemaSteps } from "../../registry/mod.ts";
 import { id, T0 } from "../api/testing.ts";

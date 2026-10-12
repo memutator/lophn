@@ -6,14 +6,14 @@ import { ALL_ROUTES } from "../../../../../protocol/mod.ts";
 import {
   commandRequestSchema,
   type Route,
-} from "../../../../../protocol/platform/mod.ts";
+} from "../../../../../protocol/server/mod.ts";
 import {
   connectionIdSchema,
   harnessIdSchema,
   ticketIdSchema,
 } from "../../../../../protocol/coding-agent/mod.ts";
 import { projectIdSchema } from "../../../../../protocol/projects/values.ts";
-import { seqSchema } from "../../../../../protocol/platform/mod.ts";
+import { seqSchema } from "../../../../../protocol/server/mod.ts";
 import type { CodingApi, CodingReply } from "../../../../ipc/coding.ts";
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";

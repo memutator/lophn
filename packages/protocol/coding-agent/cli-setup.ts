@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { seqSchema } from "../platform/values.ts";
+import { seqSchema } from "../base/values.ts";
 import { harnessIdSchema, integrationTargetSchema } from "./harnesses.ts";
 import { sessionPlanInputSchema, sessionPlanOutputSchema } from "./launch.ts";
 import { connectionIdSchema, connectionScopeSchema } from "./connections.ts";

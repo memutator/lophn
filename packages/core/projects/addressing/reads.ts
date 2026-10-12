@@ -13,7 +13,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { z } from "zod";
 import {
   authorizeDocument,

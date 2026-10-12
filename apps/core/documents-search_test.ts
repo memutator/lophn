@@ -11,12 +11,12 @@ import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   TargetAuthorization,
   type WorkerRequest,
   type WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { SEARCH_ROUTES } from "../../packages/protocol/projects/mod.ts";
 import {
   type WorkerRouteHandle,

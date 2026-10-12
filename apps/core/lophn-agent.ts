@@ -5,7 +5,7 @@ import {
   type KindLaunchSpec,
   questionOption,
   type ReadDefinition,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   defineTxPort,
   type EventRegistration,
@@ -39,7 +39,7 @@ import type {
   EventVisibilityDefinition,
   SqlRow,
   Tx,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,

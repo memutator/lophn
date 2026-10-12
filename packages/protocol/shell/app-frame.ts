@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
-import { idSchema } from "../platform/ids.ts";
+import { idSchema } from "../base/ids.ts";
 import {
   type AppScreenRequest,
   appScreenRequestSchema,

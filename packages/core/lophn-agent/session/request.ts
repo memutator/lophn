@@ -8,7 +8,7 @@ import type {
   PermanentBlobReference,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   type ConversationDeps,
   createConversationCommands,

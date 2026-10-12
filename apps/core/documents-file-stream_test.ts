@@ -11,7 +11,7 @@ import {
   sha256Hex,
 } from "../../packages/base/mod.ts";
 import { DOCUMENT_UPLOAD_MAX_BYTES } from "../../packages/protocol/projects/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

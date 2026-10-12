@@ -5,7 +5,7 @@ import {
   defineCommand,
   questionOption,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { defineTxPort } from "./tx-ports.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { commands, deps, fileLedger, user } from "./command-harness.ts";

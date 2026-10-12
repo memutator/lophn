@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { withReadCommon } from "../platform/envelope.ts";
-import { defineEvent } from "../platform/events.ts";
-import { idSchema } from "../platform/ids.ts";
-import { defineCommand, defineRead } from "../platform/route.ts";
-import { seqSchema } from "../platform/values.ts";
+import { withReadCommon } from "../server/envelope.ts";
+import { defineEvent } from "../events/events.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineRead } from "../server/route.ts";
+import { seqSchema } from "../base/values.ts";
 import {
   acceptanceCheckInputSchema,
   checkResultSchema,

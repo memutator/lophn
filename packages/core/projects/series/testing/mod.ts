@@ -7,8 +7,8 @@ import type {
   SqlRow,
   TargetAuthorizer,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
-import { TargetAuthorization } from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
+import { TargetAuthorization } from "../../../../protocol/server/mod.ts";
 import { appRegistrationLookup } from "../../../../protocol/apps/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../../versions/mod.ts";

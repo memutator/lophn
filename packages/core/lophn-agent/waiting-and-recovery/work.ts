@@ -15,7 +15,7 @@ import {
   approvalsGet,
   cancelApprovalRequest,
   routePath,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { callRevision } from "../tools/mod.ts";
 import type { Admission, CallRequest, CoreCall } from "../tool-judgment/mod.ts";
 import { approvalVerdict, type CallFacts } from "./model.ts";

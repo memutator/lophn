@@ -17,7 +17,7 @@ import type {
   AuthenticatedContext,
   RedactionInput,
   RedactionResult,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   type CommandEnvelope,
   type Writer,

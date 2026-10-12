@@ -3,7 +3,7 @@
 // reader Worker·SQLite WAL) 위에서 돈다. 문제 표를 직접 만들지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { ok, type Result } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

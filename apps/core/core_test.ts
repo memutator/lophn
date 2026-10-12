@@ -5,7 +5,7 @@ import {
   defineRead,
   encodeFrame,
   FrameDecoder,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";

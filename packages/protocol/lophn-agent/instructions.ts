@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineRead, idSchema, withReadCommon } from "../platform/mod.ts";
+import { defineRead, idSchema, withReadCommon } from "../server/mod.ts";
 
 export const INSTRUCTION_LAYERS = ["global", "project", "app"] as const;
 

@@ -3,7 +3,7 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   ChildMessage,
   ParentMessage,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createBlobPrepareClient } from "./blob-client.ts";
 
 type Sent =

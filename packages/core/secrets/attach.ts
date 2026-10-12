@@ -9,7 +9,7 @@ import type {
   SecretSendInput,
   SecretSendOutput,
   SecretValue,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { authorize } from "../server/identity/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
 import { attachAllowed } from "./model.ts";

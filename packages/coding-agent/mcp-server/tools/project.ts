@@ -5,7 +5,7 @@
 // current는 호출자의 경로를 받지 않는다. core가 연결 credential의 고정 근거로 푼다.
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
 import { outlineRoot } from "../../../protocol/projects/mod.ts";
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   failureOutput,

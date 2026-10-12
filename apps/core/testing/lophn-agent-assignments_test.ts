@@ -10,7 +10,7 @@ import {
 } from "../../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   createSubscriberGate,

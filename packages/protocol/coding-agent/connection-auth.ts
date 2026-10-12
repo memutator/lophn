@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { definePort } from "../platform/ports.ts";
-import { sha256Schema } from "../platform/values.ts";
+import { definePort } from "../base/ports.ts";
+import { sha256Schema } from "../base/values.ts";
 import {
   type ConnectionId,
   connectionIdSchema,

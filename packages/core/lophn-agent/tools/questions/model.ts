@@ -13,7 +13,7 @@ import {
   settingMutationSchema,
   type SqlParams,
   type SqlRow,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { GroupState, GroupStatus } from "./group.ts";
 import type { StoredGroupContent } from "./text-blobs.ts";
 

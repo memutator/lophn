@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atSchema, idSchema, jsonObjectSchema } from "../platform/mod.ts";
+import { atSchema, idSchema, jsonObjectSchema } from "../server/mod.ts";
 import {
   distinct,
   visualObject,

@@ -3,7 +3,7 @@ import {
   type ProviderDefinition,
   providerDefinitions,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ApiReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
 import { providerDefinitionSchema } from "../../../protocol/lophn-agent/mod.ts";
 
 // lophn이 알아두는 연결 가능 provider의 내장 정의(provider#R1). ledger row가

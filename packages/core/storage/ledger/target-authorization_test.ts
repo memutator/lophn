@@ -6,7 +6,7 @@ import {
   defineRead,
   TargetAuthorization,
   withReadCommon,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { TARGET_AUTHORIZATION_UNAVAILABLE } from "../../server/identity/mod.ts";
 import { deps, START, user } from "./command-harness.ts";
@@ -16,7 +16,7 @@ import { openConnection, openLedger } from "./mod.ts";
 import { openReaderConnection } from "./reader-connection.ts";
 import { executeRead } from "./reads.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
-import type { AuthorizationTarget } from "../../../protocol/platform/mod.ts";
+import type { AuthorizationTarget } from "../../../protocol/server/mod.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 
 function code(result: Result<unknown>): string {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atSchema, defineRead } from "../platform/mod.ts";
+import { atSchema, defineRead } from "../server/mod.ts";
 import {
   appIdSchema,
   processNonceSchema,

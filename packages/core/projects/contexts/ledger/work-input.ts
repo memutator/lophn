@@ -8,12 +8,12 @@ import {
   contextWorkInputRoute,
   contextWorkListRoute,
 } from "../../../../protocol/projects/mod.ts";
-import { parseActor } from "../../../../protocol/platform/mod.ts";
+import { parseActor } from "../../../../protocol/server/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   Sql,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";

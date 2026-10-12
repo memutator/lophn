@@ -7,7 +7,7 @@ import {
   idSchema,
   seqSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";

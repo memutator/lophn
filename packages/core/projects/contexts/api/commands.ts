@@ -25,7 +25,7 @@ import type {
   Compare,
   Input,
   Output,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type {
   ContextApiActor,
   ContextApiDeps,

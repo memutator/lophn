@@ -1,6 +1,6 @@
 // 사람 화면 repair 준비(coding-agent/tickets#R24, R26).
 import { assert, assertEquals } from "@std/assert";
-import type { ReadSnapshot } from "../../../protocol/platform/mod.ts";
+import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
 import {
   repairPrepareInputSchema,
   repairPrepareOutputSchema,

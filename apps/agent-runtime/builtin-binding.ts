@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { JsonObject } from "../../packages/protocol/platform/mod.ts";
+import type { JsonObject } from "../../packages/protocol/server/mod.ts";
 import type {
   ResolvedAction,
   ToolBinding,

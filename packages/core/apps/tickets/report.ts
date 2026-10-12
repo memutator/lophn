@@ -17,7 +17,7 @@ import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   connectionOf,
   inScope,

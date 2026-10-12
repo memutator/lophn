@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atSchema, idSchema } from "../platform/mod.ts";
+import { atSchema, idSchema } from "../server/mod.ts";
 import {
   invocationEvidenceInputSchema,
   missingReasonInputSchema,

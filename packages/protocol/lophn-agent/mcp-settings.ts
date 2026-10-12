@@ -8,7 +8,7 @@ import {
   idSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import {
   globalSkillsRead,

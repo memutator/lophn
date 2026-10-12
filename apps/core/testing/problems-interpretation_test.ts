@@ -3,7 +3,7 @@
 // 변경은 conflict이며, lophn-agent ToolCall 성공과 같은 transaction에서 부를 수 있는지 본다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/server/mod.ts";
 import {
   APP_A,
   APP_B,

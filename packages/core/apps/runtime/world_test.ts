@@ -7,7 +7,7 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   CredentialConditions,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   actionOf,
   call,
@@ -17,7 +17,7 @@ import {
   inspect,
   type Reply,
 } from "../../../../apps/core/testing/approvals-fixture.ts";
-import type { ApprovalRequest } from "../../../protocol/platform/mod.ts";
+import type { ApprovalRequest } from "../../../protocol/server/mod.ts";
 import type { GrantPermissionScope } from "../../../protocol/apps/mod.ts";
 import {
   type CoreHarness,

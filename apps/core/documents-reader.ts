@@ -28,7 +28,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   WorkerRoute,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   KNOWN_SECRETS,
   type ReaderRegistration,

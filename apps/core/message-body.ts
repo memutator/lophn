@@ -22,7 +22,7 @@ import {
 import {
   type AuthenticatedContext,
   parseActor,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   type CommandEnvelope,
   openConnection,

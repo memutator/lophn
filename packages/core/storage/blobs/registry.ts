@@ -1,8 +1,8 @@
 // 준비 참조의 core 메모리 보관(platform/blob-store#R1). principal·purpose·hash·
 // 크기와 10분 수명만 쥔다. 파일 관측과 hash는 worker의 몫이며 core는 다시 하지 않는다.
 
-import type { PreparedBlob } from "../../../protocol/platform/mod.ts";
-import { BLOB_PREPARATION_TTL_MS } from "../../../protocol/platform/mod.ts";
+import type { PreparedBlob } from "../../../protocol/server/mod.ts";
+import { BLOB_PREPARATION_TTL_MS } from "../../../protocol/server/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 export type PreparationRegistry = {

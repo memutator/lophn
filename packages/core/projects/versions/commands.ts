@@ -32,7 +32,7 @@ import {
   type PreparedBlob,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   createDocumentNameReservation,
   type PlaceRef,

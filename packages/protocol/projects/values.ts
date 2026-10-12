@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, seqSchema } from "../platform/mod.ts";
+import { idSchema, seqSchema } from "../server/mod.ts";
 
 export const SLUG_MAX_LENGTH = 63;
 export const slugSchema = z.string().max(SLUG_MAX_LENGTH).regex(

@@ -9,7 +9,7 @@ import {
   defineBlobField,
   type PreparedBlob,
   preparedBlobSchema,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { BUILTIN_MODULE_HASH, moduleHash } from "./guest/module-hash.ts";
 import type { ModuleLookup, StoredModule } from "./modules.ts";
 import { builtinModule } from "./modules.ts";

@@ -10,7 +10,7 @@ import {
   defineCommand,
   defineEvent,
   idSchema,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 
 export const approvalProbed = defineEvent("ApprovalProbed", {
   subject: z.string(),

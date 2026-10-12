@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import type {
   ChildMessage,
   KindLaunchSpec,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import type {
   ChildCallbacks,
   Supervisor,

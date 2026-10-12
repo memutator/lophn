@@ -10,7 +10,7 @@ import {
   blobReadPipeInputSchema,
   type PreparedBlob,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   type BlobStoreWork,
   purposesPathFor,

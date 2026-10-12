@@ -16,7 +16,7 @@ import {
 import {
   type AuthenticatedContext,
   UPLOAD_INPUT_HEADER,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   saveFromPaths,

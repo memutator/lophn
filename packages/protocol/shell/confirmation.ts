@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
-import { errorBodySchema } from "../platform/errors.ts";
-import { ID_PREFIXES, type IdPrefix, idSchema } from "../platform/ids.ts";
-import { decisionNameSchema } from "../platform/confirmation-handle.ts";
+import { errorBodySchema } from "../base/errors.ts";
+import { ID_PREFIXES, type IdPrefix, idSchema } from "../base/ids.ts";
+import { decisionNameSchema } from "../server/confirmation-handle.ts";
 import {
   providerDefinitionSchema,
   providerProtocolSchema,
 } from "../lophn-agent/provider-values.ts";
-import { seqSchema, sha256Schema } from "../platform/values.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
 
 // shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 연다(D21). 종류에 없다.
 export const CONFIRMATION_REQUEST_KINDS = [

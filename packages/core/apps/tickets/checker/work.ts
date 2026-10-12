@@ -5,7 +5,7 @@ import {
   ticketConditionSchema,
   ticketIdSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
-import { defineRead, idSchema } from "../../../../protocol/platform/mod.ts";
+import { defineRead, idSchema } from "../../../../protocol/server/mod.ts";
 
 export const CHECK_WORK_PAGE = 50;
 

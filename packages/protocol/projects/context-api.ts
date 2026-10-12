@@ -15,7 +15,7 @@ import {
   idSchema,
   runIdSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   bundleContentSchema,
   contractNameSchema,

@@ -12,7 +12,7 @@ import type { Blueprint } from "./mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 

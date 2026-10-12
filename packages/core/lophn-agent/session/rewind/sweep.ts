@@ -1,4 +1,4 @@
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import type { RewindStore } from "./store.ts";
 
 // session 저장소 쓸기(lophn-agent/revert "저장"). 저장물 설치와 ledger row 등록은 공동 원자 작업이 아니라

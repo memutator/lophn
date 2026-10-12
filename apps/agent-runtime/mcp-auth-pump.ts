@@ -1,4 +1,4 @@
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import {
   MCP_AUTH_REQUEST_BODY_MAX,
   type McpAuthRequest,

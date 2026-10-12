@@ -12,7 +12,7 @@ import {
   openDerived,
 } from "../../../packages/core/projects/outline-and-search/adapters/store.ts";
 import { recordExtraction } from "../../../packages/core/projects/outline-and-search/extraction.ts";
-import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/server/mod.ts";
 import { codingExternalCredential } from "../../../packages/core/server/identity/mod.ts";
 import { createCoreClient } from "../../../packages/coding-agent/connection/client/core.ts";
 import {

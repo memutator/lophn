@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
-import { commandRequestSchema } from "../platform/envelope.ts";
-import { routePath } from "../platform/route.ts";
-import { type At, atSchema } from "../platform/values.ts";
+import { commandRequestSchema } from "../server/envelope.ts";
+import { routePath } from "../server/route.ts";
+import { type At, atSchema } from "../base/values.ts";
 import { connectionPrincipal } from "./connections.ts";
 import {
   codingAgentSessionSummary,

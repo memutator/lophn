@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { z } from "zod";
-import { commandRequestSchema, routePath } from "../platform/mod.ts";
+import { commandRequestSchema, routePath } from "../server/mod.ts";
 import {
   bundleAppliedEvent,
   bundleCheckFailedEvent,

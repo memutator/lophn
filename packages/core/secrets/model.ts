@@ -6,7 +6,7 @@ import type {
   SecretDestination,
   SecretStatus,
   SecretUse,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 
 export type SecretRecord = {
   name: string;

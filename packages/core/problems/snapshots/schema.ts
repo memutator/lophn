@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.
 // apps·releases·invocations 같은 cross-owner FK는 그 표가 아직 없을 수 있으므로

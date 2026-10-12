@@ -7,7 +7,7 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { addressingSchemaSteps } from "../addressing/mod.ts";
 import { projectsSchemaSteps } from "./schema.ts";
 

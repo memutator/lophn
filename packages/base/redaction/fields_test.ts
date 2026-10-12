@@ -4,7 +4,7 @@ import {
   REDACTION_SCREEN_STRING_MAX_CHARS,
   type RedactionInput,
   redactionResultSchema,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { createRedactionEngine } from "./engine.ts";
 import {
   parseFieldDeclaration,

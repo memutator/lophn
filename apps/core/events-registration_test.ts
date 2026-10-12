@@ -3,7 +3,7 @@
 // 사람·agent·app credential과 core 안 구독자를 같은 events/list 경로로 본다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { EventEnvelope } from "../../packages/protocol/platform/mod.ts";
+import type { EventEnvelope } from "../../packages/protocol/server/mod.ts";
 import { directoryScanner } from "../../packages/core/projects/registry/scan.ts";
 import { previewTracking } from "../../packages/core/projects/registry/work.ts";
 import { type Core, startCore } from "./core.ts";

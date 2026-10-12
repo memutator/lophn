@@ -4,7 +4,7 @@ import {
   durationMsSchema,
   idSchema,
   secretPreparationInputSchema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,

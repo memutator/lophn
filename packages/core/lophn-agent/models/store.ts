@@ -6,7 +6,7 @@ import {
   type ModelDefaults,
   type ModelFavorites,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { Sql } from "../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 

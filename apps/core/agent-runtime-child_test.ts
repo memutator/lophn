@@ -9,7 +9,7 @@ import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   setSecret,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   createFakeKeychain,

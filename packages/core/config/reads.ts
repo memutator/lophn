@@ -5,8 +5,8 @@ import {
   type ReadDefinition,
   settingsDefinitions,
   settingsGet,
-} from "../../protocol/platform/mod.ts";
-import type { EffectiveSetting } from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
+import type { EffectiveSetting } from "../../protocol/server/mod.ts";
 import type { SettingRegistry } from "./registry.ts";
 import { effectiveSetting } from "./model.ts";
 

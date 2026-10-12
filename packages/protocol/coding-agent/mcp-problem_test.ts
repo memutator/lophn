@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
-import { commandRequestSchema } from "../platform/envelope.ts";
-import { routePath } from "../platform/route.ts";
+import { commandRequestSchema } from "../server/envelope.ts";
+import { routePath } from "../server/route.ts";
 import { APP, HASH, PRB, REL, TKT, VRF } from "./ticket-fixtures.ts";
 import {
   CLI_PROBLEM_NAMES as cliProblemNames,

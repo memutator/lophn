@@ -1,6 +1,6 @@
 import { err, type ErrorCode, ok, type Result } from "../../base/mod.ts";
 import type { z } from "zod";
-import { errorBodySchema, errorCodeForStatus } from "../platform/errors.ts";
+import { errorBodySchema, errorCodeForStatus } from "../base/errors.ts";
 import {
   type AppConnectInput,
   type AppConnectOutput,

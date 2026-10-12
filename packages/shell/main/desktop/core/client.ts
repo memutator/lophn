@@ -8,7 +8,7 @@ import {
   type RpcClient,
   type RpcFetch,
   UPLOAD_INPUT_HEADER,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 import { isAllowed, lookupCall } from "./allowlist.ts";
 import { routeByName } from "./routes.ts";

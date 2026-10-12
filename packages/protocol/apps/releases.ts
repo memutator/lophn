@@ -9,7 +9,7 @@ import {
   preparedBlobSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import {
   appIdSchema,

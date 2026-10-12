@@ -6,7 +6,7 @@ import {
   seqSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { handoffReferenceSchema } from "./run-values.ts";
 import {
   handoffAllowed,

@@ -1,6 +1,6 @@
 import { ok, type Result } from "../../../../base/mod.ts";
 import { questionCancelled } from "../../../../protocol/lophn-agent/mod.ts";
-import type { Tx } from "../../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../../protocol/server/mod.ts";
 import { closeGroup } from "./commands.ts";
 
 // rewind가 숨기는 구간에서 기다리던 질문 묶음을 답 없이 닫는다(lophn-agent/revert "대화 밖 상태", R15).

@@ -74,14 +74,14 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { StoredViolation } from "../../../../protocol/projects/mod.ts";
 import { AGENT_RUNTIME_PRINCIPAL } from "../../../../protocol/lophn-agent/mod.ts";
-import { parseActor } from "../../../../protocol/platform/mod.ts";
+import { parseActor } from "../../../../protocol/server/mod.ts";
 import type {
   CommandDefinition,
   PermanentBlobReference,
   ReadDefinition,
   RequestContext,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { SearchExecutor } from "../api/reads.ts";
 import type {
   BlobReference,

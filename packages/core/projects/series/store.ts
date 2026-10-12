@@ -12,7 +12,7 @@ import {
   seriesOrderSchema,
   seriesSchema,
 } from "../../../protocol/projects/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { canonicalize } from "../../../base/mod.ts";
 function text(row: SqlRow, column: string): string | undefined {
   const value = row[column];

@@ -18,12 +18,12 @@ import {
   routePath,
   type RpcFetch,
   UPLOAD_INPUT_HEADER,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type {
   CommandRoute,
   Route,
   UploadRoute,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { CredentialProvider } from "../credential/provider.ts";
 import { UNREADABLE_MESSAGE } from "../unreadable.ts";
 

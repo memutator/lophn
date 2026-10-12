@@ -5,7 +5,7 @@ import {
   defineEvent,
   idSchema,
   seqSchema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 
 export const CLOSURE_REASONS = [
   "verified",

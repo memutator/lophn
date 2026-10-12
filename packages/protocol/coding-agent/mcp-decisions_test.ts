@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
-import { approvalsGet, approvalsList } from "../platform/approvals.ts";
+import { approvalsGet, approvalsList } from "../approvals/approvals.ts";
 import {
   MCP_DECISION_ROUTES,
   MCP_DECISION_TOOLS,

@@ -5,7 +5,7 @@ import {
   seqSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   readCursorSchema,
   runOutcomeOutputSchema,

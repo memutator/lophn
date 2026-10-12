@@ -10,7 +10,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { filesHash } from "../../packages/core/projects/versions/mod.ts";
 import { canonicalFilesHash } from "../../packages/coding-agent/connection/mod.ts";
 import { formatValidateRoute } from "./documents-format-validate.ts";

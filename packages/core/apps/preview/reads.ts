@@ -9,7 +9,7 @@ import {
   previewsStop,
   previewsStopInputSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { ApiReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
 import type { PreviewService } from "./service.ts";
 
 const INVALID = err({

@@ -16,7 +16,7 @@ import {
 import type {
   ReadDefinition,
   ReadSnapshot,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { ReaderRegistration } from "../../packages/core/storage/ledger/mod.ts";
 import {
   agentFileName,

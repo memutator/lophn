@@ -7,7 +7,7 @@ import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import {
   appliedOf,
   GROUP_COLUMNS,

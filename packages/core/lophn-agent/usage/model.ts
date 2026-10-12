@@ -3,7 +3,7 @@ import {
   type ModelCallRecord,
   modelCallRecordSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { SchemaStep, SqlParam } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep, SqlParam } from "../../../protocol/server/mod.ts";
 
 // 순수 함수만. IO 없다. 표, row↔record mapping, 불변 조건을 여기 둔다.
 

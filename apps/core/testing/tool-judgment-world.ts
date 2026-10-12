@@ -18,7 +18,7 @@ import {
 import type {
   AuthenticatedContext,
   JsonObject,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

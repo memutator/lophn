@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/server/mod.ts";
 
 // approval_requests는 고정 JSON과 blob 참조를 담는다(domain model ledger 표).
 // 생성 뒤 내용 컬럼은 바꾸지 않고, 종료는 pending에서 한 번만 기록한다.

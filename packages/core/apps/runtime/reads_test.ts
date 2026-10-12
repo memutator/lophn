@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { App, RuntimeObservation } from "../../../protocol/apps/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   createRuntimeReads,

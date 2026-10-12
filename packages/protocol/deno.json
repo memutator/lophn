@@ -2,7 +2,7 @@
   "name": "@lophn/protocol",
   "exports": {
     ".": "./mod.ts",
-    "./platform": "./platform/mod.ts",
+    "./server": "./server/mod.ts",
     "./shell": "./shell/mod.ts",
     "./projects": "./projects/mod.ts",
     "./apps": "./apps/mod.ts",

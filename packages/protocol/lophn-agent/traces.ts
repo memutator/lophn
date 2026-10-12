@@ -9,7 +9,7 @@ import {
   seqSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { agentRoleSchema } from "./scope.ts";
 import { runOutcomeOutputSchema, runStateSchema } from "./run-values.ts";
 

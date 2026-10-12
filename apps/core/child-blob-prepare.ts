@@ -13,7 +13,7 @@ import {
   type ChildMessage,
   type Frame,
   type ParentMessage,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
   RUN_BLOB_PURPOSES,

@@ -5,7 +5,7 @@ import {
   mcpSessionTool,
 } from "./mcp-session.ts";
 import { codingAgentSessionSummary } from "./sessions.ts";
-import { routePath } from "../platform/route.ts";
+import { routePath } from "../server/route.ts";
 
 const tool = () => {
   const found = mcpSessionTool("lophn_session");

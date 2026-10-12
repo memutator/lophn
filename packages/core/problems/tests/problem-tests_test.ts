@@ -2,7 +2,7 @@
 // (`test_requests`·`verifications`·`test_evidence`)에 행을 두고 `ProblemTestPort` 구현으로 읽는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import type { Sql, SqlRow } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow } from "../../../protocol/server/mod.ts";
 import { problemTestHistory, problemTestLookup } from "./problem-tests.ts";
 import { schemaSql } from "./support.ts";
 

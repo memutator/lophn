@@ -11,7 +11,7 @@ import {
   type ParentMessage,
   type PreparedBlob,
   STREAM_CHUNK_MAX_BYTES,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export type BlobPrepareInput = {
   purpose: string;

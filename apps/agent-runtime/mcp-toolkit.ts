@@ -7,7 +7,7 @@ import {
   mcpServersSetting,
   placeExtensionSettingsRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/protocol/platform/mod.ts";
+import { settingsGet } from "../../packages/protocol/server/mod.ts";
 import type { ToolDefinition } from "../../packages/core/lophn-agent/tools/mod.ts";
 import {
   checkMcpConfig,

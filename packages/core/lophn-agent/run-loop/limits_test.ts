@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { formatAt, manualClock } from "../../../base/mod.ts";
 import type { RunRecord } from "../../../protocol/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../../protocol/platform/mod.ts";
+import type { EffectiveSetting } from "../../../protocol/server/mod.ts";
 import {
   callWithinLimits,
   effectiveRunLimits,

@@ -1,7 +1,7 @@
 import type {
   BlobFieldDefinition,
   BlobRetentionCategory,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // trace 보존 정리의 판정(observability#R23, R24, R25, R26). trace는 저장하지 않으므로 이 leaf가
 // 정하는 것은 어떤 본문이 정리 대상인지, 무엇을 platform에 넘기면 안 되는지, 정리 뒤 무엇을

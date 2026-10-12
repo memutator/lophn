@@ -3,7 +3,7 @@
 // agent credential의 AgentAppScope(scope.agent)는 platform registry가 인증한 context에만 실리고
 // 시험 credential 기록에는 담을 수 없으므로, 같은 인증 context를 connector에 직접 넣는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type {
   AgentAppScope,
   AgentRole,

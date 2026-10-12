@@ -10,7 +10,7 @@ import {
 import type {
   AuthenticatedContext,
   CommandDefinition,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";

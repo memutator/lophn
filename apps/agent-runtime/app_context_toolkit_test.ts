@@ -9,7 +9,7 @@ import {
   grantsList,
 } from "../../packages/protocol/apps/mod.ts";
 import { workspaceRead } from "../../packages/protocol/shell/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   appAnnotateTool,

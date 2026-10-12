@@ -8,11 +8,11 @@ import { assert, assertEquals } from "@std/assert";
 import {
   encodeFrame,
   FrameDecoder,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type {
   AuthenticatedContext,
   KindLaunchSpec,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { launchArgv } from "../../packages/core/supervision/security/mod.ts";
 import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";

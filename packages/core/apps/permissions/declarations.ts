@@ -3,7 +3,7 @@ import {
   definePort,
   type ReadSnapshot,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type {
   GrantPermissionRequirement,
   GrantPermissionScope,

@@ -9,7 +9,7 @@ import {
   visualKeySchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { appBlueprint } from "../../../../protocol/apps/mod.ts";
-import { idSchema } from "../../../../protocol/platform/mod.ts";
+import { idSchema } from "../../../../protocol/server/mod.ts";
 import {
   blocksOf,
   checkCardScreen,

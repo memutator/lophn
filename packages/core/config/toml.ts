@@ -9,7 +9,7 @@ import {
   type SettingMutation,
   SETTINGS_EXCHANGE_FORMAT,
   SETTINGS_EXCHANGE_FORMAT_VERSION,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { containsCredentialSecret } from "./model.ts";
 
 // format version 1의 TOML 문서 구조. domain model이 구조 확정을

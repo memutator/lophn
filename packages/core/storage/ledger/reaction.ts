@@ -8,7 +8,7 @@ import {
 import {
   type ReactionKey,
   reactionKeySchema,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // command_results의 principal binding과 함께 쓰는 안정된 반응 key다.
 export async function reactionIdempotencyKey(

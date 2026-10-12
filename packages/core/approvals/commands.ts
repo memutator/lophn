@@ -30,7 +30,7 @@ import {
   rejectApprovalRequest,
   type RequestContext,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { checkConfirmAction, overlappingConfirm } from "./confirm.ts";
 import { approvalRunLineage } from "./lineage.ts";
 import {

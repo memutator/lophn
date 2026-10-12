@@ -4,7 +4,7 @@ import {
   manualClock,
   seededRandom,
 } from "../../../base/mod.ts";
-import { definePort } from "../../../protocol/platform/mod.ts";
+import { definePort } from "../../../protocol/server/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { noteCreated, recordNote } from "./test-commands.ts";
 import { defineTxPort } from "./tx-ports.ts";

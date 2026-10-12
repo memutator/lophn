@@ -8,7 +8,7 @@ import type {
   ApprovalRequest,
   AuthenticatedContext,
   JsonObject,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   actionOf,
   call,

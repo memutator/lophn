@@ -15,7 +15,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { checkMcpConfig } from "./mcp-config.ts";
 import {
   dataRootOf,

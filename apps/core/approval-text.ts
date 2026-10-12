@@ -12,8 +12,8 @@ import {
   cancelApprovalRequest,
   createApprovalRequest,
   rejectApprovalRequest,
-} from "../../packages/protocol/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   type CommandEnvelope,
   type Writer,

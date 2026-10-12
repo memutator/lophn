@@ -7,7 +7,7 @@ import {
   brokerSecretUseInputSchema,
   type brokerSecretUseOutputSchema,
 } from "../../../../protocol/apps/mod.ts";
-import type { SecretDestination } from "../../../../protocol/platform/mod.ts";
+import type { SecretDestination } from "../../../../protocol/server/mod.ts";
 import type { z } from "zod";
 import type { EffectiveScope } from "../effective.ts";
 import {

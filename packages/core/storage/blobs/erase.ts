@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../../base/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { withEraseWindow } from "../ledger/mod.ts";
 
 // 사람이 요청한 session delete가 지운 기록의 blob 영구 참조를 지운다(lophn-agent/conversation

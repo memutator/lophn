@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
-import { eventEnvelopeSchema } from "../platform/events.ts";
-import { routePath } from "../platform/route.ts";
+import { eventEnvelopeSchema } from "../events/events.ts";
+import { routePath } from "../server/route.ts";
 import {
   activationInputSchema,
   activationSchema,

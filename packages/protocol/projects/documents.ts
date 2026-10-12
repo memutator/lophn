@@ -7,7 +7,7 @@ import {
   defineWorker,
   idempotencyKeySchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   addressSchema,
   documentRefSchema,

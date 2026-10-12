@@ -3,7 +3,7 @@
 // 없다. coordinator가 자기 근거(등록 root)로 만든다. core의 workerSpecs가 선언한 같은 kind의
 // spec과 같은 entry·한도를 쓴다.
 import { checkLaunchSpec } from "../../../packages/core/supervision/security/mod.ts";
-import type { KindLaunchSpec } from "../../../packages/protocol/platform/mod.ts";
+import type { KindLaunchSpec } from "../../../packages/protocol/server/mod.ts";
 import { PREPARATION_KIND } from "./pool.ts";
 
 const ENTRY = new URL("./preparation-entry.ts", import.meta.url).pathname;

@@ -31,7 +31,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { loadDocument, loadLatestVersion } from "../versions/mod.ts";
 import { draftKeyConflicts } from "./model.ts";

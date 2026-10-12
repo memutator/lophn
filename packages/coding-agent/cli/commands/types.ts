@@ -2,7 +2,7 @@
 // 표 밖 op는 실행 전 거절이다(cli#R4). route는 contracts의 소유 table 값이며
 // 임의 core API를 부르지 않는다(cli#R1, architecture 5.1).
 import type { z } from "zod";
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 
 export type CommandEntry = {
   // `lophn <group> <command>`의 `<group> <command>`다. `help`·`version`은 표에 없다.

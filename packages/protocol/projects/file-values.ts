@@ -5,7 +5,7 @@ import {
   idempotencyKeySchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { documentFileInputSchema } from "./document-files.ts";
 import {
   absolutePathSchema,

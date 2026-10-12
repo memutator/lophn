@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../platform/route.ts";
+import { routePath } from "../server/route.ts";
 import { TICKET_CLAIM_EVENTS, TICKET_CLAIM_ROUTES } from "./ticket-claims.ts";
 import {
   getTicket,

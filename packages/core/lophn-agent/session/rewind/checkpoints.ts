@@ -3,7 +3,7 @@ import {
   type Checkpoint,
   checkpointSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type { Tx } from "../../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../../protocol/server/mod.ts";
 
 // Checkpoint는 run을 시작하는 사람 메시지(`mode=request`) 하나다(lophn-agent/revert). ReceiveMessage가
 // 메시지를 접수하는 같은 transaction에서 만든다. correction·agent·machine 메시지와 Fork 복사본

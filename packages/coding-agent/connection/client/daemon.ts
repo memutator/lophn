@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   DEFAULT_API_PORT,
   runMetadataSchema,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export const LOPHN_DAEMON_URL = "LOPHN_DAEMON_URL";
 

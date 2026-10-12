@@ -14,7 +14,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   createDocumentNameReservation,
   SLUG_MAX_LENGTH,

@@ -26,7 +26,7 @@ import {
   FILE_WINDOW_MAX_BYTES,
   fileIdentitySchema,
 } from "../../packages/core/projects/file-tracking/file-ipc.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import type { FileStreamHandler } from "../../packages/core/server/mod.ts";
 import type { FileWindows } from "./documents-file-windows.ts";
 import { STORED_FILE_MAX_BYTES } from "./documents-serving.ts";

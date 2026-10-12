@@ -13,7 +13,7 @@ import {
   type ChildMessage,
   eventsList,
   routePath,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 export { roleOperations };
 import type { AgentCredentialIssuer } from "../../packages/core/lophn-agent/run-loop/mod.ts";

@@ -11,7 +11,7 @@ import {
   formatCheckLimitMessage,
   formatChecksContent,
 } from "../../packages/protocol/projects/mod.ts";
-import type { RequestContext } from "../../packages/protocol/platform/mod.ts";
+import type { RequestContext } from "../../packages/protocol/server/mod.ts";
 import {
   extractionTargetOf,
   SEARCH_CONSUMED_EVENTS,

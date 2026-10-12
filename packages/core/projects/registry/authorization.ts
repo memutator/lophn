@@ -13,7 +13,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export type ProjectCandidate = Omit<Project, "revision">;
 export type ProjectEvent =

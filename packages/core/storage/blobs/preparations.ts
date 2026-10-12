@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BLOB_PREPARATION_TTL_MS,
   type PreparedBlob,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export type PreparationRef = {
   preparation: string;

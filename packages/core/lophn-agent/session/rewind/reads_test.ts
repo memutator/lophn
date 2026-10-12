@@ -4,7 +4,7 @@ import type {
   rewindList,
   rewindPreview,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type { Input, Output } from "../../../../protocol/platform/mod.ts";
+import type { Input, Output } from "../../../../protocol/server/mod.ts";
 import { createRevertReads } from "./reads.ts";
 import { agentWrite, doRewind, humanEdit, openEnv } from "./testing/flow.ts";
 import {

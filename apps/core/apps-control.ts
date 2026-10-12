@@ -59,7 +59,7 @@ import {
   createApprovalRequest,
   type KindLaunchSpec,
   type RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type {
   MemoryHandler,
   ReadHandler,

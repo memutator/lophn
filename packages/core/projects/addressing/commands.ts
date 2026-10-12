@@ -20,7 +20,7 @@ import {
   type RequestContext,
   type Seq,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   authorizeDocument,
   loadDocument,

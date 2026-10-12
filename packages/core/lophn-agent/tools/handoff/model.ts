@@ -10,7 +10,7 @@ import {
   defineBlobField,
   type SqlParams,
   type SqlRow,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 // 순수 함수와 읽기 조회만 있다. handoff는 별도 entity·ID·상태·대기열이 없다
 // (domain-model lophn-agent/handoff). 받는 run의 source handoff 가지가 접수의

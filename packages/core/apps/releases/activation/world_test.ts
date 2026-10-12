@@ -14,7 +14,7 @@ import {
   type CoreHarness,
   createCoreHarness,
 } from "../../../../../apps/core/testing/core.ts";
-import type { AuthenticatedContext } from "../../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   blueprint,
   command as declared,

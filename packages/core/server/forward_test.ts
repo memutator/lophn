@@ -7,7 +7,7 @@ import {
   ERROR_HTTP_STATUS,
   type WorkerRequest,
   type WorkerResponse,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   filesDelete,
   ROUTES as DOCUMENT_ROUTES,

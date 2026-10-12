@@ -17,7 +17,7 @@ import {
   notificationCreated,
   notificationRead,
   type RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,

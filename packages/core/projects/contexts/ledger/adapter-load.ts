@@ -6,7 +6,7 @@ import {
   type ContextValue,
   splitExternalRef,
 } from "../../../../protocol/projects/mod.ts";
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import { currentBundleOf } from "../api/reads-common.ts";
 import { declaredRuleMessage } from "../api/violation-message.ts";
 import type {

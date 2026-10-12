@@ -16,7 +16,7 @@ import {
   type AuthenticatedContext,
   type CommandDefinition,
   defineCommand,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import {
   type ProblemTestFact,
   ProblemTestPort,
@@ -25,7 +25,7 @@ import {
   type RepairTicketFact,
 } from "../../../../protocol/problems/mod.ts";
 import type { RecordReportInput } from "../../../../protocol/problems/mod.ts";
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,

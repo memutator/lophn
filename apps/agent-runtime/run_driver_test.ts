@@ -3,7 +3,7 @@ import { err, manualClock, ok } from "../../packages/base/mod.ts";
 import type {
   ChildMessage,
   ParentMessage,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,

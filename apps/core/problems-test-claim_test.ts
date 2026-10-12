@@ -3,7 +3,7 @@
 // core를 temp LOPHN_HOME에 띄우고(사람 데이터 root는 열지 않는다) 실제 route로 보낸다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";

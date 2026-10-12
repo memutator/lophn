@@ -11,7 +11,7 @@ import {
   seqSchema,
   type SubscribeFrame,
   subscribeFrameSchema,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { type EventBatch, type EventScan, frameBytes } from "./list.ts";
 import { validateOutput } from "../storage/ledger/output.ts";
 import type { SubscriptionStore } from "./subscription-store.ts";

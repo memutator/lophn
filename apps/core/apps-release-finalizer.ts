@@ -4,8 +4,8 @@
 // 사본과 ledger의 Verification에서 온다. 확정은 접수한 coding agent의 ticket claim으로 다시 검사된다.
 import { err, ok, type Result, sha256Hex } from "../../packages/base/mod.ts";
 import { releasePrepare } from "../../packages/protocol/apps/mod.ts";
-import type { RequestContext } from "../../packages/protocol/platform/mod.ts";
-import { parseActor } from "../../packages/protocol/platform/mod.ts";
+import type { RequestContext } from "../../packages/protocol/server/mod.ts";
+import { parseActor } from "../../packages/protocol/server/mod.ts";
 import {
   dataChangesOf,
   readBundleCopy,

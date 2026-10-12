@@ -3,7 +3,7 @@ import { err, ok } from "../../base/mod.ts";
 import {
   SECRET_EXCHANGE_FORMAT,
   type SecretPreparation,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { createKnownSecretRegistry } from "../../base/redaction/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";
 import { openExchange, sealExchange } from "./exchange.ts";

@@ -9,7 +9,7 @@ import {
 import {
   type ApiReadDefinition,
   parseActor,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { type MessageBodyEnvironment, readBodyBytes } from "../session/mod.ts";
 
 // ReadRunBody. 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 길이다. 참조 행 판정은 ledger

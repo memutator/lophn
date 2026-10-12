@@ -6,7 +6,7 @@ import {
   idSchema,
   seqSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   assignmentRecordSchema,
   assignmentScopeOutputSchema,

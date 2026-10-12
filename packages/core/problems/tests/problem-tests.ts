@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Sql } from "../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type {
   ProblemTestFact,
   ProblemTestRecord,

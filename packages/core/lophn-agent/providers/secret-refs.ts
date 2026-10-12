@@ -13,7 +13,7 @@ import type {
   SecretRefSource,
   SecretUse,
   Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export const PROVIDER_SECRET_OWNER = "lophn-agent/harness/provider";
 

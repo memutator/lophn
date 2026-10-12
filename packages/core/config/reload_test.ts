@@ -3,7 +3,7 @@ import type { Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 
 // merge_test.ts와 같은 타입 경계다. platform ledger 모듈과 settings 모듈의
 // 전체 타입을 부르지 않는다(packages/documents/projects/ledger_test.ts 관례).

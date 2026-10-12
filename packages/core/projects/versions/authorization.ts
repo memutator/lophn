@@ -8,7 +8,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 
 export type DocumentAccessTarget =

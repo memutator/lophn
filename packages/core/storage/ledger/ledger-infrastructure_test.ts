@@ -12,7 +12,7 @@ import {
   defineEvent,
   definePort,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { createSubscriberGate } from "../../events/subscriber-registration.ts";

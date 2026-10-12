@@ -4,7 +4,7 @@ import type { Result } from "../../base/mod.ts";
 import type {
   JsonValue,
   SettingDefinition,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   containsCredentialSecret,
   defaultsRevisionText,

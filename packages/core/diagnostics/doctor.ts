@@ -5,8 +5,8 @@ import type {
   DiagnosticCheck,
   DiagnosticCheckResult,
   DiagnosticRecord,
-} from "../../protocol/platform/mod.ts";
-import { diagnosticsCheck } from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
+import { diagnosticsCheck } from "../../protocol/server/mod.ts";
 import type { ReadHandler } from "../server/mod.ts";
 import { matchCredential, patternRevision } from "../../base/redaction/mod.ts";
 

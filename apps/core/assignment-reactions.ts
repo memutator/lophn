@@ -11,7 +11,7 @@ import {
   ASSIGNMENT_SUBSCRIBER,
   assignmentList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { assignmentEngine } from "../../packages/core/lophn-agent/assignments/reaction.ts";
 import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 import {

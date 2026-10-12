@@ -2,7 +2,7 @@
 // 보내고 읽기 실패를 빈 목록으로 바꾸지 않는다. 이 tool은 claim·갱신·수리 착수를 하지 않는다. summary를
 // 읽거나 목록에서 ticket을 발견한 것은 착수 지시가 아니다.
 import { MCP_SESSION_ROUTES } from "../../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   failureOutput,

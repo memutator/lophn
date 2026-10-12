@@ -14,11 +14,11 @@ import {
 import {
   BLOB_PREPARATION_TTL_MS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import {
   actionOf,

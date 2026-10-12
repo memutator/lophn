@@ -9,7 +9,7 @@ import {
   seqSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 
 const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;

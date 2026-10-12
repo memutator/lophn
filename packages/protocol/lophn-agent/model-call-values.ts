@@ -5,7 +5,7 @@ import {
   idSchema,
   jsonObjectSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   providerFailureSchema,
   providerProtocolSchema,

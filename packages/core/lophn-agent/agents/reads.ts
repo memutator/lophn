@@ -16,7 +16,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { DEFAULT_PROFILES } from "./builtin.ts";
 import {
   callableIn,

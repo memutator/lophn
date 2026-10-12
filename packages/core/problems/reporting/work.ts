@@ -3,7 +3,7 @@
 // 본문 주장은 따르지 않는다. 대기 한도·retry 간격은 주입받고, packages/problems는
 // platform을 import하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type {
   RecordReportInput,
   ReportAcceptance,

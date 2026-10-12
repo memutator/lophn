@@ -27,7 +27,7 @@ import {
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { canonicalInputHash, validateBlueprint } from "../blueprint/mod.ts";
 import { coreAccess } from "../invocations/testing/mod.ts";
 import {

@@ -5,7 +5,7 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { createHelperCredentialProvider } from "../../packages/coding-agent/connection/credential/helper.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { serveCredentialSocket } from "../../packages/core/install-and-update/mod.ts";
 import {
   codingCredentialRef,

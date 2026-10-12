@@ -30,7 +30,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createCompactCommands } from "./compact.ts";
 import { createForkCommand } from "./fork.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";

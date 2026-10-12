@@ -4,7 +4,7 @@ import {
   providerRead,
   type ProviderRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { listProviders, loadProvider } from "./store.ts";
 
 const PAGE = 50;

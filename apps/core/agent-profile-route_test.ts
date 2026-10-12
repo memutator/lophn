@@ -5,7 +5,7 @@
 // LOPHN_HOME에서 실제 자식 process와 함께 뜬다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,

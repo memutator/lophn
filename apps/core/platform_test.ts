@@ -9,7 +9,7 @@ import {
   approvalBinding,
   type AuthenticatedContext,
   grantApprovalRequest,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
 

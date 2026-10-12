@@ -7,7 +7,7 @@ import {
   CLAIM_RULE,
   type SummaryReadClient,
 } from "./mod.ts";
-import type { Route } from "../../protocol/platform/mod.ts";
+import type { Route } from "../../protocol/server/mod.ts";
 import {
   codingAgentSessionSummary,
   connectionShow,

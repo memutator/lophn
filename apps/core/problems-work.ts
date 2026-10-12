@@ -10,7 +10,7 @@ import {
   eventsList,
   type EventVisibilityDefinition,
   type RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   closeProblemVerified,
   getProblem,

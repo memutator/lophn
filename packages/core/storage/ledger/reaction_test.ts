@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { openConnection } from "./sqlite.ts";
 import { defineSyncCommand } from "./handler.ts";

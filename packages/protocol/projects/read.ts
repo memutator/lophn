@@ -4,7 +4,7 @@ import {
   defineWorker,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   documentIdSchema,
   relativePathSchema,

@@ -20,7 +20,7 @@ import {
   type ApprovalAction,
   approvalsGet,
   routePath,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   workspaceRead,
   workspaceReadOutputSchema,

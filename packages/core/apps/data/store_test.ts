@@ -2,7 +2,7 @@
 // node:sqlite는 테스트에서만 연다. core module graph에는 없다.
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import type { Sql, SqlParams } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlParams } from "../../../protocol/server/mod.ts";
 import type { DataRecord } from "./commands.ts";
 import { dataSchemaSteps } from "./schema.ts";
 import { createDataRecordStore, loadDataRecords } from "./store.ts";

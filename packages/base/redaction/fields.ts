@@ -2,7 +2,7 @@ import {
   fieldPathSchema,
   type RedactionFieldDeclaration,
   redactionFieldDeclarationSchema,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 
 // 소유 concern이 선언한 경로만 남긴다(platform/redaction#R8, R9).
 // 필드명 변경은 익명화가 아니다. 가명 비교는 같은 자료 안으로 한정한다.

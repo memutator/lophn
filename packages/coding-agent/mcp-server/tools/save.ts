@@ -2,7 +2,7 @@
 // 검사했다: 폐지 소속·원본 파일 이동·옛 저장 종류 같은 모르는 필드는 strict 입력에서
 // 거절돼 여기까지 오지 않는다. 파일은 제출 root 기준 상대 경로이고 tool이 realpath로
 // 다시 검사한 뒤 bytes를 core로 보낸다(connection#R10). 흐름은 CLI와 같은 통로다.
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 import {
   describeSave,
   describeSaveFailure,

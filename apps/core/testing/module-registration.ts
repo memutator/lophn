@@ -12,7 +12,7 @@ import {
   defineEvent,
   type PreparedBlob,
   preparedBlobSchema,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 
 const field = defineBlobField({
   owner_kind: "format_module",

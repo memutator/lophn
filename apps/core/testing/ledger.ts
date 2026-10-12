@@ -24,7 +24,7 @@
  * SQL control은 테스트 wire에만 있다.
  */
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { authenticatedContextSchema } from "../../../packages/protocol/platform/mod.ts";
+import { authenticatedContextSchema } from "../../../packages/protocol/server/mod.ts";
 import { harnessUnavailable, startChannel } from "./ledger-channel.ts";
 import type {
   LedgerHarness,

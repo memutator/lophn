@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { commandRequestSchema } from "../platform/mod.ts";
+import { commandRequestSchema } from "../server/mod.ts";
 import {
   appArchive,
   appConnectSource,

@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model coding-agent/tickets의 ledger 표 9개. JSON 열은 command가
 // schema.parse한 값만 넣으므로 CHECK는 키·참조·상태 짝만 강제한다.

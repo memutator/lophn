@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertFalse, assertThrows } from "@std/assert";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type { RecordReportInput } from "../../../protocol/problems/mod.ts";
 import { canonicalize } from "../../../base/mod.ts";
 import { handleRecordReport } from "./commands.ts";

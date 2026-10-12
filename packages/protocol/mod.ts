@@ -5,7 +5,7 @@ export * as problems from "./problems/mod.ts";
 export * as codingAgent from "./coding-agent/mod.ts";
 export * as lophnAgent from "./lophn-agent/mod.ts";
 export * as documents from "./projects/mod.ts";
-export * as platform from "./platform/mod.ts";
+export * as platform from "./server/mod.ts";
 export * as shell from "./shell/mod.ts";
 
 import { EVENTS as appsEvents, ROUTES as appsRoutes } from "./apps/mod.ts";
@@ -24,7 +24,7 @@ import {
 import {
   EVENTS as platformEvents,
   ROUTES as platformRoutes,
-} from "./platform/mod.ts";
+} from "./server/mod.ts";
 import { EVENTS as shellEvents, ROUTES as shellRoutes } from "./shell/mod.ts";
 import {
   EVENTS as problemsEvents,

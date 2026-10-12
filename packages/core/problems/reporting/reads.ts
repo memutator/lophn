@@ -11,7 +11,7 @@ import type {
   Output,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
 import {
   getReport,

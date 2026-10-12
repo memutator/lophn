@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { REDACTION_REPLACEMENT } from "../../protocol/platform/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../protocol/server/mod.ts";
 import { createRedactionStream } from "./mod.ts";
 import { createKnownSecretRegistry } from "./registry.ts";
 

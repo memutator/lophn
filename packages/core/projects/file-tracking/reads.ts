@@ -9,7 +9,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   authorizeDocument,
   loadDocument,

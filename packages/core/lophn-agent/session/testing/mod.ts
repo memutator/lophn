@@ -12,7 +12,7 @@ import {
   type PermanentBlobReference,
   type RequestContext,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 // 세션·메시지 ledger 시험이 함께 쓰는 값과 자격. 제품 코드와 mod.ts는 import하지
 // 않는다. 실제 provider를 부르지 않는다.

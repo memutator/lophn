@@ -9,7 +9,7 @@ import {
   type CommandDefinition,
   defineCommand,
   type EventDefinition,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { releaseActivationFailed } from "../../../packages/protocol/apps/mod.ts";
 import {
   contextCreatedEvent,

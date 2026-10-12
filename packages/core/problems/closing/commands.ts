@@ -12,7 +12,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   applyProblemDecision,
   closeProblemVerified,

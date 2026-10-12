@@ -1,6 +1,6 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import { type Grant, grantSchema } from "../../../protocol/apps/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 

@@ -5,7 +5,7 @@ import {
   secretNameSchema,
   secretOpaqueRefSchema,
   secretRevisionSchema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

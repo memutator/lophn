@@ -12,7 +12,7 @@ import {
   type PermanentBlobReference,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 export const REASON_TEXT = "배포 전 확인이 필요하다";
 

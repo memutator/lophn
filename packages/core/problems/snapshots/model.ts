@@ -1,5 +1,5 @@
 import { type LophnError, ok, type Result } from "../../../base/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import type { SnapshotInput } from "../../../protocol/problems/mod.ts";
 
 const SNAP_COLS = `id, captured_at,

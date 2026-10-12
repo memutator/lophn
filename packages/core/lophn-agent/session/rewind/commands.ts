@@ -21,7 +21,7 @@ import {
   type RequestContext,
   type Sql,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import {
   createAppStepCommands,
   hasAppSteps,

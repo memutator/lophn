@@ -19,7 +19,7 @@ import { canonicalInputHash } from "../blueprint/mod.ts";
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   type CoreAccess,
   coreAccess,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sha256Schema } from "../platform/values.ts";
+import { sha256Schema } from "../base/values.ts";
 import { testSideSchema } from "./tests.ts";
 
 export const TEST_OBSERVATION_FRAME_MAX_BYTES = 65_536;

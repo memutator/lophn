@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { BACKUP_LEDGER_PATH } from "../../../protocol/platform/mod.ts";
+import { BACKUP_LEDGER_PATH } from "../../../protocol/server/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 복구본 stamp. yyyyMMddThhmmssSSSZ 하나다. colon·slash가 없어 파일 이름이 된다.

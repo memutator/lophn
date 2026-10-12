@@ -1,6 +1,6 @@
 import { assert } from "@std/assert";
 import { manualClock, type Result, seededRandom } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

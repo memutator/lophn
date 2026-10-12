@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Package, PackageVersion } from "../../../protocol/apps/mod.ts";
-import type { SqlRow } from "../../../protocol/platform/mod.ts";
+import type { SqlRow } from "../../../protocol/server/mod.ts";
 
 // packages 행 → catalog 값. package_versions의 잡힌 version을 붙여 조립한다.
 export function packageFromRow(

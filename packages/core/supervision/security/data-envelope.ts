@@ -2,7 +2,7 @@ import { canonicalize } from "../../../base/mod.ts";
 import {
   type DataEnvelope,
   type DataSerializer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // lophn-agent/harness/safety가 쓰는 자료 경계 표식 모양. platform은 이 표식을
 // 쓰지 않지만 직렬화하는 문자열이 이 표식을 흉내 내면 안 된다(platform/security#R10).

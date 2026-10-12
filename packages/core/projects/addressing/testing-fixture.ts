@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import type { Result } from "../../../base/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { addressingSchemaSteps } from "./schema.ts";
 
 // core harness가 생기기 전, public Sql contract만 주입하는 leaf 테스트 fixture다.

@@ -5,7 +5,7 @@ import type {
   Input,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type {
   GroupKey,
   ReportBlobInput,
@@ -20,7 +20,7 @@ import {
   snapshotRecorded,
 } from "../../../protocol/problems/mod.ts";
 import { insertSnapshot } from "../snapshots/mod.ts";
-import type { Output } from "../../../protocol/platform/mod.ts";
+import type { Output } from "../../../protocol/server/mod.ts";
 import {
   findProblem,
   findReport,

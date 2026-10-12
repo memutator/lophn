@@ -8,7 +8,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import type { Candidate } from "../../../packages/core/projects/file-tracking/mod.ts";
 import { createSupervisor } from "../../../packages/core/supervision/responsiveness/mod.ts";
 import { createBatchDispatch } from "./batch.ts";

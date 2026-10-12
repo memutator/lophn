@@ -9,7 +9,7 @@ import {
   type CommandDefinition,
   defineCommand,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { recordProblemFixCommand } from "./commands.ts";
 import { listProblemFixesRead } from "./reads.ts";
 

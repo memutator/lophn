@@ -14,7 +14,7 @@ import {
   type ContextWorkInput,
   type ContextWorkList,
 } from "../../packages/protocol/projects/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   contractOf,
   fakeTimer,

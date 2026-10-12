@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   MCP_SECRET_OWNER,
   mcpTokenRef,

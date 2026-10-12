@@ -10,7 +10,7 @@ import {
   type CommandDefinition,
   errorBodySchema,
   type Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   CONDITION_TARGET_KEYS,
   type CredentialTarget,

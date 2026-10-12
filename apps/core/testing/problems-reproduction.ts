@@ -5,7 +5,7 @@
 import { assert } from "@std/assert";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import type { Result } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/server/mod.ts";
 import { launchArgv } from "../../../packages/core/supervision/security/mod.ts";
 import type { FrozenTest } from "../../../packages/protocol/problems/mod.ts";
 import {

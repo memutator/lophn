@@ -6,7 +6,7 @@
 // 맡는다(T15). 실제 OpenAI API는 부르지 않는다.
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
-import type { JsonObject } from "../../../../protocol/platform/mod.ts";
+import type { JsonObject } from "../../../../protocol/server/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";

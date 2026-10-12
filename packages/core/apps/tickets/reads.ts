@@ -26,7 +26,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import { checkTicketClaim, expiredClaims } from "./claims.ts";
 import {

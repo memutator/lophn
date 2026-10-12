@@ -6,7 +6,7 @@ import {
   defineRead,
   defineWorker,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   absolutePathSchema,
   projectIdSchema,

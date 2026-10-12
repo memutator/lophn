@@ -4,9 +4,9 @@
 // provider는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, fingerprint, ok } from "../../packages/base/mod.ts";
-import { approvalBindingHash } from "../../packages/protocol/platform/mod.ts";
+import { approvalBindingHash } from "../../packages/protocol/server/mod.ts";
 import type { AppBlueprintCommand } from "../../packages/protocol/apps/mod.ts";
-import type { ApprovalRequest } from "../../packages/protocol/platform/mod.ts";
+import type { ApprovalRequest } from "../../packages/protocol/server/mod.ts";
 import {
   type AppBlueprintView,
   type AppTool,

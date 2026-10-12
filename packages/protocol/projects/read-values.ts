@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { RPC_JSON_MAX_BYTES, withReadCommon } from "../platform/mod.ts";
+import { RPC_JSON_MAX_BYTES, withReadCommon } from "../server/mod.ts";
 import {
   addressSchema,
   documentRefSchema,

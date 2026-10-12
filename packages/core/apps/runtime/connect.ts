@@ -12,7 +12,7 @@ import {
   type ChannelMode,
   type Grant,
 } from "../../../protocol/apps/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { effectiveScope } from "../permissions/mod.ts";
 import type { CoreSigner } from "./signing.ts";
 

@@ -6,7 +6,7 @@ import type {
   ModelChoice,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { providerRead } from "../../packages/protocol/lophn-agent/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { CATALOG_OPTIONS } from "../../packages/protocol/lophn-agent/testing/mod.ts";
 import type { PromptRequest } from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import type { ModelBinding } from "./model-binding.ts";

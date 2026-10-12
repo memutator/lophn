@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // 앱 데이터 작업의 ledger 기록. DB 파일 자체는 data worker가 열고, 여기 표는
 // backup·변경·복원의 참조와 결과만 담는다(apps/data command).

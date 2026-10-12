@@ -5,7 +5,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { ReadSql } from "./place-store.ts";
 import {
   listSkillsSync,

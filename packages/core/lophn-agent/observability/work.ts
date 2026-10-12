@@ -6,7 +6,7 @@ import type {
   Input,
   Output,
   Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { mergeTraces } from "./model.ts";
 import { loadRun, type Lookup, traceOfCall, traceOfRun } from "./reads.ts";
 import {

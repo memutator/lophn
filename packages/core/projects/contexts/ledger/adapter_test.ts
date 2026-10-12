@@ -46,8 +46,8 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
-import type { CommandRoute } from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
+import type { CommandRoute } from "../../../../protocol/server/mod.ts";
 import { createContextApiCommands } from "../api/commands.ts";
 import { createContextApiReads } from "../api/reads.ts";
 import type { ContextApiState, EntityRow } from "../api/state.ts";

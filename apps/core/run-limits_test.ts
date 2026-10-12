@@ -9,7 +9,7 @@ import {
   RUN_LIMIT_SETTING_KEYS,
 } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { DEFAULT_RUN_LIMITS } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../packages/protocol/platform/mod.ts";
+import type { EffectiveSetting } from "../../packages/protocol/server/mod.ts";
 
 const OPERATIONS = [
   "SettingsDefinitions",

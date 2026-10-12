@@ -1,5 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type { LineRange } from "../../../protocol/projects/mod.ts";
 import { z } from "zod";
 

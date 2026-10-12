@@ -5,7 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   createRpcClient,
   platformStatus,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import { createCoreHarness } from "./testing/core.ts";
 

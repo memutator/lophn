@@ -12,7 +12,7 @@ import {
   runWaited,
   waitRun,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { createApprovalRequest } from "../../../protocol/platform/mod.ts";
+import type { createApprovalRequest } from "../../../protocol/server/mod.ts";
 import {
   type CommandDefinition,
   type Input,
@@ -20,7 +20,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { loadMessage } from "../session/mod.ts";
 import {
   appliedOf,

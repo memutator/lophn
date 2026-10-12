@@ -4,7 +4,7 @@ import {
   type RunRecord,
   type RunSource,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { SqlParams, SqlRow } from "../../../protocol/platform/mod.ts";
+import type { SqlParams, SqlRow } from "../../../protocol/server/mod.ts";
 
 // row를 화면 값으로 바꾸는 도움. 상태 전이 규칙은 domain-model
 // lophn-agent/harness/run-loop의 표 그대로다. 순수 함수와 읽기 조회만 있다.

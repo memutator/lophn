@@ -3,7 +3,7 @@ import {
   permanentBlobReferenceSchema,
   preparedBlobSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
 export const REPORT_BLOB_PURPOSES = [

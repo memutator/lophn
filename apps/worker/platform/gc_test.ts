@@ -7,7 +7,7 @@ import { ok } from "../../../packages/base/mod.ts";
 import {
   BLOB_UNAVAILABLE_REASONS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { unavailableAnswer } from "../../../packages/core/storage/blobs/mod.ts";
 import {
   clearTemporary,

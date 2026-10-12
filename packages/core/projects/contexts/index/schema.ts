@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 
 // derived/contexts.sqlite의 표(docs/architecture/documents.md 3.2). 정본이 아니고 지우면 다시 만든다.
 // 개체·위반의 순서(ord)는 추출·검사가 낸 canonical 순서다. 같은 key의 개체가 둘일 수 있어

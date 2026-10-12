@@ -3,7 +3,7 @@ import {
   defineWorker,
   idempotencyKeySchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   builtinFormatNameSchema,
   documentIdSchema,

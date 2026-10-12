@@ -10,7 +10,7 @@ import type {
   SqlParam,
   SqlRow,
   Tx,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import type {
   CommandEnvelope,
   CommandSuccess,

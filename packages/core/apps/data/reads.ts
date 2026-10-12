@@ -25,7 +25,7 @@ import type {
   RequestContext,
   WorkerRequest,
   WorkerResponse,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { canonicalJson } from "../blueprint/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import {

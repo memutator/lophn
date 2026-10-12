@@ -9,7 +9,7 @@ import {
 import {
   type WorkerRequest,
   type WorkerResponse,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

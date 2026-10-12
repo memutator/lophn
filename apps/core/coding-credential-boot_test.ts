@@ -6,7 +6,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type { Result } from "../../packages/base/mod.ts";
 import { connectionRevoke } from "../../packages/protocol/coding-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { confirmationBinding } from "../../packages/core/server/identity/mod.ts";
 import {
   codingCredentialRef,

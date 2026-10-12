@@ -5,7 +5,7 @@
 // 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { EventEnvelope } from "../../packages/protocol/platform/mod.ts";
+import type { EventEnvelope } from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 

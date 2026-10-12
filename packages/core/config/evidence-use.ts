@@ -1,5 +1,5 @@
 import { err, ok } from "../../base/mod.ts";
-import type { Sql } from "../../protocol/platform/mod.ts";
+import type { Sql } from "../../protocol/server/mod.ts";
 import type { SettingEvidenceUse } from "./question-evidence.ts";
 
 // command transaction의 SQL로 기록한다. question_evidence primary key가 일회를

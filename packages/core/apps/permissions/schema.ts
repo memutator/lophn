@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model apps/permissions의 grants 표. scope는 정규 JSON 문자열이다.
 // 같은 (app, kind, scope)의 active grant는 하나이고(partial unique) 한 approval은 한 grant만

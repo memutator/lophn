@@ -30,7 +30,7 @@ import {
   TEST_EXECUTION_LIMITS,
 } from "../../protocol/problems/mod.ts";
 import { decisionLink } from "../../protocol/coding-agent/mod.ts";
-import type { CommandRoute } from "../../protocol/platform/mod.ts";
+import type { CommandRoute } from "../../protocol/server/mod.ts";
 import type { SyncToolsOutcome } from "../guides/mod.ts";
 import {
   APP_ENVIRONMENTS,

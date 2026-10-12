@@ -18,12 +18,12 @@ import type {
   AuthenticatedContext,
   CredentialConditions,
   CredentialScope,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   actorSchema,
   authenticatedContextSchema,
-} from "../../../packages/protocol/platform/mod.ts";
-import type { PreparedBlob } from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
+import type { PreparedBlob } from "../../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import type { AppsControl } from "../apps-control.ts";
 import type { ProcessSource } from "../../../packages/core/apps/runtime/connect.ts";

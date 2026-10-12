@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
-import { approvalsGet, approvalsList } from "../platform/approvals.ts";
+import { approvalsGet, approvalsList } from "../approvals/approvals.ts";
 import { thingsToConfirmLinkSchema } from "../shell/mod.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 

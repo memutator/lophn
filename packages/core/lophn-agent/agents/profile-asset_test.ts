@@ -4,7 +4,7 @@ import type {
   AgentRole,
   Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { createNodeProfileImageFiles } from "./adapters/node-fs.ts";
 import {
   type ProfileAssetDeps,

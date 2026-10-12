@@ -4,10 +4,7 @@
 // context 표와 context_app_data·apps 표만 만들어 조회를 직접 부른다.
 import { DatabaseSync } from "node:sqlite";
 import { assertEquals } from "@std/assert";
-import type {
-  SqlParams,
-  SqlRow,
-} from "../../packages/protocol/platform/mod.ts";
+import type { SqlParams, SqlRow } from "../../packages/protocol/server/mod.ts";
 import { agentLookups } from "./lophn-agent.ts";
 
 const P1 = "prj_01arz3ndektsv4rrffq69g5fa1";

@@ -4,7 +4,7 @@
 // (~/.lophn, ~/.config/lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { inProcessIo } from "./testing/in-process-io.ts";

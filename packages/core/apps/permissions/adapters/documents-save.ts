@@ -23,7 +23,7 @@ import {
   preparedBlobSchema,
   type Route,
   type UploadRoute,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type {
   DocumentSaveOutput,
   DocumentsSave,

@@ -5,7 +5,7 @@ import {
   defineEvent,
   definePort,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { openLedger } from "./mod.ts";

@@ -26,7 +26,7 @@ import {
 } from "../../packages/protocol/coding-agent/mod.ts";
 import type {
   AuthenticatedContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { MemoryHandler } from "../../packages/core/server/mod.ts";
 import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 import {

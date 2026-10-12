@@ -4,7 +4,7 @@
 // 없거나 범위 밖이면 isError(없는 것과 같은 not_found)이고, 판은 있으나 본문을 뽑지 못했거나
 // 지원하지 않는 형식이면 오류가 아닌 결과로 이유와 원문 파일 참조를 낸다.
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import { failureOutput, type ToolOutput } from "./output.ts";
 

@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/harness/model의 표. role별 기본 model과 요약용 model, 즐겨찾기다.
 // 기본값은 slot마다 한 줄이고 바꾸지 않은 slot은 줄이 없다(= 처음 값 null). 선택이 null인

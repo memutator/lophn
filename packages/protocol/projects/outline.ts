@@ -5,7 +5,7 @@ import {
   idSchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { placeRefSchema } from "./address.ts";
 import { documentIdSchema, slugSchema, versionIdSchema } from "./values.ts";
 import { formatRefOutputSchema } from "./versions.ts";

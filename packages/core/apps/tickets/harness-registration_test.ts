@@ -13,7 +13,7 @@ import {
   defineCommand,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createTicketClaimCommands } from "./claims.ts";
 import {
   createTicketCommands,

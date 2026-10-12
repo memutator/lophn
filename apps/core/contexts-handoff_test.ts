@@ -5,7 +5,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { openIndexStore } from "../../packages/core/projects/contexts/index/mod.ts";
 import { contextContentBytes } from "../../packages/protocol/projects/mod.ts";
 import { objectPathFor } from "../../packages/core/storage/blobs/mod.ts";

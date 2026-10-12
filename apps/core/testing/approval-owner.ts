@@ -9,7 +9,7 @@ import {
   type CommandDefinition,
   defineCommand,
   defineEvent,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 
 export const ownedNoteRecorded = defineEvent("OwnedNoteRecorded", {
   subject: z.string(),

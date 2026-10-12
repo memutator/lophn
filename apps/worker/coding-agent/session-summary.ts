@@ -9,7 +9,7 @@ import {
   type Route,
   type RpcFetch,
   type WorkerRequest,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { assembleSessionSummary } from "../../../packages/coding-agent/guides/mod.ts";
 import { RepairContextRejection } from "./repair-context.ts";
 

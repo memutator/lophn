@@ -30,7 +30,7 @@ import {
   BLOB_READ_MAX_BYTES,
   type WorkerRequest,
   type WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,

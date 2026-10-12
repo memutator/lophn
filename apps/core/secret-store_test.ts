@@ -5,11 +5,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import {
-  removeSecret,
-  setSecret,
-} from "../../packages/protocol/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import { removeSecret, setSecret } from "../../packages/protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   derivedPath,
   type DerivedStore,

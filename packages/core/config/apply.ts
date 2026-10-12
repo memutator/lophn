@@ -12,13 +12,13 @@ import {
   settingsHistory,
   settingsReloaded,
   type SettingsRevision,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
   RequestContext as _RequestContext,
   Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { validateChoice, validateConstraints } from "./model.ts";
 import { settingEvidenceUse } from "./evidence-use.ts";
 import type { SettingRegistry } from "./registry.ts";

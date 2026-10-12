@@ -7,7 +7,7 @@ import {
   requestRewindSummary,
   takeRewindSummaryRequest,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { revertSchemaSteps } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import {
   createRewindSummaries,

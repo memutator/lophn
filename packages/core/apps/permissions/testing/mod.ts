@@ -29,7 +29,7 @@ import {
   type SchemaStep,
   TargetAuthorization,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import {
   type CurrentDeclarations,

@@ -36,7 +36,7 @@ import {
   type Sql,
   TargetAuthorization,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import { manifestBytes } from "../bundle/manifest.ts";
 import { releasesSchemaSteps } from "../schema.ts";

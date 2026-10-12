@@ -8,7 +8,7 @@ import {
   idSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   AGENT_PROFILE_IMAGE_MAX_BYTES,
   agentDefinitionOutputSchema,

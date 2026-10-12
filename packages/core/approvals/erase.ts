@@ -2,7 +2,7 @@ import { ok, type Result } from "../../base/mod.ts";
 import {
   APPROVAL_BLOB_OWNER_KIND,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import { withEraseWindow } from "../storage/ledger/mod.ts";
 

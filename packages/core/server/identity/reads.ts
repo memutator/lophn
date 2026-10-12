@@ -2,7 +2,7 @@ import { ok } from "../../../base/mod.ts";
 import {
   identityCurrent,
   type ReadDefinition,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { authorize } from "./model.ts";
 import type { CredentialRegistry } from "./registry.ts";
 

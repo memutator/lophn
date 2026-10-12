@@ -5,7 +5,7 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { RepairContextSchema } from "../../packages/protocol/coding-agent/mod.ts";
-import type { WorkerRequest } from "../../packages/protocol/platform/mod.ts";
+import type { WorkerRequest } from "../../packages/protocol/server/mod.ts";
 import {
   createKnownSecretRegistry,
 } from "../../packages/base/redaction/mod.ts";

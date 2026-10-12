@@ -4,7 +4,7 @@ import type {
   PreviewItem,
   RewindChoice,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   type FileStat,
   type JudgedFile,

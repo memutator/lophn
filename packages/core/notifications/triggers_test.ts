@@ -19,7 +19,7 @@ import {
   type ApprovalEffectInput,
   type AuthenticatedContext,
   type RequestContext,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import {
   APPROVAL_SCHEMA_STEPS,

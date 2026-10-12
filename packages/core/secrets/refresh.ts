@@ -12,7 +12,7 @@ import type {
   SecretStoreRefreshOutput,
   SecretValue,
   Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { authorize } from "../server/identity/mod.ts";
 import { compareMatches, type SecretCompare } from "./model.ts";
 import type { SecretWork } from "./work.ts";

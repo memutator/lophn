@@ -9,7 +9,7 @@ import {
   seqSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   EFFORT_LABELS,
   MODEL_MEDIA,

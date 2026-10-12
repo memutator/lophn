@@ -3,7 +3,7 @@ import {
   REDACTION_REPLACEMENT,
   REDACTION_SAMPLE_MAX_BYTES,
   REDACTION_SAMPLE_MAX_CHARS,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { pseudonym, selectSafeFields } from "./fields.ts";
 import { matchCredential } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";

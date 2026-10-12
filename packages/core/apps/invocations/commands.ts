@@ -12,7 +12,7 @@ import {
 import type {
   CommandDefinition,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   applyDenied,
   applyFinished,

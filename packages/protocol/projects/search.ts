@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineWorker, seqSchema, sha256Schema } from "../platform/mod.ts";
+import { defineWorker, seqSchema, sha256Schema } from "../server/mod.ts";
 import { placeRefSchema } from "./address.ts";
 import {
   documentIdSchema,

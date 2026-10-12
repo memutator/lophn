@@ -7,7 +7,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   withReadCommon,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createReaderPool } from "./reader-pool.ts";
 import { createReaderConnection } from "./reader-connection.ts";
 import {

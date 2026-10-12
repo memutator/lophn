@@ -30,7 +30,7 @@ import {
   createContextsHost,
   createContextsProcess,
 } from "./contexts-worker.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";

@@ -7,7 +7,7 @@ import {
   mcpServersSetting,
   placeExtensionSettingsRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import {
   checkMcpConfig,
   type McpConnectionsDeps,

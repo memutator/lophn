@@ -16,7 +16,7 @@ import {
   type RuntimeObservation,
   type RuntimeState,
 } from "../../../protocol/apps/mod.ts";
-import type { CommandDefinition, Tx } from "../../../protocol/platform/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import {
   type AppAccessTarget,
   authorizeApp,

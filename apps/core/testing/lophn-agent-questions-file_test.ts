@@ -11,7 +11,7 @@ import type {
   AuthenticatedContext,
   BlobRefRegistration,
   SettingMutation,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   defineTxPort,

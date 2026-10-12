@@ -4,7 +4,7 @@ import {
   runBody,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { resultLinks } from "./answer-links.ts";
 import type { CoreCall } from "./core-call.ts";
 

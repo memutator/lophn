@@ -90,7 +90,7 @@ import {
 } from "../../core/install-and-update/mod.ts";
 import { appDirectSocketPaths } from "../../protocol/apps/mod.ts";
 import { documentSectionHistory } from "../../protocol/projects/mod.ts";
-import type { Route } from "../../protocol/platform/mod.ts";
+import type { Route } from "../../protocol/server/mod.ts";
 import type { CredentialProvider } from "../connection/credential/provider.ts";
 
 // 공통 option(출력·연결·daemon·CAS·key·입력 source)은 route 입력이 아니다.

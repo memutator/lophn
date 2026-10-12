@@ -14,7 +14,7 @@ import {
   sessionSummary,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { contextListRoute as documentContextList } from "../../packages/protocol/projects/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import {
   productEnvironment,
   resolveAgent,

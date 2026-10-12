@@ -8,7 +8,7 @@ import {
   type Result,
   seededRandom,
 } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import {
   createSubscriberGate,

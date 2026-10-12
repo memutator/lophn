@@ -6,7 +6,7 @@ import {
   type AuthorizationTarget,
   type RequestContext,
   TargetAuthorization,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { DerivedRead } from "./adapters/store.ts";
 import {
   bodyChunk,

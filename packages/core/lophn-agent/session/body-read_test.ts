@@ -5,7 +5,7 @@ import {
   BLOB_READ_MAX_BYTES,
   type RequestContext,
   type Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,

@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
 import { ALL_ROUTES } from "../../packages/protocol/mod.ts";
 import { bundleContentSchema } from "../../packages/protocol/projects/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import {
   CONTEXT_LOOKUP_TOOL_NAMES,
   CONTEXT_LOOKUP_TOOLS,

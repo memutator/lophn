@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { defineEvent } from "../platform/events.ts";
-import { preparedBlobSchema } from "../platform/mod.ts";
-import { idSchema } from "../platform/ids.ts";
-import { defineCommand, defineUpload } from "../platform/route.ts";
-import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
+import { defineEvent } from "../events/events.ts";
+import { preparedBlobSchema } from "../server/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineUpload } from "../server/route.ts";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { checkResultSchema, ticketIdSchema } from "./ticket-values.ts";
 
 const base = {

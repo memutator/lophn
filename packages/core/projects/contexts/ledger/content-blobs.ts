@@ -13,7 +13,7 @@ import type {
   PermanentBlobReference,
   RequestContext,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { BlobReference } from "../api/state.ts";
 
 // 값의 참조. 파일을 쓰지 않는다.

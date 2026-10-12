@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineRead, idSchema } from "../platform/mod.ts";
+import { defineRead, idSchema } from "../server/mod.ts";
 
 // 일반 `blobs/read` 대신, 문제에 붙은 보고의 사람 글·log·화면 상태 blob만 읽는 좁은 통로다
 // (coding-agent/repair-context#R15). owner_kind는 `report`로 고정이고 field는 이 셋뿐이라 입력으로

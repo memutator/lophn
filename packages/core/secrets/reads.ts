@@ -6,7 +6,7 @@ import {
   type ReadDefinition,
   type SecretStatus,
   type Sql,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { toStatus } from "./model.ts";
 
 type NameRow = { name: string; revision: number | bigint };

@@ -27,7 +27,7 @@ import {
 import {
   routePath,
   settingsGet,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { RUN_LIMIT_SETTING_KEYS } from "../../../packages/core/lophn-agent/run-loop/mod.ts";
 import type { CatalogRefresherHandle } from "../catalog.ts";
 import type { CoreCall } from "../core-call.ts";

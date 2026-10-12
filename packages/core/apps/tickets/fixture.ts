@@ -12,7 +12,7 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { PROBLEM_STATUSES_PORT, QUESTION_ADOPTIONS_PORT } from "./commands.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 

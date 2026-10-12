@@ -8,7 +8,7 @@ import type {
   RequestContext,
   SqlParams,
   SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   runBodyRead,
   type RunBodyViewEnvironment,

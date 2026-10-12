@@ -8,7 +8,7 @@ import {
 import {
   parseActor,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // ticket.create actor는 user·lophn·담당 App Engineer agent다. coding_agent·
 // app·machine은 생성하지 않는다(R5).

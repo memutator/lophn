@@ -15,7 +15,7 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { authorizeDocument } from "./authorization.ts";
 import {
   assembleVersion,

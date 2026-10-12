@@ -1,6 +1,6 @@
 // 앱 데이터 기록의 ledger 저장. 행은 참조와 결과만 담고 DB 파일은 열지 않는다.
 
-import type { Sql, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { DataRecord, DataRecordStore } from "./commands.ts";
 
 type RecordRow = {

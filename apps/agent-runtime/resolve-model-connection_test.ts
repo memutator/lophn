@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { providerRead } from "../../packages/protocol/lophn-agent/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { CATALOG_OPTIONS } from "../../packages/protocol/lophn-agent/testing/mod.ts";
 import { createModelResolver } from "./resolve-model.ts";
 

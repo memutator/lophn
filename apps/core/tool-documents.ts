@@ -19,7 +19,7 @@ import type {
   JsonObject,
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import type { KnownSecretMatch } from "../../packages/core/storage/ledger/mod.ts";
 import type { ValidatePort } from "../../packages/core/projects/versions/work.ts";

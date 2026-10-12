@@ -15,7 +15,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { validateOptionValues } from "./options.ts";
 import { loadDefaults, loadFavorites } from "./store.ts";
 

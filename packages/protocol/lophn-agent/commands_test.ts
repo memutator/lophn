@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../platform/mod.ts";
+import { routePath } from "../server/mod.ts";
 import {
   BUILTIN_COMMAND_IDS,
   COMMAND_ROUTES,

@@ -6,7 +6,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type {
   appArchived,
   appCreated,

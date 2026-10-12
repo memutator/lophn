@@ -7,7 +7,7 @@ import {
   jsonObjectSchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   runElapsedOutputSchema,
   runElapsedSchema,
@@ -16,7 +16,7 @@ import {
 import {
   createApprovalRequestInputSchema,
   createApprovalRequestStoredSchema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   createQuestionGroupInputSchema,
   createQuestionGroupSubmissionOutputSchema,

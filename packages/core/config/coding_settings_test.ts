@@ -3,7 +3,7 @@ import type { Result } from "../../base/mod.ts";
 import {
   type AuthenticatedContext,
   type SqlRow,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 
 // coding-agent harness 설정 검증 연결 테스트(platform/settings#R31, platform#T35).
 // merge_test.ts와 같은 타입 경계다. platform ledger 모듈과 settings 모듈의 전체

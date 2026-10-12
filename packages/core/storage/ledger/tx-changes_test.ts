@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
-import type { Sql, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import type { LedgerConnection } from "./sqlite.ts";

@@ -11,7 +11,7 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 
 // commands/result는 자기 principal만 본다(architecture/platform 5.1, Q11).

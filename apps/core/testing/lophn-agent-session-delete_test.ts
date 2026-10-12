@@ -10,7 +10,7 @@ import {
 import type {
   AuthenticatedContext,
   Sql,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,

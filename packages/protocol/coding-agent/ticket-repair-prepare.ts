@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { withReadCommon } from "../platform/envelope.ts";
-import { idSchema } from "../platform/ids.ts";
-import { defineRead } from "../platform/route.ts";
+import { withReadCommon } from "../server/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineRead } from "../server/route.ts";
 import { ticketCreateInputSchema } from "./ticket-routes.ts";
 
 // 사람 화면 repair 준비(coding-agent/tickets#R24, R26).

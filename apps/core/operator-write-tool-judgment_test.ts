@@ -4,7 +4,7 @@
 // 나머지 run·assignment·approval·ToolCall 기록은 실제 ledger다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../packages/base/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { documentGet } from "../../packages/protocol/projects/mod.ts";
 import type { CoreCall } from "../../packages/core/lophn-agent/tool-judgment/mod.ts";
 import {

@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { ERROR_CODES, fingerprint } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
-import { routePath } from "../platform/route.ts";
+import { routePath } from "../server/route.ts";
 import {
   EVENTS,
   executionEvidenceInputSchema,

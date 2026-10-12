@@ -6,7 +6,7 @@ import type {
   TrackingPreview,
   TrackingRuleSet,
 } from "../../../protocol/projects/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { overlappingEnabledRoots } from "./model.ts";
 import type { ProjectCandidate } from "./authorization.ts";
 import { enabledRoots, loadProjects } from "./store.ts";

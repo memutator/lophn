@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../../base/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openConnection } from "../ledger/mod.ts";
 import { eraseBlobRefs } from "./mod.ts";

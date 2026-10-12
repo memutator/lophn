@@ -50,7 +50,7 @@ import {
   type MainHello,
   mainHelloSchema,
   mainToCoreMessageSchema,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { RECOVERY_STAMP } from "../../packages/core/storage/migration/mod.ts";
 import { SECRET_SCHEMA_STEPS } from "../../packages/core/secrets/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/core/config/mod.ts";

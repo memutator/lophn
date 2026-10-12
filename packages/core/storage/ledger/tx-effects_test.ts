@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
-import { defineEvent, type Tx } from "../../../protocol/platform/mod.ts";
+import { defineEvent, type Tx } from "../../../protocol/server/mod.ts";
 import { deps, fileLedger, note, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import type { LedgerConnection } from "./sqlite.ts";

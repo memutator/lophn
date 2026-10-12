@@ -27,7 +27,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 
 export const adoptRelease = defineCommand({

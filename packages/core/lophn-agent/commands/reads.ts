@@ -8,7 +8,7 @@ import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 // `/` 명령 목록 read(concern lophn-agent/commands). 목록은 저장하는 표가 아니라 session의 agent에서

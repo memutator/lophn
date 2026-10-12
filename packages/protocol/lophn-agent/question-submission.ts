@@ -4,8 +4,8 @@ import {
   idSchema,
   jsonObjectSchema,
   sha256Schema,
-} from "../platform/mod.ts";
-import { approvalActionSchema } from "../platform/mod.ts";
+} from "../server/mod.ts";
+import { approvalActionSchema } from "../server/mod.ts";
 import { sectionKeySchema } from "../projects/mod.ts";
 import { questionTextSchema } from "./question-text.ts";
 

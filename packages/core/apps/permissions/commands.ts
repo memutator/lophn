@@ -13,7 +13,7 @@ import type {
   CommandDefinition,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import { declarationsOf } from "./declarations.ts";
 import { isSameOrInside } from "./model.ts";

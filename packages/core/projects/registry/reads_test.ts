@@ -8,8 +8,8 @@ import type {
   SqlRow,
   TargetAuthorizer,
   Tx,
-} from "../../../protocol/platform/mod.ts";
-import { TargetAuthorization } from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
+import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import { initialTrackingProposal } from "./mod.ts";
 import { createProjectReads, type ProjectReadDeps } from "./reads.ts";
 import { createProjectCommands } from "./commands.ts";

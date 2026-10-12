@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { SchemaStep, SqlParam } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep, SqlParam } from "../../../protocol/server/mod.ts";
 import type { ToolCall } from "../../../protocol/lophn-agent/mod.ts";
 
 // 순수 함수만. IO 없다. 표, row↔record mapping, 불변 조건을 여기 둔다.

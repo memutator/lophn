@@ -6,7 +6,7 @@ import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type {
   ApprovalRequest,
   AuthenticatedContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { observeApprovals } from "../../packages/core/approvals/mod.ts";
 import { checkRestart } from "../../packages/core/storage/migration/mod.ts";
 import { type Core, startCore } from "./core.ts";

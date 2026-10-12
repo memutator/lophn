@@ -26,7 +26,7 @@ import {
   type McpSessionToolName,
   readOnlyHint,
 } from "../../protocol/coding-agent/mod.ts";
-import type { Route } from "../../protocol/platform/mod.ts";
+import type { Route } from "../../protocol/server/mod.ts";
 import { APP_OP_ROUTES } from "../connection/mod.ts";
 
 type StaticTool = {

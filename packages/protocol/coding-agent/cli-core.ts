@@ -21,7 +21,7 @@ import {
   sectionKeySchema,
   versionIdSchema,
 } from "../projects/values.ts";
-import { idempotencyKeySchema } from "../platform/envelope.ts";
+import { idempotencyKeySchema } from "../server/envelope.ts";
 import { connectionIdSchema } from "./connections.ts";
 import { cliSaveFields } from "./mcp-core.ts";
 

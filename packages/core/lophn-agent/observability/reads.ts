@@ -11,7 +11,7 @@ import {
   type SqlParam,
   type SqlParams,
   type SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   assembleTrace,
   type EventFacts,

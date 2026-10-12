@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { addressSchema } from "../projects/address.ts";
-import { idSchema } from "../platform/ids.ts";
-import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
 // 앱 source 안 상대 위치. 절대 경로·루트 밖 `..`·빈 조각은 거절한다(R10).
 export const sourceRelativePathSchema = z.string().min(1).refine(

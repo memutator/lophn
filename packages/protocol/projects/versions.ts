@@ -9,7 +9,7 @@ import {
   runIdSchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   addressOutputSchema,
   documentRefOutputSchema,

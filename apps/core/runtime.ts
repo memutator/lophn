@@ -9,8 +9,8 @@ import type {
   AuthenticatedContext,
   RequestContext,
   Route,
-} from "../../packages/protocol/platform/mod.ts";
-import { authenticatedContextSchema } from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
+import { authenticatedContextSchema } from "../../packages/protocol/server/mod.ts";
 import type {
   MemoryHandler,
   ReadHandler,
@@ -48,7 +48,7 @@ import type {
   BlobReadInput,
   PreparedBlob,
   SecretPreparation,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   finishBlobRead,
   planBlobRead,

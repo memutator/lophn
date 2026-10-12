@@ -3,7 +3,7 @@ import type { Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // harness 값 타입만 선언한다. platform ledger 모듈을 type-check하지 않기 위해서다.
 type CommandEnvelope = {

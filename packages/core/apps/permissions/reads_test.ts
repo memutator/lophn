@@ -6,7 +6,7 @@ import {
   grantsList,
   grantsListOutputSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import type { AppDeclarations } from "./declarations.ts";
 import { createGrantsReads } from "./reads.ts";
 import { insertGrant } from "./store.ts";

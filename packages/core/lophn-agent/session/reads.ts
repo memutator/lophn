@@ -5,7 +5,7 @@ import {
   sessionList,
   sessionRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { sessionVisible, visibleAssignment } from "./guards.ts";
 import {
   loadSession,

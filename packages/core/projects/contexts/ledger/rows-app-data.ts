@@ -2,7 +2,7 @@
 // 판을 적용할 때 같은 transaction에서 그 판의 content로 다시 채우고, 앱 하나에 묶인 agent의 읽기
 // 권한이 이 표만 본다(documents/contexts의 ledger 표).
 import { bundleContentSchema } from "../../../../protocol/projects/mod.ts";
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 

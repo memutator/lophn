@@ -26,7 +26,7 @@ import {
 import { documentDiff } from "../projects/history.ts";
 import { documentRead, documentReadInputSchema } from "../projects/read.ts";
 import { versionIdSchema } from "../projects/values.ts";
-import { idempotencyKeySchema } from "../platform/envelope.ts";
+import { idempotencyKeySchema } from "../server/envelope.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
 
 // tool 입력은 documents route 입력을 다시 적지 않고 고른다. current의 cwd는 여기

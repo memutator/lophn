@@ -6,7 +6,7 @@ import {
   type CredentialConditions,
   type CredentialScope,
   parseActor,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // agent credential이 싣는 상한. lophn-agent가 계산한 AgentAppScope이며 platform은
 // 내용을 해석하지 않고 발급 뒤 넓히지 못하게만 한다(domain-model platform/identity).

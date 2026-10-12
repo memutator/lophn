@@ -13,12 +13,12 @@ import type {
   ParentMessage,
   ReadRoute,
   RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   eventsList,
   routePath,
   settingsGet,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   BUILTIN_TOOLS,
   runOperations,

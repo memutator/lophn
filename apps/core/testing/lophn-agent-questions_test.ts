@@ -11,7 +11,7 @@ import type {
   SettingMutation,
   SqlParam,
   SqlRow,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { textContent } from "../../../packages/core/lophn-agent/session/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 import {

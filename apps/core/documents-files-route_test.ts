@@ -10,7 +10,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { DOCUMENT_OPS } from "../../packages/core/projects/file-tracking/mod.ts";
 import { type FilesRouteDeps, fileWorkers } from "./documents-files.ts";
 

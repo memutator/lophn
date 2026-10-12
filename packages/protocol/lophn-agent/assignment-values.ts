@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema } from "../platform/mod.ts";
+import { idSchema } from "../server/mod.ts";
 import { ASSIGNMENT_STATES } from "./instructions.ts";
 import { positiveRevisionSchema } from "./run-values.ts";
 import { agentRoleSchema } from "./scope.ts";

@@ -13,7 +13,7 @@ import {
   type CommandDefinition,
   type CommandRoute,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { recordedUse, usableApproval } from "../storage/ledger/mod.ts";
 
 function notFound(): Result<never> {

@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   type Diagnostic,
   DIAGNOSTICS_WRITE_OP,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   createDiagnosticHost,
   createDiagnosticIngress,

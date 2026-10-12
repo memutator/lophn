@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { approvalsGet, approvalsList } from "../platform/approvals.ts";
+import { approvalsGet, approvalsList } from "../approvals/approvals.ts";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
 import {
   CLI_DECISION_COMMANDS,

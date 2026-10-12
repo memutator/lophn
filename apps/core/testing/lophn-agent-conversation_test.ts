@@ -10,7 +10,7 @@ import {
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { eraseBlobRefs } from "../../../packages/core/storage/blobs/mod.ts";
 import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {

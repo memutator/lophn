@@ -13,7 +13,7 @@ import {
   ticketList,
   ticketShow,
 } from "../../protocol/coding-agent/mod.ts";
-import type { ReadRoute, Route } from "../../protocol/platform/mod.ts";
+import type { ReadRoute, Route } from "../../protocol/server/mod.ts";
 import { getProblem, listProblems } from "../../protocol/problems/mod.ts";
 import { UNREADABLE_MESSAGE } from "../connection/mod.ts";
 

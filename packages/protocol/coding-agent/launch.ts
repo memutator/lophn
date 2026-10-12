@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { absolutePathSchema, projectIdSchema } from "../projects/values.ts";
-import { idSchema } from "../platform/ids.ts";
-import { atSchema, seqSchema } from "../platform/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { atSchema, seqSchema } from "../base/values.ts";
 import {
   connectionIdSchema,
   connectionScopeSchema,

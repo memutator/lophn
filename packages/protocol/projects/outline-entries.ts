@@ -5,7 +5,7 @@ import {
   atSchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   appIdSchema,
   documentIdSchema,

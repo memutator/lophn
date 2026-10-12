@@ -19,14 +19,14 @@ import type {
   RequestContext,
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   DOCUMENT_OPS,
   type StatusMemory,
   type StatusObservation,
 } from "../../packages/core/projects/file-tracking/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/server/mod.ts";
 import {
   DOCUMENT_UPLOAD_MAX_BYTES,
   documentFile,

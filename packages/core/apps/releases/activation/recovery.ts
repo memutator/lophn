@@ -2,7 +2,7 @@
 // architecture/apps 7.4, 8장). 새 업무 통로를 열기 전의 실패만 backup으로 복원하고, ledger가 이미 새
 // release를 채택했으면 옛 backup으로 데이터를 덮지 않는다. 복원이 실패하거나 확인되지 않으면 이전 코드도
 // 시작하지 않고 문제로 보고한다.
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import { migrationPath } from "../../data/mod.ts";
 import {
   type ActivationFailure,

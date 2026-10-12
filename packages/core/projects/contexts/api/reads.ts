@@ -25,7 +25,7 @@ import type {
   Input,
   Output,
   ReadRoute,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { createBundleReads } from "./reads-bundle.ts";
 import { createContextReads } from "./reads-contexts.ts";
 import { createEntityReads } from "./reads-entity.ts";

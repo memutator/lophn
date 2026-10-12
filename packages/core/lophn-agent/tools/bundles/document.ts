@@ -31,7 +31,7 @@ import {
   toolTextMediaTypeSchema,
   toolTextSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { archiveStateSchema } from "../../../../protocol/platform/mod.ts";
+import { archiveStateSchema } from "../../../../protocol/server/mod.ts";
 import { limitText, PAGE_SIZE } from "../result.ts";
 import { createReadLog, type ReadLog } from "./read-log.ts";
 import type { ToolDefinition } from "../registry.ts";

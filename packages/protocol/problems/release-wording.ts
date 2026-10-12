@@ -1,6 +1,6 @@
 import type { Result } from "../../base/mod.ts";
-import type { Sql } from "../platform/mod.ts";
-import { definePort, type PortKey } from "../platform/ports.ts";
+import type { Sql } from "../server/mod.ts";
+import { definePort, type PortKey } from "../base/ports.ts";
 import type { ProblemCodeDeclaration } from "./problem-codes.ts";
 
 // 보고 당시 release의 선언 code 문구(apps/releases store가 고정 blueprint에서 읽는다).

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { approvalsGet, approvalsList } from "../platform/approvals.ts";
+import { approvalsGet, approvalsList } from "../approvals/approvals.ts";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
 import { cliCommonSchema } from "./cli-core.ts";
 

@@ -1,4 +1,4 @@
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import type { FileStat } from "./judge.ts";
 import { observeFilesAsync } from "./restore.ts";
 

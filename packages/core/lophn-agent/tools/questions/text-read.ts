@@ -9,7 +9,7 @@ import {
 import {
   type ApiReadDefinition,
   parseActor,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import {
   type MessageBodyEnvironment,
   readBodyBytes,

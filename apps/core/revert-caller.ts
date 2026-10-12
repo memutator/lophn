@@ -5,7 +5,7 @@
 // worker는 자기 machine credential이 없어 호출자 주장을 대신하지 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import { type AppRevertBinding } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
+import type { KindLaunchSpec } from "../../packages/protocol/server/mod.ts";
 import type { AppStepResult } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 import { allSlotSockets } from "../../packages/core/apps/runtime/processes/mod.ts";
 import { checkLaunchSpec } from "../../packages/core/supervision/security/mod.ts";

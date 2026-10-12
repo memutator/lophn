@@ -10,7 +10,7 @@ import {
   jsonObjectSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   confirmExecutionProofSchema,
   invocationCallerSchema,

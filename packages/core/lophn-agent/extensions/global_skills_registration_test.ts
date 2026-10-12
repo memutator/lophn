@@ -1,5 +1,5 @@
 import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { createNodeSkillFiles } from "./adapters/node-fs.ts";
 import { createGlobalSkillReads, type GlobalSkillDeps } from "./mod.ts";
 

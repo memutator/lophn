@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { commandRequestSchema, routePath } from "../platform/mod.ts";
+import { commandRequestSchema, routePath } from "../server/mod.ts";
 import { EVENTS, ROUTES } from "./mod.ts";
 import {
   agentProjectSchema,

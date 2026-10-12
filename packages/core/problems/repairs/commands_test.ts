@@ -7,7 +7,7 @@ import type { Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 type CommandEnvelope = {
   command: string;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { defineRead, withReadCommon } from "../../../protocol/platform/mod.ts";
+import { defineRead, withReadCommon } from "../../../protocol/server/mod.ts";
 import type { ReaderRegistration } from "./reads.ts";
 
 const modes = [

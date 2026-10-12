@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { Tx } from "../../packages/protocol/platform/mod.ts";
+import type { Tx } from "../../packages/protocol/server/mod.ts";
 import type { TicketClaimCheckResult } from "../../packages/protocol/coding-agent/mod.ts";
 import { reproductionClaimRejection } from "./problems-test-ports.ts";
 

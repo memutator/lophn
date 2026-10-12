@@ -10,7 +10,7 @@ import {
   parseActor,
   type ReadSnapshot,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   authorizeProject,
   denied,

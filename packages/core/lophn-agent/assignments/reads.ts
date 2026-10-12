@@ -3,7 +3,7 @@ import {
   assignmentList,
   assignmentRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { ASSIGNMENT_COLUMNS, recordOf, rowOf } from "./model.ts";
 
 // assignment read는 읽힌 자체를 화면 값으로 준다. 현재 run 상태·진행은

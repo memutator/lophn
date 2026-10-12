@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { atSchema, idSchema, jsonObjectSchema } from "../platform/mod.ts";
+import { atSchema, idSchema, jsonObjectSchema } from "../server/mod.ts";
 import { EFFORT_VALUES } from "./option-axes.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {

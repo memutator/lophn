@@ -13,7 +13,7 @@ import type {
   rewind,
   RewindChoice,
 } from "../../../../../protocol/lophn-agent/mod.ts";
-import type { Output } from "../../../../../protocol/platform/mod.ts";
+import type { Output } from "../../../../../protocol/server/mod.ts";
 import type { PreparedFile } from "../../../../../protocol/lophn-agent/mod.ts";
 import { type AppStepCall, runAppSteps } from "../app-steps.ts";
 import { createRevertCommands } from "../commands.ts";

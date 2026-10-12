@@ -5,7 +5,7 @@ import {
   defineRead,
   idSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import {
   disconnectProviderInputSchema,
   loginBeginInputSchema,

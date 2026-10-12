@@ -15,7 +15,7 @@ import type { LophnError } from "../../../packages/base/mod.ts";
 import type {
   ParentMessage,
   WorkerRequest,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

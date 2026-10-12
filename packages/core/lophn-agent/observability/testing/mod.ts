@@ -8,7 +8,7 @@ import type {
   RequestContext,
   SqlParams,
   SqlRow,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { createTraceReads } from "../mod.ts";
 
 // trace read 시험 fixture. 이 leaf가 읽는 열만 둔 ledger 모양이다(실제 표는 core 시험이 본다).

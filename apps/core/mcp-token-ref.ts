@@ -9,7 +9,7 @@ import {
   applySettings,
   type ReadRoute,
   settingsGet,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   fileHash,
   parsePlaceMcpFile,

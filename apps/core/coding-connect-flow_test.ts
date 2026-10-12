@@ -12,7 +12,7 @@ import {
   type ConnectionId,
   connectionIdSchema,
 } from "../../packages/protocol/coding-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   connectAndInstall,
   type ConnectFlowPorts,

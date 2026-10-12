@@ -10,7 +10,7 @@ import {
   preparedBlobSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { appIdSchema, releaseIdSchema } from "./channel-values.ts";
 import {
   packageKindSchema,

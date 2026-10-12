@@ -6,7 +6,7 @@ import { filesStatus } from "../../../protocol/projects/mod.ts";
 import type {
   ApiReadDefinition,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { fileStatusOf, type StatusInput } from "./observation.ts";
 
 // coordinator 메모리의 마지막 관측. 없는 경로는 추적 밖이다.

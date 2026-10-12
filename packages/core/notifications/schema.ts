@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../protocol/server/mod.ts";
 
 // notifications는 source 사실 하나당 행 하나다(R4). source_seq UNIQUE가 같은 사실의
 // 재전달·재시작 중복을 막고, read_at만 읽음 표시로 바꾼다(R5). 행은 지우지 않는다(R8).

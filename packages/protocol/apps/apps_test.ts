@@ -11,9 +11,9 @@ import {
   type PortKey,
   type ReadSnapshot,
   type Tx,
-} from "../platform/mod.ts";
-import { eventEnvelopeSchema } from "../platform/events.ts";
-import { routePath } from "../platform/route.ts";
+} from "../server/mod.ts";
+import { eventEnvelopeSchema } from "../events/events.ts";
+import { routePath } from "../server/route.ts";
 import {
   appArchive,
   appArchived,

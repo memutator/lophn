@@ -12,11 +12,11 @@ import {
   reportProblem,
   submitFeedback,
 } from "../../packages/protocol/problems/mod.ts";
-import { settingsGet } from "../../packages/protocol/platform/mod.ts";
+import { settingsGet } from "../../packages/protocol/server/mod.ts";
 import type {
   HealthObservation,
   WorkerRequest,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/core/supervision/responsiveness/mod.ts";
 import type { DocumentsChannel } from "./documents-serving.ts";

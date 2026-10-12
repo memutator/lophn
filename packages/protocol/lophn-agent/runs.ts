@@ -7,7 +7,7 @@ import {
   idSchema,
   seqSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { RUN_READS } from "./run-reads.ts";
 import { agentAppScopeOutputSchema, agentAppScopeSchema } from "./scope.ts";
 import {

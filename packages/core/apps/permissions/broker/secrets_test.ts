@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import type { SecretAllowanceRequest } from "../../../../protocol/platform/mod.ts";
+import type { SecretAllowanceRequest } from "../../../../protocol/server/mod.ts";
 import { currentDeclarations } from "../declarations.ts";
 import { createSecretAllowance } from "../secret-allowance.ts";
 import {

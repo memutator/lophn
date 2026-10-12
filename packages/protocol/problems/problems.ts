@@ -7,7 +7,7 @@ import {
   idSchema,
   seqSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { groupKeySchema } from "./reports.ts";
 import { closureSchema } from "./closing.ts";
 import { problemDetailSchema } from "./problem-detail.ts";

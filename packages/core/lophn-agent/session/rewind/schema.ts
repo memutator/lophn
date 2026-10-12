@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/revert의 ledger 표 넷. messages·sessions·tool_calls·events 뒤에 만든다.
 //

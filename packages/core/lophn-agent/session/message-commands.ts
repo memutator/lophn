@@ -24,7 +24,7 @@ import {
   type PermanentBlobReference,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { closeAvailableRedo, createCheckpoint } from "./rewind/mod.ts";
 import { checkVisualContent } from "../tools/visuals/mod.ts";
 import {

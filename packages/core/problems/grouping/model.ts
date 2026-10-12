@@ -6,7 +6,7 @@ import {
   problemObserved,
   problemOpened,
 } from "../../../protocol/problems/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { findProblem, type ProblemRow } from "../reporting/mod.ts";
 
 const INVALID_KEY = "grouping 값이 올바르지 않다";

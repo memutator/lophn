@@ -4,7 +4,7 @@ import type {
   CommandDefinition,
   CommandRoute,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 import { admitAgentRun, runDisposition } from "./commands.ts";
 import { countCas, withinCommandLimits } from "./fingerprint.ts";

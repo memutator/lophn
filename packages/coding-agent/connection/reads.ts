@@ -8,7 +8,7 @@ import {
   parseActor,
   type ReadDefinition,
   type RequestContext,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { nextConnectionCursor, pageAfter } from "./cursor.ts";
 import { publicConnection } from "./rows.ts";
 import { listConnections, loadConnection } from "./store.ts";

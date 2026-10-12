@@ -1,8 +1,5 @@
 import { err, type Result } from "../../base/mod.ts";
-import type {
-  AuthenticatedContext,
-  Route,
-} from "../../protocol/platform/mod.ts";
+import type { AuthenticatedContext, Route } from "../../protocol/server/mod.ts";
 import {
   WORKSPACE_ROUTES,
   type WorkspaceReadOutput,

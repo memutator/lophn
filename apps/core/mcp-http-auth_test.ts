@@ -6,7 +6,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { mcpServersSetting } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { ParentMessage } from "../../packages/protocol/platform/mod.ts";
+import type { ParentMessage } from "../../packages/protocol/server/mod.ts";
 import {
   createMcpConnections,
   createMcpSecretRefSource,

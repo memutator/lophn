@@ -12,7 +12,7 @@ import {
   type Output,
   parseActor,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { RewindStore } from "./store.ts";
 
 // 문서 tool이 파일을 쓰기 직전에 pre-image를 남기는 기록(RecordRewindFile)과, 그 호출을 쓰기에

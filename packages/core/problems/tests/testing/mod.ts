@@ -6,8 +6,8 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
-import { TargetAuthorization } from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
+import { TargetAuthorization } from "../../../../protocol/server/mod.ts";
 import { schemaSql, strictTargetAuthorizer } from "../mod.ts";
 
 // T59 writer 전에는 contract Sql과 rollback 경계만 probe한다.

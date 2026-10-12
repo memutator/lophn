@@ -8,7 +8,7 @@ import type {
   GlossaryEntry,
   SavedViewValue,
 } from "../../../../protocol/projects/mod.ts";
-import type { Tx } from "../../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../../protocol/server/mod.ts";
 import { id, ids, T0 } from "../api/testing.ts";
 import {
   contextOf,

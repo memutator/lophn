@@ -5,7 +5,7 @@ import {
   DOCUMENT_DISPATCHABLE_COMMANDS,
   type PlaceRef,
 } from "../../../protocol/projects/mod.ts";
-import type { Sql } from "../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import {
   createDocumentNameReservation,
   createPlaceNameReservation,

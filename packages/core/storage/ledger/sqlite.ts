@@ -1,6 +1,6 @@
 import { backup, DatabaseSync, type StatementSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Sql, SqlParam, SqlRow } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlParam, SqlRow } from "../../../protocol/server/mod.ts";
 
 // handler SQL이 transaction·연결 상태를 바꾸면 실행기의 commit 경계가 깨진다.
 // 열 이름 release나 trigger 본문의 begin은 첫 keyword가 아니므로 통과한다.

@@ -17,7 +17,7 @@ import type {
   Output,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { serializeSettingsFile } from "./definition-file.ts";
 import { callableIn, openPlaceView, type PlaceView } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";

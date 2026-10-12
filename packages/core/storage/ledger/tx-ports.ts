@@ -1,5 +1,5 @@
 import { err, internalError, type Result } from "../../../base/mod.ts";
-import type { PortKey, Tx } from "../../../protocol/platform/mod.ts";
+import type { PortKey, Tx } from "../../../protocol/server/mod.ts";
 
 // registry는 phantom을 지운다. PortKey<T>의 함수 필드는 invariant라 다른 T를 한 배열에 못 넣는다.
 // defineTxPort는 key identity와 create 반환 T를 compile에서 남긴다.

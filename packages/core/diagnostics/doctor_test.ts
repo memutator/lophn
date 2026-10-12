@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Clock } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/platform/mod.ts";
-import { diagnosticCheckResultSchema } from "../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import { diagnosticCheckResultSchema } from "../../protocol/server/mod.ts";
 import { observeDoctor } from "../../../apps/worker/platform/doctor.ts";
 import {
   classifySecurity,

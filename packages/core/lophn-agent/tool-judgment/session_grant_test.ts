@@ -12,7 +12,7 @@ import {
   approvalsList,
   eventsList,
   routePath,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   type BasisSnapshot,
   type CoreCall,

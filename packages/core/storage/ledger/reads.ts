@@ -7,7 +7,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { ReaderConnection } from "./reader-connection.ts";
 import type {
   EventRegistration,

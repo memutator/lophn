@@ -78,13 +78,13 @@ import {
   releaseActivationFailed,
   releaseSuperseded,
 } from "../../packages/protocol/apps/mod.ts";
-import { SecretAllowance } from "../../packages/protocol/platform/mod.ts";
+import { SecretAllowance } from "../../packages/protocol/server/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/core/storage/ledger/mod.ts";
-import type { WorkerRoute } from "../../packages/protocol/platform/mod.ts";
+import type { WorkerRoute } from "../../packages/protocol/server/mod.ts";
 import { ticketCheckFeedVisibility } from "./ticket-checker.ts";
 import { visibleToProblemsClosing } from "./problems-closing.ts";
 import {

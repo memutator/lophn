@@ -15,7 +15,7 @@ import type {
 import {
   type AuthenticatedContext,
   routePath,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { computeAgentAppScope } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import { executeTool } from "../../packages/core/lophn-agent/tools/mod.ts";
 import { call as httpCall } from "../core/testing/approvals-fixture.ts";

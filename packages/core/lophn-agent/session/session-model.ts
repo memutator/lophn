@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ModelChoice } from "../../../protocol/lophn-agent/mod.ts";
-import type { Tx } from "../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   snapshotCatalogEntry,
   snapshotModelListed,

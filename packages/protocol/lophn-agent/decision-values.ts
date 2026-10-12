@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, seqSchema, sha256Schema } from "../platform/mod.ts";
+import { idSchema, seqSchema, sha256Schema } from "../server/mod.ts";
 import { questionTextSchema } from "./question-text.ts";
 
 export const questionStatusSchema = z.enum([

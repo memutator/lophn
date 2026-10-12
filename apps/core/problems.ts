@@ -23,7 +23,7 @@ import {
 import type {
   EventDefinition,
   EventVisibilityDefinition,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -33,7 +33,7 @@ import { z } from "zod";
 import {
   defineBlobPurpose,
   defineSetting,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,
@@ -70,7 +70,7 @@ import {
   REPORT_BLOB_PURPOSES,
   reportBody,
 } from "../../packages/protocol/problems/mod.ts";
-import type { KindLaunchSpec } from "../../packages/protocol/platform/mod.ts";
+import type { KindLaunchSpec } from "../../packages/protocol/server/mod.ts";
 import {
   observeException,
   observeViewError,

@@ -4,8 +4,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
-import type { SecretSendInput } from "../../../protocol/platform/mod.ts";
-import type { JsonObject } from "../../../protocol/platform/mod.ts";
+import type { SecretSendInput } from "../../../protocol/server/mod.ts";
+import type { JsonObject } from "../../../protocol/server/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

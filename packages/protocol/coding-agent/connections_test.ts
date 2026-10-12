@@ -1,9 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { commandRequestSchema } from "../platform/envelope.ts";
-import { eventEnvelopeSchema } from "../platform/events.ts";
-import { routePath } from "../platform/route.ts";
-import { ROUTES as PLATFORM_ROUTES } from "../platform/registry.ts";
+import { commandRequestSchema } from "../server/envelope.ts";
+import { eventEnvelopeSchema } from "../events/events.ts";
+import { routePath } from "../server/route.ts";
+import { ROUTES as PLATFORM_ROUTES } from "../server/registry.ts";
 import {
   CODING_AGENT_CONNECTION_REVOKE,
   codingAgentConnectionCreated,

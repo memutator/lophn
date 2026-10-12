@@ -1,7 +1,7 @@
 // adapter의 쓰기다. 적재했을 때의 값과 handler가 남긴 값을 표마다 견주어 달라진 행만 쓴다
 // (변경 행 한도에 event 행이 든다).
 import { canonicalize } from "../../../../base/mod.ts";
-import type { Sql } from "../../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import type {
   BlobReference,
   BundleRow,

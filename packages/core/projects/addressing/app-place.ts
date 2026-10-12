@@ -4,7 +4,7 @@
 import {
   parseActor,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { PlaceRef } from "./model.ts";
 
 // 요청 자격이 앱이면 그 app id, 아니면 null이다. 자격에서만 읽고 본문 주장은 보지 않는다.

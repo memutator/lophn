@@ -9,7 +9,7 @@ import {
   contextPreviewRoute,
   contextSeriesNextRoute,
 } from "../../packages/protocol/projects/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { roleOperations } from "../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   BUILTIN_TOOLS,

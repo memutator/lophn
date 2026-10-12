@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   encodeFrame,
   mainHelloSchema,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { readFrames } from "../../packages/core/supervision/responsiveness/mod.ts";
 import {
   type ParentPipe,

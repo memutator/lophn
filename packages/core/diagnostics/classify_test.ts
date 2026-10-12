@@ -2,7 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import type {
   InternalErrorClass,
   ProcessKind,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   classifyFailure,
   classifyReport,

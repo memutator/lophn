@@ -1,7 +1,7 @@
 import {
   type BlobFieldDefinition,
   defineBlobField,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 
 // Report가 소유한 blob field의 보존 종류(snapshots#R17). 큰 자료(첨부 이미지·로그 조각·
 // stack)는 용량 상한을 넘으면 오래된 것부터 정리하는 종류이고, 보고 글·세부는 영구다.

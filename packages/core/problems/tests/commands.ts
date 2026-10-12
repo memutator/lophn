@@ -4,8 +4,8 @@ import type {
   Input,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
-import { TargetAuthorization } from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
+import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import { requestTest } from "../../../protocol/problems/mod.ts";
 import {
   connectionOf,

@@ -7,11 +7,11 @@ import type {
   ParentMessage,
   WorkerRequest,
   WorkerResponse,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   processKindSchema,
   workerRequestEnvelopeSchema,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

@@ -41,7 +41,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { ContextApiActor } from "../api/state.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import {

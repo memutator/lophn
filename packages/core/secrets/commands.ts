@@ -9,7 +9,7 @@ import {
   secretSet,
   setSecret,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { defineSyncCommand } from "../storage/ledger/mod.ts";
 import { applyRemove, applySet, type SecretRecord, toStatus } from "./model.ts";
 

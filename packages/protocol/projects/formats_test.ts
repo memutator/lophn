@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize, ERROR_CODES } from "../../base/mod.ts";
-import { routePath } from "../platform/mod.ts";
+import { routePath } from "../server/mod.ts";
 import { documentFilesInputSchema } from "./document-files.ts";
 import { declaration, hash, input, section } from "./format-fixtures_test.ts";
 import {

@@ -4,7 +4,7 @@
 // 낸다. verified 근거 행은 problems/tests fixture가 하는 일의 줄임인 시험 command가 심는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import type { Result } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

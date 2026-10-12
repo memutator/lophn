@@ -16,7 +16,7 @@ import {
   type ApprovalAction,
   approvalBinding,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   type InvocationAcceptConfirmInput,
   invocationAcceptConfirmInputSchema,

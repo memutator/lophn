@@ -4,7 +4,7 @@ import {
   encodeFrame,
   type Frame,
   FrameDecoder,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   applyMigrations,
   BACKUP_MANIFEST_NAME,

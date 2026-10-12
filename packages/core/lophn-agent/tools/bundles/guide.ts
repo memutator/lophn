@@ -9,7 +9,7 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
   settingsGet,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { protectedSetting } from "../questions/mod.ts";
 import { fitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";

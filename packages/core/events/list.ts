@@ -9,7 +9,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   type Subject,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   currentEventContext,
   type EventReadGate,

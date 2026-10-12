@@ -5,7 +5,7 @@
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 낼 command(`context.record_violations`,
 // `bundle.finish_check`)는 답에 실어 보내고, core가 좁은 machine 자격으로 낸다.
 import { z } from "zod";
-import { defineRead, sha256Schema, withReadCommon } from "../platform/mod.ts";
+import { defineRead, sha256Schema, withReadCommon } from "../server/mod.ts";
 import {
   bundleFinishCheckRequestSchema,
   bundleIdSchema,

@@ -9,7 +9,7 @@ import {
   manualClock,
   ok,
 } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../packages/protocol/server/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { applyMigrations } from "../../../packages/core/storage/migration/mod.ts";
 import {

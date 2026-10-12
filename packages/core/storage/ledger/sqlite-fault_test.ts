@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { err } from "../../../base/mod.ts";
-import type { CommandDefinition } from "../../../protocol/platform/mod.ts";
+import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { commands, deps, fileLedger, note, user } from "./command-harness.ts";
 import { isStorageUnavailable } from "./sqlite.ts";
 import { recordNote } from "./test-commands.ts";

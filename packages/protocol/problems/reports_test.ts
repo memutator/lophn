@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
-import { routePath } from "../platform/mod.ts";
+import { routePath } from "../server/mod.ts";
 import {
   EVENTS,
   groupKeyInputSchema,

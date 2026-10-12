@@ -18,7 +18,7 @@
 //   slice E2E가 돈다.
 import { assert, assertEquals } from "@std/assert";
 
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";

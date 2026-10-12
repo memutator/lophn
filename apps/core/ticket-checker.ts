@@ -23,7 +23,7 @@ import type {
   EventVisibilityDefinition,
   KindLaunchSpec,
   RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { OperationPolicy } from "../../packages/core/server/identity/mod.ts";
 import { checkLaunchSpec } from "../../packages/core/supervision/security/mod.ts";
 import {

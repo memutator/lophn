@@ -7,7 +7,7 @@ import { test } from "node:test";
 import type {
   CoreToMainMessage,
   MainToCoreMessage,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 import { readRestorePlan, type RestorePipe, submitRestore } from "./restore.ts";
 

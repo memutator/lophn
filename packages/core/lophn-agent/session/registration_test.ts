@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { err, ok } from "../../../base/mod.ts";
-import { ACTOR_KINDS, defineCommand } from "../../../protocol/platform/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../../protocol/server/mod.ts";
 import {
   bodyHashOf,
   registerMessageBodyRef,

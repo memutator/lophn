@@ -28,7 +28,7 @@ import {
   registeringProvider,
 } from "../connection/credential/helper.ts";
 import { LOPHN_CONNECTION } from "../../protocol/coding-agent/mod.ts";
-import { REDACTION_REPLACEMENT } from "../../protocol/platform/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../protocol/server/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
@@ -42,7 +42,7 @@ import {
   runCliCommand,
 } from "./dispatch.ts";
 import type { CredentialProvider } from "../connection/credential/provider.ts";
-import type { RpcFetch } from "../../protocol/platform/mod.ts";
+import type { RpcFetch } from "../../protocol/server/mod.ts";
 
 const VERSION = "0.1.0";
 

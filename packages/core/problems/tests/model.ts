@@ -5,7 +5,7 @@ import type {
   CredentialScope,
   RequestContext,
   TargetAuthorizer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   type ExecutionEvidence,
   type FrozenTest,

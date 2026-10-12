@@ -1,4 +1,4 @@
-import type { SqlParams, SqlRow } from "../../../protocol/platform/mod.ts";
+import type { SqlParams, SqlRow } from "../../../protocol/server/mod.ts";
 
 // 사람 기다림의 판정과 읽기 조회. 순수 함수와 읽기 조회만 있다. 쓰기는 commands.ts가 한다.
 // 판정은 domain-model lophn-agent/harness/waiting-and-recovery의 "기다림의 끝" 표 그대로다.

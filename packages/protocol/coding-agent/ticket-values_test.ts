@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { eventEnvelopeSchema } from "../platform/events.ts";
+import { eventEnvelopeSchema } from "../events/events.ts";
 import { ticketTestLinkInputSchema } from "../problems/tests.ts";
 import { conditionHash } from "./ticket-hash.ts";
 import {

@@ -10,7 +10,7 @@ import type {
   CommandDefinition,
   Input,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser } from "./guards.ts";
 import {

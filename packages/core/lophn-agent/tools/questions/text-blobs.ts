@@ -7,7 +7,7 @@ import {
   QUESTION_TEXT_PURPOSE,
   questionTextBytes,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import type { RequestContext, Tx } from "../../../../protocol/platform/mod.ts";
+import type { RequestContext, Tx } from "../../../../protocol/server/mod.ts";
 
 // 글 값의 blob 증거. core가 같은 UTF-8 bytes로 준비했으므로 같은 글은 항상 같은 hash다.
 // 재전송의 지문도 값으로 정해져 준비 참조의 수명과 상관없다.

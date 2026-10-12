@@ -16,11 +16,11 @@ import type {
   ReadRoute,
   RequestContext,
   WorkerRequest,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   createApprovalRequest,
   ROUTES,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   createAppEngineerAssignment,
   providerList,
@@ -119,7 +119,7 @@ import {
   secretInputHandler,
   type SecretInputRelay,
 } from "./secret-input.ts";
-import { secretInput } from "../../packages/protocol/platform/mod.ts";
+import { secretInput } from "../../packages/protocol/server/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -131,7 +131,7 @@ import {
   createPreparationRegistry,
   retentionRules,
 } from "../../packages/core/storage/blobs/mod.ts";
-import type { BlobFieldDefinition } from "../../packages/protocol/platform/mod.ts";
+import type { BlobFieldDefinition } from "../../packages/protocol/server/mod.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
@@ -372,7 +372,7 @@ import {
   agentProfilesUpload,
   skillFoldersSetting,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../packages/protocol/platform/mod.ts";
+import { settingsGet } from "../../packages/protocol/server/mod.ts";
 
 // approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
 const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;

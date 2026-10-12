@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, sha256Schema } from "../platform/mod.ts";
+import { idSchema, sha256Schema } from "../server/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,

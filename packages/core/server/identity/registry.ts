@@ -13,7 +13,7 @@ import {
   type CredentialConditions,
   credentialScopeSchema,
   parseActor,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { agentAppScopeSchema } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentCredentialScope,

@@ -4,7 +4,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   TargetAuthorization,
   type TargetAuthorizer,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { openDerived, openDerivedRead, rebuildPath } from "./adapters/store.ts";
 import {
   createOutlineHandlers,

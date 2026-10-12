@@ -6,7 +6,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { TicketClaimCheck } from "../../packages/protocol/coding-agent/mod.ts";
 import type { requestTest } from "../../packages/protocol/problems/mod.ts";
 import {

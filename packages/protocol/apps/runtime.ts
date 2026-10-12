@@ -8,7 +8,7 @@ import {
   idSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { appIdSchema } from "../projects/values.ts";
 import {
   appCompareSchema,

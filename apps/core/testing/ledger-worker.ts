@@ -14,7 +14,7 @@ import {
   type WorkerSelf,
 } from "../../../packages/core/storage/ledger/writer-loop.ts";
 import type { WriterResponse } from "../../../packages/core/storage/ledger/writer-message.ts";
-import { confirmationHandleRegisterSchema } from "../../../packages/protocol/platform/mod.ts";
+import { confirmationHandleRegisterSchema } from "../../../packages/protocol/server/mod.ts";
 import { assemble } from "./ledger-registration.ts";
 import type { TestBoot, TestRequest } from "./ledger-types.ts";
 

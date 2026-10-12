@@ -17,7 +17,7 @@ import {
   glossaryListReadSchema,
   glossaryListRoute,
 } from "../../packages/protocol/projects/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import { loadContextMaterials } from "./context-overview.ts";
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ID_PREFIXES, idSchema } from "../platform/ids.ts";
+import { ID_PREFIXES, idSchema } from "../base/ids.ts";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 

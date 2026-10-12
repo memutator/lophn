@@ -3,7 +3,7 @@
 // 조건 그대로고, 읽기는 runtime의 loadContextMaterials가 agentCall로 한다. 모델 provider는 부르지 않고
 // 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   bundleFinishCheckRoute,
   bundleSaveDraftRoute,
@@ -11,7 +11,7 @@ import {
   contextCreateRoute,
   glossarySetRoute,
 } from "../../packages/protocol/projects/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import { evalContent } from "../../packages/core/projects/contexts/api/testing.ts";
 import { openIndexStore } from "../../packages/core/projects/contexts/index/mod.ts";
 import { agentCall } from "../agent-runtime/core-http.ts";

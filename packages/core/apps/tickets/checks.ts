@@ -15,7 +15,7 @@ import type {
   CommandDefinition,
   ReadDefinition,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { revisionAgrees } from "./claims.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
 import {

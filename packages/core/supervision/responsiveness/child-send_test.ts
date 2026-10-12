@@ -3,7 +3,7 @@ import {
   encodeFrame,
   FrameDecoder,
   type ParentMessage,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { ByteReader } from "./frames.ts";
 import { type ChildHandlers, type ChildSession, startChild } from "./child.ts";
 

@@ -14,7 +14,7 @@ import type { CallModel } from "../../packages/protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   createAuthTransport,
   type SecretAttachLike,

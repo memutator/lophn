@@ -2,7 +2,7 @@
 // 묶이고 아래 서비스만 낸다. core API의 임의 proxy가 아니며 모르는 경로는 없는 경로와 같은
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";
-import { ERROR_HTTP_STATUS } from "../../../../protocol/platform/mod.ts";
+import { ERROR_HTTP_STATUS } from "../../../../protocol/server/mod.ts";
 import type { BrokerChild, InvocationBroker } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand, defineEvent, defineRead } from "../platform/mod.ts";
+import { defineCommand, defineEvent, defineRead } from "../server/mod.ts";
 import { placeRefSchema } from "./address.ts";
 import {
   cursorInputFields,

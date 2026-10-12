@@ -6,7 +6,7 @@ import {
 import type {
   CommandDefinition,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,

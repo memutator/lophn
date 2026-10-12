@@ -1,4 +1,4 @@
-import type { Sql } from "../../packages/protocol/platform/mod.ts";
+import type { Sql } from "../../packages/protocol/server/mod.ts";
 import type { PreviewFact } from "../../packages/core/lophn-agent/session/rewind/mod.ts";
 
 // rewind로 되돌려지지 않는 질문 답과 승인 결정이다(lophn-agent/revert "남는 사실", `answered_fact`). 숨기는

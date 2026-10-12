@@ -33,7 +33,7 @@ import type {
   PreparedBlob,
   RequestContext,
   Sql,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { type BlobPrepareCall } from "./core.ts";
 import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { openConnection } from "../../packages/core/storage/ledger/mod.ts";

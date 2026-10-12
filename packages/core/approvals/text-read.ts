@@ -15,7 +15,7 @@ import {
   approvalsTextInputSchema,
   BLOB_READ_MAX_BYTES,
   type Sql,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { visible } from "./reads.ts";
 
 export type ApprovalTextEnvironment = {

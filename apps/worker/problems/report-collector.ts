@@ -13,7 +13,7 @@ import { sha256Hex } from "../../../packages/base/mod.ts";
 import type {
   Frame,
   WorkerRequest,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import {
   observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,

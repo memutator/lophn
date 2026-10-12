@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   diffPageSchema,
   documentPrepare,

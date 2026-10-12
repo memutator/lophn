@@ -11,7 +11,7 @@ import {
   type RuntimeObservation,
   type RuntimeReason,
 } from "../../../protocol/apps/mod.ts";
-import type { ReadDefinition, Sql } from "../../../protocol/platform/mod.ts";
+import type { ReadDefinition, Sql } from "../../../protocol/server/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import {
   type AppDeclarations,

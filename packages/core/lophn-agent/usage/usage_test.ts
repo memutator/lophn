@@ -2,7 +2,7 @@
 // createLedgerHarness + temp dir SQLite. 사실 기록은 model_calls 표의 값만 본다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,

@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model apps/registration의 표. slug는 documents/addressing place와
 // 같은 이름 공간이라 place_names 예약이 unique를 지키고, 표에는 한 번 더 unique를 둔다.

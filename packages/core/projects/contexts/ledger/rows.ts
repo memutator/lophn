@@ -23,11 +23,7 @@ import {
   type SavedViewValue,
   savedViewValueSchema,
 } from "../../../../protocol/projects/mod.ts";
-import type {
-  Sql,
-  SqlParam,
-  SqlRow,
-} from "../../../../protocol/platform/mod.ts";
+import type { Sql, SqlParam, SqlRow } from "../../../../protocol/server/mod.ts";
 import type { BlobReference } from "../api/state.ts";
 
 type Reader = Pick<Sql, "get" | "all">;

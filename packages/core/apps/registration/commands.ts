@@ -18,7 +18,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { placeNameReservation } from "../../../protocol/projects/mod.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";

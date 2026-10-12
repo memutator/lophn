@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   type CommandEnvelope,
   createLedgerHarness,

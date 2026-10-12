@@ -25,7 +25,7 @@ import { createCoreClient } from "../connection/client/core.ts";
 import {
   REDACTION_REPLACEMENT,
   type RpcFetch,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,

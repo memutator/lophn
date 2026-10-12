@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model apps/invocations의 표. app·release는 아직 물리 FK를 두지 않는다
 // (releases 표의 위치가 다른 조립이며 참조 삭제 거절은 그쪽 몫이다).

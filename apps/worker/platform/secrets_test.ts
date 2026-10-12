@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../packages/base/mod.ts";
-import type { SecretPreparation } from "../../../packages/protocol/platform/mod.ts";
+import type { SecretPreparation } from "../../../packages/protocol/server/mod.ts";
 import {
   SECRET_EXPORT_OP,
   SECRET_IMPORT_OP,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import { createKnownSecretRegistry } from "../../../packages/base/redaction/mod.ts";
 import {
   createFakeKeychain,

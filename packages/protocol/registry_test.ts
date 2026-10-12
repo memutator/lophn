@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { ID_PREFIXES } from "./platform/ids.ts";
+import { ID_PREFIXES } from "./base/ids.ts";
 import { ALL_EVENTS, ALL_ROUTES } from "./mod.ts";
 
 const TOP_LEVEL = /^contracts\/([^/]+)/;

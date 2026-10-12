@@ -11,7 +11,7 @@ import {
   type ApiReadDefinition,
   BLOB_READ_MAX_BYTES,
   type Sql,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { sessionVisible } from "./guards.ts";
 import { loadMessage, loadSession } from "./model.ts";
 

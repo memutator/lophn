@@ -7,7 +7,7 @@ import {
   defineRead,
   seqSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { releaseIdSchema } from "./apps.ts";
 import {
   appIdSchema,

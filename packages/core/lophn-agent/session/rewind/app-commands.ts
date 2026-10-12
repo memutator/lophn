@@ -17,7 +17,7 @@ import {
   parseActor,
   type RequestContext,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type { RevertDeps } from "./commands.ts";
 import { planRewind, type RewindPlan } from "./preview.ts";
 import { restorable } from "./restore.ts";

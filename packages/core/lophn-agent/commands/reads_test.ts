@@ -8,7 +8,7 @@ import type {
   ReadSnapshot,
   RequestContext,
   SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createCommandReads } from "./reads.ts";
 import type { RegistrySkill } from "./registry.ts";
 

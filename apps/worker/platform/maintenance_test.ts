@@ -4,7 +4,7 @@
 
 import { assertEquals } from "@std/assert";
 import { ok } from "../../../packages/base/mod.ts";
-import { BLOB_UNREFERENCED_GRACE_MS } from "../../../packages/protocol/platform/mod.ts";
+import { BLOB_UNREFERENCED_GRACE_MS } from "../../../packages/protocol/server/mod.ts";
 import {
   assignmentOf,
   purposesPathFor,

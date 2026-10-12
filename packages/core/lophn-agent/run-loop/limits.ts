@@ -11,7 +11,7 @@ import {
   type RunElapsed,
   runLimitsSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../../protocol/platform/mod.ts";
+import type { EffectiveSetting } from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
 
 export type RunLimits = z.infer<typeof runLimitsSchema>;

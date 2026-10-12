@@ -9,7 +9,7 @@ import {
   errorBodySchema,
   idSchema,
   secretNameSchema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
 import { reportAcceptanceSchema } from "../problems/reports.ts";

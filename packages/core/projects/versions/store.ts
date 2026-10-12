@@ -14,7 +14,7 @@ import {
   type VersionSource,
   versionSourceSchema,
 } from "../../../protocol/projects/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 
 export type VersionRow = {
   id: string;

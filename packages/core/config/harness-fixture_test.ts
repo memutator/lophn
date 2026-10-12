@@ -10,7 +10,7 @@ import {
   defineCommand,
   type SettingDefinition,
   type Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   createSettingsCommands,
   SettingRegistry,

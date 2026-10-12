@@ -20,7 +20,7 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { deepestRegisteredRoot } from "./model.ts";
 import { loadProject, loadProjects, rowCount } from "./store.ts";
 

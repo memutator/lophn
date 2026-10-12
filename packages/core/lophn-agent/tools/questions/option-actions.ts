@@ -26,7 +26,7 @@ import {
   parseActor,
   type SettingMutation,
   type Tx,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import { chosenActionOf, loadGroupOfQuestion } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 

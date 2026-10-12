@@ -11,7 +11,7 @@ import {
 import type {
   ApprovalAction,
   AuthenticatedContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   actionOf,
   call,

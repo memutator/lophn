@@ -24,7 +24,7 @@ import {
   secretStoreRefreshInputSchema,
   type SecretStoreRefreshOutput,
   type SecretValue,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import type {
   SecretAttach,
   SecretRefresh,

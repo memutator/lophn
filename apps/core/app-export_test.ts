@@ -4,7 +4,7 @@
 // 남기는 모양으로 심는다(blob_test.ts seedRef와 같은 길이다). 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { removeTree } from "../../packages/core/apps/packages/testing/mod.ts";
 import { startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";

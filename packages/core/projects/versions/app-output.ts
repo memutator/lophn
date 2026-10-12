@@ -7,7 +7,7 @@ import type {
   Document,
   PreparedVersion,
 } from "../../../protocol/projects/mod.ts";
-import type { RequestContext, Tx } from "../../../protocol/platform/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 
 function rejected(code: string, message: string): Result<never> {

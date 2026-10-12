@@ -6,7 +6,7 @@ import { err, type Logger, type Result } from "../../../base/mod.ts";
 import {
   appCredentialRequestSchema,
   appCredentialResponseSchema,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { CredentialIssue } from "./registry.ts";
 import type { CredentialRegistry } from "./registry.ts";
 

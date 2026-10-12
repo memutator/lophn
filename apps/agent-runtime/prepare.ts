@@ -24,7 +24,7 @@ import {
 import {
   createApprovalRequest,
   settingsGet,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { InstructionDeps } from "../../packages/core/lophn-agent/instructions/mod.ts";
 import type { SkillEntry } from "../../packages/core/lophn-agent/extensions/mod.ts";
 import { ROLE_CAPS } from "../../packages/core/lophn-agent/agents/mod.ts";

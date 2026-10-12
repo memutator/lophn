@@ -8,8 +8,8 @@ import type {
   RequestContext,
   Sql,
   Tx,
-} from "../../../protocol/platform/mod.ts";
-import { TargetAuthorization } from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
+import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import {
   observeTestRequest,
   type requestTest,

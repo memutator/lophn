@@ -7,7 +7,7 @@
 import {
   type MainHello,
   type MainToCoreMessage,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import type {
   RestoreLost,
   RestorePlanReply,

@@ -7,7 +7,7 @@ import type {
   Sql,
   SqlRow,
   Tx,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { connectionSchemaSteps } from "./schema.ts";
 
 export const APP = "app_01arz3ndektsv4rrffq69g5fav";

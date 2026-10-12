@@ -2,7 +2,7 @@
 // port는 현재 연결 범위 안의 정본 read 하나씩이다. 조립은 이 port 밖의 자료를 읽지 않고
 // 완성 묶음을 저장하지 않는다.
 import type { Result } from "../../base/mod.ts";
-import type { Output } from "../../protocol/platform/mod.ts";
+import type { Output } from "../../protocol/server/mod.ts";
 import type {
   getProblem,
   getReport,

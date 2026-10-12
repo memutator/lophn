@@ -8,7 +8,7 @@ import {
   type ProviderRecord,
   providerRecordSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { SqlRow } from "../../../protocol/platform/mod.ts";
+import type { SqlRow } from "../../../protocol/server/mod.ts";
 
 // 순수 함수만. IO 없다. row↔record, 상태 전이, 불변 조건을 여기 둔다.
 

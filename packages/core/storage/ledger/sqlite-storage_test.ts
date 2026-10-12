@@ -8,7 +8,7 @@ import {
   ok,
   seededRandom,
 } from "../../../base/mod.ts";
-import { defineEvent } from "../../../protocol/platform/mod.ts";
+import { defineEvent } from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { configure, isStorageUnavailable } from "./sqlite.ts";

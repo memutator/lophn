@@ -3,7 +3,7 @@ import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { createAgentReads } from "./mod.ts";
 import type { AgentDeps, AgentLookups } from "./ports.ts";
 

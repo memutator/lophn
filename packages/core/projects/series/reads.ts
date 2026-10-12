@@ -15,7 +15,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
   TargetAuthorization,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { seriesNext } from "./work.ts";
 import {
   listAllSeries,

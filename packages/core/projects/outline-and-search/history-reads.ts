@@ -6,7 +6,7 @@
 // 추출이 끝나지 않았거나 지원·확인되지 않은 판(검사 한도 1 MiB 초과 포함)은 section도
 // 본문도 추정하지 않고 누락으로 밝힌다. 권한 밖 문서와 없는 문서는 같은 not_found다.
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import {
   documentDiff,
   documentSectionHistory,

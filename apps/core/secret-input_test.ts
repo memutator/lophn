@@ -14,8 +14,8 @@ import {
   FrameDecoder,
   removeSecret,
   setSecret,
-} from "../../packages/protocol/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   derivedPath,
   type DerivedStore,

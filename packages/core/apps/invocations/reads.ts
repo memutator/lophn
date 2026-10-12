@@ -10,7 +10,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { appAccessDenied, authorizeAppId } from "../registration/mod.ts";
 import { loadInvocation, loadInvocations } from "./store.ts";
 

@@ -3,7 +3,7 @@
 // 읽을 때만 쓰고 API·event·log로 나가지 않는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { Sql } from "../../protocol/platform/mod.ts";
+import type { Sql } from "../../protocol/server/mod.ts";
 import type { SecretRecord } from "./model.ts";
 
 export type SecretReference = Pick<SecretRecord, "name" | "sealedRef">;

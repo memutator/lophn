@@ -20,8 +20,8 @@ import {
 import type {
   ReadSnapshot,
   RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   instructionFilesOverCore,

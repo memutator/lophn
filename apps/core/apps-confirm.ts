@@ -13,7 +13,7 @@ import {
   type ApprovalAction,
   createApprovalRequest,
   type RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { confirmAction } from "../../packages/core/approvals/mod.ts";
 import { openConnection } from "../../packages/core/storage/ledger/mod.ts";
 import { existingAcceptance } from "../../packages/core/apps/invocations/confirm.ts";

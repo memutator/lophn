@@ -12,8 +12,8 @@ import {
 import {
   BLOB_PREPARATION_TTL_MS,
   BLOB_UNREFERENCED_GRACE_MS,
-} from "../../packages/protocol/platform/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   MESSAGE_TEXT_CONTENT_MAX_BYTES,
   serializeMessageContent,

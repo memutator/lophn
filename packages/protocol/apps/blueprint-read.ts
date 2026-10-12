@@ -4,7 +4,7 @@ import {
   jsonValueSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { appInputSchema, releaseIdSchema } from "./apps.ts";
 import { permissionRequirementSchema } from "./permissions.ts";

@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { routePath } from "../platform/mod.ts";
+import { routePath } from "../server/mod.ts";
 import {
   CATALOG_REFRESH_INTERVAL_MS,
   catalogEntrySchema,

@@ -7,9 +7,9 @@ import {
   sectionKeySchema,
   versionIdSchema,
 } from "../projects/values.ts";
-import { idSchema } from "../platform/ids.ts";
-import { defineMemory } from "../platform/route.ts";
-import { atSchema } from "../platform/values.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineMemory } from "../server/route.ts";
+import { atSchema } from "../base/values.ts";
 
 // 요약은 UTF-8 2048 bytes, 탭 상세는 한 page 20개(shell/workspace#R10).
 export const SUMMARY_MAX_BYTES = 2048;

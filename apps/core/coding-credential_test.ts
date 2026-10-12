@@ -11,7 +11,7 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   type CodingAgentConnectionAuthPort,
   type CodingAgentConnectionAuthResult,

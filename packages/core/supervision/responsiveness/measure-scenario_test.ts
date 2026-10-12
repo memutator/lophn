@@ -9,7 +9,7 @@ import { createCoreHarness } from "../../../../apps/core/testing/core.ts";
 import {
   createRpcClient,
   platformHealth,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { buildReport, formatReport } from "./measure-report.ts";
 import { runScenario } from "./measure-run.ts";
 

@@ -5,7 +5,7 @@
 // coding-agent-approvals_test.ts가 맡는다. 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";

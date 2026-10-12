@@ -11,7 +11,7 @@ import type { Result } from "../../packages/base/mod.ts";
 import {
   type EventEnvelope,
   type RequestContext,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   createEventSession,
   type EventBackend,

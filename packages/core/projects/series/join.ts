@@ -10,7 +10,7 @@ import {
   type RequestContext,
   TargetAuthorization,
   type Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { applyJoin, checkJoin } from "./commands.ts";
 import { loadSeries, updateSeries } from "./store.ts";

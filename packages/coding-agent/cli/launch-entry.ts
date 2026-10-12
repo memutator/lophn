@@ -30,7 +30,7 @@ import {
   type AgentFailure,
   LOPHN_CONNECTION,
 } from "../../protocol/coding-agent/mod.ts";
-import type { RpcFetch } from "../../protocol/platform/mod.ts";
+import type { RpcFetch } from "../../protocol/server/mod.ts";
 import type { Result } from "../../base/mod.ts";
 import { ambientEnv } from "./dispatch.ts";
 import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";

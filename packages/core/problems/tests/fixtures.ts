@@ -3,7 +3,7 @@ import type {
   BlobRefRegistration,
   RequestContext,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import type { Verification } from "../../../protocol/problems/mod.ts";
 import {
   canonicalRequest,

@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import type { Sql, SqlRow } from "../../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow } from "../../../../protocol/server/mod.ts";
 import type { CheckViolation } from "../check/types.ts";
 import { indexSchemaSteps } from "./schema.ts";
 import type { IndexedEntity, IndexedFile, IndexState } from "./types.ts";

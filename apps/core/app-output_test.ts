@@ -6,7 +6,7 @@ import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   type AppOutputFile,

@@ -16,7 +16,7 @@ import {
   type ApprovalRequest,
   type AuthenticatedContext,
   REDACTION_REPLACEMENT,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import {
   handoffBodyHash,
   handoffContentBytes,

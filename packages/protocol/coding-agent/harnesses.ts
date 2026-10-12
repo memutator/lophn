@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { defineSetting } from "../platform/settings.ts";
-import { atSchema, sha256Schema } from "../platform/values.ts";
+import { defineSetting } from "../config/settings.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
 import { connectionIdSchema } from "./connections.ts";
 
 export const HARNESS_IDS = [

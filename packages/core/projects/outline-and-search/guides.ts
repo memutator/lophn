@@ -15,7 +15,7 @@ import {
   DOCUMENT_OUTLINE_DEPTH,
   READ_CODEPOINT_BUDGET,
 } from "../../../protocol/projects/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import {
   decodeOutlineCursor,
   encodeOutlineCursor,

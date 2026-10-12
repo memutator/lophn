@@ -5,7 +5,7 @@ import {
   notificationAskSchema,
   type NotificationFirstContext,
   type Seq,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import { triggerOf } from "./model.ts";
 
 // 계기 종류가 정한 부를 agent와 첫 context 모양이다(platform/notifications#R13).

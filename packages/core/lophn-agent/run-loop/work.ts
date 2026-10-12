@@ -10,7 +10,7 @@ import {
   eventsList,
   type ReadRoute,
   routePath,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { predecessorAllows } from "./model.ts";
 import type { CoreRead } from "./startup.ts";
 

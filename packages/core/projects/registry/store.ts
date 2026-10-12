@@ -4,7 +4,7 @@ import type {
   Project,
   TrackingPattern,
 } from "../../../protocol/projects/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { projectFromRows } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;

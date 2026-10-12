@@ -9,8 +9,8 @@ import {
   settingMutationSchema,
   sha256Schema,
   withReadCommon,
-} from "../platform/mod.ts";
-import { defineDecision } from "../platform/confirmation-handle.ts";
+} from "../server/mod.ts";
+import { defineDecision } from "../server/confirmation-handle.ts";
 import { readCursorSchema } from "./run-values.ts";
 import {
   answerInputSchema,

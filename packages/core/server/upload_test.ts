@@ -7,7 +7,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import {
   defineUpload,
   UPLOAD_INPUT_HEADER,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   type CredentialIssue,
   CredentialRegistry,

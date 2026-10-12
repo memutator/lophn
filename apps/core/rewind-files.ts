@@ -17,7 +17,7 @@ import { MESSAGE_CONTENT_PURPOSE } from "../../packages/protocol/lophn-agent/mod
 import {
   type AuthenticatedContext,
   parseActor,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { factMessageContent } from "../../packages/core/lophn-agent/session/mod.ts";
 import {
   assertCheckpointVisible,

@@ -3,7 +3,7 @@ import {
   type Connection,
   connectionSchema,
 } from "../../protocol/coding-agent/mod.ts";
-import type { SqlRow } from "../../protocol/platform/mod.ts";
+import type { SqlRow } from "../../protocol/server/mod.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored connection" });

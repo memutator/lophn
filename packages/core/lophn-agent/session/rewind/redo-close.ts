@@ -1,6 +1,6 @@
 import { ok, type Result } from "../../../../base/mod.ts";
 import { revertClosed } from "../../../../protocol/lophn-agent/mod.ts";
-import type { Tx } from "../../../../protocol/platform/mod.ts";
+import type { Tx } from "../../../../protocol/server/mod.ts";
 
 // 다음 사람 메시지를 접수하면 같은 session의 `redo=available`인 Revert가 확정된다(conversation#R25,
 // lophn-agent/revert R16). ReceiveMessage가 메시지를 쓰는 같은 transaction에서 부르므로 거절된 접수는 닫지

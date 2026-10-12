@@ -10,7 +10,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { BLOB_CAPACITY_MAX_BYTES, type RetentionRule } from "./gc.ts";
 import { isSha256Hash } from "./unreferenced.ts";
-import type { BlobRetentionCategory } from "../../../protocol/platform/mod.ts";
+import type { BlobRetentionCategory } from "../../../protocol/server/mod.ts";
 
 // 목적 기록 하나의 모양. 준비가 성공한 hash의 purpose만 남긴다.
 export type PurposeRecord = {

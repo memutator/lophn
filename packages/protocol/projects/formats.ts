@@ -4,10 +4,10 @@ import {
   defineWorker,
   jsonObjectSchema,
   withReadCommon,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { contentFilesOutputSchema } from "./versions.ts";
 import { documentFilesInputSchema } from "./document-files.ts";
-import { sha256Schema } from "../platform/values.ts";
+import { sha256Schema } from "../base/values.ts";
 import { formatDiagnosticOutputSchema } from "./versions.ts";
 import { extractedSectionSchema } from "./sections.ts";
 import {

@@ -5,7 +5,7 @@
 // 끊긴 요청이 이유와 함께 끝나는지 본다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import { prepareFromSource } from "../../packages/core/apps/releases/prepare/from-source.ts";
 import { installedHome } from "../../packages/core/apps/packages/testing/mod.ts";
 import { deriveAppTest } from "../../packages/core/problems/tests/mod.ts";

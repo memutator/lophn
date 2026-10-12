@@ -4,7 +4,7 @@
 // 사실로 내지 않고, 복원하지 못한 범위는 누락으로 밝힌다. 이 tool은 쓰지 않는다.
 import { MCP_CORE_ROUTES } from "../../../protocol/coding-agent/mod.ts";
 import { documentSectionHistory } from "../../../protocol/projects/mod.ts";
-import type { Route } from "../../../protocol/platform/mod.ts";
+import type { Route } from "../../../protocol/server/mod.ts";
 import type { FlowClient } from "../../connection/mod.ts";
 import {
   continuation,

@@ -18,7 +18,7 @@ import {
   finishRevert,
   type runAppRevert,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../packages/protocol/platform/mod.ts";
+import type { AuthenticatedContext } from "../../packages/protocol/server/mod.ts";
 import {
   type AppStepPorts,
   type AppStepResult,

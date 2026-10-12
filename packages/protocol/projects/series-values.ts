@@ -4,7 +4,7 @@ import {
   blobRefSchema,
   idSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 import { placeRefOutputSchema, placeRefSchema } from "./address.ts";
 import { formatRefOutputSchema, formatRefSchema } from "./versions.ts";
 import {

@@ -26,7 +26,7 @@ import {
   runRead,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { eventsList, routePath } from "../../packages/protocol/platform/mod.ts";
+import { eventsList, routePath } from "../../packages/protocol/server/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 import {
   type ContextBundleReader,

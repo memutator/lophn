@@ -6,7 +6,7 @@
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../packages/base/mod.ts";
-import type { Sql, SqlRow } from "../../packages/protocol/platform/mod.ts";
+import type { Sql, SqlRow } from "../../packages/protocol/server/mod.ts";
 import {
   type BundleContent,
   bundleContentSchema,

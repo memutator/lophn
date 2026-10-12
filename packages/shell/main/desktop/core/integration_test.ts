@@ -9,7 +9,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import {
   FrameDecoder,
   mainHelloSchema,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 import { openSession } from "./client.ts";
 import { subscribe } from "./events.ts";

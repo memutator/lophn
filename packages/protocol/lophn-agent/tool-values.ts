@@ -4,7 +4,7 @@ import {
   durationMsSchema,
   idSchema,
   sha256Schema,
-} from "../platform/mod.ts";
+} from "../server/mod.ts";
 
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const order = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);

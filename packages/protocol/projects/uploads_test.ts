@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { routePath } from "../platform/mod.ts";
+import { routePath } from "../server/mod.ts";
 import { ROUTES } from "./mod.ts";
 import { hash } from "./document-fixtures.ts";
 import { DOCUMENT_UPLOAD_MAX_BYTES, documentUpload } from "./uploads.ts";

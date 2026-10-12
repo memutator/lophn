@@ -4,7 +4,7 @@ import {
   documentRefOutputSchema,
   type Project,
 } from "../../../protocol/projects/mod.ts";
-import type { RequestContext } from "../../../protocol/platform/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 
 const basisSchema = z.strictObject({
   seq: z.string(),

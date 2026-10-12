@@ -13,8 +13,8 @@ import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
-} from "../../../protocol/platform/mod.ts";
-import { parseActor } from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
+import { parseActor } from "../../../protocol/server/mod.ts";
 import {
   type CatalogLayers,
   type EntryIdentity,

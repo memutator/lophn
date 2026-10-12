@@ -5,12 +5,12 @@ import { assert, assertEquals } from "@std/assert";
 import {
   encodeFrame,
   FrameDecoder,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type {
   AuthenticatedContext,
   WorkerRequest,
   WorkerResponse,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import { createCoreSigner } from "../../packages/core/apps/runtime/signing.ts";
 import { launchArgv } from "../../packages/core/supervision/security/mod.ts";

@@ -1,5 +1,5 @@
 import { ok } from "../../packages/base/mod.ts";
-import { cancelApprovalRequest } from "../../packages/protocol/platform/mod.ts";
+import { cancelApprovalRequest } from "../../packages/protocol/server/mod.ts";
 import { isFinishedSummaryCall } from "../../packages/core/lophn-agent/session/mod.ts";
 import { cancelGroupsFrom } from "../../packages/core/lophn-agent/tools/questions/mod.ts";
 import type { RewindEffects } from "../../packages/core/lophn-agent/session/rewind/mod.ts";

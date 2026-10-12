@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model platform/ledger의 공통 표. run FK는 runs 표가 생길 때 더한다(계획 Q5).
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.

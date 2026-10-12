@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../protocol/platform/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/assignments의 표. assignment는 실행 정체(role·자리·상태·revision)만
 // 담는다. 설정은 agent 정의 파일이, 실행 상태는 run-loop가 맡는다(assignments#R17).

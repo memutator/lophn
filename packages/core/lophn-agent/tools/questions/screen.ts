@@ -1,7 +1,7 @@
 import type {
   RedactionInput,
   RedactionResult,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 
 // 질문의 자유 답은 blob으로 준비하기 전에 secret인지 먼저 본다(R11). 비밀번호·API
 // key·token 평문은 일반 저장(blob·세션·model 입력·event)에 들어가지 않는다. 판정은

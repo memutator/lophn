@@ -5,7 +5,7 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
-import type { Sql } from "../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 재시작 점검 모양(install-and-update#R11의 중단 작업 점검, b&m#R15·R16).

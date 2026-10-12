@@ -12,7 +12,7 @@ import {
 import type {
   WorkerRequest,
   WorkerResponse,
-} from "../../../packages/protocol/platform/mod.ts";
+} from "../../../packages/protocol/server/mod.ts";
 import type { FormatCall } from "../../../packages/core/projects/formats/reads.ts";
 import {
   derivedPath,

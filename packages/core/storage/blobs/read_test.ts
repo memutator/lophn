@@ -11,7 +11,7 @@ import {
   type RequestContext,
   type Sql,
   type SqlRow,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { decideRead, readBlob, type StoredBlobRef } from "./read.ts";
 
 const HASH = "a".repeat(64);

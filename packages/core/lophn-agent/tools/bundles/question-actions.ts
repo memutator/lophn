@@ -10,7 +10,7 @@ import type { OptionAction } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
   settingsGet,
-} from "../../../../protocol/platform/mod.ts";
+} from "../../../../protocol/server/mod.ts";
 import {
   moveOptionAction,
   protectedSetting,

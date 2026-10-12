@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { withReadCommon } from "../platform/envelope.ts";
-import { idSchema } from "../platform/ids.ts";
-import { defineRead } from "../platform/route.ts";
-import { seqSchema, sha256Schema } from "../platform/values.ts";
+import { withReadCommon } from "../server/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineRead } from "../server/route.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
 import { ticketCheckResultSchema } from "./ticket-routes.ts";
 import {
   sourceRelativePathSchema,

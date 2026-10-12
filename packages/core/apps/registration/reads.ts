@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { type App, appGet, appList } from "../../../protocol/apps/mod.ts";
-import type { ReadDefinition } from "../../../protocol/platform/mod.ts";
+import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { authorizeApp } from "./model.ts";
 import { loadApp, loadApps } from "./store.ts";
 

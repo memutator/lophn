@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Sql } from "../../../protocol/platform/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type { AppTestVerificationFact } from "../../../protocol/problems/mod.ts";
 
 // release 준비가 같은 transaction에서 Verification의 사실만 읽는 조회다(apps/releases#R5).

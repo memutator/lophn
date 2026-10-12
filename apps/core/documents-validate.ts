@@ -11,7 +11,7 @@ import {
   formatChecksContent,
   formatValidationResultSchema,
 } from "../../packages/protocol/projects/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/platform/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/protocol/server/mod.ts";
 import {
   DOCUMENT_OPS,
   VALIDATE_INPUT_MAX_BYTES,

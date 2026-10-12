@@ -4,7 +4,7 @@ import {
   type EventVisibilityDefinition,
   type RequestContext,
   type Subject,
-} from "../../protocol/platform/mod.ts";
+} from "../../protocol/server/mod.ts";
 import {
   commands,
   deps,

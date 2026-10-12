@@ -11,7 +11,7 @@ import type {
   CommandDefinition,
   Input,
   Tx,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   reject,
   requireMachine,

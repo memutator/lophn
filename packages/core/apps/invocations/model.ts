@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   REDACTION_MAX_DEPTH,
   REDACTION_REPLACEMENT,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import {
   type Invocation,
   INVOCATION_SUMMARY_MAX_BYTES,

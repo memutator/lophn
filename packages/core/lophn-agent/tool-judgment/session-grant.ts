@@ -7,7 +7,7 @@ import {
   type ApprovalRequest,
   approvalsList,
   eventsList,
-} from "../../../protocol/platform/mod.ts";
+} from "../../../protocol/server/mod.ts";
 import { type CoreCall, post } from "./core-call.ts";
 import { type BasisSnapshot, sameToolBasis } from "./model.ts";
 

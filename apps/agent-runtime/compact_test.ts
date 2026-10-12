@@ -20,7 +20,7 @@ import {
   startModelCall,
   takeRewindSummaryRequest,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { routePath } from "../../packages/protocol/platform/mod.ts";
+import { routePath } from "../../packages/protocol/server/mod.ts";
 import type { ModelCallOutput } from "../../packages/core/lophn-agent/providers/work.ts";
 import { summaryOutputCap } from "../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import { type Compactor, createCompactor } from "./compact.ts";

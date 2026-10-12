@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { App } from "../../../protocol/apps/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/platform/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { appFromRow } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;

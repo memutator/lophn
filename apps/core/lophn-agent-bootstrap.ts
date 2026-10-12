@@ -15,7 +15,7 @@ import {
 import type {
   AuthenticatedContext,
   ReadRoute,
-} from "../../packages/protocol/platform/mod.ts";
+} from "../../packages/protocol/server/mod.ts";
 import type { Writer } from "../../packages/core/storage/ledger/mod.ts";
 
 export const BOOTSTRAP_PRINCIPAL = "machine:lophn-agent-bootstrap";

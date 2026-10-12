@@ -31,7 +31,11 @@ export function AgentTab(props: AgentTabProps) {
   const { agent, place, slice, title, onTitle } = props;
   // 같은 agent와 자리의 탭은 하나의 source를 쥔다. 다시 그려도 새로 만들지 않는다.
   const source = useMemo(
-    () => slice.factory({ assignment: agent, place: { kind: "project", id: place } }),
+    () =>
+      slice.factory({
+        assignment: agent,
+        place: { kind: "project", id: place },
+      }),
     [slice.factory, agent, place],
   );
   const latest = useRef({ title, onTitle });

@@ -50,6 +50,7 @@ import type {
   EditorDeps,
 } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
+import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import type {
   AgentsSlice,
   AgentViewSlice,
@@ -137,6 +138,14 @@ export interface WorkspaceProps {
   tracking?: TrackingSource;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
+  /**
+   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수(shell/workspace#R33, shell/desktop#R37). 없으면
+   * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보이며, 예전 대화 dock이 그 자리를 맡는다
+   * (R4가 dock을 지울 때까지). WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
+   * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
+   * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
+   */
+  agentViewSource?: AgentViewSourceFactory;
   /** context 목록을 다시 읽고 toast가 닫히는 시간을 재는 timer. 시험이 시간을 세우려고 준다. */
   timer?: Timer & Clock;
 }
@@ -185,7 +194,7 @@ export function Workspace(props: WorkspaceProps) {
   const agentsSource = source.agentsSource;
   const sidebarAgents = useSidebarAgents(agentsSource, projectId);
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않고 예전 대화 dock이 그 자리를 맡는다(R4가 dock을 지울 때까지).
-  const agentViewSource = source.agentViewSource;
+  const agentViewSource = props.agentViewSource;
   // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
@@ -754,8 +763,7 @@ export function Workspace(props: WorkspaceProps) {
     else if (action === "agent") {
       if (agentViewSource === undefined) openConversation();
       else openRole("lophn");
-    }
-    else if (contexts === null) return;
+    } else if (contexts === null) return;
     else if (action === "contexts") openContexts(host);
     else openSearchShortcut(host);
   };

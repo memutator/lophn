@@ -137,9 +137,23 @@ export type SessionMessage = {
   text: string;
 };
 
+// rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
+// 빠진다(conversation#R25).
+export type FoldedMessages = {
+  from_seq: bigint;
+  through_seq: bigint;
+  // "Summarize from here"의 요약 본문이다. 접힌 구간 자리에 이 요약이 들어간다.
+  text: string;
+};
+
 export type SessionConversation = {
   // Compact가 session에 이은 요약과 그것이 덮는 마지막 메시지의 순번. 없으면 null이다.
   compaction: { through_seq: bigint; text: string } | null;
+  // 숨김 구간의 시작 seq. 이 seq 이후(포함) 메시지는 입력에 들지 않는다. 숨긴 구간이 없으면 null이다.
+  // agent-RW3d가 채운다.
+  hidden_from?: bigint | null;
+  // 접힌 구간들. 구간의 메시지는 빠지고 그 자리(순서대로)에 요약이 한 message로 들어간다.
+  folds?: readonly FoldedMessages[];
   // 원래 순서의 메시지(오름차순 seq).
   messages: readonly SessionMessage[];
 };
@@ -150,6 +164,12 @@ export function sessionMaterial(conversation: SessionConversation): {
   compact_summary: string | null;
   history: HistoryMessage[];
 } {
+  if (
+    (conversation.hidden_from ?? null) !== null ||
+    (conversation.folds ?? []).length > 0
+  ) {
+    throw new Error("not implemented: agent-RW3d");
+  }
   const covered = conversation.compaction?.through_seq ?? 0n;
   const history: HistoryMessage[] = [];
   for (const message of conversation.messages) {

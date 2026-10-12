@@ -1,6 +1,6 @@
-// 용어 칸과 뜻 칸 두 개. 추가 form과 고치기 줄이 같이 쓴다. 칸은 design Input을 그대로 쓴다.
+// 용어 칸과 뜻 칸 두 개. 추가 form과 고치기 줄이 같이 쓴다. 용어는 한 줄 Input, 뜻은 여러 줄 Textarea다.
 import type { ReactNode } from "react";
-import { Field, Input } from "@lophn/design/components";
+import { Field, Input, Textarea } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { TermDraft } from "./context-glossary-model.ts";
@@ -26,7 +26,8 @@ export function GlossaryFields(
         />
       </Field>
       <Field label={t("contexts.label.glossary-meaning")}>
-        <Input
+        <Textarea
+          rows={3}
           value={value.meaning}
           disabled={disabled}
           onChange={(event) =>

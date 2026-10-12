@@ -321,3 +321,34 @@ Deno.test("shell/design-system#R30 [ctx-I54]: 값이 비면 링크 칸은 버튼
   assertEquals(cell.querySelector("button"), null);
   assertEquals(cell.textContent, "");
 });
+
+Deno.test("shell/design-system#R30 [ctx-T10c]: 링크 칸 column의 dataAttributes가 단추에 달리고 type·class는 바뀌지 않는다", () => {
+  const rows = files(2).map((row, index) => ({
+    ...row,
+    name: `exp-00${index}`,
+  }));
+  using view = render(
+    <Table
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: File) => row.name,
+        onOpen: () => {},
+        dataAttributes: { "data-open-document": "", "data-target": "doc" },
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+    />,
+  );
+  const links = [
+    ...view.container.querySelectorAll("td[data-kind=link] > button"),
+  ];
+  assertEquals(links.length, 2);
+  for (const link of links) {
+    assertEquals(link.getAttribute("data-open-document"), "");
+    assertEquals(link.getAttribute("data-target"), "doc");
+    assertEquals(link.getAttribute("type"), "button");
+  }
+});

@@ -216,3 +216,14 @@ Deno.test("shell/workspace#R25 [ctx-I48]: board 카드는 개체 링크 뒤에 �
   click(card.querySelector("[data-open-document]")!);
   assertEquals(opened, [experimentPath("exp-008")]);
 });
+
+Deno.test("shell/workspace#R26 [ctx-T10c]: 표의 모든 개체 링크 단추는 table이 직접 data-open-document를 단다", async () => {
+  const { search, page } = await load("findings_about_change");
+  using view = results(search, page, { page: 0, pageSize: 5 });
+  await settle();
+  const buttons = all(view.container, "td[data-kind=link] > button");
+  assertEquals(buttons.length, 15);
+  assert(
+    buttons.every((link) => link.getAttribute("data-open-document") === ""),
+  );
+});

@@ -36,6 +36,7 @@ import {
 } from "./context-glossary-model.ts";
 import { GlossaryRow } from "./context-glossary-row.tsx";
 import styles from "./context-glossary.module.css";
+import { errorReason } from "./error-reason.ts";
 import type { ContextsSource, GlossaryEntry, ReadResult } from "./source.ts";
 
 export interface ContextGlossaryProps {
@@ -174,7 +175,9 @@ export function ContextGlossary(
                 <p className={styles.failureNote}>
                   {t("contexts.error.glossary-failed")}
                 </p>
-                <p className={styles.alert} role="alert">{failure}</p>
+                <p className={styles.alert} role="alert">
+                  {errorReason(failure)}
+                </p>
               </div>
             )}
             {load.entries.length === 0 && adding === null && (

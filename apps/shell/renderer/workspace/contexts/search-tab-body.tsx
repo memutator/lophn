@@ -12,7 +12,7 @@ import { t } from "@lophn/wording";
 
 import { SearchInputForm } from "./search-input-form.tsx";
 import styles from "./search-tab.module.css";
-import { missingRequired, pickInputs, withInput } from "./search-tab-inputs.ts";
+import { missingInputs, pickInputs, withInput } from "./search-tab-inputs.ts";
 import { useRead } from "./search-tab-read.ts";
 import { SearchTabResults } from "./search-tab-results.tsx";
 import type { SearchTabState } from "./search-tab.tsx";
@@ -61,6 +61,8 @@ export function SearchBody(props: SearchBodyProps): ReactNode {
       return { ok: true, value: map };
     },
   );
+
+  const missing = missingInputs(search, applied);
 
   async function save(): Promise<void> {
     const name = (naming ?? "").trim();
@@ -135,7 +137,14 @@ export function SearchBody(props: SearchBodyProps): ReactNode {
           </Button>
         </div>
       )}
-      {!missingRequired(search, applied) && (
+      {missing.length > 0 && (
+        <p className={styles.note} data-input-required>
+          {t("contexts.note.input-required", {
+            inputs: missing.map((input) => input.label).join(", "),
+          })}
+        </p>
+      )}
+      {missing.length === 0 && (
         <SearchTabResults
           source={source}
           context={state.context}

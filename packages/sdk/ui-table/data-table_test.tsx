@@ -337,3 +337,34 @@ Deno.test("apps/sdk#R16 [ctx-I54]: link column passes through DataTable, sorts a
   click(links[0]);
   assertEquals(opened, [rows[1]]);
 });
+
+Deno.test("apps/sdk#R16 [ctx-T10c]: link column's dataAttributes reach the button through DataTable, also after a sort", () => {
+  const rows = [
+    { id: "b", name: "exp-010", size: 1 },
+    { id: "a", name: "exp-009", size: 2 },
+  ];
+  using rendered = render(
+    <DataTable
+      columns={[{
+        id: "name",
+        header: "Name",
+        kind: "link",
+        value: (row: Item) => row.name,
+        onOpen: () => {},
+        dataAttributes: { "data-open-document": "" },
+      }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      now={now}
+      defaultSort={{ columnId: "name", direction: "descending" }}
+      onRetry={() => {}}
+      empty={{
+        message: "Nothing here.",
+        action: { label: "Add", onSelect: () => {} },
+      }}
+    />,
+  );
+  const links = [...rendered.container.querySelectorAll("td button")];
+  assertEquals(links.length, 2);
+  assert(links.every((link) => link.hasAttribute("data-open-document")));
+});

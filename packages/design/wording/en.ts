@@ -893,7 +893,6 @@ export const en = {
   "contexts.button.violations-send": "Send to Context Engineer",
   "contexts.button.violations-send-all": "Send all to Context Engineer",
   "contexts.empty.document-none": "No context includes this document.",
-  "contexts.empty.frame-missing": "This context isn't available.",
   "contexts.empty.glossary-none": "No terms yet.",
   "contexts.empty.results-none": "Nothing matches these inputs.",
   "contexts.empty.search-no-searches":
@@ -902,6 +901,16 @@ export const en = {
   "contexts.empty.violations-none": "No violations.",
   "contexts.error.glossary-failed":
     "That didn't go through. The glossary is unchanged.",
+  "contexts.error.reason.conflict":
+    "It changed somewhere else since you opened it. Reload and try again.",
+  "contexts.error.reason.forbidden": "You aren't allowed to do that here.",
+  "contexts.error.reason.internal": "Something went wrong on our side.",
+  "contexts.error.reason.invalid_input":
+    "Those values can't be used. Check them and try again.",
+  "contexts.error.reason.not_found": "It no longer exists.",
+  "contexts.error.reason.unauthorized": "Sign in again to continue.",
+  "contexts.error.reason.unavailable":
+    "Context isn't responding right now. Try again in a moment.",
   "contexts.error.search-save-failed": "Couldn't save the view. Try again.",
   "contexts.error.violations-send-failed":
     "Couldn't send that to Context Engineer. Try again.",
@@ -943,8 +952,6 @@ export const en = {
   "contexts.label.drafting-chip": "Draft",
   "contexts.label.drafting-draft": "Drafting overview and searches",
   "contexts.label.drafting-progress": "Progress",
-  "contexts.label.drafting-read":
-    "Read {places, plural, one {# place} other {# places}} ({documents, plural, one {# document} other {# documents}})",
   "contexts.label.drafting-reading": "Reading your folders",
   "contexts.label.drafting-status":
     "Context Engineer is drafting · step {step} of 4",
@@ -1009,6 +1016,7 @@ export const en = {
     "Not final. Context Engineer applies it when the checks pass.",
   "contexts.note.glossary-purpose":
     "Agents use these words and meanings to understand what you say.",
+  "contexts.note.input-required": "Fill in {inputs} to see results.",
   "contexts.note.input-unsupported":
     "This search can't be shown because it asks for “{type}”, which can't be drawn yet.",
   "contexts.note.overview-example": "e.g.",
@@ -1313,7 +1321,6 @@ export const en = {
     "{count, plural, one {# version} other {# versions}}",
   "document.label.info-archived": "Archived",
   "document.label.versions-target": "the version history",
-  "document.label.contexts-target": "the contexts",
   "document.label.info-target": "the document details",
   "document.label.compare-target": "this comparison",
   "document.notice.no-document": "Open a document to see its details.",
@@ -1554,13 +1561,11 @@ export const en = {
   "project-workspace.button.show-notices": "Show notices",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.button.turn-on-tracking": "Turn on tracking",
-  "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folder-documents": "No documents in this folder.",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
-  "project-workspace.heading.contexts": "Contexts",
   "project-workspace.heading.documents": "Documents",
   "project-workspace.heading.folders": "Folders",
   "project-workspace.heading.left-out": "Left out",
@@ -1579,7 +1584,6 @@ export const en = {
   "project-workspace.label.info-tab-versions": "Versions",
   "project-workspace.label.kind-app-panel": "App panel",
   "project-workspace.label.kind-document-editor": "Document editor",
-  "project-workspace.label.kind-document-viewer": "Document viewer",
   "project-workspace.label.kind-terminal": "Terminal",
   "project-workspace.label.more-files":
     "{count, plural, one {+# more file} other {+# more files}}",

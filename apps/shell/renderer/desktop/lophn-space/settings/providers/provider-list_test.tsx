@@ -6,9 +6,11 @@ import {
 
 import { find, flush } from "../../testdata/dom.ts";
 import { buttonText } from "../testdata/field.ts";
+import { provider } from "../../testdata/fake-settings.ts";
 import { ProviderList } from "./provider-list.tsx";
 import {
   ANTHROPIC,
+  CONNECTED,
   fakeProviders,
   type FakeProvidersOptions,
   OPENAI,
@@ -32,19 +34,7 @@ function rows(root: ParentNode, attribute: string): string[] {
   );
 }
 
-function expand(root: ParentNode, provider: string): HTMLElement {
-  const row = find(root, `[data-provider='${provider}']`);
-  click(find(row, "[data-action='expand']"));
-  return row;
-}
-
-function accounts(row: ParentNode): string[] {
-  return rows(row, "data-account");
-}
-
-const NEXT_RUN = "Changes apply to new work.";
-
-Deno.test("shell/desktop#R49 [agent-I30]: Providers는 연결된 provider의 이름·로그인 방법·[Disconnect]와 Add a provider 목록의 [+ Connect]를 이 순서로 보이고 model 고르기가 없다", async () => {
+Deno.test("shell/desktop#R49: Providers는 연결된 provider의 이름·로그인 방법·[Disconnect]와 Add a provider 목록의 [+ Connect]를 이 순서로 보이고 model 고르기가 없다", async () => {
   const { view } = await open();
   using _ = view;
   const headings = [...view.container.querySelectorAll("h2")].map((h) =>
@@ -55,26 +45,21 @@ Deno.test("shell/desktop#R49 [agent-I30]: Providers는 연결된 provider의 이
   const anthropic = find(view.container, `[data-provider='${ANTHROPIC}']`);
   assertEquals(text(anthropic, "[data-provider-name]"), "Anthropic");
   assertEquals(text(anthropic, "[data-login-methods]"), "API key");
-  // 로그인한 계정은 확인한 요금제를 붙이고, key 계정과 함께 있으면 둘 다 보인다.
+  // 로그인한 연결은 로그인 방법만 말한다.
   const openai = find(view.container, `[data-provider='${OPENAI}']`);
-  assertEquals(
-    text(openai, "[data-login-methods]"),
-    "Signed in (Plus) · API key",
-  );
+  assertEquals(text(openai, "[data-login-methods]"), "Signed in");
   for (const row of view.container.querySelectorAll("[data-provider]")) {
     assertEquals(text(row, "[data-action='disconnect']"), "Disconnect");
   }
   assertEquals(rows(view.container, "data-available"), [
     "google",
     "openrouter",
-    "ollama",
     "custom",
   ]);
   const google = find(view.container, "[data-available='google']");
   assertEquals(text(google, "[data-provider-name]"), "Google");
   assertEquals(text(google, "[data-hint]"), "Gemini models");
   assertEquals(text(google, "[data-action='connect']"), "Connect");
-  // provider는 계정만이다: model을 고르는 칸이 없다.
   assertEquals(
     view.container.querySelectorAll("select, [role='combobox']").length,
     0,
@@ -86,101 +71,83 @@ Deno.test("shell/desktop#R49 [agent-I30]: Providers는 연결된 provider의 이
   );
 });
 
-Deno.test("shell/desktop#R49 [agent-I30]: 연결된 provider는 접혀 있다가 펼치면 계정이 사람이 정한 순서로 나오고 계정마다 사용 스위치가 있다", async () => {
+Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R8: 연결된 행에는 계정 목록·펼치기·순서·끄기·연결 테스트가 없고 Add a provider에도 로컬 항목이 없다", async () => {
   const { view } = await open();
   using _ = view;
-  const row = find(view.container, `[data-provider='${ANTHROPIC}']`);
-  assertEquals(row.querySelector("[data-accounts]"), null);
-  assertEquals(
-    find(row, "[data-action='expand']").getAttribute("aria-expanded"),
-    "false",
+  const body = view.container;
+  for (
+    const gone of [
+      "[data-action='expand']",
+      "[data-accounts]",
+      "[data-account]",
+      "[role='switch']",
+      "[data-action='test']",
+      "[data-test-panel]",
+      "[data-note='next-run']",
+    ]
+  ) {
+    assertEquals(body.querySelectorAll(gone).length, 0, gone);
+  }
+  const labels = [...body.querySelectorAll("button")].map((button) =>
+    button.getAttribute("aria-label") ?? button.textContent ?? ""
   );
-  expand(view.container, ANTHROPIC);
-  assertEquals(
-    find(row, "[data-action='expand']").getAttribute("aria-expanded"),
-    "true",
-  );
-  assertEquals(accounts(row), ["work", "personal", "spare"]);
-  assertEquals(
-    [...row.querySelectorAll("[data-account-label]")].map((label) =>
-      label.textContent
-    ),
-    ["Work key", "Personal key", "Spare key"],
-  );
-  assertEquals(
-    [...row.querySelectorAll("[role='switch']")].map((item) =>
-      item.getAttribute("aria-checked")
-    ),
-    ["true", "true", "false"],
-  );
-  assertEquals(
-    find(row, "[data-account='work'] [role='switch']").previousElementSibling
-      ?.textContent,
-    "Use Work key",
-  );
+  for (const label of labels) {
+    assert(
+      !/Move .* (up|down)|Use .*|Test connection|Accounts for/.test(label),
+    );
+  }
+  assert(!(body.textContent ?? "").includes("Ollama"));
+  assertEquals(body.querySelector("[data-available='ollama']"), null);
 });
 
-Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R8 [agent-I30]: [Move down]은 계정 순서 전부를 새 순서로 한 번 보내고 목록이 새 순서로 바뀌며 다음 run부터라고 알린다", async () => {
-  const { fake, view } = await open();
+Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R4: 사용량 대기나 사용 불가인 provider만 그 상태와 다음 행동을 한 줄로 보인다", async () => {
+  const { view } = await open({
+    connected: [
+      ...CONNECTED,
+      provider("pvd_01h455vb4pex5v6nkc6gd5fd14", "Groq", {
+        state: "rejected",
+        reason: "authentication",
+      }),
+      provider("pvd_01h455vb4pex5v6nkc6gd5fd15", "DeepSeek", {
+        state: "revoked",
+        reason: "refresh_revoked",
+        way: "oauth",
+      }),
+      provider("pvd_01h455vb4pex5v6nkc6gd5fd16", "Grok", {
+        state: "rejected",
+        reason: "plan_access",
+      }),
+    ],
+  });
   using _ = view;
-  const row = expand(view.container, ANTHROPIC);
-  assertEquals(row.querySelector("[data-note='next-run']"), null);
-  click(find(row, "[aria-label='Move Work key down']"));
-  await flush();
-  assertEquals(fake.calls, [["reorder", ANTHROPIC, [
-    "personal",
-    "work",
-    "spare",
-  ]]]);
-  assertEquals(accounts(row), ["personal", "work", "spare"]);
-  assertEquals(text(row, "[data-note='next-run']"), NEXT_RUN);
-  // 맨 위 계정은 위로, 맨 아래 계정은 아래로 갈 수 없다.
+  const status = (id: string) =>
+    view.container.querySelector(`[data-provider='${id}'] [data-status]`);
+  assertEquals(status(ANTHROPIC), null);
+  assertEquals(status(OPENAI), null);
   assertEquals(
-    find(row, "[aria-label='Move Personal key up']").hasAttribute("disabled"),
-    true,
+    status(XAI)?.textContent,
+    "Usage limit reached. Wait for the limit to reset.",
+  );
+  assertEquals(status(XAI)?.getAttribute("data-status"), "usage-limit");
+  assertEquals(
+    status("pvd_01h455vb4pex5v6nkc6gd5fd14")?.textContent,
+    "There's a sign-in problem. Disconnect, then connect again.",
   );
   assertEquals(
-    find(row, "[aria-label='Move Spare key down']").hasAttribute("disabled"),
-    true,
+    status("pvd_01h455vb4pex5v6nkc6gd5fd15")?.getAttribute("data-status"),
+    "sign-in-problem",
   );
+  assertEquals(
+    status("pvd_01h455vb4pex5v6nkc6gd5fd16")?.textContent,
+    "Your plan doesn't allow this. Check that your plan includes it.",
+  );
+  // 한 줄뿐이다: 행마다 상태 줄은 하나다.
+  for (const row of view.container.querySelectorAll("[data-provider]")) {
+    assert(row.querySelectorAll("[data-status]").length <= 1);
+  }
 });
 
-Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R8 [agent-I30]: 순서 바꾸기가 실패하면 목록 순서는 그대로이고 실패를 알린다", async () => {
-  const { fake, view } = await open({ failing: { reorder: "conflict" } });
-  using _ = view;
-  const row = expand(view.container, ANTHROPIC);
-  click(find(row, "[aria-label='Move Personal key up']"));
-  await flush();
-  assertEquals(fake.calls.length, 1);
-  assertEquals(accounts(row), ["work", "personal", "spare"]);
-  assertEquals(
-    text(row, "[data-notice='reorder-failed']"),
-    "Couldn't change the order. Try again.",
-  );
-  assertEquals(row.querySelector("[data-note='next-run']"), null);
-});
-
-Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R8 [agent-I30]: 계정 스위치는 그 계정의 사용만 끄고 켜며 순서는 그대로다", async () => {
-  const { fake, view } = await open();
-  using _ = view;
-  const row = expand(view.container, ANTHROPIC);
-  click(find(row, "[data-account='spare'] [role='switch']"));
-  await flush();
-  assertEquals(fake.calls, [["enabled", ANTHROPIC, "spare", true]]);
-  assertEquals(
-    find(row, "[data-account='spare'] [role='switch']").getAttribute(
-      "aria-checked",
-    ),
-    "true",
-  );
-  assertEquals(accounts(row), ["work", "personal", "spare"]);
-  assertEquals(text(row, "[data-note='next-run']"), NEXT_RUN);
-  click(find(row, "[data-account='work'] [role='switch']"));
-  await flush();
-  assertEquals(fake.calls[1], ["enabled", ANTHROPIC, "work", false]);
-});
-
-Deno.test("shell/desktop#R49 [agent-I30]: [Disconnect]는 결정 창을 열 뿐이라 창이 열렸다고 알리고 연결은 그대로 둔다", async () => {
+Deno.test("shell/desktop#R49: [Disconnect]는 확인 창을 열 뿐이라 창이 열렸다고 알리고 연결은 그대로 둔다", async () => {
   const { fake, view } = await open();
   using _ = view;
   click(
@@ -195,7 +162,7 @@ Deno.test("shell/desktop#R49 [agent-I30]: [Disconnect]는 결정 창을 열 뿐�
   );
 });
 
-Deno.test("shell/desktop#R49 [agent-I30]: 창을 열지 못하면 아무것도 바뀌지 않았다고 알린다", async () => {
+Deno.test("shell/desktop#R49: 창을 열지 못하면 아무것도 바뀌지 않았다고 알린다", async () => {
   const { view } = await open({ failing: { disconnect: "unavailable" } });
   using _ = view;
   click(
@@ -208,7 +175,45 @@ Deno.test("shell/desktop#R49 [agent-I30]: 창을 열지 못하면 아무것도 �
   );
 });
 
-Deno.test("shell/desktop#R49 [agent-I30]: Add a provider의 [+ Connect]는 그 정의의 Connect dialog를 열고 방법을 고르면 연결을 시작해 닫는다", async () => {
+Deno.test("shell/desktop#R49, shell/desktop#R7: 창에서 돌아오면 목록을 다시 읽고 Disconnect한 provider는 사라져 Add a provider에서 다시 연결할 수 있다", async () => {
+  let connected = [...CONNECTED];
+  let available = [
+    { key: "openrouter", name: "OpenRouter" },
+  ];
+  const fake = fakeProviders();
+  const source = {
+    ...fake.source,
+    connected: () => Promise.resolve({ ok: true as const, value: connected }),
+    available: () =>
+      Promise.resolve({
+        ok: true as const,
+        value: available.map((row) => ({
+          ...row,
+          hint: null,
+          ways: ["api_key" as const],
+          signIn: null,
+          custom: false,
+        })),
+      }),
+  };
+  const view = render(<ProviderList source={source} />);
+  using _ = view;
+  await flush();
+  assertEquals(rows(view.container, "data-provider"), [ANTHROPIC, OPENAI, XAI]);
+  // 확인 창에서 xAI를 끊었다.
+  connected = connected.filter((row) => row.id !== XAI);
+  available = [...available, { key: "xai", name: "xAI" }];
+  globalThis.dispatchEvent(new Event("focus"));
+  await flush();
+  assertEquals(rows(view.container, "data-provider"), [ANTHROPIC, OPENAI]);
+  assertEquals(rows(view.container, "data-available"), ["openrouter", "xai"]);
+  assertEquals(
+    text(view.container, "[data-available='xai'] [data-action='connect']"),
+    "Connect",
+  );
+});
+
+Deno.test("shell/desktop#R49: Add a provider의 [+ Connect]는 그 정의의 Connect dialog를 열고 방법을 고르면 연결을 시작해 닫는다", async () => {
   const { fake, view } = await open();
   using _ = view;
   assertEquals(document.body.querySelector("[role='dialog']"), null);
@@ -224,7 +229,7 @@ Deno.test("shell/desktop#R49 [agent-I30]: Add a provider의 [+ Connect]는 그 �
   assertEquals(document.body.querySelector("[role='dialog']"), null);
 });
 
-Deno.test("shell/desktop#R49 [agent-I30]: Custom provider의 [+ Connect]는 Custom provider form dialog를 연다", async () => {
+Deno.test("shell/desktop#R49: Custom provider의 [+ Connect]는 Custom provider form dialog를 연다", async () => {
   const { view } = await open();
   using _ = view;
   click(
@@ -238,7 +243,7 @@ Deno.test("shell/desktop#R49 [agent-I30]: Custom provider의 [+ Connect]는 Cust
   assertEquals(document.body.querySelector("[role='dialog']"), null);
 });
 
-Deno.test("shell/desktop#R49, shell/desktop#R7 [agent-I30]: 연결된 provider를 읽지 못하면 빈 목록이 아니라 읽지 못했다고 보이고 다시 읽으면 나온다", async () => {
+Deno.test("shell/desktop#R49, shell/desktop#R7: 연결된 provider를 읽지 못하면 빈 목록이 아니라 읽지 못했다고 보이고 다시 읽으면 나온다", async () => {
   const failing: NonNullable<FakeProvidersOptions["failing"]> = {
     connected: "unavailable",
   };

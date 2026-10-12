@@ -57,7 +57,7 @@ function fill(dialog: ParentNode, values: Record<string, string>): void {
 const VALID = {
   "Provider ID": "myprovider",
   "Display name": "My AI provider",
-  "Base URL": "https://api.myprovider.com/v1",
+  "Base URL": "http://localhost:11434/v1",
 };
 
 Deno.test("shell/desktop#R49 [agent-I30]: Connect dialog는 그 정의가 지원하는 로그인 방법만 순서대로 고르게 하고 model 칸이 없다", async () => {
@@ -84,14 +84,14 @@ Deno.test("shell/desktop#R49 [agent-I30]: Connect dialog는 그 정의가 지원
   );
 });
 
-Deno.test("shell/desktop#R49 [agent-I30]: 로컬 정의는 Local server 한 방법만 고르게 한다", async () => {
+Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R1: Connect dialog에는 로컬 서버나 인증 없음 방법이 없다", async () => {
   const { view, dialog } = await open(
-    definition("ollama", "Ollama (local)", { ways: ["none"] }),
+    definition("ollama", "Ollama", { ways: ["none", "api_key"] }),
   );
   using _ = view;
-  assertEquals(text(dialog, "h2"), "Connect Ollama (local)");
-  assertEquals(methods(dialog), ["none"]);
-  assertEquals(text(dialog, "[data-method-name]"), "Local server");
+  assertEquals(methods(dialog), ["api_key"]);
+  assert(!(dialog.textContent ?? "").includes("Local server"));
+  assert(!(dialog.textContent ?? "").includes("Runs on this computer"));
 });
 
 Deno.test("shell/desktop#R49 [agent-I30]: 방법을 고르면 그 정의와 방법으로 연결을 시작하고 목록을 다시 읽게 한 뒤 닫는다", async () => {
@@ -192,10 +192,32 @@ Deno.test("shell/desktop#R49 [agent-I30]: 세 칸을 채우면 [Connect]가 켜�
   assertEquals(fake.calls, [["custom", {
     id: "myprovider",
     name: "My AI provider",
-    baseUrl: "https://api.myprovider.com/v1",
+    baseUrl: "http://localhost:11434/v1",
     withKey: false,
   }]]);
   assertEquals(log, { closed: 1, connected: 1 });
+});
+
+Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R5: 이 컴퓨터가 아닌 https 주소는 API key 없이는 연결할 수 없다", async () => {
+  const { fake, view, dialog } = await open(CUSTOM_DEFINITION);
+  using _ = view;
+  fill(dialog, { ...VALID, "Base URL": "https://api.myprovider.com/v1" });
+  assertEquals(buttonText(dialog, "Connect").hasAttribute("disabled"), true);
+  assert(
+    (dialog.textContent ?? "").includes(
+      "A web address needs an API key. Check the box below.",
+    ),
+  );
+  click(find(dialog, "[role='checkbox']"));
+  assertEquals(buttonText(dialog, "Connect").hasAttribute("disabled"), false);
+  click(buttonText(dialog, "Connect"));
+  await flush();
+  assertEquals(fake.calls, [["custom", {
+    id: "myprovider",
+    name: "My AI provider",
+    baseUrl: "https://api.myprovider.com/v1",
+    withKey: true,
+  }]]);
 });
 
 Deno.test("shell/desktop#R49, platform/secrets#R2 [agent-I30]: API key 선택을 켜면 key 값이 아니라 withKey만 보낸다", async () => {
@@ -266,8 +288,14 @@ Deno.test("shell/desktop#R49, lophn-agent/harness/provider#R5 [agent-I30]: ID �
     ]
   ) {
     fill(dialog, { "Base URL": url });
-    assertEquals(connect().hasAttribute("disabled"), false, url);
+    // 이 컴퓨터의 주소만 key 없이 연결된다. 웹 주소는 key를 켜야 한다.
+    assertEquals(
+      connect().hasAttribute("disabled"),
+      url.startsWith("https://"),
+      url,
+    );
   }
+  fill(dialog, { "Base URL": "http://127.0.0.1:8080" });
   click(connect());
   await flush();
   assertEquals(fake.calls.length, 1);

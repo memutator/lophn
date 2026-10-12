@@ -94,7 +94,7 @@ test("shell/confirmation-window#R1, shell/confirmation-window#R6: 창 열기는 
   assert.equal(JSON.stringify([opened, shown, decided]).includes(REF), false);
 });
 
-test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교체·삭제 열기는 계정 key와 행동만 받고 등록 정보나 값을 함께 받지 않는다", async () => {
+test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: provider 연결·끊기 열기는 provider 전체를 가리키고 계정 key·교체·회수나 값을 함께 받지 않는다", async () => {
   const { env, call } = wire();
   const owner = "pvd_01h455vb4pex5v6nkc6gd5fd01";
   const open = (request: Record<string, unknown>) =>
@@ -103,14 +103,32 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교�
       parentWindow: "window-1",
     }) as Promise<{ code?: string }>;
   const purpose = "provider_credential";
+  const connect = {
+    name: "Anthropic",
+    definition: {
+      key: "anthropic",
+      display_name: "Anthropic",
+      protocols: ["anthropic-messages"],
+      auth_kinds: ["api_key"],
+      models_endpoint: "https://api.anthropic.com/v1/models",
+      oauth: null,
+      revision: "2026-10",
+    },
+    endpoint: "https://api.anthropic.com/v1",
+    protocol: "anthropic-messages",
+    kind: "api_key",
+  };
   for (
     const bad of [
-      { purpose, change: { key: "main", action: "delete" } },
-      { purpose, change: { key: "main", action: "revoke", value: "x" } },
-      { purpose: "app_secret", change: { key: "main", action: "revoke" } },
+      { purpose, change: { key: "main", action: "revoke" } },
+      { purpose, change: { key: "main", action: "replace" } },
+      { purpose: "app_secret", disconnect: true },
+      { purpose, disconnect: true, connect },
+      { purpose, disconnect: false },
+      { purpose, connect: { ...connect, value: "x" } },
+      { purpose, connect: { ...connect, kind: "oauth" } },
       {
         purpose,
-        change: { key: "main", action: "revoke" },
         credential: {
           key: "main",
           kind: "api_key",
@@ -125,19 +143,11 @@ test("lophn-agent/harness/provider#R6, shell/confirmation-window#R6: 계정 교�
     assert.equal((await open(bad)).code, "invalid_input");
   }
   assert.equal(env.windows.length, 0);
-  // 등록 정보의 지문은 선택이다. 값에서 main이 만든다.
-  const registering = await open({
-    purpose,
-    credential: {
-      key: "key-1",
-      kind: "api_key",
-      label: "Main",
-      account: null,
-      organization: null,
-      plan: null,
-    },
-  });
-  assert.notEqual(registering.code, "invalid_input");
+  assert.notEqual((await open({ purpose, connect })).code, "invalid_input");
+  assert.notEqual(
+    (await open({ purpose, disconnect: true })).code,
+    "invalid_input",
+  );
 });
 
 test("shell/confirmation-window#R4: 닫기는 결정이 아니고 창을 닫는다", async () => {

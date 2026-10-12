@@ -21,7 +21,13 @@ Deno.test("lophn-agent/harness/provider#R1, shell/desktop#R49 [agent-I46]: 실�
     assertEquals(byKey.get("anthropic")?.ways, ["api_key"]);
     assertEquals(byKey.get("openai")?.ways, ["oauth", "api_key"]);
     assertEquals(byKey.get("openai")?.signIn?.product, "ChatGPT");
-    assertEquals(byKey.get("ollama")?.ways, ["none"]);
+    // 내장 정의에는 로컬 서버가 없다. 로컬은 Custom provider로 연결한다.
+    for (const local of ["ollama", "lm-studio", "llama-cpp"]) {
+      assertEquals(byKey.has(local), false, local);
+    }
+    for (const row of available.value) {
+      assertEquals(row.ways.includes("none"), false, row.key);
+    }
     assertEquals(available.value.at(-1)?.custom, true);
   } catch (error) {
     throw new Error(`${(error as Error).message}\n--- core ---\n${core.log()}`);

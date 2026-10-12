@@ -25,20 +25,18 @@ function sourceOf(
   };
 }
 
-Deno.test("shell/desktop#R7: provider 끊김은 available 계정이 없는 연결로 판정한다", async () => {
+Deno.test("shell/desktop#R7: provider 끊김은 credential이 available이 아닌 연결로 판정한다", async () => {
   const { source, calls } = sourceOf({
     ok: true,
     value: {
       providers: [
         {
           name: "Claude",
-          enabled: true,
-          credentials: [{ key: "main", state: "rejected" }],
+          credential: { state: "rejected" },
         },
         {
           name: "Local model",
-          enabled: true,
-          credentials: [{ key: "none", state: "available" }],
+          credential: { state: "available" },
         },
       ],
       next_cursor: null,
@@ -51,30 +49,33 @@ Deno.test("shell/desktop#R7: provider 끊김은 available 계정이 없는 연�
     method: "list",
     body: {},
   }]);
-  assert(facts.usable, "an available account makes the provider usable");
+  assert(facts.usable, "an available credential makes the provider usable");
+  assertEquals(facts.providers, [
+    { name: "Claude", state: "rejected" },
+    { name: "Local model", state: "available" },
+  ]);
   assertEquals(facts.providers?.length, 2);
 });
 
-Deno.test("shell/desktop#R7: 계정이 전부 rejected·usage_wait이면 provider는 쓸 수 없다", async () => {
+Deno.test("shell/desktop#R7: credential이 rejected·usage_wait·revoked뿐이면 provider는 쓸 수 없다", async () => {
   const { source } = sourceOf({
     ok: true,
     value: {
       providers: [
-        {
-          name: "ChatGPT",
-          enabled: true,
-          credentials: [
-            { key: "a", state: "rejected" },
-            { key: "b", state: "usage_wait" },
-          ],
-        },
+        { name: "ChatGPT", credential: { state: "rejected" } },
+        { name: "xAI", credential: { state: "usage_wait" } },
+        { name: "Groq", credential: { state: "revoked" } },
       ],
       next_cursor: null,
     },
   });
   const facts = await readProviderFacts(source);
   assertEquals(facts.usable, false);
-  assertEquals(facts.providers?.[0]?.accounts.length, 2);
+  assertEquals(facts.providers?.map((provider) => provider.state), [
+    "rejected",
+    "usage_wait",
+    "revoked",
+  ]);
 });
 
 Deno.test("shell/desktop#R7: 등록한 연결이 없으면 provider는 쓸 수 없다고 본다", async () => {

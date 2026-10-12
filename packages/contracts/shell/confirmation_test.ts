@@ -295,14 +295,20 @@ Deno.test(
         parentWindow: "win-1",
       }).success,
     );
-    const credential = {
-      key: "main",
+    const connect = {
+      name: "Anthropic",
+      definition: {
+        key: "anthropic",
+        display_name: "Anthropic",
+        protocols: ["anthropic-messages"],
+        auth_kinds: ["api_key"],
+        models_endpoint: "https://api.anthropic.com/v1/models",
+        oauth: null,
+        revision: "2026-10",
+      },
+      endpoint: "https://api.anthropic.com/v1",
+      protocol: "anthropic-messages",
       kind: "api_key",
-      label: "Main key",
-      account: null,
-      organization: null,
-      plan: null,
-      dedup_fingerprint: HASH,
     };
     assert(
       confirmationOpenIntentSchema.safeParse({
@@ -310,7 +316,7 @@ Deno.test(
           kind: "secret_input",
           owner: "pvd_01arz3ndektsv4rrffq69g5fav",
           purpose: "provider_credential",
-          credential,
+          connect,
         },
         parentWindow: "win-1",
       }).success,
@@ -321,7 +327,7 @@ Deno.test(
           kind: "secret_input",
           owner: "weather.key",
           purpose: "app_secret",
-          credential,
+          connect,
         },
         parentWindow: "win-1",
       }).success,
@@ -332,7 +338,7 @@ Deno.test(
           kind: "secret_input",
           owner: "pvd_01arz3ndektsv4rrffq69g5fav",
           purpose: "provider_credential",
-          credential: { ...credential, value: "raw-secret" },
+          connect: { ...connect, value: "raw-secret" },
         },
         parentWindow: "win-1",
       }).success,
@@ -341,7 +347,7 @@ Deno.test(
 );
 
 Deno.test(
-  "shell/confirmation-window#R6, lophn-agent/harness/provider#R6: 등록한 계정의 교체·삭제 열기는 계정 key와 행동만 싣고 등록 정보나 다른 목적과 함께 오지 않는다",
+  "shell/confirmation-window#R6, lophn-agent/harness/provider#R6: provider 연결(Connect)과 끊기(Disconnect) 열기는 provider 전체를 가리키고 계정 key·교체·회수나 다른 목적과 함께 오지 않는다",
   () => {
     const owner = "pvd_01arz3ndektsv4rrffq69g5fav";
     const open = (request: Record<string, unknown>) =>
@@ -350,20 +356,48 @@ Deno.test(
         parentWindow: "win-1",
       }).success;
     const purpose = "provider_credential";
-    assert(open({ purpose, change: { key: "main", action: "replace" } }));
-    assert(open({ purpose, change: { key: "main", action: "revoke" } }));
-    assert(!open({ purpose, change: { key: "main", action: "delete" } }));
-    assert(!open({ purpose, change: { key: "main", action: "revoke", v: 1 } }));
+    const definition = {
+      key: "openai",
+      display_name: "OpenAI",
+      protocols: ["openai-responses"],
+      auth_kinds: ["api_key", "oauth"],
+      models_endpoint: "https://api.openai.com/v1/models",
+      oauth: {
+        product: "chatgpt",
+        flow: "device_code_then_pkce_paste_url",
+        issuer: "https://auth.openai.com",
+        authorization_endpoint: "https://auth.openai.com/authorize",
+        token_endpoint: "https://auth.openai.com/token",
+        allowed_call_origins: ["https://api.openai.com"],
+        scopes: ["openid"],
+        verified_for_lophn: false,
+      },
+      revision: "2026-10",
+    };
+    const connect = {
+      name: "OpenAI",
+      definition,
+      endpoint: "https://api.openai.com/v1",
+      protocol: "openai-responses",
+      kind: "api_key",
+    };
+    assert(open({ purpose, disconnect: true }));
+    assert(!open({ purpose, disconnect: false }));
+    assert(!open({ purpose: "app_secret", disconnect: true }));
+    assert(!open({ purpose, disconnect: true, connect }));
+    assert(open({ purpose, connect }));
+    // OAuth 로그인은 시작한 login handle을 싣고, key는 싣지 않는다.
     assert(
-      !open({
-        purpose: "app_secret",
-        change: { key: "main", action: "revoke" },
-      }),
+      open({ purpose, connect: { ...connect, kind: "oauth", login: "h" } }),
     );
+    assert(!open({ purpose, connect: { ...connect, kind: "oauth" } }));
+    assert(!open({ purpose, connect: { ...connect, login: "h" } }));
+    // 계정 교체·회수와 옛 등록 정보 field는 없다.
+    assert(!open({ purpose, change: { key: "main", action: "replace" } }));
+    assert(!open({ purpose, change: { key: "main", action: "revoke" } }));
     assert(
       !open({
         purpose,
-        change: { key: "main", action: "revoke" },
         credential: {
           key: "main",
           kind: "api_key",
@@ -371,14 +405,13 @@ Deno.test(
           account: null,
           organization: null,
           plan: null,
-          dedup_fingerprint: HASH,
         },
       }),
     );
     assert(
       confirmationOutcomeSchema.safeParse({
         outcome: "decided",
-        secret_ref: "Main key",
+        secret_ref: "OpenAI",
         stored: "revoked",
       }).success,
     );

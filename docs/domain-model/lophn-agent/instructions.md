@@ -35,6 +35,7 @@ LOPHN.md의 파일 자리·층과 매 call 읽은 값을 정의한다. LOPHN.md�
 - 지침 파일 하나(agent instructions 포함) 32768 UTF-8 bytes, 모든 층 합산 131072 bytes(포장 전)다. 빈 파일은 빈 사람 지침이며 부재와 구별한다. 인코딩 오류·상한 초과·존재 파일 읽기 실패는 자동 생략이나 truncation 없이 call 차단이다. model 입력 한계가 더 좁으면 → lophn-agent/harness/prompt-assemble의 보호 입력으로 처리한다.
 - 매 model call 직전에 LOPHN.md 파일과 agent 정의 본문을 다시 읽는다. 읽은 층·hash는 ContextBasis에 call마다 고정하므로 진행 중 사람 편집도 다음 call부터 따른다. 지침 변경은 cache prefix를 새로 만든다.
 - organizing call에도 같은 지침 층을 넣고 새 판단 생성은 금지한다. 실제 원문 요약 범위는 prompt-assemble가 정한다.
+- 사람이 보는 전역 LOPHN.md 미리보기(Settings › Agents)는 `PreviewGlobalInstructions`(user)로 읽는다. 앞 4096 UTF-8 bytes를 글자 경계에서 자르고 크기와 잘림 여부를 함께 준다. 인코딩 오류는 `invalid_input`이다. model call의 지침 읽기(machine)와 따로이며 call 입력에는 쓰지 않는다.
 
 ## 편집과 권한
 

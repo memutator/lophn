@@ -26,8 +26,11 @@ skill과 MCP 서버는 두 층에 등록한다. 어느 것을 쓸지 고르는 �
 | `revision` | 양의 정수 | 아니오 | 초기 1; 변경마다 1 증가 | 확장 선택 판 |
 | `registered_folders` | 절대 폴더 경로 배열 | 아니오 | 기본 `[]`; 중복 없음; user 순서 유지 | skill 발견 범위 |
 | `mcp_servers` | McpServerConfig 배열 | 아니오 | 기본 `[]`; name unique | 등록 서버 |
+| `skills_off` | skill 이름 배열 | 아니오 | 기본 `[]`; 정확한 이름; 중복·와일드카드 금지; 지금 없는 이름도 남김 | 전역 층에서 끈 skill. 자리 층의 같은 이름 skill은 끄지 않는다 |
 
-ExtensionSettings는 공급·발견·서버 설정이며 agent별 선택 map이 없다. 어느 skill·서버/tool을 쓸지는 agent 정의가 고른다.
+ExtensionSettings는 공급·발견·서버 설정이며 agent별 선택 map이 없다. 어느 skill·서버/tool을 쓸지는 agent 정의가 고른다. `skills_off`는 Settings › Agents의 전역 skill 스위치이며 바꾼 값은 다음 run부터 발견 결과에서 그 이름을 뺀다.
+
+읽기: `ReadGlobalSkills`(user)는 전역 층에서 발견한 skill(이름·설명·출처 registered/personal/bundled·enabled)과 `skills_off`, 가려진 skill, 제외한 꾸러미를 돌려준다. 자리 skill은 `ReadPlaceExtensionSettings`가 준다.
 
 ## PlaceExtensionSettings (값)
 

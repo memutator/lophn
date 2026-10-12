@@ -10,7 +10,7 @@ lophn을 구현하는 사람과 agent가 함께 지키는 것이다. 무엇을 �
 |---|---|
 | [code-map.md](code-map.md) | 저장소 모양, concern마다의 코드 자리, 의존 규칙 |
 | [architecture.md](architecture.md) | clean architecture 규칙: 모듈 모양, 의존 방향, 오류, 이름 |
-| [contracts.md](contracts.md) | 최상위 사이 contract를 코드로 먼저 고정하는 규칙 |
+| [contracts.md](contracts.md) | package 사이 contract를 코드로 먼저 고정하는 규칙 |
 | [stack.md](stack.md) | 기술 스택, check 명령, 개발 환경과 fixture |
 | [tasks.md](tasks.md) | 계획 문서와 작업 단위의 모양, 완료, 테스트, 추적, git |
 | [team.md](team.md) | 역할, worker 등급과 model, 주고받는 법 |

@@ -12,8 +12,8 @@ concerns: [shell, apps]
 
 | 이전 자리 | 새 자리 | 무엇을 |
 |---|---|---|
-| `apps/desktop/main/` | `apps/shell/main/` | 창, tray, single instance, 패키징 설정, native view 다루기 |
-| `apps/desktop/renderer/` | `apps/shell/renderer/` | 화면 컴포넌트, 편집기(CodeMirror) 설정 |
+| `apps/desktop/main/` | `packages/shell/main/` | 창, tray, single instance, 패키징 설정, native view 다루기 |
+| `apps/desktop/renderer/` | `packages/shell/renderer/` | 화면 컴포넌트, 편집기(CodeMirror) 설정 |
 | `packages/sdk/tokens`, `packages/sdk/ui-*` | `packages/design/`, `packages/sdk/ui-*` | token, UI 컴포넌트 |
 
 가져올 때 지킬 것:

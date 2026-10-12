@@ -4,11 +4,11 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ---
 # contracts
 
-여러 팀이 동시에 구현하려면 최상위 concern 사이의 약속이 먼저 코드로 고정되어야 한다. 그 약속을 `packages/contracts`에 둔다. 여기가 흔들리면 병렬 작업이 모두 깨진다.
+여러 팀이 동시에 구현하려면 package 사이의 약속이 먼저 코드로 고정되어야 한다. 그 약속을 `packages/protocol`에 둔다. 여기가 흔들리면 병렬 작업이 모두 깨진다.
 
 ## 무엇을 두나
 
-`packages/contracts/<최상위>/`에 그 최상위가 내놓는 것만 둔다. 무엇을 내놓는지는 각 architecture 문서의 "내놓는 contract" 절과 [architecture/README.md](../architecture/README.md) 4장의 표가 정한다.
+`packages/protocol/<module>/`에 그 module이 내놓는 것만 둔다. 무엇을 내놓는지는 각 architecture 문서의 "내놓는 contract" 절과 [architecture/README.md](../architecture/README.md) 4장의 표가 정한다.
 
 - API 경로와 method, 입력·출력 타입과 schema
 - command 이름과 입력, event 이름과 payload
@@ -16,7 +16,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - tool·MCP tool·CLI command의 이름과 입력
 - 그 contract의 오류 코드(공통 오류 코드 안에서)
 
-구현은 두지 않는다. 타입, schema, 상수, 작은 client 생성 함수만 둔다. 예외: 의존 없는 순수 함수를 여러 최상위가 같이 써야 하고 다른 자리가 없을 때만 둔다(apps blueprint 검사, 문서 outline parser — code-map "여러 최상위가 같이 쓰는 순수 함수"). schema는 한 가지 도구로 쓴다([stack.md](stack.md)).
+구현은 두지 않는다. 타입, schema, 상수, 작은 client 생성 함수만 둔다. 예외: 의존 없는 순수 함수를 여러 package가 같이 써야 하고 다른 자리가 없을 때만 둔다(apps blueprint 검사, 문서 outline parser — code-map "여러 package가 같이 쓰는 순수 함수"). schema는 한 가지 도구로 쓴다([stack.md](stack.md)).
 
 ## 누가 고치나
 

@@ -278,3 +278,15 @@ export interface AgentViewSource {
   undoEdit(edit: string): Promise<SourceResult<void>>;
   redoEdit(edit: string): Promise<SourceResult<void>>;
 }
+
+/**
+ * Agent 탭·앱 공간의 Agent 칸이 agent 하나의 통로를 얻는 함수다. agent는 실행 정체(assignment)와 일하는
+ * 자리로 정한다(전역 built-in은 열린 자리, Operator는 자기 자리). core 구현은 agent-core-source.ts다.
+ */
+export type AgentViewSourceFactory = (agent: {
+  readonly assignment: string;
+  readonly place: {
+    readonly kind: "global" | "project" | "app";
+    readonly id: string;
+  };
+}) => AgentViewSource;

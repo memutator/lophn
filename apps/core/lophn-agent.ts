@@ -692,7 +692,9 @@ function placeExists(
   ) !== undefined;
 }
 
-export function agentLookups(sql: Pick<Tx["sql"], "get" | "all">): AgentLookups {
+export function agentLookups(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): AgentLookups {
   let registry: ExtensionRegistry | null | undefined;
   const registryOf = (): ExtensionRegistry | null => {
     if (registry === undefined) registry = extensionRegistry(sql);

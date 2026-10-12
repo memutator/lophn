@@ -22,6 +22,7 @@ packages/
   design/         lophn 화면과 사용자 앱이 같이 쓰는 UI kit(token, 컴포넌트, wording catalog)
   sdk/            사용자 앱이 import하는 입구(ui-*, cap-*, format-*, blueprint)
 e2e/flows/        flow 하나에 E2E 하나: <flow 이름>_test.ts
+e2e/{coding-agent,sdk,shell}/  여러 package를 같이 띄우는 통합 test(core를 띄우는 sdk test 포함)
 tools/            check-docs, fake-provider 같은 개발 도구
 fixtures/         예시 project 폴더, 예시 앱, 녹화한 model 응답
 ```
@@ -100,13 +101,13 @@ fixtures/         예시 project 폴더, 예시 앱, 녹화한 model 응답
 | lophn-agent/commands | packages/core/lophn-agent/commands/ |
 | lophn-agent/observability | packages/core/lophn-agent/observability/ |
 | lophn-agent/evaluation | packages/core/lophn-agent/evaluation/ |
-| coding-agent/connection | packages/coding-agent/connection/ |
+| coding-agent/connection | packages/coding-agent/connection/ (CLI·MCP가 쓰는 client와 연결 일) · packages/core/server/identity/connection/ (core가 쓰는 연결 저장·scope·인증·명령·읽기) |
 | coding-agent/harnesses | packages/coding-agent/harnesses/ |
 | coding-agent/sessions | packages/coding-agent/sessions/ |
 | coding-agent/mcp-server | packages/coding-agent/mcp-server/ (실행 entry는 `main.ts`) |
 | coding-agent/cli | packages/coding-agent/cli/ (실행 entry는 `main.ts`) |
 | coding-agent/guides | packages/coding-agent/guides/ |
-| coding-agent/repair-context | packages/coding-agent/repair-context/ |
+| coding-agent/repair-context | packages/core/problems/repairs/assembly/ (core worker가 수리 자료를 묶는다. session 요약 포함) |
 | coding-agent/tickets | packages/core/apps/tickets/ |
 | shell/desktop | packages/shell/main/desktop/ · packages/shell/renderer/desktop/ · packages/shell/renderer/conversation/ (Agent component — project Agent 탭과 앱 공간이 같이 씀) |
 | shell/workspace | packages/shell/main/workspace/ · packages/shell/renderer/workspace/ |

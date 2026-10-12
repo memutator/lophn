@@ -80,7 +80,7 @@ export function createKinds(options: KindsOptions): {
         case "approval_request":
           return readApproval(core, intent.approval, intent.preselect);
         case "question_option_action":
-          return readOptionAction(core, intent.question, intent.option_key);
+          return readOptionAction(core, intent.group, intent.option_key);
         case "owner_decision": {
           const run = intent.targets?.[0];
           if (
@@ -136,6 +136,7 @@ export function createKinds(options: KindsOptions): {
     if (request?.kind === "question_option_action") {
       return submitOptionAction(core, {
         handle,
+        group: request.group,
         question: request.question,
         optionKey: request.option_key,
         createdSeq: request.created_seq,

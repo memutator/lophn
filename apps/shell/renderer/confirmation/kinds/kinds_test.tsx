@@ -15,6 +15,7 @@ import { ConfirmationScreen } from "../screen.tsx";
 
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+const GRP = "qgr_01arz3ndektsv4rrffq69g5fav";
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const DOC_B = "doc_01arz3ndektsv4rrffq69g5faw";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -283,6 +284,7 @@ const optionAction: ConfirmationView = {
   displayId: "dsp_2",
   request: {
     kind: "question_option_action",
+    group: GRP,
     question: QST,
     option_key: "move",
     created_seq: "20",

@@ -385,7 +385,7 @@ async function eventTimes(
 }
 
 type ConfirmTerm = (input: {
-  question: string;
+  group: string;
   option_key: string;
 }) => Promise<{ ok: true } | { ok: false; code: string }>;
 
@@ -400,13 +400,13 @@ function termConfirmation(): ConfirmTerm | undefined {
 }
 
 async function confirmTerm(
-  question: string,
+  group: string,
   option: string,
 ): Promise<SourceResult<void>> {
   const confirm = termConfirmation();
   if (confirm === undefined) return { ok: false, code: "unavailable" };
   try {
-    const sent = await confirm({ question, option_key: option });
+    const sent = await confirm({ group, option_key: option });
     return sent.ok
       ? { ok: true, value: undefined }
       : { ok: false, code: sent.code };
@@ -415,11 +415,11 @@ async function confirmTerm(
   }
 }
 
-// 확인 창 없이 확정하는 고정 action 답이면 그 질문과 선택지. 질문 하나짜리 묶음에만 있다.
+// 확인 창 없이 확정하는 고정 action 답이면 그 묶음과 선택지. 질문 하나짜리 묶음에만 있다.
 function termChoice(
   group: QuestionGroupRequest,
   answers: readonly GroupAnswer[],
-): { question: string; option: string } | null {
+): { group: string; option: string } | null {
   if (group.questions.length !== 1) return null;
   const only = group.questions[0]!;
   const given = answers.find((entry) => entry.question === only.id);
@@ -428,7 +428,7 @@ function termChoice(
   const chosen = only.options.find((option) => option.key === optionKey);
   return chosen !== undefined && chosen.action &&
       confirmsWithoutWindow(chosen.command)
-    ? { question: only.id, option: optionKey }
+    ? { group: group.id, option: optionKey }
     : null;
 }
 
@@ -579,7 +579,7 @@ export function coreRequestSource(
       // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). term.define·app.create만 확인 창 없이
       // main이 정본을 다시 읽어 접수한다. 그 밖 action은 화면이 [Review]로 보호 창을 연다.
       const term = termChoice(group, answers);
-      if (term !== null) return await confirmTerm(term.question, term.option);
+      if (term !== null) return await confirmTerm(term.group, term.option);
       const tag = await keyTag(JSON.stringify(answers));
       return command(core, "questions", "answer", {
         input: {

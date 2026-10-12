@@ -18,7 +18,8 @@ export type ConfirmationIntent =
   }
   | {
     kind: "question_option_action";
-    question: string;
+    /** 질문 묶음 id. 정본 참조다. 고정 action 선택지는 질문 하나짜리 묶음에만 있다. */
+    group: string;
     option_key: string;
   }
   | {
@@ -69,6 +70,8 @@ export type ConfirmationRequest =
   }
   | {
     kind: "question_option_action";
+    group: string;
+    /** 묶음의 유일한 질문. 답의 evidence가 가리킨다. */
     question: string;
     option_key: string;
     created_seq: string;

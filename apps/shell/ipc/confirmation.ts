@@ -43,7 +43,7 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
   }).strict(),
   z.object({
     kind: z.literal("question_option_action"),
-    question: prefixed("qst"),
+    group: prefixed("qgr"),
     option_key: z.string().min(1),
   }).strict(),
   z.object({

@@ -523,7 +523,7 @@ Deno.test("lophn-agent/questions#R4 [I45]: 고정 action이 있는 선택지의 
   await flush();
   assertEquals(fake.state.reviewed, [{
     kind: "question_option_action",
-    question: questionId(1, 1),
+    group: groupId(1),
     option_key: "move",
   }]);
   assertEquals(fake.state.answered, []);

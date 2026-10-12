@@ -150,7 +150,8 @@ export type ReviewIntent =
   | { readonly kind: "approval_request"; readonly approval: string }
   | {
     readonly kind: "question_option_action";
-    readonly question: string;
+    /** 질문 하나짜리 묶음 id. 정본 참조다. */
+    readonly group: string;
     readonly option_key: string;
   };
 

@@ -482,7 +482,8 @@ Deno.test("lophn-agent/questions#R13 [I45]: term.define·app.create를 고른 �
       ok: true,
       value: undefined,
     });
-    assertEquals(sent, [{ question: QST, option_key: "move" }]);
+    // main 통로도 질문 id가 아니라 묶음 id를 받는다.
+    assertEquals(sent, [{ group: GRP, option_key: "move" }]);
     // 이 길은 답 command를 renderer가 직접 보내지 않는다.
     assertEquals(calls, []);
   } finally {

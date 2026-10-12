@@ -9,6 +9,7 @@ export type ConfirmationRequest =
   }
   | {
     kind: "question_option_action";
+    group: string;
     question: string;
     option_key: string;
     created_seq: string;

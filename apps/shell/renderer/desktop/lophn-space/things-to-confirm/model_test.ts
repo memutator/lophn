@@ -189,11 +189,22 @@ Deno.test("lophn-agent/questions#R4, R13 [I45]: 보호 창을 여는 것은 질�
     question: questionId(1, 1),
     answer: { kind: "option" as const, option_key: key },
   }];
+  // 정본 참조는 묶음이다. 질문 id를 싣지 않는다.
   assertEquals(reviewTarget(withAction, pick("move")), {
-    question: questionId(1, 1),
+    group: groupId(1),
     option_key: "move",
   });
   assertEquals(reviewTarget(withAction, pick("stay")), null);
+  // 질문이 둘 이상인 묶음에는 확인 창으로 가는 길이 없다(action 선택지는 질문 하나짜리에만 있다).
+  const two = question(1, {
+    questions: [
+      withAction.questions[0]!,
+      groupQuestion(1, 2, {
+        options: [{ key: "ok", label: "Fine", action: false }],
+      }),
+    ],
+  });
+  assertEquals(reviewTarget(two, pick("move")), null);
   assertEquals(reviewTarget(withAction, []), null);
   assertEquals(
     reviewTarget(withAction, [{

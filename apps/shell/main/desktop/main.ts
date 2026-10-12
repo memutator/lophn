@@ -1655,20 +1655,15 @@ function openDesktopWindow(): BrowserWindow | undefined {
         });
         window.on("closed", () => windows.delete(window));
         // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다(desktop#R23).
-        for (
-          const change of [
-            "maximize",
-            "unmaximize",
-            "enter-full-screen",
-            "leave-full-screen",
-          ] as const
-        ) {
-          window.on(change, () => {
-            if (!window.isDestroyed()) {
-              window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
-            }
-          });
-        }
+        const sendWindowState = () => {
+          if (!window.isDestroyed()) {
+            window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
+          }
+        };
+        window.on("maximize", sendWindowState);
+        window.on("unmaximize", sendWindowState);
+        window.on("enter-full-screen", sendWindowState);
+        window.on("leave-full-screen", sendWindowState);
         // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
         window.webContents.on("did-finish-load", () => {
           if (!window.isDestroyed()) {

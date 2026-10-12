@@ -100,8 +100,10 @@ export class ContextDepUnavailable extends Error {}
 // 같은 자리에서 문서가 정한 다른 명령 오류(not_found 등)로 답해야 하는 실패다. 세션·Run 접수가 낸
 // 오류의 코드를 그대로 싣는다.
 export class ContextDepRefused extends Error {
-  constructor(readonly code: ErrorCode, message: string) {
+  readonly code: ErrorCode;
+  constructor(code: ErrorCode, message: string) {
     super(message);
+    this.code = code;
   }
 }
 

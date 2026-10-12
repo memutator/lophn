@@ -25,6 +25,11 @@ export {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 export {
+  createGlobalSkillReads,
+  type GlobalSkillDeps,
+  type GlobalSkillLookups,
+} from "./global-skills.ts";
+export {
   dataRootOf,
   parsePlaceMcpFile,
   PLACE_MCP_FILE,

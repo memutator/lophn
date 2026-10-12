@@ -10,6 +10,7 @@ export {
   type InstructionResolution,
   type InstructionStatus,
 } from "./model.ts";
+export { previewInstruction } from "./preview.ts";
 export { type InstructionDeps, resolveInstructions } from "./work.ts";
 export {
   decodeInstructionFile,

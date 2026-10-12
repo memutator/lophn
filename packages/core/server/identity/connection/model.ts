@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type Connection,
   type ConnectionId,
@@ -6,7 +6,7 @@ import {
   connectionSchema,
   type ConnectionScope,
   type ConnectionState,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 
 // scope는 생성 뒤 불변이다. all이면 앱이 없고 app이면 앱 하나가 필수다.
 export function scopeColumns(

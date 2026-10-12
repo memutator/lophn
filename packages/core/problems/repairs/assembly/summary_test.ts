@@ -1,21 +1,21 @@
 // 세션 시작 summary 조립 시험이다(coding-agent/guides#R21, R22; coding-agent#T35). scripted read
 // client로 core 응답을 대역한다. 요약 범위·무변경·실패 전달을 본다. 실제 core·credential은 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   assembleSessionSummary,
   CLAIM_RULE,
   type SummaryReadClient,
-} from "./mod.ts";
-import type { Route } from "../../protocol/base/mod.ts";
+} from "./summary.ts";
+import type { Route } from "../../../../protocol/base/mod.ts";
 import {
   codingAgentSessionSummary,
   connectionShow,
   ticketChecks,
   ticketList,
   ticketShow,
-} from "../../protocol/coding-agent/mod.ts";
-import { getProblem, listProblems } from "../../protocol/problems/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
+import { getProblem, listProblems } from "../../../../protocol/problems/mod.ts";
 
 const CAC = "cac_01h455vb4pex5v6nkc6gd5fdw1";
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";

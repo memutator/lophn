@@ -8,7 +8,7 @@ import {
   createConnectionCommands,
   createConnectionReads,
   createConnectionSecretRefSource,
-} from "../../../coding-agent/mod.ts";
+} from "./connection/mod.ts";
 import { err } from "../../../base/mod.ts";
 import {
   connectionConnect,

@@ -1,8 +1,8 @@
 // 수리 자료 읽기 port를 core RPC client 위에 얹는다(repair-context#R1, R19). 요청자의 connection
 // credential로 부르는 client라 범위 밖 대상은 core가 없는 대상과 같은 답으로 거절한다. 이 port는
 // ledger·앱 DB·원본 파일을 직접 열지 않는다.
-import { err, ok, type Result } from "../../base/mod.ts";
-import type { ReadRoute, Route } from "../../protocol/base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import type { ReadRoute, Route } from "../../../../protocol/base/mod.ts";
 import {
   getProblem,
   getReport,
@@ -11,13 +11,13 @@ import {
   listReports,
   listVerifications,
   reportBody,
-} from "../../protocol/problems/mod.ts";
+} from "../../../../protocol/problems/mod.ts";
 import {
   invocationsGet,
   releasesGet,
   releasesList,
-} from "../../protocol/apps/mod.ts";
-import { ticketShow } from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/apps/mod.ts";
+import { ticketShow } from "../../../../protocol/coding-agent/mod.ts";
 import type { BlobText, RepairReadPort } from "./model.ts";
 
 export type RepairReadClient = {

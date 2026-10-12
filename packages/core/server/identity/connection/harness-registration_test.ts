@@ -1,25 +1,24 @@
 import { z } from "zod";
-import { ok, type Result } from "../../base/mod.ts";
-import { appRegistrationLookup } from "../../protocol/apps/mod.ts";
+import { ok, type Result } from "../../../../base/mod.ts";
+import { appRegistrationLookup } from "../../../../protocol/apps/mod.ts";
 import {
   connectionRevokeInputSchema,
   connectionRevokeOutputSchema,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import {
   confirmationRefSchema,
   type RequestContext,
   type Tx,
-} from "../../protocol/server/mod.ts";
-import { defineCommand } from "../../protocol/base/mod.ts";
+} from "../../../../protocol/server/mod.ts";
+import { defineCommand } from "../../../../protocol/base/mod.ts";
+import { connectionSchemaSteps } from "./schema.ts";
+import { createConnectionCommands, revokeConnection } from "./commands.ts";
+import { createConnectionReads } from "./reads.ts";
 import {
   connectionAuthFromTx,
   connectionAuthPort,
-  connectionSchemaSteps,
-  createConnectionCommands,
-  createConnectionReads,
   lookupConnectionAuth,
-  revokeConnection,
-} from "./mod.ts";
+} from "./auth.ts";
 
 type LedgerEnvironment = {
   currentCredential(credentialRef: string): Result<RequestContext>;

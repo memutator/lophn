@@ -11,10 +11,7 @@ import {
   type RandomSource,
   type Result,
 } from "../../../base/mod.ts";
-import {
-  listConnections,
-  lookupConnectionAuth,
-} from "../../../coding-agent/mod.ts";
+import { listConnections, lookupConnectionAuth } from "./connection/mod.ts";
 import {
   connectionConnectInputSchema,
   connectionCreate,

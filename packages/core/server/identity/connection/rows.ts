@@ -1,9 +1,9 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type Connection,
   connectionSchema,
-} from "../../protocol/coding-agent/mod.ts";
-import type { SqlRow } from "../../protocol/server/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
+import type { SqlRow } from "../../../../protocol/server/mod.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored connection" });

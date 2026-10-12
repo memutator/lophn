@@ -33,7 +33,7 @@ import {
 } from "../../testing/ledger.ts";
 
 const registration = new URL(
-  "../../../coding-agent/connection/harness-registration_test.ts",
+  "./connection/harness-registration_test.ts",
   import.meta.url,
 );
 const CONFIRMATION = "A".repeat(43);

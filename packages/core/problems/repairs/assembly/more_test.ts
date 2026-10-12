@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { ok } from "../../base/mod.ts";
-import { EVIDENCE_PAGE_LIMITS } from "../../protocol/coding-agent/mod.ts";
+import { ok } from "../../../../base/mod.ts";
+import { EVIDENCE_PAGE_LIMITS } from "../../../../protocol/coding-agent/mod.ts";
 import { createRepairCursor } from "./cursor.ts";
 import { repairMore, textPage } from "./more.ts";
 import type { RepairReadPort } from "./model.ts";

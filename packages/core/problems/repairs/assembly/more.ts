@@ -1,8 +1,8 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   EVIDENCE_PAGE_LIMITS,
   RepairContextMoreInputSchema,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import type { RepairReadPort, ReportSummary } from "./model.ts";
 import { UNREADABLE_MESSAGE } from "./model.ts";
 import type { CursorState, RepairCursor } from "./cursor.ts";

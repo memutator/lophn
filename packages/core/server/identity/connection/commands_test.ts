@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { connectionCreateInputSchema } from "../../protocol/coding-agent/mod.ts";
+import { connectionCreateInputSchema } from "../../../../protocol/coding-agent/mod.ts";
 import { createConnectionCommands, revokeConnection } from "./commands.ts";
 import { lookupConnectionAuth } from "./auth.ts";
 import { createConnectionReads } from "./reads.ts";

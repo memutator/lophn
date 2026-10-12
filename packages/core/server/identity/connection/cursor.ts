@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 
 const conditionsSchema = z.strictObject({
   state: z.enum(["active", "revoked"]).nullable(),

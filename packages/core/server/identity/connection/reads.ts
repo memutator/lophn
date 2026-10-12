@@ -1,14 +1,14 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type Connection,
   connectionList,
   connectionShow,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import type {
   ReadDefinition,
   RequestContext,
-} from "../../protocol/server/mod.ts";
-import { parseActor } from "../../protocol/base/mod.ts";
+} from "../../../../protocol/server/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import { nextConnectionCursor, pageAfter } from "./cursor.ts";
 import { publicConnection } from "./rows.ts";
 import { listConnections, loadConnection } from "./store.ts";

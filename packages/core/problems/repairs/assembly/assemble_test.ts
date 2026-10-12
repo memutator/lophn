@@ -8,7 +8,7 @@ import {
   RepairContextSchema,
   SECTION_KINDS,
   SECTION_LIMITS,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import { assembleRepairContext, renderBundleText } from "./assemble.ts";
 import { UNREADABLE_MESSAGE } from "./model.ts";
 import {

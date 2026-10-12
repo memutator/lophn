@@ -4,7 +4,7 @@ import {
   REPAIR_CONTEXT_LINES,
   REPAIR_CONTEXT_SUMMARY_MAX_CHARS,
   RepairContextSchema,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import { assembleRepairContext, renderBundleText } from "./assemble.ts";
 import { lineCount, utf8Bytes } from "./text.ts";
 import {

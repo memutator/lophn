@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 
 export type CursorState = {
   principal: string;

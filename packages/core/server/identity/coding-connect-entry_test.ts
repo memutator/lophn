@@ -5,8 +5,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../../base/mod.ts";
-import { createConnectionSecretRefSource } from "../../../coding-agent/mod.ts";
-import { connectionSchemaSteps } from "../../../coding-agent/mod.ts";
+import {
+  connectionSchemaSteps,
+  createConnectionSecretRefSource,
+} from "./connection/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { KnownSecretChannel } from "../../storage/ledger/mod.ts";
 import {

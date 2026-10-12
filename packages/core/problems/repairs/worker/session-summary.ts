@@ -10,7 +10,7 @@ import {
 } from "../../../../protocol/client/mod.ts";
 import type { Route } from "../../../../protocol/base/mod.ts";
 import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
-import { assembleSessionSummary } from "../../../../coding-agent/guides/mod.ts";
+import { assembleSessionSummary } from "../assembly/summary.ts";
 import { RepairContextRejection } from "./context.ts";
 
 export const SESSION_SUMMARY_OP = "coding_agent_sessions.summary";

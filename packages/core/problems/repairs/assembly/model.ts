@@ -1,8 +1,8 @@
 // 수리 자료 조립이 쓰는 읽기 port와 조립 근거 모양(repair-context#R1, R2, R18).
 // port는 현재 연결 범위 안의 정본 read 하나씩이다. 조립은 이 port 밖의 자료를 읽지 않고
 // 완성 묶음을 저장하지 않는다.
-import type { Result } from "../../base/mod.ts";
-import type { Output } from "../../protocol/server/mod.ts";
+import type { Result } from "../../../../base/mod.ts";
+import type { Output } from "../../../../protocol/server/mod.ts";
 import type {
   getProblem,
   getReport,
@@ -10,13 +10,13 @@ import type {
   listProblems,
   listReports,
   listVerifications,
-} from "../../protocol/problems/mod.ts";
+} from "../../../../protocol/problems/mod.ts";
 import type {
   invocationsGet,
   releasesGet,
   releasesList,
-} from "../../protocol/apps/mod.ts";
-import type { ticketShow } from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/apps/mod.ts";
+import type { ticketShow } from "../../../../protocol/coding-agent/mod.ts";
 import type { Fingerprint } from "./select.ts";
 
 // connection#R5와 같은 문장이다. 없는 대상과 범위 밖 대상은 같은 답이다.

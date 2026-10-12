@@ -1,5 +1,5 @@
 // 시험 전용 읽기 port. 정본 read 응답을 메모리에서 흉내 낸다. mod.ts에서 내보내지 않는다.
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../../base/mod.ts";
 import type {
   BlobText,
   FixesOut,

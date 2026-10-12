@@ -24,7 +24,7 @@ import {
   repairMore,
   type RepairReadClient,
   type RepairTarget,
-} from "../../../../coding-agent/repair-context/mod.ts";
+} from "../assembly/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,

@@ -15,7 +15,7 @@ import {
   ticketReleaseClaim,
   ticketRenewClaim,
 } from "../../../protocol/coding-agent/mod.ts";
-import { connectionAuthSyncPort } from "../../../coding-agent/connection/mod.ts";
+import { connectionAuthSyncPort } from "../../server/identity/connection/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,

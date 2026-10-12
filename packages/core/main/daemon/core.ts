@@ -105,7 +105,7 @@ import {
   ticketUploadSummary,
 } from "../../../protocol/coding-agent/mod.ts";
 import { problemsUploadFixSummary } from "../../../protocol/problems/mod.ts";
-import { CONNECTION_SECRET_OWNER } from "../../../coding-agent/mod.ts";
+import { CONNECTION_SECRET_OWNER } from "../../server/identity/connection/mod.ts";
 import {
   type CodingCredentials,
   connectHandler,

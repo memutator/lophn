@@ -5,11 +5,11 @@
 import type {
   RepairContextSection,
   RepairEvidenceRead,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import {
   REPAIR_CONTEXT_BYTES,
   REPAIR_CONTEXT_LINES,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
 import { lineCount, utf8Bytes } from "./text.ts";
 
 // 묶음 본문. `context.bytes`·`context.lines`는 이 글을 센다.

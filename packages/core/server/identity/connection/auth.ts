@@ -1,9 +1,9 @@
-import { CodingAgentConnectionAuth } from "../../protocol/coding-agent/mod.ts";
+import { CodingAgentConnectionAuth } from "../../../../protocol/coding-agent/mod.ts";
 import type {
   CodingAgentConnectionAuthPort,
   CodingAgentConnectionAuthResult,
-} from "../../protocol/coding-agent/mod.ts";
-import type { ReadSnapshot, Tx } from "../../protocol/server/mod.ts";
+} from "../../../../protocol/coding-agent/mod.ts";
+import type { ReadSnapshot, Tx } from "../../../../protocol/server/mod.ts";
 import { loadByPrincipal } from "./store.ts";
 
 // principal → connection·state·scope·token_digest·revision.

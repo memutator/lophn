@@ -397,8 +397,13 @@ Deno.test("lophn-agent/harness/run-loop#R8: runtime child의 argv에는 -A가 �
         [...granted.keys()].sort(),
         ["allow-env", "allow-net", "allow-read", "allow-write"],
       );
-      assertEquals(granted.get("allow-read"), [world.core.dataRoot]);
-      assertEquals(granted.get("allow-write"), [
+      // 앱 direct socket 자리(`*.sock`)는 confirm proof 연결에 필요한 허락이라 따로 뺀다.
+      const withoutSockets = (paths: string[] | undefined) =>
+        paths?.filter((path) => !path.endsWith(".sock"));
+      assertEquals(withoutSockets(granted.get("allow-read")), [
+        world.core.dataRoot,
+      ]);
+      assertEquals(withoutSockets(granted.get("allow-write")), [
         `${world.core.dataRoot}/derived/lophn-agent`,
       ]);
       // MCP stdio 자식의 최소 환경 네 이름이 더해진다(lophn-agent#T36).
@@ -424,12 +429,12 @@ Deno.test("lophn-agent/harness/run-loop#R8: runtime child의 argv에는 -A가 �
     }
     // 처음에는 core loopback뿐이고 provider를 등록하면 그 목적지가 더해진다.
     assertEquals(
-      permissions(world.children[0]!.request.args).get("allow-net"),
+      netHosts(world.children[0]!.request.args),
       [`127.0.0.1:${world.core.port}`],
     );
     const providerPort = new URL(world.provider.url).port;
     assertEquals(
-      permissions(world.children[1]!.request.args).get("allow-net"),
+      netHosts(world.children[1]!.request.args),
       [`127.0.0.1:${world.core.port}`, `127.0.0.1:${providerPort}`],
     );
 

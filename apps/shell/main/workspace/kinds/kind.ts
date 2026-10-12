@@ -8,7 +8,8 @@ export type PlaceholderReason =
   | "app_unavailable"
   | "no_permission"
   | "context_missing"
-  | "search_missing";
+  | "search_missing"
+  | "agent_missing";
 
 export type RestoredTab =
   | { kind: "tab"; tab: { kind: string; key: string } }
@@ -32,6 +33,8 @@ export interface RestoreTargets {
   context(context: string): Promise<boolean>;
   /** context의 적용된 계약이 그 이름의 검색을 아직 선언하는지. */
   declaredSearch(context: string, search: string): Promise<boolean>;
+  /** agent(assignment)가 withdraw되지 않았고 session이 있으면 지워지지 않았는지. session이 null이면 agent만 본다. */
+  agent(agent: string, session: string | null): Promise<boolean>;
 }
 
 /** 힌트의 참조를 현재 허용 대상과 대조하는 통로(shell/workspace#R10). */

@@ -30,6 +30,7 @@ const WIRE_KINDS = [
   "context",
   "search",
   "agents",
+  "agent",
 ];
 
 const PRJ = "prj_01h455vb4pex5v6nkc6gd5fdw1";
@@ -41,6 +42,7 @@ const targets: RestoreTargets = {
   canRead: () => Promise.resolve(true),
   context: () => Promise.resolve(true),
   declaredSearch: () => Promise.resolve(true),
+  agent: () => Promise.resolve(true),
 };
 
 function fakeKind() {
@@ -251,6 +253,116 @@ test("shell/workspace#R14 [agent-I34]: Agents 탭은 layout 파일에서 열어 
     assert.equal(parseLayoutFile(layoutWith(tab)).ok, false);
   rejected({ kind: "agents", key: "agents", agent: "asg_1" });
   rejected({ kind: "agents", key: "agents", context: CTX });
+});
+
+test("shell/workspace#R6 [agent-I33c]: Agent 탭은 layout 파일에서 agent·자리·session과 함께 읽히고 맞지 않는 값이나 다른 필드는 거절된다", () => {
+  const ASG = "asg_01h455vb4pex5v6nkc6gd5fdw1";
+  const SES = "ses_01h455vb4pex5v6nkc6gd5fdw1";
+  const place = { kind: "project", id: PRJ };
+  const parsed = parseLayoutFile(layoutWith(
+    { kind: "agent", key: "agent-1", agent: ASG, work_place: place },
+    {
+      kind: "agent",
+      key: "agent-2",
+      agent: ASG,
+      work_place: place,
+      session: SES,
+    },
+  ));
+  assert.ok(parsed.ok);
+  if (!parsed.ok) return;
+  const tabs = parsed.layout.panes[0]!.tabs as unknown as Record<
+    string,
+    unknown
+  >[];
+  assert.equal(tabs[0]!.agent, ASG);
+  assert.equal(tabs[0]!.session ?? null, null);
+  assert.deepEqual(tabs[1]!.work_place, place);
+  assert.equal(tabs[1]!.session, SES);
+  const rejected = (tab: Record<string, unknown>) =>
+    assert.equal(parseLayoutFile(layoutWith(tab)).ok, false);
+  const base = { kind: "agent", key: "a", agent: ASG, work_place: place };
+  rejected({ ...base, agent: undefined });
+  rejected({ ...base, agent: "asg_1" });
+  rejected({ ...base, work_place: undefined });
+  rejected({ ...base, work_place: { kind: "app", id: PRJ } });
+  rejected({ ...base, work_place: { kind: "project", id: "prj_1" } });
+  rejected({ ...base, session: "ses_1" });
+  rejected({ ...base, context: CTX });
+  rejected({ ...base, body: "hello" });
+});
+
+test("shell/workspace#R7 [agent-I33c]: 없어졌거나 withdraw된 agent나 지워진 session의 Agent 탭은 다른 agent나 새 session으로 바뀌지 않고 이유를 가진 자리표시다", async () => {
+  const ASG = "asg_01h455vb4pex5v6nkc6gd5fdw1";
+  const SES = "ses_01h455vb4pex5v6nkc6gd5fdw1";
+  const tab = {
+    kind: "agent" as const,
+    key: "agent-1",
+    agent: ASG,
+    work_place: { kind: "project" as const, id: PRJ },
+    session: SES,
+  };
+  const asked: [string, string | null][] = [];
+  const live = await restoreTab(tab, {
+    ...targets,
+    agent: (agent, session) => {
+      asked.push([agent, session]);
+      return Promise.resolve(true);
+    },
+  });
+  assert.deepEqual(live, { kind: "tab", tab });
+  const gone = await restoreTab(tab, {
+    ...targets,
+    agent: () => Promise.resolve(false),
+  });
+  assert.deepEqual(gone, {
+    kind: "placeholder",
+    key: "agent-1",
+    origin: "agent",
+    title: ASG,
+    reason: "agent_missing",
+  });
+  // 아직 말하지 않은 새 session의 탭은 session 없이 agent만 묻는다.
+  await restoreTab({ ...tab, session: null }, {
+    ...targets,
+    agent: (agent, session) => {
+      asked.push([agent, session]);
+      return Promise.resolve(true);
+    },
+  });
+  assert.deepEqual(asked, [[ASG, SES], [ASG, null]]);
+});
+
+test("shell/workspace#R10 [agent-I33c]: 현재 보기는 Agent 탭을 key와 선택 여부만으로 담고 agent·session·내용은 담지 않는다", () => {
+  const hint = {
+    window_ref: "win-1",
+    project: PRJ,
+    panes: [{
+      tabs: [{
+        kind: "agent",
+        key: "agent-1",
+        agent: "asg_01h455vb4pex5v6nkc6gd5fdw1",
+        session: "ses_01h455vb4pex5v6nkc6gd5fdw1",
+        messages: ["private words"],
+      }],
+      selected: "agent-1",
+    }],
+    focused_pane: 0,
+  } as unknown as LayoutHint;
+  const out = assembleCurrentView({
+    hint,
+    registry: { isLive: () => true, appView: () => null },
+    scope: { project: () => true, allows: () => true },
+    observed_at: AT,
+  });
+  assert.ok(out.ok);
+  if (!out.ok) return;
+  assert.deepEqual(out.state.tabs, [
+    { kind: "agent", key: "agent-1", selected: true },
+  ]);
+  const published = buildPublishInput(out.state).input;
+  assert.equal(JSON.stringify(published).includes("private words"), false);
+  assert.equal(JSON.stringify(published).includes("asg_"), false);
 });
 
 test("shell/workspace#R14 [ctx-I53]: 다른 kind의 필드나 맞지 않는 값이 든 탭은 layout 검증이 거절한다", () => {

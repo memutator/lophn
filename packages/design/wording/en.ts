@@ -1736,6 +1736,8 @@ export const en = {
     "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} archivedReference {This context is archived, so pick an active one} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and Workspace defaults.",
+  "project-workspace.notice.agent-not-ready":
+    "Conversations aren't ready yet. Try again in a moment.",
   "project-workspace.notice.agents-change-failed":
     "Couldn't change that. Nothing changed.",
   "project-workspace.notice.agents-delete-failed":
@@ -1811,6 +1813,7 @@ export const en = {
   "project-workspace.label.kind-document-editor": "Document editor",
   "project-workspace.label.kind-terminal": "Terminal",
   "project-workspace.label.kind-agents": "Agents",
+  "project-workspace.label.kind-agent": "Agent",
   "project-workspace.label.more-files":
     "{count, plural, one {+# more file} other {+# more files}}",
   "project-workspace.label.path": "Path",

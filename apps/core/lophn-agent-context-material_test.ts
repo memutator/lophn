@@ -242,7 +242,7 @@ async function acceptRunAgent(world: ScopeWorld, role: string, token: string) {
   }, token);
 }
 
-Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55b]: 실제 core에서 네 역할의 run agent 자격(roleOperations)이 선택한 context의 자료를 읽는다", async () => {
+Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55b]: 실제 core에서 네 역할의 run agent 자격(roleOperations)이 resolved agent의 context의 자료를 읽는다", async () => {
   const world = await openScopeWorld(DOCUMENT_OPERATIONS);
   try {
     await applyContext(world);
@@ -255,10 +255,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55b]: 실제 core에서 
     for (const [role, token] of Object.entries(tokens)) {
       await acceptRunAgent(world, role, token);
       const agent = agentCall({ port: world.core.port, token });
-      const set = await loadContextMaterials(agent, {
-        project: world.project,
-        selections: [{ kind: "all", target: null }],
-      });
+      const set = await loadContextMaterials(agent, { contexts: [CONTEXT] });
       assertEquals(
         set.materials.map((material) => material.context),
         [CONTEXT],
@@ -268,7 +265,7 @@ Deno.test("lophn-agent/harness/prompt-assemble#R4 [ctx-I55b]: 실제 core에서 
       assertEquals(material.title, "Notes data", role);
       assert(material.text.includes("Note: One written note"), role);
       assert(material.type_names.length > 0, role);
-      assertEquals(set.reason, null, role);
+      assertEquals(set.omitted, [], role);
     }
   } finally {
     await world.dispose();

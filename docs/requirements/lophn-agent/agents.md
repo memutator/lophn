@@ -89,7 +89,7 @@ agent 정의와 설정 층을 맡는다. built-in(lophn·Context Engineer·App E
 - 확인: 같은 project의 Operator 둘이 서로 다른 context를 읽고, 0개인 Operator는 context 자료 없이 시작하며, 고르지 않은 context와 범위 밖 주소는 거절되는지 본다.
 - 의도: lophn-agent#I4, lophn-agent#I5
 
-**[R16]** built-in agent의 context는 선택 칸이 없고 실행할 때 그 자리 project의 active context 전부로 풀리며 보관한 context는 빠지고, project가 없는 앱 자리에서는 context 자료 0개로 시작하되 이유를 밝힌다.
+**[R16]** built-in agent의 context는 선택 칸이 없고 실행할 때 그 자리 project의 active context 전부로 풀리며 보관한 context는 빠지고, project가 없는 앱 자리에서는 context 자료 0개로 시작하되 이유를 밝히며, 다만 App Engineer는 앱 자리에서 그 앱을 app-data source로 읽는 active context를 받는다(→ lophn-agent/roles/app-engineer#R2).
 - 이유: 정의가 context id를 적지 않아도 지금 project의 context를 읽게 하고, 빈 채로 남은 이유를 숨기지 않는다.
 - 확인: context 둘이 있는 project의 lophn session은 둘 모두를 자료로 받고, 하나를 보관하면 다음 run부터 빠지며, 앱 자리 session은 0개와 그 이유가 보이는지 본다. context 자료의 모양은 lophn-agent/harness/prompt-assemble을 따른다.
 - 의도: lophn-agent#I5

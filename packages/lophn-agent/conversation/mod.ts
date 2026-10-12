@@ -21,5 +21,6 @@ export { sessionSummaryRead } from "./summary-read.ts";
 export {
   type StartedRequest,
   startRequest,
+  type StartRequestDeps,
   type StartRequestInput,
 } from "./request.ts";

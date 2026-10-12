@@ -57,8 +57,15 @@ function receiverOf(
     : { id: String(row["id"]), revision: Number(row["revision"]) };
 }
 
+// 이 경로는 세션을 열고 message를 받을 뿐 지우지 않는다. 그래서 run 접수 하나만 받고, 세션 삭제에 쓰는 의존은
+// 부르면 오류가 나는 것으로 채운다.
+export type StartRequestDeps = Pick<ConversationDeps, "acceptRun">;
+
+const NEVER_DELETES = (): Result<void> =>
+  err({ code: "internal", message: "a started request never deletes" });
+
 export function startRequest(
-  deps: ConversationDeps,
+  deps: StartRequestDeps,
   tx: Tx,
   input: StartRequestInput,
 ): Result<StartedRequest> {
@@ -69,7 +76,11 @@ export function startRequest(
       message: `no enabled ${input.role} assignment can take this request`,
     });
   }
-  const commands = createConversationCommands(deps);
+  const commands = createConversationCommands({
+    ...deps,
+    deleteSessionRecords: NEVER_DELETES,
+    eraseBlobRefs: NEVER_DELETES,
+  });
   const session = tx.newId("ses");
   const opened = commands.open.handle(tx, REQUESTER, {
     id: session,

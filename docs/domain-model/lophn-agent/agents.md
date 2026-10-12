@@ -31,7 +31,7 @@ built-in 파일은 그 자리에서 사람이 바꾼 칸이 있을 때만 있고
 | `name` | string | 아니오 | Operator에만 있음; trim 뒤 1자 이상; 같은 자리 Operator 사이 name_key(대소문자·앞뒤 공백 무시) unique; `lophn`·`Context Engineer`·`App Engineer` 불가 | 사람이 고르는 이름 |
 | `profile` | Profile | 예 | null이면 기본 icon | avatar |
 | `model` | ModelChoice | 예 | null이면 아래 층 | 이 agent의 model과 option |
-| `contexts` | `ctx` ID 배열 | 아니오 | project Operator에만 있음; 기본 `[]`(0개 허용); 중복 없음; 존재하고 그 project의 context | 읽을 context |
+| `contexts` | `ctx` ID 배열 | 아니오 | project Operator에만 있음; 기본 `[]`(0개 허용); 중복 없음; 존재하고 그 project의 context(만드는 중·보관한 context도 고를 수 있다; 다른 project의 context나 없는 context는 `missing_reference`) | 읽을 context |
 | `app_reads` | AppRead 배열 | 아니오 | 앱 Operator에만 있음; 기본 `[]`; `(app, command)` unique | 읽을 앱 command |
 | `skills_off` | string 배열 | 아니오 | 기본 `[]`; 끈 skill 이름; 중복 없음 | 끈 skill |
 | `mcp_off` | `{server_name, original_tool?}` 배열 | 아니오 | 기본 `[]`; `original_tool` 생략은 그 서버 전체 | 끈 MCP |
@@ -39,7 +39,7 @@ built-in 파일은 그 자리에서 사람이 바꾼 칸이 있을 때만 있고
 | `permissions` | Permissions | 예 | null이면 아래 층 | 권한 |
 | 본문 | Markdown | 아니오 | Operator는 trim 뒤 1자 이상; built-in은 비어도 됨 | 이 agent의 지침 |
 
-built-in은 `name`·`contexts`·`app_reads`를 쓰지 않는다. 이름은 제품이 고정하고, context는 자리의 active context 전부이며, 앱 command 호출은 역할 상한이 정한다. 책임·관점·기대 결과는 본문 글이 정본이고 따로 기계 값을 두지 않는다. 서버 설정·인증·skill 본문은 → lophn-agent/extensions, 지침 파일(LOPHN.md)은 → lophn-agent/instructions다.
+built-in은 `name`·`contexts`·`app_reads`를 쓰지 않는다. 이름은 제품이 고정하고, context는 자리의 active context 전부이며(App Engineer가 앱 자리에서 열리면 그 앱을 app-data source로 읽는 active context 전부), 앱 command 호출은 역할 상한이 정한다. 책임·관점·기대 결과는 본문 글이 정본이고 따로 기계 값을 두지 않는다. 서버 설정·인증·skill 본문은 → lophn-agent/extensions, 지침 파일(LOPHN.md)은 → lophn-agent/instructions다.
 
 ## Profile (값)
 
@@ -126,8 +126,8 @@ run을 준비할 때 한 번 만들어 run 기준(→ lophn-agent/harness/run-lo
 | `tools` | string 배열 | 아니오 | RoleCaps ∩ 자리 ∩ 정의 | 제공 tool |
 | `skills` | 이름 배열 | 아니오 | 등록된 것 가운데 `skills_off`에 없는 것(등록 순서) | 켜진 skill |
 | `mcp` | `{server_name, original_tool}` 배열 | 아니오 | 등록된 MCP tool 가운데 `mcp_off`에 없는 것(등록 순서) | 켜진 MCP tool |
-| `contexts` | `ctx` ID 배열 | 아니오 | Operator는 고른 것 중 active; built-in은 자리 project의 active 전부(없으면 `[]`와 이유) | 읽을 context |
-| `contexts_reason` | `no_project` | 예 | 비어 있는 이유; built-in이 앱 자리에서 열렸을 때만 `no_project`, 아니면 null | context 0개의 이유 |
+| `contexts` | `ctx` ID 배열 | 아니오 | Operator는 고른 것 중 active(고른 뒤 보관한 context는 정의를 두고 실행 때만 빠진다); built-in은 자리 project의 active 전부(없으면 `[]`와 이유); App Engineer는 앱 자리에서 그 앱을 app-data source로 읽는 active 전부 | 읽을 context |
+| `contexts_reason` | `no_project` | 예 | 비어 있는 이유; App Engineer가 아닌 built-in이 앱 자리에서 열렸을 때만 `no_project`, 아니면 null | context 0개의 이유 |
 | `app_reads` | AppRead 배열 | 아니오 | 앱 Operator만 | 읽을 앱 command |
 | `safe_tools` | 배열 | 아니오 | | 묻지 않을 tool |
 | `sources` | map(칸 → ValueSource) | 아니오 | 위 칸마다 하나 | 값의 출처 |
@@ -171,7 +171,7 @@ run을 준비할 때 한 번 만들어 run 기준(→ lophn-agent/harness/run-lo
 | 대상 | 읽기 범위 | 참조 |
 |---|---|---|
 | 프로젝트·문서 | 목적·목차·검색·필요한 고정 Version의 본문·절·이력·차이 | documents/projects, documents/versions, documents/outline-and-search |
-| context | 자리의 context의 overview·용어집, 선언한 검색의 결과, 개체 하나 | documents/contexts, documents/terms |
+| context | 자리의 context의 overview·용어집, 선언한 검색의 결과, 개체 하나; 모든 project의 active context 목록·목적·overview·용어집과 문서 경로를 덮는 context(조회 tool) | documents/contexts, documents/terms |
 | 앱·SDK | 목적·목록·blueprint·명령 metadata·release·정상 신호·invocation·SDK 계약·예시 | apps/registration, apps/blueprint, apps/releases, apps/invocations, apps/sdk |
 | problem·ticket | 열린 problem·보고·snapshot·실제 test result·고친 기록·ticket 본문·현황·근거 | problems/grouping, problems/reporting, problems/snapshots, problems/tests, problems/repairs, coding-agent/tickets |
 | assignment·run | 담당 범위·상태·확정 결과 | lophn-agent/assignments, lophn-agent/harness/run-loop |
@@ -184,6 +184,7 @@ run을 준비할 때 한 번 만들어 run 기준(→ lophn-agent/harness/run-lo
 | problem·ticket 읽기 | `problem.list`, `problem.read`, `report.read`, `snapshot.read`, `verification.read`, `repair.read`, `ticket.list`, `ticket.read` | 문제 해석 참조·상태·기존 ticket 변경 없음 |
 | coding 요청 | `ticket.create` | 직접 요청·피드백을 ticket으로 생성; 부족한 근거는 확인 필요·준비 상태로 표시; claim·시작·완료 처리 없음; → coding-agent/tickets |
 | 제품 안내·공개 설정 | `lophn.guide`, `setting.read` | secret 없는 동봉 안내·현재 공개 설정과 출처만 |
+| context 조회 | `context.list`, `context.overview`, `context.containing` | 모든 project의 active context 목록·목적·overview·용어집과 문서 경로를 덮는 context; 변경 없음; 개체·검색 결과는 읽지 않음; lophn 역할 상한에만 있음; → lophn-agent/harness/tools |
 | 문서 결과 | `document.create`, `document.save_version` | Run 요청 범위; 기존 문서 저장은 기준 Version 필수 |
 | assignment 읽기 | `assignment.list`, `assignment.read`, `run.read_result` | 변경 없음 |
 | handoff | `handoff.submit`, `handoff.read_status`, `handoff.read_result` | 방향·계보는 → lophn-agent/handoff |
@@ -220,12 +221,12 @@ run을 준비할 때 한 번 만들어 run 기준(→ lophn-agent/harness/run-lo
 | 앱 | 목적·blueprint 명령 목록의 이름·설명·입력 schema·effect | apps/registration, apps/blueprint |
 | assignment·run | 담당 범위·상태·확정 결과 | lophn-agent/assignments, lophn-agent/harness/run-loop |
 
-앱 read command의 metadata는 읽지만 호출 결과·업무 DB를 읽는 권한은 없다. 공통 tool 전체에 더하는 동작:
+앱 read command의 metadata는 읽지만 호출 결과·업무 DB를 읽는 권한은 없다. 아래 context 설계·용어집 여덟 동작(`context.create`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations`, `context.glossary_read`, `context.glossary_write`)은 이 역할 상한에만 있어 다른 역할의 정의 `permissions`는 이 동작을 고를 수 없다. 공통 tool 전체에 더하는 동작:
 
 | 묶음 | 추가 개별 동작 | 제약 |
 |---|---|---|
 | 프로젝트·앱 metadata | `project.list`, `project.read`, `app.list`, `app.read_purpose`, `app.commands` | 앱 명령 호출 없음 |
-| context 설계 | `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations` | 초안 쓰기·제출은 write; 미리보기는 지금 파일로 추출·위반만 보이고 적용 없음; 제출한 판의 적용은 → documents/contexts |
+| context 설계 | `context.create`, `context.read_contract`, `context.draft`, `context.preview`, `context.submit`, `context.violations` | context 생성·초안 쓰기·제출은 write; 미리보기는 지금 파일로 추출·위반만 보이고 적용 없음; 제출한 판의 적용은 → documents/contexts |
 | 용어집 | `context.glossary_read`, `context.glossary_write` | 뜻은 Context Engineer와 사람이 정함; → documents/terms |
 | 문서 결과 | `document.create`, `document.save_version` | Run 요청 범위; 기준 Version 필수 |
 | assignment 읽기 | `assignment.list`, `assignment.read`, `run.read_result` | 변경 없음 |

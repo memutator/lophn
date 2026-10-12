@@ -15,14 +15,11 @@ import type {
   ThreadMessage,
   ThreadView,
 } from "../agent-source.ts";
-import type { ContextChipView } from "../composer/agent-composer.tsx";
+import type { ContextChipView } from "../composer/types.ts";
 import type { GroupAnswer } from "../question-card/model.ts";
 import type { ApprovalChoice } from "../approval-card/model.ts";
-import type { PickerModelRef } from "../model-picker/model-picker.tsx";
-import type {
-  SlashEntryView,
-  SlashGroupView,
-} from "../slash-menu/slash-menu.tsx";
+import type { PickerModelRef } from "../model-picker/types.ts";
+import type { SlashEntryView, SlashGroupView } from "../slash-menu/types.ts";
 import { LOPHN_ALL } from "./slash-menu.ts";
 import {
   FITTED_NOTICE,

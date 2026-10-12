@@ -1,10 +1,7 @@
 // `/` 메뉴 test의 입력. lophn-agent/commands(buildRegistry·listCommands)가 낸 값을 그대로 옮겨 고정한
 // 순수 data다. 거르기와 묶음 규칙은 여기서 다시 만들지 않고 query별로 나온 결과를 적어 둔다.
-import type {
-  SlashEntryView,
-  SlashGroupView,
-  SlashMenuProps,
-} from "../slash-menu/slash-menu.tsx";
+import type { SlashMenuProps } from "../slash-menu/slash-menu.tsx";
+import type { SlashEntryView, SlashGroupView } from "../slash-menu/types.ts";
 
 function builtin(
   name: string,

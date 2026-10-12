@@ -210,6 +210,7 @@ export function Desktop(
         editor={editor}
         terminal={terminal}
         tracking={tracking}
+        agentViewSource={agentViewSource}
       />
     );
   } else if (

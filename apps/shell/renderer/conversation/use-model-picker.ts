@@ -8,10 +8,7 @@ import type {
   ModelView,
   SourceResult,
 } from "./agent-source.ts";
-import type {
-  ModelPickerProps,
-  PickerModelRef,
-} from "./model-picker/model-picker.tsx";
+import type { ModelPickerProps, PickerModelRef } from "./model-picker/types.ts";
 
 const NO_MODEL: PickerModelRef = { provider: "", modelName: "" };
 

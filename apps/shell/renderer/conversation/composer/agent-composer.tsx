@@ -27,13 +27,9 @@ import {
   type ModelPickerProps,
 } from "../model-picker/model-picker.tsx";
 import styles from "./agent-composer.module.css";
+import type { ContextChipView } from "./types.ts";
 
-/** 입력칸 위에 붙은 context chip 하나. notification의 [Ask]로 연 session은 첫 chip이 사건 대상이다. */
-export interface ContextChipView {
-  readonly id: string;
-  /** 사건 대상 이름. */
-  readonly label: string;
-}
+export type { ContextChipView } from "./types.ts";
 
 export interface AgentComposerProps {
   /** 입력 중인 글·커서·보낼 방식(draft.mode). 세션 메모리에 남는 값이다(desktop#R8). */

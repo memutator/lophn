@@ -1044,6 +1044,8 @@ export const en = {
     'Delete "{title}"? This can\'t be undone.',
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
+  "conversation.body.skill-command-request":
+    'Use the "{skill}" skill for this request.',
   "conversation.button.approval-allow": "Allow",
   "conversation.button.approval-allow-once": "Allow once",
   "conversation.button.approval-allow-scope": "Allow scope",
@@ -1139,6 +1141,8 @@ export const en = {
   "conversation.label.more-actions": "More",
   "conversation.label.more-results":
     "{count, plural, one {+# more} other {+# more}}",
+  "conversation.label.permission-summary":
+    "{count, plural, =0 {Ask first} one {Ask first, # tool allowed} other {Ask first, # tools allowed}}",
   "conversation.label.question-answered":
     "Answered {count, plural, one {# question} other {# questions}}: {answers}",
   "conversation.label.question-apply-failed": "Couldn't apply: {answers}",
@@ -1189,6 +1193,10 @@ export const en = {
   "conversation.label.view-messages": "Messages",
   "conversation.label.visual-axes": "{y} by {x}",
   "conversation.label.visual-document-unavailable": "Document you can't open",
+  "conversation.label.tool-read-documents":
+    "{count, plural, one {Read # document} other {Read # documents}}",
+  "conversation.label.tool-used":
+    "{count, plural, one {Used {tool}} other {Used {tool} # times}}",
   "conversation.label.visual-no": "No",
   "conversation.label.visual-observed": "Observed {at}",
   "conversation.label.visual-saved": "Saved as a document",

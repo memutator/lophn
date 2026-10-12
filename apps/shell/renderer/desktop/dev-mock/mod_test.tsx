@@ -105,3 +105,30 @@ Deno.test("shell/workspace#R36 [agent-I34]: mock 작업대는 Agents 탭 통로�
   assert(overview.value.agents.some((row) => row.kind === "operator"));
   assert(overview.value.agents.some((row) => row.role === "lophn"));
 });
+
+Deno.test("shell/desktop#R38 [agent-I33b]: mock 모드는 Agent view의 source factory도 메모리 통로로 주고 같은 agent를 다시 얻으면 같은 기록을 본다", async () => {
+  const mock = devMock("?mock");
+  assert(mock !== null);
+  const agent = {
+    assignment: "asg_01k6q000000000000000000001",
+    place: { kind: "project" as const, id: "prj_mock" },
+  };
+  const source = mock.agentViewSource(agent);
+  const face = await source.agent();
+  assert(face.ok);
+  const sessions = await source.sessions();
+  assert(sessions.ok && sessions.value.length >= 1);
+  const first = sessions.value[0]!;
+  const thread = await source.thread(first.id);
+  assert(thread.ok && thread.value.entries.length >= 1);
+  assertEquals(await source.renameSession(first.id, "Renamed"), {
+    ok: true,
+    value: undefined,
+  });
+  const again = await mock.agentViewSource(agent).sessions();
+  assert(again.ok);
+  assertEquals(
+    again.value.find((row) => row.id === first.id)?.title,
+    "Renamed",
+  );
+});

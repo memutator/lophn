@@ -10,23 +10,20 @@ import type {
   ApprovalCardRequest,
   ApprovalChoice,
 } from "./approval-card/model.ts";
-import type { ContextChipView } from "./composer/agent-composer.tsx";
-import type { HeaderAgent, SessionLine } from "./header/agent-header.tsx";
+import type { ContextChipView } from "./composer/types.ts";
+import type { HeaderAgent, SessionLine } from "./header/types.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
   PickerModelRef,
   PickerNoticeView,
-} from "./model-picker/model-picker.tsx";
+} from "./model-picker/types.ts";
 import type {
   AnswerSummaryStatus,
   GroupAnswer,
   QuestionGroupView,
 } from "./question-card/model.ts";
-import type {
-  SlashEntryView,
-  SlashGroupView,
-} from "./slash-menu/slash-menu.tsx";
+import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
 export type SourceResult<T> =
   | { readonly ok: true; readonly value: T }

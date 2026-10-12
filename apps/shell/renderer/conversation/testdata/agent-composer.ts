@@ -1,10 +1,8 @@
 // Agent composer test의 입력. 순수 data와 builder이고 시각·id는 고정한다.
 import type { SendMode } from "../delivery-state.ts";
 import { type Draft, EMPTY_DRAFT } from "../drafts.ts";
-import type {
-  AgentComposerProps,
-  ContextChipView,
-} from "../composer/agent-composer.tsx";
+import type { AgentComposerProps } from "../composer/agent-composer.tsx";
+import type { ContextChipView } from "../composer/types.ts";
 import { pickerProps, SONNET } from "./model-picker.ts";
 
 export function draftOf(text: string, mode: SendMode = "request"): Draft {

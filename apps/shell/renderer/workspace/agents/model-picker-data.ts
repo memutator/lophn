@@ -16,7 +16,7 @@ import type {
   PickerModelRef,
   PickerModelRow,
   PickerNoticeView,
-} from "../../conversation/model-picker/model-picker.tsx";
+} from "../../conversation/model-picker/types.ts";
 import type { ModelFavorite, ModelsView } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 

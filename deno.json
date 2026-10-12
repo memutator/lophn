@@ -69,6 +69,7 @@
       "packages/shell/main",
       "packages/shell/preload",
       "packages/design/components/**/*_test.tsx",
+      "packages/design/chart/**/*_test.tsx",
       "packages/design/reading/**/*_test.tsx",
       "packages/shell/renderer/**/*_test.tsx",
       "packages/sdk/**/*_test.tsx"

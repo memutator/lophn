@@ -1,25 +1,5 @@
-// mock 모드의 lophn 공간 관리 화면(roles·settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
+// mock 모드의 lophn 공간 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
 // 채운 것이다. key·로그인 응답·복원·export는 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
-import {
-  ASG_APP,
-  ASG_LOPHN,
-  ASG_OPERATOR,
-  CHOICES,
-  definition,
-  DOC_NOTES,
-  DOC_REPORT,
-  fakeRoles,
-  PST_DEFAULT,
-  PST_MINE,
-  role,
-  runId,
-  step,
-  toolId,
-  trace,
-  VER_NOTES,
-  VER_REPORT,
-  work,
-} from "../lophn-space/roles/testdata/fake-roles.ts";
 import {
   account,
   CHATGPT,
@@ -39,109 +19,13 @@ import { fakeDiagnostics } from "../lophn-space/settings/diagnostics/testdata/fa
 import { fakeNotifications } from "../lophn-space/settings/notifications/testdata/fake-source.ts";
 import { fakeConnections } from "../lophn-space/settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
-import type { RolesSource } from "../lophn-space/roles/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
-import {
-  APP_BUDGET,
-  APP_EXPENSES,
-  APP_PLANNER,
-  PROJECT_GROCERY,
-} from "./ids.ts";
+import { APP_BUDGET, APP_EXPENSES, APP_PLANNER } from "./ids.ts";
 
 const MINUTE = 60 * 1000;
-
-const DOC_TITLES = {
-  [DOC_REPORT]: "Weekly grocery report",
-  [DOC_NOTES]: "Store notes",
-};
-
-export function mockRoles(): RolesSource {
-  const operatorPreset = {
-    id: PST_DEFAULT,
-    revision: 1,
-    definition: definition({
-      name: "grocery operator",
-      origin: "user",
-      role: "operator",
-    }),
-  };
-  const finished = runId(1);
-  return fakeRoles({
-    roles: [
-      role({ id: ASG_LOPHN, role: "lophn", presetName: "lophn" }),
-      role({
-        id: ASG_APP,
-        role: "app_engineer",
-        scope: { kind: "app", id: APP_BUDGET },
-        presetName: "app engineer",
-      }),
-      role({
-        id: ASG_OPERATOR,
-        role: "operator",
-        scope: { kind: "project", id: PROJECT_GROCERY },
-        presetName: "grocery operator",
-        outputs: [DOC_REPORT],
-      }),
-    ],
-    works: {
-      [ASG_LOPHN]: [
-        work(1),
-        work(2, { state: "running", finishedAt: null, outcome: null }),
-        work(3, {
-          startedAt: "2026-10-05T08:00:00.000Z",
-          finishedAt: "2026-10-05T08:02:00.000Z",
-        }),
-      ],
-      [ASG_APP]: [work(4)],
-      [ASG_OPERATOR]: [work(5, { origin: "schedule" })],
-    },
-    made: {
-      [ASG_LOPHN]: [
-        { document: DOC_REPORT, version: VER_REPORT, work: finished },
-        { document: DOC_NOTES, version: VER_NOTES, work: finished },
-      ],
-    },
-    titles: DOC_TITLES,
-    requests: {
-      [finished]: "Summarize this week's grocery spending in a report.",
-    },
-    traces: {
-      [finished]: trace(finished, {
-        toolCalls: [toolId(1), toolId(2)],
-        tools: {
-          steps: 2,
-          succeeded: 2,
-          failed: [],
-          denied: [],
-          notExecuted: [],
-          uncertain: [],
-          unfinished: [],
-          external: [],
-        },
-      }),
-    },
-    steps: {
-      [finished]: [
-        step(1, { tool: "document.search", effect: "read" }),
-        step(2, { tool: "document.create", effect: "write" }),
-      ],
-    },
-    presets: {
-      lophn: [{ id: PST_DEFAULT, revision: 1, definition: definition() }],
-      app_engineer: [{
-        id: PST_MINE,
-        revision: 2,
-        definition: definition({ name: "app engineer", role: "app_engineer" }),
-      }],
-      operator: [operatorPreset],
-    },
-    choices: CHOICES,
-    operator: { presets: [operatorPreset] },
-  }).source;
-}
 
 export function mockSettings(): SettingsSource {
   return fakeSettings({

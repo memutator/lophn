@@ -17,16 +17,19 @@ import {
   viewFilterOf,
 } from "./model.ts";
 
-Deno.test("shell/desktop#R28: lophn 공간은 projects, documents, contexts, apps, things-to-confirm, roles, settings 일곱 형제만 둔다", () => {
+Deno.test("shell/desktop#R28: lophn 공간은 projects, documents, contexts, apps, things-to-confirm, settings 여섯 형제만 둔다", () => {
   assertEquals([...LOPHN_SCREENS], [
     "projects",
     "documents",
     "contexts",
     "apps",
     "things-to-confirm",
-    "roles",
     "settings",
   ]);
+});
+
+Deno.test("shell/desktop#R28: lophn 공간 화면 목록에 roles가 없다", () => {
+  assert(!(LOPHN_SCREENS as readonly string[]).includes("roles"));
 });
 
 Deno.test("shell/desktop#R1: lophn 공간에 들어오면 documents가 먼저다", () => {

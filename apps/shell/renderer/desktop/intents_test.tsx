@@ -177,8 +177,8 @@ Deno.test("shell/desktop#R18: 전역 팔레트는 런처에서도 lophn 전체 �
   await win.send("global-palette");
   assertEquals(win.opened.length, 1);
   assertEquals(win.closed, []);
-  await win.choose("Go to Roles");
-  assertEquals(screen(view.container), "roles");
+  await win.choose("Go to Settings");
+  assertEquals(screen(view.container), "settings");
 });
 
 Deno.test("shell/desktop#R18: 전역 팔레트의 결과는 프로젝트·형제 화면·문서 읽기로 간다", async () => {
@@ -256,8 +256,8 @@ Deno.test("shell/desktop#R10: OS notification 클릭은 things-to-confirm을 열
   );
   // 다른 형제를 보고 있어도 다시 things-to-confirm으로 간다.
   await win.send("global-palette");
-  await win.choose("Go to Roles");
-  assertEquals(screen(view.container), "roles");
+  await win.choose("Go to Settings");
+  assertEquals(screen(view.container), "settings");
   await win.send("things-to-confirm");
   assertEquals(screen(view.container), "things-to-confirm");
 });

@@ -20,7 +20,7 @@ const core: CoreSource = {
   call: () => Promise.resolve({ ok: true, value: {} }),
 };
 
-Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다", async () => {
+Deno.test("shell/desktop#R28: lophn 공간 sidebar는 여섯 형제를 한 단으로 두고 분류 전·거처 같은 중간 계층이 없다", async () => {
   const { source } = fakeSource();
   using view = render(
     <LophnSpace source={source} windowWidth={1440} onLauncher={() => {}} />,
@@ -36,7 +36,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
     "contexts",
     "apps",
     "things-to-confirm",
-    "roles",
     "settings",
   ]);
   assertEquals(rows.map((row) => row.textContent), [
@@ -45,7 +44,6 @@ Deno.test("shell/desktop#R28: lophn 공간 sidebar는 일곱 형제를 한 단�
     "Contexts",
     "Apps",
     "Things to confirm",
-    "Roles",
     "Settings",
   ]);
   // 모든 행이 같은 깊이다. 접고 펴는 묶음이나 하위 목록이 없다.
@@ -86,14 +84,14 @@ Deno.test("shell/desktop#R1: lophn 공간은 documents를 먼저 열고 형제�
   // 검색 조건 선택지는 전체 목차와 format 목록에서 온다.
   assertEquals(of("catalog").length, 1);
   assertEquals(of("formats").length, 1);
-  click(find(view.container, "[data-screen='roles']"));
-  assertEquals(space.getAttribute("data-current-screen"), "roles");
-  assert(view.container.querySelector("[data-not-ready='roles']"));
+  click(find(view.container, "[data-screen='settings']"));
+  assertEquals(space.getAttribute("data-current-screen"), "settings");
+  assert(view.container.querySelector("[data-not-ready='settings']"));
   assertEquals(
     [...view.container.querySelectorAll("[data-crumb]")].map((crumb) =>
       crumb.textContent
     ),
-    ["Lophn Workspace", "Roles"],
+    ["Lophn Workspace", "Settings"],
   );
   click(byLabel(view.container, "Launcher"));
   assertEquals(launcher, 1);
@@ -107,8 +105,8 @@ Deno.test("shell/desktop#R28: 좁은 창은 sidebar를 접고 런처 복귀를 �
   await flush();
   const sidebar = find(narrow.container, "nav[data-sidebar='collapsed']");
   assertEquals(style(sidebar).width, "56px");
-  const roles = find(sidebar, "[data-screen='roles']");
-  assertEquals(roles.getAttribute("aria-label"), "Roles");
+  const settings = find(sidebar, "[data-screen='settings']");
+  assertEquals(settings.getAttribute("aria-label"), "Settings");
   assert(
     find(narrow.container, "header").querySelector("[data-launcher-back]"),
     "launcher is not in the top bar",

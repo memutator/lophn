@@ -7,14 +7,13 @@ import type {
   ViewFilter,
 } from "./source.ts";
 
-/** lophn 공간의 일곱 형제. 중간 계층이 없다(desktop#R28). */
+/** lophn 공간의 여섯 형제. 중간 계층이 없다(desktop#R28). */
 export const LOPHN_SCREENS = [
   "projects",
   "documents",
   "contexts",
   "apps",
   "things-to-confirm",
-  "roles",
   "settings",
 ] as const;
 

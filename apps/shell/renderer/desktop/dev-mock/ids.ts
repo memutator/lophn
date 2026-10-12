@@ -16,3 +16,7 @@ export const DOC_OLD_BUDGET = "doc_9";
 export const DOC_WEEK_1 = "doc_11";
 export const DOC_WEEK_2 = "doc_12";
 export const DOC_WEEK_3 = "doc_13";
+
+// 대화 mock이 가리키는 문서.
+export const DOC_REPORT = "doc_01h455vb4pex5v6nkc6gd5fd01";
+export const DOC_NOTES = "doc_01h455vb4pex5v6nkc6gd5fd02";

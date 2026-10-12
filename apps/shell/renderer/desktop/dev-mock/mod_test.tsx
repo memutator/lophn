@@ -19,9 +19,6 @@ Deno.test("dev-mock: 켜면 core가 ready이고 주요 화면이 채워진 데�
   const projects = await mock.launcher.projects();
   assert(projects.ok && projects.value.length >= 2);
 
-  const roles = await mock.roles.roles();
-  assert(roles.ok && roles.value.length >= 2);
-
   const providers = await mock.settings.providers();
   assert(providers.ok && providers.value.length >= 2);
   assert(providers.value.some((row) => row.accounts.length > 0));

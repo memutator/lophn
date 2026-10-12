@@ -599,7 +599,7 @@ Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 �
   );
 });
 
-Deno.test("shell/desktop#R27: 추적 꺼짐·Operator 안내는 본문 위 줄이 아니라 떠 있는 카드이고 닫아도 상단 바 단추로 다시 연다", async () => {
+Deno.test("shell/desktop#R27: 추적 꺼짐 안내는 본문 위 줄이 아니라 떠 있는 카드이고 닫아도 상단 바 단추로 다시 연다", async () => {
   const { source } = sourceOf();
   const tracking: TrackingSource = {
     project: () =>
@@ -627,17 +627,11 @@ Deno.test("shell/desktop#R27: 추적 꺼짐·Operator 안내는 본문 위 줄�
       onLauncher={() => {}}
       onLophn={() => {}}
       tracking={tracking}
-      operators={{
-        operators: () => Promise.resolve({ ok: true, value: [] }),
-      }}
-      onAttachOperator={() => {}}
-      onOpenOperator={() => {}}
     />,
   );
   await flush();
   const layer = view.container.querySelector<HTMLElement>("[data-notices]")!;
   assert(layer.querySelector("[data-tracking='off']"));
-  assert(layer.querySelector("[data-operator-entry]"));
   // 본문 열의 높이를 쓰지 않는다: 층은 떠 있고 본문(content) 안에 있다.
   assertEquals(style(layer).position, "absolute");
   assert(layer.parentElement!.querySelector("[data-pane]") !== null);
@@ -648,4 +642,29 @@ Deno.test("shell/desktop#R27: 추적 꺼짐·Operator 안내는 본문 위 줄�
   await flush();
   assert(view.container.querySelector("[data-notices] [data-tracking='off']"));
   assertEquals(view.container.querySelector("[data-show-notices]"), null);
+});
+
+Deno.test("shell/desktop#R28: 작업대에 Operator 안내가 그려지지 않는다", async () => {
+  const { source } = sourceOf();
+  // 옛 Operator 안내 통로를 넘겨도 그리지 않는다. 타입에 없는 prop이라 spread로 넘긴다.
+  const retired = {
+    operators: {
+      operators: () => Promise.resolve({ ok: true, value: [] }),
+    },
+    onAttachOperator: () => {},
+    onOpenOperator: () => {},
+  };
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      {...retired}
+    />,
+  );
+  await flush();
+  assertEquals(view.container.querySelector("[data-operator-entry]"), null);
 });

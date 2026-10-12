@@ -27,9 +27,8 @@ import {
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
-import { ConversationProvider } from "../conversation/dock-slot.tsx";
+import { ConversationProvider } from "../conversation/window-deps.tsx";
 import { coreAgentViewSourceFactory } from "../conversation/agent-core-source.ts";
-import { coreConversationSource } from "../conversation/core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import {
   RequestDrafts,
@@ -108,14 +107,10 @@ const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 const tracking = bench ? undefined : coreTrackingSource(core);
-// 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
-// 도크의 provider 끊김 줄(desktop#R7)은 같은 core 통로에서 계정 상태를 읽고, 행동은
-// lophn 공간 settings로 간다.
+// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8). provider 끊김 줄(desktop#R7)의
+// 행동은 lophn 공간 settings로 간다.
 const conversation = {
-  source: mock?.conversation ?? coreConversationSource(core),
   drafts: new DraftStore(),
-  startOpen: location.hash === "#conversation",
-  core,
   onSettings: () => {
     location.hash = "#settings";
   },
@@ -123,19 +118,19 @@ const conversation = {
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource = mock?.agentViewSource ??
   coreAgentViewSourceFactory(core);
-// 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
+// 창마다 하나인 질문·approval 통로와 고르던 답. things-to-confirm·chip이 같이 쓴다.
 const requests = {
   source: mock?.requests ?? coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
-// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
-// 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
+// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터,
+// `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
 // 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
-  : location.hash === "#lophn" || location.hash === "#conversation"
+  : location.hash === "#lophn"
   ? openLophn()
   : location.hash === "#things-to-confirm"
   ? openLophn("things-to-confirm")

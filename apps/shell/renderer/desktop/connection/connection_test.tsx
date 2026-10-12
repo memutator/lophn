@@ -17,12 +17,6 @@ import {
   retryConnection,
 } from "./connection.tsx";
 import { readProviderFacts } from "./provider-state.ts";
-import { Dock } from "../../conversation/dock.tsx";
-import { DraftStore } from "../../conversation/drafts.ts";
-import {
-  fakeSource,
-  manualTicks,
-} from "../../conversation/testdata/fake-source.ts";
 
 function sourceOf(states: ConnectionState[]): {
   source: CoreSource;
@@ -187,60 +181,3 @@ Deno.test("flow work-offline, shell/desktop#R7: provider를 아직 못 읽었으
   );
   assertEquals(view.container.querySelector("[data-provider]"), null);
 });
-
-Deno.test("flow work-offline, shell/desktop#R7: 도크는 실제 core 통로에서 provider 끊김을 읽어 대화에만 행동 한 줄을 보인다", async () => {
-  const conversation = fakeSource();
-  const providerCore = {
-    subscribe: () => () => {},
-    call: () =>
-      Promise.resolve({
-        ok: true,
-        value: {
-          providers: [{
-            name: "ChatGPT",
-            credential: { state: "rejected" },
-          }],
-          next_cursor: null,
-        },
-      }),
-  } as unknown as CoreSource;
-  let wentToSettings = 0;
-  const ticks = manualTicks();
-  using view = render(
-    <Dock
-      source={conversation.source}
-      drafts={new DraftStore()}
-      placement="docked"
-      workPlace={{ kind: "global", id: null }}
-      onClose={() => {}}
-      ticks={ticks.ticks}
-      core={providerCore}
-      onSettings={() => {
-        wentToSettings += 1;
-      }}
-    />,
-  );
-  await flush();
-  const notice = view.container.querySelector(
-    "[data-provider='unusable']",
-  ) as HTMLElement;
-  assert(notice, "the dock's provider notice is missing");
-  assert(
-    notice.textContent?.includes(
-      "The agent can't reach its account right now.",
-    ),
-    `the one-line action is missing: ${notice.textContent}`,
-  );
-  click(notice.querySelector("button")!);
-  assertEquals(wentToSettings, 1);
-  // core 끊김 줄과 다른 줄이다. core가 살아 있으므로 대화 끊김 줄은 없다.
-  assertEquals(view.container.querySelector("[data-connection]"), null);
-});
-
-async function flush(): Promise<void> {
-  for (let round = 0; round < 4; round += 1) {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-  }
-}

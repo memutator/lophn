@@ -826,20 +826,6 @@ Deno.test("shell/wording#R10: 전역 지침 편집기는 Agents의 [Edit]이 열
   );
 });
 
-Deno.test("shell/wording#R13: Ask lophn은 단추가 없는 창에서는 두지 않고 있는 창은 눌러 연다", async () => {
-  const { source } = fakeSettings({ settings: { rows: [] } });
-  using bare = render(<SettingsScreen source={source} />);
-  await flush();
-  assertEquals(bare.container.querySelector("[data-action='ask-lophn']"), null);
-  let asked = 0;
-  using wired = render(
-    <SettingsScreen source={source} onAsk={() => asked++} />,
-  );
-  await flush();
-  click(find(wired.container, "[data-action='ask-lophn']"));
-  assertEquals(asked, 1);
-});
-
 Deno.test("shell/desktop#R31, shell/desktop#R50 [agent-I46]: settings는 왼쪽 세로 nav에 자리를 묶어 두고 통로가 있는 자리만 보이며 General 다음에 Providers와 Agents가 있고 backup은 두지 않는다", async () => {
   const { source } = fakeSettings();
   using bare = render(<SettingsScreen source={source} />);

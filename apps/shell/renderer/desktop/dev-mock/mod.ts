@@ -10,7 +10,6 @@ import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
 import type { TasksSource } from "../../app-frame/app-detail/tasks/source.ts";
 import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
-import type { ConversationSource } from "../../conversation/source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
@@ -41,7 +40,7 @@ import {
   mockViews,
 } from "./app-space.ts";
 import { mockAgentViewSource } from "./agent.ts";
-import { mockConversation, mockCore, mockRequests } from "./conversation.ts";
+import { mockCore, mockRequests } from "./requests.ts";
 import { mockLophn, mockOrganize } from "./documents.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
@@ -64,7 +63,6 @@ export interface DevMock {
   readonly appViews: AppViewsDeps;
   readonly appWindows: LophnAppWindowsApi;
   readonly feedback: LophnShellFeedbackBegin;
-  readonly conversation: ConversationSource;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentViewSourceFactory;
   readonly requests: RequestSource;
@@ -128,7 +126,6 @@ export function devMock(
     appViews: mockAppViews(views),
     appWindows: mockAppWindows(),
     feedback: mockFeedback(),
-    conversation: mockConversation(),
     agentViewSource: mockAgentViewSource(),
     requests: mockRequests(),
     instructions: mockInstructions(),

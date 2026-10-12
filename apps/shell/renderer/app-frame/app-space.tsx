@@ -18,13 +18,7 @@ import type {
   AppFrameViewState,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
-import {
-  DockSlot,
-  DockToggle,
-  useConversation,
-} from "../conversation/dock-slot.tsx";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
-import { dockPlacement } from "../conversation/model.ts";
 import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
 import {
   type AppStatus,
@@ -55,7 +49,6 @@ import { AppBar } from "./app-bar.tsx";
 import {
   createViewCovers,
   EmbeddedView,
-  useViewCover,
   ViewCoversProvider,
 } from "./embedded-view.tsx";
 import { OpsPanelFrame, opsPanelPlacement } from "./ops-panel-frame.tsx";
@@ -212,11 +205,9 @@ export function AppSpace(
   const contentSize = useObservedSize(contentRef);
   const width = frameSize?.width ?? windowWidth;
 
-  // 창마다 하나인 덮개 목록. 좁은 창의 운영 패널·대화 도크가 앱 view 자리를 덮는다.
+  // 창마다 하나인 덮개 목록. 좁은 창의 운영 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
-  const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(false);
-  // agent 칸(R38)이 열려 있는 동안 도크와 운영 패널은 자리를 내준다.
+  // agent 칸(R38)이 열려 있는 동안 운영 패널은 자리를 내준다.
   const [pane, setPane] = useState<AgentPaneState | null>(null);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
@@ -224,16 +215,11 @@ export function AppSpace(
     paneShown,
     contentSize?.width ?? width,
   );
-  const dock = dockPlacement(
-    dockOpen && conversation !== null && !paneShown,
-    contentSize?.width ?? width,
-  );
-  // 도크가 열리면 운영 패널은 자리를 내주고, 닫히면 사람이 둔 상태로 돌아간다.
   const [detailsOpen, setDetailsOpen] = useState(
     issueProblem !== undefined || taskTarget !== undefined,
   );
   const ops = opsPanelPlacement(
-    detailsOpen && dock === "hidden" && !paneShown,
+    detailsOpen && !paneShown,
     width,
   );
 
@@ -407,17 +393,6 @@ export function AppSpace(
               onOpen={onThingsToConfirm}
             />
           }
-          tools={conversation
-            ? (
-              <DockToggle
-                open={dockOpen && !paneShown}
-                onToggle={() => {
-                  setPane(null);
-                  setDockOpen(!dockOpen || paneShown);
-                }}
-              />
-            )
-            : null}
           agentSelect={agents
             ? (
               <AgentSelect
@@ -551,32 +526,8 @@ export function AppSpace(
               />
             )
             : null}
-          <DockCover dock={dock} content={contentRef} />
-          <DockSlot
-            placement={dock}
-            workPlace={{ kind: "app", id: app }}
-            onClose={() => setDockOpen(false)}
-            onOpenResult={onOpenResult}
-          />
         </div>
       </ViewCoversProvider>
     </div>
   );
-}
-
-// 좁은 창에서 대화 도크가 본문을 덮으면 앱 view는 덮이지 않는 영역으로 준다(R36). 도크는
-// 대화 쪽 컴포넌트라 이 공간 안의 그 요소를 찾아 덮개로 둔다.
-function DockCover(
-  { dock, content }: {
-    dock: ReturnType<typeof dockPlacement>;
-    content: { readonly current: Element | null };
-  },
-) {
-  const ref = useMemo(() => ({
-    get current(): Element | null {
-      return content.current?.querySelector("[data-dock='overlay']") ?? null;
-    },
-  }), [content]);
-  useViewCover(ref, dock === "overlay");
-  return null;
 }

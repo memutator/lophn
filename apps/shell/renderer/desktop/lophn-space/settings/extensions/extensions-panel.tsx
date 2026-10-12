@@ -1,6 +1,5 @@
 // settings의 확장 자리(flow add-agent-extension 1·2). 로컬 skill 폴더를 등록하고 외부 도구 server를 더한다.
-// 실패하면 무엇이 그대로인지와 다음 행동 하나를 말한다. 확장을 넣어도 권한은 넓어지지 않으며
-// 어떤 Preset이 쓰는지는 roles 화면의 Preset에서 고른다.
+// 실패하면 무엇이 그대로인지와 다음 행동 하나를 말한다. 확장을 넣어도 권한은 넓어지지 않는다.
 import { useCallback, useState } from "react";
 import {
   Button,

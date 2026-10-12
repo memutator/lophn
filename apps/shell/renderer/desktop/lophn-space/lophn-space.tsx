@@ -18,12 +18,6 @@ import { LophnSidebar } from "./sidebar/sidebar.tsx";
 import { DocumentsScreen } from "./documents/documents-screen.tsx";
 import type { ReaderTarget } from "./documents/reader.tsx";
 import {
-  DockSlot,
-  DockToggle,
-  useConversation,
-} from "../../conversation/dock-slot.tsx";
-import { dockPlacement } from "../../conversation/model.ts";
-import {
   PaletteButton,
   usePaletteEnv,
   usePaletteScope,
@@ -108,20 +102,9 @@ export function LophnSpace(
     collapsedByUser: false,
   });
   const frameRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
-  const contentSize = useObservedSize(contentRef);
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
-  // 대화 도크. lophn 공간에는 정보 패널이 없어 본문만 민다(desktop#R2).
-  const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(
-    conversation?.startOpen === true,
-  );
-  const dock = dockPlacement(
-    dockOpen && conversation !== null,
-    contentSize?.width ?? windowWidth - shown.width,
-  );
-  // 대화의 결과 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
+  // 팔레트나 바깥 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
   const [reading, setReading] = useState<
     { readonly target: ReaderTarget; readonly count: number } | null
   >(
@@ -222,19 +205,11 @@ export function LophnSpace(
             trailing={
               <span className={styles.trailing}>
                 <PaletteButton />
-                {conversation
-                  ? (
-                    <DockToggle
-                      open={dockOpen}
-                      onToggle={() => setDockOpen(!dockOpen)}
-                    />
-                  )
-                  : null}
               </span>
             }
           />
         </div>
-        <div className={styles.content} ref={contentRef}>
+        <div className={styles.content}>
           {current === "documents"
             ? (
               <DocumentsScreen
@@ -255,7 +230,6 @@ export function LophnSpace(
                 coding={coding}
                 initialConnection={initialConnection}
                 onInstructions={onInstructions}
-                onAsk={conversation ? () => setDockOpen(true) : undefined}
               />
             )
             : current === "things-to-confirm" && requests !== null
@@ -272,18 +246,6 @@ export function LophnSpace(
                 {t("common.empty.not-ready")}
               </p>
             )}
-          <DockSlot
-            placement={dock}
-            workPlace={{ kind: "global", id: null }}
-            onClose={() => setDockOpen(false)}
-            onOpenResult={(document, version) => {
-              setCurrent("documents");
-              setReading((previous) => ({
-                target: { document, version, section: null },
-                count: (previous?.count ?? 0) + 1,
-              }));
-            }}
-          />
         </div>
       </div>
     </div>

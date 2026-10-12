@@ -7,7 +7,7 @@ import { t } from "@lophn/wording";
 
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
-import { useConversation } from "../conversation/dock-slot.tsx";
+import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
 import { AgentsPage } from "../workspace/agents/agents-page.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";

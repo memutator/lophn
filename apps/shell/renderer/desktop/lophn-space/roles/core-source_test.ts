@@ -402,8 +402,11 @@ Deno.test("shell/desktop#R4: 대화 통로는 역할의 담당을 가리키고 �
     workPlace: { kind: "app", id: APP },
   });
   const open = calls.find((call) => call.method === "open")!;
-  assertEquals(
-    (open.body as { input: { role: string } }).input.role,
-    "app_engineer",
-  );
+  // 세션은 담당과 자리로만 열린다. 역할·이어받기 field는 없다.
+  assertEquals((open.body as { input: unknown }).input, {
+    id: SES,
+    assignment: ASG,
+    work_place: { kind: "app", id: APP },
+    opening_context: null,
+  });
 });

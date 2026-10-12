@@ -182,7 +182,10 @@ export function Dock(
     ? selected
     : defaultSession(loaded.sessions);
 
+  const placeKind = workPlace.kind;
+  const placeId = workPlace.id;
   const refresh = useCallback(async () => {
+    const place = { kind: placeKind, id: placeId } as WorkPlace;
     const agent = await source.agent();
     if (!agent.ok) {
       setLoaded((state) => ({ ...state, failed: true }));
@@ -193,7 +196,7 @@ export function Dock(
       return;
     }
     const [sessions, runs] = await Promise.all([
-      source.sessions(agent.value.id),
+      source.sessions(agent.value.id, place),
       source.runs(agent.value.id),
     ]);
     if (!sessions.ok || !runs.ok) {
@@ -232,7 +235,7 @@ export function Dock(
       checkedAt: now(),
       failed: false,
     });
-  }, [source, drafts, now]);
+  }, [source, drafts, now, placeKind, placeId]);
 
   useEffect(() => {
     let previous: ConnectionState["state"] | null = null;

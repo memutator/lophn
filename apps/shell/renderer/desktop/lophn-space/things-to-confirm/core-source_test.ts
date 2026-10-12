@@ -6,19 +6,15 @@ import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { coreRequestSource } from "./core-source.ts";
-import { QUESTION_TEXT_MAX_BYTES } from "./model.ts";
 import type { QuestionRequest, ReviewIntent } from "./source.ts";
-import { questionContract } from "./testdata/question-contract.ts";
 
 const QST = "qst_01k6aaaaaaaaaaaaaaaaaaaaa1";
-const QST2 = "qst_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const APR = "apr_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const APR2 = "apr_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const RUN = "run_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const RUN2 = "run_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const ASG = "asg_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const SES = "ses_01k6aaaaaaaaaaaaaaaaaaaaa1";
-const SES2 = "ses_01k6aaaaaaaaaaaaaaaaaaaaa2";
 const PRJ = "prj_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const NTF = "ntf_01k6aaaaaaaaaaaaaaaaaaaaa1";
 
@@ -43,44 +39,6 @@ function name(call: CoreCall): string {
 }
 
 const ok = (value: unknown): CoreReply => ({ ok: true, value });
-
-function questionValue(patch: Record<string, unknown> = {}) {
-  return {
-    id: QST,
-    run: RUN,
-    session: SES,
-    prompt_blob: "a".repeat(64),
-    reason_blob: "b".repeat(64),
-    options: [
-      {
-        key: "keep",
-        label: "Keep both files",
-        description_blob: "c".repeat(64),
-        evidence: [],
-        adoption: null,
-        action: null,
-      },
-      {
-        key: "move",
-        label: "Move it",
-        description_blob: "d".repeat(64),
-        evidence: [],
-        adoption: null,
-        action: { concern: "platform/settings", command: "apply_settings" },
-      },
-    ],
-    recommendation: { option_key: "keep", explanation_blob: "e".repeat(64) },
-    expires_at: null,
-    status: "pending",
-    answer: null,
-    closed_reason: null,
-    closed_reason_blob: null,
-    created_seq: "10",
-    closed_seq: null,
-    applied: false,
-    ...patch,
-  };
-}
 
 function approvalValue(patch: Record<string, unknown> = {}) {
   return {
@@ -119,123 +77,38 @@ const QUESTION: QuestionRequest = {
   applied: false,
 };
 
-Deno.test("lophn-agent/questions#R6: action 없는 답은 확인 handle 없이 questions/answer로 가고 자유 답은 글을 값으로 싣는다", async () => {
-  const contract = await questionContract();
-  const { core, calls } = coreOf(() => ok({}));
+Deno.test("lophn-agent/questions#R4, R6: 질문 묶음은 이 화면이 읽거나 보내지 않고 질문 쪽 통로는 못 한다고 답한다", async () => {
+  const { core, calls } = coreOf(() =>
+    ok({
+      assignments: [],
+      runs: [],
+      sessions: [],
+      requests: [],
+      notifications: [],
+      next_cursor: null,
+    })
+  );
   const source = coreRequestSource(core, undefined);
+  assertEquals(await source.text(QUESTION), { ok: false, code: "unavailable" });
   assertEquals(
     await source.answer(QUESTION, { kind: "option", option: "keep" }),
-    { ok: true, value: undefined },
+    { ok: false, code: "unavailable" },
   );
-  await source.answer(QUESTION, { kind: "option", option: "keep" });
-  await source.answer(QUESTION, { kind: "text", text: "Keep the newer one" });
-  assertEquals(calls.map(name), [
-    "command:questions/answer",
-    "command:questions/answer",
-    "command:questions/answer",
-  ]);
-  const [first, again, text] = calls.map((call) =>
-    call.body as {
-      input: Record<string, unknown>;
-      idempotency_key: string;
-      compare: unknown;
-      prepared: unknown[];
-      confirmation?: unknown;
-    }
-  );
-  assertEquals(first!.input, {
-    question: QST,
-    created_seq: "10",
-    answer: { kind: "option", option_key: "keep" },
-  });
-  assertEquals(first!.compare, { created_seq: "10" });
-  assertEquals(first!.prepared, []);
-  // 일반 답에는 확인 handle이 없다. action 답 route의 handle은 보호 창이 맡는다.
-  assertEquals("confirmation" in first!, false);
-  assert(first!.idempotency_key.startsWith(`questions-answer-${QST}-`));
-  assert(new TextEncoder().encode(first!.idempotency_key).length <= 128);
-  assertEquals(again!.idempotency_key, first!.idempotency_key);
-  assert(text!.idempotency_key !== first!.idempotency_key);
-  assertEquals(text!.input["answer"], {
-    kind: "text",
-    text: "Keep the newer one",
-  });
-  for (const body of [first!, text!]) {
-    assert(contract.answerQuestion.input.safeParse(body.input).success);
-    // action 답 route는 binding_hash·evidence가 없으면 받지 않는다.
-    assert(!contract.answerQuestionAction.input.safeParse(body.input).success);
-  }
-  assertEquals(contract.answerQuestionAction.binding, [
-    "question",
-    "created_seq",
-    "answer",
-    "binding_hash",
-  ]);
-});
-
-Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 command이고 취소만 이유 글을 값으로 싣는다", async () => {
-  const contract = await questionContract();
-  const { core, calls } = coreOf(() => ok({}));
-  const source = coreRequestSource(core, undefined);
-  await source.defer(QUESTION);
-  await source.cancel(QUESTION, "Not needed anymore");
-  assertEquals(calls.map(name), [
-    "command:questions/defer",
-    "command:questions/cancel",
-  ]);
-  const deferred = (calls[0]!.body as { input: unknown }).input;
-  const cancelled = (calls[1]!.body as { input: unknown }).input;
-  assertEquals(deferred, { question: QST, created_seq: "10" });
-  assertEquals(cancelled, {
-    question: QST,
-    created_seq: "10",
-    closed_reason: "cancelled",
-    closed_reason_text: "Not needed anymore",
-  });
-  assert(contract.deferQuestion.input.safeParse(deferred).success);
-  assert(contract.cancelQuestion.input.safeParse(cancelled).success);
-  const failing = coreRequestSource(
-    coreOf(() => ({ ok: false, error: { code: "conflict", message: "" } }))
-      .core,
-    undefined,
-  );
-  assertEquals(await failing.defer(QUESTION), {
-    ok: false,
-    code: "conflict",
-  });
-});
-
-Deno.test("lophn-agent/questions#R4: 질문의 글은 questions/text로 읽고 선택지 설명은 key로 찾는다", async () => {
-  const contract = await questionContract();
-  // 칸이 보내기 전에 막는 상한이 contract의 상한과 같다.
-  assertEquals(QUESTION_TEXT_MAX_BYTES, contract.QUESTION_TEXT_MAX_BYTES);
-  let reply: CoreReply = ok({
-    question: QST,
-    prompt: "Which copy should stay?",
-    reason: "Both changed.",
-    options: [{ key: "keep", description: "Keep both, renamed." }],
-    recommendation: { option_key: "keep", explanation: "Nothing is lost." },
-    answer_text: null,
-    closed_reason_text: null,
-  });
-  const { core, calls } = coreOf(() => reply);
-  const source = coreRequestSource(core, undefined);
-  const read = await source.text(QUESTION);
-  assert(read.ok);
-  assertEquals(read.value.prompt, "Which copy should stay?");
-  assertEquals(read.value.reason, "Both changed.");
-  assertEquals(read.value.options.get("keep"), "Keep both, renamed.");
-  assertEquals(read.value.recommendation, "Nothing is lost.");
-  assertEquals(read.value.answer, null);
-  assertEquals(read.value.closedReason, null);
-  assertEquals(calls.map(name), ["read:questions/text"]);
-  assertEquals(calls[0]!.body, { question: QST });
-  assert(contract.questionText.input.safeParse(calls[0]!.body).success);
-  reply = { ok: false, error: { code: "unavailable", message: "" } };
-  assertEquals(await source.text(QUESTION), {
+  assertEquals(await source.defer(QUESTION), {
     ok: false,
     code: "unavailable",
   });
+  assertEquals(await source.cancel(QUESTION, "No longer needed"), {
+    ok: false,
+    code: "unavailable",
+  });
+  const overview = await source.overview();
+  assert(overview.ok);
+  assertEquals(overview.value.requests, []);
+  const pending = await source.pending(SES);
+  assert(pending.ok);
+  assertEquals(pending.value, []);
+  assert(calls.every((call) => call.resource !== "questions"));
 });
 
 Deno.test("platform/notifications#R5: 읽음 표시는 notifications/read 하나이고 목록은 source seq 다음부터 끝까지 읽는다", async () => {
@@ -321,14 +194,6 @@ Deno.test("platform/notifications#R10: 목록의 OS 전달 실패 이유만 row�
 Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 그 요청을 기다리면 먼저 둘 표시를 단다", async () => {
   const { core, calls } = coreOf((call) => {
     switch (name(call)) {
-      case "read:questions/list":
-        return ok({
-          questions: [
-            questionValue(),
-            questionValue({ id: QST2, session: SES2, run: RUN2 }),
-          ],
-          next_cursor: null,
-        });
       case "read:approvals/list":
         return ok({
           requests: [
@@ -338,7 +203,7 @@ Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 
         });
       case "read:runs/list":
         return ok({
-          runs: [{ id: RUN, assignment: ASG, session: SES, waiting_on: QST }],
+          runs: [{ id: RUN, assignment: ASG, session: SES, waiting_on: APR }],
           next_cursor: null,
         });
       case "read:runs/read":
@@ -352,19 +217,11 @@ Deno.test("shell/desktop#R6: 칸의 요청은 그 세션의 것만이고 run이 
   const source = coreRequestSource(core, undefined);
   const pending = await source.pending(SES);
   assert(pending.ok);
-  assertEquals(pending.value.map((request) => request.id), [QST, APR]);
-  assertEquals(pending.value.map((request) => request.blocking), [true, false]);
-  const first = pending.value[0]!;
-  assert(first.kind === "question");
-  assertEquals(first.options, [
-    { key: "keep", label: "Keep both files", action: false },
-    { key: "move", label: "Move it", action: true },
-  ]);
-  assertEquals(first.recommended, "keep");
+  assertEquals(pending.value.map((request) => request.id), [APR]);
+  assertEquals(pending.value.map((request) => request.blocking), [true]);
   const bodies = Object.fromEntries(
     calls.map((call) => [name(call), call.body]),
   );
-  assertEquals(bodies["read:questions/list"], { status: "pending" });
   assertEquals(bodies["read:approvals/list"], { status: "pending" });
   assertEquals(bodies["read:runs/list"], { state: "waiting_user" });
   assertEquals(bodies["read:runs/read"], { run: RUN2 });
@@ -386,23 +243,17 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
           ],
           next_cursor: null,
         });
-      case "read:sessions/list":
+      case "read:sessions/read":
         return ok({
-          sessions: [{ id: SES, work_place: { kind: "project", id: PRJ } }],
-          next_cursor: null,
-        });
-      case "read:questions/list":
-        return ok({
-          questions: [questionValue({
-            status: "answered",
-            answer: { kind: "option", option_key: "move", text_blob: null },
-            closed_seq: "15",
-            applied: true,
-          })],
-          next_cursor: null,
+          session: { id: SES, work_place: { kind: "project", id: PRJ } },
         });
       case "read:approvals/list":
-        return ok({ requests: [approvalValue()] });
+        return ok({
+          requests: [
+            approvalValue(),
+            approvalValue({ id: APR2, run: RUN, created_seq: "10" }),
+          ],
+        });
       case "read:notifications/list":
         return ok({ notifications: [] });
       case "read:events/list":
@@ -422,20 +273,19 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
   const source = coreRequestSource(core, undefined);
   const overview = await source.overview();
   assert(overview.ok);
-  const [question, approval] = overview.value.requests;
-  assert(question?.kind === "question");
-  assertEquals(question.role, "operator");
-  assertEquals(question.place, { kind: "project", id: PRJ });
-  assertEquals(question.answer, { kind: "option", option: "move" });
-  assertEquals(question.applied, true);
-  assertEquals(question.createdAt, Date.parse("2026-10-06T08:00:00.000Z"));
-  assertEquals(question.closedAt, Date.parse("2026-10-06T08:30:00.000Z"));
+  const [approval, placed] = overview.value.requests;
   assert(approval?.kind === "approval");
   assertEquals(approval.session, null);
   assertEquals(approval.place, null);
   assertEquals(approval.blocking, true);
   assertEquals(approval.reversible, true);
   assertEquals(approval.createdAt, Date.parse("2026-10-06T08:45:00.000Z"));
+  assert(placed?.kind === "approval");
+  assertEquals(placed.role, "operator");
+  assertEquals(placed.session, SES);
+  assertEquals(placed.place, { kind: "project", id: PRJ });
+  assertEquals(placed.blocking, false);
+  assertEquals(placed.createdAt, Date.parse("2026-10-06T08:00:00.000Z"));
   const events = calls.find((call) => name(call) === "read:events/list");
   const body = events!.body as {
     after_seq: string;
@@ -443,21 +293,23 @@ Deno.test("shell/desktop#R9: 전체 목록은 역할·자리·시각을 run·세
     subjects: string[];
   };
   assertEquals(body.after_seq, "9");
-  assertEquals(body.subjects, [QST, APR]);
-  assert(body.types.includes("QuestionCreated"));
+  assertEquals(body.subjects, [APR, APR2]);
   assert(body.types.includes("ApprovalRequestGranted"));
-  // 목록은 filter 없이 모두 읽는다.
+  // 목록은 filter 없이 모두 읽는다. 세션은 목록이 아니라 요청이 걸린 세션만 하나씩 읽는다.
   for (
     const route of [
       "read:assignments/list",
       "read:runs/list",
-      "read:sessions/list",
-      "read:questions/list",
       "read:approvals/list",
     ]
   ) {
     assertEquals(calls.find((call) => name(call) === route)?.body, {});
   }
+  assertEquals(calls.map(name).includes("read:sessions/list"), false);
+  assertEquals(
+    calls.find((call) => name(call) === "read:sessions/read")?.body,
+    { session: SES },
+  );
 });
 
 Deno.test("shell/desktop#R6: [Review]는 preload의 보호 창 열기로만 가고 없으면 열 수 없다고 돌려준다", async () => {
@@ -519,16 +371,12 @@ Deno.test("platform/approvals#R1: approval 설명은 blobs/read로 읽고 글이
   assertEquals(await source.reason(approval), { ok: true, value: null });
 });
 
-Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 질문만 돌려주고 못 읽은 쪽을 표시한다", async () => {
+Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 못 읽은 쪽을 표시한다", async () => {
   const { core } = coreOf((call) => {
     switch (name(call)) {
       case "read:approvals/list":
       case "read:notifications/list":
         return { ok: false, error: { code: "not_found", message: "" } };
-      case "read:questions/list":
-        return ok({ questions: [questionValue()], next_cursor: null });
-      case "read:events/list":
-        return ok({ events: [], scanned_through_seq: "10", head_seq: "10" });
       default:
         return ok({
           assignments: [],
@@ -541,10 +389,10 @@ Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 �
   const source = coreRequestSource(core, undefined);
   const overview = await source.overview();
   assert(overview.ok);
-  assertEquals(overview.value.requests.map((request) => request.id), [QST]);
+  assertEquals(overview.value.requests, []);
   assertEquals(overview.value.approvalsRead, false);
   assertEquals(overview.value.notificationsRead, false);
   const pending = await source.pending(SES);
   assert(pending.ok);
-  assertEquals(pending.value.map((request) => request.id), [QST]);
+  assertEquals(pending.value, []);
 });

@@ -44,13 +44,34 @@ function write(textarea: HTMLTextAreaElement, value: string): void {
 Deno.test("lophn-agent/conversation#R2: 실제 core에서 도크가 글을 content로 보내고 ReadMessageBody로 다시 읽어 그린다", async () => {
   const core = await startRealCore();
   try {
+    // Lophn Workspace에는 세션이 없다. 세션은 프로젝트(또는 앱) 하나에 속하므로 프로젝트를 만든다.
+    const project = "prj_01k6aaaaaaaaaaaaaaaaaaaaa1";
+    const created = await core.source.call({
+      kind: "command",
+      resource: "projects",
+      method: "create",
+      body: {
+        input: {
+          id: project,
+          name: "weekly",
+          title: "Weekly",
+          purpose: "",
+          folders: [],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        },
+        idempotency_key: `projects-create-${project}`,
+        compare: {},
+        prepared: [],
+      },
+    });
+    assert(created.ok, core.log());
     const source = coreConversationSource(core.source);
     const dock = (drafts: DraftStore) => (
       <Dock
         source={source}
         drafts={drafts}
         placement="docked"
-        workPlace={{ kind: "global", id: null }}
+        workPlace={{ kind: "project", id: project }}
         onClose={() => {}}
         ticks={manualTicks().ticks}
       />
@@ -109,7 +130,10 @@ Deno.test("lophn-agent/conversation#R2: 실제 core에서 도크가 글을 conte
     assertEquals(read.value, [{ kind: "text", text }]);
     const agent = await source.agent();
     assert(agent.ok && agent.value !== null);
-    const sessions = await source.sessions(agent.value.id);
+    const sessions = await source.sessions(agent.value.id, {
+      kind: "project",
+      id: project,
+    });
     assert(sessions.ok);
     const session = sessions.value[0]!;
     const raw = async (n: number, input: Record<string, unknown>) =>

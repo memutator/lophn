@@ -129,14 +129,12 @@ export interface ModelPick extends ModelChoice {
   readonly accounts: readonly string[];
 }
 
-/** model 기본값. 새 Preset의 생성 후보일 뿐 기존 Preset을 바꾸지 않는다. */
+/** model 기본값. 값을 정하지 않은 agent가 따르는 Workspace 층 기본이다. */
 export interface ModelDefaults {
   readonly decisions: ModelChoice | null;
   readonly summaries: ModelChoice | null;
   /** 바꿀 때의 비교 기준. */
   readonly seq: string;
-  /** 바꾸지 않는 쪽을 그대로 돌려보내는 원본. 화면은 읽지 않는다. */
-  readonly raw: { readonly decisions: unknown; readonly summaries: unknown };
 }
 
 export type ModelUse = "decisions" | "summaries";

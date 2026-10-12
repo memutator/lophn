@@ -187,7 +187,9 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
       };
     },
 
-    async sessions(agent) {
+    async sessions(agent, workPlace) {
+      // 전역 자리에는 세션이 없다. core에 묻지 않는다.
+      if (workPlace.kind === "global") return { ok: true, value: [] };
       const listed = await pages<
         SessionValue,
         Page & {
@@ -197,7 +199,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         core,
         "sessions",
         "list",
-        { assignment: agent },
+        { assignment: agent, work_place: workPlace },
         (value) => value.sessions,
       );
       return listed.ok
@@ -260,9 +262,8 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         input: {
           id,
           assignment: agent.id,
-          role: agent.role ?? "lophn",
           work_place: workPlace,
-          continued_from: null,
+          opening_context: null,
         },
         compare: {
           assignment_revision: agent.revision,

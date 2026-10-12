@@ -555,7 +555,6 @@ Deno.test("shell/wording#R13: 일반 자리의 model 선택은 For decisions·Fo
       decisions: { provider: CLAUDE, model: "claude-small" },
       summaries: null,
       seq: "9",
-      raw: { decisions: { provider: CLAUDE }, summaries: null },
     },
   });
   using view = render(<SettingsScreen source={source} />);

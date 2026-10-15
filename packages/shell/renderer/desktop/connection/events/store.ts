@@ -1,5 +1,5 @@
 import type { EventMessage } from "./client.ts";
-import type { TypedEvent } from "./typed.ts";
+import type { BusEvent } from "../../../../../protocol/events/mod.ts";
 
 // useSyncExternalStore가 읽는 가장 작은 store. 값은 바뀔 때마다 새 객체로 갈아 끼운다.
 export interface ValueStore<T> {
@@ -30,7 +30,7 @@ export interface SyncOptions<R> {
   read(): Promise<R | null>;
   /** snapshot으로 지금 상태를 통째로 맞춘다. */
   replace(snapshot: R): void;
-  apply(event: TypedEvent): void;
+  apply(event: BusEvent): void;
   onStatus?(status: "syncing" | "synced" | "disconnected"): void;
 }
 
@@ -41,7 +41,7 @@ export interface SyncOptions<R> {
 export function syncOnReady<R>(options: SyncOptions<R>) {
   let generation = 0;
   let syncing = false;
-  let buffered: TypedEvent[] = [];
+  let buffered: BusEvent[] = [];
 
   async function sync() {
     const mine = ++generation;

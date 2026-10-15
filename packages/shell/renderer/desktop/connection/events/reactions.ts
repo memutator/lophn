@@ -1,5 +1,5 @@
 // event를 넣으면 반응(toast) 목록이 나오는 순수 함수. 문구 key는 toast 호스트의 wording이 채운다.
-import type { TypedEvent } from "./typed.ts";
+import type { BusEvent } from "../../../../../protocol/events/mod.ts";
 import { approvalWaitingKind } from "./waiting-store.ts";
 
 export type ReactionAction =
@@ -50,7 +50,7 @@ function toast(
 
 /** snapshot으로 들어온 것은 놓친 toast라 다시 띄우지 않는다. */
 export function reactionsOf(
-  event: TypedEvent,
+  event: BusEvent,
   origin: "live" | "snapshot",
 ): readonly Reaction[] {
   if (origin === "snapshot") return NONE;

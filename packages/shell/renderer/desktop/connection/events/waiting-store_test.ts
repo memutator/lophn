@@ -8,7 +8,6 @@ import { createEventClient } from "./client.ts";
 import { createFakeSource } from "./fake-source.ts";
 import { reactionsOf } from "./reactions.ts";
 import { createWaitingStore } from "./waiting-store.ts";
-import { typedEvent } from "./typed.ts";
 
 const SES = "ses_01h455vb4pex5v6nkc6gd5fd01";
 const TURN = "trn_01h455vb4pex5v6nkc6gd5fd01";
@@ -69,33 +68,33 @@ function activation(n: number): PendingApproval {
 
 // schema를 통과하는 event만 흘린다. 틀린 fixture는 여기서 던진다.
 const permissionRequested = (n: number) =>
-  typedEvent(busEventSchema.parse({
+  busEventSchema.parse({
     session: SES,
     type: "PermissionRequested",
     at: AT,
     payload: { request: permission(n) },
-  }));
+  });
 const permissionResolved = (n: number) =>
-  typedEvent(busEventSchema.parse({
+  busEventSchema.parse({
     session: SES,
     type: "PermissionResolved",
     at: AT,
     payload: { request: id("apr", n), outcome: "allow" },
-  }));
+  });
 const questionAsked = (n: number) =>
-  typedEvent(busEventSchema.parse({
+  busEventSchema.parse({
     session: SES,
     type: "QuestionAsked",
     at: AT,
     payload: { group: id("qgr", n), turn: TURN, tool_call: CALL },
-  }));
+  });
 const approvalRequested = (n: number) =>
-  typedEvent(busEventSchema.parse({
+  busEventSchema.parse({
     type: "ApprovalRequested",
     subject: id("apr", n),
     at: AT,
     payload: { request: activation(n) },
-  }));
+  });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const ids = (store: ReturnType<typeof createWaitingStore>) =>

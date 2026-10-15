@@ -1,7 +1,7 @@
 // 대기 목록·toast·secret 보호 입력 화면. 동작하는 ProjectApp 위에 renderer의 대기 목록 층을 얹고, 항목은 fake Gateway가
-// 채운다. toast 그림은 screens-data-toast가 고치기 전까지 이 파일 안 작은 wrapper가 그린다.
+// 채운다. toast는 design Toast를 직접 쓴다.
 import { useState } from "react";
-import { ToastStack } from "@lophn/design/components";
+import { Toast, ToastStack } from "@lophn/design/components";
 
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
@@ -21,10 +21,13 @@ import {
   WaitingLayer,
   type WaitingLayerProps,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/waiting-layer.tsx";
+import { busEventSchema } from "../../../../../packages/protocol/events/mod.ts";
+import type { CallAgent } from "../../../../../packages/protocol/lophn-agent/calls.ts";
+import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/connection/events/reactions.ts";
+import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import { ProjectApp } from "../project-app.tsx";
 import { documentTab } from "../phroner-data.ts";
 import { SecretInput } from "./secret-input.tsx";
-import { type ToastRow, WaitingToast } from "./waiting-toast.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
 
@@ -32,56 +35,89 @@ type Items = Parameters<typeof createFakeWaiting>[0];
 
 const noop = () => {};
 
-const TOASTS: readonly ToastRow[] = [
+const sid = (prefix: string, n: number) =>
+  `${prefix}_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
+const AT = "2026-10-16T09:00:00.000Z";
+
+// 반응 층이 읽는 것과 같은 event를 fake로 만들어 reactionsOf에 넣는다. 정적 화면이라 overlay 창은 쓰지 않는다.
+const permission = APP_API_CALL();
+const FAKE_EVENTS = [
   {
-    id: "toast-permission",
-    title: "Operator needs permission",
-    body: "Call Budget › entries.create (write)",
-    action: "Review",
-    goes: "list",
+    session: permission.session.id,
+    type: "PermissionRequested",
+    at: AT,
+    payload: { request: permission.request },
   },
   {
-    id: "toast-approval",
-    title: "Orders release 7 needs approval",
-    body: "4 new declarations and 3 data-loss steps",
-    action: "Review",
-    goes: "list",
+    type: "ApprovalRequested",
+    subject: ACTIVATION().id,
+    at: AT,
+    payload: { request: ACTIVATION() },
   },
   {
-    id: "toast-question",
-    title: "lophn has a question",
-    body: "Weekly report",
-    action: "Open session",
-    goes: "session",
+    session: sid("ses", 4),
+    type: "QuestionAsked",
+    at: AT,
+    payload: {
+      group: sid("qgr", 1),
+      turn: sid("trn", 31),
+      tool_call: sid("tcl", 31),
+    },
   },
   {
-    id: "toast-restart",
-    title: "App restart halted",
-    body: "Orders kept crashing, so lophn stopped restarting it.",
-    action: "Open session",
-    goes: "session",
+    seq: "7",
+    type: "AppRestartHalted",
+    subject: sid("app", 1),
+    actor: "machine",
+    at: AT,
+    payload: { release: sid("rel", 7), crashes: 3 },
   },
-];
+  {
+    seq: "8",
+    type: "ContextViolationFound",
+    subject: sid("prj", 1),
+    actor: "machine",
+    at: AT,
+    payload: {
+      project: sid("prj", 1),
+      context: sid("ctx", 1),
+      check: sid("chk", 1),
+    },
+  },
+].flatMap((event) => reactionsOf(busEventSchema.parse(event), "live"));
+
+const AGENTS: Record<string, CallAgent> = {
+  [permission.session.id]: permission.session.agent,
+};
+
+// 시간이 가지 않는 timer를 주어 화면에 남은 채로 보인다. ×와 행동으로 닫는다.
+const NO_TIMER = { set: () => 0, clear: () => {} };
 
 // toast의 [Review]는 대기 목록 panel을 연다.
 function Toasts() {
   const { setOpen } = useWaitingPanel();
-  const [toasts, setToasts] = useState(TOASTS);
+  const [reactions, setReactions] = useState(FAKE_EVENTS);
   const remove = (id: string) =>
-    setToasts((now) => now.filter((row) => row.id !== id));
+    setReactions((now) => now.filter((row) => row.id !== id));
   return (
     <ToastStack>
-      {toasts.map((toast) => (
-        <WaitingToast
-          key={toast.id}
-          toast={toast}
-          onAction={() => {
-            if (toast.goes === "list") setOpen(true);
-            remove(toast.id);
-          }}
-          onClose={() => remove(toast.id)}
-        />
-      ))}
+      {reactions.map((reaction) => {
+        const text = toastText(reaction, (session) => AGENTS[session] ?? null);
+        return (
+          <Toast
+            key={reaction.id}
+            title={text.title}
+            body={text.body}
+            actions={text.action ? [{ id: "act", label: text.action }] : []}
+            onAction={() => {
+              if (reaction.action?.kind === "waiting") setOpen(true);
+              remove(reaction.id);
+            }}
+            onClose={() => remove(reaction.id)}
+            timer={NO_TIMER}
+          />
+        );
+      })}
     </ToastStack>
   );
 }

@@ -132,14 +132,21 @@ export function SurfaceView(
         />
       );
     case "notification": {
-      // toast 행동은 최대 2개다. 앞의 두 행동만 보인다.
-      const [first, second] = enabled as ToastAction[];
+      // toast 행동은 최대 3개다. 앞의 세 행동만 보인다.
+      const [first, second, third] = enabled as ToastAction[];
       return (
         <ToastStack>
           <Toast
             title={label}
             body={text}
-            actions={second ? [first, second] : first ? [first] : []}
+            tone={surface.model.tone}
+            actions={third
+              ? [first, second, third]
+              : second
+              ? [first, second]
+              : first
+              ? [first]
+              : []}
             onAction={select}
             onClose={actions.close}
             timer={timer}

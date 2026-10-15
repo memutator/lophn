@@ -444,6 +444,31 @@ export type DataPlaceholders = {
     agent: "string";
   };
   "waiting.notice.settled-failed": Record<never, never>;
+  "waiting.toast-approval.button": Record<never, never>;
+  "waiting.toast-approval.body": Record<never, never>;
+  "waiting.toast-approval.title": {
+    intent: "string";
+  };
+  "waiting.toast-permission.button": Record<never, never>;
+  "waiting.toast-permission.body": Record<never, never>;
+  "waiting.toast-permission.title": {
+    agent: "string";
+  };
+  "waiting.toast-question.button": Record<never, never>;
+  "waiting.toast-question.body": Record<never, never>;
+  "waiting.toast-question.title": {
+    agent: "string";
+  };
+  "waiting.toast-restart-halted.button": Record<never, never>;
+  "waiting.toast-restart-halted.body": {
+    app: "string";
+  };
+  "waiting.toast-restart-halted.title": Record<never, never>;
+  "waiting.toast-violation.button": Record<never, never>;
+  "waiting.toast-violation.body": {
+    context: "string";
+  };
+  "waiting.toast-violation.title": Record<never, never>;
   "waiting.title.activation": {
     app: "string";
   };

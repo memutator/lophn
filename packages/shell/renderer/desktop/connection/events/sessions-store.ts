@@ -1,6 +1,7 @@
 // session 목록과 상태. 상태는 event와 snapshot에서 이 쪽이 계산한다.
 import type { z } from "zod";
 import type {
+  BusEvent,
   EventCondition,
   SessionSnapshot,
   SessionState,
@@ -8,7 +9,6 @@ import type {
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
 import type { EventClient } from "./client.ts";
-import type { TypedEvent } from "./typed.ts";
 import { readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
@@ -21,7 +21,6 @@ export interface SessionEntry {
   readonly archived: boolean;
   /** 끝났다면 이유. 끝난 session도 기록으로는 남는다(지운 것은 목록에서 빠진다). */
   readonly ended: EndReason | null;
-  /** SessionStarted를 받은 session만 안다. snapshot은 싣지 않는다. */
   readonly agent: CallAgent | null;
   readonly place: Place | null;
 }
@@ -98,7 +97,7 @@ export function createSessionsStore(client: EventClient): SessionsStore {
     return record;
   }
 
-  function apply(event: TypedEvent) {
+  function apply(event: BusEvent) {
     switch (event.type) {
       case "SessionStarted": {
         const { agent, place } = event.payload;
@@ -153,7 +152,6 @@ export function createSessionsStore(client: EventClient): SessionsStore {
       if (record.ended === "archived") next.set(session, record);
     }
     for (const snapshot of snapshots) {
-      const old = records.get(snapshot.session);
       next.set(snapshot.session, {
         base: snapshot.state === "unknown" ? "unknown" : "idle",
         turnActive: snapshot.state === "running" ||
@@ -163,8 +161,8 @@ export function createSessionsStore(client: EventClient): SessionsStore {
           ...snapshot.questions.map((question) => question.group),
         ]),
         ended: null,
-        agent: old?.agent ?? null,
-        place: old?.place ?? null,
+        agent: snapshot.agent,
+        place: snapshot.place,
       });
     }
     records = next;

@@ -23,7 +23,7 @@ export interface Settled {
 
 /**
  * entries는 지금 목록이다. 항목이 PermissionResolved·QuestionResolved로 cancelled가 되면 줄로 남기고,
- * 다른 창에서 낸 ApprovalDecided는 보류 request를 다시 읽어 목록에서 뺀다.
+ * ApprovalDecided는 보류 request를 다시 읽어 목록에서 빼고, "접수" 줄을 적용 결과(applied·failed)로 바꾼다.
  */
 export function useSettled(
   entries: readonly WaitingEntry[],
@@ -35,8 +35,13 @@ export function useSettled(
   // 사라진 뒤에도 줄을 만들 수 있게 본 항목을 기억한다.
   const known = useRef(new Map<string, WaitingEntry>());
   for (const entry of entries) known.current.set(entry.id, entry);
+  // 결정 응답보다 ApprovalDecided가 먼저 오면 줄이 생길 때 이 결과로 바꾼다.
+  const applied = useRef(new Map<string, SettledState>());
 
-  const add = useCallback((entry: WaitingEntry, state: SettledState) => {
+  const add = useCallback((entry: WaitingEntry, given: SettledState) => {
+    const state = given === "accepted"
+      ? applied.current.get(entry.id) ?? given
+      : given;
     const view = cardOf(entry);
     const row: SettledRow = {
       id: entry.id,
@@ -56,6 +61,17 @@ export function useSettled(
       if (message.kind !== "event") return;
       const event = message.event;
       if (event.type === "ApprovalDecided") {
+        const result = event.payload.applied;
+        if (result) {
+          applied.current.set(event.subject, result.state);
+          setRows((now) =>
+            now.map((row) =>
+              row.id === event.subject && row.state === "accepted"
+                ? { ...row, state: result.state }
+                : row
+            )
+          );
+        }
         void refresh();
         return;
       }

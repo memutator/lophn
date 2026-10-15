@@ -442,6 +442,24 @@ export const data = {
   "waiting.notice.settled-denied-reason": "The reason was sent to {agent}.",
   "waiting.notice.settled-failed":
     "You allowed it, but it could not be applied.",
+  "waiting.toast-approval.button": "Review",
+  "waiting.toast-approval.body": "Look at what it changes before you decide.",
+  "waiting.toast-approval.title":
+    "{intent, select, activation {An app update needs approval} other {A request needs approval}}",
+  "waiting.toast-permission.button": "Review",
+  "waiting.toast-permission.body": "It is waiting for your answer.",
+  "waiting.toast-permission.title": "{agent} needs permission",
+  "waiting.toast-question.button": "Review",
+  "waiting.toast-question.body": "Open the list to answer it.",
+  "waiting.toast-question.title": "{agent} has a question",
+  "waiting.toast-restart-halted.button": "Open session",
+  "waiting.toast-restart-halted.body":
+    "{app} kept crashing, so lophn stopped restarting it.",
+  "waiting.toast-restart-halted.title": "App restart halted",
+  "waiting.toast-violation.button": "Ask Project Manager",
+  "waiting.toast-violation.body":
+    "A check found documents that don't match the contract in context {context}.",
+  "waiting.toast-violation.title": "Documents don't match the contract",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.agent-call": "Send work to another agent",
   "waiting.title.app-api": "Use {api} in {app}",

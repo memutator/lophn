@@ -2,6 +2,7 @@
 import type { CoreEventMessage } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type {
+  BusEvent,
   EventCondition,
   SessionSnapshot,
 } from "../../../../../protocol/events/mod.ts";
@@ -15,7 +16,6 @@ import {
 } from "../../../../../protocol/approvals/mod.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
 import { matchesCondition } from "./client.ts";
-import type { TypedEvent } from "./typed.ts";
 
 /** 다시 붙을 때 read가 돌려줄 지금 상태. */
 export interface FakeSnapshot {
@@ -26,7 +26,7 @@ export interface FakeSnapshot {
 export interface FakeSource extends CoreSource {
   /** Gateway가 보낸 메시지를 그대로 흘린다. 걸린 조건에 안 맞는 event는 버린다. */
   emit(message: CoreEventMessage): void;
-  emitEvent(event: TypedEvent): void;
+  emitEvent(event: BusEvent): void;
   /** 연결이 끊긴다(stale). 다시 붙기 전까지 read는 unavailable이다. */
   disconnect(): void;
   /** 다시 붙고, 조건을 다시 건 것처럼 ready를 민다. 이 뒤의 read는 이 snapshot을 돌려준다. */

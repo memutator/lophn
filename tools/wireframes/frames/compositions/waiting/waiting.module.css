@@ -1,4 +1,4 @@
-/* secret 보호 입력 창과 toast. 같은 token만 쓴다. */
+/* secret 보호 입력 창. 같은 token만 쓴다. */
 
 /* secret 보호 입력 창: shell이 따로 띄우는 작은 창 */
 .stage {
@@ -64,47 +64,4 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
-}
-
-/* toast: design Toast와 같은 모양에 단추를 오른쪽 끝에 둔다 */
-.toast {
-  box-sizing: border-box;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  width: var(--toast-width);
-  max-width: 100%;
-  padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-md);
-  background: var(--floating-surface);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-popover);
-  font-family: var(--font-sans);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-}
-
-.toastText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: var(--space-0);
-}
-
-.toastTitle {
-  margin: var(--space-0);
-  font-weight: var(--font-weight-medium);
-}
-
-.toastBody {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-}
-
-.toastActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-4);
-  padding-top: var(--space-2);
 }

@@ -2,16 +2,16 @@
 // 구독자에게 한 번씩 나눠 준다. 읽기(snapshot)는 하지 않는다: 구독자가 ready를 받고 직접 읽는다.
 import type { CoreEventMessage } from "../../../../ipc/core.ts";
 import {
+  type BusEvent,
   busEventSchema,
   type EventCondition,
 } from "../../../../../protocol/events/mod.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
-import { type TypedEvent, typedEvent } from "./typed.ts";
 
 export type EventMessage =
   /** 조건이 걸렸다. 지금 상태를 snapshot으로 읽어 맞춘다. */
   | { kind: "ready" }
-  | { kind: "event"; event: TypedEvent }
+  | { kind: "event"; event: BusEvent }
   /** 끊겼다. 놓친 event가 있을 수 있으니 다음 ready 때 snapshot부터 다시 읽는다. */
   | { kind: "disconnected" };
 
@@ -97,7 +97,7 @@ export function createEventClient(core: CoreSource): EventClient {
         console.warn("dropped an event that is not a Bus event");
         return;
       }
-      const event = typedEvent(parsed.data);
+      const event = parsed.data;
       for (const subscriber of [...subscribers]) {
         if (matchesCondition(subscriber.condition, event)) {
           send(subscriber, { kind: "event", event });

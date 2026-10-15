@@ -5,6 +5,7 @@ import type {
   TurnPermissionRequest,
 } from "../../../../../protocol/approvals/mod.ts";
 import type {
+  BusEvent,
   EventCondition,
   SessionSnapshot,
 } from "../../../../../protocol/events/mod.ts";
@@ -12,7 +13,6 @@ import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
 import type { z } from "zod";
 import type { EventClient } from "./client.ts";
-import type { TypedEvent } from "./typed.ts";
 import { readPendingApprovals, readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
@@ -84,7 +84,7 @@ export function createWaitingStore(
 ): WaitingStore {
   const state = createValueStore<WaitingState>({ entries: [], count: 0 });
   let entries = new Map<string, WaitingEntry>();
-  // session의 agent와 place는 SessionStarted에만 실려 온다.
+  // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<
     string,
     { agent: CallAgent; place: Place | null }
@@ -153,7 +153,7 @@ export function createWaitingStore(
     };
   }
 
-  function apply(event: TypedEvent) {
+  function apply(event: BusEvent) {
     switch (event.type) {
       case "SessionStarted":
         sessions.set(event.session, {
@@ -188,6 +188,10 @@ export function createWaitingStore(
     const at = now();
     const next: WaitingEntry[] = [];
     for (const snapshot of snapshots) {
+      sessions.set(snapshot.session, {
+        agent: snapshot.agent,
+        place: snapshot.place,
+      });
       for (const request of snapshot.permission_requests) {
         next.push(permission(request, request.created_at));
       }

@@ -59,6 +59,7 @@ import {
   problemMore,
   problemSetState,
 } from "./problem-views.ts";
+import { problemSubmitFeedback } from "./problem-feedback.ts";
 
 export const PROBLEM_ROUTES = [
   problemReport,
@@ -68,6 +69,7 @@ export const PROBLEM_ROUTES = [
   problemGetOccurrence,
   problemMore,
   problemSetState,
+  problemSubmitFeedback,
 ] as const;
 export const ROUTES = [
   reportProblem,

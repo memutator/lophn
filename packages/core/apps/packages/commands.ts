@@ -1,6 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type Package,
   packageRegisterVersion,
+  type PackageVersion,
   packageVersionRegistered,
 } from "../../../protocol/apps/mod.ts";
 import type {
@@ -13,7 +15,6 @@ import {
   PACKAGE_GUIDE_BLOB_PURPOSE,
   packageGuideOwnerKey,
 } from "./blobs.ts";
-import { personalRegistrationRejected } from "./model.ts";
 import { loadPackageRow, loadStoredVersion, loadVersions } from "./store.ts";
 
 function conflict(message: string): Result<never> {
@@ -66,6 +67,61 @@ function registerGuide(
   });
 }
 
+type RegisterInput = Parameters<
+  CommandDefinition<typeof packageRegisterVersion>["handle"]
+>[2];
+
+// 새 package의 첫 version이든 기존 package의 새 version이든 같은 event를 낸다.
+function emitRegistered(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+  packageId: string,
+  input: RegisterInput,
+): string {
+  return tx.emit(packageVersionRegistered, packageId, {
+    name: input.name,
+    kind: null,
+    version: input.version,
+    permissions: input.permissions ?? [],
+    bundle_hash: input.bundle_hash,
+    guide_hash: input.guide_hash,
+  });
+}
+
+function insertVersion(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+  packageId: string,
+  input: RegisterInput,
+): void {
+  tx.sql.run(
+    "INSERT INTO package_versions (package, version, bundle_hash, guide_hash, permissions) VALUES (?, ?, ?, ?, ?)",
+    [
+      packageId,
+      input.version,
+      input.bundle_hash,
+      input.guide_hash,
+      JSON.stringify(input.permissions ?? []),
+    ],
+  );
+}
+
+function registered(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+  packageId: string,
+  name: string,
+  description: string,
+  version: string,
+): Result<{ package: Package; version: PackageVersion }> {
+  const versions = loadVersions(tx.sql, packageId);
+  const published = versions.find((item) => item.version === version);
+  if (published === undefined) {
+    return err({ code: "internal", message: "registered version is missing" });
+  }
+  return ok({
+    package: { id: packageId, name, description, versions },
+    version: published,
+  });
+}
+
 export function createSdkCommands(): {
   registerVersion: CommandDefinition<typeof packageRegisterVersion>;
 } {
@@ -75,118 +131,56 @@ export function createSdkCommands(): {
       handle(tx, ctx, input) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
-        // 개인 Package 등록은 현재 받지 않는다.
-        if (personalRegistrationRejected(input.name)) {
-          return forbidden("personal package registration is not provided");
-        }
         const current = loadPackageRow(tx.sql, input.name);
         if (current === undefined) {
           // 새 Package다. id는 등록 결과다(domain-model apps/sdk Package 표).
           const id = tx.newId("pkg");
-          const seq = tx.emit(packageVersionRegistered, id, {
-            name: input.name,
-            kind: input.kind,
-            version: input.version,
-            bundle_hash: input.bundle_hash,
-            guide_hash: input.guide_hash,
-          });
-          const packageDesc = input.description;
+          const seq = emitRegistered(tx, id, input);
           tx.sql.run(
-            "INSERT INTO packages (id, name, description, kind) VALUES (?, ?, ?, ?)",
-            [id, input.name, packageDesc, input.kind],
+            "INSERT INTO packages (id, name, description) VALUES (?, ?, ?)",
+            [id, input.name, input.description],
           );
-          tx.sql.run(
-            "INSERT INTO package_versions (package, version, bundle_hash, guide_hash) VALUES (?, ?, ?, ?)",
-            [id, input.version, input.bundle_hash, input.guide_hash],
-          );
+          insertVersion(tx, id, input);
           const guide = registerGuide(tx, input, seq);
           if (!guide.ok) return guide;
-          return ok({
-            package: {
-              id,
-              name: input.name,
-              description: packageDesc,
-              kind: input.kind,
-              versions: [{
-                version: input.version,
-                bundle_hash: input.bundle_hash,
-                guide_hash: input.guide_hash,
-              }],
-            },
-            version: {
-              version: input.version,
-              bundle_hash: input.bundle_hash,
-              guide_hash: input.guide_hash,
-            },
-          });
+          return registered(
+            tx,
+            id,
+            input.name,
+            input.description,
+            input.version,
+          );
         }
-        // 기존 Package다. kind는 바꾸지 않는다(domain-model apps/sdk Package 표).
-        if (current["kind"] !== input.kind) {
-          return conflict("package kind is immutable");
-        }
-        const stored = loadStoredVersion(
-          tx,
-          current["id"] as string,
-          input.version,
-        );
+        const packageId = current["id"] as string;
+        const description = current["description"] as string;
+        const stored = loadStoredVersion(tx, packageId, input.version);
         if (stored !== undefined) {
-          // 같은 name·version은 byte·guide hash를 덮지 않는다. 같은 hash면
-          // 같은 사실이므로 그대로 접수하고, 다른 hash면 conflict다.
-          const sameBundle = stored["bundle_hash"] === input.bundle_hash;
-          const sameGuide = stored["guide_hash"] === input.guide_hash;
-          if (sameBundle && sameGuide) {
-            const versions = loadVersions(tx.sql, current["id"] as string);
-            const description = current["description"] as string;
-            const kind = current["kind"] as typeof input.kind;
-            return ok({
-              package: {
-                id: current["id"] as string,
-                name: input.name,
-                description,
-                kind,
-                versions,
-              },
-              version: {
-                version: input.version,
-                bundle_hash: input.bundle_hash,
-                guide_hash: input.guide_hash,
-              },
-            });
-          }
-          return conflict("published version bytes are immutable");
+          // 같은 name·version은 byte·guide hash·permission을 덮지 않는다. 모두 같으면
+          // 같은 사실이므로 그대로 접수하고(재시도), 하나라도 다르면 conflict다.
+          const same = stored["bundle_hash"] === input.bundle_hash &&
+            stored["guide_hash"] === input.guide_hash &&
+            stored["permissions"] === JSON.stringify(input.permissions ?? []);
+          if (!same) return conflict("published version bytes are immutable");
+          return registered(
+            tx,
+            packageId,
+            input.name,
+            description,
+            input.version,
+          );
         }
         // 새 version을 더한다. 기존 version byte·guide는 그대로다.
-        const packageId = current["id"] as string;
-        const seq = tx.emit(packageVersionRegistered, packageId, {
-          name: input.name,
-          kind: input.kind,
-          version: input.version,
-          bundle_hash: input.bundle_hash,
-          guide_hash: input.guide_hash,
-        });
-        tx.sql.run(
-          "INSERT INTO package_versions (package, version, bundle_hash, guide_hash) VALUES (?, ?, ?, ?)",
-          [packageId, input.version, input.bundle_hash, input.guide_hash],
-        );
+        const seq = emitRegistered(tx, packageId, input);
+        insertVersion(tx, packageId, input);
         const guide = registerGuide(tx, input, seq);
         if (!guide.ok) return guide;
-        const versions = loadVersions(tx.sql, packageId);
-        const description = current["description"] as string;
-        const kind = current["kind"] as typeof input.kind;
-        return ok({
-          package: {
-            id: packageId,
-            name: input.name,
-            description,
-            kind,
-            versions,
-          },
-          version: {
-            version: input.version,
-            bundle_hash: input.bundle_hash,
-            guide_hash: input.guide_hash,
-          },
-        });
+        return registered(
+          tx,
+          packageId,
+          input.name,
+          description,
+          input.version,
+        );
       },
     },
   };

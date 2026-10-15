@@ -180,11 +180,19 @@ function npmFor(
   const exact = pins.get(specifier);
   if (exact !== undefined) return exact;
   const { base, subpath } = splitSpecifier(specifier);
+  if (subpath === ".") return undefined;
   const pin = pins.get(base);
-  if (pin === undefined || !pin.startsWith("npm:") || subpath === ".") {
-    return undefined;
+  if (pin !== undefined && pin.startsWith("npm:")) {
+    return `${pin}/${subpath.slice(2)}`;
   }
-  return `${pin}/${subpath.slice(2)}`;
+  // `"pkg/": "npm:/pkg@1.0.0/"` 꼴의 접두 pin도 받는다.
+  const prefix = pins.get(`${base}/`);
+  if (
+    prefix !== undefined && prefix.startsWith("npm:") && prefix.endsWith("/")
+  ) {
+    return `${prefix}${subpath.slice(2)}`;
+  }
+  return undefined;
 }
 
 export type ImportMapInput = {

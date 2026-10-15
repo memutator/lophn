@@ -10,10 +10,9 @@ export function packageFromRow(
   const id = row["id"];
   const name = row["name"];
   const description = row["description"];
-  const kind = row["kind"];
   if (
     typeof id !== "string" || typeof name !== "string" ||
-    typeof description !== "string" || typeof kind !== "string"
+    typeof description !== "string"
   ) {
     return err({ code: "internal", message: "invalid stored package" });
   }
@@ -24,7 +23,6 @@ export function packageFromRow(
     id,
     name,
     description,
-    kind: kind as Package["kind"],
     versions: [...versions],
   });
 }
@@ -34,11 +32,17 @@ export function versionFromRow(row: SqlRow): Result<PackageVersion> {
   const version = row["version"];
   const bundleHash = row["bundle_hash"];
   const guideHash = row["guide_hash"];
+  const permissions = row["permissions"];
   if (
     typeof version !== "string" || typeof bundleHash !== "string" ||
-    typeof guideHash !== "string"
+    typeof guideHash !== "string" || typeof permissions !== "string"
   ) {
     return err({ code: "internal", message: "invalid stored package version" });
   }
-  return ok({ version, bundle_hash: bundleHash, guide_hash: guideHash });
+  return ok({
+    version,
+    bundle_hash: bundleHash,
+    guide_hash: guideHash,
+    permissions: JSON.parse(permissions) as string[],
+  });
 }

@@ -2,7 +2,7 @@
 // 이 검사를 대신하지 못한다. 선언한 code를 더하면 그 code의 실패 경로 test를 여기에 하나 더한다.
 import { assertEquals, assertRejects } from "@std/assert";
 import { installProblemReporter } from "@lophn/cap-problem";
-import { CommandRejection } from "@lophn/cap-schedule";
+import { AppApiRejection } from "@lophn/cap-app-api";
 import { addItemHandler, listItemsHandler } from "../src/commands.ts";
 
 // 보고 통로는 진입점이 설치한다. test는 보고를 모으는 reporter를 같은 자리에 설치한다.
@@ -30,7 +30,7 @@ Deno.test("failure_path:store_unavailable list_items reports the declared code w
   reports.length = 0;
   const error = await assertRejects(
     async () => await listItemsHandler(broken)(),
-    CommandRejection,
+    AppApiRejection,
   );
   assertEquals(error.code, "unavailable");
   assertEquals(error.message.includes("/secret/path"), false);
@@ -44,7 +44,7 @@ Deno.test("failure_path:store_unavailable add_item reports the declared code whe
   reports.length = 0;
   await assertRejects(
     async () => await addItemHandler(broken)({ title: "x" }),
-    CommandRejection,
+    AppApiRejection,
   );
   assertEquals(reports, [{
     code: "store_unavailable",

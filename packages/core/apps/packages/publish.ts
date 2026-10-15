@@ -1,0 +1,136 @@
+// package.publish. App Engineer가 자기 앱 code의 일부를 @me package로 낸다.
+// 통과한 test가 있어야 하고, 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
+import { err, ok, type Result } from "../../../base/mod.ts";
+import type { z } from "zod";
+import type {
+  PackagePublishInput,
+  PackageRegisterVersionInput,
+  packageRegisterVersionOutputSchema,
+} from "../../../protocol/apps/mod.ts";
+import type { AppTestVerificationLookup } from "../../../protocol/problems/mod.ts";
+import type { MemoryHandler } from "../../server/mod.ts";
+import {
+  extractCommit,
+  gitCommandRunner,
+  type GitRunner,
+} from "../releases/mod.ts";
+import {
+  bundleBytes,
+  INSTALL_PRINCIPAL,
+  packageInstallPath,
+  type PrepareBlob,
+  prepareBundleBlobs,
+  removeInstallCopy,
+  sameInstallCopy,
+  writeInstallCopy,
+} from "./install.ts";
+
+type RegisterOutput = z.infer<typeof packageRegisterVersionOutputSchema>;
+
+export type PublishDeps = {
+  dataRoot: string;
+  // 앱에 연결된 source 폴더(app.source_path). 연결 안 된 앱은 err다.
+  sourceRootOf: (app: string) => Promise<Result<string>> | Result<string>;
+  verification: AppTestVerificationLookup;
+  prepareBlob: PrepareBlob;
+  // machine 자격으로 package.register_version을 ledger command로 넣는다.
+  registerVersion: (
+    input: PackageRegisterVersionInput,
+  ) => Promise<Result<RegisterOutput>>;
+  git?: GitRunner;
+};
+
+function invalid(message: string): Result<never> {
+  return err({ code: "invalid_input", message });
+}
+
+// 안내 글은 세 절이고 이 byte가 guide_hash가 된다.
+export function guideText(guide: PackagePublishInput["guide"]): string {
+  return `# Purpose\n\n${guide.purpose.trim()}\n\n# API\n\n${guide.api.trim()}\n\n` +
+    `# Examples\n\n${guide.examples.trim()}\n`;
+}
+
+export function publishPackage(deps: PublishDeps): MemoryHandler {
+  return async (ctx, raw) => {
+    const input = raw as PackagePublishInput;
+    // 그 앱에 묶인 agent(App Engineer)만 낸다.
+    if (!ctx.actor.startsWith("agent:") || ctx.conditions.app !== input.app) {
+      return err({
+        code: "forbidden",
+        message: "only the App Engineer of the app publishes its packages",
+      });
+    }
+    if (!input.name.startsWith("@me/")) {
+      return invalid("published package name must be @me/...");
+    }
+    for (const id of input.tests) {
+      const found = deps.verification(id);
+      if (!found.ok) return found;
+      const fact = found.value;
+      if (
+        fact === null || fact.app !== input.app || fact.result !== "pass" ||
+        (fact.kind !== "app_test" && fact.kind !== "test_command")
+      ) {
+        return invalid(`${id} is not a passed app test of this app`);
+      }
+    }
+    const source = await deps.sourceRootOf(input.app);
+    if (!source.ok) return source;
+    const extracted = await extractCommit(deps.git ?? gitCommandRunner(), {
+      sourceRoot: source.value,
+      commit: input.commit,
+    });
+    if (!extracted.ok) {
+      const reason = extracted.error.reason;
+      return err({
+        code: reason === "git_failed" ? "unavailable" : "invalid_input",
+        message: `package source cannot be read: ${reason}`,
+      });
+    }
+    const prefix = `${input.path.replace(/\/+$/, "")}/`;
+    const files = extracted.value
+      .filter((file) => file.path.startsWith(prefix))
+      .map((file) => ({
+        path: file.path.slice(prefix.length),
+        bytes: file.bytes,
+      }))
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    if (files.length === 0) {
+      return invalid("package folder is missing or empty in the commit");
+    }
+    const path = packageInstallPath(input.name, input.version);
+    if (!path.ok) return path;
+
+    const bundle = bundleBytes(files);
+    const guide = new TextEncoder().encode(guideText(input.guide));
+    const prepared = await prepareBundleBlobs(
+      bundle,
+      guide,
+      INSTALL_PRINCIPAL,
+      deps.prepareBlob,
+    );
+    if (!prepared.ok) return prepared;
+    const registered = await deps.registerVersion({
+      name: input.name,
+      description: input.description,
+      kind: null,
+      version: input.version,
+      permissions: input.permissions,
+      bundle_hash: prepared.value.bundleHash,
+      guide_hash: prepared.value.guideHash,
+      ...(prepared.value.guideBlob === undefined
+        ? {}
+        : { guide_blob: prepared.value.guideBlob }),
+    });
+    if (!registered.ok) return registered;
+
+    // 읽기 전용 설치 사본. 같은 byte의 사본이 이미 있으면(재시도) 그대로 둔다.
+    const target = `${deps.dataRoot}/${path.value}`;
+    if (!await sameInstallCopy(target, files)) {
+      await removeInstallCopy(target);
+      const copied = await writeInstallCopy(target, files);
+      if (!copied.ok) return copied;
+    }
+    return ok(registered.value);
+  };
+}

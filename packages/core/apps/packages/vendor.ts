@@ -14,7 +14,20 @@ export type VendorRule = {
   generated?: Readonly<Record<string, string>>;
 };
 
-const BLUEPRINT_CONTRACT = [
+const BLUEPRINT_FILES = [
+  "mod.ts",
+  "types.ts",
+  "json.ts",
+  "schema.ts",
+  "scope.ts",
+  "uses.ts",
+  "app-api.ts",
+  "value.ts",
+];
+
+// 임시: sdk/blueprint/mod.ts가 옛 평면 파일의 CommandDeclaration type을 아직 다시 내보낸다.
+// app-calls-shell이 그 export를 지우면 이 목록도 지운다.
+const BLUEPRINT_OLD_CONTRACT = [
   "blueprint.ts",
   "blueprint-commands.ts",
   "blueprint-json.ts",
@@ -25,15 +38,46 @@ const BLUEPRINT_CONTRACT = [
   "blueprint-value.ts",
 ];
 
-// @lophn/blueprint: 정본 검증기는 protocol/apps의 의존성 없는 파일들이다.
+// @lophn/blueprint: 정본 검증기는 protocol/apps/blueprint의 의존성 없는 파일들이다(read.ts는 zod를 써서 뺀다).
 const BLUEPRINT: VendorRule = {
-  files: Object.fromEntries(
-    BLUEPRINT_CONTRACT.map((
-      file,
-    ) => [`protocol/apps/${file}`, `vendor/protocol/apps/${file}`]),
-  ),
+  files: {
+    ...Object.fromEntries(
+      BLUEPRINT_FILES.map((
+        file,
+      ) => [
+        `protocol/apps/blueprint/${file}`,
+        `vendor/protocol/apps/blueprint/${file}`,
+      ]),
+    ),
+    ...Object.fromEntries(
+      BLUEPRINT_OLD_CONTRACT.map((
+        file,
+      ) => [`protocol/apps/${file}`, `vendor/protocol/apps/${file}`]),
+    ),
+  },
   rewrite: {
+    "../../protocol/apps/blueprint/mod.ts":
+      "vendor/protocol/apps/blueprint/mod.ts",
     "../../protocol/apps/blueprint.ts": "vendor/protocol/apps/blueprint.ts",
+  },
+};
+
+// @lophn/cap-store: migration 단계 type과 `-- loss:` 읽기는 protocol/apps/activation의 한 파일이다.
+// 그 파일이 쓰는 Result는 base의 두 파일이고, 파일 위치가 사본 안에서도 같은 상대 경로로 닿는다.
+const CAP_STORE: VendorRule = {
+  files: {
+    "protocol/apps/activation/migration.ts":
+      "vendor/protocol/apps/activation/migration.ts",
+    "base/errors.ts": "vendor/base/errors.ts",
+    "base/result.ts": "vendor/base/result.ts",
+  },
+  rewrite: {
+    "../../protocol/apps/activation/migration.ts":
+      "vendor/protocol/apps/activation/migration.ts",
+  },
+  generated: {
+    "vendor/base/mod.ts":
+      'export type { LophnError } from "./errors.ts";\nexport { err, ok, type Result } from "./result.ts";\n',
   },
 };
 
@@ -57,6 +101,7 @@ const CAP_PROBLEM: VendorRule = {
 export const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
   "@lophn/blueprint": BLUEPRINT,
   "@lophn/cap-problem": CAP_PROBLEM,
+  "@lophn/cap-store": CAP_STORE,
 };
 
 // 설치 사본의 한 부분이면서 catalog Package가 아닌 지원 소스다. 공용 UI Package가 import하는

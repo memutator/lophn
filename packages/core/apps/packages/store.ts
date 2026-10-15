@@ -44,15 +44,25 @@ export function loadAllPackageRows(sql: Query): SqlRow[] {
   return sql.all("SELECT * FROM packages ORDER BY name", []);
 }
 
-// release의 고정 blueprint sdk_dependencies에서 사용처를 찾는다.
-// blueprint blob의 내용은 releases 조립이 잠그므로 여기서는 잡힌 참조만 본다.
-// releases 모듈이 없는 동안은 사용처가 비어 있다.
+// release에 고정된 blueprint의 sdk_dependencies에서 그 version을 쓰는 release를 찾는다.
+// release 내용은 준비 뒤 바뀌지 않으므로 package에 새 version이 나와도 기존 사용처는 그대로다.
 export function loadUsages(
-  _sql: Query,
-  _name: string,
-  _version: string,
+  sql: Query,
+  name: string,
+  version: string,
 ): { app: string; release: string }[] {
-  return [];
+  const rows = sql.all(
+    `SELECT DISTINCT r.app AS app, r.id AS release, r.created_at AS created_at
+     FROM releases r, json_each(r.blueprint, '$.sdk_dependencies') d
+     WHERE json_extract(d.value, '$.name') = ?
+       AND json_extract(d.value, '$.version') = ?
+     ORDER BY r.created_at, r.id`,
+    [name, version],
+  );
+  return rows.map((row) => ({
+    app: row["app"] as string,
+    release: row["release"] as string,
+  }));
 }
 
 // register_version command의 저장. 이미 잡힌 version인지 본다.

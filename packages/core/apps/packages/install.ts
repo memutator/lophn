@@ -1,8 +1,8 @@
-// SDK 설치(package catalog과 설치).
+// package 설치(package catalog과 설치).
 // packages/sdk/<name>의 검증된 소스를 패키지마다 자기 완결 byte로 묶고, hash·guide
 // hash를 blob으로 준비한 뒤 machine으로 register_version을 제출하고, 설치 사본을
-// sdk/<name>/<version>/의 파일 0444·디렉터리 0555로 풀어 놓는다. 공개 마켓·외부
-// Package 등록은 없다 — packages/sdk/* 밖 이름은 거절이다.
+// 설치 위치(`packageInstallPath`)의 파일 0444·디렉터리 0555로 풀어 놓는다.
+// 여기서 설치하는 것은 packages/sdk/* 소스뿐이다. 사용자 package(@me)는 publish.ts가 낸다.
 
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
@@ -23,17 +23,23 @@ export type InstallSubmission = {
   input: PackageRegisterVersionInput;
 };
 
+// blob 준비 통로. 검사한 byte를 그대로 넣는다.
+export type PrepareBlob = (input: {
+  principal: string;
+  purpose: string;
+  bytes: ReadableStream<Uint8Array>;
+}) => Promise<
+  Result<{ hash: string; size_bytes: number; preparation?: string }>
+>;
+
+// 설치와 publish가 blob을 준비하고 register_version을 부를 때 쓰는 machine이다.
+export const INSTALL_PRINCIPAL = "machine:install";
+
 export type InstallDeps = {
-  // lophn data root. 설치 사본 sdk/<name>/<version>/의 기준이다.
+  // lophn data root. 설치 사본의 기준이다(`packageInstallPath`).
   dataRoot: string;
-  // blob 준비 통로. 검사한 byte를 그대로 넣는다. 없으면 설치도 실패다.
-  prepareBlob?: (input: {
-    principal: string;
-    purpose: string;
-    bytes: ReadableStream<Uint8Array>;
-  }) => Promise<
-    Result<{ hash: string; size_bytes: number; preparation?: string }>
-  >;
+  // 없으면 설치도 실패다.
+  prepareBlob?: PrepareBlob;
   // machine 제출. route 입력을 그대로 ledger command로 넣는다. 없으면 등록도 실패다.
   registerVersion?: (
     input: PackageRegisterVersionInput,
@@ -103,7 +109,7 @@ async function collectSourceFiles(
   return ok(files);
 }
 
-function sortFiles(files: SourceFile[]): SourceFile[] {
+export function sortFiles(files: SourceFile[]): SourceFile[] {
   return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
@@ -171,11 +177,76 @@ export function splitPackageName(
   return ok({ scope, part });
 }
 
+// 설치 사본의 위치. dataRoot와 bundle 안에서 같은 상대 경로다.
+// @lophn은 `sdk/<part>/<version>`, @me는 `sdk/@me/<part>/<version>`이다(scope가 다른 같은 part가 부딪치지 않는다).
+export function packageInstallPath(
+  name: string,
+  version: string,
+): Result<string> {
+  const split = splitPackageName(name);
+  if (!split.ok) return split;
+  return split.value.scope === "me"
+    ? ok(`sdk/@me/${split.value.part}/${version}`)
+    : ok(`sdk/${split.value.part}/${version}`);
+}
+
+// bundle과 안내 byte를 blob으로 준비한다. 준비한 byte의 hash만 ledger에 간다.
+export async function prepareBundleBlobs(
+  bundle: Uint8Array,
+  guide: Uint8Array,
+  principal: string,
+  prepareBlob: PrepareBlob,
+): Promise<
+  Result<{
+    bundleHash: string;
+    guideHash: string;
+    guideBlob: PackageRegisterVersionInput["guide_blob"];
+  }>
+> {
+  const bundleHash = await sha256Hex(bundle);
+  const guideHash = await sha256Hex(guide);
+  const stream = (bytes: Uint8Array) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    });
+  const bundlePrepared = await prepareBlob({
+    principal,
+    purpose: "sdk_bundle",
+    bytes: stream(bundle),
+  });
+  if (!bundlePrepared.ok) return bundlePrepared;
+  if (bundlePrepared.value.hash !== bundleHash) {
+    return invalid("bundle hash changed during preparation");
+  }
+  const guidePrepared = await prepareBlob({
+    principal,
+    purpose: "sdk_guide",
+    bytes: stream(guide),
+  });
+  if (!guidePrepared.ok) return guidePrepared;
+  if (guidePrepared.value.hash !== guideHash) {
+    return invalid("guide hash changed during preparation");
+  }
+  // 준비 참조를 받으면 안내 blob을 register_version이 같은 transaction에서 등록한다.
+  const guideBlob = guidePrepared.value.preparation === undefined
+    ? undefined
+    : {
+      preparation: guidePrepared.value.preparation,
+      principal,
+      purpose: "sdk_guide",
+      hash: guidePrepared.value.hash,
+      size_bytes: guidePrepared.value.size_bytes,
+    };
+  return ok({ bundleHash, guideHash, guideBlob });
+}
+
 // 검증된 설치 내용만 설치한다.
 export async function installPackage(
   name: string,
   description: string,
-  kind: PackageRegisterVersionInput["kind"],
   version: string,
   guide: Uint8Array,
   deps: InstallDeps,
@@ -201,51 +272,21 @@ export async function installPackage(
   const files = await vendorFiles(name, collected.value, packagesRoot);
   if (!files.ok) return files;
   const bundle = bundleBytes(files.value);
-  const bundleHash = await sha256Hex(bundle);
-  const guideHash = await sha256Hex(guide);
-  // 준비 통로가 준비 참조를 주면 안내 blob을 register_version이 같은 transaction에서 등록한다.
+  let bundleHash = await sha256Hex(bundle);
+  let guideHash = await sha256Hex(guide);
   let guideBlob: PackageRegisterVersionInput["guide_blob"];
-
-  // hash·guide hash를 blob으로 넣는다. 준비 통로가 없으면 등록도 없다. 검사한
-  // byte의 hash만 제출한다(domain-model apps/sdk command 표).
+  // hash·guide hash를 blob으로 넣는다. 검사한 byte의 hash만 제출한다(domain-model apps/sdk command 표).
   if (deps.prepareBlob) {
-    const bundlePrepared = await deps.prepareBlob({
-      principal: "machine:install",
-      purpose: "sdk_bundle",
-      bytes: new ReadableStream({
-        start(controller) {
-          controller.enqueue(bundle);
-          controller.close();
-        },
-      }),
-    });
-    if (!bundlePrepared.ok) return bundlePrepared;
-    if (bundlePrepared.value.hash !== bundleHash) {
-      return invalid("bundle hash changed during preparation");
-    }
-    const guidePrepared = await deps.prepareBlob({
-      principal: "machine:install",
-      purpose: "sdk_guide",
-      bytes: new ReadableStream({
-        start(controller) {
-          controller.enqueue(guide);
-          controller.close();
-        },
-      }),
-    });
-    if (!guidePrepared.ok) return guidePrepared;
-    if (guidePrepared.value.hash !== guideHash) {
-      return invalid("guide hash changed during preparation");
-    }
-    if (guidePrepared.value.preparation !== undefined) {
-      guideBlob = {
-        preparation: guidePrepared.value.preparation,
-        principal: "machine:install",
-        purpose: "sdk_guide",
-        hash: guidePrepared.value.hash,
-        size_bytes: guidePrepared.value.size_bytes,
-      };
-    }
+    const prepared = await prepareBundleBlobs(
+      bundle,
+      guide,
+      INSTALL_PRINCIPAL,
+      deps.prepareBlob,
+    );
+    if (!prepared.ok) return prepared;
+    bundleHash = prepared.value.bundleHash;
+    guideHash = prepared.value.guideHash;
+    guideBlob = prepared.value.guideBlob;
   }
 
   // machine으로 register_version을 부른다. 등록은 install machine의 몫이다.
@@ -253,7 +294,8 @@ export async function installPackage(
     input: {
       name,
       description,
-      kind,
+      // 계약이 아직 kind 칸을 요구한다. 값은 늘 null이다.
+      kind: null,
       version,
       bundle_hash: bundleHash,
       guide_hash: guideHash,
@@ -265,8 +307,10 @@ export async function installPackage(
     if (!registered.ok) return registered;
   }
 
-  // 설치 사본 sdk/<name>/<version>/. 파일 0444·디렉터리 0555.
-  const target = `${deps.dataRoot}/sdk/${split.value.part}/${version}`;
+  // 설치 사본. 파일 0444·디렉터리 0555.
+  const path = packageInstallPath(name, version);
+  if (!path.ok) return path;
+  const target = `${deps.dataRoot}/${path.value}`;
   const copied = await writeInstallCopy(target, files.value);
   if (!copied.ok) return copied;
   return ok({
@@ -314,7 +358,9 @@ export async function installSupportPackage(
   );
   if (!collected.ok) return collected;
   const files = sortFiles(collected.value);
-  const target = `${deps.dataRoot}/sdk/${split.value.part}/${support.version}`;
+  const path = packageInstallPath(name, support.version);
+  if (!path.ok) return path;
+  const target = `${deps.dataRoot}/${path.value}`;
   // 같은 byte의 사본이 이미 있으면 그대로 둔다. 읽기 전용 사본을 다시 쓰지 않는다.
   if (!await sameInstallCopy(target, files)) {
     const copied = await writeInstallCopy(target, files);
@@ -335,7 +381,7 @@ export type TemplateInstallResult = {
   files: readonly string[];
 };
 
-async function removeInstallCopy(target: string): Promise<void> {
+export async function removeInstallCopy(target: string): Promise<void> {
   // 읽기 전용 사본은 디렉터리 쓰기 권한을 먼저 돌려줘야 지울 수 있다.
   async function open(directory: string): Promise<void> {
     await Deno.chmod(directory, 0o755);

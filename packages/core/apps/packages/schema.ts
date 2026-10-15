@@ -12,9 +12,6 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [{
       description TEXT NOT NULL CHECK (
         length(description) > 0 AND instr(description, char(10)) = 0
         AND instr(description, char(13)) = 0
-      ),
-      kind TEXT NOT NULL CHECK (
-        kind IN ('component', 'capability', 'domain', 'format')
       )
     ) STRICT;
     CREATE INDEX packages_name ON packages (name);
@@ -34,6 +31,7 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [{
         length(guide_hash) = 64 AND guide_hash GLOB '*[0-9a-f]*'
         AND guide_hash NOT GLOB '*[^0-9a-f]*'
       ),
+      permissions TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(permissions)),
       PRIMARY KEY (package, version),
       FOREIGN KEY (package) REFERENCES packages (id)
     ) STRICT;
@@ -41,8 +39,5 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [{
     BEGIN SELECT RAISE(ABORT, 'published version bytes are immutable'); END;
     CREATE TRIGGER package_versions_no_delete BEFORE DELETE ON package_versions
     BEGIN SELECT RAISE(ABORT, 'published version bytes are immutable'); END;
-    CREATE TRIGGER packages_no_kind_change BEFORE UPDATE ON packages
-    WHEN NEW.kind <> OLD.kind
-    BEGIN SELECT RAISE(ABORT, 'package kind is immutable'); END;
   `,
 }];

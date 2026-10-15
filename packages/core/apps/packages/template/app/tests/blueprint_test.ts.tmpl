@@ -2,7 +2,7 @@
 // 서로 맞는지 본다. blueprint가 바뀌어도 이 파일은 고치지 않는다. 앱의 업무 규칙은 다른 test 파일에 둔다.
 import { assert, assertEquals } from "@std/assert";
 import { validateBlueprint } from "@lophn/blueprint";
-import { registeredCommands } from "@lophn/cap-schedule";
+import { registeredAppApis } from "@lophn/cap-app-api";
 import blueprint from "../blueprint.ts";
 import { registerCommands } from "../src/commands.ts";
 
@@ -17,7 +17,7 @@ Deno.test("blueprint: the declaration is valid and already canonical", () => {
 Deno.test("blueprint: every declared command has a registered handler and nothing else is registered", () => {
   registerCommands();
   assertEquals(
-    [...registeredCommands()].sort(),
+    [...registeredAppApis()].sort(),
     blueprint.commands.map((command) => command.key).sort(),
   );
 });

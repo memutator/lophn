@@ -5,7 +5,7 @@ import type { PackageRef } from "./import-map.ts";
 export const TEMPLATE_ROOTS: readonly PackageRef[] = [
   { name: "@lophn/blueprint", version: "1.0.0" },
   { name: "@lophn/cap-problem", version: "1.0.0" },
-  { name: "@lophn/cap-schedule", version: "1.0.0" },
+  { name: "@lophn/cap-app-api", version: "1.0.0" },
   { name: "@lophn/cap-store", version: "1.0.0" },
   { name: "@lophn/ui-control", version: "1.0.0" },
   { name: "@lophn/ui-layout", version: "1.0.0" },
@@ -30,4 +30,4 @@ export const TEMPLATE_TOOL_IMPORTS: Readonly<Record<string, string>> = {
 };
 
 export const TEMPLATE_HASH =
-  "e8cbb45546053afd50091196e01526b98cb1f9c075bb5f96baf177ffec8ccf99";
+  "3e1f17a71cb4bd03de917cf95be87081f781b6dfea99190293679fdcd6e89b83";

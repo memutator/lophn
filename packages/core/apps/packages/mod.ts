@@ -15,9 +15,11 @@ export {
   installPackage,
   installSupportPackage,
   installTemplate,
+  packageInstallPath,
   type SupportInstallResult,
   type TemplateInstallResult,
 } from "./install.ts";
+export { type PublishDeps, publishPackage } from "./publish.ts";
 export {
   keepSupportFile,
   SUPPORT_PACKAGES,
@@ -51,6 +53,5 @@ export {
   byCatalogOrder,
   isWithheldPackageName,
   parseLophnSdkSpecifier,
-  personalRegistrationRejected,
   SDK_WITHHELD_NAMES,
 } from "./model.ts";

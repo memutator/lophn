@@ -1,31 +1,16 @@
 import { err, ERROR_CODES, type Result } from "../../../base/mod.ts";
-import type {
-  Project,
-  projectArchived,
-  projectCreated,
-  projectUnarchived,
-  projectUpdated,
-} from "../../../protocol/projects/mod.ts";
 import {
   type AuthorizationTarget,
   type RequestContext,
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
-import type { EventEnvelopeFor } from "../../../protocol/events/mod.ts";
+import type { Project, ProjectCandidate } from "./model.ts";
 
-export type ProjectCandidate = Omit<Project, "revision">;
-export type ProjectEvent =
-  | EventEnvelopeFor<typeof projectCreated>
-  | EventEnvelopeFor<typeof projectUpdated>
-  | EventEnvelopeFor<typeof projectArchived>
-  | EventEnvelopeFor<typeof projectUnarchived>;
-
-// command는 현재 Project와 전체 변경 후보를, read·event는 Project를 판정한다.
+// command는 현재 Project와 전체 변경 후보를, read는 Project를 판정한다.
 export type ProjectAccessTarget =
   | { kind: "command"; before: Project | null; after: ProjectCandidate }
-  | { kind: "project"; project: Project }
-  | { kind: "event"; project: Project; event: ProjectEvent };
+  | { kind: "project"; project: Project };
 
 export type ProjectAuthorizer = TargetAuthorizer;
 
@@ -98,7 +83,6 @@ function authorizationTarget(target: ProjectAccessTarget): AuthorizationTarget {
   if (target.kind === "command" && target.before !== null) {
     value.before_project = target.before.id;
   }
-  if (target.kind === "event") value.event_type = target.event.type;
   return value;
 }
 

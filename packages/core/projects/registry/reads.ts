@@ -1,40 +1,24 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AgentProject,
-  agentProjectSchema,
-  INITIAL_TRACKING_PROPOSAL,
-  type Project,
-  projectGet,
-  projectList,
-  projectResolve,
+  absolutePathSchema,
+  projectApi,
   projectResolveCwd,
-  projectTrackingRoots,
-  userProjectSchema,
 } from "../../../protocol/projects/mod.ts";
-import { absolutePathSchema } from "../../../protocol/projects/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
+  Sql,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { deepestRegisteredRoot } from "./model.ts";
-import { loadProject, loadProjects } from "./store.ts";
-
-import { nextProjectCursor, pageOffset, projectPageBasis } from "./cursor.ts";
-
-type UserProject = ReturnType<typeof userProjectSchema.parse>;
-
+import type { FolderResolver } from "../ports.ts";
 import { authorizeProject, denied } from "./authorization.ts";
+import { nextProjectCursor, pageOffset, projectPageBasis } from "./cursor.ts";
+import { deepestRegisteredRoot, type Project } from "./model.ts";
+import { recordOf } from "./record.ts";
+import { loadProject, loadProjectByName, loadProjects } from "./store.ts";
 
 const PAGE = 50;
-
-function unavailable(): Result<never> {
-  return err({
-    code: "unavailable",
-    message: "project read dependency missing",
-  });
-}
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "project not found" });
@@ -42,28 +26,6 @@ function notFound(): Result<never> {
 
 function isUser(ctx: RequestContext): boolean {
   return parseActor(ctx.actor)?.kind === "user";
-}
-
-function projectView(
-  ctx: RequestContext,
-  project: Project,
-): Result<UserProject | AgentProject> {
-  if (isUser(ctx)) {
-    const view = userProjectSchema.safeParse({
-      ...project,
-      initial_tracking_proposal: INITIAL_TRACKING_PROPOSAL,
-    });
-    return view.success ? ok(view.data) : invalidProjection();
-  }
-  const view = agentProjectSchema.safeParse({
-    id: project.id,
-    name: project.name,
-    title: project.title,
-    purpose: project.purpose,
-    revision: project.revision,
-    status: project.status,
-  });
-  return view.success ? ok(view.data) : invalidProjection();
 }
 
 function allowed(
@@ -81,33 +43,53 @@ function allowed(
   return ok(project);
 }
 
-function invalidProjection(): Result<never> {
-  return err({ code: "internal", message: "invalid project projection" });
-}
-
 function requireReadActor(ctx: RequestContext): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
-  return kind !== undefined && projectList.actors.includes(kind)
+  return kind !== undefined &&
+      (projectApi.list.actors as readonly string[]).includes(kind)
     ? ok(undefined)
     : err({ code: "forbidden", message: "project read actor forbidden" });
 }
 
-export function createProjectReads(): {
-  list: ReadDefinition<typeof projectList>;
-  get: ReadDefinition<typeof projectGet>;
-  resolve: ReadDefinition<typeof projectResolve>;
+export type ProjectReadDeps = {
+  folders: FolderResolver;
+};
+
+// 경로 하나에 닿는 project를 깊은 등록 폴더 순으로 하나 고른다.
+function projectAt(
+  projects: readonly Project[],
+  path: string,
+): Result<{ project: Project; folder_path: string } | null> {
+  const roots = projects.flatMap((project) =>
+    project.folders.map((folder) => ({
+      project: project.id,
+      path: folder.path,
+    }))
+  );
+  const found = deepestRegisteredRoot(path, roots);
+  if (!found.ok) return found;
+  if (found.value === null) return ok(null);
+  const project = projects.find((item) => item.id === found.value!.project);
+  return ok(
+    project === undefined ? null : { project, folder_path: found.value.path },
+  );
+}
+
+export function createProjectReads(deps: ProjectReadDeps): {
+  list: ReadDefinition<typeof projectApi.list>;
+  get: ReadDefinition<typeof projectApi.get>;
+  resolve: ReadDefinition<typeof projectApi.resolve>;
   resolveCwd: ReadDefinition<typeof projectResolveCwd>;
-  trackingRoots: ReadDefinition<typeof projectTrackingRoots>;
 } {
   return {
     list: {
-      route: projectList,
+      route: projectApi.list,
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
-        const visible: (UserProject | AgentProject)[] = [];
+        const visible: Project[] = [];
         for (const project of projects.value) {
           if (input.status !== undefined && project.status !== input.status) {
             continue;
@@ -115,14 +97,11 @@ export function createProjectReads(): {
           const access = allowed(
             snapshot,
             ctx,
-            projectList.name,
+            projectApi.list.name,
             project,
           );
           if (!access.ok) return access;
-          if (access.value === null) continue;
-          const view = projectView(ctx, access.value);
-          if (!view.ok) return view;
-          visible.push(view.value);
+          if (access.value !== null) visible.push(access.value);
         }
         const limit = input.limit ?? PAGE;
         const basis = projectPageBasis(
@@ -141,7 +120,7 @@ export function createProjectReads(): {
         const page = visible.slice(start, start + limit);
         const next = start + page.length;
         return ok({
-          projects: page,
+          projects: page.map((project) => recordOf(project, deps.folders)),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: next < visible.length
             ? nextProjectCursor(next, basis)
@@ -159,7 +138,7 @@ export function createProjectReads(): {
       },
     },
     get: {
-      route: projectGet,
+      route: projectApi.get,
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
@@ -169,22 +148,20 @@ export function createProjectReads(): {
         const access = allowed(
           snapshot,
           ctx,
-          projectGet.name,
+          projectApi.get.name,
           project.value,
         );
         if (!access.ok) return access;
         if (access.value === null) return notFound();
-        const view = projectView(ctx, access.value);
-        if (!view.ok) return view;
         return ok({
-          project: view.value,
+          project: recordOf(access.value, deps.folders),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
       },
     },
     resolve: {
-      route: projectResolve,
+      route: projectApi.resolve,
       handle(snapshot, ctx, input) {
         if (!isUser(ctx)) {
           return err({
@@ -194,38 +171,26 @@ export function createProjectReads(): {
         }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
-        const roots = projects.value.flatMap((project) =>
-          project.folders.map((folder) => ({
-            project: project.id,
-            path: folder.path,
-          }))
-        );
-        const found = deepestRegisteredRoot(input.path, roots);
+        const found = projectAt(projects.value, input.path);
         if (!found.ok) return found;
         if (found.value === null) return notFound();
-        const project = projects.value.find((item) =>
-          item.id === found.value!.project
-        );
-        if (project === undefined) return notFound();
         const access = allowed(
           snapshot,
           ctx,
-          projectResolve.name,
-          project,
+          projectApi.resolve.name,
+          found.value.project,
         );
         if (!access.ok) return access;
         if (access.value === null) return notFound();
-        const view = projectView(ctx, access.value);
-        if (!view.ok) return view;
-        if (!("folders" in view.value)) return unavailable();
         return ok({
-          project: view.value,
-          folder_path: found.value.path,
+          project: recordOf(access.value, deps.folders),
+          folder_path: found.value.folder_path,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
       },
     },
+    // coding agent CLI가 쓴다. 인증 경계가 채운 cwd가 닿는 project의 id만 돌려준다.
     resolveCwd: {
       route: projectResolveCwd,
       handle(snapshot, ctx, _input) {
@@ -235,75 +200,26 @@ export function createProjectReads(): {
             message: "cwd resolve is coding agent only",
           });
         }
-        // 인증 경계가 채운 cwd만 쓴다. 없거나 모양이 아니면 fail-closed다.
+        // 없거나 모양이 아니면 fail-closed다.
         const cwd = ctx.conditions.cwd;
         if (cwd === undefined || !absolutePathSchema.safeParse(cwd).success) {
           return notFound();
         }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
-        const roots = projects.value.flatMap((project) =>
-          project.folders.map((folder) => ({
-            project: project.id,
-            path: folder.path,
-          }))
-        );
-        const found = deepestRegisteredRoot(cwd, roots);
+        const found = projectAt(projects.value, cwd);
         if (!found.ok) return found;
         if (found.value === null) return notFound();
-        const project = projects.value.find((item) =>
-          item.id === found.value!.project
-        );
-        if (project === undefined) return notFound();
         const access = allowed(
           snapshot,
           ctx,
           projectResolveCwd.name,
-          project,
+          found.value.project,
         );
         if (!access.ok) return access;
         if (access.value === null) return notFound();
         return ok({
-          project: project.id,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      },
-    },
-    trackingRoots: {
-      route: projectTrackingRoots,
-      handle(snapshot, ctx, _input) {
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return err({
-            code: "forbidden",
-            message: "tracking roots are machine only",
-          });
-        }
-        const projects = loadProjects(snapshot.sql);
-        if (!projects.ok) return projects;
-        const roots: { project: string; revision: string; path: string }[] = [];
-        for (const project of projects.value) {
-          if (project.status !== "active" || !project.tracking.enabled) {
-            continue;
-          }
-          const access = authorizeProject(
-            snapshot.port,
-            ctx,
-            projectTrackingRoots.name,
-            { kind: "project", project },
-          );
-          if (denied(access)) continue;
-          if (!access.ok) return access;
-          for (const folder of project.folders) {
-            roots.push({
-              project: project.id,
-              revision: project.revision,
-              path: folder.path,
-            });
-          }
-        }
-        return ok({
-          roots,
+          project: found.value.project.id,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
@@ -312,5 +228,53 @@ export function createProjectReads(): {
   };
 }
 
-// 사람 Project read의 initial_tracking_proposal은 이 값이다. 저장된 tracking과 섞지 않는다.
-export const initialTrackingProposal = INITIAL_TRACKING_PROPOSAL;
+// lophn-agent의 `ProjectDirectory`가 쓰는 모양이다(`core/lophn-agent/ports.ts`의 ProjectInfo와 같다).
+// domain module끼리 import하지 못해 모양만 맞춘다. 구현을 끼우는 쪽은 wiring이다.
+export type ProjectInfoOf = {
+  id: string;
+  name: string;
+  purpose: string;
+  archived: boolean;
+  folders: readonly {
+    path: string;
+    description: string;
+    found: boolean;
+    subfolders: readonly { path: string; description: string }[];
+  }[];
+};
+
+function infoOf(
+  project: Project,
+  folders: Pick<FolderResolver, "exists">,
+): ProjectInfoOf {
+  const record = recordOf(project, folders);
+  return {
+    id: record.id,
+    name: record.name,
+    purpose: record.purpose,
+    archived: record.status === "archived",
+    folders: record.folders,
+  };
+}
+
+// id나 정확한 이름으로 project 하나를 읽는다. 없으면 null이다.
+export function projectInfoOf(
+  sql: Pick<Sql, "get" | "all">,
+  folders: Pick<FolderResolver, "exists">,
+  which: { id: string } | { name: string },
+): Result<ProjectInfoOf | null> {
+  const project = "id" in which
+    ? loadProject(sql, which.id)
+    : loadProjectByName(sql, which.name);
+  if (!project.ok) return project;
+  return ok(project.value === null ? null : infoOf(project.value, folders));
+}
+
+export function projectInfoList(
+  sql: Pick<Sql, "get" | "all">,
+  folders: Pick<FolderResolver, "exists">,
+): Result<ProjectInfoOf[]> {
+  const projects = loadProjects(sql);
+  if (!projects.ok) return projects;
+  return ok(projects.value.map((project) => infoOf(project, folders)));
+}

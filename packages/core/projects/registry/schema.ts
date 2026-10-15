@@ -1,16 +1,15 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // position은 0부터 연속이다. 행 교체는 Project 구성 변경 transaction 안에서만 한다.
+// 하위 폴더 path는 연결 폴더 기준 상대 경로다.
 export const projectsSchemaSteps: readonly SchemaStep[] = [{
-  id: "documents.projects.tables",
+  id: "projects.registry.tables",
   sql: `
     CREATE TABLE projects (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL CHECK (length(title) > 0),
       purpose TEXT NOT NULL,
-      tracking_enabled INTEGER NOT NULL CHECK (tracking_enabled IN (0, 1)),
-      use_gitignore INTEGER NOT NULL CHECK (use_gitignore IN (0, 1)),
       revision TEXT NOT NULL CHECK (
         length(revision) > 0 AND substr(revision, 1, 1) BETWEEN '1' AND '9'
         AND revision NOT GLOB '*[^0-9]*'
@@ -42,12 +41,14 @@ export const projectsSchemaSteps: readonly SchemaStep[] = [{
     ) STRICT;
     CREATE INDEX project_folders_path ON project_folders(path);
 
-    CREATE TABLE project_tracking_patterns (
-      project TEXT NOT NULL REFERENCES projects(id),
+    CREATE TABLE project_subfolders (
+      project TEXT NOT NULL,
+      folder_path TEXT NOT NULL,
       position INTEGER NOT NULL CHECK (position >= 0),
-      effect TEXT NOT NULL CHECK (effect IN ('include', 'exclude')),
-      glob TEXT NOT NULL CHECK (length(glob) > 0),
-      PRIMARY KEY (project, position)
+      path TEXT NOT NULL,
+      description TEXT NOT NULL,
+      PRIMARY KEY (project, folder_path, path),
+      FOREIGN KEY (project, folder_path) REFERENCES project_folders(project, path)
     ) STRICT;
   `,
 }];

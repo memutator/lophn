@@ -1,77 +1,54 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type Folder,
-  folderSchema,
-  type Project,
-  projectSchema,
-  type TrackingPattern,
-  trackingPatternSchema,
-  trackingRuleSetSchema,
+  type ProjectFolder,
+  projectFolderOutputSchema,
+  projectRecordSchema,
 } from "../../../protocol/projects/mod.ts";
 import type { SqlRow } from "../../../protocol/server/mod.ts";
-import { validateFolderRoots } from "./model.ts";
+import { type Project, validateFolderRoots } from "./model.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored project" });
 }
 
-function flag(value: unknown): Result<boolean> {
-  if (value === 1 || value === 1n) return ok(true);
-  if (value === 0 || value === 0n) return ok(false);
-  return invalidStored();
+function inOrder(position: unknown, index: number): boolean {
+  return position === index || position === BigInt(index);
 }
 
 export function projectFromRows(
   row: SqlRow,
   folderRows: readonly SqlRow[],
-  patternRows: readonly SqlRow[],
+  subfolderRows: readonly SqlRow[],
 ): Result<Project> {
-  const enabled = flag(row.tracking_enabled);
-  if (!enabled.ok) return enabled;
-  const gitignore = flag(row.use_gitignore);
-  if (!gitignore.ok) return gitignore;
-  const folders: Folder[] = [];
+  const folders: ProjectFolder[] = [];
   for (let index = 0; index < folderRows.length; index++) {
     const folder = folderRows[index]!;
-    if (folder.position !== index && folder.position !== BigInt(index)) {
-      return invalidStored();
+    if (!inOrder(folder.position, index)) return invalidStored();
+    const subfolders: { path: string; description: string }[] = [];
+    for (const sub of subfolderRows) {
+      if (sub.folder_path !== folder.path) continue;
+      if (!inOrder(sub.position, subfolders.length)) return invalidStored();
+      subfolders.push({
+        path: sub.path as string,
+        description: sub.description as string,
+      });
     }
-    const parsed = folderSchema.safeParse({
+    const parsed = projectFolderOutputSchema.safeParse({
       path: folder.path,
       description: folder.description,
+      subfolders,
     });
     if (!parsed.success) return invalidStored();
     folders.push(parsed.data);
   }
   if (!validateFolderRoots(folders).ok) return invalidStored();
-  const patterns: TrackingPattern[] = [];
-  for (let index = 0; index < patternRows.length; index++) {
-    const pattern = patternRows[index]!;
-    if (pattern.position !== index && pattern.position !== BigInt(index)) {
-      return invalidStored();
-    }
-    const parsed = trackingPatternSchema.safeParse({
-      effect: pattern.effect,
-      glob: pattern.glob,
-    });
-    if (!parsed.success) return invalidStored();
-    patterns.push(parsed.data);
-  }
-  const tracking = trackingRuleSetSchema.safeParse({
-    enabled: enabled.value,
-    patterns,
-    use_gitignore: gitignore.value,
-  });
-  if (!tracking.success) return invalidStored();
-  const project = projectSchema.safeParse({
+  const parsed = projectRecordSchema.omit({ folders: true }).safeParse({
     id: row.id,
     name: row.name,
     title: row.title,
     purpose: row.purpose,
     revision: row.revision,
     status: row.status,
-    folders,
-    tracking: tracking.data,
   });
-  return project.success ? ok(project.data) : invalidStored();
+  return parsed.success ? ok({ ...parsed.data, folders }) : invalidStored();
 }

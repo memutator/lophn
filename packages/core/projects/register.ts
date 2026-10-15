@@ -12,18 +12,17 @@ import type { EventDefinition } from "../../protocol/base/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
+  TxPortRegistration,
 } from "../storage/ledger/mod.ts";
-import {
-  isAssignmentReactions,
-  isNotifications,
-} from "../main/daemon/platform-register.ts";
+import { isNotifications } from "../main/daemon/platform-register.ts";
 import {
   CONTEXT_WORKER_PRINCIPAL,
   createContextsRegistration,
   loadContextsRuntime,
 } from "./contexts/register.ts";
 import { createProjectCommands } from "./registry/commands.ts";
-import { createProjectEventVisibility } from "./registry/visibility.ts";
+import { createFolderResolver } from "./registry/folder-resolver.ts";
+import { folderResolverPort } from "./registry/ports.ts";
 import { createProjectReads } from "./registry/reads.ts";
 import { projectsSchemaSteps } from "./registry/schema.ts";
 
@@ -36,19 +35,21 @@ type LedgerRegistration = {
   commands?: readonly unknown[];
   reads?: readonly unknown[];
   blobFields?: readonly unknown[];
+  ports?: readonly TxPortRegistration[];
 };
 
 export function createLedgerRegistration(): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const contexts = createContextsRegistration(contextsRuntime);
-  const reads = createProjectReads();
+  const folders = createFolderResolver();
+  const reads = createProjectReads({ folders });
   return {
     schemaSteps: [...projectsSchemaSteps, ...contexts.schemaSteps],
     commands: [
-      commands.create,
-      commands.update,
-      commands.setTracking,
+      commands.register,
+      commands.edit,
+      commands.relinkFolder,
       commands.archive,
       commands.unarchive,
       ...contexts.commands,
@@ -58,28 +59,13 @@ export function createLedgerRegistration(): LedgerRegistration {
       reads.get,
       reads.resolve,
       reads.resolveCwd,
-      reads.trackingRoots,
       ...contexts.reads,
     ],
+    // 하위 폴더 검사와 폴더 존재 확인. Project Manager를 만드는 port는 agent-definition이 채운다.
+    ports: [{ key: folderResolverPort, create: () => folders }],
     // context 내용 blob은 context 읽기가 연다.
     blobFields: [...contexts.blobFields],
   };
-}
-
-// project 보관·보관 해제는 assignments 반응 구독자도 읽는다. 그 자리의 켜진 assignment를 멈추고
-// 다시 켜는 계기다.
-function withAssignments<D extends EventDefinition>(
-  base: EventVisibilityDefinition<D>,
-): EventVisibilityDefinition {
-  const policy: EventVisibilityDefinition<D> = {
-    event: base.event,
-    handle(snapshot, ctx, envelope) {
-      return isAssignmentReactions(ctx)
-        ? ok(true)
-        : base.handle(snapshot, ctx, envelope);
-    },
-  };
-  return policy as unknown as EventVisibilityDefinition;
 }
 
 // context worker(machine:context-worker)가 보는 context event. 판 제출·적용·되돌림과 보관이
@@ -107,25 +93,18 @@ function contextVisibility<D extends EventDefinition>(
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
 // 만든다.
 export function createEventRegistration(): EventRegistration {
-  const projects = createProjectEventVisibility();
   return {
     events: EVENTS,
-    visibility: [
-      projects.created as unknown as EventVisibilityDefinition,
-      projects.updated as unknown as EventVisibilityDefinition,
-      withAssignments(projects.archived),
-      withAssignments(projects.unarchived),
-      ...CONTEXT_API_EVENTS.map((event) =>
-        contextVisibility(event) as unknown as EventVisibilityDefinition
-      ),
-    ],
+    visibility: CONTEXT_API_EVENTS.map((event) =>
+      contextVisibility(event) as unknown as EventVisibilityDefinition
+    ),
   };
 }
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
 export function createReaderRegistration(): ReaderRegistration {
   const contexts = createContextsRegistration(contextsRuntime);
-  const projectReads = createProjectReads();
+  const projectReads = createProjectReads({ folders: createFolderResolver() });
   return {
     reads: [
       ...contexts.reads,
@@ -133,7 +112,6 @@ export function createReaderRegistration(): ReaderRegistration {
       projectReads.get,
       projectReads.resolve,
       projectReads.resolveCwd,
-      projectReads.trackingRoots,
     ],
     ports: new Map(),
   };

@@ -1,10 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  Folder,
-  Project,
-  TrackingPattern,
-} from "../../../protocol/projects/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
+import type { ProjectFolder } from "../../../protocol/projects/mod.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import type { Project } from "./model.ts";
 import { projectFromRows } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;
@@ -20,11 +17,11 @@ export function loadProject(sql: Query, id: string): Result<Project | null> {
     "SELECT position, path, description FROM project_folders WHERE project = ? ORDER BY position",
     [id],
   );
-  const patterns = sql.all(
-    "SELECT position, effect, glob FROM project_tracking_patterns WHERE project = ? ORDER BY position",
+  const subfolders = sql.all(
+    "SELECT folder_path, position, path, description FROM project_subfolders WHERE project = ? ORDER BY folder_path, position",
     [id],
   );
-  const project = projectFromRows(row, folders, patterns);
+  const project = projectFromRows(row, folders, subfolders);
   if (!project.ok) return project;
   if (project.value.id !== id) return invalidStored();
   return project;
@@ -43,38 +40,31 @@ export function loadProjects(sql: Query): Result<Project[]> {
   return ok(projects);
 }
 
-export function enabledRoots(projects: readonly Project[]) {
-  return projects.flatMap((project) =>
-    project.status === "active" && project.tracking.enabled
-      ? project.folders.map((folder) => ({
-        project: project.id,
-        path: folder.path,
-        enabled: true,
-      }))
-      : []
-  );
+export function loadProjectByName(
+  sql: Query,
+  name: string,
+): Result<Project | null> {
+  const row = sql.get("SELECT id FROM projects WHERE name = ?", [name]);
+  if (row === undefined) return ok(null);
+  return typeof row.id === "string"
+    ? loadProject(sql, row.id)
+    : invalidStored();
 }
 
-export function insertProject(
-  tx: Pick<Tx, "sql">,
-  project: Project,
-): void {
+export function insertProject(tx: Pick<Tx, "sql">, project: Project): void {
   tx.sql.run(
-    `INSERT INTO projects
-      (id, name, title, purpose, tracking_enabled, use_gitignore, revision, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO projects (id, name, title, purpose, revision, status)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       project.id,
       project.name,
       project.title,
       project.purpose,
-      project.tracking.enabled ? 1 : 0,
-      project.tracking.use_gitignore ? 1 : 0,
       project.revision,
       project.status,
     ],
   );
-  replaceChildren(tx, project.id, project.folders, project.tracking.patterns);
+  replaceChildren(tx, project.id, project.folders);
 }
 
 export function replaceMetadata(
@@ -83,15 +73,12 @@ export function replaceMetadata(
 ): Result<void> {
   const changed = tx.sql.run(
     `UPDATE projects
-     SET name = ?, title = ?, purpose = ?, tracking_enabled = ?, use_gitignore = ?,
-         revision = ?, status = ?
+     SET name = ?, title = ?, purpose = ?, revision = ?, status = ?
      WHERE id = ?`,
     [
       project.name,
       project.title,
       project.purpose,
-      project.tracking.enabled ? 1 : 0,
-      project.tracking.use_gitignore ? 1 : 0,
       project.revision,
       project.status,
       project.id,
@@ -100,40 +87,26 @@ export function replaceMetadata(
   return Number(changed.changes) === 1 ? ok(undefined) : invalidStored();
 }
 
+// 폴더와 하위 폴더를 통째로 바꾼다.
 export function replaceChildren(
   tx: Pick<Tx, "sql">,
   project: string,
-  folders: readonly Folder[],
-  patterns: readonly TrackingPattern[],
+  folders: readonly ProjectFolder[],
 ): void {
+  tx.sql.run("DELETE FROM project_subfolders WHERE project = ?", [project]);
   tx.sql.run("DELETE FROM project_folders WHERE project = ?", [project]);
-  tx.sql.run("DELETE FROM project_tracking_patterns WHERE project = ?", [
-    project,
-  ]);
   folders.forEach((folder, position) => {
     tx.sql.run(
       "INSERT INTO project_folders (project, position, path, description) VALUES (?, ?, ?, ?)",
       [project, position, folder.path, folder.description],
     );
   });
-  patterns.forEach((pattern, position) => {
-    tx.sql.run(
-      "INSERT INTO project_tracking_patterns (project, position, effect, glob) VALUES (?, ?, ?, ?)",
-      [project, position, pattern.effect, pattern.glob],
-    );
-  });
-}
-
-export function rowCount(row: SqlRow | undefined): Result<number> {
-  const value = row?.count;
-  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
-    return ok(value);
+  for (const folder of folders) {
+    folder.subfolders.forEach((sub, position) => {
+      tx.sql.run(
+        "INSERT INTO project_subfolders (project, folder_path, position, path, description) VALUES (?, ?, ?, ?, ?)",
+        [project, folder.path, position, sub.path, sub.description],
+      );
+    });
   }
-  if (
-    typeof value === "bigint" && value >= 0n &&
-    value <= BigInt(Number.MAX_SAFE_INTEGER)
-  ) {
-    return ok(Number(value));
-  }
-  return invalidStored();
 }

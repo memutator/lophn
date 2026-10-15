@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import type { Project } from "../../../protocol/projects/mod.ts";
+import type { Project } from "./model.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 
 const basisSchema = z.strictObject({

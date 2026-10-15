@@ -1,35 +1,29 @@
 export {
   type CanonicalRoot,
   deepestRegisteredRoot,
-  overlappingEnabledRoots,
+  nextRevision,
   type PathStyle,
   pathStyle,
-  type RegisteredRoot,
+  type Project,
   rootRelation,
   rootsOverlap,
+  searchScopeOf,
 } from "./model.ts";
 export { projectsSchemaSteps } from "./schema.ts";
 export { createProjectCommands } from "./commands.ts";
-export { exactFileGlob, includeExactFile } from "./placement.ts";
-export { loadProject } from "./store.ts";
-// scan.ts는 Deno.realPathSync 같은 동기 file API를 쓴다. barrel에 두면 core module
-// graph에 동기 file API가 들어간다. 호출자는 scan.ts를 직접 import한다.
 export {
-  decideTracking,
+  gitignoreExcludes,
   type GitignoreRule,
-  hardExclusion,
-  type TrackingDecision,
-  WRITE_TEMP_PREFIX,
+  symlinkEscapesRoot,
 } from "./rules.ts";
+export { loadProject, loadProjects } from "./store.ts";
+export { recordOf } from "./record.ts";
 export {
-  type DirectoryEntry,
-  previewTracking,
-  type RootScanner,
-} from "./work.ts";
-export { createProjectReads, initialTrackingProposal } from "./reads.ts";
-export { createProjectEventVisibility } from "./visibility.ts";
-export type {
-  ProjectAccessTarget,
-  ProjectCandidate,
-  ProjectEvent,
-} from "./authorization.ts";
+  createProjectReads,
+  projectInfoList,
+  type ProjectInfoOf,
+  projectInfoOf,
+  type ProjectReadDeps,
+} from "./reads.ts";
+export { folderResolverPort, projectManagerProvisioningPort } from "./ports.ts";
+export type { ProjectAccessTarget } from "./authorization.ts";

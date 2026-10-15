@@ -40,6 +40,7 @@ import type {
   RunInput,
   StopReason,
 } from "./ports.ts";
+import { inputText } from "./input-text.ts";
 import {
   abortableWait,
   isTransientFailure,
@@ -302,7 +303,7 @@ async function prepare(
         compaction_summary: null,
         history: [...conversation.history, ...state.history],
         request: inputs.request,
-        steering: inputs.steering.map((item) => item.text),
+        steering: inputs.steering.map((item) => inputText(item.input)),
       },
       turn_context: turn.text,
       evidence: {
@@ -579,7 +580,9 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   const step = await callModel(state, prepared);
   if (step.kind === "end") return step.end;
   // 보낸 steering은 이 call에 반영됐다. 이후 이력에서 이어진다.
-  const steering = prepared.inputs.steering.map((item) => item.text);
+  const steering = prepared.inputs.steering.map((item) =>
+    inputText(item.input)
+  );
   if (steering.length > 0) {
     appendUser(state, steering.map((text) => ({ kind: "text", text })));
   }

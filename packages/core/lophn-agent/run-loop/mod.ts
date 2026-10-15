@@ -30,18 +30,13 @@ export {
   type RunLimiterInit,
 } from "./limits.ts";
 export {
-  type Candidate,
-  createRunSelector,
-  pickCandidate,
-  type RecentStart,
-  type RunSelector,
-  type Selection,
-  SELECTOR_READ_ROUTES,
-  startableCandidates,
-  type Tier,
-  tierOf,
-  YIELD_AFTER,
+  createLophnInputTransport,
+  createTurnStarter,
+  type TurnStart,
+  type TurnStarter,
 } from "./work.ts";
+export { createInbox, type Inbox } from "./inbox.ts";
+export { inputText } from "./input-text.ts";
 export {
   type AppOffer,
   computeAgentAppScope,
@@ -67,6 +62,7 @@ export {
 } from "./status.ts";
 export { startRunLoop } from "./loop.ts";
 export {
+  type CallSignals,
   type FinishRequest,
   type FinishResult,
   type LoopDeps,
@@ -81,6 +77,7 @@ export {
   type RunInput,
   type RunLoopHandle,
   type RunPorts,
+  type SteeringInput,
   type StopCheck,
   type StopReason,
   type ToolAttempt,
@@ -89,6 +86,7 @@ export {
   type ToolInfo,
   type ToolPort,
   type ToolWaiting,
+  type TurnInputs,
   type WaitTarget,
 } from "./ports.ts";
 export {

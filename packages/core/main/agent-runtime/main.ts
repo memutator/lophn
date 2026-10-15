@@ -9,10 +9,7 @@ import {
 import {
   type CoreRead,
   createRunCredentials,
-  createRunSelector,
   type RunCredentials,
-  type RunSelector,
-  SELECTOR_READ_ROUTES,
   startRuntime,
   type Startup,
 } from "../../lophn-agent/run-loop/mod.ts";
@@ -20,6 +17,8 @@ import {
   type CatalogRefresherHandle,
   startCatalogRefresher,
 } from "../../lophn-agent/models/catalog-refresh.ts";
+import type { RunSelector } from "../../lophn-agent/run-loop/driver.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
 import type { BlobPort } from "../../lophn-agent/run-loop/blobs.ts";
@@ -240,7 +239,8 @@ export async function startAgentRuntime(input: {
   if (!started.ok) {
     return started;
   }
-  const selector = createRunSelector({ read: selectorRead! });
+  // 입력함이 core 메모리로 옮겨 가 turn starter가 놓이기 전에는 새 turn을 고르지 않는다.
+  const selector: RunSelector = { next: () => Promise.resolve(ok(null)) };
   // 기동 순서: 새 run을 고르기 전에 끊겼던 run(진행 중·사람 기다림)을 먼저 잇는다. 사람이 멈춘 run은
   // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
   let recovered: RecoverReport[] = [];
@@ -300,7 +300,7 @@ export async function startAgentRuntime(input: {
 // core loopback read. selector가 쓰는 read route만 연다(SELECTOR_READ_ROUTES). credential은
 // 호출 시점의 사용 허가로만 붙인다. 목록에 없는 경로는 요청하지 않는다.
 const ROUTES_BY_PATH = new Map<string, ReadRoute>(
-  SELECTOR_READ_ROUTES.map((route) => [routePath(route), route as ReadRoute]),
+  [eventsList].map((route) => [routePath(route), route as ReadRoute]),
 );
 
 function coreRead(

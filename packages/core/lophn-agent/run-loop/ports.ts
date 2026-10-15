@@ -5,6 +5,9 @@ import type {
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { WorkspaceReadOutput } from "../../../protocol/shell/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import type { RoutedInput } from "../../router/ports.ts";
 import type { InstructionDeps } from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import type {
@@ -36,11 +39,28 @@ export type StopCheck = { stopped: false } | {
   reason: StopReason;
 };
 
-// 아직 model에 반영하지 않은 입력. request는 현재 사람 요청 전문이고 steering은 진행 중에 접수된
-// 수정 입력이다.
+// steering 입력 하나. id는 그 입력의 session 기록 message다(반영 기록의 key).
+export type SteeringInput = { id: string; input: RoutedInput };
+
+// 아직 model에 반영하지 않은 입력. request는 이 turn을 시작한 입력의 본문 전문이고 steering은 도는
+// 중에 들어온 사람의 steer 입력이다.
 export type PendingInputs = {
   request: string | null;
-  steering: readonly { id: string; text: string }[];
+  steering: readonly SteeringInput[];
+};
+
+// turn이 시작한 입력과 steer를 읽는 길이다. 입력함은 core process의 메모리에 있고 agent runtime은
+// 감독 pipe로 읽는다. 연결은 wiring이 한다.
+export type TurnInputs = {
+  // 이 turn을 시작한 입력. 입력함에서 꺼낸 것이다.
+  first(): Promise<Result<RoutedInput | null>>;
+  steering(): Promise<Result<readonly SteeringInput[]>>;
+};
+
+// turn이 call 입력을 가져갔다는 신호다. wiring이 Router의 `markConsumed`에 끼운다. StartTurn이 시작을 확정하는
+// 같은 transaction에서 부른다.
+export type CallSignals = {
+  consumed(tx: Tx, call: Id<"cal">): Result<void>;
 };
 
 // model call 직전마다 읽는 이번 run의 prompt 재료다. 지침·재료는 call마다 새로 읽어 최신이다.

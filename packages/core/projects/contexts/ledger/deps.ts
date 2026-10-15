@@ -3,6 +3,7 @@
 // Worker 안에서만 올라온다(contexts-api.ts의 loadContextsRuntime). node:sqlite와 동기 file API를
 // 쓰므로 core 본체의 module graph에 들어오면 안 된다.
 // 그래서 index 저장소는 packages/core/projects/contexts/mod.ts barrel이 아니라 index/mod.ts를 직접 연다.
+import type { Id } from "../../../../protocol/base/ids.ts";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
@@ -33,7 +34,6 @@ import {
   startRequest,
   type StartRequestDeps,
 } from "../../../lophn-agent/session/mod.ts";
-import { createRunCommands } from "../../../lophn-agent/run-loop/mod.ts";
 import { loadActiveBlueprint } from "../../../apps/releases/store.ts";
 import { ContextDepRefused, type ContextsRuntime } from "../register.ts";
 import { handOffContent } from "../handoff.ts";
@@ -157,12 +157,12 @@ function flatten(
   })) as ReturnType<SearchExecutor>[number][];
 }
 
-// 요청 접수는 run-loop의 AcceptRun을 같은 transaction에서 부른다. AcceptRun은 machine 전용 기록이라
-// 이 접수에 한해 machine 자격으로 바꿔 넘긴다(packages/core/lophn-agent/register.ts의 조립과 같다).
-const runCommands = createRunCommands();
+// 요청 접수는 Router로 새 session을 열어 입력함에 넣는다. Router가 wiring에 놓이기 전에는 접수하지 못한다.
 const conversationDeps: StartRequestDeps = {
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+  router: {
+    route: () =>
+      err({ code: "unavailable", message: "the router is not wired" }),
+  },
 };
 
 export function createContextsRuntime(): ContextsRuntime {
@@ -271,12 +271,14 @@ export function createContextsRuntime(): ContextsRuntime {
           throw new ContextDepRefused(body.error.code, body.error.message);
         }
         const started = startRequest(conversationDeps, tx, {
-          role: "context_engineer",
-          work_place: { kind: "project", id: String(owner["project"]) },
+          agent: {
+            role: "project_manager",
+            project: String(owner["project"]) as Id<"prj">,
+          },
           content,
           body: body.value,
         });
-        if (started.ok) return started.value.run;
+        if (started.ok) return started.value.message;
         // 세션·Run 접수가 거절한 코드 그대로 답한다(없는 project는 not_found, 받을 assignment가 없으면
         // unavailable). 접수 쪽은 internal 말고 문서가 정한 코드만 낸다.
         throw new ContextDepRefused(started.error.code, started.error.message);

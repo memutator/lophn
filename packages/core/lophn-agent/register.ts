@@ -389,6 +389,8 @@ const assignmentReads = createAssignmentReads();
 // run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
+// turn은 입력함에서 시작하므로 run 접수는 없다. 그것을 부르던 handoff와 기다림 쪽은 Router로 바뀔 때까지 막혀 있다.
+const RUN_ACCEPT_REMOVED = "accepting a run is replaced by the inbox";
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
@@ -417,8 +419,14 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
 // message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
 const conversationCommands = createConversationCommands({
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+  // Router와 session 목록이 wiring에 놓이기 전에는 사람 메시지를 받지 못한다.
+  send: {
+    router: {
+      route: () =>
+        err({ code: "unavailable", message: "the router is not wired" }),
+    },
+    directory: { find: () => null },
+  },
   deleteSessionRecords,
   eraseBlobRefs,
 });
@@ -429,8 +437,7 @@ const conversationReads = createConversationReads();
 // machine 자격으로 바꿔 넘기고(command 안에서 보낸 run·방향·원래 요청을 먼저 검사한다) 바깥
 // command의 actor·event 기록은 그대로다. 내용 blob은 core가 준비한다(packages/core/lophn-agent/tools/handoff/body.ts).
 const handoffCommands = createHandoffCommands({
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+  acceptRun: () => err({ code: "unavailable", message: RUN_ACCEPT_REMOVED }),
 });
 // 받는 run이 저장한 가장 최근 문서 고정 version은 documents/versions의 표에서 읽는다. 표를
 // 소유한 concern이 다르므로 lophn-agent leaf는 표를 모르고 이 조립이 조회를 넣는다. 문서 표가
@@ -518,8 +525,7 @@ const approvalCommands = createApprovalCommands();
 const waitCommands = createWaitCommands({
   createApproval: (tx, ctx, input, compare) =>
     approvalCommands.create.handle(tx, ctx, input, compare),
-  acceptRun: (tx, ctx, input, compare) =>
-    runCommands.accept.handle(tx, ctx, input, compare),
+  acceptRun: () => err({ code: "unavailable", message: RUN_ACCEPT_REMOVED }),
   assignMessage: (tx, ctx, input, compare) =>
     conversationCommands.assign.handle(tx, ctx, input, compare),
 });
@@ -916,12 +922,10 @@ export const lophnAgentDefinitions = {
     agentCommands.delete,
     agentCommands.changeSettings,
     placeExtensionCommands.change,
-    runCommands.accept,
     runCommands.start,
     runCommands.checkpoint,
     runCommands.finish,
     runCommands.stop,
-    runCommands.confirmNext,
     conversationCommands.open,
     conversationCommands.rename,
     conversationCommands.archive,
@@ -933,7 +937,7 @@ export const lophnAgentDefinitions = {
     conversationCommands.compact,
     conversationCommands.failCompact,
     conversationCommands.close,
-    conversationCommands.receive,
+    conversationCommands.send,
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,

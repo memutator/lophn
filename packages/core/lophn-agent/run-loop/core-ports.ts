@@ -12,10 +12,6 @@ import {
   finishModelCall,
   finishRun,
   finishToolCall,
-  type HandoffContent,
-  handoffContentSchema,
-  messageBody,
-  messagesList,
   modelCallList,
   questionRead,
   questionText,
@@ -67,6 +63,8 @@ import type {
   ToolInfo,
   WaitTarget,
 } from "./mod.ts";
+import type { TurnInputs } from "./ports.ts";
+import { inputText } from "./input-text.ts";
 import { parseToolArgs } from "./mod.ts";
 import { resultLinks } from "../session/answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
@@ -125,6 +123,7 @@ export type CorePortsDeps = {
   model: ModelBinding;
   tools: ToolSetup;
   context(): Promise<Result<RunContext>>;
+  turnInputs: TurnInputs;
 };
 
 export type CorePorts = {
@@ -142,14 +141,6 @@ const STOP_REASONS = new Set([
   "assignment_paused",
   "assignment_withdrawn",
 ]);
-
-function textOf(
-  content: { parts: readonly { kind: string; text?: string }[] },
-): string {
-  return content.parts.flatMap((part) =>
-    part.kind === "text" && part.text !== undefined ? [part.text] : []
-  ).join("\n");
-}
 
 const EMPTY_USAGE = (revision: string): TokenUsage => ({
   input: null,
@@ -169,19 +160,6 @@ const UNKNOWN_COST: CallCost = {
   basis: null,
   confirmed_at: null,
 };
-
-// 받는 run의 요청 글. 맡긴 내용의 네 필드를 그대로 옮긴다.
-function handoffRequestText(content: HandoffContent): string {
-  const lines = [`What: ${content.what}`, `Why: ${content.why}`];
-  if (content.excludes.length > 0) {
-    lines.push("Excludes:", ...content.excludes.map((item) => `- ${item}`));
-  }
-  lines.push(
-    "Expected outputs:",
-    ...content.expected_outputs.map((item) => `- ${item}`),
-  );
-  return lines.join("\n");
-}
 
 export function createCorePorts(deps: CorePortsDeps): CorePorts {
   const { seat, machine, agent, clock, ids } = deps;
@@ -227,56 +205,15 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     };
   }
 
-  async function bodyOf(message: string): Promise<Result<string>> {
-    const read = await readOf(machine, messageBody, { message });
-    return read.ok ? ok(textOf(read.value.content)) : read;
-  }
-
   async function inputs(): Promise<Result<PendingInputs>> {
-    const record = await runRecord();
-    if (!record.ok) return record;
-    const source = record.value.run.source;
-    let request: string | null = null;
-    if (source.kind === "message") {
-      const body = await bodyOf(source.message);
-      if (!body.ok) return body;
-      request = body.value;
-    }
-    // handoff로 시작한 run은 맡긴 내용(무엇·왜·제외·기대 결과)이 자기 요청이다.
-    if (source.kind === "handoff") {
-      const body = await readOf(machine, runBody, {
-        kind: "handoff_content",
-        id: seat.run,
-      });
-      if (!body.ok) return body;
-      const content = handoffContentSchema.safeParse(body.value.value);
-      if (!content.success) {
-        return err({
-          code: "unavailable",
-          message: "handoff content is unreadable",
-        });
-      }
-      request = handoffRequestText(content.data);
-    }
-    const steering: { id: string; text: string }[] = [];
-    if (seat.session !== null) {
-      const listed = await readOf(machine, messagesList, {
-        session: seat.session,
-        run: seat.run,
-      });
-      if (!listed.ok) return listed;
-      for (const entry of listed.value.messages) {
-        const message = entry.message;
-        if (
-          message.mode !== "correction" || message.applied_at_call !== null ||
-          message.actor !== "user"
-        ) continue;
-        const body = await bodyOf(message.id);
-        if (!body.ok) return body;
-        steering.push({ id: message.id, text: body.value });
-      }
-    }
-    return ok({ request, steering });
+    const first = await deps.turnInputs.first();
+    if (!first.ok) return first;
+    const steering = await deps.turnInputs.steering();
+    if (!steering.ok) return steering;
+    return ok({
+      request: first.value === null ? null : inputText(first.value),
+      steering: steering.value,
+    });
   }
 
   // ---- model call ----

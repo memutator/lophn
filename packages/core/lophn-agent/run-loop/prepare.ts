@@ -36,8 +36,8 @@ import {
   RUN_LIMIT_SETTING_KEYS,
   type RunContext,
   type RunCredentials,
-  type Selection,
 } from "./mod.ts";
+import type { Selection } from "./driver.ts";
 import {
   createWaitResolver,
   recoverRunFromLedger,
@@ -510,6 +510,11 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       agent,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
+      // 입력함은 core 메모리에 있다. 감독 pipe로 읽는 길이 놓이기 전에는 입력이 없다.
+      turnInputs: {
+        first: () => Promise.resolve(ok(null)),
+        steering: () => Promise.resolve(ok([])),
+      },
       agentHash: resolved.hash,
       model,
       tools: {

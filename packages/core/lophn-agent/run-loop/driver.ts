@@ -9,12 +9,22 @@ import {
   type RunCredentials,
   type RunInput,
   type RunLoopHandle,
-  type RunSelector,
-  type Selection,
   startRunLoop,
   type StartRunResult,
   type StopReason,
 } from "./mod.ts";
+
+// 옛 selector 모양. 입력함의 turn starter(`createTurnStarter`)로 바꾸기 전까지 아무것도 고르지 않는다.
+export type Selection = {
+  run: string;
+  assignment: string;
+  session: string | null;
+  stateSeq: string;
+  reason: "priority" | "yield";
+};
+export type RunSelector = {
+  next(): Promise<Result<Selection | null>>;
+};
 
 // 고른 run을 시작하고 loop를 돌리는 연결(lophn-agent/harness/run-loop). selector가 고른 run을
 // StartRun으로 확정한 뒤 `agent:<asg>` credential을 받아 loop에 넘기고, run이 끝나거나 멈추거나

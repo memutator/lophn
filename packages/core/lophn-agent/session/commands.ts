@@ -11,10 +11,10 @@ import {
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
   openSession,
-  type receiveMessage,
   type recordMessage,
   renameSession,
   type requestSessionCompact,
+  type sendMessage,
   sessionArchived,
   sessionClosed,
   sessionDeleted,
@@ -35,7 +35,10 @@ import { createCompactCommands } from "./compact.ts";
 import { createForkCommand } from "./fork.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
-import { type AcceptRun, createMessageCommands } from "./message-commands.ts";
+import {
+  createMessageCommands,
+  type SendMessageDeps,
+} from "./message-commands.ts";
 import {
   type AssignmentRef,
   eventExists,
@@ -53,9 +56,8 @@ import { renameSessionTitle } from "./session-title.ts";
 // 세션 command. 등록 순서와 transaction 규칙은 message-commands.ts와 같다.
 
 export type ConversationDeps = {
-  // 같은 Tx에서 run을 접수한다(run-loop AcceptRun). 사람 입력 접수와 담당 run 접수는
-  // 한 transaction이어야 한다. 조립이 run-loop의 accept handler를 건다.
-  acceptRun: AcceptRun;
+  // 사람 메시지를 같은 Tx에서 Router로 입력함에 넣는다. 조립이 Router와 session 목록을 건다.
+  send: SendMessageDeps;
   // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다. 기록을 가진 concern마다
   // 자기 몫을 지우고 조립이 그것들을 잇는다. 메시지는 이 함수를 부르기 전에 지워져 있다.
   deleteSessionRecords: (tx: Tx, session: string) => Result<void>;
@@ -156,13 +158,13 @@ export function createConversationCommands(deps: ConversationDeps): {
   compact: CommandDefinition<typeof compactSession>;
   failCompact: CommandDefinition<typeof failSessionCompact>;
   close: CommandDefinition<typeof closeSession>;
-  receive: CommandDefinition<typeof receiveMessage>;
+  send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
   apply: CommandDefinition<typeof applyMessages>;
   assign: CommandDefinition<typeof assignMessage>;
 } {
   return {
-    ...createMessageCommands(deps.acceptRun),
+    ...createMessageCommands(deps.send),
     fork: createForkCommand(),
     ...createCompactCommands(),
     open: {

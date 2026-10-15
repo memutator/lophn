@@ -1,34 +1,34 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  runList,
-  runRead,
-  runResult,
+  turnList,
+  turnRead,
+  turnResult,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { loadRun, recordOf, rowOf, RUN_COLUMNS, type RunRow } from "./model.ts";
+import { loadTurn, TURN_COLUMNS, turnRecordOf, turnRowOf } from "./model.ts";
 
-// read는 pool read다. handler는 동기 Result를 돌려준다. agent 자격은 자기
-// assignment의 run만 보고 그 밖은 없는 run과 똑같이 답한다.
+// read는 pool read다. handler는 동기 Result를 돌려준다. agent 자격은 자기 session의 turn만 보고 그 밖은
+// 없는 turn과 똑같이 답한다.
 
 const PAGE = 50;
 
 function notFound(): Result<never> {
-  return err({ code: "not_found", message: "run not found" });
+  return err({ code: "not_found", message: "turn not found" });
 }
 
-function ownAssignment(ctx: RequestContext): string | null | undefined {
+// agent는 자기 session의 turn만 본다. null이면 제한이 없다.
+function ownSession(ctx: RequestContext): string | null {
   const parts = parseActor(ctx.actor);
-  if (parts !== undefined && parts.kind === "agent") return parts.id;
-  return null;
+  return parts !== undefined && parts.kind === "agent" ? parts.id : null;
 }
 
-function visible(ctx: RequestContext, row: RunRow): boolean {
-  const own = ownAssignment(ctx);
-  return own === null || own === row.assignment;
+function visible(ctx: RequestContext, session: string): boolean {
+  const own = ownSession(ctx);
+  return own === null || own === session;
 }
 
 function cursorAfter(cursor: string | undefined): Result<number | null> {
@@ -41,79 +41,78 @@ function cursorAfter(cursor: string | undefined): Result<number | null> {
     if (typeof parsed.after_seq !== "number") throw new TypeError("cursor");
     return ok(parsed.after_seq);
   } catch {
-    return err({ code: "invalid_input", message: "invalid run cursor" });
+    return err({ code: "invalid_input", message: "invalid turn cursor" });
   }
 }
 
-export function createRunReads(): {
-  read: ReadDefinition<typeof runRead>;
-  list: ReadDefinition<typeof runList>;
-  result: ReadDefinition<typeof runResult>;
+export function createTurnReads(): {
+  read: ReadDefinition<typeof turnRead>;
+  list: ReadDefinition<typeof turnList>;
+  result: ReadDefinition<typeof turnResult>;
 } {
   return {
     read: {
-      route: runRead,
+      route: turnRead,
       handle(snapshot, ctx, input) {
-        const row = loadRun(snapshot, input.run);
-        if (row === undefined || !visible(ctx, row)) return notFound();
+        const row = loadTurn(snapshot, input.turn);
+        if (row === undefined || !visible(ctx, row.session)) return notFound();
         return ok({
-          run: recordOf(row),
+          turn: turnRecordOf(row),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
       },
     },
     list: {
-      route: runList,
+      route: turnList,
       handle(snapshot, ctx, input) {
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
-        const own = ownAssignment(ctx);
+        const own = ownSession(ctx);
         if (
-          own !== null && own !== undefined && input.assignment !== undefined &&
-          input.assignment !== own
+          own !== null && input.session !== undefined && input.session !== own
         ) {
           return ok({
-            runs: [],
+            turns: [],
             as_of_seq: snapshot.as_of_seq,
             next_cursor: null,
           });
         }
-        const clauses = ["accepted_seq > ?"];
+        const session = own ?? input.session;
+        const clauses = ["state_seq > ?"];
         const params: (string | number)[] = [after.value ?? 0];
-        const assignment = own ?? input.assignment;
-        if (assignment !== undefined && assignment !== null) {
-          clauses.push("assignment = ?");
-          params.push(assignment);
+        if (session !== undefined) {
+          clauses.push("session = ?");
+          params.push(session);
         }
         if (input.state !== undefined) {
           clauses.push("state = ?");
           params.push(input.state);
         }
         const rows = snapshot.sql.all(
-          `select ${RUN_COLUMNS} from runs where ${clauses.join(" and ")}
-           order by accepted_seq limit ?`,
+          `select ${TURN_COLUMNS} from turns where ${clauses.join(" and ")}
+           order by state_seq limit ?`,
           [...params, PAGE + 1],
-        ).map(rowOf);
+        ).map(turnRowOf);
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
-          runs: page.map(recordOf),
+          turns: page.map(turnRecordOf),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: rows.length > PAGE && last !== undefined
-            ? btoa(JSON.stringify({ after_seq: Number(last.accepted_seq) }))
+            ? btoa(JSON.stringify({ after_seq: Number(last.state_seq) }))
             : null,
         });
       },
     },
     result: {
-      route: runResult,
+      route: turnResult,
       handle(snapshot, ctx, input) {
-        const row = loadRun(snapshot, input.run);
-        if (row === undefined || !visible(ctx, row)) return notFound();
-        const record = recordOf(row);
+        const row = loadTurn(snapshot, input.turn);
+        if (row === undefined || !visible(ctx, row.session)) return notFound();
+        const record = turnRecordOf(row);
         return ok({
-          run: row.id,
+          turn: row.id,
           state: row.state,
           outcome: record.outcome,
           result: record.result,
@@ -124,3 +123,6 @@ export function createRunReads(): {
     },
   };
 }
+
+// 옛 이름. 다른 단위가 import하는 동안 남긴다.
+export const createRunReads = createTurnReads;

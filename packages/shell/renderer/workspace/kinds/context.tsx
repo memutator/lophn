@@ -97,20 +97,8 @@ export const contextKind: TabKindDef = {
           }))}
         onOpenDocument={contexts.openPath}
         onOpenSearch={contexts.openSearch}
-        onAsk={contexts.askContextEngineer}
-        stamp={contexts.stampOf(context)}
+        onAsk={contexts.askProjectManager}
       />
     );
-  },
-  // `+` › Context: 이 프로젝트의 context 목록에서 하나를 골라 그 탭을 연다.
-  launcher: {
-    labelKey: "contexts.label.frame-chip",
-    available: (host) => host.contexts !== null,
-    choices: (host) =>
-      host.contexts?.list.map((item) => ({ id: item.id, label: item.title })) ??
-        [],
-    open: (host, choice) => {
-      if (choice !== undefined) openContext(host, choice);
-    },
   },
 };

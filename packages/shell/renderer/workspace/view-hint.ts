@@ -1,39 +1,31 @@
 // 작업대 화면이 main에 보내는 현재 보기 힌트. 제목·경로·본문·터미널 출력은
 // 넣지 않는다. 탭마다 무엇을 보낼지는 kind의 선언이 정한다.
 import type { WorkspaceView } from "./model.ts";
-import type { HintContext, HintTab, TabPresentation } from "./kinds/kind.ts";
+import type { HintContext, HintTab } from "./kinds/kind.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 
-export type { HintTab, TabPresentation };
+export type { HintTab };
 
 export interface ViewHint {
   project: string;
   panes: { tabs: HintTab[]; selected: string | null }[];
   focused_pane: number;
   app_tab: string | null;
-  /** 판을 아직 모르는 문서 탭이 있다. main은 그 탭이 빠지기 전에 기다릴 수 있다. */
-  pending: boolean;
 }
 
 export function layoutHint(input: {
   project: string;
   view: WorkspaceView;
-  presentation: Readonly<Record<string, TabPresentation>>;
   /** 앱 패널 탭이 연 view의 session. 탭 key로 찾는다. */
   sessions?: Readonly<Record<string, string>>;
 }): ViewHint {
-  const ctx: HintContext = {
-    presentation: input.presentation,
-    sessions: input.sessions ?? {},
-  };
-  let pending = false;
+  const ctx: HintContext = { sessions: input.sessions ?? {} };
   // 힌트는 kind의 선언이 만든다. 등록되지 않은 kind의 탭은 힌트에 넣지 않는다.
   const panes = input.view.panes.map((pane) => {
     const tabs: HintTab[] = [];
     for (const tab of pane.tabs) {
       const kind = tabKindOf(tab.kind);
       if (kind === undefined) continue;
-      if (kind.pending?.(tab, ctx) === true) pending = true;
       const hinted = kind.hint(tab, ctx);
       if (hinted !== null) tabs.push(hinted);
     }
@@ -50,6 +42,5 @@ export function layoutHint(input: {
     panes,
     focused_pane: input.view.focusedPane,
     app_tab: appTab,
-    pending,
   };
 }

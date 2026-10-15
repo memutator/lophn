@@ -1,5 +1,4 @@
-// 화면 탭(TabItem)과 layout 파일 탭을 양쪽에서 읽는다. 단위 테스트는 title이 있는
-// 옛 모양을 복원하고, 파일에 남는 것은 schema 필드뿐이다.
+// 화면 탭(TabItem)과 layout 파일 탭을 오간다. 파일에 남는 것은 schema 필드뿐이다.
 import {
   normalizePane,
   type PaneState,
@@ -8,16 +7,8 @@ import {
 } from "./model.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 
-const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
-
-const INFO_TABS = ["info", "contexts"] as const;
-type InfoTab = (typeof INFO_TABS)[number];
-
-export interface StoredLayoutView {
-  readonly view: WorkspaceView | null;
-  readonly infoOpen: boolean;
-  readonly infoTab: InfoTab;
-}
+// 탭 key는 kind마다 다르다. 파일 탭은 절대 경로이고 나머지는 짧은 이름이다.
+const TAB_KEY_MAX = 4096;
 
 function readPosition(value: unknown): TabItem["readPosition"] {
   if (typeof value !== "object" || value === null) return undefined;
@@ -34,32 +25,21 @@ function readPosition(value: unknown): TabItem["readPosition"] {
   return { section, scroll_offset: offset };
 }
 
-/** 파일 탭 또는 옛 TabItem을 화면에 그린다. 맞출 수 없거나 등록되지 않은 kind면 null이다. */
+/** layout 파일 탭을 화면에 그린다. 맞출 수 없거나 등록되지 않은 kind면 null이다. */
 export function tabFromStored(value: unknown): TabItem | null {
   if (typeof value !== "object" || value === null) return null;
   const tab = value as Record<string, unknown>;
   const kind = tabKindOf(tab.kind);
   if (
-    typeof tab.key !== "string" || !TAB_KEY.test(tab.key) ||
-    kind === undefined
+    typeof tab.key !== "string" || tab.key.length === 0 ||
+    tab.key.length > TAB_KEY_MAX || kind === undefined
   ) {
     return null;
   }
-  const position = readPosition(tab.read_position) ??
-    readPosition(tab.readPosition);
-  if (typeof tab.title === "string") {
-    return {
-      key: tab.key,
-      kind: kind.kind,
-      title: tab.title,
-      ...(typeof tab.folder === "string" ? { folder: tab.folder } : {}),
-      ...(typeof tab.app === "string" ? { app: tab.app } : {}),
-      ...(typeof tab.screen === "string" ? { screen: tab.screen } : {}),
-      ...(tab.pinned === true ? { pinned: true } : {}),
-      ...(position === undefined ? {} : { readPosition: position }),
-    };
-  }
-  return kind.fromStored(tab, { key: tab.key, position });
+  return kind.fromStored(tab, {
+    key: tab.key,
+    position: readPosition(tab.read_position),
+  });
 }
 
 /** 화면 탭을 schema 필드로 줄인다. 맞출 수 없으면 그 탭만 빠진다. */
@@ -70,23 +50,14 @@ export function toStoredTab(tab: TabItem): Record<string, unknown> | null {
 }
 
 /** 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다. */
-export function viewFromStored(layout: unknown): StoredLayoutView {
-  const empty: StoredLayoutView = {
-    view: null,
-    infoOpen: false,
-    infoTab: "info",
-  };
-  if (typeof layout !== "object" || layout === null) return empty;
+export function viewFromStored(layout: unknown): WorkspaceView | null {
+  if (typeof layout !== "object" || layout === null) return null;
   const value = layout as {
     panes?: { tabs?: unknown[]; selected_tab?: string | null }[];
     split_ratio?: number;
     focused_pane?: number;
-    information_panel?: { open?: boolean; tab?: string };
   };
-  const panel = value.information_panel;
-  const infoTab = INFO_TABS.find((tab) => tab === panel?.tab) ?? "info";
-  const infoOpen = panel?.open === true;
-  if (!Array.isArray(value.panes)) return { ...empty, infoOpen, infoTab };
+  if (!Array.isArray(value.panes)) return null;
   const panes: PaneState[] = value.panes.map((pane) =>
     normalizePane({
       tabs: Array.isArray(pane.tabs)
@@ -102,23 +73,19 @@ export function viewFromStored(layout: unknown): StoredLayoutView {
     ? value.focused_pane
     : 0;
   return {
-    view: {
-      panes,
-      splitRatio: typeof value.split_ratio === "number"
-        ? value.split_ratio
-        : 0.5,
-      focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
-    },
-    infoOpen,
-    infoTab,
+    panes,
+    splitRatio: typeof value.split_ratio === "number" ? value.split_ratio : 0.5,
+    focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
   };
 }
 
-/** renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. */
+/**
+ * renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. 정보 패널은 파일 탭 안에
+ * 있어 저장하지 않지만 schema가 아직 칸을 요구해 닫힌 값을 보낸다.
+ */
 export function toStoredLayout(input: {
   project: string;
   view: WorkspaceView;
-  informationPanel: { open: boolean; tab: InfoTab };
   lastSpace: string;
 }): {
   project: string;
@@ -126,7 +93,7 @@ export function toStoredLayout(input: {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
   split_ratio: number;
   focused_pane: number;
-  information_panel: { open: boolean; tab: InfoTab };
+  information_panel: { open: false; tab: "info" };
 } {
   const panes = input.view.panes.slice(0, 2).map((pane) => {
     const tabs = pane.tabs.flatMap((tab) => {
@@ -152,6 +119,6 @@ export function toStoredLayout(input: {
     panes: kept,
     split_ratio: ratio,
     focused_pane: focused,
-    information_panel: input.informationPanel,
+    information_panel: { open: false, tab: "info" },
   };
 }

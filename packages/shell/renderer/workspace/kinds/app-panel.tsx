@@ -77,6 +77,7 @@ export const appPanelKind: TabKindDef = {
     }
     return (
       <AppPanelTab
+        project={host.projectId}
         app={tab.app}
         screen={tab.screen}
         shown={shown}
@@ -84,10 +85,5 @@ export const appPanelKind: TabKindDef = {
         onSession={(session) => host.appPanel.noteSession(tab.key, session)}
       />
     );
-  },
-  launcher: {
-    labelKey: "project-workspace.button.open-app-panel",
-    available: (host) => host.appScreens,
-    open: openAppPanel,
   },
 };

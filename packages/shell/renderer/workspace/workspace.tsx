@@ -1,15 +1,18 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Clock,
+  Icon,
   IconButton,
-  type Timer,
+  iconPixels,
+  type TabItem as StripTab,
   Tooltip,
   useObservedSize,
 } from "@lophn/design/components";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import type { FilesApi } from "../../ipc/files.ts";
 import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
@@ -19,8 +22,6 @@ import {
   breadcrumbs,
   clampSidebar,
   closeTab,
-  INFO_PANEL_WIDTH,
-  infoPanelPlacement,
   moveTab,
   SIDEBAR_WIDTH,
   type SidebarState,
@@ -28,15 +29,18 @@ import {
   type TabItem,
   type WorkspaceView,
 } from "./model.ts";
-import { Sidebar } from "./sidebar/sidebar.tsx";
+import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
+import type { RailAction } from "./sidebar/rail.tsx";
+import { ContextRows } from "./sidebar/context-rows.tsx";
+import {
+  agentByRole,
+  panelSessions,
+  sessionDot,
+} from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
-import { InfoPanel, type InfoTab } from "./info-panel-slot/info-panel.tsx";
-import type {
-  DocumentRow,
-  FileRow,
-  ProjectView,
-  WorkspaceSource,
-} from "./source.ts";
+import { NewTabMenu } from "./add-tab-menu.tsx";
+import { FileActionDialog, type FileDialogState } from "./file-actions.tsx";
+import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
 import {
   PaletteButton,
@@ -44,8 +48,8 @@ import {
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
-import type { DocumentTabMeta, EditorDeps } from "../editor/document-view.tsx";
-import { layoutHint, type TabPresentation } from "./view-hint.ts";
+import type { EditorDeps } from "../editor/document-view.tsx";
+import { layoutHint } from "./view-hint.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import type {
   AgentsSlice,
@@ -53,23 +57,21 @@ import type {
   ContextsSlice,
   TabHost,
 } from "./kinds/host.ts";
-import type { RailAction } from "./contexts/shortcut-rail.tsx";
-import { useContextWatch } from "./contexts/context-watch.ts";
-import { contextStamp } from "./contexts/use-context-read.ts";
-import { DocumentContexts } from "./contexts/document-contexts.tsx";
+import type { ContextListItem } from "./contexts/source.ts";
 import { settleContextTabs } from "./contexts/settle-tabs.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
-import { ViolationToast } from "./contexts/violation-toast.tsx";
 import { openContext } from "./kinds/context.tsx";
-import { openAgent, type OpenAgentInput } from "./kinds/agent.tsx";
+import { openAgent } from "./kinds/agent.tsx";
 import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
-import { tabKindOf, tabKinds } from "./kinds/registry.ts";
-import { openDocument as openDocumentTab } from "./kinds/document-editor.tsx";
+import { tabKindOf } from "./kinds/registry.ts";
+import { openFile } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
-import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
+import { openAppPanel } from "./kinds/app-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
+import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
+import { openCodingTerminal } from "./kinds/terminal.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
@@ -78,23 +80,7 @@ import {
   createViewCovers,
   ViewCoversProvider,
 } from "../app-frame/embedded-view.tsx";
-import { agentOf } from "./agent/tab-fields.ts";
-import type { SidebarAgent } from "./sidebar/agents-section.tsx";
 import styles from "./workspace.module.css";
-
-/** Context Engineer의 Agent 탭이 열려 있는지. [New context] 뒤 만드는 중인 context를 빨리 읽을 때를 안다. */
-function engineerTabOpen(
-  view: WorkspaceView,
-  agents: readonly SidebarAgent[],
-): boolean {
-  const engineer = agents.find((agent) => agent.role === "context_engineer");
-  return engineer !== undefined &&
-    view.panes.some((pane) =>
-      pane.tabs.some((tab) =>
-        tab.kind === "agent" && agentOf(tab) === engineer.assignment
-      )
-    );
-}
 
 export interface WorkspaceProps {
   projectId: string;
@@ -111,9 +97,9 @@ export interface WorkspaceProps {
   onThingsToConfirm?: () => void;
   /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
   onProjectInstructions?: () => void;
-  /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
+  /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
   editor?: EditorDeps;
-  /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
+  /** 터미널 탭 통로. 없으면 터미널 열기 항목을 두지 않는다. */
   terminal?: TerminalDeps;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
@@ -124,29 +110,36 @@ export interface WorkspaceProps {
    * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
    */
   agentViewSource?: AgentViewSourceFactory;
-  /** context 목록을 다시 읽고 toast가 닫히는 시간을 재는 timer. 시험이 시간을 세우려고 준다. */
-  timer?: Timer & Clock;
 }
 
 interface Loaded {
   readonly project: ProjectView | null;
-  readonly documents: readonly DocumentRow[];
   readonly files: readonly FileRow[];
   readonly failed: boolean;
 }
 
-const EMPTY_LOADED: Loaded = {
-  project: null,
-  documents: [],
-  files: [],
-  failed: false,
-};
+const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
+const NO_CONTEXTS: readonly ContextListItem[] = [];
 
 function freshView(): WorkspaceView {
   return {
     panes: [{ tabs: [], selected: null }],
     splitRatio: 0.5,
     focusedPane: 0,
+  };
+}
+
+// OS 파일 선택기. 창에 통로가 없으면 Document 항목을 두지 않는다.
+function filePicker(): (() => Promise<string | null>) | undefined {
+  const bridge = (globalThis as {
+    lophnFolders?: {
+      pickFile(): Promise<{ ok: boolean; path?: string | null }>;
+    };
+  }).lophnFolders;
+  if (!bridge || typeof bridge.pickFile !== "function") return undefined;
+  return async () => {
+    const reply = await bridge.pickFile();
+    return reply.ok ? reply.path ?? null : null;
   };
 }
 
@@ -162,16 +155,16 @@ export function Workspace(props: WorkspaceProps) {
     onThingsToConfirm,
     onProjectInstructions,
     terminal,
-    timer,
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const contextsSource = source.contextsSource;
-  // Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
+  // Agents 탭과 sidebar의 Agent 모양의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const agentsSource = source.agentsSource;
   const sidebarAgents = useSidebarAgents(agentsSource, projectId);
+  const { sessions: sessionStates } = useSessions();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
   const agentViewSource = props.agentViewSource;
-  // 앱 패널 view와 본문을 덮는 패널(정보 패널)이 같이 보는 목록.
+  // 앱 패널 view가 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
@@ -181,66 +174,42 @@ export function Workspace(props: WorkspaceProps) {
     collapsedByUser: false,
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
   // 떠 있는 안내(읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
   const hasNotices = loaded.failed;
-  const [infoTab, setInfoTab] = useState<InfoTab>("info");
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
-  // 위반이 늘어 알리는 toast. context마다 하나이고 닫거나 [View]를 누르면 빠진다.
-  const [toasts, setToasts] = useState<
-    readonly { context: string; title: string; count: number }[]
-  >([]);
-  // [New context]를 누른 뒤 생기는 만드는 중인 context의 탭을 남기려는 표시.
-  const expectDraft = useRef(false);
-  const [expectingDraft, setExpectingDraft] = useState(false);
-  const leaveDraft = useRef<(context: string, title: string) => void>(() => {});
-  const watch = useContextWatch(
-    contextsSource,
-    projectId,
-    {
-      onViolations: (item, count) =>
-        setToasts((current) => [
-          ...current.filter((toast) => toast.context !== item.id),
-          { context: item.id, title: item.title, count },
-        ]),
-      onDrafting: (item) => {
-        if (!expectDraft.current) return;
-        expectDraft.current = false;
-        setExpectingDraft(false);
-        leaveDraft.current(item.id, item.title);
-      },
-    },
-    timer,
-    expectingDraft && engineerTabOpen(view, sidebarAgents.agents),
+  // 이 project의 context 목록. 여는 때(Contexts 탭, sidebar의 Context 모양, 새 탭 menu)만 읽는다.
+  const [contextList, setContextList] = useState<readonly ContextListItem[]>(
+    NO_CONTEXTS,
   );
-  // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다.
-  const [tabMeta, setTabMeta] = useState<
-    Readonly<Record<string, DocumentTabMeta>>
-  >({});
-  // 문서 탭의 판·읽기/편집. 현재 보기 힌트만 쓰고 탭 제목에는 넣지 않는다.
-  const [presentation, setPresentation] = useState<
-    Readonly<Record<string, TabPresentation>>
-  >({});
   // 앱 패널 탭이 연 view의 session. 탭 key로 찾고 현재 보기 힌트만 쓴다.
   const [sessions, setSessions] = useState<Readonly<Record<string, string>>>(
     {},
   );
+  // sidebar 파일 tree의 Rename·Delete 확인. 끝나면 tree를 다시 읽으려고 sidebar를 새로 세운다.
+  const [fileDialog, setFileDialog] = useState<FileDialogState>(null);
+  const [treeEpoch, setTreeEpoch] = useState(0);
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
   const mainSize = useObservedSize(mainRef);
   const measuredWindow = frameSize?.width ?? windowWidth;
 
+  const readContexts = () => {
+    if (contextsSource === undefined) return;
+    void contextsSource.list(projectId).then((read) => {
+      if (read.ok) setContextList(read.value);
+    });
+  };
+
   useEffect(() => {
     let live = true;
     const load = async () => {
-      const [project, documents, layout, files, contexts] = await Promise.all([
+      const [project, layout, files, contexts] = await Promise.all([
         source.project(projectId),
-        source.documents(projectId),
         source.readLayout(projectId),
         source.files(projectId),
         contextsSource?.list(projectId),
@@ -248,23 +217,22 @@ export function Workspace(props: WorkspaceProps) {
       if (!live) return;
       setLoaded({
         project: project.ok ? project.value : null,
-        documents: documents.ok ? documents.value : [],
         // 파일 목록은 팔레트와 검색 결과 링크만 쓴다. 읽지 못해도 작업대는 그대로 연다.
         files: files.ok ? files.value : [],
-        failed: !project.ok || !documents.ok,
+        failed: !project.ok,
       });
+      if (contexts?.ok) setContextList(contexts.value);
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
-        // 없어진 context의 탭은 다른 없는 대상처럼 빠진다. 목록을 못 읽으면 그대로 둔다.
-        if (restored.view) {
+        // 복원한 Context 탭은 이름을 얻고, 없어진 context의 탭은 다른 없는 대상처럼 빠진다.
+        // 목록을 못 읽으면 그대로 둔다.
+        if (restored) {
           setView(
             contexts?.ok
-              ? settleContextTabs(restored.view, contexts.value)
-              : restored.view,
+              ? settleContextTabs(restored, contexts.value)
+              : restored,
           );
         }
-        setInfoOpen(restored.infoOpen);
-        setInfoTab(restored.infoTab);
       }
     };
     void load();
@@ -279,30 +247,18 @@ export function Workspace(props: WorkspaceProps) {
       lophnWorkspace?: { report(hint: unknown): Promise<{ ok: boolean }> };
     }).lophnWorkspace;
     if (!bridge) return;
-    void bridge.report(
-      layoutHint({ project: projectId, view, presentation, sessions }),
-    );
-  }, [presentation, projectId, view, sessions]);
+    void bridge.report(layoutHint({ project: projectId, view, sessions }));
+  }, [projectId, view, sessions]);
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
-  const infoPlacement = infoPanelPlacement(
-    infoOpen,
-    contentWidth,
-    view.panes.length,
-  );
-  const panesWidth = infoPlacement === "docked"
-    ? contentWidth - INFO_PANEL_WIDTH
-    : contentWidth;
 
   // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
   const latest = useRef(view);
   latest.current = view;
-  const infoNow = useRef({ open: infoOpen, tab: infoTab });
-  infoNow.current = { open: infoOpen, tab: infoTab };
-  // 문서 탭의 읽던 위치. scroll마다 배치 state를 바꾸지 않고 저장만 늦춘다.
+  // 파일 탭의 읽던 위치. scroll마다 배치 state를 바꾸지 않고 저장만 늦춘다.
   const positions = useRef<
     Record<string, { section: string; scroll_offset: number }>
   >({});
@@ -321,14 +277,10 @@ export function Workspace(props: WorkspaceProps) {
     })),
   });
 
-  const persist = (
-    next: WorkspaceView,
-    info: { open: boolean; tab: InfoTab } = infoNow.current,
-  ) => {
+  const persist = (next: WorkspaceView) => {
     void source.saveLayout(toStoredLayout({
       project: projectId,
       view: withPositions(next),
-      informationPanel: info,
       lastSpace: "project",
     }));
   };
@@ -377,12 +329,29 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // focus 칸 끝에 붙이고 고른다. 같은 key가 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고른다
-  // (탭 key는 작업대 안에서 유일하다).
-  const openTab = (tab: TabItem) => {
+  // (탭 key는 작업대 안에서 유일하다). `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
+  const openTab: TabHost["openTab"] = (tab, options) => {
     const current = latest.current;
     const holder = current.panes.findIndex((pane) =>
       pane.tabs.some((candidate) => candidate.key === tab.key)
     );
+    const select = options?.select !== false;
+    if (!select) {
+      if (holder >= 0) return;
+      const target = current.focusedPane;
+      update({
+        ...current,
+        panes: current.panes.map((item, index) =>
+          index === target
+            ? {
+              tabs: [...item.tabs, tab],
+              selected: item.selected ?? tab.key,
+            }
+            : item
+        ),
+      });
+      return;
+    }
     const target = holder >= 0 ? holder : current.focusedPane;
     update({
       ...current,
@@ -432,124 +401,52 @@ export function Workspace(props: WorkspaceProps) {
     });
   };
 
-  const notePresentation = (key: string, shown: TabPresentation) => {
-    setPresentation((current) => {
-      const prev = current[key];
-      if (
-        prev !== undefined && prev.editing === shown.editing &&
-        prev.version === shown.version
-      ) return current;
-      return { ...current, [key]: shown };
-    });
-  };
-
-  // 편집기가 읽은 파일 이름으로 탭 제목을 바꾼다. 같은 이름이면 다시 저장하지 않는다.
-  const noteMeta = (key: string, meta: DocumentTabMeta) => {
-    setTabMeta((current) => ({ ...current, [key]: meta }));
-    setView((current) => {
-      const stale = current.panes.some((pane) =>
-        pane.tabs.some((tab) => tab.key === key && tab.title !== meta.fileName)
-      );
-      if (!stale) return current;
-      const next = {
-        ...current,
-        panes: current.panes.map((pane) => ({
-          ...pane,
-          tabs: pane.tabs.map((tab) =>
-            tab.key === key ? { ...tab, title: meta.fileName } : tab
-          ),
-        })),
-      };
-      persist(next);
-      return next;
-    });
-  };
-
-  const tooltips: Record<string, ReactNode> = {};
-  for (const [key, meta] of Object.entries(tabMeta)) {
-    tooltips[key] = (
-      <span className={styles.tabTip}>
-        <span>{meta.title}</span>
-        {meta.path === null
-          ? null
-          : <span className={styles.tabTipPath}>{meta.path}</span>}
-      </span>
-    );
-  }
-
-  // focus 칸의 활성 탭이 문서면 정보 패널이 그 문서를 보인다.
-  const focusedTab = focused?.tabs.find((tab) => tab.key === focused.selected);
-  const infoDocument = focusedTab?.kind === "document_editor"
-    ? focusedTab.key
-    : null;
-  // 문서의 등록 폴더 기준 경로. 편집기가 문서를 읽기 전에는 모른다.
-  const infoPath = infoDocument === null
-    ? null
-    : tabMeta[infoDocument]?.path ?? null;
-
-  // CommandOrControl+Alt+B는 정보 패널을 여닫는다.
-  const toggleInfo = useRef(() => {});
-  toggleInfo.current = () => setInfo(!infoOpen, infoTab);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const mod = event.metaKey || event.ctrlKey;
-      if (!mod || !event.altKey || event.shiftKey) return;
-      if (event.code !== "KeyB" && event.key.toLowerCase() !== "b") return;
-      event.preventDefault();
-      toggleInfo.current();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  const setInfo = (open: boolean, tab: InfoTab) => {
-    setInfoOpen(open);
-    setInfoTab(tab);
-    persist(view, { open, tab });
-  };
-
-  // 검색 결과·Overview 예시의 도메인 객체는 그 문서 탭으로 간다. 경로는 등록 폴더
-  // 기준 상대 경로이고 문서로 잡힌 파일만 탭이 된다.
+  // 검색 결과·Overview 예시의 도메인 객체는 그 파일 탭으로 간다. 경로는 연결 폴더 기준 상대 경로이거나
+  // 절대 경로다.
   const openPath = (path: string) => {
-    const file = loaded.files.find((item) => item.path === path) ??
-      loaded.files.find((item) => item.path.endsWith(`/${path}`));
+    if (path.startsWith("/")) {
+      openFile(host, path);
+      return;
+    }
+    const folders = loaded.project?.folders ?? [];
+    const row = loaded.files.find((item) =>
+      item.path === path || item.path.endsWith(`/${path}`)
+    );
+    const folder = row?.folder ??
+      (folders.find((item) => item.found) ?? folders[0])?.path;
+    if (folder === undefined) return;
+    openFile(host, `${folder.replace(/\/+$/, "")}/${path}`);
+  };
+
+  // 팔레트 파일 행이 주는 문서 행을 파일 탭으로 연다. id가 경로면 그대로 연다.
+  const openDocumentRow = (row: { id: string }) => {
+    if (row.id.startsWith("/")) {
+      openFile(host, row.id);
+      return;
+    }
+    const file = loaded.files.find((item) => item.document === row.id);
     if (file === undefined) return;
-    openDocumentTab(host, { id: file.document, title: file.title });
+    const folder = file.folder ?? loaded.project?.folders[0]?.path;
+    if (folder === undefined) return;
+    openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
   // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
-  const openRole = (
-    role: SidebarAgent["role"],
-    extra: Pick<OpenAgentInput, "chips" | "hint"> = {},
-  ): boolean => {
-    const row = sidebarAgents.agents.find((agent) => agent.role === role);
+  const openRole = (role: "lophn" | "project_manager"): boolean => {
+    const row = agentByRole(sidebarAgents.agents, role);
     if (agentViewSource === undefined || row === undefined) return false;
-    openAgent(host, { assignment: row.assignment, name: row.name, ...extra });
+    openAgent(host, { agent: row.assignment, name: row.name });
     return true;
   };
 
   const contexts: ContextsSlice | null = contextsSource === undefined ? null : {
     source: contextsSource,
-    list: watch.list,
-    titleOf: (id) => watch.list.find((item) => item.id === id)?.title,
-    stampOf: (id) => {
-      const item = watch.list.find((entry) => entry.id === id);
-      return item === undefined ? undefined : contextStamp(item);
-    },
+    list: contextList,
+    titleOf: (id) => contextList.find((item) => item.id === id)?.title,
     openPath,
     openSearch: (state) => openSearchFor(host, state),
-    askContextEngineer: () => {
-      openRole("context_engineer");
-    },
-    newContext: () => {
-      // 첫 안내를 입력칸에 싣고, 대화가 context를 만들기 시작하면 그 탭을 남긴다.
-      const opened = openRole("context_engineer", {
-        hint: t("conversation.placeholder.new-context"),
-      });
-      if (opened) {
-        expectDraft.current = true;
-        setExpectingDraft(true);
-      }
+    askProjectManager: () => {
+      openRole("project_manager");
     },
   };
 
@@ -562,15 +459,18 @@ export function Workspace(props: WorkspaceProps) {
         ? {}
         : { ticks: conversation.ticks }),
       ...(conversation?.now === undefined ? {} : { now: conversation.now }),
-      openResult: (id) => {
-        const row = loaded.documents.find((item) => item.id === id);
-        openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
+      openResult: (document) => {
+        if (document.startsWith("/")) openFile(host, document);
       },
+      openFile: (path) => openFile(host, path),
+      profileOf: (agent) =>
+        sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
+      dotOf: (session) => sessionDot(sessionStates, session),
       ...(contextsSource === undefined ? {} : {
         contexts: {
           open: (id: string) => openContext(host, id),
           titleOf: (id: string) =>
-            watch.list.find((item) => item.id === id)?.title,
+            contextList.find((item) => item.id === id)?.title,
         },
       }),
       openSettings: onLophn,
@@ -586,8 +486,8 @@ export function Workspace(props: WorkspaceProps) {
     openLophn: onLophn,
   };
 
-  // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인·열기 단추는
-  // 모두 kind의 선언에서 오고 여기서는 kind 이름으로 가르지 않는다.
+  // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인은 모두 kind의 선언에서 오고
+  // 여기서는 kind 이름으로 가르지 않는다.
   const host: TabHost = {
     projectId,
     projectTitle: loaded.project?.title,
@@ -597,28 +497,54 @@ export function Workspace(props: WorkspaceProps) {
     openTab,
     patchTab,
     removeTab,
-    document: {
-      rows: loaded.documents,
-      infoShown: infoOpen,
-      toggleInfo: () => setInfo(!infoOpen, infoTab),
-      fileName: (id) => tabMeta[id]?.fileName,
-      noteMeta,
-      notePresentation,
-      noteReadPosition: notePosition,
-    },
+    document: { noteReadPosition: notePosition },
     appPanel: { noteSession },
     contexts,
     agents,
     agentView,
   };
-  leaveDraft.current = (context, title) =>
-    openContext(host, context, "overview", title);
+
+  // core 요청으로 열린 coding 터미널은 이 project의 것만 붙이고 보던 탭을 바꾸지 않는다.
+  useTerminalOpenRequests((request) => {
+    if (terminal === undefined || request.runtime.project !== projectId) return;
+    openCodingTerminal(host, request);
+  });
+  // 대기 목록 카드가 터미널 session을 고르면 그 탭을 고른다.
+  useEffect(() => {
+    if (terminal === undefined) return;
+    return terminal.store.onSelect((key) => {
+      const at = latest.current.panes.findIndex((pane) =>
+        pane.tabs.some((tab) => tab.key === key)
+      );
+      if (at < 0) return;
+      update({
+        ...latest.current,
+        focusedPane: at,
+        panes: latest.current.panes.map((item, index) =>
+          index === at ? { ...item, selected: key } : item
+        ),
+      });
+    });
+  }, [terminal]);
 
   const renderTab = (tab: TabItem, active: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.render?.(tab, active, host) ?? null;
 
   const renderKept = (tab: TabItem, shown: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.keep?.(tab, shown, host) ?? null;
+
+  // 탭 줄이 그리는 탭: 아이콘은 kind가 정하고(파일 종류, agent의 profile, harness vendor) 이름 뒤에 상태 점이 붙는다.
+  const stripTab = (tab: TabItem): StripTab => {
+    const def = tabKindOf(tab.kind);
+    const icon = def === undefined ? undefined : def.iconOf?.(tab, host) ??
+      <Icon icon={def.icon} pixels={iconPixels("small")} />;
+    return {
+      key: tab.key,
+      title: tab.title,
+      ...(icon === undefined ? {} : { icon }),
+      dot: def?.dotOf?.(tab, host) ?? null,
+    };
+  };
 
   // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
   const close = (pane: number, key: string) => {
@@ -633,41 +559,80 @@ export function Workspace(props: WorkspaceProps) {
     });
   };
 
-  const openDocument = (document: DocumentRow) =>
-    openDocumentTab(host, document);
+  const filesApi = (): FilesApi | undefined =>
+    (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
 
-  const launchers = tabKinds().flatMap((kind) =>
-    kind.launcher?.available(host)
-      ? [{
-        kind: kind.kind,
-        label: t(kind.launcher.labelKey),
-        icon: kind.icon,
-        ...(kind.launcher.choices === undefined ? {} : {
-          choices: kind.launcher.choices(host),
-          emptyLabel: t("contexts.empty.tab-none"),
-        }),
-        onOpen: (choice?: string) => kind.launcher!.open(host, choice),
-      }]
-      : []
-  );
+  // sidebar에서 지운 파일은 열린 탭도 닫는다. 지우기 확인은 Delete 단추가 이미 받았다.
+  const deleteFile = async (path: string): Promise<boolean> => {
+    const reply = await filesApi()?.delete({ path });
+    if (reply === undefined || !reply.ok) return false;
+    removeTab(path);
+    setTreeEpoch((epoch) => epoch + 1);
+    return true;
+  };
+
+  // 열려 있던 파일은 저장이 남았으면 사람에게 묻고 탭을 닫은 뒤 옮기고, 옮긴 파일을 다시 연다.
+  const renameFile = async (
+    path: string,
+    name: string,
+  ): Promise<"ok" | "exists" | "failed"> => {
+    const api = filesApi();
+    if (api === undefined || name.includes("/")) return "failed";
+    const open = latest.current.panes.flatMap((pane) => pane.tabs).find((tab) =>
+      tab.key === path
+    );
+    if (open !== undefined) {
+      const confirm = tabKindOf(open.kind)?.beforeClose?.(open, host);
+      if (confirm && !(await confirm)) return "failed";
+    }
+    const to = `${path.slice(0, path.lastIndexOf("/") + 1)}${name}`;
+    const reply = await api.rename({ from: path, to });
+    if (!reply.ok) return reply.code === "conflict" ? "exists" : "failed";
+    if (open !== undefined) {
+      removeTab(path);
+      openFile(host, to);
+    }
+    setTreeEpoch((epoch) => epoch + 1);
+    return "ok";
+  };
 
   // 접힌 sidebar의 바로 가기 rail. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
+  const openContextsTab = () => {
+    readContexts();
+    openContexts(host);
+  };
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "agent") openRole("lophn");
-    else if (contexts === null && action !== "search") return;
-    else if (action === "contexts") openContexts(host);
-    else openSearchShortcut(host);
+    else if (action === "search") openSearchShortcut(host);
+    else if (contexts === null) return;
+    else if (action === "contexts") openContextsTab();
+    else {
+      // 저장한 보기는 context의 Search 탭에 있다. 첫 context의 Search 탭을 연다.
+      const first = contextList[0];
+      if (first === undefined) openContextsTab();
+      else {
+        openSearchFor(host, {
+          context: first.id,
+          search: null,
+          inputs: {},
+          page: 0,
+          savedView: null,
+        });
+      }
+    }
   };
+
+  const pickFile = filePicker();
 
   // 창 팔레트의 작업대 행. 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
   usePaletteScope(() =>
     workspaceScope({
       view,
-      documents: loaded.documents,
+      documents: [],
       files: loaded.files,
-      contexts: watch.list,
+      contexts: contextList,
       terminal: terminal !== undefined,
       platform: palette.platform,
       search: palette.search
@@ -682,73 +647,93 @@ export function Workspace(props: WorkspaceProps) {
               index === target.pane ? { ...item, selected: target.key } : item
             ),
           });
-        } else if (target.kind === "document") openDocument(target.document);
+        } else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "context") openContext(host, target.id);
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "lophn") onLophn();
         else if (target.action === "terminal") openTerminalTab(host);
-        else setInfo(!infoOpen, infoTab);
       },
     })
   );
 
-  // [Ask]는 Agent 탭이 열 수 있고 Context Engineer가 이 project에 있을 때만 단추가 된다.
-  const engineerName = agentViewSource === undefined
-    ? undefined
-    : sidebarAgents.agents.find((agent) => agent.role === "context_engineer")
-      ?.name;
+  const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
   return (
     <ViewCoversProvider value={covers}>
       <div className={styles.workspace} data-space="project" ref={frameRef}>
-        <Sidebar
-          mode={sidebarShown.mode}
-          width={sidebarShown.width}
-          project={loaded.project}
-          documents={loaded.documents}
-          files={loaded.files}
-          current={focused?.selected ?? null}
-          onLauncher={onLauncher}
-          onToggle={() =>
-            setSidebar((current) => ({
-              ...current,
-              collapsedByUser: sidebarShown.mode !== "collapsed",
-            }))}
-          onOpenDocument={openDocument}
-          onOpenContexts={contexts === null
-            ? undefined
-            : () => openContexts(host)}
-          agents={agents === null ? undefined : {
-            agents: sidebarAgents.agents,
-            // 줄을 누르면 그 agent의 Agent 탭이 열린다. 통로가 없으면 열 탭이 없다.
-            onOpenAgent: (assignment) => {
+        {sidebarShown.mode === "hidden" ? null : (
+          <ProjectSidebar
+            key={treeEpoch}
+            mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
+            width={sidebarShown.width}
+            project={loaded.project}
+            source={source}
+            contextPanel={contextsSource === undefined ? null : (
+              <ContextRows
+                source={contextsSource}
+                project={projectId}
+                onLoaded={setContextList}
+                onOpen={(item) =>
+                  openContext(host, item.id, undefined, item.title)}
+              />
+            )}
+            agents={sidebarAgents.agents}
+            sessions={panelSessions(
+              sessionStates,
+              sidebarAgents.agents,
+              projectId,
+            )}
+            current={currentTab?.kind === "document_editor"
+              ? currentTab.key
+              : null}
+            onLauncher={onLauncher}
+            onToggle={() =>
+              setSidebar((current) => ({
+                ...current,
+                collapsedByUser: sidebarShown.mode !== "collapsed",
+              }))}
+            onOpenFile={(path) => openFile(host, path)}
+            onFileAction={(action, path) => {
+              if (action === "open") openFile(host, path);
+              else setFileDialog({ action, path });
+            }}
+            onRail={onRail}
+            onAgent={(agent) =>
+              openAgent(host, { agent: agent.assignment, name: agent.name })}
+            onSession={(session) => {
               const row = sidebarAgents.agents.find((agent) =>
-                agent.assignment === assignment
+                agent.assignment === session.agent
               );
               if (row !== undefined) {
-                openAgent(host, { assignment, name: row.name });
+                openAgent(host, {
+                  agent: row.assignment,
+                  name: row.name,
+                  session: session.id,
+                });
               }
-            },
-            onManage: () => openAgents(host),
-          }}
-          onRail={onRail}
-          onResizeStart={(event) => {
-            const start = sidebar.chosenWidth;
-            const startShown = sidebarShown.width;
-            let last = start;
-            startPointerDrag(event, {
-              move: (dx) => {
-                last = clampSidebar(startShown + dx);
-                setSidebar((current) => ({ ...current, chosenWidth: last }));
-              },
-              finish: (outcome) => {
-                const applied = applyDrag(start, last, outcome);
-                setSidebar((current) => ({ ...current, chosenWidth: applied }));
-                if (outcome.type === "drag-end") setUserChoseWidth(true);
-              },
-            });
-          }}
-        />
+            }}
+            onManage={() => openAgents(host)}
+            onResizeStart={(event) => {
+              const start = sidebar.chosenWidth;
+              const startShown = sidebarShown.width;
+              let last = start;
+              startPointerDrag(event, {
+                move: (dx) => {
+                  last = clampSidebar(startShown + dx);
+                  setSidebar((current) => ({ ...current, chosenWidth: last }));
+                },
+                finish: (outcome) => {
+                  const applied = applyDrag(start, last, outcome);
+                  setSidebar((current) => ({
+                    ...current,
+                    chosenWidth: applied,
+                  }));
+                  if (outcome.type === "drag-end") setUserChoseWidth(true);
+                },
+              });
+            }}
+          />
+        )}
         <div className={styles.main}>
           <div className={styles.topBar}>
             <TopBar
@@ -805,10 +790,8 @@ export function Workspace(props: WorkspaceProps) {
               )}
             <Panes
               view={view}
-              bodyWidth={panesWidth}
+              bodyWidth={contentWidth}
               windowWidth={measuredWindow}
-              infoOpen={infoOpen}
-              onToggleInfo={() => setInfo(!infoOpen, infoTab)}
               onSelect={(pane, key) =>
                 update({
                   ...view,
@@ -818,85 +801,60 @@ export function Workspace(props: WorkspaceProps) {
                   ),
                 })}
               onClose={close}
-              launchers={launchers}
               onFocus={(pane) => update({ ...view, focusedPane: pane })}
               onMove={(key, toPane) => update(moveTab(view, key, toPane))}
               onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+              newTab={
+                <NewTabMenu
+                  onOpen={readContexts}
+                  {...(pickFile === undefined ? {} : {
+                    onDocument: () =>
+                      void pickFile().then((path) => {
+                        if (path !== null) openFile(host, path);
+                      }),
+                  })}
+                  {...(terminal === undefined
+                    ? {}
+                    : { onTerminal: () => openTerminalTab(host) })}
+                  {...(agentView === null ? {} : {
+                    agents: sidebarAgents.agents.map((agent) => ({
+                      id: agent.assignment,
+                      name: agent.name,
+                      profile: agent.profile,
+                    })),
+                    onAgent: (id: string) => {
+                      const row = sidebarAgents.agents.find((agent) =>
+                        agent.assignment === id
+                      );
+                      if (row !== undefined) {
+                        openAgent(host, { agent: id, name: row.name });
+                      }
+                    },
+                  })}
+                  {...(contexts === null ? {} : {
+                    contexts: contextList,
+                    onContext: (id: string) => openContext(host, id),
+                  })}
+                  {...(source.searchSource === undefined ? {} : {
+                    onSearch: () => openSearchShortcut(host),
+                  })}
+                  {...(host.appScreens
+                    ? { onAppPanel: () => openAppPanel(host) }
+                    : {})}
+                />
+              }
+              stripTab={stripTab}
               renderTab={renderTab}
               renderKept={renderKept}
-              tooltips={tooltips}
             />
-            <InfoPanel
-              placement={infoPlacement}
-              tab={infoTab}
-              onTab={(tab) => setInfo(infoOpen, tab)}
-              onClose={() => setInfo(false, infoTab)}
-            >
-              {infoTab === "contexts" && contexts !== null &&
-                  infoDocument !== null
-                ? (
-                  // 이 문서가 든 context는 새 통로가 읽고 [Open]은 그 Context 탭을 연다.
-                  infoPath === null ? null : (
-                    <DocumentContexts
-                      source={contexts.source}
-                      project={projectId}
-                      path={infoPath}
-                      onOpenContext={(context) => openContext(host, context)}
-                    />
-                  )
-                )
-                : (
-                  <DocumentInfoPanel
-                    tab={infoTab}
-                    document={infoDocument}
-                    path={infoPath}
-                  />
-                )}
-            </InfoPanel>
-            {toasts.length > 0
-              ? (
-                <div className={styles.toasts} data-violation-toasts="">
-                  {toasts.map((toast) => (
-                    <ViolationToast
-                      key={toast.context}
-                      title={toast.title}
-                      count={toast.count}
-                      timer={timer}
-                      ask={engineerName === undefined ? undefined : {
-                        agentName: engineerName,
-                        // 위반된 context가 첫 chip으로 붙은 새 Agent 탭을 연다. 보내는 것은 없다.
-                        onAsk: () => {
-                          openRole("context_engineer", {
-                            chips: [{ id: toast.context, label: toast.title }],
-                          });
-                          setToasts((current) =>
-                            current.filter((item) =>
-                              item.context !== toast.context
-                            )
-                          );
-                        },
-                      }}
-                      onView={() => {
-                        openContext(host, toast.context, "violations");
-                        setToasts((current) =>
-                          current.filter((item) =>
-                            item.context !== toast.context
-                          )
-                        );
-                      }}
-                      onClose={() =>
-                        setToasts((current) =>
-                          current.filter((item) =>
-                            item.context !== toast.context
-                          )
-                        )}
-                    />
-                  ))}
-                </div>
-              )
-              : null}
           </div>
         </div>
+        <FileActionDialog
+          state={fileDialog}
+          onClose={() => setFileDialog(null)}
+          onDelete={deleteFile}
+          onRename={renameFile}
+        />
       </div>
     </ViewCoversProvider>
   );

@@ -1,6 +1,6 @@
 // 탭 kind registry. kind를 더하려면 kinds/<kind>.ts(x)를 쓰고 아래 목록에 한 줄을 더한다.
-// 탭 줄·layout map·view hint·칸은 이 목록을 돈다. 목록 순서는 탭 줄 오른쪽
-// 끝의 열기 단추 순서다.
+// 탭 줄·layout map·view hint·칸은 이 목록을 돈다. 새 탭(+) menu의 항목은 이 목록이 아니라
+// add-tab-menu.tsx가 정한다.
 import { t } from "@lophn/wording";
 
 import { agentKind } from "./agent.tsx";
@@ -50,7 +50,7 @@ export function tabKinds(): readonly TabKindDef[] {
   return [...kinds.values()];
 }
 
-/** 탭 줄·칸·팔레트가 쓰는 종류 글자. 모르는 kind는 빈 글자다. */
+/** 팔레트 탭 행이 쓰는 종류 글자. 모르는 kind는 빈 글자다. */
 export function tabKindLabel(kind: string): string {
   const def = tabKindOf(kind);
   return def === undefined ? "" : t(def.labelKey);

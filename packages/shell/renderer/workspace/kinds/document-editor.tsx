@@ -1,13 +1,14 @@
 // document_editor 탭 kind. 파일 하나를 연다. 탭 key는 파일 경로이고 project 안팎 어느 파일이든
 // 같다. 확장자로 viewer를 고른다(md, text, 이미지, pdf).
 import { useEffect, useState } from "react";
+import { FileIcon } from "@lophn/design/components";
 
 import { workspaceIcons } from "../../icons/mod.ts";
 import { DocumentView } from "../../editor/document-view.tsx";
 import { fileNameOf, isInsideFolders } from "../../editor/model.ts";
 import { DocumentContexts } from "../contexts/document-contexts.tsx";
 import type { TabItem } from "../model.ts";
-import type { DocumentRow, WorkspaceSource } from "../source.ts";
+import type { WorkspaceSource } from "../source.ts";
 import type { TabHost } from "./host.ts";
 import { openContext } from "./context.tsx";
 import type { TabKindDef } from "./kind.ts";
@@ -31,11 +32,6 @@ export function openFile(
     ...(fields === undefined ? {} : { fields }),
   });
   if (fields !== undefined) host.patchTab(path, { fields });
-}
-
-/** 작업대가 아직 문서 행으로 여는 곳(사이드바·팔레트)을 위한 입구. 창 정리 뒤 지운다. */
-export function openDocument(host: TabHost, document: DocumentRow): void {
-  openFile(host, document.id);
 }
 
 function lineOf(tab: TabItem): number | undefined {
@@ -92,7 +88,6 @@ function FileTab({ tab, host }: { tab: TabItem; host: TabHost }) {
         if (reply.ok) host.removeTab(tab.key);
         return reply.ok;
       }}
-      onMeta={(meta) => host.document.noteMeta(tab.key, meta)}
       initialPosition={tab.readPosition}
       onReadPosition={(position) =>
         host.document.noteReadPosition(tab.key, position)}
@@ -104,6 +99,7 @@ export const documentEditorKind: TabKindDef = {
   kind: "document_editor",
   labelKey: "project-workspace.label.kind-document-editor",
   icon: workspaceIcons.documentEditor,
+  iconOf: (tab) => <FileIcon name={tab.title} size={14} />,
   fromStored(stored, { key, position }) {
     if (stored.path !== key) return null;
     return {

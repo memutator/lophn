@@ -42,7 +42,7 @@ export const contextsKind: TabKindDef = {
         project={host.projectId}
         source={contexts.source}
         onOpenContext={(context) => openContext(host, context)}
-        onNewContext={contexts.newContext}
+        onNewContext={contexts.askProjectManager}
       />
     );
   },

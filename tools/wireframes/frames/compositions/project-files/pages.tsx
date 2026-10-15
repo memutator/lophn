@@ -1,20 +1,14 @@
 // Part 2: 파일 탭(viewer, 저장, 밖에서 바뀐 파일), project 키워드 검색, 경로로 열기, sidebar의 Agents 묶음.
 // 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
 import type { ReactNode } from "react";
-import { Dialog, FileIcon } from "@lophn/design/components";
+import { Dialog } from "@lophn/design/components";
 import { Button } from "@lophn/ui-control";
 
-import {
-  editorIcons,
-  workspaceIcons,
-} from "../../../../../packages/shell/renderer/icons/mod.ts";
 import { AGENT_ROWS } from "../agents-data.ts";
 import { documentTab } from "../phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";
-import { StaticMenu, type TabSpec } from "../project-window.tsx";
-import styles from "../compose.module.css";
+import type { TabSpec } from "../project-window.tsx";
 import fileStyles from "./files.module.css";
-import { menuIcon, menuLead } from "./menu-icons.tsx";
 
 const EXP = "eval/experiments/exp-008-query-tools.md";
 const EXP_OTHER = "eval/experiments/exp-012-ftb-quests-021-q8.md";
@@ -218,14 +212,11 @@ export function FileSearchOpened() {
   );
 }
 
-// tree의 exp-012 행 아래에 붙는 것. 행 높이 단위로 위치를 정한다.
-const BELOW_ROW = "calc(var(--tree-row) * 6)";
-
-function organize(overlay?: ReactNode, children?: ReactNode) {
+function organize(children?: ReactNode) {
   const tab = documentTab(EXP);
   return (
     <ProjectApp
-      sidebar={{ current: EXP, menuFor: EXP_OTHER, menu: overlay }}
+      sidebar={{ current: EXP, menuFor: EXP_OTHER }}
       panes={[{ tabs: [tab], selected: tab.key }]}
     >
       {children}
@@ -235,31 +226,12 @@ function organize(overlay?: ReactNode, children?: ReactNode) {
 
 /** 파일 tree의 평범한 파일 동작. 행을 오른쪽 클릭하면 Open·Rename·Delete가 나온다(보관·이동·폴더 연결 해제는 없다). */
 export function FileActionsMenu() {
-  return organize(
-    <div
-      className={styles.contextMenu}
-      style={{ top: BELOW_ROW, left: "var(--space-11)" }}
-    >
-      <StaticMenu
-        width={160}
-        highlighted="Delete"
-        items={[
-          {
-            label: "Open",
-            icon: menuLead(<FileIcon name="exp-012.md" size={16} />),
-          },
-          { label: "Rename", icon: menuIcon(editorIcons.edit) },
-          { label: "Delete", icon: menuIcon(workspaceIcons.trash) },
-        ]}
-      />
-    </div>,
-  );
+  return organize();
 }
 
 /** Delete를 누르면 화면 가운데 modal이 한 번 묻는다. 파일은 디스크에서 지워진다. */
 export function FileDeleteConfirm() {
   return organize(
-    undefined,
     <Dialog
       open
       onOpenChange={() => {}}

@@ -79,10 +79,4 @@ export const agentsKind: TabKindDef = {
       />
     );
   },
-  // `+` › Agents: 목록을 바로 연다.
-  launcher: {
-    labelKey: "project-workspace.label.kind-agents",
-    available: (host) => host.agents !== null,
-    open: openAgents,
-  },
 };

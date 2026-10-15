@@ -241,9 +241,4 @@ export const searchKind: TabKindDef = {
       />
     );
   },
-  launcher: {
-    labelKey: "file-search.label.tab",
-    available: (host) => host.props.source.searchSource !== undefined,
-    open: openSearchShortcut,
-  },
 };

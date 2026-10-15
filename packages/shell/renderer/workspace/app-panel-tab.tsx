@@ -142,6 +142,8 @@ export function AppPanelPicker(
 }
 
 export interface AppPanelTabProps {
+  /** 이 탭이 열린 project. 앱 view가 이 project에서 열린다. */
+  project: string;
   app: string;
   screen: string;
   /** 칸에 보이는 고른 탭인지. false면 view를 남긴 채 숨긴다. */
@@ -155,7 +157,7 @@ type Facts = AppRead | null;
 
 /** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
 export function AppPanelTab(
-  { app, screen, shown, onOpenAppSpace, onSession }: AppPanelTabProps,
+  { project, app, screen, shown, onOpenAppSpace, onSession }: AppPanelTabProps,
 ) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<Facts>(null);
@@ -230,6 +232,7 @@ export function AppPanelTab(
         <EmbeddedView
           views={deps.views}
           app={app}
+          project={project}
           mode="live"
           release={release}
           screen={screen}

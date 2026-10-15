@@ -1,6 +1,6 @@
 // 동작하는 project 화면. 칸마다 탭 줄이 있고, 바로 가기 rail·sidebar·+ 메뉴·검색·상단 검색·toast·대화·문서의 링크가 탭을 열면
-// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·Breadcrumbs·Palette·Menu를 쓰고
-// sidebar·tab strip은 project-window.tsx의 look-alike다.
+// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·Breadcrumbs·Palette·Menu와
+// 실제 sidebar(`ProjectSidebar`)·design `TabStrip`·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가 넘긴다).
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
@@ -9,7 +9,7 @@ import {
 } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
-import { Palette, type PaletteItem } from "@lophn/design/components";
+import { Palette, type PaletteItem, TabStrip } from "@lophn/design/components";
 import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
@@ -33,11 +33,11 @@ import { HostProvider } from "./contexts/open-tab.ts";
 import { FileSearch } from "./project-files/file-search.tsx";
 import { crumbsOfPath, fileKey, isOutside } from "./project-files/file-data.ts";
 import {
-  ProjectSidebar,
+  PageNewTabMenu,
+  PageSidebar,
   type RailAction,
   type SidebarSpec,
-  TabBar,
-  TabMenu,
+  stripTabsOf,
   type TabSpec,
 } from "./project-window.tsx";
 import styles from "./compose.module.css";
@@ -52,6 +52,8 @@ export interface ProjectAppProps {
   readonly sidebar?: SidebarSpec;
   /** 첫 칸 위에 얹는 것(열린 메뉴). */
   readonly overlay?: ReactNode;
+  /** 첫 칸 탭 줄 끝의 + 메뉴를 연 채 시작한다. */
+  readonly newTabOpen?: boolean;
   /** 창 위에 얹는 것(toast). */
   readonly children?: ReactNode;
   /** 창 위쪽 바 오른쪽, 명령 palette 단추 앞에 놓는 것(대기 개수 pill 등). */
@@ -170,6 +172,7 @@ export function ProjectApp(
     panes: initial,
     sidebar = {},
     overlay,
+    newTabOpen = false,
     children,
     titleExtra,
     info: initialInfo,
@@ -437,7 +440,7 @@ export function ProjectApp(
       }}
     >
       <div className={styles.window}>
-        <ProjectSidebar
+        <PageSidebar
           {...sidebar}
           collapsed={collapsed}
           onToggle={() => setCollapsed(!collapsed)}
@@ -471,12 +474,16 @@ export function ProjectApp(
             {panes.map((pane, index) => {
               return (
                 <section key={index} className={styles.pane}>
-                  <TabBar
-                    tabs={pane.tabs}
+                  <TabStrip
+                    tabs={stripTabsOf(pane.tabs, tabStates)}
                     selected={pane.selected}
                     focused={index === 0}
-                    states={tabStates}
-                    newTab={<TabMenu onPick={pick} />}
+                    end={
+                      <PageNewTabMenu
+                        onPick={pick}
+                        startOpen={newTabOpen && index === 0}
+                      />
+                    }
                     onSelect={(key) =>
                       setPanes((current) =>
                         current.map((item, at) =>

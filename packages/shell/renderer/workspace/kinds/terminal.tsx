@@ -56,10 +56,7 @@ export function codingTabIcon(tab: TabItem): ReactNode | null {
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
-/**
- * lophn(core 요청)이 연 coding 터미널 탭. focus를 옮기지 않아야 하지만 `openTab`은 고른다.
- * 호스트가 고르지 않고 붙이는 길을 주기 전까지는 붙이면서 고른다.
- */
+/** lophn(core 요청)이 연 coding 터미널 탭. 붙이기만 하고 보고 있는 탭을 바꾸지 않는다. */
 export function openCodingTerminal(
   host: TabHost,
   request: TerminalOpenRequest,
@@ -77,7 +74,7 @@ export function openCodingTerminal(
       product: request.coding.product,
       app: request.coding.app,
     },
-  });
+  }, { select: false });
 }
 
 export const terminalKind: TabKindDef = {
@@ -85,6 +82,7 @@ export const terminalKind: TabKindDef = {
   labelKey: "project-workspace.label.kind-terminal",
   icon: workspaceIcons.terminal,
   paletteIcon: "terminal",
+  iconOf: (tab) => codingTabIcon(tab),
   fromStored(stored, { key }) {
     const folder = stored.project_folder;
     if (typeof folder !== "string" || folder.length < 1) return null;
@@ -152,10 +150,5 @@ export const terminalKind: TabKindDef = {
   beforeClose(tab, host) {
     const terminal = host.props.terminal;
     return terminal ? closeTerminalTab(terminal, tab.key) : null;
-  },
-  launcher: {
-    labelKey: "project-workspace.button.open-terminal",
-    available: (host) => host.props.terminal !== undefined,
-    open: openTerminal,
   },
 };

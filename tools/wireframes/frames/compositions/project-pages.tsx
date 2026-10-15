@@ -1,17 +1,7 @@
 // Part 2: project 화면 위의 새 설계. 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
-import {
-  appSpaceIcons,
-  lophnSpaceIcons,
-  paletteIcons,
-  workspaceIcons,
-} from "../../../../packages/shell/renderer/icons/mod.ts";
-import { FileIcon } from "@lophn/design/components";
-import { Avatar } from "./agent-avatar.tsx";
-import { menuIcon, menuLead } from "./project-files/menu-icons.tsx";
 import { CHAT_TAB, type PaneInit, ProjectApp } from "./project-app.tsx";
 import { documentTab, findingTab } from "./phroner-data.ts";
-import { StaticMenu, type TabSpec } from "./project-window.tsx";
-import styles from "./compose.module.css";
+import type { TabSpec } from "./project-window.tsx";
 
 const DOC_PATH = "eval/experiments/exp-008-query-tools.md";
 const DOC = documentTab(DOC_PATH);
@@ -53,50 +43,13 @@ export function TabKinds() {
   );
 }
 
-/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Context, Search, App panel. Agents(관리 탭)와 New context는 없다. */
+/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Context ▸, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents(관리 탭)와 New context는 없다. */
 export function NewTabMenu() {
   return (
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
       panes={[left(DOC, FILES_SEARCH, TERMINAL), chat]}
-      overlay={
-        <div className={styles.menus}>
-          <StaticMenu
-            head="New tab"
-            highlighted="Agent"
-            items={[
-              {
-                label: "Document",
-                icon: menuLead(<FileIcon name="notes.md" size={16} />),
-              },
-              { label: "Terminal", icon: menuIcon(workspaceIcons.terminal) },
-              {
-                label: "Agent",
-                more: true,
-                icon: menuIcon(lophnSpaceIcons.roles),
-              },
-              { label: "Context", icon: menuIcon(workspaceIcons.context) },
-              { label: "Search", icon: menuIcon(paletteIcons.search) },
-              { label: "App panel", icon: menuIcon(appSpaceIcons.app) },
-            ]}
-          />
-          <StaticMenu
-            head="Agent"
-            width={180}
-            items={[
-              {
-                label: "lophn",
-                icon: menuLead(<Avatar agent="lophn" size="sm" />),
-              },
-              {
-                label: "Project Manager",
-                icon: menuLead(<Avatar agent="Project Manager" size="sm" />),
-              },
-              { label: "Operator…", icon: menuIcon(lophnSpaceIcons.roles) },
-            ]}
-          />
-        </div>
-      }
+      newTabOpen
     />
   );
 }

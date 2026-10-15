@@ -1,10 +1,10 @@
-import { type DragEvent, Fragment, type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import {
   Icon,
   IconButton,
   iconPixels,
-  type IconProps,
-  Menu,
+  type TabItem as StripTab,
+  TabStrip,
   Tooltip,
 } from "@lophn/design/components";
 import { workspaceIcons } from "../../icons/mod.ts";
@@ -20,9 +20,7 @@ import {
   type TabItem,
   type WorkspaceView,
 } from "../model.ts";
-import { tabKindLabel } from "../kinds/registry.ts";
 import { startPointerDrag } from "../drag.ts";
-import { TabStrip } from "../tab-strip/tab-strip.tsx";
 import styles from "./panes.module.css";
 
 /** 칸 폭이 이보다 좁으면 본문 여백을 16px로 줄인다. */
@@ -37,17 +35,14 @@ export interface PanesProps {
   onSelect: (pane: number, key: string) => void;
   onClose: (pane: number, key: string) => void;
   onFocus: (pane: number) => void;
-  /** 키보드·drag로 탭을 다른 칸으로 옮긴다. 한 칸에서 1로 옮기면 칸을 나눈다. */
+  /** 탭을 다른 칸으로 옮긴다. 한 칸에서 1로 옮기면 칸을 나눈다. */
   onMove: (key: string, toPane: number) => void;
   /** 경계 drag가 끝나거나 두 번 눌렀을 때의 비율. */
   onRatio: (ratio: number) => void;
-  /** 정보 패널 열림과 바꾸기. 주면 마지막 칸 탭 줄 끝에 버튼을 둔다. */
-  infoOpen?: boolean;
-  onToggleInfo?: () => void;
-  /**
-   * 마지막 칸 탭 줄 끝에 둘 열기 단추. kind마다 하나이고 순서대로 놓는다.
-   */
-  launchers?: readonly PaneLauncher[];
+  /** 마지막 칸 탭 줄 끝의 새 탭(+) 단추. */
+  newTab?: ReactNode;
+  /** 탭 줄이 그리는 탭 하나(아이콘, 이름 뒤 상태 점). */
+  stripTab: (tab: TabItem) => StripTab;
   /**
    * 탭 본문을 그린다. null을 주면 기본 본문을 쓴다. active는 focus 칸의 고른
    * 탭인지다.
@@ -58,26 +53,6 @@ export interface PanesProps {
    * 고른 탭만 보인다. shown은 그 탭이 칸에서 보이는지다.
    */
   renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
-  /** 탭 key마다 tooltip. */
-  tooltips?: Readonly<Record<string, ReactNode>>;
-}
-
-/** 탭 줄 끝의 열기 단추 하나. kind 선언의 launcher를 작업대가 풀어 넘긴다. */
-export interface PaneLauncher {
-  /** 단추의 `data-open-<kind>` 표시에 쓰는 kind 이름. */
-  readonly kind: string;
-  readonly label: string;
-  readonly icon: IconProps["icon"];
-  /** 열 대상을 하나 골라야 하는 단추의 메뉴 항목. 주면 단추는 이 메뉴를 열고 고른 id로 onOpen을 부른다. */
-  readonly choices?: readonly { readonly id: string; readonly label: string }[];
-  /** 메뉴 단추 안내 글. 항목이 하나도 없을 때 보인다. */
-  readonly emptyLabel?: string;
-  readonly onOpen: (choice?: string) => void;
-}
-
-interface Dragging {
-  readonly pane: number;
-  readonly key: string;
 }
 
 // 좌우 1칸 또는 2칸. 폭이 부족하면 한 칸 보기로 그린다.
@@ -91,108 +66,46 @@ export function Panes(
     onFocus,
     onMove,
     onRatio,
-    infoOpen = false,
-    onToggleInfo,
-    launchers = [],
+    newTab,
+    stripTab,
     renderTab,
     renderKept,
-    tooltips,
   }: PanesProps,
 ) {
   // 경계 drag 중 미리보기 비율. drag-end에서만 저장한다.
   const [preview, setPreview] = useState<number | null>(null);
-  const [dragging, setDragging] = useState<Dragging | null>(null);
-  const [over, setOver] = useState<number | null>(null);
   const shownView = preview === null ? view : { ...view, splitRatio: preview };
   const layout = splitLayout(bodyWidth, shownView);
   const shown = layout.visiblePanes === 1 ? [layout.shownPane] : [0, 1];
   const single = view.panes.length === 1;
 
-  const dropProps = (target: number) => ({
-    onDragOver: (event: DragEvent) => {
-      if (!dragging || dragging.pane === target) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-      setOver(target);
-    },
-    onDragLeave: () =>
-      setOver((current) => current === target ? null : current),
-    onDrop: (event: DragEvent) => {
-      event.preventDefault();
-      const moving = dragging;
-      setDragging(null);
-      setOver(null);
-      if (moving && moving.pane !== target) onMove(moving.key, target);
-    },
-  });
-
   const end = (index: number, position: number): ReactNode => {
-    if (position !== shown.length - 1) return null;
     const pane = view.panes[index]!;
-    const splitLabel = t("project-workspace.button.split-pane");
-    const infoLabel = t("project-workspace.button.info-panel");
+    const label = single
+      ? t("project-workspace.button.split-pane")
+      : t("project-workspace.button.move-pane");
     return (
       <>
-        {launchers.map((launcher) => {
-          const opener = {
-            [`data-open-${launcher.kind.replaceAll("_", "-")}`]: "",
-          };
-          if (launcher.choices !== undefined) {
-            return (
-              <Menu
-                key={launcher.kind}
-                trigger={
-                  <IconButton
-                    icon={launcher.icon}
-                    label={launcher.label}
-                    {...opener}
-                  />
-                }
-                items={launcher.choices.length > 0 ? launcher.choices : [{
-                  id: "",
-                  label: launcher.emptyLabel ?? launcher.label,
-                  disabled: true,
-                }]}
-                onSelect={(id) => launcher.onOpen(id)}
-                placement="corner"
-              />
-            );
-          }
-          return (
-            <Tooltip key={launcher.kind} content={launcher.label}>
-              <IconButton
-                icon={launcher.icon}
-                label={launcher.label}
-                {...opener}
-                onClick={() => launcher.onOpen()}
-              />
-            </Tooltip>
-          );
-        })}
-        {single
+        {position === shown.length - 1 ? newTab : null}
+        {single || shown.length === 2
           ? (
-            <Tooltip content={splitLabel}>
+            <Tooltip content={label}>
               <IconButton
                 icon={workspaceIcons.splitPane}
-                label={splitLabel}
+                label={label}
+                size="sm"
                 data-split-pane=""
-                disabled={pane.tabs.length < 2}
+                disabled={single
+                  ? pane.tabs.length < 2
+                  : pane.selected === null}
                 onClick={() => {
-                  if (pane.selected) onMove(pane.selected, 1);
+                  if (pane.selected) {
+                    onMove(
+                      pane.selected,
+                      single ? 1 : 1 - index,
+                    );
+                  }
                 }}
-              />
-            </Tooltip>
-          )
-          : null}
-        {onToggleInfo
-          ? (
-            <Tooltip content={infoLabel}>
-              <IconButton
-                icon={workspaceIcons.infoPanel}
-                label={infoLabel}
-                data-info-toggle=""
-                aria-pressed={infoOpen}
-                onClick={onToggleInfo}
               />
             </Tooltip>
           )
@@ -246,43 +159,15 @@ export function Panes(
               split={layout.visiblePanes === 2}
               wide={wide}
               end={end(index, position)}
+              stripTab={stripTab}
               renderTab={renderTab}
               renderKept={renderKept}
-              dropTarget={dragging !== null && dragging.pane !== index}
-              over={over === index}
-              dropProps={dropProps(index)}
-              tooltips={tooltips}
               onSelect={(key) => onSelect(index, key)}
               onClose={(key) => onClose(index, key)}
               onFocus={() => {
                 if (view.focusedPane !== index) onFocus(index);
               }}
-              onMove={(key, direction) => {
-                const target = direction === "left" ? index - 1 : index + 1;
-                if (target >= 0 && target < 2) onMove(key, target);
-              }}
-              onDragTab={(key) =>
-                setDragging(key ? { pane: index, key } : null)}
-            >
-              {single && dragging !== null && view.panes[0]!.tabs.length > 1
-                ? (
-                  <div
-                    className={styles.sideDrop}
-                    data-side-drop=""
-                    data-over={over === 1 ? "" : undefined}
-                    {...dropProps(1)}
-                  >
-                    {over === 1
-                      ? (
-                        <span className={styles.dropLabel}>
-                          {t("project-workspace.label.drop-side")}
-                        </span>
-                      )
-                      : null}
-                  </div>
-                )
-                : null}
-            </PaneView>
+            />
           </Fragment>
         );
       })}
@@ -299,22 +184,12 @@ interface PaneViewProps {
   split: boolean;
   wide: boolean;
   end: ReactNode;
-  dropTarget: boolean;
-  over: boolean;
-  dropProps: {
-    onDragOver: (event: DragEvent) => void;
-    onDragLeave: () => void;
-    onDrop: (event: DragEvent) => void;
-  };
-  children?: ReactNode;
+  stripTab: (tab: TabItem) => StripTab;
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
   renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
-  tooltips?: Readonly<Record<string, ReactNode>>;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
   onFocus: () => void;
-  onMove: (key: string, direction: "left" | "right") => void;
-  onDragTab: (key: string | null) => void;
 }
 
 function PaneView(
@@ -326,18 +201,12 @@ function PaneView(
     split,
     wide,
     end,
-    dropTarget,
-    over,
-    dropProps,
-    children,
+    stripTab,
     renderTab,
     renderKept,
-    tooltips,
     onSelect,
     onClose,
     onFocus,
-    onMove,
-    onDragTab,
   }: PaneViewProps,
 ) {
   const selected = pane.tabs.find((tab) => tab.key === pane.selected);
@@ -364,19 +233,14 @@ function PaneView(
         : { width: `${width}px`, flexBasis: `${width}px` }}
       onPointerDown={onFocus}
       onFocusCapture={onFocus}
-      {...(dropTarget ? dropProps : {})}
     >
       <TabStrip
-        tabs={pane.tabs}
-        selected={pane.selected}
+        tabs={pane.tabs.map(stripTab)}
+        selected={pane.selected ?? ""}
         focused={split && focused}
-        label={t("project-workspace.label.tabs")}
         onSelect={onSelect}
         onClose={onClose}
-        onMoveToPane={onMove}
-        onDragTab={onDragTab}
         end={end}
-        tooltips={tooltips}
       />
       <div
         className={`${styles.body} ${wide ? "" : styles.narrow} ${
@@ -401,9 +265,6 @@ function PaneView(
             ? (
               <div className={styles.content} data-tab-body={selected.key}>
                 <h1 className={styles.heading}>{selected.title}</h1>
-                <p className={styles.meta}>
-                  {tabKindLabel(selected.kind)}
-                </p>
               </div>
             )
             : (
@@ -421,16 +282,6 @@ function PaneView(
               </div>
             ))}
       </div>
-      {dropTarget && over
-        ? (
-          <div className={styles.drop} data-drop="">
-            <span className={styles.dropLabel}>
-              {t("project-workspace.label.drop-here")}
-            </span>
-          </div>
-        )
-        : null}
-      {children}
     </section>
   );
 }

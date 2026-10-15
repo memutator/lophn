@@ -27,7 +27,8 @@ import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/conn
 import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import { ProjectApp } from "../project-app.tsx";
 import { documentTab } from "../phroner-data.ts";
-import { SecretInput } from "./secret-input.tsx";
+import styles from "./waiting.module.css";
+import { SecretInput } from "../../../../../packages/shell/renderer/secret-input/secret-input.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
 
@@ -217,17 +218,42 @@ export const WaitingToasts = () => (
   <Over items={allItems()} initial={{ open: false }} toasts />
 );
 
-/** secret 보호 입력: provider key. 값은 점으로만 보인다. */
-export const SecretInputProvider = () => <SecretInput kind="provider" />;
+/** shell이 따로 띄우는 작은 창 하나를 gallery 무대 가운데에 놓는다. */
+const SecretStage = (props: Parameters<typeof SecretInput>[0]) => (
+  <div className={styles.stage}>
+    <div className={styles.secretWindow}>
+      <SecretInput {...props} />
+    </div>
+  </div>
+);
 
-/** secret 보호 입력: 이미 설정된 앱 secret의 값을 바꾼다. */
+/** secret 보호 입력: provider key. */
+export const SecretInputProvider = () => (
+  <SecretStage
+    purpose="provider"
+    subject="OpenAI"
+    name="OPENAI_API_KEY"
+    configured={false}
+  />
+);
+
+/** secret 보호 입력: 이미 설정된 앱 secret의 값을 바꾼다. 값은 점으로만 보인다. */
 export const SecretInputApp = () => (
-  <SecretInput
-    kind="app"
-    filled
+  <SecretStage
+    purpose="app"
+    subject="Orders app"
+    name="PAYMENTS_KEY"
     configured
+    initialValue="sk-example-0000000000"
   />
 );
 
 /** secret 보호 입력: MCP server credential. */
-export const SecretInputMcp = () => <SecretInput kind="mcp" />;
+export const SecretInputMcp = () => (
+  <SecretStage
+    purpose="mcp"
+    subject="mail"
+    name="MAIL_ACCESS_TOKEN"
+    configured={false}
+  />
+);

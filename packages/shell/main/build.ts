@@ -46,7 +46,10 @@ const entries: BuildEntry[] = [
   { in: join(here, "entry-screen-test.ts"), out: "screen-test" },
   { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
-  { in: join(shell, "preload/confirmation.ts"), out: "preload-confirmation" },
+  {
+    in: join(shell, "preload/secret-input.ts"),
+    out: "preload-secret-input",
+  },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
   { in: join(shell, "preload/screen-test.ts"), out: "preload-screen-test" },
 ];

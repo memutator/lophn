@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const entries = ["desktop", "overlay", "confirmation"];
+const entries = ["desktop", "overlay", "secret-input"];
 
 function fileUrl(path: string): URL {
   return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
@@ -174,7 +174,7 @@ export async function build(
       });
     }
     // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    for (const name of ["desktop", "overlay", "confirmation"]) {
+    for (const name of ["desktop", "overlay", "secret-input"]) {
       await mkdir(join(outdir, name), { recursive: true });
       await copyFile(
         join(here, name, "index.html"),

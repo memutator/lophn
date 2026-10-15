@@ -1,42 +1,39 @@
-export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
-export { createApplyCommand } from "./apply.ts";
-export { eraseApprovalRequests } from "./erase.ts";
+export { createApprovals } from "./approvals.ts";
+export type { ApprovalsDeps, ApprovalsService } from "./approvals.ts";
+export { gate } from "./gate/mod.ts";
 export {
-  checkConfirmAction,
-  CONFIRM_COMMAND,
-  CONFIRM_CONCERN,
-  confirmAction,
-  overlappingConfirm,
-} from "./confirm.ts";
+  agentGrantRegistration,
+  allowanceKey,
+  createGrants,
+  createSessionAllowances,
+  type GrantsConnections,
+  loadAgentGrant,
+  pruneAgentGrantApis,
+  reactionSettings,
+} from "./grants/mod.ts";
 export {
-  approvalExpirySweep,
-  approvalExpirySweepRead,
-  EXPIRY_SWEEP_BATCH,
-} from "./expiry.ts";
-export { createApprovalCommands } from "./commands.ts";
+  type ApprovalCalls,
+  type ApprovalLedger,
+  createApprovalLedger,
+} from "./ledger.ts";
+export { intentFingerprint } from "./model.ts";
+export type {
+  ApprovalApplier,
+  Approvals,
+  Gate,
+  Grants,
+  SessionAllowances,
+} from "./ports.ts";
 export {
-  cancelActorAllowed,
-  closeAllowed,
-  creationValid,
-  deadlineReached,
-  deadlineValid,
-  descriptionPresent,
-  externalDescribed,
-  grantScopeAllowed,
-  immutableFields,
-  isClosed,
-  repairDescribed,
-  sessionGrantableValid,
-} from "./model.ts";
-export { type ApprovalRunLineage, approvalRunLineage } from "./lineage.ts";
-export { observeApprovals, RESTART_GRANTED_LIMIT } from "./restart.ts";
-export { approvalsGetRead, approvalsListRead } from "./reads.ts";
-export {
-  createApprovalRegistration,
   createCoreRegistration,
+  createReaderRegistration,
 } from "./registration.ts";
-export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 export {
-  approvalsTextRead,
-  type ApprovalTextEnvironment,
-} from "./text-read.ts";
+  APPROVAL_INTERNAL_COMMANDS,
+  approvalsCancelPendingFor,
+  approvalsCreatePending,
+  approvalsRecordApplied,
+  approvalsUnapplied,
+} from "./routes.ts";
+export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
+export { CONFIRM_COMMAND, CONFIRM_CONCERN, confirmAction } from "./confirm.ts";

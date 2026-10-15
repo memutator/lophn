@@ -38,11 +38,6 @@ import {
   withdrawAssignment,
 } from "../../protocol/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
-import {
-  approvalRunLineage,
-  createApprovalCommands,
-  eraseApprovalRequests,
-} from "../approvals/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
   createModelCommands,
@@ -95,7 +90,6 @@ import {
   RUN_LIMIT_SETTING_KEYS,
   runBodyFields,
   runSchemaSteps,
-  sessionRunIds,
 } from "./run-loop/mod.ts";
 import { createCommandReads } from "./commands/mod.ts";
 import {
@@ -384,6 +378,8 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
 // turn은 입력함에서 시작하므로 run 접수는 없다. 그것을 부르던 handoff와 기다림 쪽은 Router로 바뀔 때까지 막혀 있다.
 const RUN_ACCEPT_REMOVED = "accepting a run is replaced by the inbox";
+const APPROVAL_REQUEST_REMOVED =
+  "a waiting run no longer opens an approval request; the router asks in the turn";
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
@@ -393,7 +389,6 @@ const runReads = createRunReads();
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
-    () => eraseApprovalRequests(tx, sessionRunIds(tx, session)),
     () => deleteSessionWaitResolutions(tx, session),
     () => deleteSessionQuestions(tx, session, eraseBlobRefs),
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
@@ -517,10 +512,9 @@ const questionApply = createApplyQuestionOption({
 // 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
 // 이동의 handler를 같은 Tx에서 부른다. 두 command는 machine 전용 기록이라 이 연결에 한해 자격을
 // 바꿔 넘기고 바깥 command의 actor와 event 기록은 그대로다.
-const approvalCommands = createApprovalCommands();
 const waitCommands = createWaitCommands({
-  createApproval: (tx, ctx, input, compare) =>
-    approvalCommands.create.handle(tx, ctx, input, compare),
+  createApproval: () =>
+    err({ code: "unavailable", message: APPROVAL_REQUEST_REMOVED }),
   acceptRun: () => err({ code: "unavailable", message: RUN_ACCEPT_REMOVED }),
   assignMessage: (tx, ctx, input, compare) =>
     conversationCommands.assign.handle(tx, ctx, input, compare),
@@ -542,32 +536,6 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
     return row["state"] === "finished"
       ? "finished" as const
       : "active" as const;
-  },
-}));
-
-// approval이 쓰는 run 사실이다. 거절 억제의 계보 판정: 사람 요청에서 시작한 run은
-// 그 message, handoff run은 runs/read의 source.original_message다. AcceptRun이 handoff의 original_message가
-// sender chain의 시작과 같은지 검사하므로 한 번의 조회로 계보가 정해진다. 주기 회차는 계보가 없다.
-// session 허락의 session은 run이 속한 session이다.
-const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
-  session: (run: string) => {
-    const row = tx.sql.get("select session from runs where id = ?", [run]);
-    return row === undefined || row["session"] === null
-      ? null
-      : String(row["session"]);
-  },
-  origin: (run: string) => {
-    const row = tx.sql.get(
-      `select source_kind, source_message, source_original_message
-         from runs where id = ?`,
-      [run],
-    );
-    if (row === undefined) return null;
-    if (row["source_kind"] === "message") return String(row["source_message"]);
-    if (row["source_kind"] === "handoff") {
-      return String(row["source_original_message"]);
-    }
-    return null;
   },
 }));
 
@@ -1003,7 +971,6 @@ export const lophnAgentDefinitions = {
   ],
   ports: [
     runAdmissionPort,
-    approvalLineagePort,
     questionOptionPort,
   ],
   workers: [],

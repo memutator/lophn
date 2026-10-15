@@ -28,10 +28,6 @@ import {
   packageGuideOwnerKey,
 } from "../../../apps/packages/blobs.ts";
 import {
-  createApprovalTextPreparer,
-  withApprovalText,
-} from "../../../approvals/text-prepare.ts";
-import {
   authorize,
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
@@ -60,14 +56,6 @@ export const appsWiring: WiringFactory = () => {
     async build(ctx) {
       const { runtime, registry } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
-      // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
-      const confirmWriter = withApprovalText(
-        runtime.writer,
-        createApprovalTextPreparer({
-          relay: () => ctx.bodyPrepare,
-          known: () => ctx.knownSecrets,
-        }),
-      );
       // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
       const apiPorts = () => {
         const port = ctx.peek.server?.port ?? 0;
@@ -85,7 +73,7 @@ export const appsWiring: WiringFactory = () => {
           clock: ctx.clock,
           ledgerPath: ctx.ledgerPath,
           command: (context, envelope) =>
-            confirmWriter.command(context as never, envelope as never),
+            runtime.writer.command(context as never, envelope as never),
           machine,
           // 호출한 앱 자신의 짧은 app credential이다. 요청 하나를 마치면 끝낸다.
           async requester(source) {
@@ -143,7 +131,7 @@ export const appsWiring: WiringFactory = () => {
         activation: {
           dataRoot: ctx.root.path,
           command: (context, envelope) =>
-            confirmWriter.command(context as never, envelope as never),
+            runtime.writer.command(context as never, envelope as never),
           machine,
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,

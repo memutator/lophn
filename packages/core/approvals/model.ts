@@ -1,213 +1,47 @@
-// approval request의 순수 규칙.
-// IO가 없다. blob 본문·시각·id는 인자로 받는다.
-
-import { err, ok, type Result } from "../../base/mod.ts";
-import type { Actor } from "../../protocol/base/mod.ts";
+// request의 순수 규칙. IO가 없다. 시각과 id는 인자로 받는다.
+import { createHash } from "node:crypto";
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
-  type ApprovalAction,
-  approvalActionSchema,
-  type ApprovalEffect,
-  approvalEffectSchema,
-  type ApprovalGrantScope,
-  type ApprovalStatus,
-  approvalStatusSchema,
+  type Intent,
+  type RequestChoice,
+  type RequestStatus,
 } from "../../protocol/approvals/mod.ts";
-import { CONFIRM_COMMAND, CONFIRM_CONCERN } from "./confirm.ts";
 
-// 종료 상태는 불변이다. 다시 열기·결정 수정은 없다(domain model 불변 조건).
-const CLOSED: readonly ApprovalStatus[] = [
-  "granted",
-  "rejected",
-  "expired",
-  "cancelled",
-];
+// 보류 request로 나오는 intent 종류. 나머지는 turn 안에서 풀린다.
+export const PENDING_KINDS = ["activation", "reaction"] as const;
 
-export function isClosed(status: ApprovalStatus): boolean {
-  return CLOSED.includes(status);
+// 같은 intent는 같은 지문이다. 허락이 쓰이기 직전에 같은 intent인지 비교할 때 쓴다.
+// 호출 쪽이 동기라 동기 hash를 쓴다.
+export function intentFingerprint(intent: Intent): string {
+  return createHash("sha256").update(canonicalize(intent), "utf8").digest(
+    "hex",
+  );
 }
 
-// 설명 blob은 비어 있거나 공백뿐이면 안 된다.
-export function descriptionPresent(text: string): boolean {
-  return /\S/.test(text);
-}
-
-// 외부 전송이 있으면 수신처·전송 정보가 있어야 한다. 없으면 그 설명이 없다.
-export function externalDescribed(
-  effect: ApprovalEffect,
-  externalText: string | undefined,
-): boolean {
-  if (effect.external_blob === null) return externalText === undefined;
-  return externalText !== undefined && descriptionPresent(externalText);
-}
-
-// 수리 동작은 보존 데이터와 검증 기준을 함께 제시한다.
-// 수리 여부는 요청자가 선언한다. 소유 concern의 판정은 그 concern이 한다.
-export function repairDescribed(
-  repair: { preserved: string; verification: string } | undefined,
-): boolean {
-  if (repair === undefined) return true;
-  return descriptionPresent(repair.preserved) &&
-    descriptionPresent(repair.verification);
-}
-
-// 기한은 없거나 생성 시각보다 뒤다(domain model expires_at).
-export function deadlineValid(
-  expiresAt: string | null,
-  now: string,
-): boolean {
-  if (expiresAt === null) return true;
-  const deadline = Date.parse(expiresAt);
-  const created = Date.parse(now);
-  return Number.isFinite(deadline) && Number.isFinite(created) &&
-    deadline > created;
-}
-
-// 기한 경계부터 결정과 새 사용을 거절한다. 기본 기한은 없다.
-export function deadlineReached(
-  expiresAt: string | null,
-  now: string,
-): boolean {
-  if (expiresAt === null) return false;
-  const deadline = Date.parse(expiresAt);
-  const current = Date.parse(now);
-  return Number.isFinite(deadline) && Number.isFinite(current) &&
-    current >= deadline;
-}
-
-// 생성 전 고정 내용 검사. 필수 설명이 없거나 공백뿐이면 생성하지 않는다.
-export function creationValid(input: {
-  action: ApprovalAction;
-  effect: ApprovalEffect;
-  reason: string;
-  changes: string;
-  reversibility: string;
-  external: string | undefined;
-  repair: { preserved: string; verification: string } | undefined;
-  expiresAt: string | null;
-  now: string;
-}): Result<void> {
-  if (!approvalActionSchema.safeParse(input.action).success) {
-    return err({ code: "invalid_input", message: "동작이 schema와 다르다" });
+export function pendingKindAllowed(intent: Intent): Result<void> {
+  if ((PENDING_KINDS as readonly string[]).includes(intent.kind)) {
+    return ok(undefined);
   }
-  if (!approvalEffectSchema.safeParse(input.effect).success) {
-    return err({ code: "invalid_input", message: "영향이 schema와 다르다" });
-  }
-  if (
-    !descriptionPresent(input.reason) ||
-    !descriptionPresent(input.changes) ||
-    !descriptionPresent(input.reversibility)
-  ) {
-    return err({
-      code: "invalid_input",
-      message: "이유·변경 범위·되돌림 설명이 비어 있다",
-    });
-  }
-  if (!externalDescribed(input.effect, input.external)) {
-    return err({
-      code: "invalid_input",
-      message: "외부 전송 설명이 영향과 맞지 않는다",
-    });
-  }
-  if (!repairDescribed(input.repair)) {
-    return err({
-      code: "invalid_input",
-      message: "수리 동작의 보존 데이터·검증 기준이 비어 있다",
-    });
-  }
-  if (!deadlineValid(input.expiresAt, input.now)) {
-    return err({
-      code: "invalid_input",
-      message: "기한이 생성 시각보다 뒤가 아니다",
-    });
-  }
-  return ok(undefined);
-}
-
-// 요청자·동작·영향·설명·기한은 생성 뒤 바꾸지 않는다.
-// 저장된 값과 다른 제안은 새 request다. 수정 route는 없다.
-export function immutableFields(): readonly string[] {
-  return ["requester", "action", "effect", "reason_blob", "expires_at"];
-}
-
-// 대기 request만 끝낼 수 있다. 끝난 결정은 다시 열리지 않는다.
-export function closeAllowed(
-  status: ApprovalStatus,
-  next: "expired" | "cancelled",
-): Result<void> {
-  if (!approvalStatusSchema.safeParse(status).success) {
-    return err({ code: "invalid_input", message: "상태가 schema와 다르다" });
-  }
-  if (status !== "pending") {
-    return err({
-      code: "conflict",
-      message: "끝난 결정은 다시 열거나 바꾸지 않는다",
-    });
-  }
-  if (next !== "expired" && next !== "cancelled") {
-    return err({ code: "invalid_input", message: "종료 상태가 아니다" });
-  }
-  return ok(undefined);
-}
-
-// 취소 actor. 사람·원래 요청자·machine만 된다.
-// machine은 원래 일 종료·취소·전제 변경 때 호출한다. 그 근거 판정은 호출 concern이 한다.
-export function cancelActorAllowed(
-  actor: Actor,
-  requester: Actor,
-): Result<void> {
-  if (actor === "user" || actor === "machine") return ok(undefined);
-  if (actor === requester) return ok(undefined);
   return err({
-    code: "forbidden",
-    message: "취소는 사람·원래 요청자·machine만 한다",
+    code: "invalid_input",
+    message: "only activation and reaction wait as pending requests",
   });
 }
 
-// session 허락을 고를 수 있는 request는 session 있는 run의 agent tool call ask뿐이다. 앱 command의
-// confirm·앱 permission·release 적용·복원처럼 정확한 대상 하나를 보고 결정해야 하는 request는
-// agent tool call의 ask가 아니거나(요청자가 agent가 아님) confirm 접수 동작이라 켜지 못한다.
-export function sessionGrantableValid(input: {
-  sessionGrantable: boolean;
-  requester: Actor;
-  run: string | null;
-  session: string | null;
-  action: ApprovalAction;
-}): Result<void> {
-  if (!input.sessionGrantable) return ok(undefined);
-  if (!input.requester.startsWith("agent:") || input.run === null) {
-    return err({
-      code: "invalid_input",
-      message: "session 허락은 agent tool call의 ask에만 있다",
-    });
-  }
-  if (
-    input.action.concern === CONFIRM_CONCERN &&
-    input.action.command === CONFIRM_COMMAND
-  ) {
-    return err({
-      code: "invalid_input",
-      message: "사람이 확인하는 앱 command에는 session 허락이 없다",
-    });
-  }
-  if (input.session === null) {
-    return err({
-      code: "invalid_input",
-      message: "session이 없는 run의 ask에는 session 허락이 없다",
-    });
-  }
-  return ok(undefined);
+// pending만 끝난다. 끝난 request는 다시 열리지 않는다.
+export function canClose(status: RequestStatus): Result<void> {
+  if (status === "pending") return ok(undefined);
+  return err({ code: "conflict", message: "the request is already closed" });
 }
 
-// 허락 범위는 once와 session이고 session은 session_grantable인 request만 고른다.
-export function grantScopeAllowed(
-  sessionGrantable: boolean,
-  scope: ApprovalGrantScope,
+// 결정의 choice는 request가 낸 선택지 안에 있어야 한다.
+export function choiceOffered(
+  choices: readonly RequestChoice[],
+  choice: RequestChoice,
 ): Result<void> {
-  if (scope === "session" && !sessionGrantable) {
-    return err({
-      code: "invalid_input",
-      message: "이 request에는 session 허락이 없다",
-    });
-  }
-  return ok(undefined);
+  if (choices.includes(choice)) return ok(undefined);
+  return err({
+    code: "invalid_input",
+    message: "the choice is not offered by this request",
+  });
 }

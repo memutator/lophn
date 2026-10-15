@@ -1,41 +1,29 @@
-// approval의 core 등록. schema·command·read·blob field를 한 자리에서 낸다.
-// core writer가 teamModules로 이 파일을 다시 import하므로 createCoreRegistration만 둔다.
-
-import type { CommandRoute } from "../../protocol/base/mod.ts";
-import { createApplyCommand } from "./apply.ts";
-import { APPROVAL_BLOB_FIELDS } from "./blobs.ts";
-import { createApprovalCommands } from "./commands.ts";
-import { approvalExpirySweepRead } from "./expiry.ts";
-import { approvalsGetRead, approvalsListRead } from "./reads.ts";
+// approvals의 core 등록. writer가 command를, reader가 read를, core가 memory route를 가져간다.
+import { approvalsDecideTurn } from "../../protocol/approvals/mod.ts";
+import { approvalCommands } from "./commands.ts";
+import { agentGrantRegistration } from "./grants/mod.ts";
+import { approvalsPendingRead, approvalsUnappliedRead } from "./reads.ts";
 import { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 
-// owners는 apply가 dispatch할 수 있는 소유 command route 목록을 돌려주는 함수다.
-// 주지 않으면(소유 command가 없는 등록) apply command를 등록하지 않는다.
-export function createApprovalRegistration(
-  options: { owners?: () => readonly CommandRoute[] } = {},
-) {
-  const commands = createApprovalCommands();
+export function createCoreRegistration() {
   return {
-    schemaSteps: APPROVAL_SCHEMA_STEPS,
-    commands: [
-      commands.create,
-      commands.expire,
-      commands.cancel,
-      commands.grant,
-      commands.reject,
-      ...(options.owners === undefined
-        ? []
-        : [createApplyCommand(options.owners)]),
+    schemaSteps: [
+      ...APPROVAL_SCHEMA_STEPS,
+      ...agentGrantRegistration.schemaSteps,
     ],
+    commands: [...approvalCommands, ...agentGrantRegistration.commands],
     reads: [
-      approvalsGetRead(),
-      approvalsListRead(),
-      approvalExpirySweepRead(),
+      approvalsPendingRead,
+      approvalsUnappliedRead,
+      ...agentGrantRegistration.reads,
     ],
-    blobFields: APPROVAL_BLOB_FIELDS,
+    // handler는 wiring이 route 이름으로 붙인다.
+    memoryRoutes: [approvalsDecideTurn],
   };
 }
 
-export function createCoreRegistration() {
-  return createApprovalRegistration();
+// reader Worker가 read만 다시 조립한다.
+export function createReaderRegistration() {
+  const { reads } = createCoreRegistration();
+  return { reads, ports: new Map() };
 }

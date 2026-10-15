@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  TOOL_TEXT_MAX_BYTES,
-  type VisualBlock,
-} from "../../../../protocol/lophn-agent/mod.ts";
+import type { VisualBlock } from "../../../../protocol/lophn-agent/mod.ts";
+
+// 준비한 글의 상한이다.
+const TOOL_TEXT_MAX_BYTES = 128 * 1024;
 
 // 문서로 남기기의 준비. 확정 메시지에서 고른 블록의 고정 명세·설명·출처와
 // 그 순간의 데이터를 실행 코드 없는 HTML 글로 만든다. 글만 만든다: blob 준비·hash 계산·문서 저장은
@@ -12,21 +12,10 @@ import {
 // 그림은 공용 SDK가 그린다. 이 HTML은 SDK의 정적 그림 대신 같은 데이터를 읽을 수 있는
 // 표와 목록으로 담는다. script·style·iframe·외부 자원·앱 token은 어디에도 넣지 않는다.
 
-export type PreparedBlockSnapshot = {
-  block_key: string;
-  // captured면 redaction된 snapshot JSON과 hash·시각이 있다. snapshot을 얻지 못하면
-  // unavailable이고 고정 참조만 남는다. hash는 core가 준비한 blob의 hash다.
-  status: "captured" | "unavailable";
-  captured_at: string | null;
-  snapshot: string | null;
-  hash: string | null;
-};
-
 export type PreparedVisualDocument = {
   text: string;
   bytes: number;
   block_keys: string[];
-  snapshots: PreparedBlockSnapshot[];
 };
 
 export function escapeHtml(value: string): string {
@@ -250,23 +239,10 @@ export function prepareVisualDocument(input: {
         `prepared document is ${bytes} bytes and exceeds ${TOOL_TEXT_MAX_BYTES}; select fewer blocks`,
     });
   }
-  const snapshots: PreparedBlockSnapshot[] = [];
-  for (const block of input.blocks) {
-    if (block.kind !== "app_card") continue;
-    // 화면 context가 없어서 앱 카드의 snapshot은 늘 unavailable이다.
-    snapshots.push({
-      block_key: block.key,
-      status: "unavailable",
-      captured_at: null,
-      snapshot: null,
-      hash: null,
-    });
-  }
   return ok({
     text,
     bytes,
     block_keys: input.blocks.map((block) => block.key),
-    snapshots,
   });
 }
 

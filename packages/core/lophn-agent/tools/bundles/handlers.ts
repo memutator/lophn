@@ -1,8 +1,6 @@
 import type { ToolHandler } from "../work.ts";
 import { type AgentToolPorts, createAgentToolHandlers } from "./agent.ts";
 import { createAppReadToolHandlers } from "./app.ts";
-import { createDocumentToolHandlers } from "./document.ts";
-import { createFormatToolHandlers } from "./format.ts";
 import { createGuideToolHandlers } from "./guide.ts";
 import { createMetadataToolHandlers } from "./metadata.ts";
 import { createReadLog } from "./read-log.ts";
@@ -22,13 +20,11 @@ export function createBuiltinToolHandlers(
   const reads = createReadLog();
   for (
     const group of [
-      createDocumentToolHandlers(ports, reads),
       createMetadataToolHandlers(ports),
       createAppReadToolHandlers(ports),
       createProblemInterpretationToolHandlers(ports),
       createSdkToolHandlers(ports),
       createTicketToolHandlers(ports),
-      createFormatToolHandlers(ports),
       createVisualToolHandlers(ports, reads),
       createGuideToolHandlers(ports),
       createAgentToolHandlers(ports),

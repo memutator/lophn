@@ -21,7 +21,6 @@ export {
 } from "./blocks.ts";
 export {
   escapeHtml,
-  type PreparedBlockSnapshot,
   type PreparedVisualDocument,
   prepareVisualDocument,
   stableJson,

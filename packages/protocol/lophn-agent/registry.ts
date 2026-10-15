@@ -11,7 +11,6 @@ import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
 import { MODEL_EVENTS, MODEL_ROUTES } from "./models.ts";
 import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
 import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
-import { TOOL_DOCUMENT_ROUTES } from "./tool-documents.ts";
 import { TRACE_ROUTES } from "./traces.ts";
 import { INSTRUCTION_ROUTES } from "./instructions.ts";
 import {
@@ -39,7 +38,6 @@ export const ROUTES = [
   ...MODEL_CALL_ROUTES,
   ...MODEL_ROUTES,
   ...TOOL_CALL_ROUTES,
-  ...TOOL_DOCUMENT_ROUTES,
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
   ...EXTENSION_ROUTES,

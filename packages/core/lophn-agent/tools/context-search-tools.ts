@@ -23,7 +23,6 @@ import {
   type ContextEntityRead,
 } from "./context-route-shapes.ts";
 import { limitJson, PAGE_SIZE } from "./result.ts";
-import { createSeriesNextToolHandlers } from "./series-next-tool.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { RunCredential, ToolHandler } from "./work.ts";
 
@@ -466,13 +465,6 @@ export function createContextReadToolHandlers(
   }
   if (tools.entity !== null) {
     handlers.set(tools.entity.name, entityHandler(tools, ports));
-  }
-  // 다음 이름 읽기는 정의가 모든 역할에 같지만 개체 읽기처럼 선택한 context 안에서만 읽힌다. 선택이 비어도
-  // handler는 있어 어느 context도 not_found로 답한다.
-  for (
-    const [name, handler] of createSeriesNextToolHandlers(ports, tools.contexts)
-  ) {
-    handlers.set(name, handler);
   }
   return handlers;
 }

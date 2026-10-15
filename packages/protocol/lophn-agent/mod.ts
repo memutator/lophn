@@ -32,7 +32,6 @@ export * from "./model-picker.ts";
 export * from "./command-filter.ts";
 export * from "./tool-values.ts";
 export * from "./tool-calls.ts";
-export * from "./tool-documents.ts";
 export * from "./traces.ts";
 export * from "./mcp-settings.ts";
 export * from "./skill-settings.ts";

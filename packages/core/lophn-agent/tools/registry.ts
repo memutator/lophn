@@ -9,12 +9,6 @@ import {
 } from "./bundles/app.ts";
 import { SDK_TOOL_NAMES, SDK_TOOLS } from "./bundles/sdk.ts";
 import {
-  DOCUMENT_READ_TOOL_NAMES,
-  DOCUMENT_TOOLS,
-  DOCUMENT_WRITE_TOOL_NAMES,
-} from "./bundles/document.ts";
-import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
-import {
   CONTEXT_ENGINEER_TOOL_NAMES,
   CONTEXT_ENGINEER_TOOLS,
 } from "./context-engineer-tools.ts";
@@ -24,7 +18,6 @@ import {
   CONTEXT_LOOKUP_TOOLS,
 } from "./context-lookup-tools.ts";
 import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
-import { SERIES_NEXT_TOOL, SERIES_NEXT_TOOLS } from "./series-next-tool.ts";
 import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
 import {
@@ -73,14 +66,12 @@ export type ToolCatalog = {
 // 내장 tool은 문서·앱·context와 agent 일만 다룬다. shell·임의 파일·임의 URL·
 // 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
-  ...DOCUMENT_TOOLS,
   ...METADATA_TOOLS,
   ...APP_READ_TOOLS,
   ...PROBLEM_READ_TOOLS,
   ...PROBLEM_INTERPRETATION_TOOLS,
   ...TICKET_TOOLS,
   ...SDK_TOOLS,
-  ...FORMAT_TOOLS,
   ...VISUAL_TOOLS,
   ...GUIDE_TOOLS,
   ...AGENT_TOOLS,
@@ -88,16 +79,12 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...CONTEXT_ENGINEER_TOOLS,
   // lophn만의 모든 project context 조회 tool이다. 역할 상한 이름 표가 그 역할에게만 연다.
   ...CONTEXT_LOOKUP_TOOLS,
-  // 모든 역할이 쓰는 다음 이름 읽기다.
-  ...SERIES_NEXT_TOOLS,
 ];
 
 // preset이 이름으로 고르는 tool 묶음이다. 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
 // 새 동작이 생겨도 옛 판은 늘지 않는다. 묶음은 이름 목록일 뿐 권한이 아니다. 역할 상한과 현재
 // scope, 판정이 그 뒤에 따로 적용된다. 쓰기 묶음은 읽기 묶음과 따로 골라야 한다.
 export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
-  ["document-read", DOCUMENT_READ_TOOL_NAMES],
-  ["document-write", DOCUMENT_WRITE_TOOL_NAMES],
   ["metadata-read", METADATA_TOOL_NAMES],
   ["app-read", APP_READ_TOOL_NAMES],
   ["problem-read", PROBLEM_READ_TOOL_NAMES],
@@ -105,12 +92,11 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["ticket-read", TICKET_READ_TOOL_NAMES],
   ["ticket-write", TICKET_WRITE_TOOL_NAMES],
   ["sdk", SDK_TOOL_NAMES],
-  ["format", FORMAT_TOOL_NAMES],
   ["lophn-guide", GUIDE_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
-  // 개체 읽기와 다음 이름 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
+  // 개체 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
   // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
-  ["context-read", [CONTEXT_ENTITY_TOOL, SERIES_NEXT_TOOL]],
+  ["context-read", [CONTEXT_ENTITY_TOOL]],
   // Context Engineer의 context 생성·계약·초안·미리보기·제출·위반·용어집 여덟 동작이다. 역할 상한이 그 역할에게만
   // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
   ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
@@ -203,13 +189,8 @@ export function listTools(
   return listed;
 }
 
-// 소유 contract 하나를 부르려고 core가 같은 agent 자격으로 더 부르는 operation이다. 본문을 글 값으로
-// 받는 저장은 core가 같은 자격으로 `document.prepare`·`document.save`를 부른다(documents의
-// 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
+// 소유 contract 하나를 부르려고 core가 같은 agent 자격으로 더 부르는 operation이다.
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  // 판정이 Operator의 쓰기 대상 문서가 담당 자리에 있는지 같은 자격으로 `document.get`을 읽어 본다
-  // (harness/tool-judgment).
-  ["SaveToolDocument", ["document.prepare", "document.save", "document.get"]],
   // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
   // 참조를 읽어 확인한다.
   [

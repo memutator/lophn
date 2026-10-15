@@ -16,15 +16,6 @@ export {
   type ToolSource,
 } from "./registry.ts";
 export {
-  createDocumentToolHandlers,
-  DOCUMENT_READ_CODEPOINTS,
-  DOCUMENT_READ_TOOL_NAMES,
-  DOCUMENT_TOOL_REVISION,
-  DOCUMENT_TOOLS,
-  DOCUMENT_WRITE_TOOL_NAMES,
-  type DocumentToolPorts,
-} from "./bundles/document.ts";
-export {
   APP_READ_TOOL_NAMES,
   APP_READ_TOOLS,
   APP_TOOL_REVISION,
@@ -78,36 +69,12 @@ export {
   revertCounterpart,
 } from "./app-tools.ts";
 export {
-  type AnnotateInput,
-  type AnnotationPlan,
-  APP_CONTEXT_TOOL_NAMES,
-  APP_CONTEXT_TOOL_REVISION,
-  appAnnotateTool,
-  type AppContextPorts,
-  type AppContextState,
-  appScreenContextTool,
-  buildAppContextTools,
-  createAppContextToolHandlers,
-  declaredContext,
-  planAnnotation,
-  planScreenRead,
-  type ScreenContextInput,
-  type ScreenReadPlan,
-} from "./bundles/app-context.ts";
-export {
   createMetadataToolHandlers,
   METADATA_TOOL_NAMES,
   METADATA_TOOL_REVISION,
   METADATA_TOOLS,
   type MetadataToolPorts,
 } from "./bundles/metadata.ts";
-export {
-  createFormatToolHandlers,
-  FORMAT_TOOL_NAMES,
-  FORMAT_TOOL_REVISION,
-  FORMAT_TOOLS,
-  type FormatToolPorts,
-} from "./bundles/format.ts";
 export {
   createGuideToolHandlers,
   GUIDE_READ_CODEPOINTS,
@@ -152,13 +119,6 @@ export {
   createContextLookupToolHandlers,
   type RenderContextOverview,
 } from "./context-lookup-tools.ts";
-export {
-  createSeriesNextToolHandlers,
-  SERIES_NEXT_CONTRACT,
-  SERIES_NEXT_TOOL,
-  SERIES_NEXT_TOOLS,
-  type SeriesNextRead,
-} from "./series-next-tool.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

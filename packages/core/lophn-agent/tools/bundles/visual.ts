@@ -387,7 +387,6 @@ export function createVisualToolHandlers(
         media_type: "text/html",
         document_bytes: prepared.value.bytes,
         segments: piece.total_segments,
-        snapshots: prepared.value.snapshots,
         text: piece.text,
       };
       if (

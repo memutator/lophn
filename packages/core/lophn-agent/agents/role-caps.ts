@@ -8,31 +8,10 @@ export type RoleCap = {
   tools: readonly string[];
 };
 
-// 공통 기본 tool 묶음의 개별 동작이다(domain model presets의 common 목록). 각
-// 역할의 기본 preset은 이 목록에서 자기 범위만 고른다.
-export const DOCUMENT_READ_TOOLS: readonly string[] = Object.freeze([
-  "document.list",
-  "document.outline",
-  "document.search",
-  "document.read_version",
-  "document.read_section",
-  "document.read_range",
-  "document.history",
-  "document.diff",
-]);
-
-const FORMAT_TOOLS: readonly string[] = Object.freeze([
-  "format.list",
-  "format.rules",
-  "format.examples",
-  "format.validate",
-]);
-
-// context 개체 읽기와 다음 이름 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이
+// context 개체 읽기다. 선언 검색 tool은 이름이 동적이라 이 표에 없고 preset의 context 선택이
 // 정한다. 개체 읽기는 선택한 context 안에서만 읽힌다. 네 역할 모두 가진다.
 const CONTEXT_READ_TOOLS: readonly string[] = Object.freeze([
   "context.read_entity",
-  "series.next_name",
 ]);
 
 // Context Engineer만의 context 생성·계약·초안·미리보기·제출·위반·용어집 tool이다. 이름은
@@ -63,12 +42,10 @@ const ASK_TOOLS: readonly string[] = Object.freeze([
   "approval.read_decision",
 ]);
 
-// 네 역할의 공통 읽기·format·묻기 동작이다. 역할 상한은 이 목록에 역할별
+// 네 역할의 공통 읽기·묻기 동작이다. 역할 상한은 이 목록에 역할별
 // 추가 동작을 더한 교집합이다.
 const COMMON_READ_TOOLS: readonly string[] = Object.freeze([
-  ...DOCUMENT_READ_TOOLS,
   ...CONTEXT_READ_TOOLS,
-  ...FORMAT_TOOLS,
   ...ASK_TOOLS,
 ]);
 
@@ -110,8 +87,6 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "ticket.create",
         "lophn.guide",
         "setting.read",
-        "document.create",
-        "document.save_version",
         "assignment.list",
         "assignment.read",
         "run.read_result",
@@ -147,8 +122,6 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "ticket.create",
         "ticket.make_ready",
         "problem.set_interpretation",
-        "document.create",
-        "document.save_version",
         "assignment.read",
         "run.read_result",
         "handoff.submit",
@@ -169,8 +142,6 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
         "app.list",
         "app.read_purpose",
         "app.commands",
-        "document.create",
-        "document.save_version",
         "assignment.list",
         "assignment.read",
         "run.read_result",
@@ -185,20 +156,7 @@ export const ROLE_CAPS: ReadonlyMap<string, RoleCap> = new Map<string, RoleCap>(
     [
       "operator",
       cap([
-        "document.list",
-        "document.outline",
-        "document.search",
-        "document.read_version",
-        "document.read_section",
-        "document.read_range",
-        "document.history",
-        "document.diff",
         ...CONTEXT_READ_TOOLS,
-        "format.list",
-        "format.rules",
-        "format.examples",
-        "format.validate",
-        "document.save_version",
         "app.command_metadata",
         "app.call_read_command",
         "question.submit",

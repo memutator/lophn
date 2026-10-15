@@ -169,7 +169,6 @@ import {
   mcpServersSetting,
   skillFoldersSetting,
   skillsOffSetting,
-  TOOL_DOCUMENT_ROUTES,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
   allowNetList,
@@ -1032,8 +1031,6 @@ export const lophnAgentDefinitions = {
     mcpAuthRequestTake,
     mcpAuthRequestDone,
   ],
-  // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(packages/core/lophn-agent/tools/tool-documents.ts).
-  workerRoutes: TOOL_DOCUMENT_ROUTES,
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes: [agentProfilesUpload],
   files: [agentProfilesRead],

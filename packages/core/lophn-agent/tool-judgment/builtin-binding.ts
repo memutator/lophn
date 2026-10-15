@@ -40,38 +40,7 @@ const revisionOf = (input: Input): JsonObject =>
     ? {}
     : { base_revision: text(input["base_revision"]) };
 
-const place = (input: Input): { kind: string; id: string } | null =>
-  input["place"] === null || input["place"] === undefined
-    ? null
-    : input["place"] as { kind: string; id: string };
-
 const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
-  ["document.create", {
-    concern: "documents/versions",
-    targets: (input, run) => {
-      const where = place(input);
-      return [where === null ? run.run : where.id];
-    },
-    changes: (input) =>
-      `creates a document titled ${
-        text(input["title"])
-      } with its first version`,
-    verify: {
-      contract: "document.list",
-      input: (input) =>
-        place(input) === null ? undefined : { place: place(input), limit: 1 },
-    },
-  }],
-  ["document.save_version", {
-    concern: "documents/versions",
-    targets: (input) => [text(input["document"])],
-    comparison: (input) => ({ base_version: text(input["base_version"]) }),
-    changes: () => "saves the given text as a new version of the document",
-    verify: {
-      contract: "document.history",
-      input: (input) => ({ document: input["document"] }),
-    },
-  }],
   ["ticket.create", {
     concern: "coding-agent/tickets",
     targets: (input) => [text(input["app"])],

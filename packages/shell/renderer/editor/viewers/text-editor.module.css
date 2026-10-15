@@ -1,0 +1,77 @@
+/* text 편집기. 탭 본문 전체를 쓰고 CodeMirror class는 전역이라 .editor 아래로만 고친다. */
+.editor {
+  flex: 1;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow: hidden;
+  background: var(--color-surface-base);
+}
+
+.editor :global(.cm-editor) {
+  height: 100%;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-body-line);
+}
+
+.editor :global(.cm-editor.cm-focused) {
+  outline: none;
+}
+
+.editor :global(.cm-scroller) {
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.editor :global(.cm-content) {
+  caret-color: var(--color-text-primary);
+}
+
+.editor :global(.cm-cursor) {
+  border-left-color: var(--color-text-primary);
+}
+
+.editor :global(.cm-selectionBackground),
+.editor :global(.cm-content ::selection),
+.editor :global(.cm-focused .cm-selectionBackground) {
+  background: var(--color-selection);
+}
+
+.editor :global(.cm-gutters) {
+  border-right: none;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.editor :global(.cm-lineNumbers .cm-gutterElement) {
+  min-width: var(--space-10);
+  padding: var(--space-0) var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor :global(.cm-activeLine),
+.editor :global(.cm-activeLineGutter) {
+  background: var(--color-surface-muted);
+}
+
+.editor :global(.cm-hit-line) {
+  background: var(--color-selection);
+}
+
+.editor :global(.cm-tk-key) {
+  color: var(--color-link);
+}
+
+.editor :global(.cm-tk-str) {
+  color: var(--status-good-text);
+}
+
+.editor :global(.cm-tk-num) {
+  color: var(--status-warning-text);
+}
+
+.editor :global(.cm-tk-comment) {
+  color: var(--color-text-muted);
+}

@@ -1,4 +1,4 @@
-/* [Instructions] 편집기 자리. 문서 탭과 같은 scroll 칸 위에 얇은 돌아가기 줄과 정보 패널만 더한다. */
+/* [Instructions] 편집기 자리. 파일 탭과 같은 틀 위에 얇은 돌아가기 줄만 더한다. */
 .entry {
   position: fixed;
   inset: var(--space-0);
@@ -17,53 +17,10 @@
   border-bottom: var(--border-width) solid var(--color-border-base);
 }
 
-.document {
-  display: flex;
-  flex: 1;
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-}
-
 .fill {
   flex: 1;
   min-width: var(--space-0);
   min-height: var(--space-0);
   overflow: auto;
   background: var(--color-surface-base);
-}
-
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  font-family: var(--font-sans);
-}
-
-.titleRow {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-5);
-}
-
-.title {
-  flex: 1 1 auto;
-  min-width: var(--space-0);
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-line);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--type-tracking-title);
-}
-
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  min-height: var(--control-sm-height);
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }

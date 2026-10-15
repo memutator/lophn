@@ -16,9 +16,7 @@
   min-width: var(--space-0);
 }
 
-/* 형식 문제 여백 24px은 기둥 밖 왼쪽에 둔다. 글 첫 글자 자리는 읽기와 같다. */
 .editor :global(.cm-editor) {
-  margin-left: calc(var(--editor-gutter) * -1);
   background: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
@@ -63,29 +61,6 @@
 .editor :global(.cm-gutters) {
   border-right: none;
   background: transparent;
-}
-
-.editor :global(.cm-lp-problems .cm-gutterElement) {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  width: var(--editor-gutter);
-}
-
-.editor :global(.cm-lp-problem) {
-  display: inline-flex;
-  align-items: center;
-  height: var(--type-reading-line);
-  color: var(--status-warning-text);
-}
-
-.editor :global(.cm-lp-problem[data-spacer]) {
-  visibility: hidden;
-}
-
-.editor :global(.cm-lp-icon) {
-  width: var(--icon-size-small);
-  height: var(--icon-size-small);
 }
 
 /* 커서가 요소 안일 때만 보이는 원문 표지. */
@@ -360,4 +335,9 @@
 
 .editor :global(.cm-lp-match-current) {
   outline: var(--border-width) solid var(--color-focus);
+}
+
+/* 검색 결과로 열린 줄. */
+.editor :global(.cm-hit-line) {
+  background: var(--color-selection);
 }

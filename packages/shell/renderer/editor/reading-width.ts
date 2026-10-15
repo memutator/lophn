@@ -1,4 +1,4 @@
-// 전역 읽기 폭 선택을 platform settings에 둔다. 화면은 design의
+// 전역 읽기 폭 선택을 설정 선언 `shell.reading_width`에 둔다. 화면은 design의
 // ReadingWidthSetting interface로만 읽고 쓴다. localStorage를 따로 정본으로 두지 않는다.
 import {
   DEFAULT_READING_WIDTH,
@@ -9,20 +9,12 @@ import {
 
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
-/** shell이 등록하는 설정 항목 key(packages/core/config/shell-settings.ts). */
+/** core가 선언하는 설정 key(packages/core/config/shell-settings.ts). */
 export const READING_WIDTH_KEY = "shell.reading_width";
 
-// platform settings.get·settings.apply 응답에서 읽는 field. main이 schema로 검사했다.
-interface SettingsGet {
-  settings: { key: string; value: unknown }[];
-  revision: number;
-  /** 등록 기본값의 판. apply compare에 revision과 함께 실어야 한다. */
-  defaults_revision: string;
-}
-
-// 성공 응답은 route output(SettingsApplyResult) 그대로다. 추가 포장은 없다.
-interface ApplyReply {
-  revision: number;
+// settings/list 응답에서 읽는 field. 사람이 고른 값이 있으면 chosen, 없으면 선언의 default다.
+interface SettingsList {
+  settings: { key: string; default?: unknown; chosen?: unknown }[];
 }
 
 export interface ReadingWidthStore extends ReadingWidthSetting {
@@ -33,88 +25,51 @@ export interface ReadingWidthStore extends ReadingWidthSetting {
 }
 
 export interface SettingsPort {
-  get(): Promise<{ value: unknown; revision: number } | null>;
-  apply(width: ReadingWidth, revision: number): Promise<
-    { ok: true; revision: number } | { ok: false; conflict: boolean }
-  >;
+  get(): Promise<unknown | null>;
+  set(width: ReadingWidth): Promise<boolean>;
 }
 
-/** core의 settings.get·settings.apply로 만든 port. */
-export function coreSettingsPort(
-  core: CoreSource,
-  idempotencyKey: () => string,
-): SettingsPort {
-  // 마지막으로 읽은 기본값 판. 기본값이 바뀌면 core가 conflict로 답하고 store가 다시 읽는다.
-  let defaults: string | null = null;
-  const port: SettingsPort = {
+/** core의 settings/list·settings/update로 만든 port. */
+export function coreSettingsPort(core: CoreSource): SettingsPort {
+  return {
     async get() {
       const reply = await core.call({
-        kind: "read",
+        kind: "memory",
         resource: "settings",
-        method: "get",
+        method: "list",
         body: { keys: [READING_WIDTH_KEY] },
       });
       if (!reply.ok) return null;
-      const value = reply.value as SettingsGet;
-      defaults = value.defaults_revision;
-      const setting = value.settings.find((item) =>
+      const setting = (reply.value as SettingsList).settings.find((item) =>
         item.key === READING_WIDTH_KEY
       );
-      return { value: setting?.value ?? null, revision: value.revision };
+      return setting?.chosen ?? setting?.default ?? null;
     },
-    async apply(width, revision) {
-      if (defaults === null && (await port.get()) === null) {
-        return { ok: false, conflict: false };
-      }
+    async set(width) {
       const reply = await core.call({
-        kind: "command",
+        kind: "memory",
         resource: "settings",
-        method: "apply",
+        method: "update",
         body: {
-          input: {
-            changes: [{
-              layer: "common",
-              key: READING_WIDTH_KEY,
-              action: "set",
-              value: width,
-            }],
-          },
-          idempotency_key: idempotencyKey(),
-          compare: { revision, defaults_revision: defaults },
-          prepared: [],
+          changes: [{ key: READING_WIDTH_KEY, action: "set", value: width }],
         },
       });
-      if (!reply.ok) {
-        return { ok: false, conflict: reply.error?.code === "conflict" };
-      }
-      return {
-        ok: true,
-        revision: (reply.value as ApplyReply).revision,
-      };
+      if (!reply.ok) return false;
+      const rejected = (reply.value as { rejected?: unknown[] }).rejected;
+      return rejected === undefined || rejected.length === 0;
     },
   };
-  return port;
 }
 
 /** 읽기 폭 store. 고른 폭은 바로 보이고, 저장이 실패하면 앞의 폭으로 돌아간다. */
 export function readingWidthStore(port: SettingsPort): ReadingWidthStore {
   let width: ReadingWidth = DEFAULT_READING_WIDTH;
-  let revision: number | null = null;
   let failed = false;
   let pending = 0;
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of listeners) listener();
   };
-
-  const refresh = async (adopt: boolean): Promise<boolean> => {
-    const read = await port.get();
-    if (read === null) return false;
-    revision = read.revision;
-    if (adopt) width = readingWidthOf(read.value);
-    return true;
-  };
-
   return {
     read: () => width,
     failed: () => failed,
@@ -123,7 +78,10 @@ export function readingWidthStore(port: SettingsPort): ReadingWidthStore {
       return () => listeners.delete(listener);
     },
     async load() {
-      if (await refresh(true)) notify();
+      const value = await port.get();
+      if (value === null) return;
+      width = readingWidthOf(value);
+      notify();
     },
     write(next) {
       const before = width;
@@ -133,23 +91,12 @@ export function readingWidthStore(port: SettingsPort): ReadingWidthStore {
       pending += 1;
       const mine = pending;
       notify();
-      void (async () => {
-        // 다른 창이 먼저 바꿨으면 판을 다시 읽고 한 번 더 시도한다(CAS).
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          if (revision === null && !(await refresh(false))) break;
-          const result = await port.apply(next, revision!);
-          if (result.ok) {
-            revision = result.revision;
-            return;
-          }
-          if (!result.conflict) break;
-          revision = null;
-        }
-        if (mine !== pending) return;
+      void port.set(next).then((saved) => {
+        if (saved || mine !== pending) return;
         width = before;
         failed = true;
         notify();
-      })();
+      });
     },
   };
 }

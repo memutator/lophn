@@ -1,37 +1,68 @@
-/* 정보 패널 본문. 안 여백 16px는 작업대 자리가 두고, 여기서는 절 간격 20px를 정한다. */
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-  min-width: var(--space-0);
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: var(--space-0);
-}
-
-.caption {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.value {
-  margin: var(--space-0);
+/* 정보 panel은 본문 위에 뜬다. 본문 폭은 줄지 않고 테두리는 사방에 있다. */
+.panel {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: var(--z-sticky);
+  box-sizing: border-box;
+  width: calc(var(--layout-container-panel) + var(--space-10));
+  overflow: auto;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--floating-surface);
+  box-shadow: var(--shadow-popover);
   color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-5) var(--space-0);
   overflow-wrap: anywhere;
 }
 
-.muted {
+.facts dt {
+  color: var(--color-text-muted);
+}
+
+.facts dd {
   margin: var(--space-0);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+.caption {
+  margin: var(--space-6) var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.note {
+  margin: var(--space-3) var(--space-0) var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
+}
+
+.outline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.current {
+  border-left: var(--border-focus-width) solid var(--color-focus);
+  font-weight: var(--font-weight-medium);
 }

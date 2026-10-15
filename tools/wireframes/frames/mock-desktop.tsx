@@ -62,8 +62,6 @@ export interface MockDesktopProps {
   readonly settingsTab?: SettingsTab;
 }
 
-const NO_OVERLAY_MENU = { open: () => Promise.resolve("unavailable" as const) };
-
 function layoutOf(panes: readonly PaneSpec[]) {
   return {
     panes: panes.map((pane) => ({
@@ -159,7 +157,7 @@ export function MockDesktop(props: MockDesktopProps) {
             source={core ?? mock.core}
             initial={route}
             workspace={wiring.workspace}
-            editor={{ ...mock.editor, menu: NO_OVERLAY_MENU }}
+            editor={mock.editor}
             terminal={wiring.terminal}
             lophn={mock.lophn}
             projects={wiring.projects}

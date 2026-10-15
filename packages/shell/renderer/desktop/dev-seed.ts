@@ -10,8 +10,9 @@ import {
 } from "../workspace/fake-source.ts";
 import type { FileRow, WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import type { BodyState, DocumentInfo } from "../editor/source.ts";
+import { fakeEditorFiles } from "../editor/fake-source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
+import { EditorSessions } from "../editor/sessions.ts";
 
 /**
  * 시드 프로젝트 id. 실제 project id 모양이라 같은 id로 core에 프로젝트를
@@ -22,8 +23,8 @@ export const DEV_SEED_PROJECT = "prj_01k6devseed000000000000000";
 export interface DevSeed {
   readonly project: string;
   readonly source: WorkspaceSource;
-  /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
-  readonly editor: Omit<EditorDeps, "menu">;
+  /** 파일 탭 통로. */
+  readonly editor: EditorDeps;
 }
 
 const NOTES = [
@@ -48,16 +49,20 @@ const NOTES = [
   "See [plan](lophn/plan) for the order of work.",
 ].join("\n");
 
-const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
+interface SeedInfo {
+  readonly id: string;
+  readonly title: string;
+  readonly fileName: string;
+  readonly path: string | null;
+}
+
+const SEED_DOCUMENTS: Record<string, { info: SeedInfo; text: string }> = {
   doc_notes: {
     info: {
       id: "doc_notes",
       title: "Release notes",
       fileName: "notes.md",
       path: "docs/notes.md",
-      version: "ver_notes",
-      versionNumber: 3,
-      savedAt: Date.now() - 2 * 60 * 60 * 1000,
     },
     text: NOTES,
   },
@@ -67,9 +72,6 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
       title: "Plan",
       fileName: "plan.md",
       path: "docs/plan.md",
-      version: "ver_plan",
-      versionNumber: 1,
-      savedAt: Date.now() - 26 * 60 * 60 * 1000,
     },
     text: "# Plan\n\nOne step at a time.",
   },
@@ -78,7 +80,7 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
 // mock 모드의 context 화면 예시(검색 결과·Overview 예시·위반)가 가리키는 문서. 문서 목록에는 오르지
 // 않고 경로로만 찾아 열린다.
 const CONTEXT_FOLDER = FAKE_PROJECT_FOLDER;
-const CONTEXT_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> =
+const CONTEXT_DOCUMENTS: Record<string, { info: SeedInfo; text: string }> =
   Object.fromEntries([
     ...Object.entries(EXPERIMENT_NAMES).map(([id, name]) => ({
       id,
@@ -102,9 +104,6 @@ const CONTEXT_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> =
         title: item.title,
         fileName: item.path.split("/").at(-1)!,
         path: item.path,
-        version: `ver_${id}`,
-        versionNumber: 1,
-        savedAt: Date.now() - 5 * 60 * 60 * 1000,
       },
       text:
         `# ${item.title}\n\nAn example document the context screens link to.`,
@@ -130,63 +129,34 @@ const INSTRUCTIONS_SEED = {
     title: "Instructions",
     fileName: "AGENTS.md",
     path: "AGENTS.md",
-    version: "ver_instructions",
-    versionNumber: 1,
-    savedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
   },
   text:
     "# Instructions\n\nKeep answers short and name the document you changed.",
 };
 
-function seededDocument(id: string) {
-  return SEED_DOCUMENTS[id] ?? CONTEXT_DOCUMENTS[id] ??
-    (id === SEED_INSTRUCTIONS_DOCUMENT ? INSTRUCTIONS_SEED : undefined);
-}
-
-function seededEditor(): Omit<EditorDeps, "menu"> {
+// 시드 파일 통로. 작업대 목록이 아직 문서 id로 열고 경로로도 열 수 있게 둘 다 같은 글로 채운다.
+function seededEditor(): EditorDeps {
+  const texts: Record<string, string> = {};
+  for (
+    const seeded of [
+      ...Object.values(SEED_DOCUMENTS),
+      ...Object.values(CONTEXT_DOCUMENTS),
+      INSTRUCTIONS_SEED,
+    ]
+  ) {
+    texts[seeded.info.id] = seeded.text;
+    if (seeded.info.path !== null) texts[seeded.info.path] = seeded.text;
+  }
   let width: unknown = null;
-  let revision = 0;
   return {
-    source: {
-      document: (id) => {
-        const seeded = seededDocument(id);
-        return Promise.resolve(
-          seeded
-            ? { ok: true, value: seeded.info }
-            : { ok: false, code: "not_found" },
-        );
-      },
-      body: (id, _version, onPage) => {
-        const seeded = seededDocument(id);
-        const state: BodyState = seeded
-          ? { kind: "text", text: seeded.text, complete: true }
-          : { kind: "failed" };
-        onPage(state);
-        return Promise.resolve(state);
-      },
-      outline: (id) => {
-        const seeded = seededDocument(id);
-        if (!seeded) return Promise.resolve({ ok: false, code: "not_found" });
-        const sections = seeded.text.split("\n").flatMap((line, index) => {
-          const match = /^(#{1,6}) (.+)$/.exec(line);
-          return match
-            ? [{
-              key: match[2]!,
-              title: match[2]!,
-              level: match[1]!.length,
-              line: index + 1,
-            }]
-            : [];
-        });
-        return Promise.resolve({ ok: true, value: sections });
-      },
-    },
+    sessions: new EditorSessions(fakeEditorFiles(texts), {
+      ask: () => Promise.resolve("keep"),
+    }),
     readingWidth: readingWidthStore({
-      get: () => Promise.resolve({ value: width, revision }),
-      apply: (next) => {
+      get: () => Promise.resolve(width),
+      set: (next) => {
         width = next;
-        revision += 1;
-        return Promise.resolve({ ok: true, revision });
+        return Promise.resolve(true);
       },
     }),
   };

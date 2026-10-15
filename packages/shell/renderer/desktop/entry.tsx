@@ -187,7 +187,7 @@ mount(
             source={core}
             initial={start}
             workspace={workspace}
-            editor={bench ? { ...bench.editor, menu: editor.menu } : editor}
+            editor={bench ? bench.editor : editor}
             windowWidth={seed ? 1440 : undefined}
             terminal={terminal}
             lophn={lophn}

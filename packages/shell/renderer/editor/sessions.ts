@@ -1,200 +1,189 @@
-// 창 하나의 편집 session 묶음. 문서 탭이 사라져도(전환·닫기) 저장이 끝나지
-// 않은 session은 여기 남아 창 닫기와 끄기 확인이 센다. 탭 닫기·창 닫기는 마지막 고침을 보내
-// 편집을 끝내고, 쓰기 실패·불명·충돌이 남으면 사람에게 묻는다(계속 편집·명시 폐기·다시 확인).
-import type {
-  CloseAnswer,
-  CurrentFile,
-  EditorCounts,
-  EditorFilesApi,
-  EditorReply,
-  WatchReport,
-} from "../../ipc/editor.ts";
-import type { DraftDocumentSession } from "./draft-document.ts";
+// 창 하나의 편집 session 묶음. 파일 탭이 사라져도(전환·닫기) 저장이 끝나지 않은 session은 여기
+// 남아 창 닫기 guard가 센다. 탭 닫기·창 닫기는 마지막 고침을 보내고, 쓰기 실패·불명·충돌이
+// 남으면 사람에게 묻는다(계속 편집·명시 폐기·다시 확인). 밖에서 바뀐 파일의 알림(watch)도 여기서
+// 받아 파일별로 나눈다.
+import type { CloseAnswer, FileChanged, FileCounts } from "../../ipc/files.ts";
 import { type SavePort, SaveSession } from "./save-state.ts";
+import type { EditorFiles, OpenFailure } from "./source.ts";
 
 /** 남은 저장을 두고 떠날 때 사람의 선택. */
 export type LeaveChoice = "keep" | "discard" | "check";
 
 export interface LeaveAsker {
-  /** name은 한 문서면 그 이름, 여러 문서면 null이다. */
+  /** name은 한 파일이면 그 이름, 여러 파일이면 null이다. */
   ask(name: string | null): Promise<LeaveChoice>;
 }
 
 export interface OpenedSession {
-  readonly handle: string;
+  readonly session: SaveSession;
+  /** 연 글. 이미 열린 session이면 편집기의 지금 글이다. */
+  readonly text: string;
+}
+
+interface Entry {
   readonly session: SaveSession;
   readonly name: string;
-  readonly primaryPath: string | null;
-}
-
-interface Entry extends OpenedSession {
-  /** 그 문서를 보는 화면 수. 0이면 저장이 끝나는 대로 놓는다. */
+  /** 그 파일을 보는 화면 수. 0이면 저장이 끝나는 대로 놓는다. */
   views: number;
-  unsubscribe: () => void;
+  readonly release: () => void;
 }
-
-/** 판이 아직 없는 새 문서의 편집. 파일 session처럼 창 닫기·끄기 확인이 센다. */
-interface DraftEntry {
-  readonly name: string;
-  readonly session: DraftDocumentSession;
-  views: number;
-  unsubscribe: () => void;
-}
-
-export type OpenFailure =
-  | "offline"
-  | "too_large"
-  | "unsupported"
-  | "not_found"
-  | "unavailable";
 
 export class EditorSessions {
-  readonly #api: EditorFilesApi;
+  readonly files: EditorFiles;
   readonly #asker: LeaveAsker;
   readonly #entries = new Map<string, Entry>();
-  readonly #drafts = new Map<string, DraftEntry>();
-  readonly #opening = new Map<
-    string,
-    Promise<OpenedSession | OpenFailure>
-  >();
-  #reported: EditorCounts = { unsettled: 0, open: 0 };
-  #disposeClose: (() => void) | null = null;
+  readonly #opening = new Map<string, Promise<OpenedSession | OpenFailure>>();
+  readonly #watchers = new Map<string, Set<(change: FileChanged) => void>>();
+  #reported: FileCounts = { unsettled: 0, open: 0 };
+  #disposers: (() => void)[] = [];
 
-  constructor(api: EditorFilesApi, asker: LeaveAsker) {
-    this.#api = api;
+  constructor(files: EditorFiles, asker: LeaveAsker) {
+    this.files = files;
     this.#asker = asker;
   }
 
-  /** main의 창 닫기 질문을 듣는다. 해제는 dispose다. */
+  /** main의 창 닫기 질문과 밖에서 바뀐 파일의 알림을 듣는다. 해제는 dispose다. */
   listen(): void {
-    this.#disposeClose = this.#api.onCloseRequest((request) => {
-      void this.closeWindow((answer) => this.#api.answerClose(request, answer))
-        .then((answer) => this.#api.answerClose(request, answer));
-    });
+    this.#disposers.push(
+      this.files.onChanged((change) => {
+        for (const listener of this.#watchers.get(change.path) ?? []) {
+          listener(change);
+        }
+      }),
+      this.files.onCloseRequest((request) => {
+        void this.closeWindow((answer) =>
+          this.files.answerClose(request, answer)
+        )
+          .then((answer) => this.files.answerClose(request, answer));
+      }),
+    );
   }
 
   dispose(): void {
-    this.#disposeClose?.();
-    this.#disposeClose = null;
+    for (const dispose of this.#disposers) dispose();
+    this.#disposers = [];
   }
 
-  /** 문서를 편집으로 연다. 이미 이 창에 열린 session이 있으면 그것을 이어 쓴다. */
+  /** 이 파일이 밖에서 바뀌는지 본다. 해제는 반환 함수다. */
+  watch(path: string, listener: (change: FileChanged) => void): () => void {
+    let set = this.#watchers.get(path);
+    if (set === undefined) {
+      set = new Set();
+      this.#watchers.set(path, set);
+    }
+    set.add(listener);
+    void this.files.watch({ paths: [...this.#watchers.keys()] });
+    this.#report();
+    return () => {
+      const current = this.#watchers.get(path);
+      if (current === undefined) return;
+      current.delete(listener);
+      if (current.size > 0) return;
+      this.#watchers.delete(path);
+      void this.files.watch({ paths: [...this.#watchers.keys()] });
+      this.#report();
+    };
+  }
+
+  /**
+   * 파일을 글로 연다. 이미 이 창에 열린 session이 있으면 그것을 이어 쓴다. create면 없는 파일을
+   * 빈 buffer로 열고 첫 저장이 만든다.
+   */
   attach(
-    document: string,
+    path: string,
     name: string,
+    create: boolean,
   ): Promise<OpenedSession | OpenFailure> {
-    const live = this.#entries.get(document);
+    const live = this.#entries.get(path);
     if (live) {
       live.views += 1;
-      return Promise.resolve(live);
+      return Promise.resolve({
+        session: live.session,
+        text: live.session.text,
+      });
     }
-    const pending = this.#opening.get(document);
+    const pending = this.#opening.get(path);
     if (pending) {
       return pending.then((opened) => {
         if (typeof opened !== "string") {
-          const entry = this.#entries.get(document);
+          const entry = this.#entries.get(path);
           if (entry) entry.views += 1;
         }
         return opened;
       });
     }
-    const opening = this.#open(document, name).finally(() =>
-      this.#opening.delete(document)
+    const opening = this.#open(path, name, create).finally(() =>
+      this.#opening.delete(path)
     );
-    this.#opening.set(document, opening);
+    this.#opening.set(path, opening);
     return opening;
   }
 
   async #open(
-    document: string,
+    path: string,
     name: string,
+    create: boolean,
   ): Promise<OpenedSession | OpenFailure> {
-    const reply = await this.#api.open({ document });
-    if (!reply.ok) {
-      return reply.code === "offline" || reply.code === "too_large" ||
-          reply.code === "unsupported" || reply.code === "not_found"
-        ? reply.code
-        : "unavailable";
+    const reply = await this.files.read({ path });
+    let text: string;
+    let hash: string | null;
+    if (reply.ok) {
+      text = reply.value.text;
+      hash = reply.value.hash;
+    } else if (create && reply.code === "not_found") {
+      text = "";
+      hash = null;
+    } else {
+      return reply.code;
     }
-    const handle = reply.value.session;
     const port: SavePort = {
-      write: (input) => this.#api.write({ session: handle, ...input }),
-      lookup: (key) => this.#api.lookup({ session: handle, request_key: key }),
+      write: (input) => this.files.write({ path, ...input }),
+      read: () => this.files.read({ path }),
     };
-    const session = new SaveSession({
-      port,
-      baseHash: reply.value.base_hash,
-      text: reply.value.text,
+    const session = new SaveSession({ port, text, hash });
+    const stopWatch = this.watch(path, (change) => {
+      void session.external(change.hash);
     });
-    const entry: Entry = {
-      handle,
+    const stopListen = session.subscribe(() => this.#changed(path));
+    this.#entries.set(path, {
       session,
       name,
-      primaryPath: reply.value.primary_path,
       views: 1,
-      unsubscribe: session.subscribe(() => this.#changed(document)),
-    };
-    this.#entries.set(document, entry);
-    return entry;
-  }
-
-  /** 판이 아직 없는 새 문서의 편집을 이 창이 붙든다. 이미 있으면 그 글을 이어 쓴다. */
-  holdDraft(
-    document: string,
-    name: string,
-    make: () => DraftDocumentSession,
-  ): DraftDocumentSession {
-    const live = this.#drafts.get(document);
-    if (live) {
-      live.views += 1;
-      return live.session;
-    }
-    const session = make();
-    this.#drafts.set(document, {
-      name,
-      session,
-      views: 1,
-      unsubscribe: session.subscribe(() => this.#changedDraft(document)),
+      release: () => {
+        stopListen();
+        stopWatch();
+      },
     });
-    return session;
+    return { session, text };
   }
 
-  /** 새 문서 화면이 사라졌다. 고친 글이 있으면 편집 종료로 첫 판을 만들고, 끝나면 놓는다. */
-  releaseDraft(document: string): void {
-    const entry = this.#drafts.get(document);
+  /** 화면이 그 파일을 떠났다. 마지막 고침을 보내고, 저장이 끝나면 놓는다. */
+  detach(path: string): void {
+    const entry = this.#entries.get(path);
     if (!entry) return;
     entry.views = Math.max(0, entry.views - 1);
     if (entry.views > 0) return;
-    void entry.session.flush(true).then(() => this.#changedDraft(document));
-  }
-
-  /** 화면이 그 문서를 떠났다(탭 전환·읽기 전환 없이 사라짐). 편집을 끝내고 남으면 둔다. */
-  detach(document: string): void {
-    const entry = this.#entries.get(document);
-    if (!entry) return;
-    entry.views = Math.max(0, entry.views - 1);
-    if (entry.views > 0) return;
-    void entry.session.flush(true).then(() => this.#changed(document));
+    void entry.session.flush().then(() => this.#changed(path));
   }
 
   /**
-   * 탭 닫기. 마지막 고침을 보내 편집을 끝낸다. 실패·불명·충돌이 남으면 사람에게 묻고 계속
-   * 편집을 고르면 false다(탭을 남긴다).
+   * 탭 닫기. 마지막 고침을 보낸다. 실패·불명·충돌이 남으면 사람에게 묻고 계속 편집을 고르면
+   * false다(탭을 남긴다).
    */
-  async leave(document: string): Promise<boolean> {
-    const entry = this.#entries.get(document);
+  async leave(path: string): Promise<boolean> {
+    const entry = this.#entries.get(path);
     if (!entry) return true;
     for (;;) {
-      await entry.session.flush(true);
+      await entry.session.flush();
       if (!entry.session.unsettled()) return true;
       const choice = await this.#asker.ask(entry.name);
       if (choice === "keep") return false;
       if (choice === "discard") {
         entry.session.discard();
-        this.#changed(document);
+        this.#changed(path);
         return true;
       }
-      await entry.session.check();
+      await entry.session.retry();
     }
   }
 
@@ -202,11 +191,8 @@ export class EditorSessions {
   async closeWindow(
     progress: (answer: CloseAnswer) => void = () => {},
   ): Promise<CloseAnswer> {
-    const entries: {
-      name: string;
-      session: SaveSession | DraftDocumentSession;
-    }[] = [...this.#entries.values(), ...this.#drafts.values()];
-    await Promise.all(entries.map((entry) => entry.session.flush(true)));
+    const entries = [...this.#entries.values()];
+    await Promise.all(entries.map((entry) => entry.session.flush()));
     for (;;) {
       const left = entries.filter((entry) => entry.session.unsettled());
       if (left.length === 0) return "allow";
@@ -222,69 +208,28 @@ export class EditorSessions {
         return "allow";
       }
       for (const entry of left) {
-        await entry.session.check();
-        await entry.session.flush(true);
+        await entry.session.retry();
+        await entry.session.flush();
       }
     }
   }
 
-  /** documents의 지금 파일 상태를 기다려 읽는다(files.watch). 바뀌거나 기한이 지나면 답한다. */
-  watch(
-    document: string,
-    cursor: string | undefined,
-  ): Promise<EditorReply<WatchReport>> {
-    const entry = this.#entries.get(document);
-    if (!entry) return Promise.resolve({ ok: false, code: "unknown_session" });
-    return this.#api.watch({
-      session: entry.handle,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-  }
-
-  /** 지금 디스크 글(충돌 비교·재읽기). */
-  current(document: string): Promise<EditorReply<CurrentFile>> {
-    const entry = this.#entries.get(document);
-    if (!entry) return Promise.resolve({ ok: false, code: "unknown_session" });
-    return this.#api.current({ session: entry.handle });
-  }
-
-  /** 이 창의 저장 중 수(끄기·창 닫기 확인). */
-  counts(): EditorCounts {
+  /** 이 창의 저장 중 수와 열린 파일 수(끄기·창 닫기 확인). */
+  counts(): FileCounts {
     let unsettled = 0;
-    let open = 0;
-    for (
-      const entry of [...this.#entries.values(), ...this.#drafts.values()]
-    ) {
+    for (const entry of this.#entries.values()) {
       if (entry.session.unsettled()) unsettled += 1;
-      else if (entry.session.needsEnd()) open += 1;
     }
-    return { unsettled, open };
+    return { unsettled, open: this.#watchers.size };
   }
 
-  #changedDraft(document: string): void {
-    const entry = this.#drafts.get(document);
-    if (
-      entry && entry.views === 0 && !entry.session.unsettled() &&
-      !entry.session.needsEnd()
-    ) {
-      this.#drafts.delete(document);
-      entry.unsubscribe();
+  #changed(path: string): void {
+    const entry = this.#entries.get(path);
+    if (entry && entry.views === 0 && !entry.session.unsettled()) {
+      // 아무 화면도 보지 않고 저장도 끝났다.
+      this.#entries.delete(path);
+      entry.release();
       entry.session.dispose();
-    }
-    this.#report();
-  }
-
-  #changed(document: string): void {
-    const entry = this.#entries.get(document);
-    if (
-      entry && entry.views === 0 && !entry.session.unsettled() &&
-      !entry.session.needsEnd()
-    ) {
-      // 아무 화면도 보지 않고 저장도 끝났다. main의 session을 놓는다.
-      this.#entries.delete(document);
-      entry.unsubscribe();
-      entry.session.dispose();
-      void this.#api.release({ session: entry.handle });
     }
     this.#report();
   }
@@ -296,6 +241,6 @@ export class EditorSessions {
       next.open === this.#reported.open
     ) return;
     this.#reported = next;
-    this.#api.counts(next);
+    this.files.counts(next);
   }
 }

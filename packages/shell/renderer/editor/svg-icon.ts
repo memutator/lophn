@@ -1,14 +1,8 @@
 // CodeMirror widget·gutter는 React 밖 DOM이라 Lucide 아이콘을 같은 path로 직접 그린다.
-// path는 lucide 1.51.0의 triangle-alert·image-off와 같고 선은 icon.stroke token이다.
+// path는 lucide 1.51.0의 image-off와 같고 선은 icon.stroke token이다.
 import { tokens } from "@lophn/design";
 
 const SVG = "http://www.w3.org/2000/svg";
-
-export const TRIANGLE_ALERT = [
-  "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
-  "M12 9v4",
-  "M12 17h.01",
-];
 
 export const IMAGE_OFF = [
   "M2 2l20 20",

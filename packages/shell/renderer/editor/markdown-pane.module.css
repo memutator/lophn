@@ -1,0 +1,21 @@
+/* md 읽기와 편집이 같은 scroll 칸·기둥·배경을 쓴다. */
+.main {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-6) var(--layout-pane-padding-wide);
+}
+
+.article {
+  min-width: var(--space-0);
+}
+
+/* 검색 결과로 열린 읽기 화면의 줄. */
+.article [data-hit] {
+  margin-left: calc(var(--space-5) * -1);
+  padding-left: var(--space-5);
+  border-left: var(--border-focus-width) solid var(--color-focus);
+  background: var(--color-selection);
+}

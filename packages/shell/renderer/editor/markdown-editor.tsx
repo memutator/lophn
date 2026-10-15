@@ -20,6 +20,7 @@ import {
   setFindMatches,
 } from "./live-preview.ts";
 import { adoptHeadStyles } from "./adopt-styles.ts";
+import { lineFlash, revealLine as flashLine } from "./line-flash.ts";
 import {
   findLabel,
   findMatches,
@@ -32,7 +33,7 @@ import styles from "./markdown-editor.module.css";
 
 export interface MarkdownEditorHandle {
   focus(): void;
-  /** n번째 줄(1부터)을 가운데로 보이고 커서를 둔다. */
+  /** n번째 줄(1부터)을 가운데로 보이고 커서를 두고 잠깐 칠한다. */
   revealLine(line: number): void;
   /** n번째 줄 위 끝의 화면 y(px). 아직 그리지 않은 줄도 높이 추정으로 준다. */
   lineTop(line: number): number | null;
@@ -87,6 +88,7 @@ export function MarkdownEditor(
           livePreview({
             resolveImage: defaultResolveImage,
           }),
+          lineFlash,
           EditorView.contentAttributes.of({
             "aria-label": label,
             "aria-multiline": "true",
@@ -197,16 +199,7 @@ export function MarkdownEditor(
   }, [matches]);
 
   const revealLine = useCallback((line: number) => {
-    const editor = view.current;
-    if (!editor) return;
-    const target = editor.state.doc.line(
-      Math.min(Math.max(1, line), editor.state.doc.lines),
-    );
-    editor.dispatch({
-      selection: EditorSelection.cursor(target.from),
-      effects: EditorView.scrollIntoView(target.from, { y: "center" }),
-    });
-    editor.focus();
+    if (view.current) flashLine(view.current, line);
   }, []);
 
   useImperativeHandle(ref, () => ({

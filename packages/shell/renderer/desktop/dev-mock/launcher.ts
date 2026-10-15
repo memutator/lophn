@@ -70,6 +70,7 @@ export function mockInstructions(): InstructionsApi {
         value: {
           document: SEED_INSTRUCTIONS_DOCUMENT,
           version: "ver_instructions",
+          path: SEED_INSTRUCTIONS_DOCUMENT,
         },
       }),
     create: () =>

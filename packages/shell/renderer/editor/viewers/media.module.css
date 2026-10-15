@@ -1,0 +1,31 @@
+/* 이미지·pdf viewer. 바탕은 탭 본문과 같다. */
+.media {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-8);
+}
+
+.stage img {
+  max-width: 100%;
+  max-height: 100%;
+  border: var(--border-width) solid var(--color-border-base);
+}
+
+.pdf {
+  flex: 1;
+  width: 100%;
+  min-height: var(--space-0);
+  border: none;
+}

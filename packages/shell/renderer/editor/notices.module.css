@@ -1,0 +1,17 @@
+/* 탭 안 위쪽 toast 자리. 탭 본문 위에 떠서 가운데에 놓인다. 탭 상자(.tab)가 기준 위치다. */
+.slot {
+  position: absolute;
+  top: calc(var(--control-md-height) + var(--space-3));
+  right: var(--space-6);
+  left: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.slot > div {
+  width: 100%;
+  max-width: calc(var(--page-reading-default) + var(--space-10));
+  pointer-events: auto;
+}

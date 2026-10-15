@@ -1172,7 +1172,6 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.sessions,
       conversationReads.messages,
       conversationReads.message,
-      conversationReads.message,
       conversationReads.compactRequests,
       commandReads.list,
       handoffReads.status,

@@ -68,5 +68,5 @@ export interface SecretInputOpenApi {
 export interface SecretInputApi {
   getDisplay(): Promise<SecretInputDisplay>;
   submit(input: SecretInputSubmit): Promise<SecretInputSubmitReply>;
-  cancel(): Promise<{}>;
+  cancel(): Promise<Record<PropertyKey, never>>;
 }

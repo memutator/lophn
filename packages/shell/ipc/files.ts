@@ -103,9 +103,15 @@ export interface FilesApi {
   /** base_hash가 지금 디스크와 다르면 `conflict`이고 디스크는 그대로다. */
   write(input: FileWrite): Promise<FileReply<FileWritten>>;
   /** `to`가 이미 있으면 `conflict`. */
-  rename(input: { from: string; to: string }): Promise<FileReply<{}>>;
-  delete(input: { path: string }): Promise<FileReply<{}>>;
-  watch(input: { paths: string[] }): Promise<FileReply<{}>>;
+  rename(
+    input: { from: string; to: string },
+  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  delete(
+    input: { path: string },
+  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  watch(
+    input: { paths: string[] },
+  ): Promise<FileReply<Record<PropertyKey, never>>>;
   /** 밖에서 바뀐 파일. 해제는 반환 함수다. */
   onChanged(listener: (change: FileChanged) => void): () => void;
   counts(input: FileCounts): void;

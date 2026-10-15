@@ -36,11 +36,7 @@ import {
   startLineReader,
   type StdioStreams,
 } from "./mod.ts";
-import {
-  type AppDirect,
-  createAppDirect,
-  uploadPrepareBytes,
-} from "../connection/mod.ts";
+import { type AppDirect, createAppDirect } from "../connection/mod.ts";
 import { createAppTool } from "./tools/app.ts";
 import { loadDistribution, syncTools } from "../guides/mod.ts";
 import { filePort, integrationsStore, launchOf } from "../harnesses/mod.ts";
@@ -50,17 +46,11 @@ import {
   appBlueprintSourceOf,
   createAppCommandTools,
 } from "./tools/app-commands.ts";
-import { createDocumentTool } from "./tools/document.ts";
-import { createIndexTool } from "./tools/index.ts";
 import { createProblemTool } from "./tools/problem.ts";
 import { createProjectTool } from "./tools/project.ts";
-import { createReadTool } from "./tools/read.ts";
-import { createFormatTool } from "./tools/format.ts";
 import { createApprovalTool } from "./tools/approval.ts";
 import { createQuestionTool } from "./tools/question.ts";
 import { createSessionTool } from "./tools/session.ts";
-import { createSaveTool } from "./tools/save.ts";
-import { createSeriesTool } from "./tools/series.ts";
 import { createTicketTool, TICKET_TOOL_NAME } from "./tools/ticket.ts";
 
 type Streams = {
@@ -282,38 +272,10 @@ export function startMcpServer(
         })),
     })
     : undefined;
-  // 문서 저장·format·series tool의 실행이다. 같은 core client로 소유 route만 부른다.
-  const submission = {
-    // 운영 data root는 제출 파일이 될 수 없다. 앱 source와 이어진 symlink도 실제 경로로 푼 뒤 같이
-    // 거절된다.
-    scope: {
-      root: options.submissionRoot ?? Deno.cwd(),
-      forbidden: dataRoot === undefined || dataRoot === "" ? [] : [dataRoot],
-    },
-    prepareBytes: caller === undefined ? undefined : uploadPrepareBytes(caller),
-  };
-  const documentTools = caller && submission.prepareBytes
-    ? {
-      lophn_save: createSaveTool({
-        client: caller,
-        scope: submission.scope,
-        prepareBytes: submission.prepareBytes,
-      }),
-      lophn_format: createFormatTool({
-        client: caller,
-        scope: submission.scope,
-        prepareBytes: submission.prepareBytes,
-      }),
-      lophn_series: createSeriesTool({ client: caller }),
-    }
-    : undefined;
-  // 문서 읽기 tool의 실행이다: 목차·검색·project·목록·이력·본문. 소유 읽기 route만 부른다.
+  // project 읽기 tool의 실행이다. 소유 읽기 route만 부른다.
   const readTools = caller
     ? {
-      lophn_index: createIndexTool({ client: caller }),
       lophn_project: createProjectTool({ client: caller }),
-      lophn_document: createDocumentTool({ client: caller }),
-      lophn_read: createReadTool({ client: caller }),
       // SDK catalog·상세·exact version 안내. source 쓰기 port는 주지 않는다(apply 거절).
       lophn_sdk: createSdkTool({ client: caller }),
     }
@@ -375,13 +337,6 @@ export function startMcpServer(
             next: ["lophn doctor로 연결과 credential을 확인한다"],
           })
           : appTool(toolName, resolved.route, callArgs, context);
-      }
-      const documentTool = documentTools !== undefined &&
-          Object.hasOwn(documentTools, toolName)
-        ? documentTools[toolName as keyof typeof documentTools]
-        : undefined;
-      if (documentTool !== undefined) {
-        return documentTool(toolName, resolved.route, callArgs);
       }
       const readTool = readTools !== undefined &&
           Object.hasOwn(readTools, toolName)

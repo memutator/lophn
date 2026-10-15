@@ -80,7 +80,7 @@ export function resolveRoute(
     const route = OWNER_ROUTES[toolName];
     if (!route) return undefined;
     // Route 모양(kind·resource·method)은 그 값을 쓴다. 소유 표가 input schema만
-    // 내는 tool(lophn_read·lophn_save)은 read route 입력으로 감싼다.
+    // 내는 tool은 read route 입력으로 감싼다.
     const shaped = route as {
       kind?: unknown;
       resource?: unknown;

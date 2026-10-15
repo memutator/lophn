@@ -60,7 +60,7 @@ export function effectUnknownResult(error: LophnError): McpToolResult {
 // 사실 그대로를 전달한다.
 function nextOf(failure: AgentFailure): string[] {
   if (failure.code === "invalid_input") {
-    return ["lophn_format list 권한 확인 후 올바른 입력으로 다시 시도"];
+    return ["입력을 확인하고 올바른 입력으로 다시 시도"];
   }
   if (failure.code === "unavailable") {
     return ["commands/result 재조회"];

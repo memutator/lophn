@@ -14,7 +14,7 @@ import {
   errorBodySchema,
   errorCodeForStatus,
 } from "../../protocol/base/mod.ts";
-import type { FlowClient } from "./document-save.ts";
+import type { FlowClient } from "./flow-client.ts";
 
 export const APP_ENVIRONMENTS = ["preview", "live"] as const;
 export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];

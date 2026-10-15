@@ -23,12 +23,7 @@ import {
   READ,
   success,
 } from "./common.ts";
-import {
-  documentMoveAction,
-  fixedDocumentMove,
-  fixedSettingChange,
-  settingChangeAction,
-} from "./question-actions.ts";
+import { fixedSettingChange, settingChangeAction } from "./question-actions.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 
@@ -59,9 +54,9 @@ function define(
 
 // 질문 선택지에 고정 action 객체는 모델이 싣지 않는다. 새 앱 등록은 `app_registration`으로만
 // 제안할 수 있고, handler가 고정 action을 만든다. app.create는 handler가 앱 ID를 미리 배정하고
-// 선택지의 근거 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)과 문서 자리
-// 이동(`document_move`)도 대상과 새 값만 제안하고 현재 값·revision 같은 비교 기준은 handler가
-// 읽어 고정한다(question-actions.ts).
+// 선택지의 근거 판(evidence 하나)을 등록 근거 판으로 고정한다. 설정 변경(`setting_change`)도
+// 대상과 새 값만 제안하고 현재 값·revision 같은 비교 기준은 handler가 읽어 고정한다
+// (question-actions.ts).
 const fixedAppRegistration = appCreateInputSchema.pick({
   slug: true,
   name: true,
@@ -76,7 +71,6 @@ const questionOption = z.strictObject({
   action: z.null(),
   app_registration: fixedAppRegistration.optional(),
   setting_change: fixedSettingChange.optional(),
-  document_move: fixedDocumentMove.optional(),
 });
 
 // 질문 하나는 독립 결정 하나다. 묶음의 ID와 질문 ID는 모델이 정하지 않고 handler가 배정한다.
@@ -246,8 +240,7 @@ export function createAgentToolHandlers(
       const proposesAction = value.questions.some((question) =>
         question.options.some((option) =>
           option.app_registration !== undefined ||
-          option.setting_change !== undefined ||
-          option.document_move !== undefined
+          option.setting_change !== undefined
         )
       );
       if (proposesAction && value.questions.length > 1) {
@@ -265,10 +258,9 @@ export function createAgentToolHandlers(
           const {
             app_registration: registration,
             setting_change: setting,
-            document_move: move,
             ...rest
           } = option;
-          const fixes = [registration, setting, move].filter((
+          const fixes = [registration, setting].filter((
             fixed,
           ) => fixed !== undefined).length;
           if (fixes > 1) {
@@ -277,11 +269,9 @@ export function createAgentToolHandlers(
               message: "an option fixes one action",
             });
           }
-          if (setting !== undefined || move !== undefined) {
+          if (setting !== undefined) {
             const run = { ports, run: credential.run };
-            const action = setting !== undefined
-              ? await settingChangeAction(run, id, setting)
-              : await documentMoveAction(run, move!);
+            const action = await settingChangeAction(run, id, setting);
             if (!action.ok) return action;
             options.push({ ...rest, action: action.value });
             continue;

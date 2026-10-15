@@ -26,11 +26,7 @@ export {
   previewTracking,
   type RootScanner,
 } from "./work.ts";
-export {
-  createProjectReads,
-  initialTrackingProposal,
-  type ProjectReadDeps,
-} from "./reads.ts";
+export { createProjectReads, initialTrackingProposal } from "./reads.ts";
 export { createProjectEventVisibility } from "./visibility.ts";
 export type {
   ProjectAccessTarget,

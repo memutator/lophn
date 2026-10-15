@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { addressSchema } from "../projects/address.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
@@ -105,6 +104,14 @@ export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
 ]);
 export type AcceptanceCheck = z.infer<typeof acceptanceCheckSchema>;
 
+// version 참조의 문서 주소 모양이다. 주소 parser와 주소 schema는 없고 이 모양만 남는다.
+// version 참조를 쓰는 core ticket 쪽을 걷는 task가 이 칸을 지운다.
+const addressSchema = z.strictObject({
+  place: z.string().min(1),
+  document: z.string().min(1),
+  section: z.string().min(1).nullable(),
+  version: z.number().int().min(1).nullable(),
+});
 const referenceFields = {
   kind: z.enum(["version", "problem", "ticket", "release"]),
   target: z.string().min(1),

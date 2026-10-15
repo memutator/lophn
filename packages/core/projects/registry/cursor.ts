@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import {
-  documentRefOutputSchema,
-  type Project,
-} from "../../../protocol/projects/mod.ts";
+import type { Project } from "../../../protocol/projects/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 
 const basisSchema = z.strictObject({
@@ -11,7 +8,6 @@ const basisSchema = z.strictObject({
   projects: z.array(z.strictObject({
     id: z.string(),
     revision: z.string(),
-    documents: z.array(documentRefOutputSchema),
   })),
 });
 const conditionsSchema = z.strictObject({
@@ -31,7 +27,6 @@ type Cursor = z.infer<typeof cursorSchema>;
 export type ProjectPageBasis = {
   id: Project["id"];
   revision: Project["revision"];
-  documents: z.infer<typeof documentRefOutputSchema>[];
 };
 
 export function projectPageBasis(

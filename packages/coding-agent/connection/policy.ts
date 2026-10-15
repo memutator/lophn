@@ -86,15 +86,8 @@ export const FORBIDDEN_ROUTES: Readonly<
   ],
 };
 
-// 원본 파일·문서 자리 관리는 사람의 화면 몫이다. 문서 정본 저장(document.save)만
-// coding credential의 길이다.
+// 원본 파일 관리는 사람의 화면 몫이다.
 export const HUMAN_ONLY_DOCUMENT_ROUTES = [
-  "document.move",
-  "document.rename",
-  "document.archive",
-  "document.unarchive",
-  "document.set_source",
-  "document.restore",
   "files.list",
   "files.read",
   "files.status",

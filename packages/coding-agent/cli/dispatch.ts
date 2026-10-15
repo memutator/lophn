@@ -17,7 +17,6 @@ import {
   type CoreClient,
   UNREADABLE_MESSAGE,
 } from "../connection/client/core.ts";
-import { uploadPrepareBytes } from "../connection/mod.ts";
 import { createSdkSourcePort } from "../connection/sdk-source.ts";
 import { systemExecPort, systemFilesPort } from "../harnesses/system-ports.ts";
 import {
@@ -48,7 +47,6 @@ import {
   runProblem,
 } from "./commands/problem.ts";
 import { runQuestionOpen } from "./commands/question.ts";
-import { runSave } from "./commands/save.ts";
 import { runSdk } from "./commands/sdk.ts";
 import {
   runSessionObserve,
@@ -89,7 +87,6 @@ import {
 } from "../../protocol/client/daemon.ts";
 import { readRunMetadata } from "../../protocol/client/run-metadata.ts";
 import { appDirectSocketPaths } from "../../protocol/apps/mod.ts";
-import { documentSectionHistory } from "../../protocol/projects/mod.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import type { CredentialProvider } from "../connection/credential/provider.ts";
 
@@ -531,19 +528,6 @@ export async function runCliCommand(
     typeof input.idempotency_key === "string"
       ? input.idempotency_key
       : `cli-${crypto.randomUUID()}`;
-  if (name === "save") {
-    const scope = {
-      root: runtime.cwd,
-      forbidden: runtime.dataRoot === undefined ? [] : [runtime.dataRoot],
-    };
-    const saved = await runSave(
-      entry.input.parse({ command: name, ...input }) as Parameters<
-        typeof runSave
-      >[0],
-      { client, scope, prepareBytes: uploadPrepareBytes(client) },
-    );
-    return saved.ok ? ok(saved.value) : saved;
-  }
   if (name === "question open") {
     const opened = await runQuestionOpen(input as { group: string }, {
       client,
@@ -646,13 +630,9 @@ export async function runCliCommand(
   }
   // 나머지는 command 표의 소유 읽기 route 하나로만 보낸다. 표 밖 op는 실행 전 거절이다.
   const op = typeof input.op === "string" ? input.op : undefined;
-  // `document history`는 section을 주면 그 key의 판별 변화 route다(MCP `lophn_document history`와 같다).
-  const route: Route | undefined =
-    name === "document history" && typeof input.section === "string"
-      ? documentSectionHistory
-      : op === undefined
-      ? entry.monoRoute
-      : entry.opRoutes?.[op];
+  const route: Route | undefined = op === undefined
+    ? entry.monoRoute
+    : entry.opRoutes?.[op];
   if (
     route === undefined || (route.kind !== "read" && route.kind !== "worker")
   ) {
@@ -720,7 +700,7 @@ async function runDoctor(
     roots: { home, env: runtime.env, cwd: runtime.cwd },
     denoExecutable: `${runtime.installRoot.replace(/\/$/, "")}/deno`,
     now: runtime.now(),
-    expectedTools: ["lophn_index", "lophn_read"],
+    expectedTools: ["lophn_project"],
   }, {
     files: filePort(),
     mcp: stdioMcpProbe({ ambient: (key) => runtime.env.get(key) }),
@@ -863,7 +843,7 @@ async function runHarness(
           target,
           roots: { home, env: runtime.env, cwd: runtime.cwd },
           denoExecutable: `${runtime.installRoot.replace(/\/$/, "")}/deno`,
-          expectedTools: ["lophn_index", "lophn_read"],
+          expectedTools: ["lophn_project"],
           expectedSkills: LOPHN_SKILL_NAMES,
           connection,
           now: runtime.now(),

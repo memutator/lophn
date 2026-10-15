@@ -191,14 +191,8 @@ export function listTools(
 
 // 소유 contract 하나를 부르려고 core가 같은 agent 자격으로 더 부르는 operation이다.
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  // 문제 해석 연결은 command 전에 같은 자격으로 해석 문서의 고정 version·절과 문제의 현재
-  // 참조를 읽어 확인한다.
-  [
-    "LinkProblemInterpretation",
-    ["document.get", "document.read", "GetProblem"],
-  ],
-  // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
-  ["guide.read", ["guide.list"]],
+  // 문제 해석 연결은 command 전에 같은 자격으로 문제의 현재 참조를 읽어 확인한다.
+  ["LinkProblemInterpretation", ["GetProblem"]],
   ["GetSettings", ["SettingsDefinitions"]],
   // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
   ["RecordMessage", ["ReadToolCall"]],

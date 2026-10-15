@@ -1,10 +1,9 @@
-import { ok, type Result } from "../../base/mod.ts";
+import { ok } from "../../base/mod.ts";
 import {
   CONTEXT_API_EVENTS,
   contextViolationsRecordedEvent,
   EVENTS,
 } from "../../protocol/projects/mod.ts";
-import type { DocumentRef } from "../../protocol/projects/mod.ts";
 import type {
   EventVisibilityDefinition,
   RequestContext,
@@ -25,7 +24,7 @@ import {
 } from "./contexts/register.ts";
 import { createProjectCommands } from "./registry/commands.ts";
 import { createProjectEventVisibility } from "./registry/visibility.ts";
-import { createProjectReads, type ProjectReadDeps } from "./registry/reads.ts";
+import { createProjectReads } from "./registry/reads.ts";
 import { projectsSchemaSteps } from "./registry/schema.ts";
 
 // context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
@@ -39,18 +38,11 @@ type LedgerRegistration = {
   blobFields?: readonly unknown[];
 };
 
-// 문서가 디스크 파일 하나가 되어 project에 문서 목록이 없다.
-function projectDocuments(): Result<readonly DocumentRef[]> {
-  return ok([]);
-}
-
-const projectReadDeps: ProjectReadDeps = { documents: projectDocuments };
-
 export function createLedgerRegistration(): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const contexts = createContextsRegistration(contextsRuntime);
-  const reads = createProjectReads(projectReadDeps);
+  const reads = createProjectReads();
   return {
     schemaSteps: [...projectsSchemaSteps, ...contexts.schemaSteps],
     commands: [
@@ -133,7 +125,7 @@ export function createEventRegistration(): EventRegistration {
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
 export function createReaderRegistration(): ReaderRegistration {
   const contexts = createContextsRegistration(contextsRuntime);
-  const projectReads = createProjectReads(projectReadDeps);
+  const projectReads = createProjectReads();
   return {
     reads: [
       ...contexts.reads,

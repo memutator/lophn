@@ -1,21 +1,11 @@
 import { z } from "zod";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  documentGet,
-  documentIdSchema,
-  placeRefSchema,
-  slugSchema,
-} from "../../../../protocol/projects/mod.ts";
 import type { OptionAction } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
   settingsGet,
 } from "../../../../protocol/config/mod.ts";
-import {
-  moveOptionAction,
-  protectedSetting,
-  settingsOptionAction,
-} from "../questions/mod.ts";
+import { protectedSetting, settingsOptionAction } from "../questions/mod.ts";
 import type { ContractCall } from "./common.ts";
 import { bodyOf } from "./paging.ts";
 
@@ -29,13 +19,6 @@ export const fixedSettingChange = z.strictObject({
   key: z.string().regex(/\S/),
   value: z.json(),
 });
-
-// 문서를 새 자리로 옮기는 제안. 대상 문서·새 자리·이름만 모델 몫이다.
-export const fixedDocumentMove = z.strictObject({
-  document: documentIdSchema,
-  place: placeRefSchema.nullable(),
-  name: slugSchema.nullable(),
-}).refine((value) => value.place === null || value.name !== null);
 
 type Run = { ports: ContractCall; run: string };
 
@@ -88,32 +71,5 @@ export async function settingChangeAction(
     }],
     revision: body["revision"] as number,
     defaults_revision: defined["defaults_revision"] as string,
-  }));
-}
-
-export async function documentMoveAction(
-  { ports, run }: Run,
-  proposed: z.infer<typeof fixedDocumentMove>,
-): Promise<Result<OptionAction>> {
-  const read = await ports.call(
-    documentGet.name,
-    { document: proposed.document },
-    run,
-  );
-  if (!read.ok) return read;
-  const document = bodyOf(read.value)["document"] as
-    | { id: string; revision: string; status: string }
-    | undefined;
-  if (document === undefined || document.id !== proposed.document) {
-    return err({ code: "not_found", message: "document not found" });
-  }
-  if (document.status !== "active") {
-    return invalid("an archived document is not moved");
-  }
-  return ok(moveOptionAction({
-    document: document.id,
-    place: proposed.place,
-    name: proposed.name,
-    base_revision: document.revision,
   }));
 }

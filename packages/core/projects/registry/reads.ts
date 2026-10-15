@@ -2,9 +2,6 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentProject,
   agentProjectSchema,
-  type DocumentRef,
-  type FixedDocumentRef,
-  fixedDocumentRefOutputSchema,
   INITIAL_TRACKING_PROPOSAL,
   type Project,
   projectGet,
@@ -22,25 +19,13 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { deepestRegisteredRoot } from "./model.ts";
-import { loadProject, loadProjects, rowCount } from "./store.ts";
+import { loadProject, loadProjects } from "./store.ts";
 
 import { nextProjectCursor, pageOffset, projectPageBasis } from "./cursor.ts";
 
 type UserProject = ReturnType<typeof userProjectSchema.parse>;
 
-import {
-  authorizeProject,
-  denied,
-  dependencyUnavailable,
-  synchronousResult,
-} from "./authorization.ts";
-
-export type ProjectReadDeps = {
-  documents(
-    snapshot: ReadSnapshot,
-    project: string,
-  ): Result<readonly DocumentRef[]>;
-};
+import { authorizeProject, denied } from "./authorization.ts";
 
 const PAGE = 50;
 
@@ -59,26 +44,13 @@ function isUser(ctx: RequestContext): boolean {
   return parseActor(ctx.actor)?.kind === "user";
 }
 
-function countAllowed(documents: readonly FixedDocumentRef[]): Result<number> {
-  const count = rowCount({ count: documents.length });
-  return count.ok
-    ? count
-    : err({ code: "internal", message: "invalid document count" });
-}
-
 function projectView(
   ctx: RequestContext,
   project: Project,
-  documents: readonly FixedDocumentRef[],
 ): Result<UserProject | AgentProject> {
-  const parsedDocs = documents;
   if (isUser(ctx)) {
-    const count = countAllowed(parsedDocs);
-    if (!count.ok) return count;
     const view = userProjectSchema.safeParse({
       ...project,
-      document_count: count.value,
-      documents: parsedDocs,
       initial_tracking_proposal: INITIAL_TRACKING_PROPOSAL,
     });
     return view.success ? ok(view.data) : invalidProjection();
@@ -90,47 +62,23 @@ function projectView(
     purpose: project.purpose,
     revision: project.revision,
     status: project.status,
-    documents: parsedDocs,
   });
   return view.success ? ok(view.data) : invalidProjection();
 }
 
 function allowed(
-  deps: ProjectReadDeps,
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   operation: string,
   project: Project,
-): Result<{ project: Project; documents: readonly FixedDocumentRef[] } | null> {
-  if (typeof deps?.documents !== "function") return dependencyUnavailable();
+): Result<Project | null> {
   const decision = authorizeProject(snapshot.port, ctx, operation, {
     kind: "project",
     project,
   });
   if (denied(decision)) return ok(null);
   if (!decision.ok) return decision;
-  let documents: Result<readonly DocumentRef[]>;
-  try {
-    documents = synchronousResult(deps.documents(snapshot, project.id));
-  } catch {
-    return dependencyUnavailable();
-  }
-  if (!documents.ok) return documents;
-  if (!Array.isArray(documents.value)) return invalidProjection();
-  const visible: FixedDocumentRef[] = [];
-  for (const candidate of documents.value) {
-    const parsed = fixedDocumentRefOutputSchema.safeParse(candidate);
-    if (!parsed.success) return invalidProjection();
-    const access = authorizeProject(snapshot.port, ctx, operation, {
-      kind: "document",
-      project,
-      document: { ...parsed.data, version: parsed.data.version },
-    });
-    if (denied(access)) continue;
-    if (!access.ok) return access;
-    visible.push(parsed.data);
-  }
-  return ok({ project, documents: visible });
+  return ok(project);
 }
 
 function invalidProjection(): Result<never> {
@@ -144,7 +92,7 @@ function requireReadActor(ctx: RequestContext): Result<void> {
     : err({ code: "forbidden", message: "project read actor forbidden" });
 }
 
-export function createProjectReads(deps: ProjectReadDeps): {
+export function createProjectReads(): {
   list: ReadDefinition<typeof projectList>;
   get: ReadDefinition<typeof projectGet>;
   resolve: ReadDefinition<typeof projectResolve>;
@@ -157,9 +105,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
-        if (typeof deps?.documents !== "function") {
-          return dependencyUnavailable();
-        }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const visible: (UserProject | AgentProject)[] = [];
@@ -168,7 +113,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
             continue;
           }
           const access = allowed(
-            deps,
             snapshot,
             ctx,
             projectList.name,
@@ -176,11 +120,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
           );
           if (!access.ok) return access;
           if (access.value === null) continue;
-          const view = projectView(
-            ctx,
-            access.value.project,
-            access.value.documents,
-          );
+          const view = projectView(ctx, access.value);
           if (!view.ok) return view;
           visible.push(view.value);
         }
@@ -193,7 +133,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
           visible.map((project) => ({
             id: project.id,
             revision: project.revision,
-            documents: project.documents,
           })),
         );
         const offset = pageOffset(input.cursor, basis);
@@ -224,14 +163,10 @@ export function createProjectReads(deps: ProjectReadDeps): {
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
-        if (typeof deps?.documents !== "function") {
-          return dependencyUnavailable();
-        }
         const project = loadProject(snapshot.sql, input.project);
         if (!project.ok) return project;
         if (project.value === null) return notFound();
         const access = allowed(
-          deps,
           snapshot,
           ctx,
           projectGet.name,
@@ -239,11 +174,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
         );
         if (!access.ok) return access;
         if (access.value === null) return notFound();
-        const view = projectView(
-          ctx,
-          access.value.project,
-          access.value.documents,
-        );
+        const view = projectView(ctx, access.value);
         if (!view.ok) return view;
         return ok({
           project: view.value,
@@ -261,9 +192,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
             message: "project resolve is user only",
           });
         }
-        if (typeof deps?.documents !== "function") {
-          return dependencyUnavailable();
-        }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const roots = projects.value.flatMap((project) =>
@@ -280,7 +208,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
         );
         if (project === undefined) return notFound();
         const access = allowed(
-          deps,
           snapshot,
           ctx,
           projectResolve.name,
@@ -288,11 +215,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
         );
         if (!access.ok) return access;
         if (access.value === null) return notFound();
-        const view = projectView(
-          ctx,
-          access.value.project,
-          access.value.documents,
-        );
+        const view = projectView(ctx, access.value);
         if (!view.ok) return view;
         if (!("folders" in view.value)) return unavailable();
         return ok({
@@ -333,7 +256,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
         );
         if (project === undefined) return notFound();
         const access = allowed(
-          deps,
           snapshot,
           ctx,
           projectResolveCwd.name,

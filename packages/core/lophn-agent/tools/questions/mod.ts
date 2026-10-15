@@ -32,7 +32,6 @@ export {
   chosenOptionCall,
   createApplyQuestionOption,
   findOptionOwner,
-  moveOptionAction,
   OPTION_ACTION_OPERATIONS,
   OPTION_ACTION_OWNERS,
   type OptionActionOwner,
@@ -40,7 +39,6 @@ export {
   optionBindingHash,
   optionInputHash,
   type OptionOwnerHandlers,
-  renameOptionAction,
   settingsOptionAction,
 } from "./option-actions.ts";
 export {

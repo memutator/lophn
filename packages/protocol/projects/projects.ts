@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { archiveStateSchema, atSchema, sha256Schema } from "../base/values.ts";
 import { defineEvent } from "../events/events.ts";
-import { fixedDocumentRefOutputSchema } from "./address.ts";
 import {
   absolutePathSchema,
   projectIdSchema,
@@ -110,14 +109,9 @@ export const projectSchema = z.object({
   tracking: trackingRuleSetOutputSchema,
 });
 export type Project = z.infer<typeof projectSchema>;
-export const agentProjectSchema = z.object({
-  ...projectMetadataFields,
-  documents: z.array(fixedDocumentRefOutputSchema),
-});
+export const agentProjectSchema = z.object(projectMetadataFields);
 export type AgentProject = z.infer<typeof agentProjectSchema>;
 export const userProjectSchema = projectSchema.extend({
-  document_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  documents: z.array(fixedDocumentRefOutputSchema),
   initial_tracking_proposal: trackingRuleSetOutputSchema,
 });
 export const projectReadSchema = z.union([

@@ -17,7 +17,6 @@ import {
   type ToolDecision,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../../protocol/apps/mod.ts";
-import { documentGet } from "../../../protocol/projects/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
@@ -151,26 +150,6 @@ function confirmRefusalInput(value: JsonObject): JsonObject {
   };
 }
 
-// Operator의 쓰기가 닿는 대상이 그 Operator의 담당 자리(project 또는 앱)에 속하는지. 문서 쓰기는
-// 대상이 저장할 문서(자리를 소유 계약이 말한다)이거나 새 문서를 놓을 자리 자체다. 읽지 못한 문서,
-// 자리가 없는 문서, 다른 자리의 문서는 모두 같은 답(false)이라 존재가 새지 않는다. 쓸 수 있는 tool은
-// 정의의 권한이 이미 걸러서 제공했고(roleAllows), 이 검사는 그 안에서 자리만 본다.
-async function inOperatorPlace(
-  deps: JudgmentDeps,
-  place: { kind: string; id: string | null },
-  target: string,
-): Promise<boolean> {
-  if (place.id === null) return false;
-  if (target.startsWith("prj_") || target.startsWith("app_")) {
-    return target === place.id;
-  }
-  if (!target.startsWith("doc_")) return false;
-  const read = await post(deps.agent, documentGet, { document: target });
-  if (!read.ok) return false;
-  const where = read.value.document.place;
-  return where !== null && where.kind === place.kind && where.id === place.id;
-}
-
 // 사람이 거절한 같은 동작이 이 run의 계보에 있는지. 거절만 본다. 만료·취소·기술 실패는
 // status가 달라 걸리지 않는다. 계보는 같은 run이거나 같은 원래 사람 요청이다.
 async function refusedBefore(
@@ -254,18 +233,11 @@ async function gather(
   const connection = definition?.origin === "external"
     ? deps.mcpConnection(definition)
     : undefined;
-  // Operator의 문서 쓰기는 정의의 권한 안(제공된 tool)에서 담당 자리의 문서에만 닿는다. 자리 밖은
-  // 승인으로 열지 않는 범위 밖이다. 그다음 판정은 다른 agent와 같다.
-  const placed = assignment?.role === "operator" &&
-    action?.concern === "documents/versions";
-  const targets = await Promise.all(
-    (action?.targets ?? []).map(async (target) => ({
-      id: target.id,
-      inScope: deps.credential.targets.has(target.id) &&
-        (!placed || await inOperatorPlace(deps, assignment.scope, target.id)),
-      reversibility: target.reversibility,
-    })),
-  );
+  const targets = (action?.targets ?? []).map((target) => ({
+    id: target.id,
+    inScope: deps.credential.targets.has(target.id),
+    reversibility: target.reversibility,
+  }));
   const refused = action !== null && input !== null && record !== undefined &&
       origin !== null
     ? await refusedBefore(

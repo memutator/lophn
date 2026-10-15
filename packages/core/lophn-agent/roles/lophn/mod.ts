@@ -27,21 +27,6 @@ export {
   sectionText,
 } from "./guide-answer.ts";
 export {
-  type ContainingContext,
-  oneLine,
-  type PlaceActivity,
-  type PlaceCandidate,
-  type PlaceRecommendations,
-  type PlaceTarget,
-  type QuestionDraft,
-  RECOMMENDATION_LIMIT,
-  recommendPlaces,
-  SUPPORT_THRESHOLDS,
-  type SupportingEvidence,
-  supportingEvidence,
-  type SupportSignals,
-} from "./place-recommendation.ts";
-export {
   protectedGuidance,
   settingChangeQuestion,
   type SettingProposal,

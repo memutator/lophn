@@ -8,11 +8,6 @@ import {
 } from "../../../../base/mod.ts";
 import { appCreate } from "../../../../protocol/apps/mod.ts";
 import {
-  documentMove,
-  documentRename,
-  type PlaceRef,
-} from "../../../../protocol/projects/mod.ts";
-import {
   applyQuestionOption,
   type OptionAction,
 } from "../../../../protocol/lophn-agent/mod.ts";
@@ -43,7 +38,7 @@ import { protectedSetting } from "./protected-settings.ts";
 //   같고, 같은 질문 option을 아직 적용하지 않았을 때만 한 번 통과한다.
 //   증거 기록(question_evidence)은 소유 변경과 같은 transaction이라 소유 command가 실패하면 함께
 //   되돌아가고, 그 option은 다시 적용할 수 있는 상태로 남는다.
-// - 소유 command는 같은 Tx에서 부른다. 소유 command가 user만 받으므로(documents move·rename)
+// - 소유 command는 같은 Tx에서 부른다. 소유 command가 user만 받으므로
 //   Tx의 callChosenOption이 질문 정본과 대조한 뒤 그 호출 한 번만 user 자격(event actor=user,
 //   run=null)으로 넘긴다. 바깥 ApplyQuestionOption의 요청 자격(machine)은 그대로다.
 // - 소유 command의 전제(CAS)가 달라졌으면 답은 그대로 두고 동작은 적용하지 않으며, 달라진 대상과
@@ -77,30 +72,7 @@ function inlineValue(action: OptionAction): Result<Record<string, unknown>> {
 function onlyTarget(action: OptionAction, id: string): Result<void> {
   return action.targets.length === 1 && action.targets[0] === id
     ? ok(undefined)
-    : invalid("the targets are not the fixed document");
-}
-
-function documentOwner(
-  route: typeof documentMove | typeof documentRename,
-): OptionActionOwner {
-  return {
-    concern: "documents/addressing",
-    command: route.name,
-    route,
-    prepare(_question, action) {
-      const value = inlineValue(action);
-      if (!value.ok) return value;
-      const input = route.input.safeParse(value.value);
-      const compare = route.compare?.safeParse(action.comparison);
-      if (!input.success || compare === undefined || !compare.success) {
-        return invalid("the action does not match the owner command");
-      }
-      const document = (input.data as { document: string }).document;
-      const target = onlyTarget(action, document);
-      if (!target.ok) return target;
-      return ok({ input: input.data, compare: compare.data });
-    },
-  };
+    : invalid("the targets are not the fixed target");
 }
 
 // 설정 변경은 입력에 질문 근거를 싣지 않는다. 사람 결정은 이 command가 이미 확인했다.
@@ -160,8 +132,6 @@ const appCreateOwner: OptionActionOwner = {
 // 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다. 새 owner 동작은 이 목록에
 // 더하고 그 owner의 handler를 core 조립이 묶는다(packages/core/lophn-agent/register.ts).
 export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
-  documentOwner(documentMove),
-  documentOwner(documentRename),
   settingsOwner,
   appCreateOwner,
 ];
@@ -218,36 +188,6 @@ export function buildOptionAction(base: {
     comparison: base.comparison,
   };
   return { ...fixed, binding_hash: optionBindingHash(fixed) };
-}
-
-// 문서 자리 이동·이름 변경 선택지. 대상 문서·place·이름·기준 revision이 고정된다.
-export function moveOptionAction(fixed: {
-  document: string;
-  place: PlaceRef | null;
-  name: string | null;
-  base_revision: string;
-}): OptionAction {
-  return buildOptionAction({
-    concern: "documents/addressing",
-    command: documentMove.name,
-    targets: [fixed.document],
-    input: { document: fixed.document, place: fixed.place, name: fixed.name },
-    comparison: { base_revision: fixed.base_revision },
-  });
-}
-
-export function renameOptionAction(fixed: {
-  document: string;
-  name: string;
-  base_revision: string;
-}): OptionAction {
-  return buildOptionAction({
-    concern: "documents/addressing",
-    command: documentRename.name,
-    targets: [fixed.document],
-    input: { document: fixed.document, name: fixed.name },
-    comparison: { base_revision: fixed.base_revision },
-  });
 }
 
 // 새 앱 등록 선택지. 미리 배정한 app ID와 등록할 slug·이름·목적, 있으면 등록 근거 기획 판이

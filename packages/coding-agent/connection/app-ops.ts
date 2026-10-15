@@ -39,7 +39,7 @@ import {
   type AppInvokeOutcome,
 } from "./app-direct.ts";
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";
-import type { FlowClient } from "./document-save.ts";
+import type { FlowClient } from "./flow-client.ts";
 
 // op마다 첫 소유 route다. sync_tools는 재배포가 core route 밖 파일 설치라 contract가 입력을
 // 빌린 appRuntime을 가리키고, 실행은 guides의 syncTools가 한다(아래). command의 첫 core 요청은

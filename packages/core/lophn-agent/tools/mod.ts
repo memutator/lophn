@@ -77,7 +77,6 @@ export {
 } from "./bundles/metadata.ts";
 export {
   createGuideToolHandlers,
-  GUIDE_READ_CODEPOINTS,
   GUIDE_TOOL_NAMES,
   GUIDE_TOOL_REVISION,
   GUIDE_TOOLS,

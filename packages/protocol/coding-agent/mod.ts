@@ -205,7 +205,6 @@ export {
   toolsetSchema,
 } from "./output.ts";
 export {
-  cliSaveFields,
   MCP_CORE_ROUTES,
   MCP_CORE_TOOLS,
   mcpCoreTool,
@@ -217,22 +216,9 @@ export {
   CLI_CORE_NAMES,
   type CliCommon,
   cliCommonSchema,
-  cliDocumentDiffSchema,
-  cliDocumentHistorySchema,
-  cliDocumentListSchema,
-  cliFormatListSchema,
-  cliFormatShowSchema,
-  cliFormatValidateSchema,
-  cliIndexSchema,
   cliProjectCurrentSchema,
   cliProjectListSchema,
   cliProjectShowSchema,
-  cliReadSchema,
-  cliSaveSchema,
-  cliSearchSchema,
-  cliSeriesListSchema,
-  cliSeriesNextSchema,
-  cliSeriesShowSchema,
 } from "./cli-core.ts";
 export {
   CLI_DECISION_COMMANDS,

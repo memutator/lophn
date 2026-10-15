@@ -1,10 +1,5 @@
 import { z } from "zod";
-import { err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  guideList,
-  guideRead,
-  readCursorSchema,
-} from "../../../../protocol/projects/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   settingsDefinitions,
@@ -20,7 +15,7 @@ import {
   type DefineOptions,
   READ,
 } from "./common.ts";
-import { bodyOf, resume, scopeOf, wrap } from "./paging.ts";
+import { bodyOf } from "./paging.ts";
 
 // 제품 안내 묶음(concern harness/tools). 동봉 안내와 공개 설정 정의·현재 적용값·출처를
 // 읽기로만 준다. 설정을 바꾸는 tool과 secret 값을 읽거나 받는 입력은 없다. 설정 변경은
@@ -47,22 +42,10 @@ function define(
 
 const nonblank = z.string().regex(/\S/);
 
-const guideInput = z.strictObject({
-  feature: nonblank.optional(),
-  section: nonblank.optional(),
-  cursor: readCursorSchema.optional(),
-});
 const settingInput = z.strictObject({
   keys: z.array(nonblank).max(50).optional(),
 });
 
-export const lophnGuideTool = define(
-  "lophn.guide",
-  "Read the bundled product guide of this lophn version. Without a feature it lists the guides. This changes nothing.",
-  guideInput,
-  guideRead.name,
-  { ...READ, scopeCheck: "bundled product guides" },
-);
 export const settingReadTool = define(
   "setting.read",
   "Read public setting definitions, current values, where each value comes from, and when a change applies. Secret values are never shown. This changes nothing.",
@@ -71,25 +54,11 @@ export const settingReadTool = define(
   { ...READ, scopeCheck: "public settings" },
 );
 
-export const GUIDE_TOOL_NAMES: readonly string[] = [
-  lophnGuideTool.name,
-  settingReadTool.name,
-];
+export const GUIDE_TOOL_NAMES: readonly string[] = [settingReadTool.name];
 
-export const GUIDE_TOOLS: readonly ToolDefinition[] = [
-  lophnGuideTool,
-  settingReadTool,
-];
+export const GUIDE_TOOLS: readonly ToolDefinition[] = [settingReadTool];
 
 export type GuideToolPorts = ContractCall;
-
-// 목록에서 이 tool이 쓰는 모양. 소유 contract(documents/guides)의 출력을 그대로 읽는다.
-type GuideEntry = {
-  lophn_version: string;
-  title: string;
-  content_hash: string;
-  files: { path: string; primary: boolean }[];
-};
 
 type DefinitionEntry = {
   key: string;
@@ -136,104 +105,10 @@ function fitted(
   };
 }
 
-function missing(): Result<never> {
-  return err({ code: "not_found", message: "guide not found" });
-}
-
-export const GUIDE_READ_CODEPOINTS = 6000;
-
 export function createGuideToolHandlers(
   ports: GuideToolPorts,
 ): ReadonlyMap<string, ToolHandler> {
   const handlers = new Map<string, ToolHandler>();
-
-  async function allGuides(
-    run: string,
-  ): Promise<Result<{ version: string; guides: GuideEntry[] }>> {
-    const guides: GuideEntry[] = [];
-    let version = "";
-    let cursor: string | undefined;
-    // 안내는 몇 개 안 되지만 소유 contract의 page를 끝까지 따라가 하나도 잃지 않는다.
-    for (let page = 0; page < 20; page += 1) {
-      const read = await ports.call(
-        guideList.name,
-        cursor === undefined ? {} : { cursor },
-        run,
-      );
-      if (!read.ok) return read;
-      const body = bodyOf(read.value);
-      version = String(body["lophn_version"] ?? version);
-      guides.push(...((body["guides"] ?? []) as GuideEntry[]));
-      const next = body.next_cursor;
-      if (next === null || next === undefined) {
-        return ok({ version, guides });
-      }
-      cursor = next;
-    }
-    return ok({ version, guides });
-  }
-
-  handlers.set(
-    lophnGuideTool.name,
-    async (input, credential: RunCredential) => {
-      const value = input as z.infer<typeof guideInput>;
-      const listed = await allGuides(credential.run);
-      if (!listed.ok) return listed;
-      const { version, guides } = listed.value;
-      if (value.feature === undefined) {
-        return ok(fitted("product guides listed", {
-          lophn_version: version,
-          guides: guides.map((guide) => ({
-            title: guide.title,
-            content_hash: guide.content_hash,
-          })),
-        }, ["guides"]));
-      }
-      const wanted = value.feature.trim().toLowerCase();
-      const guide = guides.find((candidate) =>
-        candidate.title.trim().toLowerCase() === wanted
-      );
-      const file = guide?.files.find((candidate) => candidate.primary);
-      if (guide === undefined || file === undefined) return missing();
-      const scope = scopeOf(lophnGuideTool.name, {
-        title: guide.title,
-        content_hash: guide.content_hash,
-        section: value.section ?? null,
-      });
-      const resumed = resume(value.cursor, scope);
-      if (!resumed.ok) return resumed;
-      const inner = resumed.value?.inner ?? null;
-      const read = await ports.call(guideRead.name, {
-        reference: {
-          lophn_version: guide.lophn_version,
-          title: guide.title,
-          content_hash: guide.content_hash,
-        },
-        path: file.path,
-        section: value.section ?? null,
-        max_codepoints: GUIDE_READ_CODEPOINTS,
-        ...(inner === null ? {} : { cursor: inner }),
-      }, credential.run);
-      if (!read.ok) return read;
-      const body = bodyOf(read.value);
-      const next = body.next_cursor === null || body.next_cursor === undefined
-        ? null
-        : wrap(scope, body.next_cursor, 0);
-      return ok(fitted(
-        "product guide read",
-        {
-          lophn_version: guide.lophn_version,
-          title: guide.title,
-          section: body["section"] ?? null,
-          section_status: body["section_status"] ?? null,
-          text: body["text"] ?? null,
-          failure_reason: body["failure_reason"] ?? null,
-        },
-        [],
-        next,
-      ));
-    },
-  );
 
   handlers.set(
     settingReadTool.name,

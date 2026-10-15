@@ -1,6 +1,5 @@
 import { err, ERROR_CODES, type Result } from "../../../base/mod.ts";
 import type {
-  DocumentRef,
   Project,
   projectArchived,
   projectCreated,
@@ -22,15 +21,10 @@ export type ProjectEvent =
   | EventEnvelopeFor<typeof projectArchived>
   | EventEnvelopeFor<typeof projectUnarchived>;
 
-// command는 현재 Project와 전체 변경 후보를, read·event는 Project 또는 고정 DocumentRef를 판정한다.
+// command는 현재 Project와 전체 변경 후보를, read·event는 Project를 판정한다.
 export type ProjectAccessTarget =
   | { kind: "command"; before: Project | null; after: ProjectCandidate }
   | { kind: "project"; project: Project }
-  | {
-    kind: "document";
-    project: Project;
-    document: DocumentRef & { version: NonNullable<DocumentRef["version"]> };
-  }
   | { kind: "event"; project: Project; event: ProjectEvent };
 
 export type ProjectAuthorizer = TargetAuthorizer;
@@ -103,10 +97,6 @@ function authorizationTarget(target: ProjectAccessTarget): AuthorizationTarget {
   };
   if (target.kind === "command" && target.before !== null) {
     value.before_project = target.before.id;
-  }
-  if (target.kind === "document") {
-    value.document = target.document.document;
-    value.version = target.document.version;
   }
   if (target.kind === "event") value.event_type = target.event.type;
   return value;

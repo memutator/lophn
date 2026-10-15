@@ -21,7 +21,7 @@ import {
   packagesList,
   packagesVersions,
 } from "../../protocol/apps/mod.ts";
-import type { FlowClient } from "./document-save.ts";
+import type { FlowClient } from "./flow-client.ts";
 
 // SDK op의 공통 op table이다(app-ops와 같은 패턴).
 export const SDK_OP_ROUTES = {

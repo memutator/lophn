@@ -1,47 +1,19 @@
 export * from "./values.ts";
-export * from "./address.ts";
 export * from "./projects.ts";
 export * from "./project-routes.ts";
 export * from "./places.ts";
-export * from "./versions.ts";
-export * from "./document-files.ts";
-export * from "./documents.ts";
-export * from "./sections.ts";
-export * from "./formats.ts";
 export * from "./openable-format.ts";
-
-export * from "./outline.ts";
 export * from "./outline-markdown.ts";
-export * from "./read.ts";
-export * from "./search.ts";
+export * from "./read-values.ts";
 export * from "./guides.ts";
 export * from "./file-values.ts";
 export * from "./files.ts";
 export * from "./context-contract.ts";
 export * from "./context-api.ts";
 export * from "./context-work.ts";
-export * from "./series.ts";
-export * from "./uploads.ts";
 
-import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
-import { FORMAT_ROUTES } from "./formats.ts";
-import { OUTLINE_ROUTES } from "./outline.ts";
-import { READ_ROUTES } from "./read.ts";
-import { HISTORY_ROUTES } from "./history.ts";
-import { SEARCH_ROUTES } from "./search.ts";
-import { GUIDE_ROUTES } from "./guides.ts";
 import { FILE_EVENTS, FILE_ROUTES } from "./files.ts";
 import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
-import { SERIES_EVENTS, SERIES_ROUTES } from "./series.ts";
-import { UPLOAD_ROUTES } from "./uploads.ts";
-
-export const DOCUMENT_READ_ROUTES = [
-  ...OUTLINE_ROUTES,
-  ...READ_ROUTES,
-  ...HISTORY_ROUTES,
-  ...SEARCH_ROUTES,
-  ...GUIDE_ROUTES,
-] as const;
 
 import {
   projectArchive,
@@ -76,13 +48,8 @@ export const ROUTES = [
   projectResolveCwd,
   projectTrackingRoots,
   projectPreviewTracking,
-  ...DOCUMENT_ROUTES,
-  ...FORMAT_ROUTES,
-  ...DOCUMENT_READ_ROUTES,
   ...FILE_ROUTES,
   ...CONTEXT_API_ROUTES,
-  ...SERIES_ROUTES,
-  ...UPLOAD_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -91,8 +58,6 @@ export const EVENTS = [
   projectTrackingChanged,
   projectArchived,
   projectUnarchived,
-  ...DOCUMENT_EVENTS,
   ...FILE_EVENTS,
   ...CONTEXT_API_EVENTS,
-  ...SERIES_EVENTS,
 ] as const;

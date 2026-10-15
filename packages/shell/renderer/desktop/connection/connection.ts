@@ -3,6 +3,8 @@ import {
   type ConnectionState,
   connectionStateSchema,
   type CoreCall,
+  type CoreEventMessage,
+  type CoreWatch,
 } from "../../../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../../../ipc/core-api.ts";
 
@@ -16,6 +18,11 @@ export interface CoreSource {
    */
   current?(): ConnectionState | undefined;
   call(input: CoreCall): Promise<CoreReply>;
+  // 둘 다 없으면 event를 못 받는 source다(event를 쓰지 않는 mock). event client가 건너뛴다.
+  /** 이 창의 구독 조건 전체를 통째로 바꾼다. */
+  watch?(conditions: CoreWatch["conditions"]): Promise<void>;
+  /** main이 중계한 Gateway 메시지(ready·event·closed)를 듣는다. */
+  onEvent?(listener: (message: CoreEventMessage) => void): () => void;
 }
 
 const STARTING: ConnectionState = { state: "starting", confirmedAt: null };
@@ -32,6 +39,8 @@ export function windowCoreSource(): CoreSource {
   if (!bridge) {
     return {
       subscribe: () => () => {},
+      watch: () => Promise.resolve(),
+      onEvent: () => () => {},
       call: () =>
         Promise.resolve({
           ok: false,
@@ -55,6 +64,8 @@ export function windowCoreSource(): CoreSource {
     },
     current: () => last,
     call: (input) => bridge.call(input),
+    watch: (conditions) => bridge.watch(conditions),
+    onEvent: (listener) => bridge.onEvent(listener),
   };
 }
 

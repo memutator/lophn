@@ -1,0 +1,94 @@
+// 열어 둔 대화 탭의 session별 agent event. event는 저장하지 않으니 처음과 ready 뒤에 session snapshot을
+// 읽어 대기 요청을 맞추고, 그 사이 놓친 대화 기록은 대화가 read로 다시 읽는다.
+import type {
+  AgentEvent,
+  SessionSnapshot,
+} from "../../../../../protocol/events/mod.ts";
+import type { EventClient } from "./client.ts";
+import { readSessionSnapshots } from "./snapshots.ts";
+import { createValueStore, syncOnReady } from "./store.ts";
+
+export interface SessionEventsState {
+  readonly events: readonly AgentEvent[];
+  readonly status: "loading" | "live" | "reconnecting";
+  /** 마지막으로 읽은 session snapshot. 아직 못 읽었으면 null. */
+  readonly snapshot: SessionSnapshot | null;
+}
+
+export const NO_SESSION_EVENTS: SessionEventsState = {
+  events: [],
+  status: "loading",
+  snapshot: null,
+};
+
+export interface SessionEventsStore {
+  get(): ReadonlyMap<string, SessionEventsState>;
+  subscribe(listener: () => void): () => void;
+  /** 대화 탭을 연다. 반환 함수가 닫는다. 같은 session을 여럿이 열어도 구독은 하나다. */
+  open(session: string): () => void;
+}
+
+export function createSessionEventsStore(
+  client: EventClient,
+): SessionEventsStore {
+  const state = createValueStore<ReadonlyMap<string, SessionEventsState>>(
+    new Map(),
+  );
+  const opened = new Map<string, { count: number; stop: () => void }>();
+
+  function update(session: string, patch: Partial<SessionEventsState>) {
+    const current = state.get().get(session);
+    if (!current) return;
+    state.set(new Map(state.get()).set(session, { ...current, ...patch }));
+  }
+
+  function start(session: string) {
+    state.set(new Map(state.get()).set(session, NO_SESSION_EVENTS));
+    return client.subscribe(
+      { session },
+      syncOnReady({
+        read: async () => {
+          const snapshots = await readSessionSnapshots(client.core, [session]);
+          return snapshots === null ? null : {
+            snapshot: snapshots.find((s) => s.session === session) ?? null,
+          };
+        },
+        replace: ({ snapshot }) => update(session, { snapshot }),
+        apply: (event) => {
+          const current = state.get().get(session);
+          if ("session" in event && current) {
+            update(session, { events: [...current.events, event] });
+          }
+        },
+        onStatus: (status) => {
+          if (status === "synced") update(session, { status: "live" });
+          else if (status === "disconnected") {
+            update(session, { status: "reconnecting" });
+          }
+        },
+      }),
+    );
+  }
+
+  return {
+    get: state.get,
+    subscribe: state.subscribe,
+    open(session) {
+      let entry = opened.get(session);
+      if (!entry) {
+        entry = { count: 0, stop: start(session) };
+        opened.set(session, entry);
+      }
+      entry.count++;
+      const mine = entry;
+      return () => {
+        if (--mine.count > 0) return;
+        mine.stop();
+        opened.delete(session);
+        const next = new Map(state.get());
+        next.delete(session);
+        state.set(next);
+      };
+    },
+  };
+}

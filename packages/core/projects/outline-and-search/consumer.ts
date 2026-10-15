@@ -1,5 +1,5 @@
 // search consumer의 한 걸음. 한 event의 적용·추출 결과·FTS 교체·cursor를 한 derived
-// transaction에 쓴다(architecture/documents 7.4). 추출은 format runner를 부르는 일이라
+// transaction에 쓴다. 추출은 format runner를 부르는 일이라
 // transaction 밖에서 끝내고 결과만 받는다. 같은 event가 다시 와도(at-least-once) 이미 지난
 // seq는 아무것도 하지 않는다. ledger에는 아무것도 쓰지 않고 model·agent run을 시작하지 않는다.
 import { ok, type Result } from "../../../base/mod.ts";

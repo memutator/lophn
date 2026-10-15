@@ -1,5 +1,4 @@
-// path capture, links, item field. 값이 없으면 null이다. 규칙은
-// docs/domain-model/documents/contexts.md의 "추출 규칙"이다.
+// path capture, links, item field. 값이 없으면 null이다.
 import { headingsIn, sectionRange } from "../document.ts";
 import { markdownLinks } from "../links.ts";
 import type {

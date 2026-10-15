@@ -1,4 +1,4 @@
-// MCP 실행 argv 생성이다(architecture/coding-agent 2.2). 각 <…>는 설치 때 해석한
+// MCP 실행 argv 생성이다. 각 <…>는 설치 때 해석한
 // 절대 경로·loopback endpoint다. shell 문자열로 합치지 않고 분리 argv로 돌려주며
 // `--cached-only`를 붙이고 `-A`·`--allow-run`·`--allow-write`·`--allow-ffi`는 없다.
 // OS keychain 접근은 helper 실행 권한 하나뿐이다.
@@ -48,7 +48,7 @@ const LABEL_ARG = "--label";
 const CWD_ARG = "--cwd";
 
 // helper는 OS keychain 도구 실행만 허용한 고정 권한 compile binary다
-// (architecture/coding-agent 2.2). MCP·CLI에는 이 실행 권한 하나만 준다.
+// MCP·CLI에는 이 실행 권한 하나만 준다.
 export function helperArg(helperPath: string): string {
   return `--allow-run=${helperPath}`;
 }

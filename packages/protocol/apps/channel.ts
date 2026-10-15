@@ -219,7 +219,7 @@ export function confirmProofSigningBytes(proof: ConfirmExecutionProof): string {
   return canonicalize(proof);
 }
 
-// core read 경로 밖 제어 어댑터. ledger queue를 거치지 않는다(architecture/apps 5.1).
+// core read 경로 밖 제어 어댑터. ledger queue를 거치지 않는다.
 export const appConnect = defineMemory({
   resource: "apps",
   method: "connect",

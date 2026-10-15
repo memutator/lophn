@@ -1,4 +1,4 @@
-// MCP tool 결과 표현이다(architecture/coding-agent 5.1). 성공·실패·effect_unknown을
+// MCP tool 결과 표현이다. 성공·실패·effect_unknown을
 // 모두 contracts의 mcpToolResult로 만든다. Codex는 structuredContent만, Gemini CLI·
 // OpenCode는 text만 model에 넣으므로 둘 다 내보내야 같은 사실이 전달된다.
 import {

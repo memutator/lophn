@@ -1,4 +1,4 @@
-// report-problem 화면(docs/flows/report-app-problem.md). main이 연 overlay dialog 안에서 사람이
+// report-problem 화면. main이 연 overlay dialog 안에서 사람이
 // 글을 쓰고, 보낼 화면 상태와 screenshot을 미리 보고 각각 뺀다. screenshot은 main이 캡처한 같은
 // PNG를 가리지 않고 보이며 기본은 꺼짐이다. 이미지가 없으면 이유를 보이고
 // 글만 보낼 수 있다. 초안은 이 화면의 메모리에만 있다. 취소는 아무것도 저장하지 않고,

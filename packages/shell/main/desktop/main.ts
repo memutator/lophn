@@ -264,7 +264,7 @@ type CallSession = {
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
-// 개발 확인 전용. 창을 화면에 띄우지 않고 offscreen으로 그린다(docs/dev/stack.md).
+// 개발 확인 전용. 창을 화면에 띄우지 않고 offscreen으로 그린다.
 const headless = readHeadless(process.env);
 if (headless.shotDir) mkdirSync(headless.shotDir, { recursive: true });
 let shotSerial = 0;

@@ -1,5 +1,5 @@
 // 준비 worker pool. coordinator가 정확한 실행 파일(Deno + preparation-entry)로 준비 worker
-// 두 slot을 띄우고 감독한다(architecture/documents 2.1). 감독은 platform의 createSupervisor를
+// 두 slot을 띄우고 감독한다. 감독은 platform의 createSupervisor를
 // slot마다 하나씩 쓴다: ready 기한, 3회 재기동과 backoff, process group 종료 확인이 같은
 // 규칙이다. slot 하나는 한 번에 요청 하나만 처리한다. 사람이 기다리는 요청은 human slot을
 // 먼저 쓰고, 바쁘면 background slot으로 흘리며, background 요청은 human slot이 놀 때만 쓴다.

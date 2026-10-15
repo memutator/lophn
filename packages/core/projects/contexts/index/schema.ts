@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 
-// derived/contexts.sqlite의 표(docs/architecture/documents.md 3.2). 정본이 아니고 지우면 다시 만든다.
+// derived/contexts.sqlite의 표. 정본이 아니고 지우면 다시 만든다.
 // 개체·위반의 순서(ord)는 추출·검사가 낸 canonical 순서다. 같은 key의 개체가 둘일 수 있어
 // (unique 규칙이 그것을 위반으로 센다) key는 기본키가 아니다.
 export const indexSchemaSteps: readonly SchemaStep[] = [{

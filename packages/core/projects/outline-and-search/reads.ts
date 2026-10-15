@@ -241,7 +241,7 @@ function matchDocuments(
 }
 
 // 가용 요약·주제 cache의 결과. 같은 trigram/LIKE 규약으로 현재 허용 대상만
-// 비교한다(architecture/documents 5.4). cache 일치는 실제 입력 판·section·
+// 비교한다. cache 일치는 실제 입력 판·section·
 // input_hash·stale을 별도로 낸다. 매칭의 근거가 text 비교다. 요약 cache 행은
 // text가 있는 행만 규약 결과로 센다(summaryCacheSchema.text가 required).
 function cacheMatchingDocuments(

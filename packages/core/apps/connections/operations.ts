@@ -1,7 +1,7 @@
 import type { OperationPolicy } from "../../server/identity/mod.ts";
 
 // 어떤 coding agent 통로도 approval 결정·grant 변경·secret 값·운영 backup·원본 임의 파일 접근·
-// machine test result 작성을 제공하지 않는다(docs/architecture/coding-agent.md §1, §4 approval은
+// machine test result 작성을 제공하지 않는다(approval은
 // 읽기만). 이 자원에서는 read만 상한에 오르고, 그 밖 종류(command·memory·upload·worker·file)는
 // route 정의가 coding_agent를 선언해도 올리지 않는다. 이름 목록이 아니라 자원과 종류로 막아 새 route도
 // 같은 선을 넘지 못한다.

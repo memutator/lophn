@@ -24,7 +24,7 @@ export type SseParser = {
   finish(): { pending: boolean };
 };
 
-// lophn 값은 요구·조사 문서에 숫자가 없다(docs/research/provider-adapters.md).
+// lophn 값은 요구·조사 문서에 숫자가 없다.
 // 정규 event가 넘지 않는 상한으로 두고, 넘으면 실패가 맞다.
 export const SSE_LINE_MAX_BYTES = 262_144;
 export const SSE_EVENT_MAX_BYTES = 2_097_152;

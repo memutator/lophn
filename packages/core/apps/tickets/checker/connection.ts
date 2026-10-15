@@ -57,7 +57,7 @@ export function ticketCheckerPolicies(): OperationPolicy[] {
 }
 
 // checker worker는 core loopback에만 닿고 읽기·쓰기·실행 권한이 없다. ledger·blob·source를
-// 열지 않는다(architecture/coding-agent 2.2: worker는 core loopback net과 작업 credential만).
+// 열지 않는다(worker는 core loopback net과 작업 credential만).
 export function ticketCheckerSpec(input: {
   dataRoot: string;
 }): KindLaunchSpec | undefined {

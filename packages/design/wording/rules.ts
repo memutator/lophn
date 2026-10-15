@@ -1,4 +1,4 @@
-// 고정 문구 검사의 규칙 상수. 화면 이름·안쪽 말 목록은 docs/ui-ux/README.md를 따른다.
+// 고정 문구 검사의 규칙 상수.
 
 export const SCREENS = [
   "launcher",

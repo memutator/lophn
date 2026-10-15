@@ -12,7 +12,7 @@ export type UiBuildFailure = {
     | "build_failed";
 };
 
-// 고정 UI 의존 exact 목록(architecture/apps 3.3). 이 밖의 의존은 build에 넣지 않는다.
+// 고정 UI 의존 exact 목록. 이 밖의 의존은 build에 넣지 않는다.
 export const FIXED_UI_DEPENDENCIES = [
   "@lophn/blueprint",
   "@lophn/tokens",

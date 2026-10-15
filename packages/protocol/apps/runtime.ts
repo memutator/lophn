@@ -245,7 +245,7 @@ export const appAutomations = defineRead({
   errors: readErrors,
 });
 
-// 단독 data worker가 준비한다. 준비 중·완성·실패를 구별한다(architecture/apps 5.4).
+// 단독 data worker가 준비한다. 준비 중·완성·실패를 구별한다.
 export const EXPORT_STATES = ["preparing", "ready", "failed"] as const;
 export const appExport = defineWorker({
   resource: "apps",

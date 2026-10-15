@@ -1,5 +1,5 @@
-// preview 프로세스 수명. supervisor가 PreviewLaunch마다 운영 자식과 따로 띄우고 닫기 요청에 끝낸다
-// (architecture/apps 2.1, 7.3). 같은 앱의 preview는 하나만 쥔다: 새 preview는 이전 preview의 종료를
+// preview 프로세스 수명. supervisor가 PreviewLaunch마다 운영 자식과 따로 띄우고 닫기 요청에 끝낸다.
+// 같은 앱의 preview는 하나만 쥔다: 새 preview는 이전 preview의 종료를
 // 확인한 뒤 뜬다. 운영 자식·record_* 사실·재시작 정책·automation clock은 여기 없다. 운영 core에
 // 아무것도 기록하지 않는다. 입출력은 모두 주입받는다.
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";

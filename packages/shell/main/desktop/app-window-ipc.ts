@@ -1,6 +1,6 @@
 // 앱 공간의 [Open in new window]와 OS 앱 바로가기 추가·삭제 IPC.
-// 매 요청마다 sender가 살아 있는 desktop 창 main frame인지, 입력이 앱 ID 하나인지 본다
-// (architecture/shell 2.3). overlay·앱 view·보호 창은 부르지 못한다. 바로가기의 앱 이름은
+// 매 요청마다 sender가 살아 있는 desktop 창 main frame인지, 입력이 앱 ID 하나인지 본다.
+// overlay·앱 view·보호 창은 부르지 못한다. 바로가기의 앱 이름은
 // renderer가 아니라 core 기록에서 읽고, 실제 OS 쓰기는 주입한 os-entry adapter만 한다.
 import {
   APP_SHORTCUT_ADD_CHANNEL,

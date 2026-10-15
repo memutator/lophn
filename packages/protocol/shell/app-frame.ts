@@ -12,7 +12,7 @@ import {
 } from "../apps/channel-values.ts";
 import { visualKeySchema } from "../lophn-agent/visual-source.ts";
 
-// view ID는 main이 만든 메모리 식별이다. credential이 아니다(architecture/shell 5.2).
+// view ID는 main이 만든 메모리 식별이다. credential이 아니다.
 const viewSessionSchema = z.string().min(1).refine(
   (value) => !/\p{Cc}/u.test(value),
   { message: "view session contains a control character" },
@@ -25,7 +25,7 @@ const windowRefSchema = z.string().min(1).refine(
 
 const generationSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
-// 창 본문 경계 안의 정수 rectangle(architecture/shell 5.2).
+// 창 본문 경계 안의 정수 rectangle.
 export const viewBoundsSchema = z.strictObject({
   x: z.number().int(),
   y: z.number().int(),
@@ -109,7 +109,7 @@ export type AppFrame = {
   close(view_session: string): Promise<void>;
 };
 
-// 세션 앱 카드는 답의 message·block 표시 참조에 묶여 열린다(architecture/shell 5.4). 카드만
+// 세션 앱 카드는 답의 message·block 표시 참조에 묶여 열린다. 카드만
 // 싣고 다른 크기는 싣지 않는다. 카드 입력은 여기 없다.
 export const appViewCardSchema = z.strictObject({
   message: idSchema("msg"),
@@ -180,7 +180,7 @@ export type LophnShellViews = {
   closeView(input: z.infer<typeof viewCloseRequestSchema>): Promise<void>;
 };
 
-// scheme 세 개. host는 DNS label이고 entity ID를 직접 넣지 않는다(architecture/shell 5.2).
+// scheme 세 개. host는 DNS label이고 entity ID를 직접 넣지 않는다.
 export const VIEW_SCHEMES = [
   "lophn-shell",
   "lophn-app",
@@ -254,7 +254,7 @@ export const documentPartitionSchema = z.string().regex(
   new RegExp(`^document-ver_${ULID_LABEL}-.+$`),
 );
 
-// architecture/shell 5.2가 적는 오류. capture 실패는 이 오류가 아니다.
+// capture 실패는 이 오류가 아니다.
 export const APP_FRAME_ERRORS = [
   "invalid_input",
   "forbidden",

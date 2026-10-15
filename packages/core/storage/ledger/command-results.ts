@@ -14,7 +14,7 @@ import {
 } from "../../../protocol/server/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
 
-// commands/result는 자기 principal만 본다(architecture/platform 5.1).
+// commands/result는 자기 principal만 본다.
 // snapshot SQL만 쓴다. writer queue를 기다리지 않는다.
 export const commandResultRead: ReadDefinition<typeof commandsResult> = {
   route: commandsResult,

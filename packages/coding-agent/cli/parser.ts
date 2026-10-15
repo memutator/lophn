@@ -1,4 +1,4 @@
-// CLI argv parser(architecture/coding-agent 5.4). 정본 이름은
+// CLI argv parser. 정본 이름은
 // `lophn <group> <command>`다. 별칭·implicit stdin·unknown option passthrough는
 // 없다. 입력 source는 먼저 exclusive 검사하고 파서 오류도 --json 선택을
 // 유지하기 위해 구조화 결과로 낸다.

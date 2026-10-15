@@ -1,4 +1,4 @@
-// 운영 앱의 실제 기동 진입 파일(architecture/apps 2.2, 2.3의 "bundle의 플랫폼 entrypoint"). 앱의 `main.ts`는
+// 운영 앱의 실제 기동 진입 파일. 앱의 `main.ts`는
 // command를 등록할 뿐이라 supervisor가 그것을 직접 띄우면 앱 runtime(broker 연결·command·화면 서버·문제 보고)이
 // 뜨지 않는다. release 준비가 이 진입 파일을 bundle에 더하고 manifest의 entrypoint로 삼아 runtime entrypoint가
 // `@lophn/app`(앱의 `main.ts`)을 불러 오게 한다. 진입 파일과 `@lophn/base` import map은 준비한 플랫폼 설치의

@@ -1,4 +1,4 @@
-// context 계약 묶음(BundleContent)의 모양. 값의 뜻과 제약은 docs/domain-model/documents/contexts.md다.
+// context 계약 묶음(BundleContent)의 모양.
 // 여기서는 한 값 안에서 정해지는 모양만 검사한다. type·field·관계·검색 사이 참조와 series pattern 문법은
 // packages/core/projects/contexts/validate/가 검사한다.
 import { z } from "zod";

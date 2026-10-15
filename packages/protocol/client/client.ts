@@ -14,7 +14,7 @@ export type FileBody = { bytes: Uint8Array; contentType: string | null };
 
 type SchemaOf<R extends Route> = Extract<R["output"], z.ZodType>;
 
-// command는 envelope로 보내고 결과 객체로 받는다(architecture/platform 5.1).
+// command는 envelope로 보내고 결과 객체로 받는다.
 // memory는 command가 아니므로 ledger envelope 없이 raw 입력·출력을 주고받는다.
 type CallBody<R extends Route> = R extends CommandRoute ? CommandRequest<R>
   : z.input<R["input"]>;

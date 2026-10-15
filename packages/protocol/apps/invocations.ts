@@ -208,7 +208,7 @@ export type InvocationAcceptConfirmInput = z.infer<
   typeof invocationAcceptConfirmInputSchema
 >;
 
-// 출력은 inv ID와 proof다(architecture/apps 5.1).
+// 출력은 inv ID와 proof다.
 export const invocationAcceptConfirmOutputSchema = z.object({
   invocation: invocationIdSchema,
   proof: confirmExecutionProofSchema,

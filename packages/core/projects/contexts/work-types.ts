@@ -1,5 +1,5 @@
 // context worker의 일(`context.index`, `context.check`)이 쓰는 port. 파일 시스템과 core 제출은
-// 모두 주입받는다(docs/architecture/documents.md 2.4). 일은 핵심 계산을 index/·check/ 같은 순수
+// 모두 주입받는다. 일은 핵심 계산을 index/·check/ 같은 순수
 // 폴더에 맡기고 여기서는 순서만 정한다.
 import type { Result } from "../../../base/mod.ts";
 import type { z } from "zod";

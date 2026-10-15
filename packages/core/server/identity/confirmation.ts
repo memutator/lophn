@@ -7,8 +7,8 @@ import {
   confirmationRefSchema,
 } from "../../../protocol/base/mod.ts";
 
-// 사람 클릭의 일회 근거. 원문은 이 메모리 표에만 있고 ledger·event·log에 쓰지 않는다
-// (architecture/platform 5.6). core epoch 하나와 main 연결 하나의 수명이다.
+// 사람 클릭의 일회 근거. 원문은 이 메모리 표에만 있고 ledger·event·log에 쓰지 않는다.
+// core epoch 하나와 main 연결 하나의 수명이다.
 
 export type ConfirmationBinding = {
   target: unknown;

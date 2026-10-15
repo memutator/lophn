@@ -1,4 +1,4 @@
-// context worker와 core 사이의 계약(docs/architecture/documents.md 2.4). 공개 route가 아니다.
+// context worker와 core 사이의 계약. 공개 route가 아니다.
 // - 감독 pipe의 worker_request: `context.index`, `context.check`의 요청과 답.
 // - core가 요청을 만들 때 reader Worker에서 읽는 내부 read `context.work_input`.
 // - core가 시작할 때와 감시 집합을 정할 때 읽는 내부 read `context.work_list`.

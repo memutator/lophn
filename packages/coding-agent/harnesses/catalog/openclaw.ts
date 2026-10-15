@@ -1,6 +1,5 @@
-// OpenClaw의 배포 catalog다. 위치·format은
-// docs/domain-model/coding-agent/harnesses.md의 일곱 adapter 표를 따르고 검증
-// 근거는 docs/research/coding-agent-harness-integration.md 9.1이다. [미확인]
+// OpenClaw의 배포 catalog다.
+// [미확인]
 // capability는 unverified로 남고 성공으로 나오지 않는다.
 import {
   ADAPTER_REVISION,

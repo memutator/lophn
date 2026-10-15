@@ -1,5 +1,5 @@
-// 앱 supervisor의 신뢰 runtime 경계에서 발급하는 app credential
-// (architecture/platform 5.6). 요청은 감독 pipe의 app_credential_request다.
+// 앱 supervisor의 신뢰 runtime 경계에서 발급하는 app credential.
+// 요청은 감독 pipe의 app_credential_request다.
 // token은 이 응답으로만 나가고 앱 사용자 코드에는 없다. 종료·판 교체·회수에 폐기한다.
 
 import { err, type Logger, type Result } from "../../../base/mod.ts";

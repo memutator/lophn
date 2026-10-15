@@ -218,7 +218,7 @@ export const dataResultSchema = z.object({
 export type DataResult = z.infer<typeof dataResultSchema>;
 
 const releaseRecordActors = ["machine"] as const;
-// 준비 접수와 진행 조회는 coding agent 통로도 보낸다(architecture/apps 7.3).
+// 준비 접수와 진행 조회는 coding agent 통로도 보낸다.
 // 접수는 요청일 뿐 release 확정이 아니고 확정(prepare)은 machine만 한다.
 const releaseRequestActors = ["coding_agent", "machine"] as const;
 

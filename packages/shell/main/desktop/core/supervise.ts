@@ -23,7 +23,7 @@ export const UPDATE_STOP_MS = 60_000;
 /** hello가 이 안에 오지 않으면 core 시작이 실패다. */
 export const HELLO_TIMEOUT_MS = 30_000;
 
-// architecture/platform 2.4. core 자신은 설치 코드·data root·loopback·고정 child만 연다.
+// core 자신은 설치 코드·data root·loopback·고정 child만 연다.
 // loopback의 IPv6 주소는 Deno 규칙대로 대괄호가 필요하다.
 export const CORE_PERMISSION_FLAGS = ["--allow-sys=uid,gid,statfs"];
 

@@ -4,7 +4,7 @@
 // 캡처를 먼저 요청한 뒤 같은 창 overlay에 dialog를 연다. 앱 view는 숨기지 않는다. 보호 창·lophn
 // dialog가 떠 있거나 view가 숨겨졌으면 캡처하지 않고 이유만 남긴다. 캡처는 1,500ms까지 기다리고
 // 늦거나 그 사이 view가 바뀌면 버린다. 원문 글·binding·raw PNG는 이 모듈의 메모리에만 있고
-// 취소·창 닫힘에 버린다(architecture/shell 5.2). 제출은 problems의 `SubmitFeedback` 원자료로
+// 취소·창 닫힘에 버린다. 제출은 problems의 `SubmitFeedback` 원자료로
 // 넘기는 adapter이고 shell의 새 command가 아니다.
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";

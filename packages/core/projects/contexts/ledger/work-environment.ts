@@ -1,5 +1,4 @@
-// 검사와 preview 요청에 싣는 환경(docs/domain-model/documents/contexts.md "다른 context의 type 참조",
-// "앱 command 효과"). core가 ledger에서 읽어 싣고 worker는 다른 context의 파일이나 앱을 읽지 않는다.
+// 검사와 preview 요청에 싣는 환경. core가 ledger에서 읽어 싣고 worker는 다른 context의 파일이나 앱을 읽지 않는다.
 // - external_types: 같은 Project의 다른 active context가 적용한 판의 type 목록(제목으로 찾는다).
 // - app_commands: 판의 app-data Source가 가리키는 (app, command)의 앱 선언 효과.
 import { err, ok, type Result } from "../../../../base/mod.ts";

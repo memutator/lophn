@@ -328,7 +328,7 @@ export const mcpAuthRequestDone = defineMemory({
 });
 
 // 자리(project·app) 층의 MCP 서버 목록이다(domain model PlaceExtensionSettings).
-// 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다(open-issues extensions).
+// 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다.
 // 어느 서버·tool을 쓸지는 agent 정의가 고르므로 이 목록에는 끈 것 칸이 없다.
 const placeServersSchema = z.array(mcpServerConfigSchema).max(32).refine(
   (servers) =>

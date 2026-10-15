@@ -137,7 +137,7 @@ const readErrors = [
 
 export const GRANT_LIST_MAX_COUNT = 200;
 
-// 현재 app의 grant. 선언 교집합 계산은 read를 부르는 쪽이다(architecture/apps 5.4).
+// 현재 app의 grant. 선언 교집합 계산은 read를 부르는 쪽이다.
 export const grantsListInputSchema = z.strictObject({
   app: appIdSchema.optional(),
   status: grantStateSchema.optional(),

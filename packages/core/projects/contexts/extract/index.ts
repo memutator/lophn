@@ -1,5 +1,4 @@
 // index source: 문서가 링크한 같은 Project 문서 하나가 개체 하나다(링크 순서).
-// 규칙은 docs/domain-model/documents/contexts.md의 "추출 규칙".
 import { markdownLinks } from "./links.ts";
 import type { EntityAnchor, ExtractViolation, KindExtractor } from "./types.ts";
 

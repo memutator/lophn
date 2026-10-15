@@ -1,4 +1,4 @@
-// tool registry다(architecture/coding-agent 5.2). 고정 adapter tool의 표가
+// tool registry다. 고정 adapter tool의 표가
 // 권한 목록이며 목록 밖 op는 없다. op마다 소유 route 하나로만 routing하고
 // 임의 core API를 부르는 passthrough는 없다.
 import { z } from "zod";

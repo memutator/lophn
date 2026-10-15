@@ -341,8 +341,8 @@ async function runSelected(
   });
 }
 
-// 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산,
-// open-issues coding-agent/mcp-server). 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
+// 고른 target 하나의 설치·갱신·제거가 쓰 수 있는 파일의 정확한 절대 경로다(CLI launcher의 쓰기 권한 계산).
+// 설정 파일 하나와, 앱 범위의 관리 구간 지침 파일이다. CLI는
 // 시작 summary hook(검증한 제품의 `summary` 목적 hook)의 설정 파일을 더하고 상태 수집 hook의 파일은 더하지
 // 않는다. skill은 `selectedSkillDirs`가 따로 낸다.
 // 폴더·와일드카드·다른 제품·다른 앱의 경로는 나오지 않는다. 절대 경로로 풀리지 않으면 err다.

@@ -27,7 +27,7 @@ const NAME = /^[a-z][a-z0-9_-]*$/;
 
 const errorCodeSchema = z.enum(ERROR_CODES);
 
-// confirmation window가 받는 것이 사람의 결정인지 secret 입력인지(architecture/shell 5.1).
+// confirmation window가 받는 것이 사람의 결정인지 secret 입력인지.
 export const CONFIRMATION_KINDS = ["decision", "secret_input"] as const;
 
 export type ConfirmationKind = (typeof CONFIRMATION_KINDS)[number];

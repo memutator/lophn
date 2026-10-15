@@ -1,5 +1,4 @@
-// context worker(kind `documents/contexts`)를 core 쪽에서 띄우고 일을 보내는 조립
-// (docs/architecture/documents.md 2.4, 3.2 따라잡기, 7.4, 7.6, 7.7).
+// context worker(kind `documents/contexts`)를 core 쪽에서 띄우고 일을 보내는 조립.
 //
 // - 띄우기: 첫 요청에서 platform 감독(`createSupervisor`)으로 띄운다. kind마다 child 하나. 읽을 Project
 //   폴더가 늘면 새 권한으로 다시 띄운다.

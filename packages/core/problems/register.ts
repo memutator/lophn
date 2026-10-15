@@ -164,7 +164,7 @@ function testRunnerWorkers(): KindLaunchSpec[] {
 }
 
 // report collector는 보고 접수 통로다. core loopback에만 닿고 준비 폴더만
-// 읽는다(architecture/problems 2.2). 자식 실행 권한이 없으므로 Deno 실행 파일을
+// 읽는다. 자식 실행 권한이 없으므로 Deno 실행 파일을
 // 받지 않는다.
 function reportCollectorWorkers(): KindLaunchSpec[] {
   const root = workerRoot();

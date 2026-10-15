@@ -1,5 +1,5 @@
 // format runner 결과를 derived에 심는 기록과 재생성 target 계산.
-// consumer가 결과를 받아 한 derived transaction에 심는다(architecture/documents 7.4).
+// consumer가 결과를 받아 한 derived transaction에 심는다.
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
 import { ok, type Result } from "../../../base/mod.ts";
 import { z } from "zod";

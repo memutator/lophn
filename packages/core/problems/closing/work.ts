@@ -1,4 +1,4 @@
-// `problems.closing` 반응기(architecture/problems 7.6).
+// `problems.closing` 반응기.
 // test-runner kind 안에서 돌고 ledger를 직접 열지 않는다. VerificationRecorded·
 // ReleaseActivated·ProblemObserved event를 cursor 뒤에서 읽어 후보를 다시 평가하고,
 // reproduction pass 근거가 조건을 충족하면 CloseProblemVerified를 낸다. event는 깨우는

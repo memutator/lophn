@@ -1,4 +1,4 @@
-// 조건을 한 행에 대해 판정한다. 규칙은 docs/domain-model/documents/contexts.md "실행 규칙"이다.
+// 조건을 한 행에 대해 판정한다.
 import type { Condition } from "../../../../protocol/projects/mod.ts";
 import { valueAt } from "./row.ts";
 import type { InputValues, Row } from "./types.ts";

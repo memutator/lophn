@@ -5,7 +5,7 @@ export const GUEST_CONTRACT_VERSION = 1;
 // 덮어쓰지 않는다. 정본은 이 자리고 module-hash.ts·bundle.ts가 같은 근원으로 쓴다.
 export const EXTRACTION_RULES_VERSION = 1;
 
-// architecture/documents 2.2 초기 조절값. domain 원문 크기 제한이 아니다.
+// 초기 조절값. domain 원문 크기 제한이 아니다.
 export const GUEST_MEMORY_BYTES = 64 * 1024 * 1024;
 export const GUEST_CALL_TIMEOUT_MS = 5_000;
 export const GUEST_INPUT_MAX_BYTES = 16 * 1024 * 1024;

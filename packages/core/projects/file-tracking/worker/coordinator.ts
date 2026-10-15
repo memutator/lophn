@@ -1,5 +1,5 @@
 // documents/worker coordinator. 준비 worker 2 slot을 띄우고 root별 후보 큐를
-// round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts의
+// round-robin으로 배분한다. codec은 contracts의
 // supervision 하나다. kind와 root는 환경으로만 받는다.
 import {
   type KindLaunchSpec,
@@ -367,7 +367,7 @@ export async function runCoordinator(root: string): Promise<void> {
   // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
   const session: { current?: ChildSession } = {};
   const coordinator: { current?: Coordinator } = {};
-  // 준비 worker pool(architecture/documents 2.1). coordinator가 띄우고 감독한다. 권한을 줄
+  // 준비 worker pool. coordinator가 띄우고 감독한다. 권한을 줄
   // root는 core가 보낸 근거의 등록 폴더 전부다(tracking을 껐어도 사람이 쓴다). 관측 root가
   // 아니다. worker는 첫 요청에서 띄운다.
   const rootsOf = () => basis.folders().map((entry) => entry.path);

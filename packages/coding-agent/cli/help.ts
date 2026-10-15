@@ -1,4 +1,4 @@
-// CLI 도움말(architecture/coding-agent 5.4). 사람 help와 `help --json`
+// CLI 도움말. 사람 help와 `help --json`
 // 을 같은 command registry에서 만든다. 화면 문구가 아니라 기술 문장이므로
 // wording key를 쓰지 않는다(exceptions: shell 화면 전용).
 import {

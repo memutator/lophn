@@ -8,7 +8,6 @@ const BACKUP_READERS: readonly ActorKind[] = ACTOR_KINDS.filter((kind) =>
   kind !== "coding_agent"
 );
 
-// architecture/platform 7.5. domain model의 BackupManifest 필드와 같다.
 export const BACKUP_MANIFEST_FORMAT = 1;
 
 export const BACKUP_LEDGER_PATH = "ledger.db";

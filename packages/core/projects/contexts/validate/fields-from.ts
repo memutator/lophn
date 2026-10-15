@@ -1,4 +1,4 @@
-// 출처 kind별로 field가 쓸 수 있는 FieldFrom과 path capture 이름. docs/domain-model/documents/contexts.md의 Field 표를 옮긴 것이다.
+// 출처 kind별로 field가 쓸 수 있는 FieldFrom과 path capture 이름.
 import type {
   ContextSourceKind,
   ContractSource,

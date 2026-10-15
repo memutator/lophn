@@ -1,4 +1,4 @@
-// CLI 실행 argv의 권한 계산이다(architecture/coding-agent 2.2, open-issues coding-agent/mcp-server).
+// CLI 실행 argv의 권한 계산이다.
 // 일반 CLI는 core loopback과 helper 실행뿐이고, 설치·감지·`daemon`·`sdk add --apply`가 요구하는 write·run은
 // 정확한 경로와 파일로만 준다: 선택한 제품 설정 파일, `<H>/integrations`, 앱 source의 `deno.json`·`deno.lock`,
 // instance lock 파일, 설치 Deno와 `lophn-desktop`, PATH 폴더 읽기. `-A`·일반 `--allow-write`·`--allow-run`,

@@ -96,7 +96,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     violations.push({ file, line, rule, message });
 
   for (const path of paths) {
-    if (!/^(packages|apps|tools|e2e)\//.test(path)) continue;
+    if (!/^(packages|tools)\//.test(path)) continue;
     const segment = path.slice(path.lastIndexOf("/") + 1);
     if (numberedName(segment)) {
       add(path, 1, "name", `판·단계·작업 번호 이름 금지: ${segment}`);

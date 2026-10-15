@@ -1,4 +1,4 @@
-// 준비 worker의 launch spec. 권한은 architecture/documents 2.2를 따른다: 현재 등록 root·working
+// 준비 worker의 launch spec. 권한은 현재 등록 root·working
 // copy·staging의 read와 파일 작업에 필요한 경로의 write뿐이고 network·env·subprocess·FFI는
 // 없다. coordinator가 자기 근거(등록 root)로 만든다. core의 workerSpecs가 선언한 같은 kind의
 // spec과 같은 entry·한도를 쓴다.

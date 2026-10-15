@@ -1,4 +1,4 @@
-// `lophn` launcher가 실행 전에 부르는 권한 계획 entry다(open-issues coding-agent/mcp-server). 같은
+// `lophn` launcher가 실행 전에 부르는 권한 계획 entry다. 같은
 // argv에서 사람이 고른 target·앱을 읽어 이 실행이 더 열 정확한 파일 권한 flag만 한 줄씩 낸다. 읽기·net·helper
 // 실행은 CLI와 같다. `--allow-run`은 `harness refresh`에만 감지가 찾은 제품 실행 파일의 정확한 경로로 더한다.
 // 계산하지 못하면 아무것도 내지 않는다(그 command는 권한이 없어 unavailable로 끝난다). 오류 내용도 내지 않는다:

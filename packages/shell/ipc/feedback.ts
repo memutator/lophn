@@ -1,7 +1,7 @@
 // [Report a problem] 경계(FEEDBACK_IPC·FEEDBACK_PUSH의 사본). main tsc는 contracts
 // package를 보지 않으므로 같은 모양을 여기 둔다.
 // 원문 글·binding·raw capture는 main 메모리에만 있고 renderer에는
-// draftRef와 안전한 미리보기만 온다(architecture/shell 5.2).
+// draftRef와 안전한 미리보기만 온다.
 import { z } from "zod";
 
 export const FEEDBACK_BEGIN_CHANNEL = "shell:feedback-begin";

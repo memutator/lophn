@@ -1,4 +1,3 @@
-// docs/dev/stack.md "개발 환경", docs/plan/contracts.md의 `deno task dev`.
 // 실행: deno task dev, deno task dev:core, deno task dev:mock
 //
 // shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다.

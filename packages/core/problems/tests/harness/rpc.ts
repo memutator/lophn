@@ -1,7 +1,7 @@
 // test 자식(harness)과 runner 사이의 private 호출 통로다. 자식은 scratch 폴더(`rpc/`)에 요청 파일을
 // 쓰고 runner가 응답 파일을 쓴다. 자식에는 net·run 권한이 없으므로 이 폴더가 둘이 주고받는 유일한
 // 길이다. runner가 실제 앱 자식과 broker를 쥐고 AppDriver를 구현하고, 자식은 이 통로로만 만진다
-// (architecture/problems 2.2: 앱 code는 격리 자식, harness는 따로 도는 test 자식이다).
+// (앱 code는 격리 자식, harness는 따로 도는 test 자식이다).
 import {
   type AppDriver,
   type Attestation,

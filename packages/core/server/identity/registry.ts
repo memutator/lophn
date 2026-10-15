@@ -188,8 +188,8 @@ export class CredentialRegistry {
           context.scope.operations.length === 0 ||
           Object.keys(context.scope.targets).length === 0)
       ) return invalid();
-      // app 자격은 supervisor가 고정 app·release·process·mode로 요청한다
-      // (architecture/platform 5.6). 조건에 없는 target을 넓혀도 같은 조건으로 고정한다.
+      // app 자격은 supervisor가 고정 app·release·process·mode로 요청한다.
+      // 조건에 없는 target을 넓혀도 같은 조건으로 고정한다.
       if (kind === "app") {
         // release는 live에 필수다. 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
         const releaseless = context.conditions.release === undefined &&

@@ -3,7 +3,7 @@
 const MIB = 1024 * 1024;
 const KIB = 1024;
 
-// architecture/platform 5.8의 고정 한도.
+// 고정 한도.
 export const REDACTION_UNIT_MAX_BYTES = MIB;
 export const REDACTION_MAX_DEPTH = 16;
 export const REDACTION_MAX_ITEMS = 4096;

@@ -45,8 +45,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// 살아 있는 preview 프로세스의 시작 요청. App 활성 참조를 바꾸지 않는다
-// (architecture/apps 5.4; domain-model apps/preview 정책).
+// 살아 있는 preview 프로세스의 시작 요청. App 활성 참조를 바꾸지 않는다.
 export const previewsStartInputSchema = z.strictObject({
   input: previewInputSchema,
 });

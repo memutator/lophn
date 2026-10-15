@@ -8,7 +8,7 @@ import type {
   CredentialScope,
 } from "../../../protocol/server/mod.ts";
 
-// run마다 agent credential을 받고 끝내는 자리(architecture/platform 5.6의 `agent:<asg>`).
+// run마다 agent credential을 받고 끝내는 자리(`agent:<asg>`).
 // 발급은 platform의 인증 경계가 하고 이 모듈은 그 port를 부른다. credential은
 // 유효 assignment·run 하나에 묶이고 AgentAppScope는 StartRun에 실은 값 그대로다.
 // platform이 상한을 넓히지 못하게 하고, 이 모듈도 scope를 고치지 않는다.

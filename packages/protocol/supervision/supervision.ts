@@ -397,8 +397,8 @@ export const childMessageSchema = z.union([
   secretSendRequestSchema,
   blobPrepareRequestSchema,
 ]);
-// 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다
-// (architecture/platform 5.6). 비교 op는 이 연결에서 main 신원을 인증하며
+// 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다.
+// 비교 op는 이 연결에서 main 신원을 인증하며
 // renderer HTTP token과 worker context를 신뢰하지 않는다.
 export const mainToCoreMessageSchema = z.union([
   diagnosticSchema,

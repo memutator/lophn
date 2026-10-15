@@ -1,6 +1,5 @@
 // Document·Version의 순수 규칙. SQL·clock·난수는 없다.
-// content_hash는 고정 필드 JSON을 codepoint 순으로 정렬한 UTF-8의 SHA-256이다
-// (domain-model/documents/versions "정할 것", architecture/documents 96행).
+// content_hash는 고정 필드 JSON을 codepoint 순으로 정렬한 UTF-8의 SHA-256이다.
 
 import { sha256Hex } from "../../../base/mod.ts";
 import type { ContentFile, FormatRef } from "../../../protocol/projects/mod.ts";

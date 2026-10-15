@@ -60,7 +60,7 @@ export type CredentialCheck = (
 
 export type CommandExecutorDeps = TxDeps & {
   checkCredential: CredentialCheck;
-  // 사람 결정 확인. 없으면 confirmation route는 쓸 수 없다(architecture/platform 5.6).
+  // 사람 결정 확인. 없으면 confirmation route는 쓸 수 없다.
   confirmation?: ConfirmationBridge;
 };
 

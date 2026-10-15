@@ -7,7 +7,7 @@ import {
 import { missingReasonInputSchema } from "../problems/snapshots.ts";
 import { REPORTING_LIMITS } from "../problems/sdk-report.ts";
 
-// 버튼 시점 고정 참조. 원문은 main 메모리다(architecture/shell 5.2).
+// 버튼 시점 고정 참조. 원문은 main 메모리다.
 const draftRefSchema = z.string().min(1).refine(
   (value) => !/\p{Cc}/u.test(value),
   { message: "draft ref contains a control character" },

@@ -34,7 +34,7 @@ const LIMIT_TOOLS = [
 ] as const;
 
 // packaged core의 --allow-env에는 이 이름이 없다. 권한이 없으면 host가 없는 것과 같고,
-// 화면 검사를 띄울 수 없는 spec이 된다(architecture/problems 2.2).
+// 화면 검사를 띄울 수 없는 spec이 된다.
 export function screenTestHost(): string | undefined {
   try {
     return Deno.env.get("SCREEN_TEST_HOST");
@@ -44,7 +44,7 @@ export function screenTestHost(): string | undefined {
 }
 
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고, 승인된 Deno 실행 파일과 자식을
-// 거는 platform 도구, 화면 검사 host만 --allow-run으로 받는다(architecture/problems 2.2). net은 고정
+// 거는 platform 도구, 화면 검사 host만 --allow-run으로 받는다. net은 고정
 // socket 자리와 가상 host, core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.
 export function testRunnerSpec(input: {
   dataRoot: string;
@@ -105,7 +105,7 @@ export function testRunnerSpec(input: {
 }
 
 // report collector는 준비 폴더의 bundle 사본과 blueprint만 읽고, core loopback에만
-// 닿는다(architecture/problems 2.2). 쓰기·자식 실행 권한은 없다.
+// 닿는다. 쓰기·자식 실행 권한은 없다.
 export function reportCollectorSpec(input: {
   dataRoot: string;
 }): KindLaunchSpec | undefined {

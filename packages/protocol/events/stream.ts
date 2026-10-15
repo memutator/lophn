@@ -8,7 +8,6 @@ import {
 } from "./events.ts";
 import { seqSchema } from "../base/values.ts";
 
-// architecture/platform 5.4.
 export const EVENT_SUBSCRIBE_PATH = "/v1/events/subscribe";
 export const EVENT_SUBSCRIBE_SUBPROTOCOL = "lophn.events.1";
 
@@ -22,7 +21,7 @@ const filterFields = {
 };
 
 // from_seq는 포함한다. 빈 배열은 제한하지 않는다.
-// 이름 있는 구독은 명시 from이 없으면 저장 ack 다음부터 시작한다(architecture/platform 5.4).
+// 이름 있는 구독은 명시 from이 없으면 저장 ack 다음부터 시작한다.
 // schema는 그 시작 seq를 정하지 않는다. "저장 ack + 1"과 "저장 없으면 0"의 해석은
 // platform runtime의 몫이고, 여기서는 '0'을 주입하지 않는다. 현재 principal·이름으로
 // 저장된 위치와 그 재연결을 잇는 일도 runtime이 한다.

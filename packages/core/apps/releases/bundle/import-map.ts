@@ -136,7 +136,7 @@ export function validDependencyName(name: string): boolean {
   return packageNameSchema.safeParse(name).success;
 }
 
-// bundle 잠금 import map(플랫폼 생성 고정 import map, architecture/apps 2.3).
+// bundle 잠금 import map(플랫폼 생성 고정 import map).
 // SDK specifier만 bundle 안 상대 경로로 풀어 놓는다. 상대 specifier는 파일 그대로다.
 export function lockedImportMap(
   dependencies: readonly { name: string; version: string }[],

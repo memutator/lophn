@@ -151,7 +151,7 @@ export type ValidateFilesRequest = {
 
 // 검사로 보내는 바이트의 상한은 contracts의 FORMAT_CHECK_CONTENT_MAX_BYTES(대표 파일
 // 1 MiB)다. 넘는 검사는 요청하지 않는다. 미지원처럼 꾸미지 않고 한도를 밝힌
-// invalid_input이다(architecture/documents 2.2).
+// invalid_input이다.
 export const VALIDATE_INPUT_MAX_BYTES = FORMAT_CHECK_CONTENT_MAX_BYTES;
 
 export function parseValidateFilesRequest(

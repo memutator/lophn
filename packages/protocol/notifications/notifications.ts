@@ -12,8 +12,8 @@ export const notificationSchema = z.object({
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
-// 계기 표는 source event 이름과 생성 조건, 사람이 Ask를 골랐을 때 부를 agent를 적는다
-// (architecture/platform 5.10). payload type은 소유 contracts가
+// 계기 표는 source event 이름과 생성 조건, 사람이 Ask를 골랐을 때 부를 agent를 적는다.
+// payload type은 소유 contracts가
 // 나중에 준다. 아직 없는 event는 이름 문자열만 쓴다.
 //
 // ask_agent는 계기 종류마다 고정된 role이거나 null(보기만)이다. 내용을 읽어 정하지 않는다.

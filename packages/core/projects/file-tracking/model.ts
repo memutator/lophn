@@ -1,5 +1,5 @@
 // 작업 배분의 값과 상태 전이. 순수 함수만 둔다. 시각·난수·파일 시스템은 인자로 받는다.
-// architecture/documents 2.3: root별 iterator와 후보 큐, round-robin 128 entry 배분,
+// root별 iterator와 후보 큐, round-robin 128 entry 배분,
 // 후보 10,000 초과는 rescan_required, 준비 동시 2 slot(사람 요청 우선), 결과 제출 동시 2.
 import type { DirectoryEntry } from "../registry/mod.ts";
 import type { Result } from "../../../base/mod.ts";
@@ -10,7 +10,7 @@ export const DISPATCH_BATCH = 128;
 // 한 root의 후보가 이 수를 넘으면 개별 후보 대신 rescan_required 하나만 남긴다.
 export const CANDIDATE_LIMIT = 10_000;
 
-// 준비 worker 동시 slot 수. architecture/documents 2.1의 고정 값이다.
+// 준비 worker 동시 slot 수. 고정 값이다.
 export const PREPARATION_SLOTS = 2;
 
 // 결과 command 동시 제출 한도. platform command 접수 한도에 맞춘 고정 값이다.

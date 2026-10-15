@@ -103,7 +103,7 @@ export type SchemaCompatibilityState = z.infer<
   typeof schemaCompatibilityStateSchema
 >;
 
-// 정상 정지 순서(architecture/platform 8). 창을 닫는 것은 이 순서가 아니다.
+// 정상 정지 순서. 창을 닫는 것은 이 순서가 아니다.
 export const CLEAN_SHUTDOWN_STEPS = [
   "close_admission",
   "finish_commands",

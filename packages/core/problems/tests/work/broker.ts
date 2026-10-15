@@ -1,5 +1,5 @@
-// test 앱 자식의 SDK 보고를 runner가 broker로 받아 collector에 넘긴다
-// (architecture/problems 2.2). 자식은 core·collector 주소와 credential을 받지
+// test 앱 자식의 SDK 보고를 runner가 broker로 받아 collector에 넘긴다.
+// 자식은 core·collector 주소와 credential을 받지
 // 않는다. 자식 메시지로 live 전환이나 결과 기록을 요청할 수 없다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { reportProblemInputSchema } from "../../../../protocol/problems/mod.ts";

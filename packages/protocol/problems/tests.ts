@@ -339,7 +339,7 @@ export const recordVerification = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 // runner가 요청 기록을 이어 붙이는 command다. 사람·agent·앱에는 열리지 않고 요청별 좁은 machine
-// credential만 부른다(architecture/problems 2.2). 판정 근거는 owner(problems/tests)가 같은 transaction에서 다시 본다.
+// credential만 부른다. 판정 근거는 owner(problems/tests)가 같은 transaction에서 다시 본다.
 const lifecycleProofSchema = z.strictObject({
   machine_principal: nonempty,
   phase: z.enum([

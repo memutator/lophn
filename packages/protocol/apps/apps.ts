@@ -80,7 +80,7 @@ export const appConnectSourceInputSchema = z.strictObject({
 });
 export const appInputSchema = z.strictObject({ app: appIdSchema });
 
-// 등록은 user 또는 전체 scope coding connection만 받는다(architecture/apps 5.4).
+// 등록은 user 또는 전체 scope coding connection만 받는다.
 export const appCreate = defineCommand({
   resource: "apps",
   method: "create",

@@ -1,4 +1,4 @@
-// OAuth 로그인 작업(조사 docs/research/provider-auth.md).
+// OAuth 로그인 작업.
 // chatgpt는 공식 Sign in with ChatGPT(실제 lophn 앱 이름의 dynamic client 등록·발급
 // client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증)이고
 // supergrok은 xAI discovery(fake 포함)와 device code flow다. 활성 gate는

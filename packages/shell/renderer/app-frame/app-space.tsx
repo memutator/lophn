@@ -1,4 +1,4 @@
-// 앱 공간(architecture/shell 2.4 `/apps/:app`). 얇은 바 아래 본문 전체에
+// 앱 공간(`/apps/:app`). 얇은 바 아래 본문 전체에
 // 그 앱의 native view 하나를 붙인다. 운영 패널은 720px로 열고 좁은 창에서는 본문을 덮되 앱
 // view는 덮이지 않는 영역으로 줄어든다. lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다.
 // 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(EmbeddedView).

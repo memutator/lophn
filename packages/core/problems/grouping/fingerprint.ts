@@ -1,4 +1,4 @@
-// 예외 지문과 묶기 key 준비(architecture/problems 7.3).
+// 예외 지문과 묶기 key 준비.
 // 지문은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function canonical JSON
 // 전체 SHA-256이다. line·column·오류 message·업무 값·절대 path·SDK·runtime
 // frame을 빼고 사람이 읽을 원래 위치는 ErrorEvidence에 남긴다. 앱 frame 0개는
@@ -64,7 +64,7 @@ export async function exceptionGroupKey(
   };
 }
 
-// 잘못된 보고 묶기 key(architecture/problems 5.1). 안전하게 남길
+// 잘못된 보고 묶기 key. 안전하게 남길
 // 수 있는 잘못된 code(식별자 모양의 짧은 소문자 문자열)는 그 값을
 // discriminator로 쓰고, 안전하지 않으면 원래 Report ID로 나눈다.
 const SAFE_WRONG_CODE = /^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/;

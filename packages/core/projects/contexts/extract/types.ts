@@ -1,5 +1,4 @@
 // 계약(kind·field)으로 Project 파일에서 개체를 뽑는 순수 함수들이 함께 쓰는 모양.
-// 규칙의 뜻은 docs/domain-model/documents/contexts.md의 "추출 규칙"이다.
 import type {
   ContractField,
   ContractSource,

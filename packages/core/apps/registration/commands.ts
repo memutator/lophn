@@ -160,7 +160,7 @@ export function createAppCommands(): {
         if (!current.ok) return current;
         if (current.value === null) return notFound();
         // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인은
-        // core에 두지 않는다(architecture/apps 배치표). bundle 준비 때 release
+        // core에 두지 않는다. bundle 준비 때 release
         // worker가 연결된 실제 source 경계를 읽고, 없는 source는 준비 실패가 된다.
         const resolved = input.source_path;
         const changed: App = { ...current.value, source_path: resolved };

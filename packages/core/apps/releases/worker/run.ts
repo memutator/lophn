@@ -1,6 +1,6 @@
 // release worker job. supervisor가 준비 요청마다 띄우고 부모와 stdio JSON으로
-// 이야기한다. 플랫폼 credential은 받지 않는다
-// (architecture/apps 2.1). kind와 root는 환경으로만 받는다.
+// 이야기한다. 플랫폼 credential은 받지 않는다.
+// kind와 root는 환경으로만 받는다.
 import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import {
   type ChildSession,

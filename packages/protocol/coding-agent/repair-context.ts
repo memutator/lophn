@@ -34,7 +34,7 @@ export type SectionKind = (typeof SECTION_KINDS)[number];
 
 export const sectionKindSchema = z.enum(SECTION_KINDS);
 
-// 절별 기본 묶음 상한(docs/domain-model 절 순서와 내용 표). 줄·문자 쌍 상한도 있다.
+// 절별 기본 묶음 상한. 줄·문자 쌍 상한도 있다.
 export const SECTION_LIMITS = {
   target_symptom: { lines_per_problem: 1, lines_total: 2 },
   human_text: { lines_total: 5, chars_per_problem: 300 },

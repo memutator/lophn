@@ -18,7 +18,7 @@ import {
 } from "../../protocol/base/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 
-// body를 읽기 전의 고정 한도(architecture/platform 2.3).
+// body를 읽기 전의 고정 한도.
 export const BODY_TIMEOUT_MS = 5_000;
 export const JSON_MAX_BYTES = RPC_JSON_MAX_BYTES;
 export const JSON_MAX_DEPTH = RPC_JSON_MAX_DEPTH;

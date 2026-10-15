@@ -1,20 +1,20 @@
-// major는 1만 제공한다(architecture/platform 5.1).
+// major는 1만 제공한다.
 export const API_MAJOR = 1;
 
 export const DEFAULT_API_PORT = 7431;
 
 const KIB = 1024;
 
-// architecture/platform 2.3의 고정 안전 기본값.
+// 고정 안전 기본값.
 export const RPC_JSON_MAX_BYTES = 256 * KIB;
 export const RPC_JSON_MAX_DEPTH = 16;
 export const RPC_JSON_MAX_ITEMS = 4096;
 export const HEADER_MAX_BYTES = 8 * KIB;
 
-// architecture/platform 5.2: idempotency key는 UTF-8 1~128 bytes.
+// idempotency key는 UTF-8 1~128 bytes.
 export const IDEMPOTENCY_KEY_MIN_BYTES = 1;
 export const IDEMPOTENCY_KEY_MAX_BYTES = 128;
 
-// architecture/platform 2.3: event batch 256개·256KiB.
+// event batch 256개·256KiB.
 export const EVENT_BATCH_MAX_COUNT = 256;
 export const EVENT_BATCH_MAX_BYTES = 256 * KIB;

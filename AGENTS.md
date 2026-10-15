@@ -20,15 +20,16 @@
 
 ## 문서
 
-무엇을 만들지는 `docs/`가 정한다. 먼저 [docs/README.md](docs/README.md)를 읽는다. 문서는 concern 단위로 나뉘고, 맡은 concern의 문서만 읽는다. intent는 사람만 고친다. 정할 수 없는 것은 [open-issues.md](open-issues.md)에 올리고 추천안으로 진행한다. 문서를 고친 뒤에는 `node tools/check-docs.ts`를 돌린다.
+무엇을 만들지는 `project-docs/`가 정한다. 먼저 [PRODUCT.md](project-docs/PRODUCT.md)를 읽고, 맡은 일에 걸린 요구(`project-docs/requirements/`)와 spec(`project-docs/tmp/specs/`)만 읽는다. 정할 수 없는 것은 보고하고 추천안으로 진행한다.
 
 ## 코드
 
-어떻게 만들지는 [docs/dev/](docs/dev/README.md)가 정한다.
+어떻게 만들지는 [project-docs/dev/](project-docs/dev/README.md)가, 순서와 작업 단위는 [project-docs/plan/](project-docs/plan/README.md)이 정한다.
 
-* 코드 자리와 package 사이 import 방향은 [code-map.md](docs/dev/code-map.md)를 따른다. core를 import하는 것은 core뿐이다.
-* 모듈 모양, 의존 방향, 오류, 이름은 [architecture.md](docs/dev/architecture.md)를 따른다. 이름과 경로에 `v2`, `milestone1`, `w07` 같은 판·단계·작업 번호를 넣지 않는다.
-* 작업은 [tasks.md](docs/dev/tasks.md)의 완료 기준을 모두 채워야 끝난다. 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다.
+* 코드 위치와 package 사이 import 방향은 [code-map.md](project-docs/dev/code-map.md)를 따른다. core를 import하는 것은 core뿐이다.
+* 모듈 모양, 의존 방향, 오류, 이름은 [code.md](project-docs/dev/code.md)를 따른다. 이름과 경로에 `v2`, `milestone1`, `w07` 같은 판·단계·작업 번호를 넣지 않는다.
+* 테스트는 [testing.md](project-docs/dev/testing.md)를 따른다.
+* 작업은 [workflow.md](project-docs/dev/workflow.md)의 끝남 기준을 모두 채워야 끝난다. 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다.
 * 끝내기 전에 `deno task check`를 돌린다.
 
 ## 호환성
@@ -44,4 +45,4 @@ MVP 이전이다. 호환성보다 뒤에 헷갈리지 않는 깔끔함이 먼저
 일을 worker(subagent)에게 맡길 때 model은 이렇게 고른다.
 
 * 보통은 `sonnet-high`를 쓴다.
-* 범위가 작고 실수할 여지가 없는 쉬운 일인데 token을 많이 써야 하면 `mimo-v2.6-flash`를 쓴다.
+* `mimo-v2.6-flash`는 쓰지 않는다.

@@ -1,4 +1,4 @@
-// context worker: kind `documents/contexts`(docs/architecture/documents.md 2.4). core가 감독 pipe로
+// context worker: kind `documents/contexts`. core가 감독 pipe로
 // 보내는 세 일을 한다.
 // - `context.index`: 계약이 가리키는 파일을 stat으로 훑어 derived/contexts.sqlite를 갱신한다
 //   (이 worker가 그 파일의 유일한 writer다).

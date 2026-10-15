@@ -1,4 +1,4 @@
-// 앱별 broker socket의 HTTP 서버다(architecture/apps 2.1, 5.4). 자식 하나의 credential·mode·nonce에
+// 앱별 broker socket의 HTTP 서버다. 자식 하나의 credential·mode·nonce에
 // 묶이고 아래 서비스만 낸다. core API의 임의 proxy가 아니며 모르는 경로는 없는 경로와 같은
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";

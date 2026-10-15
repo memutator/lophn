@@ -10,7 +10,7 @@ import { confirmationRefSchema } from "./confirmation-handle.ts";
 
 const encoder = new TextEncoder();
 
-// UTF-8 1~128 bytes(architecture/platform 5.2).
+// UTF-8 1~128 bytes.
 export const idempotencyKeySchema = z.string().refine((value) => {
   const bytes = encoder.encode(value).length;
   return bytes >= IDEMPOTENCY_KEY_MIN_BYTES &&
@@ -106,7 +106,7 @@ export const readMetaSchema = z.object({
 
 export type ReadMeta = z.infer<typeof readMetaSchema>;
 
-// 응답에서 빠지거나 잘린 범위를 명시한다(architecture/platform 5.3). 범위 밖 대상은 개수도 세지 않으므로 이유에 없다.
+// 응답에서 빠지거나 잘린 범위를 명시한다. 범위 밖 대상은 개수도 세지 않으므로 이유에 없다.
 export const omissionSchema = z.object({
   reason: z.enum(["page_limit", "byte_limit"]),
   count: z.number().refine((n) => Number.isSafeInteger(n) && n >= 0),

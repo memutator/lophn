@@ -104,7 +104,7 @@ export interface ViewListing {
 }
 
 /**
- * [Report a problem]이 버튼 시점에 고정하는 view(architecture/shell 5.2 feedback binding).
+ * [Report a problem]이 버튼 시점에 고정하는 view.
  * capture는 같은 contents·generation일 때만 그 view를 찍고, `current`는 그 사이 교체·폐기가
  * 없었는지 본다.
  */

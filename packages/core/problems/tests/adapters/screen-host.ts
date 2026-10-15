@@ -24,7 +24,7 @@ export const SCREEN_OBSERVATION_MAX_BYTES = 65_536;
 export const SCREEN_HOST_GRACE_MS = 30_000;
 
 export type ScreenHostOptions = {
-  // shell이 설치한 host 실행 파일의 절대 경로(architecture/problems 2.2).
+  // shell이 설치한 host 실행 파일의 절대 경로.
   command: string;
   // 실행 파일 앞에 붙는 인자. 개발 build는 `[main.cjs]`다.
   args?: readonly string[];

@@ -1,4 +1,4 @@
-// `problems.work` 반응기(architecture/problems 7.6). test-runner kind
+// `problems.work` 반응기. test-runner kind
 // 안에서 돌고 ledger를 직접 열지 않는다. ticket event를 cursor 뒤에서 읽어 event가 가리키는
 // 문제마다 ReconcileProblemWork를 낸다. event는 깨우는 신호이고 상태는 command가 ticket 정본에서
 // 다시 읽는다. 반응 key는 `(subscriber, cause_seq, reaction)`이고, 처리한 위치는

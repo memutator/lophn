@@ -23,7 +23,7 @@ import { checkViewError } from "./view-error.ts";
 export const FRAME_MAX_BYTES = 65_536;
 /** load 뒤 늦게 오는 오류(timer·rejection)를 기다리는 시간. */
 export const SETTLE_MS = 1_000;
-/** feedback 캡처·dialog를 기다리는 한계. 운영 feedback의 캡처 대기와 같다(architecture/shell 7.4). */
+/** feedback 캡처·dialog를 기다리는 한계. 운영 feedback의 캡처 대기와 같다. */
 export const FEEDBACK_MS = 1_500;
 /** 일부러 멈춘 renderer가 응답하지 않는지 기다리는 시간. */
 export const BLOCK_RESPONSE_MS = 500;

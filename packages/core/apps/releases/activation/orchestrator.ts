@@ -1,4 +1,4 @@
-// activation 한 시도를 순서대로 진행한다(architecture/apps 7.4).
+// activation 한 시도를 순서대로 진행한다.
 // ReleaseActivationStarted 뒤에 supervisor가 부르고 순서는 이전 자식 종료 확인 → 실제 schema 확인 → (필요하면)
 // 보호 backup 확정 → migration → 새 앱 준비 확인(probe) → complete_activation commit → 업무 통로 open이다.
 // 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않고, commit 전 실패는 복원·fail_activation·이전 release

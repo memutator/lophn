@@ -57,7 +57,7 @@ export interface CurrentViewState {
 }
 
 // renderer가 보내는 layout 힌트. UI 참조만이고 무엇이 살아 있는지는 힌트가
-// 정하지 않는다 — main의 registry·scope가 확정한다(architecture/shell 5.3).
+// 정하지 않는다 — main의 registry·scope가 확정한다.
 export interface LayoutHint {
   window_ref: string;
   project: string | null;

@@ -1,4 +1,4 @@
-// MCP server 로직이다(architecture/coding-agent 5.1). initialize·tools/list는
+// MCP server 로직이다. initialize·tools/list는
 // core에 닿지 않고 답한다. tools/call은 registry의 route로만 dispatch한다.
 // protocol 오류는 JSON parse -32700, request -32600, method -32601, tool·params
 // -32602다. 알려진 tool의 실행·scope·입력 실패는 isError true다.

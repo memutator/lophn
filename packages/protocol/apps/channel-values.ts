@@ -6,7 +6,7 @@ import { jsonValueSchema } from "../base/json-values.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { releaseIdSchema } from "./apps.ts";
 
-// architecture/apps 5.1의 로컬 socket 경로. core API가 아니다.
+// 로컬 socket 경로. core API가 아니다.
 export const DIRECT_SOCKET_PATHS = {
   screen: "/screens",
   invoke: "/_lophn/commands/invoke",
@@ -52,7 +52,7 @@ export const AUTOMATION_CONCURRENCY_LIMIT = 4;
 export const AUTOMATION_TIMEOUT_MS = 600_000;
 // 내부 trace 이름 상한.
 export const TRACE_NAME_MAX_CHARS = 64;
-// socket 경로 UTF-8 상한(architecture/apps 2.2).
+// socket 경로 UTF-8 상한.
 export const SOCKET_PATH_MAX_BYTES = 104;
 
 // test는 problems runner가 같은 진입점으로 띄우는 프로세스다.

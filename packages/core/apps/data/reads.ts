@@ -1,4 +1,4 @@
-// /v1/apps/export의 worker route 서빙(architecture/apps 5.4). 단독 data
+// /v1/apps/export의 worker route 서빙. 단독 data
 // worker가 준보하는 앱 export다. 준비 본체는 worker/export.ts가 하고, 이 모듈은 거기에
 // 필요한 것을 core 조립에서 주입받아 모은다: ledger 읽기(snapshot), 요청 자격 재검사
 // (current), 앱 접근 판정(TargetAuthorization port), 데이터 root.

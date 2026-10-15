@@ -1,9 +1,9 @@
-// 깨진 앱 view의 상태와 새 view 열기(architecture/shell 실패 표 "앱 view
-// crash·무한 loop"). renderer process가 사라지면 crashed, 응답이 없으면 unresponsive다. 이
+// 깨진 앱 view의 상태와 새 view 열기(앱 view
+// crash·무한 loop). renderer process가 사라지면 crashed, 응답이 없으면 unresponsive다. 이
 // 상태는 연결 상태와 함께 그 창의 shell 크롬에 알린다. main은 깨진 view를 스스로 다시
 // load하거나 앱을 다시 부르지 않는다: 사람이 [새 view 열기]를 누를 때만 지금 연결(같은
 // binding)로 새 contents를 만든다. 다른 view·shell 크롬은 각자의 process라 그대로 동작하지만
-// WebContents 분리가 CPU·메모리 격리를 약속하지는 않는다(architecture/shell 보장하지 않는 것).
+// WebContents 분리가 CPU·메모리 격리를 약속하지는 않는다.
 export type ViewHealth = "ok" | "unresponsive" | "crashed";
 
 /** Electron webContents에서 오는 view 상태 신호. */

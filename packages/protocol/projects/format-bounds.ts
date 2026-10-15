@@ -3,7 +3,7 @@ import type { z } from "zod";
 const MIB = 1024 * 1024;
 const KIB = 1024;
 
-// architecture/documents 2.2 초기 조절값. domain 원문 크기 제한이 아니다.
+// 초기 조절값. domain 원문 크기 제한이 아니다.
 // FORMAT_INPUT_MAX_BYTES는 guest가 받는 입력 JSON 문자열의 상한이다. 파일 바이트는 JSON
 // 숫자 배열로 들어가 한 바이트가 3~4자가 되고 guest 안에서는 원소마다 값 하나를 차지하므로
 // 파일 크기의 상한은 아래 FORMAT_CHECK_CONTENT_MAX_BYTES다.

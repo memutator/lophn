@@ -1,6 +1,6 @@
 // 준비 worker entry. coordinator가 넘긴 stdio로 preparation child를 연다.
 // kind와 root는 환경으로만 받는다. 권한은 root·working copy·staging의 read와
-// 필요한 write만이다(architecture/documents 2.2).
+// 필요한 write만이다.
 import { type LophnError } from "../../../../base/mod.ts";
 import {
   projectPreviewTracking,

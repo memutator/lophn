@@ -1,4 +1,4 @@
-// fake provider의 script 값. 제품 domain contract가 아니다(docs/research/fake-provider-testing.md).
+// fake provider의 script 값. 제품 domain contract가 아니다.
 
 export type Protocol = "messages" | "responses" | "chat_completions";
 

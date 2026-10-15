@@ -1,7 +1,7 @@
 // release 준비의 git extract. 연결된 실제 source 경계에서 지정한
 // commit의 tree object만 읽는다. working tree 변경·uncommitted 파일·symlink 자체·
 // git 관리 정보·개발 credential·agent 도구·임시 설정은 bundle에 넣지 않는다.
-// git 권한은 source 경계의 read뿐이다(architecture/apps 2.1). argv 배열만 쓰고 shell은 쓰지 않는다.
+// git 권한은 source 경계의 read뿐이다. argv 배열만 쓰고 shell은 쓰지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { releaseExcludes } from "../../../../protocol/coding-agent/mod.ts";
 

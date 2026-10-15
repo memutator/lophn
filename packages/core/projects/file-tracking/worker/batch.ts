@@ -1,4 +1,4 @@
-// 후보 배분 묶음의 준비 worker 요청·응답(architecture/documents 2.3). coordinator의 배분 루프가
+// 후보 배분 묶음의 준비 worker 요청·응답. coordinator의 배분 루프가
 // root별 후보 묶음(최대 128)을 이 요청으로 준비 worker에 보내면, worker는 후보마다 안정 읽기를
 // 하고 hash·크기(또는 unverified 이유)를 후보 순서대로 돌려준다. 본문은 응답에 싣지 않는다.
 // 준비 worker가 답하지 못한 배분은 unavailable이고 제출하지 않는다.

@@ -1,5 +1,5 @@
-// 앱 전용 data worker 작업 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다
-// (architecture/apps 2.1). 한 앱의 데이터 영역만 쓸 수 있고 network·secret·환경·subprocess 권한이 없다.
+// 앱 전용 data worker 작업 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/data-job.ts`)으로 돌린다.
+// 한 앱의 데이터 영역만 쓸 수 있고 network·secret·환경·subprocess 권한이 없다.
 // supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { decodeDataJobInput } from "../../../protocol/apps/mod.ts";

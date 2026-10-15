@@ -1,6 +1,6 @@
 // <home>/shell/layout.json은 main만 쓴다. 원자 교체 temp 파일 뒤 rename이고,
 // 폴더 0700·파일 0600(Windows는 mode bit가 없어 기본 ACL이 사용자 limit이다)을
-// 유지한다. 본문·결정·token은 여기 남지 않는다(architecture/shell 3장).
+// 유지한다. 본문·결정·token은 여기 남지 않는다.
 import { chmod, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 

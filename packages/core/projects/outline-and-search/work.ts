@@ -1,5 +1,5 @@
 // search consumer. derived_cursors.search부터 event를 소비하고 한 event의
-// 결과·FTS 교체·cursor를 한 derived transaction에 쓴다(architecture/documents 7.4).
+// 결과·FTS 교체·cursor를 한 derived transaction에 쓴다.
 // 재생성 시작은 rebuilding flag를 심는다. catch-up과 교체는 재생성 흐름 몫이다.
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
 import { ok, parseSeq, type Result } from "../../../base/mod.ts";

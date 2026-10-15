@@ -1,5 +1,5 @@
 // 테스트로 확인됨 닫힘의 후보 읽기와 만약의 만약 대상.
-// architecture/problems 7.6. machine 판정기만 닫으며 판정의 근거는 problems/tests의
+// machine 판정기만 닫으며 판정의 근거는 problems/tests의
 // reproduction 종류 pass Verification 하나뿐이다. app test·test command·agent의 통과
 // 주장은 후보로 읽지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";

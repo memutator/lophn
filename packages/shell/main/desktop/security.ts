@@ -18,7 +18,7 @@ export const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app", "lophn-document"];
 
 /**
  * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 세 scheme을 함께
- * secure·standard·fetch 지원으로 등록한다(architecture/shell 5.2).
+ * secure·standard·fetch 지원으로 등록한다.
  */
 export function registerViewSchemes(protocol: SchemeRegistry): void {
   protocol.registerSchemesAsPrivileged(

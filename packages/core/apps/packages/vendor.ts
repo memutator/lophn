@@ -79,31 +79,23 @@ export const SUPPORT_PACKAGES: readonly SupportPackage[] = [
     name: "@lophn/design",
     version: SUPPORT_VERSION,
     source: "design",
-    // 시험·생성 도구·다른 Package(wording·chart)는 사본에 넣지 않는다.
-    skipNames: [
-      "testdata",
-      "style-check",
-      "wording",
-      "chart",
-      "component-tests.ts",
-    ],
+    // test·생성 도구·다른 Package(wording·chart)는 사본에 넣지 않는다.
+    skipNames: ["testdata", "style-check", "wording", "chart"],
     skipSuffixes: ["_test.ts", "_test.tsx"],
   },
   {
     name: "@lophn/wording",
     version: SUPPORT_VERSION,
     source: "design/wording",
-    // generate.ts는 앱 catalog의 placeholder 생성이 쓰므로 남긴다. repo-check.ts는 저장소
-    // 화면 검사라 protocol를 import하므로 사본에 넣지 않는다.
-    skipNames: ["testdata", "repo-check.ts"],
+    // generate.ts는 앱 catalog의 placeholder 생성이 쓰므로 남긴다.
+    skipNames: ["testdata"],
     skipSuffixes: ["_test.ts"],
   },
   {
     name: "@lophn/chart",
     version: SUPPORT_VERSION,
     source: "design/chart",
-    // 시험 도우미(testing.tsx)는 사본에 넣지 않는다.
-    skipNames: ["testdata", "testing.tsx"],
+    skipNames: ["testdata"],
     skipSuffixes: ["_test.ts", "_test.tsx"],
   },
 ];

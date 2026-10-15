@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// derived store 8개 표(docs/domain-model/documents/outline-and-search.md).
+// derived store 8개 표.
 // ledger 밖 derived data다. ledger의 ver·doc·event는 논리 참조고 물리 FK는 없다.
 // coordinator가 유일한 writer이고 read는 별도 연결이다(query_only).
 //

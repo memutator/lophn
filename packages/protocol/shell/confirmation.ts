@@ -304,7 +304,7 @@ export type LophnConfirmation = {
   subscribe?(listener: (display: ConfirmationDisplay) => void): () => void;
 };
 
-// architecture/shell 5.1이 적는 오류. internal은 결정 경계의 결과가 아니다.
+// internal은 결정 경계의 결과가 아니다.
 export const CONFIRMATION_ERRORS = [
   "invalid_input",
   "not_found",

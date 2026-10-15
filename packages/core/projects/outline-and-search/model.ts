@@ -4,7 +4,7 @@ import type { LineRange } from "../../../protocol/projects/mod.ts";
 import { z } from "zod";
 
 // FTS5 trigram 규약과 짧은 query의 escaped LIKE를 한 근원으로 둔다.
-// search_fts와 summary cache 비교가 같은 규약을 쓴다(docs/architecture/documents 5.4).
+// search_fts와 summary cache 비교가 같은 규약을 쓴다.
 
 export const QUERY_CODEPOINT_MIN = 3;
 export const PREAMBLE_EXCERPT_CODEPOINTS = 200;

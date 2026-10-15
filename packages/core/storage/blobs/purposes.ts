@@ -1,7 +1,7 @@
 // 준비 목적 기록의 순수 규칙. IO 없음.
 // 준비가 purpose를 남기고, 정지 유지보수의 trimCapacity가 그 기록으로
 // hash → capacity category 할당을 산다. ledger blob_refs는 불변 보호라
-// purpose를 넣지 못한다(architecture/platform.md 3.1). 참조 행이 있으면
+// purpose를 넣지 못한다. 참조 행이 있으면
 // 참조 field의 규칙이 보존을 정하고, 없으면 목적 기록의 purpose로 판정한다.
 // 모르는 것은 지우지 않는다(fail-closed): 기록도 규칙도 없는 hash는 bonus
 // permanent로 뺀다. trimCapacity의 할당 밖 category는 invalid_input이라

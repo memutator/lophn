@@ -177,7 +177,7 @@ function formatReads(): ApiReadDefinition[] {
   ];
 }
 
-// coordinator는 등록한 활성 root와 문서 위치의 필요한 권한만 받는다(architecture/documents 2.2).
+// coordinator는 등록한 활성 root와 문서 위치의 필요한 권한만 받는다.
 // allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. ffi는 없다.
 // 등록 때 data root는 core와 같은 근원(LOPHN_HOME ?? ~/.lophn)에서 env로만 결정한다.
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
@@ -203,7 +203,7 @@ export function workerSpecs(
       allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
       allow_net: ["127.0.0.1"],
       // 고정 실행 파일은 이 deno 하나다. format runner는 호출마다, 준비 worker 두 slot은 첫
-      // 요청에서 이 coordinator가 띄운다(architecture/documents 2.1). runner·준비 worker의
+      // 요청에서 이 coordinator가 띄운다. runner·준비 worker의
       // 읽기·env·network·run 권한은 띄우는 쪽(launch spec)이 좁힌다. process group 종료를
       // 확인하는 kill 도구 하나(platform 감독의 adapter)가 더 필요하다.
       allow_run: [Deno.execPath(), "/usr/bin/kill"],
@@ -239,7 +239,7 @@ function codeReads(): string[] {
   return [repo, cache];
 }
 
-// format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다(architecture/documents 2.1).
+// format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다.
 // 읽기는 runner entry와 내장 QuickJS wasm 파일뿐이다. env·network·ffi·run·쓰기는 없다.
 // 호출 입력과 module 바이트를 IPC로 받으므로 나머지 권한은 주지 않는다.
 function formatRunnerSpec(): KindLaunchSpec | undefined {

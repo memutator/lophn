@@ -1,4 +1,4 @@
-// stdio transport다(architecture/coding-agent 2.1). stdout에는 newline으로 끝난
+// stdio transport다. stdout에는 newline으로 끝난
 // JSON-RPC 메시지만 나가고 stderr에는 진단만 나간다. 진단이 protocol을 깨지 않게
 // 두 통로를 섞지 않는다. redaction은 조립이 끼워 준다(entry가 자기 기준으로 거른다).
 export const MAX_LINE_BYTES = 8 * 1024 * 1024;

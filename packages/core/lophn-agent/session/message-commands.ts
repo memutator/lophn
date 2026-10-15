@@ -6,13 +6,9 @@ import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
-  messageApplied,
-  messageAssigned,
-  messageRecorded,
   recordMessage,
   sendMessage,
   serializeMessageContent,
-  textMessageContentInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CallAgent,
@@ -32,25 +28,10 @@ import type {
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
 import { attachedText } from "../run-loop/input-text.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
 import { closeAvailableRedo, createCheckpoint } from "./rewind/mod.ts";
-import { checkVisualContent } from "../tools/visuals/mod.ts";
-import {
-  reject,
-  requireUser,
-  sessionNotFound,
-  sessionVisible,
-} from "./guards.ts";
-import {
-  linkExists,
-  loadMessage,
-  loadRunRef,
-  loadSession,
-  type MessageRow,
-  sameLinks,
-  snapshotOf,
-} from "./model.ts";
+import { reject, requireUser, sessionNotFound } from "./guards.ts";
+import { loadSession } from "./model.ts";
 import { titleOnReceive } from "./session-title.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
@@ -84,8 +65,8 @@ export type SendMessageDeps = {
   directory: Pick<SessionDirectory, "find">;
 };
 
-function messageNotFound(): Result<never> {
-  return reject("not_found", "message not found");
+function blocked(): Result<never> {
+  return reject("unavailable", "message intake is being rebuilt");
 }
 
 type BodyBlob = {
@@ -135,47 +116,6 @@ function registerBody(
   return registered.ok ? ok(undefined) : registered;
 }
 
-function insertMessage(
-  tx: Tx,
-  row: {
-    id: string;
-    session: string;
-    actor: string;
-    body: string;
-    run: string | null;
-    mode: string | null;
-    links: string;
-  },
-  seq: string,
-): void {
-  tx.sql.run(
-    `insert into messages (id, session, actor, body, run, mode,
-       applied_at_call, links, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, null, ?, ?, ?)`,
-    [
-      row.id,
-      row.session,
-      row.actor,
-      row.body,
-      row.run,
-      row.mode,
-      row.links,
-      Number(seq),
-      Number(seq),
-    ],
-  );
-}
-
-export type ReceivedMessage = {
-  message: ReturnType<typeof snapshotOf>["message"];
-  created_seq: string;
-  state_seq: string;
-};
-
-function stored(row: MessageRow | undefined): Result<ReceivedMessage> {
-  return row === undefined ? messageNotFound() : ok(snapshotOf(row));
-}
-
 // 제목을 정하는 글. 글 part만 읽고 줄 구분은 줄바꿈이다.
 function textOf(content: Input<typeof sendMessage>["content"]): string {
   return content.parts.flatMap((part) =>
@@ -193,40 +133,13 @@ export function factMessageContent(text: string) {
   };
 }
 
-// 다른 command가 같은 transaction 안에서 session에 사실 메시지(machine, run 없음)를 남긴다. 본문 blob은
-// principal의 이름으로 준비되어 있어야 한다. 열려 있는 session에만 남긴다.
+// 사실 메시지(machine)를 받은 메시지 기록의 봉투(`from_kind`)로 말할 수 없어 session 기록에는 아직 남기지 않는다.
+// 이 길을 새로 짓는 일은 rewind가 한다. 그때까지 막아 둔다.
 export function recordFactMessage(
-  tx: Tx,
-  input: { session: string; text: string; principal: string },
+  _tx: Tx,
+  _input: { session: string; text: string; principal: string },
 ): Result<string> {
-  const session = loadSession(tx, input.session);
-  if (session === undefined) return sessionNotFound();
-  if (session.state !== "open") {
-    return reject("forbidden", "a closed session takes no new message");
-  }
-  const content = factMessageContent(input.text);
-  if (!textMessageContentInputSchema.safeParse(content).success) {
-    return reject("invalid_input", "the fact message is not valid text");
-  }
-  const body = bodyBlob(input.principal, content);
-  const id = tx.newId("msg");
-  const seq = tx.emit(messageRecorded, id, {
-    session: session.id,
-    run: null,
-    body: body.hash,
-    links: [],
-  });
-  insertMessage(tx, {
-    id,
-    session: session.id,
-    actor: "machine",
-    body: body.hash,
-    run: null,
-    mode: null,
-    links: "[]",
-  }, seq);
-  const registered = registerBody(tx, id, seq, body);
-  return registered.ok ? ok(id) : registered;
+  return reject("unavailable", "fact messages are being rebuilt");
 }
 
 // 이 session에 도는 turn이 있는지. steer가 도는 turn 안으로 들어가는지 가른다.
@@ -447,191 +360,9 @@ export function createMessageCommands(deps: SendMessageDeps): {
         return sendWith(deps, tx, ctx, input, undefined);
       },
     },
-    record: {
-      route: recordMessage,
-      handle(tx, ctx, input: Input<typeof recordMessage>) {
-        const actor = parseActor(ctx.actor);
-        if (actor?.kind !== "agent" && actor?.kind !== "machine") {
-          return reject("forbidden", "only an agent or machine records");
-        }
-        const session = loadSession(tx, input.session);
-        if (session === undefined || !sessionVisible(ctx, session)) {
-          return sessionNotFound();
-        }
-        // agent 자격은 자기 run에 묶여 있다. 그 run의 답만 기록한다.
-        if (actor.kind === "agent" && input.run !== ctx.run) {
-          return reject("forbidden", "an agent records only for its own run");
-        }
-        // machine 확인은 글만 낸다. 시각 블록은 agent의 답에만 있다(MessageContent).
-        if (
-          actor.kind === "machine" &&
-          !textMessageContentInputSchema.safeParse(input.content).success
-        ) {
-          return reject("invalid_input", "a machine message holds text only");
-        }
-        // 시각 블록의 markup·script·URL은 contract schema가 보지 않는다. 저장 전에 owner가 거절한다.
-        if (actor.kind === "agent") {
-          const checked = checkVisualContent(input.content);
-          if (!checked.ok) {
-            return reject("invalid_input", checked.error.message);
-          }
-        }
-        const body = bodyBlob(ctx.principal, input.content);
-        const links = JSON.stringify(input.links);
-        const existing = loadMessage(tx, input.id);
-        if (existing !== undefined) {
-          const same = existing.actor === ctx.actor &&
-            existing.session === input.session && existing.run === input.run &&
-            existing.body === body.hash && existing.mode === null &&
-            existing.copied_from === null &&
-            sameLinks(existing.links, input.links);
-          return same
-            ? stored(existing)
-            : reject("conflict", "message id already used for other input");
-        }
-        if (session.state !== "open") {
-          return reject("forbidden", "a closed session takes no new message");
-        }
-        if (input.run !== null) {
-          const run = loadRunRef(tx, input.run);
-          if (
-            run === undefined || run.session !== session.id ||
-            run.assignment !== session.assignment
-          ) {
-            return reject(
-              "invalid_input",
-              "run does not belong to the session",
-            );
-          }
-        }
-        for (const link of input.links) {
-          if (!linkExists(tx, link)) {
-            return reject("invalid_input", "link target does not exist");
-          }
-        }
-        const seq = tx.emit(messageRecorded, input.id, {
-          session: session.id,
-          run: input.run,
-          body: body.hash,
-          links: input.links,
-        });
-        insertMessage(tx, {
-          id: input.id,
-          session: session.id,
-          actor: ctx.actor,
-          body: body.hash,
-          run: input.run,
-          mode: null,
-          links,
-        }, seq);
-        const registered = registerBody(tx, input.id, seq, body);
-        if (!registered.ok) return registered;
-        return stored(loadMessage(tx, input.id));
-      },
-    },
-    apply: {
-      route: applyMessages,
-      // model call 시작과 같은 transaction에서 부를 수 있게 tx.call 대상으로 둔다.
-      dispatchable: true,
-      handle(tx, ctx, input: Input<typeof applyMessages>) {
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "applying is machine only");
-        }
-        const call = tx.sql.get("select run from model_calls where id = ?", [
-          input.call,
-        ]);
-        if (call === undefined) {
-          return reject("not_found", "model call not found");
-        }
-        const callRun = call["run"] === null ? null : String(call["run"]);
-        const rows: MessageRow[] = [];
-        for (const id of input.messages) {
-          const row = loadMessage(tx, id);
-          if (row === undefined) return messageNotFound();
-          if (row.actor !== "user") {
-            return reject("invalid_input", "only a person's input is applied");
-          }
-          if (row.run === null || row.run !== callRun) {
-            return reject(
-              "invalid_input",
-              "the call does not belong to the run of the message",
-            );
-          }
-          rows.push(row);
-        }
-        // 같은 call로 이미 반영한 재전송은 이전 결과다. 일부만 반영된 묶음은 충돌이다.
-        const done = rows.filter((row) => row.applied_at_call !== null);
-        if (done.length > 0) {
-          const replay = done.length === rows.length &&
-            done.every((row) => row.applied_at_call === input.call);
-          return replay
-            ? ok({ messages: rows.map(snapshotOf) })
-            : reject("conflict", "a message was already applied");
-        }
-        for (const row of rows) {
-          const seq = tx.emit(messageApplied, row.id, { call: input.call });
-          tx.sql.run(
-            "update messages set applied_at_call = ?, state_seq = ? where id = ?",
-            [input.call, Number(seq), row.id],
-          );
-        }
-        return ok({
-          messages: rows.map((row) => snapshotOf(loadMessage(tx, row.id)!)),
-        });
-      },
-    },
-    assign: {
-      route: assignMessage,
-      handle(tx, ctx, input: Input<typeof assignMessage>, compare) {
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "assigning is machine only");
-        }
-        const message = loadMessage(tx, input.message);
-        if (message === undefined) return messageNotFound();
-        if (message.actor !== "user" || message.mode !== "correction") {
-          return reject(
-            "invalid_input",
-            "only a correction moves; a request keeps its own run",
-          );
-        }
-        // 같은 새 담당의 재전송은 이전 결과다.
-        if (
-          message.run === input.run && compare.previous_run !== input.run &&
-          message.applied_at_call === null
-        ) {
-          return stored(message);
-        }
-        if (compare.previous_run === input.run) {
-          return reject("invalid_input", "the new run is the previous run");
-        }
-        if (message.applied_at_call !== null) {
-          return reject("conflict", "the message was already applied");
-        }
-        if (
-          message.run !== compare.previous_run ||
-          message.state_seq !== compare.message_state_seq
-        ) {
-          return reject("conflict", "message changed");
-        }
-        const run = loadRunRef(tx, input.run);
-        if (run === undefined) return reject("not_found", "run not found");
-        if (run.session !== message.session) {
-          return reject("invalid_input", "run belongs to another session");
-        }
-        if (run.state === "finished") {
-          return reject("conflict", "the new run is already finished");
-        }
-        const seq = tx.emit(messageAssigned, message.id, {
-          previous_run: message.run,
-          run: run.id,
-        });
-        tx.sql.run("update messages set run = ?, state_seq = ? where id = ?", [
-          run.id,
-          Number(seq),
-          message.id,
-        ]);
-        return stored(loadMessage(tx, message.id));
-      },
-    },
+    // 옛 agent 답 기록, 반영, 담당 옮기기는 messages 표가 봉투 칸으로 바뀌어 옛 열을 더 쓰지 못한다.
+    record: { route: recordMessage, handle: blocked },
+    apply: { route: applyMessages, handle: blocked },
+    assign: { route: assignMessage, handle: blocked },
   };
 }

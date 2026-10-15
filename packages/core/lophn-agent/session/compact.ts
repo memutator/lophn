@@ -141,7 +141,7 @@ export function createCompactCommands(): {
         if (!user.ok) return user;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        if (session.state !== "open") {
+        if (session.lifecycle !== "open") {
           return reject("conflict", "the session is closed");
         }
         // 끝나지 않은 같은 요청을 다시 하면 같은 요청이다.
@@ -182,7 +182,7 @@ export function createCompactCommands(): {
         if (!machine.ok) return machine;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        if (session.state !== "open") {
+        if (session.lifecycle !== "open") {
           return reject("conflict", "the session is closed");
         }
         const request = openCompactRequest(tx, session.id);

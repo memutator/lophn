@@ -646,7 +646,18 @@ export function createWaitCommands(deps: WaitDeps): {
           return reject("conflict", "run state changed");
         }
         // 명시 수정만 옛 요청을 취소한다. 일반 메시지는 기다림을 풀지 않는다.
-        const message = loadMessage(tx, input.message);
+        // 받은 메시지 기록이 steer와 turn으로 바뀌어 옛 correction 열이 없다. 이 길은 새 대기 흐름이 설 때까지 막혀 있다.
+        const message = loadMessage(tx, input.message) as
+          | {
+            id: string;
+            state_seq: string;
+            session: string;
+            actor?: string;
+            mode?: string;
+            run?: string;
+            applied_at_call?: string | null;
+          }
+          | undefined;
         if (
           message === undefined || message.actor !== "user" ||
           message.mode !== "correction" || message.run !== run.id ||

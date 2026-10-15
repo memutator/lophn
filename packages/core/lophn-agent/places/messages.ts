@@ -1,0 +1,81 @@
+import { createHash } from "node:crypto";
+import { err, ok, type Result } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import {
+  MESSAGE_BODY_FIELD,
+  MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_CONTENT_PURPOSE,
+  serializeMessageContent,
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import type { RoutedInput } from "../../router/ports.ts";
+import { loadSession, nextMessageSeq } from "../session/model.ts";
+
+// call, reply, reaction, notice를 받는 session 기록(messages 행)에 쓴다. lophn InputTransport가 배달하는
+// tx에서 부른다. 사람 메시지는 보내는 쪽이 먼저 쓰므로 `message`가 있으면 그 id를 돌려줄 뿐이다.
+// 본문 blob은 호출한 자격의 이름으로 준비돼 있어야 한다.
+export function createReceivedRecorder(deps: { principal(): string }) {
+  return {
+    record(
+      tx: Tx,
+      session: Id<"ses">,
+      input: RoutedInput,
+    ): Result<Id<"msg">> {
+      if (input.message !== null) return ok(input.message);
+      const row = loadSession(tx, session);
+      if (row === undefined) {
+        return err({ code: "not_found", message: "session not found" });
+      }
+      if (row.lifecycle !== "open") {
+        return err({ code: "conflict", message: "the session is archived" });
+      }
+      const bytes = serializeMessageContent({
+        schema_version: 1,
+        parts: [{ kind: "text", text: input.body }],
+      });
+      const hash = createHash("sha256").update(bytes).digest("hex");
+      const id = tx.newId("msg") as Id<"msg">;
+      const seq = nextMessageSeq(tx);
+      const from = input.from;
+      tx.sql.run(
+        `insert into messages (id, session, from_kind, from_ref, call,
+           reply_to, refs, delivery, turn, body, created_seq, state_seq)
+         values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?)`,
+        [
+          id,
+          session,
+          from.kind,
+          from.kind === "human"
+            ? null
+            : from.kind === "program"
+            ? from.event_seq
+            : from.session,
+          input.call,
+          input.reply_to,
+          JSON.stringify(input.refs),
+          from.kind === "human" ? input.delivery : "next_turn",
+          hash,
+          seq,
+          seq,
+        ],
+      );
+      const registered = tx.registerBlobRef({
+        owner_kind: MESSAGE_BODY_OWNER_KIND,
+        owner_key: id,
+        field: MESSAGE_BODY_FIELD,
+        registered_seq: String(seq),
+        source: {
+          kind: "prepared",
+          blob: {
+            preparation: hash,
+            principal: deps.principal(),
+            purpose: MESSAGE_CONTENT_PURPOSE,
+            hash,
+            size_bytes: bytes.length,
+          },
+        },
+      });
+      return registered.ok ? ok(id) : registered;
+    },
+  };
+}

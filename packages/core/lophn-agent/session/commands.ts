@@ -4,25 +4,16 @@ import {
   archiveSession,
   type assignMessage,
   changeSessionModel,
-  closeSession,
   type compactSession,
   deleteSession,
   type failSessionCompact,
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
-  openSession,
+  openAgentSession,
   type recordMessage,
   renameSession,
   type requestSessionCompact,
   type sendMessage,
-  sessionArchived,
-  sessionClosed,
-  sessionDeleted,
-  sessionModelChanged,
-  sessionOpened,
-  sessionRenamed,
-  sessionUnarchived,
-  unarchiveSession,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -30,7 +21,8 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
+import { endSession, startSession } from "../places/lifecycle.ts";
+import type { EndDeps, OpenDeps } from "../places/ports.ts";
 import { createCompactCommands } from "./compact.ts";
 import { createForkCommand } from "./fork.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";
@@ -40,15 +32,13 @@ import {
   type SendMessageDeps,
 } from "./message-commands.ts";
 import {
-  type AssignmentRef,
+  agentRefOf,
   eventExists,
-  hasUnfinishedRun,
-  loadAssignmentRef,
   loadSession,
   modelSelectionOf,
+  nextSessionSeq,
+  placeOf,
   type SessionRow,
-  targetIsActive,
-  workPlaceOf,
 } from "./model.ts";
 import { checkSessionModel } from "./session-model.ts";
 import { renameSessionTitle } from "./session-title.ts";
@@ -67,35 +57,11 @@ export type ConversationDeps = {
     ownerKind: string,
     ownerKeys: readonly string[],
   ) => Result<void>;
+  // session을 열 때 place와 Operator를 확인하고 SessionStarted를 낸다.
+  open: OpenDeps;
+  // archive와 지움이 묶는 영향.
+  end: EndDeps;
 };
-
-type PlaceInput = { kind: "project" | "app"; id: string };
-
-// 자리가 role 규칙에 맞는 active project나 app인지. App Engineer와 Operator는
-// 담당 범위와 같은 자리, Context Engineer는 project, lophn은 project나 app이다.
-function checkPlace(
-  tx: Tx,
-  assignment: AssignmentRef,
-  place: PlaceInput,
-): Result<void> {
-  if (assignment.role === "app_engineer" || assignment.role === "operator") {
-    if (
-      place.kind !== assignment.scope_kind || place.id !== assignment.scope_id
-    ) {
-      return reject(
-        "forbidden",
-        "the work place is fixed to the assignment scope",
-      );
-    }
-  } else if (
-    assignment.role === "context_engineer" && place.kind !== "project"
-  ) {
-    return reject("forbidden", "a Context Engineer works in a project");
-  }
-  return targetIsActive(tx, place.kind, place.id)
-    ? ok(undefined)
-    : reject("not_found", "work place target not found");
-}
 
 function sameOpening(
   row: SessionRow,
@@ -110,54 +76,22 @@ function sameOpening(
 function openedOf(row: SessionRow) {
   return {
     id: row.id,
-    state: "open" as const,
-    work_place: workPlaceOf(row),
+    lifecycle: "open" as const,
+    place: placeOf(row),
     state_seq: row.state_seq,
   };
 }
 
-// archive는 목록 표시만 바꾼다. 이미 그 상태면 이전 결과이고, 낡은 seq의 재전송도 같은
-// 결과를 받는다. 닫힌 세션도 archive를 바꿀 수 있다.
-function toggleArchived(
-  tx: Tx,
-  ctx: RequestContext,
-  session: string,
-  stateSeq: string,
-  archived: boolean,
-): Result<{ id: string; state_seq: string }> {
-  const user = requireUser(ctx);
-  if (!user.ok) return user;
-  const row = loadSession(tx, session);
-  if (row === undefined) return sessionNotFound();
-  if (row.archived === archived) {
-    return ok({ id: row.id, state_seq: row.state_seq });
-  }
-  if (row.state_seq !== stateSeq) return reject("conflict", "session changed");
-  const seq = tx.emit(
-    archived ? sessionArchived : sessionUnarchived,
-    row.id,
-    {},
-  );
-  tx.sql.run("update sessions set archived = ?, state_seq = ? where id = ?", [
-    archived ? 1 : 0,
-    Number(seq),
-    row.id,
-  ]);
-  return ok({ id: row.id, state_seq: seq });
-}
-
 export function createConversationCommands(deps: ConversationDeps): {
-  open: CommandDefinition<typeof openSession>;
+  open: CommandDefinition<typeof openAgentSession>;
   rename: CommandDefinition<typeof renameSession>;
   archive: CommandDefinition<typeof archiveSession>;
-  unarchive: CommandDefinition<typeof unarchiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
   fork: CommandDefinition<typeof forkSession>;
   requestCompact: CommandDefinition<typeof requestSessionCompact>;
   compact: CommandDefinition<typeof compactSession>;
   failCompact: CommandDefinition<typeof failSessionCompact>;
-  close: CommandDefinition<typeof closeSession>;
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
   apply: CommandDefinition<typeof applyMessages>;
@@ -165,46 +99,24 @@ export function createConversationCommands(deps: ConversationDeps): {
 } {
   return {
     ...createMessageCommands(deps.send),
-    fork: createForkCommand(),
+    fork: createForkCommand(deps.open),
     ...createCompactCommands(),
     open: {
-      route: openSession,
-      handle(
-        tx,
-        ctx: RequestContext,
-        input: Input<typeof openSession>,
-        compare,
-      ) {
+      route: openAgentSession,
+      handle(tx, ctx: RequestContext, input: Input<typeof openAgentSession>) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
         const existing = loadSession(tx, input.id);
         if (existing !== undefined) {
-          const same = existing.assignment === input.assignment &&
-            existing.work_place_kind === input.work_place.kind &&
-            existing.work_place_id === input.work_place.id &&
+          const same = canonicalize(agentRefOf(existing)) ===
+              canonicalize(input.agent) &&
             sameOpening(existing, input.opening_context);
           if (!same) return reject("conflict", "session id already used");
-          if (existing.state !== "open") {
+          if (existing.lifecycle !== "open") {
             return reject("conflict", "session changed since it was opened");
           }
           return ok(openedOf(existing));
         }
-        const assignment = loadAssignmentRef(tx, input.assignment);
-        if (assignment === undefined) {
-          return reject("not_found", "assignment not found");
-        }
-        // 멈춘 assignment(대상 보관)와 회수된 assignment는 새 세션을 받지 않는다.
-        if (assignment.state !== "enabled") {
-          return reject(
-            "forbidden",
-            "only an enabled assignment takes a session",
-          );
-        }
-        if (assignment.revision !== compare.assignment_revision) {
-          return reject("conflict", "assignment changed");
-        }
-        const place = checkPlace(tx, assignment, input.work_place);
-        if (!place.ok) return place;
         const opening = input.opening_context;
         if (opening !== null && !eventExists(tx, opening.source_seq)) {
           return reject(
@@ -212,32 +124,12 @@ export function createConversationCommands(deps: ConversationDeps): {
             "the event of the opening context not found",
           );
         }
-        const seq = tx.emit(sessionOpened, input.id, {
-          assignment: input.assignment,
-          work_place: input.work_place,
-          opening_context: opening,
-        });
-        tx.sql.run(
-          `insert into sessions (id, assignment, work_place_kind, work_place_id,
-             state, opening_source_seq, opening_target, created_seq, state_seq)
-           values (?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
-          [
-            input.id,
-            input.assignment,
-            input.work_place.kind,
-            input.work_place.id,
-            opening === null ? null : BigInt(opening.source_seq),
-            opening === null ? null : opening.target,
-            Number(seq),
-            Number(seq),
-          ],
-        );
-        return ok({
+        const started = startSession(tx, deps.open, {
           id: input.id,
-          state: "open" as const,
-          work_place: input.work_place,
-          state_seq: seq,
+          agent: input.agent,
+          opening,
         });
+        return started.ok ? ok(openedOf(started.value)) : started;
       },
     },
     rename: {
@@ -249,7 +141,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session === undefined) return sessionNotFound();
         const title = renameSessionTitle(input.title);
         if (!title.ok) return title;
-        // 같은 제목이면 이전 결과다. 닫힌 세션도 이름을 바꾼다.
+        // 같은 제목이면 이전 결과다. archive한 session도 이름을 바꾼다.
         if (session.title === title.value) {
           return ok({
             id: session.id,
@@ -260,49 +152,48 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
-        const seq = tx.emit(sessionRenamed, session.id, {
-          before: session.title,
-          after: title.value,
-        });
+        const seq = nextSessionSeq(tx);
         tx.sql.run(
           "update sessions set title = ?, state_seq = ? where id = ?",
-          [
-            title.value,
-            Number(seq),
-            session.id,
-          ],
+          [title.value, seq, session.id],
         );
-        return ok({ id: session.id, title: title.value, state_seq: seq });
+        return ok({
+          id: session.id,
+          title: title.value,
+          state_seq: String(seq),
+        });
       },
     },
     archive: {
       route: archiveSession,
       handle(tx, ctx, input: Input<typeof archiveSession>, compare) {
-        const toggled = toggleArchived(
-          tx,
-          ctx,
-          input.session,
-          compare.state_seq,
-          true,
+        const user = requireUser(ctx);
+        if (!user.ok) return user;
+        const row = loadSession(tx, input.session);
+        if (row === undefined) return sessionNotFound();
+        // 이미 archive했으면 이전 결과다. 낡은 seq의 재전송도 같은 결과를 받는다.
+        if (row.lifecycle === "archived") {
+          return ok({
+            id: row.id,
+            archived: true as const,
+            state_seq: row.state_seq,
+          });
+        }
+        if (row.state_seq !== compare.state_seq) {
+          return reject("conflict", "session changed");
+        }
+        const seq = nextSessionSeq(tx);
+        tx.sql.run(
+          "update sessions set lifecycle = 'archived', state_seq = ? where id = ?",
+          [seq, row.id],
         );
-        return toggled.ok
-          ? ok({ ...toggled.value, archived: true as const })
-          : toggled;
-      },
-    },
-    unarchive: {
-      route: unarchiveSession,
-      handle(tx, ctx, input: Input<typeof unarchiveSession>, compare) {
-        const toggled = toggleArchived(
-          tx,
-          ctx,
-          input.session,
-          compare.state_seq,
-          false,
-        );
-        return toggled.ok
-          ? ok({ ...toggled.value, archived: false as const })
-          : toggled;
+        const ended = endSession(tx, deps.end, row, "archived");
+        if (!ended.ok) return ended;
+        return ok({
+          id: row.id,
+          archived: true as const,
+          state_seq: String(seq),
+        });
       },
     },
     delete: {
@@ -312,13 +203,12 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (!user.ok) return user;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        // 진행 중이거나 기다리는 run이 있으면 먼저 멈춘 뒤에만 지운다.
-        if (hasUnfinishedRun(tx, session.id)) {
-          return reject("conflict", "a run of the session is not finished");
-        }
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
+        // 도는 turn은 interrupted로 닫고 진행한다. 닫은 뒤에야 기록을 지운다.
+        const ended = endSession(tx, deps.end, session, "deleted");
+        if (!ended.ok) return ended;
         const bodies = deps.eraseBlobRefs(
           tx,
           MESSAGE_BODY_OWNER_KIND,
@@ -336,12 +226,7 @@ export function createConversationCommands(deps: ConversationDeps): {
           session.id,
         ]);
         tx.sql.run("delete from sessions where id = ?", [session.id]);
-        const deletedAt = tx.now();
-        tx.emit(sessionDeleted, session.id, {
-          assignment: session.assignment,
-          deleted_at: deletedAt,
-        });
-        return ok({ id: session.id, deleted_at: deletedAt });
+        return ok({ id: session.id, deleted_at: tx.now() });
       },
     },
     changeModel: {
@@ -351,8 +236,8 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (!user.ok) return user;
         const session = loadSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
-        if (session.state !== "open") {
-          return reject("conflict", "the session is closed");
+        if (session.lifecycle !== "open") {
+          return reject("conflict", "the session is archived");
         }
         const before = modelSelectionOf(session);
         // 같은 선택이면 이전 결과다.
@@ -371,67 +256,19 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
-        const seq = tx.emit(sessionModelChanged, session.id, {
-          before,
-          after: input.model,
-        });
+        const seq = nextSessionSeq(tx);
         tx.sql.run(
           "update sessions set model_selection = ?, state_seq = ? where id = ?",
           [
             input.model === null ? null : canonicalize(input.model),
-            Number(seq),
+            seq,
             session.id,
           ],
         );
         return ok({
           id: session.id,
           model_selection: input.model,
-          state_seq: seq,
-        });
-      },
-    },
-    close: {
-      route: closeSession,
-      handle(tx, ctx, input: Input<typeof closeSession>, compare) {
-        if (parseActor(ctx.actor)?.kind !== "machine") {
-          return reject("forbidden", "only the machine closes a session");
-        }
-        const session = loadSession(tx, input.session);
-        if (session === undefined) return sessionNotFound();
-        // 닫는 길은 assignment 회수 하나다.
-        const assignment = loadAssignmentRef(tx, session.assignment);
-        if (assignment?.state !== "withdrawn") {
-          return reject("forbidden", "the assignment is not withdrawn");
-        }
-        if (session.state !== "open") {
-          return reject("conflict", "the session is already closed");
-        }
-        if (session.state_seq !== compare.state_seq) {
-          return reject("conflict", "session changed");
-        }
-        // 미종료 run과 대기 요청을 먼저 정리해야 닫는다.
-        if (hasUnfinishedRun(tx, session.id)) {
-          return reject("conflict", "a run of the session is not finished");
-        }
-        // 되돌리기 기록은 session이 열려 있는 동안만 뜻이 있다. 닫히면 지운다.
-        const rewound = deleteSessionReverts(tx, session.id);
-        if (!rewound.ok) return rewound;
-        const closedAt = tx.now();
-        const seq = tx.emit(sessionClosed, session.id, {
-          reason: input.reason,
-          closed_at: closedAt,
-        });
-        tx.sql.run(
-          `update sessions set state = 'closed', closed_reason = ?,
-             closed_at = ?, state_seq = ? where id = ?`,
-          [input.reason, closedAt, Number(seq), session.id],
-        );
-        return ok({
-          id: session.id,
-          state: "closed" as const,
-          reason: input.reason,
-          closed_at: closedAt,
-          state_seq: seq,
+          state_seq: String(seq),
         });
       },
     },

@@ -1,11 +1,13 @@
-import { canonicalize } from "../../../base/mod.ts";
 import {
-  type Message,
+  type AgentRef,
+  type AgentSession,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
-  type MessageLink,
-  type SessionRecord,
+  type Place,
+  type ReceivedMessage,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
 import type {
   SchemaStep,
   SqlParams,
@@ -17,7 +19,7 @@ import {
 } from "../../../protocol/storage/mod.ts";
 
 // 본문 blob은 영구 보존이다. 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
-// 그 assignment의 agent, machine)는 ReadMessageBody가 판정한다.
+// 그 session의 agent, machine)는 ReadMessageBody가 판정한다.
 export const messageBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
     owner_kind: MESSAGE_BODY_OWNER_KIND,
@@ -27,27 +29,26 @@ export const messageBodyFields: readonly BlobFieldDefinition[] = [
   }),
 ];
 
-// domain-model lophn-agent/conversation의 표와 row 변환. 순수 함수와 읽기
-// 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는 reads.ts가 맡는다.
-
-// sessions·messages 표(domain-model ledger 표). assignment·run·model_calls 뒤에
-// 만든다. 본문은 열에 없고 hash만 남는다. 세션의 identity(assignment·자리·출처·첫
-// context)는 바뀌지 않고, 닫힌 세션은 다시 열리거나 model·요약이 바뀌지 않는다.
-// 확정 메시지의 본문·발언자·세션·mode·생성 순번은 덮어쓰지 않고 최초 반영은 한 번만
-// 설정한다. 세션과 메시지는 DeleteSession만 지운다: 진행 중이거나 기다리는 run이
-// 있는 세션은 행 단계에서도 지우지 못한다.
+// sessions·messages 표와 row 변환. 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는
+// reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent(role과 place)와 출처는 바뀌지
+// 않고, archive한 session은 다시 열리지 않는다. 두 표의 순번(created_seq, state_seq)은 ledger event
+// 없이 표 안에서 이어 센다. 확정 메시지의 본문과 봉투는 덮어쓰지 않는다. session과 메시지는
+// DeleteSession만 지운다.
+// role과 place의 짝은 protocol의 `rolePlaceFits`와 같은 표다.
 export const conversationSchemaSteps: readonly SchemaStep[] = [
   {
-    id: "lophn-agent.conversation.tables",
+    id: "lophn-agent.sessions.tables",
     sql: `
 create table sessions (
   id text primary key,
-  assignment text not null references assignments (id) on delete restrict,
-  work_place_kind text not null check (work_place_kind in ('project', 'app')),
-  work_place_id text not null,
+  role text not null check (role in ('lophn', 'project_manager', 'app_engineer', 'operator')),
+  project text,
+  app text,
+  operator text,
+  place_kind text check (place_kind is null or place_kind in ('project', 'app')),
+  place_id text,
   title text check (title is null or length(trim(title)) > 0),
-  archived integer not null default 0 check (archived in (0, 1)),
-  state text not null check (state in ('open', 'closed')),
+  lifecycle text not null default 'open' check (lifecycle in ('open', 'archived')),
   forked_from_session text,
   forked_from_through_seq integer,
   opening_source_seq integer,
@@ -55,69 +56,66 @@ create table sessions (
   model_selection text check (model_selection is null or json_valid(model_selection)),
   compaction_through_seq integer,
   compaction_summary_call text,
-  closed_reason text check (closed_reason in ('assignment_withdrawn')),
-  closed_at text,
   created_seq integer not null check (created_seq >= 1),
   state_seq integer not null check (state_seq >= created_seq),
+  check ((place_kind is null) = (place_id is null)),
+  check (project is (case when place_kind = 'project' then place_id end)),
+  check (app is (case when place_kind = 'app' then place_id end)),
+  check ((role = 'operator') = (operator is not null)),
+  check (
+    (role = 'lophn' and place_kind is null) or
+    (role = 'project_manager' and place_kind is 'project') or
+    (role = 'app_engineer' and place_kind is 'app') or
+    (role = 'operator' and place_kind is not null)
+  ),
   check ((forked_from_session is null) = (forked_from_through_seq is null)),
   check (forked_from_session is null or forked_from_session != id),
   check ((opening_source_seq is null) = (opening_target is null)),
-  check ((compaction_through_seq is null) = (compaction_summary_call is null)),
-  check ((state = 'closed') = (closed_reason is not null)),
-  check ((state = 'closed') = (closed_at is not null))
+  check ((compaction_through_seq is null) = (compaction_summary_call is null))
 ) strict;
-create index sessions_place on sessions (assignment, work_place_kind, work_place_id, archived);
-create index sessions_assignment_state on sessions (assignment, state);
+create index sessions_agent on sessions (role, place_kind, place_id, operator, lifecycle);
 create trigger sessions_identity_immutable
-before update of id, assignment, work_place_kind, work_place_id,
+before update of id, role, project, app, operator, place_kind, place_id,
   forked_from_session, forked_from_through_seq, opening_source_seq,
   opening_target, created_seq on sessions
 begin
   select raise(abort, 'session identity is immutable');
 end;
-create trigger sessions_closed_terminal
-before update of state, closed_reason, closed_at, model_selection,
-  compaction_through_seq, compaction_summary_call on sessions
-when old.state = 'closed'
+create trigger sessions_archived_terminal
+before update of lifecycle on sessions
+when old.lifecycle = 'archived' and new.lifecycle != 'archived'
 begin
-  select raise(abort, 'a closed session is never reopened or changed');
-end;
-create trigger sessions_delete_needs_finished_runs
-before delete on sessions
-when exists (select 1 from runs where session = old.id and state != 'finished')
-begin
-  select raise(abort, 'a session with an unfinished run is not deleted');
+  select raise(abort, 'an archived session is never reopened');
 end;
 create table messages (
   id text primary key,
   session text not null references sessions (id) on delete restrict,
-  actor text not null check (length(actor) > 0),
+  from_kind text not null check (from_kind in ('human', 'program', 'agent', 'coding_agent')),
+  from_ref text,
+  call text,
+  reply_to text,
+  refs text not null default '[]' check (json_valid(refs)),
+  delivery text not null default 'next_turn' check (delivery in ('next_turn', 'steer')),
+  turn text,
   body text not null check (length(body) = 64),
-  run text references runs (id) on delete restrict,
-  mode text check (mode in ('request', 'correction')),
-  applied_at_call text references model_calls (id) on delete restrict,
-  links text not null default '[]' check (json_valid(links)),
-  copied_from text,
   created_seq integer not null unique check (created_seq >= 1),
   state_seq integer not null check (state_seq >= created_seq),
-  check (copied_from is not null or (actor = 'user') = (mode is not null)),
-  check (copied_from is null or (mode is null and run is null and applied_at_call is null)),
-  check (applied_at_call is null or run is not null),
-  check (mode is not 'correction' or run is not null)
+  check ((from_kind = 'human') = (from_ref is null)),
+  check (delivery = 'next_turn' or from_kind = 'human')
 ) strict;
 create index messages_session_created on messages (session, created_seq);
-create index messages_run_created on messages (run, created_seq);
-create index messages_run_applied on messages (run, applied_at_call);
+create index messages_turn on messages (turn);
 create trigger messages_content_immutable
-before update of id, session, actor, body, mode, links, copied_from, created_seq on messages
+before update of id, session, from_kind, from_ref, call, reply_to, refs,
+  delivery, body, created_seq on messages
 begin
   select raise(abort, 'a confirmed message is never overwritten');
 end;
-create trigger messages_applied_once
-before update of applied_at_call, run on messages
-when old.applied_at_call is not null
+create trigger messages_turn_fixed
+before update of turn on messages
+when old.turn is not null
 begin
-  select raise(abort, 'the first application of a message is fixed');
+  select raise(abort, 'the turn that took a message is fixed');
 end;
 create table session_compact_requests (
   request_seq integer primary key check (request_seq >= 1),
@@ -139,14 +137,16 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-export type SessionRow = {
+export type AgentSessionRow = {
   id: string;
-  assignment: string;
-  work_place_kind: "project" | "app";
-  work_place_id: string;
+  role: Role;
+  project: string | null;
+  app: string | null;
+  operator: string | null;
+  place_kind: "project" | "app" | null;
+  place_id: string | null;
   title: string | null;
-  archived: boolean;
-  state: "open" | "closed";
+  lifecycle: "open" | "archived";
   forked_from_session: string | null;
   forked_from_through_seq: string | null;
   opening_source_seq: string | null;
@@ -154,28 +154,28 @@ export type SessionRow = {
   model_selection: string | null;
   compaction_through_seq: string | null;
   compaction_summary_call: string | null;
-  closed_reason: string | null;
-  closed_at: string | null;
   created_seq: string;
   state_seq: string;
 };
+// 다른 단위가 이 이름으로 import한다.
+export type SessionRow = AgentSessionRow;
 
-export const SESSION_COLUMNS = `id, assignment, work_place_kind, work_place_id,
-  title, archived, state, forked_from_session, forked_from_through_seq,
+export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
+  place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   opening_source_seq, opening_target, model_selection, compaction_through_seq,
-  compaction_summary_call, closed_reason, closed_at, created_seq, state_seq`;
+  compaction_summary_call, created_seq, state_seq`;
 
-export function sessionRowOf(row: SqlRow): SessionRow {
+export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
     id: String(row["id"]),
-    assignment: String(row["assignment"]),
-    work_place_kind: String(row["work_place_kind"]) as SessionRow[
-      "work_place_kind"
-    ],
-    work_place_id: String(row["work_place_id"]),
+    role: String(row["role"]) as Role,
+    project: text(row["project"]),
+    app: text(row["app"]),
+    operator: text(row["operator"]),
+    place_kind: text(row["place_kind"]) as AgentSessionRow["place_kind"],
+    place_id: text(row["place_id"]),
     title: text(row["title"]),
-    archived: Number(row["archived"]) === 1,
-    state: String(row["state"]) as SessionRow["state"],
+    lifecycle: String(row["lifecycle"]) as AgentSessionRow["lifecycle"],
     forked_from_session: text(row["forked_from_session"]),
     forked_from_through_seq: text(row["forked_from_through_seq"]),
     opening_source_seq: text(row["opening_source_seq"]),
@@ -183,8 +183,6 @@ export function sessionRowOf(row: SqlRow): SessionRow {
     model_selection: text(row["model_selection"]),
     compaction_through_seq: text(row["compaction_through_seq"]),
     compaction_summary_call: text(row["compaction_summary_call"]),
-    closed_reason: text(row["closed_reason"]),
-    closed_at: text(row["closed_at"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -193,7 +191,7 @@ export function sessionRowOf(row: SqlRow): SessionRow {
 export function loadSession(
   lookup: Lookup,
   id: string,
-): SessionRow | undefined {
+): AgentSessionRow | undefined {
   const row = lookup.sql.get(
     `select ${SESSION_COLUMNS} from sessions where id = ?`,
     [id],
@@ -201,26 +199,65 @@ export function loadSession(
   return row === undefined ? undefined : sessionRowOf(row);
 }
 
-export function workPlaceOf(row: SessionRow): SessionRecord["work_place"] {
-  return { kind: row.work_place_kind, id: row.work_place_id } as never;
+export function placeOf(row: AgentSessionRow): Place | null {
+  return row.place_kind === null || row.place_id === null
+    ? null
+    : { kind: row.place_kind, id: row.place_id } as Place;
+}
+
+export function agentRefOf(row: AgentSessionRow): AgentRef {
+  switch (row.role) {
+    case "lophn":
+      return { role: "lophn" };
+    case "project_manager":
+      return { role: "project_manager", project: row.project! as never };
+    case "app_engineer":
+      return { role: "app_engineer", app: row.app! as never };
+    case "operator":
+      return { role: "operator", agent: row.operator! as never };
+  }
+}
+
+// 같은 agent인지 가르는 조건. Project Manager와 App Engineer는 place가 정체성이고 Operator는 자기 ID다.
+export function agentClause(
+  agent: AgentRef,
+): { sql: string; params: string[] } {
+  switch (agent.role) {
+    case "lophn":
+      return { sql: "role = 'lophn'", params: [] };
+    case "project_manager":
+      return {
+        sql: "role = 'project_manager' and project = ?",
+        params: [agent.project],
+      };
+    case "app_engineer":
+      return {
+        sql: "role = 'app_engineer' and app = ?",
+        params: [agent.app],
+      };
+    case "operator":
+      return {
+        sql: "role = 'operator' and operator = ?",
+        params: [agent.agent],
+      };
+  }
 }
 
 export function modelSelectionOf(
-  row: SessionRow,
-): SessionRecord["model_selection"] {
+  row: AgentSessionRow,
+): AgentSession["model_selection"] {
   return row.model_selection === null
     ? null
-    : JSON.parse(row.model_selection) as SessionRecord["model_selection"];
+    : JSON.parse(row.model_selection) as AgentSession["model_selection"];
 }
 
-export function sessionRecordOf(row: SessionRow): SessionRecord {
+export function agentSessionOf(row: AgentSessionRow): AgentSession {
   return {
     id: row.id,
-    assignment: row.assignment,
-    work_place: workPlaceOf(row),
+    agent: agentRefOf(row),
+    place: placeOf(row),
     title: row.title,
-    archived: row.archived,
-    state: row.state,
+    lifecycle: row.lifecycle,
     forked_from: row.forked_from_session === null ||
         row.forked_from_through_seq === null
       ? null
@@ -240,40 +277,58 @@ export function sessionRecordOf(row: SessionRow): SessionRecord {
         through_seq: row.compaction_through_seq,
         summary_call: row.compaction_summary_call,
       },
-    closed_reason: row.closed_reason as SessionRecord["closed_reason"],
-    closed_at: row.closed_at,
     state_seq: row.state_seq,
-  };
+  } as AgentSession;
+}
+
+// session 표의 다음 순번이다. 세션을 열 때 created_seq와 state_seq가 같고 바뀔 때마다 이어 센다.
+export function nextSessionSeq(lookup: Lookup): number {
+  const row = lookup.sql.get(
+    "select coalesce(max(state_seq), 0) + 1 as next from sessions",
+    [],
+  );
+  return row === undefined ? 1 : Number(row["next"]);
+}
+
+// messages 표의 다음 created_seq다.
+export function nextMessageSeq(lookup: Lookup): number {
+  const row = lookup.sql.get(
+    "select coalesce(max(created_seq), 0) + 1 as next from messages",
+    [],
+  );
+  return row === undefined ? 1 : Number(row["next"]);
 }
 
 export type MessageRow = {
   id: string;
   session: string;
-  actor: string;
+  from_kind: "human" | "program" | "agent" | "coding_agent";
+  from_ref: string | null;
+  call: string | null;
+  reply_to: string | null;
+  refs: string;
+  delivery: "next_turn" | "steer";
+  turn: string | null;
   body: string;
-  run: string | null;
-  mode: string | null;
-  applied_at_call: string | null;
-  links: string;
-  copied_from: string | null;
   created_seq: string;
   state_seq: string;
 };
 
-export const MESSAGE_COLUMNS = `id, session, actor, body, run, mode,
-  applied_at_call, links, copied_from, created_seq, state_seq`;
+export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
+  reply_to, refs, delivery, turn, body, created_seq, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
   return {
     id: String(row["id"]),
     session: String(row["session"]),
-    actor: String(row["actor"]),
+    from_kind: String(row["from_kind"]) as MessageRow["from_kind"],
+    from_ref: text(row["from_ref"]),
+    call: text(row["call"]),
+    reply_to: text(row["reply_to"]),
+    refs: String(row["refs"]),
+    delivery: String(row["delivery"]) as MessageRow["delivery"],
+    turn: text(row["turn"]),
     body: String(row["body"]),
-    run: text(row["run"]),
-    mode: text(row["mode"]),
-    applied_at_call: text(row["applied_at_call"]),
-    links: String(row["links"]),
-    copied_from: text(row["copied_from"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -290,70 +345,25 @@ export function loadMessage(
   return row === undefined ? undefined : messageRowOf(row);
 }
 
-export function messageOf(row: MessageRow): Message {
+// 받은 봉투의 보낸 쪽. 사람은 근거가 없고 program은 근거 event seq, 나머지는 보낸 session이다.
+export function receivedMessageOf(row: MessageRow): ReceivedMessage {
+  const from = row.from_kind === "human"
+    ? { kind: "human" as const }
+    : row.from_kind === "program"
+    ? { kind: "program" as const, event_seq: row.from_ref! }
+    : { kind: row.from_kind, session: row.from_ref! };
   return {
     id: row.id,
     session: row.session,
-    actor: row.actor as Message["actor"],
+    from,
+    call: row.call,
+    reply_to: row.reply_to,
+    refs: JSON.parse(row.refs) as CallRef[],
+    turn: row.turn,
+    delivery: row.delivery,
     body: row.body,
-    run: row.run,
-    mode: row.mode as Message["mode"],
-    applied_at_call: row.applied_at_call,
-    links: JSON.parse(row.links) as MessageLink[],
-    copied_from: row.copied_from,
-  };
-}
-
-export function snapshotOf(row: MessageRow) {
-  return {
-    message: messageOf(row),
     created_seq: row.created_seq,
-    state_seq: row.state_seq,
-  };
-}
-
-export type RunRef = {
-  id: string;
-  assignment: string;
-  session: string | null;
-  state: string;
-  source_message: string | null;
-};
-
-export function loadRunRef(lookup: Lookup, id: string): RunRef | undefined {
-  const row = lookup.sql.get(
-    "select id, assignment, session, state, source_message from runs where id = ?",
-    [id],
-  );
-  return row === undefined ? undefined : {
-    id: String(row["id"]),
-    assignment: String(row["assignment"]),
-    session: text(row["session"]),
-    state: String(row["state"]),
-    source_message: text(row["source_message"]),
-  };
-}
-
-// 세션의 가장 최근에 접수한 run. 다음 일의 선행 run이다.
-export function latestSessionRun(
-  lookup: Lookup,
-  session: string,
-): string | null {
-  const row = lookup.sql.get(
-    "select id from runs where session = ? order by accepted_seq desc limit 1",
-    [session],
-  );
-  return row === undefined ? null : String(row["id"]);
-}
-
-// 세션의 첫 사람 request가 이미 있는지. 첫 request만 제목을 정한다. Fork 복사본은
-// mode가 없어 세지 않는다.
-export function hasPersonRequest(lookup: Lookup, session: string): boolean {
-  return lookup.sql.get(
-    `select 1 as found from messages
-     where session = ? and actor = 'user' and mode = 'request' limit 1`,
-    [session],
-  ) !== undefined;
+  } as ReceivedMessage;
 }
 
 // Compact 요청. 요청 event의 순번이 요청의 이름이다. session마다 끝나지 않은 요청은 하나다.
@@ -372,10 +382,10 @@ export function openCompactRequest(
     : { request_seq: String(row["request_seq"]) };
 }
 
-// 끝나지 않은 run(접수만 된 것, 진행 중, 사람을 기다리는 것)이 있는지.
+// 도는 turn이 있는지.
 export function hasUnfinishedRun(lookup: Lookup, session: string): boolean {
   return lookup.sql.get(
-    "select 1 as found from runs where session = ? and state != 'finished' limit 1",
+    "select 1 as found from turns where session = ? and state = 'running' limit 1",
     [session],
   ) !== undefined;
 }
@@ -386,127 +396,11 @@ export function eventExists(lookup: Lookup, seq: string): boolean {
   ]) !== undefined;
 }
 
-export type AssignmentRef = {
-  id: string;
-  role: string;
-  state: string;
-  revision: number;
-  scope_kind: string;
-  scope_id: string | null;
-};
-
-export function loadAssignmentRef(
-  lookup: Lookup,
-  id: string,
-): AssignmentRef | undefined {
-  const row = lookup.sql.get(
-    `select id, role, state, revision, scope_kind, scope_id
-     from assignments where id = ?`,
-    [id],
-  );
-  return row === undefined ? undefined : {
-    id: String(row["id"]),
-    role: String(row["role"]),
-    state: String(row["state"]),
-    revision: Number(row["revision"]),
-    scope_kind: String(row["scope_kind"]),
-    scope_id: text(row["scope_id"]),
-  };
-}
-
-// 정상 종료를 막는 미반영 steering. 현재 일 수정(correction)만
-// 센다. 다음 일(request)은 자기 run을 따로 갖고 정상 종료를 막지 않는다.
-export function hasUnappliedSteering(lookup: Lookup, run: string): boolean {
+// turn의 정상 종료를 막는 미반영 steer. turn이 가져가지 않은 사람의 steer 메시지가 그 session에 남아 있는 것이다.
+export function hasUnappliedSteering(lookup: Lookup, turn: string): boolean {
   return lookup.sql.get(
-    `select 1 as found from messages
-     where run = ? and mode = 'correction' and applied_at_call is null
-     limit 1`,
-    [run],
+    `select 1 as found from turns t join messages m on m.session = t.session
+     where t.id = ? and m.delivery = 'steer' and m.turn is null limit 1`,
+    [turn],
   ) !== undefined;
-}
-
-// project·app이 지금 쓸 수 있는 대상인지. 만들어진 event가 있고 마지막 보관
-// 상태가 해제된 것이다(assignments가 대상 보관을 읽는 방식과 같다).
-export function targetIsActive(
-  lookup: Lookup,
-  kind: "project" | "app",
-  id: string,
-): boolean {
-  const names = kind === "project"
-    ? ["ProjectCreated", "ProjectArchived", "ProjectUnarchived"]
-    : ["AppCreated", "AppArchived", "AppUnarchived"];
-  const row = lookup.sql.get(
-    `select type from events where subject = ? and type in (?, ?, ?)
-     order by seq desc limit 1`,
-    [id, names[0], names[1], names[2]],
-  );
-  if (row === undefined) return false;
-  const type = String(row["type"]);
-  return type === names[0] || type === names[2];
-}
-
-function exists(
-  lookup: Lookup,
-  query: string,
-  params: SqlParams,
-): boolean {
-  return lookup.sql.get(query, params) !== undefined;
-}
-
-// 메시지 link는 실제 존재하는 대상만 가리킨다. 계획이나 아직 없는 산출물은
-// 링크가 될 수 없다.
-export function linkExists(lookup: Lookup, link: MessageLink): boolean {
-  switch (link.kind) {
-    case "document":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'DocumentCreated'",
-        [link.document],
-      );
-    case "version":
-      return exists(
-        lookup,
-        `select 1 from events where subject = ?
-         and (type = 'DocumentSaved' or type = 'DocumentCreated')
-         and json_extract(payload, '$.version') = ?`,
-        [link.document, link.version],
-      );
-    case "question":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'QuestionCreated'",
-        [link.question],
-      );
-    case "approval_request":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'ApprovalRequestCreated'",
-        [link.approval_request],
-      );
-    case "context":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'ContextCreated'",
-        [link.context],
-      );
-    case "model_call":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'ModelCallStarted'",
-        [link.call],
-      );
-    case "tool_call":
-      return exists(
-        lookup,
-        "select 1 from events where subject = ? and type = 'ToolCallRequested'",
-        [link.call],
-      );
-  }
-}
-
-export function sameLinks(
-  stored: string,
-  links: readonly MessageLink[],
-): boolean {
-  return canonicalize(JSON.parse(stored)) === canonicalize(links);
 }

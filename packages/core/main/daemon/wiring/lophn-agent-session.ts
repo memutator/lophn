@@ -1,19 +1,7 @@
-// session와 assignments. message body, assignment 반응, rewind. 쓰기 앞 처리기가 두 자리라 message body와
+// session. message body, rewind. 쓰기 앞 처리기가 두 자리라 message body와
 // rewind는 wiring이 따로다(assembly.ts의 순서가 접는 순서다).
-import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
-import { ASSIGNMENT_REACTIONS_CONTEXT } from "../platform-register.ts";
-import type { RequestContext } from "../../../../protocol/server/mod.ts";
-import { createAppEngineerAssignment } from "../../../../protocol/lophn-agent/mod.ts";
+import { ok } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
-import {
-  type AssignmentReactions,
-  startAssignmentReactions,
-} from "../../../lophn-agent/assignments/reactions.ts";
-import {
-  BOOTSTRAP_RETRY_MS,
-  bootstrapBuiltinAssignments,
-  noteBootstrapFailure,
-} from "../../../lophn-agent/assignments/bootstrap.ts";
 import {
   createMessageBodyPreparer,
   messageBodyEnvironment,
@@ -89,88 +77,6 @@ export const lophnAgentSessionWiring: WiringFactory = () => ({
         ),
     }),
 });
-
-export const lophnAgentAssignmentsWiring: WiringFactory = () => {
-  let reactions: AssignmentReactions | undefined;
-  const bootstrap: {
-    timer?: ReturnType<typeof setTimeout>;
-    inflight?: Promise<boolean>;
-    closed: boolean;
-  } = { closed: false };
-  return {
-    name: "lophn-agent-assignments",
-    // AppCreated 반응 구독자(machine:lophn-agent-assignments)의 자격 기록. token이 없는 core 내부
-    // 자격이라 HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 자격을 본다.
-    records: () => [ASSIGNMENT_REACTIONS_CONTEXT],
-    async start(ctx) {
-      // core 안 assignments 반응 구독자. AppCreated마다 거두지 않은 AE assignment를 만들고 AppArchived면
-      // 멈추며 cursor를 올린다. lophn-agent 팀이 조립에 없으면 반응할
-      // command가 없으므로 열지 않는다.
-      reactions =
-        ctx.assembled.commands.some((c) =>
-            c.route.name === createAppEngineerAssignment.name
-          )
-          ? startAssignmentReactions({
-            runtime: ctx.runtime,
-            ledgerPath: ctx.ledgerPath,
-          })
-          : undefined;
-      // 내장 lophn·Context Engineer assignment 준비. 이미 있으면 아무것도
-      // 보내지 않는다.
-      // 준비하지 못해도 core는 선다: 실패는 diagnostics 기록만 남기고(lophn이 아직 준비되지
-      // 않았다는 대화 쪽 표시는 그대로), 대기 뒤 한 번 다시 시도하며 다음 기동도 다시 한다.
-      const runBootstrap = (): Promise<boolean> => {
-        const run = (async () => {
-          let result: Result<void>;
-          try {
-            result = await bootstrapBuiltinAssignments({
-              commands: new Set(
-                ctx.assembled.commands.map((c) => c.route.name),
-              ),
-              writer: ctx.runtime.writer,
-              record: (context) => ctx.runtime.record(context),
-              read: (route, context, input) =>
-                ctx.runtime.readers.read(
-                  route,
-                  context as RequestContext,
-                  input,
-                ),
-              ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
-            });
-          } catch {
-            result = err({ code: "internal", message: "bootstrap failed" });
-          }
-          if (!result.ok) {
-            await noteBootstrapFailure(
-              ctx.root.path,
-              ctx.clock.now(),
-              result.error.code,
-            );
-          }
-          return result.ok;
-        })();
-        bootstrap.inflight = run;
-        return run;
-      };
-      if (!await runBootstrap()) {
-        bootstrap.timer = setTimeout(() => {
-          bootstrap.timer = undefined;
-          if (!bootstrap.closed) void runBootstrap();
-        }, BOOTSTRAP_RETRY_MS);
-      }
-      return ok(undefined);
-    },
-    // 진행 중인 assignment 반응도 writer가 닫히기 전에 끝난다.
-    async closeIntake() {
-      await reactions?.stop();
-    },
-    async closeWork() {
-      bootstrap.closed = true;
-      if (bootstrap.timer !== undefined) clearTimeout(bootstrap.timer);
-      await bootstrap.inflight;
-    },
-  };
-};
 
 export const lophnAgentRewindWiring: WiringFactory = () => {
   let sweepTimer: ReturnType<typeof setInterval> | undefined;

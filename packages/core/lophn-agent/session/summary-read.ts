@@ -7,7 +7,7 @@ import { loadSession } from "./model.ts";
 
 // ReadSessionSummary. Compact가 session에 이은 요약의 본문이다. 요약은 원문을 대체하지 않는 derived라
 // session에는 요약 call 참조만 있고 본문은 그 call의 출력 blob이 정본이다. 판정은 ledger snapshot에서
-// 짧게 하고 blob 바이트는 그 뒤에 읽는다(ReadMessageBody와 같은 길). 사람·그 assignment의 agent·machine
+// 짧게 하고 blob 바이트는 그 뒤에 읽는다(ReadMessageBody와 같은 길). 사람·그 session의 agent·machine
 // 만 읽고 그 밖이거나 요약이 없으면 없는 session과 똑같이 not_found다. `revert`를 주면 그 rewind("Summarize
 // from here")가 접은 구간의 요약을 같은 길로 읽는다.
 

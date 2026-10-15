@@ -8,7 +8,6 @@
 // 실행기가 강제한다. 여기서는 그 command를 등록할 뿐 handle 검사를 우회하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { ASSIGNMENT_SUBSCRIBER } from "../../../protocol/lophn-agent/mod.ts";
-import { ASSIGNMENT_REACTION_OPERATIONS } from "../../lophn-agent/assignments/reaction.ts";
 import type {
   EventVisibilityDefinition,
   RequestContext,
@@ -47,7 +46,7 @@ export const ASSIGNMENT_REACTIONS_CONTEXT: RequestContext = {
   principal: ASSIGNMENT_REACTIONS_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [...ASSIGNMENT_REACTION_OPERATIONS],
+    operations: [],
     targets: {},
   },
   conditions: {},

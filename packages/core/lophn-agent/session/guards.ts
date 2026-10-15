@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import type { SessionRow } from "./model.ts";
+import type { AgentSessionRow } from "./model.ts";
 
 // command와 read가 같이 쓰는 거절과 보이는 범위 판정.
 
@@ -35,10 +35,10 @@ export function requireMachine(ctx: RequestContext): Result<void> {
   );
 }
 
-// null은 제한 없음, 문자열은 그 assignment만, undefined는 아무것도 보지 못함. user·machine은
-// 모든 세션을 보고 agent는 자기 assignment의 세션만 본다. 그 밖(coding_agent, app)은 없는
-// 세션과 똑같이 답한다.
-export function visibleAssignment(
+// null은 제한 없음, 문자열은 그 session만, undefined는 아무것도 보지 못함. user·machine은 모든
+// session을 보고 agent는 자기 session만 본다(actor는 `agent:ses_…`). 그 밖(coding_agent, app)은 없는
+// session과 똑같이 답한다.
+export function visibleSessions(
   ctx: RequestContext,
 ): string | null | undefined {
   const actor = parseActor(ctx.actor);
@@ -50,8 +50,8 @@ export function visibleAssignment(
 
 export function sessionVisible(
   ctx: RequestContext,
-  session: SessionRow,
+  session: AgentSessionRow,
 ): boolean {
-  const scope = visibleAssignment(ctx);
-  return scope === null || scope === session.assignment;
+  const scope = visibleSessions(ctx);
+  return scope === null || scope === session.id;
 }

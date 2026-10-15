@@ -30,7 +30,6 @@ import { lophnAgentExtensionsWiring } from "./wiring/lophn-agent-extensions.ts";
 import { lophnAgentHandoffWiring } from "./wiring/lophn-agent-handoff.ts";
 import { lophnAgentRuntimeWiring } from "./wiring/lophn-agent-runtime.ts";
 import {
-  lophnAgentAssignmentsWiring,
   lophnAgentRewindWiring,
   lophnAgentSessionWiring,
 } from "./wiring/lophn-agent-session.ts";
@@ -93,7 +92,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentHandoffWiring,
   lophnAgentWiring,
   approvalsWiring,
-  lophnAgentAssignmentsWiring,
   appsWiring,
   lophnAgentTraceExportWiring,
   lophnAgentRewindWiring,

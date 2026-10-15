@@ -67,11 +67,7 @@ import {
   modelCallBodyFields,
   usageSchemaSteps,
 } from "./usage/mod.ts";
-import {
-  assignmentSchemaSteps,
-  createAssignmentCommands,
-  createAssignmentReads,
-} from "./assignments/mod.ts";
+import { UNWIRED_END_DEPS, UNWIRED_OPEN_DEPS } from "./places/mod.ts";
 import {
   type AgentDeps,
   agentFileName,
@@ -383,9 +379,6 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
   };
 }
 
-const assignmentCommands = createAssignmentCommands();
-const assignmentReads = createAssignmentReads();
-
 // run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
@@ -429,6 +422,9 @@ const conversationCommands = createConversationCommands({
   },
   deleteSessionRecords,
   eraseBlobRefs,
+  // project와 앱, Operator 정의, Bus, 끝날 때의 영향은 wiring이 놓는다. 놓기 전에는 새 session을 열지 못한다.
+  open: UNWIRED_OPEN_DEPS,
+  end: UNWIRED_END_DEPS,
 });
 const conversationReads = createConversationReads();
 
@@ -891,7 +887,6 @@ export const lophnAgentDefinitions = {
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
-    ...assignmentSchemaSteps,
     ...runSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
@@ -912,12 +907,6 @@ export const lophnAgentDefinitions = {
     usage.start,
     usage.finish,
     usage.supplement,
-    assignmentCommands.createBuiltin,
-    assignmentCommands.createAppEngineer,
-    assignmentCommands.createOperator,
-    assignmentCommands.pause,
-    assignmentCommands.resume,
-    assignmentCommands.withdraw,
     agentCommands.save,
     agentCommands.delete,
     agentCommands.changeSettings,
@@ -929,14 +918,12 @@ export const lophnAgentDefinitions = {
     conversationCommands.open,
     conversationCommands.rename,
     conversationCommands.archive,
-    conversationCommands.unarchive,
     conversationCommands.delete,
     conversationCommands.changeModel,
     conversationCommands.fork,
     conversationCommands.requestCompact,
     conversationCommands.compact,
     conversationCommands.failCompact,
-    conversationCommands.close,
     conversationCommands.send,
     conversationCommands.record,
     conversationCommands.apply,
@@ -977,8 +964,6 @@ export const lophnAgentDefinitions = {
     usageReads.read,
     usageReads.list,
     usageReads.usage,
-    assignmentReads.read,
-    assignmentReads.list,
     agentReads.list,
     agentReads.read,
     agentReads.settings,
@@ -990,6 +975,7 @@ export const lophnAgentDefinitions = {
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
+    conversationReads.message,
     conversationReads.compactRequests,
     commandReads.list,
     handoffReads.status,
@@ -1175,8 +1161,6 @@ export function createReaderRegistration(): ReaderRegistration {
       usageReads.read,
       usageReads.list,
       usageReads.usage,
-      assignmentReads.read,
-      assignmentReads.list,
       agentReads.list,
       agentReads.read,
       agentReads.settings,
@@ -1187,6 +1171,8 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
+      conversationReads.message,
+      conversationReads.message,
       conversationReads.compactRequests,
       commandReads.list,
       handoffReads.status,

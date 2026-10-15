@@ -1,9 +1,9 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  agentSessionRead,
   messageBody,
-  messagesList,
+  receivedMessageList,
   rewindList,
-  sessionRead,
   sessionSummary,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -77,7 +77,7 @@ export async function readSessionConversation(
   },
 ): Promise<Result<SessionConversation>> {
   if (input.session === null) return ok({ compaction: null, messages: [] });
-  const session = await readOf(machine, sessionRead, {
+  const session = await readOf(machine, agentSessionRead, {
     session: input.session,
   });
   if (!session.ok) return session;
@@ -112,24 +112,28 @@ export async function readSessionConversation(
         message: "the session is too long to read",
       });
     }
-    const listed = await readOf(machine, messagesList, {
+    const listed = await readOf(machine, receivedMessageList, {
       session: input.session,
-      ...(covered === null ? {} : { after_seq: covered.through_seq }),
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (!listed.ok) return listed;
     let reached = false;
     for (const entry of listed.value.messages) {
-      if (entry.message.id === input.request) {
+      if (entry.id === input.request) {
         reached = true;
         break;
       }
-      // 숨긴 구간의 원문은 읽지도 않는다.
+      // 요약이 덮은 구간과 숨긴 구간의 원문은 읽지도 않는다.
+      if (
+        covered !== null &&
+        BigInt(entry.created_seq) <= BigInt(covered.through_seq)
+      ) continue;
       if (inHiddenRange(hidden, entry.created_seq)) continue;
+      // 받은 메시지는 모두 model에 들어가는 입력이다.
       heard.push({
-        id: entry.message.id,
+        id: entry.id,
         seq: BigInt(entry.created_seq),
-        role: entry.message.actor === "user" ? "user" : "assistant",
+        role: "user",
         folded: folds.some((fold) =>
           BigInt(entry.created_seq) >= BigInt(fold.from_seq) &&
           BigInt(entry.created_seq) <= BigInt(fold.through_seq)

@@ -1,4 +1,5 @@
 export {
+  type AgentSessionRow,
   conversationSchemaSteps,
   hasUnappliedSteering,
   loadMessage,

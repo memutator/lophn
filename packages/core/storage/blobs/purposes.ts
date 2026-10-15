@@ -40,7 +40,7 @@ export function purposesPathFor(
 }
 
 // purpose를 capacity category로 옮긴다. 규칙 밖 purpose면 undefined다.
-// document_files·app_bundle 같은 참조 등록 목적은 category가 없어
+// app_bundle 같은 참조 등록 목적은 category가 없어
 // 정리 대상이 아니다(상한은 capacity field의 blob뿐이다).
 export function categoryOfPurpose(
   rules: readonly RetentionRule[],

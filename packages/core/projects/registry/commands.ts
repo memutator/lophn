@@ -18,7 +18,6 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { createPlaceNameReservation } from "../addressing/mod.ts";
 import {
   insertProject,
   loadProject,
@@ -64,14 +63,6 @@ function changedFields(
   const next: Record<string, unknown> = {};
   for (const field of fields) next[field] = after[field];
   return { before: value, after: next };
-}
-
-function reserveName(tx: Tx, project: Project): Result<void> {
-  return createPlaceNameReservation(tx).reserve(
-    project.name,
-    { kind: "project", id: project.id },
-    project.revision,
-  );
 }
 
 export function createProjectCommands(): {
@@ -123,8 +114,6 @@ export function createProjectCommands(): {
           revision: seq,
           status: "active",
         };
-        const reserved = reserveName(tx, project);
-        if (!reserved.ok) return reserved;
         insertProject(tx, project);
         return ok(project);
       },
@@ -203,10 +192,6 @@ export function createProjectCommands(): {
           changedFields(current.value, next, fields),
         );
         const project: Project = { ...next, revision: seq };
-        if (next.name !== current.value.name) {
-          const reserved = reserveName(tx, project);
-          if (!reserved.ok) return reserved;
-        }
         const stored = replaceMetadata(tx, project);
         if (!stored.ok) return stored;
         if (fields.includes("folders")) {

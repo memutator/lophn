@@ -19,7 +19,6 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { placeNameReservation } from "../../../protocol/projects/mod.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
@@ -72,16 +71,6 @@ function accessTarget(
   after: App,
 ): AppAccessTarget {
   return { kind: "command", before, after };
-}
-
-// 등록 뒤 place 예약은 documents/addressing을 따른다. Project와 같은
-// 이름 공간이라 Project slug와 겹치면 conflict다. 구현은 core 조립이 등록한 port다.
-export function reserveSlug(tx: Tx, app: App): Result<void> {
-  return tx.port(placeNameReservation).reserve(
-    app.slug,
-    { kind: "app", id: app.id },
-    app.revision,
-  );
 }
 
 export function createAppCommands(): {
@@ -145,8 +134,6 @@ export function createAppCommands(): {
             : { planning_version: input.planning_version }),
         });
         const app: App = { ...candidate, revision: seq };
-        const reserved = reserveSlug(tx, app);
-        if (!reserved.ok) return reserved;
         insertApp(tx, app);
         return appView(app);
       },

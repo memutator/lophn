@@ -8,7 +8,7 @@ export {
   suggestAppName,
   synchronousResult,
 } from "./model.ts";
-export { createAppCommands, reserveSlug } from "./commands.ts";
+export { createAppCommands } from "./commands.ts";
 export { createAppsReads } from "./reads.ts";
 export { appsSchemaSteps } from "./schema.ts";
 export { lookupAppRegistration } from "./lookup.ts";

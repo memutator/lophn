@@ -12,7 +12,6 @@ import {
   type ChildMessage,
   type ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
-import { BLOB_PREPARE_MAX_BYTES } from "../../../protocol/storage/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
   RUN_BLOB_PURPOSES,
@@ -38,20 +37,6 @@ const REPORT_PURPOSE_CAPS = new Map<string, number>(
 export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
   new Map(
     [
-      [
-        "documents/worker",
-        {
-          // 준비 참조의 principal은 document.save가 보는 현재 자격의 principal과 같아야
-          // 등록된다(blob-store register). core가 documents/worker에 주는 machine
-          // credential의 principal이 `machine:documents`다.
-          principal: "machine:documents",
-          // 원본 파일 내용(document_file)과 파일 목록(document_files)이다.
-          purposes: new Map([
-            ["document_file", BLOB_PREPARE_MAX_BYTES],
-            ["document_files", BLOB_PREPARE_MAX_BYTES],
-          ]),
-        },
-      ],
       [
         "lophn-agent/runtime",
         {

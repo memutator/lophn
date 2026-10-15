@@ -1,10 +1,8 @@
 import { runPlatformIo } from "./io.ts";
-import { runCoordinator } from "../../projects/file-tracking/worker/coordinator.ts";
 import {
   CONTEXTS_KIND,
   runContextsWorker,
 } from "../../projects/contexts/worker/run.ts";
-import { runPreparation } from "../../projects/file-tracking/worker/preparation.ts";
 import { runReleaseWorker } from "../../apps/releases/worker/run.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./test-runner.ts";
 import { runRunnerService } from "../../problems/tests/work/runner-service.ts";
@@ -31,8 +29,6 @@ const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
 > = {
   "platform/io": runPlatformIo,
-  "documents/worker": runCoordinator,
-  "documents/preparation": runPreparation,
   [CONTEXTS_KIND]: runContextsWorker,
   "apps/release": runReleaseWorker,
   [TEST_RUNNER_KIND]: async () => {

@@ -65,11 +65,6 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import {
-  type PlaceNameReservation,
-  placeNameReservation,
-} from "../../protocol/projects/mod.ts";
-import { createPlaceNameReservation } from "../projects/addressing/mod.ts";
-import {
   appArchived,
   appCreated,
   appUnarchived,
@@ -259,12 +254,6 @@ export function createLedgerRegistration(
         key: TicketClaimCheck,
         create: (tx): TicketClaimChecker => (input) =>
           checkTicketClaim(tx, input),
-      },
-      // documents가 하나로 나눈 place 이름 공간이다(dm#C7). documents 조립도 같은
-      // 구현을 등록하므로 harness 등록을 겹치지 않게 documents만 실지 등록했다.
-      {
-        key: placeNameReservation,
-        create: (tx) => createPlaceNameReservation(tx) as PlaceNameReservation,
       },
     ],
   };

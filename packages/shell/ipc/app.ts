@@ -1,4 +1,4 @@
-// 앱 preload 통로(contracts/shell app-bridge의 APP_BRIDGE_IPC와 같은 이름). `app:call`과
+// 앱 preload 통로(contracts/shell app-bridge의 APP_BRIDGE_IPC와 같은 이름). `app:call`(app-api 이름과 입력)과
 // `app:open-external`은 앱 페이지의 `lophnApp`이 부르고, `app:view-error`는 설치 preload가 안에서만
 // 보낸다. 이 파일은 main·preload가 함께 부르므로 import가 없다.
 

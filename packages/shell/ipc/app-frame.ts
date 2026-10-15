@@ -6,6 +6,7 @@ import { z } from "zod";
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const appId = z.string().regex(new RegExp(`^app_${ULID}$`));
 const releaseId = z.string().regex(new RegExp(`^rel_${ULID}$`));
+const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const viewSession = z.string().min(1).refine(noControl);
 const screenKey = z.string().min(1).refine((value) =>
@@ -16,6 +17,7 @@ const size = z.enum(["full", "panel", "card"]);
 
 export const VIEW_OPEN_APP_CHANNEL = "shell:view-open-app";
 export const VIEW_BOUNDS_CHANNEL = "shell:view-bounds";
+export const VIEW_PROJECT_CHANNEL = "shell:view-project";
 export const VIEWS_HIDDEN_CHANNEL = "shell:views-hidden";
 export const VIEW_CLOSE_CHANNEL = "shell:view-close";
 export const VIEW_REOPEN_CHANNEL = "shell:view-reopen";
@@ -42,6 +44,7 @@ export const appViewOpenSchema = z.object({
   screen: screenKey,
   size,
   card: appViewCardSchema.optional(),
+  project: projectId.optional(),
 }).strict().refine(
   (value) => (value.size === "card") === (value.card !== undefined),
 );
@@ -49,6 +52,12 @@ export const appViewOpenSchema = z.object({
 export const viewBoundsRequestSchema = z.object({
   view_session: viewSession,
   bounds: viewBoundsSchema,
+}).strict();
+
+// 앱 place의 앱 화면이 project를 고르면 main에 알린다. null은 project에서 푼다.
+export const viewProjectRequestSchema = z.object({
+  view_session: viewSession,
+  project: projectId.nullable(),
 }).strict();
 
 export const viewsHiddenSchema = z.object({
@@ -67,6 +76,7 @@ export const appFrameViewStateSchema = z.object({
   screen: screenKey,
   size,
   connectionState: z.enum(["preparing", "stopped", "running", "unavailable"]),
+  project: projectId.nullable().optional(),
   // 화면 process 상태. main은 늘 싣고, 없으면 ok로 읽는다. 깨진 view만
   // [새 view 열기]를 받는다.
   viewHealth: z.enum(["ok", "unresponsive", "crashed"]).optional(),
@@ -76,6 +86,7 @@ export type ViewBounds = z.infer<typeof viewBoundsSchema>;
 export type AppViewOpen = z.infer<typeof appViewOpenSchema>;
 export type AppViewCard = z.infer<typeof appViewCardSchema>;
 export type ViewBoundsRequest = z.infer<typeof viewBoundsRequestSchema>;
+export type ViewProjectRequest = z.infer<typeof viewProjectRequestSchema>;
 export type ViewsHidden = z.infer<typeof viewsHiddenSchema>;
 export type ViewCloseRequest = z.infer<typeof viewCloseRequestSchema>;
 export type AppFrameViewState = z.infer<typeof appFrameViewStateSchema>;
@@ -99,6 +110,8 @@ export type ViewReply<T> =
 export interface LophnShellViewsApi {
   openApp(input: AppViewOpen): Promise<AppFrameViewState>;
   setViewBounds(input: ViewBoundsRequest): Promise<VisibilityResult>;
+  /** 같은 view_session의 view를 그 project에 묶는다. 바뀐 state가 push된다. */
+  setViewProject(input: ViewProjectRequest): Promise<AppFrameViewState>;
   setViewsHidden(input: ViewsHidden): Promise<VisibilityResult>;
   closeView(input: ViewCloseRequest): Promise<void>;
   /** crash·멈춘 view를 지금 연결로 새로 연다. 건강한 view는 conflict다. */

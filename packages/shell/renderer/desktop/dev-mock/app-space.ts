@@ -68,6 +68,7 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
         connectionState: "running" as const,
       });
     },
+    setViewProject: () => Promise.reject(new Error("mock")),
     setViewBounds({ view_session, bounds }) {
       const box = boxes.get(view_session);
       if (box !== undefined) {

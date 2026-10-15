@@ -12,6 +12,6 @@ export type Json =
   | { [key: string]: Json };
 
 export type LophnApp = {
-  call(command: string, input: Json): Promise<unknown>;
+  call(api: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
 };

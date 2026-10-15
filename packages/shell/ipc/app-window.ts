@@ -11,6 +11,7 @@ export const APP_SHORTCUT_REMOVE_CHANNEL = "shell:app-shortcut-remove";
 
 export const appWindowRequestSchema = z.object({
   app: z.string().regex(new RegExp(`^app_${ULID}$`)),
+  project: z.string().regex(new RegExp(`^prj_${ULID}$`)).optional(),
 }).strict();
 
 export type AppWindowRequest = z.infer<typeof appWindowRequestSchema>;

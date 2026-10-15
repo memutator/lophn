@@ -11,6 +11,7 @@ import {
   viewModeSchema,
 } from "../apps/channel-values.ts";
 import { visualKeySchema } from "../lophn-agent/visual-source.ts";
+import { projectIdSchema } from "../projects/values.ts";
 
 // view ID는 main이 만든 메모리 식별이다. credential이 아니다.
 const viewSessionSchema = z.string().min(1).refine(
@@ -47,6 +48,7 @@ const openFields = {
   size: screenSizeSchema,
   parentWindow: windowRefSchema,
   bounds: viewBoundsSchema,
+  project: projectIdSchema.optional(),
 };
 
 function openShape(
@@ -91,6 +93,7 @@ const viewStateFields = {
   screen: screenKeySchema,
   size: screenSizeSchema,
   connectionState: z.enum(VIEW_CONNECTION_STATES),
+  project: projectIdSchema.nullable().optional(),
 };
 
 export const appFrameViewStateSchema = z.object(viewStateFields).refine(
@@ -123,6 +126,7 @@ export const appViewOpenSchema = z.strictObject({
   screen: screenKeySchema,
   size: screenSizeSchema,
   card: appViewCardSchema.optional(),
+  project: projectIdSchema.optional(),
 }).refine((value) => (value.size === "card") === (value.card !== undefined), {
   message: "card views carry their message and block, other sizes do not",
 });
@@ -134,6 +138,12 @@ export const documentViewOpenSchema = z.strictObject({
 export const viewBoundsRequestSchema = z.strictObject({
   view_session: viewSessionSchema,
   bounds: viewBoundsSchema,
+});
+
+// 앱 place의 앱 화면이 project를 고르면 main에 알린다. null은 project에서 푼다.
+export const viewProjectRequestSchema = z.strictObject({
+  view_session: viewSessionSchema,
+  project: projectIdSchema.nullable(),
 });
 
 export const viewsHiddenSchema = z.strictObject({
@@ -153,6 +163,7 @@ export const APP_FRAME_IPC = {
   "shell:view-open-app": appViewOpenSchema,
   "shell:view-open-document": documentViewOpenSchema,
   "shell:view-bounds": viewBoundsRequestSchema,
+  "shell:view-project": viewProjectRequestSchema,
   "shell:views-hidden": viewsHiddenSchema,
   "shell:view-close": viewCloseRequestSchema,
 } as const;
@@ -174,6 +185,9 @@ export type LophnShellViews = {
   setViewBounds(
     input: z.infer<typeof viewBoundsRequestSchema>,
   ): Promise<z.infer<typeof visibilityResultSchema>>;
+  setViewProject(
+    input: z.infer<typeof viewProjectRequestSchema>,
+  ): Promise<AppFrameViewState>;
   setViewsHidden(
     input: z.infer<typeof viewsHiddenSchema>,
   ): Promise<z.infer<typeof visibilityResultSchema>>;

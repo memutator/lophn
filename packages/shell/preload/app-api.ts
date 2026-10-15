@@ -47,8 +47,8 @@ async function request(
 
 export function createAppApi(transport: AppTransport): LophnApp {
   return Object.freeze({
-    call: (command: string, input: unknown) =>
-      request(transport, APP_CALL_CHANNEL, { command, input }),
+    call: (api: string, input: unknown) =>
+      request(transport, APP_CALL_CHANNEL, { api, input }),
     async openExternal(url: string): Promise<void> {
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },

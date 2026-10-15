@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { commandKeySchema } from "../apps/channel-values.ts";
+import { commandKeySchema as apiKey } from "../apps/channel-values.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 
 // 외부 링크 상한. 8193자는 열지 않는다.
@@ -21,9 +21,9 @@ export const externalUrlSchema = z.string().refine(externalUrlAllowed, {
   message: "external url must be http(s), without userinfo, at most 8192 chars",
 });
 
-// command 이름과 JSON 입력만 받는다. token·경로·method는 field로 받지 않는다.
+// app-api 이름과 JSON 입력만 받는다. token·경로·method는 field로 받지 않는다.
 export const appCallSchema = z.strictObject({
-  command: commandKeySchema,
+  api: apiKey,
   input: jsonValueSchema,
 });
 
@@ -54,7 +54,7 @@ export type AppBridgeIpc = keyof typeof APP_BRIDGE_IPC;
 
 // 공개 preload. view-error는 설치 preload 내부라 여기 없다.
 export type LophnApp = {
-  call(command: string, input: AppCall["input"]): Promise<unknown>;
+  call(api: string, input: AppCall["input"]): Promise<unknown>;
   openExternal(url: string): Promise<void>;
 };
 

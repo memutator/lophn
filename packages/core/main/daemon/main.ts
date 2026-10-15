@@ -1,4 +1,6 @@
 import { startCore } from "./core.ts";
+import { writeParent } from "./parent.ts";
+import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
 import { productKeychain } from "../../secrets/store.ts";
 import {
@@ -27,6 +29,13 @@ const started = await startCore({
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);
+  // shell main이 시작 실패 화면에서 이유를 보이게 알린다.
+  if (parent) {
+    await writeParent(parent, {
+      type: "start_failed",
+      reason: startFailureReason(started.error),
+    }).catch(() => {});
+  }
   Deno.exit(1);
 }
 const core = started.value;

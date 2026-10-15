@@ -25,19 +25,6 @@ const BLUEPRINT_FILES = [
   "value.ts",
 ];
 
-// 임시: sdk/blueprint/mod.ts가 옛 평면 파일의 CommandDeclaration type을 아직 다시 내보낸다.
-// app-calls-shell이 그 export를 지우면 이 목록도 지운다.
-const BLUEPRINT_OLD_CONTRACT = [
-  "blueprint.ts",
-  "blueprint-commands.ts",
-  "blueprint-json.ts",
-  "blueprint-schema.ts",
-  "blueprint-scope.ts",
-  "blueprint-types.ts",
-  "blueprint-uses.ts",
-  "blueprint-value.ts",
-];
-
 // @lophn/blueprint: 정본 검증기는 protocol/apps/blueprint의 의존성 없는 파일들이다(read.ts는 zod를 써서 뺀다).
 const BLUEPRINT: VendorRule = {
   files: {
@@ -49,16 +36,10 @@ const BLUEPRINT: VendorRule = {
         `vendor/protocol/apps/blueprint/${file}`,
       ]),
     ),
-    ...Object.fromEntries(
-      BLUEPRINT_OLD_CONTRACT.map((
-        file,
-      ) => [`protocol/apps/${file}`, `vendor/protocol/apps/${file}`]),
-    ),
   },
   rewrite: {
     "../../protocol/apps/blueprint/mod.ts":
       "vendor/protocol/apps/blueprint/mod.ts",
-    "../../protocol/apps/blueprint.ts": "vendor/protocol/apps/blueprint.ts",
   },
 };
 

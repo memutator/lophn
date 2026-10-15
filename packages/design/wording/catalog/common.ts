@@ -71,8 +71,6 @@ export const common = {
   "common.label.tray-start-at-login": "Start at login",
   "common.label.tray-tooltip": "lophn",
   "common.label.value-range": "{start}–{end}",
-  "common.notice.asks-first": "lophn asks you before this runs.",
-  "common.notice.waiting-confirmation": "Waiting for your confirmation.",
   "common.notification.body": "Something needs your attention.",
   "common.notification.title": "lophn",
   "common.overlay.unavailable": "This action couldn't be completed. Try again.",

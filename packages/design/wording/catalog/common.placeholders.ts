@@ -102,8 +102,6 @@ export type CommonPlaceholders = {
     start: "string";
     end: "string";
   };
-  "common.notice.asks-first": Record<never, never>;
-  "common.notice.waiting-confirmation": Record<never, never>;
   "common.notification.body": Record<never, never>;
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;

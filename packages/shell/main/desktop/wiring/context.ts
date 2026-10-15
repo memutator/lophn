@@ -77,7 +77,6 @@ export type ShellContext = {
   relay: CoreRelay;
   windowHooks: WindowHooks;
   appConnector: ReturnType<typeof createAppConnector>;
-  readBlueprint: (app: string) => Promise<CallResult>;
   /** 창마다 편집기 guard가 저장 중 수를 기억한다. 편집기가 채우고 종료 흐름이 읽는다. */
   closeGuards: CloseGuards;
   /** 앱 끄기 상태. 종료 흐름이 채우고 편집기 창 guard가 읽는다. */
@@ -128,15 +127,6 @@ export function createShellContext(): ShellContext {
         error: { code: "unavailable", message: "core is not ready" },
       });
   };
-  const readBlueprint = (app: string) => {
-    const session = core.session();
-    return session
-      ? session.internal("read", "apps", "blueprint", { app })
-      : Promise.resolve({
-        ok: false as const,
-        error: { code: "unavailable", message: "core is not ready" },
-      });
-  };
 
   const ctx: ShellContext = {
     here,
@@ -157,7 +147,6 @@ export function createShellContext(): ShellContext {
     relay,
     windowHooks: { created: [], closed: [] },
     appConnector: createAppConnector(coreInternal),
-    readBlueprint,
     closeGuards: new CloseGuards(),
     quit: { requested: false, active: () => false },
     tray: { current: undefined },

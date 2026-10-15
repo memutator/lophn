@@ -6,6 +6,8 @@ import {
   platformStatus,
 } from "./server/routes.ts";
 import { APPROVAL_EVENTS, APPROVAL_ROUTES } from "./approvals/approvals.ts";
+import { AGENT_GRANT_ROUTES } from "./approvals/grants.ts";
+import { APPROVAL_DECISION_ROUTES } from "./approvals/requests.ts";
 import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
 import { SETTINGS_EVENTS, SETTINGS_ROUTES } from "./config/settings.ts";
@@ -26,6 +28,8 @@ export const ROUTES = [
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...APPROVAL_ROUTES,
+  ...AGENT_GRANT_ROUTES,
+  ...APPROVAL_DECISION_ROUTES,
   ...SECRET_ROUTES,
   ...SETTINGS_FILE_ROUTES,
   ...SECRET_FILE_ROUTES,

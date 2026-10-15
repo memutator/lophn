@@ -398,9 +398,21 @@ export const mainToCoreMessageSchema = z.union([
   confirmationHandleRegisterSchema,
   secretComparisonRequestSchema,
 ]);
+// migration 앞에서 시작하지 못할 때 알린다. 문장과 경로는 싣지 않는다.
+export const START_FAILURE_REASONS = [
+  "newer_schema",
+  "history_mismatch",
+  "damaged_original",
+  "other",
+] as const;
+export const startFailedSchema = z.strictObject({
+  type: z.literal("start_failed"),
+  reason: z.enum(START_FAILURE_REASONS),
+});
 export const coreToMainMessageSchema = z.union([
   mainHelloSchema,
   readySchema,
+  startFailedSchema,
   confirmationHandleRegisteredSchema,
   secretComparisonResponseSchema,
 ]);
@@ -423,6 +435,8 @@ export const kindLaunchSpecSchema = z.strictObject({
   // sys의 항목은 이름 하나다(예: statfs). 와일드카드는 받지 않는다.
   allow_sys: z.array(opaque.refine((value) => !value.includes("*"))),
   allow_env: z.array(opaque.regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
+  // agent runtime의 web.fetch가 아무 host로 나갈 수 있게 한다.
+  net_any: z.boolean().optional(),
   policy: z.enum(["always", "on_request"]),
   memory_limit_bytes: count.refine((n) => n > 0),
 });

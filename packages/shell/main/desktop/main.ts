@@ -12,7 +12,6 @@ import * as desktop from "./wiring/desktop.ts";
 import * as editor from "./wiring/editor.ts";
 import * as feedback from "./wiring/feedback.ts";
 import * as layout from "./wiring/layout.ts";
-import * as restoreUpdate from "./wiring/restore-update.ts";
 
 const ctx = createShellContext();
 const add = <T extends { stop(): void }>(area: T): T => {
@@ -26,7 +25,6 @@ const calls = add(appCalls.register(ctx, views));
 add(feedback.register(ctx, views, calls));
 add(confirmation.register(ctx));
 const terminals = add(coding.register(ctx));
-add(restoreUpdate.register(ctx));
 add(layout.register(ctx, views));
 add(editor.register(ctx));
 add(desktop.register(ctx, views, terminals));

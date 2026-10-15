@@ -15,15 +15,12 @@ import {
   type ReconnectPolicy,
   type SocketFactory,
   subscribe,
-  type Subscription,
 } from "./events.ts";
-import type { RestorePipe } from "./restore.ts";
 import { type IpcEvent } from "../ipc-guard.ts";
 import {
   type CoreProcess,
   type LaunchOptions,
   spawnCore,
-  UPDATE_STOP_MS,
 } from "./supervise.ts";
 
 export interface StateTarget {
@@ -56,7 +53,7 @@ export interface ConnectionOptions {
   reconnect?: ReconnectPolicy;
   /** 테스트가 가짜 core를 끼운다. */
   start?: (options: LaunchOptions) => CoreProcess;
-  /** main이 직접 보는 지금 도착한 event(OS notification). renderer로 나가지 않는다. */
+  /** main이 직접 보는 지금 도착한 event. renderer로 나가지 않는다. */
   arrived?: EventSink["arrived"];
   /**
    * allowlist 호출을 core로 보내기 전에 main이 붙인다. 실패해도 그 호출은
@@ -86,8 +83,6 @@ export interface CoreConnection {
   session(): CoreSession | null;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
-  /** update 정상 정지. 프로세스가 스스로 끝나면 true다. 다시 띄우지 않는다. */
-  confirmStop(): Promise<boolean>;
   /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
   diagnostic(message: unknown): boolean;
   /**
@@ -98,8 +93,6 @@ export interface CoreConnection {
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;
-  /** backup 복원 pipe. supervise.ts의 CoreProcess를 그대로 받는다. */
-  restorePipe(): RestorePipe;
 }
 
 /** handle 등록 응답을 기다리는 시간. 넘으면 그 등록은 없다. */
@@ -111,7 +104,6 @@ export function startCoreConnection(
 ): CoreConnection {
   const state: ConnectionState = { state: "starting", confirmedAt: null };
   let session: CoreSession | undefined;
-  let subscription: Subscription | undefined;
   // handle 등록은 한 번에 하나씩 보낸다.
   let registering: Promise<unknown> = Promise.resolve();
   const core = (options.start ?? spawnCore)(options.launch);
@@ -121,15 +113,12 @@ export function startCoreConnection(
     }
   };
 
-  // hello 하나에 session·구독을 연다. 복원 뒤 core가 같은 pipe로 보내는 새 hello에도
-  // 같은 값(새 epoch·token·port)으로 다시 연다.
+  // hello 하나에 session·구독을 연다.
   const greet = (hello: {
     readonly user_token: string;
     readonly api_port: number;
     readonly core_epoch: string;
   }) => {
-    // 새 hello(복원 뒤 새 epoch)가 오면 옛 구독은 더 이상 다시 붙지 않는다.
-    subscription?.stop();
     session = openSession({
       apiPort: hello.api_port,
       coreEpoch: hello.core_epoch,
@@ -139,10 +128,10 @@ export function startCoreConnection(
     });
     state.state = "ready";
     push();
-    subscription = subscribe({
+    subscribe({
       session,
       epoch: hello.core_epoch,
-      // core 프로세스가 끝났으면 다시 붙을 곳이 없다. 새 core는 새 hello로만 온다.
+      // core 프로세스가 끝났으면 다시 붙을 곳이 없다.
       reconnectPolicy: options.reconnect ??
         backoffReconnect(() => core.phase !== "stopped"),
       // token은 이 closure에만 묶여 URL·renderer로 나가지 않는다.
@@ -169,28 +158,6 @@ export function startCoreConnection(
   core.hello.then(greet).catch(() => {
     state.state = "failed-start";
     push();
-  });
-
-  // 복원으로 멈춘 core는 같은 pipe의 새 hello(새 epoch·token·port)로 다시 시작한다. hello는
-  // supervise.ts의 onMessage listener로 온다. session과 구독을 새 값으로 다시 연다. main hello
-  // frame(contracts `mainHelloSchema`)에는 type이 없다. user_token·api_port·core_epoch 모양으로 안다.
-  core.onMessage((payload) => {
-    const message = payload as {
-      user_token?: unknown;
-      api_port?: unknown;
-      core_epoch?: unknown;
-    };
-    if (
-      typeof message.user_token === "string" &&
-      typeof message.api_port === "number" &&
-      typeof message.core_epoch === "string"
-    ) {
-      greet({
-        user_token: message.user_token,
-        api_port: message.api_port,
-        core_epoch: message.core_epoch,
-      });
-    }
   });
 
   // 새로 구독하는 renderer(런처로 돌아옴·창 다시 읽기)는 지금 상태를 한 번 묻는다. push는
@@ -243,23 +210,8 @@ export function startCoreConnection(
     shutdown() {
       core.stop();
     },
-    confirmStop() {
-      return core.confirmStop(UPDATE_STOP_MS);
-    },
     diagnostic(message) {
       return core.diagnostic(message);
-    },
-    /** backup 복원 pipe. supervise.ts의 CoreProcess를 그대로 받는다. */
-    restorePipe(): RestorePipe {
-      return {
-        get phase() {
-          return core.phase;
-        },
-        restore: (message: unknown) => core.restore(message),
-        confirmation: (message: unknown) => core.confirmation(message),
-        onMessage: (listener: (payload: unknown) => void) =>
-          core.onMessage(listener),
-      };
     },
     registerConfirmation(request) {
       const run = () => registerOnce(core, request);

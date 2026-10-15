@@ -22,15 +22,6 @@ import { createEditorApi } from "./editor-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
-import { createRestoreApi } from "./restore-api.ts";
-import {
-  UPDATE_APPLY_CHANNEL,
-  UPDATE_NOTICE_CHANNEL,
-  UPDATE_READ_CHANNEL,
-  type UpdateApplyReply,
-  type UpdateNoticeReply,
-  type UpdateReadReply,
-} from "../ipc/update.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
@@ -131,45 +122,6 @@ if (role === "shell") {
   );
   // 문서 편집기의 파일 통로. 경로·core port는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
-  // settings backup 복원. 묶음 하나만 보내고 계획·handle은 main에만 있다.
-  contextBridge.exposeInMainWorld(
-    "lophnRestore",
-    createRestoreApi(ipcRenderer),
-  );
-  // settings update. 사람이 고른 로컬 파일만 적용한다. 다운로드·재시작은 없다.
-  // 정상 정지를 확인하지 못하면 main이 설치 파일을 바꾸지 않는다.
-  contextBridge.exposeInMainWorld(
-    "lophnUpdate",
-    Object.freeze({
-      async readPackage(path: string): Promise<UpdateReadReply> {
-        try {
-          return await ipcRenderer.invoke(UPDATE_READ_CHANNEL, {
-            path,
-          }) as UpdateReadReply;
-        } catch {
-          return { ok: false, code: "unavailable" };
-        }
-      },
-      async notice(candidate: unknown): Promise<UpdateNoticeReply> {
-        try {
-          return await ipcRenderer.invoke(UPDATE_NOTICE_CHANNEL, {
-            candidate,
-          }) as UpdateNoticeReply;
-        } catch {
-          return { ok: false, code: "unavailable" };
-        }
-      },
-      async stop(): Promise<UpdateApplyReply> {
-        try {
-          return await ipcRenderer.invoke(
-            UPDATE_APPLY_CHANNEL,
-          ) as UpdateApplyReply;
-        } catch {
-          return { ok: false, code: "unavailable" };
-        }
-      },
-    }),
-  );
   // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld(
     "lophnLayout",

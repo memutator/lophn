@@ -4,17 +4,11 @@
 import { join } from "node:path";
 
 import type { GlobalShortcutPort } from "./global-shortcut.ts";
-import type { OsNotifier } from "./os-notification.ts";
 
 export interface HeadlessMode {
   readonly headless: boolean;
   /** 있으면 창마다 첫 paint와 안정된 뒤 paint를 PNG로 쓴다. */
   readonly shotDir?: string;
-  /**
-   * headless 시험에서 OS notification 표시가 실패하는 갈래를 만든다(`LOPHN_SHELL_OS_NOTIFY=fail`).
-   * headless가 아니면 읽지 않는다. 실제 OS에는 여전히 아무것도 올리지 않는다.
-   */
-  readonly osNotifyFails?: boolean;
 }
 
 export const SHELL_OFF: HeadlessMode = { headless: false };
@@ -28,7 +22,6 @@ export function readHeadless(
   return {
     headless: true,
     ...(shotDir ? { shotDir } : {}),
-    ...(env.LOPHN_SHELL_OS_NOTIFY === "fail" ? { osNotifyFails: true } : {}),
   };
 }
 
@@ -90,25 +83,6 @@ export function guardShortcuts(
       return false;
     },
     unregister() {},
-  };
-}
-
-/**
- * OS notification adapter를 거른다. headless는 사람 화면에 notification을 올리지 않고 고정
- * 문구가 올라갈 자리였다는 것만 log에 남긴다. 클릭은 일어나지 않는다.
- */
-export function guardNotifier(
-  real: OsNotifier,
-  mode: HeadlessMode,
-  log: (message: string) => void,
-): OsNotifier {
-  if (!mode.headless) return real;
-  return {
-    isSupported: () => true,
-    show(note) {
-      log(`headless os-notification not shown title=${note.title}`);
-      if (mode.osNotifyFails) throw new Error("headless os-notification fails");
-    },
   };
 }
 

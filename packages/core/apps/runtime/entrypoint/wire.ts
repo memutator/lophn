@@ -103,7 +103,6 @@ function callOrigin(value: unknown): CallOrigin | undefined {
 
 export type InvocationCaller =
   | { kind: "direct" }
-  | { kind: "automation"; key: string }
   | {
     kind: "app";
     app: string;
@@ -121,11 +120,6 @@ function invocationCaller(value: unknown): InvocationCaller | undefined {
       return exact(source, ["kind"]) ? undefined : { kind: "direct" };
     case "system":
       return exact(source, ["kind"]) ? undefined : { kind: "system" };
-    case "automation": {
-      if (exact(source, ["kind", "key"])) return;
-      const key = commandKey(source.key);
-      return key ? { kind: "automation", key } : undefined;
-    }
     case "app": {
       if (exact(source, ["kind", "app", "release", "parent_invocation"])) {
         return;

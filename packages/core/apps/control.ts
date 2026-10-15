@@ -12,7 +12,6 @@ import {
 } from "../../base/mod.ts";
 import {
   appAgentConfirmProof,
-  appAutomations,
   appBlueprint,
   appConnect,
   type AppConnectInput,
@@ -95,7 +94,6 @@ import {
   type PairConfirmer,
 } from "./connections/confirm-request.ts";
 import type { ConfirmAcceptances } from "./connections/confirm.ts";
-import { withAutomationObservation } from "./automations/reads.ts";
 import {
   type AppConnector,
   type ConnectFacts,
@@ -1032,15 +1030,6 @@ export async function createAppsControl(
         reads.set(
           `${appRuntime.resource}/${appRuntime.method}`,
           withRuntimeObservation(runtime, sources) as ReadHandler,
-        );
-      }
-      const automations = reads.get(
-        `${appAutomations.resource}/${appAutomations.method}`,
-      );
-      if (automations) {
-        reads.set(
-          `${appAutomations.resource}/${appAutomations.method}`,
-          withAutomationObservation(automations, sources) as ReadHandler,
         );
       }
       const logs = reads.get(`${appLogs.resource}/${appLogs.method}`);

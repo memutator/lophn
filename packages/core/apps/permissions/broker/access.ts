@@ -26,8 +26,7 @@ export interface BrokerAccess {
 export type Permission =
   | "net.fetch"
   | "secret.use"
-  | "document.save"
-  | "automation.run";
+  | "document.save";
 
 // 거절은 필요한 permission 이름과 scope를 알린다. 선언 밖이든 grant 밖이든
 // 같은 모양이라 어느 쪽이 빠졌는지를 앱 코드가 추측할 수 없다.

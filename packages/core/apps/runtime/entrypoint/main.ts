@@ -8,7 +8,6 @@ import { ensureSchedulePort } from "./schedule.ts";
 import { startRuntime } from "./startup.ts";
 import { startDirectServer } from "./direct-server.ts";
 import { parseAppStart } from "./start-input.ts";
-import { type AutomationTimers, installAutomations } from "./automation.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
 
@@ -54,8 +53,6 @@ export type MainDeps = {
   // 화면 자원. 실제 앱 프로세스는 bundle 사본의 screens/에서 읽는다.
   screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
   contentType?: (path: string) => string;
-  // automation 시계의 tick·타이머. 시험이 가짜 시계를 준다.
-  automationTimers?: AutomationTimers;
   exit?: (code: number) => void;
   writeStderr?: (text: string) => void;
 };
@@ -140,7 +137,6 @@ export async function main(deps: MainDeps): Promise<void> {
     });
   };
   await deps.importModule(APP);
-  installAutomations(started.state, deps.automationTimers);
   startDirectServer(started.state);
 }
 

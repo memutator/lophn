@@ -13,19 +13,6 @@ export {
   permissionRequirementSchema,
   permissionScopeSchema,
 } from "./permissions.ts";
-export {
-  type AgentContextDeclarationInput,
-  agentContextDeclarationSchema,
-  type AnnotationTargetDeclarationInput,
-  annotationTargetDeclarationSchema,
-  type AnnotationWriteInput,
-  annotationWriteInputSchema,
-  type AppScreenContext,
-  appScreenContextSchema,
-  type ScreenContextReadInput,
-  screenContextReadInputSchema,
-  SUMMARY_MAX_BYTES,
-} from "./agent-context.ts";
 export * from "./packages.ts";
 export * from "./channel.ts";
 export * from "./channel-values.ts";

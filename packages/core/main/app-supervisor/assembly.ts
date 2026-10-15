@@ -71,10 +71,6 @@ import {
   type ProblemsReport,
   socketFlags,
 } from "../../apps/permissions/mod.ts";
-import {
-  type AutomationPermits,
-  createAutomationPermits,
-} from "../../apps/automations/permits.ts";
 import { reportAcceptanceSchema } from "../../../protocol/problems/mod.ts";
 import { createCoreAppCallTargets, createCoreBrokerAccess } from "./access.ts";
 import {
@@ -170,8 +166,6 @@ export type Assembly = {
   broker: SupervisorBroker;
   // preview 자식의 broker다. 운영 자식의 broker와 hub를 나눠 서로의 정지·회수가 영향을 주지 않는다.
   previewBroker: SupervisorBroker;
-  // automation 전체 동시 한도의 permit이다. 앱마다가 아니라 하나뿐이다.
-  permits: AutomationPermits;
   ops: OpHandlers;
   // 감독 pipe의 hello. core API 위치와 machine credential이 온다.
   onHello(
@@ -305,8 +299,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const waiting = new Map<string, (credential: string) => void>();
   // 알려진 secret 값은 supervisor가 모른다. credential 모양 pattern만 지운다.
   const redact = lineRedactor(createKnownSecretRegistry());
-  // automation 전체 동시 한도는 앱마다가 아니라 supervisor 하나가 쥔다.
-  const permits = createAutomationPermits();
 
   const closedInvocations: Pick<InvocationBroker, "submit"> = {
     submit: () =>
@@ -393,7 +385,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       io.invocations ?? closedInvocations,
       toCore,
     ),
-    permits,
     pairs: createCorePairs(toCore),
     platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
     problems: problemsFor,
@@ -1100,7 +1091,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     supervisor: guarded,
     broker,
     previewBroker,
-    permits,
     ops,
     previews,
     onHello(received) {

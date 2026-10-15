@@ -15,7 +15,6 @@ import { ticketDefinitions } from "../../apps/tickets/register.ts";
 import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/tickets/ports.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { appsWiring } from "./wiring/apps.ts";
-import { appsExportWiring } from "./wiring/apps-export.ts";
 import { appsRevertWiring } from "./wiring/apps-revert.ts";
 import { appsTicketsWiring } from "./wiring/apps-tickets.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
@@ -104,7 +103,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentProviderLoginWiring,
   appsRevertWiring,
   appsTicketsWiring,
-  appsExportWiring,
   problemsWiring,
   problemsTestsWiring,
   lophnAgentExtensionsWiring,

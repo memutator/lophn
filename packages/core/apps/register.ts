@@ -8,7 +8,6 @@ import {
 import {
   appAgentConfirmProof,
   appConnect,
-  appExport,
   appPairConfirmPoll,
   appPairConfirmRequest,
   appPairObserve,
@@ -29,7 +28,6 @@ import {
   currentDeclarations,
   permissionsSchemaSteps,
 } from "./permissions/mod.ts";
-import { createAutomationReads } from "./automations/reads.ts";
 import { createBlueprintReads } from "./blueprint/reads.ts";
 import {
   activationAttemptGate,
@@ -128,8 +126,6 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다.
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
-  // 선언·실행 가능 여부·관측을 구분하는 read. 관측은 apps-control이 메인에서 덮는다.
-  const automationReads = createAutomationReads();
   // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
@@ -194,7 +190,6 @@ export function createLedgerRegistration(
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
-      automationReads.automations,
       invocationReads.list,
       invocationReads.get,
       sdkReads.list,
@@ -219,10 +214,6 @@ export function createLedgerRegistration(
       releasePreparation,
       releaseCancelPreparation,
     ],
-    // 앱 export 준비. 준비 본체는 data worker 모듈(worker/export.ts)이 하고,
-    // serving은 core 조립이 연결한다. 제품 기동에는 serving이 아직 없다(준비 중·완성·실패
-    // 구별은 contract의 state로 내놓는다).
-    workerRoutes: [appExport],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -284,7 +275,6 @@ export function createReaderRegistration(): ReaderRegistration {
   const invocations = createInvocationsReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
-  const automationReads = createAutomationReads();
   const grantReads = createGrantsReads();
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
@@ -299,14 +289,13 @@ export function createReaderRegistration(): ReaderRegistration {
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
-      automationReads.automations,
       invocations.list,
       invocations.get,
       sdkReads.list,
       sdkReads.versions,
       sdkReads.usage,
     ],
-    // 선언 port의 고정 값이다. grants.list의 표시 자료와 apps.automations가 같은 key로 읽는다.
+    // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
     // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다.
     ports: new Map<unknown, unknown>([
       [

@@ -2,9 +2,9 @@
 
 ## 목적
 
-직접 명령과 automation의 같은 handler 등록, 실제 invocation 문맥, log 문맥, 실제
-통계 요약, 오류 상세, 처리되지 않은 예외 수집을 제공한다(apps/sdk#R27). 별도 job
-구현 없이 앱 호출과 비동기 callback의 출처를 잇는다.
+command handler 등록, 실제 invocation 문맥, log 문맥, 실제 통계 요약, 오류 상세,
+처리되지 않은 예외 수집을 제공한다(apps/sdk#R27). 별도 job 구현 없이 앱 호출과
+비동기 callback의 출처를 잇는다.
 
 ## 공개 API와 type
 
@@ -18,8 +18,7 @@ import {
 ```
 
 - `command(name, handle)` — blueprint에 선언한 command key의 handler를 등록한다.
-  automation도 같은 handler를 쓴다. handler는 입력 하나를 받고 결과를 돌려주거나
-  `CommandRejection`을 던진다.
+  handler는 입력 하나를 받고 결과를 돌려주거나 `CommandRejection`을 던진다.
 - `runWith(context, work)` — invocation 문맥 안에서 업무를 돌린다.
 - `currentContext()` — 현재 invocation 문맥(앱·release·mode·invocation)을
   읽는다.
@@ -28,15 +27,6 @@ import {
   `TRACE_NAME_MAX_CHARS`).
 - `readResult(source, query)` — 읽기 명령 결과를 coverage·freshness와 함께
   돌려준다.
-- `registerScreenContext({ screen, command, read, revision? })` — blueprint의
-  `agent_context`에 선언한 화면의 read handler를 등록한다(apps/sdk#R39).
-  `read({ view_session, detail })`는 그 view의 `{ revision, summary, data? }`를
-  돌려주고, 상태가 없는 view(닫힘·모름)는 `undefined`를 돌려준다. 민감한 칸
-  제거와 요약 2048byte 제한은 선언의 `sensitive_paths`로 플랫폼이 적용한다.
-- `registerAnnotationTarget({ screen, target, command, write })` — 선언한 주석
-  자리의 write handler를 등록한다. `write`는 조회한 revision이 지금 revision과
-  같을 때만 불리고 `{ revision, result? }`를 돌려준다. 다른 revision은
-  `conflict`, 닫힌 view는 `unavailable`이다.
 - `withRevert(result, { receipt, revision })` — 되돌리기를 지원하는 write
   command의 성공 값을
   `{result, revert:{invocation, receipt, expected_revision}}`로 만든다.
@@ -59,10 +49,7 @@ import {
   그 흐름을 쓰고, `confirmTimeoutMs`(기본 5분)를 넘으면 unavailable이다.
 - type: `InvocationContext`, `RegisteredHandler`, `SchedulePort`, `ReadQuery`,
   `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
-  `ScreenContextRegistration`, `ScreenViewState`,
-  `AnnotationTargetRegistration`, `AnnotationWriteRequest`,
-  `AnnotationWriteResult`, `RejectionCode`, `AppCommandsClient`,
-  `AppCommandOutcome`, `AppResult`
+  `RejectionCode`, `AppCommandsClient`, `AppCommandOutcome`, `AppResult`
 
 ## 요구 permission
 
@@ -81,37 +68,6 @@ import { command } from "@lophn/cap-schedule";
 
 command("usage.sync", async (input) => {
   return await sync(input);
-});
-```
-
-화면 context(코드 입력과 지난 attempt를 agent에게 보여 주고 힌트를 받는다):
-
-```ts
-import {
-  registerAnnotationTarget,
-  registerScreenContext,
-} from "@lophn/cap-schedule";
-
-registerScreenContext({
-  screen: "editor",
-  command: "editor.context", // blueprint agent_context의 read_command
-  read: ({ view_session, detail }) => {
-    const view = views.get(view_session);
-    if (!view) return undefined;
-    return {
-      revision: view.revision,
-      summary: `Editing ${view.name}`,
-      data: detail ? { code: view.code, note: view.note } : undefined,
-    };
-  },
-});
-registerAnnotationTarget({
-  screen: "editor",
-  target: "hint",
-  command: "editor.hint", // 그 target의 write_command
-  write: ({ view_session, text }) => ({
-    revision: views.get(view_session)!.addHint(text),
-  }),
 });
 ```
 

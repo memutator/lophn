@@ -109,12 +109,6 @@ export {
   createAppsConnectService,
 } from "./broker/apps-connect.ts";
 export {
-  type AutomationBroker,
-  type AutomationPermitPort,
-  type AutomationTryAcquireOutput,
-  createAutomationBroker,
-} from "./broker/automations.ts";
-export {
   createProblemReportService,
   type ProblemReportRequest,
   type ProblemReportService,

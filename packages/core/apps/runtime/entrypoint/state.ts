@@ -1,7 +1,6 @@
 // 프로세스 수명의 호출 상태. entry가 만들어 넘긴다.
 import type { Clock, IdSource } from "@lophn/base";
 import type { Blueprint } from "../../blueprint/mod.ts";
-import { gateClock } from "./clock-gate.ts";
 import { type ConfirmMarkers, createConfirmMarkers } from "./confirm-marker.ts";
 import type { BrokerClient } from "./broker-client.ts";
 import type { ProcessIdentity } from "./verify.ts";
@@ -39,8 +38,6 @@ export type RuntimeState = {
   blueprint: Blueprint;
   key: VerifyKey;
   clock: Clock;
-  // 업무 시각. 준비 모드에서는 닫혀 있고, 연결 만료 비교는 clock을 쓴다.
-  businessClock: Clock;
   ids: IdSource;
   broker: BrokerClient;
   dataSchema: number;
@@ -55,8 +52,6 @@ export type RuntimeState = {
   // 닫히거나 교체된 view session. 늦게 온 화면 요청이 닫힌 session을 되살리지 못한다. 상한을 넘으면
   // 가장 오래된 것부터 잊는다.
   closedViews: Set<string>;
-  // live 프로세스의 automation 수명. 업무 통로가 열리면 시작하고 닫히면 멈춘다.
-  automations?: { open(): void; close(): void };
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
   // handler가 잡은 예외를 process를 끝내지 않고 보고한다. 없으면 보고하지 않는다.
@@ -88,9 +83,8 @@ export function createRuntimeState(input: {
   screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
   contentType?: (path: string) => string;
 }): RuntimeState {
-  const state: RuntimeState = {
+  return {
     ...input,
-    businessClock: input.clock,
     ready: false,
     accepting: false,
     closed: false,
@@ -104,6 +98,4 @@ export function createRuntimeState(input: {
       ((path) =>
         path.endsWith(".js") ? "text/javascript" : "application/octet-stream"),
   };
-  state.businessClock = gateClock(input.clock, () => state.accepting);
-  return state;
 }

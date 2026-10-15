@@ -22,7 +22,6 @@ export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:documents/export",
   "worker:search/query",
   "worker:projects/preview_tracking",
-  "worker:apps/export",
   "worker:guides/list",
   "worker:guides/get",
   "worker:guides/outline",

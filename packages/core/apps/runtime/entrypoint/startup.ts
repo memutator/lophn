@@ -1,7 +1,6 @@
 // 시작은 ready=false·accepting=false. 앱 code load 뒤에 등록 handler로 attestation을 만든다.
 import type { Clock, IdSource } from "@lophn/base";
 import type { Blueprint } from "../../blueprint/mod.ts";
-import { installScreenContextHost } from "../../agent-context/mod.ts";
 import {
   createPairPort,
   installPairPort,
@@ -69,11 +68,6 @@ export function startRuntime(deps: {
     }),
     screenBytes: deps.screenBytes,
     contentType: deps.contentType,
-  });
-  // 화면 context의 선언은 release에 고정된 blueprint에서, view는 이 프로세스가 연 session에서 온다.
-  installScreenContextHost({
-    declarations: () => state.blueprint.agent_context,
-    view: (viewSession) => state.views.get(viewSession),
   });
   // SDK의 connectAppCommands가 쓰는 앱 쌍 통로다. 준비 요청만 broker로 가고 업무 요청은 direct다.
   installPairPort(createPairPort({

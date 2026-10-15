@@ -15,7 +15,6 @@ import {
   type BrokerSession,
   createAppsConfirmService,
   createAppsConnectService,
-  createAutomationBroker,
   createBrokerEndpoint,
   createBrokerHub,
   createNetFetchService,
@@ -27,14 +26,11 @@ import {
   type SecretDelivery,
   serveBroker,
 } from "../../apps/permissions/mod.ts";
-import type { AutomationPermits } from "../../apps/automations/permits.ts";
 
 export type BrokerAdapters = {
   access: BrokerAccess;
   // 앱이 보낸 invocation 후행 기록을 core에 전달한다.
   invocations: Pick<InvocationBroker, "submit">;
-  // automation 전체 동시 한도의 permit이다. supervisor에 하나뿐이다.
-  permits: AutomationPermits;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
@@ -103,10 +99,6 @@ export function servicesFor(
     }),
     apps: createAppsConnectService({ preparer: pairs.preparer }),
     appsConfirm: createAppsConfirmService({ confirmer: pairs.confirmer }),
-    automations: createAutomationBroker({
-      access: adapters.access,
-      permits: adapters.permits,
-    }),
   };
 }
 
@@ -173,7 +165,6 @@ export function createSupervisorBroker(deps: {
       hub.unregister(processNonce);
       const found = listening.get(processNonce);
       listening.delete(processNonce);
-      deps.adapters.permits.childExited(processNonce);
       deps.childExited?.(processNonce);
       try {
         await found?.shutdown();

@@ -9,6 +9,7 @@ export {
   type IconButtonProps,
 } from "./icon-button/icon-button.tsx";
 export { Field, type FieldProps } from "./field/field.tsx";
+export { FieldContext, type FieldContextValue } from "./field/field-context.ts";
 export { Input, type InputProps } from "./input/input.tsx";
 export { Textarea, type TextareaProps } from "./textarea/textarea.tsx";
 export {

@@ -35,7 +35,7 @@ import type {
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import type { StatusSource } from "../../../diagnostics/mod.ts";
 import type { ComponentCheck } from "../../../diagnostics/ports.ts";
-import type { Bus } from "../../../events/ports.ts";
+import type { Bus, GatewayFrames } from "../../../events/mod.ts";
 import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type {
   SettingDeclaration,
@@ -191,6 +191,8 @@ type Late = {
   secretAttach: SecretAttachPort;
   // events가 낸다.
   bus: Bus;
+  // Bus 밖 frame을 연결된 Gateway client 하나에 보낸다(coding-agent의 터미널 요청).
+  gateway: GatewayFrames;
   // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
   approvals: ApprovalsService;
 };
@@ -226,6 +228,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   secretStore: true,
   secretAttach: true,
   bus: true,
+  gateway: true,
   approvals: true,
 };
 

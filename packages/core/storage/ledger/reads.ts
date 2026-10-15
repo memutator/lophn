@@ -11,10 +11,6 @@ import {
   readCommonSchema,
 } from "../../../protocol/base/mod.ts";
 import type { ReaderConnection } from "./reader-connection.ts";
-import type {
-  EventRegistration,
-  EventVisibilityRegistry,
-} from "../../events/visibility.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 import { validateOutput } from "./output.ts";
 
@@ -62,17 +58,11 @@ function responseRows(value: unknown): number {
 export type ReaderRegistration = {
   reads: readonly ReadDefinition[];
   ports: ReadonlyMap<unknown, unknown>;
-  // 모든 등록 module의 event 정의와 공개 정책을 모은 registry를 받아 read를 더한다.
-  // events/list가 쓴다. reader Worker가 `createEventRegistration`을 낸 module을 모두
-  // 모은 뒤에 부르므로 팀이 늘어도 목록을 손으로 고치지 않는다.
-  eventReads?(registry: EventVisibilityRegistry): readonly ReadDefinition[];
 };
 
 // entry의 정적 module이 Worker마다 함수와 port object identity를 다시 조립한다.
 export type ReaderRegistrationModule = {
   createReaderRegistration?(): ReaderRegistration;
-  // 팀 module이 자기 event 정의와 공개 정책을 내놓는 자리. read 등록과 따로 부른다.
-  createEventRegistration?(): EventRegistration;
 };
 
 export function readKey(route: { resource: string; method: string }): string {

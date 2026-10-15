@@ -109,7 +109,6 @@ export const appsTicketsWiring: WiringFactory = () => {
         // VerificationRecorded·ReleaseActivated·ReleaseSuperseded·TicketCompletionReported가 오면
         // worker가 정본을 다시 읽는다. 구독이 열릴 때도 한 번 깨워 닫혀 있던 동안을 따라잡는다.
         ticketCheckFeed = startTicketCheckFeed({
-          runtime: ctx.runtime,
           wake: () => checkerChannel.request(TICKET_CHECK_OP, {}, 30_000),
         });
       }

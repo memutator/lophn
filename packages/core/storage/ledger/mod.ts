@@ -52,11 +52,7 @@ export {
   type KnownSecretMatch,
 } from "./known-secrets.ts";
 export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
-export { createListEventsRead, scanEvents } from "../../events/list.ts";
-export type { EventBatch, EventScan } from "../../events/list.ts";
-export { createReaderEventBackend } from "../../events/backend.ts";
 export {
-  collectEventRegistrations,
   createEventVisibilityRegistry,
   currentEventContext,
 } from "../../events/visibility.ts";
@@ -66,19 +62,6 @@ export type {
   EventVisibilityRegistry,
   SubjectScopeGate,
 } from "../../events/visibility.ts";
-export {
-  createEventDispatcher,
-  createEventSession,
-  resolveSubscriptionStart,
-} from "../../events/subscribe.ts";
-export type {
-  EventBackend,
-  EventSession,
-  EventSink,
-  SubscribeStart,
-} from "../../events/subscribe.ts";
-export { createSubscriptionStore } from "../../events/subscription-store.ts";
-export type { SubscriptionStore } from "../../events/subscription-store.ts";
 export { isDomainEvent } from "./domain-events.ts";
 export {
   type CommitEventReader,

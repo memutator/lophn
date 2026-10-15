@@ -287,9 +287,8 @@ async function open(
         ...runtime.memory.handlers,
         ...merged((built) => built.memory),
       ]),
-      events: runtime.events,
-      subscriptions: runtime.subscriptions,
-      track: (session) => runtime.track(session),
+      bus: ctx.bus,
+      gateway: ctx.gateway,
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,

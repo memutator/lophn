@@ -30,7 +30,6 @@ import {
   type InternalSubscription,
   openInternalSubscription,
 } from "../../../events/internal-subscription.ts";
-import type { CoreRuntime } from "../../../main/daemon/runtime.ts";
 import {
   TICKET_CHECK_FEED_PRINCIPAL,
   TICKET_CHECKER_PRINCIPAL,
@@ -127,7 +126,6 @@ export function ticketCheckFeedVisibility<D extends EventDefinition>(
 }
 
 export type TicketCheckFeedDeps = {
-  runtime: Pick<CoreRuntime, "events" | "track">;
   // worker에게 비교를 청한다. worker가 없거나 답하지 못하면 실패는 다음 깨움이 잇는다.
   wake(): Promise<unknown>;
   // 한 묶음의 event가 몰릴 때 한 번만 깨우는 대기.
@@ -147,8 +145,6 @@ export function startTicketCheckFeed(
   };
   const subscription = openInternalSubscription({
     context: TICKET_CHECK_FEED_CONTEXT,
-    backend: deps.runtime.events,
-    track: (session) => deps.runtime.track(session),
     retryMs: deps.retryMs,
     // 구독이 닫혀 있던 동안의 변화는 worker가 정본을 다시 읽어 따라잡는다.
     onSubscribed: wake,

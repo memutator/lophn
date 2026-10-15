@@ -5,14 +5,9 @@ import {
   ERROR_HTTP_STATUS,
   RPC_JSON_MAX_BYTES,
 } from "../../protocol/base/mod.ts";
-import { EVENT_SUBSCRIBE_PATH } from "../../protocol/events/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 import type { ConfirmationBridge, RouteConfirmation } from "./identity/mod.ts";
-import type {
-  EventBackend,
-  EventSession,
-  SubscriptionStore,
-} from "../storage/ledger/mod.ts";
+import type { Bus, GatewayFrames } from "../events/mod.ts";
 import type { Writer } from "../storage/ledger/mod.ts";
 import {
   type Admission,
@@ -42,7 +37,7 @@ import {
   MAX_HEADER_BYTES,
 } from "./request.ts";
 import { isSubscribePath, RouteRegistry } from "./routes.ts";
-import { acceptSocket, attachSession } from "./socket.ts";
+import { acceptSocket, attachSession, gatewayAllowed } from "./socket.ts";
 
 // core entry가 조립한다. core entry·data root·시작 순서는 여기 없다.
 export type ApiServerOptions = {
@@ -60,10 +55,10 @@ export type ApiServerOptions = {
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
   confirmation?: ConfirmationBridge | RouteConfirmation;
-  events?: EventBackend;
-  subscriptions?: SubscriptionStore;
-  // 열린 WebSocket event session을 dispatcher에 올린다. 돌려받은 함수로 뺀다.
-  track?: (session: EventSession) => () => void;
+  // Gateway WebSocket이 구독하는 Bus. 없으면 Gateway는 unavailable이다.
+  bus?: Bus;
+  // Gateway client 하나에 Bus 밖 frame을 보내는 목록. 연결마다 올린다.
+  gateway?: GatewayFrames;
   bodyLimit?: DispatchDeps["bodyLimit"];
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
@@ -142,6 +137,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         resolve({
           port,
           stop: async () => {
+            options.gateway?.shutdown();
             await Promise.all([server.shutdown(), v6?.shutdown()]);
           },
         });
@@ -192,10 +188,17 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         return json(decision.failure);
       }
       if (isSubscribePath(url.pathname)) {
-        if (!options.events) {
+        if (!options.bus) {
           return json(failure({
             code: "unavailable",
-            message: "event subscription unavailable",
+            message: "gateway unavailable",
+          }));
+        }
+        // 자격은 연결 때 한 번 본다.
+        if (!gatewayAllowed(decision.context)) {
+          return json(failure({
+            code: "forbidden",
+            message: "gateway not allowed for this credential",
           }));
         }
         // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
@@ -209,9 +212,8 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
           return Response.json(accepted.body, { status: accepted.status });
         }
         attachSession(accepted.socket, decision.context, {
-          backend: options.events,
-          store: options.subscriptions,
-          track: options.track,
+          bus: options.bus,
+          frames: options.gateway,
           onClose: connection.value.release,
         });
         return accepted.response;
@@ -364,5 +366,3 @@ function adaptedWorkers(
   }
   return adapted;
 }
-
-export { EVENT_SUBSCRIBE_PATH };

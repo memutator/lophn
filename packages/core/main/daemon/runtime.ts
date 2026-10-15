@@ -22,15 +22,10 @@ import {
   type StatusSource,
 } from "../../diagnostics/mod.ts";
 import {
-  createEventDispatcher,
-  createReaderEventBackend,
   createReaderPool,
-  createSubscriptionStore,
-  type EventSession,
   type KnownSecretMatch,
   openConnection,
   type ReaderPool,
-  type SubscriptionStore,
   type Writer,
 } from "../../storage/ledger/mod.ts";
 import type {
@@ -72,11 +67,6 @@ export type CoreRuntime = {
   current(credentialRef: string): Result<RequestContext>;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
-  events: ReturnType<typeof createReaderEventBackend>;
-  subscriptions: SubscriptionStore;
-  wake(): void;
-  // core 안의 구독 session을 dispatcher에 올려 새 event가 올 때 따라잡게 한다. 돌려받은 함수로 뺀다.
-  track(session: EventSession): () => void;
   close(): Promise<void>;
 };
 
@@ -147,13 +137,8 @@ export async function openRuntime(input: {
   for (const url of input.modules) {
     const module = (await import(url)) as {
       createReaderRegistration?: unknown;
-      createEventRegistration?: unknown;
     };
-    // event 정의·공개 정책만 내는 module도 reader에 건넨다. events/list registry가 모은다.
-    if (
-      typeof module.createReaderRegistration === "function" ||
-      typeof module.createEventRegistration === "function"
-    ) {
+    if (typeof module.createReaderRegistration === "function") {
       readerModules.push(new URL(url));
     }
   }
@@ -195,19 +180,6 @@ export async function openRuntime(input: {
     secretStore.sync,
     input.assembled.secretRefs,
   );
-  const root = input.ledgerPath.slice(0, input.ledgerPath.lastIndexOf("/"));
-  const directory = `${root}/derived/api-subscriptions`;
-  await Deno.mkdir(directory, { recursive: true });
-  const subscriptions = await createSubscriptionStore(
-    directory,
-    input.source.ledgerId,
-  );
-  if (!subscriptions.ok) {
-    secretStore.stop();
-    readers.value.close();
-    await openedWriter.writer.close();
-    return subscriptions;
-  }
   const status = platformStatusReads(input.source, input.clock);
   // doctor의 무거운 검사는 worker가 한다. core는 그 관측만 읽는다.
   const doctor = input.doctor
@@ -231,7 +203,6 @@ export async function openRuntime(input: {
     // settings read도 같은 풀이다. contract ROUTES가 이미 고정한 route 경로다.
     ...[
       "commands/result",
-      "events/list",
       "settings/definitions",
       "settings/get",
       "settings/history",
@@ -260,14 +231,6 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
-  const events = createReaderEventBackend(
-    readers.value,
-    (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
-  );
-  const dispatcher = createEventDispatcher((catchUp) => {
-    const timer = setInterval(catchUp, 200);
-    return () => clearInterval(timer);
-  });
   // 현재 보기 relay는 ledger 밖 core 메모리다. run→session 확인은 reader가
   // 등록한 runs/read handler로 한다. 아직 없으면 fail-closed다.
   const runRead = reads.get("runs/read");
@@ -288,15 +251,9 @@ export async function openRuntime(input: {
     current: (ref) => currentCredential(input.ledgerPath, ref),
     reads,
     memory,
-    events,
-    subscriptions: subscriptions.value,
-    wake: () => dispatcher.wake(),
-    track: (session) => dispatcher.add(session),
     async close() {
-      dispatcher.close();
       secretStore.stop();
       readers.value.close();
-      subscriptions.value.close();
       await openedWriter.writer.close();
     },
   });

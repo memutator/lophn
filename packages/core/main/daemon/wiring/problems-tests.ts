@@ -178,7 +178,6 @@ export const problemsTestsWiring: WiringFactory = () => {
         // ticket event가 오면 worker가 cursor 뒤를 따라잡는다. 구독이 열릴 때와 주기마다도 깨워
         // 재시작·worker 교체 동안의 변화를 따라잡는다.
         problemsWorkFeed = startProblemsWorkFeed({
-          runtime: ctx.runtime,
           ledgerPath: ctx.ledgerPath,
           wake: (cursor) =>
             runnerChannel.request(PROBLEMS_WORK_OP, { cursor }, 30_000),
@@ -187,7 +186,6 @@ export const problemsTestsWiring: WiringFactory = () => {
         // cursor 뒤 closing event를 따라잡는다. 조건 판정은 command가 정본에서
         // 다시 한다. 이 구독자는 깨움 신호만 낸다.
         problemsClosingFeed = startProblemsClosingFeed({
-          runtime: ctx.runtime,
           ledgerPath: ctx.ledgerPath,
           wake: (cursor) =>
             runnerChannel.request(PROBLEMS_CLOSING_OP, { cursor }, 30_000),

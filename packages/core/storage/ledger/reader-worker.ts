@@ -1,5 +1,4 @@
 import { err } from "../../../base/mod.ts";
-import { collectEventRegistrations } from "../../events/visibility.ts";
 import type {
   ReadDefinition,
   RequestContext,
@@ -27,12 +26,6 @@ self.onmessage = async (event: MessageEvent) => {
     const registrations = loaded.flatMap((module) =>
       module.createReaderRegistration ? [module.createReaderRegistration()] : []
     );
-    // 모든 팀 module의 event 정의와 공개 정책을 한 registry로 모은다. 같은 type이 둘이면
-    // 기동을 거절한다(read 중복 등록과 같은 규칙).
-    const events = collectEventRegistrations(
-      loaded.map((module) => module.createEventRegistration?.()),
-    );
-    if (!events.ok) throw new Error("duplicate event registration");
     // 알려진 secret 값은 이 Worker의 보호 메모리(이 closure)에만 있다. handler에는 일치 검사만
     // 하는 matcher를 port로 준다. 값은 core가 pool로 보내는 등록·회수 message로만 바뀐다.
     const known = createKnownSecretRegistry();
@@ -49,11 +42,7 @@ self.onmessage = async (event: MessageEvent) => {
       ports: ReadonlyMap<unknown, unknown>;
     }>();
     for (const registration of registrations) {
-      const reads = [
-        ...registration.reads,
-        ...registration.eventReads?.(events.value) ?? [],
-      ];
-      for (const read of reads) {
+      for (const read of registration.reads) {
         const key = readKey(read.route);
         if (definitions.has(key)) {
           throw new Error("duplicate read registration");

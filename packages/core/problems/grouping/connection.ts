@@ -28,7 +28,6 @@ import {
   type InternalSubscription,
   openInternalSubscription,
 } from "../../events/internal-subscription.ts";
-import type { CoreRuntime } from "../../main/daemon/runtime.ts";
 import {
   PROBLEMS_WORK_FEED_PRINCIPAL,
   PROBLEMS_WORK_PRINCIPAL,
@@ -138,7 +137,6 @@ export function problemsWorkCursor(ledgerPath: string): Result<string> {
 const WAKE_TYPES: ReadonlySet<string> = new Set(WORK_EVENT_TYPES);
 
 export type ProblemsWorkFeedDeps = {
-  runtime: Pick<CoreRuntime, "events" | "track">;
   ledgerPath: string;
   // worker에게 cursor 뒤를 따라잡게 한다. worker가 없거나 답하지 못하면 실패다.
   wake(cursor: string): Promise<Result<unknown>>;
@@ -184,8 +182,6 @@ export function startProblemsWorkFeed(
   const period = setInterval(() => void attempt(), periodMs);
   const subscription = openInternalSubscription({
     context: PROBLEMS_WORK_FEED_CONTEXT,
-    backend: deps.runtime.events,
-    track: (session) => deps.runtime.track(session),
     // 구독이 닫혀 있던 동안의 변화는 cursor 뒤를 다시 읽어 따라잡는다.
     onSubscribed: () => schedule(0),
     onEvents(events) {

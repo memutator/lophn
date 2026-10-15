@@ -9,7 +9,7 @@ import type {
 
 export interface BusSink {
   send(event: BusEvent): void;
-  close(reason: "slow_consumer" | "shutdown"): void;
+  close(reason: "slow_consumer" | "credential_revoked" | "shutdown"): void;
 }
 
 // 쓰는 곳: run-loop(agent event), harness adapter(agent event), approvals command 층(commit 뒤

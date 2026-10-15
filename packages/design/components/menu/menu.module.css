@@ -34,3 +34,12 @@
   color: var(--color-text-disabled);
   cursor: not-allowed;
 }
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-base);
+  color: var(--color-text-muted);
+}

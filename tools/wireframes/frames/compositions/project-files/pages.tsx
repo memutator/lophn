@@ -1,14 +1,13 @@
 // Part 2: 파일 탭(viewer, 저장, 밖에서 바뀐 파일), project 키워드 검색, 경로로 열기, sidebar의 Agents 묶음.
 // 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
 import type { ReactNode } from "react";
-import { Dialog } from "@lophn/design/components";
+import { Dialog, FileIcon } from "@lophn/design/components";
 import { Button } from "@lophn/ui-control";
 
 import {
   editorIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import { FileIcon } from "../../chrome/file-icon.tsx";
 import { AGENT_ROWS } from "../agents-data.ts";
 import { documentTab } from "../phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";

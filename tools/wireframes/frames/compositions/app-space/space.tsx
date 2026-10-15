@@ -14,6 +14,7 @@ import {
   TabPanel,
   Tabs,
   Tooltip,
+  VendorIcon,
 } from "@lophn/design/components";
 import {
   appSpaceIcons,
@@ -26,7 +27,6 @@ import { LauncherButton } from "../../../../../packages/shell/renderer/workspace
 import menuStyles from "../../../../../packages/design/components/menu/menu.module.css";
 
 import { PaletteButton, WireTopBar } from "../../chrome/title-bar.tsx";
-import { VendorIcon } from "../../vendors/vendor-icon.tsx";
 import { APP_NAME } from "./data.ts";
 import { AccessTab } from "./access-tab.tsx";
 import { ActivityTab } from "./activity-tab.tsx";

@@ -135,7 +135,14 @@ export {
   PopoverRow,
   type PopoverRowProps,
 } from "./popover/popover.tsx";
-export { Menu, type MenuItem, type MenuProps } from "./menu/menu.tsx";
+export { Menu, MenuIcon, type MenuItem, type MenuProps } from "./menu/menu.tsx";
+export { type TabDot, type TabItem, TabStrip } from "./tab-strip/tab-strip.tsx";
+export { FileIcon, fileIconName } from "./file-icon/file-icon.tsx";
+export {
+  type Vendor,
+  VendorIcon,
+  vendorOf,
+} from "./vendor-icon/vendor-icon.tsx";
 export {
   Dialog,
   type DialogProps,

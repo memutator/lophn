@@ -5,7 +5,7 @@ import {
   paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
-import { FileIcon } from "../chrome/file-icon.tsx";
+import { FileIcon } from "@lophn/design/components";
 import { Avatar } from "./agent-avatar.tsx";
 import { menuIcon, menuLead } from "./project-files/menu-icons.tsx";
 import { CHAT_TAB, type PaneInit, ProjectApp } from "./project-app.tsx";

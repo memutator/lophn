@@ -9,6 +9,8 @@ import {
   iconPixels,
   Popover,
   Select,
+  VendorIcon,
+  vendorOf,
 } from "@lophn/design/components";
 import { paletteIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -23,7 +25,6 @@ import {
 } from "./model-options.ts";
 import { MODEL_CATALOG } from "./models-data.ts";
 import t from "./agent-tab/agent-tab.module.css";
-import { VendorIcon, vendorOf } from "../vendors/vendor-icon.tsx";
 import a from "./agents.module.css";
 
 /** 별표 찍은 model. 찍은 순서 그대로 둔다(provider로 다시 묶지 않는다). */

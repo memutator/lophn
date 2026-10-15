@@ -207,6 +207,34 @@ export const tokens = {
     duration: { default: "5000ms", brief: "2000ms" },
   },
   chip: { width: "360px" },
+  // 탭 줄의 탭 최소·최대 폭.
+  tabStrip: { min: "96px", max: "240px" },
+  // 창 위쪽 바 높이, 창 조절 단추 폭, 닫기 단추 hover 색.
+  window: {
+    topBar: "36px",
+    control: "46px",
+    closeHover: { light: "#c42b1c", dark: "#c42b1c" },
+    closeText: { light: "#ffffff", dark: "#ffffff" },
+  },
+  // 파일 아이콘 색. light는 Catppuccin Latte, dark는 Macchiato다.
+  fileIcon: {
+    text: { light: "#4c4f69", dark: "#cad3f5" },
+    blue: { light: "#1e66f5", dark: "#8aadf4" },
+    yellow: { light: "#df8e1d", dark: "#eed49f" },
+    green: { light: "#40a02b", dark: "#a6da95" },
+    overlay1: { light: "#8c8fa1", dark: "#8087a2" },
+    peach: { light: "#fe640b", dark: "#f5a97f" },
+    red: { light: "#d20f39", dark: "#ed8796" },
+    mauve: { light: "#8839ef", dark: "#c6a0f6" },
+    sky: { light: "#04a5e5", dark: "#91d7e3" },
+    sapphire: { light: "#209fb5", dark: "#7dc4e4" },
+    pink: { light: "#ea76cb", dark: "#f5bde6" },
+    teal: { light: "#179299", dark: "#8bd5ca" },
+    maroon: { light: "#e64553", dark: "#ee99a0" },
+    lavender: { light: "#7287fd", dark: "#b7bdf8" },
+    rosewater: { light: "#dc8a78", dark: "#f4dbd6" },
+    flamingo: { light: "#dd7878", dark: "#f0c6c6" },
+  },
   floating: {
     surface: { light: "#ffffff", dark: "#1d1d1b" },
     hover: { light: "#f3f2ef", dark: "#2a2a28" },

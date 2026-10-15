@@ -1,14 +1,17 @@
 // 앱 화면 옆 pane. agent와 coding 터미널이 같은 위치를 쓰고 pane 머리에서 바꾼다. 터미널은 App Engineer가 ticket을 맡기면 lophn이 연다.
 // agent 대화는 project 창 Agent 탭과 같은 ChatShell을 쓴다.
 import type { ReactNode } from "react";
-import { IconButton } from "@lophn/design/components";
+import {
+  IconButton,
+  type TabDot,
+  TabStrip,
+  VendorIcon,
+} from "@lophn/design/components";
 import { workspaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import { type TabDot, TabStrip } from "../../chrome/tab-strip.tsx";
 import { Avatar } from "../agent-avatar.tsx";
 import { AgentTurn, ChatShell, Said, UserMessage } from "../agent-chat.tsx";
 import { CallBlock } from "../agent-tab/call-block.tsx";
-import { VendorIcon } from "../../vendors/vendor-icon.tsx";
 import { type CodingScene, CodingTerminal } from "./coding-tab.tsx";
 import { TICKET, TICKET_TITLE } from "./data.ts";
 import styles from "./app-space.module.css";

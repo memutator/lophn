@@ -4,11 +4,13 @@
 // 모양의 마크업을 다시 짠 look-alike다. 앱 코드는 고치지 않는다.
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
+  FileIcon,
   Icon,
   IconButton,
   iconPixels,
   type IconProps,
   Menu,
+  TabStrip,
   Tooltip,
   type TreeNode,
 } from "@lophn/design/components";
@@ -36,9 +38,7 @@ import {
   PHRONER_TREE,
   treeOf,
 } from "./project-files/file-tree-data.ts";
-import { FileIcon } from "../chrome/file-icon.tsx";
 import { menuIcon, menuLead } from "./project-files/menu-icons.tsx";
-import { TabStrip } from "../chrome/tab-strip.tsx";
 import { Avatar } from "./agent-avatar.tsx";
 import styles from "./compose.module.css";
 

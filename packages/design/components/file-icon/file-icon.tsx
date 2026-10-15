@@ -52,7 +52,7 @@ const BY_FOLDER: Readonly<Record<string, string>> = {
 };
 
 // 아이콘 색은 Catppuccin Macchiato(어두운 바탕용)다. 밝은 바탕에서는 안 보여서, 색을 theme 변수로 바꾸고
-// chrome.css가 light에는 Latte, dark에는 Macchiato 값을 준다.
+// design token(--file-icon-*)이 light에는 Latte, dark에는 Macchiato 값을 준다.
 const PALETTE: Readonly<Record<string, string>> = {
   "#cad3f5": "text",
   "#8aadf4": "blue",
@@ -82,7 +82,7 @@ function themed(body: string): string {
         (whole: string, key: string, color: string) => {
           const token = PALETTE[color.toLowerCase()];
           if (token === undefined) return whole;
-          styles.push(`${key}:var(--ctp-${token})`);
+          styles.push(`${key}:var(--file-icon-${token})`);
           return "";
         },
       );

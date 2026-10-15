@@ -11,10 +11,10 @@ import {
   StatusMark,
   Textarea,
   ToastStack,
+  VendorIcon,
 } from "@lophn/design/components";
 
 import { lophnSpaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import { VendorIcon } from "../../vendors/vendor-icon.tsx";
 
 import type {
   ActivationItem,

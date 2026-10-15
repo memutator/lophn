@@ -9,6 +9,8 @@ import {
   Select,
   Switch,
   Textarea,
+  VendorIcon,
+  vendorOf,
 } from "@lophn/design/components";
 import {
   lophnSpaceIcons,
@@ -27,7 +29,6 @@ import {
   withValue,
 } from "../model-options.ts";
 import { OptionAxes } from "../model-picker.tsx";
-import { VendorIcon, vendorOf } from "../../vendors/vendor-icon.tsx";
 import { MODEL_CATALOG } from "../models-data.ts";
 import type { McpItem, McpStatus, SkillItem } from "./setup-data.ts";
 import s from "./agent-setup.module.css";

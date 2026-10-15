@@ -24,7 +24,7 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   return {
     name: "renderer-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(css|woff2)$/ }, (args) => {
+      build.onResolve({ filter: /\.(css|woff2|svg)$/ }, (args) => {
         const mapped = imports[args.path];
         const url = mapped
           ? new URL(mapped)
@@ -35,7 +35,9 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
           : undefined;
         if (!url || url.protocol !== "file:") return undefined;
         const path = fileURLToPath(url);
-        const loader: esbuild.Loader = path.endsWith(".module.css")
+        const loader: esbuild.Loader = path.endsWith(".svg")
+          ? "text"
+          : path.endsWith(".module.css")
           ? "local-css"
           : path.endsWith(".css")
           ? "css"

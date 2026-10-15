@@ -1,9 +1,10 @@
 // 새 설계 화면들이 같이 쓰는 탭 줄. project 창의 칸 머리, 앱 공간의 pane 머리, sidebar 위쪽 모양 고르기가 모두 이것이다.
 // 모양은 아이콘과 이름, 고른 탭에 밑줄, 상자 없음이다. 닫기 ×, 끝의 새 탭 위치, 상태 점, 칸 focus 표시를 갖는다.
 import { type ReactNode, useLayoutEffect, useRef } from "react";
-import { Icon, iconPixels } from "@lophn/design/components";
-
-import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
+import { X } from "lucide-react";
+import { t } from "@lophn/wording";
+import { Icon } from "../icon.tsx";
+import { iconPixels } from "../shared.ts";
 import styles from "./tab-strip.module.css";
 
 export type TabDot = "waiting" | "working" | "ended";
@@ -17,11 +18,7 @@ export interface TabItem {
   readonly dot?: TabDot | null;
 }
 
-const DOT_LABEL: Record<TabDot, string> = {
-  waiting: "Waiting for you",
-  working: "Working",
-  ended: "Session ended",
-};
+const dotLabel = (dot: TabDot) => t(`common.label.tab-${dot}`);
 
 export function TabStrip(
   { tabs, selected, focused = true, compact = false, onSelect, onClose, end }: {
@@ -79,8 +76,8 @@ export function TabStrip(
                     className={styles.dot}
                     data-state={tab.dot}
                     role="img"
-                    aria-label={DOT_LABEL[tab.dot]}
-                    title={DOT_LABEL[tab.dot]}
+                    aria-label={dotLabel(tab.dot)}
+                    title={dotLabel(tab.dot)}
                   />
                 )
                 : null}
@@ -88,14 +85,14 @@ export function TabStrip(
                 <button
                   type="button"
                   className={styles.close}
-                  aria-label="Close tab"
+                  aria-label={t("common.button.close")}
                   onClick={(event) => {
                     event.stopPropagation();
                     onClose(tab.key);
                   }}
                 >
                   <Icon
-                    icon={workspaceIcons.close}
+                    icon={X}
                     pixels={iconPixels("small")}
                   />
                 </button>

@@ -35,8 +35,8 @@
   flex: 0 0 auto;
   align-items: center;
   gap: var(--control-gap);
-  min-width: 96px;
-  max-width: 240px;
+  min-width: var(--tab-strip-min);
+  max-width: var(--tab-strip-max);
   padding: var(--space-0) var(--space-3) var(--space-0) var(--space-4);
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);

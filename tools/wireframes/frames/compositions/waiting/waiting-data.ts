@@ -1,8 +1,6 @@
 // 대기 목록의 고정 데이터. 모든 session의 대기 요청이 한 목록에 있고, 항목마다 어느 agent·session·앱 또는 project의
 // 것인지 붙는다. 카드 문구는 program이 intent에서 만든 것이라 요청한 agent가 쓴 설명은 여기에 없다.
-import type { AvatarProfile } from "@lophn/design/components";
-
-import type { Vendor } from "../../vendors/vendor-icon.tsx";
+import type { AvatarProfile, Vendor } from "@lophn/design/components";
 
 export type Effect = "read" | "write" | "external";
 

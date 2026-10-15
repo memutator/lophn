@@ -23,20 +23,24 @@ export type ToastDuration = "default" | "brief";
 export interface ToastAction {
   id: string;
   label: string;
+  // 마지막 단추를 주된 행동으로 보일 때.
+  variant?: "primary";
 }
 
 export interface ToastProps {
   title: string;
   body?: string;
   tone?: ToastTone;
-  // 행동은 최대 2개다.
+  // 제목 앞의 작은 그림(VendorIcon 같은).
+  lead?: ReactNode;
+  // 기본은 error면 alert, 아니면 status다.
+  role?: "status" | "alert";
+  // 행동은 최대 3개다.
   actions?:
     | readonly []
     | readonly [ToastAction]
-    | readonly [
-      ToastAction,
-      ToastAction,
-    ];
+    | readonly [ToastAction, ToastAction]
+    | readonly [ToastAction, ToastAction, ToastAction];
   // 짧은 조작 확인은 brief(2초), 나머지는 default(5초). error는 시간으로 닫지 않는다.
   duration?: ToastDuration;
   onAction?: (id: string) => void;
@@ -50,7 +54,9 @@ export function Toast(
   {
     title,
     body,
+    lead,
     tone = "neutral",
+    role = tone === "error" ? "alert" : "status",
     actions = [],
     duration = "default",
     onAction,
@@ -76,6 +82,7 @@ export function Toast(
   return (
     <div
       className={cx(styles.toast, styles[tone])}
+      role={role}
       data-tone={tone}
       onPointerEnter={() => countdown.hover(true)}
       onPointerLeave={() => countdown.hover(false)}
@@ -93,7 +100,10 @@ export function Toast(
         </span>
       )}
       <div className={styles.text}>
-        <p className={styles.title}>{title}</p>
+        <p className={styles.title}>
+          {lead}
+          <span>{title}</span>
+        </p>
         {body !== undefined && <p className={styles.body}>{body}</p>}
         {actions.length > 0 && (
           <div className={styles.actions}>
@@ -101,6 +111,7 @@ export function Toast(
               <Button
                 key={action.id}
                 size="sm"
+                variant={action.variant}
                 onClick={() => onAction?.(action.id)}
               >
                 {action.label}

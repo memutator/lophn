@@ -3,16 +3,16 @@
 import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import {
+  FileIcon,
   Icon,
   iconPixels,
   Menu,
+  TabStrip,
   type TreeNode,
 } from "@lophn/design/components";
 
 import { visibleRows } from "../../../../../packages/design/components/tree/model.ts";
 import treeStyles from "../../../../../packages/design/components/tree/tree.module.css";
-import { FileIcon } from "../../chrome/file-icon.tsx";
-import { TabStrip } from "../../chrome/tab-strip.tsx";
 import { type FileRoot, ROOTS } from "./file-data.ts";
 import styles from "./files.module.css";
 

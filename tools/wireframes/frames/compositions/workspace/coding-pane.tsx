@@ -7,13 +7,14 @@ import {
   Input,
   Select,
   StatusMark,
+  VendorIcon,
+  vendorOf,
 } from "@lophn/design/components";
 import { retryIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
 import a from "../agents.module.css";
 import c from "../compose.module.css";
 import { CODING_PRODUCTS, type CodingMark } from "./data.ts";
-import { VendorIcon, vendorOf } from "../../vendors/vendor-icon.tsx";
 import styles from "./workspace.module.css";
 
 /** 제품 이름 앞에 vendor 아이콘을 붙인다. */

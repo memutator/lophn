@@ -2,12 +2,18 @@
 // 기본값, 화면은 agent-setup/) 본문. 연결 창의 정적 모양은 한 화면에 두 창을 나란히 놓으려고 같은 token으로 짠
 // look-alike이고, 눌러서 여는 창은 실제 Dialog다. key는 이 창에서 치지 않고 보호 입력으로 받는다.
 import { type ReactNode, useState } from "react";
-import { Button, Dialog, Field, Input } from "@lophn/design/components";
+import {
+  Button,
+  Dialog,
+  Field,
+  Input,
+  VendorIcon,
+  vendorOf,
+} from "@lophn/design/components";
 import {
   lophnSpaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import { VendorIcon, vendorOf } from "../vendors/vendor-icon.tsx";
 import { ProtectedKeyNote } from "./agent-setup/parts.tsx";
 import {
   SettingsAgents,

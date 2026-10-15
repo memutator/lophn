@@ -1,11 +1,15 @@
 // 받은 메시지의 보낸 쪽 chip과, chip을 누르면 열리는 panel. 사람이 직접 쓴 메시지가 아닌 입력(다른 agent의 부탁,
 // program의 reaction, coding agent의 메시지, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을 읽어 보인다.
 import { type ReactNode, useState } from "react";
-import { Icon, iconPixels } from "@lophn/design/components";
+import {
+  Icon,
+  iconPixels,
+  VendorIcon,
+  vendorOf,
+} from "@lophn/design/components";
 import { lophnSpaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
 import { Link } from "../link.tsx";
-import { VendorIcon, vendorOf } from "../../vendors/vendor-icon.tsx";
 import { type Envelope, EVIDENCE_KIND, senderLabel } from "./data.ts";
 import t from "./agent-tab.module.css";
 

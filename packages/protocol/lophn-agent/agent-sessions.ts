@@ -90,25 +90,12 @@ export const openAgentSession = defineCommand({
   errors: [...commandErrors],
 });
 
-function snapshotOk(
-  value: { as_of_seq: string },
-  sessions: readonly AgentSession[],
-): boolean {
-  return seqSchema.safeParse(value.as_of_seq).success &&
-    sessions.every((session) =>
-      BigInt(session.state_seq) <= BigInt(value.as_of_seq)
-    );
-}
-
 export const agentSessionRead = defineRead({
   resource: "sessions",
   method: "read",
   name: "ReadSession",
   input: z.strictObject({ session: idSchema("ses") }),
-  output: withReadCommon(z.object({ session: agentSessionSchema })).refine(
-    (value) => snapshotOk(value, [value.session]),
-    { message: "session state is newer than read snapshot" },
-  ),
+  output: withReadCommon(z.object({ session: agentSessionSchema })),
   actors: ["user", "agent", "machine", "coding_agent"],
   errors: [...readErrors],
 });
@@ -118,11 +105,7 @@ export const agentSessionList = defineRead({
   method: "list",
   name: "ListSessions",
   input: listAgentSessionsInputSchema,
-  output: withReadCommon(z.object({ sessions: z.array(agentSessionSchema) }))
-    .refine(
-      (value) => snapshotOk(value, value.sessions),
-      { message: "session state is newer than read snapshot" },
-    ),
+  output: withReadCommon(z.object({ sessions: z.array(agentSessionSchema) })),
   actors: ["user", "agent", "machine", "coding_agent"],
   errors: [...readErrors],
 });

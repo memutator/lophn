@@ -30,16 +30,6 @@ const readErrors = [
 
 const readActors = ["user", "agent", "machine"] as const;
 
-function withinSnapshot(
-  value: { as_of_seq: string },
-  messages: readonly ReceivedMessage[],
-): boolean {
-  return seqSchema.safeParse(value.as_of_seq).success &&
-    messages.every((message) =>
-      BigInt(message.created_seq) <= BigInt(value.as_of_seq)
-    );
-}
-
 // 옛 messages/list와 경로가 겹치지 않게 자원 이름을 따로 둔다.
 export const receivedMessageList = defineRead({
   resource: "session_messages",
@@ -52,9 +42,7 @@ export const receivedMessageList = defineRead({
   }),
   output: withReadCommon(z.object({
     messages: z.array(receivedMessageSchema),
-  })).refine((value) => withinSnapshot(value, value.messages), {
-    message: "message is newer than read snapshot",
-  }),
+  })),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -64,10 +52,7 @@ export const receivedMessageRead = defineRead({
   method: "read",
   name: "ReadReceivedMessage",
   input: z.strictObject({ message: idSchema("msg") }),
-  output: withReadCommon(z.object({ message: receivedMessageSchema })).refine(
-    (value) => withinSnapshot(value, [value.message]),
-    { message: "message is newer than read snapshot" },
-  ),
+  output: withReadCommon(z.object({ message: receivedMessageSchema })),
   actors: readActors,
   errors: [...readErrors],
 });

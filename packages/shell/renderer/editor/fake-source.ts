@@ -22,6 +22,8 @@ const fail = (code: "not_found" | "conflict" | "unsupported") =>
   ({ ok: false, code }) as const;
 
 const encoder = new TextEncoder();
+// fake 파일의 수정 시각(2026-10-16 09:00 UTC).
+const FAKE_MODIFIED_AT = Date.UTC(2026, 9, 16, 9);
 
 // 이미지 viewer와 pdf viewer가 보이는 stand-in. 모양은 chest 배치도와 한 쪽짜리 보고서다.
 export const FAKE_IMAGE_SVG =
@@ -202,15 +204,17 @@ export function fakeEditorFiles(
       return Promise.resolve(
         text === undefined
           ? fail(bytesOf(path) ? "unsupported" : "not_found")
-          : ok({ text, hash: hashOf(text) }),
+          : ok({ text, hash: hashOf(text), modified_at: FAKE_MODIFIED_AT }),
       );
     },
     readBytes({ path }) {
       const found = bytesOf(path);
       return Promise.resolve(
-        found === null
-          ? fail("not_found")
-          : ok({ bytes: found.bytes, content_type: found.type }),
+        found === null ? fail("not_found") : ok({
+          bytes: found.bytes,
+          content_type: found.type,
+          modified_at: FAKE_MODIFIED_AT,
+        }),
       );
     },
     write({ path, base_hash, text }) {

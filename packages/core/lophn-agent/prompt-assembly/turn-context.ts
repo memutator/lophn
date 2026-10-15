@@ -52,7 +52,7 @@ type TabTarget = {
 };
 
 const TAB_TARGET: TabTarget = {
-  document_editor: (tab) => tab.document,
+  document_editor: (tab) => tab.path,
   terminal: (tab) => tab.project_folder,
   app_panel: (tab) =>
     `${tab.app} ${tab.surface}${

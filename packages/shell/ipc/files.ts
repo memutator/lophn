@@ -66,8 +66,13 @@ export const fileCloseAnswerSchema = z.object({
 
 export type FileEntry = { name: string; kind: "file" | "folder" };
 export type FileList = { entries: FileEntry[] };
-export type FileText = { text: string; hash: string };
-export type FileBytes = { bytes: Uint8Array; content_type: string };
+// modified_at은 파일의 마지막 수정 시각(epoch ms)이다.
+export type FileText = { text: string; hash: string; modified_at: number };
+export type FileBytes = {
+  bytes: Uint8Array;
+  content_type: string;
+  modified_at: number;
+};
 export type FileWrite = {
   path: string;
   base_hash: string | null;

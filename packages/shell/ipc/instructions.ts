@@ -42,6 +42,8 @@ export type InstructionsPlace =
 
 /** 열린 결과. 파일에 연결된 문서가 없으면 둘 다 null이다(첫 저장 전). */
 export interface InstructionsOpened {
+  /** 지침 파일의 절대 경로. 편집기가 이 경로로 연다. shell main이 아직 채우지 않으면 없다. */
+  readonly path?: string;
   readonly document: string | null;
   /** 그 문서의 지금 확정된 판. */
   readonly version: string | null;

@@ -79,7 +79,8 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...tabBase,
     kind: z.literal("document_editor"),
-    document: documentIdSchema,
+    // 열린 파일의 절대 경로다.
+    path: viewString,
   }),
   z.strictObject({
     ...tabBase,
@@ -124,7 +125,7 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
   z.object({
     ...tabBase,
     kind: z.literal("document_editor"),
-    document: documentIdSchema,
+    path: viewString,
   }),
   z.object({
     ...tabBase,

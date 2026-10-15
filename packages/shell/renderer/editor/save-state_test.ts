@@ -76,12 +76,15 @@ function fakeDisk(text: string) {
       if (fail.read) {
         return Promise.resolve(
           { ok: false, code: fail.read } as FileReply<
-            { text: string; hash: string }
+            { text: string; hash: string; modified_at: number }
           >,
         );
       }
       return Promise.resolve(
-        { ok: true, value: { text: disk.text, hash: disk.hash! } } as const,
+        {
+          ok: true,
+          value: { text: disk.text, hash: disk.hash!, modified_at: 0 },
+        } as const,
       );
     },
     /** 밖(다른 편집기)이 파일을 바꾼다. */

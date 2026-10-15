@@ -81,9 +81,7 @@ export type ScreenId =
   | "settings-coding"
   | "settings-extensions"
   | "settings-general"
-  | "settings-update"
   | "settings-diagnostics"
-  | "settings-notifications"
   | "project-document"
   | "project-terminal"
   | "project-app-panel"
@@ -504,25 +502,11 @@ export const PAGES: readonly WireframePage[] = [
     "settings-general",
   ),
   now(
-    "settings-update",
-    "Settings · Update",
-    ["update-lophn"],
-    "Settings의 Update 탭. 새 version과 호환 여부만 안내하고, 자동 다운로드·설치·재시작은 하지 않는다.",
-    "settings-update",
-  ),
-  now(
     "settings-diagnostics",
     "Settings · Diagnostics",
     [],
     "Settings의 Diagnostics 탭. 보안 상태 점검과 doctor 결과를 영향 한 문장과 다음 행동으로 보인다.",
     "settings-diagnostics",
-  ),
-  now(
-    "settings-notifications",
-    "Settings · Notifications",
-    ["catch-up-notifications"],
-    "Settings의 Notifications 탭. OS notification을 켤지 고른다. 켠 뒤에만 shell이 올린다.",
-    "settings-notifications",
   ),
   now(
     "project-document",

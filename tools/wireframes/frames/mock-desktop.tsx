@@ -80,9 +80,7 @@ const SETTINGS_TAB = {
   coding: "settings.label.tab-coding",
   extensions: "settings.label.tab-extensions",
   general: "settings.label.tab-general",
-  update: "settings.label.tab-update",
   diagnostics: "settings.label.tab-diagnostics",
-  notifications: "settings.label.tab-notifications",
 } as const;
 
 export type SettingsTab = keyof typeof SETTINGS_TAB;
@@ -145,8 +143,7 @@ export function MockDesktop(props: MockDesktopProps) {
       terminal,
       conversation: { drafts: new DraftStore(), onSettings: () => {} },
       requests: { source: mock.requests, drafts: new RequestDrafts() },
-      // 버린 Backup 탭은 gallery에 없다.
-      settingsPanels: { ...mock.settingsPanels, backup: undefined },
+      settingsPanels: mock.settingsPanels,
     };
   }, [panes, openTerminal, emptyLauncher]);
   const { mock } = wiring;

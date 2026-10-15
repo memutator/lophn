@@ -294,9 +294,7 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "settings-coding": () => settings("coding"),
   "settings-extensions": () => settings("extensions"),
   "settings-general": () => settings("general"),
-  "settings-update": () => settings("update"),
   "settings-diagnostics": () => settings("diagnostics"),
-  "settings-notifications": () => settings("notifications"),
   "project-document": () => (
     <MockDesktop
       route={openProject(PROJECT_GROCERY)}

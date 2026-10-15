@@ -1,17 +1,16 @@
-// app-detail의 순수 계산. 안쪽 값(상태 enum·command key·ID)을 사람 말로 바꾸는 자리이고, 원문은
-// 화면의 자세히 보기에서만 쓴다.
-import type { StatusTone } from "@lophn/design";
-import { t } from "@lophn/wording";
+// app-detail의 순수 계산. 안쪽 값(상태 enum·종류·ID)을 사람 말로 바꾸는 자리이다.
+import { formatDate, t } from "@lophn/wording";
 
 import type {
-  AccessKind,
+  ActivationStep,
   ActivityRow,
-  ActivityStatus,
-  BlueprintAutomation,
-  Comparison,
-  TaskChecks,
-  TestResultKind,
-  VersionStatus,
+  AgentRole,
+  Caller,
+  CallState,
+  LossLine,
+  ResourceKind,
+  RewindOutcome,
+  StepKey,
 } from "./source.ts";
 
 /** 앱 공간에 열려 있는 운영과 분리된 preview. */
@@ -22,299 +21,178 @@ export interface PreviewOpen {
   readonly nonce: string;
 }
 
-export function versionStatusText(status: VersionStatus): string {
-  switch (status) {
-    case "prepared":
-      return t("app-detail.label.status-prepared");
-    case "activating":
-      return t("app-detail.label.status-applying");
-    case "active":
-      return t("app-detail.label.status-current");
-    case "failed":
-      return t("app-detail.label.status-failed");
-    case "superseded":
-      return t("app-detail.label.status-older");
-  }
-}
+/** release 번호를 `r7` 꼴로. */
+export const releaseName = (number: number) => `r${number}`;
 
-export function versionStatusTone(status: VersionStatus): StatusTone {
-  switch (status) {
-    case "active":
-      return "good";
-    case "activating":
-      return "warning";
-    case "failed":
-      return "serious";
-    default:
-      return "neutral";
-  }
-}
-
-/** 적용 결과. 준비(저장)와 다르다. */
-export function appliedText(status: VersionStatus): string {
-  switch (status) {
-    case "active":
-      return t("app-detail.label.applied-yes");
-    case "activating":
-      return t("app-detail.label.applied-working");
-    case "failed":
-      return t("app-detail.label.applied-failed");
-    case "superseded":
-      return t("app-detail.label.applied-before");
-    case "prepared":
-      return t("app-detail.label.applied-no");
-  }
-}
-
-export function testResultText(result: TestResultKind): string {
-  switch (result) {
-    case "pass":
-      return t("app-detail.label.test-pass");
-    case "fail":
-      return t("app-detail.label.test-fail");
-    case "inconclusive":
-      return t("app-detail.label.test-inconclusive");
-  }
-}
-
-/** Task의 확인 결과. 보고 접수와 실제 통과를 구별한다. */
-export function taskChecksText(checks: TaskChecks): string {
-  if (!checks.reported) return t("app-detail.label.task-pending");
-  if (checks.failed > 0) return t("app-detail.label.task-failed");
-  if (checks.unclear > 0) return t("app-detail.label.task-unclear");
-  if (checks.passed === 0) return t("app-detail.label.task-none");
-  return t("app-detail.label.task-passed");
-}
-
-export interface ChangeLine {
-  readonly key: string;
-  readonly text: string;
-}
-
-/** 바뀐 것의 요약. 개수만 말하고 이름은 자세히 보기에 둔다. */
-export function changeLines(c: Comparison): readonly ChangeLine[] {
-  const lines: ChangeLine[] = [];
-  const add = (key: string, text: string, count: number) => {
-    if (count > 0) lines.push({ key, text });
-  };
-  add(
-    "commands-added",
-    t("app-detail.label.change-actions-added", {
-      count: c.addedCommands.length,
-    }),
-    c.addedCommands.length,
-  );
-  add(
-    "commands-removed",
-    t("app-detail.label.change-actions-removed", {
-      count: c.removedCommands.length,
-    }),
-    c.removedCommands.length,
-  );
-  add(
-    "commands-changed",
-    t("app-detail.label.change-actions-changed", {
-      count: c.changedCommands.length,
-    }),
-    c.changedCommands.length,
-  );
-  add(
-    "commands-external",
-    t("app-detail.label.change-actions-external", {
-      count: c.externalCommands.length,
-    }),
-    c.externalCommands.length,
-  );
-  const screens = c.addedScreens.length + c.removedScreens.length +
-    c.changedScreens.length;
-  add(
-    "screens",
-    t("app-detail.label.change-screens", { count: screens }),
-    screens,
-  );
-  const automations = c.addedAutomations.length +
-    c.removedAutomations.length + c.changedAutomations.length;
-  add(
-    "automations",
-    t("app-detail.label.change-automations", { count: automations }),
-    automations,
-  );
-  add(
-    "access-added",
-    t("app-detail.label.change-access-added", {
-      count: c.addedPermissions.length,
-    }),
-    c.addedPermissions.length,
-  );
-  add(
-    "access-removed",
-    t("app-detail.label.change-access-removed", {
-      count: c.removedPermissions.length,
-    }),
-    c.removedPermissions.length,
-  );
-  if (c.dataFrom !== c.dataTo || c.dataChanges.length > 0) {
-    lines.push({
-      key: "data",
-      text: t("app-detail.label.change-data", {
-        from: String(c.dataFrom),
-        to: String(c.dataTo),
-      }),
-    });
-  }
-  return lines;
-}
-
-/** 자세히 보기에 보이는 바뀐 이름 묶음. 이름은 앱이 지은 원문이다. */
-export interface DetailGroup {
-  readonly key: string;
-  readonly heading: string;
-  readonly items: readonly {
-    sign: "add" | "delete" | "change";
-    name: string;
-  }[];
-}
-
-export function detailGroups(c: Comparison): readonly DetailGroup[] {
-  const groups: DetailGroup[] = [
-    {
-      key: "actions",
-      heading: t("app-detail.heading.detail-actions"),
-      items: [
-        ...c.addedCommands.map((name) => ({ sign: "add" as const, name })),
-        ...c.removedCommands.map((name) => ({ sign: "delete" as const, name })),
-        ...c.changedCommands.map((change) => ({
-          sign: "change" as const,
-          name: change.command,
-        })),
-      ],
-    },
-    {
-      key: "screens",
-      heading: t("app-detail.heading.detail-screens"),
-      items: [
-        ...c.addedScreens.map((name) => ({ sign: "add" as const, name })),
-        ...c.removedScreens.map((name) => ({ sign: "delete" as const, name })),
-        ...c.changedScreens.map((name) => ({ sign: "change" as const, name })),
-      ],
-    },
-    {
-      key: "automations",
-      heading: t("app-detail.heading.detail-automations"),
-      items: [
-        ...c.addedAutomations.map((name) => ({ sign: "add" as const, name })),
-        ...c.removedAutomations.map((name) => ({
-          sign: "delete" as const,
-          name,
-        })),
-        ...c.changedAutomations.map((name) => ({
-          sign: "change" as const,
-          name,
-        })),
-      ],
-    },
-    {
-      key: "access",
-      heading: t("app-detail.heading.detail-access"),
-      items: [
-        ...c.addedPermissions.map((name) => ({ sign: "add" as const, name })),
-        ...c.removedPermissions.map((name) => ({
-          sign: "delete" as const,
-          name,
-        })),
-      ],
-    },
-    {
-      key: "data",
-      heading: t("app-detail.heading.detail-data"),
-      items: c.dataChanges.map((name) => ({ sign: "change" as const, name })),
-    },
-  ];
-  return groups.filter((group) => group.items.length > 0);
-}
-
-/** 이 비교로 저장된 데이터가 바뀌면 이전 Version으로 돌아가도 되돌아가지 않는다. */
-export function dataConverts(c: Comparison): boolean {
-  return c.dataFrom !== c.dataTo || c.dataChanges.length > 0;
-}
-
-export function scheduleText(when: BlueprintAutomation["when"]): string {
-  if (when.kind === "on_start") return t("app-detail.label.schedule-start");
-  return t("app-detail.label.schedule-interval", {
-    minutes: Math.max(1, Math.round(when.intervalMs / 60000)),
+/** "Oct 15, 13:58". 값이 없으면 빈 문자열이다. */
+export function dateTime(iso: string | null): string {
+  if (iso === null) return "";
+  return formatDate(new Date(iso), "en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
 }
 
-export function activityStatusText(status: ActivityStatus): string {
-  switch (status) {
-    case "succeeded":
-      return t("app-detail.label.status-done");
-    case "failed":
-      return t("app-detail.label.status-didnt-finish");
-    case "denied":
-      return t("app-detail.label.status-blocked");
-    case "unknown":
-      return t("app-detail.label.status-result-unknown");
-    case "running":
-      return t("app-detail.label.status-working");
-    case "accepted":
-      return t("app-detail.label.status-waiting");
+/** 표의 시각 칸. 오늘이면 "14:41", 아니면 "Oct 15". */
+export function callTime(iso: string | null, now: Date): string {
+  if (iso === null) return t("app-detail.label.time-unknown");
+  const at = new Date(iso);
+  if (at.toDateString() === now.toDateString()) {
+    return formatDate(at, "en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  return formatDate(at);
+}
+
+// ---- Version ----
+
+export function stepText(step: ActivationStep, release: number): string {
+  const count = step.count ?? 0;
+  switch (step.key) {
+    case "hold":
+      return step.count === null
+        ? t("app-detail.label.step-hold")
+        : t("app-detail.label.step-hold-count", { count });
+    case "drain":
+      return t("app-detail.label.step-drain");
+    case "stop":
+      return t("app-detail.label.step-stop");
+    case "migrate":
+      return step.count === null
+        ? t("app-detail.label.step-migrate")
+        : t("app-detail.label.step-migrate-count", { count });
+    case "start":
+      return t("app-detail.label.step-start", {
+        release: releaseName(release),
+      });
   }
 }
 
-export function activityTone(status: ActivityStatus): StatusTone {
-  switch (status) {
-    case "succeeded":
-      return "good";
-    case "failed":
-      return "serious";
-    case "denied":
-      return "warning";
-    case "unknown":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-/** 이 행이 그 automation의 활동인지. */
-export function isAutomationActivity(row: ActivityRow, key: string): boolean {
-  return row.trigger.kind === "automation" && row.trigger.key === key;
-}
-
-/** Access 탭이 파일·host 같은 범위를 묶는 갈래. app.call·automation.run은 다른 탭이다. */
-export const ACCESS_GROUPS: readonly {
-  readonly kind: AccessKind;
-  readonly heading: () => string;
-}[] = [
-  { kind: "fs.read", heading: () => t("app-detail.heading.access-files-read") },
-  {
-    kind: "fs.write",
-    heading: () => t("app-detail.heading.access-files-write"),
-  },
-  { kind: "net.fetch", heading: () => t("app-detail.heading.access-network") },
-  { kind: "net.listen", heading: () => t("app-detail.heading.access-listen") },
-  {
-    kind: "secret.use",
-    heading: () => t("app-detail.heading.access-secrets"),
-  },
-  {
-    kind: "document.save",
-    heading: () => t("app-detail.heading.access-documents"),
-  },
-  {
-    kind: "agent.commands",
-    heading: () => t("app-detail.heading.access-agents"),
-  },
+export const STEP_KEYS: readonly StepKey[] = [
+  "hold",
+  "drain",
+  "stop",
+  "migrate",
+  "start",
 ];
 
-/** apps가 정한 조합 경고 key를 화면 말로. 모르는 key는 일반 경고다. */
-export function warningText(key: string): string {
-  if (key === "permissions.warning.file-read-and-network") {
-    return t("app-detail.note.warning-read-network");
+export function lossText(loss: LossLine): { label: string; value: string } {
+  switch (loss.kind) {
+    case "drop_table":
+      return {
+        label: t("app-detail.label.loss-drop-table"),
+        value: loss.table,
+      };
+    case "drop_column":
+      return {
+        label: t("app-detail.label.loss-drop-column"),
+        value: `${loss.table}.${loss.column ?? ""}`,
+      };
+    case "narrow_type":
+      return {
+        label: t("app-detail.label.loss-narrow-type"),
+        value: `${loss.table}.${loss.column ?? ""}`,
+      };
   }
-  if (key === "permissions.warning.outside-link") {
-    return t("app-detail.note.warning-outside-link");
+}
+
+// ---- Access ----
+
+export function resourceKindText(kind: ResourceKind): string {
+  switch (kind) {
+    case "file-read":
+    case "file-write":
+      return t("app-detail.label.resource-file");
+    case "network":
+    case "listen":
+      return t("app-detail.label.resource-network");
+    case "secret":
+      return t("app-detail.label.resource-secret");
   }
-  return t("app-detail.note.warning-other");
+}
+
+export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
+  const when = dateTime(grantedAt);
+  switch (kind) {
+    case "file-read":
+      return t("app-detail.note.resource-file-read", { when });
+    case "file-write":
+      return t("app-detail.note.resource-file-write", { when });
+    case "network":
+      return t("app-detail.note.resource-network", { when });
+    case "listen":
+      return t("app-detail.note.resource-listen", { when });
+    case "secret":
+      return t("app-detail.note.resource-secret");
+  }
+}
+
+// ---- Activity ----
+
+const ROLE_TEXT: Record<AgentRole, () => string> = {
+  lophn: () => t("app-detail.label.role-lophn"),
+  project_manager: () => t("app-detail.label.role-project-manager"),
+  app_engineer: () => t("app-detail.label.role-app-engineer"),
+  operator: () => t("app-detail.label.role-operator"),
+};
+
+/** 행에 보이는 부른 쪽 이름. */
+export function callerText(caller: Caller): string {
+  switch (caller.kind) {
+    case "person":
+      return t("app-detail.label.caller-person");
+    case "agent":
+      return ROLE_TEXT[caller.role]();
+    case "app":
+      return t("app-detail.label.caller-app", {
+        name: caller.appName ?? t("app-detail.label.caller-app-unnamed"),
+      });
+    case "start":
+      return t("app-detail.label.caller-start");
+  }
+}
+
+/** 호출 이름. 앱 시작과 data 변경은 정해진 말이다. */
+export function callName(
+  row: Pick<ActivityRow, "kind" | "api">,
+): string {
+  if (row.kind === "start") return t("app-detail.label.call-start");
+  if (row.kind === "data_change") return t("app-detail.label.call-data-change");
+  return row.api ?? "";
+}
+
+export function callStateText(row: ActivityRow): string {
+  if (row.undone) return t("app-detail.label.state-undone");
+  return STATE_TEXT[row.state]();
+}
+
+const STATE_TEXT: Record<CallState, () => string> = {
+  done: () => t("app-detail.label.state-done"),
+  failed: () => t("app-detail.label.state-failed"),
+  waiting: () => t("app-detail.label.state-waiting"),
+  running: () => t("app-detail.label.state-running"),
+  unknown: () => t("app-detail.label.state-unknown"),
+};
+
+/** 지금 release의 live write·external·앱 시작에서만 rewind를 시작할 수 있다. */
+export function canRewind(row: ActivityRow): boolean {
+  return !row.earlier && row.effect !== "read" && row.state === "done" &&
+    !row.undone && row.kind !== "data_change";
+}
+
+export function outcomeText(outcome: RewindOutcome): string {
+  switch (outcome) {
+    case "undone":
+      return t("app-detail.label.outcome-undone");
+    case "stays":
+      return t("app-detail.label.outcome-stays");
+    case "cannot":
+      return t("app-detail.label.outcome-cannot");
+  }
 }

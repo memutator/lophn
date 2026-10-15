@@ -50,10 +50,7 @@ import {
   windowCodingApi,
   windowRevokeOpener,
 } from "./lophn-space/settings/connections/core-source.ts";
-import {
-  coreIssuesSource,
-  windowIssueDecision,
-} from "../app-frame/app-detail/issues/core-source.ts";
+import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -88,7 +85,7 @@ const coding = mock?.coding ?? coreCodingConnectionsSource(core, {
   coding: codingApi,
   openWindow: windowRevokeOpener(),
 });
-const issues = mock?.issues ?? coreIssuesSource(core, windowIssueDecision());
+const issues = mock?.issues ?? coreIssuesSource(core);
 // 런처의 프로젝트 카드·등록과 작업대는 제품 core 통로로 읽고 쓴다.
 const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());

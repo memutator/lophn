@@ -1,153 +1,388 @@
-// Activity 탭. 앱 action·automation 한 번의 기록(안쪽 이름 invocation)은 기본에서 숨기고 사람이
-// 펼치면 Activity로 보인다. 요약은 마지막 하나, 목록은 펼친 뒤. 호출 성공은 업무가 맞다는 뜻이
-// 아니다. 접수·시작·결과 모름은 서로 다르게 보인다.
+// Activity 탭. 호출 기록 목록, 한 호출을 펼친 세부, project로 거르기, 그리고 rewind panel로 가는 단추.
+// 성공한 읽기는 기록하지 않는다. 호출 성공은 업무가 맞다는 뜻이 아니다.
 import { useState } from "react";
-import { Button, StatusMark } from "@lophn/design/components";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { Button, Field, Select } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";
-import { activityStatusText, activityTone } from "../model.ts";
-import type { ActivityRow, AppDetailSource, BlueprintView } from "../source.ts";
+import {
+  callerText,
+  callName,
+  callStateText,
+  callTime,
+  canRewind,
+  releaseName,
+} from "../model.ts";
+import { EffectPill, Facts, Mono, Pill } from "../parts.tsx";
+import type {
+  ActivityRow,
+  ActivityView,
+  AppDetailSource,
+  Caller,
+} from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
+import { RewindPanel } from "./rewind-panel.tsx";
 
 export interface ActivityTabProps {
   app: string;
+  /** 앱 이름. rewind panel이 쓴다. */
+  name: string;
   source: AppDetailSource;
   now: () => Date;
+  /** agent session을 연다. 없으면 session 이름만 보인다. */
+  onOpenSession?: (session: string) => void;
 }
 
-function whatText(row: ActivityRow, blueprint: BlueprintView | null): string {
-  if (row.operation.kind === "start") return t("app-detail.label.did-start");
-  if (row.operation.kind === "data_change") {
-    return t("app-detail.label.did-data-change");
-  }
-  const key = row.operation.command;
-  const label = blueprint?.commands.find((command) => command.key === key)
-    ?.label;
-  return label === undefined
-    ? t("app-detail.label.did-action-unnamed")
-    : t("app-detail.label.did-action", { action: label });
-}
+const ALL_PROJECTS = "all";
 
-function whoText(row: ActivityRow): string {
-  if (row.caller === "agent") return t("app-detail.label.by-agent");
-  if (row.caller === "app") return t("app-detail.label.by-app");
-  if (row.trigger.kind === "automation") {
-    return t("app-detail.label.by-automation");
+export function ActivityTab(
+  { app, name, source, now, onOpenSession }: ActivityTabProps,
+) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [project, setProject] = useState(ALL_PROJECTS);
+  const [rewind, setRewind] = useState<string | null>(null);
+  if (rewind !== null) {
+    return (
+      <RewindPanel
+        app={app}
+        name={name}
+        from={rewind}
+        source={source}
+        now={now}
+        onBack={() => setRewind(null)}
+      />
+    );
   }
-  if (row.trigger.kind === "activation") {
-    return t("app-detail.label.by-applying");
-  }
-  if (row.trigger.kind === "restart") return t("app-detail.label.by-restart");
-  return t("app-detail.label.by-direct");
-}
-
-export function ActivityTab({ app, source, now }: ActivityTabProps) {
-  const [open, setOpen] = useState(false);
-  const blueprint = useRead(() => source.blueprint(app), [app, source], {
-    now,
-  });
-  const activity = useRead(() => source.activity(app), [app, source], { now });
-  const view = blueprint.loaded.state === "ready"
-    ? blueprint.loaded.value
-    : null;
   return (
     <div className={styles.tab} data-tab-body="activity">
-      <Loadable
-        read={activity}
-        target={t("app-detail.label.activity-target")}
+      <ActivityList
+        app={app}
+        source={source}
         now={now}
-      >
-        {(rows) => {
-          if (rows.length === 0) {
-            return (
-              <p className={styles.state} data-activity-empty="">
-                {t("app-detail.note.no-activity")}
-              </p>
-            );
-          }
-          const last = rows[0];
-          return (
-            <section className={styles.section}>
-              <p className={styles.text} data-activity-summary="">
-                {t("app-detail.label.last-activity", {
-                  status: activityStatusText(last.status),
-                  age: last.at === null
-                    ? t("app-detail.label.time-unknown")
-                    : formatRelativeTime(new Date(last.at), now()),
-                })}
-              </p>
-              <div className={styles.actions}>
-                <Button
-                  size="sm"
-                  aria-expanded={open}
-                  onClick={() => setOpen(!open)}
-                  data-activity-toggle=""
-                >
-                  {open
-                    ? t("app-detail.button.hide-activity")
-                    : t("app-detail.button.show-activity")}
-                </Button>
-              </div>
-              {open
-                ? (
-                  <ul className={styles.list} data-activity-list="">
-                    {rows.map((row) => (
-                      <li
-                        key={row.id}
-                        className={styles.row}
-                        data-activity={row.status}
-                      >
-                        <div className={styles.rowHead}>
-                          <span className={styles.title}>
-                            {whatText(row, view)}
-                          </span>
-                          <StatusMark
-                            tone={activityTone(row.status)}
-                            label={activityStatusText(row.status)}
-                          />
-                        </div>
-                        <p className={styles.text}>
-                          {whoText(row)}
-                          {row.mode === "live" ? null : (
-                            <>
-                              {" · "}
-                              {row.mode === "preview"
-                                ? t("app-detail.label.mode-preview")
-                                : t("app-detail.label.mode-test")}
-                            </>
-                          )}
-                          {" · "}
-                          {row.at === null
-                            ? t("app-detail.label.time-unknown")
-                            : formatRelativeTime(new Date(row.at), now())}
-                        </p>
-                        {row.status === "unknown"
-                          ? (
-                            <div className={styles.actions}>
-                              <Button
-                                size="sm"
-                                data-activity-action="check"
-                                onClick={() => activity.reload()}
-                              >
-                                {t("app-detail.button.check-result")}
-                              </Button>
-                            </div>
-                          )
-                          : null}
-                      </li>
-                    ))}
-                  </ul>
-                )
-                : null}
-              <p className={styles.muted}>
-                {t("app-detail.note.activity-scope")}
-              </p>
-            </section>
-          );
-        }}
-      </Loadable>
+        open={open}
+        onOpen={setOpen}
+        project={project}
+        onProject={setProject}
+        onRewind={setRewind}
+        onOpenSession={onOpenSession}
+      />
     </div>
+  );
+}
+
+function SessionLink(
+  { caller, onOpenSession }: {
+    caller: Extract<Caller, { kind: "agent" }>;
+    onOpenSession?: (session: string) => void;
+  },
+) {
+  const label = caller.title ?? t("app-detail.label.session-unnamed");
+  return onOpenSession === undefined
+    ? <span className={styles.muted}>{label}</span>
+    : (
+      <button
+        type="button"
+        className={styles.link}
+        data-open-session={caller.session}
+        onClick={() => onOpenSession(caller.session)}
+      >
+        {label}
+      </button>
+    );
+}
+
+function StateCell({ row }: { row: ActivityRow }) {
+  const text = callStateText(row);
+  if (row.undone || row.state === "waiting" || row.state === "running") {
+    return <Pill tone="neutral">{text}</Pill>;
+  }
+  if (row.state === "failed" || row.state === "unknown") {
+    return <Pill tone="critical">{text}</Pill>;
+  }
+  return <span className={styles.muted}>{text}</span>;
+}
+
+function CalledBy(
+  { row, onOpenSession }: {
+    row: ActivityRow;
+    onOpenSession?: (session: string) => void;
+  },
+) {
+  const caller = row.caller;
+  switch (caller.kind) {
+    case "agent":
+      return (
+        <span>
+          {callerText(caller)} ·{" "}
+          <SessionLink
+            caller={caller}
+            onOpenSession={onOpenSession}
+          />{" "}
+          · {t("app-detail.label.turn")} <Mono>{caller.turn}</Mono> ·{" "}
+          {t("app-detail.label.tool-call")} <Mono>{caller.toolCall}</Mono>
+        </span>
+      );
+    case "app":
+      return (
+        <span>
+          {caller.releaseNumber === null
+            ? (caller.appName ?? t("app-detail.label.caller-app-unnamed"))
+            : t("app-detail.label.called-by-app", {
+              name: caller.appName ?? t("app-detail.label.caller-app-unnamed"),
+              release: releaseName(caller.releaseNumber),
+            })}
+        </span>
+      );
+    case "start":
+      return (
+        <span>
+          {caller.reason === "activation"
+            ? t("app-detail.label.called-by-activation")
+            : t("app-detail.label.called-by-restart")}
+        </span>
+      );
+    case "person":
+      return <span>{t("app-detail.label.called-by-person")}</span>;
+  }
+}
+
+function Detail(
+  { row, projectName, onOpenSession }: {
+    row: ActivityRow;
+    projectName: string | null;
+    onOpenSession?: (session: string) => void;
+  },
+) {
+  return (
+    <div className={styles.detail} data-invocation-detail={row.id}>
+      <Facts
+        rows={[
+          [
+            t("app-detail.label.fact-called-by"),
+            <CalledBy
+              key="by"
+              row={row}
+              onOpenSession={onOpenSession}
+            />,
+          ],
+          [
+            t("app-detail.label.fact-project"),
+            row.project === null
+              ? t("app-detail.label.no-project-level")
+              : (projectName ?? row.project),
+          ],
+          [
+            t("app-detail.label.fact-input-fingerprint"),
+            row.inputHash === null
+              ? t("app-detail.label.input-none")
+              : (
+                <span key="in">
+                  <Mono>{row.inputHash}</Mono>{" "}
+                  <span className={styles.muted}>
+                    {t("app-detail.note.input-fingerprint")}
+                  </span>
+                </span>
+              ),
+          ],
+          [
+            t("app-detail.label.fact-result"),
+            row.result === "" ? t("app-detail.label.result-none") : row.result,
+          ],
+          [
+            t("app-detail.label.fact-undo"),
+            row.undone
+              ? t("app-detail.note.undo-recorded")
+              : t("app-detail.label.undo-none"),
+          ],
+        ]}
+      />
+    </div>
+  );
+}
+
+function ActivityList(
+  {
+    app,
+    source,
+    now,
+    open,
+    onOpen,
+    project,
+    onProject,
+    onRewind,
+    onOpenSession,
+  }: {
+    app: string;
+    source: AppDetailSource;
+    now: () => Date;
+    open: string | null;
+    onOpen: (id: string | null) => void;
+    project: string;
+    onProject: (project: string) => void;
+    onRewind: (id: string) => void;
+    onOpenSession?: (session: string) => void;
+  },
+) {
+  const read = useRead(() => source.activity(app), [app, source], { now });
+  return (
+    <Loadable
+      read={read}
+      target={t("app-detail.label.activity-target")}
+      now={now}
+    >
+      {(view) => (
+        <ActivityRows
+          view={view}
+          now={now}
+          open={open}
+          onOpen={onOpen}
+          project={project}
+          onProject={onProject}
+          onRewind={onRewind}
+          onOpenSession={onOpenSession}
+        />
+      )}
+    </Loadable>
+  );
+}
+
+function ActivityRows(
+  { view, now, open, onOpen, project, onProject, onRewind, onOpenSession }: {
+    view: ActivityView;
+    now: () => Date;
+    open: string | null;
+    onOpen: (id: string | null) => void;
+    project: string;
+    onProject: (project: string) => void;
+    onRewind: (id: string) => void;
+    onOpenSession?: (session: string) => void;
+  },
+) {
+  const names = new Map(view.projects.map((item) => [item.id, item.name]));
+  // 앱 단위(project가 없는) 호출은 어느 project를 골라도 보인다.
+  const rows = view.rows.filter((row) =>
+    project === ALL_PROJECTS || row.project === project || row.project === null
+  );
+  return (
+    <>
+      <div className={styles.filters}>
+        <div className={styles.filterField}>
+          <Field label={t("app-detail.label.filter-project")}>
+            <Select
+              size="sm"
+              value={project}
+              onValueChange={onProject}
+              options={[
+                {
+                  value: ALL_PROJECTS,
+                  label: t("app-detail.label.all-projects"),
+                },
+                ...view.projects.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })),
+              ]}
+            />
+          </Field>
+        </div>
+        <p className={styles.muted}>{t("app-detail.note.activity-scope")}</p>
+      </div>
+      {rows.length === 0
+        ? (
+          <p className={styles.state} data-activity-empty="">
+            {t("app-detail.note.no-activity")}
+          </p>
+        )
+        : (
+          <div
+            className={styles.table}
+            role="table"
+            aria-label={t("app-detail.label.tab-activity")}
+          >
+            <div className={styles.tableHead} role="row">
+              <span>{t("app-detail.label.col-time")}</span>
+              <span>{t("app-detail.label.col-caller")}</span>
+              <span>{t("app-detail.label.col-call")}</span>
+              <span>{t("app-detail.label.col-effect")}</span>
+              <span>{t("app-detail.label.col-result")}</span>
+              <span />
+            </div>
+            {rows.map((row) => (
+              <div key={row.id} className={styles.tableBlock}>
+                <div
+                  className={`${styles.tableRow} ${
+                    row.earlier ? styles.tableRowOld : ""
+                  } ${open === row.id ? styles.tableRowOpen : ""}`}
+                  role="row"
+                  data-invocation={row.id}
+                >
+                  <span>{callTime(row.at, now())}</span>
+                  <span className={styles.cell}>
+                    <span>{callerText(row.caller)}</span>
+                    {row.caller.kind === "agent"
+                      ? (
+                        <SessionLink
+                          caller={row.caller}
+                          onOpenSession={onOpenSession}
+                        />
+                      )
+                      : null}
+                  </span>
+                  <span className={styles.cell}>
+                    <button
+                      type="button"
+                      className={styles.linkPlain}
+                      aria-expanded={open === row.id}
+                      onClick={() => onOpen(open === row.id ? null : row.id)}
+                    >
+                      <Mono>{callName(row)}</Mono>
+                    </button>
+                    <span className={styles.muted}>
+                      {row.project === null
+                        ? t("app-detail.label.no-project")
+                        : (names.get(row.project) ?? row.project)}
+                      {row.earlier && row.releaseNumber !== null
+                        ? ` · ${
+                          t("app-detail.label.from-release", {
+                            release: releaseName(row.releaseNumber),
+                          })
+                        }`
+                        : ""}
+                    </span>
+                  </span>
+                  <EffectPill effect={row.effect} />
+                  <StateCell row={row} />
+                  <span className={styles.cellEnd}>
+                    {canRewind(row)
+                      ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          data-rewind-start={row.id}
+                          onClick={() => onRewind(row.id)}
+                        >
+                          {t("app-detail.button.rewind-from-here")}
+                        </Button>
+                      )
+                      : null}
+                  </span>
+                </div>
+                {open === row.id
+                  ? (
+                    <Detail
+                      row={row}
+                      projectName={row.project === null
+                        ? null
+                        : (names.get(row.project) ?? null)}
+                      onOpenSession={onOpenSession}
+                    />
+                  )
+                  : null}
+              </div>
+            ))}
+          </div>
+        )}
+    </>
   );
 }

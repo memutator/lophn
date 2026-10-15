@@ -1,14 +1,13 @@
-// app-detail(ui-ux 5절): 한 앱의 version·access·연결·활동·문제를 보고 결정한다.
-// 운영 패널(`ops-panel-frame.tsx`)의 본문이다. 탭마다 필요한 것만 기본으로 보이고 안쪽 이름·원문은
-// 자세히 보기에 둔다. 결정은 confirmation window에서만 받는다.
+// app-detail(ui-ux 5절): 한 앱의 Version·Access·Activity·Issues를 보고 이전 release로 돌아가기,
+// 바깥 자원 거두기, 앱 data rewind를 한다. 운영 패널(`ops-panel-frame.tsx`)의 본문이다. 사람은
+// release를 고르거나 쓰기 시작하지 않는다. 결정은 확인 창 없이 이 탭에서 바로 한다.
 import type { ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { InstructionsButton } from "../../editor/instructions-entry.tsx";
-import { ActivityTab } from "./activity/activity-tab.tsx";
 import { AccessTab } from "./access/access-tab.tsx";
-import { ConnectionsTab } from "./connections/connections-tab.tsx";
+import { ActivityTab } from "./activity/activity-tab.tsx";
 import type { PreviewOpen } from "./model.ts";
 import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
@@ -19,11 +18,14 @@ export interface AppDetailProps {
   /** 사람이 지은 앱 이름. */
   name: string;
   source: AppDetailSource;
-  /** 앱 공간에 열려 있는 preview. */
+  /** 앱 공간에 열려 있는 preview. 이 화면은 읽지 않는다(앱 공간 frame이 지운다). */
   preview: PreviewOpen | null;
+  /** 이 화면은 부르지 않는다(앱 공간 frame이 지운다). */
   onPreview(next: PreviewOpen | null): void;
   /** app 층 [Instructions]. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
+  /** 호출 기록의 agent session을 연다. 없으면 session 이름만 보인다. */
+  onOpenSession?: (session: string) => void;
   /** Issues 탭 내용. 없으면 아직 없다고 보인다. */
   issues?: ReactNode;
   /** 처음 열 탭. 접수된 문제로 올 때는 issues다. */
@@ -38,9 +40,8 @@ export function AppDetail(
     app,
     name,
     source,
-    preview,
-    onPreview,
     onInstructions,
+    onOpenSession,
     issues,
     initialTab,
     now = systemNow,
@@ -60,9 +61,6 @@ export function AppDetail(
           <Tab value="access" size="sm">
             {t("app-detail.label.tab-access")}
           </Tab>
-          <Tab value="connections" size="sm">
-            {t("app-detail.label.tab-connections")}
-          </Tab>
           <Tab value="activity" size="sm">
             {t("app-detail.label.tab-activity")}
           </Tab>
@@ -71,22 +69,19 @@ export function AppDetail(
           </Tab>
         </TabList>
         <TabPanel value="version">
-          <VersionsTab
-            app={app}
-            source={source}
-            now={now}
-            preview={preview}
-            onPreview={onPreview}
-          />
+          <VersionsTab app={app} source={source} now={now} />
         </TabPanel>
         <TabPanel value="access">
           <AccessTab app={app} source={source} now={now} />
         </TabPanel>
-        <TabPanel value="connections">
-          <ConnectionsTab app={app} source={source} now={now} />
-        </TabPanel>
         <TabPanel value="activity">
-          <ActivityTab app={app} source={source} now={now} />
+          <ActivityTab
+            app={app}
+            name={name}
+            source={source}
+            now={now}
+            onOpenSession={onOpenSession}
+          />
         </TabPanel>
         <TabPanel value="issues">
           {issues ?? (

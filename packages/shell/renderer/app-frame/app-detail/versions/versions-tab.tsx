@@ -1,526 +1,358 @@
-// Version 탭(flow change-app 6·10, restore-app-release 1·5). 안쪽의 release는 화면에서 Version이다.
-// 준비(저장)·적용·시작 확인·Task 확인·당시 Test result는 서로 다른 결과로 따로 보이고, 한 줄로
-// 합치지 않는다. 고르기는 사람 결정이라 confirmation window로 보낸다.
+// Version 탭. activation 진행 상태(적용 중, 적용됨, 적용 실패)와 이전 release로 돌아가기 하나만 있다.
+// 사람이 release를 고르거나 쓰기 시작하는 단추는 없다(activation은 검증이 끝나면 저절로 시작한다).
 import { useEffect, useState } from "react";
 import { Button, StatusMark } from "@lophn/design/components";
-import { formatDate, t } from "@lophn/wording";
+import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";
-import {
-  appliedText,
-  changeLines,
-  dataConverts,
-  detailGroups,
-  type PreviewOpen,
-  taskChecksText,
-  testResultText,
-  versionStatusText,
-  versionStatusTone,
-} from "../model.ts";
-import type { AppDetailSource, StartCheck, VersionRow } from "../source.ts";
+import { dateTime, releaseName, stepText } from "../model.ts";
+import { Facts, Mono, Note, PaneToast, Section } from "../parts.tsx";
+import type { AppDetailSource, ReleaseCard, VersionView } from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
+import { Changes, hasChanges } from "./changes.tsx";
 
 export interface VersionsTabProps {
   app: string;
   source: AppDetailSource;
   now: () => Date;
-  preview: PreviewOpen | null;
-  onPreview(next: PreviewOpen | null): void;
 }
 
-type Notice = "decide-failed" | "preview-failed";
+const POLL_MS = 2000;
 
-const POLL_MS = 4000;
+interface ToastState {
+  readonly title: string;
+  readonly body?: string;
+  readonly error?: boolean;
+}
 
-export function VersionsTab(
-  { app, source, now, preview, onPreview }: VersionsTabProps,
-) {
-  // 결정 창을 연 Version과 그때의 상태. 상태가 바뀌면 기다리는 중이 아니다.
-  const [requested, setRequested] = useState<ReadonlyMap<string, string>>(
-    new Map(),
-  );
-  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
-  const [notice, setNotice] = useState<
-    { version: string; kind: Notice } | null
-  >(null);
-  const [opening, setOpening] = useState<string | null>(null);
+export function VersionsTab({ app, source, now }: VersionsTabProps) {
+  // 돌아가기를 접수한 release. 활성이 될 때까지 기다린다.
+  const [pending, setPending] = useState<ReleaseCard | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [polling, setPolling] = useState(false);
-
-  const list = useRead(() => source.versions(app), [app, source], {
+  const read = useRead(() => source.versions(app), [app, source], {
     pollMs: polling ? POLL_MS : undefined,
     now,
   });
-  // 시작 확인은 지금 Version의 사실이다. 지금 Version이 바뀌면(적용 완료) 다시 읽고, 적용을 기다리는
-  // 동안은 목록과 함께 읽는다.
-  const currentId = list.loaded.state === "ready"
-    ? list.loaded.value.current
-    : null;
-  const start = useRead(
-    () => source.startCheck(app),
-    [app, source, currentId],
-    { pollMs: polling ? POLL_MS : undefined, now },
-  );
+  const value = read.loaded.state === "ready" ? read.loaded.value : null;
+  const busy = value?.applying != null;
 
-  const versions = list.loaded.state === "ready"
-    ? list.loaded.value.versions
-    : [];
-  const busy = versions.some((version) => version.status === "activating") ||
-    versions.some((version) => requested.get(version.id) === version.status);
-  useEffect(() => setPolling(busy), [busy]);
+  useEffect(() => {
+    setPolling(pending !== null || busy);
+  }, [pending, busy]);
 
-  async function choose(version: VersionRow): Promise<void> {
-    setNotice(null);
-    // 확인 창이 거절·닫힘 등으로 확정 없이 끝나면 기다림을 푼다.
-    const reply = await source.decide({
-      kind: "use_version",
-      app,
-      release: version.id,
-    }, () =>
-      setRequested((now) => {
-        const next = new Map(now);
-        next.delete(version.id);
-        return next;
-      }));
-    if (reply.ok) {
-      setRequested((now) => new Map(now).set(version.id, version.status));
-    } else setNotice({ version: version.id, kind: "decide-failed" });
-  }
-
-  async function openPreview(version: VersionRow): Promise<void> {
-    setNotice(null);
-    setOpening(version.id);
-    const blueprint = await source.blueprint(app, version.id);
-    const screen = blueprint.ok ? blueprint.value?.fullScreen ?? null : null;
-    if (screen === null) {
-      setOpening(null);
-      setNotice({ version: version.id, kind: "preview-failed" });
-      return;
-    }
-    const reply = await source.startPreview(app, version.id);
-    setOpening(null);
-    if (!reply.ok) {
-      setNotice({ version: version.id, kind: "preview-failed" });
-      return;
-    }
-    onPreview({
-      release: version.id,
-      number: version.number,
-      screen,
-      nonce: reply.value.nonce,
+  useEffect(() => {
+    if (pending === null || value === null) return;
+    if (value.active?.id !== pending.id) return;
+    setPending(null);
+    setToast({
+      title: t("app-detail.label.went-back", {
+        release: releaseName(pending.number),
+      }),
+      body: t("app-detail.note.went-back"),
     });
+  }, [pending, value]);
+
+  async function goBack(release: ReleaseCard): Promise<void> {
+    setToast(null);
+    const reply = await source.rollback(release.id);
+    if (reply.ok) {
+      setPending(release);
+      read.reload();
+    } else {
+      setToast({
+        title: t("app-detail.error.go-back-failed", {
+          release: releaseName(release.number),
+        }),
+        error: true,
+      });
+    }
   }
 
   return (
     <div className={styles.tab} data-tab-body="version">
+      {toast === null ? null : (
+        <PaneToast
+          title={toast.title}
+          body={toast.body}
+          error={toast.error}
+          onClose={() => setToast(null)}
+        />
+      )}
       <Loadable
-        read={list}
-        target={t("app-detail.label.versions-target")}
+        read={read}
+        target={t("app-detail.label.version-target")}
         now={now}
       >
-        {(value) => {
-          const current = value.versions.find((version) =>
-            version.id === value.current
-          );
-          const others = value.versions.filter((version) =>
-            version.id !== value.current
-          );
-          return (
-            <>
-              <section className={styles.section} data-section="current">
-                <h3 className={styles.heading}>
-                  {t("app-detail.heading.current-version")}
-                </h3>
-                {current
-                  ? (
-                    <VersionCard
-                      version={current}
-                      isCurrent
-                      source={source}
-                      now={now}
-                      start={start.loaded.state === "ready"
-                        ? start.loaded.value
-                        : undefined}
-                    />
-                  )
-                  : (
-                    <p className={styles.state} data-no-current="">
-                      {t("app-detail.note.no-current")}
-                    </p>
-                  )}
-              </section>
-              <section className={styles.section} data-section="others">
-                <h3 className={styles.heading}>
-                  {t("app-detail.heading.other-versions")}
-                </h3>
-                {others.length === 0
-                  ? (
-                    <p className={styles.state} data-no-versions="">
-                      {t("app-detail.note.no-other-versions")}
-                    </p>
-                  )
-                  : (
-                    <ul className={styles.list}>
-                      {others.map((version) => (
-                        <VersionCard
-                          key={version.id}
-                          version={version}
-                          isCurrent={false}
-                          source={source}
-                          now={now}
-                          expanded={opened.has(version.id)}
-                          onExpand={() =>
-                            setOpened(
-                              opened.has(version.id)
-                                ? new Set(
-                                  [...opened].filter((id) => id !== version.id),
-                                )
-                                : new Set(opened).add(version.id),
-                            )}
-                          waiting={requested.get(version.id) === version.status}
-                          notice={notice?.version === version.id
-                            ? notice.kind
-                            : null}
-                          previewing={preview?.release === version.id}
-                          opening={opening === version.id}
-                          canPreview
-                          onChoose={() => void choose(version)}
-                          onPreview={() => void openPreview(version)}
-                          onClosePreview={() => onPreview(null)}
-                        />
-                      ))}
-                    </ul>
-                  )}
-              </section>
-            </>
-          );
-        }}
+        {(view) => (
+          <VersionBody
+            view={view}
+            source={source}
+            now={now}
+            pending={pending}
+            onGoBack={(release) => void goBack(release)}
+          />
+        )}
       </Loadable>
     </div>
   );
 }
 
-interface VersionCardProps {
-  version: VersionRow;
-  isCurrent: boolean;
-  source: AppDetailSource;
-  now: () => Date;
-  start?: StartCheck | null;
-  expanded?: boolean;
-  onExpand?: () => void;
-  waiting?: boolean;
-  notice?: Notice | null;
-  previewing?: boolean;
-  opening?: boolean;
-  canPreview?: boolean;
-  onChoose?: () => void;
-  onPreview?: () => void;
-  onClosePreview?: () => void;
-}
-
-function VersionCard(props: VersionCardProps) {
-  const { version, isCurrent, source, now } = props;
-  const shown = isCurrent || props.expanded === true;
-  const canUse = !isCurrent &&
-    (version.status === "prepared" || version.status === "superseded" ||
-      version.status === "failed");
-  const Wrapper = isCurrent ? "div" : "li";
-  return (
-    <Wrapper
-      className={styles.row}
-      data-version={version.id}
-      data-status={version.status}
-    >
-      <div className={styles.rowHead}>
-        <span className={styles.title}>
-          {t("app-detail.label.version", { number: String(version.number) })}
-        </span>
-        <StatusMark
-          tone={versionStatusTone(version.status)}
-          label={versionStatusText(version.status)}
-        />
-      </div>
-      {version.status === "failed"
-        ? (
-          <p className={styles.warning} data-apply-failed="">
-            {t("app-detail.error.apply-failed", {
-              number: String(version.number),
-            })}
-          </p>
-        )
-        : null}
-      {props.waiting
-        ? (
-          <p className={styles.text} role="status" data-decision-waiting="">
-            {t("app-detail.note.decision-waiting")}
-          </p>
-        )
-        : null}
-      {props.notice === "decide-failed"
-        ? (
-          <p className={styles.warning} role="alert" data-decision-failed="">
-            {t("app-detail.error.decision-failed")}
-          </p>
-        )
-        : null}
-      {props.notice === "preview-failed"
-        ? (
-          <p className={styles.warning} role="alert" data-preview-failed="">
-            {t("app-detail.error.preview-failed")}
-          </p>
-        )
-        : null}
-      {shown
-        ? (
-          <VersionFacts
-            version={version}
-            isCurrent={isCurrent}
-            source={source}
-            now={now}
-            start={props.start}
-          />
-        )
-        : null}
-      {props.expanded === true
-        ? <Changes release={version.id} source={source} now={now} />
-        : null}
-      {!isCurrent
-        ? (
-          <div className={styles.actions}>
-            <Button size="sm" onClick={props.onExpand} data-version-expand="">
-              {props.expanded === true
-                ? t("app-detail.button.hide-changes")
-                : t("app-detail.button.see-changes")}
-            </Button>
-            {version.status === "prepared"
-              ? props.previewing
-                ? (
-                  <Button
-                    size="sm"
-                    onClick={props.onClosePreview}
-                    data-preview-close=""
-                  >
-                    {t("app-detail.button.close-preview")}
-                  </Button>
-                )
-                : (
-                  <Button
-                    size="sm"
-                    disabled={props.canPreview !== true ||
-                      props.opening === true}
-                    onClick={props.onPreview}
-                    data-preview-open=""
-                  >
-                    {t("app-detail.button.open-preview")}
-                  </Button>
-                )
-              : null}
-            {canUse
-              ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={props.waiting === true}
-                  onClick={props.onChoose}
-                  data-use-version=""
-                >
-                  {t("app-detail.button.use-version")}
-                </Button>
-              )
-              : null}
-          </div>
-        )
-        : null}
-    </Wrapper>
-  );
-}
-
-// 준비·적용·시작 확인·Task 확인·Test result. 서로 다른 사실이라 줄을 따로 둔다.
-function VersionFacts(
-  { version, isCurrent, source, now, start }: {
-    version: VersionRow;
-    isCurrent: boolean;
+function VersionBody(
+  { view, source, now, pending, onGoBack }: {
+    view: VersionView;
     source: AppDetailSource;
     now: () => Date;
-    start?: StartCheck | null;
+    pending: ReleaseCard | null;
+    onGoBack: (release: ReleaseCard) => void;
   },
 ) {
-  const tests = useRead(
-    () => source.testResults(version.tests),
-    [version.id, source],
-    { now },
-  );
-  const task = useRead(
-    () =>
-      version.ticket === null
-        ? Promise.resolve({ ok: true as const, value: null })
-        : source.taskChecks(version.ticket),
-    [version.id, source],
-    { now },
-  );
-  const started = isCurrent && start !== undefined
-    ? start !== null && start.release === version.id && start.ready
-    : null;
+  const { active, applying, failed, earlier } = view;
+  const target = applying ?? failed ?? active;
   return (
     <>
-      <dl className={styles.facts} data-facts="">
-        <dt>{t("app-detail.label.fact-saved")}</dt>
-        <dd data-fact="saved">
-          {formatDate(new Date(version.createdAt), "en", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </dd>
-        <dt>{t("app-detail.label.fact-applied")}</dt>
-        <dd data-fact="applied">{appliedText(version.status)}</dd>
-        {started !== null
-          ? (
-            <>
-              <dt>{t("app-detail.label.fact-start")}</dt>
-              <dd data-fact="start">
-                {started
-                  ? t("app-detail.label.start-ok")
-                  : t("app-detail.label.start-unconfirmed")}
-              </dd>
-            </>
-          )
-          : null}
-        {version.ticket !== null
-          ? (
-            <>
-              <dt>{t("app-detail.label.fact-task")}</dt>
-              <dd data-fact="task">
-                {task.loaded.state === "ready" && task.loaded.value !== null
-                  ? taskChecksText(task.loaded.value)
-                  : task.loaded.state === "failed"
-                  ? t("app-detail.label.task-unavailable")
-                  : null}
-              </dd>
-            </>
-          )
-          : null}
-        <dt>{t("app-detail.label.fact-test")}</dt>
-        <dd data-fact="test">
-          {tests.loaded.state === "ready"
-            ? tests.loaded.value.length === 0
-              ? (
-                <span data-test-result="not_run">
-                  {t("app-detail.label.not-yet")}
+      {applying === null
+        ? null
+        : (
+          <Section title={t("app-detail.heading.being-applied")}>
+            <div className={styles.card} data-applying="">
+              <div className={styles.row}>
+                <span className={styles.rowTitle}>
+                  {releaseName(applying.number)}
                 </span>
-              )
-              : tests.loaded.value.map((result) => (
-                <span key={result.id} data-test-result={result.result}>
-                  {testResultText(result.result)}
-                  {" "}
+                <StatusMark
+                  tone="warning"
+                  label={t("app-detail.label.status-applying")}
+                />
+              </div>
+              <p className={styles.text}>
+                {active === null
+                  ? t("app-detail.note.applying-first")
+                  : t("app-detail.note.applying-keeps", {
+                    previous: releaseName(active.number),
+                    next: releaseName(applying.number),
+                  })}
+              </p>
+              {applying.phase === "running" ? null : (
+                <p
+                  className={styles.muted}
+                  data-applying-phase={applying.phase}
+                >
+                  {applying.phase === "waiting_approval"
+                    ? t("app-detail.note.applying-waiting-approval")
+                    : t("app-detail.note.applying-queued")}
+                </p>
+              )}
+              <ol className={styles.steps}>
+                {applying.steps.map((step) => (
+                  <li
+                    key={step.key}
+                    className={`${styles.step} ${
+                      step.state === "done"
+                        ? styles.stepDone
+                        : step.state === "wait"
+                        ? styles.stepWait
+                        : ""
+                    }`}
+                    data-step={step.key}
+                    data-step-state={step.state}
+                  >
+                    <span aria-hidden="true">
+                      {step.state === "done"
+                        ? "✓"
+                        : step.state === "now"
+                        ? "…"
+                        : "·"}
+                    </span>
+                    <span>{stepText(step, applying.number)}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </Section>
+        )}
+      {failed === null
+        ? null
+        : (
+          <Section title={t("app-detail.heading.last-activation")}>
+            <div className={styles.card} data-failed="">
+              <div className={styles.row}>
+                <span className={styles.rowTitle}>
+                  {releaseName(failed.number)}
                 </span>
-              ))
-            : tests.loaded.state === "failed"
-            ? t("app-detail.label.test-unavailable")
-            : null}
-        </dd>
-      </dl>
-      <p className={styles.muted} data-test-scope="">
-        {t("app-detail.note.test-scope")}
-      </p>
-      {version.failure !== null
-        ? (
-          <details className={styles.details}>
-            <summary>{t("app-detail.label.details")}</summary>
-            <p className={styles.mono}>{version.failure}</p>
-          </details>
-        )
-        : null}
+                <StatusMark
+                  tone="critical"
+                  label={t("app-detail.label.status-failed")}
+                />
+              </div>
+              <Facts
+                rows={[
+                  ...(failed.triedAt === null ? [] : [
+                    [
+                      t("app-detail.label.fact-tried"),
+                      dateTime(failed.triedAt),
+                    ],
+                  ] as [string, string][]),
+                  [t("app-detail.label.fact-reason"), failed.reason],
+                ]}
+              />
+              {active === null
+                ? <Note>{t("app-detail.note.failed-called")}</Note>
+                : (
+                  <Note
+                    title={t("app-detail.label.failed-still-active", {
+                      release: releaseName(active.number),
+                    })}
+                  >
+                    {t("app-detail.note.failed-unchanged")}
+                  </Note>
+                )}
+            </div>
+          </Section>
+        )}
+      {active === null ? null : (
+        <Section
+          title={applying === null && failed === null
+            ? t("app-detail.heading.active-release")
+            : t("app-detail.heading.active-release-named", {
+              release: releaseName(active.number),
+            })}
+        >
+          <div className={styles.card} data-active-release="">
+            <div className={styles.row}>
+              <span className={styles.rowTitle}>
+                {releaseName(active.number)}
+              </span>
+              <StatusMark
+                tone="good"
+                label={t("app-detail.label.status-applied")}
+              />
+            </div>
+            <Facts
+              rows={[
+                [
+                  t("app-detail.label.fact-applied"),
+                  dateTime(active.appliedAt),
+                ],
+                [
+                  t("app-detail.label.fact-commit"),
+                  <Mono key="commit">{active.commit}</Mono>,
+                ],
+                [
+                  t("app-detail.label.fact-schema"),
+                  schemaName(active.dataSchema),
+                ],
+              ]}
+            />
+          </div>
+        </Section>
+      )}
+      {target === null ? null : (
+        <ChangesSection
+          key={target.id}
+          source={source}
+          release={target.id}
+          always={target !== active}
+          now={now}
+        />
+      )}
+      <Earlier
+        earlier={earlier}
+        current={active}
+        busy={applying !== null || pending !== null}
+        onGoBack={onGoBack}
+      />
     </>
   );
 }
 
-// 지금 쓰는 Version과 비교한 바뀐 것. 요약은 개수, 이름은 자세히 보기.
-function Changes(
-  { release, source, now }: {
-    release: string;
+/** 늘어난 선언과 손실 단계. 지금 활성 release면 보일 것이 있을 때만 둔다. */
+function ChangesSection(
+  { source, release, always, now }: {
     source: AppDetailSource;
+    release: string;
+    always: boolean;
     now: () => Date;
   },
 ) {
-  const read = useRead(() => source.compare(release), [release, source], {
+  const read = useRead(() => source.changes(release), [source, release], {
     now,
   });
+  if (read.loaded.state !== "ready") return null;
+  const changes = read.loaded.value;
+  if (!always && !hasChanges(changes)) return null;
+  return <Changes changes={changes} />;
+}
+
+const schemaName = (schema: number) => `v${schema}`;
+
+function Earlier(
+  { earlier, current, busy, onGoBack }: {
+    earlier: readonly ReleaseCard[];
+    current: ReleaseCard | null;
+    busy: boolean;
+    onGoBack: (release: ReleaseCard) => void;
+  },
+) {
+  if (earlier.length === 0) return null;
   return (
-    <Loadable
-      read={read}
-      target={t("app-detail.label.changes-target")}
-      now={now}
-    >
-      {(comparison) => {
-        const lines = changeLines(comparison);
-        const groups = detailGroups(comparison);
-        return (
-          <div className={styles.section} data-changes="">
-            <h4 className={styles.heading}>
-              {t("app-detail.heading.what-changes")}
-            </h4>
-            {lines.length === 0
-              ? (
-                <p className={styles.text} data-no-changes="">
-                  {t("app-detail.note.no-changes")}
-                </p>
-              )
-              : (
-                <ul className={styles.detailList} data-change-lines="">
-                  {lines.map((line) => (
-                    <li key={line.key} className={styles.text}>
-                      {line.text}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            {dataConverts(comparison)
-              ? (
-                <p className={styles.warning} data-data-warning="">
-                  {t("app-detail.note.data-converts")}
-                </p>
-              )
-              : null}
-            {comparison.reviewRequired
-              ? (
-                <p className={styles.warning} data-review-needed="">
-                  {t("app-detail.note.review-needed")}
-                </p>
-              )
-              : null}
-            {groups.length > 0
-              ? (
-                <details className={styles.details} data-change-details="">
-                  <summary>{t("app-detail.label.details")}</summary>
-                  {groups.map((group) => (
-                    <div key={group.key}>
-                      <h5 className={styles.heading}>{group.heading}</h5>
-                      <ul className={styles.detailList}>
-                        {group.items.map((item) => (
-                          <li
-                            key={`${item.sign}:${item.name}`}
-                            className={styles.detailItem}
-                          >
-                            <span className={styles.sign}>
-                              {item.sign === "add"
-                                ? "+"
-                                : item.sign === "delete"
-                                ? "−"
-                                : "~"}
-                            </span>
-                            <span className={styles.mono}>{item.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </details>
-              )
-              : null}
-          </div>
-        );
-      }}
-    </Loadable>
+    <Section title={t("app-detail.heading.earlier-releases")}>
+      <ul className={styles.list}>
+        {earlier.map((release) => {
+          const same = current !== null &&
+            release.dataSchema === current.dataSchema;
+          const reason = busy
+            ? t("app-detail.note.go-back-busy")
+            : same
+            ? null
+            : t("app-detail.note.go-back-schema", {
+              schema: schemaName(release.dataSchema),
+              current: current === null ? "" : schemaName(current.dataSchema),
+            });
+          return (
+            <li
+              key={release.id}
+              className={styles.item}
+              data-earlier-release={release.number}
+            >
+              <div className={styles.rowText}>
+                <span className={styles.rowTitle}>
+                  {releaseName(release.number)}{" "}
+                  <span className={styles.muted}>
+                    · {t("app-detail.label.data-schema", {
+                      schema: schemaName(release.dataSchema),
+                    })}
+                  </span>
+                </span>
+                {release.replacedAt === null
+                  ? null
+                  : (
+                    <span className={styles.muted}>
+                      {t("app-detail.label.replaced", {
+                        when: dateTime(release.replacedAt),
+                      })}
+                    </span>
+                  )}
+                {reason === null
+                  ? null
+                  : <span className={styles.muted}>{reason}</span>}
+              </div>
+              <Button
+                size="sm"
+                disabled={reason !== null}
+                data-go-back={release.number}
+                onClick={() => onGoBack(release)}
+              >
+                {t("app-detail.button.go-back", {
+                  release: releaseName(release.number),
+                })}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className={styles.muted}>{t("app-detail.note.go-back-scope")}</p>
+    </Section>
   );
 }

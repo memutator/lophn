@@ -34,7 +34,6 @@ import { AppDetail } from "./app-detail/app-detail.tsx";
 import type { PreviewOpen } from "./app-detail/model.ts";
 import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
 import type { IssuesSource } from "./app-detail/issues/source.ts";
-import { withReportAgain } from "./app-detail/issues/report-again.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
 import {
   AgentPane,
@@ -425,11 +424,7 @@ export function AppSpace(
                     ? (
                       <IssuesTab
                         app={app}
-                        source={withReportAgain(
-                          issues,
-                          feedback,
-                          embedded ? viewSession : null,
-                        )}
+                        source={issues}
                         now={() => new Date()}
                         initialProblem={issueProblem}
                       />

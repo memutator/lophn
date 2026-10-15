@@ -1,23 +1,24 @@
-// Issues 탭의 순수 계산. 안쪽 값(status·closure·test state)을 tone과 선택지로 바꾸는 자리이고
-// 문장은 problems가 정한 값을 그대로 쓴다. 상태 이름만 shell이 말한다.
+// Issues 탭의 순수 계산. 상태 이름과 색, 기간 거르기.
 import type { StatusTone } from "@lophn/design";
 import { t } from "@lophn/wording";
 
-import type {
-  IssueChoice,
-  IssueStatus,
-  IssueTestState,
-  IssueView,
-} from "./source.ts";
+import type { IssueOccurrence, IssueStatus } from "./source.ts";
+
+export const STATUS_FILTERS: readonly (IssueStatus | "all")[] = [
+  "all",
+  "open",
+  "resolved",
+  "ignored",
+];
 
 export function statusText(status: IssueStatus): string {
   switch (status) {
     case "open":
       return t("app-detail.label.issue-status-open");
-    case "fixing":
-      return t("app-detail.label.issue-status-fixing");
-    case "closed":
-      return t("app-detail.label.issue-status-closed");
+    case "resolved":
+      return t("app-detail.label.issue-status-resolved");
+    case "ignored":
+      return t("app-detail.label.issue-status-ignored");
   }
 }
 
@@ -25,77 +26,44 @@ export function statusTone(status: IssueStatus): StatusTone {
   switch (status) {
     case "open":
       return "warning";
-    case "fixing":
-      return "neutral";
-    case "closed":
+    case "resolved":
       return "good";
-  }
-}
-
-/** 미확인·미실행·읽지 못함을 성공 색으로 칠하지 않는다. */
-export function testTone(
-  state: IssueTestState | "not_run" | "unknown",
-): StatusTone {
-  switch (state) {
-    case "pass":
-      return "good";
-    case "fail":
-      return "serious";
-    case "unconfirmed":
-    case "unknown":
-      return "warning";
-    default:
+    case "ignored":
       return "neutral";
   }
 }
 
-export interface ChoiceOption {
-  readonly choice: IssueChoice;
-  readonly enabled: boolean;
-  /** 막혔으면 이유가 있다. */
-  readonly blocked: "version" | null;
-}
+export type Period = "day" | "week" | "month" | "all";
 
-/**
- * 지금 보이는 결정. 닫힌 문제는 "아직 안 고쳐졌다"만 있다(다시 열기). fixed는 쓰는 Version을,
- * not_visible은 Version과 마지막 관찰을 알아야 한다(closing contract의 결정 binding 규칙).
- * dismiss의 한 줄 이유는 화면이 받고 창이 그대로 보인다.
- */
-export function choiceOptions(view: IssueView): readonly ChoiceOption[] {
-  if (view.closed !== null) {
-    return [{ choice: "not_fixed", enabled: true, blocked: null }];
+export const PERIODS: readonly Period[] = ["day", "week", "month", "all"];
+
+export function periodText(period: Period): string {
+  switch (period) {
+    case "day":
+      return t("app-detail.label.period-day");
+    case "week":
+      return t("app-detail.label.period-week");
+    case "month":
+      return t("app-detail.label.period-month");
+    case "all":
+      return t("app-detail.label.period-all");
   }
-  const { versionKnown, observationKnown } = view.basis;
-  return [
-    {
-      choice: "fixed",
-      enabled: versionKnown,
-      blocked: versionKnown ? null : "version",
-    },
-    { choice: "not_fixed", enabled: true, blocked: null },
-    {
-      choice: "not_visible",
-      enabled: versionKnown && observationKnown,
-      blocked: versionKnown && observationKnown ? null : "version",
-    },
-    { choice: "dismiss", enabled: true, blocked: null },
-  ];
 }
 
-/** 한 줄 이유: 공백만이 아니고 줄바꿈이 없다. */
-export function isOneLine(text: string): boolean {
-  return /^[^\r\n]*\S[^\r\n]*$/.test(text);
+const DAYS: Record<Exclude<Period, "all">, number> = {
+  day: 1,
+  week: 7,
+  month: 30,
+};
+
+/** 기간의 시작 시각(ISO). 전체 기간이면 null이다. */
+export function periodSince(period: Period, now: Date): string | null {
+  if (period === "all") return null;
+  return new Date(now.getTime() - DAYS[period] * 86_400_000).toISOString();
 }
 
-export function choiceText(choice: IssueChoice): string {
-  switch (choice) {
-    case "fixed":
-      return t("app-detail.button.issue-fixed");
-    case "not_fixed":
-      return t("app-detail.button.issue-not-fixed");
-    case "not_visible":
-      return t("app-detail.button.issue-not-visible");
-    case "dismiss":
-      return t("app-detail.button.issue-dismiss");
-  }
+export function occurrenceKindText(kind: IssueOccurrence["kind"]): string {
+  return kind === "app_error"
+    ? t("app-detail.label.occurrence-app-error")
+    : t("app-detail.label.occurrence-report");
 }

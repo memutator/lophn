@@ -2,6 +2,9 @@
 import type { appSpace } from "./app-space.ts";
 
 export type AppSpacePlaceholders = {
+  "app-detail.button.all-issues": Record<never, never>;
+  "app-detail.button.back-to-activity": Record<never, never>;
+  "app-detail.button.cancel": Record<never, never>;
   "app-detail.button.cancel-create": Record<never, never>;
   "app-detail.button.cancel-task": Record<never, never>;
   "app-detail.button.change-access": Record<never, never>;
@@ -10,18 +13,29 @@ export type AppSpacePlaceholders = {
   "app-detail.button.copy-request": Record<never, never>;
   "app-detail.button.create-task": Record<never, never>;
   "app-detail.button.export-app": Record<never, never>;
+  "app-detail.button.go-back": {
+    release: "string";
+  };
   "app-detail.button.hide-activity": Record<never, never>;
   "app-detail.button.hide-changes": Record<never, never>;
   "app-detail.button.issue-back": Record<never, never>;
   "app-detail.button.issue-dismiss": Record<never, never>;
   "app-detail.button.issue-fixed": Record<never, never>;
+  "app-detail.button.issue-ignored": Record<never, never>;
   "app-detail.button.issue-not-fixed": Record<never, never>;
   "app-detail.button.issue-not-visible": Record<never, never>;
+  "app-detail.button.issue-reopen": Record<never, never>;
+  "app-detail.button.issue-resolved": Record<never, never>;
   "app-detail.button.issue-tried": Record<never, never>;
   "app-detail.button.keep-task": Record<never, never>;
   "app-detail.button.new-task": Record<never, never>;
   "app-detail.button.open-preview": Record<never, never>;
   "app-detail.button.review-connection": Record<never, never>;
+  "app-detail.button.revoke": Record<never, never>;
+  "app-detail.button.rewind-app": {
+    name: "string";
+  };
+  "app-detail.button.rewind-from-here": Record<never, never>;
   "app-detail.button.see-changes": Record<never, never>;
   "app-detail.button.show-activity": Record<never, never>;
   "app-detail.button.start": Record<never, never>;
@@ -37,8 +51,14 @@ export type AppSpacePlaceholders = {
   "app-detail.error.copy-failed": Record<never, never>;
   "app-detail.error.create-failed": Record<never, never>;
   "app-detail.error.decision-failed": Record<never, never>;
+  "app-detail.error.go-back-failed": {
+    release: "string";
+  };
+  "app-detail.error.issue-state-failed": Record<never, never>;
   "app-detail.error.issue-tried-failed": Record<never, never>;
   "app-detail.error.preview-failed": Record<never, never>;
+  "app-detail.error.revoke-failed": Record<never, never>;
+  "app-detail.error.rewind-failed": Record<never, never>;
   "app-detail.error.start-connection-unavailable": Record<never, never>;
   "app-detail.error.start-failed": Record<never, never>;
   "app-detail.error.start-folder-changed": Record<never, never>;
@@ -59,22 +79,51 @@ export type AppSpacePlaceholders = {
   "app-detail.heading.access-network": Record<never, never>;
   "app-detail.heading.access-removed": Record<never, never>;
   "app-detail.heading.access-secrets": Record<never, never>;
+  "app-detail.heading.active-release": Record<never, never>;
+  "app-detail.heading.active-release-named": {
+    release: "string";
+  };
+  "app-detail.heading.being-applied": Record<never, never>;
+  "app-detail.heading.changes": {
+    from: "string";
+    to: "string";
+  };
+  "app-detail.heading.changes-first": {
+    to: "string";
+  };
   "app-detail.heading.current-version": Record<never, never>;
   "app-detail.heading.detail-access": Record<never, never>;
   "app-detail.heading.detail-actions": Record<never, never>;
   "app-detail.heading.detail-automations": Record<never, never>;
   "app-detail.heading.detail-data": Record<never, never>;
   "app-detail.heading.detail-screens": Record<never, never>;
+  "app-detail.heading.earlier-releases": Record<never, never>;
+  "app-detail.heading.evidence": Record<never, never>;
   "app-detail.heading.issue-checks": Record<never, never>;
   "app-detail.heading.issue-decide": Record<never, never>;
+  "app-detail.heading.last-activation": Record<never, never>;
+  "app-detail.heading.occurrences": Record<never, never>;
+  "app-detail.heading.other-apps": Record<never, never>;
   "app-detail.heading.other-versions": Record<never, never>;
+  "app-detail.heading.outside-resources": Record<never, never>;
+  "app-detail.heading.progress": Record<never, never>;
+  "app-detail.heading.rewind-before": {
+    name: "string";
+    time: "string";
+  };
+  "app-detail.heading.rewind-cancelled": Record<never, never>;
+  "app-detail.heading.rewinds-together": Record<never, never>;
+  "app-detail.heading.rewound": Record<never, never>;
   "app-detail.heading.task-checks": Record<never, never>;
   "app-detail.heading.task-needs": Record<never, never>;
   "app-detail.heading.task-start": Record<never, never>;
   "app-detail.heading.task-terminal": Record<never, never>;
   "app-detail.heading.what-changes": Record<never, never>;
+  "app-detail.heading.what-was-rewound": Record<never, never>;
   "app-detail.label.access-target": Record<never, never>;
   "app-detail.label.activity-target": Record<never, never>;
+  "app-detail.label.all-projects": Record<never, never>;
+  "app-detail.label.all-statuses": Record<never, never>;
   "app-detail.label.an-action": Record<never, never>;
   "app-detail.label.another-app": Record<never, never>;
   "app-detail.label.applied-before": Record<never, never>;
@@ -91,7 +140,25 @@ export type AppSpacePlaceholders = {
   "app-detail.label.by-automation": Record<never, never>;
   "app-detail.label.by-direct": Record<never, never>;
   "app-detail.label.by-restart": Record<never, never>;
+  "app-detail.label.call-data-change": Record<never, never>;
+  "app-detail.label.call-start": Record<never, never>;
+  "app-detail.label.called-by-activation": Record<never, never>;
+  "app-detail.label.called-by-app": {
+    name: "string";
+    release: "string";
+  };
+  "app-detail.label.called-by-person": Record<never, never>;
+  "app-detail.label.called-by-restart": Record<never, never>;
+  "app-detail.label.caller-app": {
+    name: "string";
+  };
+  "app-detail.label.caller-app-unnamed": Record<never, never>;
+  "app-detail.label.caller-person": Record<never, never>;
+  "app-detail.label.caller-start": Record<never, never>;
+  "app-detail.label.calls-held": Record<never, never>;
+  "app-detail.label.came-back": Record<never, never>;
   "app-detail.label.cancel-reason": Record<never, never>;
+  "app-detail.label.cancelled": Record<never, never>;
   "app-detail.label.change-access-added": {
     count: "plural";
   };
@@ -120,7 +187,11 @@ export type AppSpacePlaceholders = {
   "app-detail.label.change-screens": {
     count: "plural";
   };
+  "app-detail.label.changes-app-api": Record<never, never>;
+  "app-detail.label.changes-loss": Record<never, never>;
+  "app-detail.label.changes-resource": Record<never, never>;
   "app-detail.label.changes-target": Record<never, never>;
+  "app-detail.label.changes-wider": Record<never, never>;
   "app-detail.label.check-fail": Record<never, never>;
   "app-detail.label.check-inconclusive": Record<never, never>;
   "app-detail.label.check-line": {
@@ -130,6 +201,15 @@ export type AppSpacePlaceholders = {
   "app-detail.label.check-pass": Record<never, never>;
   "app-detail.label.checked-at": {
     age: "string";
+  };
+  "app-detail.label.cleaning-up": Record<never, never>;
+  "app-detail.label.col-call": Record<never, never>;
+  "app-detail.label.col-caller": Record<never, never>;
+  "app-detail.label.col-effect": Record<never, never>;
+  "app-detail.label.col-result": Record<never, never>;
+  "app-detail.label.col-time": Record<never, never>;
+  "app-detail.label.commit": {
+    commit: "string";
   };
   "app-detail.label.condition-app-test": Record<never, never>;
   "app-detail.label.condition-human": Record<never, never>;
@@ -153,6 +233,9 @@ export type AppSpacePlaceholders = {
   "app-detail.label.data-format": {
     number: "string";
   };
+  "app-detail.label.data-schema": {
+    schema: "string";
+  };
   "app-detail.label.data-target": Record<never, never>;
   "app-detail.label.details": Record<never, never>;
   "app-detail.label.did-action": {
@@ -161,16 +244,45 @@ export type AppSpacePlaceholders = {
   "app-detail.label.did-action-unnamed": Record<never, never>;
   "app-detail.label.did-data-change": Record<never, never>;
   "app-detail.label.did-start": Record<never, never>;
+  "app-detail.label.done": Record<never, never>;
+  "app-detail.label.everyone-together": Record<never, never>;
+  "app-detail.label.evidence-error": Record<never, never>;
+  "app-detail.label.evidence-log": Record<never, never>;
+  "app-detail.label.evidence-reports": Record<never, never>;
   "app-detail.label.fact-action": Record<never, never>;
   "app-detail.label.fact-applied": Record<never, never>;
+  "app-detail.label.fact-called-by": Record<never, never>;
   "app-detail.label.fact-can-start": Record<never, never>;
+  "app-detail.label.fact-commit": Record<never, never>;
+  "app-detail.label.fact-first": Record<never, never>;
   "app-detail.label.fact-input": Record<never, never>;
+  "app-detail.label.fact-input-fingerprint": Record<never, never>;
+  "app-detail.label.fact-last": Record<never, never>;
+  "app-detail.label.fact-project": Record<never, never>;
+  "app-detail.label.fact-reason": Record<never, never>;
+  "app-detail.label.fact-release": Record<never, never>;
+  "app-detail.label.fact-reports": Record<never, never>;
+  "app-detail.label.fact-result": Record<never, never>;
   "app-detail.label.fact-saved": Record<never, never>;
   "app-detail.label.fact-schedule": Record<never, never>;
+  "app-detail.label.fact-schema": Record<never, never>;
   "app-detail.label.fact-seen": Record<never, never>;
   "app-detail.label.fact-start": Record<never, never>;
   "app-detail.label.fact-task": Record<never, never>;
   "app-detail.label.fact-test": Record<never, never>;
+  "app-detail.label.fact-tried": Record<never, never>;
+  "app-detail.label.fact-undo": Record<never, never>;
+  "app-detail.label.failed-still-active": {
+    release: "string";
+  };
+  "app-detail.label.filter-period": Record<never, never>;
+  "app-detail.label.filter-project": Record<never, never>;
+  "app-detail.label.filter-status": Record<never, never>;
+  "app-detail.label.from-release": {
+    release: "string";
+  };
+  "app-detail.label.in-progress": Record<never, never>;
+  "app-detail.label.input-none": Record<never, never>;
   "app-detail.label.input-saved": Record<never, never>;
   "app-detail.label.issue-basis": Record<never, never>;
   "app-detail.label.issue-claim": Record<never, never>;
@@ -181,6 +293,9 @@ export type AppSpacePlaceholders = {
     age: "string";
   };
   "app-detail.label.issue-human": Record<never, never>;
+  "app-detail.label.issue-last": {
+    when: "string";
+  };
   "app-detail.label.issue-last-seen": {
     age: "string";
   };
@@ -189,13 +304,18 @@ export type AppSpacePlaceholders = {
   "app-detail.label.issue-owner": Record<never, never>;
   "app-detail.label.issue-remaining": Record<never, never>;
   "app-detail.label.issue-repair": Record<never, never>;
+  "app-detail.label.issue-reports": {
+    count: "plural";
+  };
   "app-detail.label.issue-scope": Record<never, never>;
   "app-detail.label.issue-seen": {
     count: "plural";
   };
   "app-detail.label.issue-status-closed": Record<never, never>;
   "app-detail.label.issue-status-fixing": Record<never, never>;
+  "app-detail.label.issue-status-ignored": Record<never, never>;
   "app-detail.label.issue-status-open": Record<never, never>;
+  "app-detail.label.issue-status-resolved": Record<never, never>;
   "app-detail.label.issue-tests": Record<never, never>;
   "app-detail.label.issue-unconfirmed": Record<never, never>;
   "app-detail.label.issue-version": Record<never, never>;
@@ -204,18 +324,65 @@ export type AppSpacePlaceholders = {
     status: "string";
     age: "string";
   };
+  "app-detail.label.loss-drop-column": Record<never, never>;
+  "app-detail.label.loss-drop-table": Record<never, never>;
+  "app-detail.label.loss-narrow-type": Record<never, never>;
   "app-detail.label.mode-preview": Record<never, never>;
   "app-detail.label.mode-test": Record<never, never>;
   "app-detail.label.no": Record<never, never>;
+  "app-detail.label.no-project": Record<never, never>;
+  "app-detail.label.no-project-level": Record<never, never>;
   "app-detail.label.not-yet": Record<never, never>;
+  "app-detail.label.nothing-changed": Record<never, never>;
+  "app-detail.label.occurrence-app-error": Record<never, never>;
+  "app-detail.label.occurrence-report": Record<never, never>;
+  "app-detail.label.outcome-cannot": Record<never, never>;
+  "app-detail.label.outcome-done": Record<never, never>;
+  "app-detail.label.outcome-not-changed": Record<never, never>;
+  "app-detail.label.outcome-stays": Record<never, never>;
+  "app-detail.label.outcome-undone": Record<never, never>;
   "app-detail.label.own-terminal": Record<never, never>;
+  "app-detail.label.period-all": Record<never, never>;
+  "app-detail.label.period-day": Record<never, never>;
+  "app-detail.label.period-month": Record<never, never>;
+  "app-detail.label.period-week": Record<never, never>;
   "app-detail.label.preview-banner": {
     number: "string";
   };
+  "app-detail.label.recurred": Record<never, never>;
+  "app-detail.label.recurred-in": {
+    release: "string";
+  };
+  "app-detail.label.replaced": {
+    when: "string";
+  };
+  "app-detail.label.resource-file": Record<never, never>;
+  "app-detail.label.resource-network": Record<never, never>;
+  "app-detail.label.resource-secret": Record<never, never>;
+  "app-detail.label.result-none": Record<never, never>;
+  "app-detail.label.revoked": Record<never, never>;
+  "app-detail.label.rewind-blocked": Record<never, never>;
+  "app-detail.label.rewind-drain": Record<never, never>;
+  "app-detail.label.rewind-drain-calls": {
+    count: "plural";
+    calls: "string";
+  };
+  "app-detail.label.rewind-stopped": Record<never, never>;
+  "app-detail.label.rewind-target": Record<never, never>;
+  "app-detail.label.rewind-undo": Record<never, never>;
+  "app-detail.label.rewound-title": {
+    name: "string";
+    time: "string";
+  };
+  "app-detail.label.role-app-engineer": Record<never, never>;
+  "app-detail.label.role-lophn": Record<never, never>;
+  "app-detail.label.role-operator": Record<never, never>;
+  "app-detail.label.role-project-manager": Record<never, never>;
   "app-detail.label.schedule-interval": {
     minutes: "plural";
   };
   "app-detail.label.schedule-start": Record<never, never>;
+  "app-detail.label.session-unnamed": Record<never, never>;
   "app-detail.label.start-connection": Record<never, never>;
   "app-detail.label.start-folder": Record<never, never>;
   "app-detail.label.start-folder-option": {
@@ -226,6 +393,13 @@ export type AppSpacePlaceholders = {
   "app-detail.label.start-not-chosen": Record<never, never>;
   "app-detail.label.start-ok": Record<never, never>;
   "app-detail.label.start-unconfirmed": Record<never, never>;
+  "app-detail.label.state-done": Record<never, never>;
+  "app-detail.label.state-failed": Record<never, never>;
+  "app-detail.label.state-running": Record<never, never>;
+  "app-detail.label.state-undone": Record<never, never>;
+  "app-detail.label.state-unknown": Record<never, never>;
+  "app-detail.label.state-waiting": Record<never, never>;
+  "app-detail.label.status-applied": Record<never, never>;
   "app-detail.label.status-applying": Record<never, never>;
   "app-detail.label.status-blocked": Record<never, never>;
   "app-detail.label.status-current": Record<never, never>;
@@ -237,6 +411,19 @@ export type AppSpacePlaceholders = {
   "app-detail.label.status-result-unknown": Record<never, never>;
   "app-detail.label.status-waiting": Record<never, never>;
   "app-detail.label.status-working": Record<never, never>;
+  "app-detail.label.step-drain": Record<never, never>;
+  "app-detail.label.step-hold": Record<never, never>;
+  "app-detail.label.step-hold-count": {
+    count: "plural";
+  };
+  "app-detail.label.step-migrate": Record<never, never>;
+  "app-detail.label.step-migrate-count": {
+    count: "plural";
+  };
+  "app-detail.label.step-start": {
+    release: "string";
+  };
+  "app-detail.label.step-stop": Record<never, never>;
   "app-detail.label.tab-access": Record<never, never>;
   "app-detail.label.tab-activity": Record<never, never>;
   "app-detail.label.tab-automations": Record<never, never>;
@@ -274,23 +461,50 @@ export type AppSpacePlaceholders = {
   "app-detail.label.test-pass": Record<never, never>;
   "app-detail.label.test-unavailable": Record<never, never>;
   "app-detail.label.time-unknown": Record<never, never>;
+  "app-detail.label.tool-call": Record<never, never>;
   "app-detail.label.tui-ended": Record<never, never>;
   "app-detail.label.tui-ready": Record<never, never>;
   "app-detail.label.tui-starting": Record<never, never>;
   "app-detail.label.tui-unknown": Record<never, never>;
   "app-detail.label.tui-waiting-input": Record<never, never>;
   "app-detail.label.tui-working": Record<never, never>;
+  "app-detail.label.turn": Record<never, never>;
+  "app-detail.label.undo-none": Record<never, never>;
+  "app-detail.label.version-target": Record<never, never>;
   "app-detail.label.versions-target": Record<never, never>;
+  "app-detail.label.went-back": {
+    release: "string";
+  };
   "app-detail.label.yes": Record<never, never>;
   "app-detail.note.access-empty": Record<never, never>;
+  "app-detail.note.access-intro": Record<never, never>;
   "app-detail.note.access-removal-scope": Record<never, never>;
   "app-detail.note.access-removed": Record<never, never>;
   "app-detail.note.access-removing": Record<never, never>;
   "app-detail.note.access-removing-stop": Record<never, never>;
   "app-detail.note.activity-scope": Record<never, never>;
+  "app-detail.note.applying-first": Record<never, never>;
+  "app-detail.note.applying-keeps": {
+    previous: "string";
+    next: "string";
+  };
+  "app-detail.note.applying-queued": Record<never, never>;
+  "app-detail.note.applying-waiting-approval": Record<never, never>;
   "app-detail.note.automation-follows-app": Record<never, never>;
   "app-detail.note.automations-empty": Record<never, never>;
+  "app-detail.note.calls-held": {
+    name: "string";
+  };
+  "app-detail.note.came-back": {
+    resolved: "string";
+    release: "string";
+  };
   "app-detail.note.cancel-reason": Record<never, never>;
+  "app-detail.note.changes-none": Record<never, never>;
+  "app-detail.note.conflict": {
+    reason: "string";
+  };
+  "app-detail.note.conflict-unknown": Record<never, never>;
   "app-detail.note.connection-scope": Record<never, never>;
   "app-detail.note.connections-empty": Record<never, never>;
   "app-detail.note.create": Record<never, never>;
@@ -300,6 +514,15 @@ export type AppSpacePlaceholders = {
   "app-detail.note.export-failed": Record<never, never>;
   "app-detail.note.export-preparing": Record<never, never>;
   "app-detail.note.export-ready": Record<never, never>;
+  "app-detail.note.failed-called": Record<never, never>;
+  "app-detail.note.failed-unchanged": Record<never, never>;
+  "app-detail.note.go-back-busy": Record<never, never>;
+  "app-detail.note.go-back-schema": {
+    schema: "string";
+    current: "string";
+  };
+  "app-detail.note.go-back-scope": Record<never, never>;
+  "app-detail.note.input-fingerprint": Record<never, never>;
   "app-detail.note.issue-check-failed": Record<never, never>;
   "app-detail.note.issue-checks-scope": Record<never, never>;
   "app-detail.note.issue-choice-blocked": Record<never, never>;
@@ -308,17 +531,55 @@ export type AppSpacePlaceholders = {
   "app-detail.note.issue-tried": Record<never, never>;
   "app-detail.note.issues-empty": Record<never, never>;
   "app-detail.note.issues-unavailable": Record<never, never>;
+  "app-detail.note.may-call": Record<never, never>;
   "app-detail.note.no-activity": Record<never, never>;
   "app-detail.note.no-changes": Record<never, never>;
   "app-detail.note.no-current": Record<never, never>;
+  "app-detail.note.no-issues": Record<never, never>;
+  "app-detail.note.no-log": Record<never, never>;
+  "app-detail.note.no-other-apps": Record<never, never>;
   "app-detail.note.no-other-versions": Record<never, never>;
+  "app-detail.note.no-reports": Record<never, never>;
+  "app-detail.note.no-resources": Record<never, never>;
+  "app-detail.note.no-stack": Record<never, never>;
   "app-detail.note.own-terminal": Record<never, never>;
   "app-detail.note.prompt-delivered": Record<never, never>;
   "app-detail.note.prompt-not-delivered": Record<never, never>;
   "app-detail.note.prompt-pending": Record<never, never>;
   "app-detail.note.prompt-unknown": Record<never, never>;
   "app-detail.note.request-copied": Record<never, never>;
+  "app-detail.note.resource-file-read": {
+    when: "string";
+  };
+  "app-detail.note.resource-file-write": {
+    when: "string";
+  };
+  "app-detail.note.resource-listen": {
+    when: "string";
+  };
+  "app-detail.note.resource-network": {
+    when: "string";
+  };
+  "app-detail.note.resource-secret": Record<never, never>;
   "app-detail.note.review-needed": Record<never, never>;
+  "app-detail.note.revoke-cleaned": Record<never, never>;
+  "app-detail.note.revoke-requested": Record<never, never>;
+  "app-detail.note.revoke-waiting": Record<never, never>;
+  "app-detail.note.rewind-blocked": {
+    time: "string";
+  };
+  "app-detail.note.rewind-confirm": {
+    name: "string";
+    time: "string";
+  };
+  "app-detail.note.rewind-counts": {
+    undone: "plural";
+    stays: "plural";
+    cannot: "plural";
+  };
+  "app-detail.note.rewound": {
+    undone: "plural";
+  };
   "app-detail.note.secret-deleted": Record<never, never>;
   "app-detail.note.secret-missing": Record<never, never>;
   "app-detail.note.secret-still-stored": Record<never, never>;
@@ -340,9 +601,11 @@ export type AppSpacePlaceholders = {
   "app-detail.note.tasks-unavailable": Record<never, never>;
   "app-detail.note.test-scope": Record<never, never>;
   "app-detail.note.tui-separate": Record<never, never>;
+  "app-detail.note.undo-recorded": Record<never, never>;
   "app-detail.note.warning-other": Record<never, never>;
   "app-detail.note.warning-outside-link": Record<never, never>;
   "app-detail.note.warning-read-network": Record<never, never>;
+  "app-detail.note.went-back": Record<never, never>;
   "app-detail.text.task-create-needs": Record<never, never>;
   "app-detail.text.task-request-sentence": {
     task: "string";

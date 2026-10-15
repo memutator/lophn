@@ -1,268 +1,250 @@
 // app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
-// 안다. 모양은 contracts(releases·apps.blueprint·grants·invocations·
-// problems get-verification·tickets checks)에서 이 화면이 쓰는 field만 옮긴 것이다.
+// 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
+// 이 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../../desktop/lophn-space/source.ts";
 
 export type { SourceResult };
 
-export type VersionStatus =
-  | "prepared"
-  | "activating"
-  | "active"
-  | "failed"
-  | "superseded";
+export type Effect = "read" | "write" | "external";
 
-/** 한 Version(내부 release). 준비·적용·시작 확인·Task 확인은 서로 다른 사실이다. */
-export interface VersionRow {
+// ---- Version ----
+
+export interface ReleaseCard {
   readonly id: string;
   readonly number: number;
-  readonly status: VersionStatus;
-  /** 준비한 시각(ISO). */
-  readonly createdAt: string;
-  /** 이 Version을 만든 Task. 없으면 null이다. */
-  readonly ticket: string | null;
-  /** 당시 실제 test 결과 참조. */
-  readonly tests: readonly string[];
-  /** 적용 시도가 실패했을 때 lophn이 남긴 한 줄. */
-  readonly failure: string | null;
-  readonly dataFormat: number;
+  readonly commit: string;
+  readonly dataSchema: number;
+  /** 활성이 된 시각(ISO). */
+  readonly appliedAt: string | null;
+  /** 다음 release가 활성이 되어 물러난 시각. 물러나지 않았으면 null이다. */
+  readonly replacedAt: string | null;
 }
 
-export interface VersionList {
-  /** 지금 쓰는 Version. 아직 없으면 null이다. */
-  readonly current: string | null;
-  /** 새것부터. */
-  readonly versions: readonly VersionRow[];
+export type StepKey = "hold" | "drain" | "stop" | "migrate" | "start";
+
+export interface ActivationStep {
+  readonly key: StepKey;
+  readonly state: "done" | "now" | "wait";
+  /** hold는 붙잡은 호출 수, migrate는 단계 수. 모르면 null이다. */
+  readonly count: number | null;
 }
 
-export interface CommandChange {
-  readonly command: string;
-  readonly kinds: readonly string[];
-}
-
-/** 이전 Version과 비교한 바뀐 것. 이름 목록은 자세히 보기 쪽이다. */
-export interface Comparison {
-  readonly previous: string | null;
-  readonly addedPermissions: readonly string[];
-  readonly removedPermissions: readonly string[];
-  readonly addedCommands: readonly string[];
-  readonly removedCommands: readonly string[];
-  readonly changedCommands: readonly CommandChange[];
-  readonly externalCommands: readonly string[];
-  readonly addedAutomations: readonly string[];
-  readonly removedAutomations: readonly string[];
-  readonly changedAutomations: readonly string[];
-  readonly addedScreens: readonly string[];
-  readonly removedScreens: readonly string[];
-  readonly changedScreens: readonly string[];
-  readonly dataFrom: number;
-  readonly dataTo: number;
-  readonly dataChanges: readonly string[];
-  /** 정적 비교는 업무 의미의 동일성을 증명하지 못한다. */
-  readonly reviewRequired: boolean;
-}
-
-export type TestResultKind = "pass" | "fail" | "inconclusive";
-
-/** 한 Version의 당시 test 결과. */
-export interface TestResult {
+/** 줄에 있거나 도는 activation. 단계를 모르면 steps는 모두 wait이다. */
+export interface Applying {
   readonly id: string;
-  readonly result: TestResultKind;
+  readonly number: number;
+  readonly phase: "waiting_approval" | "queued" | "running";
+  readonly steps: readonly ActivationStep[];
 }
 
-/** Task의 acceptance check 결과. */
-export interface TaskChecks {
-  readonly reported: boolean;
-  readonly passed: number;
-  readonly failed: number;
-  readonly unclear: number;
+/** 마지막 시도가 실패한 release. 이전 release는 계속 응답한다. */
+export interface ApplyFailure {
+  readonly id: string;
+  readonly number: number;
+  readonly triedAt: string | null;
+  readonly reason: string;
 }
 
-/** 지금 쓰는 Version의 시작 확인. 관측이 없으면 null이다. */
-export interface StartCheck {
-  readonly release: string | null;
-  readonly ready: boolean;
+export interface VersionView {
+  readonly active: ReleaseCard | null;
+  readonly applying: Applying | null;
+  readonly failed: ApplyFailure | null;
+  /** 물러난 release, 새것부터. */
+  readonly earlier: readonly ReleaseCard[];
 }
 
-export interface BlueprintCommand {
-  readonly key: string;
-  readonly label: string;
+export interface LossLine {
+  readonly kind: "drop_table" | "drop_column" | "narrow_type";
+  readonly table: string;
+  readonly column: string | null;
 }
 
-export interface BlueprintAutomation {
-  readonly key: string;
-  readonly label: string;
-  readonly command: string;
-  readonly when:
-    | { readonly kind: "on_start" }
-    | { readonly kind: "interval"; readonly intervalMs: number };
-  /** external command를 부르는 automation만 사람 승인이 필요하다. */
-  readonly external: boolean;
-  readonly inputHash: string;
-}
-
-export interface BlueprintView {
-  readonly release: string;
-  readonly commands: readonly BlueprintCommand[];
-  readonly automations: readonly BlueprintAutomation[];
-  /** 앱 공간 크기(full)로 열리는 화면. */
-  readonly fullScreen: string | null;
-  readonly connections: readonly {
+/** 대기 목록 카드와 같은 비교. 늘어난 선언과 손실 단계만 있다. */
+export interface ReleaseChanges {
+  /** 견준 이전 release 번호. 첫 activation이면 null이다. */
+  readonly fromNumber: number | null;
+  readonly toNumber: number;
+  readonly first: boolean;
+  readonly addedResources: readonly string[];
+  readonly addedAppApis: readonly {
     readonly app: string;
-    readonly commands: readonly string[];
+    readonly appName: string | null;
+    readonly api: string;
+  }[];
+  readonly lossSteps: readonly {
+    readonly from: number;
+    readonly to: number;
+    readonly loss: readonly LossLine[];
   }[];
 }
 
-export type AccessKind =
-  | "fs.read"
-  | "fs.write"
-  | "net.fetch"
-  | "net.listen"
-  | "secret.use"
-  | "document.save"
-  | "app.call"
-  | "agent.commands"
-  | "automation.run";
+// ---- Access ----
 
-/** 사람이 허락한 범위 하나. exact는 정확한 원문(경로·host:port·secret 이름·key)이다. */
-export interface GrantRow {
-  readonly id: string;
-  readonly kind: AccessKind;
-  readonly active: boolean;
-  readonly exact: string;
-  /** app.call의 대상 앱. */
-  readonly targetApp: string | null;
-  readonly commands: readonly string[];
-  /** automation.run의 automation key. */
-  readonly automation: string | null;
-  /** automation.run이 승인한 고정 입력의 hash. 선언이 바뀌면 달라진다. */
-  readonly inputHash: string | null;
+export type ResourceKind =
+  | "file-read"
+  | "file-write"
+  | "network"
+  | "listen"
+  | "secret";
+
+/** 앱이 activation 때 받은 바깥 자원 하나. 거두는 단위는 grant다. */
+export interface ResourceRow {
+  readonly grant: string;
+  readonly kind: ResourceKind;
+  /** 경로, host:port, secret 이름. 값은 없다. */
+  readonly name: string;
+  readonly grantedAt: string;
+  /** 거두기가 접수돼 정리 중이다. */
+  readonly revoking: boolean;
+  /** 정리까지 끝나 거둬졌다. */
+  readonly revoked: boolean;
 }
 
-/** 이 Version이 요구하는 범위 하나. */
-export interface Requirement {
-  readonly kind: AccessKind;
-  readonly exact: string;
-  readonly reason: string;
-  readonly granted: boolean;
+/** 다른 앱의 app-api를 부를 수 있는 grant 하나. */
+export interface AppApiRow {
+  readonly grant: string;
+  readonly app: string;
+  readonly appName: string | null;
+  readonly apis: readonly {
+    readonly api: string;
+    /** 그 앱이 선언한 효과. 읽지 못하면 null이다. */
+    readonly effect: Effect | null;
+  }[];
+  readonly grantedAt: string;
+  /** 거두기가 접수돼 정리 중이다. */
+  readonly revoking: boolean;
+  /** 정리까지 끝나 거둬졌다. */
+  readonly revoked: boolean;
 }
 
 export interface AccessView {
-  readonly grants: readonly GrantRow[];
-  readonly requirements: readonly Requirement[];
-  /** apps가 정한 조합 경고 key. */
-  readonly warnings: readonly string[];
+  readonly resources: readonly ResourceRow[];
+  readonly appApis: readonly AppApiRow[];
 }
 
-export interface RuntimeView {
-  readonly state: "preparing" | "stopped" | "running" | "unavailable";
-  /** 회수를 위해 프로세스 종료를 기다리는 중. */
-  readonly terminationPending: boolean;
-}
+// ---- Activity ----
 
-export type ActivityStatus =
-  | "accepted"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "denied"
-  | "unknown";
+export type AgentRole =
+  | "lophn"
+  | "project_manager"
+  | "app_engineer"
+  | "operator";
+
+export type Caller =
+  | { readonly kind: "person" }
+  | {
+    readonly kind: "agent";
+    readonly role: AgentRole;
+    readonly session: string;
+    /** session 이름. 읽지 못하면 null이다. */
+    readonly title: string | null;
+    readonly turn: string;
+    readonly toolCall: string;
+  }
+  | {
+    readonly kind: "app";
+    readonly app: string;
+    readonly appName: string | null;
+    readonly releaseNumber: number | null;
+  }
+  | { readonly kind: "start"; readonly reason: "activation" | "restart" };
+
+export type CallState = "done" | "failed" | "waiting" | "running" | "unknown";
 
 export interface ActivityRow {
   readonly id: string;
-  readonly status: ActivityStatus;
-  readonly operation:
-    | { readonly kind: "command"; readonly command: string }
-    | { readonly kind: "start" }
-    | {
-      readonly kind: "data_change";
-      readonly from: number;
-      readonly to: number;
-    };
-  readonly trigger:
-    | { readonly kind: "direct" }
-    | { readonly kind: "automation"; readonly key: string }
-    | { readonly kind: "activation" }
-    | { readonly kind: "restart" };
-  readonly mode: "live" | "preview" | "test";
-  /** 부른 쪽. 앱이면 그 앱 id도 있다. */
-  readonly caller: "direct" | "automation" | "app" | "agent" | "system";
-  readonly callerApp: string | null;
-  /** 끝난 시각, 아직이면 시작 시각, 둘 다 없으면 null. */
+  /** 끝난 시각, 아직이면 시작 시각, 둘 다 없으면 null(ISO). */
   readonly at: string | null;
+  readonly caller: Caller;
+  /** app-api 이름. 앱 시작과 data 변경은 null이다. */
+  readonly api: string | null;
+  readonly kind: "api" | "start" | "data_change";
+  readonly project: string | null;
+  readonly effect: Effect;
+  readonly state: CallState;
+  /** 되돌림이 이 호출을 되돌렸다. */
+  readonly undone: boolean;
+  readonly releaseNumber: number | null;
+  /** 지금 release보다 앞선 release의 호출이다. */
+  readonly earlier: boolean;
+  /** 입력 지문. 입력 자체는 남지 않는다. */
+  readonly inputHash: string | null;
+  /** 결과 한 줄 요약. 없으면 빈 문자열이다. */
+  readonly result: string;
 }
 
-export interface SecretState {
-  readonly name: string;
-  readonly stored: boolean;
+export interface ActivityView {
+  readonly rows: readonly ActivityRow[];
+  /** project 거르기 선택지. 보관한 project도 있다. */
+  readonly projects: readonly { readonly id: string; readonly name: string }[];
 }
 
+export type RewindOutcome = "undone" | "stays" | "cannot";
+
+export interface RewindItem {
+  readonly invocation: string;
+  readonly at: string;
+  readonly api: string | null;
+  readonly kind: ActivityRow["kind"];
+  readonly effect: Effect;
+  readonly caller: Caller | null;
+  readonly outcome: RewindOutcome;
+  /** 아직 도는 호출. 끝나기를 기다린다. */
+  readonly running: boolean;
+}
+
+export interface RewindPlanView {
+  readonly from: string;
+  /** 최신부터. 고른 호출까지. */
+  readonly items: readonly RewindItem[];
+  /** 결과 모르는 write가 changeset 없이 닫혀 있어 시작할 수 없다. */
+  readonly blocked: { readonly invocation: string } | null;
+}
+
+export interface RewindProgress {
+  /** 끝나기를 기다리는 호출. */
+  readonly running: readonly {
+    readonly invocation: string;
+    readonly api: string | null;
+    readonly at: string;
+  }[];
+}
+
+export interface RewindResult {
+  readonly status: "applied" | "cancelled";
+  /** 취소 이유. 성공이면 null이다. */
+  readonly reason: string | null;
+}
+
+/** 앱 공간이 연 preview. 닫을 때 nonce로 가리킨다. */
 export interface StartedPreview {
   readonly nonce: string;
 }
 
-/** 사람 결정이 필요한 변경. confirmation window가 정확한 대상을 다시 읽어 보인다. */
-export type AppDecision =
-  | {
-    readonly kind: "use_version";
-    readonly app: string;
-    readonly release: string;
-  }
-  | {
-    readonly kind: "change_access";
-    readonly app: string;
-    readonly requirement?: number;
-  }
-  | {
-    readonly kind: "remove_access";
-    readonly app: string;
-    readonly grant: string;
-  }
-  | {
-    readonly kind: "turn_on_automation";
-    readonly app: string;
-    readonly automation: string;
-  }
-  | {
-    readonly kind: "connect_apps";
-    readonly app: string;
-    readonly target?: string;
-  };
-
 export interface AppDetailSource {
-  versions(app: string): Promise<SourceResult<VersionList>>;
-  compare(release: string): Promise<SourceResult<Comparison>>;
-  testResults(
-    tests: readonly string[],
-  ): Promise<SourceResult<readonly TestResult[]>>;
-  taskChecks(ticket: string): Promise<SourceResult<TaskChecks>>;
-  startCheck(app: string): Promise<SourceResult<StartCheck | null>>;
-  blueprint(
-    app: string,
-    release?: string,
-  ): Promise<SourceResult<BlueprintView | null>>;
+  versions(app: string): Promise<SourceResult<VersionView>>;
+  /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
+  changes(release: string): Promise<SourceResult<ReleaseChanges>>;
+  /** 이전 release로 돌아간다. 사람만 한다. migration이 없다. */
+  rollback(release: string): Promise<SourceResult<true>>;
+
   access(app: string): Promise<SourceResult<AccessView>>;
-  runtime(app: string): Promise<SourceResult<RuntimeView>>;
-  secrets(
-    names: readonly string[],
-  ): Promise<SourceResult<readonly SecretState[]>>;
-  activity(app: string): Promise<SourceResult<readonly ActivityRow[]>>;
-  /** 다른 앱의 사람이 지은 이름. 없거나 범위 밖이면 null이다. */
-  appName(app: string): Promise<string | null>;
-  /** 운영과 분리된 preview 프로세스를 시작한다. */
-  startPreview(
+  /** 바깥 자원이나 다른 앱 app-api를 거둔다. 요청 접수까지다. 정리는 읽기로 본다. */
+  revoke(grant: string): Promise<SourceResult<true>>;
+
+  activity(app: string): Promise<SourceResult<ActivityView>>;
+  rewindPlan(
     app: string,
-    release: string,
-  ): Promise<SourceResult<StartedPreview>>;
+    from: string,
+  ): Promise<SourceResult<RewindPlanView>>;
+  /** 끝날 때까지 돌아오지 않는다(새 호출 멈춤, 도는 호출 기다림, 되돌림). */
+  rewind(app: string, from: string): Promise<SourceResult<RewindResult>>;
+  /** rewind가 도는 동안 어느 호출을 기다리는지. */
+  rewindProgress(
+    app: string,
+    from: string,
+  ): Promise<SourceResult<RewindProgress>>;
+
+  /** 앱 공간이 열어 둔 preview를 닫는다. */
   stopPreview(app: string, preview: StartedPreview): Promise<void>;
-  /**
-   * 결정 창을 연다. 결정 자체는 그 창에서만 받는다. 창이 열린 뒤 확정되지 않고 끝나면
-   * (닫기·취소·만료·교체) onUnconfirmed를 한 번 부른다. 허락은 알리지 않는다.
-   */
-  decide(
-    decision: AppDecision,
-    onUnconfirmed?: () => void,
-  ): Promise<SourceResult<true>>;
-  /** automation 끄기. 확인 창 없이 사람의 회수다. */
-  turnOffAutomation(grant: string): Promise<SourceResult<true>>;
 }

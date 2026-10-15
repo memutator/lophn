@@ -1,0 +1,258 @@
+/* 보낸 쪽 chip과 panel, 받은 메시지, 보낸 session의 call 블록, 대화 안 오류 메시지. */
+.time {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 받은 메시지와 보낸 쪽 chip */
+.received {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: flex-start;
+  gap: var(--space-3);
+  max-width: 82%;
+}
+
+.receivedHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.receivedBody {
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.replyTo {
+  margin: var(--space-0);
+  padding-left: var(--space-4);
+  border-left: var(--border-focus-width) solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.senderChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  cursor: pointer;
+}
+
+.senderChip:hover,
+.senderChip[aria-expanded="true"] {
+  background: var(--color-surface-muted);
+}
+
+.senderFrom {
+  color: var(--color-text-muted);
+}
+
+.senderName {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.senderPanel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: calc(var(--space-12) * 5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.senderBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.senderHead {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.senderTask {
+  margin: var(--space-0);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.refList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.refRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.refKind {
+  flex: none;
+  min-width: calc(var(--space-11) + var(--space-4));
+  color: var(--color-text-muted);
+}
+
+.sessionLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  font-size: var(--type-small-size);
+}
+
+/* 보낸 session의 call 블록 */
+.call {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) var(--space-4) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.call[data-state="cancelled"] .callTask {
+  text-decoration: line-through;
+}
+
+.callHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.callToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.callTo {
+  font-weight: var(--font-weight-medium);
+}
+
+.callMode {
+  color: var(--color-text-muted);
+}
+
+.callTask {
+  margin: var(--space-0);
+  padding-left: var(--space-6);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.callStatus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-0) var(--space-0) var(--space-6);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.callDetail {
+  margin: var(--space-0);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.callAsOf {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 대화 안 오류 메시지 */
+.error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.errorText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.errorDetail {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+}
+
+.panelNote {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.plainRef {
+  color: var(--color-text-primary);
+}
+
+.link {
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}

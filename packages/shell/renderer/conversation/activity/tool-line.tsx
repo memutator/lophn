@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { Icon, iconPixels } from "@lophn/design/components";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 
@@ -10,6 +10,35 @@ export interface ToolLineProps {
   detail: ToolLineDetail;
 }
 
+/** 접히는 줄 하나. 펼치고 접는 상태는 부르는 쪽이 쥔다. 펼치면 children(하위 줄)이 보인다. */
+export function ToolRow(
+  { id, label, open, onToggle, children }: {
+    id?: string;
+    label: string;
+    open: boolean;
+    onToggle: () => void;
+    children: ReactNode;
+  },
+): ReactElement {
+  return (
+    <div className={styles.tool} data-tool-line={id}>
+      <button
+        type="button"
+        className={styles.toolHead}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <span>{label}</span>
+        <Icon
+          icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+          pixels={iconPixels("small")}
+        />
+      </button>
+      {open ? <ul className={styles.toolSub}>{children}</ul> : null}
+    </div>
+  );
+}
+
 // 한 줄로 접힌 tool 호출("Read 3 documents ›"). collapsed는 접혀 있고 눌러 펼치며(aria-expanded),
 // expanded는 펼쳐 보이고, hidden은 아무것도 그리지 않는다.
 export function ToolLine({ tool, detail }: ToolLineProps): ReactElement | null {
@@ -18,28 +47,15 @@ export function ToolLine({ tool, detail }: ToolLineProps): ReactElement | null {
   if (detail === "hidden") return null;
   const open = detail === "expanded" || pressed;
   return (
-    <div className={styles.tool} data-tool-line={tool.id}>
-      <button
-        type="button"
-        className={styles.toolHead}
-        aria-expanded={open}
-        onClick={() => setPressed(!open)}
-      >
-        <span>{tool.label}</span>
-        <Icon
-          icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
-          pixels={iconPixels("small")}
-        />
-      </button>
-      {open
-        ? (
-          <ul className={styles.toolSub}>
-            {tool.lines.map((line, index) => (
-              <li key={index} data-tool-sub="">{line}</li>
-            ))}
-          </ul>
-        )
-        : null}
-    </div>
+    <ToolRow
+      id={tool.id}
+      label={tool.label}
+      open={open}
+      onToggle={() => setPressed(!open)}
+    >
+      {tool.lines.map((line, index) => (
+        <li key={index} data-tool-sub="">{line}</li>
+      ))}
+    </ToolRow>
   );
 }

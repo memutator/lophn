@@ -83,3 +83,26 @@
 .block {
   min-width: var(--space-0);
 }
+
+/* 한 줄 안내. 결정을 남기는 말 같은 것. */
+.quiet {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+}
+
+/* rewind panel이 열린 동안 단추를 계속 보인다. */
+.userTurn[data-open] .actions {
+  opacity: 1;
+}
+
+/* 도는 turn에 steer로 들어간 메시지의 표시. */
+.steerMark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-end;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}

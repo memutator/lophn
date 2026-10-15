@@ -14,6 +14,7 @@ export const conversation = {
   "conversation.button.archive": "Archive",
   "conversation.button.archived-toggle": "Archived ({count, number})",
   "conversation.button.attach": "Add attachment",
+  "conversation.button.call-cancel": "Cancel",
   "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.check-result": "Check the result",
@@ -41,6 +42,7 @@ export const conversation = {
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
   "conversation.button.restore": "Restore",
+  "conversation.button.retry": "Retry",
   "conversation.button.rewind": "Rewind…",
   "conversation.button.rewind-go": "Rewind",
   "conversation.button.rewind-here": "Rewind to here",
@@ -98,6 +100,15 @@ export const conversation = {
   "conversation.label.approval-target-other": "Other request",
   "conversation.label.archived": "Archived",
   "conversation.label.author-check": "Checked by lophn",
+  "conversation.label.call-answered": "Answered",
+  "conversation.label.call-cancelled": "Cancelled",
+  "conversation.label.call-delivered": "Delivered",
+  "conversation.label.call-failed": "Failed",
+  "conversation.label.call-in-progress": "In progress",
+  "conversation.label.call-reply-conversation": "Back and forth",
+  "conversation.label.call-reply-none": "No answer expected",
+  "conversation.label.call-reply-result": "Answer expected",
+  "conversation.label.call-working-together": "Working together",
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
   "conversation.label.correction": "Change",
@@ -117,6 +128,11 @@ export const conversation = {
   "conversation.label.duration-seconds": "{seconds, number}s",
   "conversation.label.edit-made": "Edited",
   "conversation.label.edit-undone": "Undid the edit to",
+  "conversation.label.evidence-annotation": "Annotation",
+  "conversation.label.evidence-file": "File",
+  "conversation.label.evidence-problem": "Problem",
+  "conversation.label.evidence-session": "Session",
+  "conversation.label.evidence-ticket": "Ticket",
   "conversation.label.favorites": "Favorites",
   "conversation.label.grant-allow": "Runs without asking",
   "conversation.label.grant-ask": "Asks first",
@@ -163,6 +179,7 @@ export const conversation = {
   "conversation.label.queued-messages": "Waiting for the next turn",
   "conversation.label.read-session": "Read {title}",
   "conversation.label.rename-session": "Rename {title}",
+  "conversation.label.reply-to": "Reply to: {task}",
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
   "conversation.label.results": "Results",
@@ -202,6 +219,24 @@ export const conversation = {
   "conversation.label.send-correction": "Change this work",
   "conversation.label.send-mode": "Send as",
   "conversation.label.send-request": "Next request",
+  "conversation.label.sender-agent-named": "{role} · {name}",
+  "conversation.label.sender-agent-other": "Another agent",
+  "conversation.label.sender-based-on": "Based on",
+  "conversation.label.sender-coding": "Coding agent · {product}",
+  "conversation.label.sender-coding-unknown": "Coding agent",
+  "conversation.label.sender-from": "From",
+  "conversation.label.sender-head-handed": "What was handed over",
+  "conversation.label.sender-head-saw": "What lophn saw",
+  "conversation.label.sender-head-why": "Why you got this",
+  "conversation.label.sender-program-unknown": "lophn",
+  "conversation.label.sender-reaction": "Reaction · {event}",
+  "conversation.label.sender-reaction-unknown": "Reaction",
+  "conversation.label.sender-role-app-engineer": "App Engineer",
+  "conversation.label.sender-role-lophn": "lophn",
+  "conversation.label.sender-role-operator": "Operator",
+  "conversation.label.sender-role-project-manager": "Project Manager",
+  "conversation.label.sender-sent-by": "Sent by {sender}",
+  "conversation.label.sender-sent-from": "Sent from",
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
   "conversation.label.since-now": "now",
@@ -209,6 +244,7 @@ export const conversation = {
   "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-working": "Working",
+  "conversation.label.steer": "Steer · went into the running turn",
   "conversation.label.tasks": "Tasks",
   "conversation.label.tasks-progress":
     "Tasks · {done, number} of {total, number}",
@@ -225,6 +261,26 @@ export const conversation = {
     "This agent is paused. You can read the conversation, but it takes no new messages.",
   "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",
+  "conversation.notice.call-answered": "The answer is in the messages below.",
+  "conversation.notice.call-as-of":
+    "Read when you opened this. Later changes are not announced.",
+  "conversation.notice.call-cancel-failed": "Couldn't cancel it. Try again.",
+  "conversation.notice.call-cancelled": "It was cancelled before it finished.",
+  "conversation.notice.call-delivered":
+    "The task reached the session. No answer was asked for.",
+  "conversation.notice.call-fail-closed": "That session is closed.",
+  "conversation.notice.call-fail-lophn-restarted":
+    "lophn restarted before it finished.",
+  "conversation.notice.call-fail-not-allowed":
+    "This agent is not allowed to hand work to that agent.",
+  "conversation.notice.call-fail-not-found": "That session couldn't be found.",
+  "conversation.notice.call-fail-receiver-ended":
+    "The other session ended before it answered.",
+  "conversation.notice.call-unreadable":
+    "Couldn't read the current state. This is the last one lophn knew.",
+  "conversation.notice.call-waiting": "Waiting for the answer from {to}.",
+  "conversation.notice.call-working-together":
+    "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.ended":
@@ -256,6 +312,8 @@ export const conversation = {
     "You sent a message while the questions were open, so they closed. The agent reads your message as the answer.",
   "conversation.notice.recap-local":
     "Only shown here. The conversation itself is unchanged.",
+  "conversation.notice.request-failed": "The request failed.",
+  "conversation.notice.retry-failed": "Couldn't try again. Try once more.",
   "conversation.notice.rewind-apps":
     "A checked app goes back to this message, including changes others made since. Unchecked apps stay as they are.",
   "conversation.notice.rewind-conversation":
@@ -268,6 +326,8 @@ export const conversation = {
     "Files changed through the shell are not restored.",
   "conversation.notice.rewind-steer":
     "Messages you sent while the agent was working (steer) are not rewind points. Rewinding past one removes only the message.",
+  "conversation.notice.sender-loading": "Loading the details.",
+  "conversation.notice.sender-unreadable": "Couldn't read the details.",
   "conversation.notice.session-archived":
     "This session is archived. You can read it, but it takes no new messages.",
   "conversation.notice.session-no-match": "No sessions match.",
@@ -347,6 +407,7 @@ export const conversation = {
     "Couldn't summarize this part, so nothing changed.",
   "conversation.title.approval-change": "{agent} wants to change settings",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
+  "conversation.title.call-handed": "Handed to {to}",
   "conversation.title.new-session": "New session",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.question-asking": "{agent} is asking",
@@ -354,4 +415,5 @@ export const conversation = {
   "conversation.title.rewind": "Rewind to here",
   "project-workspace.notice.agent-not-ready":
     "Conversations aren't ready yet. Try again in a moment.",
+  "conversation.title.sender-details": "Sender details",
 } as const;

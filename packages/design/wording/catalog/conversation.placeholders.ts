@@ -24,6 +24,7 @@ export type ConversationPlaceholders = {
     count: "number";
   };
   "conversation.button.attach": Record<never, never>;
+  "conversation.button.call-cancel": Record<never, never>;
   "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.check-result": Record<never, never>;
@@ -55,6 +56,7 @@ export type ConversationPlaceholders = {
   "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.restore": Record<never, never>;
+  "conversation.button.retry": Record<never, never>;
   "conversation.button.rewind": Record<never, never>;
   "conversation.button.rewind-go": Record<never, never>;
   "conversation.button.rewind-here": Record<never, never>;
@@ -118,6 +120,15 @@ export type ConversationPlaceholders = {
   "conversation.label.approval-target-other": Record<never, never>;
   "conversation.label.archived": Record<never, never>;
   "conversation.label.author-check": Record<never, never>;
+  "conversation.label.call-answered": Record<never, never>;
+  "conversation.label.call-cancelled": Record<never, never>;
+  "conversation.label.call-delivered": Record<never, never>;
+  "conversation.label.call-failed": Record<never, never>;
+  "conversation.label.call-in-progress": Record<never, never>;
+  "conversation.label.call-reply-conversation": Record<never, never>;
+  "conversation.label.call-reply-none": Record<never, never>;
+  "conversation.label.call-reply-result": Record<never, never>;
+  "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
   "conversation.label.correction": Record<never, never>;
@@ -150,6 +161,11 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.edit-made": Record<never, never>;
   "conversation.label.edit-undone": Record<never, never>;
+  "conversation.label.evidence-annotation": Record<never, never>;
+  "conversation.label.evidence-file": Record<never, never>;
+  "conversation.label.evidence-problem": Record<never, never>;
+  "conversation.label.evidence-session": Record<never, never>;
+  "conversation.label.evidence-ticket": Record<never, never>;
   "conversation.label.favorites": Record<never, never>;
   "conversation.label.grant-allow": Record<never, never>;
   "conversation.label.grant-ask": Record<never, never>;
@@ -222,6 +238,9 @@ export type ConversationPlaceholders = {
   "conversation.label.rename-session": {
     title: "string";
   };
+  "conversation.label.reply-to": {
+    task: "string";
+  };
   "conversation.label.request-position": {
     current: "number";
     total: "number";
@@ -272,6 +291,33 @@ export type ConversationPlaceholders = {
   "conversation.label.send-correction": Record<never, never>;
   "conversation.label.send-mode": Record<never, never>;
   "conversation.label.send-request": Record<never, never>;
+  "conversation.label.sender-agent-named": {
+    role: "string";
+    name: "string";
+  };
+  "conversation.label.sender-agent-other": Record<never, never>;
+  "conversation.label.sender-based-on": Record<never, never>;
+  "conversation.label.sender-coding": {
+    product: "string";
+  };
+  "conversation.label.sender-coding-unknown": Record<never, never>;
+  "conversation.label.sender-from": Record<never, never>;
+  "conversation.label.sender-head-handed": Record<never, never>;
+  "conversation.label.sender-head-saw": Record<never, never>;
+  "conversation.label.sender-head-why": Record<never, never>;
+  "conversation.label.sender-program-unknown": Record<never, never>;
+  "conversation.label.sender-reaction": {
+    event: "string";
+  };
+  "conversation.label.sender-reaction-unknown": Record<never, never>;
+  "conversation.label.sender-role-app-engineer": Record<never, never>;
+  "conversation.label.sender-role-lophn": Record<never, never>;
+  "conversation.label.sender-role-operator": Record<never, never>;
+  "conversation.label.sender-role-project-manager": Record<never, never>;
+  "conversation.label.sender-sent-by": {
+    sender: "string";
+  };
+  "conversation.label.sender-sent-from": Record<never, never>;
   "conversation.label.session-list": {
     agent: "string";
   };
@@ -283,6 +329,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-working": Record<never, never>;
+  "conversation.label.steer": Record<never, never>;
   "conversation.label.tasks": Record<never, never>;
   "conversation.label.tasks-progress": {
     done: "number";
@@ -306,6 +353,23 @@ export type ConversationPlaceholders = {
   "conversation.notice.answer-failed": Record<never, never>;
   "conversation.notice.approval-paused": {
     agent: "string";
+  };
+  "conversation.notice.call-answered": Record<never, never>;
+  "conversation.notice.call-as-of": Record<never, never>;
+  "conversation.notice.call-cancel-failed": Record<never, never>;
+  "conversation.notice.call-cancelled": Record<never, never>;
+  "conversation.notice.call-delivered": Record<never, never>;
+  "conversation.notice.call-fail-closed": Record<never, never>;
+  "conversation.notice.call-fail-lophn-restarted": Record<never, never>;
+  "conversation.notice.call-fail-not-allowed": Record<never, never>;
+  "conversation.notice.call-fail-not-found": Record<never, never>;
+  "conversation.notice.call-fail-receiver-ended": Record<never, never>;
+  "conversation.notice.call-unreadable": Record<never, never>;
+  "conversation.notice.call-waiting": {
+    to: "string";
+  };
+  "conversation.notice.call-working-together": {
+    to: "string";
   };
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.ended": Record<never, never>;
@@ -333,12 +397,16 @@ export type ConversationPlaceholders = {
   "conversation.notice.question-waiting": Record<never, never>;
   "conversation.notice.questions-ended-by-message": Record<never, never>;
   "conversation.notice.recap-local": Record<never, never>;
+  "conversation.notice.request-failed": Record<never, never>;
+  "conversation.notice.retry-failed": Record<never, never>;
   "conversation.notice.rewind-apps": Record<never, never>;
   "conversation.notice.rewind-conversation": Record<never, never>;
   "conversation.notice.rewind-no-apps": Record<never, never>;
   "conversation.notice.rewind-no-files": Record<never, never>;
   "conversation.notice.rewind-shell-files": Record<never, never>;
   "conversation.notice.rewind-steer": Record<never, never>;
+  "conversation.notice.sender-loading": Record<never, never>;
+  "conversation.notice.sender-unreadable": Record<never, never>;
   "conversation.notice.session-archived": Record<never, never>;
   "conversation.notice.session-no-match": Record<never, never>;
   "conversation.notice.slash-no-match": Record<never, never>;
@@ -401,6 +469,9 @@ export type ConversationPlaceholders = {
     agent: "string";
     tool: "string";
   };
+  "conversation.title.call-handed": {
+    to: "string";
+  };
   "conversation.title.new-session": Record<never, never>;
   "conversation.title.permissions": {
     agent: "string";
@@ -411,6 +482,7 @@ export type ConversationPlaceholders = {
   "conversation.title.recap": Record<never, never>;
   "conversation.title.rewind": Record<never, never>;
   "project-workspace.notice.agent-not-ready": Record<never, never>;
+  "conversation.title.sender-details": Record<never, never>;
 };
 
 type Area = typeof conversation;

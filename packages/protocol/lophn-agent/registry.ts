@@ -1,10 +1,18 @@
 import { RUN_COMMANDS, RUN_EVENTS } from "./runs.ts";
-import { SESSION_COMMANDS, SESSION_EVENTS } from "./sessions.ts";
-import { MESSAGE_EVENTS, MESSAGE_ROUTES } from "./messages.ts";
+import {
+  closeSession,
+  openSession,
+  SESSION_COMMANDS,
+  SESSION_EVENTS,
+  sessionList,
+  sessionRead,
+  unarchiveSession,
+} from "./sessions.ts";
+import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
+import { MESSAGE_EVENTS, MESSAGE_ROUTES, messagesList } from "./messages.ts";
 import { QUESTION_COMMANDS, QUESTION_EVENTS } from "./questions.ts";
 import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
-import { ASSIGNMENT_EVENTS, ASSIGNMENT_ROUTES } from "./assignments.ts";
 import { AGENT_EVENTS, AGENT_ROUTES } from "./agents.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
@@ -35,12 +43,22 @@ import {
 
 export const ROUTES = [
   ...RUN_COMMANDS,
-  ...SESSION_COMMANDS,
-  ...MESSAGE_ROUTES,
+  // 옛 session·message route 가운데 새 route로 바뀐 것은 뺀다.
+  ...SESSION_COMMANDS.filter((route) =>
+    !([
+      openSession,
+      sessionRead,
+      sessionList,
+      closeSession,
+      unarchiveSession,
+    ] as readonly unknown[])
+      .includes(route)
+  ),
+  ...AGENT_SESSION_ROUTES,
+  ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...QUESTION_COMMANDS,
   ...HANDOFF_ROUTES,
   ...REVERT_ROUTES,
-  ...ASSIGNMENT_ROUTES,
   ...AGENT_ROUTES,
   ...COMMAND_ROUTES,
   ...PROVIDER_ROUTES,
@@ -76,7 +94,6 @@ export const EVENTS = [
   ...MESSAGE_EVENTS,
   ...QUESTION_EVENTS,
   ...REVERT_EVENTS,
-  ...ASSIGNMENT_EVENTS,
   ...AGENT_EVENTS,
   ...PROVIDER_EVENTS,
   ...MODEL_EVENTS,

@@ -1,16 +1,20 @@
-// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱)는 모두
-// 대역이고, 운영과 mode로만 구별되는 기록(invocation)·보고(problems) 서비스는 주입받아 그대로 쓴다.
-// problems test runner의 mode=test 자식도 같은 묶음을 쓴다.
+// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱 호출·project
+// 목록)는 모두 대역이고, 운영과 mode로만 구별되는 보고(problems) 서비스는 주입받아 그대로 쓴다.
+// problems test runner의 mode=test 자식도 같은 묶음을 쓴다(core/problems/tests/work/app-driver.ts).
 import type {
   BrokerServices,
   ProblemReportService,
 } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
-import { createPreviewAppsService, type PreviewAppsService } from "./apps.ts";
+import {
+  createPreviewAppsCallService,
+  type PreviewAppsCallService,
+} from "./apps.ts";
 import {
   createPreviewExternalService,
   type PreviewExternalService,
 } from "./external.ts";
+import { createPreviewProjectsService } from "./projects.ts";
 import {
   createPreviewSecretService,
   type PreviewSecretService,
@@ -24,8 +28,8 @@ export type PreviewBrokerOptions = {
 
 export type PreviewBrokerServices = {
   services: BrokerServices;
-  // broker의 `/apps/connect` 서비스 자리에 올리는 대역.
-  apps: PreviewAppsService;
+  // 시도한 다른 앱 호출을 보려고 services.appsCall을 따로 쥔다.
+  appsCall: PreviewAppsCallService;
   secrets: PreviewSecretService;
   external: PreviewExternalService;
 };
@@ -35,27 +39,30 @@ export function createPreviewBrokerServices(
 ): PreviewBrokerServices {
   const secrets = createPreviewSecretService(options.scope);
   const external = createPreviewExternalService(options.scope);
-  const apps = createPreviewAppsService();
+  const appsCall = createPreviewAppsCallService();
   return {
     services: {
       net: external,
       secrets,
+      appsCall,
+      projects: createPreviewProjectsService(),
       ...(options.problems ? { problems: options.problems } : {}),
     },
-    apps,
+    appsCall,
     secrets,
     external,
   };
 }
 
-export type { PreviewAppAttempt, PreviewAppsService } from "./apps.ts";
+export type { PreviewAppCallAttempt, PreviewAppsCallService } from "./apps.ts";
 export type {
   PreviewExternalRequest,
   PreviewExternalService,
 } from "./external.ts";
 export type { PreviewSecretService, PreviewSecretUse } from "./secret.ts";
 export {
-  createPreviewAppsService,
+  createPreviewAppsCallService,
   createPreviewExternalService,
+  createPreviewProjectsService,
   createPreviewSecretService,
 };

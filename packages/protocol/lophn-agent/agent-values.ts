@@ -8,6 +8,7 @@ import {
 } from "./models.ts";
 import { agentRoleSchema, appCommandKeySchema } from "./scope.ts";
 import type { AgentRole } from "./scope.ts";
+import type { Role } from "./places.ts";
 
 // agent 정의(lophn-agent/agents domain model)의 값. 정의와 자리 설정은 app data의 Markdown 파일이고,
 // 파일에는 사람이 바꾼 칸만 있다. 그래서 칸은 모두 optional(없음 = 아래 층을 따름)이고 null을 받지 않는다.
@@ -426,3 +427,18 @@ export const agentListRowSchema = z.object({
   { message: "counts do not match the issues and kind" },
 );
 export type AgentListRow = z.infer<typeof agentListRowSchema>;
+
+// role마다 제품이 고정한 built-in 이름. Operator는 이 이름을 쓰지 못한다.
+export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
+  lophn: "lophn",
+  project_manager: "Project Manager",
+  app_engineer: "App Engineer",
+  operator: "Operator",
+};
+
+export function isBuiltinRoleName(name: string): boolean {
+  const key = agentNameKey(name);
+  return Object.values(BUILTIN_ROLE_NAMES).some((builtin) =>
+    agentNameKey(builtin) === key
+  );
+}

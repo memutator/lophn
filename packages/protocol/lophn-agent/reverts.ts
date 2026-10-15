@@ -412,12 +412,12 @@ export const preparedFileSchema = z.strictObject({
   redo_ref: sha256Schema.nullable(),
 });
 export type PreparedFile = z.infer<typeof preparedFileSchema>;
-const preparedFilesSchema = z.array(preparedFileSchema).refine(
+export const preparedFilesSchema = z.array(preparedFileSchema).refine(
   (files) => new Set(files.map((file) => file.path)).size === files.length,
   { message: "duplicate prepared path" },
 );
 
-const revertHeaderOutput = z.object({
+export const revertHeaderOutput = z.object({
   id: idSchema("rvt"),
   session: idSchema("ses"),
   kind: revertKindSchema,

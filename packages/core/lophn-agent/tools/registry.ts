@@ -1,61 +1,53 @@
 import type { z } from "zod";
-import type { ToolEffect } from "../../../protocol/lophn-agent/mod.ts";
-import { AGENT_TOOLS } from "./bundles/agent.ts";
-import {
-  APP_READ_TOOL_NAMES,
-  APP_READ_TOOLS,
-  PROBLEM_READ_TOOL_NAMES,
-  PROBLEM_READ_TOOLS,
-} from "./bundles/app.ts";
-import { SDK_TOOL_NAMES, SDK_TOOLS } from "./bundles/sdk.ts";
-import {
-  CONTEXT_ENGINEER_TOOL_NAMES,
-  CONTEXT_ENGINEER_TOOLS,
-} from "./context-engineer-tools.ts";
-import {
-  CONTEXT_LOOKUP_SUPPORTING,
-  CONTEXT_LOOKUP_TOOL_NAME_LIST,
-  CONTEXT_LOOKUP_TOOLS,
-} from "./context-lookup-tools.ts";
-import { CONTEXT_ENTITY_TOOL } from "./context-search-tools.ts";
-import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
-import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
-import {
-  PROBLEM_INTERPRETATION_TOOL_NAMES,
-  PROBLEM_INTERPRETATION_TOOLS,
-} from "./bundles/problem-interpretation.ts";
-import {
-  TICKET_READ_TOOL_NAMES,
-  TICKET_TOOLS,
-  TICKET_WRITE_TOOL_NAMES,
-} from "./bundles/ticket.ts";
-import { VISUAL_TOOL_NAMES, VISUAL_TOOLS } from "./bundles/visual.ts";
+import type { Result } from "../../../base/mod.ts";
+import type { Intent } from "../../../protocol/approvals/mod.ts";
+import type {
+  ToolEffect,
+  ToolResult,
+} from "../../../protocol/lophn-agent/mod.ts";
+import { builtinTools } from "./builtin.ts";
+import type { ToolContext } from "./tool-context.ts";
 
-// tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다.
-// 내장 이름은 `<영역>.<동작>` 점 표기다(domain model ToolDefinition).
+// tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
+// 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
-// `context`는 적용된 context 판의 선언 검색에서 만든 정의다(app command 정의처럼 이름이 동적이다).
+// `context`는 옛 선언 검색 tool(`context-search-tools.ts`)이 쓴다. 그 file이 지워지면 같이 지운다.
 export type ToolOrigin = "builtin" | "app" | "context" | "external";
 
+// Gate에 물을 intent의 재료다. 호출자(actor)와 출처(origin)는 executeToolCall이 ToolContext에서 채운다.
+export type GateRequest = Pick<Intent, "kind" | "target" | "effect" | "input">;
+
+export type ToolCallHandler = (
+  input: unknown,
+  ctx: ToolContext,
+) => Promise<Result<ToolResult>>;
+
 export type ToolDefinition = {
+  // 정본 이름. wire 이름은 여기서 만든다.
   name: string;
   description: string;
-  revision: string;
   input: z.ZodType;
   // model에 보이는 입력 JSON Schema. 없으면 `input`에서 만든다. 앱 command처럼 선언이 이미 JSON Schema인 정의가
   // 자기 schema를 그대로 보이려고 쓴다. 실행 검사는 어느 쪽이든 `input`이 한다.
   inputSchema?: Record<string, unknown>;
-  // 효과 선언이 없으면 제공도 호출도 없다. 그래서 타입에서 필수로 둔다.
+  // registry와 Gate만 읽는다. model에 보이는 정의에는 없다.
   effect: ToolEffect;
+  origin: ToolOrigin;
+  // 실행. 옛 run-loop가 만든 정의(앱, MCP)는 없고 handlers 표로 실행한다.
+  handler?: ToolCallHandler;
+  // Gate가 걸리는 tool만 둔다. null이면 그 호출은 거치지 않는다.
+  gate?: (input: unknown, ctx: ToolContext) => GateRequest | null;
+  // 아래는 옛 tool-judgment와 run-loop가 아직 읽는 칸이다. `defineBuiltin`이 기본값을 채운다.
+  // 그 둘이 새 설계로 바뀌면 지운다.
+  revision: string;
   confirm: boolean;
-  // 소유 contract 이름 하나. 여러 영역의 숨은 절차는 없다.
   contract: string;
-  scopeCheck: string;
   reversible: boolean;
   idempotent: boolean;
-  errors: readonly string[];
-  origin: ToolOrigin;
-  // origin이 context인 정의가 속한 context id. 그 밖의 정의에는 없다.
+  // 옛 정의가 채우지만 읽는 곳은 없다.
+  scopeCheck?: string;
+  errors?: readonly string[];
+  // origin이 context인 정의가 속한 context id.
   context?: string;
 };
 
@@ -63,64 +55,10 @@ export type ToolCatalog = {
   definitions: readonly ToolDefinition[];
 };
 
-// 내장 tool은 문서·앱·context와 agent 일만 다룬다. shell·임의 파일·임의 URL·
-// 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
-export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
-  ...METADATA_TOOLS,
-  ...APP_READ_TOOLS,
-  ...PROBLEM_READ_TOOLS,
-  ...PROBLEM_INTERPRETATION_TOOLS,
-  ...TICKET_TOOLS,
-  ...SDK_TOOLS,
-  ...VISUAL_TOOLS,
-  ...GUIDE_TOOLS,
-  ...AGENT_TOOLS,
-  // Context Engineer만의 계약·초안·미리보기·제출·위반·용어집 tool이다. 역할 상한 이름 표가 그 역할에게만 연다.
-  ...CONTEXT_ENGINEER_TOOLS,
-  // lophn만의 모든 project context 조회 tool이다. 역할 상한 이름 표가 그 역할에게만 연다.
-  ...CONTEXT_LOOKUP_TOOLS,
-];
+// 옛 run-loop가 askedQuestion에서 이름만 읽는다. 질문은 새 `ask` tool로 바뀐다.
+export const questionSubmitTool = { name: "question.submit" } as const;
 
-// preset이 이름으로 고르는 tool 묶음이다. 저장 때 개별 동작으로 펼쳐 고정하므로 묶음에
-// 새 동작이 생겨도 옛 판은 늘지 않는다. 묶음은 이름 목록일 뿐 권한이 아니다. 역할 상한과 현재
-// scope, 판정이 그 뒤에 따로 적용된다. 쓰기 묶음은 읽기 묶음과 따로 골라야 한다.
-export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
-  ["metadata-read", METADATA_TOOL_NAMES],
-  ["app-read", APP_READ_TOOL_NAMES],
-  ["problem-read", PROBLEM_READ_TOOL_NAMES],
-  ["problem-interpretation", PROBLEM_INTERPRETATION_TOOL_NAMES],
-  ["ticket-read", TICKET_READ_TOOL_NAMES],
-  ["ticket-write", TICKET_WRITE_TOOL_NAMES],
-  ["sdk", SDK_TOOL_NAMES],
-  ["lophn-guide", GUIDE_TOOL_NAMES],
-  ["visual", VISUAL_TOOL_NAMES],
-  // 개체 읽기다. 개체 읽기의 정의는 선택한 context가 있을 때 run마다 만들어지고
-  // (`buildContextReadTools`) 선언 검색 tool은 이름 묶음이 아니라 preset의 context 선택이 정한다.
-  ["context-read", [CONTEXT_ENTITY_TOOL]],
-  // Context Engineer의 context 생성·계약·초안·미리보기·제출·위반·용어집 여덟 동작이다. 역할 상한이 그 역할에게만
-  // 열어서 다른 역할의 preset이 이 묶음을 고르면 저장이 거절된다.
-  ["context-engineer", Object.values(CONTEXT_ENGINEER_TOOL_NAMES)],
-  // lophn의 모든 project context 조회 셋이다. 역할 상한이 lophn에게만 열어서 다른 역할의 preset이
-  // 이 묶음을 고르면 저장이 거절된다.
-  ["context-lookup", CONTEXT_LOOKUP_TOOL_NAME_LIST],
-]);
-
-// 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다.
-export const FORBIDDEN_TOOL_NAMES: readonly string[] = [
-  "shell",
-  "shell.exec",
-  "file.read",
-  "file.write",
-  "http.request",
-  "web.search",
-  "web.read",
-  "browser",
-  "code.run",
-  "subagent",
-  "coding_agent.start",
-];
-
-const FORBIDDEN = new Set(FORBIDDEN_TOOL_NAMES);
+export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
 
 export type ToolSource = {
   builtin: readonly ToolDefinition[];
@@ -142,7 +80,7 @@ export type CapabilityScope = {
 
 // 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→context→외부다.
 // 같은 판의 같은 bytes를 유지하려고 입력 순서를 그대로 두고 이름 중복은 먼저 온
-// 정의를 남긴다. 금지 이름은 어느 출처든 빠진다.
+// 정의를 남긴다. 옛 run-loop가 쓴다(새 목록은 builtin.ts의 listRoleTools).
 export function listTools(
   source: ToolSource,
   scope: CapabilityScope,
@@ -164,7 +102,6 @@ export function listTools(
       ...source.external,
     ]
   ) {
-    if (FORBIDDEN.has(definition.name)) continue;
     // 선언 검색 정의도 이름이 동적이다. preset의 context 선택이 그 context를 덮을 때만 들어온다. 선택이
     // 비었거나 없으면 하나도 없다(fail closed). 역할·assignment 범위는 정의를 만들 때 이미 적용했다.
     if (definition.origin === "context") {
@@ -189,36 +126,12 @@ export function listTools(
   return listed;
 }
 
-// 소유 contract 하나를 부르려고 core가 같은 agent 자격으로 더 부르는 operation이다.
-const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
-  // 문제 해석 연결은 command 전에 같은 자격으로 문제의 현재 참조를 읽어 확인한다.
-  ["LinkProblemInterpretation", ["GetProblem"]],
-  ["GetSettings", ["SettingsDefinitions"]],
-  // 시각 출처 검증은 이 run이 실행해 끝낸 앱 command의 ToolCall을 읽는다.
-  ["RecordMessage", ["ReadToolCall"]],
-  // 사람의 정의 답은 질문 묶음 정본(답·고정 action)을 읽은 뒤에만 전달한다.
-  ["ApplyQuestionOption", ["ReadQuestionGroup"]],
-  // Context Engineer의 계약 읽기는 같은 자격으로 만드는 중인 판(`context.draft`)을 함께 읽고, 용어집 쓰기는
-  // 항목을 지울 때 `glossary.remove`를 부른다.
-  ["context.contract", ["context.draft"]],
-  ["glossary.set", ["glossary.remove"]],
-  // lophn의 context 조회는 project 목록과 context 목록·계약·개수·용어집을 같은 자격으로 함께 읽는다.
-  ...CONTEXT_LOOKUP_SUPPORTING,
-]);
-
-// run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract와 그 보조 operation의
-// 합이고, 목록에 없는 tool의 contract는 더하지 않는다.
+// run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract다. 목록에 없는 tool의
+// contract는 더하지 않는다.
 export function runOperations(
   listed: readonly ToolDefinition[],
 ): readonly string[] {
-  const operations = new Set<string>();
-  for (const definition of listed) {
-    operations.add(definition.contract);
-    for (const extra of SUPPORTING_OPERATIONS.get(definition.contract) ?? []) {
-      operations.add(extra);
-    }
-  }
-  return [...operations];
+  return [...new Set(listed.map((definition) => definition.contract))];
 }
 
 // 실행은 목록과 같은 정의를 찾는다. 등록되지 않은 이름은 없다.

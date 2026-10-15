@@ -1,20 +1,13 @@
-import { err, type IdSource, ok, type Result } from "../../../base/mod.ts";
-import { assignmentRead, runRead } from "../../../protocol/lophn-agent/mod.ts";
+import { err, type IdSource, type Result } from "../../../base/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
-import {
-  createBuiltinToolHandlers,
-  createContextLookupToolHandlers,
-  type ToolHandler,
-} from "./mod.ts";
-import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import type { ToolHandler } from "./mod.ts";
+import type { CoreCall } from "../run-loop/core-call.ts";
 import { builtinBinding } from "../tool-judgment/builtin-binding.ts";
-import { renderContextMaterial } from "../prompt-assembly/context-overview.ts";
 import { contextBundleReader, createContextToolkit } from "./context-search.ts";
 import type { Toolkit } from "../run-loop/prepare.ts";
 import type { RunSeat } from "../run-loop/core-ports.ts";
 
-// 내장 tool의 handler 묶음을 run의 agent 자격에 붙인다(lophn-agent/harness/tools). handler는 소유
-// contract를 이름 하나로 부르고, 여기서 그 이름을 route로 바꿔 agent credential의 loopback으로 보낸다.
+// 옛 run-loop가 쓰는 toolkit이다. 소유 contract 이름을 route로 바꿔 agent credential의 loopback으로 보낸다.
 // 어느 concern의 route가 있는지는 조립(`routes`)이 안다: 이 모듈은 목록에 있는 route만 연다.
 
 type NamedRoute = {
@@ -83,36 +76,12 @@ export function createBuiltinToolkit(options: {
       contract: (agent) => createContractCall(options.routes, agent),
       bundle: contextBundleReader(options.machine),
     }),
-    handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler> {
-      const contract = createContractCall(options.routes, agent);
-      const builtin = createBuiltinToolHandlers({
-        ...contract,
-        newId: (prefix) => options.ids.newId(prefix),
-        async runFacts(run) {
-          const read = await readOf(options.machine, runRead, { run });
-          if (!read.ok) return read;
-          const assigned = await readOf(options.machine, assignmentRead, {
-            assignment: read.value.run.assignment,
-          });
-          if (!assigned.ok) return assigned;
-          const source = read.value.run.source;
-          return ok({
-            session: seat.session,
-            role: assigned.value.assignment.role as never,
-            original_message: source.kind === "message"
-              ? source.message
-              : source.kind === "handoff"
-              ? source.original_message
-              : null,
-            assignment: read.value.run.assignment,
-          });
-        },
-      });
-      // lophn의 모든 project context 조회. overview 글은 prompt 자료와 같은 함수로 만든다.
-      return new Map([
-        ...builtin,
-        ...createContextLookupToolHandlers(contract, renderContextMaterial),
-      ]);
+    // 내장 tool은 정의가 handler를 들고 있다(ToolContext로 실행). 옛 run-loop에 넘길 handler는 없다.
+    handlers(
+      _seat: RunSeat,
+      _agent: CoreCall,
+    ): ReadonlyMap<string, ToolHandler> {
+      return new Map();
     },
   };
 }

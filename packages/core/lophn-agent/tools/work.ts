@@ -1,15 +1,23 @@
 import type { Result } from "../../../base/mod.ts";
 import { fingerprint } from "../../../base/mod.ts";
 import type { ErrorCode } from "../../../base/mod.ts";
+import type { Intent } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolOutcome,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { checkInput, unchanged } from "./schema.ts";
-import { findTool, type ToolDefinition } from "./registry.ts";
+import { findTool, type GateRequest, type ToolDefinition } from "./registry.ts";
+import type { ToolContext } from "./tool-context.ts";
+import {
+  MISSING_TOOL_MESSAGES,
+  type MissingToolCode,
+  toolForWireName,
+} from "./wire.ts";
 
 // 실행기. command 밖의 일이다. 결과는 command로 남긴다.
 // 자격과 범위는 호출 run의 것만 쓴다. 실행기가 권한을 넓히지 않는다.
+// `executeTool`과 `RunCredential`은 옛 run-loop가 쓴다. 새 실행기는 아래 `executeToolCall`이다.
 
 export type RunCredential = {
   run: string;
@@ -171,4 +179,189 @@ export async function executeTool(
     outcome: { kind, code: kind === "success" ? "ok" : kind },
     result: produced.value,
   };
+}
+
+// ---- 새 실행기 ----
+
+export type ToolCallOutcome = {
+  // 정본 이름. 없는 tool이면 model이 부른 이름이다.
+  tool: string;
+  effect: ToolDefinition["effect"];
+  outcome: ToolOutcome;
+  result: ToolResult;
+  // handler를 불렀는지.
+  executed: boolean;
+};
+
+function stopped(
+  tool: string,
+  kind: "failure" | "not_executed",
+  code: string,
+  summary: string,
+  effect: ToolDefinition["effect"] = "read",
+): ToolCallOutcome {
+  return {
+    tool,
+    effect,
+    outcome: { kind, code },
+    executed: false,
+    result: {
+      status: kind,
+      summary,
+      content: null,
+      complete: true,
+      source: null,
+      continuation: null,
+      pending: [],
+    },
+  };
+}
+
+// model이 부른 wire 이름의 tool을 ctx.listed에서 찾아 실행한다. 목록 밖의 tool은 실행하지 않는다.
+// Gate가 걸리는 tool(`gate`가 있는 정의)은 실행 전에 core에 묻고, 막히면 이유를 결과로 돌려준다.
+// file, shell, web, pdf, image tool은 `gate`가 없어 거치지 않는다.
+// `missingReason`은 목록에 없는 이유를 구별한다(앱 tool의 grant·release 변화). 없으면 `unknown_tool`이다.
+export async function executeToolCall(
+  ctx: ToolContext,
+  wireName: string,
+  input: unknown,
+  missingReason?: (wireName: string) => MissingToolCode,
+): Promise<ToolCallOutcome> {
+  const definition = toolForWireName(ctx.listed, wireName);
+  if (definition === undefined) {
+    const code = missingReason?.(wireName) ?? "unknown_tool";
+    return stopped(wireName, "failure", code, MISSING_TOOL_MESSAGES[code]);
+  }
+  const name = definition.name;
+  const effect = definition.effect;
+  const checked = checkInput(definition.input, input);
+  if (!checked.ok) {
+    return stopped(
+      name,
+      "failure",
+      "invalid_input",
+      checked.error.message,
+      effect,
+    );
+  }
+  if (!unchanged(input, checked.value)) {
+    return stopped(
+      name,
+      "failure",
+      "invalid_input",
+      "tool input was rewritten",
+      effect,
+    );
+  }
+  if (definition.handler === undefined) {
+    return stopped(
+      name,
+      "failure",
+      "unavailable",
+      "tool has no handler",
+      effect,
+    );
+  }
+  const request = definition.gate?.(checked.value, ctx) ?? null;
+  if (request !== null) {
+    const blocked = await askGate(ctx, name, effect, request);
+    if (blocked !== null) return blocked;
+  }
+  const produced = await definition.handler(checked.value, ctx);
+  if (!produced.ok) {
+    const code = FAILURE_CODES.get(produced.error.code) ?? "internal";
+    // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다.
+    const summary = FAILURE_SUMMARIES[code] ?? "tool call failed";
+    return {
+      ...stopped(name, "failure", code, summary, effect),
+      executed: true,
+    };
+  }
+  const status = produced.value.status;
+  return {
+    tool: name,
+    effect,
+    executed: true,
+    outcome: { kind: status, code: status === "success" ? "ok" : status },
+    result: produced.value,
+  };
+}
+
+// 허락되면 null, 아니면 실행하지 않은 결과다.
+async function askGate(
+  ctx: ToolContext,
+  tool: string,
+  effect: ToolDefinition["effect"],
+  request: GateRequest,
+): Promise<ToolCallOutcome | null> {
+  const intent: Intent = {
+    ...request,
+    actor: { kind: "agent", agent: ctx.agent, session: ctx.session },
+    origin: {
+      kind: "turn",
+      session: ctx.session,
+      turn: ctx.turn,
+      tool_call: ctx.tool_call,
+    },
+  };
+  const verdict = await ctx.gate.judge(intent);
+  if (!verdict.ok) {
+    return stopped(
+      tool,
+      "failure",
+      "unavailable",
+      "tool is unavailable",
+      effect,
+    );
+  }
+  if (verdict.value.verdict === "run") return null;
+  if (verdict.value.verdict === "deny") {
+    return stopped(
+      tool,
+      "not_executed",
+      "denied",
+      `tool call was denied (${verdict.value.reason})`,
+      effect,
+    );
+  }
+  const opened = ctx.gate.openTurnRequest(intent);
+  if (!opened.ok) {
+    return stopped(
+      tool,
+      "failure",
+      "unavailable",
+      "tool is unavailable",
+      effect,
+    );
+  }
+  const decision = await ctx.gate.waitTurnDecision(opened.value.id);
+  if (decision.outcome === "reject") {
+    return stopped(
+      tool,
+      "not_executed",
+      "rejected",
+      "the person rejected this tool call",
+      effect,
+    );
+  }
+  if (decision.outcome === "cancelled") {
+    return stopped(
+      tool,
+      "not_executed",
+      "cancelled",
+      `the request was cancelled (${decision.cause})`,
+      effect,
+    );
+  }
+  const used = await ctx.gate.consumeTurnAllow(opened.value.id, intent);
+  if (!used.ok) {
+    return stopped(
+      tool,
+      "failure",
+      "conflict",
+      FAILURE_SUMMARIES.conflict!,
+      effect,
+    );
+  }
+  return null;
 }

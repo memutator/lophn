@@ -31,17 +31,17 @@ export const rejectReasonSchema = z.string().trim().min(1).max(500).refine(
   { message: "reject reason is one line" },
 );
 
-// granted는 접수다. 만료는 없다.
+// allow는 접수다. 만료는 없다.
 export const REQUEST_STATUSES = [
   "pending",
-  "granted",
-  "rejected",
+  "allow",
+  "reject",
   "cancelled",
 ] as const;
 export const requestStatusSchema = z.enum(REQUEST_STATUSES);
 export type RequestStatus = z.infer<typeof requestStatusSchema>;
 
-// 보류 request의 적용 결과. 허락의 접수(granted)와 적용의 성공을 따로 보인다. 적용 전에는 null이다.
+// 보류 request의 적용 결과. 허락의 접수(allow)와 적용의 성공을 따로 보인다. 적용 전에는 null이다.
 export const applyResultSchema = z.discriminatedUnion("state", [
   z.strictObject({ state: z.literal("applied") }),
   z.strictObject({

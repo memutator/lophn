@@ -2,20 +2,9 @@ import { z } from "zod";
 import { defineSetting } from "../config/settings.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { connectionIdSchema } from "./connections.ts";
+import { HARNESS_IDS, type HarnessId, harnessIdSchema } from "./harness-id.ts";
 
-export const HARNESS_IDS = [
-  "claude",
-  "codex",
-  "opencode",
-  "gemini",
-  "hermes",
-  "pi",
-  "openclaw",
-] as const;
-
-export const harnessIdSchema = z.enum(HARNESS_IDS);
-
-export type HarnessId = z.infer<typeof harnessIdSchema>;
+export { HARNESS_IDS, type HarnessId, harnessIdSchema };
 
 // native machine identity·distro·remote identity를 구별한다. 지금 host만 수집이다.
 export const harnessEnvironmentSchema = z.object({

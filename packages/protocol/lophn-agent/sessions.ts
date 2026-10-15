@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { atSchema, seqSchema } from "../base/values.ts";
+import {
+  atSchema,
+  positiveRevisionSchema,
+  readCursorSchema,
+  seqSchema,
+} from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
-import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 
 // Session은 agent(assignment) 하나와 자리(project 또는 app) 하나에 고정된다.

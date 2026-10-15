@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { positiveRevisionSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
 import { ASSIGNMENT_STATES } from "./instructions.ts";
-import { positiveRevisionSchema } from "./run-values.ts";
 import { agentRoleSchema } from "./scope.ts";
 
 export const assignmentStateSchema = z.enum(ASSIGNMENT_STATES);

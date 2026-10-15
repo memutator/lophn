@@ -1,5 +1,5 @@
 // turn·model call·tool call이 hash로 가리키는 본문의 blob 준비 용도다. 준비 증거와 등록 helper
-// (`blobSizeSchema`, `registerPreparedBlob`, `AGENT_RUNTIME_PRINCIPAL`)는 `run-blobs.ts`에 있다.
+// (`registerPreparedBlob`, `AGENT_RUNTIME_PRINCIPAL`)는 `run-blobs.ts`에, `blobSizeSchema`는 `base/values.ts`에 있다.
 export const TURN_BLOB_PURPOSES = {
   turn_basis: "turn_basis",
   turn_resolved: "turn_resolved",

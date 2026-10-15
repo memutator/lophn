@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
-  AppRevertBinding,
+  AppRewindBinding,
   PreparedFile,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
@@ -21,7 +21,7 @@ export type AppStepResult = {
 };
 
 export type StoredStep = {
-  binding: AppRevertBinding;
+  binding: AppRewindBinding;
   // 이미 기록한 결과다. unchanged면 아직 부르지 않았다.
   result: "restored" | "failure" | "uncertain" | "unchanged";
 };
@@ -36,7 +36,7 @@ export type AppStepPorts = {
   stored(revert: string): Promise<Result<StoredRevert>>;
   // 저장한 invocation·receipt·expected_revision으로 revert command를 한 번 직접 부른다. 돌려주는
   // invocation은 그 호출이 남긴 실제 Invocation이다(앱에 닿지 않았거나 응답을 잃으면 null).
-  call(binding: AppRevertBinding): Promise<AppStepResult>;
+  call(binding: AppRewindBinding): Promise<AppStepResult>;
   checkpoint(input: {
     revert: string;
     step_key: string;

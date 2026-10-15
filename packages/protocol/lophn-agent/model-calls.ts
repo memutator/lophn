@@ -1,9 +1,8 @@
-import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
-import { seqSchema, sha256Schema } from "../base/values.ts";
+import { blobSizeSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   callCostOutputSchema,

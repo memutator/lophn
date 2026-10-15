@@ -61,6 +61,8 @@ export const sendMessage = defineCommand({
 });
 
 // 받는 session 기록의 메시지에 붙는 봉투 칸이다. 사람 메시지는 call, reply_to가 null이다.
+// annotation 이미지는 message part로 싣지 않는다. refs의 annotation id로 가리키고, prompt를 조립할 때
+// 그 id로 screenshot을 읽는다.
 export const receivedEnvelopeSchema = z.object({
   from: callFromOutputSchema,
   call: idSchema("cal").nullable(),

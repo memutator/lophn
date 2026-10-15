@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type AppRevertBinding,
+  type AppRewindBinding,
   checkpointRevert,
   finishRevert,
   type PreviewItem,
@@ -159,7 +159,7 @@ function loadApplying(tx: Tx, id: string): Result<Applying> {
 type StepRow = {
   ordinal: number;
   result: RevertItem["result"];
-  binding: AppRevertBinding;
+  binding: AppRewindBinding;
 };
 
 // 복원할 앱 단계를 실행 순서(ordinal)대로 읽는다.
@@ -171,7 +171,7 @@ function loadSteps(tx: Tx, revert: string): StepRow[] {
   ).map((row) => ({
     ordinal: Number(row["ordinal"]),
     result: String(row["result"]) as RevertItem["result"],
-    binding: JSON.parse(String(row["app_revert"])) as AppRevertBinding,
+    binding: JSON.parse(String(row["app_revert"])) as AppRewindBinding,
   }));
 }
 
@@ -208,7 +208,7 @@ function handleCheckpoint(
   if (steps.slice(0, index).some((before) => before.result !== "restored")) {
     return reject("conflict", "an earlier app step is not restored");
   }
-  const binding: AppRevertBinding = {
+  const binding: AppRewindBinding = {
     ...step.binding,
     revert_invocation: input.invocation,
   };

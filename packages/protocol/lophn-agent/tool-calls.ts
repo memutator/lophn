@@ -1,7 +1,7 @@
-import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
 import {
   atSchema,
+  blobSizeSchema,
   durationMsSchema,
   seqSchema,
   sha256Schema,

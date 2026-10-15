@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { ok, type Result } from "../../base/mod.ts";
 import type { RequestContext, Tx } from "../server/registration.ts";
 
@@ -19,10 +18,6 @@ export const RUN_BLOB_PURPOSES = {
 // core가 agent runtime에 주는 machine credential의 principal이다. runtime이 감독 pipe로 준비하는
 // blob의 준비 주체와 같아야 StartRun·StartModelCall 같은 command가 영구 참조를 등록한다.
 export const AGENT_RUNTIME_PRINCIPAL = "machine:agent-runtime";
-
-export const blobSizeSchema = z.number().int().nonnegative().max(
-  Number.MAX_SAFE_INTEGER,
-);
 
 // 준비 증거. 같은 주체·용도·hash의 살아 있는 준비가 있을 때만 등록된다(platform/blob-store).
 export function preparedEvidence(

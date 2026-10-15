@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { seqSchema } from "../base/values.ts";
+import { atSchema, seqSchema } from "../base/values.ts";
+import { annotationIdSchema } from "../apps/annotation.ts";
+import { codingOptionsSchema } from "../coding-agent/harness-id.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   agentRefOutputSchema,
@@ -79,31 +81,19 @@ export const callToSchema = z.discriminatedUnion("kind", [
 ]);
 export type CallTo = z.infer<typeof callToSchema>;
 
-// 근거 링크. annotation ID 접두사는 annotation 계약이 정하므로 지금은 string이다.
+// 근거 링크. annotation은 ticket evidence와 같은 {kind, id} 꼴이다.
 function refSchemas(strict: boolean) {
   return z.discriminatedUnion("kind", [
     obj(strict, { kind: z.literal("ticket"), ticket: idSchema("tkt") }),
     obj(strict, { kind: z.literal("problem"), problem: idSchema("prb") }),
     obj(strict, { kind: z.literal("file"), path: z.string().min(1) }),
     obj(strict, { kind: z.literal("session"), session: idSchema("ses") }),
-    obj(strict, {
-      kind: z.literal("annotation"),
-      annotation: z.string().min(1),
-    }),
+    obj(strict, { kind: z.literal("annotation"), id: annotationIdSchema }),
   ]);
 }
 export const callRefSchema = refSchemas(true);
 export const callRefOutputSchema = refSchemas(false);
 export type CallRef = z.infer<typeof callRefOutputSchema>;
-
-// coding agent 실행 옵션이다. protocol/coding-agent의 CodingRunOptions와 같은 칸이다.
-// harnessIdSchema를 import하면 lophn-agent와 coding-agent가 순환이라 harness는 string으로 둔다.
-// 값이 harness id인지는 coding agent 쪽이 검사한다.
-export const codingOptionsSchema = z.strictObject({
-  harness: z.string().min(1).optional(),
-  model: z.string().min(1).optional(),
-});
-export type CodingOptions = z.infer<typeof codingOptionsSchema>;
 
 export const CALL_STATES = ["accepted", "done", "failed", "cancelled"] as const;
 export const callStateSchema = z.enum(CALL_STATES);
@@ -159,8 +149,8 @@ export const agentCallRecordSchema = z.object({
   state: callStateSchema,
   fail_reason: callFailReasonSchema.nullable(),
   dedup: z.string().min(1).nullable(),
-  created_at: z.string().min(1),
-  state_at: z.string().min(1),
+  created_at: atSchema,
+  state_changed_at: atSchema,
 }).refine((v) => (v.state === "failed") === (v.fail_reason !== null), {
   message: "fail_reason belongs to a failed call",
 });
@@ -216,7 +206,7 @@ export const callReply = defineCommand({
   input: z.strictObject({
     call: idSchema("cal"),
     body: z.string().min(1),
-    refs: z.array(callRefSchema),
+    refs: z.array(callRefSchema).default([]),
   }),
   output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
   actors: ["agent"],

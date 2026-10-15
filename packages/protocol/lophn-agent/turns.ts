@@ -1,14 +1,19 @@
 import { z } from "zod";
-import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import {
+  atSchema,
+  blobSizeSchema,
+  seqSchema,
+  sha256Schema,
+} from "../base/values.ts";
 import { defineCommand } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { blobSizeSchema } from "./run-blobs.ts";
 import {
-  runElapsedOutputSchema,
-  runElapsedSchema,
-  runLimitsSchema,
-} from "./run-values.ts";
-import { turnOutcomeOutputSchema, turnOutcomeSchema } from "./turn-values.ts";
+  turnElapsedOutputSchema,
+  turnElapsedSchema,
+  turnLimitsSchema,
+  turnOutcomeOutputSchema,
+  turnOutcomeSchema,
+} from "./turn-values.ts";
 
 const turnRef = { turn: idSchema("trn") };
 const stateSeq = { state_seq: seqSchema };
@@ -25,7 +30,7 @@ export const startTurnInputSchema = z.strictObject({
   // 두 칸은 함께 오고, 있으면 command가 영구 참조를 등록한다.
   resolved: sha256Schema.optional(),
   resolved_size: blobSizeSchema.optional(),
-  limits: runLimitsSchema,
+  limits: turnLimitsSchema,
 }).refine(
   (value) =>
     (value.resolved === undefined) === (value.resolved_size === undefined),
@@ -34,7 +39,7 @@ export const startTurnInputSchema = z.strictObject({
 
 export const checkpointTurnInputSchema = z.strictObject({
   ...turnRef,
-  elapsed: runElapsedSchema,
+  elapsed: turnElapsedSchema,
 });
 
 export const finishTurnInputSchema = z.strictObject({
@@ -79,7 +84,7 @@ export const checkpointTurn = defineCommand({
     id: idSchema("trn"),
     state: z.literal("running"),
     state_seq: seqSchema,
-    elapsed: runElapsedOutputSchema,
+    elapsed: turnElapsedOutputSchema,
   }),
   compare: stateSeqCompareSchema,
   actors: ["machine"],

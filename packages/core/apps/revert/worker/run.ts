@@ -14,7 +14,7 @@ import {
   type ChildStreams,
   startChild,
 } from "../../../supervision/responsiveness/mod.ts";
-import { type AppRevertBinding } from "../../../../protocol/lophn-agent/mod.ts";
+import { type AppRewindBinding } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   type CoreCall,
   createRuntimeClient,
@@ -44,7 +44,7 @@ class RevertRejection extends Error {
 // 요청 payload. credential은 RunAppRevert를 부른 사람의 Bearer token이고 core가 요청마다 싣는다.
 export type RevertCallPayload = {
   credential: string;
-  binding: AppRevertBinding;
+  binding: AppRewindBinding;
 };
 
 function payloadOf(request: WorkerRequest): RevertCallPayload {

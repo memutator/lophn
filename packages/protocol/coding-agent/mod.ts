@@ -566,10 +566,10 @@ export {
   type HookSignal,
   hookSignalOf,
 } from "./hook-signal.ts";
+export { type CodingOptions, codingOptionsSchema } from "./harness-id.ts";
 export {
   type CodingLaunchPlan,
   codingLaunchPlanSchema,
-  type CodingRunOptions,
   firstPromptOf,
   launchPlanOf,
   PASTE_AFTER_HOOK_DEADLINE_MS,

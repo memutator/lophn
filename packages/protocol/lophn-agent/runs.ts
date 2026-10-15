@@ -1,6 +1,11 @@
-import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
-import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import {
+  atSchema,
+  blobSizeSchema,
+  positiveRevisionSchema,
+  seqSchema,
+  sha256Schema,
+} from "../base/values.ts";
 import { defineCommand } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
@@ -9,7 +14,6 @@ import { agentAppScopeOutputSchema, agentAppScopeSchema } from "./scope.ts";
 import {
   INITIAL_RUN_ELAPSED,
   nonSelfRunLinks,
-  positiveRevisionSchema,
   runElapsedOutputSchema,
   runElapsedSchema,
   runLimitsOutputSchema,

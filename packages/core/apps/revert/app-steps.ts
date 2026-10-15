@@ -13,7 +13,7 @@
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AppRevertBinding,
+  type AppRewindBinding,
   checkpointRevert,
   finishRevert,
   type runAppRevert,
@@ -58,7 +58,7 @@ export const APP_REVERT_CONTEXT: AuthenticatedContext = {
 // 저장한 revert 단계 하나의 실제 호출이다. 감독 worker(apps/revert)가 호출자의 credential과
 // 단계 근거를 받아 앱의 revert command를 부른다(workerAppCaller가 이 모양을 만든다).
 export type AppRevertCaller = (
-  binding: AppRevertBinding,
+  binding: AppRewindBinding,
 ) => Promise<AppStepResult>;
 
 export type AppRevertDeps =
@@ -105,7 +105,7 @@ function readStored(
       session: String(header["session"]),
       checkpoint: String(header["checkpoint"]),
       steps: rows.map((row): StoredStep => ({
-        binding: JSON.parse(String(row["app_revert"])) as AppRevertBinding,
+        binding: JSON.parse(String(row["app_revert"])) as AppRewindBinding,
         result: String(row["result"]) as StoredStep["result"],
       })),
     };

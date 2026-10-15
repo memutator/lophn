@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type AppRevertBinding,
+  type AppRewindBinding,
   type Checkpoint,
   type RevertItem,
   type RevertRecord,
@@ -187,6 +187,6 @@ function itemsOf(lookup: Lookup, revert: string): RevertItem[] {
       : String(row["reason"]) as RevertItem["reason"],
     app_revert: row["app_revert"] === null
       ? null
-      : JSON.parse(String(row["app_revert"])) as AppRevertBinding,
+      : JSON.parse(String(row["app_revert"])) as AppRewindBinding,
   }));
 }

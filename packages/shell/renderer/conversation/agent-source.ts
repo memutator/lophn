@@ -116,7 +116,7 @@ export interface ThreadEdit extends EntryBase {
   readonly undo: EditUndo;
 }
 
-/** 되돌리기가 대상을 고르지 못하거나 항목을 설명하는 이유 코드(contracts revertReasonSchema). */
+/** 되돌리기가 대상을 고르지 못하거나 항목을 설명하는 이유 코드(contracts rewindReasonSchema). */
 export type RewindReason =
   | "edited_outside"
   | "chain_broken"

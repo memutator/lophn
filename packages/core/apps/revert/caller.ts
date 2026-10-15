@@ -4,7 +4,7 @@
 // core는 호출자의 credential을 요청에 실어 보내고 worker가 돌려준 결과를 받아 판정한다.
 // worker는 자기 machine credential이 없어 호출자 주장을 대신하지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { type AppRevertBinding } from "../../../protocol/lophn-agent/mod.ts";
+import { type AppRewindBinding } from "../../../protocol/lophn-agent/mod.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { AppStepResult } from "../../lophn-agent/session/rewind/mod.ts";
 import { allSlotSockets } from "../runtime/processes/mod.ts";
@@ -67,7 +67,7 @@ function shapeOf(value: unknown): Result<AppStepResult> {
 export function workerAppCaller(options: {
   channel: WorkerChannel;
   credential: string | undefined;
-}): (binding: AppRevertBinding) => Promise<AppStepResult> {
+}): (binding: AppRewindBinding) => Promise<AppStepResult> {
   if (options.credential === undefined) {
     return () => Promise.resolve({ result: "failure", invocation: null });
   }

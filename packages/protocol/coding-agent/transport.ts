@@ -6,7 +6,7 @@ import type { Result } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { definePort, type PortKey } from "../base/ports.ts";
 import type { Tx } from "../server/registration.ts";
-import type { CodingRunOptions } from "./launch-plan.ts";
+import type { CodingOptions } from "./harness-id.ts";
 
 const callIdSchema = idSchema("cal");
 export type CallId = z.infer<typeof callIdSchema>;
@@ -16,7 +16,7 @@ export type CodingStartInput = {
   app: string;
   ticket: string;
   // harness가 없으면 transport가 Settings 기본 실행 옵션으로 채운다.
-  options: CodingRunOptions;
+  options: CodingOptions;
 };
 export type CodingStartResult =
   | { status: "started"; session: string }

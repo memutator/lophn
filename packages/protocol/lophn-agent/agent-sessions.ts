@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { seqSchema } from "../base/values.ts";
+import { readCursorSchema, seqSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { readCursorSchema } from "./run-values.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
 import {
   agentRefOutputSchema,

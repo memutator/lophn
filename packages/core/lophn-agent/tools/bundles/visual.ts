@@ -2,14 +2,13 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   messageBody,
-  readCursorSchema,
   recordMessage,
   toolCallRead,
   type VisualBlock,
   visualKeySchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { appBlueprint } from "../../../../protocol/apps/mod.ts";
-import { idSchema } from "../../../../protocol/base/mod.ts";
+import { idSchema, readCursorSchema } from "../../../../protocol/base/mod.ts";
 import {
   blocksOf,
   checkCardScreen,

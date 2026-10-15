@@ -51,7 +51,6 @@ export const sessionStarted = defineAgentEvent(
   z.strictObject({
     agent: callAgentOutputSchema,
     place: placeOutputSchema.nullable(),
-    kind: z.enum(["lophn", "coding_agent"]),
     external_session: z.string().min(1).nullable(),
     revived: z.boolean(),
   }),
@@ -72,7 +71,7 @@ export const messageReceived = defineAgentEvent(
 
 export const turnStarted = defineAgentEvent(
   "TurnStarted",
-  z.strictObject({ turn, trigger: idSchema("msg") }),
+  z.strictObject({ turn, input_message: idSchema("msg") }),
 );
 
 // outcome은 turnOutcomeSchema와 같은 값이다.
@@ -110,7 +109,7 @@ export const permissionResolved = defineAgentEvent(
   "PermissionResolved",
   z.strictObject({
     request: idSchema("apr"),
-    outcome: z.enum(["allowed", "rejected", "cancelled"]),
+    outcome: z.enum(["allow", "reject", "cancelled"]),
   }),
 );
 

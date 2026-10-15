@@ -5,11 +5,12 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { absolutePathSchema } from "../projects/values.ts";
 import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
-import { type HarnessId, harnessIdSchema } from "./harnesses.ts";
+import {
+  type CodingOptions,
+  type HarnessId,
+  harnessIdSchema,
+} from "./harness-id.ts";
 import { ticketIdSchema } from "./ticket-values.ts";
-
-// call 봉투의 options다. 빠진 칸은 Settings 기본이다.
-export type CodingRunOptions = { harness?: HarnessId; model?: string };
 
 // session 시작 hook을 기다리는 기한이다. 기한이 지나면 첫 prompt는 들어가지 않는다.
 export const PASTE_AFTER_HOOK_DEADLINE_MS = 10_000;
@@ -108,7 +109,7 @@ export function launchPlanOf(input: {
   harness_id: HarnessId;
   executable: string;
   cwd: string;
-  options: CodingRunOptions;
+  options: CodingOptions;
   // 호출자가 token을 넣어 준다.
   env: Record<string, string>;
 }): Result<CodingLaunchPlan> {

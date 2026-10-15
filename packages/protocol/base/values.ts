@@ -56,3 +56,18 @@ export const derivedProvenanceSchema = z.object({
 );
 
 export type DerivedProvenance = z.infer<typeof derivedProvenanceSchema>;
+
+// 목록 read의 cursor다.
+export const readCursorSchema = z.string().min(1);
+
+export const positiveSafeIntegerSchema = z.number().refine(
+  (value): value is number => Number.isSafeInteger(value) && value >= 1,
+  { message: "expected a positive safe integer" },
+);
+
+export const positiveRevisionSchema = positiveSafeIntegerSchema;
+
+// 준비한 blob의 크기다.
+export const blobSizeSchema = z.number().int().nonnegative().max(
+  Number.MAX_SAFE_INTEGER,
+);

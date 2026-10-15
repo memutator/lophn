@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   atSchema,
   durationMsSchema,
+  positiveRevisionSchema,
+  positiveSafeIntegerSchema,
   seqSchema,
   sha256Schema,
 } from "../base/values.ts";
@@ -13,13 +15,6 @@ import {
   resolvedModelOutputSchema,
   resolvedModelSchema,
 } from "./resolved-model.ts";
-
-export const positiveSafeIntegerSchema = z.number().refine(
-  (value): value is number => Number.isSafeInteger(value) && value >= 1,
-  { message: "expected a positive safe integer" },
-);
-
-export const positiveRevisionSchema = positiveSafeIntegerSchema;
 
 const dedupKeySchema = z.string().min(1).refine(
   (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
@@ -321,5 +316,3 @@ export const INITIAL_RUN_ELAPSED: RunElapsed = {
   stall_ms: 0,
   checkpoint_at: null,
 };
-
-export const readCursorSchema = z.string().min(1);

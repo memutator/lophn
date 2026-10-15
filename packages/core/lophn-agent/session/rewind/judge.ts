@@ -1,6 +1,6 @@
 import type {
   FileState,
-  RevertReason,
+  RewindReason,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
 // 문서 파일 복원 판정(lophn-agent/revert "판정 규칙"). 기록(RewindFile)과 파일의 지금 상태만 받는 순수
@@ -33,7 +33,7 @@ export type JudgedFile = {
   // 이 경로를 쓴 tool call. 되돌림에서 빠진(reverted_by) 기록은 들지 않고 seq 순서다.
   source: string[];
   plan: "restore" | "skip";
-  reason: RevertReason | null;
+  reason: RewindReason | null;
   // plan=restore일 때만 있다. 첫 기록의 before로 교체하거나(write) 지운다(delete).
   actions: FileAction[];
   // 복원한 뒤 이 경로의 내용 hash. 사라지면 null. Redo가 "지금 hash == 복원한 내용"을 비교한다.
@@ -107,7 +107,7 @@ function judgeUnit(
   const last = shown[shown.length - 1]!;
   const make = (
     plan: "restore" | "skip",
-    reason: RevertReason | null,
+    reason: RewindReason | null,
     actions: FileAction[] = [],
     restored: string | null = null,
   ): { firstSeq: string; judged: JudgedFile } => ({
@@ -121,7 +121,7 @@ function judgeUnit(
       restored_sha256: restored,
     },
   });
-  const skip = (reason: RevertReason) => make("skip", reason);
+  const skip = (reason: RewindReason) => make("skip", reason);
 
   if (active.length === 0) return skip("already_reverted");
   const now = current.get(last.path) ?? GONE;

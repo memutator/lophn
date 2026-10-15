@@ -8,11 +8,14 @@ import {
   QUESTION_GROUP_MAX_QUESTIONS,
   QUESTION_GROUP_MIN_QUESTIONS,
   questionTextSchema,
-  readCursorSchema,
   roleKindSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { appCreateInputSchema } from "../../../../protocol/apps/mod.ts";
-import { atSchema, idSchema } from "../../../../protocol/base/mod.ts";
+import {
+  atSchema,
+  idSchema,
+  readCursorSchema,
+} from "../../../../protocol/base/mod.ts";
 import { handoffBodyHash } from "../handoff/mod.ts";
 import { appCreateOptionAction } from "../questions/mod.ts";
 import {

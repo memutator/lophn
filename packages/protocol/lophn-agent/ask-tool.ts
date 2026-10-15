@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { defineMemory } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
 
-// 사람에게 묻는 tool `ask`의 입력과 결과. `QuestionAsked` payload는 `askQuestionSchema`를 쓴다.
+// 사람에게 묻는 tool `ask`의 입력과 결과. 질문 내용은 event에 싣지 않고 아래 read route가 준다.
 // 자유 답("Other")은 화면이 늘 붙이므로 schema에 없다. 기한도 Skip도 없다.
 
 export const ASK_QUESTION_MAX = 4;
@@ -62,3 +64,50 @@ export const askResultSchema = z.discriminatedUnion("outcome", [
   }),
 ]);
 export type AskResult = z.infer<typeof askResultSchema>;
+
+const askErrors = [
+  "invalid_input",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "unavailable",
+] as const;
+
+const askTarget = {
+  session: idSchema("ses"),
+  tool_call: idSchema("tcl"),
+};
+
+// 대기 중인 질문 묶음을 session과 `ask` tool call로 찾아 질문 목록을 준다. 메모리 route라 답하거나
+// turn이 끝나 묶음이 풀리면 not_found다.
+export const askRead = defineMemory({
+  resource: "ask",
+  method: "read",
+  name: "ReadAskQuestions",
+  input: z.strictObject(askTarget),
+  output: z.object({
+    group: idSchema("qgr"),
+    questions: z.array(askQuestionSchema).min(1).max(ASK_QUESTION_MAX),
+  }),
+  actors: ["user"],
+  errors: [...askErrors],
+});
+
+// 사람이 낸 답이다. 질문 순서대로 하나씩이고 Skip은 없다. 이미 풀린 묶음은 conflict다.
+// 결과는 tool이 받는 askResultSchema와 같다(outcome은 submitted).
+export const askAnswer = defineMemory({
+  resource: "ask",
+  method: "answer",
+  name: "AnswerAskQuestions",
+  input: z.strictObject({
+    ...askTarget,
+    answers: z.array(askAnswerSchema).min(1).max(ASK_QUESTION_MAX),
+  }),
+  output: askResultSchema,
+  actors: ["user"],
+  errors: [...askErrors],
+});
+
+// registry에는 lead가 올린다.
+export const ASK_ROUTES = [askRead, askAnswer] as const;

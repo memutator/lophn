@@ -1,4 +1,4 @@
-// 되돌리기 화면의 고정 글. 이유는 글이 아니라 고정 코드(contracts revertReasonSchema)라 코드로 문장을 고른다.
+// 되돌리기 화면의 고정 글. 이유는 글이 아니라 고정 코드(contracts rewindReasonSchema)라 코드로 문장을 고른다.
 // rewind menu(대화)와 확인 창이 같은 문장을 쓴다. 모르는 코드는 문장을 지어내지 않고 null이다.
 import { t } from "@lophn/wording";
 

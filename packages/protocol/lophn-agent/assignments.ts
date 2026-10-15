@@ -2,7 +2,11 @@ import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
-import { seqSchema } from "../base/values.ts";
+import {
+  positiveRevisionSchema,
+  readCursorSchema,
+  seqSchema,
+} from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   assignmentRecordSchema,
@@ -14,7 +18,6 @@ import {
   pauseReasonSchema,
   scopeMatchesRole,
 } from "./assignment-values.ts";
-import { positiveRevisionSchema, readCursorSchema } from "./run-values.ts";
 import { agentRoleSchema } from "./scope.ts";
 
 const errors = [

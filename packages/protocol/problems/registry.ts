@@ -51,6 +51,24 @@ import {
   problemReopened,
 } from "./closing.ts";
 
+import { problemReport, recordProblemReport } from "./problem-report.ts";
+import {
+  problemGet,
+  problemGetOccurrence,
+  problemList,
+  problemMore,
+  problemSetState,
+} from "./problem-views.ts";
+
+export const PROBLEM_ROUTES = [
+  problemReport,
+  recordProblemReport,
+  problemList,
+  problemGet,
+  problemGetOccurrence,
+  problemMore,
+  problemSetState,
+] as const;
 export const ROUTES = [
   reportProblem,
   observeException,
@@ -79,6 +97,7 @@ export const ROUTES = [
   reportBody,
   listProblemFixes,
   problemsUploadFixSummary,
+  ...PROBLEM_ROUTES,
 ] as const;
 export const EVENTS = [
   verificationRecorded,

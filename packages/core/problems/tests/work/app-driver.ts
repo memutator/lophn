@@ -16,7 +16,7 @@ import {
   systemClock,
 } from "../../../../base/mod.ts";
 import { createCrashObserver } from "../../../apps/runtime/observations/crash.ts";
-import type { Blueprint } from "../../../apps/blueprint/mod.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint.ts";
 import type { ResolvedRequirement } from "../../../apps/permissions/model.ts";
 import {
   appFlags,
@@ -223,7 +223,9 @@ export async function createRealAppDriver(
   known.register([REDACTION_CANARY]);
   const redaction = createRedactionEngine({ registry: known });
   const declared = new Set(plan.declared_codes);
-  const scope = previewScopeOf(input.blueprint);
+  const scope = previewScopeOf(
+    input.blueprint as unknown as Parameters<typeof previewScopeOf>[0],
+  );
   const dataDir = `${work}/data`;
   const probeBundle = `${work}/probe-bundle`;
   const probeData = `${work}/probe-data`;

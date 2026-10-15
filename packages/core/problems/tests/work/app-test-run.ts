@@ -11,7 +11,7 @@ import {
   sha256Hex,
   systemClock,
 } from "../../../../base/mod.ts";
-import type { Blueprint } from "../../../apps/blueprint/mod.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint.ts";
 import type { ProblemCodeDeclaration } from "../../../../protocol/problems/mod.ts";
 import {
   type AppTestInput,

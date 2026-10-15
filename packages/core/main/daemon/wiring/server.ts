@@ -81,7 +81,8 @@ export const serverWiring: WiringFactory = () => ({
       writer: (inner) =>
         withRevocationSweep(
           inner,
-          () => ctx.appsControl.connector.sweep(),
+          // 앱 서명 연결이 없어져 닫을 앱 통로가 없다.
+          () => Promise.resolve(),
           // 회수된 connection 아래 등록된 MCP·CLI child도 바로 닫는다.
           (connection) => coding.authority.endConnection(connection),
         ),

@@ -17,8 +17,8 @@ function inputGaps(path: string, schema: InputSchema, gaps: string[]): void {
   if (schema.items !== undefined) inputGaps(`${path}[]`, schema.items, gaps);
 }
 
-// 설명이 없거나 빈 자리의 경로. 화면의 이름·시작 위치·크기, command의 이름·설명·입력 항목의
-// 뜻과 선택값, automation의 이름(켜고 끄는 화면에서 보이는 이름)을 본다.
+// 설명이 없거나 빈 자리의 경로. 화면의 이름·시작 위치·크기, app-api의 이름·설명·입력 항목의
+// 뜻과 선택값을 본다. 입력 항목은 `app_api.<key>.input.<필드>` 꼴이다.
 export function descriptionGaps(blueprint: Blueprint): string[] {
   const gaps: string[] = [];
   if (blank(blueprint.name)) gaps.push("name");
@@ -28,17 +28,12 @@ export function descriptionGaps(blueprint: Blueprint): string[] {
     if (blank(screen.path)) gaps.push(`screens.${screen.key}.path`);
     if (screen.sizes.length === 0) gaps.push(`screens.${screen.key}.sizes`);
   }
-  for (const command of blueprint.commands) {
-    if (blank(command.label)) gaps.push(`commands.${command.key}.label`);
-    if (blank(command.description)) {
-      gaps.push(`commands.${command.key}.description`);
+  for (const api of blueprint.app_api) {
+    if (blank(api.label)) gaps.push(`app_api.${api.key}.label`);
+    if (blank(api.description)) gaps.push(`app_api.${api.key}.description`);
+    if (api.input !== null) {
+      inputGaps(`app_api.${api.key}.input`, api.input, gaps);
     }
-    if (command.input !== null) {
-      inputGaps(`commands.${command.key}.input`, command.input, gaps);
-    }
-  }
-  for (const task of blueprint.automatic_tasks) {
-    if (blank(task.label)) gaps.push(`automatic_tasks.${task.key}.label`);
   }
   return gaps.sort();
 }

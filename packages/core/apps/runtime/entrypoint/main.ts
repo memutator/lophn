@@ -132,14 +132,16 @@ export async function main(deps: MainDeps): Promise<void> {
     throw error;
   }
   const startChangeset = started.state.store.end();
-  startControlServer(started.state, { exit });
-  // 시작이 DB를 바꿨을 때만 알린다. 알리지 못하면 changeset이 사라지므로 시작을 실패로 본다.
+  // supervisor는 control socket이 열려야 준비를 확인하고 그때 ready 통보의 changeset을 읽는다. 그래서
+  // 시작이 DB를 바꿨으면 changeset을 먼저 알리고 control server를 연다. 알리지 못하면 changeset이
+  // 사라지므로 시작을 실패로 본다.
   if (
     startChangeset !== null &&
     !(await publishReady(started.state, startChangeset))
   ) {
     throw new Error("ready notice was refused");
   }
+  startControlServer(started.state, { exit });
 }
 
 // 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
@@ -253,7 +255,8 @@ function problemReportBody(
   const body: Record<string, unknown> = {
     process_nonce: child.process_nonce,
     mode: child.mode,
-    code: source.code,
+    name: source.name,
+    message: source.message,
   };
   if (source.details !== undefined) body.details = source.details;
   if (typeof source.report_id === "string") body.report_id = source.report_id;

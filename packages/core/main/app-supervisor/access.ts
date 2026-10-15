@@ -1,10 +1,10 @@
 // broker의 `BrokerAccess` 어댑터. 실행 범위는 현재 release 선언 ∩ active grant이고
 // 요청마다 core에서 다시 읽는다: 회수는 다음 사용부터 거절되고 교체된 release의 옛 자식은 새 선언으로
-// 접근을 얻지 못한다. 읽기는 supervisor의 machine credential로 core read route를 부른다(`apps/blueprint`와
+// 접근을 얻지 못한다. 읽기는 supervisor의 machine credential로 core read route를 부른다(`apps/app_api`와
 // `app_grants/list`). 범위 계산은 IO 없는 `effectiveScope`가 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import {
-  appBlueprint,
   type AppGrant,
   appGrantsList,
   GRANT_LIST_MAX_COUNT,
@@ -57,7 +57,7 @@ type Loaded = {
   declared: AppBlueprintView;
   grants: AppGrant[];
 };
-type AppBlueprintView = ReturnType<typeof appBlueprint.output.parse>;
+type AppBlueprintView = ReturnType<typeof appAppApi.output.parse>;
 
 async function load(
   deps: { post: CorePost; bearer: () => string },
@@ -69,7 +69,7 @@ async function load(
   let grants: Result<AppGrant[]>;
   try {
     [blueprint, grants] = await Promise.all([
-      deps.post("apps/blueprint", bearer, { app }),
+      deps.post("apps/app_api", bearer, { app }),
       activeGrants(deps.post, bearer, app),
     ]);
   } catch {
@@ -78,7 +78,7 @@ async function load(
   // active release가 없거나 앱을 모르면 실행 범위가 없다. 같은 not_found라 구별하지 않는다.
   if (blueprint.status === 404) return ok(null);
   if (blueprint.status !== 200) return unavailable("blueprint is unavailable");
-  const parsed = appBlueprint.output.safeParse(blueprint.body);
+  const parsed = appAppApi.output.safeParse(blueprint.body);
   if (!parsed.success) return unavailable("blueprint answered badly");
   if (!grants.ok) return grants;
   return ok({ declared: parsed.data, grants: grants.value });
@@ -99,8 +99,11 @@ export function createCoreBrokerAccess(deps: {
       const declarations = {
         release: view.release,
         permissions: declared.permissions,
-        app_connections: declared.app_connections,
-        commands: declared.commands,
+        app_connections: declared.app_connections.map((use) => ({
+          app: use.app,
+          commands: use.app_api,
+        })),
+        commands: declared.app_api,
       };
       const state: AccessState = {
         release: view.release,
@@ -111,7 +114,7 @@ export function createCoreBrokerAccess(deps: {
           grants,
           targetCommands: () => undefined,
         }),
-        commands: declared.commands,
+        commands: declared.app_api,
       };
       return ok(state);
     },

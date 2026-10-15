@@ -142,7 +142,7 @@ export async function readBundleCopy(
     manifest,
     entry: `${root}/${manifest.entrypoint}`,
     importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
-    commands: blueprint.value.commands.map((command) => command.key),
+    commands: blueprint.value.app_api.map((api) => api.key),
     screens: Object.fromEntries(
       blueprint.value.screens.map((screen) => [screen.key, [...screen.sizes]]),
     ),

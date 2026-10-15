@@ -6,7 +6,6 @@
 import {
   type Blueprint,
   canonicalJson,
-  type CommandDeclaration,
   type InputSchema,
 } from "../blueprint/mod.ts";
 import type {
@@ -21,6 +20,49 @@ export type ComparedRelease = {
   blueprint: Blueprint;
   data_schema: number;
 };
+
+// 비교는 command·automation·problem code 꼴로 한다. 새 blueprint에는 confirm·revert·automation·problem code가
+// 없어서 그 칸은 늘 비어 있다.
+type CommandDeclaration = {
+  key: string;
+  label: string;
+  description: string;
+  effect: "read" | "write" | "external";
+  confirm: boolean;
+  revert: unknown;
+  input: InputSchema | null;
+};
+type Comparable = {
+  permissions: Blueprint["permissions"];
+  screens: Blueprint["screens"];
+  commands: CommandDeclaration[];
+  automatic_tasks: {
+    key: string;
+    label: string;
+    command: string;
+    when: unknown;
+    input?: unknown;
+  }[];
+  problem_codes: { code: string }[];
+};
+
+function comparable(blueprint: Blueprint): Comparable {
+  return {
+    permissions: blueprint.permissions,
+    screens: blueprint.screens,
+    commands: blueprint.app_api.map((api) => ({
+      key: api.key,
+      label: api.label,
+      description: api.description,
+      effect: api.effect,
+      confirm: false,
+      revert: undefined,
+      input: api.input,
+    })),
+    automatic_tasks: [],
+    problem_codes: [],
+  };
+}
 
 function same(a: unknown, b: unknown): boolean {
   return canonicalJson(a as never) === canonicalJson(b as never);
@@ -86,8 +128,11 @@ export function compareReleases(input: {
   data_schema: number;
   data_changes: readonly DataChange[];
 }): ReleaseComparison {
-  const { previous, blueprint } = input;
-  const before: Blueprint | null = previous?.blueprint ?? null;
+  const { previous } = input;
+  const blueprint = comparable(input.blueprint);
+  const before: Comparable | null = previous === null
+    ? null
+    : comparable(previous.blueprint);
   const beforeCommands = before?.commands ?? [];
   const wasPermissions = new Set(
     (before?.permissions ?? []).map(permissionLabel),

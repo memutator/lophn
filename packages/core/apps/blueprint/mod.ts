@@ -1,17 +1,10 @@
 // 앱 안 blueprint 자리. 정본 검증기를 그대로 다시 내보낸다.
 export type {
-  AgentContextDeclaration,
-  AnnotationTargetDeclaration,
-  AppCommandUseDeclaration,
-  AutomationDeclaration,
-  AutomationWhen,
+  AppApiDeclaration,
+  AppApiEffect,
+  AppApiUseDeclaration,
   Blueprint,
   BlueprintOptions,
-  CommandDeclaration,
-  CommandEffect,
-  CommandRevertDeclaration,
-  DocumentDeclaration,
-  FormatRef,
   InputSchema,
   InputType,
   JsonObject,
@@ -19,16 +12,15 @@ export type {
   PermissionKind,
   PermissionRequirement,
   PermissionScope,
-  ProblemCodeDeclaration,
   ScreenDeclaration,
   ScreenSize,
   SDKDependency,
   ValidationError,
   ValidationResult,
-} from "../../../protocol/apps/blueprint.ts";
+} from "../../../protocol/apps/blueprint/mod.ts";
 export {
   canonicalInputHash,
   canonicalJson,
   validateBlueprint,
   validateInput,
-} from "../../../protocol/apps/blueprint.ts";
+} from "../../../protocol/apps/blueprint/mod.ts";

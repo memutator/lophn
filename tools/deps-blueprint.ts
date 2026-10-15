@@ -2,6 +2,7 @@ import { computedImports, readImports } from "./deps-imports.ts";
 import { directory, inside, normalize } from "./deps-workspace.ts";
 
 export const BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint.ts";
+const NEW_BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint/mod.ts";
 export const BLUEPRINT_WRAPPER = "packages/core/apps/blueprint/mod.ts";
 const SDK = "packages/sdk/blueprint";
 const CONTRACT_FILES = new Set([
@@ -30,9 +31,11 @@ type Report = (
   message: string,
 ) => void;
 
-// 공개 wrapper는 정본 하나만 직접 import한다. Zod가 든 mod.ts는 아니다.
+// 공개 wrapper는 정본 하나만 직접 import한다. Zod가 든 mod.ts는 아니다. 옛 평면 정본과 새 폴더 정본 둘이
+// 있는 동안 둘 다 받는다(옛 것을 지우면 하나만 남긴다).
 const wrapperImport = (file: string, target: string) =>
-  file === BLUEPRINT_WRAPPER && target === BLUEPRINT_ENTRY;
+  file === BLUEPRINT_WRAPPER &&
+  (target === BLUEPRINT_ENTRY || target === NEW_BLUEPRINT_ENTRY);
 
 export function checkBlueprintGraph(
   sources: Map<string, string>,

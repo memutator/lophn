@@ -227,11 +227,9 @@ export function releaseWording(
 ): Result<ProblemWordingFact | null> {
   const appRow = sql.get("SELECT name FROM apps WHERE id = ?", [app]);
   const app_name = appRow === undefined ? app : String(appRow.name);
+  // 새 blueprint에는 problem code 선언이 없다. 선언 문구는 늘 없는 것이다.
+  void code;
   const stored = loadStoredBlueprint(sql, release);
   if (!stored.ok) return stored;
-  if (stored.value === null) return ok({ app_name, declaration: null });
-  const declared = stored.value.blueprint.problem_codes.find(
-    (entry) => entry.code === code,
-  );
-  return ok({ app_name, declaration: declared ?? null });
+  return ok({ app_name, declaration: null });
 }

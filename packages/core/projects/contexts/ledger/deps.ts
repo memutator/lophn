@@ -322,7 +322,7 @@ export function createContextsRuntime(): ContextsRuntime {
           if (row === undefined) return undefined;
           const stored = loadActiveBlueprint(current, String(row["id"]));
           if (!stored.ok || stored.value === null) return undefined;
-          return stored.value.blueprint.commands.find((declared) =>
+          return stored.value.blueprint.app_api.find((declared) =>
             declared.key === command
           )?.effect;
         } catch {

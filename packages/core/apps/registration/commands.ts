@@ -38,8 +38,16 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 등록·source 연결은 user 또는 coding connection만 받는다.
-// lophn agent의 `agent:`·앱의 `app:` actor는 route actors와 함께 거른다.
+// 등록은 사람과 lophn agent(앱 만들기 tool)만 한다. coding agent의 token은 앱 하나를 열 뿐이라
+// 새 앱을 등록하지 않는다. 앱의 `app:` actor는 route actors와 함께 거른다.
+function requireCreator(ctx: RequestContext): Result<void> {
+  const kind = parseActor(ctx.actor)?.kind;
+  return kind === "user" || kind === "agent"
+    ? ok(undefined)
+    : forbidden("app creation is user or lophn agent only");
+}
+
+// source 연결은 user 또는 coding connection만 받는다.
 function requireWriter(ctx: RequestContext): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
   return kind === "user" || kind === "coding_agent"
@@ -84,12 +92,12 @@ export function createAppCommands(): {
     create: {
       route: appCreate,
       handle(tx, ctx, input) {
-        const actor = requireWriter(ctx);
+        const actor = requireCreator(ctx);
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
         // 미리 배정한 ID는 사람 자격만 쓴다. 질문 선택지의 적용도 ledger가 근거를 검증해 넘긴 사람
-        // 자격이다. coding connection은 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
+        // 자격이다. agent는 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
         if (input.id !== undefined) {
           if (parseActor(ctx.actor)?.kind !== "user") {
             return forbidden("only a person assigns an app id");

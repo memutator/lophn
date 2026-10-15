@@ -1,7 +1,12 @@
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { packagesGuideBody } from "../../../../protocol/apps/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { At } from "../../../../protocol/base/values.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
-import type { BlobReadInput } from "../../../../protocol/storage/mod.ts";
+import type {
+  BlobReadInput,
+  PreparedBlob,
+} from "../../../../protocol/storage/mod.ts";
 import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
@@ -13,10 +18,40 @@ import {
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
 } from "../../../apps/control.ts";
+import { createAppCalls } from "../../../apps/calls/mod.ts";
 import {
-  INVOCATION_RECOVERY_CONTEXT,
+  type ChangesetBlobs,
+  closeUnfinishedInvocations,
+  createInvocationLedger,
+  INVOCATION_BLOB_PURPOSES,
   observeInvocations,
-} from "../../../apps/invocations/restart.ts";
+} from "../../../apps/invocations/mod.ts";
+import {
+  closeInterruptedRewinds,
+  createAppRewind,
+  createRewindReads,
+} from "../../../apps/rewind/mod.ts";
+import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
+import type {
+  AppViewSignal,
+  BundleLocator,
+  CallerDirectory,
+  InvocationLedger,
+  ProjectDirectory,
+} from "../../../apps/ports.ts";
+import {
+  appApiLookupOf,
+  appStatesOf,
+  bundleLocatorOf,
+  callApiHandler,
+  mainRead,
+  PROJECTS_READ_KEY,
+  projectsRead,
+  rewindHandler,
+  screenFileStream,
+  withStartInvocation,
+} from "../../../apps/routes.ts";
+import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -36,23 +71,45 @@ import {
   type WiringFactory,
 } from "./context.ts";
 
+// 다른 module이 내놓는 값을 받는 칸이다. 칸이 아직 없거나 비어 있으면 이 wiring이 만든 대체 구현이나
+// "아직 없음" 답으로 돈다. 읽는 때마다 slot을 다시 봐서 늦게 채워져도 쓴다.
+type InputSlots = {
+  callerDirectory: CallerDirectory;
+  projectDirectory: ProjectDirectory;
+  bundleLocator: BundleLocator;
+  appViewSignal: AppViewSignal;
+};
+
+function slot<K extends keyof InputSlots>(
+  ctx: WiringContext,
+  key: K,
+): InputSlots[K] | undefined {
+  return (ctx.peek as unknown as Partial<InputSlots>)[key];
+}
+
+// releases-problems와 places-sessions가 쓸 수 있게 내놓는 칸이다(`AppIntake`, `InvocationLedger`, `AppRewind`).
+function offer(ctx: WiringContext, key: string, value: unknown): void {
+  (ctx.provide as unknown as (key: string, value: unknown) => void)(key, value);
+}
+
+const notAttached = <T>(): Result<T> =>
+  err({ code: "unavailable", message: "this dependency is not attached" });
+
 export const appsWiring: WiringFactory = () => {
   let control: AppsControl | undefined;
+  let write: WriteLink | undefined;
+  let invocations: InvocationLedger | undefined;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
-    // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation.
+    // apps 관측 기록·자식 앱 credential이 닿는 operation.
     operations: () => appsOperationPolicies(),
-    records: () => [
-      // 재시작 때 접수·실행 중 invocation을 미확인으로 확정하는 core 내부 자격의 기록이다. 기록이 없으면
-      // writer가 확정을 거절해 행이 계속 남으므로 기동을 여기서 멈춘다.
-      INVOCATION_RECOVERY_CONTEXT as never,
-      // apps 제어(connect 어댑터·runtime·logs 덮기)가 ledger 사실을 읽는 core 내부 자격 기록.
-      APPS_CONTROL_CONTEXT,
-    ],
+    // apps 제어(runtime·logs 덮기, activation)가 ledger 사실을 읽고 기록하는 core 내부 자격 기록.
+    records: () => [APPS_CONTROL_CONTEXT],
     async build(ctx) {
-      const { runtime, registry } = ctx;
+      const { runtime } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
       const apiPorts = () => {
         const port = ctx.peek.server?.port ?? 0;
@@ -66,10 +123,6 @@ export const appsWiring: WiringFactory = () => {
         clock: ctx.clock,
         ledgerPath: ctx.ledgerPath,
         readers: runtime.readers,
-        // coding credential은 ledger의 connection 상태가 현재 자격이다(회수는 다음 요청부터가 아니라 바로).
-        revalidate: (credentialRef) =>
-          ctx.coding.current(credentialRef) ??
-            registry.revalidate({ credential_ref: credentialRef }),
         redact: (line) =>
           redactLine(
             { concern: "apps/runtime", revision: "1", scope: "app-log" },
@@ -95,16 +148,112 @@ export const appsWiring: WiringFactory = () => {
       });
       control = appsControl;
       ctx.provide("appsControl", appsControl);
+
+      // invocation·rewind 기록은 메인 스레드의 짧은 ledger 연결로 쓴다(apps/write-link.ts).
+      const opened = openWriteLink({
+        ledgerPath: ctx.ledgerPath,
+        clock: ctx.clock,
+        ids,
+        fields: ctx.assembled.blobFields,
+        live: (prepared, nowMs) => ctx.blobRelay.live(prepared, nowMs),
+        as: APPS_CONTROL_CONTEXT,
+      });
+      if (!opened.ok) return opened;
+      const link = opened.value;
+      write = link;
+      const changesetPurpose = INVOCATION_BLOB_PURPOSES[0].purpose;
+      const blobs: ChangesetBlobs = {
+        async prepare(bytes) {
+          const prepared = await ctx.blobRelay.prepare({
+            principal: APPS_CONTROL_PRINCIPAL,
+            purpose: changesetPurpose,
+            bytes,
+          });
+          return prepared.ok ? ok(prepared.value as PreparedBlob) : prepared;
+        },
+        read: (hash, offset, length) =>
+          ctx.blobRead.deps.read(hash, offset, length),
+      };
+      const ledger = createInvocationLedger({
+        sql: link.sql,
+        transaction: link.transaction,
+        blobs,
+      });
+      invocations = ledger;
+
+      const callers: CallerDirectory = {
+        agentToolCall: (...args) =>
+          slot(ctx, "callerDirectory")?.agentToolCall(...args) ??
+            notAttached(),
+      };
+      const projects: ProjectDirectory = {
+        list: () => slot(ctx, "projectDirectory")?.list() ?? notAttached(),
+        get: (id) => slot(ctx, "projectDirectory")?.get(id) ?? notAttached(),
+      };
+      const states = appStatesOf(link.sql);
+      const { path, intake } = createAppCalls({
+        callers,
+        projects,
+        lookup: appApiLookupOf(link.sql),
+        apps: states,
+        ledger,
+        link: appsControl.link,
+        approvals: ctx.approvals,
+        clock: ctx.clock,
+        ids,
+      });
+      // 앱 rewind가 끝나면 열린 앱 view가 다시 그리게 알린다. 칸이 비어 있으면 Bus로 낸다.
+      const signal: AppViewSignal = {
+        changed(app, reason) {
+          const given = slot(ctx, "appViewSignal");
+          if (given !== undefined) return given.changed(app, reason);
+          ctx.peek.bus?.publish({
+            type: "AppViewChanged",
+            subject: app,
+            at: ctx.clock.now(),
+            payload: { reason },
+          });
+        },
+      };
+      const rewind = createAppRewind({
+        ledger,
+        link: appsControl.link,
+        intake,
+        signal,
+        sql: link.sql,
+        activeRelease: states.activeRelease,
+        now: () => ctx.clock.now() as At,
+        newId: () => ids.newId("rwd") as Id<"rwd">,
+      });
+      const rewindReads = createRewindReads({ rewind });
+      const locator: BundleLocator = {
+        dir: (target) =>
+          (slot(ctx, "bundleLocator") ??
+            bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
+      };
+      offer(ctx, "appIntake", intake);
+      offer(ctx, "invocationLedger", ledger);
+      offer(ctx, "appRewind", rewind);
+
       return ok({
         writer: (inner) =>
-          withReleasePreparation(
-            inner,
-            appsControl.commands,
-            appsControl.grantChange,
+          withStartInvocation(
+            withReleasePreparation(inner, appsControl.commands),
+            { ledger, sql: link.sql, clock: ctx.clock, ids },
           ),
-        memory: appsControl.memory,
+        memory: [
+          ["apps/call_api", callApiHandler(path)],
+          ["apps/rewind", rewindHandler(rewind)],
+        ],
+        fileStreams: [[
+          "apps/screen_file",
+          screenFileStream(createScreenFileDeps(locator)),
+        ]],
         reads(reads) {
           appsControl.overlayReads(reads);
+          reads.set("apps/rewind_plan", mainRead(rewindReads.plan, link.sql));
+          reads.set("apps/rewinds", mainRead(rewindReads.list, link.sql));
+          reads.set(PROJECTS_READ_KEY, projectsRead(projects, link.sql));
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
           // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.
           reads.set(
@@ -116,9 +265,17 @@ export const appsWiring: WiringFactory = () => {
     },
     async start(ctx) {
       const { runtime, registry, appsControl } = ctx;
+      // 이전 core가 끝내지 못한 호출과 rewind는 결과를 모르는 채 닫는다.
+      const now = () => ctx.clock.now() as At;
+      if (invocations !== undefined) {
+        await closeUnfinishedInvocations(invocations, now());
+      }
+      if (write !== undefined) {
+        closeInterruptedRewinds({ sql: write.sql, now });
+      }
       // apps/supervisor. 앱 프로세스 감독이다. machine credential과 서명 검증 공개 key를 hello에
       // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
-      // 계속 선다: connect와 runtime은 supervisor 관측이 없는 상태(unavailable)로 답한다.
+      // 계속 선다: supervisor 관측이 없는 상태(unavailable)로 답한다.
       // collector는 요청 credential을 ledger 행으로 다시 읽는다. 메모리 발급만으로는
       // 선언 보고가 unauthorized가 된다.
       const childIssuer = appCredentialIssuer(registry);
@@ -203,6 +360,11 @@ export const appsWiring: WiringFactory = () => {
     // 앱 supervisor가 앱 자식을 정지하기 전에 질의 통로를 닫는다.
     closeChildren() {
       control?.stop();
+    },
+    // writer가 닫히기 전에 이 wiring의 ledger 연결을 닫는다.
+    closeWork() {
+      write?.close();
+      write = undefined;
     },
   };
 };

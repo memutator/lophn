@@ -9,7 +9,7 @@ import type { AppDeclarations } from "../permissions/mod.ts";
 // 정규 입력(default를 채운)의 sha256이다. `canonicalInputHash`(async)와 같은 값이고 core의 동기
 // command가 쓰므로 node:crypto로 계산한다. 입력이 없으면 정규 JSON null을 hash한다.
 export function canonicalInputHashSync(
-  schema: Blueprint["commands"][number]["input"],
+  schema: Blueprint["app_api"][number]["input"],
   value?: unknown,
 ): string | undefined {
   const validated = validateInput(schema, value);
@@ -29,9 +29,9 @@ export function declarationsOfBlueprint(
       .permissions as unknown as readonly GrantPermissionRequirement[],
     app_connections: blueprint.app_connections.map((use) => ({
       app: use.app,
-      commands: [...use.commands],
+      commands: [...use.app_api],
     })),
-    commands: blueprint.commands.map((command) => command.key),
+    commands: blueprint.app_api.map((api) => api.key),
   };
 }
 

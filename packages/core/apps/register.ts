@@ -6,20 +6,23 @@ import {
   lookupAppRegistration,
 } from "./registration/mod.ts";
 import {
-  appAgentConfirmProof,
-  appConnect,
-  appPairConfirmPoll,
-  appPairConfirmRequest,
-  appPairObserve,
-  appPairPrepare,
+  appCallApi,
+  appProjects,
   appRegistrationLookup,
-  appViewClosed,
+  appRewind,
+  appRewindPlan,
+  appRewinds,
+  appScreenFile,
   releaseCancelPreparation,
   releasePreparation,
 } from "../../protocol/apps/mod.ts";
-import { INVOCATION_BLOB_FIELDS } from "./invocations/changesets.ts";
-import { createInvocationsReads } from "./invocations/reads.ts";
-import { invocationsSchemaSteps } from "./invocations/schema.ts";
+import {
+  createInvocationsReads,
+  INVOCATION_BLOB_FIELDS,
+  INVOCATION_BLOB_PURPOSES,
+  invocationsSchemaSteps,
+} from "./invocations/mod.ts";
+import { rewindSchemaSteps } from "./rewind/mod.ts";
 import {
   createGrantCommands,
   createGrantsReads,
@@ -90,8 +93,12 @@ type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
-  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
+  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립(wiring/apps.ts)이 붙인다.
   memoryRoutes?: readonly unknown[];
+  // 큰 byte를 흘려 주는 file route. handler는 core 조립이 붙인다.
+  files?: readonly unknown[];
+  // 이 팀이 blob 준비 통로에서 쓰는 purpose와 상한.
+  blobPurposes?: readonly unknown[];
   // worker route. serving은 core 조립이 연결하고(테스트 주입 포함), 등록만 여기서 한다.
   workerRoutes?: readonly WorkerRoute[];
   ports?: readonly TxPortRegistration[];
@@ -102,6 +109,20 @@ const unattachedGuideBodyRead = {
   handle: () =>
     err({ code: "unavailable", message: "안내 원문 읽기가 붙어 있지 않다" }),
 };
+
+// 앱 process·project 목록 같은 core 메모리를 읽는 route는 등록 때 unavailable로 올리고 core 조립
+// (wiring/apps.ts)이 handler로 덮는다. reader Worker는 이 메모리를 볼 수 없다.
+function unattachedRead<
+  R extends typeof appRewindPlan | typeof appRewinds | typeof appProjects,
+>(
+  route: R,
+) {
+  return {
+    route,
+    handle: () =>
+      err({ code: "unavailable" as const, message: "읽기가 붙어 있지 않다" }),
+  };
+}
 
 // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
 export function createLedgerRegistration(
@@ -139,6 +160,9 @@ export function createLedgerRegistration(
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: [
       ...createPreviewReads(() => unattachedPreviewService()),
+      unattachedRead(appRewindPlan),
+      unattachedRead(appRewinds),
+      unattachedRead(appProjects),
       // SDK 안내 원문 읽기다. route만 선언하고 handler는 blob 바이트 통로를 가진 core 조립(runtime)이 붙인다.
       unattachedGuideBodyRead,
     ],
@@ -148,6 +172,7 @@ export function createLedgerRegistration(
       ...releasesSchemaSteps,
       ...permissionsSchemaSteps,
       ...invocationsSchemaSteps,
+      ...rewindSchemaSteps,
       ...sdkSchemaSteps,
       ...dataSchemaSteps,
     ],
@@ -176,7 +201,7 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.blueprint,
+      blueprintReads.appApi,
       releaseReads.list,
       releaseReads.get,
       releaseReads.compare,
@@ -189,24 +214,19 @@ export function createLedgerRegistration(
       sdkReads.versions,
       sdkReads.usage,
     ],
-    // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
-    // 거치지 않는다. apps.view_closed도 같은 어댑터가
-    // 닫힌 화면 view를 지금 live 자식에 중계할 뿐 ledger를 쓰지 않는다.
-    // 앱 쌍 연결 준비·confirm·경로 장부 통보도 supervisor(machine)의 같은 제어 어댑터다.
-    // agent confirm proof 서명도 그 어댑터다. 접수는 ledger command가 이미 했고 서명은 core key다.
+    // 앱 호출과 rewind는 앱 process를 기다리는 core 메모리 route다. ledger queue를 거치지 않고, 기록은
+    // invocations·rewind module이 자기 쓰기로 남긴다.
     memoryRoutes: [
-      appConnect,
-      appViewClosed,
-      appAgentConfirmProof,
-      appPairPrepare,
-      appPairConfirmRequest,
-      appPairConfirmPoll,
-      appPairObserve,
+      appCallApi,
+      appRewind,
       // release 준비 진행·취소는 command route지만 진행이 supervisor 메모리라 ledger handler가 없다.
       // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
       releasePreparation,
       releaseCancelPreparation,
     ],
+    // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
+    files: [appScreenFile],
+    blobPurposes: INVOCATION_BLOB_PURPOSES,
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -275,7 +295,7 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.blueprint,
+      blueprintReads.appApi,
       releaseReads.list,
       releaseReads.get,
       releaseReads.compare,

@@ -1,11 +1,5 @@
 export { type DataRoot, resolveDataRoot } from "./data-root.ts";
 export {
-  readUpdatePackage,
-  type UpdateNotice,
-  updateNotice,
-  type UpdatePackage,
-} from "./update.ts";
-export {
   acquireInstanceLock,
   INSTANCE_LOCK_NAME,
   type InstanceLock,
@@ -21,11 +15,6 @@ export {
   credentialSocketPath,
   relayCredential,
 } from "./credential-helper.ts";
-export {
-  checkRunningSandbox,
-  checkSandboxFile,
-  linuxProcReader,
-} from "./sandbox-check.ts";
 export {
   cliLauncher,
   credentialLoaderIdentity,

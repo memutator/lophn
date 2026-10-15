@@ -3,12 +3,6 @@
 
 import { err, type ErrorCode, ok, type Result } from "../../../base/mod.ts";
 import {
-  SECRET_EXPORT_OP,
-  SECRET_IMPORT_OP,
-  secretExportInputSchema,
-  type SecretExportOutput,
-  secretImportInputSchema,
-  type SecretImportOutput,
   type SecretPreparation,
   secretPrepare,
   secretPrepareInputSchema,
@@ -20,12 +14,7 @@ import {
   type SecretStoreRefreshOutput,
   type SecretValue,
 } from "../../../protocol/secrets/mod.ts";
-import type {
-  SecretAttach,
-  SecretRefresh,
-  SecretTransfer,
-  SecretWork,
-} from "../mod.ts";
+import type { SecretAttach, SecretRefresh, SecretWork } from "../mod.ts";
 
 export type SecretPipeRequest = {
   request_id: string;
@@ -36,9 +25,7 @@ export type SecretPipeRequest = {
 export type SecretPipePayload =
   | SecretPreparation
   | SecretSendOutput
-  | SecretStoreRefreshOutput
-  | SecretExportOutput
-  | SecretImportOutput;
+  | SecretStoreRefreshOutput;
 
 export type SecretPipeResponse =
   | { request_id: string; ok: true; payload: SecretPipePayload }
@@ -63,10 +50,9 @@ const REJECTED = {
 
 export type SecretPipeDeps = {
   work: SecretWork;
-  // 전송 부착·갱신 저장·이전은 신뢰 adapter 경계다. 없으면 그 op는 거절한다.
+  // 전송 부착·갱신 저장은 신뢰 adapter 경계다. 없으면 그 op는 거절한다.
   attach?: SecretAttach;
   refresh?: SecretRefresh;
-  transfer?: SecretTransfer;
 };
 
 export function createSecretPipe(deps: SecretPipeDeps): SecretPipe {
@@ -77,9 +63,6 @@ export function createSecretPipe(deps: SecretPipeDeps): SecretPipe {
       }
       if (request.op === secretStoreRefresh.name) {
         return await runRefresh(deps.refresh, request, value);
-      }
-      if (request.op === SECRET_EXPORT_OP || request.op === SECRET_IMPORT_OP) {
-        return await handleTransfer(request, value, deps.transfer);
       }
       if (request.op !== secretPrepare.name) {
         return failed(request.request_id, REJECTED);
@@ -168,51 +151,10 @@ function byteLength(value: SecretValue): number {
     : value.length;
 }
 
-async function handleTransfer(
-  request: SecretPipeRequest,
-  value: () => Promise<SecretValue | undefined>,
-  transfer: SecretTransfer | undefined,
-): Promise<SecretPipeResponse> {
-  if (transfer === undefined) return failed(request.request_id, REJECTED);
-  const passphrase = await value();
-  if (passphrase === undefined || byteLength(passphrase) === 0) {
-    return failed(request.request_id, {
-      code: "invalid_input",
-      message: "보호 입력 암호가 없다",
-    });
-  }
-  if (request.op === SECRET_EXPORT_OP) {
-    const parsed = secretExportInputSchema.safeParse(request.payload);
-    if (!parsed.success) return invalid(request.request_id);
-    // 암호문 bytes는 callback 결과로만 받고 pipe 응답에는 크기만 남긴다.
-    const exported = await transfer.exportBytes(parsed.data, passphrase);
-    return answered(
-      request.request_id,
-      exported.ok
-        ? ok({ format: 1 as const, ciphertext_bytes: exported.value.length })
-        : exported,
-    );
-  }
-  const parsed = secretImportInputSchema.safeParse(request.payload);
-  if (!parsed.success) return invalid(request.request_id);
-  const ciphertext = await value();
-  if (!(ciphertext instanceof Uint8Array) || ciphertext.length === 0) {
-    return failed(request.request_id, {
-      code: "invalid_input",
-      message: "보호 파일이 없다",
-    });
-  }
-  return answered(
-    request.request_id,
-    await transfer.importBytes(parsed.data, passphrase, ciphertext),
-  );
-}
-
 export function rejectForeignSecretPath(op: string): Result<never> | undefined {
   if (
     op === secretPrepare.name || op === secretSend.name ||
-    op === secretStoreRefresh.name || op === SECRET_EXPORT_OP ||
-    op === SECRET_IMPORT_OP
+    op === secretStoreRefresh.name
   ) return undefined;
   return err(REJECTED);
 }

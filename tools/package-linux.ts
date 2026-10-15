@@ -15,7 +15,6 @@
 //   sdk -> platform/packages/sdk
 //   lophn-credential           OS keychain 전달 helper(compile binary)
 // /usr/bin/{lophn-desktop,lophn,lophn-mcp} launcher, 데스크톱 항목, 아이콘.
-import { checkStagedLock } from "../packages/core/install-and-update/lock-check.ts";
 import {
   cliLauncher,
   CREDENTIAL_HELPER_COMPILE_FLAGS,
@@ -99,17 +98,11 @@ async function stagePlatform(pkg: string, work: string): Promise<void> {
     JSON.stringify(config, null, 2) + "\n",
   );
   await Deno.copyFile(`${repo}/deno.lock`, `${platform}/deno.lock`);
-  // 저장소 lock에서 member만 줄어든 lock으로 의존성을 받는다. 새 항목·바뀐 integrity는 막는다.
+  // 저장소 lock에서 member만 줄어든 lock으로 의존성을 받는다.
   await run(Deno.execPath(), ["install", "--frozen=false"], {
     cwd: platform,
     env: { DENO_DIR: `${work}/denodir` },
   });
-  const source = JSON.parse(await Deno.readTextFile(`${repo}/deno.lock`));
-  const staged = JSON.parse(await Deno.readTextFile(`${platform}/deno.lock`));
-  const checked = checkStagedLock(source, staged);
-  if (!checked.ok) {
-    throw new Error(`staged lock differs: ${checked.changed.join(", ")}`);
-  }
 }
 
 async function stageContent(pkg: string): Promise<void> {

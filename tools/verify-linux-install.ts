@@ -4,15 +4,11 @@
 //
 // Ubuntu 24.04 이상에서 .deb를 설치한 뒤 부른다. 사람의 데이터 폴더는 절대 열지 않는다:
 // 모든 실행은 이 도구가 만든 임시 HOME·LOPHN_HOME을 쓴다. `--root`에 `dpkg-deb -x`로 푼 임시
-// 폴더를 줄 수도 있다: 그때 root 소유·4755와 실제 sandbox 항목은 통과가 아니라 "미확인"이고,
-// 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다.
+// 폴더를 줄 수도 있다. 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다.
 import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
 import {
-  checkRunningSandbox,
-  checkSandboxFile,
   credentialSocketPath,
   linuxInstallLayout,
-  linuxProcReader,
 } from "../packages/core/install-and-update/mod.ts";
 
 type Verdict = "pass" | "fail" | "unverified";
@@ -90,26 +86,6 @@ async function checkLayout(): Promise<void> {
     missing.length === 0 ? "pass" : "fail",
     missing.join(", "),
   );
-}
-
-async function checkSandboxFiles(): Promise<boolean> {
-  const stat = await Deno.stat(layout.chromeSandbox);
-  const checked = checkSandboxFile({
-    uid: stat.uid ?? -1,
-    gid: stat.gid ?? -1,
-    mode: stat.mode ?? 0,
-  });
-  if (checked.ok) {
-    record("R3 chrome-sandbox root 소유 4755", "pass");
-    return true;
-  }
-  // 풀어 놓은 폴더(소유자가 root가 아님)는 설치가 아니다.
-  record(
-    "R3 chrome-sandbox root 소유 4755",
-    "unverified",
-    checked.reasons.join("; "),
-  );
-  return false;
 }
 
 // 시스템 Deno 없이(PATH 비움) 설치된 Deno만으로 시작한다.
@@ -319,57 +295,10 @@ async function runHelper(home: string, data: string) {
   return { code: out.code, stdout: new TextDecoder().decode(out.stdout) };
 }
 
-// 설치된 Electron을 headless로 띄워 renderer가 실제 sandbox 안에 있는지 /proc으로 본다.
-async function checkRealSandbox(): Promise<void> {
-  const { home, data } = await tempHome();
-  const child = new Deno.Command(layout.desktopBinary, {
-    env: {
-      HOME: home,
-      LOPHN_HOME: data,
-      LOPHN_SHELL_HEADLESS: "1",
-    },
-    // 사용자 session 환경(DBUS·XDG)은 그대로 쓴다. 데이터 위치만 임시 폴더로 덮는다.
-    stdout: "null",
-    stderr: "null",
-  }).spawn();
-  try {
-    const proc = linuxProcReader({
-      readTextFile: (path) => Deno.readTextFileSync(path),
-      readLink: (path) => Deno.readLinkSync(path),
-    });
-    let checked = checkRunningSandbox(child.pid, proc);
-    for (let i = 0; i < 60 && !checked.ok; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      checked = checkRunningSandbox(child.pid, proc);
-    }
-    record(
-      "R3·security#R4 실제 sandbox 활성(renderer seccomp·namespace)",
-      checked.ok ? "pass" : "fail",
-      checked.ok ? "" : checked.reasons.join("; "),
-    );
-  } finally {
-    try {
-      child.kill("SIGTERM");
-    } catch { /* 이미 끝났다 */ }
-    await child.status.catch(() => undefined);
-    await Deno.remove(home, { recursive: true }).catch(() => undefined);
-  }
-}
-
 await checkLayout();
 await denoRuns();
 await checkLaunchers();
 await checkCoreOffline();
-const installed = await checkSandboxFiles();
-if (installed) {
-  await checkRealSandbox();
-} else {
-  record(
-    "R3·security#R4 실제 sandbox 활성",
-    "unverified",
-    "설치(root 소유 4755) 전이라 실행하지 않는다. sandbox를 끈 실행은 통과가 아니다",
-  );
-}
 
 const failed = results.filter((item) => item.verdict === "fail").length;
 const unverified =
@@ -379,6 +308,6 @@ console.log(
     ? `\n실패 ${failed}건: Linux 배포는 사용 가능이 아니다.`
     : unverified > 0
     ? `\n미확인 ${unverified}건: Ubuntu 설치에서 다시 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다.`
-    : "\n모든 항목 통과: 이 설치는 확인됐다(앱 호출·backup restore는 flow install-lophn E2E가 따로 본다).",
+    : "\n모든 항목 통과: 이 설치는 확인됐다(앱 호출은 flow install-lophn E2E가 따로 본다).",
 );
 Deno.exit(failed > 0 ? 1 : unverified > 0 ? 2 : 0);

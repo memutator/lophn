@@ -58,18 +58,6 @@ export {
   type SecretRefresh,
 } from "./refresh.ts";
 export {
-  createSecretTransfer,
-  type ImportCommit,
-  type SecretSelection,
-  type SecretTransfer,
-} from "./export.ts";
-export {
-  openExchange,
-  sealExchange,
-  type SecretExchangeFile,
-  type SecretExchangeItem,
-} from "./exchange.ts";
-export {
   CODING_CREDENTIAL_PURPOSE,
   type CodingCredentialKeychain,
   codingCredentialRef,

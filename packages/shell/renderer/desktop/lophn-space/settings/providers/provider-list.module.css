@@ -1,26 +1,26 @@
-/* Settings › Providers: 연결된 provider 묶음과 Add a provider 묶음. 줄은 카드 하나 안에 쌓는다. */
+/* Settings › Providers: 연결된 provider 묶음과 Add a provider 묶음. 줄은 카드 하나 안에 쌓고 행동 단추는 줄 오른쪽 끝에 둔다. */
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  max-width: var(--page-overview);
   font-family: var(--font-sans);
 }
 
+.title {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
 .lead {
-  margin: var(--space-0);
+  margin: var(--space-0) var(--space-0) var(--space-6);
   color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
 }
 
 .section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  margin-top: var(--space-8);
 }
 
 .sectionTitle {
-  margin: var(--space-0);
+  margin: var(--space-0) var(--space-0) var(--space-3);
   color: var(--color-text-primary);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
@@ -32,17 +32,17 @@
   flex-direction: column;
   margin: var(--space-0);
   padding: var(--space-0) var(--space-5);
-  overflow: hidden;
   list-style: none;
   border: var(--border-width) solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: var(--color-surface-base);
 }
 
 .item {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
   padding: var(--space-4) var(--space-0);
 }
 
@@ -50,44 +50,52 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  min-width: var(--space-0);
-}
-
 .identity {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: var(--space-0);
 }
 
 .name {
-  color: var(--color-text-primary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   font-weight: var(--font-weight-medium);
 }
 
-.methods,
 .hint {
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
 }
 
-.note,
-.notice,
-.empty {
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 쓸 수 없는 연결의 다음 행동 한 줄. 줄 전체 폭으로 아래에 놓인다. */
+.status {
+  flex-basis: 100%;
   margin: var(--space-0);
+  color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }
 
-.note,
+.notice,
+.empty {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
 .empty {
   color: var(--color-text-secondary);
 }

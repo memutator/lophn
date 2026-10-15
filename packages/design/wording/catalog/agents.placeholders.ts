@@ -2,6 +2,39 @@
 import type { agents } from "./agents.ts";
 
 export type AgentsPlaceholders = {
+  "agents.button.settings-back": Record<never, never>;
+  "agents.button.settings-open-lophn": Record<never, never>;
+  "agents.heading.settings-default-model": Record<never, never>;
+  "agents.heading.settings-grant-defaults": Record<never, never>;
+  "agents.label.providers-custom-key-title": Record<never, never>;
+  "agents.label.providers-key-hint": Record<never, never>;
+  "agents.label.settings-instructions-path": Record<never, never>;
+  "agents.label.settings-lophn-chip": Record<never, never>;
+  "agents.label.settings-lophn-grants": {
+    apps: "plural";
+    agents: "plural";
+    settings: "string";
+  };
+  "agents.label.settings-lophn-model-default": {
+    model: "string";
+  };
+  "agents.label.settings-lophn-model-none": Record<never, never>;
+  "agents.label.settings-lophn-model-own": {
+    model: "string";
+  };
+  "agents.notice.providers-custom-key": Record<never, never>;
+  "agents.notice.providers-disconnect-body": {
+    name: "string";
+  };
+  "agents.notice.providers-disconnect-failed": Record<never, never>;
+  "agents.notice.settings-agents-lead": Record<never, never>;
+  "agents.notice.settings-default-model-help": Record<never, never>;
+  "agents.notice.settings-grant-defaults-help": Record<never, never>;
+  "agents.notice.settings-lophn-purpose": Record<never, never>;
+  "agents.notice.settings-tools-elsewhere": Record<never, never>;
+  "agents.notice.settings-tools-lead": Record<never, never>;
+  "agents.notice.settings-tools-servers": Record<never, never>;
+  "agents.notice.settings-tools-skills": Record<never, never>;
   "agents.notice.stored-in-lophn": Record<never, never>;
   "agents.heading.model-for-project": Record<never, never>;
   "agents.label.card-model": {
@@ -145,6 +178,9 @@ export type AgentsPlaceholders = {
   "agents.notice.skills-agent-only": Record<never, never>;
   "agents.title.change-failed": Record<never, never>;
   "agents.title.delete-failed": Record<never, never>;
+  "agents.title.providers-disconnect": {
+    name: "string";
+  };
   "agents.title.save-conflict": Record<never, never>;
   "agents.title.save-failed": Record<never, never>;
   "agents.title.upload-failed": Record<never, never>;

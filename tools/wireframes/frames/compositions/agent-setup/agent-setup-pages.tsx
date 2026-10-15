@@ -1,14 +1,14 @@
 // agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Workspace) 위에 상태 하나를 고정해 놓는다.
 import { t } from "@lophn/wording";
 
+import { OPENAI } from "../../../../../packages/shell/renderer/desktop/lophn-space/settings/providers/testdata/fake-providers.ts";
 import { EVAL_ANALYST_ID } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { WorkspaceWithoutProject } from "../workspace-page.tsx";
-import { AgentsPane } from "../workspace-settings.tsx";
+import { Driven, ToolsPane } from "../workspace-settings.tsx";
 import { bySelector, byText, type Step } from "./drive.ts";
-import { SettingsTools } from "./settings-agents.tsx";
 
 const SIDEBAR = { foldersClosed: true } as const;
 
@@ -65,13 +65,11 @@ export const SettingsAgentsPage = () => (
   <WorkspaceWithoutProject screen="settings" pane="agents" />
 );
 
-/** Settings › Agents › lophn. */
+/** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
 export const SettingsLophnPage = () => (
-  <WorkspaceWithoutProject
-    screen="settings"
-    pane="agents"
-    panes={{ agents: <AgentsPane initialView="lophn" /> }}
-  />
+  <Driven steps={[byText("button", t("agents.button.settings-open-lophn"))]}>
+    <WorkspaceWithoutProject screen="settings" pane="agents" />
+  </Driven>
 );
 
 /** Settings › Providers. */
@@ -79,16 +77,25 @@ export const SettingsProvidersPage = () => (
   <WorkspaceWithoutProject screen="settings" pane="providers" />
 );
 
-/** provider 연결 창 둘. */
+// OpenAI의 연결을 끊고 Add a provider에서 다시 [Connect]를 눌러 연 연결 창 하나.
+const CONNECT_OPENAI = [
+  bySelector(`[data-provider="${OPENAI}"] [data-action="disconnect"]`),
+  bySelector(`[data-action="confirm-disconnect"]`),
+  bySelector(`[data-available="openai"] [data-action="connect"]`),
+] as const;
+
+/** provider 연결 창. */
 export const SettingsConnectPage = () => (
-  <WorkspaceWithoutProject screen="settings" pane="providers" connectStatic />
+  <Driven global steps={CONNECT_OPENAI}>
+    <WorkspaceWithoutProject screen="settings" pane="providers" />
+  </Driven>
 );
 
-/** Settings › Tools and skills. */
+/** Settings › Tools and skills. settings-shell이 ToolsPane을 이을 때까지 이 항목만 본문을 끼운다. */
 export const SettingsToolsPage = () => (
   <WorkspaceWithoutProject
     screen="settings"
     pane="tools"
-    panes={{ tools: <SettingsTools /> }}
+    panes={{ tools: <ToolsPane /> }}
   />
 );

@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import {
   Button,
+  Dialog,
   ErrorState,
   Loading,
   Skeleton,
@@ -10,6 +11,7 @@ import { t } from "@lophn/wording";
 
 import { wayLabel } from "../model.ts";
 import { ConnectDialog } from "./connect-dialog.tsx";
+import { ProviderName } from "./provider-name.tsx";
 import type {
   ProviderDefinitionRow,
   ProviderRow,
@@ -26,13 +28,10 @@ type Loaded<Row> =
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly rows: readonly Row[] };
 
-type Window = "window-opened" | "window-failed" | null;
-
-// Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값
-// 칸이 없다. 위는 연결된 provider(이름, 로그인 방법, [Disconnect]; 사용량 대기나 사용 불가일 때만 그
-// 상태와 다음 행동 한 줄)이고 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는
-// 연결 하나라 계정 목록·순서·끄기·연결 테스트는 없다. [+ Connect]는 Connect dialog를 연다
-// (connect-dialog.tsx).
+// Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값 칸이 없다. 위는 연결된 provider
+// (vendor 아이콘과 이름, 로그인 방법 badge, [Disconnect]; 사용량 대기나 사용 불가일 때만 그 상태와 다음 행동 한 줄)이고
+// 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는 연결 하나다. [+ Connect]는 Connect dialog를
+// 연다(connect-dialog.tsx). [Disconnect]는 화면 안 Dialog로 한 번 묻는다.
 export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [connected, setConnected] = useState<Loaded<ProviderRow>>({
     state: "loading",
@@ -40,8 +39,9 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [available, setAvailable] = useState<Loaded<ProviderDefinitionRow>>({
     state: "loading",
   });
-  const [window, setWindow] = useState<Window>(null);
+  const [failed, setFailed] = useState(false);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
+  const [leaving, setLeaving] = useState<ProviderRow | null>(null);
 
   // 다시 읽다 실패해도 이미 보이는 목록은 지우지 않는다(처음 읽기만 실패를 보인다).
   const loadConnected = useCallback(async (): Promise<void> => {
@@ -76,15 +76,19 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
     return () => globalThis.removeEventListener?.("focus", reload);
   }, [reload]);
 
-  async function disconnect(provider: string): Promise<void> {
-    const opened = await source.disconnect(provider);
-    setWindow(opened.ok ? "window-opened" : "window-failed");
+  async function disconnect(row: ProviderRow): Promise<void> {
+    setLeaving(null);
+    setFailed(false);
+    const done = await source.disconnect(row.id);
+    if (!done.ok) setFailed(true);
+    reload();
   }
 
   return (
     <div className={styles.page}>
+      <h1 className={styles.title}>{t("settings.label.tab-providers")}</h1>
       <p className={styles.lead}>{t("settings.notice.provider-lead")}</p>
-      <section className={styles.section}>
+      <section>
         <h2 className={styles.sectionTitle}>
           {t("settings.heading.connected")}
         </h2>
@@ -117,24 +121,20 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
                       <ConnectedItem
                         key={row.id}
                         row={row}
-                        onDisconnect={() => void disconnect(row.id)}
+                        onDisconnect={() => setLeaving(row)}
                       />
                     ))}
                   </ul>
                 )}
             </Loading>
           )}
-        {window === null ? null : (
-          <p
-            className={styles.notice}
-            role="status"
-            data-notice={window}
-          >
-            {window === "window-opened"
-              ? t("settings.notice.window-opened")
-              : t("settings.error.window")}
-          </p>
-        )}
+        {failed
+          ? (
+            <p className={styles.notice} role="status" data-notice="failed">
+              {t("agents.notice.providers-disconnect-failed")}
+            </p>
+          )
+          : null}
       </section>
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
@@ -164,28 +164,24 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
                     className={styles.item}
                     data-available={definition.key}
                   >
-                    <div className={styles.row}>
-                      <span className={styles.identity}>
-                        <span className={styles.name} data-provider-name="">
-                          {definition.name}
-                        </span>
-                        {definition.hint === null
-                          ? null
-                          : (
-                            <span className={styles.hint} data-hint="">
-                              {definition.hint}
-                            </span>
-                          )}
-                      </span>
-                      <Button
-                        size="sm"
-                        icon={lophnSpaceIcons.add}
-                        data-action="connect"
-                        onClick={() => setTarget(definition)}
-                      >
-                        {t("settings.button.connect")}
-                      </Button>
-                    </div>
+                    <span className={styles.identity}>
+                      <ProviderName name={definition.name} />
+                      {definition.hint === null
+                        ? null
+                        : (
+                          <span className={styles.hint} data-hint="">
+                            {definition.hint}
+                          </span>
+                        )}
+                    </span>
+                    <Button
+                      size="sm"
+                      icon={lophnSpaceIcons.add}
+                      data-action="connect"
+                      onClick={() => setTarget(definition)}
+                    >
+                      {t("settings.button.connect")}
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -198,6 +194,35 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         onClose={() => setTarget(null)}
         onConnected={reload}
       />
+      <Dialog
+        open={leaving !== null}
+        onOpenChange={(open) => {
+          if (!open) setLeaving(null);
+        }}
+        title={t("agents.title.providers-disconnect", {
+          name: leaving?.name ?? "",
+        })}
+        actions={
+          <>
+            <Button onClick={() => setLeaving(null)}>
+              {t("settings.button.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              data-action="confirm-disconnect"
+              onClick={() => leaving !== null && void disconnect(leaving)}
+            >
+              {t("settings.button.disconnect")}
+            </Button>
+          </>
+        }
+      >
+        <p>
+          {t("agents.notice.providers-disconnect-body", {
+            name: leaving?.name ?? "",
+          })}
+        </p>
+      </Dialog>
     </div>
   );
 }
@@ -208,21 +233,22 @@ function ConnectedItem(
   const status = statusOf(row);
   return (
     <li className={styles.item} data-provider={row.id}>
-      <div className={styles.row}>
-        <span className={styles.identity}>
-          <span className={styles.name} data-provider-name="">{row.name}</span>
-          <span className={styles.methods} data-login-methods="">
-            {loginMethod(row)}
-          </span>
+      <span className={styles.identity}>
+        <ProviderName name={row.name} />
+        <span className={styles.badge} data-login-methods="">
+          {loginMethod(row)}
         </span>
-        <Button size="sm" data-action="disconnect" onClick={onDisconnect}>
-          {t("settings.button.disconnect")}
-        </Button>
-      </div>
+      </span>
+      <Button size="sm" data-action="disconnect" onClick={onDisconnect}>
+        {t("settings.button.disconnect")}
+      </Button>
       {status === null
         ? null
-        : <p className={styles.note} data-status={status.kind}>{status.text}
-        </p>}
+        : (
+          <p className={styles.status} data-status={status.kind}>
+            {status.text}
+          </p>
+        )}
     </li>
   );
 }

@@ -135,9 +135,9 @@ export function SettingsScreen(
           </div>
         );
       case "tools":
-        return (
+        return agentsSource && (
           <div className={styles.panel}>
-            <ExtensionsPanel source={source} />
+            <ExtensionsPanel source={agentsSource} />
           </div>
         );
       case "coding":

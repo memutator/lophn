@@ -1,4 +1,39 @@
 export const agents = {
+  "agents.button.settings-back": "\u2039 Agents",
+  "agents.button.settings-open-lophn": "Open lophn settings",
+  "agents.heading.settings-default-model": "Default model",
+  "agents.heading.settings-grant-defaults": "Grant defaults",
+  "agents.label.providers-custom-key-title": "API key (optional)",
+  "agents.label.providers-key-hint": "Typed in a protected prompt",
+  "agents.label.settings-instructions-path": "~/.lophn/LOPHN.md",
+  "agents.label.settings-lophn-chip": "One for all of lophn",
+  "agents.label.settings-lophn-grants":
+    "Grants: {apps, plural, one {# app} other {# apps}} \u00b7 {agents, plural, one {# agent} other {# agents}} it can call{settings, select, yes { \u00b7 may change settings} other {}}",
+  "agents.label.settings-lophn-model-default": "Model: Use default ({model})",
+  "agents.label.settings-lophn-model-none": "Model: No model chosen yet",
+  "agents.label.settings-lophn-model-own": "Model: {model}",
+  "agents.notice.providers-custom-key":
+    "Typed in a protected prompt after you connect, outside this window. Skip it if you manage sign-in through headers.",
+  "agents.notice.providers-disconnect-body":
+    "lophn forgets the saved key or sign-in for {name}. Agents can't use it until you connect again.",
+  "agents.notice.providers-disconnect-failed":
+    "Couldn't disconnect. Nothing changed. Try again.",
+  "agents.notice.settings-agents-lead":
+    "Defaults for every project. A project or an agent can change them.",
+  "agents.notice.settings-default-model-help":
+    "One model for every agent. A project, or an agent's own settings, can pick another.",
+  "agents.notice.settings-grant-defaults-help":
+    "When you give an agent an app, a tool or another agent, it starts with these. Each agent's Grants tab can change any of them.",
+  "agents.notice.settings-lophn-purpose":
+    "Talks with you about lophn itself: your projects, apps and settings.",
+  "agents.notice.settings-tools-elsewhere":
+    "Skills and MCP servers for all projects are in Tools and skills.",
+  "agents.notice.settings-tools-lead":
+    "The Workspace layer, shared by every project. A project can turn an item off for itself, and an agent can turn it off for itself too.",
+  "agents.notice.settings-tools-servers":
+    "A server with the same name in a project or an agent replaces this one for that layer.",
+  "agents.notice.settings-tools-skills":
+    "Skill folders follow the Agent Skills format (SKILL.md). lophn has no built-in skills yet.",
   "agents.notice.stored-in-lophn":
     "Agent definitions are stored in lophn, in one place for every project, not in your project folder.",
   "agents.heading.model-for-project": "Model for this project",
@@ -133,6 +168,7 @@ export const agents = {
     "The chip says which layer a skill comes from. A switch here changes only this agent.",
   "agents.title.change-failed": "Couldn't change that",
   "agents.title.delete-failed": "Couldn't delete",
+  "agents.title.providers-disconnect": "Disconnect {name}?",
   "agents.title.save-conflict": "Changed since you opened it",
   "agents.title.save-failed": "Couldn't save",
   "agents.title.upload-failed": "Couldn't upload",

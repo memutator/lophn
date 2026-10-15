@@ -5,10 +5,14 @@
 //
 // provider 하나에는 연결(credential) 하나라 Connect는 provider와 credential을 함께 받는
 // RegisterProvider 하나다. key로 연결하는 일은 이 통로가 core를 부르지 않고 등록 정보를 실은 보호 창을
-// 열면 그 창이 값을 받아 RegisterProvider를 부른다. 끊기도 확인 창을 열 뿐이다: 결정은 그 창에서만
-// 받는다.
+// 열면 그 창이 값을 받아 RegisterProvider를 부른다. 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다:
+// shell main에서 결정 handle(`provider_disconnect`)을 받아 DisconnectProvider에 싣는다.
 import { t } from "@lophn/wording";
 
+import type {
+  DecisionHandleApi,
+  DecisionHandleReply,
+} from "../../../../../ipc/confirmation.ts";
 import type { OpenExternalApi } from "../../../../../ipc/open-external.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import {
@@ -134,9 +138,25 @@ export async function listProviders(
   return { ok: true, value: rows };
 }
 
+/** provider 끊기 결정의 concern과 이름. shell main의 결정 handle reader가 같은 값으로 정본을 다시 읽는다. */
+const PROVIDER_CONCERN = "lophn-agent/providers";
+const PROVIDER_DISCONNECT = "provider_disconnect";
+
+/** preload의 결정 handle 요청. 없는 창에서는 undefined다. */
+function windowDecisionHandle():
+  | DecisionHandleApi["requestDecisionHandle"]
+  | undefined {
+  const shell = (globalThis as { lophnShell?: Partial<DecisionHandleApi> })
+    .lophnShell;
+  return typeof shell?.requestDecisionHandle === "function"
+    ? (request) => shell.requestDecisionHandle!(request)
+    : undefined;
+}
+
 export interface ProviderDeps {
   openWindow: OpenSecretWindow | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
+  requestHandle: DecisionHandleApi["requestDecisionHandle"] | undefined;
   now: () => number;
   /** command key를 만든다. 테스트가 고정한다. */
   random: () => string;
@@ -154,6 +174,9 @@ export function coreProviderSettingsSource(
     ? deps.openWindow
     : windowSecretOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
+  const requestHandle = "requestHandle" in deps
+    ? deps.requestHandle
+    : windowDecisionHandle();
   const now = deps.now ?? Date.now;
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const providerId = deps.providerId ?? (() => newProviderId(now()));
@@ -282,14 +305,36 @@ export function coreProviderSettingsSource(
       return { ok: true, value: rows };
     },
 
-    // 끊기는 core를 부르지 않는다. 그 provider의 Disconnect 확인 창만 연다.
-    disconnect(provider) {
-      return openProtected(openWindow, {
-        kind: "secret_input",
-        owner: provider,
-        purpose: "provider_credential",
-        disconnect: true,
+    // 끊기는 화면 안 Dialog가 한 번 물은 뒤 부른다. 결정은 shell main이 정본을 다시 읽어 묶은 handle로 싣는다.
+    async disconnect(provider) {
+      if (requestHandle === undefined) return UNAVAILABLE;
+      const read = await call<{ provider: { revision: number } }>(
+        core,
+        "read",
+        "providers",
+        "read",
+        { provider },
+      );
+      if (!read.ok) return read;
+      let handle: DecisionHandleReply;
+      try {
+        handle = await requestHandle({
+          concern: PROVIDER_CONCERN,
+          decision: PROVIDER_DISCONNECT,
+          targets: [provider],
+        });
+      } catch {
+        return UNAVAILABLE;
+      }
+      if ("error" in handle) return { ok: false, code: handle.error.code };
+      const sent = await call(core, "command", "providers", "disconnect", {
+        input: { provider },
+        idempotency_key: `provider-disconnect-${random()}`,
+        compare: { revision: read.value.provider.revision },
+        prepared: [],
+        confirmation: handle.confirmation,
       });
+      return sent.ok ? { ok: true, value: null } : sent;
     },
 
     async connect(definition, way) {

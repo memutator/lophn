@@ -1,6 +1,5 @@
 // Settings › Providers가 읽고 쓰는 통로. provider는 연결과 인증만 다루므로 이
-// 통로에는 model 이름·기본값 route가 없다. provider 하나에는 연결 하나라 계정 순서·끄기·연결 테스트도
-// 없다. 모양은 contracts(providers·provider definitions)에서 이 화면이 쓰는 field만 옮긴 것이고
+// 통로에는 model 이름·기본값 route가 없다. provider 하나에는 연결 하나다. 모양은 contracts(providers·provider definitions)에서 이 화면이 쓰는 field만 옮긴 것이고
 // secret 값은 없다: key·로그인 응답은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다.
 // 연결된 provider는 기존 settings의 ProviderRow를 그대로 쓴다.
 import type {
@@ -57,8 +56,11 @@ export interface ProviderSettingsSource {
   connected(): Promise<SourceResult<readonly ProviderRow[]>>;
   /** 아직 연결하지 않은 정의. 사람이 보는 순서로 온다. */
   available(): Promise<SourceResult<readonly ProviderDefinitionRow[]>>;
-  /** 연결을 끊는 확인 창을 연다. 결정은 그 창에서만 받고 창은 닫혀도 결정이 아니다. */
-  disconnect(provider: string): Promise<WindowOutcome>;
+  /**
+   * 연결을 끊는다. provider와 연결(credential)을 함께 지운다. 화면이 Dialog로 사람에게 한 번 묻고 부르며,
+   * 그 결정은 source가 결정 handle로 core에 싣는다.
+   */
+  disconnect(provider: string): Promise<SourceResult<null>>;
   /** 고른 방식으로 연결을 시작한다(공식 로그인은 OS browser, key는 보호 창). */
   connect(
     definition: string,

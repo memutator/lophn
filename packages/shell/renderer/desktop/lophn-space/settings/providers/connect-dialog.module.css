@@ -1,6 +1,12 @@
 /* Connect dialog: 로그인 방법 고르기 목록과 Custom provider form. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 .lead {
-  margin: var(--space-0) var(--space-0) var(--space-4);
+  margin: var(--space-0);
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
@@ -67,13 +73,6 @@
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-}
-
-.keyNote {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }
 
 .notice {

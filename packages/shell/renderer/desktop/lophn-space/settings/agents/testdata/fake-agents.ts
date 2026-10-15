@@ -1,220 +1,112 @@
-// Settings › Agents test의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. 칸을 바꾸면
-// settingsSeq가 하나 올라가고 다음 읽기에 반영된다. model 이름과 option 이름·값은 모두 이 catalog에서
-// 온다(화면 코드에 없다).
+// Settings › Agents와 Tools and skills의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. lophn 둘째 화면은
+// Agents 탭의 fake source(workspace/agents)와 같은 것을 쓴다. 전역 model·skill·MCP는 wireframe과 같은 data로 시작한다.
+import {
+  createFakeAgentsSource,
+  FAKE_GRANTS,
+  GLOBAL_LOPHN_MD,
+  GLOBAL_MCP,
+  GLOBAL_MODEL,
+  GLOBAL_SKILLS,
+} from "../../../../../workspace/agents/fake-source.ts";
 import type {
   AgentsSettingsSource,
   AgentsSettingsView,
-  CatalogModel,
-  DefaultSlot,
+  ExtensionsView,
+  McpRow,
   ModelChoice,
-  ServerRow,
   SkillRow,
   SourceResult,
 } from "../settings-source.ts";
 
-export const ANTHROPIC = "pvd_01h455vb4pex5v6nkc6gd5fd11";
-export const OPENAI = "pvd_01h455vb4pex5v6nkc6gd5fd12";
-export const XAI = "pvd_01h455vb4pex5v6nkc6gd5fd13";
-
-const EFFORT_LOW_TO_MAX = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "maximum", label: "Max" },
-] as const;
-
-export function speedAxis(label = "Speed") {
-  return {
-    id: "speed",
-    label,
-    values: [
-      { value: "standard", label: "Standard" },
-      { value: "fast", label: "Fast" },
-    ],
-    defaultValue: "standard",
-  } as const;
-}
-
-export const CATALOG: readonly CatalogModel[] = [
-  {
-    providerDefinition: "anthropic",
-    modelName: "claude-sonnet-5-5",
-    options: [{
-      id: "effort",
-      label: "Effort",
-      values: EFFORT_LOW_TO_MAX,
-      defaultValue: "medium",
-    }],
-  },
-  {
-    providerDefinition: "anthropic",
-    modelName: "claude-opus-5-5",
-    options: [
-      {
-        id: "effort",
-        label: "Effort",
-        values: EFFORT_LOW_TO_MAX,
-        defaultValue: "high",
-      },
-      speedAxis(),
-    ],
-  },
-  {
-    providerDefinition: "openai",
-    modelName: "gpt-6.1",
-    options: [{
-      id: "effort",
-      label: "Effort",
-      values: EFFORT_LOW_TO_MAX.slice(0, 3),
-      defaultValue: "medium",
-    }],
-  },
-  // option이 없다고 확인된 model.
-  { providerDefinition: "openai", modelName: "gpt-6.1-mini", options: [] },
-  // option을 아직 모르는 model.
-  { providerDefinition: "xai", modelName: "grok-4.7", options: null },
-];
-
-export const SKILLS: readonly SkillRow[] = [
-  {
-    name: "plain-writing",
-    detail: "Keeps summaries short and in plain words.",
-    enabled: true,
-  },
-  {
-    name: "cite-documents",
-    detail: "Links every claim to the document it came from.",
-    enabled: true,
-  },
-  {
-    name: "meeting-notes",
-    detail: "Turns a transcript into notes.",
-    enabled: false,
-  },
-];
-
-export const SERVERS: readonly ServerRow[] = [
-  {
-    name: "fetch",
-    detail: "Reads a web page as Markdown",
-    enabled: true,
-    status: "connected",
-  },
-  {
-    name: "mail",
-    detail: "Reads your inbox",
-    enabled: true,
-    status: "needs-sign-in",
-  },
-  {
-    name: "calendar",
-    detail: "Reads your calendar",
-    enabled: false,
-    status: "off",
-  },
-];
-
-export const INSTRUCTIONS_PREVIEW = `# About me
-I run the eval loop on my own. Answer in short plain sentences.
-Ask before you change a document I did not mention.`;
-
-export function choice(
-  provider: string,
-  modelName: string,
-  optionValues: Record<string, string> = {},
-): ModelChoice {
-  return { provider, modelName, optionValues };
-}
-
-export function view(
-  options: Partial<AgentsSettingsView> = {},
-): AgentsSettingsView {
-  return {
-    defaults: {
-      lophn: choice(ANTHROPIC, "claude-sonnet-5-5", { effort: "medium" }),
-      context_engineer: choice(ANTHROPIC, "claude-opus-5-5", {
-        effort: "high",
-        speed: "standard",
-      }),
-      app_engineer: choice(OPENAI, "gpt-6.1", { effort: "medium" }),
-      // 처음 설치한 기본값은 비어 있다.
-      operator: null,
-      summaries: choice(OPENAI, "gpt-6.1-mini"),
-    },
-    settingsSeq: "7",
-    providers: [
-      { id: ANTHROPIC, name: "Anthropic", definition: "anthropic" },
-      { id: OPENAI, name: "OpenAI", definition: "openai" },
-      { id: XAI, name: "xAI", definition: "xai" },
-    ],
-    catalog: CATALOG,
-    instructionsPreview: INSTRUCTIONS_PREVIEW,
-    skills: SKILLS,
-    servers: SERVERS,
-    ...options,
-  };
-}
-
 export type AgentsCall =
-  | readonly ["change", DefaultSlot, ModelChoice, string]
+  | readonly ["change-model", ModelChoice]
   | readonly ["instructions"]
   | readonly ["add-skill"]
   | readonly ["skill", string, boolean]
   | readonly ["add-server"]
+  | readonly ["create-server", string]
   | readonly ["server", string, boolean];
+
+type Failing =
+  | "read"
+  | "change-model"
+  | "instructions"
+  | "extensions"
+  | "add-skill"
+  | "skill"
+  | "add-server"
+  | "create-server"
+  | "server";
 
 export interface FakeAgentsOptions {
   view?: AgentsSettingsView;
-  /** 이 이름의 호출은 이 code로 실패한다. 테스트가 지우면 다시 성공한다. */
-  failing?: Partial<
-    Record<
-      | "read"
-      | "change"
-      | "instructions"
-      | "add-skill"
-      | "skill"
-      | "add-server"
-      | "server",
-      string
-    >
-  >;
+  extensions?: ExtensionsView;
+  /** 이 이름의 호출은 이 code로 실패한다. */
+  failing?: Partial<Record<Failing, string>>;
 }
 
+const grants = FAKE_GRANTS.lophn ?? [];
+
+export const VIEW: AgentsSettingsView = {
+  defaultModel: GLOBAL_MODEL,
+  lophn: {
+    name: "lophn",
+    model: null,
+    apps: grants.filter((entry) => entry.kind === "app").length,
+    agents: grants.filter((entry) => entry.kind === "agent").length,
+    mayChangeSettings: grants.some((entry) => entry.kind === "settings"),
+  },
+  instructionsPreview: GLOBAL_LOPHN_MD,
+};
+
+export const EXTENSIONS: ExtensionsView = {
+  skills: GLOBAL_SKILLS,
+  servers: GLOBAL_MCP,
+};
+
 export function fakeAgents(options: FakeAgentsOptions = {}) {
-  let current = options.view ?? view();
+  let view = options.view ?? VIEW;
+  let skills: readonly SkillRow[] = (options.extensions ?? EXTENSIONS).skills;
+  let servers: readonly McpRow[] = (options.extensions ?? EXTENSIONS).servers;
   const calls: AgentsCall[] = [];
   const failing = options.failing ?? {};
   const counts = { reads: 0 };
   const ok = (): SourceResult<null> => ({ ok: true, value: null });
-  const fail = (name: keyof typeof failing): SourceResult<null> | null =>
+  const fail = (name: Failing): SourceResult<null> | null =>
     failing[name] === undefined ? null : { ok: false, code: failing[name]! };
 
   const source: AgentsSettingsSource = {
+    editor: createFakeAgentsSource(),
     read() {
       counts.reads += 1;
       return Promise.resolve(
         failing.read === undefined
-          ? { ok: true, value: current } as const
+          ? { ok: true, value: view } as const
           : { ok: false, code: failing.read } as const,
       );
     },
-    changeDefault(slot, next, seq) {
-      calls.push(["change", slot, next, seq]);
-      const failed = fail("change");
+    changeDefaultModel(choice) {
+      calls.push(["change-model", choice]);
+      const failed = fail("change-model");
       if (failed) return Promise.resolve(failed);
-      if (seq !== current.settingsSeq) {
-        return Promise.resolve({ ok: false, code: "conflict" } as const);
-      }
-      current = {
-        ...current,
-        defaults: { ...current.defaults, [slot]: next },
-        settingsSeq: String(Number(current.settingsSeq) + 1),
-      };
+      view = { ...view, defaultModel: choice };
       return Promise.resolve(ok());
     },
     openInstructions() {
       calls.push(["instructions"]);
       return Promise.resolve(fail("instructions") ?? ok());
+    },
+    addServer() {
+      calls.push(["add-server"]);
+      return Promise.resolve(fail("add-server") ?? ok());
+    },
+    readExtensions() {
+      const failed = fail("extensions");
+      return Promise.resolve(
+        failed === null
+          ? { ok: true, value: { skills, servers } } as const
+          : failed as SourceResult<never>,
+      );
     },
     addSkill() {
       calls.push(["add-skill"]);
@@ -224,36 +116,33 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       calls.push(["skill", name, enabled]);
       const failed = fail("skill");
       if (failed) return Promise.resolve(failed);
-      current = {
-        ...current,
-        skills: current.skills.map((row) =>
-          row.name === name ? { ...row, enabled } : row
-        ),
-      };
+      skills = skills.map((row) =>
+        row.name === name ? { ...row, on: enabled } : row
+      );
       return Promise.resolve(ok());
     },
-    addServer() {
-      calls.push(["add-server"]);
-      return Promise.resolve(fail("add-server") ?? ok());
+    createServer(server) {
+      calls.push(["create-server", server.name]);
+      const failed = fail("create-server");
+      if (failed) return Promise.resolve(failed);
+      servers = [...servers, {
+        name: server.name,
+        detail: server.transport === "stdio"
+          ? server.stdio.executable
+          : server.http.url,
+        layer: "global",
+        on: true,
+        status: "connected",
+      }];
+      return Promise.resolve(ok());
     },
     setServerEnabled(name, enabled) {
       calls.push(["server", name, enabled]);
       const failed = fail("server");
       if (failed) return Promise.resolve(failed);
-      current = {
-        ...current,
-        servers: current.servers.map((row) =>
-          row.name === name
-            ? {
-              ...row,
-              enabled,
-              status: enabled
-                ? row.status === "off" ? "connected" : row.status
-                : "off",
-            }
-            : row
-        ),
-      };
+      servers = servers.map((row) =>
+        row.name === name ? { ...row, on: enabled } : row
+      );
       return Promise.resolve(ok());
     },
   };

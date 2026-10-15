@@ -1,141 +1,142 @@
-/* Settings › Agents. 줄·제목·글은 settings.module.css를 쓰고, 여기는 [Change] editor와 LOPHN.md 미리보기만 둔다. */
-.slot {
-  display: flex;
-  flex-direction: column;
-  border-bottom: var(--border-width) solid var(--color-border-base);
+/* Settings › Agents. 제목·절·카드는 wireframe의 Settings 화면 규칙을 따른다. 행동 단추는 줄 오른쪽 끝에 둔다. */
+.page {
+  max-width: var(--page-overview);
+  font-family: var(--font-sans);
 }
 
-.slot > :first-child {
-  border-bottom: none;
-}
-
-.slot:last-child {
-  border-bottom: none;
-}
-
-.editorSlot {
-  padding: var(--space-0) var(--space-6) var(--space-5);
-}
-
-.editor {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
-}
-
-.models {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.model {
-  box-sizing: border-box;
+.title {
   display: flex;
   align-items: center;
-  min-height: var(--control-md-height);
-  padding: var(--space-0) var(--space-4);
-  border-radius: var(--radius-sm);
+  gap: var(--space-4);
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
+.lead {
+  margin: var(--space-0) var(--space-0) var(--space-6);
   color: var(--color-text-secondary);
+}
+
+.notice {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  color: var(--color-text-primary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-  cursor: pointer;
 }
 
-.model:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text-primary);
+.section {
+  margin-top: var(--space-8);
 }
 
-.model:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: calc(var(--border-focus-offset) * -1);
-}
-
-.model[aria-selected="true"] {
-  background: var(--color-selection);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.axis {
+.sectionHead {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
-.axisLabel {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
+.sectionTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
 }
 
-.radios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.radio {
-  box-sizing: border-box;
-  min-height: var(--control-sm-height);
-  padding: var(--space-0) var(--space-4);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-base);
+.sectionLead {
+  margin: var(--space-3) var(--space-0);
   color: var(--color-text-secondary);
-  font-family: var(--font-sans);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  cursor: pointer;
 }
 
-.radio:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text-primary);
-}
-
-.radio:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: var(--border-focus-offset);
-}
-
-.radio[aria-checked="true"] {
-  border-color: var(--color-border-strong);
-  background: var(--color-selection);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.hint {
+.note {
   margin: var(--space-0);
   color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.empty {
+  margin: var(--space-3) var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+  white-space: nowrap;
 }
 
-.editorActions {
-  display: flex;
-  gap: var(--space-2);
-}
-
-/* 전역 LOPHN.md 앞부분. 편집하지 않고 보기만 하므로 긴 글은 잘라 보인다. */
-.preview {
-  box-sizing: border-box;
-  max-height: calc(var(--control-lg-height) * 3);
-  margin: var(--space-0);
-  padding: var(--space-4) var(--space-6);
-  overflow: hidden;
-  border: var(--border-width) solid var(--color-border-base);
+/* 전역 LOPHN.md 앞부분. 편집하지 않고 보기만 한다. */
+.code {
+  margin: var(--space-3) var(--space-0);
+  padding: var(--space-5);
+  overflow: auto;
+  border: var(--border-width) solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-surface-subtle);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
   white-space: pre-wrap;
+}
+
+/* lophn 카드 */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.purpose {
+  margin: var(--space-3) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.backRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
 }

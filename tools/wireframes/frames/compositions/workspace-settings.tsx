@@ -1,232 +1,115 @@
-// Lophn Workspace › Settings의 Providers(provider마다 연결 하나)와 Agents(모든 project의
-// 기본값, 화면은 agent-setup/) 본문. 연결 창의 정적 모양은 한 화면에 두 창을 나란히 놓으려고 같은 token으로 짠
-// look-alike이고, 눌러서 여는 창은 실제 Dialog다. key는 이 창에서 치지 않고 보호 입력으로 받는다.
-import { type ReactNode, useState } from "react";
-import {
-  Button,
-  Dialog,
-  Field,
-  Input,
-  VendorIcon,
-  vendorOf,
-} from "@lophn/design/components";
-import {
-  lophnSpaceIcons,
-} from "../../../../packages/shell/renderer/icons/mod.ts";
+// Lophn Workspace › Settings의 Providers(provider마다 연결 하나), Agents(모든 project의 기본값), Tools and skills 본문.
+// 화면은 renderer의 settings/{providers,agents,extensions}가 그리고 여기서는 fake source에 이어 준다. 눌러서 여는 연결 창은 실제
+// Dialog이고, 한 화면에 두 창을 나란히 놓는 ConnectDialogsStatic만 같은 body component를 div로 감싼다. key는 이 창에서 치지 않고
+// 보호 입력으로 받는다.
+import { type ReactNode, useMemo, useRef } from "react";
+import { Button } from "@lophn/design/components";
+import { t } from "@lophn/wording";
 
-import { ProtectedKeyNote } from "../../../../packages/shell/renderer/workspace/agents/editor/parts.tsx";
+import { AgentsPanel } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/agents/agents-panel.tsx";
+import { fakeAgents } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/agents/testdata/fake-agents.ts";
+import { ExtensionsPanel } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/extensions/extensions-panel.tsx";
 import {
-  SettingsAgents,
-  SettingsLophn,
-} from "./agent-setup/settings-agents.tsx";
-import styles from "./compose.module.css";
+  ConnectDialog as ProviderConnectDialog,
+  CustomProviderBody,
+  MethodsBody,
+} from "../../../../packages/shell/renderer/desktop/lophn-space/settings/providers/connect-dialog.tsx";
+import { ProviderList } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/providers/provider-list.tsx";
+import {
+  ANTHROPIC_DEFINITION,
+  AVAILABLE,
+  fakeProviders,
+  OPENAI_DEFINITION,
+  XAI_DEFINITION,
+} from "../../../../packages/shell/renderer/desktop/lophn-space/settings/providers/testdata/fake-providers.ts";
+import { byText, type Step, useDrive } from "./agent-setup/drive.ts";
 import a from "./agents.module.css";
 
-const CONNECTED: readonly { name: string; how: string }[] = [
-  { name: "Anthropic", how: "Signed in (Max)" },
-  { name: "OpenAI", how: "API key" },
-  { name: "xAI", how: "API key" },
-];
-
-const AVAILABLE: readonly { name: string; hint: string }[] = [
-  { name: "Google", hint: "Gemini models" },
-  { name: "OpenRouter", hint: "Models from many providers" },
-  { name: "Custom provider", hint: "Any OpenAI-compatible endpoint" },
-];
-
-/** provider 이름과 vendor 아이콘. 아이콘이 없는 이름(Custom provider)은 이름만 쓴다. */
-function ProviderName({ name }: { name: string }) {
-  const vendor = vendorOf(name);
-  return (
-    <span className={a.provName}>
-      {vendor === undefined ? null : <VendorIcon vendor={vendor} size={18} />}
-      {name}
-    </span>
+/** 마운트된 뒤 steps를 눌러 하위 상태를 고정한다. global이면 portal로 열린 Dialog 안도 찾는다. */
+export function Driven(
+  { steps, global = false, children }: {
+    steps: readonly Step[];
+    global?: boolean;
+    children: ReactNode;
+  },
+) {
+  const div = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLElement | null>(
+    typeof document === "undefined" ? null : document.body,
   );
-}
-
-/** 연결 창의 고르기 목록. */
-function Methods({ provider }: { provider: string }) {
-  const methods = provider === "OpenAI"
-    ? [
-      { name: "Sign in with ChatGPT", hint: "Opens your browser" },
-      { name: "API key", hint: "Typed in a protected prompt" },
-    ]
-    : provider === "Anthropic"
-    ? [
-      { name: "Sign in with Claude", hint: "Opens your browser" },
-      { name: "API key", hint: "Typed in a protected prompt" },
-    ]
-    : [{ name: "API key", hint: "Typed in a protected prompt" }];
-  return (
-    <>
-      <ProviderName name={provider} />
-      <p className={a.panelLead}>How do you want to sign in?</p>
-      <ul className={a.methods}>
-        {methods.map((method) => (
-          <li key={method.name}>
-            <button type="button" className={a.method}>
-              <span>{method.name}</span>
-              <span className={a.methodHint}>{method.hint}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-/** Custom provider form. */
-function CustomProviderForm() {
-  return (
-    <div className={a.formStack}>
-      <p className={a.panelLead}>Set up an OpenAI-compatible provider.</p>
-      <Field
-        label="Provider ID"
-        help="Lowercase letters, numbers, hyphens or underscores."
-      >
-        <Input defaultValue="myprovider" />
-      </Field>
-      <Field label="Display name">
-        <Input defaultValue="My AI provider" />
-      </Field>
-      <Field label="Base URL">
-        <Input defaultValue="https://api.myprovider.com/v1" />
-      </Field>
-      <ProtectedKeyNote
-        title="API key (optional)"
-        text="Typed in a protected prompt after you connect, outside this window. Skip it if you manage sign-in through headers."
-      />
-    </div>
-  );
+  useDrive(global ? body : div, steps);
+  return global ? <>{children}</> : <div ref={div}>{children}</div>;
 }
 
 /** 연결 창 둘을 나란히. 한쪽은 방법 고르기, 한쪽은 Custom provider form. */
 export function ConnectDialogsStatic() {
   return (
     <div className={a.dialogLayer}>
-      <div className={a.panel} role="dialog" aria-label="Connect OpenAI">
-        <h2 className={a.panelTitle}>Connect OpenAI</h2>
-        <Methods provider="OpenAI" />
+      <div
+        className={a.panel}
+        role="dialog"
+        aria-label={t("settings.title.connect-provider", { name: "OpenAI" })}
+      >
+        <h2 className={a.panelTitle}>
+          {t("settings.title.connect-provider", { name: "OpenAI" })}
+        </h2>
+        <MethodsBody definition={OPENAI_DEFINITION} />
         <div className={a.panelActions}>
-          <Button>Cancel</Button>
+          <Button>{t("settings.button.cancel")}</Button>
         </div>
       </div>
       <div
         className={`${a.panel} ${a.panelWide}`}
         role="dialog"
-        aria-label="Custom provider"
+        aria-label={t("settings.title.custom-provider")}
       >
-        <h2 className={a.panelTitle}>Custom provider</h2>
-        <CustomProviderForm />
+        <h2 className={a.panelTitle}>{t("settings.title.custom-provider")}</h2>
+        <CustomProviderBody
+          fields={{
+            id: "myprovider",
+            name: "My AI provider",
+            baseUrl: "https://api.myprovider.com/v1",
+          }}
+        />
         <div className={a.panelActions}>
-          <Button>Cancel</Button>
-          <Button variant="primary">Connect</Button>
+          <Button>{t("settings.button.cancel")}</Button>
+          <Button variant="primary">{t("settings.button.connect")}</Button>
         </div>
       </div>
     </div>
   );
 }
 
-function ProviderRow(
-  { name, badge, hint, action }: {
-    name: string;
-    badge?: string;
-    hint?: string;
-    action: ReactNode;
-  },
-) {
-  return (
-    <li className={a.provRow}>
-      <span className={a.provName}>
-        {vendorOf(name) === undefined
-          ? null
-          : <VendorIcon vendor={vendorOf(name)!} size={18} />}
-        {name}
-        {badge === undefined ? null : <span className={a.badge}>{badge}</span>}
-        {hint === undefined ? null : <span className={a.provHint}>{hint}</span>}
-      </span>
-      {action}
-    </li>
-  );
-}
-
-/** Settings › Providers. 연결과 인증만이고 model은 여기서 고르지 않는다. */
+/**
+ * Settings › Providers. 연결과 인증만이고 model은 여기서 고르지 않는다. [Connect]가 여는 연결 창과 [Disconnect]의
+ * 확인 창은 ProviderList 안의 Dialog다.
+ */
 export function ProvidersPane(
-  { onConnect }: { onConnect: (provider: string) => void },
+  _props: { onConnect?: (provider: string) => void },
 ) {
-  return (
-    <div className={a.setPage}>
-      <h1 className={styles.searchTitle}>Providers</h1>
-      <p className={a.setLead}>
-        A provider is a service you connect once, with one key or sign-in. You
-        choose models per agent and per session, not here.
-      </p>
-      <section>
-        <h2 className={a.setSectionTitle}>Connected</h2>
-        <ul className={a.provGroup}>
-          {CONNECTED.map((provider) => (
-            <ProviderRow
-              key={provider.name}
-              name={provider.name}
-              badge={provider.how}
-              action={<Button size="sm">Disconnect</Button>}
-            />
-          ))}
-        </ul>
-      </section>
-      <section className={a.setSection}>
-        <h2 className={a.setSectionTitle}>Add a provider</h2>
-        <ul className={a.provGroup}>
-          {AVAILABLE.map((provider) => (
-            <ProviderRow
-              key={provider.name}
-              name={provider.name}
-              hint={provider.hint}
-              action={
-                <Button
-                  size="sm"
-                  icon={lophnSpaceIcons.add}
-                  onClick={() => onConnect(provider.name)}
-                >
-                  Connect
-                </Button>
-              }
-            />
-          ))}
-        </ul>
-      </section>
-    </div>
-  );
+  const source = useMemo(() => fakeProviders().source, []);
+  return <ProviderList source={source} />;
 }
 
-/** 눌러서 여는 연결 창. 실제 Dialog다. */
+const DEFINITIONS = [
+  ANTHROPIC_DEFINITION,
+  OPENAI_DEFINITION,
+  XAI_DEFINITION,
+  ...AVAILABLE,
+];
+
+/** 이름으로 연 연결 창. renderer의 실제 Dialog를 얇게 감싼다. */
 export function ConnectDialog(
   { provider, onClose }: { provider: string | null; onClose: () => void },
 ) {
-  const custom = provider === "Custom provider";
+  const source = useMemo(() => fakeProviders().source, []);
   return (
-    <Dialog
-      open={provider !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={custom ? "Custom provider" : `Connect ${provider ?? ""}`}
-      actions={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          {custom
-            ? <Button variant="primary" onClick={onClose}>Connect</Button>
-            : null}
-        </>
-      }
-    >
-      {provider === null
-        ? null
-        : custom
-        ? <CustomProviderForm />
-        : <Methods provider={provider} />}
-    </Dialog>
+    <ProviderConnectDialog
+      source={source}
+      definition={DEFINITIONS.find((one) => one.name === provider) ?? null}
+      onClose={onClose}
+      onConnected={() => {}}
+    />
   );
 }
 
@@ -234,8 +117,20 @@ export function ConnectDialog(
 export function AgentsPane(
   { initialView = "list" }: { initialView?: "list" | "lophn" } = {},
 ) {
-  const [view, setView] = useState(initialView);
-  return view === "lophn"
-    ? <SettingsLophn onBack={() => setView("list")} />
-    : <SettingsAgents onOpenLophn={() => setView("lophn")} />;
+  const source = useMemo(() => fakeAgents().source, []);
+  return (
+    <Driven
+      steps={initialView === "lophn"
+        ? [byText("button", t("agents.button.settings-open-lophn"))]
+        : []}
+    >
+      <AgentsPanel source={source} />
+    </Driven>
+  );
+}
+
+/** Settings › Tools and skills. 전역 층의 skill 켬·끔과 MCP server. */
+export function ToolsPane() {
+  const source = useMemo(() => fakeAgents().source, []);
+  return <ExtensionsPanel source={source} />;
 }

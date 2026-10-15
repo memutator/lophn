@@ -1,0 +1,54 @@
+/* Settings › Tools and skills. 절 제목 줄에 [Add …]가 오른쪽 끝에 있고, 켬·끔 줄은 editor의 목록 조각이 그린다. */
+.page {
+  max-width: var(--page-overview);
+  font-family: var(--font-sans);
+}
+
+.title {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
+.lead {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.section {
+  margin-top: var(--space-8);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.note {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.empty {
+  margin: var(--space-3) var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}

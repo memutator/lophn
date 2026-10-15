@@ -1,18 +1,27 @@
-// AgentsSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract
-// client가 route output schema로 이미 검사했다. 아래 모양은 그 schema(models·providers·settings)에서
-// 이 화면이 읽는 field만 옮긴 것이다. model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가
-// 준다. credential 값은 이 파일을 지나지 않고 보관 이름과 저장 여부만 묻는다.
+// AgentsSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로 이미
+// 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. credential 값은 이 파일을 지나지 않고
+// 보관 이름과 저장 여부만 묻는다.
 //
-// 칸마다 읽는 route가 다르고 하나를 못 읽으면 그 칸만 비운다.
-// - 모든 project의 LOPHN.md 미리보기: 사람이 읽는 instructions/preview다(instructions/read는 machine 전용).
-//   [Edit]이 여는 전역 지침 편집기는 shell(settings 화면)이 연결하므로 openInstructions는 unavailable이다.
+// - 전역 기본 model: model-default 읽기와 바꾸기.
+// - lophn 카드와 둘째 화면: Agents 탭과 같은 AgentsSource(workspace/agents)의 project 없는 읽기·저장이다.
+// - 모든 project의 LOPHN.md 미리보기: 사람이 읽는 instructions/preview다. [Edit]이 여는 전역 지침 편집기는 shell
+//   (settings 화면)이 연결하므로 openInstructions는 unavailable이다.
+// - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
 // - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
-// - [Add server]: 새 server를 받는 form은 Tools and skills 자리가 갖고 있다. settings 화면이 그 자리로
-//   옮기므로 이 통로의 addServer는 unavailable이다.
+import type { McpServer } from "../../../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { FolderPickerApi } from "../../../../../ipc/folder-picker.ts";
+import { coreAgentsSource } from "../../../../workspace/agents/core-source.ts";
+import { createLink } from "../../../../workspace/agents/core-link.ts";
+import { readGlobalModel } from "../../../../workspace/agents/core-extensions.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { windowFolderPicker } from "../../../launcher/core-source.ts";
-import { call, command } from "../core-call.ts";
+import {
+  call,
+  command,
+  openProtected,
+  type OpenSecretWindow,
+  windowSecretOpener,
+} from "../core-call.ts";
 import {
   applySetting,
   authStates,
@@ -24,49 +33,12 @@ import {
   secretStates,
   SKILL_FOLDERS,
 } from "../extension-settings.ts";
-import { listProviders } from "../providers/core-source.ts";
 import type {
   AgentsSettingsSource,
-  AgentsSettingsView,
-  CatalogModel,
-  DefaultSlot,
-  ModelChoice,
-  OptionAxisRow,
-  ServerRow,
-  ServerStatus,
+  LophnSummary,
+  McpRow,
   SourceResult,
 } from "./settings-source.ts";
-
-interface ChoiceValue {
-  provider: string;
-  model_name: string;
-  option_values: Record<string, string>;
-}
-
-interface DefaultsValue extends Record<DefaultSlot, ChoiceValue | null> {
-  settings_seq: string;
-}
-
-interface CatalogValue {
-  provider_definition: string;
-  model_name: string;
-  options:
-    | {
-      id: string;
-      label: string;
-      values: { value: string; label: string }[];
-      default_value: string | null;
-    }[]
-    | null;
-}
-
-const SLOTS: readonly DefaultSlot[] = [
-  "lophn",
-  "context_engineer",
-  "app_engineer",
-  "operator",
-  "summaries",
-];
 
 interface SkillValue {
   name: string;
@@ -89,36 +61,6 @@ function previewOf(value: PreviewValue | null): string | null {
   return value.truncated ? `${value.text}…` : value.text;
 }
 
-function choiceOf(value: ChoiceValue | null): ModelChoice | null {
-  return value === null ? null : {
-    provider: value.provider,
-    modelName: value.model_name,
-    optionValues: value.option_values,
-  };
-}
-
-function axisOf(
-  axis: NonNullable<CatalogValue["options"]>[number],
-): OptionAxisRow {
-  return {
-    id: axis.id,
-    label: axis.label,
-    values: axis.values.map((entry) => ({
-      value: entry.value,
-      label: entry.label,
-    })),
-    defaultValue: axis.default_value,
-  };
-}
-
-function catalogOf(value: CatalogValue): CatalogModel {
-  return {
-    providerDefinition: value.provider_definition,
-    modelName: value.model_name,
-    options: value.options === null ? null : value.options.map(axisOf),
-  };
-}
-
 /** 줄 밑에 보이는 한 줄: 주소 또는 실행 파일. credential은 싣지 않는다. */
 function detailOf(server: McpServerValue): string {
   return server.transport === "http"
@@ -127,16 +69,16 @@ function detailOf(server: McpServerValue): string {
 }
 
 /**
- * 연결 상태. 끈 server는 off다. OAuth server는 core가 signed_in이라고 읽어 준 것만 쓸 수 있고(상태를 읽지 못했으면
- * 로그인했다고 말하지 않는다), credential이 필요한데 없는 것으로 확인된 server는 needs-sign-in이다. 그 밖은 쓸 수
- * 있다고 본다(실제 연결 시도 결과를 읽는 route는 없다).
+ * 연결 상태. OAuth server는 core가 signed_in이라고 읽어 준 것만 쓸 수 있고(상태를 읽지 못했으면 로그인했다고
+ * 말하지 않는다), credential이 필요한데 없는 것으로 확인된 server는 needs-sign-in이다. 그 밖은 쓸 수 있다고
+ * 본다(실제 연결 시도 결과를 읽는 route는 없다). 끈 server는 상태를 말하지 않는다.
  */
 function statusOf(
   server: McpServerValue,
   states: ReadonlyMap<string, "set" | "missing"> | null,
   logins: ReadonlyMap<string, AuthStateValue> | null,
-): ServerStatus {
-  if (!server.enabled) return "off";
+): McpRow["status"] {
+  if (!server.enabled) return null;
   if (server.http?.auth.kind === "oauth2") {
     return logins?.get(server.name)?.state === "signed_in"
       ? "connected"
@@ -148,8 +90,51 @@ function statusOf(
     : "connected";
 }
 
+/** MCP credential을 담는 보관 이름. 설정의 `sec:` 참조가 같은 이름을 가리킨다. */
+const secretNameOf = (server: string) => `mcp-${server}`;
+
+/** 설정에 저장하는 server 한 줄. 값은 보관 이름 참조뿐이다. */
+function configOf(server: McpServer): Record<string, unknown> {
+  const common = {
+    name: server.name,
+    revision: 1,
+    enabled: true,
+    call_timeout_ms: server.call_timeout_ms,
+    classifications: {},
+  };
+  if (server.transport === "stdio") {
+    return {
+      ...common,
+      transport: "stdio",
+      stdio: { ...server.stdio },
+    };
+  }
+  const auth = server.http.auth;
+  const secret = `sec:${secretNameOf(server.name)}`;
+  return {
+    ...common,
+    transport: "http",
+    http: {
+      url: server.http.url,
+      headers: {},
+      auth: auth.kind === "none"
+        ? { kind: "none" }
+        : auth.kind === "bearer"
+        ? { kind: "bearer", secret_ref: secret }
+        : auth.kind === "api_key"
+        ? {
+          kind: "api_key",
+          secret_ref: secret,
+          header_name: auth.header_name,
+        }
+        : { kind: "none" },
+    },
+  };
+}
+
 export interface AgentsDeps {
   picker: FolderPickerApi | undefined;
+  openWindow: OpenSecretWindow | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */
   random: () => string;
 }
@@ -159,30 +144,36 @@ export function coreAgentsSettingsSource(
   deps: Partial<AgentsDeps> = {},
 ): AgentsSettingsSource {
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
+  const openWindow = "openWindow" in deps
+    ? deps.openWindow
+    : windowSecretOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
+  const link = createLink(core, random);
+  const editor = coreAgentsSource(core);
+
+  /** lophn 카드. 못 읽는 칸은 비워 두고 카드는 그대로 보인다. */
+  async function lophnSummary(): Promise<LophnSummary> {
+    const detail = await editor.readAgent(null, "lophn");
+    const grants = await editor.grants(null, "lophn");
+    const entries = grants.ok ? grants.value.entries : [];
+    return {
+      name: detail.ok ? detail.value.definition.name ?? "lophn" : "lophn",
+      model: detail.ok ? detail.value.definition.model ?? null : null,
+      apps: entries.filter((entry) => entry.kind === "app").length,
+      agents: entries.filter((entry) => entry.kind === "agent").length,
+      mayChangeSettings: entries.some((entry) => entry.kind === "settings"),
+    };
+  }
 
   return {
+    editor,
+
     async read() {
       // core reader는 한 사람의 동시 읽기 수를 제한하므로 하나씩 읽는다.
-      const defaults = await call<{ defaults: DefaultsValue }>(
-        core,
-        "read",
-        "agent-model-defaults",
-        "read",
-        {},
-      );
-      if (!defaults.ok) return defaults;
-      const providers = await listProviders(core);
-      if (!providers.ok) return providers;
-      const catalog = await call<{ entries: CatalogValue[] }>(
-        core,
-        "read",
-        "agent-model-catalog",
-        "read",
-        {},
-      );
-      if (!catalog.ok) return catalog;
-      // 미리보기와 skill 목록은 못 읽으면 그 칸만 비운다.
+      const model = await readGlobalModel(link);
+      if (!model.ok) return { ok: false, code: model.message };
+      const lophn = await lophnSummary();
+      // 미리보기는 못 읽으면 그 칸만 비운다.
       const preview = await call<{ preview: PreviewValue | null }>(
         core,
         "read",
@@ -190,6 +181,31 @@ export function coreAgentsSettingsSource(
         "preview",
         {},
       );
+      return {
+        ok: true,
+        value: {
+          defaultModel: model.value,
+          lophn,
+          instructionsPreview: preview.ok
+            ? previewOf(preview.value.preview)
+            : null,
+        },
+      };
+    },
+
+    async changeDefaultModel(choice) {
+      const changed = await command(core, "model-default", "change", {
+        input: { default: choice },
+        key: `model-default-${random()}`,
+      });
+      return changed.ok ? { ok: true, value: null } : changed;
+    },
+
+    openInstructions: () => Promise.resolve(UNAVAILABLE),
+
+    addServer: () => Promise.resolve(UNAVAILABLE),
+
+    async readExtensions() {
       const skills = await call<{ skills: SkillValue[] }>(
         core,
         "read",
@@ -197,6 +213,7 @@ export function coreAgentsSettingsSource(
         "read",
         {},
       );
+      if (!skills.ok) return skills;
       // 설정을 못 읽으면 server 칸만 비운다.
       const extensions = await readExtensionSettings(core);
       const serverValues = extensions.ok ? extensions.value.servers : [];
@@ -207,54 +224,26 @@ export function coreAgentsSettingsSource(
         ),
       );
       const logins = await authStates(core, serverValues);
-      const servers: ServerRow[] = serverValues.map((server) => ({
-        name: server.name,
-        detail: detailOf(server),
-        enabled: server.enabled,
-        status: statusOf(server, states, logins),
-      }));
-      const view: AgentsSettingsView = {
-        defaults: Object.fromEntries(
-          SLOTS.map((slot) => [slot, choiceOf(defaults.value.defaults[slot])]),
-        ) as AgentsSettingsView["defaults"],
-        settingsSeq: defaults.value.defaults.settings_seq,
-        providers: providers.value.map((row) => ({
-          id: row.id,
-          name: row.name,
-          definition: row.definition.key,
-        })),
-        catalog: catalog.value.entries.map(catalogOf),
-        instructionsPreview: preview.ok
-          ? previewOf(preview.value.preview)
-          : null,
-        skills: skills.ok
-          ? skills.value.skills.map((skill) => ({
+      return {
+        ok: true,
+        value: {
+          skills: skills.value.skills.map((skill) => ({
             name: skill.name,
             detail: skill.description,
-            enabled: skill.enabled,
-          }))
-          : [],
-        servers,
-      };
-      return { ok: true, value: view };
-    },
-
-    async changeDefault(slot, choice, settingsSeq) {
-      const changed = await command(core, "agent-model-defaults", "change", {
-        input: {
-          [slot]: {
-            provider: choice.provider,
-            model_name: choice.modelName,
-            option_values: choice.optionValues,
-          },
+            layer: "global" as const,
+            on: skill.enabled,
+            builtIn: false,
+          })),
+          servers: serverValues.map((server) => ({
+            name: server.name,
+            detail: detailOf(server),
+            layer: "global" as const,
+            on: server.enabled,
+            status: statusOf(server, states, logins),
+          })),
         },
-        compare: { settings_seq: settingsSeq },
-        key: `model-defaults-${slot}-${random()}`,
-      });
-      return changed.ok ? { ok: true, value: null } : changed;
+      };
     },
-
-    openInstructions: () => Promise.resolve(UNAVAILABLE),
 
     async addSkill() {
       if (picker === undefined) return UNAVAILABLE;
@@ -295,7 +284,25 @@ export function coreAgentsSettingsSource(
       return applySetting(core, SKILLS_OFF, off, random);
     },
 
-    addServer: () => Promise.resolve(UNAVAILABLE),
+    async createServer(server) {
+      const current = await readExtensionSettings(core);
+      if (!current.ok) return current;
+      const added = await applySetting(core, MCP_SERVERS, [
+        ...current.value.servers,
+        configOf(server),
+      ], random);
+      if (!added.ok) return added;
+      // key나 token이 필요한 server는 값을 보호 입력으로 받는다. 값은 이 화면을 지나지 않는다.
+      if (server.transport === "http" && server.http.auth.kind !== "none") {
+        // server는 이미 더해졌다. 창을 열지 못해도 더한 일은 되돌리지 않는다.
+        await openProtected(openWindow, {
+          kind: "secret_input",
+          owner: secretNameOf(server.name),
+          purpose: "app_secret",
+        });
+      }
+      return added;
+    },
 
     async setServerEnabled(name, enabled) {
       const current = await readExtensionSettings(core);

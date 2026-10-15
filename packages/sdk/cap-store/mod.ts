@@ -5,4 +5,9 @@ export { migrationOfSql } from "../../protocol/apps/activation/migration.ts";
 export { CapabilityError } from "./errors.ts";
 export type { CapabilityErrorCode } from "./errors.ts";
 export { CAP_HOST, STORE_HOOKS } from "./host.ts";
-export type { ApplyOutcome, RuntimeMode, StoreHooks, StoreHost } from "./host.ts";
+export type {
+  ApplyOutcome,
+  RuntimeMode,
+  StoreHooks,
+  StoreHost,
+} from "./host.ts";

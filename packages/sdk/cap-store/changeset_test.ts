@@ -95,16 +95,21 @@ Deno.test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단
         store.migrate([{
           from: 0,
           to: 1,
-          sql: "create table ok (id integer primary key); create table loose (x text)",
+          sql:
+            "create table ok (id integer primary key); create table loose (x text)",
           loss: [],
         }]),
       CapabilityError,
     );
     assertEquals(error.code, "invalid_input");
-    assertEquals(error.message.startsWith(MIGRATION_PRIMARY_KEY_REQUIRED), true);
+    assertEquals(
+      error.message.startsWith(MIGRATION_PRIMARY_KEY_REQUIRED),
+      true,
+    );
     assertEquals(store.schema(), 0);
     assertEquals(
-      store.db.prepare("select name from sqlite_master where name = 'ok'").get(),
+      store.db.prepare("select name from sqlite_master where name = 'ok'")
+        .get(),
       undefined,
     );
   } finally {

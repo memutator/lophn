@@ -110,20 +110,20 @@ async function sourceFiles(folder: string): Promise<string[]> {
   return found.sort();
 }
 
-// deno fmt·lint에 packages/shell을 통째로 주면 그 아래 ipc 등을 건너뛴다(안에 따로 config가
-// 있는 main 때문이다). root exclude 밖의 바로 아래 폴더를 하나씩 준다.
-async function lintFolders(folder: string): Promise<string[]> {
-  if (folder !== "packages/shell") return [folder];
+// deno fmt·lint에 package 폴더를 통째로 주면 안쪽에 따로 config가 있는 폴더 옆의 file을 건너뛴다
+// (shell/ipc, sdk/cap-store에서 겪었다). 그래서 file을 하나씩 준다.
+async function packageFiles(
+  folder: string,
+  pattern: RegExp,
+): Promise<string[]> {
+  const all = lines(
+    await output(["git", "ls-files", "-co", "--exclude-standard", folder]),
+  );
   const found: string[] = [];
-  for await (const entry of Deno.readDir(folder)) {
-    const path = `${folder}/${entry.name}`;
-    if (!entry.isDirectory) continue;
-    if (
-      DENO_EXCLUDED.some((x) =>
-        `${path}/`.startsWith(x) || entry.name === x.replace("/", "")
-      )
-    ) continue;
-    found.push(path);
+  for (const f of new Set(all)) {
+    if (!pattern.test(f)) continue;
+    if (DENO_EXCLUDED.some((x) => f.startsWith(x))) continue;
+    if (await exists(f)) found.push(f);
   }
   return found.sort();
 }
@@ -142,8 +142,14 @@ async function buildSteps(
   full: boolean,
 ): Promise<{ checks: Step[]; test: Step; skipped: Result[] }> {
   const has = (...names: string[]) => full || names.some((n) => run.has(n));
-  const folders = (await Promise.all(
-    ALL_PACKAGES.filter((p) => run.has(p)).map((p) => lintFolders(FOLDERS[p])),
+  const pkgFolders = ALL_PACKAGES.filter((p) => run.has(p)).map((p) =>
+    FOLDERS[p]
+  );
+  const fmtFiles = (await Promise.all(
+    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js|jsonc?)$/)),
+  )).flat();
+  const lintFiles = (await Promise.all(
+    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js)$/)),
   )).flat();
   const checks: Step[] = [];
   const skipped: Result[] = [];
@@ -153,12 +159,12 @@ async function buildSteps(
   if (full) {
     checks.push({ name: "fmt", commands: [["deno", "fmt", "--check"]] });
     checks.push({ name: "lint", commands: [["deno", "lint"]] });
-  } else if (folders.length > 0) {
+  } else if (pkgFolders.length > 0) {
     checks.push({
       name: "fmt",
-      commands: [["deno", "fmt", "--check", ...folders]],
+      commands: [["deno", "fmt", "--check", ...fmtFiles]],
     });
-    checks.push({ name: "lint", commands: [["deno", "lint", ...folders]] });
+    checks.push({ name: "lint", commands: [["deno", "lint", ...lintFiles]] });
   } else {
     skip("fmt", "돌 package 없음");
     skip("lint", "돌 package 없음");
@@ -254,7 +260,13 @@ async function buildSteps(
   const testArgs = ["deno", "test", "--no-check"];
   if (full) testArgs.push("--parallel");
   testArgs.push("--allow-all", "--permit-no-files");
-  if (!full) testArgs.push(...folders);
+  if (!full) {
+    testArgs.push(
+      ...(await Promise.all(
+        pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
+      )).flat(),
+    );
+  }
   return { checks, test: { name: "test", commands: [testArgs] }, skipped };
 }
 

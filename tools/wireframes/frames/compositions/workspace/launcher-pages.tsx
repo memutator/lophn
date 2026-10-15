@@ -18,8 +18,10 @@ import {
   lophnEntryIcon,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import { Wordmark } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { WireTopBar } from "../../chrome/title-bar.tsx";
+import {
+  TopBar,
+  Wordmark,
+} from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { RegisterPanel } from "./register-panel.tsx";
 import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
 import { APPS, PROJECTS } from "./data.ts";
@@ -38,7 +40,8 @@ function LauncherWindow(
 ) {
   return (
     <div className={launcher.window} data-space="launcher">
-      <WireTopBar
+      <TopBar
+        platform="linux"
         leading={<Wordmark>lophn</Wordmark>}
         trailing={<Entry />}
       />

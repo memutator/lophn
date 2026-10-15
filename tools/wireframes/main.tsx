@@ -5,7 +5,6 @@
 import { createRoot } from "react-dom/client";
 import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
-import "./frames/chrome/chrome.css";
 
 import { FramePage, Gallery } from "./gallery.tsx";
 import { installWindowApi } from "./frames/chrome/window-api.ts";

@@ -3,7 +3,10 @@
 // sidebar·tab strip은 project-window.tsx의 look-alike다.
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { PaletteButton, WireTopBar } from "../chrome/title-bar.tsx";
+import {
+  PaletteButton,
+  TopBar,
+} from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import { Palette, type PaletteItem } from "@lophn/design/components";
@@ -448,7 +451,8 @@ export function ProjectApp(
         />
         <div className={styles.main}>
           <div className={styles.topBar}>
-            <WireTopBar
+            <TopBar
+              platform="linux"
               leading={
                 <div className={styles.leading}>
                   {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}

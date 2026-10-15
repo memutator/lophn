@@ -26,7 +26,10 @@ import {
 import { LauncherButton } from "../../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import menuStyles from "../../../../../packages/design/components/menu/menu.module.css";
 
-import { PaletteButton, WireTopBar } from "../../chrome/title-bar.tsx";
+import {
+  PaletteButton,
+  TopBar,
+} from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { APP_NAME } from "./data.ts";
 import { AccessTab } from "./access-tab.tsx";
 import { ActivityTab } from "./activity-tab.tsx";
@@ -204,7 +207,8 @@ export function AppSpace(props: AppSpaceProps = {}) {
   return (
     <div className={styles.window}>
       <div className={styles.topBar}>
-        <WireTopBar
+        <TopBar
+          platform="linux"
           leading={
             <div className={styles.barLeading}>
               <LauncherButton onLauncher={() => {}} />

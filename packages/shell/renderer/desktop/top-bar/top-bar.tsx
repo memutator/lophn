@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Command } from "lucide-react";
 import { t } from "@lophn/wording";
 import { IconButton, Tooltip } from "@lophn/design/components";
 import { lophnEntryIcon } from "../../icons/mod.ts";
@@ -16,7 +17,7 @@ export interface TopBarProps {
   platform?: WindowPlatform;
 }
 
-// 48px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(144px)을
+// 36px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(46px 셋, 138px)을
 // 직접 그린다. 조작 요소만 끌기에서 뺀다.
 export function TopBar(
   { leading, trailing, platform = currentPlatform() }: TopBarProps,
@@ -49,5 +50,17 @@ export function LophnEntry({ onLophn }: { onLophn: () => void }) {
         onClick={onLophn}
       />
     </Tooltip>
+  );
+}
+
+// 명령 palette 단추. 검색 돋보기는 여러 화면의 검색이 쓰므로 명령 아이콘을 쓴다.
+export function PaletteButton({ onClick }: { onClick?: () => void }) {
+  return (
+    <IconButton
+      icon={Command}
+      label={t("common.button.palette-open")}
+      variant="ghost"
+      onClick={onClick}
+    />
   );
 }

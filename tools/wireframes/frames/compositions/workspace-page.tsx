@@ -6,7 +6,7 @@ import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import { WireTopBar } from "../chrome/title-bar.tsx";
+import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import type { LophnScreen } from "../../../../packages/shell/renderer/desktop/lophn-space/model.ts";
 import {
@@ -74,7 +74,7 @@ export function WorkspaceWithoutProject(
         <div
           className={sideStyles.header}
           style={{
-            height: "var(--wire-title-bar)",
+            height: "var(--window-top-bar)",
             borderBottom: "var(--border-width) solid var(--color-border-base)",
           }}
         >
@@ -160,7 +160,8 @@ export function WorkspaceWithoutProject(
         </ul>
       </nav>
       <div className={styles.main}>
-        <WireTopBar
+        <TopBar
+          platform="linux"
           leading={
             <div className={styles.leading}>
               {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}

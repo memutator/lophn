@@ -3,7 +3,6 @@
 // problems test runner의 mode=test 자식도 같은 묶음을 쓴다.
 import type {
   BrokerServices,
-  InvocationBroker,
   ProblemReportService,
 } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
@@ -19,9 +18,7 @@ import {
 
 export type PreviewBrokerOptions = {
   scope: PreviewScope;
-  // 기록·보고는 child의 mode와 release로 운영과 구별된다. release가 없는 자식은 invocation을
-  // 꾸며 만들지 않는다(invocation broker가 이미 그렇게 한다).
-  invocations?: Pick<InvocationBroker, "submit">;
+  // 보고는 child의 mode와 release로 운영과 구별된다.
   problems?: ProblemReportService;
 };
 
@@ -41,7 +38,6 @@ export function createPreviewBrokerServices(
   const apps = createPreviewAppsService();
   return {
     services: {
-      ...(options.invocations ? { invocations: options.invocations } : {}),
       net: external,
       secrets,
       ...(options.problems ? { problems: options.problems } : {}),

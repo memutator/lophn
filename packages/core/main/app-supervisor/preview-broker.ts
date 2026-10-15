@@ -1,13 +1,11 @@
-// preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret·다른 앱)는
-// 모두 대역이고, 기록(invocation)만 운영과 같은 전달 목록으로 가되 mode로 구별된다. 선언은 그 bundle의
+// preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret)는 모두 대역이다. 선언은 그 bundle의
 // 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
 import { err } from "../../../base/mod.ts";
 import {
-  type AppsConnectService,
   type BrokerServices,
   createProblemReportService,
-  type InvocationBroker,
+  createReadyService,
   type ProblemsReport,
 } from "../../apps/permissions/mod.ts";
 import {
@@ -53,16 +51,16 @@ const closedProblems: ProblemsReport = {
       message: "preview diagnostics are not connected",
     })),
 };
-export function previewServicesFor(
-  scope: PreviewScope,
-  invocations: Pick<InvocationBroker, "submit">,
-): BrokerServices {
+export function previewServicesFor(scope: PreviewScope): BrokerServices {
   const built = createPreviewBrokerServices({
     scope,
-    invocations,
     problems: createProblemReportService({
       problems: closedProblems,
     }),
   });
-  return { ...built.services, apps: built.apps as AppsConnectService };
+  // preview의 DB는 일회용이라 시작 changeset을 어디에도 남기지 않는다. 알림만 받는다.
+  return {
+    ...built.services,
+    ready: createReadyService({ receiver: { ready: () => {} } }),
+  };
 }

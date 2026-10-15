@@ -35,9 +35,6 @@ export type ControlHello = {
   credential: string;
   apiPort: number;
   coreEpoch: string;
-  // 앱 서명 검증 공개 key(raw 32byte의 base64url). hello의 scope.targets로 온다. 감독이
-  // supervisor를 다시 띄워도 hello가 다시 오므로 key를 다시 알릴 별도 통로가 없다.
-  verifyKey: string | undefined;
 };
 
 export type ControlLinkOptions = {
@@ -129,12 +126,10 @@ export function attachControlLink(
             if (credential !== undefined) throw new Error("second hello");
             credential = hello.data.credential;
             apiPort = hello.data.api_port;
-            const key = hello.data.scope.targets.verify_key;
             options.onHello?.({
               credential,
               apiPort,
               coreEpoch: hello.data.core_epoch,
-              verifyKey: typeof key === "string" ? key : undefined,
             });
             await options.send({ type: "ready" });
             continue;

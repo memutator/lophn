@@ -12,6 +12,9 @@ export function recordInput(record: RuntimeRecord): Record<string, unknown> {
       process_nonce: record.process_nonce,
       started_at: record.started_at,
       attestation: record.attestation,
+      ...(record.start_changeset === undefined
+        ? {}
+        : { start_changeset: record.start_changeset }),
     };
   }
   if (record.method === "record_stopped") {

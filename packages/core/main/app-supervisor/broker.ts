@@ -5,23 +5,23 @@
 // 경로를 없애지 않고 서비스의 검사를 지난 뒤 unavailable로 닫는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AppPairConfirmer,
-  type AppPairPreparer,
-  type AppsConnectRequest,
+  type AppCallPort,
   type BrokerAccess,
   type BrokerChild,
   type BrokerHub,
   type BrokerServices,
   type BrokerSession,
-  createAppsConfirmService,
-  createAppsConnectService,
+  createAppsCallService,
   createBrokerEndpoint,
   createBrokerHub,
   createNetFetchService,
   createProblemReportService,
+  createProjectsListService,
+  createReadyService,
   createSecretUseService,
-  type InvocationBroker,
   type ProblemsReport,
+  type ProjectsPort,
+  type ReadyReceiver,
   type RedactionGate,
   type SecretDelivery,
   serveBroker,
@@ -29,8 +29,11 @@ import {
 
 export type BrokerAdapters = {
   access: BrokerAccess;
-  // 앱이 보낸 invocation 후행 기록을 core에 전달한다.
-  invocations: Pick<InvocationBroker, "submit">;
+  // 앱 시작이 DB를 바꿨을 때 앱 process가 `ready`로 보낸 changeset을 받는다.
+  ready: ReadyReceiver;
+  // 다른 앱 호출과 project 목록은 그 자식의 app credential로 core의 호출 경로를 부른다.
+  appCall: AppCallPort;
+  projects: ProjectsPort;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
@@ -38,7 +41,6 @@ export type BrokerAdapters = {
   netScheme?: "https" | "http";
   problems: (child: BrokerChild) => ProblemsReport;
   secrets?: { delivery: SecretDelivery; redaction: RedactionGate };
-  pairs?: { preparer: AppPairPreparer; confirmer: AppPairConfirmer };
 };
 
 const NOT_CONNECTED = "this path is not connected to its platform service";
@@ -52,31 +54,16 @@ const closedSecretDelivery: SecretDelivery = {
 const closedRedaction: RedactionGate = {
   ensure: () => err({ code: "unavailable", message: NOT_CONNECTED }),
 };
-const closedPairs: { preparer: AppPairPreparer; confirmer: AppPairConfirmer } =
-  {
-    preparer: {
-      prepare: (_request: AppsConnectRequest) =>
-        Promise.resolve(err({ code: "unavailable", message: NOT_CONNECTED })),
-    },
-    confirmer: {
-      request: () =>
-        Promise.resolve(err({ code: "unavailable", message: NOT_CONNECTED })),
-      poll: () =>
-        Promise.resolve(err({ code: "unavailable", message: NOT_CONNECTED })),
-    },
-  };
-
 // 자식 하나가 쓰는 broker 서비스들이다. 연결의 신원은 서비스 호출마다 endpoint가 넘긴다.
 export function servicesFor(
   child: BrokerChild,
   adapters: BrokerAdapters,
 ): BrokerServices {
   const ports = adapters.platformPorts();
-  const pairs = adapters.pairs ?? closedPairs;
   const secrets = adapters.secrets ??
     { delivery: closedSecretDelivery, redaction: closedRedaction };
   return {
-    invocations: adapters.invocations,
+    ready: createReadyService({ receiver: adapters.ready }),
     net: createNetFetchService({
       access: adapters.access,
       platformPorts: ports,
@@ -96,8 +83,8 @@ export function servicesFor(
     problems: createProblemReportService({
       problems: adapters.problems(child),
     }),
-    apps: createAppsConnectService({ preparer: pairs.preparer }),
-    appsConfirm: createAppsConfirmService({ confirmer: pairs.confirmer }),
+    appsCall: createAppsCallService({ core: adapters.appCall }),
+    projects: createProjectsListService({ core: adapters.projects }),
   };
 }
 

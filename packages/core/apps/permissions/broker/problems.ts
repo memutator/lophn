@@ -4,9 +4,9 @@
 import { err, type Result } from "../../../../base/mod.ts";
 import {
   brokerProblemObserveInputSchema,
-  brokerProblemReportInputSchema,
   type brokerProblemReportOutputSchema,
 } from "../../../../protocol/apps/mod.ts";
+import { brokerReportProblemInputSchema } from "../../../../protocol/apps/calls/mod.ts";
 import type { z } from "zod";
 import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
@@ -24,12 +24,13 @@ export type ProblemReportRequest = {
   release: string | null;
   mode: BrokerChild["mode"];
   processNonce: string;
-  code: string;
+  // 앱이 정한 problem 이름과 message다.
+  name: string;
+  message: string;
   details?: unknown;
-  trace?: string;
-  // SDK가 전송 전에 고정한 값. 없으면 supervisor가 id·시각을 정한다.
-  reportId?: string;
-  observedAt?: string;
+  // SDK가 전송 전에 고정한 값이다.
+  reportId: string;
+  observedAt: string;
   invocation?: {
     id: string;
     record_missing_reason: { reason: string } | null;
@@ -61,7 +62,7 @@ export function createProblemReportService(deps: {
 }): ProblemReportService {
   return {
     async report(child, body) {
-      const parsed = brokerProblemReportInputSchema.safeParse(body);
+      const parsed = brokerReportProblemInputSchema.safeParse(body);
       if (!parsed.success) return invalid("problem report input is invalid");
       const input = parsed.data;
       return await deps.problems.report({
@@ -69,13 +70,11 @@ export function createProblemReportService(deps: {
         release: child.release,
         mode: child.mode,
         processNonce: child.processNonce,
-        code: input.code,
+        name: input.name,
+        message: input.message,
         ...(input.details === undefined ? {} : { details: input.details }),
-        ...(input.trace === undefined ? {} : { trace: input.trace }),
-        ...(input.report_id === undefined ? {} : { reportId: input.report_id }),
-        ...(input.observed_at === undefined
-          ? {}
-          : { observedAt: input.observed_at }),
+        reportId: input.report_id,
+        observedAt: input.observed_at,
         ...(input.invocation === undefined
           ? {}
           : { invocation: input.invocation }),

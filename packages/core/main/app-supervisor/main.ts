@@ -12,13 +12,10 @@ import { procRssReader } from "../../apps/runtime/observations/memory.ts";
 import { attachControlLink } from "../../apps/runtime/supervisor/mod.ts";
 import { assembleSupervisor } from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
-import {
-  createCoreSender,
-  createSupervisorDelivery,
-} from "../../apps/invocations/delivery/sender.ts";
 import { createPreparationService } from "../../apps/releases/preparation.ts";
 import { createChildPreparationRunner } from "./release-runner.ts";
 import { createChildDataRunner } from "./data-runner.ts";
+import { unixControlTransport } from "./control-http.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -52,8 +49,8 @@ const port: { value: number } = { value: 0 };
 // 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
-// 앱의 두 socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
-function placeOf(app: string): { broker: string; direct: string } {
+// 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
+function placeOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
   if (slot === undefined) {
     slot = slots.size;
@@ -70,13 +67,13 @@ function placeOf(app: string): { broker: string; direct: string } {
   if (!created.ok) throw new Error(created.error.message);
   const made = slotSockets(created.value.directory, slot);
   if (!made.ok) throw new Error(made.error.message);
-  return { broker: made.value.brokerSocket, direct: made.value.directSocket };
+  return { broker: made.value.brokerSocket, control: made.value.controlSocket };
 }
 
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다.
-function socketPathsOf(app: string): { broker: string; direct: string } {
+function socketPathsOf(app: string): { broker: string; control: string } {
   const made = placeOf(app);
-  for (const path of [made.broker, made.direct]) {
+  for (const path of [made.broker, made.control]) {
     try {
       Deno.removeSync(path);
     } catch { /* 없으면 지울 것이 없다 */ }
@@ -92,16 +89,6 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
-// 앱이 broker로 보낸 invocation 기록을 응답 뒤 유한한 목록으로 core에 전달한다. broker 서비스
-// (permissions/broker)가 `delivery.broker.submit`을 부른다. 진단 frame도 같은 pipe 쓰기 줄을 쓴다.
-const delivery = createSupervisorDelivery({
-  clock: systemClock,
-  send: createCoreSender({
-    baseUrl: () => `http://127.0.0.1:${port.value}`,
-    token: () => credential.value,
-  }),
-  write: (frame) => void writeFrame(frame),
-});
 const credential: { value: string } = { value: "" };
 
 // release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 좁은 권한의
@@ -127,9 +114,6 @@ const assembled = assembleSupervisor({
         `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`,
     }),
   }),
-  childExited: (nonce) => delivery.childExited(nonce),
-  // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다.
-  invocations: delivery.broker,
   clock: systemClock,
   ids: createIdSource({
     clock: systemClock,
@@ -145,8 +129,6 @@ const assembled = assembleSupervisor({
     ...(Deno.env.get("PATH") ? { path: Deno.env.get("PATH") } : {}),
   },
   socketPaths: socketPathsOf,
-  // app.call 대상의 direct socket 자리다. 대상이 지금 듣고 있을 수 있어 파일은 지우지 않는다.
-  directSocketOf: (app) => placeOf(app).direct,
   nonce: () => crypto.randomUUID(),
   wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   spawn: (launch) => spawnApp(launch),
@@ -164,30 +146,7 @@ const assembled = assembleSupervisor({
     );
     return { status: response.status, body: await readBody(response) };
   },
-  async direct(endpoint, request) {
-    // 앱 socket HTTP다. 가상 host lophn.invalid만 쓴다.
-    const client = Deno.createHttpClient({
-      proxy: { transport: "unix", path: endpoint },
-    });
-    try {
-      const response = await fetch(`http://lophn.invalid${request.path}`, {
-        client,
-        method: request.method,
-        headers: {
-          authorization: request.authorization,
-          ...(request.body === undefined
-            ? {}
-            : { "content-type": "application/json" }),
-        },
-        ...(request.body === undefined
-          ? {}
-          : { body: JSON.stringify(request.body) }),
-      });
-      return { status: response.status, body: await readBody(response) };
-    } finally {
-      client.close();
-    }
-  },
+  control: unixControlTransport,
   send,
   rss: procRssReader(),
 });
@@ -201,7 +160,6 @@ const link = attachControlLink(assembled.supervisor, stdin, {
     assembled.onHello({
       credential: hello.credential,
       apiPort: hello.apiPort,
-      verifyKey: hello.verifyKey,
     });
   },
   onCredential: (response) => assembled.onCredential(response),

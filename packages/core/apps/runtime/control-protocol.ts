@@ -4,6 +4,14 @@
 // 이 모양으로만 말한다.
 import { z } from "zod";
 import { bundleManifestSchema } from "../../../protocol/apps/mod.ts";
+import {
+  appApiTargetSchema,
+  processApplyRequestSchema,
+  processApplyResponseSchema,
+  processCallRequestSchema,
+  processCallResponseSchema,
+} from "../../../protocol/apps/calls/mod.ts";
+import { errorBodySchema } from "../../../protocol/base/mod.ts";
 import { LIMIT_KEYS } from "../permissions/mod.ts";
 
 export const SUPERVISOR_OPS = {
@@ -17,8 +25,10 @@ export const SUPERVISOR_OPS = {
   restart: "apps.restart",
   // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다.
   block: "apps.block",
-  // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
-  viewClosed: "apps.view_closed",
+  // core가 앱 process에 보내는 호출 하나와 뒤집은 changeset 적용. supervisor는 그 process의
+  // control socket으로 중계만 한다.
+  call: "apps.call",
+  apply: "apps.apply",
   // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
   // 활성 참조를 건드리지 않는다(apps/preview).
   previewStart: "apps.preview_start",
@@ -208,8 +218,23 @@ export const releaseCancelOutputSchema = z.strictObject({
   accepted: z.literal(true),
 });
 
-export const viewClosedInputSchema = z.strictObject({
-  app: appId,
-  view_session: z.string().min(1).refine((value) => !/\p{Cc}/u.test(value)),
+// 호출 중계. 앱에 보내지 못했으면 `sent: false`, 보낸 뒤 연결이 끊기거나 시간이 넘으면 `response: null`이다.
+export const callInputSchema = z.strictObject({
+  target: appApiTargetSchema,
+  request: processCallRequestSchema,
 });
-export const viewClosedOutputSchema = z.strictObject({ relayed: z.boolean() });
+export const callOutputSchema = z.discriminatedUnion("sent", [
+  z.strictObject({
+    sent: z.literal(false),
+    error: errorBodySchema.shape.error,
+  }),
+  z.strictObject({
+    sent: z.literal(true),
+    response: processCallResponseSchema.nullable(),
+  }),
+]);
+export const applyInputSchema = z.strictObject({
+  app: appId,
+  request: processApplyRequestSchema,
+});
+export const applyOutputSchema = processApplyResponseSchema;

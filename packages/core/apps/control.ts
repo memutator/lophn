@@ -963,7 +963,7 @@ export async function createAppsControl(
     }
   };
 
-  const viewClosed: MemoryHandler = async (ctx, value) => {
+  const viewClosed: MemoryHandler = (ctx, value) => {
     const input = value as AppViewClosedInput;
     if (!deps.revalidate(ctx.credential_ref).ok) {
       return err({ code: "unauthorized", message: "credential unavailable" });
@@ -974,8 +974,8 @@ export async function createAppsControl(
     if (!allowed.ok) {
       return err({ code: "not_found", message: "app not found" });
     }
-    const relayed = await client.viewClosed(input.app, input.view_session);
-    return relayed.ok ? ok({ relayed: relayed.value }) : relayed;
+    // 닫힌 view를 앱 process에 알리는 길은 없어졌다(control socket은 core 호출만 받는다).
+    return ok({ relayed: false });
   };
 
   async function sweep(): Promise<void> {

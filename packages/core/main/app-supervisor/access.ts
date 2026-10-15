@@ -104,7 +104,7 @@ export function createCoreBrokerAccess(deps: {
       };
       const state: AccessState = {
         release: view.release,
-        // 다른 앱의 command 목록은 이 broker가 쓰지 않는다. 앱 쌍 범위는 core의 준비 서비스가 정한다.
+        // 다른 앱 호출은 이 범위를 쓰지 않는다. core의 호출 경로(Gate)가 판정한다.
         scope: effectiveScope({
           app,
           declarations,
@@ -115,32 +115,5 @@ export function createCoreBrokerAccess(deps: {
       };
       return ok(state);
     },
-  };
-}
-
-// 이 앱이 부를 수 있는 다른 앱이다: 현재 선언한 app_connections 가운데 사람이 허락한 app.call grant가
-// 있는 대상. 앱 자식의 Deno 허락에 그 대상의 direct socket을 더하는 근거이고,
-// 실제로 부를 수 있는 command는 준비 서비스가 현재 target 프로세스와 맞춰 다시 정한다.
-export function createCoreAppCallTargets(deps: {
-  post: CorePost;
-  bearer: () => string;
-}): (app: string) => Promise<Result<string[]>> {
-  return async (app) => {
-    const loaded = await load(deps, app);
-    if (!loaded.ok) return loaded;
-    if (loaded.value === null) return ok([]);
-    const { declared: view, grants } = loaded.value;
-    const targets = new Set<string>();
-    for (const connection of view.declarations.app_connections) {
-      const allowed = grants.some((grant) =>
-        grant.status === "active" && grant.scope.kind === "app.call" &&
-        grant.scope.app === connection.app &&
-        grant.scope.app_apis.some((command) =>
-          connection.commands.includes(command)
-        )
-      );
-      if (allowed) targets.add(connection.app);
-    }
-    return ok([...targets].sort());
   };
 }

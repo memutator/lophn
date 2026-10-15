@@ -436,7 +436,7 @@ export async function createRealAppDriver(
         bundle: options.bundle,
         data: options.data,
         brokerSocket: input.sockets.broker,
-        directSocket: options.direct,
+        controlSocket: options.direct,
       },
       { ports: [] },
       [],

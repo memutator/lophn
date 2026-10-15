@@ -21,9 +21,21 @@ export type {
   AppChild,
   AppObservation,
   CandidateStart,
+  ControlTarget,
   DesiredApp,
   ProbeResult,
   Supervisor,
   SupervisorDeps,
   SupervisorEvent,
 } from "./supervisor.ts";
+export {
+  APPLY_TIMEOUT_MS,
+  CALL_RESPONSE_MAX_BYTES,
+  CALL_TIMEOUT_MS,
+  type CallOutput,
+  type ControlReply,
+  type ControlRequest,
+  type ControlTransport,
+  createRelay,
+  type Relay,
+} from "./relay.ts";

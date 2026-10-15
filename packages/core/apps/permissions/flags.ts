@@ -23,13 +23,14 @@ export const LIMIT_KEYS = [
 
 export type LimitKey = (typeof LIMIT_KEYS)[number];
 
-// 두 socket은 supervisor가 시작마다 새로 정한다. 정해진 값이 있으면 결과에 넣고, 없으면
-// supervisor가 `socketFlags`로 띄울 때 더한다.
+// 앱 process가 여는 socket은 broker socket 하나와 control socket 하나뿐이다. 둘은 supervisor가
+// 시작마다 새로 정한다. 정해진 값이 있으면 결과에 넣고, 없으면 supervisor가 `socketFlags`로 띄울 때 더한다.
+// 다른 앱의 socket에는 닿지 못한다(앱 사이 호출은 broker를 지나 core가 중계한다).
 export type AppPaths = {
   bundle: string;
   data: string;
   brokerSocket?: string;
-  directSocket?: string;
+  controlSocket?: string;
 };
 
 export type PlatformPorts = {
@@ -126,7 +127,7 @@ export function appFlags(
 
   const read = fsOf(ordered.value, "fs.read");
   const write = fsOf(ordered.value, "fs.write");
-  const sockets = [app.brokerSocket, app.directSocket].filter((path) =>
+  const sockets = [app.brokerSocket, app.controlSocket].filter((path) =>
     path !== undefined
   );
   const allowRead = [app.bundle, app.data, ...sockets, ...read.allow];
@@ -150,7 +151,7 @@ export function appFlags(
     flag("allow-write", allowWrite),
     flag("deny-read", denyRead),
     flag("deny-write", denyWrite),
-    // 앱 두 socket과 가상 host만 연다. net.fetch grant는 Deno flag가 아니라 broker가 강제하므로
+    // broker·control socket과 가상 host만 연다. net.fetch grant는 Deno flag가 아니라 broker가 강제하므로
     // 외부 host는 이 flag에 없다. --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
     sockets.length === 2
       ? flag("allow-net", [
@@ -169,12 +170,12 @@ export function appFlags(
   return ok({ args, limits: LIMIT_KEYS });
 }
 
-// 시작마다 새로 정한 두 socket의 Deno flag. 읽기·쓰기에 더해 socket 듣기·연결과 가상 host의 net
+// 시작마다 새로 정한 broker·control socket의 Deno flag. 읽기·쓰기에 더해 socket 듣기·연결과 가상 host의 net
 // 허락이다. 외부 host는 넣지 않는다. 같은 flag 이름을 여러 번 주면 Deno가 합친다(Deno 2.9.7 실측).
 export function socketFlags(
-  sockets: { brokerSocket: string; directSocket: string },
+  sockets: { brokerSocket: string; controlSocket: string },
 ): Result<string[]> {
-  const paths = [sockets.brokerSocket, sockets.directSocket];
+  const paths = [sockets.brokerSocket, sockets.controlSocket];
   const read = flag("allow-read", paths);
   if (!read.ok) return read;
   const write = flag("allow-write", paths);
@@ -183,22 +184,6 @@ export function socketFlags(
     SOCKET_HOST,
     ...paths.map((path) => `unix:${path}`),
   ]);
-  if (!net.ok) return net;
-  return ok([read.value!, write.value!, net.value!]);
-}
-
-// 이 앱이 부를 수 있는 다른 앱의 direct socket에 닿는 Deno flag다. source 앱 자식은
-// 자기 두 socket만 열려 있어 target의 direct socket에 연결하면 NotCapable이다. 허락은 그 target의
-// 고정 자리 socket의 읽기·쓰기·연결이고 외부 host나 broker socket은 넣지 않는다.
-export function pairSocketFlags(
-  directSockets: readonly string[],
-): Result<string[]> {
-  if (directSockets.length === 0) return ok([]);
-  const read = flag("allow-read", directSockets);
-  if (!read.ok) return read;
-  const write = flag("allow-write", directSockets);
-  if (!write.ok) return write;
-  const net = flag("allow-net", directSockets.map((path) => `unix:${path}`));
   if (!net.ok) return net;
   return ok([read.value!, write.value!, net.value!]);
 }

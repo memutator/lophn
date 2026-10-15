@@ -3,33 +3,34 @@
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
-import type { BrokerChild, InvocationBroker } from "./invocations.ts";
+import { APP_BROKER_PATHS } from "../../../../protocol/apps/calls/mod.ts";
+import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
 import type { ProblemReportService } from "./problems.ts";
-import type { AppsConnectService } from "./apps-connect.ts";
-import type { AppsConfirmService } from "./apps-confirm.ts";
+import type { ReadyService } from "./ready.ts";
+import type { AppsCallService } from "./apps-call.ts";
+import type { ProjectsListService } from "./projects.ts";
 
 export const BROKER_ROUTES = {
-  invocationsSubmit: "/_lophn/broker/invocations/submit",
+  ready: "/_lophn/broker/ready",
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
-  problemsReport: "/_lophn/broker/problems/report",
+  problemsReport: APP_BROKER_PATHS.problemsReport,
   problemsObserve: "/_lophn/broker/problems/observe-exception",
-  appsConnect: "/_lophn/broker/apps/connect",
-  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
-  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
+  appsCall: APP_BROKER_PATHS.call,
+  projectsList: APP_BROKER_PATHS.projects,
 } as const;
 
 export const BROKER_BODY_MAX_BYTES = 1_048_576;
 
 export type BrokerServices = {
-  invocations?: Pick<InvocationBroker, "submit">;
+  ready?: ReadyService;
   net?: NetFetchService;
   secrets?: SecretUseService;
   problems?: ProblemReportService;
-  apps?: AppsConnectService;
-  appsConfirm?: AppsConfirmService;
+  appsCall?: AppsCallService;
+  projects?: ProjectsListService;
 };
 
 export type BrokerSession = {
@@ -49,18 +50,11 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const {
-    invocations,
-    net,
-    secrets,
-    problems,
-    apps,
-    appsConfirm,
-  } = services;
-  if (invocations) {
+  const { ready, net, secrets, problems, appsCall, projects } = services;
+  if (ready) {
     table.set(
-      BROKER_ROUTES.invocationsSubmit,
-      (child, body) => Promise.resolve(invocations.submit(child, body)),
+      BROKER_ROUTES.ready,
+      (child, body) => Promise.resolve(ready.ready(child, body)),
     );
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
@@ -72,13 +66,11 @@ function routes(services: BrokerServices): Map<string, Handler> {
       table.set(BROKER_ROUTES.problemsObserve, (c, b) => observe(c, b));
     }
   }
-  if (apps) table.set(BROKER_ROUTES.appsConnect, (c, b) => apps.connect(c, b));
-  if (appsConfirm) {
-    table.set(
-      BROKER_ROUTES.appsConfirmRequest,
-      (c, b) => appsConfirm.request(c, b),
-    );
-    table.set(BROKER_ROUTES.appsConfirmPoll, (c, b) => appsConfirm.poll(c, b));
+  if (appsCall) {
+    table.set(BROKER_ROUTES.appsCall, (c, b) => appsCall.call(c, b));
+  }
+  if (projects) {
+    table.set(BROKER_ROUTES.projectsList, (c, b) => projects.list(c, b));
   }
   return table;
 }

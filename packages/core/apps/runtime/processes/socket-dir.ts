@@ -12,7 +12,7 @@ export type SocketDirError = { code: "invalid_input"; message: string };
 export type SocketDirectory = {
   directory: string;
   brokerSocket: string;
-  directSocket: string;
+  controlSocket: string;
 };
 
 export type SocketDirDeps = {
@@ -47,14 +47,14 @@ export function createSocketDirectory(
     ? `${deps.xdgRuntimeDir}/lophn`
     : `${deps.tempParent}/lophn-${deps.uid}`;
   const brokerSocket = `${directory}/b-${deps.randomName()}.sock`;
-  const directSocket = `${directory}/a-${deps.randomName()}.sock`;
-  for (const path of [directory, brokerSocket, directSocket]) {
+  const controlSocket = `${directory}/a-${deps.randomName()}.sock`;
+  for (const path of [directory, brokerSocket, controlSocket]) {
     if (byteLength(path) >= SOCKET_PATH_MAX_BYTES) {
       return fail("socket path exceeds the byte limit");
     }
   }
   deps.ensureDir(directory, MODE);
-  return ok({ directory, brokerSocket, directSocket });
+  return ok({ directory, brokerSocket, controlSocket });
 }
 
 // 앱 socket 자리의 수. Deno의 net 허락은 `unix:<정확한 경로>`뿐이라(폴더 prefix도 와일드카드도
@@ -66,18 +66,18 @@ export const SOCKET_SLOTS = APP_SOCKET_SLOTS;
 export function slotSockets(
   directory: string,
   slot: number,
-): Result<{ brokerSocket: string; directSocket: string }, SocketDirError> {
+): Result<{ brokerSocket: string; controlSocket: string }, SocketDirError> {
   if (!Number.isInteger(slot) || slot < 0 || slot >= SOCKET_SLOTS) {
     return fail("socket slot is out of range");
   }
   const brokerSocket = appBrokerSocketPath(directory, slot);
-  const directSocket = appDirectSocketPath(directory, slot);
-  for (const path of [brokerSocket, directSocket]) {
+  const controlSocket = appDirectSocketPath(directory, slot);
+  for (const path of [brokerSocket, controlSocket]) {
     if (byteLength(path) >= SOCKET_PATH_MAX_BYTES) {
       return fail("socket path exceeds the byte limit");
     }
   }
-  return ok({ brokerSocket, directSocket });
+  return ok({ brokerSocket, controlSocket });
 }
 
 // 허락 목록용: 모든 자리의 socket 경로.
@@ -85,7 +85,7 @@ export function allSlotSockets(directory: string): string[] {
   const paths: string[] = [];
   for (let slot = 0; slot < SOCKET_SLOTS; slot++) {
     const made = slotSockets(directory, slot);
-    if (made.ok) paths.push(made.value.brokerSocket, made.value.directSocket);
+    if (made.ok) paths.push(made.value.brokerSocket, made.value.controlSocket);
   }
   return paths;
 }

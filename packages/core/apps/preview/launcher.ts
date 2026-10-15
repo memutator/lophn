@@ -3,6 +3,7 @@
 // 확인한 뒤 뜬다. 운영 자식·record_* 사실·재시작 정책·automation clock은 여기 없다. 운영 core에
 // 아무것도 기록하지 않는다. 입출력은 모두 주입받는다.
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
+import type { AppProcessStartInput } from "../../../protocol/apps/calls/mod.ts";
 import {
   type AppChild,
   type AppEnvironment,
@@ -41,7 +42,7 @@ export type PreviewSpawnRequest = {
   app: string;
   release: string | null;
   nonce: string;
-  sockets: { brokerSocket: string; directSocket: string };
+  sockets: { brokerSocket: string; controlSocket: string };
   deno: string;
   entry: string;
   flags: FlagSet;
@@ -63,7 +64,7 @@ export type PreviewLauncherDeps = {
   deno: () => string;
   environment: AppEnvironment;
   // preview 자식의 두 socket. 같은 앱은 같은 자리를 쓴다(이전 자식 종료 확인 뒤에만 다시 쓴다).
-  socketPaths: (app: string) => { broker: string; direct: string };
+  socketPaths: (app: string) => { broker: string; control: string };
   // 자식이 broker에 보이는 credential. 운영 앱 자식·supervisor의 credential이 아니다.
   credential: (request: {
     app: string;
@@ -71,22 +72,21 @@ export type PreviewLauncherDeps = {
     nonce: string;
     bundleHash: string;
   }) => Promise<string> | string;
-  verifyKey: () => string;
   spawn: (request: PreviewSpawnRequest) => Promise<AppChild>;
   probe: (
     child: AppChild,
-    direct: string,
+    control: string,
     launch: PreviewLaunch,
   ) => Promise<PreviewProbe> | PreviewProbe;
   open?: (
     child: AppChild,
-    direct: string,
+    control: string,
     launch: PreviewLaunch,
   ) => Promise<boolean>;
   // 새 호출을 닫고 종료를 요청한다. 없으면 유예 없이 바로 강제 종료한다.
   requestStop?: (
     child: AppChild,
-    direct: string,
+    control: string,
     launch: PreviewLaunch,
   ) => Promise<void>;
   // 자식의 broker 통로를 연다. 돌려준 함수가 그 통로를 닫는다. 이 자리에 올리는 서비스는
@@ -108,6 +108,8 @@ export type PreviewLauncher = {
   observation(app: string, nonce: string): ObservationWire | null;
   // 정지 확인 뒤 true. 모르는 nonce면 false, 종료를 확인하지 못하면 unavailable이다.
   stop(app: string, nonce: string): Promise<Result<boolean>>;
+  // 호출을 중계할 수 있는 그 nonce의 control socket. probe와 open을 마친 살아 있는 preview만이다.
+  control(app: string, nonce: string): string | undefined;
   // supervisor가 멈추거나 core 연결이 끊겼다. 모든 preview를 끝낸다.
   stopAll(): Promise<void>;
 };
@@ -118,7 +120,7 @@ const READY_TIMEOUT_MS = 30_000;
 type Entry = {
   launch: PreviewLaunch;
   child: AppChild | undefined;
-  direct: string;
+  control: string;
   // 종료를 요청했거나 만들기 전에 취소됐다.
   intended: boolean;
   probed: boolean;
@@ -132,11 +134,10 @@ type AppSlot = { entry: Entry | undefined; pending: Promise<void> };
 function startLine(input: {
   launch: PreviewLaunch;
   broker: string;
-  direct: string;
+  control: string;
   credential: string;
-  verifyKey: string;
 }): string {
-  return JSON.stringify({
+  const line: AppProcessStartInput = {
     app: input.launch.app,
     // 준비 전 bundle이면 null이다. 가짜 release를 만들지 않는다.
     release: input.launch.release,
@@ -144,11 +145,11 @@ function startLine(input: {
     mode: "preview",
     process_nonce: input.launch.nonce,
     broker_socket: input.broker,
-    direct_socket: input.direct,
+    control_socket: input.control,
     data_path: input.launch.dataPath,
     broker_credential: input.credential,
-    verify_key: input.verifyKey,
-  });
+  };
+  return JSON.stringify(line);
 }
 
 export function createPreviewLauncher(
@@ -183,7 +184,7 @@ export function createPreviewLauncher(
     // supervisor가 멈추거나 core가 끊긴 때는 진행 호출이 끝나기를 기다리지 않고 바로 끝낸다.
     if (graceful && deps.requestStop && entry.probed) {
       try {
-        await deps.requestStop(child, entry.direct, entry.launch);
+        await deps.requestStop(child, entry.control, entry.launch);
       } catch { /* 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다 */ }
       await Promise.race([
         child.exited,
@@ -231,14 +232,17 @@ export function createPreviewLauncher(
       startedAtMs: deps.clock.nowMs(),
       processNonce: launch.nonce,
     };
-    entry.direct = sockets.direct;
+    entry.control = sockets.control;
     let child: AppChild;
     try {
       child = await deps.spawn({
         app: launch.app,
         release: launch.release,
         nonce: launch.nonce,
-        sockets: { brokerSocket: sockets.broker, directSocket: sockets.direct },
+        sockets: {
+          brokerSocket: sockets.broker,
+          controlSocket: sockets.control,
+        },
         deno: deps.deno(),
         entry: launch.entry,
         flags: launch.flags,
@@ -247,9 +251,8 @@ export function createPreviewLauncher(
         startLine: startLine({
           launch,
           broker: sockets.broker,
-          direct: sockets.direct,
+          control: sockets.control,
           credential,
-          verifyKey: deps.verifyKey(),
         }),
         identity,
       });
@@ -279,7 +282,7 @@ export function createPreviewLauncher(
       return;
     }
     const probe = await Promise.race([
-      deps.probe(child, sockets.direct, launch),
+      deps.probe(child, sockets.control, launch),
       deps.wait(timeout).then(() => ({
         ok: false as const,
         reason: "ready timeout",
@@ -311,7 +314,7 @@ export function createPreviewLauncher(
     if (deps.open) {
       let opened = false;
       try {
-        opened = await deps.open(child, sockets.direct, launch);
+        opened = await deps.open(child, sockets.control, launch);
       } catch {
         opened = false;
       }
@@ -357,8 +360,8 @@ export function createPreviewLauncher(
       mode: "preview",
       bundle_hash: entry.launch.bundleHash,
       process_nonce: entry.launch.nonce,
-      // 자식이 없으면 연결할 곳이 없다.
-      endpoint: entry.child === undefined ? "" : entry.direct,
+      // 관측 wire 계약이 아직 요구하는 칸이다. 연결 주소는 더 이상 core에 알리지 않는다.
+      endpoint: "",
       commands: [...entry.launch.commands],
       screens: { ...(entry.launch.screens ?? {}) },
       ready,
@@ -392,7 +395,7 @@ export function createPreviewLauncher(
       const entry: Entry = {
         launch,
         child: undefined,
-        direct: "",
+        control: "",
         intended: false,
         probed: false,
         opened: false,
@@ -418,6 +421,15 @@ export function createPreviewLauncher(
       const entry = slots.get(app)?.entry;
       if (entry === undefined || entry.launch.nonce !== nonce) return null;
       return wireOf(entry);
+    },
+    control(app, nonce) {
+      const entry = slots.get(app)?.entry;
+      if (
+        entry === undefined || entry.launch.nonce !== nonce ||
+        entry.child === undefined || entry.intended || !entry.probed ||
+        !entry.opened
+      ) return undefined;
+      return entry.control;
     },
     async stop(app, nonce) {
       const slot = slots.get(app);

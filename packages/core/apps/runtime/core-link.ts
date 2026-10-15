@@ -16,6 +16,8 @@ export type RuntimeRecord =
       process_nonce: string;
       connection_ok: true;
     };
+    // 앱 시작이 DB를 바꿨을 때 앱 process가 ready로 보낸 changeset(base64).
+    start_changeset?: string;
   }
   | {
     method: "record_stopped";

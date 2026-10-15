@@ -2,7 +2,8 @@
 // control-protocol의 op를 보내고 답을 요청 id로 맞춘다. 연결(pipe)은 core 조립이 `bind`로
 // 넣고, supervisor가 없거나 답하지 않으면 모든 요청이 unavailable이다. core는 supervisor의
 // 메모리를 직접 읽지 않고 이 질의로만 현재 관측을 얻는다.
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
+import type { AppProcessLink } from "../ports.ts";
 import type {
   RuntimeObservation,
   RuntimeReason,
@@ -17,7 +18,9 @@ import {
   activationPauseOutputSchema,
   activationPrepareOutputSchema,
   activationResumeOutputSchema,
+  applyOutputSchema,
   blockOutputSchema,
+  callOutputSchema,
   dataJobOutputSchema,
   logsOutputSchema,
   type LogsWire,
@@ -32,9 +35,9 @@ import {
   type ReleasePreparationWire,
   restartOutputSchema,
   SUPERVISOR_OPS,
-  viewClosedOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
+import { APPLY_TIMEOUT_MS, CALL_TIMEOUT_MS } from "./supervisor/relay.ts";
 
 const REQUEST_TIMEOUT_MS = 5_000;
 // 재시작은 이전 자식의 정지 유예(10초)와 종료 확인까지 기다린다.
@@ -47,6 +50,9 @@ const RELEASE_CANCEL_TIMEOUT_MS = 30_000;
 const ACTIVATION_TIMEOUT_MS = 90_000;
 // data worker 작업은 backup·migration·restore가 끝날 때까지 기다린다.
 const DATA_JOB_TIMEOUT_MS = 300_000;
+// 호출·적용은 supervisor가 앱 process를 기다리는 시간에 pipe 왕복 여유를 더한다.
+const CALL_REQUEST_TIMEOUT_MS = CALL_TIMEOUT_MS + 5_000;
+const APPLY_REQUEST_TIMEOUT_MS = APPLY_TIMEOUT_MS + 5_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -81,10 +87,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   let send: ((payload: unknown) => Promise<boolean>) | null = null;
   let counter = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  // 보낸 요청이 답 없이 끝났다. 앱 process까지 갔을 수 있다(`details.sent`).
+  const SENT = { sent: true };
   function failPending(message: string) {
     for (const [id, settle] of [...pending]) {
       pending.delete(id);
-      settle(err({ code: "unavailable", message }));
+      settle(err({ code: "unavailable", message, details: SENT }));
     }
   }
   return {
@@ -104,6 +112,7 @@ export function createSupervisorChannel(): SupervisorChannel {
           resolve(err({
             code: "unavailable",
             message: "app supervisor did not answer in time",
+            details: SENT,
           }));
         }, timeoutMs);
         pending.set(id, (answer) => {
@@ -192,8 +201,6 @@ export type SupervisorClient = {
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
   // 그 앱의 broker 연결을 새 요청부터 막고 막은 연결 수를 돌려준다.
   block(app: string): Promise<Result<number>>;
-  // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
-  viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
   // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).
   previewStart(launch: PreviewLaunch): Promise<Result<void>>;
   previewObserve(
@@ -278,16 +285,6 @@ export function createSupervisorClient(
         await channel.request(SUPERVISOR_OPS.block, { app }),
       );
       return answer.ok ? ok(answer.value.blocked) : answer;
-    },
-    async viewClosed(app, viewSession) {
-      const answer = shaped(
-        viewClosedOutputSchema,
-        await channel.request(SUPERVISOR_OPS.viewClosed, {
-          app,
-          view_session: viewSession,
-        }),
-      );
-      return answer.ok ? ok(answer.value.relayed) : answer;
     },
     async previewStart(launch) {
       const answer = shaped(
@@ -414,6 +411,51 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(undefined) : answer;
+    },
+  };
+}
+
+// core가 앱 process를 부르는 길이다. supervisor 제어 pipe의 `apps.call`·`apps.apply`를 보낸다.
+// supervisor가 없거나 앱에 보내기 전에 거절하면 `sent: false`이고, 보낸 뒤 답이 끊기면 `response: null`이다.
+export function createAppProcessLink(
+  channel: SupervisorChannel,
+): AppProcessLink {
+  return {
+    async call(target, request) {
+      const answer = await channel.request(
+        SUPERVISOR_OPS.call,
+        { target, request },
+        CALL_REQUEST_TIMEOUT_MS,
+      );
+      if (!answer.ok) {
+        // pipe 쪽에서 끊기거나 시간이 넘은 요청은 supervisor가 앱까지 보냈는지 모른다.
+        return answer.error.details?.sent === true
+          ? { sent: true, response: null }
+          : { sent: false, error: answer.error };
+      }
+      const parsed = callOutputSchema.safeParse(answer.value);
+      if (!parsed.success) {
+        return {
+          sent: false,
+          error: {
+            code: "unavailable",
+            message: "app supervisor answered badly",
+          } satisfies LophnError,
+        };
+      }
+      return parsed.data.sent
+        ? { sent: true, response: parsed.data.response }
+        : { sent: false, error: parsed.data.error };
+    },
+    async apply(app, request) {
+      return shaped(
+        applyOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.apply,
+          { app, request },
+          APPLY_REQUEST_TIMEOUT_MS,
+        ),
+      );
     },
   };
 }

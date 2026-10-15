@@ -85,6 +85,16 @@ function cyclicEdges(edges: Edge[]): Edge[] {
   return edges.filter((edge) => reaches(edge.to, edge.from));
 }
 
+// 새 계약으로 바뀌어 곧 지울 옛 file이다. 이 file의 import는 protocol 순환에 세지 않는다.
+// 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
+const LEAVING_FILES = new Set([
+  "packages/protocol/coding-agent/cli-decisions.ts",
+  "packages/protocol/coding-agent/mcp-decisions.ts",
+  "packages/protocol/lophn-agent/question-submission.ts",
+  "packages/protocol/lophn-agent/run-wait.ts",
+  "packages/protocol/server/registration.ts",
+]);
+
 export async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${Deno.cwd()}/${root}`);
   const { files, paths } = await walk(root);
@@ -174,7 +184,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
       const from = protocolTop(file);
       const to = target ? protocolTop(target) : undefined;
       // 순환은 제품 코드의 import로만 센다. test가 두 module을 같이 쓰는 것은 실행 순환이 아니다.
-      if (from && to && from !== to && !testCode) {
+      if (from && to && from !== to && !testCode && !LEAVING_FILES.has(file)) {
         edges.push({ from, to, file, line });
       }
       const targetPackage = target?.startsWith("packages/")

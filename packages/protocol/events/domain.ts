@@ -3,7 +3,11 @@ import { actorSchema } from "../base/actor.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { ACTIVATION_FAILURE_CODES } from "../apps/activation/activation.ts";
-import type { IntentKind, ReactionEventType } from "../approvals/mod.ts";
+import {
+  applyResultSchema,
+  type IntentKind,
+  type ReactionEventType,
+} from "../approvals/mod.ts";
 import { defineEvent, type EventDefinition } from "../base/event.ts";
 
 // domain event는 Ledger에 남고 Reactor가 반응한다. 이 목록 밖의 변경은 domain event를 만들지 않는다.
@@ -86,7 +90,9 @@ export const approvalDecided = defineEvent("ApprovalDecided", {
   subject: idSchema("apr"),
   payload: z.strictObject({
     kind: z.enum(APPROVAL_DECIDED_KINDS),
-    decision: z.enum(["granted", "rejected"]),
+    decision: z.enum(["allow", "reject"]),
+    // 허락이면 적용을 마친 뒤 이 event를 내고 그 결과를 싣는다. 거절이면 null이다.
+    applied: applyResultSchema.nullable(),
   }),
 });
 

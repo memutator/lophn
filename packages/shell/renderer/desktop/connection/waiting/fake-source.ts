@@ -468,7 +468,8 @@ export function createFakeWaiting(
           at: at(),
           payload: {
             kind: request.intent.kind,
-            decision: allowed ? "granted" : "rejected",
+            decision: allowed ? "allow" : "reject",
+            applied: allowed ? { state: "applied" } : null,
           },
         });
         return ok({

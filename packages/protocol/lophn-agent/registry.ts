@@ -18,6 +18,8 @@ import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
 import { CALL_ROUTES } from "./calls.ts";
 import { sendMessage } from "./inputs.ts";
+import { ASK_ROUTES } from "./ask-tool.ts";
+import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
 import {
   EXTENSION_EVENTS,
   EXTENSION_ROUTES,
@@ -51,6 +53,8 @@ export const ROUTES = [
   ...TURN_READS,
   ...CALL_ROUTES,
   sendMessage,
+  ...ASK_ROUTES,
+  ...RECEIVED_MESSAGE_ROUTES,
   // MCP OAuth의 시작·완료·상태·취소 입구다. ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,

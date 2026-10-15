@@ -4,6 +4,10 @@ import {
   EXPERIMENT_NAMES,
   experimentPath,
 } from "../workspace/contexts/fake-source.ts";
+import {
+  FAKE_PROJECT_FOLDER,
+  fakeWorkspaceSource,
+} from "../workspace/fake-source.ts";
 import type { FileRow, WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { BodyState, DocumentInfo } from "../editor/source.ts";
@@ -73,7 +77,7 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
 
 // mock 모드의 context 화면 예시(검색 결과·Overview 예시·위반)가 가리키는 문서. 문서 목록에는 오르지
 // 않고 경로로만 찾아 열린다.
-const CONTEXT_FOLDER = "/work/lophn";
+const CONTEXT_FOLDER = FAKE_PROJECT_FOLDER;
 const CONTEXT_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> =
   Object.fromEntries([
     ...Object.entries(EXPERIMENT_NAMES).map(([id, name]) => ({
@@ -188,16 +192,17 @@ function seededEditor(): Omit<EditorDeps, "menu"> {
   };
 }
 
+// 연결 폴더와 파일 tree는 fake 통로의 것을 그대로 쓰고, 문서 탭과 배치만 이 시드가 얹는다.
+const FAKE = fakeWorkspaceSource();
+
 const SEEDED: WorkspaceSource = {
-  project: () =>
-    Promise.resolve({
-      ok: true,
-      value: {
-        id: DEV_SEED_PROJECT,
-        title: "lophn",
-        folders: [{ path: "/work/lophn" }],
-      },
-    }),
+  ...FAKE,
+  project: async () => {
+    const read = await FAKE.project(DEV_SEED_PROJECT);
+    return read.ok
+      ? { ok: true, value: { ...read.value, title: "lophn" } }
+      : read;
+  },
   documents: () =>
     Promise.resolve({
       ok: true,
@@ -210,7 +215,7 @@ const SEEDED: WorkspaceSource = {
     Promise.resolve({
       ok: true,
       value: Object.values(SEED_DOCUMENTS).map((seeded) => ({
-        folder: "/work/lophn",
+        folder: FAKE_PROJECT_FOLDER,
         path: seeded.info.path ?? seeded.info.fileName,
         document: seeded.info.id,
         title: seeded.info.fileName.replace(/\.md$/, ""),

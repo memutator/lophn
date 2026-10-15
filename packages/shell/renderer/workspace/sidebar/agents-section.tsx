@@ -1,32 +1,16 @@
-// project sidebar의 Agents 묶음과 접힌 rail의 Agent 단추.
+// 옛 project sidebar의 Agents 묶음과 접힌 rail의 Agent 단추. 새 sidebar(project-sidebar.tsx)로 바꾼 뒤 지운다.
+// SidebarAgent 값의 type은 sidebar-agent.ts로 옮겼고 옛 경로에서도 다시 내보낸다.
 // 화면 값은 lophn-agent/agents의 목록 줄과 lophn-agent/sessions의 상태에서 부르는 쪽이 만든 view 값이다.
 // renderer는 contracts를 type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
-import {
-  Avatar,
-  type AvatarProfile,
-  IconButton,
-  Tooltip,
-} from "@lophn/design/components";
+import { Avatar, IconButton, Tooltip } from "@lophn/design/components";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import type { SidebarAgent, SidebarAgentRole } from "./sidebar-agent.ts";
 import styles from "./agents-section.module.css";
 
-/** project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다. */
-export type SidebarAgentRole = "lophn" | "context_engineer" | "operator";
-
-/** Agents 묶음의 줄 하나. */
-export interface SidebarAgent {
-  /** `asg_…` */
-  readonly assignment: string;
-  readonly role: SidebarAgentRole;
-  /** 줄에 보이는 이름(고정 글자가 아니다. Operator는 사람이 지은 이름). */
-  readonly name: string;
-  readonly profile: AvatarProfile;
-  /** 이 agent에 답을 기다리는 session이 하나라도 있다. 점은 저장하지 않는 표시 상태다. */
-  readonly waiting: boolean;
-}
+export type { SidebarAgent, SidebarAgentRole };
 
 export interface AgentsSectionProps {
   /**
@@ -98,6 +82,7 @@ export function AgentsSection(
 
 const ROLE_ORDER: Record<SidebarAgentRole, number> = {
   lophn: 0,
+  project_manager: 1,
   context_engineer: 1,
   operator: 2,
 };

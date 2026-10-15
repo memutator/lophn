@@ -250,9 +250,15 @@ export type ProjectPlaceholders = {
   "project-workspace.button.agent": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.edit-rules": Record<never, never>;
+  "project-workspace.button.file-delete": Record<never, never>;
+  "project-workspace.button.file-open": Record<never, never>;
+  "project-workspace.button.file-rename": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.manage-agents": Record<never, never>;
+  "project-workspace.button.new-session-with": {
+    agent: "string";
+  };
   "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
@@ -264,6 +270,7 @@ export type ProjectPlaceholders = {
   "project-workspace.empty.no-folder-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
+  "project-workspace.error.files-failed": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
   "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.heading.documents": Record<never, never>;
@@ -275,6 +282,10 @@ export type ProjectPlaceholders = {
   "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
+  "project-workspace.label.files-in": {
+    folder: "string";
+  };
+  "project-workspace.label.folder-missing": Record<never, never>;
   "project-workspace.label.gitignore": Record<never, never>;
   "project-workspace.label.info-tab-contexts": Record<never, never>;
   "project-workspace.label.info-tab-info": Record<never, never>;
@@ -288,6 +299,12 @@ export type ProjectPlaceholders = {
     count: "plural";
   };
   "project-workspace.label.path": Record<never, never>;
+  "project-workspace.label.rail-agent": Record<never, never>;
+  "project-workspace.label.rail-contexts": Record<never, never>;
+  "project-workspace.label.rail-saved": Record<never, never>;
+  "project-workspace.label.rail-search": Record<never, never>;
+  "project-workspace.label.rail-shortcuts": Record<never, never>;
+  "project-workspace.label.rail-terminal": Record<never, never>;
   "project-workspace.label.reason-excluded": {
     glob: "string";
   };
@@ -301,10 +318,15 @@ export type ProjectPlaceholders = {
   "project-workspace.label.reason-outside-link": Record<never, never>;
   "project-workspace.label.reason-tracking-off": Record<never, never>;
   "project-workspace.label.reason-unmatched": Record<never, never>;
+  "project-workspace.label.recent": Record<never, never>;
+  "project-workspace.label.root-folder": Record<never, never>;
   "project-workspace.label.rule-effect": Record<never, never>;
   "project-workspace.label.rule-exclude": Record<never, never>;
   "project-workspace.label.rule-include": Record<never, never>;
   "project-workspace.label.rule-pattern": Record<never, never>;
+  "project-workspace.label.sidebar-tab-agent": Record<never, never>;
+  "project-workspace.label.sidebar-tab-context": Record<never, never>;
+  "project-workspace.label.sidebar-tab-explorer": Record<never, never>;
   "project-workspace.label.tabs": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
   "project-workspace.title.tracking": {

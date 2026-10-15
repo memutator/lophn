@@ -4,11 +4,25 @@
 import type { AgentsSource } from "./agents/source.ts";
 import type { ContextsSource } from "./contexts/source.ts";
 
-/** projects.get 결과에서 작업대가 쓰는 부분. 폴더 경로만 sidebar에 보인다. */
+/** 연결 폴더. 하위 폴더 경로는 이 폴더 기준 상대 경로다. */
+export interface ProjectFolderView {
+  readonly path: string;
+  /** 디스크에서 찾을 수 있는가. false면 sidebar가 "찾을 수 없음"을 보인다. */
+  readonly found: boolean;
+  readonly subfolders: readonly { readonly path: string }[];
+}
+
+/** projects.get 결과에서 작업대가 쓰는 부분. */
 export interface ProjectView {
   readonly id: string;
   readonly title: string;
-  readonly folders: readonly { readonly path: string }[];
+  readonly folders: readonly ProjectFolderView[];
+}
+
+/** 폴더 한 단계의 항목. 이름순이다. */
+export interface FolderEntry {
+  readonly name: string;
+  readonly kind: "file" | "folder";
 }
 
 /** documents.list 결과의 한 문서. 제목만 보인다. */
@@ -38,6 +52,8 @@ export type LayoutRead =
 
 export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
+  /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
+  list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
   /**
    * Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지

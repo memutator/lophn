@@ -3,6 +3,7 @@
 // projects.get, documents.list·get, context.list, files.list schema에서 작업대가 읽는 field만
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
+import type { FilesApi } from "../../ipc/files.ts";
 import type {
   LayoutReadResult,
   LayoutSaveResult,
@@ -23,7 +24,11 @@ interface ProjectGetValue {
   project: {
     id: string;
     title: string;
-    folders?: { path: string }[];
+    folders?: {
+      path: string;
+      found?: boolean;
+      subfolders?: { path: string }[];
+    }[];
   };
 }
 
@@ -164,6 +169,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         title: value.title,
         folders: (value.folders ?? []).map((folder) => ({
           path: folder.path,
+          found: folder.found !== false,
+          subfolders: (folder.subfolders ?? []).map((sub) => ({
+            path: sub.path,
+          })),
         })),
       },
     };
@@ -177,6 +186,20 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
     // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),
+
+    // Explorer tree. main이 디스크에서 직접 읽는 목록이라 core 통로를 거치지 않는다.
+    async list(path) {
+      const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+      if (!bridge) return { ok: false, message: "files are unavailable" };
+      try {
+        const reply = await bridge.list({ path });
+        return reply.ok
+          ? { ok: true, value: reply.value.entries }
+          : { ok: false, message: reply.code };
+      } catch {
+        return { ok: false, message: "unavailable" };
+      }
+    },
 
     documents: (id) => projectDocuments(core, id),
 

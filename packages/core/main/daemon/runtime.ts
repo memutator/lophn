@@ -11,8 +11,7 @@ import type {
   PreparedBlob,
 } from "../../../protocol/storage/mod.ts";
 import type { SecretPreparation } from "../../../protocol/secrets/mod.ts";
-import type { Route } from "../../../protocol/base/mod.ts";
-import type { MemoryHandler, ReadHandler } from "../../server/mod.ts";
+import type { ReadHandler } from "../../server/mod.ts";
 import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
 import {
   type DiagnosticListSource,
@@ -39,21 +38,7 @@ import type {
   WriterResponse,
 } from "../../storage/ledger/writer-message.ts";
 import { finishBlobRead, planBlobRead } from "../../storage/blobs/mod.ts";
-import { findBackup, listBackups } from "../../storage/migration/mod.ts";
-import { authorize, CONDITION_TARGET_KEYS } from "../../server/identity/mod.ts";
-import { packagesGuideBody } from "../../../protocol/apps/mod.ts";
-import { getReport, reportBody } from "../../../protocol/problems/mod.ts";
-import {
-  PACKAGE_GUIDE_BLOB_FIELD_NAME,
-  PACKAGE_GUIDE_BLOB_OWNER_KIND,
-  packageGuideOwnerKey,
-} from "../../apps/packages/blobs.ts";
-import {
-  interruptedFinish,
-  INVOCATION_RECOVERY_CONTEXT,
-} from "../../apps/invocations/restart.ts";
-import { createNotificationDelivery } from "../../notifications/delivery.ts";
-import { createProductRedactor } from "../../projects/outline-and-search/redactor.ts";
+import { authorize } from "../../server/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
 import { PROVIDER_SECRET_OWNER } from "../../lophn-agent/providers/mod.ts";
 import { openSecretStore, withSecretSync } from "../../secrets/store.ts";
@@ -79,18 +64,12 @@ export type CoreRuntime = {
   syncSecrets(): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
-  // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다.
-  sweepTicketClaims(): Promise<void>;
-  // 재시작 뒤 접수·실행 중으로 남은 invocation을 미확인으로 확정한다. 기동 때 한 번 돈다.
-  sweepInterruptedInvocations(): Promise<void>;
   readers: ReaderPool;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
   // 요청 자격을 다시 읽는 데 쓴다.
   current(credentialRef: string): Result<RequestContext>;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
-  // core 시작마다 하나인 OS 표시 전달 관측의 memory route(notifications/delivery).
-  deliveryMemory: ReadonlyMap<string, MemoryHandler>;
   events: ReturnType<typeof createReaderEventBackend>;
   subscriptions: SubscriptionStore;
   wake(): void;
@@ -233,11 +212,6 @@ export async function openRuntime(input: {
   const diagnosticList = input.diagnostics
     ? diagnosticsListRead(input.diagnostics)
     : undefined;
-  const dataRoot = input.ledgerPath.slice(
-    0,
-    input.ledgerPath.lastIndexOf("/"),
-  );
-  const backups = backupReads(dataRoot);
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
     ["platform/health", status.health],
@@ -245,7 +219,6 @@ export async function openRuntime(input: {
     ...(diagnosticList
       ? [["diagnostics/list", diagnosticList] as [string, ReadHandler]]
       : []),
-    ...backups.map(([key, handler]): [string, ReadHandler] => [key, handler]),
     [
       "blobs/read",
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
@@ -283,120 +256,6 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
-  // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
-  // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.
-  reads.set(
-    `${packagesGuideBody.resource}/${packagesGuideBody.method}`,
-    (ctx, body) =>
-      packageGuideBodyHandler(input.ledgerPath, input.blob, ctx, body),
-  );
-  // 보고의 사람 글·log·화면 상태만 읽는 좁은 route. 일반 `blobs/read`는 coding 연결에 열지 않는다.
-  reads.set(
-    `${reportBody.resource}/${reportBody.method}`,
-    (ctx, body) =>
-      reportBodyHandler(
-        {
-          ledgerPath: input.ledgerPath,
-          blob: input.blob,
-          known: secretStore.known,
-          read: (route, context, value) =>
-            readers.value.read(route, context, value),
-        },
-        ctx,
-        body,
-      ),
-  );
-  // OS 표시 전달 상태. get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
-  const delivery = createNotificationDelivery({
-    clock: input.clock,
-    read: (route, ctx, body) => readers.value.read(route, ctx, body),
-  });
-  for (
-    const key of [
-      "notifications/get",
-      "notifications/list",
-      "notifications/display",
-    ]
-  ) {
-    const inner = reads.get(key);
-    if (inner !== undefined) reads.set(key, delivery.decorate(key, inner));
-  }
-  // ticket claim 정리. 후보 read 뒤 expire_claim을 제출한다. timer는 표를 쓰지 않는다.
-  const machine: RequestContext = {
-    principal: "machine:ticket-claims",
-    actor: "machine",
-    scope: {
-      operations: ["ExpireTicketClaim", "TicketClaimSweep"],
-      targets: {},
-    },
-    conditions: {},
-    credential_ref: "machine:ticket-claims",
-  };
-  function sweepTicketClaims(): Promise<void> {
-    if (!readers.ok) return Promise.resolve();
-    const nowMs = input.clock.nowMs();
-    const now = new Date(nowMs).toISOString();
-    return openedWriter.prunePrepared(nowMs).then(() =>
-      readers.value.read(
-        { resource: "tickets", method: "claim_sweep" },
-        machine,
-        { now, revoked: [] },
-      )
-    ).then(async (found) => {
-      if (!found.ok) return;
-      const claims = (found.value as {
-        claims?: { ticket: string; claim_seq: string }[];
-      }).claims ?? [];
-      for (const claim of claims) {
-        await openedWriter.writer.command(machine as never, {
-          command: "ExpireTicketClaim",
-          input: claim,
-          compare: {},
-          idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
-          prepared: [],
-        });
-      }
-    });
-  }
-  // 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 이전 core의 앱 프로세스는
-  // 이미 없고 새 프로세스는 새 nonce라 옛 접수·시작은 이어지지 않는다. 읽기 목록으로 후보를 읽고
-  // 기존 machine command `invocation.record_finished`로 확정하며, 같은 key라 여러 번 돌아도 같은 결과다.
-  // apps를 조립하지 않은 core에는 read가 없어 아무것도 하지 않는다.
-  const invocationRecovery =
-    INVOCATION_RECOVERY_CONTEXT as unknown as RequestContext;
-  async function sweepInterruptedInvocations(): Promise<void> {
-    if (!readers.ok) return;
-    const finishedAt = input.clock.now();
-    for (const status of ["accepted", "running"] as const) {
-      let cursor: string | undefined;
-      do {
-        const found = await readers.value.read(
-          { resource: "invocations", method: "list" },
-          invocationRecovery,
-          { status, limit: 200, ...(cursor ? { cursor } : {}) },
-        );
-        if (!found.ok) return;
-        const page = found.value as {
-          invocations?: {
-            id: string;
-            status: "accepted" | "running";
-            started_at: string | null;
-          }[];
-          next_cursor?: string | null;
-        };
-        for (const row of page.invocations ?? []) {
-          await openedWriter.writer.command(invocationRecovery as never, {
-            command: "invocation.record_finished",
-            input: interruptedFinish(row, finishedAt),
-            compare: {},
-            idempotency_key: `interrupted:${row.id}`,
-            prepared: [],
-          });
-        }
-        cursor = page.next_cursor ?? undefined;
-      } while (cursor);
-    }
-  }
   const events = createReaderEventBackend(
     readers.value,
     (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
@@ -424,13 +283,10 @@ export async function openRuntime(input: {
     current: (ref) => currentCredential(input.ledgerPath, ref),
     reads,
     memory,
-    deliveryMemory: delivery.memory,
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
     track: (session) => dispatcher.add(session),
-    sweepTicketClaims,
-    sweepInterruptedInvocations,
     async close() {
       dispatcher.close();
       secretStore.stop();
@@ -458,40 +314,6 @@ async function runSessionOf(
 // settings.ts가 만든다.
 function settingsModule(): string {
   return new URL("../../config/settings.ts", import.meta.url).href;
-}
-
-// worker가 확인한 backup manifest 읽기. 인증은 API 입구가 이미 끝냈고
-// dispatcher가 schema·output 검사를 한다. 여기서는 data root의 backup folder만
-// 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다.
-function backupReads(
-  dataRoot: string,
-): [string, ReadHandler][] {
-  return [
-    [
-      "backups/list",
-      async (_ctx, _input) =>
-        ok({ backups: (await listBackups(dataRoot)).backups }),
-    ],
-    [
-      "backups/get",
-      async (_ctx, input) => {
-        // dispatcher가 route.input을 이미 검사해 parsed.data를 넘긴다.
-        // 여기서 safeParse를 반복하지 않는다.
-        const created = (input as { created_at?: string }).created_at;
-        if (typeof created !== "string") {
-          return err({
-            code: "invalid_input",
-            message: "created_at이 없다",
-          });
-        }
-        const found = await findBackup(dataRoot, created);
-        if (found === undefined) {
-          return err({ code: "not_found", message: "backup이 없다" });
-        }
-        return ok({ manifest: found });
-      },
-    ],
-  ];
 }
 
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
@@ -701,7 +523,7 @@ type BlobRefAuthorizer = (
 
 // /v1/blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
 // scope는 시작과 바이트 반환 직전에 다시 검사한다.
-function blobReadHandler(
+export function blobReadHandler(
   ledgerPath: string,
   blob: BlobReadSource | undefined,
   ctx: RequestContext,
@@ -736,143 +558,7 @@ function blobReadHandler(
   return finishBlobRead({ ...judging, bytes: blob }, ctx, plan.value);
 }
 
-// /v1/packages/guide_body. owner_kind·field가 `package_version`·`guide`로 고정이라 입력으로 다른 blob을
-// 가리킬 수 없다. 자격은 이 route의 operation(`packages.guide_body`)이고 일반 `blobs/read`는 필요 없다.
-// 앱 범위 연결의 고정 조건 target만 함께 검사한다(packages는 공개 catalog라 앱 안의 대상이 아니다).
-function packageGuideBodyHandler(
-  ledgerPath: string,
-  blob: BlobReadSource | undefined,
-  ctx: RequestContext,
-  body: unknown,
-): Promise<Result<unknown>> {
-  const parsed = packagesGuideBody.input.safeParse(body);
-  if (!parsed.success) {
-    return Promise.resolve(
-      err({ code: "invalid_input", message: "안내 읽기 입력이 올바르지 않다" }),
-    );
-  }
-  const input: BlobReadInput = {
-    owner_kind: PACKAGE_GUIDE_BLOB_OWNER_KIND,
-    owner_key: packageGuideOwnerKey(parsed.data.name, parsed.data.version),
-    field: PACKAGE_GUIDE_BLOB_FIELD_NAME,
-    offset_bytes: parsed.data.offset_bytes,
-    length_bytes: parsed.data.length_bytes,
-  };
-  return blobReadHandler(ledgerPath, blob, ctx, input, (current) => {
-    const target: NonNullable<Parameters<typeof authorize>[2]> = {};
-    for (const key of CONDITION_TARGET_KEYS) {
-      const value = current.conditions[key];
-      if (value !== undefined && Object.hasOwn(current.scope.targets, key)) {
-        target[key] = value;
-      }
-    }
-    return authorize(current, packagesGuideBody.name, target, {
-      domain: "skip",
-    });
-  });
-}
-
-// /v1/problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
-// 보고는 이 자격으로 GetReport가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
-// 읽기 시작할 때와 반환 직전에 보고의 앱·문제 target을 현재 credential로 다시 검사한다. 글은 core
-// 알려진 값 pipe를 지난 것만 내보낸다(끝내지 못하면 unavailable).
-async function reportBodyHandler(
-  environment: {
-    ledgerPath: string;
-    blob: BlobReadSource | undefined;
-    known: KnownSecretMatch;
-    read(
-      route: Route,
-      ctx: RequestContext,
-      body: unknown,
-    ): Promise<Result<unknown>>;
-  },
-  ctx: RequestContext,
-  body: unknown,
-): Promise<Result<unknown>> {
-  const parsed = reportBody.input.safeParse(body);
-  if (!parsed.success) {
-    return err({
-      code: "invalid_input",
-      message: "본문 읽기 입력이 올바르지 않다",
-    });
-  }
-  const notFound: Result<never> = err({
-    code: "not_found",
-    message: "대상을 찾을 수 없다",
-  });
-  const found = await environment.read(getReport, ctx, {
-    report: parsed.data.report,
-  });
-  if (!found.ok) {
-    return found.error.code === "unavailable" ? found : notFound;
-  }
-  const report =
-    (found.value as { report: { app: string; problem: string | null } })
-      .report;
-  if (report.problem === null) return notFound;
-  const target = { app: report.app, problem: report.problem };
-  const source = environment.blob === undefined ? undefined : {
-    ...environment.blob,
-    // 이 route만 이 field들을 읽는다. 일반 읽기의 field 정의는 그대로다.
-    fields: environment.blob.fields.map((field) =>
-      field.owner_kind === "report" && field.field === parsed.data.field
-        ? { ...field, general_read: true }
-        : field
-    ),
-  };
-  const read = await blobReadHandler(
-    environment.ledgerPath,
-    source,
-    ctx,
-    {
-      owner_kind: "report",
-      owner_key: parsed.data.report,
-      field: parsed.data.field,
-      offset_bytes: parsed.data.offset_bytes,
-      length_bytes: parsed.data.length_bytes,
-    },
-    (current) => {
-      const live = currentCredential(
-        environment.ledgerPath,
-        current.credential_ref,
-      );
-      return live.ok ? authorize(live.value, reportBody.name, target) : live;
-    },
-  );
-  if (!read.ok) return read.error.code === "unavailable" ? read : notFound;
-  const value = read.value as {
-    status: string;
-    reason?: string;
-    bytes?: string;
-    truncated?: boolean;
-  };
-  if (value.status !== "available" || value.bytes === undefined) {
-    return ok({ status: "unavailable", reason: value.reason ?? value.status });
-  }
-  const raw = new TextDecoder().decode(
-    Uint8Array.from(atob(value.bytes), (char) => char.charCodeAt(0)),
-  );
-  const safe = createProductRedactor(environment.known)(
-    {
-      concern: "coding-agent/repair-context",
-      revision: "1",
-      scope: "report-body",
-    },
-    "text/plain",
-    raw,
-  );
-  if (safe === null) {
-    return err({ code: "unavailable", message: "redaction을 끝내지 못했다" });
-  }
-  return ok({
-    status: "available",
-    text: safe,
-    truncated: value.truncated === true,
-  });
-}
-
-function currentCredential(
+export function currentCredential(
   ledgerPath: string,
   credentialRef: string,
 ): Result<RequestContext> {

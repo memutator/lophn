@@ -1,37 +1,10 @@
-import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";
 import { type Core, startCore } from "./core.ts";
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
-import { createLedgerRegistration } from "../../projects/register.ts";
-import {
-  createLedgerRegistration as createLophnAgentRegistration,
-  lophnAgentDefinitions,
-} from "../../lophn-agent/register.ts";
-import {
-  createLedgerRegistration as createProblemsRegistration,
-  problemsReportDefinitions,
-  problemsTestDefinitions,
-} from "../../problems/register.ts";
-import { ticketDefinitions } from "../../apps/tickets/register.ts";
-import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/tickets/ports.ts";
+import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
 import { productKeychain } from "../../secrets/store.ts";
 import {
   credentialLoaderIdentity,
   serveCredentialSocket,
 } from "../../install-and-update/mod.ts";
-
-// 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
-const TEAMS = [
-  { createLedgerRegistration },
-  { createLedgerRegistration: createAppsRegistration },
-  { problemsTestDefinitions },
-  { problemsReportDefinitions },
-  { createLedgerRegistration: createProblemsRegistration },
-  { codingAgentConnectionDefinitions },
-  { lophnAgentDefinitions },
-  { createLedgerRegistration: createLophnAgentRegistration },
-  { ticketDefinitions },
-  { createCoreRegistration: createTicketPortsRegistration },
-];
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
 const port = portArg === undefined ? undefined : Number(portArg.slice(7));
@@ -57,16 +30,8 @@ for (;;) {
   const started = await startCore({
     port,
     teams: TEAMS,
-    teamModules: [
-      new URL("../../projects/register.ts", import.meta.url).href,
-      new URL("../../apps/register.ts", import.meta.url).href,
-      new URL("../../problems/register.ts", import.meta.url).href,
-      new URL("../../server/identity/coding-connection.ts", import.meta.url)
-        .href,
-      new URL("../../lophn-agent/register.ts", import.meta.url).href,
-      new URL("../../apps/tickets/register.ts", import.meta.url).href,
-      new URL("../../apps/tickets/ports.ts", import.meta.url).href,
-    ],
+    teamModules: TEAM_MODULES,
+    wirings: WIRINGS,
     parent,
     // coding agent connection credential은 OS keychain에 둔다. 보호 loader는 설치 묶음의 helper
     // `lophn-credential` 하나이고 identity는 그 고정 절대 경로다(Linux .deb. 다른 OS는 아직 없다).

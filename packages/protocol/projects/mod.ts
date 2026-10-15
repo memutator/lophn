@@ -8,6 +8,7 @@ export * from "./document-files.ts";
 export * from "./documents.ts";
 export * from "./sections.ts";
 export * from "./formats.ts";
+export * from "./openable-format.ts";
 
 export * from "./outline.ts";
 export * from "./outline-markdown.ts";

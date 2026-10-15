@@ -174,9 +174,12 @@ function stored(row: MessageRow | undefined): Result<ReceivedMessage> {
   return row === undefined ? messageNotFound() : ok(snapshotOf(row));
 }
 
-// 제목을 정하는 글. 사람 입력은 글 part만 있고 줄 구분은 줄바꿈이다.
+// 제목을 정하는 글. 글 part만 읽고 줄 구분은 줄바꿈이다.
 function textOf(content: Input<typeof receiveMessage>["content"]): string {
-  return content.parts.map((part) => part.text).join("\n");
+  return content.parts.flatMap((part) =>
+    part.kind === "text" ? [part.text] : []
+  )
+    .join("\n");
 }
 
 // session에 machine이 남기는 사실 한 줄의 본문이다(Undo의 "Undid edit to <경로>"). core가 이 값으로 blob을

@@ -83,9 +83,14 @@ const BUILTIN_TABLE: Record<
     description: "Change what this agent may do",
     while_running: "run",
   },
+  recap: {
+    title: "Recap",
+    description: "Summarize this session on screen",
+    while_running: "run",
+  },
 };
 
-// 모든 agent 공통 전역 built-in 여덟 개를 고정 순서로 준다.
+// 모든 agent 공통 전역 built-in을 고정 순서로 준다.
 export function builtinCommands(): readonly CommandEntry[] {
   return BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
     name: id,

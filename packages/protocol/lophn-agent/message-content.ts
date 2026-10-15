@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
+import { idSchema } from "../base/ids.ts";
+import { ATTACHED_KINDS } from "./input-tags.ts";
 import { visualBlockInputSchema, visualBlockSchema } from "./visuals.ts";
 
 export const MESSAGE_VISUAL_MAX_COUNT = 8;
@@ -17,13 +19,39 @@ export const MESSAGE_BODY_OWNER_KIND = "message";
 export const MESSAGE_BODY_FIELD = "body";
 const encoder = new TextEncoder();
 
+// 사람이 composer chip으로 붙인 것. 이름과 한 줄만 싣고 상세는 tool로 읽는다.
+// 위반은 path와 rule, 파일은 path를 더한다.
+const attachedFields = {
+  kind: z.literal("attached"),
+  attached: z.enum(ATTACHED_KINDS),
+  name: z.string().min(1),
+  line: z.string().optional(),
+  path: z.string().min(1).optional(),
+  rule: z.string().min(1).optional(),
+};
+export const attachedPartInputSchema = z.strictObject(attachedFields);
+const attachedPartSchema = z.object(attachedFields);
+
+// `visual.show`가 대화에 보이는 앱 카드. view는 앱 blueprint 화면 key다.
+const appCardFields = {
+  kind: z.literal("app_card"),
+  app: idSchema("app"),
+  view: z.string().min(1),
+};
+export const appCardPartInputSchema = z.strictObject(appCardFields);
+const appCardPartSchema = z.object(appCardFields);
+
 export const messagePartInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("text"), text: z.string() }),
   z.strictObject({ kind: z.literal("visual"), block: visualBlockInputSchema }),
+  attachedPartInputSchema,
+  appCardPartInputSchema,
 ]);
 export const messagePartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({ kind: z.literal("visual"), block: visualBlockSchema }),
+  attachedPartSchema,
+  appCardPartSchema,
 ]);
 
 function canonicalBytes(block: unknown): number | undefined {
@@ -91,8 +119,18 @@ export const textMessageContentSchema = z.object({
   parts: z.array(textPart).min(1),
 });
 
-export const userMessageContentInputSchema = textMessageContentInputSchema;
+// 사람 메시지는 글과 composer chip(attached)을 받는다.
+export const userMessageContentInputSchema = z.strictObject({
+  schema_version: z.literal(1),
+  parts: z.array(z.discriminatedUnion("kind", [
+    textPartInput,
+    attachedPartInputSchema,
+  ])).min(1),
+}).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
+  message: "message content is too large",
+});
 export const machineMessageContentInputSchema = textMessageContentInputSchema;
+// agent 답은 글, 시각 블록, 앱 카드를 받는다.
 export const agentMessageContentInputSchema = messageContentInputSchema;
 
 export type MessagePart = z.infer<typeof messagePartSchema>;

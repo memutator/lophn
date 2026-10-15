@@ -136,6 +136,13 @@ function runBuiltin(
     case "skills":
     case "permissions":
       return { kind: "open_screen", screen: id };
+    // 아직 구현이 없다.
+    case "recap":
+      return {
+        kind: "failed",
+        command: id,
+        error: { code: "unavailable", message: "recap is not available yet" },
+      };
   }
 }
 

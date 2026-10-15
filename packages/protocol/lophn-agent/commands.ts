@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import type { Role } from "./places.ts";
 
 // Agent composer의 `/` 명령 registry(lophn-agent/commands). registry는 저장하는
 // 표가 아니라 열 때마다 계산하는 derived 값이라 command도 event도 없고 read 하나뿐이다.
@@ -11,7 +12,7 @@ export const COMMAND_WHILE_RUNNING = ["run", "queue", "blocked"] as const;
 // skill을 찾은 층. 같은 이름이 둘 이상일 때만 메뉴에 보인다.
 export const COMMAND_SKILL_ORIGINS = ["place", "workspace"] as const;
 
-// 전역 built-in 여덟 개의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다.
+// 전역 built-in 아홉 개의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다.
 export const BUILTIN_COMMAND_IDS = [
   "new",
   "rename",
@@ -21,7 +22,16 @@ export const BUILTIN_COMMAND_IDS = [
   "mcp",
   "skills",
   "permissions",
+  "recap",
 ] as const;
+
+// role 명령(정해진 prompt)의 이름이다. Project Manager의 new-context는 내장 skill context-init과 겹쳐 뺐다.
+export const ROLE_COMMAND_NAMES = {
+  lophn: ["new-app", "repair-app"],
+  project_manager: ["check-contracts"],
+  app_engineer: [],
+  operator: [],
+} as const satisfies Record<Role, readonly string[]>;
 
 const nonempty = z.string().regex(/\S/);
 

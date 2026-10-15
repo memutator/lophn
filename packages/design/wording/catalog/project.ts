@@ -338,10 +338,12 @@ export const project = {
   "terminal.heading.choose-folder": "Choose where this terminal starts",
   "terminal.label.folders": "Project folders",
   "terminal.label.output": "Terminal",
+  "terminal.label.session-ended": "Session ended",
   "terminal.notice.account":
     "Commands in this terminal use your computer account's permissions. It isn't an app sandbox.",
   "terminal.notice.folder":
     "The terminal starts in the project folder. That only sets where it starts, not what it can reach.",
+  "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.status.ended": "The shell ended.",
   "terminal.status.exited": "The shell ended with exit code {code}.",
   "terminal.status.not-started":

@@ -1,45 +1,38 @@
-// project 화면의 Terminal 탭 본문.
-import { IconButton, Menu } from "@lophn/design/components";
-import { Eraser } from "lucide-react";
-import {
-  editorIcons,
-  workspaceIcons,
-} from "../../../../packages/shell/renderer/icons/mod.ts";
-import { menuIcon } from "./project-files/menu-icons.tsx";
+// project 화면의 Terminal 탭 본문. renderer의 TerminalTab을 PTY 없는 가짜 bridge로 그린다.
+import { useMemo } from "react";
 
-import { ViewBar } from "./documents.tsx";
+import { TerminalStore } from "../../../../packages/shell/renderer/terminal/store.ts";
+import { TerminalTab } from "../../../../packages/shell/renderer/terminal/terminal-tab.tsx";
+import { createXtermView } from "../../../../packages/shell/renderer/terminal/xterm-view.ts";
+import { PROJECT_GROCERY } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import { fakeTerminal } from "../fake-terminal.ts";
 import styles from "./compose.module.css";
 
-const PROMPT = "mina@lophn:~/work/phroner$ ";
+import "@xterm/xterm/css/xterm.css";
+
+const KEY = "gallery-terminal";
 
 /** 새 터미널 탭. PTY 없이 고정된 출력만 보인다. */
 export function TerminalBody() {
+  const deps = useMemo(() => {
+    const store = new TerminalStore(null, null);
+    store.request(KEY);
+    return {
+      bridge: fakeTerminal(PROJECT_GROCERY),
+      store,
+      createView: createXtermView,
+      confirmClose: () => Promise.resolve(false),
+    };
+  }, []);
   return (
     <div className={styles.docTab}>
-      <ViewBar path="">
-        <Menu
-          trigger={
-            <IconButton icon={editorIcons.menu} label="More" size="sm" />
-          }
-          items={[
-            { id: "clear", label: "Clear", leading: menuIcon(Eraser) },
-            {
-              id: "rename",
-              label: "Rename",
-              leading: menuIcon(editorIcons.edit),
-            },
-            {
-              id: "split",
-              label: "Split",
-              leading: menuIcon(workspaceIcons.splitPane),
-            },
-          ]}
-          onSelect={() => {}}
-        />
-      </ViewBar>
-      <pre className={styles.terminal}>
-        {`${PROMPT}ls\ndocs  eval  loop\n${PROMPT}git status --short\n M eval/experiments/exp-008-query-tools.md\n${PROMPT}`}
-      </pre>
+      <TerminalTab
+        tabKey={KEY}
+        project={PROJECT_GROCERY}
+        folderRef={null}
+        active
+        deps={deps}
+      />
     </div>
   );
 }

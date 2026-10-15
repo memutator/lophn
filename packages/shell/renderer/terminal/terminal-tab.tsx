@@ -38,6 +38,11 @@ export interface TerminalTabProps {
   deps: TerminalDeps;
   /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
   onStarted?: (info: { title: string | null; folderRef: string }) => void;
+  /**
+   * lophn(core 요청)이 연 coding 터미널 탭이다. 새 PTY를 열지도 다시 시작하지도 않고, 끝나면
+   * session이 끝났다고만 보인다. `ended`는 runtime이 없는 복원 탭을 끝난 것으로 보인다.
+   */
+  coding?: { product: string; session: string; app: string; ended?: boolean };
 }
 
 const IDLE: Phase = { kind: "idle" };
@@ -65,7 +70,8 @@ function sameRuntime(a: Phase, b: Phase): boolean {
 // 뿐이다. 탭을 숨기거나 옮겨도 shell은 그대로이고 다시 그리면 같은 runtime에
 // 붙는다.
 export function TerminalTab(
-  { tabKey, project, folderRef, active, deps, onStarted }: TerminalTabProps,
+  { tabKey, project, folderRef, active, deps, onStarted, coding }:
+    TerminalTabProps,
 ) {
   const { store, bridge } = deps;
   const subscribe = useCallback(
@@ -125,7 +131,8 @@ export function TerminalTab(
   }, [store, tabKey, onStarted]);
 
   const open = useCallback(async (folder: string | null) => {
-    if (opening.has(tabKey)) return;
+    // coding 탭은 main이 연 runtime에만 붙는다. 새 PTY는 사람이 열지 않는다.
+    if (coding !== undefined || opening.has(tabKey)) return;
     if (!bridge) {
       store.update(tabKey, {
         phase: { kind: "refused", reason: "unavailable" },
@@ -154,10 +161,11 @@ export function TerminalTab(
     } finally {
       opening.delete(tabKey);
     }
-  }, [bridge, store, tabKey, project, begin]);
+  }, [bridge, store, tabKey, project, begin, coding !== undefined]);
 
   // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다.
   const restart = useCallback(async () => {
+    if (coding !== undefined) return;
     const current = store.get(tabKey);
     const ended = current?.phase.kind === "ended" ? current.phase : null;
     if (bridge && current?.terminalRef && ended?.runtime) {
@@ -177,7 +185,7 @@ export function TerminalTab(
       return;
     }
     await open(current?.folderRef ?? folderRef);
-  }, [bridge, store, tabKey, folderRef, begin, open]);
+  }, [bridge, store, tabKey, folderRef, begin, open, coding !== undefined]);
 
   // xterm 표시는 탭 화면이 있는 동안만 산다. 사라져도 shell은 host에 남는다.
   useEffect(() => {
@@ -310,13 +318,18 @@ export function TerminalTab(
 
   const showScreen = phase.kind === "live" ||
     (phase.kind === "ended" && phase.runtime !== null);
-  const showNotice = notice && phase.kind !== "idle" &&
+  const showNotice = notice && coding === undefined && phase.kind !== "idle" &&
     !(phase.kind === "refused" && phase.reason === "unavailable");
 
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";
   let banner = null;
-  if (phase.kind === "ended") {
+  const codingEnded = coding !== undefined &&
+    (coding.ended === true || phase.kind === "idle" ||
+      (phase.kind === "ended" && phase.ending === "exited"));
+  if (codingEnded && phase.kind !== "live") {
+    banner = <ExitBanner variant={variant} state={{ kind: "session_ended" }} />;
+  } else if (phase.kind === "ended") {
     banner = (
       <ExitBanner
         variant={variant}
@@ -325,7 +338,7 @@ export function TerminalTab(
           ending: phase.ending,
           exitCode: phase.runtime?.exit_code ?? null,
         }}
-        onRestart={() => void restart()}
+        onRestart={coding === undefined ? () => void restart() : undefined}
       />
     );
   } else if (phase.kind === "idle") {
@@ -341,7 +354,7 @@ export function TerminalTab(
       <ExitBanner
         variant={variant}
         state={{ kind: "refused", reason: phase.reason }}
-        onRestart={phase.reason === "no_folder"
+        onRestart={phase.reason === "no_folder" || coding !== undefined
           ? undefined
           : () => void open(entry?.folderRef ?? folderRef)}
       />
@@ -353,6 +366,7 @@ export function TerminalTab(
       className={styles.terminal}
       data-terminal-tab={tabKey}
       data-phase={phase.kind}
+      data-coding-session={coding?.session}
     >
       {showNotice
         ? (

@@ -2,12 +2,18 @@
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";
-import { tabKey } from "./values.ts";
+import { idOf, tabKey } from "./values.ts";
 
 const layout = z.strictObject({
   kind: z.literal("terminal"),
   key: tabKey,
   project_folder: z.string().min(1).max(4096),
+  // lophn(core 요청)이 연 coding 터미널 탭의 표지. 없으면 사람이 연 shell 탭이다.
+  coding: z.strictObject({
+    session: z.string().refine((value) => idOf("ses", value) !== null),
+    product: z.string().min(1).max(80),
+    title: z.string().min(1).max(200).optional(),
+  }).optional(),
 });
 
 export type TerminalLayout = z.infer<typeof layout>;
@@ -30,7 +36,7 @@ export const terminalKind = defineTabKind<
 >({
   kind: "terminal",
   layout,
-  // 사람이 새로 시작하기 전까지 PTY를 만들지 않는 종료된 자리표시다.
+  // 사람이 새로 시작하기 전까지 PTY를 만들지 않는 종료된 자리표시다. coding session도 lophn이 꺼지면 끝난다.
   restore: (tab) =>
     Promise.resolve({
       kind: "placeholder",

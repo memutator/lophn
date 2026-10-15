@@ -351,8 +351,10 @@ export type ProjectPlaceholders = {
   "terminal.heading.choose-folder": Record<never, never>;
   "terminal.label.folders": Record<never, never>;
   "terminal.label.output": Record<never, never>;
+  "terminal.label.session-ended": Record<never, never>;
   "terminal.notice.account": Record<never, never>;
   "terminal.notice.folder": Record<never, never>;
+  "terminal.notice.next-handoff": Record<never, never>;
   "terminal.status.ended": Record<never, never>;
   "terminal.status.exited": {
     code: "string";

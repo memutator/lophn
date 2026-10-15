@@ -53,7 +53,7 @@ import {
   invocationFinished,
   invocationStarted,
 } from "./invocations.ts";
-import { APP_GRANT_ROUTES, GRANT_EVENTS, GRANT_ROUTES } from "./grants.ts";
+import { APP_GRANT_ROUTES, GRANT_EVENTS } from "./grants.ts";
 import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
 import { ACTIVATION_ROUTES } from "./activation/mod.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
@@ -102,7 +102,6 @@ export const ROUTES = [
   appProjects,
   appScreenFile,
   ...INVOCATION_ROUTES,
-  ...GRANT_ROUTES,
   ...APP_GRANT_ROUTES,
   ...PACKAGE_ROUTES,
   ...ACTIVATION_ROUTES,

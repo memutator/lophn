@@ -8,6 +8,7 @@ import type {
   CallFailReason,
   CallFrom,
   CallRef,
+  CallReply,
   CallState,
   NamedAgent,
 } from "../../protocol/lophn-agent/calls.ts";
@@ -15,6 +16,7 @@ import type {
   InputDelivery,
   RoutedInputKind,
 } from "../../protocol/lophn-agent/inputs.ts";
+import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 
 // Router가 바깥에서 받는 것들이다. Router는 domain module을 import하지 않고,
 // 구현은 main/daemon/wiring/router.ts가 끼운다.
@@ -39,6 +41,19 @@ export type RoutedInput = {
   refs: readonly CallRef[];
   // 사람 메시지만 steer가 될 수 있다.
   delivery: InputDelivery;
+  // 받는 session 기록의 message. 사람 메시지는 보내는 쪽이 먼저 쓰고 그 id를 싣는다.
+  // 나머지(call·reply·reaction·notice)는 null이고, transport가 배달하는 tx에서 기록을 쓴다.
+  message: Id<"msg"> | null;
+  // kind가 call일 때 답 방식.
+  reply: CallReply | null;
+  // kind가 reply일 때 그 call의 끝난 상태와 이유.
+  outcome:
+    | { state: Exclude<CallState, "accepted">; reason: CallFailReason | null }
+    | null;
+  // kind가 reaction이면 근거 domain event type.
+  event: string | null;
+  // kind가 notice면 그 종류.
+  notice: NoticeKind | null;
 };
 
 export interface SessionDirectory {

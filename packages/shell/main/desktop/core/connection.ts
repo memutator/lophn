@@ -1,26 +1,36 @@
 // 창을 연 뒤 core를 띄운다. 연결 상태는 renderer로 밀되 token은 메모리에만 둔다.
 import {
+  type ConnectionState as ShellConnectionState,
   CORE_CALL_CHANNEL,
+  CORE_EVENT_CHANNEL,
   CORE_STATE_CHANNEL,
   CORE_STATE_GET_CHANNEL,
+  CORE_WATCH_CHANNEL,
   coreCallSchema,
+  type CoreEventMessage,
+  coreWatchSchema,
 } from "../../../ipc/core.ts";
 import type { RpcFetch } from "../../../../protocol/client/mod.ts";
+import type {
+  BusEvent,
+  EventCondition,
+} from "../../../../protocol/events/mod.ts";
 
 import { type CoreSession, openSession, type StreamFetch } from "./client.ts";
 import {
   backoffReconnect,
   type Clock,
-  type EventSink,
+  type Gateway,
+  openGateway,
   type ReconnectPolicy,
   type SocketFactory,
-  subscribe,
 } from "./events.ts";
 import { type IpcEvent } from "../ipc-guard.ts";
 import {
   type CoreProcess,
   type LaunchOptions,
   spawnCore,
+  StartFailedError,
 } from "./supervise.ts";
 
 export interface StateTarget {
@@ -49,12 +59,18 @@ export interface ConnectionOptions {
   contentsRegistry?: {
     checkCaller(event: IpcEvent): { ok: true } | { ok: false };
   };
-  /** 끊긴 event 구독을 다시 잇는 시각. 테스트가 끼운다. 기본은 backoff다. */
+  /** 끊긴 Gateway 연결을 다시 잇는 시각. 테스트가 끼운다. 기본은 backoff다. */
   reconnect?: ReconnectPolicy;
   /** 테스트가 가짜 core를 끼운다. */
   start?: (options: LaunchOptions) => CoreProcess;
-  /** main이 직접 보는 지금 도착한 event. renderer로 나가지 않는다. */
-  arrived?: EventSink["arrived"];
+  /**
+   * main 자신이 보는 event. 조건은 renderer의 조건과 합쳐 건다. event는 renderer에도 같이 가지만
+   * main이 먼저 쓴다.
+   */
+  own?: {
+    conditions(): readonly EventCondition[];
+    event(event: BusEvent): void;
+  };
   /**
    * allowlist 호출을 core로 보내기 전에 main이 붙인다. 실패해도 그 호출은
    * 그대로 보낸다(현재 보기 bind가 사람 메시지를 막지 않는다).
@@ -65,22 +81,14 @@ export interface ConnectionOptions {
   ) => Promise<void>;
 }
 
-export interface ConnectionState {
-  state:
-    | "starting"
-    | "ready"
-    | "stale"
-    | "failed"
-    | "failed-start"
-    | "failed-sandbox"
-    | "failed-schema";
-  confirmedAt: number | null;
-}
+export type ConnectionState = ShellConnectionState;
 
 export interface CoreConnection {
   readonly state: ConnectionState;
   /** 준비된 인증 read·command session. 준비 전에는 null이다. */
   session(): CoreSession | null;
+  /** 닫힌 창(webContents id)의 구독 조건을 뺀다. */
+  forget(owner: number): void;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
   /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
@@ -113,7 +121,17 @@ export function startCoreConnection(
     }
   };
 
-  // hello 하나에 session·구독을 연다.
+  // renderer들이 건 조건. Gateway가 붙기 전에 온 것도 여기 남았다가 붙을 때 건다.
+  const watching = new Map<number, unknown[]>();
+  let gateway: Gateway | undefined;
+
+  const relay = (message: CoreEventMessage) => {
+    for (const target of options.targets?.() ?? []) {
+      if (!target.isDestroyed()) target.send(CORE_EVENT_CHANNEL, message);
+    }
+  };
+
+  // hello 하나에 session·Gateway 연결을 연다.
   const greet = (hello: {
     readonly user_token: string;
     readonly api_port: number;
@@ -128,7 +146,7 @@ export function startCoreConnection(
     });
     state.state = "ready";
     push();
-    subscribe({
+    gateway = openGateway({
       session,
       epoch: hello.core_epoch,
       // core 프로세스가 끝났으면 다시 붙을 곳이 없다.
@@ -139,24 +157,41 @@ export function startCoreConnection(
       headers: () => ({ Authorization: `Bearer ${hello.user_token}` }),
       socket: options.sockets,
       clock: options.clock,
+      own: () => options.own?.conditions() ?? [],
       sink: {
         stale: (notice) => {
           state.state = "stale";
           state.confirmedAt = notice.confirmedAt;
           push();
         },
-        caughtUp: () => {
+        ready: () => {
           state.state = "ready";
           state.confirmedAt = options.clock.now();
           push();
         },
-        arrived: (events) => options.arrived?.(events),
+        // renderer에 가는 것은 ready·event·closed뿐이다. 터미널 요청 같은 frame은 main 전용이다.
+        frame: (frame) => {
+          if (frame.type === "ready") relay({ kind: "ready" });
+          else if (frame.type === "event") {
+            options.own?.event(frame.event);
+            relay({ kind: "event", event: frame.event });
+          } else if (frame.type === "closed") {
+            relay({ kind: "closed", reason: frame.reason });
+          }
+        },
       },
     });
+    for (const [owner, conditions] of watching) {
+      gateway.watch(owner, conditions);
+    }
   };
 
-  core.hello.then(greet).catch(() => {
-    state.state = "failed-start";
+  core.hello.then(greet).catch((error) => {
+    // 이유를 알린 시작 실패는 화면이 구별해 보인다. 이유를 모르거나 `other`면 그냥 시작 실패다.
+    if (error instanceof StartFailedError && error.reason !== "other") {
+      state.state = "failed-schema";
+      state.schemaFailure = error.reason;
+    } else state.state = "failed-start";
     push();
   });
 
@@ -166,6 +201,20 @@ export function startCoreConnection(
     CORE_STATE_GET_CHANNEL,
     () => Promise.resolve({ ...state }),
   );
+
+  // 이 renderer의 조건을 통째로 바꾼다. sender 검사는 call과 같다.
+  options.ipc.handle(CORE_WATCH_CHANNEL, (event, input) => {
+    if (options.contentsRegistry !== undefined) {
+      const caller = options.contentsRegistry.checkCaller(event as IpcEvent);
+      if (!caller.ok) return Promise.resolve(undefined);
+    }
+    const parsed = coreWatchSchema.safeParse(input);
+    if (!parsed.success) return Promise.resolve(undefined);
+    const owner = (event as IpcEvent).sender.id;
+    watching.set(owner, parsed.data.conditions);
+    gateway?.watch(owner, parsed.data.conditions);
+    return Promise.resolve(undefined);
+  });
 
   options.ipc.handle(CORE_CALL_CHANNEL, async (event, input) => {
     // sender 검사는 guardIpc의 checkCaller로 본다. 등록 registry가 없으면 보지 않는다.
@@ -197,6 +246,7 @@ export function startCoreConnection(
       parsed.data.resource,
       parsed.data.method,
       parsed.data.body,
+      parsed.data.bytes,
     );
   });
 
@@ -207,7 +257,12 @@ export function startCoreConnection(
     session() {
       return session ?? null;
     },
+    forget(owner) {
+      watching.delete(owner);
+      gateway?.forget(owner);
+    },
     shutdown() {
+      gateway?.stop();
       core.stop();
     },
     diagnostic(message) {

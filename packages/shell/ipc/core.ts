@@ -1,14 +1,23 @@
-// renderer가 main에 요청하는 read·command와 worker에서 조립하는 읽기, 그리고 MCP 로그인의 memory
-// route. token·port·종료는 이 schema에 없다. 어떤 worker·memory route를 받을지는 main의 allowlist가
-// 정한다.
+// renderer가 main에 요청하는 read·command와 worker에서 조립하는 읽기, 몇 개의 memory route, 그리고
+// byte route. token·port·종료는 이 schema에 없다. 어떤 worker·memory·upload·file route를 받을지는
+// main의 allowlist가 정한다. `upload`는 `bytes`를 본문으로 보내고(`body`는 route 입력) `file`은
+// `{ bytes, contentType }`로 답한다.
 import { z } from "zod";
 
+// preload의 검사는 renderer 쪽 realm에서 돌아 `instanceof`가 어긋날 수 있다. 이름표로 본다.
+const bytes = z.custom<Uint8Array>((value) =>
+  Object.prototype.toString.call(value) === "[object Uint8Array]"
+);
+
 export const coreCallSchema = z.object({
-  kind: z.enum(["read", "command", "worker", "memory"]),
+  kind: z.enum(["read", "command", "worker", "memory", "upload", "file"]),
   resource: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   method: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   body: z.unknown(),
-}).strict();
+  bytes: bytes.optional(),
+}).strict().refine((call) =>
+  (call.kind === "upload") === (call.bytes !== undefined)
+);
 
 export type CoreCall = z.infer<typeof coreCallSchema>;
 

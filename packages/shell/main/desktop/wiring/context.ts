@@ -4,6 +4,10 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import type {
+  BusEvent,
+  EventCondition,
+} from "../../../../protocol/events/mod.ts";
 import { electronOverlays } from "../../app-frame/electron-overlay.ts";
 import { createAppConnector } from "../../app-frame/app-connection.ts";
 import { CloseGuards } from "../../editor/close-guard.ts";
@@ -39,12 +43,14 @@ export type Ipc = {
   removeAllListeners(channel: string): void;
 };
 
-type Arrived = NonNullable<ConnectionOptions["arrived"]>;
 type BeforeCall = NonNullable<ConnectionOptions["beforeCall"]>;
 
-/** core 연결이 main에 보여 주는 두 곳. 영역이 자기 반응을 덧붙인다. */
+/** core 연결이 main에 보여 주는 곳. 영역이 자기 반응을 덧붙인다. */
 export type CoreRelay = {
-  arrived: Array<(events: Parameters<Arrived>[0]) => void>;
+  /** main 자신의 Gateway 조건. renderer들의 조건과 합쳐 건다. */
+  conditions: EventCondition[];
+  /** 조건에 맞아 도착한 event. renderer에도 같이 가지만 main이 먼저 쓴다. */
+  events: Array<(event: BusEvent) => void>;
   beforeCall: Array<(...args: Parameters<BeforeCall>) => Promise<void>>;
 };
 
@@ -111,7 +117,7 @@ export function createShellContext(): ShellContext {
     ) ?? appWindowRefs.get(ref);
 
   let stopped = false;
-  const relay: CoreRelay = { arrived: [], beforeCall: [] };
+  const relay: CoreRelay = { conditions: [], events: [], beforeCall: [] };
   const core = connectCore({ here, dataRoot, windows, log, relay });
   const coreInternal: ShellContext["coreInternal"] = (
     kind,

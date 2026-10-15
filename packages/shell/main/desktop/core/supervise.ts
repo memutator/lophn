@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
+  type CoreToMainMessage,
   coreToMainMessageSchema,
   type MainHello,
   mainToCoreMessageSchema,
@@ -103,6 +104,20 @@ export function coreLaunch(options: LaunchOptions): CoreSpawn {
 
 export type CorePhase = "starting" | "ready" | "stopped";
 
+/** core가 hello 전에 `start_failed`로 알린 시작 실패. reason이 화면이 보일 이유를 가른다. */
+export type StartFailure = Extract<
+  CoreToMainMessage,
+  { type: "start_failed" }
+>["reason"];
+
+export class StartFailedError extends Error {
+  readonly reason: StartFailure;
+  constructor(reason: StartFailure) {
+    super(`core가 시작하지 못했다: ${reason}`);
+    this.reason = reason;
+  }
+}
+
 export interface CoreProcess {
   readonly phase: CorePhase;
   /** hello 한 번. 실패·protocol 위반이면 reject. */
@@ -128,7 +143,10 @@ export interface CoreProcess {
 export interface CoreChild {
   stdin: { write(bytes: Uint8Array): void };
   stdout: { on(event: "data", listener: (chunk: Uint8Array) => void): void };
-  on(event: "exit" | "error", listener: (error?: Error) => void): void;
+  on(
+    event: "exit" | "close" | "error",
+    listener: (error?: Error) => void,
+  ): void;
   kill(): void;
 }
 
@@ -192,6 +210,11 @@ export function supervise(
         fail(new Error("core 메시지를 읽지 못했다"));
         return;
       }
+      if ("type" in parsed.data && parsed.data.type === "start_failed") {
+        // core가 이유를 알리고 곧 끝난다. exit가 먼저 와도 이 이유가 먼저 간다.
+        if (!helloSent) rejectHello(new StartFailedError(parsed.data.reason));
+        continue;
+      }
       if (!helloSent) {
         const first = parsed.data as { user_token?: string };
         if (first.user_token === undefined) {
@@ -211,6 +234,9 @@ export function supervise(
     if (phase === "stopped") return;
     phase = "stopped";
     timers.clearTimeout(helloTimer);
+  });
+  // stdout을 다 읽은 뒤에 거부한다. 그래야 끝나기 직전에 보낸 start_failed 이유가 먼저 닿는다.
+  child.on("close", () => {
     if (!helloSent) rejectHello(new Error("core가 hello 전에 끝났다"));
   });
   // spawn 실패(ENOENT 등)는 exit와 다른 error event다. 받지 않으면 Electron

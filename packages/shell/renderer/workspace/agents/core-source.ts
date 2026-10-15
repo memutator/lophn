@@ -2,7 +2,8 @@
 // 가리키고 화면에는 key(agent-key.ts)로 나간다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 // 아래는 route가 없어 unavailable로 답하는 것이다.
 // - project 층 model 고르기, project 층 skill 켬·끔, 전역 server를 project 층에서 켬·끔
-// - profile 이미지 올리기·읽기: 이미지 바이트 route(upload·file)는 renderer가 부를 수 있는 통로(CoreCall)에 없다.
+// profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
+// 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
 import type {
   AgentDefinitionRow,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -110,6 +111,36 @@ export function coreAgentsSource(
     (() => crypto.getRandomValues(new Uint8Array(26)));
   const link: Link = createLink(core, random);
 
+  // 읽은 profile 이미지의 blob URL. 키는 `<agent key>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
+  // 다시 올리면 uploadImage가 새 값으로 바꾼다.
+  const images = new Map<string, string>();
+  const loadImage = async (
+    project: string | null,
+    key: string,
+    image: string,
+  ) => {
+    const ref = refOf(project, key);
+    if (ref === null || images.has(`${key}/${image}`)) return;
+    try {
+      const reply = await core.call({
+        kind: "file",
+        resource: "profile-images",
+        method: "read",
+        body: { agent: ref },
+      });
+      if (!reply.ok) return;
+      const file = reply.value as { bytes: Uint8Array; contentType: string };
+      images.set(
+        `${key}/${image}`,
+        URL.createObjectURL(
+          new Blob([file.bytes.slice()], { type: file.contentType }),
+        ),
+      );
+    } catch {
+      // 못 읽은 이미지는 빈 주소로 둔다.
+    }
+  };
+
   // 놓인 곳의 이름(project의 title, 앱의 name). 읽지 못하면 빈 글이다.
   const nameOf = async (place: string): Promise<string> => {
     if (isAppPlace(place)) {
@@ -168,9 +199,16 @@ export function coreAgentsSource(
       "list",
       { place: placeOf(place) },
     );
-    return result.ok
-      ? { ok: true, value: result.value.agents.map(toRow) }
-      : result;
+    if (!result.ok) return result;
+    const rows = result.value.agents.map(toRow);
+    await Promise.all(
+      rows.map((row) =>
+        row.profile.kind === "image"
+          ? loadImage(place, row.assignment, row.profile.image)
+          : undefined
+      ),
+    );
+    return { ok: true, value: rows };
   };
 
   // 이 agent가 model을 고르지 않을 때 따르는 값. 위 층이 준 값이면 그대로, 아니면 전역 기본이다.
@@ -227,6 +265,9 @@ export function coreAgentsSource(
     const text = where === null
       ? null
       : await instructionsOf(value.role, where.id);
+    if (value.effective.profile.value.kind === "image") {
+      await loadImage(place, key, value.effective.profile.value.image);
+    }
     return {
       ok: true,
       value: {
@@ -483,9 +524,32 @@ export function coreAgentsSource(
         : { ok: false, message: deleted.code };
     },
 
-    uploadImage: () => Promise.resolve(unavailable),
+    async uploadImage(project, key, file) {
+      const ref = refOf(project, key);
+      if (ref === null) return { ok: false, message: "not_found" };
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await file.arrayBuffer());
+      } catch {
+        return unavailable;
+      }
+      const uploaded = await core.call({
+        kind: "upload",
+        resource: "profile-images",
+        method: "upload",
+        body: { agent: ref, content_type: file.type, bytes: bytes.byteLength },
+        bytes,
+      });
+      if (!uploaded.ok) {
+        return { ok: false, message: uploaded.error?.code ?? "internal" };
+      }
+      const image =
+        (uploaded.value as { profile: { image: string } }).profile.image;
+      images.set(`${key}/${image}`, URL.createObjectURL(file));
+      return { ok: true, value: { image } };
+    },
 
-    imageSrc: () => "",
+    imageSrc: (_project, key, image) => images.get(`${key}/${image}`) ?? "",
 
     setProjectModel: () => Promise.resolve(unavailable),
 

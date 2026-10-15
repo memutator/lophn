@@ -1,4 +1,4 @@
-// 폴더 고르기, 외부 열기, 단축키, 단일 instance, launch mode, 창 열기 시작, 종료 흐름.
+// 폴더·파일 고르기, 외부 열기, 단축키, 단일 instance, launch mode, 창 열기 시작, 종료 흐름.
 import {
   app,
   BrowserWindow,
@@ -15,7 +15,10 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { FOLDER_PICK_CHANNEL } from "../../../ipc/folder-picker.ts";
+import {
+  FILE_PICK_CHANNEL,
+  FOLDER_PICK_CHANNEL,
+} from "../../../ipc/folder-picker.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
@@ -26,7 +29,11 @@ import {
   readAutostart,
   writeAutostart,
 } from "../autostart.ts";
-import { createFolderPicker } from "../folder-picker.ts";
+import {
+  createFilePicker,
+  createFolderPicker,
+  type PickDialog,
+} from "../folder-picker.ts";
 import {
   type GlobalPalette,
   type GlobalShortcutPort,
@@ -34,11 +41,7 @@ import {
 } from "../global-shortcut.ts";
 import { guardShortcuts } from "../headless.ts";
 import { resolveLaunchMode } from "../launch-mode.ts";
-import {
-  openUrlIntent,
-  readOpenIntent,
-  registerUrlScheme,
-} from "../open-intent.ts";
+import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
 import { browserDataPath } from "../paths.ts";
 import {
@@ -113,26 +116,39 @@ export function register(
   const { openIntent } = views;
   let globalPalette: GlobalPalette | undefined;
 
-  // 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
+  // OS 폴더·파일 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
+  const pickDialog: PickDialog = {
+    async open(event, request) {
+      const sender = (event as unknown as { sender: WebContents }).sender;
+      const parent = BrowserWindow.fromWebContents(sender);
+      const options = {
+        title: request.title,
+        properties: request.kind === "folder"
+          ? ["openDirectory" as const, "createDirectory" as const]
+          : ["openFile" as const],
+      };
+      const result = parent
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options);
+      return { canceled: result.canceled, paths: result.filePaths };
+    },
+  };
   ipc.handle(
     FOLDER_PICK_CHANNEL,
     createFolderPicker({
       registry: overlays.overlayRegistry(),
       headless,
       headlessPick: process.env.LOPHN_SHELL_PICK_FOLDER,
-      dialog: {
-        async open(event) {
-          const sender = (event as unknown as { sender: WebContents }).sender;
-          const parent = BrowserWindow.fromWebContents(sender);
-          const options = {
-            properties: ["openDirectory" as const, "createDirectory" as const],
-          };
-          const result = parent
-            ? await dialog.showOpenDialog(parent, options)
-            : await dialog.showOpenDialog(options);
-          return { canceled: result.canceled, paths: result.filePaths };
-        },
-      },
+      dialog: pickDialog,
+    }),
+  );
+  ipc.handle(
+    FILE_PICK_CHANNEL,
+    createFilePicker({
+      registry: overlays.overlayRegistry(),
+      headless,
+      headlessPick: process.env.LOPHN_SHELL_PICK_FILE,
+      dialog: pickDialog,
     }),
   );
 
@@ -209,9 +225,6 @@ export function register(
     dataRoot,
     onOpenWindow: () => desktop.open(),
     onOpenApp: (app) => openIntent({ kind: "app", app }),
-    onThingsToConfirm: (request) =>
-      openIntent({ kind: "things-to-confirm", request }),
-    onCoding: (target) => openIntent({ kind: "coding", target }),
     onQuitIntent: () =>
       requestQuit({
         windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -219,18 +232,6 @@ export function register(
         quitApp: () => {},
         confirmWithWindows: () => void quitFlow.request(),
       }),
-  });
-
-  // macOS는 링크를 argv가 아니라 open-url로 준다. 준비 전에 와도 준비된 뒤 연다.
-  app.on("open-url", (event, url) => {
-    event.preventDefault();
-    const intent = openUrlIntent(url);
-    if (
-      (intent.kind === "things-to-confirm" || intent.kind === "coding") &&
-      instance.acquired
-    ) {
-      void app.whenReady().then(() => openIntent(intent));
-    }
   });
 
   // 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
@@ -302,27 +303,18 @@ export function register(
           ctx.tray.current?.notice("global-search-unavailable"),
         log,
       });
-      registerUrlScheme({
-        packaged: app.isPackaged,
-        headless: headless.headless,
-        port: app,
-        log,
-      });
       // 창 없는 시작은 main과 core만 띄운다. 첫 시작의 `--open-app`은 기본 창
-      // 대신 앱 전용 창을, 링크는 그 대상을 고른 기본 창을 연다.
+      // 대신 앱 전용 창을 연다.
       const start = readOpenIntent(process.argv);
-      if (
-        start.kind === "app" || start.kind === "things-to-confirm" ||
-        start.kind === "coding"
-      ) {
-        openIntent(start);
-      } else if (!mode.tray) desktop.open();
+      if (start.kind === "app") openIntent(start);
+      else if (!mode.tray) desktop.open();
     });
   }
 
   return {
     stop() {
       ipc.removeHandler(FOLDER_PICK_CHANNEL);
+      ipc.removeHandler(FILE_PICK_CHANNEL);
       ipc.removeHandler(WINDOW_CONTROL_CHANNEL);
       ipc.removeHandler(OPEN_EXTERNAL_CHANNEL);
       globalPalette?.dispose();

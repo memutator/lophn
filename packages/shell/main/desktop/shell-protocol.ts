@@ -10,7 +10,9 @@ export const SHELL_CSP = [
   "script-src 'self'",
   "style-src 'self'",
   "font-src 'self'",
-  "img-src 'self' data:",
+  // 편집기가 이미지와 pdf(`<embed>`)를 blob URL로 그린다.
+  "img-src 'self' data: blob:",
+  "object-src blob:",
   "connect-src 'self'",
   "base-uri 'none'",
   "form-action 'none'",

@@ -1,8 +1,6 @@
 // lophn-app:// 요청을 view가 묶인 대상의 화면 byte로 바꾼다. byte는 core의 `app.screen_file`이
 // 내주고(UI bundle 사본), 대상(앱·release·preview process)은 view가 정하며 페이지 주장은 없다.
 // redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다. 요청이 취소되면 upstream도 끊는다.
-import { extname } from "node:path";
-
 import {
   APP_SCHEME,
   appContentSecurityPolicy,
@@ -231,81 +229,27 @@ export function createAppProtocolHandler(
   };
 }
 
-// core가 내준 byte의 MIME은 파일 확장자로 정한다(file route client가 header를 넘기기 전까지).
-const TYPES: Readonly<Record<string, string>> = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".wasm": "application/wasm",
-  ".txt": "text/plain; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".avif": "image/avif",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-  ".mp3": "audio/mpeg",
-  ".ogg": "audio/ogg",
-  ".wav": "audio/wav",
-  ".mp4": "video/mp4",
-  ".webm": "video/webm",
-};
-
-// 화면 파일 하나를 main 메모리에 모으는 상한.
-export const SCREEN_FILE_MAX_BYTES = 32 * 1024 * 1024;
-
-/** core의 file route `app.screen_file`을 읽는다. 입력은 route 입력이고 byte는 limit까지 모은다. */
-export type ScreenFileRead = (
+/** core의 file route `app.screen_file`을 연다. 응답 상태·Content-Type·body는 core가 준 그대로이고 signal로 끊는다. */
+export type ScreenFileOpen = (
   input: { target: ScreenTarget; screen: string; path: string },
-  limit: number,
+  signal: AbortSignal,
 ) => Promise<
-  { ok: true; value: Uint8Array } | { ok: false; error: { code: string } }
+  { status: number; headers: Headers; body: ReadableStream<Uint8Array> | null }
 >;
 
-function statusOf(code: string): number {
-  switch (code) {
-    case "not_found":
-    case "invalid_input":
-      return 404;
-    case "unavailable":
-      return 503;
-    default:
-      return 502;
-  }
-}
-
-/** core 읽기로 화면 byte를 내주는 upstream. */
-export function createCoreUpstream(read: ScreenFileRead): Upstream {
+/** core 응답을 그대로 stream하는 upstream. MIME은 core의 Content-Type이고 허용 여부는 handler가 본다. */
+export function createCoreUpstream(open: ScreenFileOpen): Upstream {
   return async (request) => {
-    const result = await read({
+    const response = await open({
       target: request.target,
       screen: request.screen,
       path: request.path,
-    }, SCREEN_FILE_MAX_BYTES);
-    if (request.signal.aborted) throw new Error("aborted");
-    if (!result.ok) {
-      return { status: statusOf(result.error.code), headers: {}, body: null };
-    }
-    const type = TYPES[extname(request.path).toLowerCase()];
-    if (type === undefined) return { status: 502, headers: {}, body: null };
-    const bytes = result.value;
+    }, request.signal);
     return {
-      status: 200,
-      headers: { "content-type": type },
-      body: new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(bytes);
-          controller.close();
-        },
-      }),
+      // 입력 거절(400)은 없는 화면과 같은 404로 보인다.
+      status: response.status === 400 ? 404 : response.status,
+      headers: Object.fromEntries(response.headers),
+      body: response.body,
     };
   };
 }

@@ -112,6 +112,9 @@ export type CommonPlaceholders = {
   "common.stale.label": {
     age: "string";
   };
+  "common.title.pick-file": Record<never, never>;
+  "common.title.pick-folder-register": Record<never, never>;
+  "common.title.pick-folder-relocate": Record<never, never>;
   "common.title.quit": Record<never, never>;
   "contexts.empty.tab-none": Record<never, never>;
   "contexts.label.frame-chip": Record<never, never>;

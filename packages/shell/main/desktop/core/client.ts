@@ -31,6 +31,8 @@ export type StreamFetch = (
     method: string;
     headers: Record<string, string>;
     body?: string | Uint8Array;
+    /** 끊기면 응답 stream도 끊는다. */
+    signal?: AbortSignal;
   },
 ) => Promise<
   {
@@ -40,15 +42,35 @@ export type StreamFetch = (
   }
 >;
 
+/** file route의 응답. 상태가 200이 아니어도 core가 준 그대로다. */
+export interface FileStream {
+  status: number;
+  headers: Headers;
+  body: ReadableStream<Uint8Array> | null;
+}
+
+/** renderer가 `file` kind로 받는 byte 응답. content type은 core가 정한 것이다. */
+export interface FileBytes {
+  bytes: Uint8Array;
+  contentType: string;
+}
+
+/** renderer가 `file` kind로 한 번에 받는 byte 상한. */
+export const FILE_REPLY_MAX_BYTES = 32 * 1024 * 1024;
+
 export interface CoreSession {
   readonly apiPort: number;
   readonly coreEpoch: string;
-  /** 인증된 read·command. allowlist 밖은 네트워크로 나가지 않는다. */
+  /**
+   * renderer가 부르는 통로. allowlist 밖은 네트워크로 나가지 않는다. `upload`는 bytes를 본문으로 보내고
+   * `file`은 `{ bytes, contentType }`로 답한다.
+   */
   call(
     kind: string,
     resource: string,
     method: string,
     body: unknown,
+    bytes?: Uint8Array,
   ): Promise<CallResult>;
   /**
    * main 안의 통로(편집기 파일 adapter)만 부른다. renderer allowlist를 거치지 않고 contract의
@@ -67,6 +89,16 @@ export interface CoreSession {
     body: unknown,
     limit: number,
   ): Promise<CallResult<Uint8Array>>;
+  /**
+   * file route의 응답을 당겨 읽을 stream 그대로 낸다. main 안의 통로(앱 화면)만 쓴다. 보내지 못하면
+   * 상태 403(허용 안 됨)·400(입력)·503(연결)에 본문이 없다. signal이 끊기면 응답도 끊긴다.
+   */
+  fileStream(
+    resource: string,
+    method: string,
+    body: unknown,
+    signal?: AbortSignal,
+  ): Promise<FileStream>;
   /** upload route에 바이트를 보낸다. 입력은 header의 base64url JSON이다. */
   upload(
     resource: string,
@@ -186,11 +218,23 @@ export function openSession(input: SessionInput): CoreSession {
   return {
     apiPort: input.apiPort,
     coreEpoch: input.coreEpoch,
-    async call(kind, resource, method, body) {
+    async call(kind, resource, method, body, bytes) {
       const name = lookupCall(kind, resource, method);
       const route = name === undefined ? undefined : routeByName(name);
       if (route === undefined || !isAllowed(kind, resource, method)) {
         return forbidden();
+      }
+      if (kind === "file") {
+        return await readBytes(resource, method, body, FILE_REPLY_MAX_BYTES);
+      }
+      if (kind === "upload") {
+        if (bytes === undefined) {
+          return {
+            ok: false,
+            error: { code: "invalid_input", message: "invalid input" },
+          };
+        }
+        return await sendBytes(route, body, bytes);
       }
       return await rpc.call(route as Route, body as never);
     },
@@ -200,44 +244,18 @@ export function openSession(input: SessionInput): CoreSession {
       return await rpc.call(route as Route, body as never);
     },
     async readStream(resource, method, body, limit) {
-      const route = routeOf("file", resource, method);
-      if (route === undefined || input.stream === undefined) return forbidden();
-      const checked = route.input.safeParse(body);
-      if (!checked.success) {
-        return {
-          ok: false,
-          error: { code: "invalid_input", message: "invalid input" },
-        };
-      }
-      let response: Awaited<ReturnType<StreamFetch>>;
-      try {
-        response = await input.stream(`${base}${routePath(route)}`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${input.userToken}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(checked.data),
-        });
-      } catch {
-        return lost();
-      }
-      if (response.status !== 200) {
-        return await failure(response.status, response.body);
-      }
-      try {
-        const bytes = await drain(response.body, limit);
-        if (bytes === "too_large") {
-          return {
-            ok: false,
-            error: { code: "too_large", message: "file is too large" },
-          };
-        }
-        return { ok: true, value: bytes };
-      } catch {
-        // 끝에서 hash·크기가 어긋나면 core가 응답을 끊는다. 받은 조각은 쓰지 않는다.
-        return lost();
-      }
+      const read = await readBytes(resource, method, body, limit);
+      return read.ok ? { ok: true, value: read.value.bytes } : read;
+    },
+    async fileStream(resource, method, body, signal) {
+      const opened = await openFile(resource, method, body, signal);
+      if (opened.ok) return opened.value;
+      const status = opened.error.code === "forbidden"
+        ? 403
+        : opened.error.code === "invalid_input"
+        ? 400
+        : 503;
+      return { status, headers: new Headers(), body: null };
     },
     upload(resource, method, body, bytes) {
       return sendBytes(routeOf("upload", resource, method), body, bytes);
@@ -246,6 +264,73 @@ export function openSession(input: SessionInput): CoreSession {
       return sendBytes(routeOf("worker", resource, method), body, bytes);
     },
   };
+
+  async function openFile(
+    resource: string,
+    method: string,
+    body: unknown,
+    signal?: AbortSignal,
+  ): Promise<CallResult<FileStream>> {
+    const route = routeOf("file", resource, method);
+    if (route === undefined || input.stream === undefined) return forbidden();
+    const checked = route.input.safeParse(body);
+    if (!checked.success) {
+      return {
+        ok: false,
+        error: { code: "invalid_input", message: "invalid input" },
+      };
+    }
+    try {
+      return {
+        ok: true,
+        value: await input.stream(`${base}${routePath(route)}`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${input.userToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(checked.data),
+          ...(signal ? { signal } : {}),
+        }),
+      };
+    } catch {
+      return lost();
+    }
+  }
+
+  async function readBytes(
+    resource: string,
+    method: string,
+    body: unknown,
+    limit: number,
+  ): Promise<CallResult<FileBytes>> {
+    const opened = await openFile(resource, method, body);
+    if (!opened.ok) return opened;
+    const response = opened.value;
+    if (response.status !== 200) {
+      return await failure(response.status, response.body);
+    }
+    try {
+      const bytes = await drain(response.body, limit);
+      if (bytes === "too_large") {
+        return {
+          ok: false,
+          error: { code: "too_large", message: "file is too large" },
+        };
+      }
+      return {
+        ok: true,
+        value: {
+          bytes,
+          contentType: response.headers.get("content-type") ??
+            "application/octet-stream",
+        },
+      };
+    } catch {
+      // 끝에서 hash·크기가 어긋나면 core가 응답을 끊는다. 받은 조각은 쓰지 않는다.
+      return lost();
+    }
+  }
 
   async function sendBytes(
     route: Route | undefined,

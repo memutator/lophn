@@ -1,13 +1,14 @@
-// event는 seq cursor로 잇는다. 끊기면 마지막 확인 시각을 남기고 backoff로 스스로 다시 붙는다.
-// 다시 붙으면 epoch를 확인한 뒤 cursor 다음부터 현재 기록으로 따라잡는다. epoch가 바뀌면 옛
-// 응답을 버린다.
+// shell main은 사람 token 하나로 Gateway에 붙고 받은 frame을 renderer에 중계한다. 조건은 renderer들이 건
+// 것과 main 자신의 것을 합쳐 `watch` frame 하나로 건다. replay가 없으므로 연결이 새로 붙을 때마다 조건을
+// 다시 걸고, 서버가 보내는 `ready`를 renderer가 받아 snapshot부터 다시 읽는다. 끊기면 마지막 확인 시각을
+// 남기고 backoff로 스스로 다시 붙는다. epoch가 바뀌면 옛 core의 연결은 버린다.
 import {
-  EVENT_SUBSCRIBE_PATH,
-  EVENT_SUBSCRIBE_SUBPROTOCOL,
-  type EventEnvelope,
-  eventsList,
-  nextFromSeq,
-  parseEventFrame,
+  type EventCondition,
+  eventConditionSchema,
+  GATEWAY_PATH,
+  GATEWAY_SUBPROTOCOL,
+  type GatewayServerFrame,
+  gatewayServerFrameSchema,
 } from "../../../../protocol/events/mod.ts";
 
 import type { CoreSession } from "./client.ts";
@@ -23,20 +24,18 @@ export interface ConnectionNotice {
   confirmedAt: number | null;
 }
 
-export interface EventSink {
+export interface GatewaySink {
   stale(notice: ConnectionNotice): void;
-  caughtUp(): void;
-  /**
-   * socket으로 지금 도착한 event. 붙을 때·재연결 때 따라잡은 목록은 cursor만 옮기고 여기로
-   * 보내지 않는다. 놓친 진행을 연속 재생하지 않는다.
-   */
-  arrived?(events: readonly EventEnvelope[]): void;
+  /** 서버가 조건을 적용했다(`ready`). renderer는 이때 snapshot을 읽는다. */
+  ready(): void;
+  /** 서버가 보낸 모든 frame. renderer로 보낼 것은 sink가 가려 쓴다. */
+  frame(frame: GatewayServerFrame): void;
 }
 
 export interface EventSocket {
   send(text: string): void;
   close(): void;
-  /** socket이 open되면 부른다. subscribe는 open 뒤에 보낸다. */
+  /** socket이 open되면 부른다. watch는 open 뒤에 보낸다. */
   onOpen(listener: () => void): void;
   onMessage(listener: (text: string) => void): void;
   onClose(listener: () => void): void;
@@ -44,7 +43,7 @@ export interface EventSocket {
 
 export interface SocketFactory {
   /**
-   * 구독 socket을 연다. header는 token을 아는 caller가 closure로 묶어 함께 준다.
+   * Gateway socket을 연다. header는 token을 아는 caller가 closure로 묶어 함께 준다.
    * token은 URL에 실지 않는다.
    */
   open(
@@ -54,7 +53,7 @@ export interface SocketFactory {
   ): EventSocket;
 }
 
-/** 끊긴 구독을 다시 잇는 시각 정책. 주입하지 않으면 다시 잇지 않는다. */
+/** 끊긴 연결을 다시 잇는 시각 정책. 주입하지 않으면 다시 잇지 않는다. */
 export interface ReconnectPolicy {
   /** 0부터 세는 연속 실패 횟수에 대한 대기 ms. */
   delay(attempt: number): number;
@@ -81,22 +80,27 @@ export function backoffReconnect(
   };
 }
 
-export interface Subscription {
-  readonly cursor: string;
+export interface Gateway {
   readonly generation: number;
-  /** 끊긴 구독을 같은 cursor로 다시 잇는다. epoch가 다르면 아무것도 하지 않는다. */
+  /** 이 renderer의 조건 전체를 바꾼다. 쓸 수 있는 조건이 없으면 그 renderer의 조건을 뺀다. */
+  watch(owner: number, conditions: readonly unknown[]): void;
+  /** 이 renderer의 조건을 뺀다(창이 닫혔다). */
+  forget(owner: number): void;
+  /** 끊긴 연결을 다시 잇는다. epoch가 다르면 옛 core의 것이라 붙지 않는다. */
   reconnect(epoch: string): void;
   stop(): void;
 }
 
-export interface SubscribeOptions {
+export interface GatewayOptions {
   session: CoreSession;
-  /** hello로 받은 epoch. 응답 epoch와 다르면 그 응답을 버린다. */
+  /** hello로 받은 epoch. reconnect가 다른 epoch를 받으면 버린다. */
   epoch: string;
   socket: SocketFactory;
-  /** open할 때 socket에 실 header. token을 아는 caller가 준다. */
+  /** open할 때 socket에 실을 header. token을 아는 caller가 준다. */
   headers?: () => Record<string, string>;
-  sink: EventSink;
+  /** main 자신의 조건. 연결을 걸 때마다 읽는다. */
+  own: () => readonly EventCondition[];
+  sink: GatewaySink;
   clock: Clock;
   /** 끊기면 같은 epoch로 스스로 다시 붙는다. 없으면 reconnect()를 부를 때만 다시 붙는다. */
   reconnectPolicy?: ReconnectPolicy;
@@ -104,29 +108,43 @@ export interface SubscribeOptions {
   generation?: number;
 }
 
-/** renderer로 나가지 않는 구독. */
-export function subscribe(options: SubscribeOptions): Subscription {
+/** main 조건에 renderer들의 조건을 더해 같은 조건은 한 번만 건다. */
+function merged(
+  own: readonly EventCondition[],
+  watchers: ReadonlyMap<number, readonly EventCondition[]>,
+): EventCondition[] {
+  const seen = new Set<string>();
+  const out: EventCondition[] = [];
+  for (const condition of [...own, ...[...watchers.values()].flat()]) {
+    const key = JSON.stringify([condition.session ?? null, condition.types]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(condition);
+  }
+  return out;
+}
+
+export function openGateway(options: GatewayOptions): Gateway {
   const generation = options.generation ?? 1;
-  let cursor = "0";
-  // 붙을 때 본 head. 이 seq까지는 따라잡기 backlog라 지금 도착한 것으로 보내지 않는다.
-  let backlogThrough = 0n;
+  const watchers = new Map<number, readonly EventCondition[]>();
   let confirmedAt: number | null = null;
   let stopped = false;
   let socket: EventSocket | undefined;
-  // 따라잡기 도중 도착한 더 낮은 generation의 응답을 거른다.
+  let opened = false;
+  // 낮은 generation의 늦은 callback을 거른다.
   let active = generation;
 
   let attempts = 0;
   let cancelRetry: (() => void) | undefined;
 
-  const stale = () => {
-    if (stopped) return;
-    options.sink.stale({ state: "stale", confirmedAt });
-    scheduleRetry();
+  const sendWatch = () => {
+    if (!opened || socket === undefined) return;
+    socket.send(JSON.stringify({
+      type: "watch",
+      conditions: merged(options.own(), watchers),
+    }));
   };
 
-  // 끊긴 구독을 같은 epoch로 다시 붙인다. 붙으면 cursor 다음부터 현재 기록으로 맞추고
-  // 끊긴 사이 진행은 재생하지 않는다(backlogThrough).
   const scheduleRetry = () => {
     const policy = options.reconnectPolicy;
     if (stopped || policy === undefined || cancelRetry !== undefined) return;
@@ -136,10 +154,17 @@ export function subscribe(options: SubscribeOptions): Subscription {
       socket?.close();
       socket = undefined;
       active += 1;
-      attach(options.epoch);
+      connect();
     };
     cancelRetry = policy.after(policy.delay(attempts), run);
     attempts += 1;
+  };
+
+  const stale = () => {
+    if (stopped) return;
+    opened = false;
+    options.sink.stale({ state: "stale", confirmedAt });
+    scheduleRetry();
   };
 
   const clearRetry = () => {
@@ -147,45 +172,14 @@ export function subscribe(options: SubscribeOptions): Subscription {
     cancelRetry = undefined;
   };
 
-  const attach = (epoch: string) => {
-    if (stopped || epoch !== options.epoch) return;
+  const connect = () => {
+    if (stopped) return;
     const mine = active;
-    void catchUp(mine, epoch);
-  };
-
-  const catchUp = async (mine: number, epoch: string) => {
-    const page = await options.session.call("read", "events", "list", {
-      after_seq: cursor,
-    });
-    if (stopped || mine !== active || epoch !== options.epoch) return;
-    if (!page.ok) {
-      stale();
-      return;
-    }
-    const output = eventsList.output.safeParse(page.value);
-    if (!output.success || mine !== active) {
-      stale();
-      return;
-    }
-    cursor = output.data.scanned_through_seq;
-    backlogThrough = BigInt(output.data.head_seq);
-    confirmedAt = options.clock.now();
-    options.sink.caughtUp();
-    openSocket(mine, epoch);
-  };
-
-  const openSocket = (mine: number, epoch: string) => {
-    if (stopped || mine !== active || epoch !== options.epoch) return;
-    const from = nextFromSeq(cursor);
-    if (!from.ok) {
-      stale();
-      return;
-    }
     let current: EventSocket;
     try {
       current = options.socket.open(
-        `ws://127.0.0.1:${options.session.apiPort}${EVENT_SUBSCRIBE_PATH}`,
-        EVENT_SUBSCRIBE_SUBPROTOCOL,
+        `ws://127.0.0.1:${options.session.apiPort}${GATEWAY_PATH}`,
+        GATEWAY_SUBPROTOCOL,
         options.headers?.(),
       );
     } catch {
@@ -198,29 +192,23 @@ export function subscribe(options: SubscribeOptions): Subscription {
       if (stopped || mine !== active) return;
       // 붙었으니 다음에 끊기면 처음 대기부터 센다.
       attempts = 0;
-      // open되기 전에는 send하지 않는다. open 뒤에 구독을 보낸다.
-      current.send(JSON.stringify({
-        type: "subscribe",
-        from_seq: from.value,
-        types: [],
-        subjects: [],
-      }));
+      opened = true;
+      // open되기 전에는 send하지 않는다. 붙을 때마다 조건을 다시 건다.
+      sendWatch();
     });
     current.onMessage((text) => {
       if (stopped || mine !== active) return;
-      const frame = parseEventFrame(text);
-      if (!frame.ok || frame.value.type === "ack") return;
-      if (frame.value.type !== "events") {
-        if (frame.value.type === "unavailable") stale();
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
         return;
       }
-      cursor = frame.value.scanned_through_seq;
+      const parsed = gatewayServerFrameSchema.safeParse(json);
+      if (!parsed.success) return;
       confirmedAt = options.clock.now();
-      // 한 page로 다 따라잡지 못한 나머지도 socket으로 오므로 head 뒤의 것만 보낸다.
-      const fresh = frame.value.events.filter((event) =>
-        BigInt(event.seq) > backlogThrough
-      );
-      if (fresh.length > 0) options.sink.arrived?.(fresh);
+      if (parsed.data.type === "ready") options.sink.ready();
+      options.sink.frame(parsed.data);
     });
     current.onClose(() => {
       if (mine !== active) return;
@@ -229,25 +217,30 @@ export function subscribe(options: SubscribeOptions): Subscription {
     });
   };
 
-  attach(options.epoch);
+  connect();
 
   return {
-    get cursor() {
-      return cursor;
-    },
     generation,
+    watch(owner, conditions) {
+      const usable = conditions.flatMap((condition) => {
+        const parsed = eventConditionSchema.safeParse(condition);
+        return parsed.success ? [parsed.data] : [];
+      });
+      if (usable.length === 0) watchers.delete(owner);
+      else watchers.set(owner, usable);
+      sendWatch();
+    },
+    forget(owner) {
+      if (watchers.delete(owner)) sendWatch();
+    },
     reconnect(epoch) {
       if (stopped) return;
       clearRetry();
       socket?.close();
       socket = undefined;
-      if (epoch !== options.epoch) {
-        // 옛 core의 응답은 더 이상 받지 않는다.
-        active += 1;
-        return;
-      }
+      opened = false;
       active += 1;
-      attach(epoch);
+      if (epoch === options.epoch) connect();
     },
     stop() {
       stopped = true;

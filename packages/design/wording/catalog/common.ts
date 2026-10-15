@@ -82,6 +82,9 @@ export const common = {
   "common.quit.terminals-and-saves":
     "Running terminals will stop and changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
   "common.stale.label": "Last updated {age}",
+  "common.title.pick-file": "Choose a file",
+  "common.title.pick-folder-register": "Choose a project folder",
+  "common.title.pick-folder-relocate": "Choose the folder's new location",
   "common.title.quit": "Quit lophn?",
   "contexts.empty.tab-none": "No contexts in this project yet.",
   "contexts.label.frame-chip": "Context",

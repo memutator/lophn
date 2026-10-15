@@ -18,7 +18,7 @@ type ConnectInput = {
 };
 
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
-// 도착한 event와 호출 앞 처리는 relay에 영역이 덧붙인 반응을 차례로 부른다.
+// Gateway 조건과 도착한 event, 호출 앞 처리는 relay에 영역이 덧붙인 것을 부른다.
 export function connectCore(input: ConnectInput) {
   const { here, dataRoot, windows, log, relay } = input;
   return startCoreConnection({
@@ -44,8 +44,11 @@ export function connectCore(input: ConnectInput) {
         send: (channel, payload) => window.webContents.send(channel, payload),
         isDestroyed: () => window.isDestroyed(),
       })),
-    arrived: (events) => {
-      for (const reaction of relay.arrived) reaction(events);
+    own: {
+      conditions: () => relay.conditions,
+      event: (event) => {
+        for (const reaction of relay.events) reaction(event);
+      },
     },
     beforeCall: async (event, call) => {
       for (const reaction of relay.beforeCall) await reaction(event, call);
@@ -62,5 +65,7 @@ export function register(ctx: ShellContext): Registered {
       }
     });
   });
+  // 닫힌 창의 구독 조건은 더 걸지 않는다.
+  ctx.windowHooks.closed.push(({ contentsId }) => ctx.core.forget(contentsId));
   return { stop: () => ctx.core.shutdown() };
 }

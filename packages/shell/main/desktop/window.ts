@@ -10,7 +10,7 @@ export const TRAFFIC_LIGHT_WIDTH = 80;
 /** Windows·Linux 창 단추(최소화·최대화·닫기) 자리. 상단 바가 단추 셋을 이 폭으로 그린다. */
 export const WINDOW_CONTROLS_WIDTH = 144;
 /** 상단 바 높이. */
-export const TOP_BAR_HEIGHT = 48;
+export const TOP_BAR_HEIGHT = 36;
 
 const TITLE_SUFFIX = " — lophn";
 

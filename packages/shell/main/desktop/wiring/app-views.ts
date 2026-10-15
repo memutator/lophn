@@ -76,13 +76,14 @@ export function register(ctx: ShellContext): AppViews {
     views: appViews.views,
     sessionHandle: appViews.sessionHandle,
     // 화면 byte는 core의 file route `app.screen_file`이 내준다.
-    upstream: createCoreUpstream((input, limit) => {
+    upstream: createCoreUpstream((input, signal) => {
       const session = core.session();
       return session
-        ? session.readStream("apps", "screen_file", input, limit)
+        ? session.fileStream("apps", "screen_file", input, signal)
         : Promise.resolve({
-          ok: false as const,
-          error: { code: "unavailable" },
+          status: 503,
+          headers: new Headers(),
+          body: null,
         });
     }),
     // 앱 view가 loopback으로 core API에 닿지 못하게 한다. 부여된 host여도 막는다.
@@ -271,17 +272,11 @@ export function register(ctx: ShellContext): AppViews {
     }),
   );
 
-  // 권한·release가 바뀌면 옛 view와 연결을 버리고 다시 연다. release event는 앱을 싣지 않아
-  // 모든 view의 연결을 다시 본다.
-  ctx.relay.arrived.push((events) => {
-    for (const event of events) {
-      if (event.type === "GrantCreated" || event.type === "GrantRevoked") {
-        const app = (event.payload as { app?: unknown }).app;
-        if (typeof app === "string") void appFrame.refresh(app);
-      } else if (event.type === "ReleaseActivated") {
-        void appFrame.refresh();
-      }
-    }
+  // activation·grant·rewind가 끝나 앱 view가 바뀌었다는 event가 오면 그 앱의 옛 view와 연결을 버리고
+  // 다시 연다. 이 event는 남지 않는다.
+  ctx.relay.conditions.push({ types: ["AppViewChanged"] });
+  ctx.relay.events.push((event) => {
+    if (event.type === "AppViewChanged") void appFrame.refresh(event.subject);
   });
   ctx.windowHooks.closed.push(({ ref }) => {
     viewVisibility.closeWindow(ref);
@@ -299,13 +294,6 @@ export function register(ctx: ShellContext): AppViews {
           log(`앱 전용 창을 열지 못했다: ${opened.error.message}`);
           ctx.desktop.show();
         });
-      } else if (intent.kind === "things-to-confirm") {
-        ctx.desktop.send({
-          kind: "things-to-confirm",
-          request: intent.request,
-        });
-      } else if (intent.kind === "coding") {
-        ctx.desktop.send({ kind: "coding", target: intent.target });
       } else ctx.desktop.open();
     },
     stop() {

@@ -9,9 +9,7 @@ import { word } from "./wording.ts";
 export type TrayItemId = "open" | "launcher" | "autostart" | "quit";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
-export type TrayNotice =
-  | "global-search-unavailable"
-  | "notifications-unavailable";
+export type TrayNotice = "global-search-unavailable";
 
 export type TrayMenuItem =
   | { type: "normal"; id: TrayItemId; label: string }
@@ -27,7 +25,6 @@ export type TrayMenuItem =
 
 const NOTICE_LABELS = {
   "global-search-unavailable": "common.label.tray-global-search-unavailable",
-  "notifications-unavailable": "common.label.tray-notifications-unavailable",
 } as const;
 
 /**

@@ -533,7 +533,7 @@ export const PAGES: readonly WireframePage[] = [
     "app-space",
     "App space",
     ["connect-apps", "report-app-problem"],
-    "앱 공간. 상단 바에 앱 이름과 [Report a problem], 본문에 앱 view, 운영 탭(Tasks·Issues 등). 앱 view는 안내 상자로 그린다.",
+    "앱 공간. 상단 바에 앱 이름과 [Report a problem], 본문에 앱 view, 운영 탭(Issues 등). 앱 view는 안내 상자로 그린다.",
     "app-space",
   ),
   fresh(

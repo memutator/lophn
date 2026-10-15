@@ -8,7 +8,6 @@ import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
-import type { TasksSource } from "../../app-frame/app-detail/tasks/source.ts";
 import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
@@ -35,7 +34,6 @@ import {
   mockAppWindows,
   mockFeedback,
   mockIssues,
-  mockTasks,
   mockViews,
 } from "./app-space.ts";
 import { mockAgentViewSource } from "./agent.ts";
@@ -54,7 +52,6 @@ export interface DevMock {
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
   readonly coding: CodingConnectionsSource;
-  readonly tasks: TasksSource;
   readonly issues: IssuesSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
@@ -116,7 +113,6 @@ export function devMock(
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
     coding: mockCoding(),
-    tasks: mockTasks(),
     issues: mockIssues(),
     appDetail: mockAppDetail(),
     views,

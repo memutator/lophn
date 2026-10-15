@@ -1,12 +1,10 @@
-// mock 모드의 앱 공간 통로. 운영 패널(app-detail)·Tasks·Issues는 화면 테스트의 가짜 통로이고, 앱
+// mock 모드의 앱 공간 통로. 운영 패널(app-detail)·Issues는 화면 테스트의 가짜 통로이고, 앱
 // view는 main의 native view 대신 본문 자리에 안내 상자를 올리는 가짜 통로다. 새 창·바로가기·
 // [Report a problem]은 아무것도 열지 않고 성공만 답한다.
 import { fakeDetail } from "../../app-frame/app-detail/testdata/fake-source.ts";
 import { fakeIssues } from "../../app-frame/app-detail/issues/testdata/fake-source.ts";
-import { fakeTasks } from "../../app-frame/app-detail/tasks/testdata/fake-source.ts";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
-import type { TasksSource } from "../../app-frame/app-detail/tasks/source.ts";
 import type {
   AppFrameViewState,
   LophnShellViewsApi,
@@ -24,10 +22,6 @@ export function mockAppDetail(): AppDetailSource {
 
 export function mockIssues(): IssuesSource {
   return fakeIssues().source;
-}
-
-export function mockTasks(): TasksSource {
-  return fakeTasks().source;
 }
 
 export function mockAppWindows(): LophnAppWindowsApi {

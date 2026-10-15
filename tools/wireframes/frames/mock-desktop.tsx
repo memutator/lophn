@@ -163,7 +163,6 @@ export function MockDesktop(props: MockDesktopProps) {
             settings={mock.settings}
             settingsPanels={wiring.settingsPanels}
             coding={mock.coding}
-            tasks={mock.tasks}
             issues={mock.issues}
             appDetail={mock.appDetail}
             views={mock.views}

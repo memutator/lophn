@@ -35,8 +35,6 @@ import type { PreviewOpen } from "./app-detail/model.ts";
 import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
 import type { IssuesSource } from "./app-detail/issues/source.ts";
 import { withReportAgain } from "./app-detail/issues/report-again.ts";
-import { TasksTab } from "./app-detail/tasks/tasks-tab.tsx";
-import type { TasksSource } from "./app-detail/tasks/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
 import {
   AgentPane,
@@ -70,13 +68,6 @@ export interface AppSpaceProps {
   issues?: IssuesSource;
   /** 있으면 운영 패널을 Issues 탭으로, 그 문제를 고른 채 연다. */
   issueProblem?: string;
-  /** 운영 패널 Tasks 탭의 통로. 없으면 Tasks 탭은 아직 없다고 보인다. */
-  tasks?: TasksSource;
-  /**
-   * 있으면 운영 패널을 Tasks 탭으로 연다. ticket이 있으면 그 Task를 고른 채(취소 링크), create면 새 Task 입력을
-   * 펼친 채(생성 링크) 연다.
-   */
-  taskTarget?: { readonly ticket: string | null; readonly create: boolean };
   /**
    * 이 앱 자리의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
    */
@@ -180,8 +171,6 @@ export function AppSpace(
     detail,
     issues,
     issueProblem,
-    tasks,
-    taskTarget,
     agents,
     agentViewSource,
     onInstructions,
@@ -215,9 +204,7 @@ export function AppSpace(
     paneShown,
     contentSize?.width ?? width,
   );
-  const [detailsOpen, setDetailsOpen] = useState(
-    issueProblem !== undefined || taskTarget !== undefined,
-  );
+  const [detailsOpen, setDetailsOpen] = useState(issueProblem !== undefined);
   const ops = opsPanelPlacement(
     detailsOpen && !paneShown,
     width,
@@ -433,11 +420,7 @@ export function AppSpace(
                   preview={preview}
                   onPreview={changePreview}
                   onInstructions={onInstructions}
-                  initialTab={issueProblem !== undefined
-                    ? "issues"
-                    : taskTarget !== undefined
-                    ? "tasks"
-                    : undefined}
+                  initialTab={issueProblem !== undefined ? "issues" : undefined}
                   issues={issues
                     ? (
                       <IssuesTab
@@ -449,17 +432,6 @@ export function AppSpace(
                         )}
                         now={() => new Date()}
                         initialProblem={issueProblem}
-                      />
-                    )
-                    : undefined}
-                  tasks={tasks
-                    ? (
-                      <TasksTab
-                        app={app}
-                        source={tasks}
-                        now={() => new Date()}
-                        initialTask={taskTarget?.ticket ?? null}
-                        initialCreate={taskTarget?.create ?? false}
                       />
                     )
                     : undefined}

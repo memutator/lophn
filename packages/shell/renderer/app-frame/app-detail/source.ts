@@ -1,5 +1,5 @@
 // app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
-// 안다. 모양은 contracts(releases·apps.blueprint·grants·apps.automations·invocations·
+// 안다. 모양은 contracts(releases·apps.blueprint·grants·invocations·
 // problems get-verification·tickets checks)에서 이 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../../desktop/lophn-space/source.ts";
 
@@ -160,18 +160,6 @@ export interface RuntimeView {
   readonly terminationPending: boolean;
 }
 
-export interface AutomationObservation {
-  readonly key: string;
-  readonly runnable: boolean;
-  readonly observed: boolean;
-}
-
-export interface AutomationsView {
-  readonly automations: readonly AutomationObservation[];
-  /** 마지막으로 확인한 시각(ISO). */
-  readonly observedAt: string | null;
-}
-
 export type ActivityStatus =
   | "accepted"
   | "running"
@@ -258,7 +246,6 @@ export interface AppDetailSource {
   secrets(
     names: readonly string[],
   ): Promise<SourceResult<readonly SecretState[]>>;
-  automations(app: string): Promise<SourceResult<AutomationsView>>;
   activity(app: string): Promise<SourceResult<readonly ActivityRow[]>>;
   /** 다른 앱의 사람이 지은 이름. 없거나 범위 밖이면 null이다. */
   appName(app: string): Promise<string | null>;
@@ -278,16 +265,4 @@ export interface AppDetailSource {
   ): Promise<SourceResult<true>>;
   /** automation 끄기. 확인 창 없이 사람의 회수다. */
   turnOffAutomation(grant: string): Promise<SourceResult<true>>;
-  /**
-   * 이 앱의 자료를 밖으로 내보낸다(Data 탭 [Export] 항목). 준비 결과(ready·failed)만
-   * 답하고 실제 묶음은 core가 처리한다. 준비 중이면 preparing이다.
-   */
-  exportApp(app: string): Promise<
-    SourceResult<{
-      readonly app: string;
-      readonly state: "preparing" | "ready" | "failed";
-      readonly reason?: string;
-      readonly includesExternalData: boolean;
-    }>
-  >;
 }

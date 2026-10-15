@@ -31,7 +31,6 @@ import type { AppsSource } from "./lophn-space/apps/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { SettingsPanels } from "./lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
-import type { TasksSource } from "../app-frame/app-detail/tasks/source.ts";
 import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
@@ -78,8 +77,6 @@ export interface DesktopProps {
   feedback?: LophnShellFeedbackBegin;
   /** settings의 coding agent 연결 통로. 없으면 그 탭을 두지 않는다. */
   coding?: CodingConnectionsSource;
-  /** 앱 공간 Tasks 탭 통로. 없으면 Tasks 탭은 아직 없다고 보인다. */
-  tasks?: TasksSource;
   /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
@@ -109,7 +106,6 @@ export function Desktop(
     appWindows,
     feedback,
     coding,
-    tasks,
     issues,
     agentViewSource,
   }: DesktopProps,
@@ -133,29 +129,10 @@ export function Desktop(
     request === undefined
       ? thingsToConfirm()
       : visit({ ...openLophn("things-to-confirm"), request });
-  // 회수·취소·생성 링크(`cac_`·`tkt_`·`app_`). 그 대상의 화면만 열고 결정 창은 사람이 누를 때 연다.
-  // Task 링크는 그 Task가 속한 앱 공간의 Tasks 탭으로 가고, 읽지 못하면 things-to-confirm으로 간다.
+  // 회수 링크(`cac_`). 그 연결의 화면만 열고 결정 창은 사람이 누를 때 연다. 그 밖의 링크는 things-to-confirm으로 간다.
   const codingTarget = (target: string) => {
     if (target.startsWith("cac_")) {
       visit({ ...openLophn("settings"), connection: target });
-    } else if (target.startsWith("app_")) {
-      setVisits((value) => value + 1);
-      setRoute({
-        ...openApp(target),
-        taskTarget: { ticket: null, create: true },
-      });
-    } else if (tasks) {
-      void tasks.get(target).then((read) => {
-        if (!read.ok) {
-          thingsToConfirm();
-          return;
-        }
-        setVisits((value) => value + 1);
-        setRoute({
-          ...openApp(read.value.app),
-          taskTarget: { ticket: target, create: false },
-        });
-      });
     } else thingsToConfirm();
   };
   // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
@@ -216,17 +193,13 @@ export function Desktop(
   } else if (route.space === "app" && route.app && apps && live) {
     space = (
       <AppSpace
-        key={route.taskTarget || route.issueProblem
-          ? `${route.app}:${visits}`
-          : route.app}
+        key={route.issueProblem ? `${route.app}:${visits}` : route.app}
         app={route.app}
         source={apps}
         views={views}
         windows={appWindows}
         feedback={feedback}
         detail={appDetail}
-        tasks={tasks}
-        taskTarget={route.taskTarget}
         issues={issues}
         issueProblem={route.issueProblem}
         agents={workspace?.agentsSource}

@@ -50,7 +50,6 @@ import {
   windowCodingApi,
   windowRevokeOpener,
 } from "./lophn-space/settings/connections/core-source.ts";
-import { coreTasksSource } from "../app-frame/app-detail/tasks/core-source.ts";
 import {
   coreIssuesSource,
   windowIssueDecision,
@@ -83,13 +82,12 @@ const settingsPanels = mock?.settingsPanels ?? {
   agents: coreAgentsSettingsSource(core),
   diagnostics: coreDiagnosticsSource(core),
 };
-// coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.
+// coding agent 연결(settings). 감지·연결은 main이 따로 검증하는 통로(`lophnCoding`)다.
 const codingApi = mock ? undefined : windowCodingApi();
 const coding = mock?.coding ?? coreCodingConnectionsSource(core, {
   coding: codingApi,
   openWindow: windowRevokeOpener(),
 });
-const tasks = mock?.tasks ?? coreTasksSource(core, { coding: codingApi });
 const issues = mock?.issues ?? coreIssuesSource(core, windowIssueDecision());
 // 런처의 프로젝트 카드·등록과 작업대는 제품 core 통로로 읽고 쓴다.
 const projects = mock?.launcher ??
@@ -200,7 +198,6 @@ mount(
             settings={settings}
             settingsPanels={settingsPanels}
             coding={coding}
-            tasks={tasks}
             issues={issues}
             appDetail={appDetail}
             views={views}

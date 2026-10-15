@@ -527,26 +527,6 @@ export function coreAppDetailSource(
         : result;
     },
 
-    async automations(app) {
-      const result = await read<{
-        automations: { key: string; runnable: boolean; observed: boolean }[];
-        observed_at: string | null;
-      }>(core, "apps", "automations", { app });
-      return result.ok
-        ? {
-          ok: true,
-          value: {
-            automations: result.value.automations.map((entry) => ({
-              key: entry.key,
-              runnable: entry.runnable,
-              observed: entry.observed,
-            })),
-            observedAt: result.value.observed_at,
-          },
-        }
-        : result;
-    },
-
     async activity(app) {
       const result = await read<{ invocations: InvocationValue[] }>(
         core,
@@ -648,27 +628,6 @@ export function coreAppDetailSource(
         idempotency_key: `automation-off:${grant}:${bound.seq}`,
       });
       return reply.ok ? { ok: true, value: true } : reply;
-    },
-
-    async exportApp(app) {
-      const reply = await call<{
-        app: string;
-        state: "preparing" | "ready" | "failed";
-        reason?: { summary?: string };
-        includes_external_data: boolean;
-      }>(core, "worker", "apps", "export", { app });
-      if (!reply.ok) return reply;
-      return {
-        ok: true,
-        value: {
-          app: reply.value.app,
-          state: reply.value.state,
-          ...(reply.value.reason?.summary === undefined
-            ? {}
-            : { reason: reply.value.reason.summary }),
-          includesExternalData: reply.value.includes_external_data,
-        },
-      };
     },
   };
 }

@@ -4,7 +4,6 @@ import type {
   ActivityRow,
   AppDecision,
   AppDetailSource,
-  AutomationsView,
   BlueprintView,
   Comparison,
   RuntimeView,
@@ -160,14 +159,6 @@ export const ACCESS: AccessView = {
   warnings: ["permissions.warning.file-read-and-network"],
 };
 
-export const OBSERVATIONS: AutomationsView = {
-  automations: [
-    { key: "weekly_report", runnable: true, observed: false },
-    { key: "refresh", runnable: true, observed: true },
-  ],
-  observedAt: "2026-10-07T11:55:00Z",
-};
-
 export function activity(
   id: string,
   options: Partial<ActivityRow> = {},
@@ -192,7 +183,6 @@ export interface FakeOptions {
   access?: AccessView;
   runtime?: RuntimeView;
   secrets?: readonly SecretState[];
-  automations?: AutomationsView;
   activity?: readonly ActivityRow[];
   tests?: readonly TestResult[];
   task?: TaskChecks;
@@ -203,8 +193,6 @@ export interface FakeOptions {
   decideFails?: boolean;
   previewFails?: boolean;
   names?: Readonly<Record<string, string>>;
-  /** 앱 export 결과 code. 없으면 ready다. */
-  exportCode?: string;
 }
 
 export function fakeDetail(options: FakeOptions = {}) {
@@ -259,8 +247,6 @@ export function fakeDetail(options: FakeOptions = {}) {
         "secrets",
         options.secrets ?? [{ name: "BANK_TOKEN", stored: true }],
       ),
-    automations: () =>
-      reply("automations", options.automations ?? OBSERVATIONS),
     activity: () => reply("activity", options.activity ?? []),
     appName: (app) =>
       Promise.resolve(
@@ -292,23 +278,6 @@ export function fakeDetail(options: FakeOptions = {}) {
     turnOffAutomation: (grant) => {
       calls.push(["turnOff", grant]);
       return Promise.resolve({ ok: true, value: true });
-    },
-    exportApp: (app) => {
-      calls.push(["exportApp", app]);
-      if (options.exportCode) {
-        return Promise.resolve({
-          ok: false as const,
-          code: options.exportCode,
-        });
-      }
-      return Promise.resolve({
-        ok: true as const,
-        value: {
-          app,
-          state: "ready" as const,
-          includesExternalData: false,
-        },
-      });
     },
   };
   /** 열린 결정 창을 모두 거절·닫기로 끝낸다. */

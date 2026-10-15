@@ -58,7 +58,8 @@ export function MessageBody(
         {body.parts.map((part, index) =>
           part.kind === "text"
             ? <Text key={index} text={part.text} />
-            : (
+            : part.kind === "visual"
+            ? (
               <VisualBlock
                 key={index}
                 message={message}
@@ -66,6 +67,7 @@ export function MessageBody(
                 host={visuals}
               />
             )
+            : null
         )}
       </div>
     );

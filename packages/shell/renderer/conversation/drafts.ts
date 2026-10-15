@@ -1,10 +1,10 @@
 // 창마다 하나인 대화 메모리. 세션마다 작성 중 말·선택 답·커서·보낸 말의 전달 상태·읽던
-// 위치를 둔다. 도크를 닫거나 세션을 바꾸거나 confirmation window가 떠도 이 값은 그대로라
+// 위치를 둔다. 탭을 닫거나 session을 바꿔도 이 값은 그대로라
 // 다시 열면 같은 자리에서 이어 쓴다. 읽은 메시지 본문도 창 메모리에
 // 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
 // 않는다.
 import type { Outgoing, SendMode } from "./delivery-state.ts";
-import type { BodyPart } from "./agent-source.ts";
+import type { BodyPart } from "./agent-tab-source.ts";
 
 export interface Draft {
   readonly text: string;
@@ -59,7 +59,7 @@ export class DraftStore {
   #version = 0;
   #selected: string | null = null;
 
-  /** 사람이 고른 세션. 도크를 닫았다 열어도 같은 세션이다. */
+  /** 사람이 고른 session. 탭을 닫았다 열어도 같은 session이다. */
   selected(): string | null {
     return this.#selected;
   }

@@ -1,7 +1,9 @@
 // 보낸 말 하나의 전달 상태. 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
 // 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다.
-import type { TextContent } from "./agent-source.ts";
+import type { Delivery, TextContent } from "./agent-tab-source.ts";
+
+export type { Delivery };
 
 export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
 
@@ -15,6 +17,8 @@ export interface Outgoing {
   readonly mode: SendMode;
   /** 수정이 가리키는 지금 일. 다음 요청은 null이다. */
   readonly run: string | null;
+  /** 새 이름. 옛 화면이 `mode`를 쓰는 동안 둘이 같이 있다. */
+  readonly delivery: Delivery;
   readonly phase: DeliveryPhase;
   /** 접수 확인 안 됨에서 조회했으나 찾지 못했다. 그 뒤에야 다시 보내기를 내놓는다. */
   readonly checked: boolean;
@@ -38,9 +42,17 @@ const NOT_TAKEN = new Set([
 ]);
 
 export function startSend(
-  input: Omit<Outgoing, "phase" | "checked">,
+  input: Omit<Outgoing, "phase" | "checked" | "delivery"> & {
+    readonly delivery?: Delivery;
+  },
 ): Outgoing {
-  return { ...input, phase: "sending", checked: false };
+  return {
+    ...input,
+    delivery: input.delivery ??
+      (input.mode === "correction" ? "steer" : "next_turn"),
+    phase: "sending",
+    checked: false,
+  };
 }
 
 export function afterReply(outgoing: Outgoing, reply: SendReply): Outgoing {
@@ -89,7 +101,7 @@ export function composerLocked(outgoing: Outgoing | null): boolean {
 
 /**
  * 사람 말 본문의 정규 직렬화 상한. lophn-agent contract의
- * MESSAGE_TEXT_CONTENT_MAX_BYTES와 같다(delivery-state_test가 맞춰 본다). renderer는
+ * MESSAGE_TEXT_CONTENT_MAX_BYTES와 같다. renderer는
  * contract schema를 bundle에 싣지 않고 이 값만 쓴다.
  */
 export const MESSAGE_TEXT_MAX_BYTES = 65536;

@@ -59,7 +59,6 @@ export const documentEditorKind: TabKindDef = {
       <DocumentView
         key={tab.key}
         documentId={tab.key}
-        projectId={host.projectId}
         source={editor.source}
         core={editor.core}
         readingWidth={editor.readingWidth}
@@ -67,23 +66,12 @@ export const documentEditorKind: TabKindDef = {
         files={editor.files}
         infoOpen={host.document.infoShown}
         onToggleInfo={host.document.toggleInfo}
-        versions={editor.versions}
-        compare={host.document.compareOf(tab.key)}
-        onCompare={(target) => host.document.showCompare(tab.key, target)}
-        onVersionsChanged={host.document.versionsChanged}
         onMeta={(meta) => host.document.noteMeta(tab.key, meta)}
         onPresentation={(shown) =>
           host.document.notePresentation(tab.key, shown)}
         initialPosition={tab.readPosition}
         onReadPosition={(position) =>
           host.document.noteReadPosition(tab.key, position)}
-        onOpenDocument={(id) => {
-          const row = host.document.rows.find((item) => item.id === id);
-          openDocument(
-            host,
-            row ?? { id, title: host.document.fileName(id) ?? id },
-          );
-        }}
       />
     );
   },

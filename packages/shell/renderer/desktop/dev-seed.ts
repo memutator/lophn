@@ -176,23 +176,6 @@ function seededEditor(): Omit<EditorDeps, "menu"> {
         });
         return Promise.resolve({ ok: true, value: sections });
       },
-      linkTargets: () =>
-        Promise.resolve({
-          ok: true,
-          value: Object.values(SEED_DOCUMENTS).map((seeded) => ({
-            folder: "/work/lophn",
-            address: `lophn/${seeded.info.fileName.replace(/\.md$/, "")}`,
-            title: seeded.info.title,
-            name: seeded.info.fileName.replace(/\.md$/, ""),
-          })),
-        }),
-      resolveLink: (href) =>
-        Promise.resolve({
-          ok: true,
-          value: Object.values(SEED_DOCUMENTS).find((seeded) =>
-            `lophn/${seeded.info.fileName.replace(/\.md$/, "")}` === href
-          )?.info.id ?? null,
-        }),
     },
     readingWidth: readingWidthStore({
       get: () => Promise.resolve({ value: width, revision }),

@@ -1,9 +1,6 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
 // 통로를 건드린다.
-import type {
-  CompareTarget,
-  DocumentTabMeta,
-} from "../../editor/document-view.tsx";
+import type { DocumentTabMeta } from "../../editor/document-view.tsx";
 import type { TabItem, WorkspaceView } from "../model.ts";
 import type { DocumentRow } from "../source.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
@@ -23,9 +20,6 @@ export interface DocumentSlice {
   toggleInfo(): void;
   /** 편집기가 읽은 파일 이름. 읽기 전에는 없다. */
   fileName(document: string): string | undefined;
-  compareOf(document: string): CompareTarget | null;
-  showCompare(document: string, target: CompareTarget | null): void;
-  versionsChanged(): void;
   noteMeta(document: string, meta: DocumentTabMeta): void;
   notePresentation(
     document: string,

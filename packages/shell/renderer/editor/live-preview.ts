@@ -36,19 +36,14 @@ import {
 import {
   type Align,
   type Block,
-  linkAt,
   previewBlocks,
   previewSpans,
   type Span,
 } from "./preview.ts";
-import { type Trigger, triggerAt } from "./link-picker/link-picker.ts";
 import type { Match } from "./find/find.ts";
-import { problemGutter } from "./problems-gutter/gutter.ts";
 import { IMAGE_OFF, svgIcon } from "./svg-icon.ts";
 
 export interface LivePreviewOptions {
-  /** Mod-click한 링크. */
-  onOpenLink?: (href: string) => void;
   /** 그림 src를 이 화면이 불러도 되는 URL로 바꾼다. null이면 실패 모양이다. */
   resolveImage?: (src: string) => string | null;
 }
@@ -450,49 +445,6 @@ const editingKeymap = keymap.of([
   { key: "Tab", run: indentList, shift: outdentList },
 ]);
 
-// 커서 아래 `[[`를 state field로 둔다. 선택만 옮긴 transaction도 다시 읽어 열린 `[[`
-// 안에서 화살표가 동작한다.
-const linkTriggerField = StateField.define<Trigger | null>({
-  create: () => null,
-  update(value, transaction) {
-    if (!transaction.docChanged && !transaction.selection) return value;
-    return triggerAt(
-      transaction.state.doc.toString(),
-      transaction.state.selection.main.head,
-    );
-  },
-});
-
-/** 지금 커서가 들어 있는 `[[`. */
-export function linkTrigger(state: EditorState): Trigger | null {
-  return state.field(linkTriggerField, false) ?? null;
-}
-
-function linkClicks(onOpenLink: ((href: string) => void) | undefined) {
-  return EditorView.domEventHandlers({
-    mousedown(event, view) {
-      if (!onOpenLink || !(event.metaKey || event.ctrlKey) || event.button) {
-        return false;
-      }
-      const target = event.target instanceof Element
-        ? event.target.closest("[data-href]")
-        : null;
-      let href = target?.getAttribute("data-href") ?? null;
-      if (!href) {
-        const position = view.posAtCoords({
-          x: event.clientX,
-          y: event.clientY,
-        });
-        href = position === null ? null : linkAt(view.state, position);
-      }
-      if (!href) return false;
-      event.preventDefault();
-      onOpenLink(href);
-      return true;
-    },
-  });
-}
-
 /** Markdown 편집기가 빈 CodeMirror state에 더하는 것 전부. 읽기 전용과 바꿈 listener는 호출자가 더한다. */
 export function livePreview(options: LivePreviewOptions = {}): Extension {
   return [
@@ -500,14 +452,11 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     markdown({ base: markdownLanguage }),
     EditorView.lineWrapping,
     focusTracking,
-    problemGutter(),
     inlinePreview(options.resolveImage ?? defaultResolveImage),
     blockPreview,
     findField,
-    linkTriggerField,
     editingKeymap,
     keymap.of([...defaultKeymap, ...historyKeymap]),
-    linkClicks(options.onOpenLink),
   ];
 }
 

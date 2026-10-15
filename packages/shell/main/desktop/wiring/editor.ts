@@ -4,19 +4,10 @@ import { app } from "electron";
 
 import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../../ipc/editor.ts";
 import { CloseGuard, guardWindowClose } from "../../editor/close-guard.ts";
-import {
-  coreCreatePort,
-  coreFilesPort,
-  coreInstructionsPort,
-  corePlacePort,
-  coreRestorePort,
-} from "../../editor/core-port.ts";
-import { createDocumentCreator } from "../../editor/create.ts";
+import { coreFilesPort, coreInstructionsPort } from "../../editor/core-port.ts";
 import { createFileAdapter } from "../../editor/file-adapter.ts";
 import { createInstructions } from "../../editor/instructions.ts";
 import { registerEditorIpc, removeEditorIpc } from "../../editor/ipc.ts";
-import { createPlacer } from "../../editor/place.ts";
-import { createRestorer } from "../../editor/restore.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 export function register(ctx: ShellContext): Registered {
@@ -28,21 +19,6 @@ export function register(ctx: ShellContext): Registered {
     },
     log,
   });
-  // 버전 복원. 준비·파일 쓰기·판 바이트는 renderer allowlist 밖이라 main이 부른다.
-  const restorer = createRestorer({
-    port: () => {
-      const session = core.session();
-      return session ? coreRestorePort(session) : null;
-    },
-    log,
-  });
-  // 판이 없는 새 문서(series 새 멤버)의 첫 판. 준비·업로드는 renderer allowlist 밖이다.
-  const creator = createDocumentCreator({
-    port: () => {
-      const session = core.session();
-      return session ? coreCreatePort(session) : null;
-    },
-  });
   // [Instructions]. exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
   const instructions = createInstructions({
     port: () => {
@@ -51,18 +27,10 @@ export function register(ctx: ShellContext): Registered {
     },
     dataRoot,
   });
-  // 문서를 파일로 두기. 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
-  const placer = createPlacer(() => {
-    const session = core.session();
-    return session ? corePlacePort(session) : null;
-  });
   registerEditorIpc(ipc, {
     registry: overlays.overlayRegistry(),
     adapter: fileAdapter,
-    restorer,
-    creator,
     instructions,
-    placer,
     guardOf: (id) => closeGuards.get(id),
   });
 

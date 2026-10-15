@@ -9,15 +9,7 @@ import type {
   PreparedBlob,
   ValidatePage,
 } from "./file-adapter.ts";
-import type {
-  FixedRead,
-  PreparedRestore,
-  RestorePort,
-  RestoreSaved,
-} from "./restore.ts";
-import type { CreatePort, PreparedNew } from "./create.ts";
 import type { InstructionsPort, PlacelessDocument } from "./instructions.ts";
-import type { PlacedResult, PlacePort } from "./place.ts";
 
 type Called<T = unknown> = { ok: true; value: T } | {
   ok: false;
@@ -147,89 +139,6 @@ export function coreInstructionsPort(core: CoreCalls): InstructionsPort {
         cursor = value.next_cursor ?? undefined;
       } while (cursor !== undefined);
       return { ok: true, value: found };
-    },
-  };
-}
-
-/** 새 문서 첫 판 통로. 업로드·준비·저장 명령을 같은 core session으로 부른다. */
-export function coreCreatePort(core: CoreCalls): CreatePort {
-  const files = coreFilesPort(core);
-  return {
-    upload: files.upload,
-    async prepare(input) {
-      return as<PreparedNew>(
-        await core.internal("worker", "documents", "prepare", input),
-      );
-    },
-    async save(request) {
-      // 성공 응답은 route output(SaveResult) 그대로다.
-      return as<{ version: string }>(
-        await core.internal("command", "documents", "save", request),
-      );
-    },
-    async latest(document) {
-      const result = await files.document(document);
-      return result.ok
-        ? { ok: true, value: { version: result.value.document.latest_version } }
-        : result;
-    },
-  };
-}
-
-/** 복원 통로. 판 읽기·준비·복원 명령을 같은 core session으로 부른다. */
-export function coreRestorePort(core: CoreCalls): RestorePort {
-  const files = coreFilesPort(core);
-  return {
-    read: files.read,
-    versionFile: files.versionFile,
-    upload: files.upload,
-    write: files.write,
-    watch: files.watch,
-    async fixed(document, version) {
-      return as<FixedRead>(
-        await core.internal("read", "documents", "get", {
-          document,
-          ...(version === undefined ? {} : { version }),
-        }),
-      );
-    },
-    async project(id) {
-      const result = await core.internal("read", "projects", "get", {
-        project: id,
-      });
-      if (!result.ok) return result;
-      const value = result.value as { project: { revision: string } };
-      return { ok: true, value: { revision: value.project.revision } };
-    },
-    async prepare(input) {
-      return as<PreparedRestore>(
-        await core.internal("worker", "documents", "prepare", input),
-      );
-    },
-    async restore(request) {
-      // 성공 응답은 route output(SaveResult) 그대로다.
-      return as<RestoreSaved>(
-        await core.internal("command", "documents", "restore", request),
-      );
-    },
-  };
-}
-
-/** 파일로 두기 통로. 고정 판 읽기와 파일 쓰기만 부른다. */
-export function corePlacePort(core: CoreCalls): PlacePort {
-  return {
-    async fixed(document, version) {
-      return as<FixedRead>(
-        await core.internal("read", "documents", "get", {
-          document,
-          ...(version === undefined ? {} : { version }),
-        }),
-      );
-    },
-    async write(request) {
-      return as<PlacedResult>(
-        await core.internal("worker", "files", "write", request),
-      );
     },
   };
 }

@@ -435,19 +435,3 @@ export function previewBlocks(state: EditorState, focused = true): Block[] {
   });
   return out;
 }
-
-/** 원문이 보이는 링크에서 Mod-click이 따라갈 주소. */
-export function linkAt(state: EditorState, position: number): string | null {
-  for (
-    let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, 1);
-    node;
-    node = node.parent
-  ) {
-    if (node.name === "URL") return state.doc.sliceString(node.from, node.to);
-    if (node.name === "Link") {
-      const url = node.getChild("URL");
-      return url ? state.doc.sliceString(url.from, url.to) : null;
-    }
-  }
-  return null;
-}

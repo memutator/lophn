@@ -15,7 +15,6 @@ import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
 import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
-import type { OrganizeSource } from "../lophn-space/organize/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
 import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
@@ -41,7 +40,7 @@ import {
 } from "./app-space.ts";
 import { mockAgentViewSource } from "./agent.ts";
 import { mockCore, mockRequests } from "./requests.ts";
-import { mockLophn, mockOrganize } from "./documents.ts";
+import { mockLophn } from "./lophn.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
 export interface DevMock {
@@ -51,7 +50,6 @@ export interface DevMock {
   /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
   readonly editor: Omit<EditorDeps, "menu">;
   readonly lophn: LophnSource;
-  readonly organize: OrganizeSource;
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
@@ -114,7 +112,6 @@ export function devMock(
     },
     editor: bench.editor,
     lophn: mockLophn(),
-    organize: mockOrganize(),
     apps: mockApps(),
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),

@@ -2,8 +2,8 @@
 // app(app-detail) 화면이 이 진입을 놓고, 누르면 지침 파일을 일반 문서와 같은 lophn 편집기로 연다.
 // main이 exact 지침 파일만 resolve하고 renderer는 문서 id만 받는다(경로·안쪽 version ID는 기본
 // 화면에 없다). 파일이 없으면 빈 초안이고 사람의 첫 저장이 파일을 만든다. 그 초안은 창의 편집
-// session 묶음이 붙들고(창 닫기 guard가 센다), 첫 저장 뒤에는 같은 DocumentView·정보 패널·비교·
-// 복원으로 바뀐다. agent의 제안은 이 통로에 없다(사람의 저장만 이 편집기를 지난다).
+// session 묶음이 붙들고(창 닫기 guard가 센다), 첫 저장 뒤에는 같은 DocumentView·정보 패널로
+// 바뀐다. agent의 제안은 이 통로에 없다(사람의 저장만 이 편집기를 지난다).
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -28,11 +28,7 @@ import {
   InfoPanel,
   type InfoTab,
 } from "../workspace/info-panel-slot/info-panel.tsx";
-import {
-  type CompareTarget,
-  DocumentView,
-  type EditorDeps,
-} from "./document-view.tsx";
+import { DocumentView, type EditorDeps } from "./document-view.tsx";
 import { editShortcut } from "./document-head.tsx";
 import { DocumentInfoPanel } from "./info-panel/info-panel.tsx";
 import {
@@ -141,7 +137,6 @@ export function InstructionsEntry(
       <InstructionsDocument
         key={view.document}
         document={view.document}
-        project={place.layer === "project" ? place.place : ""}
         editor={editor}
         now={now}
       />
@@ -192,39 +187,31 @@ export function InstructionsEntry(
   );
 }
 
-// 파일에 연결된 문서가 있다. 일반 문서와 같은 편집·충돌·정보 패널·비교·복원이다.
+// 파일에 연결된 문서가 있다. 일반 문서와 같은 편집·충돌·정보 패널이다.
 function InstructionsDocument(
-  { document, project, editor, now }: {
+  { document, editor, now }: {
     document: string;
-    project: string;
     editor: EditorDeps;
     now: () => number;
   },
 ) {
   const [info, setInfo] = useState<{ open: boolean; tab: InfoTab }>({
     open: false,
-    tab: "versions",
+    tab: "info",
   });
-  const [compare, setCompare] = useState<CompareTarget | null>(null);
-  const [tick, setTick] = useState(0);
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [path, setPath] = useState<string | null>(null);
   return (
     <div className={styles.document} data-instructions-view="document">
       <div className={styles.fill}>
         <DocumentView
           documentId={document}
-          projectId={project}
           source={editor.source}
           readingWidth={editor.readingWidth}
           menu={editor.menu}
           files={editor.files}
-          versions={editor.versions}
           infoOpen={info.open}
           onToggleInfo={() => setInfo({ ...info, open: !info.open })}
-          compare={compare}
-          onCompare={setCompare}
-          onVersionsChanged={() => setTick((value) => value + 1)}
-          onMeta={(meta) => setViewing(meta.version ?? null)}
+          onMeta={(meta) => setPath(meta.path)}
           now={now}
         />
       </div>
@@ -234,20 +221,7 @@ function InstructionsDocument(
         onTab={(tab) => setInfo({ ...info, tab })}
         onClose={() => setInfo({ ...info, open: false })}
       >
-        {editor.versions
-          ? (
-            <DocumentInfoPanel
-              tab={info.tab}
-              document={document}
-              source={editor.versions}
-              viewing={viewing}
-              refresh={tick}
-              onCompare={(_document, before, after) =>
-                setCompare({ before, after })}
-              now={now}
-            />
-          )
-          : undefined}
+        <DocumentInfoPanel tab={info.tab} document={document} path={path} />
       </InfoPanel>
     </div>
   );

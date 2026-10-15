@@ -10,7 +10,6 @@ import type { EditorDeps } from "./document-view.tsx";
 import { overlayLeaveAsker } from "./leave-dialog.ts";
 import { coreSettingsPort, readingWidthStore } from "./reading-width.ts";
 import { EditorSessions, type LeaveAsker } from "./sessions.ts";
-import { coreVersionSource } from "./versions/core-source.ts";
 
 const NO_MENU: MenuOpener = {
   open: () => Promise.resolve("unavailable"),
@@ -40,11 +39,8 @@ export function windowEditorDeps(core: CoreSource): EditorDeps {
     );
     files.listen();
   }
-  const source = coreEditorSource(core);
   return {
-    source,
-    // 이력·비교는 core 읽기, 복원은 main의 편집 통로(준비·파일 쓰기)다.
-    versions: coreVersionSource(core, source, api),
+    source: coreEditorSource(core),
     // core 끊김에서 저장 gate와 확인 시각을 화면이 알게 같은 통로를 남긴다.
     core,
     readingWidth: readingWidthStore(

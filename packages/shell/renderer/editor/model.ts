@@ -69,15 +69,3 @@ export function stickyHead(
   }
   return { shown, section };
 }
-
-/**
- * 링크 주소에서 documents/addressing의 address 모양(place/document[#section][@n])만 고른다.
- * 외부 URL과 상대 파일 경로는 문서 주소가 아니다.
- */
-export function documentAddress(href: string): string | null {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return null;
-  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\/[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:#[^#@]+)?(?:@[1-9][0-9]*)?$/
-      .test(href)
-    ? href
-    : null;
-}

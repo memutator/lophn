@@ -5,18 +5,16 @@ import { useViewCover } from "../../app-frame/embedded-view.tsx";
 import { INFO_PANEL_WIDTH, type InfoPanelPlacement } from "../model.ts";
 import styles from "./info-panel.module.css";
 
-export type InfoTab = "info" | "versions" | "contexts";
+export type InfoTab = "info" | "contexts";
 
-const TABS: readonly InfoTab[] = ["info", "versions", "contexts"];
+const TABS: readonly InfoTab[] = ["info", "contexts"];
 
 const TAB_LABEL: Record<
   InfoTab,
   | "project-workspace.label.info-tab-info"
-  | "project-workspace.label.info-tab-versions"
   | "project-workspace.label.info-tab-contexts"
 > = {
   info: "project-workspace.label.info-tab-info",
-  versions: "project-workspace.label.info-tab-versions",
   contexts: "project-workspace.label.info-tab-contexts",
 };
 

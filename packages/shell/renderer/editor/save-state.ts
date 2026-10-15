@@ -303,13 +303,6 @@ export class SaveSession {
     });
   }
 
-  /** version 충돌 해결: 최신 판을 새 기준으로 편집기 글을 판으로 확정한다. */
-  async keepMineAsVersion(latest: string): Promise<void> {
-    this.#rebase = latest;
-    this.#set({ edited: true, version: { ...this.#facts.version } });
-    await this.flush(true);
-  }
-
   /** 디스크가 이 편집기 밖에서 바뀌었고 고침이 없어 받았다. */
   reloaded(text: string, hash: string | null): void {
     if (this.#pending !== null || this.#inFlight) return;

@@ -1,15 +1,9 @@
 // lophn 공간의 순수 규칙. 화면 컴포넌트와 core 통로가 같이 쓴다.
-import type {
-  Catalog,
-  Coverage,
-  PlaceRef,
-  SearchConditions,
-} from "./source.ts";
+import type { SearchConditions } from "./source.ts";
 
-/** lophn 공간의 여섯 형제. 중간 계층이 없다. */
+/** lophn 공간의 형제. 중간 계층이 없다. */
 export const LOPHN_SCREENS = [
   "projects",
-  "documents",
   "apps",
   "things-to-confirm",
   "settings",
@@ -17,8 +11,8 @@ export const LOPHN_SCREENS = [
 
 export type LophnScreen = typeof LOPHN_SCREENS[number];
 
-/** lophn 공간에 들어오면 문서 탐색이 먼저다. */
-export const DEFAULT_SCREEN: LophnScreen = "documents";
+/** lophn 공간에 들어오면 projects가 먼저다. */
+export const DEFAULT_SCREEN: LophnScreen = "projects";
 
 export const EMPTY_CONDITIONS: SearchConditions = {
   query: "",
@@ -66,82 +60,9 @@ export function searchBody(
   };
 }
 
-export type CoverageNote = "lagging" | "rebuilding" | "omissions";
-
-/**
- * 결과 판단에 필요한 지연·누락만 고른다. 재생성 중이면
- * 지연은 따로 말하지 않는다.
- */
-export function coverageNotes(coverage: Coverage | null): CoverageNote[] {
-  if (coverage === null) return [];
-  const notes: CoverageNote[] = [];
-  if (coverage.rebuilding) notes.push("rebuilding");
-  else if (coverage.lagging) notes.push("lagging");
-  if (coverage.omissions > 0) notes.push("omissions");
-  return notes;
-}
-
-/**
- * 빈 검색의 안내. 지연·누락이 있으면 아직 반영되지 않았다고 하고, 보관을 빼고
- * 찾았으면 보관 포함을 권한다. 어느 쪽도 원본이 없다는 뜻으로 말하지 않는다.
- */
-export function emptyHint(
-  coverage: Coverage | null,
-  includeArchived: boolean,
-): "not-yet" | "archived" | "conditions" {
-  if (coverageNotes(coverage).length > 0) return "not-yet";
-  return includeArchived ? "conditions" : "archived";
-}
-
-export function samePlace(a: PlaceRef | null, b: PlaceRef | null): boolean {
-  return a === b || (a !== null && b !== null && a.kind === b.kind &&
-    a.id === b.id);
-}
-
-/** 자리 선택지 값. Select는 문자열만 받는다. */
-export function placeValue(place: PlaceRef | null): string {
-  return place === null ? "" : `${place.kind}:${place.id}`;
-}
-
-export function placeOf(value: string): PlaceRef | null {
-  const match = /^(project|app):(.+)$/.exec(value);
-  return match ? { kind: match[1] as PlaceRef["kind"], id: match[2]! } : null;
-}
-
-export function placeTitle(catalog: Catalog, place: PlaceRef): string | null {
-  const list = place.kind === "project" ? catalog.projects : catalog.apps;
-  return list.find((item) => item.id === place.id)?.title ?? null;
-}
-
-/** 판이 최신이 아니면 최신 판을 따로 보인다. */
-export function isLatest(version: string, latestVersion: string): boolean {
-  return version === latestVersion;
-}
-
-// contracts/documents/series-values.ts의 NEXT_RULE과 같다. 등록 전에 사람에게 바로 알린다.
-const NEXT_RULE =
-  /^[^{}]*\{(n|major|minor|patch)(?:([+-])(\d+))?(?::(0?[1-4]))?\}$/;
-
-/** 지원하는 다음 이름 규칙인지. 5자리 이상 0 채움은 받지 않는다. */
-export function validNextRule(rule: string): boolean {
-  return NEXT_RULE.test(rule.trim());
-}
-
 const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-/** 가족 이름은 문서 이름과 같은 slug다. */
-export function validSeriesName(name: string): boolean {
+/** project 이름은 slug다. */
+export function validName(name: string): boolean {
   return SLUG.test(name);
-}
-
-/**
- * 새 멤버 문서의 이름. contracts/documents/series-values.ts의 documentNameForKey와 같다(다음 제안의
- * document_name과 같은 규칙). 이름이 될 수 없는 key면 null이다.
- */
-export function documentNameForKey(key: string): string | null {
-  const name = key.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
-    /^-+|-+$/g,
-    "",
-  );
-  return name.length <= 63 && SLUG.test(name) ? name : null;
 }

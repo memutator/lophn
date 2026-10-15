@@ -44,11 +44,7 @@ import {
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
-import type {
-  CompareTarget,
-  DocumentTabMeta,
-  EditorDeps,
-} from "../editor/document-view.tsx";
+import type { DocumentTabMeta, EditorDeps } from "../editor/document-view.tsx";
 import { layoutHint, type TabPresentation } from "./view-hint.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import type {
@@ -74,8 +70,6 @@ import { openDocument as openDocumentTab } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
 import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
-import { TrackingStrip } from "./tracking/tracking.tsx";
-import type { TrackingSource } from "./tracking/source.ts";
 import { NoticeCard } from "./notice-card.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
@@ -121,8 +115,6 @@ export interface WorkspaceProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
   terminal?: TerminalDeps;
-  /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
-  tracking?: TrackingSource;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
   /**
@@ -170,8 +162,6 @@ export function Workspace(props: WorkspaceProps) {
     onThingsToConfirm,
     onProjectInstructions,
     terminal,
-    editor,
-    tracking,
     timer,
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
@@ -192,10 +182,10 @@ export function Workspace(props: WorkspaceProps) {
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  // 떠 있는 안내(추적 꺼짐·읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
+  // 떠 있는 안내(읽기 실패)를 닫은 상태. 상단 바의 안내 단추가 다시 연다.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
-  const hasNotices = loaded.failed || tracking !== undefined;
+  const hasNotices = loaded.failed;
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
@@ -239,12 +229,6 @@ export function Workspace(props: WorkspaceProps) {
   const [sessions, setSessions] = useState<Readonly<Record<string, string>>>(
     {},
   );
-  // 문서 탭마다 열린 버전 비교. 정보 패널의 버전 탭이 열고 문서 탭 본문 자리에 그린다.
-  const [compares, setCompares] = useState<
-    Readonly<Record<string, CompareTarget>>
-  >({});
-  // 복원으로 판이 바뀌면 정보 패널이 다시 읽는다.
-  const [versionsTick, setVersionsTick] = useState(0);
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
@@ -299,19 +283,6 @@ export function Workspace(props: WorkspaceProps) {
       layoutHint({ project: projectId, view, presentation, sessions }),
     );
   }, [presentation, projectId, view, sessions]);
-
-  // 추적을 켠 뒤 문서·파일 목록만 다시 읽는다. 열린 탭과 배치는 그대로 둔다.
-  const refreshDocuments = async () => {
-    const [documents, files] = await Promise.all([
-      source.documents(projectId),
-      source.files(projectId),
-    ]);
-    setLoaded((current) => ({
-      ...current,
-      documents: documents.ok ? documents.value : current.documents,
-      files: files.ok ? files.value : current.files,
-    }));
-  };
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
@@ -506,15 +477,6 @@ export function Workspace(props: WorkspaceProps) {
     );
   }
 
-  const showCompare = (document: string, target: CompareTarget | null) => {
-    setCompares((current) => {
-      const next = { ...current };
-      if (target === null) delete next[document];
-      else next[document] = target;
-      return next;
-    });
-  };
-
   // focus 칸의 활성 탭이 문서면 정보 패널이 그 문서를 보인다.
   const focusedTab = focused?.tabs.find((tab) => tab.key === focused.selected);
   const infoDocument = focusedTab?.kind === "document_editor"
@@ -640,9 +602,6 @@ export function Workspace(props: WorkspaceProps) {
       infoShown: infoOpen,
       toggleInfo: () => setInfo(!infoOpen, infoTab),
       fileName: (id) => tabMeta[id]?.fileName,
-      compareOf: (id) => compares[id] ?? null,
-      showCompare,
-      versionsChanged: () => setVersionsTick((value) => value + 1),
       noteMeta,
       notePresentation,
       noteReadPosition: notePosition,
@@ -842,16 +801,6 @@ export function Workspace(props: WorkspaceProps) {
                       />
                     )
                     : null}
-                  {tracking
-                    ? (
-                      <TrackingStrip
-                        project={projectId}
-                        source={tracking}
-                        onTracking={() => void refreshDocuments()}
-                        onDismiss={hideNotices}
-                      />
-                    )
-                    : null}
                 </div>
               )}
             <Panes
@@ -896,21 +845,13 @@ export function Workspace(props: WorkspaceProps) {
                     />
                   )
                 )
-                : editor?.versions
-                ? (
+                : (
                   <DocumentInfoPanel
                     tab={infoTab}
                     document={infoDocument}
-                    source={editor.versions}
-                    viewing={infoDocument === null
-                      ? null
-                      : tabMeta[infoDocument]?.version ?? null}
-                    refresh={versionsTick}
-                    onCompare={(document, before, after) =>
-                      showCompare(document, { before, after })}
+                    path={infoPath}
                   />
-                )
-                : undefined}
+                )}
             </InfoPanel>
             {toasts.length > 0
               ? (

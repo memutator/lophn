@@ -1,7 +1,6 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
   Button,
-  ErrorState,
   Field,
   IconButton,
   Input,
@@ -12,32 +11,19 @@ import {
 import { retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { validName } from "../organize/model.ts";
-import { ExportPanel } from "../organize/export-panel.tsx";
-import type {
-  OrganizeSource,
-  PlacedDocument,
-  ProjectChange,
-  ProjectRow,
-} from "../organize/source.ts";
-import listStyles from "../documents/documents.module.css";
-import headStyles from "../series/series.module.css";
+import { validName } from "../model.ts";
+import type { LophnSource, ProjectChange, ProjectRow } from "../source.ts";
+import listStyles from "./list.module.css";
 import styles from "./projects.module.css";
 
 export interface ProjectDetailProps {
-  source: OrganizeSource;
+  source: LophnSource;
   project: ProjectRow;
   /** 등록을 바꿨다. 목록의 행을 새 값으로 바꾼다. */
   onChanged: (project: ProjectRow) => void;
   /** 대상이 바뀌어 목록을 다시 읽는다. */
   onLatest: () => void;
-  onOpenDocument: (document: string) => void;
 }
-
-type Documents =
-  | { readonly kind: "loading" }
-  | { readonly kind: "failed" }
-  | { readonly kind: "ready"; readonly rows: readonly PlacedDocument[] };
 
 type Change =
   | { readonly kind: "idle" }
@@ -48,33 +34,16 @@ type Change =
   | { readonly kind: "changed" }
   | { readonly kind: "failed" };
 
-// 프로젝트 하나: 이름·목적 바꾸기, 보관·해제, 소속 문서 정리와 export.
-// 보관은 프로젝트를 목록에서 숨길 뿐 소속 문서를 보관하거나 지우지 않는다.
+// 프로젝트 하나: 이름·목적 바꾸기, 보관·해제.
+// 보관은 프로젝트를 목록에서 숨길 뿐 폴더의 파일을 보관하거나 지우지 않는다.
 export function ProjectDetail(
-  { source, project, onChanged, onLatest, onOpenDocument }: ProjectDetailProps,
+  { source, project, onChanged, onLatest }: ProjectDetailProps,
 ) {
-  const [documents, setDocuments] = useState<Documents>({ kind: "loading" });
-  const [attempt, setAttempt] = useState(0);
   const [title, setTitle] = useState(project.title);
   const [name, setName] = useState(project.name);
   const [purpose, setPurpose] = useState(project.purpose);
   const [change, setChange] = useState<Change>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    void source.placeDocuments({ kind: "project", id: project.id }).then(
-      (read) => {
-        if (!live) return;
-        setDocuments(
-          read.ok ? { kind: "ready", rows: read.value } : { kind: "failed" },
-        );
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [source, project.id, attempt]);
 
   // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다.
   const conflictKind = async (): Promise<Change> => {
@@ -137,17 +106,12 @@ export function ProjectDetail(
   return (
     <OverviewFrame
       header={
-        <div className={headStyles.head} data-project-head={project.id}>
-          <div className={headStyles.titleRow}>
-            <h1 className={headStyles.title}>{project.title}</h1>
+        <div className={styles.head} data-project-head={project.id}>
+          <div className={styles.titleRow}>
+            <h1 className={styles.title}>{project.title}</h1>
           </div>
-          <p className={headStyles.meta}>
-            <span className={headStyles.rule}>{project.name}</span>
-            <span>
-              {project.tracking
-                ? t("projects.label.tracking-on")
-                : t("projects.label.tracking-off")}
-            </span>
+          <p className={styles.meta}>
+            <span className={styles.rule}>{project.name}</span>
             {project.archived
               ? <span>{t("projects.label.archived")}</span>
               : null}
@@ -158,7 +122,7 @@ export function ProjectDetail(
       <div className={styles.body}>
         {change.kind === "changed"
           ? (
-            <p className={headStyles.notice} data-changed="">
+            <p className={styles.notice} data-changed="">
               <span>{t("projects.error.changed")}</span>
               <Tooltip content={t("projects.button.show-latest")}>
                 <IconButton
@@ -260,66 +224,6 @@ export function ProjectDetail(
             </Button>
           </div>
         </section>
-        <section className={listStyles.section} data-project-documents="">
-          <h2 className={listStyles.sectionLabel}>
-            {t("projects.heading.documents")}
-          </h2>
-          {documents.kind === "loading"
-            ? null
-            : documents.kind === "failed"
-            ? (
-              <ErrorState
-                target={t("projects.label.target-documents")}
-                onRetry={() => setAttempt((value) => value + 1)}
-              />
-            )
-            : documents.rows.length === 0
-            ? (
-              <p className={listStyles.hint}>
-                {t("projects.empty.documents")}
-              </p>
-            )
-            : (
-              <ul className={listStyles.rows}>
-                {documents.rows.map((row) => (
-                  <li key={row.id}>
-                    <button
-                      type="button"
-                      className={listStyles.row}
-                      data-project-document={row.id}
-                      onClick={() => onOpenDocument(row.id)}
-                    >
-                      <span className={listStyles.rowHead}>
-                        <span className={listStyles.rowTitle}>
-                          {row.title}
-                        </span>
-                        {row.name === null
-                          ? null
-                          : <span className={listStyles.key}>{row.name}</span>}
-                        {row.archived
-                          ? (
-                            <span className={listStyles.meta}>
-                              {t("projects.label.archived")}
-                            </span>
-                          )
-                          : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-        </section>
-        {documents.kind === "ready" && documents.rows.length > 0
-          ? (
-            <ExportPanel
-              key={project.id}
-              source={source}
-              place={{ kind: "project", id: project.id }}
-              documents={documents.rows}
-            />
-          )
-          : null}
       </div>
     </OverviewFrame>
   );

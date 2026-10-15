@@ -2,16 +2,12 @@ import { useEffect, useState } from "react";
 import { ErrorState, Switch } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import type { Catalog, LophnSource } from "../source.ts";
-import type { OrganizeSource, ProjectRow } from "../organize/source.ts";
-import { DocumentPanel } from "../organize/document-panel.tsx";
+import type { LophnSource, ProjectRow } from "../source.ts";
 import { ProjectDetail } from "./project-detail.tsx";
-import listStyles from "../documents/documents.module.css";
+import listStyles from "./list.module.css";
 
 export interface ProjectsScreenProps {
-  source: OrganizeSource;
-  /** 문서를 옮길 자리 선택지(프로젝트·앱). */
-  lophn: LophnSource;
+  source: LophnSource;
 }
 
 type Rows =
@@ -19,36 +15,25 @@ type Rows =
   | { readonly kind: "failed" }
   | { readonly kind: "ready"; readonly rows: readonly ProjectRow[] };
 
-const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
-
-// projects 화면. 왼쪽 목록 칸에서 프로젝트를 고르고 오른쪽에서 이름·목적·보관과 소속 문서
-// 정리·export를 한다(flow organize-documents의 사람 갈래). 기본 목록은 고를
-// 대상과 필요한 상태만 보이고 폴더·추적 설정 같은 상세는 작업대에서 본다.
-export function ProjectsScreen({ source, lophn }: ProjectsScreenProps) {
+// projects 화면. 왼쪽 목록 칸에서 프로젝트를 고르고 오른쪽에서 이름·목적·보관을 바꾼다.
+export function ProjectsScreen({ source }: ProjectsScreenProps) {
   const [rows, setRows] = useState<Rows>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [showArchived, setShowArchived] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
-  const [document, setDocument] = useState<string | null>(null);
-  const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
-  // 문서가 옮겨지거나 파일이 생기면 프로젝트의 문서 목록을 다시 읽게 한다.
-  const [documentsRevision, setDocumentsRevision] = useState(0);
 
   useEffect(() => {
     let live = true;
-    void Promise.all([source.projects(), lophn.catalog()]).then(
-      ([read, places]) => {
-        if (!live) return;
-        setRows(
-          read.ok ? { kind: "ready", rows: read.value } : { kind: "failed" },
-        );
-        if (places.ok) setCatalog(places.value);
-      },
-    );
+    void source.projects().then((read) => {
+      if (!live) return;
+      setRows(
+        read.ok ? { kind: "ready", rows: read.value } : { kind: "failed" },
+      );
+    });
     return () => {
       live = false;
     };
-  }, [source, lophn, attempt]);
+  }, [source, attempt]);
 
   const reload = () => setAttempt((value) => value + 1);
 
@@ -73,30 +58,14 @@ export function ProjectsScreen({ source, lophn }: ProjectsScreenProps) {
       rows: rows.rows.map((row) => row.id === project.id ? project : row),
     });
 
-  const detail = document !== null
-    ? (
-      <DocumentPanel
-        key={document}
-        source={source}
-        id={document}
-        catalog={catalog}
-        projects={rows.rows}
-        onBack={() => {
-          setDocument(null);
-          reload();
-        }}
-        onChanged={() => setDocumentsRevision((value) => value + 1)}
-      />
-    )
-    : selected !== null
+  const detail = selected !== null
     ? (
       <ProjectDetail
-        key={`${selected.id}:${documentsRevision}`}
+        key={selected.id}
         source={source}
         project={selected}
         onChanged={replace}
         onLatest={reload}
-        onOpenDocument={setDocument}
       />
     )
     : (
@@ -124,20 +93,12 @@ export function ProjectsScreen({ source, lophn }: ProjectsScreenProps) {
                     className={listStyles.row}
                     data-project={row.id}
                     aria-current={row.id === current ? "true" : undefined}
-                    onClick={() => {
-                      setCurrent(row.id);
-                      setDocument(null);
-                    }}
+                    onClick={() => setCurrent(row.id)}
                   >
                     <span className={listStyles.rowHead}>
                       <span className={listStyles.rowTitle}>{row.title}</span>
                     </span>
                     <span className={listStyles.meta}>
-                      <span>
-                        {row.tracking
-                          ? t("projects.label.tracking-on")
-                          : t("projects.label.tracking-off")}
-                      </span>
                       {row.archived
                         ? <span>{t("projects.label.archived")}</span>
                         : null}

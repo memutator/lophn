@@ -1,4 +1,4 @@
-/* projects 상세: 등록(이름·목적), 보관, 소속 문서, export를 위에서 아래로 쌓는다. */
+/* projects 상세: 머리, 등록(이름·목적), 보관을 위에서 아래로 쌓는다. */
 .body {
   display: flex;
   flex-direction: column;
@@ -18,4 +18,55 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-family: var(--font-sans);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.title {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.rule {
+  font-family: var(--font-mono);
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--status-warning-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
 }

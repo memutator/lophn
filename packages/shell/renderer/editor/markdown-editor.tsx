@@ -15,15 +15,11 @@ import { EditorView } from "@codemirror/view";
 
 import {
   defaultResolveImage,
-  linkTrigger,
   livePreview,
   minimalChange,
   setFindMatches,
 } from "./live-preview.ts";
 import { adoptHeadStyles } from "./adopt-styles.ts";
-import { setProblems } from "./problems-gutter/gutter.ts";
-import type { EditorProblem } from "./problems-gutter/problems.ts";
-import { ProblemList } from "./problems-gutter/problem-list.tsx";
 import {
   findLabel,
   findMatches,
@@ -32,14 +28,6 @@ import {
   stepMatch,
 } from "./find/find.ts";
 import { FindBar } from "./find/find-bar.tsx";
-import {
-  linkRows,
-  type LinkTarget,
-  linkText,
-  rowAt,
-  type Trigger,
-} from "./link-picker/link-picker.ts";
-import { LinkPicker } from "./link-picker/link-picker.tsx";
 import styles from "./markdown-editor.module.css";
 
 export interface MarkdownEditorHandle {
@@ -57,12 +45,7 @@ export interface MarkdownEditorProps {
   initialText: string;
   /** 접근 이름. */
   label: string;
-  problems?: readonly EditorProblem[];
-  /** `[[`가 보일 문서. */
-  linkTargets?: readonly LinkTarget[];
   onChange?: (text: string) => void;
-  /** Mod-click한 링크. */
-  onOpenLink?: (href: string) => void;
   ref?: Ref<MarkdownEditorHandle>;
 }
 
@@ -75,17 +58,14 @@ export function MarkdownEditor(
   {
     initialText,
     label,
-    problems = [],
-    linkTargets = [],
     onChange,
-    onOpenLink,
     ref,
   }: MarkdownEditorProps,
 ) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const latest = useRef({ onChange, onOpenLink });
-  latest.current = { onChange, onOpenLink };
+  const latest = useRef({ onChange });
+  latest.current = { onChange };
   const [find, setFind] = useState<FindState>({ open: false, replace: false });
   const [query, setQuery] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -94,8 +74,6 @@ export function MarkdownEditor(
   const [revision, setRevision] = useState(0);
   const findOpen = useRef(false);
   findOpen.current = find.open;
-  const [trigger, setTrigger] = useState<Trigger | null>(null);
-  const [linkIndex, setLinkIndex] = useState(0);
 
   useEffect(() => {
     if (!host.current) return;
@@ -107,7 +85,6 @@ export function MarkdownEditor(
         doc: initialText,
         extensions: [
           livePreview({
-            onOpenLink: (href) => latest.current.onOpenLink?.(href),
             resolveImage: defaultResolveImage,
           }),
           EditorView.contentAttributes.of({
@@ -115,9 +92,6 @@ export function MarkdownEditor(
             "aria-multiline": "true",
           }),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged || update.selectionSet) {
-              setTrigger(linkTrigger(update.state));
-            }
             if (!update.docChanged) return;
             if (findOpen.current) setRevision((value) => value + 1);
             latest.current.onChange?.(update.state.doc.toString());
@@ -132,10 +106,6 @@ export function MarkdownEditor(
     };
     // view는 한 번 만든다. 뒤에 바뀌는 props는 아래 effect가 밀어 넣는다.
   }, []);
-
-  useEffect(() => {
-    view.current?.dispatch({ effects: setProblems.of(problems) });
-  }, [problems]);
 
   const matches = useMemo(() => {
     if (!find.open || !view.current) return [];
@@ -226,25 +196,6 @@ export function MarkdownEditor(
     }
   }, [matches]);
 
-  const rows = useMemo(
-    () => trigger ? linkRows(linkTargets, trigger.query) : [],
-    [trigger?.from, trigger?.query, linkTargets],
-  );
-  useEffect(() => setLinkIndex(0), [trigger?.query]);
-
-  const pick = useCallback((row: LinkTarget) => {
-    const editor = view.current;
-    if (!editor || !trigger) return;
-    const text = linkText(row);
-    editor.dispatch({
-      changes: { from: trigger.from, to: trigger.to, insert: text },
-      selection: EditorSelection.cursor(trigger.from + text.length),
-      userEvent: "input.complete",
-    });
-    setTrigger(null);
-    editor.focus();
-  }, [trigger]);
-
   const revealLine = useCallback((line: number) => {
     const editor = view.current;
     if (!editor) return;
@@ -276,24 +227,6 @@ export function MarkdownEditor(
   }), [revealLine]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    // 링크 고르기가 열려 있으면 이동 key는 목록 몫이다. Escape도 목록을 먼저 닫는다.
-    if (trigger && rows.length > 0) {
-      const row = rowAt(rows, linkIndex);
-      const handled = event.key === "ArrowDown"
-        ? (setLinkIndex((index) => index + 1), true)
-        : event.key === "ArrowUp"
-        ? (setLinkIndex((index) => index - 1), true)
-        : event.key === "Enter" && row
-        ? (pick(row), true)
-        : event.key === "Escape"
-        ? (setTrigger(null), true)
-        : false;
-      if (handled) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-    }
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
     let handled = true;
@@ -307,16 +240,6 @@ export function MarkdownEditor(
       event.stopPropagation();
     }
   };
-
-  const picker = (() => {
-    const editor = view.current;
-    if (!editor || !trigger) return null;
-    const coords = editor.coordsAtPos(trigger.from);
-    const box = host.current?.getBoundingClientRect();
-    // 자리를 재지 못해도 키보드로 고르는 목록은 숨기지 않고 편집 칸 왼쪽 위에 둔다.
-    if (!coords || !box) return { top: 0, left: 0 };
-    return { top: coords.bottom - box.top, left: coords.left - box.left };
-  })();
 
   return (
     <div
@@ -344,29 +267,7 @@ export function MarkdownEditor(
         : null}
       <div className={styles.area}>
         <div className={styles.host} ref={host} />
-        {trigger && picker
-          ? (
-            <LinkPicker
-              rows={rows}
-              active={rows.length > 0
-                ? ((linkIndex % rows.length) + rows.length) % rows.length
-                : 0}
-              top={picker.top}
-              left={picker.left}
-              onPick={pick}
-              onClose={() => setTrigger(null)}
-            />
-          )
-          : null}
       </div>
-      {problems.length > 0
-        ? (
-          <ProblemList
-            problems={problems}
-            onSelect={revealLine}
-          />
-        )
-        : null}
     </div>
   );
 }

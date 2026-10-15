@@ -21,11 +21,9 @@ import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
-import type { OrganizeSource } from "./lophn-space/organize/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
-import type { TrackingSource } from "../workspace/tracking/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
@@ -55,16 +53,12 @@ export interface DesktopProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
   terminal?: TerminalDeps;
-  /** lophn 공간(documents·series) 통로. 없으면 lophn 공간 대신 런처를 보인다. */
+  /** lophn 공간 통로. 없으면 lophn 공간 대신 런처를 보인다. */
   lophn?: LophnSource;
-  /** projects 화면의 정리 통로. 없으면 projects는 준비 전 안내다. */
-  organize?: OrganizeSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
   /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
   projects?: LauncherSource;
-  /** 작업대의 파일 추적 켜기 통로. */
-  tracking?: TrackingSource;
   /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
@@ -104,10 +98,8 @@ export function Desktop(
     editor,
     terminal,
     lophn,
-    organize,
     palette,
     projects,
-    tracking,
     intents,
     instructions,
     apps,
@@ -178,12 +170,7 @@ export function Desktop(
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "screen") visit(openLophn(target.screen));
     else if (target.kind === "app") appSpace(target.id);
-    else {
-      visit(openLophn("documents", {
-        document: target.document,
-        version: target.version,
-      }));
-    }
+    else visit(openLophn("projects"));
   };
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
@@ -209,7 +196,6 @@ export function Desktop(
           : undefined}
         editor={editor}
         terminal={terminal}
-        tracking={tracking}
         agentViewSource={agentViewSource}
       />
     );
@@ -253,13 +239,8 @@ export function Desktop(
           : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
-        onDocuments={() => visit(openLophn("documents"))}
-        onOpenResult={(document, version) =>
-          visit(
-            version === null
-              ? openLophn("documents")
-              : openLophn("documents", { document, version }),
-          )}
+        onDocuments={() => visit(openLophn("projects"))}
+        onOpenResult={() => visit(openLophn("projects"))}
         onThingsToConfirm={thingsToConfirm}
       />
     );
@@ -268,12 +249,9 @@ export function Desktop(
       <LophnSpace
         key={visits}
         source={lophn}
-        organize={organize}
         screen={route.screen}
-        initialRead={route.read}
         initialRequest={route.request}
         windowWidth={windowWidth}
-        {...(editor?.files ? { sessions: editor.files } : {})}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}

@@ -24,7 +24,6 @@ import { formatRelativeTime, t } from "@lophn/wording";
 import { useConnectionSafe } from "../desktop/connection/connection.tsx";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { ConflictView } from "./conflict/conflict-view.tsx";
-import { CompareView, type RestoreAnswer } from "./compare/compare-view.tsx";
 import { DocumentHead, StickyHeadBar } from "./document-head.tsx";
 import type { MenuOpener } from "./document-menu.ts";
 import {
@@ -33,10 +32,6 @@ import {
 } from "./markdown-editor.tsx";
 import { type HeadingTop, type StickyHead, stickyHead } from "./model.ts";
 import { NoticeBar } from "./notice-bar.tsx";
-import {
-  type EditorProblem,
-  editorProblems,
-} from "./problems-gutter/problems.ts";
 import {
   type NoticeKind,
   type SaveAction,
@@ -48,9 +43,7 @@ import {
 import { INITIAL_FACTS } from "./save-state.ts";
 import { SaveDetails, SaveStatus } from "./save-status.tsx";
 import type { EditorSessions, OpenedSession, OpenFailure } from "./sessions.ts";
-import type { LinkTarget } from "./link-picker/link-picker.ts";
 import type { ReadingWidthStore } from "./reading-width.ts";
-import type { VersionSource } from "./versions/source.ts";
 import type {
   BodyState,
   DocumentInfo,
@@ -75,8 +68,6 @@ export interface EditorDeps {
   readonly menu: MenuOpener;
   /** 파일 통로와 창의 편집 session. 없으면 고친 글은 이 화면의 초안으로만 남는다. */
   readonly files?: EditorSessions;
-  /** 버전 이력·비교·복원 통로. 없으면 비교를 열지 않는다. */
-  readonly versions?: VersionSource;
   /**
    * main의 core 통로. core 끊김에서 저장 gate를 닫고 확인 시각을 보이려고
    * 연결 상태를 여기서 읽는다. 없으면(통로 없는 테스트) 끊김 줄을 두지 않는다.
@@ -84,31 +75,15 @@ export interface EditorDeps {
   readonly core?: CoreSource;
 }
 
-/** 문서 탭 본문 자리에 여는 버전 비교. */
-export interface CompareTarget {
-  readonly before: string;
-  readonly after: string;
-}
-
 export interface DocumentViewProps extends EditorDeps {
   documentId: string;
-  projectId: string;
   infoOpen?: boolean;
   onToggleInfo?: () => void;
-  /** 바깥에서 넘기는 형식 검사 문제. 저장 흐름의 검사 결과와 함께 보인다. */
-  problems?: readonly EditorProblem[];
   onMeta?: (meta: DocumentTabMeta) => void;
   /** 이 탭이 보이는 판과 읽기·편집. 현재 보기 힌트만 쓰고 탭 제목에는 쓰지 않는다. */
   onPresentation?: (
     presentation: { editing: boolean; version: string },
   ) => void;
-  /** 문서 링크를 따라 다른 문서를 연다. */
-  onOpenDocument?: (document: string) => void;
-  /** 열린 버전 비교. null이면 문서를 읽거나 고친다. */
-  compare?: CompareTarget | null;
-  onCompare?: (target: CompareTarget | null) => void;
-  /** 복원으로 판이 바뀌었다. 정보 패널이 다시 읽는다. */
-  onVersionsChanged?: () => void;
   /** 저장해 둔 읽던 위치. scroll이 잡힐 때까지 다시 적용한다. */
   initialPosition?: {
     readonly section: string;
@@ -128,18 +103,11 @@ type InfoState =
 
 type Notice = "width-failed" | "menu-unavailable" | null;
 
-/** 충돌 해결 화면. theirs는 지금 디스크 글이나 최신 판 글이다. */
-type Resolving =
-  | {
-    readonly against: "disk";
-    readonly theirs: string;
-    readonly hash: string | null;
-  }
-  | {
-    readonly against: "newest";
-    readonly theirs: string;
-    readonly latest: string;
-  };
+/** 충돌 해결 화면. theirs는 지금 디스크 글이다. */
+type Resolving = {
+  readonly theirs: string;
+  readonly hash: string | null;
+};
 
 const EDIT_FAILURE: Record<OpenFailure, NoticeKind> = {
   offline: "edit-offline",
@@ -176,21 +144,14 @@ function bodyError(body: BodyState) {
 export function DocumentView(
   {
     documentId,
-    projectId,
     source,
     readingWidth,
     menu,
     infoOpen = false,
     onToggleInfo,
-    problems = [],
     files,
     onMeta,
     onPresentation,
-    onOpenDocument,
-    versions,
-    compare = null,
-    onCompare,
-    onVersionsChanged,
     initialPosition,
     onReadPosition,
     now = Date.now,
@@ -204,7 +165,6 @@ export function DocumentView(
   const [sections, setSections] = useState<readonly OutlineSection[]>([]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
-  const [links, setLinks] = useState<readonly LinkTarget[]>([]);
   const [sticky, setSticky] = useState<StickyHead>(HIDDEN_STICKY);
   const [notice, setNotice] = useState<Notice>(null);
   const [attempt, setAttempt] = useState(0);
@@ -363,18 +323,6 @@ export function DocumentView(
       setNotice(readingWidth.failed() ? "width-failed" : null);
     }), [readingWidth]);
 
-  // 편집을 시작할 때만 링크 후보를 읽는다.
-  useEffect(() => {
-    if (!editing) return;
-    let live = true;
-    void source.linkTargets(projectId).then((result) => {
-      if (live && result.ok) setLinks(result.value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [editing, projectId, source]);
-
   const text = draft ?? bodyText(body);
   // 파일 통로가 있으면 편집 글은 main이 연 지금 디스크 글이라 판 본문 읽기를 기다리지 않는다.
   // 통로가 없으면 끝까지 읽은 판 본문만 고친다(일부만 고치면 나머지를 잃는다).
@@ -421,72 +369,45 @@ export function DocumentView(
     opened?.session.edit(next);
   }, [opened, connection]);
 
-  const openCompare = async (against: "disk" | "newest") => {
+  const openCompare = async () => {
     if (!opened || !files) return;
     setCompareFailed(false);
-    if (against === "disk") {
-      const current = await files.current(documentId);
-      if (!current.ok) {
-        setCompareFailed(true);
-        return;
-      }
-      setResolving({
-        against: "disk",
-        theirs: current.value.text,
-        hash: current.value.hash,
-      });
-      return;
-    }
-    const latest = opened.session.facts.version.latest;
-    if (latest === null) return;
-    const read = await source.body(documentId, latest, () => {});
-    if (read.kind !== "text" || !read.complete) {
+    const current = await files.current(documentId);
+    if (!current.ok) {
       setCompareFailed(true);
       return;
     }
-    setResolving({ against: "newest", theirs: read.text, latest });
+    setResolving({
+      theirs: current.value.text,
+      hash: current.value.hash,
+    });
   };
 
   const keepMine = () => {
     if (!opened || !resolving) return;
     setResolving(null);
-    if (resolving.against === "disk") {
-      void opened.session.keepMine(resolving.hash);
-    } else void opened.session.keepMineAsVersion(resolving.latest);
+    void opened.session.keepMine(resolving.hash);
   };
 
   const useTheirs = () => {
     if (!opened || !resolving) return;
     setResolving(null);
     setDraft(resolving.theirs);
-    if (resolving.against === "disk") {
-      opened.session.takeTheirs(resolving.theirs, resolving.hash);
-    } else {
-      opened.session.edit(resolving.theirs);
-      void opened.session.keepMineAsVersion(resolving.latest);
-    }
+    opened.session.takeTheirs(resolving.theirs, resolving.hash);
   };
-
-  const saveProblems: readonly EditorProblem[] = facts && opened
-    ? editorProblems(facts.format.problems, opened.primaryPath ?? "")
-    : [];
-  const shownProblems = saveProblems.length > 0
-    ? [...problems, ...saveProblems]
-    : problems;
 
   const onSaveAction = (action: Exclude<SaveAction, null>) => {
     if (!opened) return;
     if (action === "retry") opened.session.retry();
     else if (action === "check") void opened.session.check();
-    else if (action === "compare") {
-      void openCompare(
-        opened.session.facts.disk.state === "conflict" ? "disk" : "newest",
-      );
-    } else {
-      const first = shownProblems.find((problem) => problem.line !== null);
-      if (first && first.line !== null) {
+    else if (action === "compare") void openCompare();
+    else {
+      const line = opened.session.facts.format.problems.find((problem) =>
+        problem.start_line !== null
+      )?.start_line;
+      if (line !== null && line !== undefined) {
         if (!editing) setEditing(true);
-        editorRef.current?.revealLine(first.line);
+        editorRef.current?.revealLine(line);
       }
     }
   };
@@ -565,12 +486,6 @@ export function DocumentView(
     }
   };
 
-  const openLink = (href: string) => {
-    void source.resolveLink(href).then((result) => {
-      if (result.ok && result.value !== null) onOpenDocument?.(result.value);
-    });
-  };
-
   const openMenu = (anchor: HTMLElement) => {
     void menu.open(
       anchor,
@@ -606,41 +521,6 @@ export function DocumentView(
       void opened?.session.flush(true);
     }
   };
-
-  // 복원 전에 이 탭의 마지막 고침을 보내 편집을 끝낸다. 저장이 끝나지 않으면 복원하지 않는다.
-  const restoreVersion = async (
-    version: string,
-    base: string,
-  ): Promise<RestoreAnswer> => {
-    if (!versions) return { kind: "failed", code: "unavailable" };
-    if (opened && !(await opened.session.flush(true))) {
-      return { kind: "unsaved" };
-    }
-    const result = await versions.restore(documentId, version, base);
-    return result.ok
-      ? { kind: "report", report: result.value }
-      : { kind: "failed", code: result.code };
-  };
-
-  if (compare && versions && onCompare) {
-    return (
-      <div className={styles.compare} data-document-view="compare">
-        <CompareView
-          document={documentId}
-          before={compare.before}
-          after={compare.after}
-          source={versions}
-          onChange={(before, after) => onCompare({ before, after })}
-          onClose={() => onCompare(null)}
-          onRestore={restoreVersion}
-          onRestored={() => {
-            setAttempt((value) => value + 1);
-            onVersionsChanged?.();
-          }}
-        />
-      </div>
-    );
-  }
 
   if (state.kind === "failed") {
     return (
@@ -729,10 +609,7 @@ export function DocumentView(
                 ? (
                   <NoticeBar
                     kind={shownNotice}
-                    onCompare={() =>
-                      void openCompare(
-                        shownNotice === "conflict" ? "disk" : "newest",
-                      )}
+                    onCompare={() => void openCompare()}
                     onDismiss={() => setReloadShown(false)}
                   />
                 )
@@ -770,7 +647,7 @@ export function DocumentView(
               : resolving && opened
               ? (
                 <ConflictView
-                  against={resolving.against}
+                  against="disk"
                   theirs={resolving.theirs}
                   mine={opened.session.text}
                   onKeepMine={keepMine}
@@ -784,13 +661,10 @@ export function DocumentView(
                   ref={editorRef}
                   initialText={text}
                   label={info?.title ?? ""}
-                  problems={shownProblems}
-                  linkTargets={links}
                   onChange={onDraft}
-                  onOpenLink={openLink}
                 />
               )
-              : <Markdown source={text} onOpenLink={openLink} />}
+              : <Markdown source={text} />}
           </Loading>
         </div>
       </ReadingFrame>

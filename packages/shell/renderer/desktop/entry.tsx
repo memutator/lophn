@@ -13,7 +13,6 @@ import {
   type Route,
 } from "./router.ts";
 import { coreLophnSource } from "./lophn-space/core-source.ts";
-import { coreOrganizeSource } from "./lophn-space/organize/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -40,7 +39,6 @@ import {
   windowFolderPicker,
 } from "./launcher/core-source.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
-import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreProviderSettingsSource } from "./lophn-space/settings/providers/core-source.ts";
@@ -76,7 +74,6 @@ const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = mock?.lophn ?? coreLophnSource(core);
 // projects 화면의 정리(이름·보관·문서 이동·export·파일로 두기와 빼기).
-const organize = mock?.organize ?? coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
@@ -102,11 +99,10 @@ const coding = mock?.coding ?? coreCodingConnectionsSource(core, {
 });
 const tasks = mock?.tasks ?? coreTasksSource(core, { coding: codingApi });
 const issues = mock?.issues ?? coreIssuesSource(core, windowIssueDecision());
-// 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
+// 런처의 프로젝트 카드·등록과 작업대는 제품 core 통로로 읽고 쓴다.
 const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());
 const workspace = bench?.source ?? coreWorkspaceSource(core);
-const tracking = bench ? undefined : coreTrackingSource(core);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다. provider 끊김 줄의
 // 행동은 lophn 공간 settings로 간다.
 const conversation = {
@@ -123,7 +119,7 @@ const requests = {
   source: mock?.requests ?? coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
-// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(documents)부터,
+// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(projects)부터,
 // `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
 // 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면
@@ -205,10 +201,8 @@ mount(
             windowWidth={seed ? 1440 : undefined}
             terminal={terminal}
             lophn={lophn}
-            organize={organize}
             palette={palette}
             projects={projects}
-            tracking={tracking}
             intents={bridges.lophnIntents}
             apps={apps}
             settings={settings}

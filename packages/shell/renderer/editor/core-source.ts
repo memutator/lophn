@@ -1,17 +1,10 @@
 // EditorSource를 main의 core 통로로 만든다. token·port는 main에 있고 이 쪽은 route 이름과
 // 입력만 보낸다. 응답은 main의 contract client가 route output schema로 이미 검사했다.
-// 아래 응답 모양은 그 schema(documents.get·read·list·resolve, outline.document,
-// projects.get)에서 이 화면이 읽는 field만 옮긴 것이다. contracts를 import하면 zod와
+// 아래 응답 모양은 그 schema(documents.get·read, outline.document)에서 이 화면이 읽는 field만 옮긴 것이다. contracts를 import하면 zod와
 // core 쪽 graph가 renderer bundle에 들어오므로 type도 들이지 않는다.
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { CoreCall } from "../../ipc/core.ts";
-import type { LinkTarget } from "./link-picker/link-picker.ts";
-import {
-  documentAddress,
-  fileNameOf,
-  type JoinedBody,
-  joinPage,
-} from "./model.ts";
+import { fileNameOf, type JoinedBody, joinPage } from "./model.ts";
 import type {
   BodyState,
   DocumentInfo,
@@ -49,23 +42,8 @@ interface OutlinePage {
   next_cursor: string | null;
 }
 
-interface ProjectGet {
-  project: { name: string };
-}
-
-interface DocumentList {
-  documents: { document: { title: string; name: string | null } }[];
-  next_cursor: string | null;
-}
-
-interface DocumentResolve {
-  resolved: { document: string };
-}
-
 /** 본문을 끝까지 읽을 때 page 상한. 12,000 codepoint page로 약 6MB다. */
 const BODY_PAGE_LIMIT = 500;
-/** 링크 고르기에 모을 문서 page 상한. */
-const LINK_PAGE_LIMIT = 20;
 
 async function call<T>(
   core: CoreSource,
@@ -103,25 +81,6 @@ function withoutText(page: ReadResult): BodyState | null {
   if (page.section_status === "missing") return { kind: "unreadable" };
   if (page.text === null) return { kind: "hidden" };
   return null;
-}
-
-function parseAddress(href: string) {
-  const match = /^([^/#@]+)\/([^/#@]+)(?:#([^#@]+))?(?:@([1-9][0-9]*))?$/.exec(
-    href,
-  );
-  if (!match) return null;
-  let section: string | null = null;
-  try {
-    section = match[3] === undefined ? null : decodeURIComponent(match[3]);
-  } catch {
-    return null;
-  }
-  return {
-    place: match[1]!,
-    document: match[2]!,
-    section,
-    version: match[4] === undefined ? null : Number(match[4]),
-  };
 }
 
 export function coreEditorSource(core: CoreSource): EditorSource {
@@ -201,62 +160,6 @@ export function coreEditorSource(core: CoreSource): EditorSource {
         cursor = result.value.next_cursor;
       }
       return { ok: true, value: sections };
-    },
-
-    async linkTargets(project) {
-      const projectResult = await call<ProjectGet>(
-        core,
-        "read",
-        "projects",
-        "get",
-        { project },
-      );
-      if (!projectResult.ok) return projectResult;
-      const place = projectResult.value.project.name;
-      const targets: LinkTarget[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < LINK_PAGE_LIMIT; page += 1) {
-        const result: SourceResult<DocumentList> = await call<DocumentList>(
-          core,
-          "read",
-          "documents",
-          "list",
-          {
-            place: { kind: "project", id: project },
-            status: "active",
-            ...(cursor === undefined ? {} : { cursor }),
-          },
-        );
-        if (!result.ok) return result;
-        for (const entry of result.value.documents) {
-          // 이름 없는 문서는 address가 없어 링크로 가리킬 수 없다.
-          if (entry.document.name === null) continue;
-          targets.push({
-            address: `${place}/${entry.document.name}`,
-            title: entry.document.title,
-            name: entry.document.name,
-          });
-        }
-        if (result.value.next_cursor === null) break;
-        cursor = result.value.next_cursor;
-      }
-      return { ok: true, value: targets };
-    },
-
-    async resolveLink(href) {
-      const address = documentAddress(href);
-      const reference = address === null ? null : parseAddress(address);
-      if (reference === null) return { ok: true, value: null };
-      const result = await call<DocumentResolve>(
-        core,
-        "read",
-        "documents",
-        "resolve",
-        { reference },
-      );
-      return result.ok
-        ? { ok: true, value: result.value.resolved.document }
-        : result;
     },
   };
 }

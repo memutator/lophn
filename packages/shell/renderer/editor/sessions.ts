@@ -3,10 +3,8 @@
 // 편집을 끝내고, 쓰기 실패·불명·충돌이 남으면 사람에게 묻는다(계속 편집·명시 폐기·다시 확인).
 import type {
   CloseAnswer,
-  CreateReport,
   CurrentFile,
   EditorCounts,
-  EditorCreate,
   EditorFilesApi,
   EditorReply,
   WatchReport,
@@ -138,11 +136,6 @@ export class EditorSessions {
     };
     this.#entries.set(document, entry);
     return entry;
-  }
-
-  /** 새 문서의 첫 판(main의 편집 통로). */
-  createDocument(input: EditorCreate): Promise<EditorReply<CreateReport>> {
-    return this.#api.create(input);
   }
 
   /** 판이 아직 없는 새 문서의 편집을 이 창이 붙든다. 이미 있으면 그 글을 이어 쓴다. */

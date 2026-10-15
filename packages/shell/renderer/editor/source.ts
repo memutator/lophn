@@ -1,8 +1,6 @@
 // 문서 읽기와 편집기가 읽는 통로. documents의 문서·판, outline·본문
-// 단계 읽기, address의 read 결과에서 화면이 쓰는 것만 담는다. core를 직접
+// 단계 읽기에서 화면이 쓰는 것만 담는다. core를 직접
 // 부르지 않고 화면이 주입한 통로만 쓴다. 저장은 이 통로에 없다.
-import type { LinkTarget } from "./link-picker/link-picker.ts";
-
 export type SourceResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly code: string };
@@ -51,8 +49,4 @@ export interface EditorSource {
     document: string,
     version: string,
   ): Promise<SourceResult<readonly OutlineSection[]>>;
-  /** 프로젝트 안 링크로 고를 수 있는 문서. */
-  linkTargets(project: string): Promise<SourceResult<readonly LinkTarget[]>>;
-  /** 링크 주소를 문서 id로 푼다. 문서 주소가 아니면 null이다. */
-  resolveLink(href: string): Promise<SourceResult<string | null>>;
 }

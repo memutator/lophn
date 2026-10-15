@@ -10,7 +10,7 @@ import { tabKindOf } from "./kinds/registry.ts";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
-const INFO_TABS = ["info", "versions", "contexts"] as const;
+const INFO_TABS = ["info", "contexts"] as const;
 type InfoTab = (typeof INFO_TABS)[number];
 
 export interface StoredLayoutView {

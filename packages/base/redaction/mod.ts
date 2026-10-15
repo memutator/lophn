@@ -12,8 +12,6 @@ export {
   type KnownSecretMatch,
   type TextRedactor,
 } from "./product-redactor.ts";
-export { redactSample, samplePathsAllowed } from "./samples.ts";
-export { redactScreen } from "./screen.ts";
 export {
   createKnownSecretRegistry,
   type KnownSecretMatcher,
@@ -31,9 +29,6 @@ export {
   REDACTION_MAX_DEPTH,
   REDACTION_MAX_ITEMS,
   REDACTION_REPLACEMENT,
-  REDACTION_SAMPLE_MAX_BYTES,
-  REDACTION_SAMPLE_MAX_CHARS,
-  REDACTION_SCREEN_STRING_MAX_CHARS,
   REDACTION_STATUSES,
   REDACTION_TIMEOUT_MS,
   REDACTION_UNIT_MAX_BYTES,

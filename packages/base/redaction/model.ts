@@ -1,7 +1,6 @@
 // redaction이 쓰는 한도와 모양. protocol의 schema가 이 정의를 가져다 쓴다.
 
 const MIB = 1024 * 1024;
-const KIB = 1024;
 
 // 고정 한도.
 export const REDACTION_UNIT_MAX_BYTES = MIB;
@@ -9,9 +8,6 @@ export const REDACTION_MAX_DEPTH = 16;
 export const REDACTION_MAX_ITEMS = 4096;
 export const REDACTION_TIMEOUT_MS = 5_000;
 export const REDACTION_REPLACEMENT = "*";
-export const REDACTION_SAMPLE_MAX_CHARS = 64;
-export const REDACTION_SAMPLE_MAX_BYTES = 2 * KIB;
-export const REDACTION_SCREEN_STRING_MAX_CHARS = 80;
 
 export const REDACTION_AUDIENCES = [
   "storage",

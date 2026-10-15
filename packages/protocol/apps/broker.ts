@@ -3,7 +3,6 @@ function unique<T>(values: readonly T[]): boolean {
 }
 
 import { z } from "zod";
-import { versionIdSchema } from "../projects/values.ts";
 import { atSchema } from "../base/values.ts";
 import { errorBodySchema } from "../base/errors.ts";
 import { idSchema } from "../base/ids.ts";
@@ -16,8 +15,6 @@ import { appConnectOutputSchema, signedConfirmProofSchema } from "./channel.ts";
 import {
   appIdSchema,
   approvalIdSchema,
-  AUTOMATION_CONCURRENCY_LIMIT,
-  AUTOMATION_TIMEOUT_MS,
   BROKER_SOCKET_PATHS,
   commandKeySchema,
   invocationIdSchema,
@@ -30,11 +27,7 @@ import {
 } from "./channel-values.ts";
 import { readyAttestationInputSchema } from "./runtime.ts";
 
-export {
-  AUTOMATION_CONCURRENCY_LIMIT,
-  AUTOMATION_TIMEOUT_MS,
-  BROKER_SOCKET_PATHS,
-};
+export { BROKER_SOCKET_PATHS };
 
 // 자식 credential·현재 mode·nonce에 묶인다. 신원은 요청 본문이 정하지 않는다.
 const childFields = {
@@ -45,6 +38,8 @@ const childFields = {
 export const brokerReadyInputSchema = z.strictObject({
   ...childFields,
   attestation: readyAttestationInputSchema,
+  // 앱 시작이 DB를 바꿨을 때의 changeset(base64).
+  start_changeset: z.string().nullable().optional(),
 });
 export const brokerReadyOutputSchema = z.object({ accepted: z.literal(true) });
 
@@ -61,27 +56,6 @@ export const brokerInvocationSubmitOutputSchema = z.object({
 
 // core 제어 연결이 살아 있는지. EOF면 새 호출부터 닫는다.
 export const brokerControlWatchOutputSchema = z.object({ open: z.boolean() });
-
-const automationTurnFields = {
-  ...childFields,
-  release: releaseIdSchema,
-  key: commandKeySchema,
-};
-export const brokerAutomationTryAcquireInputSchema = z.strictObject(
-  automationTurnFields,
-);
-export const brokerAutomationTryAcquireOutputSchema = z.object({
-  permit: z.boolean(),
-  limit: z.literal(AUTOMATION_CONCURRENCY_LIMIT),
-  timeout_ms: z.literal(AUTOMATION_TIMEOUT_MS),
-});
-export const brokerAutomationReleaseInputSchema = z.strictObject({
-  ...automationTurnFields,
-  invocation: invocationIdSchema,
-});
-export const brokerAutomationReleaseOutputSchema = z.object({
-  released: z.literal(true),
-});
 
 // 전송부가 exact host·port·redirect와 grant를 매번 검사한다. 앱은 결과만 받는다.
 export const brokerNetFetchInputSchema = z.strictObject({
@@ -113,24 +87,6 @@ export const brokerSecretUseInputSchema = z.strictObject({
   }),
 });
 export const brokerSecretUseOutputSchema = z.object({ used: z.literal(true) });
-
-// 문서 저장 client의 앱 쪽 입력. 실제 확정은 documents/versions를 따른다.
-// 문서 key는 blueprint DocumentDeclaration.key와 같다. 선언 대조는 runtime이다.
-export const documentKeySchema = z.string().min(1).refine(
-  (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
-  { message: "document key cannot be blank or contain controls" },
-);
-
-export const brokerDocumentSaveInputSchema = z.strictObject({
-  ...childFields,
-  key: documentKeySchema,
-  base_version: versionIdSchema.nullable(),
-  idempotency_key: z.string().min(1),
-});
-export const brokerDocumentSaveOutputSchema = z.object({
-  saved: z.boolean(),
-  version: versionIdSchema.nullable(),
-});
 
 // 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다.
 // report id·발생 시각·invocation은 SDK가 첫 전송 전에 고정한 값이다. 없으면 supervisor가

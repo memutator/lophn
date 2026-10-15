@@ -111,6 +111,8 @@ export const appRecordStartedInputSchema = z.strictObject({
     (value) => value.release !== null,
     { message: "AppStarted needs a live release" },
   ),
+  // 앱 시작이 DB를 바꿨을 때의 changeset(base64). 앱 시작 invocation에 붙는다.
+  start_changeset: z.string().nullable().optional(),
 }).refine(
   (value) =>
     value.process_nonce === value.attestation.process_nonce &&

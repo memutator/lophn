@@ -88,7 +88,7 @@ export const appCreate = defineCommand({
   input: appCreateInputSchema,
   output: appSchema,
   compare: z.strictObject({}),
-  actors: ["user", "coding_agent"],
+  actors: ["user", "coding_agent", "agent"],
   errors: ["forbidden", "invalid_input", "conflict"],
 });
 // source 연결은 user 또는 그 앱 범위 connection만 받는다.

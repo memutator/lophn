@@ -37,6 +37,9 @@ export const problemGroupKeyInputSchema = groupKey(true);
 export type ProblemGroupKey = z.infer<typeof problemGroupKeySchema>;
 
 // `name`은 처음 발생의 이름이다. `state_changed_at`은 `state`가 마지막으로 바뀐 시각이다.
+// `seq`는 문제가 만들어질 때 1이고 상태가 바뀔 때마다 1씩 오른다.
+// `recurred`는 해결됨이던 문제가 새 release의 발생으로 다시 열린 사실이다(이전 해결 시각과 다시 난
+// release). 상태가 바뀌면 null이 되고, 사람이 다시 연 문제도 null이다.
 export const problemRecordSchema = z.object({
   id: idSchema("prb"),
   app: idSchema("app"),
@@ -45,6 +48,10 @@ export const problemRecordSchema = z.object({
   state: problemStateSchema,
   state_changed_at: atSchema,
   seq: seqSchema,
+  recurred: z.object({
+    resolved_at: atSchema,
+    release: idSchema("rel"),
+  }).nullable(),
 });
 export type ProblemRecord = z.infer<typeof problemRecordSchema>;
 

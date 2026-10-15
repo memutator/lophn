@@ -17,11 +17,12 @@ begin
   select raise(abort, 'immutable');
 end;`;
 
-// 문제 표는 id·group_key를 닫힘·재발 뒤에도 유지하고 상태는 open/fixing/closed
-// 세 가지다. 상태 전환은 problems/grouping의 command가 update로 쓰므로 update
-// 트리거를 두지 않고, 삭제는 RESTRICT로 보존한다. (app, group_key)
-// unique는 상태와 무관하게 같은 문제를 찾는다. 보고 수·처음/마지막 시각 등은
-// Report와 event에서 읽고 복제하지 않는다.
+// 문제 표는 id·group_key를 해결·무시 뒤에도 유지하고 상태는 open/resolved/ignored 세 가지다.
+// 상태 전환은 problems/grouping의 command와 접수 handler가 update로 쓰므로 update 트리거를 두지 않고,
+// 삭제는 막아 보존한다. (app, group_key) unique는 상태와 무관하게 같은 문제를 찾는다.
+// 발생 수·처음/마지막 시각은 reports에서 읽고 복제하지 않는다.
+// seq는 문제가 만들어질 때 1이고 상태가 바뀔 때마다 1씩 오른다. recurred_*는 해결됨이던 문제가
+// 새 release의 발생으로 다시 열렸을 때의 이전 해결 시각과 그 release이고, 상태가 바뀌면 비운다.
 export const REPORTS_SCHEMA_STEPS: SchemaStep[] = [
   {
     id: "problems.problems",
@@ -30,20 +31,16 @@ create table problems (
   id text primary key,
   app text not null,
   group_key text not null,
-  status text not null check (status in ('open', 'fixing', 'closed')),
-  work text,
-  interpretation_version text,
-  interpretation_section text,
-  closure text,
-  check ((status = 'closed') = (closure is not null)),
-  check (work is null or length(work) > 0),
-  check (interpretation_version is null or length(interpretation_version) > 0),
-  check (interpretation_section is null or interpretation_version is not null)
+  name text not null check (length(name) > 0),
+  state text not null check (state in ('open', 'resolved', 'ignored')),
+  state_changed_at text not null,
+  seq integer not null check (seq >= 1),
+  recurred_resolved_at text,
+  recurred_release text,
+  check ((recurred_resolved_at is null) = (recurred_release is null))
 ) strict;
 create unique index problems_app_group_key on problems (app, group_key);
-create index problems_app_status on problems (app, status);
-create index problems_work on problems (work);
-create index problems_interpretation_version on problems (interpretation_version);
+create index problems_app_state on problems (app, state);
 create trigger problems_no_delete
 before delete on problems
 begin
@@ -63,8 +60,8 @@ create table reports (
   release text,
   release_missing_reason text,
   bundle_hash text,
-  code text not null check (length(code) > 0),
-  text text,
+  name text not null check (length(name) > 0),
+  message text,
   details text,
   snapshot text not null,
   observed_at text not null,

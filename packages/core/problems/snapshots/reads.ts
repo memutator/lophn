@@ -16,6 +16,7 @@ import {
   getSnapshotLogsInputSchema,
   type LogEvidence,
   type LogFragment,
+  type problemGetOccurrence,
 } from "../../../protocol/problems/mod.ts";
 
 export type SnapshotBlobRead =
@@ -165,11 +166,11 @@ export type SnapshotLogsRow = {
 export type SnapshotLogsEnvironment = {
   evidence(snapshot: string): Result<SnapshotLogsRow | undefined>;
   blobs: SnapshotBlobReader;
-  // 붙어 있으면 GetSnapshot이 정리된 첨부를 "정리됨"으로 답한다.
+  // 붙어 있으면 `problem.get_occurrence`가 글 앞부분을 읽는다.
   view?(
     ctx: RequestContext,
     input: unknown,
-  ): Promise<Result<Output<typeof getSnapshot>>>;
+  ): Promise<Result<Output<typeof problemGetOccurrence>>>;
 };
 
 const LOGS_COLUMNS = `logs_blob, logs_line_count, logs_truncated, logs_scope,

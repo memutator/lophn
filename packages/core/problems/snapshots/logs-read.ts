@@ -1,6 +1,5 @@
 // GetSnapshotLogs가 core 안에서 읽는 통로. 증거 행은 ledger를
 // 읽기 전용 connection으로 짧게 열어 읽고, 바이트는 blob store의 읽기 통로로 받는다.
-// 정리된 첨부(로그 조각·stack)는 store가 구별한 pruned를 GetSnapshot의 "정리됨"으로 잇는다.
 // core만 import한다(reader Worker와 settings 조립은 sqlite 의존을 끌어오지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -8,19 +7,16 @@ import {
   TargetAuthorization,
 } from "../../../protocol/server/mod.ts";
 import {
-  getSnapshot,
-  getSnapshotInputSchema,
+  problemGetOccurrence,
   REPORTING_LIMITS,
 } from "../../../protocol/problems/mod.ts";
 import {
   createTargetAuthorizer,
   openConnection,
 } from "../../storage/ledger/mod.ts";
-import { getSnapshotRead } from "../reporting/reads.ts";
+import { readOccurrence, withMessagePreview } from "../reporting/occurrence.ts";
 import {
-  applyPrunedSnapshotAbsence,
   logsRowOf,
-  type PrunedAttachments,
   snapshotBlobStatus,
   type SnapshotLogsEnvironment,
 } from "./mod.ts";
@@ -30,7 +26,7 @@ export type BlobBytesRead = (
   length: number,
 ) => Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 
-// 제품 HTTP가 부르는 GetSnapshot. snapshotLogsEnvironment가 붙기 전에는 비어 있다.
+// 제품 HTTP가 부르는 발생 읽기. snapshotLogsEnvironment가 붙기 전에는 비어 있다.
 let attached: SnapshotLogsEnvironment | undefined;
 
 export function snapshotLogsEnvironment(input: {
@@ -63,22 +59,22 @@ export function snapshotLogsEnvironment(input: {
         : { status: "unavailable", reason: snapshotBlobStatus(read.error) };
     },
     async view(ctx, body) {
-      const parsed = getSnapshotInputSchema.safeParse(body);
+      const parsed = problemGetOccurrence.input.safeParse(body);
       if (!parsed.success) {
         return err({
           code: "invalid_input",
-          message: "snapshot input is invalid",
+          message: "occurrence input is invalid",
         });
       }
       const opened = openConnection(input.ledgerPath);
       if (!opened.ok) return opened;
-      let found: ReturnType<typeof getSnapshotRead.handle>;
+      let found: ReturnType<typeof readOccurrence>;
       try {
         const head = opened.value.sql.get(
           "select coalesce(max(seq), 0) as seq from events",
           [],
         );
-        found = getSnapshotRead.handle(
+        found = readOccurrence(
           {
             sql: opened.value.sql,
             as_of_seq: String(head?.["seq"] ?? 0),
@@ -93,15 +89,19 @@ export function snapshotLogsEnvironment(input: {
           parsed.data,
         );
       } catch {
-        return err({ code: "unavailable", message: "snapshot을 읽지 못했다" });
+        return err({ code: "unavailable", message: "발생을 읽지 못했다" });
       } finally {
         // SQL은 바이트를 기다리기 전에 닫는다.
         opened.value.close();
       }
       if (!found.ok) return found;
-      const pruned = await prunedAttachments(environment, found.value.blobs);
+      if (found.value.message === null) return ok(found.value.view);
+      const text = await environment.blobs(found.value.message.hash);
       return ok(
-        applyPrunedSnapshotAbsence(found.value, pruned, parsed.data.item),
+        withMessagePreview(
+          found.value,
+          text.status === "available" ? text.bytes : null,
+        ),
       );
     },
   };
@@ -109,27 +109,13 @@ export function snapshotLogsEnvironment(input: {
   return environment;
 }
 
-async function prunedAttachments(
-  environment: SnapshotLogsEnvironment,
-  blobs: readonly { purpose: string; hash: string }[],
-): Promise<PrunedAttachments> {
-  const pruned = async (purpose: string) => {
-    const hash = blobs.find((blob) => blob.purpose === purpose)?.hash;
-    if (hash === undefined) return false;
-    const read = await environment.blobs(hash);
-    return read.status === "unavailable" && read.reason === "pruned";
-  };
+// `problem.get_occurrence`는 글 앞부분을 blob store에서 읽으므로 ledger snapshot에 묶지 않는
+// apiRead다.
+export function occurrenceApiRead(): ApiReadDefinition<
+  typeof problemGetOccurrence
+> {
   return {
-    stack: await pruned("snapshot_stack"),
-    logs: await pruned("snapshot_logs"),
-  };
-}
-
-// sync GetSnapshot과 같은 route다. problems 등록은 reads에서 sync handler를 빼고
-// 이 apiRead만 남긴다. 둘을 같이 두면 기동이 거절된다.
-export function snapshotViewApiRead(): ApiReadDefinition<typeof getSnapshot> {
-  return {
-    route: getSnapshot,
+    route: problemGetOccurrence,
     handle(ctx, input) {
       const view = attached?.view;
       if (view === undefined) {

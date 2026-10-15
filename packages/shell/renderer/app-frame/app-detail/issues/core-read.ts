@@ -14,7 +14,7 @@ export function issueRowOf(item: ProblemListItem): IssueRow {
     impact: item.name,
     count: item.occurrence_count,
     lastAt: item.last_observed_at,
-    // 재발은 문제 기록에 칸이 없어 읽을 수 없다.
+    // 목록 줄에는 재발 칸이 없다. 재발은 상세(problem.get)에서 읽는다.
     recurredRelease: null,
   };
 }
@@ -39,6 +39,20 @@ export function stackText(error: ProblemSnapshot["error"]): string | null {
 /** release id를 번호로. 모르면 null이다. */
 export type ReleaseNumbers = ReadonlyMap<string, number>;
 
+/** 해결됨이던 문제가 다시 열린 사실. 다시 난 release의 번호를 모르면 그리지 못해 null이다. */
+function recurredOf(
+  value: ProblemDetailView,
+  numbers: ReleaseNumbers,
+): IssueView["recurred"] {
+  const recurred = value.problem.recurred;
+  const releaseNumber = recurred === null
+    ? undefined
+    : numbers.get(recurred.release);
+  return recurred === null || releaseNumber === undefined
+    ? null
+    : { resolvedAt: recurred.resolved_at, releaseNumber };
+}
+
 export function issueViewOf(
   value: ProblemDetailView,
   numbers: ReleaseNumbers,
@@ -59,7 +73,7 @@ export function issueViewOf(
     count: value.occurrence_count,
     firstAt: value.first_observed_at,
     lastAt: value.last_observed_at,
-    recurred: null,
+    recurred: recurredOf(value, numbers),
     occurrences,
     evidence: {
       stack: value.latest === null

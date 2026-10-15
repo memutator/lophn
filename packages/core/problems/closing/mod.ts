@@ -1,18 +1,5 @@
-// problems/closing의 경계다. 최상위 concern 사이는 packages/protocol로만 부르고,
-// 반응기 조립은 아래 모듈을 직접 부른다(packages/core/main/worker/test-runner.ts).
-export {
-  type ClosureEvidence,
-  type ConclusionBasis,
-  offersFixedConfirmation,
-  verifiedCandidate,
-  verifiedClosure,
-} from "./model.ts";
-export {
-  applyProblemDecisionCommand,
-  closeProblemVerifiedCommand,
-  handleApplyProblemDecision,
-  handleCloseProblemVerified,
-} from "./commands.ts";
+// problems/closing은 지워졌다. 아래는 `problems.closing` 반응기를 부르는 곳(test runner service)이 다른
+// 단위에서 끊기기 전까지 남긴 경계다.
 export {
   CLOSING_EVENT_TYPES,
   CLOSING_SUBSCRIBER,

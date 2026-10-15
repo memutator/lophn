@@ -2,13 +2,25 @@ export {
   conflict,
   findProblem,
   findReport,
+  loadProblem,
+  problemRecordOf,
   type ProblemRow,
   type ProblemState,
+  reopenDecision,
   reportsInWindow,
   windowBounds,
   windowLimit,
 } from "./model.ts";
-export { handleRecordReport, recordReportCommand } from "./commands.ts";
+export {
+  handleRecordProblemReport,
+  recordProblemReportCommand,
+} from "./commands.ts";
+export {
+  occurrenceOf,
+  readOccurrence,
+  withMessagePreview,
+} from "./occurrence.ts";
+export { ReleaseLookupPort } from "./release-port.ts";
 export {
   invalidCursor,
   NOT_FOUND,
@@ -18,7 +30,7 @@ export {
   scanVisible,
   targetVisible,
 } from "./access.ts";
-export { getReportRead, getSnapshotRead, listReportsRead } from "./reads.ts";
+export { getReportRead } from "./reads.ts";
 export { REPORTS_SCHEMA_STEPS } from "./schema.ts";
 export {
   COLLECTOR_CAPS,

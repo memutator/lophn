@@ -19,29 +19,19 @@ import type {
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
 import type { SubscriberBinding } from "../storage/ledger/mod.ts";
-import {
-  problemClosed,
-  problemConfirmationRecorded,
-  problemObserved,
-  problemOpened,
-  problemReopened,
-  ProblemWordingPort,
-  ProblemWorkPort,
-} from "../../protocol/problems/mod.ts";
-import { problemWorkLookup } from "../apps/tickets/mod.ts";
-import { releaseWording } from "../apps/releases/store.ts";
-import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
-import { ticketCheckFeedVisibility } from "../apps/tickets/checker/connection.ts";
-import { problemsClosingVisibility } from "./closing/connection.ts";
 import { testsPart } from "./tests/register.ts";
 import { reportingPart } from "./reporting/register.ts";
 import { reportWorkerPart } from "./reporting/worker/register.ts";
 import { snapshotsPart } from "./snapshots/register.ts";
-import { groupingPart, visibleToChecker } from "./grouping/register.ts";
+import { groupingPart } from "./grouping/register.ts";
 import { repairsPart } from "./repairs/register.ts";
 import type { SnapshotLogsEnvironment } from "./snapshots/mod.ts";
 
 export { detailCollectionSetting } from "./snapshots/register.ts";
+// core 조립이 끼우는 자리: ReleaseLookup을 받는 port key(writer ports와 reader ports에 같은 key로 끼운다)와
+// apps에 넘기는 열린 문제 수 구현.
+export { ReleaseLookupPort } from "./reporting/mod.ts";
+export { problemCounts } from "./grouping/mod.ts";
 
 // leaf마다 자기 register.ts에서 내는 등록 조각이다. 칸은 모두 선택이다.
 // 조립(이 file)은 조각을 칸마다 이어 붙인다.
@@ -144,39 +134,20 @@ export function createLedgerRegistration(
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
 // 만든다. 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
-  const parts = [testsPart, repairsPart, groupingPart];
+  const parts = [testsPart, repairsPart];
   return {
     events: gather(parts, "events"),
-    visibility: [
-      ...gather([testsPart], "visibility"),
-      // notifications 계기다. notifications 구독자에게만 연다.
-      notificationsOnlyVisibility(problemOpened),
-      // 닫힘·재발은 보고된 ticket의 남은 조건을 다시 비교하는 신호이기도 하다.
-      visibleToChecker(notificationsOnlyVisibility(problemReopened)),
-      visibleToChecker(notificationsOnlyVisibility(problemClosed)),
-      // 사람의 not_fixed 결정은 checker feed에게만 연다(human_confirmation fail 신호).
-      ticketCheckFeedVisibility(problemConfirmationRecorded),
-      // 같은 문제의 새 live 보고는 `problems.closing` 반응기의 재평가 신호다.
-      // 다른 자격은 정책이 없을 때와 똑같이 못 본다.
-      problemsClosingVisibility(problemObserved),
-    ],
+    visibility: gather([testsPart], "visibility"),
   };
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
-// 실행 port는 없다. reader Worker는 read마다 그 read를 등록한 module의 port만 넘기므로, 문제 상세
-//가 읽는 지금 수리 ticket 사실은 ticket 표 owner(coding-agent)의 구현을 여기서
-// `ProblemWorkPort`로, 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로(tests/register.ts) 등록한다.
-// 목록·상세 문구는 보고 당시 release 선언이다. 구현은 apps/releases이고,
-// apps reader에만 두면 이 read가 port를 못 봐 선언 문구가 fallback이 된다.
+// 문제 상세가 release를 푸는 ReleaseLookup은 core 조립이 `ReleaseLookupPort`로 끼운다.
+// 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로(tests/register.ts) 등록한다.
 export function createReaderRegistration(): ReaderRegistration {
   const parts = [groupingPart, reportingPart, repairsPart, testsPart];
   return {
     reads: gather(parts, "readerReads"),
-    ports: new Map<unknown, unknown>([
-      [ProblemWorkPort, problemWorkLookup],
-      ...gather(parts, "readerPorts"),
-      [ProblemWordingPort, releaseWording],
-    ]),
+    ports: new Map<unknown, unknown>(gather(parts, "readerPorts")),
   };
 }

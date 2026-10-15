@@ -1,34 +1,11 @@
 // 고정 문구 검사의 규칙 상수.
 
-export const SCREENS = [
-  "launcher",
-  "project-workspace",
-  "document",
-  "terminal",
-  "app-panel",
-  "app-space",
-  "app-detail",
-  "projects",
-  "documents",
-  "contexts",
-  "apps",
-  "things-to-confirm",
-  "roles",
-  "settings",
-  "conversation",
-  "app-card",
-  "confirmation-window",
-  "report-problem",
-  "common",
-];
+const NAME = "[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*";
 
-// 앱 catalog는 앱의 screen key를 첫 구간으로 쓴다. 기본은 lophn 화면 목록이다.
-export function keyShape(screens: readonly string[] = SCREENS): RegExp {
-  return new RegExp(
-    `^(?:${
-      screens.join("|")
-    })\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`,
-  );
+// key는 `<screen>.<part>.<name>`이고 세 구간 모두 kebab-case다. 앱 catalog는 자기 screen 목록을 줄 수 있다.
+export function keyShape(screens?: readonly string[]): RegExp {
+  const first = screens ? `(?:${screens.join("|")})` : NAME;
+  return new RegExp(`^${first}\\.${NAME}\\.${NAME}$`);
 }
 
 export const KEY_SHAPE = keyShape();
@@ -54,6 +31,8 @@ export const INTERNAL_WORDS = [
   "run",
   "ticket",
   "grant",
+  "call",
+  "accepted",
 ];
 
 export const INTERNAL_WORD = new RegExp(

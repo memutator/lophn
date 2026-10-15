@@ -1,0 +1,267 @@
+// catalog/agents.ts에서 생성한다. 직접 고치지 않고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`로 다시 만든다.
+import type { agents } from "./agents.ts";
+
+export type AgentsPlaceholders = {
+  "project-workspace.button.add-server": Record<never, never>;
+  "project-workspace.button.add-skill": Record<never, never>;
+  "project-workspace.button.agent-editor-add-context": Record<never, never>;
+  "project-workspace.button.agent-editor-delete": Record<never, never>;
+  "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
+  "project-workspace.button.agent-editor-edit-project": Record<never, never>;
+  "project-workspace.button.agent-editor-reset-model": Record<never, never>;
+  "project-workspace.button.agent-editor-save": Record<never, never>;
+  "project-workspace.button.agent-editor-upload-image": Record<never, never>;
+  "project-workspace.button.edit-instructions": Record<never, never>;
+  "project-workspace.button.new-operator": Record<never, never>;
+  "project-workspace.button.open-agent": Record<never, never>;
+  "project-workspace.button.use-workspace-default": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-contexts": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-mcp": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-project": Record<never, never>;
+  "project-workspace.empty.agent-editor-no-skills": Record<never, never>;
+  "project-workspace.empty.no-instructions": Record<never, never>;
+  "project-workspace.empty.no-mcp-servers": Record<never, never>;
+  "project-workspace.empty.no-permission-rules": Record<never, never>;
+  "project-workspace.empty.no-skills": Record<never, never>;
+  "project-workspace.heading.agent-editor-contexts": Record<never, never>;
+  "project-workspace.heading.agent-editor-delete-title": {
+    name: "string";
+  };
+  "project-workspace.heading.agent-editor-mcp": Record<never, never>;
+  "project-workspace.heading.agent-editor-model": Record<never, never>;
+  "project-workspace.heading.agent-editor-permissions": Record<never, never>;
+  "project-workspace.heading.agent-editor-profile": Record<never, never>;
+  "project-workspace.heading.agent-editor-skills": Record<never, never>;
+  "project-workspace.heading.agents-in-project": {
+    project: "string";
+  };
+  "project-workspace.heading.agents-new-operator": Record<never, never>;
+  "project-workspace.heading.instructions": Record<never, never>;
+  "project-workspace.heading.mcp-servers": Record<never, never>;
+  "project-workspace.heading.models-for-project": Record<never, never>;
+  "project-workspace.heading.permissions": Record<never, never>;
+  "project-workspace.heading.skills": Record<never, never>;
+  "project-workspace.info.instructions-file": Record<never, never>;
+  "project-workspace.info.models-follow-default": Record<never, never>;
+  "project-workspace.info.permissions-lead": Record<never, never>;
+  "project-workspace.info.stored-in-lophn": Record<never, never>;
+  "project-workspace.label.agent-counts-built-in": {
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-operator": {
+    contexts: "plural";
+    skills: "plural";
+    mcp: "number";
+  };
+  "project-workspace.label.agent-counts-unknown": Record<never, never>;
+  "project-workspace.label.agent-editor-built-in": Record<never, never>;
+  "project-workspace.label.agent-editor-icons": Record<never, never>;
+  "project-workspace.label.agent-editor-image-file": Record<never, never>;
+  "project-workspace.label.agent-editor-instructions": Record<never, never>;
+  "project-workspace.label.agent-editor-model-changed": Record<never, never>;
+  "project-workspace.label.agent-editor-model-inherit": {
+    model: "string";
+    source: "string";
+  };
+  "project-workspace.label.agent-editor-model-unset": Record<never, never>;
+  "project-workspace.label.agent-editor-name": Record<never, never>;
+  "project-workspace.label.agent-editor-project-instructions": {
+    project: "string";
+  };
+  "project-workspace.label.agent-editor-remove-context": {
+    name: "string";
+  };
+  "project-workspace.label.agent-editor-source": {
+    layer: "string";
+  };
+  "project-workspace.label.agent-kind-built-in": Record<never, never>;
+  "project-workspace.label.agent-kind-operator": Record<never, never>;
+  "project-workspace.label.agent-no-model": Record<never, never>;
+  "project-workspace.label.agents-target": Record<never, never>;
+  "project-workspace.label.avatar-icon-apps": Record<never, never>;
+  "project-workspace.label.avatar-icon-bookmark": Record<never, never>;
+  "project-workspace.label.avatar-icon-compare": Record<never, never>;
+  "project-workspace.label.avatar-icon-contexts": Record<never, never>;
+  "project-workspace.label.avatar-icon-dock": Record<never, never>;
+  "project-workspace.label.avatar-icon-documents": Record<never, never>;
+  "project-workspace.label.avatar-icon-edit": Record<never, never>;
+  "project-workspace.label.avatar-icon-read": Record<never, never>;
+  "project-workspace.label.avatar-icon-roles": Record<never, never>;
+  "project-workspace.label.avatar-icon-search": Record<never, never>;
+  "project-workspace.label.avatar-icon-series": Record<never, never>;
+  "project-workspace.label.avatar-icon-terminal": Record<never, never>;
+  "project-workspace.label.instructions-shared": {
+    project: "string";
+  };
+  "project-workspace.label.model-default": {
+    model: "string";
+  };
+  "project-workspace.label.model-default-none": Record<never, never>;
+  "project-workspace.label.model-overrides": {
+    model: "string";
+  };
+  "project-workspace.label.open-agent-named": {
+    name: "string";
+  };
+  "project-workspace.label.reset-model-named": {
+    role: "string";
+  };
+  "project-workspace.label.role-app-engineer": Record<never, never>;
+  "project-workspace.label.role-context-engineer": Record<never, never>;
+  "project-workspace.label.role-lophn": Record<never, never>;
+  "project-workspace.label.role-operators": Record<never, never>;
+  "project-workspace.notice.agent-editor-body-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-delete-body": Record<never, never>;
+  "project-workspace.notice.agent-editor-issue": {
+    code: "string";
+  };
+  "project-workspace.notice.agent-editor-model-help": Record<never, never>;
+  "project-workspace.notice.agent-editor-save-first": Record<never, never>;
+  "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
+  "project-workspace.notice.agents-change-failed": Record<never, never>;
+  "project-workspace.notice.agents-delete-failed": Record<never, never>;
+  "project-workspace.notice.agents-save-conflict": Record<never, never>;
+  "project-workspace.notice.agents-save-failed": Record<never, never>;
+  "project-workspace.notice.agents-upload-failed": Record<never, never>;
+  "settings.agents.action-failed": Record<never, never>;
+  "settings.agents.intro": Record<never, never>;
+  "settings.agents.no-instructions": Record<never, never>;
+  "settings.agents.no-options": Record<never, never>;
+  "settings.agents.no-servers": Record<never, never>;
+  "settings.agents.no-skills": Record<never, never>;
+  "settings.agents.options-unknown": Record<never, never>;
+  "settings.button.add-folder": Record<never, never>;
+  "settings.button.add-server": Record<never, never>;
+  "settings.button.add-skill": Record<never, never>;
+  "settings.button.cancel-sign-in": Record<never, never>;
+  "settings.button.change": Record<never, never>;
+  "settings.button.disconnect": Record<never, never>;
+  "settings.button.edit": Record<never, never>;
+  "settings.button.enter-credential": Record<never, never>;
+  "settings.button.new-server": Record<never, never>;
+  "settings.button.save": Record<never, never>;
+  "settings.button.server-sign-in": Record<never, never>;
+  "settings.error.connect-failed": Record<never, never>;
+  "settings.error.custom-id": Record<never, never>;
+  "settings.error.custom-name": Record<never, never>;
+  "settings.error.custom-url": Record<never, never>;
+  "settings.extensions.folder-added": {
+    name: "string";
+  };
+  "settings.extensions.folder-failed": Record<never, never>;
+  "settings.extensions.intro": Record<never, never>;
+  "settings.extensions.no-folders": Record<never, never>;
+  "settings.extensions.no-servers": Record<never, never>;
+  "settings.extensions.server-added": {
+    name: "string";
+  };
+  "settings.extensions.server-failed": {
+    name: "string";
+  };
+  "settings.heading.add-provider": Record<never, never>;
+  "settings.heading.agents-defaults": Record<never, never>;
+  "settings.heading.agents-instructions": Record<never, never>;
+  "settings.heading.agents-servers": Record<never, never>;
+  "settings.heading.agents-skills": Record<never, never>;
+  "settings.heading.agents-summaries": Record<never, never>;
+  "settings.heading.connected": Record<never, never>;
+  "settings.heading.servers": Record<never, never>;
+  "settings.heading.skills": Record<never, never>;
+  "settings.label.agents-target": Record<never, never>;
+  "settings.label.available-target": Record<never, never>;
+  "settings.label.custom-id": Record<never, never>;
+  "settings.label.custom-key": Record<never, never>;
+  "settings.label.custom-name": Record<never, never>;
+  "settings.label.custom-provider-hint": Record<never, never>;
+  "settings.label.custom-url": Record<never, never>;
+  "settings.label.extensions-target": Record<never, never>;
+  "settings.label.location": Record<never, never>;
+  "settings.label.login-signed-in": Record<never, never>;
+  "settings.label.method-opens-browser": Record<never, never>;
+  "settings.label.method-paste-key": Record<never, never>;
+  "settings.label.method-sign-in": {
+    product: "string";
+  };
+  "settings.label.model-line": {
+    name: "string";
+    model: "string";
+  };
+  "settings.label.model-name": Record<never, never>;
+  "settings.label.not-chosen": Record<never, never>;
+  "settings.label.off": Record<never, never>;
+  "settings.label.on-computer": Record<never, never>;
+  "settings.label.option-pair": {
+    axis: "string";
+    value: "string";
+  };
+  "settings.label.over-web": Record<never, never>;
+  "settings.label.providers-target": Record<never, never>;
+  "settings.label.role-app-engineer": Record<never, never>;
+  "settings.label.role-context-engineer": Record<never, never>;
+  "settings.label.role-lophn": Record<never, never>;
+  "settings.label.role-operator": Record<never, never>;
+  "settings.label.server-address": Record<never, never>;
+  "settings.label.server-arguments": Record<never, never>;
+  "settings.label.server-auth": Record<never, never>;
+  "settings.label.server-header": Record<never, never>;
+  "settings.label.server-name": Record<never, never>;
+  "settings.label.server-program": Record<never, never>;
+  "settings.label.server-transport": Record<never, never>;
+  "settings.label.sign-in-how": {
+    name: "string";
+  };
+  "settings.label.status-connected": Record<never, never>;
+  "settings.label.status-needs-sign-in": Record<never, never>;
+  "settings.label.unavailable-connection": Record<never, never>;
+  "settings.notice.custom-id-help": Record<never, never>;
+  "settings.notice.custom-key-help": Record<never, never>;
+  "settings.notice.custom-key-required": Record<never, never>;
+  "settings.notice.custom-lead": Record<never, never>;
+  "settings.notice.method-unverified": Record<never, never>;
+  "settings.notice.next-run": Record<never, never>;
+  "settings.notice.none-connected": Record<never, never>;
+  "settings.notice.provider-lead": Record<never, never>;
+  "settings.notice.window-opened": Record<never, never>;
+  "settings.server.address-help": Record<never, never>;
+  "settings.server.arguments-help": Record<never, never>;
+  "settings.server.auth-sign-in-absent": Record<never, never>;
+  "settings.server.credential-missing": Record<never, never>;
+  "settings.server.credential-set": Record<never, never>;
+  "settings.server.credential-unknown": Record<never, never>;
+  "settings.server.error-header": Record<never, never>;
+  "settings.server.error-name": Record<never, never>;
+  "settings.server.error-path": Record<never, never>;
+  "settings.server.error-taken": Record<never, never>;
+  "settings.server.error-url": Record<never, never>;
+  "settings.server.name-help": Record<never, never>;
+  "settings.server.program-help": Record<never, never>;
+  "settings.server.sign-in-busy": Record<never, never>;
+  "settings.server.sign-in-failed": {
+    name: "string";
+  };
+  "settings.server.sign-in-needed": Record<never, never>;
+  "settings.server.sign-in-not-opened": Record<never, never>;
+  "settings.server.sign-in-reason-callback-timeout": Record<never, never>;
+  "settings.server.sign-in-reason-exchange-failed": Record<never, never>;
+  "settings.server.sign-in-reason-expired": Record<never, never>;
+  "settings.server.sign-in-reason-refresh-rejected": Record<never, never>;
+  "settings.server.sign-in-reason-state-mismatch": Record<never, never>;
+  "settings.server.sign-in-reason-store-failed": Record<never, never>;
+  "settings.server.signed-in": Record<never, never>;
+  "settings.sign-in.waiting": Record<never, never>;
+  "settings.status.plan-access": Record<never, never>;
+  "settings.status.sign-in-problem": Record<never, never>;
+  "settings.status.usage-limit": Record<never, never>;
+  "settings.title.connect-provider": {
+    name: "string";
+  };
+  "settings.title.custom-provider": Record<never, never>;
+};
+
+type Area = typeof agents;
+type _SameKeys =
+  | Exclude<keyof Area, keyof AgentsPlaceholders>
+  | Exclude<keyof AgentsPlaceholders, keyof Area>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

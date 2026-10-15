@@ -1,6 +1,6 @@
 // 화면 코드의 고정 문구를 검사한다. 오류는 실패, 경고는 결과 목록이다.
 import { parse } from "@formatjs/icu-messageformat-parser";
-import { en } from "./en.ts";
+import { AREAS, en } from "./en.ts";
 import {
   ID_PREFIX,
   INTERNAL_WORD,
@@ -27,7 +27,7 @@ export type Finding = {
 export type CheckOptions = {
   // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
   knownKeys?: readonly string[];
-  // key의 첫 구간으로 허용할 화면 이름. 없으면 lophn 화면 목록이고 앱은 자기 screen key와 common을 준다.
+  // key의 첫 구간으로 허용할 화면 이름. 없으면 kebab-case 이름이면 통과하고, 앱은 자기 screen key와 common을 준다.
   screens?: readonly string[];
 };
 
@@ -328,14 +328,18 @@ export async function checkScreens(
       ...checkSource(relative, await Deno.readTextFile(path), en, options),
     );
   }
-  findings.push(
-    ...checkSource(
-      "packages/design/wording/en.ts",
-      JSON.stringify(en, null, 2),
-      en,
-      options,
-    ),
-  );
+  // catalog 위반은 고칠 영역 file 이름으로 낸다.
+  for (const [name, area] of Object.entries(AREAS)) {
+    const file = `packages/design/wording/catalog/${name}.ts`;
+    findings.push(
+      ...checkSource(
+        file,
+        await Deno.readTextFile(`${root}/${file}`),
+        area,
+        options,
+      ),
+    );
+  }
   return findings;
 }
 

@@ -1,8 +1,8 @@
-// en catalog의 ICU 문장에서 placeholder 종류를 뽑아 placeholders.ts를 만든다.
-// 실행: deno run -A generate.ts [--check]
+// 영역 file(catalog/<영역>.ts)의 ICU 문장에서 placeholder 종류를 뽑아 catalog/<영역>.placeholders.ts를 만든다.
+// 실행: deno run --allow-read --allow-write packages/design/wording/generate.ts [--check]
 import { parse, TYPE } from "@formatjs/icu-messageformat-parser";
 import type { MessageFormatElement } from "@formatjs/icu-messageformat-parser";
-import { en } from "./en.ts";
+import { AREAS, en } from "./en.ts";
 
 type Kind = "string" | "number" | "plural" | "date";
 
@@ -83,18 +83,83 @@ export function render(
   ].join("\n");
 }
 
-if (import.meta.main) {
-  const target = new URL("./placeholders.ts", import.meta.url);
-  const next = render(en);
-  if (Deno.args.includes("--check")) {
-    const current = await Deno.readTextFile(target);
-    if (current !== next) {
-      console.error(
-        "placeholders.ts가 en catalog와 다르다. generate.ts를 다시 돌린다.",
-      );
+const COMMAND =
+  "deno run --allow-read --allow-write packages/design/wording/generate.ts";
+
+const camel = (name: string) =>
+  name.replace(/(?:^|-)(\w)/g, (_, c: string) => c.toUpperCase());
+
+function renderArea(name: string, catalog: Record<string, string>): string {
+  const type = `${camel(name)}Placeholders`;
+  const entries = Object.entries(catalog).map(([key, message]) =>
+    `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`
+  );
+  const area = camel(name).replace(/^./, (c) => c.toLowerCase());
+  return [
+    `// catalog/${name}.ts에서 생성한다. 직접 고치지 않고 \`${COMMAND}\`로 다시 만든다.`,
+    `import type { ${area} } from "./${name}.ts";`,
+    "",
+    `export type ${type} = {`,
+    entries.join("\n"),
+    "};",
+    "",
+    `type Area = typeof ${area};`,
+    "type _SameKeys =",
+    `  | Exclude<keyof Area, keyof ${type}>`,
+    `  | Exclude<keyof ${type}, keyof Area>;`,
+    "const _sameKeys: [_SameKeys] extends [never] ? true : never = true;",
+    "void _sameKeys;",
+    "",
+  ].join("\n");
+}
+
+async function main() {
+  const dir = new URL("./catalog/", import.meta.url);
+  // 영역 file이 AREAS에 없거나 영역 사이에 같은 key가 있으면 실패한다.
+  const names = Object.keys(AREAS);
+  for await (const entry of Deno.readDir(dir)) {
+    const name = entry.name;
+    if (!name.endsWith(".ts") || name.endsWith(".placeholders.ts")) continue;
+    if (!names.includes(name.slice(0, -3))) {
+      console.error(`catalog/${name}가 en.ts의 AREAS에 없다.`);
       Deno.exit(1);
     }
-  } else {
-    await Deno.writeTextFile(target, next);
+  }
+  const total = Object.values(AREAS).reduce(
+    (sum, area) => sum + Object.keys(area).length,
+    0,
+  );
+  if (Object.keys(en).length !== total) {
+    console.error(
+      `영역 file 사이에 같은 key가 있다: en ${
+        Object.keys(en).length
+      }개, 영역 합 ${total}개.`,
+    );
+    Deno.exit(1);
+  }
+  const stale: string[] = [];
+  for (const [name, area] of Object.entries(AREAS)) {
+    const file = `${name}.placeholders.ts`;
+    const target = new URL(file, dir);
+    const next = renderArea(name, area);
+    if (Deno.args.includes("--check")) {
+      let current = "";
+      try {
+        current = await Deno.readTextFile(target);
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      }
+      if (current !== next) stale.push(`catalog/${file}`);
+    } else {
+      await Deno.writeTextFile(target, next);
+    }
+  }
+  if (stale.length > 0) {
+    console.error(
+      `${stale.join(", ")}가 영역 file과 다르다. generate.ts를 다시 돌린다.`,
+    );
+    Deno.exit(1);
   }
 }
+
+if (import.meta.main) await main();

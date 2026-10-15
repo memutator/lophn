@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import { DECISION_HANDLE_CHANNEL } from "../ipc/confirmation-channels.ts";
+import type {
+  DecisionHandleReply,
+  DecisionHandleRequest,
+} from "../ipc/confirmation.ts";
 import {
   OPEN_EXTERNAL_CHANNEL,
   type OpenExternalReply,
@@ -54,6 +59,24 @@ contextBridge.exposeInMainWorld(
           ) as WindowlessConfirmationReply;
         } catch {
           return { ok: false, code: "unavailable" };
+        }
+      },
+      // 창 없는 사람 결정의 handle. main이 정본을 core에서 다시 읽고 handle만 돌려준다.
+      async requestDecisionHandle(
+        request: DecisionHandleRequest,
+      ): Promise<DecisionHandleReply> {
+        try {
+          return await ipcRenderer.invoke(
+            DECISION_HANDLE_CHANNEL,
+            request,
+          ) as DecisionHandleReply;
+        } catch {
+          return {
+            error: {
+              code: "unavailable",
+              message: "결정 handle을 받지 못했다",
+            },
+          };
         }
       },
       // shell 크롬의 외부 링크는 확인 없이 OS browser로 연다. URL 검사는 main이 한다.

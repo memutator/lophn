@@ -1,6 +1,6 @@
 export const conversation = {
   "conversation.body.delete-session":
-    'Delete "{title}"? This can\'t be undone.',
+    'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.save-visual-request":
     "Save the visual “{title}” (block {block} in message {message}) as a document.",
   "conversation.body.skill-command-request":
@@ -96,7 +96,9 @@ export const conversation = {
   "conversation.label.approval-target-app-api": "{api} in {app}",
   "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
   "conversation.label.approval-target-other": "Other request",
+  "conversation.label.archived": "Archived",
   "conversation.label.author-check": "Checked by lophn",
+  "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
   "conversation.label.correction": "Change",
   "conversation.label.delete-session": "Delete {title}",
@@ -159,10 +161,21 @@ export const conversation = {
     "Answered {count, plural, one {# question} other {# questions}}",
   "conversation.label.questions-ended-by-message": "Ended by your message",
   "conversation.label.queued-messages": "Waiting for the next turn",
+  "conversation.label.read-session": "Read {title}",
   "conversation.label.rename-session": "Rename {title}",
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
   "conversation.label.results": "Results",
+  "conversation.label.rewind-app-also": "Also rewind {app}",
+  "conversation.label.rewind-app-unknown":
+    "{count, plural, one {# write has} other {# writes have}} an unknown result and cannot be undone",
+  "conversation.label.rewind-app-writes":
+    "{count, plural, one {# write} other {# writes}} by this session after this message",
+  "conversation.label.rewind-apps-head":
+    "Apps this session wrote to after this message",
+  "conversation.label.rewind-conversation": "Conversation",
+  "conversation.label.rewind-files":
+    "Also restore files changed with file tools",
   "conversation.label.rewind-hidden":
     "Rewound here · {count, plural, one {# message} other {# messages}} hidden",
   "conversation.label.rewind-item-answer": "An answer you gave",
@@ -172,9 +185,18 @@ export const conversation = {
   "conversation.label.rewind-item-fact": "Something that already happened",
   "conversation.label.rewind-loading": "Checking what would change…",
   "conversation.label.rewind-messages-only": "Restore messages only",
+  "conversation.label.rewind-others":
+    "Also goes back, though this session did not do it",
+  "conversation.label.rewind-outside": "Stays as it is, outside lophn",
   "conversation.label.rewind-point": "Rewind to",
+  "conversation.label.rewind-quote": "Rewind to this message",
   "conversation.label.rewind-restore-all": "Restore messages and documents",
   "conversation.label.rewind-summarize": "Summarize from here",
+  "conversation.label.rewind-summary-apps": "Conversation, files and {apps}",
+  "conversation.label.rewind-summary-files": "Conversation and files only",
+  "conversation.label.rewind-summary-messages": "Conversation only",
+  "conversation.label.rewind-summary-messages-apps": "Conversation and {apps}",
+  "conversation.label.rewind-write-unknown": "Result unknown",
   "conversation.label.search-models": "Search models",
   "conversation.label.search-sessions": "Search {agent} sessions",
   "conversation.label.send-correction": "Change this work",
@@ -234,6 +256,18 @@ export const conversation = {
     "You sent a message while the questions were open, so they closed. The agent reads your message as the answer.",
   "conversation.notice.recap-local":
     "Only shown here. The conversation itself is unchanged.",
+  "conversation.notice.rewind-apps":
+    "A checked app goes back to this message, including changes others made since. Unchecked apps stay as they are.",
+  "conversation.notice.rewind-conversation":
+    "Messages after this one are removed from the conversation.",
+  "conversation.notice.rewind-no-apps":
+    "This session did not write to any app after this message.",
+  "conversation.notice.rewind-no-files":
+    "No files were changed with file tools after this message.",
+  "conversation.notice.rewind-shell-files":
+    "Files changed through the shell are not restored.",
+  "conversation.notice.rewind-steer":
+    "Messages you sent while the agent was working (steer) are not rewind points. Rewinding past one removes only the message.",
   "conversation.notice.session-archived":
     "This session is archived. You can read it, but it takes no new messages.",
   "conversation.notice.session-no-match": "No sessions match.",

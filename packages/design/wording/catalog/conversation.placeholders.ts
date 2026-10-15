@@ -116,7 +116,9 @@ export type ConversationPlaceholders = {
     server: "string";
   };
   "conversation.label.approval-target-other": Record<never, never>;
+  "conversation.label.archived": Record<never, never>;
   "conversation.label.author-check": Record<never, never>;
+  "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
   "conversation.label.correction": Record<never, never>;
   "conversation.label.delete-session": {
@@ -214,6 +216,9 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.questions-ended-by-message": Record<never, never>;
   "conversation.label.queued-messages": Record<never, never>;
+  "conversation.label.read-session": {
+    title: "string";
+  };
   "conversation.label.rename-session": {
     title: "string";
   };
@@ -223,6 +228,18 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.requests": Record<never, never>;
   "conversation.label.results": Record<never, never>;
+  "conversation.label.rewind-app-also": {
+    app: "string";
+  };
+  "conversation.label.rewind-app-unknown": {
+    count: "plural";
+  };
+  "conversation.label.rewind-app-writes": {
+    count: "plural";
+  };
+  "conversation.label.rewind-apps-head": Record<never, never>;
+  "conversation.label.rewind-conversation": Record<never, never>;
+  "conversation.label.rewind-files": Record<never, never>;
   "conversation.label.rewind-hidden": {
     count: "plural";
   };
@@ -233,9 +250,21 @@ export type ConversationPlaceholders = {
   "conversation.label.rewind-item-fact": Record<never, never>;
   "conversation.label.rewind-loading": Record<never, never>;
   "conversation.label.rewind-messages-only": Record<never, never>;
+  "conversation.label.rewind-others": Record<never, never>;
+  "conversation.label.rewind-outside": Record<never, never>;
   "conversation.label.rewind-point": Record<never, never>;
+  "conversation.label.rewind-quote": Record<never, never>;
   "conversation.label.rewind-restore-all": Record<never, never>;
   "conversation.label.rewind-summarize": Record<never, never>;
+  "conversation.label.rewind-summary-apps": {
+    apps: "string";
+  };
+  "conversation.label.rewind-summary-files": Record<never, never>;
+  "conversation.label.rewind-summary-messages": Record<never, never>;
+  "conversation.label.rewind-summary-messages-apps": {
+    apps: "string";
+  };
+  "conversation.label.rewind-write-unknown": Record<never, never>;
   "conversation.label.search-models": Record<never, never>;
   "conversation.label.search-sessions": {
     agent: "string";
@@ -304,6 +333,12 @@ export type ConversationPlaceholders = {
   "conversation.notice.question-waiting": Record<never, never>;
   "conversation.notice.questions-ended-by-message": Record<never, never>;
   "conversation.notice.recap-local": Record<never, never>;
+  "conversation.notice.rewind-apps": Record<never, never>;
+  "conversation.notice.rewind-conversation": Record<never, never>;
+  "conversation.notice.rewind-no-apps": Record<never, never>;
+  "conversation.notice.rewind-no-files": Record<never, never>;
+  "conversation.notice.rewind-shell-files": Record<never, never>;
+  "conversation.notice.rewind-steer": Record<never, never>;
   "conversation.notice.session-archived": Record<never, never>;
   "conversation.notice.session-no-match": Record<never, never>;
   "conversation.notice.slash-no-match": Record<never, never>;

@@ -164,32 +164,6 @@ async function runLauncher(
   }
 }
 
-// 문서 format runner의 wasm이 cache 없이 설치 묶음의 node_modules에서 찾아진다.
-async function checkFormatRunnerWasm(): Promise<void> {
-  const contract =
-    `${layout.platform}/packages/core/projects/formats/guest/contract.ts`;
-  const out = await new Deno.Command(layout.deno, {
-    args: [
-      "eval",
-      "--cached-only",
-      "--frozen",
-      `--config=${layout.platform}/deno.json`,
-      `import { runnerWasmPath } from ${JSON.stringify(contract)};` +
-      "console.log(runnerWasmPath());",
-    ],
-    clearEnv: true,
-    env: { PATH: "" },
-    stdout: "piped",
-    stderr: "null",
-  }).output();
-  const wasm = new TextDecoder().decode(out.stdout).trim();
-  const found = out.success && wasm.endsWith(".wasm") && await isFile(wasm);
-  record(
-    "R4 문서 format runner wasm이 설치 묶음 안에서 찾아진다",
-    found ? "pass" : "fail",
-  );
-}
-
 async function checkLaunchers(): Promise<void> {
   const bad: string[] = [];
   for (const name of ["lophn", "lophn-mcp"]) {
@@ -385,7 +359,6 @@ async function checkRealSandbox(): Promise<void> {
 await checkLayout();
 await denoRuns();
 await checkLaunchers();
-await checkFormatRunnerWasm();
 await checkCoreOffline();
 const installed = await checkSandboxFiles();
 if (installed) {

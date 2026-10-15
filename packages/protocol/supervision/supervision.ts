@@ -38,7 +38,6 @@ const streamChannel = uint.min(1);
 export const PROCESS_KINDS = [
   "platform/core",
   "platform/io",
-  "documents/worker",
   "problems/test-runner",
   "lophn-agent/runtime",
   "apps/supervisor",

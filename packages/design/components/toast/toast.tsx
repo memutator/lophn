@@ -7,6 +7,7 @@ import { IconButton } from "../icon-button/icon-button.tsx";
 import { Icon } from "../icon.tsx";
 import {
   type Clock,
+  componentMark,
   cx,
   iconPixels,
   milliseconds,
@@ -93,6 +94,7 @@ export function Toast(
         event.stopPropagation();
         onClose();
       }}
+      {...componentMark("Toast")}
     >
       {tone === "error" && (
         <span className={styles.mark}>
@@ -132,5 +134,9 @@ export function Toast(
 
 // toast를 오른쪽 아래 toast 층에 쌓는다.
 export function ToastStack({ children }: { children: ReactNode }) {
-  return <div className={styles.stack}>{children}</div>;
+  return (
+    <div className={styles.stack} {...componentMark("ToastStack")}>
+      {children}
+    </div>
+  );
 }

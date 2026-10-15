@@ -9,6 +9,7 @@ import {
 } from "react";
 import { tokens } from "../../tokens.ts";
 import {
+  componentMark,
   milliseconds,
   type Placement,
   placementProps,
@@ -94,6 +95,7 @@ export function Tooltip(
             className={styles.tooltip}
             side="bottom"
             {...placementProps(placement)}
+            {...componentMark("Tooltip")}
           >
             {content}
           </Radix.Content>

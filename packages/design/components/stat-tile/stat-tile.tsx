@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { formatNumber } from "@lophn/wording";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import styles from "./stat-tile.module.css";
 
 export type StatDirection = "up" | "down" | "flat";
@@ -31,7 +31,7 @@ export function StatTile(
 ) {
   const direction = change === undefined ? undefined : statDirection(change);
   return (
-    <div className={styles.tile}>
+    <div className={styles.tile} {...componentMark("StatTile")}>
       <span className={styles.label}>{label}</span>
       <span className={styles.value}>
         <span className={styles.number}>{formatNumber(value, locale)}</span>
@@ -54,7 +54,7 @@ export function StatTile(
 // 한 줄에 최대 4개. 더 많으면 다음 줄로 넘긴다. 넣은 칸이 640px 미만이면 한 줄에 2개다.
 export function StatRow({ children }: { children: ReactNode }) {
   return (
-    <div className={styles.rowBox}>
+    <div className={styles.rowBox} {...componentMark("StatRow")}>
       <div className={styles.row}>{children}</div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useField } from "../field/field-context.ts";
 import { Icon } from "../icon.tsx";
 import {
+  componentMark,
   controlIconPixels,
   type ControlSize,
   cx,
@@ -38,6 +39,7 @@ export function Select(
         data-size={size}
         data-invalid={field.invalid || undefined}
         className={cx(styles.trigger, styles[size])}
+        {...componentMark("Select")}
       >
         <Radix.Value placeholder={placeholder} />
         <Radix.Icon className={styles.chevron}>
@@ -50,6 +52,7 @@ export function Select(
           position="popper"
           side="bottom"
           align="start"
+          {...componentMark("Select")}
         >
           <Radix.Viewport className={styles.viewport}>
             {options.map((option) => (

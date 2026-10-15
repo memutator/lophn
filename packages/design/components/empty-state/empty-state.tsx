@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../button/button.tsx";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import styles from "../state.module.css";
 
 export interface EmptyAction {
@@ -20,7 +20,11 @@ export interface EmptyStateProps {
 
 export function EmptyState({ icon, message, action }: EmptyStateProps) {
   return (
-    <div className={styles.state} data-state="empty">
+    <div
+      className={styles.state}
+      data-state="empty"
+      {...componentMark("EmptyState")}
+    >
       <Icon icon={icon} pixels={iconPixels("large")} className={styles.icon} />
       <p className={styles.message}>{message}</p>
       <Button onClick={action.onSelect}>{action.label}</Button>

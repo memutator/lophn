@@ -1,4 +1,5 @@
 // 파일 tree와 탭의 파일 종류 아이콘. @iconify-json/catppuccin(Catppuccin Icons, MIT)을 쓴다. 가는 선의 차분한 색이다.
+import { componentMark } from "../shared.ts";
 import icons from "@iconify-json/catppuccin/icons.json" with {
   type: "json",
 };
@@ -133,6 +134,7 @@ export function FileIcon(
   return (
     <span
       aria-hidden
+      {...componentMark("FileIcon")}
       style={{
         display: "inline-flex",
         flex: "none",

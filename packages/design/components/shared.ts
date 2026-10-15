@@ -20,6 +20,14 @@ export function controlIconPixels(size: ControlSize): number {
   return pixels(tokens.control[size].icon);
 }
 
+// annotation이 가리킨 요소에서 "어느 SDK component인가"를 읽는 표시. 읽는 쪽은 이 속성 하나만 본다.
+// 호출자의 `...rest`가 덮지 못하도록 root 요소의 `{...rest}` 뒤에 둔다.
+export function componentMark(
+  name: string,
+): { "data-lophn-component": string } {
+  return { "data-lophn-component": name };
+}
+
 export function cx(...names: (string | false | undefined)[]): string {
   return names.filter(Boolean).join(" ");
 }

@@ -1,7 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Icon } from "../icon.tsx";
-import { controlIconPixels, type ControlSize, cx } from "../shared.ts";
+import {
+  componentMark,
+  controlIconPixels,
+  type ControlSize,
+  cx,
+} from "../shared.ts";
 import styles from "./button.module.css";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -40,6 +45,7 @@ export function Button(
       data-variant={variant}
       data-size={size}
       className={cx(styles.button, styles[variant], styles[size])}
+      {...componentMark("Button")}
     >
       {icon && <Icon icon={icon} pixels={controlIconPixels(size)} />}
       <span className={styles.label}>{children}</span>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cx, type Timer } from "../shared.ts";
+import { componentMark, cx, type Timer } from "../shared.ts";
 import { useDelayedLoading } from "./delayed-loading.ts";
 import styles from "./skeleton.module.css";
 
@@ -15,7 +15,11 @@ export interface SkeletonProps {
 export function Skeleton({ shape = "line", lines = 1 }: SkeletonProps) {
   const count = shape === "line" ? Math.max(1, lines) : 1;
   return (
-    <span className={styles.group} data-skeleton={shape}>
+    <span
+      className={styles.group}
+      data-skeleton={shape}
+      {...componentMark("Skeleton")}
+    >
       {Array.from(
         { length: count },
         (_, index) => (

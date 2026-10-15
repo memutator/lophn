@@ -4,6 +4,7 @@ import { t } from "@lophn/wording";
 import {
   Button,
   Checkbox,
+  componentMark,
   Field,
   Input,
   Popover,
@@ -83,7 +84,7 @@ export function MultiSelectFilter(
         </Button>
       }
     >
-      <div className={styles.panel}>
+      <div className={styles.panel} {...componentMark("MultiSelectFilter")}>
         {searchable && (
           <div className={styles.search}>
             <Field label={t("common.label.search")}>

@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useContext } from "react";
+import { componentMark } from "../shared.ts";
 import styles from "./card.module.css";
 
 const InsideCard = createContext(false);
@@ -12,7 +13,7 @@ export function Card({ children }: CardProps) {
   if (useContext(InsideCard)) throw new Error("Card cannot be nested");
   return (
     <InsideCard.Provider value>
-      <div className={styles.card}>{children}</div>
+      <div className={styles.card} {...componentMark("Card")}>{children}</div>
     </InsideCard.Provider>
   );
 }

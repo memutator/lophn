@@ -65,6 +65,7 @@ export {
 export {
   type Clipboard,
   type Clock,
+  componentMark,
   type ControlSize,
   iconPixels,
   systemClipboard,

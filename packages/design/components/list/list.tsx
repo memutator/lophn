@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import { componentMark } from "../shared.ts";
 import styles from "./list.module.css";
 
 export function List({ children }: { children: ReactNode }) {
-  return <ul className={styles.list}>{children}</ul>;
+  return <ul className={styles.list} {...componentMark("List")}>{children}</ul>;
 }
 
 export interface ListItemProps {
@@ -22,7 +23,11 @@ export function ListItem({ title, meta, selected, onSelect }: ListItemProps) {
     </>
   );
   return (
-    <li className={styles.item} data-selected={selected || undefined}>
+    <li
+      className={styles.item}
+      data-selected={selected || undefined}
+      {...componentMark("ListItem")}
+    >
       {onSelect
         ? (
           <button

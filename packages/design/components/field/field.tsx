@@ -1,7 +1,7 @@
 import { type ReactNode, useId } from "react";
 import { CircleX } from "lucide-react";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import { FieldContext } from "./field-context.ts";
 import styles from "./field.module.css";
 
@@ -19,7 +19,11 @@ export function Field({ label, help, error, children }: FieldProps) {
   const invalid = error !== undefined;
   return (
     <FieldContext.Provider value={{ id, invalid }}>
-      <div className={styles.field} data-invalid={invalid || undefined}>
+      <div
+        className={styles.field}
+        data-invalid={invalid || undefined}
+        {...componentMark("Field")}
+      >
         <label htmlFor={id} className={styles.label}>{label}</label>
         {children}
         {message !== undefined && (

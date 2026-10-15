@@ -3,7 +3,7 @@
 import type { ReactElement } from "react";
 import { tokens } from "../../tokens.ts";
 import { Icon } from "../icon.tsx";
-import { iconPixels, pixels } from "../shared.ts";
+import { componentMark, iconPixels, pixels } from "../shared.ts";
 import {
   AVATAR_ICONS,
   DEFAULT_AVATAR_ICON,
@@ -62,6 +62,7 @@ export function Avatar(
       role={label === undefined ? undefined : "img"}
       aria-label={label}
       aria-hidden={label === undefined ? true : undefined}
+      {...componentMark("Avatar")}
     >
       {profile.kind === "icon" && (
         <Icon

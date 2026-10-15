@@ -1,4 +1,5 @@
 import { formatRelativeTime, t } from "@lophn/wording";
+import { componentMark } from "../shared.ts";
 import styles from "./stale-note.module.css";
 
 export interface StaleNoteProps {
@@ -10,7 +11,11 @@ export interface StaleNoteProps {
 // 오래된 값 옆에 마지막 갱신의 나이를 글로 보인다.
 export function StaleNote({ updatedAt, now }: StaleNoteProps) {
   return (
-    <span className={styles.note} data-state="stale">
+    <span
+      className={styles.note}
+      data-state="stale"
+      {...componentMark("StaleNote")}
+    >
       {t("common.stale.label", { age: formatRelativeTime(updatedAt, now) })}
     </span>
   );

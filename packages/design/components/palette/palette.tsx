@@ -13,7 +13,7 @@ import { t } from "@lophn/wording";
 import { Icon } from "../icon.tsx";
 import { Kbd } from "../kbd/kbd.tsx";
 import { useReturnFocus } from "../return-focus.ts";
-import { cx, iconPixels } from "../shared.ts";
+import { componentMark, cx, iconPixels } from "../shared.ts";
 import parts from "../dialog/dialog.module.css";
 import styles from "./palette.module.css";
 
@@ -141,6 +141,7 @@ export function Palette(
           className={styles.palette}
           aria-describedby={undefined}
           {...focus}
+          {...componentMark("Palette")}
         >
           <Radix.Title asChild>
             <label className={styles.title} htmlFor={inputId}>{title}</label>

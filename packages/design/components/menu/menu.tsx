@@ -2,7 +2,12 @@ import * as Radix from "@radix-ui/react-dropdown-menu";
 import type { ReactElement, ReactNode } from "react";
 import { keepFocus } from "../return-focus.ts";
 import { Icon, type IconProps } from "../icon.tsx";
-import { iconPixels, type Placement, placementProps } from "../shared.ts";
+import {
+  componentMark,
+  iconPixels,
+  type Placement,
+  placementProps,
+} from "../shared.ts";
 import styles from "./menu.module.css";
 
 export interface MenuItem {
@@ -36,7 +41,7 @@ export function MenuIcon(
   { icon, children }: { icon?: IconProps["icon"]; children?: ReactNode },
 ) {
   return (
-    <span className={styles.icon}>
+    <span className={styles.icon} {...componentMark("MenuIcon")}>
       {icon === undefined
         ? children
         : <Icon icon={icon} pixels={iconPixels("base")} />}
@@ -65,6 +70,7 @@ export function Menu(
           side="bottom"
           {...placementProps(placement)}
           onCloseAutoFocus={returnFocus ? undefined : keepFocus}
+          {...componentMark("Menu")}
         >
           {items.map((item) => (
             <Radix.Item

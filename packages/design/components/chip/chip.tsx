@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { t } from "@lophn/wording";
 import { Button } from "../button/button.tsx";
 import { IconButton } from "../icon-button/icon-button.tsx";
+import { componentMark } from "../shared.ts";
 import styles from "./chip.module.css";
 
 export interface ChipItem {
@@ -22,7 +23,7 @@ export function Chip({ items, onView, onDismiss }: ChipProps) {
   if (!first) return null;
   const rest = items.length - 1;
   return (
-    <div className={styles.chip}>
+    <div className={styles.chip} {...componentMark("Chip")}>
       <p className={styles.title}>{first.title}</p>
       {rest > 0 && (
         <span className={styles.more}>

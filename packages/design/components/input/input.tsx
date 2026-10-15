@@ -1,6 +1,6 @@
 import type { InputHTMLAttributes, Ref } from "react";
 import { useField } from "../field/field-context.ts";
-import { type ControlSize, cx } from "../shared.ts";
+import { componentMark, type ControlSize, cx } from "../shared.ts";
 import styles from "./input.module.css";
 
 type NativeInput = Omit<
@@ -23,6 +23,7 @@ export function Input({ size = "md", ref, ...rest }: InputProps) {
       data-size={size}
       data-invalid={field.invalid || undefined}
       className={cx(styles.control, styles[size])}
+      {...componentMark("Input")}
     />
   );
 }

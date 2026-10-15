@@ -3,6 +3,7 @@ import { t } from "@lophn/wording";
 import {
   Button,
   type ButtonVariant,
+  componentMark,
   type ControlSize,
   Icon,
   iconPixels,
@@ -72,7 +73,11 @@ export function CommandButton(
     </Button>
   );
   return (
-    <span className={styles.action} data-command={command.key}>
+    <span
+      className={styles.action}
+      data-command={command.key}
+      {...componentMark("CommandButton")}
+    >
       {command.confirm
         ? (
           <Tooltip content={t("common.notice.asks-first")} timer={timer}>

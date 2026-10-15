@@ -1,6 +1,6 @@
 import { useId } from "react";
 import * as Radix from "@radix-ui/react-switch";
-import { type ControlSize, cx } from "../shared.ts";
+import { componentMark, type ControlSize, cx } from "../shared.ts";
 import styles from "./switch.module.css";
 
 export interface SwitchProps {
@@ -17,7 +17,11 @@ export interface SwitchProps {
 export function Switch({ label, size = "md", ...state }: SwitchProps) {
   const id = useId();
   return (
-    <div data-size={size} className={cx(styles.row, styles[size])}>
+    <div
+      data-size={size}
+      className={cx(styles.row, styles[size])}
+      {...componentMark("Switch")}
+    >
       <label htmlFor={id} className={styles.label}>{label}</label>
       <Radix.Root {...state} id={id} className={styles.track}>
         <Radix.Thumb className={styles.thumb} />

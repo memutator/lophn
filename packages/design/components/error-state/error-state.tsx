@@ -2,7 +2,7 @@ import { CircleX } from "lucide-react";
 import { t } from "@lophn/wording";
 import { Button } from "../button/button.tsx";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import styles from "../state.module.css";
 
 export interface ErrorStateProps {
@@ -13,7 +13,11 @@ export interface ErrorStateProps {
 
 export function ErrorState({ target, onRetry }: ErrorStateProps) {
   return (
-    <div className={styles.state} data-state="error">
+    <div
+      className={styles.state}
+      data-state="error"
+      {...componentMark("ErrorState")}
+    >
       <Icon
         icon={CircleX}
         pixels={iconPixels("large")}

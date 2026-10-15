@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Rows3 } from "lucide-react";
 import { Skeleton } from "../skeleton/skeleton.tsx";
 import { Table, type TableColumn, type TableProps } from "../table/table.tsx";
+import { componentMark } from "../shared.ts";
 import { useControllable } from "./controllable.ts";
 import { DataState, type DataStateProps } from "./data-state.tsx";
 import {
@@ -90,7 +91,11 @@ export function DataTable<Row>(
     if (size !== undefined && slice.page !== 0) setPage(0);
   };
   return (
-    <div className={styles.frame} data-layout={layout}>
+    <div
+      className={styles.frame}
+      data-layout={layout}
+      {...componentMark("DataTable")}
+    >
       <div className={styles.toolbar}>
         <SortControl
           columns={pickable.filter(sortable)}

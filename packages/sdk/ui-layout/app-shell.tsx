@@ -1,6 +1,11 @@
 import { createContext, type ReactNode, useContext, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Icon, iconPixels, useObservedSize } from "@lophn/design/components";
+import {
+  componentMark,
+  Icon,
+  iconPixels,
+  useObservedSize,
+} from "@lophn/design/components";
 import { type ContainerSpace, containerSpace } from "./space.ts";
 import styles from "./layout.module.css";
 
@@ -29,7 +34,12 @@ export function AppShell({ title, actions, nav, children }: AppShellProps) {
   const space = size === undefined ? "full" : containerSpace(size.width);
   return (
     <SpaceContext.Provider value={space}>
-      <div ref={ref} className={styles.shell} data-space={space}>
+      <div
+        ref={ref}
+        className={styles.shell}
+        data-space={space}
+        {...componentMark("AppShell")}
+      >
         <header className={styles.bar}>
           <h1 className={styles.title}>{title}</h1>
           {actions !== undefined && (
@@ -63,7 +73,7 @@ export interface SidebarProps {
 // 앱 화면 사이의 이동. 전체에서는 왼쪽 세로 목록, 패널·카드에서는 가로로 scroll하는 한 줄이다.
 export function Sidebar({ items, current, onSelect }: SidebarProps) {
   return (
-    <ul className={styles.sidebar}>
+    <ul className={styles.sidebar} {...componentMark("Sidebar")}>
       {items.map((item) => (
         <li key={item.id} className={styles.entry}>
           <button
@@ -88,5 +98,7 @@ export interface GridProps {
 
 // 카드 폭 240px 이상의 칸을 container 폭에 맞게 채운다. 좁으면 한 줄 한 칸이다.
 export function Grid({ children }: GridProps) {
-  return <div className={styles.grid}>{children}</div>;
+  return (
+    <div className={styles.grid} {...componentMark("Grid")}>{children}</div>
+  );
 }

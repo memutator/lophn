@@ -2,7 +2,12 @@ import { useId } from "react";
 import * as Radix from "@radix-ui/react-checkbox";
 import { Check } from "lucide-react";
 import { Icon } from "../icon.tsx";
-import { controlIconPixels, type ControlSize, cx } from "../shared.ts";
+import {
+  componentMark,
+  controlIconPixels,
+  type ControlSize,
+  cx,
+} from "../shared.ts";
 import styles from "./checkbox.module.css";
 
 export interface CheckboxProps {
@@ -22,7 +27,11 @@ export function Checkbox(
 ) {
   const id = useId();
   return (
-    <div data-size={size} className={cx(styles.row, styles[size])}>
+    <div
+      data-size={size}
+      className={cx(styles.row, styles[size])}
+      {...componentMark("Checkbox")}
+    >
       <Radix.Root
         {...state}
         id={id}

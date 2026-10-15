@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import { treeKey, type TreeNode, type TreeRow, visibleRows } from "./model.ts";
 import styles from "./tree.module.css";
 
@@ -97,6 +97,7 @@ export function Tree(
       aria-label={label}
       aria-multiselectable={onSelectionChange ? true : undefined}
       className={styles.tree}
+      {...componentMark("Tree")}
     >
       {rows.map((row) => (
         <div

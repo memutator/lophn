@@ -4,7 +4,7 @@ import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { t } from "@lophn/wording";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import styles from "./tab-strip.module.css";
 
 export type TabDot = "waiting" | "working" | "ended";
@@ -49,7 +49,10 @@ export function TabStrip(
     }
   }, [selected, tabs.length]);
   return (
-    <div className={`${styles.bar} ${compact ? styles.compact : ""}`}>
+    <div
+      className={`${styles.bar} ${compact ? styles.compact : ""}`}
+      {...componentMark("TabStrip")}
+    >
       <div ref={list} className={styles.list} role="tablist">
         {tabs.map((tab) => {
           const active = tab.key === selected;

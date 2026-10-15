@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { t } from "@lophn/wording";
-import { Button, Field, Input } from "@lophn/design/components";
+import { Button, componentMark, Field, Input } from "@lophn/design/components";
 import styles from "./filter.module.css";
 
 export interface SearchFilterProps {
@@ -14,7 +14,11 @@ export interface SearchFilterProps {
 // 글 검색 칸. 언제 read command를 부를지는 앱이 정한다.
 export function SearchFilter({ value, onChange, label }: SearchFilterProps) {
   return (
-    <div className={styles.search} data-filter="search">
+    <div
+      className={styles.search}
+      data-filter="search"
+      {...componentMark("SearchFilter")}
+    >
       <Field label={label ?? t("common.label.search")}>
         <Input
           size="sm"
@@ -40,7 +44,7 @@ export function FilterBar(
   { children, dirty = false, onReset }: FilterBarProps,
 ) {
   return (
-    <div className={styles.bar} role="group">
+    <div className={styles.bar} role="group" {...componentMark("FilterBar")}>
       {children}
       {dirty && onReset && (
         <Button size="sm" variant="ghost" icon={RotateCcw} onClick={onReset}>

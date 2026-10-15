@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { t } from "@lophn/wording";
 import { Button } from "../button/button.tsx";
 import { useObservedSize } from "../resize.ts";
-import { cx } from "../shared.ts";
+import { componentMark, cx } from "../shared.ts";
 import styles from "./page-frames.module.css";
 import { type ColumnFrame, panePadding } from "./model.ts";
 
@@ -31,11 +31,20 @@ function Head({ header }: { header?: ReactNode }) {
 }
 
 function Column(
-  { frame, header, children }: FrameProps & { frame: ColumnFrame },
+  { frame, name, header, children }: FrameProps & {
+    frame: ColumnFrame;
+    name: string;
+  },
 ) {
   const { ref, pad } = usePane();
   return (
-    <div ref={ref} className={styles.frame} data-frame={frame} data-pad={pad}>
+    <div
+      ref={ref}
+      className={styles.frame}
+      data-frame={frame}
+      data-pad={pad}
+      {...componentMark(name)}
+    >
       <div className={cx(styles.pad, styles.center)}>
         <div className={styles.column} data-frame={frame}>
           <Head header={header} />
@@ -48,17 +57,17 @@ function Column(
 
 // 폼 640px.
 export function FormFrame(props: FrameProps) {
-  return <Column frame="form" {...props} />;
+  return <Column frame="form" name="FormFrame" {...props} />;
 }
 
 // 런처 1040px.
 export function LauncherFrame(props: FrameProps) {
-  return <Column frame="launcher" {...props} />;
+  return <Column frame="launcher" name="LauncherFrame" {...props} />;
 }
 
 // 프로젝트 개요 800px.
 export function OverviewFrame(props: FrameProps) {
-  return <Column frame="overview" {...props} />;
+  return <Column frame="overview" name="OverviewFrame" {...props} />;
 }
 
 // 최대 1440px, 12열, 간격 16px.
@@ -70,6 +79,7 @@ export function DashboardFrame({ header, children }: FrameProps) {
       className={styles.frame}
       data-frame="dashboard"
       data-pad={pad}
+      {...componentMark("DashboardFrame")}
     >
       <div className={cx(styles.pad, styles.center)}>
         <div className={styles.dashboard}>
@@ -86,7 +96,15 @@ export type DashboardSpan = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export function DashboardCell(
   { span, children }: { span: DashboardSpan; children: ReactNode },
 ) {
-  return <div className={styles.cell} data-span={span}>{children}</div>;
+  return (
+    <div
+      className={styles.cell}
+      data-span={span}
+      {...componentMark("DashboardCell")}
+    >
+      {children}
+    </div>
+  );
 }
 
 export interface ListDetailFrameProps {
@@ -111,6 +129,7 @@ export function ListDetailFrame(
       data-frame="list-detail"
       data-pad={pad}
       data-active={active}
+      {...componentMark("ListDetailFrame")}
     >
       {(!narrow || active === "list") && (
         <div className={styles.list}>{list}</div>
@@ -145,6 +164,7 @@ export function TableFrame({ header, children }: FrameProps) {
       className={styles.tableFrame}
       data-frame="table"
       data-pad={pad}
+      {...componentMark("TableFrame")}
     >
       {header !== undefined && (
         <div className={styles.pad}>

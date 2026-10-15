@@ -7,7 +7,7 @@ import {
 } from "react";
 import { t } from "@lophn/wording";
 import { useObservedSize } from "../resize.ts";
-import { type Clipboard, systemClipboard } from "../shared.ts";
+import { type Clipboard, componentMark, systemClipboard } from "../shared.ts";
 import {
   type CellFormat,
   IdCell,
@@ -165,6 +165,7 @@ export function Table<Row>(
       className={styles.scroller}
       data-virtual={virtual || undefined}
       onScroll={onScroll}
+      {...componentMark("Table")}
     >
       <table className={styles.table} data-density={density}>
         <thead>

@@ -3,6 +3,7 @@ import { Calendar, Check } from "lucide-react";
 import { formatDate, type MessageKey, t } from "@lophn/wording";
 import {
   Button,
+  componentMark,
   Field,
   Icon,
   iconPixels,
@@ -75,7 +76,7 @@ export function DateRangeFilter(
         </Button>
       }
     >
-      <div className={styles.panel}>
+      <div className={styles.panel} {...componentMark("DateRangeFilter")}>
         {RANGE_PRESETS.map((preset) => (
           <PopoverRow
             key={preset}

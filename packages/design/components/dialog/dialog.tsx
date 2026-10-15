@@ -1,7 +1,7 @@
 import * as Radix from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 import { useReturnFocus } from "../return-focus.ts";
-import { cx } from "../shared.ts";
+import { componentMark, cx } from "../shared.ts";
 import styles from "./dialog.module.css";
 
 export type DialogWidth = "default" | "wide";
@@ -43,6 +43,7 @@ export function Dialog(
           data-width={width}
           aria-describedby={undefined}
           {...focus}
+          {...componentMark("Dialog")}
         >
           <Radix.Title className={styles.title}>{title}</Radix.Title>
           {children !== undefined && (

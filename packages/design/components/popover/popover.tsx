@@ -1,7 +1,7 @@
 import * as Radix from "@radix-ui/react-popover";
 import type { ReactElement, ReactNode } from "react";
 import { keepFocus } from "../return-focus.ts";
-import { type Placement, placementProps } from "../shared.ts";
+import { componentMark, type Placement, placementProps } from "../shared.ts";
 import styles from "./popover.module.css";
 
 export interface PopoverProps {
@@ -37,6 +37,7 @@ export function Popover(
           side="bottom"
           {...placementProps(placement)}
           onCloseAutoFocus={returnFocus ? undefined : keepFocus}
+          {...componentMark("Popover")}
         >
           {children}
         </Radix.Content>
@@ -59,6 +60,7 @@ export function PopoverRow({ children, onSelect, disabled }: PopoverRowProps) {
       className={styles.row}
       disabled={disabled}
       onClick={onSelect}
+      {...componentMark("PopoverRow")}
     >
       {children}
     </button>

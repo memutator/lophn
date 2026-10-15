@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { StatusTone } from "../../tokens.ts";
 import { Icon } from "../icon.tsx";
-import { iconPixels } from "../shared.ts";
+import { componentMark, iconPixels } from "../shared.ts";
 import styles from "./status-mark.module.css";
 
 // tokens.status의 아이콘 이름과 같은 Lucide 아이콘.
@@ -28,7 +28,11 @@ export interface StatusMarkProps {
 
 export function StatusMark({ tone, label }: StatusMarkProps) {
   return (
-    <span className={styles.mark} data-tone={tone}>
+    <span
+      className={styles.mark}
+      data-tone={tone}
+      {...componentMark("StatusMark")}
+    >
       <Icon
         icon={STATUS_ICONS[tone]}
         pixels={iconPixels("base")}
@@ -46,7 +50,11 @@ const DIFF_SIGNS: Record<DiffKind, string> = { add: "+", delete: "−" };
 // diff 줄의 +/− 기호. 줄 배경색과 함께 쓰며 색 없이도 추가·삭제를 읽는다.
 export function DiffMark({ kind }: { kind: DiffKind }) {
   return (
-    <span className={styles.sign} data-diff={kind}>
+    <span
+      className={styles.sign}
+      data-diff={kind}
+      {...componentMark("DiffMark")}
+    >
       {DIFF_SIGNS[kind]}
     </span>
   );

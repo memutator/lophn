@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Inbox, type LucideIcon } from "lucide-react";
 import {
+  componentMark,
   type EmptyAction,
   EmptyState,
   ErrorState,
@@ -66,7 +67,7 @@ export function ReadState(
           />
         )
         : (
-          <div className={styles.content}>
+          <div className={styles.content} {...componentMark("ReadState")}>
             {freshness && isStale(freshness) && (
               <StaleNote updatedAt={freshness.updatedAt} now={freshness.now} />
             )}

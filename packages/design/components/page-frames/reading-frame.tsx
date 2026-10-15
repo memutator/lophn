@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { usePane } from "./frames.tsx";
 import { panePaddingPixels, type ReadingWidth, tocPlacement } from "./model.ts";
+import { componentMark } from "../shared.ts";
 import styles from "./page-frames.module.css";
 import { TocPlacementContext } from "./toc-placement.ts";
 
@@ -27,6 +28,7 @@ export function ReadingFrame(
       className={styles.frame}
       data-frame="reading"
       data-pad={pad}
+      {...componentMark("ReadingFrame")}
     >
       <div className={styles.pad}>
         <div

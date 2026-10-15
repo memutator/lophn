@@ -1,6 +1,6 @@
 import type { Ref, TextareaHTMLAttributes } from "react";
 import { useField } from "../field/field-context.ts";
-import { cx } from "../shared.ts";
+import { componentMark, cx } from "../shared.ts";
 import styles from "../input/input.module.css";
 
 type NativeTextarea = Omit<
@@ -22,6 +22,7 @@ export function Textarea({ rows = 4, ref, ...rest }: TextareaProps) {
       rows={rows}
       data-invalid={field.invalid || undefined}
       className={cx(styles.control, styles.multiline)}
+      {...componentMark("Textarea")}
     />
   );
 }

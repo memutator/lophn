@@ -2,7 +2,12 @@ import type { ButtonHTMLAttributes, Ref } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { ButtonVariant } from "../button/button.tsx";
 import { Icon } from "../icon.tsx";
-import { controlIconPixels, type ControlSize, cx } from "../shared.ts";
+import {
+  componentMark,
+  controlIconPixels,
+  type ControlSize,
+  cx,
+} from "../shared.ts";
 import styles from "../button/button.module.css";
 
 type NativeButton = Omit<
@@ -45,6 +50,7 @@ export function IconButton(
         styles[size],
         styles.iconOnly,
       )}
+      {...componentMark("IconButton")}
     >
       <Icon icon={icon} pixels={controlIconPixels(size)} />
     </button>

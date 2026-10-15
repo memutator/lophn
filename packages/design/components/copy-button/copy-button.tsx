@@ -1,7 +1,7 @@
 import { Copy } from "lucide-react";
 import { t } from "@lophn/wording";
 import { IconButton } from "../icon-button/icon-button.tsx";
-import type { Clipboard } from "../shared.ts";
+import { type Clipboard, componentMark } from "../shared.ts";
 import styles from "./copy-button.module.css";
 import { useCopy } from "./use-copy.ts";
 
@@ -17,7 +17,7 @@ export interface CopyButtonProps {
 export function CopyButton({ text, label, clipboard }: CopyButtonProps) {
   const { failed, copy } = useCopy(clipboard);
   return (
-    <span className={styles.copy}>
+    <span className={styles.copy} {...componentMark("CopyButton")}>
       <IconButton
         icon={Copy}
         size="sm"

@@ -2,7 +2,7 @@ import * as Radix from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 import type { DialogWidth } from "../dialog/dialog.tsx";
 import { useReturnFocus } from "../return-focus.ts";
-import { cx } from "../shared.ts";
+import { componentMark, cx } from "../shared.ts";
 import parts from "../dialog/dialog.module.css";
 import styles from "./sheet.module.css";
 
@@ -41,6 +41,7 @@ export function Sheet(
           data-width={width}
           aria-describedby={undefined}
           {...focus}
+          {...componentMark("Sheet")}
         >
           <Radix.Title className={parts.title}>{title}</Radix.Title>
           {children !== undefined && (

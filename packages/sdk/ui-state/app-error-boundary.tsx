@@ -1,7 +1,12 @@
 import { Component, type ReactNode } from "react";
 import { CircleX } from "lucide-react";
 import { t } from "@lophn/wording";
-import { Button, Icon, iconPixels } from "@lophn/design/components";
+import {
+  Button,
+  componentMark,
+  Icon,
+  iconPixels,
+} from "@lophn/design/components";
 import styles from "./state.module.css";
 
 // 앱 preload가 main world에서 듣는 DOM event다(packages/shell/preload/app-api.ts). detail은 {name, message}다.
@@ -41,7 +46,11 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, State> {
   override render(): ReactNode {
     if (!this.state.failed) return this.props.children;
     return (
-      <div className={styles.failed} data-state="error">
+      <div
+        className={styles.failed}
+        data-state="error"
+        {...componentMark("AppErrorBoundary")}
+      >
         <Icon
           icon={CircleX}
           pixels={iconPixels("large")}

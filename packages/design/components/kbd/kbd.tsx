@@ -1,3 +1,4 @@
+import { componentMark } from "../shared.ts";
 import styles from "./kbd.module.css";
 
 export interface KbdProps {
@@ -7,7 +8,7 @@ export interface KbdProps {
 
 export function Kbd({ keys }: KbdProps) {
   return (
-    <kbd className={styles.combo}>
+    <kbd className={styles.combo} {...componentMark("Kbd")}>
       {keys.map((key) => <kbd key={key} className={styles.key}>{key}</kbd>)}
     </kbd>
   );

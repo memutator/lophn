@@ -3,7 +3,7 @@
 // 심볼과 코드 목록은 packages/core/apps/invocations/context.ts의 COMMAND_REJECTION과 같다
 // (SDK는 packages/core/apps를 import하지 않는다). 안내 문장에는 입력·상태 값을 넣지 않는다.
 
-export const COMMAND_REJECTION = Symbol.for("lophn.command-rejection");
+export const APP_API_REJECTION = Symbol.for("lophn.app-api-rejection");
 
 export const REJECTION_CODES = [
   "invalid_input",
@@ -13,14 +13,14 @@ export const REJECTION_CODES = [
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 
-export class CommandRejection extends Error {
+export class AppApiRejection extends Error {
   readonly code: RejectionCode;
-  readonly [COMMAND_REJECTION]: RejectionCode;
+  readonly [APP_API_REJECTION]: RejectionCode;
 
   constructor(code: RejectionCode, message: string) {
     super(message);
-    this.name = "CommandRejection";
+    this.name = "AppApiRejection";
     this.code = code;
-    this[COMMAND_REJECTION] = code;
+    this[APP_API_REJECTION] = code;
   }
 }

@@ -1,3 +1,3 @@
 import "./startup.ts";
-import "./direct-server.ts";
+import "./control-server.ts";
 console.log("loaded");

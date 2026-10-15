@@ -14,10 +14,10 @@ client는 "이 secret을 이 목적지로 보낼 때 플랫폼 전송부가 인�
 import { useSecret } from "@lophn/cap-secret";
 ```
 
-- `useSecret({ name, destination: { host, port } })` — command 안에서 부른다.
+- `useSecret({ name, destination: { host, port } })` — app-api handler 안에서 부른다.
   `{ used: true }`를 돌려준다. 목적지는 https이고 `net.fetch` grant가 허락한
-  정확한 host·port여야 한다. 호출마다 사람 확인을 받지 않고, command를 부른
-  쪽(사람 화면·agent·automation·다른 앱)으로 막지도 않는다.
+  정확한 host·port여야 한다. 호출마다 사람 확인을 받지 않고, app-api를 부른
+  쪽(사람 화면·agent·다른 앱)으로 막지도 않는다.
 - `createSecretClient({ host?, standIn? })` — host를 바꿔 끼운다.
 - `createSecretStandIn({ allowed? })` — preview·test의 대역이다. live가 아닌
   mode에서는 broker에도 외부에도 나가지 않고 `{ used: true, standIn: true }`만

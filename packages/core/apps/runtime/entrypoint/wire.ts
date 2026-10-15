@@ -1,125 +1,48 @@
-// direct socket·시작 입력의 순수 검증. contracts Zod schema와 같은 판정이어야 하고,
-// 앱 프로세스는 Zod를 싣지 않는다.
-
+// control socket·시작 입력의 순수 검증. protocol/apps의 calls/process-wire와 channel-values의
+// Zod schema와 같은 판정이어야 하고, 앱 프로세스는 Zod를 싣지 않는다.
 import type { Json, WireError } from "./wire-check.ts";
+import {
+  appApiKey,
+  BASE64,
+  exact,
+  id,
+  isJson,
+  record,
+  text,
+} from "./wire-check.ts";
 
 export type { Json, WireError };
 export type RuntimeMode = "live" | "preview" | "test";
-export type ScreenSize = "full" | "panel" | "card";
+export type InvocationEffect = "read" | "write" | "external";
 
-import {
-  AT,
-  commandKey,
-  exact,
-  id,
-  opaque,
-  record,
-  screenKey,
-  SHA,
-  stringList,
-  text,
-  unique,
-} from "./wire-check.ts";
-
-const SCREEN_SIZES = new Set<ScreenSize>(["full", "panel", "card"]);
-
-function screenSizes(
-  value: unknown,
-  screens: readonly string[],
-): Record<string, ScreenSize[]> | undefined {
-  const source = record(value);
-  if (!source) return;
-  const output: Record<string, ScreenSize[]> = {};
-  for (const key of Object.keys(source)) {
-    if (!screenKey(key) || !screens.includes(key)) return;
-    const sizes = source[key];
-    if (
-      !Array.isArray(sizes) || sizes.length === 0 ||
-      !sizes.every((size) =>
-        typeof size === "string" && SCREEN_SIZES.has(size as ScreenSize)
-      ) || !unique(sizes as string[])
-    ) return;
-    output[key] = sizes as ScreenSize[];
-  }
-  return output;
-}
-
-export type CallOrigin =
-  | {
-    kind: "app";
-    app: string;
-    release: string;
-    process_nonce: string;
-    grant: string;
-    parent_invocation: string | null;
-    path: string[];
-  }
-  | { kind: "agent"; run: string; tool_call: string };
-
-function callOrigin(value: unknown): CallOrigin | undefined {
-  const source = record(value);
-  if (!source) return;
-  if (source.kind === "agent") {
-    if (exact(source, ["kind", "run", "tool_call"])) return;
-    const run = id(source.run, "run");
-    const toolCall = id(source.tool_call, "tcl");
-    if (!run || !toolCall) return;
-    return { kind: "agent", run, tool_call: toolCall };
-  }
-  if (source.kind !== "app") return;
-  if (
-    exact(source, [
-      "kind",
-      "app",
-      "release",
-      "process_nonce",
-      "grant",
-      "parent_invocation",
-      "path",
-    ])
-  ) return;
-  const app = id(source.app, "app");
-  const release = id(source.release, "rel");
-  const nonce = text(source.process_nonce, "process nonce");
-  const grant = id(source.grant, "grt");
-  const parent = source.parent_invocation === null
-    ? null
-    : id(source.parent_invocation, "inv");
-  const path = stringList(source.path, (entry) => id(entry, "app"));
-  if (
-    !app || !release || !nonce || !grant || parent === undefined || !path ||
-    path.length > 7 || (path.length > 0 && path.at(-1) !== app)
-  ) return;
-  return {
-    kind: "app",
-    app,
-    release,
-    process_nonce: nonce,
-    grant,
-    parent_invocation: parent,
-    path,
-  };
-}
-
+// protocol/apps/calls/caller.ts와 같다.
 export type InvocationCaller =
-  | { kind: "direct" }
+  | { kind: "person"; view_session: string }
+  | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
     kind: "app";
     app: string;
     release: string;
     parent_invocation: string | null;
-  }
-  | { kind: "agent"; run: string; tool_call: string }
-  | { kind: "system" };
+  };
 
-function invocationCaller(value: unknown): InvocationCaller | undefined {
+function caller(value: unknown): InvocationCaller | undefined {
   const source = record(value);
-  if (!source || typeof source.kind !== "string") return;
+  if (!source) return;
   switch (source.kind) {
-    case "direct":
-      return exact(source, ["kind"]) ? undefined : { kind: "direct" };
-    case "system":
-      return exact(source, ["kind"]) ? undefined : { kind: "system" };
+    case "person": {
+      if (exact(source, ["kind", "view_session"])) return;
+      const view = text(source.view_session);
+      return view ? { kind: "person", view_session: view } : undefined;
+    }
+    case "agent": {
+      if (exact(source, ["kind", "session", "turn", "tool_call"])) return;
+      const session = id(source.session, "ses");
+      const turn = id(source.turn, "trn");
+      const toolCall = id(source.tool_call, "tcl");
+      if (!session || !turn || !toolCall) return;
+      return { kind: "agent", session, turn, tool_call: toolCall };
+    }
     case "app": {
       if (exact(source, ["kind", "app", "release", "parent_invocation"])) {
         return;
@@ -132,217 +55,105 @@ function invocationCaller(value: unknown): InvocationCaller | undefined {
       if (!app || !release || parent === undefined) return;
       return { kind: "app", app, release, parent_invocation: parent };
     }
-    case "agent": {
-      if (exact(source, ["kind", "run", "tool_call"])) return;
-      const run = id(source.run, "run");
-      const toolCall = id(source.tool_call, "tcl");
-      if (!run || !toolCall) return;
-      return { kind: "agent", run, tool_call: toolCall };
-    }
     default:
       return;
   }
 }
 
-export type AppConnection = {
-  app: string;
-  release: string | null;
-  bundle_hash: string;
-  mode: "live" | "preview" | "test";
-  process_nonce: string;
-  actor: string;
-  credential_ref: string;
-  screens: string[];
-  screen_sizes: Record<string, ScreenSize[]>;
-  caller: CallOrigin | null;
-  commands: string[];
-  expires_at: string | null;
-};
-
-const ACTOR =
-  /^(?:user|machine|coding_agent:cac_[0-7][0-9a-hjkmnp-tv-z]{25}|agent:asg_[0-7][0-9a-hjkmnp-tv-z]{25}|app:app_[0-7][0-9a-hjkmnp-tv-z]{25})$/;
-
-export function parseAppConnection(value: unknown): AppConnection | undefined {
-  const source = record(value);
-  if (!source) return;
-  if (
-    exact(source, [
-      "app",
-      "release",
-      "bundle_hash",
-      "mode",
-      "process_nonce",
-      "actor",
-      "credential_ref",
-      "screens",
-      "screen_sizes",
-      "caller",
-      "commands",
-      "expires_at",
-    ])
-  ) return;
-  const app = id(source.app, "app");
-  const release = source.release === null ? null : id(source.release, "rel");
-  const bundle =
-    typeof source.bundle_hash === "string" && SHA.test(source.bundle_hash)
-      ? source.bundle_hash
-      : undefined;
-  const mode = source.mode === "live" || source.mode === "preview" ||
-      source.mode === "test"
-    ? source.mode
-    : undefined;
-  const nonce = text(source.process_nonce, "process nonce");
-  const actor = typeof source.actor === "string" && ACTOR.test(source.actor)
-    ? source.actor
-    : undefined;
-  const credential = opaque(source.credential_ref, "opaque value");
-  const screens = stringList(source.screens, screenKey);
-  const commands = stringList(source.commands, commandKey);
-  const expires = source.expires_at === null
-    ? null
-    : typeof source.expires_at === "string" && AT.test(source.expires_at)
-    ? source.expires_at
-    : undefined;
-  const caller = source.caller === null ? null : callOrigin(source.caller);
-  if (
-    !app || release === undefined || !bundle || !mode || !nonce || !actor ||
-    !credential || !screens || !commands || expires === undefined ||
-    caller === undefined || (mode === "live" && release === null)
-  ) return;
-  const sizes = screenSizes(source.screen_sizes, screens);
-  if (!sizes) return;
-  return {
-    app,
-    release,
-    bundle_hash: bundle,
-    mode,
-    process_nonce: nonce,
-    actor,
-    credential_ref: credential,
-    screens,
-    screen_sizes: sizes,
-    caller,
-    commands,
-    expires_at: expires,
-  };
-}
-
-export type ConfirmProof = {
+export type ProcessCall = {
   invocation: string;
-  process_nonce: string;
-  release: string;
-  command: string;
-  input_hash: string;
-  caller: InvocationCaller;
-  expires_at: string;
+  api: string;
+  input?: Json;
+  context: {
+    app: string;
+    release: string | null;
+    mode: RuntimeMode;
+    project: string | null;
+    effect: InvocationEffect;
+    caller: InvocationCaller | null;
+  };
 };
 
-// core가 서명한 proof envelope. 서명 대상은 payload의 canonical JSON이다.
-export type SignedConfirmProof = { payload: unknown; signature: string };
-
-const SIGNATURE = /^[A-Za-z0-9_-]{86}$/;
-
-export function parseSignedConfirmProof(
-  value: unknown,
-): SignedConfirmProof | undefined {
+// processCallRequestSchema와 같다.
+export function parseProcessCall(value: unknown): ProcessCall | undefined {
   const source = record(value);
-  if (!source || exact(source, ["payload", "signature"])) return;
   if (
-    typeof source.signature !== "string" || !SIGNATURE.test(source.signature)
-  ) {
-    return;
-  }
-  // payload의 모양은 서명을 확인한 뒤 parseConfirmProof가 판정한다.
-  if (record(source.payload) === undefined) return;
-  return { payload: source.payload, signature: source.signature };
-}
-
-export function parseConfirmProof(value: unknown): ConfirmProof | undefined {
-  const source = record(value);
-  if (!source) return;
-  if (
-    exact(source, [
+    !source || exact(source, ["invocation", "api", "input", "context"], [
       "invocation",
-      "process_nonce",
-      "release",
-      "command",
-      "input_hash",
-      "caller",
-      "expires_at",
+      "api",
+      "context",
     ])
   ) return;
   const invocation = id(source.invocation, "inv");
-  const nonce = text(source.process_nonce, "process nonce");
-  const release = id(source.release, "rel");
-  const command = commandKey(source.command);
-  const hash =
-    typeof source.input_hash === "string" && SHA.test(source.input_hash)
-      ? source.input_hash
-      : undefined;
-  const caller = invocationCaller(source.caller);
-  const expires =
-    typeof source.expires_at === "string" && AT.test(source.expires_at)
-      ? source.expires_at
-      : undefined;
+  const api = appApiKey(source.api);
+  if (!invocation || !api) return;
+  if (source.input !== undefined && !isJson(source.input)) return;
+  const context = record(source.context);
   if (
-    !invocation || !nonce || !release || !command || !hash || !caller ||
-    !expires
-  ) {
-    return;
-  }
+    !context ||
+    exact(context, [
+      "app",
+      "release",
+      "mode",
+      "project",
+      "effect",
+      "caller",
+    ])
+  ) return;
+  const app = id(context.app, "app");
+  const release = context.release === null ? null : id(context.release, "rel");
+  const project = context.project === null ? null : id(context.project, "prj");
+  const mode = context.mode === "live" || context.mode === "preview" ||
+      context.mode === "test"
+    ? context.mode
+    : undefined;
+  const effect = context.effect === "read" || context.effect === "write" ||
+      context.effect === "external"
+    ? context.effect
+    : undefined;
+  const from = context.caller === null ? null : caller(context.caller);
+  if (
+    !app || release === undefined || project === undefined || !mode ||
+    !effect || from === undefined
+  ) return;
   return {
     invocation,
-    process_nonce: nonce,
-    release,
-    command,
-    input_hash: hash,
-    caller,
-    expires_at: expires,
+    api,
+    ...(source.input === undefined ? {} : { input: source.input }),
+    context: { app, release, mode, project, effect, caller: from },
   };
 }
 
-export function parseScreenPath(
-  pathname: string,
-): { screen: string; path: string } | undefined {
-  if (!pathname.startsWith("/screens/")) return;
-  const rest = pathname.slice("/screens/".length);
-  const slash = rest.indexOf("/");
-  if (slash <= 0 || slash === rest.length - 1) return;
-  const screen = decodeURIComponent(rest.slice(0, slash));
-  const path = rest.slice(slash + 1).split("/").map(decodeURIComponent).join(
-    "/",
-  );
-  if (!screenKey(screen) || !screenAssetPath(path)) return;
-  return { screen, path };
-}
-
-export function screenAssetPath(value: string): boolean {
-  return value.length > 0 && !value.includes("\\") &&
-    !value.split("/").includes("..") && !value.includes(":") &&
-    !value.startsWith("//");
+// processApplyRequestSchema와 같다.
+export function parseProcessApply(
+  value: unknown,
+): { changesets: string[] } | undefined {
+  const source = record(value);
+  if (!source || exact(source, ["changesets"])) return;
+  const list = source.changesets;
+  if (
+    !Array.isArray(list) ||
+    !list.every((item) => typeof item === "string" && BASE64.test(item))
+  ) return;
+  return { changesets: list as string[] };
 }
 
 export type ControlProbe = { process_nonce: string };
 export type ControlOpen = { process_nonce: string; release: string | null };
 export type ControlClose = { process_nonce: string; reason: string };
-export type ControlViewClosed = { process_nonce: string; view_session: string };
 export type ControlShutdown = { process_nonce: string; grace_ms: number };
-
-function controlNonce(source: Record<string, unknown>): string | undefined {
-  return text(source.process_nonce, "process nonce");
-}
 
 export function parseControlProbe(value: unknown): ControlProbe | undefined {
   const source = record(value);
   if (!source || exact(source, ["process_nonce"])) return;
-  const nonce = controlNonce(source);
+  const nonce = text(source.process_nonce);
   return nonce ? { process_nonce: nonce } : undefined;
 }
 
 export function parseControlOpen(value: unknown): ControlOpen | undefined {
   const source = record(value);
   if (!source || exact(source, ["process_nonce", "release"])) return;
-  const nonce = controlNonce(source);
+  const nonce = text(source.process_nonce);
   // 준비 전 bundle의 preview에는 release가 없다. null은 live 자식의 release 검사에서 불일치로 거절된다.
   const release = source.release === null ? null : id(source.release, "rel");
   if (!nonce || release === undefined) return;
@@ -352,24 +163,11 @@ export function parseControlOpen(value: unknown): ControlOpen | undefined {
 export function parseControlClose(value: unknown): ControlClose | undefined {
   const source = record(value);
   if (!source || exact(source, ["process_nonce", "reason"])) return;
-  const nonce = controlNonce(source);
-  if (
-    !nonce || typeof source.reason !== "string" || source.reason.length === 0
-  ) {
+  const nonce = text(source.process_nonce);
+  if (!nonce || typeof source.reason !== "string" || source.reason === "") {
     return;
   }
   return { process_nonce: nonce, reason: source.reason };
-}
-
-export function parseControlViewClosed(
-  value: unknown,
-): ControlViewClosed | undefined {
-  const source = record(value);
-  if (!source || exact(source, ["process_nonce", "view_session"])) return;
-  const nonce = controlNonce(source);
-  const view = opaque(source.view_session, "opaque value");
-  if (!nonce || !view) return;
-  return { process_nonce: nonce, view_session: view };
 }
 
 export function parseControlShutdown(
@@ -378,27 +176,7 @@ export function parseControlShutdown(
 ): ControlShutdown | undefined {
   const source = record(value);
   if (!source || exact(source, ["process_nonce", "grace_ms"])) return;
-  const nonce = controlNonce(source);
+  const nonce = text(source.process_nonce);
   if (!nonce || source.grace_ms !== graceMs) return;
   return { process_nonce: nonce, grace_ms: graceMs };
-}
-
-export type ScreenQuery = { size: ScreenSize; view_session: string };
-
-export function parseScreenQuery(
-  params: URLSearchParams,
-): ScreenQuery | undefined {
-  const size = params.get("size");
-  const view = params.get("view_session");
-  if (
-    !size || !SCREEN_SIZES.has(size as ScreenSize) || !view ||
-    !opaque(view, "opaque value")
-  ) {
-    return;
-  }
-  return { size: size as ScreenSize, view_session: view };
-}
-
-export function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }

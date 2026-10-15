@@ -1,101 +1,61 @@
 // 프로세스 수명의 호출 상태. entry가 만들어 넘긴다.
-import type { Clock, IdSource } from "@lophn/base";
-import type { Blueprint } from "../../blueprint/mod.ts";
-import { type ConfirmMarkers, createConfirmMarkers } from "./confirm-marker.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { BrokerClient } from "./broker-client.ts";
-import type { ProcessIdentity } from "./verify.ts";
-import type { VerifyKey } from "./signature.ts";
-import type { InvocationCaller, Json } from "./wire.ts";
+import type { StoreAccess } from "./cap-host.ts";
 
-export type InvocationProgress = "running" | "succeeded" | "failed" | "unknown";
-
-export type InvocationRecord = {
-  id: string;
-  requestKey: string;
-  command: string;
-  effect: "read" | "write" | "external";
-  caller: InvocationCaller;
-  progress: InvocationProgress;
-  result?: Json;
-  recorded: boolean;
-  // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다.
-  cancelRequested?: boolean;
-  // handler가 효과 전에 받지 않겠다고 알린 호출. 효과 없음이 알려진 실패다.
-  rejection?: { code: string; message: string };
-  // 종료 사실(timeout의 결과 모름)을 이미 보냈다. 늦은 handler 종료가 그 사실을 바꾸지 않는다.
-  settled?: boolean;
-  startedAt?: string;
+export type ProcessIdentity = {
+  app: string;
+  release: string | null;
+  bundleHash: string;
+  mode: "live" | "preview" | "test";
+  processNonce: string;
 };
 
-export type ViewSession = {
-  id: string;
-  screen: string;
-  size: "full" | "panel" | "card";
-};
+// 한 번에 하나만 돌리는 문이다. 앞 일이 실패해도 다음 일은 돈다.
+export type Mutex = <T>(work: () => Promise<T>) => Promise<T>;
+
+export function createMutex(): Mutex {
+  let tail: Promise<unknown> = Promise.resolve();
+  return (work) => {
+    const run = tail.then(work, work);
+    tail = run.then(() => undefined, () => undefined);
+    return run;
+  };
+}
 
 export type RuntimeState = {
   identity: ProcessIdentity;
   blueprint: Blueprint;
-  key: VerifyKey;
-  clock: Clock;
-  ids: IdSource;
   broker: BrokerClient;
+  store: StoreAccess;
   dataSchema: number;
-  directSocket: string;
+  controlSocket: string;
   ready: boolean;
   accepting: boolean;
   closed: boolean;
-  invocations: Map<string, InvocationRecord>;
-  byRequest: Map<string, string>;
-  markers: ConfirmMarkers;
-  views: Map<string, ViewSession>;
-  // 닫히거나 교체된 view session. 늦게 온 화면 요청이 닫힌 session을 되살리지 못한다. 상한을 넘으면
-  // 가장 오래된 것부터 잊는다.
-  closedViews: Set<string>;
-  screenBytes: (screen: string, path: string) => Uint8Array | undefined;
-  contentType: (path: string) => string;
+  // 도는 호출 수. shutdown이 끝나기를 기다린다.
+  running: number;
+  // write·external 호출과 적용은 이 문을 지난다. SQLite session이 연결 단위라 겹치면 한 changeset에
+  // 섞이기 때문이다.
+  exclusive: Mutex;
   // handler가 잡은 예외를 process를 끝내지 않고 보고한다. 없으면 보고하지 않는다.
   reportCaught?: (error: Error, invocation: string) => void;
 };
 
-export const CLOSED_VIEW_LIMIT = 1024;
-
-export function closeView(state: RuntimeState, viewSession: string): void {
-  state.views.delete(viewSession);
-  state.closedViews.delete(viewSession);
-  state.closedViews.add(viewSession);
-  while (state.closedViews.size > CLOSED_VIEW_LIMIT) {
-    const oldest = state.closedViews.values().next().value;
-    if (oldest === undefined) break;
-    state.closedViews.delete(oldest);
-  }
-}
-
 export function createRuntimeState(input: {
   identity: ProcessIdentity;
   blueprint: Blueprint;
-  key: VerifyKey;
-  clock: Clock;
-  ids: IdSource;
   broker: BrokerClient;
+  store: StoreAccess;
   dataSchema: number;
-  directSocket: string;
-  screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
-  contentType?: (path: string) => string;
+  controlSocket: string;
 }): RuntimeState {
   return {
     ...input,
     ready: false,
     accepting: false,
     closed: false,
-    invocations: new Map(),
-    byRequest: new Map(),
-    markers: createConfirmMarkers(),
-    views: new Map(),
-    closedViews: new Set(),
-    screenBytes: input.screenBytes ?? (() => undefined),
-    contentType: input.contentType ??
-      ((path) =>
-        path.endsWith(".js") ? "text/javascript" : "application/octet-stream"),
+    running: 0,
+    exclusive: createMutex(),
   };
 }

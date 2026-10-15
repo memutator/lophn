@@ -1,45 +1,10 @@
-// stdin 시작 JSON 한 줄의 순수 검증. contracts app-start와 같은 판정.
-import { SOCKET_PATH_MAX_BYTES } from "./limits.ts";
+// stdin 시작 JSON 한 줄의 순수 검증. protocol/apps/calls/process-wire의 appProcessStartInputSchema와
+// 같은 판정.
+import { endpoint, exact, id, record, SHA, text } from "./wire-check.ts";
 
-const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const SHA = /^[0-9a-f]{64}$/;
-const CONTROL = /\p{Cc}/u;
-
-function record(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return;
-  }
-  const keys = Object.keys(value);
-  for (const key of keys) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (!descriptor || !descriptor.enumerable || descriptor.get) return;
-  }
-  return value as Record<string, unknown>;
+function nonEmpty(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
-
-function exact(
-  value: Record<string, unknown>,
-  keys: readonly string[],
-): string | undefined {
-  const known = new Set(keys);
-  for (const key of Object.keys(value)) if (!known.has(key)) return key;
-  return;
-}
-
-function id(value: unknown, prefix: string): string | undefined {
-  if (typeof value !== "string") return;
-  const body = value.slice(prefix.length + 1);
-  return value.startsWith(`${prefix}_`) && ULID.test(body) ? value : undefined;
-}
-
-function endpoint(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length === 0) return;
-  return new TextEncoder().encode(value).byteLength < SOCKET_PATH_MAX_BYTES
-    ? value
-    : undefined;
-}
-
-const VERIFY_KEY = /^[A-Za-z0-9_-]{43}$/;
 
 export type AppStart = {
   app: string;
@@ -48,10 +13,9 @@ export type AppStart = {
   mode: "live" | "preview" | "test";
   process_nonce: string;
   broker_socket: string;
-  direct_socket: string;
+  control_socket: string;
   data_path: string;
   broker_credential: string;
-  verify_key: string;
 };
 
 export function parseAppStart(line: string): AppStart | undefined {
@@ -64,8 +28,8 @@ export function parseAppStart(line: string): AppStart | undefined {
     return;
   }
   const source = record(value);
-  if (!source) return;
   if (
+    !source ||
     exact(source, [
       "app",
       "release",
@@ -73,10 +37,9 @@ export function parseAppStart(line: string): AppStart | undefined {
       "mode",
       "process_nonce",
       "broker_socket",
-      "direct_socket",
+      "control_socket",
       "data_path",
       "broker_credential",
-      "verify_key",
     ])
   ) return;
   const app = id(source.app, "app");
@@ -89,28 +52,14 @@ export function parseAppStart(line: string): AppStart | undefined {
       source.mode === "test"
     ? source.mode
     : undefined;
-  const nonce = typeof source.process_nonce === "string" &&
-      source.process_nonce.length > 0 && !CONTROL.test(source.process_nonce)
-    ? source.process_nonce
-    : undefined;
+  const nonce = text(source.process_nonce);
   const broker = endpoint(source.broker_socket);
-  const direct = endpoint(source.direct_socket);
-  const data =
-    typeof source.data_path === "string" && source.data_path.length > 0
-      ? source.data_path
-      : undefined;
-  const credential = typeof source.broker_credential === "string" &&
-      source.broker_credential.length > 0
-    ? source.broker_credential
-    : undefined;
-  const verifyKey = typeof source.verify_key === "string" &&
-      VERIFY_KEY.test(source.verify_key)
-    ? source.verify_key
-    : undefined;
+  const control = endpoint(source.control_socket);
+  const data = nonEmpty(source.data_path);
+  const credential = nonEmpty(source.broker_credential);
   if (
     !app || release === undefined || !bundle || !mode || !nonce || !broker ||
-    !direct || !data || !credential || !verifyKey ||
-    (mode === "live" && release === null)
+    !control || !data || !credential || (mode === "live" && release === null)
   ) return;
   return {
     app,
@@ -119,9 +68,8 @@ export function parseAppStart(line: string): AppStart | undefined {
     mode,
     process_nonce: nonce,
     broker_socket: broker,
-    direct_socket: direct,
+    control_socket: control,
     data_path: data,
     broker_credential: credential,
-    verify_key: verifyKey,
   };
 }

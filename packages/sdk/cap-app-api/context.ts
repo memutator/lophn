@@ -1,25 +1,32 @@
 // host port 모양. packages/core/apps/invocations/context.ts와 같은 필드다.
 // SDK는 packages/core/apps를 import하지 않는다.
 
+// core가 알려 준 부른 쪽이다(process-wire의 caller와 같다).
+export type AppApiCaller =
+  | { kind: "person"; view_session: string }
+  | { kind: "agent"; session: string; turn: string; tool_call: string }
+  | {
+    kind: "app";
+    app: string;
+    release: string;
+    parent_invocation: string | null;
+  };
+
 export type InvocationContext = {
   app: string;
   release: string | null;
   mode: "live" | "preview" | "test";
   invocation: string | null;
-  // 이 호출의 command key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
-  command?: string | null;
+  // project 범위 app-api가 아니면 null이다.
+  project: string | null;
+  // 이 호출의 app-api key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
+  api?: string | null;
   inputHash?: string | null;
-  // 이 호출을 다른 앱에게서 받았다면 그 앱의 인증된 출처 식별이다(받은 연결의 caller).
-  // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다.
-  caller?: {
-    app: string;
-    release: string;
-    parent_invocation: string | null;
-  } | null;
+  caller?: AppApiCaller | null;
 };
 
 export type RegisteredHandler = {
-  command: string;
+  api: string;
   handle: (input: unknown) => Promise<unknown> | unknown;
 };
 
@@ -30,7 +37,7 @@ export type SchedulePort = {
   current(): InvocationContext | null;
 };
 
-export const SCHEDULE_PORT = Symbol.for("lophn.cap-schedule");
+export const SCHEDULE_PORT = Symbol.for("lophn.cap-app-api");
 
 type Store = Record<symbol, unknown>;
 

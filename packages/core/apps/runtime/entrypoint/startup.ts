@@ -1,23 +1,19 @@
 // 시작은 ready=false·accepting=false. 앱 code load 뒤에 등록 handler로 attestation을 만든다.
-import type { Clock, IdSource } from "@lophn/base";
-import type { Blueprint } from "../../blueprint/mod.ts";
-import {
-  createPairPort,
-  installPairPort,
-  type PairDirect,
-  unixPairDirect,
-} from "../../connections/mod.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
-import { createCapHost, installCapHost } from "./cap-host.ts";
-import { ensureSchedulePort } from "./schedule.ts";
+import {
+  createCapHost,
+  createStoreAccess,
+  encodeChangeset,
+  installCapHost,
+} from "./cap-host.ts";
+import { ensureAppApiPort } from "./app-api-port.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
-import { commandsMatchBlueprint } from "./control.ts";
-import { decodeVerifyKey, type VerifyKey } from "./signature.ts";
-import type { RuntimeMode } from "./wire.ts";
+import { attestation } from "./control.ts";
 
 export type Started = {
-  start: Omit<AppStart, "mode"> & { mode: RuntimeMode };
+  start: AppStart;
   state: RuntimeState;
 };
 
@@ -32,20 +28,12 @@ export async function readStartLine(
 export function startRuntime(deps: {
   line: string;
   blueprint: Blueprint;
-  key?: VerifyKey;
-  clock: Clock;
-  ids: IdSource;
   broker: BrokerTransport;
   dataSchema: number;
-  screenBytes?: RuntimeState["screenBytes"];
-  contentType?: RuntimeState["contentType"];
-  // 다른 앱 direct socket 전송. 기본은 Unix socket HTTP다.
-  pairDirect?: PairDirect;
 }): Started {
   const parsed = parseAppStart(deps.line);
   if (!parsed) throw new Error("app start input is invalid");
-  const key = deps.key ?? decodeVerifyKey(parsed.verify_key);
-  if (!key) throw new Error("verify key is invalid");
+  const store = createStoreAccess();
   const state = createRuntimeState({
     identity: {
       app: parsed.app,
@@ -55,47 +43,38 @@ export function startRuntime(deps: {
       processNonce: parsed.process_nonce,
     },
     blueprint: deps.blueprint,
-    key,
-    clock: deps.clock,
-    ids: deps.ids,
     dataSchema: deps.dataSchema,
-    directSocket: parsed.direct_socket,
+    controlSocket: parsed.control_socket,
+    store,
     broker: createBrokerClient({
       transport: deps.broker,
       socketPath: parsed.broker_socket,
       credential: parsed.broker_credential,
       child: { process_nonce: parsed.process_nonce, mode: parsed.mode },
     }),
-    screenBytes: deps.screenBytes,
-    contentType: deps.contentType,
   });
-  // SDK의 connectAppCommands가 쓰는 앱 쌍 통로다. 준비 요청만 broker로 가고 업무 요청은 direct다.
-  installPairPort(createPairPort({
-    postConnect: (body) => state.broker.appsConnect(body),
-    postConfirmRequest: (body) => state.broker.appsConfirmRequest(body),
-    postConfirmPoll: (body) => state.broker.appsConfirmPoll(body),
-    direct: deps.pairDirect ?? unixPairDirect,
-  }));
-  // cap-net·cap-secret·cap-store의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
+  // cap-net·cap-secret·cap-store·cap-project의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
   // SDK가 port로만 쓴다.
   installCapHost(createCapHost({
     mode: parsed.mode,
     dataPath: parsed.data_path,
+    store,
     post: (path, body) => state.broker.post(path, body),
-    current: () => ensureSchedulePort().current(),
+    current: () => ensureAppApiPort().current(),
   }));
+  // 앱 code를 불러오는 동안 등록 handler가 DB를 쓸 수 있다. 이 구간의 변경도 changeset으로 뜬다.
+  store.begin();
   return { start: parsed, state };
 }
 
-export async function publishReady(state: RuntimeState): Promise<boolean> {
-  if (!commandsMatchBlueprint(state)) return false;
-  const response = await state.broker.ready({
-    release: state.identity.release,
-    bundle_hash: state.identity.bundleHash,
-    commands: state.blueprint.commands.map((command) => command.key),
-    data_schema: state.dataSchema,
-    process_nonce: state.identity.processNonce,
-    connection_ok: true,
-  });
+// 앱 시작이 DB를 바꿨으면 그 changeset을 ready 통보에 싣는다.
+export async function publishReady(
+  state: RuntimeState,
+  startChangeset: Uint8Array | null,
+): Promise<boolean> {
+  const response = await state.broker.ready(
+    attestation(state),
+    encodeChangeset(startChangeset),
+  );
   return response.status === 200;
 }

@@ -3,12 +3,29 @@
 
 export const CAP_HOST = Symbol.for("lophn.cap-host");
 
+// runtime은 SDK를 import하지 않으므로 changeset 훅을 이 symbol의 전역 값으로 주고받는다.
+export const STORE_HOOKS = Symbol.for("lophn.cap-store");
+
 export type RuntimeMode = "live" | "preview" | "test";
+
+export type ApplyOutcome = { ok: true } | { ok: false; message: string };
+
+// runtime(packages/core/apps/runtime/entrypoint/cap-host.ts)이 부르는 훅이다.
+export type StoreHooks = {
+  // 이 process의 DB 연결에 SQLite session을 건다.
+  beginChangeset(): void;
+  // session을 닫고 changeset을 돌려준다. 바뀐 것이 없으면 null이다.
+  endChangeset(): Uint8Array | null;
+  // 한 transaction으로 순서대로 적용한다. 하나라도 충돌하면 하나도 적용하지 않는다.
+  applyChangesets(changesets: readonly Uint8Array[]): ApplyOutcome;
+};
 
 export type StoreHost = {
   mode: RuntimeMode;
   // 앱 전용 data 영역이다. 앱의 SQLite DB는 이 안에 있다.
   dataPath: string;
+  // 앱 시작처럼 SDK가 load되기 전에 session 구간이 시작될 수 있다. 연결을 여는 쪽이 이걸 본다.
+  store?: { recording(): boolean };
 };
 
 export function readHost(): StoreHost | undefined {

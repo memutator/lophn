@@ -2,9 +2,8 @@
 import { SOCKET_PATH_MAX_BYTES } from "./limits.ts";
 
 export const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-export const AT =
-  /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 export const SHA = /^[0-9a-f]{64}$/;
+export const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 export const CONTROL = /\p{Cc}/u;
 
 export type WireError = { message: string };
@@ -58,21 +57,25 @@ export function record(value: unknown): Record<string, unknown> | undefined {
   return ownKeys(value) ? value as Record<string, unknown> : undefined;
 }
 
+// 모르는 칸이나 빠진 칸의 이름을 돌려준다. 없으면 undefined다.
 export function exact(
   value: Record<string, unknown>,
   keys: readonly string[],
+  required: readonly string[] = keys,
 ): string | undefined {
   const known = new Set(keys);
   for (const key of Object.keys(value)) {
     if (!known.has(key)) return `unknown field ${key}`;
   }
+  for (const key of required) {
+    if (!(key in value)) return `missing field ${key}`;
+  }
   return;
 }
 
-export function text(value: unknown, name: string): string | undefined {
+export function text(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length === 0) return;
-  if (CONTROL.test(value)) return `${name} contains a control character`;
-  return value;
+  return CONTROL.test(value) ? undefined : value;
 }
 
 export function id(value: unknown, prefix: string): string | undefined {
@@ -82,20 +85,13 @@ export function id(value: unknown, prefix: string): string | undefined {
   return;
 }
 
-export function opaque(value: unknown, name: string): string | undefined {
-  return text(value, name);
-}
-
-export function commandKey(value: unknown): string | undefined {
-  const key = text(value, "command key");
-  if (!key || key.trim().length === 0 || key.includes("*")) return;
-  return key;
-}
-
-export function screenKey(value: unknown): string | undefined {
-  const key = text(value, "screen key");
-  if (!key || key.trim().length === 0) return;
-  return key;
+// appApiKeySchema와 같은 검사다.
+export function appApiKey(value: unknown): string | undefined {
+  if (typeof value !== "string" || value.length === 0) return;
+  if (value.trim() !== value || CONTROL.test(value) || value.includes("*")) {
+    return;
+  }
+  return value;
 }
 
 export function endpoint(value: unknown): string | undefined {
@@ -104,17 +100,4 @@ export function endpoint(value: unknown): string | undefined {
     return;
   }
   return value;
-}
-
-export function unique(values: readonly string[]): boolean {
-  return new Set(values).size === values.length;
-}
-
-export function stringList(
-  value: unknown,
-  item: (value: unknown) => string | undefined,
-): string[] | undefined {
-  if (!Array.isArray(value) || !value.every((entry) => item(entry))) return;
-  const list = value as string[];
-  return unique(list) ? list : undefined;
 }

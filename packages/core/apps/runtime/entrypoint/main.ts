@@ -3,12 +3,11 @@
 import { createIdSource, systemClock } from "@lophn/base";
 import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS } from "./limits.ts";
-import { bundleScreenFiles } from "./screen-files.ts";
-import { ensureSchedulePort } from "./schedule.ts";
-import { startRuntime } from "./startup.ts";
-import { startDirectServer } from "./direct-server.ts";
+import { ensureAppApiPort } from "./app-api-port.ts";
+import { publishReady, startRuntime } from "./startup.ts";
+import { startControlServer } from "./control-server.ts";
 import { parseAppStart } from "./start-input.ts";
-import type { Blueprint } from "../../blueprint/mod.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
 
 const OBSERVER = "@lophn/cap-problem";
@@ -49,9 +48,6 @@ export type MainDeps = {
   reportTransport: (input: unknown) => Promise<unknown>;
   // 앱 code의 reportProblem 보고 transport. 없으면 reporter를 설치하지 않는다.
   problemTransport?: (input: unknown) => Promise<unknown>;
-  // 화면 자원. 실제 앱 프로세스는 bundle 사본의 screens/에서 읽는다.
-  screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
-  contentType?: (path: string) => string;
   exit?: (code: number) => void;
   writeStderr?: (text: string) => void;
 };
@@ -77,7 +73,7 @@ export async function main(deps: MainDeps): Promise<void> {
     deps.problemTransport && observer.createProblemReporter &&
     observer.installProblemReporter
   ) {
-    const schedule = ensureSchedulePort();
+    const schedule = ensureAppApiPort();
     observer.installProblemReporter(observer.createProblemReporter({
       transport: deps.problemTransport,
       now: () => clock.now(),
@@ -101,12 +97,8 @@ export async function main(deps: MainDeps): Promise<void> {
   const started = startRuntime({
     line,
     blueprint: deps.blueprint,
-    clock,
-    ids,
     broker: deps.broker,
     dataSchema: deps.dataSchema,
-    screenBytes: deps.screenBytes,
-    contentType: deps.contentType,
   });
   started.state.reportCaught = (error, invocation) => {
     const message = error.message;
@@ -133,8 +125,21 @@ export async function main(deps: MainDeps): Promise<void> {
       // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
     });
   };
-  await deps.importModule(APP);
-  startDirectServer(started.state);
+  try {
+    await deps.importModule(APP);
+  } catch (error) {
+    started.state.store.end();
+    throw error;
+  }
+  const startChangeset = started.state.store.end();
+  startControlServer(started.state, { exit });
+  // 시작이 DB를 바꿨을 때만 알린다. 알리지 못하면 changeset이 사라지므로 시작을 실패로 본다.
+  if (
+    startChangeset !== null &&
+    !(await publishReady(started.state, startChangeset))
+  ) {
+    throw new Error("ready notice was refused");
+  }
 }
 
 // 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
@@ -152,7 +157,7 @@ export async function run(): Promise<void> {
 if (import.meta.main) await run();
 
 // supervisor와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
-// 줄에서, blueprint와 화면 자원은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
+// 줄에서, blueprint는 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
 // 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
 async function boot(): Promise<void> {
   const line = await readStdinLine();
@@ -162,8 +167,6 @@ async function boot(): Promise<void> {
   const bundleDir = bundleDirectory();
   const blueprint = await readBlueprint(bundleDir);
   if (!blueprint) throw new Error("app blueprint is missing");
-  // 화면 자원은 blueprint와 같은 bundle 사본의 screens/ 아래다.
-  const screens = bundleScreenFiles(bundleDir);
   const broker = start.broker_socket;
   const credential = start.broker_credential;
   await main({
@@ -181,12 +184,10 @@ async function boot(): Promise<void> {
         start,
         input,
       ),
-    screenBytes: screens.screenBytes,
-    contentType: screens.contentType,
   });
 }
 
-// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 blueprint.json·migrations·screens가
+// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 blueprint.json·migrations가
 // 이 폴더에 있다.
 function bundleDirectory(): string {
   const url = new URL(import.meta.resolve("@lophn/app"));

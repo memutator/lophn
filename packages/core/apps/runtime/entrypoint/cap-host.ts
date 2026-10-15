@@ -1,30 +1,88 @@
-// cap-net·cap-secret·cap-store가 앱 프로세스 host에 닿는 전역 port다. SDK는 packages/core/apps를
-// import하지 않아서 두 쪽이 같은 symbol과 모양으로 맞춘다(packages/sdk/cap-net/host.ts). 자식 credential과
-// process nonce는 이 port 안에만 있고 앱 코드와 SDK는 보지 못한다. 이 port가 없으면 capability는
-// unavailable이다.
+// cap-net·cap-secret·cap-store·cap-project가 앱 프로세스 host에 닿는 전역 port다. SDK는
+// packages/core/apps를 import하지 않아서 두 쪽이 같은 symbol과 모양으로 맞춘다(packages/sdk/cap-net/host.ts).
+// 자식 credential과 process nonce는 이 port 안에만 있고 앱 코드와 SDK는 보지 못한다. 이 port가 없으면
+// capability는 unavailable이다.
 import { createHash } from "node:crypto";
-import { canonicalJson } from "../../blueprint/mod.ts";
-import type { JsonValue } from "../../blueprint/mod.ts";
+import { Buffer } from "node:buffer";
+import { canonicalJson } from "../../../../protocol/apps/blueprint/mod.ts";
+import type { JsonValue } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { InvocationContext } from "../../invocations/mod.ts";
 import type { BrokerResponse } from "./broker-client.ts";
 
 export const CAP_HOST = Symbol.for("lophn.cap-host");
+// cap-store가 설치하는 changeset 훅이다(packages/sdk/cap-store/host.ts의 STORE_HOOKS와 같다).
+export const STORE_HOOKS = Symbol.for("lophn.cap-store");
+
+export type ApplyOutcome = { ok: true } | { ok: false; message: string };
+
+type StoreHooks = {
+  beginChangeset(): void;
+  endChangeset(): Uint8Array | null;
+  applyChangesets(changesets: readonly Uint8Array[]): ApplyOutcome;
+};
+
+// runtime이 쓰는 앱 DB의 changeset 접근이다. 앱 시작처럼 SDK가 load되기 전에 session 구간이 시작될 수
+// 있어서 구간 여부(recording)를 여기서 들고, cap-store는 연결을 열 때 그것을 본다.
+export type StoreAccess = {
+  recording(): boolean;
+  begin(): void;
+  end(): Uint8Array | null;
+  apply(changesets: readonly Uint8Array[]): ApplyOutcome;
+};
+
+export function createStoreAccess(): StoreAccess {
+  let recording = false;
+  const hooks = () =>
+    (globalThis as Record<symbol, unknown>)[STORE_HOOKS] as
+      | StoreHooks
+      | undefined;
+  return {
+    recording: () => recording,
+    begin() {
+      recording = true;
+      hooks()?.beginChangeset();
+    },
+    end() {
+      recording = false;
+      return hooks()?.endChangeset() ?? null;
+    },
+    apply(changesets) {
+      const found = hooks();
+      if (found) return found.applyChangesets(changesets);
+      // cap-store를 load하지 않은 앱은 DB가 없다.
+      return changesets.length === 0
+        ? { ok: true }
+        : { ok: false, message: "app database is not available" };
+    },
+  };
+}
+
+export function encodeChangeset(bytes: Uint8Array | null): string | null {
+  return bytes === null ? null : Buffer.from(bytes).toString("base64");
+}
+
+export function decodeChangeset(text: string): Uint8Array {
+  return new Uint8Array(Buffer.from(text, "base64"));
+}
 
 export type CapHostPort = {
   mode: "live" | "preview" | "test";
   // cap-store가 읽는 앱 data 영역(시작 입력의 data_path)이다.
   dataPath: string;
+  store: { recording(): boolean };
   post(
     path: string,
     body: Record<string, unknown>,
     options?: { signal?: AbortSignal },
   ): Promise<BrokerResponse>;
-  // 지금 실행 중인 command 호출의 문맥이다. 호출 밖(시작 코드 등)이면 null이다.
+  // 지금 실행 중인 app-api 호출의 문맥이다. 호출 밖(시작 코드 등)이면 null이다. `command`는 broker 요청이
+  // 쓰는 이름이고 app-api key다.
   call(): {
     command: string;
     inputHash: string;
     release: string | null;
     invocation: string | null;
+    project: string | null;
   } | null;
 };
 
@@ -45,12 +103,14 @@ function aborted(signal: AbortSignal): Error {
 export function createCapHost(deps: {
   mode: CapHostPort["mode"];
   dataPath: string;
+  store: StoreAccess;
   post(path: string, body: unknown): Promise<BrokerResponse>;
   current(): InvocationContext | null;
 }): CapHostPort {
   return {
     mode: deps.mode,
     dataPath: deps.dataPath,
+    store: { recording: () => deps.store.recording() },
     post(path, body, options) {
       const signal = options?.signal;
       if (signal?.aborted) return Promise.reject(aborted(signal));
@@ -68,15 +128,15 @@ export function createCapHost(deps: {
     call() {
       const context = deps.current();
       if (
-        context === null || context.command === undefined ||
-        context.command === null || context.inputHash === undefined ||
-        context.inputHash === null
+        context === null || context.api === undefined || context.api === null ||
+        context.inputHash === undefined || context.inputHash === null
       ) return null;
       return {
-        command: context.command,
+        command: context.api,
         inputHash: context.inputHash,
         release: context.release,
         invocation: context.invocation,
+        project: context.project,
       };
     },
   };

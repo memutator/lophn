@@ -1,14 +1,25 @@
 // 앱이 자기 data 영역의 SQLite DB를 여는 얇은 client다. 추가 permission은 없다.
 // 앱 프로세스는 자기 data 영역에만 읽기·쓰기 flag가 있고 다른 앱 DB·플랫폼 파일은 flag가 없다.
 // schema 번호와 migration 이력은 data worker가 쓰는 같은 표(lophn_data_schema)를 쓴다.
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { resolve } from "node:path";
+import {
+  type Migration,
+  MIGRATION_PRIMARY_KEY_REQUIRED,
+  tablesWithoutPrimaryKey,
+} from "../../protocol/apps/activation/migration.ts";
+import {
+  attachNewTables,
+  closeConnection,
+  DEFAULT_DATABASE_FILE,
+  openConnection,
+  SCHEMA_TABLE,
+} from "./connection.ts";
 import { CapabilityError } from "./errors.ts";
 import { readHost, type StoreHost } from "./host.ts";
 
-// data worker가 activation 때 같은 파일을 연다. 이름을 바꾸면 그쪽도 같이 바꾼다.
-export const DEFAULT_DATABASE_FILE = "app.sqlite";
-export const SCHEMA_TABLE = "lophn_data_schema";
+export { DEFAULT_DATABASE_FILE, SCHEMA_TABLE };
+export type { Migration };
 
 const SCHEMA_SQL = [
   `create table if not exists ${SCHEMA_TABLE} (`,
@@ -21,20 +32,14 @@ const SCHEMA_SQL = [
   ")",
 ].join("\n");
 
-export type Migration = {
-  from: number;
-  to: number;
-  // 한 단계의 SQL이다. 공개한 단계는 고치지 않고 새 단계를 더한다.
-  sql: string;
-};
-
 export type Store = {
-  // 앱 자신의 DB다. SQL은 앱이 직접 쓴다.
+  // 앱 자신의 DB다. 이 process의 연결 하나이고 SQL은 앱이 직접 쓴다.
   readonly db: DatabaseSync;
   // 지금 DB의 schema 번호다. migration을 한 번도 적용하지 않았으면 0이다.
   schema(): number;
   // 현재 schema에서 target까지 연속 경로를 순서대로 적용한다. 단계마다 한 transaction이고
-  // 실패한 단계는 rollback한다. 운영(live) 앱은 schema를 바꾸지 못한다. 운영의 변경은
+  // 실패한 단계는 rollback한다. 새로 만든 표에 PRIMARY KEY가 없으면 그 단계가 실패한다(changeset이
+  // 그 표의 변경을 기록하지 못하기 때문이다). 운영(live) 앱은 schema를 바꾸지 못한다. 운영의 변경은
   // activation 때 data worker가 backup을 뜬 뒤 같은 단계로 한다.
   migrate(
     steps: readonly Migration[],
@@ -46,7 +51,7 @@ export type Store = {
 };
 
 export type OpenStoreOptions = {
-  // 기본은 `<data 영역>/app.sqlite`다.
+  // 기본은 `<data 영역>/app.sqlite`다. ":memory:"는 그대로 연다.
   path?: string;
   host?: StoreHost;
   now?: () => string;
@@ -65,6 +70,7 @@ async function sha256(text: string): Promise<string> {
 }
 
 function path(options: OpenStoreOptions): string {
+  if (options.path === ":memory:") return options.path;
   if (options.path !== undefined) return resolve(options.path);
   const host = options.host ?? readHost();
   if (!host) {
@@ -76,31 +82,26 @@ function path(options: OpenStoreOptions): string {
   return resolve(host.dataPath, DEFAULT_DATABASE_FILE);
 }
 
+function userTables(db: DatabaseSync): string[] {
+  return db.prepare(
+    `select name from sqlite_master
+       where type = 'table' and name not like 'sqlite_%' and name != ?
+         and sql not like 'CREATE VIRTUAL%'`,
+  ).all(SCHEMA_TABLE).map((row) => String(row["name"]));
+}
+
+function primaryKeyColumns(db: DatabaseSync, table: string): number {
+  const columns = db.prepare(
+    `pragma table_info("${table.replaceAll('"', '""')}")`,
+  ).all();
+  return columns.filter((column) => Number(column["pk"]) > 0).length;
+}
+
 export function openStore(options: OpenStoreOptions = {}): Store {
   const file = path(options);
   const mode = options.host?.mode ?? readHost()?.mode ?? "preview";
   const now = options.now ?? (() => new Date().toISOString());
-  let db: DatabaseSync;
-  try {
-    db = new DatabaseSync(file);
-    db.exec("pragma journal_mode = wal");
-    db.exec("pragma foreign_keys = on");
-    db.exec("pragma busy_timeout = 5000");
-  } catch (error) {
-    if (error instanceof Deno.errors.NotCapable) {
-      throw new CapabilityError({
-        code: "forbidden",
-        message:
-          `fs.write {"path":"${file}"} is outside the app data area. Keep the database in the app data path.`,
-        permission: "fs.write",
-        scope: { path: file, recursive: false },
-      });
-    }
-    throw new CapabilityError({
-      code: "unavailable",
-      message: "app database cannot be opened",
-    });
-  }
+  const db = openConnection(file);
   const store: Store = {
     db,
     schema() {
@@ -149,7 +150,19 @@ export function openStore(options: OpenStoreOptions = {}): Store {
         const hash = `sha256:${await sha256(step.sql)}`;
         try {
           db.exec("begin immediate");
+          const before = new Set(userTables(db));
           db.exec(step.sql);
+          const missing = tablesWithoutPrimaryKey(
+            userTables(db).filter((name) => !before.has(name)).map((name) => ({
+              name,
+              primary_key_columns: primaryKeyColumns(db, name),
+            })),
+          );
+          if (missing.length > 0) {
+            throw invalid(
+              `${MIGRATION_PRIMARY_KEY_REQUIRED}: ${missing.join(", ")}`,
+            );
+          }
           db.prepare(
             `insert into ${SCHEMA_TABLE}
                (id, data_schema, last_result, script_hash, applied_at)
@@ -161,17 +174,19 @@ export function openStore(options: OpenStoreOptions = {}): Store {
                applied_at = excluded.applied_at`,
           ).run(step.to, hash, now());
           db.exec("commit");
-        } catch {
+        } catch (error) {
           try {
             db.exec("rollback");
           } catch {
             // rollback 실패도 단계를 적용된 것으로 보지 않는다.
           }
+          if (error instanceof CapabilityError) throw error;
           throw invalid(
             `migration ${step.from} to ${step.to} failed and was rolled back`,
           );
         }
       }
+      attachNewTables(db);
       return store.schema();
     },
     transaction(work) {
@@ -193,7 +208,7 @@ export function openStore(options: OpenStoreOptions = {}): Store {
       }
     },
     close() {
-      db.close();
+      closeConnection(file);
     },
   };
   return store;

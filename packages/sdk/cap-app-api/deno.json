@@ -1,5 +1,5 @@
 {
-  "name": "@lophn/cap-schedule",
+  "name": "@lophn/cap-app-api",
   "version": "1.0.0",
   "exports": "./mod.ts"
 }

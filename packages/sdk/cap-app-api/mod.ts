@@ -1,18 +1,17 @@
 export {
-  command,
+  appApi,
   currentContext,
-  registeredCommands,
+  registeredAppApis,
   runWith,
 } from "./handlers.ts";
 export type {
+  AppApiCaller,
   InvocationContext,
   RegisteredHandler,
   SchedulePort,
 } from "./context.ts";
 export { SCHEDULE_PORT } from "./context.ts";
-export { CommandRejection } from "./rejection.ts";
-export { withRevert } from "./revert.ts";
-export type { RevertableResult, RevertEvidence } from "./revert.ts";
+export { AppApiRejection } from "./rejection.ts";
 export type { RejectionCode } from "./rejection.ts";
 export { TRACE_NAME_MAX_CHARS, traceName } from "./trace.ts";
 export {
@@ -29,13 +28,12 @@ export type {
   ReadQuery,
   ReadSource,
 } from "./results.ts";
-export { connectAppCommands, PAIR_PORT } from "./connect.ts";
+export { connectAppApi } from "./connect.ts";
 export type {
-  AppCallOptions,
-  AppCommandOutcome,
-  AppCommandsClient,
+  AppApiCallOutput,
+  AppApiClient,
+  AppApiOutcome,
   AppError,
   AppErrorCode,
   AppResult,
-  PairPort,
 } from "./connect.ts";

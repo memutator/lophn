@@ -14,8 +14,8 @@ function port(): SchedulePort {
   return {
     handlers: () => registry.slice(),
     register(handler) {
-      if (registry.some((known) => known.command === handler.command)) {
-        throw new Error(`command already registered: ${handler.command}`);
+      if (registry.some((known) => known.api === handler.api)) {
+        throw new Error(`app-api already registered: ${handler.api}`);
       }
       registry.push(handler);
     },
@@ -33,11 +33,11 @@ function live(): SchedulePort {
   return currentPort() ?? installed;
 }
 
-export function command(
-  name: string,
+export function appApi(
+  key: string,
   handle: RegisteredHandler["handle"],
 ): void {
-  live().register({ command: name, handle });
+  live().register({ api: key, handle });
 }
 
 export function currentContext(): InvocationContext | null {
@@ -51,6 +51,6 @@ export function runWith<T>(
   return live().run(context, fn);
 }
 
-export function registeredCommands(): readonly string[] {
-  return live().handlers().map((handler) => handler.command);
+export function registeredAppApis(): readonly string[] {
+  return live().handlers().map((handler) => handler.api);
 }

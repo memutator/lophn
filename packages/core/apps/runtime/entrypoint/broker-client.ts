@@ -1,5 +1,5 @@
 // 앱이 broker socket으로 보내는 좁은 요청. supervisor 구현은 runtime/supervisor에 있다.
-import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
+import { BROKER_PATHS } from "./limits.ts";
 
 export type BrokerRequest = {
   socketPath: string;
@@ -34,38 +34,26 @@ export function createBrokerClient(deps: {
     });
   }
   return {
-    host: SOCKET_HOST,
     // cap-host port의 `post`다. 신원(process_nonce·mode)은 연결이 붙이고 본문은 그 위에 얹힌다.
     post,
-    ready(attestation: unknown) {
-      return post(BROKER_PATHS.ready, { attestation });
+    // 앱 시작이 DB를 바꿨으면 그 changeset(base64)을 싣는다.
+    ready(attestation: unknown, startChangeset: string | null) {
+      return post(BROKER_PATHS.ready, {
+        attestation,
+        ...(startChangeset === null ? {} : { start_changeset: startChangeset }),
+      });
     },
-    submitInvocation(body: {
-      invocation: string;
-      fact: "start" | "finish" | "deny";
-      summary: unknown;
-    }) {
-      return post(BROKER_PATHS.invocationsSubmit, body);
-    },
-    // 다른 앱 connection 준비. source 신원은 broker가 이 자식 연결에서 정한다.
-    appsConnect(body: {
-      app: string;
-      commands: readonly string[];
+    // 다른 앱 호출. 부른 쪽과 project는 core가 정한다.
+    appsCall(body: {
+      target_app: string;
+      api: string;
+      input?: unknown;
       parent_invocation: string | null;
-      incoming?: {
-        app: string;
-        release: string;
-        parent_invocation: string | null;
-      };
     }) {
-      return post(BROKER_PATHS.appsConnect, body);
+      return post(BROKER_PATHS.appsCall, body);
     },
-    // confirm=true command의 approval 요청과 결과 수령.
-    appsConfirmRequest(body: Record<string, unknown>) {
-      return post(BROKER_PATHS.appsConfirmRequest, body);
-    },
-    appsConfirmPoll(body: Record<string, unknown>) {
-      return post(BROKER_PATHS.appsConfirmPoll, body);
+    projectsList() {
+      return post(BROKER_PATHS.projectsList, {});
     },
   };
 }

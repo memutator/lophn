@@ -19,6 +19,8 @@
   },
   "tasks": {
     "check": "deno run --allow-all tools/check.ts",
+    "check:full": "deno run --allow-all tools/check.ts --full",
+    "wording": "deno run --allow-read --allow-write packages/design/wording/generate.ts",
     "dev": "deno run --allow-all tools/dev.ts dev",
     "dev:core": "deno run --allow-all tools/dev.ts dev:core",
     "dev:mock": "deno run --allow-all tools/dev.ts dev:mock",

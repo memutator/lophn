@@ -18,7 +18,7 @@ export type Violation = {
 const EXCLUDED = new Set(["node_modules", ".claude", ".dev-data", "dist"]);
 
 // package가 import해도 되는 다른 package. 자기 package 안은 늘 된다.
-const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
+export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   base: [],
   protocol: ["base"],
   core: ["protocol", "base"],

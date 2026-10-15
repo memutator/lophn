@@ -49,6 +49,8 @@ export const codingCallSchema = z.discriminatedUnion("op", [
   /** 사람이 [Start]를 누른 값. main이 한 번 더 검사한다. */
   z.strictObject({ op: z.literal("start"), click: z.unknown() }),
   z.strictObject({ op: z.literal("sessions") }),
+  /** 제품마다 감지 결과와 맡길 수 있는지를 읽는다. Settings가 보인다. */
+  z.strictObject({ op: z.literal("harnesses") }),
 ]);
 
 export type CodingCallInput = z.infer<typeof codingCallSchema>;
@@ -78,6 +80,19 @@ export interface HarnessView {
   readonly executable: string | null;
   readonly candidates: readonly { path: string; source: string }[];
   readonly probes: readonly { probe: string; outcome: string }[];
+}
+
+/** Settings가 제품마다 보이는 값. `reason`은 맡길 수 없거나 메시지를 못 넣는 까닭이고 없으면 null이다. */
+export interface HarnessSettingsView {
+  readonly harness_id: HarnessName;
+  readonly label: string;
+  readonly discovery: HarnessDiscovery;
+  readonly version: string | null;
+  readonly version_result: "verified" | "unknown" | "error";
+  readonly login: HarnessView["auth"];
+  readonly can_launch: boolean;
+  readonly can_deliver_messages: boolean;
+  readonly reason: string | null;
 }
 
 export interface DetectView {

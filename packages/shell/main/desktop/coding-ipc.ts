@@ -100,6 +100,8 @@ export function createCodingIpc(deps: CodingIpcDeps) {
       }
       case "sessions":
         return { ok: true, value: deps.sessions() };
+      case "harnesses":
+        return refused("invalid_input");
       case "start": {
         const issued = deps.start.issue(call.click);
         if (!issued.ok) return refused("invalid_input");

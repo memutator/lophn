@@ -45,6 +45,11 @@ export const terminalFocusSchema = z.object({
   focused: z.boolean(),
 }).strict();
 
+/** 대기 목록에서 누른 coding session의 터미널 탭을 고른다. */
+export const terminalFocusSessionSchema = z.object({
+  session: z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+}).strict();
+
 export type TerminalOpen = { project: string; folder_ref?: string };
 export type TerminalInput = {
   terminal_ref: string;
@@ -65,6 +70,8 @@ export type TerminalFocus = {
   focused: boolean;
 };
 
+export type TerminalFocusSession = { session: string };
+
 export type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
 export type TerminalFailure =
@@ -74,7 +81,8 @@ export type TerminalFailure =
   | "unreadable"
   | "spawn_failed"
   | "kill_unconfirmed"
-  | "host_lost";
+  | "host_lost"
+  | "no_terminal";
 
 /** coding TUI의 첫 prompt 전달 결과. argv는 `none`, 입력 전달은 pending에서 셋 중 하나로 끝난다. */
 export type PromptOutcome =
@@ -92,6 +100,14 @@ export type TerminalCoding = {
   prompt_delivery: PromptOutcome;
 };
 
+/** coding session의 터미널 탭 표지. coding 탭은 제목으로 구별하고 끝나면 끝난 상태로만 보인다. */
+export type TerminalCodingSession = {
+  session: string;
+  app: string;
+  ticket: string;
+  prompt: PromptOutcome;
+};
+
 export type TerminalRuntime = {
   terminal_ref: string;
   project: string;
@@ -107,8 +123,14 @@ export type TerminalRuntime = {
   failure_reason: TerminalFailure | null;
   output_seq: number;
   dropped_output: boolean;
-  /** coding TUI일 때만 있다. */
+  /** 옛 표지다. 새 코드는 `coding_session`을 쓴다. */
   coding?: TerminalCoding;
+  /** coding session의 탭일 때만 있다. */
+  coding_session?: TerminalCodingSession;
+  /** 탭 제목이다. coding 탭은 제목으로 구별한다. */
+  title?: string;
+  /** 탭 icon을 고르는 제품 이름(harness id)이다. */
+  product?: string;
 };
 
 export type TerminalOutput = {
@@ -164,6 +186,12 @@ export interface TerminalApi {
     input: TerminalSnapshot,
   ): Promise<TerminalCall<TerminalSnapshotReply | TerminalReject>>;
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
+  /** 그 session의 터미널 탭을 고른다. 없으면 `no_terminal`로 거절한다. */
+  focusSession(
+    input: TerminalFocusSession,
+  ): Promise<TerminalCall<TerminalReply>>;
+  /** main이 새 터미널(coding 탭 포함)을 열거나 상태가 바뀔 때마다 runtime을 보낸다. 구독 해지를 돌려준다. */
+  onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
 }
 
 export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
@@ -175,3 +203,4 @@ export const TERMINAL_CLOSE_CHANNEL = "shell:terminal-close";
 export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
+export const TERMINAL_FOCUS_SESSION_CHANNEL = "shell:terminal-focus-session";

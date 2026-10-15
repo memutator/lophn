@@ -71,5 +71,7 @@ export function fakeTerminal(project: string): TerminalApi {
       });
     },
     focus: () => ok(null),
+    focusSession: () => ok({ ok: true, runtime: runtime() }),
+    onRuntime: () => () => {},
   };
 }

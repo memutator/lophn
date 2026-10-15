@@ -12,7 +12,6 @@
     "./events": "./events/mod.ts",
     "./install-and-update": "./install-and-update/mod.ts",
     "./lophn-agent": "./lophn-agent/mod.ts",
-    "./notifications": "./notifications/mod.ts",
     "./problems": "./problems/mod.ts",
     "./problems/sdk-report": "./problems/sdk-report.ts",
     "./projects": "./projects/mod.ts",

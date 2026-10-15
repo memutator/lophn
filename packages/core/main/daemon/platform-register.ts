@@ -1,4 +1,4 @@
-// platform이 만드는 approvals·notifications 등록 출처. contract ROUTES가 이 둘의 route를
+// platform이 만드는 approvals 등록 출처. contract ROUTES가 approvals route를
 // 이미 고정하므로, 팀 등록(assemble)에 다시 올리면 route가 겹쳐 기동이 거절된다. 그래서
 // settings(settings.ts)처럼 team 목록 밖에서 한 번만 조립한다: schema·command·read·blob field는
 // 여기서 core 조립(withPlatform)과 writer·reader Worker가 같은 모듈로 모은다. route는 ROUTES만
@@ -16,10 +16,6 @@ import type {
 import { approvalRequestCreated } from "../../../protocol/approvals/mod.ts";
 import type { EventDefinition } from "../../../protocol/events/mod.ts";
 import {
-  notificationCreated,
-  notificationRead,
-} from "../../../protocol/notifications/mod.ts";
-import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,
   approvalsGetRead,
@@ -28,14 +24,6 @@ import {
   type ApprovalTextEnvironment,
   createApprovalCommands,
 } from "../../approvals/mod.ts";
-import {
-  NOTIFICATION_COMMANDS,
-  NOTIFICATION_SUBSCRIBER,
-  NOTIFICATIONS_SCHEMA_STEPS,
-  notificationsDisplayRead,
-  notificationsGetRead,
-  notificationsListRead,
-} from "../../notifications/mod.ts";
 import { secretsListRead } from "../../secrets/mod.ts";
 import type {
   EventRegistration,
@@ -48,25 +36,9 @@ import {
   backupReads,
 } from "../../storage/migration/backup-reads.ts";
 
-// notifications 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
-// 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다.
+// notifications 구독자였던 core 내부 machine 자격 이름이다. 계기 event 공개 정책
+// (`notificationsOnlyVisibility`)이 쓴다. events 단위가 그 정책 장치와 함께 지운다.
 export const NOTIFICATIONS_PRINCIPAL = "machine:notifications";
-
-// 읽기(ListEvents)와 생성·cursor 전진 operation만 둔다. notification 본문을 만드는 일은 없다.
-export const NOTIFICATIONS_CONTEXT: RequestContext = {
-  principal: NOTIFICATIONS_PRINCIPAL,
-  actor: "machine",
-  scope: {
-    operations: [
-      "ListEvents",
-      "create_notification",
-      "AdvanceSubscriberCursor",
-    ],
-    targets: {},
-  },
-  conditions: {},
-  credential_ref: NOTIFICATIONS_PRINCIPAL,
-};
 
 // AppCreated·자리 보관 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
 // 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다. 구독자 이름은
@@ -118,43 +90,34 @@ export function assignmentReactionsOnlyVisibility<D extends EventDefinition>(
 const approvalCommands = createApprovalCommands();
 
 export const platformDefinitions = {
-  schemaSteps: [...APPROVAL_SCHEMA_STEPS, ...NOTIFICATIONS_SCHEMA_STEPS],
+  schemaSteps: APPROVAL_SCHEMA_STEPS,
   commands: [
     approvalCommands.create,
     approvalCommands.cancel,
     approvalCommands.grant,
     approvalCommands.reject,
-    ...NOTIFICATION_COMMANDS,
   ],
   reads: [
     approvalsGetRead(),
     approvalsListRead(),
-    notificationsGetRead(),
-    notificationsListRead(),
-    notificationsDisplayRead(),
     // SetSecret·RemoveSecret의 display_read다. 이름·설정 여부·판만 보인다.
     secretsListRead(),
   ],
   blobFields: APPROVAL_BLOB_FIELDS,
 };
 
-// writer Worker가 이 모듈을 다시 import해 command·cursor gate를 모은다. approvals·notifications
+// writer Worker가 이 모듈을 다시 import해 command·cursor gate를 모은다. approvals
 // 외 command는 다른 팀 등록이 낸다.
 export function createCoreRegistration() {
   return {
     commands: platformDefinitions.commands,
     blobFields: platformDefinitions.blobFields,
-    // notifications 구독자만 자기 cursor를 올린다.
     subscribers: platformSubscribers(),
   };
 }
 
 export function platformSubscribers(): SubscriberBinding[] {
   return [
-    {
-      name: NOTIFICATION_SUBSCRIBER,
-      authorize: (ctx) => ok(isNotifications(ctx)),
-    },
     // AppCreated 반응 구독자만 자기 cursor를 올린다.
     {
       name: ASSIGNMENT_SUBSCRIBER,
@@ -163,7 +126,7 @@ export function platformSubscribers(): SubscriberBinding[] {
   ];
 }
 
-// reader Worker가 이 모듈에서 approvals·notifications read를 다시 조립한다.
+// reader Worker가 이 모듈에서 approvals read를 다시 조립한다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [...platformDefinitions.reads],
@@ -171,10 +134,7 @@ export function createReaderRegistration(): ReaderRegistration {
   };
 }
 
-// notification 계기 중 platform이 소유한 event다. 정책이 없는 event는 events/list에서 숨김이므로
-// notifications 구독자가 읽도록 이 event를 공개한다. 사람은 결정 대기를 볼 수 있다. 다른 소유
-// concern(problems·lophn-agent·coding-agent·documents·apps)의 계기 event는 그 owner가 자기
-// 등록 파일의 공개 정책에 notifications 구독자(`NOTIFICATIONS_PRINCIPAL`)를 더해야 켜진다.
+// platform이 소유한 approval event다. 정책이 없는 event는 events/list에서 숨김이므로 사람에게 연다.
 const approvalCreatedVisibility: EventVisibilityDefinition<
   typeof approvalRequestCreated
 > = {
@@ -184,21 +144,10 @@ const approvalCreatedVisibility: EventVisibilityDefinition<
   },
 };
 
-// shell/desktop가 구독하는 notification 자신의 event다. 정책이 없으면 사람 token의
-// events/list와 구독이 둘 다 숨겨, shell main이 표시·실패 보고까지 가지 못한다.
-// 계기 event는 각 owner의 notifications 구독자 정책에 남긴다.
-function userNotificationVisibility<D extends EventDefinition>(
-  event: D,
-): EventVisibilityDefinition<D> {
-  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "user") };
-}
-
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
       approvalCreatedVisibility,
-      userNotificationVisibility(notificationCreated),
-      userNotificationVisibility(notificationRead),
     ],
   };
 }

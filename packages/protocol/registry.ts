@@ -9,10 +9,6 @@ import { APPROVAL_EVENTS, APPROVAL_ROUTES } from "./approvals/approvals.ts";
 import { BACKUP_ROUTES } from "./storage/backups.ts";
 import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
-import {
-  NOTIFICATION_EVENTS,
-  NOTIFICATION_ROUTES,
-} from "./notifications/notifications.ts";
 import { SETTINGS_EVENTS, SETTINGS_ROUTES } from "./config/settings.ts";
 import { SECRET_EVENTS, SECRET_ROUTES } from "./secrets/secrets.ts";
 
@@ -29,7 +25,6 @@ export const ROUTES = [
   ...BACKUP_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...APPROVAL_ROUTES,
-  ...NOTIFICATION_ROUTES,
   ...SECRET_ROUTES,
 ] as const;
 
@@ -37,6 +32,5 @@ export const ROUTES = [
 export const EVENTS = [
   ...SETTINGS_EVENTS,
   ...APPROVAL_EVENTS,
-  ...NOTIFICATION_EVENTS,
   ...SECRET_EVENTS,
 ] as const;

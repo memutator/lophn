@@ -35,7 +35,6 @@ import {
   lophnAgentRewindWiring,
   lophnAgentSessionWiring,
 } from "./wiring/lophn-agent-session.ts";
-import { notificationsWiring } from "./wiring/notifications.ts";
 import { problemsWiring } from "./wiring/problems.ts";
 import { problemsTestsWiring } from "./wiring/problems-tests.ts";
 import { projectsWiring } from "./wiring/projects.ts";
@@ -63,7 +62,7 @@ export const TEAMS = [
 // - 팀 등록 파일들
 // - session 되돌리기 읽기(rewind reader)와 LOPHN.md·agent 정의 본문 읽기(instruction files)의 reader 등록.
 //   동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
-// - approvals·notifications 등록 파일(platform-register). 팀이 따로 등록하지 않고 늘 붙는다.
+// - approvals 등록 파일(platform-register). 팀이 따로 등록하지 않고 늘 붙는다.
 export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
@@ -98,7 +97,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentHandoffWiring,
   lophnAgentWiring,
   approvalsWiring,
-  notificationsWiring,
   lophnAgentAssignmentsWiring,
   appsWiring,
   lophnAgentTraceExportWiring,

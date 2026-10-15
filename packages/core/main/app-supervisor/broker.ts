@@ -94,7 +94,6 @@ export function servicesFor(
       platformPorts: ports,
     }),
     problems: createProblemReportService({
-      access: adapters.access,
       problems: adapters.problems(child),
     }),
     apps: createAppsConnectService({ preparer: pairs.preparer }),

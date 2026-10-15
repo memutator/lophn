@@ -23,10 +23,6 @@ export type ResolvedRequirement = {
   kind: "secret.use";
   scope: { name: string };
   reason: string;
-} | {
-  kind: "document.save";
-  scope: { key: string };
-  reason: string;
 };
 
 export type PathResolver = {
@@ -54,13 +50,13 @@ function fail(
 }
 
 function isFs(
-  scope: FsScope | NetScope | { name: string } | { key: string },
+  scope: FsScope | NetScope | { name: string },
 ): scope is FsScope {
   return "path" in scope;
 }
 
 function isNet(
-  scope: FsScope | NetScope | { name: string } | { key: string },
+  scope: FsScope | NetScope | { name: string },
 ): scope is NetScope {
   return "host" in scope;
 }
@@ -111,7 +107,7 @@ function checkNet(
 export async function resolveRequirement(
   requirement: {
     kind: ResolvedRequirement["kind"];
-    scope: FsScope | NetScope | { name: string } | { key: string };
+    scope: FsScope | NetScope | { name: string };
     reason: string;
   },
   roots: ProtectedRoots,
@@ -170,22 +166,12 @@ export async function resolveRequirement(
       reason: requirement.reason,
     });
   }
-  if (requirement.kind === "secret.use") {
-    if (!("name" in requirement.scope)) {
-      return fail("invalid_input", "secret scope is required");
-    }
-    return ok({
-      kind: "secret.use",
-      scope: { name: requirement.scope.name },
-      reason: requirement.reason,
-    });
-  }
-  if (!("key" in requirement.scope)) {
-    return fail("invalid_input", "document scope is required");
+  if (!("name" in requirement.scope)) {
+    return fail("invalid_input", "secret scope is required");
   }
   return ok({
-    kind: "document.save",
-    scope: { key: requirement.scope.key },
+    kind: "secret.use",
+    scope: { name: requirement.scope.name },
     reason: requirement.reason,
   });
 }

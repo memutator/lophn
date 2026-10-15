@@ -3,7 +3,6 @@
 // 요청마다 다시 받으므로 회수는 다음 사용부터 거절된다. 여기서 IO는 하지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { hostOf } from "../../../../protocol/apps/blueprint-scope.ts";
-import type { AutomationDeclarationFact } from "../declarations.ts";
 import type { EffectiveScope } from "../effective.ts";
 import type { BrokerChild } from "./invocations.ts";
 
@@ -12,10 +11,6 @@ export type AccessState = {
   scope: EffectiveScope;
   // 현재 고정 blueprint의 command key 전체.
   commands: readonly string[];
-  // 현재 release가 선언한 problem code.
-  problemCodes: readonly string[];
-  // 현재 release가 선언한 automation. external 여부와 고정 입력 hash를 포함한다.
-  automations: readonly AutomationDeclarationFact[];
 };
 
 export interface BrokerAccess {
@@ -23,10 +18,7 @@ export interface BrokerAccess {
   current(app: string): Promise<Result<AccessState | null>>;
 }
 
-export type Permission =
-  | "net.fetch"
-  | "secret.use"
-  | "document.save";
+export type Permission = "net.fetch" | "secret.use";
 
 // 거절은 필요한 permission 이름과 scope를 알린다. 선언 밖이든 grant 밖이든
 // 같은 모양이라 어느 쪽이 빠졌는지를 앱 코드가 추측할 수 없다.
@@ -49,7 +41,7 @@ export function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 외부 접근(net·secret·문서)은 운영 앱의 live 자식만 쓴다. 준비 모드·preview·test 자식은
+// 외부 접근(net·secret)은 운영 앱의 live 자식만 쓴다. 준비 모드·preview·test 자식은
 // 같은 통로로 외부에 닿지 않는다.
 export function liveOnly(
   child: BrokerChild,
@@ -97,11 +89,5 @@ export function netGranted(
 export function secretGranted(state: AccessState, name: string): boolean {
   return state.scope.access.some((entry) =>
     entry.kind === "secret.use" && entry.scope.name === name
-  );
-}
-
-export function documentGranted(state: AccessState, key: string): boolean {
-  return state.scope.access.some((entry) =>
-    entry.kind === "document.save" && entry.scope.key === key
   );
 }

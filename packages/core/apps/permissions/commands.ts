@@ -1,39 +1,26 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import {
-  type App,
-  automationGrantRevoke,
-  type Grant,
-  grantCreate,
-  grantCreated,
-  type GrantPermissionScope,
-  grantRevoke,
-  grantRevoked,
-} from "../../../protocol/apps/mod.ts";
-import type {
-  CommandDefinition,
-  RequestContext,
-  Tx,
-} from "../../../protocol/server/mod.ts";
+import { type AppGrant, appGrantRevoke } from "../../../protocol/apps/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
-import { declarationsOf } from "./declarations.ts";
+import {
+  type AppDeclarations,
+  compareDeclarations,
+  declaredScopes,
+  resourceLabel,
+} from "./declarations.ts";
 import { isSameOrInside } from "./model.ts";
 import {
-  activationInProgress,
-  grantsSeq,
   insertGrant,
   lastProcessFact,
   loadGrant,
+  loadGrants,
   markRevoked,
 } from "./store.ts";
 
-// grant.create는 정확한 approval 적용으로만 만들어지는 machine command이고,
-// grant.revoke는 confirmation window를 지난 사람의 결정이다(domain-model apps/permissions).
+type AppGrantScope = AppGrant["scope"];
 
-export const GRANT_APPROVAL_CONCERN = "apps/permissions";
-
-function invalid(message: string): Result<never> {
-  return err({ code: "invalid_input", message });
-}
+// 앱 grant는 activation 성공 단계의 syncAppGrants가 만들고 거둔다. 사람이 거두는 것은
+// app_grants.revoke 하나다(domain-model apps/permissions).
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
@@ -43,54 +30,12 @@ function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
 }
 
-// 범위 밖 앱은 없는 앱과 같은 답이다.
-function accessible(
-  tx: Tx,
-  ctx: RequestContext,
-  operation: string,
-  app: App,
-): Result<void> {
-  const access = authorizeApp(tx.port, ctx, operation, {
-    kind: "command",
-    before: app,
-    after: app,
-  });
-  if (access.ok) return access;
-  return access.error.code === "forbidden" || access.error.code === "not_found"
-    ? invalid("app is not registered")
-    : access;
-}
-
-// 정규 scope만 받는다. 같은 허락이 서로 다른 글자로 두 번 생기지 않게 한다.
-function normalized(scope: GrantPermissionScope): Result<void> {
-  if (scope.kind === "fs.read" || scope.kind === "fs.write") {
-    const posix = scope.path.startsWith("/");
-    if (
-      posix && (scope.path.includes("//") ||
-        (scope.path.length > 1 && scope.path.endsWith("/")))
-    ) {
-      return invalid("path scope is not normalized");
-    }
-    return ok(undefined);
-  }
-  if (scope.kind === "net.fetch" || scope.kind === "net.listen") {
-    return scope.host === scope.host.toLowerCase()
-      ? ok(undefined)
-      : invalid("host scope is not normalized");
-  }
-  if (scope.kind === "app.call" || scope.kind === "agent.commands") {
-    const list = scope.kind === "app.call" ? scope.app_apis : scope.commands;
-    const sorted = [...list].sort();
-    return canonicalize(sorted) === canonicalize(list)
-      ? ok(undefined)
-      : invalid("command list is not sorted");
-  }
-  return ok(undefined);
-}
-
 // source를 감싸거나 source 안인 경로는 grant로 허락하지 않는다. 원장이 아는 앱 source만
-// 본다. 실제 경로 해석과 credential·데이터 root는 부여 준비와 flag 계산이 한다.
-function outsideSources(tx: Tx, scope: GrantPermissionScope): Result<void> {
+// 본다. 실제 경로 해석과 credential·데이터 root는 flag 계산이 한다.
+function outsideSources(
+  tx: Pick<Tx, "sql">,
+  scope: AppGrantScope,
+): Result<void> {
   if (scope.kind !== "fs.read" && scope.kind !== "fs.write") {
     return ok(undefined);
   }
@@ -107,279 +52,123 @@ function outsideSources(tx: Tx, scope: GrantPermissionScope): Result<void> {
   return ok(undefined);
 }
 
-function tableExists(tx: Tx, name: string): boolean {
-  return tx.sql.get(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-    [name],
-  ) !== undefined;
-}
+// 늘어난 선언을 사람이 허락했는지다. 이 함수는 Gate나 request를 모르고 값만 받는다.
+export type GrantDecision = "granted" | "not_needed";
 
-// grant 하나는 그것을 정확히 허락한 approval 하나에서만 나온다. 사용 기록은 approval 적용이
-// 같은 transaction에서 남기고, 한 approval은 grants.approval unique가 한 grant로 묶는다.
-function checkApproval(
-  tx: Tx,
-  input: {
-    app: string;
-    kind: string;
-    scope: GrantPermissionScope;
-    approval: string;
-  },
-): Result<void> {
-  const notGranted = () => forbidden("approval is not granted for this grant");
-  if (!tableExists(tx, "approval_requests")) {
-    return err({
-      code: "unavailable",
-      message: "approvals are unavailable",
-    });
+// activation 성공 단계에서 한 transaction으로 부른다. 앱 grant를 새 선언에 맞춘다.
+// - 허락(granted)일 때만 active grant가 덮지 않는 선언에 grant를 만든다. 허락 없이는 만들지 않는다.
+// - 새 선언이 더는 요구하지 않는 active grant는 거둔다(앱 grant는 새 선언과의 교집합).
+// app.call은 target 앱마다 grant 하나로 맞춘다. 거둔 grant는 다시 active가 되지 않는다.
+export function syncAppGrants(
+  tx: Pick<Tx, "sql" | "newId" | "now">,
+  app: string,
+  declarations: Pick<AppDeclarations, "permissions" | "app_connections">,
+  decision: GrantDecision,
+): Result<{ created: AppGrant[]; revoked: AppGrant[] }> {
+  const loaded = loadGrants(tx.sql, { app, status: "active" });
+  if (!loaded.ok) return loaded;
+  const active = loaded.value;
+  const allowed = decision === "granted";
+  const want = declaredScopes(app, declarations);
+  const gap = compareDeclarations(active, declarations);
+  const at = tx.now();
+  const created: AppGrant[] = [];
+  const revoked: AppGrant[] = [];
+
+  function revoke(grant: AppGrant): Result<void> {
+    const marked = markRevoked(tx, grant.id, at);
+    if (!marked.ok) return marked;
+    revoked.push({ ...grant, status: "revoked", revoked_at: at });
+    return ok(undefined);
   }
-  const row = tx.sql.get(
-    `SELECT status, action, expires_at, closed_seq
-     FROM approval_requests WHERE id = ?`,
-    [input.approval],
-  );
-  if (row === undefined || row.status !== "granted") return notGranted();
-  if (row.expires_at !== null) {
-    const deadline = Date.parse(String(row.expires_at));
-    const now = Date.parse(tx.now());
-    if (
-      !Number.isFinite(deadline) || !Number.isFinite(now) || now >= deadline
-    ) {
-      return conflict("approval has expired");
+  function create(scope: AppGrantScope): Result<void> {
+    const outside = outsideSources(tx, scope);
+    if (!outside.ok) return outside;
+    const grant: AppGrant = {
+      id: tx.newId("grt"),
+      app,
+      scope,
+      status: "active",
+      created_at: at,
+      revoked_at: null,
+    };
+    insertGrant(tx, grant);
+    created.push(grant);
+    return ok(undefined);
+  }
+
+  const wanted = new Set(want.resources.map((scope) => canonicalize(scope)));
+  for (const grant of active) {
+    if (grant.scope.kind === "app.call") continue;
+    if (wanted.has(canonicalize(grant.scope))) continue;
+    const done = revoke(grant);
+    if (!done.ok) return done;
+  }
+  if (allowed) {
+    const added = new Set(gap.added_resources);
+    for (const scope of want.resources) {
+      if (!added.has(resourceLabel(scope))) continue;
+      const done = create(scope);
+      if (!done.ok) return done;
     }
   }
-  if (
-    tx.sql.get("SELECT 1 AS found FROM grants WHERE approval = ?", [
-        input.approval,
-      ]) !== undefined ||
-    (tableExists(tx, "approval_uses") &&
-      tx.sql.get("SELECT 1 AS found FROM approval_uses WHERE approval = ?", [
-          input.approval,
-        ]) !== undefined)
-  ) {
-    return conflict("approval was already used");
-  }
-  let action: {
-    concern?: unknown;
-    command?: unknown;
-    targets?: unknown;
-    input?: { kind?: unknown; value?: unknown };
-  };
-  try {
-    action = JSON.parse(String(row.action));
-  } catch {
-    return err({ code: "internal", message: "approval record is unreadable" });
-  }
-  const targets = action.targets;
-  if (
-    action.concern !== GRANT_APPROVAL_CONCERN ||
-    action.command !== grantCreate.name ||
-    !Array.isArray(targets) || targets.length !== 1 ||
-    targets[0] !== input.app ||
-    action.input?.kind !== "inline" ||
-    canonicalize(action.input.value) !== canonicalize(input)
-  ) {
-    return notGranted();
-  }
-  // grant를 허락한 쪽은 사람이다. 결정 event의 actor로 확인한다.
-  const decided = tx.sql.get("SELECT actor FROM events WHERE seq = ?", [
-    row.closed_seq as number | bigint,
-  ]);
-  return decided?.actor === "user" ? ok(undefined) : notGranted();
-}
 
-// app.call·agent.commands·automation.run은 현재 선언과 맞아야 한다.
-// 선언은 releases가 port로 낸다. 없으면 만들지 않는다.
-function checkDeclared(
-  tx: Tx,
-  app: string,
-  scope: GrantPermissionScope,
-): Result<void> {
-  if (
-    scope.kind !== "app.call" && scope.kind !== "agent.commands" &&
-    scope.kind !== "automation.run"
-  ) return ok(undefined);
-  if (scope.kind === "app.call") {
-    if (scope.app === app) return invalid("an app cannot call itself");
-    const target = loadApp(tx.sql, scope.app);
-    if (!target.ok) return target;
-    if (target.value === null) return invalid("target app is not registered");
-  }
-  const declarations = declarationsOf(tx, app);
-  if (!declarations.ok) return declarations;
-  const current = declarations.value;
-  if (current === null) return conflict("the app has no current release");
-  if (scope.kind === "app.call") {
-    const declared = new Set(
-      current.app_connections.filter((c) => c.app === scope.app)
-        .flatMap((c) => c.commands),
+  const calls = active.filter((grant) => grant.scope.kind === "app.call");
+  const targets = new Set([
+    ...want.calls.keys(),
+    ...calls.map((grant) => (grant.scope as { app: string }).app),
+  ]);
+  for (const target of [...targets].sort()) {
+    const mine = calls.filter((grant) =>
+      (grant.scope as { app: string }).app === target
     );
-    return scope.app_apis.every((c) => declared.has(c))
-      ? ok(undefined)
-      : conflict("commands are not in the current app_connections");
+    const declared = want.calls.get(target) ?? [];
+    const have = new Set(
+      mine.flatMap((grant) => (grant.scope as { app_apis: string[] }).app_apis),
+    );
+    const apis = allowed ? declared : declared.filter((api) => have.has(api));
+    const desired = apis.length === 0 ? undefined : canonicalize({
+      kind: "app.call",
+      app: target,
+      app_apis: apis,
+    });
+    let kept = false;
+    for (const grant of mine) {
+      if (!kept && canonicalize(grant.scope) === desired) {
+        kept = true;
+        continue;
+      }
+      const done = revoke(grant);
+      if (!done.ok) return done;
+    }
+    if (desired !== undefined && !kept) {
+      const done = create(
+        { kind: "app.call", app: target, app_apis: apis } as AppGrantScope,
+      );
+      if (!done.ok) return done;
+    }
   }
-  if (scope.kind === "agent.commands") {
-    const known = new Set(current.commands);
-    return scope.commands.every((c) => known.has(c))
-      ? ok(undefined)
-      : conflict("commands are not in the current blueprint");
-  }
-  const wanted = canonicalize({
-    automation: scope.automation,
-    command: scope.command,
-    input_hash: scope.input_hash,
-    when: scope.when,
-  });
-  const matched = current.automations.some((a) =>
-    a.external && canonicalize({
-        automation: a.key,
-        command: a.command,
-        input_hash: a.input_hash,
-        when: a.when,
-      }) === wanted
-  );
-  return matched
-    ? ok(undefined)
-    : conflict("automation is not a current external automation declaration");
+  return ok({ created, revoked });
 }
 
 export function createGrantCommands(): {
-  create: CommandDefinition<typeof grantCreate>;
-  revoke: CommandDefinition<typeof grantRevoke>;
-  revokeAutomation: CommandDefinition<typeof automationGrantRevoke>;
+  revoke: CommandDefinition<typeof appGrantRevoke>;
 } {
   return {
-    create: {
-      route: grantCreate,
-      // approval 적용(`apply_approved_action`)이 같은 transaction에서 부른다. 직접 호출은 approval_uses
-      // 없이 grant를 만들어 한 번 사용이 깨지므로 dispatch 전용이다.
-      dispatchable: true,
-      dispatchOnly: true,
-      handle(tx, ctx, input, compare) {
-        const app = loadApp(tx.sql, input.app);
-        if (!app.ok) return app;
-        if (app.value === null) return invalid("app is not registered");
-        const access = accessible(tx, ctx, grantCreate.name, app.value);
-        if (!access.ok) return access;
-        if (activationInProgress(tx.sql, input.app)) {
-          return conflict("an activation is in progress for the app");
-        }
-        if (compare.grants_seq !== grantsSeq(tx.sql, input.app)) {
-          return conflict("the grant set changed");
-        }
-        if (input.kind !== input.scope.kind) {
-          return invalid("grant kind does not match scope kind");
-        }
-        const shape = normalized(input.scope);
-        if (!shape.ok) return shape;
-        const sources = outsideSources(tx, input.scope);
-        if (!sources.ok) return sources;
-        const approved = checkApproval(tx, input);
-        if (!approved.ok) return approved;
-        const declared = checkDeclared(tx, input.app, input.scope);
-        if (!declared.ok) return declared;
-        const same = tx.sql.get(
-          `SELECT 1 AS found FROM grants
-           WHERE app = ? AND kind = ? AND scope = ? AND status = 'active'`,
-          [input.app, input.kind, canonicalize(input.scope)],
-        );
-        if (same !== undefined) return conflict("the grant already exists");
-        const id = tx.newId("grt");
-        const at = tx.now();
-        const grant: Grant = {
-          id,
-          app: input.app,
-          kind: input.kind,
-          scope: input.scope,
-          approval: input.approval,
-          status: "active",
-          created_by: "user",
-          created_at: at,
-          revoked_by: null,
-          revoked_at: null,
-        };
-        tx.emit(grantCreated, id, {
-          app: input.app,
-          kind: input.kind,
-          scope: input.scope,
-          approval: input.approval,
-          created_by: "user",
-          created_at: at,
-        });
-        insertGrant(tx, grant);
-        return ok({ grant });
-      },
-    },
-    revokeAutomation: {
-      route: automationGrantRevoke,
-      handle(tx, ctx, input, compare) {
-        const absent = () =>
-          err({
-            code: "not_found" as const,
-            message: "automation grant not found",
-          });
-        if (ctx.actor !== "user") return absent();
-        const loaded = loadGrant(tx.sql, input.grant);
-        if (!loaded.ok) return loaded;
-        const grant = loaded.value;
-        if (
-          grant === null || grant.app !== input.app ||
-          grant.kind !== "automation.run" ||
-          grant.scope.kind !== "automation.run" ||
-          grant.scope.automation !== input.automation
-        ) return absent();
-        const app = loadApp(tx.sql, input.app);
-        if (!app.ok) return app;
-        if (app.value === null) return absent();
-        const access = authorizeApp(tx.port, ctx, automationGrantRevoke.name, {
-          kind: "command",
-          before: app.value,
-          after: app.value,
-        });
-        if (!access.ok) {
-          return access.error.code === "forbidden" ||
-              access.error.code === "not_found"
-            ? absent()
-            : access;
-        }
-        if (
-          grant.status !== "active" ||
-          compare.grants_seq !== grantsSeq(tx.sql, input.app)
-        ) return conflict("the grant set changed");
-        const at = tx.now();
-        const revoked = markRevoked(tx, grant.id, at);
-        if (!revoked.ok) return revoked;
-        tx.emit(grantRevoked, grant.id, {
-          app: grant.app,
-          kind: grant.kind,
-          revoked_by: "user",
-          revoked_at: at,
-        });
-        return ok({
-          grant: {
-            ...grant,
-            status: "revoked" as const,
-            revoked_by: "user" as const,
-            revoked_at: at,
-          },
-        });
-      },
-    },
     revoke: {
-      route: grantRevoke,
+      route: appGrantRevoke,
       dispatchable: true,
-      handle(tx, ctx, input, compare) {
-        // 없는 grant·범위 밖 앱·이미 회수한 grant는 같은 답이다.
+      handle(tx, ctx, input) {
+        // 없는 grant·범위 밖 앱·이미 거둔 grant는 같은 답이다.
         const absent = () => conflict("the grant is not active");
         const found = loadGrant(tx.sql, input.grant);
         if (!found.ok) return found;
         const grant = found.value;
-        if (
-          grant === null || (input.app !== undefined && input.app !== grant.app)
-        ) return absent();
+        if (grant === null) return absent();
         const app = loadApp(tx.sql, grant.app);
         if (!app.ok) return app;
         if (app.value === null) return absent();
-        const access = authorizeApp(tx.port, ctx, grantRevoke.name, {
+        const access = authorizeApp(tx.port, ctx, appGrantRevoke.name, {
           kind: "command",
           before: app.value,
           after: app.value,
@@ -391,45 +180,20 @@ export function createGrantCommands(): {
             : access;
         }
         if (grant.status !== "active") return absent();
-        if (activationInProgress(tx.sql, grant.app)) {
-          return conflict("an activation is in progress for the app");
-        }
-        if (compare.grants_seq !== grantsSeq(tx.sql, grant.app)) {
-          return conflict("the grant set changed");
-        }
-        // 회수 요청 접수와 실제 완료는 다르다. 살아 있는 프로세스의 종료 확인이 없으면
-        // revoked로 확정하지 않는다. automation.run은 프로세스 재시작 없이 다음 회차부터 막힌다.
-        if (grant.kind !== "automation.run") {
-          const fact = lastProcessFact(tx.sql, grant.app);
-          if (
-            fact.kind === "started" &&
-            !(input.termination_confirmed === true &&
-              input.process_nonce === fact.nonce)
-          ) {
-            return err({
-              code: "unavailable",
-              message:
-                "process termination is not confirmed; the revoke is not complete",
-            });
-          }
+        // 거두기 접수와 실제 완료는 다르다. 살아 있는 process가 멈췄다는 사실(AppStopped)이 원장에
+        // 없으면 revoked로 확정하지 않는다. 부르는 쪽(GrantApplier)은 stop으로 종료를 확인하고
+        // supervisor가 AppStopped를 기록한 뒤에 이 command를 부른다. 앱 grant는 event를 내지 않는다.
+        if (lastProcessFact(tx.sql, grant.app).kind === "started") {
+          return err({
+            code: "unavailable",
+            message:
+              "process termination is not confirmed; the revoke is not complete",
+          });
         }
         const at = tx.now();
         const revoked = markRevoked(tx, grant.id, at);
         if (!revoked.ok) return revoked;
-        tx.emit(grantRevoked, grant.id, {
-          app: grant.app,
-          kind: grant.kind,
-          revoked_by: "user",
-          revoked_at: at,
-        });
-        return ok({
-          grant: {
-            ...grant,
-            status: "revoked",
-            revoked_by: "user",
-            revoked_at: at,
-          },
-        });
+        return ok({ grant: { ...grant, status: "revoked", revoked_at: at } });
       },
     },
   };

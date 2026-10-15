@@ -2,14 +2,14 @@
 // -> 새 범위로 재시작. 종료를 확인하지 못하면 새 자식을 띄우지 않고 회수도 완료로 표시하지 않는다.
 // 이미 한 업무 쓰기나 외부 전송을 취소하지 않는다. 막는 것은 앞으로의 접근뿐이다.
 import { type LophnError, ok, type Result } from "../../../../base/mod.ts";
-import type { Grant, GrantRevokeInput } from "../../../../protocol/apps/mod.ts";
+import type { AppGrant } from "../../../../protocol/apps/mod.ts";
 
 export type StopResult =
   // OS가 자식 종료를 확인했다. 이미 멈춰 있었다면 processNonce는 null이다.
   | { confirmed: true; processNonce: string | null }
   | { confirmed: false };
 
-// supervisor 쪽 자식 수명이다. start는 새 flags·새 nonce로 시작하며 종료를 확인하기 전에는
+// supervisor 쪽 자식 수명이다. stop은 종료 확인과 AppStopped 기록을 마친 뒤 돌아온다. start는 새 flags·새 nonce로 시작하며 종료를 확인하기 전에는
 // 이 모듈이 부르지 않는다.
 export interface AppProcesses {
   stop(app: string): Promise<StopResult>;
@@ -27,10 +27,10 @@ export interface ConnectionGate {
   close(app: string): void;
 }
 
-// core의 `grant.revoke`다. 종료 확인 근거를 입력에 실어 보낸다. 근거가 없으면 core가
-// unavailable로 거절하고 grant는 active로 남는다.
+// core의 `app_grants.revoke`다. 순서는 stop(종료 확인) → supervisor가 AppStopped 기록 → revoke다.
+// core는 종료 사실(AppStopped)이 원장에 없으면 unavailable로 거절하고 grant는 active로 남는다.
 export interface GrantRevoker {
-  revoke(input: GrantRevokeInput): Promise<Result<unknown>>;
+  revoke(input: { grant: string }): Promise<Result<unknown>>;
 }
 
 // 현재 선언과 active grant로 이 secret 이름을 쓰는 앱을 찾는다.
@@ -54,9 +54,9 @@ export type ApplyGrantDeps = {
 
 export type GrantApplier = {
   // 새 grant가 확정됐다. 확대는 새 프로세스에서만 보인다.
-  created(grant: Pick<Grant, "app" | "kind">): Promise<ApplyOutcome>;
+  created(grant: Pick<AppGrant, "app">): Promise<ApplyOutcome>;
   // 회수 요청. 종료 확인 뒤에만 core가 revoked로 확정한다.
-  revoke(grant: Pick<Grant, "id" | "app" | "kind">): Promise<ApplyOutcome>;
+  revoke(grant: Pick<AppGrant, "id" | "app">): Promise<ApplyOutcome>;
   // secret 값 교체·삭제. 사용 앱을 종료 확인과 새 nonce로 다시 시작한다.
   secretChanged(
     name: string,
@@ -105,39 +105,20 @@ export function createGrantApplier(deps: ApplyGrantDeps): GrantApplier {
 
   return {
     created(grant) {
-      // 자동 회차 허락은 clock이 회차마다 grant를 다시 확인하므로 재시작하지 않는다.
-      if (grant.kind === "automation.run") {
-        return Promise.resolve({ state: "applied" });
-      }
       // 새 호출 차단은 접수 즉시다. 앞선 변경이 끝나기를 기다리지 않는다.
       block(grant.app);
       return serial(grant.app, () => replace(grant.app));
     },
     revoke(grant) {
-      if (grant.kind !== "automation.run") block(grant.app);
+      block(grant.app);
       return serial<ApplyOutcome>(grant.app, async () => {
-        if (grant.kind === "automation.run") {
-          const revoked = await deps.revoker.revoke({
-            grant: grant.id,
-            process_nonce: null,
-            termination_confirmed: null,
-          });
-          return revoked.ok ? { state: "applied" } : {
-            state: "failed",
-            error: revoked.error,
-          };
-        }
         block(grant.app);
         const stopped = await deps.processes.stop(grant.app);
         // 종료를 확인하지 못하면 통로를 끊었다는 이유만으로 회수 완료라고 하지 않는다.
         if (!stopped.confirmed) {
           return { state: "in_progress", reason: UNCONFIRMED };
         }
-        const revoked = await deps.revoker.revoke({
-          grant: grant.id,
-          process_nonce: stopped.processNonce,
-          termination_confirmed: stopped.processNonce === null ? null : true,
-        });
+        const revoked = await deps.revoker.revoke({ grant: grant.id });
         if (!revoked.ok) return { state: "failed", error: revoked.error };
         return await restart(grant.app);
       });

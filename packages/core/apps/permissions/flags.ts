@@ -44,6 +44,14 @@ const LOOPBACK = ["localhost", "127.0.0.1", "::1"] as const;
 // Deno.serve의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다.
 const SOCKET_HOST = "lophn.invalid";
 
+// 앱 DB 파일 이름이다. 앱 process가 쓸 수 있는 곳은 이 파일과 SQLite가 곁에 만드는 파일뿐이다.
+const DATABASE_FILE = "app.sqlite";
+const DATABASE_SUFFIXES = ["", "-wal", "-shm", "-journal"] as const;
+
+export function databaseFiles(data: string): string[] {
+  return DATABASE_SUFFIXES.map((suffix) => `${data}/${DATABASE_FILE}${suffix}`);
+}
+
 const FIXED = [
   "--no-prompt",
   "--no-config",
@@ -102,7 +110,7 @@ export type FlagSet = {
   limits: readonly LimitKey[];
 };
 
-// 운영 앱 flag. net.fetch·secret.use·document.save는 Deno flag가 아니다.
+// 운영 앱 flag. net.fetch·secret.use는 Deno flag가 아니다. 쓰기는 앱 DB 파일과 granted 경로뿐이다.
 export function appFlags(
   requirements: readonly ResolvedRequirement[],
   app: AppPaths,
@@ -122,7 +130,11 @@ export function appFlags(
     path !== undefined
   );
   const allowRead = [app.bundle, app.data, ...sockets, ...read.allow];
-  const allowWrite = [app.data, ...sockets, ...write.allow];
+  const allowWrite = [
+    ...databaseFiles(app.data),
+    ...sockets,
+    ...write.allow,
+  ];
   const denyRead = [...protectedDenies, ...read.deny, ...write.deny];
   const denyWrite = [...protectedDenies, ...write.deny];
   // IPv6 host는 대괄호로 쓴다. `::1:4517`은 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다
@@ -204,7 +216,7 @@ export function migrationFlags(
   const args = [
     ...FIXED,
     `--allow-read=${[app.bundle, app.data].sort().join(",")}`,
-    `--allow-write=${app.data}`,
+    `--allow-write=${databaseFiles(app.data).sort().join(",")}`,
   ];
   if (protectedDenies.length > 0) {
     const sorted = [...protectedDenies].sort();

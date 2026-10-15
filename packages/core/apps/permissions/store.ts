@@ -1,5 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import { type Grant, grantSchema } from "../../../protocol/apps/mod.ts";
+import { type AppGrant, appGrantSchema } from "../../../protocol/apps/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
@@ -8,29 +8,25 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored grant" });
 }
 
-export function grantFromRow(row: Record<string, unknown>): Result<Grant> {
+export function grantFromRow(row: Record<string, unknown>): Result<AppGrant> {
   let scope: unknown;
   try {
     scope = JSON.parse(String(row.scope));
   } catch {
     return invalidStored();
   }
-  const parsed = grantSchema.safeParse({
+  const parsed = appGrantSchema.safeParse({
     id: row.id,
     app: row.app,
-    kind: row.kind,
     scope,
-    approval: row.approval,
     status: row.status,
-    created_by: row.created_by,
     created_at: row.created_at,
-    revoked_by: row.revoked_by,
     revoked_at: row.revoked_at,
   });
   return parsed.success ? ok(parsed.data) : invalidStored();
 }
 
-export function loadGrant(sql: Query, id: string): Result<Grant | null> {
+export function loadGrant(sql: Query, id: string): Result<AppGrant | null> {
   const row = sql.get("SELECT * FROM grants WHERE id = ?", [id]);
   if (row === undefined) return ok(null);
   return grantFromRow(row as SqlRow);
@@ -39,7 +35,7 @@ export function loadGrant(sql: Query, id: string): Result<Grant | null> {
 export function loadGrants(
   sql: Query,
   filter: { app?: string; status?: "active" | "revoked" },
-): Result<Grant[]> {
+): Result<AppGrant[]> {
   const where: string[] = [];
   const params: string[] = [];
   if (filter.app !== undefined) {
@@ -56,7 +52,7 @@ export function loadGrants(
     } ORDER BY id`,
     params,
   );
-  const grants: Grant[] = [];
+  const grants: AppGrant[] = [];
   for (const row of rows) {
     const grant = grantFromRow(row);
     if (!grant.ok) return grant;
@@ -65,22 +61,22 @@ export function loadGrants(
   return ok(grants);
 }
 
-export function insertGrant(tx: Pick<Tx, "sql">, grant: Grant): void {
+// Grants.appGrants(app)의 근거다. 지금 active인 앱 grant만 준다.
+export function appGrantsOf(sql: Query, app: string): Result<AppGrant[]> {
+  return loadGrants(sql, { app, status: "active" });
+}
+
+export function insertGrant(tx: Pick<Tx, "sql">, grant: AppGrant): void {
   tx.sql.run(
-    `INSERT INTO grants
-      (id, app, kind, scope, approval, status, created_by, created_at,
-       revoked_by, revoked_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO grants (id, app, kind, scope, status, created_at, revoked_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       grant.id,
       grant.app,
-      grant.kind,
+      grant.scope.kind,
       canonicalize(grant.scope),
-      grant.approval,
       grant.status,
-      grant.created_by,
       grant.created_at,
-      grant.revoked_by,
       grant.revoked_at,
     ],
   );
@@ -92,28 +88,25 @@ export function markRevoked(
   revokedAt: string,
 ): Result<void> {
   const changed = tx.sql.run(
-    `UPDATE grants SET status = 'revoked', revoked_by = 'user', revoked_at = ?
+    `UPDATE grants SET status = 'revoked', revoked_at = ?
      WHERE id = ? AND status = 'active'`,
     [revokedAt, id],
   );
   return Number(changed.changes) === 1 ? ok(undefined) : invalidStored();
 }
 
-// 앱의 grant 집합이 마지막으로 바뀐 event seq다. 없으면 "0".
-// create·revoke의 비교 기준이고 activation이 시작 때 같은 값을 고정한다.
+// 앱의 grant 집합이 바뀔 때마다 늘어나는 값이다(만든 grant 수 + 거둔 grant 수). 없으면 "0".
+// releases가 승인 때 본 값으로 쓰는 동안만 남긴다.
 export function grantsSeq(sql: Query, app: string): string {
   const row = sql.get(
-    `SELECT MAX(e.seq) AS seq FROM events e
-     JOIN grants g ON g.id = e.subject
-     WHERE g.app = ? AND e.type IN ('GrantCreated', 'GrantRevoked')`,
+    `SELECT COUNT(*) + COUNT(revoked_at) AS seq FROM grants WHERE app = ?`,
     [app],
   );
-  const value = row?.seq;
-  return value === null || value === undefined ? "0" : String(value);
+  return String(row?.seq ?? 0);
 }
 
 // 앱에 activation이 진행 중이면 true. 시작 event는 있고 그 seq를 started_seq로 가리키는 성공·실패 event가
-// 아직 없는 경우다. release 표가 아니라 ledger event를 근거로 본다.
+// 아직 없는 경우다. releases·control이 아직 쓴다. 그 단위가 지운다.
 export function activationInProgress(sql: Query, app: string): boolean {
   return sql.get(
     `SELECT 1 AS found FROM events s

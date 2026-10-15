@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type Grant,
+  type AppGrant,
+  appGrantsList,
   GRANT_STATES,
-  grantsList,
 } from "../../../protocol/apps/mod.ts";
 import type {
   ReadDefinition,
@@ -11,10 +11,7 @@ import type {
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
-import { declarationsAt } from "./declarations.ts";
-import { buildGrantDisplay } from "./display.ts";
-import type { ResolvedRequirement } from "./model.ts";
-import { grantsSeq, loadGrants } from "./store.ts";
+import { loadGrants } from "./store.ts";
 
 const PAGE = 50;
 
@@ -36,7 +33,7 @@ const cursorSchema = z.strictObject({
 export function nextGrantCursor(
   offset: number,
   app: string | undefined,
-  status: Grant["status"] | undefined,
+  status: AppGrant["status"] | undefined,
   limit: number,
 ): string {
   return btoa(JSON.stringify({
@@ -50,7 +47,7 @@ export function nextGrantCursor(
 export function grantPageOffset(
   cursor: string | undefined,
   app: string | undefined,
-  status: Grant["status"] | undefined,
+  status: AppGrant["status"] | undefined,
   limit: number,
   head: number,
 ): Result<number> {
@@ -82,7 +79,7 @@ function visible(
   const found = loadApp(snapshot.sql, app);
   if (!found.ok) return found;
   if (found.value === null) return ok(false);
-  const access = authorizeApp(snapshot.port, ctx, grantsList.name, {
+  const access = authorizeApp(snapshot.port, ctx, appGrantsList.name, {
     kind: "app",
     app: found.value,
   });
@@ -90,35 +87,12 @@ function visible(
   return appAccessDenied(access) ? ok(false) : access;
 }
 
-// 선언한 요구를 표시 자료의 입력으로 바꾼다. read는 파일 I/O를 하지 않으므로 폴더 밖 link는
-// 검사하지 않는다(outsideLinks는 부여 준비가 채운다).
-function resolvedOf(
-  requirement: {
-    kind: ResolvedRequirement["kind"];
-    scope: Record<string, unknown>;
-    reason: string;
-  },
-): ResolvedRequirement {
-  if (requirement.kind === "fs.read" || requirement.kind === "fs.write") {
-    return {
-      kind: requirement.kind,
-      scope: {
-        path: String(requirement.scope.path),
-        recursive: requirement.scope.recursive === true,
-        outsideLinks: [],
-      },
-      reason: requirement.reason,
-    };
-  }
-  return requirement as ResolvedRequirement;
-}
-
 export function createGrantsReads(): {
-  list: ReadDefinition<typeof grantsList>;
+  list: ReadDefinition<typeof appGrantsList>;
 } {
   return {
     list: {
-      route: grantsList,
+      route: appGrantsList,
       handle(snapshot, ctx, input) {
         // 앱을 지정했는데 없거나 범위 밖이면 not_found다. grant가 없는 보이는 앱은 빈 목록이다.
         const seen = new Map<string, boolean>();
@@ -141,7 +115,7 @@ export function createGrantsReads(): {
           status: input.status,
         });
         if (!loaded.ok) return loaded;
-        const grants: Grant[] = [];
+        const grants: AppGrant[] = [];
         for (const grant of loaded.value) {
           const checked = check(grant.app);
           if (!checked.ok) return checked;
@@ -160,37 +134,8 @@ export function createGrantsReads(): {
         const start = offset.value;
         const page = grants.slice(start, start + limit);
         const next = start + page.length;
-        // 표시 자료는 앱을 지정했고 현재 release의 선언을 알 때만 있다.
-        let display = null;
-        if (input.app !== undefined) {
-          const declared = declarationsAt(snapshot, input.app);
-          if (!declared.ok) return declared;
-          const active = loadGrants(snapshot.sql, {
-            app: input.app,
-            status: "active",
-          });
-          if (!active.ok) return active;
-          if (declared.value !== null) {
-            display = buildGrantDisplay({
-              app: input.app,
-              release: declared.value.release,
-              requirements: declared.value.permissions.map((requirement) =>
-                resolvedOf({
-                  kind: requirement.kind,
-                  scope: requirement.scope as Record<string, unknown>,
-                  reason: requirement.reason,
-                })
-              ),
-              grants: active.value,
-            });
-          }
-        }
         return ok({
           grants: page,
-          ...(input.app === undefined
-            ? {}
-            : { grants_seq: grantsSeq(snapshot.sql, input.app) }),
-          display,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: next < head
             ? nextGrantCursor(next, input.app, input.status, limit)

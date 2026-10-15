@@ -27,21 +27,31 @@ export {
   protectedRoots,
 } from "./protected-paths.ts";
 export { realPathResolver } from "./adapters/realpath.ts";
-export { createGrantCommands, GRANT_APPROVAL_CONCERN } from "./commands.ts";
-export { activationInProgress, grantsSeq, loadGrants } from "./store.ts";
+export {
+  createGrantCommands,
+  type GrantDecision,
+  syncAppGrants,
+} from "./commands.ts";
+export {
+  activationInProgress,
+  appGrantsOf,
+  grantsSeq,
+  loadGrants,
+} from "./store.ts";
 export { createGrantsReads } from "./reads.ts";
 export { permissionsSchemaSteps } from "./schema.ts";
 export {
   type AppDeclarations,
-  type AutomationDeclarationFact,
+  compareDeclarations,
   type CurrentDeclarations,
   currentDeclarations,
+  type DeclarationGap,
   declarationsAt,
   declarationsOf,
+  resourceLabel,
 } from "./declarations.ts";
 export {
   type AccessEntry,
-  type AutomationEntry,
   type EffectiveInput,
   type EffectiveScope,
   effectiveScope,

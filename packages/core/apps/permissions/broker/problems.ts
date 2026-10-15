@@ -1,5 +1,5 @@
-// broker `/_lophn/broker/problems/report`. 앱은 자기 release가 선언한 problem code만 보고하고
-// problem을 닫는 통로는 없다. app·release·mode는 자식 연결의 신원에서 정하고
+// broker `/_lophn/broker/problems/report`. 앱은 problem을 보고만 하고 닫는 통로는 없다.
+// app·release·mode는 자식 연결의 신원에서 정하고
 // 본문이 정하지 못한다. 보고 자체의 수집·묶음은 problems 팀의 collector가 맡는다.
 import { err, type Result } from "../../../../base/mod.ts";
 import {
@@ -8,7 +8,7 @@ import {
   type brokerProblemReportOutputSchema,
 } from "../../../../protocol/apps/mod.ts";
 import type { z } from "zod";
-import { type BrokerAccess, currentAccess, invalid } from "./access.ts";
+import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
 export type ProblemReportOutput = z.infer<
@@ -57,7 +57,6 @@ export type ProblemReportService = {
 };
 
 export function createProblemReportService(deps: {
-  access: BrokerAccess;
   problems: ProblemsReport;
 }): ProblemReportService {
   return {
@@ -65,21 +64,6 @@ export function createProblemReportService(deps: {
       const parsed = brokerProblemReportInputSchema.safeParse(body);
       if (!parsed.success) return invalid("problem report input is invalid");
       const input = parsed.data;
-      // release가 있는 자식은 자기 release의 선언 code만 보고한다. 선언을 모르는 자식(preview·
-      // test)은 collector가 mode와 scope로 받는다.
-      if (child.release !== null) {
-        const access = await currentAccess(deps.access, child);
-        if (!access.ok) return access;
-        if (
-          access.value === null ||
-          !access.value.problemCodes.includes(input.code)
-        ) {
-          return err({
-            code: "invalid_input",
-            message: "problem code is not declared",
-          });
-        }
-      }
       return await deps.problems.report({
         app: child.app,
         release: child.release,

@@ -24,15 +24,6 @@ export type ActiveBlueprint = {
     permissions: readonly unknown[];
     app_connections: readonly { app: string; commands: readonly string[] }[];
     commands: readonly string[];
-    automations: readonly {
-      key: string;
-      command: string;
-      external: boolean;
-      input_hash: string;
-      when: unknown;
-    }[];
-    problem_codes?: readonly string[];
-    documents?: readonly unknown[];
   };
 };
 
@@ -119,11 +110,12 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
               commands: [...entry.commands],
             })),
             commands: [...declarations.commands],
-            automations: declarations.automations.map((entry) => ({
+            // automation 선언은 앱 grant와 닿지 않아 선언 사실에 없다.
+            automations: [],
+            problem_codes: blueprint.problem_codes.map((entry) => entry.code),
+            documents: blueprint.documents.map((entry) => ({
               ...entry,
             })) as never,
-            problem_codes: [...(declarations.problem_codes ?? [])],
-            documents: [...(declarations.documents ?? [])] as never,
           },
           evidence: {
             description: { complete: gaps.length === 0, gaps },

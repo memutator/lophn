@@ -15,6 +15,8 @@ import {
   appBlueprint,
   appConnect,
   type AppConnectInput,
+  type AppGrant,
+  appGrantsList,
   appLogs,
   appPairConfirmPoll,
   appPairConfirmRequest,
@@ -26,8 +28,6 @@ import {
   appRuntime,
   appViewClosed,
   type AppViewClosedInput,
-  type Grant,
-  grantsList,
   invocationAcceptConfirm,
   type InvocationAcceptConfirmInput,
   invocationRecordDenied,
@@ -146,7 +146,7 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
   // approval 적용(`apply_approved_action`)은 A→B confirm의 접수를 core 안에서 확정할 때만 쓴다.
   scope: {
     operations: [
-      grantsList.name,
+      appGrantsList.name,
       applyApprovedAction.name,
       invocationAcceptConfirm.name,
       // activation 진행(apps/releases)이 시도의 상태를 읽고 참조·결과를 확정하고 사용 불가를 남긴다.
@@ -179,7 +179,7 @@ const SUPERVISOR_OPERATIONS = [
   appPairObserve.name,
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다.
   appBlueprint.name,
-  grantsList.name,
+  appGrantsList.name,
   // 앱이 broker로 보낸 invocation 기록은 이 자격이 core command로 전달한다.
   invocationRecordStarted.name,
   invocationRecordFinished.name,
@@ -228,7 +228,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["machine"],
       kind: "command",
     })),
-    { name: grantsList.name, actors: ["machine"], kind: "command" },
+    { name: appGrantsList.name, actors: ["machine"], kind: "command" },
     // supervisor가 앱의 invocation 후행 기록을 core에 전달한다.
     ...[
       invocationRecordStarted,
@@ -482,11 +482,11 @@ export async function createAppsControl(
       }
     },
     async grants(id) {
-      const grants: Grant[] = [];
+      const grants: AppGrant[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < GRANT_PAGES; page++) {
         const read = await deps.readers.read(
-          grantsList,
+          appGrantsList,
           APPS_CONTROL_CONTEXT,
           {
             app: id,
@@ -496,7 +496,7 @@ export async function createAppsControl(
         );
         if (!read.ok) return internalError();
         const body = read.value as {
-          grants: Grant[];
+          grants: AppGrant[];
           next_cursor: string | null;
         };
         grants.push(...body.grants);
@@ -891,21 +891,17 @@ export async function createAppsControl(
     ) return writer.command(ctx, envelope);
     const allowed = createTargetAuthorizer(ctx)(ctx, "grant.revoke", { app });
     if (!allowed.ok) return writer.command(ctx, envelope);
-    const listed = await deps.readers.read(grantsList, ctx, {
+    const listed = await deps.readers.read(appGrantsList, ctx, {
       app,
       limit: 200,
     });
     if (!listed.ok) return writer.command(ctx, envelope);
-    const grants = listed.value as { grants_seq?: string; grants: Grant[] };
+    const grants = listed.value as { grants: AppGrant[] };
     const grant = grants.grants.find((entry) =>
       entry.id === action.input?.value?.grant && entry.app === app &&
       entry.status === "active"
     );
-    if (
-      grant === undefined ||
-      grants.grants_seq !== action.comparison?.grants_seq ||
-      grant.kind === "automation.run"
-    ) return writer.command(ctx, envelope);
+    if (grant === undefined) return writer.command(ctx, envelope);
     const ledger = openConnection(deps.ledgerPath);
     if (!ledger.ok) return writer.command(ctx, envelope);
     try {

@@ -8,12 +8,11 @@ import {
   type AppConnectInput,
   type AppConnection,
   appConnectionSchema,
+  type AppGrant,
   type CallOrigin,
   type ChannelMode,
-  type Grant,
 } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import { effectiveScope } from "../permissions/mod.ts";
 import type { CoreSigner } from "./signing.ts";
 
 type ScreenSize = "full" | "panel" | "card";
@@ -63,7 +62,7 @@ export type AppFacts = {
 export type ConnectFacts = {
   app(id: string): Promise<Result<AppFacts | null>>;
   // 그 앱의 active grant 전체(여러 page를 모은 것).
-  grants(id: string): Promise<Result<readonly Grant[]>>;
+  grants(id: string): Promise<Result<readonly AppGrant[]>>;
 };
 
 export type ConnectorDeps = {
@@ -196,33 +195,15 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     return bound?.apps.find((item) => item.app === app);
   }
 
-  // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위 ∩ 현재 active
-  // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다.
-  async function agentCommands(
+  // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위.
+  // 어느 하나라도 없으면 connection에 들어가지 않는다.
+  function agentCommands(
     entry: { commands: readonly string[] },
     input: AppConnectInput,
     process: ProcessObservation,
-  ): Promise<Result<string[]>> {
-    const grants = await deps.facts.grants(input.app);
-    if (!grants.ok) return grants;
-    const allowedByGrant = effectiveScope({
-      app: input.app,
-      declarations: {
-        release: process.release ?? "",
-        permissions: [],
-        app_connections: [],
-        commands: process.commands,
-        automations: [],
-      },
-      grants: grants.value,
-      targetCommands: () => undefined,
-    }).agent_commands;
-    if (allowedByGrant.length === 0) {
-      return err({
-        code: "forbidden",
-        message: "agent.commands grant is required",
-      });
-    }
+  ): Result<string[]> {
+    // agent grant는 Gate가 보고 앱 grant가 아니다. 여기서는 역할·assignment 범위와 등록한 command만 맞춘다.
+    const allowedByGrant = process.commands;
     const allowed = new Set(
       entry.commands.filter((key) =>
         allowedByGrant.includes(key) && process.commands.includes(key)
@@ -320,7 +301,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
       const origin = agentCaller(ctx, input);
       if (!origin.ok) return origin;
       caller = origin.value;
-      const listed = await agentCommands(scoped!, input, found);
+      const listed = agentCommands(scoped!, input, found);
       if (!listed.ok) return listed;
       commands = listed.value;
     } else {
@@ -404,37 +385,12 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     prune(deps.clock.nowMs());
     // 같은 프로세스는 한 번만 닫는다. 아직 열린 연결이 없는 것은 건드리지 않는다.
     const closing = new Map<string, { app: string; nonce: string }>();
-    const grantsOf = new Map<string, Promise<Result<readonly Grant[]>>>();
     for (const record of [...issued]) {
       const key = `${record.app}/${record.processNonce}`;
       if (closing.has(key)) continue;
       if (!deps.current(record.credentialRef).ok) {
         closing.set(key, { app: record.app, nonce: record.processNonce });
         continue;
-      }
-      if (!record.agent) continue;
-      let grants = grantsOf.get(record.app);
-      if (grants === undefined) {
-        grants = deps.facts.grants(record.app);
-        grantsOf.set(record.app, grants);
-      }
-      const read = await grants;
-      // 읽지 못한 것은 닫을 근거가 아니다. 다음 sweep이 다시 본다.
-      if (!read.ok) continue;
-      const granted = effectiveScope({
-        app: record.app,
-        declarations: {
-          release: "",
-          permissions: [],
-          app_connections: [],
-          commands: record.commands,
-          automations: [],
-        },
-        grants: read.value,
-        targetCommands: () => undefined,
-      }).agent_commands;
-      if (!record.commands.every((key) => granted.includes(key))) {
-        closing.set(key, { app: record.app, nonce: record.processNonce });
       }
     }
     let closed = 0;

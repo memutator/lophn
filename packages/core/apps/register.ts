@@ -126,7 +126,7 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다.
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
-  // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
+  // 앱 grant는 activation이 만들고, 사람은 거두기만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
   // release 준비 확정과 그 읽기(list·get·compare), 고정 blueprint 읽기.
@@ -158,9 +158,7 @@ export function createLedgerRegistration(
       commands.archive,
       commands.unarchive,
       commands.rename,
-      grants.create,
       grants.revoke,
-      grants.revokeAutomation,
       confirm.acceptConfirm,
       invocations.recordStarted,
       invocations.recordFinished,

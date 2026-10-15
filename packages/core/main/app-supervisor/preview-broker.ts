@@ -2,10 +2,9 @@
 // 모두 대역이고, 기록(invocation)만 운영과 같은 전달 목록으로 가되 mode로 구별된다. 선언은 그 bundle의
 // 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
-import { err, ok } from "../../../base/mod.ts";
+import { err } from "../../../base/mod.ts";
 import {
   type AppsConnectService,
-  type BrokerAccess,
   type BrokerServices,
   createProblemReportService,
   type InvocationBroker,
@@ -54,10 +53,6 @@ const closedProblems: ProblemsReport = {
       message: "preview diagnostics are not connected",
     })),
 };
-// preview 자식에는 현재 release 선언이 없다. 보고 service가 선언 code 검사 대신 collector에 맡기는 자식은
-// release가 없는 자식이고, release가 있는 preview는 선언을 모르는 것으로 닫는다.
-const noAccess: BrokerAccess = { current: () => Promise.resolve(ok(null)) };
-
 export function previewServicesFor(
   scope: PreviewScope,
   invocations: Pick<InvocationBroker, "submit">,
@@ -66,7 +61,6 @@ export function previewServicesFor(
     scope,
     invocations,
     problems: createProblemReportService({
-      access: noAccess,
       problems: closedProblems,
     }),
   });

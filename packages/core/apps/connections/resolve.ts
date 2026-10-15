@@ -1,7 +1,7 @@
 // 앱 쌍의 호출 범위 계산. 순수 함수이고 IO가 없다.
 // 범위 = source release.app_connections의 대상 command ∩ source→target active app.call grant의
 // command ∩ target의 현재 command. 방향은 source → target 하나뿐이다.
-import type { Grant } from "../../../protocol/apps/mod.ts";
+import type { AppGrant } from "../../../protocol/apps/mod.ts";
 
 export type PairDeclaration = {
   app: string;
@@ -14,7 +14,7 @@ export type PairInput = {
   // source의 현재 release가 선언한 앱 연결(release.app_connections).
   declared: readonly PairDeclaration[];
   // grant가 섞여 있어도 된다. active이고 source→target 방향의 app.call만 쓴다.
-  grants: readonly Grant[];
+  grants: readonly AppGrant[];
 };
 
 type PairGrant = { id: string; commands: readonly string[] };

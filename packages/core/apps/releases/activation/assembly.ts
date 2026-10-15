@@ -16,10 +16,10 @@ import {
 } from "../../../../base/mod.ts";
 import {
   type App,
+  type AppGrant,
   appRecordUnavailable,
   type DataResult,
   encodeDataJobInput,
-  type Grant,
   type Release,
   releaseCompleteActivation,
   releaseFailActivation,
@@ -140,7 +140,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       opened.value.close();
     }
   }
-  async function grantsOf(app: string): Promise<Result<readonly Grant[]>> {
+  async function grantsOf(app: string): Promise<Result<readonly AppGrant[]>> {
     return await deps.facts.grants(app);
   }
 
@@ -554,9 +554,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       app.active_release,
       app.run_enabled,
       app.status,
-      grants.value.filter((grant) => grant.kind !== "automation.run").map((
-        grant,
-      ) => grant.id).sort(),
+      grants.value.map((grant) => grant.id).sort(),
     ]);
     if (lastKeys.get(app.id) === key) return true;
     const desired = await desiredFor(app.id, app.active_release, {

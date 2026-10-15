@@ -1,5 +1,5 @@
 // direct socket·시작 입력의 순수 검증. contracts Zod schema와 같은 판정이어야 하고,
-// 앱 프로세스는 Zod를 싣지 않는다. 대표 사례 대조는 wire_test.ts가 한다.
+// 앱 프로세스는 Zod를 싣지 않는다.
 
 import type { Json, WireError } from "./wire-check.ts";
 

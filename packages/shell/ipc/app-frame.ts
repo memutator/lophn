@@ -1,6 +1,6 @@
 // shell renderer와 main 사이 앱 view 경계(APP_FRAME_IPC·APP_FRAME_PUSH의 사본).
-// main tsc는 contracts package를 보지 않으므로 같은 모양을 여기 둔다. app-frame_test.ts가
-// contracts schema와 같은 값을 받고 거절하는지 맞춘다. view ID는 main이 만든 메모리 식별이다.
+// main tsc는 contracts package를 보지 않으므로 같은 모양을 여기 둔다.
+// view ID는 main이 만든 메모리 식별이다.
 import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";

@@ -5,10 +5,6 @@ export {
   unavailableAdapter,
 } from "./adapters/keychain.ts";
 export {
-  createFakeKeychain,
-  type FakeKeychain,
-} from "./adapters/fake-keychain.ts";
-export {
   createLinuxSecretServiceAdapter,
   randomSealedRef,
   SECRET_TOOL_PATHS,

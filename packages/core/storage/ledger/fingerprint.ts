@@ -33,7 +33,7 @@ export function commandFingerprint(parts: FingerprintInput): Promise<string> {
   return fingerprint(fingerprintBody(parts));
 }
 
-// 같은 입력이면 RFC 8785 직렬화가 같다. 테스트가 지문 재료를 확인한다.
+// 같은 입력이면 RFC 8785 직렬화가 같다.
 export function canonicalFingerprintBody(parts: FingerprintInput): string {
   return canonicalize(fingerprintBody(parts));
 }

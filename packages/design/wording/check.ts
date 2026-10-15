@@ -1,5 +1,4 @@
 // 화면 코드의 고정 문구를 검사한다. 오류는 실패, 경고는 결과 목록이다.
-// 실행: deno test (check_test.ts가 저장소 화면 코드에도 돌린다)
 import { parse } from "@formatjs/icu-messageformat-parser";
 import { en } from "./en.ts";
 import {
@@ -317,7 +316,7 @@ async function collect(root: string): Promise<string[]> {
   return files.sort();
 }
 
-// 화면 코드 묶음 검사. 저장소 검사는 testing/repo-check.ts의 checkRepo가 problems 문구 key를 더해 부른다.
+// 화면 코드 묶음 검사.
 export async function checkScreens(
   root: string,
   options: CheckOptions = {},

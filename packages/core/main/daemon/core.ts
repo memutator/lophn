@@ -322,7 +322,6 @@ import {
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
-  type AppsControl,
   appSocketRoot,
   appsOperationPolicies,
   appSupervisorSpec,
@@ -384,7 +383,6 @@ import {
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { appExportWorkers } from "../../apps/data/export.ts";
 import { ticketClaimSweepIntervalMs } from "../../apps/tickets/register.ts";
-import { testCredentialFront } from "./test-credentials.ts";
 import { agentProfileHandlers } from "../../lophn-agent/register.ts";
 import {
   createMcpAuthControl,
@@ -422,8 +420,6 @@ export type CoreOptions = {
   supervise?: (workers: readonly KindLaunchSpec[]) => Promise<void>;
   // 테스트가 child를 띄우지 않을 때만 끈다. 제품 기동은 항상 감독한다.
   superviseIo?: boolean;
-  // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
-  testCredentials?: boolean;
   // 앱 revert 단계의 호출자를 바꾼다(lophn-agent/revert). 없으면 호출한 사람의 apps/connect 연결과 앱 direct
   // socket을 쓴다. 테스트가 실제 앱 프로세스를 띄우지 않고 앱의 호출 결과를 넣는 입구다.
   appRevertCaller?: (ctx: AuthenticatedContext) => AppRevertCaller;
@@ -450,8 +446,7 @@ export type CoreOptions = {
   codingKeychain?: KeychainAdapter;
   // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
   codingLoaders?: readonly string[];
-  // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
-  // 쥔 I/O worker). 제품 기동에는 없다.
+  // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다. 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
   // 테스트가 context worker를 띄우지 않을 때만 끈다(worker의 결과를 손으로 내는 시험). 제품 기동은 항상
   // 띄운다.
@@ -524,18 +519,6 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
-  // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
-  appsControl?: AppsControl;
-  // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
-  acceptTestCredential?(
-    context: AuthenticatedContext,
-    token: string,
-  ): Promise<Result<void>>;
-  // testCredentials일 때만 있다. 준비 참조를 writer 메모리에 알린다.
-  notePrepared?(
-    prepared: PreparedRelayResult,
-    nowMs: number,
-  ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다.
   sweepTicketClaims(): Promise<void>;
   // 보고된 ticket의 조건을 checker worker가 정본으로 다시 비교하게 한다. 감독 worker가 없으면
@@ -570,18 +553,6 @@ export type Core = {
   codingCredentials?: CodingCredentials;
   // 시작 때의 고아 정리·색인 복원이 끝나면 resolve한다. 실패해도 resolve한다(기동을 막지 않는다).
   codingCredentialsReady?: Promise<void>;
-  // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
-  // listen으로 그 session이 받는 event를 같이 들을 수 있다.
-  documentsFeed?: InternalSubscription;
-  // testCredentials일 때만 있다. event dispatcher에 올라 있는 session 수다. 닫힌 WebSocket
-  // 연결이 session을 남기지 않는지 본다.
-  eventSessions?(): number;
-  // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
-  confirmation?(body: {
-    action: "issue" | "close-window" | "clear";
-    request?: unknown;
-    windowId?: string;
-  }): Promise<Result<unknown>>;
 };
 
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
@@ -802,7 +773,7 @@ async function open(
       kind: route.kind === "command" ? "command" : "read",
     })),
   ];
-  const productRegistry = new CredentialRegistry({
+  const registry = new CredentialRegistry({
     epoch,
     clock,
     random,
@@ -813,9 +784,6 @@ async function open(
       ...codingAgentOperationPolicies(allRoutes, baseOperations),
     ],
   });
-  const registry = options.testCredentials
-    ? testCredentialFront(productRegistry, ledgerPath)
-    : productRegistry;
   const io = options.superviseIo === false ? undefined : createSupervisor({
     clock,
     denoCommand: Deno.execPath(),
@@ -1095,7 +1063,7 @@ async function open(
             message: "app confirm is live only",
           });
         }
-        const issued = await productRegistry.issue({
+        const issued = await registry.issue({
           actor: `app:${source.app}`,
           principal: `app:${source.app}`,
           scope: {
@@ -1116,7 +1084,7 @@ async function open(
         });
         if (!issued.ok) return issued;
         const ref = issued.value.credential_ref;
-        const current = productRegistry.revalidate({ credential_ref: ref });
+        const current = registry.revalidate({ credential_ref: ref });
         if (!current.ok) return current;
         const recorded = await runtime!.record(current.value);
         if (!recorded.ok) return recorded;
@@ -1124,7 +1092,7 @@ async function open(
         if (!context.ok) return context;
         return ok({
           context: context.value,
-          end: () => void productRegistry.end(ref),
+          end: () => void registry.end(ref),
         });
       },
     }),
@@ -1184,7 +1152,7 @@ async function open(
   // logs에 남기지 않는다(child.ts 계약). 발급이 실패하면 기동을 여기서 멈춘다.
   let documentsToken: string | undefined;
   if (options.superviseIo !== false) {
-    const issued = await productRegistry.issue({
+    const issued = await registry.issue({
       actor: "machine",
       principal: "machine:documents",
       scope: {
@@ -1201,7 +1169,7 @@ async function open(
       await runtime.close();
       return issued;
     }
-    const current = productRegistry.revalidate({
+    const current = registry.revalidate({
       credential_ref: issued.value.credential_ref,
     });
     if (!current.ok) {
@@ -1987,9 +1955,9 @@ async function open(
   // 상주한다. 감독이 없는 harness는 띄우지 않는다. 띄우지 못해도 core는 계속 선다: 읽기는 있던
   // index로 답하고(없으면 unavailable) 제출된 판은 checking으로 남는다.
   if (io && options.contextWorker !== false) {
-    const issued = await productRegistry.issue(contextWorkerCredential());
+    const issued = await registry.issue(contextWorkerCredential());
     const current = issued.ok
-      ? productRegistry.revalidate({
+      ? registry.revalidate({
         credential_ref: issued.value.credential_ref,
       })
       : issued;
@@ -2089,7 +2057,7 @@ async function open(
     io && collectorSpec &&
     allRoutes.some((route) => route.name === COLLECTOR_ROUTES[0].name)
   ) {
-    const issued = await productRegistry.issue({
+    const issued = await registry.issue({
       actor: "machine",
       // 준비 참조의 주체(child-blob-prepare 정책)와 Report의 원주체가 이 값과 같아야 등록된다.
       principal: "collector",
@@ -2100,7 +2068,7 @@ async function open(
       conditions: { task: "problems", process: COLLECTOR_KIND },
     });
     const current = issued.ok
-      ? productRegistry.revalidate({
+      ? registry.revalidate({
         credential_ref: issued.value.credential_ref,
       })
       : issued;
@@ -2186,7 +2154,7 @@ async function open(
     });
     // 같은 process 안의 `problems.work` 반응기가 쓰는 machine credential이다.
     // 요청별 runner credential은 요청 본문으로 가므로 hello credential과 겹치지 않는다.
-    const workIssued = await productRegistry.issue({
+    const workIssued = await registry.issue({
       actor: "machine",
       principal: PROBLEMS_WORK_PRINCIPAL,
       scope: {
@@ -2199,14 +2167,14 @@ async function open(
       handler.close();
       return err(workIssued.error);
     }
-    const workCurrent = productRegistry.revalidate({
+    const workCurrent = registry.revalidate({
       credential_ref: workIssued.value.credential_ref,
     });
     const workRecorded = workCurrent.ok
       ? await runtime.record(workCurrent.value)
       : workCurrent;
     if (!workRecorded.ok) {
-      productRegistry.revoke(workIssued.value.credential_ref);
+      registry.revoke(workIssued.value.credential_ref);
       handler.close();
       return workRecorded;
     }
@@ -2243,22 +2211,22 @@ async function open(
         apiPort: server.port,
         // 요청마다 credential을 발급해 ledger에 기록한다. 쓴 뒤에는 폐기한다.
         issue: async (input) => {
-          const issued = await productRegistry.issue(input);
+          const issued = await registry.issue(input);
           if (!issued.ok) return issued;
-          const current = productRegistry.revalidate({
+          const current = registry.revalidate({
             credential_ref: issued.value.credential_ref,
           });
           const recorded = current.ok
             ? await runtime.record(current.value)
             : current;
           if (!recorded.ok) {
-            productRegistry.revoke(issued.value.credential_ref);
+            registry.revoke(issued.value.credential_ref);
             return recorded;
           }
           return ok({
             token: issued.value.token,
             revoke: () => {
-              productRegistry.revoke(issued.value.credential_ref);
+              registry.revoke(issued.value.credential_ref);
             },
           });
         },
@@ -2287,7 +2255,7 @@ async function open(
     io && checkerSpec &&
     allRoutes.some((route) => route.name === TICKET_CHECKER_OPERATIONS[1])
   ) {
-    const issued = await productRegistry.issue({
+    const issued = await registry.issue({
       actor: "machine",
       principal: TICKET_CHECKER_PRINCIPAL,
       scope: {
@@ -2297,7 +2265,7 @@ async function open(
       conditions: { task: "coding-agent", process: TICKET_CHECKER_KIND },
     });
     const current = issued.ok
-      ? productRegistry.revalidate({
+      ? registry.revalidate({
         credential_ref: issued.value.credential_ref,
       })
       : issued;
@@ -2502,13 +2470,13 @@ async function open(
   if (appsSupervision) {
     // collector는 요청 credential을 ledger 행으로 다시 읽는다. 메모리 발급만으로는
     // 선언 보고가 unauthorized가 된다.
-    const childIssuer = appCredentialIssuer(productRegistry);
+    const childIssuer = appCredentialIssuer(registry);
     appsControl.useIssuer({
       ...childIssuer,
       async request(message) {
         const issued = await childIssuer.request(message);
         if (!issued.ok) return issued;
-        const current = productRegistry.revalidate({
+        const current = registry.revalidate({
           credential_ref: issued.value.credential_ref,
         });
         if (!current.ok) {
@@ -2523,7 +2491,7 @@ async function open(
         return issued;
       },
     });
-    const issued = await productRegistry.issue({
+    const issued = await registry.issue({
       actor: "machine",
       principal: "machine:apps-supervisor",
       scope: {
@@ -2533,7 +2501,7 @@ async function open(
       conditions: { task: "apps", process: APPS_SUPERVISOR_KIND },
     });
     const current = issued.ok
-      ? productRegistry.revalidate({
+      ? registry.revalidate({
         credential_ref: issued.value.credential_ref,
       })
       : issued;
@@ -2583,7 +2551,7 @@ async function open(
   appsControl.start();
   // 고아 정리와 active connection 색인 복원은 기동을 기다리게 하지 않는다. 실패는 진단 log뿐이다.
   const codingReady = coding
-    ? coding.start(productRegistry, (context) => runtime!.record(context))
+    ? coding.start(registry, (context) => runtime!.record(context))
       .catch(() => {})
     : undefined;
   ready = true;
@@ -2597,7 +2565,7 @@ async function open(
         productKeychain();
     const started = await startAgentRuntimeChild({
       io,
-      registry: productRegistry,
+      registry,
       record: (context) => runtime!.record(context),
       epoch,
       dataRoot: root.path,
@@ -2675,7 +2643,7 @@ async function open(
       runtime,
       server.port,
       epoch,
-      (scope) => productRegistry.issue(scope),
+      (scope) => registry.issue(scope),
       allRoutes,
       eventNames,
     )
@@ -2724,13 +2692,6 @@ async function open(
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
-    ...(options.testCredentials
-      ? {
-        documentsFeed,
-        eventSessions: () => runtime!.trackedSessions(),
-        appsControl,
-      }
-      : {}),
     blobBuffer,
     childBlobPrepare: (kind, send) =>
       createChildBlobPrepare({
@@ -2950,22 +2911,6 @@ async function open(
       },
     }, shellViewLog(root.path))
     : Promise.resolve();
-  const accepting = registry as CredentialRegistry & {
-    acceptTestCredential?(
-      context: AuthenticatedContext,
-      token: string,
-    ): Promise<Result<void>>;
-  };
-  if (options.testCredentials && runtime) {
-    const noting = runtime;
-    core.notePrepared = (prepared, nowMs) =>
-      noting.notePrepared(prepared, nowMs);
-    core.confirmation = (body) => noting.confirmation(body);
-  }
-  if (accepting.acceptTestCredential) {
-    core.acceptTestCredential = (context, token) =>
-      accepting.acceptTestCredential!(context, token);
-  }
   return ok(core);
 }
 

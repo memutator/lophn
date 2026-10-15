@@ -31,7 +31,6 @@ export {
 export { type ApprovalRunLineage, approvalRunLineage } from "./lineage.ts";
 export { observeApprovals, RESTART_GRANTED_LIMIT } from "./restart.ts";
 export { approvalsGetRead, approvalsListRead } from "./reads.ts";
-export { createLedgerTestRegistration } from "./harness_test.ts";
 export {
   createApprovalRegistration,
   createCoreRegistration,

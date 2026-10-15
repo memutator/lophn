@@ -1,5 +1,5 @@
 // 개발 확인 전용. LOPHN_DEV_SEED가 있을 때만 프로젝트 작업대를 가짜 통로로 연다.
-// 제품 경로에는 없고 core를 부르지 않는다. e2e·check는 이 변수를 주지 않는다.
+// 제품 경로에는 없고 core를 부르지 않는다. check는 이 변수를 주지 않는다.
 import {
   EXPERIMENT_NAMES,
   experimentPath,
@@ -10,7 +10,7 @@ import type { BodyState, DocumentInfo } from "../editor/source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
 
 /**
- * 시드 프로젝트 id. 실제 project id 모양이라 e2e가 같은 id로 core에 프로젝트를
+ * 시드 프로젝트 id. 실제 project id 모양이라 같은 id로 core에 프로젝트를
  * 만들면 터미널 열기가 그 등록 폴더를 읽는다.
  */
 export const DEV_SEED_PROJECT = "prj_01k6devseed000000000000000";

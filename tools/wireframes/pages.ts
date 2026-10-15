@@ -1,4 +1,4 @@
-// wireframes gallery의 page 목록. React와 CSS를 import하지 않아 `deno test`가 그대로 읽는다.
+// wireframes gallery의 page 목록.
 //
 // page 하나를 더하는 법:
 //   1. 이 목록에 항목 하나를 더한다(id, part, title, badges, description, screen).
@@ -6,7 +6,7 @@
 //      component를 더한다. 새 설계(part "new")는 `frames/compositions/`에 `@lophn/design`
 //      component와 고정 데이터만으로 짠 정적 구성을 둔다. 빠뜨리면 deno check가 잡는다.
 //
-// 버린 화면은 이 목록에 올리지 않는다(pages_test.ts가 지킨다): Settings › Backup, project
+// 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
 // Export panel, lophn 공간 Documents 화면, Contexts(Focus) 화면, context Materials의
 // Baseline·Reference·Follow-changes 묶음.
 

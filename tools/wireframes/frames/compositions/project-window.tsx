@@ -10,7 +10,6 @@ import {
   type IconProps,
   Menu,
   Tooltip,
-  Tree,
   type TreeNode,
 } from "@lophn/design/components";
 import {
@@ -42,7 +41,6 @@ import { menuIcon, menuLead } from "./project-files/menu-icons.tsx";
 import { TabStrip } from "../chrome/tab-strip.tsx";
 import { Avatar } from "./agent-avatar.tsx";
 import styles from "./compose.module.css";
-import agentStyles from "./agents.module.css";
 
 /** `public`으로 내놓는 type·field·relation 표시. */
 export function Mark({ children }: { children: ReactNode }) {

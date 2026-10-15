@@ -1,9 +1,0 @@
-create table event (
-  id integer primary key,
-  title text not null check (length(title) between 1 and 200),
-  starts_at text not null,
-  source text not null check (source in ('local', 'external')),
-  external_id text unique,
-  created_at text not null
-);
-create index event_starts on event (starts_at, id);

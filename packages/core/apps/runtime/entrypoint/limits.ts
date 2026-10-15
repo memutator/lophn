@@ -1,5 +1,5 @@
 // contracts/apps/channel-values.ts와 같은 값. runtime graph는 Zod를 쓰지 않으므로
-// 상수를 여기 두고 테스트가 contracts 값과 같음을 확인한다.
+// 상수를 여기 둔다.
 export const DIRECT_SOCKET_PATHS = {
   screen: "/screens",
   invoke: "/_lophn/commands/invoke",

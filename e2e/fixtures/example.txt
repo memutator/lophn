@@ -1,1 +1,0 @@
-example fixture for the e2e harness copy helper.

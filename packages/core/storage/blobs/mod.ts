@@ -12,7 +12,6 @@ export {
   tmpPathFor,
 } from "./model.ts";
 export {
-  createFakeQuota,
   type DiskQuota,
   statfsBytes,
   systemQuota,

@@ -9,7 +9,7 @@ export const GUIDE_BEGIN_MARKER = "<!-- begin lophn-managed -->";
 export const GUIDE_END_MARKER = "<!-- end lophn-managed -->";
 
 // 관리 구간 본문의 상한이다(Codex는 안내 예산 32 KiB를 바이트로 잘라 읽으므로(조사
-// skills-and-guides), 마커·본문을 합친 안내 파일 전체가 이 안에 들도록 배포 테스트가 잰다.
+// skills-and-guides), 마커·본문을 합친 안내 파일 전체가 이 안에 들어야 한다.
 export const GUIDE_BYTES_MAX = 32 * 1024;
 
 // 경계 오류다. 오류마다 파일이 바뀌지 않고 파일의 현재 상태 복구 안내만 남긴다.
@@ -181,7 +181,7 @@ export async function updateGuideRegion(
   if (!span.ok) return err(span.failure);
   // 본문은 앞뒤 newline 하나씩으로 감싼다(region.ts의 관례와 같다).
   const guide = encoder().encode(`\n${input.guide}\n`);
-  // 안내 본문은 마커·본문까지 합쳐 상한 안에 들도록 두고, 배포 테스트가 전체 파일로 잰다.
+  // 안내 본문은 마커·본문까지 합쳐 상한 안에 들도록 둔다.
   const whole = new Uint8Array(
     bytes.length - (span.span.bodyEnd - span.span.bodyStart) +
       guide.length,

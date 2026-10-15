@@ -134,7 +134,7 @@ export async function createPlatformIo(
     work: createBlobStoreWork({
       root: options.root,
       suffix: options.suffix ?? (() => crypto.randomUUID()),
-      // 제품 여유는 실제 관측이다. 테스트가 fake quota를 넣는다.
+      // 제품 여유는 실제 관측이다.
       quota: systemQuota(),
     }),
     suffix: options.suffix ?? (() => crypto.randomUUID()),

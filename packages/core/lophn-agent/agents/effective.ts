@@ -14,7 +14,7 @@ import type { ResolveInput } from "./resolve.ts";
 
 // 읽기용 동기 합치기. ListAgents·ReadAgent는 reader의 동기 handler라 async인 resolveAgent를 기다릴 수 없어,
 // 사람이 화면에서 보는 칸(이름·profile·model·tools·skills·mcp·contexts)만 같은 규칙으로 동기로 합친다.
-// 규칙은 resolveAgent와 같고 effective_test.ts가 모든 층 조합에서 같은 값을 내는지 본다.
+// 규칙은 resolveAgent와 같다.
 // resolveAgent와 다른 점은 어느 층에도 model이 없어도 실패하지 않고 model을 비운다는 것뿐이다.
 
 export type Effective = {

@@ -31,8 +31,3 @@ export function systemQuota(): DiskQuota {
 export function unavailableQuota(): DiskQuota {
   return { availableBytes: () => Promise.resolve(undefined) };
 }
-
-// 테스트가 여유를 고정할 때 쓴다.
-export function createFakeQuota(available: number | undefined): DiskQuota {
-  return { availableBytes: () => Promise.resolve(available) };
-}

@@ -328,10 +328,3 @@ export function createReaderRegistration(): ReaderRegistration {
     ]),
   };
 }
-
-// public harness는 이 이름을 부른다. 제품 등록과 같은 함수다.
-export function createLedgerTestRegistration(
-  environment?: unknown,
-): LedgerRegistration {
-  return createLedgerRegistration(environment);
-}

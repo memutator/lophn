@@ -21,6 +21,6 @@ export function moduleHash(bundle: string): string {
   }));
 }
 
-// bundle.js의 hash. bundle을 다시 만들면 이 값도 바뀌고 check 테스트가 일치를 확인한다.
+// bundle.js의 hash. bundle을 다시 만들면 이 값도 바뀐다.
 export const BUILTIN_MODULE_HASH =
   "859415856f59662c5bcdfc30adf2677d9fc296b193c7137fece8f5385e02f9d8";

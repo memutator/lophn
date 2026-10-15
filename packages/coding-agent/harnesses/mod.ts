@@ -131,10 +131,3 @@ export {
   NATIVE_ENVIRONMENT,
   parseDetections,
 } from "./detect.ts";
-export {
-  decideDefaultHarness,
-  type DefaultHarnessDecision,
-  type DefaultHarnessState,
-  runnableOf,
-  type SelectionEntry,
-} from "./selection.ts";

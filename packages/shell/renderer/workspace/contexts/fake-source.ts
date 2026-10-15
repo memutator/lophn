@@ -1,6 +1,6 @@
-// 시험과 화면 시안이 쓰는 ContextsSource. tools/wireframes의 phroner 예시(eval·harness context,
+// 화면 시안이 쓰는 ContextsSource. tools/wireframes의 phroner 예시(eval·harness context,
 // Experiment·Scenario·Rubric·Finding)와 같은 값을 계약 모양으로 담는다. 명령은 메모리의 값을
-// 바꾸고 calls에 남긴다. 값이 계약에 맞는지는 fake-source_test.ts가 계약 schema로 검사한다.
+// 바꾸고 calls에 남긴다.
 import type {
   BaseRevision,
   BundleContent,

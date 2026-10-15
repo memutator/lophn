@@ -5,8 +5,7 @@
     "./components": "./components/mod.ts",
     "./reading": "./reading/mod.ts",
     "./base.css": "./base.css",
-    "./tokens.css": "./generated/tokens.css",
-    "./component-tests": "./component-tests.ts"
+    "./tokens.css": "./generated/tokens.css"
   },
   "imports": {
     "postcss": "npm:postcss@8.5.28",
@@ -25,7 +24,6 @@
     "@radix-ui/react-tooltip": "npm:@radix-ui/react-tooltip@1.2.16",
     "lucide-react": "npm:lucide-react@1.51.0",
     "@lezer/markdown": "npm:@lezer/markdown@1.7.2",
-    "happy-dom": "npm:happy-dom@20.14.5",
     "esbuild": "npm:esbuild@0.28.2",
     "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1"
   },

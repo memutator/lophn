@@ -111,7 +111,6 @@
           "npm:@radix-ui/react-tooltip@1.2.16",
           "npm:@types/react@19.3.0",
           "npm:esbuild@0.28.2",
-          "npm:happy-dom@20.14.5",
           "npm:lucide-react@1.51.0",
           "npm:postcss-value-parser@4.2.0",
           "npm:postcss@8.5.28",
@@ -133,7 +132,6 @@
           "npm:@xterm/addon-fit@0.11.0",
           "npm:@xterm/xterm@6.0.0",
           "npm:esbuild@0.28.2",
-          "npm:happy-dom@20.14.5",
           "npm:lucide-react@1.51.0",
           "npm:react-dom@19.3.0",
           "npm:react@19.3.0"
@@ -213,9 +211,11 @@
       "jsr:@lophn/wireframes": {
         "dependencies": [
           "jsr:@luca/esbuild-deno-loader@0.11.1",
+          "npm:@iconify-json/catppuccin@1.2.17",
           "npm:@types/react@19.3.0",
           "npm:@xterm/xterm@6.0.0",
           "npm:esbuild@0.28.2",
+          "npm:lucide-react@1.51.0",
           "npm:react-dom@19.3.0",
           "npm:react@19.3.0"
         ]

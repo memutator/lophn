@@ -46,7 +46,7 @@ export interface FeedbackDialog {
 
 /**
  * problems `SubmitFeedback` 입력(contracts/problems/feedback.ts submitFeedbackInputSchema)과 같은
- * 모양. main tsc는 contracts를 보지 않는다. feedback_test.ts가 contracts schema로 검사한다.
+ * 모양. main tsc는 contracts를 보지 않는다.
  */
 export interface SubmitFeedbackRequest {
   report_id: string;

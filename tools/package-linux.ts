@@ -76,7 +76,6 @@ function inPkg(pkg: string, installed: string): string {
 async function stagePlatform(pkg: string, work: string): Promise<void> {
   const platform = inPkg(pkg, layout.platform);
   await Deno.mkdir(platform, { recursive: true });
-  // 시험 파일도 가져온다: production module이 *_test.ts 이름의 파일을 import하는 곳이 있다.
   await run("rsync", [
     "-a",
     "--exclude=node_modules",

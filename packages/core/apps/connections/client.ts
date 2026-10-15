@@ -8,7 +8,7 @@ export const PAIR_PORT = Symbol.for("lophn.cap-apps");
 export const APP_CONNECT_PATH = "/_lophn/broker/apps/connect";
 export const APP_CONFIRM_REQUEST_PATH = "/_lophn/broker/apps/confirm/request";
 export const APP_CONFIRM_POLL_PATH = "/_lophn/broker/apps/confirm/poll";
-// contracts/apps/channel-values.ts의 값과 같다. 시험이 같음을 확인한다.
+// contracts/apps/channel-values.ts의 값과 같다.
 export const PAIR_SOCKET_HOST = "lophn.invalid";
 
 export type PairResponse = { status: number; body: unknown };

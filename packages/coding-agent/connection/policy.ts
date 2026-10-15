@@ -48,8 +48,8 @@ export function registrationAllowed(scope: ConnectionScope): boolean {
   return scope.kind === "all";
 }
 
-// 금지 작업마다 daemon이 거절해야 하는 소유 route 이름이다. 이름 그대로 고정이라
-// 계약이 이름을 바꾸면 시험이 깨진다. route가 없는 동작은 빈 배열이다: 없는 것을 열어
+// 금지 작업마다 daemon이 거절해야 하는 소유 route 이름이다. 이름 그대로 고정이다.
+// route가 없는 동작은 빈 배열이다: 없는 것을 열어
 // 주지 않는 것이 그 거절이다.
 export const FORBIDDEN_ROUTES: Readonly<
   Record<ForbiddenAction, readonly string[]>

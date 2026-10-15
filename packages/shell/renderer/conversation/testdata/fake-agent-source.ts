@@ -1,5 +1,5 @@
-// Agent 화면 test의 AgentViewSource. 기록을 메모리에 두고 연결 상태·읽기 실패·보내기 답을 test가 정한다.
-// 값의 모양은 agent-source.ts이고, model·명령·질문·승인 값은 부품 test가 쓰는 testdata를 그대로 쓴다.
+// Agent 화면의 AgentViewSource 가짜. 기록을 메모리에 두고 연결 상태·읽기 실패·보내기 답을 호출자가 정한다.
+// 값의 모양은 agent-source.ts이고, model·명령·질문·승인 값은 같은 testdata를 쓴다.
 // 시각·id는 고정이다.
 import type { ConnectionState } from "../../desktop/connection/connection.ts";
 import type {

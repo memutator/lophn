@@ -1,7 +1,0 @@
--- 빈 DB에서 되는 첫 단계다(apps#T26 완료 10번). 이전 판 schema가 없어도(0) 된다.
-create table board (
-  id integer primary key,
-  kind text not null check (length(kind) between 1 and 40),
-  note text not null default '',
-  created_at text not null
-);

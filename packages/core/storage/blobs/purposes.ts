@@ -119,7 +119,7 @@ export function assignmentOf(
 // 것을 하나 고른다(4종의 첫 번째).
 const PERMANENT_CATEGORY = Object.keys(BLOB_CAPACITY_MAX_BYTES)[0];
 
-// 상한의 유효 category. 확인 테스트가 본다.
+// 상한의 유효 category.
 export const VALID_CATEGORIES: ReadonlySet<string> = new Set(
   Object.keys(BLOB_CAPACITY_MAX_BYTES),
 );

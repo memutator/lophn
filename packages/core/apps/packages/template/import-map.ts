@@ -241,7 +241,7 @@ export async function buildImportMap(
       return failure(`${ref.name}@${ref.version} is not installed`);
     }
     const config = parseConfig(files);
-    // 지원 소스는 시험용 export(예: design의 component-tests)를 사본에 담지 않는다. 그 export는 map에 없다.
+    // 지원 소스는 test용 export를 사본에 담지 않는다. 그 export는 map에 없다.
     if (SUPPORT_PACKAGES.some((item) => item.name === ref.name)) {
       const present = new Set(files.map((file) => file.path));
       config.exports = Object.fromEntries(

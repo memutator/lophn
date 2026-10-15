@@ -6,6 +6,7 @@ export const conversation = {
   "conversation.body.skill-command-request":
     'Use the "{skill}" skill for this request.',
   "conversation.button.approval-allow": "Allow",
+  "conversation.button.approval-allow-always": "Always allow",
   "conversation.button.approval-allow-once": "Allow once",
   "conversation.button.approval-allow-scope": "Allow scope",
   "conversation.button.approval-allow-session": "Allow for this session",
@@ -27,10 +28,12 @@ export const conversation = {
   "conversation.button.hidden-hide": "Hide",
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
+  "conversation.button.permissions-edit": "Edit in Agents",
   "conversation.button.question-details": "Details",
   "conversation.button.question-next": "Next",
   "conversation.button.question-skip": "Skip",
   "conversation.button.question-submit": "Submit",
+  "conversation.button.recap-dismiss": "Dismiss",
   "conversation.button.redo": "Redo",
   "conversation.button.remove-context": "Remove context",
   "conversation.button.rename": "Rename",
@@ -60,8 +63,36 @@ export const conversation = {
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
   "conversation.label.approval": "Approval",
+  "conversation.label.approval-app": "App {id}",
+  "conversation.label.approval-applied": "Allowed, applied",
+  "conversation.label.approval-cancelled": "Cancelled",
+  "conversation.label.approval-cancelled-detail": "The work ended first",
+  "conversation.label.approval-denied": "Denied",
+  "conversation.label.approval-effect": "Effect",
+  "conversation.label.approval-effect-external": "Reaches outside lophn",
+  "conversation.label.approval-effect-read": "Reads data",
+  "conversation.label.approval-effect-write": "Changes data",
   "conversation.label.approval-esc": "Esc",
+  "conversation.label.approval-input": "Input",
   "conversation.label.approval-preview": "Preview",
+  "conversation.label.approval-reason": "Reason for denying",
+  "conversation.label.approval-reason-given": "Reason: {reason}",
+  "conversation.label.approval-reason-placeholder":
+    "Why not? {agent} reads this (optional)",
+  "conversation.label.approval-received": "Allowed, applying",
+  "conversation.label.approval-scope-always": "Always",
+  "conversation.label.approval-scope-once": "Once",
+  "conversation.label.approval-scope-session": "For this session",
+  "conversation.label.approval-settings-agent-definition":
+    "An agent's definition",
+  "conversation.label.approval-settings-grant": "Permissions",
+  "conversation.label.approval-settings-instructions": "Instructions",
+  "conversation.label.approval-settings-setting": "A setting",
+  "conversation.label.approval-settings-skill": "A skill",
+  "conversation.label.approval-target": "Target",
+  "conversation.label.approval-target-app-api": "{api} in {app}",
+  "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
+  "conversation.label.approval-target-other": "Other request",
   "conversation.label.author-check": "Checked by lophn",
   "conversation.label.composer-message": "Message",
   "conversation.label.correction": "Change",
@@ -82,6 +113,9 @@ export const conversation = {
   "conversation.label.edit-made": "Edited",
   "conversation.label.edit-undone": "Undid the edit to",
   "conversation.label.favorites": "Favorites",
+  "conversation.label.grant-allow": "Runs without asking",
+  "conversation.label.grant-ask": "Asks first",
+  "conversation.label.grant-deny": "Not allowed",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-list": "Models",
   "conversation.label.model-unknown": "Model",
@@ -90,22 +124,35 @@ export const conversation = {
     "{count, plural, one {+# more} other {+# more}}",
   "conversation.label.permission-summary":
     "{count, plural, =0 {Ask first} one {Ask first, # tool allowed} other {Ask first, # tools allowed}}",
+  "conversation.label.permissions-may": "What {agent} may do",
+  "conversation.label.permissions-of": "Permissions of {agent}",
+  "conversation.label.permissions-session": "Allowed for this session",
   "conversation.label.question-answered":
     "Answered {count, plural, one {# question} other {# questions}}: {answers}",
+  "conversation.label.question-answered-elsewhere":
+    "Answered in another window",
   "conversation.label.question-applied": "Applied: {answers}",
   "conversation.label.question-apply-failed": "Couldn't apply: {answers}",
   "conversation.label.question-applying": "Applying: {answers}",
   "conversation.label.question-asking":
     "{agent} is asking {count, plural, one {# question} other {# questions}}",
   "conversation.label.question-cancelled": "Cancelled",
+  "conversation.label.question-card": "Questions from {agent}",
   "conversation.label.question-expired": "Expired",
   "conversation.label.question-expires": "Expires in {remaining}",
   "conversation.label.question-expires-now": "Expiring now",
+  "conversation.label.question-following": "Next question",
+  "conversation.label.question-no-answer": "No answer picked",
   "conversation.label.question-own-answer": "Type your own answer: {prompt}",
   "conversation.label.question-own-answer-placeholder": "Type your own answer",
   "conversation.label.question-paused": "Work is paused until you answer",
+  "conversation.label.question-pick-any": "Pick any",
+  "conversation.label.question-previous": "Previous question",
   "conversation.label.question-recommended": "(Recommended)",
   "conversation.label.question-skipped": "Skipped",
+  "conversation.label.questions-answered":
+    "Answered {count, plural, one {# question} other {# questions}}",
+  "conversation.label.questions-ended-by-message": "Ended by your message",
   "conversation.label.rename-session": "Rename {title}",
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
@@ -152,6 +199,10 @@ export const conversation = {
   "conversation.label.worked-for": "Worked for {duration}",
   "conversation.notice.agent-paused":
     "This agent is paused. You can read the conversation, but it takes no new messages.",
+  "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
+  "conversation.notice.approval-paused": "{agent} is paused until you decide.",
+  "conversation.notice.decide-failed":
+    "Couldn't send your decision. Try again.",
   "conversation.notice.ended":
     "This conversation has ended. You can read it but not reply.",
   "conversation.notice.external-failed":
@@ -176,6 +227,17 @@ export const conversation = {
   "conversation.notice.not-sent":
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.permissions-edited-in-agents":
+    "Grants are edited in Agents.",
+  "conversation.notice.permissions-session-empty": "Nothing yet.",
+  "conversation.notice.permissions-session-ends":
+    "These end when this session is archived or deleted.",
+  "conversation.notice.question-waiting":
+    "Waiting for your answer. Sending a message instead also ends the questions.",
+  "conversation.notice.questions-ended-by-message":
+    "You sent a message while the questions were open, so they closed. The agent reads your message as the answer.",
+  "conversation.notice.recap-local":
+    "Only shown here. The conversation itself is unchanged.",
   "conversation.notice.session-no-match": "No sessions match.",
   "conversation.notice.slash-choose":
     "More than one skill is named /{name}. Choose which one to use.",
@@ -249,7 +311,12 @@ export const conversation = {
   "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
   "conversation.rewind.summary-failed":
     "Couldn't summarize this part, so nothing changed.",
+  "conversation.title.approval-change": "{agent} wants to change settings",
+  "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.new-session": "New session",
+  "conversation.title.permissions": "Permissions · {agent}",
+  "conversation.title.question-asking": "{agent} is asking",
+  "conversation.title.recap": "Recap",
   "conversation.title.rewind": "Rewind to here",
   "project-workspace.notice.agent-not-ready":
     "Conversations aren't ready yet. Try again in a moment.",

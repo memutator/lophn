@@ -1,0 +1,40 @@
+/* /recap의 결과. 대화 줄이 아니라 대화 끝에 잠시 보인다. */
+.recap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.head {
+  margin: var(--space-0);
+  font-weight: var(--font-weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding-left: var(--space-6);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.note {
+  flex: 1;
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+}

@@ -16,6 +16,12 @@ import { unique } from "./json.ts";
 import { validateSchemaNode } from "./schema.ts";
 import { screenPath } from "./scope.ts";
 
+// appApiKeySchema(channel-values.ts)와 같은 검사. 이 file은 의존성이 없어 따로 쓴다.
+function appApiKey(value: unknown): value is string {
+  return nonBlank(value) && value.trim() === value &&
+    !/\p{Cc}/u.test(value) && !value.includes("*");
+}
+
 function blankDescription(schema: InputSchema): string | undefined {
   if (
     Object.hasOwn(schema, "description") && !nonBlank(schema.description)
@@ -97,6 +103,11 @@ export function validateScreensAndApis(
       !nonBlank(item.description)
     ) {
       return invalid("app-api key, label, and description must be nonblank");
+    }
+    if (!appApiKey(item.key)) {
+      return invalid(
+        "app-api key cannot be padded, a wildcard, or contain controls",
+      );
     }
     if (
       item.effect !== "read" && item.effect !== "write" &&

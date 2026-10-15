@@ -2,15 +2,13 @@ import { z } from "zod";
 import { defineMemory } from "../../base/route.ts";
 import { appIdSchema, projectIdSchema } from "../../projects/values.ts";
 import {
-  commandKeySchema,
+  appApiKeySchema,
   invocationIdSchema,
   jsonValueSchema,
   processNonceSchema,
   releaseIdSchema,
 } from "../channel-values.ts";
 import { appApiCallerSchema } from "./caller.ts";
-
-export const appApiKeySchema = commandKeySchema;
 
 // live의 release가 null이면 지금 활성 release다.
 export const appApiTargetSchema = z.discriminatedUnion("mode", [

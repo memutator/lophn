@@ -30,7 +30,6 @@ function evidenceSchemas(strict: boolean) {
   const object = strict ? z.strictObject : z.object;
   const invocation = object({
     id: idSchema("inv"),
-    binding: z.enum(["sdk_context", "view_context"]),
     record_missing_reason: reason.nullable(),
   });
   const error = object({

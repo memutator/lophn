@@ -66,7 +66,6 @@ export interface ReportProblem {
 export type ObservationMissingReason = { reason: string };
 export type ObservationInvocationEvidence = {
   id: string;
-  binding: "sdk_context" | "view_context";
   record_missing_reason: ObservationMissingReason | null;
 };
 export type ReportProblemInput = {

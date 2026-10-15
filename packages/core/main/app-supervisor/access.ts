@@ -139,7 +139,7 @@ export function createCoreAppCallTargets(deps: {
       const allowed = grants.some((grant) =>
         grant.status === "active" && grant.scope.kind === "app.call" &&
         grant.scope.app === connection.app &&
-        grant.scope.commands.some((command) =>
+        grant.scope.app_apis.some((command) =>
           connection.commands.includes(command)
         )
       );

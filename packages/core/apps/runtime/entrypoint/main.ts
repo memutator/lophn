@@ -16,7 +16,6 @@ const APP = "@lophn/app";
 
 type ObservedInvocation = {
   id: string;
-  binding: "sdk_context";
   record_missing_reason: null;
 };
 
@@ -90,7 +89,6 @@ export async function main(deps: MainDeps): Promise<void> {
         return invocation
           ? {
             id: invocation,
-            binding: "sdk_context",
             record_missing_reason: null,
           }
           : null;
@@ -129,7 +127,6 @@ export async function main(deps: MainDeps): Promise<void> {
       error_missing_reason: null,
       invocation: {
         id: invocation,
-        binding: "sdk_context",
         record_missing_reason: null,
       },
     }).catch(() => {

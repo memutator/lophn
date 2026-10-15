@@ -79,8 +79,9 @@ function normalized(scope: GrantPermissionScope): Result<void> {
       : invalid("host scope is not normalized");
   }
   if (scope.kind === "app.call" || scope.kind === "agent.commands") {
-    const sorted = [...scope.commands].sort();
-    return canonicalize(sorted) === canonicalize(scope.commands)
+    const list = scope.kind === "app.call" ? scope.app_apis : scope.commands;
+    const sorted = [...list].sort();
+    return canonicalize(sorted) === canonicalize(list)
       ? ok(undefined)
       : invalid("command list is not sorted");
   }
@@ -212,7 +213,7 @@ function checkDeclared(
       current.app_connections.filter((c) => c.app === scope.app)
         .flatMap((c) => c.commands),
     );
-    return scope.commands.every((c) => declared.has(c))
+    return scope.app_apis.every((c) => declared.has(c))
       ? ok(undefined)
       : conflict("commands are not in the current app_connections");
   }

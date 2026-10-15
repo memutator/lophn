@@ -19,7 +19,7 @@ import { t } from "@lophn/wording";
 
 import {
   FEEDBACK_LIMITS,
-  FEEDBACK_PROBLEM_MESSAGE,
+  FEEDBACK_PROBLEM_NAME,
   type FeedbackAccepted,
   type FeedbackPreview,
   type FeedbackScreenshotState,
@@ -176,7 +176,7 @@ export function FeedbackDialog(
                 {t("report-problem.status.received")}
               </p>
               {phase.accepted.problem !== null
-                ? <p className={styles.issue}>{FEEDBACK_PROBLEM_MESSAGE}</p>
+                ? <p className={styles.issue}>{FEEDBACK_PROBLEM_NAME}</p>
                 : null}
             </section>
           )

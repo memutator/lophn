@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema } from "../../base/ids.ts";
 import { dataChangeSchema } from "../releases.ts";
 import {
   activationAttemptIdSchema,
@@ -18,8 +19,8 @@ export const activationDataJobKindSchema = z.enum(ACTIVATION_DATA_JOB_KINDS);
 
 const jobFields = {
   kind: activationDataJobKindSchema,
-  app: z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-  release: z.string().regex(/^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+  app: idSchema("app"),
+  release: idSchema("rel"),
   attempt: activationAttemptIdSchema,
   data_path: z.string().min(1),
   // migration은 data_changes의 script_hash를 bundle에서 찾는다.
@@ -31,7 +32,7 @@ const jobFields = {
   // 그 byte의 sha256이 script_hash와 같아야 한다.
   data_changes: z.array(dataChangeSchema).optional(),
   // migrate 결과에 실리는 원래 migration 관측이다.
-  invocation: z.string().regex(/^inv_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
+  invocation: idSchema("inv").optional(),
 };
 
 // stdin JSON 한 줄. token과 secret은 argv·환경에 없다.

@@ -30,7 +30,7 @@ function pairGrants(input: PairInput): PairGrant[] {
     if (grant.scope.kind !== "app.call" || grant.scope.app !== input.target) {
       continue;
     }
-    found.push({ id: grant.id, commands: grant.scope.commands });
+    found.push({ id: grant.id, commands: grant.scope.app_apis });
   }
   return found.sort((a, b) => a.id.localeCompare(b.id));
 }

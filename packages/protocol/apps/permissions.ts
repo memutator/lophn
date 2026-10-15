@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
+import { appApiKeySchema, commandKeySchema } from "./channel-values.ts";
 import { hostOf } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
@@ -38,14 +39,11 @@ const hostnameSchema = z.string().refine(
 );
 
 const portSchema = z.number().int().min(1).max(65535);
-const commandKeySchema = z.string().min(1).refine(
-  (value) => !value.includes("*") && value.trim() === value,
-  { message: "command key must be exact" },
-);
-const commandListSchema = z.array(commandKeySchema).min(1).refine(
-  (values) => new Set(values).size === values.length,
-  { message: "duplicate command" },
-);
+const uniqueList = <T extends z.ZodType<string>>(item: T) =>
+  z.array(item).min(1).refine(
+    (values) => new Set(values).size === values.length,
+    { message: "duplicate key" },
+  );
 
 export const fsScopeSchema = z.strictObject({
   path: lexicalPathSchema,
@@ -67,10 +65,10 @@ const documentScopeSchema = z.strictObject({
 });
 export const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
-  commands: commandListSchema,
+  app_apis: uniqueList(appApiKeySchema),
 });
 const agentCommandsScopeSchema = z.strictObject({
-  commands: commandListSchema,
+  commands: uniqueList(commandKeySchema),
 });
 const automationWhenSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("on_start") }),

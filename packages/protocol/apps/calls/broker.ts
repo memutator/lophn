@@ -2,13 +2,14 @@ import { z } from "zod";
 import { problemReportInputSchema } from "../../problems/problem-report.ts";
 import { reportAcceptanceSchema } from "../../problems/reports.ts";
 import {
+  appApiKeySchema,
   invocationIdSchema,
   jsonValueSchema,
   processNonceSchema,
   runtimeModeSchema,
 } from "../channel-values.ts";
 import { appIdSchema } from "../../projects/values.ts";
-import { appApiCallOutputSchema, appApiKeySchema } from "./call.ts";
+import { appApiCallOutputSchema } from "./call.ts";
 import { projectSummarySchema } from "./project.ts";
 
 // 앱 process가 broker socket으로 부르는 경로.

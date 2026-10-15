@@ -4,9 +4,9 @@
 // 앱은 token이 정하므로 입력의 `app`은 선택이다.
 import { z } from "zod";
 import { appGet } from "../apps/apps.ts";
-import { appBlueprint } from "../apps/blueprint-read.ts";
+import { appAppApi } from "../apps/blueprint/read.ts";
+import { appInvocations } from "../apps/calls/invocation.ts";
 import { appIdSchema } from "../apps/channel-values.ts";
-import { invocationsList } from "../apps/invocations.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
@@ -160,12 +160,12 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     previewsStop.output,
   ),
   token("app status", appRuntime, appRuntime.input, appRuntime.output),
-  token("app blueprint", appBlueprint, appBlueprint.input, appBlueprint.output),
+  token("app blueprint", appAppApi, appAppApi.input, appAppApi.output),
   token(
     "app invocations",
-    invocationsList,
-    invocationsList.input,
-    invocationsList.output,
+    appInvocations,
+    appInvocations.input,
+    appInvocations.output,
   ),
   token("app logs", appLogs, appLogs.input, appLogs.output),
   // 지금 claim 아래에서 release를 준비한다.

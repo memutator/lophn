@@ -112,7 +112,7 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
       if (grant.scope.kind !== "app.call" || grant.scope.app !== target) {
         continue;
       }
-      for (const command of grant.scope.commands) allowed.add(command);
+      for (const command of grant.scope.app_apis) allowed.add(command);
     }
     const commands = sorted(
       [...allowed].filter((c) => declared.has(c) && live.has(c)),

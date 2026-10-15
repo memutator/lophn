@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import {
   FEEDBACK_CAPTURE_BLOCKS,
@@ -21,7 +22,7 @@ const viewSessionSchema = z.string().min(1).refine(
 export const feedbackBeginSchema = z.strictObject({
   view_session: viewSessionSchema,
   // Issues의 "직접 해 봤지만 안 됩니다": 이 보고를 덧붙일 같은 앱의 기존 문제.
-  problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
+  problem: idSchema("prb").optional(),
 });
 
 export type FeedbackBegin = z.infer<typeof feedbackBeginSchema>;
@@ -37,9 +38,11 @@ export const feedbackSubmitSchema = z.strictObject({
 });
 
 // 제보는 글만 보낸다. 화면 상태·screenshot 선택이 없다.
+// existing_problem은 Issues에서 고른 같은 앱의 기존 문제다. null이면 새 문제다.
 export const feedbackSendSchema = z.strictObject({
   draftRef: draftRefSchema,
   text: feedbackTextSchema,
+  existing_problem: idSchema("prb").nullable(),
 });
 
 export type FeedbackSend = z.infer<typeof feedbackSendSchema>;
@@ -116,7 +119,10 @@ export const FEEDBACK_LIMITS = {
 } as const;
 
 export type LophnShellFeedback = {
-  beginFeedback(view_session: string): Promise<{ draftRef: string }>;
+  beginFeedback(
+    view_session: string,
+    problem?: string,
+  ): Promise<{ draftRef: string }>;
   submitFeedback(
     draftRef: string,
     text: string,
@@ -130,5 +136,6 @@ export type LophnShellFeedbackSend = {
   sendFeedback(
     draftRef: string,
     text: string,
+    existing_problem: string | null,
   ): Promise<{ report: string; problem: string | null }>;
 };

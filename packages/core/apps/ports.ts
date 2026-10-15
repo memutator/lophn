@@ -1,6 +1,8 @@
 import type { z } from "zod";
 import type { LophnError, Result } from "../../base/mod.ts";
 import type { Actor } from "../../protocol/base/actor.ts";
+import type { Id } from "../../protocol/base/ids.ts";
+import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
 import type { At } from "../../protocol/base/values.ts";
 import type {
   AppApiCallInput,
@@ -18,16 +20,6 @@ import type {
 } from "../../protocol/apps/calls/mod.ts";
 
 // app-calls module들이 서로 기대는 port. 구현은 각 task가, 가짜 구현은 쓰는 쪽 시험이 만든다.
-// id는 protocol에 별도 type이 없어 string이다.
-type AppId = string;
-type ReleaseId = string;
-type ProjectId = string;
-type InvocationId = string;
-type RewindId = string;
-type SessionId = string;
-type TurnId = string;
-type ToolCallId = string;
-
 export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
 
 /**
@@ -45,7 +37,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
 export interface AppApiCallPath {
   call(
     input: AppApiCallInput,
-    auth: { actor: "user" | "agent" | "app"; app?: AppId },
+    auth: { actor: "user" | "agent" | "app"; app?: Id<"app"> },
   ): Promise<Result<AppApiCallOutput>>;
 }
 
@@ -55,24 +47,18 @@ export interface AppApiCallPath {
  */
 export interface CallerDirectory {
   agentToolCall(
-    session: SessionId,
-    turn: TurnId,
-    tool_call: ToolCallId,
+    session: Id<"ses">,
+    turn: Id<"trn">,
+    tool_call: Id<"tcl">,
   ): Result<
-    {
-      agent: string;
-      place:
-        | { kind: "project"; project: ProjectId }
-        | { kind: "app"; app: AppId }
-        | { kind: "lophn" };
-    } | null
+    { agent: AgentRef; place: Place | null } | null
   >;
 }
 
 /** 구현: lead 조립(projects module의 읽기). 쓰는 곳: app-calls-path, `app.projects` handler. */
 export interface ProjectDirectory {
   list(): Result<readonly ProjectSummary[]>;
-  get(id: ProjectId): Result<ProjectSummary | null>;
+  get(id: Id<"prj">): Result<ProjectSummary | null>;
 }
 
 /**
@@ -81,12 +67,12 @@ export interface ProjectDirectory {
  */
 export interface AppApiLookup {
   find(
-    app: AppId,
-    release: ReleaseId | null,
+    app: Id<"app">,
+    release: Id<"rel"> | null,
     api: string,
   ): Result<
     {
-      release: ReleaseId;
+      release: Id<"rel">;
       effect: "read" | "write" | "external";
       project_scope: boolean;
     } | null
@@ -112,7 +98,7 @@ export interface InvocationLedger {
   ): Result<AppInvocation>;
   /** changeset 저장(blob)은 구현이 한다. */
   finish(
-    id: InvocationId,
+    id: Id<"inv">,
     result: {
       status: "succeeded" | "failed" | "unknown";
       finished_at: At;
@@ -123,16 +109,19 @@ export interface InvocationLedger {
   ): Promise<Result<AppInvocation>>;
   /** 시작을 미리 남기지 않는 읽기가 실패했을 때와 `denied`를 끝에서 한 번에 남긴다. */
   recordOnce(input: AppInvocation): Promise<Result<AppInvocation>>;
-  get(id: InvocationId): Result<AppInvocation | null>;
+  get(id: Id<"inv">): Result<AppInvocation | null>;
   list(filter: InvocationFilter): Result<readonly AppInvocation[]>;
-  changesetOf(id: InvocationId): Promise<Result<Uint8Array | null>>;
+  changesetOf(id: Id<"inv">): Promise<Result<Uint8Array | null>>;
   /** 되돌림 표시. 기록은 지우지 않는다. */
   markReverted(
-    ids: readonly InvocationId[],
-    rewind: RewindId,
+    ids: readonly Id<"inv">[],
+    rewind: Id<"rwd">,
   ): Result<void>;
   /** activation이 끝난 뒤 이전 release의 changeset을 지운다. 지운 개수를 준다. */
-  pruneChangesets(app: AppId, keepRelease: ReleaseId): Promise<Result<number>>;
+  pruneChangesets(
+    app: Id<"app">,
+    keepRelease: Id<"rel">,
+  ): Promise<Result<number>>;
   /** core 재시작 점검. 끝나지 않은 호출을 결과 모름으로 닫는 것은 구현이 한다. */
   unfinished(): Result<readonly AppInvocation[]>;
 }
@@ -151,7 +140,7 @@ export interface AppProcessLink {
     | { sent: true; response: ProcessCallResponse | null }
   >;
   apply(
-    app: AppId,
+    app: Id<"app">,
     request: ProcessApplyRequest,
   ): Promise<Result<ProcessApplyResponse>>;
 }
@@ -162,18 +151,18 @@ export interface AppProcessLink {
  */
 export interface AppIntake {
   /** 새 호출 접수를 닫는다. */
-  close(app: AppId, reason: "rewind" | "activation"): void;
+  close(app: Id<"app">, reason: "rewind" | "activation"): void;
   /** 도는 호출이 끝나기를 기다린다. */
   whenIdle(
-    app: AppId,
+    app: Id<"app">,
     graceMs: number,
   ): Promise<
-    { idle: true } | { idle: false; running: readonly InvocationId[] }
+    { idle: true } | { idle: false; running: readonly Id<"inv">[] }
   >;
   /** 끝나지 않은 호출을 결과 모름으로 닫아 부른 쪽에 돌려준다(유예 뒤 강제 정지 때). */
-  abandon(app: AppId): Promise<void>;
+  abandon(app: Id<"app">): Promise<void>;
   /** 접수를 다시 열고 붙잡은 호출을 넘긴다. 넘길 때 대상 release는 그때의 활성 release다. */
-  open(app: AppId): void;
+  open(app: Id<"app">): void;
 }
 
 /**
@@ -181,8 +170,12 @@ export interface AppIntake {
  * 쓰는 곳: `app.rewind_plan`·`app.rewind` handler(app-calls-assembly), places-sessions의 session rewind.
  */
 export interface AppRewind {
-  plan(app: AppId, from: InvocationId): Result<RewindPlan>;
-  run(app: AppId, from: InvocationId, by: Actor): Promise<Result<Rewind>>;
+  plan(app: Id<"app">, from: Id<"inv">): Result<RewindPlan>;
+  apply(
+    app: Id<"app">,
+    from: Id<"inv">,
+    by: Actor,
+  ): Promise<Result<Rewind>>;
 }
 
 /** 구현: lead 조립(releases의 bundle 사본과 preview 영역). 쓰는 곳: app-calls-screens. */
@@ -196,5 +189,5 @@ export interface BundleLocator {
  * event 이름과 payload는 `protocol/events`가 정한다. 이 port는 그 event를 내는 한 줄이다.
  */
 export interface AppViewSignal {
-  changed(app: AppId, reason: "rewind"): void;
+  changed(app: Id<"app">, reason: "rewind"): void;
 }

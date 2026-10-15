@@ -2,6 +2,7 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
+import { ACTIVATION_FAILURE_CODES } from "../apps/activation/activation.ts";
 import type { IntentKind, ReactionEventType } from "../approvals/mod.ts";
 import { defineEvent, type EventDefinition } from "../base/event.ts";
 
@@ -34,7 +35,7 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
     app: idSchema("app"),
     ticket: idSchema("tkt"),
     failure: z.strictObject({
-      code: z.string().min(1),
+      code: z.enum(ACTIVATION_FAILURE_CODES),
       summary: z.string().min(1),
     }),
   }),

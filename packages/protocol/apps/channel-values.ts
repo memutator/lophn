@@ -65,7 +65,18 @@ export type ViewMode = z.infer<typeof viewModeSchema>;
 export const screenSizeSchema = z.enum(["full", "panel", "card"]);
 export type ChannelScreenSize = z.infer<typeof screenSizeSchema>;
 
-// blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
+// app-api key. blueprint app_api key와 같은 local 모양이다. 존재·grant 판정은 runtime이다.
+export const appApiKeySchema = z.string().refine(
+  (value) =>
+    value.length > 0 && value.trim() === value && !/\p{Cc}/u.test(value) &&
+    !value.includes("*"),
+  {
+    message:
+      "app-api key cannot be empty, padded, a wildcard, or contain controls",
+  },
+);
+
+// 옛 command key. 옛 file이 쓰는 동안만 남긴다. 새 계약은 appApiKeySchema를 쓴다.
 export const commandKeySchema = z.string().min(1).refine(
   (value) =>
     value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),

@@ -49,9 +49,15 @@ const ownerDecisionSchema = z.object({
   targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
     new Set(values).size === values.length
   ).optional(),
-  automation: z.string().min(1).optional(),
-  requirement: z.number().int().nonnegative().optional(),
-  choice: z.enum(["fixed", "not_fixed", "not_visible", "dismiss"]).optional(),
+  choice: z.enum([
+    "fixed",
+    "not_fixed",
+    "not_visible",
+    "dismiss",
+    "restore_all",
+    "messages_only",
+    "summarize",
+  ]).optional(),
   note: z.string().regex(ONE_LINE).optional(),
 }).strict();
 
@@ -104,7 +110,13 @@ export type DecisionHandleRequest = z.infer<typeof decisionHandleRequestSchema>;
 
 export type DecisionHandleReply =
   | { confirmation: string; expires_at: string }
-  | { code: string; message: string };
+  | {
+    error: {
+      code: string;
+      message: string;
+      details?: Record<string, unknown>;
+    };
+  };
 
 export interface DecisionHandleApi {
   requestDecisionHandle(

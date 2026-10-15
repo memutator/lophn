@@ -8,7 +8,7 @@ import {
   runtimeModeSchema,
 } from "../channel-values.ts";
 import { appApiCallerSchema } from "./caller.ts";
-import { appApiKeySchema } from "./call.ts";
+import { appApiKeySchema } from "../channel-values.ts";
 import { invocationEffectSchema } from "./invocation.ts";
 
 // core와 앱 process 사이. 앱 process는 supervisor만 이 socket으로 부른다.

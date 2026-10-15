@@ -11,7 +11,7 @@ import {
 } from "../channel-values.ts";
 import { invocationSummarySchema } from "../invocations.ts";
 import { appApiCallerSchema } from "./caller.ts";
-import { appApiKeySchema } from "./call.ts";
+import { appApiKeySchema } from "../channel-values.ts";
 
 const sequence = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 

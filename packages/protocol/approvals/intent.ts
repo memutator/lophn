@@ -2,6 +2,8 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import { seqSchema } from "../base/values.ts";
+import { activationComparisonSchema } from "../apps/activation/activation.ts";
+import { appApiKeySchema } from "../apps/channel-values.ts";
 import { appGrantSchema } from "../apps/grants.ts";
 import { appGrantScopeSchema } from "../apps/permissions.ts";
 import { callAgentSchema } from "../lophn-agent/calls.ts";
@@ -42,7 +44,7 @@ export const intentTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("app_api"),
     app: idSchema("app"),
-    api: z.string().min(1),
+    api: appApiKeySchema,
   }),
   z.strictObject({
     kind: z.literal("mcp_tool"),
@@ -100,7 +102,9 @@ export type IntentOrigin = z.infer<typeof intentOriginSchema>;
 // effect는 호출하는 쪽이 읽어 넣는다: app-api는 활성 release 선언, MCP tool은 readOnlyHint.
 // agent_call은 read, settings_edit는 write다. reaction과 activation은 read로 두고
 // Gate는 effect 대신 grant로 판정한다.
-// input은 정규화한 입력이다. activation의 input은 선언 비교 값이고 모양은 releases-problems가 정한다.
+// input은 정규화한 입력이다. activation의 input은 선언 비교 값이고 activationComparisonSchema를 따른다.
+// Gate 판정: activation이면 first이거나 added_resources, added_app_apis, loss_steps 가운데
+// 하나라도 비어 있지 않을 때 ask다.
 export const intentSchema = z.strictObject({
   kind: intentKindSchema,
   actor: intentActorSchema,
@@ -110,7 +114,12 @@ export const intentSchema = z.strictObject({
   origin: intentOriginSchema,
 }).refine((value) => value.kind === value.target.kind, {
   message: "intent kind does not match target kind",
-});
+}).refine(
+  (value) =>
+    value.kind !== "activation" ||
+    activationComparisonSchema.safeParse(value.input).success,
+  { message: "activation input must be an activation comparison" },
+);
 export type Intent = z.infer<typeof intentSchema>;
 
 // grant 밖(대상이 grant에 없음), agent grant에서 뺀 app-api, reaction grant가 꺼짐.

@@ -234,7 +234,6 @@ export async function assembleFeedback(
     captured_at: deps.nowAt,
     invocation: invocation === null ? null : {
       id: invocation,
-      binding: "view_context",
       record_missing_reason: arrived
         ? null
         : { reason: "기록이 아직 도착하지 않았다" },

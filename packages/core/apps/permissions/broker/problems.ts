@@ -32,7 +32,6 @@ export type ProblemReportRequest = {
   observedAt?: string;
   invocation?: {
     id: string;
-    binding: "sdk_context" | "view_context";
     record_missing_reason: { reason: string } | null;
   } | null;
 };

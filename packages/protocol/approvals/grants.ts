@@ -3,6 +3,7 @@ import { canonicalize } from "../../base/canonical-json.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
+import { appApiKeySchema } from "../apps/channel-values.ts";
 import { callAgentSchema } from "../lophn-agent/calls.ts";
 import { type AgentRef, agentRefSchema } from "../lophn-agent/places.ts";
 
@@ -33,7 +34,7 @@ export const agentGrantEntrySchema = z.discriminatedUnion("kind", [
     kind: z.literal("app"),
     app: idSchema("app"),
     apis: z.array(z.strictObject({
-      api: z.string().min(1),
+      api: appApiKeySchema,
       setting: z.enum(["excluded", "never", "ask"]),
     })),
   }),

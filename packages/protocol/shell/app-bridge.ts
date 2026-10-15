@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { commandKeySchema as apiKey } from "../apps/channel-values.ts";
+import { appApiKeySchema } from "../apps/channel-values.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 
 // 외부 링크 상한. 8193자는 열지 않는다.
@@ -23,7 +23,7 @@ export const externalUrlSchema = z.string().refine(externalUrlAllowed, {
 
 // app-api 이름과 JSON 입력만 받는다. token·경로·method는 field로 받지 않는다.
 export const appCallSchema = z.strictObject({
-  api: apiKey,
+  api: appApiKeySchema,
   input: jsonValueSchema,
 });
 

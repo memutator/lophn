@@ -620,7 +620,6 @@ export async function acceptReportProblem(
     {
       invocation: linked === null ? null : {
         id: linked.id,
-        binding: linked.binding,
         record_missing_reason: arrived === undefined
           ? { reason: "기록이 아직 도착하지 않았다" }
           : null,
@@ -1039,7 +1038,6 @@ export async function observeExceptionPayload(
       ...result.snapshot,
       invocation: {
         id: invocation.id,
-        binding: result.snapshot.invocation!.binding,
         record_missing_reason: null,
       },
       invocation_missing_reason: null,
@@ -1235,9 +1233,9 @@ async function prepareViaStream(
 async function confirmInvocation(
   client: CoreClientOptions,
   invocation:
-    | { id: string; binding: string; record_missing_reason: unknown }
+    | { id: string; record_missing_reason: unknown }
     | null,
-): Promise<{ id: string; binding: string } | undefined> {
+): Promise<{ id: string } | undefined> {
   if (invocation === null) return undefined;
   try {
     const base = client.baseUrl.replace(/\/$/, "");
@@ -1262,7 +1260,7 @@ async function confirmInvocation(
     if (typeof row.id !== "string" || row.id !== invocation.id) {
       return undefined;
     }
-    return { id: invocation.id, binding: invocation.binding };
+    return { id: invocation.id };
   } catch {
     return undefined;
   }
@@ -1385,7 +1383,6 @@ export async function observeViewErrorPayload(
       ...result.snapshot,
       invocation: {
         id: invocation.id,
-        binding: result.snapshot.invocation!.binding,
         record_missing_reason: null,
       },
       invocation_missing_reason: null,
@@ -1447,7 +1444,6 @@ export async function acceptSubmitFeedback(
       invocationArrived: async (id) =>
         await confirmInvocation(client, {
           id,
-          binding: "view_context",
           record_missing_reason: null,
         }) !== undefined,
       logSource: logs.source,

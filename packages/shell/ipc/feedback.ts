@@ -23,11 +23,8 @@ export const FEEDBACK_LIMITS = {
 /** 앱 view 캡처를 기다리는 최대 시간. 늦은 이미지는 버린다. */
 export const FEEDBACK_CAPTURE_MS = 1_500;
 
-/**
- * 사람이 보낸 feedback이 묶인 문제의 문구. problems/problem-codes가 `_feedback`에 정한 값
- * 그대로다(contracts RESERVED_PROBLEM_CODES). shell이 고치거나 합치지 않는다.
- */
-export const FEEDBACK_PROBLEM_MESSAGE = "You reported an issue.";
+/** 제보로 새로 연 문제의 이름(contracts FEEDBACK_PROBLEM_NAME과 같은 값). */
+export const FEEDBACK_PROBLEM_NAME = "User report";
 
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const ref = z.string().min(1).refine(noControl);
@@ -58,6 +55,8 @@ export const feedbackSubmitSchema = z.strictObject({
 export const feedbackSendSchema = z.strictObject({
   draftRef: ref,
   text: feedbackTextSchema,
+  existing_problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+    .nullable(),
 });
 
 export const feedbackCancelSchema = z.strictObject({ draftRef: ref });

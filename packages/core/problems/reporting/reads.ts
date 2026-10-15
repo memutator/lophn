@@ -164,7 +164,7 @@ function fullReportOf(row: Record<string, unknown>): {
 }
 
 const SNAPSHOT_COLUMNS = `id, captured_at,
-  invocation, invocation_binding, invocation_record_missing_reason, invocation_missing_reason,
+  invocation, invocation_record_missing_reason, invocation_missing_reason,
   error_name, error_missing_reason, error_message, error_message_missing_reason, error_frames, error_source_missing_reason, error_stack, error_stack_missing_reason, error_truncation_notes,
   logs_blob, logs_line_count, logs_truncated, logs_scope, logs_from_at, logs_to_at, logs_collected_at, logs_missing_reason,
   screen_name, screen_observed_at, screen_state, screen_state_missing_reason, screen_screenshot, screen_screenshot_missing_reason, screen_missing_reason`;
@@ -254,9 +254,6 @@ function snapshotOf(row: Record<string, unknown>): SnapshotShape {
     screen_missing_reason: missingOf(row, "screen_missing_reason"),
     invocation: row["invocation"] === null ? null : {
       id: String(row["invocation"]),
-      binding: String(row["invocation_binding"]) as
-        | "sdk_context"
-        | "view_context",
       record_missing_reason: missingOf(row, "invocation_record_missing_reason"),
     },
     error: row["error_name"] === null ? null : {

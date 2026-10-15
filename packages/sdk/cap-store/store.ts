@@ -7,7 +7,7 @@ import {
   type Migration,
   MIGRATION_PRIMARY_KEY_REQUIRED,
   tablesWithoutPrimaryKey,
-} from "../../protocol/apps/activation/migration.ts";
+} from "../../protocol/apps/activation/migration-sql.ts";
 import {
   attachNewTables,
   closeConnection,

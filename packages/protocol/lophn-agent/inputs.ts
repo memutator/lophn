@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand } from "../base/route.ts";
+import { defineCommand, defineMemory } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
 import { userMessageContentInputSchema } from "./message-content.ts";
@@ -80,3 +80,41 @@ export const routedInputKindSchema = z.enum([
   "notice",
 ]);
 export type RoutedInputKind = z.infer<typeof routedInputKindSchema>;
+
+// 입력함에서 아직 turn이 가져가지 않은 사람 메시지(next_turn)를 다루는 memory route다.
+const queuedInputSchema = z.strictObject({
+  session: idSchema("ses"),
+  message: idSchema("msg"),
+});
+const queuedErrors = [
+  "invalid_input",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "unavailable",
+  "unauthorized",
+] as const;
+
+// 도는 turn에 steer로 지금 넣는다. 도는 turn이 없거나 이미 가져갔으면 conflict다.
+export const steerQueuedNow = defineMemory({
+  resource: "session_inputs",
+  method: "steer_now",
+  name: "SteerQueuedNow",
+  input: queuedInputSchema,
+  output: z.strictObject({ message: idSchema("msg") }),
+  actors: ["user"],
+  errors: queuedErrors,
+});
+
+// 입력함에서 뺀다. 이미 turn이 가져갔으면 conflict다.
+export const removeQueued = defineMemory({
+  resource: "session_inputs",
+  method: "remove",
+  name: "RemoveQueued",
+  input: queuedInputSchema,
+  output: z.strictObject({ message: idSchema("msg") }),
+  actors: ["user"],
+  errors: queuedErrors,
+});
+
+export const QUEUED_INPUT_ROUTES = [steerQueuedNow, removeQueued] as const;

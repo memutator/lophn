@@ -62,18 +62,18 @@ const BLUEPRINT: VendorRule = {
   },
 };
 
-// @lophn/cap-store: migration 단계 type과 `-- loss:` 읽기는 protocol/apps/activation의 한 파일이다.
+// @lophn/cap-store: migration 단계 type과 `-- loss:` 읽기는 protocol/apps/activation의 zod 없는 한 파일이다.
 // 그 파일이 쓰는 Result는 base의 두 파일이고, 파일 위치가 사본 안에서도 같은 상대 경로로 닿는다.
 const CAP_STORE: VendorRule = {
   files: {
-    "protocol/apps/activation/migration.ts":
-      "vendor/protocol/apps/activation/migration.ts",
+    "protocol/apps/activation/migration-sql.ts":
+      "vendor/protocol/apps/activation/migration-sql.ts",
     "base/errors.ts": "vendor/base/errors.ts",
     "base/result.ts": "vendor/base/result.ts",
   },
   rewrite: {
-    "../../protocol/apps/activation/migration.ts":
-      "vendor/protocol/apps/activation/migration.ts",
+    "../../protocol/apps/activation/migration-sql.ts":
+      "vendor/protocol/apps/activation/migration-sql.ts",
   },
   generated: {
     "vendor/base/mod.ts":

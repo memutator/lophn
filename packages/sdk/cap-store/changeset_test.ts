@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { MIGRATION_PRIMARY_KEY_REQUIRED } from "../../protocol/apps/activation/migration.ts";
+import { MIGRATION_PRIMARY_KEY_REQUIRED } from "../../protocol/apps/activation/migration-sql.ts";
 import { hooks } from "./connection.ts";
 import { CapabilityError } from "./errors.ts";
 import { openStore, type Store } from "./store.ts";

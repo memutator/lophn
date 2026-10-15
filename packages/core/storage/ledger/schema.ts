@@ -2,6 +2,8 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model platform/ledger의 공통 표. run FK는 runs 표가 생길 때 더한다.
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.
+// blob-refs step은 registered_seq의 events FK를 뺀 내용으로 고쳤다(step hash가 바뀐다). 개발 DB는
+// 지우고 새로 만든다. events.run 칸과 question_evidence 표는 쓰는 곳이 남아 있어 아직 둔다.
 
 const IMMUTABLE = (table: string) => `
 create trigger ${table}_no_update
@@ -93,7 +95,8 @@ create table erase_windows (
   {
     // blob 영구 참조. 소유 변경과 같은 transaction에서만 넣고,
     // 등록된 참조는 바꾸지 않으며 지우는 것은 session delete의 erase 창 안에서만이다.
-    // hash 대상은 파일이므로 FK가 없다.
+    // hash 대상은 파일이므로 FK가 없다. registered_seq도 FK가 없다. 대부분의 변경은 event를
+    // 남기지 않으니 event 없는 변경도 참조를 등록한다.
     id: "blob-refs",
     sql: `
 create table blob_refs (
@@ -103,8 +106,7 @@ create table blob_refs (
   hash text not null,
   size_bytes integer not null check (size_bytes >= 0),
   registered_seq integer not null,
-  primary key (owner_kind, owner_key, field, hash),
-  foreign key (registered_seq) references events (seq)
+  primary key (owner_kind, owner_key, field, hash)
 );
 create index blob_refs_hash on blob_refs (hash);
 create index blob_refs_owner on blob_refs (owner_kind, owner_key);

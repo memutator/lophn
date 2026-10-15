@@ -1,5 +1,6 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
-import { err, ok } from "../../../base/mod.ts";
+import { err, formatSeq, ok } from "../../../base/mod.ts";
+import { eventSpan, headSeq } from "./command-outcome.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import type {
   BlobRefRegistration,
@@ -10,6 +11,7 @@ import { type LedgerConnection, openConnection } from "./sqlite.ts";
 import type { SubscriberGate } from "../../events/subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
+import type { CommandSuccess } from "./writer-message.ts";
 
 export { LEDGER_SCHEMA_STEPS };
 
@@ -77,6 +79,11 @@ export type {
 } from "../../events/subscribe.ts";
 export { createSubscriptionStore } from "../../events/subscription-store.ts";
 export type { SubscriptionStore } from "../../events/subscription-store.ts";
+export { isDomainEvent } from "./domain-events.ts";
+export {
+  type CommitEventReader,
+  createCommitPublisher,
+} from "./commit-publisher.ts";
 export { reactionIdempotencyKey } from "./reaction.ts";
 export { createSubscriberGate } from "../../events/subscriber-registration.ts";
 export type {
@@ -95,6 +102,12 @@ export type LedgerDeps = {
   call: TxCall;
   // actor·run만 있는 transaction은 이 gate가 있어도 현재 자격이 없어 cursor를 올리지 못한다.
   subscriberGate?: SubscriberGate;
+  // transaction이 commit된 뒤, 그 tx가 domain event를 썼을 때 부른다. createCommitPublisher의
+  // onCommit을 잇는다. writer Worker 경로는 openWriter의 세 번째 인자로 같은 것을 받는다.
+  onCommit?: (success: CommandSuccess) => void;
+  // true면 domain event 10개가 아닌 type의 emit을 거절한다. 기본 false인 것은 다른 단위 command가
+  // 옛 event를 아직 emit하기 때문이다. 모두 merge된 뒤 cleanup이 wiring에서 켠다.
+  domainOnly?: boolean;
 };
 
 export type Ledger = {
@@ -124,6 +137,7 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
     registerBlobRef: deps.registerBlobRef,
     call: deps.call,
     subscriberGate: deps.subscriberGate,
+    domainOnly: deps.domainOnly,
   };
   return {
     transaction(ctx, fn) {
@@ -138,12 +152,33 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
           });
         }
       }
-      return runTransaction(
+      // 이 tx가 쓴 event 범위. commit된 뒤에만 onCommit으로 알린다.
+      let span: { first: bigint; last: bigint } | undefined;
+      const result = runTransaction(
         connection,
         { actor: ctx.actor, run: ctx.run ?? null, request },
         txDeps,
-        fn,
+        (tx) => {
+          const before = headSeq(tx.sql);
+          const handled = fn(tx);
+          if (!handled.ok || !before.ok) return handled;
+          const found = eventSpan(tx.sql, before.value);
+          if (found.ok && found.value.first !== null) {
+            span = { first: found.value.first, last: found.value.last! };
+          }
+          return handled;
+        },
       );
+      if (result.ok && span !== undefined) {
+        deps.onCommit?.({
+          result: result.value,
+          replayed: false,
+          first_seq: formatSeq(span.first),
+          last_seq: formatSeq(span.last),
+          wake: true,
+        });
+      }
+      return result;
     },
     close() {
       connection.close();

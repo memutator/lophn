@@ -41,9 +41,12 @@ const DEAD = {
 
 // Deno Worker 하나의 쓰기 연결만 연다. 이쪽은 SQL을 하지 않고 작은 메시지만 보낸다.
 // 자격은 Worker 등록이 본다. 이쪽은 시각·회수 주장을 보내지 않는다.
+// onCommit은 commit된 새 command 결과(재전달 제외)에서 domain event가 있을 때 부른다. Worker가 아니라
+// 이쪽(core)에서 불러 Bus에 닿는다.
 export function openWriter(
   path: string,
   entry: URL = new URL("./writer-main.ts", import.meta.url),
+  onCommit?: (success: CommandSuccess) => void,
 ): Writer {
   const worker = new Worker(entry, {
     type: "module",
@@ -105,7 +108,13 @@ export function openWriter(
         op: "command",
         ctx,
         envelope,
-      }).then(commandBody);
+      }).then((message) => {
+        const body = commandBody(message);
+        if (body.ok && !body.value.replayed && body.value.wake) {
+          onCommit?.(body.value);
+        }
+        return body;
+      });
     },
     readResult(ctx, key) {
       return send({ id: nextId++, op: "read-result", ctx, key }).then(readBody);

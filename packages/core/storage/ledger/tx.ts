@@ -40,6 +40,7 @@ import { targetAuthorizationPort } from "./target-authorization.ts";
 import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import { actorKind } from "./command-outcome.ts";
+import { isDomainEvent } from "./domain-events.ts";
 import {
   createTxPortLookup,
   type TxPortLookup,
@@ -65,6 +66,9 @@ export type TxDeps = {
   call: TxCall;
   // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
   subscriberGate?: SubscriberGate;
+  // true면 domain event 10개가 아닌 type의 emit을 internal로 거절한다. 다른 단위가 옛 event를
+  // 다 걷은 뒤 cleanup이 켠다.
+  domainOnly?: boolean;
   // transaction이 열리고 닫힐 때 그 Tx를 알린다. blob 등록이 같은 sql을 쓰기 위해서다.
   onTx?(tx: Tx | undefined): void;
 };
@@ -247,6 +251,9 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     payload: unknown,
   ): string => {
     live();
+    if (deps.domainOnly === true && !isDomainEvent(event.type)) {
+      throw fail(err(internalError()));
+    }
     if (!subjectSchema.safeParse(subject).success) {
       throw new TxRejected(err({
         code: "invalid_input",

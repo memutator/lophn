@@ -6,6 +6,7 @@ import { z } from "zod";
 
 export const FEEDBACK_BEGIN_CHANNEL = "shell:feedback-begin";
 export const FEEDBACK_SUBMIT_CHANNEL = "shell:feedback-submit";
+export const FEEDBACK_SEND_CHANNEL = "shell:feedback-send";
 export const FEEDBACK_CANCEL_CHANNEL = "shell:feedback-cancel";
 export const FEEDBACK_OPEN_ISSUE_CHANNEL = "shell:feedback-open-issue";
 export const FEEDBACK_PREVIEW_CHANNEL = "shell:feedback-preview";
@@ -51,6 +52,12 @@ export const feedbackSubmitSchema = z.strictObject({
   draftRef: ref,
   text: feedbackTextSchema,
   selection: z.strictObject({ screen: z.boolean(), screenshot: z.boolean() }),
+});
+
+// 제보는 글만 보낸다(contracts feedbackSendSchema의 사본).
+export const feedbackSendSchema = z.strictObject({
+  draftRef: ref,
+  text: feedbackTextSchema,
 });
 
 export const feedbackCancelSchema = z.strictObject({ draftRef: ref });
@@ -113,6 +120,9 @@ export interface FeedbackAccepted {
   /** 묶인 문제. live가 아니면 문제로 묶지 않아 null이다. */
   problem: string | null;
 }
+
+/** feedbackSend의 답. 접수된 Report와 묶인 문제(live가 아니면 null). */
+export type FeedbackSendReply = FeedbackAccepted;
 
 /** desktop renderer의 버튼 쪽. view_session만 보내고 신원은 main이 정한다. */
 export interface LophnShellFeedbackBegin {

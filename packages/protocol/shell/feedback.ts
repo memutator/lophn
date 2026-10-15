@@ -36,6 +36,18 @@ export const feedbackSubmitSchema = z.strictObject({
   }),
 });
 
+// 제보는 글만 보낸다. 화면 상태·screenshot 선택이 없다.
+export const feedbackSendSchema = z.strictObject({
+  draftRef: draftRefSchema,
+  text: feedbackTextSchema,
+});
+
+export type FeedbackSend = z.infer<typeof feedbackSendSchema>;
+
+export const FEEDBACK_SEND_IPC = {
+  "shell:feedback-send": feedbackSendSchema,
+} as const;
+
 export type FeedbackSubmit = z.infer<typeof feedbackSubmitSchema>;
 
 export const feedbackCancelSchema = z.strictObject({
@@ -112,4 +124,11 @@ export type LophnShellFeedback = {
   ): Promise<{ report: string; problem: string | null }>;
   cancelFeedback(draftRef: string): Promise<void>;
   openFeedbackIssue(draftRef: string): Promise<void>;
+};
+
+export type LophnShellFeedbackSend = {
+  sendFeedback(
+    draftRef: string,
+    text: string,
+  ): Promise<{ report: string; problem: string | null }>;
 };

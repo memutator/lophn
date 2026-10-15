@@ -5,10 +5,15 @@ import {
   type ConnectionState,
   connectionStateSchema,
   CORE_CALL_CHANNEL,
+  CORE_EVENT_CHANNEL,
   CORE_STATE_CHANNEL,
   CORE_STATE_GET_CHANNEL,
+  CORE_WATCH_CHANNEL,
   type CoreCall,
   coreCallSchema,
+  type CoreEventMessage,
+  coreEventMessageSchema,
+  type CoreWatch,
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 
@@ -60,6 +65,17 @@ export function createCoreApi(transport: CoreTransport): CoreApi {
       } catch {
         return unavailable;
       }
+    },
+    async watch(conditions: CoreWatch["conditions"]): Promise<void> {
+      await transport.invoke(CORE_WATCH_CHANNEL, { conditions });
+    },
+    onEvent(listener: (message: CoreEventMessage) => void) {
+      const callback = (_event: unknown, payload: unknown) => {
+        const parsed = coreEventMessageSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      transport.on(CORE_EVENT_CHANNEL, callback);
+      return () => transport.removeListener(CORE_EVENT_CHANNEL, callback);
     },
   });
 }

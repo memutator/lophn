@@ -15,4 +15,8 @@ export * from "./closing.ts";
 export * from "./report-blobs.ts";
 export * from "./report-body.ts";
 export * from "./sdk-report.ts";
+export * from "./problem-record.ts";
+export * from "./problem-report.ts";
+export * from "./problem-views.ts";
+export * from "./sdk-problem.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

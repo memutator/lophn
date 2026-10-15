@@ -9,8 +9,15 @@ export * from "./guides.ts";
 export * from "./context-contract.ts";
 export * from "./context-api.ts";
 export * from "./context-work.ts";
+export * from "./project-folders.ts";
+export * from "./project-api.ts";
+export * from "./project-search.ts";
+export * from "./context-drafts.ts";
+export * from "./context-outlines.ts";
 
 import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
+import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";
+import { CONTEXT_OUTLINE_ROUTES } from "./context-outlines.ts";
 
 import {
   projectArchive,
@@ -46,6 +53,8 @@ export const ROUTES = [
   projectTrackingRoots,
   projectPreviewTracking,
   ...CONTEXT_API_ROUTES,
+  ...PROJECT_SEARCH_ROUTES,
+  ...CONTEXT_OUTLINE_ROUTES,
 ] as const;
 
 export const EVENTS = [

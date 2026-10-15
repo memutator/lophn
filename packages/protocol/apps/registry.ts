@@ -16,6 +16,12 @@ import { appConnect, appViewClosed } from "./channel.ts";
 import { appBlueprint } from "./blueprint-read.ts";
 import { PAIR_ROUTES } from "./pair-routes.ts";
 import {
+  annotationSend,
+  annotationsGet,
+  annotationUploadScreenshot,
+} from "./annotation.ts";
+import { appAppApi } from "./blueprint/read.ts";
+import {
   appAutomations,
   appDisableExecution,
   appEnableExecution,
@@ -76,6 +82,10 @@ export const ROUTES = [
   appAutomations,
   appExport,
   ...PAIR_ROUTES,
+  annotationUploadScreenshot,
+  annotationSend,
+  annotationsGet,
+  appAppApi,
   ...INVOCATION_ROUTES,
   ...GRANT_ROUTES,
   ...PACKAGE_ROUTES,

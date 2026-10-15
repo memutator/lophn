@@ -35,4 +35,8 @@ export * from "./tool-calls.ts";
 export * from "./traces.ts";
 export * from "./mcp-settings.ts";
 export * from "./skill-settings.ts";
+export * from "./places.ts";
+export * from "./agent-sessions.ts";
+export * from "./session-rewinds.ts";
+export * from "./operators.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

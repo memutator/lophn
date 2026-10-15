@@ -23,7 +23,6 @@ export const ID_PREFIXES = {
   apr: "ApprovalRequest",
   qgr: "QuestionGroup",
   qst: "Question",
-  ntf: "Notification",
   rvt: "Revert",
   pst: "Preset",
   asg: "Assignment",
@@ -35,6 +34,13 @@ export const ID_PREFIXES = {
   pvd: "Provider",
   tkt: "Ticket",
   cac: "CodingAgentConnection",
+  agt: "Agent",
+  trn: "Turn",
+  cal: "Call",
+  act: "ActivationAttempt",
+  rwd: "Rewind",
+  ann: "Annotation",
+  anb: "AnnotationBatch",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

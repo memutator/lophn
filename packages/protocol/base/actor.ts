@@ -3,7 +3,7 @@ import { ACTOR_KINDS, type ActorKind } from "./route.ts";
 import { idSchema } from "./ids.ts";
 
 // actor 문자열의 모양만 정한다. 인증은 platform/identity의 몫이다.
-function prefixed(kind: string, id: z.ZodString) {
+function prefixed(kind: string, id: z.ZodType<string>) {
   return z.string().refine(
     (value) =>
       value.startsWith(`${kind}:`) &&
@@ -12,9 +12,12 @@ function prefixed(kind: string, id: z.ZodString) {
   );
 }
 
+// coding agent는 옛 연결(`cac`)과 coding session(`ses`) 두 꼴의 principal을 쓴다.
+const codingAgentIdSchema = z.union([idSchema("cac"), idSchema("ses")]);
+
 export const actorSchema = z.union([
   z.enum(["user", "machine"]),
-  prefixed("coding_agent", idSchema("cac")),
+  prefixed("coding_agent", codingAgentIdSchema),
   prefixed("agent", idSchema("asg")),
   prefixed("app", idSchema("app")),
 ]);
@@ -31,7 +34,7 @@ export type ActorParts =
 export const actorPartsSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("user") }),
   z.strictObject({ kind: z.literal("machine") }),
-  z.strictObject({ kind: z.literal("coding_agent"), id: idSchema("cac") }),
+  z.strictObject({ kind: z.literal("coding_agent"), id: codingAgentIdSchema }),
   z.strictObject({ kind: z.literal("agent"), id: idSchema("asg") }),
   z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
 ]);

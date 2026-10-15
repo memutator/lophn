@@ -1,16 +1,7 @@
-// mock 모드의 질문·approval 통로, 그리고 core 연결. provider 읽기만 대신 답한다(그 밖의 core 호출은
-// unavailable이다).
-import {
-  approval,
-  fakeRequests,
-  groupQuestion,
-  question,
-} from "../lophn-space/things-to-confirm/testdata/fake-source.ts";
-import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
+// mock 모드의 core 연결과 event 연결. core는 provider 읽기만 대신 답하고(그 밖의 호출은 unavailable이다),
+// event 연결은 대기 항목을 채운 fake Gateway다.
 import type { ConnectionState, CoreSource } from "../connection/connection.ts";
-import { PROJECT_GROCERY } from "./ids.ts";
-
-const MINUTE = 60 * 1000;
+import { createFakeWaiting } from "../connection/waiting/fake-source.ts";
 
 const PROVIDERS = [{
   id: "pvd_01h455vb4pex5v6nkc6gd5fd01",
@@ -46,31 +37,7 @@ export function mockCore(): CoreSource {
   };
 }
 
-export function mockRequests(): RequestSource {
-  const now = Date.now();
-  return fakeRequests({
-    requests: [
-      question(1, { blocking: true, createdAt: now - 4 * MINUTE }),
-      approval(2, {
-        place: { kind: "project", id: PROJECT_GROCERY },
-        createdAt: now - 12 * MINUTE,
-      }),
-      question(3, {
-        status: "answered",
-        questions: [
-          groupQuestion(3, 1, {
-            answer: { kind: "option", option: "keep" },
-            applied: true,
-          }),
-        ],
-        closedAt: now - 60 * MINUTE,
-      }),
-      question(4, {
-        status: "expired",
-        closedReason: "expired",
-        closedAt: now - 24 * 60 * MINUTE,
-      }),
-      approval(3, { status: "granted", closedAt: now - 120 * MINUTE }),
-    ],
-  }).source;
+/** 대기 목록이 읽는 fake Gateway. 결정하면 항목이 빠진다. */
+export function mockEvents(): CoreSource {
+  return createFakeWaiting();
 }

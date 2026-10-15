@@ -24,6 +24,7 @@ import {
   RequestDrafts,
   RequestsProvider,
 } from "../../../packages/shell/renderer/desktop/lophn-space/things-to-confirm/context.tsx";
+import { fakeRequests } from "../../../packages/shell/renderer/desktop/lophn-space/things-to-confirm/testdata/fake-source.ts";
 import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
 import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { fakeTerminal } from "./fake-terminal.ts";
@@ -142,7 +143,10 @@ export function MockDesktop(props: MockDesktopProps) {
       workspace,
       terminal,
       conversation: { drafts: new DraftStore(), onSettings: () => {} },
-      requests: { source: mock.requests, drafts: new RequestDrafts() },
+      requests: {
+        source: fakeRequests({ requests: [] }).source,
+        drafts: new RequestDrafts(),
+      },
       settingsPanels: mock.settingsPanels,
     };
   }, [panes, openTerminal, emptyLauncher]);

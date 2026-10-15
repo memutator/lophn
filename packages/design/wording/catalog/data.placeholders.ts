@@ -315,6 +315,153 @@ export type DataPlaceholders = {
   "report-problem.status.received": Record<never, never>;
   "report-problem.status.sending": Record<never, never>;
   "report-problem.title.report": Record<never, never>;
+  "waiting.button.allow": Record<never, never>;
+  "waiting.button.allow-always": Record<never, never>;
+  "waiting.button.allow-once": Record<never, never>;
+  "waiting.button.allow-session": Record<never, never>;
+  "waiting.button.answer-in-terminal": Record<never, never>;
+  "waiting.button.cancel": Record<never, never>;
+  "waiting.button.deny": Record<never, never>;
+  "waiting.button.open-session": Record<never, never>;
+  "waiting.label.activation-first": Record<never, never>;
+  "waiting.label.activation-new": Record<never, never>;
+  "waiting.label.agent-app-engineer": Record<never, never>;
+  "waiting.label.agent-coding": Record<never, never>;
+  "waiting.label.agent-lophn": Record<never, never>;
+  "waiting.label.agent-operator": Record<never, never>;
+  "waiting.label.agent-project-manager": Record<never, never>;
+  "waiting.label.agent-reaction": Record<never, never>;
+  "waiting.label.declared-app-api": Record<never, never>;
+  "waiting.label.declared-file-read": Record<never, never>;
+  "waiting.label.declared-file-write": Record<never, never>;
+  "waiting.label.declared-listen": Record<never, never>;
+  "waiting.label.declared-network": Record<never, never>;
+  "waiting.label.declared-other": Record<never, never>;
+  "waiting.label.declared-secret": Record<never, never>;
+  "waiting.label.effect-external": Record<never, never>;
+  "waiting.label.effect-read": Record<never, never>;
+  "waiting.label.effect-write": Record<never, never>;
+  "waiting.label.event-activation-failed": Record<never, never>;
+  "waiting.label.event-app-restart-halted": Record<never, never>;
+  "waiting.label.event-context-violation": Record<never, never>;
+  "waiting.label.event-problem-opened": Record<never, never>;
+  "waiting.label.event-problem-reopened": Record<never, never>;
+  "waiting.label.fact-detail": Record<never, never>;
+  "waiting.label.fact-effect": Record<never, never>;
+  "waiting.label.fact-event": Record<never, never>;
+  "waiting.label.fact-input": Record<never, never>;
+  "waiting.label.fact-opens": Record<never, never>;
+  "waiting.label.fact-target": Record<never, never>;
+  "waiting.label.group-approval": Record<never, never>;
+  "waiting.label.group-permission": Record<never, never>;
+  "waiting.label.group-question": Record<never, never>;
+  "waiting.label.hide-details": Record<never, never>;
+  "waiting.label.loss-drop-column": Record<never, never>;
+  "waiting.label.loss-drop-table": Record<never, never>;
+  "waiting.label.loss-heading": Record<never, never>;
+  "waiting.label.loss-narrow-type": Record<never, never>;
+  "waiting.label.panel": Record<never, never>;
+  "waiting.label.panel-scope": Record<never, never>;
+  "waiting.label.pill": {
+    count: "number";
+  };
+  "waiting.label.place-app": {
+    id: "string";
+  };
+  "waiting.label.place-project": {
+    id: "string";
+  };
+  "waiting.label.reason": Record<never, never>;
+  "waiting.label.session": {
+    id: "string";
+  };
+  "waiting.label.settings-agent-definition": Record<never, never>;
+  "waiting.label.settings-grant": Record<never, never>;
+  "waiting.label.settings-instructions": Record<never, never>;
+  "waiting.label.settings-setting": Record<never, never>;
+  "waiting.label.settings-skill": Record<never, never>;
+  "waiting.label.settled": Record<never, never>;
+  "waiting.label.settled-accepted": Record<never, never>;
+  "waiting.label.settled-applied": Record<never, never>;
+  "waiting.label.settled-cancelled": Record<never, never>;
+  "waiting.label.settled-denied": Record<never, never>;
+  "waiting.label.settled-failed": Record<never, never>;
+  "waiting.label.show-details": Record<never, never>;
+  "waiting.label.target-app-api": {
+    app: "string";
+    api: "string";
+  };
+  "waiting.label.target-mcp-tool": {
+    server: "string";
+    tool: "string";
+  };
+  "waiting.notice.activation-fine": Record<never, never>;
+  "waiting.notice.activation-first": {
+    declared: "plural";
+    lost: "plural";
+  };
+  "waiting.notice.activation-since": {
+    declared: "plural";
+    lost: "plural";
+  };
+  "waiting.notice.agent-call": {
+    agent: "string";
+  };
+  "waiting.notice.app-api-external": {
+    target: "string";
+  };
+  "waiting.notice.app-api-read": {
+    target: "string";
+  };
+  "waiting.notice.app-api-write": {
+    target: "string";
+  };
+  "waiting.notice.app-resource": {
+    target: "string";
+  };
+  "waiting.notice.coding": Record<never, never>;
+  "waiting.notice.decide-failed": Record<never, never>;
+  "waiting.notice.empty": Record<never, never>;
+  "waiting.notice.mcp-tool": {
+    target: "string";
+  };
+  "waiting.notice.question-in-session": Record<never, never>;
+  "waiting.notice.question-loading": Record<never, never>;
+  "waiting.notice.question-multiple": {
+    count: "plural";
+  };
+  "waiting.notice.reason-help": {
+    agent: "string";
+  };
+  "waiting.notice.settings-edit": {
+    what: "string";
+  };
+  "waiting.notice.settled-accepted": Record<never, never>;
+  "waiting.notice.settled-applied": Record<never, never>;
+  "waiting.notice.settled-cancelled": Record<never, never>;
+  "waiting.notice.settled-denied": Record<never, never>;
+  "waiting.notice.settled-denied-reason": {
+    agent: "string";
+  };
+  "waiting.notice.settled-failed": Record<never, never>;
+  "waiting.title.activation": {
+    app: "string";
+  };
+  "waiting.title.agent-call": Record<never, never>;
+  "waiting.title.app-api": {
+    api: "string";
+    app: "string";
+  };
+  "waiting.title.app-resource": Record<never, never>;
+  "waiting.title.coding": Record<never, never>;
+  "waiting.title.mcp-tool": {
+    tool: "string";
+  };
+  "waiting.title.question": Record<never, never>;
+  "waiting.title.reaction": {
+    agent: "string";
+  };
+  "waiting.title.settings-edit": Record<never, never>;
 };
 
 type Area = typeof data;

@@ -18,7 +18,6 @@ import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx
 import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { LophnSource } from "../lophn-space/source.ts";
-import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
@@ -37,7 +36,7 @@ import {
   mockViews,
 } from "./app-space.ts";
 import { mockAgentViewSource } from "./agent.ts";
-import { mockCore, mockRequests } from "./requests.ts";
+import { mockCore, mockEvents } from "./requests.ts";
 import { mockLophn } from "./lophn.ts";
 import { mockInstructions, mockLauncher } from "./launcher.ts";
 
@@ -60,7 +59,8 @@ export interface DevMock {
   readonly feedback: LophnShellFeedbackBegin;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentViewSourceFactory;
-  readonly requests: RequestSource;
+  /** 대기 목록이 읽는 event 연결(fake Gateway). */
+  readonly events: CoreSource;
   readonly instructions: InstructionsApi;
 }
 
@@ -120,7 +120,7 @@ export function devMock(
     appWindows: mockAppWindows(),
     feedback: mockFeedback(),
     agentViewSource: mockAgentViewSource(),
-    requests: mockRequests(),
+    events: mockEvents(),
     instructions: mockInstructions(),
   };
 }

@@ -3,8 +3,17 @@
 import { Button, IconButton } from "@lophn/design/components";
 
 import { windowCloseIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import type { ToastRow } from "./waiting-data.ts";
 import styles from "./waiting.module.css";
+
+/** 창 위 toast 한 줄. */
+export interface ToastRow {
+  readonly id: string;
+  readonly title: string;
+  readonly body: string;
+  readonly action: string;
+  /** 누르면 가는 곳. */
+  readonly goes: "list" | "session";
+}
 
 export function WaitingToast(
   { toast, onAction, onClose }: {

@@ -106,7 +106,7 @@ const agentViewSource = mock?.agentViewSource ??
   coreAgentViewSourceFactory(core);
 // 창마다 하나인 질문·approval 통로와 고르던 답. things-to-confirm·chip이 같이 쓴다.
 const requests = {
-  source: mock?.requests ?? coreRequestSource(core),
+  source: coreRequestSource(core),
   drafts: new RequestDrafts(),
 };
 // 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(projects)부터,

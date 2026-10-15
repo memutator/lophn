@@ -159,7 +159,6 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         models: group.models.map(row),
       })),
     },
-    notices: state.notices,
     onQueryChange: (query) => binding.setState({ ...state, query }),
     onPick: (model) => {
       const next = choiceOf(model);

@@ -38,7 +38,10 @@ export interface PickerAxisView {
   }[];
 }
 
-/** model을 바꿔 값을 맞췄다는 알림 한 건. 문구는 shell/wording이 만든다. */
+/**
+ * model을 바꿔 값을 맞췄다는 알림 한 건. picker는 값을 조용히 맞추고 알리지 않아 그리지 않는다. 옛 source와
+ * 옛 Agents 화면의 연결이 아직 이 type을 쓴다.
+ */
 export interface PickerNoticeView {
   readonly axisLabel: string;
   /** 맞추기 전 값의 표시 이름(XHigh). */
@@ -52,7 +55,7 @@ export interface ModelPickerProps {
   onOpenChange: (open: boolean) => void;
   /** 이 session에서 고른 model. */
   current: PickerModelRef;
-  /** 고른 model의 표시 이름(Sonnet 5.5). 단추와 알림 문구에 쓴다. */
+  /** 고른 model의 표시 이름(Sonnet 5.5). 단추에 쓴다. */
   currentLabel: string;
   /** 고른 model이 가진 축. 없으면 빈 배열이다. */
   axes: readonly PickerAxisView[];
@@ -61,8 +64,6 @@ export interface ModelPickerProps {
   /** 검색칸의 글. */
   query: string;
   layout: PickerLayoutView;
-  /** 방금 model을 바꾸며 맞춘 값. 비어 있으면 알림이 없다. */
-  notices: readonly PickerNoticeView[];
   onQueryChange: (query: string) => void;
   onPick: (model: PickerModelRef) => void;
   /** 별표를 눌렀다. 줄을 고른 것으로 치지 않는다. */
@@ -70,9 +71,11 @@ export interface ModelPickerProps {
   onOptionChange: (axis: string, value: string) => void;
   /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. */
   onChangeDefaults: () => void;
-  /**
-   * 고른 값이 어디에 적용되는지. 기본 session은 이 session에만(composer)이고, definition은 agent 정의의 model을
-   * 정하는 editor 칸이라 설명이 달라진다.
-   */
-  scope?: "session" | "definition";
+}
+
+/** form 칸이 보이는 model 하나와 그 model의 option. `model`은 선택지의 value이다. */
+export interface ModelSelectionView {
+  readonly model: string;
+  readonly axes: readonly PickerAxisView[];
+  readonly optionValues: Readonly<Record<string, string>>;
 }

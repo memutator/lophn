@@ -198,7 +198,6 @@ export function pickerProps(
     optionValues: scenario.optionValues,
     query: "",
     layout: LAYOUT_ALL,
-    notices: [],
     onQueryChange: (query) => calls.queries.push(query),
     onPick: (model) => calls.picked.push(model),
     onToggleFavorite: (model) => calls.starred.push(model),

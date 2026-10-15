@@ -1,0 +1,40 @@
+/* composer 바로 위에 쌓이는 "Next turn" 줄 */
+.queued {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--layout-pane-padding-wide) var(--space-3);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.icon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.tag {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.text {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

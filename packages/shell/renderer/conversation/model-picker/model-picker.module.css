@@ -1,4 +1,4 @@
-/* composer의 model picker. 위에서부터 검색칸, Favorites, provider 묶음, option 축, 알림, 설명, 기본값 바꾸기. */
+/* composer의 model picker. 위에서부터 검색칸, Favorites, provider 묶음, option 축, 기본값 바꾸기. */
 .picker {
   box-sizing: border-box;
   display: flex;
@@ -132,16 +132,6 @@
   gap: var(--space-1);
 }
 
-.alert {
-  margin: var(--space-0);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  color: var(--status-warning-text);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
 .note {
   margin: var(--space-0);
   padding: var(--space-0) var(--space-4);
@@ -153,4 +143,45 @@
 .foot {
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+/* provider 묶음 이름 옆 vendor 아이콘 */
+.vendor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Agents 화면 form의 Model 칸 */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldAxes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.changedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0);
+}
+
+.changed {
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-selection);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.changedNote {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
 }

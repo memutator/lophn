@@ -42,11 +42,13 @@ export type ConversationPlaceholders = {
   "conversation.button.hidden-hide": Record<never, never>;
   "conversation.button.hidden-show": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
+  "conversation.button.model-reset": Record<never, never>;
   "conversation.button.permissions-edit": Record<never, never>;
   "conversation.button.question-details": Record<never, never>;
   "conversation.button.question-next": Record<never, never>;
   "conversation.button.question-skip": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
+  "conversation.button.queued-remove": Record<never, never>;
   "conversation.button.recap-dismiss": Record<never, never>;
   "conversation.button.redo": Record<never, never>;
   "conversation.button.remove-context": Record<never, never>;
@@ -58,6 +60,7 @@ export type ConversationPlaceholders = {
   "conversation.button.rewind-here": Record<never, never>;
   "conversation.button.save": Record<never, never>;
   "conversation.button.send": Record<never, never>;
+  "conversation.button.send-now": Record<never, never>;
   "conversation.button.session-new": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
@@ -150,12 +153,14 @@ export type ConversationPlaceholders = {
   "conversation.label.grant-ask": Record<never, never>;
   "conversation.label.grant-deny": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
+  "conversation.label.model-changed": Record<never, never>;
   "conversation.label.model-list": Record<never, never>;
   "conversation.label.model-unknown": Record<never, never>;
   "conversation.label.more-actions": Record<never, never>;
   "conversation.label.more-results": {
     count: "plural";
   };
+  "conversation.label.next-turn": Record<never, never>;
   "conversation.label.permission-summary": {
     count: "plural";
   };
@@ -208,6 +213,7 @@ export type ConversationPlaceholders = {
     count: "plural";
   };
   "conversation.label.questions-ended-by-message": Record<never, never>;
+  "conversation.label.queued-messages": Record<never, never>;
   "conversation.label.rename-session": {
     title: "string";
   };
@@ -242,13 +248,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.session-untitled": Record<never, never>;
   "conversation.label.since-now": Record<never, never>;
-  "conversation.label.slash-blocked": {
-    agent: "string";
-  };
   "conversation.label.slash-menu": Record<never, never>;
-  "conversation.label.slash-origin-builtin": Record<never, never>;
-  "conversation.label.slash-origin-global": Record<never, never>;
-  "conversation.label.slash-origin-project": Record<never, never>;
   "conversation.label.slash-unknown": {
     name: "string";
   };
@@ -293,14 +293,6 @@ export type ConversationPlaceholders = {
     connection: "string";
   };
   "conversation.notice.message-loading": Record<never, never>;
-  "conversation.notice.model-definition": Record<never, never>;
-  "conversation.notice.model-session-only": Record<never, never>;
-  "conversation.notice.model-value-fitted": {
-    axis: "string";
-    to: "string";
-    from: "string";
-    model: "string";
-  };
   "conversation.notice.no-model-options": Record<never, never>;
   "conversation.notice.no-models": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
@@ -312,16 +304,20 @@ export type ConversationPlaceholders = {
   "conversation.notice.question-waiting": Record<never, never>;
   "conversation.notice.questions-ended-by-message": Record<never, never>;
   "conversation.notice.recap-local": Record<never, never>;
+  "conversation.notice.session-archived": Record<never, never>;
   "conversation.notice.session-no-match": Record<never, never>;
-  "conversation.notice.slash-choose": {
-    name: "string";
-  };
   "conversation.notice.slash-no-match": Record<never, never>;
+  "conversation.notice.slash-working": {
+    agent: "string";
+  };
   "conversation.notice.stale": {
     age: "string";
   };
   "conversation.notice.stale-never": Record<never, never>;
   "conversation.notice.unconfirmed": Record<never, never>;
+  "conversation.notice.working-next-turn": {
+    agent: "string";
+  };
   "conversation.placeholder.ask": {
     agent: "string";
   };

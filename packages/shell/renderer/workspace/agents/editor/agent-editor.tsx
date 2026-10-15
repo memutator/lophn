@@ -401,7 +401,7 @@ function ModelField(props: FieldProps) {
       issues={props.fieldIssues}
     >
       <div className={styles.modelRow}>
-        <ModelPicker {...props.picker} scope="definition" />
+        <ModelPicker {...props.picker} />
         {definition.model !== undefined
           ? (
             <>

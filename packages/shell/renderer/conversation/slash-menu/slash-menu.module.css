@@ -2,7 +2,7 @@
 .menu {
   box-sizing: border-box;
   max-height: calc(var(--menu-row) * 10);
-  padding: var(--space-2);
+  padding: var(--space-1);
   border-radius: var(--radius-md);
   background: var(--floating-surface);
   box-shadow: var(--shadow-popover);
@@ -11,14 +11,6 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
   overflow: auto;
-}
-
-.heading {
-  margin: var(--space-3) var(--space-0) var(--space-1);
-  padding: var(--space-0) var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }
 
 .notice {
@@ -30,8 +22,8 @@
 .row {
   box-sizing: border-box;
   display: flex;
-  align-items: baseline;
-  gap: var(--space-5);
+  align-items: center;
+  gap: var(--space-4);
   height: var(--menu-row);
   padding: var(--space-0) var(--space-4);
   border-radius: var(--radius-xs);
@@ -42,26 +34,22 @@
   background: var(--floating-hover);
 }
 
-/* 못 쓰는 줄은 흐리게 하고 이유는 그대로 읽히게 둔다. */
-.row[data-blocked] {
-  cursor: not-allowed;
+.icon {
+  flex: none;
+  color: var(--color-text-muted);
 }
 
-.row[data-blocked] .label,
-.row[data-blocked] .description {
-  color: var(--color-text-disabled);
+.rule {
+  height: var(--border-width);
+  margin: var(--space-1) var(--space-0);
+  border: var(--space-0);
+  background: var(--color-border-subtle);
 }
 
 .label {
   flex: none;
   min-width: calc(var(--menu-row) * 4);
   font-weight: var(--font-weight-medium);
-}
-
-.origin {
-  flex: none;
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
 }
 
 .description {
@@ -74,10 +62,19 @@
   white-space: nowrap;
 }
 
-.reason {
+.why {
   flex: none;
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
+}
+
+.note {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
 }
 
 .hit {

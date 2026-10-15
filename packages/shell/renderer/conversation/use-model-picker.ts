@@ -4,16 +4,19 @@ import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";
 
 import type {
-  AgentViewSource,
+  AgentTabSource,
   ModelView,
   SourceResult,
-} from "./agent-source.ts";
+} from "./agent-tab-source.ts";
 import type { ModelPickerProps, PickerModelRef } from "./model-picker/types.ts";
 
 const NO_MODEL: PickerModelRef = { provider: "", modelName: "" };
 
 export interface ModelPickerInput {
-  source: AgentViewSource;
+  source: Pick<
+    AgentTabSource,
+    "model" | "chooseModel" | "setModelOption" | "toggleFavorite"
+  >;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
   /** 읽거나 쓰기가 실패했다. */
@@ -53,11 +56,7 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
     open,
     onOpenChange: (next) => {
       setOpen(next);
-      if (!next) {
-        // 닫으면 값 맞춤 알림은 지나간 일이다.
-        setQuery("");
-        setView((current) => current && { ...current, notices: [] });
-      }
+      if (!next) setQuery("");
     },
     current: view?.current ?? NO_MODEL,
     currentLabel: view?.currentLabel ?? t("conversation.label.model-unknown"),
@@ -65,7 +64,6 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
     optionValues: view?.optionValues ?? {},
     query,
     layout: view?.layout ?? { favorites: [], providers: [] },
-    notices: view?.notices ?? [],
     onQueryChange: setQuery,
     onPick: (model) => void apply(source.chooseModel(session, model, query)),
     onToggleFavorite: (model) =>

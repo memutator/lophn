@@ -8,9 +8,9 @@ export interface SlashEntryView {
   readonly title: string | null;
   readonly description: string;
   readonly source: "builtin" | "role" | "skill";
-  /** 같은 이름 skill이 둘 이상일 때만 있다. 아니면 출처를 달지 않는다. */
+  /** 메뉴는 읽지 않는다. 같은 이름이면 마지막 층이 덮어 출처를 달지 않는다. 옛 source가 아직 채운다. */
   readonly skillOrigin: "builtin" | "global" | "project" | null;
-  /** 일하는 중 사용 여부. blocked는 못 쓰고, run·queue는 쓴다. */
+  /** 메뉴는 읽지 않는다. 일하는 중 고른 명령은 모두 다음 turn에 들어간다. 옛 source가 아직 채운다. */
   readonly whileRunning: "run" | "queue" | "blocked";
 }
 
@@ -26,10 +26,4 @@ export type SlashMenuState =
   /** 묶음 목록. */
   | { readonly kind: "list"; readonly groups: readonly SlashGroupView[] }
   /** 맞는 명령이 없는 `/…`을 제출했다. 명령으로도 일반 메시지로도 보내지 않는다. */
-  | { readonly kind: "unknown"; readonly name: string }
-  /** 같은 이름 skill이 둘 이상이라 어느 것인지 고르게 한다. */
-  | {
-    readonly kind: "choose_skill";
-    readonly name: string;
-    readonly candidates: readonly SlashEntryView[];
-  };
+  | { readonly kind: "unknown"; readonly name: string };

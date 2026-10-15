@@ -28,11 +28,13 @@ export const conversation = {
   "conversation.button.hidden-hide": "Hide",
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
+  "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
   "conversation.button.question-details": "Details",
   "conversation.button.question-next": "Next",
   "conversation.button.question-skip": "Skip",
   "conversation.button.question-submit": "Submit",
+  "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.recap-dismiss": "Dismiss",
   "conversation.button.redo": "Redo",
   "conversation.button.remove-context": "Remove context",
@@ -44,6 +46,7 @@ export const conversation = {
   "conversation.button.rewind-here": "Rewind to here",
   "conversation.button.save": "Save",
   "conversation.button.send": "Send",
+  "conversation.button.send-now": "Send now",
   "conversation.button.session-new": "New session",
   "conversation.button.show-all-results": "Show all results",
   "conversation.button.stop": "Stop",
@@ -117,11 +120,13 @@ export const conversation = {
   "conversation.label.grant-ask": "Asks first",
   "conversation.label.grant-deny": "Not allowed",
   "conversation.label.group-earlier": "Earlier",
+  "conversation.label.model-changed": "Changed",
   "conversation.label.model-list": "Models",
   "conversation.label.model-unknown": "Model",
   "conversation.label.more-actions": "More",
   "conversation.label.more-results":
     "{count, plural, one {+# more} other {+# more}}",
+  "conversation.label.next-turn": "Next turn",
   "conversation.label.permission-summary":
     "{count, plural, =0 {Ask first} one {Ask first, # tool allowed} other {Ask first, # tools allowed}}",
   "conversation.label.permissions-may": "What {agent} may do",
@@ -153,6 +158,7 @@ export const conversation = {
   "conversation.label.questions-answered":
     "Answered {count, plural, one {# question} other {# questions}}",
   "conversation.label.questions-ended-by-message": "Ended by your message",
+  "conversation.label.queued-messages": "Waiting for the next turn",
   "conversation.label.rename-session": "Rename {title}",
   "conversation.label.request-position": "{current, number} of {total, number}",
   "conversation.label.requests": "Waiting for you",
@@ -177,11 +183,7 @@ export const conversation = {
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
   "conversation.label.since-now": "now",
-  "conversation.label.slash-blocked": "Not while {agent} is working",
   "conversation.label.slash-menu": "Commands",
-  "conversation.label.slash-origin-builtin": "Built-in",
-  "conversation.label.slash-origin-global": "Global",
-  "conversation.label.slash-origin-project": "Project",
   "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-working": "Working",
@@ -214,12 +216,6 @@ export const conversation = {
   "conversation.notice.external-waiting":
     "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
-  "conversation.notice.model-definition":
-    "This agent's model. Clear it to use the project default.",
-  "conversation.notice.model-session-only":
-    "Only this session. Default comes from the agent.",
-  "conversation.notice.model-value-fitted":
-    "{axis} set to {to}. {from} isn't available for {model}.",
   "conversation.notice.no-model-options": "No options for this model.",
   "conversation.notice.no-models": "No models match.",
   "conversation.notice.not-found":
@@ -238,15 +234,19 @@ export const conversation = {
     "You sent a message while the questions were open, so they closed. The agent reads your message as the answer.",
   "conversation.notice.recap-local":
     "Only shown here. The conversation itself is unchanged.",
+  "conversation.notice.session-archived":
+    "This session is archived. You can read it, but it takes no new messages.",
   "conversation.notice.session-no-match": "No sessions match.",
-  "conversation.notice.slash-choose":
-    "More than one skill is named /{name}. Choose which one to use.",
   "conversation.notice.slash-no-match": "No commands match.",
+  "conversation.notice.slash-working":
+    "{agent} is working. A command you pick goes in the next turn.",
   "conversation.notice.stale":
     "Couldn't check for new messages. Last checked {age}.",
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
+  "conversation.notice.working-next-turn":
+    "{agent} is working. A message you send now waits for the next turn.",
   "conversation.placeholder.ask":
     "Ask {agent}… Type / for commands and skills.",
   "conversation.rewind-block.copied":

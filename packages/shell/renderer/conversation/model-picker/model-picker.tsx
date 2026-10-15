@@ -1,21 +1,32 @@
-// composer의 model 단추와 picker. 화면 코드에는
-// model 이름도 option 값도 없다. 정렬·거르기·option 축·값 맞춤 알림은 model catalog 쪽 모듈
-// (contracts/lophn-agent의 model-picker)이 계산해 props로 주고, 이 component는 받은 순서대로 그린다.
-// renderer는 contracts·design·sdk만 import하므로 그 모듈을 부르는 연결은 core source 쪽 몫이다.
-import type { KeyboardEvent, ReactNode } from "react";
-import { Button, Icon, iconPixels, Popover } from "@lophn/design/components";
+// composer의 model 단추와 picker, option 축 묶음, Agents 화면의 form이 쓰는 Model 칸. 위에서부터 검색칸,
+// Favorites, provider 묶음(vendor 아이콘), 고른 model의 option 축이다. 화면 코드에는 model 이름도 option 값도
+// 없다. 정렬·거르기·option 축·기본 값 맞춤은 model catalog가 계산해 props로 주고, 이 component는 받은 순서대로
+// 그린다. model을 바꾸면 값은 조용히 맞고 알림은 없다.
+import { createContext, type KeyboardEvent, type ReactNode } from "react";
+import {
+  Button,
+  Field,
+  Icon,
+  iconPixels,
+  Popover,
+  Select,
+  VendorIcon,
+  vendorOf,
+} from "@lophn/design/components";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./model-picker.module.css";
 import type {
   ModelPickerProps,
+  ModelSelectionView,
   PickerModelRef,
   PickerModelRow,
 } from "./types.ts";
 
 export type {
   ModelPickerProps,
+  ModelSelectionView,
   PickerAxisView,
   PickerLayoutView,
   PickerModelRef,
@@ -23,6 +34,17 @@ export type {
   PickerNoticeView,
   PickerProviderGroup,
 } from "./types.ts";
+
+/**
+ * 별표 찍은 model을 여러 picker가 함께 쓰게 하고 싶은 host가 감싼다. 이름은 찍은 순서다. picker는
+ * `layout`의 별표를 읽고 눌림을 props로 알려 이 값을 읽지 않는다.
+ */
+export interface Favorites {
+  readonly names: readonly string[];
+  readonly toggle: (name: string) => void;
+}
+
+export const FavoritesContext = createContext<Favorites | null>(null);
 
 function same(first: PickerModelRef, second: PickerModelRef): boolean {
   return first.provider === second.provider &&
@@ -92,32 +114,33 @@ function ModelRow(
   );
 }
 
-function Axes(
-  { axes, optionValues, onOptionChange }: Pick<
-    ModelPickerProps,
-    "axes" | "optionValues" | "onOptionChange"
-  >,
+/** 고른 model의 option 축만 보인다. 없으면 없다고 말한다. */
+export function OptionAxes(
+  { selection, onChange }: {
+    selection: Pick<ModelSelectionView, "axes" | "optionValues">;
+    onChange: (axis: string, value: string) => void;
+  },
 ) {
-  if (axes.length === 0) {
+  if (selection.axes.length === 0) {
     return (
       <p className={styles.note}>
         {t("conversation.notice.no-model-options")}
       </p>
     );
   }
-  return axes.map((axis) => (
+  return selection.axes.map((axis) => (
     <div key={axis.id} className={styles.axis}>
       <span className={styles.axisLabel}>{axis.label}</span>
       <div className={styles.values} role="group" aria-label={axis.label}>
         {axis.values.map((item) => {
-          const on = optionValues[axis.id] === item.value;
+          const on = selection.optionValues[axis.id] === item.value;
           return (
             <Button
               key={item.value}
               size="sm"
               variant={on ? "secondary" : "ghost"}
               aria-pressed={on}
-              onClick={() => onOptionChange(axis.id, item.value)}
+              onClick={() => onChange(axis.id, item.value)}
             >
               {item.label}
             </Button>
@@ -126,6 +149,17 @@ function Axes(
       </div>
     </div>
   ));
+}
+
+/** provider 묶음 머리: vendor 아이콘과 이름. 모르는 이름이면 아이콘이 없다. */
+function ProviderHeading({ label }: { label: string }) {
+  const vendor = vendorOf(label);
+  return (
+    <h3 className={`${styles.heading} ${styles.vendor}`}>
+      {vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />}
+      {label}
+    </h3>
+  );
 }
 
 // 단추 글은 model 이름 뒤에 값이 있는 축의 표시 이름을 catalog가 준 순서대로 이어 붙인 것이다.
@@ -203,7 +237,7 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
               data-provider={group.provider}
               role="presentation"
             >
-              <h3 className={styles.heading}>{group.label}</h3>
+              <ProviderHeading label={group.label} />
               {group.models.map((row) => (
                 <ModelRow
                   key={row.modelName}
@@ -218,29 +252,8 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
           ))}
         </div>
         <div className={styles.axes} data-picker-section="axes">
-          <Axes
-            axes={props.axes}
-            optionValues={props.optionValues}
-            onOptionChange={props.onOptionChange}
-          />
+          <OptionAxes selection={props} onChange={props.onOptionChange} />
         </div>
-        {props.notices.map((notice) => (
-          <p key={notice.axisLabel} className={styles.alert} role="status">
-            {t("conversation.notice.model-value-fitted", {
-              axis: notice.axisLabel,
-              from: notice.fromLabel,
-              to: notice.toLabel,
-              model: props.currentLabel,
-            })}
-          </p>
-        ))}
-        <p className={styles.note} data-picker-section="scope">
-          {t(
-            props.scope === "definition"
-              ? "conversation.notice.model-definition"
-              : "conversation.notice.model-session-only",
-          )}
-        </p>
         <div className={styles.foot} data-picker-section="defaults">
           <Button size="sm" variant="ghost" onClick={props.onChangeDefaults}>
             {t("conversation.button.change-defaults")}
@@ -248,5 +261,66 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
         </div>
       </div>
     </Popover>
+  );
+}
+
+const INHERIT = "inherit";
+
+/**
+ * Model 칸. 처음에는 위 층의 값을 따르고(`inherited`), 바꾸면 바뀐 칸만 저장된다는 뜻으로 Changed와 [Reset]이
+ * 붙는다. 아래 option 축은 지금 model이 가진 것만 보인다. 선택지와 축은 catalog가 준 값이다.
+ */
+export function ModelField(
+  {
+    label,
+    inheritLabel,
+    choices,
+    inherited,
+    value,
+    onChange,
+    onOptionChange,
+    overrideNote,
+  }: {
+    label: string;
+    /** "Use project default — Haiku 5.5 (from Workspace)" 같은 따르기 선택지의 글. */
+    inheritLabel: string;
+    /** 고를 수 있는 model. `value`는 `ModelSelectionView.model`과 같은 값이다. */
+    choices: readonly { readonly value: string; readonly label: string }[];
+    inherited: ModelSelectionView;
+    /** 이 칸에서 고른 값. 따르는 중이면 null이다. */
+    value: ModelSelectionView | null;
+    /** model을 골랐다. 따르기를 골랐으면 null이다. 새 model의 option은 catalog의 기본값이다. */
+    onChange: (model: string | null) => void;
+    onOptionChange: (axis: string, value: string) => void;
+    overrideNote?: string;
+  },
+) {
+  const effective = value ?? inherited;
+  return (
+    <div className={styles.field}>
+      <Field label={label}>
+        <Select
+          options={[{ value: INHERIT, label: inheritLabel }, ...choices]}
+          value={value === null ? INHERIT : value.model}
+          onValueChange={(next) => onChange(next === INHERIT ? null : next)}
+        />
+      </Field>
+      <div className={styles.fieldAxes}>
+        <OptionAxes selection={effective} onChange={onOptionChange} />
+      </div>
+      {value === null ? null : (
+        <p className={styles.changedRow}>
+          <span className={styles.changed}>
+            {t("conversation.label.model-changed")}
+          </span>
+          {overrideNote === undefined
+            ? null
+            : <span className={styles.changedNote}>{overrideNote}</span>}
+          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+            {t("conversation.button.model-reset")}
+          </Button>
+        </p>
+      )}
+    </div>
   );
 }

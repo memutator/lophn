@@ -1,115 +1,76 @@
-// coding agent 연결 화면 테스트의 가짜 통로. main·core를 부르지 않고 부른 것을 기록한다.
+// Coding agents 화면의 가짜 통로. main·core를 부르지 않고 부른 것을 기록한다.
 import type {
-  AppChoice,
   CodingConnectionsSource,
-  ConnectChoice,
-  ConnectionRow,
-  ConnectView,
-  DetectView,
+  CodingDefaults,
   HarnessName,
-  HarnessView,
+  HarnessSettingsView,
   SourceResult,
 } from "../source.ts";
 
-export const CAC_DESK = "cac_01h455vb4pex5v6nkc6gd5fd01";
-export const CAC_OLD = "cac_01h455vb4pex5v6nkc6gd5fd02";
-export const CAC_APP = "cac_01h455vb4pex5v6nkc6gd5fd03";
-export const APP_BUDGET = "app_01h455vb4pex5v6nkc6gd5fd01";
+const LABELS: Record<HarnessName, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  opencode: "OpenCode",
+  gemini: "Gemini CLI",
+  hermes: "Hermes",
+  pi: "pi",
+  openclaw: "OpenClaw",
+};
 
 export function harness(
   id: HarnessName,
-  over: Partial<HarnessView> = {},
-): HarnessView {
+  over: Partial<HarnessSettingsView> = {},
+): HarnessSettingsView {
   const found = over.discovery === undefined || over.discovery === "detected";
   return {
     harness_id: id,
+    label: LABELS[id],
     discovery: "detected",
     version: found ? "1.2.3" : null,
     version_result: found ? "verified" : "unknown",
-    auth: "not_verified",
-    profile_id: null,
-    observed_at: "2026-10-07T00:00:00.000Z",
-    freshness: "fresh",
-    executable: found ? `/usr/local/bin/${id}` : null,
-    candidates: found ? [{ path: `/usr/local/bin/${id}`, source: "path" }] : [],
-    probes: found ? [{ probe: "version", outcome: "ok" }] : [],
+    login: "verified",
+    can_launch: found,
+    can_deliver_messages: found,
+    reason: null,
     ...over,
   };
 }
 
-export const DETECTED: DetectView = {
-  source: "cached",
-  harnesses: [
-    harness("claude", { auth: "verified" }),
-    harness("codex"),
-    harness("opencode", { discovery: "absent" }),
-    harness("gemini", { discovery: "error", version_result: "error" }),
-    harness("hermes", { discovery: "absent" }),
-    harness("pi", { discovery: "absent" }),
-    harness("openclaw", { discovery: "unobserved" }),
-  ],
-};
-
-export const CONNECTIONS: readonly ConnectionRow[] = [
-  {
-    id: CAC_DESK,
-    label: "Desk Claude",
-    scope: { kind: "all" },
-    state: "active",
-    revision: "7",
-  },
-  {
-    id: CAC_APP,
-    label: "Budget only",
-    scope: { kind: "app", app: APP_BUDGET },
-    state: "active",
-    revision: "3",
-  },
-  {
-    id: CAC_OLD,
-    label: "Old laptop",
-    scope: { kind: "all" },
-    state: "revoked",
-    revision: "9",
-  },
+/** 화면 확인용 대표 감지 결과: 로그인 안 함, turn 끝 신호 없음, 맡길 수 없음, 못 찾음이 한 번씩 있다. */
+export const HARNESSES: readonly HarnessSettingsView[] = [
+  harness("claude", { version: "2.1.4" }),
+  harness("codex", { version: "0.58.0" }),
+  harness("gemini", {
+    version: "0.9.2",
+    login: "not_verified",
+    can_deliver_messages: false,
+    reason: "This product doesn't report when a turn ends.",
+  }),
+  harness("opencode", { version: "1.4.0" }),
+  harness("pi", {
+    version: "0.7.1",
+    can_launch: false,
+    can_deliver_messages: false,
+    reason:
+      "The first prompt can't be passed on the command line or after the session starts.",
+  }),
+  harness("hermes", { discovery: "absent", login: "unknown" }),
 ];
-
-export const APPS: readonly AppChoice[] = [
-  { id: APP_BUDGET, name: "Grocery budget" },
-  { id: "app_01h455vb4pex5v6nkc6gd5fd09", name: "Recipes" },
-];
-
-export const CONNECTED: ConnectView = {
-  connection: CAC_DESK,
-  install: {
-    status: "complete",
-    resources: [{ identity: "claude/mcp", outcome: "changed" }],
-  },
-  checks: [
-    { stage: "mcp_initialize", result: "success" },
-    { stage: "tool_discovery", result: "success" },
-    { stage: "skill_discovery", result: "unknown" },
-    { stage: "app_guide_loading", result: "failure" },
-  ],
-};
 
 export interface FakeConnectionsOptions {
-  detect?: SourceResult<DetectView>;
-  refresh?: SourceResult<DetectView>;
-  connections?: SourceResult<readonly ConnectionRow[]>;
-  apps?: SourceResult<readonly AppChoice[]>;
-  connect?: SourceResult<ConnectView>;
-  revoke?: SourceResult<null>;
+  harnesses?: SourceResult<readonly HarnessSettingsView[]>;
+  refresh?: SourceResult<readonly HarnessSettingsView[]>;
+  defaults?: SourceResult<CodingDefaults>;
+  /** 저장이 거절되는 code. 없으면 저장된다. */
+  saveCode?: string;
 }
 
 export interface FakeConnections {
   readonly source: CodingConnectionsSource;
   readonly calls: {
-    detect: number;
+    harnesses: number;
     refresh: number;
-    connections: number;
-    connect: ConnectChoice[];
-    revoke: string[];
+    saved: CodingDefaults[];
   };
 }
 
@@ -117,39 +78,36 @@ export function fakeConnections(
   options: FakeConnectionsOptions = {},
 ): FakeConnections {
   const calls: FakeConnections["calls"] = {
-    detect: 0,
+    harnesses: 0,
     refresh: 0,
-    connections: 0,
-    connect: [],
-    revoke: [],
+    saved: [],
   };
+  let defaults: CodingDefaults = { harness: "claude", model: "" };
   const source: CodingConnectionsSource = {
-    watch: () => () => {},
-    detect() {
-      calls.detect += 1;
-      return Promise.resolve(options.detect ?? { ok: true, value: DETECTED });
+    watch(listener) {
+      listener({ state: "ready" });
+      return () => {};
+    },
+    harnesses() {
+      calls.harnesses += 1;
+      return Promise.resolve(
+        options.harnesses ?? { ok: true, value: HARNESSES },
+      );
     },
     refresh() {
       calls.refresh += 1;
-      return Promise.resolve(
-        options.refresh ??
-          { ok: true, value: { ...DETECTED, source: "refreshed" } },
-      );
+      return Promise.resolve(options.refresh ?? { ok: true, value: HARNESSES });
     },
-    connections() {
-      calls.connections += 1;
-      return Promise.resolve(
-        options.connections ?? { ok: true, value: CONNECTIONS },
-      );
+    defaults() {
+      return Promise.resolve(options.defaults ?? { ok: true, value: defaults });
     },
-    apps: () => Promise.resolve(options.apps ?? { ok: true, value: APPS }),
-    connect(choice) {
-      calls.connect.push(choice);
-      return Promise.resolve(options.connect ?? { ok: true, value: CONNECTED });
-    },
-    revoke(connection) {
-      calls.revoke.push(connection);
-      return Promise.resolve(options.revoke ?? { ok: true, value: null });
+    saveDefaults(values) {
+      calls.saved.push(values);
+      if (options.saveCode) {
+        return Promise.resolve({ ok: false, code: options.saveCode });
+      }
+      defaults = values;
+      return Promise.resolve({ ok: true, value: null });
     },
   };
   return { source, calls };

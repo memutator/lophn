@@ -29,6 +29,7 @@ import {
   type SettingsPanels,
   SettingsScreen,
 } from "./settings/settings-screen.tsx";
+import { DEFAULT_PANE, type SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
 import type { CodingConnectionsSource } from "./settings/connections/source.ts";
 import styles from "./lophn-space.module.css";
@@ -54,8 +55,6 @@ export interface LophnSpaceProps {
   onInstructions?: () => void;
   /** settings의 coding agent 연결 통로. 없으면 그 자리를 두지 않는다. */
   coding?: CodingConnectionsSource;
-  /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. settings가 그 연결을 먼저 보인다. */
-  initialConnection?: string;
   /** settings의 진단 탭 통로. 없는 탭은 두지 않는다. */
   settingsPanels?: SettingsPanels;
 }
@@ -76,11 +75,11 @@ export function LophnSpace(
     settings,
     onInstructions,
     coding,
-    initialConnection,
     settingsPanels,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
+  const [settingsPane, setSettingsPane] = useState<SettingsPane>(DEFAULT_PANE);
   const [sidebar, setSidebar] = useState<SidebarState>({
     chosenWidth: SIDEBAR_WIDTH,
     collapsedByUser: false,
@@ -175,9 +174,10 @@ export function LophnSpace(
             ? (
               <SettingsScreen
                 {...settingsPanels}
+                pane={settingsPane}
+                onPane={setSettingsPane}
                 source={settings}
                 coding={coding}
-                initialConnection={initialConnection}
                 onInstructions={onInstructions}
               />
             )

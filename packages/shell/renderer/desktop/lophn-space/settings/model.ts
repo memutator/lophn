@@ -1,8 +1,99 @@
 // settings 화면의 순수 규칙. 원시 enum·ID를 화면 말로 바꾸고, 모르는 값을
 // 지어내지 않는다. 화면 컴포넌트와 테스트가 같이 쓴다.
-import { formatDate, t } from "@lophn/wording";
+import { formatDate, type MessageKey, t } from "@lophn/wording";
 
-import type { ApplyAt, AuthWay, ServerAuth, SettingRow } from "./source.ts";
+import type { LucideIcon } from "lucide-react";
+
+import { paneIcons } from "./pane-icons.ts";
+import type { AuthWay, ServerAuth } from "./source.ts";
+
+/** Settings의 항목. sidebar의 Settings 아래에 고르는 줄로 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
+export type SettingsPane =
+  | "general"
+  | "appearance"
+  | "providers"
+  | "agents"
+  | "tools"
+  | "coding"
+  | "reactions"
+  | "diagnostics";
+
+export interface SettingsPaneEntry {
+  readonly id: SettingsPane;
+  /** 항목 이름의 wording key. */
+  readonly label: MessageKey;
+  readonly icon: LucideIcon;
+}
+
+export interface SettingsGroup {
+  readonly id: "general" | "agents" | "system";
+  /** 묶음 이름의 wording key. */
+  readonly label: MessageKey;
+  readonly panes: readonly SettingsPaneEntry[];
+}
+
+export const DEFAULT_PANE: SettingsPane = "general";
+
+export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
+  {
+    id: "general",
+    label: "settings.label.group-general",
+    panes: [
+      {
+        id: "general",
+        label: "settings.label.tab-general",
+        icon: paneIcons.general,
+      },
+      {
+        id: "appearance",
+        label: "settings.label.tab-appearance",
+        icon: paneIcons.appearance,
+      },
+    ],
+  },
+  {
+    id: "agents",
+    label: "settings.label.group-agents",
+    panes: [
+      {
+        id: "providers",
+        label: "settings.label.tab-providers",
+        icon: paneIcons.providers,
+      },
+      {
+        id: "agents",
+        label: "settings.label.tab-agents",
+        icon: paneIcons.agents,
+      },
+      {
+        id: "tools",
+        label: "settings.label.tab-extensions",
+        icon: paneIcons.tools,
+      },
+      {
+        id: "coding",
+        label: "settings.label.tab-coding",
+        icon: paneIcons.coding,
+      },
+    ],
+  },
+  {
+    id: "system",
+    label: "settings.label.group-system",
+    panes: [
+      {
+        id: "reactions",
+        label: "settings.label.tab-reactions",
+        icon: paneIcons.reactions,
+      },
+      {
+        id: "diagnostics",
+        label: "settings.label.tab-diagnostics",
+        icon: paneIcons.diagnostics,
+      },
+    ],
+  },
+];
 
 /**
  * 내장 정의가 알려 준 연결 방법만, 정해진 순서(로그인, key)로. 인증 없음은 내장 정의에 없고 직접 만든
@@ -37,20 +128,8 @@ export function timeText(iso: string): string {
   return formatDate(new Date(iso), "en", SHORT_TIME);
 }
 
-/** 설정 효력 시점. */
-export function applyText(applyAt: ApplyAt): string {
-  switch (applyAt) {
-    case "next_turn":
-      return t("settings.label.apply-next-work");
-    case "current_check":
-      return t("settings.label.apply-now");
-    case "next_call":
-      return t("settings.label.apply-next-call");
-  }
-}
-
 /** 저장 이름(`next_turn`)처럼 생긴 값은 첫 글자를 키운 낱말로, 사람이 쓴 글은 그대로 둔다. */
-function slugText(value: string): string {
+export function slugText(value: string): string {
   if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(value)) return value;
   const words = value.replace(/[-_]/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -75,17 +154,6 @@ export function valueText(value: unknown, resolved: boolean): string {
     return t("settings.label.value-custom");
   }
   return t("settings.label.value-not-set");
-}
-
-/** 확장 설정과 따로 보이는 것은 General에서 뺀다. */
-const SHOWN_ELSEWHERE = new Set([
-  "lophn-agent.extensions.skill_folders",
-  "lophn-agent.extensions.skills_off",
-  "lophn-agent.extensions.mcp_servers",
-]);
-
-export function generalRows(rows: readonly SettingRow[]): SettingRow[] {
-  return rows.filter((row) => !SHOWN_ELSEWHERE.has(row.key));
 }
 
 export function serverAuthLabel(auth: ServerAuth): string {

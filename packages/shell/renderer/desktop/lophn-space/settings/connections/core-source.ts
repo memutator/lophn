@@ -1,178 +1,116 @@
-// CodingConnectionsSource를 main의 통로로 만든다. 감지·연결·설치는 main IPC(`lophnCoding`)이고 연결 목록은
-// core read이며 회수는 보호 창을 여는 일이다. 응답은 main의 contract client가 route output schema로 이미
-// 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. 연결 생성 command와 token은 이
-// 통로에 없다: 연결은 고정 intent(`CONNECT_INTENT`)만 보내고 main이 따로 검증한다.
-import { type CodingApi, CONNECT_INTENT } from "../../../../../ipc/coding.ts";
+// CodingConnectionsSource를 main의 통로로 만든다. 제품마다 감지 결과와 다시 감지는 main IPC
+// (`lophnCoding`의 `harnesses`·`refresh`)이고, 기본 실행 옵션은 선언 설정의 읽기·쓰기다.
+// 응답은 main의 contract client가 이미 검사했다. 연결 생성·회수·token은 이 통로에 없다.
+import type {
+  CodingReply,
+  HarnessName,
+  HarnessSettingsView,
+} from "../../../../../ipc/coding.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
-import { coreAppsSource } from "../../apps/core-source.ts";
+import { effectiveValue, listSettings, updateSettings } from "../declared.ts";
 import type {
   CodingConnectionsSource,
-  ConnectionRow,
+  CodingDefaults,
   SourceResult,
 } from "./source.ts";
 
-interface ConnectionValue {
-  id: string;
-  label: string;
-  scope: { kind: "all"; app: null } | { kind: "app"; app: string };
-  state: "active" | "revoked";
-  revision: string;
+/** 기본 제품. 비어 있을 수 있다(null). */
+export const DEFAULT_HARNESS_KEY = "coding-agent.default_harness";
+/** 기본 model. 비어 있으면 제품의 기본이다. */
+export const DEFAULT_MODEL_KEY = "coding-agent.default_model";
+
+/** Settings가 쓰는 shell IPC. `harnesses`는 저장한 감지 결과, `refresh`는 사람이 요청한 다시 감지다. */
+export interface CodingSettingsApi {
+  harnesses(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
+  refresh(): Promise<CodingReply<unknown>>;
 }
 
-/** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
-const PAGE_LIMIT = 10;
-
-// 보호 창의 부모. main은 이 값이 아니라 IPC를 보낸 창을 부모로 쓴다.
-const PARENT_WINDOW = "requesting-window";
-
-/** 회수 결정 창을 여는 preload 통로. 없는 창에서는 undefined다. */
-export type OpenRevokeWindow = (
-  intent: {
-    request: {
-      kind: "owner_decision";
-      concern: string;
-      decision: string;
-      targets: string[];
-    };
-    parentWindow: string;
-  },
-) => Promise<unknown>;
-
-export function windowRevokeOpener(): OpenRevokeWindow | undefined {
-  const shell = (globalThis as {
-    lophnShell?: { openConfirmation?: OpenRevokeWindow };
-  }).lophnShell;
-  return typeof shell?.openConfirmation === "function"
-    ? (intent) => shell.openConfirmation!(intent)
-    : undefined;
-}
-
-export function windowCodingApi(): CodingApi | undefined {
-  const bridge = (globalThis as { lophnCoding?: CodingApi }).lophnCoding;
-  return bridge !== undefined && typeof bridge.detect === "function"
-    ? bridge
+export function windowCodingApi(): CodingSettingsApi | undefined {
+  const bridge = (globalThis as { lophnCoding?: Partial<CodingSettingsApi> })
+    .lophnCoding;
+  return bridge !== undefined && typeof bridge.harnesses === "function" &&
+      typeof bridge.refresh === "function"
+    ? bridge as CodingSettingsApi
     : undefined;
 }
 
 export interface CodingConnectionsDeps {
-  coding: CodingApi | undefined;
-  openWindow: OpenRevokeWindow | undefined;
-}
-
-function rowOf(value: ConnectionValue): ConnectionRow {
-  return {
-    id: value.id,
-    label: value.label,
-    scope: value.scope.kind === "app"
-      ? { kind: "app", app: value.scope.app }
-      : { kind: "all" },
-    state: value.state,
-    revision: value.revision,
-  };
+  coding: CodingSettingsApi | undefined;
 }
 
 const unavailable = { ok: false, code: "unavailable" } as const;
+
+function mapped<T>(reply: CodingReply<T>): SourceResult<T> {
+  return reply.ok
+    ? { ok: true, value: reply.value }
+    : { ok: false, code: reply.error.code };
+}
 
 export function coreCodingConnectionsSource(
   core: CoreSource,
   deps: CodingConnectionsDeps,
 ): CodingConnectionsSource {
-  const apps = coreAppsSource(core);
-
-  function mapped<T, U>(
-    reply:
-      | { ok: true; value: T }
-      | { ok: false; error: { code: string } },
-    map: (value: T) => U,
-  ): SourceResult<U> {
-    return reply.ok
-      ? { ok: true, value: map(reply.value) }
-      : { ok: false, code: reply.error.code };
-  }
+  const read = async (): Promise<
+    SourceResult<readonly HarnessSettingsView[]>
+  > => {
+    if (deps.coding === undefined) return unavailable;
+    try {
+      return mapped(await deps.coding.harnesses());
+    } catch {
+      return unavailable;
+    }
+  };
 
   return {
     watch: (listener) => core.subscribe(listener),
 
-    async detect() {
-      if (deps.coding === undefined) return unavailable;
-      return mapped(await deps.coding.detect(), (view) => view);
-    },
+    harnesses: read,
 
     async refresh() {
       if (deps.coding === undefined) return unavailable;
-      return mapped(await deps.coding.refresh(), (view) => view);
-    },
-
-    async connections() {
-      const rows: ConnectionRow[] = [];
-      let cursor: string | undefined;
-      for (let page = 0; page < PAGE_LIMIT; page += 1) {
-        const reply = await core.call({
-          kind: "read",
-          resource: "coding_agent_connections",
-          method: "list",
-          body: cursor === undefined ? {} : { cursor },
-        });
-        if (!reply.ok) {
-          return { ok: false, code: reply.error?.code ?? "internal" };
-        }
-        const value = reply.value as {
-          connections: ConnectionValue[];
-          next_cursor: string | null;
-        };
-        rows.push(...value.connections.map(rowOf));
-        if (value.next_cursor === null) break;
-        cursor = value.next_cursor;
-      }
-      return { ok: true, value: rows };
-    },
-
-    async apps() {
-      const listed = await apps.list();
-      return listed.ok
-        ? {
-          ok: true,
-          value: listed.value.filter((app) => !app.archived).map((app) => ({
-            id: app.id,
-            name: app.name,
-          })),
-        }
-        : listed;
-    },
-
-    async connect(choice) {
-      if (deps.coding === undefined) return unavailable;
-      return mapped(
-        await deps.coding.connect({
-          intent: CONNECT_INTENT,
-          harness_id: choice.harness,
-          label: choice.label,
-          scope: choice.scope.kind === "all"
-            ? { kind: "all", app: null }
-            : { kind: "app", app: choice.scope.app },
-        }),
-        (view) => view,
-      );
-    },
-
-    async revoke(connection) {
-      if (deps.openWindow === undefined) return unavailable;
       try {
-        const opened = await deps.openWindow({
-          request: {
-            kind: "owner_decision",
-            concern: "coding-agent/connection",
-            decision: "coding_agent_connection_revoke",
-            targets: [connection],
-          },
-          parentWindow: PARENT_WINDOW,
-        }) as { windowId?: string; code?: string };
-        return typeof opened?.windowId === "string"
-          ? { ok: true, value: null }
-          : { ok: false, code: opened?.code ?? "internal" };
+        const done = await deps.coding.refresh();
+        if (!done.ok) return { ok: false, code: done.error.code };
       } catch {
         return unavailable;
       }
+      // 다시 감지한 결과는 저장돼 있다. 같은 모양으로 읽어 온다.
+      return read();
+    },
+
+    async defaults() {
+      const listed = await listSettings(core, [
+        DEFAULT_HARNESS_KEY,
+        DEFAULT_MODEL_KEY,
+      ]);
+      if (!listed.ok) return listed;
+      const valueOf = (key: string) => {
+        const entry = listed.value.find((one) => one.key === key);
+        return entry === undefined ? undefined : effectiveValue(entry);
+      };
+      const harness = valueOf(DEFAULT_HARNESS_KEY);
+      const model = valueOf(DEFAULT_MODEL_KEY);
+      const value: CodingDefaults = {
+        harness: typeof harness === "string" ? harness as HarnessName : null,
+        model: typeof model === "string" ? model : "",
+      };
+      return { ok: true, value };
+    },
+
+    async saveDefaults(values) {
+      const result = await updateSettings(core, [
+        values.harness === null
+          ? { key: DEFAULT_HARNESS_KEY, action: "unset" }
+          : { key: DEFAULT_HARNESS_KEY, action: "set", value: values.harness },
+        values.model === ""
+          ? { key: DEFAULT_MODEL_KEY, action: "unset" }
+          : { key: DEFAULT_MODEL_KEY, action: "set", value: values.model },
+      ]);
+      if (!result.ok) return result;
+      const rejection = result.value.rejected[0];
+      return rejection === undefined
+        ? { ok: true, value: null }
+        : { ok: false, code: rejection.reason };
     },
   };
 }

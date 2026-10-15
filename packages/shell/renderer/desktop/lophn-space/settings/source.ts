@@ -1,4 +1,4 @@
-// settings 화면의 일반 설정·skill 폴더·도구 server가 읽고 쓰는 통로. 화면은 이 interface만 보고 core
+// settings 화면의 선언한 설정·skill 폴더·도구 server가 읽고 쓰는 통로. 화면은 이 interface만 보고 core
 // route 이름은 core-source.ts만 안다. 모양은 contracts(settings·secrets)에서 이 화면이 쓰는 field만
 // 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
 // agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결 모양은 Providers 통로가 같이 쓴다.
@@ -43,27 +43,41 @@ export interface ProviderRow {
 /** 보호 창을 연 결과. 값은 창만 안다. 이 창은 닫혀도 결정이 아니다. */
 export type WindowOutcome = SourceResult<null>;
 
-export type ApplyAt = "next_turn" | "current_check" | "next_call";
-
-/** 설정 하나. title은 정의를 가진 concern이 준 문장이다. */
-export interface SettingRow {
+/** 선언한 설정 하나. type은 core가 선언의 zod type에서 만든 JSON Schema다. */
+export interface SettingEntry {
   readonly key: string;
-  readonly title: string;
-  readonly value: unknown;
-  /** 값이 정해졌는지. 정의에 기본이 없고 고르지 않았으면 false다. */
-  readonly resolved: boolean;
-  /** 사람이 바꾼 값인지 기본값인지. */
-  readonly changed: boolean;
-  readonly defaultValue: unknown;
+  readonly type: Readonly<Record<string, unknown>>;
+  /** 선언에 기본값이 있는지. 없으면 사람이 골라야 하는 필수 설정이다. */
   readonly hasDefault: boolean;
-  readonly applyAt: ApplyAt;
+  readonly defaultValue: unknown;
+  /** 사람이 정한 값이 파일에 있는지. 없으면 기본값을 따른다. */
+  readonly hasChosen: boolean;
+  readonly chosen: unknown;
+}
+
+export type SettingRejectReason =
+  | "unknown_key"
+  | "wrong_type"
+  | "out_of_range"
+  | "invalid_value";
+
+export interface SettingRejection {
+  readonly key: string;
+  readonly reason: SettingRejectReason;
+}
+
+/** 값을 정하거나(set) 정한 값을 지워 기본값으로 돌린다(unset). */
+export type SettingChange =
+  | { readonly key: string; readonly action: "set"; readonly value: unknown }
+  | { readonly key: string; readonly action: "unset" };
+
+/** rejected가 비어 있지 않으면 아무것도 저장하지 않은 것이다. */
+export interface SettingsUpdateResult {
+  readonly changed: readonly string[];
+  readonly rejected: readonly SettingRejection[];
 }
 
 export interface SettingsView {
-  readonly rows: readonly SettingRow[];
-  /** 확장 설정을 바꿀 때의 비교 기준. */
-  readonly revision: number;
-  readonly defaultsRevision: string;
   readonly folders: readonly string[];
   readonly servers: readonly ServerRow[];
   /** 새 server를 더할 때 기존 설정을 그대로 돌려보내는 원본. 화면은 읽지 않는다. */
@@ -142,6 +156,12 @@ export interface SettingsSource {
   watch(listener: (state: { readonly state: string }) => void): () => void;
 
   settings(): Promise<SourceResult<SettingsView>>;
+  /** 요소가 선언한 설정 항목과 사람이 정한 값. General이 그대로 그린다. */
+  declared(): Promise<SourceResult<readonly SettingEntry[]>>;
+  /** 설정을 바꾼다. 틀린 값은 오류가 아니라 rejected에 이유와 함께 온다. */
+  update(
+    changes: readonly SettingChange[],
+  ): Promise<SourceResult<SettingsUpdateResult>>;
   /** OS 폴더 선택기로 고른 skill 폴더를 등록한다. 그만두면 null이다. */
   addSkillFolder(
     view: SettingsView,

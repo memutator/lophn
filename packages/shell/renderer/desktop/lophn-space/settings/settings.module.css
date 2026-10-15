@@ -1,147 +1,298 @@
-/* settings 화면: 왼쪽 세로 nav 하나와 가운데 column 하나. column은 nav 오른쪽 자리의 가운데에 놓고
-   그 안에서 제목과 section·카드를 위아래로 쌓는다(form 폭). */
+/* settings 화면: 고른 항목의 본문 하나를 가운데 기둥에 그린다. 항목 목록은 sidebar에 있다. */
 .screen {
-  display: flex;
+  box-sizing: border-box;
   flex: 1;
   min-width: var(--space-0);
   min-height: var(--space-0);
+  overflow-y: auto;
   font-family: var(--font-sans);
 }
 
-.nav {
+.column {
   box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  max-width: var(--page-overview);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide) var(--space-12);
+}
+
+.wide.wide {
+  max-width: var(--page-launcher);
+}
+
+/* Providers, Agents, Tools and skills 본문의 틀. */
+.panel {
   display: flex;
-  flex: none;
   flex-direction: column;
   gap: var(--space-6);
-  width: calc(var(--page-toc) + var(--space-9));
-  min-height: var(--space-0);
-  padding: var(--space-6) var(--space-4);
-  overflow-y: auto;
-  border-right: var(--border-width) solid var(--color-border-base);
-  background: var(--color-surface-subtle);
 }
 
-.navGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.navHeading {
-  margin: var(--space-0);
-  padding: var(--space-0) var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.navList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.navButton {
-  box-sizing: border-box;
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: var(--space-0);
-  height: var(--control-md-height);
-  margin: var(--space-0);
-  padding: var(--space-0) var(--space-4);
-  border: var(--space-0);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-family: var(--font-sans);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--motion-duration-short) var(--motion-ease),
-    color var(--motion-duration-short) var(--motion-ease);
-}
-
-.navButton:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text-primary);
-}
-
-.navButton:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: calc(var(--border-focus-offset) * -1);
-}
-
-.navActive,
-.navActive:hover {
-  background: var(--color-selection);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.navIcon {
-  flex: none;
-  color: var(--color-text-muted);
-}
-
-.navButton:hover .navIcon,
-.navActive .navIcon {
-  color: var(--color-text-primary);
-}
-
-.navLabel {
-  flex: 1;
-  min-width: var(--space-0);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.content {
-  flex: 1;
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-  overflow-y: auto;
-}
-
-.page {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  width: 100%;
-  max-width: var(--page-form);
-  margin: var(--space-0) auto;
-  padding: var(--space-9) var(--space-8) var(--space-12);
-}
-
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.title {
-  margin: var(--space-0);
+.paneTitle {
+  margin: var(--space-0) var(--space-0) var(--space-5);
   color: var(--color-text-primary);
   font-size: var(--type-title-size);
   line-height: var(--type-title-line);
   font-weight: var(--font-weight-semibold);
 }
 
-.panel {
+.lead {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.notReady {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* panel 위쪽에 뜨는 toast. 본문 흐름을 밀지 않는다. */
+.toastSlot {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--layout-pane-padding-wide);
+  z-index: var(--z-sticky);
+}
+
+/* 이름이 줄 왼쪽이고 입력이 오른쪽 끝 고정 열인 줄의 묶음. */
+.lines {
   display: flex;
   flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-5);
+  list-style: none;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.groupBlock {
+  margin-top: var(--space-8);
+}
+
+.lineHelp.groupBlock {
+  margin-top: var(--space-5);
+}
+
+.groupTitle {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.line {
+  display: grid;
+  grid-template-columns: minmax(var(--space-0), 1fr)
+    var(--layout-container-card);
   gap: var(--space-6);
-  padding-top: var(--space-6);
+  align-items: start;
+  padding: var(--space-6) var(--space-0);
+}
+
+.line + .line {
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.lineMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.lineName {
+  font-weight: var(--font-weight-medium);
+}
+
+.lineHelp {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.caption {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* 입력은 줄 오른쪽 끝의 고정 열이다. 토글, Select, 숫자 입력이 줄마다 같은 위치에 선다. */
+.lineControl {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.endSlot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rejected {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 표 (Coding agents, Diagnostics) */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.tableScroll {
+  width: 100%;
+  overflow: auto;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.table th {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-4) var(--space-5);
+  vertical-align: top;
+}
+
+.table tr + tr td {
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cell .caption {
+  max-width: var(--layout-container-card);
+}
+
+.cell .mono {
+  overflow-wrap: anywhere;
+}
+
+.dim {
+  color: var(--color-text-muted);
+}
+
+.productName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: var(--font-weight-medium);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: var(--page-form);
+}
+
+/* 기본 제품 고르기: 제품마다 vendor 아이콘이 붙은 줄. */
+.productPicker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: none;
+}
+
+.productPicker legend {
+  margin-bottom: var(--space-3);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.productPicker [role="radiogroup"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.productOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-lg-height);
+  padding: var(--space-0) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.productOption[aria-checked="true"] {
+  border-color: var(--color-focus);
+  background: var(--color-selection);
+}
+
+.productOption:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
 }
 
 .section {

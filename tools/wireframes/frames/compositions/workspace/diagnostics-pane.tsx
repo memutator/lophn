@@ -1,54 +1,27 @@
-// Settings › Diagnostics. 구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 실제로 점검한 시각.
-// 사람이 [Run checks]를 누를 때만 점검한다. 보안 점검은 없다.
-import { Button, StatusMark } from "@lophn/design/components";
-import { retryIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
+// Settings › Diagnostics. 옮긴 renderer Diagnostics panel을 fake 통로로 그린다. 점검은 [Run checks]를 누를 때만
+// 하므로, 결과가 보이는 상태는 mount 뒤에 한 번 눌러 만든다.
+import { useEffect, useMemo, useRef } from "react";
 
-import a from "../agents.module.css";
-import c from "../compose.module.css";
-import { DIAGNOSTICS } from "./data.ts";
-import styles from "./workspace.module.css";
+import { SettingsScreen } from "../../../../../packages/shell/renderer/desktop/lophn-space/settings/settings-screen.tsx";
+import { fakeDiagnostics } from "../../../../../packages/shell/renderer/desktop/lophn-space/settings/diagnostics/testdata/fake-source.ts";
+import { fakeSettings } from "../../../../../packages/shell/renderer/desktop/lophn-space/settings/testdata/fake-settings.ts";
 
 export function DiagnosticsPane() {
+  const sources = useMemo(
+    () => ({
+      source: fakeSettings().source,
+      diagnostics: fakeDiagnostics().source,
+    }),
+    [],
+  );
+  const frame = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    frame.current?.querySelector<HTMLElement>('[data-action="check"]')
+      ?.click();
+  }, []);
   return (
-    <div className={`${a.setPage} ${styles.wide}`}>
-      <h1 className={c.searchTitle}>Diagnostics</h1>
-      <p className={a.setLead}>
-        Whether each part of lophn can be used right now. Checks run only when
-        you press the button.
-      </p>
-      <div className={styles.toolbar}>
-        <span className={styles.muted}>Last run at 10:42:09</span>
-        <Button icon={retryIcon}>Run checks</Button>
-      </div>
-      <div className={styles.tableScroll}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Component</th>
-              <th scope="col">Available</th>
-              <th scope="col">Reason</th>
-              <th scope="col">Checked at</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DIAGNOSTICS.map((item) => (
-              <tr key={item.name}>
-                <td className={styles.productName}>{item.name}</td>
-                <td>
-                  <StatusMark
-                    tone={item.available ? "good" : "critical"}
-                    label={item.available ? "Available" : "Unavailable"}
-                  />
-                </td>
-                <td>
-                  {item.reason ?? <span className={styles.dim}>-</span>}
-                </td>
-                <td className={styles.mono}>{item.checkedAt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div ref={frame}>
+      <SettingsScreen pane="diagnostics" onPane={() => {}} {...sources} />
     </div>
   );
 }

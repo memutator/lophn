@@ -1,13 +1,13 @@
-// settings의 진단 자리. 보안 상태 점검(doctor) 결과는 영향 한 문장과 다음 행동으로만
-// 보이고 원문(check 이름·finding message·코드)은 개발자 diagnostics 펼침에만 둔다.
-// 사람이 누를 때만 검사를 돌린다.
+// Settings › Diagnostics. 구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 실제로 점검한 시각을 보인다.
+// 사람이 [Run checks]를 누를 때만 점검한다. 보안 점검은 없다.
 import { useState } from "react";
-import { Button, Skeleton } from "@lophn/design/components";
+import { Button, Skeleton, StatusMark } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { timeText } from "../model.ts";
-import type { DiagnosticsSource, DiagnosticsView } from "./source.ts";
+import { retryIcon } from "../../../../icons/mod.ts";
 import styles from "../settings.module.css";
+import { clockText, componentName } from "./model.ts";
+import type { DiagnosticsSource, DiagnosticsView } from "./source.ts";
 
 export interface DiagnosticsPanelProps {
   source: DiagnosticsSource;
@@ -15,167 +15,97 @@ export interface DiagnosticsPanelProps {
 
 type Loaded =
   | { readonly state: "idle" }
-  | { readonly state: "checking" }
+  | { readonly state: "checking"; readonly view: DiagnosticsView | null }
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly view: DiagnosticsView };
 
-/** 다음 행동 문장. 영향 종류 하나씩이다(다음 행동은 하나다). */
-function nextOf(
-  impact: "wide_grant" | "raw_key",
-): string {
-  return impact === "wide_grant"
-    ? t("settings.diagnostics.next-wide-grant")
-    : t("settings.diagnostics.next-raw-key");
-}
-
-function impactOf(impact: "wide_grant" | "raw_key"): string {
-  return impact === "wide_grant"
-    ? t("settings.diagnostics.wide-grant")
-    : t("settings.diagnostics.raw-key");
-}
-
 export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "idle" });
-  const [rawOpen, setRawOpen] = useState(false);
 
   async function check(): Promise<void> {
-    setLoaded({ state: "checking" });
+    setLoaded({
+      state: "checking",
+      view: loaded.state === "ready" ? loaded.view : null,
+    });
     const read = await source.check();
     setLoaded(
       read.ok ? { state: "ready", view: read.value } : { state: "failed" },
     );
   }
 
-  const findings = loaded.state === "ready"
-    ? loaded.view.rows.filter((row) => row.finding !== null)
-    : [];
+  const view = loaded.state === "ready" || loaded.state === "checking"
+    ? loaded.view
+    : null;
   return (
-    <div className={styles.groups} data-diagnostics="">
-      <section className={styles.section}>
-        <h2 className={styles.heading}>{t("settings.diagnostics.heading")}</h2>
-        <p className={styles.text}>{t("settings.diagnostics.intro")}</p>
-        {loaded.state === "idle" && (
-          <p className={styles.muted} data-check="none">
-            {t("settings.diagnostics.check-failed-no")}
-          </p>
-        )}
-        {loaded.state === "checking" && <Skeleton lines={2} />}
-        {loaded.state === "failed" && (
-          <p className={styles.state} data-check="failed">
+    <div data-diagnostics="">
+      <h1 className={styles.paneTitle}>
+        {t("settings.label.tab-diagnostics")}
+      </h1>
+      <p className={styles.lead}>{t("settings.intro.diagnostics")}</p>
+      <div className={styles.toolbar}>
+        <span className={styles.lineHelp} data-checked="">
+          {view === null
+            ? t("settings.diagnostics.not-run")
+            : t("settings.diagnostics.last-run", {
+              time: clockText(view.checkedAt),
+            })}
+        </span>
+        <Button
+          icon={retryIcon}
+          data-action="check"
+          disabled={loaded.state === "checking"}
+          onClick={() => void check()}
+        >
+          {t("settings.button.run-checks")}
+        </Button>
+      </div>
+      {loaded.state === "failed"
+        ? (
+          <p className={styles.rejected} role="alert" data-check="failed">
             {t("settings.diagnostics.check-failed")}
           </p>
-        )}
-        {loaded.state === "ready" && (
-          <div data-check="ready">
-            {findings.length === 0
-              ? (
-                <p className={styles.notice} data-check-result="clean">
-                  {t("settings.check.clean")}{" "}
-                  {t("settings.diagnostics.checked-at", {
-                    time: timeText(loaded.view.observedAt),
-                  })}
-                </p>
-              )
-              : (
-                <ul className={styles.rows}>
-                  {findings.map((row) => (
-                    <li
-                      key={row.check}
-                      className={styles.row}
-                      data-finding={row.check}
-                    >
-                      <span className={styles.rowText}>
-                        <span className={styles.subheading}>
-                          {row.finding === null
-                            ? null
-                            : impactOf(row.finding.impact)}
-                        </span>
-                        <details className={styles.details}>
-                          <summary>{t("settings.label.details")}</summary>
-                          <dl>
-                            <dt>{t("settings.label.source")}</dt>
-                            <dd>
-                              {row.finding === null ? null : row.finding.raw}
-                            </dd>
-                            <dt>{t("settings.label.checked-at")}</dt>
-                            <dd>
-                              {row.finding === null
-                                ? null
-                                : timeText(row.finding.at)}
-                            </dd>
-                          </dl>
-                        </details>
-                      </span>
-                      <span className={styles.rowText} data-next-check="">
-                        {row.finding === null
-                          ? null
-                          : nextOf(row.finding.impact)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-          </div>
-        )}
-        <div className={styles.actions}>
-          <Button
-            size="sm"
-            variant="secondary"
-            data-action="check"
-            disabled={loaded.state === "checking"}
-            onClick={() => void check()}
-          >
-            {t("settings.button.check-security")}
-          </Button>
+        )
+        : null}
+      {loaded.state === "checking" && view === null
+        ? <Skeleton lines={4} />
+        : null}
+      {view === null ? null : (
+        <div className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">{t("settings.label.component")}</th>
+                <th scope="col">{t("settings.label.available")}</th>
+                <th scope="col">{t("settings.label.reason")}</th>
+                <th scope="col">{t("settings.label.checked-at")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.components.map((item) => (
+                <tr key={item.component} data-component={item.component}>
+                  <td>
+                    <span className={styles.productName}>
+                      {componentName(item.component)}
+                    </span>
+                  </td>
+                  <td>
+                    <StatusMark
+                      tone={item.available ? "good" : "critical"}
+                      label={item.available
+                        ? t("settings.label.available-yes")
+                        : t("settings.label.available-no")}
+                    />
+                  </td>
+                  <td>
+                    {item.reason ?? <span className={styles.dim}>-</span>}
+                  </td>
+                  <td className={styles.mono}>{clockText(item.checkedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </section>
-      <section className={styles.section} data-diagnostics-raw="">
-        <h3 className={styles.subheading}>
-          {t("settings.diagnostics.raw-heading")}
-        </h3>
-        <p className={styles.muted}>{t("settings.diagnostics.raw-intro")}</p>
-        <div className={styles.actions}>
-          <Button
-            size="sm"
-            variant="secondary"
-            data-action="raw"
-            aria-expanded={rawOpen}
-            onClick={() => setRawOpen(!rawOpen)}
-          >
-            {t("settings.label.details")}
-          </Button>
-        </div>
-        {rawOpen && (
-          <div data-raw="">
-            {loaded.state !== "ready"
-              ? (
-                <p className={styles.state} data-raw="failed">
-                  {t("settings.diagnostics.raw-failed")}
-                </p>
-              )
-              : (
-                <ul className={styles.rows} data-raw-list="">
-                  {loaded.view.rows.map((row) => (
-                    <li
-                      key={row.check}
-                      className={styles.row}
-                      data-raw-row={row.check}
-                    >
-                      <span className={styles.rowText}>
-                        <span>{row.check}</span>
-                        <span className={styles.value}>
-                          {row.finding === null
-                            ? t("settings.diagnostics.clean-row")
-                            : row.finding.raw}
-                        </span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-          </div>
-        )}
-      </section>
+      )}
     </div>
   );
 }

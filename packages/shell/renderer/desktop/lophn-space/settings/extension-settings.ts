@@ -5,7 +5,6 @@
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "./core-call.ts";
 import type {
-  ApplyAt,
   ServerAuth,
   ServerSignInReason,
   ServerSignInState,
@@ -15,12 +14,9 @@ import type {
 export const SKILL_FOLDERS = "lophn-agent.extensions.skill_folders";
 export const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
 
-export interface EffectiveValue {
+interface EffectiveValue {
   key: string;
-  resolved: boolean;
   value: unknown;
-  source_layer: "builtin" | "common" | null;
-  apply_at: ApplyAt;
 }
 
 /** 등록한 MCP server 설정 하나. 바꿀 때 그대로 돌려보내므로 모르는 field도 지우지 않는다. */
@@ -40,30 +36,34 @@ export interface McpServerValue {
   };
 }
 
-/** 설정을 바꿀 때의 비교 기준. 읽은 때의 값이다. */
-export interface SettingsCompare {
-  readonly revision: number;
-  readonly defaultsRevision: string;
-}
-
-export interface ExtensionSettings extends SettingsCompare {
+export interface ExtensionSettings {
   readonly folders: readonly string[];
   readonly servers: readonly McpServerValue[];
 }
 
-/** 설정 한 줄의 값을 바꾼다(common 층). 비교 기준이 달라졌으면 conflict다. */
+/**
+ * 확장 설정 한 줄의 값을 바꾼다(common 층). skill 폴더와 MCP server 목록은 아직 옛 settings 쓰기 route를
+ * 쓰고, 그 route가 요구하는 비교 기준은 쓰기 직전에 읽어 여기서만 붙인다. 화면은 비교 기준을 모른다.
+ */
 export async function applySetting(
   core: CoreSource,
-  compare: SettingsCompare,
   key: string,
   value: unknown,
   random: () => string,
 ): Promise<SourceResult<null>> {
+  const got = await call<{ revision: number; defaults_revision: string }>(
+    core,
+    "read",
+    "settings",
+    "get",
+    { keys: [key] },
+  );
+  if (!got.ok) return got;
   const result = await command(core, "settings", "apply", {
     input: { changes: [{ layer: "common", key, action: "set", value }] },
     compare: {
-      revision: compare.revision,
-      defaults_revision: compare.defaultsRevision,
+      revision: got.value.revision,
+      defaults_revision: got.value.defaults_revision,
     },
     key: `settings-${key}-${random()}`,
   });
@@ -137,15 +137,17 @@ export async function secretStates(
   );
 }
 
-/** 확장 설정 두 줄과 비교 기준을 `settings/get` 한 번으로 읽는다. */
+/** 확장 설정 두 줄을 `settings/get` 한 번으로 읽는다. */
 export async function readExtensionSettings(
   core: CoreSource,
 ): Promise<SourceResult<ExtensionSettings>> {
-  const got = await call<{
-    settings: EffectiveValue[];
-    revision: number;
-    defaults_revision: string;
-  }>(core, "read", "settings", "get", {});
+  const got = await call<{ settings: EffectiveValue[] }>(
+    core,
+    "read",
+    "settings",
+    "get",
+    { keys: [SKILL_FOLDERS, MCP_SERVERS] },
+  );
   if (!got.ok) return got;
   const effective = new Map(got.value.settings.map((s) => [s.key, s]));
   const folders = effective.get(SKILL_FOLDERS)?.value;
@@ -153,8 +155,6 @@ export async function readExtensionSettings(
   return {
     ok: true,
     value: {
-      revision: got.value.revision,
-      defaultsRevision: got.value.defaults_revision,
       folders: Array.isArray(folders) ? folders as string[] : [],
       servers: Array.isArray(servers) ? servers as McpServerValue[] : [],
     },

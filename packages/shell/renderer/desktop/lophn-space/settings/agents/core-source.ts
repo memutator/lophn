@@ -266,7 +266,7 @@ export function coreAgentsSettingsSource(
       if (current.value.folders.includes(picked.path)) {
         return { ok: true, value: null };
       }
-      return applySetting(core, current.value, SKILL_FOLDERS, [
+      return applySetting(core, SKILL_FOLDERS, [
         ...current.value.folders,
         picked.path,
       ], random);
@@ -292,7 +292,7 @@ export function coreAgentsSettingsSource(
         : [...listed.value.skills_off, name];
       const current = await readExtensionSettings(core);
       if (!current.ok) return current;
-      return applySetting(core, current.value, SKILLS_OFF, off, random);
+      return applySetting(core, SKILLS_OFF, off, random);
     },
 
     addServer: () => Promise.resolve(UNAVAILABLE),
@@ -305,7 +305,6 @@ export function coreAgentsSettingsSource(
       }
       return applySetting(
         core,
-        current.value,
         MCP_SERVERS,
         current.value.servers.map((server) =>
           server.name === name ? { ...server, enabled } : server

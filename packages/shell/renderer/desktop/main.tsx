@@ -230,7 +230,6 @@ export function Desktop(
         settings={settings}
         settingsPanels={settingsPanels}
         coding={coding}
-        initialConnection={route.connection}
         onInstructions={instructions
           ? () => setRoute(openInstructions({ layer: "global" }))
           : undefined}

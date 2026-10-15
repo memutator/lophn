@@ -1,10 +1,8 @@
-// 이름이 줄 왼쪽에 있고 입력은 오른쪽 고정 열에 있는 줄을 위한 부품. design의 Input·Select는 Field의
-// 라벨이 있어야 해서, 같은 context를 직접 잡아 라벨을 줄 왼쪽에 둔다.
+// 이름이 줄 왼쪽에 있고 입력은 오른쪽 끝 고정 열에 있는 줄을 위한 부품. design의 Input·Select는 Field의
+// 라벨이 있어야 해서, 같은 context를 직접 잡아 라벨을 줄 왼쪽에 둔다. Appearance·Reactions도 쓴다.
 import { type ReactNode, useId } from "react";
 
-import {
-  FieldContext,
-} from "../../../../../packages/design/components/field/field-context.ts";
+import { FieldContext } from "../../../../../../design/components/field/field-context.ts";
 
 export function NamedControl(
   { name, invalid = false, labelClass, children }: {

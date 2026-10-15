@@ -14,13 +14,14 @@ import {
   windowLinkOpener,
   windowSecretOpener,
 } from "./core-call.ts";
+import { listSettings, updateSettings } from "./declared.ts";
 import {
   applySetting,
   authStates,
   type AuthStateValue,
-  type EffectiveValue,
   MCP_SERVERS,
   type McpServerValue,
+  readExtensionSettings,
   secretOf,
   secretStates,
   signsIn,
@@ -31,18 +32,10 @@ import type {
   ServerAuth,
   ServerRow,
   ServerSignIn,
-  SettingRow,
   SettingsSource,
   SettingsView,
   SourceResult,
 } from "./source.ts";
-
-interface DefinitionValue {
-  key: string;
-  description: string;
-  default_present: boolean;
-  default?: unknown;
-}
 
 export interface SettingsDeps {
   openWindow: OpenSecretWindow | undefined;
@@ -64,8 +57,8 @@ export function coreSettingsSource(
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
 
-  const apply = (view: SettingsView, key: string, value: unknown) =>
-    applySetting(core, view, key, value, random);
+  const apply = (key: string, value: unknown) =>
+    applySetting(core, key, value, random);
 
   // 기다리는 로그인을 그만둔다(CancelMcpAuth). 로그인이 필요하지 않은 줄은 core를 부르지 않는다.
   const cancel = async (server: ServerRow): Promise<SourceResult<null>> => {
@@ -83,39 +76,14 @@ export function coreSettingsSource(
   return {
     watch: (listener) => core.subscribe(listener),
 
+    declared: () => listSettings(core),
+
+    update: (changes) => updateSettings(core, changes),
+
     async settings() {
-      const defined = await call<
-        { definitions: DefinitionValue[]; defaults_revision: string }
-      >(core, "read", "settings", "definitions", {});
-      if (!defined.ok) return defined;
-      const got = await call<{
-        settings: EffectiveValue[];
-        revision: number;
-        defaults_revision: string;
-      }>(core, "read", "settings", "get", {});
+      const got = await readExtensionSettings(core);
       if (!got.ok) return got;
-      const effective = new Map(got.value.settings.map((s) => [s.key, s]));
-      const rows: SettingRow[] = defined.value.definitions.flatMap(
-        (definition) => {
-          const current = effective.get(definition.key);
-          if (current === undefined) return [];
-          return [{
-            key: definition.key,
-            title: definition.description,
-            value: current.value,
-            resolved: current.resolved,
-            changed: current.source_layer === "common",
-            defaultValue: definition.default,
-            hasDefault: definition.default_present,
-            applyAt: current.apply_at,
-          }];
-        },
-      );
-      const folders = effective.get(SKILL_FOLDERS);
-      const servers = effective.get(MCP_SERVERS);
-      const serverValues = Array.isArray(servers?.value)
-        ? servers.value as McpServerValue[]
-        : [];
+      const serverValues = got.value.servers;
       // bearer·API key의 credential 저장 여부는 이름만 묻는다. OAuth의 로그인 상태는 core가 읽어 준 값이다.
       const states = await secretStates(
         core,
@@ -142,10 +110,7 @@ export function coreSettingsSource(
         };
       });
       const view: SettingsView = {
-        rows,
-        revision: got.value.revision,
-        defaultsRevision: got.value.defaults_revision,
-        folders: Array.isArray(folders?.value) ? folders.value as string[] : [],
+        folders: [...got.value.folders],
         servers: serverRows,
         rawServers: serverValues,
       };
@@ -160,7 +125,7 @@ export function coreSettingsSource(
       if (view.folders.includes(picked.path)) {
         return { ok: true, value: { path: picked.path } };
       }
-      const applied = await apply(view, SKILL_FOLDERS, [
+      const applied = await apply(SKILL_FOLDERS, [
         ...view.folders,
         picked.path,
       ]);
@@ -204,7 +169,7 @@ export function coreSettingsSource(
               },
           },
         };
-      return apply(view, MCP_SERVERS, [...view.rawServers, config]);
+      return apply(MCP_SERVERS, [...view.rawServers, config]);
     },
 
     enterServerCredential: (secret) =>

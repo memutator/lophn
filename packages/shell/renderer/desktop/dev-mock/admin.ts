@@ -2,13 +2,19 @@
 // 채운 것이다. key·로그인 응답은 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
 // Providers와 Agents 자리는 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
 import {
+  declared,
   fakeSettings,
+  SAMPLE_DECLARED,
   server,
-  setting,
 } from "../lophn-space/settings/testdata/fake-settings.ts";
 import { fakeProviders } from "../lophn-space/settings/providers/testdata/fake-providers.ts";
 import { fakeAgents } from "../lophn-space/settings/agents/testdata/fake-agents.ts";
 import { fakeDiagnostics } from "../lophn-space/settings/diagnostics/testdata/fake-source.ts";
+import { fakeAppearance } from "../lophn-space/settings/appearance/testdata/fake-source.ts";
+import {
+  fakeReactions,
+  SAMPLE_MODES,
+} from "../lophn-space/settings/reactions/testdata/fake-source.ts";
 import { fakeConnections } from "../lophn-space/settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
@@ -17,36 +23,17 @@ import type { CodingConnectionsSource } from "../lophn-space/settings/connection
 import type { AppsSource } from "../lophn-space/apps/source.ts";
 import { APP_BUDGET, APP_EXPENSES, APP_PLANNER } from "./ids.ts";
 
-const MINUTE = 60 * 1000;
-
 export function mockSettings(): SettingsSource {
   return fakeSettings({
+    // 값이 비어 있는 필수 설정이 하나 있어 화면 위쪽 안내를 볼 수 있다.
+    declared: [
+      ...SAMPLE_DECLARED,
+      declared("agents.run.fallback_model", {
+        type: "string",
+        enum: ["sonnet", "opus"],
+      }),
+    ],
     settings: {
-      rows: [
-        setting(
-          "shell.os_notifications",
-          "Show a desktop notification when something needs your attention.",
-          false,
-          { applyAt: "current_check" },
-        ),
-        setting("lophn-agent.run_attempts", "Run limit: attempts (count).", 3),
-        setting(
-          "shell.reading_width",
-          "Reading width shared by every document.",
-          "default",
-          { applyAt: "next_call" },
-        ),
-        setting(
-          "lophn-agent.extensions.skill_folders",
-          "Registered absolute skill discovery roots in user order.",
-          ["/home/mina/skills/notes"],
-        ),
-        setting(
-          "lophn-agent.extensions.mcp_servers",
-          "Registered external MCP servers.",
-          [],
-        ),
-      ],
       folders: ["/home/mina/skills/notes"],
       servers: [
         server("docs-search", { transport: "http", auth: "none" }),
@@ -64,26 +51,9 @@ export function mockSettingsPanels(): SettingsPanels {
   return {
     providers: fakeProviders().source,
     agents: fakeAgents().source,
-    diagnostics: fakeDiagnostics({
-      view: {
-        observedAt: new Date().toISOString(),
-        rows: [
-          { check: "sdk_hash", finding: null },
-          { check: "credential_permission", finding: null },
-          {
-            check: "broad_grant",
-            finding: {
-              impact: "wide_grant",
-              raw: "app Expense log holds fs.read on /home/mina",
-              at: new Date(Date.now() - 5 * MINUTE).toISOString(),
-            },
-          },
-          { check: "file_and_network_grant", finding: null },
-          { check: "unused_grant", finding: null },
-          { check: "raw_key_pattern", finding: null },
-        ],
-      },
-    }).source,
+    diagnostics: fakeDiagnostics().source,
+    reactions: fakeReactions({ modes: SAMPLE_MODES }).source,
+    appearance: fakeAppearance().source,
   };
 }
 

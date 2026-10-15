@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
-import { hostOf } from "./blueprint-scope.ts";
+import { hostOf } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
 // app.call·agent.commands·automation.run은 Grant scope이며 blueprint 요구가 아니다.
@@ -47,25 +47,25 @@ const commandListSchema = z.array(commandKeySchema).min(1).refine(
   { message: "duplicate command" },
 );
 
-const fsScopeSchema = z.strictObject({
+export const fsScopeSchema = z.strictObject({
   path: lexicalPathSchema,
   recursive: z.boolean(),
 });
-const fetchScopeSchema = z.strictObject({
+export const fetchScopeSchema = z.strictObject({
   host: hostnameSchema,
   port: portSchema,
 });
-const listenScopeSchema = z.strictObject({
+export const listenScopeSchema = z.strictObject({
   host: z.enum(LISTEN_HOSTS),
   port: portSchema,
 });
-const secretScopeSchema = z.strictObject({
+export const secretScopeSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_.:-]+$/),
 });
 const documentScopeSchema = z.strictObject({
   key: z.string().min(1),
 });
-const appCallScopeSchema = z.strictObject({
+export const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
   commands: commandListSchema,
 });
@@ -144,3 +144,25 @@ export const permissionRequirementSchema = z.strictObject({
 export type GrantPermissionRequirement = z.infer<
   typeof permissionRequirementSchema
 >;
+
+// 앱 grant의 kind. activation 한 번에 만든다. 옛 PERMISSION_KINDS는 옛 Grant가 쓴다.
+export const APP_GRANT_KINDS = [
+  "fs.read",
+  "fs.write",
+  "net.fetch",
+  "net.listen",
+  "secret.use",
+  "app.call",
+] as const;
+export const appGrantKindSchema = z.enum(APP_GRANT_KINDS);
+export type AppGrantKind = z.infer<typeof appGrantKindSchema>;
+
+export const appGrantScopeSchema = z.discriminatedUnion("kind", [
+  fsScopeSchema.extend({ kind: z.literal("fs.read") }),
+  fsScopeSchema.extend({ kind: z.literal("fs.write") }),
+  fetchScopeSchema.extend({ kind: z.literal("net.fetch") }),
+  listenScopeSchema.extend({ kind: z.literal("net.listen") }),
+  secretScopeSchema.extend({ kind: z.literal("secret.use") }),
+  appCallScopeSchema.extend({ kind: z.literal("app.call") }),
+]);
+export type AppGrantScope = z.infer<typeof appGrantScopeSchema>;

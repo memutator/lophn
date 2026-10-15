@@ -2,12 +2,15 @@ import { z } from "zod";
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { errorBodySchema } from "../base/errors.ts";
 import { ID_PREFIXES, type IdPrefix, idSchema } from "../base/ids.ts";
-import { decisionNameSchema } from "../base/confirmation-handle.ts";
+import {
+  confirmationRefSchema,
+  decisionNameSchema,
+} from "../base/confirmation-handle.ts";
 import {
   providerDefinitionSchema,
   providerProtocolSchema,
 } from "../lophn-agent/provider-values.ts";
-import { seqSchema, sha256Schema } from "../base/values.ts";
+import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
 // shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 연다. 종류에 없다.
 export const CONFIRMATION_REQUEST_KINDS = [
@@ -64,6 +67,30 @@ const providerConnectFieldsSchema = z.strictObject({
   message: "only an OAuth connection carries its login handle",
 });
 
+const ownerDecisionIntentSchema = z.strictObject({
+  kind: z.literal("owner_decision"),
+  concern: concernSchema,
+  decision: decisionNameSchema,
+  targets: z.array(anyIdSchema).min(1).refine(unique, {
+    message: "duplicate target",
+  }).optional(),
+  automation: z.string().min(1).optional(),
+  requirement: z.number().int().nonnegative().optional(),
+  // 문제 결정(problems/closing)에서 사람이 고른 결정과 dismiss의 한 줄 이유, 또는 session 되돌리기
+  // (lophn-agent/revert)에서 고른 범위. 창은 이 값을 그대로 보이고, main은 문제나 preview를 독립 read해
+  // handle을 묶는다. Rewind의 대상은 [session, checkpoint(, 끝난 요약 call)]이다.
+  choice: z.enum([
+    "fixed",
+    "not_fixed",
+    "not_visible",
+    "dismiss",
+    "restore_all",
+    "messages_only",
+    "summarize",
+  ]).optional(),
+  note: z.string().regex(/^[^\r\n]*\S[^\r\n]*$/).optional(),
+});
+
 // preload가 창을 열 때 보내는 참조. command 본문·HTML·허락값은 받지 않는다.
 // owner decision의 targets는 결정 대상의 고정 ID다(예: 되돌릴 run). main이 정본을 다시 읽는다.
 const confirmationIntentSchema = z.discriminatedUnion("kind", [
@@ -80,29 +107,7 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     group: idSchema("qgr"),
     option_key: z.string().min(1),
   }),
-  z.strictObject({
-    kind: z.literal("owner_decision"),
-    concern: concernSchema,
-    decision: decisionNameSchema,
-    targets: z.array(anyIdSchema).min(1).refine(unique, {
-      message: "duplicate target",
-    }).optional(),
-    automation: z.string().min(1).optional(),
-    requirement: z.number().int().nonnegative().optional(),
-    // 문제 결정(problems/closing)에서 사람이 고른 결정과 dismiss의 한 줄 이유, 또는 session 되돌리기
-    // (lophn-agent/revert)에서 고른 범위. 창은 이 값을 그대로 보이고, main은 문제나 preview를 독립 read해
-    // handle을 묶는다. Rewind의 대상은 [session, checkpoint(, 끝난 요약 call)]이다.
-    choice: z.enum([
-      "fixed",
-      "not_fixed",
-      "not_visible",
-      "dismiss",
-      "restore_all",
-      "messages_only",
-      "summarize",
-    ]).optional(),
-    note: z.string().regex(/^[^\r\n]*\S[^\r\n]*$/).optional(),
-  }),
+  ownerDecisionIntentSchema,
   z.strictObject({
     kind: z.literal("secret_input"),
     owner: z.string().min(1),
@@ -124,6 +129,26 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
 ]);
 
 export type ConfirmationIntent = z.infer<typeof confirmationIntentSchema>;
+
+// 창 없는 사람 결정. 기능 화면(문제 결정, 앱 rewind, 파일 지움, provider 연결)에서 누르면
+// renderer가 shell main에 handle을 청한다. shell main이 정본을 다시 읽어 core에 handle을 등록해
+// 참조만 돌려주고, renderer는 그 handle로 `confirmation: required` route를 부른다.
+// 요청은 owner_decision 참조와 같은 칸이고 원문은 통로에 지나지 않는다.
+export const decisionHandleRequestSchema = ownerDecisionIntentSchema.omit({
+  kind: true,
+});
+
+export type DecisionHandleRequest = z.infer<typeof decisionHandleRequestSchema>;
+
+export const decisionHandleResultSchema = z.union([
+  z.strictObject({
+    confirmation: confirmationRefSchema,
+    expires_at: atSchema,
+  }),
+  errorBodySchema,
+]);
+
+export type DecisionHandleResult = z.infer<typeof decisionHandleResultSchema>;
 
 // main service가 받는 고정 요청. 표시와 제출은 이 자료 하나에서 만든다.
 export const confirmationRequestSchema = z.discriminatedUnion("kind", [
@@ -279,6 +304,7 @@ export type ConfirmationEnded = z.infer<typeof confirmationEndedSchema>;
 export const CONFIRMATION_IPC = {
   "shell:confirmation-open": confirmationOpenIntentSchema,
   "shell:confirmation-ended": confirmationEndedSchema,
+  "shell:decision-handle": decisionHandleRequestSchema,
   "confirmation:display": confirmationDisplaySchema,
   "confirmation:submit": confirmationSubmitSchema,
   "confirmation:cancel": confirmationCancelSchema,
@@ -293,6 +319,10 @@ export type LophnShell = {
   ): Promise<ConfirmationOpenResult>;
   // 연 창만 자기가 연 확인이 확정되지 않고 끝났을 때 알림을 받는다.
   onConfirmationEnded(listener: (ended: ConfirmationEnded) => void): () => void;
+  // 창 없는 사람 결정의 handle을 청한다.
+  requestDecisionHandle(
+    request: DecisionHandleRequest,
+  ): Promise<DecisionHandleResult>;
 };
 
 // 보호 preload. 이 창의 표시 읽기·결정 제출·취소만 있다.

@@ -23,6 +23,10 @@ export {
   confirmationRequestSchema,
   type ConfirmationSubmission,
   confirmationSubmitSchema,
+  type DecisionHandleRequest,
+  decisionHandleRequestSchema,
+  type DecisionHandleResult,
+  decisionHandleResultSchema,
   type LophnConfirmation,
   type LophnShell,
 } from "./confirmation.ts";

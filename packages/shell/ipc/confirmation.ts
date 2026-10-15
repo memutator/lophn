@@ -11,6 +11,7 @@ export {
   CONFIRMATION_SUBMIT_CHANNEL,
   type ConfirmationEnded,
   type ConfirmationEndedKind,
+  DECISION_HANDLE_CHANNEL,
 } from "./confirmation-channels.ts";
 
 const ID = /^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
@@ -41,6 +42,19 @@ const connectSchema = z.object({
   (value.kind === "oauth") === (value.login !== undefined)
 );
 
+const ownerDecisionSchema = z.object({
+  kind: z.literal("owner_decision"),
+  concern: z.string().regex(CONCERN),
+  decision: z.string().regex(DECISION),
+  targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
+    new Set(values).size === values.length
+  ).optional(),
+  automation: z.string().min(1).optional(),
+  requirement: z.number().int().nonnegative().optional(),
+  choice: z.enum(["fixed", "not_fixed", "not_visible", "dismiss"]).optional(),
+  note: z.string().regex(ONE_LINE).optional(),
+}).strict();
+
 // 창을 열 때 보내는 참조. command 본문·HTML·허락 값은 받지 않는다.
 export const confirmationIntentSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -53,18 +67,7 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
     group: prefixed("qgr"),
     option_key: z.string().min(1),
   }).strict(),
-  z.object({
-    kind: z.literal("owner_decision"),
-    concern: z.string().regex(CONCERN),
-    decision: z.string().regex(DECISION),
-    targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
-      new Set(values).size === values.length
-    ).optional(),
-    automation: z.string().min(1).optional(),
-    requirement: z.number().int().nonnegative().optional(),
-    choice: z.enum(["fixed", "not_fixed", "not_visible", "dismiss"]).optional(),
-    note: z.string().regex(ONE_LINE).optional(),
-  }).strict(),
+  ownerDecisionSchema,
   z.object({
     kind: z.literal("secret_input"),
     owner: z.string().min(1),
@@ -91,6 +94,23 @@ export const confirmationSubmitSchema = z.object({
   input: z.record(z.string(), z.unknown()).optional(),
   confirmedSecond: z.boolean().optional(),
 }).strict();
+
+// 창 없는 사람 결정 handle 요청. owner_decision 참조와 같은 칸이다.
+export const decisionHandleRequestSchema = ownerDecisionSchema.omit({
+  kind: true,
+});
+
+export type DecisionHandleRequest = z.infer<typeof decisionHandleRequestSchema>;
+
+export type DecisionHandleReply =
+  | { confirmation: string; expires_at: string }
+  | { code: string; message: string };
+
+export interface DecisionHandleApi {
+  requestDecisionHandle(
+    request: DecisionHandleRequest,
+  ): Promise<DecisionHandleReply>;
+}
 
 export type ConfirmationOpen = z.infer<typeof confirmationOpenSchema>;
 export type ConfirmationSubmitInput = z.infer<typeof confirmationSubmitSchema>;

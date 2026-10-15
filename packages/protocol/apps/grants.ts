@@ -11,6 +11,7 @@ import {
   grantIdSchema,
 } from "./channel-values.ts";
 import {
+  appGrantScopeSchema,
   permissionKindSchema,
   permissionRequirementSchema,
   permissionScopeSchema,
@@ -58,6 +59,24 @@ export const grantSchema = z.object({
   { message: "revoked grant is revoked by a user" },
 );
 export type Grant = z.infer<typeof grantSchema>;
+
+// 새 앱 grant. activation 한 번에 만들고 approval·created_by 칸이 없다.
+// 거두는 route는 옛 grantRevoke를 고쳐 쓴다.
+export const appGrantSchema = z.object({
+  id: grantIdSchema,
+  app: appIdSchema,
+  scope: appGrantScopeSchema,
+  status: grantStateSchema,
+  created_at: atSchema,
+  revoked_at: atSchema.nullable(),
+}).refine(
+  (value) => value.scope.kind !== "app.call" || value.scope.app !== value.app,
+  { message: "app.call grant cannot target its own app" },
+).refine(
+  (value) => (value.status === "revoked") === (value.revoked_at !== null),
+  { message: "revoked_at belongs to a revoked grant" },
+);
+export type AppGrant = z.infer<typeof appGrantSchema>;
 
 // grant.create 입력. 검증된 approval만 받는다
 // (domain-model apps/permissions command 표).

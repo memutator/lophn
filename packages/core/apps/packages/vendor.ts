@@ -85,12 +85,16 @@ const CAP_STORE: VendorRule = {
 const CAP_PROBLEM: VendorRule = {
   files: {
     "protocol/problems/sdk-report.ts": "vendor/protocol/problems/sdk-report.ts",
+    "protocol/problems/sdk-problem.ts":
+      "vendor/protocol/problems/sdk-problem.ts",
     "base/errors.ts": "vendor/base/errors.ts",
     "base/result.ts": "vendor/base/result.ts",
   },
   rewrite: {
     "@lophn/protocol/problems/sdk-report":
       "vendor/protocol/problems/sdk-report.ts",
+    "@lophn/protocol/problems/sdk-problem":
+      "vendor/protocol/problems/sdk-problem.ts",
   },
   generated: {
     "vendor/base/mod.ts":

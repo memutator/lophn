@@ -2,7 +2,7 @@ import type {
   ReportProblemResult,
   SafeReportDetails,
 } from "@lophn/protocol/problems/sdk-report";
-import type { ProblemReportCall } from "../../protocol/problems/sdk-problem.ts";
+import type { ProblemReportCall } from "@lophn/protocol/problems/sdk-problem";
 
 // 앱 진입점이 설치하는 보고 통로의 symbol. 앱 code는 reportProblem만 부르고 transport를 모른다.
 // 같은 module이 두 번 load돼도 먼저 설치된 reporter를 쓴다.

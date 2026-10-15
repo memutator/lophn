@@ -10,7 +10,7 @@ import type {
 import type {
   ProblemReportCall,
   ProblemReportRequest,
-} from "../../protocol/problems/sdk-problem.ts";
+} from "@lophn/protocol/problems/sdk-problem";
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";

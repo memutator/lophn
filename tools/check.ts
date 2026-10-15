@@ -262,7 +262,8 @@ async function buildSteps(
       checks.push({
         name: "shell main test",
         cwd: SHELL_MAIN,
-        commands: [[
+        // precheck가 packages/shell/node_modules/zod를 잇는다. "shell main"과 같이 돌아 먼저 한다.
+        commands: [["npm", "run", "precheck"], [
           "node",
           "--test",
           "--experimental-strip-types",

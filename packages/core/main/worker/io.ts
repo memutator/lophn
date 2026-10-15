@@ -21,32 +21,9 @@ import {
   createBlobPipe,
 } from "../../storage/blobs/worker/pipe.ts";
 import {
-  createSettingsPipe,
-  type SettingsPipe,
-  type SettingsPipeRequest,
-} from "../../config/worker/pipe.ts";
-import {
   type Frame,
   STREAM_CHUNK_MAX_BYTES,
 } from "../../../protocol/base/mod.ts";
-import {
-  SECRET_INPUT_MAX_BYTES,
-  SECRET_PREPARE_OP,
-} from "../../../protocol/secrets/mod.ts";
-import {
-  SETTINGS_EXPORT_OP,
-  SETTINGS_IMPORT_OP,
-} from "../../../protocol/config/mod.ts";
-import {
-  createSecretWork,
-  productKeychain,
-  SECRET_TOOL_PATHS,
-} from "../../secrets/mod.ts";
-import {
-  createSecretPipe,
-  type SecretPipe,
-  type SecretPipeRequest,
-} from "../../secrets/worker/pipe.ts";
 
 // blob GC check 주기(기동 시와 매일). 관측은 삭제가 아니다.
 export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -94,11 +71,6 @@ export type PlatformIoOptions = {
   currentAuthority(): DiagnosticAuthority | undefined;
   // blob 준비 통로. 없으면 blob.prepare는 거절한다.
   blob?: BlobPipe;
-  // settings 교환 통로. 없으면 settings.import·export는 거절한다.
-  settings?: SettingsPipe;
-  // 보호 입력 통로(secret.prepare). 없으면 secret.prepare는 거절한다. 값은 keychain adapter
-  // 안에서만 쓰이고 응답에는 값 없는 준비 증거만 있다.
-  secrets?: SecretPipe;
   // 준비 파일 접미사. 내용에서 파생하지 않는다.
   suffix?: () => string;
 };
@@ -111,7 +83,7 @@ export async function createPlatformIo(
   const log = createSafeLog({ catalog: options.catalog, sink: files.write });
   const scheduler = createIoScheduler();
   // blob.prepare 준비는 chunk가 오는 내내 자리를 쥔다. 일반 scheduler를 나눠 쓰면 준비가
-  // 자리를 다 쥔 채 chunk를 기다리고, settings·diagnostics 요청이 자리를 기다리며 dispatch를
+  // 자리를 다 쥔 채 chunk를 기다리고, diagnostics 요청이 자리를 기다리며 dispatch를
   // 막아 그 chunk를 못 읽는 교착이 된다. 준비는 자기 scheduler를 쓴다.
   const prepareScheduler = createIoScheduler();
   const blob = options.blob ?? createBlobPipe({
@@ -123,13 +95,6 @@ export async function createPlatformIo(
     }),
     suffix: options.suffix ?? (() => crypto.randomUUID()),
   });
-  const settings = options.settings ?? createSettingsPipe();
-  // blob 준비는 요청 json에 앞서(뒤에) 오는 byte chunk를 channel별로 모은다.
-  // core는 해석·hash 없이 넘기고, 이 worker만 모아 내용을 만든다.
-  const pending = new Map<
-    number,
-    { chunks: Uint8Array[]; request?: BlobPipeRequest }
-  >();
   // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다. 준비는 chunk가 오는 동안
   // 이미 hash·write를 시작하고, 받아 둔 바이트는 credit window를 넘지 않는다.
   const prepares = new Map<number, PrepareStream>();
@@ -366,75 +331,6 @@ export async function createPlatformIo(
     redistribute();
   }
 
-  // secret.prepare를 처리한다. 값은 이 함수 안에서만 이어 붙이고 응답 뒤 바로 0으로 채운다.
-  // 값은 로그·응답·오류에 넣지 않는다.
-  async function respondSecretPrepare(
-    request: SecretPipeRequest & { channel?: number },
-  ): Promise<void> {
-    const channel = request.channel;
-    const entry = channel === undefined ? undefined : pending.get(channel);
-    if (channel !== undefined) pending.delete(channel);
-    const chunks = entry?.chunks ?? [];
-    const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const value = new Uint8Array(total > SECRET_INPUT_MAX_BYTES ? 0 : total);
-    let written = 0;
-    if (total <= SECRET_INPUT_MAX_BYTES) {
-      for (const chunk of chunks) {
-        value.set(chunk, written);
-        written += chunk.length;
-      }
-    }
-    for (const chunk of chunks) chunk.fill(0);
-    try {
-      const submission = options.secrets === undefined
-        ? undefined
-        : scheduler.submit(
-          "secret",
-          () =>
-            options.secrets!.handle(
-              {
-                request_id: request.request_id,
-                op: request.op,
-                payload: request.payload,
-              },
-              () => Promise.resolve(value.length === 0 ? undefined : value),
-            ),
-        );
-      const result = submission === undefined
-        ? undefined
-        : submission.ok
-        ? await submission.value.result
-        : submission;
-      if (!session.credentialUsable) return;
-      if (result === undefined) {
-        await respondBlob(request.request_id, {
-          ok: false,
-          error: {
-            code: "unavailable",
-            message: "보호 입력 통로가 열려 있지 않다",
-          },
-        });
-        return;
-      }
-      if (!result.ok) {
-        await respondBlob(request.request_id, {
-          ok: false,
-          error: result.error,
-        });
-        return;
-      }
-      const response = result.value;
-      await respondBlob(
-        request.request_id,
-        response.ok
-          ? { ok: true, payload: response.payload }
-          : { ok: false, error: response.error },
-      );
-    } finally {
-      value.fill(0);
-    }
-  }
-
   const session = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== "platform/io") throw new Error("invalid worker kind");
@@ -442,11 +338,6 @@ export async function createPlatformIo(
     },
     onStop() {
       for (const stream of prepares.values()) failPrepare(stream);
-      // 요청을 만나지 못한 채 받아 둔 chunk(보호 입력 값 포함)를 비운다.
-      for (const entry of pending.values()) {
-        for (const chunk of entry.chunks) chunk.fill(0);
-      }
-      pending.clear();
       scheduler.close();
       prepareScheduler.close();
       log.close();
@@ -455,25 +346,7 @@ export async function createPlatformIo(
     // bytes frame은 요청의 channel에 묶인다. 내용을 해석하지 않는다.
     onFrame(frame) {
       const stream = prepares.get(frame.channel);
-      if (stream !== undefined) {
-        feedPrepare(frame, stream);
-        return;
-      }
-      // core가 요청을 보내기 전에 중단한 channel의 chunk는 값이 있어도 비우고 버린다.
-      if (frame.kind === "abort") {
-        const dropped = pending.get(frame.channel);
-        if (dropped !== undefined) {
-          for (const chunk of dropped.chunks) chunk.fill(0);
-          pending.delete(frame.channel);
-        }
-        return;
-      }
-      if (frame.kind !== "bytes") return;
-      // 빈 chunk는 내용이 아니다. settings 교환은 요청 json 앞에 온 chunk만 쓴다.
-      if (frame.payload.length === 0) return;
-      const entry = pending.get(frame.channel) ?? { chunks: [] };
-      entry.chunks.push(frame.payload);
-      pending.set(frame.channel, entry);
+      if (stream !== undefined) feedPrepare(frame, stream);
     },
     async onParent(message) {
       if (message.type !== "worker_request") return;
@@ -482,102 +355,6 @@ export async function createPlatformIo(
       const request = message as unknown as BlobPipeRequest & {
         channel?: number;
       };
-      // 보호 입력. 값은 요청 json에 앞서 온 byte chunk이고 JSON에는 용도·owner뿐이다.
-      // 응답은 값 없는 준비 증거이며, 값은 keychain adapter가 저장한 뒤 바로 비운다.
-      if (request.op === SECRET_PREPARE_OP) {
-        await respondSecretPrepare(
-          message as unknown as SecretPipeRequest & {
-            channel?: number;
-          },
-        );
-        return;
-      }
-      // settings 교환은 channel에 묶인 byte chunk로 온다. import는 문서를 모아
-      // parse하고, export는 JSON payload의 mutations를 stringify한다.
-      // byte chunk는 요청 json보다 먼저 도착해 있다.
-      if (
-        request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP
-      ) {
-        const settingsRequest = message as unknown as SettingsPipeRequest & {
-          channel?: number;
-        };
-        const channel = settingsRequest.channel;
-        const entry = channel === undefined
-          ? { chunks: [] as Uint8Array[] }
-          : pending.get(channel) ?? { chunks: [] as Uint8Array[] };
-        if (channel !== undefined) pending.delete(channel);
-        const submission = scheduler.submit("settings", async () => {
-          if (settingsRequest.op === SETTINGS_EXPORT_OP) {
-            return await settings.handle(
-              {
-                request_id: settingsRequest.request_id,
-                op: settingsRequest.op,
-                payload: settingsRequest.payload,
-              },
-              () => Promise.resolve(undefined),
-            );
-          }
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              for (const chunk of entry.chunks) controller.enqueue(chunk);
-              controller.close();
-            },
-          });
-          const sink: Uint8Array[] = [];
-          await stream.pipeTo(
-            new WritableStream<Uint8Array>({
-              write(chunk) {
-                sink.push(chunk);
-              },
-            }),
-          );
-          const total = sink.reduce((sum, chunk) => sum + chunk.length, 0);
-          const document = new Uint8Array(total);
-          let offset = 0;
-          for (const chunk of sink) {
-            document.set(chunk, offset);
-            offset += chunk.length;
-          }
-          return await settings.handle(
-            {
-              request_id: settingsRequest.request_id,
-              op: settingsRequest.op,
-              payload: settingsRequest.payload,
-            },
-            () => Promise.resolve(document),
-          );
-        });
-        const result = submission.ok
-          ? await submission.value.result
-          : submission;
-        if (!session.credentialUsable) return;
-        if (!result.ok) {
-          await session.send({
-            type: "worker_response",
-            request_id: message.request_id,
-            ok: false,
-            error: result.error,
-          });
-          return;
-        }
-        const response = result.value;
-        await session.send(
-          response.ok
-            ? {
-              type: "worker_response",
-              request_id: message.request_id,
-              ok: true,
-              payload: response.payload,
-            }
-            : {
-              type: "worker_response",
-              request_id: message.request_id,
-              ok: false,
-              error: response.error,
-            },
-        );
-        return;
-      }
       // blob.read는 channel이 없다. blob.prepare만 channel의 chunk를 쓴다.
       if (
         request.op !== "blob.prepare" && request.op !== "blob.read" ||
@@ -743,15 +520,6 @@ export async function runPlatformIo(root: string): Promise<void> {
     catalog: { components: ["platform/core", "platform/io"], locations: {} },
     // Product authority is supplied by the core entry composition, not inferred from hello.
     currentAuthority: () => undefined,
-    // 보호 입력은 OS keychain adapter로만 간다. 준비 증거는
-    // 응답으로 core에 돌려주고 core의 writer가 ledger에 남긴다: 이 worker는 ledger를 쓰지 않고
-    // 값을 registry에도 두지 않는다.
-    secrets: createSecretPipe({
-      work: createSecretWork({
-        keychain: productKeychain(SECRET_TOOL_PATHS),
-        preparationId: () => `prep_${crypto.randomUUID()}`,
-      }),
-    }),
   });
   // blob GC 관측. 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
   // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은

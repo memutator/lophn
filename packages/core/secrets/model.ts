@@ -2,7 +2,6 @@
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
-  SecretCleanupResult,
   SecretDestination,
   SecretStatus,
   SecretUse,
@@ -106,16 +105,4 @@ export function attachAllowed(
     return "forbidden";
   }
   return "ok";
-}
-
-export function cleanupResult(observed: {
-  referenceBlocked: boolean;
-  osDeleted: boolean;
-  processesEnded: boolean;
-}): SecretCleanupResult {
-  return {
-    reference_blocked: observed.referenceBlocked,
-    os_deleted: observed.osDeleted,
-    processes_ended: observed.processesEnded,
-  };
 }

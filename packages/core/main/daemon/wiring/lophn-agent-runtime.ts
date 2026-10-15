@@ -9,6 +9,11 @@ import {
   providerHost,
   startAgentRuntimeChild,
 } from "../../../lophn-agent/run-loop/runtime.ts";
+import {
+  createInbox,
+  createTurnSource,
+  createTurnStarter,
+} from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { skillFoldersSetting } from "../../../../protocol/lophn-agent/mod.ts";
@@ -17,6 +22,8 @@ import type { WiringFactory } from "./context.ts";
 
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
+  // 입력함은 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
+  const inbox = createInbox();
   return {
     name: "lophn-agent-runtime",
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
@@ -29,6 +36,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         io: ctx.io,
         registry: ctx.registry,
         record: (context) => runtime.record(context),
+        turns: createTurnSource({
+          inbox,
+          starter: createTurnStarter({ inbox }),
+        }),
+        publish: ctx.bus.publish,
         epoch: ctx.epoch,
         dataRoot: ctx.root.path,
         apiPort: ctx.server.port,

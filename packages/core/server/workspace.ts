@@ -30,15 +30,6 @@ type WindowState = {
   session: string | null;
 };
 
-export type WorkspaceRelayDeps = {
-  // 더 쓰지 않는다. agent credential이 session을 직접 싣는다. wiring이 이 줄을 걷으면 지운다.
-  runSession?: (ctx: AuthenticatedContext, run: string) =>
-    | Promise<
-      Result<string | null>
-    >
-    | Result<string | null>;
-};
-
 export type WorkspaceRelay = {
   routes: readonly Route[];
   handlers: Map<string, MemoryHandler>;
@@ -57,9 +48,7 @@ const VISIBLE_VIEW_FIELDS = [
   "tab_page",
 ] as const;
 
-export function createWorkspaceRelay(
-  _deps: WorkspaceRelayDeps = {},
-): WorkspaceRelay {
+export function createWorkspaceRelay(): WorkspaceRelay {
   // publish가 온 창. key는 window_ref다.
   const windows = new Map<string, WindowState>();
   // bind가 잇는 session → window_ref. read가 자기 session의 창을 찾는 데 쓴다.

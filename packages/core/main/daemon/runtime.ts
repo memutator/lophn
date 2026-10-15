@@ -231,12 +231,8 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
-  // 현재 보기 relay는 ledger 밖 core 메모리다. run→session 확인은 reader가
-  // 등록한 runs/read handler로 한다. 아직 없으면 fail-closed다.
-  const runRead = reads.get("runs/read");
-  const memory = createWorkspaceRelay({
-    runSession: runRead && ((ctx, run) => runSessionOf(runRead, ctx, run)),
-  });
+  // 현재 보기 relay는 ledger 밖 core 메모리다.
+  const memory = createWorkspaceRelay();
   return ok({
     writer,
     confirmation: openedWriter.confirmation,
@@ -257,19 +253,6 @@ export async function openRuntime(input: {
       await openedWriter.writer.close();
     },
   });
-}
-
-// run → session 확인. 등록된 runs/read handler를 그대로 부른다.
-// 다른 session은 부재와 같다.
-async function runSessionOf(
-  handler: ReadHandler,
-  ctx: AuthenticatedContext,
-  run: string,
-): Promise<Result<string | null>> {
-  const result = await handler(ctx, { run });
-  if (!result.ok) return result;
-  const output = result.value as { run?: { session?: string | null } };
-  return ok(output.run?.session ?? null);
 }
 
 // settings 등록 파일. settingsRoutes에 붙는 registry·command·read는

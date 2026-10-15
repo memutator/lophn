@@ -55,5 +55,4 @@ export {
   WORKSPACE_MAX_WINDOWS,
   WORKSPACE_MEMORY_ROUTES,
   type WorkspaceRelay,
-  type WorkspaceRelayDeps,
 } from "./workspace.ts";

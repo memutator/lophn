@@ -84,12 +84,13 @@ import {
   roleCapsOf,
 } from "./agents/mod.ts";
 import {
-  createRunCommands,
-  createRunReads,
-  deleteSessionRuns,
-  RUN_LIMIT_SETTING_KEYS,
-  runBodyFields,
-  runSchemaSteps,
+  createTurnCommands,
+  createTurnReads,
+  deleteSessionTurns,
+  interruptRunningTurns,
+  TURN_LIMIT_SETTING_KEYS,
+  turnBodyFields,
+  turnSchemaSteps,
 } from "./run-loop/mod.ts";
 import { createCommandReads } from "./commands/mod.ts";
 import {
@@ -281,12 +282,12 @@ export const catalogAutoUpdateSetting = defineSetting({
 // 하나씩이고 양의 정수만 받는다. 0·무제한·역할의 인상은 없다. 사람이
 // 바꾸고 다음 run부터 적용하며 run은 시작할 때 값을 고정한다.
 function runLimitSetting(
-  key: keyof typeof RUN_LIMIT_SETTING_KEYS,
+  key: keyof typeof TURN_LIMIT_SETTING_KEYS,
   fallback: number,
   unit: string,
 ) {
   return defineSetting({
-    key: RUN_LIMIT_SETTING_KEYS[key],
+    key: TURN_LIMIT_SETTING_KEYS[key],
     owner: "lophn-agent/harness/run-loop",
     display_name_key: `settings.lophn-agent.run_${key}.name`,
     description: `Run limit: ${key} (${unit}).`,
@@ -380,8 +381,8 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
 const RUN_ACCEPT_REMOVED = "accepting a run is replaced by the inbox";
 const APPROVAL_REQUEST_REMOVED =
   "a waiting run no longer opens an approval request; the router asks in the turn";
-const runCommands = createRunCommands({ hasUnappliedSteering });
-const runReads = createRunReads();
+const runCommands = createTurnCommands({ hasUnappliedSteering });
+const runReads = createTurnReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다. run을 가리키는 표마다
 // 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
@@ -393,7 +394,7 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
     () => deleteSessionQuestions(tx, session, eraseBlobRefs),
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
     () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
-    () => deleteSessionRuns(tx, session, eraseBlobRefs),
+    () => deleteSessionTurns(tx, session, eraseBlobRefs),
   ];
   for (const step of steps) {
     const erased = step();
@@ -419,7 +420,19 @@ const conversationCommands = createConversationCommands({
   eraseBlobRefs,
   // project와 앱, Operator 정의, Bus, 끝날 때의 영향은 wiring이 놓는다. 놓기 전에는 새 session을 열지 못한다.
   open: UNWIRED_OPEN_DEPS,
-  end: UNWIRED_END_DEPS,
+  // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. Bus event는 writer Worker에서 낼 수 없어 내지 않는다.
+  end: {
+    ...UNWIRED_END_DEPS,
+    interruptRunningTurns: (tx, session) => {
+      const done = interruptRunningTurns(
+        tx,
+        undefined,
+        "session_ended",
+        session,
+      );
+      return done.ok ? ok(undefined) : done;
+    },
+  },
 });
 const conversationReads = createConversationReads();
 
@@ -531,7 +544,7 @@ const questionOptionPort = defineTxPort(questionOption, (tx) => ({
 
 const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   status: (run: string) => {
-    const row = tx.sql.get("select state from runs where id = ?", [run]);
+    const row = tx.sql.get("select state from turns where id = ?", [run]);
     if (row === undefined) return "unknown" as const;
     return row["state"] === "finished"
       ? "finished" as const
@@ -855,7 +868,7 @@ export const lophnAgentDefinitions = {
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
-    ...runSchemaSteps,
+    ...turnSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
@@ -964,7 +977,7 @@ export const lophnAgentDefinitions = {
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
-    ...runBodyFields,
+    ...turnBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
     ...handoffBodyFields,

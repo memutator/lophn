@@ -8,17 +8,15 @@ import {
   WINDOWLESS_CONFIRMATION_CHANNEL,
   type WindowlessConfirmationReply,
 } from "../ipc/windowless-confirmation.ts";
-import {
-  FOLDER_PICK_CHANNEL,
-  type FolderPickerApi,
-  type FolderPickReply,
-} from "../ipc/folder-picker.ts";
 import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createConfirmationEndedSubscriber } from "./confirmation-ended.ts";
 import { createEditorApi } from "./editor-api.ts";
+import { createFilesApi } from "./files-api.ts";
+import { createFolderApi } from "./folder-api.ts";
+import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
@@ -40,6 +38,8 @@ contextBridge.exposeInMainWorld(
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      // secret 값을 받는 보호 입력 창 열기. 값은 이 창을 지나지 않는다.
+      openSecretInput: createSecretInputOpener(ipcRenderer),
       // 연 확인이 확정되지 않고 끝났다는 알림. main이 연 창에만 보낸다.
       onConfirmationEnded: createConfirmationEndedSubscriber(ipcRenderer),
       // app.create·apply_settings 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
@@ -90,23 +90,7 @@ if (role === "shell") {
     createShortcutApi(ipcRenderer),
   );
   // 프로젝트 등록의 OS 폴더 선택기. 경로는 main이 연 dialog의 결과만 온다.
-  contextBridge.exposeInMainWorld(
-    "lophnFolders",
-    Object.freeze(
-      {
-        async pick(): Promise<FolderPickReply> {
-          try {
-            return await ipcRenderer.invoke(
-              FOLDER_PICK_CHANNEL,
-              {},
-            ) as FolderPickReply;
-          } catch {
-            return { ok: false, code: "unavailable" };
-          }
-        },
-      } satisfies FolderPickerApi,
-    ),
-  );
+  contextBridge.exposeInMainWorld("lophnFolders", createFolderApi(ipcRenderer));
   // 상단 바의 최소화·최대화·닫기. 동작 이름만 보내고 창은 main이 정한다.
   contextBridge.exposeInMainWorld(
     "lophnWindow",
@@ -122,6 +106,8 @@ if (role === "shell") {
   );
   // 문서 편집기의 파일 통로. 경로·core port는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
+  // 파일 읽고 쓰기·watch. 경로는 renderer가 보내고 디스크는 main이 만진다.
+  contextBridge.exposeInMainWorld("lophnFiles", createFilesApi(ipcRenderer));
   // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld(
     "lophnLayout",

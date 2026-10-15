@@ -36,6 +36,9 @@ export const overlayModelSchema = z.object({
   text: z.string().max(4096).optional(),
   // palette만 쓴다. 켜면 overlay는 검색어를 거르지 않고 연 쪽에 query로 돌려준다.
   search: z.boolean().optional(),
+  // notification만 쓴다.
+  tone: z.enum(["neutral", "error"]).optional(),
+  // notification은 앞의 세 choice를 단추로 쓴다.
   choices: z.array(
     z.object({
       id,

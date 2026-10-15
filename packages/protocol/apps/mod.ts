@@ -29,3 +29,4 @@ export * from "./releases.ts";
 export * from "./data-job.ts";
 export * from "./annotation.ts";
 export * from "./calls/mod.ts";
+export * from "./activation/mod.ts";

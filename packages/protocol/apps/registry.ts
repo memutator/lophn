@@ -55,6 +55,7 @@ import {
 } from "./invocations.ts";
 import { GRANT_EVENTS, GRANT_ROUTES } from "./grants.ts";
 import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
+import { ACTIVATION_ROUTES } from "./activation/mod.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
 import {
   RELEASE_ROUTES,
@@ -103,6 +104,7 @@ export const ROUTES = [
   ...INVOCATION_ROUTES,
   ...GRANT_ROUTES,
   ...PACKAGE_ROUTES,
+  ...ACTIVATION_ROUTES,
   ...PREVIEW_ROUTES,
   ...RELEASE_ROUTES,
 ] as const;

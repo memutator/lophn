@@ -1,4 +1,5 @@
 import { CONNECTION_EVENTS, CONNECTION_ROUTES } from "./connections.ts";
+import { CODING_ROUTES } from "./cli-commands.ts";
 import { REPAIR_CONTEXT_ROUTES } from "./repair-context.ts";
 import { SESSION_ROUTES } from "./sessions.ts";
 import { TICKET_CLAIM_EVENTS, TICKET_CLAIM_ROUTES } from "./ticket-claims.ts";
@@ -15,6 +16,7 @@ export const ROUTES = [
   ...TICKET_SCREEN_ROUTES,
   ...TICKET_REPAIR_PREPARE_ROUTES,
   ...REPAIR_CONTEXT_ROUTES,
+  ...CODING_ROUTES,
 ] as const;
 
 export const EVENTS = [

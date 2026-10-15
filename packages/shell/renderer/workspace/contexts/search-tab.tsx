@@ -48,7 +48,7 @@ export interface SearchTabProps {
   readonly onOpenContext: (context: string) => void;
   readonly onOpenDocument: OpenDocument;
   /** 그릴 수 없는 입력 타입일 때의 [Ask Context Engineer]. */
-  readonly onAsk: () => void;
+  readonly onAsk?: () => void;
 }
 
 export function SearchTab(props: SearchTabProps): ReactNode {

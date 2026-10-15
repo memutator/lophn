@@ -655,7 +655,7 @@ export function Workspace(props: WorkspaceProps) {
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "agent") openRole("lophn");
-    else if (contexts === null) return;
+    else if (contexts === null && action !== "search") return;
     else if (action === "contexts") openContexts(host);
     else openSearchShortcut(host);
   };

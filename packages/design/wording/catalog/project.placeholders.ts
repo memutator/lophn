@@ -246,6 +246,18 @@ export type ProjectPlaceholders = {
   "document.title.global-instructions": Record<never, never>;
   "document.title.project-instructions": Record<never, never>;
   "document.title.unsaved": Record<never, never>;
+  "file-search.label.all-folders": Record<never, never>;
+  "file-search.label.folder": Record<never, never>;
+  "file-search.label.matches": {
+    matches: "plural";
+    files: "plural";
+  };
+  "file-search.label.query": Record<never, never>;
+  "file-search.label.query-hint": Record<never, never>;
+  "file-search.label.tab": Record<never, never>;
+  "file-search.notice.no-matches": Record<never, never>;
+  "file-search.notice.type-text": Record<never, never>;
+  "file-search.notice.unavailable": Record<never, never>;
   "project-workspace.button.add-rule": Record<never, never>;
   "project-workspace.button.agent": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;

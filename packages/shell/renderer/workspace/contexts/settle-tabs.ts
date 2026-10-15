@@ -15,7 +15,9 @@ export function searchTabTitle(context: string | undefined): string {
 }
 
 function isContextTab(tab: TabItem): boolean {
-  return tab.kind === "context" || tab.kind === "search";
+  // context 없이 열린 키워드 검색 탭은 context 목록과 상관없다.
+  return tab.kind === "context" ||
+    (tab.kind === "search" && contextOf(tab) !== null);
 }
 
 export function settleContextTabs(

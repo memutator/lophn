@@ -36,7 +36,7 @@ export interface SearchInputFormProps {
   /** [Save as view]. */
   readonly onSaveView: () => void;
   /** 그릴 수 없는 입력 타입일 때의 [Ask Context Engineer]. */
-  readonly onAsk: () => void;
+  readonly onAsk?: () => void;
 }
 
 type DeclaredInput = DeclaredSearch["inputs"][number];
@@ -54,9 +54,11 @@ export function SearchInputForm(props: SearchInputFormProps): ReactNode {
         <p className={styles.note} data-unsupported="">
           {t("contexts.note.input-unsupported", { type: unsupported.type })}
         </p>
-        <div className={styles.actions}>
-          <Button onClick={onAsk}>{t("contexts.button.input-ask")}</Button>
-        </div>
+        {onAsk !== undefined && (
+          <div className={styles.actions}>
+            <Button onClick={onAsk}>{t("contexts.button.input-ask")}</Button>
+          </div>
+        )}
       </div>
     );
   }

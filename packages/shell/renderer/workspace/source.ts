@@ -3,6 +3,7 @@
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { AgentsSource } from "./agents/source.ts";
 import type { ContextsSource } from "./contexts/source.ts";
+import type { FileSearchSource } from "./search/source.ts";
 
 /** 연결 폴더. 하위 폴더 경로는 이 폴더 기준 상대 경로다. */
 export interface ProjectFolderView {
@@ -65,6 +66,8 @@ export interface WorkspaceSource {
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
    */
   readonly agentsSource?: AgentsSource;
+  /** project 키워드 검색 통로. 없으면 Search 탭과 여는 길을 두지 않는다. */
+  readonly searchSource?: FileSearchSource;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   readLayout(project: string): Promise<LayoutRead>;

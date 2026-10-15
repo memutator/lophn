@@ -11,6 +11,7 @@ import type {
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreContextsSource } from "./contexts/core-source.ts";
+import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
   DocumentRow,
   FileRow,
@@ -186,6 +187,8 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
     // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),
+
+    searchSource: coreFileSearchSource(core),
 
     // Explorer tree. main이 디스크에서 직접 읽는 목록이라 core 통로를 거치지 않는다.
     async list(path) {

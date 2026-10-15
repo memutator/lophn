@@ -240,6 +240,17 @@ export const project = {
   "document.title.global-instructions": "Global instructions",
   "document.title.project-instructions": "Project instructions",
   "document.title.unsaved": "Changes aren't saved yet",
+  "file-search.label.all-folders": "All folders",
+  "file-search.label.folder": "Folder",
+  "file-search.label.matches":
+    "{matches, plural, one {# match} other {# matches}} in {files, plural, one {# file} other {# files}} · by path, then line",
+  "file-search.label.query": "Find in files",
+  "file-search.label.query-hint": "Text to find",
+  "file-search.label.tab": "Search",
+  "file-search.notice.no-matches": "No matches.",
+  "file-search.notice.type-text":
+    "Type text to search the files in this project.",
+  "file-search.notice.unavailable": "Search isn't available right now.",
   "project-workspace.button.add-rule": "Add rule",
   "project-workspace.button.agent": "Agent",
   "project-workspace.button.close-tab": "Close tab",

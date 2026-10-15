@@ -1,5 +1,8 @@
-// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다. 입력은
-// 사람이 채운 조건일 뿐이라 현재 보기에는 선언된 검색의 key만 보내고 복원하면 검색을 다시 계산한다.
+// search 탭 kind. 두 갈래를 그린다. `context`가 있으면 그 context의 선언된 검색을 채운 입력으로
+// 열고, 없으면 project 키워드 검색이다. 입력은 사람이 채운 조건일 뿐이라 현재 보기에는 선언된
+// 검색의 key만 보내고 복원하면 검색을 다시 계산한다.
+import { t } from "@lophn/wording";
+
 import { paletteIcons } from "../../icons/mod.ts";
 
 import { SearchTab } from "../contexts/search-tab.tsx";
@@ -15,12 +18,56 @@ import {
 } from "../contexts/tab-fields.ts";
 import type { SearchInputValues } from "../contexts/source.ts";
 import type { TabItem } from "../model.ts";
+import { FileSearch } from "../search/file-search.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import { openContext } from "./context.tsx";
-import { openContexts } from "./contexts.tsx";
 
 let searchCount = 0;
+
+const QUERY_MAX = 200;
+
+/** context 없이 열린 키워드 검색 탭의 검색어와 폴더(절대 경로, 없으면 빈 글). */
+function keywordOf(tab: TabItem): { query: string; folder: string } {
+  const { query, folder } = tab.fields ?? {};
+  return {
+    query: typeof query === "string" ? query : "",
+    folder: typeof folder === "string" ? folder : "",
+  };
+}
+
+const isKeyword = (tab: TabItem) =>
+  tab.kind === "search" && searchStateOf(tab) === null;
+
+function openKeywordSearch(host: TabHost): void {
+  host.openTab({
+    key: `search-${Date.now().toString(36)}-${++searchCount}`,
+    kind: "search",
+    title: t("file-search.label.tab"),
+    fields: { query: "", folder: "" },
+  });
+}
+
+/**
+ * 검색 결과의 줄에서 파일을 연다. 탭 key는 파일 경로다. 이미 열려 있으면 그 탭을 고르고 줄만 바꾼다.
+ * 열린 탭이 그 줄로 scroll하는 것은 파일 탭이 한다.
+ */
+function openFileAt(host: TabHost, path: string, line: number): void {
+  const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>
+    tab.kind === "document_editor" && tab.key === path
+  );
+  if (open === undefined) {
+    host.openTab({
+      key: path,
+      kind: "document_editor",
+      title: path.split("/").at(-1) ?? path,
+      fields: { line },
+    });
+    return;
+  }
+  host.openTab(open);
+  host.patchTab(path, (tab) => ({ fields: { ...tab.fields, line } }));
+}
 
 function searchTitle(host: TabHost, context: string): string {
   return searchTabTitle(host.contexts?.titleOf(context));
@@ -61,35 +108,16 @@ export function openSearchFor(host: TabHost, state: SearchTabState): void {
 }
 
 /**
- * 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 열려 있는 Search 탭이 있으면 그 탭을 고르고,
- * 없으면 지금 보는 Context 탭의 context로(없으면 목록의 첫 context로) 연다. context가 하나도
- * 없으면 Search 탭이 보일 대상이 없어 Contexts 탭이 대신 열린다.
+ * 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 키워드 검색 탭이 열려 있으면 그 탭을 고르고
+ * 없으면 새로 연다. context가 필요 없다.
  */
 export function openSearchShortcut(host: TabHost): void {
-  const open = host.view.panes.flatMap((pane) => pane.tabs).find((tab) =>
-    tab.kind === "search"
-  );
+  const open = host.view.panes.flatMap((pane) => pane.tabs).find(isKeyword);
   if (open !== undefined) {
     host.openTab(open);
     return;
   }
-  const focused = host.view.panes[host.view.focusedPane];
-  const selected = focused?.tabs.find((tab) => tab.key === focused.selected);
-  const viewed = selected?.kind === "context"
-    ? (selected.fields?.context as string | undefined)
-    : undefined;
-  const context = viewed ?? host.contexts?.list[0]?.id;
-  if (context === undefined) {
-    openContexts(host);
-    return;
-  }
-  openSearch(host, {
-    context,
-    search: null,
-    inputs: {},
-    page: 0,
-    savedView: null,
-  });
+  openKeywordSearch(host);
 }
 
 function titleOf(tab: TabItem, host: TabHost): string {
@@ -99,10 +127,22 @@ function titleOf(tab: TabItem, host: TabHost): string {
 
 export const searchKind: TabKindDef = {
   kind: "search",
-  labelKey: "contexts.label.rail-search",
+  labelKey: "file-search.label.tab",
   icon: paletteIcons.search,
   fromStored(stored, { key }) {
     const { context, declared_search, inputs, page, saved_view } = stored;
+    if (context === undefined) {
+      const { query, folder } = stored;
+      return {
+        key,
+        kind: "search",
+        title: t("file-search.label.tab"),
+        fields: {
+          query: typeof query === "string" ? query.slice(0, QUERY_MAX) : "",
+          folder: typeof folder === "string" ? folder : "",
+        },
+      };
+    }
     if (typeof context !== "string" || !CONTEXT_ID.test(context)) return null;
     return {
       key,
@@ -120,8 +160,17 @@ export const searchKind: TabKindDef = {
     };
   },
   toStored(tab) {
+    if (!TAB_KEY.test(tab.key)) return null;
     const state = searchStateOf(tab);
-    if (state === null || !TAB_KEY.test(tab.key)) return null;
+    if (state === null) {
+      const { query, folder } = keywordOf(tab);
+      return {
+        kind: "search",
+        key: tab.key,
+        query: query.slice(0, QUERY_MAX),
+        folder: folder === "" ? null : folder,
+      };
+    }
     if (state.search !== null && state.search.length > 128) return null;
     const inputs: SearchInputValues = inputsFit(state.inputs)
       ? state.inputs
@@ -139,10 +188,10 @@ export const searchKind: TabKindDef = {
         : null,
     };
   },
-  // 채운 입력과 결과는 힌트에 넣지 않는다. context와 선언된 검색의 key만이다.
+  // 채운 입력과 결과는 힌트에 넣지 않는다. context와 선언된 검색의 key만이고, 키워드 검색은 탭 key만이다.
   hint(tab) {
     const state = searchStateOf(tab);
-    if (state === null) return null;
+    if (state === null) return { kind: "search", key: tab.key };
     return {
       kind: "search",
       key: tab.key,
@@ -151,9 +200,29 @@ export const searchKind: TabKindDef = {
     };
   },
   render(tab, _active, host) {
-    const contexts = host.contexts;
     const state = searchStateOf(tab);
-    if (contexts === null || state === null) return null;
+    if (state === null) {
+      const search = host.props.source.searchSource;
+      if (search === undefined) return null;
+      const { query, folder } = keywordOf(tab);
+      return (
+        <FileSearch
+          key={tab.key}
+          project={host.projectId}
+          workspace={host.props.source}
+          search={search}
+          initialQuery={query}
+          initialFolder={folder}
+          onOpen={(path, line) => openFileAt(host, path, line)}
+          onState={(next) =>
+            host.patchTab(tab.key, (current) => ({
+              fields: { ...current.fields, ...next },
+            }), { later: true })}
+        />
+      );
+    }
+    const contexts = host.contexts;
+    if (contexts === null) return null;
     return (
       <SearchTab
         key={`${tab.key}:${tab.fields?.nonce ?? 0}`}
@@ -169,13 +238,12 @@ export const searchKind: TabKindDef = {
           }), { later: true })}
         onOpenContext={(context) => openContext(host, context)}
         onOpenDocument={contexts.openPath}
-        onAsk={contexts.askContextEngineer}
       />
     );
   },
   launcher: {
-    labelKey: "contexts.label.rail-search",
-    available: (host) => host.contexts !== null,
+    labelKey: "file-search.label.tab",
+    available: (host) => host.props.source.searchSource !== undefined,
     open: openSearchShortcut,
   },
 };

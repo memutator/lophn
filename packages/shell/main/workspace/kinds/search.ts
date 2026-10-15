@@ -1,5 +1,6 @@
-// search 탭 kind. context 하나의 선언된 검색을 채운 입력으로 연다. 입력은
-// 사람이 채운 조건일 뿐이라 현재 보기에는 넣지 않고 복원 때 검색을 다시 계산한다.
+// search 탭 kind. 두 갈래다. `context`가 있으면 그 context의 선언된 검색을 채운 입력으로 열고,
+// 없으면 project 키워드 검색이다. 입력과 검색어는 사람이 채운 조건일 뿐이라 현재 보기에는 넣지
+// 않고 복원 때 검색을 다시 계산한다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";
@@ -11,7 +12,7 @@ import {
   tabKey,
 } from "./values.ts";
 
-const layout = z.strictObject({
+const declaredLayout = z.strictObject({
   kind: z.literal("search"),
   key: tabKey,
   context: contextId,
@@ -21,17 +22,27 @@ const layout = z.strictObject({
   saved_view: savedViewId.nullable().default(null),
 });
 
+// 키워드 검색. folder는 등록 폴더나 그 하위 폴더의 절대 경로다.
+const keywordLayout = z.strictObject({
+  kind: z.literal("search"),
+  key: tabKey,
+  query: z.string().max(200).default(""),
+  folder: z.string().min(1).max(4096).nullable().default(null),
+});
+
+const layout = z.union([declaredLayout, keywordLayout]);
+
 export type SearchLayout = z.infer<typeof layout>;
 export type SearchHint = {
   kind: "search";
   key: string;
-  context: string;
+  context?: string;
   declared_search?: string;
 };
 export type SearchView = {
   kind: "search";
   key: string;
-  context: string;
+  context?: string;
   declared_search?: string;
   selected: boolean;
 };
@@ -41,6 +52,7 @@ export const searchKind = defineTabKind<SearchLayout, SearchHint, SearchView>({
   layout,
   // context가 없어졌거나 선언된 검색이 계약에서 사라졌으면 이유를 가진 자리표시다.
   async restore(tab, targets) {
+    if (!("context" in tab)) return { kind: "tab", tab };
     if (!(await targets.context(tab.context))) {
       return {
         kind: "placeholder",
@@ -65,6 +77,7 @@ export const searchKind = defineTabKind<SearchLayout, SearchHint, SearchView>({
     return { kind: "tab", tab };
   },
   hint(raw, key) {
+    if (raw.context === undefined) return { kind: "search", key };
     const context = idOf("ctx", raw.context);
     if (context === null) return null;
     const search = raw.declared_search;
@@ -79,12 +92,17 @@ export const searchKind = defineTabKind<SearchLayout, SearchHint, SearchView>({
     };
   },
   scope(hint, reads) {
+    if (hint.context === undefined) return;
     reads.allow("context", hint.context, "contexts", {
       context: hint.context,
     });
   },
   view(hint, selected, ctx) {
-    if (!ctx.refOk(hint.key) || !ctx.refOk(hint.context)) return null;
+    if (!ctx.refOk(hint.key)) return null;
+    if (hint.context === undefined) {
+      return { kind: hint.kind, key: hint.key, selected };
+    }
+    if (!ctx.refOk(hint.context)) return null;
     if (!ctx.scope.allows("context", hint.context)) return null;
     return {
       kind: hint.kind,
@@ -97,7 +115,9 @@ export const searchKind = defineTabKind<SearchLayout, SearchHint, SearchView>({
     };
   },
   describe: (view) =>
-    view.declared_search === undefined
+    view.context === undefined
+      ? "project files"
+      : view.declared_search === undefined
       ? view.context
       : `${view.context} ${view.declared_search}`,
 });

@@ -25,6 +25,8 @@ export const packageVersionSchema = z.object({
   version: packageVersionNameSchema,
   bundle_hash: sha256Schema,
   guide_hash: sha256Schema,
+  // 요구 permission 이름. activation 비교의 added_resources와 같은 이름 규칙이다.
+  permissions: z.array(z.string().min(1)).optional(),
 });
 export type PackageVersion = z.infer<typeof packageVersionSchema>;
 
@@ -35,7 +37,8 @@ export const packageSchema = z.object({
   description: z.string().regex(/\S/).refine((value) => !/[\r\n]/.test(value), {
     message: "description must be a single line",
   }),
-  kind: packageKindSchema,
+  // 새 package는 종류가 없다(null이나 없음). 옛 값만 남는다.
+  kind: packageKindSchema.nullish(),
   versions: z.array(packageVersionSchema).min(1).refine(
     (values) =>
       new Set(values.map((value) => value.version)).size === values.length,

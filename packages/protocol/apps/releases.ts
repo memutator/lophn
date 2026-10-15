@@ -14,6 +14,8 @@ import {
   releaseIdSchema,
 } from "./channel-values.ts";
 import { readyAttestationSchema } from "./runtime.ts";
+import { packageVersionNameSchema } from "./packages.ts";
+import { lossStepSchema } from "./activation/migration.ts";
 
 const MIB = 1024 * 1024;
 
@@ -57,6 +59,8 @@ export const dataChangeSchema = z.object({
   to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   script_hash: sha256Schema,
   description: z.string().min(1),
+  // 단계 파일 머리의 `-- loss:` 선언. release 준비가 읽어 싣는다.
+  loss: z.array(lossStepSchema).optional(),
 }).refine((value) => value.to > value.from, {
   message: "data change to is not after from",
 });
@@ -95,10 +99,16 @@ export const bundleManifestSchema = z.object({
     (files) => new Set(files.map((file) => file.path)).size === files.length,
     { message: "bundle manifest file path is duplicated" },
   ),
+  // 옛 이름. dependencies가 대신한다.
   sdk_dependencies: z.array(z.object({
     name: z.string().min(1),
     version: z.string().min(1),
-  })),
+  })).default([]),
+  dependencies: z.array(z.object({
+    name: z.string().min(1),
+    version: packageVersionNameSchema,
+    source: z.enum(["sdk", "package", "npm", "jsr"]),
+  })).default([]),
 });
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 

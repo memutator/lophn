@@ -4,7 +4,14 @@ import {
   blobReadResultSchema,
   preparedBlobSchema,
 } from "../storage/blob.ts";
-import { defineCommand, defineRead, defineWorker } from "../base/route.ts";
+import {
+  defineCommand,
+  defineMemory,
+  defineRead,
+  defineWorker,
+} from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { relativePathSchema } from "../projects/values.ts";
 import { defineEvent } from "../events/events.ts";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { sha256Schema } from "../base/values.ts";
@@ -25,8 +32,10 @@ export const packageRegisterVersionInputSchema = z.strictObject({
     (value) => !/[\r\n]/.test(value),
     { message: "description must be a single line" },
   ),
-  kind: packageKindSchema,
+  // 새 package는 종류가 없다(null). core의 kind 열이 undefined를 못 받아 optional 대신 null로 둔다.
+  kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
+  permissions: z.array(z.string().min(1)).optional(),
   bundle_hash: z.string().regex(/^[0-9a-f]{64}$/),
   guide_hash: z.string().regex(/^[0-9a-f]{64}$/),
   // 안내 byte를 blob으로 준비한 결과다. 있으면 같은 transaction에서 `package_version/guide` field로
@@ -52,6 +61,42 @@ export const packageRegisterVersion = defineCommand({
   output: packageRegisterVersionOutputSchema,
   actors: ["machine"],
   errors: ["forbidden", "invalid_input", "conflict"],
+});
+
+// App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. commit에서 파일을 읽는 I/O라 memory route이고,
+// core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
+export const packagePublishInputSchema = z.strictObject({
+  app: appIdSchema,
+  name: packageNameSchema.refine((name) => name.startsWith("@me/"), {
+    message: "published package name must be @me/...",
+  }),
+  version: packageVersionNameSchema,
+  description: z.string().regex(/\S/).refine(
+    (value) => !/[\r\n]/.test(value),
+    { message: "description must be a single line" },
+  ),
+  commit: z.string().regex(/^[0-9a-f]{40}$/),
+  // commit 안의 package 폴더.
+  path: relativePathSchema,
+  guide: z.strictObject({
+    purpose: z.string().regex(/\S/),
+    api: z.string().regex(/\S/),
+    examples: z.string().regex(/\S/),
+  }),
+  permissions: z.array(z.string().min(1)),
+  tests: z.array(idSchema("vrf")).min(1),
+  key: idempotencyKeySchema,
+});
+export type PackagePublishInput = z.infer<typeof packagePublishInputSchema>;
+
+export const packagePublish = defineMemory({
+  resource: "packages",
+  method: "publish",
+  name: "package.publish",
+  input: packagePublishInputSchema,
+  output: packageRegisterVersionOutputSchema,
+  actors: ["agent"],
+  errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
@@ -169,6 +214,7 @@ export const packagesUsage = defineRead({
 
 export const PACKAGE_ROUTES = [
   packageRegisterVersion,
+  packagePublish,
   packagesList,
   packagesVersions,
   packagesGuide,
@@ -199,8 +245,9 @@ const packageSubject = z.custom<`pkg_${string}`>(
 
 export const packageVersionRegisteredPayloadSchema = z.object({
   name: packageNameSchema,
-  kind: packageKindSchema,
+  kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
+  permissions: z.array(z.string().min(1)).optional(),
   bundle_hash: sha256Schema,
   guide_hash: sha256Schema,
 });

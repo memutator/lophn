@@ -83,8 +83,9 @@
     "links": {
       "jsr:@lophn/base": {},
       "jsr:@lophn/blueprint@1.0.0": {},
+      "jsr:@lophn/cap-app-api@1.0.0": {},
       "jsr:@lophn/cap-problem@1.0.0": {},
-      "jsr:@lophn/cap-schedule@1.0.0": {},
+      "jsr:@lophn/cap-project@1.0.0": {},
       "jsr:@lophn/chart": {
         "dependencies": [
           "npm:@types/d3-scale@4.0.9",

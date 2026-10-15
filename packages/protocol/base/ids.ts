@@ -52,6 +52,22 @@ export function idSchema<P extends IdPrefix>(prefix: P) {
   return z.string().regex(new RegExp(`^${prefix}_${ULID}$`));
 }
 
+// port와 값 type이 쓰는 id 모양이다. 값 검사는 `idSchema(prefix)`가 한다.
+export type Id<P extends IdPrefix> = `${P}_${string}`;
+
+function isIdPrefix(prefix: string): prefix is IdPrefix {
+  return Object.hasOwn(ID_PREFIXES, prefix);
+}
+
+// 접두사 표의 어느 id든 받는다.
+export const anyIdSchema = z.string().refine(
+  (value) => {
+    const prefix = value.slice(0, value.indexOf("_"));
+    return isIdPrefix(prefix) && idSchema(prefix).safeParse(value).success;
+  },
+  { message: "invalid id" },
+);
+
 export const runIdSchema = idSchema("run");
 
 export type RunId = z.infer<typeof runIdSchema>;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ID_PREFIXES, type IdPrefix, idSchema } from "./ids.ts";
+import { anyIdSchema } from "./ids.ts";
 
 // 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름(domain-model platform/ledger).
 const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;
@@ -10,18 +10,6 @@ export type EventType = z.infer<typeof eventTypeSchema>;
 
 // entity는 ID, 이름 record는 `<종류>:<키>`, lophn 전체 단일 공통 설정만 null.
 const SUBJECT_KEY = /^[a-z][a-z0-9_]*:[A-Za-z0-9_.:-]+$/;
-
-function isIdPrefix(prefix: string): prefix is IdPrefix {
-  return Object.hasOwn(ID_PREFIXES, prefix);
-}
-
-const anyIdSchema = z.string().refine(
-  (value) => {
-    const prefix = value.slice(0, value.indexOf("_"));
-    return isIdPrefix(prefix) && idSchema(prefix).safeParse(value).success;
-  },
-  { message: "invalid subject" },
-);
 
 export const subjectSchema = z.union([
   anyIdSchema,

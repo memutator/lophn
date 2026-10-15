@@ -255,6 +255,22 @@ async function buildSteps(
       commands,
       note: installed ? undefined : "npm ci를 먼저 돌림",
     });
+    const mainTests = lines(
+      await output(["git", "ls-files", `${SHELL_MAIN}/*_test.ts`]),
+    ).map((f) => f.slice(SHELL_MAIN.length + 1));
+    if (mainTests.length > 0) {
+      checks.push({
+        name: "shell main test",
+        cwd: SHELL_MAIN,
+        commands: [[
+          "node",
+          "--test",
+          "--experimental-strip-types",
+          "--no-warnings",
+          ...mainTests,
+        ]],
+      });
+    }
   } else skip("shell main", "shell 쪽이 안 돎");
 
   const testArgs = ["deno", "test", "--no-check"];

@@ -9,6 +9,7 @@ import {
   retentionRules,
 } from "../../../storage/blobs/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
+import { confirmStartup } from "../../../storage/migration/mod.ts";
 import { denoDir, repoRoot } from "../paths.ts";
 import {
   type BlobRead,
@@ -66,6 +67,10 @@ export const storageWiring: WiringFactory = () => {
         ctx.runtime.prunePrepared(ctx.clock.nowMs());
       }, 60_000);
       return Promise.resolve(ok(undefined));
+    },
+    // API가 요청을 받기 시작했고 이번 기동에서 적용한 step이 없으면 정상 기동이다. 이전 복구본을 지운다.
+    async afterReady(ctx) {
+      if (ctx.migrationsApplied === 0) await confirmStartup(ctx.root.path);
     },
     closeWork() {
       if (pruneTimer !== undefined) clearInterval(pruneTimer);

@@ -2,8 +2,10 @@ export {
   type AppliedMigration,
   applyMigrations,
   type MigrationDeps,
+  startFailureReason,
 } from "./migrations.ts";
 export {
+  confirmStartup,
   createRecoveryCopy,
   RECOVERY_STAMP,
   type RecoveryCopy,

@@ -156,6 +156,8 @@ type Late = {
   assembled: Assembled;
   allRoutes: readonly Route[];
   schemaSteps: readonly SchemaStep[];
+  // 이번 기동에서 migration이 적용한 step 수.
+  migrationsApplied: number;
   ledgerId: string;
   epoch: string;
   eventNames: readonly string[];
@@ -191,6 +193,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   assembled: true,
   allRoutes: true,
   schemaSteps: true,
+  migrationsApplied: true,
   ledgerId: true,
   epoch: true,
   eventNames: true,

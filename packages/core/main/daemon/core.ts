@@ -156,6 +156,7 @@ async function open(
     recovery: { root: root.path },
   });
   if (!migrated.ok) return migrated;
+  ctx.provide("migrationsApplied", migrated.value);
   const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
   if (!ledgerId.ok) return ledgerId;
   ctx.provide("ledgerId", ledgerId.value);

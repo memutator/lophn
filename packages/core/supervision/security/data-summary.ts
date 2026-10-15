@@ -1,7 +1,7 @@
 import type { DataEnvelope } from "../../../protocol/base/mod.ts";
 import { dataEnvelope } from "./data-envelope.ts";
 
-// summary·compaction·handoff는 원래 범위·고정 판·출처·data 분류를 유지한다.
+// summary·compaction은 원래 범위·고정 판·출처·data 분류를 유지한다.
 // 분류 없는 문자열은 만들지 않고, 출처가 섞인 결과는 가장 낮은 신뢰인 data다.
 
 export type SummaryOrigin = {
@@ -11,11 +11,6 @@ export type SummaryOrigin = {
 
 // 분류 없이 내보내는 곳이 없다. summary도 data로 감싼다.
 export function summaryEnvelope(text: string, origin: SummaryOrigin) {
-  return dataEnvelope(text, origin);
-}
-
-// handoff도 같은 출처 규칙을 따른다. sender run과 고정 판을 source·revision으로 남긴다.
-export function handoffEnvelope(text: string, origin: SummaryOrigin) {
   return dataEnvelope(text, origin);
 }
 

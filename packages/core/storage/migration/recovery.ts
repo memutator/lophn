@@ -7,14 +7,17 @@ const RECOVERY_LEDGER_PATH = "ledger.db";
 // 복구본 stamp. yyyyMMddThhmmssSSSZ 하나다. colon·slash가 없어 파일 이름이 된다.
 export const RECOVERY_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
 
+// 복구본 폴더. 가장 최근 하나만 둔다.
+export const RECOVERY_DIR = "recovery";
+
 export type RecoveryCopy = {
-  // backups/migrations/s<N>-<stamp>/ledger.db
+  // recovery/s<N>-<stamp>/ledger.db
   path: string;
   schemaVersion: number;
 };
 
 export type RecoveryDeps = {
-  // 데이터 root. 복구본은 <root>/backups/migrations/ 밑에 둔다.
+  // 데이터 root. 복구본은 <root>/recovery/ 밑에 둔다.
   root: string;
   // 변환 전 schema 순번.
   schemaVersion: number;
@@ -57,7 +60,8 @@ export async function createRecoveryCopy(
     });
   }
   const name = recoveryName(deps.schemaVersion, deps.stamp);
-  const directory = `${deps.root}/backups/migrations/${name}`;
+  const recoveryRoot = `${deps.root}/${RECOVERY_DIR}`;
+  const directory = `${recoveryRoot}/${name}`;
   try {
     await Deno.mkdir(directory, { recursive: true, mode: 0o700 });
   } catch {
@@ -132,5 +136,26 @@ export async function createRecoveryCopy(
     }
     return failed;
   }
+  // 새 복구본이 검사까지 통과한 뒤에만 이전 복구본을 지운다.
+  try {
+    for await (const entry of Deno.readDir(recoveryRoot)) {
+      if (entry.name === name) continue;
+      await Deno.remove(`${recoveryRoot}/${entry.name}`, { recursive: true });
+    }
+  } catch {
+    // 이전 복구본이 남아도 새 복구본이 있다. 다음 기동이 다시 정리한다.
+  }
   return ok({ path: copyPath, schemaVersion: deps.schemaVersion });
+}
+
+// 정상 기동(이번 기동에서 적용한 step 0개, API가 요청을 받기 시작함)이 확인되면 복구본을 지운다.
+// 복구본을 만든 그 기동은 부르지 않는다. 없는 폴더는 오류가 아니다.
+export async function confirmStartup(root: string): Promise<void> {
+  try {
+    await Deno.remove(`${root}/${RECOVERY_DIR}`, { recursive: true });
+  } catch (thrown) {
+    if (!(thrown instanceof Deno.errors.NotFound)) {
+      console.error("recovery: 복구본을 지우지 못했다");
+    }
+  }
 }

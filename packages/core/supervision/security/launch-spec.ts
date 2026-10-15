@@ -64,6 +64,9 @@ export function checkLaunchSpec(
   if (grants.some((grant) => UNSAFE_GRANT.test(grant))) {
     return reject("permission entry must be a single item");
   }
+  if (spec.net_any && spec.kind !== "lophn-agent/runtime") {
+    return reject("net_any is only for the agent runtime");
+  }
   for (const host of spec.allow_net) {
     if (host.includes("*") || host.includes(" ")) {
       return reject("allow_net must name a host without a wildcard");
@@ -85,7 +88,8 @@ export function launchArgv(spec: KindLaunchSpec): string[] {
     "--no-prompt",
     ...flag("allow-read", spec.allow_read),
     ...flag("allow-write", spec.allow_write),
-    ...flag("allow-net", spec.allow_net),
+    // net_any는 host 없는 --allow-net이다. agent runtime만 켠다.
+    ...(spec.net_any ? ["--allow-net"] : flag("allow-net", spec.allow_net)),
     ...flag("allow-run", spec.allow_run),
     ...flag("allow-sys", spec.allow_sys),
     ...flag("allow-env", spec.allow_env),

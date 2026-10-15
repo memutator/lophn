@@ -64,6 +64,8 @@ export const secretsWiring: WiringFactory = () => {
       // secret 기능만 unavailable이고 redactor가 막힌 채 재시도한다.
       const opened = await secrets.open();
       if (!opened.ok) console.error("secrets: secret 파일을 열지 못했다");
+      // 다시 뜬 reader는 알려진 값을 모른다. 현재 값을 다시 올린다.
+      ctx.runtime.onReaderRespawn(() => secrets.sync());
       // 옛 keychain 값(runtime.ts의 옛 store)과 파일 값을 모두 안다. 어느 쪽이든 준비되지 않았으면 막는다.
       ctx.provide(
         "knownSecrets",

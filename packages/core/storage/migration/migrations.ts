@@ -1,5 +1,6 @@
-import type { Clock, Result } from "../../../base/mod.ts";
+import type { Clock, LophnError, Result } from "../../../base/mod.ts";
 import { err, ok, sha256Hex } from "../../../base/mod.ts";
+import type { START_FAILURE_REASONS } from "../../../protocol/supervision/mod.ts";
 import type { SchemaStep, Sql } from "../../../protocol/server/mod.ts";
 import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
 import { createRecoveryCopy, recoveryStamp } from "./recovery.ts";
@@ -11,7 +12,7 @@ export type MigrationDeps = {
   // 있을 때 변환 전 schema가 있으면 반드시 만들고 무결성 검사를 통과한 뒤에만
   // 변환을 시작한다. 변환 전 schema 0인 새 설치는 복구본 대상이 없다.
   recovery?: {
-    // 복구본 폴더의 밑. <root>/backups/migrations/ 밑으로 둔다.
+    // 복구본 폴더의 밑. <root>/recovery/ 밑으로 둔다.
     root: string;
   };
 };
@@ -63,36 +64,68 @@ function readRecorded(sql: Sql): Recorded[] {
   }));
 }
 
+type StartFailureReason = (typeof START_FAILURE_REASONS)[number];
+
+// migration이 시작하지 못하는 세 경우를 구별한다. 그 밖은 other다.
+export function startFailureReason(error: LophnError): StartFailureReason {
+  const reason = error.details?.["start_failure"];
+  return reason === "newer_schema" || reason === "history_mismatch" ||
+      reason === "damaged_original"
+    ? reason
+    : "other";
+}
+
+function startFailure(
+  reason: Exclude<StartFailureReason, "other">,
+  message: string,
+): Result<never> {
+  return err({
+    code: "unavailable",
+    message,
+    details: { start_failure: reason },
+  });
+}
+
 // 지원보다 높은 schema·다른 hash·손상은 아무것도 쓰지 않고 거절한다.
 function checkHistory(
   recorded: Recorded[],
   steps: readonly AppliedMigration[],
 ): Result<void> {
   if (recorded.length > steps.length) {
-    return err({
-      code: "unavailable",
-      message: "설치된 schema보다 높은 판이라 정상 시작을 거절한다",
-    });
+    return startFailure(
+      "newer_schema",
+      "설치된 schema보다 높은 판이라 정상 시작을 거절한다",
+    );
   }
   for (const [index, row] of recorded.entries()) {
     const step = steps[index];
     if (
       row.version !== step.version || row.contentHash !== step.contentHash
     ) {
-      return err({
-        code: "unavailable",
-        message: "적용된 schema 내용이 설치본과 달라 정상 시작을 거절한다",
-      });
+      return startFailure(
+        "history_mismatch",
+        "적용된 schema 내용이 설치본과 달라 정상 시작을 거절한다",
+      );
     }
   }
   return ok(undefined);
 }
 
+// 데이터베이스 파일이 아니면 검사 자체가 던진다. 둘 다 손상이다.
+function integrityPassed(connection: LedgerConnection): boolean {
+  try {
+    return connection.integrityOk();
+  } catch {
+    return false;
+  }
+}
+
+// 적용한 step 수를 돌려준다.
 export async function applyMigrations(
   path: string,
   steps: readonly SchemaStep[],
   deps: MigrationDeps,
-): Promise<Result<void>> {
+): Promise<Result<number>> {
   const planned: AppliedMigration[] = [];
   for (const [index, step] of steps.entries()) {
     planned.push({
@@ -101,14 +134,16 @@ export async function applyMigrations(
     });
   }
   const opened = openConnection(path);
-  if (!opened.ok) return opened;
+  if (!opened.ok) {
+    return startFailure("damaged_original", opened.error.message);
+  }
   const connection = opened.value;
   try {
-    if (!connection.integrityOk()) {
-      return err({
-        code: "unavailable",
-        message: "ledger 무결성 검사가 실패해 정상 시작을 거절한다",
-      });
+    if (!integrityPassed(connection)) {
+      return startFailure(
+        "damaged_original",
+        "ledger 무결성 검사가 실패해 정상 시작을 거절한다",
+      );
     }
     const recorded = readRecorded(connection.sql);
     const checked = checkHistory(recorded, planned);
@@ -130,21 +165,22 @@ export async function applyMigrations(
       // 복구본 만들기나 검사가 실패하면 원본을 변환하지 않고 시작을 거절한다.
       if (!recovery.ok) return recovery;
     }
+    const applied = steps.length - recorded.length;
     for (let index = recorded.length; index < steps.length; index++) {
-      const applied = applyStep(
+      const stepped = applyStep(
         connection,
         steps[index],
         planned[index],
         deps.clock,
       );
-      if (!applied.ok) return applied;
+      if (!stepped.ok) return stepped;
     }
     // 완료 뒤 FK·무결성·불변 보호를 검사한다. 실패면 원본이 이미 rollback됐다.
     const verified = verifyMigrated(connection.sql, {
       guarded: guardedTables(steps),
     });
     if (!verified.ok) return verified;
-    return ok(undefined);
+    return ok(applied);
   } finally {
     connection.close();
   }

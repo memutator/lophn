@@ -5,7 +5,6 @@ import {
   screenTestHost,
   TEST_RUNNER_KIND,
 } from "../../../problems/tests/runner.ts";
-import { SECRET_TOOL_PATHS } from "../../../secrets/mod.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import { denoDir, repoRoot } from "../paths.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
@@ -27,8 +26,6 @@ export const supervisionWiring: WiringFactory = () => ({
           ...(Deno.env.get("DENO_DIR")
             ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
             : {}),
-          // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
-          ...(kind === "platform/io" ? sessionBusEnv() : {}),
           // test runner는 자식에 메모리 경계(systemd-run)를 걸 때 같은 session bus를 찾고, 화면 검사 host의 위치를 안다.
           ...(kind === TEST_RUNNER_KIND
             ? {
@@ -103,7 +100,7 @@ function optionalEnv(name: string): string | undefined {
   }
 }
 
-// I/O worker의 secret-tool이 쓰는 session bus 위치. secret 값이 아니다.
+// test runner가 쓰는 session bus 위치. secret 값이 아니다.
 function sessionBusEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const name of ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]) {
@@ -113,9 +110,9 @@ function sessionBusEnv(): Record<string, string> {
   return env;
 }
 
-// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
+// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크와 실행은 열지 않는다.
 // sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측에만 쓴다. node:fs statfs는
-// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
+// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측).
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",
@@ -124,18 +121,9 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_read: [dataRoot, repoRoot(), denoDir()],
     allow_write: [dataRoot],
     allow_net: [],
-    // 보호 입력의 값을 OS keychain에 두는 secret-tool만 실행한다(값은 stdin으로만 간다).
-    allow_run: [...SECRET_TOOL_PATHS],
+    allow_run: [],
     allow_sys: ["statfs"],
-    allow_env: [
-      "LOPHN_HOME",
-      "LOPHN_WORKER_KIND",
-      "HOME",
-      "PATH",
-      // secret-tool이 사람의 session bus를 찾는 데만 읽는다.
-      "DBUS_SESSION_BUS_ADDRESS",
-      "XDG_RUNTIME_DIR",
-    ],
+    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

@@ -65,6 +65,8 @@ export type CoreRuntime = {
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   readers: ReaderPool;
+  // 격리됐다 다시 뜬 reader가 healthy가 된 뒤 부를 함수를 더한다(새 secret store의 sync).
+  onReaderRespawn(hook: () => Promise<unknown>): void;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
   // 요청 자격을 다시 읽는 데 쓴다.
   current(credentialRef: string): Result<RequestContext>;
@@ -156,12 +158,14 @@ export async function openRuntime(input: {
     }
   }
   // 격리됐다 다시 뜬 reader는 알려진 secret 값을 모른다. secret store가 현재 값을 다시 넣는다.
-  const resync: { run?: () => Promise<unknown> } = {};
+  const respawnHooks: (() => Promise<unknown>)[] = [];
   const readers = await createReaderPool(input.ledgerPath, [
     new URL("../../storage/ledger/reader-registration.ts", import.meta.url),
     // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
     ...readerModules,
-  ], { onRespawn: () => resync.run?.() });
+  ], {
+    onRespawn: () => Promise.all(respawnHooks.map((hook) => hook())),
+  });
   if (!readers.ok) {
     await openedWriter.writer.close();
     return readers;
@@ -180,7 +184,7 @@ export async function openRuntime(input: {
       owners: [PROVIDER_SECRET_OWNER],
     },
   });
-  resync.run = () => secretStore.sync();
+  respawnHooks.push(() => secretStore.sync());
   await secretStore.sync();
   // 이전 실행이 지우지 못하고 남긴 provider 값을 쓸어 낸다. 참조 때문에 keychain이 이미 열렸을 때만 쓴다
   // (참조 없는 core는 keychain을 열지 않는다). 기동 중에는 보호 입력이 아직 없어 바로 지운다. 지우지 못해도
@@ -280,6 +284,7 @@ export async function openRuntime(input: {
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
+    onReaderRespawn: (hook) => void respawnHooks.push(hook),
     current: (ref) => currentCredential(input.ledgerPath, ref),
     reads,
     memory,

@@ -19,4 +19,4 @@ export {
   defuseBoundaryMarkers,
   serializeDataEnvelope,
 } from "./data-envelope.ts";
-export { compactedEnvelope, handoffEnvelope } from "./data-summary.ts";
+export { compactedEnvelope } from "./data-summary.ts";

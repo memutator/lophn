@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { defineCommand, defineRead, defineWorker } from "../base/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../events/events.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -221,50 +221,6 @@ export const appLogs = defineRead({
   output: appLogsOutputSchema,
   actors: [...readActors, "machine"],
   errors: readErrors,
-});
-
-// 선언·실행 가능 여부·실제 관측을 구분해 보여 준다.
-export const automationViewSchema = z.object({
-  key: z.string().min(1),
-  declared: z.boolean(),
-  runnable: z.boolean(),
-  observed: z.boolean(),
-  release: releaseIdSchema.nullable(),
-  reason: runtimeReasonSchema.optional(),
-});
-export type AutomationView = z.infer<typeof automationViewSchema>;
-export const appAutomations = defineRead({
-  resource: "apps",
-  method: "automations",
-  name: "app.automations",
-  input: appInputSchema,
-  output: withReadCommon(z.object({
-    app: appIdSchema,
-    automations: z.array(automationViewSchema),
-    observed_at: atSchema.nullable(),
-  })),
-  actors: readActors,
-  errors: readErrors,
-});
-
-// 단독 data worker가 준비한다. 준비 중·완성·실패를 구별한다.
-export const EXPORT_STATES = ["preparing", "ready", "failed"] as const;
-export const appExport = defineWorker({
-  resource: "apps",
-  method: "export",
-  name: "app.export",
-  input: appInputSchema,
-  output: z.object({
-    app: appIdSchema,
-    state: z.enum(EXPORT_STATES),
-    reason: runtimeReasonSchema.optional(),
-    includes_external_data: z.boolean(),
-  }).refine(
-    (value) => value.state !== "failed" || value.reason !== undefined,
-    { message: "failed export needs a reason" },
-  ),
-  actors: ["user"],
-  errors: ["invalid_input", "not_found", "unavailable"],
 });
 
 export const appExecutionEnabled = defineEvent("AppExecutionEnabled", {

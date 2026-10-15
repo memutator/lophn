@@ -1,11 +1,10 @@
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import type {
-  ToolAttempt,
+  Pause,
   ToolCallRequest,
   ToolDone,
   ToolInfo,
   ToolPort,
-  WaitTarget,
 } from "./ports.ts";
 import {
   TOOL_RETRY_MAX,
@@ -14,7 +13,7 @@ import {
   toolRetryDelayMs,
 } from "./retry.ts";
 
-// 한 model 응답의 tool 묶음 처리(concern lophn-agent/harness/run-loop).
+// 한 model 응답의 tool 묶음 처리.
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
 
@@ -37,8 +36,6 @@ export type CallResult = {
 
 export type BatchOutcome = {
   results: CallResult[];
-  // 사람의 결정을 기다리는 call. 있으면 run은 그 결정 전까지 진행하지 않는다.
-  waiting: WaitTarget | null;
 };
 
 // 새 진입을 막아야 하는 이유(미실행 code). 없으면 null이다.
@@ -54,20 +51,16 @@ export type BatchControl = {
   wait(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
   random(): number;
   graceMs: number;
-  // 이미 확정한 call의 결과(요청 key). 다시 부르지 않고 그대로 쓴다.
-  confirmed?: ReadonlyMap<string, CallResult>;
-  // 진입이 이미 기록된 call(요청 key → ToolCall ID). 판정 없이 실행만 한다.
-  started?: ReadonlyMap<string, string>;
+  // 사람의 결정을 기다리는 동안 시간을 세지 않게 한다.
+  pause: Pause;
 };
 
 const REASON_TEXT: Readonly<Record<string, string>> = {
   stopped: "The person stopped this work before the call started.",
   superseded: "A new instruction arrived before the call started.",
-  limit_reached: "A run limit was reached before the call started.",
+  limit_reached: "A turn limit was reached before the call started.",
   configuration_revoked:
     "The provider or connection was turned off before the call started.",
-  waiting_for_decision:
-    "An earlier call is waiting for a person's decision, so this call did not start.",
   earlier_call_failed:
     "An earlier call did not complete, so this call did not start.",
 };
@@ -176,7 +169,6 @@ export async function runToolBatch(
   });
   const infos = requests.map((request) => control.tools.info(request.name));
   const valid = calls.map((call) => parseToolArgs(call.args).ok);
-  const hold: { waiting: BatchOutcome["waiting"] } = { waiting: null };
 
   async function notExecuted(
     request: ToolCallRequest,
@@ -195,16 +187,12 @@ export async function runToolBatch(
     info: ToolInfo,
   ): Promise<CallResult> {
     let entries = 0;
-    const resumedCall = control.started?.get(request.key);
-    async function once(next: ToolCallRequest): Promise<ToolAttempt | null> {
+    async function once(next: ToolCallRequest): Promise<ToolDone | null> {
       entries += 1;
       const link = control.signalFor(info.server);
       try {
-        const run = resumedCall !== undefined && next.attempt === 0
-          ? control.tools.resume(next, resumedCall, link.signal)
-          : control.tools.attempt(next, link.signal);
         const settled = await awaitAbortable(
-          run,
+          control.tools.attempt(next, link.signal, control.pause),
           link.signal,
           control,
         );
@@ -233,8 +221,8 @@ export async function runToolBatch(
     if (current === null) return unconfirmed();
     let retries = 0;
     while (
-      current.kind === "done" && toolMayRetry(info) &&
-      toolFailureRetryable(current) && retries < TOOL_RETRY_MAX
+      toolMayRetry(info) && toolFailureRetryable(current) &&
+      retries < TOOL_RETRY_MAX
     ) {
       // 다음 진입 전에 대기와 멈춤·새 입력·한도를 다시 본다. 매 진입은 판정을 다시 한다.
       const link = control.signalFor(info.server);
@@ -257,41 +245,14 @@ export async function runToolBatch(
       if (next === null) return unconfirmed();
       current = next;
     }
-    if (current.kind === "waiting") {
-      hold.waiting = {
-        tool_call: current.tool_call,
-        approval: current.approval,
-      };
-      return {
-        key: request.key,
-        order: request.order,
-        name: request.name,
-        input: request.input,
-        tool_call: current.tool_call,
-        status: "not_executed",
-        code: "waiting_for_decision",
-        result: current.result,
-        entries,
-      };
-    }
-    if (current.asked !== undefined) {
-      // 질문을 만든 call은 끝났지만 run은 그 질문의 답 전까지 진행하지 않는다.
-      hold.waiting = { tool_call: current.tool_call, question: current.asked };
-    }
     return toResult(request, current, entries);
   }
 
   // 시작 직전에 멈춤·한도·설정 회수·새 입력을 다시 본다. 막히면 미실행이다.
-  async function one(index: number, hold_: string | null): Promise<CallResult> {
+  async function one(index: number, held: string | null): Promise<CallResult> {
     const request = requests[index];
     const info = infos[index];
-    const prior = control.confirmed?.get(request.key);
-    if (prior !== undefined) return prior;
-    // 진입이 이미 기록된 call은 허락과 판정을 마쳤다. 새 진입 검사 없이 실행만 한다.
-    if (info !== undefined && control.started?.has(request.key)) {
-      return await entered(request, info);
-    }
-    const blocked = (await control.gate(info?.server ?? null)) ?? hold_;
+    const blocked = (await control.gate(info?.server ?? null)) ?? held;
     if (blocked !== null) return await notExecuted(request, blocked);
     if (info === undefined) {
       return toResult(
@@ -325,7 +286,7 @@ export async function runToolBatch(
     const results = await Promise.all(
       requests.map((_, index) => one(index, null)),
     );
-    return { results, waiting: hold.waiting };
+    return { results };
   }
 
   const results: CallResult[] = [];
@@ -333,10 +294,6 @@ export async function runToolBatch(
   for (let index = 0; index < requests.length; index++) {
     const result = await one(index, skip);
     results.push(result);
-    if (hold.waiting !== null) {
-      skip = "waiting_for_decision";
-      continue;
-    }
     // 쓰기·external이 거절되거나 최종 실패·불명확이면 나머지는 시작하지 않는다. 읽기와 없는 tool의
     // 실패는 뒤 동작을 막지 않는다.
     const effect = infos[index]?.effect;
@@ -348,5 +305,5 @@ export async function runToolBatch(
       skip = "earlier_call_failed";
     }
   }
-  return { results, waiting: hold.waiting };
+  return { results };
 }

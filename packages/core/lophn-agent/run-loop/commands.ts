@@ -21,12 +21,14 @@ import {
 import type { Id } from "../../../protocol/base/ids.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
-  effectiveRunLimits,
-  RUN_LIMIT_SETTING_KEYS,
-  type RunLimits,
+  effectiveTurnLimits,
+  TURN_LIMIT_SETTING_KEYS,
+  type TurnLimits,
 } from "./limits.ts";
+import { publishTurnEnded } from "./turn-events.ts";
 import { loadTurn, type TurnRow } from "./model.ts";
 import type { CallSignals } from "./ports.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기. 짧은 transaction 하나다. 실패하면 이전 판
 // 전체가 유지된다. finished 행은 trigger도 다시 못 바꾼다.
@@ -59,22 +61,24 @@ export type TurnCommandDeps = {
   hasUnappliedSteering?: (tx: Tx, turn: string) => boolean;
   // StartTurn이 고정할 한도. 없으면 같은 Tx의 공통 설정 선택(setting_choices)에서 읽는다. 호출자가
   // 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
-  runLimits?: (tx: Tx) => Result<RunLimits>;
+  turnLimits?: (tx: Tx) => Result<TurnLimits>;
+  // turn이 시작하고 끝날 때 `TurnStarted`·`TurnEnded`를 Bus로 낸다. 없으면 버린다.
+  publish?: (event: AgentEvent) => void;
   // 시작한 입력이 Router의 call이면 그 call을 가져갔다고 알린다.
   calls?: CallSignals;
 };
 
 // 공통 설정의 저장 선택과 내장 기본값으로 다음 turn의 한도를 정한다. 설정 표를 읽지 못하면 한도를
 // 알 수 없으므로 시작하지 않는다(안전하게 닫는다).
-function settingsRunLimits(tx: Tx): Result<RunLimits> {
-  const keys = Object.values(RUN_LIMIT_SETTING_KEYS);
+function settingsTurnLimits(tx: Tx): Result<TurnLimits> {
+  const keys = Object.values(TURN_LIMIT_SETTING_KEYS);
   try {
     const rows = tx.sql.all(
       `select key, value from setting_choices
        where layer = 'common' and key in (${keys.map(() => "?").join(", ")})`,
       keys,
     );
-    return effectiveRunLimits(
+    return effectiveTurnLimits(
       rows.map((row) => ({
         key: String(row["key"]),
         value: JSON.parse(String(row["value"])) as unknown,
@@ -191,7 +195,7 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           return reject("conflict", "the input message already started a turn");
         }
         // 한도는 현재 설정이 정한다. machine이 보낸 값을 그대로 받지 않는다.
-        const limits = (deps.runLimits ?? settingsRunLimits)(tx);
+        const limits = (deps.turnLimits ?? settingsTurnLimits)(tx);
         if (!limits.ok) {
           return err({
             code: "unavailable",
@@ -265,6 +269,12 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           );
           if (!consumed.ok) return consumed;
         }
+        deps.publish?.({
+          session: input.session,
+          type: "TurnStarted",
+          at: startedAt,
+          payload: { turn: input.id, input_message: input.input_message },
+        } as AgentEvent);
         return ok({
           id: input.id,
           state: "running" as const,
@@ -334,6 +344,7 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         }
         const done = finishRow(tx, row, outcome, input.result, null, null);
         if (!done.ok) return done;
+        publishTurnEnded(tx, deps.publish, row, outcome);
         if (input.result_size !== undefined) {
           const registered = registerPreparedBlob(tx, ctx, {
             owner_kind: "turn",
@@ -396,6 +407,7 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           input.request_key,
         );
         if (!done.ok) return done;
+        publishTurnEnded(tx, deps.publish, row, outcome as never);
         return ok({
           id: row.id,
           state: "finished" as const,
@@ -409,8 +421,3 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
     },
   };
 }
-
-// 옛 이름. 다른 단위가 import하는 동안 남긴다.
-export const createRunCommands = createTurnCommands;
-export type RunLoopDeps = TurnCommandDeps;
-export const runBodyFields = turnBodyFields;

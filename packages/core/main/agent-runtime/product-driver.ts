@@ -15,8 +15,9 @@ import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
 import { createMcpToolkit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
 import {
-  createRunPreparer,
+  createTurnPreparer,
   type Toolkit,
+  type TurnPreparer,
 } from "../../lophn-agent/run-loop/prepare.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 import {
@@ -29,14 +30,13 @@ import {
   rolePrompt,
 } from "../../lophn-agent/roles/prompts.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
-import type { RunDriver } from "../../lophn-agent/run-loop/driver.ts";
-import type { DriveDeps } from "../../lophn-agent/run-loop/driver.ts";
-import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
+import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
   productSkillStores,
   registeredSkillEntries,
 } from "../../lophn-agent/extensions/skill-folders.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
+import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
 // 읽는 `builtinBinding`)과 외부 MCP 등록 통로를 한 곳에서 낸다. 시험도 같은 묶음을 쓴다.
@@ -55,18 +55,13 @@ export function productToolkit(options: {
   };
 }
 
-// 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
-// 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증, 등록 skill 폴더)을 만든다. 아래는 소유
-// 작업이 채울 자리라 비어 있다: 쓰기·external tool의 결과 조회(`lookups`).
+// 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, 역할 prompt, model
+// 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`)과 agent
+// event를 core Bus로 보내는 길(`events`). 지금은 닫힌 연결과 버리는 sink가 들어 있다.
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
-  ):
-    & Pick<
-      DriveDeps,
-      "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
-    >
-    & { compactor: Compactor } => {
+  ): { preparer: TurnPreparer; compactor: Compactor } => {
     const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
     const resolveModel = createModelResolver({
       machine: calls.machine,
@@ -89,7 +84,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       machine: calls.machine,
       connections: mcpConnectionsDeps(calls.secrets),
     });
-    const prepared = createRunPreparer({
+    const preparer = createTurnPreparer({
       clock: systemClock,
       ids,
       machine: calls.machine,
@@ -100,27 +95,30 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         machine: calls.machine,
         ids,
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
-        mcp: (assignment: string) => mcpKit.toolkit(assignment),
+        mcp: (session: string) => mcpKit.toolkit(session),
       }),
-      // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회.
-      apps: createAppToolkit({ machine: calls.machine }),
+      toolPorts: () => UNWIRED_TOOL_PORTS,
+      events: { publish: () => {} },
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {
-        // run 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 run마다 연다.
+        // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
           read: () =>
             Promise.resolve(
-              err({ code: "unavailable", message: "no run for instructions" }),
+              err({
+                code: "unavailable",
+                message: "no turn for instructions",
+              }),
             ),
         },
         redact: calls.redact,
       },
-      // LOPHN.md와 agent 정의 본문은 core의 ReadInstructionFile로 그 run의 이름으로 매 call 직전에 읽는다.
-      // core가 run의 작업 자리로 어느 파일인지 정한다.
-      instructionFilesFor: (run) =>
+      // LOPHN.md와 agent 정의 본문은 core의 ReadInstructionFile로 그 turn의 이름으로 매 call 직전에 읽는다.
+      // core가 turn의 작업 자리로 어느 파일인지 정한다.
+      instructionFilesFor: (turn) =>
         instructionFilesOverCore(
-          run,
+          turn,
           (input) => readOf(calls.machine, instructionRead, input),
         ),
       redact: calls.redact,
@@ -137,14 +135,12 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       redact: calls.redact,
       resolveModel,
     });
-    return { ...prepared, compactor };
+    return { preparer, compactor };
   };
 }
 
-// 접수된 run을 계속 시작한다(selector → beginRun → loop → end). 시작할 run이 없으면 쉬고, 사람의 결정을
-// 기다리는 run은 같은 길로 이어 간다. 쉬는 동안에도 core read로만 본다.
+// 입력함의 turn을 계속 시작한다(source → preparer → StartTurn → loop → end). 시작할 turn이 없으면 쉰다.
 export const PUMP_IDLE_MS = 500;
-export const PUMP_WAITING_MS = 2_000;
 
 // 제품 MCP 연결 눈이다. 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
@@ -177,21 +173,17 @@ export function mcpConnectionsDeps(
   };
 }
 
-export function startRunPump(options: {
-  driver: RunDriver;
-  liveRuns?: DriveDeps["liveRuns"];
-  // 사람이 요청한 Compact와 "Summarize from here"의 요약을 한 번에 하나씩 끝낸다. run을 시작하는 길과 따로 돈다.
+export function startTurnPump(options: {
+  driver: TurnDriver;
+  // 사람이 요청한 Compact와 "Summarize from here"의 요약을 한 번에 하나씩 끝낸다. turn을 시작하는 길과 따로 돈다.
   compactor?: Compactor;
-  // Disconnect한 provider로 진행 중인 run을 멈추게 하는 알림을 매 주기 훑는다.
+  // Disconnect한 provider로 진행 중인 turn을 멈추게 하는 알림을 매 주기 훑는다.
   providerWatch?: Pick<ProviderWatch, "poll">;
   signal: AbortSignal;
   idleMs?: number;
-  waitingMs?: number;
 }): Promise<void> {
   const idleMs = options.idleMs ?? PUMP_IDLE_MS;
-  const waitingMs = options.waitingMs ?? PUMP_WAITING_MS;
   return (async () => {
-    let lastWaiting = 0;
     while (!options.signal.aborted) {
       let started = false;
       try {
@@ -202,20 +194,6 @@ export function startRunPump(options: {
       try {
         const next = await options.driver.startNext();
         started = next.kind === "started" || next.kind === "not_started";
-        if (
-          options.liveRuns !== undefined &&
-          Date.now() - lastWaiting >= waitingMs
-        ) {
-          lastWaiting = Date.now();
-          const live = await options.liveRuns();
-          if (live.ok) {
-            for (const entry of live.value) {
-              if (entry.state === "waiting_user") {
-                void options.driver.resume(entry.run).catch(() => {});
-              }
-            }
-          }
-        }
       } catch {
         // 한 번의 실패가 pump를 끝내지 않는다. 다음 주기에 다시 본다.
       }

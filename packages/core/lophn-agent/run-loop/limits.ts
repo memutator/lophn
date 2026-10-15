@@ -7,76 +7,71 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import {
-  DEFAULT_RUN_LIMITS,
-  type RunElapsed,
-  runLimitsSchema,
+  DEFAULT_TURN_LIMITS,
+  type TurnElapsed,
+  turnLimitsSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { EffectiveSetting } from "../../../protocol/config/mod.ts";
 import type { z } from "zod";
 
-export type RunLimits = z.infer<typeof runLimitsSchema>;
+export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
-// run 한도(concern lophn-agent/harness/run-loop). 한도 값은 공통
-// 설정이고 시작 때 run에 고정된다(runs_started_immutable). 이 파일은 시간·횟수를
-// 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
+// turn 한도. 한도 값은 공통 설정이고 시작 때 turn에 고정된다(turns_started_immutable). 이 파일은
+// 시간·횟수를 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
 
 // 공통 설정 key. 정의(SettingDefinition) 등록은 packages/core/lophn-agent/register.ts가 한다.
-export const RUN_LIMIT_SETTING_KEYS = {
+export const TURN_LIMIT_SETTING_KEYS = {
   model_attempts: "lophn-agent.run.model_attempts",
   stall_ms: "lophn-agent.run.stall_ms",
   active_ms: "lophn-agent.run.active_ms",
 } as const;
 
-export type RunLimitKey = keyof typeof RUN_LIMIT_SETTING_KEYS;
+export type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
 
-// 다음 run을 시작할 한도. 적용값이 없거나 양의 정수가 아니면 기본값으로 몰래 대신하지
-// 않고 거절한다(0·무제한 금지). 호출자는 이를 configuration_unavailable로 닫는다.
-export function resolveRunLimits(
+// 다음 turn을 시작할 한도. 적용값이 비어 있으면 내장 기본값이다(필수 선택이 아니므로 turn 시작을 막지
+// 않는다). 값이 있는데 양의 정수가 아니면 기본값으로 대신하지 않고 거절한다(0·무제한 금지).
+export function resolveTurnLimits(
   settings: readonly EffectiveSetting[],
-): Result<RunLimits> {
+): Result<TurnLimits> {
   const picked: Record<string, unknown> = {};
-  for (const key of Object.keys(RUN_LIMIT_SETTING_KEYS) as RunLimitKey[]) {
+  for (const key of Object.keys(TURN_LIMIT_SETTING_KEYS) as TurnLimitKey[]) {
     const setting = settings.find((item) =>
-      item.key === RUN_LIMIT_SETTING_KEYS[key]
+      item.key === TURN_LIMIT_SETTING_KEYS[key]
     );
-    if (setting === undefined || !setting.resolved) {
-      return err({
-        code: "unavailable",
-        message: "run limit setting is not resolved",
-      });
-    }
-    picked[key] = setting.value;
+    picked[key] = setting === undefined || !setting.resolved
+      ? DEFAULT_TURN_LIMITS[key]
+      : setting.value;
   }
-  const parsed = runLimitsSchema.safeParse(picked);
+  const parsed = turnLimitsSchema.safeParse(picked);
   if (!parsed.success) {
     return err({
       code: "invalid_input",
-      message: "run limits are positive integers only",
+      message: "turn limits are positive integers only",
     });
   }
   return ok(parsed.data);
 }
 
-// 저장된 공통 선택(setting_choices)에서 다음 run의 한도를 계산한다. 선택이 없는 항목은
-// 내장 기본값이다(정의의 기본값과 같은 DEFAULT_RUN_LIMITS). 저장값이 양의 정수가
+// 저장된 공통 선택(setting_choices)에서 다음 turn의 한도를 계산한다. 선택이 없는 항목은
+// 내장 기본값이다(정의의 기본값과 같은 DEFAULT_TURN_LIMITS). 저장값이 양의 정수가
 // 아니면 기본값으로 대신하지 않고 거절한다.
-export function effectiveRunLimits(
+export function effectiveTurnLimits(
   choices: readonly { key: string; value: unknown }[],
-): Result<RunLimits> {
+): Result<TurnLimits> {
   const picked: Record<string, unknown> = {};
-  for (const name of Object.keys(RUN_LIMIT_SETTING_KEYS) as RunLimitKey[]) {
+  for (const name of Object.keys(TURN_LIMIT_SETTING_KEYS) as TurnLimitKey[]) {
     const choice = choices.find((item) =>
-      item.key === RUN_LIMIT_SETTING_KEYS[name]
+      item.key === TURN_LIMIT_SETTING_KEYS[name]
     );
     picked[name] = choice === undefined
-      ? DEFAULT_RUN_LIMITS[name]
+      ? DEFAULT_TURN_LIMITS[name]
       : choice.value;
   }
-  const parsed = runLimitsSchema.safeParse(picked);
+  const parsed = turnLimitsSchema.safeParse(picked);
   if (!parsed.success) {
     return err({
       code: "invalid_input",
-      message: "run limits are positive integers only",
+      message: "turn limits are positive integers only",
     });
   }
   return ok(parsed.data);
@@ -93,24 +88,22 @@ export type ModelPurpose = "judgment" | "organizing" | "finalizing";
 // 무진행 시간은 되돌리지 않는다.
 export type AttemptEnd = "complete" | "partial" | "failed" | "cancelled";
 
-export type RunLimiterInit = {
-  limits: RunLimits;
-  // 마지막 CheckpointRun 값. 재시작·retry는 이 값에서 이어 센다.
-  elapsed: RunElapsed;
+export type TurnLimiterInit = {
+  limits: TurnLimits;
+  // 마지막 CheckpointTurn 값.
+  elapsed: TurnElapsed;
   // 지금까지 센 model 시도. ledger의 ModelCall 수에서 읽는다. 실패·retry 포함.
   attempts: number;
   // 단조 ms. 사람이 기다리는 동안에도 흐르지만 그 구간은 세지 않는다.
   nowMs: () => number;
-  // true면 waiting_user 상태로 이어 시작한다.
-  waiting?: boolean;
 };
 
 export type AttemptStart =
   | { allowed: true; attempt: number }
   | { allowed: false; limit: LimitReason };
 
-export class RunLimiter {
-  #limits: RunLimits;
+export class TurnLimiter {
+  #limits: TurnLimits;
   #nowMs: () => number;
   #active: number;
   #stall: number;
@@ -119,13 +112,13 @@ export class RunLimiter {
   #mark: number | null;
   #tripped: LimitReason | null = null;
 
-  constructor(init: RunLimiterInit) {
+  constructor(init: TurnLimiterInit) {
     this.#limits = { ...init.limits };
     this.#nowMs = init.nowMs;
     this.#active = init.elapsed.active_ms;
     this.#stall = init.elapsed.stall_ms;
     this.#attempts = init.attempts;
-    this.#mark = init.waiting === true ? null : init.nowMs();
+    this.#mark = init.nowMs();
   }
 
   get attempts(): number {
@@ -210,8 +203,8 @@ export class RunLimiter {
     );
   }
 
-  // CheckpointRun 입력. 단조 누적값이다.
-  snapshot(): RunElapsed {
+  // CheckpointTurn 입력. 단조 누적값이다.
+  snapshot(): TurnElapsed {
     this.#measure();
     return {
       active_ms: Math.floor(this.#active),
@@ -227,7 +220,7 @@ export type GuardedCall<T> =
 
 // model 호출의 유일한 문. 한도에 닿은 뒤에는 purpose와 관계없이 호출하지 않는다.
 export async function callWithinLimits<T>(
-  limiter: RunLimiter,
+  limiter: TurnLimiter,
   purpose: ModelPurpose,
   call: () => Promise<T>,
 ): Promise<GuardedCall<T>> {
@@ -252,15 +245,15 @@ export type LimitResult = {
 };
 
 export function limitResult(input: {
-  run: string;
+  turn: string;
   reason: LimitReason;
-  elapsed: RunElapsed;
+  elapsed: TurnElapsed;
   attempts: number;
-  limits: RunLimits;
+  limits: TurnLimits;
   confirmed: ConfirmedFacts;
 }): LimitResult {
   const facts = {
-    run: input.run,
+    turn: input.turn,
     outcome: { kind: "failed", reason: input.reason },
     attempts: input.attempts,
     limits: input.limits,

@@ -16,7 +16,7 @@ import {
   sessionMaterial,
   shrinkMaterial,
   skillInstructionText,
-  type TurnContext,
+  type TurnContext as ViewContext,
   type TurnContextView,
 } from "../prompt-assembly/mod.ts";
 import { historyResultPart } from "./history.ts";
@@ -25,7 +25,7 @@ import {
   type ConfirmedFacts,
   type LimitReason,
   limitResult,
-  type RunLimiter,
+  type TurnLimiter,
 } from "./limits.ts";
 import type {
   FinishRequest,
@@ -34,11 +34,11 @@ import type {
   LoopFailureReason,
   ModelAttempt,
   ModelCallRequest,
+  Pause,
   PendingInputs,
-  ResumeState,
-  RunContext,
-  RunInput,
   StopReason,
+  TurnContext,
+  TurnInput,
 } from "./ports.ts";
 import { inputText } from "./input-text.ts";
 import {
@@ -55,14 +55,16 @@ import {
   runToolBatch,
 } from "./tool-batch.ts";
 
-// turn 하나(concern lophn-agent/harness/run-loop). 순서는 멈춤 확인 → 접수 입력
+// turn 하나. 순서는 멈춤 확인 → 접수 입력
 // 선택 → 한도 검사 → prompt 조립 → 조립 뒤 입력·멈춤 재확인 → model call 하나(완전 응답 확인) →
 // tool 묶음 → 결과 기록 → 계속·종료 판정이다. 판단은 model이 하고 이 순서와 확인은 machine이 한다.
 
 export type LoopState = {
   deps: LoopDeps;
-  input: RunInput;
-  limiter: RunLimiter;
+  input: TurnInput;
+  limiter: TurnLimiter;
+  // 사람의 결정을 기다리는 동안 turn의 시간을 세지 않는다.
+  pause: Pause;
   // 멈춤·설정 회수 때 모든 진행 호출에 중단을 요청하는 신호.
   control: AbortController;
   flags: {
@@ -78,11 +80,6 @@ export type LoopState = {
     changes: string[];
     unexecuted: string[];
     unknown_effects: string[];
-  };
-  // 복구·결정 뒤 재개일 때 첫 turn 하나가 쓰는 재료. 쓰고 나면 비운다.
-  resume: {
-    pending: NonNullable<ResumeState["pending"]> | null;
-    retry: ResumeState["retry"];
   };
 };
 
@@ -145,7 +142,7 @@ async function finishWith(
     return endWith({ kind: "finished", outcome });
   }
   if (finished.ok) return continueTurn;
-  // 사람이 먼저 멈춰 run이 이미 끝났을 수 있다. 그때는 멈춤이 확정 사실이다.
+  // 사람이 먼저 멈춰 turn이 이미 끝났을 수 있다. 그때는 멈춤이 확정 사실이다.
   const reason = await stopped(state);
   if (reason !== null) return stoppedEnd(reason);
   return endWith({ kind: "finish_failed", outcome, error: finished.error });
@@ -164,7 +161,7 @@ async function limitEnd(
 ): Promise<TurnResult> {
   const facts = await confirmedFacts(state);
   const result = limitResult({
-    run: state.input.run,
+    turn: state.input.turn,
     reason,
     elapsed: state.limiter.snapshot(),
     attempts: state.limiter.attempts,
@@ -197,8 +194,8 @@ const MAX_VIEW_PAGES = 64;
 
 async function gatherView(
   state: LoopState,
-  context: RunContext,
-): Promise<TurnContext> {
+  context: TurnContext,
+): Promise<ViewContext> {
   const { deps } = state;
   const input = {
     collected_at: deps.clock.now(),
@@ -206,19 +203,12 @@ async function gatherView(
   };
   const redact = { redact: deps.instructions.redact };
   const session = state.input.session;
-  if (session === null) {
-    return await buildTurnContext(redact, {
-      ...input,
-      view: { availability: "no_session" },
-      tabs: [],
-    });
-  }
   async function read(page?: number): Promise<Result<WorkspaceReadOutput>> {
     return await deps.ports.view(
-      page === undefined ? { session: session! } : { session: session!, page },
+      page === undefined ? { session } : { session, page },
     );
   }
-  const failed = (): Promise<TurnContext> =>
+  const failed = (): Promise<ViewContext> =>
     buildTurnContext(redact, {
       ...input,
       view: { availability: "collect_failed" } satisfies TurnContextView,
@@ -297,13 +287,17 @@ async function prepare(
       work: context.work,
       material: {
         purpose: context.purpose,
-        run_facts: context.run_facts,
+        run_facts: context.turn_facts,
         compact_summary: conversation.compact_summary,
         materials: material.materials,
         compaction_summary: null,
         history: [...conversation.history, ...state.history],
         request: inputs.request,
-        steering: inputs.steering.map((item) => inputText(item.input)),
+        // 대화 끝에 붙는 notice가 steer 뒤에 온다.
+        steering: [
+          ...inputs.steering.map((item) => inputText(item.input)),
+          ...context.notices,
+        ],
       },
       turn_context: turn.text,
       evidence: {
@@ -387,36 +381,6 @@ async function callModel(
     .body as Record<string, unknown>;
   let previous: string | null = null;
   let retries = 0;
-  // 재시작 뒤 retry 대기를 잇는다. 예정 시각은 처음부터 다시 재지 않고 남은 간격만 기다리며 쓴 횟수는
-  // 그대로다.
-  const resumed = state.resume.retry;
-  state.resume.retry = null;
-  if (resumed !== null) {
-    previous = resumed.previous;
-    retries = resumed.retries;
-    if (retries >= MODEL_RETRY_MAX) {
-      // 재시도를 다 쓴 실패다. 한도를 새로 주지 않고 같은 이유로 끝낸다.
-      return { kind: "end", end: await failWith(state, "model_error") };
-    }
-    const at = resumed.retry_at === null ? null : Date.parse(resumed.retry_at);
-    const remaining = at === null || Number.isNaN(at)
-      ? 0
-      : Math.max(0, at - Date.parse(deps.clock.now()));
-    if (remaining > 0) {
-      const how = await deps.wait(remaining, state.control.signal);
-      if (how === "aborted") {
-        return { kind: "end", end: await abortEnd(state) };
-      }
-    }
-    const reason = await stopped(state);
-    if (reason !== null) return { kind: "end", end: stoppedEnd(reason) };
-    if (!(await deps.ports.model.available()) || state.flags.providerRevoked) {
-      return {
-        kind: "end",
-        end: await failWith(state, "configuration_unavailable"),
-      };
-    }
-  }
   for (;;) {
     const request: ModelCallRequest = {
       assembly: prepared.assembly,
@@ -528,13 +492,6 @@ function appendUser(state: LoopState, parts: HistoryPart[]): void {
   } else state.history.push({ role: "user", parts });
 }
 
-async function resultPart(
-  state: LoopState,
-  result: CallResult,
-): Promise<HistoryPart> {
-  return await historyResultPart(state.deps.clock.now(), result);
-}
-
 function record(state: LoopState, results: readonly CallResult[]): void {
   const { facts } = state;
   for (const result of results) {
@@ -558,12 +515,6 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   // 1. 멈춤 확인
   const reason = await stopped(state);
   if (reason !== null) return stoppedEnd(reason);
-  // 복구·결정 뒤 재개: 이미 받은 완전한 응답의 남은 일부터 잇는다. model을 다시 부르지 않는다.
-  const pending = state.resume.pending;
-  if (pending !== null) {
-    state.resume.pending = null;
-    return await afterModel(state, pending.attempt, new Set(), pending);
-  }
   // 2. 접수 입력 선택
   const picked = await ports.inputs();
   if (!picked.ok) return await failWith(state, "configuration_unavailable");
@@ -603,17 +554,14 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
     state,
     attempt,
     new Set(prepared.inputs.steering.map((item) => item.id)),
-    null,
   );
 }
 
-// 완전한 응답 하나를 처리한다: 답이면 기록·종료 판정, tool이면 묶음 실행·결과 기록. resumed가 있으면
-// 이미 확정한 결과는 다시 부르지 않는다.
+// 완전한 응답 하나를 처리한다: 답이면 기록·종료 판정, tool이면 묶음 실행·결과 기록.
 async function afterModel(
   state: LoopState,
   attempt: ModelAttempt,
   applied: ReadonlySet<string>,
-  resumed: ResumeState["pending"],
 ): Promise<TurnResult> {
   const { deps, limiter } = state;
   const ports = deps.ports;
@@ -643,10 +591,7 @@ async function afterModel(
     wait: deps.wait,
     random: deps.random,
     graceMs: deps.abortGraceMs ?? 5000,
-    ...(resumed === null ? {} : {
-      confirmed: new Map(resumed.confirmed.map((item) => [item.key, item])),
-      started: new Map(Object.entries(resumed.started)),
-    }),
+    pause: state.pause,
   };
   const batch = await runToolBatch(control, attempt.toolCalls);
   // 8. 결과 영속 기록은 call마다 끝났다. 이력과 사실을 잇는다.
@@ -665,21 +610,14 @@ async function afterModel(
   state.history.push({ role: "assistant", parts });
   const answers: HistoryPart[] = [];
   for (const result of batch.results) {
-    answers.push(await resultPart(state, result));
+    answers.push(historyResultPart(result));
   }
   state.history.push({ role: "user", parts: answers });
   record(state, batch.results);
   // 확정한 tool 결과는 진행이다.
   if (batch.results.some((result) => result.entries > 0)) limiter.toolResult();
   await ports.checkpoint(limiter.snapshot());
-  // 9. 계속·종료 판정
-  if (batch.waiting !== null) {
-    const waited = await ports.wait(batch.waiting);
-    if (!waited.ok) return await failWith(state, "configuration_unavailable");
-    limiter.enterWait();
-    await ports.checkpoint(limiter.snapshot());
-    return endWith({ kind: "waiting", ...batch.waiting });
-  }
+  // 9. 계속·종료 판정은 다음 걸음이 한다.
   return continueTurn;
 }
 

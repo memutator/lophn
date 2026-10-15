@@ -3,6 +3,8 @@ import type { Tx } from "../../../protocol/server/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import type { Inbox } from "./inbox.ts";
+import type { SteeringInput, TurnSource } from "./ports.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 
 // 입력함에서 시작할 turn을 고른다. 입력 하나가 turn 하나이고, session이 idle이면 맨 앞 입력으로
 // 시작한다. 읽기 route로 DB를 훑지 않는다: 입력함이 메모리 정본이다.
@@ -41,6 +43,32 @@ export function createTurnStarter(deps: { inbox: Inbox }): TurnStarter {
   };
 }
 
+// 입력함과 turn starter를 `TurnSource` 한 입구로 묶는다. runtime child가 감독 pipe로 부르는 core 쪽 구현이다.
+export function createTurnSource(
+  deps: { inbox: Inbox; starter: TurnStarter },
+): TurnSource {
+  const { inbox, starter } = deps;
+  return {
+    next: () => Promise.resolve(ok(starter.next())),
+    began: (session) => Promise.resolve(ok(starter.began(session) ?? null)),
+    ended(session) {
+      starter.ended(session);
+      return Promise.resolve(ok(undefined));
+    },
+    steering: (session) =>
+      Promise.resolve(ok(
+        inbox.pendingSteering(session).map((input): SteeringInput => ({
+          id: input.message as string,
+          input,
+        })),
+      )),
+    settled(session, count) {
+      inbox.settleSteering(session, count);
+      return Promise.resolve(ok(undefined));
+    },
+  };
+}
+
 // lophn session 쪽 `InputTransport`다. harness session은 coding-agent 단위의 구현이 맡고 둘을 묶는 것은
 // wiring이다. `startTurn`은 turn을 시작해 보라는 신호일 뿐이고 시작은 turn starter가 한다.
 export function createLophnInputTransport(deps: {
@@ -53,6 +81,8 @@ export function createLophnInputTransport(deps: {
     session: Id<"ses">,
     input: RoutedInput,
   ): Result<Id<"msg">>;
+  // 받은 입력을 `MessageReceived`로 Bus에 낸다. steer면 도는 turn 안의 메시지다. 없으면 버린다.
+  publish?: (event: AgentEvent) => void;
 }): InputTransport {
   const { inbox } = deps;
 
@@ -64,6 +94,19 @@ export function createLophnInputTransport(deps: {
       message = written.value;
     }
     inbox.put(session, { ...input, message });
+    deps.publish?.({
+      session,
+      type: "MessageReceived",
+      at: tx.now(),
+      payload: {
+        message,
+        body: input.body,
+        from: input.from,
+        call: input.call,
+        reply_to: input.reply_to,
+        steer: input.delivery === "steer" && inbox.isRunning(session),
+      },
+    } as AgentEvent);
     return ok(undefined);
   }
 

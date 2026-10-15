@@ -40,7 +40,3 @@ export function deleteSessionTurns(
   tx.sql.run("delete from turns where session = ?", [session]);
   return ok(undefined);
 }
-
-// 옛 이름. 다른 단위가 import하는 동안 남긴다.
-export const sessionRunIds = sessionTurnIds;
-export const deleteSessionRuns = deleteSessionTurns;

@@ -66,7 +66,7 @@ export function createCredentialLink(options: {
             run,
             assignment,
             operations: [...input.scope.operations],
-            scope: input.scope.agent as unknown as Record<string, unknown>,
+            scope: {},
           });
         } catch {
           clearTimeout(pending.get(id)?.timer);

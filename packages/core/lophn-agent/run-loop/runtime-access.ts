@@ -6,8 +6,10 @@ import {
   CONTEXT_ENTITY_CONTRACT,
   CONTEXT_ENTITY_TOOL,
   CONTEXT_SEARCH_CONTRACT,
+  listRoleTools,
   runOperations,
 } from "../tools/mod.ts";
+import { type Role, ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import {
   contextContractRoute,
   contextGetRoute,
@@ -17,20 +19,18 @@ import {
 } from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
+  agentSessionRead,
   agentsRead,
   applyQuestionOption,
-  assignmentList,
-  assignmentRead,
   cancelQuestionGroup,
-  checkpointRun,
+  checkpointTurn,
   compactSession,
-  correctWaitingRun,
   decideToolCall,
   failSessionCompact,
   finishModelCall,
   finishRewindSummary,
-  finishRun,
   finishToolCall,
+  finishTurn,
   instructionRead,
   mcpAuthRequestDone,
   mcpAuthRequestTake,
@@ -44,23 +44,18 @@ import {
   questionText,
   recordMessage,
   recordToolRequest,
-  recoverRun,
-  resolveRunWait,
   rewindList,
-  runBody,
-  runList,
-  runRead,
   sessionCompactRequests,
-  sessionRead,
   sessionSummary,
   startModelCall,
-  startRun,
   startToolCall,
-  stopRun,
+  startTurn,
   takeRewindSummaryRequest,
   toolCallList,
   toolCallRead,
-  waitRun,
+  turnBody,
+  turnList,
+  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   appAgentConfirmProof,
@@ -82,20 +77,18 @@ import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsGet } from "../../../protocol/config/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
-// 요청하지 않는다. run의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
+// 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
 // core(발급 상한과 hello의 machine credential)와 runtime(열린 route)이 같은 목록을 쓰도록 이 package에 둔다.
 
 export const RUNTIME_MACHINE_ROUTES = [
   eventsList,
-  runList,
-  runRead,
-  assignmentList,
-  assignmentRead,
+  turnList,
+  turnRead,
   agentsRead,
   placeAgentSettingsRead,
   providerRead,
   modelDefaultsRead,
-  sessionRead,
+  agentSessionRead,
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   sessionCompactRequests,
   sessionSummary,
@@ -106,15 +99,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   settingsGet,
   // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다.
   instructionRead,
-  startRun,
-  checkpointRun,
-  finishRun,
-  waitRun,
-  resolveRunWait,
-  correctWaitingRun,
-  recoverRun,
-  runBody,
-  stopRun,
+  startTurn,
+  checkpointTurn,
+  finishTurn,
+  turnBody,
   startModelCall,
   finishModelCall,
   modelCallList,
@@ -142,8 +130,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // run 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
-  // 계약·검색)를 run을 시작하기 전에 읽는다.
+  // turn 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
+  // 계약·검색)를 turn을 시작하기 전에 읽는다.
   contextListRoute,
   contextGetRoute,
   contextContractRoute,
@@ -151,7 +139,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   appBlueprint,
   grantsList,
   invocationsList,
-  // confirm 재검사의 프로세스 nonce. agent credential은 run이 running일 때만 있다.
+  // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
   // 이미 접수된 agent confirm의 서명 proof. 적용은 apply_approved_action이고 서명은 core가 한다.
   appAgentConfirmProof,
@@ -172,13 +160,13 @@ export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
 ];
 
 // 외부 MCP tool이 쓰는 operation이다. 소유 contract와, 미분류·쓰기·external 호출이 사람에게
-// 묻는 approval request 생성이다. 요청자는 이 run의 agent 자격과 같아야 한다.
+// 묻는 approval request 생성이다. 요청자는 이 turn의 agent 자격과 같아야 한다.
 export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
   EXTERNAL_TOOL_CONTRACT,
   createApprovalRequest.name,
 ];
 
-// prompt의 context 자료(overview·용어집)를 run을 시작할 때 읽는 route의 operation이다. run의 agent 자격으로
+// prompt의 context 자료(overview·용어집)를 turn을 시작할 때 읽는 route의 operation이다. turn의 agent 자격으로
 // 읽으므로 모든 역할의 상한에 읽기로만 더한다. 앱 하나에 묶인 agent가 어느
 // context를 보는지는 core가 정한다.
 const CONTEXT_MATERIAL_READS: readonly string[] = [
@@ -189,11 +177,26 @@ const CONTEXT_MATERIAL_READS: readonly string[] = [
   glossaryListRoute.name,
 ];
 
+function isRole(role: string): role is Role {
+  return (ROLES as readonly string[]).includes(role);
+}
+
 // 역할이 닿을 수 있는 operation의 상한. 역할 tool 상한(ROLE_CAPS)의 소유 contract와 보조 operation이다.
-// runtime은 run마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
+// runtime은 turn마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
 export function roleOperations(role: string): readonly string[] {
   const cap = ROLE_CAPS.get(role);
-  if (cap === undefined) return [];
+  // 옛 상한 표에 없는 새 역할은 역할 고정 목록의 소유 contract를 쓴다.
+  if (cap === undefined) {
+    return isRole(role)
+      ? [
+        ...new Set([
+          ...runOperations(listRoleTools(role, { input_media: ["image"] })),
+          ...CONTEXT_MATERIAL_READS,
+          ...EXTERNAL_TOOL_OPERATIONS,
+        ]),
+      ]
+      : [];
+  }
   const names = new Set(cap.tools);
   // context 읽기다. 선언 검색 tool(origin context)은 이름이 동적이라 상한 이름에 없고, 개체 읽기를 가진 역할이
   // 선택한 context의 검색과 개체를 읽는다.
@@ -207,8 +210,8 @@ export function roleOperations(role: string): readonly string[] {
   ];
   // 외부 MCP tool의 소유 contract다. 확장 선택은 상한 항목이 아니라 preset의
   // 선택 항목이라 상한 이름에 넣지 않고 contract만 더한다.
-  // run이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
-  // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
+  // turn이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
+  // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 grant와 tool 목록이 정한다.
   // 역할 tool이 소유한 operation과 겹치는 것(조회 tool의 context 읽기, 승인 요청)은 한 번만 둔다.
   return [
     ...new Set(

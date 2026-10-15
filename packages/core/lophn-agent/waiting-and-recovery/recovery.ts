@@ -259,6 +259,7 @@ function resultOf(
 // 확정한 model 응답과 tool 결과로 이력·사실·남은 일을 다시 만든다. 저장된 응답을 다시 부르지 않는다.
 // 마지막 완전 응답에 아직 확정하지 않은 call이나 기록하지 않은 답이 남았으면 pending이다.
 // executing은 사람의 허락으로 진입이 기록되어 지금 실행할 call의 ID다.
+// deno-lint-ignore require-await
 export async function rebuildResume(input: {
   collectedAt: string;
   models: readonly RebuildModel[];
@@ -384,9 +385,7 @@ export async function rebuildResume(input: {
     });
     append({
       role: "user",
-      parts: await Promise.all(
-        results.map((result) => historyResultPart(input.collectedAt, result)),
-      ),
+      parts: results.map((result) => historyResultPart(result)),
     });
     for (const item of keyed) {
       if (item.row !== undefined) settled.push(item.row);

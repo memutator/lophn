@@ -1,17 +1,18 @@
 import type { Clock, Result } from "../../../base/mod.ts";
 import type {
   ModelOutcome,
-  RunElapsed,
   ToolResult,
+  TurnElapsed,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type { WorkspaceReadOutput } from "../../../protocol/shell/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
+import type { TurnStart } from "./work.ts";
 import type { InstructionDeps } from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import type {
-  HistoryMessage,
   MaterialSource,
   ModelLimits,
   PromptAssembly,
@@ -20,19 +21,16 @@ import type {
   SessionConversation,
   WirePacker,
 } from "../prompt-assembly/mod.ts";
-import type { ConfirmedFacts, RunLimits } from "./limits.ts";
-import type { CallResult } from "./tool-batch.ts";
+import type { ConfirmedFacts, TurnLimits } from "./limits.ts";
 
 // agent loop가 밖과 닿는 자리다. loop는 ledger·provider·tool 실행을 직접 부르지 않고 이 port만
 // 부른다. 실제 연결(core command·read, provider adapter, 판정·실행기)은 agent runtime이 꽂는다.
 // 시계·대기·무작위도 주입한다.
 
-export type StopReason =
-  | "user_stopped"
-  | "assignment_paused"
-  | "assignment_withdrawn";
+// turn이 interrupted로 닫히는 이유와 같다. core가 turn을 이미 닫았을 때 loop가 읽는다.
+export type StopReason = "user_stopped" | "restarted" | "session_ended";
 
-// 멈춤이 이미 확정됐는지. 사람 멈춤·assignment 멈춤은 core가 run을 끝내므로 loop는 FinishRun을
+// 멈춤이 이미 확정됐는지. 멈춤·session 끝남·꺼짐은 core가 turn을 끝내므로 loop는 FinishTurn을
 // 다시 부르지 않고 새 진입만 막는다.
 export type StopCheck = { stopped: false } | {
   stopped: true;
@@ -55,7 +53,28 @@ export type TurnInputs = {
   // 이 turn을 시작한 입력. 입력함에서 꺼낸 것이다.
   first(): Promise<Result<RoutedInput | null>>;
   steering(): Promise<Result<readonly SteeringInput[]>>;
+  // model 요청에 반영한 steer를 앞에서부터 count개 입력함에서 비운다.
+  settled(count: number): Promise<Result<void>>;
 };
+
+// 입력함에서 turn을 시작하고 끝내는 길이다. 입력함은 core의 메모리에 있고 agent runtime은 감독 pipe로 이
+// 길을 부른다. core 쪽 구현은 `work.ts`의 `createTurnSource`이고 pipe 메시지는 아직 없다.
+export type TurnSource = {
+  // 지금 시작할 turn 하나. 없으면 null이다. 입력은 꺼내지 않는다.
+  next(): Promise<Result<TurnStart | null>>;
+  // StartTurn이 확정됐다. 입력을 꺼내 돌려주고 session을 도는 중으로 둔다.
+  began(session: Id<"ses">): Promise<Result<RoutedInput | null>>;
+  // turn이 끝났다. 반영하지 못한 steer는 다음 turn 입력이 된다.
+  ended(session: Id<"ses">): Promise<Result<void>>;
+  // 도는 turn의 다음 model 요청 앞에 붙일 steer 입력.
+  steering(session: Id<"ses">): Promise<Result<readonly SteeringInput[]>>;
+  // 반영한 steer를 앞에서부터 count개 비운다.
+  settled(session: Id<"ses">, count: number): Promise<Result<void>>;
+};
+
+// agent event를 Bus로 보내는 길이다. loop는 child에서 돌므로 감독 pipe가 core Bus까지 나른다. 받는 쪽이
+// 없으면 버린다(Bus는 메모리이고 놓칠 수 있다).
+export type AgentEventSink = { publish(event: AgentEvent): void };
 
 // turn이 call 입력을 가져갔다는 신호다. wiring이 Router의 `markConsumed`에 끼운다. StartTurn이 시작을 확정하는
 // 같은 transaction에서 부른다.
@@ -63,17 +82,19 @@ export type CallSignals = {
   consumed(tx: Tx, call: Id<"cal">): Result<void>;
 };
 
-// model call 직전마다 읽는 이번 run의 prompt 재료다. 지침·재료는 call마다 새로 읽어 최신이다.
-export type RunContext = {
+// model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·재료는 call마다 새로 읽어 최신이다.
+export type TurnContext = {
   product: PromptInput["product"];
   role: PromptInput["role"];
   tools: readonly PromptTool[];
   work: PromptInput["work"];
   purpose: string | null;
-  run_facts: string | null;
-  // 이 run의 요청 앞에 있던 session의 대화다. Compact한 session이면 요약과 그것이 덮은 구간 뒤의 원문이고,
+  turn_facts: string | null;
+  // 이 turn의 요청 앞에 있던 session의 대화다. Compact한 session이면 요약과 그것이 덮은 구간 뒤의 원문이고,
   // 덮은 구간의 원문은 이후 call의 입력에 넣지 않는다.
   session: SessionConversation;
+  // 대화 끝에 붙는 notice 글. session을 시작할 때 고정한 tool 목록이 도중에 바뀌었을 때 등이다.
+  notices: readonly string[];
   sources: readonly MaterialSource[];
   skills: readonly SkillEntry[];
   timezone: string | null;
@@ -135,46 +156,25 @@ export type ToolCallRequest = {
 };
 
 export type ToolDone = {
-  kind: "done";
   tool_call: string;
   status: "success" | "failure" | "uncertain" | "not_executed";
   code: string;
   result: ToolResult;
-  // 이 call이 만든 질문. 질문은 추정 답으로 진행하지 않으므로 run은 이 질문의 답을 기다린다.
-  asked?: string;
 };
 
-// 사람의 결정을 기다리는 대상. approval이면 진입하지 않은 고정 call이고, 질문이면 이미 끝난
-// 질문 제출 call이다.
-export type WaitTarget =
-  | { tool_call: string; approval: string }
-  | { tool_call: string; question: string };
-
-// 사람의 결정을 기다리는 call. 진입하지 않았고 run은 이 결정 전까지 진행하지 않는다.
-export type ToolWaiting = {
-  kind: "waiting";
-  tool_call: string;
-  approval: string;
-  result: ToolResult;
-};
-
-export type ToolAttempt = ToolDone | ToolWaiting;
+// 사람의 결정을 기다리는 동안 turn의 active·stall 시간을 세지 않게 알리는 길이다.
+export type Pause = { begin(): void; end(): void };
 
 export type ToolPort = {
-  // 이번 run이 제공한 tool의 정보. 없는 tool이면 undefined다.
+  // 이번 turn이 제공한 tool의 정보. 없는 tool이면 undefined다.
   info(name: string): ToolInfo | undefined;
-  // 판정→진입→실행→종료 기록의 한 번이다. 재시도·복구는 이 한 번을 다시 부르며 진입 직전 판정을
-  // 매번 다시 한다.
+  // 판정→진입→실행→종료 기록의 한 번이다. 재시도는 이 한 번을 다시 부르며 진입 직전 판정을 매번
+  // 다시 한다. Gate가 묻는다고 답하면 사람의 결정이 날 때까지 돌아오지 않는다(turn은 running인 채
+  // 기다리고, turn이 닫히면 signal이 중단된다).
   attempt(
     call: ToolCallRequest,
     signal: AbortSignal,
-  ): Promise<ToolAttempt>;
-  // 사람의 허락 뒤 이미 진입을 기록한 call을 실행하고 끝낸다. 판정·진입 기록은 다시 하지 않는다.
-  // 결정 반영(`ResolveRunWait`)이 재검사를 마치고 시작을 기록한 call만 여기로 온다.
-  resume(
-    call: ToolCallRequest,
-    toolCall: string,
-    signal: AbortSignal,
+    pause: Pause,
   ): Promise<ToolDone>;
   // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)을 기록한다.
   close(
@@ -213,22 +213,20 @@ export type FinishResult = { finished: true } | {
   reason: "pending_input";
 };
 
-export type RunPorts = {
+export type TurnPorts = {
   stop(): Promise<StopCheck>;
   inputs(): Promise<Result<PendingInputs>>;
-  context(): Promise<Result<RunContext>>;
+  context(): Promise<Result<TurnContext>>;
   // relay `workspace.read`. page 없이 첫 page, 있으면 그 page다.
   view(
     input: { session: string; page?: number },
   ): Promise<Result<WorkspaceReadOutput>>;
   model: ModelPort;
   tools: ToolPort;
-  // 시간 값만 저장한다(CheckpointRun).
-  checkpoint(elapsed: RunElapsed): Promise<void>;
+  // 시간 값만 저장한다(CheckpointTurn).
+  checkpoint(elapsed: TurnElapsed): Promise<void>;
   // 완전한 tool 없는 답을 남긴다(RecordMessage).
   answer(text: string): Promise<Result<void>>;
-  // 사람의 결정을 기다리는 run 상태로 옮긴다(WaitRun).
-  wait(request: WaitTarget): Promise<Result<void>>;
   finish(request: FinishRequest): Promise<Result<FinishResult>>;
 };
 
@@ -242,59 +240,32 @@ export type LoopDeps = {
   random(): number;
   // 지침 읽기와 전송 본문 redaction. 화면 글의 redaction도 같은 것을 쓴다.
   instructions: InstructionDeps;
-  ports: RunPorts;
+  ports: TurnPorts;
   // 중단을 요청한 호출이 이 시간 안에 돌아오지 않으면 결과를 기다리지 않고 불명확으로 둔다.
   abortGraceMs?: number;
 };
 
-// 저장된 경계에서 같은 run을 잇는 재료다. 이력과
-// 사실은 ledger에서 다시 만든 것이고, 이미 확정한 model 응답과 tool 결과는 다시 부르지 않는다.
-export type ResumeState = {
-  history: HistoryMessage[];
-  facts: {
-    changes: string[];
-    unexecuted: string[];
-    unknown_effects: string[];
-  };
-  // 완전하게 받았지만 아직 다 처리하지 않은 마지막 model 응답. 있으면 첫 turn은 model을 부르지
-  // 않고 이 응답의 남은 일(tool call, 답 기록)부터 잇는다.
-  pending: {
-    attempt: ModelAttempt;
-    // 이미 확정한 call의 결과(요청 key의 순서대로).
-    confirmed: CallResult[];
-    // 사람의 허락으로 진입이 이미 기록된 call: 요청 key → ToolCall ID. 판정 없이 실행한다.
-    started: Record<string, string>;
-  } | null;
-  // 일시 실패 뒤 retry를 기다리는 중이었다. 예정 시각과 쓴 횟수를 그대로 잇는다.
-  retry: { previous: string; retries: number; retry_at: string | null } | null;
-};
-
-export type RunInput = {
-  run: string;
-  limits: RunLimits;
-  elapsed: RunElapsed;
+export type TurnInput = {
+  turn: string;
+  session: string;
+  limits: TurnLimits;
+  elapsed: TurnElapsed;
   // 지금까지 센 model 시도(실패·retry 포함).
   attempts: number;
-  // 세션이 없으면(주기 run) null이다. 화면은 no_session으로 준다.
-  session: string | null;
-  // 복구·결정 뒤 재개일 때 ledger에서 다시 만든 상태. 새 run은 없다.
-  resume?: ResumeState;
 };
 
 export type LoopEnd =
   | { kind: "finished"; outcome: FinishRequest["outcome"] }
-  // 사람이 멈췄다. run은 core가 이미 끝냈다.
+  // core가 turn을 이미 닫았다(멈춤, session 끝남, 꺼짐).
   | { kind: "stopped"; reason: StopReason }
-  // 사람의 결정을 기다린다. 재개는 기다림 해소기와 복구가 한다.
-  | ({ kind: "waiting" } & WaitTarget)
-  // 끝낼 이유는 확정했지만 FinishRun을 확정하지 못했다. 끝남으로 가정하지 않는다.
+  // 끝낼 이유는 확정했지만 FinishTurn을 확정하지 못했다. 끝남으로 가정하지 않는다.
   | {
     kind: "finish_failed";
     outcome: FinishRequest["outcome"];
     error: { code: string; message: string };
   };
 
-export type RunLoopHandle = {
+export type TurnLoopHandle = {
   done: Promise<LoopEnd>;
   // 멈춤이 접수됐다는 신호(core event). 새 진입을 막고 진행 호출에 중단을 요청한다.
   stop(reason: StopReason): void;

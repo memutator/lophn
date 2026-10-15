@@ -66,6 +66,3 @@ begin
 end;`,
   },
 ];
-
-// 옛 이름. 다른 단위가 import하는 동안 남긴다.
-export const runSchemaSteps = turnSchemaSteps;

@@ -8,16 +8,17 @@ import {
 } from "../../supervision/responsiveness/mod.ts";
 import {
   type CoreRead,
-  createRunCredentials,
-  type RunCredentials,
+  createTurnCredentials,
+  NO_TURN_SOURCE,
   startRuntime,
   type Startup,
+  type TurnCredentials,
+  type TurnSource,
 } from "../../lophn-agent/run-loop/mod.ts";
 import {
   type CatalogRefresherHandle,
   startCatalogRefresher,
 } from "../../lophn-agent/models/catalog-refresh.ts";
-import type { RunSelector } from "../../lophn-agent/run-loop/driver.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
@@ -34,20 +35,19 @@ import { redact } from "./redact.ts";
 import { roleOperations } from "../../lophn-agent/run-loop/mod.ts";
 export { redact };
 import type { Compactor } from "../../lophn-agent/session/compactor.ts";
-import { productDriver, startRunPump } from "./product-driver.ts";
+import { productDriver, startTurnPump } from "./product-driver.ts";
 import { createProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import {
-  createRunDriver,
-  type DriveDeps,
-  type RecoverReport,
-  type RunDriver,
+  createTurnDriver,
+  type TurnDriver,
 } from "../../lophn-agent/run-loop/driver.ts";
+import type { TurnPreparer } from "../../lophn-agent/run-loop/prepare.ts";
 
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
 export type CoreCalls = {
   // machine 자격의 loopback. 열린 route만 부른다.
   machine: CoreCall;
-  // run의 agent credential token으로 부르는 loopback.
+  // turn의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
   // 기록이 hash로 가리키는 본문을 감독 pipe로 core에 준비한다.
   blobs: BlobPort;
@@ -61,15 +61,13 @@ export type CoreCalls = {
 
 export type Runtime = {
   startup: Startup;
-  // 시작할 accepted run을 고른다. 읽기만 하고 ledger를 바꾸지 않는다.
-  // 고른 run의 시작·loop는 이 selector를 부르는 쪽이 한다.
-  selector: RunSelector;
-  // run마다 받는 agent credential. 감독 pipe로 core에 청한다.
-  credentials: RunCredentials;
-  // 고른 run을 시작해 loop를 돌린다. 시작 재료(`driver` 입력)를 받았을 때만 있다.
-  driver: RunDriver | undefined;
-  // 기동 때 끊겼던 run을 저장된 경계에서 이은 결과. 새 run을 고르기 전에 끝난 일이다.
-  recovered: RecoverReport[];
+  // 입력함에서 시작할 turn을 고르는 길. 입력함은 core 메모리에 있어 감독 pipe로 읽는데, 그 메시지가 아직
+  // 없어 지금은 시작할 turn이 없다.
+  source: TurnSource;
+  // turn마다 받는 agent credential. 감독 pipe로 core에 청한다.
+  credentials: TurnCredentials;
+  // 고른 turn을 시작해 loop를 돌린다. 시작 재료(`driver` 입력)를 받았을 때만 있다.
+  driver: TurnDriver | undefined;
   // 새 model·tool 진입을 막는다. 진행 호출 취소는 나중 작업이 이 신호에 붙는다.
   readonly stopped: boolean;
   done: Promise<void>;
@@ -89,17 +87,14 @@ export async function startAgentRuntime(input: {
   fetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다.
   dataRoot?: string;
-  // 접수된 run을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
+  // 입력함의 turn을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
   pump?: boolean;
-  // run 시작 재료(basis 준비, StartRun, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 run의
-  // agent 자격 호출)을 받아 `createRunPreparer` 같은 것을 돌려준다.
+  // turn 시작 재료(basis 준비, StartTurn, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 turn의
+  // agent 자격 호출)을 받아 `createTurnPreparer` 같은 것을 돌려준다.
   driver?: (
     calls: CoreCalls,
   ) =>
-    & Pick<
-      DriveDeps,
-      "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
-    >
+    & { preparer: TurnPreparer }
     // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
     & { compactor?: Compactor };
 }): Promise<Result<Runtime>> {
@@ -126,13 +121,13 @@ export async function startAgentRuntime(input: {
   const secretLink = createSecretLink({
     send: (message) => child.send(message),
   });
-  const credentials = createRunCredentials({
+  const credentials = createTurnCredentials({
     issuer: link.issuer,
-    // run의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
-    operations: (scope) => roleOperations(scope.role),
+    // session의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
+    operations: roleOperations,
     process: "agent-runtime",
   });
-  let driver: RunDriver | undefined;
+  let driver: TurnDriver | undefined;
   const pumpStop = new AbortController();
   const child = startChild(
     {
@@ -239,11 +234,9 @@ export async function startAgentRuntime(input: {
   if (!started.ok) {
     return started;
   }
-  // 입력함이 core 메모리로 옮겨 가 turn starter가 놓이기 전에는 새 turn을 고르지 않는다.
-  const selector: RunSelector = { next: () => Promise.resolve(ok(null)) };
-  // 기동 순서: 새 run을 고르기 전에 끊겼던 run(진행 중·사람 기다림)을 먼저 잇는다. 사람이 멈춘 run은
-  // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
-  let recovered: RecoverReport[] = [];
+  // 입력함을 감독 pipe로 읽는 메시지가 놓이기 전에는 새 turn을 고르지 않는다. 켜질 때 돌던 turn은 core가
+  // interrupted로 닫으므로 runtime이 이을 것은 없다.
+  const source: TurnSource = NO_TURN_SOURCE;
   let pumping: Promise<void> = Promise.resolve();
   // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
   // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
@@ -255,22 +248,16 @@ export async function startAgentRuntime(input: {
     })
     : Promise.resolve();
   if (input.driver !== undefined) {
-    const { compactor, ...driverDeps } = input.driver(calls!);
-    driver = createRunDriver({ selector, credentials, ...driverDeps });
-    const report = await driver.recover();
-    if (report.ok) recovered = report.value;
-    // 복구가 끝난 뒤에야 새 run을 고른다.
+    const { compactor, preparer } = input.driver(calls!);
+    driver = createTurnDriver({ source, credentials, preparer });
     if (input.pump === true) {
-      pumping = startRunPump({
+      pumping = startTurnPump({
         driver,
         providerWatch: createProviderWatch({
           read: selectorRead!,
           cursor: startup!.eventCursor,
           revokeProvider: (provider) => driver!.revokeProvider(provider),
         }),
-        ...(driverDeps.liveRuns === undefined
-          ? {}
-          : { liveRuns: driverDeps.liveRuns }),
         ...(compactor === undefined ? {} : { compactor }),
         signal: pumpStop.signal,
       });
@@ -278,10 +265,9 @@ export async function startAgentRuntime(input: {
   }
   const runtime: Runtime = {
     startup: startup!,
-    selector,
+    source,
     credentials,
     driver,
-    recovered,
     get stopped() {
       return stopped;
     },

@@ -92,21 +92,3 @@ export function turnRecordOf(row: TurnRow): TurnRecord {
     state_seq: row.state_seq,
   } as TurnRecord;
 }
-
-// 옛 이름. 다른 단위가 import하는 동안 남긴다.
-export const RUN_COLUMNS = TURN_COLUMNS;
-// waiting-and-recovery가 `turns` 기준으로 바뀔 때까지 읽는 모양이다. 없어진 열은 비어 있어 그 쪽의 옛
-// 동작(assignment 조회, 사람 기다림 상태)은 막힌 채로 둔다.
-export type RunRow = Omit<TurnRow, "state"> & {
-  state: TurnRow["state"] | "accepted" | "waiting_user";
-  assignment: string;
-  waiting_on: string | null;
-};
-export const rowOf = turnRowOf;
-export function loadRun(lookup: Lookup, id: string): RunRow | undefined {
-  const row = loadTurn(lookup, id);
-  return row === undefined
-    ? undefined
-    : { ...row, assignment: "", waiting_on: null };
-}
-export const recordOf = turnRecordOf;

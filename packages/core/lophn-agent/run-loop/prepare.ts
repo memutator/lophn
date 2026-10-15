@@ -10,92 +10,74 @@ import {
 } from "../../../base/mod.ts";
 import {
   type AgentPlace,
-  assignmentRead,
-  finishRun,
+  type AgentSession,
+  agentSessionRead,
+  finishTurn,
   type ModelChoice,
   type ResolvedAgent,
-  RUN_BLOB_PURPOSES,
-  runList,
-  runRead,
-  sessionRead,
-  startRun,
-  type WorkPlace,
+  startTurn,
+  toWireToolName,
+  TURN_BLOB_PURPOSES,
+  type TurnLimits,
+  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { createApprovalRequest } from "../../../protocol/approvals/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsGet } from "../../../protocol/config/mod.ts";
 import type { InstructionDeps } from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
-import { ROLE_CAPS } from "../agents/mod.ts";
-import {
-  abortableWait,
-  type AgentRunCredential,
-  type AppOffer,
-  computeAgentAppScope,
-  type LoopDeps,
-  resolveRunLimits,
-  RUN_LIMIT_SETTING_KEYS,
-  type RunContext,
-  type RunCredentials,
-} from "./mod.ts";
-import type { Selection } from "./driver.ts";
-import {
-  createWaitResolver,
-  recoverRunFromLedger,
-  type ToolLookup,
-} from "../waiting-and-recovery/mod.ts";
-import type {
-  MaterialSource,
-  SessionConversation,
-} from "../prompt-assembly/mod.ts";
-import type { ToolBinding } from "../tool-judgment/mod.ts";
+import { abortableWait } from "./retry.ts";
+import { resolveTurnLimits, TURN_LIMIT_SETTING_KEYS } from "./limits.ts";
+import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
+import type { AgentEventSink } from "./ports.ts";
+import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
+import type { StartTurnResult } from "./credentials.ts";
+import type { MaterialSource } from "../prompt-assembly/mod.ts";
+import type { SessionConversation } from "../prompt-assembly/mod.ts";
 import {
   BUILTIN_TOOLS,
-  listTools,
+  listRoleTools,
   runOperations,
+  type ToolContext,
   type ToolDefinition,
   type ToolHandler,
 } from "../tools/mod.ts";
-import type { AppTool } from "../tools/mod.ts";
-import type { AppToolkit } from "../tools/app-toolkit.ts";
 import {
   contextReadToolsFor,
   type ContextToolkit,
   type ContextToolPin,
-  pinsOf,
 } from "../tools/context-search.ts";
+import type { ToolBinding } from "../tool-judgment/mod.ts";
 import { loadContextMaterials } from "../prompt-assembly/context-overview.ts";
-import {
-  type CannotStart,
-  pinnedRun,
-  placeOfRun,
-  resolveRunAgent,
-} from "../agents/layers.ts";
+import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
-import { createCorePorts, type RunSeat } from "./core-ports.ts";
+import {
+  createCorePorts,
+  type ToolSetup,
+  type TurnSeat,
+} from "./core-ports.ts";
 import { readSessionConversation } from "../session/history.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
-import type { DriveDeps, PreparedResume, PreparedRun } from "./driver.ts";
+import { inputText } from "./input-text.ts";
+import type { TurnStart } from "./work.ts";
 import {
   buildMcpTools,
   createMcpToolHandlers,
-  EXTERNAL_TOOL_CONCERN,
   type ExternalTool,
   type McpSelection,
   type McpToolCall,
   type McpToolsSource,
 } from "../extensions/mod.ts";
 
-// 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
-// 이번 run의 resolved agent(층을 합친 값, lophn-agent/agents), 역할 상한과 resolved agent가 받은 tool
-// 목록, 적용 한도, StartRun이 확정할 AgentAppScope, 고정할 run 근거(basis)를 만든다. resolved agent는
-// run마다 한 번 만들어 기준에 고정하고 이어 하기는 고정한 값을 그대로 쓴다. model 선택의 검증(catalog·
-// credential)과 tool의 소유 계약 연결은 주입한다.
+// 시작할 turn의 재료를 core 기록에서 모은다. session의 agent(role과 place)와 이번 turn의 resolved agent
+// (층을 합친 값), tool 목록, 적용 한도, 고정할 turn 근거(basis)를 만든다. tool 목록은 turn마다 새로 만들지
+// 않고 session의 첫 turn에서 만든 것을 쓴다(model에 보이는 `tools[]`가 session 동안 같다). 도중에 달라지면
+// 목록은 그대로 두고 대화 끝에 notice를 붙인다. model 선택의 검증(catalog·credential)은 주입한다.
 
-// 이 run의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어
-// buildMcpTools로 정의를 만들고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
+// 이 turn의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어 buildMcpTools로 정의를
+// 만들고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
 // 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
-// skip은 agent 정의가 통째로 끈 서버, only는 이미 고정한 agent가 켠 서버이고 둘 다 연결하지 않는다.
+// skip은 agent 정의가 통째로 끈 서버이고 연결하지 않는다.
 export type McpSourceOptions = {
   place?: AgentPlace | null;
   skip?: ReadonlySet<string>;
@@ -105,208 +87,181 @@ export type McpSourceOptions = {
 export type McpToolkit = {
   // 등록된 서버 설정과 검증을 지난 tool 목록을 읽는다. 설정은 사람의 registry 출처다.
   source(
-    assignment: string,
+    session: string,
     options?: McpSourceOptions,
   ): Promise<Result<McpToolsSource>>;
   // 고른 MCP(서버+현재 tool 정확한 쌍)와 safe 표시를 골라낸다.
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(재조회가 끝날 때까지 호출은 거절된다).
-  call(assignment: string): McpToolCall;
-  // 서버의 연결 설정 판이다(판정 근거 mcp_configuration_revision).
-  connectionRevision(
+  call(session: string): McpToolCall;
+  // 옛 tool 판정이 읽던 서버 연결 설정 판이다. Gate로 바뀐 뒤 쓰는 곳이 없어 mcp-toolkit이 지울 때까지 남는다.
+  connectionRevision?(
     definition: ToolDefinition,
-    assignment: string,
+    session: string,
   ): { revision: number } | undefined;
 };
 
 export type Toolkit = {
   // 내장 tool 정의의 출처. 없으면 제품 내장 전부다.
   definitions?: readonly ToolDefinition[];
-  // 호출의 소유 계약 연결. 읽기 tool은 기본 연결을 쓰고 쓰기·external은 여기서 낸다. run은 이 run의
-  // agent 자격과 자리, 확인을 마친 대상을 올리는 범위다.
-  binding(
+  // 이 turn의 agent 자격으로 소유 계약을 부르는 handler. 정의가 handler를 들지 않은 tool만 쓴다.
+  handlers(seat: TurnSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
+  // 옛 tool 판정의 연결이다. Gate로 바뀐 뒤 쓰는 곳이 없어 tools/toolkit.ts가 지울 때까지 남는다.
+  binding?(
     definition: ToolDefinition,
-    run?: { agent: CoreCall; seat: RunSeat; reach: Set<string> },
+    run?: { agent: CoreCall; seat: TurnSeat; reach: Set<string> },
   ): ToolBinding | undefined;
-  // 이 run의 agent 자격으로 소유 계약을 부르는 handler.
-  handlers(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
-  // 현재 run이 닿을 수 있는 대상 ID(assignment 담당 범위).
-  targets?(
-    assignment: { scope: { kind: string; id: string | null } },
-  ): string[];
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
-  mcp?(assignment: string): McpToolkit | undefined;
-  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다. 없으면
-  // context tool이 없다.
+  mcp?(session: string): McpToolkit | undefined;
+  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다. 없으면 context tool이 없다.
   contexts?: ContextToolkit;
-  // 결과를 모르는 쓰기·external의 저장된 결과를 소유 계약에서 조회한다(tool 이름 → 조회). 없는 tool은
-  // 결과를 확인할 수 없는 것으로 다룬다.
-  lookups?(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolLookup>;
 };
+
+// ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, Router, 질문, 폴더 범위,
+// pre-image 기록, skill 읽기는 조립이 session마다 끼운다.
+export type ToolPorts = Pick<
+  ToolContext,
+  "gate" | "router" | "questions" | "scope" | "rewind" | "skills" | "fetch"
+>;
 
 export type PreparerDeps = {
   clock: Clock;
   ids: IdSource;
   // machine 자격의 loopback.
   machine: CoreCall;
-  // run의 agent credential token으로 부르는 loopback.
+  // turn의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
   // resolved agent의 model 선택을 검증해 model 묶음으로 만든다(catalog·계정·adapter).
   resolveModel(
     input: { model: ModelChoice; purpose?: "judgment" | "organizing" },
   ): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
-  // 앱 command 선언과 사람 허락. 없으면 앱 command 없는 scope다.
-  offers?(assignment: { id: string }): Promise<readonly AppOffer[]>;
-  // 앱 command의 자동 tool(선언·허락 읽기, 판정 근거, 호출, 결과 조회). 있으면 `offers`를 대신한다.
-  apps?: AppToolkit;
+  // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
+  toolPorts(session: AgentSession): ToolPorts;
+  // agent event를 Bus로 보내는 길(감독 pipe).
+  events: AgentEventSink;
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
-  // run마다 그 run으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 run의 작업 자리와
-  // 첨부만 읽게 한다).
-  instructionFilesFor?(run: string): InstructionDeps["files"];
-  // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
+  // turn마다 그 turn으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 turn의 작업
+  // 자리와 첨부만 읽게 한다).
+  instructionFilesFor?(turn: string): InstructionDeps["files"];
+  // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다.
   skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
-  approvalTtlMs?: number;
   reservedOutput?: number;
 };
 
-// 읽기 tool의 기본 연결이다. 읽기는 대상 변경이 없어 소유 계약의 이름만 있으면 된다.
-export function readBinding(definition: ToolDefinition): ToolBinding {
-  return {
-    resolve: () =>
-      ok({
-        concern: definition.contract,
-        operation: definition.contract,
-        contractRevision: definition.revision,
-        targets: [],
-        comparison: {},
-        changes: "reads only",
-        external: null,
-        reversibility: "nothing changes",
-      }),
+export type PreparedTurn = {
+  turn: string;
+  session: string;
+  begin: BeginTurnInput;
+  startTurn(input: BeginTurnInput): Promise<
+    Result<StartTurnResult>
+  >;
+  // StartTurn은 확정됐지만 credential을 받지 못했을 때 turn을 failed(configuration_unavailable)로 닫는다.
+  closeStarted(): Promise<void>;
+  // StartTurn이 확정되고 credential을 받은 뒤에 loop 재료를 만든다.
+  loop(
+    credential: AgentTurnCredential,
+    inputs: TurnInputs,
+  ): {
+    // 이 turn이 호출하는 provider. Disconnect를 알릴 때 회수할 turn을 고른다.
+    provider: string;
+    deps: LoopDeps;
+    input: TurnInput;
   };
+};
+
+// 시작할 수 없는 turn은 core에서 failed로 닫혀 session은 입력을 계속 받는다.
+export type Preparation =
+  | { kind: "ready"; turn: PreparedTurn }
+  | { kind: "closed"; turn: string; reason: CannotStart["reason"] };
+
+export type TurnPreparer = {
+  prepare(start: TurnStart): Promise<Result<Preparation>>;
+  // session이 끝났다. 고정한 tool 목록을 버린다.
+  forget(session: string): void;
+};
+
+// session을 시작할 때 고정한 tool 목록이다. 정의는 model에 보인 그대로이고 handler는 turn마다 붙인다.
+type FixedTools = {
+  definitions: readonly ToolDefinition[];
+  key: string;
+};
+
+function keyOf(definitions: readonly ToolDefinition[]): string {
+  return canonicalize(definitions.map((tool) => [tool.name, tool.revision]));
 }
 
-// 외부 MCP tool의 연결이다. 대상은 고른 쌍 하나이고 판정이 그 쌍으로 범위와 되돌림을 본다.
-// 분류가 안 됐거나 쓰기·external이면 판정표가 묻는다. 입력 비교 기준은 없다.
-function externalBinding(tool: ExternalTool): ToolBinding {
-  return {
-    resolve: () =>
-      ok({
-        concern: EXTERNAL_TOOL_CONCERN,
-        operation: tool.definition.contract,
-        contractRevision: tool.definition.revision,
-        targets: [{
-          id: tool.target,
-          reversibility: tool.reversible
-            ? "reversible" as const
-            : "unknown" as const,
-        }],
-        comparison: {},
-        changes: tool.effect === "read"
-          ? "reads only"
-          : `calls tool ${tool.original} of server ${tool.server}`,
-        external: tool.effect === "read" ? null : `MCP server ${tool.server}`,
-        reversibility: tool.reversible ? "reversible" : "not guaranteed",
-      }),
-  };
+function names(definitions: readonly ToolDefinition[]): Set<string> {
+  return new Set(definitions.map((tool) => tool.name));
 }
 
-type RunRecord = z.output<typeof runRead.output>["run"];
-type AssignmentRecord = z.output<typeof assignmentRead.output>["assignment"];
-
-export type PreparerResult =
-  & Pick<
-    DriveDeps,
-    "prepare" | "closeUnusable" | "liveRuns"
-  >
-  & {
-    // 재시작·사람의 결정 뒤 같은 run을 잇는 재료(lophn-agent/harness/waiting-and-recovery).
-    prepareResume(
-      run: string,
-      credentials: RunCredentials,
-    ): Promise<Result<PreparedResume>>;
-  };
-
-// 앱 command tool의 원래 호출 계약이다(tool_calls.app_command). revert_command가 있으면 기록이 앱의 선언된
-// revert command를 revert에 싣는다.
-export function appCommandOf(app: AppTool) {
-  return {
-    app: app.app,
-    release: app.release,
-    command: app.command,
-    blueprint_hash: app.blueprintHash,
-    definition_hash: app.definitionHash,
-    permission_basis: app.permissionBasis,
-    context_binding: null,
-    ...(app.revertCommand === null
-      ? {}
-      : { revert_command: app.revertCommand }),
-  };
+// 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다.
+function toolsNotice(
+  fixed: readonly ToolDefinition[],
+  current: readonly ToolDefinition[],
+): string {
+  const before = names(fixed);
+  const after = names(current);
+  const added = [...after].filter((name) => !before.has(name));
+  const removed = [...before].filter((name) => !after.has(name));
+  const lines = ["The tools available to this session changed."];
+  if (added.length > 0) lines.push(`Now available: ${added.join(", ")}.`);
+  if (removed.length > 0) {
+    lines.push(`No longer available: ${removed.join(", ")}.`);
+  }
+  lines.push("Use only the tools you can call; the list above is unchanged.");
+  return lines.join("\n");
 }
 
-export function createRunPreparer(deps: PreparerDeps): PreparerResult {
+function noticeText(body: string): string {
+  return inputText({
+    kind: "notice",
+    from: { kind: "program", event_seq: "0" },
+    call: null,
+    reply_to: null,
+    body,
+    refs: [],
+    delivery: "next_turn",
+    message: null,
+    reply: null,
+    outcome: null,
+    event: null,
+    notice: "tools_changed",
+  });
+}
+
+export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   const { machine, clock, ids } = deps;
+  const fixedBySession = new Map<string, FixedTools>();
 
   // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
   async function loadMcp(
-    assignment: string,
+    session: string,
     options: McpSourceOptions = {},
   ) {
-    const kit = deps.toolkit.mcp?.(assignment);
+    const kit = deps.toolkit.mcp?.(session);
     if (kit === undefined) return { kit, source: null };
-    const source = await kit.source(assignment, options);
+    const source = await kit.source(session, options);
     return { kit, source: source.ok ? source.value : null };
   }
   type LoadedMcp = Awaited<ReturnType<typeof loadMcp>>;
 
-  // run과 assignment, 이번 run의 resolved agent로 tool·scope·model을 모은다. `pinnedContexts`는 resume에서
-  // run이 시작할 때 선언 검색 정의를 만든 판들이다. 없으면 resolved agent의 context의 지금 적용된 판으로 만든다.
+  // session과 이번 turn의 resolved agent로 tool·model을 모은다.
   async function material(
-    run: RunRecord,
-    assignment: AssignmentRecord,
+    start: TurnStart,
+    session: AgentSession,
     agent: ResolvedAgent,
     mcp: LoadedMcp,
-    pinnedContexts?: readonly ContextToolPin[],
+    turn: string,
   ) {
-    // 역할 상한 ∩ 자리·정의의 권한(resolved agent의 tools)이 이번 run이 제공하는 tool 목록이다. 외부 MCP
-    // tool은 상한 항목이 아니라 agent 정의의 선택 항목이라 정의 이름을 양쪽 이름 목록에
-    // 더한다. 그렇지 않으면 목록 이름 검사가 모두 떨어뜨린다.
-    const roleTools = ROLE_CAPS.get(assignment.role)?.tools ?? null;
-    const agentTools = agent.tools;
-
-    // 앱 command의 선언과 사람의 허락. 읽지 못하면 앱 command 없는 scope다(fail closed).
-    const loaded = deps.apps === undefined ? undefined : await deps.apps.load();
-    const offers = loaded !== undefined
-      ? (loaded.ok ? loaded.value.offers : [])
-      : deps.offers === undefined
-      ? []
-      : await deps.offers(assignment);
-    const scope = computeAgentAppScope({
-      role: assignment.role,
-      assignment: assignment.id,
-      work: assignment.scope,
-      read_apps: [...new Set(agent.app_reads.map((read) => read.app))],
-      read_commands: agent.app_reads,
-      offers,
-    });
-    if (!scope.ok) return scope;
-
-    // 앱 command 정의는 역할·현재 허락·assignment(AgentAppScope)의 교집합만이다.
-    const appTools: readonly AppTool[] = deps.apps === undefined ||
-        loaded === undefined || !loaded.ok
-      ? []
-      : await deps.apps.define(scope.value, loaded.value);
-
     // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
-    // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다(재조회 실패는 옛 정의를
-    // 호출 가능으로 두지 않는다).
+    // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다.
     const mcpKit = mcp.kit;
     let external: readonly ExternalTool[] = [];
     if (mcpKit !== undefined && mcp.source !== null) {
@@ -325,59 +280,37 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       }
     }
 
-    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다.
-    // 판은 시작 전에 한 번 읽고 정의 hash가 Run.basis에 고정된다.
+    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다. 판은 시작 전에 한
+    // 번 읽고 정의 hash가 turn 근거에 고정된다.
     const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
       contexts: agent.contexts,
-      ...(pinnedContexts === undefined ? {} : { pinned: pinnedContexts }),
     });
-
-    const listed = listTools(
-      {
-        builtin: [
-          ...(deps.toolkit.definitions ?? BUILTIN_TOOLS),
-          ...(contextRead.entity === null ? [] : [contextRead.entity]),
-        ],
-        app: appTools.map((tool) => tool.definition),
-        context: contextRead.search.map((tool) => tool.definition),
-        external: external.map((tool) => tool.definition),
-      },
-      {
-        presetTools: external.length === 0
-          ? agentTools
-          : [...agentTools, ...external.map((tool) => tool.definition.name)],
-        roleTools: roleTools === null || external.length === 0 ? roleTools : [
-          ...roleTools,
-          ...external.map((tool) => tool.definition.name),
-        ],
-        contexts: contextRead.contexts,
-      },
-    );
 
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
-    const place: WorkPlace = agent.place;
-    const seat: RunSeat = {
-      run: run.id,
-      assignment: assignment.id,
-      session: run.session,
-    };
+    // role이 고정한 목록에 이 turn이 닿는 context와 외부 MCP tool을 더한다.
+    const current: readonly ToolDefinition[] = [
+      ...listRoleTools(
+        session.agent.role,
+        // 고른 model의 입력 media는 선택 결과에 없다. 모르면 image를 받지 못하는 것으로 둔다.
+        { input_media: ["text"] },
+        deps.toolkit.definitions ?? BUILTIN_TOOLS,
+      ),
+      ...(contextRead.entity === null ? [] : [contextRead.entity]),
+      ...contextRead.search.map((tool) => tool.definition),
+      ...external.map((tool) => tool.definition),
+    ];
+    const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
-      listed,
-      appTools,
+      current,
       contextRead,
-      // resume이면 prompt 자료도 tool 정의와 같은 고정한 판으로 만든다.
-      pinnedContexts,
       external,
-      scope: scope.value,
       model: model.value,
-      place,
       seat,
-      // 이 run의 요청 메시지. 이전 대화는 이 메시지 앞까지다.
-      request: run.source.kind === "message" ? run.source.message : null,
       mcpKit,
+      session,
     });
   }
 
@@ -386,51 +319,83 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     { ok: true }
   >["value"];
 
-  // 이 run의 loop deps와 core port. agent 호출은 credential token을 받은 뒤에 열린다.
+  // 이 turn의 loop deps와 core port. agent 호출은 credential token을 받은 뒤에 열린다.
   function loopFor(
     m: Material,
-    assignment: AssignmentRecord,
-    agent: CoreCall,
+    request: TurnStart,
+    agentCall: CoreCall,
+    inputs: TurnInputs,
   ) {
-    const { seat, listed, model, agent: resolved, place, external } = m;
+    const { seat, model, agent: resolved, external, session } = m;
     const toolkit = deps.toolkit;
     const externalByName = new Map(
       external.map((tool) => [tool.definition.name, tool]),
     );
-    const bindings = new Map<string, ToolBinding>();
-    // 이 run이 닿는 대상 ID다. 앱 command의 대상은 AgentAppScope에 든 앱이고, 쓰기 tool의 연결이 확인을
-    // 마친 대상을 더한다. run과 assignment는 호출하는 자기 자신이다.
-    const reach = new Set<string>([
-      ...(toolkit.targets?.(assignment) ?? []),
-      ...m.scope.apps.map((entry) => entry.app),
-      ...external.map((tool) => tool.target),
-      seat.run,
-      assignment.id,
+    // 이 session의 고정 목록(첫 turn에 만든 것). 정의가 handler를 들지 않은 tool(외부 MCP·context)은 이 turn의
+    // handler를 붙인다.
+    const fixed = fixedBySession.get(seat.session)!;
+    const legacy = new Map<string, ToolHandler>([
+      ...toolkit.handlers(seat, agentCall),
+      ...(toolkit.contexts?.handlers(m.contextRead, agentCall) ?? []),
+      ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
+        external,
+        m.mcpKit.call(seat.session),
+      )),
     ]);
-    const appByName = new Map(
-      m.appTools.map((tool) => [tool.definition.name, tool]),
-    );
-    for (const tool of listed) {
-      const app = appByName.get(tool.name);
-      if (app !== undefined && deps.apps !== undefined) {
-        bindings.set(tool.name, deps.apps.binding(app, agent));
-        continue;
-      }
-      const bound = toolkit.binding(tool, { agent, seat, reach }) ??
-        (tool.effect === "read" ? readBinding(tool) : undefined);
-      if (bound !== undefined) bindings.set(tool.name, bound);
-    }
-    // 외부 MCP tool의 소유 계약 연결이다. 스코프 검사는 builder가 이미 정확한 쌍만 골랐다.
-    for (const tool of external) {
-      bindings.set(tool.definition.name, externalBinding(tool));
-    }
-    // context 자료는 run을 시작할 때 한 번만 읽고 turn마다 같은 값을 쓴다. resume이면
-    // tool 정의와 같은 고정한 판으로 만든다.
+    const reach = new Set<string>([
+      ...external.map((tool) => tool.target),
+      seat.turn,
+      seat.session,
+    ]);
+    const operations = new Set(runOperations(fixed.definitions));
+    const listed: ToolDefinition[] = fixed.definitions.map((tool) => {
+      const handler = legacy.get(tool.name);
+      if (tool.handler !== undefined || handler === undefined) return tool;
+      return {
+        ...tool,
+        handler: (input, ctx) =>
+          handler(input, {
+            run: ctx.turn,
+            targets: reach,
+            operations,
+            call: ctx.tool_call,
+          }),
+      };
+    });
+    const place = session.place;
+    const ports = deps.toolPorts(session);
+    const toolSetup: ToolSetup = {
+      listed,
+      context: (toolCall: Id<"tcl">): ToolContext => ({
+        session: seat.session as Id<"ses">,
+        turn: seat.turn as Id<"trn">,
+        tool_call: toolCall,
+        agent: session.agent,
+        role: session.agent.role,
+        place,
+        listed,
+        core: agentCall,
+        clock,
+        ids,
+        ...ports,
+      }),
+      server: (definition) =>
+        externalByName.get(definition.name)?.server ?? null,
+      extension: (definition) => {
+        const found = externalByName.get(definition.name);
+        return found === undefined ? null : {
+          server_name: found.server,
+          configuration_revision: found.configurationRevision,
+          original_tool: found.original,
+          canonical_name: found.definition.name,
+        };
+      },
+    };
+    // context 자료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다.
     let sourcesRead: Promise<MaterialSource[]> | undefined;
     const contextSources = (): Promise<MaterialSource[]> =>
-      sourcesRead ??= loadContextMaterials(agent, {
+      sourcesRead ??= loadContextMaterials(agentCall, {
         contexts: resolved.contexts,
-        ...(m.pinnedContexts === undefined ? {} : { pins: m.pinnedContexts }),
       }).then((set) => [
         ...set.materials.map((item) => ({
           address: item.context,
@@ -453,40 +418,47 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           unavailable: item.reason,
         })),
       ]);
-    // session의 이전 대화는 run마다 한 번 읽는다. 일하는 run이 있는 session은 Compact하지 않으므로 run 안에서
+    // session의 이전 대화는 turn마다 한 번 읽는다. 일하는 turn이 있는 session은 Compact하지 않으므로 turn 안에서
     // 바뀌지 않는다.
     let conversation: SessionConversation | undefined;
-    const context = async (): Promise<Result<RunContext>> => {
-      const role = await deps.rolePrompt(assignment.role);
+    const context = async (): Promise<Result<TurnContext>> => {
+      const role = await deps.rolePrompt(resolved.role);
       if (!role.ok) return role;
       if (conversation === undefined) {
         const read = await readSessionConversation(machine, {
           session: seat.session,
-          request: m.request,
+          request: request.input.message,
         });
         if (!read.ok) return read;
         conversation = read.value;
       }
+      const notices = m.current.length === 0 || keyOf(m.current) === fixed.key
+        ? []
+        : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
         product: { instructions: deps.product },
         role: { instructions: role.value },
-        tools: listed.map((tool) => ({
-          name: tool.name,
+        // model에는 wire 이름으로 간다.
+        tools: fixed.definitions.map((tool) => ({
+          name: toWireToolName(tool.name),
           description: tool.description,
           input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
         })),
         work: {
-          role: assignment.role,
-          session: place,
-          scope: assignment.scope,
-        },
+          role: resolved.role,
+          session: resolved.place,
+          scope: place === null
+            ? { kind: "all", id: null }
+            : { kind: place.kind, id: place.id },
+        } as never,
         attachments: [],
         purpose: null,
-        run_facts: null,
+        turn_facts: null,
         session: conversation,
+        notices,
         sources: await contextSources(),
         // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다.
-        skills: ((await deps.skills?.(place)) ?? []).map((entry) => ({
+        skills: ((await deps.skills?.(resolved.place)) ?? []).map((entry) => ({
           ...entry,
           selected: resolved.skills.includes(entry.name),
         })),
@@ -500,75 +472,22 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
           deps.reservedOutput ?? 8000,
           model.call.limits.output_limit,
         ),
-      });
+      } as TurnContext);
     };
-    const ported = createCorePorts({
+    const ports_ = createCorePorts({
       seat,
       clock,
       ids,
       machine,
-      agent,
+      agent: agentCall,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
-      // 입력함은 core 메모리에 있다. 감독 pipe로 읽는 길이 놓이기 전에는 입력이 없다.
-      turnInputs: {
-        first: () => Promise.resolve(ok(null)),
-        steering: () => Promise.resolve(ok([])),
-      },
+      turnInputs: inputs,
+      events: deps.events,
       agentHash: resolved.hash,
       model,
-      tools: {
-        listed,
-        bindings,
-        handlers: new Map([
-          ...toolkit.handlers(seat, agent),
-          ...(deps.apps?.handlers(m.appTools, agent) ?? []),
-          ...(deps.toolkit.contexts?.handlers(m.contextRead, agent) ?? []),
-          ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
-            external,
-            m.mcpKit.call(assignment.id),
-          )),
-        ]),
-        credential: {
-          run: seat.run,
-          targets: reach,
-          operations: new Set([
-            ...runOperations(listed),
-            // ask는 이 run의 자격으로 approval request를 만든다. 쓰기·external tool이 하나라도
-            // 있으면 내장·앱·외부 어느 길이든 물을 수 있다.
-            ...(external.length > 0 ||
-                listed.some((tool) => tool.effect !== "read")
-              ? [createApprovalRequest.name]
-              : []),
-          ]),
-        },
-        mcpConnection: (toolDefinition) =>
-          m.mcpKit?.connectionRevision(toolDefinition, assignment.id),
-        server: (toolDefinition) =>
-          externalByName.get(toolDefinition.name)?.server ?? null,
-        extension: (toolDefinition) => {
-          const found = externalByName.get(toolDefinition.name);
-          return found === undefined ? null : {
-            server_name: found.server,
-            configuration_revision: found.configurationRevision,
-            original_tool: found.original,
-            canonical_name: found.definition.name,
-          };
-        },
-        // 앱 command tool의 원래 호출 계약이다. 기록이 tool_calls.app_command로 묶는다.
-        // revert_command가 있으면 기록이 앱의 선언된 revert command를 revert에 싣는다.
-        appCommand: (definition) => {
-          const app = appByName.get(definition.name);
-          return app === undefined ? undefined : appCommandOf(app);
-        },
-        approvalTtlMs: deps.approvalTtlMs ?? 600_000,
-      },
+      tools: toolSetup,
       context,
-    });
-    const resolver = createWaitResolver({
-      machine,
-      judgment: ported.judgment,
-      callRequest: ported.callRequest,
     });
     const loopDeps: LoopDeps = {
       clock,
@@ -578,78 +497,110 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         ? deps.instructions
         : {
           ...deps.instructions,
-          files: deps.instructionFilesFor(seat.run),
+          files: deps.instructionFilesFor(seat.turn),
         },
-      ports: ported.ports,
+      ports: ports_,
     };
-    return { ported, resolver, loopDeps };
+    return { loopDeps };
   }
 
-  // 시작하지 못한 run을 영구 불가 이유로 끝내고 이유를 결과에 남긴다. 끝내지 못해도 run은
-  // 접수 상태로 남아 다음에 다시 시도한다.
-  async function closeUnstarted(run: RunRecord, cannot: CannotStart) {
+  // 시작하지 못하는 turn을 이유와 함께 닫는다. 시작 기록(StartTurn)을 남기고 바로 failed로 끝내 session이
+  // 입력을 계속 받게 한다. 끝내지 못하면 오류이고 입력은 입력함에 남아 다음에 다시 시도한다.
+  async function closeUnstarted(
+    start: TurnStart,
+    why: CannotStart,
+    limits: TurnLimits,
+  ): Promise<Result<Preparation>> {
+    const turn = ids.newId("trn");
+    const basis = await storeValue(
+      deps.blobs,
+      deps.instructions.redact,
+      TURN_BLOB_PURPOSES.turn_basis,
+      { session: start.session, why: why.why },
+    );
+    if (!basis.ok) return basis;
+    const started = await commandOf(
+      machine,
+      startTurn,
+      {
+        id: turn,
+        session: start.session,
+        input_message: start.input.message,
+        basis: basis.value.hash,
+        basis_size: basis.value.size,
+        limits,
+      },
+      {},
+      `${turn}:start:${why.why}`,
+    );
+    if (!started.ok) return started;
     const result = await storeValue(
       deps.blobs,
       deps.instructions.redact,
-      RUN_BLOB_PURPOSES.run_result,
-      { run: run.id, why: cannot.why },
+      TURN_BLOB_PURPOSES.turn_result,
+      { turn, why: why.why },
     );
-    if (!result.ok) return;
-    await commandOf(
+    if (!result.ok) return result;
+    const finished = await commandOf(
       machine,
-      finishRun,
+      finishTurn,
       {
-        run: run.id,
-        outcome: { kind: "failed", reason: cannot.reason },
+        turn,
+        outcome: { kind: "failed", reason: why.reason },
         result: result.value.hash,
         result_size: result.value.size,
       },
-      { state_seq: run.state_seq },
-      `${run.id}:finish:${cannot.why}`,
+      { state_seq: started.value.state_seq },
+      `${turn}:finish:${why.why}`,
     );
+    if (!finished.ok) return finished;
+    return ok({ kind: "closed", turn, reason: why.reason });
   }
 
-  async function prepare(
-    selection: Selection,
-  ): Promise<Result<PreparedRun>> {
-    const run = await readOf(machine, runRead, { run: selection.run });
-    if (!run.ok) return run;
-    const assigned = await readOf(machine, assignmentRead, {
-      assignment: selection.assignment,
+  async function prepare(start: TurnStart): Promise<Result<Preparation>> {
+    if (start.input.message === null) {
+      return err({
+        code: "invalid_input",
+        message: "the input has no session message",
+      });
+    }
+    const read = await readOf(machine, agentSessionRead, {
+      session: start.session,
     });
-    if (!assigned.ok) return assigned;
-    const assignment = assigned.value.assignment;
+    if (!read.ok) return read;
+    const session = read.value.session;
+    if (session.lifecycle !== "open") {
+      return err({ code: "conflict", message: "the session is not open" });
+    }
 
     const settings = await readOf(machine, settingsGet, {
-      keys: Object.values(RUN_LIMIT_SETTING_KEYS),
+      keys: Object.values(TURN_LIMIT_SETTING_KEYS),
     });
     if (!settings.ok) return settings;
-    const limits = resolveRunLimits(settings.value.settings);
+    const limits = resolveTurnLimits(settings.value.settings);
     if (!limits.ok) return limits;
 
-    // 이번 run의 resolved agent. 층을 합친 값을 run 기준에 고정한다. model이 어느 층에도 없거나 정의 파일이
-    // 틀렸으면 run을 시작하지 않고 이유와 함께 끝낸다.
-    // 자리 층의 skill·MCP는 그 agent가 여는 자리의 것만이다. 켠 서버만 연결한다: 정의가 통째로
-    // 끈 서버는 resolve가 정의를 읽은 뒤에 알려 주고, 정의가 끈 skill은 resolve가 뺀다.
-    const sessionRecord = run.value.run.session === null
-      ? null
-      : await readOf(machine, sessionRead, { session: run.value.run.session });
-    if (sessionRecord !== null && !sessionRecord.ok) return sessionRecord;
-    const placed = await placeOfRun(
-      machine,
-      run.value.run,
-      assignment,
-      sessionRecord === null ? null : sessionRecord.value.session,
-    );
-    if (!placed.ok) return placed;
-    const skills = (await deps.skills?.(placed.value)) ?? [];
+    // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
+    // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
+    const skills = (await deps.skills?.(session.place)) ?? [];
     let mcp: LoadedMcp | undefined;
+    const faux = {
+      id: start.session,
+      role: session.agent.role,
+      scope: session.place === null
+        ? { kind: "all", id: null }
+        : { kind: session.place.kind, id: session.place.id },
+    };
     const made = await resolveRunAgent(machine, {
-      run: run.value.run,
-      assignment,
+      run: {
+        id: start.input.message,
+        session: start.session,
+        source: { kind: "message" },
+      },
+      assignment: faux as never,
       skills: skills.map((entry) => entry.name),
       mcp: async (off, place) => {
-        mcp = await loadMcp(assignment.id, { place, skip: off });
+        mcp = await loadMcp(start.session, { place, skip: off });
         return (mcp.source?.tools ?? []).map((tool) => ({
           server_name: tool.server,
           original_tool: tool.original,
@@ -658,273 +609,171 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     });
     if (!made.ok) return made;
     if (made.value.kind === "cannot_start") {
-      await closeUnstarted(run.value.run, made.value);
-      return err({
-        code: "unavailable",
-        message: `the run cannot start: ${made.value.why}`,
-      });
+      return await closeUnstarted(start, made.value, limits.value);
     }
     const agent = made.value.agent;
 
+    const turn = ids.newId("trn");
     const found = await material(
-      run.value.run,
-      assignment,
+      start,
+      session,
       agent,
-      mcp ?? await loadMcp(assignment.id, { place: agent.place }),
+      mcp ?? await loadMcp(start.session, { place: agent.place }),
+      turn,
     );
-    if (!found.ok) return found;
-    const { listed, scope, model, place, contextRead } = found.value;
+    if (!found.ok) {
+      // model을 쓸 수 없으면 그 turn만 시작하지 않는다. 다른 일은 그대로다.
+      return found.error.code === "unavailable" ||
+          found.error.code === "not_found" ||
+          found.error.code === "invalid_input"
+        ? await closeUnstarted(
+          start,
+          { reason: "configuration_unavailable", why: "model_required" },
+          limits.value,
+        )
+        : found;
+    }
+    const m = found.value;
 
-    // 전체 값은 blob이고 run 기준에는 hash와 칸별 출처만 둔다. 기준과 agent blob은 둘 다
-    // 영구 참조라 저장한 바이트의 hash로 StartRun에 싣는다.
+    // session의 첫 turn이 tool 목록을 고정한다.
+    if (!fixedBySession.has(start.session)) {
+      fixedBySession.set(start.session, {
+        definitions: m.current,
+        key: keyOf(m.current),
+      });
+    }
+    const fixed = fixedBySession.get(start.session)!;
+
+    // 전체 값은 blob이고 turn 기준에는 hash와 칸별 출처만 둔다. 기준과 agent blob은 둘 다 영구 참조라
+    // 저장한 바이트의 hash로 StartTurn에 싣는다.
     const stored = await storeValue(
       deps.blobs,
       deps.instructions.redact,
-      RUN_BLOB_PURPOSES.run_agent,
+      TURN_BLOB_PURPOSES.turn_resolved,
       agent,
     );
     if (!stored.ok) return stored;
-
     const basis = await storeValue(
       deps.blobs,
       deps.instructions.redact,
-      RUN_BLOB_PURPOSES.run_basis,
+      TURN_BLOB_PURPOSES.turn_basis,
       {
-        agent: { hash: agent.hash, sources: agent.sources },
-        assignment: {
-          id: assignment.id,
-          revision: assignment.revision,
-          snapshot_hash: await fingerprint(assignment),
-          basis_seq: run.value.as_of_seq,
-        },
+        agent: session.agent,
+        resolved: { hash: agent.hash, sources: agent.sources },
         tools: {
           revision: "1",
           definitions_hash: await fingerprint(
-            listed.map((tool) => [tool.name, tool.revision]),
+            fixed.definitions.map((tool) => [tool.name, tool.revision]),
           ),
-          // 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다.
-          contexts: contextRead.pins,
+          // 선언 검색 정의를 만든 판이다.
+          contexts: m.contextRead.pins as readonly ContextToolPin[],
         },
-        models: { judgment: model.call, organizing: model.call },
-        initial_work_place: place,
+        models: { judgment: m.model.call, organizing: m.model.call },
+        place: session.place,
         limits: limits.value,
       },
     );
     if (!basis.ok) return basis;
 
-    return ok({
-      begin: {
-        run: selection.run,
-        assignment: selection.assignment,
-        stateSeq: selection.stateSeq,
-        basis: basis.value.hash,
-        basisSize: basis.value.size,
-        agent: stored.value.hash,
-        agentSize: stored.value.size,
-        limits: limits.value,
-        scope,
-      },
-      async startRun(input) {
-        const started = await commandOf(
-          machine,
-          startRun,
-          {
-            run: input.run,
-            basis: input.basis,
-            ...(input.basisSize === undefined
-              ? {}
-              : { basis_size: input.basisSize }),
-            ...(input.agent === undefined || input.agentSize === undefined
-              ? {}
-              : { agent: input.agent, agent_size: input.agentSize }),
-            limits: input.limits,
-            scope: input.scope,
-          },
-          { state_seq: input.stateSeq },
-          `${input.run}:start`,
-        );
-        return started.ok
-          ? ok({
-            run: started.value.id,
-            state_seq: started.value.state_seq,
-            basis: started.value.basis,
-          })
-          : started;
-      },
-      loop(credential) {
-        const built = loopFor(
-          found.value,
-          assignment,
-          deps.agentCall(credential.token),
-        );
-        return {
-          provider: found.value.model.call.provider,
-          settle: () => built.resolver.settle(selection.run),
-          deps: built.loopDeps,
-          input: {
-            run: selection.run,
-            session: found.value.seat.session,
-            limits: limits.value,
-            elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
-            attempts: 0,
-          },
-        };
-      },
-    });
-  }
-
-  // 시작한 run을 저장된 경계에서 잇는 재료다. resolved agent는 run 기준이 고정한 값을 그대로 쓰고(정의·
-  // 설정·Workspace는 다시 읽지 않는다) 한도는 StartRun이 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다.
-  async function prepareResume(
-    runId: string,
-    credentials: RunCredentials,
-  ): Promise<Result<PreparedResume>> {
-    const run = await readOf(machine, runRead, { run: runId });
-    if (!run.ok) return run;
-    const record = run.value.run;
-    const assigned = await readOf(machine, assignmentRead, {
-      assignment: record.assignment,
-    });
-    if (!assigned.ok) return assigned;
-    const assignment = assigned.value.assignment;
-    const pinned = await pinnedRun(machine, runId, record.assignment);
-    if (!pinned.ok) return pinned;
-    // 이어 하기는 고정한 agent가 켠 서버만 연결한다.
-    const found = await material(
-      record,
-      assignment,
-      pinned.value.agent,
-      await loadMcp(assignment.id, {
-        place: pinned.value.agent.place,
-        only: new Set(pinned.value.agent.mcp.map((tool) => tool.server_name)),
-      }),
-      // 선언 검색 정의를 만든 판도 run 기준이 고정한 값이다. 지금 적용된 판이 아니라 이 판으로 다시 만든다.
-      pinsOf(pinned.value.contexts),
-    );
-    if (!found.ok) return found;
-    const holder: { agent?: CoreCall } = {};
-    const agent: CoreCall = (path, body) =>
-      holder.agent === undefined
-        ? Promise.resolve(
-          err({ code: "unauthorized" as const, message: "no run credential" }),
-        )
-        : holder.agent(path, body);
-    const built = loopFor(found.value, assignment, agent);
-    const lookups = new Map([
-      ...(deps.toolkit.lookups?.(found.value.seat, agent) ?? []),
-      ...(deps.apps?.lookups(found.value.appTools) ?? []),
-    ]);
-    let held: AgentRunCredential | undefined;
-    const recoveryDeps = {
-      machine,
-      clock,
-      store: (purpose: string, value: unknown) =>
-        storeValue(deps.blobs, deps.instructions.redact, purpose, value),
-      lookup: (tool: string) => lookups.get(tool),
-      close: built.ported.ports.tools.close,
+    const begin: BeginTurnInput = {
+      turn,
+      session: start.session,
+      role: session.agent.role,
+      inputMessage: start.input.message,
+      basis: basis.value.hash,
+      basisSize: basis.value.size,
+      resolved: stored.value.hash,
+      resolvedSize: stored.value.size,
+      limits: limits.value,
     };
     return ok({
-      assignment: record.assignment,
-      settle: () => built.resolver.settle(runId),
-      async recover(executing) {
-        // 이 run의 ledger 사실로 경계를 확정한다. credential은 새 진입이 확정된 뒤에만 받는다.
-        const outcome = await recoverRunFromLedger(recoveryDeps, runId, {
-          ...(executing === undefined ? {} : { executing }),
-          async preflight(fixed) {
-            // 현재 scope가 StartRun이 고정한 값과 다르면 진행하지 않는다.
-            if (
-              canonicalize(fixed.scope) !== canonicalize(found.value.scope)
-            ) return "target_unavailable";
-            if (!(await found.value.model.available())) {
-              return "configuration_unavailable";
-            }
-            const opened = await credentials.open({
-              run: runId,
-              assignment: record.assignment,
-              scope: found.value.scope,
-            });
-            if (!opened.ok) return "configuration_unavailable";
-            held = opened.value;
-            holder.agent = deps.agentCall(opened.value.token);
-            return null;
-          },
-        });
-        if (!outcome.ok || outcome.value.kind !== "resume") {
-          if (held !== undefined) credentials.end(runId);
-          return outcome.ok
-            ? ok({ kind: "ended" as const, outcome: outcome.value })
-            : outcome;
-        }
-        const resumed = outcome.value;
-        built.ported.resumeAfter(resumed.lastModelCall);
-        return ok({
-          kind: "resumed" as const,
-          credential: held!,
-          provider: found.value.model.call.provider,
-          deps: built.loopDeps,
-          settle: () => built.resolver.settle(runId),
-          input: {
-            run: runId,
-            session: resumed.session,
-            limits: record.limits,
-            elapsed: resumed.elapsed,
-            attempts: resumed.attempts,
-            resume: resumed.resume,
-          },
-        });
+      kind: "ready",
+      turn: {
+        turn,
+        session: start.session,
+        begin,
+        async startTurn(input) {
+          const started = await commandOf(
+            machine,
+            startTurn,
+            {
+              id: input.turn,
+              session: input.session,
+              input_message: input.inputMessage,
+              basis: input.basis,
+              ...(input.basisSize === undefined
+                ? {}
+                : { basis_size: input.basisSize }),
+              ...(input.resolved === undefined ||
+                  input.resolvedSize === undefined
+                ? {}
+                : {
+                  resolved: input.resolved,
+                  resolved_size: input.resolvedSize,
+                }),
+              limits: input.limits,
+            },
+            {},
+            `${input.turn}:start`,
+          );
+          return started.ok
+            ? ok({
+              turn: started.value.id,
+              state_seq: started.value.state_seq,
+              basis: started.value.basis,
+            })
+            : started;
+        },
+        async closeStarted() {
+          const current = await readOf(machine, turnRead, { turn });
+          if (!current.ok || current.value.turn.state !== "running") return;
+          const result = await storeValue(
+            deps.blobs,
+            deps.instructions.redact,
+            TURN_BLOB_PURPOSES.turn_result,
+            { turn, why: "credential" },
+          );
+          if (!result.ok) return;
+          await commandOf(
+            machine,
+            finishTurn,
+            {
+              turn,
+              outcome: { kind: "failed", reason: "configuration_unavailable" },
+              result: result.value.hash,
+              result_size: result.value.size,
+            },
+            { state_seq: current.value.turn.state_seq },
+            `${turn}:finish:credential`,
+          );
+        },
+        loop(credential, inputs) {
+          const built = loopFor(
+            m,
+            start,
+            deps.agentCall(credential.token),
+            inputs,
+          );
+          return {
+            provider: m.model.call.provider,
+            deps: built.loopDeps,
+            input: {
+              turn,
+              session: start.session,
+              limits: limits.value,
+              elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
+              attempts: 0,
+            },
+          };
+        },
       },
     });
   }
 
   return {
     prepare,
-    prepareResume,
-    // 재시작 뒤 복구할 run: 시작했고 끝나지 않은 run. 사람이 멈춘 run은 이미 끝나 있다.
-    async liveRuns() {
-      const live: { run: string; state: "running" | "waiting_user" }[] = [];
-      for (const state of ["running", "waiting_user"] as const) {
-        let cursor: string | undefined;
-        for (let page = 0; page < 100; page++) {
-          const listed = await readOf(machine, runList, {
-            state,
-            ...(cursor === undefined ? {} : { cursor }),
-          });
-          if (!listed.ok) return listed;
-          for (const run of listed.value.runs) {
-            live.push({ run: run.id, state });
-          }
-          if (
-            listed.value.next_cursor === null ||
-            listed.value.next_cursor === undefined
-          ) break;
-          cursor = listed.value.next_cursor;
-        }
-      }
-      return ok(live);
-    },
-    // StartRun은 확정됐지만 credential을 받지 못한 run은 설정 불가로 끝낸다.
-    async closeUnusable(selection) {
-      const run = await readOf(machine, runRead, { run: selection.run });
-      if (!run.ok) return;
-      const result = await storeValue(
-        deps.blobs,
-        deps.instructions.redact,
-        RUN_BLOB_PURPOSES.run_result,
-        { run: selection.run, why: "credential" },
-      );
-      if (!result.ok) return;
-      await commandOf(
-        machine,
-        finishRun,
-        {
-          run: selection.run,
-          outcome: { kind: "failed", reason: "configuration_unavailable" },
-          result: result.value.hash,
-          result_size: result.value.size,
-        },
-        { state_seq: run.value.run.state_seq },
-        `${selection.run}:finish:credential`,
-      );
+    forget(session) {
+      fixedBySession.delete(session);
     },
   };
 }

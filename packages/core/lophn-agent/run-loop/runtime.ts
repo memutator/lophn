@@ -1,15 +1,14 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
-  assignmentRead,
+  agentSessionRead,
   providerList,
-  runRead,
+  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { eventsList } from "../../../protocol/events/mod.ts";
 import {
   type Frame,
   type ReadRoute,
@@ -53,11 +52,11 @@ import { agentRuntimeLaunchSpec, readBundledSkillRoots } from "../register.ts";
 import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import { allowNetList, allowRunList } from "../extensions/mod.ts";
 
-// 제품 core가 agent runtime child를 띄우고 감독하는 자리(lophn-agent/harness/run-loop). child는
+// 제품 core가 agent runtime child를 띄우고 감독하는 자리. child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
 // - hello에 싣는 machine credential: principal `machine:agent-runtime`, scope는 runtime이 부르는
 //   machine route의 operation 목록(`RUNTIME_MACHINE_OPERATIONS`)이다.
-// - run마다 `agent:<asg>` credential: child가 감독 pipe로 청하고, core가 자기 ledger 기록으로
+// - turn마다 `agent:<ses>` credential: child가 감독 pipe로 청하고, core가 자기 기록으로
 //   대조한 뒤 발급한다(`createAgentCredentialLink`).
 // 감독 pipe의 blob 준비 요청은 child kind의 정책(child-blob-prepare)으로 받는다. 등록한 provider
 // 목적지가 바뀌면 권한 목록이 달라지므로 core가 옛 child를 멈추고 새 목록으로 다시 띄운다.
@@ -114,8 +113,7 @@ export function agentCredentialIssuer(
         credential_ref: issued.value.credential_ref,
       });
       if (!current.ok) return current;
-      // ledger 기록의 scope는 operation과 target뿐이다(strict). AgentAppScope는 StartRun의
-      // `RunStarted` event가 고정한 값이고 발급 경계가 그 값과 대조해 발급했다.
+      // ledger 기록의 scope는 operation과 target뿐이다(strict).
       const { agent: _agent, ...scope } = current.value.scope as
         & AuthenticatedContext["scope"]
         & { agent?: unknown };
@@ -160,9 +158,9 @@ export const SKILL_ROOTS_READER: RequestContext = {
   credential_ref: "machine:agent-runtime-skill-roots",
 };
 
-// 발급 판정이 읽는 route뿐이다. 요청한 run·assignment·scope를 core 자신의 기록과 대조한다.
+// 발급 판정이 읽는 route뿐이다. 요청한 turn과 session을 core 자신의 기록과 대조한다.
 const LINK_READS: ReadonlyMap<string, ReadRoute> = new Map(
-  ([runRead, assignmentRead, eventsList] as ReadRoute[]).map((
+  ([turnRead, agentSessionRead] as ReadRoute[]).map((
     route,
   ) => [routePath(route), route]),
 );
@@ -192,7 +190,7 @@ export type AgentRuntimeDeps = {
   readSkillRoots?(
     context: RequestContext,
   ): Promise<Result<readonly string[]>>;
-  // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 run·assignment·event).
+  // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 turn·session).
   read(
     route: ReadRoute,
     context: RequestContext,
@@ -293,7 +291,7 @@ export async function startAgentRuntimeChild(
         }).catch(() => {});
       },
       onFrame: (frame: Frame) => handler.onFrame(frame),
-      // child가 끝났다. 그 child가 쥐고 있던 run의 agent credential은 더 쓰이지 않는다.
+      // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않는다.
       onEnd() {
         alive = false;
         handler.close();

@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import {
   type Clock,
   err,
@@ -8,29 +7,18 @@ import {
 } from "../../../base/mod.ts";
 import {
   type CallCost,
-  checkpointRun,
+  checkpointTurn,
   finishModelCall,
-  finishRun,
   finishToolCall,
-  modelCallList,
-  questionRead,
-  questionText,
+  finishTurn,
   recordMessage,
   recordToolRequest,
-  RUN_BLOB_PURPOSES,
-  runBody,
-  runRead,
   startModelCall,
   type TokenUsage,
-  toolCallRead,
-  type ToolResult,
-  waitRun,
-  waitRunInputSchema,
+  TURN_BLOB_PURPOSES,
+  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  approvalsGet,
-  approvalsText,
-} from "../../../protocol/approvals/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
 import {
   type WorkspaceReadOutput,
@@ -38,37 +26,29 @@ import {
 } from "../../../protocol/shell/mod.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import {
-  type CallRequest,
-  createToolJudgment,
-  type ToolBinding,
-} from "../tool-judgment/mod.ts";
-import {
-  callRevision,
-  executeTool,
-  questionSubmitTool,
-  type RunCredential,
+  executeToolCall,
+  type ToolContext,
   type ToolDefinition,
-  type ToolHandler,
+  toolForWireName,
 } from "../tools/mod.ts";
 import type {
+  AgentEventSink,
   FinishRequest,
   ModelAttempt,
+  Pause,
   PendingInputs,
-  RunContext,
-  RunPorts,
   StopCheck,
-  ToolAttempt,
+  StopReason,
   ToolCallRequest,
   ToolDone,
   ToolInfo,
-  WaitTarget,
-} from "./mod.ts";
-import type { TurnInputs } from "./ports.ts";
+  TurnContext,
+  TurnInputs,
+  TurnPorts,
+} from "./ports.ts";
 import { inputText } from "./input-text.ts";
-import { parseToolArgs } from "./mod.ts";
 import { resultLinks } from "../session/answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
-import { questionWaitRequest } from "../waiting-and-recovery/wait-request.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
   type BlobPort,
@@ -78,39 +58,35 @@ import {
   storeValue,
 } from "./blobs.ts";
 
-// agent loop의 port를 실제 core 호출로 잇는다(lophn-agent/harness/run-loop). 읽기와 기록은 machine
-// 자격의 loopback이고, tool 진입(판정의 approval 요청·소유 command)은 이 run의 agent 자격이다.
-// ledger가 정본이다: 이 모듈은 상태를 따로 들고 있지 않고 id·순번·마지막 model call만 기억한다.
+// agent loop의 port를 실제 core 호출로 잇는다. 읽기와 기록은 machine 자격의 loopback이고 tool 실행은 이
+// turn의 agent 자격(`ToolContext.core`)이다. turn 행이 정본이다: 이 모듈은 상태를 따로 들고 있지 않고
+// id·순번·마지막 model call만 기억한다. model call과 tool call의 사용 기록은 옛 route를 best-effort로
+// 부른다(기록을 못 해도 turn은 간다).
 
-export type RunSeat = {
-  run: string;
-  assignment: string;
-  session: string | null;
+export type TurnSeat = {
+  turn: string;
+  session: string;
 };
 
 export type ToolSetup = {
+  // session을 시작할 때 고정한 목록(model에는 wire 이름으로 간다).
   listed: readonly ToolDefinition[];
-  bindings: ReadonlyMap<string, ToolBinding>;
-  handlers: ReadonlyMap<string, ToolHandler>;
-  credential: RunCredential;
-  mcpConnection(definition: ToolDefinition): { revision: number } | undefined;
-  // 외부 MCP tool의 서버 이름. 없으면 내장·앱 tool이다.
+  // tool call 하나의 실행 맥락. 사람의 결정을 기다리는 호출(`gate.waitTurnDecision`, `questions.ask`)은
+  // core-ports가 감싸 기다리는 동안 turn의 시간을 세지 않게 한다.
+  context(toolCall: Id<"tcl">): ToolContext;
+  // 외부 MCP tool의 서버 이름. 없으면 내장 tool이다.
   server?(definition: ToolDefinition): string | null;
-  // 앱 command tool의 원래 호출 계약(AppCommandBinding)이다. 없으면 앱 tool이 아니다. 기록이
-  // 이 값을 tool_calls.app_command로 묶어 revert가 앱의 선언된 revert command를 부른다.
-  appCommand?(definition: ToolDefinition): unknown;
-  // 외부 MCP tool의 기록 확장이다. 없는 tool·내장·앱은 null이다.
+  // 외부 MCP tool의 기록 확장이다. 없는 tool·내장은 null이다.
   extension?(definition: ToolDefinition): {
     server_name: string;
     configuration_revision: number;
     original_tool: string;
     canonical_name: string;
   } | null;
-  approvalTtlMs: number;
 };
 
 export type CorePortsDeps = {
-  seat: RunSeat;
+  seat: TurnSeat;
   clock: Clock;
   ids: IdSource;
   machine: CoreCall;
@@ -118,28 +94,19 @@ export type CorePortsDeps = {
   // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
   blobs: BlobPort;
   redact: RedactText;
-  // run 기준이 고정한 resolved agent의 hash. model call·tool call 기록이 이 값을 가리킨다.
+  // turn 기준이 고정한 resolved agent의 hash. model call·tool call 기록이 이 값을 가리킨다.
   agentHash: string;
   model: ModelBinding;
   tools: ToolSetup;
-  context(): Promise<Result<RunContext>>;
+  context(): Promise<Result<TurnContext>>;
   turnInputs: TurnInputs;
+  events: AgentEventSink;
 };
 
-export type CorePorts = {
-  ports: RunPorts;
-  // 복구로 이은 run의 가장 마지막 model call. 답 기록의 idempotency 기준이 이어진다.
-  resumeAfter(modelCall: string | null): void;
-  // 진입 직전 재검사·시작·미실행 종료. 기다림 해소기가 같은 기준으로 쓴다.
-  judgment: ReturnType<typeof createToolJudgment>;
-  // 기다림 해소기가 쓰는 고정 call의 실제 입력(model 응답에서 온 값)이다. 이 process가 낸 call만 있다.
-  callRequest(toolCall: string): Promise<Result<CallRequest>>;
-};
-
-const STOP_REASONS = new Set([
+const STOP_REASONS: ReadonlySet<string> = new Set<StopReason>([
   "user_stopped",
-  "assignment_paused",
-  "assignment_withdrawn",
+  "restarted",
+  "session_ended",
 ]);
 
 const EMPTY_USAGE = (revision: string): TokenUsage => ({
@@ -161,48 +128,47 @@ const UNKNOWN_COST: CallCost = {
   confirmed_at: null,
 };
 
-export function createCorePorts(deps: CorePortsDeps): CorePorts {
+export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   const { seat, machine, agent, clock, ids } = deps;
   const store = (purpose: string, value: unknown) =>
     storeValue(deps.blobs, deps.redact, purpose, value);
-  let attempts: number | undefined;
+  let attempts = 0;
   let lastModelCall: string | null = null;
-  const requests = new Map<string, CallRequest>();
   const definitionOf = (name: string) =>
-    deps.tools.listed.find((tool) => tool.name === name);
+    toolForWireName(deps.tools.listed, name);
 
-  const judgment = createToolJudgment({
-    clock,
-    ids,
-    machine,
-    agent,
-    assignment: seat.assignment,
-    agentHash: deps.agentHash,
-    credential: deps.tools.credential,
-    listed: deps.tools.listed,
-    bindings: deps.tools.bindings,
-    mcpConnection: deps.tools.mcpConnection,
-    approvalTtlMs: deps.tools.approvalTtlMs,
-  });
+  function turnRecord() {
+    return readOf(machine, turnRead, { turn: seat.turn });
+  }
 
-  async function runRecord() {
-    return await readOf(machine, runRead, { run: seat.run });
+  function publish(
+    type: "ToolCallStarted" | "ToolCallEnded",
+    payload: Record<string, unknown>,
+  ) {
+    deps.events.publish(
+      {
+        session: seat.session,
+        type,
+        at: clock.now(),
+        payload: { turn: seat.turn, ...payload },
+      } as Parameters<AgentEventSink["publish"]>[0],
+    );
   }
 
   // ---- 멈춤·입력 ----
 
+  // turn 행이 끝나 있으면 core가 닫은 것이다(멈춤, session 끝남, 꺼짐).
   async function stop(): Promise<StopCheck> {
-    const read = await runRecord();
-    if (!read.ok || read.value.run.state !== "finished") {
+    const read = await turnRecord();
+    if (!read.ok || read.value.turn.state !== "finished") {
       return { stopped: false };
     }
-    const reason = read.value.run.outcome?.reason ?? "";
-    return {
-      stopped: true,
-      reason: STOP_REASONS.has(reason)
-        ? reason as "user_stopped"
-        : "user_stopped",
-    };
+    const outcome = read.value.turn.outcome;
+    const reason = outcome?.kind === "interrupted" &&
+        STOP_REASONS.has(outcome.reason)
+      ? outcome.reason
+      : "user_stopped";
+    return { stopped: true, reason };
   }
 
   async function inputs(): Promise<Result<PendingInputs>> {
@@ -219,14 +185,9 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   // ---- model call ----
 
   async function modelAttempt(
-    request: Parameters<RunPorts["model"]["call"]>[0],
+    request: Parameters<TurnPorts["model"]["call"]>[0],
     signal: AbortSignal,
   ): Promise<Result<ModelAttempt>> {
-    if (attempts === undefined) {
-      const listed = await readOf(machine, modelCallList, { run: seat.run });
-      if (!listed.ok) return listed;
-      attempts = listed.value.calls.length;
-    }
     attempts += 1;
     // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않고, 저장한
     // 바이트와 보낸 바이트가 같다. 조립 근거도 전송 전에 저장하며 저장하지 못하면 보내지 않는다.
@@ -234,12 +195,12 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     if (!safeBody.ok) return safeBody;
     const inputBlob = await storeRedacted(
       deps.blobs,
-      RUN_BLOB_PURPOSES.model_call_input,
+      TURN_BLOB_PURPOSES.model_call_input,
       safeBody.value,
     );
     if (!inputBlob.ok) return inputBlob;
     const basisBlob = await store(
-      RUN_BLOB_PURPOSES.model_call_basis,
+      TURN_BLOB_PURPOSES.model_call_basis,
       request.assembly.basis,
     );
     if (!basisBlob.ok) return basisBlob;
@@ -248,7 +209,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     const model = deps.model;
     const call = {
       id,
-      run: seat.run,
+      run: seat.turn,
       session: seat.session,
       model_use: "judgment" as const,
       agent_hash: deps.agentHash,
@@ -269,7 +230,6 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       usage: EMPTY_USAGE(model.usageRevision),
       cost: UNKNOWN_COST,
     };
-    // 수정 입력의 처음 반영은 시작 기록과 같은 transaction이다.
     const started = await commandOf(
       machine,
       startModelCall,
@@ -285,11 +245,15 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       { state_seq: "1" },
       `${id}:start`,
     );
-    if (!started.ok) return started;
     lastModelCall = id;
+    // 이 요청이 가져간 steer는 입력함에서 비운다. 응답을 기다리는 사이 들어온 steer는 뒤에 남는다.
+    if (request.applied.length > 0) {
+      const settled = await deps.turnInputs.settled(request.applied.length);
+      if (!settled.ok) return settled;
+    }
     const invoked = await model.invoke({
       callId: id,
-      run: seat.run,
+      run: seat.turn,
       session: seat.session,
       purpose: "judgment",
       model: model.call,
@@ -323,31 +287,32 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       (output.text.length > 0 || output.toolCalls.length > 0);
     let outputBlob: { hash: string; size: number } | null = null;
     if (kept || outcome.kind === "partial") {
-      const stored = await store(RUN_BLOB_PURPOSES.model_call_output, {
+      const stored = await store(TURN_BLOB_PURPOSES.model_call_output, {
         text: output?.text ?? "",
         tools: output?.toolCalls ?? [],
       });
       if (!stored.ok) return stored;
       outputBlob = stored.value;
     }
-    const finished = await commandOf(
-      machine,
-      finishModelCall,
-      {
-        call: id,
-        output: outputBlob?.hash ?? null,
-        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
-        outcome,
-        usage,
-        cost,
-        duration_ms: output?.durationMs ?? null,
-        first_output_ms: output?.firstOutputMs ?? null,
-        state_seq: "2",
-      },
-      { state_seq: "1" },
-      `${id}:finish`,
-    );
-    if (!finished.ok) return finished;
+    if (started.ok) {
+      await commandOf(
+        machine,
+        finishModelCall,
+        {
+          call: id,
+          output: outputBlob?.hash ?? null,
+          ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
+          outcome,
+          usage,
+          cost,
+          duration_ms: output?.durationMs ?? null,
+          first_output_ms: output?.firstOutputMs ?? null,
+          state_seq: "2",
+        },
+        { state_seq: "1" },
+        `${id}:finish`,
+      );
+    }
     if (output === undefined) {
       return err(
         invoked.ok ? { code: "internal", message: "no output" } : invoked.error,
@@ -373,6 +338,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     };
   }
 
+  // 사용 기록. 요청을 남기고 끝난 결과를 잇는다. 어느 쪽이든 못 남겨도 호출은 그대로 간다.
   async function record(
     call: ToolCallRequest,
     id: string,
@@ -380,27 +346,24 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   ): Promise<Result<unknown>> {
     // 인자는 redaction한 바이트를 blob으로 저장한 뒤 그 hash로 기록한다.
     const inputBlob = await store(
-      RUN_BLOB_PURPOSES.tool_call_input,
+      TURN_BLOB_PURPOSES.tool_call_input,
       call.input,
     );
     if (!inputBlob.ok) return inputBlob;
-    const appCommand = definition === undefined
-      ? undefined
-      : deps.tools.appCommand?.(definition);
     return await commandOf(
       machine,
       recordToolRequest,
       {
         id,
-        run: seat.run,
+        run: seat.turn,
         model_call: call.model_call,
         response_key: call.key,
         response_order: call.order,
-        tool: call.name,
+        tool: definition?.name ?? call.name,
         definition_revision: definition?.revision ?? "unlisted",
         effect: definition?.effect ?? "read",
         confirm: definition?.confirm ?? false,
-        // 외부 MCP tool의 원래 서버·tool 쌍이다. 내장·앱·없는 tool은 null이다.
+        // 외부 MCP tool의 원래 서버·tool 쌍이다. 내장·없는 tool은 null이다.
         extension: definition === undefined
           ? null
           : deps.tools.extension?.(definition) ?? null,
@@ -408,8 +371,6 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         input_size: inputBlob.value.size,
         retry_of: call.retry_of,
         attempt: call.attempt,
-        // 앱 command tool만 싣는다. 원래 호출의 근거가 이 열로 묶인다.
-        ...(appCommand === undefined ? {} : { app_command: appCommand }),
       },
       { run_state_seq: "0", model_call_finished_seq: "0" },
       `${id}:request`,
@@ -422,7 +383,6 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     code: string,
     summary: string,
   ): ToolDone => ({
-    kind: "done",
     tool_call,
     status,
     code,
@@ -437,108 +397,74 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     },
   });
 
-  async function attemptTool(
-    call: ToolCallRequest,
-    signal: AbortSignal,
-  ): Promise<ToolAttempt> {
-    const definition = definitionOf(call.name);
-    const id = ids.newId("tcl");
-    const recorded = await record(call, id, definition);
-    if (!recorded.ok) {
-      return done(
-        id,
-        "failure",
-        "unavailable",
-        "tool call could not be recorded",
-      );
-    }
-    let request: CallRequest = {
-      toolCall: id,
-      run: seat.run,
-      tool: call.name,
-      input: call.input,
-      stateSeq: "0",
-    };
-    requests.set(id, request);
-    const decided = await judgment.decide(request);
-    if (!decided.ok) {
-      return done(id, "failure", "unavailable", "tool judgment is unavailable");
-    }
-    request = { ...request, stateSeq: decided.value.stateSeq };
-    requests.set(id, request);
-    const decision = decided.value.decision;
-    if (decision.decision === "deny") {
-      return done(id, "not_executed", "denied", decision.reason);
-    }
-    if (decision.decision === "ask") {
-      const approval = decision.approval;
-      if (approval === null) {
-        return done(id, "not_executed", "denied", "no approval request");
-      }
-      return {
-        kind: "waiting",
-        tool_call: id,
-        approval,
-        result: done(
-          id,
-          "not_executed",
-          "waiting_for_decision",
-          "waiting for a person",
-        ).result,
-      };
-    }
-    // 진입 직전 재검사. 판정을 기록한 때와 달라졌으면 옛 허락을 쓰지 않는다.
-    const admitted = await judgment.admit(request, decision);
-    if (!admitted.ok || admitted.value.kind !== "enter") {
-      const code = admitted.ok ? admitted.value.kind : "unavailable";
-      await judgment.closeUnentered(request, request.stateSeq, code);
-      return done(id, "not_executed", code, "the call was not entered");
-    }
-    const started = await judgment.start(request, admitted.value);
-    if (!started.ok) {
-      return done(
-        id,
-        "failure",
-        "unavailable",
-        "the call could not be started",
-      );
-    }
-    request = { ...request, stateSeq: started.value };
-    requests.set(id, request);
-    return await executeStarted(id, call, request.stateSeq, signal);
-  }
-
-  // 진입이 기록된 call을 실행하고 끝낸다. 판정·진입 기록은 이미 끝난 상태다.
-  async function executeStarted(
-    id: string,
-    call: ToolCallRequest,
-    stateSeq: string,
-    signal: AbortSignal,
-  ): Promise<ToolDone> {
-    const startedMs = clock.nowMs();
-    const outcome = await executeTool(
-      {
-        listed: deps.tools.listed,
-        handlers: deps.tools.handlers,
-        credential: {
-          ...deps.tools.credential,
-          call: call.retry_of ?? id,
+  // 사람의 결정을 기다리는 동안 turn의 시간을 세지 않게 맥락의 기다림 둘을 감싼다.
+  function paused(ctx: ToolContext, pause: Pause): ToolContext {
+    return {
+      ...ctx,
+      gate: {
+        ...ctx.gate,
+        async waitTurnDecision(request) {
+          pause.begin();
+          try {
+            return await ctx.gate.waitTurnDecision(request);
+          } finally {
+            pause.end();
+          }
         },
       },
+      questions: {
+        async ask(session, questions) {
+          pause.begin();
+          try {
+            return await ctx.questions.ask(session, questions);
+          } finally {
+            pause.end();
+          }
+        },
+      },
+    };
+  }
+
+  function endedOutcome(
+    outcome: { kind: string; code: string },
+  ): "ok" | "error" | "denied" | "cancelled" {
+    if (outcome.kind === "success") return "ok";
+    if (outcome.kind === "not_executed") {
+      if (outcome.code === "cancelled") return "cancelled";
+      if (outcome.code === "denied" || outcome.code === "rejected") {
+        return "denied";
+      }
+    }
+    return "error";
+  }
+
+  async function attemptTool(
+    call: ToolCallRequest,
+    _signal: AbortSignal,
+    pause: Pause,
+  ): Promise<ToolDone> {
+    const definition = definitionOf(call.name);
+    const id = ids.newId("tcl") as Id<"tcl">;
+    const recorded = await record(call, id, definition);
+    publish("ToolCallStarted", {
+      tool_call: id,
+      tool: definition?.name ?? call.name,
+    });
+    const startedMs = clock.nowMs();
+    const executed = await executeToolCall(
+      paused(deps.tools.context(id), pause),
       call.name,
       call.input,
     );
-    if (signal.aborted && outcome.outcome.kind === "failure") {
-      // 중단 요청 뒤의 실패는 그대로 기록한다. 이미 보낸 효과는 결과 확인 경계가 본다.
-    }
     let outputBlob: { hash: string; size: number } | null = null;
-    if (outcome.outcome.kind === "success") {
+    if (executed.outcome.kind === "success") {
       const stored = await store(
-        RUN_BLOB_PURPOSES.tool_call_output,
-        outcome.result,
+        TURN_BLOB_PURPOSES.tool_call_output,
+        executed.result,
       );
       // 결과를 저장하지 못하면 확정 사실이 없다. 불명확으로 닫는다.
       if (!stored.ok) {
+        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
         return done(
           id,
           "uncertain",
@@ -548,166 +474,52 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       }
       outputBlob = stored.value;
     }
-    const finished = await commandOf(
-      machine,
-      finishToolCall,
-      {
-        tool_call: id,
-        outcome: outcome.outcome,
-        output: outputBlob?.hash ?? null,
-        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
-        result: outcome.result,
-        finished_at: clock.now(),
-        duration_ms: Math.max(0, clock.nowMs() - startedMs),
-      },
-      { state_seq: stateSeq },
-      `${id}:finish`,
-    );
-    if (!finished.ok) {
-      return done(
-        id,
-        "uncertain",
-        "uncertain",
-        "the result could not be recorded",
+    if (recorded.ok) {
+      await commandOf(
+        machine,
+        finishToolCall,
+        {
+          tool_call: id,
+          outcome: executed.outcome,
+          output: outputBlob?.hash ?? null,
+          ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
+          result: executed.result,
+          finished_at: clock.now(),
+          duration_ms: Math.max(0, clock.nowMs() - startedMs),
+        },
+        { state_seq: "0" },
+        `${id}:finish`,
       );
     }
-    const asked = outcome.outcome.kind === "success"
-      ? askedQuestion(call.name, outcome.result)
-      : undefined;
-    return {
-      kind: "done",
+    publish("ToolCallEnded", {
       tool_call: id,
-      status: outcome.outcome.kind,
-      code: outcome.outcome.code,
-      result: outcome.result,
-      ...(asked === undefined ? {} : { asked }),
+      outcome: endedOutcome(executed.outcome),
+    });
+    return {
+      tool_call: id,
+      status: executed.outcome.kind,
+      code: executed.outcome.code,
+      result: executed.result,
     };
   }
 
-  // 사람의 허락으로 진입이 이미 기록된 call. 현재 기록을 읽어 시작만 있을 때 실행하고, 이미 끝났으면
-  // 기록한 결과를 돌려준다. 다시 판정하거나 진입을 기록하지 않는다.
-  async function resumeTool(
-    call: ToolCallRequest,
-    id: string,
-    signal: AbortSignal,
-  ): Promise<ToolDone> {
-    const live = await readOf(machine, toolCallRead, { tool_call: id });
-    if (!live.ok) {
-      return done(
-        id,
-        "uncertain",
-        "uncertain",
-        "the call state is not readable",
-      );
-    }
-    const record = live.value.tool_call;
-    if (record.state !== "started") {
-      const outcome = record.outcome;
-      return done(
-        id,
-        outcome?.kind ?? "uncertain",
-        outcome?.code ?? "uncertain",
-        "the call was already closed",
-      );
-    }
-    return await executeStarted(id, call, callRevision(record), signal);
-  }
-
-  async function close(
-    call: ToolCallRequest,
+  // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)이다. 시작하지 않았으므로 event는 없다.
+  function close(
+    _call: ToolCallRequest,
     why: { status: "failure" | "not_executed"; code: string; summary: string },
   ): Promise<ToolDone> {
-    const id = ids.newId("tcl");
-    const definition = definitionOf(call.name);
-    const recorded = await record(call, id, definition);
-    if (recorded.ok) {
-      await judgment.closeUnentered(
-        {
-          toolCall: id,
-          run: seat.run,
-          tool: call.name,
-          input: call.input,
-          stateSeq: "0",
-        },
-        "0",
-        why.code,
-      );
-    }
-    return done(id, why.status, why.code, why.summary);
+    return Promise.resolve(
+      done(ids.newId("tcl"), why.status, why.code, why.summary),
+    );
   }
 
-  // ---- 끝·기다림·기록 ----
-
-  async function currentSeq(): Promise<Result<string>> {
-    const record = await runRecord();
-    return record.ok ? ok(record.value.run.state_seq) : record;
-  }
-
-  // 질문 묶음을 만든 call의 결과에서 묶음 ID를 읽는다. 질문은 추정 답으로 진행하지 않으므로 run은
-  // 그 묶음의 답을 기다린다.
-  function askedQuestion(tool: string, result: ToolResult): string | undefined {
-    if (tool !== questionSubmitTool.name) return undefined;
-    const content = result.content;
-    if (content === null || typeof content !== "object") return undefined;
-    const id = (content as Record<string, unknown>)["id"];
-    return typeof id === "string" && id.startsWith("qgr_") ? id : undefined;
-  }
-
-  // 판정이 이미 만든 approval을 읽어 같은 내용으로 WaitRun에 싣는다. 요청 생성과 waiting_on 연결은
-  // WaitRun이 한 transaction으로 한다.
-  async function approvalWait(
-    request: Extract<WaitTarget, { approval: string }>,
-  ): Promise<Result<z.input<typeof waitRunInputSchema>["request"]>> {
-    const approval = await readOf(machine, approvalsGet, {
-      approval: request.approval,
-    });
-    if (!approval.ok) return approval;
-    const text = await readOf(machine, approvalsText, {
-      approval: request.approval,
-    });
-    if (!text.ok) return text;
-    const stored = approval.value.request;
-    return ok({
-      kind: "approval",
-      tool_call: request.tool_call,
-      input: {
-        id: stored.id,
-        requester: stored.requester,
-        run: stored.run,
-        reason: text.value.reason,
-        effect: {
-          changes: text.value.changes,
-          external: text.value.external,
-          reversible: stored.effect.reversible,
-          reversibility: text.value.reversibility,
-        },
-        action: stored.action,
-        expires_at: stored.expires_at,
-      },
-    });
-  }
-
-  // tool이 이미 만든 질문 묶음을 읽어 같은 내용으로 WaitRun에 싣는다. 글은 저장된 redaction 글이고
-  // WaitRun은 같은 내용이면 그 묶음을 잇는다. WaitTarget의 `question`은 묶음 ID다.
-  async function questionWait(
-    request: Extract<WaitTarget, { question: string }>,
-  ): Promise<Result<z.input<typeof waitRunInputSchema>["request"]>> {
-    const read = await readOf(machine, questionRead, {
-      group: request.question,
-    });
-    if (!read.ok) return read;
-    const text = await readOf(machine, questionText, {
-      group: request.question,
-    });
-    if (!text.ok) return text;
-    return ok(questionWaitRequest(read.value.group, text.value));
-  }
+  // ---- 끝·기록 ----
 
   async function finish(request: FinishRequest) {
-    const seq = await currentSeq();
-    if (!seq.ok) return seq;
+    const current = await turnRecord();
+    if (!current.ok) return current;
     // 결과는 확정한 사실이고 redaction한 바이트를 blob으로 저장한 뒤 그 hash로 끝낸다.
-    const result = await store(RUN_BLOB_PURPOSES.run_result, {
+    const result = await store(TURN_BLOB_PURPOSES.turn_result, {
       outcome: request.outcome,
       facts: request.facts,
       limit: request.limit,
@@ -715,15 +527,15 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     if (!result.ok) return result;
     const finished = await commandOf(
       machine,
-      finishRun,
+      finishTurn,
       {
-        run: seat.run,
+        turn: seat.turn,
         outcome: request.outcome,
         result: result.value.hash,
         result_size: result.value.size,
       },
-      { state_seq: seq.value },
-      `${seat.run}:finish`,
+      { state_seq: current.value.turn.state_seq },
+      `${seat.turn}:finish`,
     );
     if (finished.ok) return ok({ finished: true as const });
     if (
@@ -735,7 +547,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     return finished;
   }
 
-  const ports: RunPorts = {
+  return {
     stop,
     inputs,
     context: deps.context,
@@ -755,23 +567,22 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       available: () => deps.model.available(),
       call: modelAttempt,
     },
-    tools: { info, attempt: attemptTool, resume: resumeTool, close },
+    tools: { info, attempt: attemptTool, close },
     async checkpoint(elapsed) {
-      const record = await runRecord();
-      if (!record.ok || record.value.run.state !== "running") return;
+      const current = await turnRecord();
+      if (!current.ok || current.value.turn.state !== "running") return;
       await commandOf(
         machine,
-        checkpointRun,
-        { run: seat.run, elapsed },
-        { state_seq: record.value.run.state_seq },
-        `${seat.run}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}`,
+        checkpointTurn,
+        { turn: seat.turn, elapsed },
+        { state_seq: current.value.turn.state_seq },
+        `${seat.turn}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}`,
       );
     },
     async answer(text) {
-      // 세션 없는 주기 run은 답을 남길 대화가 없다. 결과는 run 결과와 출력 문서가 낸다.
-      if (seat.session === null || text.trim() === "") return ok(undefined);
-      // 결과 링크는 이 run이 실제로 저장한 문서 판뿐이다.
-      const saved = await resultLinks(machine, seat.run);
+      if (text.trim() === "") return ok(undefined);
+      // 결과 링크는 이 turn이 실제로 저장한 것뿐이다.
+      const saved = await resultLinks(machine, seat.turn);
       if (!saved.ok) return saved;
       const recorded = await commandOf(
         agent,
@@ -779,7 +590,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         {
           id: ids.newId("msg"),
           session: seat.session,
-          run: seat.run,
+          run: seat.turn,
           content: { schema_version: 1, parts: [{ kind: "text", text }] },
           links: [
             ...(lastModelCall === null
@@ -789,76 +600,10 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
           ],
         },
         {},
-        `${seat.run}:answer:${lastModelCall ?? "none"}`,
+        `${seat.turn}:answer:${lastModelCall ?? "none"}`,
       );
       return recorded.ok ? ok(undefined) : recorded;
     },
-    async wait(request) {
-      const seq = await currentSeq();
-      if (!seq.ok) return seq;
-      const submitted = "question" in request
-        ? await questionWait(request)
-        : await approvalWait(request);
-      if (!submitted.ok) return submitted;
-      const waited = await commandOf(
-        machine,
-        waitRun,
-        {
-          run: seat.run,
-          request: submitted.value,
-          call: "question" in request ? null : request.tool_call,
-        },
-        { state_seq: seq.value },
-        `${"question" in request ? request.question : request.approval}:wait`,
-      );
-      return waited.ok ? ok(undefined) : waited;
-    },
     finish,
-  };
-
-  return {
-    ports,
-    resumeAfter(modelCall) {
-      lastModelCall = modelCall;
-    },
-    judgment,
-    async callRequest(toolCall) {
-      const found = requests.get(toolCall);
-      if (found !== undefined) return ok(found);
-      // 이 process가 낸 call이 아니다(재시작). ledger의 call 행과 저장된 model 응답에서 고정 call의
-      // 실제 입력을 다시 읽는다. 읽지 못하면 허락을 쓰지 않는다.
-      const row = await readOf(machine, toolCallRead, { tool_call: toolCall });
-      if (!row.ok || row.value.tool_call.run !== seat.run) {
-        return err({
-          code: "not_found",
-          message: "the call input is not held",
-        });
-      }
-      const stored = row.value.tool_call;
-      const body = await readOf(machine, runBody, {
-        kind: "model_call_output",
-        id: stored.model_call,
-      });
-      if (!body.ok) return body;
-      const sent = (body.value.value as {
-        tools?: { id: string; args: string }[];
-      }).tools?.find((entry) => entry.id === stored.response_key);
-      if (sent === undefined) {
-        return err({
-          code: "not_found",
-          message: "the call input is not held",
-        });
-      }
-      const parsed = parseToolArgs(sent.args);
-      const request: CallRequest = {
-        toolCall,
-        run: seat.run,
-        tool: stored.tool,
-        input: parsed.ok ? parsed.value : sent.args,
-        stateSeq: callRevision(stored),
-      };
-      requests.set(toolCall, request);
-      return ok(request);
-    },
   };
 }

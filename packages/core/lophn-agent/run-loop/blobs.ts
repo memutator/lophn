@@ -1,6 +1,6 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 
-// run·model call·tool call 기록이 hash로 가리키는 본문을 blob으로 먼저 저장하는 통로다. 준비는 감독 pipe의
+// turn·model call·tool call 기록이 hash로 가리키는 본문을 blob으로 먼저 저장하는 통로다. 준비는 감독 pipe의
 // `blob_prepare_request`(child → core, I/O worker가 hash를 계산한다)이고 이 모듈은 그 요청을 부르는
 // 쪽이다. 전송 전에 redaction을 거친 바이트만 저장하므로 command가 받는 hash는 저장된 바이트의 hash다.
 

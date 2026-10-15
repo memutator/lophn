@@ -1,10 +1,8 @@
 import type { z } from "zod";
-import { canonicalize, type Result } from "../../../base/mod.ts";
+import type { Result } from "../../../base/mod.ts";
 import {
-  agentAppScopeSchema,
-  assignmentRead,
-  runRead,
-  runStarted,
+  agentSessionRead,
+  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   agentCredentialEndSchema,
@@ -12,65 +10,37 @@ import {
   type AgentCredentialResponse,
   type ChildMessage,
 } from "../../../protocol/supervision/mod.ts";
-import { eventsList } from "../../../protocol/events/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
 import { roleOperations } from "./mod.ts";
 export { roleOperations };
 import type { AgentCredentialIssuer } from "./mod.ts";
 
-// agent runtime 감독 pipe의 agent credential 발급(lophn-agent/harness/run-loop). child가 보낸
-// 요청은 신뢰하지 않는다. run이 있고 진행 중이며 요청한 assignment의 것인지, 요청한 scope가
-// StartRun이 확정한 AgentAppScope와 같은지, 요청한 operation이 그 assignment 역할의 상한 안인지를
-// core 자신의 ledger 기록으로 확인한다. 어느 하나라도 어긋나면 없는 run과 똑같이 답하지 않는다.
+// agent runtime 감독 pipe의 agent credential 발급. child가 보낸 요청은 신뢰하지 않는다. turn이 있고 진행
+// 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session 역할의 상한 안인지를
+// core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
 
-// agent credential의 고정 조건이다. App Engineer는 담당 앱 하나에
-// 묶이므로 그 앱을 `app` 조건으로 고정한다: 다른 앱·project·자리 없음 문서와 담당 앱이 아닌
-// 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다(platform/ledger의 target 판정).
-// 이번 run이 handoff로 시작했으면 그 handoff의 고정 근거(문서, 판)를 `evidence`로 함께 고정해 그 판 주소
-// 읽기만 담당 앱 밖에서도 연다. 근거는 core 자신의 run 기록의 출처에서 정하고 child 요청 값이 아니다.
-// 다른 역할은 앱 조건이 없다.
+// agent credential의 고정 조건이다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을 `app` 조건으로 고정한다:
+// 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다.
+// 다른 역할은 앱 조건이 없다. 조건 칸 이름은 인증 경계가 정한 것이라 turn은 `run`, session은 `assignment`에 담긴다.
 export function agentConditions(input: {
-  assignment: string;
-  run: string;
+  session: string;
+  turn: string;
   process: string;
   role: string;
-  scope: { kind: string; id?: string | null };
-  source?: {
-    kind: string;
-    references?: readonly { document: string; version: string }[];
-  };
+  place: { kind: string; id: string } | null;
 }): {
   assignment: string;
   run: string;
   process: string;
   app?: string;
-  evidence?: { document: string; version: string }[];
 } {
   const base = {
-    assignment: input.assignment,
-    run: input.run,
+    assignment: input.session,
+    run: input.turn,
     process: input.process,
   };
-  if (
-    input.role !== "app_engineer" || input.scope.kind !== "app" ||
-    typeof input.scope.id !== "string"
-  ) return base;
-  const references = input.source?.kind === "handoff"
-    ? input.source.references ?? []
-    : [];
-  const evidence = [
-    ...new Map(
-      references.map((reference) => [
-        `${reference.document}\u0000${reference.version}`,
-        { document: reference.document, version: reference.version },
-      ]),
-    ).values(),
-  ];
-  return {
-    ...base,
-    app: input.scope.id,
-    ...(evidence.length === 0 ? {} : { evidence }),
-  };
+  if (input.role !== "app_engineer" || input.place?.kind !== "app") return base;
+  return { ...base, app: input.place.id };
 }
 
 export type CoreCall = (
@@ -88,7 +58,7 @@ export type AgentCredentialLink = {
 export function createAgentCredentialLink(options: {
   // 발급은 인증 경계(CredentialRegistry)가 한다.
   issuer: AgentCredentialIssuer;
-  // machine 자격의 loopback. run·assignment·event를 읽는다.
+  // machine 자격의 loopback. turn과 session을 읽는다.
   machine: CoreCall;
   // 이 child process의 이름. credential의 process 조건이 된다.
   process: string;
@@ -107,70 +77,41 @@ export function createAgentCredentialLink(options: {
     return parsed.success ? parsed.data : undefined;
   }
 
+  // 감독 pipe 메시지의 `run`은 turn, `assignment`는 session을 나른다(메시지 칸 이름이 바뀔 때까지).
   async function issue(
     message: ReturnType<typeof agentCredentialRequestSchema.parse>,
   ): Promise<AgentCredentialResponse | undefined> {
-    const run = await read(runRead, { run: message.run });
+    const turn = await read(turnRead, { turn: message.run });
     if (
-      run === undefined || run.run.state !== "running" ||
-      run.run.assignment !== message.assignment
+      turn === undefined || turn.turn.state !== "running" ||
+      turn.turn.session !== message.assignment
     ) return undefined;
-    const assigned = await read(assignmentRead, {
-      assignment: message.assignment,
-    });
+    const found = await read(agentSessionRead, { session: turn.turn.session });
     if (
-      assigned === undefined || assigned.assignment.id !== message.assignment ||
-      assigned.assignment.state !== "enabled"
+      found === undefined || found.session.lifecycle !== "open"
     ) return undefined;
-    // 요청한 scope는 StartRun이 확정한 값과 같아야 한다. 넓히지도 좁히지도 않는다.
-    // 이벤트 목록은 훑은 만큼씩 끊어 준다. 이 run의 RunStarted를 만날 때까지 이어 읽는다.
-    let scope: unknown;
-    for (let after = "0", pages = 0; pages < 1000; pages++) {
-      const page = await read(eventsList, {
-        after_seq: after,
-        types: [runStarted.type],
-        subjects: [message.run],
-      });
-      if (page === undefined) return undefined;
-      const found = page.events[0];
-      if (found !== undefined) {
-        scope = found.payload["scope"];
-        break;
-      }
-      if (page.next_cursor === null || page.next_cursor === undefined) break;
-      after = page.next_cursor;
-    }
-    const fixed = agentAppScopeSchema.safeParse(scope);
-    const requested = agentAppScopeSchema.safeParse(message.scope);
-    if (
-      !fixed.success || !requested.success ||
-      fixed.data.assignment !== message.assignment ||
-      fixed.data.role !== assigned.assignment.role ||
-      canonicalize(fixed.data) !== canonicalize(requested.data)
-    ) return undefined;
-    const allowed = new Set(operationsFor(assigned.assignment.role));
+    const role = found.session.agent.role;
+    const allowed = new Set(operationsFor(role));
     const operations = [...new Set(message.operations)];
     if (operations.some((operation) => !allowed.has(operation))) {
       return undefined;
     }
-    // 같은 run의 이전 credential은 새로 받기 전에 끝낸다.
+    // 같은 turn의 이전 credential은 새로 받기 전에 끝낸다.
     options.issuer.endBy("run", message.run);
     const issued = await options.issuer.issue({
-      actor: `agent:${message.assignment}`,
-      principal: `agent:${message.assignment}`,
+      actor: `agent:${turn.turn.session}`,
+      principal: `agent:${turn.turn.session}`,
       scope: {
         operations,
-        targets: { assignment: message.assignment, run: message.run },
-        agent: fixed.data,
+        targets: { session: turn.turn.session, turn: message.run },
       },
       conditions: agentConditions({
-        assignment: message.assignment,
-        run: message.run,
+        session: turn.turn.session,
+        turn: message.run,
         process: options.process,
-        role: assigned.assignment.role,
-        scope: assigned.assignment.scope,
-        source: run.run.source,
-      }),
+        role,
+        place: found.session.place,
+      }) as never,
     });
     if (!issued.ok) return undefined;
     return {

@@ -13,14 +13,24 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
 
 - `defineBlueprint(declaration)` — blueprint 선언을 만든다.
 - `validateBlueprint(value)` — blueprint 값을 검사한다(`ValidationResult`).
-- `validateInput(schema, value)` — command 입력을 검사한다.
+- `validateInput(schema, value)` — app-api 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
-- `defineAgentContext(declaration)` — 화면 상태 등록 선언을 만든다.
-- type: `Blueprint`, `ScreenDeclaration`, `CommandDeclaration`,
-  `AutomationDeclaration`, `PermissionRequirement`, `ProblemCodeDeclaration`,
-  `DocumentDeclaration`, `AgentContextDeclaration`,
-  `AnnotationTargetDeclaration`, `AppCommandUseDeclaration`, `SDKDependency`,
+- type: `Blueprint`, `ScreenDeclaration`, `AppApiDeclaration`, `AppApiEffect`,
+  `AppApiUseDeclaration`, `PermissionRequirement`, `SDKDependency`,
   `ValidationResult`, `ValidationError`
+
+## blueprint 칸
+
+`name`, `description`, `screens`, `app_api`, `permissions`, `app_connections`,
+`sdk_dependencies`만 있다. 알 수 없는 칸은 거절한다.
+
+- `app_api` — 다른 앱과 화면이 부르는 app-api 목록이다. 항목은
+  `{key, label, description, effect, input, project_scope}`다. `effect`는
+  `read`·`write`·`external`이고, `input`은 입력 schema나 입력이 없으면
+  `null`이다. `project_scope`는 필수 boolean이다. `true`이면 project 범위
+  app-api다.
+- `app_connections` — 이 앱이 부를 다른 앱의 app-api다. 항목은
+  `{app, app_api: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
 
 ## 요구 permission
 
@@ -39,12 +49,8 @@ const blueprint = defineBlueprint({
   name: "notes",
   description: "메모 앱",
   screens: [],
-  commands: [],
-  automatic_tasks: [],
+  app_api: [],
   permissions: [],
-  problem_codes: [],
-  documents: [],
-  agent_context: [],
   app_connections: [],
   sdk_dependencies: [{ name: "@lophn/blueprint", version: "1.0.0" }],
 });

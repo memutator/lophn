@@ -13,6 +13,14 @@ const CONTRACT_FILES = new Set([
   "packages/protocol/apps/blueprint-commands.ts",
   "packages/protocol/apps/blueprint-uses.ts",
   "packages/protocol/apps/blueprint-value.ts",
+  "packages/protocol/apps/blueprint/mod.ts",
+  "packages/protocol/apps/blueprint/types.ts",
+  "packages/protocol/apps/blueprint/json.ts",
+  "packages/protocol/apps/blueprint/schema.ts",
+  "packages/protocol/apps/blueprint/scope.ts",
+  "packages/protocol/apps/blueprint/app-api.ts",
+  "packages/protocol/apps/blueprint/uses.ts",
+  "packages/protocol/apps/blueprint/value.ts",
 ]);
 
 type Report = (
@@ -57,7 +65,8 @@ export function checkBlueprintGraph(
         (CONTRACT_FILES.has(file)
           ? CONTRACT_FILES.has(target)
           : inside(file, SDK)
-          ? target === BLUEPRINT_ENTRY || inside(target, SDK)
+          ? target === BLUEPRINT_ENTRY || CONTRACT_FILES.has(target) ||
+            inside(target, SDK)
           : wrapperImport(file, target));
       if (!allowed) {
         add(

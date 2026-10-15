@@ -1,17 +1,10 @@
-// 공개 SDK. 정본 검증기는 contracts의 의존성 없는 blueprint.ts 하나다.
+// 공개 SDK. 정본 검증기는 protocol/apps/blueprint의 의존성 없는 파일들이다.
 export type {
-  AgentContextDeclaration,
-  AnnotationTargetDeclaration,
-  AppCommandUseDeclaration,
-  AutomationDeclaration,
-  AutomationWhen,
+  AppApiDeclaration,
+  AppApiEffect,
+  AppApiUseDeclaration,
   Blueprint,
   BlueprintOptions,
-  CommandDeclaration,
-  CommandEffect,
-  CommandRevertDeclaration,
-  DocumentDeclaration,
-  FormatRef,
   InputSchema,
   InputType,
   JsonObject,
@@ -19,16 +12,18 @@ export type {
   PermissionKind,
   PermissionRequirement,
   PermissionScope,
-  ProblemCodeDeclaration,
   ScreenDeclaration,
   ScreenSize,
   SDKDependency,
   ValidationError,
   ValidationResult,
-} from "../../protocol/apps/blueprint.ts";
+} from "../../protocol/apps/blueprint/mod.ts";
 export {
   canonicalInputHash,
   validateBlueprint,
   validateInput,
-} from "../../protocol/apps/blueprint.ts";
-export { defineAgentContext, defineBlueprint } from "./define.ts";
+} from "../../protocol/apps/blueprint/mod.ts";
+export { defineBlueprint } from "./define.ts";
+
+// 임시: sdk/ui-action/use-command.ts가 아직 이 type을 import한다. app-calls-shell이 옮기면 지운다.
+export type { CommandDeclaration } from "../../protocol/apps/blueprint.ts";

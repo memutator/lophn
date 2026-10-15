@@ -87,6 +87,27 @@ export const mcpServerConfigSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
 
+// 층(전역, project, agent)에 두는 서버 한 칸이다. revision과 tool 분류는 없다: tool의 효과는 readOnlyHint가
+// 참이면 read, 아니면 external이라 서버 설정에 분류를 두지 않는다.
+const layerServerFields = {
+  name: nameSchema,
+  enabled: z.boolean(),
+  call_timeout_ms: serverFields.call_timeout_ms,
+};
+export const mcpServerSchema = z.discriminatedUnion("transport", [
+  z.strictObject({
+    ...layerServerFields,
+    transport: z.literal("stdio"),
+    stdio: stdioSchema,
+  }),
+  z.strictObject({
+    ...layerServerFields,
+    transport: z.literal("http"),
+    http: httpSchema,
+  }),
+]);
+export type McpServer = z.infer<typeof mcpServerSchema>;
+
 export const extensionSettingsSchema = z.strictObject({
   revision,
   registered_folders: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
@@ -411,9 +432,56 @@ export const placeExtensionSettingsChanged = defineEvent(
   },
 );
 
+const projectServersSchema = z.array(mcpServerSchema).max(32).refine(
+  (servers) =>
+    new Set(servers.map((server) => server.name)).size === servers.length,
+  { message: "mcp server names must be unique" },
+);
+
+// project 층의 MCP 서버 목록이다. 같은 이름은 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다. skill은
+// `ReadSkills`가 맡아 여기 싣지 않는다. mcp_servers는 새 내용 전체다.
+export const projectExtensionSettingsRead = defineRead({
+  resource: "project-extension-settings",
+  method: "read",
+  name: "ReadProjectExtensionSettings",
+  input: z.strictObject({ project: idSchema("prj") }),
+  output: withReadCommon(z.object({
+    project: idSchema("prj"),
+    mcp_servers: z.array(mcpServerSchema),
+    hash: sha256Schema.nullable(),
+  })),
+  actors: ["user", "machine"],
+  errors: [...readErrors],
+});
+
+export const projectExtensionSettingsChange = defineCommand({
+  resource: "project-extension-settings",
+  method: "change",
+  name: "ChangeProjectExtensionSettings",
+  input: z.strictObject({
+    project: idSchema("prj"),
+    mcp_servers: projectServersSchema,
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    hash: sha256Schema,
+  }),
+  compare: z.strictObject({ hash: sha256Schema.nullable() }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+  ],
+});
+
 export const EXTENSION_ROUTES = [
   placeExtensionSettingsRead,
   placeExtensionSettingsChange,
+  projectExtensionSettingsRead,
+  projectExtensionSettingsChange,
   globalSkillsRead,
 ] as const;
 

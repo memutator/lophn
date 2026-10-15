@@ -404,7 +404,39 @@ export const modelFavoritesChanged = defineEvent("ModelFavoritesChanged", {
   }),
 });
 
+// model은 전역 기본 하나와 agent 설정에서 고른다. 처음은 null이다.
+export const modelDefaultSchema = modelChoiceSchema.nullable();
+export const modelDefaultOutputSchema = modelChoiceOutputSchema.nullable();
+
+export const modelDefaultRead = defineRead({
+  resource: "model-default",
+  method: "read",
+  name: "ReadModelDefault",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ default: modelDefaultOutputSchema })),
+  actors: readActors,
+  errors: [...readErrors],
+});
+
+export const modelDefaultChange = defineCommand({
+  resource: "model-default",
+  method: "change",
+  name: "ChangeModelDefault",
+  input: z.strictObject({ default: modelDefaultSchema }),
+  output: z.object({ default: modelDefaultOutputSchema }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
 export const MODEL_ROUTES = [
+  modelDefaultRead,
+  modelDefaultChange,
   changeModelDefaults,
   modelDefaultsRead,
   changeModelFavorites,

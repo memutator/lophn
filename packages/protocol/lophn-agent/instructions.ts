@@ -96,7 +96,43 @@ export const instructionPreview = defineRead({
   ],
 });
 
+// 지침은 3층이 이어 붙는다: 전역, project(LOPHN.md), agent. built-in role 지침은 prompt의 고정 본문이라 층이
+// 아니고 app 층은 없다. 이어 붙이는 순서가 이 배열 순서다.
+export const PROJECT_INSTRUCTION_FILE = "LOPHN.md";
+export const PROMPT_INSTRUCTION_LAYERS = [
+  "global",
+  "project",
+  "agent",
+] as const;
+
+// `project`는 lophn이 `instructions.read`로 다른 project의 LOPHN.md를 읽을 때만 준다. 없으면 session의 place가
+// 가리키는 project다. 출력과 상한은 옛 ReadInstructionFile과 같다.
+export const instructionsGetInputSchema = z.strictObject({
+  session: idSchema("ses"),
+  layer: z.enum(PROMPT_INSTRUCTION_LAYERS),
+  project: idSchema("prj").optional(),
+});
+
+export const instructionsGet = defineRead({
+  resource: "instructions",
+  method: "get",
+  name: "GetInstructions",
+  input: instructionsGetInputSchema,
+  output: withReadCommon(z.object({
+    file: instructionReadFileSchema.nullable(),
+  })),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
 export const INSTRUCTION_ROUTES = [
   instructionRead,
+  instructionsGet,
   instructionPreview,
 ] as const;

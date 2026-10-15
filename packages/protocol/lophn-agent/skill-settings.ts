@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { defineSetting } from "../config/settings.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
 
 // skill 발견 root 정의 등록(settings registry).
 // 사람이 등록한 절대 폴더를 등록 순서대로 발견한다. machine_local
@@ -125,6 +126,64 @@ export const globalSkillsRead = defineRead({
     skipped: z.array(skillSkippedSchema),
   })),
   actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
+// skill의 층은 전역, project이고 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이 덮는다.
+// 내장 skill은 lophn이 가진다.
+export const SKILL_SOURCES = ["builtin", "global", "project"] as const;
+export const skillSourceSchema = z.enum(SKILL_SOURCES);
+
+// 내장 skill 선언이다. description은 skill 목록에 들어가는 영어 한 줄이다.
+export const BUILTIN_SKILLS = [
+  {
+    name: "context-init",
+    role: "project_manager",
+    can_disable: false,
+    description:
+      "Set the project's purpose, then draft the first context version with its contract and search scripts, test it, and publish it.",
+  },
+  {
+    name: "context-update",
+    role: "project_manager",
+    can_disable: false,
+    description:
+      "Draft a new context version from the applied one, test it, and publish it.",
+  },
+] as const;
+
+export const skillEntrySchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().min(1).max(1024),
+  source: skillSourceSchema,
+  enabled: z.boolean(),
+  can_disable: z.boolean(),
+});
+export type SkillEntry = z.infer<typeof skillEntrySchema>;
+
+// agent 설정 화면이 보는 skill 목록이다. `project`를 주면 전역과 내장에 그 project 층을 더한다. 같은 이름은
+// 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
+// false인 내장 skill은 끌 수 없다.
+export const skillsReadInputSchema = z.strictObject({
+  project: idSchema("prj").optional(),
+});
+
+export const skillsRead = defineRead({
+  resource: "skills",
+  method: "read",
+  name: "ReadSkills",
+  input: skillsReadInputSchema,
+  output: withReadCommon(z.object({
+    skills: z.array(skillEntrySchema),
+    skills_off: z.array(z.string()),
+  })),
+  actors: ["user", "machine"],
   errors: [
     "invalid_input",
     "unauthorized",

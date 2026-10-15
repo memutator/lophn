@@ -35,6 +35,8 @@ import type {
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import type { StatusSource } from "../../../diagnostics/mod.ts";
 import type { ComponentCheck } from "../../../diagnostics/ports.ts";
+import type { Bus } from "../../../events/ports.ts";
+import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type {
   SettingDeclaration,
   SettingsReader,
@@ -187,6 +189,10 @@ type Late = {
   // secrets가 낸다.
   secretStore: SecretStorePort;
   secretAttach: SecretAttachPort;
+  // events가 낸다.
+  bus: Bus;
+  // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
+  approvals: ApprovalsService;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -219,6 +225,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   settingDeclarations: true,
   secretStore: true,
   secretAttach: true,
+  bus: true,
+  approvals: true,
 };
 
 export type WiringContext = {

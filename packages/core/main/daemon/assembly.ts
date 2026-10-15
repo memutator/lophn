@@ -42,6 +42,8 @@ import { storageWiring } from "./wiring/storage.ts";
 import { supervisionWiring } from "./wiring/supervision.ts";
 
 // 최상위 팀마다 등록 파일 하나.
+import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
+
 export const TEAMS = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
@@ -53,6 +55,7 @@ export const TEAMS = [
   { createLedgerRegistration: createLophnAgentRegistration },
   { ticketDefinitions },
   { createCoreRegistration: createTicketPortsRegistration },
+  { createCoreRegistration: createApprovalsRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -71,6 +74,7 @@ export const TEAM_MODULES = [
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
   new URL("../../lophn-agent/instructions/files.ts", import.meta.url).href,
   new URL("./platform-register.ts", import.meta.url).href,
+  new URL("../../approvals/registration.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.

@@ -23,6 +23,7 @@ import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import type { SettingsReader } from "../../../../protocol/config/mod.ts";
 
 // Approvals가 request 표에 쓰고 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
 export const APPROVALS_PRINCIPAL = "machine:approvals";
@@ -41,6 +42,18 @@ const APPROVALS_CONTEXT: AuthenticatedContext = {
   credential_ref: APPROVALS_PRINCIPAL,
 };
 
+const DROPPING_BUS: Bus = {
+  publish() {},
+  subscribe: () => () => {},
+};
+
+const DEFAULT_SETTINGS: SettingsReader = {
+  get: (setting) =>
+    setting.default === undefined
+      ? undefined
+      : setting.type.parse(setting.default),
+};
+
 export const approvalsWiring: WiringFactory = () => {
   let approvals: ReturnType<typeof createApprovals> | undefined;
   // "항상" 결정은 결정한 사람의 자격으로 agent grant를 쓴다. 결정 handler 안에서만 부른다.
@@ -49,14 +62,10 @@ export const approvalsWiring: WiringFactory = () => {
     name: "approvals",
     records: () => [APPROVALS_CONTEXT],
     build(ctx) {
-      // Bus는 events가 만들어 slot으로 낸다.
-      const bus = (ctx.peek as { bus?: Bus }).bus;
-      if (bus === undefined) {
-        return err({
-          code: "unavailable",
-          message: "approvals needs the event bus",
-        });
-      }
+      // Bus는 events가 만들어 slot으로 낸다. events-bus-gateway가 들어오기 전에는 event를 버린다.
+      const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
+      // 설정은 config가 낸다. platform-config가 들어오기 전에는 선언의 기본값을 쓴다.
+      const settings: SettingsReader = ctx.peek.settings ?? DEFAULT_SETTINGS;
       const writer = () => ctx.runtime.writer;
       const send = (
         who: AuthenticatedContext,
@@ -108,7 +117,7 @@ export const approvalsWiring: WiringFactory = () => {
             if (!done.ok) return done;
             return ok((done.value as { grant: never }).grant);
           },
-          settings: ctx.settings,
+          settings,
         }),
         allowances: createSessionAllowances(),
         bus,
@@ -121,6 +130,7 @@ export const approvalsWiring: WiringFactory = () => {
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
       });
       approvals = service;
+      ctx.provide("approvals", service);
       const decideTurn: MemoryHandler = (who, body) =>
         human.run(who, () => service.decideTurn(who, body));
       return ok({

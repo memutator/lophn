@@ -6,11 +6,11 @@ export {
 } from "./handlers.ts";
 export type {
   AppApiCaller,
+  AppApiPort,
   InvocationContext,
   RegisteredHandler,
-  SchedulePort,
 } from "./context.ts";
-export { SCHEDULE_PORT } from "./context.ts";
+export { APP_API_PORT } from "./context.ts";
 export { AppApiRejection } from "./rejection.ts";
 export type { RejectionCode } from "./rejection.ts";
 export { TRACE_NAME_MAX_CHARS, traceName } from "./trace.ts";

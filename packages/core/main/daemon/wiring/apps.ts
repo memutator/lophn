@@ -1,5 +1,4 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { createApprovalRequest } from "../../../../protocol/approvals/mod.ts";
 import { packagesGuideBody } from "../../../../protocol/apps/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import type { BlobReadInput } from "../../../../protocol/storage/mod.ts";
@@ -14,9 +13,7 @@ import {
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
 } from "../../../apps/control.ts";
-import { createConfirmAdapters } from "../../../apps/connections/confirm-adapters.ts";
 import {
-  interruptedFinish,
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
 } from "../../../apps/invocations/restart.ts";
@@ -69,54 +66,6 @@ export const appsWiring: WiringFactory = () => {
         clock: ctx.clock,
         ledgerPath: ctx.ledgerPath,
         readers: runtime.readers,
-        confirm: createConfirmAdapters({
-          clock: ctx.clock,
-          ledgerPath: ctx.ledgerPath,
-          command: (context, envelope) =>
-            runtime.writer.command(context as never, envelope as never),
-          machine,
-          // 호출한 앱 자신의 짧은 app credential이다. 요청 하나를 마치면 끝낸다.
-          async requester(source) {
-            // 앱 자격은 앱·release·process·mode에 고정된다. release가 없는 자식은 confirm을 요청하지 못한다.
-            if (source.release === null) {
-              return err({
-                code: "forbidden",
-                message: "app confirm is live only",
-              });
-            }
-            const issued = await registry.issue({
-              actor: `app:${source.app}`,
-              principal: `app:${source.app}`,
-              scope: {
-                operations: [createApprovalRequest.name],
-                targets: {
-                  app: source.app,
-                  release: source.release,
-                  process: source.processNonce,
-                  mode: source.mode,
-                },
-              },
-              conditions: {
-                app: source.app,
-                release: source.release,
-                process: source.processNonce,
-                mode: source.mode,
-              },
-            });
-            if (!issued.ok) return issued;
-            const ref = issued.value.credential_ref;
-            const current = registry.revalidate({ credential_ref: ref });
-            if (!current.ok) return current;
-            const recorded = await runtime.record(current.value);
-            if (!recorded.ok) return recorded;
-            const context = runtime.current(ref);
-            if (!context.ok) return context;
-            return ok({
-              context: context.value,
-              end: () => void registry.end(ref),
-            });
-          },
-        }),
         // coding credential은 ledger의 connection 상태가 현재 자격이다(회수는 다음 요청부터가 아니라 바로).
         revalidate: (credentialRef) =>
           ctx.coding.current(credentialRef) ??
@@ -167,7 +116,6 @@ export const appsWiring: WiringFactory = () => {
     },
     async start(ctx) {
       const { runtime, registry, appsControl } = ctx;
-      await sweepInterruptedInvocations(ctx);
       // apps/supervisor. 앱 프로세스 감독이다. machine credential과 서명 검증 공개 key를 hello에
       // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
       // 계속 선다: connect와 runtime은 supervisor 관측이 없는 상태(unavailable)로 답한다.
@@ -258,45 +206,6 @@ export const appsWiring: WiringFactory = () => {
     },
   };
 };
-
-// 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 이전 core의 앱 프로세스는
-// 이미 없고 새 프로세스는 새 nonce라 옛 접수·시작은 이어지지 않는다. 읽기 목록으로 후보를 읽고
-// 기존 machine command `invocation.record_finished`로 확정하며, 같은 key라 여러 번 돌아도 같은 결과다.
-// apps를 조립하지 않은 core에는 read가 없어 아무것도 하지 않는다.
-async function sweepInterruptedInvocations(ctx: WiringContext): Promise<void> {
-  const invocationRecovery =
-    INVOCATION_RECOVERY_CONTEXT as unknown as RequestContext;
-  const finishedAt = ctx.clock.now();
-  for (const status of ["accepted", "running"] as const) {
-    let cursor: string | undefined;
-    do {
-      const found = await ctx.runtime.readers.read(
-        { resource: "invocations", method: "list" },
-        invocationRecovery,
-        { status, limit: 200, ...(cursor ? { cursor } : {}) },
-      );
-      if (!found.ok) return;
-      const page = found.value as {
-        invocations?: {
-          id: string;
-          status: "accepted" | "running";
-          started_at: string | null;
-        }[];
-        next_cursor?: string | null;
-      };
-      for (const row of page.invocations ?? []) {
-        await ctx.runtime.writer.command(invocationRecovery as never, {
-          command: "invocation.record_finished",
-          input: interruptedFinish(row, finishedAt),
-          compare: {},
-          idempotency_key: `interrupted:${row.id}`,
-          prepared: [],
-        });
-      }
-      cursor = page.next_cursor ?? undefined;
-    } while (cursor);
-  }
-}
 
 // /v1/packages/guide_body. owner_kind·field가 `package_version`·`guide`로 고정이라 입력으로 다른 blob을
 // 가리킬 수 없다. 자격은 이 route의 operation(`packages.guide_body`)이고 일반 `blobs/read`는 필요 없다.

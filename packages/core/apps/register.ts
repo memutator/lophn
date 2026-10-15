@@ -17,8 +17,7 @@ import {
   releaseCancelPreparation,
   releasePreparation,
 } from "../../protocol/apps/mod.ts";
-import { createInvocationsCommands } from "./invocations/commands.ts";
-import { createConfirmCommands } from "./invocations/confirm.ts";
+import { INVOCATION_BLOB_FIELDS } from "./invocations/changesets.ts";
 import { createInvocationsReads } from "./invocations/reads.ts";
 import { invocationsSchemaSteps } from "./invocations/schema.ts";
 import {
@@ -110,10 +109,6 @@ export function createLedgerRegistration(
 ): LedgerRegistration {
   const commands = createAppCommands();
   const reads = createAppsReads();
-  const invocations = createInvocationsCommands();
-  // confirm 접수는 approval 사용과 같은 transaction에서 apply_approved_action이 부르는
-  // dispatchable machine command다.
-  const confirm = createConfirmCommands();
   const invocationReads = createInvocationsReads();
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
@@ -135,7 +130,11 @@ export function createLedgerRegistration(
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
     // 보호 backup blob(일반 blob 읽기 없음)과 공개 SDK 사용 안내 blob(일반 읽기 허용).
-    blobFields: [BACKUP_BLOB_FIELD, PACKAGE_GUIDE_BLOB_FIELD],
+    blobFields: [
+      BACKUP_BLOB_FIELD,
+      PACKAGE_GUIDE_BLOB_FIELD,
+      ...INVOCATION_BLOB_FIELDS,
+    ],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: [
@@ -159,10 +158,6 @@ export function createLedgerRegistration(
       commands.unarchive,
       commands.rename,
       grants.revoke,
-      confirm.acceptConfirm,
-      invocations.recordStarted,
-      invocations.recordFinished,
-      invocations.recordDenied,
       runtime.enableExecution,
       runtime.disableExecution,
       runtime.recordStarted,

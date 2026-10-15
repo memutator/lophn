@@ -5,7 +5,7 @@ import { CALL_BODY_MAX_BYTES, RESULT_MAX_BYTES } from "./limits.ts";
 import { parseProcessCall, type ProcessCall } from "./wire.ts";
 import { isJson } from "./wire-check.ts";
 import type { RuntimeState } from "./state.ts";
-import { readRejection } from "../../invocations/mod.ts";
+import { readRejection } from "../../invocations/context.ts";
 import { ensureAppApiPort } from "./app-api-port.ts";
 
 export type InvokeResult = { status: number; body: unknown };

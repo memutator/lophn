@@ -1,9 +1,31 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// domain-model apps/invocations의 표. app·release는 아직 물리 FK를 두지 않는다
-// (releases 표의 위치가 다른 조립이며 참조 삭제 거절은 그쪽 몫이다).
-// approval은 confirm 접수에 필수이고 unique WHERE NOT NULL이다.
-// JSON 값(operation·trigger·caller)은 TEXT에 저장한다.
+// invocation 기록 표. app·release는 물리 FK를 두지 않는다(참조하는 releases 표는 다른 조립이다).
+// JSON 값(operation·caller·summary)은 TEXT에 둔다. session·turn은 caller에서 뽑은 찾기용 칸이다.
+// 종료한 행은 되돌림 표시(reverted_by)와 changeset 지우기(activation)만 바꿀 수 있다. 지우지는 못한다.
+const HEX64 = (column: string) =>
+  `CHECK (${column} IS NULL OR (length(${column}) = 64 AND ${column} NOT GLOB '*[^0-9a-f]*'))`;
+
+const FROZEN_COLUMNS = [
+  "id",
+  "app",
+  "release",
+  "mode",
+  "operation",
+  "caller",
+  "caller_kind",
+  "session",
+  "turn",
+  "project",
+  "effect",
+  "status",
+  "started_at",
+  "finished_at",
+  "input_hash",
+  "summary",
+  "detail_hash",
+];
+
 export const invocationsSchemaSteps: readonly SchemaStep[] = [{
   id: "apps.invocations.tables",
   sql: `
@@ -12,43 +34,51 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       app TEXT NOT NULL,
       release TEXT NOT NULL,
       mode TEXT NOT NULL CHECK (mode IN ('live', 'preview', 'test')),
-      actor TEXT NOT NULL CHECK (length(actor) > 0),
-      caller TEXT NOT NULL CHECK (length(caller) > 0),
-      operation TEXT NOT NULL CHECK (length(operation) > 0),
-      trigger TEXT NOT NULL CHECK (length(trigger) > 0),
-      approval TEXT,
-      input_hash TEXT,
+      operation TEXT NOT NULL CHECK (json_valid(operation)),
+      caller TEXT CHECK (caller IS NULL OR json_valid(caller)),
+      caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app')),
+      session TEXT,
+      turn TEXT,
+      project TEXT,
+      effect TEXT NOT NULL CHECK (effect IN ('read', 'write', 'external')),
       status TEXT NOT NULL CHECK (
-        status IN ('accepted', 'running', 'succeeded', 'failed', 'denied', 'unknown')
+        status IN ('running', 'succeeded', 'failed', 'denied', 'unknown')
       ),
       started_at TEXT,
       finished_at TEXT,
-      summary TEXT NOT NULL,
+      input_hash TEXT,
+      summary TEXT NOT NULL CHECK (length(summary) <= 16384),
       detail_hash TEXT,
-      CHECK (approval IS NULL OR length(approval) > 0),
-      CHECK (input_hash IS NULL OR (length(input_hash) = 64 AND input_hash GLOB '*[0-9a-f]*' AND input_hash NOT GLOB '*[^0-9a-f]*')),
-      CHECK (
-        (status != 'accepted' AND status != 'denied') OR started_at IS NULL
-      ),
-      CHECK (
-        (status = 'accepted' OR status = 'running') OR finished_at IS NOT NULL
-      ),
-      CHECK (
-        started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at
-      ),
-      CHECK (length(summary) <= 16384)
+      changeset_hash TEXT,
+      changeset_size INTEGER,
+      reverted_by TEXT,
+      CHECK ((caller IS NULL) = (caller_kind IS NULL)),
+      CHECK ((session IS NULL) = (turn IS NULL)),
+      CHECK ((caller_kind IS 'agent') = (session IS NOT NULL)),
+      CHECK ((finished_at IS NOT NULL) = (status <> 'running')),
+      CHECK (started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at),
+      CHECK ((changeset_hash IS NULL) = (changeset_size IS NULL)),
+      CHECK (changeset_hash IS NULL OR effect <> 'read'),
+      CHECK (reverted_by IS NULL OR status IN ('succeeded', 'failed', 'unknown')),
+      ${HEX64("input_hash")},
+      ${HEX64("detail_hash")},
+      ${HEX64("changeset_hash")}
     ) STRICT;
-    CREATE UNIQUE INDEX invocations_approval ON invocations (approval)
-      WHERE approval IS NOT NULL;
     CREATE INDEX invocations_app_release_mode_id ON invocations (app, release, mode, id);
-    CREATE INDEX invocations_app_started_at_id ON invocations (app, started_at, id);
+    CREATE INDEX invocations_app_project_id ON invocations (app, project, id);
+    CREATE INDEX invocations_session_turn_id ON invocations (session, turn, id);
     CREATE INDEX invocations_status_id ON invocations (status, id);
     CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
-    WHEN OLD.status IN ('succeeded', 'failed', 'denied', 'unknown')
-      AND (
-        NEW.status <> OLD.status OR NEW.finished_at <> OLD.finished_at
-        OR NEW.summary <> OLD.summary OR NEW.detail_hash <> OLD.detail_hash
-      )
+    WHEN OLD.status <> 'running' AND (
+      ${
+    FROZEN_COLUMNS.map((column) => `NEW.${column} IS NOT OLD.${column}`).join(
+      "\n      OR ",
+    )
+  }
+      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
+      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
+      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
+    )
     BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;
     CREATE TRIGGER invocations_no_delete BEFORE DELETE ON invocations
     BEGIN SELECT RAISE(ABORT, 'invocations are recorded, not deleted'); END;

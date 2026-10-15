@@ -1,42 +1,21 @@
-// mod.ts는 runtime-facing 자리다. 앱 runtime이 부르는 cap-schedule host port와 후행 기록 사실의
-// 모양·규칙만 내보낸다. 모두 Zod 없이 순수하다.
-// ledger 조립은 commands.ts·reads.ts·schema.ts·store.ts를 직접 부르고, 전달 목록은 delivery/를 부른다.
+// apps/invocations: invocation 기록과 changeset 보관, 읽기, 재시작 점검.
+// context.ts는 앱 process(runtime/entrypoint)도 쓰는 host port 모양이다. 그쪽은 이 mod를 거치지 않고
+// context.ts를 직접 import한다(core ledger 쪽 import를 앱 process가 끌고 가지 않게).
+export { createInvocationLedger } from "./ledger.ts";
+export type { ChangesetBlobs, InvocationLedgerDeps } from "./ledger.ts";
 export {
-  COMMAND_REJECTION,
-  readRejection,
-  readSchedulePort,
-  readStagePort,
-  REJECTION_CODES,
-  SCHEDULE_PORT,
-  STAGE_PORT,
-} from "./context.ts";
-export type {
-  InvocationContext,
-  InvocationStageState,
-  RegisteredHandler,
-  RejectionCode,
-  SchedulePort,
-  StagePort,
-} from "./context.ts";
-export { deliveryKey, recordingMode } from "./recording.ts";
-export type {
-  DenyFact,
-  FinishFact,
-  RecordedCaller,
-  RecordedFact,
-  RecordedJson,
-  RecordedOperation,
-  RecordedTrigger,
-  RecordingMode,
-  RecordingSubject,
-  StartFact,
-  SubmittedFact,
-} from "./recording.ts";
-// 전달 목록의 모양은 type만 내보낸다(런타임 import가 없다). 목록 구현은 delivery/queue.ts다.
-export type {
-  DeliveryLimits,
-  DeliveryMessage,
-  DeliveryOutcome,
-  DeliveryQueue,
-  LossReport,
-} from "./delivery/queue.ts";
+  CHANGESET_MAX_BYTES,
+  INVOCATION_BLOB_FIELDS,
+  INVOCATION_BLOB_PURPOSES,
+  RELEASE_CHANGESET_MAX_BYTES,
+} from "./changesets.ts";
+export { recordsAtStart } from "./model.ts";
+export { createInvocationsReads } from "./reads.ts";
+export {
+  closeUnfinishedInvocations,
+  INVOCATION_RECOVERY_CONTEXT,
+  INVOCATION_RECOVERY_PRINCIPAL,
+  observeInvocations,
+} from "./restart.ts";
+export type { InvocationRestartObservation } from "./restart.ts";
+export { invocationsSchemaSteps } from "./schema.ts";

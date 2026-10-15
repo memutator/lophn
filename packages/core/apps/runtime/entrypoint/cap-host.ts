@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { canonicalJson } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { JsonValue } from "../../../../protocol/apps/blueprint/mod.ts";
-import type { InvocationContext } from "../../invocations/mod.ts";
+import type { InvocationContext } from "../../invocations/context.ts";
 import type { BrokerResponse } from "./broker-client.ts";
 
 export const CAP_HOST = Symbol.for("lophn.cap-host");

@@ -1,16 +1,16 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  type AppApiPort,
   currentPort,
   installPort,
   type InvocationContext,
   type RegisteredHandler,
-  type SchedulePort,
 } from "./context.ts";
 
 const storage = new AsyncLocalStorage<InvocationContext>();
 const registry: RegisteredHandler[] = [];
 
-function port(): SchedulePort {
+function port(): AppApiPort {
   return {
     handlers: () => registry.slice(),
     register(handler) {
@@ -29,7 +29,7 @@ function port(): SchedulePort {
 // 이미 설치된 port가 있으면 그 registry를 쓴다. 두 load가 문맥을 나누지 않는다.
 const installed = installPort(port());
 
-function live(): SchedulePort {
+function live(): AppApiPort {
   return currentPort() ?? installed;
 }
 

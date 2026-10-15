@@ -30,26 +30,26 @@ export type RegisteredHandler = {
   handle: (input: unknown) => Promise<unknown> | unknown;
 };
 
-export type SchedulePort = {
+export type AppApiPort = {
   handlers(): readonly RegisteredHandler[];
   register(handler: RegisteredHandler): void;
   run<T>(context: InvocationContext, fn: () => Promise<T> | T): Promise<T>;
   current(): InvocationContext | null;
 };
 
-export const SCHEDULE_PORT = Symbol.for("lophn.cap-app-api");
+export const APP_API_PORT = Symbol.for("lophn.cap-app-api");
 
 type Store = Record<symbol, unknown>;
 
-export function installPort(port: SchedulePort): SchedulePort {
+export function installPort(port: AppApiPort): AppApiPort {
   const store = globalThis as Store;
-  const existing = store[SCHEDULE_PORT];
-  if (existing && typeof existing === "object") return existing as SchedulePort;
-  store[SCHEDULE_PORT] = port;
+  const existing = store[APP_API_PORT];
+  if (existing && typeof existing === "object") return existing as AppApiPort;
+  store[APP_API_PORT] = port;
   return port;
 }
 
-export function currentPort(): SchedulePort | undefined {
-  const port = (globalThis as Store)[SCHEDULE_PORT];
-  return port && typeof port === "object" ? port as SchedulePort : undefined;
+export function currentPort(): AppApiPort | undefined {
+  const port = (globalThis as Store)[APP_API_PORT];
+  return port && typeof port === "object" ? port as AppApiPort : undefined;
 }

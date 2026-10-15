@@ -36,4 +36,3 @@ export {
   approvalsUnapplied,
 } from "./routes.ts";
 export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
-export { CONFIRM_COMMAND, CONFIRM_CONCERN, confirmAction } from "./confirm.ts";

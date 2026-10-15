@@ -7,7 +7,7 @@ import {
   parseControlShutdown,
 } from "./wire.ts";
 import type { RuntimeState } from "./state.ts";
-import { readSchedulePort } from "../../invocations/mod.ts";
+import { readAppApiPort } from "../../invocations/context.ts";
 import { ensureAppApiPort } from "./app-api-port.ts";
 
 export type ControlResult =
@@ -21,7 +21,7 @@ function error(status: number, code: string, message: string): ControlResult {
 // 보고의 `commands` 칸은 등록된 app-api key다.
 export function attestation(state: RuntimeState) {
   ensureAppApiPort();
-  const port = readSchedulePort();
+  const port = readAppApiPort();
   return {
     release: state.identity.release,
     bundle_hash: state.identity.bundleHash,

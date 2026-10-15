@@ -1,0 +1,143 @@
+// agent grant 화면의 순수한 계산. entries(계약의 AgentGrantEntry 배열)에서 대상 줄의 상태를 읽고, 줄을 바꾼 새 entries를 만든다.
+// 사람이 바꾼 것만 entries에 든다: 앱 안의 app-api는 apis에 든 것만 바꾼 것이고, 나머지는 효과별 기본값이다.
+import {
+  type AgentGrantEntry,
+  agentGrantEntryKey,
+  agentKey,
+  type AskSetting,
+  DEFAULT_ASK,
+  type Effect,
+  SETTINGS_EDIT_DEFAULT_ASK,
+} from "../../../../../protocol/approvals/grants.ts";
+import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+
+type AppEntry = Extract<AgentGrantEntry, { kind: "app" }>;
+type ToolEntry = Extract<AgentGrantEntry, { kind: "mcp_tool" }>;
+type AgentEntry = Extract<AgentGrantEntry, { kind: "agent" }>;
+
+/** 대상 하나에 사람이 정한 것. ask가 없으면 효과별 기본값이다. */
+export interface Pick {
+  readonly removed: boolean;
+  readonly ask?: AskSetting;
+}
+
+export const KEPT: Pick = { removed: false };
+
+/** 다른 agent 부르기는 read로 센다. */
+export const CALL_DEFAULT_ASK: AskSetting = DEFAULT_ASK.read;
+export { SETTINGS_EDIT_DEFAULT_ASK };
+
+export const defaultAskOf = (effect: Effect): AskSetting => DEFAULT_ASK[effect];
+
+/** 같은 대상의 entry를 새 것으로 바꾸고, 없으면 끝에 더한다. */
+export function setEntry(
+  entries: readonly AgentGrantEntry[],
+  entry: AgentGrantEntry,
+): AgentGrantEntry[] {
+  const key = agentGrantEntryKey(entry);
+  const found = entries.some((one) => agentGrantEntryKey(one) === key);
+  return found
+    ? entries.map((one) => agentGrantEntryKey(one) === key ? entry : one)
+    : [...entries, entry];
+}
+
+export function dropEntries(
+  entries: readonly AgentGrantEntry[],
+  keep: (entry: AgentGrantEntry) => boolean,
+): AgentGrantEntry[] {
+  return entries.filter(keep);
+}
+
+export const appEntryOf = (
+  entries: readonly AgentGrantEntry[],
+  app: string,
+): AppEntry | undefined =>
+  entries.find((one): one is AppEntry => one.kind === "app" && one.app === app);
+
+/** 앱 안 app-api 하나의 상태. 목록에 없으면 기본값이다. */
+export function apiPick(entry: AppEntry, api: string): Pick {
+  const found = entry.apis.find((one) => one.api === api);
+  if (found === undefined) return KEPT;
+  return found.setting === "excluded"
+    ? { removed: true }
+    : { removed: false, ask: found.setting };
+}
+
+/** app-api 하나의 상태를 바꾼 앱 entry. 기본값과 같으면 목록에서 뺀다. */
+export function withApiPick(
+  entry: AppEntry,
+  api: string,
+  effect: Effect,
+  pick: Pick,
+): AppEntry {
+  const rest = entry.apis.filter((one) => one.api !== api);
+  if (pick.removed) {
+    return { ...entry, apis: [...rest, { api, setting: "excluded" }] };
+  }
+  if (pick.ask === undefined || pick.ask === defaultAskOf(effect)) {
+    return { ...entry, apis: rest };
+  }
+  return { ...entry, apis: [...rest, { api, setting: pick.ask }] };
+}
+
+export const toolEntryOf = (
+  entries: readonly AgentGrantEntry[],
+  server: string,
+  tool: string,
+): ToolEntry | undefined =>
+  entries.find((one): one is ToolEntry =>
+    one.kind === "mcp_tool" && one.server === server && one.tool === tool
+  );
+
+export const toolPick = (entry: ToolEntry | undefined): Pick =>
+  entry === undefined
+    ? { removed: true }
+    : { removed: false, ask: entry.setting };
+
+/** MCP tool 하나의 상태를 바꾼 entries. 뺐으면 entry를 지운다. */
+export function withToolPick(
+  entries: readonly AgentGrantEntry[],
+  server: string,
+  tool: string,
+  effect: Effect,
+  pick: Pick,
+): AgentGrantEntry[] {
+  if (pick.removed) {
+    return entries.filter((one) =>
+      !(one.kind === "mcp_tool" && one.server === server && one.tool === tool)
+    );
+  }
+  const same = pick.ask === undefined || pick.ask === defaultAskOf(effect);
+  return setEntry(entries, {
+    kind: "mcp_tool",
+    server,
+    tool,
+    ...(same ? {} : { setting: pick.ask }),
+  });
+}
+
+export const agentEntryOf = (
+  entries: readonly AgentGrantEntry[],
+  agent: CallAgent,
+): AgentEntry | undefined =>
+  entries.find((one): one is AgentEntry =>
+    one.kind === "agent" && agentKey(one.agent) === agentKey(agent)
+  );
+
+export const settingsEntryOf = (entries: readonly AgentGrantEntry[]) =>
+  entries.find((one) => one.kind === "settings");
+
+/** 부르기와 설정 고치기 줄의 상태 바꾸기. 뺐으면 entry를 지운다. */
+export function withSimplePick(
+  entries: readonly AgentGrantEntry[],
+  target: { kind: "agent"; agent: CallAgent } | { kind: "settings" },
+  defaultAsk: AskSetting,
+  pick: Pick,
+): AgentGrantEntry[] {
+  const key = agentGrantEntryKey(target);
+  if (pick.removed) {
+    return entries.filter((one) => agentGrantEntryKey(one) !== key);
+  }
+  const same = pick.ask === undefined || pick.ask === defaultAsk;
+  return setEntry(entries, same ? target : { ...target, setting: pick.ask });
+}

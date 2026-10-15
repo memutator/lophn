@@ -1,4 +1,141 @@
 export const agents = {
+  "agents.notice.stored-in-lophn":
+    "Agent definitions are stored in lophn, in one place for every project, not in your project folder.",
+  "agents.heading.model-for-project": "Model for this project",
+  "agents.label.card-model":
+    "Model: {layer, select, agent {{model}} project {project default ({model})} other {Workspace default ({model})}}",
+  "agents.notice.model-for-project":
+    "One model for every agent in this project. An agent can pick its own in its settings.",
+  "agents.notice.skills-project":
+    "A switch turns a skill on or off for this project. Workspace skills can be turned off here too.",
+  "agents.notice.tab-lead":
+    "The agents that work here. lophn is one agent for all of lophn, so you set it up in Workspace Settings \u203a Agents.",
+  "agents.button.add-agent": "Add agent",
+  "agents.button.assign-app": "Assign app",
+  "agents.button.assign-tools": "Assign tools",
+  "agents.button.choose-icon": "Choose icon",
+  "agents.button.create-operator": "Create Operator",
+  "agents.button.grant-reset": "Reset",
+  "agents.button.remove-app": "Remove app",
+  "agents.button.remove-image": "Remove image",
+  "agents.button.remove-server": "Remove server",
+  "agents.empty.grants-agents": "It can't hand tasks to other agents.",
+  "agents.empty.grants-apps":
+    "No apps. An assigned app brings all of its app-apis.",
+  "agents.empty.grants-tools": "No MCP tools.",
+  "agents.heading.grants-agents": "Agents it can call",
+  "agents.heading.grants-apps": "Apps",
+  "agents.heading.grants-settings": "Change settings",
+  "agents.heading.grants-tools": "Tools from MCP servers",
+  "agents.heading.server-form": "Add a server for this agent only",
+  "agents.label.agent-instructions": "Instructions for this agent",
+  "agents.label.ask-ask": "Ask first",
+  "agents.label.ask-never": "Don't ask",
+  "agents.label.auth-api-key": "API key in a header",
+  "agents.label.auth-bearer": "Bearer token",
+  "agents.label.auth-none": "None",
+  "agents.label.avatar-preview": "Avatar preview",
+  "agents.label.built-in": "Built-in",
+  "agents.label.defaults-by-effect": "Defaults by effect",
+  "agents.label.defaults-external":
+    "Changes something outside the app: mail, payments, other services",
+  "agents.label.defaults-read": "Changes nothing",
+  "agents.label.defaults-settings":
+    "Edits LOPHN.md, agent definitions, skills or Settings",
+  "agents.label.defaults-write":
+    "Changes only the app's own data. lophn can undo it",
+  "agents.label.effect-external": "External",
+  "agents.label.effect-read": "Read",
+  "agents.label.effect-settings": "Settings",
+  "agents.label.effect-write": "Write",
+  "agents.label.grant-came-default": "Came in with the default",
+  "agents.label.grant-changed": "Changed by you",
+  "agents.label.grant-col-allowed": "Allowed",
+  "agents.label.grant-col-effect": "Effect",
+  "agents.label.grant-col-name": "Name",
+  "agents.label.grant-col-status": "Status",
+  "agents.label.grant-col-when": "When it runs",
+  "agents.label.grant-default": "Default",
+  "agents.label.grant-left-out": "Left out",
+  "agents.label.grant-new-in": "New in {release}",
+  "agents.label.grant-when-runs": "When {name} runs",
+  "agents.label.grants-apis-summary":
+    "{used, number} of {total, number} app-apis \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
+  "agents.label.grants-apps-summary":
+    "release {release} \u00b7 {used, number} of {total, number} app-apis \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
+  "agents.label.grants-settings-detail":
+    "LOPHN.md, agent definitions, skills and Settings",
+  "agents.label.grants-settings-name": "Change settings and instructions",
+  "agents.label.grants-target": "the grants",
+  "agents.label.grants-tools-summary":
+    "{used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
+  "agents.label.instructions-head-folder":
+    "Project instructions \u00b7 LOPHN.md in {project} \u2014 the project folder this Operator works in",
+  "agents.label.instructions-head-placed":
+    "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent placed there",
+  "agents.label.instructions-head-source":
+    "Project instructions \u00b7 LOPHN.md in {project} \u2014 the project that holds {app}'s source",
+  "agents.label.instructions-head-unknown":
+    "Project instructions \u00b7 LOPHN.md",
+  "agents.label.layer-agent": "This agent",
+  "agents.label.layer-builtin": "Built-in",
+  "agents.label.layer-global": "Workspace",
+  "agents.label.layer-project": "Project",
+  "agents.label.model-by-provider": "{model} \u00b7 {provider}",
+  "agents.label.model-inherit":
+    "Use {layer, select, project {project} other {Workspace}} default \u2014 {model}{layer, select, project { (from project)} other {}}",
+  "agents.label.model-overrides":
+    "Overrides {layer, select, project {project} other {Workspace}}",
+  "agents.label.no-model-chosen": "No model chosen yet",
+  "agents.label.place": "Place",
+  "agents.label.place-choice":
+    "{name} ({kind, select, app {app} other {project}})",
+  "agents.label.place-lophn": "All of lophn",
+  "agents.label.place-named":
+    "{name} \u00b7 {kind, select, app {app} other {project}}",
+  "agents.label.protected-key": "Key or token",
+  "agents.label.provider": "Provider",
+  "agents.label.role-project-manager": "Project Manager",
+  "agents.label.tab-definition": "Definition",
+  "agents.label.tab-grants": "Grants",
+  "agents.notice.credential-later":
+    "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
+  "agents.notice.grants-after-create":
+    "You can assign apps and tools in the Grants tab once the Operator exists.",
+  "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
+  "agents.notice.grants-defaults-help":
+    "These are the starting values. You can change any app-api or tool below. A new release's app-apis start with the default again; what you changed stays.",
+  "agents.notice.grants-lead":
+    "What {name} can use besides its own tools. Each item says whether it asks you first. Anything you don't add here, {name} can't use.",
+  "agents.notice.grants-settings-help":
+    "It asks first by default, so an agent can't widen its own grants.",
+  "agents.notice.grants-tool-effect":
+    "A tool counts as Read when its server says it only reads, otherwise as External.",
+  "agents.notice.instructions-help":
+    "Read after the project instructions. Your Workspace instructions come before both.",
+  "agents.notice.instructions-help-lophn":
+    "Read after your Workspace instructions (Settings \u203a Agents).",
+  "agents.notice.lophn-no-project":
+    "lophn takes no project's instructions. It reads a project's LOPHN.md when it works on that project.",
+  "agents.notice.name-fixed-lophn":
+    "There is one lophn for everything. The name can't be changed.",
+  "agents.notice.name-fixed-role":
+    "Every {owner, select, app {app} other {project}} has one {role}. The name can't be changed.",
+  "agents.notice.place-help":
+    "Where this Operator works. Its sessions open in that place.",
+  "agents.notice.profile-help":
+    "An icon, or an image you upload. It shows next to the agent's messages.",
+  "agents.notice.protected-key":
+    "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
+  "agents.notice.server-name-help":
+    "Letters, numbers, dashes and underscores. Other agents don't see this server.",
+  "agents.notice.skills-agent-only":
+    "The chip says which layer a skill comes from. A switch here changes only this agent.",
+  "agents.title.change-failed": "Couldn't change that",
+  "agents.title.delete-failed": "Couldn't delete",
+  "agents.title.save-conflict": "Changed since you opened it",
+  "agents.title.save-failed": "Couldn't save",
+  "agents.title.upload-failed": "Couldn't upload",
   "project-workspace.button.add-server": "Add server",
   "project-workspace.button.add-skill": "Add skill",
   "project-workspace.button.agent-editor-add-context": "Add context",

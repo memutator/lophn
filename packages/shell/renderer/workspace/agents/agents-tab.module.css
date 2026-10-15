@@ -1,4 +1,4 @@
-/* project의 Agents 탭. 카드 목록 아래에 구역이 쌓이고, 구역 머리는 제목과 오른쪽 단추 하나다. */
+/* project의 Agents 탭. 카드 목록 위에 구역이 쌓이고, 구역 머리는 제목과 오른쪽 끝 단추 하나다. 본문은 최대 폭 기둥을 가로 가운데에 둔다. */
 .page {
   box-sizing: border-box;
   display: flex;
@@ -11,6 +11,29 @@
   padding: var(--layout-pane-padding-wide);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+}
+
+.fill {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--layout-pane-padding-wide);
+}
+
+/* 설정을 바꾸지 못했다는 알림은 탭 위쪽에 toast로 뜬다. */
+.toastSlot {
+  position: sticky;
+  top: var(--space-3);
+  z-index: var(--z-toast);
+  display: flex;
+  justify-content: center;
+  height: var(--space-0);
+  pointer-events: none;
+}
+
+.toastSlot > div {
+  width: 100%;
+  max-width: var(--page-form);
+  pointer-events: auto;
 }
 
 .title {
@@ -31,6 +54,11 @@
 
 .card {
   display: flex;
+  min-width: var(--space-0);
+}
+
+.card > * {
+  flex: 1;
   min-width: var(--space-0);
 }
 
@@ -81,6 +109,7 @@
 
 .actions {
   display: flex;
+  justify-content: flex-end;
   gap: var(--space-4);
 }
 
@@ -129,57 +158,7 @@
   font-family: var(--font-mono);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roles {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.role {
-  display: grid;
-  grid-template-columns: var(--layout-container-card) minmax(var(--space-0),
-    1fr) auto;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-3) var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-}
-
-.roleLabel {
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.roleLine {
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.roleControls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.toggles {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.toggle {
-  padding: var(--space-2) var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  white-space: pre-wrap;
 }
 
 .stored {

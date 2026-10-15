@@ -14,7 +14,7 @@ import {
   lophnSpaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import { ProtectedKeyNote } from "./agent-setup/parts.tsx";
+import { ProtectedKeyNote } from "../../../../packages/shell/renderer/workspace/agents/editor/parts.tsx";
 import {
   SettingsAgents,
   SettingsLophn,

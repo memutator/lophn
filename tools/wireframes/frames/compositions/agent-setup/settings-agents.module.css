@@ -1,0 +1,131 @@
+/* Settings › Agents 목록 화면(settings-agents.tsx)이 쓰는 규칙. 이 화면은 screens-agents-settings가 renderer로 옮기며 지운다. */
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+}
+
+.lead {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.section {
+  margin-top: var(--space-8);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sectionLead {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+}
+
+.code {
+  margin: var(--space-3) var(--space-0);
+  padding: var(--space-5);
+  overflow: auto;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 카드 */
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.purpose {
+  margin: var(--space-3) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+/* 켬/끔 줄(skill, MCP server) */
+
+.settingsPage {
+  max-width: var(--page-overview);
+  margin-inline: auto;
+}
+
+.backRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}

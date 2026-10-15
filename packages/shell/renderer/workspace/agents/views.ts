@@ -1,11 +1,7 @@
-// Agents 탭과 Operator editor가 함께 쓰는 화면 값. 값의 정본은 lophn-agent/agents
-// contract(AgentListRow·ReadAgent·ReadPlaceAgentSettings)이고, 여기는 화면이 contract만으로 만들 수 없는 것
-// (model 표시 이름, 이미지 주소, 켬·끔 줄)만 더한다. renderer는 contracts를 type으로만 쓴다.
-import type {
-  AgentPermissions,
-  Profile,
-  ValueSource,
-} from "../../../../protocol/lophn-agent/agent-values.ts";
+// Agents 탭과 agent editor가 함께 쓰는 화면 값. 값의 정본은 protocol의 agent-definitions·approvals/grants이고,
+// 여기는 화면이 contract만으로 만들 수 없는 것(model 표시 이름, 이미지 주소, 켬·끔 줄, project 지침 글)만 더한다.
+// renderer는 contracts를 type으로만 쓴다.
+import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 
 /**
@@ -15,40 +11,49 @@ import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 export type ModelLabel = (choice: ModelChoice) => string;
 
 /**
- * 올린 이미지 avatar의 주소(agent-profiles/read). contract의 profile은 파일 이름(`avatar.png`)만 가져서
+ * 올린 이미지 avatar의 주소(profile-images/read). contract의 profile은 파일 이름(`avatar.png`)만 가져서
  * 화면이 읽을 수 있는 주소는 연결 쪽이 풀어 준다.
  */
 export type ImageSrc = (assignment: string, image: string) => string;
 
-/** project 폴더의 LOPHN.md. 파일이 없거나 비면 text가 빈 글이다. */
+/**
+ * project 지침 `LOPHN.md`. 파일이 없거나 비면 text가 빈 글이다. project는 그 지침이 속한 project의 이름이고,
+ * 알 수 없으면 null이다(앱 자리 agent의 project 폴더를 모를 때).
+ */
 export interface ProjectInstructionsView {
   readonly text: string;
+  readonly project: string | null;
 }
 
-/** 이름과 켬·끔을 가진 줄. project에 등록한 skill과 MCP server가 쓴다. */
-export interface ToggleRow {
-  readonly name: string;
-  readonly on: boolean;
-}
-
-/** 권한 한 줄. tool은 개별 동작 이름(`documents.edit`)이고 label은 사람이 읽는 글이다. */
-export interface PermissionRow {
-  readonly tool: string;
-  readonly label: string;
-  readonly on: boolean;
-}
-
-/** 값과 그 값이 어느 층에서 왔는지(ReadAgent.effective의 칸). */
+/** 값과 그 값이 어느 층에서 왔는지. */
 export interface Sourced<T> {
   readonly value: T;
-  readonly source: ValueSource;
+  readonly source: AgentValueLayer;
 }
 
-/** ReadAgent의 effective 중 editor가 쓰는 칸. 정의에 칸이 없을 때 보일 상속 값이다. */
-export interface AgentEffective {
-  readonly name: Sourced<string>;
-  readonly profile: Sourced<Profile>;
-  /** 어느 층에도 model이 없으면 null이다. */
-  readonly model: Sourced<ModelChoice> | null;
-  readonly permissions: Sourced<AgentPermissions>;
+/** skill의 층. 내장은 role이 가진 것이고 나머지는 전역과 project다. */
+export type SkillLayer = "builtin" | "global" | "project";
+
+/** skill 한 줄. 끈 skill도 줄로 남는다. 내장 skill은 끌 수 없어 builtIn이 참이다. */
+export interface SkillRow {
+  readonly name: string;
+  readonly detail: string;
+  readonly layer: SkillLayer;
+  readonly on: boolean;
+  readonly builtIn: boolean;
+}
+
+/** MCP server의 층. agent 층은 그 agent의 정의가 가진 것이다. */
+export type McpLayer = "global" | "project" | "agent";
+
+/** 연결 상태. 지금 열려 있는지 읽는 길이 없으면 null이고 점은 중립 색이다. */
+export type McpStatus = "connected" | "needs-sign-in" | null;
+
+/** MCP server 한 줄. */
+export interface McpRow {
+  readonly name: string;
+  readonly detail: string;
+  readonly layer: McpLayer;
+  readonly on: boolean;
+  readonly status: McpStatus;
 }

@@ -1,120 +1,79 @@
-// AgentsSource의 메모리 구현. dev mock 작업대와 화면 시험이 쓴다. project 하나에 lophn · Context Engineer ·
-// Operator "Release notes"가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔이 메모리에서 이어지며 쓰는 명령을 순서대로
-// calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
-import type {
-  AgentDefinition,
-  AgentIssue,
-  AgentListRow,
-  Profile,
-  ValueSource,
-} from "../../../../protocol/lophn-agent/agent-values.ts";
-import type {
-  CatalogEntry,
-  ModelChoice,
-  OptionAxis,
-} from "../../../../protocol/lophn-agent/models.ts";
-import type { AgentRole } from "../../../../protocol/lophn-agent/scope.ts";
-import { EVAL } from "../contexts/fake-source.ts";
+// AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. phroner project에 Project Manager · Operator 둘이,
+// 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
+// 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
+import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
 import type { ReadResult } from "../source.ts";
+import {
+  ANTHROPIC,
+  APP_ID,
+  APP_NAME,
+  AVATAR_SRC,
+  BUILT_IN_SKILLS,
+  CATALOG,
+  FAKE_AGENTS,
+  FAKE_GRANTS,
+  type FakeAgent,
+  GLOBAL_MCP,
+  GLOBAL_MODEL,
+  GLOBAL_SKILLS,
+  GRANT_CATALOG,
+  LOPHN_MD,
+  PROJECT_ID as PROJECT,
+  PROJECT_MCP,
+  PROJECT_NAME,
+  PROJECT_SKILLS,
+} from "./fake-data.ts";
+import { isAppPlace, keyOf } from "./agent-key.ts";
 import type {
   AgentDetail,
+  AgentDraft,
+  AgentListRow,
   AgentsOverview,
   AgentsSource,
+  GrantsView,
   ModelFavorite,
   ModelsView,
   SaveInput,
   SaveResult,
 } from "./source.ts";
-import type { PermissionRow, ToggleRow } from "./views.ts";
+import type { McpRow, SkillRow } from "./views.ts";
 
-export const ANTHROPIC = "pvd_01arz3ndektsv4rrffq69g5fa1";
-export const LOPHN_ID = "asg_01arz3ndektsv4rrffq69g5fa1";
-export const ENGINEER_ID = "asg_01arz3ndektsv4rrffq69g5fa2";
-export const RELEASE_ID = "asg_01arz3ndektsv4rrffq69g5fa3";
-
-const WORKSPACE: ValueSource = { layer: "workspace", place: null };
-const DEFAULT: ValueSource = { layer: "default", place: null };
-const PLACE = {
-  kind: "project",
-  id: "prj_01arz3ndektsv4rrffq69g5fa1",
-} as const;
-const DEFAULT_PROFILE: Profile = { kind: "icon", icon: "default" };
-
-const SONNET_MEDIUM: ModelChoice = {
-  provider: ANTHROPIC,
-  model_name: "Sonnet 5.5",
-  option_values: { effort: "medium" },
-};
-
-const LOPHN_MD = [
-  "# phroner",
-  "Answer in short paragraphs.",
-  "Ask before you delete a document.",
-].join("\n");
-
-const ROLES: readonly AgentRole[] = [
-  "lophn",
-  "context_engineer",
-  "app_engineer",
-  "operator",
-];
-
-function effortAxis(): OptionAxis {
-  const value = (name: string, label: string) => ({
-    value: name,
-    label,
-    wire: null,
-  });
-  return {
-    id: "effort",
-    label: "Effort",
-    values: [
-      value("low", "Low"),
-      value("medium", "Medium"),
-      value("high", "High"),
-    ],
-    default_value: "medium",
-    budget: null,
-  };
-}
-
-function catalogEntry(
-  name: string,
-  options: readonly OptionAxis[] | null,
-): CatalogEntry {
-  return {
-    provider_definition: "anthropic",
-    model_name: name,
-    context_limit: null,
-    input_limit: null,
-    output_limit: null,
-    supports_tools: null,
-    input_media: null,
-    output_media: null,
-    options: options === null ? null : [...options],
-    preview: null,
-    deprecated: null,
-    source: "release_snapshot",
-    source_revision: "fake",
-    checked_at: null,
-    received_at: null,
-    price_basis: null,
-  };
-}
+export {
+  ANTHROPIC,
+  APP_ID,
+  APP_NAME,
+  EVAL_ANALYST_ID,
+  EXPERIMENT_PLANNER_ID,
+  FAKE_AGENTS,
+  FAKE_GRANTS,
+  GLOBAL_LOPHN_MD,
+  GLOBAL_MCP,
+  GLOBAL_MODEL,
+  GLOBAL_SKILLS,
+  PROJECT_CONTEXTS,
+  PROJECT_ID,
+  PROJECT_NAME,
+} from "./fake-data.ts";
 
 export type FakeCall =
   | {
     method: "saveAgent";
     assignment: string | null;
     hash: string | null;
-    definition: AgentDefinition;
+    definition: AgentDraft;
   }
   | { method: "deleteAgent"; assignment: string; hash: string }
   | { method: "uploadImage"; assignment: string; name: string }
-  | { method: "changeRoleModel"; role: AgentRole; choice: ModelChoice | null }
+  | { method: "setProjectModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
-  | { method: "setPermission"; tool: string; on: boolean }
+  | {
+    method: "setGrants";
+    assignment: string;
+    entries: readonly AgentGrantEntry[];
+  }
   | { method: "setFavorites"; items: readonly ModelFavorite[] };
 
 export interface FakeAgentsSource extends AgentsSource {
@@ -123,19 +82,30 @@ export interface FakeAgentsSource extends AgentsSource {
   /** agent 파일의 지금 hash. */
   hashOf(assignment: string): string;
   /** 다음 saveAgent를 거절한다. issues가 비면 code만 있는 실패다. */
-  failNextSave(issues: readonly AgentIssue[], code?: string): void;
-  /** 다음 설정 변경(model·skill·MCP·권한) 하나를 실패시킨다. */
+  failNextSave(issues: readonly AgentDefinitionIssue[], code?: string): void;
+  /** 다음 설정 변경(model·skill·MCP·grant) 하나를 실패시킨다. */
   failNextChange(code: string): void;
   /** 다음 overview를 실패시킨다. */
   failNextOverview(code: string): void;
 }
 
 interface Stored {
-  readonly role: AgentRole;
+  readonly role: FakeAgent["role"];
+  readonly place: FakeAgent["place"];
   readonly name: string;
-  readonly definition: AgentDefinition;
+  readonly summary: string;
+  readonly definition: AgentDraft;
   readonly hash: string;
 }
+
+const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
+const BUILT_IN_ICON: Record<string, string> = {
+  lophn: "dock",
+  project_manager: "contexts",
+  app_engineer: "apps",
+};
+
+const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
 export function createFakeAgentsSource(): FakeAgentsSource {
   const calls: FakeCall[] = [];
@@ -143,85 +113,34 @@ export function createFakeAgentsSource(): FakeAgentsSource {
   const nextHash = () => String(++version).padStart(64, "0");
   let created = 0;
 
-  const stored = new Map<string, Stored>([
-    [LOPHN_ID, {
-      role: "lophn",
-      name: "lophn",
-      definition: { body: "" },
+  const stored = new Map<string, Stored>(
+    FAKE_AGENTS.map((agent) => [agent.key, {
+      role: agent.role,
+      place: agent.place,
+      name: agent.name,
+      summary: agent.summary,
+      definition: agent.definition,
       hash: nextHash(),
-    }],
-    [ENGINEER_ID, {
-      role: "context_engineer",
-      name: "Context Engineer",
-      definition: { body: "" },
-      hash: nextHash(),
-    }],
-    [RELEASE_ID, {
-      role: "operator",
-      name: "Release notes",
-      definition: {
-        name: "Release notes",
-        profile: { kind: "icon", icon: "edit" },
-        contexts: [EVAL],
-        body: "Draft the next release note.",
-      },
-      hash: nextHash(),
-    }],
-  ]);
-
-  const chosen = new Map<AgentRole, ModelChoice>();
-  const skills = new Map<string, boolean>([["summarize-notes", true]]);
-  const servers = new Map<string, boolean>([["github", true], [
-    "linear",
-    false,
-  ]]);
-  const permissions = new Map<string, boolean>([["documents.read", true]]);
+    }]),
+  );
+  const grants = new Map<string, readonly AgentGrantEntry[]>(
+    Object.entries(FAKE_GRANTS),
+  );
+  let projectModel: ModelChoice | null = null;
+  // 층에서 끈 skill(project 층)과 끈 MCP server(project 층).
+  const projectSkillOff = new Set(
+    PROJECT_SKILLS.filter((row) => !row.on).map((row) => row.name),
+  );
+  const projectMcpOff = new Set(
+    PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
+  );
   let favorites: readonly ModelFavorite[] = [];
 
-  let saveFailure: { issues: readonly AgentIssue[]; code: string } | null =
-    null;
+  let saveFailure:
+    | { issues: readonly AgentDefinitionIssue[]; code: string }
+    | null = null;
   let changeFailure: string | null = null;
   let overviewFailure: string | null = null;
-
-  const effectiveModel = (role: AgentRole) => {
-    const own = chosen.get(role);
-    return own === undefined
-      ? { value: SONNET_MEDIUM, source: WORKSPACE }
-      : { value: own, source: { layer: "place", place: PLACE } as ValueSource };
-  };
-
-  const rowOf = (assignment: string, item: Stored): AgentListRow => {
-    const definition = item.definition;
-    const on = (rows: ReadonlyMap<string, boolean>, off: readonly string[]) =>
-      [...rows].filter(([name, enabled]) => enabled && !off.includes(name))
-        .length;
-    const model = definition.model ?? effectiveModel(item.role).value;
-    const builtIn = item.role !== "operator";
-    return {
-      assignment,
-      role: item.role,
-      kind: builtIn ? "built_in" : "operator",
-      name: item.name,
-      profile: definition.profile ??
-        (builtIn
-          ? { kind: "icon", icon: item.role === "lophn" ? "dock" : "contexts" }
-          : DEFAULT_PROFILE),
-      model: {
-        provider: model.provider,
-        model_name: model.model_name,
-        source: definition.model === undefined
-          ? effectiveModel(item.role).source
-          : { layer: "definition", place: PLACE },
-      },
-      state: "enabled",
-      issues: [],
-      counts: {
-        contexts: builtIn ? null : (definition.contexts ?? []).length,
-        skills: on(skills, definition.skills_off ?? []),
-        mcp: on(servers, []),
-      },
-    };
-  };
 
   const takeChangeFailure = (): ReadResult<null> | null => {
     if (changeFailure === null) return null;
@@ -230,33 +149,115 @@ export function createFakeAgentsSource(): FakeAgentsSource {
     return { ok: false, message };
   };
 
-  const detailOf = (assignment: string): AgentDetail => {
-    const item = stored.get(assignment)!;
-    const row = rowOf(assignment, item);
+  const skillsFor = (item: Stored, atProject: boolean): SkillRow[] => [
+    ...(item.role === "project_manager" ? BUILT_IN_SKILLS : []),
+    ...GLOBAL_SKILLS,
+    ...(atProject
+      ? PROJECT_SKILLS.map((row) => ({
+        ...row,
+        on: !projectSkillOff.has(row.name),
+      }))
+      : []),
+  ];
+  const mcpFor = (atProject: boolean): McpRow[] => [
+    ...GLOBAL_MCP,
+    ...(atProject
+      ? PROJECT_MCP.map((row) => ({ ...row, on: !projectMcpOff.has(row.name) }))
+      : []),
+  ];
+
+  const inheritedModel = (item: Stored) =>
+    item.place === "project" && projectModel !== null
+      ? { value: projectModel, source: "project" as const }
+      : { value: GLOBAL_MODEL, source: "global" as const };
+
+  const rowOf = (key: string, item: Stored): AgentListRow => {
+    const definition = item.definition;
+    const atProject = item.place === "project";
+    const skillsOff = definition.skills_off ?? [];
+    const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
+    const skills =
+      skillsFor(item, atProject).filter((row) =>
+        row.on && !skillsOff.includes(row.name)
+      ).length;
+    const own =
+      (definition.mcp_servers ?? []).filter((server) => server.enabled)
+        .length;
+    const mcp =
+      mcpFor(atProject).filter((row) => row.on && !mcpOff.includes(row.name))
+        .length + own;
+    const builtIn = item.role !== "operator";
+    const model = definition.model ?? inheritedModel(item).value;
     return {
-      assignment,
+      assignment: key,
+      role: item.role,
+      kind: builtIn ? "built_in" : "operator",
+      name: item.name,
+      profile: definition.profile ??
+        (builtIn
+          ? { kind: "icon", icon: BUILT_IN_ICON[item.role] }
+          : DEFAULT_PROFILE),
+      model: {
+        provider: model.provider,
+        model_name: model.model_name,
+        source: definition.model === undefined
+          ? inheritedModel(item).source
+          : "agent",
+      },
+      issues: [],
+      counts: {
+        contexts: builtIn ? null : (definition.contexts ?? []).length,
+        skills,
+        mcp,
+      },
+    };
+  };
+
+  const placeOf = (item: Stored) =>
+    item.place === "none"
+      ? { kind: "none" as const, id: null, name: "All of lophn" }
+      : item.place === "app"
+      ? { kind: "app" as const, id: APP_ID, name: APP_NAME }
+      : { kind: "project" as const, id: PROJECT, name: PROJECT_NAME };
+
+  const detailOf = (key: string): AgentDetail => {
+    const item = stored.get(key)!;
+    const row = rowOf(key, item);
+    const atProject = item.place === "project";
+    const model = inheritedModel(item);
+    return {
+      assignment: key,
       role: item.role,
       kind: row.kind,
+      place: placeOf(item),
       definition: item.definition,
       hash: item.hash,
       effective: {
-        name: { value: item.name, source: DEFAULT },
-        profile: { value: row.profile, source: DEFAULT },
-        model: effectiveModel(item.role),
-        permissions: {
-          value: {
-            tools: [...permissions].flatMap(([tool, on]) => on ? [tool] : []),
-          },
-          source: DEFAULT,
-        },
+        name: { value: item.name, source: "agent" },
+        profile: { value: row.profile, source: "agent" },
       },
+      inheritedModel: model,
       issues: [],
+      skills: skillsFor(item, atProject),
+      mcpServers: mcpFor(atProject),
+      instructions: item.role === "lophn"
+        ? null
+        : { text: LOPHN_MD, project: PROJECT_NAME },
+      places: [],
     };
+  };
+
+  const here = (project: string) => {
+    const app = isAppPlace(project);
+    return [...stored].filter(([, item]) =>
+      item.place === "none" ||
+      item.place === (app ? "app" : "project")
+    );
   };
 
   return {
     calls,
-    hashOf: (assignment) => stored.get(assignment)!.hash,
+    hashOf: (key) => stored.get(key)!.hash,
     failNextSave(issues, code = "invalid_input") {
       saveFailure = { issues, code };
     },
@@ -267,103 +268,86 @@ export function createFakeAgentsSource(): FakeAgentsSource {
       overviewFailure = code;
     },
 
-    list() {
-      return Promise.resolve({
-        ok: true,
-        value: [...stored].map(([assignment, item]) => rowOf(assignment, item)),
-      });
+    list(project) {
+      return Promise.resolve(
+        ok(here(project).map(([key, item]) => rowOf(key, item))),
+      );
     },
 
-    overview(): Promise<ReadResult<AgentsOverview>> {
+    overview(project): Promise<ReadResult<AgentsOverview>> {
       if (overviewFailure !== null) {
         const message = overviewFailure;
         overviewFailure = null;
         return Promise.resolve({ ok: false, message });
       }
-      const rows = [...stored].map(([assignment, item]) =>
-        rowOf(assignment, item)
-      );
-      const toggles = (rows: ReadonlyMap<string, boolean>): ToggleRow[] =>
-        [...rows].map(([name, on]) => ({ name, on }));
-      const rules: PermissionRow[] = [...permissions].map(([tool, on]) => ({
-        tool,
-        label: tool,
-        on,
+      const atProject = !isAppPlace(project);
+      return Promise.resolve(ok({
+        agents: here(project).filter(([, item]) => item.place !== "none")
+          .map(([key, item]) => rowOf(key, item)),
+        instructions: { text: LOPHN_MD, project: PROJECT_NAME },
+        projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
+        skills: skillsFor({ role: "operator" } as Stored, atProject),
+        mcpServers: mcpFor(atProject),
       }));
-      return Promise.resolve({
-        ok: true,
-        value: {
-          agents: rows,
-          instructions: { text: LOPHN_MD },
-          chosenModels: Object.fromEntries(chosen),
-          effectiveModels: Object.fromEntries(
-            ROLES.map((role) => [role, effectiveModel(role)]),
-          ),
-          skills: toggles(skills),
-          mcpServers: toggles(servers),
-          permissions: rules,
-        },
-      });
     },
 
     models(): Promise<ReadResult<ModelsView>> {
-      return Promise.resolve({
-        ok: true,
-        value: {
-          providers: [{
-            id: ANTHROPIC,
-            name: "Anthropic",
-            definition: "anthropic",
-          }],
-          catalog: [
-            catalogEntry("Sonnet 5.5", [effortAxis()]),
-            catalogEntry("Haiku 5.5", []),
-          ],
-          favorites,
-        },
-      });
+      return Promise.resolve(ok({
+        providers: [{
+          id: ANTHROPIC,
+          name: "Anthropic",
+          definition: "anthropic",
+        }],
+        catalog: CATALOG,
+        favorites,
+      }));
     },
 
     setFavorites(items) {
       calls.push({ method: "setFavorites", items });
       favorites = items;
-      return Promise.resolve({ ok: true, value: items });
+      return Promise.resolve(ok(items));
     },
 
-    readAgent(_project, assignment) {
+    readAgent(_project, key) {
       return Promise.resolve(
-        stored.has(assignment)
-          ? { ok: true, value: detailOf(assignment) }
+        stored.has(key)
+          ? ok(detailOf(key))
           : { ok: false, message: "not_found" },
       );
     },
 
-    newOperator() {
-      const model = effectiveModel("operator");
-      return Promise.resolve({
-        ok: true,
-        value: {
+    newOperator(project) {
+      const inherited = projectModel ?? GLOBAL_MODEL;
+      const app = isAppPlace(project);
+      return Promise.resolve(ok(
+        {
           assignment: null,
           role: "operator",
           kind: "operator",
+          place: app
+            ? { kind: "app", id: project, name: APP_NAME }
+            : { kind: "project", id: project, name: PROJECT_NAME },
           definition: { body: "" },
           hash: null,
           effective: {
-            name: { value: "", source: DEFAULT },
-            profile: { value: DEFAULT_PROFILE, source: DEFAULT },
-            model,
-            permissions: {
-              value: {
-                tools: [...permissions].flatMap(([tool, on]) =>
-                  on ? [tool] : []
-                ),
-              },
-              source: DEFAULT,
-            },
+            name: { value: "", source: "global" },
+            profile: { value: DEFAULT_PROFILE, source: "global" },
+          },
+          inheritedModel: {
+            value: inherited,
+            source: projectModel === null ? "global" : "project",
           },
           issues: [],
-        },
-      });
+          skills: skillsFor({ role: "operator" } as Stored, !app),
+          mcpServers: mcpFor(!app),
+          instructions: { text: LOPHN_MD, project: PROJECT_NAME },
+          places: [
+            { kind: "project", id: PROJECT, name: PROJECT_NAME },
+            { kind: "app", id: APP_ID, name: APP_NAME },
+          ],
+        } satisfies AgentDetail,
+      ));
     },
 
     saveAgent(_project, input: SaveInput): Promise<SaveResult> {
@@ -398,71 +382,87 @@ export function createFakeAgentsSource(): FakeAgentsSource {
         }
       }
       created += 1;
-      const assignment = input.assignment ??
-        `asg_${`nw${created}`.padStart(26, "0")}`;
-      const role: AgentRole = existing?.role ?? "operator";
+      const key = input.assignment ??
+        `agt_${`nw${created}`.padStart(26, "0")}`;
       const hash = nextHash();
-      stored.set(assignment, {
-        role,
+      stored.set(key, {
+        role: existing?.role ?? "operator",
+        place: existing?.place ??
+          (input.place !== null && isAppPlace(input.place) ? "app" : "project"),
         name: input.definition.name ?? existing?.name ?? "",
+        summary: existing?.summary ?? "",
         definition: input.definition,
         hash,
       });
-      return Promise.resolve({ ok: true, value: { assignment, role, hash } });
+      return Promise.resolve({ ok: true, value: { assignment: key, hash } });
     },
 
-    deleteAgent(_project, assignment, hash) {
-      calls.push({ method: "deleteAgent", assignment, hash });
-      const existing = stored.get(assignment);
+    deleteAgent(_project, key, hash) {
+      calls.push({ method: "deleteAgent", assignment: key, hash });
+      const existing = stored.get(key);
       if (existing === undefined) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
       if (existing.hash !== hash) {
         return Promise.resolve({ ok: false, message: "conflict" });
       }
-      stored.delete(assignment);
-      return Promise.resolve({ ok: true, value: null });
+      stored.delete(key);
+      return Promise.resolve(ok(null));
     },
 
-    uploadImage(_project, assignment, file) {
-      calls.push({ method: "uploadImage", assignment, name: file.name });
-      return Promise.resolve({ ok: true, value: { image: "avatar.png" } });
+    uploadImage(_project, key, file) {
+      calls.push({ method: "uploadImage", assignment: key, name: file.name });
+      return Promise.resolve(ok({ image: "avatar.png" }));
     },
 
-    imageSrc: (_project, assignment, image) =>
-      `lophn-agent://profiles/${assignment}/${image}`,
+    imageSrc: () => AVATAR_SRC,
 
-    changeRoleModel(_project, role, choice) {
-      calls.push({ method: "changeRoleModel", role, choice });
+    setProjectModel(_project, choice) {
+      calls.push({ method: "setProjectModel", choice });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      if (choice === null) chosen.delete(role);
-      else chosen.set(role, choice);
-      return Promise.resolve({ ok: true, value: null });
+      projectModel = choice;
+      return Promise.resolve(ok(null));
     },
 
     setSkill(_project, name, on) {
       calls.push({ method: "setSkill", name, on });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      skills.set(name, on);
-      return Promise.resolve({ ok: true, value: null });
+      if (on) projectSkillOff.delete(name);
+      else projectSkillOff.add(name);
+      return Promise.resolve(ok(null));
     },
 
     setMcp(_project, name, on) {
       calls.push({ method: "setMcp", name, on });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      servers.set(name, on);
-      return Promise.resolve({ ok: true, value: null });
+      if (on) projectMcpOff.delete(name);
+      else projectMcpOff.add(name);
+      return Promise.resolve(ok(null));
     },
 
-    setPermission(_project, tool, on) {
-      calls.push({ method: "setPermission", tool, on });
+    grants(_project, key): Promise<ReadResult<GrantsView>> {
+      return Promise.resolve(ok({
+        entries: grants.get(key) ?? [],
+        catalog: {
+          ...GRANT_CATALOG,
+          // 자기 자신은 부를 대상이 아니다.
+          agents: GRANT_CATALOG.agents.filter((target) =>
+            target.agent.role === "coding_agent" ||
+            keyOf(target.agent) !== key
+          ),
+        },
+      }));
+    },
+
+    setGrants(_project, key, entries) {
+      calls.push({ method: "setGrants", assignment: key, entries });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      permissions.set(tool, on);
-      return Promise.resolve({ ok: true, value: null });
+      grants.set(key, entries);
+      return Promise.resolve(ok(null));
     },
   };
 }

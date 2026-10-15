@@ -161,7 +161,7 @@ export function createModelPart(env: AgentEnv): ModelPart {
   ): PickerBinding {
     return {
       models,
-      state: { open: false, query, notices: [] },
+      state: { open: false, query },
       setState: () => {},
       current,
       choose: () => {},
@@ -226,11 +226,7 @@ export function createModelPart(env: AgentEnv): ModelPart {
       if (!read.ok) return read;
       const { models, current, record } = read.value;
       let chosen: ModelChoiceValue | null = null;
-      let notices: readonly PickerNoticeView[] = [];
       pickerProps(binding(models, current, query, {
-        setState: (state) => {
-          notices = state.notices;
-        },
         choose: (choice) => {
           chosen = choice;
         },
@@ -238,7 +234,7 @@ export function createModelPart(env: AgentEnv): ModelPart {
       if (chosen === null) return { ok: false, code: "invalid_input" };
       const stored = await store(session, record, chosen);
       if (!stored.ok) return stored;
-      return { ok: true, value: viewOf(models, stored.value, query, notices) };
+      return { ok: true, value: viewOf(models, stored.value, query) };
     },
 
     async setModelOption(session, axis, value, query) {

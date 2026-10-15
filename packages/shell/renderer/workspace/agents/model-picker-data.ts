@@ -15,7 +15,6 @@ import type {
   PickerAxisView,
   PickerModelRef,
   PickerModelRow,
-  PickerNoticeView,
 } from "../../conversation/model-picker/types.ts";
 import type { ModelFavorite, ModelsView } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
@@ -24,17 +23,9 @@ import type { ModelLabel } from "./views.ts";
 export interface PickerState {
   readonly open: boolean;
   readonly query: string;
-  /** 방금 model을 바꾸며 맞춘 값. */
-  readonly notices: readonly PickerNoticeView[];
 }
 
-export const CLOSED_PICKER: PickerState = {
-  open: false,
-  query: "",
-  notices: [],
-};
-
-function entryOf(models: ModelsView, model: PickerModelRef) {
+export function entryOf(models: ModelsView, model: PickerModelRef) {
   const provider = models.providers.find((item) => item.id === model.provider);
   return provider === undefined
     ? undefined
@@ -160,39 +151,7 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
       })),
     },
     onQueryChange: (query) => binding.setState({ ...state, query }),
-    onPick: (model) => {
-      const next = choiceOf(model);
-      const entry = models === null ? undefined : entryOf(models, model);
-      const before = current === null || models === null
-        ? undefined
-        : entryOf(models, {
-          provider: current.provider,
-          modelName: current.model_name,
-        });
-      const fitted = entry === undefined
-        ? []
-        : fitOptionValues(entry, current?.option_values ?? {}).notices;
-      const labelOf = (
-        axes: readonly PickerAxisView[],
-        id: string,
-        value: string,
-      ) =>
-        axes.find((axis) => axis.id === id)?.values.find((item) =>
-          item.value === value
-        )?.label ?? value;
-      const nextAxes = entry === undefined ? [] : optionAxesOf(entry);
-      const beforeAxes = before === undefined ? [] : optionAxesOf(before);
-      binding.setState({
-        ...state,
-        notices: fitted.map((notice) => ({
-          axisLabel: nextAxes.find((axis) => axis.id === notice.axis)?.label ??
-            notice.axis,
-          fromLabel: labelOf(beforeAxes, notice.axis, notice.from),
-          toLabel: labelOf(nextAxes, notice.axis, notice.to),
-        })),
-      });
-      binding.choose(next);
-    },
+    onPick: (model) => binding.choose(choiceOf(model)),
     onToggleFavorite: (model) =>
       binding.setFavorites(
         toggleFavorite(

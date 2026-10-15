@@ -1,106 +1,45 @@
-// project의 Agents 탭 본문. 위에서부터 agent 카드(lophn · Context Engineer · Operator들),
-// [+ New Operator], 그리고 Instructions · Models for this project · Skills · MCP servers · Permissions 구역과
-// 맨 아래 "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. 카드에는 일정·마지막
-// 실행 줄이 없다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡고, 탭 안에서 본문을 바꾸는 일은 탭 쪽 몫이다.
-//
-// 약속하는 DOM(test가 단언): 카드는 `[data-agent-card]`(`data-assignment`, `data-role`, `data-kind`)가 위의 순서대로
-// 나오고 안에 design `Avatar`, `[data-agent-name]`, `[data-agent-kind]`("Built in" | "Operator"), `[data-agent-model]`
-// (model 이름), `[data-agent-counts]`("n contexts · n skills · n MCP", built-in은 contexts 없이), "Open" 단추가 있다.
-// "New Operator" 단추가 마지막 카드 뒤에 있다. 구역은 `section[data-section=instructions|models|skills|mcp|permissions]`
-// 이고 각자 h2 제목을 가진다. Instructions는 `[data-instructions-preview]`(LOPHN.md 첫 줄)와 "Edit" 단추, Models는 role마다
-// `[data-role-model]`(`data-role`) 안에 `[data-role-label]`·`[data-role-model-line]`·`[data-model-button]`을 두며 고른
-// 값이 있는 줄에만 "Use Workspace default" 단추가 있다. Skills·MCP servers·Permissions의 켬·끔은 design `Switch`다.
-// 맨 아래 `[data-stored-note]`가 마지막 요소다.
+// project의 Agents 탭 본문. 위에서부터 Project Manager 카드(project마다 하나), 이 project의 Operator 카드들과
+// [New Operator], 같이 쓰는 LOPHN.md, project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in
+// lophn, not in your project folder." 한 줄이다. lophn은 전체에 하나라 이 탭에 없고 Workspace Settings에서 정한다.
+// 앱 자리에서는 Project Manager 자리에 그 앱의 App Engineer가 온다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 import type { ReactElement, ReactNode } from "react";
 import {
   Avatar,
   type AvatarProfile,
   Button,
   Card,
-  Switch,
 } from "@lophn/design/components";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
-import type { MessageKey } from "@lophn/wording";
 
-import type {
-  AgentListRow,
-  ValueSource,
-} from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import type { AgentRole } from "../../../../protocol/lophn-agent/scope.ts";
-import {
-  ModelPicker,
-  type ModelPickerProps,
-} from "../../conversation/model-picker/model-picker.tsx";
+import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { ModelField } from "./editor/model-field.tsx";
+import { McpList, ROLE_LABEL, SkillList } from "./editor/parts.tsx";
 import styles from "./agents-tab.module.css";
-import type {
-  ImageSrc,
-  ModelLabel,
-  PermissionRow,
-  ProjectInstructionsView,
-  ToggleRow,
-} from "./views.ts";
-
-/**
- * "Models for this project"의 줄 하나. role 넷(lophn · Context Engineer · App Engineer · Operators)이 이 순서로
- * 온다. 줄 이름은 role에서 화면이 만든다.
- */
-export interface RoleModelRow {
-  readonly role: AgentRole;
-  /** 이 project가 고른 값(place settings의 models[role]). 비워 두었으면 null이다. */
-  readonly chosen: ModelChoice | null;
-  /**
-   * 실제로 쓰는 값과 출처(ReadPlaceAgentSettings의 effective_models[role]). chosen이 있으면 출처 층은 place이고
-   * 없으면 Workspace나 기본값이다. 아무 층에도 값이 없으면 null이다.
-   */
-  readonly effective: {
-    readonly value: ModelChoice;
-    readonly source: ValueSource;
-  } | null;
-  /** 이 줄에서 model과 option을 고르는 picker. */
-  readonly picker: ModelPickerProps;
-}
+import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
+import type { ImageSrc } from "./views.ts";
 
 export interface AgentsTabProps {
-  /** project 이름. "Shared by every agent in <project>"에 쓴다. */
-  projectName: string;
-  /**
-   * ListAgents의 행을 보여 줄 순서대로: lophn, Context Engineer, Operator들. App Engineer는 앱 자리 agent라 이
-   * 탭에 오지 않는다. 카드 개수(counts)는 행이 가진 값이다: built-in은 contexts가 null이라 그 수를 보이지 않는다.
-   */
-  agents: readonly AgentListRow[];
-  imageSrc: ImageSrc;
-  /** LOPHN.md. 이 탭은 첫 줄만 미리 보인다. */
-  instructions: ProjectInstructionsView;
-  modelRoles: readonly RoleModelRow[];
-  modelLabel: ModelLabel;
-  /** 이 project에 등록한 skill과 MCP server의 켬·끔. */
-  skills: readonly ToggleRow[];
-  mcpServers: readonly ToggleRow[];
-  /** 이 project의 권한 규칙. 오래 가는 허락은 여기서만 정한다(platform/approvals). */
-  permissions: readonly PermissionRow[];
+  /** project(앱 자리면 앱) 이름. */
+  readonly projectName: string;
+  readonly overview: AgentsOverview;
+  readonly models: ModelsView | null;
+  readonly imageSrc: ImageSrc;
   /** 카드의 [Open]. 같은 탭 안에서 그 agent의 editor를 연다. */
-  onOpenAgent: (assignment: string, role: AgentRole) => void;
-  /** [+ New Operator]. */
-  onNewOperator: () => void;
+  readonly onOpenAgent: (assignment: string) => void;
+  /** [New Operator]. */
+  readonly onNewOperator: () => void;
   /** Instructions의 [Edit]. LOPHN.md의 문서 탭을 연다. */
-  onEditInstructions: () => void;
-  /** 고른 model 줄을 비워 Workspace 기본값을 따르게 한다. */
-  onResetRoleModel: (role: AgentRole) => void;
-  onToggleSkill: (name: string, on: boolean) => void;
-  onAddSkill: () => void;
-  onToggleMcp: (name: string, on: boolean) => void;
-  onAddServer: () => void;
-  onChangePermission: (tool: string, on: boolean) => void;
+  readonly onEditInstructions: () => void;
+  readonly onProjectModel: (choice: ModelChoice | null) => void;
+  readonly onToggleSkill: (name: string, on: boolean) => void;
+  readonly onAddSkill: () => void;
+  readonly onToggleMcp: (name: string, on: boolean) => void;
+  readonly onAddServer: () => void;
 }
 
-const ROLE_LABEL: Record<AgentRole, MessageKey> = {
-  lophn: "project-workspace.label.role-lophn",
-  context_engineer: "project-workspace.label.role-context-engineer",
-  app_engineer: "project-workspace.label.role-app-engineer",
-  operator: "project-workspace.label.role-operators",
-};
+/** 카드 미리보기로 보이는 LOPHN.md 줄 수. */
+const PREVIEW_LINES = 3;
 
 function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
   return row.profile.kind === "icon"
@@ -144,17 +83,17 @@ function AgentCardView(
             <Avatar profile={avatarProfile(row, imageSrc)} size="md" />
             <h3 className={styles.name} data-agent-name="">{row.name}</h3>
             <span className={styles.kind} data-agent-kind="">
-              {t(
-                row.kind === "built_in"
-                  ? "project-workspace.label.agent-kind-built-in"
-                  : "project-workspace.label.agent-kind-operator",
-              )}
+              {t(ROLE_LABEL[row.role])}
             </span>
           </div>
           <ul className={styles.facts}>
             <li data-agent-model="">
-              {row.model?.model_name ??
-                t("project-workspace.label.agent-no-model")}
+              {row.model === null
+                ? t("project-workspace.label.agent-no-model")
+                : t("agents.label.card-model", {
+                  layer: row.model.source,
+                  model: row.model.model_name,
+                })}
             </li>
             <li data-agent-counts="">{countsText(row)}</li>
           </ul>
@@ -171,72 +110,6 @@ function AgentCardView(
         </div>
       </Card>
     </li>
-  );
-}
-
-function RoleModelView(
-  { row, modelLabel, onReset }: {
-    row: RoleModelRow;
-    modelLabel: ModelLabel;
-    onReset: () => void;
-  },
-): ReactElement {
-  const role = t(ROLE_LABEL[row.role]);
-  let line: string;
-  if (row.chosen !== null) {
-    line = t("project-workspace.label.model-overrides", {
-      model: modelLabel(row.chosen),
-    });
-  } else if (row.effective !== null) {
-    line = t("project-workspace.label.model-default", {
-      model: modelLabel(row.effective.value),
-    });
-  } else {
-    line = t("project-workspace.label.model-default-none");
-  }
-  return (
-    <li className={styles.role} data-role-model="" data-role={row.role}>
-      <span className={styles.roleLabel} data-role-label="">{role}</span>
-      <span className={styles.roleLine} data-role-model-line="">{line}</span>
-      <span className={styles.roleControls}>
-        <ModelPicker {...row.picker} />
-        {row.chosen !== null && (
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={t("project-workspace.label.reset-model-named", {
-              role,
-            })}
-            onClick={onReset}
-          >
-            {t("project-workspace.button.use-workspace-default")}
-          </Button>
-        )}
-      </span>
-    </li>
-  );
-}
-
-function SwitchList(
-  { rows, empty, onChange }: {
-    rows: readonly { key: string; label: string; on: boolean }[];
-    empty: string;
-    onChange: (key: string, on: boolean) => void;
-  },
-): ReactElement {
-  if (rows.length === 0) return <p className={styles.note}>{empty}</p>;
-  return (
-    <ul className={styles.toggles}>
-      {rows.map((row) => (
-        <li key={row.key} className={styles.toggle}>
-          <Switch
-            label={row.label}
-            checked={row.on}
-            onCheckedChange={(on) => onChange(row.key, on)}
-          />
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -259,14 +132,13 @@ function Section(
   );
 }
 
-function toggleRows(rows: readonly ToggleRow[]) {
-  return rows.map((row) => ({ key: row.name, label: row.name, on: row.on }));
-}
-
 export function AgentsTab(props: AgentsTabProps): ReactElement {
-  const preview = props.instructions.text.split("\n").find((line) =>
-    line.trim() !== ""
-  );
+  const { overview } = props;
+  const builtIn = overview.agents.filter((row) => row.kind === "built_in");
+  const operators = overview.agents.filter((row) => row.kind === "operator");
+  const preview = overview.instructions.text.split("\n").slice(0, PREVIEW_LINES)
+    .join("\n");
+  const inherited = overview.projectModel.inherited;
   return (
     <div className={styles.page} data-agents-tab="">
       <h1 className={styles.title}>
@@ -274,25 +146,49 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           project: props.projectName,
         })}
       </h1>
-      <ul className={styles.cards}>
-        {props.agents.map((row) => (
-          <AgentCardView
-            key={row.assignment}
-            row={row}
-            imageSrc={props.imageSrc}
-            onOpen={() => props.onOpenAgent(row.assignment, row.role)}
-          />
-        ))}
-      </ul>
-      <div>
-        <Button
-          variant="primary"
-          icon={lophnSpaceIcons.add}
-          onClick={props.onNewOperator}
+      <p className={styles.lead}>{t("agents.notice.tab-lead")}</p>
+
+      {builtIn.map((row) => (
+        <Section
+          key={row.assignment}
+          name="built-in"
+          heading={t(ROLE_LABEL[row.role])}
         >
-          {t("project-workspace.button.new-operator")}
-        </Button>
-      </div>
+          <ul className={styles.cards}>
+            <AgentCardView
+              row={row}
+              imageSrc={props.imageSrc}
+              onOpen={() => props.onOpenAgent(row.assignment)}
+            />
+          </ul>
+        </Section>
+      ))}
+
+      <Section
+        name="operators"
+        heading={t("project-workspace.label.role-operators")}
+        action={
+          <Button
+            variant="primary"
+            icon={lophnSpaceIcons.add}
+            onClick={props.onNewOperator}
+          >
+            {t("project-workspace.button.new-operator")}
+          </Button>
+        }
+      >
+        <ul className={styles.cards}>
+          {operators.map((row) => (
+            <AgentCardView
+              key={row.assignment}
+              row={row}
+              imageSrc={props.imageSrc}
+              onOpen={() => props.onOpenAgent(row.assignment)}
+            />
+          ))}
+        </ul>
+      </Section>
+
       <Section
         name="instructions"
         heading={t("project-workspace.heading.instructions")}
@@ -307,7 +203,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
             project: props.projectName,
           })}
         </p>
-        {preview === undefined
+        {preview.trim() === ""
           ? (
             <p className={styles.note}>
               {t("project-workspace.empty.no-instructions")}
@@ -322,24 +218,28 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           {t("project-workspace.info.instructions-file")}
         </p>
       </Section>
+
       <Section
-        name="models"
-        heading={t("project-workspace.heading.models-for-project")}
+        name="model"
+        heading={t("agents.heading.model-for-project")}
       >
-        <ul className={styles.roles}>
-          {props.modelRoles.map((row) => (
-            <RoleModelView
-              key={row.role}
-              row={row}
-              modelLabel={props.modelLabel}
-              onReset={() => props.onResetRoleModel(row.role)}
-            />
-          ))}
-        </ul>
-        <p className={styles.note}>
-          {t("project-workspace.info.models-follow-default")}
-        </p>
+        <ModelField
+          models={props.models}
+          label={t("project-workspace.heading.agent-editor-model")}
+          inheritLabel={inherited === null
+            ? t("project-workspace.label.agent-editor-model-unset")
+            : t("agents.label.model-inherit", {
+              layer: "global",
+              model: inherited.model_name,
+            })}
+          inherited={inherited}
+          value={overview.projectModel.chosen}
+          overrideNote={t("agents.label.model-overrides", { layer: "global" })}
+          onChange={props.onProjectModel}
+        />
+        <p className={styles.note}>{t("agents.notice.model-for-project")}</p>
       </Section>
+
       <Section
         name="skills"
         heading={t("project-workspace.heading.skills")}
@@ -353,12 +253,21 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           </Button>
         }
       >
-        <SwitchList
-          rows={toggleRows(props.skills)}
-          empty={t("project-workspace.empty.no-skills")}
-          onChange={props.onToggleSkill}
-        />
+        {overview.skills.length === 0
+          ? (
+            <p className={styles.note}>
+              {t("project-workspace.empty.no-skills")}
+            </p>
+          )
+          : (
+            <SkillList
+              items={overview.skills}
+              onToggle={props.onToggleSkill}
+            />
+          )}
+        <p className={styles.note}>{t("agents.notice.skills-project")}</p>
       </Section>
+
       <Section
         name="mcp"
         heading={t("project-workspace.heading.mcp-servers")}
@@ -372,31 +281,22 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           </Button>
         }
       >
-        <SwitchList
-          rows={toggleRows(props.mcpServers)}
-          empty={t("project-workspace.empty.no-mcp-servers")}
-          onChange={props.onToggleMcp}
-        />
+        {overview.mcpServers.length === 0
+          ? (
+            <p className={styles.note}>
+              {t("project-workspace.empty.no-mcp-servers")}
+            </p>
+          )
+          : (
+            <McpList
+              items={overview.mcpServers}
+              onToggle={props.onToggleMcp}
+            />
+          )}
       </Section>
-      <Section
-        name="permissions"
-        heading={t("project-workspace.heading.permissions")}
-      >
-        <p className={styles.lead}>
-          {t("project-workspace.info.permissions-lead")}
-        </p>
-        <SwitchList
-          rows={props.permissions.map((rule) => ({
-            key: rule.tool,
-            label: rule.label,
-            on: rule.on,
-          }))}
-          empty={t("project-workspace.empty.no-permission-rules")}
-          onChange={props.onChangePermission}
-        />
-      </Section>
+
       <p className={`${styles.note} ${styles.stored}`} data-stored-note="">
-        {t("project-workspace.info.stored-in-lophn")}
+        {t("agents.notice.stored-in-lophn")}
       </p>
     </div>
   );

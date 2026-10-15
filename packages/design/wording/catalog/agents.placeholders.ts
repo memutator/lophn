@@ -2,6 +2,152 @@
 import type { agents } from "./agents.ts";
 
 export type AgentsPlaceholders = {
+  "agents.notice.stored-in-lophn": Record<never, never>;
+  "agents.heading.model-for-project": Record<never, never>;
+  "agents.label.card-model": {
+    layer: "string";
+    model: "string";
+  };
+  "agents.notice.model-for-project": Record<never, never>;
+  "agents.notice.skills-project": Record<never, never>;
+  "agents.notice.tab-lead": Record<never, never>;
+  "agents.button.add-agent": Record<never, never>;
+  "agents.button.assign-app": Record<never, never>;
+  "agents.button.assign-tools": Record<never, never>;
+  "agents.button.choose-icon": Record<never, never>;
+  "agents.button.create-operator": Record<never, never>;
+  "agents.button.grant-reset": Record<never, never>;
+  "agents.button.remove-app": Record<never, never>;
+  "agents.button.remove-image": Record<never, never>;
+  "agents.button.remove-server": Record<never, never>;
+  "agents.empty.grants-agents": Record<never, never>;
+  "agents.empty.grants-apps": Record<never, never>;
+  "agents.empty.grants-tools": Record<never, never>;
+  "agents.heading.grants-agents": Record<never, never>;
+  "agents.heading.grants-apps": Record<never, never>;
+  "agents.heading.grants-settings": Record<never, never>;
+  "agents.heading.grants-tools": Record<never, never>;
+  "agents.heading.server-form": Record<never, never>;
+  "agents.label.agent-instructions": Record<never, never>;
+  "agents.label.ask-ask": Record<never, never>;
+  "agents.label.ask-never": Record<never, never>;
+  "agents.label.auth-api-key": Record<never, never>;
+  "agents.label.auth-bearer": Record<never, never>;
+  "agents.label.auth-none": Record<never, never>;
+  "agents.label.avatar-preview": Record<never, never>;
+  "agents.label.built-in": Record<never, never>;
+  "agents.label.defaults-by-effect": Record<never, never>;
+  "agents.label.defaults-external": Record<never, never>;
+  "agents.label.defaults-read": Record<never, never>;
+  "agents.label.defaults-settings": Record<never, never>;
+  "agents.label.defaults-write": Record<never, never>;
+  "agents.label.effect-external": Record<never, never>;
+  "agents.label.effect-read": Record<never, never>;
+  "agents.label.effect-settings": Record<never, never>;
+  "agents.label.effect-write": Record<never, never>;
+  "agents.label.grant-came-default": Record<never, never>;
+  "agents.label.grant-changed": Record<never, never>;
+  "agents.label.grant-col-allowed": Record<never, never>;
+  "agents.label.grant-col-effect": Record<never, never>;
+  "agents.label.grant-col-name": Record<never, never>;
+  "agents.label.grant-col-status": Record<never, never>;
+  "agents.label.grant-col-when": Record<never, never>;
+  "agents.label.grant-default": Record<never, never>;
+  "agents.label.grant-left-out": Record<never, never>;
+  "agents.label.grant-new-in": {
+    release: "string";
+  };
+  "agents.label.grant-when-runs": {
+    name: "string";
+  };
+  "agents.label.grants-apis-summary": {
+    used: "number";
+    total: "number";
+    asking: "plural";
+  };
+  "agents.label.grants-apps-summary": {
+    release: "string";
+    used: "number";
+    total: "number";
+    asking: "plural";
+  };
+  "agents.label.grants-settings-detail": Record<never, never>;
+  "agents.label.grants-settings-name": Record<never, never>;
+  "agents.label.grants-target": Record<never, never>;
+  "agents.label.grants-tools-summary": {
+    used: "number";
+    total: "number";
+    asking: "plural";
+  };
+  "agents.label.instructions-head-folder": {
+    project: "string";
+  };
+  "agents.label.instructions-head-placed": {
+    project: "string";
+  };
+  "agents.label.instructions-head-source": {
+    project: "string";
+    app: "string";
+  };
+  "agents.label.instructions-head-unknown": Record<never, never>;
+  "agents.label.layer-agent": Record<never, never>;
+  "agents.label.layer-builtin": Record<never, never>;
+  "agents.label.layer-global": Record<never, never>;
+  "agents.label.layer-project": Record<never, never>;
+  "agents.label.model-by-provider": {
+    model: "string";
+    provider: "string";
+  };
+  "agents.label.model-inherit": {
+    layer: "string";
+    model: "string";
+  };
+  "agents.label.model-overrides": {
+    layer: "string";
+  };
+  "agents.label.no-model-chosen": Record<never, never>;
+  "agents.label.place": Record<never, never>;
+  "agents.label.place-choice": {
+    name: "string";
+    kind: "string";
+  };
+  "agents.label.place-lophn": Record<never, never>;
+  "agents.label.place-named": {
+    name: "string";
+    kind: "string";
+  };
+  "agents.label.protected-key": Record<never, never>;
+  "agents.label.provider": Record<never, never>;
+  "agents.label.role-project-manager": Record<never, never>;
+  "agents.label.tab-definition": Record<never, never>;
+  "agents.label.tab-grants": Record<never, never>;
+  "agents.notice.credential-later": Record<never, never>;
+  "agents.notice.grants-after-create": Record<never, never>;
+  "agents.notice.grants-apply-now": Record<never, never>;
+  "agents.notice.grants-defaults-help": Record<never, never>;
+  "agents.notice.grants-lead": {
+    name: "string";
+  };
+  "agents.notice.grants-settings-help": Record<never, never>;
+  "agents.notice.grants-tool-effect": Record<never, never>;
+  "agents.notice.instructions-help": Record<never, never>;
+  "agents.notice.instructions-help-lophn": Record<never, never>;
+  "agents.notice.lophn-no-project": Record<never, never>;
+  "agents.notice.name-fixed-lophn": Record<never, never>;
+  "agents.notice.name-fixed-role": {
+    owner: "string";
+    role: "string";
+  };
+  "agents.notice.place-help": Record<never, never>;
+  "agents.notice.profile-help": Record<never, never>;
+  "agents.notice.protected-key": Record<never, never>;
+  "agents.notice.server-name-help": Record<never, never>;
+  "agents.notice.skills-agent-only": Record<never, never>;
+  "agents.title.change-failed": Record<never, never>;
+  "agents.title.delete-failed": Record<never, never>;
+  "agents.title.save-conflict": Record<never, never>;
+  "agents.title.save-failed": Record<never, never>;
+  "agents.title.upload-failed": Record<never, never>;
   "project-workspace.button.add-server": Record<never, never>;
   "project-workspace.button.add-skill": Record<never, never>;
   "project-workspace.button.agent-editor-add-context": Record<never, never>;

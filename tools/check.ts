@@ -110,6 +110,24 @@ async function sourceFiles(folder: string): Promise<string[]> {
   return found.sort();
 }
 
+// deno fmt·lint에 packages/shell을 통째로 주면 그 아래 ipc 등을 건너뛴다(안에 따로 config가
+// 있는 main 때문이다). root exclude 밖의 바로 아래 폴더를 하나씩 준다.
+async function lintFolders(folder: string): Promise<string[]> {
+  if (folder !== "packages/shell") return [folder];
+  const found: string[] = [];
+  for await (const entry of Deno.readDir(folder)) {
+    const path = `${folder}/${entry.name}`;
+    if (!entry.isDirectory) continue;
+    if (
+      DENO_EXCLUDED.some((x) =>
+        `${path}/`.startsWith(x) || entry.name === x.replace("/", "")
+      )
+    ) continue;
+    found.push(path);
+  }
+  return found.sort();
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -124,7 +142,9 @@ async function buildSteps(
   full: boolean,
 ): Promise<{ checks: Step[]; test: Step; skipped: Result[] }> {
   const has = (...names: string[]) => full || names.some((n) => run.has(n));
-  const folders = ALL_PACKAGES.filter((p) => run.has(p)).map((p) => FOLDERS[p]);
+  const folders = (await Promise.all(
+    ALL_PACKAGES.filter((p) => run.has(p)).map((p) => lintFolders(FOLDERS[p])),
+  )).flat();
   const checks: Step[] = [];
   const skipped: Result[] = [];
   const skip = (name: string, note: string) =>

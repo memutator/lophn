@@ -40,7 +40,6 @@ import { projectsWiring } from "./wiring/projects.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { storageWiring } from "./wiring/storage.ts";
-import { storageRestoreWiring } from "./wiring/storage-restore.ts";
 import { supervisionWiring } from "./wiring/supervision.ts";
 
 // 최상위 팀마다 등록 파일 하나.
@@ -81,12 +80,10 @@ export const TEAM_MODULES = [
 //   question text → approval text → apps → trace export → rewind files → provider login → revocation sweep.
 // - 읽는 쪽 wiring은 쓰는 쪽보다 뒤다: apps-revert는 rewind 뒤, problems는 apps 뒤, agent runtime은
 //   extensions 뒤다. 순서가 틀리면 wiring 칸을 읽을 때 오류가 난다.
-// - storage-restore는 storage 앞이다(정지 뒤 restore가 유지보수를 대신한다).
 // - supervision은 다른 start보다 앞이다(platform/io 위에서 다른 worker가 뜬다).
 export const WIRINGS: readonly WiringFactory[] = [
   supervisionWiring,
   diagnosticsWiring,
-  storageRestoreWiring,
   storageWiring,
   configWiring,
   secretsWiring,

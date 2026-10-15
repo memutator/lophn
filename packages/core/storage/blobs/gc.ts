@@ -103,15 +103,6 @@ export function staleTemporary(
   return gracePassed(observedAtMs, nowMs, graceMs);
 }
 
-// backup이 진행 중인지. backup.pending 표시가 남아 있으면 만들기 중이거나
-// 실패한 folder다. GC는 backup 중 불가하고, 이 folder가 담는 blob은
-// 물리 삭제 대상에서 뺀다.
-export function backupPendingFolders(
-  entries: readonly { name: string; pending: boolean }[],
-): readonly string[] {
-  return entries.filter((entry) => entry.pending).map((entry) => entry.name);
-}
-
 // capacity field의 보존 규칙 하나. category는 큰 자료 종류이고, 상한은
 // BLOB_CAPACITY_MAX_BYTES다.
 export function capacityRuleOf(

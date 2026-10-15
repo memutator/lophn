@@ -40,7 +40,7 @@ import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { Assembled } from "../registration.ts";
-import type { BlobPrepareCall, Core, CoreOptions } from "../core.ts";
+import type { BlobPrepareCall, CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
 import type { DataRoot } from "../../../install-and-update/mod.ts";
 
@@ -78,7 +78,7 @@ export type BlobRelay = {
   readBytes: BlobPrepareRelay["readBytes"];
 };
 
-// 종료 단계가 관측한 정지 조건. 세 개가 모두 참일 때만 정지 유지보수·restore가 돈다.
+// 종료 단계가 관측한 정지 조건. 세 개가 모두 참일 때만 정지 유지보수가 돈다.
 export type StoppedConditions = {
   preparationsBlocked: boolean;
   commandsBlocked: boolean;
@@ -93,10 +93,6 @@ export type IoListener = {
 };
 export const IO_ENDED = "I/O worker가 끝나 요청이 끝나지 못했다";
 
-export type CoreExtension = Partial<
-  Pick<Core, "restore" | "restorePlan" | "restoreStopped">
->;
-
 export type Built = {
   // 쓰기 앞 처리기. WIRINGS 순서로 접는다(앞이 안쪽).
   writer?: (inner: Writer) => Writer;
@@ -106,8 +102,6 @@ export type Built = {
   workers?: NonNullable<ApiServerOptions["workers"]>;
   // `overlayReads` 같은 덧씌우기. runtime이 연 read 등록에 더한다.
   reads?: (reads: Map<string, ReadHandler>) => void;
-  // 밖에 내놓는 Core 칸. 없으면 core.ts의 기본(restore 없음)이다.
-  core?: CoreExtension;
 };
 
 export type Wiring = {
@@ -145,7 +139,7 @@ export type Wiring = {
     conditions: StoppedConditions,
   ): Promise<"handled" | void>;
 };
-// wiring마다 core 한 번의 기동에 쓸 상태를 닫힘 안에 가진다(restore 뒤 같은 process에서 다시 기동한다).
+// wiring마다 core 한 번의 기동에 쓸 상태를 닫힘 안에 가진다.
 export type WiringFactory = () => Wiring;
 
 // 늦게 생기는 칸. 읽을 때 아직 없으면 오류가 난다. 채우는 쪽은 `provide`, 있을 때만 보려면 `peek`.

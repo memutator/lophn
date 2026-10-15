@@ -1,6 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { BACKUP_LEDGER_PATH } from "../../../protocol/storage/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
+
+// 복구본 안의 ledger 파일 이름.
+const RECOVERY_LEDGER_PATH = "ledger.db";
 
 // 복구본 stamp. yyyyMMddThhmmssSSSZ 하나다. colon·slash가 없어 파일 이름이 된다.
 export const RECOVERY_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
@@ -64,7 +66,7 @@ export async function createRecoveryCopy(
       message: "복구본 directory를 만들지 못했다",
     });
   }
-  const copyPath = `${directory}/${BACKUP_LEDGER_PATH}`;
+  const copyPath = `${directory}/${RECOVERY_LEDGER_PATH}`;
   // target이 이미 있으면 vacuum이 실패한다. 이미 같은 stamp가 있으면 거절한다.
   try {
     await Deno.stat(copyPath);

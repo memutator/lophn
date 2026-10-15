@@ -31,10 +31,6 @@ import type {
   SubscriberBinding,
 } from "../../storage/ledger/mod.ts";
 import type { Assembled } from "./registration.ts";
-import {
-  type BackupReadEnvironment,
-  backupReads,
-} from "../../storage/migration/backup-reads.ts";
 
 // notifications 구독자였던 core 내부 machine 자격 이름이다. 계기 event 공개 정책
 // (`notificationsOnlyVisibility`)이 쓴다. events 단위가 그 정책 장치와 함께 지운다.
@@ -173,15 +169,12 @@ export function withPlatform(
   assembled: Result<Assembled>,
   environment: {
     approvalText?: ApprovalTextEnvironment;
-    /** settings Backup 탭의 backups/list·get. 데이터 root가 없는 조립(시험)은 붙이지 않는다. */
-    backups?: BackupReadEnvironment;
   } = {},
 ): Result<Assembled> {
   if (!assembled.ok) return assembled;
   const value = assembled.value;
   const apiReads = [
     approvalsTextRead(environment.approvalText ?? UNATTACHED_APPROVAL_TEXT),
-    ...(environment.backups ? backupReads(environment.backups) : []),
   ];
   const commands = new Set(value.commands.map((c) => c.route.name));
   const reads = new Set(

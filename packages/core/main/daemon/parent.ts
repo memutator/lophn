@@ -5,10 +5,6 @@ import {
   mainToCoreMessageSchema,
 } from "../../../protocol/supervision/mod.ts";
 import type { Frame, Route } from "../../../protocol/base/mod.ts";
-import type {
-  RestoreOutcome,
-  RestorePlan,
-} from "../../storage/migration/mod.ts";
 import type { CredentialRegistry } from "../../server/identity/mod.ts";
 import {
   createFrameWriter,
@@ -113,26 +109,10 @@ async function flush(
   } catch {
     // 부모가 이미 닫았으면 hello는 전달되지 않는다. 종료 감시가 그 뒤를 본다.
   } finally {
-    // 다음 쓰기(handle 등록 응답, 복원 뒤 새 core의 hello)가 같은 pipe를 쓸 수 있게 놓는다.
+    // 다음 쓰기(handle 등록 응답)가 같은 pipe를 쓸 수 있게 놓는다.
     out.releaseLock();
   }
 }
-
-// backup 복원 통로. `run`이 정지를 시작했으면(`stopped`) 이
-// 감독 pipe의 읽기는 끝나고 새로 시작하는 core가 같은 pipe를 이어받는다.
-export type ParentRestore = {
-  plan(createdAt: string): Promise<
-    Result<{
-      plan: RestorePlan;
-      binding: { target: string; content: string };
-    }>
-  >;
-  run(request: {
-    created_at: string;
-    confirmation: string;
-  }): Promise<Result<RestoreOutcome>>;
-  stopped(): boolean;
-};
 
 export type ParentConfirmation = {
   confirmation(body: {
@@ -141,7 +121,6 @@ export type ParentConfirmation = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   reply(message: unknown): Promise<void>;
-  restore?: ParentRestore;
 };
 
 export type ShellViewLifetime = Extract<
@@ -242,61 +221,6 @@ async function handleParent(
       await diagnostics?.shellView(message.data);
     }
     return false;
-  }
-  if (message.data.type === "restore_plan_request") {
-    const restore = confirmation?.restore;
-    if (!restore) return false;
-    const planned = await restore.plan(message.data.created_at);
-    await confirmation!.reply(
-      planned.ok
-        ? {
-          type: "restore_plan",
-          created_at: message.data.created_at,
-          through_seq: planned.value.plan.manifest.through_seq,
-          current_through_seq: planned.value.plan.current_through_seq,
-          lost: planned.value.plan.lost,
-          target: planned.value.binding.target,
-          content_hash: planned.value.binding.content,
-        }
-        : {
-          type: "restore_failed",
-          stage: "plan",
-          created_at: message.data.created_at,
-          code: planned.error.code,
-          message: planned.error.message,
-          restarted: false,
-        },
-    );
-    return false;
-  }
-  if (message.data.type === "restore_request") {
-    const restore = confirmation?.restore;
-    if (!restore) return false;
-    const restored = await restore.run({
-      created_at: message.data.created_at,
-      confirmation: message.data.confirmation,
-    });
-    // 확인을 거쳐 정지했으면 성공이든 실패든 core는 이미 멈췄다. 이 pipe는 다시 시작하는 core가
-    // 이어받는다.
-    const restarted = restore.stopped();
-    await confirmation!.reply(
-      restored.ok
-        ? {
-          type: "restore_result",
-          created_at: message.data.created_at,
-          restored_through_seq: restored.value.restored_through_seq,
-          previous_through_seq: restored.value.previous_through_seq,
-        }
-        : {
-          type: "restore_failed",
-          stage: "restore",
-          created_at: message.data.created_at,
-          code: restored.error.code,
-          message: restored.error.message,
-          restarted,
-        },
-    );
-    return restarted;
   }
   if (message.data.type !== "confirmation_handle_register" || !confirmation) {
     return false;

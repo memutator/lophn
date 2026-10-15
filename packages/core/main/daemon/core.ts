@@ -13,8 +13,6 @@ import {
   applyMigrations,
   checkRestart,
   ensureLedgerId,
-  type RestoreOutcome,
-  type RestorePlan,
 } from "../../storage/migration/mod.ts";
 import {
   acquireInstanceLock,
@@ -65,13 +63,6 @@ export type CoreOptions = {
   // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
   codingLoaders: readonly string[];
 };
-export type RestoreBinding = { target: string; content: string };
-export type RestoreRequest = {
-  // 복원할 묶음(manifest.created_at).
-  created_at: string;
-  // main이 사람 확인으로 발급한 handle 참조.
-  confirmation: string;
-};
 export type BlobPrepareCall = {
   principal: string;
   purpose: string;
@@ -87,21 +78,6 @@ export type Core = {
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다.
   shutdown(): Promise<void>;
-  // 사람이 잃을 범위를 확인한 backup 복원. handle은
-  // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
-  // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
-  // 묶음으로 ledger를 바꾼다. 끝나면 이 core는 종료한 상태다(lock 해제). 같은 data root를 다시
-  // `startCore`하면 새 epoch·새 ledger_id로 시작하고 derived가 복원 ledger 기준으로 다시 만들어진다.
-  // 검증·보존이 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류를 돌려준다.
-  // restore wiring이 없는 조립은 unavailable이다.
-  restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
-  // 고른 묶음의 복원 계획(잃을 범위)과 사람 확인에 묶는 기준. 아무것도 바꾸거나 멈추지 않는다.
-  restorePlan(
-    createdAt: string,
-  ): Promise<Result<{ plan: RestorePlan; binding: RestoreBinding }>>;
-  // 확인한 restore가 이 core를 멈췄는가. 멈췄으면 같은 data root로 다시 `startCore`해야 한다
-  // (packages/core/main/daemon/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
-  restoreStopped(): boolean;
   // 사람의 연결 결정 입구가 connect를, 신뢰 감독이 registerChild를
   // 부른다(입구의 contract는 coding-agent 소유라 HTTP route는 없다).
   codingCredentials: CodingCredentials;
@@ -220,7 +196,7 @@ async function open(
 
   // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
-  // closeWork(timer·bootstrap) → runtime.close() → 유지보수나 restore(stopped) → run metadata 지우기와
+  // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → run metadata 지우기와
   // lock 풀기. 정지 유지보수는 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가 예외를 던져도 metadata
   // 정리와 lock 해제는 그대로 실행한다.
   let shutdownRun: Promise<void> | undefined;
@@ -371,19 +347,6 @@ async function open(
     done: Promise.resolve(),
     codingCredentials: ctx.coding,
     shutdown,
-    // restore wiring이 없으면 이 기본이다.
-    restorePlan: () =>
-      Promise.resolve(err({
-        code: "unavailable",
-        message: "복원을 지원하지 않는다",
-      })),
-    restore: () =>
-      Promise.resolve(err({
-        code: "unavailable",
-        message: "복원을 지원하지 않는다",
-      })),
-    restoreStopped: () => false,
-    ...Object.assign({}, ...builts.map((built) => built.core)),
   };
   const greeted = await hello;
   if (!greeted.ok) {
@@ -394,11 +357,6 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime.confirmation(body),
       reply: (message) => writeParent(parent, message),
-      restore: {
-        plan: (createdAt) => core.restorePlan(createdAt),
-        run: (request) => core.restore(request),
-        stopped: () => core.restoreStopped(),
-      },
     }, shellViewLog(root.path))
     : Promise.resolve();
   return ok(core);

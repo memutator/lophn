@@ -12,13 +12,6 @@ import {
 import { credentialScopeSchema } from "../server/identity.ts";
 import { idSchema } from "../base/ids.ts";
 import {
-  restoreFailedSchema,
-  restorePlanRequestSchema,
-  restorePlanSchema,
-  restoreRequestSchema,
-  restoreResultSchema,
-} from "../storage/restore-pipe.ts";
-import {
   secretComparisonRequestSchema,
   secretComparisonResponseSchema,
   secretUseSchema,
@@ -404,17 +397,12 @@ export const mainToCoreMessageSchema = z.union([
   stopSchema,
   confirmationHandleRegisterSchema,
   secretComparisonRequestSchema,
-  restorePlanRequestSchema,
-  restoreRequestSchema,
 ]);
 export const coreToMainMessageSchema = z.union([
   mainHelloSchema,
   readySchema,
   confirmationHandleRegisteredSchema,
   secretComparisonResponseSchema,
-  restorePlanSchema,
-  restoreResultSchema,
-  restoreFailedSchema,
 ]);
 export type MainToCoreMessage = z.infer<typeof mainToCoreMessageSchema>;
 export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;

@@ -1,12 +1,11 @@
 // I/O worker의 blob GC 파일 작업(blob contract).
 // 관측·실제 삭제는 이 worker만 한다. core는 판정값만 받고 파일을 열지
-// 않는다. backup 중(backup.pending 표시가 남은 folder가 있으면) GC 불가다.
+// 않는다.
 // 삭제는 새 준비를 막은 뒤(새 준비·command 차단) 고정 blob_refs 전체와 대조한다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { BLOB_UNREFERENCED_GRACE_MS } from "../../../../protocol/storage/mod.ts";
 import {
-  backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,
   type InstalledBlob,
   referencedOf,
@@ -23,8 +22,6 @@ export type GcObservation = {
   deletable: number;
   // 상한을 넘은 큰 자료 종류.
   over: readonly { category: string; usedBytes: number; maxBytes: number }[];
-  // backup 중이면 GC 불가다.
-  backupPending: number;
 };
 
 // GC 결과. 참조 차단·반환 차단·OS 삭제·사본 잔존을 혼동하지 않는다.
@@ -35,8 +32,6 @@ export type GcOutcome = {
   blocked: readonly string[];
   // 지우지 못한 hash(OS 실패).
   failed: readonly { hash: string; code: string }[];
-  // 다른 사본이 남아 있는지. backup 폴더의 blob 사본은 잔존이다.
-  copiesRemain: boolean;
 };
 
 // 대상 관측값. I/O worker가 파일에서 잡아 넣는다.
@@ -60,10 +55,6 @@ export type GcDeps = {
   recordUnreferenced?(hash: string, atMs: number): Promise<Result<void>>;
   // 다시 참조된 hash의 미참조 기록 지우기(유예기간이 새로 섞인다).
   forgetUnreferenced?(hash: string): Promise<Result<void>>;
-  // backup 폴더의 pending 표시 관측. pending이 남아 있으면 backup 중이다.
-  listBackupPending(): Promise<
-    Result<readonly { name: string; pending: boolean }[]>
-  >;
   // 유예기간 뒤 실제 파일 삭제.
   removeBlob(hash: string): Promise<Result<void>>;
   // 임시 준비 파일 관측·정리. 진행 중 아님을 확인한 뒤에만 지운다.
@@ -86,10 +77,7 @@ export async function observeBlobGc(
 ): Promise<Result<GcObservation>> {
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
-  const backups = await deps.listBackupPending();
-  if (!backups.ok) return backups;
   const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
-  const pending = backupPendingFolders(backups.value);
   const now = deps.nowMs();
   // 참조 행 관측이 없으면 참조 모름 상태다. 기록을 하나도 만들거나
   // 지우지 않고, deleting 자격 수도 모른다(unknown 참조).
@@ -99,7 +87,6 @@ export async function observeBlobGc(
       unreferenced: 0,
       deletable: 0,
       over: [],
-      backupPending: pending.length,
     });
   }
   const references = await deps.listReferences();
@@ -148,7 +135,6 @@ export async function observeBlobGc(
     unreferenced: unref.length,
     deletable: deletable.length,
     over: [],
-    backupPending: pending.length,
   });
 }
 
@@ -170,23 +156,14 @@ export async function clearTemporary(
   return ok(cleared);
 }
 
-// 실제 GC. 정지 유지보수에서만 부른다. 세 순서:
-// backup.pending이 있으면 거절(backup 중 GC 불가) → 고정 참조 대조 →
-// 유예기간 통과분만 파일 삭제. writer 정지·새 준비 차단은 부르는 쪽(core
+// 실제 GC. 정지 유지보수에서만 부른다. 두 순서:
+// 고정 참조 대조 → 유예기간 통과분만 파일 삭제. writer 정지·새 준비 차단은 부르는 쪽(core
 // 조립·I/O worker의 scheduler)이 세운다. 관측과 삭제 사이의 경합(writer
 // 정지 뒤 참조가 늘지 않음)도 부르는 쪽의 몫이다. 참조된 blob은 blocked에
 // 세고 지우지 않는다.
 export async function collectGarbage(
   deps: GcDeps,
 ): Promise<Result<GcOutcome>> {
-  const backups = await deps.listBackupPending();
-  if (!backups.ok) return backups;
-  if (backupPendingFolders(backups.value).length > 0) {
-    return err({
-      code: "conflict",
-      message: "backup이 진행 중이라 GC를 실행하지 않는다",
-    });
-  }
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
   if (deps.listReferences === undefined) {
@@ -251,23 +228,13 @@ export async function collectGarbage(
     );
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
-  let copiesRemain = false;
   for (const blob of deletable) {
     const removed = await deps.removeBlob(blob.hash);
     if (removed.ok) {
       deleted.push(blob.hash);
-      // backup 폴더에 사본이 남는지. 사본의 잔존은 삭제와 다르다.
-      if (!copiesRemain && await backupCopyExists(deps.root, blob.hash)) {
-        copiesRemain = true;
-      }
     } else failed.push({ hash: blob.hash, code: removed.error.code });
   }
-  return ok({
-    deleted,
-    blocked,
-    failed,
-    copiesRemain,
-  });
+  return ok({ deleted, blocked, failed });
 }
 
 // 미참조 기록의 시각을 검사한다. 모양이 다르면 기록 없음으로 본다(fail-closed).
@@ -289,14 +256,6 @@ export async function trimCapacity(
   // hash → 종류 할당. 참조 field 규칙과 준비가 남긴 목적 기록에서 온다.
   assignment: ReadonlyMap<string, { category: string; permanent: boolean }>,
 ): Promise<Result<GcOutcome>> {
-  const backups = await deps.listBackupPending();
-  if (!backups.ok) return backups;
-  if (backupPendingFolders(backups.value).length > 0) {
-    return err({
-      code: "conflict",
-      message: "backup이 진행 중이라 보존 정리를 실행하지 않는다",
-    });
-  }
   // 할당 밖 category는 fail-closed다. 잘못된 category로 지우지 않는다.
   const categories = new Set(
     Object.keys(BLOB_CAPACITY_MAX_BYTES),
@@ -373,38 +332,11 @@ export async function trimCapacity(
   const targets = trimTargets(usage, candidates);
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
-  let copiesRemain = false;
   for (const hash of targets) {
     const removed = await deps.removeBlob(hash);
     if (removed.ok) {
       deleted.push(hash);
-      // backup 폴더에 사본이 남는지. 사본의 잔존은 삭제와 다르다.
-      if (!copiesRemain && await backupCopyExists(deps.root, hash)) {
-        copiesRemain = true;
-      }
     } else failed.push({ hash, code: removed.error.code });
   }
-  return ok({ deleted, blocked: [], failed, copiesRemain });
-}
-
-// backup 폴더의 blob 사본 잔존 관측. backups/<stamp>/blobs/sha256/<2>/<62>.
-async function backupCopyExists(root: string, hash: string): Promise<boolean> {
-  try {
-    for await (const stamp of Deno.readDir(`${root}/backups`)) {
-      if (!stamp.isDirectory) continue;
-      try {
-        await Deno.stat(
-          `${root}/backups/${stamp.name}/blobs/sha256/${hash.slice(0, 2)}/${
-            hash.slice(2)
-          }`,
-        );
-        return true;
-      } catch {
-        // 이 stamp 폴더에 사본은 없다. 다음을 본다.
-      }
-    }
-  } catch {
-    // backups 폴더 자체가 없으면 사본도 없다.
-  }
-  return false;
+  return ok({ deleted, blocked: [], failed });
 }

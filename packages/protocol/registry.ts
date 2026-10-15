@@ -6,7 +6,6 @@ import {
   platformStatus,
 } from "./server/routes.ts";
 import { APPROVAL_EVENTS, APPROVAL_ROUTES } from "./approvals/approvals.ts";
-import { BACKUP_ROUTES } from "./storage/backups.ts";
 import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
 import { SETTINGS_EVENTS, SETTINGS_ROUTES } from "./config/settings.ts";
@@ -22,7 +21,6 @@ export const ROUTES = [
   advanceSubscriberCursor,
   ...SETTINGS_ROUTES,
   ...BLOB_ROUTES,
-  ...BACKUP_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...APPROVAL_ROUTES,
   ...SECRET_ROUTES,

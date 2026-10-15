@@ -2,26 +2,17 @@
 // collectGarbage·trimCapacity는 정상 동작 중 부르지 않는다. 삭제는 세 정지
 // 조건(새 준비 차단, command 차단, writer 정지)이 모두 관측될 때만 실행한다:
 // 부르는 쪽이 deps의 실제 관측으로 조건을 채운다(architecture 7.5 종료 순서).
-// backup.pending 표시가 남아 있으면 이번 회수를 건너뛴다.
 // 관측(observeBlobGc)은 삭제가 아니므로 정상 동작 중에도 그대로 돈다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  assignmentOf,
-  backupPendingFolders,
-  isSha256Hash,
-  type RetentionRule,
-} from "../mod.ts";
+import { assignmentOf, isSha256Hash, type RetentionRule } from "../mod.ts";
 import {
   collectGarbage,
   type GcDeps,
   type GcOutcome,
   trimCapacity,
 } from "./gc.ts";
-import {
-  listBackupPending,
-  listInstalledBlobs,
-} from "../../../main/worker/io.ts";
+import { listInstalledBlobs } from "../../../main/worker/io.ts";
 import { parsePurposeRecord } from "../mod.ts";
 import { parseUnreferencedRecord, unreferencedPathFor } from "../mod.ts";
 import { BLOB_STORE_TMP_DIR } from "../mod.ts";
@@ -61,10 +52,9 @@ export type MaintenanceDeps = {
 
 // 정지 유지보수 1회. 순서:
 // 1. 세 정지 조건 확인 — 하나라도 거짓이면 아무것도 하지 않는다.
-// 2. backup.pending 확인 — 있으면 이번 회수를 건너뛴다.
-// 3. trimCapacity의 할당 산출(참조 field 규칙 + 목적 기록) — 관측 실패면
+// 2. trimCapacity의 할당 산출(참조 field 규칙 + 목적 기록) — 관측 실패면
 //    아무것도 지우지 않는다(fail-closed).
-// 4. collectGarbage(미참조 확인 기록의 유예기간이 지난 분만) →
+// 3. collectGarbage(미참조 확인 기록의 유예기간이 지난 분만) →
 //    trimCapacity(미참조 확인 기록의 유예기간이 지난 초과분만).
 export async function runMaintenanceGc(
   deps: MaintenanceDeps,
@@ -74,14 +64,6 @@ export async function runMaintenanceGc(
     return err({
       code: "conflict",
       message: "정지 조건이 모두 관측되지 않아 유지보수를 실행하지 않는다",
-    });
-  }
-  const backups = await listBackupPending(deps.root);
-  if (!backups.ok) return backups;
-  if (backupPendingFolders(backups.value).length > 0) {
-    return err({
-      code: "conflict",
-      message: "backup이 진행 중이라 유지보수를 건너뛴다",
     });
   }
   // blob_refs 참조 행 + 등록 field 규칙 + 목적 기록으로 trimCapacity의
@@ -99,7 +81,6 @@ export async function runMaintenanceGc(
     deleted: [...outcome.value.deleted, ...trimmed.value.deleted],
     blocked: outcome.value.blocked,
     failed: [...outcome.value.failed, ...trimmed.value.failed],
-    copiesRemain: outcome.value.copiesRemain || trimmed.value.copiesRemain,
   });
 }
 
@@ -165,7 +146,6 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       recordUnreferenced(deps.root, hash, atMs),
     // 다시 참조된 hash의 기록 지우기(유예기간이 새로 섞인다).
     forgetUnreferenced: (hash) => forgetUnreferenced(deps.root, hash),
-    listBackupPending: () => listBackupPending(deps.root),
     removeBlob: (hash) =>
       (async () => {
         try {

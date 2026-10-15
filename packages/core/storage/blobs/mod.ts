@@ -70,7 +70,6 @@ export {
   storedRef,
 } from "./read.ts";
 export {
-  backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,
   capacityMax,
   capacityRuleOf,

@@ -14,20 +14,7 @@ import {
 import { createBlobStoreWork, systemQuota } from "../../storage/blobs/mod.ts";
 import { observeBlobGc } from "../../storage/blobs/worker/gc.ts";
 import { readUnreferencedRecords } from "../../storage/blobs/worker/maintenance.ts";
-import {
-  BACKUP_INTERVAL_MS,
-  backupDue,
-  backupStamp,
-  createBackup,
-} from "../../storage/migration/mod.ts";
-import {
-  type Clock,
-  type ErrorCode,
-  ok,
-  type Result,
-  systemClock,
-} from "../../../base/mod.ts";
-import { DatabaseSync } from "node:sqlite";
+import { type ErrorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   type BlobPipe,
   type BlobPipeRequest,
@@ -60,9 +47,6 @@ import {
   type SecretPipe,
   type SecretPipeRequest,
 } from "../../secrets/worker/pipe.ts";
-
-// 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
-export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 // blob GC check 주기(기동 시와 매일). 관측은 삭제가 아니다.
 export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -694,38 +678,6 @@ export async function createPlatformIo(
   return session;
 }
 
-// 하루 backup 만들기. ledger 파일 이름은 데이터 root의 lophn.db다
-// (architecture 3.1). schema 판은 설치된 마지막 migration version이다.
-async function runDailyBackup(root: string, clock: Clock): Promise<void> {
-  const ledgerPath = `${root}/lophn.db`;
-  const stamp = backupStamp(clock.now());
-  if (!stamp.ok) return;
-  const version = installedSchemaVersion(root);
-  await createBackup(ledgerPath, {
-    root,
-    schemaVersion: version,
-    stamp: stamp.value,
-    now: () => clock.now(),
-  });
-}
-
-// 설치된 마지막 schema 판. migration 이력은 schema_migrations 표다. 아직 없으면 0이다.
-function installedSchemaVersion(root: string): number {
-  try {
-    const db = new DatabaseSync(`${root}/lophn.db`, { readOnly: true });
-    try {
-      const found = db.prepare(
-        "select coalesce(max(version), 0) as version from schema_migrations",
-      ).get() as { version: number | bigint };
-      return Number(found.version);
-    } finally {
-      db.close();
-    }
-  } catch {
-    return 0;
-  }
-}
-
 // GC 관측의 설치 blob 파일 목록. hash 폴더 2자 아래 나머지 62자다.
 // core는 파일을 열지 않는다. 관측 실패는 없다고 본다.
 export async function listInstalledBlobs(
@@ -781,105 +733,6 @@ export async function listInstalledBlobs(
   return ok(found);
 }
 
-// backup 폴더의 pending 표시 관측. GC는 이것이 남아 있으면 실행하지 않는다.
-export async function listBackupPending(
-  root: string,
-): Promise<Result<readonly { name: string; pending: boolean }[]>> {
-  const entries: { name: string; pending: boolean }[] = [];
-  try {
-    for await (const entry of Deno.readDir(`${root}/backups`)) {
-      if (!entry.isDirectory) continue;
-      let pending = false;
-      try {
-        await Deno.stat(`${root}/backups/${entry.name}/backup.pending`);
-        pending = true;
-      } catch {
-        // 표시가 없으면 완료·다른 것으로 본다.
-      }
-      entries.push({ name: entry.name, pending });
-    }
-  } catch {
-    return ok([]);
-  }
-  return ok(entries);
-}
-
-export type BackupTick = {
-  // check 한 번. due면 만들기를 scheduler에 낸다. 만들기가 아직 끝나지 않으면
-  // 건너뛴다: 두 snapshot이 겹치지 않는다. completion이 끝나면 다시 본다.
-  tick(): void;
-  // 만들기가 진행 중인지. 테스트가 끝남을 기다린다.
-  readonly inFlight: boolean;
-  // 진행 중 만들기가 끝날 때까지 기다린다(테스트용).
-  settle(): Promise<void>;
-  close(): void;
-};
-
-// 하루 backup의 주기 check. entry가 interval마다 tick()을 부른다. 만들기는
-// scheduler에 낸다: 복사·hash가 응답을 막지 않는다.
-export function createBackupTick(
-  root: string,
-  clock: Clock = systemClock,
-): BackupTick {
-  const backupScheduler = createIoScheduler();
-  let inFlight = false;
-  const settled: Promise<void>[] = [];
-  return {
-    tick() {
-      if (inFlight) return;
-      // due 판정 전에 세운다. 판정을 기다리는 동안 온 다음 tick이 같이 submit하지 않는다.
-      inFlight = true;
-      void (async () => {
-        let due = false;
-        try {
-          due = await backupDue(
-            root,
-            clock.now(),
-            BACKUP_INTERVAL_MS,
-          );
-        } catch {
-          // 판정을 읽지 못하면 이번 check는 건너뛴다. 다음 tick이 다시 본다.
-          inFlight = false;
-          return;
-        }
-        if (!due) {
-          inFlight = false;
-          return;
-        }
-        const submission = backupScheduler.submit("backup", async () => {
-          return await runDailyBackup(root, clock);
-        });
-        if (!submission.ok) {
-          inFlight = false;
-          return;
-        }
-        settled.push(
-          submission.value.result.then(() => {}, () => {}).finally(() => {
-            // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다. 만들기
-            // 자체가 manifest 전에 실패하면 pending folder만 남는다.
-            inFlight = false;
-          }),
-        );
-      })();
-    },
-    get inFlight() {
-      return inFlight;
-    },
-    async settle() {
-      // tick의 내부 async가 백견을 만들기 전까지 기다린다(await backupDue가
-      // microtask에서 suspend한다). 그 뒤 진행 작업이 있으면 끝남을 기다린다.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      while (settled.length) {
-        const wait = settled.shift();
-        if (wait !== undefined) await wait;
-      }
-    },
-    close() {
-      backupScheduler.close();
-    },
-  };
-}
-
 export async function runPlatformIo(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
@@ -900,11 +753,6 @@ export async function runPlatformIo(root: string): Promise<void> {
       }),
     }),
   });
-  // 하루 backup은 I/O worker의 몫이다.
-  // core command 흐름 밖에서 주기 check를 돌리고, 차례면
-  // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
-  const backup = createBackupTick(root);
-  const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
   // blob GC 관측. 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
   // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은
   // 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced: 참조를
@@ -916,7 +764,6 @@ export async function runPlatformIo(root: string): Promise<void> {
       root,
       listInstalled: () => listInstalledBlobs(root),
       listUnreferenced: () => readUnreferencedRecords(root),
-      listBackupPending: () => listBackupPending(root),
       removeBlob: () => Promise.resolve(ok(undefined)),
       listTmp: () => Promise.resolve(ok([])),
       removeTmp: () => Promise.resolve(ok(undefined)),
@@ -926,8 +773,6 @@ export async function runPlatformIo(root: string): Promise<void> {
   try {
     await session.run();
   } finally {
-    clearInterval(timer);
     clearInterval(gcTimer);
-    backup.close();
   }
 }

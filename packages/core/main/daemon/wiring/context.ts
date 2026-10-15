@@ -34,6 +34,15 @@ import type {
 } from "../../../storage/blobs/prepare-relay.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import type { StatusSource } from "../../../diagnostics/mod.ts";
+import type { ComponentCheck } from "../../../diagnostics/ports.ts";
+import type {
+  SettingDeclaration,
+  SettingsReader,
+} from "../../../../protocol/config/mod.ts";
+import type {
+  SecretAttachPort,
+  SecretStorePort,
+} from "../../../../protocol/secrets/mod.ts";
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
@@ -170,6 +179,12 @@ type Late = {
   mcpAuthControl: McpAuthControl;
   server: ApiServer;
   shutdown: () => Promise<void>;
+  // config가 낸다. 선언 목록은 assembly.ts가 각 단위의 선언을 모아 넣는다.
+  settings: SettingsReader;
+  settingDeclarations: readonly SettingDeclaration[];
+  // secrets가 낸다.
+  secretStore: SecretStorePort;
+  secretAttach: SecretAttachPort;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -197,6 +212,10 @@ const LATE_KEYS: Record<keyof Late, true> = {
   mcpAuthControl: true,
   server: true,
   shutdown: true,
+  settings: true,
+  settingDeclarations: true,
+  secretStore: true,
+  secretAttach: true,
 };
 
 export type WiringContext = {
@@ -210,6 +229,8 @@ export type WiringContext = {
   stopped: boolean;
   // platform/io child의 message를 받을 쪽. build에서 올리고 supervision이 io를 시작할 때 묶는다.
   readonly ioListeners: IoListener[];
+  // 구성 요소 점검. owner마다 build에서 더하고 diagnostics가 status를 낼 때 모두 돌린다.
+  readonly componentChecks: ComponentCheck[];
   readonly peek: Readonly<Partial<Late>>;
   provide<K extends keyof Late>(key: K, value: Late[K]): void;
 } & Readonly<Late>;
@@ -227,6 +248,7 @@ export function createWiringContext(base: {
     ready: false,
     stopped: false,
     ioListeners: [],
+    componentChecks: [],
     peek: slots,
     provide<K extends keyof Late>(key: K, value: Late[K]) {
       slots[key] = value;

@@ -33,8 +33,7 @@
       "**/*.js",
       "**/*.json",
       "**/*.jsonc"
-    ],
-    "exclude": ["packages/core/projects/formats/guest/bundle.js"]
+    ]
   },
   "lint": {
     "include": [
@@ -42,7 +41,6 @@
       "**/*.tsx",
       "**/*.js"
     ],
-    "exclude": ["packages/core/projects/formats/guest/bundle.js"],
     "rules": {
       "exclude": [
         "no-slow-types"

@@ -152,13 +152,10 @@ export function headSeq(sql: Sql): Result<bigint> {
 // scope.targets에 있는 고정 조건만 넘긴다. 도메인 대상은 owner handler가 본다.
 export function authorityTarget(
   ctx: AuthenticatedContext,
-  run: string | undefined,
 ): CredentialTarget {
   const target: CredentialTarget = {};
   for (const key of CONDITION_TARGET_KEYS) {
-    const value = key === "run" && run !== undefined
-      ? run
-      : ctx.conditions[key];
+    const value = ctx.conditions[key];
     if (value !== undefined && Object.hasOwn(ctx.scope.targets, key)) {
       target[key] = value;
     }

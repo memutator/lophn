@@ -19,9 +19,9 @@ import type { AgentCredentialIssuer } from "./mod.ts";
 // 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session 역할의 상한 안인지를
 // core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
 
-// agent credential의 고정 조건이다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을 `app` 조건으로 고정한다:
-// 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다.
-// 다른 역할은 앱 조건이 없다. 조건 칸 이름은 인증 경계가 정한 것이라 turn은 `run`, session은 `assignment`에 담긴다.
+// agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
+// `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
+// 같은 답이다. 다른 역할은 앱 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
 export function agentConditions(input: {
   session: string;
   turn: string;
@@ -29,14 +29,14 @@ export function agentConditions(input: {
   role: string;
   place: { kind: string; id: string } | null;
 }): {
-  assignment: string;
-  run: string;
+  session: string;
+  turn: string;
   process: string;
   app?: string;
 } {
   const base = {
-    assignment: input.session,
-    run: input.turn,
+    session: input.session,
+    turn: input.turn,
     process: input.process,
   };
   if (input.role !== "app_engineer" || input.place?.kind !== "app") return base;
@@ -77,14 +77,13 @@ export function createAgentCredentialLink(options: {
     return parsed.success ? parsed.data : undefined;
   }
 
-  // 감독 pipe 메시지의 `run`은 turn, `assignment`는 session을 나른다(메시지 칸 이름이 바뀔 때까지).
   async function issue(
     message: ReturnType<typeof agentCredentialRequestSchema.parse>,
   ): Promise<AgentCredentialResponse | undefined> {
-    const turn = await read(turnRead, { turn: message.run });
+    const turn = await read(turnRead, { turn: message.turn });
     if (
       turn === undefined || turn.turn.state !== "running" ||
-      turn.turn.session !== message.assignment
+      turn.turn.session !== message.session
     ) return undefined;
     const found = await read(agentSessionRead, { session: turn.turn.session });
     if (
@@ -97,21 +96,21 @@ export function createAgentCredentialLink(options: {
       return undefined;
     }
     // 같은 turn의 이전 credential은 새로 받기 전에 끝낸다.
-    options.issuer.endBy("run", message.run);
+    options.issuer.endBy("turn", message.turn);
     const issued = await options.issuer.issue({
       actor: `agent:${turn.turn.session}`,
       principal: `agent:${turn.turn.session}`,
       scope: {
         operations,
-        targets: { session: turn.turn.session, turn: message.run },
+        targets: { session: turn.turn.session, turn: message.turn },
       },
       conditions: agentConditions({
         session: turn.turn.session,
-        turn: message.run,
+        turn: message.turn,
         process: options.process,
         role,
         place: found.session.place,
-      }) as never,
+      }),
     });
     if (!issued.ok) return undefined;
     return {
@@ -126,7 +125,7 @@ export function createAgentCredentialLink(options: {
     async onMessage(message) {
       if (message.type === "agent_credential_end") {
         const ended = agentCredentialEndSchema.safeParse(message);
-        if (ended.success) options.issuer.endBy("run", ended.data.run);
+        if (ended.success) options.issuer.endBy("turn", ended.data.turn);
         return undefined;
       }
       if (message.type !== "agent_credential_request") return undefined;

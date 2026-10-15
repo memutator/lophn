@@ -17,7 +17,7 @@ export type AgentCredentialIssuer = {
     scope: CredentialScope;
     conditions: CredentialConditions;
   }): Promise<Result<{ token: string; credential_ref: string }>>;
-  endBy(condition: "run" | "assignment", value: string): number;
+  endBy(condition: "turn" | "session", value: string): number;
 };
 
 export type AgentTurnCredential = {
@@ -80,10 +80,9 @@ export function createTurnCredentials(
           ],
           targets: { session: input.session, turn: input.turn },
         },
-        // 인증 경계의 조건 칸이 아직 run·assignment 이름이다. 값은 turn과 session이다.
         conditions: {
-          run: input.turn as never,
-          assignment: input.session as never,
+          turn: input.turn,
+          session: input.session,
           process: options.process,
         },
       });
@@ -100,19 +99,19 @@ export function createTurnCredentials(
     },
     end(turn) {
       const had = held.delete(turn);
-      const ended = options.issuer.endBy("run", turn);
+      const ended = options.issuer.endBy("turn", turn);
       return had ? Math.max(ended, 1) : ended;
     },
     endSession(session) {
       for (const [turn, owner] of [...held]) {
         if (owner === session) held.delete(turn);
       }
-      return options.issuer.endBy("assignment", session);
+      return options.issuer.endBy("session", session);
     },
     endAll() {
       let ended = 0;
       for (const [turn] of [...held]) {
-        ended += options.issuer.endBy("run", turn);
+        ended += options.issuer.endBy("turn", turn);
         held.delete(turn);
       }
       return ended;

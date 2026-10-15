@@ -9,7 +9,6 @@ import {
 import {
   type CoreRead,
   createTurnCredentials,
-  NO_TURN_SOURCE,
   startRuntime,
   type Startup,
   type TurnCredentials,
@@ -22,6 +21,7 @@ import {
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
+import type { AgentEventSink } from "../../lophn-agent/run-loop/ports.ts";
 import type { BlobPort } from "../../lophn-agent/run-loop/blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
 import {
@@ -29,6 +29,7 @@ import {
   type Redactor,
 } from "../../lophn-agent/run-loop/redact-link.ts";
 import { createSecretLink } from "./secret-link.ts";
+import { createTurnSourceLink } from "./turn-source-link.ts";
 import { startMcpAuthPump } from "./mcp-auth-pump.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 import { redact } from "./redact.ts";
@@ -57,12 +58,13 @@ export type CoreCalls = {
   secrets?: SecretAttachLike;
   // 마지막 정상 catalog와 동봉 snapshot. data root가 없으면 없다.
   catalog: CatalogRefresherHandle | undefined;
+  // loop가 낸 agent event를 감독 pipe로 core Bus까지 보낸다.
+  events: AgentEventSink;
 };
 
 export type Runtime = {
   startup: Startup;
-  // 입력함에서 시작할 turn을 고르는 길. 입력함은 core 메모리에 있어 감독 pipe로 읽는데, 그 메시지가 아직
-  // 없어 지금은 시작할 turn이 없다.
+  // 입력함에서 시작할 turn을 고르는 길. 입력함은 core 메모리에 있어 감독 pipe로 읽는다.
   source: TurnSource;
   // turn마다 받는 agent credential. 감독 pipe로 core에 청한다.
   credentials: TurnCredentials;
@@ -121,6 +123,9 @@ export async function startAgentRuntime(input: {
   const secretLink = createSecretLink({
     send: (message) => child.send(message),
   });
+  const turnLink = createTurnSourceLink({
+    send: (message) => child.send(message),
+  });
   const credentials = createTurnCredentials({
     issuer: link.issuer,
     // session의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
@@ -159,6 +164,7 @@ export async function startAgentRuntime(input: {
           calls = {
             catalog: refresher,
             redact: redactLink.redact,
+            events: turnLink.events,
             secrets: secretLink.attach,
             machine: input.read ?? machineCall({
               port: hello.api_port,
@@ -200,6 +206,7 @@ export async function startAgentRuntime(input: {
       onParent(message) {
         if (redactLink.onParent(message)) return;
         if (secretLink.onParent(message)) return;
+        if (turnLink.onParent(message)) return;
         link.onParent(message);
       },
       onStop() {
@@ -234,9 +241,8 @@ export async function startAgentRuntime(input: {
   if (!started.ok) {
     return started;
   }
-  // 입력함을 감독 pipe로 읽는 메시지가 놓이기 전에는 새 turn을 고르지 않는다. 켜질 때 돌던 turn은 core가
-  // interrupted로 닫으므로 runtime이 이을 것은 없다.
-  const source: TurnSource = NO_TURN_SOURCE;
+  // 켜질 때 돌던 turn은 core가 interrupted로 닫으므로 runtime이 이을 것은 없다.
+  const source: TurnSource = turnLink.source;
   let pumping: Promise<void> = Promise.resolve();
   // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
   // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.

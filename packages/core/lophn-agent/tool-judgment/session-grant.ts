@@ -65,7 +65,7 @@ async function recordedBasis(
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const read = await post(core, toolCallList, {
-      run: request.run,
+      turn: request.run,
       limit: LIST_LIMIT,
       ...(cursor === undefined ? {} : { cursor }),
     });

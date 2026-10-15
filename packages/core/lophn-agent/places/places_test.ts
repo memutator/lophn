@@ -145,8 +145,8 @@ Deno.test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, re
   for (const [seq, from] of [[1, "human"], [2, "agent"]] as const) {
     sql.run(
       `insert into messages (id, session, from_kind, from_ref, call, reply_to,
-         refs, delivery, turn, body, created_seq, state_seq)
-       values (?, ?, ?, ?, ?, null, '[]', 'next_turn', 'trn_x', ?, ?, ?)`,
+         refs, delivery, turn, body, created_seq, created_at, state_seq)
+       values (?, ?, ?, ?, ?, null, '[]', 'next_turn', 'trn_x', ?, ?, ?, ?)`,
       [
         `msg_${seq}`,
         source,
@@ -155,6 +155,7 @@ Deno.test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, re
         from === "human" ? null : "cal_open",
         body,
         seq,
+        "2026-10-16T00:00:00.000Z",
         seq,
       ],
     );

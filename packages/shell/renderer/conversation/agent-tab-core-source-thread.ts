@@ -7,13 +7,12 @@ import { t } from "@lophn/wording";
 import { askRead } from "../../../protocol/lophn-agent/ask-tool.ts";
 import type { ReceivedMessage } from "../../../protocol/lophn-agent/received-messages.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
-import { agentTraceRead } from "../../../protocol/lophn-agent/traces.ts";
 import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   receivedMessageList,
   receivedMessageRead,
 } from "../../../protocol/lophn-agent/received-messages.ts";
-import { toolCallRead } from "../../../protocol/lophn-agent/tool-calls.ts";
+import { toolCallList } from "../../../protocol/lophn-agent/tool-calls.ts";
 import type { ToolCall } from "../../../protocol/lophn-agent/tool-values.ts";
 import type { TurnRecord } from "../../../protocol/lophn-agent/turn-values.ts";
 import {
@@ -51,8 +50,6 @@ import { readSession } from "./agent-tab-core-source-sessions.ts";
 export interface ThreadMemo {
   readonly bodies: Map<string, readonly BodyPart[]>;
   readonly roles: Map<string, AgentRole>;
-  /** 끝난 tool 호출. */
-  readonly tools: Map<string, ToolCall>;
   /** `<종류>:<id>` → tool 호출의 입력·결과 본문. */
   readonly views: Map<string, unknown>;
 }
@@ -61,7 +58,6 @@ export function createThreadMemo(): ThreadMemo {
   return {
     bodies: new Map(),
     roles: new Map(),
-    tools: new Map(),
     views: new Map(),
   };
 }
@@ -242,29 +238,14 @@ async function viewOf(
   return read.value.value;
 }
 
-/** 이 session의 tool 호출 기록. 끝난 것은 한 번만 읽는다. */
-async function readToolCalls(
-  env: Env,
-  memo: ThreadMemo,
-  session: string,
-): Promise<ToolCall[]> {
-  const trace = await env.read(agentTraceRead, {
-    target: { kind: "session", session },
-    limit: TOOL_CALL_LIMIT,
-  });
-  if (!trace.ok) return [];
-  const ids = trace.value.trace.tool_calls.slice(-TOOL_CALL_LIMIT);
-  const calls = await Promise.all(ids.map(async (id) => {
-    const known = memo.tools.get(id);
-    if (known !== undefined) return known;
-    const read = await env.read(toolCallRead, { tool_call: id });
-    if (!read.ok) return null;
-    if (read.value.tool_call.state === "finished") {
-      memo.tools.set(id, read.value.tool_call);
-    }
-    return read.value.tool_call;
-  }));
-  return calls.flatMap((call) => call === null ? [] : [call]);
+/** 이 session의 tool 호출 기록. 가장 나중 것부터 상한까지만 그린다. */
+async function readToolCalls(env: Env, session: string): Promise<ToolCall[]> {
+  const listed = await env.pages(
+    toolCallList,
+    { session },
+    (out) => out.tool_calls,
+  );
+  return listed.ok ? listed.value.slice(-TOOL_CALL_LIMIT) : [];
 }
 
 function lineCount(text: unknown): number {
@@ -277,7 +258,7 @@ function turnOfCall(
   call: ToolCall,
   turns: readonly TurnRecord[],
 ): TurnRecord | undefined {
-  const named = turns.find((turn) => turn.id === call.run);
+  const named = turns.find((turn) => turn.id === call.turn);
   if (named !== undefined) return named;
   const at = call.started_at ?? call.finished_at;
   if (at === null) return turns.at(-1);
@@ -371,7 +352,7 @@ async function toolEntries(
   turns: readonly TurnRecord[],
 ): Promise<Map<string, ThreadEntry[]>> {
   const found = new Map<string, ThreadEntry[]>();
-  const all = await readToolCalls(env, memo, session);
+  const all = await readToolCalls(env, session);
   const retried = new Set(
     all.flatMap((call) => call.retry_of === null ? [] : [call.retry_of]),
   );
@@ -541,7 +522,6 @@ export async function readThread(
   const hiddenIn = new Map<HiddenGroup, ThreadMessage[]>();
   const rows: Row[] = [];
   for (const message of messages.value) {
-    const turn = message.turn === null ? undefined : turnById.get(message.turn);
     const sender = await senderOf(env, memo, message.from);
     const own = message.from.kind === "agent" &&
       message.from.session === session;
@@ -552,7 +532,7 @@ export async function readThread(
       const body = await readBody(env, memo, message.id);
       queued.push({
         id: message.id,
-        at: env.nowIso(),
+        at: message.created_at,
         text: body.ok ? textOf(body.value) : "",
       });
       continue;
@@ -560,9 +540,7 @@ export async function readThread(
     const entry: ThreadMessage = {
       kind: "message",
       id: message.id,
-      at: own
-        ? turn?.finished_at ?? turn?.started_at ?? env.nowIso()
-        : turn?.started_at ?? env.nowIso(),
+      at: message.created_at,
       actor: sender === null ? "user" : own ? "agent" : "received",
       sender: sender === null || own ? null : sender,
       call: message.call,

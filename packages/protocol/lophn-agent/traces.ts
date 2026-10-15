@@ -178,7 +178,7 @@ const decimal = z.string().regex(/^(0|[1-9][0-9]{0,17})(\.[0-9]{1,6})?$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 
 const usageGroupSchema = z.strictObject({
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   session: idSchema("ses").nullable(),
   role: agentRoleSchema.nullable(),
   model: nonempty.nullable(),
@@ -215,7 +215,7 @@ export const usageTotalSchema = z.object({
 export type UsageTotal = z.infer<typeof usageTotalSchema>;
 
 export const agentUsageReadInputSchema = z.strictObject({
-  run: idSchema("run").optional(),
+  turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
   role: agentRoleSchema.optional(),
   model: nonempty.optional(),

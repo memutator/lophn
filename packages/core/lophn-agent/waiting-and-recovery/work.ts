@@ -119,7 +119,7 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     run: string,
     approval: string,
   ): Promise<Result<ToolCallOutput | undefined>> {
-    const listed = await post(deps.machine, toolCallList, { run });
+    const listed = await post(deps.machine, toolCallList, { turn: run });
     if (!listed.ok) return listed;
     return ok(
       listed.value.tool_calls.find((call) =>

@@ -9,9 +9,9 @@ import type { SchemaStep, SqlParam } from "../../../protocol/server/mod.ts";
 
 // domain-model lophn-agent/harness/usage의 표. model_calls는 실제 전송 시도마다
 // 한 행이고, model_call_supplements는 보완 근거의 append 표다. credential 값은
-// 열에 없고 참조만 남는다. run·session FK는 runs·sessions 표가 생길 때 더한다
+// 열에 없고 참조만 남는다. turn·session FK는 turns·sessions 표가 생길 때 더한다
 // (platform ledger schema와 같은 근원). 삭제는 RESTRICT로 사실을 남긴다.
-// run이 없는 call은 Compact의 요약 call이다. 요약 call은 run과 agent 대신 session을 가리키고
+// turn이 없는 call은 Compact의 요약 call이다. 요약 call은 turn과 agent 대신 session을 가리키고
 // session을 지울 때 함께 지운다. provider는 Disconnect로 지워지므로 provider와 credential은
 // 외래 키가 아니라 그 시점의 값으로 남긴다.
 
@@ -21,7 +21,7 @@ export const usageSchemaSteps: readonly SchemaStep[] = [
     sql: `
 create table model_calls (
   id text primary key,
-  run text,
+  turn text,
   session text,
   model_use text check (model_use in ('judgment', 'organizing')),
   agent_hash text check (agent_hash is null or length(agent_hash) = 64),
@@ -47,8 +47,8 @@ create table model_calls (
   usage text not null check (json_valid(usage)),
   cost text not null check (json_valid(cost)),
   check (
-    (run is not null and session is not null and model_use is not null and agent_hash is not null) or
-    (run is null and session is not null and model_use is 'organizing' and agent_hash is null and purpose = 'conversation_compression')
+    (turn is not null and session is not null and model_use is not null and agent_hash is not null) or
+    (turn is null and session is not null and model_use is 'organizing' and agent_hash is null and purpose = 'conversation_compression')
   ),
   check (
     (attempt_kind = 'retry') = (retry_of is not null)
@@ -62,11 +62,11 @@ create table model_calls (
     (first_output_ms is null or first_output_ms >= 0)
   )
 ) strict;
-create unique index model_calls_run_attempt
-  on model_calls (run, attempt_order) where run is not null;
+create unique index model_calls_turn_attempt
+  on model_calls (turn, attempt_order) where turn is not null;
 create unique index model_calls_session_attempt
-  on model_calls (session, attempt_order) where run is null and session is not null;
-create index model_calls_run_state on model_calls (run, state);
+  on model_calls (session, attempt_order) where turn is null and session is not null;
+create index model_calls_turn_state on model_calls (turn, state);
 create index model_calls_session_started on model_calls (session, started_at);
 create index model_calls_model_use_purpose_started
   on model_calls (model_use, purpose, started_at);
@@ -76,10 +76,10 @@ create index model_calls_retry_of on model_calls (retry_of);
 create trigger model_calls_no_delete
 before delete on model_calls
 when not exists (
-  select 1 from runs where id = old.run and session is not null and state = 'finished'
+  select 1 from turns where id = old.turn and session is not null and state = 'finished'
 ) and not (
-  old.run is null and old.session is not null and
-  not exists (select 1 from runs where session = old.session and state <> 'finished')
+  old.turn is null and old.session is not null and
+  not exists (select 1 from turns where session = old.session and state <> 'finished')
 )
 begin
   select raise(abort, 'model call records are kept');
@@ -137,7 +137,7 @@ export function callFromRow(
   const model = parseJson(row["call_model"]) as ModelCallRecord["model"];
   const record: ModelCallRecord = {
     id: String(row["id"]),
-    run: row["run"] === null ? null : String(row["run"] as string),
+    turn: row["turn"] === null ? null : String(row["turn"] as string),
     session: row["session"] === null ? null : String(row["session"] as string),
     model_use: row["model_use"] === null
       ? null
@@ -176,7 +176,7 @@ export function callFromRow(
   return record;
 }
 
-// 시작 기록은 run·purpose·target 별 한 번이다.
+// 시작 기록은 turn·purpose·target 별 한 번이다.
 export function assertCall(
   record: unknown,
 ): Result<ModelCallRecord> {

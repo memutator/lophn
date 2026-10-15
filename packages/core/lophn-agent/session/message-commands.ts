@@ -26,6 +26,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
 import { attachedText } from "../run-loop/input-text.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
@@ -212,8 +213,8 @@ function writeHuman(
   const seq = nextCreatedSeq(tx);
   tx.sql.run(
     `insert into messages (id, session, from_kind, from_ref, call, reply_to,
-       refs, delivery, turn, body, created_seq, state_seq)
-     values (?, ?, 'human', null, null, null, ?, ?, null, ?, ?, ?)`,
+       refs, delivery, turn, body, created_seq, created_at, state_seq)
+     values (?, ?, 'human', null, null, null, ?, ?, null, ?, ?, ?, ?)`,
     [
       input.id,
       session.id,
@@ -221,6 +222,7 @@ function writeHuman(
       input.delivery,
       body.hash,
       seq,
+      tx.now(),
       seq,
     ],
   );
@@ -347,6 +349,71 @@ export function sendToNewSession(
   return ok({ session: routed.value.session, message: input.id });
 }
 
+// agent의 답을 그 session의 기록에 남긴다. 받은 메시지와 같은 봉투로 쓴다: 보낸 쪽은 그 session 자신이고
+// `turn`은 답한 turn이다. 쓰는 쪽은 runtime(machine)이거나 그 session 자신의 agent이고, turn은 이 session에서
+// 도는 중이어야 한다. 같은 메시지를 다시 부르면 이전 결과다. 입력함에는 넣지 않는다: 답은 자기 session의 입력이
+// 아니다.
+function recordAgent(
+  tx: Tx,
+  ctx: RequestContext,
+  input: Input<typeof recordMessage>,
+): Result<{ message: string; state_seq: string }> {
+  const actor = parseActor(ctx.actor);
+  const allowed = actor?.kind === "machine" ||
+    (actor?.kind === "agent" && actor.id === input.session);
+  if (!allowed) {
+    return reject(
+      "forbidden",
+      "only the session's own agent records its reply",
+    );
+  }
+  const turn = tx.sql.get("select session, state from turns where id = ?", [
+    input.turn,
+  ]);
+  if (turn === undefined || String(turn["session"]) !== input.session) {
+    return reject("not_found", "turn not found");
+  }
+  const body = bodyBlob(ctx.principal, input.content);
+  const existing = tx.sql.get(
+    `select session, body, from_kind, from_ref, turn, created_seq
+     from messages where id = ?`,
+    [input.id],
+  );
+  if (existing !== undefined) {
+    const same = String(existing["session"]) === input.session &&
+      String(existing["body"]) === body.hash &&
+      String(existing["from_kind"]) === "agent" &&
+      String(existing["from_ref"]) === input.session &&
+      String(existing["turn"]) === input.turn;
+    return same
+      ? ok({ message: input.id, state_seq: String(existing["created_seq"]) })
+      : reject("conflict", "message id already used for other input");
+  }
+  if (String(turn["state"]) !== "running") {
+    return reject("conflict", "the turn is finished");
+  }
+  if (loadSession(tx, input.session) === undefined) return sessionNotFound();
+  const seq = nextCreatedSeq(tx);
+  tx.sql.run(
+    `insert into messages (id, session, from_kind, from_ref, call, reply_to,
+       refs, delivery, turn, body, created_seq, created_at, state_seq)
+     values (?, ?, 'agent', ?, null, null, '[]', 'next_turn', ?, ?, ?, ?, ?)`,
+    [
+      input.id,
+      input.session,
+      input.session,
+      input.turn,
+      body.hash,
+      seq,
+      tx.now(),
+      seq,
+    ],
+  );
+  const registered = registerBody(tx, input.id, String(seq), body);
+  if (!registered.ok) return registered;
+  return ok({ message: input.id, state_seq: String(seq) });
+}
+
 export function createMessageCommands(deps: SendMessageDeps): {
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
@@ -360,8 +427,12 @@ export function createMessageCommands(deps: SendMessageDeps): {
         return sendWith(deps, tx, ctx, input, undefined);
       },
     },
-    // 옛 agent 답 기록, 반영, 담당 옮기기는 messages 표가 봉투 칸으로 바뀌어 옛 열을 더 쓰지 못한다.
-    record: { route: recordMessage, handle: blocked },
+    record: {
+      route: recordMessage,
+      handle: (tx, ctx, input: Input<typeof recordMessage>) =>
+        recordAgent(tx, ctx, input),
+    },
+    // 옛 반영, 담당 옮기기는 messages 표가 봉투 칸으로 바뀌어 옛 열을 더 쓰지 못한다.
     apply: { route: applyMessages, handle: blocked },
     assign: { route: assignMessage, handle: blocked },
   };

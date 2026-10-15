@@ -1,7 +1,7 @@
 // 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 ReadInstructionFile은 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project 폴더의
 // LOPHN.md(첫 등록 폴더 바로 아래), 앱 자리 `<data root>/apps/<앱>/LOPHN.md`, 그리고 agent 정의 본문이다.
-// 어느 자리인지는 읽는 쪽이 정하지 않고 그 run의 작업 자리로 정한다. 읽기만 있다. 파일 저장은 사람이
+// 어느 자리인지는 읽는 쪽이 정하지 않고 그 turn의 작업 자리로 정한다. 읽기만 있다. 파일 저장은 사람이
 // editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
@@ -74,50 +74,31 @@ function openFile(
   }
 }
 
-type RunPlace = {
+type TurnPlace = {
   role: AgentRole;
-  assignment: string;
+  // Operator의 정의 파일 이름이 된다. 다른 역할은 null이다.
+  operator: string | null;
   place: WorkPlace | null;
 };
 
-// run의 작업 자리. App Engineer와 Operator는 담당 범위(scope)로 고정이고 lophn·Context Engineer는
-// 세션을 연 자리다. 세션이 없는 전역 run은 자리가 없다.
-function placeOf(snapshot: ReadSnapshot, run: string): Result<RunPlace> {
+// turn의 작업 자리. turn이 도는 session의 agent와 place가 정한다. 전역(lophn) session은 자리가 없다.
+function placeOf(snapshot: ReadSnapshot, turn: string): Result<TurnPlace> {
   const found = snapshot.sql.get(
-    "select assignment, session from runs where id = ?",
-    [run],
+    `select s.role as role, s.operator as operator, s.place_kind as place_kind,
+       s.place_id as place_id
+     from turns t join sessions s on s.id = t.session where t.id = ?`,
+    [turn],
   );
   if (found === undefined) return notFound();
-  const assignment = snapshot.sql.get(
-    "select role, scope_kind, scope_id from assignments where id = ?",
-    [String(found["assignment"])],
-  );
-  if (assignment === undefined) return notFound();
-  const scopeKind = String(assignment["scope_kind"]);
-  const scope: WorkPlace | null =
-    (scopeKind === "project" || scopeKind === "app") &&
-      assignment["scope_id"] !== null
-      ? { kind: scopeKind, id: String(assignment["scope_id"]) } as WorkPlace
-      : null;
-  let session: WorkPlace | null = null;
-  if (found["session"] !== null) {
-    const row = snapshot.sql.get(
-      "select work_place_kind, work_place_id from sessions where id = ?",
-      [String(found["session"])],
-    );
-    if (row !== undefined) {
-      session = {
-        kind: String(row["work_place_kind"]),
-        id: String(row["work_place_id"]),
-      } as WorkPlace;
-    }
-  }
-  const role = String(assignment["role"]) as AgentRole;
-  const scoped = role === "app_engineer" || role === "operator";
+  const place: WorkPlace | null =
+    found["place_kind"] === null || found["place_id"] === null ? null : {
+      kind: String(found["place_kind"]),
+      id: String(found["place_id"]),
+    } as WorkPlace;
   return ok({
-    role,
-    assignment: String(found["assignment"]),
-    place: scoped ? scope ?? session : session ?? scope,
+    role: String(found["role"]) as AgentRole,
+    operator: found["operator"] === null ? null : String(found["operator"]),
+    place,
   });
 }
 
@@ -131,13 +112,13 @@ function projectFolder(snapshot: ReadSnapshot, project: string) {
 
 function readLayer(
   snapshot: ReadSnapshot,
-  run: RunPlace,
+  turn: TurnPlace,
   layer: InstructionLayerKind,
 ): Result<InstructionFile | null> {
   const root = dataRootOf(snapshot.sql, undefined);
   if (!root.ok) return unavailable();
   if (layer === "global") return openFile(`${root.value}/${FILE_NAME}`);
-  const { place } = run;
+  const { place } = turn;
   if (layer === "project") {
     if (place?.kind !== "project") return notFound();
     const folder = projectFolder(snapshot, place.id);
@@ -147,14 +128,17 @@ function readLayer(
     if (place?.kind !== "app") return notFound();
     return openFile(`${root.value}/apps/${place.id}/${FILE_NAME}`);
   }
-  // agent 층: 그 run의 정의 파일 본문. 정의 파일의 frontmatter는 지침이 아니다.
+  // agent 층: 그 turn의 정의 파일 본문. 정의 파일의 frontmatter는 지침이 아니다.
   if (place === null) return ok(null);
   const store = createAgentStore(createNodeAgentFiles(), root.value);
-  const loaded = store.read(place, agentFileName(run.role, run.assignment));
+  const loaded = store.read(
+    place,
+    agentFileName(turn.role, turn.operator ?? ""),
+  );
   if (!loaded.ok) return unavailable();
   if (loaded.value === null) return ok(null);
   const parsed = parseAgentFile(loaded.value.text, {
-    role: run.role,
+    role: turn.role,
     place: place.kind,
   });
   if (!parsed.ok) return unavailable();
@@ -174,9 +158,9 @@ export function instructionReadHandler(): ReadDefinition<
     route: instructionRead,
     handle(snapshot, _ctx, input) {
       try {
-        const run = placeOf(snapshot, input.run);
-        if (!run.ok) return run;
-        const file = readLayer(snapshot, run.value, input.layer);
+        const turn = placeOf(snapshot, input.turn);
+        if (!turn.ok) return turn;
+        const file = readLayer(snapshot, turn.value, input.layer);
         if (!file.ok) return file;
         return ok({
           file: file.value === null ? null : encodeInstructionFile(file.value),
@@ -190,7 +174,7 @@ export function instructionReadHandler(): ReadDefinition<
   };
 }
 
-// PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. run을 모르고 전역 층
+// PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. turn을 모르고 전역 층
 // 하나뿐이다. 읽는 길은 ReadInstructionFile과 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
 export function instructionPreviewHandler(): ReadDefinition<
   typeof instructionPreview

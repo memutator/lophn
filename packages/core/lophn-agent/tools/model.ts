@@ -6,7 +6,7 @@ import type { ToolCall } from "../../../protocol/lophn-agent/mod.ts";
 
 // domain-model lophn-agent/harness/tools의 표. tool_calls는 시도마다 한 행이고,
 // tool_call_supplements는 늦은 사실의 append 표다. 입력·출력 원문은 열에 없고
-// redaction을 거친 blob hash만 남는다. run·model_call FK는 그 표가 같은 wire에
+// redaction을 거친 blob hash만 남는다. turn·model_call FK는 그 표가 같은 wire에
 // 있을 때 더한다. 삭제는 RESTRICT로 사실을 남긴다.
 
 export const toolsSchemaSteps: readonly SchemaStep[] = [
@@ -15,7 +15,7 @@ export const toolsSchemaSteps: readonly SchemaStep[] = [
     sql: `
 create table tool_calls (
   id text primary key,
-  run text not null,
+  turn text not null,
   model_call text not null,
   response_key text not null check (length(trim(response_key)) > 0),
   response_order integer not null check (response_order >= 0),
@@ -52,7 +52,7 @@ create unique index tool_calls_request
   on tool_calls (model_call, response_key) where retry_of is null;
 create unique index tool_calls_attempt
   on tool_calls (model_call, response_key, attempt);
-create index tool_calls_run_state on tool_calls (run, state);
+create index tool_calls_turn_state on tool_calls (turn, state);
 create index tool_calls_order
   on tool_calls (model_call, response_order, attempt);
 create index tool_calls_retry_of on tool_calls (retry_of);
@@ -61,7 +61,7 @@ create index tool_calls_tool_outcome
 create trigger tool_calls_no_delete
 before delete on tool_calls
 when not exists (
-  select 1 from runs where id = old.run and session is not null and state = 'finished'
+  select 1 from turns where id = old.turn and session is not null and state = 'finished'
 )
 begin
   select raise(abort, 'tool call records are kept');
@@ -97,7 +97,7 @@ export function callFromRow(
 ): ToolCall {
   const record: ToolCall = {
     id: String(row["id"]),
-    run: String(row["run"]),
+    turn: String(row["turn"]),
     model_call: String(row["model_call"]),
     response_key: String(row["response_key"]),
     response_order: Number(row["response_order"]),
@@ -126,7 +126,7 @@ export function callFromRow(
   return { ...record, ...overrides };
 }
 
-const CALL_COLUMNS = `id, run, model_call, response_key, response_order, tool,
+const CALL_COLUMNS = `id, turn, model_call, response_key, response_order, tool,
   definition_revision, effect, app_command, confirm, extension, input, output,
   retry_of, attempt, retry_at, decision, state, state_seq, started_at,
   finished_at, duration_ms, outcome, result`;

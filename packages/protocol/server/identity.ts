@@ -38,8 +38,9 @@ const cwdConditionSchema = z.string().min(1).refine(
 );
 
 export const credentialConditionsSchema = z.strictObject({
-  run: idSchema("run").optional(),
-  assignment: idSchema("asg").optional(),
+  // lophn agent credential이 묶이는 session과 그 안에서 도는 turn.
+  session: idSchema("ses").optional(),
+  turn: idSchema("trn").optional(),
   app: idSchema("app").optional(),
   release: idSchema("rel").optional(),
   process: z.string().min(1).optional(),

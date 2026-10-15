@@ -74,7 +74,7 @@ function requireMachine(ctx: RequestContext): Result<void> {
 
 function loadCall(tx: Tx, id: string): Result<CallRow> {
   const row = tx.sql.get(
-    `select id, run, session, model_use, agent_hash, purpose,
+    `select id, turn, session, model_use, agent_hash, purpose,
        attempt_kind, attempt_order, retry_of,
        provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -106,7 +106,7 @@ function checkRevision(
 function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
   tx.sql.run(
     `insert into model_calls (
-       id, run, session, model_use, agent_hash, purpose,
+       id, turn, session, model_use, agent_hash, purpose,
        attempt_kind, attempt_order, retry_of,
        provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -115,7 +115,7 @@ function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       call.id,
-      call.run,
+      call.turn,
       call.session,
       call.model_use,
       call.agent_hash,
@@ -193,11 +193,11 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (existing !== undefined) {
           return conflict("model call attempt already recorded");
         }
-        // run이 없는 요약 call은 session마다 시도 순번이 하나다.
-        if (call.value.run === null && call.value.session !== null) {
+        // turn이 없는 요약 call은 session마다 시도 순번이 하나다.
+        if (call.value.turn === null && call.value.session !== null) {
           const sameAttempt = tx.sql.get(
             `select id from model_calls
-             where session = ? and run is null and attempt_order = ?`,
+             where session = ? and turn is null and attempt_order = ?`,
             [call.value.session, call.value.attempt_order],
           );
           if (sameAttempt !== undefined) {
@@ -205,7 +205,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
           }
         }
         const seq = tx.emit(modelCallStarted, call.value.id, {
-          run: call.value.run,
+          turn: call.value.turn,
           session: call.value.session,
           model_use: call.value.model_use,
           purpose: call.value.purpose,

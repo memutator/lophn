@@ -18,15 +18,6 @@ import type { TurnPreparer } from "./prepare.ts";
 // StartTurn으로 확정하고, `agent:<ses>` credential을 받아 loop에 넘긴다. turn이 끝나거나 멈추거나 감독이
 // 끊기면 credential을 끝낸다. 켜질 때 돌던 turn은 core가 interrupted로 닫으므로 이 쪽에 이어 하기는 없다.
 
-// 입력함을 아직 읽을 수 없는 동안의 source다. 시작할 turn이 없다.
-export const NO_TURN_SOURCE: TurnSource = {
-  next: () => Promise.resolve(ok(null)),
-  began: () => Promise.resolve(ok(null)),
-  ended: () => Promise.resolve(ok(undefined)),
-  steering: () => Promise.resolve(ok([])),
-  settled: () => Promise.resolve(ok(undefined)),
-};
-
 export type DriveDeps = {
   source: TurnSource;
   credentials: TurnCredentials;

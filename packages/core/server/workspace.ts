@@ -31,7 +31,7 @@ type WindowState = {
 };
 
 export type WorkspaceRelayDeps = {
-  // run → session 확인. 없으면 read는 fail-closed다.
+  // 더 쓰지 않는다. agent credential이 session을 직접 싣는다. wiring이 이 줄을 걷으면 지운다.
   runSession?: (ctx: AuthenticatedContext, run: string) =>
     | Promise<
       Result<string | null>
@@ -58,7 +58,7 @@ const VISIBLE_VIEW_FIELDS = [
 ] as const;
 
 export function createWorkspaceRelay(
-  deps: WorkspaceRelayDeps = {},
+  _deps: WorkspaceRelayDeps = {},
 ): WorkspaceRelay {
   // publish가 온 창. key는 window_ref다.
   const windows = new Map<string, WindowState>();
@@ -137,18 +137,10 @@ export function createWorkspaceRelay(
 
   handlers.set("workspace/read", async (ctx, input) => {
     const record = input as { session: string; page?: number };
-    // agent는 자기 run의 session만 읽는다. run→session 확인은
-    // 주입한 resolver로 한다. 없으면 fail-closed다.
-    const run = ctx.conditions.run;
-    if (!run || !deps.runSession) {
-      return absent("unavailable", "run session unavailable");
-    }
-    const resolved = await deps.runSession(ctx, run);
-    if (!resolved.ok) {
-      return absent("unavailable", "run session unavailable");
-    }
-    if (resolved.value !== record.session) {
-      return absent("unavailable", "run session unavailable");
+    // agent는 자기 credential이 묶인 session만 읽는다.
+    const session = ctx.conditions.session;
+    if (!session || session !== record.session) {
+      return absent("unavailable", "turn session unavailable");
     }
     const ref = sessions.get(record.session);
     if (!ref) return absent("disconnected", "session window not bound");

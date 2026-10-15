@@ -39,8 +39,9 @@ export function createReceivedRecorder(deps: { principal(): string }) {
       const from = input.from;
       tx.sql.run(
         `insert into messages (id, session, from_kind, from_ref, call,
-           reply_to, refs, delivery, turn, body, created_seq, state_seq)
-         values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?)`,
+           reply_to, refs, delivery, turn, body, created_seq, created_at,
+           state_seq)
+         values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
         [
           id,
           session,
@@ -56,6 +57,7 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           from.kind === "human" ? input.delivery : "next_turn",
           hash,
           seq,
+          tx.now(),
           seq,
         ],
       );

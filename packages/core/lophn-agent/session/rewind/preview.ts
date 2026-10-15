@@ -213,7 +213,7 @@ function externalFacts(
   afterSeq: string,
 ): PreviewFact[] {
   const calls = lookup.sql.all(
-    `select t.id as id from tool_calls t join runs r on r.id = t.run
+    `select t.id as id from tool_calls t join runs r on r.id = t.turn
       where r.session = ? and t.effect = 'external' and t.app_command is null
         and t.state_seq > ? and json_extract(t.outcome, '$.kind') = 'success'
       order by t.state_seq`,

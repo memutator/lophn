@@ -77,9 +77,7 @@ function mergeTarget(
   const codingAgent = parseActor(ctx.actor)?.kind === "coding_agent";
   for (const key of CONDITION_TARGET_KEYS) {
     if (key === "app" && codingAgent) continue;
-    const value = key === "run"
-      ? ctx.run ?? ctx.conditions.run
-      : ctx.conditions[key];
+    const value = ctx.conditions[key];
     // owner가 준 값은 덮지 않는다. 고정 조건과 다른 값이면 authorize가 거절해야 하고, 덮어쓰면
     // 범위 밖 target이 조건의 값으로 바뀌어 통과한다.
     if (value !== undefined && merged[key] === undefined) merged[key] = value;

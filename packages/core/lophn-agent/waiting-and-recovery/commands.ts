@@ -326,7 +326,7 @@ function stopNoAnswer(
 function loadModelViews(tx: Tx, run: string): ModelView[] {
   return tx.sql.all(
     `select id, attempt_order, state, json_extract(outcome, '$.kind') as kind
-     from model_calls where run = ? order by attempt_order`,
+     from model_calls where turn = ? order by attempt_order`,
     [run],
   ).map((row) => ({
     id: String(row["id"]),
@@ -340,7 +340,7 @@ function loadToolViews(tx: Tx, run: string): ToolView[] {
   return tx.sql.all(
     `select id, model_call, response_key, response_order, attempt, effect,
        extension, state, json_extract(outcome, '$.kind') as kind
-     from tool_calls where run = ? order by model_call, response_order, attempt`,
+     from tool_calls where turn = ? order by model_call, response_order, attempt`,
     [run],
   ).map((row) => ({
     id: String(row["id"]),
@@ -392,7 +392,7 @@ export function createWaitCommands(deps: WaitDeps): {
         }
         if (input.call !== null) {
           const call = loadToolCall(tx, input.call);
-          if (call === undefined || call.run !== run.id) {
+          if (call === undefined || call.turn !== run.id) {
             return reject("not_found", "tool call not found");
           }
           if (call.state !== "requested") {
@@ -446,7 +446,7 @@ export function createWaitCommands(deps: WaitDeps): {
             return reject("conflict", "the approval was not stored");
           }
           const call = loadToolCall(tx, request.tool_call);
-          if (call === undefined || call.run !== run.id) {
+          if (call === undefined || call.turn !== run.id) {
             return reject("not_found", "tool call not found");
           }
           if (call.state !== "requested") {

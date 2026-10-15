@@ -84,7 +84,7 @@ function checkRevision(
 }
 
 const INSERT = `insert into tool_calls (
-  id, run, model_call, response_key, response_order, tool, definition_revision,
+  id, turn, model_call, response_key, response_order, tool, definition_revision,
   effect, app_command, confirm, extension, input, output, retry_of, attempt,
   retry_at, decision, state, state_seq, started_at, finished_at, duration_ms,
   outcome, result
@@ -107,7 +107,7 @@ function insertCall(
 ): void {
   tx.sql.run(INSERT, [
     input.id,
-    input.run,
+    input.turn,
     input.model_call,
     input.response_key,
     input.response_order,
@@ -163,11 +163,11 @@ export function createToolCommands(): {
         if (duplicateRequest(tx, input)) {
           return conflict("tool call request already recorded");
         }
-        // compare.run_state_seq·model_call_finished_seq는 호출자가 본 판이다.
-        // run·model call 표는 그 concern이 소유하므로 여기서 다시 열지 않는다.
+        // compare.turn_state_seq·model_call_finished_seq는 호출자가 본 판이다.
+        // turn·model call 표는 그 concern이 소유하므로 여기서 다시 열지 않는다.
         void compare;
         const seq = tx.emit(toolCallRequested, input.id, {
-          run: input.run,
+          turn: input.turn,
           model_call: input.model_call,
           response_key: input.response_key,
           tool: input.tool,
@@ -247,7 +247,7 @@ export function createToolCommands(): {
         }
         // 자격·범위 재검사는 실행기가 이 command 앞에서 한다. 여기서는 기록이
         // 요청 상태이고 판정이 있을 때만 진입을 남긴다.
-        void compare.run_state_seq;
+        void compare.turn_state_seq;
         void compare.assignment_revision;
         const seq = tx.emit(toolCallStarted, input.tool_call, {
           started_at: input.started_at,
@@ -325,7 +325,7 @@ export function createToolCommands(): {
         // 후행 기록은 실제 순서대로 네 event를 남긴다. 읽기 응답은 이
         // 저장을 기다리지 않는다. 저장은 다음 model 판단 전에 한다.
         tx.emit(toolCallRequested, request.id, {
-          run: request.run,
+          turn: request.turn,
           model_call: request.model_call,
           response_key: request.response_key,
           tool: request.tool,

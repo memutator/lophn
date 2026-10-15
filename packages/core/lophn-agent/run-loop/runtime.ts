@@ -51,6 +51,9 @@ import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import { agentRuntimeLaunchSpec, readBundledSkillRoots } from "../register.ts";
 import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import { allowNetList, allowRunList } from "../extensions/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import { createTurnPipe } from "./turn-pipe.ts";
+import type { TurnSource } from "./ports.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리. child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
@@ -113,11 +116,7 @@ export function agentCredentialIssuer(
         credential_ref: issued.value.credential_ref,
       });
       if (!current.ok) return current;
-      // ledger 기록의 scope는 operation과 target뿐이다(strict).
-      const { agent: _agent, ...scope } = current.value.scope as
-        & AuthenticatedContext["scope"]
-        & { agent?: unknown };
-      const recorded = await record({ ...current.value, scope });
+      const recorded = await record(current.value);
       if (!recorded.ok) {
         registry.end(issued.value.credential_ref);
         return recorded;
@@ -202,6 +201,10 @@ export type AgentRuntimeDeps = {
   secrets: AgentRuntimeSecrets;
   // 앱 direct socket 폴더. supervisor의 `appSocketRoot`와 같은 값이다.
   socketRoot: string;
+  // child가 감독 pipe로 읽는 입력함(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
+  // 읽지 못하고 event는 버려진다.
+  turns?: TurnSource;
+  publish?: (event: AgentEvent) => void;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
 };
@@ -250,6 +253,11 @@ export async function startAgentRuntimeChild(
     process: AGENT_RUNTIME_PROCESS,
   });
 
+  const pipe = deps.turns === undefined ? undefined : createTurnPipe({
+    source: deps.turns,
+    publish: deps.publish ?? (() => {}),
+  });
+
   // 자식의 blob 준비 요청은 시작마다 새 handler가 받는다. 자식이 끝나면 열린 준비를 닫는다.
   let blob: ChildBlobPrepare | undefined;
   const newBlob = () =>
@@ -282,6 +290,13 @@ export async function startAgentRuntimeChild(
               return deps.io.send(AGENT_RUNTIME_KIND, response);
             }
           }).catch(() => {});
+          return;
+        }
+        const piped = pipe?.onMessage(message);
+        if (piped?.handled) {
+          void piped.response?.then((response) =>
+            deps.io.send(AGENT_RUNTIME_KIND, response)
+          ).catch(() => {});
           return;
         }
         void link.onMessage(message).then((response) => {

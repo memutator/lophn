@@ -11,12 +11,11 @@ import {
   type AuthenticatedContext,
   authenticatedContextSchema,
   type CredentialConditions,
+  type CredentialScope,
   credentialScopeSchema,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { agentAppScopeSchema } from "../../../protocol/lophn-agent/mod.ts";
 import {
-  type AgentCredentialScope,
   authorize,
   conditionsMatch,
   type CredentialTarget,
@@ -31,14 +30,14 @@ export type CredentialIssue = {
   // 경계만 agent credential을, app supervisor만 app credential을 발급한다.
   actor: "user" | "machine" | `agent:${string}` | `app:${string}`;
   principal: string;
-  scope: AgentCredentialScope;
+  scope: CredentialScope;
   conditions: CredentialConditions;
   expires_at?: string;
   test_runner?: boolean;
 };
 
 export type CurrentCredential = {
-  scope: AgentCredentialScope;
+  scope: CredentialScope;
   conditions: CredentialConditions;
 };
 
@@ -132,16 +131,11 @@ export class CredentialRegistry {
   ): Promise<Result<{ token: string; credential_ref: string }>> {
     let userReserved = false;
     try {
-      // agent 상한은 lophn-agent의 AgentAppScope 그대로다. platform contracts가
-      // scope.ts를 import하면 순환이므로 발급 경계가 그 schema로 검증한다.
       const parsedScope = credentialScopeSchema.safeParse({
         operations: input.scope.operations,
         targets: input.scope.targets,
       });
       const kind = actorKind(input.actor);
-      const boundAgent = input.scope.agent === undefined
-        ? undefined
-        : agentAppScopeSchema.safeParse(input.scope.agent);
       const parsed = parsedScope.success
         ? authenticatedContextSchema.safeParse({
           principal: input.principal,
@@ -155,17 +149,11 @@ export class CredentialRegistry {
         })
         : undefined;
       if (
-        !parsed?.success || boundAgent?.success === false ||
+        !parsed?.success ||
         (kind !== "user" && kind !== "machine" && kind !== "app" &&
           kind !== "agent")
       ) return invalid();
-      const context: AuthenticatedContext & { scope: AgentCredentialScope } = {
-        ...parsed.data,
-        scope: {
-          ...parsed.data.scope,
-          ...(boundAgent?.success ? { agent: boundAgent.data } : {}),
-        },
-      };
+      const context: AuthenticatedContext = parsed.data;
       if (
         input.test_runner !== undefined &&
         typeof input.test_runner !== "boolean"
@@ -208,33 +196,26 @@ export class CredentialRegistry {
           context.scope.targets.mode !== context.conditions.mode
         ) return invalid();
       }
-      // agent credential은 유효 assignment·run에 묶인다. scope.agent는 lophn-agent가
-      // 계산한 상한 그대로이며 그 assignment와 같아야 한다. platform은 내용을 해석하지 않는다.
+      // agent credential은 session 하나와 그 안에서 도는 turn 하나에 묶인다. actor가 그 session이다.
       if (kind === "agent") {
         if (
-          !boundAgent?.success || !context.conditions.run ||
-          context.conditions.assignment !==
-            input.actor.slice("agent:".length) ||
-          boundAgent.data.assignment !== context.conditions.assignment ||
-          context.scope.targets.assignment !== context.conditions.assignment ||
-          context.scope.targets.run !== context.conditions.run
+          !context.conditions.turn || !context.conditions.session ||
+          context.conditions.session !== input.actor.slice("agent:".length) ||
+          context.scope.targets.session !== context.conditions.session ||
+          context.scope.targets.turn !== context.conditions.turn
         ) return invalid();
-      } else if (context.scope.agent !== undefined) return invalid();
+      }
       if (
         context.expires_at !== undefined &&
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
       ) return invalid();
-      const ceiling: AgentCredentialScope = {
+      const ceiling: CredentialScope = {
         operations: operationCeiling(
           input.actor,
           this.#options.operations,
           input.test_runner,
         ),
         targets: {},
-        // agent 상한은 발급 scope가 정한다. 동작 상한만 여기서 더 좁힌다.
-        ...(context.scope.agent === undefined
-          ? {}
-          : { agent: context.scope.agent }),
       };
       if (!scopeWithin(context.scope, ceiling)) return invalid();
       const restrict = this.#options.current ?? this.#options.live;
@@ -292,7 +273,7 @@ export class CredentialRegistry {
   async authenticate(
     bearer: string,
   ): Promise<
-    Result<AuthenticatedContext & { scope: AgentCredentialScope }>
+    Result<AuthenticatedContext & { scope: CredentialScope }>
   > {
     try {
       if (typeof bearer !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(bearer)) {
@@ -314,7 +295,7 @@ export class CredentialRegistry {
 
   revalidate(
     ctx: Pick<AuthenticatedContext, "credential_ref">,
-  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
+  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
     const record = this.#records.get(ctx.credential_ref);
     return record ? this.#context(record) : this.#denied();
   }
@@ -337,7 +318,7 @@ export class CredentialRegistry {
   }
 
   endBy(
-    condition: "app" | "task" | "process" | "run" | "assignment" | "release",
+    condition: "app" | "task" | "process" | "turn" | "session" | "release",
     value: string,
   ): number {
     let ended = 0;
@@ -362,7 +343,7 @@ export class CredentialRegistry {
 
   #context(
     record: CredentialRecord,
-  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
+  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
     if (
       record.state !== "active" || record.epoch !== this.#options.epoch ||
       (record.context.expires_at !== undefined &&
@@ -388,14 +369,14 @@ export class CredentialRegistry {
   // 소유 module이 현재 active라고 확인한 credential의 context. 원장 credential 기록에 쓴다.
   externalContext(
     credential: ExternalCredential,
-  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
+  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
     return this.#external(credential);
   }
 
   // 상한은 actor별 동작 상한이다.
   #external(
     credential: ExternalCredential,
-  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
+  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
     const parsed = authenticatedContextSchema.safeParse({
       principal: credential.principal,
       actor: credential.actor,

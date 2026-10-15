@@ -89,7 +89,7 @@ export function buildTotals(
   );
   return usageTotalSchema.parse({
     group: {
-      run: null,
+      turn: null,
       session: null,
       role: null,
       model: null,

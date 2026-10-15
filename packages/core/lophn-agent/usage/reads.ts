@@ -64,7 +64,7 @@ function loadRows(
   },
 ): Result<ModelCallRecord[]> {
   const rows = sql.all(
-    `select id, run, session, model_use, agent_hash, purpose,
+    `select id, turn, session, model_use, agent_hash, purpose,
        attempt_kind, attempt_order, retry_of,
        provider, credential_revision, model_name, protocol,
        call_model, input, context_basis, output, state, state_seq,
@@ -186,7 +186,7 @@ export function createUsageReads(): {
       route: modelCallRead,
       handle(snapshot, _ctx, input) {
         const row = snapshot.sql.get(
-          `select id, run, session, model_use, agent_hash, purpose,
+          `select id, turn, session, model_use, agent_hash, purpose,
              attempt_kind, attempt_order, retry_of,
              provider, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,
@@ -208,9 +208,9 @@ export function createUsageReads(): {
       handle(snapshot, _ctx, input) {
         const clauses: string[] = [];
         const params: unknown[] = [];
-        if (input.run !== undefined) {
-          clauses.push("run = ?");
-          params.push(input.run);
+        if (input.turn !== undefined) {
+          clauses.push("turn = ?");
+          params.push(input.turn);
         }
         if (input.session !== undefined) {
           clauses.push("session = ?");
@@ -256,9 +256,9 @@ export function createUsageReads(): {
           "started_at < ?",
         ];
         const params: unknown[] = [input.from_at, input.through_at];
-        if (input.run !== undefined) {
-          clauses.push("run = ?");
-          params.push(input.run);
+        if (input.turn !== undefined) {
+          clauses.push("turn = ?");
+          params.push(input.turn);
         }
         if (input.session !== undefined) {
           clauses.push("session = ?");
@@ -274,7 +274,7 @@ export function createUsageReads(): {
           params.push(input.currency);
         }
         const rows = snapshot.sql.all(
-          `select id, run, session, model_use, agent_hash, purpose,
+          `select id, turn, session, model_use, agent_hash, purpose,
              attempt_kind, attempt_order, retry_of,
              provider, credential_revision, model_name, protocol,
              call_model, input, context_basis, output, state, state_seq,
@@ -295,7 +295,7 @@ export function createUsageReads(): {
           ).length;
         const total: UsageTotal = {
           group: {
-            run: input.run ?? null,
+            turn: input.turn ?? null,
             session: input.session ?? null,
             // role filter는 위에서 되돌렸다. group 기록도 모름이다.
             role: null,

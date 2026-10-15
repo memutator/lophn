@@ -71,7 +71,7 @@ function summaryCall(
        cast(e.seq as text) as started_seq
      from model_calls c
      join events e on e.subject = c.id and e.type = 'ModelCallStarted'
-     where c.id = ? and c.session = ? and c.run is null
+     where c.id = ? and c.session = ? and c.turn is null
        and c.purpose = 'conversation_compression'
        and c.model_use = 'organizing' and c.state = 'finished'
        and c.output is not null and json_extract(c.outcome, '$.kind') = 'complete'`,

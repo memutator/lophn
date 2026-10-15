@@ -18,8 +18,8 @@ export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 
 // 옛 route(곧 지움): 새 읽기는 `instructionsGet`이다. core run-loop가 아직 쓰는 동안만 남긴다.
 // agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다. machine만 읽는다.
-// 어느 자리의 파일인지는 입력에 없다. core가 `run`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
-// project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 run의 agent 정의 본문이다.
+// 어느 자리의 파일인지는 입력에 없다. core가 `turn`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
+// project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 turn의 agent 정의 본문이다.
 // 작업 자리에 없는 층(project 자리 run의 app 층 등)은 없는 대상과 같은 not_found다. 본문은 core가 파일에서
 // 읽어 base64로 준다. 파일이 상한(32 KiB)을 넘으면 본문은 처음 32 KiB까지만 주고 `size_bytes`는 실제
 // 크기다(읽는 쪽이 상한 초과로 call을 멈춘다). 파일이 없으면 `file`이 null(부재)이고, 있는데 읽지 못하면
@@ -34,7 +34,7 @@ export const INSTRUCTION_READ_LAYERS = [
 ] as const;
 
 export const instructionReadInputSchema = z.strictObject({
-  run: idSchema("run"),
+  turn: idSchema("trn"),
   layer: z.enum(INSTRUCTION_READ_LAYERS),
 });
 

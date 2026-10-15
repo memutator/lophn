@@ -137,13 +137,13 @@ export function createRecordRewindFile(): CommandDefinition<
         return reject("forbidden", "only a run's agent records its writes");
       }
       const call = tx.sql.get(
-        "select run, state_seq from tool_calls where id = ?",
+        "select turn, state_seq from tool_calls where id = ?",
         [input.tool_call],
       );
       if (call === undefined) {
         return reject("invalid_input", "tool call not found");
       }
-      if (String(call["run"]) !== ctx.run) {
+      if (String(call["turn"]) !== ctx.run) {
         return reject("forbidden", "an agent records only for its own run");
       }
       const existing = tx.sql.get(

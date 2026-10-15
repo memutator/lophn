@@ -173,7 +173,7 @@ export type CallModel = z.infer<typeof callModelSchema>;
 
 const modelCallFields = {
   id: idSchema("mcl"),
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   session: idSchema("ses").nullable(),
   model_use: z.enum(MODEL_USE_KINDS).nullable(),
   agent_hash: sha256Schema.nullable(),
@@ -196,7 +196,7 @@ const modelCallFields = {
 };
 
 function modelCallShape(value: {
-  run: string | null;
+  turn: string | null;
   session: string | null;
   model_use: string | null;
   agent_hash: string | null;
@@ -208,10 +208,10 @@ function modelCallShape(value: {
   finished_at: string | null;
   outcome: { kind: (typeof MODEL_OUTCOMES)[number] } | null;
 }): boolean {
-  const attached = value.run !== null && value.session !== null &&
+  const attached = value.turn !== null && value.session !== null &&
     value.model_use !== null && value.agent_hash !== null;
-  // Compact의 요약 call은 run과 agent 대신 session을 가리킨다. run이 없는 session도 요약한다.
-  const summary = value.run === null && value.session !== null &&
+  // Compact의 요약 call은 turn과 agent 대신 session을 가리킨다. turn이 없는 session도 요약한다.
+  const summary = value.turn === null && value.session !== null &&
     value.model_use === "organizing" && value.agent_hash === null &&
     value.purpose === "conversation_compression";
   const finished = value.state === "finished";

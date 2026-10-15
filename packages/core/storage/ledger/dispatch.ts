@@ -33,7 +33,6 @@ export type CommandDispatch = {
 export function createCommandDispatch(
   commands: ReadonlyMap<string, CommandDefinition>,
   ctx: AuthenticatedContext,
-  run: string | null,
   request: AuthenticatedContext,
   checkCursor: (subscriber: string) => Result<void>,
   outer?: string,
@@ -57,7 +56,7 @@ export function createCommandDispatch(
         message: "command가 자기 자신을 다시 부른다",
       });
     }
-    const checked = admit(definition.value, ctx, run, input, compare);
+    const checked = admit(definition.value, ctx, input, compare);
     if (!checked.ok) return checked;
     // 안쪽 call도 바깥 run 판정을 다시 받는다. 끝난 run의 새 대상 변경은 거절한다.
     const admitted = admitAgentRun(
@@ -114,7 +113,6 @@ function lookup(
 function admit(
   definition: CommandDefinition,
   ctx: AuthenticatedContext,
-  run: string | null,
   input: unknown,
   compare: unknown,
 ): Result<{ input: unknown; compare: unknown }> {
@@ -125,7 +123,7 @@ function admit(
   const allowed = authorizeConditions(
     ctx,
     definition.route.name,
-    authorityTarget(ctx, run ?? undefined),
+    authorityTarget(ctx),
   );
   if (!allowed.ok) return allowed;
   const parsedInput = definition.route.input.safeParse(input);

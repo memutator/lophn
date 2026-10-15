@@ -41,6 +41,7 @@ export {
   type TurnStarter,
 } from "./work.ts";
 export { createInbox, type Inbox } from "./inbox.ts";
+export { createTurnPipe, type TurnPipe } from "./turn-pipe.ts";
 export { inputText } from "./input-text.ts";
 export { untrustedSource, wrapUntrusted } from "./untrusted.ts";
 export {
@@ -71,7 +72,6 @@ export {
   createTurnDriver,
   type DriveDeps,
   type DriveResult,
-  NO_TURN_SOURCE,
   type TurnDriver,
 } from "./driver.ts";
 export {

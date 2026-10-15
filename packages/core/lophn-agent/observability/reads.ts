@@ -142,9 +142,9 @@ function loadRunEvents(lookup: Lookup, run: string): EventFacts[] {
          select seq from events where subject = ?
          union select seq from events where run = ?
          union select seq from events where subject in
-           (select id from model_calls where run = ?)
+           (select id from model_calls where turn = ?)
          union select seq from events where subject in
-           (select id from tool_calls where run = ?)
+           (select id from tool_calls where turn = ?)
          union select seq from events where subject in
            (select id from messages where run = ?)
        ) order by seq`,
@@ -273,7 +273,7 @@ function loadUnrecorded(lookup: Lookup, run: string) {
   const subjects = (type: string, table: string) =>
     lookup.sql.all(
       `select subject from events
-       where type = ? and json_extract(payload, '$.run') = ?
+       where type = ? and json_extract(payload, '$.turn') = ?
          and subject not in (select id from ${table})
        order by seq`,
       [type, run],
@@ -286,11 +286,11 @@ function loadUnrecorded(lookup: Lookup, run: string) {
 
 export function traceOfRun(lookup: Lookup, run: RunRow): RunTrace {
   const models = modelsOf(lookup.sql.all(
-    `select ${MODEL_COLUMNS} from model_calls where run = ?
+    `select ${MODEL_COLUMNS} from model_calls where turn = ?
      order by attempt_order`,
     [run.id],
   ));
-  const tools = toolsOf(lookup, "t.run = ?", run.id);
+  const tools = toolsOf(lookup, "t.turn = ?", run.id);
   const messages = loadMessages(lookup, run.id, run.source_message);
   return assembleTrace({
     run,
@@ -313,7 +313,7 @@ export function traceOfRun(lookup: Lookup, run: RunRow): RunTrace {
 // run 없이 기록된 호출의 trace로 조립한다. export가 쓴다(가시 판정은 route가 본다).
 export function traceOfCall(lookup: Lookup, id: string): RunTrace | null {
   const row = lookup.sql.get(
-    `select ${MODEL_COLUMNS}, run, session, started_at
+    `select ${MODEL_COLUMNS}, turn as run, session, started_at
        from model_calls where id = ?`,
     [id],
   );
@@ -367,7 +367,7 @@ function callTarget(
   id: string,
 ): Result<RunTrace> {
   const row = lookup.sql.get(
-    `select ${MODEL_COLUMNS}, run, session, started_at
+    `select ${MODEL_COLUMNS}, turn as run, session, started_at
        from model_calls where id = ?`,
     [id],
   );

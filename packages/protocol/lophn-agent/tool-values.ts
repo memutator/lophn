@@ -35,7 +35,7 @@ const toolDecisionFields = {
   reason: nonempty,
   effect: toolDecisionEffectSchema.nullable(),
   assignment_revision: revision.nullable(),
-  // run 기준이 고정한 resolved agent의 hash다. run을 읽지 못했을 때만 null이다.
+  // turn 기준이 고정한 resolved agent의 hash다. turn을 읽지 못했을 때만 null이다.
   agent_hash: hash.nullable(),
   contract_revision: nonempty.nullable(),
   comparison_basis: z.json().nullable(),
@@ -163,7 +163,7 @@ export const TOOL_CALL_STATES = ["requested", "started", "finished"] as const;
 
 const toolCallFields = {
   id: idSchema("tcl"),
-  run: idSchema("run"),
+  turn: idSchema("trn"),
   model_call: idSchema("mcl"),
   response_key: nonempty.max(128),
   response_order: order,

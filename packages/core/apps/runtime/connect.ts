@@ -230,9 +230,9 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
         message: "agent connection needs its tool call",
       });
     }
-    // run은 인증된 credential이 정한다. 본문이 다른 run을 주장하면 거절한다.
+    // turn은 인증된 credential이 정한다. 본문이 다른 turn을 주장하면 거절한다.
     if (
-      ctx.conditions.run === undefined || claimed.run !== ctx.conditions.run
+      ctx.conditions.turn === undefined || claimed.run !== ctx.conditions.turn
     ) {
       return err({
         code: "forbidden",
@@ -241,7 +241,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     }
     return ok({
       kind: "agent",
-      run: ctx.conditions.run,
+      run: ctx.conditions.turn,
       tool_call: claimed.tool_call,
     });
   }

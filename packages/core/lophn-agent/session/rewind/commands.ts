@@ -659,7 +659,7 @@ function writingNow(tx: Tx, session: string, plan: RewindPlan): boolean {
       `select 1 as found
          from rewind_files f
          join tool_calls t on t.id = f.tool_call
-         join runs r on r.id = t.run
+         join runs r on r.id = t.turn
         where r.session = ? and r.state != 'finished' and f.path = ? limit 1`,
       [session, file.path],
     ) !== undefined

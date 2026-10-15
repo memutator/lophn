@@ -69,9 +69,13 @@ export function createToolReads(): {
         const limit = input.limit ?? PAGE;
         const clauses: string[] = [];
         const params: unknown[] = [];
-        if (input.run !== undefined) {
-          clauses.push("run = ?");
-          params.push(input.run);
+        if (input.turn !== undefined) {
+          clauses.push("turn = ?");
+          params.push(input.turn);
+        }
+        if (input.session !== undefined) {
+          clauses.push("turn in (select id from turns where session = ?)");
+          params.push(input.session);
         }
         if (input.model_call !== undefined) {
           clauses.push("model_call = ?");

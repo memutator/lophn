@@ -128,8 +128,8 @@ const FORBIDDEN = "이 credential로는 할 수 없다";
 const CONDITION_TARGET_KEYS = [
   "app",
   "task",
-  "run",
-  "assignment",
+  "turn",
+  "session",
   "release",
   "process",
   "mode",
@@ -146,9 +146,7 @@ export function strictTargetAuthorizer(): TargetAuthorizer {
     }
     const merged: Record<string, unknown> = { ...target };
     for (const key of CONDITION_TARGET_KEYS) {
-      const value = key === "run"
-        ? ctx.run ?? ctx.conditions.run
-        : ctx.conditions[key];
+      const value = ctx.conditions[key];
       if (value !== undefined) merged[key] = value;
     }
     for (const key of Object.keys(ctx.scope.targets)) {

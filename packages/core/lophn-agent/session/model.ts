@@ -99,6 +99,7 @@ create table messages (
   turn text,
   body text not null check (length(body) = 64),
   created_seq integer not null unique check (created_seq >= 1),
+  created_at text not null,
   state_seq integer not null check (state_seq >= created_seq),
   check ((from_kind = 'human') = (from_ref is null)),
   check (delivery = 'next_turn' or from_kind = 'human')
@@ -107,7 +108,7 @@ create index messages_session_created on messages (session, created_seq);
 create index messages_turn on messages (turn);
 create trigger messages_content_immutable
 before update of id, session, from_kind, from_ref, call, reply_to, refs,
-  delivery, body, created_seq on messages
+  delivery, body, created_seq, created_at on messages
 begin
   select raise(abort, 'a confirmed message is never overwritten');
 end;
@@ -311,11 +312,12 @@ export type MessageRow = {
   turn: string | null;
   body: string;
   created_seq: string;
+  created_at: string;
   state_seq: string;
 };
 
 export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
-  reply_to, refs, delivery, turn, body, created_seq, state_seq`;
+  reply_to, refs, delivery, turn, body, created_seq, created_at, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
   return {
@@ -330,6 +332,7 @@ export function messageRowOf(row: SqlRow): MessageRow {
     turn: text(row["turn"]),
     body: String(row["body"]),
     created_seq: String(row["created_seq"]),
+    created_at: String(row["created_at"]),
     state_seq: String(row["state_seq"]),
   };
 }
@@ -363,6 +366,7 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
     delivery: row.delivery,
     body: row.body,
     created_seq: row.created_seq,
+    created_at: row.created_at,
   } as ReceivedMessage;
 }
 

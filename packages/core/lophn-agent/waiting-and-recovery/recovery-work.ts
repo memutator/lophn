@@ -178,7 +178,7 @@ export async function recoverRunFromLedger(
     let cursor: string | undefined;
     for (let page = 0; page < 100; page++) {
       const listed = await read(modelCallList, {
-        run: runId,
+        turn: runId,
         ...(cursor === undefined ? {} : { cursor }),
       });
       if (!listed.ok) return listed;
@@ -199,7 +199,7 @@ export async function recoverRunFromLedger(
     let cursor: string | undefined;
     for (let page = 0; page < 100; page++) {
       const listed = await read(toolCallList, {
-        run: runId,
+        turn: runId,
         limit: 100,
         ...(cursor === undefined ? {} : { cursor }),
       });

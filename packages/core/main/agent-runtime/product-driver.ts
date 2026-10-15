@@ -56,8 +56,8 @@ export function productToolkit(options: {
 }
 
 // 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, 역할 prompt, model
-// 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`)과 agent
-// event를 core Bus로 보내는 길(`events`). 지금은 닫힌 연결과 버리는 sink가 들어 있다.
+// 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`). 지금은
+// 닫힌 연결이 들어 있다. agent event는 감독 pipe로 core Bus에 간다(`calls.events`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
@@ -98,7 +98,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         mcp: (session: string) => mcpKit.toolkit(session),
       }),
       toolPorts: () => UNWIRED_TOOL_PORTS,
-      events: { publish: () => {} },
+      events: calls.events,
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {

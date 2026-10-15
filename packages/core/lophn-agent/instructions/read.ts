@@ -45,17 +45,17 @@ export function decodeInstructionFile(
   return ok({ size_bytes: file.size_bytes, bytes });
 }
 
-// 한 run의 InstructionFiles. core의 ReadInstructionFile을 그 run으로 부르는 `call`만 받는다. 어느 자리의
-// 파일인지는 core가 run의 작업 자리로 정하므로 여기서 자리 id를 보내지 않는다.
+// 한 turn의 InstructionFiles. core의 ReadInstructionFile을 그 turn으로 부르는 `call`만 받는다. 어느 자리의
+// 파일인지는 core가 turn의 작업 자리로 정하므로 여기서 자리 id를 보내지 않는다.
 export function instructionFilesOverCore(
-  run: string,
+  turn: string,
   call: (
-    input: { run: string; layer: InstructionLayerKind },
+    input: { turn: string; layer: InstructionLayerKind },
   ) => Promise<Result<{ file: InstructionReadFile | null }>>,
 ): InstructionFiles {
   return {
     async read(layer) {
-      const read = await call({ run, layer });
+      const read = await call({ turn, layer });
       if (!read.ok) return read;
       return read.value.file === null
         ? ok(null)

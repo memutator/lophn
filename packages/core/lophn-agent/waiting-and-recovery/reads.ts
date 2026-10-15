@@ -22,7 +22,7 @@ export const RUN_BODY_MAX_BYTES = 4 * 1024 * 1024;
 
 const SOURCES = {
   tool_call_input: {
-    sql: "select id, run, input as hash from tool_calls where id = ?",
+    sql: "select id, turn as run, input as hash from tool_calls where id = ?",
     owner: "tool_call",
     field: "input",
   },
@@ -39,12 +39,12 @@ const SOURCES = {
     field: "agent",
   },
   model_call_output: {
-    sql: "select id, run, output as hash from model_calls where id = ?",
+    sql: "select id, turn as run, output as hash from model_calls where id = ?",
     owner: "model_call",
     field: "output",
   },
   tool_call_output: {
-    sql: "select id, run, output as hash from tool_calls where id = ?",
+    sql: "select id, turn as run, output as hash from tool_calls where id = ?",
     owner: "tool_call",
     field: "output",
   },

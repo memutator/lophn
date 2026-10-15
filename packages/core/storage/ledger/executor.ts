@@ -64,12 +64,12 @@ export type CommandExecutorDeps = TxDeps & {
   confirmation?: ConfirmationBridge;
 };
 
-// envelope.run이 없으면 current credential의 묶인 run을 잃지 않는다.
+// envelope.run이 없으면 current credential의 묶인 turn을 잃지 않는다.
 function effectiveRun(
   ctx: AuthenticatedContext,
   envelopeRun: string | undefined,
 ): string | null {
-  return envelopeRun ?? ctx.conditions.run ?? null;
+  return envelopeRun ?? ctx.conditions.turn ?? null;
 }
 
 function requestContext(
@@ -126,10 +126,10 @@ function applyCommand(
   const { record, tx, seal, now, checkCursor } = session;
   if (
     envelope.run !== undefined &&
-    ctx.conditions.run !== undefined &&
-    envelope.run !== ctx.conditions.run
+    ctx.conditions.turn !== undefined &&
+    envelope.run !== ctx.conditions.turn
   ) {
-    return err({ code: "forbidden", message: "run 조건이 다르다" });
+    return err({ code: "forbidden", message: "turn 조건이 다르다" });
   }
   const kind = actorKind(ctx.actor);
   if (kind === undefined || !definition.route.actors.includes(kind)) {
@@ -138,7 +138,7 @@ function applyCommand(
   const allowed = authorizeConditions(
     ctx,
     definition.route.name,
-    authorityTarget(ctx, envelope.run),
+    authorityTarget(ctx),
   );
   if (!allowed.ok) return allowed;
   const stored = loadStored(record, ctx.principal, envelope.idempotency_key);
@@ -269,7 +269,6 @@ export function commitCommand(
         txDeps.dispatch = createCommandDispatch(
           commands,
           credential.value,
-          effectiveRun(credential.value, envelope.run),
           request.value,
           (subscriber) =>
             authorizeSubscriberCursor(

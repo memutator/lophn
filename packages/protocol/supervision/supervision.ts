@@ -166,16 +166,15 @@ export const appCredentialResponseSchema = z.strictObject({
   expires_at: atSchema.optional(),
 });
 
-// agent runtime이 run마다 `agent:<asg>` credential을 core에 청하는 통로(lophn-agent/harness/run-loop).
-// StartRun이 확정된 run에만 청하고 core의 인증 경계가 발급한다. platform은 scope.agent를 해석하지
-// 않고 그대로 싣는다. operations는 발급 상한 안이어야 하고 넓히지 못한다.
+// agent runtime이 turn마다 `agent:<ses>` credential을 core에 청하는 통로(lophn-agent/run-loop). StartTurn이
+// 확정된 turn에만 청하고 core의 인증 경계가 발급한다. credential은 그 session과 turn에 묶이고 operations는
+// 그 session 역할의 발급 상한 안이어야 한다. 넓히지 못한다.
 export const agentCredentialRequestSchema = z.strictObject({
   type: z.literal("agent_credential_request"),
   request_id: opaque,
-  run: idSchema("run"),
-  assignment: idSchema("asg"),
+  session: idSchema("ses"),
+  turn: idSchema("trn"),
   operations: z.array(opaque),
-  scope: z.record(z.string(), z.unknown()),
 });
 export const agentCredentialResponseSchema = z.strictObject({
   type: z.literal("agent_credential_response"),
@@ -183,10 +182,10 @@ export const agentCredentialResponseSchema = z.strictObject({
   credential: opaque,
   credential_ref: opaque,
 });
-// run 종료·멈춤·assignment 회수에 그 run의 credential을 끝낸다. 감독 상실은 core가 process 조건으로 끝낸다.
+// turn 종료·멈춤에 그 turn의 credential을 끝낸다. 감독 상실은 core가 process 조건으로 끝낸다.
 export const agentCredentialEndSchema = z.strictObject({
   type: z.literal("agent_credential_end"),
-  run: idSchema("run"),
+  turn: idSchema("trn"),
 });
 export type AgentCredentialRequest = z.infer<
   typeof agentCredentialRequestSchema
@@ -194,6 +193,57 @@ export type AgentCredentialRequest = z.infer<
 export type AgentCredentialResponse = z.infer<
   typeof agentCredentialResponseSchema
 >;
+
+// 입력함은 core 메모리에 있다. agent runtime은 이 통로로 시작할 turn을 고르고(`next`), 시작·끝남·steer를
+// 알리거나 읽는다. op와 응답의 모양은 run-loop의 `TurnSource` 그대로다.
+export const TURN_SOURCE_OPS = [
+  "next",
+  "began",
+  "ended",
+  "steering",
+  "settled",
+] as const;
+export const turnSourceRequestSchema = z.strictObject({
+  type: z.literal("turn_source_request"),
+  request_id: opaque,
+  op: z.enum(TURN_SOURCE_OPS),
+  session: idSchema("ses").optional(),
+  count: count.optional(),
+}).refine(
+  (value) =>
+    value.op === "next"
+      ? value.session === undefined
+      : value.session !== undefined &&
+        (value.op === "settled") === (value.count !== undefined),
+  { message: "turn source request does not fit its op" },
+);
+export const turnSourceResponseSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("turn_source_response"),
+    request_id: opaque,
+    ok: z.literal(true),
+    // op마다 TurnStart | null, RoutedInput | null, void, SteeringInput[]. 읽는 쪽이 op로 해석한다.
+    value: z.unknown(),
+  }),
+  z.strictObject({
+    type: z.literal("turn_source_response"),
+    request_id: opaque,
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(ERROR_CODES),
+      message: z.string().max(200),
+    }),
+  }),
+]);
+export type TurnSourceRequest = z.infer<typeof turnSourceRequestSchema>;
+export type TurnSourceResponse = z.infer<typeof turnSourceResponseSchema>;
+
+// agent runtime의 loop가 낸 agent event 하나다. core가 `AgentEvent`로 검사해 Bus에 publish한다(protocol/events가
+// 이 file을 거쳐 순환하지 않도록 event의 모양은 core가 본다). 받는 쪽이 없으면 버린다.
+export const agentEventMessageSchema = z.strictObject({
+  type: z.literal("agent_event"),
+  event: z.record(z.string(), z.unknown()),
+});
 
 // agent runtime이 model로 보낼 글을 core의 안전화에 맡기는 통로(lophn-agent/harness/run-loop). 알려진 secret
 // 값은 core의 보호 registry에만 있고 child로 가지 않는다. child가 글 조각(window)을 보내면 core가 같은
@@ -372,6 +422,7 @@ export const parentMessageSchema = z.union([
   workerRequestEnvelopeSchema,
   appCredentialResponseSchema,
   agentCredentialResponseSchema,
+  turnSourceResponseSchema,
   redactResponseSchema,
   secretSendResponseSchema,
   blobPrepareResultSchema,
@@ -385,6 +436,8 @@ export const childMessageSchema = z.union([
   appCredentialRequestSchema,
   agentCredentialRequestSchema,
   agentCredentialEndSchema,
+  turnSourceRequestSchema,
+  agentEventMessageSchema,
   redactRequestSchema,
   secretSendRequestSchema,
   blobPrepareRequestSchema,

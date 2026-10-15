@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { readCursorSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import {
+  atSchema,
+  readCursorSchema,
+  seqSchema,
+  sha256Schema,
+} from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { inputDeliverySchema, receivedEnvelopeSchema } from "./inputs.ts";
 
@@ -17,6 +22,8 @@ export const receivedMessageSchema = receivedEnvelopeSchema.extend({
   delivery: inputDeliverySchema,
   body: sha256Schema,
   created_seq: seqSchema,
+  // 접수한 시각. 대화 줄의 시각이다.
+  created_at: atSchema,
 });
 export type ReceivedMessage = z.infer<typeof receivedMessageSchema>;
 

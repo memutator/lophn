@@ -121,20 +121,21 @@ export const receiveMessage = defineCommand({
   actors: ["user"],
   errors: commandErrors,
 });
+// agent의 답을 그 session의 기록에 남긴다. 받은 message와 같은 봉투로 쓴다: 보낸 쪽은 그 session
+// 자신(`from: agent`)이고 `turn`은 답한 turn이다. 도는 turn의 session만 받는다.
 export const recordMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn"),
   // agent는 글·시각 블록, machine은 글만 낸다(owner가 actor로 검사한다).
   content: agentMessageContentInputSchema,
-  links: z.array(messageLinkInputSchema),
 });
 export const recordMessage = defineCommand({
   resource: "messages",
   method: "record",
   name: "RecordMessage",
   input: recordMessageInputSchema,
-  output: messageCommandOutputSchema,
+  output: z.object({ message: idSchema("msg"), state_seq: seqSchema }),
   actors: ["agent", "machine"],
   errors: commandErrors,
 });

@@ -136,7 +136,7 @@ export const modelCallList = defineRead({
   method: "list",
   name: "ListModelCalls",
   input: z.strictObject({
-    run: idSchema("run").optional(),
+    turn: idSchema("trn").optional(),
     session: idSchema("ses").optional(),
     cursor: z.string().min(1).optional(),
   }),
@@ -148,7 +148,7 @@ export const modelCallList = defineRead({
 export const modelCallStarted = defineEvent("ModelCallStarted", {
   subject: idSchema("mcl"),
   payload: z.object({
-    run: idSchema("run").nullable(),
+    turn: idSchema("trn").nullable(),
     session: idSchema("ses").nullable(),
     model_use: z.enum(["judgment", "organizing"]).nullable(),
     purpose: z.enum(MODEL_PURPOSES),

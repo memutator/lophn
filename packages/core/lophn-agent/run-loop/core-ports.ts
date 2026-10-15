@@ -47,7 +47,6 @@ import type {
   TurnPorts,
 } from "./ports.ts";
 import { inputText } from "./input-text.ts";
-import { resultLinks } from "../session/answer-links.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
@@ -209,7 +208,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const model = deps.model;
     const call = {
       id,
-      run: seat.turn,
+      turn: seat.turn,
       session: seat.session,
       model_use: "judgment" as const,
       agent_hash: deps.agentHash,
@@ -355,7 +354,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       recordToolRequest,
       {
         id,
-        run: seat.turn,
+        turn: seat.turn,
         model_call: call.model_call,
         response_key: call.key,
         response_order: call.order,
@@ -372,7 +371,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         retry_of: call.retry_of,
         attempt: call.attempt,
       },
-      { run_state_seq: "0", model_call_finished_seq: "0" },
+      { turn_state_seq: "0", model_call_finished_seq: "0" },
       `${id}:request`,
     );
   }
@@ -581,23 +580,16 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     },
     async answer(text) {
       if (text.trim() === "") return ok(undefined);
-      // 결과 링크는 이 turn이 실제로 저장한 것뿐이다.
-      const saved = await resultLinks(machine, seat.turn);
-      if (!saved.ok) return saved;
+      // 답은 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이 turn이
+      // 이 session에서 도는 중인지 본다. 같은 turn·model call의 답은 한 번만 남는다.
       const recorded = await commandOf(
-        agent,
+        machine,
         recordMessage,
         {
           id: ids.newId("msg"),
           session: seat.session,
-          run: seat.turn,
+          turn: seat.turn,
           content: { schema_version: 1, parts: [{ kind: "text", text }] },
-          links: [
-            ...(lastModelCall === null
-              ? []
-              : [{ kind: "model_call" as const, call: lastModelCall }]),
-            ...saved.value,
-          ],
         },
         {},
         `${seat.turn}:answer:${lastModelCall ?? "none"}`,

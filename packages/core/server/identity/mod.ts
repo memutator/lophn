@@ -1,5 +1,4 @@
 export {
-  type AgentCredentialScope,
   authorize,
   authorizeConditions,
   CONDITION_TARGET_KEYS,

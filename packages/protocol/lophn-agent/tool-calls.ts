@@ -35,7 +35,7 @@ const errors = [
 
 const requestFields = {
   id: idSchema("tcl"),
-  run: idSchema("run"),
+  turn: idSchema("trn"),
   model_call: idSchema("mcl"),
   response_key: nonempty.max(128),
   response_order: order,
@@ -61,7 +61,7 @@ export const recordToolRequestInputSchema = z.strictObject(requestFields)
     { message: "retry keeps the first tool call id" },
   );
 export const recordToolRequestCompareSchema = z.strictObject({
-  run_state_seq: seqSchema,
+  turn_state_seq: seqSchema,
   model_call_finished_seq: seqSchema,
 });
 export const recordToolRequestOutputSchema = z.object({
@@ -109,7 +109,7 @@ export const startToolCallInputSchema = z.strictObject({
 });
 export const startToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
-  run_state_seq: seqSchema,
+  turn_state_seq: seqSchema,
   assignment_revision: revision,
 });
 export const startToolCallOutputSchema = z.object({
@@ -234,14 +234,18 @@ export const toolCallRead = defineRead({
   errors: errors.filter((code) => code !== "conflict"),
 });
 
+// 사람 화면은 turn별로, 한 session의 모든 turn을 한 번에 읽을 때는 session으로 거른다.
 export const toolCallListInputSchema = z.strictObject({
-  run: idSchema("run").optional(),
+  turn: idSchema("trn").optional(),
+  session: idSchema("ses").optional(),
   model_call: idSchema("mcl").optional(),
   cursor: z.string().min(1).optional(),
   limit: z.number().int().positive().max(100).optional(),
 }).refine(
-  (value) => value.run !== undefined || value.model_call !== undefined,
-  { message: "list needs a run or a model call" },
+  (value) =>
+    value.turn !== undefined || value.session !== undefined ||
+    value.model_call !== undefined,
+  { message: "list needs a turn, a session or a model call" },
 );
 export const toolCallListOutputSchema = withReadCommon(z.object({
   tool_calls: z.array(toolCallOutputSchema),
@@ -260,7 +264,7 @@ export const toolCallList = defineRead({
 export const toolCallRequested = defineEvent("ToolCallRequested", {
   subject: idSchema("tcl"),
   payload: z.object({
-    run: idSchema("run"),
+    turn: idSchema("trn"),
     model_call: idSchema("mcl"),
     response_key: nonempty,
     tool: toolNameSchema,

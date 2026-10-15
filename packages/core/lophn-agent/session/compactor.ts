@@ -175,7 +175,7 @@ export function createCompactor(
     if (!listed.ok) return null;
     return listed.value.calls.reduce(
       (most, call) =>
-        call.run === null ? Math.max(most, call.attempt_order) : most,
+        call.turn === null ? Math.max(most, call.attempt_order) : most,
       0,
     ) + 1;
   }

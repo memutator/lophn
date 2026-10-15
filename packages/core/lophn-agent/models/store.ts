@@ -30,7 +30,7 @@ function choiceOf(
 export function loadDefaults(sql: Query): ModelDefaults {
   const defaults: ModelDefaults = {
     lophn: null,
-    context_engineer: null,
+    project_manager: null,
     app_engineer: null,
     operator: null,
     summaries: null,
@@ -57,14 +57,16 @@ export function loadDefaults(sql: Query): ModelDefaults {
   return defaults;
 }
 
-// agent의 Workspace 층이 쓰는 값이다: 역할 slot에 고른 선택만 남기고 비운 slot과
+// agent의 전역 층이 쓰는 값이다: 역할 slot에 고른 선택만 남기고 비운 slot과
 // 요약용 slot은 뺀다.
 export function workspaceModels(
   defaults: ModelDefaults,
 ): NonNullable<AgentSettings["models"]> {
   const models: NonNullable<AgentSettings["models"]> = {};
   for (const role of AGENT_ROLES) {
-    const choice = defaults[role];
+    // 옛 role 이름 context_engineer가 slot project_manager를 읽는다.
+    const choice =
+      defaults[role === "context_engineer" ? "project_manager" : role];
     if (choice !== null) models[role] = choice;
   }
   return models;

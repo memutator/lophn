@@ -21,7 +21,7 @@ function oneLine(text: string): string {
 }
 
 const APPLY_WORDS: Record<SettingApplyAt, string> = {
-  next_run: "It takes effect from the next run.",
+  next_turn: "It takes effect from the next turn.",
   current_check: "It takes effect at the next check of the current work.",
   next_call: "It takes effect from the next call.",
 };

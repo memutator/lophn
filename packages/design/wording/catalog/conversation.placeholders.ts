@@ -183,8 +183,9 @@ export type ConversationPlaceholders = {
     agent: "string";
   };
   "conversation.label.slash-menu": Record<never, never>;
-  "conversation.label.slash-origin-place": Record<never, never>;
-  "conversation.label.slash-origin-workspace": Record<never, never>;
+  "conversation.label.slash-origin-builtin": Record<never, never>;
+  "conversation.label.slash-origin-global": Record<never, never>;
+  "conversation.label.slash-origin-project": Record<never, never>;
   "conversation.label.slash-unknown": {
     name: "string";
   };

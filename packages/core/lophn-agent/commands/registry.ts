@@ -3,6 +3,7 @@ import {
   BUILTIN_COMMAND_IDS,
   type CommandEntry,
   type CommandNotice,
+  type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   CHECK_CONTRACTS_PROMPT,
@@ -16,12 +17,12 @@ import {
 // model 정책). IO가 없는 순수 함수다.
 
 // extensions의 skill 발견 결과에서 registry가 쓰는 칸만이다. `origin`은 skill을 찾은
-// 층(자리 층이면 place, 전역 층이면 workspace)이고, `selected`는 agent 정의에서
+// 층(builtin, global, project)이고, `selected`는 agent 정의에서
 // 끄지 않았는지다.
 export type RegistrySkill = {
   name: string;
   description: string;
-  origin: "place" | "workspace";
+  origin: SkillSource;
   selected: boolean;
 };
 
@@ -158,11 +159,15 @@ export function roleCommands(role: AgentRole): readonly CommandEntry[] {
   return ROLE_COMMANDS[role].map((entry) => structuredClone(entry));
 }
 
-// 이름 영문 사전순이고, 같은 이름은 place가 workspace보다 앞이다.
+// 이름 영문 사전순이고, 같은 이름은 마지막 층(project, global, builtin 순)이 앞이다.
+const ORIGIN_RANK: Record<SkillSource, number> = {
+  project: 0,
+  global: 1,
+  builtin: 2,
+};
 function compareSkills(a: RegistrySkill, b: RegistrySkill): number {
   if (a.name !== b.name) return a.name < b.name ? -1 : 1;
-  if (a.origin === b.origin) return 0;
-  return a.origin === "place" ? -1 : 1;
+  return ORIGIN_RANK[a.origin] - ORIGIN_RANK[b.origin];
 }
 
 export function buildRegistry(input: RegistryInput): CommandRegistry {

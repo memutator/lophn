@@ -2,6 +2,7 @@ import type {
   AgentPlace,
   McpServerConfig,
   McpTool,
+  SkillSource,
   SkillSummary,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
@@ -110,7 +111,7 @@ export function mcpToolsOf(servers: readonly McpServerConfig[]): McpTool[] {
   );
 }
 
-// `/` 메뉴의 skill 한 줄이다. 자리 층의 것은 place, 나머지 전역 층은 workspace이고
+// `/` 메뉴의 skill 한 줄이다. 자리 층의 것은 project, 내장은 builtin, 나머지는 global이고
 // agent 정의가 끈 정확한 이름은 selected=false다. 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다.
 export function commandSkillsOf(
   entries: readonly SkillSummary[],
@@ -118,15 +119,17 @@ export function commandSkillsOf(
 ): {
   name: string;
   description: string;
-  origin: "place" | "workspace";
+  origin: SkillSource;
   selected: boolean;
 }[] {
   return entries.map((entry) => ({
     name: entry.name,
     description: entry.description,
     origin: entry.source_kind === "place"
-      ? "place" as const
-      : "workspace" as const,
+      ? "project" as const
+      : entry.source_kind === "bundled"
+      ? "builtin" as const
+      : "global" as const,
     selected: !skillsOff.includes(entry.name),
   }));
 }

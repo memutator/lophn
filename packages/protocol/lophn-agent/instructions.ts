@@ -16,6 +16,7 @@ export const instructionLocationOutputSchema = z.object(locationFields);
 
 export type InstructionLocation = z.infer<typeof instructionLocationSchema>;
 
+// 옛 route(곧 지움): 새 읽기는 `instructionsGet`이다. core run-loop가 아직 쓰는 동안만 남긴다.
 // agent runtime이 model call 직전마다 읽는 사람 지침의 한 층이다. machine만 읽는다.
 // 어느 자리의 파일인지는 입력에 없다. core가 `run`의 작업 자리로 정한다: global은 `~/.lophn/LOPHN.md`,
 // project는 그 project 폴더의 LOPHN.md, app은 그 앱 자리의 LOPHN.md, agent는 그 run의 agent 정의 본문이다.
@@ -61,8 +62,6 @@ export const instructionRead = defineRead({
     "unavailable",
   ],
 });
-
-export const ASSIGNMENT_STATES = ["enabled", "paused", "withdrawn"] as const;
 
 // 사람이 Settings › Agents에서 모든 project의 LOPHN.md 앞부분을 보는 읽기다. machine의 ReadInstructionFile과
 // 따로 두어 사람 자격으로 읽는다. 입력이 없다: 전역 층 하나뿐이라 run·층·경로를 받지 않는다. 파일이 없으면

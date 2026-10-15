@@ -246,7 +246,7 @@ export const agentDefinitionOutputSchema = z.object({
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
-// 자리 층 설정(`settings.md`): 역할별 model과 권한. Workspace 층의 같은 모양 값(역할별 기본 model은
+// 자리 층 설정(`settings.md`): 역할별 model과 권한. 전역 층의 같은 모양 값(역할별 기본 model은
 // `agent-model-defaults`, 기본 권한은 platform/settings)은 이 route들이 아니라 resolve하는 쪽이 이 모양으로 넘긴다.
 const settingsFields = {
   models: z.partialRecord(agentRoleSchema, modelChoiceSchema).optional(),

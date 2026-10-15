@@ -14,7 +14,7 @@ export const modelSchemaSteps: readonly SchemaStep[] = [
     sql: `
 create table agent_model_defaults (
   slot text primary key check (slot in
-    ('lophn', 'context_engineer', 'app_engineer', 'operator', 'summaries')),
+    ('lophn', 'project_manager', 'app_engineer', 'operator', 'summaries')),
   provider text,
   model_name text check (model_name is null or length(trim(model_name)) > 0),
   option_values text not null,

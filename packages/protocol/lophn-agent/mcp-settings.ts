@@ -5,6 +5,7 @@ import { defineSetting } from "../config/settings.ts";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { secretNameSchema } from "../secrets/secrets.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import {
   globalSkillsRead,
@@ -88,7 +89,47 @@ export const mcpServerConfigSchema = z.discriminatedUnion("transport", [
 export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
 
 // 층(전역, project, agent)에 두는 서버 한 칸이다. revision과 tool 분류는 없다: tool의 효과는 readOnlyHint가
-// 참이면 read, 아니면 external이라 서버 설정에 분류를 두지 않는다.
+// 참이면 read, 아니면 external이라 서버 설정에 분류를 두지 않는다. credential은 secret 이름 참조다: 값은 보호 입력 창을
+// 거쳐 `secrets/put`으로만 들어오고 설정 파일에는 이름만 남는다. OAuth token은 core가 서버 이름으로 정한 secret에 둔다.
+const secretCredentialSchema = z.strictObject({ secret: secretNameSchema });
+const valueOrSecret = z.union([
+  z.strictObject({ value: z.string() }),
+  secretCredentialSchema,
+]);
+
+const layerAuthSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("none") }),
+  z.strictObject({
+    kind: z.literal("bearer"),
+    credential: secretCredentialSchema,
+  }),
+  z.strictObject({
+    kind: z.literal("api_key"),
+    credential: secretCredentialSchema,
+    header_name: headerName,
+  }),
+  z.strictObject({
+    kind: z.literal("oauth2"),
+    issuer: z.string().regex(/^https:\/\/\S+$/),
+    client_id: nonempty.max(200),
+    client_credential: secretCredentialSchema.nullable(),
+    scopes: z.array(nonempty.max(128)).max(32),
+  }),
+]);
+
+const layerStdioSchema = z.strictObject({
+  executable: z.string().regex(/^(\/|[A-Za-z]:\\).+/),
+  args: z.array(z.string()).max(64),
+  cwd: z.string().regex(/^(\/|[A-Za-z]:\\).+/).nullable(),
+  env: z.record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/), valueOrSecret),
+});
+
+const layerHttpSchema = z.strictObject({
+  url: httpSchema.shape.url,
+  headers: z.record(headerName, valueOrSecret),
+  auth: layerAuthSchema,
+});
+
 const layerServerFields = {
   name: nameSchema,
   enabled: z.boolean(),
@@ -98,12 +139,12 @@ export const mcpServerSchema = z.discriminatedUnion("transport", [
   z.strictObject({
     ...layerServerFields,
     transport: z.literal("stdio"),
-    stdio: stdioSchema,
+    stdio: layerStdioSchema,
   }),
   z.strictObject({
     ...layerServerFields,
     transport: z.literal("http"),
-    http: httpSchema,
+    http: layerHttpSchema,
   }),
 ]);
 export type McpServer = z.infer<typeof mcpServerSchema>;
@@ -137,7 +178,7 @@ export const mcpServersSetting = defineSetting({
   },
   required: false,
   layers: ["common"],
-  apply_at: "next_run",
+  apply_at: "next_turn",
   apply_at_key: "settings.lophn-agent.mcp_servers.apply_at",
   machine_local: true,
   default_present: true,
@@ -159,7 +200,7 @@ const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 export const mcpAuthBeginInputSchema = z.strictObject({
   // 등록한 서버 이름이다. 계약 serverFields의 nameSchema다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
-  // 서버가 등록된 자리다. 전역(Workspace) 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
+  // 서버가 등록된 자리다. 전역 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
   // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
   place: mcpAuthPlaceSchema,
   // 사람이 등록한 client_id다(동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).

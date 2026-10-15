@@ -30,6 +30,8 @@ import {
 import { modelChoiceOutputSchema } from "./models.ts";
 import { agentRoleSchema } from "./scope.ts";
 
+// 옛 모델(assignment 기준, 곧 지움): 새 route는 `agent-definitions.ts`가 AgentRef 기준으로 대신한다. core agents가
+// 이 모양을 쓰는 동안만 남긴다.
 // 읽기·쓰기 route는 사람(editor)이 쓴다. 정의를 쓰고 지우는 길은 agent에게 열지 않는다.
 // invalid_input의 details는 항목별 이유(`agentIssuesDetailsSchema`)다.
 const writeErrors = [
@@ -184,8 +186,8 @@ export const agentProfilesRead = defineFile({
   errors: [...readErrors],
 });
 
-// 자리 층만 다룬다. Workspace의 역할별 기본 model은 `agent-model-defaults`, 기본 권한은 platform/settings가 맡는다.
-// 이 자리가 가진 칸과, 칸을 비운 role의 실제 model과 그 출처(자리·Workspace·기본값)를 돌려준다.
+// 자리 층만 다룬다. 전역의 역할별 기본 model은 `agent-model-defaults`, 기본 권한은 platform/settings가 맡는다.
+// 이 자리가 가진 칸과, 칸을 비운 role의 실제 model과 그 출처(자리·전역·기본값)를 돌려준다.
 // hash는 이 파일의 내용 hash이고 파일이 없으면 null이다.
 export const placeAgentSettingsRead = defineRead({
   resource: "place-agent-settings",

@@ -40,7 +40,7 @@ export function timeText(iso: string): string {
 /** 설정 효력 시점. */
 export function applyText(applyAt: ApplyAt): string {
   switch (applyAt) {
-    case "next_run":
+    case "next_turn":
       return t("settings.label.apply-next-work");
     case "current_check":
       return t("settings.label.apply-now");
@@ -49,7 +49,7 @@ export function applyText(applyAt: ApplyAt): string {
   }
 }
 
-/** 저장 이름(`next_run`)처럼 생긴 값은 첫 글자를 키운 낱말로, 사람이 쓴 글은 그대로 둔다. */
+/** 저장 이름(`next_turn`)처럼 생긴 값은 첫 글자를 키운 낱말로, 사람이 쓴 글은 그대로 둔다. */
 function slugText(value: string): string {
   if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(value)) return value;
   const words = value.replace(/[-_]/g, " ");

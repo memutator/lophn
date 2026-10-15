@@ -9,7 +9,7 @@ export interface SlashEntryView {
   readonly description: string;
   readonly source: "builtin" | "role" | "skill";
   /** 같은 이름 skill이 둘 이상일 때만 있다. 아니면 출처를 달지 않는다. */
-  readonly skillOrigin: "place" | "workspace" | null;
+  readonly skillOrigin: "builtin" | "global" | "project" | null;
   /** 일하는 중 사용 여부. blocked는 못 쓰고, run·queue는 쓴다. */
   readonly whileRunning: "run" | "queue" | "blocked";
 }

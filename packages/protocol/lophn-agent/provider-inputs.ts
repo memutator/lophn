@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { atSchema, durationMsSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import { secretPreparationInputSchema } from "../secrets/secrets.ts";
+import {
+  secretNameSchema,
+  secretPreparationInputSchema,
+} from "../secrets/secrets.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,
@@ -34,7 +37,8 @@ function loopback(value: string): boolean {
   return host === "127.0.0.1" || host === "[::1]" || host === "localhost";
 }
 
-// Connect: provider와 그 credential 하나를 함께 받는다. secret 원값은 받지 않고 보호 입력이 보관한 뒤의
+// 옛 Connect 입력(곧 지움): `connectProviderInputSchema`가 대신한다.
+// provider와 그 credential 하나를 함께 받는다. secret 원값은 받지 않고 보호 입력이 보관한 뒤의
 // 준비 증거만 받는다. 인증 없음(none)은 custom provider의 loopback 주소에만 있고 증거가 없다.
 export const registerProviderInputSchema = z.strictObject({
   id: idSchema("pvd"),
@@ -58,6 +62,30 @@ export const registerProviderInputSchema = z.strictObject({
     (preparation === null ||
       (preparation.purpose === "provider_credential" &&
         preparation.owner === value.id));
+}, {
+  message:
+    "endpoint, protocol or credential is outside the provider definition",
+});
+
+// Connect: provider와 그 credential 하나를 함께 받는다. credential은 secret 이름 참조다: 값은 보호 입력 창을 거쳐
+// `secrets/put`으로 먼저 들어가 있고 여기에는 이름만 온다. 인증 없음(none)은 custom provider의 loopback 주소에만
+// 있고 credential이 null이다. 옛 `registerProviderInputSchema`를 대신한다.
+export const connectProviderInputSchema = z.strictObject({
+  id: idSchema("pvd"),
+  name: nonblankSchema,
+  definition: providerDefinitionSchema,
+  endpoint: z.string(),
+  protocol: providerProtocolSchema,
+  auth_kind: providerAuthKindSchema,
+  credential: z.strictObject({ secret: secretNameSchema }).nullable(),
+}).refine((value) => {
+  const remote = isUrl(value.endpoint) &&
+    new URL(value.endpoint).protocol === "https:";
+  return value.definition.protocols.includes(value.protocol) &&
+    (remote || loopback(value.endpoint)) &&
+    value.definition.auth_kinds.includes(value.auth_kind) &&
+    (!remote || value.auth_kind !== "none") &&
+    (value.auth_kind === "none") === (value.credential === null);
 }, {
   message:
     "endpoint, protocol or credential is outside the provider definition",

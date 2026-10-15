@@ -43,7 +43,7 @@ export interface ProviderRow {
 /** 보호 창을 연 결과. 값은 창만 안다. 이 창은 닫혀도 결정이 아니다. */
 export type WindowOutcome = SourceResult<null>;
 
-export type ApplyAt = "next_run" | "current_check" | "next_call";
+export type ApplyAt = "next_turn" | "current_check" | "next_call";
 
 /** 설정 하나. title은 정의를 가진 concern이 준 문장이다. */
 export interface SettingRow {

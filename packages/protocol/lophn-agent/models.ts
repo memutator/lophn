@@ -22,7 +22,7 @@ const positiveIntegerSchema = z.number().int().positive().max(
   Number.MAX_SAFE_INTEGER,
 );
 
-// agent 정의·Workspace 기본값·session이 가지는 model 선택 하나(harness/model domain의 ModelChoice).
+// agent 정의·전역 기본값·session이 가지는 model 선택 하나(harness/model domain의 ModelChoice).
 // 계정은 provider가 고르므로 여기 없다. option_values는 축 id → 값이고 비면 모델에 맡긴다.
 const modelChoiceFields = {
   provider: idSchema("pvd"),
@@ -219,11 +219,11 @@ export const catalogStateSchema = z.strictObject(stateFields);
 export const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
-// Workspace 층의 기본 model. 앞의 넷은 role별 기본값이고 summaries는 제목·요약·압축에 쓰는
+// 전역 층의 기본 model. 앞의 넷은 role별 기본값이고 summaries는 제목·요약·압축에 쓰는
 // "Model for summaries" 한 칸이다. 처음은 모두 null이다.
 export const MODEL_DEFAULT_SLOTS = [
   "lophn",
-  "context_engineer",
+  "project_manager",
   "app_engineer",
   "operator",
   "summaries",
@@ -233,7 +233,7 @@ export type ModelDefaultSlot = z.infer<typeof modelDefaultSlotSchema>;
 
 const defaultsFields = {
   lophn: modelChoiceSchema.nullable(),
-  context_engineer: modelChoiceSchema.nullable(),
+  project_manager: modelChoiceSchema.nullable(),
   app_engineer: modelChoiceSchema.nullable(),
   operator: modelChoiceSchema.nullable(),
   summaries: modelChoiceSchema.nullable(),
@@ -243,7 +243,7 @@ export const modelDefaultsSchema = z.strictObject(defaultsFields);
 export const modelDefaultsOutputSchema = z.object({
   ...defaultsFields,
   lophn: modelChoiceOutputSchema.nullable(),
-  context_engineer: modelChoiceOutputSchema.nullable(),
+  project_manager: modelChoiceOutputSchema.nullable(),
   app_engineer: modelChoiceOutputSchema.nullable(),
   operator: modelChoiceOutputSchema.nullable(),
   summaries: modelChoiceOutputSchema.nullable(),
@@ -295,7 +295,7 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
 export const changeModelDefaultsInputSchema = z.strictObject({
   lophn: modelChoiceSchema.nullable().optional(),
-  context_engineer: modelChoiceSchema.nullable().optional(),
+  project_manager: modelChoiceSchema.nullable().optional(),
   app_engineer: modelChoiceSchema.nullable().optional(),
   operator: modelChoiceSchema.nullable().optional(),
   summaries: modelChoiceSchema.nullable().optional(),
@@ -454,6 +454,6 @@ export const CATALOG_REFRESH_INTERVAL_MS = 86_400_000;
 export const INSTRUCTION_FILE_MAX_BYTES = 32_768;
 export const INSTRUCTION_CALL_MAX_BYTES = 131_072;
 
-// RunBasis에 고정하는 값은 ResolvedModel을 그대로 쓴다.
-export const runBasisModelSchema = resolvedModelSchema;
-export const runBasisModelOutputSchema = resolvedModelOutputSchema;
+// turn 기준에 고정하는 값은 ResolvedModel을 그대로 쓴다.
+export const turnBasisModelSchema = resolvedModelSchema;
+export const turnBasisModelOutputSchema = resolvedModelOutputSchema;

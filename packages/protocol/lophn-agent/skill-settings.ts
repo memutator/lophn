@@ -6,7 +6,7 @@ import { idSchema } from "../base/ids.ts";
 
 // skill 발견 root 정의 등록(settings registry).
 // 사람이 등록한 절대 폴더를 등록 순서대로 발견한다. machine_local
-// 이고 다음 run부터 적용한다. 기본은 등록 폴더가 없는 빈 목록이다.
+// 이고 다음 turn부터 적용한다. 기본은 등록 폴더가 없는 빈 목록이다.
 // runtime이 같은 값 타입으로 읽도록 core 등록과 한 정의다.
 export const skillFoldersSetting = defineSetting({
   key: "lophn-agent.extensions.skill_folders",
@@ -24,7 +24,7 @@ export const skillFoldersSetting = defineSetting({
   },
   required: false,
   layers: ["common"],
-  apply_at: "next_run",
+  apply_at: "next_turn",
   apply_at_key: "settings.lophn-agent.skill_folders.apply_at",
   machine_local: true,
   default_present: true,
@@ -32,8 +32,8 @@ export const skillFoldersSetting = defineSetting({
   value_type: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
 });
 
-// skill의 출처다(extensions domain model SkillEntry.source_kind). 발견 순서 그대로다: 자리 층의 place가 먼저고
-// 나머지 셋은 전역 층이다.
+// 옛 출처 말(곧 지움): 새 말은 `SKILL_SOURCES`다. core extensions가 아직 쓰는 동안만 남긴다.
+// 발견 순서 그대로다: 자리 층의 place가 먼저고 나머지 셋은 전역 층이다.
 export const SKILL_SOURCE_KINDS = [
   "place",
   "registered",
@@ -88,7 +88,7 @@ export const skillsOffSetting = defineSetting({
   },
   required: false,
   layers: ["common"],
-  apply_at: "next_run",
+  apply_at: "next_turn",
   apply_at_key: "settings.lophn-agent.skills_off.apply_at",
   machine_local: true,
   default_present: true,
@@ -139,6 +139,7 @@ export const globalSkillsRead = defineRead({
 // 내장 skill은 lophn이 가진다.
 export const SKILL_SOURCES = ["builtin", "global", "project"] as const;
 export const skillSourceSchema = z.enum(SKILL_SOURCES);
+export type SkillSource = z.infer<typeof skillSourceSchema>;
 
 // 내장 skill 선언이다. description은 skill 목록에 들어가는 영어 한 줄이다.
 export const BUILTIN_SKILLS = [

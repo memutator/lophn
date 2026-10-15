@@ -22,7 +22,7 @@ export const settingsRevisionNumberSchema = z.number().int().nonnegative().max(
   Number.MAX_SAFE_INTEGER,
 );
 export const settingApplyAtSchema = z.enum([
-  "next_run",
+  "next_turn",
   "current_check",
   "next_call",
 ]);

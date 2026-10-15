@@ -171,12 +171,12 @@ export const LOPHN_CO: readonly SlashGroupView[] = [
 export const WEEKLY_REPORT_PLACE = skill(
   "weekly-report",
   "Write the weekly eval report",
-  "place",
+  "project",
 );
 export const WEEKLY_REPORT_WORKSPACE = skill(
   "weekly-report",
   "Write the weekly report for the whole workspace",
-  "workspace",
+  "global",
 );
 export const LOPHN_DUPLICATE_SKILLS: readonly SlashGroupView[] = [
   COMMANDS_GROUP,

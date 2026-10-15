@@ -1,11 +1,21 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
-import { agentDefinitionSchema, agentNameSchema } from "./agent-values.ts";
+import { agentNameSchema } from "./agent-values.ts";
+import { operatorDefinitionSchema } from "./operators.ts";
 import { askInputSchema } from "./ask-tool.ts";
 import { callCancel, callReply, callSendInputSchema } from "./calls.ts";
 import type { Role } from "./places.ts";
 import { problemStateSchema } from "../problems/problem-record.ts";
+import {
+  sourceRelativePathSchema,
+  ticketCancelInputSchema,
+  ticketCreateInputSchema,
+  ticketShowInputSchema,
+  ticketStateSchema,
+  ticketUpdateInputSchema,
+  ticketVerifyInputSchema,
+} from "../coding-agent/ticket/mod.ts";
 
 // agent 내장 tool의 목록, 이름 규칙, model이 보는 입력 schema다.
 // 정본 이름은 `<자원>.<동사>`이고 call, reply, cancel, ask만 한 단어다.
@@ -125,55 +135,16 @@ const none = z.strictObject({});
 
 const lineCount = z.number().int().positive();
 
-// ticket 칸 이름과 모양은 coding-agent의 ticket 계약(coding-agent/ticket)과 같다.
-// protocol 최상위 사이 순환이 되어 import하지 않고 같은 모양을 둔다.
-const sourceRelativePath = path.refine(
-  (value) =>
-    !/^[\\/]|^[A-Za-z]:|\\/.test(value) && !value.includes("\u0000") &&
-    value.split("/").every((part) => part !== ".." && part !== ""),
-  { message: "path must stay inside source" },
-);
-const ticketGoal = z.string().refine(
-  (value) => [...value].length <= 2000 && /\S/.test(value),
-  { message: "goal is blank or too long" },
-);
-const ticketCheck = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("test_command"),
-    executable: path,
-    argv: z.array(z.string()),
-    cwd: sourceRelativePath.or(z.literal(".")),
-    timeout_ms: z.number().int().positive(),
-    expected_exit_code: z.number().int(),
-  }),
-  z.strictObject({ kind: z.literal("app_test") }),
-  z.strictObject({ kind: z.literal("text"), text: nonblank.max(500) }),
-]);
-const ticketEvidence = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
-  z.strictObject({ kind: z.literal("ticket"), id: idSchema("tkt") }),
-  z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
-  z.strictObject({ kind: z.literal("file"), path: sourceRelativePath }),
-  z.strictObject({ kind: z.literal("annotation"), id: idSchema("ann") }),
-]);
-const oneLine = nonblank.refine((value) => !/[\r\n]/.test(value), {
-  message: "expected one line",
-});
-
 const outlineEntry = z.strictObject({
   level: z.number().int().min(1).max(6),
   title: nonblank,
   locator: nonblank,
 });
 
-// operator 정의 입력. grant(app_reads, safe_tools, permissions)는 입력에 없다.
-const operatorDefinition = agentDefinitionSchema.pick({
-  profile: true,
-  model: true,
-  contexts: true,
-  skills_off: true,
-  mcp_off: true,
-  body: true,
+// operator 정의 입력. 이름은 따로 받고 grant와 agent 층 MCP 서버(실행 파일을 정하는 것)는 입력에 없다.
+const operatorDefinition = operatorDefinitionSchema.omit({
+  name: true,
+  mcp_servers: true,
 });
 
 const callToolInput = callSendInputSchema.omit({ dedup: true });
@@ -218,36 +189,19 @@ export const TOOL_INPUTS = {
   "tool.search": z.strictObject({ names: z.array(nonblank).min(1).max(20) }),
   "ticket.list": z.strictObject({
     app: idSchema("app").optional(),
-    state: z.enum([
-      "open",
-      "claimed",
-      "reported",
-      "verified",
-      "failed",
-      "cancelled",
-    ]).optional(),
+    state: ticketStateSchema.optional(),
   }),
-  "ticket.get": z.strictObject({ ticket: idSchema("tkt") }),
-  "ticket.create": z.strictObject({
-    app: idSchema("app"),
-    goal: ticketGoal,
-    check: ticketCheck,
-    evidence: z.array(ticketEvidence).max(20).optional(),
+  "ticket.get": ticketShowInputSchema,
+  // ticket 입력은 coding-agent의 ticket route 입력이 정본이다.
+  "ticket.create": ticketCreateInputSchema,
+  "ticket.update": ticketUpdateInputSchema,
+  // base_revision과 completion_seq는 core가 ticket에서 채운다.
+  "ticket.verify": ticketVerifyInputSchema.pick({
+    ticket: true,
+    result: true,
+    note: true,
   }),
-  "ticket.update": z.strictObject({
-    ticket: idSchema("tkt"),
-    goal: ticketGoal.optional(),
-    check: ticketCheck.optional(),
-  }),
-  "ticket.verify": z.strictObject({
-    ticket: idSchema("tkt"),
-    result: z.enum(["verified", "failed"]),
-    note: nonblank.max(500).optional(),
-  }),
-  "ticket.cancel": z.strictObject({
-    ticket: idSchema("tkt"),
-    reason: oneLine,
-  }),
+  "ticket.cancel": ticketCancelInputSchema,
   "problem.list": z.strictObject({
     app: idSchema("app").optional(),
     state: problemStateSchema.optional(),
@@ -274,7 +228,7 @@ export const TOOL_INPUTS = {
   "package.publish": z.strictObject({
     app: idSchema("app"),
     name: nonblank,
-    path: sourceRelativePath,
+    path: sourceRelativePathSchema,
   }),
   "release.list": z.strictObject({ app: idSchema("app") }),
   "release.get": z.strictObject({ release: idSchema("rel") }),

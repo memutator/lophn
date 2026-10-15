@@ -33,8 +33,9 @@ export interface SlashMenuProps {
 }
 
 const ORIGIN_LABEL = {
-  place: "conversation.label.slash-origin-place",
-  workspace: "conversation.label.slash-origin-workspace",
+  builtin: "conversation.label.slash-origin-builtin",
+  global: "conversation.label.slash-origin-global",
+  project: "conversation.label.slash-origin-project",
 } as const;
 
 // 글자가 단어 머리에서 맞는 곳을 굵게 한다. 거르기가 단어 머리 기준이라 같은 기준으로 맞춘다.

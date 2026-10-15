@@ -40,7 +40,7 @@ export function setting(
     changed: false,
     defaultValue: value,
     hasDefault: true,
-    applyAt: "next_run",
+    applyAt: "next_turn",
     ...options,
   };
 }

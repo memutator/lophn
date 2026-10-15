@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { positiveRevisionSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import { ASSIGNMENT_STATES } from "./instructions.ts";
 import { agentRoleSchema } from "./scope.ts";
 
-export const assignmentStateSchema = z.enum(ASSIGNMENT_STATES);
+// 옛 assignment 상태. 새 모델에는 상태가 없다(assignment 계약과 함께 지운다).
+export const assignmentStateSchema = z.enum([
+  "enabled",
+  "paused",
+  "withdrawn",
+]);
 
 export const SCOPE_KINDS = ["all", "project", "app"] as const;
 

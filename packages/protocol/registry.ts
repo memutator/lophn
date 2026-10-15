@@ -1,4 +1,5 @@
 import { advanceSubscriberCursor, eventsList } from "./events/events.ts";
+import { sessionSnapshotsList } from "./events/snapshot.ts";
 import {
   commandsResult,
   identityCurrent,
@@ -24,6 +25,7 @@ export const ROUTES = [
   commandsResult,
   eventsList,
   advanceSubscriberCursor,
+  sessionSnapshotsList,
   ...SETTINGS_ROUTES,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,

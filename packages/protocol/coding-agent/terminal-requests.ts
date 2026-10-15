@@ -34,7 +34,7 @@ export const codingTerminalRequestSchema = z.discriminatedUnion("kind", [
 export type CodingTerminalRequest = z.infer<typeof codingTerminalRequestSchema>;
 
 export const codingTerminalFrameSchema = z.strictObject({
-  kind: z.literal("coding_terminal"),
+  type: z.literal("coding_terminal"),
   request: codingTerminalRequestSchema,
 });
 export type CodingTerminalFrame = z.infer<typeof codingTerminalFrameSchema>;

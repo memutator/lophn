@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { busEventSchema, eventConditionSchema } from "./bus.ts";
+import { codingTerminalFrameSchema } from "../coding-agent/terminal-requests.ts";
 
 // Gateway는 renderer가 건 조건으로 Bus를 걸러 보내는 WebSocket이다. 받는 principal은 사람 token 하나다.
 // replay도 ack도 없다. 놓치거나 끊기면 붙은 쪽이 snapshot부터 다시 읽는다.
@@ -46,6 +47,7 @@ export const GATEWAY_SERVER_FRAMES = [
   gatewayReadyFrameSchema,
   gatewayEventFrameSchema,
   gatewayClosedFrameSchema,
+  codingTerminalFrameSchema,
 ] as const;
 
 export const gatewayServerFrameSchema = z.discriminatedUnion(

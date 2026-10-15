@@ -1,7 +1,7 @@
-// 역할·상태·notification 계기의 화면 말. 원시 enum을 화면에 내보이지 않는다(ui-ux 3절).
-import { formatRelativeTime, t } from "@lophn/wording";
+// 역할·상태의 화면 말. 원시 enum을 화면에 내보이지 않는다(ui-ux 3절).
+import { t } from "@lophn/wording";
 
-import type { NotificationRow, Request, Role } from "./source.ts";
+import type { Request, Role } from "./source.ts";
 
 export function roleLabel(role: Role): string {
   switch (role) {
@@ -87,51 +87,4 @@ export function statusOf(
     label: t("things-to-confirm.label.status-cancelled"),
     tone: "neutral",
   };
-}
-
-/** notification 계기의 이름. 계기 표에 없는 것은 일반 안내로 말한다. */
-export function eventTitle(sourceEvent: string): string {
-  switch (sourceEvent) {
-    case "QuestionCreated":
-      return t("things-to-confirm.label.event-question");
-    case "ApprovalRequestCreated":
-      return t("things-to-confirm.label.event-decision");
-    case "ProblemOpened":
-      return t("things-to-confirm.label.event-issue-opened");
-    case "ProblemReopened":
-      return t("things-to-confirm.label.event-issue-reopened");
-    case "ProblemClosed":
-      return t("things-to-confirm.label.event-issue-closed");
-    case "TicketConfirmed":
-      return t("things-to-confirm.label.event-task-confirmed");
-    case "TicketCheckFailed":
-      return t("things-to-confirm.label.event-task-check-failed");
-    case "AssignmentPaused":
-      return t("things-to-confirm.label.event-paused");
-    case "ReleaseActivationFailed":
-      return t("things-to-confirm.label.event-activation-failed");
-    case "ContextViolationsRecorded":
-      return t("things-to-confirm.label.event-violations-rose");
-    default:
-      return t("things-to-confirm.label.event-other");
-  }
-}
-
-/**
- * chip의 한 줄. 무슨 일인지(계기), 언제인지(발생 시각이 있을 때)를 notification이 이미 가진
- * 사실로만 말한다. 계기 표에 없는 계기는 일반 안내다.
- */
-export function noticeTitle(
-  notification: NotificationRow,
-  nowMs: number,
-): string {
-  const title = eventTitle(notification.sourceEvent);
-  const parts = [title];
-  const when = notification.occurredAt === undefined
-    ? Number.NaN
-    : Date.parse(notification.occurredAt);
-  if (Number.isFinite(when)) {
-    parts.push(formatRelativeTime(new Date(when), new Date(nowMs)));
-  }
-  return parts.join(" · ");
 }

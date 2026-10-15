@@ -1,7 +1,7 @@
 // RequestSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema(assignments·runs·sessions·questions list,
-// runs.read, approvals.list, notifications.list, events.list, blobs.read, questions text·
-// answer·defer·cancel, notifications.read)에서 이 화면들이 읽는 field만 옮긴 것이다. command
+// runs.read, approvals.list, events.list, blobs.read, questions text·
+// answer·defer·cancel)에서 이 화면들이 읽는 field만 옮긴 것이다. command
 // 성공 응답은 route output 그대로다(envelope 없음).
 //
 // 질문은 묶음 단위다(questions list·text·answer·defer·cancel). 이 통로는 세션 없는 run의 묶음만
@@ -13,7 +13,6 @@ import type { CoreSource } from "../../connection/connection.ts";
 import { confirmsWithoutWindow } from "./model.ts";
 import type {
   ApprovalRequest,
-  NotificationRow,
   Place,
   QuestionGroupRequest,
   Request,
@@ -87,13 +86,6 @@ interface ApprovalValue {
   closed_seq: string | null;
 }
 
-interface NotificationValue {
-  notification: { id: string; source_seq: string; read_at: string | null };
-  source_event: string;
-  occurred_at?: string;
-  delivery?: { state: string; reason?: string };
-}
-
 interface EventValue {
   seq: string;
   at: string;
@@ -106,8 +98,6 @@ export type OpenConfirmation = (
 
 /** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 50;
-/** notification 한 번에 읽는 수. */
-const NOTIFICATION_PAGE = 200;
 /** events.list 한 번의 subject 수. */
 const SUBJECT_CHUNK = 100;
 /** approval 설명은 앞부분만 읽는다. */
@@ -303,36 +293,6 @@ function approvalOf(value: ApprovalValue, links: Links): ApprovalRequest {
   };
 }
 
-function notificationOf(value: NotificationValue): NotificationRow {
-  return {
-    id: value.notification.id,
-    sourceEvent: value.source_event,
-    sourceSeq: value.notification.source_seq,
-    readAt: value.notification.read_at,
-    ...lineOf(value),
-    ...osFailureOf(value.delivery),
-  };
-}
-
-function lineOf(
-  value: NotificationValue,
-): Pick<NotificationRow, "occurredAt"> {
-  const facts: { occurredAt?: string } = {};
-  if (typeof value.occurred_at === "string" && value.occurred_at.length > 0) {
-    facts.occurredAt = value.occurred_at;
-  }
-  return facts;
-}
-
-function osFailureOf(
-  delivery: NotificationValue["delivery"],
-): Pick<NotificationRow, "osFailure"> {
-  if (delivery?.state !== "failed") return {};
-  return delivery.reason === "unsupported"
-    ? { osFailure: "unsupported" }
-    : { osFailure: "show_failed" };
-}
-
 function decodeText(base64: string): string | null {
   try {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
@@ -483,7 +443,6 @@ export function coreRequestSource(
         "list",
         {},
       );
-      const notifications = await readNotifications(core, false);
       // 세션 있는 run의 묶음은 대화 안 카드가 맡는다. 세션 없는 묶음만 이 화면에 싣는다.
       const groupRows = questions.value.filter((item) => item.session === null);
       // 못 읽은 쪽은 0으로 보이지 않게 표시한다.
@@ -514,14 +473,10 @@ export function coreRequestSource(
         ok: true,
         value: {
           requests,
-          notifications: notifications.ok ? notifications.value : [],
           approvalsRead: approvals.ok,
-          notificationsRead: notifications.ok,
         },
       };
     },
-
-    unread: () => readNotifications(core, true),
 
     async reason(request) {
       const read = await call<
@@ -610,13 +565,6 @@ export function coreRequestSource(
         key: `questions-cancel-${group.id}`,
       }),
 
-    markRead: (notification) =>
-      command(core, "notifications", "read", {
-        input: { notification: notification.id },
-        compare: {},
-        key: `notifications-read-${notification.id}`,
-      }),
-
     async review(intent) {
       if (openConfirmation === undefined) {
         return { ok: false, code: "unavailable" };
@@ -634,28 +582,4 @@ export function coreRequestSource(
       }
     },
   };
-}
-
-async function readNotifications(
-  core: CoreSource,
-  unreadOnly: boolean,
-): Promise<SourceResult<readonly NotificationRow[]>> {
-  const found: NotificationRow[] = [];
-  let after: string | null = null;
-  for (let page = 0; page < PAGE_LIMIT; page += 1) {
-    const read: SourceResult<{ notifications: NotificationValue[] }> =
-      await call(core, "read", "notifications", "list", {
-        ...(unreadOnly ? { unread_only: true } : {}),
-        ...(after === null ? {} : { after_source_seq: after }),
-        limit: NOTIFICATION_PAGE,
-      });
-    if (!read.ok) return read;
-    const rows: NotificationRow[] = read.value.notifications.map(
-      notificationOf,
-    );
-    found.push(...rows);
-    if (rows.length < NOTIFICATION_PAGE) break;
-    after = rows[rows.length - 1]!.sourceSeq;
-  }
-  return { ok: true, value: found };
 }

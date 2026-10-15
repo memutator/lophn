@@ -22,7 +22,6 @@ import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
-import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
@@ -59,7 +58,7 @@ export interface DesktopProps {
   palette?: PaletteDeps;
   /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
   projects?: LauncherSource;
-  /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
+  /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
   instructions?: InstructionsSource;
@@ -67,7 +66,7 @@ export interface DesktopProps {
   apps?: AppsSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
-  /** settings의 backup·update·진단·notification 탭 통로. 없는 탭은 두지 않는다. */
+  /** settings의 진단 탭 통로. 없는 탭은 두지 않는다. */
   settingsPanels?: SettingsPanels;
   /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   appDetail?: AppDetailSource;
@@ -282,7 +281,6 @@ export function Desktop(
   return (
     <PaletteProvider deps={palette} onLauncher={launcher}>
       {space}
-      <NotificationChip onView={thingsToConfirm} />
       {intents
         ? (
           <DesktopIntents

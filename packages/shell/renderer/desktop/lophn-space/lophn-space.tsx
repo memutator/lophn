@@ -56,7 +56,7 @@ export interface LophnSpaceProps {
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. settings가 그 연결을 먼저 보인다. */
   initialConnection?: string;
-  /** settings의 backup·update·진단·notification 탭 통로. 없는 탭은 두지 않는다. */
+  /** settings의 진단 탭 통로. 없는 탭은 두지 않는다. */
   settingsPanels?: SettingsPanels;
 }
 

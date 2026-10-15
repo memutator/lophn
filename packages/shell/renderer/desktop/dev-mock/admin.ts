@@ -1,5 +1,5 @@
 // mock 모드의 lophn 공간 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
-// 채운 것이다. key·로그인 응답·복원·export는 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
+// 채운 것이다. key·로그인 응답은 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
 // Providers와 Agents 자리는 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
 import {
   fakeSettings,
@@ -8,13 +8,7 @@ import {
 } from "../lophn-space/settings/testdata/fake-settings.ts";
 import { fakeProviders } from "../lophn-space/settings/providers/testdata/fake-providers.ts";
 import { fakeAgents } from "../lophn-space/settings/agents/testdata/fake-agents.ts";
-import {
-  backupRow,
-  fakeBackup,
-} from "../lophn-space/settings/backup/testdata/fake-source.ts";
-import { fakeUpdate } from "../lophn-space/settings/update/testdata/fake-source.ts";
 import { fakeDiagnostics } from "../lophn-space/settings/diagnostics/testdata/fake-source.ts";
-import { fakeNotifications } from "../lophn-space/settings/notifications/testdata/fake-source.ts";
 import { fakeConnections } from "../lophn-space/settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
@@ -70,28 +64,6 @@ export function mockSettingsPanels(): SettingsPanels {
   return {
     providers: fakeProviders().source,
     agents: fakeAgents().source,
-    backup: fakeBackup({
-      backups: [
-        backupRow("2026-10-09T02:00:00.000Z", { sizeBytes: 52428800 }),
-        backupRow("2026-10-08T02:00:00.000Z", { sizeBytes: 51200000 }),
-      ],
-      apps: [
-        { id: APP_BUDGET, name: "Grocery budget" },
-        { id: APP_PLANNER, name: "Meal planner" },
-      ],
-    }).source,
-    update: fakeUpdate({
-      picked: "/home/mina/Downloads/lophn-1.9.0.deb",
-      candidate: { version: "1.9.0", os: "linux", format: "deb", schema: 2 },
-      notice: {
-        ok: true,
-        currentVersion: "1.8.2",
-        newVersion: "1.9.0",
-        os: "linux",
-        schema: "compatible",
-        restartRequired: true,
-      },
-    }).source,
     diagnostics: fakeDiagnostics({
       view: {
         observedAt: new Date().toISOString(),
@@ -112,7 +84,6 @@ export function mockSettingsPanels(): SettingsPanels {
         ],
       },
     }).source,
-    notifications: fakeNotifications({ enabled: true }).source,
   };
 }
 

@@ -43,9 +43,6 @@ import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
 import { coreProviderSettingsSource } from "./lophn-space/settings/providers/core-source.ts";
 import { coreAgentsSettingsSource } from "./lophn-space/settings/agents/core-source.ts";
-import { coreBackupSource } from "./lophn-space/settings/backup/core-source.ts";
-import { coreNotificationsSource } from "./lophn-space/settings/notifications/core-source.ts";
-import { coreUpdateSource } from "./lophn-space/settings/update/core-source.ts";
 import { coreDiagnosticsSource } from "./lophn-space/settings/diagnostics/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
@@ -79,16 +76,11 @@ const apps = mock?.apps ?? coreAppsSource(core);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
-// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 운영 탭.
-// key·로그인 응답은 보호 창이 받는다. backup 복원 계획·제출은 main의 복원 통로(`lophnRestore`)다.
-// update는 사람이 고른 로컬 파일의 안내와 정상 정지다(`lophnUpdate`). 다운로드·재시작은 없다.
-// OS notification은 이 탭에서 켠 뒤에만 shell main이 올린다.
+// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 진단 탭.
+// key·로그인 응답은 보호 창이 받는다.
 const settingsPanels = mock?.settingsPanels ?? {
   providers: coreProviderSettingsSource(core),
   agents: coreAgentsSettingsSource(core),
-  backup: coreBackupSource(core),
-  update: coreUpdateSource(core),
-  notifications: coreNotificationsSource(core),
   diagnostics: coreDiagnosticsSource(core),
 };
 // coding agent 연결(settings)과 앱 공간 Tasks 탭. 감지·연결·[Start]는 main이 따로 검증하는 통로(`lophnCoding`)다.

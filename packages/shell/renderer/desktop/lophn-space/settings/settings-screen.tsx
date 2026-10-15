@@ -1,8 +1,7 @@
-// lophn 공간 settings 화면. 일반·Providers·Agents·coding agent·도구와 skill·notification·update·진단
+// lophn 공간 settings 화면. 일반·Providers·Agents·coding agent·도구와 skill·진단
 // 자리다. 화면 하나에 주 행동 하나라서 왼쪽 세로 nav가 자리를 묶어 고르고, 고른 자리 하나만 가운데
 // column에 그린다. nav 순서는 wireframe(Settings)를 따른다: General · Providers · Agents · Coding
-// agents · Tools and skills · Notifications · Update · Diagnose. backup 자리는 nav에서 뺐다(backup
-// 제거는 후속 작업). secret 값은 이 화면이 받지 않고 보호 창이 받는다.
+// agents · Tools and skills · Diagnose. secret 값은 이 화면이 받지 않고 보호 창이 받는다.
 import { useMemo, useRef, useState } from "react";
 import { Icon, iconPixels } from "@lophn/design/components";
 import { settingsIcons } from "../../../icons/mod.ts";
@@ -10,26 +9,21 @@ import { t } from "@lophn/wording";
 
 import { AgentsPanel } from "./agents/agents-panel.tsx";
 import type { AgentsSettingsSource } from "./agents/settings-source.ts";
-import type { BackupSource } from "./backup/source.ts";
 import { CodingConnectionsPanel } from "./connections/connections-panel.tsx";
 import type { CodingConnectionsSource } from "./connections/source.ts";
 import { DiagnosticsPanel } from "./diagnostics/diagnostics-panel.tsx";
 import type { DiagnosticsSource } from "./diagnostics/source.ts";
 import { ExtensionsPanel } from "./extensions/extensions-panel.tsx";
 import { GeneralPanel } from "./general/general-panel.tsx";
-import { NotificationsPanel } from "./notifications/notifications-panel.tsx";
-import type { NotificationsSource } from "./notifications/source.ts";
 import { ProviderList } from "./providers/provider-list.tsx";
 import type { ProviderSettingsSource } from "./providers/settings-source.ts";
-import { UpdatePanel } from "./update/update-panel.tsx";
-import type { UpdateSource } from "./update/source.ts";
 import type { SettingsSource } from "./source.ts";
 import styles from "./settings.module.css";
 
 /** settings의 운영 탭 통로 묶음. 제품 조립이 entry에서 만든다. */
 export type SettingsPanels = Pick<
   SettingsScreenProps,
-  "providers" | "agents" | "backup" | "update" | "diagnostics" | "notifications"
+  "providers" | "agents" | "diagnostics"
 >;
 
 export interface SettingsScreenProps {
@@ -45,14 +39,8 @@ export interface SettingsScreenProps {
   coding?: CodingConnectionsSource;
   /** `lophn://things-to-confirm/<cac id>` 링크로 온 연결. 있으면 그 탭을 먼저 연다. */
   initialConnection?: string;
-  /** backup·복원 자리. nav에서 뺐으므로 받아도 그리지 않는다(backup 제거는 후속 작업). */
-  backup?: BackupSource;
-  /** update 자리. 없으면 그 탭을 두지 않는다. */
-  update?: UpdateSource;
   /** 진단 자리. 없으면 그 탭을 두지 않는다. */
   diagnostics?: DiagnosticsSource;
-  /** OS notification 자리. 없으면 그 탭을 두지 않는다. */
-  notifications?: NotificationsSource;
 }
 
 type SectionId =
@@ -61,8 +49,6 @@ type SectionId =
   | "agents"
   | "coding"
   | "extensions"
-  | "notifications"
-  | "update"
   | "diagnostics";
 
 // 전용 아이콘이 생기기 전까지 이웃 자리의 것을 쓴다.
@@ -91,9 +77,7 @@ export function SettingsScreen(
     onInstructions,
     coding,
     initialConnection,
-    update,
     diagnostics,
-    notifications,
   }: SettingsScreenProps,
 ) {
   // 링크로 온 연결이 있으면 그 탭을, 아니면 nav의 첫 자리를 연다.
@@ -153,12 +137,6 @@ export function SettingsScreen(
       id: "system",
       label: t("settings.label.group-system"),
       sections: [
-        ...(notifications === undefined ? [] : [
-          section("notifications", t("settings.label.tab-notifications")),
-        ]),
-        ...(update === undefined
-          ? []
-          : [section("update", t("settings.label.tab-update"))]),
         ...(diagnostics === undefined ? [] : [
           section("diagnostics", t("settings.label.tab-diagnostics")),
         ]),
@@ -243,10 +221,6 @@ export function SettingsScreen(
               ? <ExtensionsPanel source={source} />
               : active.id === "general"
               ? <GeneralPanel source={source} />
-              : active.id === "notifications" && notifications !== undefined
-              ? <NotificationsPanel source={notifications} />
-              : active.id === "update" && update !== undefined
-              ? <UpdatePanel source={update} />
               : active.id === "diagnostics" && diagnostics !== undefined
               ? <DiagnosticsPanel source={diagnostics} />
               : null}

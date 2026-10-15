@@ -17,12 +17,10 @@ import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { ConnectionState } from "../../connection/connection.ts";
 import { intervalTicks, type RequestDeps } from "./context.tsx";
-import { eventTitle, requestTitle, roleLabel, statusOf } from "./labels.ts";
+import { requestTitle, roleLabel, statusOf } from "./labels.ts";
 import {
   ALL,
   type Filter,
-  notificationOrder,
-  notificationTarget,
   passes,
   pastOrder,
   type PeriodFilter,
@@ -31,14 +29,14 @@ import {
   waitingCounts,
 } from "./model.ts";
 import { RequestCard } from "./request-card.tsx";
-import type { NotificationRow, Overview, Request, Role } from "./source.ts";
+import type { Overview, Request, Role } from "./source.ts";
 import styles from "./things-to-confirm.module.css";
 
-export type ConfirmTab = "waiting" | "past" | "notifications";
+export type ConfirmTab = "waiting" | "past";
 
 export interface ThingsToConfirmProps {
   deps: RequestDeps;
-  /** 처음 고른 탭. 테스트와 chip이 고른다. */
+  /** 처음 고른 탭. 테스트가 고른다. */
   initialTab?: ConfirmTab;
   /** 처음 고른 요청. 링크로 열 때 쓴다. 고르기만 하고 결정 창은 열지 않는다. */
   initialSelected?: string;
@@ -58,12 +56,6 @@ const ROLES: readonly Role[] = [
 ];
 
 const PERIODS: readonly PeriodFilter[] = ["all", "day", "week", "month"];
-
-function occurredLabel(iso: string, nowMs: number): string | null {
-  const parsed = Date.parse(iso);
-  if (!Number.isFinite(parsed)) return null;
-  return formatRelativeTime(new Date(parsed), new Date(nowMs));
-}
 
 function periodLabel(period: PeriodFilter): string {
   switch (period) {
@@ -98,7 +90,6 @@ export function ThingsToConfirm(
   const [connection, setConnection] = useState<ConnectionState["state"]>(
     "starting",
   );
-  const [markFailed, setMarkFailed] = useState<string | null>(null);
   const [, setVersion] = useState(0);
 
   // 읽는 중에 또 부르면(처음 열기와 연결 ready가 겹칠 때) 한꺼번에 읽지 않고 끝난 뒤 한 번
@@ -156,14 +147,7 @@ export function ThingsToConfirm(
   const waiting = stripOrder(shown);
   const past = pastOrder(shown);
   const counts = waitingCounts(shown);
-  const notifications = notificationOrder(overview?.notifications ?? []);
   const current = requests.find((request) => request.id === selected) ?? null;
-
-  const markRead = async (notification: NotificationRow) => {
-    const marked = await source.markRead(notification);
-    setMarkFailed(marked.ok ? null : notification.id);
-    if (marked.ok) void refresh();
-  };
 
   const nextOf = (kind: Request["kind"]) => {
     const next = waiting.find((request) => request.kind === kind);
@@ -293,107 +277,7 @@ export function ThingsToConfirm(
         </>
       );
     }
-    if (tab === "past") {
-      return requestList(past, t("things-to-confirm.empty.past"));
-    }
-    if (!overview.notificationsRead) {
-      return (
-        <p className={styles.empty} data-unavailable="notifications">
-          {t("things-to-confirm.error.notifications-unavailable")}
-        </p>
-      );
-    }
-    if (notifications.length === 0) {
-      return (
-        <p className={styles.empty} data-empty="">
-          {t("things-to-confirm.empty.notifications")}
-        </p>
-      );
-    }
-    return (
-      <ul className={styles.notifications} data-notifications="">
-        {notifications.map((notification) => {
-          const target = notificationTarget(notification, requests);
-          const unread = notification.readAt === null;
-          const occurred = notification.occurredAt === undefined
-            ? null
-            : occurredLabel(notification.occurredAt, at);
-          return (
-            <li
-              key={notification.id}
-              className={styles.notification}
-              data-notification={notification.id}
-              data-unread={unread ? "" : undefined}
-            >
-              <button
-                type="button"
-                className={styles.notificationBody}
-                aria-current={target !== null && target.id === selected
-                  ? "true"
-                  : undefined}
-                disabled={target === null}
-                onClick={() => target && setSelected(target.id)}
-              >
-                <span className={styles.notificationTitle}>
-                  <Icon
-                    icon={unread ? confirmIcons.unread : confirmIcons.markRead}
-                    pixels={iconPixels("base")}
-                  />
-                  <span>{eventTitle(notification.sourceEvent)}</span>
-                </span>
-                {occurred === null || notification.occurredAt === undefined
-                  ? null
-                  : (
-                    <span
-                      className={styles.notificationMeta}
-                      data-occurred-at={notification.occurredAt}
-                      title={notification.occurredAt}
-                    >
-                      {occurred}
-                    </span>
-                  )}
-                <span className={styles.notificationMeta}>
-                  {unread
-                    ? t("things-to-confirm.label.unread")
-                    : t("things-to-confirm.label.read")}
-                </span>
-                {notification.osFailure === undefined ? null : (
-                  <span
-                    className={styles.notificationMeta}
-                    data-os-failed={notification.osFailure}
-                  >
-                    {notification.osFailure === "unsupported"
-                      ? t("things-to-confirm.label.os-unsupported")
-                      : t("things-to-confirm.label.os-show-failed")}
-                  </span>
-                )}
-                {markFailed === notification.id
-                  ? (
-                    <span className={styles.problem} data-mark-failed="">
-                      {t("things-to-confirm.error.mark-read-failed")}
-                    </span>
-                  )
-                  : null}
-              </button>
-              {unread
-                ? (
-                  <Tooltip content={t("things-to-confirm.button.mark-read")}>
-                    <IconButton
-                      icon={confirmIcons.markRead}
-                      label={t("things-to-confirm.button.mark-read")}
-                      size="sm"
-                      data-mark-read=""
-                      disabled={offline}
-                      onClick={() => void markRead(notification)}
-                    />
-                  </Tooltip>
-                )
-                : null}
-            </li>
-          );
-        })}
-      </ul>
-    );
+    return requestList(past, t("things-to-confirm.empty.past"));
   })();
 
   return (
@@ -443,9 +327,6 @@ export function ThingsToConfirm(
               {t("things-to-confirm.label.tab-waiting")}
             </Tab>
             <Tab value="past">{t("things-to-confirm.label.tab-past")}</Tab>
-            <Tab value="notifications">
-              {t("things-to-confirm.label.tab-notifications")}
-            </Tab>
           </TabList>
         </Tabs>
         {stale}

@@ -1,11 +1,10 @@
-// things-to-confirm·chip 테스트의 RequestSource. 요청과 notification을 메모리에 두고
+// things-to-confirm 테스트의 RequestSource. 요청을 메모리에 두고
 // 보낸 것을 기록한다. 답의 결과와 연결 상태는 테스트가 정한다.
 import type { ConnectionState } from "../../../connection/connection.ts";
 import type { GroupAnswer } from "../../../../conversation/question-card/model.ts";
 import type {
   ApprovalRequest,
   GroupQuestion,
-  NotificationRow,
   QuestionGroupRequest,
   QuestionGroupText,
   Request,
@@ -102,20 +101,6 @@ export function approval(
   };
 }
 
-export function notification(
-  n: number,
-  sourceEvent: string,
-  sourceSeq: string,
-  readAt: string | null = null,
-): NotificationRow {
-  return {
-    id: `ntf_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`,
-    sourceEvent,
-    sourceSeq,
-    readAt,
-  };
-}
-
 /**
  * 묶음의 글. 고치지 않으면 질문마다 본문·이유·선택지 설명이 있는 기본 글이다. 첫 질문의 본문은
  * "Which copy of the notes should stay?", 그다음은 "Question 2?"처럼 번호가 붙는다.
@@ -148,7 +133,6 @@ export function questionText(
 
 export interface FakeRequests {
   requests: Request[];
-  notifications: NotificationRow[];
   reasons: Record<string, string | null>;
   /** 묶음별 글. 없으면 questionText 기본 글, null이면 읽지 못한다. */
   texts: Record<string, QuestionGroupText | null>;
@@ -157,9 +141,8 @@ export interface FakeRequests {
   /** review가 열리는지. false면 이 창에 보호 창 통로가 없다. */
   reviewOpens: boolean;
   readsFail: boolean;
-  /** approval·notification 목록을 읽지 못한다(그 route가 없는 core). */
+  /** approval 목록을 읽지 못한다(그 route가 없는 core). */
   approvalsFail: boolean;
-  notificationsFail: boolean;
   /** 보낸 묶음 답. */
   answered: { group: string; answers: readonly GroupAnswer[] }[];
   /** 글을 읽은 묶음 id. */
@@ -167,7 +150,6 @@ export interface FakeRequests {
   /** 미룬 묶음 id. */
   deferred: string[];
   cancelled: { group: string; reason: string }[];
-  marked: string[];
   reviewed: ReviewIntent[];
   reads: number;
 }
@@ -175,19 +157,16 @@ export interface FakeRequests {
 export function fakeRequests(initial: Partial<FakeRequests> = {}) {
   const state: FakeRequests = {
     requests: [],
-    notifications: [],
     reasons: {},
     texts: {},
     replies: [],
     reviewOpens: true,
     readsFail: false,
     approvalsFail: false,
-    notificationsFail: false,
     answered: [],
     textReads: [],
     deferred: [],
     cancelled: [],
-    marked: [],
     reviewed: [],
     reads: 0,
     ...initial,
@@ -218,20 +197,8 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
           requests: state.approvalsFail
             ? state.requests.filter((request) => request.kind !== "approval")
             : [...state.requests],
-          notifications: state.notificationsFail
-            ? []
-            : [...state.notifications],
           approvalsRead: !state.approvalsFail,
-          notificationsRead: !state.notificationsFail,
         },
-      });
-    },
-    unread() {
-      state.reads += 1;
-      if (state.readsFail) return Promise.resolve(failed);
-      return Promise.resolve({
-        ok: true,
-        value: state.notifications.filter((row) => row.readAt === null),
       });
     },
     reason(request) {
@@ -299,15 +266,6 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
         close(target.id, { status: "cancelled", closedReason: "cancelled" });
       }
       return Promise.resolve(result);
-    },
-    markRead(row) {
-      state.marked.push(row.id);
-      state.notifications = state.notifications.map((item) =>
-        item.id === row.id
-          ? { ...item, readAt: "2026-10-06T09:00:00.000Z" }
-          : item
-      );
-      return Promise.resolve({ ok: true, value: undefined });
     },
     review(intent) {
       state.reviewed.push(intent);

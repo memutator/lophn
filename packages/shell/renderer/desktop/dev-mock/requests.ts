@@ -4,7 +4,6 @@ import {
   approval,
   fakeRequests,
   groupQuestion,
-  notification,
   question,
 } from "../lophn-space/things-to-confirm/testdata/fake-source.ts";
 import type { RequestSource } from "../lophn-space/things-to-confirm/source.ts";
@@ -72,18 +71,6 @@ export function mockRequests(): RequestSource {
         closedAt: now - 24 * 60 * MINUTE,
       }),
       approval(3, { status: "granted", closedAt: now - 120 * MINUTE }),
-    ],
-    notifications: [
-      {
-        ...notification(1, "QuestionCreated", "10"),
-        occurredAt: new Date(now - 4 * MINUTE).toISOString(),
-      },
-      notification(
-        2,
-        "ApprovalRequestCreated",
-        "20",
-        "2026-10-09T09:00:00.000Z",
-      ),
     ],
   }).source;
 }

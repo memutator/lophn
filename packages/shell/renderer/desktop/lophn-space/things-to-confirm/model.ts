@@ -1,12 +1,6 @@
-// things-to-confirm·chip·공간 크롬의 순수 규칙. 화면은 이 값을 그대로 그린다.
+// things-to-confirm·공간 크롬의 순수 규칙. 화면은 이 값을 그대로 그린다.
 import type { GroupAnswer } from "../../../conversation/question-card/model.ts";
-import type {
-  NotificationRow,
-  Place,
-  QuestionGroupRequest,
-  Request,
-  Role,
-} from "./source.ts";
+import type { Place, QuestionGroupRequest, Request, Role } from "./source.ts";
 
 function seq(value: string | null): bigint {
   if (value === null) return 0n;
@@ -86,51 +80,6 @@ export function passes(request: Request, filter: Filter, now: number): boolean {
   const at = request.closedAt ?? request.createdAt;
   if (at === null) return true;
   return now - at <= PERIOD_MS[filter.period];
-}
-
-/** notification이 가리키는 질문·approval. 원래 event가 그 요청의 생성 event다. */
-export function notificationTarget(
-  notification: NotificationRow,
-  requests: readonly Request[],
-): Request | null {
-  if (
-    notification.sourceEvent !== "QuestionCreated" &&
-    notification.sourceEvent !== "ApprovalRequestCreated"
-  ) {
-    return null;
-  }
-  const kind = notification.sourceEvent === "QuestionCreated"
-    ? "question"
-    : "approval";
-  return requests.find((request) =>
-    request.kind === kind && request.createdSeq === notification.sourceSeq
-  ) ?? null;
-}
-
-/** notification 목록. 최신 원래 사실부터 둔다. 읽음 여부로 버리지 않는다. */
-export function notificationOrder(
-  notifications: readonly NotificationRow[],
-): readonly NotificationRow[] {
-  return [...notifications].sort((a, b) => {
-    const order = seq(b.sourceSeq) - seq(a.sourceSeq);
-    return order < 0n ? -1 : order > 0n ? 1 : 0;
-  });
-}
-
-/**
- * chip에 올릴 notification. 읽지 않았고 이 창에서 닫지 않은 것만, 먼저 온 것부터다. 닫기는
- * 이 창의 표시일 뿐 읽음이 아니다.
- */
-export function chipQueue(
-  unread: readonly NotificationRow[],
-  dismissed: ReadonlySet<string>,
-): readonly NotificationRow[] {
-  return unread
-    .filter((row) => row.readAt === null && !dismissed.has(row.id))
-    .sort((a, b) => {
-      const order = seq(a.sourceSeq) - seq(b.sourceSeq);
-      return order < 0n ? -1 : order > 0n ? 1 : 0;
-    });
 }
 
 function samePlace(a: Place | null, b: Place): boolean {

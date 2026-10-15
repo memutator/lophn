@@ -1,6 +1,6 @@
 // 개발 확인 전용. 주소에 `mock`이 있을 때만 Desktop의 모든 통로를 메모리 가짜로 채워 core 없이
 // 모든 화면을 보게 한다(`deno task dev:mock`). 제품 경로는 주소 flag 없이 이 값을 만들지 않고,
-// 가짜 통로는 core·파일·keychain·OS notification·coding agent에 닿지 않는다.
+// 가짜 통로는 core·파일·keychain·coding agent에 닿지 않는다.
 import type { LophnAppWindowsApi } from "../../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../../ipc/feedback.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";

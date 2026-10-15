@@ -19,49 +19,17 @@ import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
 import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";
 import { CONTEXT_OUTLINE_ROUTES } from "./context-outlines.ts";
 
-import {
-  projectArchive,
-  projectCreate,
-  projectGet,
-  projectList,
-  projectPreviewTracking,
-  projectResolve,
-  projectResolveCwd,
-  projectSetTracking,
-  projectTrackingRoots,
-  projectUnarchive,
-  projectUpdate,
-} from "./project-routes.ts";
-import {
-  projectArchived,
-  projectCreated,
-  projectTrackingChanged,
-  projectUnarchived,
-  projectUpdated,
-} from "./projects.ts";
+import { projectResolveCwd } from "./project-routes.ts";
+import { PROJECT_API_ROUTES } from "./project-api.ts";
 
 export const ROUTES = [
-  projectCreate,
-  projectUpdate,
-  projectSetTracking,
-  projectArchive,
-  projectUnarchive,
-  projectList,
-  projectGet,
-  projectResolve,
+  ...PROJECT_API_ROUTES,
   projectResolveCwd,
-  projectTrackingRoots,
-  projectPreviewTracking,
   ...CONTEXT_API_ROUTES,
   ...PROJECT_SEARCH_ROUTES,
   ...CONTEXT_OUTLINE_ROUTES,
 ] as const;
 
 export const EVENTS = [
-  projectCreated,
-  projectUpdated,
-  projectTrackingChanged,
-  projectArchived,
-  projectUnarchived,
   ...CONTEXT_API_EVENTS,
 ] as const;

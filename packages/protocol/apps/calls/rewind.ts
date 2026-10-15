@@ -2,7 +2,7 @@ import { z } from "zod";
 import { actorSchema } from "../../base/actor.ts";
 import { withReadCommon } from "../../base/envelope.ts";
 import { idSchema } from "../../base/ids.ts";
-import { defineCommand, defineRead } from "../../base/route.ts";
+import { defineMemory, defineRead } from "../../base/route.ts";
 import { atSchema } from "../../base/values.ts";
 import { appIdSchema } from "../../projects/values.ts";
 import { invocationIdSchema, releaseIdSchema } from "../channel-values.ts";
@@ -84,13 +84,13 @@ export const appRewindPlan = defineRead({
 });
 
 // 앱 rewind는 사람만 한다.
-export const appRewind = defineCommand({
+// 유예 대기와 앱 process apply가 async라 memory route다. 기록은 rewind module이 자기 쓰기로 남긴다.
+export const appRewind = defineMemory({
   resource: "apps",
   method: "rewind",
   name: "app.rewind",
   input: z.strictObject(rewindTargetFields),
   output: rewindSchema,
-  compare: z.strictObject({}),
   actors: ["user"],
   errors: [
     "forbidden",

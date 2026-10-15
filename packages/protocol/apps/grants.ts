@@ -233,6 +233,37 @@ export const grantsList = defineRead({
 });
 export type GrantsList = typeof grantsList;
 
+// 새 앱 grant route. 출력은 appGrantSchema다. 옛 grants.list·grant.revoke는 옛 core handler를 걷을 때
+// 이 route로 바꿔 끼운다.
+export const appGrantsList = defineRead({
+  resource: "app_grants",
+  method: "list",
+  name: "app_grants.list",
+  input: grantsListInputSchema,
+  output: withReadCommon(z.object({ grants: z.array(appGrantSchema) })),
+  actors: readActors,
+  errors: readErrors,
+});
+
+// 사람의 결정이다. reason은 거두는 이유 한 줄이다.
+export const appGrantRevoke = defineCommand({
+  resource: "app_grants",
+  method: "revoke",
+  name: "app_grants.revoke",
+  input: z.strictObject({
+    grant: grantIdSchema,
+    reason: z.string().min(1).optional(),
+  }),
+  output: z.object({ grant: appGrantSchema }),
+  actors: ["user"],
+  errors: ["conflict", "unavailable"],
+  confirmation: "required",
+  binding: ["grant"],
+  display_read: "app_grants/list",
+});
+
+export const APP_GRANT_ROUTES = [appGrantsList, appGrantRevoke] as const;
+
 export const GRANT_ROUTES = [
   grantCreate,
   grantRevoke,

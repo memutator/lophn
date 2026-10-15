@@ -5,6 +5,11 @@ export * from "./blueprint.ts";
 export * from "./blueprint-read.ts";
 export * from "./pair-routes.ts";
 export {
+  APP_GRANT_KINDS,
+  type AppGrantKind,
+  appGrantKindSchema,
+  type AppGrantScope,
+  appGrantScopeSchema,
   type GrantPermissionKind,
   type GrantPermissionRequirement,
   type GrantPermissionScope,

@@ -30,9 +30,10 @@ export function defineAgentEvent<T extends string, P extends z.ZodType>(
   return { type, payload };
 }
 
-export function agentEventEnvelopeSchema<D extends AgentEventDefinition>(
-  definition: D,
-) {
+export function agentEventEnvelopeSchema<
+  T extends string,
+  P extends z.ZodType,
+>(definition: AgentEventDefinition<T, P>) {
   return z.object({
     session: idSchema("ses"),
     type: z.literal(definition.type),

@@ -28,8 +28,10 @@ function defineTransientEvent<
 }
 
 export function transientEventEnvelopeSchema<
-  D extends TransientEventDefinition,
->(definition: D) {
+  T extends string,
+  S extends z.ZodType,
+  P extends z.ZodType,
+>(definition: TransientEventDefinition<T, S, P>) {
   return z.object({
     type: z.literal(definition.type),
     subject: definition.subject,

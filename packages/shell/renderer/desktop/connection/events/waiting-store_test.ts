@@ -105,6 +105,8 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   const source = createFakeSource({
     snapshots: [{
       session: SES,
+      agent: { role: "lophn" },
+      place: null,
       state: "waiting",
       permission_requests: [permission(1)],
       questions: [],
@@ -131,6 +133,8 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   source.reconnect({
     snapshots: [{
       session: SES,
+      agent: { role: "lophn" },
+      place: null,
       state: "waiting",
       permission_requests: [permission(3)],
       questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],

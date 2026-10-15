@@ -111,9 +111,11 @@ export const DOMAIN_EVENTS = [
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number]["type"];
 
 // seq는 전역이다. agent event와 달리 run 칸이 없다.
-export function domainEventEnvelopeSchema<D extends EventDefinition>(
-  definition: D,
-) {
+export function domainEventEnvelopeSchema<
+  T extends string,
+  S extends z.ZodType,
+  P extends z.ZodType,
+>(definition: EventDefinition<T, S, P>) {
   return z.object({
     seq: seqSchema,
     type: z.literal(definition.type),

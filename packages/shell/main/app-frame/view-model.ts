@@ -22,6 +22,8 @@ export interface AppFrameOpen {
   release: string | null;
   screen: string;
   size: ScreenSize;
+  /** 앱 화면이 처음부터 묶인 project. 없으면 null이다. */
+  project: string | null;
   parentWindow: string;
   bounds: ViewBounds;
 }
@@ -32,7 +34,7 @@ export type ConnectionState =
   | "running"
   | "unavailable";
 
-/** IPC를 보낸 view. main이 정한 신원과 연결만 싣고 페이지 주장은 없다. */
+/** IPC를 보낸 view. main이 정한 신원과 묶음만 싣고 페이지 주장은 없다. */
 export interface BoundView {
   view_session: string;
   generation: number;
@@ -48,6 +50,8 @@ export interface AppFrameViewState {
   screen: string;
   size: ScreenSize;
   connectionState: ConnectionState;
+  /** 앱 화면이 고른 project. 고르지 않았으면 null이다. */
+  project: string | null;
   /** 그 view 화면 process의 상태(crash.ts). 연결 상태와 따로 본다. */
   viewHealth: ViewHealth;
 }
@@ -83,6 +87,8 @@ export interface AppViewHost {
   pageUrl?(view: AppViewContents): string | null;
   /** 키보드 focus를 그 창의 shell renderer로 돌린다. */
   focusShell?(window: string): void;
+  /** 그 view의 페이지로 보낸다(`webContents.send`). */
+  send?(view: AppViewContents, channel: string, payload: unknown): void;
 }
 
 /** 세션 앱 카드가 묶인 답의 표시 참조. 카드 입력은 싣지 않는다. */
@@ -125,16 +131,9 @@ export interface FeedbackViewSnapshot {
   current(): boolean;
 }
 
-/** 폐기되거나 다른 앱으로 교체되어 그 앱에서 닫힌 view. */
-export interface ClosedView {
-  app: string;
-  mode: ViewMode;
-  release: string | null;
-  view_session: string;
-}
-
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const PROJECT_ID = /^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const SIZES: readonly string[] = ["full", "panel", "card"];
 const MODES: readonly string[] = ["live", "preview"];
 const SAFE_TEXT = (value: unknown): value is string =>
@@ -155,12 +154,29 @@ export function boundsEmpty(bounds: ViewBounds): boolean {
   return bounds.width <= 0 || bounds.height <= 0;
 }
 
-/** appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
+const OPEN_KEYS = new Set([
+  "app",
+  "bounds",
+  "mode",
+  "parentWindow",
+  "project",
+  "release",
+  "screen",
+  "size",
+]);
+
+/** appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. `project`는 없으면 null이다. */
 export function checkOpen(value: unknown): AppFrameOpen | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const input = value as Record<string, unknown>;
-  const keys = Object.keys(input).sort().join(",");
-  if (keys !== "app,bounds,mode,parentWindow,release,screen,size") return;
+  const keys = Object.keys(input);
+  if (
+    keys.some((key) => !OPEN_KEYS.has(key)) ||
+    keys.filter((key) => key !== "project").length !== OPEN_KEYS.size - 1
+  ) {
+    return undefined;
+  }
+  const project = input.project ?? null;
   if (
     typeof input.app !== "string" || !APP_ID.test(input.app) ||
     !MODES.includes(input.mode as string) ||
@@ -168,11 +184,13 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
       (typeof input.release === "string" && RELEASE_ID.test(input.release))) ||
     (input.mode === "live" && input.release === null) ||
     !SAFE_TEXT(input.screen) || !SIZES.includes(input.size as string) ||
+    !(project === null ||
+      (typeof project === "string" && PROJECT_ID.test(project))) ||
     !SAFE_TEXT(input.parentWindow) || !boundsValid(input.bounds)
   ) {
     return undefined;
   }
-  return input as unknown as AppFrameOpen;
+  return { ...input, project } as unknown as AppFrameOpen;
 }
 
 export interface Bound {
@@ -189,13 +207,12 @@ function sameHosts(a: readonly FetchHost[], b: readonly FetchHost[]): boolean {
     left.size === new Set(b.map(key)).size;
 }
 
-// release·프로세스·bundle·endpoint·host가 같으면 같은 연결이다. 만료만 다르면 새 서명만 쓴다.
+// release·프로세스·bundle·host가 같으면 같은 묶음이다.
 export function sameConnection(entry: Bound, next: Bound): boolean {
   return entry.partition === next.partition &&
     entry.binding.release === next.binding.release &&
     entry.binding.bundleHash === next.binding.bundleHash &&
     entry.binding.processNonce === next.binding.processNonce &&
-    entry.binding.endpoint === next.binding.endpoint &&
     sameHosts(entry.hosts, next.hosts);
 }
 
@@ -216,16 +233,8 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     screen: entry.target.screen,
     size: entry.target.size,
     connectionState: entry.connectionState,
+    project: entry.target.project,
     viewHealth: entry.viewHealth,
-  };
-}
-
-export function closedOf(entry: ViewEntry): ClosedView {
-  return {
-    app: entry.target.app,
-    mode: entry.target.mode,
-    release: entry.target.release,
-    view_session: entry.view_session,
   };
 }
 
@@ -246,5 +255,6 @@ export function targetOf(input: AppFrameOpen): ConnectTarget {
     release: input.release,
     screen: input.screen,
     size: input.size,
+    project: input.project,
   };
 }

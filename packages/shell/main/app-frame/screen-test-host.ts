@@ -12,8 +12,9 @@ import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, extname, join, sep } from "node:path";
 import { Readable } from "node:stream";
 
-import { type CallOutcome, outcomeOf } from "./app-call.ts";
-import type { Invoker } from "./app-invoke.ts";
+import { request as httpRequest } from "node:http";
+
+import type { CallOutcome } from "./app-call.ts";
 import type { Upstream, UpstreamResponse } from "./app-protocol.ts";
 import { SCREEN_TEST_PROBE_SCRIPTS } from "../../ipc/screen-test.ts";
 import { APP_SCHEME } from "./network-policy.ts";
@@ -344,13 +345,9 @@ dispatchEvent(new CustomEvent("lophn:render-error", { detail: { name: "RenderErr
 
 export function bundleUpstream(input: ScreenTestInput): Upstream {
   return async (request) => {
-    const parts = new URL(request.path, "http://screen.invalid").pathname
-      .split("/").slice(1).map(decodeURIComponent);
-    const [prefix, key, ...asset] = parts;
-    const screen = input.screens.find((item) => item.key === key);
-    if (prefix !== "screens" || screen === undefined || asset.length === 0) {
-      return NOT_FOUND;
-    }
+    const asset = request.path.split("/");
+    const screen = input.screens.find((item) => item.key === request.screen);
+    if (screen === undefined || asset.length === 0) return NOT_FOUND;
     const probe = asset.length === 1
       ? probeScript(asset[0]!, input.probe_nonce)
       : undefined;
@@ -387,6 +384,91 @@ export function bundleUpstream(input: ScreenTestInput): Upstream {
 }
 
 // ── app:call ────────────────────────────────────────────────────────────────
+
+// test 앱 socket의 command 호출 client. 운영의 앱 호출은 core로 가므로 이 host만 쓴다.
+const SOCKET_HOST = "lophn.invalid";
+const INVOKE_PATH = "/_lophn/commands/invoke";
+const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
+
+export interface InvokeRequest {
+  endpoint: string;
+  authorization: string;
+  body: Record<string, unknown>;
+}
+
+export interface InvokeResponse {
+  status: number;
+  body: unknown;
+}
+
+export type Invoker = (request: InvokeRequest) => Promise<InvokeResponse>;
+
+export const nodeInvoke: Invoker = (input) =>
+  new Promise((resolve, reject) => {
+    const payload = JSON.stringify(input.body);
+    const outgoing = httpRequest({
+      socketPath: input.endpoint,
+      path: INVOKE_PATH,
+      method: "POST",
+      headers: {
+        host: SOCKET_HOST,
+        authorization: input.authorization,
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(payload),
+      },
+    });
+    outgoing.once("error", reject);
+    outgoing.once("response", (incoming) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      incoming.on("data", (chunk: Buffer) => {
+        size += chunk.byteLength;
+        if (size > CALL_RESULT_MAX_BYTES) {
+          incoming.destroy(new Error("app response is too large"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      incoming.once("error", reject);
+      incoming.once("end", () => {
+        let body: unknown;
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        } catch {
+          body = undefined;
+        }
+        resolve({ status: incoming.statusCode ?? 502, body });
+      });
+    });
+    outgoing.end(payload);
+  });
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function outcomeOf(response: InvokeResponse): CallOutcome<unknown> {
+  const body = record(response.body);
+  if (response.status === 200) {
+    return record(body?.result) === undefined
+      ? {
+        ok: false,
+        error: { code: "unavailable", message: "app response did not match" },
+      }
+      : { ok: true, value: body };
+  }
+  const error = record(body?.error);
+  const code = error?.code;
+  return typeof code === "string" &&
+      ["invalid_input", "forbidden", "conflict", "unavailable"].includes(
+        code,
+      ) &&
+      typeof error?.message === "string"
+    ? { ok: false, error: { code, message: error.message } }
+    : { ok: false, error: { code: "unavailable", message: "command failed" } };
+}
 
 // IPC 입력 상한. app-call.ts의 CALL_INPUT_MAX_BYTES와 같다.
 const CALL_INPUT_MAX_BYTES = 64 * 1024;

@@ -1,9 +1,7 @@
-// lophn-app:// 요청을 view에 묶인 연결의 앱 socket `/screens/<screen>/…`으로 넘긴다.
-// socket 경로·인증 header는 main에만 있고 view·preload로 가지 않는다.
-// 응답은 모으지 않고 stream으로 돌려주며, 요청이 취소되면 upstream도
-// 끊는다. 다른 연결로의 redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다.
-import { request as httpRequest } from "node:http";
-import { Readable } from "node:stream";
+// lophn-app:// 요청을 view가 묶인 대상의 화면 byte로 바꾼다. byte는 core의 `app.screen_file`이
+// 내주고(UI bundle 사본), 대상(앱·release·preview process)은 view가 정하며 페이지 주장은 없다.
+// redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다. 요청이 취소되면 upstream도 끊는다.
+import { extname } from "node:path";
 
 import {
   APP_SCHEME,
@@ -12,27 +10,28 @@ import {
   ownAppUrl,
 } from "./network-policy.ts";
 
-// Unix socket HTTP의 가상 host.
-export const SOCKET_HOST = "lophn.invalid";
-
 // session 정책이 webContents에서 정해 붙이는 header. 페이지가 같은 이름을 보내도 덮어쓴다.
 export const VIEW_HEADER = "x-lophn-view";
+
+/** core가 화면 byte를 낼 대상(`app.screen_file`의 target). live의 release가 null이면 지금 활성 release다. */
+export type ScreenTarget =
+  | { mode: "live"; app: string; release: string | null }
+  | { mode: "preview"; app: string; process_nonce: string };
 
 /** protocol 요청이 쓰는 view 하나의 고정 값. 페이지 주장이 아니라 registry가 정한다. */
 export interface ProtocolView {
   view_session: string;
   appLabel: string;
   screen: string;
-  size: string;
-  endpoint: string;
-  authorization: string;
+  target: ScreenTarget;
   hosts: readonly FetchHost[];
 }
 
 export interface UpstreamRequest {
-  endpoint: string;
+  target: ScreenTarget;
+  screen: string;
+  /** screen 아래 상대 경로. */
   path: string;
-  authorization: string;
   signal: AbortSignal;
 }
 
@@ -48,7 +47,7 @@ export interface AppProtocolDeps {
   /** header 값(없으면 null)에서 이 session의 view를 찾는다. 다른 앱의 view는 돌려주지 않는다. */
   viewFor(token: string | null, appLabel: string): ProtocolView | undefined;
   upstream: Upstream;
-  /** 앱이 연결을 받지 않는다(만료·회수). registry가 연결을 다시 얻는다. */
+  /** core가 그 대상의 화면을 내주지 못한다(process 교체·중지). registry가 묶음을 다시 읽는다. */
   stale(view_session: string): void;
 }
 
@@ -130,27 +129,9 @@ export function parseAppUrl(
   return { screen, asset };
 }
 
-function encodePath(screen: string, asset: readonly string[]): string {
-  return [screen, ...asset].map(encodeURIComponent).join("/");
-}
-
-/** 앱 socket의 화면 경로. 페이지 query는 넘기지 않고 main이 정한 size·view_session만 붙인다. */
-export function screenPath(
-  view: Pick<ProtocolView, "size" | "view_session">,
-  screen: string,
-  asset: readonly string[],
-): string {
-  const query = new URLSearchParams({
-    size: view.size,
-    view_session: view.view_session,
-  });
-  return `/screens/${encodePath(screen, asset)}?${query}`;
-}
-
 /**
- * view 안에서 여는 첫 주소. 페이지가 자기 view_session을 알 수 있게 이 view의 식별자만 query로 싣는다
- * (apps/agent-context). 앱 socket으로는 넘기지 않고(`screenPath`가 main이 정한 값만 붙인다) 다른 화면의
- * 주소에는 붙지 않는다.
+ * view 안에서 여는 첫 주소. 페이지가 자기 view_session을 알 수 있게 이 view의 식별자만 query로
+ * 싣는다. 다른 화면의 주소에는 붙지 않고 core로도 넘기지 않는다.
  */
 export function appEntryUrl(
   appLabel: string,
@@ -179,36 +160,6 @@ function mediaType(value: string | undefined): string | undefined {
   return SAFE_MEDIA_TYPES.has(base) ? base : undefined;
 }
 
-/**
- * upstream redirect는 같은 연결·같은 screen 안일 때만 이 view의 주소로 바꿔 돌려준다.
- * 다른 screen·다른 host·다른 scheme은 다른 연결이라 따르지 않는다.
- */
-function redirectTarget(
-  location: string | undefined,
-  base: string,
-  view: ProtocolView,
-): string | undefined {
-  if (location === undefined) return undefined;
-  let target: URL;
-  try {
-    target = new URL(location, `http://${SOCKET_HOST}${base}`);
-  } catch {
-    return undefined;
-  }
-  if (target.protocol !== "http:" || target.host !== SOCKET_HOST) {
-    return undefined;
-  }
-  const raw = target.pathname.split("/").slice(1);
-  if (raw[0] !== "screens" || raw.length < 3) return undefined;
-  const parts = raw.slice(1).map(decode);
-  if (parts.some((part) => part === undefined || !safeSegment(part))) {
-    return undefined;
-  }
-  const [screen = "", ...asset] = parts as string[];
-  if (screen !== view.screen) return undefined;
-  return `${APP_SCHEME}://${view.appLabel}/${encodePath(screen, asset)}`;
-}
-
 function discard(body: ReadableStream<Uint8Array> | null): void {
   if (body !== null) void body.cancel().catch(() => {});
 }
@@ -231,32 +182,23 @@ export function createAppProtocolHandler(
     ) {
       return plain(404);
     }
-    const path = screenPath(view, parsed.screen, parsed.asset);
     let upstream: UpstreamResponse;
     try {
       upstream = await deps.upstream({
-        endpoint: view.endpoint,
-        path,
-        authorization: view.authorization,
+        target: view.target,
+        screen: parsed.screen,
+        path: parsed.asset.join("/"),
         signal: request.signal,
       });
     } catch {
       return plain(request.signal.aborted ? 499 : 503);
     }
+    // 화면 byte는 redirect하지 않는다. 다른 대상으로 가는 길은 열지 않는다.
     if (upstream.status >= 300 && upstream.status < 400) {
       discard(upstream.body);
-      const location = redirectTarget(
-        header(upstream.headers, "location"),
-        path,
-        view,
-      );
-      if (location === undefined) return plain(502);
-      return new Response(null, {
-        status: upstream.status === 301 || upstream.status === 308 ? 308 : 307,
-        headers: { location, "cache-control": "no-store" },
-      });
+      return plain(502);
     }
-    if (upstream.status === 401) {
+    if (upstream.status === 503) {
       discard(upstream.body);
       deps.stale(view.view_session);
       return plain(503);
@@ -289,38 +231,81 @@ export function createAppProtocolHandler(
   };
 }
 
-/**
- * main의 Node client. `socketPath`로 앱 socket에 직접 붙는다. 요청 취소는 upstream 요청과
- * 응답 stream을 끊는다. 응답 body는 back-pressure가 있는 web stream으로 넘겨 메모리에
- * 모으지 않는다.
- */
-export const nodeUpstream: Upstream = (input) =>
-  new Promise((resolve, reject) => {
-    if (input.signal.aborted) {
-      reject(new Error("aborted"));
-      return;
+// core가 내준 byte의 MIME은 파일 확장자로 정한다(file route client가 header를 넘기기 전까지).
+const TYPES: Readonly<Record<string, string>> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".wasm": "application/wasm",
+  ".txt": "text/plain; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".wav": "audio/wav",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+};
+
+// 화면 파일 하나를 main 메모리에 모으는 상한.
+export const SCREEN_FILE_MAX_BYTES = 32 * 1024 * 1024;
+
+/** core의 file route `app.screen_file`을 읽는다. 입력은 route 입력이고 byte는 limit까지 모은다. */
+export type ScreenFileRead = (
+  input: { target: ScreenTarget; screen: string; path: string },
+  limit: number,
+) => Promise<
+  { ok: true; value: Uint8Array } | { ok: false; error: { code: string } }
+>;
+
+function statusOf(code: string): number {
+  switch (code) {
+    case "not_found":
+    case "invalid_input":
+      return 404;
+    case "unavailable":
+      return 503;
+    default:
+      return 502;
+  }
+}
+
+/** core 읽기로 화면 byte를 내주는 upstream. */
+export function createCoreUpstream(read: ScreenFileRead): Upstream {
+  return async (request) => {
+    const result = await read({
+      target: request.target,
+      screen: request.screen,
+      path: request.path,
+    }, SCREEN_FILE_MAX_BYTES);
+    if (request.signal.aborted) throw new Error("aborted");
+    if (!result.ok) {
+      return { status: statusOf(result.error.code), headers: {}, body: null };
     }
-    const outgoing = httpRequest({
-      socketPath: input.endpoint,
-      path: input.path,
-      method: "GET",
-      headers: { host: SOCKET_HOST, authorization: input.authorization },
-    });
-    const abort = () => outgoing.destroy(new Error("aborted"));
-    input.signal.addEventListener("abort", abort, { once: true });
-    outgoing.once("error", (error) => {
-      input.signal.removeEventListener("abort", abort);
-      reject(error);
-    });
-    outgoing.once("response", (incoming) => {
-      incoming.once("close", () => {
-        input.signal.removeEventListener("abort", abort);
-      });
-      resolve({
-        status: incoming.statusCode ?? 502,
-        headers: incoming.headers,
-        body: Readable.toWeb(incoming) as ReadableStream<Uint8Array>,
-      });
-    });
-    outgoing.end();
-  });
+    const type = TYPES[extname(request.path).toLowerCase()];
+    if (type === undefined) return { status: 502, headers: {}, body: null };
+    const bytes = result.value;
+    return {
+      status: 200,
+      headers: { "content-type": type },
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+    };
+  };
+}

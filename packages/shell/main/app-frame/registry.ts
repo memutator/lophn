@@ -1,12 +1,13 @@
-// 앱 view registry. `appFrame.open/replace/close`의 main service다. 연결은
-// 앱 통로로 main이 얻고 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다.
+// 앱 view registry. `appFrame.open/replace/close`의 main service다. view가 보는 앱 process는
+// main이 core 읽기로 알아 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다.
 // 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
 // view_session과 generation으로 진단을 남긴다. view가 있다는 것만으로 권한이 생기지
-// 않는다: view는 main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는
-// 없다. command는 `app:call`(app-call.ts)이 이 view의 신원으로 따로 얻은 연결로만 부른다.
+// 않는다: view는 자기 대상의 화면 byte만 받는다. app-api는 `app:call`(app-call.ts)이 이 view의
+// 신원으로만 부른다.
 import {
   appEntryUrl,
   type ProtocolView,
+  type ScreenTarget,
   type Upstream,
 } from "./app-protocol.ts";
 import {
@@ -20,6 +21,7 @@ import { bindTarget } from "./binding.ts";
 import { nextHealth, reopenable, type ViewHealth } from "./crash.ts";
 import { navigationAllowed } from "./network-policy.ts";
 import { createPlacement, type Placed } from "./placement.ts";
+import type { AnnotateViewPort } from "../../ipc/annotation.ts";
 import {
   appHostLabel,
   type AppSessionHandle,
@@ -35,8 +37,6 @@ import {
   boundViewOf,
   type CardDisplay,
   checkOpen,
-  closedOf,
-  type ClosedView,
   type ConnectionState,
   type FeedbackViewSnapshot,
   sameConnection,
@@ -53,7 +53,6 @@ export type {
   AppViewHost,
   BoundView,
   CardDisplay,
-  ClosedView,
   ConnectionState,
   FeedbackViewSnapshot,
   ViewBounds,
@@ -73,12 +72,7 @@ export interface AppFrameDeps {
   clock: { nowMs(): number };
   /** 연결 상태·release가 바뀐 view를 그 창의 shell renderer에 알린다(`shell:view-state`). */
   onState?(window: string, state: AppFrameViewState): void;
-  /** view가 그 앱에서 닫혔다. 앱 runtime이 그 view_session을 버리게 한다(apps/agent-context). */
-  closed?(view: ClosedView): void;
 }
-
-// 만료 이만큼 전에 연결을 다시 얻는다.
-export const CONNECTION_RENEW_MS = 30_000;
 
 interface Entry extends Bound, Placed {
   view_session: string;
@@ -87,9 +81,19 @@ interface Entry extends Bound, Placed {
   /** 화면 process 상태(crash.ts). 새 contents마다 ok로 시작한다. */
   viewHealth: ViewHealth;
   refreshing: Promise<void> | undefined;
-  renewedFor: number | undefined;
   /** 세션 카드가 묶인 message·block. 카드가 아니면 null이다. */
   card: CardDisplay | null;
+}
+
+// core가 화면 byte를 낼 대상. 묶인 release·preview process다.
+function screenTargetOf(entry: Entry): ScreenTarget {
+  return entry.target.mode === "live"
+    ? { mode: "live", app: entry.target.app, release: entry.binding.release }
+    : {
+      mode: "preview",
+      app: entry.target.app,
+      process_nonce: entry.binding.processNonce,
+    };
 }
 
 export function createAppFrame(deps: AppFrameDeps) {
@@ -105,19 +109,6 @@ export function createAppFrame(deps: AppFrameDeps) {
       release: entry.target.release,
       mode: entry.target.mode,
     }, event);
-  }
-
-  // 같은 만료 시각으로는 한 번만 다시 얻는다. credential 기한이 가까워 core가 같은 만료를
-  // 다시 주어도 화면 요청마다 연결을 새로 얻지 않는다.
-  function renewIfDue(entry: Entry): void {
-    const expires = entry.binding.expiresAtMs;
-    if (
-      expires !== null && entry.renewedFor !== expires &&
-      expires - deps.clock.nowMs() <= CONNECTION_RENEW_MS
-    ) {
-      entry.renewedFor = expires;
-      void refreshEntry(entry);
-    }
   }
 
   const sessions = createAppSessions({
@@ -141,14 +132,11 @@ export function createAppFrame(deps: AppFrameDeps) {
         ) {
           return undefined;
         }
-        renewIfDue(entry);
         return {
           view_session: entry.view_session,
           appLabel,
           screen: entry.target.screen,
-          size: entry.target.size,
-          endpoint: entry.binding.endpoint,
-          authorization: entry.binding.authorization,
+          target: screenTargetOf(entry),
           hosts: entry.hosts,
         };
       },
@@ -242,7 +230,7 @@ export function createAppFrame(deps: AppFrameDeps) {
   }
 
   /**
-   * 깨진 view에 지금 연결(같은 binding·partition)로 새 contents를 연다. 연결을 다시 얻거나
+   * 깨진 view에 지금 묶음(같은 binding·partition)으로 새 contents를 연다. 묶음을 다시 읽거나
    * 앱을 다시 부르지 않는다. 건강한 view는 conflict다(crash.ts).
    */
   function reopen(view_session: string): Outcome<AppFrameViewState> {
@@ -265,7 +253,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.refreshing !== undefined) return entry.refreshing;
     const generation = entry.generation;
     entry.refreshing = (async () => {
-      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 연결을 잃는다
+      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 묶음을 잃는다
       // (lophn-agent/visuals AppCardReference). 다른 크기는 지금 채택된 release를 따른다.
       const next = await bind(entry.target, entry.target.size !== "card");
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
@@ -284,6 +272,8 @@ export function createAppFrame(deps: AppFrameDeps) {
         setConnection(entry, "running");
         return;
       }
+      // 읽는 사이 project가 바뀌었을 수 있다. project는 묶음이 아니라 view의 것이다.
+      next.value.target.project = entry.target.project;
       await remount(entry, next.value);
       if (entries.get(entry.view_session) === entry) pushState(entry);
     })().finally(() => {
@@ -300,7 +290,33 @@ export function createAppFrame(deps: AppFrameDeps) {
     unmount(entry);
     entry.generation += 1;
     record(entry, "disposed");
-    deps.closed?.(closedOf(entry));
+  }
+
+  // 만든 때의 contents·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.
+  function annotatePort(entry: Entry): AnnotateViewPort {
+    const contents = entry.contents;
+    const generation = entry.generation;
+    const view_session = entry.view_session;
+    const current = () =>
+      entries.get(view_session) === entry && entry.contents === contents &&
+      entry.generation === generation;
+    return {
+      view_session,
+      app: entry.target.app,
+      release: entry.target.release,
+      screen: entry.target.screen,
+      pageUrl: () => deps.views.pageUrl?.(contents) ?? null,
+      current,
+      send(channel, payload) {
+        if (current()) deps.views.send?.(contents, channel, payload);
+      },
+      capture() {
+        if (!current() || deps.views.capture === undefined) {
+          return Promise.reject(new Error("view is not capturable"));
+        }
+        return deps.views.capture(contents);
+      },
+    };
   }
 
   /** 떼어 숨긴다. view와 연결은 남는다. */
@@ -346,7 +362,6 @@ export function createAppFrame(deps: AppFrameDeps) {
         connectionState: "running",
         viewHealth: "ok",
         refreshing: undefined,
-        renewedFor: undefined,
         card: card === undefined
           ? null
           : { message: card.message, block: card.block },
@@ -381,14 +396,11 @@ export function createAppFrame(deps: AppFrameDeps) {
       ) {
         return failure("conflict", "view changed while replacing");
       }
-      const previous = closedOf(entry);
       entry.shown = !boundsEmpty(input.bounds);
       await remount(entry, next.value, {
         window: input.parentWindow,
         bounds: input.bounds,
       });
-      // 같은 앱이면 같은 view_session이 그 runtime에서 이어진다. 다른 앱이면 옛 앱에서는 닫혔다.
-      if (previous.app !== entry.target.app) deps.closed?.(previous);
       return { ok: true, value: state(entry) };
     },
 
@@ -422,6 +434,22 @@ export function createAppFrame(deps: AppFrameDeps) {
       return boundViewOf(entry);
     },
 
+    /** 앱 화면이 고른 project를 view에 묶는다(null이면 푼다). 바뀌면 state를 push한다. */
+    setProject(
+      view_session: string,
+      project: string | null,
+    ): Outcome<AppFrameViewState> {
+      const entry = entries.get(view_session);
+      if (entry === undefined) {
+        return failure("forbidden", "view is not open");
+      }
+      if (entry.target.project !== project) {
+        entry.target.project = project;
+        pushState(entry);
+      }
+      return { ok: true, value: state(entry) };
+    },
+
     /** [Report a problem]의 버튼 시점 view. 없는 view는 undefined다. */
     feedbackView(view_session: string): FeedbackViewSnapshot | undefined {
       const entry = entries.get(view_session);
@@ -451,6 +479,20 @@ export function createAppFrame(deps: AppFrameDeps) {
         },
         current,
       };
+    },
+
+    /** annotate가 쓰는 view 입구. 없는 view는 undefined다. */
+    annotateView(view_session: string): AnnotateViewPort | undefined {
+      const entry = entries.get(view_session);
+      return entry === undefined ? undefined : annotatePort(entry);
+    },
+
+    /** IPC sender webContents의 annotate 입구. 폐기·교체된 contents는 undefined다. */
+    senderAnnotateView(contentsId: number): AnnotateViewPort | undefined {
+      const entry = byContents.get(contentsId);
+      return entry === undefined || entries.get(entry.view_session) !== entry
+        ? undefined
+        : annotatePort(entry);
     },
 
     /** 그 view가 붙는 창. 없는 view는 undefined다. */

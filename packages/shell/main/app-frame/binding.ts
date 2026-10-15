@@ -1,4 +1,4 @@
-// view에 묶을 연결 하나. 앱 통로의 연결과 부여 host, 그 연결의 partition을 함께 얻는다.
+// view에 묶을 앱 process 하나. 앱 process와 부여 host, 그 partition을 함께 얻는다.
 import type { AppConnector, ConnectTarget, Outcome } from "./app-connection.ts";
 import { appPartition } from "./session-policy.ts";
 import type { Bound } from "./view-model.ts";

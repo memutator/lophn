@@ -68,7 +68,7 @@ export interface ExceptionObservation {
   invocation: null;
 }
 
-/** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 core가 서명한 연결이다. */
+/** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 view 식별이다(core route가 칸을 요구한다). */
 export interface ViewErrorOrigin {
   view_session: string;
   generation: number;
@@ -156,7 +156,7 @@ export function createViewErrors(deps: ViewErrorDeps) {
           release: view.binding.release,
           mode: view.target.mode,
           bundle_hash: view.binding.bundleHash,
-          binding: view.binding.authorization,
+          binding: `${view.view_session}#${view.generation}`,
         },
         observation: {
           report_id: deps.ids.reportId(),

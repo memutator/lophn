@@ -24,6 +24,3 @@ export {
   validateInput,
 } from "../../protocol/apps/blueprint/mod.ts";
 export { defineBlueprint } from "./define.ts";
-
-// 임시: sdk/ui-action/use-command.ts가 아직 이 type을 import한다. app-calls-shell이 옮기면 지운다.
-export type { CommandDeclaration } from "../../protocol/apps/blueprint.ts";

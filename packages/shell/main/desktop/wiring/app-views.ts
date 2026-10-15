@@ -6,13 +6,12 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { VIEW_STATE_CHANNEL } from "../../../ipc/app-frame.ts";
-import { nodeUpstream } from "../../app-frame/app-protocol.ts";
+import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
 import { createEntryScreen } from "../../app-frame/blueprint-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
 import { createExternalLinks } from "../../app-frame/external-link.ts";
 import { createAppFrame } from "../../app-frame/registry.ts";
-import { createViewClosedRelay } from "../../app-frame/view-closed.ts";
 import { createViewErrors, reportIdOf } from "../../app-frame/view-error.ts";
 import {
   createViewIpc,
@@ -72,12 +71,20 @@ export function register(ctx: ShellContext): AppViews {
     headless,
     raise: (window) => overlays.raise(window),
   });
-  const relayViewClosed = createViewClosedRelay({ call: coreInternal, log });
   const appFrame = createAppFrame({
     connector: ctx.appConnector,
     views: appViews.views,
     sessionHandle: appViews.sessionHandle,
-    upstream: nodeUpstream,
+    // 화면 byte는 core의 file route `app.screen_file`이 내준다.
+    upstream: createCoreUpstream((input, limit) => {
+      const session = core.session();
+      return session
+        ? session.readStream("apps", "screen_file", input, limit)
+        : Promise.resolve({
+          ok: false as const,
+          error: { code: "unavailable" },
+        });
+    }),
     // 앱 view가 loopback으로 core API에 닿지 못하게 한다. 부여된 host여도 막는다.
     platformPorts: () => {
       const session = core.session();
@@ -100,7 +107,6 @@ export function register(ctx: ShellContext): AppViews {
         window.webContents.send(VIEW_STATE_CHANNEL, state);
       }
     },
-    closed: (view) => void relayViewClosed(view),
   });
 
   // native view 배치. renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
@@ -183,7 +189,9 @@ export function register(ctx: ShellContext): AppViews {
           error: { code: "unavailable", message: "core is not ready" },
         });
     },
-    entryScreen: createEntryScreen(ctx.readBlueprint),
+    entryScreen: createEntryScreen((app, release) =>
+      coreInternal("read", "apps", "app_api", { app, release })
+    ),
     create: (config: AppWindowConfig) => {
       const window = new BrowserWindow(surfaceOptions(config, headless));
       // 창 자신은 page가 없다. 새 창 요청도 받지 않는다.

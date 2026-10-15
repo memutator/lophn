@@ -30,7 +30,6 @@ import {
   SCREEN_TEST_BLOCKED_CHANNEL,
   SCREEN_TEST_PROBE_CHANNEL,
 } from "../ipc/screen-test.ts";
-import { nodeInvoke } from "./app-frame/app-invoke.ts";
 import { registerAppIpc } from "./app-frame/app-ipc.ts";
 import { parseAppUrl, type ProtocolView } from "./app-frame/app-protocol.ts";
 import { electronAppViews } from "./app-frame/electron-app-frame.ts";
@@ -44,6 +43,7 @@ import {
   FEEDBACK_MS,
   fitsFrame,
   type LoadResult,
+  nodeInvoke,
   readFrame,
   runScreenTest,
   SCREEN_TEST_APP,
@@ -196,9 +196,11 @@ function electronPorts(
           view_session: view.view.view_session,
           appLabel,
           screen: view.key,
-          size: "full",
-          endpoint: input.app_socket_path,
-          authorization: "",
+          target: {
+            mode: "preview",
+            app: SCREEN_TEST_APP,
+            process_nonce: "",
+          },
           hosts: [],
         };
       },
@@ -278,14 +280,12 @@ function electronPorts(
           release: null,
           screen: screen.key,
           size: "full",
+          project: null,
         },
         binding: {
-          endpoint: input.app_socket_path,
-          authorization: "",
           release: null,
           bundleHash: "",
           processNonce: "",
-          expiresAtMs: null,
         },
       },
     });

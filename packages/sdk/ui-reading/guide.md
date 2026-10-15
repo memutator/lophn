@@ -2,20 +2,14 @@
 
 ## 목적
 
-문서를 읽는 화면의 Markdown 본문·목차 tree·code block·문서 주소 표시다
-(apps/sdk#R16). Markdown·code block·목차와 읽기 틀은 lophn 문서 화면과 같은
-component이고 시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+문서를 읽는 화면의 Markdown 본문·목차 tree·code block이다 (apps/sdk#R16).
+Markdown·code block·목차와 읽기 틀은 lophn 문서 화면과 같은 component이고 시각
+값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
 
 ## 공개 API와 type
 
 ```tsx
-import {
-  DocumentAddress,
-  Markdown,
-  parseMarkdown,
-  ReadingFrame,
-  Toc,
-} from "@lophn/ui-reading";
+import { Markdown, parseMarkdown, ReadingFrame, Toc } from "@lophn/ui-reading";
 ```
 
 - `Markdown({source, onOpenLink?, clipboard?})` — CommonMark·GFM 본문을 그린다.
@@ -29,17 +23,13 @@ import {
   머리의 선택 칸으로 그린다.
 - `CodeBlock({code, language?, clipboard?})` — code 한 덩이와 [Copy code].
   code는 글로만 넣어 실행하지 않는다.
-- `DocumentAddress({address, clipboard?})` — 문서
-  주소(`mahas/weekly-report#summary@3` 같은)를 code 글꼴로 줄이지 않고 보이고
-  [Copy address]로 그대로 복사한다. 주소의 모양과 해석은 documents/addressing을
-  따른다.
 - `ReadingFrame({width, header?, toc?, children})` — 읽기 폭(`READING_WIDTHS`:
   narrow·default·wide)과 목차 자리를 정하는 읽기 틀이다.
 - `systemClipboard`, type `Clipboard` — 복사에 쓰는 clipboard다. 테스트가 바꿔
   끼운다.
 - type: `MarkdownProps`, `MarkdownDocument`, `Block`, `Inline`, `OutlineItem`,
-  `ParseOptions`, `TocProps`, `CodeBlockProps`, `DocumentAddressProps`,
-  `ReadingFrameProps`, `ReadingWidth`
+  `ParseOptions`, `TocProps`, `CodeBlockProps`, `ReadingFrameProps`,
+  `ReadingWidth`
 
 ## 요구 permission
 
@@ -57,23 +47,17 @@ import {
 
 ## 예제
 
-`examples/weekly-report.tsx`가 read command로 읽은 문서 하나를 주소·목차·본문과
-함께 보인다.
+`examples/weekly-report.tsx`가 read command로 읽은 문서 하나를 목차·본문과 함께
+보인다.
 
 ```tsx
-import {
-  DocumentAddress,
-  Markdown,
-  parseMarkdown,
-  ReadingFrame,
-  Toc,
-} from "@lophn/ui-reading";
+import { Markdown, parseMarkdown, ReadingFrame, Toc } from "@lophn/ui-reading";
 
 const outline = parseMarkdown(report.body).outline;
 
 <ReadingFrame
   width="default"
-  header={<DocumentAddress address={report.address} />}
+  header={<h1>{report.title}</h1>}
   toc={<Toc items={outline} activeId={active} onSelect={setActive} />}
 >
   <Markdown source={report.body} />

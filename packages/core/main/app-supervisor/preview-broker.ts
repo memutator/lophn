@@ -1,4 +1,4 @@
-// preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret·문서·다른 앱)는
+// preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret·다른 앱)는
 // 모두 대역이고, 기록(invocation)만 운영과 같은 전달 목록으로 가되 mode로 구별된다. 선언은 그 bundle의
 // 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
@@ -18,7 +18,7 @@ import {
 } from "../../apps/preview/mod.ts";
 
 // 선언을 읽지 못하면 아무 외부도 허락하지 않는다(대역도 선언 안에서만 받는다).
-const CLOSED_SCOPE: PreviewScope = { secrets: [], net: [], documents: [] };
+const CLOSED_SCOPE: PreviewScope = { secrets: [], net: [] };
 
 // preview의 disposable 영역은 `<data root>/apps/<app>/preview/<nonce>`이고 고정 bundle 사본은
 // `<data root>/apps/<app>/bundles/<bundle hash>/`다(apps/releases bundle 사본 위치 규칙).

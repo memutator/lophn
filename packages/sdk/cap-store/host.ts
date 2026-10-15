@@ -1,5 +1,5 @@
 // 앱 프로세스의 host가 설치하는 port 중 cap-store가 읽는 부분이다. 같은 port를 cap-net·
-// cap-secret·cap-save도 읽으므로 symbol과 필드 이름이 같아야 한다(그쪽 host.ts와 함께 바꾼다).
+// cap-secret도 읽으므로 symbol과 필드 이름이 같아야 한다(그쪽 host.ts와 함께 바꾼다).
 
 export const CAP_HOST = Symbol.for("lophn.cap-host");
 

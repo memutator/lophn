@@ -82,7 +82,7 @@ export function startRuntime(deps: {
     postConfirmPoll: (body) => state.broker.appsConfirmPoll(body),
     direct: deps.pairDirect ?? unixPairDirect,
   }));
-  // cap-net·cap-secret·cap-save·cap-store의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
+  // cap-net·cap-secret·cap-store의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
   // SDK가 port로만 쓴다.
   installCapHost(createCapHost({
     mode: parsed.mode,

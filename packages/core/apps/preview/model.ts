@@ -68,7 +68,6 @@ export function validNonce(value: string): boolean {
 export type PreviewScope = {
   secrets: readonly string[];
   net: readonly { host: string; port: number }[];
-  documents: readonly string[];
 };
 
 export function previewScopeOf(
@@ -76,15 +75,12 @@ export function previewScopeOf(
 ): PreviewScope {
   const secrets: string[] = [];
   const net: { host: string; port: number }[] = [];
-  const documents: string[] = [];
   for (const requirement of blueprint.permissions) {
     const scope = requirement.scope as Record<string, unknown>;
     if (requirement.kind === "secret.use") secrets.push(String(scope["name"]));
     else if (requirement.kind === "net.fetch") {
       net.push({ host: String(scope["host"]), port: Number(scope["port"]) });
-    } else if (requirement.kind === "document.save") {
-      documents.push(String(scope["key"]));
     }
   }
-  return { secrets, net, documents };
+  return { secrets, net };
 }

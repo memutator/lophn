@@ -1,8 +1,7 @@
-// 앱 화면 예: 앱이 읽어 온 문서 하나를 주소·목차·Markdown 본문과 함께 읽는다.
+// 앱 화면 예: 앱이 읽어 온 문서 하나를 목차·Markdown 본문과 함께 읽는다.
 import { useMemo, useState } from "react";
 import {
   type Clipboard,
-  DocumentAddress,
   Markdown,
   parseMarkdown,
   ReadingFrame,
@@ -13,7 +12,6 @@ import styles from "./weekly-report.module.css";
 // 앱의 read command가 돌려준 문서다. 본문은 사람이나 agent가 쓴 Markdown이다.
 export const REPORT = {
   title: "Weekly report",
-  address: "mahas/weekly-report#summary@3",
   body: [
     "## Summary",
     "",
@@ -44,7 +42,6 @@ export function WeeklyReport(
   const header = (
     <div className={styles.header}>
       <h1 className={styles.title}>{REPORT.title}</h1>
-      <DocumentAddress address={REPORT.address} clipboard={clipboard} />
     </div>
   );
   return (

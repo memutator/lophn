@@ -6,7 +6,6 @@ import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import type { BrokerChild, InvocationBroker } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
-import type { DocumentSaveService } from "./documents.ts";
 import type { ProblemReportService } from "./problems.ts";
 import type { AppsConnectService } from "./apps-connect.ts";
 import type { AppsConfirmService } from "./apps-confirm.ts";
@@ -16,7 +15,6 @@ export const BROKER_ROUTES = {
   invocationsSubmit: "/_lophn/broker/invocations/submit",
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
-  documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsConnect: "/_lophn/broker/apps/connect",
@@ -32,7 +30,6 @@ export type BrokerServices = {
   invocations?: Pick<InvocationBroker, "submit">;
   net?: NetFetchService;
   secrets?: SecretUseService;
-  documents?: DocumentSaveService;
   problems?: ProblemReportService;
   apps?: AppsConnectService;
   appsConfirm?: AppsConfirmService;
@@ -60,7 +57,6 @@ function routes(services: BrokerServices): Map<string, Handler> {
     invocations,
     net,
     secrets,
-    documents,
     problems,
     apps,
     appsConfirm,
@@ -74,9 +70,6 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
   if (secrets) table.set(BROKER_ROUTES.secretsUse, (c, b) => secrets.use(c, b));
-  if (documents) {
-    table.set(BROKER_ROUTES.documentsSave, (c, b) => documents.save(c, b));
-  }
   if (problems) {
     table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
     if (problems.observe) {

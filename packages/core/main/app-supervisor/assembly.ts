@@ -158,7 +158,6 @@ export type SupervisorIo = {
       BrokerAdapters,
       | "netTransport"
       | "netScheme"
-      | "documents"
       | "secrets"
       | "pairs"
     >

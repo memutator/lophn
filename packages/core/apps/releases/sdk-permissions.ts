@@ -9,7 +9,6 @@ export const SDK_REQUIRED_PERMISSIONS: Readonly<
 > = {
   "@lophn/cap-fs": [["fs.read", "fs.write"]],
   "@lophn/cap-net": [["net.fetch"]],
-  "@lophn/cap-save": [["document.save"]],
   // secret은 목적지 host·port의 net.fetch grant 안에서만 쓴다.
   "@lophn/cap-secret": [["secret.use"], ["net.fetch"]],
 };

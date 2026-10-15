@@ -1,4 +1,4 @@
-// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·문서·다른 앱)는 모두
+// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱)는 모두
 // 대역이고, 운영과 mode로만 구별되는 기록(invocation)·보고(problems) 서비스는 주입받아 그대로 쓴다.
 // problems test runner의 mode=test 자식도 같은 묶음을 쓴다.
 import type {
@@ -8,10 +8,6 @@ import type {
 } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
 import { createPreviewAppsService, type PreviewAppsService } from "./apps.ts";
-import {
-  createPreviewDocumentsService,
-  type PreviewDocumentsService,
-} from "./documents.ts";
 import {
   createPreviewExternalService,
   type PreviewExternalService,
@@ -35,7 +31,6 @@ export type PreviewBrokerServices = {
   apps: PreviewAppsService;
   secrets: PreviewSecretService;
   external: PreviewExternalService;
-  documents: PreviewDocumentsService;
 };
 
 export function createPreviewBrokerServices(
@@ -43,25 +38,21 @@ export function createPreviewBrokerServices(
 ): PreviewBrokerServices {
   const secrets = createPreviewSecretService(options.scope);
   const external = createPreviewExternalService(options.scope);
-  const documents = createPreviewDocumentsService(options.scope);
   const apps = createPreviewAppsService();
   return {
     services: {
       ...(options.invocations ? { invocations: options.invocations } : {}),
       net: external,
       secrets,
-      documents,
       ...(options.problems ? { problems: options.problems } : {}),
     },
     apps,
     secrets,
     external,
-    documents,
   };
 }
 
 export type { PreviewAppAttempt, PreviewAppsService } from "./apps.ts";
-export type { PreviewDocumentsService } from "./documents.ts";
 export type {
   PreviewExternalRequest,
   PreviewExternalService,
@@ -69,7 +60,6 @@ export type {
 export type { PreviewSecretService, PreviewSecretUse } from "./secret.ts";
 export {
   createPreviewAppsService,
-  createPreviewDocumentsService,
   createPreviewExternalService,
   createPreviewSecretService,
 };

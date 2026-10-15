@@ -552,3 +552,25 @@ export {
   type TicketClaimCheckResult,
   type TicketClaimReject,
 } from "./ports.ts";
+export {
+  canDeliverMessages,
+  canLaunch,
+  CODING_SKILL_NAMES,
+  HARNESS_ADAPTERS,
+  type HarnessAdapter,
+  TURN_END_SIGNALS,
+} from "./harness-adapter.ts";
+export {
+  HOOK_EVENT_TABLE,
+  HOOK_SIGNAL_TYPES,
+  type HookSignal,
+  hookSignalOf,
+} from "./hook-signal.ts";
+export {
+  type CodingLaunchPlan,
+  codingLaunchPlanSchema,
+  type CodingRunOptions,
+  firstPromptOf,
+  launchPlanOf,
+  PASTE_AFTER_HOOK_DEADLINE_MS,
+} from "./launch-plan.ts";

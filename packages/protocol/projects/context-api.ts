@@ -203,6 +203,8 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 // ---------- 값: SavedView ----------
 
 export const SAVED_VIEW_ORIGINS = ["user", "engineer"] as const;
+// 새 흐름의 만든 쪽. 옛 SAVED_VIEW_ORIGINS를 쓰는 곳이 없어지면 이것으로 바꾼다.
+export const SAVED_VIEW_AUTHORS = ["user", "project_manager"] as const;
 const savedViewFields = {
   id: savedViewIdSchema,
   context: ctxIdSchema,

@@ -85,6 +85,8 @@ export const sectionSourceSchema = z.strictObject({
   message: "expected exactly one of documents or from_type",
 });
 export const OUTLINE_FORMATS = ["markdown"] as const;
+// md가 아닌 파일의 목차는 core가 저장해 둔다.
+export const CONTEXT_OUTLINE_SOURCE_FORMATS = ["pdf", "docs"] as const;
 export const outlineSourceSchema = z.strictObject({
   kind: z.literal("outline"),
   documents: z.array(pathPatternSchema).min(1).optional(),

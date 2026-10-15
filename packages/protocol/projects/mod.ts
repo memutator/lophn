@@ -6,13 +6,10 @@ export * from "./openable-format.ts";
 export * from "./outline-markdown.ts";
 export * from "./read-values.ts";
 export * from "./guides.ts";
-export * from "./file-values.ts";
-export * from "./files.ts";
 export * from "./context-contract.ts";
 export * from "./context-api.ts";
 export * from "./context-work.ts";
 
-import { FILE_EVENTS, FILE_ROUTES } from "./files.ts";
 import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
 
 import {
@@ -48,7 +45,6 @@ export const ROUTES = [
   projectResolveCwd,
   projectTrackingRoots,
   projectPreviewTracking,
-  ...FILE_ROUTES,
   ...CONTEXT_API_ROUTES,
 ] as const;
 
@@ -58,6 +54,5 @@ export const EVENTS = [
   projectTrackingChanged,
   projectArchived,
   projectUnarchived,
-  ...FILE_EVENTS,
   ...CONTEXT_API_EVENTS,
 ] as const;

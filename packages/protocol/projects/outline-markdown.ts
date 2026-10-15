@@ -303,3 +303,111 @@ export function parseOutline(
     sections,
   };
 }
+
+// ---------- 새 목차 parser ----------
+// key·anchor·token 수·hash 없이 제목 tree와 줄 범위만 돌려준다. ATX와 setext 제목만 보고
+// front matter와 fenced code 안은 제외한다. 줄을 건너뛴 level은 가장 가까운 위 level 아래에 둔다.
+
+export type MarkdownOutlineNode = {
+  level: number;
+  title: string;
+  // 제목 줄과 자식 section을 뺀 자체 본문. 한 줄도 없으면 null.
+  own_range: OutlineRange | null;
+  // 제목 줄(setext면 밑줄 줄 포함)부터 다음 같거나 적은 level 제목 직전까지.
+  subtree_range: OutlineRange;
+  children: MarkdownOutlineNode[];
+};
+
+type PlainHeading = {
+  level: number;
+  title: string;
+  start_line: number;
+  end_line: number;
+};
+
+function plainHeadings(lines: readonly string[]): PlainHeading[] {
+  const headings: PlainHeading[] = [];
+  let index = frontMatterEnd(lines);
+  let fence: { mark: string; length: number } | null = null;
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    const run = FENCE.exec(line);
+    if (fence !== null) {
+      const marks = run?.[2] ?? "";
+      if (
+        run !== null && marks.startsWith(fence.mark) &&
+        marks.length >= fence.length && (run[3] ?? "").trim() === ""
+      ) fence = null;
+      index += 1;
+      continue;
+    }
+    if (run !== null) {
+      const marks = run[2] ?? "`";
+      fence = { mark: marks.slice(0, 1), length: marks.length };
+      index += 1;
+      continue;
+    }
+    const atx = ATX.exec(line);
+    if (atx !== null) {
+      headings.push({
+        level: (atx[2] ?? "").length,
+        title: (atx[4] ?? "").trim().replace(/(^|[ \t]+)#+[ \t]*$/, "").trim(),
+        start_line: index + 1,
+        end_line: index + 1,
+      });
+      index += 1;
+      continue;
+    }
+    const underline = SETEXT.exec(lines[index + 1] ?? "");
+    if (underline !== null && !isBlank(line) && !line.startsWith("    ")) {
+      headings.push({
+        level: (underline[2] ?? "").startsWith("=") ? 1 : 2,
+        title: line.trim(),
+        start_line: index + 1,
+        end_line: index + 2,
+      });
+      index += 2;
+      continue;
+    }
+    index += 1;
+  }
+  return headings;
+}
+
+export function parseMarkdownOutline(text: string): MarkdownOutlineNode[] {
+  const lines = normalize(text).split("\n");
+  const headings = plainHeadings(lines);
+  const roots: MarkdownOutlineNode[] = [];
+  const stack: MarkdownOutlineNode[] = [];
+  for (const [position, heading] of headings.entries()) {
+    let end = lines.length;
+    for (const later of headings.slice(position + 1)) {
+      if (later.level <= heading.level) {
+        end = later.start_line - 1;
+        break;
+      }
+    }
+    const next = headings[position + 1];
+    const ownStart = heading.end_line + 1;
+    const ownEnd = next === undefined ? lines.length : next.start_line - 1;
+    const node: MarkdownOutlineNode = {
+      level: heading.level,
+      title: heading.title,
+      own_range: ownStart <= ownEnd
+        ? { start_line: ownStart, end_line: ownEnd }
+        : null,
+      subtree_range: { start_line: heading.start_line, end_line: end },
+      children: [],
+    };
+    while (
+      stack.length > 0 && stack[stack.length - 1]!.level >= heading.level
+    ) {
+      stack.pop();
+    }
+    const parent = stack[stack.length - 1];
+    if (parent === undefined) roots.push(node);
+    else parent.children.push(node);
+    stack.push(node);
+  }
+  return roots;
+}

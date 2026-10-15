@@ -6,16 +6,16 @@ import { defineBlobPurpose } from "../../../../protocol/storage/mod.ts";
 import {
   observeException,
   observeViewError,
-  REPORT_BLOB_PURPOSES,
+  problemReport,
+  problemReportBlobPurposes,
+  problemSubmitFeedback,
   reportBody,
-  reportProblem,
-  submitFeedback,
 } from "../../../../protocol/problems/mod.ts";
 import { reportBlobField } from "../../snapshots/mod.ts";
 import { reportCollectorSpec } from "../../tests/runner.ts";
 import { workerRoot } from "../../worker-root.ts";
 
-// 보고 등록: record-report와 reports·snapshots ledger. read는 reader Worker가
+// 보고 등록: problem.record_report와 reports·snapshots ledger. read는 reader Worker가
 // createReaderRegistration으로 붙인다(#142). blob purpose 상한은
 // contracts/report-blobs의 항목 상한을 정의하는 몫이다.
 const REPORT_SIZE = {
@@ -23,20 +23,9 @@ const REPORT_SIZE = {
   report_details: 262_144,
   snapshot_stack: 16_384,
   snapshot_logs: 65_536,
-  feedback_state: 65_536,
-  feedback_screenshot: 2_097_152,
 } as const;
 
-const REPORT_BLOB_FIELD_FIELDS = [
-  "report_text",
-  "report_details",
-  "snapshot_stack",
-  "snapshot_logs",
-  "feedback_state",
-  "feedback_screenshot",
-];
-
-// 보고의 사람 글·log·화면 상태만 읽는 좁은 route다. route만 선언하고 handler는 blob 바이트 통로를 가진
+// 보고의 사람 글·log만 읽는 좁은 route다. route만 선언하고 handler는 blob 바이트 통로를 가진
 // core 조립(runtime)이 붙인다. 붙기 전과 통로가 없는 등록은 unavailable이다.
 const unattachedReportBodyRead: ApiReadDefinition = {
   route: reportBody,
@@ -55,8 +44,8 @@ function reportCollectorWorkers(): KindLaunchSpec[] {
 }
 
 export const reportWorkerPart = {
-  blobFields: REPORT_BLOB_FIELD_FIELDS.map(reportBlobField),
-  blobPurposes: REPORT_BLOB_PURPOSES.map((purpose) =>
+  blobFields: problemReportBlobPurposes.map(reportBlobField),
+  blobPurposes: problemReportBlobPurposes.map((purpose) =>
     defineBlobPurpose({
       purpose,
       max_size_bytes: REPORT_SIZE[purpose],
@@ -67,11 +56,11 @@ export const reportWorkerPart = {
   // 보고 접수 worker route. dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
   // observe-exception은 예외 진단을 collector로 넘기고(process 출처),
   // observe-view-error는 view exception을 collector로 넘긴다(view 출처).
-  // submit-feedback은 shell user의 제보를 collector로 넘긴다(선택한 PNG는 바이트 body).
+  // 제보 route는 shell user의 제보를 collector로 넘긴다(글만 받는다).
   workerRoutes: [
-    reportProblem,
+    problemReport,
     observeException,
     observeViewError,
-    submitFeedback,
+    problemSubmitFeedback,
   ],
 } satisfies ProblemsPart;

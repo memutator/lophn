@@ -16,7 +16,6 @@ import {
   getSnapshotLogsInputSchema,
   type LogEvidence,
   type LogFragment,
-  type MissingReason,
 } from "../../../protocol/problems/mod.ts";
 
 export type SnapshotBlobRead =
@@ -33,6 +32,8 @@ const UNAVAILABLE_REASONS = {
   missing: "로그 조각 blob이 저장소에 없다",
   corrupt: "로그 조각 blob의 내용이 등록된 hash와 다르다",
 } as const;
+
+const NO_LOGS_REASON = "이 발생에는 수집한 로그가 없다";
 
 // GetSnapshot이 사람에게 보이는 정리 부재. 로그 조각 조회의 긴 문장은 위의 pruned다.
 export const PRUNED_ABSENCE_REASON = "정리됨";
@@ -61,7 +62,6 @@ export function snapshotBlobStatus(error: {
 export type PrunedAttachments = {
   stack: boolean;
   logs: boolean;
-  screenshot: boolean;
 };
 
 // 용량 정리로 사라진 첨부만 항목 부재를 "정리됨"으로 바꾼다.
@@ -85,24 +85,11 @@ export function applyPrunedSnapshotAbsence(
     snapshot.logs = null;
     snapshot.logs_missing_reason = { reason: PRUNED_ABSENCE_REASON };
   }
-  const screen = snapshot.screen;
-  if (pruned.screenshot && screen !== null && screen.screenshot !== null) {
-    snapshot.screen = {
-      ...screen,
-      screenshot: null,
-      screenshot_missing_reason: { reason: PRUNED_ABSENCE_REASON },
-    };
-  }
   if (item === "error" && pruned.stack && snapshot.error !== null) {
     next.item = snapshot.error;
     next.missing = { reason: PRUNED_ABSENCE_REASON };
   } else if (item === "logs" && pruned.logs) {
     next.item = null;
-    next.missing = { reason: PRUNED_ABSENCE_REASON };
-  } else if (
-    item === "screen" && pruned.screenshot && snapshot.screen !== null
-  ) {
-    next.item = snapshot.screen;
     next.missing = { reason: PRUNED_ABSENCE_REASON };
   }
   return next;
@@ -123,10 +110,7 @@ function mayRead(actor: string): boolean {
 
 export async function readLogFragment(input: {
   actor: string;
-  snapshot: {
-    logs: LogEvidence | null;
-    logs_missing_reason: MissingReason | null;
-  };
+  snapshot: { logs: LogEvidence | null };
   read: SnapshotBlobReader;
 }): Promise<Result<LogFragmentRead>> {
   if (!mayRead(input.actor)) {
@@ -134,10 +118,7 @@ export async function readLogFragment(input: {
   }
   const logs = input.snapshot.logs;
   if (logs === null) {
-    return ok({
-      kind: "absent",
-      reason: input.snapshot.logs_missing_reason?.reason ?? "이유가 없다",
-    });
+    return ok({ kind: "absent", reason: NO_LOGS_REASON });
   }
   const blob = await input.read(logs.blob);
   if (blob.status === "unavailable") {
@@ -178,7 +159,6 @@ export async function readLogFragment(input: {
 export type SnapshotLogsRow = {
   as_of_seq: string;
   logs: LogEvidence | null;
-  logs_missing_reason: MissingReason | null;
 };
 
 // core가 기동 때 넣는 읽기 통로: 증거 행은 ledger에서, 바이트는 blob store에서 온다.
@@ -193,7 +173,7 @@ export type SnapshotLogsEnvironment = {
 };
 
 const LOGS_COLUMNS = `logs_blob, logs_line_count, logs_truncated, logs_scope,
-  logs_from_at, logs_to_at, logs_collected_at, logs_missing_reason`;
+  logs_from_at, logs_to_at, logs_collected_at`;
 
 // snapshots 표의 로그 열을 LogEvidence로 읽는다.
 export function logsRowOf(
@@ -209,7 +189,6 @@ export function logsRowOf(
   if (row === undefined) return undefined;
   const text = (value: unknown) =>
     value === null || value === undefined ? null : String(value);
-  const missing = text(row["logs_missing_reason"]);
   return {
     as_of_seq: asOfSeq,
     logs: row["logs_blob"] === null ? null : {
@@ -221,7 +200,6 @@ export function logsRowOf(
       to_at: text(row["logs_to_at"]),
       collected_at: String(row["logs_collected_at"]),
     },
-    logs_missing_reason: missing === null ? null : { reason: missing },
   };
 }
 

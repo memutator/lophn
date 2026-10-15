@@ -2,8 +2,9 @@
 
 ## 목적
 
-추가 permission 없이 자기 앱의 선언 code로 보고·해소 주장·변경 메모를
-전달한다(apps/sdk#R26). problem을 직접 닫는 API는 제공하지 않는다.
+앱이 자기 문제를 이름과 message로 보고한다. 추가 permission이 필요 없다. 같은
+앱이 같은 이름으로 보고하면 한 문제로 묶인다. problem을 직접 닫거나 상태를
+바꾸는 API는 없다.
 
 ## 공개 API와 type
 
@@ -15,22 +16,27 @@ import {
 } from "@lophn/cap-problem";
 ```
 
-- `reportProblem(code, details?)` — 앱 code가 선언 code로 보고한다.
-  `{ report_id, completion }`을 돌려주고 업무 응답을 막지 않는다. transport는 앱
-  진입점이 설치한 reporter가 쥐고 있어 앱 code는 모른다. 진입점이 reporter를
-  설치하지 않은 곳(단위 test)에서는 보내지 않고 `completion`이 실패 값으로
-  끝난다.
+- `reportProblem(name, message, details?)` — 앱 code가 문제를 보고한다.
+  - `name`은 문제를 묶는 key다. 1~120자이고 공백만이거나 제어 문자가 있으면 안
+    된다. 선언해 둘 필요는 없다.
+  - `message`는 이번 발생을 설명하는 글이다. 공백만이면 안 된다.
+  - `details`는 JSON으로 보낼 수 있는 값이다. 선택이다.
+  - `{ report_id, completion }`을 돌려주고 업무 응답을 막지 않는다. transport는
+    앱 진입점이 설치한 reporter가 쥐고 있어 앱 code는 모른다. 진입점이
+    reporter를 설치하지 않은 곳(단위 test)에서는 보내지 않고 `completion`이 실패
+    값으로 끝난다. 이름이나 message가 올바르지 않아도 던지지 않고 실패 값으로
+    끝난다.
 - `installProblemReporter(reporter)` — 진입점이 transport를 넣어 만든 reporter를
   설치한다. 앱 code는 부르지 않는다.
-- `createProblemReporter(deps)` — 선언 code의 보고·해소 주장·변경 메모 전달
-  클라이언트를 만든다.
-- `createExceptionObserver(deps)` — 처리되지 않은 예외를 선언 code 보고로
-  모은다.
+- `createProblemReporter(deps)` — 이름과 message 보고 client를 만든다.
+- `createExceptionObserver(deps)` — 처리되지 않은 예외를 모아 보낸다. 오류
+  이름이 없거나 비면 `UnknownError`로 보낸다. 처리되지 않은 오류는 오류 이름과
+  앱 source 위치로 묶인다.
 - type: `ProblemReporterDeps`, `ExceptionObserver`, `ExceptionObserverDeps`
 
 ## 요구 permission
 
-없다. 자기 앱의 선언 code 보고는 추가 permission을 요구하지 않는다.
+없다.
 
 ## peer 의존
 
@@ -41,8 +47,11 @@ import {
 ```ts
 import { reportProblem } from "@lophn/cap-problem";
 
-// blueprint problem_codes에 선언한 code만 보고한다. code는 문자열 literal이다.
-const reported = reportProblem("sync_failed", { command: "sync" });
+const reported = reportProblem(
+  "sync_failed",
+  "서버에 동기화하지 못했다",
+  { command: "sync" },
+);
 await reported.completion;
 ```
 

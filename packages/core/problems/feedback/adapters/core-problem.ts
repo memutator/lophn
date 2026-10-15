@@ -2,7 +2,7 @@
 // 주입받는다: core graph의 EXTERNAL_FETCH tripwire가 bare fetch를 금지하므로
 // property 접근으로만 부른다. 없는 문제와 범위 밖 문제는 같은 null이다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { getProblemOutputSchema } from "../../../../protocol/problems/mod.ts";
+import { problemGet } from "../../../../protocol/problems/mod.ts";
 import type { CoreCall } from "../../snapshots/mod.ts";
 import type { SelectedProblem } from "../model.ts";
 
@@ -13,7 +13,9 @@ export function coreProblemLookup(client: CoreCall) {
     let response: { status: number; bytes: Uint8Array };
     try {
       response = await client.fetch(
-        `${client.baseUrl.replace(/\/$/, "")}/v1/problems/get`,
+        `${
+          client.baseUrl.replace(/\/$/, "")
+        }/v1/${problemGet.resource}/${problemGet.method}`,
         {
           method: "POST",
           headers: {
@@ -38,7 +40,7 @@ export function coreProblemLookup(client: CoreCall) {
         ? ok(null)
         : err({ code: "unavailable", message: UNREADABLE });
     }
-    const parsed = getProblemOutputSchema.safeParse(body);
+    const parsed = problemGet.output.safeParse(body);
     if (!parsed.success) {
       return err({ code: "unavailable", message: UNREADABLE });
     }

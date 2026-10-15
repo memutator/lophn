@@ -86,8 +86,6 @@ export const problemsWiring: WiringFactory = () => {
                 }
                 : undefined;
             },
-            sendBytes: async (channel, chunk) =>
-              (await ctx.io.sendBytes(COLLECTOR_KIND, channel, chunk)).ok,
           }),
           {
             signer: ctx.appsControl.signer,

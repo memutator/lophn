@@ -4,10 +4,10 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appLogsOutputSchema } from "../../../../protocol/apps/mod.ts";
 import type { AppLogSource } from "../logs.ts";
-
-// 진단 상세 수집 on/off 설정의 key다. 정의는 core 등록(packages/core/problems/register.ts)이 이 key로 낸다.
-export const DETAIL_COLLECTION_SETTING_KEY =
-  "problems.diagnostics.detail_collection";
+import {
+  DETAIL_COLLECTION_SETTING_KEY,
+  detailCollectionSetting,
+} from "../settings.ts";
 
 export type CoreCall = {
   baseUrl: string;
@@ -62,7 +62,8 @@ export function coreLogSource(client: CoreCall): AppLogSource {
   };
 }
 
-// settings.get으로 읽은 true·false. 읽지 못하거나 boolean이 아니면 null이다.
+// settings.get으로 읽은 true·false. 읽지 못하면 null이다. 사람이 고르지 않았거나 core가 아직 모르는
+// key면 선언의 기본값이다.
 export async function readDetailCollection(
   client: CoreCall,
 ): Promise<boolean | null> {
@@ -75,5 +76,6 @@ export async function readDetailCollection(
   const found = settings.find((setting) =>
     (setting as { key?: unknown })?.key === DETAIL_COLLECTION_SETTING_KEY
   ) as { value?: unknown } | undefined;
-  return typeof found?.value === "boolean" ? found.value : null;
+  if (found === undefined) return detailCollectionSetting.default ?? null;
+  return typeof found.value === "boolean" ? found.value : null;
 }

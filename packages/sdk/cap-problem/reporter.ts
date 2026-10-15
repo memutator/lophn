@@ -2,19 +2,21 @@ import { REPORTING_LIMITS } from "@lophn/protocol/problems/sdk-report";
 import type {
   ObservationInvocationEvidence,
   ReportCompletion,
-  ReportProblem,
-  ReportProblemInput,
   ReportProblemResult,
   ReportStatus,
   ReportTransport,
   SafeReportDetails,
 } from "@lophn/protocol/problems/sdk-report";
+import type {
+  ProblemReportCall,
+  ProblemReportRequest,
+} from "../../protocol/problems/sdk-problem.ts";
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";
 
 export type ProblemReporterDeps = {
-  transport: ReportTransport;
+  transport: ReportTransport<ProblemReportRequest>;
   now: () => string;
   newId: (prefix: string) => string;
   sleep: (ms: number) => Promise<void>;
@@ -23,19 +25,33 @@ export type ProblemReporterDeps = {
 
 type Pending = {
   bytes: number;
-  input: Readonly<ReportProblemInput>;
+  input: Readonly<ProblemReportRequest>;
 };
 
 const KEPT_REPORTS = 32;
+const NAME_MAX_CHARS = 120;
+
+// 이름은 문제를 묶는 key의 일부다. 제어 문자 없는 1~120자, 공백만은 안 된다.
+function validName(name: unknown): boolean {
+  return typeof name === "string" && name.length <= NAME_MAX_CHARS &&
+    /\S/.test(name) && !/\p{Cc}/u.test(name);
+}
+
+function validMessage(message: unknown): boolean {
+  return typeof message === "string" && /\S/.test(message);
+}
 
 export function createProblemReporter(
   deps: ProblemReporterDeps,
-): ReportProblem & { status(reportId: string): ReportStatus | null } {
+): ProblemReportCall & { status(reportId: string): ReportStatus | null } {
   const queue = new Map<string, Pending>();
-  const sent = new Map<string, Readonly<ReportProblemInput>>();
+  const sent = new Map<string, Readonly<ProblemReportRequest>>();
   let pendingBytes = 0;
 
-  const remember = (reportId: string, input: Readonly<ReportProblemInput>) => {
+  const remember = (
+    reportId: string,
+    input: Readonly<ProblemReportRequest>,
+  ) => {
     sent.delete(reportId);
     sent.set(reportId, input);
     while (sent.size > KEPT_REPORTS) {
@@ -46,15 +62,29 @@ export function createProblemReporter(
   };
 
   const reportProblem = (
-    code: string,
+    name: string,
+    message: string,
     details?: SafeReportDetails,
   ): ReportProblemResult => {
     const reportId = deps.newId(REPORT_PREFIX);
-    let input: Readonly<ReportProblemInput>;
+    if (!validName(name) || !validMessage(message)) {
+      return {
+        report_id: reportId,
+        completion: Promise.resolve({
+          status: "failed",
+          reason: {
+            code: "invalid_input",
+            message: "report needs a name (1~120 characters) and a message",
+          },
+        }),
+      };
+    }
+    let input: Readonly<ProblemReportRequest>;
     try {
       input = freezeDeep(structuredClone({
         report_id: reportId,
-        code,
+        name,
+        message,
         observed_at: deps.now(),
         details,
         invocation: deps.currentInvocation(),

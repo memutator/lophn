@@ -1,7 +1,6 @@
 export {
   type CoreCall,
   coreLogSource,
-  DETAIL_COLLECTION_SETTING_KEY,
   readDetailCollection,
 } from "./adapters/core-logs.ts";
 export { reportBlobField } from "./blobs.ts";
@@ -13,17 +12,16 @@ export {
   type LogCollection,
   type LogCollectionDeps,
 } from "./logs.ts";
-export { insertSnapshot } from "./model.ts";
-export { bytesStream } from "./prepare.ts";
 export {
-  collectScreenEvidence,
-  SCREEN_CAPTURE_BLOCKS,
-  SCREEN_REASONS,
-  type ScreenCaptureBlock,
-  type ScreenCollection,
-  type ScreenCollectionDeps,
-  type ScreenEvidenceInput,
-} from "./screen.ts";
+  insertProblemSnapshot,
+  insertSnapshot,
+  readProblemSnapshot,
+} from "./model.ts";
+export {
+  DETAIL_COLLECTION_SETTING_KEY,
+  detailCollectionSetting,
+} from "./settings.ts";
+export { bytesStream } from "./prepare.ts";
 export {
   applyPrunedSnapshotAbsence,
   type LogFragmentRead,
@@ -54,7 +52,10 @@ export {
   type AssembledException,
   assembleException,
   type AssemblyDeps,
+  observedErrorGroupKey,
+  type ObservedException,
   type PreparedFolderSource,
   type PreparedSnapshotBlob,
+  problemNameOf,
   type SnapshotBlobPrepare,
 } from "./work.ts";

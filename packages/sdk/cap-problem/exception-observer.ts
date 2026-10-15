@@ -35,7 +35,11 @@ function textOrMissing(
 
 function observeError(reason: unknown): ExceptionObservationError {
   const error = reason instanceof Error ? reason : null;
-  const name = error && error.name.trim() !== "" ? error.name : "UnknownError";
+  // 오류 이름은 문제를 묶는 key의 일부다. 비어 있으면 "UnknownError"다.
+  const name = error && typeof error.name === "string" &&
+      error.name.trim() !== ""
+    ? error.name
+    : "UnknownError";
   const message = textOrMissing(error ? error.message : reason);
   const stack = textOrMissing(error ? error.stack : undefined);
   return {

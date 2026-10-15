@@ -1,15 +1,13 @@
 // exception snapshot 조립.
 // raw 문자는 인증된 observer → collector bounded memory에만 있다. 이 조립은
-// redaction → stack blob 준비 → source map 위치 찾기 → 지문 key까지를
-// bounded memory에서 끝내고 permanent content는 hash뿐이다.
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { ObservedExceptionInput } from "../../../protocol/problems/mod.ts";
+// stack blob 준비 → source map 위치 찾기 → 묶는 key까지를 bounded memory에서 끝내고
+// permanent content는 hash뿐이다.
+import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import type {
-  GroupKey,
-  SnapshotInput,
+  ProblemGroupKey,
+  ProblemSnapshotInput,
   SourceFrame,
 } from "../../../protocol/problems/mod.ts";
-import { exceptionGroupKey, type FingerprintFrame } from "../grouping/mod.ts";
 import { type AppLogSource, collectLogEvidence } from "./logs.ts";
 import {
   bytesStream,
@@ -99,15 +97,12 @@ export async function resolveStackFrames(
     // raw TS/TSX stack 원문. caller가 redaction을 통과시킨 값이다.
     stack: string | null;
   },
-): Promise<{ frames: SourceFrame[]; source_missing_reason: string | null }> {
+): Promise<SourceFrame[]> {
   if (evidence.stack === null) {
-    return { frames: [], source_missing_reason: "stack 없는 예외다" };
+    return [];
   }
   if (folder.appsRoot === null || evidence.bundle_hash === null) {
-    return {
-      frames: [],
-      source_missing_reason: "release 준비 폴더가 없다",
-    };
+    return [];
   }
   const copy = bundleCopyPath(
     folder.appsRoot,
@@ -115,39 +110,39 @@ export async function resolveStackFrames(
     evidence.bundle_hash,
   );
   if (!copy.ok) {
-    return { frames: [], source_missing_reason: copy.error.message };
+    return [];
   }
   // 준비 폴더 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
   const bundled = await framesInsideBundle(copy.value, evidence.stack);
   if (bundled !== null) {
-    return { frames: bundled, source_missing_reason: null };
+    return bundled;
   }
   const manifest = await readBundleManifest(copy.value);
   if (!manifest.ok) {
-    return { frames: [], source_missing_reason: manifest.error.message };
+    return [];
   }
   const map = await readSourceMap(copy.value);
   if (!map.ok) {
-    return { frames: [], source_missing_reason: map.error.message };
+    return [];
   }
   // 최초 mappings를 풀기 전 크기 한도는 stack_bytes다.
   if (new TextEncoder().encode(map.value).length > LIMITS.stack_bytes) {
-    return { frames: [], source_missing_reason: "source map이 limit를 넘는다" };
+    return [];
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(map.value);
   } catch {
-    return { frames: [], source_missing_reason: "source map을 읽지 못했다" };
+    return [];
   }
   if (
     typeof parsed !== "object" || parsed === null || !("mappings" in parsed)
   ) {
-    return { frames: [], source_missing_reason: "source map 형식이 아니다" };
+    return [];
   }
   const record = parsed as { mappings?: unknown; sources?: unknown };
   if (typeof record.mappings !== "string" || !Array.isArray(record.sources)) {
-    return { frames: [], source_missing_reason: "source map 형식이 아니다" };
+    return [];
   }
   const sources = record.sources;
   const stack = evidence.stack;
@@ -178,13 +173,10 @@ export async function resolveStackFrames(
       };
     });
     if (walkResult !== null && !walkResult.ok) {
-      return { frames: [], source_missing_reason: walkResult.error.message };
+      return [];
     }
     if (chosen === null) {
-      return {
-        frames: [],
-        source_missing_reason: "stack 위치의 source map 표지가 없다",
-      };
+      return [];
     }
     const found = chosen as {
       sourceIndex: number;
@@ -193,24 +185,15 @@ export async function resolveStackFrames(
     };
     const sourceName = sources[found.sourceIndex];
     if (typeof sourceName !== "string") {
-      return {
-        frames: [],
-        source_missing_reason: "stack 위치의 source map 표지가 없다",
-      };
+      return [];
     }
     // sources를 준비 폴더 안 상대 path로 좁힌다.
     const path = relativeToFolder(sourceName);
     if (path === null) {
-      return {
-        frames: [],
-        source_missing_reason: "표지 source가 준비 폴더 밖이다",
-      };
+      return [];
     }
     if (found.originalLine < 1 || found.originalColumn < 1) {
-      return {
-        frames: [],
-        source_missing_reason: "source map 표지 위치가 형식을 벗어난다",
-      };
+      return [];
     }
     frames.push({
       path,
@@ -218,7 +201,7 @@ export async function resolveStackFrames(
       line: found.originalLine,
       column: found.originalColumn,
     });
-    return { frames, source_missing_reason: null };
+    return frames;
   }
   // 위치 원문을 모르는 stack은 mappings를 유한 한도 안에서 풀어 앱 frame만 둔다.
   const walkResult = walkAllMappings(mappings, sources.length, (entry) => {
@@ -239,18 +222,12 @@ export async function resolveStackFrames(
     });
   });
   if (walkResult !== null && !walkResult.ok) {
-    return {
-      frames: [],
-      source_missing_reason: walkResult.error.message,
-    };
+    return [];
   }
   if (frames.length === 0) {
-    return {
-      frames: [],
-      source_missing_reason: "stack 위치를 준비 폴더 source로 찾지 못했다",
-    };
+    return [];
   }
-  return { frames, source_missing_reason: null };
+  return frames;
 }
 
 // 준비 폴더 밖 소스 이름 판정. webpack:/~ / file: / absolute 모양은
@@ -473,8 +450,8 @@ function decodeField(
   }
 }
 
-// 조립 경계. exception observation → redaction·stack 준비·위치 찾기·지문 key.
-// raw 문자는 bounded memory에서만 있고 결과는 SnapshotInput(+group key)이다.
+// 조립 경계. 관측한 오류 → stack 준비·위치 찾기·로그·묶는 key.
+// raw 문자는 bounded memory에서만 있고 결과는 ProblemSnapshotInput(+묶는 key)이다.
 export type AssemblyDeps = {
   // raw stack blob 준비. platform blob prepare 경계로 간다.
   blobPrepare: SnapshotBlobPrepare;
@@ -486,7 +463,7 @@ export type AssemblyDeps = {
   principal: string;
   // 조립 기한 재는 단조 시계. 기본은 Date.now다(테스트가 시계를 준다).
   monotonicNow?: () => number;
-  // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다(이유로 남는다).
+  // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다.
   logs?: {
     // 진단 상세 수집 설정. 꺼져 있으면 새 로그를 모으지 않는다.
     // null은 설정을 읽지 못한 것이다.
@@ -496,19 +473,57 @@ export type AssemblyDeps = {
   };
 };
 
+// redaction을 거친 관측. error가 null이면 오류 정보 없이 관측만 한 것이다(process_exit 등).
+export type ObservedException = {
+  report_id: string;
+  observed_at: string;
+  observation: string;
+  error: {
+    name: string;
+    message: string | null;
+    stack: string | null;
+  } | null;
+  invocation: ProblemSnapshotInput["invocation"];
+};
+
 export type AssembledException = {
-  snapshot: SnapshotInput;
-  group_key: GroupKey;
+  // 문제 이름이자 error.name이다. 오류 이름이 없으면 관측 종류다.
+  name: string;
+  snapshot: ProblemSnapshotInput;
+  group_key: ProblemGroupKey;
   // stack blob 준비 결과(blob prepared 출처 바인딩). 실패·stack 없음이면 null이다.
   stack_prepared: PreparedSnapshotBlob | null;
   // 로그 조각 blob 준비 결과. 접수할 때 snapshot_logs blob으로 함께 등록한다.
   logs_prepared: PreparedSnapshotBlob | null;
 };
 
-// exception observation에서 SnapshotInput과 지문 key를 조립한다.
-// raw 문자는 결과에 남지 않는다.
+// 문제 이름 규칙(1~120자, 공백 아닌 글자, 제어 문자 없음)에 맞춘다. 맞출 수 없으면 fallback이다.
+export function problemNameOf(raw: string | null, fallback: string): string {
+  const clean = (raw ?? "").replace(/\p{Cc}/gu, " ").trim();
+  let cut = clean.slice(0, 120);
+  if (/[\ud800-\udbff]$/.test(cut)) cut = cut.slice(0, -1);
+  return /\S/.test(cut) ? cut.trim() : fallback;
+}
+
+// 처리되지 않은 오류의 묶는 key. 오류 이름과 앱 source 위치(source map으로 푼 가장 위 앱 frame의
+// `path:line`)의 해시다. 위치를 못 풀면 그 발생의 Report id라 다른 발생과 묶이지 않는다.
+export async function observedErrorGroupKey(
+  name: string,
+  frames: readonly SourceFrame[],
+  reportId: string,
+): Promise<ProblemGroupKey> {
+  const top = frames.find((frame) => frame.line !== null);
+  return {
+    kind: "exception",
+    discriminator: top === undefined
+      ? reportId
+      : await sha256Hex(`${name}\n${top.path}:${top.line}`),
+  };
+}
+
+// 관측에서 snapshot과 묶는 key를 조립한다. raw 문자는 결과에 남지 않는다.
 export async function assembleException(
-  input: ObservedExceptionInput,
+  input: ObservedException,
   evidence: {
     app: string;
     bundle_hash: string | null;
@@ -517,7 +532,8 @@ export async function assembleException(
 ): Promise<Result<AssembledException>> {
   const monotonicNow = deps.monotonicNow ?? (() => Date.now());
   const startedMs = monotonicNow();
-  const startedAt = deps.nowAt;
+  const rawError = input.error;
+  const name = problemNameOf(rawError?.name ?? null, input.observation);
   const collectLogs = (stackBytes: number) =>
     collectLogEvidence(
       // app은 credential에서 온 값이다. 로그 내용이나 observation이 바꾸지 못한다.
@@ -537,45 +553,29 @@ export async function assembleException(
         remainingLargeBytes: LIMITS.snapshot_large_bytes - stackBytes,
       },
     );
-  // raw error는 observation schema가 검증한 것만 이름으로 둔다.
-  const rawError = input.error;
-  const invocation = input.invocation;
   const snapshotId = `snp_${input.report_id.slice("rpt_".length)}`;
   if (rawError === null) {
     const collected = await collectLogs(0);
-    const snapshot: SnapshotInput = {
-      id: snapshotId,
-      captured_at: startedAt,
-      invocation: invocation,
-      invocation_missing_reason: null,
-      error: null,
-      error_missing_reason: input.error_missing_reason,
-      logs: collected.logs,
-      logs_missing_reason: collected.logs_missing_reason,
-      screen: null,
-      screen_missing_reason: { reason: "collector" },
-    };
-    const groupKey = await exceptionGroupKey(
-      "",
-      [],
-      input.report_id,
-    );
     return ok({
-      snapshot,
-      group_key: groupKey,
+      name,
+      snapshot: {
+        id: snapshotId,
+        captured_at: deps.nowAt,
+        invocation: input.invocation,
+        error: null,
+        logs: collected.logs,
+      },
+      group_key: await observedErrorGroupKey(name, [], input.report_id),
       stack_prepared: null,
       logs_prepared: collected.prepared,
     });
   }
   const stack = rawError.stack;
-  const { frames, source_missing_reason } = await resolveStackFrames(
-    deps.folder,
-    {
-      app: evidence.app,
-      bundle_hash: evidence.bundle_hash,
-      stack,
-    },
-  );
+  const frames = await resolveStackFrames(deps.folder, {
+    app: evidence.app,
+    bundle_hash: evidence.bundle_hash,
+    stack,
+  });
   // stack blob 준비. redaction 대체 문자는 그대로 보존하고 크기 한도를 지킨다.
   let stackHash: string | null = null;
   let stackPrepared: AssembledException["stack_prepared"] = null;
@@ -599,50 +599,29 @@ export async function assembleException(
       stackHash = prepared.value.hash;
       stackPrepared = prepared.value;
     } else {
-      // blob 저장 실패는 그 항목의 이유를 고정하고 남은 자료로 접수한다.
+      // blob 저장 실패는 stack 없이 남은 자료로 접수한다.
       truncationNotes.push(
         `stack blob 준비 실패(${prepared.error.message}); stack hash는 남기지 않는다`,
       );
     }
   }
   const collected = await collectLogs(stackPrepared?.size_bytes ?? 0);
-  const fingerprintFrames: FingerprintFrame[] = frames.map((frame) => ({
-    path: frame.path,
-    function: frame.function,
-  }));
-  const snapshot: SnapshotInput = {
-    id: snapshotId,
-    captured_at: deps.nowAt,
-    invocation: invocation,
-    invocation_missing_reason: invocation === null
-      ? { reason: "collector가 연결하지 않았다" }
-      : null,
-    error: {
-      name: rawError.name,
-      message: rawError.message,
-      message_missing_reason: rawError.message_missing_reason,
-      frames,
-      source_missing_reason: source_missing_reason === null
-        ? null
-        : { reason: source_missing_reason },
-      stack: stackHash,
-      stack_missing_reason: stackHash === null ? { reason: "collector" } : null,
-      truncation_notes: truncationNotes,
-    },
-    error_missing_reason: null,
-    logs: collected.logs,
-    logs_missing_reason: collected.logs_missing_reason,
-    screen: null,
-    screen_missing_reason: { reason: "collector" },
-  };
-  const groupKey = await exceptionGroupKey(
-    rawError.name,
-    fingerprintFrames,
-    input.report_id,
-  );
   return ok({
-    snapshot,
-    group_key: groupKey,
+    name,
+    snapshot: {
+      id: snapshotId,
+      captured_at: deps.nowAt,
+      invocation: input.invocation,
+      error: {
+        name,
+        message: rawError.message,
+        frames,
+        stack: stackHash,
+        truncation_notes: truncationNotes,
+      },
+      logs: collected.logs,
+    },
+    group_key: await observedErrorGroupKey(name, frames, input.report_id),
     stack_prepared: stackPrepared,
     logs_prepared: collected.prepared,
   });

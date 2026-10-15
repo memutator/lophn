@@ -30,7 +30,7 @@ import {
   TEST_RUNNER_PRINCIPAL,
 } from "./mod.ts";
 import type { ChildBlobPolicy } from "../../storage/blobs/child-prepare.ts";
-import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
+import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 import { TEST_RUNNER_KIND } from "./runner.ts";
 
 export const TEST_RUN_OP = "problems.test.run";
@@ -68,7 +68,7 @@ const SLOTS = [0, 1] as const;
 
 export type TestControlDeps = {
   ledgerPath: string;
-  channel: Pick<DocumentsChannel, "request" | "failPending">;
+  channel: Pick<WorkerChannel, "request" | "failPending">;
   apiPort: number;
   // 요청마다 credential을 발급한다. 발급해 ledger에 기록하고 token과 폐기 방법을 돌려준다.
   issue(

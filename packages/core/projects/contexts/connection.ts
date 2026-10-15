@@ -117,7 +117,7 @@ export function contextsWorkerSpec(input: {
 
 // ── process ───────────────────────────────────────────────────────────
 
-// worker 요청 통로. documents-serving의 DocumentsChannel 모양 중 쓰는 부분이다.
+// worker 요청 통로. WorkerChannel 모양 중 쓰는 부분이다.
 export type ContextsChannel = {
   request(
     op: string,

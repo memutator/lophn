@@ -79,7 +79,10 @@ import {
   loadVersion,
 } from "../versions/store.ts";
 import { instructionRegistrations } from "../file-tracking/instruction.ts";
-import { createProductRedactor, type DocumentRedactor } from "./redactor.ts";
+import {
+  createProductRedactor,
+  type TextRedactor,
+} from "../../../base/redaction/mod.ts";
 
 // ledger 파일에서 data root를 찾는다. reader는 같은 파일을 연 snapshot만 갖는다.
 function dataRootOf(snapshot: ReadSnapshot): Result<string> {
@@ -123,13 +126,13 @@ function derivedRead(root: string): Result<DerivedRead> {
 
 // 이 요청의 redactor. 알려진 secret 값은 reader Worker의 registry가 쥐고 있고 handler는
 // 일치 검사만 받는다. port가 없으면(reader Worker가 아닌 곳) 던져서 fail-closed다.
-function redactorFor(snapshot: ReadSnapshot): DocumentRedactor {
+function redactorFor(snapshot: ReadSnapshot): TextRedactor {
   return createProductRedactor(snapshot.port(KNOWN_SECRETS));
 }
 
 type Prepared = {
   snapshot: ReadSnapshot;
-  redactor: DocumentRedactor;
+  redactor: TextRedactor;
   search: SearchSnapshot;
   read: DerivedRead;
 };

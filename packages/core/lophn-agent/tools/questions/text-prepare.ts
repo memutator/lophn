@@ -20,12 +20,12 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import {
   createKnownSecretRegistry,
+  createProductRedactor,
   createRedactionEngine,
   type RedactionInput,
   type RedactionResult,
 } from "../../../../base/redaction/mod.ts";
 import { screenAnswerText } from "./mod.ts";
-import { createProductRedactor } from "../../../projects/outline-and-search/redactor.ts";
 import { prepareBytes, rejected } from "../../session/message-body.ts";
 import type { BodyPrepare } from "../../session/message-body.ts";
 

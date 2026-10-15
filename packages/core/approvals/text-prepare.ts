@@ -16,7 +16,7 @@ import {
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { type CommandEnvelope, type Writer } from "../storage/ledger/mod.ts";
 import type { KnownSecretMatch } from "../storage/ledger/mod.ts";
-import { createProductRedactor } from "../projects/outline-and-search/redactor.ts";
+import { createProductRedactor } from "../../base/redaction/mod.ts";
 import { prepareBytes, rejected } from "../lophn-agent/session/message-body.ts";
 import type { BodyPrepare } from "../lophn-agent/session/message-body.ts";
 

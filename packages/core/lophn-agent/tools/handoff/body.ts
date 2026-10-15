@@ -20,7 +20,7 @@ import {
   handoffBodyHash,
   handoffContentBytes,
 } from "./mod.ts";
-import { createProductRedactor } from "../../../projects/outline-and-search/redactor.ts";
+import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import { prepareBytes, rejected } from "../../session/message-body.ts";
 import type { BodyPrepare } from "../../session/message-body.ts";
 

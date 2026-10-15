@@ -31,8 +31,8 @@ import { checkVisualContent } from "../tools/visuals/mod.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import {
   createProductRedactor,
-  type DocumentRedactor,
-} from "../../projects/outline-and-search/redactor.ts";
+  type TextRedactor,
+} from "../../../base/redaction/mod.ts";
 import type { PreparedRelayResult } from "../../storage/blobs/prepare-relay.ts";
 
 export type BodyPrepare = {
@@ -54,7 +54,7 @@ const SOURCE = {
 
 // 문자열 값만 redaction한다(키·구조는 그대로). 안전화를 끝내지 못하면 null이다.
 function redactValue(
-  redactText: DocumentRedactor,
+  redactText: TextRedactor,
   value: unknown,
 ): { value: unknown } | null {
   if (typeof value === "string") {

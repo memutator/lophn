@@ -1,4 +1,4 @@
-// 문서 출력(agent 본문·export)의 제품 redactor. handler 입구가 동기라서 platform
+// 텍스트 출력(agent 본문·export)의 제품 redactor. handler 입구가 동기라서 platform
 // redaction engine(async)이 아니라 같은 검출 규칙(matchCredential)을 동기로 적용한다.
 // 입력은 항상 JS 문자열(본문 조각·제목)이다. 지우는 것은 두 가지다.
 // - pattern 검출: 고정한 credential prefix·PEM 규칙(matchCredential).
@@ -7,13 +7,16 @@
 //   matcher를 받는다. 값 목록도 module 전역 상태도 이 파일에 없다.
 // 한 자리에서 둘이 겹치면 더 앞에서 시작하는, 같으면 더 긴 쪽을 지운다. 안전화를 끝내지
 // 못하면 null로 답해 원문이 나가지 않게 한다(fail-closed).
-import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
-import {
-  matchCredential,
-  REDACTION_REPLACEMENT,
-} from "../../../base/redaction/mod.ts";
+import { matchCredential } from "./patterns.ts";
+import { REDACTION_REPLACEMENT } from "./model.ts";
 
-export type DocumentRedactor = (
+// core의 알려진 secret matcher와 같은 모양이다(base는 core를 import하지 않는다).
+export type KnownSecretMatch = {
+  match(text: string): { index: number; length: number } | undefined;
+  readonly ready: boolean;
+};
+
+export type TextRedactor = (
   source: { concern: string; revision: string; scope: string },
   mediaType: string,
   text: string,
@@ -21,7 +24,7 @@ export type DocumentRedactor = (
 
 export function createProductRedactor(
   known?: KnownSecretMatch,
-): DocumentRedactor {
+): TextRedactor {
   return (_source, _mediaType, text) => {
     // 알려진 값을 아직 다 모르면 안전화를 끝낼 수 없다.
     if (known !== undefined && !known.ready) return null;

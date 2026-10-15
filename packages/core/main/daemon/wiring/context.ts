@@ -44,9 +44,9 @@ import type { BlobPrepareCall, Core, CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
 import type { DataRoot } from "../../../install-and-update/mod.ts";
 
-// 밖에서 바뀔 import 두 곳의 단일 import 지점이다. 위치가 옮겨지면 여기 한 줄만 고친다.
-export { createDocumentsChannel as createWorkerChannel } from "../../../projects/file-tracking/coordinator/serving.ts";
-export { createProductRedactor } from "../../../projects/outline-and-search/redactor.ts";
+// worker 통로와 제품 redactor를 가져오는 단일 import 지점이다. 위치가 옮겨지면 여기 두 줄만 고친다.
+export { createWorkerChannel } from "../../../supervision/responsiveness/mod.ts";
+export { createProductRedactor } from "../../../../base/redaction/mod.ts";
 
 export type Supervisor = ReturnType<typeof createSupervisor>;
 export type AppsControl = Awaited<ReturnType<typeof createAppsControl>>;

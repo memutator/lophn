@@ -16,8 +16,10 @@ import { settingsGet } from "../../../protocol/config/mod.ts";
 import type { HealthObservation } from "../../../protocol/server/mod.ts";
 import type { WorkerRequest } from "../../../protocol/supervision/mod.ts";
 import type { OperationPolicy } from "../../server/identity/mod.ts";
-import type { WorkerRouteTarget } from "../../supervision/responsiveness/mod.ts";
-import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
+import type {
+  WorkerChannel,
+  WorkerRouteTarget,
+} from "../../supervision/responsiveness/mod.ts";
 
 // collector가 core loopback에 낼 수 있는 operation. 보고 제출, 자기 credential의 앱 log 읽기,
 // 접수 때 읽는 invocation 도착·상세 수집 설정·feedback이 고른 기존 문제다.
@@ -72,7 +74,7 @@ const BYTE_FRAME_BYTES = 256 * 1024;
 
 export type CollectorWorkersDeps = {
   // collector 감독 pipe의 요청 통로. 감독이 child를 띄우면 bind된다.
-  channel: DocumentsChannel;
+  channel: WorkerChannel;
   observation(): HealthObservation;
   // 요청 credential의 현재 actor와 조건. 폐기·만료된 자격은 undefined다.
   callerOf(

@@ -9,7 +9,7 @@ import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { AppStepResult } from "../../lophn-agent/session/rewind/mod.ts";
 import { allSlotSockets } from "../runtime/processes/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
-import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
+import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 
 export const REVERT_WORKER_KIND = "apps/revert";
 // worker 호출 요청 op. packages/core/apps/revert/worker/run.ts와 같은 값이다.
@@ -65,7 +65,7 @@ function shapeOf(value: unknown): Result<AppStepResult> {
 // 요청에 싣는다(worker가 그 token으로 apps/connect를 다시 연다). credential이 없거나
 // worker에 닿지 못하면 failure다. core가 그 결과를 그대로 기록한다.
 export function workerAppCaller(options: {
-  channel: DocumentsChannel;
+  channel: WorkerChannel;
   credential: string | undefined;
 }): (binding: AppRevertBinding) => Promise<AppStepResult> {
   if (options.credential === undefined) {

@@ -99,3 +99,8 @@ export {
   type ScenarioResult,
   type SendRequest,
 } from "./measure-run.ts";
+export {
+  createWorkerChannel,
+  REPLACE_DRAIN_MS,
+  type WorkerChannel,
+} from "./worker-channel.ts";

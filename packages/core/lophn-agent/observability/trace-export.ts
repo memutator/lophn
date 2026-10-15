@@ -19,11 +19,11 @@ import {
   type ExportRedactor,
   type TraceExportDeps,
 } from "./work.ts";
-import type {
-  RedactionInput,
-  RedactionResult,
+import {
+  createProductRedactor,
+  type RedactionInput,
+  type RedactionResult,
 } from "../../../base/redaction/mod.ts";
-import { createProductRedactor } from "../../projects/outline-and-search/redactor.ts";
 
 export type TraceExportWriterDeps = {
   ledgerPath: string;

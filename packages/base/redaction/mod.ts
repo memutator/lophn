@@ -7,6 +7,11 @@ export {
   selectSafeFields,
 } from "./fields.ts";
 export { matchCredential, patternRevision } from "./patterns.ts";
+export {
+  createProductRedactor,
+  type KnownSecretMatch,
+  type TextRedactor,
+} from "./product-redactor.ts";
 export { redactSample, samplePathsAllowed } from "./samples.ts";
 export { redactScreen } from "./screen.ts";
 export {

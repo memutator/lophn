@@ -9,7 +9,7 @@ import {
 } from "../../../protocol/coding-agent/mod.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
-import type { DocumentsChannel } from "../../projects/file-tracking/coordinator/serving.ts";
+import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 import type { CoreRuntime } from "../../main/daemon/runtime.ts";
 
 export const REPAIR_WORKER_KIND = "coding-agent/worker";
@@ -42,7 +42,7 @@ export function repairWorkerSpec(): KindLaunchSpec | undefined {
 // 세 route의 handler를 worker 통로로 붙인다. credential이 없거나 이미 회수됐으면 보내지 않는다.
 export function registerRepairReads(
   runtime: CoreRuntime,
-  channel: DocumentsChannel,
+  channel: WorkerChannel,
 ): void {
   for (const route of REPAIR_CONTEXT_ROUTES) {
     runtime.reads.set(
@@ -76,7 +76,7 @@ const SESSION_SUMMARY_OP = "coding_agent_sessions.summary";
 // 요청자 credential을 요청마다 싣고, 이미 회수됐으면 보내지 않는다.
 export function registerSessionReads(
   runtime: CoreRuntime,
-  channel: DocumentsChannel,
+  channel: WorkerChannel,
 ): void {
   const route = codingAgentSessionSummary;
   runtime.reads.set(

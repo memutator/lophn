@@ -8,7 +8,7 @@ import { ticketUploadSummary } from "../../../protocol/coding-agent/mod.ts";
 import type { UploadHandler } from "../../server/mod.ts";
 import type { BlobPrepareCall } from "../../main/daemon/core.ts";
 import type { PreparedRelayResult } from "../../storage/blobs/prepare-relay.ts";
-import { exactBytes } from "../../projects/file-tracking/routes/upload.ts";
+import { exactBytes } from "../../storage/blobs/exact-bytes.ts";
 import { ticketDefinitions } from "./register.ts";
 
 const SUMMARY = ticketDefinitions.blobPurposes.find((purpose) =>

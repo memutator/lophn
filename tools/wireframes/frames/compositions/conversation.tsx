@@ -1,9 +1,8 @@
 // Agent 탭 본문. 탭의 `sub`가 어느 session인지 정한다: Weekly report(질문·승인·되돌리기가 동작하는 이야기), 새 session
-// (sidebar의 agent나 toast의 [Ask Context Engineer]가 연다), 그리고 agent별 이전 session. 한 탭은 agent 하나에
+// (sidebar의 agent나 toast의 [Ask Project Manager]가 연다), 그리고 agent별 이전 session. archive한 session은 기록만 보인다. 한 탭은 agent 하나에
 // 고정이고, 같은 agent의 다른 session은 agent header에서 바꾼다. 말 속의 context 이름과 객체 id는 링크라서
 // 누르면 탭이 열린다.
 import { type ReactNode, useEffect, useState } from "react";
-import { Button } from "@lophn/ui-control";
 
 import {
   AgentTurn,
@@ -12,12 +11,20 @@ import {
   ChatShell,
   EditCard,
   QuestionDock,
-  Quiet,
   Said,
   ToolRow,
   UserMessage,
   WorkedFor,
 } from "./agent-chat.tsx";
+import { type ApprovalDecision, ApprovalResult } from "./agent-tab/cards.tsx";
+import {
+  ANSWERS,
+  APPROVAL_RESULTS,
+  type AskedQuestion,
+  type QuestionAnswer,
+} from "./agent-tab/data.ts";
+import { QuestionCard } from "./agent-tab/cards.tsx";
+import { RewindPanel } from "./agent-tab/rewind-panel.tsx";
 import {
   type ChatInit,
   sessionBySub,
@@ -53,13 +60,29 @@ interface Turn {
   readonly text: ReactNode;
 }
 
-/** Context Engineer가 묻는 질문. 답 단추를 누르면 답이 대화에 남고 작업이 이어진다. */
-export const CE_QUESTION =
+/** Project Manager가 묻는 질문. 질문 카드에서 답하면 답이 대화에 남고 작업이 이어진다. */
+const CE_QUESTION =
   "Some release notes list issues by number, others by title. Should I match titles to issues too?";
-export const CE_ANSWERS: readonly string[] = [
+const CE_ANSWERS: readonly string[] = [
   "Yes, match titles",
   "Numbers only",
 ];
+const CE_ASKED: AskedQuestion = {
+  id: "titles",
+  header: "Issue titles",
+  question: CE_QUESTION,
+  multiSelect: false,
+  options: [
+    {
+      label: CE_ANSWERS[0],
+      description: "Count a title in the notes as a mention of its issue",
+    },
+    {
+      label: CE_ANSWERS[1],
+      description: "Only issue numbers count",
+    },
+  ],
+};
 
 const ASK_LOPHN = "Ask lophn… @ for documents and contexts, / for skills";
 const askPlaceholder = (agent: string) =>
@@ -121,11 +144,7 @@ const NEW_CONTEXT_TURNS: readonly Turn[] = [
   },
 ];
 
-function engineerTurns(
-  open: Open,
-  answer: string | null,
-  onAnswer: (answer: string) => void,
-): readonly Turn[] {
+function engineerTurns(open: Open, answer: string | null): readonly Turn[] {
   const turns: Turn[] = [
     {
       time: "14:20",
@@ -139,29 +158,7 @@ function engineerTurns(
         </>
       ),
     },
-    {
-      text: (
-        <>
-          <span>{CE_QUESTION}</span>
-          {answer === null
-            ? (
-              <span className={styles.choices}>
-                {CE_ANSWERS.map((label, index) => (
-                  <Button
-                    key={label}
-                    variant={index === 0 ? "primary" : "secondary"}
-                    onClick={() => onAnswer(label)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-                <span className={styles.waiting}>Waiting for your answer</span>
-              </span>
-            )
-            : null}
-        </>
-      ),
-    },
+    { text: CE_QUESTION },
   ];
   if (answer !== null) {
     turns.push(
@@ -204,6 +201,22 @@ const PAST: Record<string, readonly Turn[]> = {
       time: "Mon 16:40",
       text:
         "It is the share of scenarios that passed in one run, a number from 0 to 1.",
+    },
+  ],
+  "old-1": [
+    {
+      mine: true,
+      text: "Which folders in docs/ are not linked from anywhere?",
+    },
+    {
+      time: "Sep 24 14:05",
+      text:
+        "Two: docs/drafts/ and docs/old-reports/. Nothing links to them and the newest file is from March.",
+    },
+    { mine: true, text: "Move both into docs/archive/." },
+    {
+      time: "Sep 24 14:07",
+      text: "Done. I moved 14 files and left a note in docs/archive/README.md.",
     },
   ],
   failing: [
@@ -279,15 +292,16 @@ function useTabState(onState: (state: TabState) => void, state: TabState) {
 const tabStateOf = (state: SessionState): TabState =>
   state === "idle" ? null : state;
 
-/** lophn과 Context Engineer 등의 이전 session. */
+/** lophn과 Project Manager 등의 이전 session. archive한 session이면 입력칸이 없다. */
 function PlainChat(
-  { agent, row, title, turns, handlers, chat }: {
+  { agent, row, title, turns, handlers, chat, dock }: {
     agent: string;
     row?: SessionRow;
     title: string;
     turns: readonly Turn[];
     handlers: SessionHandlers;
     chat?: ChatInit;
+    dock?: ReactNode;
   },
 ) {
   const state = row === undefined ? null : tabStateOf(row.state);
@@ -298,6 +312,8 @@ function PlainChat(
       session={{ id: row?.id ?? "", title }}
       chat={chat}
       running={state === "working"}
+      archived={row?.group === "archived"}
+      dock={dock}
       placeholder={askPlaceholder(agent)}
       onSession={handlers.onSession}
       onNewSession={handlers.onNewSession}
@@ -307,40 +323,29 @@ function PlainChat(
   );
 }
 
-/** 새 session. sidebar의 agent나 toast의 [Ask Context Engineer]가 연다. 첫 context가 붙어 있으면 chip으로 보인다. */
+/** 새 session. sidebar의 agent가 연다. */
 function FreshChat(
   { chat, handlers }: { chat: ChatInit; handlers: SessionHandlers },
 ) {
   const agent = chat.agent ?? "lophn";
-  const [chip, setChip] = useState(chat.chip);
   useTabState(handlers.onState, null);
   return (
     <ChatShell
       agent={agent}
       session={{ id: "", title: "New session" }}
       chat={chat}
-      chip={chip}
-      onChip={() => setChip(undefined)}
-      placeholder={chip === undefined
-        ? askPlaceholder(agent)
-        : `What should ${agent} do about this?`}
+      placeholder={askPlaceholder(agent)}
       onSession={handlers.onSession}
       onNewSession={handlers.onNewSession}
     >
-      {() => (
-        <p className={styles.muted}>
-          {chip === undefined
-            ? `New session with ${agent}.`
-            : `${agent} will see the context below with your first message.`}
-        </p>
-      )}
+      {() => <p className={styles.muted}>New session with {agent}.</p>}
     </ChatShell>
   );
 }
 
 /**
  * Weekly report session. 이야기는 하나이고 진행(stage)만 다르다: 질문 카드 → 답한 뒤 → 일이 끝남, 그리고 승인 카드.
- * 질문은 [Submit]·[Skip]으로, 승인은 [Allow ▾]·[Deny]로 이어진다.
+ * 질문은 [Submit]으로, 승인은 카드의 선택지로 이어진다. 내 메시지의 Rewind 단추는 대화 안 panel을 연다.
  */
 function WeeklyChat(
   { open, chat, handlers }: {
@@ -350,11 +355,9 @@ function WeeklyChat(
   },
 ) {
   const [stage, setStage] = useState(chat.stage ?? "question");
-  const [summary, setSummary] = useState(
-    "Answered 2 questions: Report place → docs/reports/ · Include regressions → Yes",
-  );
-  const [decision, setDecision] = useState<string | null>(null);
-  const [rewind, setRewind] = useState(chat.rewind === true);
+  const [answers, setAnswers] = useState<readonly QuestionAnswer[]>(ANSWERS);
+  const [decision, setDecision] = useState<ApprovalDecision | null>(null);
+  const [rewind, setRewind] = useState(false);
   const [opened, setOpened] = useState<Record<string, boolean>>({
     search: true,
   });
@@ -367,23 +370,14 @@ function WeeklyChat(
   const dock = stage === "question"
     ? (
       <QuestionDock
-        onSubmit={(text) => {
-          setSummary(text);
-          setStage("answered");
-        }}
-        onSkip={() => {
-          setSummary("Skipped 2 questions. lophn will use its defaults.");
+        onSubmit={(list) => {
+          setAnswers(list);
           setStage("answered");
         }}
       />
     )
     : stage === "approval" && decision === null
-    ? (
-      <ApprovalDock
-        menuOpen={chat.allowMenu === true}
-        onDecide={setDecision}
-      />
-    )
+    ? <ApprovalDock onDecide={setDecision} />
     : undefined;
   const toggle = (key: string) => setOpened({ ...opened, [key]: !opened[key] });
   return (
@@ -397,7 +391,7 @@ function WeeklyChat(
         ? "Add more details (optional)"
         : ASK_LOPHN}
       dock={dock}
-      onRewind={() => setRewind(true)}
+      panel={rewind ? <RewindPanel onClose={() => setRewind(false)} /> : null}
       onSession={handlers.onSession}
       onNewSession={handlers.onNewSession}
     >
@@ -406,7 +400,10 @@ function WeeklyChat(
         const isOpen = (key: string) => detail === "everything" || opened[key];
         return (
           <>
-            <UserMessage rewindOpen={rewind} onRewindOpen={setRewind}>
+            <UserMessage
+              rewindOpen={rewind}
+              onRewind={() => setRewind(!rewind)}
+            >
               Write this week's eval report from the new findings.
             </UserMessage>
             <AgentTurn agent="lophn" time="09:41">
@@ -465,10 +462,10 @@ function WeeklyChat(
               {stage === "answered"
                 ? (
                   <>
-                    <AnsweredSummary text={summary} />
+                    <AnsweredSummary answers={answers} />
                     <Said>
-                      Thanks. Writing the report into docs/reports/ with a
-                      section for the regressions.
+                      Thanks. Writing the report into docs/reports/ with the
+                      sections you picked.
                     </Said>
                     <EditCard
                       path="docs/reports/2026-w41.md"
@@ -484,18 +481,17 @@ function WeeklyChat(
               {stage === "approval"
                 ? (
                   <Said>
-                    Last week's report counts the regressions wrong. I can fix
-                    it with the corrected numbers, but I need your OK to change
-                    a document I did not just write.
+                    I can also file the regression as an issue on github. That
+                    happens outside lophn, so I need your OK first.
                   </Said>
                 )
                 : null}
               {decision === null ? null : (
-                <Quiet>
-                  {decision === "Denied"
-                    ? "Denied. docs/reports/2026-w40.md was left as it is."
-                    : `${decision}. Rewrote docs/reports/2026-w40.md.`}
-                </Quiet>
+                <ApprovalResult
+                  result={decision === "deny"
+                    ? APPROVAL_RESULTS[2]
+                    : APPROVAL_RESULTS[0]}
+                />
               )}
             </AgentTurn>
           </>
@@ -525,12 +521,17 @@ export function Conversation(
     const fresh = sub === "engineer-new";
     return (
       <PlainChat
-        agent="Context Engineer"
-        row={fresh ? undefined : sessionBySub("Context Engineer", "engineer")}
+        agent="Project Manager"
+        row={fresh ? undefined : sessionBySub("Project Manager", "engineer")}
         title={fresh ? "New context" : "Release notes context"}
-        turns={fresh
-          ? NEW_CONTEXT_TURNS
-          : engineerTurns(open, answer, onAnswer)}
+        turns={fresh ? NEW_CONTEXT_TURNS : engineerTurns(open, answer)}
+        dock={fresh || answer !== null ? undefined : (
+          <QuestionCard
+            agent="Project Manager"
+            questions={[CE_ASKED]}
+            onSubmit={(list) => onAnswer(list[0].answer)}
+          />
+        )}
         handlers={handlers}
         chat={chat}
       />

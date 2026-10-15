@@ -11,7 +11,7 @@ export interface ModelSelection {
   readonly values: Readonly<Record<string, string>>;
 }
 
-export function findModel(name: string): CatalogModel | undefined {
+function findModel(name: string): CatalogModel | undefined {
   for (const group of MODEL_CATALOG) {
     const found = group.models.find((model) => model.name === name);
     if (found) return found;
@@ -53,40 +53,4 @@ export function withValue(
   value: string,
 ): ModelSelection {
   return { ...selection, values: { ...selection.values, [axis]: value } };
-}
-
-/**
- * model을 바꾼다. 같은 축에 지금 값이 없으면 가까운 약한 값(같은 센 정도 이하 중 가장 센 것, 없으면 가장 약한
- * 것)으로 맞추고 한 줄 알림을 돌려준다. 새 model에 없는 축은 버린다.
- */
-export function switchModel(
-  from: ModelSelection,
-  name: string,
-): { selection: ModelSelection; notes: readonly string[] } {
-  const values: Record<string, string> = {};
-  const notes: string[] = [];
-  const oldAxes = axesOf(from.model);
-  for (const axis of axesOf(name)) {
-    const wanted = from.values[axis.id];
-    if (wanted === undefined) {
-      values[axis.id] = axis.initial;
-      continue;
-    }
-    if (axis.values.some((item) => item.value === wanted)) {
-      values[axis.id] = wanted;
-      continue;
-    }
-    const rank = oldAxes
-      .find((item) => item.id === axis.id)
-      ?.values.find((item) => item.value === wanted)?.rank ?? 0;
-    const weaker = axis.values.filter((item) => item.rank <= rank);
-    const pick = weaker.length > 0
-      ? weaker.reduce((best, item) => item.rank > best.rank ? item : best)
-      : axis.values.reduce((best, item) => item.rank < best.rank ? item : best);
-    values[axis.id] = pick.value;
-    notes.push(
-      `${axis.label} set to ${pick.value} — ${wanted} isn't available for ${name}.`,
-    );
-  }
-  return { selection: { model: name, values }, notes };
 }

@@ -1,4 +1,4 @@
-// Context 탭을 여는 길 목록(C13). React·CSS 없이 두어 `deno test`가 그대로 읽는다. `tryIt`은 그 길을 눌러 볼 수 있는
+// Context 탭을 여는 길 목록. React·CSS 없이 두어 `deno test`가 그대로 읽는다. `tryIt`은 그 길을 눌러 볼 수 있는
 // gallery page의 id다.
 export interface Way {
   readonly title: string;
@@ -29,8 +29,8 @@ export const WAYS: readonly Way[] = [
     tryIt: "new-project-tab-menu",
   },
   {
-    title: "Search tab",
-    steps: ["Search tab", "Open context link"],
+    title: "Declared search",
+    steps: ["Search tab of a declared search", "Open context link"],
     result: "eval · Overview",
     tryIt: "new-search-table",
   },
@@ -54,17 +54,8 @@ export const WAYS: readonly Way[] = [
   },
   {
     title: "Agent tab",
-    steps: ["lophn or Context Engineer says “eval”", "name link"],
+    steps: ["lophn or Project Manager says “eval”", "name link"],
     result: "eval · Overview",
     tryIt: "new-project-tabs",
-  },
-  {
-    title: "New context",
-    steps: [
-      "Contexts tab [New context]",
-      "Agent tab · Context Engineer",
-    ],
-    result: "release-notes · drafting",
-    tryIt: "new-contexts",
   },
 ];

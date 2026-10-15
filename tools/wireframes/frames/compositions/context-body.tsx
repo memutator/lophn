@@ -1,4 +1,5 @@
-// Part 2: Context 탭 본문(Overview·Contract·Violations 하위 탭). 예시 context는 eval이고 harness는 관계로만 나온다.
+// Part 2: Context 탭 본문(Overview·Searches·Violations·Glossary·Contract 하위 탭). 예시 context는 eval이고 harness는 관계로만 나온다.
+// 머리에는 적용된 판과 판 목록·되돌리기가 있고, agent를 부르는 단추는 없다. 위반 목록만 Project Manager에게 넘긴다.
 import { type ReactNode, useState } from "react";
 import {
   Button,
@@ -12,52 +13,105 @@ import {
 } from "@lophn/design/components";
 
 import { Link } from "./link.tsx";
-import { experimentTab, findingTab, scenarioTab } from "./phroner-data.ts";
+import {
+  documentTab,
+  experimentTab,
+  findingTab,
+  scenarioTab,
+} from "./phroner-data.ts";
 import { Mark, Mono, type TabSpec } from "./project-window.tsx";
+import {
+  DECLARED_SEARCHES,
+  SAVED_VIEWS,
+  versionsOf,
+  type ViolationRow,
+  VIOLATIONS,
+} from "./contexts/contexts-data.ts";
+import { declaredSearchTab } from "./contexts/declared-search.tsx";
+import { Glossary, type GlossaryDemo } from "./contexts/glossary.tsx";
+import { TabToast } from "./contexts/tab-toast.tsx";
+import { pmNewTab } from "./contexts/pm-session.tsx";
 import styles from "./compose.module.css";
+import c from "./contexts/contexts.module.css";
 
-function Header({ tab, name }: { tab: SubTab; name: string }) {
+function Header(
+  { tab, name, current, restored, versions, onVersions }: {
+    tab: SubTab;
+    name: string;
+    current: string;
+    restored: boolean;
+    versions: boolean;
+    onVersions: () => void;
+  },
+) {
   const detail = tab === "contract";
   return (
     <div className={styles.ctxHead}>
-      <div>
-        <div className={styles.ctxTitle}>
-          <h1>{name}</h1>
+      <div className={c.headMain}>
+        <div className={c.titleRow}>
+          <h1 className={c.titleText}>{name}</h1>
           <span className={styles.chip}>Context</span>
+          <span className={c.spacer} />
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={versions}
+            onClick={onVersions}
+          >
+            {versions ? "Versions ▴" : "Versions ▾"}
+          </Button>
         </div>
         <p className={styles.purpose}>
           Keep experiments, scenarios, rubrics and findings of the eval loop
           findable.
         </p>
-        {tab === "overview"
-          ? (
-            <p className={styles.applied}>
-              Kept up to date by Context Engineer
-            </p>
-          )
-          : (
-            <>
-              <p className={styles.applied}>
-                <Mono>Version r3</Mono>
-                <span>· applied 2 hours ago ·</span>
-                <span className={styles.good}>tests passed</span>
-              </p>
-              <div className={styles.actions}>
-                <Button variant="primary">Ask Context Engineer</Button>
-                <Button>History</Button>
-              </div>
-            </>
-          )}
+        <p className={styles.applied}>
+          <Mono>Version {current}</Mono>
+          <span>· applied {restored ? "just now" : "2 hours ago"} ·</span>
+          <span className={styles.good}>tests passed</span>
+        </p>
         {detail
           ? (
             <p className={styles.note}>
-              Details for Context Engineer and the curious
+              Details of the contract this context follows
             </p>
           )
           : null}
       </div>
       {detail ? <RelationDiagram /> : null}
     </div>
+  );
+}
+
+/** 적용된 판의 목록. 판마다 시각과 바뀐 것 한 줄이 있고, 옛 판 줄의 [Restore]로 되돌린다. */
+function VersionList(
+  { name, current, onRestore }: {
+    name: string;
+    current: string;
+    onRestore: (id: string) => void;
+  },
+) {
+  return (
+    <section className={c.versions} aria-label="Versions">
+      <h2>Versions</h2>
+      {versionsOf(name).map((version) => (
+        <div key={version.id} className={c.version}>
+          <span className={c.versionName}>{version.id}</span>
+          <span className={c.versionWhen}>{version.when}</span>
+          <span className={c.versionChange}>{version.change}</span>
+          {version.id === current
+            ? <span className={c.chip}>Current</span>
+            : (
+              <Button
+                size="sm"
+                onClick={() => onRestore(version.id)}
+              >
+                Restore
+              </Button>
+            )}
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -293,31 +347,76 @@ function Contract() {
   );
 }
 
-function Violations() {
+/** 위반 목록: 읽기, 파일 열기, Project Manager에게 넘기기. 위반 근거(파일과 규칙)가 붙어 간다. */
+function Violations({ open }: { open: ContextBodyProps["open"] }) {
+  const send = (rows: readonly ViolationRow[]) => open(pmNewTab(rows), true);
   return (
     <>
-      <div className={styles.violation}>
-        <div>
-          <p>
-            <span className={styles.violationFile}>reports/weekly-12.md</span>
-            {" "}
-            · section <Mono>Findings</Mono> is missing
-          </p>
-          <p className={styles.rule}>rule: Report.sections requires Findings</p>
-        </div>
+      <div className={c.bulk}>
+        <span className={c.note}>
+          {VIOLATIONS.length} documents don't match this context
+        </span>
+        <Button variant="primary" onClick={() => send(VIOLATIONS)}>
+          Send all to Project Manager
+        </Button>
       </div>
-      <div className={styles.violation}>
-        <div>
-          <p>
-            <span className={styles.violationFile}>reports/weekly-13.md</span>
-            {" "}
-            · name doesn't match <Mono>reports/weekly-{"{n}"}.md</Mono>
-          </p>
-          <p className={styles.rule}>
-            rule: Report.path = reports/weekly-{"{n}"}.md
-          </p>
+      {VIOLATIONS.map((row) => (
+        <div key={row.path} className={c.violation}>
+          <div>
+            <p>
+              <Link
+                onClick={() => open(documentTab(row.path))}
+              >
+                <span className={c.violationFile}>{row.path}</span>
+              </Link>{" "}
+              · {row.what}
+            </p>
+            <p className={c.rule}>rule: {row.rule}</p>
+          </div>
+          <Button onClick={() => send([row])}>Send to Project Manager</Button>
         </div>
-      </div>
+      ))}
+    </>
+  );
+}
+
+/** 이 context에 선언된 검색과 saved view. 누르면 Search 탭이 열린다. */
+function Searches({ open }: { open: ContextBodyProps["open"] }) {
+  return (
+    <>
+      <section>
+        <h2 className={c.sectionTitle}>Declared searches</h2>
+        <ul className={c.entries}>
+          {DECLARED_SEARCHES.map((search, index) => (
+            <li key={search.id} className={c.entry}>
+              <span>
+                {search.title} <Mono>{search.id}</Mono>
+              </span>
+              <Button
+                size="sm"
+                onClick={() =>
+                  open(
+                    declaredSearchTab(index === 1 ? "experiments" : "findings"),
+                  )}
+              >
+                Open
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h2 className={c.sectionTitle}>Saved views</h2>
+        <ul className={c.entries}>
+          {SAVED_VIEWS.map((view) => (
+            <li key={view} className={c.entry}>
+              <Link onClick={() => open(declaredSearchTab("findings"))}>
+                {view}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
     </>
   );
 }
@@ -605,25 +704,76 @@ function HarnessOverview() {
   );
 }
 
-/** Context 탭 본문. 하위 탭을 누르면 머리와 본문이 바뀐다. */
+export interface ContextBodyProps {
+  readonly name?: string;
+  readonly initial?: SubTab;
+  /** 판 목록을 펼친 채 시작한다. */
+  readonly versionsOpen?: boolean;
+  /** 옛 판(r2)으로 되돌린 직후 상태로 시작한다. */
+  readonly restoredDemo?: boolean;
+  /** 용어집의 더하기·고치기·지우기 확인 중 하나를 연 채 시작한다. */
+  readonly glossaryDemo?: GlossaryDemo;
+  readonly open: (tab: TabSpec, other?: boolean) => void;
+}
+
+/** Context 탭 본문. 하위 탭을 누르면 머리와 본문이 바뀐다. 열 때 읽고, 열려 있는 동안 다시 읽지 않는다. */
 export function ContextBody(
-  { name = "eval", initial = "overview", open }: {
-    name?: string;
-    initial?: SubTab;
-    open: (tab: TabSpec) => void;
-  },
+  {
+    name = "eval",
+    initial = "overview",
+    versionsOpen = false,
+    restoredDemo = false,
+    glossaryDemo,
+    open,
+  }: ContextBodyProps,
 ) {
   const [tab, setTab] = useState<SubTab>(initial);
+  const [versions, setVersions] = useState(versionsOpen || restoredDemo);
+  const list = versionsOf(name);
+  const [current, setCurrent] = useState(
+    restoredDemo ? list[1].id : list[0].id,
+  );
+  const [restored, setRestored] = useState(restoredDemo);
+  const [toast, setToast] = useState(restoredDemo);
   const harness = name === "harness";
   return (
-    <>
-      <Header tab={tab} name={name} />
+    <div className={c.column}>
+      {toast
+        ? (
+          <TabToast
+            title={`Restored version ${current}`}
+            body="Its contract and searches apply again."
+            onClose={() => setToast(false)}
+          />
+        )
+        : null}
+      <Header
+        tab={tab}
+        name={name}
+        current={current}
+        restored={restored}
+        versions={versions}
+        onVersions={() => setVersions(!versions)}
+      />
+      {versions
+        ? (
+          <VersionList
+            name={name}
+            current={current}
+            onRestore={(id) => {
+              setCurrent(id);
+              setRestored(true);
+              setToast(true);
+            }}
+          />
+        )
+        : null}
       <Tabs value={tab} onValueChange={(value) => setTab(value as SubTab)}>
         <TabList>
           <Tab value="overview">Overview</Tab>
-          <Tab value="search">Search</Tab>
+          <Tab value="search">Searches</Tab>
           <Tab value="violations">
-            {harness ? "Violations" : "Violations (2)"}
+            {harness ? "Violations" : `Violations (${VIOLATIONS.length})`}
           </Tab>
           <Tab value="glossary">Glossary</Tab>
           <Tab value="contract">Contract</Tab>
@@ -632,20 +782,20 @@ export function ContextBody(
           {harness ? <HarnessOverview /> : <Overview open={open} />}
         </TabPanel>
         <TabPanel value="search">
-          <p className={styles.note}>
-            Searches declared in this context open in the Search tab.
-          </p>
+          <Searches open={open} />
         </TabPanel>
         <TabPanel value="violations">
           {harness
             ? <p className={styles.note}>No violations.</p>
-            : <Violations />}
+            : <Violations open={open} />}
         </TabPanel>
-        <TabPanel value="glossary">{null}</TabPanel>
+        <TabPanel value="glossary">
+          <Glossary demo={glossaryDemo} />
+        </TabPanel>
         <TabPanel value="contract">
           <Contract />
         </TabPanel>
       </Tabs>
-    </>
+    </div>
   );
 }

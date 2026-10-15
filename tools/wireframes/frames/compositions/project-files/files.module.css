@@ -1,0 +1,487 @@
+/* 파일 탭의 viewer·알림, project 키워드 검색, 경로 팔레트. 공통 틀은 ../compose.module.css를 쓴다. */
+
+/* view bar */
+.pathRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.outside {
+  flex: none;
+  padding: var(--space-0) var(--space-3);
+  border: var(--border-width) solid var(--status-warning-marker);
+  border-radius: var(--radius-full);
+  color: var(--status-warning-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.lineMark {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.save {
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  white-space: nowrap;
+}
+
+.readOnly {
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+/* 탭 안 위쪽 toast. 탭 본문 위에 떠서 가운데에 놓이고, 단추는 오른쪽 끝이다. */
+.hasToast {
+  position: relative;
+}
+
+.tabToast {
+  position: absolute;
+  top: calc(var(--control-md-height) + var(--space-3));
+  right: var(--space-6);
+  left: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.tabToastBox {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: calc(var(--page-reading-default) + var(--space-10));
+  pointer-events: auto;
+}
+
+.tabToastActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+/* 디스크와 내 것을 나란히 비교 */
+.compare {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr 1fr;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.compareCol {
+  min-width: var(--space-0);
+  border-right: var(--border-width) solid var(--color-border-subtle);
+}
+
+.compareCol:last-child {
+  border-right: none;
+}
+
+.compareHead {
+  position: sticky;
+  top: var(--space-0);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-base);
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.compareHead span {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.diffLine {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-0) var(--space-5);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-body-line);
+  white-space: pre-wrap;
+}
+
+.diffLine[data-diff="add"] {
+  background: var(--diff-add-line);
+}
+
+.diffLine[data-diff="delete"] {
+  background: var(--diff-delete-line);
+}
+
+.diffSign {
+  flex: none;
+  width: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+/* text 편집기 */
+.editor {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+  background: var(--color-surface-base);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-body-line);
+}
+
+.codeRow {
+  display: flex;
+  padding-right: var(--space-6);
+}
+
+.lineNo {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--space-10);
+  padding: var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.codeText {
+  flex: 1;
+  min-width: var(--space-0);
+  padding-left: var(--space-5);
+  white-space: pre;
+}
+
+.activeLine {
+  background: var(--color-surface-muted);
+}
+
+.hitLine {
+  background: var(--color-selection);
+}
+
+.tkKey {
+  color: var(--color-link);
+}
+
+.tkStr {
+  color: var(--status-good-text);
+}
+
+.tkNum {
+  color: var(--status-warning-text);
+}
+
+.caret {
+  display: inline-block;
+  width: var(--border-focus-width);
+  height: 1.1em;
+  margin-left: var(--border-width);
+  vertical-align: text-bottom;
+  background: var(--color-text-primary);
+}
+
+/* 이미지·pdf viewer. 바탕은 탭 본문과 같다. */
+.media {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+}
+
+.mediaStage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-8);
+}
+
+.mediaStage svg {
+  max-width: 100%;
+  max-height: 100%;
+  border: var(--border-width) solid var(--color-border-base);
+}
+
+.pdfStage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-8);
+}
+
+.pdfPage {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--page-reading-default);
+  min-height: var(--page-reading-default);
+  padding: var(--space-10);
+  border: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-base);
+}
+
+.pdfTitle {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+}
+
+.pdfBar {
+  height: var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+}
+
+/* 문서 본문 기둥. 가로 가운데에 놓는다. */
+.column {
+  max-width: var(--page-reading-default);
+  margin: var(--space-0) auto;
+}
+
+/* 정보 패널 */
+.infoCaption {
+  margin: var(--space-6) var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.infoNote {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+/* 읽기 본문에서 검색 결과로 열린 줄 */
+.hitBlock {
+  margin-left: calc(var(--space-5) * -1);
+  padding-left: var(--space-5);
+  border-left: var(--border-focus-width) solid var(--color-focus);
+  background: var(--color-selection);
+}
+
+/* project 키워드 검색 */
+.finder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--space-0);
+}
+
+.finder {
+  align-items: center;
+}
+
+/* 검색 화면의 기둥. 최대 폭을 두고 가로 가운데에 놓는다. */
+.finderColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--page-reading-default) + var(--space-11));
+  min-height: var(--space-0);
+}
+
+.finderForm {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-0) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.finderQuery {
+  flex: 1;
+  min-width: var(--space-0);
+}
+
+.finderFolder {
+  flex: none;
+  width: var(--layout-container-card);
+}
+
+.finderSummary {
+  flex: none;
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-0) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.finderResults {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-3) var(--space-0) var(--space-8);
+}
+
+.finderFile {
+  margin-top: var(--space-5);
+}
+
+.finderPath {
+  display: flex;
+  margin: var(--space-0);
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-0);
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.finderCount {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.finderRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.finderRow:hover,
+.finderRow[aria-current="true"] {
+  background: var(--color-surface-subtle);
+}
+
+.finderLine {
+  flex: none;
+  width: var(--space-9);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.finderSnippet {
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finderSnippet mark {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+.finderEmpty {
+  margin: var(--space-8) var(--space-0);
+  color: var(--color-text-muted);
+}
+
+/* 경로를 친 팔레트(look-alike) */
+.paletteBackdrop {
+  position: absolute;
+  inset: var(--space-0);
+  z-index: var(--z-palette);
+  display: flex;
+  justify-content: center;
+  padding-top: var(--palette-top);
+  background: var(--floating-backdrop);
+}
+
+.palettePanel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: var(--palette-width);
+  max-width: 100%;
+  height: fit-content;
+  border-radius: var(--radius-lg);
+  background: var(--floating-surface);
+  box-shadow: var(--shadow-dialog);
+  overflow: hidden;
+}
+
+.paletteSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+
+.paletteList {
+  padding: var(--space-2);
+}
+
+.paletteGroup {
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.paletteItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--control-gap);
+  box-sizing: border-box;
+  height: var(--palette-item);
+  padding: var(--space-0) var(--space-4);
+  border-radius: var(--radius-xs);
+  align-items: center;
+}
+
+.paletteActive {
+  background: var(--floating-hover);
+}
+
+.paletteDetail {
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.paletteFooter {
+  padding: var(--space-3) var(--space-6);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}

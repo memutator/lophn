@@ -10,8 +10,6 @@ import {
   IconButton,
   Palette,
   type PaletteItem,
-  Toast,
-  ToastStack,
 } from "@lophn/design/components";
 import {
   paletteIcons,
@@ -21,23 +19,20 @@ import {
 import { AgentsBody, OperatorEditor } from "./agents-tab.tsx";
 import {
   AGENTS_TAB,
-  askEngineerTab,
   newConversationTab,
   type SessionRow,
 } from "./agents-data.ts";
-import { ContextsBody, SearchBody, TerminalBody } from "./bodies.tsx";
+import { TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation, type TabState } from "./conversation.tsx";
 import { FAVORITE_START, FavoritesContext } from "./model-picker.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
-import { ContextDrafting } from "./context-drafting.tsx";
-import {
-  contextTab,
-  documentTab,
-  experimentTab,
-  findingTab,
-  NEW_CONTEXT_CHAT,
-} from "./phroner-data.ts";
+import { contextTab, documentTab } from "./phroner-data.ts";
+import { ContextsList } from "./contexts/contexts-list.tsx";
+import { DeclaredSearch } from "./contexts/declared-search.tsx";
+import { HostProvider } from "./contexts/open-tab.ts";
+import { FileSearch } from "./project-files/file-search.tsx";
+import { isOutside, PROJECT_DIR } from "./project-files/file-data.ts";
 import {
   ProjectSidebar,
   type RailAction,
@@ -60,18 +55,11 @@ export interface ProjectAppProps {
   readonly overlay?: ReactNode;
   /** 창 위에 얹는 것(toast). */
   readonly children?: ReactNode;
-  /** 계약 위반 toast를 띄운 채 시작한다. [View]는 그 context의 Violations를, [Ask Context Engineer]는 그 사건을 첫 context로 붙인 새 Agent 탭을 연다. */
-  readonly violationToast?: boolean;
-  /** violationToast와 같은 toast. 다른 탭이 열린 채로 보인다. */
-  readonly askToast?: boolean;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
 }
 
 const FLUSH = new Set(["search", "agent", "terminal", "document"]);
-
-// toast가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
-const NO_TIMER = { set: () => 0, clear: () => {} };
 
 export const CHAT_TAB: TabSpec = {
   key: "chat",
@@ -81,21 +69,25 @@ export const CHAT_TAB: TabSpec = {
 export const ENGINEER_TAB: TabSpec = {
   key: "chat:engineer",
   kind: "agent",
-  title: "Context Engineer",
+  title: "Project Manager",
   sub: "engineer",
 };
 
 function crumbsOf(tab: TabSpec | undefined): string[] {
   if (tab === undefined) return ["phroner"];
   switch (tab.kind) {
-    case "document":
-      return ["phroner", ...(tab.sub ?? tab.title).split("/")];
+    case "document": {
+      const path = tab.sub ?? tab.title;
+      return isOutside(path)
+        ? ["Outside project", ...path.split("/").filter(Boolean)]
+        : ["phroner", ...path.split("/")];
+    }
     case "context":
       return ["phroner", tab.title, "Context"];
     case "contexts":
       return ["phroner", "Contexts"];
     case "search":
-      return ["phroner", "Search"];
+      return ["phroner", tab.sub === "files" ? "Search files" : "Search"];
     case "terminal":
       return ["phroner", "Terminal"];
     case "agent":
@@ -107,7 +99,16 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
   }
 }
 
-// 상단 검색(돋보기·Ctrl+K)의 후보. "eval"을 치면 Contexts 묶음에 eval이 나온다.
+// 상단 검색(돋보기·Ctrl+K)의 후보. "eval"을 치면 Contexts 묶음에 eval이 나오고, 파일은 경로로 연다.
+const FILE_ITEM = (path: string): PaletteItem & { tab: () => TabSpec } => ({
+  id: `file:${path}`,
+  group: "Files",
+  label: path.split("/").pop() ?? path,
+  detail: path.split("/").slice(0, -1).join("/"),
+  icon: workspaceIcons.document,
+  tab: () => documentTab(path),
+});
+
 const PALETTE: readonly (PaletteItem & { tab: () => TabSpec })[] = [
   {
     id: "context:eval",
@@ -125,31 +126,55 @@ const PALETTE: readonly (PaletteItem & { tab: () => TabSpec })[] = [
     icon: workspaceIcons.context,
     tab: () => contextTab("harness"),
   },
-  {
-    id: "doc:exp-008",
-    group: "Documents",
-    label: "exp-008-query-tools.md",
-    detail: "eval/experiments",
-    icon: workspaceIcons.document,
-    tab: () => experimentTab("exp-008"),
-  },
-  {
-    id: "doc:F-009",
-    group: "Documents",
-    label: "F-009.md",
-    detail: "loop/findings",
-    icon: workspaceIcons.document,
-    tab: () => findingTab("F-009"),
-  },
-  {
-    id: "doc:notes",
-    group: "Documents",
-    label: "notes.md",
-    detail: "docs",
-    icon: workspaceIcons.document,
-    tab: () => documentTab("docs/notes.md"),
-  },
+  FILE_ITEM("eval/experiments/exp-008-query-tools.md"),
+  FILE_ITEM("eval/rubrics/query-hygiene.json"),
+  FILE_ITEM("eval/scenarios/query-leave-still/r1.yaml"),
+  FILE_ITEM("loop/findings/F-009.md"),
+  FILE_ITEM("docs/notes.md"),
+  FILE_ITEM("assets/chest-layout.png"),
+  FILE_ITEM("LOPHN.md"),
 ];
+
+/** OS 파일 dialog 대신 열리는 project 밖 파일. */
+const DIALOG_FILE = "/home/mina/Downloads/api-spec.yaml";
+
+const BROWSE: PaletteItem = {
+  id: "browse",
+  group: "Open",
+  label: "Open file…",
+  detail: "Any file on this computer",
+  hint: "Ctrl+O",
+  icon: workspaceIcons.document,
+};
+
+const pathLike = (text: string) => /^(\/|~\/)/.test(text.trim());
+
+/** project 폴더 안 경로는 상대 경로로, 밖은 그대로 연다. */
+function toFilePath(text: string): string {
+  const path = text.trim();
+  return path.startsWith(`${PROJECT_DIR}/`)
+    ? path.slice(PROJECT_DIR.length + 1)
+    : path;
+}
+
+function paletteItems(query: string): readonly PaletteItem[] {
+  if (pathLike(query)) {
+    const path = toFilePath(query);
+    return [{
+      id: `path:${path}`,
+      group: "Open",
+      label: query.trim(),
+      detail: isOutside(path) ? "Outside project" : "In project",
+      icon: workspaceIcons.document,
+    }];
+  }
+  const words = query.trim().toLowerCase();
+  const found = PALETTE.filter((item) =>
+    words === "" || item.label.toLowerCase().includes(words) ||
+    (item.detail ?? "").toLowerCase().includes(words)
+  );
+  return words === "" ? [BROWSE, ...found] : found;
+}
 
 export function ProjectApp(
   {
@@ -157,8 +182,6 @@ export function ProjectApp(
     sidebar = {},
     overlay,
     children,
-    violationToast = false,
-    askToast = false,
     info: initialInfo,
   }: ProjectAppProps,
 ) {
@@ -169,14 +192,20 @@ export function ProjectApp(
   const [info, setInfo] = useState<Record<string, InfoPanel>>(
     initialInfo === undefined ? {} : { [initialInfo.tab]: initialInfo.panel },
   );
-  const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
+  const [editing, setEditing] = useState<ReadonlySet<string>>(
+    new Set(
+      initial.flatMap((pane) =>
+        pane.tabs.filter((tab) => tab.file?.editing).map((tab) => tab.key)
+      ),
+    ),
+  );
   const [answer, setAnswer] = useState<string | null>(null);
-  const [toast, setToast] = useState(violationToast || askToast);
   const [favorites, setFavorites] = useState<readonly string[]>(FAVORITE_START);
   const [tabStates, setTabStates] = useState<
     Readonly<Record<string, TabState>>
   >({});
   const [palette, setPalette] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
   const terminals = useRef(1);
 
   useEffect(() => {
@@ -190,7 +219,7 @@ export function ProjectApp(
     return () => removeEventListener("keydown", listen);
   }, []);
 
-  // 이미 열린 탭이면 그 칸에서 고르고(Context 탭은 다른 하위 탭을 달라면 그 하위 탭으로), 아니면 첫 칸 끝에 더해
+  // 이미 열린 탭이면 그 칸에서 고르고(Context 탭은 다른 하위 탭을, 문서 탭은 다른 줄을 달라면 그쪽으로), 아니면 첫 칸 끝에 더해
   // 고른다. `other`면 둘째 칸에 연다(없으면 칸을 하나 더 만든다).
   const open = (tab: TabSpec, other = false) =>
     setPanes((current) => {
@@ -204,6 +233,8 @@ export function ProjectApp(
               item.key === tab.key && tab.sub !== undefined &&
                 item.kind === "context"
                 ? { ...item, sub: tab.sub, rev: (item.rev ?? 0) + 1 }
+                : item.key === tab.key && tab.file?.line !== undefined
+                ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
                 : item
             ),
             selected: tab.key,
@@ -267,15 +298,29 @@ export function ProjectApp(
       title: "phroner",
     });
   };
+  // 선언된 검색(saved view의 결과)과 project 키워드 검색은 서로 다른 탭이다. 키워드 검색은 context 없이 열린다.
   const searchTab: TabSpec = {
     key: "search",
     kind: "search",
     title: "phroner",
   };
+  const filesTab: TabSpec = {
+    key: "search:files",
+    kind: "search",
+    title: "phroner",
+    sub: "files",
+  };
+  const savedViewTab = (view: string): TabSpec => ({
+    key: `search:saved:${view}`,
+    kind: "search",
+    title: view === "running" ? "Running experiments" : "Findings for C-049",
+    sub: view === "running" ? "experiments" : undefined,
+  });
 
   const rail = (action: RailAction) => {
     if (action === "terminal") newTerminal();
-    else if (action === "search" || action === "saved") open(searchTab);
+    else if (action === "search") open(filesTab);
+    else if (action === "saved") open(searchTab);
     else if (action === "contexts") {
       open({ key: "contexts", kind: "contexts", title: "phroner" });
     } else open(newConversationTab("lophn"));
@@ -285,21 +330,24 @@ export function ProjectApp(
     if (choice === "document") open(documentTab("docs/notes.md"));
     else if (choice === "terminal") newTerminal();
     else if (choice === "agent-lophn") open(CHAT_TAB);
-    else if (choice === "agent-engineer") open(ENGINEER_TAB);
-    else if (choice === "search") open(searchTab);
-    else if (choice === "agents") open(AGENTS_TAB);
-    else if (choice === "new-context") open(NEW_CONTEXT_CHAT, true);
+    else if (choice === "agent-project-manager") open(ENGINEER_TAB);
+    else if (choice.startsWith("agent-operator:")) {
+      open(newConversationTab(choice.slice("agent-operator:".length)));
+    } else if (choice === "search") open(filesTab);
     else if (choice.startsWith("context:")) {
       open(contextTab(choice.slice("context:".length)));
     }
   };
 
   const body = (tab: TabSpec): ReactNode => {
+    if (tab.body !== undefined) return tab.body;
     switch (tab.kind) {
       case "document":
         return (
           <DocumentPane
+            key={tab.rev ?? 0}
             path={tab.sub ?? tab.title}
+            file={tab.file}
             open={open}
             info={info[tab.key] ?? null}
             onInfo={(panel) => setInfo({ ...info, [tab.key]: panel })}
@@ -318,25 +366,38 @@ export function ProjectApp(
           />
         );
       case "context":
-        return tab.draft === undefined
-          ? (
-            <ContextBody
-              key={tab.rev ?? 0}
-              name={tab.title}
-              initial={(tab.sub as SubTab | undefined) ?? "overview"}
-              open={open}
-            />
-          )
-          : <ContextDrafting name={tab.title} draft={tab.draft} />;
-      case "contexts":
-        return <ContextsBody open={open} />;
-      case "search":
         return (
-          <SearchBody
-            initial={tab.sub === "experiments" ? "experiments" : "findings"}
-            typed={tab.sub === "typed"}
+          <ContextBody
+            key={tab.rev ?? 0}
+            name={tab.title}
+            initial={(tab.sub as SubTab | undefined) ?? "overview"}
             open={open}
           />
+        );
+      case "contexts":
+        return (
+          <HostProvider value={{ open, opened: 0 }}>
+            <ContextsList />
+          </HostProvider>
+        );
+      case "search":
+        if (tab.sub === "files") {
+          return (
+            <FileSearch
+              open={open}
+              initialQuery={tab.find?.query}
+              initialFolder={tab.find?.folder}
+              opened={tab.find?.opened}
+            />
+          );
+        }
+        return (
+          <HostProvider value={{ open, opened: 0 }}>
+            <DeclaredSearch
+              initial={tab.sub === "experiments" ? "experiments" : "findings"}
+              typed={tab.sub === "typed"}
+            />
+          </HostProvider>
         );
       case "terminal":
         return <TerminalBody />;
@@ -372,7 +433,7 @@ export function ProjectApp(
 
   const focusTab = panes[0]?.tabs.find((tab) => tab.key === panes[0].selected);
   const crumbs = crumbsOf(focusTab);
-  const items: readonly PaletteItem[] = PALETTE;
+  const items = paletteItems(paletteQuery);
   return (
     <FavoritesContext.Provider
       value={{
@@ -395,6 +456,7 @@ export function ProjectApp(
           onOpenContext={(name) => open(contextTab(name))}
           onAgent={(id) => open(newConversationTab(id))}
           onManage={() => open(AGENTS_TAB)}
+          onSavedView={(view) => open(savedViewTab(view))}
         />
         <div className={styles.main}>
           <div className={styles.topBar}>
@@ -409,7 +471,7 @@ export function ProjectApp(
               trailing={
                 <IconButton
                   icon={paletteIcons.search}
-                  label="Search documents"
+                  label="Search files"
                   variant="secondary"
                   onClick={() => setPalette(true)}
                 />
@@ -452,38 +514,24 @@ export function ProjectApp(
           </div>
         </div>
         {children}
-        {toast
-          ? (
-            <ToastStack>
-              <Toast
-                title="eval: 2 documents don't match the context"
-                actions={[
-                  { id: "ask", label: "Ask Context Engineer" },
-                  { id: "view", label: "View" },
-                ]}
-                onAction={(id) => {
-                  open(
-                    id === "ask"
-                      ? askEngineerTab()
-                      : contextTab("eval", "violations"),
-                  );
-                  setToast(false);
-                }}
-                onClose={() => setToast(false)}
-                timer={NO_TIMER}
-              />
-            </ToastStack>
-          )
-          : null}
         <Palette
           open={palette}
-          onOpenChange={setPalette}
+          onOpenChange={(next) => {
+            setPalette(next);
+            if (!next) setPaletteQuery("");
+          }}
           title="Command palette"
           items={items}
+          onQueryChange={setPaletteQuery}
           onSelect={(id) => {
             const chosen = PALETTE.find((item) => item.id === id);
             if (chosen) open(chosen.tab());
+            else if (id === "browse") open(documentTab(DIALOG_FILE));
+            else if (id.startsWith("path:")) {
+              open(documentTab(id.slice("path:".length)));
+            }
             setPalette(false);
+            setPaletteQuery("");
           }}
         />
       </div>

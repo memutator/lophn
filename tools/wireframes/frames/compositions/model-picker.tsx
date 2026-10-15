@@ -15,13 +15,15 @@ import { paletteIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import {
   axesOf,
+  initialSelection,
   type ModelSelection,
   providerOf,
   selectionLabel,
-  switchModel,
   withValue,
 } from "./model-options.ts";
 import { MODEL_CATALOG } from "./models-data.ts";
+import t from "./agent-tab/agent-tab.module.css";
+import { VendorIcon, vendorOf } from "../vendors/vendor-icon.tsx";
 import a from "./agents.module.css";
 
 /** 별표 찍은 model. 찍은 순서 그대로 둔다(provider로 다시 묶지 않는다). */
@@ -93,6 +95,12 @@ export function OptionAxes(
   );
 }
 
+/** provider 이름 옆의 vendor 아이콘. 모르는 이름이면 그리지 않는다. */
+function ProviderIcon({ name }: { name: string }) {
+  const vendor = vendorOf(name);
+  return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
+}
+
 function ModelRow(
   { name, provider, current, starred, onPick, onStar }: {
     name: string;
@@ -136,15 +144,13 @@ function ModelRow(
 
 /**
  * composer의 model picker. 위에서부터 검색칸, Favorites(별표 순서 그대로), provider 묶음, 고른 model의
- * option 축, 이 session에만 쓴다는 말, 기본값 바꾸기. 검색 중에도 Favorites가 먼저다.
+ * option 축(고른 model이 가진 것만), 기본값 바꾸기. provider 이름 옆에 vendor 아이콘이 붙는다. 검색 중에도 Favorites가 먼저다.
  */
 export function ModelPicker(
-  { defaultOpen, selection, notes, onSelection, onNotes }: {
+  { defaultOpen, selection, onSelection }: {
     defaultOpen: boolean;
     selection: ModelSelection;
-    notes: readonly string[];
     onSelection: (selection: ModelSelection) => void;
-    onNotes: (notes: readonly string[]) => void;
   },
 ) {
   const [open, setOpen] = useState(defaultOpen);
@@ -159,11 +165,8 @@ export function ModelPicker(
     ...group,
     models: group.models.filter((model) => matches(model.name)),
   })).filter((group) => group.models.length > 0);
-  const pick = (name: string) => {
-    const next = switchModel(selection, name);
-    onSelection(next.selection);
-    onNotes(next.notes);
-  };
+  // 다른 model을 고르면 그 model의 기본 variant로 조용히 맞춘다.
+  const pick = (name: string) => onSelection(initialSelection(name));
   return (
     <Popover
       open={open}
@@ -207,7 +210,10 @@ export function ModelPicker(
           )}
           {groups.map((group) => (
             <div key={group.provider} role="presentation">
-              <p className={a.modelGroup}>{group.provider}</p>
+              <p className={`${a.modelGroup} ${t.vendorHead}`}>
+                <ProviderIcon name={group.provider} />
+                {group.provider}
+              </p>
               {group.models.map((model) => (
                 <ModelRow
                   key={model.name}
@@ -223,20 +229,9 @@ export function ModelPicker(
         </div>
         <OptionAxes
           selection={selection}
-          onChange={(axis, value) => {
-            onSelection(withValue(selection, axis, value));
-            onNotes([]);
-          }}
+          onChange={(axis, value) =>
+            onSelection(withValue(selection, axis, value))}
         />
-        {notes.map((note) => (
-          <p key={note} className={a.modelAlert} role="status">{note}</p>
-        ))}
-        <p className={a.modelNote}>
-          Models and options come from the model catalog.
-        </p>
-        <p className={a.modelNote}>
-          Only this session. Default comes from the agent.
-        </p>
         <div className={a.modelFoot}>
           <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
             Change defaults…
@@ -283,7 +278,7 @@ export function ModelField(
                 ? null
                 : next === effective.model && value !== null
                 ? value
-                : switchModel(effective, next).selection,
+                : initialSelection(next),
             )}
         />
       </Field>

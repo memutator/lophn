@@ -88,41 +88,127 @@ export type ScreenId =
   | "project-terminal"
   | "project-app-panel"
   | "app-space"
-  | "new-tab-kinds"
-  | "new-tab-menu"
-  | "new-context-overview"
-  | "new-context-contract"
-  | "new-context-violations"
-  | "new-violation-toast"
-  | "new-search-table"
-  | "new-search-board"
-  | "new-workspace"
-  | "new-organize"
-  | "new-sidebar-collapsed"
-  | "new-contexts"
-  | "new-context-drafting"
-  | "new-ways-to-open"
-  | "new-document-tab"
-  | "new-document-tab-info"
-  | "new-agent-sidebar"
-  | "new-agent-toast"
-  | "new-agent-toast-opened"
+  | "new-waiting-list"
+  | "new-waiting-permission"
+  | "new-waiting-deny-reason"
+  | "new-waiting-activation"
+  | "new-waiting-first-activation"
+  | "new-waiting-reaction"
+  | "new-waiting-settled"
+  | "new-waiting-toasts"
+  | "new-secret-input"
+  | "new-secret-input-app"
+  | "new-secret-input-mcp"
   | "new-agent-conversation"
-  | "new-agent-model-picker"
-  | "new-agent-model-changed"
-  | "new-agent-sessions"
-  | "new-agent-sessions-edit"
-  | "new-agent-commands"
-  | "new-agent-commands-filtered"
+  | "new-agent-queued-message"
+  | "new-agent-sender-chips"
+  | "new-agent-call-open"
+  | "new-agent-call-replies"
   | "new-agent-question"
   | "new-agent-question-answered"
+  | "new-agent-question-ended"
   | "new-agent-approval"
+  | "new-agent-approval-deny"
+  | "new-agent-approval-settings"
+  | "new-agent-approval-states"
+  | "new-agent-commands"
+  | "new-agent-commands-filtered"
+  | "new-agent-recap"
+  | "new-agent-permissions"
+  | "new-agent-model-picker"
+  | "new-agent-request-error"
   | "new-agent-rewind"
+  | "new-agent-sessions"
+  | "new-agent-sessions-edit"
+  | "new-agent-session-archived"
+  | "new-tab-kinds"
+  | "new-tab-menu"
+  | "new-sidebar-collapsed"
+  | "new-agent-sidebar"
+  | "new-organize"
+  | "new-file-delete"
+  | "new-instructions-file"
+  | "new-file-open-path"
+  | "new-file-outside"
+  | "new-document-tab"
+  | "new-document-editing"
+  | "new-document-tab-info"
+  | "new-document-tab-contexts"
+  | "new-viewer-text"
+  | "new-viewer-media"
+  | "new-file-reloaded"
+  | "new-file-conflict"
+  | "new-file-conflict-compare"
+  | "new-file-search"
+  | "new-file-search-folder"
+  | "new-file-search-opened"
+  | "new-search-table"
+  | "new-search-board"
+  | "new-contexts"
+  | "new-contexts-archived"
+  | "new-context-overview"
+  | "new-context-versions"
+  | "new-context-restored"
+  | "new-context-searches"
+  | "new-context-violations"
+  | "new-context-glossary"
+  | "new-context-glossary-add"
+  | "new-context-glossary-edit"
+  | "new-context-glossary-delete"
+  | "new-context-contract"
+  | "new-ways-to-open"
+  | "new-violation-toast"
+  | "new-agent-toast-opened"
+  | "new-violation-session-open"
   | "new-project-agents"
   | "new-operator-editor"
+  | "new-operator-create"
+  | "new-agent-editor-app-engineer"
+  | "new-agent-mcp-server-form"
+  | "new-agent-grants"
+  | "new-agent-grants-app"
+  | "new-app-space"
+  | "new-app-agent-pane"
+  | "new-app-version-applied"
+  | "new-app-version-applying"
+  | "new-app-version-failed"
+  | "new-app-access"
+  | "new-app-access-revoking"
+  | "new-app-activity"
+  | "new-app-rewind-confirm"
+  | "new-app-rewind-running"
+  | "new-app-rewind-done"
+  | "new-app-rewind-conflict"
+  | "new-app-issues"
+  | "new-app-issue-detail"
+  | "new-app-report"
+  | "new-app-report-existing"
+  | "new-app-annotate"
+  | "new-app-annotate-list"
+  | "new-app-project-picker"
+  | "new-app-coding-toast"
+  | "new-app-coding-terminal"
+  | "new-app-coding-permission"
+  | "new-app-coding-ended"
+  | "new-workspace"
+  | "new-workspace-folder-missing"
+  | "new-workspace-subfolder-add"
+  | "new-workspace-subfolder-edit"
+  | "new-workspace-apps"
+  | "new-settings-general"
+  | "new-settings-required-empty"
   | "new-settings-providers"
   | "new-settings-connect"
-  | "new-settings-agents";
+  | "new-settings-agents"
+  | "new-settings-lophn"
+  | "new-settings-tools"
+  | "new-settings-coding"
+  | "new-settings-reactions"
+  | "new-settings-diagnostics"
+  | "new-launcher-projects"
+  | "new-launcher-empty"
+  | "new-launcher-register"
+  | "new-start-failure";
 
 export interface WireframePage {
   /** 주소 `#/<id>`와 frame의 `?frame=<id>`에 쓴다. */
@@ -464,214 +550,730 @@ export const PAGES: readonly WireframePage[] = [
     "app-space",
   ),
   fresh(
-    "new-project-tabs",
-    "Project · tab kinds",
-    "프로젝트 화면의 칸에 띄우는 탭 종류를 늘려 대부분의 화면을 탭으로 연다. 문서·터미널·앱 패널에 더해 Agent·context·검색이 탭이 된다.",
-    "new-tab-kinds",
+    "new-waiting-list",
+    "Waiting · list",
+    "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청, 질문, 승인이 세 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
+    "new-waiting-list",
   ),
   fresh(
-    "new-project-tab-menu",
-    "Project · new tab menu",
-    "탭 줄 끝의 + 메뉴를 펼친 상태. New tab 아래에 문서·터미널·Agent(lophn·Context Engineer·Operator)·context·검색·앱 패널이 있다.",
-    "new-tab-menu",
+    "new-waiting-permission",
+    "Waiting · permission requests",
+    "권한 요청 셋의 세부를 펼친 상태다. 대상, 정규화한 입력, 효과가 program 문구로만 보인다. app-api와 MCP tool은 선택지 넷이고 설정 고치기는 Allow와 Deny다.",
+    "new-waiting-permission",
   ),
   fresh(
-    "new-sidebar-collapsed",
-    "Project · sidebar collapsed",
-    "접은 sidebar는 바로 가기 rail이 된다. 펼치기·Terminal·Contexts·Saved views·Search·Agent 단추가 위에서부터 있고, 누르면 그 탭이 탭 줄에 열린다. 단추에 올리면 tooltip이 뜬다.",
-    "new-sidebar-collapsed",
+    "new-waiting-deny-reason",
+    "Waiting · deny with reason",
+    "Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다.",
+    "new-waiting-deny-reason",
   ),
   fresh(
-    "new-contexts",
-    "Contexts tab",
-    "project의 context 목록을 여는 새 탭 종류. context마다 목적, 다루는 것의 종류 수, 버전, 위반, 쓰는 Operator를 보이고 [Open]은 그 context의 탭(Overview)을 열고, [New context]는 다른 칸에 Context Engineer Agent 탭을 열어 무엇을 위한 context인지 묻는 것으로 시작한다. form은 없다.",
-    "new-contexts",
+    "new-waiting-activation",
+    "Waiting · activation approval",
+    "activation 허락 카드의 세부를 펼친 상태다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 app-api 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
+    "new-waiting-activation",
   ),
   fresh(
-    "new-context-drafting",
-    "New context · drafting",
-    "Context Engineer와 대화한 뒤 Context Engineer가 짜기 시작하면 새 context의 Context 탭이 이 모양으로 열려 진행 상태와 아직 확정 아닌 초안을 보인다. 막히면 오른쪽 칸 Agent 탭에서 묻고, 대화의 답 단추를 눌러 볼 수 있다.",
-    "new-context-drafting",
+    "new-waiting-first-activation",
+    "Waiting · first activation",
+    "첫 activation의 세부를 펼친 상태다. 선언 전부가 늘어난 것이고 손실 단계는 없다.",
+    "new-waiting-first-activation",
   ),
   fresh(
-    "new-ways-to-open",
-    "Context tab · ways to open",
-    "Context 탭은 sidebar, 바로 가기, 새 탭 메뉴, 검색, 문서의 info, 위반 알림, 상단 검색, Agent 탭, 새 context Agent 탭에서 연다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
-    "new-ways-to-open",
+    "new-waiting-reaction",
+    "Waiting · reaction approval",
+    "물음으로 둔 reaction의 세부를 펼친 상태다. 어떤 domain event로 어떤 agent의 session을 열지 보이고 Allow와 Deny만 있다.",
+    "new-waiting-reaction",
   ),
   fresh(
-    "new-context-overview",
-    "Context tab · Overview",
-    "context를 열면 먼저 Overview가 보인다. 어떤 것들이 있고 각각 무엇이며 서로 어떻게 이어지는지를 그림으로, 무엇으로 이루어졌는지를 Composition 트리로 사람 말로 보인다. 타입 같은 계약 세부는 Contract 탭에 있다.",
-    "new-context-overview",
+    "new-waiting-settled",
+    "Waiting · just settled",
+    "결정한 뒤 목록에 잠깐 남는 줄이다. 허락 접수(applying)와 적용 성공(applied)을 나누고, 거절과 cancelled(원래 일이 끝남)를 나눈다.",
+    "new-waiting-settled",
   ),
   fresh(
-    "new-context-contract",
-    "Context tab · Contract",
-    "계약 세부는 뒤쪽 탭에 있다. 자료가 놓인 곳·field 타입·다른 context에 내놓는 것·선언된 검색·test 결과다. 보통은 열 일이 없다.",
-    "new-context-contract",
+    "new-waiting-toasts",
+    "Waiting · toasts",
+    "창 오른쪽 아래에 쌓인 toast 넷(권한 요청, 허락 요청, 질문, App restart halted)이다. layout을 차지하지 않고 단추([Review], [Open session])는 오른쪽 끝에 있다.",
+    "new-waiting-toasts",
   ),
   fresh(
-    "new-context-violations",
-    "Context tab · Violations",
-    "문서가 계약을 어기면 lophn이 찾아 알린다. 이 화면에는 위반 목록만 있고 agent를 부르는 단추는 없다. Context Engineer는 위반 toast의 [Ask Context Engineer]로 부른다.",
-    "new-context-violations",
+    "new-secret-input",
+    "Secret input · provider key",
+    "shell이 띄우는 작은 secret 보호 입력 창이다. 값은 점으로만 보이고, 저장하면 이름과 설정 여부만 남는다. 빈 칸이면 Save가 꺼져 있다.",
+    "new-secret-input",
   ),
   fresh(
-    "new-violation-toast",
-    "Contract violation toast",
-    "위반이 생기면 오른쪽 아래 toast로 알린다. [Ask Context Engineer]는 위반을 첫 context로 붙인 Agent 탭을, [View]는 그 context의 Violations를 연다.",
-    "new-violation-toast",
+    "new-secret-input-app",
+    "Secret input · app secret",
+    "이미 설정된 앱 secret의 값을 바꾸는 상태다. 저장하면 값이 바뀐다는 안내가 있다.",
+    "new-secret-input-app",
   ),
   fresh(
-    "new-search-table",
-    "Search tab · table result",
-    "검색 화면은 Context Engineer가 계약에 선언한 검색으로 그려진다. 입력 칸의 종류와 결과 보기도 선언에서 나온다. 결과는 page로 나뉘고, Finding·Scenario·Experiment 칸은 링크라서 누르면 그 문서가 문서 탭으로 열린다.",
-    "new-search-table",
-  ),
-  fresh(
-    "new-search-board",
-    "Search tab · board result",
-    "같은 선언 방식으로 결과 보기를 바꿀 수 있다. 상태별 묶음(board)으로 보이는 검색의 예다. 일반 검색어 검색은 위 막대의 돋보기로만 남는다.",
-    "new-search-board",
-  ),
-  fresh(
-    "new-document-tab",
-    "Project · document tab",
-    "문서 탭은 본문이 맨 위부터 시작한다. 제목은 탭 이름으로 충분하고, 경로·목차·context 같은 정보는 그 탭 안에서 여는 info 칸에 있다. 탭 줄에는 탭과 +만 있고, 조작은 각 탭 맨 위의 얇은 view bar(왼쪽 project 안 경로, 오른쪽 Read/Edit 바꾸기·Info·…)에 있다. 오류는 toast로 알린다.",
-    "new-document-tab",
-  ),
-  fresh(
-    "new-document-tab-info",
-    "Project · document tab with info",
-    "info는 데스크탑 오른쪽 overlay가 아니라 그 탭 안에서 열려 본문이 좁아진다. 문서의 정보·목차(Outline)·context를 여기서 본다. 이 page는 Contexts가 열린 상태이고, 목차는 select가 아니라 들여 쓴 제목 목록이다.",
-    "new-document-tab-info",
-  ),
-  fresh(
-    "new-workspace",
-    "Lophn Workspace · without project concerns",
-    "Lophn Workspace는 따로인 페이지로 남고, project 관심사(Documents, Context)는 뺀다. project 상세에는 project 자체 관리만 남는다.",
-    "new-workspace",
-  ),
-  fresh(
-    "new-organize",
-    "Project · organize documents",
-    "문서 보관·이동·폴더 연결 해제는 Workspace가 아니라 project 화면에서 한다. sidebar의 문서 행과 폴더 행을 오른쪽 클릭해 연다.",
-    "new-organize",
-  ),
-  fresh(
-    "new-agent-sidebar",
-    "Agent · sidebar",
-    "agent는 project sidebar의 Agents 묶음(lophn·Context Engineer·Operator)에서만 부른다. agent를 누르면 그 agent의 새 Agent 탭이 열린다. session 목록은 sidebar에 없고 탭의 agent header에서 바꾼다. 접힌 바로 가기 막대의 Agent 단추는 lophn의 새 Agent 탭을 연다.",
-    "new-agent-sidebar",
-  ),
-  fresh(
-    "new-agent-toast",
-    "Agent · toast with context",
-    "lophn이 가진 사건(context 계약 검사, 앱 build·실행 오류)이 생기면 toast로 알린다. 사건 종류마다 부를 agent가 정해져 있다. [Ask Context Engineer]를 누르면 그 사건을 첫 context로 붙인 Agent 탭이 열리고, [View]는 eval Context 탭의 Violations를 연다.",
-    "new-agent-toast",
-  ),
-  fresh(
-    "new-agent-toast-opened",
-    "Agent · tab from toast",
-    "[Ask Context Engineer]를 누른 결과. Context Engineer의 새 Agent 탭에 사건(eval 위반 2개)이 composer 위 context chip으로 붙고, 입력칸은 비어 있다. chip의 ✕로 뗄 수 있다.",
-    "new-agent-toast-opened",
+    "new-secret-input-mcp",
+    "Secret input · MCP credential",
+    "MCP server credential을 받는 같은 보호 입력 창이다.",
+    "new-secret-input-mcp",
   ),
   fresh(
     "new-agent-conversation",
     "Agent · tab",
-    "agent와는 Agent 탭에서 이야기한다. 탭 머리(agent header)에 agent와 session 제목이 고정으로 보이고, 내 메시지는 오른쪽 bubble, agent 메시지는 왼쪽에 avatar·이름·시각과 함께 놓인다. tool 호출은 한 줄로 접고, 바꾼 문서는 카드로, 진행은 view bar의 chip에 보인다. composer 안 아래 줄에는 model, 입력칸 밖 아래 줄에는 project·권한이 있고 agent를 고르는 칸은 없다.",
+    "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. 일하는 중 composer에는 Stop과 Send만 있고, 입력칸 아래에 권한 요약 한 줄이 있다.",
     "new-agent-conversation",
   ),
   fresh(
-    "new-agent-model-picker",
-    "Agent · model picker",
-    "composer의 model을 누르면 Favorites(별표 찍은 순서 그대로)가 맨 위에, 그 아래 provider별 model이 나오고, 고른 model이 가진 option 축만 보인다. option은 effort 밖에도 있다(Speed). 목록과 option 값은 모두 catalog data에서 오고, 바꾼 값은 이 session에만 쓰인다.",
-    "new-agent-model-picker",
+    "new-agent-queued-message",
+    "Agent · queued message",
+    "일하는 중에 보낸 메시지가 composer 위 Next turn 줄로 쌓인 모습이다. 줄 오른쪽 끝의 [Send now]를 누르면 도는 turn에 steer로 들어가고 steer 표시가 붙는다. 보내기 방식을 고르는 menu는 없다.",
+    "new-agent-queued-message",
   ),
   fresh(
-    "new-agent-model-changed",
-    "Agent · model changed",
-    "model을 바꿔 지금 option 값이 없으면 같은 축의 가까운 약한 값으로 맞추고 한 줄로 알린다. 예: GPT-6.1 Sol의 XHigh를 Sonnet 5.5로 바꾸면 High로 맞춘다.",
-    "new-agent-model-changed",
+    "new-agent-sender-chips",
+    "Agent · sender chips",
+    "받은 메시지에 보낸 쪽 chip이 붙는다(program의 reaction, 다른 agent, coding agent). coding agent chip에는 harness 아이콘이 있다. chip을 누르면 맡긴 글, 근거 링크, 보낸 session 링크가 든 panel이 열린다.",
+    "new-agent-sender-chips",
+  ),
+  fresh(
+    "new-agent-call-open",
+    "Agent · handed-over task",
+    "다른 agent에게 맡긴 일의 블록이다. 받는 곳, 맡긴 글 한 줄, 답 방식이 보이고 누르면 그때의 상태를 읽는다. 끝나지 않은 일에는 [Cancel]이 있다. 상태가 바뀌어도 따로 알리지 않는다.",
+    "new-agent-call-open",
+  ),
+  fresh(
+    "new-agent-call-replies",
+    "Agent · replies to a handed-over task",
+    "답과 실패가 블록 안이 아니라 그 일에 이어진 새 메시지로 보인다. 답이 온 경우와 받은 session이 답 없이 끝나 실패한 경우다.",
+    "new-agent-call-replies",
   ),
   fresh(
     "new-agent-question",
     "Agent · question card",
-    "agent가 사람에게 물을 때는 대화 안 카드로 묻는다. 질문이 둘이면 한 카드에 다 펼쳐 답하고 한 번에 보낸다(셋을 넘으면 1 of N으로 넘긴다). 답을 기다리는 동안 일은 멈춘다.",
+    "composer 위 질문 카드다. 질문은 한 번에 하나만 보이고 ‹ 1 of 2 ›로 넘긴다. 질문마다 header, 선택지 2~4개(label과 description), multiSelect, 늘 붙는 Other가 있다. 단추는 오른쪽 끝이다.",
     "new-agent-question",
   ),
   fresh(
     "new-agent-question-answered",
     "Agent · question answered",
-    "답을 보내면 카드가 접혀 한 줄 요약으로 대화에 남고, agent의 일이 이어진다.",
+    "답을 보내면 카드가 접힌 요약으로 남고 agent의 일이 이어진다.",
     "new-agent-question-answered",
+  ),
+  fresh(
+    "new-agent-question-ended",
+    "Agent · question ended by message",
+    "기다리는 중 사람이 그냥 메시지를 보내면 카드가 Ended by your message로 접히고, 고른 답이 없다고 보인다.",
+    "new-agent-question-ended",
   ),
   fresh(
     "new-agent-approval",
     "Agent · approval card",
-    "agent가 사람 확인이 필요한 일을 하기 전에 composer 바로 위에 붙는 카드로 허락을 구한다. 범위는 [Allow ▾]를 펼쳐 고르고, 거절([Deny])과 일을 멈추는 것(composer의 Stop)은 다르다.",
+    "app-api나 MCP tool의 승인 카드다. 확인 창 없이 Allow once, Allow for this session, Always allow, Deny로 바로 결정한다. 내용은 program 문구(대상, 입력, 효과)다.",
     "new-agent-approval",
   ),
   fresh(
-    "new-agent-rewind",
-    "Agent · rewind",
-    "되돌리기는 session이 살아 있는 동안만 한다. 내 메시지에서 그 시점으로 되돌리고, 되돌릴 수 없는 것은 미리 말한다.",
-    "new-agent-rewind",
+    "new-agent-approval-deny",
+    "Agent · approval deny reason",
+    "Deny를 누르면 이유 칸이 열린다. 적지 않고 보내도 된다.",
+    "new-agent-approval-deny",
   ),
   fresh(
-    "new-agent-sessions",
-    "Agent · session switcher",
-    "agent header의 session 제목을 누르면 열리는 switcher. 위에 검색 input, 그 agent의 session만 Today·Earlier로 묶어 보이고, 줄에 올리면 Rename·Archive·Delete가 나온다. 아래에 Archived와 + New session이 있다. session 목록은 sidebar에 없다.",
-    "new-agent-sessions",
+    "new-agent-approval-settings",
+    "Agent · approval for settings",
+    "설정 고치기(LOPHN.md 쓰기) 카드다. 선택지는 Allow와 Deny뿐이고 바뀌는 줄을 diff로 보인다.",
+    "new-agent-approval-settings",
   ),
   fresh(
-    "new-agent-sessions-edit",
-    "Agent · session rename and delete",
-    "같은 switcher에서 Rename을 누른 줄은 이름 고치기 input으로 바뀌고, Delete를 누르면 되돌릴 수 없다는 확인이 그 줄에 붙는다.",
-    "new-agent-sessions-edit",
+    "new-agent-approval-states",
+    "Agent · approval results",
+    "결정 뒤 대화에 남는 줄 넷이다. 허락 접수, 적용됨, 거절(이유 포함), cancelled(이 일이 끝나서 없어진 요청)를 구별한다.",
+    "new-agent-approval-states",
   ),
   fresh(
     "new-agent-commands",
     "Agent · commands",
-    "입력칸에 /를 치면 composer 위로 메뉴가 뜬다. 묶음은 셋: 모든 agent 공통 Commands, 이 agent 전용 built-in(이름이 agent 이름), Skills. skill은 전역과 agent 전용을 가르지 않고 출처 badge도 없다. Context Engineer 탭에서는 둘째 묶음이 바뀌고 Operator 탭에는 둘째 묶음이 없다.",
+    "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 선으로 나눈다. Recap이 있고 Permissions는 grant와 이 session의 허락을 보인다.",
     "new-agent-commands",
   ),
   fresh(
     "new-agent-commands-filtered",
     "Agent · commands filtered",
-    "/co처럼 더 치면 이름이나 설명에 맞는 것만 남고 맞는 글자가 굵게 보인다. 맞는 게 없는 묶음은 숨는다. agent가 일하는 중이면 지금 못 쓰는 Fork가 흐리게 보이고 이유를 말한다.",
+    "일하는 중 /re로 거른 메뉴다. 이름이나 설명에 맞는 것만 남고, 고른 명령은 다음 turn에 들어간다고 줄 오른쪽에 보인다.",
     "new-agent-commands-filtered",
   ),
   fresh(
+    "new-agent-recap",
+    "Agent · recap",
+    "/recap 결과다. session을 짧게 요약해 보이고 대화 이력은 그대로 둔다.",
+    "new-agent-recap",
+  ),
+  fresh(
+    "new-agent-permissions",
+    "Agent · permissions",
+    "/permissions 보기다. 그 agent의 grant(대상, 효과, 묻는지)와 이 session에서 이 session 동안으로 허락한 대상을 보인다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
+    "new-agent-permissions",
+  ),
+  fresh(
+    "new-agent-model-picker",
+    "Agent · model picker",
+    "composer의 model을 누르면 Favorites가 맨 위에, 그 아래 provider별 model이 provider 아이콘과 함께 나온다. option 축은 고른 model이 가진 것만 보이고 따로 붙는 안내 문구는 없다.",
+    "new-agent-model-picker",
+  ),
+  fresh(
+    "new-agent-request-error",
+    "Agent · request error",
+    "model을 바꾼 뒤 provider가 요청을 거절한 모습이다. 어떤 오류인지와 [Retry]가 대화 안 오류 메시지로 남는다. model을 바꿀 때 조정 안내는 없고 새 model의 기본 variant로 맞춘다.",
+    "new-agent-request-error",
+  ),
+  fresh(
+    "new-agent-rewind",
+    "Agent · rewind",
+    "내 메시지에서 그 시점으로 되돌리는 대화 안 panel이다. 대화와 file tool로 바꾼 파일은 기본으로 함께 되돌리고, 앱은 앱마다 고른다. write 목록, 함께 되돌아갈 다른 변경, 되돌아가지 않는 external 효과, 결과를 모르는 write를 보인다.",
+    "new-agent-rewind",
+  ),
+  fresh(
+    "new-agent-sessions",
+    "Agent · session switcher",
+    "agent header의 session 제목을 누르면 열리는 목록이다. Archived 줄에는 되살리기가 없고 눌러서 읽기만 한다. session 상태는 열림, archive, 지움 셋이다.",
+    "new-agent-sessions",
+  ),
+  fresh(
+    "new-agent-sessions-edit",
+    "Agent · session rename and delete",
+    "이름 고치기와 지움 확인이다. 지움 확인에 다른 agent가 이 session에 맡겨 두고 답을 기다리는 일이 실패한다는 영향이 적혀 있다.",
+    "new-agent-sessions-edit",
+  ),
+  fresh(
+    "new-agent-session-archived",
+    "Agent · archived session",
+    "archive한 session을 열면 기록만 보이고 입력칸이 없다. 머리에 Archived 표시와 안내 줄이 있다.",
+    "new-agent-session-archived",
+  ),
+  fresh(
+    "new-project-tabs",
+    "Project · tab kinds",
+    "한 칸에 md 문서, JSON text 파일, project 키워드 검색, Context, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 파일 종류마다 탭 라벨이 다르다.",
+    "new-tab-kinds",
+  ),
+  fresh(
+    "new-project-tab-menu",
+    "Project · new tab menu",
+    "탭 줄 끝의 + 메뉴를 펼친 상태다. Agent 하위 메뉴에 lophn, Project Manager, Operator가 있고 Agents(관리 탭)와 New context 항목은 없다.",
+    "new-tab-menu",
+  ),
+  fresh(
+    "new-sidebar-collapsed",
+    "Project · sidebar collapsed",
+    "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Contexts, Saved views, Agent, Search이고 Search는 project 키워드 검색을 연다.",
+    "new-sidebar-collapsed",
+  ),
+  fresh(
+    "new-agent-sidebar",
+    "Project · sidebar Agents group",
+    "sidebar의 Agents 묶음이 lophn, Project Manager, Operators 순이고 머리에 Manage가 있다. 파일 tree는 Files 하나이고 따로 있던 Documents 묶음은 없다. session 목록은 sidebar에 없다.",
+    "new-agent-sidebar",
+  ),
+  fresh(
+    "new-organize",
+    "Project · file actions",
+    "파일 tree 행을 오른쪽 클릭한 메뉴다. Open, Rename, Delete가 있고 보관, 이동, 폴더 연결 해제는 없다.",
+    "new-organize",
+  ),
+  fresh(
+    "new-file-delete",
+    "Project · delete a file",
+    "파일 지우기 확인이 화면 가운데 modal로 뜬다. 파일은 디스크에서 지워진다.",
+    "new-file-delete",
+  ),
+  fresh(
+    "new-instructions-file",
+    "Project · LOPHN.md as a plain file",
+    "project 지침 LOPHN.md를 따로 둔 진입 없이 일반 문서 탭으로 연다.",
+    "new-instructions-file",
+  ),
+  fresh(
+    "new-file-open-path",
+    "Project · open a file by path",
+    "팔레트에 절대 경로를 친 상태다. 그 경로를 여는 행에 Outside project가 적혀 있고, Open file…은 OS dialog로 연다.",
+    "new-file-open-path",
+  ),
+  fresh(
+    "new-file-outside",
+    "Project · file outside the project",
+    "project 밖 파일을 연 문서 탭이다. view bar에는 경로 대신 Outside project 표시가 있고 경로는 위쪽 경로와 Info에 있다.",
+    "new-file-outside",
+  ),
+  fresh(
+    "new-document-tab",
+    "Document · read",
+    "md 문서 탭이다. 탭 key는 파일 경로이고 view bar는 한 줄로, 오른쪽에 저장 상태, Edit, Info, …가 있다. 판 번호, 판 hint, 형식 문제 표시는 없다.",
+    "new-document-tab",
+  ),
+  fresh(
+    "new-document-editing",
+    "Document · editing",
+    "md를 고치는 중이고 저장 상태가 Saving…이다. 저장 상태는 디스크 저장과 충돌만 있다.",
+    "new-document-editing",
+  ),
+  fresh(
+    "new-document-tab-info",
+    "Document · info panel",
+    "문서 탭 오른쪽에 본문 위로 떠서 열리는 정보 panel이다. 탭은 Info와 Contexts 둘이고 Info에 경로, 크기, 바뀐 시각, Outline이 있다. 본문 폭은 줄지 않는다.",
+    "new-document-tab-info",
+  ),
+  fresh(
+    "new-document-tab-contexts",
+    "Document · info panel, Contexts",
+    "같은 panel에서 Contexts 탭을 연 상태다. 이 문서를 다루는 context를 보인다.",
+    "new-document-tab-contexts",
+  ),
+  fresh(
+    "new-viewer-text",
+    "Document · text files",
+    "확장자로 viewer를 고른다. 왼쪽은 JSON, 오른쪽은 YAML text 편집기이고 줄 번호와 지금 줄 표시가 있다.",
+    "new-viewer-text",
+  ),
+  fresh(
+    "new-viewer-media",
+    "Document · image and pdf",
+    "이미지와 pdf viewer다. 보기만 하고, view bar는 한 줄이며 바탕이 탭 본문과 같다.",
+    "new-viewer-media",
+  ),
+  fresh(
+    "new-file-reloaded",
+    "Document · changed outside, reloaded",
+    "고치지 않은 파일이 밖(다른 편집기, git)에서 바뀌어 다시 읽었다는 알림이 탭 위쪽 toast로 뜬다.",
+    "new-file-reloaded",
+  ),
+  fresh(
+    "new-file-conflict",
+    "Document · conflict",
+    "고치는 중에 디스크의 파일이 바뀌면 탭 위쪽 toast가 알린다. Compare, Use disk version, Keep my version 단추는 오른쪽 끝에 있다.",
+    "new-file-conflict",
+  ),
+  fresh(
+    "new-file-conflict-compare",
+    "Document · conflict, compare with disk",
+    "디스크 쪽과 내가 고친 쪽을 나란히 보인다. 다른 줄은 +/− 기호와 배경으로 구별한다.",
+    "new-file-conflict-compare",
+  ),
+  fresh(
+    "new-file-search",
+    "Search · find in files",
+    "rail의 Search가 여는 project 키워드 검색이다. 검색어, 폴더 고르기, 경로 순과 줄 순의 결과, 일치한 부분이 칠해진 snippet이 있다. 취소, 건너뛴 파일 안내, 더 보기는 없다.",
+    "new-file-search",
+  ),
+  fresh(
+    "new-file-search-folder",
+    "Search · narrowed to a folder",
+    "폴더를 eval로 좁힌 검색이다.",
+    "new-file-search-folder",
+  ),
+  fresh(
+    "new-file-search-opened",
+    "Search · result opened at its line",
+    "결과를 눌러 연 뒤다. 오른쪽 문서가 일치한 줄로 scroll해 칠해져 있고 view bar에 Line 16이 보인다. 왼쪽 검색 탭은 그대로 남는다.",
+    "new-file-search-opened",
+  ),
+  fresh(
+    "new-search-table",
+    "Search · declared (table)",
+    "context 계약에 선언된 검색의 table 결과다. 입력 form, page 이동, 개체 링크가 있다. project 키워드 검색과는 다른 탭이다.",
+    "new-search-table",
+  ),
+  fresh(
+    "new-search-board",
+    "Search · declared (board)",
+    "선언된 검색의 board 결과(Experiments by status)다. 같은 탭에서 다른 검색을 고른 모양이다.",
+    "new-search-board",
+  ),
+  fresh(
+    "new-contexts",
+    "Contexts · list",
+    "project의 context 목록이다. 카드에 이름, 목적, 개체 종류 수, 적용된 판과 검사 결과, 위반 수, [Open]과 [Archive]가 있다. [New context]와 쓰는 Operator 수는 없다. context는 Project Manager가 대화에서 만든다.",
+    "new-contexts",
+  ),
+  fresh(
+    "new-contexts-archived",
+    "Contexts · archived",
+    "보관한 context 목록을 펼친 상태다. 보관한 context는 검색과 위반에서 빠진다는 한 줄과 [Unarchive]가 있다.",
+    "new-contexts-archived",
+  ),
+  fresh(
+    "new-context-overview",
+    "Context · Overview",
+    "Context 탭의 첫 하위 탭이다. 머리는 이름, 목적, 적용된 판과 [Versions]이고 [Ask …]와 [History]는 없다. 도메인 그림과 Composition 트리가 있다.",
+    "new-context-overview",
+  ),
+  fresh(
+    "new-context-versions",
+    "Context · versions",
+    "머리의 [Versions]를 펼친 상태다. 판마다 시각과 바뀐 것 한 줄이 있고, 옛 판 줄의 [Restore]로 확인 없이 되돌린다. 판 목록은 배경 없이 테두리만 있다.",
+    "new-context-versions",
+  ),
+  fresh(
+    "new-context-restored",
+    "Context · version restored",
+    "옛 판으로 되돌린 직후다. 탭 위쪽에 toast가 뜨고 판 목록의 Current와 머리의 판이 바뀐다.",
+    "new-context-restored",
+  ),
+  fresh(
+    "new-context-searches",
+    "Context · Searches",
+    "이 context에 선언된 검색과 saved view 목록이다. 누르면 Search 탭이 열린다.",
+    "new-context-searches",
+  ),
+  fresh(
+    "new-context-violations",
+    "Context · Violations",
+    "위반 목록이다. 줄마다 파일(눌러 열기), 어긴 규칙, [Send to Project Manager]가 있고 위에 [Send all to Project Manager]가 있다. 누르면 위반 근거가 붙은 Project Manager session이 열린다. 진행 중 표시는 없다.",
+    "new-context-violations",
+  ),
+  fresh(
+    "new-context-glossary",
+    "Context · Glossary",
+    "용어집 하위 탭이다. 사람과 Project Manager 둘 다 용어를 더하고 고치고 지운다. 위에 [Add term]이 있고 줄마다 [Edit]과 [Delete]가 오른쪽 끝에 있다.",
+    "new-context-glossary",
+  ),
+  fresh(
+    "new-context-glossary-add",
+    "Context · Glossary (add)",
+    "[Add term]을 눌러 새 용어 form(Term, Meaning, [Cancel]과 [Save])이 열린 상태다.",
+    "new-context-glossary-add",
+  ),
+  fresh(
+    "new-context-glossary-edit",
+    "Context · Glossary (edit)",
+    "한 줄의 [Edit]을 눌러 그 줄이 form으로 바뀐 상태다. 나머지 줄은 [Edit]과 [Delete]를 그대로 보인다.",
+    "new-context-glossary-edit",
+  ),
+  fresh(
+    "new-context-glossary-delete",
+    "Context · Glossary (delete)",
+    "[Delete]를 눌러 화면 가운데에 지우기 확인 modal이 뜬 상태다.",
+    "new-context-glossary-delete",
+  ),
+  fresh(
+    "new-context-contract",
+    "Context · Contract",
+    "계약 세부 하위 탭이다. 개체 종류별 자료 위치와 field, 관계, 선언된 검색과 test 결과가 있다.",
+    "new-context-contract",
+  ),
+  fresh(
+    "new-ways-to-open",
+    "Context · ways to open",
+    "Context 탭을 여는 길 여덟을 한 장에 모았다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
+    "new-ways-to-open",
+  ),
+  fresh(
+    "new-violation-toast",
+    "Violation · toast",
+    "ContextViolationFound로 창 위에 뜨는 toast다. 문구는 2 documents don't match이고 단추는 [View]와 [Ask Project Manager]다. 문서 탭을 보는 중에도 뜬다.",
+    "new-violation-toast",
+  ),
+  fresh(
+    "new-agent-toast-opened",
+    "Violation · Project Manager session (new)",
+    "reaction이 꺼져 있어 toast를 누를 때 새로 연 Project Manager session이다. 어느 파일이 어느 규칙을 어겼는지가 chip으로 붙고 입력칸은 비어 있다.",
+    "new-agent-toast-opened",
+  ),
+  fresh(
+    "new-violation-session-open",
+    "Violation · Project Manager session (open)",
+    "reaction이 이미 연 session으로 간 경우다. Project Manager가 위반 문서와 계약을 읽고 일하는 중이고 사람이 쓴 글은 없다.",
+    "new-violation-session-open",
+  ),
+  fresh(
     "new-project-agents",
-    "Project · Agents tab",
-    "project의 agent를 한곳에서 본다. 기본 agent와 이 project의 Operator(avatar·model·붙은 context·skill·MCP 수), 같이 쓰는 지침(LOPHN.md), role별 model, skill, MCP가 여기 있다. sidebar Agents 묶음 머리의 Manage와 + 메뉴로 연다.",
+    "Agent settings · project Agents tab",
+    "Project Manager 카드(project마다 하나), Operator 카드와 [New Operator], 같이 쓰는 지침(LOPHN.md), project 층 model 하나, 층 표시가 붙은 skill과 MCP가 있다. lophn은 이 탭에 없고 Settings › Agents에서 정한다. sidebar Agents 묶음의 Manage로 연다.",
     "new-project-agents",
   ),
   fresh(
     "new-operator-editor",
-    "Project · Operator editor",
-    "Operator도 agent다. 일정 작업이 아니라 project의 일을 하는 agent이고, 프로필(icon 또는 올린 이미지)·이름·지침(project의 LOPHN.md와 이 agent의 지침을 같이)·model·붙일 context(N:M, 0개도 된다)·skill·MCP·권한으로 이루어진다. 정의는 project 폴더가 아니라 lophn에 저장된다.",
+    "Agent settings · Operator",
+    "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, context, skill, MCP가 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
     "new-operator-editor",
   ),
   fresh(
+    "new-operator-create",
+    "Agent settings · new Operator",
+    "같은 화면에서 새 Operator를 만든다. 놓을 곳(project나 앱)을 고르고, 앱을 고르면 일할 project 폴더를 고른다. Grants 탭은 만든 뒤에 열린다.",
+    "new-operator-create",
+  ),
+  fresh(
+    "new-agent-editor-app-engineer",
+    "Agent settings · App Engineer",
+    "고정 role agent의 설정이다. 이름은 고정이고 놓인 곳은 앱이다. 지침 블록에 앱 source가 속한 등록 project의 LOPHN.md가 나온다.",
+    "new-agent-editor-app-engineer",
+  ),
+  fresh(
+    "new-agent-mcp-server-form",
+    "Agent settings · add MCP server",
+    "agent 층에서 MCP server를 더하는 form이다. 이름, 연결 방식, 실행이나 주소, 로그인 방식만 받고 key와 token은 더한 뒤 보호 입력으로 받는다.",
+    "new-agent-mcp-server-form",
+  ),
+  fresh(
+    "new-agent-grants",
+    "Agent settings · grants",
+    "agent에게 맡길 것 넷(앱, MCP server의 tool, 부를 수 있는 다른 agent, 설정 고치기)을 붙이고 대상마다 묻는지를 정한다. 위에 효과별 기본값(read와 write는 묻지 않음, external과 설정 고치기는 물음)이 있다.",
+    "new-agent-grants",
+  ),
+  fresh(
+    "new-agent-grants-app",
+    "Agent settings · grants, app expanded",
+    "앱 하나를 펼쳐 app-api마다 넣음과 뺌, 묻는지를 보인다. 뺀 것, 사람이 바꾼 것(Changed by you, Reset), 새 release가 더해 기본값으로 들어온 것이 한 표에 있다.",
+    "new-agent-grants-app",
+  ),
+  fresh(
+    "new-app-space",
+    "App space · frame",
+    "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Report a problem], [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, Manage가 있다.",
+    "new-app-space",
+  ),
+  fresh(
+    "new-app-agent-pane",
+    "App space · agent pane",
+    "title bar의 Agent select로 연 agent pane이다. 앱 화면 옆에 붙고, pane 안의 대화는 project 창 Agent 탭과 같은 component다.",
+    "new-app-agent-pane",
+  ),
+  fresh(
+    "new-app-version-applied",
+    "App space · Version (applied)",
+    "운영 패널 탭은 Version, Access, Activity, Issues 넷이다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
+    "new-app-version-applied",
+  ),
+  fresh(
+    "new-app-version-applying",
+    "App space · Version (applying)",
+    "사람이 시작하지 않은 activation이 도는 중이다. 접수를 닫고 도는 호출을 기다리는 단계가 보이고 그동안 돌아가기는 꺼진다.",
+    "new-app-version-applying",
+  ),
+  fresh(
+    "new-app-version-failed",
+    "App space · Version (apply failed)",
+    "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 App Engineer가 이어 받는다는 안내가 있다.",
+    "new-app-version-failed",
+  ),
+  fresh(
+    "new-app-access",
+    "App space · Access",
+    "앱이 activation 때 허락받은 바깥 자원(network host, secret 이름, 파일)과 다른 앱 app-api를 보이고 [Revoke]로 거둔다. 예전 Connections 탭을 합쳤고 만들기 단추는 없다.",
+    "new-app-access",
+  ),
+  fresh(
+    "new-app-access-revoking",
+    "App space · Access (revoking)",
+    "거두기를 요청한 뒤다. 요청 접수(새 호출 막힘)와 정리(이전 process 종료 확인 뒤 다시 시작)를 두 단계로 나눠 보인다.",
+    "new-app-access-revoking",
+  ),
+  fresh(
+    "new-app-activity",
+    "App space · Activity",
+    "호출 기록이다. 호출자(사람 화면, agent session 링크, 다른 앱, 앱 시작), project, 효과, 대기와 되돌림됨이 보인다. 지금 release의 live write, external, 앱 시작 행에만 [Rewind from here]가 있고, 행을 펼치면 부른 쪽 session과 tool call, 입력 지문, 결과, 되돌림 기록이 있다.",
+    "new-app-activity",
+  ),
+  fresh(
+    "new-app-rewind-confirm",
+    "App space · rewind panel",
+    "Activity 탭 안의 rewind panel이다. 고른 호출부터 최신까지 함께 되돌아갈 목록을 보이고 external은 Won't be undone, 결과를 모르는 write는 Can't be undone으로 표시한다. 그 앱을 쓴 모두의 변경이 함께 사라진다는 안내가 있고 사람이 눌러야 시작한다.",
+    "new-app-rewind-confirm",
+  ),
+  fresh(
+    "new-app-rewind-running",
+    "App space · rewind in progress",
+    "접수를 닫고 도는 호출을 기다리는 중이다. 그동안 붙잡힌 호출의 안내가 있다.",
+    "new-app-rewind-running",
+  ),
+  fresh(
+    "new-app-rewind-done",
+    "App space · rewind done",
+    "성공 결과다. 앱이 고른 시점 직전으로 돌아갔고 열린 앱 화면이 갱신됐다. 되돌아가지 않은 external과 되돌릴 수 없던 write가 구별돼 보인다.",
+    "new-app-rewind-done",
+  ),
+  fresh(
+    "new-app-rewind-conflict",
+    "App space · rewind cancelled",
+    "충돌로 통째로 취소된 결과다. 아무것도 바뀌지 않았고, 이유와 붙잡았던 호출이 이어졌음이 보인다.",
+    "new-app-rewind-conflict",
+  ),
+  fresh(
+    "new-app-issues",
+    "App space · Issues list",
+    "상태(Open, Resolved, Ignored)와 기간으로 거르는 문제 목록이다. 한 줄은 영향 한 문장, 접수 수, 마지막 시각, 상태이고 재발한 문제에는 Recurred 표시가 붙는다.",
+    "new-app-issues",
+  ),
+  fresh(
+    "new-app-issue-detail",
+    "App space · Issue detail (recurred)",
+    "재발한 문제의 상세다. 이전 해결 시각과 다시 난 release, 접수 수, 처음과 마지막 시각, 발생 목록, 근거(원래 source 위치의 stack, log, release와 commit, 제보 글)가 있다. [Mark resolved]와 [Ignore]는 확인 없이 바로 바뀐다.",
+    "new-app-issue-detail",
+  ),
+  fresh(
+    "new-app-report",
+    "App space · report a problem",
+    "제보 dialog다. 글만 보내고 screenshot과 화면 상태는 없다. 새 문제로 보낸다.",
+    "new-app-report",
+  ),
+  fresh(
+    "new-app-report-existing",
+    "App space · report to an existing problem",
+    "Send it as에서 기존 문제의 또 다른 접수를 고르면 열린 문제 가운데 하나를 고르는 칸이 생긴다.",
+    "new-app-report-existing",
+  ),
+  fresh(
+    "new-app-annotate",
+    "App space · annotate (picking)",
+    "앱 공간 바의 [Annotate]를 켰다. 요소를 가리키면 윤곽과 이름표가 뜨고, 고른 요소에 번호와 메모 칸이 붙는다. 영역을 끄는 중인 모양도 있다.",
+    "new-app-annotate",
+  ),
+  fresh(
+    "new-app-annotate-list",
+    "App space · annotations list",
+    "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. 문제가 되지 않고 App Engineer session의 메시지가 된다.",
+    "new-app-annotate-list",
+  ),
+  fresh(
+    "new-app-project-picker",
+    "App space · choose a project",
+    "앱 place에서 연 화면이 project를 정하지 못했을 때 shell이 앱 화면 안에 띄우는 project 고르기다.",
+    "new-app-project-picker",
+  ),
+  fresh(
+    "new-app-coding-toast",
+    "App space · coding tab opened",
+    "App Engineer가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. pane 머리에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
+    "new-app-coding-toast",
+  ),
+  fresh(
+    "new-app-coding-terminal",
+    "App space · coding terminal tab",
+    "pane 머리에서 바꿔 본 coding 터미널이다. harness 아이콘과 ticket이 탭 이름이고 터미널 바탕은 pane과 같다.",
+    "new-app-coding-terminal",
+  ),
+  fresh(
+    "new-app-coding-permission",
+    "App space · coding permission prompt",
+    "대기 목록에서 coding agent의 권한 요청을 눌러 온 장면이다. 그 터미널로 focus가 오고 물음은 TUI 안에 있다. 답은 TUI에서 한다.",
+    "new-app-coding-permission",
+  ),
+  fresh(
+    "new-app-coding-ended",
+    "App space · coding session ended",
+    "끝난 coding session이다. 상태 줄만 있고 다시 시작 단추는 없다. 새 맡기기는 새 터미널로 열린다.",
+    "new-app-coding-ended",
+  ),
+  fresh(
+    "new-workspace",
+    "Workspace · Projects",
+    "Lophn Workspace의 화면은 Projects, Apps, Settings 셋이다. Projects 상세는 이름 하나, 목적, 폴더와 폴더 설명, 보관이고, 등록 폴더 아래에 하위 폴더가 들여 써서 중첩으로 보인다(설명, [Add subfolder], [Remove]). 목록과 상세는 가운데에 놓인다.",
+    "new-workspace",
+  ),
+  fresh(
+    "new-workspace-folder-missing",
+    "Workspace · folder not found",
+    "등록한 폴더 하나가 사라진 상태다. 탭 위쪽 toast가 알리고, 그 폴더 줄에 Not found와 [Choose new location]이 있다.",
+    "new-workspace-folder-missing",
+  ),
+  fresh(
+    "new-workspace-subfolder-add",
+    "Workspace · add subfolder",
+    "등록 폴더 안의 하위 폴더를 더하는 dialog다. 폴더 고르기는 그 등록 폴더 안으로만 열리고, 이미 더한 폴더는 Added로 보인다. 고른 폴더에 설명을 달아 더한다.",
+    "new-workspace-subfolder-add",
+  ),
+  fresh(
+    "new-workspace-subfolder-edit",
+    "Workspace · edit subfolders",
+    "하위 폴더 설명을 고친 상태와 하위 폴더 하나를 뺀 상태다. 빼도 폴더 자체는 그대로이고 [Undo]가 있다.",
+    "new-workspace-subfolder-edit",
+  ),
+  fresh(
+    "new-workspace-apps",
+    "Workspace · Apps",
+    "앱 목록(실행 상태, [Open], [Archive])과 보관한 앱([Unarchive])뿐이다. 앱 등록 단추는 없고, 앱은 lophn이나 사람이 등록한다는 안내가 있다.",
+    "new-workspace-apps",
+  ),
+  fresh(
+    "new-settings-general",
+    "Settings · General",
+    "Settings 항목은 General, Providers, Agents, Tools and skills, Coding agents, Reactions, Diagnostics 일곱이다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
+    "new-settings-general",
+  ),
+  fresh(
+    "new-settings-required-empty",
+    "Settings · required setting empty",
+    "필수 설정(기본 model)이 비었을 때다. 탭 위쪽 toast가 그 기능(lophn과 project agent)만 시작하지 않는다고 알리고 고르러 가는 길을 준다.",
+    "new-settings-required-empty",
+  ),
+  fresh(
     "new-settings-providers",
-    "Workspace · Settings › Providers",
-    "provider는 계정과 인증만 다룬다. model은 여기서 고르지 않는다. 연결된 provider는 끊고, 다른 provider는 [+ Connect]로 연결한다.",
+    "Settings · Providers",
+    "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 계정 목록 같은 계정 기능은 없다.",
     "new-settings-providers",
   ),
   fresh(
     "new-settings-connect",
-    "Workspace · Connect a provider",
-    "provider를 연결하는 창. 로그인 방법을 고르거나(왼쪽), 직접 만든 OpenAI 호환 provider를 ID·이름·Base URL로 등록한다(오른쪽).",
+    "Settings · connect a provider",
+    "provider 연결 창이다. API key는 이 창에서 받지 않고 보호 입력으로 받는다.",
     "new-settings-connect",
   ),
   fresh(
     "new-settings-agents",
-    "Workspace · Settings › Agents",
-    "모든 project에 적용되는 agent 기본값은 Workspace에서 정한다. 역할(lophn·Context Engineer·Operators)별 기본 model과 option 값, 전역 지침(LOPHN.md), 전역 skill과 MCP, 기본 권한이 여기 있다. project나 Operator가 바꾸지 않으면 이 값을 따른다.",
+    "Settings · Agents",
+    "전역 기본 model 하나, lophn 카드(전체에 하나), 전역 지침, grant 기본값 설명이 있다. role별 기본 model과 요약용 model 줄은 없다.",
     "new-settings-agents",
+  ),
+  fresh(
+    "new-settings-lophn",
+    "Settings · Agents › lophn",
+    "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다.",
+    "new-settings-lophn",
+  ),
+  fresh(
+    "new-settings-tools",
+    "Settings · Tools and skills",
+    "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다.",
+    "new-settings-tools",
+  ),
+  fresh(
+    "new-settings-coding",
+    "Settings · Coding agents",
+    "제품마다 vendor 아이콘과 실행 파일, version, 로그인, turn 끝 신호 있음과 없음, 첫 prompt를 맡길 수 있는지, skill 설치 실패를 보인다. 기본 제품은 아이콘이 붙은 줄에서 고르고, [Detect again]이 있다. 연결 만들기와 회수는 없다.",
+    "new-settings-coding",
+  ),
+  fresh(
+    "new-settings-reactions",
+    "Settings · Reactions",
+    "새 일을 여는 domain event 다섯마다 Off, Open without asking, Ask를 고른다. 기본은 열고 묻지 않음이고, 항목마다 어느 agent의 session이 열리는지 한 줄이 있다.",
+    "new-settings-reactions",
+  ),
+  fresh(
+    "new-settings-diagnostics",
+    "Settings · Diagnostics",
+    "구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 점검한 시각이 있다. 사람이 [Run checks]를 누를 때만 점검한다.",
+    "new-settings-diagnostics",
+  ),
+  fresh(
+    "new-launcher-projects",
+    "Launcher · project cards",
+    "런처의 project 카드(이름, 목적, 폴더 수 또는 Folder not found)와 앱 카드다. 들어가는 단추의 이름이 Lophn Workspace다.",
+    "new-launcher-projects",
+  ),
+  fresh(
+    "new-launcher-empty",
+    "Launcher · empty",
+    "project도 앱도 없는 런처다. 다음 행동 단추의 이름이 Lophn Workspace다.",
+    "new-launcher-empty",
+  ),
+  fresh(
+    "new-launcher-register",
+    "Launcher · register project",
+    "project 등록 dialog다. 이름, 목적, 폴더와 폴더 설명을 받고 짧은 이름 고르기는 없다.",
+    "new-launcher-register",
+  ),
+  fresh(
+    "new-start-failure",
+    "Launcher · start failure",
+    "높은 schema, hash가 다른 이력, 손상 원본 세 경우를 나란히 놓았다. 셋 모두 원본을 그대로 두고 시작하지 않았다는 안내와 update 안내, [Try again]이 있다.",
+    "new-start-failure",
   ),
 ];
 

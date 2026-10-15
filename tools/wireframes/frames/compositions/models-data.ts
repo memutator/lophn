@@ -1,6 +1,6 @@
 // model picker가 쓰는 catalog 예시 data. provider → model → option 축 순서로 둔다. 화면 code는 이 data만
 // 읽고 model마다 갈라지지 않는다. 이 파일의 값만 바꾸면 picker, 편집 form, 설정 표의 그림이 함께 바뀐다.
-// 실제 앱에서는 이 자리가 model catalog에서 온다.
+// 실제 앱에서는 model catalog에서 온다.
 
 /** option 값 하나. `rank`는 그 축에서 센 정도(높을수록 세다)라서, 없는 값은 가까운 약한 값으로 맞출 수 있다. */
 export interface OptionValue {

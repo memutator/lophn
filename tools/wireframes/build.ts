@@ -28,12 +28,13 @@ function fileUrl(path: string): URL {
   return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
 }
 
-// CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽는다(렌더러의 assetPlugin과 같다).
+// CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽는다(렌더러의 assetPlugin과 같다). svg는 글로 읽어
+// currentColor가 둘레 글자 색을 따르게 inline으로 그린다.
 function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   return {
     name: "wireframes-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(css|woff2)$/ }, (args) => {
+      build.onResolve({ filter: /\.(css|woff2|svg)$/ }, (args) => {
         const mapped = imports[args.path];
         const url = mapped
           ? new URL(mapped)
@@ -44,7 +45,9 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
           : undefined;
         if (!url || url.protocol !== "file:") return undefined;
         const path = fileURLToPath(url);
-        const loader: esbuild.Loader = path.endsWith(".module.css")
+        const loader: esbuild.Loader = path.endsWith(".svg")
+          ? "text"
+          : path.endsWith(".module.css")
           ? "local-css"
           : path.endsWith(".css")
           ? "css"
@@ -102,6 +105,7 @@ async function importMap(): Promise<Record<string, string>> {
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));
+  await addPackage(imports, join(root, "packages/design/chart"));
   for (const entry of await readdir(join(root, "packages/sdk"))) {
     try {
       await stat(join(root, "packages/sdk", entry, "deno.json"));

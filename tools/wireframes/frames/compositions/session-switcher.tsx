@@ -1,6 +1,7 @@
 // agent header의 session switcher. 탭 머리의 "[avatar] 이름 · session 제목 ▾"를 누르면 열리는 popover.
 // 맨 위 검색 input, 그 agent의 session만(Today / Earlier), 줄에 hover하면 Rename·Archive·Delete,
-// Archived 줄, + New session. 이름 고치기는 줄이 input으로 바뀌고, 삭제는 확인을 거친다.
+// Archived 줄, + New session. 이름 고치기는 줄이 input으로 바뀌고, 삭제는 확인을 거친다. session 상태는
+// 열림, archive, 지움 셋이다. archive한 session은 눌러 열면 기록만 읽을 수 있고 되살리는 단추는 없다.
 import { useState } from "react";
 import {
   Button,
@@ -28,8 +29,8 @@ import a from "./agents.module.css";
 
 const STATE_LABEL = { waiting: "Waiting for you", working: "Working" } as const;
 
-/** 상태 점. 사람을 기다리면 ●, 일하는 중이면 ◐, 아니면 점이 없다(자리는 유지). */
-export function SessionDot({ state }: { state: SessionRow["state"] }) {
+/** 상태 점. 사람을 기다리면 ●, 일하는 중이면 ◐, 아니면 점이 없다(칸은 유지). */
+function SessionDot({ state }: { state: SessionRow["state"] }) {
   if (state === "idle") {
     return <span className={a.dotSlot} aria-hidden="true" />;
   }
@@ -72,7 +73,7 @@ export function SessionSwitcher(
   const [deleting, setDeleting] = useState<string | null>(
     demo === "edit" ? DEMO_DELETE : null,
   );
-  const [showArchived, setShowArchived] = useState(false);
+  const [showArchived, setShowArchived] = useState(demo !== undefined);
   const needle = query.trim().toLowerCase();
   const live = rows.filter((row) =>
     row.group !== "archived" && row.title.toLowerCase().includes(needle)
@@ -125,7 +126,8 @@ export function SessionSwitcher(
       return (
         <div key={row.id} className={a.sessionConfirm} role="alertdialog">
           <p className={a.confirmText}>
-            Delete "{row.title}"? This can't be undone.
+            Delete "{row.title}"? Anything other agents handed to this session
+            and still waiting for an answer will fail. This can't be undone.
           </p>
           <div className={a.confirmActions}>
             <Button
@@ -268,16 +270,19 @@ export function SessionSwitcher(
             ? (
               <ul className={a.archivedList}>
                 {archived.map((row) => (
-                  <li key={row.id} className={a.archivedItem}>
-                    <span className={a.sessionTitle}>{row.title}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        patch(row.id, { group: "earlier" })}
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className={a.archivedItem}
+                      aria-label={`Read ${row.title}`}
+                      onClick={() => {
+                        onPick(row);
+                        setOpen(false);
+                      }}
                     >
-                      Restore
-                    </Button>
+                      <span className={a.sessionTitle}>{row.title}</span>
+                      <span className={a.sessionWhen}>{row.when}</span>
+                    </button>
                   </li>
                 ))}
               </ul>

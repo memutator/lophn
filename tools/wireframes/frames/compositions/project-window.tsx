@@ -25,8 +25,9 @@ import { TAB_MIN } from "../../../../packages/shell/renderer/workspace/model.ts"
 import tabStyles from "../../../../packages/shell/renderer/workspace/tab-strip/tab-strip.module.css";
 import sideStyles from "../../../../packages/shell/renderer/workspace/sidebar/sidebar.module.css";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
-import { Avatar } from "./agent-avatar.tsx";
-import { AGENT_ROWS, type ChatInit } from "./agents-data.ts";
+import { ProfileAvatar } from "./agent-avatar.tsx";
+import { AGENT_ROWS, type AgentProfile, type ChatInit } from "./agents-data.ts";
+import type { FileInit } from "./project-files/file-data.ts";
 import styles from "./compose.module.css";
 import agentStyles from "./agents.module.css";
 
@@ -81,13 +82,18 @@ export interface TabSpec {
   readonly sub?: string;
   /** 이미 열린 Context 탭을 다른 하위 탭으로 다시 열 때 올린다. 본문이 새로 그려진다. */
   readonly rev?: number;
-  /** 대화 탭의 시작 상태(어느 대화인지, 열린 menu, 붙은 context chip). */
+  /** 대화 탭의 시작 상태(어느 대화인지, 열린 menu). */
   readonly chat?: ChatInit;
-  /** Context Engineer가 짜는 중인 context. 이 탭은 만드는 중 상태로 그려진다. */
-  readonly draft?: {
-    readonly purpose: string;
-    readonly places: number;
-    readonly documents: number;
+  /** 탭 본문을 직접 준다. 있으면 종류별 본문 대신 이것을 그린다. */
+  readonly body?: ReactNode;
+  /** 문서 탭의 시작 상태(저장 상태, 밖에서 바뀐 안내, 검색 결과로 열린 줄). */
+  readonly file?: FileInit;
+  /** project 키워드 검색 탭(`sub`가 "files")이 채워 둔 검색어와 폴더. */
+  readonly find?: {
+    readonly query: string;
+    readonly folder?: string;
+    /** 방금 연 결과(경로:줄). */
+    readonly opened?: string;
   };
 }
 
@@ -99,7 +105,7 @@ export function TabBar(
     focused?: boolean;
     /** Agent 탭의 상태 점(사람을 기다림·일하는 중). 탭 key → 상태. */
     states?: Readonly<Record<string, "waiting" | "working" | null>>;
-    /** 탭 줄 끝의 새 탭 단추 자리. 없으면 누를 수 없는 + 단추다. */
+    /** 탭 줄 끝의 새 탭 단추 위치. 없으면 누를 수 없는 + 단추다. */
     newTab?: ReactNode;
     onSelect?: (key: string) => void;
     onClose?: (key: string) => void;
@@ -188,7 +194,13 @@ export function TabBar(
   );
 }
 
-export const FOLDER_TREE: readonly TreeNode[] = [
+/** 등록 폴더의 디스크 파일 tree. 문서로 잡힌 것만이 아니라 모든 파일이 보인다. */
+const FOLDER_TREE: readonly TreeNode[] = [
+  {
+    id: "assets",
+    label: "assets",
+    children: [{ id: "assets/chest-layout.png", label: "chest-layout.png" }],
+  },
   {
     id: "docs",
     label: "docs",
@@ -213,17 +225,53 @@ export const FOLDER_TREE: readonly TreeNode[] = [
         ],
       },
       {
+        id: "eval/rubrics",
+        label: "rubrics",
+        children: [
+          {
+            id: "eval/rubrics/query-hygiene.json",
+            label: "query-hygiene.json",
+          },
+        ],
+      },
+      {
         id: "eval/scenarios",
         label: "scenarios",
-        children: [{ id: "eval/scenarios/x", label: "…" }],
+        children: [
+          {
+            id: "eval/scenarios/query-leave-still",
+            label: "query-leave-still",
+            children: [
+              {
+                id: "eval/scenarios/query-leave-still/r1.yaml",
+                label: "r1.yaml",
+              },
+            ],
+          },
+        ],
       },
     ],
   },
   {
     id: "loop",
     label: "loop",
-    children: [{ id: "loop/findings", label: "findings" }],
+    children: [
+      {
+        id: "loop/findings",
+        label: "findings",
+        children: [
+          { id: "loop/findings/F-009.md", label: "F-009.md" },
+          { id: "loop/findings/F-010.md", label: "F-010.md" },
+        ],
+      },
+    ],
   },
+  {
+    id: "reports",
+    label: "reports",
+    children: [{ id: "reports/weekly-12.pdf", label: "weekly-12.pdf" }],
+  },
+  { id: "LOPHN.md", label: "LOPHN.md" },
 ];
 
 const OPEN_BRANCHES = new Set(["eval", "eval/experiments"]);
@@ -261,6 +309,53 @@ function SidebarRow(
   );
 }
 
+interface SidebarAgent {
+  readonly id: string;
+  readonly name: string;
+  readonly profile: AgentProfile;
+}
+
+/** lophn은 전체에 하나, Project Manager는 project마다 하나다. 그 아래에 사람이 만든 Operators가 온다. */
+const SIDEBAR_AGENTS: readonly SidebarAgent[] = AGENT_ROWS.filter((row) =>
+  row.operator !== true
+);
+
+const OPERATORS: readonly SidebarAgent[] = AGENT_ROWS.filter((row) =>
+  row.operator === true && row.id !== "operators"
+);
+
+function AgentRowItem(
+  { agent, hover, onAgent }: {
+    agent: SidebarAgent;
+    hover: boolean;
+    onAgent: (agent: string) => void;
+  },
+) {
+  return (
+    <li
+      className={`${sideStyles.li} ${agentStyles.agentRow}`}
+      data-hover={hover ? "" : undefined}
+    >
+      <button
+        type="button"
+        className={sideStyles.item}
+        onClick={() => onAgent(agent.id)}
+      >
+        <ProfileAvatar profile={agent.profile} size="sm" />
+        <span className={sideStyles.label}>{agent.name}</span>
+      </button>
+      <span className={agentStyles.plus}>
+        <IconButton
+          icon={lophnSpaceIcons.add}
+          label={`New session with ${agent.name}`}
+          size="sm"
+          onClick={() => onAgent(agent.id)}
+        />
+      </span>
+    </li>
+  );
+}
+
 /** 접힌 sidebar rail의 바로 가기. 누르면 그 탭을 연다. */
 export type RailAction =
   | "terminal"
@@ -277,8 +372,8 @@ const RAIL: readonly {
   { action: "terminal", label: "Terminal", icon: workspaceIcons.terminal },
   { action: "contexts", label: "Contexts", icon: workspaceIcons.context },
   { action: "saved", label: "Saved views", icon: lophnSpaceIcons.savedView },
-  { action: "search", label: "Search", icon: paletteIcons.search },
   { action: "agent", label: "Agent", icon: conversationIcons.dock },
+  { action: "search", label: "Search", icon: paletteIcons.search },
 ];
 
 export interface SidebarSpec {
@@ -295,7 +390,7 @@ export interface SidebarSpec {
   readonly railTooltip?: RailAction;
   /** 이 agent 줄에 hover한 것처럼 "+"를 보인다. */
   readonly hoverAgent?: string;
-  /** Folders를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
+  /** 파일 tree를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
   readonly foldersClosed?: boolean;
   /** sidebar 본문을 맨 아래로 scroll해 Agents가 보이게 한다. */
   readonly scrollToAgents?: boolean;
@@ -309,11 +404,13 @@ export interface SidebarProps extends SidebarSpec {
   readonly onOpenContext: (name: string) => void;
   readonly onAgent: (agent: string) => void;
   readonly onManage: () => void;
+  /** saved view 이름을 누르면 그 결과를 연다. 없으면 Saved views 탭 단추와 같다. */
+  readonly onSavedView?: (view: string) => void;
 }
 
 /**
- * project sidebar: Folders(tree), Contexts, Saved views, Agents. 접으면 바로 가기 rail이
- * 된다: 펼치기 · Terminal · Contexts · Saved views · Search · Agent.
+ * project sidebar: Files(디스크 파일 tree 하나), Contexts, Saved views, Agents(lophn · Project Manager · Operators).
+ * 접으면 바로 가기 rail이 된다: 펼치기 · Terminal · Contexts · Saved views · Agent · Search.
  */
 export function ProjectSidebar(
   {
@@ -332,6 +429,7 @@ export function ProjectSidebar(
     scrollToAgents = false,
     onAgent,
     onManage,
+    onSavedView,
   }: SidebarProps,
 ) {
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
@@ -385,7 +483,7 @@ export function ProjectSidebar(
         : (
           <div ref={body} className={sideStyles.body}>
             <section className={sideStyles.section}>
-              <h2 className={sideStyles.sectionLabel}>Folders</h2>
+              <h2 className={sideStyles.sectionLabel}>Files</h2>
               <div className={styles.treeBox}>
                 <Tree
                   nodes={FOLDER_TREE}
@@ -395,8 +493,8 @@ export function ProjectSidebar(
                   selectedIds={menuFor === undefined
                     ? undefined
                     : new Set([menuFor])}
-                  onOpen={(id) => id.endsWith(".md") && onOpenFile(id)}
-                  label="Folders"
+                  onOpen={onOpenFile}
+                  label="Files"
                 />
                 {menu}
               </div>
@@ -423,13 +521,15 @@ export function ProjectSidebar(
                   icon={lophnSpaceIcons.savedView}
                   label="Running experiments"
                   active={savedActive === "running"}
-                  onClick={() => onRail("saved")}
+                  onClick={() =>
+                    (onSavedView ?? (() => onRail("saved")))("running")}
                 />
                 <SidebarRow
                   icon={lophnSpaceIcons.savedView}
                   label="Findings for C-049"
                   active={savedActive === "c-049"}
-                  onClick={() => onRail("saved")}
+                  onClick={() =>
+                    (onSavedView ?? (() => onRail("saved")))("c-049")}
                 />
               </ul>
             </section>
@@ -447,38 +547,25 @@ export function ProjectSidebar(
                 </button>
               </h2>
               <ul className={sideStyles.list} role="list">
-                {AGENT_ROWS.map((agent) =>
-                  agent.id === "operators"
-                    ? (
-                      <li key={agent.id} className={agentStyles.subLabel}>
-                        Operators
-                      </li>
-                    )
-                    : (
-                      <li
-                        key={agent.id}
-                        className={`${sideStyles.li} ${agentStyles.agentRow}`}
-                        data-hover={hoverAgent === agent.id ? "" : undefined}
-                      >
-                        <button
-                          type="button"
-                          className={sideStyles.item}
-                          onClick={() => onAgent(agent.id)}
-                        >
-                          <Avatar agent={agent.name} size="sm" />
-                          <span className={sideStyles.label}>{agent.name}</span>
-                        </button>
-                        <span className={agentStyles.plus}>
-                          <IconButton
-                            icon={lophnSpaceIcons.add}
-                            label={`New session with ${agent.name}`}
-                            size="sm"
-                            onClick={() => onAgent(agent.id)}
-                          />
-                        </span>
-                      </li>
-                    )
-                )}
+                {SIDEBAR_AGENTS.map((agent) => (
+                  <AgentRowItem
+                    key={agent.id}
+                    agent={agent}
+                    hover={hoverAgent === agent.id}
+                    onAgent={onAgent}
+                  />
+                ))}
+                {OPERATORS.length === 0
+                  ? null
+                  : <li className={agentStyles.subLabel}>Operators</li>}
+                {OPERATORS.map((agent) => (
+                  <AgentRowItem
+                    key={agent.id}
+                    agent={agent}
+                    hover={hoverAgent === agent.id}
+                    onAgent={onAgent}
+                  />
+                ))}
               </ul>
             </section>
           </div>
@@ -524,40 +611,44 @@ export type NewTabPick =
   | "document"
   | "terminal"
   | "agent-lophn"
-  | "agent-engineer"
-  | "search"
-  | "agents"
+  | "agent-project-manager"
+  | `agent-operator:${string}`
   | `context:${string}`
-  | "new-context";
+  | "search";
 
 /**
- * 탭 줄 끝의 + 메뉴. New tab에서 Context를 고르면 같은 메뉴가 context 목록(eval·harness·New context…)으로 바뀐다.
- * 실제 Menu(Radix DropdownMenu)라 한 번에 한 단계만 보여 같은 자리에서 단계를 바꾸는 look-alike다.
+ * 탭 줄 끝의 + 메뉴. Agent 탭(lophn, Project Manager, Operator ›)과 Context ›는 같은 메뉴가 다음 단계로 바뀐다.
+ * Agents(관리 탭) 항목과 New context 항목은 없다. 실제 Menu(Radix DropdownMenu)라 한 번에 한 단계만 보여
+ * 같은 위치에서 단계를 바꾸는 look-alike다.
  */
 export function TabMenu({ onPick }: { onPick: (pick: NewTabPick) => void }) {
   const [open, setOpen] = useState(false);
-  const [level, setLevel] = useState<"root" | "context">("root");
+  const [level, setLevel] = useState<"root" | "context" | "operator">("root");
   const stay = useRef(false);
   const items = level === "root"
     ? [
       { id: "document", label: "Document" },
       { id: "terminal", label: "Terminal" },
       { id: "agent-lophn", label: "Agent · lophn" },
-      { id: "agent-engineer", label: "Agent · Context Engineer" },
+      { id: "agent-project-manager", label: "Agent · Project Manager" },
+      { id: "operator", label: "Agent · Operator ›" },
       { id: "context", label: "Context ›" },
       { id: "search", label: "Search" },
-      { id: "agents", label: "Agents" },
     ]
-    : [
+    : level === "context"
+    ? [
       { id: "context:eval", label: "Context · eval" },
       { id: "context:harness", label: "Context · harness" },
-      { id: "new-context", label: "New context…" },
-    ];
+    ]
+    : OPERATORS.map((agent) => ({
+      id: `agent-operator:${agent.id}`,
+      label: agent.name,
+    }));
   return (
     <Menu
       open={open}
       onOpenChange={(next) => {
-        // Context ›를 고르면 Radix가 닫으려 하지만 같은 메뉴를 다음 단계로 이어 연다.
+        // 다음 단계로 가는 항목을 고르면 Radix가 닫으려 하지만 같은 메뉴를 이어 연다.
         if (!next && stay.current) {
           stay.current = false;
           return;
@@ -570,9 +661,9 @@ export function TabMenu({ onPick }: { onPick: (pick: NewTabPick) => void }) {
       }
       items={items}
       onSelect={(id) => {
-        if (id === "context") {
+        if (id === "context" || id === "operator") {
           stay.current = true;
-          setLevel("context");
+          setLevel(id);
           return;
         }
         onPick(id as NewTabPick);

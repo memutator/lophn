@@ -1,5 +1,10 @@
 // phroner 예시 project의 고정 데이터와, 데이터에서 탭·문서 경로를 만드는 작은 함수들.
 // 도메인 객체(Finding·Scenario·Experiment)는 따로 탭이 없다. 누르면 그 객체의 문서가 문서 탭으로 열린다.
+import {
+  type FileInit,
+  type FileKind,
+  fileKindOf,
+} from "./project-files/file-data.ts";
 import type { TabSpec } from "./project-window.tsx";
 
 export interface FindingRow {
@@ -147,20 +152,34 @@ export const EXPERIMENT_NAMES: Record<string, string> = {
   "exp-014": "route planner",
 };
 
-/** 문서 경로. 객체 id에서 원본 문서 자리를 만든다. */
+/** 문서 경로. 객체 id에서 원본 문서의 경로를 만든다. */
 export const findingPath = (id: string) => `loop/findings/${id}.md`;
 export const experimentPath = (id: string) =>
   `eval/experiments/${id}-${(EXPERIMENT_NAMES[id] ?? "").replace(/ /g, "-")}.md`
     .replace(/-\.md$/, ".md");
-export const scenarioPath = (id: string) => `eval/scenarios/${id}/r1.yaml`;
+const scenarioPath = (id: string) => `eval/scenarios/${id}/r1.yaml`;
 
-/** 탭을 여는 요청. 문서 탭의 key는 경로라서 이미 열린 문서면 그 탭을 고른다. */
-export const documentTab = (path: string): TabSpec => ({
+const LABELS: Record<FileKind, string | undefined> = {
+  markdown: undefined,
+  text: "Text editor",
+  image: "Image",
+  pdf: "PDF",
+};
+
+/**
+ * 탭을 여는 요청. 문서 탭의 key는 파일 경로라서 이미 열린 파일이면 그 탭을 고른다. project 밖 파일은 절대 경로다.
+ * `file`은 시작 상태(검색 결과의 줄, 저장 상태 등)다.
+ */
+export const documentTab = (path: string, file?: FileInit): TabSpec => ({
   key: `doc:${path}`,
   kind: "document",
-  // yaml은 파일 이름이 모두 r1.yaml이라 scenario 이름까지 보인다.
-  title: path.split("/").slice(/\.ya?ml$/.test(path) ? -2 : -1).join("/"),
+  // scenario의 yaml은 파일 이름이 모두 r1.yaml이라 scenario 이름까지 보인다.
+  title: path.split("/").slice(/^eval\/scenarios\//.test(path) ? -2 : -1)
+    .join("/"),
   sub: path,
+  // md가 아니면 탭 종류 글자로 viewer를 알린다(이미지와 pdf는 보기만 한다).
+  label: LABELS[fileKindOf(path)],
+  file,
 });
 
 export const findingTab = (id: string) => documentTab(findingPath(id));
@@ -180,11 +199,3 @@ export function contextOf(path: string): string | null {
     ? "eval"
     : null;
 }
-
-/** [New context]·+ 메뉴의 New context…가 다른 칸에 여는 Context Engineer 대화. form은 없다. */
-export const NEW_CONTEXT_CHAT: TabSpec = {
-  key: "chat:new-context",
-  kind: "agent",
-  title: "Context Engineer",
-  sub: "engineer-new",
-};

@@ -13,7 +13,10 @@ import { t } from "@lophn/wording";
 import type { FilesApi } from "../../ipc/files.ts";
 import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
-import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
+import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
+import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
+import { openProjectManager } from "./reactions/project-manager.ts";
+import { useToastHandler } from "./reactions/toast-handler.ts";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
@@ -93,8 +96,6 @@ export interface WorkspaceProps {
   onLauncher: () => void;
   /** lophn 관리 공간으로 간다. */
   onLophn: () => void;
-  /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
-  onThingsToConfirm?: () => void;
   /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
   onProjectInstructions?: () => void;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
@@ -152,7 +153,6 @@ export function Workspace(props: WorkspaceProps) {
     bodyWidth,
     onLauncher,
     onLophn,
-    onThingsToConfirm,
     onProjectInstructions,
     terminal,
   } = props;
@@ -504,6 +504,39 @@ export function Workspace(props: WorkspaceProps) {
     agentView,
   };
 
+  // 이 창이 보이는 동안 toast 행동을 받는다. 처리기는 열 때의 최신 작업대를 본다.
+  const hostRef = useRef(host);
+  hostRef.current = host;
+  const sessionsRef = useRef(sessionStates);
+  sessionsRef.current = sessionStates;
+  const agentsRef = useRef(sidebarAgents.agents);
+  agentsRef.current = sidebarAgents.agents;
+  const reactionEnv = {
+    project: projectId,
+    host: () => hostRef.current,
+    sessions: () => sessionsRef.current,
+    agents: () => agentsRef.current,
+  };
+  useToastHandler({
+    project: projectId,
+    openSession: (session) => {
+      const entry = panelSessions(
+        sessionStates,
+        sidebarAgents.agents,
+        projectId,
+      )
+        .find((item) => item.id === session);
+      const row = sidebarAgents.agents.find((item) =>
+        item.assignment === entry?.agent
+      );
+      if (row === undefined || agentViewSource === undefined) return false;
+      openAgent(host, { agent: row.assignment, name: row.name, session });
+      return true;
+    },
+    openProjectManager: (context, check) =>
+      openProjectManager(reactionEnv, { context, check }),
+  });
+
   // core 요청으로 열린 coding 터미널은 이 project의 것만 붙이고 보던 탭을 바꾸지 않는다.
   useTerminalOpenRequests((request) => {
     if (terminal === undefined || request.runtime.project !== projectId) return;
@@ -747,9 +780,11 @@ export function Workspace(props: WorkspaceProps) {
               }
               trailing={
                 <span className={styles.trailing}>
-                  <SpaceDecisions
-                    place={{ kind: "project", id: projectId }}
-                    onOpen={onThingsToConfirm ?? onLophn}
+                  <WaitingLayer
+                    onOpenSession={(session) =>
+                      runToastAction({ kind: "session", session })}
+                    onAnswerInTerminal={(session) =>
+                      void terminal?.store.focusSession(session)}
                   />
                   {noticesHidden && hasNotices
                     ? (

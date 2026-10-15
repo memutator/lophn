@@ -162,7 +162,6 @@ export function Desktop(
         bodyWidth={windowWidth - 240}
         onLauncher={launcher}
         onLophn={lophnSpace}
-        onThingsToConfirm={thingsToConfirm}
         onProjectInstructions={instructions
           ? () =>
             setRoute(openInstructions({

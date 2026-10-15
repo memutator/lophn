@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";

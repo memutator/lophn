@@ -4,7 +4,7 @@ import {
   type ReadSnapshot,
   type RequestContext,
 } from "../../../protocol/server/mod.ts";
-import type { Subject } from "../../../protocol/events/mod.ts";
+import type { Subject } from "../../../protocol/base/mod.ts";
 import {
   commandResultRead,
   createListEventsRead,

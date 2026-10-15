@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { defineDecision } from "../base/confirmation-handle.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";

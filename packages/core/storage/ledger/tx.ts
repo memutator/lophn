@@ -24,7 +24,7 @@ import type {
   IdPrefix,
   PortKey,
 } from "../../../protocol/base/mod.ts";
-import { subjectSchema } from "../../../protocol/events/mod.ts";
+import { subjectSchema } from "../../../protocol/base/mod.ts";
 import type { z } from "zod";
 import {
   isSqlRejected,

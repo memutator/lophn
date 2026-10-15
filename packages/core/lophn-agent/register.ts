@@ -10,7 +10,7 @@ import {
   type SqlRow,
   type Tx,
 } from "../../protocol/server/mod.ts";
-import type { EventDefinition } from "../../protocol/events/mod.ts";
+import type { EventDefinition } from "../../protocol/base/mod.ts";
 import {
   defineTxPort,
   type EventRegistration,

@@ -5,7 +5,7 @@ import {
   defineRead,
   defineUpload,
 } from "../base/route.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";

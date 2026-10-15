@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { archiveStateSchema, atSchema, sha256Schema } from "../base/values.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import {
   absolutePathSchema,
   projectIdSchema,

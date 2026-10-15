@@ -9,7 +9,7 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema, runIdSchema } from "../base/ids.ts";
 import {
   bundleContentSchema,

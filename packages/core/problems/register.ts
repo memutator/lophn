@@ -20,7 +20,7 @@ import {
   listProblemFixesRead,
   recordProblemFixCommand,
 } from "./repairs/mod.ts";
-import type { EventDefinition } from "../../protocol/events/mod.ts";
+import type { EventDefinition } from "../../protocol/base/mod.ts";
 import type { EventVisibilityDefinition } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { defineBlobPurpose } from "../../protocol/storage/mod.ts";

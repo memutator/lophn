@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { ID_PREFIXES, type IdPrefix, idSchema } from "../base/ids.ts";
+import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { actorSchema } from "../base/actor.ts";
 import {
@@ -9,60 +9,11 @@ import {
 } from "../base/limits.ts";
 import { withReadCommon } from "../base/envelope.ts";
 
-// 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름(domain-model platform/ledger).
-const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;
-
-export const eventTypeSchema = z.string().regex(EVENT_TYPE);
-
-export type EventType = z.infer<typeof eventTypeSchema>;
-
-// entity는 ID, 이름 record는 `<종류>:<키>`, lophn 전체 단일 공통 설정만 null.
-const SUBJECT_KEY = /^[a-z][a-z0-9_]*:[A-Za-z0-9_.:-]+$/;
-
-function isIdPrefix(prefix: string): prefix is IdPrefix {
-  return Object.hasOwn(ID_PREFIXES, prefix);
-}
-
-const anyIdSchema = z.string().refine(
-  (value) => {
-    const prefix = value.slice(0, value.indexOf("_"));
-    return isIdPrefix(prefix) && idSchema(prefix).safeParse(value).success;
-  },
-  { message: "invalid subject" },
-);
-
-export const subjectSchema = z.union([
-  anyIdSchema,
-  z.string().regex(SUBJECT_KEY),
-  z.null(),
-]);
-
-export type Subject = z.infer<typeof subjectSchema>;
-
-export type EventDefinition<
-  T extends string = string,
-  S extends z.ZodType = z.ZodType,
-  P extends z.ZodType = z.ZodType,
-> = {
-  type: T;
-  subject: S;
-  payload: P;
-};
-
-// 다른 owner가 자기 event를 적는다. 결과 값은 {type, payload} 모양을 만족한다.
-export function defineEvent<
-  T extends string,
-  S extends z.ZodType,
-  P extends z.ZodType,
->(
-  type: T,
-  definition: { subject: S; payload: P },
-): EventDefinition<T, S, P> {
-  if (!EVENT_TYPE.test(type)) {
-    throw new Error("event type must be <Entity><과거형 동사> PascalCase");
-  }
-  return { type, subject: definition.subject, payload: definition.payload };
-}
+import {
+  type EventDefinition,
+  eventTypeSchema,
+  subjectSchema,
+} from "../base/event.ts";
 
 const envelopeFields = {
   seq: seqSchema,

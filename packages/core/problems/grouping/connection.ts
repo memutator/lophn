@@ -10,9 +10,9 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import {
   advanceSubscriberCursor,
-  type EventDefinition,
   eventsList,
 } from "../../../protocol/events/mod.ts";
+import { type EventDefinition } from "../../../protocol/base/mod.ts";
 import {
   closeProblemVerified,
   getProblem,

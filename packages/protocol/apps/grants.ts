@@ -2,7 +2,7 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { releaseIdSchema } from "./apps.ts";
 import {

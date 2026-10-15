@@ -2,7 +2,7 @@ import { z } from "zod";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { authenticatedContextSchema } from "../server/identity.ts";
 import { defineCommand, defineWorker } from "../base/route.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import {
   problemCodeSchema,

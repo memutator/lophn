@@ -8,7 +8,7 @@ import type {
   EventVisibilityDefinition,
   RequestContext,
 } from "../../protocol/server/mod.ts";
-import type { EventDefinition } from "../../protocol/events/mod.ts";
+import type { EventDefinition } from "../../protocol/base/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,

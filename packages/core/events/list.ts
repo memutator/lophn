@@ -10,8 +10,8 @@ import {
   EVENT_BATCH_LIMITS,
   type EventEnvelope,
   eventsList,
-  type Subject,
 } from "../../protocol/events/mod.ts";
+import { type Subject } from "../../protocol/base/mod.ts";
 import {
   currentEventContext,
   type EventReadGate,

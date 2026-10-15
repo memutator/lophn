@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { blobRefRegistrationSchema } from "../storage/blob.ts";
 import { defineCommand, defineRead } from "../base/route.ts";

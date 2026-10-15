@@ -14,7 +14,7 @@ import type {
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { approvalRequestCreated } from "../../../protocol/approvals/mod.ts";
-import type { EventDefinition } from "../../../protocol/events/mod.ts";
+import type { EventDefinition } from "../../../protocol/base/mod.ts";
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,

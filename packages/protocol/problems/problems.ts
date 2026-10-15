@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sectionKeySchema } from "../projects/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";

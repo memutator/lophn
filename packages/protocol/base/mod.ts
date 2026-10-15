@@ -2,6 +2,7 @@ export * from "./actor.ts";
 export * from "./confirmation-handle.ts";
 export * from "./envelope.ts";
 export * from "./errors.ts";
+export * from "./event.ts";
 export * from "./frame.ts";
 export * from "./ids.ts";
 export * from "./json-values.ts";

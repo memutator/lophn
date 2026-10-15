@@ -6,7 +6,8 @@ import type {
   BlobRefRegistration,
   PermanentBlobReference,
 } from "../storage/blob.ts";
-import type { EventDefinition, EventEnvelopeFor } from "../events/events.ts";
+import type { EventEnvelopeFor } from "../events/events.ts";
+import type { EventDefinition } from "../base/event.ts";
 import type { IdPrefix } from "../base/ids.ts";
 import type { PortKey } from "../base/ports.ts";
 import type { CommandRoute, ReadRoute } from "../base/route.ts";

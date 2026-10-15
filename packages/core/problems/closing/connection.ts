@@ -9,10 +9,8 @@ import type {
   EventVisibilityDefinition,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import {
-  type EventDefinition,
-  eventsList,
-} from "../../../protocol/events/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { type EventDefinition } from "../../../protocol/base/mod.ts";
 import {
   openConnection,
   type SubscriberBinding,

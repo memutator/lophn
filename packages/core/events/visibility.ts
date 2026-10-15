@@ -8,11 +8,10 @@ import {
 } from "../../protocol/server/mod.ts";
 import { errorBodySchema, idSchema } from "../../protocol/base/mod.ts";
 import {
-  type EventDefinition,
   type EventEnvelope,
   eventEnvelopeSchema,
-  type Subject,
 } from "../../protocol/events/mod.ts";
+import { type EventDefinition, type Subject } from "../../protocol/base/mod.ts";
 import { validateOutput } from "../storage/ledger/output.ts";
 
 export type EventReadGate = (

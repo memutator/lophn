@@ -11,7 +11,7 @@ import type {
   Tx,
 } from "../../../../protocol/server/mod.ts";
 import type { CommandRoute, ReadRoute } from "../../../../protocol/base/mod.ts";
-import type { EventDefinition } from "../../../../protocol/events/mod.ts";
+import type { EventDefinition } from "../../../../protocol/base/mod.ts";
 import {
   type ContextApiCommands,
   createContextApiCommands,

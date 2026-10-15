@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineUpload } from "../base/route.ts";

@@ -1,11 +1,7 @@
 import { err, nextFromSeq, ok, type Result } from "../../base/mod.ts";
 import { z } from "zod";
-import {
-  eventBatchLimitSchema,
-  eventEnvelopeBaseSchema,
-  eventTypeSchema,
-  subjectSchema,
-} from "./events.ts";
+import { eventBatchLimitSchema, eventEnvelopeBaseSchema } from "./events.ts";
+import { eventTypeSchema, subjectSchema } from "../base/event.ts";
 import { seqSchema } from "../base/values.ts";
 
 export const EVENT_SUBSCRIBE_PATH = "/v1/events/subscribe";

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ERROR_CODES, type Result } from "../../base/mod.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineEvent } from "../events/events.ts";
+import { defineEvent } from "../base/event.ts";
 import { authenticatedContextSchema } from "../server/identity.ts";
 import type { Sql } from "../server/registration.ts";
 import {

@@ -50,4 +50,5 @@ export * from "./ask-tool.ts";
 export * from "./input-tags.ts";
 export * from "./context-text.ts";
 export * from "./received-messages.ts";
+export * from "./agent-definitions.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

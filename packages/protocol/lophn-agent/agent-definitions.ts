@@ -5,7 +5,6 @@ import {
   defineRead,
   defineUpload,
 } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -282,29 +281,6 @@ export const profileImageRead = defineFile({
 
 // ---------- event ----------
 
-// 정의를 만들거나 바꾸면 누가(envelope actor) 언제 어느 agent에서 했는지만 남기고 내용의 전후는 hash뿐이다.
-// subject는 Operator는 자기 ID, Project Manager는 project, App Engineer는 앱, lophn는 null이다.
-const agentSubjectSchema = z.union([
-  idSchema("agt"),
-  idSchema("prj"),
-  idSchema("app"),
-  z.null(),
-]);
-
-export const agentDefinitionChanged = defineEvent("AgentDefinitionChanged", {
-  subject: agentSubjectSchema,
-  payload: z.object({
-    agent: agentRefOutputSchema,
-    before_hash: sha256Schema.nullable(),
-    after_hash: sha256Schema,
-  }),
-});
-
-export const operatorDeleted = defineEvent("OperatorDeleted", {
-  subject: operatorIdSchema,
-  payload: z.object({ place: placeOutputSchema, hash: sha256Schema }),
-});
-
 export const AGENT_DEFINITION_ROUTES = [
   agentDefinitionList,
   agentDefinitionRead,
@@ -314,9 +290,4 @@ export const AGENT_DEFINITION_ROUTES = [
   builtinAgentChange,
   profileImageUpload,
   profileImageRead,
-] as const;
-
-export const AGENT_DEFINITION_EVENTS = [
-  agentDefinitionChanged,
-  operatorDeleted,
 ] as const;

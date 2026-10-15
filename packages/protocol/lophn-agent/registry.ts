@@ -20,6 +20,8 @@ import { CALL_ROUTES } from "./calls.ts";
 import { sendMessage } from "./inputs.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
+import { AGENT_DEFINITION_ROUTES } from "./agent-definitions.ts";
+import { connectProvider } from "./providers.ts";
 import {
   EXTENSION_EVENTS,
   EXTENSION_ROUTES,
@@ -55,6 +57,8 @@ export const ROUTES = [
   sendMessage,
   ...ASK_ROUTES,
   ...RECEIVED_MESSAGE_ROUTES,
+  ...AGENT_DEFINITION_ROUTES,
+  connectProvider,
   // MCP OAuth의 시작·완료·상태·취소 입구다. ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,

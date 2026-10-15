@@ -25,6 +25,15 @@ import type {
   OperationPolicy,
 } from "../../../server/identity/mod.ts";
 import type { CodingCredentials } from "../../../server/identity/coding-credential-assembly.ts";
+import type {
+  AppIntake,
+  AppRewind,
+  AppViewSignal,
+  BundleLocator,
+  CallerDirectory,
+  InvocationLedger,
+  ProjectDirectory,
+} from "../../../apps/ports.ts";
 import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
 import type { RestartOwner } from "../../../storage/migration/mod.ts";
 import type {
@@ -195,6 +204,16 @@ type Late = {
   gateway: GatewayFrames;
   // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
   approvals: ApprovalsService;
+  // apps가 받는 것. places-sessions(callerDirectory), projects(projectDirectory), releases(bundleLocator)가 채운다.
+  // 없으면 apps wiring이 "아직 없음"이나 대체 구현으로 돈다.
+  callerDirectory: CallerDirectory;
+  projectDirectory: ProjectDirectory;
+  bundleLocator: BundleLocator;
+  appViewSignal: AppViewSignal;
+  // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
+  appIntake: AppIntake;
+  invocationLedger: InvocationLedger;
+  appRewind: AppRewind;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -230,6 +249,13 @@ const LATE_KEYS: Record<keyof Late, true> = {
   bus: true,
   gateway: true,
   approvals: true,
+  callerDirectory: true,
+  projectDirectory: true,
+  bundleLocator: true,
+  appViewSignal: true,
+  appIntake: true,
+  invocationLedger: true,
+  appRewind: true,
 };
 
 export type WiringContext = {

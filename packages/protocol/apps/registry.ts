@@ -12,9 +12,6 @@ import {
   appUnarchive,
   appUnarchived,
 } from "./apps.ts";
-import { appConnect, appViewClosed } from "./channel.ts";
-import { appBlueprint } from "./blueprint-read.ts";
-import { PAIR_ROUTES } from "./pair-routes.ts";
 import {
   annotationSend,
   annotationsGet,
@@ -45,14 +42,6 @@ import {
   appStopped,
   appUnavailable,
 } from "./runtime.ts";
-import {
-  appAgentConfirmProof,
-  INVOCATION_ROUTES,
-  invocationAccepted,
-  invocationDenied,
-  invocationFinished,
-  invocationStarted,
-} from "./invocations.ts";
 import { APP_GRANT_ROUTES, GRANT_EVENTS } from "./grants.ts";
 import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
 import { ACTIVATION_ROUTES } from "./activation/mod.ts";
@@ -70,9 +59,6 @@ import {
 } from "./releases.ts";
 
 export const ROUTES = [
-  appConnect,
-  appViewClosed,
-  appAgentConfirmProof,
   appCreate,
   appConnectSource,
   appArchive,
@@ -85,10 +71,8 @@ export const ROUTES = [
   appRecordUnavailable,
   appList,
   appGet,
-  appBlueprint,
   appRuntime,
   appLogs,
-  ...PAIR_ROUTES,
   annotationUploadScreenshot,
   annotationSend,
   annotationsGet,
@@ -101,7 +85,6 @@ export const ROUTES = [
   appRewinds,
   appProjects,
   appScreenFile,
-  ...INVOCATION_ROUTES,
   ...APP_GRANT_ROUTES,
   ...PACKAGE_ROUTES,
   ...ACTIVATION_ROUTES,
@@ -120,10 +103,6 @@ export const EVENTS = [
   appStarted,
   appStopped,
   appUnavailable,
-  invocationAccepted,
-  invocationStarted,
-  invocationFinished,
-  invocationDenied,
   ...GRANT_EVENTS,
   ...PACKAGE_EVENTS,
   releasePrepared,

@@ -71,27 +71,6 @@ import {
   type WiringFactory,
 } from "./context.ts";
 
-// 다른 module이 내놓는 값을 받는 칸이다. 칸이 아직 없거나 비어 있으면 이 wiring이 만든 대체 구현이나
-// "아직 없음" 답으로 돈다. 읽는 때마다 slot을 다시 봐서 늦게 채워져도 쓴다.
-type InputSlots = {
-  callerDirectory: CallerDirectory;
-  projectDirectory: ProjectDirectory;
-  bundleLocator: BundleLocator;
-  appViewSignal: AppViewSignal;
-};
-
-function slot<K extends keyof InputSlots>(
-  ctx: WiringContext,
-  key: K,
-): InputSlots[K] | undefined {
-  return (ctx.peek as unknown as Partial<InputSlots>)[key];
-}
-
-// releases-problems와 places-sessions가 쓸 수 있게 내놓는 칸이다(`AppIntake`, `InvocationLedger`, `AppRewind`).
-function offer(ctx: WiringContext, key: string, value: unknown): void {
-  (ctx.provide as unknown as (key: string, value: unknown) => void)(key, value);
-}
-
 const notAttached = <T>(): Result<T> =>
   err({ code: "unavailable", message: "this dependency is not attached" });
 
@@ -183,12 +162,12 @@ export const appsWiring: WiringFactory = () => {
 
       const callers: CallerDirectory = {
         agentToolCall: (...args) =>
-          slot(ctx, "callerDirectory")?.agentToolCall(...args) ??
+          ctx.peek.callerDirectory?.agentToolCall(...args) ??
             notAttached(),
       };
       const projects: ProjectDirectory = {
-        list: () => slot(ctx, "projectDirectory")?.list() ?? notAttached(),
-        get: (id) => slot(ctx, "projectDirectory")?.get(id) ?? notAttached(),
+        list: () => ctx.peek.projectDirectory?.list() ?? notAttached(),
+        get: (id) => ctx.peek.projectDirectory?.get(id) ?? notAttached(),
       };
       const states = appStatesOf(link.sql);
       const { path, intake } = createAppCalls({
@@ -205,7 +184,7 @@ export const appsWiring: WiringFactory = () => {
       // 앱 rewind가 끝나면 열린 앱 view가 다시 그리게 알린다. 칸이 비어 있으면 Bus로 낸다.
       const signal: AppViewSignal = {
         changed(app, reason) {
-          const given = slot(ctx, "appViewSignal");
+          const given = ctx.peek.appViewSignal;
           if (given !== undefined) return given.changed(app, reason);
           ctx.peek.bus?.publish({
             type: "AppViewChanged",
@@ -228,12 +207,12 @@ export const appsWiring: WiringFactory = () => {
       const rewindReads = createRewindReads({ rewind });
       const locator: BundleLocator = {
         dir: (target) =>
-          (slot(ctx, "bundleLocator") ??
+          (ctx.peek.bundleLocator ??
             bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
       };
-      offer(ctx, "appIntake", intake);
-      offer(ctx, "invocationLedger", ledger);
-      offer(ctx, "appRewind", rewind);
+      ctx.provide("appIntake", intake);
+      ctx.provide("invocationLedger", ledger);
+      ctx.provide("appRewind", rewind);
 
       return ok({
         writer: (inner) =>

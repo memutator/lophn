@@ -147,7 +147,7 @@ export function createModelPart(env: Env): ModelPart {
   ): PickerBinding {
     return {
       models,
-      state: { open: false, query, notices: [] },
+      state: { open: false, query },
       setState: () => {},
       current,
       choose: () => {},

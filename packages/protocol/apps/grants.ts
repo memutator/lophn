@@ -245,7 +245,7 @@ export const appGrantsList = defineRead({
   errors: readErrors,
 });
 
-// 사람의 결정이다. reason은 거두는 이유 한 줄이다.
+// 사람의 결정이다. 앱 상세 Access 탭 안에서 받으므로 확인 handle은 없다. reason은 거두는 이유 한 줄이다.
 export const appGrantRevoke = defineCommand({
   resource: "app_grants",
   method: "revoke",
@@ -257,9 +257,6 @@ export const appGrantRevoke = defineCommand({
   output: z.object({ grant: appGrantSchema }),
   actors: ["user"],
   errors: ["conflict", "unavailable"],
-  confirmation: "required",
-  binding: ["grant"],
-  display_read: "app_grants/list",
 });
 
 export const APP_GRANT_ROUTES = [appGrantsList, appGrantRevoke] as const;

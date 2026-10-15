@@ -3,16 +3,11 @@
 // sidebar·tab strip은 project-window.tsx의 look-alike다.
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { PaletteButton, WireTopBar } from "../chrome/title-bar.tsx";
 import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
+import { Palette, type PaletteItem } from "@lophn/design/components";
 import {
-  IconButton,
-  Palette,
-  type PaletteItem,
-} from "@lophn/design/components";
-import {
-  paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -21,6 +16,7 @@ import {
   AGENTS_TAB,
   newConversationTab,
   type SessionRow,
+  sessionTab,
 } from "./agents-data.ts";
 import { TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
@@ -32,7 +28,7 @@ import { ContextsList } from "./contexts/contexts-list.tsx";
 import { DeclaredSearch } from "./contexts/declared-search.tsx";
 import { HostProvider } from "./contexts/open-tab.ts";
 import { FileSearch } from "./project-files/file-search.tsx";
-import { isOutside, PROJECT_DIR } from "./project-files/file-data.ts";
+import { crumbsOfPath, fileKey, isOutside } from "./project-files/file-data.ts";
 import {
   ProjectSidebar,
   type RailAction,
@@ -55,6 +51,8 @@ export interface ProjectAppProps {
   readonly overlay?: ReactNode;
   /** 창 위에 얹는 것(toast). */
   readonly children?: ReactNode;
+  /** 창 위쪽 바 오른쪽, 명령 palette 단추 앞에 놓는 것(대기 개수 pill 등). */
+  readonly titleExtra?: ReactNode;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
 }
@@ -76,12 +74,8 @@ export const ENGINEER_TAB: TabSpec = {
 function crumbsOf(tab: TabSpec | undefined): string[] {
   if (tab === undefined) return ["phroner"];
   switch (tab.kind) {
-    case "document": {
-      const path = tab.sub ?? tab.title;
-      return isOutside(path)
-        ? ["Outside project", ...path.split("/").filter(Boolean)]
-        : ["phroner", ...path.split("/")];
-    }
+    case "document":
+      return crumbsOfPath(tab.sub ?? tab.title);
     case "context":
       return ["phroner", tab.title, "Context"];
     case "contexts":
@@ -149,17 +143,9 @@ const BROWSE: PaletteItem = {
 
 const pathLike = (text: string) => /^(\/|~\/)/.test(text.trim());
 
-/** project 폴더 안 경로는 상대 경로로, 밖은 그대로 연다. */
-function toFilePath(text: string): string {
-  const path = text.trim();
-  return path.startsWith(`${PROJECT_DIR}/`)
-    ? path.slice(PROJECT_DIR.length + 1)
-    : path;
-}
-
 function paletteItems(query: string): readonly PaletteItem[] {
   if (pathLike(query)) {
-    const path = toFilePath(query);
+    const path = fileKey(query);
     return [{
       id: `path:${path}`,
       group: "Open",
@@ -182,6 +168,7 @@ export function ProjectApp(
     sidebar = {},
     overlay,
     children,
+    titleExtra,
     info: initialInfo,
   }: ProjectAppProps,
 ) {
@@ -456,12 +443,12 @@ export function ProjectApp(
           onOpenContext={(name) => open(contextTab(name))}
           onAgent={(id) => open(newConversationTab(id))}
           onManage={() => open(AGENTS_TAB)}
+          onSession={(row) => open(sessionTab(row))}
           onSavedView={(view) => open(savedViewTab(view))}
         />
         <div className={styles.main}>
           <div className={styles.topBar}>
-            <TopBar
-              platform="linux"
+            <WireTopBar
               leading={
                 <div className={styles.leading}>
                   {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
@@ -469,12 +456,10 @@ export function ProjectApp(
                 </div>
               }
               trailing={
-                <IconButton
-                  icon={paletteIcons.search}
-                  label="Search files"
-                  variant="secondary"
-                  onClick={() => setPalette(true)}
-                />
+                <div className={styles.titleEnd}>
+                  {titleExtra}
+                  <PaletteButton onClick={() => setPalette(true)} />
+                </div>
               }
             />
           </div>

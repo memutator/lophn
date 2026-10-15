@@ -1,0 +1,72 @@
+/* 새 설계 창 크롬의 공용 치수. 창 위쪽 바와 sidebar 머리가 같은 높이를 쓴다. */
+:root {
+  --wire-title-bar: 36px;
+}
+
+/* 파일 아이콘 색: light는 Catppuccin Latte, dark는 Macchiato. */
+:root {
+  --ctp-text: #4c4f69;
+  --ctp-blue: #1e66f5;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-peach: #fe640b;
+  --ctp-red: #d20f39;
+  --ctp-mauve: #8839ef;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-pink: #ea76cb;
+  --ctp-teal: #179299;
+  --ctp-maroon: #e64553;
+  --ctp-lavender: #7287fd;
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+}
+
+:root[data-theme="dark"] {
+  --ctp-text: #cad3f5;
+  --ctp-blue: #8aadf4;
+  --ctp-yellow: #eed49f;
+  --ctp-green: #a6da95;
+  --ctp-overlay1: #8087a2;
+  --ctp-peach: #f5a97f;
+  --ctp-red: #ed8796;
+  --ctp-mauve: #c6a0f6;
+  --ctp-sky: #91d7e3;
+  --ctp-sapphire: #7dc4e4;
+  --ctp-pink: #f5bde6;
+  --ctp-teal: #8bd5ca;
+  --ctp-maroon: #ee99a0;
+  --ctp-lavender: #b7bdf8;
+  --ctp-rosewater: #f4dbd6;
+  --ctp-flamingo: #f0c6c6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ctp-text: #cad3f5;
+    --ctp-blue: #8aadf4;
+    --ctp-yellow: #eed49f;
+    --ctp-green: #a6da95;
+    --ctp-overlay1: #8087a2;
+    --ctp-peach: #f5a97f;
+    --ctp-red: #ed8796;
+    --ctp-mauve: #c6a0f6;
+    --ctp-sky: #91d7e3;
+    --ctp-sapphire: #7dc4e4;
+    --ctp-pink: #f5bde6;
+    --ctp-teal: #8bd5ca;
+    --ctp-maroon: #ee99a0;
+    --ctp-lavender: #b7bdf8;
+    --ctp-rosewater: #f4dbd6;
+    --ctp-flamingo: #f0c6c6;
+  }
+}
+
+/* 글 넣는 칸은 focus 때 겉에 띄운 테두리 대신 칸 테두리 색만 바뀐다. */
+:root input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+:root textarea:focus-visible,
+:root [role="combobox"]:focus-visible {
+  outline: none;
+  border-color: var(--color-focus);
+}

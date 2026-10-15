@@ -1,15 +1,11 @@
 // 앱 화면 옆 pane. agent와 coding 터미널이 같은 위치를 쓰고 pane 머리에서 바꾼다. 터미널은 App Engineer가 ticket을 맡기면 lophn이 연다.
 // agent 대화는 project 창 Agent 탭과 같은 ChatShell을 쓴다.
 import type { ReactNode } from "react";
-import {
-  Avatar,
-  IconButton,
-  Tab,
-  TabList,
-  Tabs,
-} from "@lophn/design/components";
+import { IconButton } from "@lophn/design/components";
 import { workspaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
+import { type TabDot, TabStrip } from "../../chrome/tab-strip.tsx";
+import { Avatar } from "../agent-avatar.tsx";
 import { AgentTurn, ChatShell, Said, UserMessage } from "../agent-chat.tsx";
 import { CallBlock } from "../agent-tab/call-block.tsx";
 import { VendorIcon } from "../../vendors/vendor-icon.tsx";
@@ -89,60 +85,38 @@ export function SidePane(
     toast?: ReactNode;
   },
 ) {
-  const dot = terminal === "permission"
+  const dot: TabDot | undefined = terminal === "permission"
     ? "waiting"
     : terminal === "ended"
     ? "ended"
     : undefined;
   return (
     <aside className={styles.sidePane} aria-label="Agent and terminal">
-      <div className={styles.sideHead}>
-        {terminal === undefined
-          ? <h2 className={styles.sideTitle}>{agent}</h2>
-          : (
-            <Tabs value={view} onValueChange={(v) => onView(v as PaneView)}>
-              <TabList>
-                <Tab value="agent" size="sm">
-                  <span className={styles.sideTab}>
-                    <Avatar
-                      profile={{
-                        kind: "icon",
-                        icon: AGENT_ICON[agent] ?? "dock",
-                      }}
-                      size="sm"
-                    />
-                    {agent}
-                  </span>
-                </Tab>
-                <Tab value="terminal" size="sm">
-                  <span className={styles.sideTab}>
-                    <VendorIcon vendor="claude-code" size={14} />
-                    {`Claude Code · ${TICKET}`}
-                    {dot === undefined ? null : (
-                      <span
-                        className={`${styles.dot} ${
-                          dot === "ended" ? styles.dotEnded : ""
-                        }`}
-                        role="img"
-                        aria-label={dot === "ended"
-                          ? "Session ended"
-                          : "Waiting for you"}
-                      />
-                    )}
-                  </span>
-                </Tab>
-              </TabList>
-            </Tabs>
-          )}
-        <span className={styles.sideClose}>
+      <TabStrip
+        tabs={[
+          {
+            key: "agent",
+            title: agent,
+            icon: <Avatar agent={agent} size="sm" />,
+          },
+          ...(terminal === undefined ? [] : [{
+            key: "terminal",
+            title: `Claude Code · ${TICKET}`,
+            icon: <VendorIcon vendor="claude-code" size={14} />,
+            dot,
+          }]),
+        ]}
+        selected={view}
+        onSelect={(key) => onView(key as PaneView)}
+        end={
           <IconButton
             icon={workspaceIcons.close}
             label="Close"
             size="sm"
             onClick={onClose}
           />
-        </span>
-      </div>
+        }
+      />
       {view === "terminal" && terminal !== undefined
         ? <CodingTerminal scene={terminal} />
         : <AgentBody agent={agent} handedOff={terminal !== undefined} />}

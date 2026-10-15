@@ -5,6 +5,8 @@ import {
   Button,
   Card,
   Field,
+  Icon,
+  iconPixels,
   Input,
   StatusMark,
   Textarea,
@@ -15,6 +17,7 @@ import {
 
 import { ARCHIVED_PROJECTS, type FolderInfo, PROJECTS } from "./data.ts";
 import c from "../compose.module.css";
+import { RegisterPanel } from "./register-panel.tsx";
 import styles from "./workspace.module.css";
 
 export interface ProjectsScreenProps {
@@ -97,13 +100,11 @@ export function ProjectsScreen(
     ProjectsScreenProps = {},
 ) {
   const [selected, setSelected] = useState(initial);
+  const [registering, setRegistering] = useState(false);
   const project = PROJECTS.find((item) => item.id === selected) ?? PROJECTS[0];
   return (
     <div className={styles.screen}>
       <div className={styles.listColumn}>
-        <div className={styles.listHead}>
-          <Button size="sm" icon={lophnSpaceIcons.add}>Register project</Button>
-        </div>
         {PROJECTS.map((item) => {
           const lost = item.folders.some((folder) =>
             folder.path === missingFolder
@@ -130,6 +131,15 @@ export function ProjectsScreen(
             </div>
           );
         })}
+        <button
+          type="button"
+          className={styles.addRound}
+          aria-label="Register project"
+          title="Register project"
+          onClick={() => setRegistering(true)}
+        >
+          <Icon icon={lophnSpaceIcons.add} pixels={iconPixels("large")} />
+        </button>
         <h2 className={styles.groupTitle}>Archived</h2>
         {ARCHIVED_PROJECTS.map((item) => (
           <div key={item.name} className={styles.archivedRow}>
@@ -209,6 +219,9 @@ export function ProjectsScreen(
           </Button>
         </div>
       </section>
+      {registering
+        ? <RegisterPanel onClose={() => setRegistering(false)} />
+        : null}
     </div>
   );
 }

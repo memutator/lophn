@@ -216,22 +216,41 @@
 .glossaryHead {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--space-5);
-  margin-bottom: var(--space-3);
+  min-height: var(--control-md-height);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 
-.titleText {
+.glossaryHead h2 {
   margin: var(--space-0);
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-line);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
 }
 
-.term {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: var(--space-0);
+.count {
+  margin-left: var(--space-3);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.termList {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+/* 용어, 뜻, 행동 세 칸. 읽을 때와 고칠 때 같은 칸 배치를 지킨다. */
+.termRow {
+  display: grid;
+  grid-template-columns: 12rem 1fr 9rem;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: var(--control-md-height);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 
 .termName {
@@ -244,16 +263,44 @@
 
 .rowActions {
   display: flex;
-  flex: none;
-  gap: var(--space-3);
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
-.termForm {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-0);
+/* 고치지 않는 줄의 Edit과 Delete는 hover하거나 focus가 들어왔을 때만 보인다. 자리는 그대로다. */
+.termRow:not([data-editing]) .rowActions {
+  opacity: 0;
+}
+
+.termRow:not([data-editing]):hover .rowActions,
+.termRow:not([data-editing]):focus-within .rowActions {
+  opacity: 1;
+}
+
+.inlineInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: var(--space-0);
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.inlineInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.inlineInput:focus {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--space-0);
+}
+
+.termRow .termInput {
+  font-weight: var(--font-weight-medium);
 }
 
 /* 탭 안 toast: 탭 본문 맨 위에 붙어 스크롤해도 남는다. 높이를 차지하지 않는다. */

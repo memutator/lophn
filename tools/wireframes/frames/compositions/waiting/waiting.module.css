@@ -1,15 +1,17 @@
 /* 대기 목록: 창 위 pill, 펼친 panel, 요청 카드, secret 보호 입력 창. 같은 token만 쓴다. */
 
-/* 창 위 층. 창의 오른쪽 위에 pill을 두고 그 아래로 panel이 펼쳐진다. layout을 차지하지 않는다. */
+/* 창 위쪽 바 안에 놓는 층. pill은 바 안에 있고 panel은 pill 바로 아래(바 아래)에서 열린다. layout을 차지하지 않는다. */
 .layer {
-  position: absolute;
-  top: calc((var(--space-11) - var(--control-sm-height)) / 2);
-  right: calc(var(--space-11) + var(--space-4));
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-3);
-  max-height: calc(100% - var(--space-11));
+  align-items: center;
+}
+
+.floating {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  display: flex;
   z-index: var(--z-popover);
 }
 
@@ -49,6 +51,7 @@
   flex-direction: column;
   width: calc(var(--dialog-width-wide) - var(--space-11) - var(--space-8));
   max-width: 100%;
+  max-height: calc(100vh - var(--space-11) - var(--space-6));
   min-height: var(--space-0);
   border-radius: var(--radius-md);
   background: var(--floating-surface);

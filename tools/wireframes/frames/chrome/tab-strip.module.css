@@ -1,0 +1,176 @@
+/* 공용 탭 줄. 아이콘과 이름, 고른 탭에 밑줄, 상자 없음. 바탕이 탭 본문과 같아서 줄과 본문이 하나로 보인다. */
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: var(--control-lg-height);
+  min-width: var(--space-0);
+  background: var(--color-surface-base);
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0
+    var(--color-border-subtle);
+  font-family: var(--font-sans);
+}
+
+.list {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  padding: var(--space-0) var(--space-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--control-gap);
+  min-width: 96px;
+  max-width: 240px;
+  padding: var(--space-0) var(--space-3) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-regular);
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+.tab:focus-visible {
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
+.active {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 고른 탭의 밑줄. 두 칸 중 focus 칸은 focus 색이다. */
+.active::after {
+  content: "";
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-0);
+  left: var(--space-3);
+  height: calc(var(--tab-indicator) * 3 / 2);
+  background: var(--color-text-primary);
+}
+
+.focused.active::after {
+  background: var(--color-focus);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.active .icon {
+  color: var(--color-text-secondary);
+}
+
+.title {
+  flex: 0 1 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 상태 점: 기다림, 일하는 중, 끝남 */
+.dot {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.dot[data-state="waiting"] {
+  background: var(--status-warning-marker);
+}
+
+.dot[data-state="working"] {
+  background: var(--color-focus);
+}
+
+.dot[data-state="ended"] {
+  background: var(--status-neutral-marker);
+}
+
+.close {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  margin: var(--space-0) var(--space-0) var(--space-0) var(--space-1);
+  padding: var(--space-0);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.close:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.active .close,
+.tab:hover .close,
+.close:focus-visible {
+  opacity: 1;
+}
+
+.end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-2);
+}
+
+/* sidebar 위쪽 같은 작은 줄. 탭이 폭을 나눠 가지고 글자는 가운데다. */
+.compact {
+  height: var(--control-md-height);
+  background: transparent;
+}
+
+.compact .list {
+  gap: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+}
+
+.compact .tab {
+  flex: 1 1 0;
+  min-width: var(--space-0);
+  justify-content: center;
+  padding: var(--space-0) var(--space-2);
+}
+
+.compact .active::after {
+  right: var(--space-2);
+  left: var(--space-2);
+  background: var(--color-text-primary);
+}

@@ -4,12 +4,18 @@ import type { ReactNode } from "react";
 import { Dialog } from "@lophn/design/components";
 import { Button } from "@lophn/ui-control";
 
+import {
+  editorIcons,
+  workspaceIcons,
+} from "../../../../../packages/shell/renderer/icons/mod.ts";
+import { FileIcon } from "../../chrome/file-icon.tsx";
 import { AGENT_ROWS } from "../agents-data.ts";
 import { documentTab } from "../phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";
 import { StaticMenu, type TabSpec } from "../project-window.tsx";
 import styles from "../compose.module.css";
 import fileStyles from "./files.module.css";
+import { menuIcon, menuLead } from "./menu-icons.tsx";
 
 const EXP = "eval/experiments/exp-008-query-tools.md";
 const EXP_OTHER = "eval/experiments/exp-012-ftb-quests-021-q8.md";
@@ -37,17 +43,35 @@ function solo(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
   );
 }
 
-/** sidebar의 Agents 묶음: lophn(전체에 하나), Project Manager(project마다 하나), Operators. 묶음 머리의 Manage는 Agents 탭을 연다. */
+/** sidebar · Agent. agent마다 그 agent의 열린 session이 아래에 들여 쓰여 있고 맨 아래에 Recent가 있다. 묶음 머리의 Manage는 Agents 탭을 연다. */
 export function AgentsGroup() {
   const manager = AGENT_ROWS.find((row) => !row.operator && row.id !== "lophn");
   const tab = documentTab(EXP);
   return (
     <ProjectApp
-      sidebar={{
-        foldersClosed: true,
-        hoverAgent: manager?.id,
-        scrollToAgents: true,
-      }}
+      sidebar={{ mode: "agent", hoverAgent: manager?.id }}
+      panes={[{ tabs: [tab], selected: tab.key }]}
+    />
+  );
+}
+
+/** sidebar · Explorer. 루트를 고르는 menu를 연 상태다. 연결한 폴더 둘과 그 하위 폴더가 있고 tree에는 확장자·폴더별 아이콘이 붙는다. */
+export function ExplorerRootMenu() {
+  const tab = documentTab(EXP);
+  return (
+    <ProjectApp
+      sidebar={{ current: EXP, rootMenu: true }}
+      panes={[{ tabs: [tab], selected: tab.key }]}
+    />
+  );
+}
+
+/** sidebar · Context. contexts 목록과 saved views만 보인다. */
+export function ContextSidebar() {
+  const tab = documentTab(EXP);
+  return (
+    <ProjectApp
+      sidebar={{ mode: "context", savedActive: "running" }}
       panes={[{ tabs: [tab], selected: tab.key }]}
     />
   );
@@ -221,9 +245,12 @@ export function FileActionsMenu() {
         width={160}
         highlighted="Delete"
         items={[
-          { label: "Open" },
-          { label: "Rename" },
-          { label: "Delete" },
+          {
+            label: "Open",
+            icon: menuLead(<FileIcon name="exp-012.md" size={16} />),
+          },
+          { label: "Rename", icon: menuIcon(editorIcons.edit) },
+          { label: "Delete", icon: menuIcon(workspaceIcons.trash) },
         ]}
       />
     </div>,

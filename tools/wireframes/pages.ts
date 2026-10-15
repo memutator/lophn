@@ -121,10 +121,12 @@ export type ScreenId =
   | "new-agent-sessions"
   | "new-agent-sessions-edit"
   | "new-agent-session-archived"
+  | "new-explorer-root"
+  | "new-sidebar-context"
+  | "new-agent-sidebar"
+  | "new-sidebar-collapsed"
   | "new-tab-kinds"
   | "new-tab-menu"
-  | "new-sidebar-collapsed"
-  | "new-agent-sidebar"
   | "new-organize"
   | "new-file-delete"
   | "new-instructions-file"
@@ -197,6 +199,7 @@ export type ScreenId =
   | "new-workspace-apps"
   | "new-settings-general"
   | "new-settings-required-empty"
+  | "new-settings-appearance"
   | "new-settings-providers"
   | "new-settings-connect"
   | "new-settings-agents"
@@ -748,9 +751,33 @@ export const PAGES: readonly WireframePage[] = [
     "new-agent-session-archived",
   ),
   fresh(
+    "new-explorer-root",
+    "Sidebar · Explorer",
+    "sidebar 맨 위 밑줄 탭(Explorer, Context, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘과 하위 폴더가 이름과 경로로 보인다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
+    "new-explorer-root",
+  ),
+  fresh(
+    "new-sidebar-context",
+    "Sidebar · Context",
+    "sidebar 맨 위 밑줄 탭에서 Context를 고른 모양이다. contexts 목록과 saved views만 보이고 saved view 이름을 누르면 결과 탭이 열린다.",
+    "new-sidebar-context",
+  ),
+  fresh(
+    "new-agent-sidebar",
+    "Sidebar · Agent",
+    "sidebar 맨 위 밑줄 탭에서 Agent를 고른 모양이다. lophn, Project Manager, Operators마다 열린 session이 아래에 들여 쓰여 있고 맨 아래에 Recent가 있다. session을 누르면 그 탭이 열리고 묶음 머리의 Manage는 Agents 탭을 연다.",
+    "new-agent-sidebar",
+  ),
+  fresh(
+    "new-sidebar-collapsed",
+    "Sidebar · collapsed",
+    "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Contexts, Saved views, Agent, Search이고 Search는 project 키워드 검색을 연다.",
+    "new-sidebar-collapsed",
+  ),
+  fresh(
     "new-project-tabs",
     "Project · tab kinds",
-    "한 칸에 md 문서, JSON text 파일, project 키워드 검색, Context, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 파일 종류마다 탭 라벨이 다르다.",
+    "한 칸에 md 문서, JSON 파일, project 키워드 검색, Context, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭 줄은 앱 공간 pane과 같은 component이고, 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
     "new-tab-kinds",
   ),
   fresh(
@@ -758,18 +785,6 @@ export const PAGES: readonly WireframePage[] = [
     "Project · new tab menu",
     "탭 줄 끝의 + 메뉴를 펼친 상태다. Agent 하위 메뉴에 lophn, Project Manager, Operator가 있고 Agents(관리 탭)와 New context 항목은 없다.",
     "new-tab-menu",
-  ),
-  fresh(
-    "new-sidebar-collapsed",
-    "Project · sidebar collapsed",
-    "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Contexts, Saved views, Agent, Search이고 Search는 project 키워드 검색을 연다.",
-    "new-sidebar-collapsed",
-  ),
-  fresh(
-    "new-agent-sidebar",
-    "Project · sidebar Agents group",
-    "sidebar의 Agents 묶음이 lophn, Project Manager, Operators 순이고 머리에 Manage가 있다. 파일 tree는 Files 하나이고 따로 있던 Documents 묶음은 없다. session 목록은 sidebar에 없다.",
-    "new-agent-sidebar",
   ),
   fresh(
     "new-organize",
@@ -930,19 +945,19 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-context-glossary",
     "Context · Glossary",
-    "용어집 하위 탭이다. 사람과 Project Manager 둘 다 용어를 더하고 고치고 지운다. 위에 [Add term]이 있고 줄마다 [Edit]과 [Delete]가 오른쪽 끝에 있다.",
+    "용어집 하위 탭이다. 맨 위 머리 줄에 Glossary와 용어 수, 오른쪽 끝에 [Add term]이 있다. 사람과 Project Manager 둘 다 용어를 더하고 고치고 지운다. 줄 오른쪽 끝의 [Edit]과 [Delete]는 hover했을 때만 보인다.",
     "new-context-glossary",
   ),
   fresh(
     "new-context-glossary-add",
     "Context · Glossary (add)",
-    "[Add term]을 눌러 새 용어 form(Term, Meaning, [Cancel]과 [Save])이 열린 상태다.",
+    "[Add term]을 눌러 목록 맨 위에 빈 인라인 줄이 생긴 상태다. 용어와 뜻을 줄에서 바로 쓰고 Enter나 ✓로 저장, Esc나 ×로 취소한다.",
     "new-context-glossary-add",
   ),
   fresh(
     "new-context-glossary-edit",
     "Context · Glossary (edit)",
-    "한 줄의 [Edit]을 눌러 그 줄이 form으로 바뀐 상태다. 나머지 줄은 [Edit]과 [Delete]를 그대로 보인다.",
+    "한 줄의 [Edit]을 눌러 그 줄이 같은 칸 배치 그대로 글자 칸이 된 상태다. ✓와 ×는 오른쪽 끝에 있다.",
     "new-context-glossary-edit",
   ),
   fresh(
@@ -1194,7 +1209,7 @@ export const PAGES: readonly WireframePage[] = [
   fresh(
     "new-settings-general",
     "Settings · General",
-    "Settings 항목은 General, Providers, Agents, Tools and skills, Coding agents, Reactions, Diagnostics 일곱이다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
+    "Settings 항목은 sidebar의 Settings 아래 묶음(General, Agents, System)으로 들어가고 항목마다 아이콘이 있다. General은 선언한 항목을 타입대로 보이고, 값을 바꾸는 칸은 줄 오른쪽 끝 고정 열에 있다. 사람이 정한 값과 기본값을 나눠 보이고, 범위를 넘은 값은 거절 이유가 보인다.",
     "new-settings-general",
   ),
   fresh(
@@ -1202,6 +1217,12 @@ export const PAGES: readonly WireframePage[] = [
     "Settings · required setting empty",
     "필수 설정(기본 model)이 비었을 때다. 탭 위쪽 toast가 그 기능(lophn과 project agent)만 시작하지 않는다고 알리고 고르러 가는 길을 준다.",
     "new-settings-required-empty",
+  ),
+  fresh(
+    "new-settings-appearance",
+    "Settings · Appearance",
+    "화면 모양을 정하는 Settings 항목이다. Theme(Light, Dark, System이 기본, 고르면 바로 바뀜), 글자 크기, 문서 읽기 폭, 화면 밀도가 있다. 줄마다 이름과 설명이 왼쪽, 고르는 칸이 오른쪽 끝 고정 열이다.",
+    "new-settings-appearance",
   ),
   fresh(
     "new-settings-providers",

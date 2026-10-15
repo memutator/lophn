@@ -561,10 +561,9 @@ export interface WaitingLayerProps {
   readonly count?: number;
   /** 창 오른쪽 아래에 쌓인 toast. [Review]는 panel을 펼치고 [Open session]은 그 session으로 간다. */
   readonly toasts?: readonly ToastRow[];
-  readonly children?: ReactNode;
 }
 
-/** 창 위에 얹는 pill과 panel. 답한 요청은 목록에서 빠진다. ProjectApp의 children으로 쓴다. */
+/** 창 위쪽 바 안의 pill과 그 아래로 열리는 panel. 답한 요청은 목록에서 빠진다. ProjectApp의 titleExtra로 쓴다. */
 export function WaitingLayer(
   {
     items: initial,
@@ -574,7 +573,6 @@ export function WaitingLayer(
     settled,
     count,
     toasts: initialToasts = [],
-    children,
   }: WaitingLayerProps,
 ) {
   const [open, setOpen] = useState(start);
@@ -582,19 +580,19 @@ export function WaitingLayer(
   const [toasts, setToasts] = useState(initialToasts);
   const total = count ?? items.length;
   return (
-    <>
-      <div className={styles.layer}>
-        {total > 0 || open
-          ? (
-            <WaitingPill
-              count={total}
-              open={open}
-              onClick={() => setOpen(!open)}
-            />
-          )
-          : null}
-        {open
-          ? (
+    <div className={styles.layer}>
+      {total > 0 || open
+        ? (
+          <WaitingPill
+            count={total}
+            open={open}
+            onClick={() => setOpen(!open)}
+          />
+        )
+        : null}
+      {open
+        ? (
+          <div className={styles.floating}>
             <WaitingPanel
               items={items}
               denying={denying}
@@ -603,9 +601,9 @@ export function WaitingLayer(
               onDecide={(id) =>
                 setItems((now) => now.filter((item) => item.id !== id))}
             />
-          )
-          : null}
-      </div>
+          </div>
+        )
+        : null}
       {toasts.length > 0
         ? (
           <ToastStack>
@@ -624,7 +622,6 @@ export function WaitingLayer(
           </ToastStack>
         )
         : null}
-      {children}
-    </>
+    </div>
   );
 }

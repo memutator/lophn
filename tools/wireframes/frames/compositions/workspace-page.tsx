@@ -6,7 +6,7 @@ import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import { TopBar } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { WireTopBar } from "../chrome/title-bar.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import type { LophnScreen } from "../../../../packages/shell/renderer/desktop/lophn-space/model.ts";
 import {
@@ -20,8 +20,10 @@ import { ProjectsScreen } from "./workspace/projects-screen.tsx";
 import {
   type PaneOverrides,
   SettingsShell,
+  WORKSPACE_PANE_GROUPS,
   type WorkspacePane,
 } from "./workspace/settings-shell.tsx";
+import wsStyles from "./workspace/workspace.module.css";
 import styles from "./compose.module.css";
 
 export type WorkspaceScreen = Extract<
@@ -69,7 +71,13 @@ export function WorkspaceWithoutProject(
         style={{ width: collapsed ? "56px" : "240px" }}
         data-sidebar={collapsed ? "collapsed" : "open"}
       >
-        <div className={sideStyles.header}>
+        <div
+          className={sideStyles.header}
+          style={{
+            height: "var(--wire-title-bar)",
+            borderBottom: "var(--border-width) solid var(--color-border-base)",
+          }}
+        >
           {collapsed ? null : (
             <span className={sideStyles.headerContent}>
               <LauncherButton onLauncher={() => {}} />
@@ -83,18 +91,21 @@ export function WorkspaceWithoutProject(
             onClick={() => setCollapsed(!collapsed)}
           />
         </div>
-        <ul className={sideStyles.list} role="list">
+        <ul className={`${sideStyles.list} ${wsStyles.navList}`} role="list">
           {SCREENS.map((item) => (
-            <li key={item} className={sideStyles.li}>
+            <li key={item} className={`${sideStyles.li} ${wsStyles.navItem}`}>
               <button
                 type="button"
-                className={`${sideStyles.item} ${
-                  item === screen ? sideStyles.active : ""
+                className={`${sideStyles.item} ${wsStyles.navRow} ${
+                  item === screen && !(item === "settings" && !collapsed)
+                    ? sideStyles.active
+                    : ""
                 }`}
                 aria-label={collapsed ? screenLabel(item) : undefined}
                 aria-current={item === screen ? "page" : undefined}
                 title={screenLabel(item)}
-                onClick={() => setScreen(item)}
+                onClick={() =>
+                  setScreen(item)}
               >
                 <Icon
                   icon={screenIcon(item)}
@@ -107,29 +118,62 @@ export function WorkspaceWithoutProject(
                   </span>
                 )}
               </button>
+              {item === "settings" && screen === "settings" && !collapsed
+                ? (
+                  <div className={wsStyles.subList}>
+                    {WORKSPACE_PANE_GROUPS.map((group) => (
+                      <section key={group.title}>
+                        <h3 className={wsStyles.navGroup}>{group.title}</h3>
+                        <ul className={wsStyles.navList} role="list">
+                          {group.panes.map((entry) => (
+                            <li key={entry.id} className={sideStyles.li}>
+                              <button
+                                type="button"
+                                className={`${sideStyles.item} ${wsStyles.navRow} ${
+                                  entry.id === pane ? sideStyles.active : ""
+                                }`}
+                                aria-current={entry.id === pane
+                                  ? "page"
+                                  : undefined}
+                                onClick={() =>
+                                  setPane(entry.id)}
+                              >
+                                <Icon
+                                  icon={entry.icon}
+                                  pixels={iconPixels("base")}
+                                  className={sideStyles.icon}
+                                />
+                                <span className={sideStyles.label}>
+                                  {entry.label}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                )
+                : null}
             </li>
           ))}
         </ul>
       </nav>
       <div className={styles.main}>
-        <div className={styles.topBar}>
-          <TopBar
-            platform="linux"
-            leading={
-              <div className={styles.leading}>
-                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <span className={styles.projectName}>
-                  {screenLabel(screen)}
-                </span>
-              </div>
-            }
-          />
-        </div>
+        <WireTopBar
+          leading={
+            <div className={styles.leading}>
+              {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
+              <span className={styles.projectName}>
+                {screenLabel(screen)}
+              </span>
+            </div>
+          }
+        />
         {screen === "settings"
           ? (
             <SettingsShell
               pane={pane}
-              onPane={setPane}
               onConnect={setConnect}
               panes={panes}
             />

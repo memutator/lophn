@@ -485,3 +485,142 @@
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
 }
+
+/* Explorer: 루트 고르기와 아이콘이 붙은 tree */
+/* tree 머리. VS Code Explorer처럼 작은 대문자 이름과 ▾ 하나이고, 경로는 menu 안에서만 보인다. */
+.rootHead {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-sm-height);
+  margin-bottom: var(--space-1);
+  padding: var(--space-0) var(--space-2);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rootHead:hover {
+  color: var(--color-text-primary);
+}
+
+.rootHead:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.rootTitle {
+  overflow: hidden;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* menu 행은 높이가 한 줄로 정해져 있어서 이름과 경로를 한 줄에 둔다. */
+.rootLabel {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.rootName {
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rootPath {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeIcon {
+  display: inline-flex;
+  flex: none;
+  margin-right: var(--space-3);
+}
+
+/* Agent: 열린 session과 Recent */
+.agentGroup {
+  list-style: none;
+}
+
+.sessions {
+  margin-left: var(--space-8);
+  margin-bottom: var(--space-2);
+}
+
+.sessionItem {
+  gap: var(--space-3);
+}
+
+.sessionDot {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.state_waiting {
+  background: var(--status-warning-marker);
+}
+
+.state_working {
+  background: var(--color-focus);
+}
+
+.sessionText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.sessionMeta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionWhen {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.sessionItem.sessionItem {
+  height: auto;
+  min-height: var(--control-md-height);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/* menu 항목 앞 아이콘 */
+.menuIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-base);
+  color: var(--color-text-muted);
+}

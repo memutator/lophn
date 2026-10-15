@@ -5,8 +5,10 @@
 import { createRoot } from "react-dom/client";
 import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
+import "./frames/chrome/chrome.css";
 
 import { FramePage, Gallery } from "./gallery.tsx";
+import { installWindowApi } from "./frames/chrome/window-api.ts";
 
 const params = new URLSearchParams(location.search);
 const theme = params.get("theme");
@@ -15,6 +17,7 @@ if (theme === "light" || theme === "dark") {
 }
 const frame = params.get("frame");
 if (frame !== null) {
+  installWindowApi();
   // 화면 root는 position:absolute; inset:0이라 viewport를 채운다. Radix modal(Select 등)이 열리면 scroll lock이
   // body에 `position: relative !important`를 걸어 기준이 body로 바뀌는데, body 높이가 0이면 화면이 접혀 비어 보인다.
   const { documentElement: html, body } = document;

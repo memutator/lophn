@@ -14,11 +14,64 @@ export function fileKindOf(path: string): FileKind {
   return "text";
 }
 
-/** 등록 폴더. 이 밖의 경로는 절대 경로로 연다. */
-export const PROJECT_DIR = "~/work/phroner";
+/** project에 연결한 폴더. 하위 폴더도 따로 지정할 수 있다(`parent`는 그 하위 폴더가 속한 폴더). */
+export interface FileRoot {
+  readonly id: string;
+  readonly label: string;
+  readonly path: string;
+  readonly parent?: string;
+}
 
+export const ROOTS: readonly FileRoot[] = [
+  { id: "phroner", label: "phroner", path: "/home/mina/work/phroner" },
+  {
+    id: "phroner/eval",
+    label: "eval",
+    path: "/home/mina/work/phroner/eval",
+    parent: "phroner",
+  },
+  { id: "notes", label: "notes", path: "/home/mina/notes/phroner" },
+];
+
+/** 첫 연결 폴더. 이 안의 파일은 상대 경로로 부르고, 다른 폴더의 파일은 절대 경로로 부른다. */
+export const PROJECT_DIR = ROOTS[0].path;
+
+const isAbsolute = (path: string) =>
+  path.startsWith("/") || path.startsWith("~/");
+
+/** 절대 경로가 들어 있는 연결 폴더(가장 깊은 것). 상대 경로는 첫 연결 폴더다. */
+export function rootOf(path: string): FileRoot | undefined {
+  if (!isAbsolute(path)) return ROOTS[0];
+  return [...ROOTS].filter((root) => path.startsWith(`${root.path}/`)).sort((
+    a,
+    b,
+  ) => b.path.length - a.path.length)[0];
+}
+
+/** 연결한 폴더 밖의 파일인가. */
 export function isOutside(path: string): boolean {
-  return path.startsWith("/") || path.startsWith("~/");
+  return isAbsolute(path) && rootOf(path) === undefined;
+}
+
+/** 첫 연결 폴더 안이면 상대 경로로, 아니면 그대로 쓴다. */
+export function fileKey(path: string): string {
+  const text = path.trim();
+  return text.startsWith(`${PROJECT_DIR}/`)
+    ? text.slice(PROJECT_DIR.length + 1)
+    : text;
+}
+
+/** 위쪽 breadcrumb. 연결한 폴더 안이면 project 이름으로 시작하고, 밖이면 Outside project로 시작한다. */
+export function crumbsOfPath(path: string): string[] {
+  if (isOutside(path)) {
+    return ["Outside project", ...path.split("/").filter(Boolean)];
+  }
+  if (!isAbsolute(path)) return ["phroner", ...path.split("/")];
+  const root = rootOf(path)!;
+  const rest = path.slice(root.path.length + 1).split("/");
+  return root === ROOTS[0]
+    ? ["phroner", ...rest]
+    : ["phroner", root.label, ...rest];
 }
 
 /** 저장 상태는 디스크 저장과 충돌 둘뿐이다. */

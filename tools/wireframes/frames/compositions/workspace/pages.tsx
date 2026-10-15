@@ -56,6 +56,11 @@ export const SettingsRequiredEmpty = () => (
   />
 );
 
+/** Settings › Appearance. */
+export const SettingsAppearance = () => (
+  <WorkspaceWithoutProject screen="settings" pane="appearance" />
+);
+
 /** Settings › Coding agents. */
 export const SettingsCoding = () => (
   <WorkspaceWithoutProject screen="settings" pane="coding" />

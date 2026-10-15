@@ -100,6 +100,18 @@ const GROUPS: readonly Group[] = [
         max: 120,
         defaultText: "30",
       },
+      {
+        key: "agents.run.on_limit",
+        type: "choice",
+        name: "When a turn reaches its limit",
+        help: "What lophn does when a turn hits the tool call or time limit.",
+        value: "stop",
+        options: [
+          { value: "stop", label: "Stop the turn" },
+          { value: "ask", label: "Ask me" },
+        ],
+        defaultText: "Stop the turn",
+      },
     ],
   },
   {
@@ -126,25 +138,6 @@ const GROUPS: readonly Group[] = [
         help: "Keep a snapshot with each reported problem.",
         value: true,
         defaultText: "On",
-      },
-    ],
-  },
-  {
-    title: "Desktop",
-    settings: [
-      {
-        key: "shell.reading_width",
-        type: "choice",
-        name: "Reading width",
-        help: "How wide documents are laid out when you read them.",
-        value: "wide",
-        options: [
-          { value: "narrow", label: "Narrow" },
-          { value: "standard", label: "Standard" },
-          { value: "wide", label: "Wide" },
-        ],
-        setBy: "set",
-        defaultText: "Standard",
       },
     ],
   },

@@ -95,7 +95,8 @@ async function importMap(): Promise<Record<string, string>> {
   const imports: Record<string, string> = {};
   const read = async (path: string) =>
     JSON.parse(await readFile(path, "utf8")).imports ?? {};
-  for (const path of [join(root, "deno.json")]) {
+  // gallery 자기 의존(아이콘 package 등)도 map에 넣는다.
+  for (const path of [join(root, "deno.json"), join(here, "deno.json")]) {
     mergeImports(imports, await read(path), pathToFileURL(path));
   }
   mergeImports(

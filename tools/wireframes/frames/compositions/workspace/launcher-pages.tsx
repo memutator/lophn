@@ -5,13 +5,10 @@ import type { ReactNode } from "react";
 import {
   Button,
   EmptyState,
-  Field,
   Icon,
   IconButton,
   iconPixels,
-  Input,
   StatusMark,
-  Textarea,
   Tooltip,
 } from "@lophn/design/components";
 import {
@@ -21,14 +18,11 @@ import {
   lophnEntryIcon,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import {
-  TopBar,
-  Wordmark,
-} from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { Wordmark } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { WireTopBar } from "../../chrome/title-bar.tsx";
+import { RegisterPanel } from "./register-panel.tsx";
 import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
-import dialog from "../../../../../packages/shell/renderer/desktop/launcher/register-dialog.module.css";
 import { APPS, PROJECTS } from "./data.ts";
-import styles from "./workspace.module.css";
 
 function Entry() {
   return (
@@ -44,8 +38,7 @@ function LauncherWindow(
 ) {
   return (
     <div className={launcher.window} data-space="launcher">
-      <TopBar
-        platform="linux"
+      <WireTopBar
         leading={<Wordmark>lophn</Wordmark>}
         trailing={<Entry />}
       />
@@ -175,68 +168,6 @@ export function LauncherEmpty() {
         </section>
       </div>
     </LauncherWindow>
-  );
-}
-
-function RegisterPanel() {
-  return (
-    <div className={styles.dialogLayer}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-label="Register project"
-      >
-        <h2 className={styles.panelTitle}>Register project</h2>
-        <div className={dialog.form}>
-          <p className={dialog.note}>
-            A project is a name, a purpose and the folders it works in.
-          </p>
-          <Field label="Name">
-            <Input defaultValue="trip-planner" />
-          </Field>
-          <Field
-            label="Purpose"
-            help="What the project is for. Agents read this."
-          >
-            <Textarea
-              rows={3}
-              defaultValue="Plan the autumn trip and keep the bookings in one place."
-            />
-          </Field>
-          <section className={dialog.folders}>
-            <div className={dialog.foldersHead}>
-              <span className={dialog.foldersLabel}>Folders</span>
-              <Tooltip content="Add folder">
-                <IconButton
-                  icon={launcherIcons.addFolder}
-                  label="Add folder"
-                  size="sm"
-                />
-              </Tooltip>
-            </div>
-            <ul className={dialog.folderList}>
-              <li className={dialog.folder}>
-                <div className={dialog.folderHead}>
-                  <span className={dialog.path}>/home/mina/trips/autumn</span>
-                  <IconButton
-                    icon={launcherIcons.remove}
-                    label="Remove folder"
-                    size="sm"
-                  />
-                </div>
-                <Field label="Folder description">
-                  <Input size="sm" defaultValue="Bookings and itineraries" />
-                </Field>
-              </li>
-            </ul>
-          </section>
-        </div>
-        <div className={styles.panelActions}>
-          <Button>Cancel</Button>
-          <Button variant="primary">Register</Button>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -6,10 +6,8 @@ import {
   retryIcon,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import {
-  TopBar,
-  Wordmark,
-} from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { Wordmark } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { WireTopBar } from "../../chrome/title-bar.tsx";
 import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
 import styles from "./workspace.module.css";
 
@@ -53,7 +51,7 @@ const FAILURES: readonly Failure[] = [
 export function StartFailures() {
   return (
     <div className={launcher.window} data-space="launcher" data-gated="">
-      <TopBar platform="linux" leading={<Wordmark>lophn</Wordmark>} />
+      <WireTopBar leading={<Wordmark>lophn</Wordmark>} />
       <main className={styles.failures}>
         {FAILURES.map((failure) => (
           <section key={failure.caption} className={styles.failureCase}>

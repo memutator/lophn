@@ -1,10 +1,13 @@
 // 앱 공간 틀. title bar 아래는 앱 화면이 전부 쓰고, 오른쪽에 agent·터미널 pane과 운영 패널(앱 상세)이 앱 화면 옆에 붙는다.
 // 탭 줄은 없다. 실제 TopBar·LauncherButton과 design component를 쓰고, agent select 메뉴는 펼친 모양을 고정하려고 같은 CSS Module로 짠 look-alike다.
+import { Flag, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import {
   Avatar,
   Button,
+  Icon,
   IconButton,
+  iconPixels,
   StatusMark,
   Tab,
   TabList,
@@ -14,14 +17,15 @@ import {
 } from "@lophn/design/components";
 import {
   appSpaceIcons,
+  conversationIcons,
   editorIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import { TopBar } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { LauncherButton } from "../../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import menuStyles from "../../../../../packages/design/components/menu/menu.module.css";
 
+import { PaletteButton, WireTopBar } from "../../chrome/title-bar.tsx";
 import { VendorIcon } from "../../vendors/vendor-icon.tsx";
 import { APP_NAME } from "./data.ts";
 import { AccessTab } from "./access-tab.tsx";
@@ -83,24 +87,29 @@ const AGENTS = [
 ] as const;
 
 function AgentSelect(
-  { open, onToggle, onPick }: {
+  { open, pane, onToggle, onPick }: {
     open: boolean;
+    /** 옆 pane이 열려 있으면 단추가 눌린 모양이다. */
+    pane: boolean;
     onToggle: () => void;
     onPick: (agent: string | null) => void;
   },
 ) {
   return (
     <span className={styles.barAnchor}>
-      <Button
-        size="sm"
-        variant="ghost"
-        icon={editorIcons.detailsClosed}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={onToggle}
-      >
-        Agent
-      </Button>
+      <Tooltip content="Agent">
+        <Button
+          variant="ghost"
+          icon={conversationIcons.dock}
+          aria-label="Agent"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-pressed={pane || open}
+          onClick={onToggle}
+        >
+          <Icon icon={editorIcons.detailsClosed} pixels={iconPixels("small")} />
+        </Button>
+      </Tooltip>
       {open
         ? (
           <div
@@ -133,6 +142,27 @@ function AgentSelect(
         )
         : null}
     </span>
+  );
+}
+
+/** 위쪽 바의 아이콘 단추. 글자 없이 tooltip(label)만 있고, 켜져 있으면 눌린 모양이다. */
+function BarIcon(
+  { icon, label, pressed, onClick }: {
+    icon: LucideIcon;
+    label: string;
+    pressed?: boolean;
+    onClick: () => void;
+  },
+) {
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        icon={icon}
+        label={label}
+        aria-pressed={pressed}
+        onClick={onClick}
+      />
+    </Tooltip>
   );
 }
 
@@ -174,8 +204,7 @@ export function AppSpace(props: AppSpaceProps = {}) {
   return (
     <div className={styles.window}>
       <div className={styles.topBar}>
-        <TopBar
-          platform="linux"
+        <WireTopBar
           leading={
             <div className={styles.barLeading}>
               <LauncherButton onLauncher={() => {}} />
@@ -188,43 +217,39 @@ export function AppSpace(props: AppSpaceProps = {}) {
           }
           trailing={
             <div className={styles.barTrailing}>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={appSpaceIcons.report}
-                onClick={() => setReport(true)}
-              >
-                Report a problem
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
+              <BarIcon
                 icon={editorIcons.edit}
-                aria-pressed={annotating}
+                label="Annotate"
+                pressed={annotating}
                 onClick={() => {
                   setAnnotating(!annotating);
                   setHint(true);
                   setSent(null);
                 }}
-              >
-                Annotate
-              </Button>
-              <Tooltip content="App details">
-                <IconButton
-                  icon={appSpaceIcons.appDetails}
-                  label="App details"
-                  aria-pressed={panelOpen}
-                  onClick={() => setPanelOpen(!panelOpen)}
-                />
-              </Tooltip>
+              />
+              <BarIcon
+                icon={Flag}
+                label="Report a problem"
+                onClick={() => setReport(true)}
+              />
+              <span className={styles.barSep} aria-hidden="true" />
               <AgentSelect
                 open={menu}
+                pane={pane !== null}
                 onToggle={() => setMenu(!menu)}
                 onPick={(agent) => {
                   setMenu(false);
                   if (agent !== null) setPane({ view: "agent", agent });
                 }}
               />
+              <BarIcon
+                icon={appSpaceIcons.appDetails}
+                label="App details"
+                pressed={panelOpen}
+                onClick={() => setPanelOpen(!panelOpen)}
+              />
+              <span className={styles.barSep} aria-hidden="true" />
+              <PaletteButton />
             </div>
           }
         />

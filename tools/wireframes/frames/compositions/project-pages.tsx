@@ -1,4 +1,13 @@
 // Part 2: project 화면 위의 새 설계. 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
+import {
+  appSpaceIcons,
+  lophnSpaceIcons,
+  paletteIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
+import { FileIcon } from "../chrome/file-icon.tsx";
+import { Avatar } from "./agent-avatar.tsx";
+import { menuIcon, menuLead } from "./project-files/menu-icons.tsx";
 import { CHAT_TAB, type PaneInit, ProjectApp } from "./project-app.tsx";
 import { documentTab, findingTab } from "./phroner-data.ts";
 import { StaticMenu, type TabSpec } from "./project-window.tsx";
@@ -56,21 +65,34 @@ export function NewTabMenu() {
             head="New tab"
             highlighted="Agent"
             items={[
-              { label: "Document" },
-              { label: "Terminal" },
-              { label: "Agent", more: true },
-              { label: "Context" },
-              { label: "Search" },
-              { label: "App panel" },
+              {
+                label: "Document",
+                icon: menuLead(<FileIcon name="notes.md" size={16} />),
+              },
+              { label: "Terminal", icon: menuIcon(workspaceIcons.terminal) },
+              {
+                label: "Agent",
+                more: true,
+                icon: menuIcon(lophnSpaceIcons.roles),
+              },
+              { label: "Context", icon: menuIcon(workspaceIcons.context) },
+              { label: "Search", icon: menuIcon(paletteIcons.search) },
+              { label: "App panel", icon: menuIcon(appSpaceIcons.app) },
             ]}
           />
           <StaticMenu
             head="Agent"
             width={180}
             items={[
-              { label: "lophn" },
-              { label: "Project Manager" },
-              { label: "Operator…" },
+              {
+                label: "lophn",
+                icon: menuLead(<Avatar agent="lophn" size="sm" />),
+              },
+              {
+                label: "Project Manager",
+                icon: menuLead(<Avatar agent="Project Manager" size="sm" />),
+              },
+              { label: "Operator…", icon: menuIcon(lophnSpaceIcons.roles) },
             ]}
           />
         </div>

@@ -151,9 +151,6 @@ export function agentTab(id: string): TabSpec {
     key: `agent-edit:${id}`,
     kind: "operator",
     title: agent?.name ?? "New Operator",
-    label: agent?.role === "Operator" || agent === undefined
-      ? "Operator"
-      : "Agent",
     sub: id,
   };
 }

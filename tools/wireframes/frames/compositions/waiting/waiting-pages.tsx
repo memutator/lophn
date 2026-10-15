@@ -19,15 +19,14 @@ import { WaitingLayer, type WaitingLayerProps } from "./waiting-list.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
 
-// 문서 탭 하나가 열린 project 창 위에 대기 목록 층을 얹는다.
+// 문서 탭 하나가 열린 project 창 의 위쪽 바에 대기 목록 층을 둔다.
 function over(props: WaitingLayerProps) {
   return (
     <ProjectApp
       sidebar={{ foldersClosed: true }}
       panes={[{ tabs: [DOC], selected: DOC.key }]}
-    >
-      <WaitingLayer {...props} />
-    </ProjectApp>
+      titleExtra={<WaitingLayer {...props} />}
+    />
   );
 }
 

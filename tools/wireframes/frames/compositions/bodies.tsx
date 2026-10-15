@@ -1,6 +1,11 @@
 // project 화면의 Terminal 탭 본문.
 import { IconButton, Menu } from "@lophn/design/components";
-import { editorIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
+import { Eraser } from "lucide-react";
+import {
+  editorIcons,
+  workspaceIcons,
+} from "../../../../packages/shell/renderer/icons/mod.ts";
+import { menuIcon } from "./project-files/menu-icons.tsx";
 
 import { ViewBar } from "./documents.tsx";
 import styles from "./compose.module.css";
@@ -17,9 +22,17 @@ export function TerminalBody() {
             <IconButton icon={editorIcons.menu} label="More" size="sm" />
           }
           items={[
-            { id: "clear", label: "Clear" },
-            { id: "rename", label: "Rename" },
-            { id: "split", label: "Split" },
+            { id: "clear", label: "Clear", leading: menuIcon(Eraser) },
+            {
+              id: "rename",
+              label: "Rename",
+              leading: menuIcon(editorIcons.edit),
+            },
+            {
+              id: "split",
+              label: "Split",
+              leading: menuIcon(workspaceIcons.splitPane),
+            },
           ]}
           onSelect={() => {}}
         />

@@ -81,16 +81,10 @@ import {
   AgentSessionsEdit,
 } from "./compositions/agent-pages.tsx";
 import {
-  DocumentOrganize,
-  DocumentTabInfo,
-  DocumentTabPage,
-  NewTabMenu,
-  SidebarCollapsed,
-  TabKinds,
-} from "./compositions/project-pages.tsx";
-import {
   AgentsGroup,
+  ContextSidebar,
   DocumentInfoContexts,
+  ExplorerRootMenu,
   FileConflict,
   FileConflictCompare,
   FileDeleteConfirm,
@@ -105,6 +99,14 @@ import {
   OutsideFile,
   TextFiles,
 } from "./compositions/project-files/pages.tsx";
+import {
+  DocumentOrganize,
+  DocumentTabInfo,
+  DocumentTabPage,
+  NewTabMenu,
+  SidebarCollapsed,
+  TabKinds,
+} from "./compositions/project-pages.tsx";
 import {
   ContextContractPage,
   ContextGlossaryAddPage,
@@ -168,6 +170,7 @@ import {
   LauncherEmpty,
   LauncherProjects,
   LauncherRegister,
+  SettingsAppearance,
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
@@ -347,10 +350,12 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-agent-sessions": () => <AgentSessions />,
   "new-agent-sessions-edit": () => <AgentSessionsEdit />,
   "new-agent-session-archived": () => <AgentSessionArchived />,
+  "new-explorer-root": () => <ExplorerRootMenu />,
+  "new-sidebar-context": () => <ContextSidebar />,
+  "new-agent-sidebar": () => <AgentsGroup />,
+  "new-sidebar-collapsed": () => <SidebarCollapsed />,
   "new-tab-kinds": () => <TabKinds />,
   "new-tab-menu": () => <NewTabMenu />,
-  "new-sidebar-collapsed": () => <SidebarCollapsed />,
-  "new-agent-sidebar": () => <AgentsGroup />,
   "new-organize": () => <DocumentOrganize />,
   "new-file-delete": () => <FileDeleteConfirm />,
   "new-instructions-file": () => <InstructionsFile />,
@@ -423,6 +428,7 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-workspace-apps": () => <WorkspaceApps />,
   "new-settings-general": () => <SettingsGeneral />,
   "new-settings-required-empty": () => <SettingsRequiredEmpty />,
+  "new-settings-appearance": () => <SettingsAppearance />,
   "new-settings-providers": () => <SettingsProvidersPage />,
   "new-settings-connect": () => <SettingsConnectPage />,
   "new-settings-agents": () => <SettingsAgentsPage />,

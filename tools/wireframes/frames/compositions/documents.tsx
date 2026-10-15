@@ -37,6 +37,7 @@ import {
   TextEditor,
 } from "./project-files/viewers.tsx";
 import fileStyles from "./project-files/files.module.css";
+import { menuIcon } from "./project-files/menu-icons.tsx";
 import {
   contextOf,
   contextTab,
@@ -488,8 +489,16 @@ export function DocActions(
       <Menu
         trigger={<IconButton icon={editorIcons.menu} label="More" size="sm" />}
         items={[
-          { id: "rename", label: "Rename" },
-          { id: "delete", label: "Delete" },
+          {
+            id: "rename",
+            label: "Rename",
+            leading: menuIcon(editorIcons.edit),
+          },
+          {
+            id: "delete",
+            label: "Delete",
+            leading: menuIcon(workspaceIcons.trash),
+          },
         ]}
         onSelect={() => {}}
       />

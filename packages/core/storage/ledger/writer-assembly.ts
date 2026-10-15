@@ -35,7 +35,6 @@ import {
   type PreparationRegistry,
 } from "../blobs/mod.ts";
 import { bindQuestionOptionOwners } from "../../lophn-agent/register.ts";
-import { bindApprovalOwners } from "../../main/daemon/platform-register.ts";
 import { SECRET_COMMANDS } from "../../secrets/mod.ts";
 import type { TeamModule } from "../../main/daemon/registration.ts";
 
@@ -121,12 +120,6 @@ export async function assembleWriter(
   }
   // ApplyQuestionOption은 등록된 command 중 선택지로 열 수 있는 소유 동작의 handler만 부른다.
   bindQuestionOptionOwners(commands);
-  // apply_approved_action은 등록된 command 중 dispatchable 표시가 있는 것만 소유 command로 부른다.
-  bindApprovalOwners(
-    commands.filter((command) => command.dispatchable === true).map((command) =>
-      command.route
-    ),
-  );
   // 이름 있는 구독자만 자기 cursor를 올린다. 등록이 없으면 gate도 없어 cursor 전진은 거절된다.
   const subscriberGate = subscribers.length === 0
     ? undefined

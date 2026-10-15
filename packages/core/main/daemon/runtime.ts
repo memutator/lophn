@@ -1,5 +1,5 @@
 import type { Clock, Result } from "../../../base/mod.ts";
-import { err, internalError, isManualClock, ok } from "../../../base/mod.ts";
+import { err, internalError, ok } from "../../../base/mod.ts";
 import {
   type AuthenticatedContext,
   authenticatedContextSchema,
@@ -54,7 +54,6 @@ import {
 } from "../../apps/invocations/restart.ts";
 import { createNotificationDelivery } from "../../notifications/delivery.ts";
 import { createProductRedactor } from "../../projects/outline-and-search/redactor.ts";
-import { APPROVAL_EXPIRY_CONTEXT } from "./platform-register.ts";
 import type { Assembled } from "./registration.ts";
 import { PROVIDER_SECRET_OWNER } from "../../lophn-agent/providers/mod.ts";
 import { openSecretStore, withSecretSync } from "../../secrets/store.ts";
@@ -82,8 +81,6 @@ export type CoreRuntime = {
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다.
   sweepTicketClaims(): Promise<void>;
-  // 기한에 도달한 대기 approval request를 만료로 확정한다. 60초 timer와 재시작이 부른다.
-  sweepApprovalExpiry(): Promise<void>;
   // 재시작 뒤 접수·실행 중으로 남은 invocation을 미확인으로 확정한다. 기동 때 한 번 돈다.
   sweepInterruptedInvocations(): Promise<void>;
   readers: ReaderPool;
@@ -99,8 +96,6 @@ export type CoreRuntime = {
   wake(): void;
   // core 안의 구독 session을 dispatcher에 올려 새 event가 올 때 따라잡게 한다. 돌려받은 함수로 뺀다.
   track(session: EventSession): () => void;
-  // dispatcher에 올라 있는 session 수(core 안 구독자와 WebSocket 연결). 관측용이다.
-  trackedSessions(): number;
   close(): Promise<void>;
 };
 
@@ -135,20 +130,14 @@ const WRITER_DEAD = {
 export async function openRuntime(input: {
   ledgerPath: string;
   clock: Clock;
-  nowMs: number;
-  // "system"이면 writer가 자기 system clock을 쓴다. "fixed"면 nowMs에 고정한다.
-  writerClock: "system" | "fixed";
   seed: number;
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
   // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다.
   doctor?: DoctorSource;
-  // secret store가 값을 읽는 OS keychain. 참조가 있을 때 처음 한 번 만든다. 제품 기동은
-  // 실제 adapter, 테스트는 fake를 준다.
+  // secret store가 값을 읽는 OS keychain. 참조가 있을 때 부른다.
   keychain: () => KeychainAdapter;
-  // secret store의 주기 쓸기 간격(ms). 없으면 10분.
-  secretSweepMs?: number;
   // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다.
   diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
@@ -165,9 +154,8 @@ export async function openRuntime(input: {
 }): Promise<Result<CoreRuntime>> {
   const openedWriter = openProductWriter(input.ledgerPath, {
     modules: [...input.modules],
-    // 제품 clock은 writer가 자기 system clock으로 따라간다. 테스트는 기동 시각에
-    // 고정한 clock으로 결정적인 시각을 유지한다.
-    clock: input.writerClock === "system" ? "system" : input.nowMs,
+    // writer는 자기 system clock으로 커밋 시각을 따라간다.
+    clock: "system",
     seed: input.seed,
     // settings 등록 파일. writer가 apply·reload command를 다시 모은다.
     settings: settingsModule(),
@@ -207,9 +195,6 @@ export async function openRuntime(input: {
     channel: readers.value.known,
     keychain: input.keychain,
     sources: input.assembled.secretRefs,
-    ...(input.secretSweepMs === undefined
-      ? {}
-      : { sweepMs: input.secretSweepMs }),
     // provider credential은 Disconnect로 참조가 사라지면 OS 값도 지운다.
     reclaim: {
       purpose: "provider_credential",
@@ -349,14 +334,9 @@ export async function openRuntime(input: {
   };
   function sweepTicketClaims(): Promise<void> {
     if (!readers.ok) return Promise.resolve();
-    // 테스트의 manual clock은 writer가 객체를 공유하지 못한다. 민 시각을 알린 뒤
-    // 후보를 읽어야 같은 시각으로 만료를 판단한다.
     const nowMs = input.clock.nowMs();
-    const noted = isManualClock(input.clock)
-      ? openedWriter.noteTime(nowMs)
-      : Promise.resolve(ok(undefined));
     const now = new Date(nowMs).toISOString();
-    return noted.then(() => openedWriter.prunePrepared(nowMs)).then(() =>
+    return openedWriter.prunePrepared(nowMs).then(() =>
       readers.value.read(
         { resource: "tickets", method: "claim_sweep" },
         machine,
@@ -373,40 +353,6 @@ export async function openRuntime(input: {
           input: claim,
           compare: {},
           idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
-          prepared: [],
-        });
-      }
-    });
-  }
-  // approval 만료 정리. ticket claim 정리와 같다: 기한에 도달한 대기를 후보 read로 읽고 machine이
-  // expire_approval_request를 제출한다. 이미 끝난 request는 후보에 없고, 그 사이 허락·취소된 것은
-  // command가 conflict로 거절해 그대로 둔다. 여러 번 불러도 같은 결과다.
-  const approvalExpiry = APPROVAL_EXPIRY_CONTEXT as AuthenticatedContext;
-  function sweepApprovalExpiry(): Promise<void> {
-    if (!readers.ok) return Promise.resolve();
-    const nowMs = input.clock.nowMs();
-    const noted = isManualClock(input.clock)
-      ? openedWriter.noteTime(nowMs)
-      : Promise.resolve(ok(undefined));
-    const now = new Date(nowMs).toISOString();
-    return noted.then(() =>
-      readers.value.read(
-        { resource: "approvals", method: "expiry_sweep" },
-        approvalExpiry,
-        { now },
-      )
-    ).then(async (found) => {
-      if (!found.ok) return;
-      const approvals = (found.value as {
-        approvals?: { approval: string; created_seq: string }[];
-      }).approvals ?? [];
-      for (const candidate of approvals) {
-        await openedWriter.writer.command(approvalExpiry as never, {
-          command: "expire_approval_request",
-          input: candidate,
-          compare: { created_seq: candidate.created_seq },
-          idempotency_key:
-            `expire-approval:${candidate.approval}:${candidate.created_seq}`,
           prepared: [],
         });
       }
@@ -483,9 +429,7 @@ export async function openRuntime(input: {
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
     track: (session) => dispatcher.add(session),
-    trackedSessions: () => dispatcher.size,
     sweepTicketClaims,
-    sweepApprovalExpiry,
     sweepInterruptedInvocations,
     async close() {
       dispatcher.close();
@@ -555,7 +499,7 @@ function openProductWriter(
   path: string,
   extra: {
     modules: string[];
-    clock: "system" | number;
+    clock: "system";
     seed: number;
     settings?: string;
   },
@@ -570,7 +514,6 @@ function openProductWriter(
   recordSecretPreparation(
     preparation: SecretPreparation,
   ): Promise<Result<void>>;
-  noteTime(nowMs: number): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
 } {
@@ -680,20 +623,6 @@ function openProductWriter(
         return err({
           code: "unavailable",
           message: "확인 등록을 전달하지 못했다",
-        });
-      });
-    },
-    noteTime(nowMs) {
-      return send({
-        id: nextId++,
-        op: "note-time",
-        nowMs,
-      } as unknown as WriterRequest).then((message) => {
-        if ((message.op as string) === "time-noted") return ok(undefined);
-        if (message.op === "failed") return err(message.body);
-        return err({
-          code: "unavailable",
-          message: "시각을 전달하지 못했다",
         });
       });
     },

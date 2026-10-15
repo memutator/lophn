@@ -14,7 +14,6 @@ import type {
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { approvalRequestCreated } from "../../../protocol/approvals/mod.ts";
-import type { CommandRoute } from "../../../protocol/base/mod.ts";
 import type { EventDefinition } from "../../../protocol/events/mod.ts";
 import {
   notificationCreated,
@@ -23,12 +22,10 @@ import {
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,
-  approvalExpirySweepRead,
   approvalsGetRead,
   approvalsListRead,
   approvalsTextRead,
   type ApprovalTextEnvironment,
-  createApplyCommand,
   createApprovalCommands,
 } from "../../approvals/mod.ts";
 import {
@@ -89,21 +86,6 @@ export const ASSIGNMENT_REACTIONS_CONTEXT: RequestContext = {
   credential_ref: ASSIGNMENT_REACTIONS_PRINCIPAL,
 };
 
-// approval 만료 정리의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없다.
-// 기한에 도달한 대기를 읽고 `expire_approval_request`만 낸다. 허락·거절·취소·사용은 하지 못한다.
-export const APPROVAL_EXPIRY_PRINCIPAL = "machine:approval-expiry";
-
-export const APPROVAL_EXPIRY_CONTEXT: RequestContext = {
-  principal: APPROVAL_EXPIRY_PRINCIPAL,
-  actor: "machine",
-  scope: {
-    operations: ["ApprovalExpirySweep", "expire_approval_request"],
-    targets: {},
-  },
-  conditions: {},
-  credential_ref: APPROVAL_EXPIRY_PRINCIPAL,
-};
-
 export function isNotifications(ctx: RequestContext): boolean {
   return ctx.actor === "machine" && ctx.principal === NOTIFICATIONS_PRINCIPAL &&
     ctx.credential_ref === NOTIFICATIONS_PRINCIPAL;
@@ -135,30 +117,18 @@ export function assignmentReactionsOnlyVisibility<D extends EventDefinition>(
 
 const approvalCommands = createApprovalCommands();
 
-// apply_approved_action이 dispatch할 수 있는 소유 command route다. writer가 모든 등록을 모은 뒤
-// dispatchable로 표시된 command만 여기 묶는다(bindApprovalOwners). 묶기 전에는 비어 있어 어느
-// command도 적용하지 않는다. writer Worker마다 이 module 상태가 따로 있다.
-let approvalOwners: readonly CommandRoute[] = [];
-
-export function bindApprovalOwners(routes: readonly CommandRoute[]): void {
-  approvalOwners = [...routes];
-}
-
 export const platformDefinitions = {
   schemaSteps: [...APPROVAL_SCHEMA_STEPS, ...NOTIFICATIONS_SCHEMA_STEPS],
   commands: [
     approvalCommands.create,
-    approvalCommands.expire,
     approvalCommands.cancel,
     approvalCommands.grant,
     approvalCommands.reject,
-    createApplyCommand(() => approvalOwners),
     ...NOTIFICATION_COMMANDS,
   ],
   reads: [
     approvalsGetRead(),
     approvalsListRead(),
-    approvalExpirySweepRead(),
     notificationsGetRead(),
     notificationsListRead(),
     notificationsDisplayRead(),

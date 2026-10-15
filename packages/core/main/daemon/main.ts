@@ -56,13 +56,7 @@ Deno.addSignalListener("SIGTERM", exitAfterShutdown);
 for (;;) {
   const started = await startCore({
     port,
-    // 제품 writer는 자기 system clock으로 커밋 시각을 따라간다.
-    writerClock: "system",
     teams: TEAMS,
-    // 앱 프로세스 감독(apps/supervisor)은 상시 신뢰 child다. 제품 기동만 띄운다.
-    appSupervisor: true,
-    // lophn agent runtime child도 상시 신뢰 child다. 제품 기동만 띄운다.
-    agentRuntime: true,
     teamModules: [
       new URL("../../projects/register.ts", import.meta.url).href,
       new URL("../../apps/register.ts", import.meta.url).href,

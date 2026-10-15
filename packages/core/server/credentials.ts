@@ -8,12 +8,10 @@ import { APPS_CONTROL_PRINCIPAL } from "../apps/control.ts";
 import { APP_REVERT_PRINCIPAL } from "../apps/revert/app-steps.ts";
 import { REWIND_INSTALL_PRINCIPAL } from "../lophn-agent/session/rewind/files.ts";
 import { INVOCATION_RECOVERY_PRINCIPAL } from "../apps/invocations/restart.ts";
-import { DOCUMENTS_FEED_PRINCIPAL } from "../projects/file-tracking/coordinator/events.ts";
 import { TICKET_CHECK_FEED_PRINCIPAL } from "../apps/tickets/checker/ids.ts";
 import { PROBLEMS_WORK_FEED_PRINCIPAL } from "../problems/grouping/work-ids.ts";
 import { PROBLEMS_CLOSING_FEED_PRINCIPAL } from "../problems/closing/connection.ts";
 import {
-  APPROVAL_EXPIRY_PRINCIPAL,
   ASSIGNMENT_REACTIONS_PRINCIPAL,
   NOTIFICATIONS_PRINCIPAL,
 } from "../main/daemon/platform-register.ts";
@@ -92,9 +90,7 @@ const FIXED_CREDENTIALS = new Set([
   "machine:ticket-claims",
   APPS_CONTROL_PRINCIPAL,
   "machine:lophn-agent-bootstrap",
-  APPROVAL_EXPIRY_PRINCIPAL,
   INVOCATION_RECOVERY_PRINCIPAL,
-  DOCUMENTS_FEED_PRINCIPAL,
   TICKET_CHECK_FEED_PRINCIPAL,
   PROBLEMS_WORK_FEED_PRINCIPAL,
   PROBLEMS_CLOSING_FEED_PRINCIPAL,

@@ -1,17 +1,10 @@
 import { z } from "zod";
 import { atSchema } from "../base/values.ts";
-import {
-  type ConnectionId,
-  connectionIdSchema,
-} from "./connections.ts";
 import { ticketIdSchema } from "./ticket/values.ts";
 
 // terminal host가 TUI env로 넘기는 관측 socket 경로 변수다. 경로만 담고
 // credential과 섞지 않는다.
 export const LOPHN_TERMINAL_OBSERVE = "LOPHN_TERMINAL_OBSERVE";
-
-// TUI 프로세스 env에는 connection 참조 값만 넘긴다(→ coding-agent/connection).
-export const LOPHN_CONNECTION = "LOPHN_CONNECTION";
 
 // lophn이 연 TUI의 shell/terminal 작업 흐름 관측값. ticket 상태와 별개다.
 export const SESSION_STATES = [
@@ -81,7 +74,7 @@ const metaValueSchema = z.string().refine(
   { message: "provider session value" },
 );
 
-// 실제 ID evidence 획득 전 null이다. 터미널·connection·`ses` ID로 채우지 않는다.
+// 실제 ID evidence 획득 전 null이다. 터미널·`ses` ID로 채우지 않는다.
 export const providerSessionMetadataSchema = z.object({
   kind: metaValueSchema,
   id: metaValueSchema,
@@ -105,7 +98,6 @@ export const harnessSessionObservationSchema = z.object({
   adapter_revision: safeRefSchema,
   origin: observationOriginSchema,
   runtime_ref: safeRefSchema.nullable(),
-  connection: connectionIdSchema.nullable(),
   ticket: ticketIdSchema.nullable(),
   cwd: z.string().min(1).nullable(),
   provider_session: providerSessionMetadataSchema.nullable(),
@@ -205,5 +197,3 @@ export function unknownObservation(
   if (current.state === "ended") return current;
   return { ...current, state: "unknown", freshness: "stale", reason };
 }
-
-export type { ConnectionId };

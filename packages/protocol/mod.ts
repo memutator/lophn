@@ -13,7 +13,6 @@ import {
   ROUTES as lophnAgentRoutes,
 } from "./lophn-agent/mod.ts";
 import {
-  EVENTS as codingAgentEvents,
   ROUTES as codingAgentRoutes,
 } from "./coding-agent/mod.ts";
 import {
@@ -44,7 +43,6 @@ export const ALL_EVENTS = [
   ...platformEvents,
   ...shellEvents,
   ...documentsEvents,
-  ...codingAgentEvents,
   ...appsEvents,
   ...problemsEvents,
   ...lophnAgentEvents,

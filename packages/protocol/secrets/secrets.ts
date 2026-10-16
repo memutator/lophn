@@ -15,7 +15,6 @@ export const SECRET_PURPOSES = [
   "app_secret",
   "provider_credential",
   "external_mcp_credential",
-  "coding_connection_credential",
 ] as const;
 export const secretPurposeSchema = z.enum(SECRET_PURPOSES);
 export type SecretPurpose = z.infer<typeof secretPurposeSchema>;
@@ -243,10 +242,7 @@ const useFields = {
   purpose: secretPurposeSchema,
   destination: secretDestinationSchema,
 };
-export const secretUseSchema = z.strictObject(useFields).refine(
-  (use) => use.purpose !== "coding_connection_credential",
-  { message: "coding connection credentials require the trusted loader" },
-);
+export const secretUseSchema = z.strictObject(useFields);
 export type SecretUse = z.infer<typeof secretUseSchema>;
 
 // 원값은 JSON payload가 아니라 callback 메모리 인자다. pipe schema에는 없다.

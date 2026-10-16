@@ -45,30 +45,6 @@ const definitionFields = {
   machine_local: z.boolean(),
 };
 
-const definitionMetadataSchema = z.strictObject(definitionFields);
-type DefinitionMetadata = z.infer<typeof definitionMetadataSchema>;
-
-export type SettingDefinition<S extends z.ZodType = z.ZodType> =
-  & DefinitionMetadata
-  & { value_type: S }
-  & (
-    | { default_present: true; default: z.input<S> }
-    | { default_present: false; default?: never }
-  );
-
-export function defineSetting<S extends z.ZodType>(
-  definition: SettingDefinition<S>,
-): SettingDefinition<S> {
-  const { value_type, default_present, default: defaultValue, ...metadata } =
-    definition;
-  definitionMetadataSchema.parse(metadata);
-  if (default_present) value_type.parse(defaultValue);
-  else if (Object.hasOwn(definition, "default")) {
-    throw new Error("a setting without a default must omit default");
-  }
-  return definition;
-}
-
 // HTTP에서는 실행 가능한 schema 대신 소유 concern의 JSON Schema를 공개한다.
 export const settingDefinitionSchema = z.object({
   ...definitionFields,

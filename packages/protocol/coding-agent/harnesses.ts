@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { defineSetting } from "../config/settings.ts";
 import { atSchema } from "../base/values.ts";
 import { HARNESS_IDS, type HarnessId, harnessIdSchema } from "./harness-id.ts";
 
@@ -98,55 +97,3 @@ export const harnessDetectionSchema = z.object({
 );
 
 export type HarnessDetection = z.infer<typeof harnessDetectionSchema>;
-
-// harness 설정 key 3개다. secret 값은 넣지 않는다(domain-model harnesses).
-const settingKeys = {
-  display_name_key: "settings.coding-agent.harnesses.name",
-  value_meaning_key: "settings.coding-agent.harnesses.value",
-  default_meaning_key: "settings.coding-agent.harnesses.default",
-  risk_key: "settings.coding-agent.harnesses.risk",
-  revert_key: "settings.coding-agent.harnesses.revert",
-  apply_at_key: "settings.coding-agent.harnesses.apply_at",
-} as const;
-
-export const harnessEnabledSetting = defineSetting({
-  ...settingKeys,
-  display_name_key: "settings.coding-agent.harnesses.enabled.name",
-  key: "coding-agent.harnesses.enabled",
-  owner: "coding-agent/harnesses",
-  description: "Turn the harness integration on or off.",
-  value_meaning_key: "settings.coding-agent.harnesses.enabled.value",
-  default_meaning_key: "settings.coding-agent.harnesses.enabled.default",
-  affected_features: ["coding-agent/harnesses"],
-  risk_key: "settings.coding-agent.harnesses.enabled.risk",
-  revert_key: "settings.coding-agent.harnesses.enabled.revert",
-  constraints: { values: [true, false] },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.coding-agent.harnesses.enabled.apply_at",
-  machine_local: true,
-  default_present: true,
-  default: true,
-  value_type: z.boolean(),
-});
-
-export const harnessProfileSetting = defineSetting({
-  key: "coding-agent.harnesses.profile",
-  owner: "coding-agent/harnesses",
-  display_name_key: "settings.coding-agent.harnesses.profile.name",
-  description: "Explicit harness profile override on this machine.",
-  value_meaning_key: "settings.coding-agent.harnesses.profile.value",
-  default_meaning_key: "settings.coding-agent.harnesses.profile.default",
-  affected_features: ["coding-agent/harnesses"],
-  risk_key: "settings.coding-agent.harnesses.profile.risk",
-  revert_key: "settings.coding-agent.harnesses.profile.revert",
-  constraints: { max_length: 128 },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.coding-agent.harnesses.profile.apply_at",
-  machine_local: true,
-  default_present: false,
-  value_type: z.string().min(1).max(128),
-});

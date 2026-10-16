@@ -79,7 +79,7 @@ export function childCliRunner(options: {
     const env: Record<string, string> = {};
     for (const [name, value] of Object.entries(options.env)) {
       if (value === undefined) continue;
-      if (/^(LOPHN_CONNECTION|LOPHN_TERMINAL_OBSERVE)$/.test(name)) continue;
+      if (name === "LOPHN_CONNECTION") continue;
       if (/(TOKEN|SECRET|PASSWORD|CREDENTIAL)/i.test(name)) continue;
       env[name] = value;
     }

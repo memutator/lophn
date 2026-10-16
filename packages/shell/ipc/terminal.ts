@@ -85,20 +85,7 @@ export type TerminalFailure =
   | "no_terminal";
 
 /** coding TUI의 첫 prompt 전달 결과. argv는 `none`, 입력 전달은 pending에서 셋 중 하나로 끝난다. */
-export type PromptOutcome =
-  | "none"
-  | "pending"
-  | "delivered"
-  | "not_delivered"
-  | "unknown";
-
-/** lophn이 [Start]로 연 coding TUI의 시작 표지. 일반 shell runtime에는 없다. */
-export type TerminalCoding = {
-  operation_id: string;
-  ticket: string;
-  connection: string;
-  prompt_delivery: PromptOutcome;
-};
+export type PromptOutcome = "none" | "pending" | "delivered" | "not_delivered";
 
 /** coding session의 터미널 탭 표지. coding 탭은 제목으로 구별하고 끝나면 끝난 상태로만 보인다. */
 export type TerminalCodingSession = {
@@ -123,8 +110,6 @@ export type TerminalRuntime = {
   failure_reason: TerminalFailure | null;
   output_seq: number;
   dropped_output: boolean;
-  /** 옛 표지다. 새 코드는 `coding_session`을 쓴다. */
-  coding?: TerminalCoding;
   /** coding session의 탭일 때만 있다. */
   coding_session?: TerminalCodingSession;
   /** 탭 제목이다. coding 탭은 제목으로 구별한다. */

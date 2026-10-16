@@ -12,22 +12,15 @@ export {
   type LogCollection,
   type LogCollectionDeps,
 } from "./logs.ts";
-export {
-  insertProblemSnapshot,
-  insertSnapshot,
-  readProblemSnapshot,
-} from "./model.ts";
+export { insertProblemSnapshot, readProblemSnapshot } from "./model.ts";
 export {
   DETAIL_COLLECTION_SETTING_KEY,
   detailCollectionSetting,
 } from "./settings.ts";
 export { bytesStream } from "./prepare.ts";
 export {
-  applyPrunedSnapshotAbsence,
   type LogFragmentRead,
   logsRowOf,
-  PRUNED_ABSENCE_REASON,
-  type PrunedAttachments,
   readLogFragment,
   type SnapshotBlobRead,
   type SnapshotBlobReader,
@@ -36,7 +29,6 @@ export {
   type SnapshotLogsEnvironment,
   snapshotLogsRead,
   type SnapshotLogsRow,
-  type SnapshotViewRequest,
 } from "./reads.ts";
 export { SNAPSHOTS_SCHEMA_STEPS } from "./schema.ts";
 export {

@@ -27,7 +27,7 @@ import { repairsPart } from "./repairs/register.ts";
 import type { SnapshotLogsEnvironment } from "./snapshots/mod.ts";
 
 export { detailCollectionSetting } from "./snapshots/register.ts";
-// core 조립이 끼우는 자리: ReleaseLookup을 받는 port key(writer ports와 reader ports에 같은 key로 끼운다)와
+// ReleaseLookup을 받는 port key(writer ports와 reader ports에 같은 key로 끼운다. 구현은 repairs/register.ts)와
 // apps에 넘기는 열린 문제 수 구현.
 export { ReleaseLookupPort } from "./reporting/mod.ts";
 export { problemCounts } from "./grouping/mod.ts";
@@ -130,15 +130,13 @@ export function createLedgerRegistration(
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
 // 만든다. 정책이 없는 problems event는 숨김이다.
 export function createEventRegistration(): EventRegistration {
-  const parts = [testsPart, repairsPart];
   return {
-    events: gather(parts, "events"),
+    events: gather([testsPart], "events"),
     visibility: gather([testsPart], "visibility"),
   };
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
-// 문제 상세가 release를 푸는 ReleaseLookup은 core 조립이 `ReleaseLookupPort`로 끼운다.
 export function createReaderRegistration(): ReaderRegistration {
   const parts = [groupingPart, reportingPart, repairsPart, testsPart];
   return {

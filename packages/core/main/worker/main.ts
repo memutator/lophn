@@ -13,10 +13,6 @@ import {
 } from "../../problems/reporting/worker/collector.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
 import {
-  CODING_AGENT_WORKER_KIND,
-  runCodingAgentWorker,
-} from "../../problems/repairs/worker/context.ts";
-import {
   REVERT_WORKER_KIND,
   runRevertWorker,
 } from "../../apps/revert/worker/run.ts";
@@ -39,7 +35,6 @@ const WORKER_ENTRIES: Readonly<
     return runCollectorWorker();
   },
   "apps/data": runDataWorker,
-  [CODING_AGENT_WORKER_KIND]: runCodingAgentWorker,
   [REVERT_WORKER_KIND]: runRevertWorker,
 };
 

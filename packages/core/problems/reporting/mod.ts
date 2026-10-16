@@ -30,7 +30,6 @@ export {
   scanVisible,
   targetVisible,
 } from "./access.ts";
-export { getReportRead } from "./reads.ts";
 export { REPORTS_SCHEMA_STEPS } from "./schema.ts";
 export {
   COLLECTOR_CAPS,

@@ -1,9 +1,6 @@
 import { type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import type {
-  ProblemSnapshot,
-  SnapshotInput,
-} from "../../../protocol/problems/mod.ts";
+import type { ProblemSnapshot } from "../../../protocol/problems/mod.ts";
 
 const SNAP_COLS =
   `id, captured_at, invocation, invocation_record_missing_reason,
@@ -39,27 +36,6 @@ export function insertProblemSnapshot(
     ],
   );
   return ok(true);
-}
-
-// 옛 `reporting/commands.ts`가 아직 쓴다. 화면 증거와 값·이유 짝은 새 표에 없으므로 버린다.
-export function insertSnapshot(
-  tx: Tx,
-  snapshot: SnapshotInput,
-): Result<true, LophnError> {
-  const error = snapshot.error;
-  return insertProblemSnapshot(tx, {
-    id: snapshot.id,
-    captured_at: snapshot.captured_at,
-    invocation: snapshot.invocation,
-    error: error === null ? null : {
-      name: error.name,
-      message: error.message,
-      frames: error.frames,
-      stack: error.stack,
-      truncation_notes: error.truncation_notes,
-    },
-    logs: snapshot.logs,
-  });
 }
 
 type Row = Record<string, unknown>;

@@ -5,13 +5,10 @@ import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
   ApiReadDefinition,
-  Input,
   Output,
-  ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import {
-  type getSnapshot,
   getSnapshotLogs,
   getSnapshotLogsInputSchema,
   type LogEvidence,
@@ -36,9 +33,6 @@ const UNAVAILABLE_REASONS = {
 
 const NO_LOGS_REASON = "이 발생에는 수집한 로그가 없다";
 
-// GetSnapshot이 사람에게 보이는 정리 부재. 로그 조각 조회의 긴 문장은 위의 pruned다.
-export const PRUNED_ABSENCE_REASON = "정리됨";
-
 const BLOB_STATUS = ["pruned", "missing", "corrupt"] as const;
 export type SnapshotBlobReason = (typeof BLOB_STATUS)[number];
 
@@ -59,49 +53,6 @@ export function snapshotBlobStatus(error: {
     knownBlobReason(error.message) ??
     "missing";
 }
-
-export type PrunedAttachments = {
-  stack: boolean;
-  logs: boolean;
-};
-
-// 용량 정리로 사라진 첨부만 항목 부재를 "정리됨"으로 바꾼다.
-// blobs의 hash 참조는 남긴다. 저장돼 있던 다른 부재 이유는 그대로다.
-export function applyPrunedSnapshotAbsence(
-  value: Output<typeof getSnapshot>,
-  pruned: PrunedAttachments,
-  item: Input<typeof getSnapshot>["item"],
-): Output<typeof getSnapshot> {
-  const next = structuredClone(value);
-  const snapshot = next.snapshot;
-  const error = snapshot.error;
-  if (pruned.stack && error !== null && error.stack !== null) {
-    snapshot.error = {
-      ...error,
-      stack: null,
-      stack_missing_reason: { reason: PRUNED_ABSENCE_REASON },
-    };
-  }
-  if (pruned.logs && snapshot.logs !== null) {
-    snapshot.logs = null;
-    snapshot.logs_missing_reason = { reason: PRUNED_ABSENCE_REASON };
-  }
-  if (item === "error" && pruned.stack && snapshot.error !== null) {
-    next.item = snapshot.error;
-    next.missing = { reason: PRUNED_ABSENCE_REASON };
-  } else if (item === "logs" && pruned.logs) {
-    next.item = null;
-    next.missing = { reason: PRUNED_ABSENCE_REASON };
-  }
-  return next;
-}
-
-// core가 GetSnapshot 응답에 정리 부재를 얹을 때 넘기는 ledger snapshot.
-export type SnapshotViewRequest = {
-  snapshot: ReadSnapshot;
-  ctx: RequestContext;
-  input: Input<typeof getSnapshot>;
-};
 
 // 앱·알 수 없는 actor는 snapshot 첨부를 읽을 수 없고 없는 것과 같은 답을 받는다.
 function mayRead(actor: string): boolean {

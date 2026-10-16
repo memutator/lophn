@@ -1,22 +1,13 @@
 import type { ProblemsPart } from "../register.ts";
-import {
-  problemFixRecorded,
-  problemsUploadFixSummary,
-} from "../../../protocol/problems/mod.ts";
-import {
-  FIX_BLOB_FIELDS,
-  FIX_BLOB_PURPOSES,
-  listProblemFixesRead,
-  recordProblemFixCommand,
-} from "./mod.ts";
+import { releaseLookupOf } from "../../apps/releases/store.ts";
+import { defineTxPort } from "../../storage/ledger/mod.ts";
+import { ReleaseLookupPort } from "../reporting/mod.ts";
+import { problemMoreRead } from "./more.ts";
 
+// release 사실은 releases 표에서 읽는다. 접수 transaction(writer)과 reader가 같은 key로 받는다.
 export const repairsPart = {
-  blobFields: FIX_BLOB_FIELDS,
-  blobPurposes: FIX_BLOB_PURPOSES,
-  commands: [recordProblemFixCommand],
-  reads: [listProblemFixesRead],
-  readerReads: [listProblemFixesRead],
-  events: [problemFixRecorded],
-  // 고친 기록 summary의 blob 준비 route. 바이트는 core 핸들러가 준비 중계로 흘린다.
-  uploadRoutes: [problemsUploadFixSummary],
+  reads: [problemMoreRead],
+  readerReads: [problemMoreRead],
+  ports: [defineTxPort(ReleaseLookupPort, () => releaseLookupOf)],
+  readerPorts: [[ReleaseLookupPort, releaseLookupOf]],
 } satisfies ProblemsPart;

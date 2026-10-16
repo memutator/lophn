@@ -1,20 +1,8 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
-import {
-  getReport,
-  problemsUploadFixSummary,
-  reportBody,
-} from "../../../../protocol/problems/mod.ts";
+import { reportBody } from "../../../../protocol/problems/mod.ts";
 import { createChildBlobPrepare } from "../../../storage/blobs/child-prepare.ts";
 import { authorize } from "../../../server/identity/mod.ts";
-import { answerRedactRequest } from "../../../lophn-agent/run-loop/runtime-redaction.ts";
-import { fixSummaryUploadHandler } from "../../../problems/repairs/fix-summary-upload.ts";
-import {
-  registerRepairReads,
-  registerSessionReads,
-  REPAIR_WORKER_KIND,
-  repairWorkerSpec,
-} from "../../../problems/repairs/context.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
   COLLECTOR_ROUTES,
@@ -23,6 +11,8 @@ import {
 } from "../../../problems/reporting/collector.ts";
 import { withViewBinding } from "../../../problems/reporting/view-binding.ts";
 import { snapshotLogsEnvironment } from "../../../problems/snapshots/logs-read.ts";
+import type { SnapshotLogsEnvironment } from "../../../problems/snapshots/mod.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
 import {
   COLLECTOR_KIND,
   reportCollectorSpec,
@@ -38,37 +28,31 @@ import {
 export const problemsWiring: WiringFactory = () => {
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
   const collectorChannel = createWorkerChannel();
-  // coding-agent 수리 자료 worker 요청 통로. 같은 통로 모양을 쓴다.
-  const repairChannel = createWorkerChannel();
   let closeCollectorBlob: (() => void) | undefined;
+  let snapshotLogs: SnapshotLogsEnvironment | undefined;
   return {
     name: "problems",
     // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
-    environment: (ctx) => ({
-      snapshotLogs: snapshotLogsEnvironment({
+    environment: (ctx) => {
+      snapshotLogs = snapshotLogsEnvironment({
         ledgerPath: ctx.ledgerPath,
         read: (hash, offset, length) =>
           ctx.blobRead.deps.read(hash, offset, length),
-      }),
-    }),
+      });
+      return { snapshotLogs };
+    },
     // problems report collector(machine)가 보고를 제출한다.
     operations: () => collectorOperationPolicies(),
     build(ctx) {
-      registerRepairReads(ctx.runtime, repairChannel);
-      registerSessionReads(ctx.runtime, repairChannel);
       return ok({
         // 보고의 사람 글·log·화면 상태만 읽는 좁은 route. 일반 `blobs/read`는 coding 연결에 열지 않는다.
         reads(reads) {
           reads.set(
             `${reportBody.resource}/${reportBody.method}`,
-            (context, body) => reportBodyHandler(ctx, context, body),
+            (context, body) =>
+              reportBodyHandler(ctx, snapshotLogs, context, body),
           );
         },
-        uploads: [[
-          // 고친 기록 summary: purpose는 problems/repairs 등록값(fix_summary)으로 고정이다.
-          `${problemsUploadFixSummary.resource}/${problemsUploadFixSummary.method}`,
-          fixSummaryUploadHandler({ current: ctx.prepareRelay }),
-        ]],
         // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다.
         workers: new Map(withViewBinding(
           collectorWorkers({
@@ -98,7 +82,6 @@ export const problemsWiring: WiringFactory = () => {
       await startCollector(ctx, collectorChannel, (close) => {
         closeCollectorBlob = close;
       });
-      await startRepairWorker(ctx, repairChannel);
       return ok(undefined);
     },
     closeIntake() {
@@ -174,55 +157,13 @@ async function startCollector(
   }
 }
 
-// coding-agent/worker. 수리 자료(`/v1/repair_context/*`)를 요청자 credential로 조립하는 상시 worker다.
-// 자기 credential이 없고(hello의 credential은 자리만 채운다) 요청마다 core가 요청자의 것을 싣는다.
-// 알려진 값 pipe의 `redact_request`는 여기서 답한다. 띄우지 못해도 core는 계속 서고 그 route만
-// unavailable이다.
-async function startRepairWorker(
-  ctx: WiringContext,
-  channel: ReturnType<typeof createWorkerChannel>,
-): Promise<void> {
-  const repairSpec = repairWorkerSpec();
-  if (
-    !repairSpec ||
-    !ctx.allRoutes.some((route) =>
-      route.resource === "repair_context" ||
-      route.resource === "coding_agent_sessions"
-    )
-  ) return;
-  const started = await ctx.io.start(
-    repairSpec,
-    {
-      type: "hello",
-      core_epoch: ctx.epoch,
-      process_identity: ctx.epoch,
-      kind: REPAIR_WORKER_KIND,
-      task: "repair-context",
-      scope: { operations: [], targets: {} },
-      credential: "none",
-      api_port: ctx.server.port,
-    },
-    {
-      onMessage: (message) => {
-        const answer = answerRedactRequest(message, ctx.knownSecrets);
-        if (answer) void ctx.io.send(REPAIR_WORKER_KIND, answer);
-        else channel.onMessage(message);
-      },
-    },
-  );
-  if (started.ok) {
-    channel.bind((payload) =>
-      ctx.io.send(REPAIR_WORKER_KIND, payload).then((sent) => sent.ok)
-    );
-  }
-}
-
 // /v1/problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
-// 보고는 이 자격으로 GetReport가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
+// 보고는 이 자격으로 `problem.get_occurrence`가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
 // 읽기 시작할 때와 반환 직전에 보고의 앱·문제 target을 현재 credential로 다시 검사한다. 글은 core
 // 알려진 값 pipe를 지난 것만 내보낸다(끝내지 못하면 unavailable).
 async function reportBodyHandler(
   ctx: WiringContext,
+  snapshotLogs: SnapshotLogsEnvironment | undefined,
   context: RequestContext,
   body: unknown,
 ): Promise<Result<unknown>> {
@@ -237,19 +178,18 @@ async function reportBodyHandler(
     code: "not_found",
     message: "대상을 찾을 수 없다",
   });
-  const found = await ctx.runtime.readers.read(
-    getReport,
-    context,
-    { report: parsed.data.report },
-  );
+  // 볼 수 있는 발생인지는 problem.get_occurrence의 판정을 그대로 쓴다.
+  if (snapshotLogs?.view === undefined) {
+    return err({ code: "unavailable", message: "발생 읽기가 붙어 있지 않다" });
+  }
+  const found = await snapshotLogs.view(context, {
+    report: parsed.data.report,
+  });
   if (!found.ok) {
     return found.error.code === "unavailable" ? found : notFound;
   }
-  const report =
-    (found.value as { report: { app: string; problem: string | null } })
-      .report;
-  if (report.problem === null) return notFound;
-  const target = { app: report.app, problem: report.problem };
+  const target = reportTarget(ctx.ledgerPath, parsed.data.report);
+  if (target === undefined) return notFound;
   const blob = ctx.blobRead.deps;
   const source = {
     ...blob,
@@ -306,4 +246,26 @@ async function reportBodyHandler(
     text: safe,
     truncated: value.truncated === true,
   });
+}
+
+// 보고가 붙은 앱과 문제다. 문제에 붙지 않은 보고는 없다.
+function reportTarget(
+  ledgerPath: string,
+  report: string,
+): { app: string; problem: string } | undefined {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return undefined;
+  try {
+    const row = opened.value.sql.get(
+      "select app, problem from reports where id = ?",
+      [report],
+    );
+    return row === undefined || row["problem"] === null
+      ? undefined
+      : { app: String(row["app"]), problem: String(row["problem"]) };
+  } catch {
+    return undefined;
+  } finally {
+    opened.value.close();
+  }
 }

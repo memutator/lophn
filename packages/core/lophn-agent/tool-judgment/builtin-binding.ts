@@ -50,26 +50,6 @@ const SPECS: ReadonlyMap<string, Spec> = new Map<string, Spec>([
       input: (input) => ({ app: input["app"] }),
     },
   }],
-  ["ticket.make_ready", {
-    concern: "coding-agent/tickets",
-    targets: (input) => [text(input["ticket"])],
-    comparison: (input) => ({ revision: text(input["base_revision"]) }),
-    changes: () => "fills the evidence of a ticket and marks it ready",
-    verify: {
-      contract: "ShowTicket",
-      input: (input) => ({ ticket: input["ticket"] }),
-    },
-  }],
-  ["problem.set_interpretation", {
-    concern: "problems/grouping",
-    targets: (input) => [text(input["problem"])],
-    changes: () =>
-      "links the problem to the fixed version and section of an interpretation document",
-    verify: {
-      contract: "GetProblem",
-      input: (input) => ({ problem: input["problem"] }),
-    },
-  }],
   // Context Engineer의 쓰기다. context 생성은 project가, 초안은 context가, 제출은 만든 판이,
   // 용어집 항목은 항목(새 항목은 context)이 대상이다. 판과 항목 id만으로는 대상 읽기가 없어 소유 contract가
   // 실행 때 자격으로 막는다.

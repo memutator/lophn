@@ -1,44 +1,136 @@
+import { ok } from "../../../../base/mod.ts";
+import {
+  ticketCancel,
+  ticketCreate,
+  ticketList,
+  ticketShow,
+  ticketUpdate,
+  ticketVerify,
+} from "../../../../protocol/coding-agent/ticket/mod.ts";
+import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
+import type { ToolInput } from "../domain/input.ts";
+import { countSummary, fitted, invalid, readBody } from "../domain/result.ts";
+import { defineBuiltin } from "./common.ts";
 
-// 껍데기다. agent-tools-work task가 채운다.
-export const TICKET_TOOLS: readonly ToolDefinition[] = [];
-
-type Condition = { kind: string; problem?: string };
-
-// 옛 roles/app-engineer/ticket.ts가 아직 읽는다. 그 file이 바뀌면 지운다.
-// 실행 준비에 모자란 것이다. 모자라면 ticket을 버리지 않고 확인 필요로 남긴다.
-export function missingForReady(input: {
-  kind: "implementation" | "repair";
-  problems: readonly string[];
-  references: readonly unknown[];
-  adoption_questions: readonly unknown[];
-  conditions: readonly Condition[];
-}): string[] {
-  const missing: string[] = [];
-  if (input.references.length === 0) {
-    missing.push("fixed design evidence is missing");
-  }
-  if (input.adoption_questions.length === 0) {
-    missing.push("an adopted decision question is missing");
-  }
-  const kinds = new Set(input.conditions.map((condition) => condition.kind));
-  if (!kinds.has("app_test") || !kinds.has("test_command")) {
-    missing.push("an executable acceptance check is missing");
-  }
-  if (input.kind === "repair") {
-    if (!kinds.has("problems_closed")) {
-      missing.push("the problems_closed check is missing");
-    }
-    for (const problem of input.problems) {
-      const covered = input.conditions.some((condition) =>
-        condition.problem === problem &&
-        (condition.kind === "reproduction_test" ||
-          condition.kind === "human_confirmation")
+// ticket은 목표, acceptance check 하나, 근거 링크다. 상태 전이는 route가 지킨다.
+export const TICKET_TOOLS: readonly ToolDefinition[] = [
+  defineBuiltin({
+    name: "ticket.list",
+    description:
+      "List tickets, optionally of one app or one state. Returns id, app, title and state.",
+    effect: "read",
+    handler: async (input, ctx) => {
+      const read = await readOf(
+        ctx.core,
+        ticketList,
+        input as ToolInput<"ticket.list">,
       );
-      if (!covered) {
-        missing.push(`no reproduction or human confirmation for ${problem}`);
+      if (!read.ok) return read;
+      const { body, more } = readBody(read.value);
+      return ok(fitted(
+        countSummary("tickets", body.tickets.length, more),
+        body,
+        ["tickets"],
+      ));
+    },
+  }),
+  defineBuiltin({
+    name: "ticket.get",
+    description:
+      "Read a ticket: goal, acceptance check, evidence, state, claim, completion report and check result.",
+    effect: "read",
+    handler: async (input, ctx) => {
+      const read = await readOf(
+        ctx.core,
+        ticketShow,
+        input as ToolInput<"ticket.get">,
+      );
+      if (!read.ok) return read;
+      const { ticket } = read.value;
+      return ok(fitted(`ticket ${ticket.id} is ${ticket.state}`, ticket));
+    },
+  }),
+  defineBuiltin({
+    name: "ticket.create",
+    description:
+      "Open a ticket for a coding agent: a goal, one acceptance check (app_test, test_command or text) and optional evidence links (problem, ticket, release, file, annotation).",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const made = await commandOf(
+        ctx.core,
+        ticketCreate,
+        input as ToolInput<"ticket.create">,
+        {},
+        ctx.tool_call,
+      );
+      if (!made.ok) return made;
+      return ok(fitted(`opened ticket ${made.value.ticket}`, made.value));
+    },
+  }),
+  defineBuiltin({
+    name: "ticket.update",
+    description:
+      "Change the goal or the acceptance check of a ticket before it closes.",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const changed = await commandOf(
+        ctx.core,
+        ticketUpdate,
+        input as ToolInput<"ticket.update">,
+        {},
+        ctx.tool_call,
+      );
+      if (!changed.ok) return changed;
+      return ok(
+        fitted(`updated ticket ${changed.value.ticket}`, changed.value),
+      );
+    },
+  }),
+  defineBuiltin({
+    name: "ticket.verify",
+    description:
+      "Mark a reported ticket verified or failed. A verified ticket is activated by the program.",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const { ticket, result, note } = input as ToolInput<"ticket.verify">;
+      const read = await readOf(ctx.core, ticketShow, { ticket });
+      if (!read.ok) return read;
+      const view = read.value.ticket;
+      if (view.completion === null) {
+        return invalid("the ticket has no completion report");
       }
-    }
-  }
-  return missing;
-}
+      const done = await commandOf(
+        ctx.core,
+        ticketVerify,
+        {
+          ticket,
+          base_revision: view.revision,
+          completion_seq: view.completion.completion_seq,
+          result,
+          ...(note === undefined ? {} : { note }),
+        },
+        { base_revision: view.revision },
+        ctx.tool_call,
+      );
+      if (!done.ok) return done;
+      return ok(fitted(`ticket ${ticket} is ${done.value.state}`, done.value));
+    },
+  }),
+  defineBuiltin({
+    name: "ticket.cancel",
+    description: "Cancel a ticket with a one line reason.",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const done = await commandOf(
+        ctx.core,
+        ticketCancel,
+        input as ToolInput<"ticket.cancel">,
+        {},
+        ctx.tool_call,
+      );
+      if (!done.ok) return done;
+      return ok(fitted(`cancelled ticket ${done.value.ticket}`, done.value));
+    },
+  }),
+];

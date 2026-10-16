@@ -128,12 +128,9 @@ export async function openRuntime(input: {
     // writer는 자기 system clock으로 커밋 시각을 따라간다.
     clock: "system",
     seed: input.seed,
-    // settings 등록 파일. writer가 apply·reload command를 다시 모은다.
-    settings: settingsModule(),
   });
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
-  // settings 등록 파일도 같은 풀로 붙는다. settings read는 ledger snapshot을 읽는다.
-  const readerModules: URL[] = [new URL(settingsModule())];
+  const readerModules: URL[] = [];
   for (const url of input.modules) {
     const module = (await import(url)) as {
       createReaderRegistration?: unknown;
@@ -200,12 +197,8 @@ export async function openRuntime(input: {
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
     ],
     // reader Worker가 등록한 ledger read. 팀 read는 그 뒤에 같은 풀로 붙는다.
-    // settings read도 같은 풀이다. contract ROUTES가 이미 고정한 route 경로다.
     ...[
       "commands/result",
-      "settings/definitions",
-      "settings/get",
-      "settings/history",
     ].map((
       key,
     ): [string, ReadHandler] => [
@@ -255,12 +248,6 @@ export async function openRuntime(input: {
   });
 }
 
-// settings 등록 파일. settingsRoutes에 붙는 registry·command·read는
-// settings.ts가 만든다.
-function settingsModule(): string {
-  return new URL("../../config/settings.ts", import.meta.url).href;
-}
-
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
 function openProductWriter(
   path: string,
@@ -268,7 +255,6 @@ function openProductWriter(
     modules: string[];
     clock: "system";
     seed: number;
-    settings?: string;
   },
 ): {
   writer: Writer;

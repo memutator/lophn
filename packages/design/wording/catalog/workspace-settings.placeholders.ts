@@ -325,6 +325,14 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.reaction.problem-opened-when": Record<never, never>;
   "settings.reaction.problem-reopened-when": Record<never, never>;
   "settings.reaction.restart-halted-when": Record<never, never>;
+  "settings.shell-density.help": Record<never, never>;
+  "settings.shell-density.name": Record<never, never>;
+  "settings.shell-reading_width.help": Record<never, never>;
+  "settings.shell-reading_width.name": Record<never, never>;
+  "settings.shell-text_size.help": Record<never, never>;
+  "settings.shell-text_size.name": Record<never, never>;
+  "settings.shell-theme.help": Record<never, never>;
+  "settings.shell-theme.name": Record<never, never>;
   "settings.title.not-set": {
     name: "string";
   };

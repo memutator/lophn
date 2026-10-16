@@ -1,7 +1,71 @@
-import { SETTINGS_SCHEMA_STEPS } from "../../../config/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
+import {
+  settingsList,
+  settingsUpdate,
+} from "../../../../protocol/config/mod.ts";
+import {
+  createSettingsReader,
+  createSettingsRegistry,
+  createSettingsStore,
+  settingsListHandler,
+  type SettingsStore,
+  settingsUpdateHandler,
+  shellSettings,
+} from "../../../config/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-export const configWiring: WiringFactory = () => ({
-  name: "config",
-  schemaStepsAfterTeams: SETTINGS_SCHEMA_STEPS,
-});
+const key = (route: { resource: string; method: string }) =>
+  `${route.resource}/${route.method}`;
+
+// 설정 파일(`<data root>/settings.json`)을 연다. store는 build에서 열어 `settings` 칸을 먼저 낸다
+// (approvals처럼 build에서 읽는 wiring이 있다). watch는 start에서 시작한다.
+// 선언은 shell 것에 assembly.ts가 `settingDeclarations`로 모은 각 module의 것을 더한다.
+export const configWiring: WiringFactory = () => {
+  let store: SettingsStore | undefined;
+  return {
+    name: "config",
+    build(ctx) {
+      let registry;
+      try {
+        registry = createSettingsRegistry([
+          ...shellSettings,
+          ...ctx.peek.settingDeclarations ?? [],
+        ]);
+      } catch (error) {
+        return err({
+          code: "internal",
+          message: error instanceof Error
+            ? error.message
+            : "setting declaration",
+        });
+      }
+      store = createSettingsStore({
+        root: ctx.root.path,
+        registry,
+        // Bus는 events가 prepare에서 낸다.
+        publish: (keys) =>
+          ctx.bus.publish({
+            type: "SettingsChanged",
+            subject: null,
+            at: ctx.clock.now(),
+            payload: { keys },
+          }),
+        log: (message) => console.error(message),
+      });
+      ctx.provide("settings", createSettingsReader(store));
+      return ok({
+        memory: [
+          [key(settingsList), settingsListHandler(store)],
+          [key(settingsUpdate), settingsUpdateHandler(store)],
+        ],
+      });
+    },
+    start() {
+      store?.watch();
+      return Promise.resolve(ok(undefined));
+    },
+    closeIntake() {
+      store?.close();
+    },
+  };
+};

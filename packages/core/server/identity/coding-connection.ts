@@ -15,7 +15,6 @@ import {
   connectionEndChild,
   connectionEndConnection,
   connectionRegisterChild,
-  defaultHarnessSetting,
   harnessEnabledSetting,
   harnessProfileSetting,
   REPAIR_CONTEXT_ROUTES,
@@ -28,13 +27,12 @@ import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 const commands = createConnectionCommands();
 const reads = createConnectionReads();
 
-// 소유 concern(coding-agent/harnesses)의 harness 설정 3개다.
+// 소유 concern(coding-agent/harnesses)의 harness 설정이다. 기본 harness는 apps/tickets/coding/settings.ts의 선언이다.
 // 값은 소유 concern의 schema 검증을 따른다. 실행 파일 경로·감지·receipt는
 // machine-local 자료로 분리되고 일반 설정 조립에 들지 않는다.
 // settings registry의 출처는 core 조립의 settings.ts다.
 export const harnessSettings = [
   harnessEnabledSetting,
-  defaultHarnessSetting,
   harnessProfileSetting,
 ];
 

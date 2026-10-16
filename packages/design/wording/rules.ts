@@ -52,6 +52,7 @@ export const SHORT_PARTS = new Set([
   "title",
   "heading",
   "label",
+  "name",
   "view",
   "models",
   "activity",

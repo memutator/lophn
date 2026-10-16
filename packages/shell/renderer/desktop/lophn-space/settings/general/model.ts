@@ -84,7 +84,7 @@ function wording(key: string): string | null {
 /** 설정 이름. catalog에 없으면 key를 그대로 보인다. */
 export function nameOf(key: string): string {
   const text = wording(wordingKey(key, "name"));
-  return text === null ? key : text.replace(/\.$/, "");
+  return text === null ? key : text;
 }
 
 export function helpOf(key: string): string | null {

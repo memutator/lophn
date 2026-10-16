@@ -41,9 +41,6 @@ import type { TeamModule } from "../../main/daemon/registration.ts";
 export type WriterBoot = {
   path: string;
   modules: string[];
-  // settings 등록 파일. writer가 apply·reload command를 다시 모을 때만 import한다.
-  // 없어도 기동한다(테스트가 settings 없이 core를 띄울 때).
-  settings?: string;
   // "system"이면 writer가 자기 system clock을 쓴다. 숫자면 그 시각에 고정한
   // clock을 쓴다. 테스트만 숫자를 보내고, 제품 경로는 "system"이다.
   clock: "system" | number;
@@ -92,20 +89,6 @@ export async function assembleWriter(
   ];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];
-  // settings 등록 파일은 apply·reload command만 추가한다. route는 contract
-  // ROUTES가 고정하므로 writer route 등록은 없다.
-  if (boot.settings) {
-    const settings = await import(boot.settings) as {
-      settingsDefinitions?: { commands?: readonly CommandDefinition[] };
-    };
-    for (const command of settings.settingsDefinitions?.commands ?? []) {
-      if (names.has(command.route.name)) {
-        throw new Error("duplicate command registration");
-      }
-      names.add(command.route.name);
-      commands.push(command);
-    }
-  }
   for (const url of boot.modules) {
     const team: TeamModule = await import(url);
     const loose = teamRegistration(team);

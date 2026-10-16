@@ -15,6 +15,12 @@ export interface Link {
     method: string,
     body: Record<string, unknown>,
   ): Promise<ReadResult<V>>;
+  /** memory route 하나(settings/list). */
+  memory<V>(
+    resource: string,
+    method: string,
+    body: Record<string, unknown>,
+  ): Promise<ReadResult<V>>;
   /** worker가 조립하는 읽기 하나(문서 본문). */
   worker<V>(
     resource: string,
@@ -32,7 +38,7 @@ export interface Link {
 
 export function createLink(core: CoreSource, random: () => string): Link {
   const call = async (
-    kind: "read" | "command" | "worker",
+    kind: "read" | "command" | "worker" | "memory",
     resource: string,
     method: string,
     body: unknown,
@@ -48,7 +54,7 @@ export function createLink(core: CoreSource, random: () => string): Link {
       return { ok: false, code: "unavailable", error: undefined };
     }
   };
-  const fetchValue = (kind: "read" | "worker") =>
+  const fetchValue = (kind: "read" | "worker" | "memory") =>
   async <V>(
     resource: string,
     method: string,
@@ -61,6 +67,7 @@ export function createLink(core: CoreSource, random: () => string): Link {
   };
   return {
     read: fetchValue("read"),
+    memory: fetchValue("memory"),
     worker: fetchValue("worker"),
     command: (resource, method, input, compare = {}) =>
       call("command", resource, method, {

@@ -2,19 +2,19 @@ export const workspaceSettings = {
   "settings.agents-model-catalog_auto_update.help":
     "Fetch the list of models each provider offers.",
   "settings.agents-model-catalog_auto_update.name":
-    "Update the model catalog automatically.",
+    "Update the model catalog automatically",
   "settings.agents-run-fallback_model.help":
     "Used when the chosen model isn't available.",
-  "settings.agents-run-fallback_model.name": "Fallback model.",
+  "settings.agents-run-fallback_model.name": "Fallback model",
   "settings.agents-run-max_minutes.help":
     "A turn is interrupted after this long.",
-  "settings.agents-run-max_minutes.name": "Minutes per turn.",
+  "settings.agents-run-max_minutes.name": "Minutes per turn",
   "settings.agents-run-max_tool_calls.help":
     "A turn stops after this many tool calls.",
-  "settings.agents-run-max_tool_calls.name": "Tool calls per turn.",
+  "settings.agents-run-max_tool_calls.name": "Tool calls per turn",
   "settings.agents-run-on_limit.help":
     "What lophn does when a turn hits the tool call or time limit.",
-  "settings.agents-run-on_limit.name": "When a turn reaches its limit.",
+  "settings.agents-run-on_limit.name": "When a turn reaches its limit",
   "settings.appearance.density-help":
     "How much room lists and tables leave between rows.",
   "settings.appearance.reading-width-help":
@@ -336,11 +336,11 @@ export const workspaceSettings = {
   "settings.notifications.label": "System notifications",
   "settings.problems-detail_collection.help":
     "Keep a snapshot with each reported problem.",
-  "settings.problems-detail_collection.name": "Collect problem details.",
+  "settings.problems-detail_collection.name": "Collect problem details",
   "settings.projects-search-skip_patterns.help":
     "Added to the patterns from .gitignore.",
   "settings.projects-search-skip_patterns.name":
-    "Extra patterns to skip in project search.",
+    "Extra patterns to skip in project search",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
   "settings.reaction.context-violation-when":
@@ -357,6 +357,16 @@ export const workspaceSettings = {
     "A problem marked resolved shows up again in the active release.",
   "settings.reaction.restart-halted-when":
     "An app kept crashing and lophn stopped restarting it.",
+  "settings.shell-density.help":
+    "How much room lists and tables leave between rows.",
+  "settings.shell-density.name": "Density",
+  "settings.shell-reading_width.help":
+    "How wide documents are laid out when you read them.",
+  "settings.shell-reading_width.name": "Reading width",
+  "settings.shell-text_size.help": "The size of text across lophn.",
+  "settings.shell-text_size.name": "Text size",
+  "settings.shell-theme.help": "Light, dark, or follow the system setting.",
+  "settings.shell-theme.name": "Theme",
   "settings.title.not-set": "{name} is not set",
   "settings.title.screen": "Settings",
   "settings.update.deployment-unverified":

@@ -51,12 +51,12 @@ export async function readSkills(
 
 /** 전역 MCP server. 켜졌는지가 서버 설정의 enabled다. */
 async function readGlobalServers(link: Link): Promise<ReadResult<McpRow[]>> {
-  const result = await link.read<
-    { settings: { key: string; value?: unknown }[] }
-  >("settings", "get", {});
+  const result = await link.memory<
+    { settings: { key: string; default?: unknown; chosen?: unknown }[] }
+  >("settings", "list", { keys: [MCP_SERVERS] });
   if (!result.ok) return result;
-  const found = result.value.settings.find((one) => one.key === MCP_SERVERS)
-    ?.value;
+  const entry = result.value.settings.find((one) => one.key === MCP_SERVERS);
+  const found = entry?.chosen ?? entry?.default;
   const servers = Array.isArray(found) ? found as McpServerConfig[] : [];
   return {
     ok: true,

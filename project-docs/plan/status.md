@@ -145,4 +145,4 @@
 | `screens-workspace-space` | screens-workspace | 3 | screens-workspace-settings, screens-workspace-screens, screens-app-space-frame, screens-agents-settings, screens-data-events, screens-data-waiting, screens-data-toast, screens-project-window, screens-project-reactions, screens-project-terminal, screens-conversation-view | merged | screens-workspace/screens-workspace-space | a71b5e54c |  |
 | `cleanup-comments` | cleanup | 4 | cleanup-names | todo |  |  |  |
 | `cleanup-dead` | cleanup | 4 | 없음 | merged | cleanup/cleanup-dead | cc01ecb2 |  |
-| `cleanup-names` | cleanup | 4 | cleanup-dead | todo |  |  |  |
+| `cleanup-names` | cleanup | 4 | cleanup-dead | merged | cleanup/cleanup-names | cd014b73 |  |

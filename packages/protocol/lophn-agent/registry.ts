@@ -17,14 +17,9 @@ import {
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
-import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
+import { MODEL_CALL_ROUTES } from "./model-calls.ts";
 import {
-  changeModelDefaults,
-  MODEL_EVENTS,
   MODEL_ROUTES,
-  modelCatalogRefresh,
-  modelDefaultsChanged,
-  modelDefaultsRead,
 } from "./models.ts";
 import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
 import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
@@ -70,15 +65,7 @@ export const ROUTES = [
   ...COMMAND_ROUTES,
   ...PROVIDER_ROUTES,
   ...MODEL_CALL_ROUTES,
-  // 옛 역할별 기본 model과 catalog 새로 읽기는 handler가 없다.
-  ...MODEL_ROUTES.filter((route) =>
-    !([
-      changeModelDefaults,
-      modelDefaultsRead,
-      modelCatalogRefresh,
-    ] as readonly unknown[])
-      .includes(route)
-  ),
+  ...MODEL_ROUTES,
   ...TOOL_CALL_ROUTES,
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
@@ -111,7 +98,5 @@ export const EVENTS = [
   ...QUESTION_EVENTS,
   ...REVERT_EVENTS,
   ...PROVIDER_EVENTS,
-  ...MODEL_EVENTS.filter((event) => event !== modelDefaultsChanged),
-  ...MODEL_CALL_EVENTS,
   ...TOOL_CALL_EVENTS,
 ] as const;

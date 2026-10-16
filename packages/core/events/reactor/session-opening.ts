@@ -22,7 +22,7 @@ export type ReactionRouter = {
   send(
     call: Omit<CallEnvelope, "call">,
     idempotencyKey: string,
-  ): Promise<Result<{ call: string }>>;
+  ): Promise<Result<void>>;
 };
 
 export type NewWorkDeps = {
@@ -119,8 +119,7 @@ async function sendKey(event: NewWork): Promise<Result<string>> {
 async function send(deps: NewWorkDeps, event: NewWork): Promise<Result<void>> {
   const key = await sendKey(event);
   if (!key.ok) return key;
-  const sent = await deps.router.send(callOf(event), key.value);
-  return sent.ok ? ok(undefined) : sent;
+  return await deps.router.send(callOf(event), key.value);
 }
 
 function handlerFor<T extends ReactionEventType>(

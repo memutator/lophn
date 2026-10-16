@@ -1,8 +1,6 @@
 import { canonicalize, ok, type Result } from "../../../base/mod.ts";
 import {
-  type applyMessages,
   archiveSession,
-  type assignMessage,
   changeSessionModel,
   type compactSession,
   deleteSession,
@@ -94,8 +92,6 @@ export function createConversationCommands(deps: ConversationDeps): {
   failCompact: CommandDefinition<typeof failSessionCompact>;
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
-  apply: CommandDefinition<typeof applyMessages>;
-  assign: CommandDefinition<typeof assignMessage>;
 } {
   return {
     ...createMessageCommands(deps.send),

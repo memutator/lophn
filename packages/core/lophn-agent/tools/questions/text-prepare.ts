@@ -11,7 +11,6 @@ import {
   QUESTION_TEXT_PURPOSE,
   questionTextBytes,
   questionTextSchema,
-  waitRun,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
@@ -96,17 +95,6 @@ function slotsOf(command: string, input: Record<string, unknown>): Slot[] {
   return slots;
 }
 
-// 사람 기다림(WaitRun)의 질문 제출은 질문 묶음 생성 입력을 그대로 싣는다. 글 자리는 같고 한
-// 단계 안(`request.input`)에 있다. approval 제출이나 모양이 틀린 요청은 건드리지 않고 지나간다.
-function waitQuestionInput(
-  input: Record<string, unknown>,
-): Record<string, unknown> | undefined {
-  const request = input["request"];
-  if (!isRecord(request) || request["kind"] !== "question") return undefined;
-  const created = request["input"];
-  return isRecord(created) ? created : undefined;
-}
-
 // 글을 싣는 command의 앞 단계. 글은 redaction을 거친 값으로 바뀌어 writer에 가고, 그
 // 바이트는 보낸 자격의 이름으로 준비되어 있다. 다른 command는 그대로 지나간다. 모양이
 // 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
@@ -125,21 +113,16 @@ export function createQuestionTextPreparer(deps: {
   const judge = deps.redact ??
     ((input: RedactionInput, body: string) => engine.redact(input, body));
   return async (ctx, envelope) => {
-    const waiting = envelope.command === waitRun.name;
     if (
-      !waiting &&
       envelope.command !== createQuestionGroup.name &&
       envelope.command !== answerQuestionGroup.name &&
       envelope.command !== cancelQuestionGroup.name
     ) return ok(envelope);
     if (!isRecord(envelope.input)) return ok(envelope);
     const input = structuredClone(envelope.input);
-    const target = waiting ? waitQuestionInput(input) : input;
-    if (target === undefined) return ok(envelope);
-    const slots = slotsOf(
-      waiting ? createQuestionGroup.name : envelope.command,
-      target,
-    ).filter((slot) => typeof slot.read() === "string");
+    const slots = slotsOf(envelope.command, input).filter((slot) =>
+      typeof slot.read() === "string"
+    );
     if (slots.length === 0) return ok(envelope);
     const texts: string[] = [];
     for (const slot of slots) {

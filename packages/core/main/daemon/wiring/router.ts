@@ -281,8 +281,7 @@ export const routerWiring: WiringFactory = () => {
             compare: {},
             prepared: [],
           });
-          // 새 일 입력에는 call ID가 없다(program이 보낸 입력은 call 행을 만들지 않는다).
-          return done.ok ? ok({ call: "" }) : done;
+          return done.ok ? ok(undefined) : done;
         },
       };
       registerNewWorkHandlers(ctx.reactor, {

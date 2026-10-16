@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  applyMessages,
-  assignMessage,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
@@ -67,10 +65,6 @@ export type SendMessageDeps = {
     find(tx: Tx, session: Id<"ses">): ReturnType<SessionDirectory["find"]>;
   };
 };
-
-function blocked(): Result<never> {
-  return reject("unavailable", "message intake is being rebuilt");
-}
 
 type BodyBlob = {
   hash: string;
@@ -397,8 +391,6 @@ function recordAgent(
 export function createMessageCommands(deps: SendMessageDeps): {
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
-  apply: CommandDefinition<typeof applyMessages>;
-  assign: CommandDefinition<typeof assignMessage>;
 } {
   return {
     send: {
@@ -412,8 +404,5 @@ export function createMessageCommands(deps: SendMessageDeps): {
       handle: (tx, ctx, input: Input<typeof recordMessage>) =>
         recordAgent(tx, ctx, input),
     },
-    // 옛 반영, 담당 옮기기는 messages 표가 봉투 칸으로 바뀌어 옛 열을 더 쓰지 못한다.
-    apply: { route: applyMessages, handle: blocked },
-    assign: { route: assignMessage, handle: blocked },
   };
 }

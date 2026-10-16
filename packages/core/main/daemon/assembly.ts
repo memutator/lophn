@@ -18,6 +18,7 @@ import { appsWiring } from "./wiring/apps.ts";
 import { appsRevertWiring } from "./wiring/apps-revert.ts";
 import { appsTicketsWiring } from "./wiring/apps-tickets.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
+import { codingSessionsWiring } from "./wiring/coding-sessions.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { configWiring } from "./wiring/config.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
@@ -45,6 +46,7 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
+import { createCoreRegistration as createCodingRegistration } from "../../apps/tickets/coding/register.ts";
 import { createCoreRegistration as createProjectsPortsRegistration } from "./wiring/projects-registration.ts";
 
 export const TEAMS = [
@@ -61,6 +63,7 @@ export const TEAMS = [
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
+  { createCoreRegistration: createCodingRegistration },
   { createCoreRegistration: createProjectsPortsRegistration },
 ];
 
@@ -83,6 +86,7 @@ export const TEAM_MODULES = [
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
   new URL("../../apps/annotations/register.ts", import.meta.url).href,
+  new URL("../../apps/tickets/coding/register.ts", import.meta.url).href,
   new URL("./wiring/projects-registration.ts", import.meta.url).href,
 ];
 
@@ -110,6 +114,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentProviderLoginWiring,
   appsRevertWiring,
   appsTicketsWiring,
+  codingSessionsWiring,
   annotationsWiring,
   problemsWiring,
   problemsTestsWiring,

@@ -17,3 +17,4 @@ export {
 export { CODING_REACTION_TEXTS } from "./close-call.ts";
 export { CODING_TERMINAL_TOPIC } from "./events.ts";
 export { type ReleaseSourceReader } from "./source-diff.ts";
+export { codingDefaultHarness, codingDefaultModel } from "./settings.ts";

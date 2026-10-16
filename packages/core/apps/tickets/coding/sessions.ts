@@ -16,11 +16,13 @@ import {
 } from "./store.ts";
 
 // SessionStarted를 아직 내지 않았으면 낸다. 첫 prompt를 argv로 넘겼으면 이어서 MessageReceived를 낸다.
+// 둘의 순서가 바뀌지 않게, 터미널 결과가 hook보다 늦게 와도 여기서 첫 prompt를 알린다.
 // row를 바꾼다. 부른 쪽이 저장한다.
 export function ensureStarted(tx: Tx, row: SessionRow): void {
-  if (row.started) return;
-  row.started = true;
-  sessionStarted(tx, row);
+  if (!row.started) {
+    row.started = true;
+    sessionStarted(tx, row);
+  }
   if (row.prompt_pending) {
     row.prompt_pending = false;
     messageReceived(tx, row.session, row.call, firstPromptOf(row.ticket));

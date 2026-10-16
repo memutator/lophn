@@ -15,7 +15,7 @@ function opened(tx: Tx, row: SessionRow): void {
   if (HARNESS_ADAPTERS[row.harness].prompt?.kind === "argv") {
     row.prompt_pending = true;
   }
-  if (Object.keys(HOOK_EVENT_TABLE[row.harness]).length === 0) {
+  if (row.started || Object.keys(HOOK_EVENT_TABLE[row.harness]).length === 0) {
     ensureStarted(tx, row);
   }
 }

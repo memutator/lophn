@@ -19,7 +19,6 @@ const started = await startCore({
   wirings: WIRINGS,
   parent,
   codingKeychain: productKeychain(),
-  codingLoaders: [],
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);

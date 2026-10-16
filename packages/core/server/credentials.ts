@@ -39,8 +39,7 @@ export function recordCredential(
   try {
     connection.exec("begin immediate");
     // core 안 machine credential(`machine:*`)은 코드가 기동마다 만든다. 권한이 기동마다 달라질 수
-    // 있으니(provider host 등) 새 값으로 덮는다. coding connection은 같은 권한일 때만 건너뛰고,
-    // 다르면 거절한다. 그 밖 credential은 중복을 그대로 거절한다.
+    // 있으니(provider host 등) 새 값으로 덮는다. 그 밖 credential은 중복을 거절한다.
     const existing = connection.sql.get(
       "select context, state from credentials where credential_ref = ?",
       [parsed.data.credential_ref],
@@ -55,7 +54,7 @@ export function recordCredential(
         `update credentials set context = ?, state = 'active' where credential_ref = ?`,
         [JSON.stringify(parsed.data), parsed.data.credential_ref],
       );
-    } else if (!sameFixedCredential(existing, parsed.data)) {
+    } else {
       connection.exec("rollback");
       return err({
         code: "conflict",
@@ -77,30 +76,3 @@ export function recordCredential(
   return ok(undefined);
 }
 
-// coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다
-// 같은 권한으로 다시 기록한다. 권한이 다르면 위의 비교가 거절한다.
-function isFixedCredential(ref: string): boolean {
-  return /^coding:cac_[0-9a-z]{26}$/.test(ref);
-}
-
-function sameFixedCredential(
-  row: Record<string, unknown>,
-  context: AuthenticatedContext,
-): boolean {
-  if (!isFixedCredential(context.credential_ref)) return false;
-  if (row.state !== "active" || typeof row.context !== "string") return false;
-  let stored: {
-    scope?: unknown;
-    conditions?: unknown;
-  };
-  try {
-    stored = JSON.parse(row.context) as {
-      scope?: unknown;
-      conditions?: unknown;
-    };
-  } catch {
-    return false;
-  }
-  return JSON.stringify(stored.scope) === JSON.stringify(context.scope) &&
-    JSON.stringify(stored.conditions) === JSON.stringify(context.conditions);
-}

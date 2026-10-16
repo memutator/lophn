@@ -187,7 +187,6 @@ function teamRegistration(team: TeamModule): Loose | undefined {
   const sources = [
     direct,
     fromLedger,
-    team.codingAgentConnectionDefinitions,
     team.lophnAgentDefinitions,
     team.ticketDefinitions,
   ].filter(defined);

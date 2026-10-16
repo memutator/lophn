@@ -42,12 +42,6 @@ export {
   type SecretReferenceLookup,
 } from "./attach.ts";
 export { attachAllowed, destinationHost, sameDestination } from "./model.ts";
-export {
-  CODING_CREDENTIAL_PURPOSE,
-  type CodingCredentialKeychain,
-  codingCredentialRef,
-  createCodingCredentialKeychain,
-} from "./coding-credential.ts";
 
 // 새 저장소(`<data root>/secrets.json`). 위의 옛 export는 소유 밖에 쓰는 곳이 있어 남아 있다.
 export {

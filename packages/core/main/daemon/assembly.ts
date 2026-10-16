@@ -1,5 +1,4 @@
 // core 조립 목록. lead가 고치는 유일한 조립 file이다. main.ts는 이 세 목록만 core에 넘긴다.
-import { codingAgentConnectionDefinitions } from "../../server/identity/coding-connection.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";
 import {
@@ -55,7 +54,6 @@ export const TEAMS = [
   { problemsTestDefinitions },
   { problemsReportDefinitions },
   { createLedgerRegistration: createProblemsRegistration },
-  { codingAgentConnectionDefinitions },
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { ticketDefinitions },
@@ -76,7 +74,6 @@ export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
   new URL("../../problems/register.ts", import.meta.url).href,
-  new URL("../../server/identity/coding-connection.ts", import.meta.url).href,
   new URL("../../lophn-agent/register.ts", import.meta.url).href,
   new URL("../../apps/tickets/register.ts", import.meta.url).href,
   new URL("../../apps/tickets/ports.ts", import.meta.url).href,

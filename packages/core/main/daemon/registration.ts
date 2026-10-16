@@ -50,7 +50,6 @@ export type TeamModule = {
   createLedgerRegistration?: (environment: never) => unknown;
   problemsTestDefinitions?: unknown;
   problemsReportDefinitions?: unknown;
-  codingAgentConnectionDefinitions?: unknown;
   lophnAgentDefinitions?: unknown;
   ticketDefinitions?: unknown;
 };
@@ -159,7 +158,6 @@ export function assemble(
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
     const fromProblemsReport = asLoose(team.problemsReportDefinitions);
-    const fromCodingAgent = asLoose(team.codingAgentConnectionDefinitions);
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     const fromTickets = asLoose(team.ticketDefinitions);
     // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
@@ -169,7 +167,6 @@ export function assemble(
       fromLedger,
       fromProblems,
       fromProblemsReport,
-      fromCodingAgent,
       fromLophnAgent,
       fromTickets,
     ].filter((item): item is Loose => item !== undefined);

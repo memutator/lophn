@@ -24,7 +24,6 @@ import type {
   CredentialRegistry,
   OperationPolicy,
 } from "../../../server/identity/mod.ts";
-import type { CodingCredentials } from "../../../server/identity/coding-credential-assembly.ts";
 import type {
   AppIntake,
   AppRewind,
@@ -180,7 +179,6 @@ type Late = {
   operations: readonly OperationPolicy[];
   statusSource: StatusSource;
   blobRead: BlobRead;
-  coding: CodingCredentials;
   registry: CredentialRegistry;
   io: Supervisor;
   appsSupervision: Supervisor;
@@ -240,7 +238,6 @@ const LATE_KEYS: Record<keyof Late, true> = {
   operations: true,
   statusSource: true,
   blobRead: true,
-  coding: true,
   registry: true,
   io: true,
   appsSupervision: true,

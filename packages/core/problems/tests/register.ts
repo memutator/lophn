@@ -1,5 +1,4 @@
 import type { ProblemsPart } from "../register.ts";
-import { visibleToChecker } from "../grouping/register.ts";
 import { workerRoot } from "../worker-root.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import {
@@ -19,10 +18,6 @@ import {
 import { testRunnerSpec } from "./runner.ts";
 import { testTxPorts } from "./request-ports.ts";
 import { verificationRecorded } from "../../../protocol/problems/mod.ts";
-
-const verificationRecordedForChecker = visibleToChecker(
-  verificationRecordedVisibility,
-);
 
 // 등록 시점 env에서 data root와 Deno 실행 파일을 좁힌다. 없으면 spec을 내지 않는다.
 function testRunnerWorkers(): KindLaunchSpec[] {
@@ -46,7 +41,7 @@ export const testsPart = {
   ],
   reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
   events: [verificationRecorded],
-  visibility: [verificationRecordedForChecker],
+  visibility: [verificationRecordedVisibility],
   ports: testTxPorts(),
   workers: testRunnerWorkers(),
   readerReads: [getTestRequestRead, getVerificationRead, listVerificationsRead],

@@ -22,7 +22,6 @@ import {
   resolveDataRoot,
   writeRunMetadata,
 } from "../../install-and-update/mod.ts";
-import type { CodingCredentials } from "../../server/identity/coding-credential-assembly.ts";
 import type { KeychainAdapter } from "../../secrets/mod.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { withPlatform } from "./platform-register.ts";
@@ -58,10 +57,8 @@ export type CoreOptions = {
   random?: RandomSource;
   // Electron main이 물려 준 stdin/stdout.
   parent?: ParentPipe;
-  // secret store·MCP OAuth·coding agent connection credential이 값을 읽는 keychain adapter.
+  // secret store·MCP OAuth가 값을 읽는 keychain adapter.
   codingKeychain: KeychainAdapter;
-  // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
-  codingLoaders: readonly string[];
 };
 export type BlobPrepareCall = {
   principal: string;
@@ -78,9 +75,6 @@ export type Core = {
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다.
   shutdown(): Promise<void>;
-  // 사람의 연결 결정 입구가 connect를, 신뢰 감독이 registerChild를
-  // 부른다(입구의 contract는 coding-agent 소유라 HTTP route는 없다).
-  codingCredentials: CodingCredentials;
 };
 
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
@@ -187,7 +181,7 @@ async function open(
     assembled: assembled.value,
     source: ctx.statusSource,
     blob: ctx.blobRead.deps,
-    // 참조가 있을 때만 부른다. secret store와 connection credential이 같은 adapter로 값을 읽는다.
+    // 참조가 있을 때만 부른다. secret store와 MCP OAuth가 같은 adapter로 값을 읽는다.
     keychain: () => options.codingKeychain,
   });
   if (!openedRuntime.ok) return openedRuntime;
@@ -345,7 +339,6 @@ async function open(
     epoch,
     dataRoot: root.path,
     done: Promise.resolve(),
-    codingCredentials: ctx.coding,
     shutdown,
   };
   const greeted = await hello;

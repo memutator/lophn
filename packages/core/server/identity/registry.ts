@@ -47,23 +47,7 @@ export type CurrentCredential = {
   conditions: CredentialConditions;
 };
 
-// 영구 connection처럼 소유 module이 digest를 가진 credential의 인증 입구다. registry가 만든 token이
-// 아니므로 메모리 기록 없이 bearer의 digest로 소유 module의 현재 상태를 읽어 판정한다. 모르거나
-// 회수된 것은 모두 undefined이고 없는 자격과 같은 답이 된다.
-export type ExternalCredential = {
-  actor: `coding_agent:${string}`;
-  principal: string;
-  targets: CredentialTarget;
-  conditions: CredentialConditions;
-};
-
-export type ExternalCredentialResolver = {
-  resolve(digest: Uint8Array): Promise<ExternalCredential | undefined>;
-};
-
 export type CredentialRegistryOptions = {
-  // 소유 module이 digest를 가진 credential(coding agent connection)의 인증.
-  external?: ExternalCredentialResolver;
   epoch: string;
   random: RandomSource;
   clock: Clock;
@@ -302,8 +286,7 @@ export class CredentialRegistry {
         if (constantTimeDigestEqual(record.digest, digest)) found = record;
       }
       if (found) return this.#context(found);
-      const external = await this.#options.external?.resolve(digest);
-      return external === undefined ? this.#denied() : this.#external(external);
+      return this.#denied();
     } catch {
       return this.#denied();
     }
@@ -380,35 +363,6 @@ export class CredentialRegistry {
     } catch {
       return this.#denied();
     }
-  }
-
-  // 소유 module이 현재 active라고 확인한 credential의 context. 원장 credential 기록에 쓴다.
-  externalContext(
-    credential: ExternalCredential,
-  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
-    return this.#external(credential);
-  }
-
-  // 상한은 actor별 동작 상한이다.
-  #external(
-    credential: ExternalCredential,
-  ): Result<AuthenticatedContext & { scope: CredentialScope }> {
-    const parsed = authenticatedContextSchema.safeParse({
-      principal: credential.principal,
-      actor: credential.actor,
-      scope: {
-        operations: operationCeiling(
-          credential.actor,
-          this.#options.operations,
-        ),
-        targets: credential.targets,
-      },
-      conditions: credential.conditions,
-      credential_ref: `coding:${
-        credential.actor.slice("coding_agent:".length)
-      }`,
-    });
-    return parsed.success ? ok(parsed.data) : this.#denied();
   }
 
   #denied(): Result<never> {

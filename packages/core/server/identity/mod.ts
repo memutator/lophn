@@ -16,23 +16,7 @@ export {
   CredentialRegistry,
   type CredentialRegistryOptions,
   type CurrentCredential,
-  type ExternalCredential,
-  type ExternalCredentialResolver,
 } from "./registry.ts";
-export {
-  type CodingConnectionSubmission,
-  type CodingCredentialAuthority,
-  type CodingCredentialAuthorityOptions,
-  type CodingCredentialVault,
-  type CodingLoaderChild,
-  codingTuiEnvironment,
-  createCodingCredentialAuthority,
-  externalOf as codingExternalCredential,
-  memoryPendingPreparations,
-  type PendingPreparations,
-  type ProtectedChannel,
-  serveCredentialDelivery,
-} from "./coding-credential.ts";
 export { identityCurrentRead } from "./reads.ts";
 export { confirmationBinding } from "./confirmation-binding.ts";
 export {

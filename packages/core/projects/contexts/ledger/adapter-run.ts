@@ -1,6 +1,7 @@
 // command와 읽기 하나를 ledger 위에서 돌리는 흐름이다(adapter.ts 머리말의 1, 3~6).
 import type { Result } from "../../../../base/mod.ts";
 import { CONTEXT_API_EVENTS } from "../../../../protocol/projects/mod.ts";
+import { contextViolationFound } from "../../../../protocol/events/mod.ts";
 import type {
   Compare,
   Input,
@@ -23,10 +24,11 @@ import {
   type ReadHandler,
 } from "../api/reads.ts";
 import type { ContextApiActor } from "../api/state.ts";
-import type { ContextLedgerDeps } from "./adapter.ts";
+import { contextAuthorityPort, type ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { baselineOf, blobUploads, writeChanges } from "./adapter-save.ts";
-import { contentReference, registerContextContent } from "./content-blobs.ts";
+import { registerContextContent } from "./content-blobs.ts";
+import { loadViolationKeys, saveViolationKeys } from "./rows-violations.ts";
 
 export type CommandSpec<R extends CommandRoute> = {
   handler(commands: ContextApiCommands): Handler<R>;
@@ -39,7 +41,9 @@ export type ReadSpec<R extends ReadRoute> = {
 };
 
 const EVENTS: ReadonlyMap<string, EventDefinition> = new Map(
-  CONTEXT_API_EVENTS.map((event) => [event.type, event]),
+  [...CONTEXT_API_EVENTS, contextViolationFound].map((
+    event,
+  ) => [event.type, event]),
 );
 
 export function runCommand<R extends CommandRoute>(
@@ -63,13 +67,10 @@ export function runCommand<R extends CommandRoute>(
     newId: (prefix) => tx.newId(prefix),
     hash: deps.hash,
     putBlob: uploads.put,
-    startHandOffRun: (request) =>
-      deps.startHandOffRun(tx, {
-        ...request,
-        // 요청 글의 blob은 근거와 같은 길로 등록한다(요청 자격이 준비한 바이트).
-        registerContent: (value) =>
-          registerContextContent(tx, ctx, contentReference(value)),
-      }),
+    canWrite: (actor, project) =>
+      tx.port(contextAuthorityPort).canWrite(actor, project),
+    recordedViolations: (context) => loadViolationKeys(tx.sql, context),
+    keepViolations: (context, keys) => saveViolationKeys(tx.sql, context, keys),
     emit(event) {
       const definition = EVENTS.get(event.type);
       if (definition === undefined) {

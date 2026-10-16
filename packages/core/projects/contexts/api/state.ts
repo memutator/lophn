@@ -11,11 +11,11 @@ import type {
 } from "../../../../protocol/projects/mod.ts";
 
 // 요청한 쪽. 실제 자격은 platform/identity가 정하고 여기서는 command가 가르는 구분만 둔다.
-// actor는 ledger에 남는 문자열이다(`user`, `agent:asg_…`, `machine`, `coding_agent:cac_…`).
+// actor는 ledger에 남는 문자열이다(`user`, `agent:ses_…`, `machine`, `coding_agent:cac_…`).
 export type ContextApiActor =
   | { kind: "user"; actor: string }
-  // Context Engineer는 assignment의 역할이다. 다른 agent는 읽기만 한다.
-  | { kind: "agent"; actor: string; role: "context_engineer" | "other" }
+  // agent가 context를 쓸 수 있는지는 그 context의 project로 deps.canWrite가 정한다(mayWrite).
+  | { kind: "agent"; actor: string }
   // 좁은 범위 credential은 context worker의 제출 두 가지만 낸다. agent_runtime은 agent runtime의 machine
   // 자격이고 run 시작 전 재료 읽기(context.list·get·contract)만 한다.
   | {
@@ -78,7 +78,7 @@ export type BlobReference = { hash: string; size_bytes: number };
 // 바깥에서 받는 도구. 시각·ID·hash는 주입해서 시험이 매번 같게 돈다.
 export type ContextApiDeps = {
   now(): string;
-  newId(prefix: "cbn" | "chk" | "viw" | "run"): string;
+  newId(prefix: "cbn" | "chk" | "viw"): string;
   // 정규 JSON의 sha256(hex)이다. submit이 bundle_hash를 이 함수로 계산한다.
   hash(value: unknown): string;
   // 값의 blob 참조(hash와 크기)를 돌려준다(event payload가 쓴다). 파일을 쓰지 않는다: 바이트는 호출 경계가
@@ -92,12 +92,19 @@ export type ContextApiDeps = {
     actor: string;
     payload: Record<string, unknown>;
   }): string;
-  // 위반을 Context Engineer에게 넘기는 Run을 만든다. 근거는 command가 만들어 넘긴다.
-  startHandOffRun(request: {
-    context: string;
-    evidence: BlobReference;
-    // 근거 blob의 값. 요청 글을 이 값에서 만든다(blob을 다시 읽지 않는다).
-    evidenceValue: Record<string, unknown>;
-    violations: readonly StoredViolation[];
-  }): string;
+  // 그 project의 context를 쓸 수 있는 actor인가. 그 project의 Project Manager이거나 사람이다.
+  canWrite(actor: string, project: string): boolean;
+  // context.record_violations가 마지막으로 기록한 위반 키(violationKey)들. 새 위반을 집합으로 가린다.
+  recordedViolations(context: string): readonly string[];
+  keepViolations(context: string, keys: readonly string[]): void;
 };
+
+// context를 쓸 수 있는 actor: 사람이거나 그 context의 project의 Project Manager인 agent.
+export function mayWrite(
+  deps: Pick<ContextApiDeps, "canWrite">,
+  actor: ContextApiActor,
+  project: string,
+): boolean {
+  return actor.kind === "user" ||
+    (actor.kind === "agent" && deps.canWrite(actor.actor, project));
+}

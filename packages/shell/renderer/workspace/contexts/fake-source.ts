@@ -660,7 +660,7 @@ const VIEWS: Readonly<Record<string, readonly SavedViewListItem[]>> = {
       name: "Running experiments",
       search: "experiments_by_status",
       inputs: { status: ["running"] },
-      origin: "engineer",
+      origin: "project_manager",
       revision: "61",
       broken: false,
     },

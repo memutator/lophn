@@ -7,19 +7,20 @@ import {
 import type { ContextApiCommands } from "./commands.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import { reflectSavedViews } from "./commands-bundle-views.ts";
-import type {
-  BundleRow,
-  ContextApiActor,
-  ContextApiDeps,
-  ContextApiState,
+import {
+  type BundleRow,
+  type ContextApiActor,
+  type ContextApiDeps,
+  type ContextApiState,
+  mayWrite,
 } from "./state.ts";
 
 type Code = "invalid_input" | "not_found" | "conflict" | "forbidden";
 const fail = (code: Code | "internal", message: string) =>
   err({ code, message });
 
-const isEngineer = (actor: ContextApiActor) =>
-  actor.kind === "agent" && actor.role === "context_engineer";
+const forbidden = (actor: ContextApiActor) =>
+  fail("forbidden", `${actor.kind} cannot write this context`);
 const isWorker = (actor: ContextApiActor) =>
   actor.kind === "machine" && actor.scope === "context_worker";
 
@@ -39,13 +40,11 @@ export function createBundleCommands(
   | "bundleFinishCheck"
 > {
   const bundleSaveDraft: ContextApiCommands["bundleSaveDraft"] = (call) => {
-    if (!isEngineer(call.actor)) {
-      return fail("forbidden", "only the Context Engineer saves drafts");
-    }
     const { actor, input, compare } = call;
     return withReplay(state, call.key, () => {
       const context = state.contexts.get(input.context);
       if (context === undefined) return fail("not_found", "no such context");
+      if (!mayWrite(deps, actor, context.project)) return forbidden(actor);
       if (context.status === "archived") {
         return fail("conflict", "an archived context takes no draft");
       }
@@ -122,13 +121,13 @@ export function createBundleCommands(
   const bundleDiscardDraft: ContextApiCommands["bundleDiscardDraft"] = (
     call,
   ) => {
-    if (call.actor.kind !== "user" && !isEngineer(call.actor)) {
-      return fail("forbidden", "only the user or the Context Engineer");
-    }
     const { actor, input, compare } = call;
     return withReplay(state, call.key, () => {
       const current = state.bundles.get(input.bundle);
       if (current === undefined) return fail("not_found", "no such bundle");
+      const owner = state.contexts.get(current.context);
+      if (owner === undefined) return fail("not_found", "no such context");
+      if (!mayWrite(deps, actor, owner.project)) return forbidden(actor);
       if (current.status !== "draft") {
         return fail("conflict", "only a draft can be discarded");
       }
@@ -148,18 +147,16 @@ export function createBundleCommands(
   };
 
   const bundleSubmit: ContextApiCommands["bundleSubmit"] = (call) => {
-    if (!isEngineer(call.actor)) {
-      return fail("forbidden", "only the Context Engineer submits bundles");
-    }
     const { actor, input } = call;
     return withReplay(state, call.key, () => {
       const current = state.bundles.get(input.bundle);
       if (current === undefined) return fail("not_found", "no such bundle");
+      const context = state.contexts.get(current.context);
+      if (context === undefined) return fail("not_found", "no such context");
+      if (!mayWrite(deps, actor, context.project)) return forbidden(actor);
       if (current.status !== "draft") {
         return fail("conflict", "only a draft can be submitted");
       }
-      const context = state.contexts.get(current.context);
-      if (context === undefined) return fail("not_found", "no such context");
       if (context.status === "archived") {
         return fail("conflict", "an archived context takes no submit");
       }

@@ -28,7 +28,6 @@ import {
   loadProjectContexts,
 } from "./rows.ts";
 import { loadAllAppData } from "./rows-app-data.ts";
-import { loadHandedOffEvents } from "./rows-events.ts";
 
 export type LoadPlan = {
   // project 행과 그 project의 context 전부(보관된 것 포함)를 읽는다.
@@ -56,8 +55,6 @@ export type LoadPlan = {
   // entities처럼 index 갱신 실패도 같이 가져온다.
   entity?: { type: string; key: string };
   ofType?: string;
-  // 위반을 넘긴 event(ContextViolationsHandedOff)를 ledger events 표에서 state.events로 읽는다.
-  handedOff?: boolean;
 };
 
 export type Loaded = {
@@ -167,9 +164,6 @@ export function loadState(
       for (const entry of loadContextEntries(sql, context.id)) {
         state.glossary.set(entry.id, entry);
       }
-    }
-    if (plan.handedOff) {
-      state.events.push(...loadHandedOffEvents(sql, context.id));
     }
     if (plan.index?.includes("violations")) {
       // index가 낸 문구는 규칙 이름으로 만든 것이다. 적용된 판이 읽혔고 규칙이 message를 가지면 그 message로 바꾼다.

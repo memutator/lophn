@@ -60,13 +60,12 @@ export const projectsWiring: WiringFactory = () => {
     build(ctx) {
       return ok({
         reads: (reads) => contextsHost.overlayReads(reads),
-        // context의 초안·위반 넘김 근거는 호출자 자격으로 command 앞에 준비한다.
+        // context의 초안은 호출자 자격으로 command 앞에 준비한다.
         writer: (inner) =>
           withContextBlobs(
             contextsHost.wrapWriter(inner),
             createContextBlobPreparer({
               relay: () => ctx.bodyPrepare,
-              reads: () => ctx.runtime.reads,
             }),
           ),
       });

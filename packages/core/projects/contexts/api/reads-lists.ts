@@ -1,6 +1,5 @@
 // context API 읽기: context.violations·bundles·glossary.list.
 import { ok } from "../../../../base/mod.ts";
-import type { ViolationKey } from "../../../../protocol/projects/mod.ts";
 import type { ContextApiReads } from "./reads.ts";
 import {
   checkReader,
@@ -31,23 +30,6 @@ function compareBytes(a: string, b: string): number {
     if (left[i] !== right[i]) return left[i]! - right[i]!;
   }
   return left.length - right.length;
-}
-
-const keyText = (key: ViolationKey) =>
-  JSON.stringify([key.kind, key.rule, key.path, key.section]);
-
-// 이 context에서 Context Engineer에게 넘긴 적 있는 위반의 키. 넘김 event의 payload에서 모은다.
-function handedOffKeys(state: ContextApiState, context: string): Set<string> {
-  const keys = new Set<string>();
-  for (const event of state.events) {
-    if (
-      event.type !== "ContextViolationsHandedOff" || event.subject !== context
-    ) continue;
-    for (const key of event.payload.violations as ViolationKey[]) {
-      keys.add(keyText(key));
-    }
-  }
-  return keys;
 }
 
 export function createListReads(state: ContextApiState): Handlers {
@@ -91,12 +73,12 @@ export function createListReads(state: ContextApiState): Handlers {
       input,
     );
     if (!page.ok) return page;
-    const handedOff = handedOffKeys(state, input.context);
     return ok({
       context: input.context,
+      // 계약의 handed_off는 위반을 넘기는 길이 없어진 뒤로 늘 false다. 계약에서 칸을 지우면 뺀다.
       violations: page.value.items.map(({ row }) => ({
         ...row,
-        handed_off: handedOff.has(keyText(row)),
+        handed_off: false,
       })),
       as_of_seq: String(state.seq),
       complete: page.value.complete,

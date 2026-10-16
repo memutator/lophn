@@ -7,7 +7,7 @@
 // contexts-ledger-deps.ts에 있고, command를 실행하는 writer Worker와 read를 실행하는 reader Worker
 // 안에서만 동적으로 올린다(loadContextsRuntime). core 본체가 부르는 등록은 route를 registry에 올리는
 // 데만 쓰이고 handler는 실행되지 않는다.
-import { err, type ErrorCode, type Result } from "../../../base/mod.ts";
+import { err, type Result } from "../../../base/mod.ts";
 import { defineBlobField } from "../../../protocol/storage/mod.ts";
 import type {
   CommandDefinition,
@@ -21,6 +21,7 @@ import {
 } from "../../../protocol/projects/mod.ts";
 import {
   CONTEXT_WORKER_OPERATIONS,
+  contextAuthorityPort,
   contextLedgerCommands,
   type ContextLedgerDeps,
   contextLedgerReads,
@@ -29,7 +30,10 @@ import {
   contextWorkListRead,
 } from "./mod.ts";
 
-// content blob(BundleContent JSON, 위반 넘김 근거와 그 요청 글)의 영구 참조. owner_key는 blob의 hash다:
+// context를 쓸 수 있는 actor를 판정하는 tx port. wiring이 구현을 끼운다(ContextAuthority).
+export { contextAuthorityPort };
+
+// content blob(BundleContent JSON)의 영구 참조. owner_key는 blob의 hash다:
 // 내용으로 주소를 정한 값이라 같은 내용은 한 참조다. 일반 blob 읽기로는 열지 않는다(context 읽기가 연다).
 // 바이트는 core가 command 앞에서 호출자 자격으로 준비한다(contexts-blob.ts).
 export const contextContentField = defineBlobField({
@@ -39,8 +43,8 @@ export const contextContentField = defineBlobField({
   general_read: false,
 });
 
-// command·read를 실행하는 쪽이 의존을 쓰기 전에 알리는 ledger 연결. blob 파일의 위치(data root)와
-// assignment 역할 조회는 adapter가 sql을 넘기지 않는 port라 이 연결로 푼다.
+// command·read를 실행하는 쪽이 의존을 쓰기 전에 알리는 ledger 연결. blob 파일의 위치(data root)는
+// adapter가 sql을 넘기지 않는 port라 이 연결로 푼다.
 export type ContextsRuntime = {
   deps: ContextLedgerDeps;
   enter(sql: Pick<Sql, "get" | "all">): void;
@@ -48,7 +52,7 @@ export type ContextsRuntime = {
 
 const UNATTACHED = "context 의존은 writer·reader Worker에서만 열린다";
 
-// 실행하지 않는 자리(core 본체, route 등록만 필요한 harness)의 의존이다. 빈 결과로 꾸미지 않고
+// 실행하지 않는 쪽(core 본체, route 등록만 필요한 harness)의 의존이다. 빈 결과로 꾸미지 않고
 // 쓰려 하면 unavailable이다.
 function unattached(): ContextsRuntime {
   return {
@@ -68,10 +72,6 @@ function unattached(): ContextsRuntime {
       hash() {
         throw new ContextDepUnavailable(UNATTACHED);
       },
-      startHandOffRun() {
-        throw new ContextDepUnavailable(UNATTACHED);
-      },
-      isContextEngineer: () => false,
       appIds: () => [],
     },
   };
@@ -93,24 +93,11 @@ export async function loadContextsRuntime(): Promise<ContextsRuntime> {
   return loaded.createContextsRuntime();
 }
 
-// 의존이 동기 port라 Result를 돌려주지 못하는 자리(Run 시작 등)는 이 오류를 던진다. 등록이 감싸서
+// 의존이 동기 port라 Result를 돌려주지 못하는 곳은 이 오류를 던진다. 등록이 감싸서
 // transaction을 되돌리고 unavailable로 답한다.
 export class ContextDepUnavailable extends Error {}
 
-// 같은 자리에서 문서가 정한 다른 명령 오류(not_found 등)로 답해야 하는 실패다. 세션·Run 접수가 낸
-// 오류의 코드를 그대로 싣는다.
-export class ContextDepRefused extends Error {
-  readonly code: ErrorCode;
-  constructor(code: ErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
 function unavailable(error: unknown): Result<never> | undefined {
-  if (error instanceof ContextDepRefused) {
-    return err({ code: error.code, message: error.message });
-  }
   return error instanceof ContextDepUnavailable
     ? err({ code: "unavailable", message: error.message })
     : undefined;

@@ -16,6 +16,7 @@ export type FsWatch = {
 const keyOf = (folder: WatchFolder) =>
   `${folder.recursive ? "r" : "f"}:${folder.path}`;
 
+// .gitignore는 보지 않는다(worker/files.ts와 같은 이유): 계약이 경로로 명시한 폴더라 ignore된 파일도 바뀌면 알린다.
 // 얇은 Deno.watchFs 어댑터. 폴더마다 watcher 하나를 `join(root, folder)`에 `recursive` 그대로 열고,
 // `access`를 뺀 event의 경로를 root 기준 상대 경로(`/` 구분)로 바꿔 detector.signal에 넘긴다.
 // event를 저장하지 않고, watcher가 오류로 끝나면 그 폴더만 닫는다(힌트를 놓칠 뿐이다).

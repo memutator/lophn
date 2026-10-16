@@ -7,10 +7,11 @@ import type {
 import { reflectSavedViews } from "./commands-bundle-views.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import type { ContextApiCommands } from "./commands.ts";
-import type {
-  ContextApiActor,
-  ContextApiDeps,
-  ContextApiState,
+import {
+  type ContextApiActor,
+  type ContextApiDeps,
+  type ContextApiState,
+  mayWrite,
 } from "./state.ts";
 
 const forbidden = (actor: ContextApiActor) =>
@@ -20,9 +21,6 @@ const forbidden = (actor: ContextApiActor) =>
   });
 
 const isUser = (actor: ContextApiActor) => actor.kind === "user";
-const canCreate = (actor: ContextApiActor) =>
-  actor.kind === "user" ||
-  (actor.kind === "agent" && actor.role === "context_engineer");
 
 export function createLifecycleCommands(
   state: ContextApiState,
@@ -65,7 +63,9 @@ export function createLifecycleCommands(
 
   return {
     contextCreate(call) {
-      if (!canCreate(call.actor)) return forbidden(call.actor);
+      if (!mayWrite(deps, call.actor, call.input.project)) {
+        return forbidden(call.actor);
+      }
       return withReplay(state, call.key, () => {
         const input = call.input;
         const project = state.projects.get(input.project);

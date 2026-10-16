@@ -14,7 +14,6 @@ import {
   contextDraftRoute,
   contextEntityRoute,
   contextGetRoute,
-  contextHandOffViolationsRoute,
   contextInputOptionsRoute,
   contextListRoute,
   contextOverviewRoute,
@@ -112,7 +111,11 @@ export const COMMAND_ENTRIES: readonly CommandEntry[] = [
   command(
     bundleSaveDraftRoute,
     (c) => c.bundleSaveDraft,
-    (_sql, input) => ({ context: input.context, bundles: true }),
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      index: ["violations"],
+    }),
   ),
   command(
     bundleDiscardDraftRoute,
@@ -187,15 +190,9 @@ export const COMMAND_ENTRIES: readonly CommandEntry[] = [
   command(
     contextRecordViolationsRoute,
     (c) => c.recordViolations,
-    (_sql, input) => ({ context: input.context, bundles: true }),
-  ),
-  command(
-    contextHandOffViolationsRoute,
-    (c) => c.handOffViolations,
     (_sql, input) => ({
       context: input.context,
       bundles: true,
-      content: "applied",
       index: ["violations"],
     }),
   ),
@@ -229,7 +226,11 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
   read(
     contextGetRoute,
     (r) => r.contextGet,
-    (_sql, input) => ({ context: input.context, bundles: true }),
+    (_sql, input) => ({
+      context: input.context,
+      bundles: true,
+      index: ["violations"],
+    }),
   ),
   read(
     contextOverviewRoute,
@@ -316,7 +317,6 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
       bundles: true,
       content: "applied",
       index: ["violations"],
-      handedOff: true,
     }),
   ),
   read(

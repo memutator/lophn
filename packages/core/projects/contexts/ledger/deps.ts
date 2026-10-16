@@ -1,9 +1,7 @@
-// ContextLedgerDeps의 실제 구현: content blob 읽기, derived index 읽기, 선언 검색 실행, hash,
-// Context Engineer 판별, 위반 넘김 Run. command를 실행하는 writer Worker와 read를 실행하는 reader
+// ContextLedgerDeps의 실제 구현: content blob 읽기, derived index 읽기, 선언 검색 실행, hash. command를 실행하는 writer Worker와 read를 실행하는 reader
 // Worker 안에서만 올라온다(contexts-api.ts의 loadContextsRuntime). node:sqlite와 동기 file API를
 // 쓰므로 core 본체의 module graph에 들어오면 안 된다.
 // 그래서 index 저장소는 packages/core/projects/contexts/mod.ts barrel이 아니라 index/mod.ts를 직접 연다.
-import type { Id } from "../../../../protocol/base/ids.ts";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
@@ -30,13 +28,8 @@ import {
   readIndexState,
   readViolations,
 } from "../index/mod.ts";
-import {
-  startRequest,
-  type StartRequestDeps,
-} from "../../../lophn-agent/session/mod.ts";
 import { loadActiveBlueprint } from "../../../apps/releases/store.ts";
-import { ContextDepRefused, type ContextsRuntime } from "../register.ts";
-import { handOffContent } from "../handoff.ts";
+import type { ContextsRuntime } from "../register.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 
@@ -157,14 +150,6 @@ function flatten(
   })) as ReturnType<SearchExecutor>[number][];
 }
 
-// 요청 접수는 Router로 새 session을 열어 입력함에 넣는다. Router가 wiring에 놓이기 전에는 접수하지 못한다.
-const conversationDeps: StartRequestDeps = {
-  router: {
-    route: () =>
-      err({ code: "unavailable", message: "the router is not wired" }),
-  },
-};
-
 export function createContextsRuntime(): ContextsRuntime {
   let current: Reader | undefined;
   const root = (): Result<string> =>
@@ -252,50 +237,6 @@ export function createContextsRuntime(): ContextsRuntime {
       index,
       execute,
       hash: (value) => sha256(canonicalize(value)),
-      // 위반 넘김은 사람 한 번의 요청이다: 그 context의 project를 작업 자리로 하는 Context Engineer의
-      // 새 세션에 서버가 붙인 근거를 글로 옮긴 사람 요청 message를 두고, 담당 Run 하나를 접수한다
-      // (lophn-agent/conversation의 startRequest). 세션·message·Run이 이 transaction 안이라 enabled
-      // Context Engineer가 없으면 unavailable로 전부 되돌아간다.
-      startHandOffRun(tx, request) {
-        const owner = tx.sql.get("SELECT project FROM contexts WHERE id = ?", [
-          request.context,
-        ]);
-        if (owner === undefined) {
-          throw new ContextDepRefused("not_found", "context not found");
-        }
-        // 요청 글은 근거 값에서 만든다. 그 blob은 호출 경계가 같은 값으로 미리 준비했고 여기서는
-        // 요청 자격의 준비 참조로 등록만 한다(파일을 쓰지 않는다).
-        const content = handOffContent(request.evidenceValue);
-        const body = request.registerContent(content);
-        if (!body.ok) {
-          throw new ContextDepRefused(body.error.code, body.error.message);
-        }
-        const started = startRequest(conversationDeps, tx, {
-          agent: {
-            role: "project_manager",
-            project: String(owner["project"]) as Id<"prj">,
-          },
-          content,
-          body: body.value,
-        });
-        if (started.ok) return started.value.message;
-        // 세션·Run 접수가 거절한 코드 그대로 답한다(없는 project는 not_found, 받을 assignment가 없으면
-        // unavailable). 접수 쪽은 internal 말고 문서가 정한 코드만 낸다.
-        throw new ContextDepRefused(started.error.code, started.error.message);
-      },
-      isContextEngineer(assignment) {
-        if (current === undefined) return false;
-        try {
-          const row = current.get(
-            "SELECT role FROM assignments WHERE id = ?",
-            [assignment],
-          );
-          return row?.["role"] === "context_engineer";
-        } catch {
-          // assignments 표가 없는 조립에서는 Context Engineer가 없다.
-          return false;
-        }
-      },
       appIds(slugs) {
         if (current === undefined || slugs.length === 0) return [];
         try {

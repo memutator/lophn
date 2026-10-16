@@ -1,5 +1,5 @@
 // context API command: glossary.set·remove.
-// 사람은 어느 항목이든, Context Engineer는 자기가 정한 항목만 고치거나 지운다. 검사 순서는 actor,
+// 사람은 어느 항목이든, 그 project의 Project Manager는 agent가 정한 항목만 고치거나 지운다. 검사 순서는
 // 입력 모양, 대상 항목, 권한, base_revision CAS, 용어 유일과 항목 수 상한 순이다. 같은 key의 되풀이는
 // withReplay가 처음 결과를 돌려준다.
 import { ok, type Result } from "../../../../base/mod.ts";
@@ -18,17 +18,20 @@ import { withReplay } from "./commands-common.ts";
 import {
   emitGlossaryEvent,
   entriesIn,
-  isGlossaryWriter,
   mayChange,
   rejected,
   setterOf,
   termTaken,
 } from "./commands-glossary-rules.ts";
-import type {
-  ContextApiActor,
-  ContextApiDeps,
-  ContextApiState,
+import {
+  type ContextApiActor,
+  type ContextApiDeps,
+  type ContextApiState,
+  mayWrite,
 } from "./state.ts";
+
+const notAllowed = (actor: ContextApiActor) =>
+  rejected("forbidden", `${actor.kind} cannot write this context's glossary`);
 
 export function createGlossaryCommands(
   state: ContextApiState,
@@ -47,12 +50,6 @@ function setEntry(
   deps: ContextApiDeps,
   call: Call<typeof glossarySetRoute>,
 ): Result<GlossaryEntry> {
-  if (!isGlossaryWriter(call.actor)) {
-    return rejected(
-      "forbidden",
-      "only the user and the Context Engineer write the glossary",
-    );
-  }
   const input = glossarySetRequestSchema.safeParse(call.input);
   const compare = optionalBaseRevisionSchema.safeParse(call.compare);
   if (!input.success || !compare.success) {
@@ -82,11 +79,11 @@ function addEntry(
       "a new glossary entry takes no base_revision",
     );
   }
+  const context = state.contexts.get(body.context);
+  if (context === undefined) return rejected("not_found", "context not found");
+  if (!mayWrite(deps, actor, context.project)) return notAllowed(actor);
   if (state.glossary.has(body.id)) {
     return rejected("conflict", "a glossary entry with this id already exists");
-  }
-  if (!state.contexts.has(body.context)) {
-    return rejected("not_found", "context not found");
   }
   if (entriesIn(state, body.context).length >= GLOSSARY_ENTRY_MAX) {
     return rejected(
@@ -135,10 +132,14 @@ function changeEntry(
 ): Result<GlossaryEntry> {
   const current = state.glossary.get(body.entry);
   if (!current) return rejected("not_found", "glossary entry not found");
+  const owner = state.contexts.get(current.context);
+  if (owner === undefined || !mayWrite(deps, actor, owner.project)) {
+    return notAllowed(actor);
+  }
   if (!mayChange(actor, current)) {
     return rejected(
       "forbidden",
-      "the Context Engineer cannot change an entry the user set",
+      "the Project Manager cannot change an entry the user set",
     );
   }
   if (baseRevision === undefined) {
@@ -189,12 +190,6 @@ function removeEntry(
   deps: ContextApiDeps,
   call: Call<typeof glossaryRemoveRoute>,
 ): Result<{ entry: string }> {
-  if (!isGlossaryWriter(call.actor)) {
-    return rejected(
-      "forbidden",
-      "only the user and the Context Engineer write the glossary",
-    );
-  }
   const input = glossaryRemoveRequestSchema.safeParse(call.input);
   const compare = baseRevisionSchema.safeParse(call.compare);
   if (!input.success || !compare.success) {
@@ -205,10 +200,14 @@ function removeEntry(
   }
   const current = state.glossary.get(input.data.entry);
   if (!current) return rejected("not_found", "glossary entry not found");
+  const owner = state.contexts.get(current.context);
+  if (owner === undefined || !mayWrite(deps, call.actor, owner.project)) {
+    return notAllowed(call.actor);
+  }
   if (!mayChange(call.actor, current)) {
     return rejected(
       "forbidden",
-      "the Context Engineer cannot remove an entry the user set",
+      "the Project Manager cannot remove an entry the user set",
     );
   }
   if (compare.data.base_revision !== current.revision) {

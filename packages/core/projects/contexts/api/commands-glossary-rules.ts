@@ -18,14 +18,8 @@ export function termKey(term: string): string {
   return term.trim().replace(/[A-Z]+/g, (upper) => upper.toLowerCase());
 }
 
-// 항목을 쓸 수 있는 actor는 사람과 Context Engineer 역할의 agent뿐이다.
-export function isGlossaryWriter(actor: ContextApiActor): boolean {
-  return actor.kind === "user" ||
-    (actor.kind === "agent" && actor.role === "context_engineer");
-}
-
-// 쓰기 주체가 이 항목을 고치거나 지울 수 있는가. isGlossaryWriter를 먼저 통과한 뒤에 쓴다.
-// 사람은 어느 항목이든, Context Engineer는 agent가 정한 항목만이다.
+// 쓰기 주체가 이 항목을 고치거나 지울 수 있는가. mayWrite를 먼저 통과한 뒤에 쓴다.
+// 사람은 어느 항목이든, Project Manager는 agent가 정한 항목만이다.
 export function mayChange(
   actor: ContextApiActor,
   entry: GlossaryEntry,

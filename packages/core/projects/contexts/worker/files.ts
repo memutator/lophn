@@ -37,6 +37,7 @@ function limitsOf(options: ContextFileOptions) {
   return { ...CONTEXT_FILE_LIMITS, ...options.limits };
 }
 
+// .gitignore는 보지 않는다: 계약이 경로로 명시한 파일을 읽는 것이지 키워드 검색처럼 훑는 것이 아니다.
 const SKIPPED_NAMES = new Set([".git"]);
 const decoder = new TextDecoder("utf-8");
 

@@ -6,6 +6,7 @@ export { contextsLedgerSchemaSteps } from "./ledger/schema.ts";
 export { contextStatusOf, type ContextStatusValue } from "./ledger/status.ts";
 export {
   CONTEXT_WORKER_OPERATIONS,
+  contextAuthorityPort,
   type ContextBlobs,
   type ContextIndexPort,
   contextLedgerCommands,

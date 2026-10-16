@@ -203,7 +203,7 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 // ---------- 값: SavedView ----------
 
 export const SAVED_VIEW_ORIGINS = ["user", "engineer"] as const;
-// 새 흐름의 만든 쪽. 옛 SAVED_VIEW_ORIGINS를 쓰는 곳이 없어지면 이것으로 바꾼다.
+// saved view를 만든 쪽. 값 schema와 SavedViewCreated가 이것을 쓴다.
 export const SAVED_VIEW_AUTHORS = ["user", "project_manager"] as const;
 const savedViewFields = {
   id: savedViewIdSchema,
@@ -211,7 +211,7 @@ const savedViewFields = {
   name: nonblankSchema,
   search: contractNameSchema,
   inputs: searchInputValuesSchema,
-  origin: z.enum(SAVED_VIEW_ORIGINS),
+  origin: z.enum(SAVED_VIEW_AUTHORS),
   revision: revisionSchema,
 };
 export const savedViewValueSchema = z.strictObject(savedViewFields);
@@ -1163,7 +1163,7 @@ export const savedViewCreatedEvent = defineEvent("SavedViewCreated", {
     name: nonblankSchema,
     search: contractNameSchema,
     inputs: searchInputValuesSchema,
-    origin: z.enum(SAVED_VIEW_ORIGINS),
+    origin: z.enum(SAVED_VIEW_AUTHORS),
   }),
 });
 export const savedViewUpdatedEvent = defineEvent("SavedViewUpdated", {

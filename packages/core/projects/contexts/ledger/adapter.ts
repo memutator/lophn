@@ -18,16 +18,17 @@
 //   1.5. 앱 하나에 묶인 agent(`conditions.app`)는 app-bound.ts가 먼저 막는다: command는 모두, 읽기는
 //        get·contract·overview·glossary.list 중 그 앱을 app-data로 읽는 context만, 목록은 그 줄만 남긴다.
 //        읽는 앱은 context_app_data 표(판을 적용할 때 채운다)에서 낸다. 막힌 것은 없는 대상과 같은 not_found다.
-//   2. actor. mapActor(ctx, deps)로 platform ctx를 ContextApiActor로 바꾼다.
+//   2. actor. mapActor(ctx)로 platform ctx를 ContextApiActor로 바꾼다.
 //   3. 실행. createContextApiCommands(state, handlerDeps)의 handler를 부른다.
 //        handlerDeps.now = command를 시작할 때 부른 tx.now()의 값(platform 시계는 부를 때마다 달라질 수
 //        있어 한 transaction에 시각 하나를 고정한다), newId = tx.newId, hash = deps.hash,
 //        putBlob = (value) => 값의 참조(hash, 크기)만 계산한다(파일을 쓰지 않는다. 같은 value는 한 참조),
-//        startHandOffRun = (request) => deps.startHandOffRun(tx, request),
+//        canWrite = tx.port(contextAuthorityPort).canWrite (그 project의 Project Manager이거나 사람),
+//        recordedViolations·keepViolations = context_violation_keys 표,
 //        emit = (event) => tx.emit(CONTEXT_API_EVENTS에서 type으로 찾은 정의, event.subject, event.payload).
 //        없는 type이면 던진다(internal). actor는 tx의 자격에서 정해지므로 넘기지 않는다.
 //        handler는 돌려받은 seq를 revision으로 쓴다. 그래서 같은 transaction에서 다른 concern이 낸 event
-//        (hand-off Run, blob 등록)가 사이에 끼어도 seq가 어긋나지 않는다. head를 읽거나 맞추는 일이 없다.
+//        (blob 등록)가 사이에 끼어도 seq가 어긋나지 않는다. head를 읽거나 맞추는 일이 없다.
 //   4. 실패(Result err)면 아무것도 쓰지 않고 그 err를 돌려준다. handler는 거절을 낼 때까지 emit하지
 //      않는다(검사가 emit 앞이다).
 //   5. 성공이면 event는 이미 냈다(3). handler가 가리킨 content blob의 영구 참조를 tx.registerBlobRef로
@@ -54,8 +55,7 @@
 // | view.save                     | input.context          | context, 판, saved view       | 적용된 판 |
 // | view.update                   | contextOf(view)        | context, 판, saved view       | 적용된 판 |
 // | view.delete                   | contextOf(view)        | context, saved view           | no      |
-// | context.record_violations     | input.context          | context, 판                   | no      |
-// | context.hand_off_violations   | input.context          | context, 판, 위반(index)      | 적용된 판 |
+// | context.record_violations     | input.context          | context, 판, 위반(index)      | no      |
 // | glossary.set (새 항목)        | input.context          | context, 용어 항목, 입력 id의 항목 | no   |
 // | glossary.set (기존)·remove    | contextOf(entry)       | context, 용어 항목            | no      |
 //
@@ -69,19 +69,18 @@
 // context.containing은 project의 active context들의 적용된 판 content다.
 // 위반·개체·index 갱신 실패는 deps.index가 준다.
 //
-// platform이 주지 않아 deps로 받는 것: blob 읽기, 위반 넘김 Run 만들기, Context Engineer 판별,
-// derived index.
+// platform이 주지 않아 deps로 받는 것: blob 읽기, derived index. 쓸 수 있는 actor의 판정은
+// contextAuthorityPort(tx port)가 한다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { StoredViolation } from "../../../../protocol/projects/mod.ts";
 import { AGENT_RUNTIME_PRINCIPAL } from "../../../../protocol/lophn-agent/mod.ts";
-import { parseActor } from "../../../../protocol/base/mod.ts";
+import { definePort, parseActor } from "../../../../protocol/base/mod.ts";
+import type { ContextAuthority } from "../../ports.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
   RequestContext,
-  Tx,
 } from "../../../../protocol/server/mod.ts";
-import type { PermanentBlobReference } from "../../../../protocol/storage/mod.ts";
 import type { SearchExecutor } from "../api/reads.ts";
 import type {
   BlobReference,
@@ -121,6 +120,11 @@ export interface ContextIndexPort {
   failing(context: string): boolean;
 }
 
+// context를 쓸 수 있는 actor의 판정. 구현은 wiring이 tx port로 끼운다(그 project의 Project Manager의 session).
+export const contextAuthorityPort = definePort<ContextAuthority>(
+  "projects.context_authority",
+);
+
 export type ContextLedgerDeps = {
   blobs: ContextBlobs;
   index: ContextIndexPort;
@@ -128,21 +132,6 @@ export type ContextLedgerDeps = {
   execute: SearchExecutor;
   // 정규 JSON의 sha256(hex). bundle_hash를 계산한다.
   hash(value: unknown): string;
-  // 위반을 Context Engineer에게 넘기는 Run을 같은 transaction에서 만든다.
-  startHandOffRun(
-    tx: Tx,
-    request: {
-      context: string;
-      evidence: BlobReference;
-      evidenceValue: Record<string, unknown>;
-      violations: readonly StoredViolation[];
-      // 값을 content blob의 영구 참조로 등록한다(요청 자격이 준비한 바이트여야 한다). 요청 글이 근거와
-      // 같은 길로 blob이 된다.
-      registerContent(value: unknown): Result<PermanentBlobReference>;
-    },
-  ): string;
-  // `agent:asg_…`의 assignment가 Context Engineer 역할인가.
-  isContextEngineer(assignment: string): boolean;
   // app-data source의 앱 slug들이 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 읽기 권한이 쓴다.
   // 등록되지 않은 slug는 빠지고, 앱 등록이 없는 조립에서는 빈 목록이다.
   appIds(slugs: readonly string[]): readonly string[];
@@ -161,16 +150,12 @@ export const CONTEXT_WORKER_OPERATIONS = [
 ] as const;
 
 // platform ctx를 handler의 actor로 바꾼다.
-//   user -> user, coding_agent:… -> coding_agent,
-//   agent:asg_… -> agent (isContextEngineer면 context_engineer, 아니면 other),
+//   user -> user, coding_agent:… -> coding_agent, agent:ses_… -> agent,
 //   machine -> machine (principal이 AGENT_RUNTIME_PRINCIPAL이면 agent_runtime: context.list·get·contract만
 //              읽는다. scope.operations가 비어 있지 않고 모두 CONTEXT_WORKER_OPERATIONS이면 context_worker,
 //              아니면 other).
 // route의 actors 목록에 없는 app:… 자격은 envelope가 먼저 막지만 여기서도 forbidden이다.
-export function mapActor(
-  ctx: RequestContext,
-  deps: Pick<ContextLedgerDeps, "isContextEngineer">,
-): Result<ContextApiActor> {
+export function mapActor(ctx: RequestContext): Result<ContextApiActor> {
   const parts = parseActor(ctx.actor);
   switch (parts?.kind) {
     case "user":
@@ -178,11 +163,7 @@ export function mapActor(
     case "coding_agent":
       return ok({ kind: "coding_agent", actor: ctx.actor });
     case "agent":
-      return ok({
-        kind: "agent",
-        actor: ctx.actor,
-        role: deps.isContextEngineer(parts.id) ? "context_engineer" : "other",
-      });
+      return ok({ kind: "agent", actor: ctx.actor });
     case "machine": {
       const operations: readonly string[] = ctx.scope.operations;
       const worker = operations.length > 0 &&
@@ -216,7 +197,7 @@ export function contextLedgerCommands(
         const denied = denyCommand(tx, ctx, entry.route.name);
         if (!denied.ok) return denied;
       }
-      const actor = mapActor(ctx, deps);
+      const actor = mapActor(ctx);
       return actor.ok
         ? entry.run(deps, tx, ctx, actor.value, input, compare)
         : actor;
@@ -244,7 +225,7 @@ export function contextLedgerReads(
         );
         if (!allowed.ok) return allowed;
       }
-      const actor = mapActor(ctx, deps);
+      const actor = mapActor(ctx);
       if (!actor.ok) return actor;
       const read = entry.run(deps, snapshot, actor.value, input);
       if (!bound || !read.ok || operation !== APP_BOUND_LIST) return read;

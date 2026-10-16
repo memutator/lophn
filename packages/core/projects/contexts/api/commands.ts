@@ -1,7 +1,6 @@
 // context API command. 묶음마다 파일 하나다: commands-lifecycle(context.create·archive·unarchive,
 // bundle.rollback), commands-bundle(bundle.save_draft·discard_draft·submit·finish_check와 자동 적용),
-// commands-views(view.*), commands-glossary(glossary.*), commands-violations(context.record_violations,
-// context.hand_off_violations). event와 재실행은 commands-common이 맡는다.
+// commands-views(view.*), commands-glossary(glossary.*), commands-violations(context.record_violations). event와 재실행은 commands-common이 맡는다.
 import type { Result } from "../../../../base/mod.ts";
 import type {
   bundleDiscardDraftRoute,
@@ -11,7 +10,6 @@ import type {
   bundleSubmitRoute,
   contextArchiveRoute,
   contextCreateRoute,
-  contextHandOffViolationsRoute,
   contextRecordViolationsRoute,
   contextUnarchiveRoute,
   glossaryRemoveRoute,
@@ -61,7 +59,6 @@ export type ContextApiCommands = {
   viewUpdate: Handler<typeof viewUpdateRoute>;
   viewDelete: Handler<typeof viewDeleteRoute>;
   recordViolations: Handler<typeof contextRecordViolationsRoute>;
-  handOffViolations: Handler<typeof contextHandOffViolationsRoute>;
   glossarySet: Handler<typeof glossarySetRoute>;
   glossaryRemove: Handler<typeof glossaryRemoveRoute>;
 };

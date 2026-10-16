@@ -78,6 +78,14 @@ export const contextsLedgerSchemaSteps: readonly SchemaStep[] = [{
       BEGIN SELECT RAISE(ABORT, 'context identity and project are immutable'); END;
     CREATE TRIGGER contexts_no_delete BEFORE DELETE ON contexts
       BEGIN SELECT RAISE(ABORT, 'contexts are archived, not deleted'); END;
+    -- context_violation_keys: context.record_violations가 마지막으로 기록한 위반 키들(JSON 배열 글).
+    -- 다음 기록이 새 위반이 생겼는지를 집합으로 가리는 기준이다.
+    CREATE TABLE context_violation_keys (
+      context TEXT PRIMARY KEY NOT NULL REFERENCES contexts(id)
+        CHECK (${idCheck("context", "ctx")}),
+      keys TEXT NOT NULL
+        CHECK (json_valid(keys) AND json_type(keys) = 'array')
+    ) STRICT;
     -- context_app_data: 적용된 판의 계약이 app-data source로 읽는 앱 slug들. 판을 적용할 때(적용·되돌리기)
     -- 같은 transaction에서 그 판의 content로 다시 채운다. 읽기 권한(앱 하나에 묶인 agent)이 판의
     -- content blob을 열지 않고 이 표만 본다.
@@ -219,7 +227,7 @@ export const contextsLedgerSchemaSteps: readonly SchemaStep[] = [{
         CHECK (search GLOB '[a-z]*' AND search NOT GLOB '*[^a-z0-9_]*'),
       inputs TEXT NOT NULL
         CHECK (json_valid(inputs) AND json_type(inputs) = 'object'),
-      origin TEXT NOT NULL CHECK (origin IN ('user', 'engineer')),
+      origin TEXT NOT NULL CHECK (origin IN ('user', 'project_manager')),
       revision TEXT NOT NULL CHECK (${SEQ})
     ) STRICT;
     CREATE UNIQUE INDEX saved_views_context_name ON saved_views(context, name);

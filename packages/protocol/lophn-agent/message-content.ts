@@ -2,15 +2,11 @@ import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { ATTACHED_KINDS } from "./input-tags.ts";
-import { visualBlockInputSchema, visualBlockSchema } from "./visuals.ts";
 
-export const MESSAGE_VISUAL_MAX_COUNT = 8;
-export const MESSAGE_VISUAL_MAX_BYTES = 262144;
 // 본문 blob 하나의 정규 직렬화 상한이다. 요청은 본문 값을 싣고 RPC JSON 상한이 256KiB
 // 이므로(platform/api) id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
-// 글뿐이라 64KiB(스키마가 검사), agent 답은 글과 시각 블록을 합쳐 240KiB다. agent 답의
-// 합계는 core가 준비 전에 검사한다: 시각 블록 합 상한(MESSAGE_VISUAL_MAX_BYTES)은 따로
-// 스키마가 지킨다.
+// 글뿐이라 64KiB(스키마가 검사), agent 답은 글과 카드를 합쳐 240KiB다. agent 답의
+// 합계는 core가 준비 전에 검사한다.
 export const MESSAGE_TEXT_CONTENT_MAX_BYTES = 65536;
 export const MESSAGE_CONTENT_MAX_BYTES = 245760;
 // 본문 blob 준비·참조의 이름. 준비 주체는 보낸 사람의 자격이고 참조는 permanent다.
@@ -43,13 +39,11 @@ const appCardPartSchema = z.object(appCardFields);
 
 const messagePartInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("text"), text: z.string() }),
-  z.strictObject({ kind: z.literal("visual"), block: visualBlockInputSchema }),
   attachedPartInputSchema,
   appCardPartInputSchema,
 ]);
 const messagePartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
-  z.object({ kind: z.literal("visual"), block: visualBlockSchema }),
   attachedPartSchema,
   appCardPartSchema,
 ]);
@@ -60,23 +54,6 @@ function canonicalBytes(block: unknown): number | undefined {
   } catch {
     return undefined;
   }
-}
-
-function validVisuals(parts: readonly z.infer<typeof messagePartSchema>[]) {
-  const blocks = parts.flatMap((part) =>
-    part.kind === "visual" ? [part.block] : []
-  );
-  if (
-    blocks.length > MESSAGE_VISUAL_MAX_COUNT ||
-    new Set(blocks.map((block) => block.key)).size !== blocks.length
-  ) return false;
-  let bytes = 0;
-  for (const block of blocks) {
-    const size = canonicalBytes(block);
-    if (size === undefined) return false;
-    bytes += size;
-  }
-  return bytes <= MESSAGE_VISUAL_MAX_BYTES;
 }
 
 // blob에 들어가는 바이트다. 키를 정렬한 정규 JSON(RFC 8785)이라 같은 값은 같은 바이트다.
@@ -92,14 +69,10 @@ function withinBytes(content: unknown, max: number): boolean {
 const messageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
   parts: z.array(messagePartInputSchema).min(1),
-}).refine((value) => validVisuals(value.parts), {
-  message: "invalid visual keys, count or canonical bytes",
 });
 export const messageContentSchema = z.object({
   schema_version: z.literal(1),
   parts: z.array(messagePartSchema).min(1),
-}).refine((value) => validVisuals(value.parts), {
-  message: "invalid visual keys, count or canonical bytes",
 });
 
 const textPartInput = z.strictObject({

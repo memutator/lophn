@@ -81,8 +81,6 @@ export async function readBody(
     switch (part.kind) {
       case "text":
         return { kind: "text", text: part.text };
-      case "visual":
-        return { kind: "visual", block: part.block };
       case "attached":
         return {
           kind: "attached",

@@ -13,12 +13,9 @@ export const project = {
   "app-panel.notice.not-panel":
     "This screen can't open in a tab. Open it in the app space.",
   "app-panel.title.choose": "Open an app in this tab",
-  "conversation.label.visual-untitled": "Visual",
   "conversation.notice.visual-app-card": "App cards can't be shown here.",
   "conversation.notice.visual-unavailable-drawing":
     "This visual couldn't be drawn from its data.",
-  "conversation.notice.visual-unavailable-kind":
-    "This kind of visual can't be shown here.",
   "document.button.check-task": "Check task",
   "document.button.compare": "Compare",
   "document.button.delete": "Delete",
@@ -43,7 +40,6 @@ export const project = {
     "Some documents have changes that aren't saved to their files yet. Your text stays here if you keep editing.",
   "document.dialog.unsaved-one":
     "{name} has changes that aren't saved to the file yet. Your text stays here if you keep editing.",
-  "document.empty.contexts": "This document isn't in any context yet.",
   "document.error.compare-failed":
     "Couldn't read the file to compare. Try again.",
   "document.error.delete-failed": "Couldn't delete this file.",
@@ -60,7 +56,6 @@ export const project = {
   "document.label.find-none": "No matches",
   "document.label.find-query": "Find",
   "document.label.image": "Image",
-  "document.label.info-file": "File",
   "document.label.info-modified": "Modified",
   "document.label.info-outline": "Outline",
   "document.label.info-path": "Path",
@@ -76,7 +71,6 @@ export const project = {
   "document.label.view-only": "View only",
   "document.notice.conflict": "Choose which version to keep.",
   "document.notice.info-outside": "This file is outside the project folder.",
-  "document.notice.no-document": "Open a document to see its details.",
   "document.notice.reloaded":
     "This file changed outside lophn, so it was read again.",
   "document.notice.too-large":

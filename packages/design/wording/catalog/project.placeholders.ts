@@ -18,10 +18,8 @@ export type ProjectPlaceholders = {
   "app-panel.notice.no-version": Record<never, never>;
   "app-panel.notice.not-panel": Record<never, never>;
   "app-panel.title.choose": Record<never, never>;
-  "conversation.label.visual-untitled": Record<never, never>;
   "conversation.notice.visual-app-card": Record<never, never>;
   "conversation.notice.visual-unavailable-drawing": Record<never, never>;
-  "conversation.notice.visual-unavailable-kind": Record<never, never>;
   "document.button.check-task": Record<never, never>;
   "document.button.compare": Record<never, never>;
   "document.button.delete": Record<never, never>;
@@ -46,7 +44,6 @@ export type ProjectPlaceholders = {
   "document.dialog.unsaved-one": {
     name: "string";
   };
-  "document.empty.contexts": Record<never, never>;
   "document.error.compare-failed": Record<never, never>;
   "document.error.delete-failed": Record<never, never>;
   "document.error.forbidden": Record<never, never>;
@@ -68,7 +65,6 @@ export type ProjectPlaceholders = {
   "document.label.find-none": Record<never, never>;
   "document.label.find-query": Record<never, never>;
   "document.label.image": Record<never, never>;
-  "document.label.info-file": Record<never, never>;
   "document.label.info-modified": Record<never, never>;
   "document.label.info-outline": Record<never, never>;
   "document.label.info-path": Record<never, never>;
@@ -86,7 +82,6 @@ export type ProjectPlaceholders = {
   "document.label.view-only": Record<never, never>;
   "document.notice.conflict": Record<never, never>;
   "document.notice.info-outside": Record<never, never>;
-  "document.notice.no-document": Record<never, never>;
   "document.notice.reloaded": Record<never, never>;
   "document.notice.too-large": Record<never, never>;
   "document.title.compare-disk": Record<never, never>;

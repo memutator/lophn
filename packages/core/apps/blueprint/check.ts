@@ -53,7 +53,11 @@ export function checkBlueprint(deps: BlueprintCheckDeps): MemoryHandler {
       await Deno.writeTextFile(
         mapPath,
         JSON.stringify(
-          devImportMap(await importsOf(source.value), sdkRoot, source.value),
+          devImportMap(
+            await importsOf(source.value),
+            deps.dataRoot,
+            source.value,
+          ),
         ),
       );
       let output: Deno.CommandOutput;

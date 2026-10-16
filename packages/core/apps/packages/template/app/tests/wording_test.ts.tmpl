@@ -1,5 +1,5 @@
 // 화면 문구 검사(apps/sdk#R41). 고정 문구의 직접 삽입, 빠진 en key, placeholder 불일치가 여기서 실패한다.
-// 화면 언어는 en 하나이고 문구는 message key로만 쓴다. command·screen key는 문구와 별개의 식별자다.
+// 화면 언어는 en 하나이고 문구는 message key로만 쓴다. app-api·screen key는 문구와 별개의 식별자다.
 import { assertEquals } from "@std/assert";
 import { checkSource, errorsOf } from "@lophn/wording/check";
 import { render } from "@lophn/wording/generate";
@@ -97,19 +97,19 @@ Deno.test("wording: placeholders.ts is generated from the catalog and t formats 
   assertEquals(t("items.label.count", { count: 3 }), "3 items");
 });
 
-Deno.test("wording: changing catalog text never changes a command or screen key", () => {
+Deno.test("wording: changing catalog text never changes an app-api or screen key", () => {
   const rewritten = Object.fromEntries(
     Object.entries(en).map(([key, value]) => [key, `${value} (changed)`]),
   ) as unknown as Record<keyof typeof en, string>;
   const changed = makeBlueprint(rewritten);
   assertEquals(
-    changed.commands.map((c) => c.key),
-    blueprint.commands.map((c) => c.key),
+    changed.app_api.map((api) => api.key),
+    blueprint.app_api.map((api) => api.key),
   );
   assertEquals(
     changed.screens.map((s) => s.key),
     blueprint.screens.map((s) => s.key),
   );
   // 문구는 따라 바뀌지만 key는 같다.
-  assertEquals(changed.commands[0].label !== blueprint.commands[0].label, true);
+  assertEquals(changed.app_api[0].label !== blueprint.app_api[0].label, true);
 });

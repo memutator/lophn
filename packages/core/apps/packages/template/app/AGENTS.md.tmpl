@@ -35,47 +35,45 @@ Package를 쓴다.
 - 설계 문서, blueprint 선언, 구현 code, machine 생성물(생성된
   placeholders·locks·build 자원)은 서로 다른 몫이다. machine이 만든 파일은
   손으로 고치지 않는다.
-- 기존 fixture와 작업 제약을 보존한다. 선언한 문제 코드를 지우거나 테스트
-  기대값을 낮춰 통과시키지 않는다.
+- 기존 fixture와 작업 제약을 보존한다. 테스트 기대값을 낮춰 통과시키지 않는다.
 - 용어는 작업 저장소의 context glossary를 읽는다(절차는 `lophn-navigate`).
 
 ## SDK 확인과 문제 보고
 
 - 새 SDK Package는 설치 catalog(`lophn_sdk`)에서 찾고 exact version만 쓴다.
   범위·별칭 version과 조용한 upgrade는 쓰지 않는다.
-- 처리하지 못한 예외는 설치된 예외 수집 통로로 모이게 한다. 문제 보고는 선언한
-  코드로 `reportProblem`만 부른다.
+- 처리하지 못한 예외는 설치된 예외 수집 통로로 모이게 한다. 문제 보고는
+  `reportProblem(name, message)`만 부른다. 이름은 선언하지 않는다.
 
 ## 테스트·preview·결과 반환
 
 - 실제 테스트는 지정한 test command로 돌린다. 직접 돌린 shell log는 test
   result가 아니다. 통과 전에 release 준비를 시도하지 않는다.
-- preview는 fixture 격리 사본에서 화면·command를 확인하는 것뿐이고 운영 정상의
+- preview는 fixture 격리 사본에서 화면·app-api를 확인하는 것뿐이고 운영 정상의
   증거가 아니다.
 - 보고할 때 완료 주장·preview에서 본 동작·runner가 낸 실제 test result·release
   준비·activation·문제 닫힘을 서로 다른 말로 구별한다. 미실행 확인과 알려진
   한계를 그대로 적는다.
 <!-- end lophn-managed -->
 
-## 자리
+## 파일
 
-- `blueprint.ts`: 앱의 정본 선언(화면·command·problem code·고정 SDK 의존).
+- `blueprint.ts`: 앱의 정본 선언(화면·app-api·고정 SDK 의존).
   코드를 바꾸기 전에 먼저 바꾼다.
-- `main.ts`: 진입. command 등록만 한다. 예외 수집과 문제 보고 통로는 lophn
+- `main.ts`: 진입. app-api 등록만 한다. 예외 수집과 문제 보고 통로는 lophn
   진입점이 설치한다.
-- `src/commands.ts`, `src/items.ts`: command handler와 업무 규칙, DB 질의. DB를
+- `src/app-api.ts`, `src/items.ts`: app-api handler와 업무 규칙, DB 질의. DB를
   쓰지 않으면 `migrations/`와 함께 지운다.
 - `src/screens/<key>/`: React 화면. root는 `AppErrorBoundary`로 감싼 채 둔다.
 - `src/wording/en.ts`: 화면 문구의 en catalog. 화면 코드에 문구를 직접 쓰지 않고
   `t("key")`만 쓴다.
-- `tests/`: `blueprint_test.ts`는 lophn가 만든 파일이라 고치지 않는다. 실패 경로
-  test는 선언한 problem code마다 하나 이상이다.
+- `tests/`: `blueprint_test.ts`는 lophn가 만든 파일이라 고치지 않는다.
 - `deno.json`: 정확한 SDK import map. `lophn-sdk:` 값은 정확한 version만 받는다.
   `.lophn/`는 이 장치의 개발용 파생물이라 commit하지 않는다.
 
 ## 명령
 
-- `deno task test`: 앱 test(blueprint·업무 규칙·실패 경로·문구).
+- `deno task test`: 앱 test(blueprint·업무 규칙·문구).
 - `deno task build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
   결과를 bundle에 담는다.
 - `deno task wording`: en catalog를 바꾼 뒤 `src/wording/placeholders.ts`를 다시

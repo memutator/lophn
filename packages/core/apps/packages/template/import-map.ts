@@ -3,6 +3,7 @@
 // 풀리지 않는 import와 같은 이름의 다른 pin은 import map을 만들지 않고 실패한다. 실행 때 새 패키지를
 // 내려받거나 다른 version으로 바꾸지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { packageInstallPath } from "../install.ts";
 import { type SourceFile, SUPPORT_PACKAGES } from "../vendor.ts";
 
 export type ImportMapFailure = { code: "invalid_input"; message: string };
@@ -20,11 +21,6 @@ type Loaded = { files: SourceFile[]; config: Config };
 
 function failure(message: string): Result<never, ImportMapFailure> {
   return err({ code: "invalid_input", message });
-}
-
-// `@lophn/ui-state` → `ui-state`. sdk/<이름>/<version>/ 폴더 이름이다.
-export function installPart(name: string): string {
-  return name.slice(name.indexOf("/") + 1);
 }
 
 function stripComments(text: string): string {
@@ -190,14 +186,14 @@ function npmFor(
   if (
     prefix !== undefined && prefix.startsWith("npm:") && prefix.endsWith("/")
   ) {
-    return `${prefix}${subpath.slice(2)}`;
+    return `${prefix.replace("npm:/", "npm:")}${subpath.slice(2)}`;
   }
   return undefined;
 }
 
 export type ImportMapInput = {
-  // 설치 SDK 폴더. sdk/<이름>/<version>/ 사본이 이 아래에 있다.
-  sdkRoot: string;
+  // lophn data root. 설치 사본(`packageInstallPath`)이 이 아래에 있다.
+  dataRoot: string;
   // 앱이 직접 고르는 Package. 설치 사본 import를 따라 필요한 Package는 자동으로 더한다.
   roots: readonly PackageRef[];
   // 사본이 import하지 않아도 앱 화면이 직접 쓰는 npm 이름(예: react-dom/client).
@@ -242,9 +238,10 @@ export async function buildImportMap(
         ? ok(undefined)
         : failure(`${ref.name} is pinned to two versions`);
     }
-    const files = await readCopy(
-      `${input.sdkRoot}/${installPart(ref.name)}/${ref.version}`,
-    );
+    const path = packageInstallPath(ref.name, ref.version);
+    const files = path.ok
+      ? await readCopy(`${input.dataRoot}/${path.value}`)
+      : undefined;
     if (files === undefined) {
       return failure(`${ref.name}@${ref.version} is not installed`);
     }
@@ -334,24 +331,24 @@ export async function buildImportMap(
   });
 }
 
-// 앱 deno.json의 `lophn-sdk:` 값을 설치 사본의 file URL로 바꾼 개발용 import map이다. 상대 경로 값은
-// 앱 폴더 기준 file URL로 바꾼다(map 파일은 `.lophn/`에 있다). 이 map은 이 장치의 설치 위치를 담으므로
-// 앱 source에 넣지 않는다.
+// 앱 deno.json의 `lophn-sdk:` 값을 설치 사본(`<dataRoot>/<packageInstallPath>`)의 file URL로 바꾼 개발용 import
+// map이다. 상대 경로 값은 앱 폴더 기준 file URL로 바꾼다(map 파일은 `.lophn/`에 있다). 이 map은 이 장치의 설치
+// 위치를 담으므로 앱 source에 넣지 않는다.
 export function devImportMap(
   imports: Readonly<Record<string, string>>,
-  sdkRoot: string,
+  dataRoot: string,
   appDir: string,
 ): ImportMap {
-  const sdkBase = `file://${sdkRoot.replace(/\/?$/, "/")}`;
+  const dataBase = `file://${dataRoot.replace(/\/?$/, "/")}`;
   const appBase = `file://${appDir.replace(/\/?$/, "/")}`;
   const mapped: Record<string, string> = {};
   for (const [key, value] of Object.entries(imports)) {
-    const match = /^lophn-sdk:(@[^/]+\/[^@]+)@([^@/]+)\/(.+)$/.exec(value);
-    mapped[key] = match
-      ? new URL(
-        `${installPart(match[1])}/${match[2]}/${match[3]}`,
-        sdkBase,
-      ).href
+    const sdk = /^lophn-sdk:(@[^/@]+\/[^/@]+)@([^/@]+)(?:\/(.*))?$/.exec(value);
+    const installed = sdk === null
+      ? undefined
+      : packageInstallPath(sdk[1], sdk[2]);
+    mapped[key] = sdk !== null && installed?.ok === true
+      ? new URL(`${installed.value}/${sdk[3] ?? ""}`, dataBase).href
       : value.startsWith("./") || value.startsWith("../")
       ? new URL(value, appBase).href
       : value;

@@ -4,7 +4,7 @@ import { assert, assertEquals } from "@std/assert";
 import { validateBlueprint } from "@lophn/blueprint";
 import { registeredAppApis } from "@lophn/cap-app-api";
 import blueprint from "../blueprint.ts";
-import { registerCommands } from "../src/commands.ts";
+import { registerAppApis } from "../src/app-api.ts";
 
 const root = new URL("../", import.meta.url);
 
@@ -14,11 +14,11 @@ Deno.test("blueprint: the declaration is valid and already canonical", () => {
   assertEquals(checked.value, blueprint);
 });
 
-Deno.test("blueprint: every declared command has a registered handler and nothing else is registered", () => {
-  registerCommands();
+Deno.test("blueprint: every declared app-api has a registered handler and nothing else is registered", () => {
+  registerAppApis();
   assertEquals(
     [...registeredAppApis()].sort(),
-    blueprint.commands.map((command) => command.key).sort(),
+    blueprint.app_api.map((api) => api.key).sort(),
   );
 });
 

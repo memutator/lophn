@@ -1,4 +1,4 @@
-// blueprint에 선언한 command의 handler. 선언한 key와 등록한 handler가 같아야 준비가 끝난다.
+// blueprint에 선언한 app-api의 handler. 선언한 key와 등록한 handler가 같아야 준비가 끝난다.
 import { appApi, AppApiRejection, readResult } from "@lophn/cap-app-api";
 import { openStore, type Store } from "@lophn/cap-store";
 import { reportProblem } from "@lophn/cap-problem";
@@ -14,7 +14,7 @@ const defaults: Deps = {
   now: () => new Date().toISOString(),
 };
 
-// 저장소를 열고 일을 한다. 저장소가 실패하면 선언한 code로 보고하고 호출자에게는 이유 없는 거절만 돌려준다.
+// 저장소를 열고 일을 한다. 저장소가 실패하면 이름과 message로 보고하고 호출자에게는 이유 없는 거절만 돌려준다.
 // 보고가 실패해도 업무 응답은 막지 않는다. 입력·DB 내용은 보고에 넣지 않는다.
 async function withStore<T>(
   deps: Deps,
@@ -28,7 +28,9 @@ async function withStore<T>(
     return work(store);
   } catch (error) {
     if (error instanceof AppApiRejection) throw error;
-    reportProblem("store_unavailable", { command: name });
+    reportProblem("store_unavailable", "the item store could not be opened", {
+      api: name,
+    });
     throw new AppApiRejection("unavailable", "the item store is unavailable");
   } finally {
     store?.close();
@@ -63,7 +65,7 @@ export function addItemHandler(deps: Deps = defaults) {
   };
 }
 
-export function registerCommands(deps: Deps = defaults): void {
+export function registerAppApis(deps: Deps = defaults): void {
   appApi("list_items", listItemsHandler(deps));
   appApi("add_item", addItemHandler(deps));
 }

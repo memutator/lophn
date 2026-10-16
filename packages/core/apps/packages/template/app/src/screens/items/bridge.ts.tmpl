@@ -1,10 +1,10 @@
-// 화면이 앱 command를 부르는 유일한 통로. lophn의 앱 preload가 `window.lophnApp`을 주고, command는
-// 이 view의 고정 blueprint에 선언한 key뿐이다. 화면은 앱 socket·credential을 알지 못한다.
+// 화면이 앱 app-api를 부르는 유일한 통로. lophn의 앱 preload가 `window.lophnApp`을 주고, 부를 수 있는 것은
+// 이 view의 고정 blueprint에 선언한 app-api key뿐이다. 화면은 앱 socket·credential을 알지 못한다.
 export type Item = { id: number; title: string; created_at: string };
 
 type LophnApp = {
   call(
-    command: string,
+    api: string,
     input: Record<string, never> | { title: string },
   ): Promise<unknown>;
 };

@@ -4,7 +4,7 @@
 // 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
 // staging은 끝나면 늘 지운다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { packageInstallPath } from "../../packages/install.ts";
+import { devImportMap } from "../../packages/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { readVendorFiles } from "../bundle/vendor.ts";
@@ -149,29 +149,6 @@ function reactPins(
   return pins;
 }
 
-// 준비 중 staging에서 blueprint 평가와 화면 build가 쓰는 import map이다. 앱 deno.json의 `lophn-sdk:` 값은
-// 이 장치의 설치 사본(`<dataRoot>/<packageInstallPath>`)으로, 앱 안 상대 경로는 staging 안으로 푼다.
-function stagingImportMap(
-  imports: Readonly<Record<string, string>>,
-  dataRoot: string,
-  staging: string,
-): { imports: Record<string, string> } {
-  const mapped: Record<string, string> = {};
-  for (const [key, value] of Object.entries(imports)) {
-    const sdk = /^lophn-sdk:(@[^/@]+\/[^/@]+)@([^/@]+)(?:\/(.*))?$/.exec(value);
-    const installed = sdk === null
-      ? undefined
-      : packageInstallPath(sdk[1], sdk[2]);
-    mapped[key] = sdk !== null && installed?.ok === true
-      ? new URL(`${installed.value}/${sdk[3] ?? ""}`, `file://${dataRoot}/`)
-        .href
-      : value.startsWith("./") || value.startsWith("../")
-      ? new URL(value, `file://${staging}/`).href
-      : value;
-  }
-  return { imports: mapped };
-}
-
 // npm·jsr 의존을 한 번 받아서 `vendor/`(jsr)와 `node_modules/`(npm)에 둔다. `deno cache`가 network를 쓰는
 // 유일한 단계이고 앱 코드는 실행하지 않는다. 받은 사본은 bundle에 담겨 운영 process가 그대로 읽는다.
 async function fetchExternal(
@@ -270,7 +247,7 @@ export async function prepareFromSource(
     await Deno.mkdir(`${staging}/.tmp`, { recursive: true });
     await Deno.writeTextFile(
       `${staging}/.lophn/import-map.json`,
-      JSON.stringify(stagingImportMap(imports, input.dataRoot, staging)),
+      JSON.stringify(devImportMap(imports, input.dataRoot, staging)),
     );
     if (aborted()) return fail("cancelled");
 

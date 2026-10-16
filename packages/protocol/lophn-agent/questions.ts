@@ -280,7 +280,6 @@ const questionGroupReadInputSchema = z.strictObject({
 const questionGroupListInputSchema = z.strictObject({
   turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
-  assignment: idSchema("asg").optional(),
   status: questionStatusSchema.optional(),
   cursor: readCursorSchema.optional(),
 });
@@ -307,7 +306,7 @@ export const questionList = defineRead({
   errors: [...readErrors],
 });
 
-// 묶음의 글. 사람 화면(user)과 질문한 assignment의 agent·machine·coding_agent가 읽고,
+// 묶음의 글. 사람 화면(user)과 질문한 session의 agent·machine·coding_agent가 읽고,
 // 범위 밖 묶음은 없는 묶음과 똑같이 not_found다. 묶음 안 글 blob 하나라도 읽을 수 없으면
 // 일부만 돌려주지 않고 unavailable이다. 답 글과 취소 이유는 사람이 남긴 글이라
 // coding_agent에게는 싣지 않는다(사람 답은 노출하지 않는다).

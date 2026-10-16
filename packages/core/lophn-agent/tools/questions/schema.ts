@@ -104,7 +104,7 @@ end;`,
 
 // 질문의 본문·이유·선택지 설명·추천 설명·자유 답·닫은 이유는 blob 참조만 남는다. 참조의 owner는
 // 묶음이다(owner_key는 묶음 ID). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람, 그
-// assignment의 agent, machine, 글 일부는 coding_agent)는 ReadQuestionText가 판정한다(질문 답의
+// session의 agent, machine, 글 일부는 coding_agent)는 ReadQuestionText가 판정한다(질문 답의
 // secret 경계는 screen.ts).
 export const questionBodyFields: readonly BlobFieldDefinition[] = Object.values(
   QUESTION_BLOB_FIELDS,

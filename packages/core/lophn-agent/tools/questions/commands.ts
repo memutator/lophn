@@ -27,7 +27,6 @@ import {
   validateNewGroup,
 } from "./group.ts";
 import {
-  assignmentState,
   fixedVersionsExist,
   groupStateOf,
   loadGroup,
@@ -73,12 +72,12 @@ function requireUser(ctx: RequestContext): Result<void> {
   );
 }
 
-// agent 자격은 자기 assignment의 turn 묶음만 다룬다. 자격에 turn이 묶여 있으면 그
+// agent 자격은 자기 session의 turn 묶음만 다룬다. 자격에 turn이 묶여 있으면 그
 // turn의 묶음만이다. 그 밖은 없는 묶음과 똑같이 답한다.
 function agentOwns(ctx: RequestContext, turn: TurnRef): boolean {
   const actor = parseActor(ctx.actor);
   if (actor === undefined || actor.kind !== "agent") return false;
-  if (actor.id !== turn.assignment) return false;
+  if (actor.id !== turn.session) return false;
   return ctx.turn === undefined || ctx.turn === null || ctx.turn === turn.id;
 }
 
@@ -356,9 +355,6 @@ function createHandle(
   }
   if (turn.state !== "running") {
     return reject("conflict", "the turn is not running");
-  }
-  if (assignmentState(tx, turn.assignment) !== "enabled") {
-    return reject("forbidden", "the assignment is not enabled");
   }
   // 세션은 선택이다. 있으면 turn의 세션이어야 한다.
   if (input.session !== null && input.session !== turn.session) {

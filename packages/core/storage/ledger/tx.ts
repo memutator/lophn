@@ -34,7 +34,6 @@ import {
 } from "./sqlite.ts";
 import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
-import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import { actorKind } from "./command-outcome.ts";
 import { isDomainEvent } from "./domain-events.ts";
@@ -332,11 +331,6 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
           [subscriber, parsed.value],
         ));
       return ok(undefined);
-    },
-    // 정확한 action 일치 확인과 approval_uses 기록은 소유 변경과 같은 transaction이다.
-    useApproval(approval, action, use) {
-      live();
-      return useApprovalRecord(tx, approval, action, use);
     },
     callChosenOption<R extends CommandRoute>(
       route: R,

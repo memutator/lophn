@@ -12,12 +12,12 @@ import {
   type MessageBodyEnvironment,
   readBodyBytes,
 } from "../../session/mod.ts";
-import { visibleAssignment } from "./reads.ts";
+import { visibleSession } from "./reads.ts";
 import { loadGroup, loadTurnRef, type QuestionGroup } from "./model.ts";
 
 // ReadQuestionText. 메시지 본문 읽기(ReadMessageBody)와 같은 길이다: 참조 행 판정은
 // ledger snapshot에서 짧게 하고, blob 바이트는 그 뒤에 읽는다. 글은 준비 단계에서 이미
-// redaction을 거쳤다. 묶음을 읽을 수 있는 쪽(user·machine·coding_agent, 그 assignment의
+// redaction을 거쳤다. 묶음을 읽을 수 있는 쪽(user·machine·coding_agent, 그 session의
 // agent)만 읽고, 그 밖은 없는 묶음과 똑같이 not_found다. 참조가 없거나 바이트를 읽지
 // 못하거나 hash가 다르면 일부만 돌려주지 않고 unavailable이다.
 
@@ -102,7 +102,7 @@ export function questionTextRead(
         return err({ code: "invalid_input", message: "invalid read input" });
       }
       const id = parsed.data.group;
-      const scope = visibleAssignment(ctx);
+      const scope = visibleSession(ctx);
       if (scope === undefined) return absent();
       const withHumanText = parseActor(ctx.actor)?.kind !== "coding_agent";
       const found = environment.snapshot<Found | undefined>((sql, asOfSeq) => {
@@ -111,7 +111,7 @@ export function questionTextRead(
         if (group === undefined) return ok(undefined);
         if (scope !== null) {
           const turn = loadTurnRef(lookup, group.turn);
-          if (turn === undefined || turn.assignment !== scope) {
+          if (turn === undefined || turn.session !== scope) {
             return ok(undefined);
           }
         }

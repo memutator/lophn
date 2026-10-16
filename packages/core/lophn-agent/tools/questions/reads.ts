@@ -20,8 +20,8 @@ import {
 } from "./model.ts";
 
 // read는 pool read다. handler는 동기 Result를 돌려준다. user·machine·coding_agent는
-// 모든 묶음을 보고 agent는 자기 assignment의 turn 묶음만 본다. 그 밖(다른
-// assignment의 agent, app)은 없는 묶음과 똑같이 답한다. 닫힌 묶음도 저장된 본문·
+// 모든 묶음을 보고 agent는 자기 session의 turn 묶음만 본다. 그 밖(다른
+// session의 agent, app)은 없는 묶음과 똑같이 답한다. 닫힌 묶음도 저장된 본문·
 // 답·닫은 이유를 그대로 읽고, 답 접수와 적용은 applied로 구별한다.
 
 const PAGE = 50;
@@ -30,8 +30,8 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "question group not found" });
 }
 
-// null은 제한 없음, 문자열은 그 assignment만, undefined는 아무것도 보지 못함.
-export function visibleAssignment(
+// null은 제한 없음, 문자열은 그 session만, undefined는 아무것도 보지 못함.
+export function visibleSession(
   ctx: RequestContext,
 ): string | null | undefined {
   const actor = parseActor(ctx.actor);
@@ -83,13 +83,13 @@ export function createQuestionReads(): {
     read: {
       route: questionRead,
       handle(snapshot, ctx, input) {
-        const scope = visibleAssignment(ctx);
+        const scope = visibleSession(ctx);
         if (scope === undefined) return notFound();
         const group = loadGroup(snapshot, input.group);
         if (group === undefined) return notFound();
         if (scope !== null) {
           const turn = loadTurnRef(snapshot, group.turn);
-          if (turn === undefined || turn.assignment !== scope) {
+          if (turn === undefined || turn.session !== scope) {
             return notFound();
           }
         }
@@ -105,7 +105,7 @@ export function createQuestionReads(): {
       handle(snapshot, ctx, input) {
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
-        const scope = visibleAssignment(ctx);
+        const scope = visibleSession(ctx);
         const empty = ok({
           groups: [],
           as_of_seq: snapshot.as_of_seq,
@@ -113,22 +113,21 @@ export function createQuestionReads(): {
         });
         if (scope === undefined) return empty;
         if (
-          scope !== null && input.assignment !== undefined &&
-          input.assignment !== scope
+          scope !== null && input.session !== undefined &&
+          input.session !== scope
         ) return empty;
         const clauses = ["g.created_seq > ?"];
         const params: (string | bigint)[] = [after.value ?? 0n];
-        const assignment = scope ?? input.assignment;
-        if (assignment !== undefined && assignment !== null) {
-          clauses.push("r.assignment = ?");
-          params.push(assignment);
+        if (scope !== null) {
+          clauses.push("r.session = ?");
+          params.push(scope);
         }
         if (input.turn !== undefined) {
           clauses.push("g.turn = ?");
           params.push(input.turn);
         }
         if (input.session !== undefined) {
-          clauses.push("g.session = ?");
+          clauses.push("r.session = ?");
           params.push(input.session);
         }
         if (input.status !== undefined) {

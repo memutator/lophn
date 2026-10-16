@@ -125,8 +125,7 @@ export function loadGroup(
 
 export type TurnRef = {
   id: string;
-  assignment: string;
-  session: string | null;
+  session: string;
   state: string;
 };
 
@@ -135,25 +134,14 @@ export function loadTurnRef(
   id: string,
 ): TurnRef | undefined {
   const row = lookup.sql.get(
-    "select id, assignment, session, state from turns where id = ?",
+    "select id, session, state from turns where id = ?",
     [id],
   );
   return row === undefined ? undefined : {
     id: String(row["id"]),
-    assignment: String(row["assignment"]),
-    session: text(row["session"]),
+    session: String(row["session"]),
     state: String(row["state"]),
   };
-}
-
-export function assignmentState(
-  lookup: Lookup,
-  id: string,
-): string | undefined {
-  const row = lookup.sql.get("select state from assignments where id = ?", [
-    id,
-  ]);
-  return row === undefined ? undefined : String(row["state"]);
 }
 
 type StoredOption = {

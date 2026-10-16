@@ -41,7 +41,6 @@ const missingSchema = z.strictObject({
 const timesSchema = z.strictObject({
   wall_ms: durationMsSchema,
   active_ms: durationMsSchema,
-  waiting_ms: durationMsSchema,
   model_ms: durationMsSchema,
   first_output_ms: durationMsSchema.nullable(),
   tool_ms: durationMsSchema,
@@ -81,7 +80,6 @@ const activitySchema = z.object({
 const turnTraceSchema = z.object({
   turn: idSchema("trn").nullable(),
   session: idSchema("ses").nullable(),
-  assignment: idSchema("asg").nullable(),
   state: turnStateSchema.nullable(),
   started_at: atSchema.nullable(),
   finished_at: atSchema.nullable(),

@@ -7,7 +7,6 @@ import type {
   Input,
   ReadDefinition,
   RequestContext,
-  SqlParam,
   SqlParams,
   SqlRow,
 } from "../../../protocol/server/mod.ts";
@@ -50,15 +49,15 @@ function count(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
 }
 
-// agent 자격은 자기 assignment의 것만 본다. 사람과 machine은 모두 본다.
-function ownAssignment(ctx: RequestContext): string | null {
+// agent 자격은 자기 session의 것만 본다. 사람과 machine은 모두 본다.
+function ownSession(ctx: RequestContext): string | null {
   const parts = parseActor(ctx.actor);
   return parts !== undefined && parts.kind === "agent" ? parts.id : null;
 }
 
-function allowed(ctx: RequestContext, assignment: string): boolean {
-  const own = ownAssignment(ctx);
-  return own === null || own === assignment;
+function allowed(ctx: RequestContext, session: string): boolean {
+  const own = ownSession(ctx);
+  return own === null || own === session;
 }
 
 function inPeriod(input: Read, at: string | null): boolean {
@@ -73,30 +72,19 @@ function inPeriod(input: Read, at: string | null): boolean {
 function roleMatches(
   lookup: Lookup,
   input: Read,
-  assignment: string,
+  session: string,
 ): boolean {
   if (input.role === undefined) return true;
-  const row = lookup.sql.get("select role from assignments where id = ?", [
-    assignment,
+  const row = lookup.sql.get("select role from sessions where id = ?", [
+    session,
   ]);
   return row !== undefined && row["role"] === input.role;
 }
 
-function acceptedAt(lookup: Lookup, seq: SqlParam): string | null {
-  const row = lookup.sql.get("select at from events where seq = ?", [
-    seq,
-  ]);
-  return row === undefined ? null : String(row["at"]);
-}
+const TURN_COLUMNS = `id, session, state, basis, started_at, finished_at,
+  outcome_kind, outcome_reason, result, elapsed_active_ms, input_message`;
 
-const TURN_COLUMNS = `id, assignment, session, state, basis, started_at,
-  finished_at, outcome_kind, outcome_reason, result, elapsed_active_ms,
-  source_kind, source_message, accepted_seq`;
-
-type TurnRow = TurnFacts & {
-  source_message: string | null;
-  accepted_seq: SqlParam;
-};
+type TurnRow = TurnFacts & { input_message: string };
 
 function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
   const row = lookup.sql.get(
@@ -107,8 +95,7 @@ function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
   const kind = text(row["outcome_kind"]);
   return {
     id: String(row["id"]),
-    assignment: String(row["assignment"]),
-    session: text(row["session"]),
+    session: String(row["session"]),
     state: String(row["state"]) as TurnFacts["state"],
     basis: text(row["basis"]),
     started_at: text(row["started_at"]),
@@ -119,26 +106,19 @@ function loadTurn(lookup: Lookup, id: string): TurnRow | undefined {
     } as TurnFacts["outcome"],
     result: text(row["result"]),
     elapsed_active_ms: Number(row["elapsed_active_ms"]),
-    source_message: row["source_kind"] === "message"
-      ? text(row["source_message"])
-      : null,
-    accepted_seq: row["accepted_seq"],
+    input_message: String(row["input_message"]),
   };
 }
 
 function eventsOf(rows: readonly SqlRow[]): EventFacts[] {
   return rows.map((row) => ({
     seq: String(row["seq"]),
-    type: String(row["type"]),
-    at: String(row["at"]),
-    waited_at: text(row["waited_at"]),
   }));
 }
 
 function loadTurnEvents(lookup: Lookup, turn: string): EventFacts[] {
   return eventsOf(lookup.sql.all(
-    `select seq, type, at, json_extract(payload, '$.waited_at') as waited_at
-       from events where seq in (
+    `select seq from events where seq in (
          select seq from events where subject = ?
          union select seq from events where turn = ?
          union select seq from events where subject in
@@ -154,7 +134,7 @@ function loadTurnEvents(lookup: Lookup, turn: string): EventFacts[] {
 
 function loadCallEvents(lookup: Lookup, call: string): EventFacts[] {
   return eventsOf(lookup.sql.all(
-    `select seq, type, at, null as waited_at from events where seq in (
+    `select seq from events where seq in (
        select seq from events where subject = ?
        union select seq from events where subject in
          (select id from tool_calls where model_call = ?)
@@ -210,29 +190,13 @@ function toolsOf(
 function loadMessages(
   lookup: Lookup,
   turn: string,
-  source: string | null,
+  input: string,
 ): MessageFacts[] {
   return lookup.sql.all(
     `select id, body from messages where turn = ? or id = ?
      order by created_seq`,
-    [turn, source],
+    [turn, input],
   ).map((row) => ({ id: String(row["id"]), body: String(row["body"]) }));
-}
-
-// 보낸 쪽과 받은 쪽을 같은 관계 행에서 읽어 양방향 연결이 한 사실에서 나온다.
-function loadLinks(lookup: Lookup, turn: string): TurnTrace["handoff_links"] {
-  return lookup.sql.all(
-    `select id as receiver_turn, source_sender_run as sender_turn,
-       source_original_message as original_message
-     from turns
-     where source_kind = 'handoff' and (id = ? or source_sender_run = ?)
-     order by accepted_seq`,
-    [turn, turn],
-  ).map((row) => ({
-    sender_turn: String(row["sender_turn"]),
-    receiver_turn: String(row["receiver_turn"]),
-    original_message: String(row["original_message"]),
-  }));
 }
 
 function loadRefs(
@@ -291,15 +255,14 @@ function traceOfTurn(lookup: Lookup, turn: TurnRow): TurnTrace {
     [turn.id],
   ));
   const tools = toolsOf(lookup, "t.turn = ?", turn.id);
-  const messages = loadMessages(lookup, turn.id, turn.source_message);
+  const messages = loadMessages(lookup, turn.id, turn.input_message);
   return assembleTrace({
     turn,
-    call: { turn: null, session: null, assignment: null },
+    call: { turn: null, session: null },
     events: loadTurnEvents(lookup, turn.id),
     messages,
     models,
     tools,
-    handoff_links: loadLinks(lookup, turn.id),
     refs: loadRefs(lookup, {
       turn: turn.id,
       models: models.map((m) => m.id),
@@ -320,9 +283,9 @@ function turnTarget(
 ): Result<TurnTrace> {
   const turn = loadTurn(lookup, id);
   if (
-    turn === undefined || !allowed(ctx, turn.assignment) ||
-    !roleMatches(lookup, input, turn.assignment) ||
-    !inPeriod(input, acceptedAt(lookup, turn.accepted_seq))
+    turn === undefined || !allowed(ctx, turn.session) ||
+    !roleMatches(lookup, input, turn.session) ||
+    !inPeriod(input, turn.started_at)
   ) return notFound();
   return ok(traceOfTurn(lookup, turn));
 }
@@ -342,21 +305,20 @@ function callTarget(
   if (row === undefined) return notFound();
   const turn = text(row["turn"]);
   const owner = turn === null ? undefined : loadTurn(lookup, turn);
-  const assignment = owner?.assignment ?? null;
-  const visible = assignment === null
-    ? ownAssignment(ctx) === null && input.role === undefined
-    : allowed(ctx, assignment) && roleMatches(lookup, input, assignment);
+  const session = owner?.session ?? text(row["session"]);
+  const visible = session === null
+    ? ownSession(ctx) === null && input.role === undefined
+    : allowed(ctx, session) && roleMatches(lookup, input, session);
   if (!visible || !inPeriod(input, text(row["started_at"]))) return notFound();
   const models = modelsOf([row]);
   const tools = toolsOf(lookup, "t.model_call = ?", id);
   return ok(assembleTrace({
     turn: null,
-    call: { turn, session: text(row["session"]), assignment },
+    call: { turn, session },
     events: loadCallEvents(lookup, id),
     messages: [],
     models,
     tools,
-    handoff_links: [],
     refs: loadRefs(lookup, {
       turn: null,
       models: [id],
@@ -381,32 +343,29 @@ function cursorAfter(cursor: string | undefined): Result<number> {
   }
 }
 
-// session의 trace는 요청한 쪽의 turn들을 접수 순서로 한 쪽씩 묶는다. 한 쪽은 limit(기본 50)개 turn이다.
+// session의 trace는 요청한 쪽의 turn들을 시작 순서로 한 쪽씩 묶는다. 한 쪽은 limit(기본 50)개 turn이다.
+// cursor는 turns의 rowid다(turn은 시작할 때 한 번 들어가고 순서가 바뀌지 않는다).
 function sessionTarget(
   lookup: Lookup,
   ctx: RequestContext,
   input: Read,
   id: string,
 ): Result<{ trace: TurnTrace; next: string | null }> {
-  const session = lookup.sql.get(
-    `select s.assignment as assignment, a.role as role
-       from sessions s join assignments a on a.id = s.assignment
-       where s.id = ?`,
-    [id],
-  );
+  const session = lookup.sql.get("select role from sessions where id = ?", [
+    id,
+  ]);
   if (
-    session === undefined || !allowed(ctx, String(session["assignment"])) ||
+    session === undefined || !allowed(ctx, id) ||
     (input.role !== undefined && session["role"] !== input.role)
   ) return notFound();
   const after = cursorAfter(input.cursor);
   if (!after.ok) return after;
   const limit = input.limit ?? PAGE;
   const rows = lookup.sql.all(
-    `select r.id, r.accepted_seq from turns r
-       join events e on e.seq = r.accepted_seq
-       where r.session = ? and r.accepted_seq > ?
-         and (? is null or e.at >= ?) and (? is null or e.at < ?)
-       order by r.accepted_seq limit ?`,
+    `select id, rowid as pos from turns
+       where session = ? and rowid > ?
+         and (? is null or started_at >= ?) and (? is null or started_at < ?)
+       order by rowid limit ?`,
     [
       id,
       after.value,
@@ -423,9 +382,9 @@ function sessionTarget(
   );
   const last = page[page.length - 1];
   return ok({
-    trace: mergeTraces(id, String(session["assignment"]), traces),
+    trace: mergeTraces(id, traces),
     next: rows.length > limit && last !== undefined
-      ? btoa(JSON.stringify({ after_seq: Number(last["accepted_seq"]) }))
+      ? btoa(JSON.stringify({ after_seq: Number(last["pos"]) }))
       : null,
   });
 }

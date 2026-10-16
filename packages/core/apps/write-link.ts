@@ -84,7 +84,6 @@ export function openWriteLink(deps: WriteLinkDeps): Result<WriteLink> {
           emit: () => unsupported("emit"),
           port: () => unsupported("port"),
           advanceSubscriberCursor: () => unsupported("subscriber cursor"),
-          useApproval: () => unsupported("approval use"),
           call: () => unsupported("call"),
         };
         const result = fn(tx);

@@ -104,30 +104,31 @@ function stageCorePackages(): void {
   const dst = path.join(out, "core");
   const packagesDir = path.join(repoRoot, "packages");
   if (!fs.existsSync(packagesDir)) {
-    log("warning: packages directory not found, skipping");
-    return;
+    throw new Error("packages directory not found");
   }
 
-  // Copy packages for Deno bundling
-  const toStage = ["platform", "contracts", "base"];
+  // core daemon이 돌 때 필요한 package. core는 protocol과 base만 import한다(code-map.md).
+  // 없으면 조용히 건너뛰지 않고 실패한다.
+  const toStage = ["core", "protocol", "base"];
   for (const pkg of toStage) {
     const srcPkg = path.join(packagesDir, pkg);
-    if (fs.existsSync(srcPkg)) {
-      copyTree(
-        srcPkg,
-        path.join(dst, pkg),
-        (rel) => {
-          // Skip tests, dist, node_modules
-          return (
-            rel.endsWith("_test.ts") ||
-            rel.endsWith(".test.ts") ||
-            rel.includes("node_modules") ||
-            rel.includes("dist") ||
-            rel.startsWith(".")
-          );
-        },
-      );
+    if (!fs.existsSync(srcPkg)) {
+      throw new Error(`core package missing: packages/${pkg}`);
     }
+    copyTree(
+      srcPkg,
+      path.join(dst, pkg),
+      (rel) => {
+        // Skip tests, dist, node_modules
+        return (
+          rel.endsWith("_test.ts") ||
+          rel.endsWith(".test.ts") ||
+          rel.includes("node_modules") ||
+          rel.includes("dist") ||
+          rel.startsWith(".")
+        );
+      },
+    );
   }
 
   // Copy deno.json and deno.lock for dependency resolution

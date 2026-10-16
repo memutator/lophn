@@ -56,7 +56,7 @@ fix task 하나로 묶는 것을 추천한다. 질문 기능은 런타임에서 
 | 앱 wire 경로 `/_lophn/commands/*`와 앱 호출 schema 안의 `command` 칸 | MVP에서는 둔다. 바꾸면 SDK·앱 wire가 같이 바뀐다 |
 | `base/install/linux-install.ts`. inventory 5장은 지우라고 했지만 `.deb` 만드는 tools가 쓴다 | release 절차를 정할 때 같이 |
 | settings secret 입력 창이 이제 없는 `lophnShell.openConfirmation`을 읽는다. 원래도 늘 unavailable이었다 | `openSecretInput`으로 잇거나 그 chain을 지운다 |
-| 기존 주석의 "자리" 낱말(core만 100줄 넘게) | 한 번에 바꾸려면 따로 task 하나 |
+| 기존 주석에 남은 금지 낱말(AGENTS·handoff가 막은 place 번역어, core만 100줄 넘게) | 한 번에 바꾸려면 따로 task 하나 |
 | ledger `domainOnly` 옵션(켜는 곳이 없다), 옛 ledger `secrets` 표 schema step | 쓸 계획이 없으면 지운다 |
 | test만 쓰는 export 34개 | test와 같이 볼 때 정리 |
 

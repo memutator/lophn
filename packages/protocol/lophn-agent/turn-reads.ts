@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { readCursorSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import { readCursorSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   turnOutcomeOutputSchema,
@@ -36,13 +36,7 @@ export const turnRead = defineRead({
   method: "read",
   name: "ReadTurn",
   input: turnReadInputSchema,
-  output: withReadCommon(z.object({ turn: turnRecordSchema })).refine(
-    (value) =>
-      seqSchema.safeParse(value.turn.state_seq).success &&
-      seqSchema.safeParse(value.as_of_seq).success &&
-      BigInt(value.turn.state_seq) <= BigInt(value.as_of_seq),
-    { message: "turn state is newer than read snapshot" },
-  ),
+  output: withReadCommon(z.object({ turn: turnRecordSchema })),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -52,15 +46,7 @@ export const turnList = defineRead({
   method: "list",
   name: "ListTurns",
   input: turnListInputSchema,
-  output: withReadCommon(z.object({ turns: z.array(turnRecordSchema) })).refine(
-    (value) =>
-      seqSchema.safeParse(value.as_of_seq).success &&
-      value.turns.every((turn) =>
-        seqSchema.safeParse(turn.state_seq).success &&
-        BigInt(turn.state_seq) <= BigInt(value.as_of_seq)
-      ),
-    { message: "turn state is newer than read snapshot" },
-  ),
+  output: withReadCommon(z.object({ turns: z.array(turnRecordSchema) })),
   actors: readActors,
   errors: [...readErrors],
 });

@@ -219,33 +219,14 @@ export const catalogStateSchema = z.strictObject(stateFields);
 export const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
-// 전역 층의 기본 model. 앞의 넷은 role별 기본값이고 summaries는 제목·요약·압축에 쓰는
-// "Model for summaries" 한 칸이다. 처음은 모두 null이다.
-export const MODEL_DEFAULT_SLOTS = [
-  "lophn",
-  "project_manager",
-  "app_engineer",
-  "operator",
-  "summaries",
-] as const;
-export const modelDefaultSlotSchema = z.enum(MODEL_DEFAULT_SLOTS);
-export type ModelDefaultSlot = z.infer<typeof modelDefaultSlotSchema>;
-
+// 전역 층의 기본 model. summaries는 제목·요약·압축에 쓰는 "Model for summaries" 한 칸이다. 처음은 null이다.
 const defaultsFields = {
-  lophn: modelChoiceSchema.nullable(),
-  project_manager: modelChoiceSchema.nullable(),
-  app_engineer: modelChoiceSchema.nullable(),
-  operator: modelChoiceSchema.nullable(),
   summaries: modelChoiceSchema.nullable(),
   settings_seq: seqSchema,
 };
 export const modelDefaultsSchema = z.strictObject(defaultsFields);
 export const modelDefaultsOutputSchema = z.object({
   ...defaultsFields,
-  lophn: modelChoiceOutputSchema.nullable(),
-  project_manager: modelChoiceOutputSchema.nullable(),
-  app_engineer: modelChoiceOutputSchema.nullable(),
-  operator: modelChoiceOutputSchema.nullable(),
   summaries: modelChoiceOutputSchema.nullable(),
 });
 export type ModelDefaults = z.infer<typeof modelDefaultsSchema>;
@@ -294,10 +275,6 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
 export const changeModelDefaultsInputSchema = z.strictObject({
-  lophn: modelChoiceSchema.nullable().optional(),
-  project_manager: modelChoiceSchema.nullable().optional(),
-  app_engineer: modelChoiceSchema.nullable().optional(),
-  operator: modelChoiceSchema.nullable().optional(),
   summaries: modelChoiceSchema.nullable().optional(),
 }).refine(
   (value) => Object.values(value).some((choice) => choice !== undefined),

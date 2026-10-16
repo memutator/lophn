@@ -6,7 +6,6 @@ import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
-import { cardOfBlock } from "../../workspace/visuals/registry.ts";
 import type { DeliveryLabel } from "../agent-view-model.ts";
 import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
@@ -62,19 +61,6 @@ export function MessageBody(
                   title={part.view}
                 />
               );
-            case "visual": {
-              const found = cardOfBlock(part.block);
-              return (
-                <VisualBlock
-                  key={index}
-                  message={message}
-                  block={`card-${index}`}
-                  card={found?.card ?? null}
-                  title={found?.title ??
-                    t("conversation.label.visual-untitled")}
-                />
-              );
-            }
             case "attached":
               return (
                 <p key={index} className={styles.attached} data-attached="">

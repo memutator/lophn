@@ -4,7 +4,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
+import { seqSchema, sha256Schema } from "../base/values.ts";
 
 // concern id는 최상위 또는 최상위/leaf다(domain-model platform/approvals).
 const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
@@ -107,7 +107,6 @@ const approvalRequestSchema = z.object({
   reason_blob: sha256Schema,
   effect: approvalEffectSchema,
   action: approvalActionSchema,
-  expires_at: atSchema.nullable(),
   // 카드가 session 선택을 보일 수 있나. 생성 뒤 바꾸지 않는다.
   session_grantable: z.boolean(),
   status: approvalStatusSchema,
@@ -232,7 +231,6 @@ const createApprovalRequestInputSchema = z.strictObject({
   reason: approvalTextSchema,
   effect: approvalEffectInputSchema,
   action: approvalActionSchema,
-  expires_at: atSchema.nullable(),
   // agent tool call의 ask만 true를 싣는다. 빠지면 false다: 앱 command의
   // confirm·앱 permission·release 적용·복원 request는 session 선택이 없는 request다.
   session_grantable: z.boolean().default(false),

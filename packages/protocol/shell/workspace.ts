@@ -64,8 +64,8 @@ const viewTabSchema = z.discriminatedUnion("kind", [
     kind: z.literal("app_panel"),
     app: appIdSchema,
     surface: viewString,
-    // 그 패널 view의 불투명 session 식별자다. agent가 앱의 화면 context를 읽고 쓸 때 가리키는 view이며
-    // 허락이 아니다. 패널 view가 아직 서지 않았으면 없다(apps/agent-context).
+    // 그 패널 view의 불투명 session 식별자다. annotation이 가리키는 view이며 허락이 아니다. 패널 view가
+    // 아직 서지 않았으면 없다.
     view_session: viewString.optional(),
   }),
   z.strictObject({ ...tabBase, kind: z.literal("contexts") }),
@@ -131,8 +131,6 @@ const tabPageOutputSchema = z.array(viewTabOutputSchema).max(
 );
 
 // 문서 선택은 판·절·줄 범위만. 선택 본문은 없다.
-
-// 앱 상세 context는 apps/agent-context의 read command다. 여기에는 참조만 둔다.
 
 const errors = [...ERROR_CODES] as [
   ErrorCode,

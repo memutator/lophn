@@ -252,8 +252,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.refreshing !== undefined) return entry.refreshing;
     const generation = entry.generation;
     entry.refreshing = (async () => {
-      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 묶음을 잃는다
-      // (lophn-agent/visuals AppCardReference). 다른 크기는 지금 채택된 release를 따른다.
+      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 묶음을 잃는다.
+      // 다른 크기는 지금 채택된 release를 따른다.
       const next = await bind(entry.target, entry.target.size !== "card");
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (

@@ -229,7 +229,7 @@ export function createLedgerRegistration(
         key: SecretAllowance,
         create: (tx) => createSecretAllowance(tx),
       },
-      // 현재 release의 선언 사실이다. grant·broker·automation 읽기가 선언과 교집합을 본다
+      // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
       // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
       { key: currentDeclarations, create: () => releaseDeclarations },
       // release 준비는 같은 bundle hash의 통과한 app test와 현재 ticket claim을 같은 transaction에서
@@ -245,8 +245,5 @@ export function createLedgerRegistration(
     ],
   };
 }
-
-// release 계기 event의 공개 정책. notifications 구독자에게만 열고,
-// 다른 apps event는 정책이 없어 계속 숨김이다.
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.

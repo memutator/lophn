@@ -162,7 +162,7 @@ export async function readSessionConversation(
         messages.push({ seq: entry.seq, role: entry.role, text: "" });
         continue;
       }
-      // 시각 블록뿐인 답은 글이 없어 이력에 넣지 않는다.
+      // 카드뿐인 답은 글이 없어 이력에 넣지 않는다.
       const text = body.value.content.parts.flatMap((part) =>
         part.kind === "text" ? [part.text] : []
       ).join("\n");

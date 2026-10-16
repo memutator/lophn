@@ -8,7 +8,6 @@ export * from "./message-content.ts";
 export * from "./decision-values.ts";
 export * from "./questions.ts";
 export * from "./reverts.ts";
-export * from "./visuals.ts";
 export * from "./instructions.ts";
 export * from "./agent-values.ts";
 export * from "./commands.ts";

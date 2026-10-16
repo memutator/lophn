@@ -63,10 +63,9 @@ export interface SessionEntry {
   readonly archived: boolean;
 }
 
-/** 본문의 한 part. 시각 블록은 받은 값 그대로이며 블록 renderer가 그리기 전에 검사한다. */
+/** 본문의 한 part. */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "visual"; readonly block: unknown }
   | {
     readonly kind: "attached";
     readonly attached: string;

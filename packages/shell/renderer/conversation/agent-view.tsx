@@ -81,7 +81,7 @@ interface AgentViewProps {
   session: string | null;
   onSessionChange: (session: string | null) => void;
   host: AgentViewHost;
-  /** 새 session의 첫 말을 보내기 전에 composer 위에 붙는 context(notification의 [Ask]). chip마다 하나씩 붙는다. */
+  /** 새 session의 첫 말을 보내기 전에 composer 위에 붙는 context. chip마다 하나씩 붙는다. */
   contextChips?: readonly ContextChipView[];
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;

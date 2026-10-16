@@ -1,7 +1,7 @@
 // broker `/_lophn/broker/secrets/use`. 앱 입력은 SecretUseContext와 목적지뿐이고 원값을 읽거나
 // 바꾸는 통로가 아니다. 선언 이름∩grant와 그 목적지의 net.fetch host·port를 검사한 뒤 플랫폼
 // 전송부가 전송 직전에 인증 값을 붙이고, 앱에는 안전한 사용 결과만 돌려준다.
-// 누가 command를 불렀는지(사람 화면·agent·automation·다른 앱)로 막지 않는다.
+// 누가 command를 불렀는지(사람 화면·agent·다른 앱)로 막지 않는다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
   brokerSecretUseInputSchema,

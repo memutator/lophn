@@ -62,7 +62,6 @@ function operationTriggerSchemas(strict: boolean) {
   ]);
   const trigger = z.discriminatedUnion("kind", [
     object({ kind: z.literal("direct") }),
-    object({ kind: z.literal("automation"), key: appApiKeySchema }),
     object({
       kind: z.literal("activation"),
       activation_seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),

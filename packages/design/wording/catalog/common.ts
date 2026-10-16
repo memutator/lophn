@@ -82,11 +82,8 @@ export const common = {
   "contexts.label.frame-chip": "Context",
   "contexts.label.rail-contexts": "Contexts",
   "contexts.label.rail-search": "Search",
-  "conversation.notice.provider-lost":
-    "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "document.button.check-again": "Check again",
   "document.button.read": "Read",
-  "document.diff.identical": "These versions are identical.",
   "document.label.saving": "Saving…",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",

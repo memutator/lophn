@@ -141,9 +141,6 @@ const releaseComparisonSchema = z.object({
   external_app_api: z.array(appApiKeySchema),
   // 이름·설명만 바뀌어 동작 변경과 구별되는 command.
   description_only_app_api: z.array(appApiKeySchema),
-  added_automations: z.array(z.string().min(1)),
-  removed_automations: z.array(z.string().min(1)),
-  changed_automations: z.array(z.string().min(1)),
   added_screens: z.array(z.string().min(1)),
   removed_screens: z.array(z.string().min(1)),
   changed_screens: z.array(z.string().min(1)),

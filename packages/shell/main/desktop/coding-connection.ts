@@ -12,7 +12,7 @@ import {
   type HarnessDiscovery,
   type HarnessName,
   type HarnessSettingsView,
-  type HarnessView,
+  type HarnessLogin,
 } from "../../ipc/coding.ts";
 
 // shell tsc는 protocol의 base를 따라가지 못한다. 감지 값 검사와 제품 표(label, 맡길 수 있는지)는 wiring이
@@ -27,7 +27,7 @@ export type Detection = {
     result: HarnessSettingsView["version_result"];
     value: string | null;
   };
-  auth: { result: HarnessView["auth"] };
+  auth: { result: HarnessLogin };
 };
 
 export type HarnessCatalog = {
@@ -79,7 +79,7 @@ export function childCliRunner(options: {
     const env: Record<string, string> = {};
     for (const [name, value] of Object.entries(options.env)) {
       if (value === undefined) continue;
-      if (/^(LOPHN_CONNECTION|LOPHN_TERMINAL_OBSERVE)$/.test(name)) continue;
+      if (name === "LOPHN_CONNECTION") continue;
       if (/(TOKEN|SECRET|PASSWORD|CREDENTIAL)/i.test(name)) continue;
       env[name] = value;
     }

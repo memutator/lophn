@@ -1,7 +1,7 @@
 // core 수명은 창과 따로다. 창을 닫아도 pipe는 남고, 명시 종료나 pipe EOF만 core를 끝낸다.
 import { type ChildProcess, spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   type CoreToMainMessage,
@@ -52,17 +52,13 @@ export function packagedPermissionFlags(
   denoDir: string,
 ): string[] {
   // platform/ 옆의 guides/는 설치 묶음의 읽기 전용 안내다.
-  const guides = join(dirname(options.repoRoot), "guides");
   return [
-    `--allow-read=${
-      [options.repoRoot, guides, options.dataRoot, denoDir].join(",")
-    }`,
+    `--allow-read=${[options.repoRoot, options.dataRoot, denoDir].join(",")}`,
     `--allow-write=${options.dataRoot}`,
     "--allow-env=LOPHN_HOME,LOPHN_INSTALL_ROOT,HOME,PATH,DENO_DIR,XDG_RUNTIME_DIR,XDG_CACHE_HOME,DBUS_SESSION_BUS_ADDRESS,NODE_V8_COVERAGE",
     // kill과 설치된 Deno, keychain 도구(`secret-tool`) 말고는 실행하지 않는다.
     `--allow-run=/usr/bin/kill,/usr/bin/secret-tool,/usr/local/bin/secret-tool,${options.denoBinary}`,
-    // loopback과 보호 loader가 이어 오는 소유자 전용 socket(`<H>/run/credential.sock`) 하나다.
-    `--allow-net=127.0.0.1,[::1],unix:${options.dataRoot}/run/credential.sock`,
+    "--allow-net=127.0.0.1,[::1]",
     ...CORE_PERMISSION_FLAGS,
   ];
 }

@@ -12,7 +12,6 @@ import {
   type HarnessVersion,
 } from "../../protocol/coding-agent/mod.ts";
 
-export const ADAPTER_REVISION = "harness-adapters-1";
 
 // PATH 뒤에 읽는 home 기준 bin 폴더다. shell RC는 평가하지 않는다.
 export const FALLBACK_DIRS = [
@@ -200,9 +199,6 @@ async function detectOne(
   }
   return {
     harness_id: adapter.id,
-    catalog_revision: ADAPTER_REVISION,
-    environment: { kind: "host", identity: "native" },
-    profile_id: null,
     observed_at: formatAt(new Date(input.now).getTime()),
     discovery: found.discovery,
     candidates: found.candidates,
@@ -210,7 +206,6 @@ async function detectOne(
     version,
     auth,
     probe_results: results,
-    freshness: "fresh",
   };
 }
 

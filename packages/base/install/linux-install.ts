@@ -19,8 +19,6 @@ export type LinuxInstallLayout = {
   skills: string;
   // SDK package source. platform/packages/sdk로 가는 링크다(설치 도구가 그 위치에서 읽는다).
   sdk: string;
-  // 보호 loader identity의 고정 절대 경로(`credentialLoaderIdentity`가 쓴다).
-  credentialHelper: string;
   // Electron main binary와 Chromium sandbox 실행 파일.
   desktopBinary: string;
   chromeSandbox: string;
@@ -37,7 +35,6 @@ export function linuxInstallLayout(
     desktop: `${base}/desktop`,
     skills: `${base}/skills`,
     sdk: `${base}/sdk`,
-    credentialHelper: `${base}/lophn-credential`,
     desktopBinary: `${base}/lophn-desktop`,
     chromeSandbox: `${base}/chrome-sandbox`,
   };
@@ -49,13 +46,6 @@ export const LINUX_LAUNCHERS = {
   cli: "/usr/bin/lophn",
 } as const;
 
-// 보호 loader의 identity다. helper 실행 파일은 걷혔다. 이 함수는 core/install-and-update/mod.ts와
-// core/main/daemon/main.ts가 아직 불러서 남겼다. 그 줄이 걷히면 이 함수와 `credentialHelper`도 걷는다.
-export function credentialLoaderIdentity(
-  layout: LinuxInstallLayout = linuxInstallLayout(),
-): string {
-  return layout.credentialHelper;
-}
 
 // Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다.
 export function denoCacheDir(home: string): string {
@@ -79,18 +69,6 @@ function launcherHead(layout: LinuxInstallLayout, name: string): string {
     'DENO_DIR="${HOME}/.cache/lophn/deno"',
     "export DENO_DIR",
     'mkdir -p "$DENO_DIR"',
-  ].join("\n");
-}
-
-function denoRun(
-  permissions: readonly string[],
-  entry: string,
-): string {
-  return [
-    `exec "$ROOT/deno" run --cached-only --frozen --no-prompt \\`,
-    `  --config="$ROOT/platform/deno.json" \\`,
-    ...permissions.map((flag) => `  ${flag} \\`),
-    `  "$ROOT/platform/${entry}" "$@"`,
   ].join("\n");
 }
 
@@ -163,20 +141,6 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
   ].join("\n");
 }
 
-// `lophn-mcp` stdio 서버 launcher. 설치 묶음에서 넣지 않는다. 이 함수는 core/install-and-update/mod.ts가
-// 아직 다시 내보내서 남겼다. 그 줄이 걷히면 이 함수도 걷는다.
-export function mcpLauncher(layout: LinuxInstallLayout): string {
-  return [
-    launcherHead(layout, "lophn-mcp"),
-    denoRun([
-      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run,/proc/self/stat"',
-      "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
-      `--allow-net=${LOOPBACK}`,
-      '--allow-run="$ROOT/lophn-credential"',
-    ], "packages/coding-agent/mcp-server/main.ts"),
-    "",
-  ].join("\n");
-}
 
 // Electron의 launcher는 Chromium sandbox 파일 옆의 실행 파일 그대로를 쓴다. sandbox를 끄는 flag를
 // 붙이는 launcher는 만들지 않는다.

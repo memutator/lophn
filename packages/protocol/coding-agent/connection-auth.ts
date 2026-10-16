@@ -74,8 +74,6 @@ export type CredentialDeliveryFailureBody = z.infer<
 
 export const CREDENTIAL_DELIVERY_TIMEOUT_MS = 5_000;
 
-export const CREDENTIAL_HELPER = "lophn-credential";
-
 // connection credential의 OS keychain 고정 위치 접두사다. 위치는 connection id 하나에서 정해진다
 // (platform/secrets coding-credential). 알려진 값 registry가 같은 위치를 읽는다.
 export const CODING_CREDENTIAL_REF_PREFIX = "coding-agent/";

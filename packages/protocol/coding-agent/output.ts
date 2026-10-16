@@ -75,39 +75,6 @@ export const mcpProtocolErrorSchema = z.object({
   message: z.string().min(1),
 });
 
-// 성공 접수·정상 read·approval 대기 0. hook mode의 예외는 이 표 밖이다.
-export const CLI_EXITS = {
-  success: 0,
-  internal: 1,
-  invalid_input: 2,
-  unauthorized: 3,
-  failed: 4,
-  transport: 5,
-  effect_unknown: 6,
-} as const;
-
-export const CLI_EXIT_CODES = [0, 1, 2, 3, 4, 5, 6] as const;
-
-export function cliExit(failure: AgentFailure | undefined): number {
-  if (!failure) return CLI_EXITS.success;
-  if (effectUnknownSchema.safeParse(failure).success) {
-    return CLI_EXITS.effect_unknown;
-  }
-  switch (failure.code) {
-    case "invalid_input":
-      return CLI_EXITS.invalid_input;
-    case "unauthorized":
-    case "forbidden":
-      return CLI_EXITS.unauthorized;
-    case "unavailable":
-      return CLI_EXITS.transport;
-    case "internal":
-      return CLI_EXITS.internal;
-    default:
-      return CLI_EXITS.failed;
-  }
-}
-
 // 목록·검색은 scope를 먼저 적용한다. app scope에서 못 읽으면 개수도 주지 않는다.
 export const SCOPE_MARKS = ["S", "A", "G", "ALL"] as const;
 

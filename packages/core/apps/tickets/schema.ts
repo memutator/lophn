@@ -85,7 +85,6 @@ export const ticketSchemaSteps: readonly SchemaStep[] = [{
       claim_seq TEXT NOT NULL,
       release TEXT NOT NULL,
       summary_hash TEXT NOT NULL,
-      fix_records TEXT NOT NULL,
       verifications TEXT NOT NULL,
       PRIMARY KEY (ticket, seq),
       UNIQUE (seq)

@@ -10,7 +10,7 @@ import {
   type HarnessId,
   harnessIdSchema,
 } from "./harness-id.ts";
-import { ticketIdSchema } from "./ticket-values.ts";
+import { ticketIdSchema } from "./ticket/values.ts";
 
 // session 시작 hook을 기다리는 기한이다. 기한이 지나면 첫 prompt는 들어가지 않는다.
 export const PASTE_AFTER_HOOK_DEADLINE_MS = 10_000;

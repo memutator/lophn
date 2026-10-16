@@ -118,9 +118,9 @@ export const problemDetailSchema = z.object({
 );
 export type ProblemDetail = z.infer<typeof problemDetailSchema>;
 
-// coding-agent getTicket(state, readiness, needs)에서 읽은 사실이다. claim 상세는 싣지 않는다.
+// coding-agent ticket의 상태와 준비 상태에서 읽은 사실이다. claim 상세는 싣지 않는다.
 // contracts 최상위 사이 순환을 피하려고 coding-agent의 값 집합을 이름으로 따로 적는다
-// (ticket-values의 TICKET_STATES·TICKET_READINESS와 같다. problems grouping detail_test가 대조한다).
+// (coding-agent/ticket/values.ts의 TICKET_STATES와 같다. problems grouping detail_test가 대조한다).
 export type RepairTicketFact = {
   state:
     | "open"

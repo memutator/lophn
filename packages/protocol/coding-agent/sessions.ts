@@ -1,21 +1,10 @@
 import { z } from "zod";
-import { withReadCommon } from "../base/envelope.ts";
-import { idSchema } from "../base/ids.ts";
-import { defineRead } from "../base/route.ts";
-import { atSchema, seqSchema } from "../base/values.ts";
-import { projectIdSchema } from "../projects/values.ts";
+import { atSchema } from "../base/values.ts";
 import {
   type ConnectionId,
   connectionIdSchema,
-  connectionScopeSchema,
 } from "./connections.ts";
-import { problemSummarySchema } from "../problems/problems.ts";
-import { repairStateSchema } from "../problems/problem-detail.ts";
-import {
-  ticketIdSchema,
-  ticketKindSchema,
-  ticketReadinessSchema,
-} from "./ticket-values.ts";
+import { ticketIdSchema } from "./ticket/values.ts";
 
 // terminal host가 TUI env로 넘기는 관측 socket 경로 변수다. 경로만 담고
 // credential과 섞지 않는다.
@@ -216,97 +205,5 @@ export function unknownObservation(
   if (current.state === "ended") return current;
   return { ...current, state: "unknown", freshness: "stale", reason };
 }
-
-// `/v1/coding_agent_sessions/summary` 요청 입력(architecture 5.3). app 단위 paging
-// cursor를 받는다.
-export const CodingAgentSessionSummaryInputSchema = z.strictObject({
-  app: idSchema("app").optional(),
-  cursor: z.string().min(1).optional(),
-});
-
-export const codingAgentSessionSummaryQuerySchema =
-  CodingAgentSessionSummaryInputSchema;
-
-// summary는 읽은 범위 ticket·문제 요약만 준다. 본문·전체 log·첨부·repair-context
-// 를 넣지 않는다(→ coding-agent/guides).
-export const remainingCheckCountsSchema = z.object({
-  ticket: ticketIdSchema,
-  completion_seq: seqSchema,
-  conditions: z.array(z.number().int()).min(1),
-  reason: safeTextSchema,
-});
-
-export type RemainingCheckCounts = z.infer<typeof remainingCheckCountsSchema>;
-
-export const CodingAgentSessionSummarySchema = z.object({
-  connection: connectionIdSchema,
-  scope: connectionScopeSchema,
-  observed_seq: seqSchema,
-  observed_at: atSchema,
-  // repair_state는 문제 상세의 수리 작업 상태다. coding agent가 맡을 수 있는 문제(ready_to_hand_off·
-  // in_progress)와 사람이 먼저 할 일이 있는 문제를 hook이 가르는 근거다.
-  problems: z.array(
-    problemSummarySchema.extend({ repair_state: repairStateSchema }),
-  )
-    .max(12),
-  tickets: z.array(
-    z.object({
-      id: ticketIdSchema,
-      app: idSchema("app"),
-      kind: ticketKindSchema,
-      title: z.string().min(1),
-      state: z.enum(["open", "check_failed"]),
-      readiness: ticketReadinessSchema,
-      // 이 ticket이 고치는 문제다. hook이 보여 주는 문제의 ticket을 고른다.
-      problems: z.array(idSchema("prb")).max(12),
-    }),
-  ).max(20),
-  claims: z.array(
-    z.object({
-      ticket: ticketIdSchema,
-      connection: connectionIdSchema,
-      claim_seq: seqSchema,
-      expires_at: atSchema,
-    }),
-  ).max(12),
-  remaining_checks: z.array(remainingCheckCountsSchema).max(20),
-  project: projectIdSchema.nullable(),
-  folder: z.string().min(1).nullable(),
-  claim_rule: z.string().min(1),
-  next_cursor: z.string().min(1).nullable(),
-}).refine((value) => (value.project === null) === (value.folder === null), {
-  message: "project and folder must be both set or both null",
-});
-
-export type CodingAgentSessionSummary = z.infer<
-  typeof CodingAgentSessionSummarySchema
->;
-
-// 인증 실패를 빈 결과로 바꾸지 않는다(architecture 5.3).
-export const codingAgentSessionSummaryOutputSchema = withReadCommon(
-  z.object({
-    summary: CodingAgentSessionSummarySchema,
-  }),
-);
-
-export const codingAgentSessionSummary = defineRead({
-  resource: "coding_agent_sessions",
-  method: "summary",
-  name: "CodingAgentSessionSummary",
-  input: CodingAgentSessionSummaryInputSchema,
-  output: codingAgentSessionSummaryOutputSchema,
-  actors: ["coding_agent"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "not_found",
-    "unavailable",
-  ],
-});
-
-export const SESSION_ROUTES = [codingAgentSessionSummary] as const;
-
-export type CodingAgentSessionSummaryRoute = typeof codingAgentSessionSummary;
 
 export type { ConnectionId };

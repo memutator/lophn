@@ -22,6 +22,7 @@ import { createEditorApi } from "./editor-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
+import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
@@ -91,6 +92,7 @@ contextBridge.exposeInMainWorld(
         }
       },
       ...createViewsApi(ipcRenderer),
+      ...createAnnotateApi(ipcRenderer),
       ...createFeedbackBegin(ipcRenderer),
     })
     : createShellApi(ipcRenderer, role),

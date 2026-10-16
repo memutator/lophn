@@ -52,6 +52,8 @@ export type CoreRelay = {
   /** 조건에 맞아 도착한 event. renderer에도 같이 가지만 main이 먼저 쓴다. */
   events: Array<(event: BusEvent) => void>;
   beforeCall: Array<(...args: Parameters<BeforeCall>) => Promise<void>>;
+  /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
+  frames: Array<(frame: { type: string }) => void>;
 };
 
 /** 창이 열리고 닫힐 때 영역이 덧붙이는 반응. */
@@ -117,7 +119,12 @@ export function createShellContext(): ShellContext {
     ) ?? appWindowRefs.get(ref);
 
   let stopped = false;
-  const relay: CoreRelay = { conditions: [], events: [], beforeCall: [] };
+  const relay: CoreRelay = {
+    conditions: [],
+    events: [],
+    beforeCall: [],
+    frames: [],
+  };
   const core = connectCore({ here, dataRoot, windows, log, relay });
   const coreInternal: ShellContext["coreInternal"] = (
     kind,

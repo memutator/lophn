@@ -70,6 +70,8 @@ export interface ConnectionOptions {
   own?: {
     conditions(): readonly EventCondition[];
     event(event: BusEvent): void;
+    /** renderer로 가지 않는 main 전용 frame(coding 터미널 요청 등). */
+    frame?(frame: { type: string }): void;
   };
   /**
    * allowlist 호출을 core로 보내기 전에 main이 붙인다. 실패해도 그 호출은
@@ -177,7 +179,7 @@ export function startCoreConnection(
             relay({ kind: "event", event: frame.event });
           } else if (frame.type === "closed") {
             relay({ kind: "closed", reason: frame.reason });
-          }
+          } else options.own?.frame?.(frame);
         },
       },
     });

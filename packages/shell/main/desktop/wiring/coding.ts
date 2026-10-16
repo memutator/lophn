@@ -144,6 +144,12 @@ export function register(ctx: ShellContext): Coding {
       }
     },
   });
+  // Gateway가 main에만 보내는 coding 터미널 요청.
+  ctx.relay.frames.push((frame) => {
+    if (frame.type === "coding_terminal" && "request" in frame) {
+      void codingTerminals.handle(frame.request);
+    }
+  });
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,

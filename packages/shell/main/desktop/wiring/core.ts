@@ -49,6 +49,9 @@ export function connectCore(input: ConnectInput) {
       event: (event) => {
         for (const reaction of relay.events) reaction(event);
       },
+      frame: (frame) => {
+        for (const reaction of relay.frames) reaction(frame);
+      },
     },
     beforeCall: async (event, call) => {
       for (const reaction of relay.beforeCall) await reaction(event, call);

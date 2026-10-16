@@ -1,81 +1,47 @@
-// lophn CLI의 실행 entry다(code-map). 조립만 하고 업무 규칙을 두지 않는다.
-// stdin/stdout에서 한 command를 읽고, credential provider는 실제 loader
-// 자리라 지금은 unavailable이 맞다(coding-agent/harnesses). dispatch는
-// registry의 route로만 한다(architecture 5.1). parse 오류도 --json이면
-// JSON 오류 하나다.
+// lophn CLI의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다.
+// 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN` 하나이고,
+// token이 없으면 core를 부르는 command는 아무것도 보내지 않는다.
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
-  findCommand,
-  HELP_COMMAND,
-  parseArgs,
-  splitCommand,
-  VERSION_COMMAND,
-} from "./mod.ts";
-import { commandHelp, helpJson, helpText } from "./help.ts";
-import { createOutput } from "./output.ts";
-import type { ParsedArgs } from "./parser.ts";
-import type { AgentFailure } from "../../protocol/coding-agent/mod.ts";
+  CODING_TOKEN_ENV,
+  HOOK_PAYLOAD_MAX_BYTES,
+} from "../../protocol/coding-agent/mod.ts";
+import type { RpcFetch } from "../../protocol/client/mod.ts";
 import {
+  createCoreClient,
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
-  resolveDaemonAddress,
-} from "../connection/client/daemon.ts";
-import {
-  connectionFromRef,
-  createCoreClient,
-} from "../connection/client/core.ts";
-import {
-  createHelperCredentialProvider,
-  registeringProvider,
-} from "../connection/credential/helper.ts";
-import { LOPHN_CONNECTION } from "../../protocol/coding-agent/mod.ts";
-import {
-  createKnownSecretRegistry,
-  createRedactionStream,
-  REDACTION_REPLACEMENT,
-} from "../../base/redaction/mod.ts";
-import { candidateOf, commandNameOf, inputOf } from "./invocation.ts";
-import {
-  actorOf,
-  ambientEnv,
-  appSocketDirOf,
-  type CliPorts,
-  runCliCommand,
-} from "./dispatch.ts";
-import type { CredentialProvider } from "../connection/credential/provider.ts";
-import type { RpcFetch } from "../../protocol/client/mod.ts";
+} from "../connection/mod.ts";
+import { helpJson, helpText } from "./help.ts";
+import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
+import { parseArgs, type ParsedArgs } from "./parser.ts";
+import { matchCommand } from "./registry.ts";
+import type { RunContext } from "./commands/types.ts";
 
 const VERSION = "0.1.0";
 
-// 조립이 끼워 주는 redaction이다(mcp-server/stdio의 같은 모양). 알려진 secret
-// registry를 process 수명으로 두고 실패 진단·details를 거친다. push는 검사가 확정된
-// prefix만 돌려주므로 push의 결과에 finish의 보류를 더해 온전한 글을 돌려준다.
-function redactor(
-  registry: ReturnType<typeof createKnownSecretRegistry>,
-): (text: string) => string {
-  return (text) => {
-    const stream = createRedactionStream(registry);
-    const released = stream.push(text);
-    return released + stream.finish();
-  };
-}
-
-// 시험이 끼우는 환경이다. 없으면 process의 것이다. 사람의 실제 data root·HOME은 시험이 temp로 준다.
+// 시험이 끼우는 환경이다. 없으면 process의 것이다.
 export type CliOptions = {
   env?: { get(name: string): string | undefined };
-  provider?: CredentialProvider;
   fetch?: RpcFetch;
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
   cwd?: string;
   home?: string;
-  installRoot?: string;
-  ports?: Partial<CliPorts>;
-  appSocketDir?: string;
   stdin?: () => Promise<string>;
 };
 
-// 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/packages/coding-agent/cli/main.ts`라 네 단계 위다.
-const INSTALL_ROOT = new URL("../../../../", import.meta.url).pathname;
+export function ambientEnv(): { get(name: string): string | undefined } {
+  return {
+    get(name) {
+      try {
+        return Deno.env.get(name);
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
 
 function readTextOrUndefined(path: string): string | undefined {
   try {
@@ -85,241 +51,170 @@ function readTextOrUndefined(path: string): string | undefined {
   }
 }
 
-// 받은 token은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다.
-function scrub(
-  known: ReturnType<typeof createKnownSecretRegistry>,
-  text: string,
-): string {
-  let out = text;
-  for (let hit = known.match(out); hit !== undefined; hit = known.match(out)) {
-    out = out.slice(0, hit.index) + REDACTION_REPLACEMENT +
-      out.slice(hit.index + hit.length);
+// hook payload 상한까지만 읽는다. 상한을 넘으면 넘은 것을 알 만큼만 더 읽고 멈춘다.
+async function readProcessStdin(): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const buffer = new Uint8Array(8192);
+  while (total <= HOOK_PAYLOAD_MAX_BYTES) {
+    const read = await Deno.stdin.read(buffer);
+    if (read === null) break;
+    chunks.push(buffer.slice(0, read));
+    total += read;
   }
-  return out;
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    all.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder().decode(all);
 }
+
+function inputOf(
+  parsed: ParsedArgs,
+  cwd: string,
+): Result<Record<string, unknown>, LophnError> {
+  let text: string | undefined = parsed.input;
+  if (text === undefined && parsed.inputFile !== undefined) {
+    const path = parsed.inputFile.startsWith("/")
+      ? parsed.inputFile
+      : `${cwd}/${parsed.inputFile}`;
+    text = readTextOrUndefined(path);
+    if (text === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "input 파일을 읽지 못했다",
+        details: { path },
+      });
+    }
+  }
+  if (text === undefined) return ok({});
+  try {
+    const value = JSON.parse(text);
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return err({ code: "invalid_input", message: "input은 JSON 객체다" });
+    }
+    return ok(value as Record<string, unknown>);
+  } catch {
+    return err({ code: "invalid_input", message: "input JSON을 읽지 못했다" });
+  }
+}
+
+const COMMON_KEYS = ["json", "input", "input_file", "idempotency_key"];
 
 export async function cliMain(
   argv: readonly string[],
   options: CliOptions = {},
 ): Promise<number> {
   const parsed = parseArgs(argv);
-  const known = createKnownSecretRegistry();
+  const env = options.env ?? ambientEnv();
+  const token = env.get(CODING_TOKEN_ENV)?.trim() || undefined;
   const output = createOutput({
     json: parsed.json,
-    redact: redactor(known),
     stdout: options.stdout,
     stderr: options.stderr,
+    secrets: token === undefined ? [] : [token],
   });
-  if (parsed.help) {
-    await emitHelp(parsed, output);
-  }
+  const fail = async (error: LophnError) => {
+    await output.failure(error);
+    return exitOf(error);
+  };
   if (parsed.errors.length > 0) {
-    // parse 오류는 실행 전 거절이다. --json이면 JSON 오류 하나다.
-    await output.failure({
+    return await fail({
       code: "invalid_input",
       message: parsed.errors.join("; "),
     });
-    return output.exitCode({ code: "invalid_input", message: "" });
   }
-  if (parsed.command === undefined) {
-    await output.failure({ code: "invalid_input", message: "command가 없다" });
-    return output.exitCode({ code: "invalid_input", message: "" });
+  const [first] = parsed.positional;
+  if (first === undefined || first === "help") {
+    if (parsed.json) await output.result(helpJson());
+    else await output.text(helpText(parsed.positional.slice(1).join(" ")));
+    return first === undefined && !parsed.help ? CLI_EXITS.invalid_input : 0;
   }
-  const ref = splitCommand(parsed.command);
-  if (!ref.ok) {
-    await output.failure(ref.error);
-    return output.exitCode(ref.error);
+  if (first === "version") {
+    await output.result({ version: VERSION });
+    return 0;
   }
-  if (ref.value.group === HELP_COMMAND) {
-    const help = helpJson(parsed.positional.join(" ") || undefined);
-    await output.result(help);
-    return output.exitCode(undefined);
-  }
-  if (ref.value.group === VERSION_COMMAND) {
-    await output.result({
-      summary: `lophn ${VERSION}`,
-      data: { version: VERSION },
-      next: [],
-    });
-    return output.exitCode(undefined);
-  }
-  // command 이름은 표에 있는 가장 긴 앞부분이다(`app preview start`까지 세 조각). 남는 위치 인자는
-  // 받지 않는다(위치 인자가 없고 선택값만 있다).
-  const tokens = [parsed.command, ...parsed.positional];
-  const { command, used } = commandNameOf(parsed);
-  const entry = findCommand(command);
-  if (entry !== undefined && tokens.length > used) {
-    const failure: AgentFailure = {
+  const matched = matchCommand(parsed.positional);
+  if (matched === undefined) {
+    return await fail({
       code: "invalid_input",
-      message: "command 뒤에 받지 않는 위치 인자가 있다",
-    };
-    await output.failure(failure);
-    return output.exitCode(failure);
-  }
-  if (parsed.help || entry === undefined) {
-    // 표 밖 command는 실행 전 거절이다. 지원 목록을 다음 조회로 남긴다.
-    await output.failure({
-      code: "invalid_input",
-      message: entry === undefined
-        ? `지원하지 않는 command다: ${command}`
-        : "command 입력이 완전하지 않다",
-      details: { command },
+      message: `지원하지 않는 command다: ${parsed.positional.join(" ")}`,
     });
-    return output.exitCode({ code: "invalid_input", message: "" });
   }
-  const body = inputOf(parsed);
-  if (!body.ok) {
-    await output.failure(body.error);
-    return output.exitCode(body.error);
+  const { entry, used } = matched;
+  if (parsed.help) {
+    await output.text(helpText(entry.name));
+    return 0;
   }
-  const candidate = candidateOf(parsed, command, body.value);
+  const rest = parsed.positional.slice(used);
+  const slots = entry.positional ?? [];
+  if (rest.length !== slots.length) {
+    return await fail({
+      code: "invalid_input",
+      message: slots.length === 0
+        ? "command 뒤에 받지 않는 위치 인자가 있다"
+        : `위치 인자가 필요하다: ${slots.map((s) => `<${s}>`).join(" ")}`,
+    });
+  }
+  const cwd = options.cwd ?? Deno.cwd();
+  const body = inputOf(parsed, cwd);
+  if (!body.ok) return await fail(body.error);
+  const candidate: Record<string, unknown> = { ...body.value };
+  slots.forEach((slot, index) => candidate[slot] = rest[index]);
+  if (parsed.json) candidate.json = true;
+  if (parsed.idempotencyKey !== undefined) {
+    candidate.idempotency_key = parsed.idempotencyKey;
+  }
   const checked = entry.input.safeParse(candidate);
   if (!checked.success) {
     const field = checked.error.issues[0]?.path.join(".") ?? "";
-    const failure: AgentFailure = {
+    return await fail({
       code: "invalid_input",
       message: field === ""
         ? "command 입력이 맞지 않다"
         : `${field}: 입력이 맞지 않다`,
-    };
-    await output.failure(failure);
-    return output.exitCode(failure);
+    });
   }
-  // `session summary --hook`은 어떤 실패도 stdout 빈 값·exit 0이다. 세션 시작을 막지 않는다.
-  const hookMode = command === "session summary" &&
-    (checked.data as { hook?: boolean }).hook === true;
-  const env = options.env ?? ambientEnv();
-  const connection = connectionFromRef(
-    (checked.data as { connection?: string }).connection ??
-      env.get(LOPHN_CONNECTION),
+  const input = Object.fromEntries(
+    Object.entries(checked.data as Record<string, unknown>).filter(([key]) =>
+      !COMMON_KEYS.includes(key)
+    ),
   );
-  const dataRoot = env.get("LOPHN_HOME");
-  const address = discoverDaemonAddress({
-    option: parsed.daemonUrl,
-    env: env.get(LOPHN_DAEMON_URL),
-    dataRoot,
-    readText: readTextOrUndefined,
-  });
-  if (!address.ok) {
-    if (hookMode) return 0;
-    await output.failure(address.error);
-    return output.exitCode(address.error);
-  }
-  // connection 참조로 시작할 때 helper에서 credential을 한 번 받는다. 평문 파일·user credential
-  // fallback은 없다.
-  const provider = registeringProvider(
-    options.provider ?? createHelperCredentialProvider({
-      helper: `${
-        (options.installRoot ?? INSTALL_ROOT).replace(/\/$/, "")
-      }/lophn-credential`,
-    }),
-    known,
-  );
-  const client = connection.ok
-    ? createCoreClient({
+  // coding token이 있을 때만 core 주소를 찾고 client를 만든다.
+  let client: RunContext["client"];
+  if (entry.auth === "coding_token" && token !== undefined) {
+    const address = discoverDaemonAddress({
+      env: env.get(LOPHN_DAEMON_URL),
+      dataRoot: env.get("LOPHN_HOME"),
+      readText: readTextOrUndefined,
+    });
+    if (!address.ok) return await fail(address.error);
+    client = createCoreClient({
       baseUrl: address.value.url,
-      provider,
-      connection: connection.value,
+      token,
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-    })
-    : undefined;
-  const appSocketDir = options.appSocketDir ?? appSocketDirOf(env, () => {
-    try {
-      return Deno.uid();
-    } catch {
-      return null;
-    }
-  });
-  const ran = await runCliCommand(
-    command,
-    { ...checked.data as Record<string, unknown> },
-    {
-      client,
-      provider,
-      actor: actorOf(env),
-      cwd: options.cwd ?? Deno.cwd(),
-      dataRoot,
+    });
+  }
+  const home = options.home ?? env.get("HOME") ?? "";
+  const ran = await entry.run(input, {
+    client,
+    idempotencyKey: parsed.idempotencyKey,
+    stdin: options.stdin ?? readProcessStdin,
+    local: {
       env,
-      home: options.home ?? env.get("HOME"),
-      installRoot: options.installRoot ?? INSTALL_ROOT,
-      daemonUrl: address.value.url,
-      ...(appSocketDir === undefined ? {} : { appSocketDir }),
+      cwd,
+      home,
+      dataRoot: env.get("LOPHN_HOME"),
       now: () => new Date().toISOString(),
-      ...(options.stdin === undefined ? {} : { stdin: options.stdin }),
-      ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
-  );
-  if (hookMode) {
-    if (ran.ok) {
-      await output.raw(
-        String((ran.value.data as { hook?: unknown } | undefined)?.hook ?? ""),
-      );
-    }
-    return 0;
-  }
-  if (command === "session observe") {
-    // hook의 stdout은 제품이 model context로 읽을 수 있어 비워 둔다. 보내지 못해도 harness 작업을 막지 않으므로
-    // 진단은 stderr 한 줄이고 exit는 0이다.
-    if (!ran.ok) {
-      await output.diagnostic(`session observe: ${ran.error.message}`);
-    }
-    return 0;
-  }
-  if (!ran.ok) {
-    const failure: AgentFailure = {
-      code: ran.error.code,
-      message: ran.error.message,
-      ...(ran.error.details === undefined
-        ? {}
-        : { details: ran.error.details }),
-    };
-    await output.failure(failure);
-    return output.exitCode(failure);
-  }
-  const { isError, ...result } = ran.value;
-  const safe = JSON.parse(
-    scrub(known, JSON.stringify(result)),
-  ) as typeof result;
-  await output.result(safe);
-  // 실패·거절·검사 실패 결과는 성공 exit가 아니다.
-  // 쓰기 응답을 잃은 결과는 실제 오류와 구별한 effect_unknown(exit 6)이다.
-  const lost = (result.data as { details?: Record<string, unknown> } | null)
-    ?.details;
-  const refused: AgentFailure | undefined = isError !== true
-    ? undefined
-    : lost?.diagnosis === "effect_unknown"
-    ? { code: "unavailable", message: result.summary, details: lost }
-    : { code: "conflict", message: "결과가 실패를 알린다" };
-  return output.exitCode(refused);
-}
-
-async function emitHelp(
-  parsed: ParsedArgs,
-  output: Awaited<ReturnType<typeof createOutput>>,
-): Promise<void> {
-  const name = parsed.positional.join(" ");
-  const entry = commandHelp(name);
-  const help = entry === undefined && name !== ""
-    ? helpJson(undefined)
-    : helpText(name);
-  await output.result(help);
-}
-
-// 옵션 → 환경 설정 → 기본(daemon address 순서)이다. CLI에서는
-// 기본 daemon 주소를 쓰지 않는다. 명시 값만 받는다.
-export function daemonUrlOf(
-  parsed: ParsedArgs,
-  env: { get: (name: string) => string | undefined },
-) {
-  const option = parsed.daemonUrl;
-  const fromEnv = env.get(LOPHN_DAEMON_URL);
-  return resolveDaemonAddress({
-    option,
-    env: fromEnv,
   });
+  if (!ran.ok) return await fail(ran.error);
+  await output.result(ran.value);
+  return CLI_EXITS.success;
 }
 
 if (import.meta.main) {
-  const exit = await cliMain(Deno.args);
-  Deno.exit(exit);
+  Deno.exit(await cliMain(Deno.args));
 }

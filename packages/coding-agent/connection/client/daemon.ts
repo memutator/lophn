@@ -1,4 +1,4 @@
-// MCP·CLI가 같은 daemon 주소 순서를 쓰는 공통 찾기.
+// CLI가 core 주소를 찾는 순서다.
 // 명시 옵션 → 환경 설정 → 현재 daemon 연결 정보 → 설치 설정 → 기본 loopback port.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { DEFAULT_API_PORT } from "../../../protocol/base/mod.ts";
@@ -150,7 +150,7 @@ export function resolveDaemonAddress(
 }
 
 // 현재 daemon 연결 정보(`<H>/run/location.json`)까지 읽어 주소를 정한다. 파일을 읽는 일은
-// 주입한 `readText`가 한다(없거나 못 읽으면 undefined). MCP·CLI 실행 entry가 같은 순서를 쓴다.
+// 주입한 `readText`가 한다(없거나 못 읽으면 undefined). CLI 실행 entry가 쓴다.
 export function discoverDaemonAddress(sources: {
   option?: string;
   env?: string;

@@ -3,9 +3,11 @@
 // 해석해 인자로 준다. argv는 분리된 배열이고
 // shell 문자열로 합치지 않는다. env에는 connection 참조와 toolsets 같은 안전
 // 이름만 있고 token 원문은 어디에도 없다.
-import { MCP_ENTRY } from "../mcp-server/mod.ts";
 import type { JsonValue } from "./adapters/json.ts";
 import type { McpShape } from "./model.ts";
+
+// mcp-server는 지워졌다. 이 file은 coding-agent-harness가 지운다.
+const MCP_ENTRY = "packages/coding-agent/mcp-server/main.ts";
 
 export type LaunchInputs = {
   // 절대 Deno executable이다.

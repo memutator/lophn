@@ -1,29 +1,54 @@
-// CLI 출력 계층. 기계 출력과 진단은
-// 분리한다. --json이면 stdout에 JSON 하나와 마지막 newline만 쓰고 stderr에는
-// redaction된 진단만 보낸다. 사람 출력은 같은 data를 줄로 표현한다. redaction은
-// 조립이 끼워 준다(mcp-server/stdio의 같은 모양, entry가 자기 기준으로 거른다).
-import type {
-  AgentFailure,
-  AgentResult,
-} from "../../protocol/coding-agent/mod.ts";
-import { CLI_EXITS, cliExit } from "../../protocol/coding-agent/mod.ts";
+// CLI 출력 계층. 기계 출력과 진단은 분리한다.
+// --json이면 stdout에 JSON 하나와 마지막 newline만 쓴다. 아니면 같은 data를 줄로 풀어 쓰되 token이 아닌
+// 문자열(사람 말, 앱 문자열, log 원문)은 모두 data fence 안에 둔다. 받은 coding token은 어떤 출력에도 남지 않는다.
+import type { LophnError } from "../../base/mod.ts";
+import { fenceBlock, isPlainToken } from "./fence.ts";
+
+export const CLI_EXITS = {
+  success: 0,
+  internal: 1,
+  invalid_input: 2,
+  unauthorized: 3,
+  failed: 4,
+  transport: 5,
+  effect_unknown: 6,
+} as const;
+
+// 쓰기 응답을 잃은 것은 실패와 구별한다. 같은 key로 대상을 다시 읽어야 한다.
+export function exitOf(error: LophnError | undefined): number {
+  if (error === undefined) return CLI_EXITS.success;
+  if (error.details?.diagnosis === "effect_unknown") {
+    return CLI_EXITS.effect_unknown;
+  }
+  switch (error.code) {
+    case "invalid_input":
+      return CLI_EXITS.invalid_input;
+    case "unauthorized":
+    case "forbidden":
+      return CLI_EXITS.unauthorized;
+    case "unavailable":
+      return CLI_EXITS.transport;
+    case "internal":
+      return CLI_EXITS.internal;
+    default:
+      return CLI_EXITS.failed;
+  }
+}
 
 export type OutputWriter = {
-  result(result: AgentResult): Promise<void>;
-  failure(failure: AgentFailure): Promise<void>;
-  diagnostic(message: string): Promise<void>;
-  // 제품 hook이 context로 읽는 글 그대로다. 빈 글은 아무것도 쓰지 않는다.
-  raw(text: string): Promise<void>;
-  exitCode(failure: AgentFailure | undefined): number;
+  // data가 undefined이면 아무것도 쓰지 않는다(hook).
+  result(data: unknown): Promise<void>;
+  failure(error: LophnError): Promise<void>;
+  // 안내 글이다(help). 자료가 아니므로 fence 없이 stdout에 쓴다.
+  text(text: string): Promise<void>;
 };
 
 export type OutputOptions = {
   json: boolean;
-  // stdout·stderr을 바꿔 끼운다. 기본은 process의 것이다.
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
-  // 진단·실패 message·details를 거치는 함수다. 끼우지 않으면 거르지 않는다.
-  redact?: (text: string) => string;
+  // 출력에서 지울 비밀 값이다(coding token).
+  secrets?: readonly string[];
 };
 
 const encoder = new TextEncoder();
@@ -40,65 +65,76 @@ async function write(
   }
 }
 
+// data를 줄로 푼다. key는 CLI·protocol이 정한 이름이라 그대로 쓰고, 문자열 값만 fence를 판단한다.
+export function renderLines(
+  value: unknown,
+  indent = "",
+  label = "data",
+): string[] {
+  if (value === null || typeof value !== "object") {
+    if (typeof value === "string" && !isPlainToken(value)) {
+      const fenced = fenceBlock(label, value);
+      return fenced.length === 0
+        ? [`${indent}""`]
+        : fenced.map((line) => `${indent}${line}`);
+    }
+    return [`${indent}${value === null ? "null" : String(value)}`];
+  }
+  const lines: string[] = [];
+  const entries: [string, unknown][] = Array.isArray(value)
+    ? value.map((item, index) => [`[${index}]`, item])
+    : Object.entries(value);
+  for (const [key, item] of entries) {
+    const name = label === "data" ? key : `${label}.${key}`;
+    const child = renderLines(item, `${indent}  `, name);
+    const inline = item === null || typeof item !== "object" ||
+      (typeof item === "string" && isPlainToken(item));
+    if (inline && child.length === 1) {
+      lines.push(`${indent}${key}: ${child[0].trimStart()}`);
+    } else {
+      lines.push(`${indent}${key}:`, ...child);
+    }
+  }
+  return lines;
+}
+
 export function createOutput(options: OutputOptions): OutputWriter {
-  const json = options.json;
   const stdout = options.stdout ?? Deno.stdout.writable;
   const stderr = options.stderr ?? Deno.stderr.writable;
-  const redact = options.redact ?? ((text) => text);
-  async function emitResult(result: AgentResult): Promise<void> {
-    if (json) {
-      await write(stdout, `${JSON.stringify(result)}\n`);
-      return;
-    }
-    await write(stdout, `${result.summary}\n`);
-    for (const line of humanLines(result)) {
-      await write(stdout, `${line}\n`);
-    }
-    if (result.next.length > 0) {
-      await write(stdout, "다음 조회:\n");
-      for (const item of result.next) {
-        await write(stdout, `  ${item}\n`);
-      }
-    }
-  }
-  async function emitFailure(failure: AgentFailure): Promise<void> {
-    if (json) {
-      await write(stdout, `${JSON.stringify({ error: failure })}\n`);
-      return;
-    }
-    await write(stderr, `${redact(failure.message)}\n`);
-    if (failure.details !== undefined) {
-      await write(
-        stderr,
-        `${redact(JSON.stringify(failure.details))}\n`,
-      );
-    }
-  }
+  const secrets = (options.secrets ?? []).filter((value) => value !== "");
+  const scrub = (text: string) =>
+    secrets.reduce((acc, secret) => acc.replaceAll(secret, "[redacted]"), text);
   return {
-    result: emitResult,
-    failure: emitFailure,
-    async diagnostic(message) {
-      await write(stderr, `${redact(message)}\n`);
+    async result(data) {
+      if (data === undefined) return;
+      const text = options.json
+        ? JSON.stringify(data)
+        : renderLines(data).join("\n");
+      await write(stdout, `${scrub(text)}\n`);
     },
-    async raw(text) {
-      if (text !== "") await write(stdout, `${redact(text)}\n`);
+    async failure(error) {
+      const body = { code: error.code, message: error.message };
+      if (options.json) {
+        await write(
+          stdout,
+          `${
+            scrub(JSON.stringify({
+              error: error.details === undefined
+                ? body
+                : { ...body, details: error.details },
+            }))
+          }\n`,
+        );
+        return;
+      }
+      const lines = [`${error.code}: ${error.message}`];
+      if (error.details !== undefined) {
+        lines.push(...renderLines(error.details, "  ", "details"));
+      }
+      await write(stderr, `${scrub(lines.join("\n"))}\n`);
     },
-    exitCode(failure) {
-      return cliExit(failure);
+    async text(text) {
+      await write(stdout, `${text}\n`);
     },
   };
 }
-
-// 사람 출력의 data 줄. JSON 구조를 다시 해석하지 않고 key: value 줄로 낸다.
-function humanLines(result: AgentResult): string[] {
-  if (result.data === undefined || result.data === null) return [];
-  if (typeof result.data !== "object") {
-    return [`${result.data}`];
-  }
-  const record = result.data as Record<string, unknown>;
-  return Object.entries(record).map(([key, value]) =>
-    `${key}: ${typeof value === "object" ? JSON.stringify(value) : `${value}`}`
-  );
-}
-
-export { CLI_EXITS };

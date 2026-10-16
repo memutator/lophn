@@ -1,89 +1,36 @@
-// `lophn harness` command의 route 표와 실행 결정이다. list는 catalog를, detect는 최초 감지를,
-// refresh는 사람 요청 재감지를, inspect는 제품별 감지 json을 낸다.
-// plan·install·update·remove는 사람이 고른 exact target만 받고 감지된 다른
-// 제품은 고치지 않는다. 감지·설치 명령은 core ledger command가
-// 아니므로 표에 route가 없다(architecture, coding-agent/harnesses 배치표).
-// screen 재진입·빈 결과·timeout에 자동 재감지·설치가 없다.
-import type { HarnessId } from "../../../protocol/coding-agent/mod.ts";
-import {
-  cliHarnessDetectSchema,
-  cliHarnessInspectSchema,
-  cliHarnessInstallSchema,
-  cliHarnessListSchema,
-  cliHarnessPlanSchema,
-  cliHarnessRefreshSchema,
-  cliHarnessRemoveSchema,
-  cliHarnessUpdateSchema,
-} from "../../../protocol/coding-agent/mod.ts";
-import type { CommandEntry } from "./types.ts";
+// `lophn harness`: 이 컴퓨터의 harness를 감지하고 앱 source 폴더에 skill과 hook을 놓는다. core를 부르지
+// 않는 local 명령이라 coding token이 없어도 돈다(Settings와 shell main이 exec로 부른다).
+import { err, ok } from "../../../base/mod.ts";
+import { harnessInstallInputSchema } from "../../../protocol/coding-agent/mod.ts";
+import { runHarnessDetect, runHarnessInstall } from "./harness-run.ts";
+import { type CommandEntry, entryOf } from "./types.ts";
 
 export const HARNESS_COMMANDS: readonly CommandEntry[] = [
-  {
-    name: "harness list",
-    input: cliHarnessListSchema,
-  },
-  {
-    name: "harness detect",
-    input: cliHarnessDetectSchema,
-  },
-  {
-    name: "harness refresh",
-    input: cliHarnessRefreshSchema,
-  },
-  {
-    name: "harness inspect",
-    input: cliHarnessInspectSchema,
-  },
-  {
-    name: "harness plan",
-    input: cliHarnessPlanSchema,
-  },
-  {
-    name: "harness install",
-    input: cliHarnessInstallSchema,
-  },
-  {
-    name: "harness update",
-    input: cliHarnessUpdateSchema,
-  },
-  {
-    name: "harness remove",
-    input: cliHarnessRemoveSchema,
-  },
+  entryOf(
+    "harness detect",
+    "감지한 harness를 읽는다(저장 결과가 있으면 그대로)",
+    {
+      run: (_input, ctx) => runHarnessDetect("detect", ctx.local),
+    },
+  ),
+  entryOf(
+    "harness refresh",
+    "harness를 다시 감지하고 version·login을 확인한다",
+    {
+      run: (_input, ctx) => runHarnessDetect("refresh", ctx.local),
+    },
+  ),
+  entryOf("harness install", "앱 source 폴더에 skill과 hook 설정을 놓는다", {
+    run: async (input) => {
+      const checked = harnessInstallInputSchema.safeParse(input);
+      if (!checked.success) {
+        return err({
+          code: "invalid_input",
+          message: "harness·folder 입력이 맞지 않다",
+        });
+      }
+      const done = await runHarnessInstall(checked.data);
+      return done.ok ? ok(done.value) : done;
+    },
+  }),
 ];
-
-// 사람 요청대의 재감지다. refresh command만 재감지를 먹는다. detect·
-// inspect는 사람 요청이 아니라 화면 재진입이어도 자동 재감지가 없다.
-export function refreshRequestedBy(
-  command: string,
-): boolean {
-  return command === "harness refresh";
-}
-
-// 관리 쓰기 command다. 이 command만 파일을 고친다. 고치지 않는
-// command는 감지된 제품이 몇이든 무변경이다.
-const WRITE_COMMANDS = [
-  "harness plan",
-  "harness install",
-  "harness update",
-  "harness remove",
-];
-
-export function writesFiles(command: string): boolean {
-  return WRITE_COMMANDS.includes(command);
-}
-
-// 쓰기는 입력의 exact target 하나만 고친다. 감지된 다른 harness는
-// 입력에 없으므로 바뀌지 않는다.
-export function writeTargetOf(input: {
-  target?: { harness_id: HarnessId };
-}): HarnessId | undefined {
-  return input.target?.harness_id;
-}
-
-// inspect에서 고른 제품이다. schema가 이미 harness enum을 검사했다.
-export function inspectTargetOf(
-  input: { harness?: HarnessId },
-): HarnessId | undefined {
-  return input.harness;
-}

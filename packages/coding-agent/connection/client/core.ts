@@ -1,15 +1,9 @@
-// MCP·CLI가 같은 core client를 쓰는 자리.
-// POST /v1/<resource>/<method>에 Authorization bearer로 붙고 쓰기는
+// CLI가 core를 부르는 client다.
+// POST /v1/<resource>/<method>에 Authorization bearer(coding token)로 붙고 쓰기는
 // idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
 // 않고 effect_unknown 진단과 원래 key·commands/result 대상 read 안내를 돌려준다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
-import {
-  type ConnectionId,
-  connectionIdSchema,
-} from "../../../protocol/coding-agent/mod.ts";
-import { effectUnknownSchema } from "../../../protocol/coding-agent/mod.ts";
-import type { EffectUnknown } from "../../../protocol/coding-agent/mod.ts";
 import { commandsResult } from "../../../protocol/server/mod.ts";
 import {
   type CommandRoute,
@@ -24,8 +18,6 @@ import {
   createRpcClient,
   type RpcFetch,
 } from "../../../protocol/client/mod.ts";
-import type { CredentialProvider } from "../credential/provider.ts";
-import { UNREADABLE_MESSAGE } from "../unreadable.ts";
 
 // 바이트 body를 stream으로 보내는 fetch다. 선언한 길이만큼만 흐른다.
 export type UploadFetch = (
@@ -40,18 +32,17 @@ export type UploadFetch = (
 
 export type CoreClientOptions = {
   baseUrl: string;
-  provider: CredentialProvider;
-  connection: ConnectionId;
+  // `LOPHN_CODING_TOKEN`의 값이다.
+  token: string;
   fetch?: RpcFetch;
   uploadFetch?: UploadFetch;
 };
 
 export type CoreClient = {
-  connection: ConnectionId;
   baseUrl: string;
   // command route를 envelope로 보낸다. 응답을 잃어 effect_unknown이면
   // 원래 key로 /v1/commands/result를 다시 본다.
-  // compare·prepared는 소유 route가 요구하는 CAS 비교와 준비 참조다(문서 저장).
+  // compare·prepared는 소유 route가 요구하는 CAS 비교와 준비 참조다.
   command<R extends CommandRoute>(
     route: R,
     body: {
@@ -73,13 +64,12 @@ export type CoreClient = {
   ): Promise<Result<unknown>>;
 };
 
-// 쓰기 응답 유실 진단(architecture 8의 effect_unknown·exit6). 원래 key와
-// 대상 read 안내를 details에 남긴다.
+// 쓰기 응답 유실 진단이다. 원래 key와 대상 read 안내를 details에 남긴다.
 export function effectUnknown(
   idempotencyKey: string,
   subject: string,
-): EffectUnknown {
-  return effectUnknownSchema.parse({
+): LophnError {
+  return {
     code: "unavailable",
     message: "쓰기 응답을 잃어 효과를 모른다",
     details: {
@@ -88,27 +78,24 @@ export function effectUnknown(
       subject,
       read: "commands/result",
     },
-  });
+  };
 }
 
-// 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다. core가
-// 준 not_found의 메시지·details를 버려 제목·본문·건수·첨부는 물론 존재 여부도 새지 않게 하고,
-// MCP와 CLI가 이 client 하나를 지나므로 두 통로의 거절이 같다.
-export { UNREADABLE_MESSAGE } from "../unreadable.ts";
+export function isEffectUnknown(error: LophnError): boolean {
+  return error.details?.diagnosis === "effect_unknown";
+}
+
+// 없는 대상과 이 token 범위 밖 대상은 같은 답이다. core가 준 not_found의 메시지·details를
+// 버려 존재 여부가 새지 않게 한다.
+export const UNREADABLE_MESSAGE =
+  "현재 token으로 읽을 수 없다. 없는 대상이거나 이 앱 범위 밖이다";
 
 function sameAsAbsent<T>(result: Result<T>): Result<T> {
   if (result.ok || result.error.code !== "not_found") return result;
   return err({ code: "not_found", message: UNREADABLE_MESSAGE });
 }
 
-export function isEffectUnknown(
-  error: LophnError,
-): error is EffectUnknown & LophnError {
-  return effectUnknownSchema.safeParse(error).success;
-}
-
 export function createCoreClient(options: CoreClientOptions): CoreClient {
-  const connection = options.connection;
   const base = options.baseUrl.replace(/\/$/, "");
   const fetchImpl: RpcFetch = options.fetch ??
     ((input, init) =>
@@ -125,29 +112,16 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         bytes: new Uint8Array(await response.arrayBuffer()),
       };
     });
-  async function rpc(): Promise<Result<ReturnType<typeof createRpcClient>>> {
-    const credential = await options.provider(connection);
-    if (!credential.ok) {
-      return err({
-        code: "unavailable",
-        message: "connection credential을 받지 못했다",
-        details: { reason: credential.error },
-      });
-    }
-    return ok(createRpcClient({
-      baseUrl: base,
-      token: credential.value.token,
-      fetch: fetchImpl,
-    }));
-  }
+  const rpcClient = createRpcClient({
+    baseUrl: base,
+    token: options.token,
+    fetch: fetchImpl,
+  });
 
   return {
-    connection,
     baseUrl: options.baseUrl,
     async command(route, body) {
-      const opened = await rpc();
-      if (!opened.ok) return opened;
-      const client = opened.value;
+      const client = rpcClient;
       // command 계약의 envelope은 strict object다. 호출자가 주지 않은 compare·
       // prepared는 계약 기본값으로 채운다.
       const sent = await client.call(route, {
@@ -185,9 +159,7 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
           message: "command route는 read로 보낼 수 없다",
         });
       }
-      const opened = await rpc();
-      if (!opened.ok) return opened;
-      return sameAsAbsent(await opened.value.call(route, input as never));
+      return sameAsAbsent(await rpcClient.call(route, input as never));
     },
     async upload(route, input, bytes) {
       const checked = route.input.safeParse(input);
@@ -195,21 +167,12 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         void bytes.cancel().catch(() => {});
         return err({ code: "invalid_input", message: "invalid input" });
       }
-      const credential = await options.provider(connection);
-      if (!credential.ok) {
-        void bytes.cancel().catch(() => {});
-        return err({
-          code: "unavailable",
-          message: "connection credential을 받지 못했다",
-          details: { reason: credential.error },
-        });
-      }
       let response: Awaited<ReturnType<UploadFetch>>;
       try {
         response = await uploadFetch(`${base}${routePath(route)}`, {
           method: "POST",
           headers: {
-            authorization: `Bearer ${credential.value.token}`,
+            authorization: `Bearer ${options.token}`,
             "content-type": "application/octet-stream",
             [UPLOAD_INPUT_HEADER]: encodeInput(checked.data),
           },
@@ -239,23 +202,6 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
       return ok(output.data);
     },
   };
-}
-
-// connection 참조 입력에서 client를 만든다. 참조는 --connection·env에서만 온다.
-export function connectionFromRef(
-  value: string | undefined,
-): Result<ConnectionId> {
-  if (value === undefined) {
-    return err({ code: "invalid_input", message: "connection 참조가 없다" });
-  }
-  const parsed = connectionIdSchema.safeParse(value.trim());
-  if (!parsed.success) {
-    return err({
-      code: "invalid_input",
-      message: "connection 참조가 올바르지 않다",
-    });
-  }
-  return ok(parsed.data);
 }
 
 const decoder = new TextDecoder();

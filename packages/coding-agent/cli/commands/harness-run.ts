@@ -1,196 +1,85 @@
-// `lophn harness` command의 실행이다. 표(harness.ts)는
-// 입력 검사를, 여기는 이미 있는 catalog·감지·설치 engine을 부르는 일만 한다. 새 규칙이 없다.
-// plan·install·update·remove는 사람이 고른 exact target 하나만 다루고 coding credential은 거절한다.
-// 감지는 `detect`가 저장 결과를, `refresh`만 사람 요청 재감지를 먹는다.
+// `lophn harness detect|refresh|install`의 실행이다. 이미 있는 감지·설치 engine을 부르는 일만 하고 새 규칙은
+// 없다. engine 호출이 이 file 하나에 모여 있어 engine이 바뀌면 이 file만 맞춘다.
+// 감지는 `detect`가 저장 결과를, `refresh`만 다시 감지하고 version·login probe를 돈다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import type {
-  HarnessId,
-  IntegrationTarget,
-} from "../../../protocol/coding-agent/mod.ts";
+import type { HarnessDetection } from "../../../protocol/coding-agent/mod.ts";
 import {
-  catalogOf,
-  type DetectOutcome,
+  detectHarnesses,
+  DETECTION_FALLBACK_DIRS,
+  detectionCacheOf,
+  discover,
+  filePort,
   HARNESS_CATALOG,
-  type Inspection,
-  type InstallOutcome,
+  NATIVE_ENVIRONMENT,
 } from "../../harnesses/mod.ts";
-import { describeInstall } from "./connection.ts";
-import type { CommandOutput } from "./connection.ts";
-
-export type HarnessWriteName =
-  | "harness plan"
-  | "harness install"
-  | "harness update"
-  | "harness remove";
-
-export type HarnessRunDeps = {
-  actor: "user" | "coding_agent";
-  detect(mode: "detect" | "refresh"): Promise<Result<DetectOutcome>>;
-  inspect(harness: HarnessId): Promise<Result<Inspection>>;
-  // 선택 target의 설치 계획·설치·갱신·제거다. connection 참조가 있어야 한다.
-  write(
-    name: HarnessWriteName,
-    request: {
-      connection: string;
-      target: IntegrationTarget;
-      components: readonly string[];
-      operationId: string;
-    },
-  ): Promise<Result<InstallOutcome>>;
-  // 연결 상태 읽기다. 회수된 연결로는 쓰지 않는다.
-  connections: {
-    read(id: string): Promise<Result<{ state: "active" | "revoked" }>>;
-  };
-};
-
-export function runHarnessList(): CommandOutput {
-  const harnesses = HARNESS_CATALOG.map((definition) => ({
-    harness_id: definition.harness_id,
-    label: definition.label,
-    catalog_revision: definition.catalog_revision,
-    adapter_revision: definition.adapter_revision,
-    version_policy: definition.version_policy,
-    environments: definition.environments,
-    config_scopes: definition.config_targets.map((item) => item.scope_kind),
-    skill_scopes: definition.skill_targets.map((item) => item.scope_kind),
-    hooks: definition.hooks.map((hook) => ({
-      event: hook.event,
-      purpose: hook.purpose,
-      capability: hook.capability,
-    })),
-    execution: {
-      transport: definition.execution.transport,
-      capability: definition.execution.capability,
-    },
-  }));
-  return {
-    summary: `catalog에 제품 ${harnesses.length}개가 있다`,
-    data: { harnesses },
-    next: ["`lophn harness detect`로 이 컴퓨터에서 감지한 제품을 읽는다"],
-  };
-}
+import {
+  systemExecPort,
+  systemFilesPort,
+} from "../../harnesses/system-ports.ts";
+import type { LocalEnv } from "./types.ts";
 
 export async function runHarnessDetect(
   mode: "detect" | "refresh",
-  deps: Pick<HarnessRunDeps, "detect">,
-): Promise<Result<CommandOutput, LophnError>> {
-  const detected = await deps.detect(mode);
-  if (!detected.ok) return detected;
-  const { detections, source, cache_saved } = detected.value;
-  const found = detections.filter((item) => item.discovery === "detected");
-  return ok({
-    summary: source === "cached"
-      ? `저장한 감지 결과다. 제품 ${found.length}개가 감지됐다(다시 감지하지 않았다)`
-      : source === "refreshed"
-      ? `다시 감지했다. 제품 ${found.length}개가 감지됐다`
-      : `처음 감지했다. 제품 ${found.length}개가 감지됐다(version·auth probe는 refresh에서 한다)`,
-    data: { source, cache_saved, detections },
-    next: source === "refreshed"
-      ? ["`lophn harness plan`으로 고른 제품 하나의 설치 계획을 본다"]
-      : [
-        "사람이 다시 확인하려면 `lophn harness refresh`를 실행한다. 자동 재감지는 없다",
-      ],
-  });
-}
-
-export async function runHarnessInspect(
-  input: { harness?: HarnessId },
-  deps: Pick<HarnessRunDeps, "inspect">,
-): Promise<Result<CommandOutput, LophnError>> {
-  const targets = input.harness === undefined
-    ? HARNESS_CATALOG.map((definition) => definition.harness_id)
-    : [input.harness];
-  const inspections: {
-    harness_id: HarnessId;
-    observation: Inspection["observation"];
-    loading: Inspection["loading"];
-  }[] = [];
-  for (const harness of targets) {
-    const inspected = await deps.inspect(harness);
-    if (!inspected.ok) return inspected;
-    inspections.push({
-      harness_id: harness,
-      observation: inspected.value.observation,
-      loading: inspected.value.loading,
-    });
+  local: LocalEnv,
+): Promise<Result<readonly HarnessDetection[], LophnError>> {
+  const root = local.dataRoot ?? `${local.home}/.lophn`;
+  const probeEnv: Record<string, string> = {};
+  for (const name of ["PATH", "HOME"]) {
+    const value = local.env.get(name);
+    if (value !== undefined) probeEnv[name] = value;
   }
-  return ok({
-    summary: `제품 ${inspections.length}개의 설치·loading 관측을 읽었다`,
-    data: { inspections },
-    next: ["loading이 unknown이면 `lophn doctor --target`으로 이유를 확인한다"],
-  });
-}
-
-const VERB: Record<HarnessWriteName, string> = {
-  "harness plan": "설치 계획",
-  "harness install": "설치",
-  "harness update": "갱신",
-  "harness remove": "제거",
-};
-
-export async function runHarnessWrite(
-  name: HarnessWriteName,
-  input: {
-    connection?: string;
-    target: IntegrationTarget;
-    components: readonly string[];
-    operation_id?: string;
-  },
-  deps: Pick<HarnessRunDeps, "actor" | "write" | "connections">,
-): Promise<Result<CommandOutput, LophnError>> {
-  if (deps.actor !== "user") {
-    return err({ code: "forbidden", message: "관리 쓰기는 사람 전용이다" });
-  }
-  if (catalogOf(input.target.harness_id) === undefined) {
-    return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
-  }
-  if (input.connection === undefined) {
-    return err({
-      code: "invalid_input",
-      message: "연결 참조(--connection)가 필요하다",
-    });
-  }
-  const read = await deps.connections.read(input.connection);
-  if (!read.ok) {
-    return err(
-      read.error.code === "not_found"
-        ? { code: "not_found", message: "연결을 읽을 수 없다" }
-        : read.error,
-    );
-  }
-  if (read.value.state !== "active" && name !== "harness remove") {
-    return ok({
-      summary: `연결 ${input.connection}은 회수됐다. ${VERB[name]}하지 않았다`,
-      data: { connection: input.connection, state: read.value.state },
-      next: ["사람이 새 연결을 만든다. 회수된 연결은 되살리지 않는다"],
-      isError: true,
-    });
-  }
-  const done = await deps.write(name, {
-    connection: input.connection,
-    target: input.target,
-    components: input.components,
-    operationId: input.operation_id ?? `cli-${crypto.randomUUID()}`,
-  });
-  if (!done.ok) return done;
-  const described = describeInstall(
-    input.connection as Parameters<typeof describeInstall>[0],
-    done.value,
+  const detected = await detectHarnesses(
+    mode,
+    {
+      files: systemFilesPort(),
+      execFor: (classifier) => systemExecPort(classifier, probeEnv),
+      path: local.env.get("PATH"),
+      home: local.home,
+    },
+    detectionCacheOf(
+      local.home,
+      filePort(),
+      `${root.replace(/\/$/, "")}/integrations`,
+    ),
+    local.now(),
   );
-  if (name === "harness plan") {
-    // 계획의 changed는 쓰게 될 것이다. 설치 결과로 읽히지 않게 이름을 바꾼다.
-    return ok({
-      summary: "설치 계획이다. 아무것도 쓰지 않았다",
-      data: {
-        planned: true,
-        connection: input.connection,
-        resources: done.value.resources,
-        notices: done.value.notices,
-      },
-      next: [
-        "`lophn harness install`로 같은 target·components를 설치한다. conflict는 사람이 먼저 확인한다",
-      ],
-    });
+  return detected.ok ? ok(detected.value.detections) : detected;
+}
+
+// 앱 source 폴더에 skill 둘과 hook 설정을 놓는다. 폴더 안만 쓴다(권한도 그 폴더 하나만 연다).
+// 새 설치 engine(`installIntoFolder`)이 들어오기 전에는 쓰지 않고 unavailable로 낸다.
+export function runHarnessInstall(
+  _input: { harness: string; folder: string },
+): Promise<Result<{ skill: string; hook: string }, LophnError>> {
+  return Promise.resolve(err({
+    code: "unavailable",
+    message: "harness install은 아직 새 설치 engine에 이어지지 않았다",
+  }));
+}
+
+// `harness refresh`가 probe를 돌릴 제품 실행 파일의 절대 경로들이다(probe는 돌리지 않는다). launcher가
+// 이 파일에만 실행 권한을 연다.
+export function detectedExecutables(
+  env: { get(name: string): string | undefined },
+  home: string,
+): string[] {
+  const found: string[] = [];
+  for (const definition of HARNESS_CATALOG) {
+    const result = discover(
+      definition,
+      { environment: NATIVE_ENVIRONMENT, profile_id: null },
+      { files: systemFilesPort(), path: env.get("PATH"), home },
+    );
+    if (result.ok && result.value.selected !== null) {
+      found.push(result.value.selected);
+    }
   }
-  return ok(described);
+  return [...new Set(found)];
+}
+
+// 감지가 PATH 말고 읽는 home 기준 폴더들이다(읽기 권한 계산에 쓴다).
+export function detectionReadDirs(home: string): string[] {
+  return DETECTION_FALLBACK_DIRS.map((dir) =>
+    `${home.replace(/\/$/, "")}/${dir}`
+  );
 }

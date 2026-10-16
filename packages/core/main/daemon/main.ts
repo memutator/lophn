@@ -3,7 +3,6 @@ import { writeParent } from "./parent.ts";
 import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
 import { productKeychain } from "../../secrets/store.ts";
-import { credentialLoaderIdentity } from "../../install-and-update/mod.ts";
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
 const port = portArg === undefined ? undefined : Number(portArg.slice(7));
@@ -19,10 +18,8 @@ const started = await startCore({
   teamModules: TEAM_MODULES,
   wirings: WIRINGS,
   parent,
-  // coding agent connection credential은 OS keychain에 둔다. 보호 loader는 설치 묶음의 helper
-  // `lophn-credential` 하나이고 identity는 그 고정 절대 경로다(Linux .deb. 다른 OS는 아직 없다).
   codingKeychain: productKeychain(),
-  codingLoaders: [credentialLoaderIdentity()],
+  codingLoaders: [],
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);

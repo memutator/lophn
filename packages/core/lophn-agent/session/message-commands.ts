@@ -127,24 +127,6 @@ function textOf(content: Input<typeof sendMessage>["content"]): string {
     .join("\n");
 }
 
-// session에 machine이 남기는 사실 한 줄의 본문이다(Undo의 "Undid edit to <경로>"). core가 이 값으로 blob을
-// 준비해 두고 recordFactMessage가 같은 값에서 같은 hash를 만든다.
-export function factMessageContent(text: string) {
-  return {
-    schema_version: 1 as const,
-    parts: [{ kind: "text" as const, text }],
-  };
-}
-
-// 사실 메시지(machine)를 받은 메시지 기록의 봉투(`from_kind`)로 말할 수 없어 session 기록에는 아직 남기지 않는다.
-// 이 길을 새로 짓는 일은 rewind가 한다. 그때까지 막아 둔다.
-export function recordFactMessage(
-  _tx: Tx,
-  _input: { session: string; text: string; principal: string },
-): Result<string> {
-  return reject("unavailable", "fact messages are being rebuilt");
-}
-
 // 이 session에 도는 turn이 있는지. steer가 도는 turn 안으로 들어가는지 가른다.
 function hasRunningTurn(tx: Tx, session: string): boolean {
   return tx.sql.get(

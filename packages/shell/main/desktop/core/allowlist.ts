@@ -1,21 +1,6 @@
-// renderer가 부를 수 있는 것은 contract schema의 read·command와, worker에서 조립하는 문서 읽기 몇 개,
-// 아래 memory route 몇 개, 프로필 이미지의 upload·file route뿐이다. credential 발급·daemon 종료는 route가
+// renderer가 부를 수 있는 것은 contract schema의 read·command와 아래 memory route 몇 개, 프로필 이미지의 upload·file route뿐이다. credential 발급·daemon 종료는 route가
 // 아니라 pipe 메시지라 이 목록에 없다.
 import { SHELL_ROUTES } from "./routes.ts";
-
-// 문서 읽기 화면(shell/editor)이 쓰는 worker route. outline과 본문은 core read queue를
-// 막지 않으려고 worker에서 조립할 뿐 읽기다. 쓰기·준비·파일 통로 worker는 넣지 않는다.
-// lophn 공간 documents 화면의 검색도 같은 이유의 읽기다.
-// projects 화면의 export는 사람이 고른 고정 판을 redaction을 거쳐 묶어 읽을 뿐
-// 판·자리를 바꾸지 않는다.
-// settings의 앱 export는 사람이 고른 앱의 자료를 읽어 밖으로 가져가는 준비다.
-// 준비 본체는 core 그래프 밖 프로세스가 하지만 아무것도 바꾸지 않는다.
-export const READING_WORKER_ROUTES: readonly string[] = [
-  "worker:outline/document",
-  "worker:documents/read",
-  "worker:documents/export",
-  "worker:search/query",
-];
 
 // renderer가 부르는 memory route.
 // - MCP server 로그인의 시작·완료·상태 읽기·취소(Settings › Tools and skills의 [Sign in]·[Cancel sign-in])
@@ -56,10 +41,6 @@ export const RENDERER_FILE_ROUTES: readonly string[] = [
 const ALLOWED = new Set<string>();
 for (const route of SHELL_ROUTES) {
   const name = `${route.kind}:${route.resource}/${route.method}`;
-  if (route.kind === "worker" && READING_WORKER_ROUTES.includes(name)) {
-    ALLOWED.add(name);
-    continue;
-  }
   if (route.kind === "memory" && RENDERER_MEMORY_ROUTES.includes(name)) {
     ALLOWED.add(name);
     continue;

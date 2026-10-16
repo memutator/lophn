@@ -18,7 +18,6 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
-import type { SubscriberBinding } from "../storage/ledger/mod.ts";
 import { testsPart } from "./tests/register.ts";
 import { reportingPart } from "./reporting/register.ts";
 import { reportWorkerPart } from "./reporting/worker/register.ts";
@@ -40,7 +39,6 @@ export type ProblemsPart = {
   blobFields?: readonly BlobFieldDefinition[];
   blobPurposes?: readonly ReturnType<typeof defineBlobPurpose>[];
   commands?: readonly CommandDefinition[];
-  subscribers?: readonly SubscriberBinding[];
   reads?: readonly ReadDefinition[];
   apiReads?: readonly ApiReadDefinition[];
   ports?: readonly TxPortRegistration[];
@@ -68,7 +66,6 @@ type ListField =
   | "blobFields"
   | "blobPurposes"
   | "commands"
-  | "subscribers"
   | "reads"
   | "apiReads"
   | "ports"
@@ -107,7 +104,6 @@ export const problemsReportDefinitions = {
   blobFields: gather(reportParts, "blobFields"),
   blobPurposes: gather(reportParts, "blobPurposes"),
   commands: gather(reportParts, "commands"),
-  subscribers: gather(reportParts, "subscribers"),
   reads: gather(reportParts, "reads"),
   apiReads: gather(reportParts, "apiReads"),
   ports: gather(reportParts, "ports"),

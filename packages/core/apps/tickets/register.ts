@@ -13,6 +13,7 @@ import { codingSessionLookup } from "./coding/lookup.ts";
 import { TicketAnnotationLookup } from "./ports.ts";
 import { createTicketReads } from "./reads.ts";
 import { createTicketReportCommands } from "./report.ts";
+import { settleTicketSessionsCommand } from "./settle.ts";
 import { TICKET_BLOB_FIELDS, TICKET_BLOB_PURPOSES } from "./blobs.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 
@@ -61,6 +62,7 @@ export const ticketDefinitions = {
     claims.expire_claim,
     report.report_completion,
     checks.record_checks,
+    settleTicketSessionsCommand,
   ],
   reads: readList,
 };

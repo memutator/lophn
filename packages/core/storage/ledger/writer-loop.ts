@@ -50,7 +50,6 @@ export function serveWriter(
     registerBlobRef: registration.registerBlobRef,
     call: registration.call,
     checkCredential: registration.checkCredential,
-    subscriberGate: registration.subscriberGate,
     confirmation: registration.confirmation,
   };
   let chain = Promise.resolve();

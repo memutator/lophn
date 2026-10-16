@@ -1,79 +1,22 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { RequestContext } from "../../protocol/server/mod.ts";
-import { exactResult } from "./visibility.ts";
 
-export type SubscriberBinding = {
-  name: string;
-  authorize(ctx: RequestContext): Result<boolean>;
-};
-export type SubscriberGate = (
-  subscriber: string,
-  ctx: RequestContext,
-) => Result<void>;
+// cursor를 올리는 구독자는 Reactor 하나다. 그 행의 subscriber 이름과 core 안 machine 자격이다.
+export const REACTOR_SUBSCRIBER = "reactor";
+export const REACTOR_PRINCIPAL = "machine:reactor";
 
-export function createSubscriberGate(
-  bindings: readonly SubscriberBinding[],
-): Result<SubscriberGate> {
-  const owners = new Map<string, SubscriberBinding>();
-  for (const binding of bindings) {
-    if (!binding.name || owners.has(binding.name)) {
-      return err({
-        code: "unavailable",
-        message: "subscriber 등록이 올바르지 않다",
-      });
-    }
-    owners.set(binding.name, binding);
-  }
-  return ok((name, ctx) => {
-    const binding = owners.get(name);
-    if (!binding) {
-      return err({ code: "forbidden", message: "등록 subscriber가 아니다" });
-    }
-    try {
-      const allowed = exactResult(binding.authorize(ctx));
-      if (!allowed.ok) {
-        return err({
-          code: "unavailable",
-          message: "subscriber 검사를 사용할 수 없다",
-        });
-      }
-      if (allowed.value === true) return ok(undefined);
-      if (allowed.value === false) {
-        return err({ code: "forbidden", message: "subscriber 주체가 아니다" });
-      }
-    } catch (thrown) {
-      // thrown Promise도 관측하되 owner 원문은 command 오류에 넣지 않는다.
-      exactResult(thrown);
-    }
-    return err({
-      code: "unavailable",
-      message: "subscriber 검사를 사용할 수 없다",
-    });
-  });
-}
-
-// current snapshot을 매 호출 복사해 handler·이전 gate의 mutation이 권한을 넓히지 못한다.
-export function authorizeSubscriberCursor(
-  gate: SubscriberGate | undefined,
+// Reactor 자격이 아니면 cursor를 올리거나 비교할 수 없다. 자격은 현재 snapshot이다.
+export function authorizeReactorCursor(
   subscriber: string,
   request: RequestContext | undefined,
 ): Result<void> {
-  if (gate !== undefined && request !== undefined) {
-    try {
-      const allowed = exactResult(gate(subscriber, structuredClone(request)));
-      if (allowed.ok && allowed.value === undefined) return ok(undefined);
-      if (!allowed.ok && allowed.error.code === "forbidden") {
-        return err({ code: "forbidden", message: "subscriber 주체가 아니다" });
-      }
-      if (!allowed.ok && allowed.error.code === "unauthorized") {
-        return err({ code: "unauthorized", message: "subscriber 자격이 없다" });
-      }
-    } catch (thrown) {
-      exactResult(thrown);
-    }
+  if (request === undefined || request.actor !== "machine") {
+    return err({ code: "forbidden", message: "Reactor 자격이 아니다" });
   }
-  return err({
-    code: "unavailable",
-    message: "subscriber 검사를 사용할 수 없다",
-  });
+  if (
+    subscriber !== REACTOR_SUBSCRIBER || request.principal !== REACTOR_PRINCIPAL
+  ) {
+    return err({ code: "forbidden", message: "Reactor 자격이 아니다" });
+  }
+  return ok(undefined);
 }

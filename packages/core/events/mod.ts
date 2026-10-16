@@ -15,3 +15,20 @@ export type {
   ReactorContext,
   ReactorHandler,
 } from "./ports.ts";
+export {
+  createEventsReader,
+  createReactor,
+  createSqlCursor,
+  type NewWorkDeps,
+  newWorkHandlerName,
+  type ReactionRouter,
+  type ReactorCursor,
+  type ReactorReader,
+  type ReactorRunner,
+  registerNewWorkHandlers,
+} from "./reactor/mod.ts";
+export {
+  authorizeReactorCursor,
+  REACTOR_PRINCIPAL,
+  REACTOR_SUBSCRIBER,
+} from "./subscriber-registration.ts";

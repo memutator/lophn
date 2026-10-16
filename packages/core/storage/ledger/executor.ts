@@ -39,7 +39,7 @@ import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
 import { admitAgentRun, runDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
-import { authorizeSubscriberCursor } from "../../events/subscriber-registration.ts";
+import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import {
   actorKind,
   authorityTarget,
@@ -270,12 +270,7 @@ export function commitCommand(
           commands,
           credential.value,
           request.value,
-          (subscriber) =>
-            authorizeSubscriberCursor(
-              deps.subscriberGate,
-              subscriber,
-              request.value,
-            ),
+          (subscriber) => authorizeReactorCursor(subscriber, request.value),
           definition.route.name,
         );
         return ok({
@@ -295,11 +290,7 @@ export function commitCommand(
           seal,
           now: () => deps.clock.now(),
           checkCursor: (subscriber) =>
-            authorizeSubscriberCursor(
-              deps.subscriberGate,
-              subscriber,
-              authority,
-            ),
+            authorizeReactorCursor(subscriber, authority),
           confirmation: deps.confirmation,
           reserved: undefined,
         };

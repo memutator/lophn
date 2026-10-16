@@ -1,6 +1,10 @@
 import { ok } from "../../../../base/mod.ts";
 import { ticketUploadSummary } from "../../../../protocol/coding-agent/ticket/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
+import {
+  createTicketCheckHandler,
+  type TicketCheckClient,
+} from "../../../apps/tickets/mod.ts";
 import { ticketSummaryUploadHandler } from "../../../apps/tickets/summary-upload.ts";
 import { ticketClaimSweepIntervalMs } from "../../../apps/tickets/register.ts";
 import { type WiringContext, type WiringFactory } from "./context.ts";
@@ -16,6 +20,7 @@ export const ticketMachineContext: RequestContext = {
       "TicketClaimSweep",
       "TicketCheckWork",
       "RecordTicketChecks",
+      "SettleTicketSessions",
     ],
     targets: {},
   },
@@ -28,15 +33,54 @@ export const appsTicketsWiring: WiringFactory = () => {
   return {
     name: "apps-tickets",
     records: () => [ticketMachineContext as never],
-    build: (ctx) =>
-      ok({
+    build(ctx) {
+      // 완료 보고가 나면 check를 한 번 확인해 결과를 남긴다.
+      const client: TicketCheckClient = {
+        work: (input) =>
+          ctx.runtime.readers.read(
+            { resource: "tickets", method: "check_work" },
+            ticketMachineContext,
+            input,
+          ),
+        record: (call, idempotencyKey) =>
+          ctx.runtime.writer.command(ticketMachineContext as never, {
+            command: "RecordTicketChecks",
+            input: call,
+            compare: { base_revision: call.base_revision },
+            idempotency_key: idempotencyKey,
+            prepared: [],
+          }),
+      };
+      ctx.reactor.on(
+        "TicketCompletionReported",
+        createTicketCheckHandler(client),
+      );
+      return ok({
         uploads: [[
           // ticket 완료 보고 summary: purpose는 ticket 등록값(ticket_summary)으로 고정이다.
           `${ticketUploadSummary.resource}/${ticketUploadSummary.method}`,
           ticketSummaryUploadHandler({ current: ctx.prepareRelay }),
         ]],
-      }),
+      });
+    },
     async start(ctx) {
+      // 살아 있는 coding session이 없는 기동이다. claim이 남은 session을 정산한다(보고 없이 끝났으면
+      // CodingSessionEndedUnreported가 남는다).
+      const settled = await ctx.runtime.writer.command(
+        ticketMachineContext as never,
+        {
+          command: "SettleTicketSessions",
+          input: {},
+          compare: {},
+          idempotency_key: crypto.randomUUID(),
+          prepared: [],
+        },
+      );
+      if (!settled.ok) {
+        console.error(
+          `apps-tickets: could not settle sessions (${settled.error.code})`,
+        );
+      }
       // ticket claim 만료 정리. 60초마다와 재시작 때 후보를 읽고 expire_claim을 제출한다.
       // timer는 표를 쓰지 않는다.
       claimSweep = setInterval(

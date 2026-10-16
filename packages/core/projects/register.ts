@@ -1,9 +1,6 @@
 import { ok } from "../../base/mod.ts";
-import {
-  CONTEXT_API_EVENTS,
-  contextViolationsRecordedEvent,
-  EVENTS,
-} from "../../protocol/projects/mod.ts";
+import { contextViolationFound } from "../../protocol/events/mod.ts";
+import { CONTEXT_API_EVENTS, EVENTS } from "../../protocol/projects/mod.ts";
 import type {
   EventVisibilityDefinition,
   RequestContext,
@@ -14,7 +11,6 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
-import { isNotifications } from "../main/daemon/platform-register.ts";
 import {
   CONTEXT_WORKER_PRINCIPAL,
   createContextsRegistration,
@@ -74,19 +70,15 @@ function isContextWorker(ctx: RequestContext): boolean {
   return ctx.actor === "machine" && ctx.principal === CONTEXT_WORKER_PRINCIPAL;
 }
 
-// context event의 공개 정책: 사람(user)과 context worker가 읽고, 다른 자격에는 숨긴다.
-// ContextViolationsRecorded는 notifications 계기라 그 구독자에도 연다.
+// context event(위반을 새로 찾은 ContextViolationFound 포함)의 공개 정책: 사람(user)과 context worker가
+// 읽고, 다른 자격에는 숨긴다.
 function contextVisibility<D extends EventDefinition>(
   event: D,
 ): EventVisibilityDefinition<D> {
-  const notified = event.type === contextViolationsRecordedEvent.type;
   return {
     event,
     handle: (_snapshot, ctx) =>
-      ok(
-        ctx.actor === "user" || isContextWorker(ctx) ||
-          (notified && isNotifications(ctx)),
-      ),
+      ok(ctx.actor === "user" || isContextWorker(ctx)),
   };
 }
 
@@ -95,7 +87,7 @@ function contextVisibility<D extends EventDefinition>(
 export function createEventRegistration(): EventRegistration {
   return {
     events: EVENTS,
-    visibility: CONTEXT_API_EVENTS.map((event) =>
+    visibility: [...CONTEXT_API_EVENTS, contextViolationFound].map((event) =>
       contextVisibility(event) as unknown as EventVisibilityDefinition
     ),
   };

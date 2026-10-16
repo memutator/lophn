@@ -32,10 +32,7 @@ import {
   isTransactionLost,
   type LedgerConnection,
 } from "./sqlite.ts";
-import {
-  authorizeSubscriberCursor,
-  type SubscriberGate,
-} from "../../events/subscriber-registration.ts";
+import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";
@@ -64,8 +61,6 @@ export type TxDeps = {
   // 다른 owner command dispatch. 없으면 등록된 command를 부르지 않는다.
   dispatch?: CommandDispatch;
   call: TxCall;
-  // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
-  subscriberGate?: SubscriberGate;
   // true면 domain event 10개가 아닌 type의 emit을 internal로 거절한다. 다른 단위가 옛 event를
   // 다 걷은 뒤 cleanup이 켠다.
   domainOnly?: boolean;
@@ -309,11 +304,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     },
     advanceSubscriberCursor(subscriber, throughSeq) {
       live();
-      const allowed = authorizeSubscriberCursor(
-        deps.subscriberGate,
-        subscriber,
-        ctx.request,
-      );
+      const allowed = authorizeReactorCursor(subscriber, ctx.request);
       if (!allowed.ok) throw fail(allowed);
       const parsed = parseSeq(throughSeq);
       if (!parsed.ok || parsed.value < 0n) {

@@ -2,7 +2,6 @@
 // 겹쳐 기동이 거절된다. 그래서 settings(settings.ts)처럼 team 목록 밖에서 한 번만 조립한다.
 // 이 모듈은 core 기동이 항상 붙이고 팀이 따로 등록하지 않는다. approvals는 자기 등록(`approvals/registration.ts`)을 낸다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { ASSIGNMENT_SUBSCRIBER } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   EventVisibilityDefinition,
@@ -12,10 +11,7 @@ import type {
 import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import type { EventDefinition } from "../../../protocol/base/mod.ts";
 import { secretsListRead } from "../../secrets/mod.ts";
-import type {
-  ReaderRegistration,
-  SubscriberBinding,
-} from "../../storage/ledger/mod.ts";
+import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import type { Assembled } from "./registration.ts";
 
 // notifications 구독자였던 core 내부 machine 자격 이름이다. 계기 event 공개 정책
@@ -79,23 +75,12 @@ export const platformDefinitions = {
   blobFields: [] as BlobFieldDefinition[],
 };
 
-// writer Worker가 이 모듈을 다시 import해 cursor gate를 모은다.
+// writer Worker가 이 모듈을 다시 import해 command를 모은다.
 export function createCoreRegistration() {
   return {
     commands: platformDefinitions.commands,
     blobFields: platformDefinitions.blobFields,
-    subscribers: platformSubscribers(),
   };
-}
-
-export function platformSubscribers(): SubscriberBinding[] {
-  return [
-    // AppCreated 반응 구독자만 자기 cursor를 올린다.
-    {
-      name: ASSIGNMENT_SUBSCRIBER,
-      authorize: (ctx) => ok(isAssignmentReactions(ctx)),
-    },
-  ];
 }
 
 // reader Worker가 이 모듈에서 read를 다시 조립한다.

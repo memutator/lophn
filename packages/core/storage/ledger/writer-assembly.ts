@@ -24,10 +24,8 @@ import {
 import { defineTxPort } from "./tx-ports.ts";
 import {
   createAfterCommitCollector,
-  createSubscriberGate,
   LEDGER_COMMANDS,
   type LedgerConnection,
-  type SubscriberBinding,
   type TxPortRegistration,
   type WriterRegistration,
 } from "./mod.ts";
@@ -59,8 +57,6 @@ type Loose = {
   commands?: readonly CommandDefinition[];
   ports?: readonly TxPortRegistration[] | Record<string, unknown>;
   blobFields?: readonly BlobFieldDefinition[];
-  // 구독자 이름마다 cursor를 올릴 수 있는 자격. platform 등록(platform.ts)이 낸다.
-  subscribers?: readonly SubscriberBinding[];
 };
 
 // writer Worker 안에서 팀 등록을 다시 조립한다.
@@ -97,7 +93,6 @@ export async function assembleWriter(
   ];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];
-  const subscribers: SubscriberBinding[] = [];
   // settings 등록 파일은 apply·reload command만 추가한다. route는 contract
   // ROUTES가 고정하므로 writer route 등록은 없다.
   if (boot.settings) {
@@ -124,7 +119,6 @@ export async function assembleWriter(
     }
     ports.push(...portList(loose?.ports));
     blobFields.push(...loose?.blobFields ?? []);
-    subscribers.push(...loose?.subscribers ?? []);
   }
   if (
     commands.some((c) => c.dispatchOnly === true && c.dispatchable !== true)
@@ -133,13 +127,6 @@ export async function assembleWriter(
   }
   // ApplyQuestionOption은 등록된 command 중 선택지로 열 수 있는 소유 동작의 handler만 부른다.
   bindQuestionOptionOwners(commands);
-  // 이름 있는 구독자만 자기 cursor를 올린다. 등록이 없으면 gate도 없어 cursor 전진은 거절된다.
-  const subscriberGate = subscribers.length === 0
-    ? undefined
-    : createSubscriberGate(subscribers);
-  if (subscriberGate !== undefined && !subscriberGate.ok) {
-    throw new Error("duplicate subscriber registration");
-  }
   const preparations = createPreparationRegistry();
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
   let currentRequest: RequestContext | undefined;
@@ -153,7 +140,6 @@ export async function assembleWriter(
     commands,
     confirmation: confirmationBridge(confirmationRegistry),
     confirmationRegistry,
-    ...(subscriberGate?.ok ? { subscriberGate: subscriberGate.value } : {}),
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,
@@ -216,11 +202,7 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     const blobFields: BlobFieldDefinition[] = problems.flatMap((value) =>
       value.blobFields ?? []
     );
-    // `problems.work` 반응기의 cursor 전진 자격도 problems 등록이 낸다.
-    const subscribers: SubscriberBinding[] = problems.flatMap((value) =>
-      value.subscribers ?? []
-    );
-    return { commands, ports, blobFields, subscribers };
+    return { commands, ports, blobFields };
   }
   const sources = [
     direct,
@@ -236,7 +218,6 @@ function teamRegistration(team: TeamModule): Loose | undefined {
       toArray((value as Loose).ports)
     ) as TxPortRegistration[],
     blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
-    subscribers: sources.flatMap((value) => (value as Loose).subscribers ?? []),
   };
 }
 

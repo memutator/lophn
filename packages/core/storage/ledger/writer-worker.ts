@@ -41,7 +41,6 @@ if (!opened.ok) {
     registerBlobRef: registration.registerBlobRef,
     call: registration.call,
     checkCredential: registration.checkCredential,
-    subscriberGate: registration.subscriberGate,
     confirmation: registration.confirmation,
     onTx: registration.onTx,
     domainOnly: boot.domainOnly,

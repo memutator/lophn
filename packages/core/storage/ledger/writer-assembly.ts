@@ -21,7 +21,9 @@ import {
   confirmationBridge,
   ConfirmationRegistry,
 } from "../../server/identity/mod.ts";
+import { defineTxPort } from "./tx-ports.ts";
 import {
+  createAfterCommitCollector,
   createSubscriberGate,
   LEDGER_COMMANDS,
   type LedgerConnection,
@@ -34,6 +36,7 @@ import {
   createPreparationRegistry,
   type PreparationRegistry,
 } from "../blobs/mod.ts";
+import { requestPrincipal } from "./after-commit.ts";
 import { bindQuestionOptionOwners } from "../../lophn-agent/register.ts";
 import { SECRET_COMMANDS } from "../../secrets/mod.ts";
 import type { TeamModule } from "../../main/daemon/registration.ts";
@@ -73,6 +76,8 @@ export async function assembleWriter(
     // 테스트의 manual clock은 writer가 공유하지 못한다. core가 민 시각을 알린다.
     noteTime(nowMs: number): void;
     onTx(tx: Tx | undefined): void;
+    // command 하나마다 reset하고 확정된 새 command 뒤에 take한다.
+    afterCommit: ReturnType<typeof createAfterCommitCollector>;
   }
 > {
   // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
@@ -83,7 +88,13 @@ export async function assembleWriter(
     ...LEDGER_COMMANDS,
     ...SECRET_COMMANDS,
   ];
-  const ports: TxPortRegistration[] = [];
+  const afterCommit = createAfterCommitCollector();
+  const ports: TxPortRegistration[] = [
+    afterCommit.registration,
+    defineTxPort(requestPrincipal, () => ({
+      principal: () => currentRequest?.principal ?? null,
+    })),
+  ];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];
   const subscribers: SubscriberBinding[] = [];
@@ -146,6 +157,7 @@ export async function assembleWriter(
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,
+    afterCommit,
     // 준비 참조는 writer 메모리에 있다. core가 준비 성공을 알리고, 등록은 그 메모리를 본다.
     registerBlobRef: (reference) => {
       const tx = currentTx;

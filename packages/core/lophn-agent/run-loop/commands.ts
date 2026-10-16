@@ -25,7 +25,7 @@ import {
   TURN_LIMIT_SETTING_KEYS,
   type TurnLimits,
 } from "./limits.ts";
-import { publishTurnEnded } from "./turn-events.ts";
+import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 import { loadTurn, type TurnRow } from "./model.ts";
 import type { CallSignals } from "./ports.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
@@ -63,7 +63,7 @@ export type TurnCommandDeps = {
   // 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
   turnLimits?: (tx: Tx) => Result<TurnLimits>;
   // turn이 시작하고 끝날 때 `TurnStarted`·`TurnEnded`를 Bus로 낸다. 없으면 버린다.
-  publish?: (event: AgentEvent) => void;
+  publish?: PublishAgentEvent;
   // 시작한 입력이 Router의 call이면 그 call을 가져갔다고 알린다.
   calls?: CallSignals;
 };
@@ -269,7 +269,7 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           );
           if (!consumed.ok) return consumed;
         }
-        deps.publish?.({
+        deps.publish?.(tx, {
           session: input.session,
           type: "TurnStarted",
           at: startedAt,

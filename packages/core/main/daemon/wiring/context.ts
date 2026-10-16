@@ -56,6 +56,7 @@ import type {
 } from "../../../../protocol/secrets/mod.ts";
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { createAppsControl } from "../../../apps/control.ts";
+import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
@@ -214,6 +215,8 @@ type Late = {
   appIntake: AppIntake;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
+  // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
+  inbox: Inbox;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -256,6 +259,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appIntake: true,
   invocationLedger: true,
   appRewind: true,
+  inbox: true,
 };
 
 export type WiringContext = {

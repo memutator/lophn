@@ -88,10 +88,17 @@ import {
   createTurnReads,
   deleteSessionTurns,
   interruptRunningTurns,
+  publishAfterCommit,
   TURN_LIMIT_SETTING_KEYS,
   turnBodyFields,
   turnSchemaSteps,
 } from "./run-loop/mod.ts";
+import {
+  callSignals,
+  failReceivedCalls,
+  messageDirectory,
+  messageRouter,
+} from "../router/mod.ts";
 import { createCommandReads } from "./commands/mod.ts";
 import {
   conversationSchemaSteps,
@@ -116,11 +123,6 @@ import {
   questionSchemaSteps,
   questionTextRead,
 } from "./tools/questions/mod.ts";
-import {
-  createHandoffCommands,
-  createHandoffReads,
-  handoffBodyFields,
-} from "./tools/handoff/mod.ts";
 import { createTraceReads, traceExportCommand } from "./observability/mod.ts";
 import {
   createRevertCommands,
@@ -381,7 +383,11 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
 const RUN_ACCEPT_REMOVED = "accepting a run is replaced by the inbox";
 const APPROVAL_REQUEST_REMOVED =
   "a waiting run no longer opens an approval request; the router asks in the turn";
-const runCommands = createTurnCommands({ hasUnappliedSteering });
+const runCommands = createTurnCommands({
+  hasUnappliedSteering,
+  publish: publishAfterCommit,
+  calls: callSignals,
+});
 const runReads = createTurnReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다. run을 가리키는 표마다
@@ -408,25 +414,20 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
 // message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
 const conversationCommands = createConversationCommands({
-  // Router와 session 목록이 wiring에 놓이기 전에는 사람 메시지를 받지 못한다.
-  send: {
-    router: {
-      route: () =>
-        err({ code: "unavailable", message: "the router is not wired" }),
-    },
-    directory: { find: () => null },
-  },
+  // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
+  send: { router: messageRouter, directory: messageDirectory },
   deleteSessionRecords,
   eraseBlobRefs,
   // project와 앱, Operator 정의, Bus, 끝날 때의 영향은 wiring이 놓는다. 놓기 전에는 새 session을 열지 못한다.
   open: UNWIRED_OPEN_DEPS,
-  // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. Bus event는 writer Worker에서 낼 수 없어 내지 않는다.
+  // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. Bus event는 commit 뒤에 main thread가 낸다.
   end: {
     ...UNWIRED_END_DEPS,
+    effects: { ...UNWIRED_END_DEPS.effects, failReceivedCalls },
     interruptRunningTurns: (tx, session) => {
       const done = interruptRunningTurns(
         tx,
-        undefined,
+        publishAfterCommit,
         "session_ended",
         session,
       );
@@ -435,31 +436,6 @@ const conversationCommands = createConversationCommands({
   },
 });
 const conversationReads = createConversationReads();
-
-// handoff(concern handoff). SubmitHandoff는 AcceptRun의 출처 검사 wrapper라서 run-loop의
-// AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은 machine 전용 기록이라 이 접수에 한해
-// machine 자격으로 바꿔 넘기고(command 안에서 보낸 run·방향·원래 요청을 먼저 검사한다) 바깥
-// command의 actor·event 기록은 그대로다. 내용 blob은 core가 준비한다(packages/core/lophn-agent/tools/handoff/body.ts).
-const handoffCommands = createHandoffCommands({
-  acceptRun: () => err({ code: "unavailable", message: RUN_ACCEPT_REMOVED }),
-});
-// 받는 run이 저장한 가장 최근 문서 고정 version은 documents/versions의 표에서 읽는다. 표를
-// 소유한 concern이 다르므로 lophn-agent leaf는 표를 모르고 이 조립이 조회를 넣는다. 문서 표가
-// 없는 등록(문서 concern 없는 harness)에서는 version이 없는 것이다.
-const handoffReads = createHandoffReads({
-  savedVersion: (snapshot, run) => {
-    try {
-      const row = snapshot.sql.get(
-        `select id from versions where run = ?
-         order by rowid desc limit 1`,
-        [run],
-      );
-      return row === undefined ? null : String(row["id"]);
-    } catch {
-      return null;
-    }
-  },
-});
 
 // session 되돌리기(concern revert). 쓰기 직전 기록(RecordRewindFile), Rewind·UndoEdit·Redo, 설치 정정
 // (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
@@ -909,7 +885,6 @@ export const lophnAgentDefinitions = {
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,
-    handoffCommands.submit,
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,
@@ -959,8 +934,6 @@ export const lophnAgentDefinitions = {
     conversationReads.message,
     conversationReads.compactRequests,
     commandReads.list,
-    handoffReads.status,
-    handoffReads.result,
     toolReads.read,
     toolReads.list,
     questionReads.read,
@@ -980,7 +953,6 @@ export const lophnAgentDefinitions = {
     ...turnBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
-    ...handoffBodyFields,
   ],
   ports: [
     runAdmissionPort,
@@ -1154,8 +1126,6 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.message,
       conversationReads.compactRequests,
       commandReads.list,
-      handoffReads.status,
-      handoffReads.result,
       toolReads.read,
       toolReads.list,
       questionReads.read,

@@ -63,7 +63,9 @@ export type MessageRouter = {
 export type SendMessageDeps = {
   router: MessageRouter;
   // session의 받는 길과 `accepting`(archive나 place 보관이면 false)을 본다.
-  directory: Pick<SessionDirectory, "find">;
+  directory: {
+    find(tx: Tx, session: Id<"ses">): ReturnType<SessionDirectory["find"]>;
+  };
 };
 
 function blocked(): Result<never> {
@@ -274,7 +276,7 @@ export function sendWith(
   existingBody: PermanentBlobReference | undefined,
 ): Result<SentMessage> {
   // archive한 session과 보관한 place(project나 앱)의 session은 새 입력을 받지 않는다.
-  const target = deps.directory.find(input.session as Id<"ses">);
+  const target = deps.directory.find(tx, input.session as Id<"ses">);
   if (target === null) return sessionNotFound();
   if (!target.accepting) {
     return reject("conflict", "this session takes no new input");

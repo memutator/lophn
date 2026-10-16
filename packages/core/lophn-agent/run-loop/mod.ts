@@ -15,7 +15,16 @@ export { loadTurn, turnRecordOf, type TurnRow, turnRowOf } from "./model.ts";
 export { deleteSessionTurns, sessionTurnIds } from "./erase.ts";
 export { createTurnReads } from "./reads.ts";
 export { type InterruptReason, interruptRunningTurns } from "./interrupt.ts";
-export { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
+export {
+  publishAfterCommit,
+  type PublishAgentEvent,
+  publishTurnEnded,
+} from "./turn-events.ts";
+export {
+  AGENT_EVENT_TOPIC,
+  INBOX_CLEAR_TOPIC,
+  INBOX_PUT_TOPIC,
+} from "./topics.ts";
 export {
   type AttemptEnd,
   type AttemptStart,
@@ -34,6 +43,7 @@ export {
   type TurnLimits,
 } from "./limits.ts";
 export {
+  createInboxApplier,
   createLophnInputTransport,
   createTurnSource,
   createTurnStarter,

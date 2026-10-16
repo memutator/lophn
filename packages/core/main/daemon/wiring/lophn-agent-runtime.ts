@@ -26,6 +26,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
   const inbox = createInbox();
   return {
     name: "lophn-agent-runtime",
+    // Router가 같은 입력함에 넣는다.
+    prepare(ctx) {
+      ctx.provide("inbox", inbox);
+    },
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     operations: (ctx) => agentRuntimePolicies(ctx.allRoutes),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는

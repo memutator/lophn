@@ -16,6 +16,7 @@ import {
   MESSAGE_TEXT_CONTENT_MAX_BYTES,
   receiveMessage,
   recordMessage,
+  sendMessage,
   serializeMessageContent,
   userMessageContentInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -140,6 +141,7 @@ export function createMessageBodyPreparer(deps: {
 ) => Promise<Result<CommandEnvelope>> {
   return async (ctx, envelope) => {
     if (
+      envelope.command !== sendMessage.name &&
       envelope.command !== receiveMessage.name &&
       envelope.command !== recordMessage.name
     ) return ok(envelope);

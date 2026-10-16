@@ -5,6 +5,15 @@ import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import type { Inbox } from "./inbox.ts";
 import type { SteeringInput, TurnSource } from "./ports.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import {
+  afterCommit,
+  type CommitAction,
+} from "../../storage/ledger/after-commit.ts";
+import {
+  AGENT_EVENT_TOPIC,
+  INBOX_CLEAR_TOPIC,
+  INBOX_PUT_TOPIC,
+} from "./topics.ts";
 
 // 입력함에서 시작할 turn을 고른다. 입력 하나가 turn 하나이고, session이 idle이면 맨 앞 입력으로
 // 시작한다. 읽기 route로 DB를 훑지 않는다: 입력함이 메모리 정본이다.
@@ -69,11 +78,10 @@ export function createTurnSource(
   };
 }
 
-// lophn session 쪽 `InputTransport`다. harness session은 coding-agent 단위의 구현이 맡고 둘을 묶는 것은
-// wiring이다. `startTurn`은 turn을 시작해 보라는 신호일 뿐이고 시작은 turn starter가 한다.
+// lophn session 쪽 `InputTransport`다. writer Worker 안에서 돌아 입력함(main thread 메모리)에 바로 닿지 못한다.
+// 그래서 입력은 "commit 뒤 할 일"로 모아 두고 main thread의 `createInboxApplier`가 commit 뒤에 입력함에 넣는다.
+// harness session은 coding-agent 단위의 구현이 맡고 둘을 묶는 것은 wiring이다.
 export function createLophnInputTransport(deps: {
-  inbox: Inbox;
-  startTurn(session: Id<"ses">): void;
   // `message`가 null인 입력(call·reply·reaction·notice)을 받는 session 기록에 쓴다. 배달하는 tx에서
   // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.
   record(
@@ -81,10 +89,14 @@ export function createLophnInputTransport(deps: {
     session: Id<"ses">,
     input: RoutedInput,
   ): Result<Id<"msg">>;
-  // 받은 입력을 `MessageReceived`로 Bus에 낸다. steer면 도는 turn 안의 메시지다. 없으면 버린다.
-  publish?: (event: AgentEvent) => void;
 }): InputTransport {
-  const { inbox } = deps;
+  // 받는 session이 지금 turn을 돌고 있는지는 정본인 turns 표로 본다(입력함의 running은 main에 있다).
+  function running(tx: Tx, session: Id<"ses">): boolean {
+    return tx.sql.get(
+      "select 1 as found from turns where session = ? and state = 'running'",
+      [session],
+    ) !== undefined;
+  }
 
   function put(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<void> {
     let message = input.message;
@@ -93,20 +105,11 @@ export function createLophnInputTransport(deps: {
       if (!written.ok) return written;
       message = written.value;
     }
-    inbox.put(session, { ...input, message });
-    deps.publish?.({
+    tx.port(afterCommit).push(INBOX_PUT_TOPIC, {
       session,
-      type: "MessageReceived",
+      input: { ...input, message },
       at: tx.now(),
-      payload: {
-        message,
-        body: input.body,
-        from: input.from,
-        call: input.call,
-        reply_to: input.reply_to,
-        steer: input.delivery === "steer" && inbox.isRunning(session),
-      },
-    } as AgentEvent);
+    });
     return ok(undefined);
   }
 
@@ -118,19 +121,17 @@ export function createLophnInputTransport(deps: {
           message: "not a lophn session",
         });
       }
-      const idle = !inbox.isRunning(target.session);
+      const idle = !running(tx, target.session);
       const stored = put(tx, target.session, input);
       if (!stored.ok) return stored;
-      if (!idle) return ok("queued" as const);
-      deps.startTurn(target.session);
-      return ok("delivered" as const);
+      return ok(idle ? "delivered" as const : "queued" as const);
     },
     cancel(tx, target, call) {
       if (target === null || target.transport !== "lophn") {
         return ok(undefined);
       }
       // 취소 알림은 어느 event에서 온 것이 아니라 근거 seq가 없다.
-      const stored = put(tx, target.session, {
+      return put(tx, target.session, {
         kind: "notice",
         from: { kind: "program", event_seq: "0" },
         call,
@@ -144,12 +145,46 @@ export function createLophnInputTransport(deps: {
         event: null,
         notice: "call_cancelled",
       });
-      if (!stored.ok) return stored;
-      if (!inbox.isRunning(target.session)) deps.startTurn(target.session);
-      return ok(undefined);
     },
     queued() {
       return [];
     },
+  };
+}
+
+type InboxPut = { session: Id<"ses">; input: RoutedInput; at: string };
+
+// main thread 쪽이다. commit된 tx가 모은 일을 입력함과 Bus에 적용한다.
+export function createInboxApplier(deps: {
+  inbox: Inbox;
+  publish(event: AgentEvent): void;
+}): (actions: readonly CommitAction[]) => void {
+  const { inbox } = deps;
+  return (actions) => {
+    for (const action of actions) {
+      if (action.topic === INBOX_PUT_TOPIC) {
+        const { session, input, at } = action.data as InboxPut;
+        // steer인지는 넣기 전에 정한다. 도는 turn이 없으면 다음 turn 입력이다.
+        const steer = input.delivery === "steer" && inbox.isRunning(session);
+        inbox.put(session, input);
+        deps.publish({
+          session,
+          type: "MessageReceived",
+          at,
+          payload: {
+            message: input.message,
+            body: input.body,
+            from: input.from,
+            call: input.call,
+            reply_to: input.reply_to,
+            steer,
+          },
+        } as AgentEvent);
+      } else if (action.topic === INBOX_CLEAR_TOPIC) {
+        inbox.clear((action.data as { session: Id<"ses"> }).session);
+      } else if (action.topic === AGENT_EVENT_TOPIC) {
+        deps.publish(action.data as AgentEvent);
+      }
+    }
   };
 }

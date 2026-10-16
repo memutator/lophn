@@ -1,6 +1,7 @@
 import type { LophnError, Result } from "../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
+import type { CommitAction } from "./after-commit.ts";
 
 // API 쪽과 writer Worker가 주고받는 작은 메시지. 연결 객체는 넘기지 않는다.
 // command 이름은 등록 표의 route.name이다. SQL·파일 경로는 메시지에 없다.
@@ -26,6 +27,8 @@ export type CommandSuccess = {
   last_seq: string | null;
   // commit 뒤에만 켜진다. 배포기는 reader에서 커밋된 event를 읽는다.
   wake: boolean;
+  // commit 뒤에 main thread가 적용할 일(입력함에 넣기, agent event 내기). 재전달에는 없다.
+  after_commit?: CommitAction[];
 };
 
 export type WriterRequest =

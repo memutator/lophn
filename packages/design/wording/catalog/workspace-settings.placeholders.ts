@@ -6,10 +6,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.appearance.reading-width-help": Record<never, never>;
   "settings.appearance.text-size-help": Record<never, never>;
   "settings.appearance.theme-help": Record<never, never>;
-  };
-  };
-  };
-  };
   "settings.button.add-entry": Record<never, never>;
   "settings.button.before-restore": Record<never, never>;
   "settings.button.check-security": Record<never, never>;
@@ -131,7 +127,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-model": Record<never, never>;
   "settings.label.coding-not-checked": Record<never, never>;
   "settings.label.coding-not-found": Record<never, never>;
-  };
   "settings.label.coding-sign-in-not-found": Record<never, never>;
   "settings.label.coding-sign-in-unknown": Record<never, never>;
   "settings.label.coding-signal-no": Record<never, never>;
@@ -283,9 +278,6 @@ export type WorkspaceSettingsPlaceholders = {
     name: "string";
   };
   "settings.title.screen": Record<never, never>;
-    os: "string";
-    current: "string";
-  };
   "settings.usage.loading": Record<never, never>;
 };
 

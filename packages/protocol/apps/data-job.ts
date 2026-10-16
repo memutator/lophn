@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { dataChangeSchema, dataResultSchema } from "./releases.ts";
 
+export const DATA_JOB_KINDS = [
+  "inspect",
+  "backup",
+  "migrate",
+  "restore",
+  "test",
+] as const;
+export const dataJobKindSchema = z.enum(DATA_JOB_KINDS);
+
 const dataJobFields = {
   kind: dataJobKindSchema,
   app: z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/),

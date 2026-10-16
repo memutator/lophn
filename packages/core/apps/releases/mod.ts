@@ -95,7 +95,6 @@ export {
 // 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(packages/core/main/app-supervisor 조립).
 export { runActivation } from "./activation/orchestrator.ts";
 export {
-  loadMigrationHistory,
   type MigrationHistoryEntry,
   observeReleaseActivations,
   recoverActivation,

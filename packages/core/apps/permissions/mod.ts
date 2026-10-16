@@ -32,7 +32,6 @@ export {
   syncAppGrants,
 } from "./commands.ts";
 export {
-  activationInProgress,
   appGrantsOf,
   grantsSeq,
   loadGrants,

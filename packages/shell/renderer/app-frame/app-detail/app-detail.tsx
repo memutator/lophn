@@ -8,7 +8,6 @@ import { t } from "@lophn/wording";
 import { InstructionsButton } from "../../editor/instructions-entry.tsx";
 import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";
-import type { PreviewOpen } from "./model.ts";
 import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
 import styles from "./app-detail.module.css";
@@ -18,10 +17,6 @@ export interface AppDetailProps {
   /** 사람이 지은 앱 이름. */
   name: string;
   source: AppDetailSource;
-  /** 앱 공간에 열려 있는 preview. 이 화면은 읽지 않는다(앱 공간 frame이 지운다). */
-  preview: PreviewOpen | null;
-  /** 이 화면은 부르지 않는다(앱 공간 frame이 지운다). */
-  onPreview(next: PreviewOpen | null): void;
   /** app 층 [Instructions]. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
   /** 호출 기록의 agent session을 연다. 없으면 session 이름만 보인다. */

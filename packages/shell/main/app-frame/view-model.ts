@@ -109,11 +109,7 @@ export interface ViewListing {
   card: CardDisplay | null;
 }
 
-/**
- * [Report a problem]이 버튼 시점에 고정하는 view.
- * capture는 같은 contents·generation일 때만 그 view를 찍고, `current`는 그 사이 교체·폐기가
- * 없었는지 본다.
- */
+/** [Report a problem]이 버튼 시점에 고정하는 view. */
 export interface FeedbackViewSnapshot {
   view_session: string;
   window: string;
@@ -124,11 +120,6 @@ export interface FeedbackViewSnapshot {
   screen: string;
   bundleHash: string;
   processNonce: string;
-  /** 지금 창 본문에 붙어 보인다. 숨김·준비 전이면 false다. */
-  visible: boolean;
-  url: string | null;
-  capture(): Promise<Uint8Array>;
-  current(): boolean;
 }
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;

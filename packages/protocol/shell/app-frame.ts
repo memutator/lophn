@@ -131,10 +131,6 @@ export const appViewOpenSchema = z.strictObject({
   message: "card views carry their message and block, other sizes do not",
 });
 
-export const documentViewOpenSchema = z.strictObject({
-  version: idSchema("ver"),
-});
-
 export const viewBoundsRequestSchema = z.strictObject({
   view_session: viewSessionSchema,
   bounds: viewBoundsSchema,
@@ -161,7 +157,6 @@ export const visibilityResultSchema = z.strictObject({
 
 export const APP_FRAME_IPC = {
   "shell:view-open-app": appViewOpenSchema,
-  "shell:view-open-document": documentViewOpenSchema,
   "shell:view-bounds": viewBoundsRequestSchema,
   "shell:view-project": viewProjectRequestSchema,
   "shell:views-hidden": viewsHiddenSchema,
@@ -179,9 +174,6 @@ export type LophnShellViews = {
   openApp(
     input: z.infer<typeof appViewOpenSchema>,
   ): Promise<AppFrameViewState>;
-  openDocumentView(
-    input: z.infer<typeof documentViewOpenSchema>,
-  ): Promise<AppFrameViewState>;
   setViewBounds(
     input: z.infer<typeof viewBoundsRequestSchema>,
   ): Promise<z.infer<typeof visibilityResultSchema>>;
@@ -194,11 +186,10 @@ export type LophnShellViews = {
   closeView(input: z.infer<typeof viewCloseRequestSchema>): Promise<void>;
 };
 
-// scheme 세 개. host는 DNS label이고 entity ID를 직접 넣지 않는다.
+// scheme 두 개. host는 DNS label이고 entity ID를 직접 넣지 않는다.
 export const VIEW_SCHEMES = [
   "lophn-shell",
   "lophn-app",
-  "lophn-document",
 ] as const;
 
 const ULID_LABEL = "[0-7][0-9a-hjkmnp-tv-z]{25}";
@@ -206,16 +197,8 @@ const ULID_LABEL = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 export const appLabelSchema = z.string().regex(
   new RegExp(`^app-${ULID_LABEL}$`),
 );
-export const versionLabelSchema = z.string().regex(
-  new RegExp(`^ver-${ULID_LABEL}$`),
-);
-
 export function appHostLabel(appId: string): string {
   return `app-${appId.slice("app_".length)}`;
-}
-
-export function documentHostLabel(versionId: string): string {
-  return `ver-${versionId.slice("ver_".length)}`;
 }
 
 function parsed(value: string): URL | undefined {
@@ -233,13 +216,6 @@ export const appViewUrlSchema = z.string().refine((value) => {
     url.password === "" && url.port === "";
 }, { message: "app view url is not a lowercase app label" });
 
-export const documentViewUrlSchema = z.string().refine((value) => {
-  const url = parsed(value);
-  return url !== undefined && url.protocol === "lophn-document:" &&
-    versionLabelSchema.safeParse(url.hostname).success && url.username === "" &&
-    url.password === "" && url.port === "";
-}, { message: "document view url is not a lowercase version label" });
-
 // partition 이름. 실제 분리는 main의 session manager가 한다.
 export const SHELL_PARTITION = "persist:shell";
 
@@ -251,23 +227,12 @@ export function previewPartition(appId: string, bundleHash: string): string {
   return `persist:app-${appId}:preview-${bundleHash}`;
 }
 
-export function documentPartition(
-  versionId: string,
-  viewSession: string,
-): string {
-  return `document-${versionId}-${viewSession}`;
-}
-
 export const livePartitionSchema = z.string().regex(
   new RegExp(`^persist:app-app_${ULID_LABEL}:live$`),
 );
 export const previewPartitionSchema = z.string().regex(
   new RegExp(`^persist:app-app_${ULID_LABEL}:preview-[0-9a-f]{64}$`),
 );
-export const documentPartitionSchema = z.string().regex(
-  new RegExp(`^document-ver_${ULID_LABEL}-.+$`),
-);
-
 // capture 실패는 이 오류가 아니다.
 export const APP_FRAME_ERRORS = [
   "invalid_input",

@@ -13,14 +13,6 @@ import type {
   StepKey,
 } from "./source.ts";
 
-/** 앱 공간에 열려 있는 운영과 분리된 preview. */
-export interface PreviewOpen {
-  readonly release: string;
-  readonly number: number;
-  readonly screen: string;
-  readonly nonce: string;
-}
-
 /** release 번호를 `r7` 꼴로. */
 export const releaseName = (number: number) => `r${number}`;
 

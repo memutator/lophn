@@ -91,8 +91,6 @@ export interface AppSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
-  /** 안 쓴다(Documents 화면이 없다). 호스트가 지운다. */
-  onDocuments?: () => void;
   /** 대화의 결과 링크로 그 문서를 연다. */
   onOpenResult?: (document: string) => void;
   /** 안 쓴다(Things to confirm 화면이 없다). 호스트가 지운다. */
@@ -594,8 +592,6 @@ export function AppSpace(
                   app={app}
                   name={row.name}
                   source={detail}
-                  preview={null}
-                  onPreview={() => {}}
                   onInstructions={onInstructions}
                   onOpenSession={showSession}
                   initialTab={issueProblem !== undefined ? "issues" : undefined}

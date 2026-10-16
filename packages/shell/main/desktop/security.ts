@@ -12,12 +12,12 @@ export interface SchemeRegistry {
   registerSchemesAsPrivileged(schemes: SchemePrivilege[]): void;
 }
 
-// shell 설치 파일, 앱 화면, 격리 문서. service worker·CORS 우회·CSP 우회 권한은 주지 않는다
+// shell 설치 파일과 앱 화면. service worker·CORS 우회·CSP 우회 권한은 주지 않는다
 // (앱 service worker가 옛 release의 byte를 대신 내주지 못하게 한다).
-export const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app", "lophn-document"];
+export const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app"];
 
 /**
- * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 세 scheme을 함께
+ * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 두 scheme을 함께
  * secure·standard·fetch 지원으로 등록한다.
  */
 export function registerViewSchemes(protocol: SchemeRegistry): void {

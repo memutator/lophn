@@ -554,74 +554,6 @@ export const RELEASE_ROUTES = [
 
 const releaseSubject = releaseIdSchema;
 
-export const releasePrepared = defineEvent("ReleasePrepared", {
-  subject: releaseSubject,
-  payload: z.object({
-    app: appIdSchema,
-    number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    code_commit: z.string().regex(/^[0-9a-f]{40}$/),
-    bundle_hash: sha256Schema,
-    blueprint_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    data_changes: z.array(dataChangeSchema),
-    tests: z.array(z.string().regex(/^vrf_[0-7][0-9a-hjkmnp-tv-z]{25}$/)),
-    ticket_source: ticketSourceSchema.nullable(),
-    created_by: actorSchema,
-  }),
-});
-export const releaseActivationStarted = defineEvent(
-  "ReleaseActivationStarted",
-  {
-    subject: releaseSubject,
-    payload: z.object({
-      app: appIdSchema,
-      started_seq: z.string().refine((value) => value !== "0", {
-        message: "started_seq must be positive",
-      }),
-      previous_release: releaseIdSchema.nullable(),
-      approval: approvalIdSchema,
-      expected_grants_seq: z.number().int().nonnegative().max(
-        Number.MAX_SAFE_INTEGER,
-      ),
-      expected_schema: z.number().int().nonnegative().max(
-        Number.MAX_SAFE_INTEGER,
-      ),
-    }),
-  },
-);
-export const releaseBackupRecorded = defineEvent("ReleaseBackupRecorded", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    backup_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }),
-});
-export const releaseDataChanged = defineEvent("ReleaseDataChanged", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    invocation: invocationIdSchema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    integrity_ok: z.boolean(),
-  }),
-});
-export const releaseDataRestored = defineEvent("ReleaseDataRestored", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    invocation: invocationIdSchema.nullable(),
-    backup_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    integrity_ok: z.boolean(),
-  }),
-});
 export const releaseActivated = defineEvent("ReleaseActivated", {
   subject: releaseSubject,
   payload: z.object({
@@ -630,15 +562,6 @@ export const releaseActivated = defineEvent("ReleaseActivated", {
     }),
     previous_release: releaseIdSchema.nullable(),
     data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }),
-});
-export const releaseSuperseded = defineEvent("ReleaseSuperseded", {
-  subject: releaseSubject,
-  payload: z.object({
-    release: releaseIdSchema,
-    started_seq: z.string().refine((value) => value !== "0", {
-      message: "started_seq must be positive",
-    }),
   }),
 });
 export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
@@ -654,14 +577,3 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
     invocation: invocationIdSchema.nullable().optional(),
   }),
 });
-
-export const RELEASE_EVENTS = [
-  releasePrepared,
-  releaseActivationStarted,
-  releaseBackupRecorded,
-  releaseDataChanged,
-  releaseDataRestored,
-  releaseActivated,
-  releaseSuperseded,
-  releaseActivationFailed,
-] as const;

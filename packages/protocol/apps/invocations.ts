@@ -2,7 +2,6 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import {
@@ -334,51 +333,3 @@ export const INVOCATION_ROUTES = [
 ] as const;
 
 const invocationSubject = invocationIdSchema;
-
-export const invocationAccepted = defineEvent("InvocationAccepted", {
-  subject: invocationSubject,
-  payload: z.object({
-    app: appIdSchema,
-    release: releaseIdSchema,
-    command: commandKeySchema,
-    input_hash: sha256Schema,
-    approval: approvalIdSchema,
-    caller: invocationCallerSchema,
-  }),
-});
-export const invocationStarted = defineEvent("InvocationStarted", {
-  subject: invocationSubject,
-  payload: z.object({
-    app: appIdSchema,
-    release: releaseIdSchema,
-    mode: runtimeModeSchema,
-    operation: invocationOperationSchema,
-    trigger: invocationTriggerSchema,
-    caller: invocationCallerSchema,
-    started_at: atSchema,
-  }),
-});
-export const invocationFinished = defineEvent("InvocationFinished", {
-  subject: invocationSubject,
-  payload: z.object({
-    status: z.enum(INVOCATION_FINISH_STATUSES),
-    started_at: atSchema.nullable(),
-    finished_at: atSchema,
-    summary: invocationSummarySchema,
-    detail_hash: sha256Schema.nullable(),
-  }),
-});
-export const invocationDenied = defineEvent("InvocationDenied", {
-  subject: invocationSubject,
-  payload: z.object({
-    finished_at: atSchema,
-    summary: invocationSummarySchema,
-  }),
-});
-
-export const INVOCATION_EVENTS = [
-  invocationAccepted,
-  invocationStarted,
-  invocationFinished,
-  invocationDenied,
-] as const;

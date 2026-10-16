@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
@@ -241,21 +240,11 @@ export const ticketCreatedPayloadSchema = z.object({
   problems: z.array(idSchema("prb")).max(12),
   readiness: ticketReadinessSchema,
 });
-export const ticketCreated = defineEvent("TicketCreated", {
-  subject: ticketIdSchema,
-  payload: ticketCreatedPayloadSchema,
-});
-
 export const ticketMadeReadyPayloadSchema = z.object({
   app: idSchema("app"),
   kind: ticketKindSchema,
   problems: z.array(idSchema("prb")).max(12),
 });
-export const ticketMadeReady = defineEvent("TicketMadeReady", {
-  subject: ticketIdSchema,
-  payload: ticketMadeReadyPayloadSchema,
-});
-
 export const TICKET_OPEN_ROUTES = [
   ticketList,
   ticketShow,
@@ -264,4 +253,3 @@ export const TICKET_OPEN_ROUTES = [
   ticketMakeReady,
 ] as const;
 
-export const TICKET_OPEN_EVENTS = [ticketCreated, ticketMadeReady] as const;

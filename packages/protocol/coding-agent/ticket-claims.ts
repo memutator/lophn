@@ -239,33 +239,18 @@ export const ticketClaimedPayloadSchema = z.object({
   claim_seq: seqSchema,
   expires_at: atSchema,
 });
-export const ticketClaimed = defineEvent("TicketClaimed", {
-  subject: ticketIdSchema,
-  payload: ticketClaimedPayloadSchema,
-});
-
 export const ticketClaimRenewedPayloadSchema = z.object({
   connection: idSchema("cac"),
   claim_seq: seqSchema,
   before_expires_at: atSchema,
   expires_at: atSchema,
 });
-export const ticketClaimRenewed = defineEvent("TicketClaimRenewed", {
-  subject: ticketIdSchema,
-  payload: ticketClaimRenewedPayloadSchema,
-});
-
 export const ticketClaimReleasedPayloadSchema = z.object({
   ...appProblems,
   connection: idSchema("cac"),
   claim_seq: seqSchema,
   reason: z.enum(["returned", "expired", "connection_revoked"]),
 });
-export const ticketClaimReleased = defineEvent("TicketClaimReleased", {
-  subject: ticketIdSchema,
-  payload: ticketClaimReleasedPayloadSchema,
-});
-
 export const ticketCompletionReportedPayloadSchema = z.object({
   ...appProblems,
   completion_seq: seqSchema,
@@ -291,11 +276,6 @@ export const ticketChecksRecordedPayloadSchema = z.object({
     result: checkResultSchema,
   })).max(12),
 });
-export const ticketChecksRecorded = defineEvent("TicketChecksRecorded", {
-  subject: ticketIdSchema,
-  payload: ticketChecksRecordedPayloadSchema,
-});
-
 const confirmedFields = {
   ...appProblems,
   completion_seq: seqSchema,
@@ -303,20 +283,10 @@ const confirmedFields = {
   fix_records: z.array(seqSchema).max(12),
 };
 export const ticketConfirmedPayloadSchema = z.object(confirmedFields);
-export const ticketConfirmed = defineEvent("TicketConfirmed", {
-  subject: ticketIdSchema,
-  payload: ticketConfirmedPayloadSchema,
-});
-
 export const ticketCheckFailedPayloadSchema = z.object({
   ...confirmedFields,
   failed_conditions: z.array(z.number().int().min(0).max(11)).min(1).max(12),
 });
-export const ticketCheckFailed = defineEvent("TicketCheckFailed", {
-  subject: ticketIdSchema,
-  payload: ticketCheckFailedPayloadSchema,
-});
-
 export const ticketCancelledPayloadSchema = z.object({
   ...appProblems,
   reason: reasonSchema,
@@ -324,11 +294,6 @@ export const ticketCancelledPayloadSchema = z.object({
   completion_seq: seqSchema.nullable(),
   fix_records: z.array(seqSchema).max(12),
 });
-export const ticketCancelled = defineEvent("TicketCancelled", {
-  subject: ticketIdSchema,
-  payload: ticketCancelledPayloadSchema,
-});
-
 export const TICKET_CLAIM_ROUTES = [
   ticketClaim,
   ticketRenewClaim,
@@ -341,14 +306,7 @@ export const TICKET_CLAIM_ROUTES = [
 ] as const;
 
 export const TICKET_CLAIM_EVENTS = [
-  ticketClaimed,
-  ticketClaimRenewed,
-  ticketClaimReleased,
   ticketCompletionReported,
-  ticketChecksRecorded,
-  ticketConfirmed,
-  ticketCheckFailed,
-  ticketCancelled,
 ] as const;
 
 const knownErrors: readonly string[] = ERROR_CODES;

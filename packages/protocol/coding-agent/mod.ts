@@ -49,7 +49,6 @@ export {
   codingAgentConnectionAuthResultSchema,
   CREDENTIAL_DELIVERY_FAILURES,
   CREDENTIAL_DELIVERY_TIMEOUT_MS,
-  CREDENTIAL_HELPER,
   credentialDeliveryErrorCode,
   type CredentialDeliveryFailure,
   type CredentialDeliveryFailureBody,

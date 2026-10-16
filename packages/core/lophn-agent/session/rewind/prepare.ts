@@ -8,7 +8,6 @@ import type { FileStat } from "./judge.ts";
 // restore.ts에 있고 여기서 함께 내보낸다. 순서는 observeFiles → prepareRestore → (Rewind command) →
 // installRestore다.
 export {
-  installRedo,
   installRestore,
   type InstallResult,
   observeFilesAsync,

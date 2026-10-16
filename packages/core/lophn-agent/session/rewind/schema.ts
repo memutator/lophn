@@ -1,18 +1,21 @@
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 
-// domain-model lophn-agent/revert의 ledger 표 넷. messages·sessions·tool_calls·events 뒤에 만든다.
+// session rewind의 ledger 표. messages·sessions·tool_calls·events 뒤에 만든다.
 //
-// checkpoints는 run을 시작하는 사람 메시지 하나다(ReceiveMessage가 같은 transaction에서 만든다).
+// checkpoints는 turn을 시작한 입력 메시지 하나다(메시지를 접수하는 같은 transaction이 만든다).
 // files_restorable은 한 번 낮아지면 되돌아가지 않고 이유도 처음 것을 지킨다.
-// rewind_files는 문서 tool이 쓰기 직전에 tool call마다 남기는 기록이다. seq는 그 tool call의
-// state_seq다: 한 session의 tool call은 차례로 돌아 같은 경로의 기록 순서를 이 값이 정한다. 기록은
-// 한도 정리·session 삭제·닫힘이 지우는 것 말고는 바꾸지 않고, 바뀌는 것은 reverted_by뿐이다.
-// reverts는 rewind·Undo 한 번의 시도다. 최종 결과(outcome·result_seq)는 applying에서 한 번만 바뀌고,
-// redo는 최종 결과 뒤에는 available에서 done·closed로만 간다.
-// revert_items는 결과 항목이다. 끝난 항목은 고치지 않는다. 예외는 설치가 건너뛴 문서 파일을
+// rewind_files는 file tool이 쓰기 직전에 tool call마다 남기는 기록이다. root는 file tool에 열린
+// 허용 폴더(절대 경로)이고 path는 그 안의 상대 경로다. seq는 기록한 차례(표 안 순번)다: 같은 경로의 기록
+// 순서를 이 값이 정한다. 기록은 한도 정리·session 삭제가 지우는 것 말고는 바꾸지 않고, 바뀌는 것은
+// reverted_by뿐이다.
+// reverts는 rewind 한 번의 시도다. boundary_seq는 고른 메시지의 순번이고 result_seq는 결과를 확정한 때 session의
+// 마지막 메시지 순번이다(둘 다 messages.created_seq 쪽 순번). 숨긴 구간은 이 둘 사이다. 최종 결과(outcome·
+// result_seq)는 applying에서 한 번만 바뀐다.
+// revert_items는 결과 항목이다. 끝난 항목은 고치지 않는다. 예외는 설치가 건너뛴 파일을
 // skipped(edited_outside)로 고치는 AmendRevertInstall 하나다.
-// blocked revert는 revert_items 행이 없다. reverts.checkpoint는 사람 메시지 id를 가리킨다.
-// correction 메시지로 하는 messages_only rewind는 checkpoints 행이 없는 메시지를 고르므로 FK는
+// rewind_apps는 사람이 고른 앱마다 앱 rewind를 요청한 결과다. 접수(accepted)가 끝나면 한 번 고친다.
+// blocked revert는 revert_items 행이 없다. reverts.checkpoint는 turn을 시작한 입력 메시지 id를 가리킨다.
+// steer로 들어간 메시지로 하는 messages_only rewind는 checkpoints 행이 없는 메시지를 고르므로 FK는
 // messages(id)다.
 export const revertSchemaSteps: readonly SchemaStep[] = [
   {
@@ -42,29 +45,20 @@ end;
 create table reverts (
   id text primary key,
   session text not null references sessions (id) on delete restrict,
-  kind text not null check (kind in ('rewind', 'undo')),
-  choice text check (choice is null or choice in ('restore_all', 'messages_only', 'summarize')),
-  checkpoint text references messages (id) on delete restrict,
-  tool_call text references tool_calls (id) on delete restrict,
-  boundary_seq integer check (boundary_seq is null or boundary_seq >= 1),
+  choice text not null check (choice in ('restore_all', 'messages_only', 'summarize')),
+  checkpoint text not null references messages (id) on delete restrict,
+  boundary_seq integer not null check (boundary_seq >= 1),
   summary_call text,
   outcome text not null check (outcome in ('applying', 'applied', 'partial', 'uncertain', 'blocked')),
-  redo text not null check (redo in ('none', 'available', 'done', 'closed')),
   preview_hash text not null check (length(preview_hash) = 64),
-  result_seq integer unique references events (seq),
-  check (
-    (kind = 'rewind' and choice is not null and checkpoint is not null and boundary_seq is not null and tool_call is null)
-    or (kind = 'undo' and choice is null and checkpoint is null and boundary_seq is null and tool_call is not null)
-  ),
-  check ((choice is 'summarize') = (summary_call is not null)),
-  check ((outcome = 'applying') = (result_seq is null)),
-  check (outcome = 'applied' or redo = 'none')
+  result_seq integer check (result_seq is null or result_seq >= boundary_seq),
+  check ((choice = 'summarize') = (summary_call is not null)),
+  check ((outcome = 'applying') = (result_seq is null))
 ) strict;
 create unique index reverts_session_applying on reverts (session) where outcome = 'applying';
 create index reverts_session_result on reverts (session, result_seq);
-create index reverts_session_redo on reverts (session, redo);
 create trigger reverts_identity_immutable
-before update of id, session, kind, choice, checkpoint, tool_call, boundary_seq, summary_call, preview_hash on reverts
+before update of id, session, choice, checkpoint, boundary_seq, summary_call, preview_hash on reverts
 begin
   select raise(abort, 'a revert attempt is never rewritten');
 end;
@@ -74,15 +68,9 @@ when old.outcome != 'applying'
 begin
   select raise(abort, 'a revert result is final');
 end;
-create trigger reverts_redo_forward
-before update of redo on reverts
-when old.outcome != 'applying'
-  and not (old.redo = 'available' and new.redo in ('done', 'closed'))
-begin
-  select raise(abort, 'redo only moves forward');
-end;
 create table rewind_files (
   tool_call text not null references tool_calls (id) on delete restrict,
+  root text not null check (length(root) > 0),
   path text not null check (length(path) > 0),
   checkpoint text not null references checkpoints (message) on delete restrict,
   seq integer not null check (seq >= 0),
@@ -104,26 +92,23 @@ create index rewind_files_checkpoint_path on rewind_files (checkpoint, path, seq
 create index rewind_files_path_seq on rewind_files (path, seq);
 create index rewind_files_reverted_by on rewind_files (reverted_by);
 create trigger rewind_files_immutable
-before update of tool_call, path, checkpoint, seq, before_exists, before_sha256, before_blob, before_size, after_exists, after_sha256, moved_from on rewind_files
+before update of tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob, before_size, after_exists, after_sha256, moved_from on rewind_files
 begin
   select raise(abort, 'a rewind record is never rewritten');
 end;
 create table revert_items (
   revert text not null references reverts (id) on delete restrict,
   ordinal integer not null check (ordinal >= 0),
-  class text not null check (class in ('file', 'app', 'fact')),
+  class text not null check (class in ('file', 'fact')),
   target text not null check (length(target) > 0),
   source text not null check (json_valid(source)),
   plan text not null check (plan in ('restore', 'skip', 'remain')),
   result text not null check (result in ('restored', 'skipped', 'remained', 'failure', 'uncertain', 'unchanged')),
-  reason text check (reason is null or reason in ('edited_outside', 'chain_broken', 'no_pre_image', 'link_path', 'rename_blocked', 'created_edited', 'no_receipt', 'no_revert_command', 'app_revision_changed', 'external_effect', 'already_reverted', 'answered_fact', 'app_failed', 'app_uncertain', 'app_not_started', 'app_not_settled', 'later_edit')),
-  app_revert text check (app_revert is null or json_valid(app_revert)),
+  reason text check (reason is null or reason in ('edited_outside', 'chain_broken', 'no_pre_image', 'link_path', 'rename_blocked', 'created_edited', 'external_effect', 'already_reverted', 'later_edit')),
   restored_sha256 text check (restored_sha256 is null or length(restored_sha256) = 64),
-  redo_ref text check (redo_ref is null or length(redo_ref) = 64),
   primary key (revert, ordinal),
   check (result != 'restored' or reason is null),
-  check ((result = 'remained') = (plan = 'remain')),
-  check (class = 'app' or app_revert is null)
+  check ((result = 'remained') = (plan = 'remain'))
 ) strict;
 create index revert_items_class_target on revert_items (class, target);
 create trigger revert_items_identity_immutable
@@ -140,6 +125,21 @@ when (old.result != 'unchanged' or old.reason is not null)
   )
 begin
   select raise(abort, 'a settled revert item is final');
+end;
+create table rewind_apps (
+  revert text not null references reverts (id) on delete restrict,
+  app text not null,
+  from_invocation text not null,
+  result text not null check (result in ('accepted', 'applied', 'rejected')),
+  reason text,
+  primary key (revert, app),
+  check ((result = 'rejected') = (reason is not null))
+) strict;
+create trigger rewind_apps_settled
+before update on rewind_apps
+when old.result != 'accepted'
+begin
+  select raise(abort, 'a settled app rewind request is final');
 end;`,
   },
 ];

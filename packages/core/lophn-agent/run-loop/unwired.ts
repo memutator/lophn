@@ -17,7 +17,7 @@ export const UNWIRED_TOOL_PORTS: ToolPorts = {
   questions: { ask: () => Promise.resolve(unavailable()) },
   scope: { read: [], write: [] },
   rewind: {
-    store: { put: () => Promise.reject(new Error("rewind is not wired")) },
+    stage: () => Promise.resolve(unavailable()),
     read: () => Promise.resolve(null),
     record: () => Promise.resolve(unavailable()),
   },

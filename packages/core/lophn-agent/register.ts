@@ -23,12 +23,13 @@ import {
   providerDisconnected,
   questionCreated,
   readRewindSummary,
+  recordRewindWrite,
   requestRewindSummary,
   REVERT_EVENTS,
   runAccepted,
-  runAppRevert,
   runFinished,
   runStarted,
+  stageRewindFile,
   takeRewindSummaryRequest,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
@@ -111,7 +112,6 @@ import {
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
-  recordFactMessage,
   sessionSummaryRead,
 } from "./session/mod.ts";
 import {
@@ -124,14 +124,11 @@ import {
 } from "./tools/questions/mod.ts";
 import { createTraceReads } from "./observability/mod.ts";
 import {
-  createRevertCommands,
-  createRevertReads,
-  latestAppRevision,
+  createRewindEffects,
+  createSessionRewindCommands,
+  createSessionRewindReads,
   revertSchemaSteps,
 } from "./session/rewind/mod.ts";
-import { createRewindEffects } from "./session/rewind/effects.ts";
-import { answeredFacts } from "./session/rewind/facts.ts";
-import { projectRootOf } from "./session/rewind/root.ts";
 import {
   createToolCommands,
   createToolReads,
@@ -342,24 +339,20 @@ const conversationCommands = createConversationCommands({
 });
 const conversationReads = createConversationReads();
 
-// session 되돌리기(concern revert). 쓰기 직전 기록(RecordRewindFile), Rewind·UndoEdit·Redo, 설치 정정
-// (AmendRevertInstall)을 올린다. checkpoint는 ReceiveMessage가, 기록 지움은 DeleteSession이 같은 Tx에서 한다.
-// 파일 관측·준비·설치는 ledger transaction 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer
-// queue 앞 처리기(rewind-files.ts)가 잇는다. 숨긴 구간의 대화 효과(질문·approval 취소, 읽은 상태)는
-// rewind-effects.ts가 조립하고 질문 답·승인 결정은 rewind-facts.ts가 남는 사실로 알린다. 앱 단계가 있는
-// Rewind는 applying 접수까지만 command가 하고, 이어 실행(RunAppRevert, app-revert.ts)이 CheckpointRevert·
-// FinishRevert를 낸다.
+// session 되돌리기(concern revert). file tool의 쓰기 기록(RecordRewindFile), Rewind, 설치 정정
+// (AmendRevertInstall), 앱 rewind 요청 결과(RecordRewindApps)를 올린다. checkpoint는 메시지를 접수하는 Tx가,
+// 기록 지움은 DeleteSession이 같은 Tx에서 한다. 파일 관측·준비·설치와 앱 rewind 요청은 ledger transaction
+// 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer queue 앞 처리기(rewind/files.ts)가 잇는다.
+// 대기 중인 권한 요청과 질문의 취소는 session을 끝낼 때와 같은 port다.
 const revertDeps = {
-  rootOf: projectRootOf,
-  appRevision: latestAppRevision,
-  recordFact: recordFactMessage,
-  answeredFacts,
-  effects: createRewindEffects(),
+  effects: createRewindEffects({
+    cancelPendingRequests: UNWIRED_END_DEPS.effects.cancelPendingRequests,
+  }),
 };
-const revertCommands = createRevertCommands(revertDeps);
-// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind-reader.ts)이 서빙한다. 여기 정의는
+const revertCommands = createSessionRewindCommands(revertDeps);
+// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind/reader.ts)이 서빙한다. 여기 정의는
 // core의 route 등록이고 core에서는 실행되지 않는다.
-const revertReads = createRevertReads(revertDeps);
+const revertReads = createSessionRewindReads({});
 
 // run·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고
 // 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
@@ -740,11 +733,8 @@ export const lophnAgentDefinitions = {
     waitCommands.recover,
     revertCommands.record,
     revertCommands.rewind,
-    revertCommands.undo,
-    revertCommands.redo,
-    revertCommands.checkpoint,
-    revertCommands.finish,
     revertCommands.amend,
+    revertCommands.apps,
   ],
   reads: [
     reads.read,
@@ -791,9 +781,10 @@ export const lophnAgentDefinitions = {
   ],
   ports: [runAdmissionPort],
   workers: [],
-  // 확인한 rewind의 앱 단계를 이어 실행하는 core 메모리 route와 MCP OAuth 입구다.
+  // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
   memoryRoutes: [
-    runAppRevert,
+    stageRewindFile,
+    recordRewindWrite,
     requestRewindSummary,
     readRewindSummary,
     takeRewindSummaryRequest,

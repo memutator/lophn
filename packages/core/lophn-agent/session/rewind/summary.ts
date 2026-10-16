@@ -21,24 +21,24 @@ export const REWIND_SUMMARY_TTL_MS = 15 * 60_000;
 // 한꺼번에 쥐는 요청 수. 사람 한 명이 누르는 요약이라 넘치면 가장 오래된 것부터 버린다.
 const KEPT = 32;
 
-type Target = { assignment: string; from_seq: string };
+type Target = { from_seq: string };
 
-// 요약할 곳을 정한다: session의 담당과, 고른 사람 메시지(checkpoint)의 생성 seq. 닫힌 session은 되돌릴 수 없고
-// (forbidden), 끝나지 않은 run이 있으면 먼저 멈춰야 하며(conflict), 숨긴 구간 안 메시지와 checkpoint가 아닌
-// 메시지(진행 중 수정, Fork 복사본)는 시작점이 아니다(invalid_input).
+// 요약할 곳을 정한다: 고른 입력 메시지(checkpoint)의 생성 seq. 닫힌 session은 되돌릴 수 없고
+// (forbidden), 도는 turn이 있으면 먼저 멈춰야 하며(conflict), 숨긴 구간 안 메시지와 checkpoint가 아닌
+// 메시지(steer로 들어간 메시지, Fork 복사본)는 시작점이 아니다(invalid_input).
 export function rewindSummaryTarget(
   snapshot: RewindFilesDeps["snapshot"],
 ): (input: { session: string; checkpoint: string }) => Result<Target> {
   return (input) => {
     const read = snapshot((lookup): Result<Target> => {
       const session = lookup.sql.get(
-        "select assignment, state from sessions where id = ?",
+        "select lifecycle from sessions where id = ?",
         [input.session],
       );
       if (session === undefined) {
         return err({ code: "not_found", message: "session not found" });
       }
-      if (String(session["state"]) !== "open") {
+      if (String(session["lifecycle"]) !== "open") {
         return err({
           code: "forbidden",
           message: "a closed session cannot be rewound",
@@ -63,7 +63,7 @@ export function rewindSummaryTarget(
           });
       }
       const running = lookup.sql.get(
-        "select 1 as found from runs where session = ? and state != 'finished' limit 1",
+        "select 1 as found from turns where session = ? and state = 'running' limit 1",
         [input.session],
       );
       if (running !== undefined) {
@@ -78,10 +78,7 @@ export function rewindSummaryTarget(
         input.checkpoint,
       );
       if (!visible.ok) return visible;
-      return ok({
-        assignment: String(session["assignment"]),
-        from_seq: String(message["seq"]),
-      });
+      return ok({ from_seq: String(message["seq"]) });
     });
     if (!read.ok) return read;
     return read.value;
@@ -175,7 +172,6 @@ export function createRewindSummaries(options: {
       request: {
         id: next.id,
         session: next.session,
-        assignment: next.target.assignment,
         from_seq: next.target.from_seq,
       },
     });

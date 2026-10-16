@@ -5,15 +5,16 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 
-// Checkpoint는 run을 시작하는 사람 메시지(`mode=request`) 하나다(lophn-agent/revert). ReceiveMessage가
-// 메시지를 접수하는 같은 transaction에서 만든다. correction·agent·machine 메시지와 Fork 복사본
-// (`copied_from`이 있는 메시지)은 checkpoint가 아니다.
+// Checkpoint는 turn을 시작하는 Router 입력(사람 메시지, call, 답)마다 생긴다. 메시지를 접수하는 같은
+// transaction이 만든다. steer로 도는 turn에 들어간 메시지와 Fork 복사본(`copied_from`이 있는 메시지)은
+// checkpoint가 아니다.
 
 export type CheckpointMessage = {
   id: string;
   session: string;
-  actor: string;
-  mode: "request" | "correction" | null;
+  from_kind: "human" | "program" | "agent" | "coding_agent";
+  // 사람 메시지가 아니면 null이다.
+  delivery: "next_turn" | "steer" | null;
   copied_from: string | null;
 };
 
@@ -23,10 +24,9 @@ export function createCheckpoint(
   tx: Tx,
   message: CheckpointMessage,
 ): Result<Checkpoint | null> {
-  if (
-    message.actor !== "user" || message.mode !== "request" ||
-    message.copied_from !== null
-  ) return ok(null);
+  if (message.delivery === "steer" || message.copied_from !== null) {
+    return ok(null);
+  }
   tx.sql.run(
     "insert or ignore into checkpoints (message, session) values (?, ?)",
     [message.id, message.session],

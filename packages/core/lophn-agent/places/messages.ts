@@ -9,6 +9,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
+import { createCheckpoint } from "../session/rewind/mod.ts";
 import { loadSession, nextMessageSeq } from "../session/model.ts";
 
 // call, reply, reaction, notice를 받는 session 기록(messages 행)에 쓴다. lophn InputTransport가 배달하는
@@ -77,7 +78,19 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           },
         },
       });
-      return registered.ok ? ok(id) : registered;
+      if (!registered.ok) return registered;
+      // turn을 시작하는 call과 답도 rewind로 돌아갈 시점이다.
+      if (input.kind === "call" || input.kind === "reply") {
+        const checkpoint = createCheckpoint(tx, {
+          id,
+          session,
+          from_kind: from.kind,
+          delivery: null,
+          copied_from: null,
+        });
+        if (!checkpoint.ok) return checkpoint;
+      }
+      return ok(id);
     },
   };
 }

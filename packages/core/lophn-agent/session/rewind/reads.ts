@@ -1,14 +1,16 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type AppRewindBinding,
   type Checkpoint,
   type RevertItem,
   type RevertRecord,
+  REWIND_NO_REDO,
   rewindCheckpoints,
   rewindList,
-  rewindPreview,
+  sessionRewindPreview,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import { definePort, type PortKey } from "../../../../protocol/base/ports.ts";
 import type { ReadDefinition, Sql } from "../../../../protocol/server/mod.ts";
+import type { AppWrites } from "../../ports.ts";
 import {
   assertCheckpointVisible,
   hiddenFromSeq,
@@ -19,7 +21,14 @@ import { type PlanDeps, planRewind } from "./preview.ts";
 
 // 되돌리기 읽기(lophn-agent/revert). preview는 저장된 목록이 아니라 지금의 기록과 파일 상태로 다시
 // 만든 현재 판이고 command나 event를 만들지 않는다. 읽는 쪽은 사람과 machine뿐이다(agent·앱에는 내용도
-// 경로도 주지 않는다). 숨김 구간은 reverts 행에서 읽는다(hidden.ts).
+// 경로도 주지 않는다). 숨김 구간은 reverts 행에서 읽는다(hidden.ts). 고른 시점 뒤 이 session이 앱에 한
+// write invocation은 AppWrites(S5가 준다)로 받아 `app_writes`에 싣는다. reader Worker에서는 등록한 port를
+// 쓴다. 앱 rewind의 계획(함께 되돌아갈 다른 변경, external 효과, 되돌릴 수 없는 write)은 여기서 만들지
+// 않고 앱 rewind의 계획 route가 보인다.
+
+export const appWritesPort: PortKey<AppWrites> = definePort<AppWrites>(
+  "lophn-agent.AppWrites",
+);
 
 const PAGE = 50;
 
@@ -51,35 +60,41 @@ function sessionExists(lookup: Lookup, session: string): boolean {
   ]) !== undefined;
 }
 
-export function createRevertReads(deps: PlanDeps): {
-  preview: ReadDefinition<typeof rewindPreview>;
+export function createSessionRewindReads(deps: PlanDeps): {
+  preview: ReadDefinition<typeof sessionRewindPreview>;
   checkpoints: ReadDefinition<typeof rewindCheckpoints>;
   list: ReadDefinition<typeof rewindList>;
 } {
   return {
     preview: {
-      route: rewindPreview,
+      route: sessionRewindPreview,
       handle(snapshot, _ctx, input) {
-        if (input.kind === "rewind") {
-          const visible = assertCheckpointVisible(
-            snapshot,
-            input.session,
-            input.checkpoint,
-          );
-          if (!visible.ok) return visible;
-        }
+        const visible = assertCheckpointVisible(
+          snapshot,
+          input.session,
+          input.checkpoint,
+        );
+        if (!visible.ok) return visible;
         const planned = planRewind(snapshot, deps, input);
         if (!planned.ok) return planned;
         const { target, preview } = planned.value;
+        // 앱 write는 파일과 같이 되돌리는 restore_all에서만 보인다.
+        const boundary = snapshot.sql.get(
+          "select created_seq from messages where id = ?",
+          [input.checkpoint],
+        );
         return ok({
-          kind: target.kind,
-          choice: target.kind === "rewind" ? target.choice : null,
-          checkpoint: target.kind === "rewind" ? target.checkpoint : null,
-          tool_call: target.kind === "undo" ? target.tool_call : null,
+          choice: target.choice,
+          checkpoint: target.checkpoint,
           restore: preview.restore,
           skip: preview.skip,
           remain: preview.remain,
-          redo: preview.redo,
+          app_writes: target.choice === "restore_all"
+            ? snapshot.port(appWritesPort).writesAfter(
+              input.session as never,
+              String(boundary!["created_seq"]) as never,
+            )
+            : [],
           preview_hash: preview.preview_hash,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
@@ -133,8 +148,8 @@ export function createRevertReads(deps: PlanDeps): {
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
         const rows = snapshot.sql.all(
-          `select rowid as position, id, session, kind, choice, checkpoint, tool_call,
-                  cast(boundary_seq as text) as boundary_seq, summary_call, outcome, redo,
+          `select rowid as position, id, session, choice, checkpoint,
+                  cast(boundary_seq as text) as boundary_seq, summary_call, outcome,
                   preview_hash, cast(result_seq as text) as result_seq
              from reverts where session = ? and rowid > ?
             order by rowid limit ?`,
@@ -147,15 +162,15 @@ export function createRevertReads(deps: PlanDeps): {
           reverts: page.map((row) => ({
             id: String(row["id"]),
             session: String(row["session"]),
-            kind: String(row["kind"]) as RevertRecord["kind"],
-            choice: text(row["choice"]) as RevertRecord["choice"],
-            checkpoint: text(row["checkpoint"]),
-            tool_call: text(row["tool_call"]),
-            boundary_seq: text(row["boundary_seq"]),
+            kind: "rewind" as const,
+            choice: String(row["choice"]) as RevertRecord["choice"],
+            checkpoint: String(row["checkpoint"]),
+            boundary_seq: String(row["boundary_seq"]),
             summary_call: text(row["summary_call"]),
             outcome: String(row["outcome"]) as RevertRecord["outcome"],
-            redo: String(row["redo"]) as RevertRecord["redo"],
+            ...REWIND_NO_REDO,
             items: itemsOf(snapshot, String(row["id"])),
+            apps: appsOf(snapshot, String(row["id"])),
             preview_hash: String(row["preview_hash"]),
             result_seq: text(row["result_seq"]),
           })),
@@ -172,7 +187,7 @@ export function createRevertReads(deps: PlanDeps): {
 
 function itemsOf(lookup: Lookup, revert: string): RevertItem[] {
   return lookup.sql.all(
-    `select ordinal, class, target, source, plan, result, reason, app_revert
+    `select ordinal, class, target, source, plan, result, reason
        from revert_items where revert = ? order by ordinal`,
     [revert],
   ).map((row) => ({
@@ -185,8 +200,19 @@ function itemsOf(lookup: Lookup, revert: string): RevertItem[] {
     reason: row["reason"] === null
       ? null
       : String(row["reason"]) as RevertItem["reason"],
-    app_revert: row["app_revert"] === null
-      ? null
-      : JSON.parse(String(row["app_revert"])) as AppRewindBinding,
+    app_revert: null,
+  }));
+}
+
+function appsOf(lookup: Lookup, revert: string): RevertRecord["apps"] {
+  return lookup.sql.all(
+    `select app, from_invocation, result, reason
+       from rewind_apps where revert = ? order by rowid`,
+    [revert],
+  ).map((row) => ({
+    app: String(row["app"]),
+    from_invocation: String(row["from_invocation"]),
+    result: String(row["result"]) as RevertRecord["apps"][number]["result"],
+    reason: row["reason"] === null ? null : String(row["reason"]),
   }));
 }

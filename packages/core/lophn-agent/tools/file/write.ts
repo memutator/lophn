@@ -77,7 +77,9 @@ async function writeText(
 
   const written = await recordBeforeWrite(ctx.rewind, {
     session: ctx.session,
+    turn: ctx.turn,
     tool_call: ctx.tool_call,
+    root: target.root,
     path: target.relative,
     moved_from: null,
     run: async () => {

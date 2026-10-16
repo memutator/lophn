@@ -30,7 +30,7 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
 import { attachedText } from "../run-loop/input-text.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
-import { closeAvailableRedo, createCheckpoint } from "./rewind/mod.ts";
+import { createCheckpoint } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { loadSession } from "./model.ts";
 import { titleOnReceive } from "./session-title.ts";
@@ -236,19 +236,15 @@ function writeHuman(
     existingBody,
   );
   if (!registered.ok) return registered;
-  // 도는 turn 안으로 들어간 steer는 checkpoint가 아니다. 새 사람 메시지가 접수되면 앞 rewind의 redo는
-  // 확정(closed)된다.
-  const mode = input.delivery === "steer" ? "correction" : "request";
+  // 도는 turn 안으로 들어간 steer는 checkpoint가 아니다.
   const checkpoint = createCheckpoint(tx, {
     id: input.id,
     session: session.id,
-    actor: ctx.actor,
-    mode,
+    from_kind: "human",
+    delivery: input.delivery,
     copied_from: null,
   });
   if (!checkpoint.ok) return checkpoint;
-  const closed = closeAvailableRedo(tx, session.id);
-  if (!closed.ok) return closed;
   // 제목은 첫 사람 request를 접수하는 같은 transaction에서 정한다. 상태 seq는 바꾸지 않는다: 바로 이어
   // 보낸 다음 입력이 낡은 seq로 충돌하지 않게 한다.
   const title = titleOnReceive({

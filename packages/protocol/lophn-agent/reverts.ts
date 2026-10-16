@@ -1,41 +1,32 @@
 import { z } from "zod";
-import {
-  atSchema,
-  readCursorSchema,
-  seqSchema,
-  sha256Schema,
-} from "../base/values.ts";
+import { readCursorSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineDecision } from "../base/confirmation-handle.ts";
-import { relativePathSchema } from "../projects/mod.ts";
+import { appIdSchema, relativePathSchema } from "../projects/mod.ts";
 import { compactFailureReasonSchema } from "./sessions.ts";
 import {
   classOk,
   type ItemShape,
-  preparedFilesSchema,
-  type PreviewItem,
   previewItemFields,
   previewItemOk,
-  previewItemSchema,
   rewindChoiceSchema,
+  rewindHeaderOutput,
   rewindOutcomeSchema,
   rewindRedoSchema,
 } from "./session-rewinds.ts";
 
-// session 안 rewind와 편집 카드 Undo의 contract다(lophn-agent/revert). 단위는 session 안 사람
-// 메시지(Checkpoint)이고, 문서 파일은 RewindFile pre-image로, 앱 data는 앱이 선언한 revert
-// command로 되돌린다. 숨긴 구간은 Message를 바꾸지 않고 Revert 기록에서 읽는다.
+// session rewind의 나머지 contract다(lophn-agent/revert). Rewind와 PreviewRewind는
+// `session-rewinds.ts`에 있다. 여기에는 file tool의 쓰기 기록, 설치 정정, 앱 rewind 요청 기록,
+// "Summarize from here" 요청, 읽기(checkpoint 목록, rewind 목록)와 event가 있다. 단위는 session
+// 안 turn을 시작한 입력(Checkpoint)이고, 파일은 RewindFile pre-image로 되돌린다. 앱 data는 되돌리지
+// 않고 사람이 고른 앱만 앱 rewind에 요청한다. 숨긴 구간은 Message를 바꾸지 않고 rewind 기록에서 읽는다.
 
 // 한도다. 넘는 쓰기는 막지 않고 그 checkpoint를 "파일 복원 불가"로 낮춘다.
 export const REWIND_MAX_CHECKPOINTS = 100;
 export const REWIND_MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const REWIND_MAX_SESSION_BYTES = 200 * 1024 * 1024;
-
-export const REVERT_KINDS = ["rewind", "undo"] as const;
-export const revertKindSchema = z.enum(REVERT_KINDS);
 
 export const CHECKPOINT_FILES_REASONS = [
   "limit_total",
@@ -54,22 +45,6 @@ export const revertResultSchema = z.enum([
   "uncertain",
   "unchanged",
 ]);
-// 앱 단계 하나가 남길 수 있는 결과다(CheckpointRevert).
-export const appStepResultSchema = z.enum([
-  "restored",
-  "failure",
-  "uncertain",
-  "unchanged",
-]);
-
-const commandErrors = [
-  "invalid_input",
-  "forbidden",
-  "not_found",
-  "conflict",
-  "unavailable",
-  "unauthorized",
-] as const;
 
 const readErrors = [
   "invalid_input",
@@ -82,7 +57,7 @@ const readErrors = [
 // agent와 앱에는 pre-image의 내용도 경로도 주지 않는다. 읽는 쪽은 사람과 machine이다.
 const readActors = ["user", "machine"] as const;
 
-// Checkpoint는 사람 메시지(`msg`) 하나다. 별도 ID가 없다.
+// Checkpoint는 turn을 시작한 입력 메시지(`msg`) 하나다. 별도 ID가 없다.
 const checkpointFields = {
   message: idSchema("msg"),
   session: idSchema("ses"),
@@ -131,65 +106,32 @@ function afterStateOk(
 ): boolean {
   return value.exists === (value.sha256 !== null);
 }
-const afterStateMessage = {
-  message: "after state needs a hash exactly when the file exists",
-};
-export const afterFileStateSchema = z.object({
-  exists: z.boolean(),
-  sha256: sha256Schema.nullable(),
-}).refine(afterStateOk, afterStateMessage);
 export const afterFileStateInputSchema = z.strictObject({
   exists: z.boolean(),
   sha256: sha256Schema.nullable(),
-}).refine(afterStateOk, afterStateMessage);
-
-// RewindFile: 문서 tool이 쓰기 직전에 tool call마다 한 줄 남기는 기록이다.
-export const rewindFileSchema = z.object({
-  tool_call: idSchema("tcl"),
-  path: relativePathSchema,
-  checkpoint: idSchema("msg"),
-  seq: seqSchema,
-  before: fileStateSchema,
-  after: afterFileStateSchema,
-  moved_from: relativePathSchema.nullable(),
-  reverted_by: idSchema("rvt").nullable(),
+}).refine(afterStateOk, {
+  message: "after state needs a hash exactly when the file exists",
 });
-export type RewindFile = z.infer<typeof rewindFileSchema>;
+
+// file tool에 열린 허용 폴더(절대 경로). 쓴 파일은 이 폴더 안의 상대 경로 `path`로 가리킨다.
+const rootSchema = z.string().min(1).max(4096);
 
 type ResultShape = ItemShape & {
   result: z.infer<typeof revertResultSchema>;
 };
 
-// plan별로 허용하는 result 조합과 그 이유(문서 표). result가 restored가 아니면 이유가 있다.
-//   restore: restored(이유 없음) / failure(app_failed) / uncertain(app_uncertain) /
-//     unchanged(앱: app_not_started, 파일: app_not_settled; applying 중에는 아직 시작 전이라 이유 없음) /
-//     skipped(파일, edited_outside: 확정 뒤 설치가 hash 불일치로 건너뜀. AmendRevertInstall)
-//   skip: skipped, 또는 이미 Undo한 파일(already_reverted)이면 unchanged
+// plan별로 허용하는 result 조합과 그 이유. result가 restored가 아니면 이유가 있다.
+//   restore: restored(이유 없음) / skipped(edited_outside: 확정 뒤 설치가 hash 불일치로 건너뜀.
+//     AmendRevertInstall)
+//   skip: skipped, 또는 이미 되돌린 파일(already_reverted)이면 unchanged
 //   remain: remained
-function restoreResultOk(value: ResultShape): boolean {
-  if (!classOk(value)) return false;
-  const app = value.class === "app";
-  switch (value.result) {
-    case "restored":
-      return value.reason === null;
-    case "failure":
-      return app && value.reason === "app_failed";
-    case "uncertain":
-      return app && value.reason === "app_uncertain";
-    case "unchanged":
-      return value.reason === null ||
-        value.reason === (app ? "app_not_started" : "app_not_settled");
-    case "skipped":
-      return !app && value.reason === "edited_outside";
-    case "remained":
-      return false;
-  }
-}
-
 function itemResultOk(value: ResultShape): boolean {
   switch (value.plan) {
     case "restore":
-      return restoreResultOk(value);
+      return classOk(value) &&
+        (value.result === "restored"
+          ? value.reason === null
+          : value.result === "skipped" && value.reason === "edited_outside");
     case "skip":
       return (value.result === "skipped" ||
         (value.result === "unchanged" &&
@@ -219,36 +161,41 @@ export const revertResultCountsSchema = z.strictObject({
 });
 export type RevertResultCounts = z.infer<typeof revertResultCountsSchema>;
 
-function hasAppRestore(items: readonly PreviewItem[]): boolean {
-  return items.some((item) => item.class === "app" && item.plan === "restore");
-}
+// 앱 rewind 요청의 결과다. 요청은 앱 쪽 순서(drain, 충돌 시 통째로 취소)를 따르므로 session rewind는
+// 이 결과를 기다리지 않는다. accepted는 앱 rewind가 접수되어 아직 끝나지 않았고, applied는 끝났고,
+// rejected는 앱 rewind가 거절하거나 취소했다.
+export const REWIND_APP_RESULTS = ["accepted", "applied", "rejected"] as const;
+export const rewindAppResultSchema = z.enum(REWIND_APP_RESULTS);
 
-// Revert: rewind 한 번 또는 Undo 한 번의 시도다(결과 기록).
+export const rewindAppRequestSchema = z.object({
+  app: appIdSchema,
+  // 이 session의 첫 write invocation. 앱 rewind는 이 invocation 직전으로 되돌린다.
+  from_invocation: idSchema("inv"),
+  result: rewindAppResultSchema,
+  // 거절 이유(오류 code). 거절이 아니면 null이다.
+  reason: z.string().nullable(),
+});
+export type RewindAppRequest = z.infer<typeof rewindAppRequestSchema>;
+
+// rewind를 다시 하는 일은 없다. 결과 모양이 요구하는 칸의 값이다.
+export const REWIND_NO_REDO = { redo: "none" } as const;
+
+// Revert: rewind 한 번의 시도다(결과 기록).
 export const revertRecordSchema = z.object({
-  id: idSchema("rvt"),
+  id: idSchema("rwd"),
   session: idSchema("ses"),
-  kind: revertKindSchema,
-  choice: rewindChoiceSchema.nullable(),
-  checkpoint: idSchema("msg").nullable(),
-  tool_call: idSchema("tcl").nullable(),
-  boundary_seq: seqSchema.nullable(),
+  kind: z.literal("rewind"),
+  choice: rewindChoiceSchema,
+  checkpoint: idSchema("msg"),
+  boundary_seq: seqSchema,
   summary_call: idSchema("mcl").nullable(),
   outcome: rewindOutcomeSchema,
   redo: rewindRedoSchema,
   items: z.array(revertItemSchema),
+  apps: z.array(rewindAppRequestSchema),
   preview_hash: sha256Schema,
   result_seq: seqSchema.nullable(),
 }).refine((value) => {
-  const rewound = value.kind === "rewind";
-  if (rewound) {
-    if (
-      value.choice === null || value.checkpoint === null ||
-      value.boundary_seq === null || value.tool_call !== null
-    ) return false;
-  } else if (
-    value.tool_call === null || value.choice !== null ||
-    value.checkpoint !== null || value.boundary_seq !== null
-  ) return false;
   if ((value.choice === "summarize") !== (value.summary_call !== null)) {
     return false;
   }
@@ -257,141 +204,18 @@ export const revertRecordSchema = z.object({
   }
   const ordinals = new Set(value.items.map((item) => item.ordinal));
   if (ordinals.size !== value.items.length) return false;
-  // blocked는 아무것도 하지 않아 항목이 없다. applying이 아니면 시작 전 항목(unchanged)은 이유가 있다.
-  if (value.outcome === "blocked" && value.items.length > 0) return false;
-  if (
-    value.outcome !== "applying" &&
-    value.items.some((item) =>
-      item.plan === "restore" && item.result === "unchanged" &&
-      item.reason === null
-    )
-  ) return false;
-  // redo는 앱 복원 단계가 없는 applied rewind(restore_all·messages_only)만 가진다.
-  const redoable = rewound && value.choice !== "summarize" &&
-    value.outcome === "applied" && !hasAppRestore(value.items);
-  return redoable || value.redo === "none";
-}, { message: "revert record fields disagree with its kind or outcome" });
+  // blocked는 아무것도 하지 않아 항목이 없다.
+  return value.outcome !== "blocked" || value.items.length === 0;
+}, { message: "revert record fields disagree with its outcome" });
 export type RevertRecord = z.infer<typeof revertRecordSchema>;
 
-export const revertHeaderOutput = z.object({
-  id: idSchema("rvt"),
-  session: idSchema("ses"),
-  kind: revertKindSchema,
-  outcome: rewindOutcomeSchema,
-  redo: rewindRedoSchema,
-  result_seq: seqSchema.nullable(),
-  // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다.
-  replayed: z.boolean(),
-}).refine(
-  (value) => (value.outcome === "applying") === (value.result_seq === null),
-  { message: "only an applying revert lacks a result event" },
-);
-export type RevertHeader = z.infer<typeof revertHeaderOutput>;
-
-// 사람 결정은 적용 자체다. 표시는 rewind/preview를 읽는다. ledger는 확인 handle의 결정 이름으로
-// command 이름(route.name)을 검사하므로 이 이름이 command 이름과 같아야 한다.
-export const REWIND_DECISION = defineDecision("Rewind");
-
-export const rewindInputSchema = z.strictObject({
-  id: idSchema("rvt"),
-  session: idSchema("ses"),
-  checkpoint: idSchema("msg"),
-  choice: rewindChoiceSchema,
-  // 사람이 건너뜀·남는 영향 목록을 확인했다. 목록이 있는데 false면 blocked 결과다.
-  accept_remaining: z.boolean(),
-  preview_hash: sha256Schema,
-  // choice=summarize일 때만: 완전 성공한 요약 call. 요약이 실패하면 command를 내지 않는다.
-  summary_call: idSchema("mcl").nullable(),
-  // choice=restore_all일 때만 준비한 파일 복원.
-  files: preparedFilesSchema,
-}).refine(
-  (value) =>
-    (value.choice === "summarize") === (value.summary_call !== null) &&
-    (value.choice === "restore_all" || value.files.length === 0),
-  { message: "summary_call and files must match the chosen scope" },
-);
-
-export const rewindCompareSchema = z.strictObject({
-  session_state: z.literal("open"),
-  // 진행 중이거나 기다리는 run이 없다. 먼저 멈춘 뒤에만 시작한다.
-  active_run: z.null(),
-  applying_revert: z.null(),
-});
-
-export const rewind = defineCommand({
-  resource: "rewind",
-  method: "apply",
-  name: "Rewind",
-  input: rewindInputSchema,
-  output: revertHeaderOutput,
-  compare: rewindCompareSchema,
-  actors: ["user"],
-  errors: [...commandErrors],
-  confirmation: "required",
-  binding: [
-    "id",
-    "session",
-    "checkpoint",
-    "choice",
-    "accept_remaining",
-    "preview_hash",
-  ],
-  display_read: "/v1/rewind/preview",
-});
-
-export const undoEditInputSchema = z.strictObject({
-  id: idSchema("rvt"),
-  session: idSchema("ses"),
-  tool_call: idSchema("tcl"),
-  preview_hash: sha256Schema,
-  // 한 call이 쓴 파일 하나(이름 변경이면 옛 경로와 새 경로 둘).
-  files: preparedFilesSchema.refine((files) => files.length <= 2, {
-    message: "an undo restores at most two paths",
-  }),
-});
-
-export const undoEditCompareSchema = z.strictObject({
-  session_state: z.literal("open"),
-  reverted_by: z.null(),
-});
-
-export const undoEdit = defineCommand({
-  resource: "rewind",
-  method: "undo",
-  name: "UndoEdit",
-  input: undoEditInputSchema,
-  output: revertHeaderOutput,
-  compare: undoEditCompareSchema,
-  actors: ["user"],
-  errors: [...commandErrors],
-});
-
-export const redoInputSchema = z.strictObject({
-  revert: idSchema("rvt"),
-  // 사람이 본 결과 event의 seq. 그 사이 상태가 바뀌었으면 거절한다.
-  result_seq: seqSchema,
-  // 복원했던 파일을 redo 근거에서 다시 쓰기 위한 준비.
-  files: preparedFilesSchema,
-});
-
-export const redoCompareSchema = z.strictObject({
-  redo: z.literal("available"),
-});
-
-export const redo = defineCommand({
-  resource: "rewind",
-  method: "redo",
-  name: "Redo",
-  input: redoInputSchema,
-  output: revertHeaderOutput,
-  compare: redoCompareSchema,
-  actors: ["user"],
-  errors: [...commandErrors],
-});
-
-// 문서 tool의 harness가 파일을 쓰기 직전에 부른다. 한도 판정은 이 command가 한다.
+// file tool이 쓰기 직전에 pre-image를 남기는 기록이다. core의 `StageRewindFile`·`RecordRewindWrite`가
+// 허용 폴더를 확인한 뒤 이 command를 machine 자격으로 낸다. agent는 이 command를 직접 부르지 못한다.
 export const recordRewindFileInputSchema = z.strictObject({
+  session: idSchema("ses"),
+  turn: idSchema("trn"),
   tool_call: idSchema("tcl"),
+  root: rootSchema,
   path: relativePathSchema,
   before: fileStateInputSchema,
   // before 내용의 크기. 파일이 없었으면 null.
@@ -423,57 +247,47 @@ export const recordRewindFile = defineCommand({
   name: "RecordRewindFile",
   input: recordRewindFileInputSchema,
   output: recordRewindFileOutputSchema,
-  actors: ["agent"],
+  actors: ["machine"],
   errors: ["invalid_input", "conflict", "unavailable"],
 });
 
-export const checkpointRevertInputSchema = z.strictObject({
-  revert: idSchema("rvt"),
-  step_key: z.string().min(1),
-  // 앱의 revert command 호출이 남긴 실제 Invocation이다(원래 write의 invocation이 아니다). 호출이
-  // 앱에 닿지 않았거나 응답을 잃어 알 수 없으면 null이다. 원래 write의 invocation은 앱 단계
-  // 근거(AppRewindBinding.invocation)에 그대로 있다.
-  invocation: idSchema("inv").nullable(),
-  result: appStepResultSchema,
-});
-
-export const checkpointRevert = defineCommand({
+// 쓰기 직전에 agent runtime이 core에 청한다. core가 그 파일의 지금 내용을 읽어 session 저장소에 두고
+// (한도 안일 때) before 상태를 돌려준다. 내용은 HTTP로 오가지 않는다. root는 session의 place가 file
+// tool에 연 폴더여야 하고, session·turn은 agent 자격의 것과 같아야 한다. 이름 변경이면 옛 경로를 준다.
+export const stageRewindFile = defineMemory({
   resource: "rewind",
-  method: "checkpoint",
-  name: "CheckpointRevert",
-  input: checkpointRevertInputSchema,
-  output: z.object({
-    revert: idSchema("rvt"),
-    step_key: z.string().min(1),
-    recorded: z.boolean(),
+  method: "stage-file",
+  name: "StageRewindFile",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    turn: idSchema("trn"),
+    root: rootSchema,
+    path: relativePathSchema,
   }),
-  actors: ["machine"],
-  errors: ["conflict", "forbidden"],
+  output: z.object({
+    before: fileStateSchema,
+    before_size_bytes: z.number().int().nonnegative().nullable(),
+  }),
+  actors: ["agent"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-export const finishRevertInputSchema = z.strictObject({
-  revert: idSchema("rvt"),
-  // 앱 단계 전체의 step_key. 저장한 단계 계획과 맞아야 한다.
-  step_keys: z.array(z.string().min(1)).min(1),
-  // 앱 단계가 모두 성공했을 때만 준비한 문서 파일 복원. partial·uncertain이면 비어 있다.
-  files: preparedFilesSchema,
-});
-
-export const finishRevert = defineCommand({
+// 쓴 직후 agent runtime이 낸다. core가 같은 확인을 하고 RecordRewindFile을 낸다.
+export const recordRewindWrite = defineMemory({
   resource: "rewind",
-  method: "finish",
-  name: "FinishRevert",
-  input: finishRevertInputSchema,
-  output: revertHeaderOutput,
-  actors: ["machine"],
-  errors: ["conflict", "forbidden"],
+  method: "record-write",
+  name: "RecordRewindWrite",
+  input: recordRewindFileInputSchema,
+  output: recordRewindFileOutputSchema,
+  actors: ["agent"],
+  errors: ["invalid_input", "forbidden", "conflict", "unavailable"],
 });
 
-// 확정된 revert의 설치가 쓰기 직전 hash 재비교에서 건너뛴 경로를 결과에 반영한다. outcome은
-// applied 그대로이고, 그 항목은 plan=restore, result=skipped, reason=edited_outside가 된다.
-// 그 경로의 기록은 되돌려짐 표시(reverted_by)를 풀고 redo 근거에서도 빠진다. 항목마다 한 번만 고친다.
+// 설치가 쓰기 직전 hash 재비교에서 건너뛴 경로를 결과에 반영한다. outcome은 applied 그대로이고, 그 항목은
+// plan=restore, result=skipped, reason=edited_outside가 된다. 그 경로의 기록은 되돌려짐 표시(reverted_by)를
+// 풀고, 항목마다 한 번만 고친다.
 export const amendRevertInstallInputSchema = z.strictObject({
-  revert: idSchema("rvt"),
+  revert: idSchema("rwd"),
   paths: z.array(relativePathSchema).min(1).refine(
     (paths) => new Set(paths).size === paths.length,
     { message: "duplicate path" },
@@ -485,32 +299,24 @@ export const amendRevertInstall = defineCommand({
   method: "amend-install",
   name: "AmendRevertInstall",
   input: amendRevertInstallInputSchema,
-  output: revertHeaderOutput,
+  output: rewindHeaderOutput,
   actors: ["machine"],
   errors: ["conflict", "forbidden", "not_found"],
 });
 
-// 사람이 확인해 applying으로 접수된 revert의 앱 단계를 core가 이어 실행한다. 호출한 사람의
-// 자격으로 앱의 revert command를 직접 부르고, 단계 기록과 끝내기는 core 내부 machine 자격이
-// 한다. 사람 결정은 Rewind의 확인 handle이 이미 받았고 이 route는 applying인 revert만 이어
-// 받는다. ledger를 거치지 않는 core 메모리 route다.
-export const runAppRevert = defineMemory({
+// 사람이 고른 앱마다 앱 rewind를 요청한 결과를 rewind 기록에 남긴다. 앱마다 한 번 남기고, 접수(accepted)였던
+// 것이 끝나면(applied, rejected) 다시 한 번 고친다.
+export const recordRewindApps = defineCommand({
   resource: "rewind",
-  method: "run-apps",
-  name: "RunAppRevert",
+  method: "record-apps",
+  name: "RecordRewindApps",
   input: z.strictObject({
-    revert: idSchema("rvt"),
-    // 앱 단계 뒤에 복원할 문서 파일 준비. 앱 단계가 모두 성공했을 때만 쓴다.
-    files: preparedFilesSchema,
+    revert: idSchema("rwd"),
+    apps: z.array(rewindAppRequestSchema).min(1),
   }),
-  output: z.object({
-    revert: idSchema("rvt"),
-    outcome: rewindOutcomeSchema,
-    // 이번에 부른 단계의 step_key(호출 순서)다.
-    called: z.array(z.string()),
-  }),
-  actors: ["user"],
-  errors: [...commandErrors],
+  output: z.object({ revert: idSchema("rwd"), recorded: z.number().int() }),
+  actors: ["machine"],
+  errors: ["conflict", "forbidden", "not_found"],
 });
 
 // "Summarize from here"의 요약 요청이다. Compact와 같은 모양이다: 사람이 요청하면(RequestRewindSummary) runtime이
@@ -548,7 +354,7 @@ export const requestRewindSummary = defineMemory({
   name: "RequestRewindSummary",
   input: z.strictObject({
     session: idSchema("ses"),
-    // 요약을 시작할 사람 메시지(checkpoint). 숨긴 구간 안이거나 checkpoint가 아니면 거절한다.
+    // 요약을 시작할 입력 메시지(checkpoint). 숨긴 구간 안이거나 checkpoint가 아니면 거절한다.
     checkpoint: idSchema("msg"),
   }),
   output: z.object({ request: summaryRequestIdSchema }),
@@ -576,7 +382,6 @@ export const takeRewindSummaryRequest = defineMemory({
     request: z.object({
       id: summaryRequestIdSchema,
       session: idSchema("ses"),
-      assignment: idSchema("asg"),
       // 요약을 시작할 메시지의 생성 seq다.
       from_seq: seqSchema,
     }).nullable(),
@@ -606,71 +411,6 @@ export const finishRewindSummary = defineMemory({
   output: z.object({ accepted: z.boolean() }),
   actors: ["machine"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
-});
-
-// 읽기. preview는 command나 event를 만들지 않는다.
-export const rewindPreviewInputSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("rewind"),
-    session: idSchema("ses"),
-    checkpoint: idSchema("msg"),
-    choice: rewindChoiceSchema,
-  }),
-  z.strictObject({
-    kind: z.literal("undo"),
-    session: idSchema("ses"),
-    tool_call: idSchema("tcl"),
-  }),
-]);
-
-export const rewindPreviewOutputSchema = withReadCommon(z.object({
-  kind: revertKindSchema,
-  choice: rewindChoiceSchema.nullable(),
-  checkpoint: idSchema("msg").nullable(),
-  tool_call: idSchema("tcl").nullable(),
-  restore: z.array(previewItemSchema),
-  skip: z.array(previewItemSchema),
-  remain: z.array(previewItemSchema),
-  // 앱 복원이 있으면 false다. 예고일 뿐 결정 기준이 아니다.
-  redo: z.boolean(),
-  preview_hash: sha256Schema,
-})).refine((value) => {
-  if (value.kind === "rewind") {
-    if (
-      value.choice === null || value.checkpoint === null ||
-      value.tool_call !== null
-    ) return false;
-  } else if (
-    value.tool_call === null || value.choice !== null ||
-    value.checkpoint !== null
-  ) return false;
-  const groups = [
-    ["restore", value.restore],
-    ["skip", value.skip],
-    ["remain", value.remain],
-  ] as const;
-  if (
-    groups.some(([plan, items]) => items.some((item) => item.plan !== plan))
-  ) {
-    return false;
-  }
-  const all = [...value.restore, ...value.skip, ...value.remain];
-  if (new Set(all.map((item) => item.ordinal)).size !== all.length) {
-    return false;
-  }
-  const redoable = value.kind === "rewind" && value.choice !== "summarize" &&
-    !hasAppRestore(value.restore);
-  return redoable || !value.redo;
-}, { message: "preview fields disagree with its kind or lists" });
-
-export const rewindPreview = defineRead({
-  resource: "rewind",
-  method: "preview",
-  name: "PreviewRewind",
-  input: rewindPreviewInputSchema,
-  output: rewindPreviewOutputSchema,
-  actors: readActors,
-  errors: [...readErrors],
 });
 
 // rewind menu가 session의 checkpoint를 고르는 데 쓴다. 숨긴 구간 안의 checkpoint는 고를 수
@@ -709,47 +449,26 @@ export const rewindList = defineRead({
   output: withReadCommon(z.object({
     reverts: z.array(revertRecordSchema),
     // 숨김 구간의 시작 seq(가장 앞선 boundary_seq). 숨긴 구간이 없으면 null이다. 각 숨김 구간은 rewind의
-    // boundary_seq부터 result_seq까지이고(그 뒤에 접수한 메시지는 숨기지 않는다) redo=done이면 다시 보인다.
+    // boundary_seq부터 result_seq까지다(그 뒤에 접수한 메시지는 숨기지 않는다).
     hidden_from_seq: seqSchema.nullable(),
   })),
   actors: readActors,
   errors: [...readErrors],
 });
 
-const revertSubject = idSchema("rvt");
-
-export const revertStarted = defineEvent("RevertStarted", {
-  subject: revertSubject,
-  payload: z.object({
-    session: idSchema("ses"),
-    kind: revertKindSchema,
-    choice: rewindChoiceSchema.nullable(),
-    preview_hash: sha256Schema,
-    // 전체 앱 단계 참조(step_key, 호출 순서).
-    steps: z.array(z.string().min(1)).min(1),
-  }),
-});
+const revertSubject = idSchema("rwd");
 
 export const revertApplied = defineEvent("RevertApplied", {
   subject: revertSubject,
   payload: z.object({
     session: idSchema("ses"),
-    kind: revertKindSchema,
-    choice: rewindChoiceSchema.nullable(),
+    choice: rewindChoiceSchema,
     // 건너뜀·남는 영향이 있었나.
     partial: z.boolean(),
     results: revertResultCountsSchema,
-    boundary_seq: seqSchema.nullable(),
-    redo: rewindRedoSchema,
-  }),
-});
-
-export const revertFinished = defineEvent("RevertFinished", {
-  subject: revertSubject,
-  payload: z.object({
-    session: idSchema("ses"),
-    outcome: z.enum(["partial", "uncertain"]),
-    results: revertResultCountsSchema,
+    boundary_seq: seqSchema,
+    // 사람이 고른 앱 수.
+    apps: z.number().int().nonnegative(),
   }),
 });
 
@@ -758,24 +477,6 @@ export const revertBlocked = defineEvent("RevertBlocked", {
   payload: z.object({
     session: idSchema("ses"),
     results: revertResultCountsSchema,
-  }),
-});
-
-export const revertRedone = defineEvent("RevertRedone", {
-  subject: revertSubject,
-  payload: z.object({
-    session: idSchema("ses"),
-    // 다시 보인 메시지 수와 다시 복원한 파일 수.
-    messages: z.number().int().nonnegative(),
-    files: z.number().int().nonnegative(),
-  }),
-});
-
-export const revertClosed = defineEvent("RevertClosed", {
-  subject: revertSubject,
-  payload: z.object({
-    session: idSchema("ses"),
-    closed_at: atSchema,
   }),
 });
 
@@ -790,29 +491,21 @@ export const revertAmended = defineEvent("RevertAmended", {
 });
 
 export const REVERT_ROUTES = [
-  runAppRevert,
-  rewind,
-  undoEdit,
-  redo,
   recordRewindFile,
-  checkpointRevert,
-  finishRevert,
+  stageRewindFile,
+  recordRewindWrite,
   amendRevertInstall,
+  recordRewindApps,
   requestRewindSummary,
   readRewindSummary,
   takeRewindSummaryRequest,
   finishRewindSummary,
-  rewindPreview,
   rewindCheckpoints,
   rewindList,
 ] as const;
 
 export const REVERT_EVENTS = [
-  revertStarted,
   revertApplied,
-  revertFinished,
   revertBlocked,
-  revertRedone,
-  revertClosed,
   revertAmended,
 ] as const;

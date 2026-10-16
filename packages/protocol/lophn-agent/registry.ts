@@ -15,6 +15,7 @@ import {
   QUESTION_EVENTS,
 } from "./questions.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
+import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
 import {
@@ -64,6 +65,8 @@ export const ROUTES = [
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...QUESTION_COMMANDS.filter((route) => route !== applyQuestionOption),
   ...REVERT_ROUTES,
+  sessionRewind,
+  sessionRewindPreview,
   ...COMMAND_ROUTES,
   ...PROVIDER_ROUTES,
   ...MODEL_CALL_ROUTES,

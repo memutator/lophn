@@ -18,7 +18,6 @@ export {
   type UninstalledCandidate,
   uninstalledCandidates,
 } from "./recover.ts";
-export { closeAvailableRedo } from "./redo-close.ts";
 export {
   assertCheckpointVisible,
   type FoldedRange,
@@ -32,23 +31,18 @@ export {
   type RevertRow,
 } from "./hidden.ts";
 export {
-  createRevertCommands,
+  createSessionRewindCommands,
   type RevertDeps,
   type RewindEffects,
 } from "./commands.ts";
-export { createRevertReads } from "./reads.ts";
-export { hasAppSteps } from "./app-commands.ts";
-export { latestAppRevision } from "./app-revert.ts";
+export { appWritesPort, createSessionRewindReads } from "./reads.ts";
+export { createRewindEffects } from "./effects.ts";
 export {
-  type AppStepCall,
-  type AppStepPorts,
-  type AppStepResult,
-  type AppStepsRun,
-  runAppSteps,
-  type StoredRevert,
-  type StoredStep,
-} from "./app-steps.ts";
+  createRewindWriteHandlers,
+  type RewindWriteDeps,
+} from "./write-routes.ts";
 export {
+  type FileRef,
   observationOf,
   type PlanDeps,
   planRewind,
@@ -60,7 +54,6 @@ export type { FileStat, JudgedFile } from "./judge.ts";
 // 동기 관측(prepare.ts의 observeFiles)은 core가 import하지 않으므로 여기 없다. reader Worker의 모듈이
 // 그 파일을 직접 import한다.
 export {
-  installRedo,
   installRestore,
   type InstallResult,
   observeFilesAsync,

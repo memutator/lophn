@@ -465,7 +465,7 @@ export const sessionSummary = defineRead({
   name: "ReadSessionSummary",
   input: z.strictObject({
     session: idSchema("ses"),
-    revert: idSchema("rvt").optional(),
+    revert: idSchema("rwd").optional(),
   }),
   output: withReadCommon(z.object({
     session: idSchema("ses"),

@@ -39,6 +39,7 @@ import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
 import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
+import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts";
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
 // 읽는 `builtinBinding`)과 외부 MCP 등록 통로를 한 곳에서 낸다. 시험도 같은 묶음을 쓴다.
@@ -99,7 +100,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),
-      // rewind는 닫힌 채다. gate와 questions는 core가 기다림을 쥐고 runtime은 긴 한 번의 호출로 결과를 받는다.
+      // gate와 questions는 core가 기다림을 쥐고 runtime은 긴 한 번의 호출로 결과를 받는다.
       toolPorts: (session, turn) => ({
         ...UNWIRED_TOOL_PORTS,
         gate: { check: (input) => readOf(turn.core, toolGateCheck, input) },
@@ -108,6 +109,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
             readOf(turn.core, askWait, { ...call, questions }),
         },
         router: routerOverCore(turn.core),
+        // file tool의 쓰기 전 pre-image는 core가 읽어 남긴다(StageRewindFile, RecordRewindWrite).
+        rewind: rewindOverCore(turn.core),
         skills: turnSkillReader(
           productSkillSnapshotDeps(calls.machine),
           session,

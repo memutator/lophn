@@ -1,6 +1,6 @@
 // session. message body, rewind. 쓰기 앞 처리기가 두 자리라 message body와
 // rewind는 wiring이 따로다(assembly.ts의 순서가 접는 순서다).
-import { ok } from "../../../../base/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import {
   createMessageBodyPreparer,
@@ -11,11 +11,10 @@ import { createRewindStore } from "../../../lophn-agent/session/rewind/mod.ts";
 import {
   amendInstall,
   ledgerSnapshot,
-  REWIND_INSTALL_CONTEXT,
+  REWIND_MACHINE_CONTEXT,
   withRewindFiles,
 } from "../../../lophn-agent/session/rewind/files.ts";
-import { answeredFacts } from "../../../lophn-agent/session/rewind/facts.ts";
-import { projectRootOf } from "../../../lophn-agent/session/rewind/root.ts";
+import { createRewindWriteHandlers } from "../../../lophn-agent/session/rewind/write-routes.ts";
 import { reconcileRewindInstalls } from "../../../lophn-agent/session/rewind/reconcile.ts";
 import {
   REWIND_SWEEP_INTERVAL_MS,
@@ -25,6 +24,7 @@ import {
   createRewindSummaries,
   rewindSummaryTarget,
 } from "../../../lophn-agent/session/rewind/summary.ts";
+import { appWritesOf, placeFoldersOf } from "../rewind-glue.ts";
 import {
   createProductRedactor,
   type RewindFilesDeps,
@@ -82,19 +82,49 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
   let sweepTimer: ReturnType<typeof setInterval> | undefined;
   return {
     name: "lophn-agent-rewind",
-    // 되돌리기 설치가 건너뛴 경로를 결과에 반영하는 core 내부 machine 자격 기록. 기록이 없으면 writer가
-    // AmendRevertInstall을 거절해 복원하지 못한 파일이 복원됐다고 남으므로 기동을 여기서 멈춘다.
-    records: () => [REWIND_INSTALL_CONTEXT],
+    // core 내부 machine 자격 기록: 설치가 건너뛴 경로의 정정, file tool의 쓰기 기록, 앱 rewind 요청 결과. 기록이
+    // 없으면 writer가 이 command들을 거절해 복원하지 못한 파일이 복원됐다고 남으므로 기동을 여기서 멈춘다.
+    records: () => [REWIND_MACHINE_CONTEXT],
     build(ctx) {
       const store = createRewindStore(ctx.root.path);
-      // 되돌리기의 파일 일(관측·준비·설치)이 쓰는 통로다. 쓰기 앞 처리기와 앱 단계 이어 실행이 같이 쓴다.
+      const snapshot = <T>(read: Parameters<typeof ledgerSnapshot<T>>[1]) =>
+        ledgerSnapshot(ctx.ledgerPath, read);
+      // 되돌리기의 파일 일(관측·준비·설치)과 앱 rewind 요청이 쓰는 통로다.
       const files: RewindFilesDeps = {
-        snapshot: <T>(read: Parameters<typeof ledgerSnapshot<T>>[1]) =>
-          ledgerSnapshot(ctx.ledgerPath, read),
-        rootOf: projectRootOf,
-        answeredFacts,
+        snapshot,
         store,
-        relay: () => ctx.bodyPrepare,
+        apps: {
+          // 고른 시점 뒤 이 session의 앱 write는 invocation 기록에서 읽는다.
+          writes: {
+            writesAfter: (session, seq) => {
+              const read = snapshot((lookup) =>
+                appWritesOf(lookup).writesAfter(session, seq)
+              );
+              return read.ok ? read.value : [];
+            },
+          },
+          // 앱 rewind는 앱 module이 한다. 사람이 하는 일이라 사람 자격으로 요청한다.
+          requestRewind: async (app, from) => {
+            const rewind = ctx.peek.appRewind;
+            if (rewind === undefined) {
+              return err({
+                code: "unavailable",
+                message: "app rewind is not attached",
+              });
+            }
+            const asked = await rewind.apply(
+              app as never,
+              from as never,
+              "user",
+            );
+            return asked.ok
+              ? ok({
+                status: asked.value.status,
+                reason: asked.value.reason?.code ?? null,
+              })
+              : asked;
+          },
+        },
       };
       ctx.provide("rewindFiles", files);
       // "Summarize from here"의 요약 요청 대기열이다. 사람이 요청하면 runtime이 가져가 요약 call을 한다.
@@ -103,17 +133,25 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
         newId: () => crypto.randomUUID(),
         now: () => ctx.clock.nowMs(),
       });
+      // file tool의 쓰기 기록 입구다(StageRewindFile, RecordRewindWrite).
+      const writes = createRewindWriteHandlers({
+        store,
+        foldersOf: (session) => {
+          const read = snapshot((lookup) => placeFoldersOf(lookup, session));
+          return read.ok ? read.value : [];
+        },
+        writer: () => ctx.runtime.writer,
+      });
       return ok({
         writer: (inner) => withRewindFiles(inner, files),
-        // 요약 요청(사람)과 가져가기·끝내기(runtime)의 입구다.
-        memory: summaries.handlers,
+        // 요약 요청(사람)과 가져가기·끝내기(runtime), 쓰기 기록(agent)의 입구다.
+        memory: new Map([...summaries.handlers, ...writes]),
       });
     },
     async start(ctx) {
       // 설치 전에 죽어 파일이 복원되지 않은 항목을 결과에 반영한다. 한 번만 돈다.
       await reconcileRewindInstalls({
         snapshot: (read) => ledgerSnapshot(ctx.ledgerPath, read),
-        rootOf: projectRootOf,
         amend: async (revert, paths) =>
           await amendInstall(
             ctx.runtime.writer,

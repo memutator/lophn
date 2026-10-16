@@ -14,10 +14,10 @@ import type { PreparedFile } from "../../../../protocol/lophn-agent/mod.ts";
 import type { FileStat, JudgedFile } from "./judge.ts";
 import type { RewindStore } from "./store.ts";
 
-// 문서 파일 복원의 transaction 밖 일이다(lophn-agent/revert "복원 쓰기"). 순서는 관측 →
+// 파일 복원의 transaction 밖 일이다(lophn-agent/revert "복원 쓰기"). 순서는 관측 →
 // prepareRestore → (Rewind command) → installRestore다. 파일 일은 모두 async API다: core가 import하는
-// 모듈이라 동기 file API를 두지 않는다(동기 관측은 prepare.ts, reader Worker용). root는 project 폴더의
-// 절대 경로이고 path는 그 기준 상대 경로다.
+// 모듈이라 동기 file API를 두지 않는다(동기 관측은 prepare.ts, reader Worker용). root는 file tool에 열린
+// 허용 폴더의 절대 경로이고 path는 그 기준 상대 경로다. 판정 단위(JudgedFile)가 자기 root를 가진다.
 
 const hashOf = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
@@ -91,29 +91,30 @@ export async function observeFilesAsync(
   return seen;
 }
 
-async function readCurrent(
+// 쓰기 직전 내용(pre-image)을 읽는다. 파일이 없으면 null이다. root 밖이거나 일반 파일이 아니면 던진다.
+export async function readInside(
   root: string,
   path: string,
 ): Promise<Uint8Array | null> {
   try {
-    return await readFile(await resolveInside(root, path));
-  } catch {
-    return null;
+    const full = await resolveInside(root, path);
+    if (!(await lstat(full)).isFile()) throw new Error("not a file");
+    return new Uint8Array(await readFile(full));
+  } catch (error) {
+    if (missing(error)) return null;
+    throw error;
   }
 }
 
 // 판정에 든 경로마다 PreparedFile 하나를 만든다(복원·건너뜀·이름 변경의 옛 경로 모두).
 //   observed_sha256·link: current의 관측.
 //   staged: plan=restore이고 write 동작이면 pre-image를 저장소에서 읽을 수 있어 true, 그 밖에는 false.
-//   redo_ref: keepRedo이고 plan=restore인 경로의 복원 직전 내용을 저장소에 두고 그 key를 싣는다.
-//     지금 파일이 없으면 null이다.
+//   redo_ref: 다시 하기는 없어 늘 null이다.
 export async function prepareRestore(input: {
-  root: string;
   store: RewindStore;
   session: string;
   judged: readonly JudgedFile[];
   current: ReadonlyMap<string, FileStat>;
-  keepRedo: boolean;
 }): Promise<PreparedFile[]> {
   const prepared = new Map<string, PreparedFile>();
   for (const file of input.judged) {
@@ -127,8 +128,6 @@ export async function prepareRestore(input: {
           action.kind === "write" && action.path === path
         )
         : undefined;
-      const changes = restoring &&
-        file.actions.some((action) => action.path === path);
       prepared.set(path, {
         path,
         observed_sha256: seen.sha256,
@@ -136,9 +135,7 @@ export async function prepareRestore(input: {
         staged: write?.kind === "write"
           ? await staged(input.store, input.session, write.blob)
           : false,
-        redo_ref: input.keepRedo && changes && seen.exists && !seen.link
-          ? await keepForRedo(input, path, seen)
-          : null,
+        redo_ref: null,
       });
     }
   }
@@ -155,21 +152,6 @@ async function staged(
     return true;
   } catch {
     return false;
-  }
-}
-
-// 복원 직전 내용을 저장소에 둔다. 읽은 내용이 관측과 다르면(그 사이 바뀜) 설치가 건너뛸 파일이라 두지 않는다.
-async function keepForRedo(
-  input: { root: string; store: RewindStore; session: string },
-  path: string,
-  seen: FileStat,
-): Promise<string | null> {
-  const bytes = await readCurrent(input.root, path);
-  if (bytes === null || hashOf(bytes) !== seen.sha256) return null;
-  try {
-    return (await input.store.put(input.session, bytes)).key;
-  } catch {
-    return null;
   }
 }
 
@@ -237,7 +219,6 @@ export function restorable(
 // 파일에 쓰고 hash를 확인해 원자 교체한다(없던 상위 폴더는 만든다). delete 동작은 파일을 지운다.
 // 임시 파일은 남기지 않는다.
 export async function installRestore(input: {
-  root: string;
   store: RewindStore;
   session: string;
   judged: readonly JudgedFile[];
@@ -254,7 +235,7 @@ export async function installRestore(input: {
 }
 
 async function installUnit(
-  input: { root: string; store: RewindStore; session: string },
+  input: { store: RewindStore; session: string },
   file: JudgedFile,
   byPath: ReadonlyMap<string, PreparedFile>,
 ): Promise<boolean> {
@@ -262,7 +243,7 @@ async function installUnit(
     const contents = new Map<string, Uint8Array>();
     for (const action of file.actions) {
       const prepared = byPath.get(action.path);
-      if (!await unchanged(input.root, action.path, prepared)) return false;
+      if (!await unchanged(file.root, action.path, prepared)) return false;
       if (action.kind === "write") {
         contents.set(
           action.path,
@@ -271,7 +252,7 @@ async function installUnit(
       }
     }
     for (const action of file.actions) {
-      const full = await resolveInside(input.root, action.path);
+      const full = await resolveInside(file.root, action.path);
       if (action.kind === "delete") {
         await rm(full, { force: true });
       } else {
@@ -282,43 +263,4 @@ async function installUnit(
   } catch {
     return false;
   }
-}
-
-// Redo: 복원했던 파일을 되돌리기 전 내용으로 다시 쓴다. 경로의 지금 hash가 restored_sha256과 같은
-// 것만 redo_ref의 내용으로 교체하고(redo_ref가 null이면 지운다) 아니면 건드리지 않고 skipped다.
-export async function installRedo(input: {
-  root: string;
-  store: RewindStore;
-  session: string;
-  entries: readonly {
-    path: string;
-    restored_sha256: string | null;
-    redo_ref: string | null;
-  }[];
-}): Promise<InstallResult[]> {
-  const results: InstallResult[] = [];
-  for (const entry of input.entries) {
-    let restored = false;
-    try {
-      const now = await observeOne(input.root, entry.path);
-      if (!now.link && now.sha256 === entry.restored_sha256) {
-        const full = await resolveInside(input.root, entry.path);
-        if (entry.redo_ref === null) {
-          await rm(full, { force: true });
-          restored = true;
-        } else {
-          const content = await input.store.read(input.session, entry.redo_ref);
-          await replaceFile(full, content, entry.redo_ref);
-          restored = true;
-        }
-      }
-    } catch {
-      restored = false;
-    }
-    results.push({
-      path: entry.path,
-      result: restored ? "restored" : "skipped",
-    });
-  }
-  return results;
 }

@@ -9,16 +9,15 @@ import type { FileStat, JudgedFile } from "./judge.ts";
 import type { RewindPlan } from "./preview.ts";
 import { restorable } from "./restore.ts";
 
-// 판정(preview)을 revert 결과 항목으로 굳히고 ledger에 쓰는 일이다. Rewind·UndoEdit·AmendRevertInstall이
+// 판정(preview)을 revert 결과 항목으로 굳히고 ledger에 쓰는 일이다. Rewind·AmendRevertInstall이
 // 같이 쓴다.
 
-// 항목 하나와 그 결과, redo 근거다. 문서 파일 항목이 복원됐을 때만 restored_sha256·redo_ref가 있다.
+// 항목 하나와 그 결과다. 파일 항목이 복원됐을 때만 restored_sha256이 있다.
 export type SettledItem = {
   item: PreviewItem;
   result: RevertItem["result"];
   restored_sha256: string | null;
-  redo_ref: string | null;
-  // 복원한 문서 파일의 판정 단위.
+  // 복원한 파일의 판정 단위.
   restored: JudgedFile | null;
 };
 
@@ -33,13 +32,12 @@ export function observedOf(
   }]));
 }
 
-// 복원할 문서 파일이 준비를 받쳐 주면 restored다. 받쳐 주지 않으면 복원했다고 쓰지 않고 설치가 건너뛴
+// 복원할 파일이 준비를 받쳐 주면 restored다. 받쳐 주지 않으면 복원했다고 쓰지 않고 설치가 건너뛴
 // 것과 같은 모양(skipped, edited_outside)으로 남긴다. 건너뛰는 항목은 skipped이고, 이미 Undo한 기록만
 // 바뀐 것이 없어 unchanged다.
 export function settleItems(
   plan: RewindPlan,
   files: readonly PreparedFile[],
-  keepRedo: boolean,
 ): SettledItem[] {
   const prepared = new Map(files.map((file) => [file.path, file]));
   const units = new Map(plan.judged.map((file) => [file.path, file]));
@@ -49,7 +47,7 @@ export function settleItems(
     ...plan.preview.remain,
   ].sort((left, right) => left.ordinal - right.ordinal);
   return items.map((item): SettledItem => {
-    const none = { restored_sha256: null, redo_ref: null, restored: null };
+    const none = { restored_sha256: null, restored: null };
     if (item.plan === "remain") return { item, result: "remained", ...none };
     if (item.plan === "skip") {
       const result = item.reason === "already_reverted"
@@ -69,7 +67,6 @@ export function settleItems(
       item,
       result: "restored",
       restored_sha256: unit.restored_sha256,
-      redo_ref: keepRedo ? prepared.get(unit.path)?.redo_ref ?? null : null,
       restored: unit,
     };
   });
@@ -104,9 +101,8 @@ export function insertItems(
   for (const entry of settled) {
     tx.sql.run(
       `insert into revert_items
-         (revert, ordinal, class, target, source, plan, result, reason, app_revert,
-          restored_sha256, redo_ref)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (revert, ordinal, class, target, source, plan, result, reason, restored_sha256)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         revert,
         entry.item.ordinal,
@@ -116,11 +112,7 @@ export function insertItems(
         entry.item.plan,
         entry.result,
         entry.item.reason,
-        entry.item.app_revert === null
-          ? null
-          : JSON.stringify(entry.item.app_revert),
         entry.restored_sha256,
-        entry.redo_ref,
       ],
     );
   }
@@ -169,7 +161,7 @@ export function markReverted(
   }
 }
 
-// 이 revert가 표시한 기록의 표시를 푼다(Redo, 설치 정정).
+// 이 revert가 표시한 기록의 표시를 푼다(설치 정정).
 export function releaseReverted(
   tx: Tx,
   revert: string,

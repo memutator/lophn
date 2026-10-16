@@ -3,11 +3,13 @@ import type {
   RewindReason,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
-// 문서 파일 복원 판정(lophn-agent/revert "판정 규칙"). 기록(RewindFile)과 파일의 지금 상태만 받는 순수
-// 함수다.
+// 파일 복원 판정(lophn-agent/revert "판정 규칙"). 기록(RewindFile)과 파일의 지금 상태만 받는 순수
+// 함수다. 파일은 허용 폴더(root)와 그 안의 상대 경로(path)로 가리킨다. 한 session에서 같은 상대 경로가
+// 두 root에 있으면 어느 쪽인지 가를 수 없어 복원하지 않는다(chain_broken).
 
 export type JudgeRecord = {
   tool_call: string;
+  root: string;
   path: string;
   seq: string;
   before: FileState;
@@ -28,6 +30,8 @@ export type FileAction =
   | { kind: "delete"; path: string };
 
 export type JudgedFile = {
+  // 판정 단위의 허용 폴더(절대 경로)다. 아래 path와 actions의 path는 이 폴더 안의 상대 경로다.
+  root: string;
   // 판정 단위의 경로(마지막 기록의 path)다. 이름 변경이면 새 경로다.
   path: string;
   // 이 경로를 쓴 tool call. 되돌림에서 빠진(reverted_by) 기록은 들지 않고 seq 순서다.
@@ -36,11 +40,12 @@ export type JudgedFile = {
   reason: RewindReason | null;
   // plan=restore일 때만 있다. 첫 기록의 before로 교체하거나(write) 지운다(delete).
   actions: FileAction[];
-  // 복원한 뒤 이 경로의 내용 hash. 사라지면 null. Redo가 "지금 hash == 복원한 내용"을 비교한다.
+  // 복원한 뒤 이 경로의 내용 hash. 사라지면 null. 시작 때 맞추기가 설치 여부를 가린다.
   restored_sha256: string | null;
 };
 
 // 경로마다 `reverted_by`가 없는 기록을 seq 순서로 모아 사슬을 확인한다. 이유 코드는 이 순서로 정한다.
+//   0. 한 단위에 허용 폴더가 둘 이상이면 skip `chain_broken`.
 //   1. 기록이 모두 되돌려졌으면 skip `already_reverted`.
 //   2. 지금 경로가 symlink·hard link면 skip `link_path`.
 //   3. 사슬의 어느 기록이든 before가 있었는데 pre-image(blob)가 없으면 skip `no_pre_image`.
@@ -113,6 +118,7 @@ function judgeUnit(
   ): { firstSeq: string; judged: JudgedFile } => ({
     firstSeq: group[0]!.seq,
     judged: {
+      root: last.root,
       path: last.path,
       source: shown.map((record) => record.tool_call),
       plan,
@@ -123,6 +129,9 @@ function judgeUnit(
   });
   const skip = (reason: RewindReason) => make("skip", reason);
 
+  if (new Set(group.map((record) => record.root)).size > 1) {
+    return skip("chain_broken");
+  }
   if (active.length === 0) return skip("already_reverted");
   const now = current.get(last.path) ?? GONE;
   if (now.link) return skip("link_path");

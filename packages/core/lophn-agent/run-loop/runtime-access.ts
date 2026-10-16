@@ -43,10 +43,12 @@ import {
   questionText,
   receivedMessageList,
   recordMessage,
+  recordRewindWrite,
   recordToolRequest,
   rewindList,
   sessionCompactRequests,
   sessionSummary,
+  stageRewindFile,
   startModelCall,
   startToolCall,
   startTurn,
@@ -194,6 +196,8 @@ const PLACE_READS: readonly string[] = [
   callSendable.name,
 ];
 
+const REWIND_WRITE_TOOLS: readonly string[] = ["file.write", "file.edit"];
+
 function isRole(role: string): role is Role {
   return (ROLES as readonly string[]).includes(role);
 }
@@ -203,9 +207,14 @@ function isRole(role: string): role is Role {
 // 앱 command 통로(`app.connect`)는 어느 역할이든 닿을 수 있다: 범위는 agent grant와 tool 목록이 정한다.
 export function roleOperations(role: string): readonly string[] {
   if (!isRole(role)) return [];
+  const tools = listRoleTools(role, { input_media: ["image"] });
   return [
     ...new Set([
-      ...runOperations(listRoleTools(role, { input_media: ["image"] })),
+      ...runOperations(tools),
+      // 쓰는 tool(file.write, file.edit)이 쓰기 전후에 core에 pre-image를 남기는 route다.
+      ...(tools.some((tool) => REWIND_WRITE_TOOLS.includes(tool.name))
+        ? [stageRewindFile.name, recordRewindWrite.name]
+        : []),
       // 선택한 context의 선언 검색과 개체 읽기다. 이름이 동적이라 tool 이름에 없다.
       CONTEXT_SEARCH_CONTRACT,
       CONTEXT_ENTITY_CONTRACT,

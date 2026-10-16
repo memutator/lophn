@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
+  type FileState,
   recordRewindFile,
   REWIND_MAX_CHECKPOINTS,
   REWIND_MAX_FILE_BYTES,
@@ -13,16 +14,12 @@ import type {
   Tx,
 } from "../../../../protocol/server/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
-import type { RewindStore } from "./store.ts";
 
-// 문서 tool이 파일을 쓰기 직전에 pre-image를 남기는 기록(RecordRewindFile)과, 그 호출을 쓰기에
-// 감싸는 harness 쪽 배선이다.
-// 실제 문서 쓰기 tool(harness/tools/bundles/document.ts의 document.create·document.save_version)에
-// 이 배선을 거는 일은 documents가 파일 기반 쓰기로 바뀐 뒤 따로 한다(지금 그 tool은 documents의
-// version 저장 contract를 부른다).
+// file tool(file.write, file.edit)이 파일을 쓰기 직전에 pre-image를 남기는 기록(RecordRewindFile)과, 그
+// 호출을 쓰기에 감싸는 runtime 쪽 배선(recordBeforeWrite)이다. shell이 바꾼 파일은 기록하지 않는다.
 
 function reject(
-  code: "invalid_input" | "forbidden",
+  code: "invalid_input" | "forbidden" | "conflict",
   message: string,
 ): Result<never> {
   return err({ code, message });
@@ -123,28 +120,29 @@ function result(
   });
 }
 
-// 한도 판정과 같은 `(tool_call, path)` 중복 처리는 이 command가 한다. 한도를 넘는 쓰기는 막지
-// 않고 그 checkpoint를 `files_restorable=false`로 낮춘다. 한 번 낮아진 checkpoint는 되돌아가지 않고 이유도
-// 처음 것을 지킨다. 이유: 크기가 한도(10 MB)를 넘으면 `limit_file`, 크기는 한도 안인데 blob이 없으면(저장소
-// 쓰기 실패) `record_failed`, 개수·총량은 `limit_count`·`limit_total`.
+// 한도 판정과 같은 `(tool_call, path)` 중복 처리는 이 command가 한다. 한도를 넘는 쓰기는 막지 않고 그
+// checkpoint를 `files_restorable=false`로 낮춘다. 한 번 낮아진 checkpoint는 되돌아가지 않고 이유도 처음 것을
+// 지킨다. 이유: 크기가 한도(10 MB)를 넘으면 `limit_file`, 크기는 한도 안인데 blob이 없으면(저장소 쓰기 실패)
+// `record_failed`, 개수·총량은 `limit_count`·`limit_total`. 낸 쪽은 core의 machine 자격이고, 허용 폴더
+// 확인은 그 앞에서 끝났다. 기록은 turn을 시작한 입력 메시지(checkpoint)에 붙는다.
 export function createRecordRewindFile(): CommandDefinition<
   typeof recordRewindFile
 > {
   return {
     route: recordRewindFile,
     handle(tx, ctx, input) {
-      if (parseActor(ctx.actor)?.kind !== "agent" || ctx.run === undefined) {
-        return reject("forbidden", "only a run's agent records its writes");
+      if (parseActor(ctx.actor)?.kind !== "machine") {
+        return reject("forbidden", "only core records a write");
       }
       const call = tx.sql.get(
-        "select turn, state_seq from tool_calls where id = ?",
+        "select turn from tool_calls where id = ?",
         [input.tool_call],
       );
       if (call === undefined) {
         return reject("invalid_input", "tool call not found");
       }
-      if (String(call["turn"]) !== ctx.run) {
-        return reject("forbidden", "an agent records only for its own run");
+      if (String(call["turn"]) !== input.turn) {
+        return reject("invalid_input", "the tool call is of another turn");
       }
       const existing = tx.sql.get(
         `select checkpoint, before_exists, before_blob from rewind_files
@@ -158,18 +156,25 @@ export function createRecordRewindFile(): CommandDefinition<
             existing["before_blob"] !== null,
         }, true);
       }
-      // 기록은 run을 시작한 사람 메시지(checkpoint)에 붙는다.
+      const turn = tx.sql.get(
+        "select session, input_message, state from turns where id = ?",
+        [input.turn],
+      );
+      if (turn === undefined || String(turn["session"]) !== input.session) {
+        return reject("invalid_input", "turn not found in the session");
+      }
+      if (String(turn["state"]) !== "running") {
+        return reject("conflict", "the turn is finished");
+      }
       const owner = tx.sql.get(
-        `select c.message as message, c.session as session
-           from runs r join checkpoints c on c.message = r.source_message
-          where r.id = ?`,
-        [ctx.run],
+        "select message from checkpoints where message = ? and session = ?",
+        [String(turn["input_message"]), input.session],
       );
       if (owner === undefined) {
-        return reject("invalid_input", "the run has no checkpoint");
+        return reject("invalid_input", "the turn has no checkpoint");
       }
       const checkpoint = String(owner["message"]);
-      const session = String(owner["session"]);
+      const session = input.session;
 
       const before = input.before;
       let blob = before.blob;
@@ -183,16 +188,22 @@ export function createRecordRewindFile(): CommandDefinition<
           reason = "record_failed";
         }
       }
+      // 기록한 차례. 같은 경로의 기록 순서를 이 값이 정한다.
+      const next = tx.sql.get(
+        "select coalesce(max(seq), 0) + 1 as next from rewind_files",
+        [],
+      );
       tx.sql.run(
         `insert into rewind_files
-           (tool_call, path, checkpoint, seq, before_exists, before_sha256, before_blob,
+           (tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob,
             before_size, after_exists, after_sha256, moved_from, reverted_by)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)`,
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)`,
         [
           input.tool_call,
+          input.root,
           input.path,
           checkpoint,
-          Number(call["state_seq"]),
+          Number(next!["next"]),
           before.exists ? 1 : 0,
           before.sha256,
           blob,
@@ -212,11 +223,18 @@ export function createRecordRewindFile(): CommandDefinition<
   };
 }
 
+// runtime이 쓰기 직전과 직후에 부르는 길이다. session·turn은 부르는 turn의 것이어야 한다(agent 자격).
 export type RecorderPorts = {
-  store: Pick<RewindStore, "put">;
-  // project 폴더 기준 상대 경로의 지금 내용. 파일이 없으면 null.
-  read(path: string): Promise<Uint8Array | null>;
-  // RecordRewindFile command를 부른다(실행 중인 run의 agent 자격).
+  // core가 그 파일의 지금 내용을 읽어 pre-image로 session 저장소에 두고 before 상태를 돌려준다. 내용은 오가지
+  // 않는다. 허용 폴더가 아니거나 읽지 못하면 오류다.
+  stage(
+    input: { session: string; turn: string; root: string; path: string },
+  ): Promise<
+    Result<{ before: FileState; before_size_bytes: number | null }>
+  >;
+  // 쓴 직후 파일 내용. 파일이 없으면 null. root는 허용 폴더(절대 경로)고 path는 그 안의 상대 경로다.
+  read(root: string, path: string): Promise<Uint8Array | null>;
+  // 쓴 결과를 core에 기록한다(RecordRewindWrite).
   record(
     input: Input<typeof recordRewindFile>,
   ): Promise<Result<Output<typeof recordRewindFile>>>;
@@ -227,69 +245,63 @@ export type RecordedWrite = {
   recorded: boolean;
 };
 
-type Observed = { exists: false } | {
-  exists: true;
-  sha256: string;
-  size: number;
-  bytes: Uint8Array;
-};
+type After = { exists: false } | { exists: true; sha256: string };
 
 async function observe(
   read: RecorderPorts["read"],
+  root: string,
   path: string,
-): Promise<Observed | null> {
+): Promise<After | null> {
   try {
-    const bytes = await read(path);
+    const bytes = await read(root, path);
     if (bytes === null) return { exists: false };
     return {
       exists: true,
       sha256: createHash("sha256").update(bytes).digest("hex"),
-      size: bytes.length,
-      bytes,
     };
   } catch {
     return null;
   }
 }
 
-// 쓰기 직전에 before를 읽고 pre-image를 저장소에 두고, write()를 부르고, 쓴 직후에 after를 읽어
-// RecordRewindFile을 부른다. 기록이나 저장이 실패해도 쓰기는 막지 않는다. 쓰기 자체가 실패하면
-// 기록하지 않고 그 오류를 돌려준다. 이름 변경은 옛 경로(moved_from)의 내용을 before로 남긴다.
-// 파일을 읽지 못해 before나 after를 알 수 없으면 기록을 남기지 못한다(recorded=false). 이때도 쓰기는
-// 하고, 이 경로는 이후 판정에서 지금 hash가 기록과 맞지 않아 건너뛴다.
+// 쓰기 직전에 core가 before를 읽어 두게 하고, write()를 부르고, 쓴 직후에 after를 읽어 RecordRewindWrite를
+// 부른다. file tool(write, edit)이 쓰기 직전에 부른다. path는 허용 폴더(root) 안의 상대 경로(`Resolved`의
+// `root`와 `relative`)다. 기록이나 저장이 실패해도 쓰기는 막지 않는다. 쓰기 자체가 실패하면 기록하지 않고 그
+// 오류를 돌려준다. 이름 변경은 옛 경로(moved_from)의 내용을 before로 남긴다. 파일을 읽지 못해 before나
+// after를 알 수 없으면 기록을 남기지 못한다(recorded=false). 이때도 쓰기는 하고, 이 경로는 이후 판정에서 지금
+// hash가 기록과 맞지 않아 건너뛴다.
 export async function recordBeforeWrite(
   ports: RecorderPorts,
   write: {
     session: string;
+    turn: string;
     tool_call: string;
+    root: string;
     path: string;
     moved_from: string | null;
     run(): Promise<Result<void>>;
   },
 ): Promise<Result<RecordedWrite>> {
-  const before = await observe(ports.read, write.moved_from ?? write.path);
-  let blob: string | null = null;
-  if (
-    before?.exists === true && before.size <= REWIND_MAX_FILE_BYTES
-  ) {
-    try {
-      blob = (await ports.store.put(write.session, before.bytes)).key;
-    } catch {
-      // 저장소가 실패해도 쓰기를 막지 않는다. blob 없이 기록하면 command가 checkpoint를 낮춘다.
-      blob = null;
-    }
-  }
+  const staged = await ports.stage({
+    session: write.session,
+    turn: write.turn,
+    root: write.root,
+    path: write.moved_from ?? write.path,
+  }).catch(() => undefined);
   const written = await write.run();
   if (!written.ok) return written;
-  const after = await observe(ports.read, write.path);
-  if (before === null || after === null) return ok({ recorded: false });
+  const after = await observe(ports.read, write.root, write.path);
+  if (staged === undefined || !staged.ok || after === null) {
+    return ok({ recorded: false });
+  }
   const recorded = await ports.record({
+    session: write.session,
+    turn: write.turn,
     tool_call: write.tool_call,
+    root: write.root,
     path: write.path,
-    before: before.exists
-      ? { exists: true, sha256: before.sha256, blob }
-      : { exists: false, sha256: null, blob: null },
-    before_size_bytes: before.exists ? before.size : null,
+    before: staged.value.before,
+    before_size_bytes: staged.value.before_size_bytes,
     after: after.exists
       ? { exists: true, sha256: after.sha256 }
       : { exists: false, sha256: null },

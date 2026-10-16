@@ -6,20 +6,15 @@ import type { RewindStore } from "./store.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
-// row가 가리키는 저장물의 key다: 쓰기 직전 pre-image(`before_blob`)와, 아직 redo할 수 있는 rewind가 복원
-// 직전 내용을 둔 `redo_ref`. redo가 끝난(done·closed) 복원 직전 내용은 더 쓰지 않는다.
+// row가 가리키는 저장물의 key다: 쓰기 직전 pre-image(`before_blob`).
 export function liveStoreKeys(lookup: Lookup, session: string): Set<string> {
   const keys = new Set<string>();
   for (
     const row of lookup.sql.all(
       `select distinct f.before_blob as key
          from rewind_files f join checkpoints c on c.message = f.checkpoint
-        where c.session = ? and f.before_blob is not null
-       union
-       select distinct i.redo_ref as key
-         from revert_items i join reverts r on r.id = i.revert
-        where r.session = ? and r.redo = 'available' and i.redo_ref is not null`,
-      [session, session],
+        where c.session = ? and f.before_blob is not null`,
+      [session],
     )
   ) keys.add(String(row["key"]));
   return keys;
@@ -49,10 +44,11 @@ export async function sweepRewindStore(
   for (const session of await deps.store.sessions()) {
     try {
       const seen = deps.snapshot((lookup) => {
-        const row = lookup.sql.get("select state from sessions where id = ?", [
-          session,
-        ]);
-        return row?.["state"] === "open"
+        const row = lookup.sql.get(
+          "select lifecycle from sessions where id = ?",
+          [session],
+        );
+        return row?.["lifecycle"] === "open"
           ? { open: true as const, live: liveStoreKeys(lookup, session) }
           : { open: false as const };
       });

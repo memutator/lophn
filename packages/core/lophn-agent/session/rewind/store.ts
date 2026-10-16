@@ -11,7 +11,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
-// session 저장소(lophn-agent/revert "저장"). pre-image와 redo용 복원 직전 내용을 platform/blob-store가
+// session 저장소(lophn-agent/revert "저장"). pre-image를 platform/blob-store가
 // 아니라 data root 아래 session 단위 디렉터리(`<dataRoot>/rewind/<session>/`)에 sha256으로 주소를
 // 매겨 둔다. 같은 내용은 하나다. 쓰기는 임시 파일 → hash 확인 → 원자 설치다. 파일 일은 모두 async
 // API로 한다(core graph에 동기 file API를 들이지 않는다).

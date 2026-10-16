@@ -12,10 +12,6 @@ import {
   runCollectorWorker,
 } from "../../problems/reporting/worker/collector.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
-import {
-  REVERT_WORKER_KIND,
-  runRevertWorker,
-} from "../../apps/revert/worker/run.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -35,7 +31,6 @@ const WORKER_ENTRIES: Readonly<
     return runCollectorWorker();
   },
   "apps/data": runDataWorker,
-  [REVERT_WORKER_KIND]: runRevertWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

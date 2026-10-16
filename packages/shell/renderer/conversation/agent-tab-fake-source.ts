@@ -29,7 +29,7 @@ import {
   type PickerScenario,
   SOL,
   SONNET,
-} from "./testdata/model-picker.ts";
+} from "./agent-tab-fake-models.ts";
 import {
   ARCHIVE,
   COMMANDS_GROUP,
@@ -43,7 +43,7 @@ import {
   REPAIR_APP,
   SKILLS,
   SKILLS_GROUP,
-} from "./testdata/slash-menu.ts";
+} from "./agent-tab-fake-commands.ts";
 
 /** 고를 수 있는 장면. 이름은 wireframe의 Agent 탭 장면을 따른다. */
 export const AGENT_TAB_SCENES = [
@@ -90,6 +90,8 @@ const appId = (n: number) => fakeId("app", n);
 
 export const SESSION_MAIN = sessionId(1);
 export const SESSION_EARLIER = sessionId(2);
+/** 기록만 읽는 archive한 session. */
+export const SESSION_ARCHIVED = sessionId(3);
 
 const LOPHN: AgentFace = {
   role: "lophn",
@@ -876,6 +878,13 @@ export function createFakeAgentTabSource(
       activeAt: at(-2 * 24 * 60),
       archived: false,
     },
+    {
+      id: SESSION_ARCHIVED,
+      title: "Which docs are not linked",
+      status: "idle",
+      activeAt: at(-12 * 24 * 60),
+      archived: true,
+    },
   ];
   const threads = new Map<string, ThreadView>();
   if (options.scene !== "empty") {
@@ -887,6 +896,27 @@ export function createFakeAgentTabSource(
       pending: data.pending ?? EMPTY_THREAD.pending,
     });
     threads.set(SESSION_EARLIER, EMPTY_THREAD);
+    threads.set(SESSION_ARCHIVED, {
+      ...EMPTY_THREAD,
+      entries: [
+        user(30, -12 * 24 * 60, "Which folders in docs/ are not linked?"),
+        agent(31, -12 * 24 * 60 + 2),
+        {
+          kind: "turn-end",
+          id: "end-30",
+          at: at(-12 * 24 * 60 + 3),
+          turn: turnId(30),
+          outcome: "completed",
+          durationMs: 9_000,
+        },
+      ],
+      turn: { id: turnId(30), phase: "ended", startedAt: at(-12 * 24 * 60) },
+    });
+    bodies.set(messageId(31), [{
+      kind: "text",
+      text:
+        "Two: docs/drafts/ and docs/old-reports/. Nothing links to them and the newest file is from March.",
+    }]);
   }
   for (const entry of data.entries) {
     if (entry.kind === "message" && entry.text !== null) {
@@ -1159,11 +1189,6 @@ export function createFakeAgentTabSource(
     },
     archiveSession(session) {
       patchSession(session, { archived: true });
-      notify();
-      return DONE;
-    },
-    unarchiveSession(session) {
-      patchSession(session, { archived: false });
       notify();
       return DONE;
     },

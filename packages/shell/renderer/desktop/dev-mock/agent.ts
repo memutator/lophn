@@ -8,13 +8,6 @@ import type {
   AgentTabSource,
   AgentTabSourceFactory,
 } from "../../conversation/agent-tab-source.ts";
-import {
-  fakeAgentSource,
-  finishedReport,
-  SESSION_EARLIER,
-  SESSION_WEEK,
-} from "../../conversation/testdata/fake-agent-source.ts";
-import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
 
 export function mockAgentTabSource(
   scene: AgentTabScene = "report",
@@ -31,18 +24,5 @@ export function mockAgentTabSource(
   };
 }
 
-// 옛 Agent 화면(agent-view.tsx)이 아직 쓰는 통로. 화면이 새 통로로 갈아타면 지운다.
-export function mockAgentViewSource(): AgentViewSourceFactory {
-  const fakes = new Map<string, ReturnType<typeof fakeAgentSource>>();
-  return (agent) => {
-    const key = `${agent.assignment}:${agent.place.kind}:${agent.place.id}`;
-    let fake = fakes.get(key);
-    if (fake === undefined) {
-      fake = fakeAgentSource();
-      fake.state.sessions = [SESSION_WEEK, SESSION_EARLIER];
-      fake.state.threads[SESSION_WEEK.id] = finishedReport(fake);
-      fakes.set(key, fake);
-    }
-    return fake.source;
-  };
-}
+// `mod.ts`가 옛 이름으로 부른다. 호스트가 `mockAgentTabSource`로 갈아탄 뒤 cleanup이 지운다.
+export const mockAgentViewSource = mockAgentTabSource;

@@ -12,8 +12,6 @@ const sending = startSend({
   id: "msg_01h455vb4pex5v6nkc6gd5f001",
   key: "key-1",
   text: "Write the report.",
-  mode: "request",
-  run: null,
   delivery: "next_turn",
 });
 

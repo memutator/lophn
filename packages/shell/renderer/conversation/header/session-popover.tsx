@@ -1,13 +1,25 @@
-// 머리의 session popover 안쪽. 검색, Today·Earlier 목록, 줄 단추, Archived, New session.
-// popover가 열려 있는 동안만 mount되므로 검색어·이름 고치기·삭제 확인 같은 지역 상태는 닫으면 사라진다.
+// agent header의 session switcher. "[avatar] 이름 · session 제목 ▾"를 누르면 열리는 popover다.
+// 맨 위 검색, 그 agent의 session만(Today·Earlier), 줄에 hover하면 Rename·Archive·Delete, 기다리는 coding 맡기기,
+// 접어 둔 Archived, + New session. 이름 고치기는 줄이 input으로 바뀌고, 삭제는 줄 안 확인을 거친다.
+// session의 수명은 열림과 archive 둘이고 되살리는 단추는 없다. archive한 줄은 눌러 열면 기록만 읽을 수 있다.
 import {
   type KeyboardEvent,
   type MutableRefObject,
   type ReactElement,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { Button, Icon, IconButton, iconPixels } from "@lophn/design/components";
+import {
+  Avatar,
+  Button,
+  Icon,
+  IconButton,
+  iconPixels,
+  Popover,
+  VendorIcon,
+  vendorOf,
+} from "@lophn/design/components";
 import {
   editorIcons,
   launcherIcons,
@@ -16,10 +28,21 @@ import {
 } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
 
-import type { SessionGroup, SessionLine } from "./agent-header.tsx";
+import type {
+  AgentProfile,
+  SessionEntry,
+  SessionStatus,
+} from "../agent-tab-source.ts";
 import styles from "./session-popover.module.css";
 
-const GROUPS: readonly { group: SessionGroup; head: MessageKey }[] = [
+/** 그 앱의 줄에서 기다리는 coding 맡기기 하나. 앞 session이 끝나면 열린다. */
+export interface QueuedCodingView {
+  readonly id: string;
+  /** coding agent의 product 이름("Claude Code"). vendor 아이콘도 이 이름으로 고른다. */
+  readonly product: string;
+}
+
+const GROUPS: readonly { group: "today" | "earlier"; head: MessageKey }[] = [
   { group: "today", head: "common.label.range-today" },
   { group: "earlier", head: "conversation.label.group-earlier" },
 ];
@@ -51,27 +74,36 @@ export function sinceLabel(activeAt: string, now: Date): string {
   return t("conversation.label.since-now");
 }
 
-export interface SessionPopoverProps {
-  /** 머리의 agent 이름(검색칸 이름). */
-  agentName: string;
-  /** 이 agent의 session만 든 목록(archived 포함, 부르는 쪽 정렬 그대로). */
-  lines: readonly SessionLine[];
-  currentId: string;
-  now: Date;
-  onSwitch: (session: string) => void;
-  onNew: () => void;
-  onRename: (session: string, title: string) => void;
-  onArchive: (session: string) => void;
-  onUnarchive: (session: string) => void;
-  onDelete: (session: string) => void;
-  /**
-   * Escape·바깥 누름이 popover를 닫으려 할 때 부르는 쪽이 먼저 묻는다. 이름 고치기나 삭제 확인이 열려
-   * 있으면 그것만 접고 true를 돌려 popover는 남긴다.
-   */
-  dismiss: MutableRefObject<(() => boolean) | null>;
+/** 사용자 달력으로 오늘이면 Today, 아니면 Earlier다. */
+export function groupOf(activeAt: string, now: Date): "today" | "earlier" {
+  const day = (value: Date) =>
+    `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
+  return day(new Date(activeAt)) === day(now) ? "today" : "earlier";
 }
 
-function StatusDot({ status }: { status: SessionLine["status"] }) {
+const titleOf = (entry: Pick<SessionEntry, "title">): string =>
+  entry.title ?? t("conversation.label.session-untitled");
+
+export interface SessionSwitcherProps {
+  agent: { readonly name: string; readonly profile: AgentProfile };
+  /** 지금 보는 session. null은 아직 만들지 않은 새 session이다. */
+  current: { readonly id: string; readonly title: string | null } | null;
+  /** 그 agent의 session 전부(archive한 것 포함). 정렬은 여기서 한다. */
+  sessions: readonly SessionEntry[];
+  queuedCoding?: readonly QueuedCodingView[];
+  now: Date;
+  /** 줄을 눌렀다. popover는 닫힌다. archive한 줄이면 기록만 읽는 탭이 열린다. */
+  onSwitch: (session: string) => void;
+  /** [+ New session]. popover는 닫힌다. */
+  onNew: () => void;
+  /** 비지 않은 제목만 부른다. */
+  onRename: (session: string, title: string) => void;
+  onArchive: (session: string) => void;
+  /** 줄 안 확인의 Delete를 누른 뒤에만 부른다. */
+  onDelete: (session: string) => void;
+}
+
+function StatusDot({ status }: { status: SessionStatus }): ReactElement {
   if (status === "idle") {
     return <span className={styles.dot} aria-hidden="true" />;
   }
@@ -102,8 +134,73 @@ function moveBetweenRows(event: KeyboardEvent<HTMLElement>): void {
   }
 }
 
-export function SessionPopover(props: SessionPopoverProps): ReactElement {
-  const { agentName, lines, currentId, now, dismiss } = props;
+export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
+  const { agent, current } = props;
+  const [open, setOpen] = useState(false);
+  // 열린 popover가 Escape·바깥 누름을 먼저 받아 안쪽 편집만 접게 한다.
+  const dismiss = useRef<(() => boolean) | null>(null);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && dismiss.current?.()) return;
+        setOpen(next);
+      }}
+      placement="beside"
+      trigger={
+        <button
+          type="button"
+          className={styles.trigger}
+          aria-label={t("conversation.label.session-list", {
+            agent: agent.name,
+          })}
+        >
+          <AgentFace agent={agent} />
+          <span className={styles.title}>
+            {current === null
+              ? t("conversation.label.session-untitled")
+              : titleOf(current)}
+          </span>
+          <Icon icon={lophnSpaceIcons.collapse} pixels={iconPixels("small")} />
+        </button>
+      }
+    >
+      <Switcher
+        {...props}
+        dismiss={dismiss}
+        onSwitch={(id) => {
+          props.onSwitch(id);
+          setOpen(false);
+        }}
+        onNew={() => {
+          props.onNew();
+          setOpen(false);
+        }}
+      />
+    </Popover>
+  );
+}
+
+/** header 왼쪽의 "[avatar] 이름 ·". */
+export function AgentFace(
+  { agent }: { agent: SessionSwitcherProps["agent"] },
+): ReactElement {
+  return (
+    <>
+      <Avatar profile={agent.profile} size="md" />
+      <span className={styles.name}>{agent.name}</span>
+      <span className={styles.sep}>·</span>
+    </>
+  );
+}
+
+// popover가 열려 있는 동안만 mount되므로 검색어·이름 고치기·삭제 확인 같은 지역 상태는 닫으면 사라진다.
+function Switcher(
+  props: SessionSwitcherProps & {
+    dismiss: MutableRefObject<(() => boolean) | null>;
+  },
+): ReactElement {
+  const { agent, current, now, dismiss } = props;
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -122,39 +219,42 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
     };
   });
 
-  const needle = query.trim().toLowerCase();
-  const live = lines.filter((line) =>
-    !line.archived && line.title.toLowerCase().includes(needle)
+  const byRecent = [...props.sessions].sort((a, b) =>
+    b.activeAt.localeCompare(a.activeAt)
   );
-  const archived = lines.filter((line) => line.archived);
+  const needle = query.trim().toLowerCase();
+  const live = byRecent.filter((entry) =>
+    !entry.archived && titleOf(entry).toLowerCase().includes(needle)
+  );
+  const archived = byRecent.filter((entry) => entry.archived);
+  const queued = props.queuedCoding ?? [];
 
-  const startRename = (line: SessionLine) => {
+  const startRename = (entry: SessionEntry) => {
     setDeleting(null);
-    setDraft(line.title);
-    setEditing(line.id);
+    setDraft(titleOf(entry));
+    setEditing(entry.id);
   };
-  const save = (line: SessionLine) => {
+  const save = (entry: SessionEntry) => {
     const title = draft.trim();
     if (title === "") return;
-    props.onRename(line.id, title);
+    props.onRename(entry.id, title);
     setEditing(null);
   };
 
-  const row = (line: SessionLine) => {
-    if (editing === line.id) {
+  const row = (entry: SessionEntry) => {
+    const title = titleOf(entry);
+    if (editing === entry.id) {
       return (
-        <div key={line.id} className={styles.edit}>
+        <div key={entry.id} className={styles.edit}>
           <input
             className={styles.renameInput}
-            aria-label={t("conversation.label.rename-session", {
-              title: line.title,
-            })}
+            aria-label={t("conversation.label.rename-session", { title })}
             value={draft}
             autoFocus
             onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") save(line);
+              if (event.key === "Enter") save(entry);
               if (event.key === "Escape") {
                 event.stopPropagation();
                 setEditing(null);
@@ -165,7 +265,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             size="sm"
             variant="primary"
             disabled={draft.trim() === ""}
-            onClick={() => save(line)}
+            onClick={() => save(entry)}
           >
             {t("conversation.button.save")}
           </Button>
@@ -175,18 +275,16 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         </div>
       );
     }
-    if (deleting === line.id) {
+    if (deleting === entry.id) {
       return (
         <div
-          key={line.id}
+          key={entry.id}
           className={styles.confirm}
           role="alertdialog"
-          aria-label={t("conversation.label.delete-session", {
-            title: line.title,
-          })}
+          aria-label={t("conversation.label.delete-session", { title })}
         >
           <p className={styles.confirmText}>
-            {t("conversation.body.delete-session", { title: line.title })}
+            {t("conversation.body.delete-session", { title })}
           </p>
           <div className={styles.confirmActions}>
             <Button
@@ -194,7 +292,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
               variant="danger"
               autoFocus
               onClick={() => {
-                props.onDelete(line.id);
+                props.onDelete(entry.id);
                 setDeleting(null);
               }}
             >
@@ -207,32 +305,30 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         </div>
       );
     }
-    const current = line.id === currentId;
+    const here = entry.id === current?.id;
     return (
       <div
-        key={line.id}
+        key={entry.id}
         role="option"
-        data-session={line.id}
-        aria-selected={current}
+        data-session={entry.id}
+        aria-selected={here}
         tabIndex={0}
         className={styles.row}
-        onClick={() => props.onSwitch(line.id)}
+        onClick={() => props.onSwitch(entry.id)}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            props.onSwitch(line.id);
+            props.onSwitch(entry.id);
           }
           moveBetweenRows(event);
         }}
       >
-        <span className={styles.check} data-check>{current ? "✓" : ""}</span>
-        <StatusDot status={line.status} />
-        <span className={styles.sessionTitle} data-session-title>
-          {line.title}
-        </span>
+        <span className={styles.check} data-check>{here ? "✓" : ""}</span>
+        <StatusDot status={entry.status} />
+        <span className={styles.sessionTitle} data-session-title>{title}</span>
         <span className={styles.when} data-session-when>
-          {sinceLabel(line.activeAt, now)}
+          {sinceLabel(entry.activeAt, now)}
         </span>
         <span className={styles.actions}>
           <IconButton
@@ -241,7 +337,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              startRename(line);
+              startRename(entry);
             }}
           />
           <IconButton
@@ -250,7 +346,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              props.onArchive(line.id);
+              props.onArchive(entry.id);
             }}
           />
           <IconButton
@@ -260,7 +356,7 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             onClick={(event) => {
               event.stopPropagation();
               setEditing(null);
-              setDeleting(line.id);
+              setDeleting(entry.id);
             }}
           />
         </span>
@@ -275,10 +371,10 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         <input
           className={styles.searchInput}
           aria-label={t("conversation.label.search-sessions", {
-            agent: agentName,
+            agent: agent.name,
           })}
           placeholder={t("conversation.label.search-sessions", {
-            agent: agentName,
+            agent: agent.name,
           })}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -287,8 +383,37 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
       <div
         className={styles.list}
         role="listbox"
-        aria-label={t("conversation.label.session-list", { agent: agentName })}
+        aria-label={t("conversation.label.session-list", {
+          agent: agent.name,
+        })}
       >
+        {queued.length === 0 ? null : (
+          <div
+            role="group"
+            aria-label={t("conversation.label.coding-queued")}
+          >
+            <p className={styles.groupHead} data-session-group>
+              {t("conversation.label.coding-queued")}
+            </p>
+            {queued.map((item) => {
+              const vendor = vendorOf(item.product);
+              return (
+                <div
+                  key={item.id}
+                  className={styles.queued}
+                  data-queued-coding
+                >
+                  <span className={styles.queuedIcon}>
+                    {vendor === undefined
+                      ? null
+                      : <VendorIcon vendor={vendor} />}
+                  </span>
+                  <span className={styles.sessionTitle}>{item.product}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {live.length === 0
           ? (
             <p className={styles.noMatch} data-no-match>
@@ -296,7 +421,9 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
             </p>
           )
           : GROUPS.map(({ group, head }) => {
-            const inGroup = live.filter((line) => line.group === group);
+            const inGroup = live.filter((entry) =>
+              groupOf(entry.activeAt, now) === group
+            );
             if (inGroup.length === 0) return null;
             return (
               <div key={group} role="group" aria-label={t(head)}>
@@ -327,22 +454,24 @@ export function SessionPopover(props: SessionPopoverProps): ReactElement {
         )}
         {showArchived && (
           <ul className={styles.archivedList}>
-            {archived.map((line) => (
-              <li
-                key={line.id}
-                className={styles.archivedItem}
-                data-archived-session={line.id}
-              >
-                <span className={styles.sessionTitle} data-session-title>
-                  {line.title}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => props.onUnarchive(line.id)}
+            {archived.map((entry) => (
+              <li key={entry.id} data-archived-session={entry.id}>
+                <button
+                  type="button"
+                  className={styles.archivedItem}
+                  aria-label={t("conversation.label.read-session", {
+                    title: titleOf(entry),
+                  })}
+                  onClick={() =>
+                    props.onSwitch(entry.id)}
                 >
-                  {t("conversation.button.restore")}
-                </Button>
+                  <span className={styles.sessionTitle} data-session-title>
+                    {titleOf(entry)}
+                  </span>
+                  <span className={styles.when}>
+                    {sinceLabel(entry.activeAt, now)}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

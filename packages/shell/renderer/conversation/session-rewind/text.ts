@@ -1,8 +1,8 @@
 // 되돌리기 화면의 고정 글. 이유는 글이 아니라 고정 코드(contracts rewindReasonSchema)라 코드로 문장을 고른다.
-// rewind menu(대화)와 확인 창이 같은 문장을 쓴다. 모르는 코드는 문장을 지어내지 않고 null이다.
+// rewind panel과 숨긴 구간 줄이 같은 문장을 쓴다. 모르는 코드는 문장을 지어내지 않고 null이다.
 import { t } from "@lophn/wording";
 
-import type { RewindBlock, RewindItemView } from "../agent-source.ts";
+import type { RewindResultView } from "../agent-tab-source.ts";
 
 /** 이유 코드의 문장. 모르는 코드면 null이다. */
 export function reasonText(code: string | null): string | null {
@@ -50,7 +50,7 @@ export function reasonText(code: string | null): string | null {
 
 /** 항목의 이름: 파일은 경로, 앱 변경과 남는 사실은 종류의 말이다(안쪽 ID는 보이지 않는다). */
 export function itemLabel(
-  item: Pick<RewindItemView, "kind" | "target">,
+  item: Pick<RewindResultView, "kind" | "target">,
 ): string {
   if (item.kind === "file") return item.target;
   if (item.kind === "app") return t("conversation.label.rewind-item-app");
@@ -63,23 +63,5 @@ export function itemLabel(
       return t("conversation.label.rewind-item-approval");
     default:
       return t("conversation.label.rewind-item-fact");
-  }
-}
-
-/** 선택지를 고르지 못하는 이유의 문장. */
-export function blockText(block: RewindBlock): string {
-  switch (block) {
-    case "correction":
-      return t("conversation.rewind-block.correction");
-    case "copied":
-      return t("conversation.rewind-block.copied");
-    case "limit_total":
-      return t("conversation.rewind-block.limit-total");
-    case "limit_file":
-      return t("conversation.rewind-block.limit-file");
-    case "limit_count":
-      return t("conversation.rewind-block.limit-count");
-    case "record_failed":
-      return t("conversation.rewind-block.record-failed");
   }
 }

@@ -1,18 +1,21 @@
-/* 승인 카드. composer 바로 위에 붙고 대화 끝에서 늘 보인다. */
+/* composer 위 승인 카드와 결정 뒤 대화에 남는 줄. */
 .card {
   box-sizing: border-box;
   display: flex;
-  flex: none;
   flex-direction: column;
-  margin: var(--space-0) var(--space-6) var(--space-4);
+  max-height: calc(var(--space-12) * 8);
+  min-width: var(--space-0);
   border: var(--border-width) solid var(--color-border-base);
   border-radius: var(--radius-lg);
   background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
   overflow: hidden;
 }
 
-.summary {
-  min-height: 0;
+.approval {
   padding: var(--space-5) var(--space-5) var(--space-3);
   overflow: auto;
 }
@@ -21,8 +24,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin: var(--space-0);
+  margin: var(--space-0) var(--space-0) var(--space-4);
   font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
 }
 
 .title svg {
@@ -30,14 +34,24 @@
   color: var(--status-warning-icon);
 }
 
-.reason {
-  margin: var(--space-2) var(--space-0) var(--space-4);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-0);
 }
 
-.preview {
+.facts dt {
+  color: var(--color-text-muted);
+}
+
+.facts dd {
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.pre {
   margin: var(--space-0);
   padding: var(--space-3) var(--space-4);
   overflow: auto;
@@ -49,38 +63,64 @@
   line-height: var(--type-small-line);
 }
 
-.add {
-  color: var(--status-good-text);
+.reasonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-0) var(--space-5);
 }
 
-.remove {
-  color: var(--status-critical-text);
+.reasonInput {
+  flex: 1;
+  min-width: var(--space-0);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
 }
 
-.context {
-  color: var(--color-text-secondary);
-}
-
-.actions {
+.foot {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: flex-end;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-5) var(--space-4);
 }
 
-.split {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-
-.deny {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.escHint {
+.note {
+  flex: 1;
+  min-width: var(--space-0);
+  margin: var(--space-0);
   color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
+}
+
+.error {
+  color: var(--status-critical-text);
+}
+
+.result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.resultTitle {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.resultDetail {
+  flex-basis: 100%;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
 }

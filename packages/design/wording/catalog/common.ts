@@ -90,17 +90,8 @@ export const common = {
   "contexts.label.frame-chip": "Context",
   "contexts.label.rail-contexts": "Contexts",
   "contexts.label.rail-search": "Search",
-  "conversation.label.document": "Document",
-  "conversation.label.rewind-remain": "Stays as it is",
-  "conversation.label.rewind-restore": "Will be restored",
-  "conversation.label.rewind-skip": "Will be skipped",
   "conversation.notice.provider-lost":
     "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
-  "conversation.rewind.note":
-    "Changes made outside this session are not restored.",
-  "conversation.rewind.redo-no": "This can't be redone.",
-  "conversation.rewind.redo-yes":
-    "You can redo this until you send your next message.",
   "document.button.check-again": "Check again",
   "document.button.read": "Read",
   "document.diff.identical": "These versions are identical.",

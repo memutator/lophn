@@ -43,7 +43,6 @@ import {
   readPermissions,
   readSessions,
   renameSessionTo,
-  unarchiveSessionOf,
 } from "./agent-tab-core-source-sessions.ts";
 import {
   createThreadMemo,
@@ -126,7 +125,6 @@ function createSource(
     },
     renameSession: (session, title) => renameSessionTo(env, session, title),
     archiveSession: (session) => archiveSessionOf(env, session),
-    unarchiveSession: () => unarchiveSessionOf(),
     deleteSession: (session) => deleteSessionOf(env, session),
     forkSession: (input) => forkSessionOf(env, input),
     compactSession: (session) => compactSessionOf(env, session),

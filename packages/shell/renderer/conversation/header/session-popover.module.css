@@ -1,4 +1,4 @@
-/* 머리의 session popover. 검색, 그 agent의 session(Today·Earlier), Archived, New session. */
+/* 머리의 session switcher. 검색, 그 agent의 session(Today·Earlier), 기다리는 coding 맡기기, Archived, New session. */
 .switcher {
   box-sizing: border-box;
   display: flex;
@@ -203,9 +203,88 @@
 }
 
 .archivedItem {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-6);
+  width: 100%;
+  height: var(--menu-row);
+  padding: var(--space-0) var(--space-4) var(--space-0) var(--space-6);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.archivedItem:hover,
+.archivedItem:focus-visible {
+  background: var(--floating-hover);
+  outline: none;
+}
+
+/* 앱의 줄에서 기다리는 coding 맡기기. session이 아니라 눌러도 열리지 않는다. */
+.queued {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--menu-row);
+  padding: var(--space-0) var(--space-4) var(--space-0) var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+.queuedIcon {
+  display: inline-flex;
+  flex: none;
+  width: var(--space-5);
+  justify-content: center;
+}
+
+/* header의 "[avatar] 이름 · 제목 ▾" 단추 */
+.trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  cursor: pointer;
+}
+
+.trigger:hover,
+.trigger[data-state="open"] {
+  background: var(--color-surface-muted);
+}
+
+.trigger:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.name {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.sep {
+  color: var(--color-text-muted);
+}
+
+.title {
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

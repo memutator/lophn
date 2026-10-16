@@ -18,38 +18,10 @@ export type ProjectPlaceholders = {
   "app-panel.notice.no-version": Record<never, never>;
   "app-panel.notice.not-panel": Record<never, never>;
   "app-panel.title.choose": Record<never, never>;
-  "conversation.button.save-visual": Record<never, never>;
-  "conversation.button.visual-read-description": Record<never, never>;
-  "conversation.empty.visual-no-data": Record<never, never>;
-  "conversation.label.visual-axes": {
-    y: "string";
-    x: "string";
-  };
-  "conversation.label.visual-document-unavailable": Record<never, never>;
-  "conversation.label.visual-no": Record<never, never>;
-  "conversation.label.visual-observed": {
-    at: "string";
-  };
-  "conversation.label.visual-saved": Record<never, never>;
-  "conversation.label.visual-source-app": {
-    command: "string";
-  };
-  "conversation.label.visual-source-estimate": {
-    label: "string";
-  };
-  "conversation.label.visual-sources": Record<never, never>;
   "conversation.label.visual-untitled": Record<never, never>;
-  "conversation.label.visual-yes": Record<never, never>;
   "conversation.notice.visual-app-card": Record<never, never>;
-  "conversation.notice.visual-as-table": Record<never, never>;
-  "conversation.notice.visual-not-saved": Record<never, never>;
-  "conversation.notice.visual-save-failed": Record<never, never>;
-  "conversation.notice.visual-save-requested": Record<never, never>;
-  "conversation.notice.visual-save-sending": Record<never, never>;
   "conversation.notice.visual-unavailable-drawing": Record<never, never>;
   "conversation.notice.visual-unavailable-kind": Record<never, never>;
-  "conversation.notice.visual-unavailable-markup": Record<never, never>;
-  "conversation.notice.visual-unavailable-shape": Record<never, never>;
   "conversation.placeholder.new-context": Record<never, never>;
   "document.button.check-task": Record<never, never>;
   "document.button.compare": Record<never, never>;

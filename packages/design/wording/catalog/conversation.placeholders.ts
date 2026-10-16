@@ -5,18 +5,12 @@ export type ConversationPlaceholders = {
   "conversation.body.delete-session": {
     title: "string";
   };
-  "conversation.body.save-visual-request": {
-    title: "string";
-    block: "string";
-    message: "string";
-  };
   "conversation.body.skill-command-request": {
     skill: "string";
   };
   "conversation.button.approval-allow": Record<never, never>;
   "conversation.button.approval-allow-always": Record<never, never>;
   "conversation.button.approval-allow-once": Record<never, never>;
-  "conversation.button.approval-allow-scope": Record<never, never>;
   "conversation.button.approval-allow-session": Record<never, never>;
   "conversation.button.approval-deny": Record<never, never>;
   "conversation.button.archive": Record<never, never>;
@@ -27,11 +21,8 @@ export type ConversationPlaceholders = {
   "conversation.button.call-cancel": Record<never, never>;
   "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
-  "conversation.button.check-result": Record<never, never>;
-  "conversation.button.close-tab": Record<never, never>;
   "conversation.button.delete": Record<never, never>;
   "conversation.button.edit-open": Record<never, never>;
-  "conversation.button.edit-undo": Record<never, never>;
   "conversation.button.favorite-add": {
     model: "string";
   };
@@ -51,11 +42,9 @@ export type ConversationPlaceholders = {
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
   "conversation.button.recap-dismiss": Record<never, never>;
-  "conversation.button.redo": Record<never, never>;
   "conversation.button.remove-context": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
-  "conversation.button.restore": Record<never, never>;
   "conversation.button.retry": Record<never, never>;
   "conversation.button.rewind": Record<never, never>;
   "conversation.button.rewind-go": Record<never, never>;
@@ -66,9 +55,6 @@ export type ConversationPlaceholders = {
   "conversation.button.session-new": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
-  "conversation.button.summarize-go": Record<never, never>;
-  "conversation.button.summarizing": Record<never, never>;
-  "conversation.button.usage": Record<never, never>;
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.error.action-failed": Record<never, never>;
@@ -89,9 +75,7 @@ export type ConversationPlaceholders = {
   "conversation.label.approval-effect-external": Record<never, never>;
   "conversation.label.approval-effect-read": Record<never, never>;
   "conversation.label.approval-effect-write": Record<never, never>;
-  "conversation.label.approval-esc": Record<never, never>;
   "conversation.label.approval-input": Record<never, never>;
-  "conversation.label.approval-preview": Record<never, never>;
   "conversation.label.approval-reason": Record<never, never>;
   "conversation.label.approval-reason-given": {
     reason: "string";
@@ -119,7 +103,6 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.approval-target-other": Record<never, never>;
   "conversation.label.archived": Record<never, never>;
-  "conversation.label.author-check": Record<never, never>;
   "conversation.label.call-answered": Record<never, never>;
   "conversation.label.call-cancelled": Record<never, never>;
   "conversation.label.call-delivered": Record<never, never>;
@@ -131,14 +114,11 @@ export type ConversationPlaceholders = {
   "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
-  "conversation.label.correction": Record<never, never>;
   "conversation.label.delete-session": {
     title: "string";
   };
-  "conversation.label.delivery-applied": Record<never, never>;
   "conversation.label.delivery-not-sent": Record<never, never>;
   "conversation.label.delivery-received": Record<never, never>;
-  "conversation.label.delivery-saved": Record<never, never>;
   "conversation.label.delivery-sending": Record<never, never>;
   "conversation.label.delivery-unconfirmed": Record<never, never>;
   "conversation.label.duration-days-hours": {
@@ -160,7 +140,6 @@ export type ConversationPlaceholders = {
     seconds: "number";
   };
   "conversation.label.edit-made": Record<never, never>;
-  "conversation.label.edit-undone": Record<never, never>;
   "conversation.label.evidence-annotation": Record<never, never>;
   "conversation.label.evidence-file": Record<never, never>;
   "conversation.label.evidence-problem": Record<never, never>;
@@ -268,13 +247,9 @@ export type ConversationPlaceholders = {
   "conversation.label.rewind-item-external": Record<never, never>;
   "conversation.label.rewind-item-fact": Record<never, never>;
   "conversation.label.rewind-loading": Record<never, never>;
-  "conversation.label.rewind-messages-only": Record<never, never>;
   "conversation.label.rewind-others": Record<never, never>;
   "conversation.label.rewind-outside": Record<never, never>;
-  "conversation.label.rewind-point": Record<never, never>;
   "conversation.label.rewind-quote": Record<never, never>;
-  "conversation.label.rewind-restore-all": Record<never, never>;
-  "conversation.label.rewind-summarize": Record<never, never>;
   "conversation.label.rewind-summary-apps": {
     apps: "string";
   };
@@ -288,9 +263,6 @@ export type ConversationPlaceholders = {
   "conversation.label.search-sessions": {
     agent: "string";
   };
-  "conversation.label.send-correction": Record<never, never>;
-  "conversation.label.send-mode": Record<never, never>;
-  "conversation.label.send-request": Record<never, never>;
   "conversation.label.sender-agent-named": {
     role: "string";
     name: "string";
@@ -349,7 +321,6 @@ export type ConversationPlaceholders = {
   "conversation.label.worked-for": {
     duration: "string";
   };
-  "conversation.notice.agent-paused": Record<never, never>;
   "conversation.notice.answer-failed": Record<never, never>;
   "conversation.notice.approval-paused": {
     agent: "string";
@@ -372,19 +343,6 @@ export type ConversationPlaceholders = {
     to: "string";
   };
   "conversation.notice.decide-failed": Record<never, never>;
-  "conversation.notice.ended": Record<never, never>;
-  "conversation.notice.external-failed": {
-    connection: "string";
-  };
-  "conversation.notice.external-retry-at": {
-    when: "string";
-  };
-  "conversation.notice.external-unknown": {
-    connection: "string";
-  };
-  "conversation.notice.external-waiting": {
-    connection: "string";
-  };
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.no-model-options": Record<never, never>;
   "conversation.notice.no-models": Record<never, never>;
@@ -424,12 +382,6 @@ export type ConversationPlaceholders = {
   "conversation.placeholder.ask": {
     agent: "string";
   };
-  "conversation.rewind-block.copied": Record<never, never>;
-  "conversation.rewind-block.correction": Record<never, never>;
-  "conversation.rewind-block.limit-count": Record<never, never>;
-  "conversation.rewind-block.limit-file": Record<never, never>;
-  "conversation.rewind-block.limit-total": Record<never, never>;
-  "conversation.rewind-block.record-failed": Record<never, never>;
   "conversation.rewind-why.already-reverted": Record<never, never>;
   "conversation.rewind-why.answered-fact": Record<never, never>;
   "conversation.rewind-why.app-failed": Record<never, never>;
@@ -448,9 +400,6 @@ export type ConversationPlaceholders = {
   "conversation.rewind-why.no-revert-command": Record<never, never>;
   "conversation.rewind-why.rename-blocked": Record<never, never>;
   "conversation.rewind-why.unknown": Record<never, never>;
-  "conversation.rewind.hint-messages-only": Record<never, never>;
-  "conversation.rewind.hint-restore-all": Record<never, never>;
-  "conversation.rewind.hint-summarize": Record<never, never>;
   "conversation.rewind.preview-failed": Record<never, never>;
   "conversation.rewind.result-left": {
     restored: "plural";
@@ -461,7 +410,6 @@ export type ConversationPlaceholders = {
   };
   "conversation.rewind.running": Record<never, never>;
   "conversation.rewind.start-failed": Record<never, never>;
-  "conversation.rewind.summary-failed": Record<never, never>;
   "conversation.title.approval-change": {
     agent: "string";
   };
@@ -472,7 +420,6 @@ export type ConversationPlaceholders = {
   "conversation.title.call-handed": {
     to: "string";
   };
-  "conversation.title.new-session": Record<never, never>;
   "conversation.title.permissions": {
     agent: "string";
   };

@@ -8,9 +8,8 @@ import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
-import type { Ticks } from "../../conversation/agent-view-data.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
-import type { ContextLinks } from "../../conversation/result-links.tsx";
+import type { ContextLinks } from "../../conversation/file-links.tsx";
 import type { ReadPosition } from "./kind.ts";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -58,7 +57,6 @@ export interface AgentViewSlice {
   readonly factory: AgentViewSourceFactory;
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   readonly drafts: DraftStore;
-  readonly ticks?: Ticks;
   readonly now?: () => number;
   /** 결과 링크와 편집 카드의 [Open]이 그 문서 탭을 연다. */
   openResult(document: string, version: string | null): void;

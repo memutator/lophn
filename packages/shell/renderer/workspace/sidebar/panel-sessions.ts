@@ -42,18 +42,26 @@ function agentRow(
   return undefined;
 }
 
+/** 대화 source(`AgentTabSource.sessions()`)가 읽은 session의 제목과 마지막 활동 시각(epoch ms). */
+export type KnownSessions = ReadonlyMap<
+  string,
+  { readonly title: string | null; readonly at: number }
+>;
+
 export function panelSessions(
   entries: readonly SessionEntry[],
   agents: readonly SidebarAgent[],
   project: string,
+  known: KnownSessions = new Map(),
 ): PanelSession[] {
   return entries.flatMap((entry) => {
     const row = agentRow(entry, agents, project);
     if (row === undefined) return [];
+    // session store는 제목과 시각을 싣지 않는다. 대화 source가 읽어 준 것이 있으면 그것을 쓴다.
+    const read = known.get(entry.session);
     return [{
       id: entry.session,
-      // session store는 제목과 시각을 싣지 않는다. 제목은 대화가 읽은 뒤에 알 수 있다.
-      title: t("conversation.label.session-untitled"),
+      title: read?.title ?? t("conversation.label.session-untitled"),
       agent: row.assignment,
       status: entry.state === "waiting"
         ? "waiting"
@@ -61,7 +69,7 @@ export function panelSessions(
         ? "working"
         : "idle",
       open: entry.ended === null,
-      at: 0,
+      at: read?.at ?? 0,
     }];
   });
 }

@@ -11,12 +11,6 @@
   font-family: var(--font-sans);
 }
 
-.tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .stale,
 .problem,
 .notice {
@@ -72,7 +66,28 @@
   line-height: var(--type-small-line);
 }
 
-/* 대화 아래에 붙어 있는 것: 안내 줄, 승인 카드, composer. 대화가 scroll해도 늘 보인다. */
+/* 대화 줄과 그 위에 하나만 여는 panel(rewind·권한·recap) 층. */
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+.layer {
+  position: absolute;
+  inset: var(--space-0);
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--space-4) var(--layout-pane-padding-wide);
+  background: var(--color-surface-subtle);
+  overflow: auto;
+}
+
+/* 대화 아래에 붙어 있는 것: 질문·승인 카드, 다음 turn 줄, composer. 대화가 scroll해도 늘 보인다. */
 .bottom {
   display: flex;
   flex: none;

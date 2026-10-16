@@ -1,4 +1,4 @@
-/* Agent 탭의 composer. 입력칸(chip 줄·글·아래 줄)과 그 밖 아래 줄(자리·권한 요약)이다. */
+/* Agent 탭의 composer. 입력칸(chip 줄·글·안내·아래 줄)과 그 밖 아래 줄(자리·권한 요약)이다. */
 .composer {
   box-sizing: border-box;
   display: flex;
@@ -68,6 +68,13 @@
   line-height: var(--type-small-line);
 }
 
+.chipDetail {
+  min-width: var(--space-0);
+  padding: var(--space-1) var(--space-0);
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+}
+
 .chipText {
   min-width: var(--space-0);
   padding: var(--space-1) var(--space-0);
@@ -108,18 +115,12 @@
   flex: 1;
 }
 
-.sendMode {
-  flex: none;
-}
-
-/* Select는 Field 라벨이 있어야 해서 라벨을 두되 눈에는 보이지 않게 한다. */
-.sendMode label {
-  position: absolute;
-  width: var(--border-width);
-  height: var(--border-width);
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+/* 일하는 중 보낸 메시지가 다음 turn을 기다린다는 안내 */
+.working {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
 }
 
 .scope {
@@ -136,4 +137,19 @@
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--control-sm-height);
+}
+
+/* archive된 session은 입력칸 없이 안내만 둔다. */
+.readOnly {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
 }

@@ -448,9 +448,6 @@ export function Workspace(props: WorkspaceProps) {
     : {
       factory: agentViewSource,
       drafts: conversation?.drafts ?? localDrafts,
-      ...(conversation?.ticks === undefined
-        ? {}
-        : { ticks: conversation.ticks }),
       ...(conversation?.now === undefined ? {} : { now: conversation.now }),
       openResult: (document) => {
         if (document.startsWith("/")) openFile(host, document);

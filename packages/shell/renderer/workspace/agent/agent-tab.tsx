@@ -12,10 +12,10 @@ import type { AgentViewSlice } from "../kinds/host.ts";
 import styles from "./agent-tab.module.css";
 
 export interface AgentTabProps {
-  /** `asg_…` */
+  /** agent id. Operator는 `agt_…`이고, 나머지는 place가 정체성이다. */
   agent: string;
-  /** 탭을 연 project. agent의 자리다. */
-  place: string;
+  /** 탭을 연 project. agent의 자리다. lophn은 자리가 없어 null이다. */
+  place: string | null;
   slice: AgentViewSlice;
   session: string | null;
   onSession: (session: string | null) => void;
@@ -34,7 +34,9 @@ export function AgentTab(props: AgentTabProps) {
     () =>
       slice.factory({
         assignment: agent,
-        place: { kind: "project", id: place },
+        place: place === null
+          ? { kind: "global", id: "" }
+          : { kind: "project", id: place },
       }),
     [slice.factory, agent, place],
   );
@@ -60,7 +62,6 @@ export function AgentTab(props: AgentTabProps) {
       host={props.host}
       {...(props.chips === undefined ? {} : { contextChips: props.chips })}
       {...(props.hint === undefined ? {} : { hint: props.hint })}
-      {...(slice.ticks === undefined ? {} : { ticks: slice.ticks })}
       {...(slice.now === undefined ? {} : { now: slice.now })}
     />
   );

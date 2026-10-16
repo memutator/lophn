@@ -1,14 +1,11 @@
 export const conversation = {
   "conversation.body.delete-session":
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
-  "conversation.body.save-visual-request":
-    "Save the visual “{title}” (block {block} in message {message}) as a document.",
   "conversation.body.skill-command-request":
     'Use the "{skill}" skill for this request.',
   "conversation.button.approval-allow": "Allow",
   "conversation.button.approval-allow-always": "Always allow",
   "conversation.button.approval-allow-once": "Allow once",
-  "conversation.button.approval-allow-scope": "Allow scope",
   "conversation.button.approval-allow-session": "Allow for this session",
   "conversation.button.approval-deny": "Deny",
   "conversation.button.archive": "Archive",
@@ -17,11 +14,8 @@ export const conversation = {
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.check-delivery": "Check whether it arrived",
-  "conversation.button.check-result": "Check the result",
-  "conversation.button.close-tab": "Close tab",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
-  "conversation.button.edit-undo": "Undo",
   "conversation.button.favorite-add": "Add {model} to favorites",
   "conversation.button.favorite-remove": "Remove {model} from favorites",
   "conversation.button.fork": "Fork",
@@ -37,11 +31,9 @@ export const conversation = {
   "conversation.button.question-submit": "Submit",
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.recap-dismiss": "Dismiss",
-  "conversation.button.redo": "Redo",
   "conversation.button.remove-context": "Remove context",
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
-  "conversation.button.restore": "Restore",
   "conversation.button.retry": "Retry",
   "conversation.button.rewind": "Rewind…",
   "conversation.button.rewind-go": "Rewind",
@@ -52,9 +44,6 @@ export const conversation = {
   "conversation.button.session-new": "New session",
   "conversation.button.show-all-results": "Show all results",
   "conversation.button.stop": "Stop",
-  "conversation.button.summarize-go": "Summarize",
-  "conversation.button.summarizing": "Summarizing…",
-  "conversation.button.usage": "Usage",
   "conversation.empty.no-agent": "lophn isn't set up for conversations yet.",
   "conversation.empty.no-messages":
     "Nothing here yet. Write what you need below.",
@@ -77,9 +66,7 @@ export const conversation = {
   "conversation.label.approval-effect-external": "Reaches outside lophn",
   "conversation.label.approval-effect-read": "Reads data",
   "conversation.label.approval-effect-write": "Changes data",
-  "conversation.label.approval-esc": "Esc",
   "conversation.label.approval-input": "Input",
-  "conversation.label.approval-preview": "Preview",
   "conversation.label.approval-reason": "Reason for denying",
   "conversation.label.approval-reason-given": "Reason: {reason}",
   "conversation.label.approval-reason-placeholder":
@@ -99,7 +86,6 @@ export const conversation = {
   "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
   "conversation.label.approval-target-other": "Other request",
   "conversation.label.archived": "Archived",
-  "conversation.label.author-check": "Checked by lophn",
   "conversation.label.call-answered": "Answered",
   "conversation.label.call-cancelled": "Cancelled",
   "conversation.label.call-delivered": "Delivered",
@@ -111,12 +97,9 @@ export const conversation = {
   "conversation.label.call-working-together": "Working together",
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
-  "conversation.label.correction": "Change",
   "conversation.label.delete-session": "Delete {title}",
-  "conversation.label.delivery-applied": "Taken into account",
   "conversation.label.delivery-not-sent": "Not sent",
   "conversation.label.delivery-received": "Received",
-  "conversation.label.delivery-saved": "Saved, not started",
   "conversation.label.delivery-sending": "Sending",
   "conversation.label.delivery-unconfirmed": "Not confirmed",
   "conversation.label.duration-days-hours": "{days, number}d {hours, number}h",
@@ -127,7 +110,6 @@ export const conversation = {
     "{minutes, number}m {seconds, number}s",
   "conversation.label.duration-seconds": "{seconds, number}s",
   "conversation.label.edit-made": "Edited",
-  "conversation.label.edit-undone": "Undid the edit to",
   "conversation.label.evidence-annotation": "Annotation",
   "conversation.label.evidence-file": "File",
   "conversation.label.evidence-problem": "Problem",
@@ -201,14 +183,10 @@ export const conversation = {
   "conversation.label.rewind-item-external": "A request that already went out",
   "conversation.label.rewind-item-fact": "Something that already happened",
   "conversation.label.rewind-loading": "Checking what would change…",
-  "conversation.label.rewind-messages-only": "Restore messages only",
   "conversation.label.rewind-others":
     "Also goes back, though this session did not do it",
   "conversation.label.rewind-outside": "Stays as it is, outside lophn",
-  "conversation.label.rewind-point": "Rewind to",
   "conversation.label.rewind-quote": "Rewind to this message",
-  "conversation.label.rewind-restore-all": "Restore messages and documents",
-  "conversation.label.rewind-summarize": "Summarize from here",
   "conversation.label.rewind-summary-apps": "Conversation, files and {apps}",
   "conversation.label.rewind-summary-files": "Conversation and files only",
   "conversation.label.rewind-summary-messages": "Conversation only",
@@ -216,9 +194,6 @@ export const conversation = {
   "conversation.label.rewind-write-unknown": "Result unknown",
   "conversation.label.search-models": "Search models",
   "conversation.label.search-sessions": "Search {agent} sessions",
-  "conversation.label.send-correction": "Change this work",
-  "conversation.label.send-mode": "Send as",
-  "conversation.label.send-request": "Next request",
   "conversation.label.sender-agent-named": "{role} · {name}",
   "conversation.label.sender-agent-other": "Another agent",
   "conversation.label.sender-based-on": "Based on",
@@ -257,8 +232,6 @@ export const conversation = {
   "conversation.label.view-everything": "Everything",
   "conversation.label.view-messages": "Messages",
   "conversation.label.worked-for": "Worked for {duration}",
-  "conversation.notice.agent-paused":
-    "This agent is paused. You can read the conversation, but it takes no new messages.",
   "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",
   "conversation.notice.call-answered": "The answer is in the messages below.",
@@ -283,16 +256,6 @@ export const conversation = {
     "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
-  "conversation.notice.ended":
-    "This conversation has ended. You can read it but not reply.",
-  "conversation.notice.external-failed":
-    "{connection} didn't respond, so this chat can't continue.",
-  "conversation.notice.external-retry-at":
-    "The next try is confirmed for {when}.",
-  "conversation.notice.external-unknown":
-    "The result from {connection} isn't known yet.",
-  "conversation.notice.external-waiting":
-    "Waiting for {connection}. It has not answered.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.no-model-options": "No options for this model.",
   "conversation.notice.no-models": "No models match.",
@@ -343,18 +306,6 @@ export const conversation = {
     "{agent} is working. A message you send now waits for the next turn.",
   "conversation.placeholder.ask":
     "Ask {agent}… Type / for commands and skills.",
-  "conversation.rewind-block.copied":
-    "Copied from another conversation, so only messages can be restored.",
-  "conversation.rewind-block.correction":
-    "Sent while work was in progress, so only messages can be restored.",
-  "conversation.rewind-block.limit-count":
-    "This point is too old, so documents from it can't be restored.",
-  "conversation.rewind-block.limit-file":
-    "A file here was too large to keep, so documents from this point can't be restored.",
-  "conversation.rewind-block.limit-total":
-    "Too many earlier changes were kept, so documents from this point can't be restored.",
-  "conversation.rewind-block.record-failed":
-    "lophn couldn't keep the earlier content of a file here, so documents from this point can't be restored.",
   "conversation.rewind-why.already-reverted": "This was already undone.",
   "conversation.rewind-why.answered-fact":
     "Your answers and decisions stay in the conversation.",
@@ -388,12 +339,6 @@ export const conversation = {
   "conversation.rewind-why.rename-blocked":
     "Another file is at the old name, so the rename isn't undone.",
   "conversation.rewind-why.unknown": "lophn can't undo this edit.",
-  "conversation.rewind.hint-messages-only":
-    "Hides the messages after this one. Documents and app data stay as they are.",
-  "conversation.rewind.hint-restore-all":
-    "Hides the messages after this one and puts back the documents and app data that changed since.",
-  "conversation.rewind.hint-summarize":
-    "Folds everything after this message into a summary. Documents and app data stay as they are.",
   "conversation.rewind.preview-failed":
     "Couldn't load what would change. Try again.",
   "conversation.rewind.result-left":
@@ -403,12 +348,9 @@ export const conversation = {
   "conversation.rewind.running":
     "Stop the work in progress first, then rewind.",
   "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
-  "conversation.rewind.summary-failed":
-    "Couldn't summarize this part, so nothing changed.",
   "conversation.title.approval-change": "{agent} wants to change settings",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.call-handed": "Handed to {to}",
-  "conversation.title.new-session": "New session",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.question-asking": "{agent} is asking",
   "conversation.title.recap": "Recap",

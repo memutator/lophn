@@ -4,10 +4,7 @@
 import { t } from "@lophn/wording";
 import type { z } from "zod";
 
-import {
-  approvalsDecideTurn,
-  type TurnChoice,
-} from "../../../protocol/approvals/requests.ts";
+import { approvalsDecideTurn } from "../../../protocol/approvals/requests.ts";
 import {
   agentSessionList,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
@@ -26,6 +23,7 @@ import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
 import { receivedMessageRead } from "../../../protocol/lophn-agent/received-messages.ts";
 import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
+import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
 import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
@@ -279,12 +277,6 @@ export async function answerQuestions(
   );
 }
 
-/** 거절 이유는 한 줄 500자 안으로 맞춘다. */
-function reasonOf(reason: string | undefined): string | undefined {
-  const one = reason?.replace(/\s+/g, " ").trim().slice(0, 500);
-  return one === undefined || one === "" ? undefined : one;
-}
-
 /** waiting 목록의 결정과 같은 memory route다. 허락한 범위(once·session·always·allow)나 거절을 보낸다. */
 export async function decidePermission(
   env: Env,
@@ -293,14 +285,11 @@ export async function decidePermission(
   choice: RequestChoice,
   reason?: string,
 ): Promise<SourceResult<void>> {
-  const rejected = reasonOf(reason);
-  const decision: TurnChoice = choice === "reject"
-    ? {
-      kind: "reject",
-      ...(rejected === undefined ? {} : { reason: rejected }),
-    }
-    : { kind: choice };
   return dropValue(
-    await env.read(approvalsDecideTurn, { session, request, choice: decision }),
+    await env.read(approvalsDecideTurn, {
+      session,
+      request,
+      choice: turnChoiceOf(choice, reason),
+    }),
   );
 }

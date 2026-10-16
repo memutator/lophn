@@ -12,7 +12,7 @@ import type {
   RewindApp,
   RewindPreviewView,
 } from "../agent-tab-source.ts";
-import { reasonText } from "../rewind/text.ts";
+import { reasonText } from "./text.ts";
 import styles from "./rewind-panel.module.css";
 
 export interface RewindPanelProps {

@@ -16,17 +16,6 @@ export interface ToolLineView {
   lines: readonly string[];
 }
 
-export interface EditView {
-  /** 편집 카드 key. */
-  id: string;
-  /** 바뀐 문서 ID(doc_…). [Open]이 이 문서의 탭을 연다. */
-  document: string;
-  /** 보이는 경로. */
-  path: string;
-  added: number;
-  removed: number;
-}
-
 export type TaskState = "done" | "now" | "later";
 
 export interface TaskView {

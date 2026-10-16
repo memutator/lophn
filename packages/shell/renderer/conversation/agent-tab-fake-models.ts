@@ -1,13 +1,10 @@
-// model picker test의 입력. model catalog(contracts/lophn-agent의 model-picker)가 낸 값을 그대로 옮겨 고정한
-// 순수 data다. 정렬·거르기·값 맞춤 규칙은 여기서 다시 만들지 않고 결과를 적어 둔다.
+// fake source(agent-tab-fake-source.ts)가 쓰는 model picker 값. model catalog가 낸 값을 그대로 옮겨 고정했다.
 import type {
-  ModelPickerProps,
   PickerAxisView,
   PickerModelRef,
   PickerModelRow,
-  PickerNoticeView,
   PickerProviderGroup,
-} from "../model-picker/types.ts";
+} from "./model-picker/types.ts";
 
 export const ANTHROPIC = "pvd_01arz3ndektsv4rrffq69g5fa1";
 export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";
@@ -20,10 +17,6 @@ function row(
   starred: boolean,
 ): PickerModelRow {
   return { provider, providerLabel, modelName, starred };
-}
-
-export function ref(row: PickerModelRef): PickerModelRef {
-  return { provider: row.provider, modelName: row.modelName };
 }
 
 // effort 값의 id는 contract의 이름이고 표시 이름은 고정이다(very_high는 XHigh).
@@ -98,16 +91,6 @@ export const SOL: PickerScenario = {
   axes: [effortMinimalToXHigh, speedStandardPriority],
   optionValues: { effort: "very_high", speed: "priority" },
 };
-/** GPT-6.1 Sol의 XHigh를 Sonnet 5.5로 바꿔 High로 맞춘 직후. */
-export const SONNET_AFTER_SOL: PickerScenario = {
-  ...SONNET,
-  optionValues: { effort: "high" },
-};
-export const FITTED_NOTICE: PickerNoticeView = {
-  axisLabel: "Effort",
-  fromLabel: "XHigh",
-  toLabel: "High",
-};
 
 const OPUS_ROW = row(ANTHROPIC, "Anthropic", "Opus 5.5", false);
 const SONNET_ROW = row(ANTHROPIC, "Anthropic", "Sonnet 5.5", true);
@@ -140,69 +123,3 @@ export const LAYOUT_ALL = {
   favorites: [SOL_ROW, SONNET_ROW],
   providers: [ANTHROPIC_GROUP, OPENAI_GROUP, XAI_GROUP],
 };
-/** 검색 "so"(대소문자 무시, model 이름 부분 일치). 즐겨찾기가 먼저이고 순서는 별표 순서다. */
-export const LAYOUT_SO = {
-  favorites: [SOL_ROW, SONNET_ROW],
-  providers: [
-    { ...ANTHROPIC_GROUP, models: [SONNET_ROW] },
-    { ...OPENAI_GROUP, models: [SOL_ROW] },
-  ],
-};
-/** 즐겨찾기가 없다. */
-export const LAYOUT_NO_FAVORITES = {
-  favorites: [],
-  providers: [
-    {
-      ...ANTHROPIC_GROUP,
-      models: [OPUS_ROW, { ...SONNET_ROW, starred: false }, HAIKU_ROW],
-    },
-    { ...OPENAI_GROUP, models: [{ ...SOL_ROW, starred: false }, MINI_ROW] },
-    XAI_GROUP,
-  ],
-};
-/** 맞는 model이 없는 검색. */
-export const LAYOUT_NONE = { favorites: [], providers: [] };
-
-export interface PickerCalls {
-  readonly opened: boolean[];
-  readonly queries: string[];
-  readonly picked: PickerModelRef[];
-  readonly starred: PickerModelRef[];
-  readonly options: [axis: string, value: string][];
-  defaults: number;
-}
-
-export function pickerCalls(): PickerCalls {
-  return {
-    opened: [],
-    queries: [],
-    picked: [],
-    starred: [],
-    options: [],
-    defaults: 0,
-  };
-}
-
-/** 기본값: picker가 열려 있고 Sonnet 5.5 · Medium을 고른 상태, 검색 없음, 알림 없음. */
-export function pickerProps(
-  over: Partial<ModelPickerProps> & { scenario?: PickerScenario } = {},
-  calls: PickerCalls = pickerCalls(),
-): ModelPickerProps {
-  const { scenario = SONNET, ...rest } = over;
-  return {
-    open: true,
-    onOpenChange: (open) => calls.opened.push(open),
-    current: scenario.current,
-    currentLabel: scenario.currentLabel,
-    axes: scenario.axes,
-    optionValues: scenario.optionValues,
-    query: "",
-    layout: LAYOUT_ALL,
-    onQueryChange: (query) => calls.queries.push(query),
-    onPick: (model) => calls.picked.push(model),
-    onToggleFavorite: (model) => calls.starred.push(model),
-    onOptionChange: (axis, value) => calls.options.push([axis, value]),
-    onChangeDefaults: () => calls.defaults += 1,
-    ...rest,
-  };
-}

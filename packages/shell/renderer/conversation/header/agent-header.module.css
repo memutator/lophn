@@ -1,52 +1,26 @@
-/* Agent 화면 맨 위 머리. avatar · 이름 · session 제목을 누르는 한 단추로 묶고 오른쪽에 ⋯ 메뉴를 둔다. */
-.bar {
-  box-sizing: border-box;
+/* 탭 안 맨 위 view bar의 agent header. 위에 여백을 두고, 왼쪽 session switcher, 오른쪽 조작이다. */
+.gap {
   display: flex;
   flex: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  min-width: var(--space-0);
-  padding: var(--space-2) var(--space-6);
-  border-bottom: var(--border-width) solid var(--color-border-base);
-  background: var(--color-surface-base);
-  font-family: var(--font-sans);
+  flex-direction: column;
+  padding-top: var(--space-3);
 }
 
-.who {
+.lead {
   display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.face {
+  display: inline-flex;
   flex: 1;
   align-items: center;
   gap: var(--space-3);
   min-width: var(--space-0);
-}
-
-.trigger {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: var(--space-0);
-  max-width: 100%;
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
-  border: var(--space-0);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  cursor: pointer;
-}
-
-.trigger:hover,
-.trigger[data-state="open"] {
-  background: var(--color-surface-muted);
-}
-
-.trigger:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: var(--border-focus-offset);
 }
 
 .name {
@@ -56,22 +30,6 @@
 
 .sep {
   color: var(--color-text-muted);
-}
-
-.title {
-  min-width: var(--space-0);
-  overflow: hidden;
-  color: var(--color-text-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.titleSlot {
-  display: inline-flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: var(--space-0);
 }
 
 .renameInput {
@@ -88,9 +46,17 @@
   line-height: var(--type-small-line);
 }
 
-.tools {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
+.archivedMark {
+  padding: var(--space-0) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.problem {
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
 }

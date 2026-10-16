@@ -120,14 +120,7 @@ export type CommonPlaceholders = {
   "contexts.label.frame-chip": Record<never, never>;
   "contexts.label.rail-contexts": Record<never, never>;
   "contexts.label.rail-search": Record<never, never>;
-  "conversation.label.document": Record<never, never>;
-  "conversation.label.rewind-remain": Record<never, never>;
-  "conversation.label.rewind-restore": Record<never, never>;
-  "conversation.label.rewind-skip": Record<never, never>;
   "conversation.notice.provider-lost": Record<never, never>;
-  "conversation.rewind.note": Record<never, never>;
-  "conversation.rewind.redo-no": Record<never, never>;
-  "conversation.rewind.redo-yes": Record<never, never>;
   "document.button.check-again": Record<never, never>;
   "document.button.read": Record<never, never>;
   "document.diff.identical": Record<never, never>;

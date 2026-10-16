@@ -339,11 +339,6 @@ export async function archiveSessionOf(
   );
 }
 
-/** archive를 풀어 다시 여는 길은 계약에 없다(되살리기는 나중이다). */
-export function unarchiveSessionOf(): Promise<SourceResult<void>> {
-  return Promise.resolve({ ok: false, code: "invalid_input" });
-}
-
 export async function deleteSessionOf(
   env: Env,
   session: string,

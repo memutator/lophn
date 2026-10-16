@@ -13,37 +13,12 @@ export const project = {
   "app-panel.notice.not-panel":
     "This screen can't open in a tab. Open it in the app space.",
   "app-panel.title.choose": "Open an app in this tab",
-  "conversation.button.save-visual": "Save as document",
-  "conversation.button.visual-read-description": "Read the description",
-  "conversation.empty.visual-no-data": "This visual has no data.",
-  "conversation.label.visual-axes": "{y} by {x}",
-  "conversation.label.visual-document-unavailable": "Document you can't open",
-  "conversation.label.visual-no": "No",
-  "conversation.label.visual-observed": "Observed {at}",
-  "conversation.label.visual-saved": "Saved as a document",
-  "conversation.label.visual-source-app": "App result: {command}",
-  "conversation.label.visual-source-estimate": "Estimate: {label}",
-  "conversation.label.visual-sources": "Sources",
   "conversation.label.visual-untitled": "Visual",
-  "conversation.label.visual-yes": "Yes",
   "conversation.notice.visual-app-card": "App cards can't be shown here.",
-  "conversation.notice.visual-as-table": "This chart is shown as a table.",
-  "conversation.notice.visual-not-saved":
-    "lophn didn't save a document. Its answer says why.",
-  "conversation.notice.visual-save-failed":
-    "Couldn't ask lophn to save this. Try again.",
-  "conversation.notice.visual-save-requested":
-    "lophn is saving this as a document.",
-  "conversation.notice.visual-save-sending":
-    "Asking lophn to save this as a document.",
   "conversation.notice.visual-unavailable-drawing":
     "This visual couldn't be drawn from its data.",
   "conversation.notice.visual-unavailable-kind":
     "This kind of visual can't be shown here.",
-  "conversation.notice.visual-unavailable-markup":
-    "This visual holds markup or a link, so it isn't shown.",
-  "conversation.notice.visual-unavailable-shape":
-    "This visual's data doesn't match what can be shown.",
   "conversation.placeholder.new-context":
     "Say what this context should cover. The Context Engineer will ask for whatever else it needs.",
   "document.button.check-task": "Check task",

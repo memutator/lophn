@@ -1,14 +1,12 @@
-// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 시각 블록으로
-// 보이고, 사람 말 아래에 접수 표시와 전달 상태의 다음 행동을 둔다.
+// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 앱 카드로 보이고, 사람 말 아래에 전달 상태와
+// 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
 import { IconButton, Tooltip } from "@lophn/design/components";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import {
-  VisualBlock,
-  type VisualHost,
-} from "../../workspace/visuals/block-frame.tsx";
+import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
+import { cardOfBlock } from "../../workspace/visuals/registry.ts";
 import type { DeliveryLabel } from "../agent-view-model.ts";
 import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
@@ -18,15 +16,11 @@ const DELIVERY_LABEL: Record<
   DeliveryLabel,
   | "conversation.label.delivery-sending"
   | "conversation.label.delivery-received"
-  | "conversation.label.delivery-applied"
-  | "conversation.label.delivery-saved"
   | "conversation.label.delivery-not-sent"
   | "conversation.label.delivery-unconfirmed"
 > = {
   sending: "conversation.label.delivery-sending",
   received: "conversation.label.delivery-received",
-  applied: "conversation.label.delivery-applied",
-  saved: "conversation.label.delivery-saved",
   "not-sent": "conversation.label.delivery-not-sent",
   unconfirmed: "conversation.label.delivery-unconfirmed",
 };
@@ -41,7 +35,6 @@ export interface MessageBodyProps {
   body: BodyState | undefined;
   /** 이 창이 보낸 말의 글. 본문을 읽기 전 자리를 채운다. */
   fallback?: string | undefined;
-  visuals: VisualHost;
 }
 
 /**
@@ -49,26 +42,49 @@ export interface MessageBodyProps {
  * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다.
  */
 export function MessageBody(
-  { message, body, fallback, visuals }: MessageBodyProps,
+  { message, body, fallback }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
-    // 시각 블록은 본문 순서 그대로 글 사이 자리에 그린다.
+    // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
     return (
       <div className={styles.body} data-body="ready">
-        {body.parts.map((part, index) =>
-          part.kind === "text"
-            ? <Text key={index} text={part.text} />
-            : part.kind === "visual"
-            ? (
-              <VisualBlock
-                key={index}
-                message={message}
-                block={part.block}
-                host={visuals}
-              />
-            )
-            : null
-        )}
+        {body.parts.map((part, index) => {
+          switch (part.kind) {
+            case "text":
+              return <Text key={index} text={part.text} />;
+            case "app_card":
+              return (
+                <VisualBlock
+                  key={index}
+                  message={message}
+                  block={`card-${index}`}
+                  card={{ app: part.app, release: null, view: part.view }}
+                  title={part.view}
+                />
+              );
+            case "visual": {
+              const found = cardOfBlock(part.block);
+              return (
+                <VisualBlock
+                  key={index}
+                  message={message}
+                  block={`card-${index}`}
+                  card={found?.card ?? null}
+                  title={found?.title ??
+                    t("conversation.label.visual-untitled")}
+                />
+              );
+            }
+            case "attached":
+              return (
+                <p key={index} className={styles.attached} data-attached="">
+                  {part.line === undefined
+                    ? part.name
+                    : `${part.name} · ${part.line}`}
+                </p>
+              );
+          }
+        })}
       </div>
     );
   }
@@ -88,7 +104,6 @@ export function MessageBody(
 }
 
 export interface UserBodyProps extends MessageBodyProps {
-  correction: boolean;
   delivery: DeliveryLabel;
   /** 아직 확정되지 않은 말이다. */
   provisional: boolean;
@@ -100,8 +115,7 @@ export interface UserBodyProps extends MessageBodyProps {
 
 /** 내 말의 본문. 접수 표시를 말 아래에 두고, 보내지 못했거나 결과를 모르면 다음 행동을 곁들인다. */
 export function UserBody(
-  { correction, delivery, provisional, action, onCheck, onResend, ...rest }:
-    UserBodyProps,
+  { delivery, provisional, action, onCheck, onResend, ...rest }: UserBodyProps,
 ): ReactElement {
   return (
     <div
@@ -111,13 +125,6 @@ export function UserBody(
     >
       <MessageBody {...rest} />
       <span className={styles.meta}>
-        {correction
-          ? (
-            <span className={styles.tag}>
-              {t("conversation.label.correction")}
-            </span>
-          )
-          : null}
         <span data-delivery={delivery}>{t(DELIVERY_LABEL[delivery])}</span>
       </span>
       {action === "edit"
@@ -174,20 +181,6 @@ function Notice(
     <div className={styles.notice}>
       <span>{children}</span>
       {action}
-    </div>
-  );
-}
-
-/** lophn이 확인한 사실(machine). agent 쪽 열 안에서 말이 아닌 사실로 구별된다. */
-export function MachineFact(
-  { id, ...rest }: Omit<MessageBodyProps, "message"> & { id: string },
-): ReactElement {
-  return (
-    <div className={styles.fact} data-message={id} data-actor="machine">
-      <span className={styles.author}>
-        {t("conversation.label.author-check")}
-      </span>
-      <MessageBody message={id} {...rest} />
     </div>
   );
 }

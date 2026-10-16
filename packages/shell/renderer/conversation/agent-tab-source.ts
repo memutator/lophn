@@ -552,7 +552,6 @@ export interface AgentTabSource {
   ): Promise<SourceResult<void>>;
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
-  unarchiveSession(session: string): Promise<SourceResult<void>>;
   /** 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. */
   deleteSession(session: string): Promise<SourceResult<void>>;
   /** 같은 agent의 새 session `id`로 복사한다. through가 null이면 마지막 확정 메시지까지다. */

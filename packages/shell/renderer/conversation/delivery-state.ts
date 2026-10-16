@@ -7,17 +7,11 @@ export type { Delivery };
 
 export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
 
-export type SendMode = "request" | "correction";
-
 export interface Outgoing {
   readonly id: string;
   readonly key: string;
   /** 보낸 글. 다시 보내도 같은 글이라 같은 본문 값이다. */
   readonly text: string;
-  readonly mode: SendMode;
-  /** 수정이 가리키는 지금 일. 다음 요청은 null이다. */
-  readonly run: string | null;
-  /** 새 이름. 옛 화면이 `mode`를 쓰는 동안 둘이 같이 있다. */
   readonly delivery: Delivery;
   readonly phase: DeliveryPhase;
   /** 접수 확인 안 됨에서 조회했으나 찾지 못했다. 그 뒤에야 다시 보내기를 내놓는다. */
@@ -42,17 +36,9 @@ const NOT_TAKEN = new Set([
 ]);
 
 export function startSend(
-  input: Omit<Outgoing, "phase" | "checked" | "delivery"> & {
-    readonly delivery?: Delivery;
-  },
+  input: Omit<Outgoing, "phase" | "checked">,
 ): Outgoing {
-  return {
-    ...input,
-    delivery: input.delivery ??
-      (input.mode === "correction" ? "steer" : "next_turn"),
-    phase: "sending",
-    checked: false,
-  };
+  return { ...input, phase: "sending", checked: false };
 }
 
 export function afterReply(outgoing: Outgoing, reply: SendReply): Outgoing {

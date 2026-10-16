@@ -357,6 +357,8 @@ export interface AgentTabData extends AgentTabList {
   readonly checkedAt: number | null;
   /** 보던 session이 없어졌다. */
   readonly gone: boolean;
+  /** event가 알리지 않는 변경(rewind 등) 뒤에 현재 기록을 다시 읽는다. */
+  readonly reload: () => Promise<void>;
 }
 
 /** 열린 session 하나의 화면 값. snapshot은 처음과 다시 붙을 때, turn이 끝났을 때 읽고 그 사이는 event를 접는다. */
@@ -471,5 +473,6 @@ export function useAgentTabData(
     checkedAt,
     failed: list.failed || threadFailed,
     gone,
+    reload: readThread,
   };
 }

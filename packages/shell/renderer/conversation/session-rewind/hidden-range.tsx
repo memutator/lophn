@@ -5,7 +5,7 @@ import { Button } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { ThreadHidden } from "../agent-tab-source.ts";
-import { itemLabel, reasonText } from "../rewind/text.ts";
+import { itemLabel, reasonText } from "./text.ts";
 import styles from "./hidden-range.module.css";
 
 export interface HiddenRangeProps

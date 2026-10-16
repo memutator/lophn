@@ -17,6 +17,24 @@ import type { WaitingEntry } from "../events/waiting-store.ts";
 
 export type WaitingChoice = TurnChoice["kind"];
 
+/** 거절 이유는 한 줄 500자 안으로 맞춘다. 비면 이유가 없다. */
+function reasonOf(reason: string | undefined): string | undefined {
+  const one = reason?.replace(/\s+/g, " ").trim().slice(0, 500);
+  return one === undefined || one === "" ? undefined : one;
+}
+
+/** 사람이 고른 허락 범위나 거절을 route의 choice로 바꾼다. 대기 목록과 대화 화면의 결정이 같은 값을 보낸다. */
+export function turnChoiceOf(
+  choice: WaitingChoice,
+  reason?: string,
+): TurnChoice {
+  if (choice !== "reject") return { kind: choice };
+  const why = reasonOf(reason);
+  return why === undefined
+    ? { kind: "reject" }
+    : { kind: "reject", reason: why };
+}
+
 /** 결정 직후 남는 줄의 상태. 접수와 적용 성공을 구별한다. */
 export type SettledState =
   | "accepted"
@@ -49,10 +67,6 @@ export async function decideWaiting(
   choice: WaitingChoice,
   reason?: string,
 ): Promise<DecideResult> {
-  const trimmed = reason?.trim();
-  const rejected = choice === "reject"
-    ? { kind: "reject" as const, ...(trimmed ? { reason: trimmed } : {}) }
-    : null;
   if (entry.kind === "permission") {
     const reply = await core.call({
       kind: "memory",
@@ -61,7 +75,7 @@ export async function decideWaiting(
       body: {
         session: entry.request.session,
         request: entry.id,
-        choice: rejected ?? { kind: choice },
+        choice: turnChoiceOf(choice, reason),
       },
     }).catch(() => null);
     if (!reply) return UNAVAILABLE;
@@ -81,13 +95,19 @@ export async function decideWaiting(
     };
   }
   if (entry.kind === "activation" || entry.kind === "reaction") {
+    // command는 입력을 봉투에 담아 보낸다. 같은 request의 같은 결정은 같은 key라 core가 한 번만 접수한다.
+    const decision = choice === "reject"
+      ? turnChoiceOf("reject", reason)
+      : { kind: "allow" as const };
     const reply = await core.call({
       kind: "command",
       resource: approvalsDecide.resource,
       method: approvalsDecide.method,
       body: {
-        request: entry.id,
-        choice: rejected ?? { kind: "allow" },
+        input: { request: entry.id, choice: decision },
+        idempotency_key: `approvals-decide-${entry.id}-${decision.kind}`,
+        compare: {},
+        prepared: [],
       },
     }).catch(() => null);
     if (!reply) return UNAVAILABLE;

@@ -1,13 +1,18 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/wording";
 import {
+  Button,
   EmptyState,
   ErrorState,
   IconButton,
   Skeleton,
   Tooltip,
 } from "@lophn/design/components";
-import { launcherEmptyIcon, launcherIcons } from "../../icons/mod.ts";
+import {
+  launcherEmptyIcon,
+  launcherIcons,
+  lophnEntryIcon,
+} from "../../icons/mod.ts";
 
 import type { CoreSource } from "../connection/connection.ts";
 import {
@@ -16,18 +21,15 @@ import {
   retryConnection,
   useConnection,
 } from "../connection/connection.tsx";
-import type { AppsSource } from "../lophn-space/apps/source.ts";
-import { LophnEntry, TopBar, Wordmark } from "../top-bar/top-bar.tsx";
+import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
+import { sortApps } from "../lophn-space/apps/model.ts";
+import type { AppRow, AppsSource } from "../lophn-space/apps/source.ts";
+import { TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
-import { useRequestOverview } from "../notification-chip/space-decisions.tsx";
-import { placeWaiting } from "../lophn-space/things-to-confirm/model.ts";
-import {
-  sandboxFailure,
-  schemaFailure,
-  startFailure,
-} from "./start-failure/model.ts";
+import { failureOf } from "./start-failure/model.ts";
 import { StartFailureScreen } from "./start-failure/start-failure.tsx";
 import { AppsSection } from "./apps-section.tsx";
+import type { Loaded } from "./model.ts";
 import { ProjectCard } from "./project-card.tsx";
 import { RegisterDialog } from "./register-dialog.tsx";
 import type { LauncherSource, ProjectCard as Card } from "./source.ts";
@@ -37,11 +39,11 @@ export interface LauncherProps {
   source: CoreSource;
   /** 확인 시각의 표시. 테스트가 고정한다. */
   formatTime?: (confirmedAt: number) => string;
-  /** lophn 관리 공간으로 이동한다. */
+  /** Lophn Workspace로 이동한다. */
   onLophn: () => void;
   /** 상단 바가 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;
-  /** 프로젝트 카드와 등록 통로. 없으면 카드 자리는 비었음 상태다. */
+  /** 프로젝트 카드와 등록 통로. 없으면 프로젝트는 없는 것으로 본다. */
   projects?: LauncherSource;
   /** 프로젝트 작업대로 이동한다. */
   onProject?: (project: string) => void;
@@ -51,16 +53,16 @@ export interface LauncherProps {
   onApp?: (app: string) => void;
   /** 새 프로젝트 id. 테스트가 고정한다. */
   newProjectId?: () => string;
+  /** 대기 목록 질문 카드의 [Open session]. 호스트가 그 session으로 보낸다. */
+  onOpenSession?: (session: string) => void;
+  /** 대기 목록 coding agent 카드의 [Answer in terminal]. */
+  onAnswerInTerminal?: (session: string) => void;
 }
 
-type Cards =
-  | { state: "loading" }
-  | { state: "failed" }
-  | { state: "ready"; cards: readonly Card[] };
+const noop = () => {};
 
-// 이전 lophn 런처 모양: 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section.
-// 준비 전·실패는 기둥 대신 연결 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는
-// 실제 read 결과로만 채운다.
+// 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section. 준비 전·실패는 기둥 대신 연결
+// 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는 실제 read 결과로만 채운다.
 export function Launcher(
   {
     source,
@@ -72,26 +74,15 @@ export function Launcher(
     apps,
     onApp,
     newProjectId,
+    onOpenSession = noop,
+    onAnswerInTerminal = noop,
   }: LauncherProps,
 ) {
   const connection = useConnection(source);
   const retry = () => retryConnection(source);
-  const isFailing = connection.state === "failed-start" ||
-    connection.state === "failed-sandbox" ||
-    connection.state === "failed-schema";
+  const failure = failureOf(connection);
   const gated = connection.state === "starting" ||
-    connection.state === "failed" ||
-    isFailing;
-
-  const failureScreen = isFailing
-    ? (
-      connection.state === "failed-start"
-        ? <StartFailureScreen failure={startFailure()} onRetry={retry} />
-        : connection.state === "failed-sandbox"
-        ? <StartFailureScreen failure={sandboxFailure()} onRetry={retry} />
-        : <StartFailureScreen failure={schemaFailure()} onRetry={retry} />
-    )
-    : null;
+    connection.state === "failed" || failure !== null;
 
   return (
     <div
@@ -102,11 +93,25 @@ export function Launcher(
       <TopBar
         platform={platform}
         leading={<Wordmark>{t("launcher.label.wordmark")}</Wordmark>}
-        trailing={gated ? undefined : <LophnEntry onLophn={onLophn} />}
+        trailing={gated ? undefined : (
+          <span className={styles.topActions}>
+            <WaitingLayer
+              onOpenSession={onOpenSession}
+              onAnswerInTerminal={onAnswerInTerminal}
+            />
+            <Button
+              icon={lophnEntryIcon}
+              data-entry="lophn"
+              onClick={onLophn}
+            >
+              {t("launcher.button.lophn")}
+            </Button>
+          </span>
+        )}
       />
       <main className={styles.scroll}>
-        {failureScreen
-          ? failureScreen
+        {failure !== null
+          ? <StartFailureScreen failure={failure} onRetry={retry} />
           : gated
           ? <ConnectionGate connection={connection} onRetry={retry} />
           : (
@@ -116,35 +121,15 @@ export function Launcher(
                 onRetry={retry}
                 formatTime={formatTime}
               />
-              {projects
-                ? (
-                  <Projects
-                    source={projects}
-                    onProject={onProject ?? (() => {})}
-                    newProjectId={newProjectId}
-                  />
-                )
-                : (
-                  <section className={styles.emptyCard} data-cards="empty">
-                    <EmptyState
-                      icon={launcherEmptyIcon}
-                      message={t("launcher.empty.no-cards")}
-                      action={{
-                        label: t("launcher.button.lophn"),
-                        onSelect: onLophn,
-                      }}
-                    />
-                  </section>
-                )}
-              {apps
-                ? (
-                  <AppsSection
-                    source={apps}
-                    onApp={onApp ?? (() => {})}
-                    onLophn={onLophn}
-                  />
-                )
-                : null}
+              <LauncherBody
+                ready={connection.state === "ready"}
+                projects={projects}
+                apps={apps}
+                onProject={onProject ?? noop}
+                onApp={onApp ?? noop}
+                onLophn={onLophn}
+                newProjectId={newProjectId}
+              />
             </div>
           )}
       </main>
@@ -152,36 +137,74 @@ export function Launcher(
   );
 }
 
-interface ProjectsProps {
-  source: LauncherSource;
+interface BodyProps {
+  ready: boolean;
+  projects?: LauncherSource;
+  apps?: AppsSource;
   onProject: (project: string) => void;
+  onApp: (app: string) => void;
+  onLophn: () => void;
   newProjectId?: () => string;
 }
 
-// 프로젝트 카드 묶음과 등록. 등록은 추적을 켜지 않고, 등록한 프로젝트의 작업대에서 추적을 정한다
-// (flow first-project 1~2단계).
-function Projects({ source, onProject, newProjectId }: ProjectsProps) {
-  const [cards, setCards] = useState<Cards>({ state: "loading" });
+// 프로젝트 카드 묶음과 앱 카드 묶음. 둘 다 비었으면 하나의 비었음 상태 하나만 보인다.
+function LauncherBody(
+  { ready, projects, apps, onProject, onApp, onLophn, newProjectId }: BodyProps,
+) {
+  const [cards, setCards] = useState<Loaded<Card>>(
+    projects ? { state: "loading" } : { state: "ready", items: [] },
+  );
+  const [rows, setRows] = useState<Loaded<AppRow>>(
+    apps ? { state: "loading" } : { state: "ready", items: [] },
+  );
   const [registering, setRegistering] = useState(false);
-  const { requests } = useRequestOverview();
 
-  const load = useCallback(async () => {
-    const read = await source.projects();
+  const loadProjects = useCallback(async () => {
+    if (!projects) return;
+    const read = await projects.projects();
     setCards(
-      read.ok ? { state: "ready", cards: read.value } : { state: "failed" },
+      read.ok ? { state: "ready", items: read.value } : { state: "failed" },
     );
-  }, [source]);
+  }, [projects]);
 
+  const loadApps = useCallback(async () => {
+    if (!apps) return;
+    const read = await apps.list();
+    setRows(
+      read.ok
+        ? {
+          state: "ready",
+          items: sortApps(read.value).filter((row) => !row.archived),
+        }
+        : { state: "failed" },
+    );
+  }, [apps]);
+
+  // 처음 열 때와 core가 다시 준비될 때 읽는다.
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadProjects();
+    void loadApps();
+  }, [loadProjects, loadApps, ready]);
+
+  if (
+    cards.state === "ready" && cards.items.length === 0 &&
+    rows.state === "ready" && rows.items.length === 0
+  ) {
+    return (
+      <section className={styles.emptyCard} data-cards="empty">
+        <EmptyState
+          icon={launcherEmptyIcon}
+          message={t("launcher.empty.no-cards")}
+          action={{ label: t("launcher.button.lophn"), onSelect: onLophn }}
+        />
+      </section>
+    );
+  }
 
   const register = t("launcher.button.register-project");
-  const openRegister = () => setRegistering(true);
-  const count = cards.state === "ready" ? cards.cards.length : 0;
-  let body: ReactNode;
+  let projectBody: ReactNode;
   if (cards.state === "loading") {
-    body = (
+    projectBody = (
       <ul className={styles.grid} data-cards="loading" aria-busy="true">
         {[0, 1, 2].map((index) => (
           <li key={index} className={styles.skeletonCard}>
@@ -191,86 +214,87 @@ function Projects({ source, onProject, newProjectId }: ProjectsProps) {
       </ul>
     );
   } else if (cards.state === "failed") {
-    body = (
+    projectBody = (
       <div className={styles.emptyCard} data-cards="failed">
         <ErrorState
           target={t("launcher.label.projects")}
           onRetry={() => {
             setCards({ state: "loading" });
-            void load();
+            void loadProjects();
           }}
         />
       </div>
     );
-  } else if (cards.cards.length === 0) {
-    body = (
+  } else if (cards.items.length === 0) {
+    projectBody = (
       <div className={styles.emptyCard} data-cards="empty">
         <EmptyState
           icon={launcherIcons.addFolder}
           message={t("launcher.empty.no-projects")}
-          action={{ label: register, onSelect: openRegister }}
+          action={{ label: register, onSelect: () => setRegistering(true) }}
         />
       </div>
     );
   } else {
-    body = (
+    projectBody = (
       <ul className={styles.grid} data-cards="projects">
-        {cards.cards.map((card) => (
+        {cards.items.map((card) => (
           <li key={card.id}>
-            <ProjectCard
-              card={card}
-              waiting={placeWaiting(
-                requests,
-                { kind: "project", id: card.id },
-                "approvals",
-              )}
-              onOpen={onProject}
-            />
+            <ProjectCard card={card} onOpen={onProject} />
           </li>
         ))}
       </ul>
     );
   }
+
   return (
-    <section className={styles.section} data-section="projects">
-      <div className={styles.sectionHead}>
-        <h2 className={styles.sectionTitle}>
-          {t("launcher.heading.projects")}
-          {count > 0 ? <span className={styles.count}>{count}</span> : null}
-        </h2>
-        {count > 0
-          ? (
-            <Tooltip content={register}>
-              <IconButton
-                icon={launcherIcons.register}
-                label={register}
-                data-register-project=""
-                onClick={openRegister}
-              />
-            </Tooltip>
-          )
-          : null}
-      </div>
-      {body}
-      <RegisterDialog
-        open={registering}
-        source={source}
-        takenNames={cards.state === "ready"
-          ? cards.cards.map((card) => card.name)
-          : []}
-        newProjectId={newProjectId}
-        onClose={() => setRegistering(false)}
-        onRegistered={(card) => {
-          setRegistering(false);
-          setCards((current) =>
-            current.state === "ready"
-              ? { state: "ready", cards: [...current.cards, card] }
-              : current
-          );
-          // 등록 다음 단계(추적을 켤지)는 그 프로젝트의 작업대에서 정한다.
-          onProject(card.id);
-        }}
-      />
-    </section>
+    <>
+      {projects
+        ? (
+          <section className={styles.section} data-section="projects">
+            <div className={styles.sectionHead}>
+              <h2 className={styles.sectionTitle}>
+                {t("launcher.heading.projects")}
+                {cards.state === "ready" && cards.items.length > 0
+                  ? <span className={styles.count}>{cards.items.length}</span>
+                  : null}
+              </h2>
+              <Tooltip content={register}>
+                <IconButton
+                  icon={launcherIcons.register}
+                  label={register}
+                  data-register-project=""
+                  onClick={() => setRegistering(true)}
+                />
+              </Tooltip>
+            </div>
+            {projectBody}
+            <RegisterDialog
+              open={registering}
+              source={projects}
+              newProjectId={newProjectId}
+              onClose={() => setRegistering(false)}
+              onRegistered={() => {
+                setRegistering(false);
+                void loadProjects();
+              }}
+            />
+          </section>
+        )
+        : null}
+      {apps
+        ? (
+          <AppsSection
+            apps={rows}
+            onApp={onApp}
+            onLophn={onLophn}
+            onRetry={() => {
+              setRows({ state: "loading" });
+              void loadApps();
+            }}
+          />
+        )
+        : null}
+    </>
   );
 }

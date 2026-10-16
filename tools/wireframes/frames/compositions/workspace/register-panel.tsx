@@ -1,78 +1,46 @@
-// 프로젝트 등록 dialog. 이름, 목적, 폴더와 폴더 설명이다. 짧은 이름 고르기는 없다.
-// 눌러 여는 창이 아니라 window 위에 올려 두는 look-alike다. 런처와 Projects 목록의 + 단추가 같이 쓴다.
-import {
-  Button,
-  Field,
-  IconButton,
-  Input,
-  Textarea,
-  Tooltip,
-} from "@lophn/design/components";
-import {
-  launcherIcons,
-} from "../../../../../packages/shell/renderer/icons/mod.ts";
+// 프로젝트 등록 dialog. 화면은 renderer의 RegisterDialog가 그리고 여기서는 fake source에 이어 준다. 이름, 목적, 폴더와
+// 폴더 설명이고 짧은 이름 고르기는 없다. 런처와 Projects 목록의 + 단추가 같이 쓴다. 폴더 하나를 더하고 칸을 채운 상태로 고정한다.
+import { useMemo, useRef, useState } from "react";
 
-import dialog from "../../../../../packages/shell/renderer/desktop/launcher/register-dialog.module.css";
-import styles from "./workspace.module.css";
+import { RegisterDialog } from "../../../../../packages/shell/renderer/desktop/launcher/register-dialog.tsx";
+import { fakeLauncher } from "../../../../../packages/shell/renderer/desktop/launcher/testdata/fake-launcher.ts";
+import { click, fill, first, useWorkspaceDrive } from "./drive.ts";
 
 export function RegisterPanel({ onClose }: { onClose?: () => void } = {}) {
+  const source = useMemo(
+    () => fakeLauncher({ picked: "/home/mina/trips/autumn" }).source,
+    [],
+  );
+  const [open, setOpen] = useState(true);
+  const root = useRef<HTMLDivElement>(null);
+  useWorkspaceDrive(root, registerSteps(), true);
   return (
-    <div className={styles.dialogLayer}>
-      <div
-        className={styles.panel}
-        role="dialog"
-        aria-label="Register project"
-      >
-        <h2 className={styles.panelTitle}>Register project</h2>
-        <div className={dialog.form}>
-          <p className={dialog.note}>
-            A project is a name, a purpose and the folders it works in.
-          </p>
-          <Field label="Name">
-            <Input defaultValue="trip-planner" />
-          </Field>
-          <Field
-            label="Purpose"
-            help="What the project is for. Agents read this."
-          >
-            <Textarea
-              rows={3}
-              defaultValue="Plan the autumn trip and keep the bookings in one place."
-            />
-          </Field>
-          <section className={dialog.folders}>
-            <div className={dialog.foldersHead}>
-              <span className={dialog.foldersLabel}>Folders</span>
-              <Tooltip content="Add folder">
-                <IconButton
-                  icon={launcherIcons.addFolder}
-                  label="Add folder"
-                  size="sm"
-                />
-              </Tooltip>
-            </div>
-            <ul className={dialog.folderList}>
-              <li className={dialog.folder}>
-                <div className={dialog.folderHead}>
-                  <span className={dialog.path}>/home/mina/trips/autumn</span>
-                  <IconButton
-                    icon={launcherIcons.remove}
-                    label="Remove folder"
-                    size="sm"
-                  />
-                </div>
-                <Field label="Folder description">
-                  <Input size="sm" defaultValue="Bookings and itineraries" />
-                </Field>
-              </li>
-            </ul>
-          </section>
-        </div>
-        <div className={styles.panelActions}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={onClose}>Register</Button>
-        </div>
-      </div>
+    <div ref={root} style={{ display: "contents" }}>
+      <RegisterDialog
+        open={open}
+        source={source}
+        onClose={() => {
+          setOpen(false);
+          onClose?.();
+        }}
+        onRegistered={() => {
+          setOpen(false);
+          onClose?.();
+        }}
+      />
     </div>
   );
+}
+
+/** 열린 등록 dialog를 채우는 동작. 런처 page도 같이 쓴다. */
+export function registerSteps() {
+  return [
+    fill(first('[data-field="name"]'), "trip-planner"),
+    fill(
+      first('[data-field="purpose"]'),
+      "Plan the autumn trip and keep the bookings in one place.",
+    ),
+    click(first("[data-add-folder]")),
+    fill(first("[data-folder-description]"), "Bookings and itineraries"),
+  ];
 }

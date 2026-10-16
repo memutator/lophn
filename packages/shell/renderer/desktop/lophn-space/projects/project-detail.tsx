@@ -4,227 +4,415 @@ import {
   Field,
   IconButton,
   Input,
-  OverviewFrame,
+  StatusMark,
   Textarea,
   Tooltip,
 } from "@lophn/design/components";
-import { retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
+import { lophnSpaceIcons, retryIcon } from "../../../icons/mod.ts";
 
-import { validName } from "../model.ts";
-import type { LophnSource, ProjectChange, ProjectRow } from "../source.ts";
-import listStyles from "./list.module.css";
+import {
+  addFolder,
+  addSubfolder,
+  changeFolder,
+  changeOf,
+  changeSubfolder,
+  type Draft,
+  draftOf,
+  removeFolder,
+  usableName,
+} from "./model.ts";
+import { SubfolderPicker } from "./subfolder-picker.tsx";
+import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./projects.module.css";
 
 export interface ProjectDetailProps {
-  source: LophnSource;
-  project: ProjectRow;
+  source: ProjectsSource;
+  project: ProjectItem;
   /** 등록을 바꿨다. 목록의 행을 새 값으로 바꾼다. */
-  onChanged: (project: ProjectRow) => void;
+  onChanged: (project: ProjectItem, saved: boolean) => void;
   /** 대상이 바뀌어 목록을 다시 읽는다. */
   onLatest: () => void;
+  /** 사라진 폴더의 새 위치를 고른다. 화면 위쪽 toast와 같은 길이다. */
+  onRelocate: (project: ProjectItem, folder: string) => Promise<boolean>;
+  /** 저장했다는 안내를 보인다. */
+  saved: boolean;
 }
 
-type Change =
-  | { readonly kind: "idle" }
-  | { readonly kind: "saved" }
-  | { readonly kind: "title-missing" }
-  | { readonly kind: "invalid" }
-  | { readonly kind: "taken" }
-  | { readonly kind: "changed" }
-  | { readonly kind: "failed" };
+type Problem = "name-missing" | "changed" | "failed" | "picker-failed";
 
-// 프로젝트 하나: 이름·목적 바꾸기, 보관·해제.
-// 보관은 프로젝트를 목록에서 숨길 뿐 폴더의 파일을 보관하거나 지우지 않는다.
+// 프로젝트 하나: 이름·목적·폴더·폴더 설명·하위 폴더를 고치고 저장한다. 보관은 목록에서만 숨긴다.
+// 고침은 [Save changes]를 누를 때까지 초안에만 있다.
 export function ProjectDetail(
-  { source, project, onChanged, onLatest }: ProjectDetailProps,
+  { source, project, onChanged, onLatest, onRelocate, saved }:
+    ProjectDetailProps,
 ) {
-  const [title, setTitle] = useState(project.title);
-  const [name, setName] = useState(project.name);
-  const [purpose, setPurpose] = useState(project.purpose);
-  const [change, setChange] = useState<Change>({ kind: "idle" });
+  const [draft, setDraft] = useState<Draft>(() => draftOf(project));
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
 
-  // 낡은 revision이면 대상이 바뀐 것이고, 그대로면 이름이 이미 쓰인 것이다.
-  const conflictKind = async (): Promise<Change> => {
-    const again = await source.projects();
-    const current = again.ok
-      ? again.value.find((item) => item.id === project.id)
-      : undefined;
-    return current?.revision === project.revision
-      ? { kind: "taken" }
-      : { kind: "changed" };
-  };
+  const change = changeOf(project, draft);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    const next = { title: title.trim(), name: name.trim(), purpose };
-    if (next.title === "") {
-      setChange({ kind: "title-missing" });
+    if (!usableName(draft.title)) {
+      setProblem("name-missing");
       return;
     }
-    if (!validName(next.name)) {
-      setChange({ kind: "invalid" });
-      return;
-    }
-    const changed: ProjectChange = {
-      ...(next.title === project.title ? {} : { title: next.title }),
-      ...(next.name === project.name ? {} : { name: next.name }),
-      ...(next.purpose === project.purpose ? {} : { purpose: next.purpose }),
-    };
-    if (Object.keys(changed).length === 0) return;
+    if (change === null) return;
     setBusy(true);
-    const result = await source.updateProject(project, changed);
+    setProblem(null);
+    const result = await source.save(project, change);
     setBusy(false);
     if (!result.ok) {
-      setChange(
-        result.code === "conflict" ? await conflictKind() : { kind: "failed" },
-      );
+      setProblem(result.code === "conflict" ? "changed" : "failed");
       return;
     }
-    setChange({ kind: "saved" });
-    onChanged(result.value);
+    onChanged(result.value, true);
   };
 
   const archive = async () => {
     setBusy(true);
-    const result = await source.setProjectArchived(project, !project.archived);
+    setProblem(null);
+    const result = await source.setArchived(project, true);
     setBusy(false);
     if (!result.ok) {
-      setChange(
-        result.code === "conflict" ? { kind: "changed" } : { kind: "failed" },
-      );
+      setProblem(result.code === "conflict" ? "changed" : "failed");
       return;
     }
-    setChange({ kind: "idle" });
-    onChanged(result.value);
+    onChanged(result.value, false);
   };
 
-  const dirty = title !== project.title || name !== project.name ||
-    purpose !== project.purpose;
+  const pickFolder = async () => {
+    setProblem(null);
+    const chosen = await source.pickFolder();
+    if (!chosen.ok) {
+      setProblem("picker-failed");
+      return;
+    }
+    if (chosen.path !== null) setDraft(addFolder(draft, chosen.path));
+  };
+
+  const relocate = async (folder: string) => {
+    setProblem(null);
+    if (!await onRelocate(project, folder)) setProblem("failed");
+  };
+
+  const addingFolder = draft.folders.find((folder) => folder.path === adding);
 
   return (
-    <OverviewFrame
-      header={
-        <div className={styles.head} data-project-head={project.id}>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{project.title}</h1>
-          </div>
-          <p className={styles.meta}>
-            <span className={styles.rule}>{project.name}</span>
-            {project.archived
-              ? <span>{t("projects.label.archived")}</span>
-              : null}
-          </p>
-        </div>
-      }
+    <section
+      className={styles.detail}
+      aria-label={project.title}
+      data-project-detail={project.id}
     >
-      <div className={styles.body}>
-        {change.kind === "changed"
-          ? (
-            <p className={styles.notice} data-changed="">
-              <span>{t("projects.error.changed")}</span>
-              <Tooltip content={t("projects.button.show-latest")}>
-                <IconButton
-                  icon={retryIcon}
-                  label={t("projects.button.show-latest")}
-                  size="sm"
-                  data-show-latest=""
-                  onClick={onLatest}
-                />
-              </Tooltip>
-            </p>
-          )
-          : null}
-        {project.archived
-          ? (
-            <p className={listStyles.notice} data-project-archived="">
-              {t("projects.notice.archived")}
-            </p>
-          )
-          : null}
-        <form
-          className={styles.form}
-          onSubmit={(event) => void save(event)}
-          data-project-form=""
+      <h1 className={styles.detailTitle}>{project.title}</h1>
+      {problem === "changed"
+        ? (
+          <p className={styles.notice} data-changed="">
+            <span>{t("projects.error.changed")}</span>
+            <Tooltip content={t("projects.button.show-latest")}>
+              <IconButton
+                icon={retryIcon}
+                label={t("projects.button.show-latest")}
+                size="sm"
+                data-show-latest=""
+                onClick={onLatest}
+              />
+            </Tooltip>
+          </p>
+        )
+        : null}
+      <form
+        className={styles.form}
+        onSubmit={(event) => void save(event)}
+        data-project-form=""
+      >
+        <Field
+          label={t("projects.label.name")}
+          error={problem === "name-missing"
+            ? t("projects.error.name-missing")
+            : undefined}
         >
-          <Field
-            label={t("projects.label.title")}
-            error={change.kind === "title-missing"
-              ? t("projects.error.title-missing")
-              : undefined}
-          >
-            <Input
-              data-project-title=""
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </Field>
-          <Field
-            label={t("projects.label.name")}
-            help={t("projects.label.name-help")}
-            error={change.kind === "invalid"
-              ? t("projects.error.name-invalid")
-              : change.kind === "taken"
-              ? t("projects.error.name-taken")
-              : undefined}
-          >
-            <Input
-              data-project-name=""
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Field label={t("projects.label.purpose")}>
-            <Textarea
-              data-project-purpose=""
-              rows={3}
-              value={purpose}
-              onChange={(event) => setPurpose(event.target.value)}
-            />
-          </Field>
-          <div className={styles.actions}>
+          <Input
+            data-project-title=""
+            value={draft.title}
+            onChange={(event) =>
+              setDraft({ ...draft, title: event.currentTarget.value })}
+          />
+        </Field>
+        <Field
+          label={t("projects.label.purpose")}
+          help={t("launcher.field.purpose-help")}
+        >
+          <Textarea
+            data-project-purpose=""
+            rows={2}
+            value={draft.purpose}
+            onChange={(event) =>
+              setDraft({ ...draft, purpose: event.currentTarget.value })}
+          />
+        </Field>
+        <div>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("projects.heading.folders")}
+            </h2>
             <Button
-              type="submit"
-              variant="primary"
-              data-project-save=""
-              disabled={busy || !dirty}
+              size="sm"
+              icon={lophnSpaceIcons.add}
+              data-add-folder=""
+              onClick={() => void pickFolder()}
             >
-              {t("projects.button.save")}
+              {t("projects.button.add-folder")}
             </Button>
-            {change.kind === "saved"
-              ? (
-                <span className={listStyles.hint} data-project-saved="">
-                  {t("projects.notice.saved")}
-                </span>
-              )
-              : null}
           </div>
-          {change.kind === "failed"
+          <ul className={styles.folderList}>
+            {draft.folders.map((folder) => (
+              <li
+                key={folder.path}
+                className={styles.folder}
+                data-folder={folder.path}
+              >
+                <div className={styles.folderHead}>
+                  <span
+                    className={`${styles.path} ${
+                      folder.found ? "" : styles.pathMissing
+                    }`}
+                  >
+                    {folder.path}
+                  </span>
+                  <span className={styles.folderActions}>
+                    {folder.found ? null : (
+                      <>
+                        <StatusMark
+                          tone="warning"
+                          label={t("projects.label.not-found")}
+                        />
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          data-relocate=""
+                          onClick={() => void relocate(folder.path)}
+                        >
+                          {t("projects.button.choose-location")}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      data-remove-folder=""
+                      disabled={draft.folders.length === 1}
+                      onClick={() => setDraft(removeFolder(draft, folder.path))}
+                    >
+                      {t("projects.button.remove")}
+                    </Button>
+                  </span>
+                </div>
+                <Field label={t("projects.label.folder-description")}>
+                  <Input
+                    size="sm"
+                    value={folder.description}
+                    data-folder-description=""
+                    onChange={(event) => {
+                      const description = event.currentTarget.value;
+                      setDraft(
+                        changeFolder(
+                          draft,
+                          folder.path,
+                          (item) => ({ ...item, description }),
+                        ),
+                      );
+                    }}
+                  />
+                </Field>
+                <div className={styles.subfolders}>
+                  <div className={styles.subHead}>
+                    <span className={styles.subTitle}>
+                      {t("projects.heading.subfolders")}
+                    </span>
+                    <Button
+                      size="sm"
+                      icon={lophnSpaceIcons.add}
+                      disabled={!folder.found}
+                      data-add-subfolder=""
+                      onClick={() => setAdding(folder.path)}
+                    >
+                      {t("projects.button.add-subfolder")}
+                    </Button>
+                  </div>
+                  {folder.subfolders.length === 0
+                    ? (
+                      <p className={styles.muted}>
+                        {folder.found
+                          ? t("projects.empty.no-subfolders")
+                          : t("projects.notice.relocate-first")}
+                      </p>
+                    )
+                    : (
+                      <ul className={styles.subfolderList}>
+                        {folder.subfolders.map((sub) => {
+                          const original = project.folders
+                            .find((item) => item.path === folder.path)
+                            ?.subfolders.find((item) => item.path === sub.path);
+                          return sub.removed
+                            ? (
+                              <li
+                                key={sub.path}
+                                className={styles.subfolderRemoved}
+                                data-subfolder-removed={sub.path}
+                              >
+                                <span>
+                                  {t("projects.notice.subfolder-removed", {
+                                    path: sub.path,
+                                  })}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  data-undo-subfolder=""
+                                  onClick={() =>
+                                    setDraft(
+                                      changeSubfolder(
+                                        draft,
+                                        folder.path,
+                                        sub.path,
+                                        (item) => ({
+                                          ...item,
+                                          removed: false,
+                                        }),
+                                      ),
+                                    )}
+                                >
+                                  {t("projects.button.undo")}
+                                </Button>
+                              </li>
+                            )
+                            : (
+                              <li
+                                key={sub.path}
+                                className={styles.subfolder}
+                                data-subfolder={sub.path}
+                              >
+                                <div className={styles.folderHead}>
+                                  <span className={styles.path}>
+                                    {sub.path}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    data-remove-subfolder=""
+                                    onClick={() =>
+                                      setDraft(
+                                        changeSubfolder(
+                                          draft,
+                                          folder.path,
+                                          sub.path,
+                                          (item) => ({
+                                            ...item,
+                                            removed: true,
+                                          }),
+                                        ),
+                                      )}
+                                  >
+                                    {t("projects.button.remove")}
+                                  </Button>
+                                </div>
+                                <Field
+                                  label={t(
+                                    "projects.label.subfolder-description",
+                                  )}
+                                  help={original !== undefined &&
+                                      original.description !== sub.description
+                                    ? t("projects.help.subfolder-edited")
+                                    : undefined}
+                                >
+                                  <Input
+                                    size="sm"
+                                    value={sub.description}
+                                    data-subfolder-description=""
+                                    onChange={(event) => {
+                                      const description =
+                                        event.currentTarget.value;
+                                      setDraft(
+                                        changeSubfolder(
+                                          draft,
+                                          folder.path,
+                                          sub.path,
+                                          (item) => ({ ...item, description }),
+                                        ),
+                                      );
+                                    }}
+                                  />
+                                </Field>
+                              </li>
+                            );
+                        })}
+                      </ul>
+                    )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={styles.actions}>
+          {saved && change === null
             ? (
-              <p className={listStyles.error} data-project-failed="">
-                {t("projects.error.project-change-failed")}
-              </p>
+              <span className={styles.muted} data-project-saved="">
+                {t("projects.notice.saved")}
+              </span>
             )
             : null}
-        </form>
-        <section className={listStyles.section} data-project-archive="">
-          <p className={listStyles.hint}>
-            {t("projects.notice.archive-keeps")}
-          </p>
-          <div className={styles.actions}>
-            <Button
-              data-archive-project={project.archived ? "unarchive" : "archive"}
-              disabled={busy}
-              onClick={() => void archive()}
-            >
-              {project.archived
-                ? t("projects.button.unarchive")
-                : t("projects.button.archive")}
-            </Button>
-          </div>
-        </section>
+          <Button
+            type="submit"
+            variant="primary"
+            data-project-save=""
+            disabled={busy || change === null}
+          >
+            {t("projects.button.save")}
+          </Button>
+        </div>
+        {problem === "failed"
+          ? (
+            <p className={styles.error} role="alert" data-project-failed="">
+              {t("projects.error.project-change-failed")}
+            </p>
+          )
+          : null}
+        {problem === "picker-failed"
+          ? (
+            <p className={styles.error} role="alert">
+              {t("launcher.error.picker-failed")}
+            </p>
+          )
+          : null}
+      </form>
+      <div className={styles.dangerZone} data-project-archive="">
+        <p className={styles.muted}>{t("projects.notice.archive-keeps")}</p>
+        <Button
+          variant="danger"
+          icon={lophnSpaceIcons.archive}
+          data-archive-project="archive"
+          disabled={busy}
+          onClick={() => void archive()}
+        >
+          {t("projects.button.archive")}
+        </Button>
       </div>
-    </OverviewFrame>
+      <SubfolderPicker
+        open={adding !== null}
+        root={adding ?? ""}
+        added={addingFolder?.subfolders
+          .filter((sub) => !sub.removed)
+          .map((sub) => sub.path) ?? []}
+        source={source}
+        onClose={() => setAdding(null)}
+        onAdd={(subfolder) => {
+          if (adding !== null) setDraft(addSubfolder(draft, adding, subfolder));
+          setAdding(null);
+        }}
+      />
+    </section>
   );
 }

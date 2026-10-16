@@ -23,6 +23,7 @@ import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
+import type { ProjectsSource } from "./lophn-space/projects/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
@@ -61,6 +62,8 @@ export interface DesktopProps {
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
   instructions?: InstructionsSource;
+  /** Projects 화면 통로. 없으면 Projects는 준비 전 안내다. */
+  projectsSource?: ProjectsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
@@ -96,6 +99,7 @@ export function Desktop(
     lophn,
     palette,
     projects,
+    projectsSource,
     intents,
     instructions,
     apps,
@@ -222,6 +226,7 @@ export function Desktop(
         source={lophn}
         screen={route.screen}
         initialRequest={route.request}
+        projectsSource={projectsSource}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}

@@ -1,13 +1,15 @@
 export const workspace = {
   "apps.button.archive": "Archive",
   "apps.button.open": "Open",
-  "apps.button.restore": "Restore",
+  "apps.button.unarchive": "Unarchive",
   "apps.empty.no-apps": "No apps yet.",
   "apps.error.action-failed": "{name} didn't change. Try again.",
   "apps.error.changed": "This changed since you opened it. Showing the latest.",
+  "apps.heading.apps": "Apps",
+  "apps.heading.archived": "Archived",
+  "apps.intro.screen":
+    "Apps are registered by lophn or by you, not from this screen. Open an app to go to its app space.",
   "apps.label.list-target": "your apps",
-  "apps.label.name": "Name",
-  "apps.label.status": "Status",
   "apps.notice.archived": "{name} is archived and won't start.",
   "apps.notice.restored":
     "{name} is back. It stays stopped until you start it.",
@@ -178,155 +180,102 @@ export const workspace = {
   "launcher.button.remove-folder": "Remove folder",
   "launcher.button.show-details": "Show details",
   "launcher.dialog.register-note":
-    "Registering doesn't track any files. You choose what to track inside the project.",
+    "A project is a name, a purpose and the folders it works in.",
   "launcher.empty.no-apps": "No apps yet.",
-  "launcher.empty.no-cards": "Nothing to open yet.",
-  "launcher.empty.no-folders": "No folder yet. You can register without one.",
+  "launcher.empty.no-cards":
+    "Nothing to open yet. Register a project or an app in Lophn Workspace.",
+  "launcher.empty.no-folders": "No folder yet. Add at least one.",
   "launcher.empty.no-projects": "No projects yet.",
+  "launcher.error.folder-required": "Add at least one folder.",
   "launcher.error.name-required": "Enter a name.",
-  "launcher.error.name-taken":
-    "Another project already uses this name. Try a different name.",
   "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
   "launcher.error.register-failed":
     "{name} wasn't registered, so nothing was saved. Try again.",
+  "launcher.failure.check-damaged-original":
+    "The data file failed its integrity check.",
+  "launcher.failure.check-history-mismatch":
+    "A saved step differs from the one this version expects.",
+  "launcher.failure.check-newer-schema":
+    "The data was written with a newer schema than this version reads.",
+  "launcher.failure.damaged-original":
+    "lophn did not start. The data file is damaged. lophn did not repair or replace it, so the original is still there.",
+  "launcher.failure.history-mismatch":
+    "lophn did not start. The history in your data differs from what this version expects, and lophn did not change it.",
+  "launcher.failure.newer-schema":
+    "lophn did not start. It left your data exactly as it was, and this version can't read it.",
   "launcher.failure.sandbox-failed":
     "Your system's security settings stopped lophn from starting. Check that lophn is allowed to open, then try again.",
-  "launcher.failure.schema-incompatible":
-    "The parts of lophn on this computer are from different versions. Update lophn, then try again.",
   "launcher.failure.start-failed":
     "lophn couldn't start in the background. Your projects and apps can't open until it does.",
-  "launcher.field.purpose-help": "Optional. What this project is for.",
+  "launcher.failure.update-damaged-original":
+    "Update lophn and try again. If it still fails, keep the folder as it is.",
+  "launcher.failure.update-history-mismatch":
+    "Update lophn, or start the version that wrote this data. Then try again.",
+  "launcher.failure.update-newer-schema":
+    "Update lophn to the newer version, then start it again.",
+  "launcher.field.purpose-help": "What the project is for. Agents read this.",
   "launcher.heading.apps": "Apps",
   "launcher.heading.projects": "Projects",
   "launcher.label.apps": "your apps",
-  "launcher.label.detail-documents":
-    "{count, plural, =0 {No documents yet} one {# document} other {# documents}}",
-  "launcher.label.detail-id": "ID",
-  "launcher.label.detail-name": "Short name",
-  "launcher.label.detail-no-folders": "No folder",
+  "launcher.label.folder-count":
+    "{count, plural, one {# folder} other {# folders}}",
   "launcher.label.folder-description": "What's in this folder",
+  "launcher.label.folder-missing": "Folder not found",
   "launcher.label.folders": "Folders",
   "launcher.label.name": "Name",
   "launcher.label.projects": "your projects",
   "launcher.label.purpose": "Purpose",
-  "launcher.label.status-no-folder": "No folder yet",
-  "launcher.label.status-not-tracking": "Not tracking files yet",
-  "launcher.label.status-tracking": "Tracking files",
   "launcher.label.wordmark": "lophn",
+  "launcher.title.damaged-original": "Your data can't be read",
+  "launcher.title.history-mismatch": "The saved history does not match",
+  "launcher.title.newer-schema": "This data is from a newer lophn",
   "launcher.title.register": "Register project",
   "launcher.title.sandbox-failed": "lophn is blocked by your system",
-  "launcher.title.schema-incompatible": "lophn needs an update",
   "launcher.title.start-failed": "lophn didn't start",
+  "projects.button.add-folder": "Add folder",
+  "projects.button.add-subfolder": "Add subfolder",
   "projects.button.archive": "Archive project",
-  "projects.button.back-to-project": "Back to project",
-  "projects.button.export":
-    "Export {count, plural, one {# document} other {# documents}}",
-  "projects.button.move": "Move",
-  "projects.button.place": "Put in a file",
-  "projects.button.remove-file": "Remove the file",
-  "projects.button.rename": "Rename",
+  "projects.button.choose-location": "Choose new location",
+  "projects.button.register": "Register project",
+  "projects.button.remove": "Remove",
   "projects.button.save": "Save changes",
   "projects.button.show-latest": "Show latest",
-  "projects.button.unarchive": "Unarchive project",
-  "projects.empty.documents": "No documents in this project yet.",
-  "projects.empty.none": "No projects yet. Add one from the launcher.",
+  "projects.button.unarchive": "Unarchive",
+  "projects.button.undo": "Undo",
+  "projects.empty.no-subfolders":
+    "No subfolders. Add one to describe a part of this folder.",
+  "projects.empty.none": "No projects yet.",
   "projects.empty.pick": "Choose a project to see it here.",
   "projects.error.changed": "This changed since you opened it.",
-  "projects.error.document-change-failed":
-    "Couldn't change this document. Nothing changed. Try again.",
-  "projects.error.document-name-taken":
-    "This name is already used in this place, now or before. Choose another.",
-  "projects.error.export-changed":
-    "This changed since you opened it. Nothing was exported. Check the latest and export again.",
-  "projects.error.export-failed":
-    "Couldn't export these documents. Nothing was exported. Try again.",
-  "projects.error.name-invalid":
-    "Use lowercase letters, numbers and dashes, starting with a letter.",
-  "projects.error.name-taken":
-    "This name is already used, now or before. Choose another.",
+  "projects.error.folders-unavailable": "Couldn't read this folder. Try again.",
+  "projects.error.name-missing": "Enter a name.",
   "projects.error.project-change-failed":
     "Couldn't change this project. Nothing changed. Try again.",
-  "projects.error.review-unavailable":
-    "The review window can't open here yet, so the file wasn't removed.",
-  "projects.error.title-missing": "Add a title.",
-  "projects.heading.document": "Organize this document",
-  "projects.heading.documents": "Documents",
-  "projects.heading.export": "Export",
-  "projects.heading.export-included": "Included",
-  "projects.heading.export-left-out": "Not included",
-  "projects.heading.file": "File",
-  "projects.label.archived": "Archived",
-  "projects.label.document-name": "Name in links",
-  "projects.label.export-format": "Format",
-  "projects.label.export-kept-original": "Kept as the original file",
-  "projects.label.export-no-files": "Original files can't be returned",
-  "projects.label.export-not-picked": "Not picked",
-  "projects.label.export-version": "Version",
-  "projects.label.file-folder": "Folder",
-  "projects.label.file-linked": "Linked to a file",
-  "projects.label.file-name": "File name",
-  "projects.label.format-json": "JSON",
-  "projects.label.format-markdown": "Markdown",
-  "projects.label.move-to": "Move to",
+  "projects.heading.archived": "Archived",
+  "projects.heading.folders": "Folders",
+  "projects.heading.subfolders": "Subfolders",
+  "projects.help.subfolder-edited": "Edited. Save changes to keep it.",
+  "projects.label.added": "Added",
+  "projects.label.folder-description": "Folder description",
+  "projects.label.folder-not-found": "Folder not found",
   "projects.label.name": "Name",
-  "projects.label.name-help": "Lowercase letters, numbers and dashes",
-  "projects.label.no-place": "No place",
-  "projects.label.place-project": "Project",
+  "projects.label.not-found": "Not found",
   "projects.label.purpose": "Purpose",
-  "projects.label.show-archived": "Show archived projects",
-  "projects.label.step-done": "Done",
-  "projects.label.step-failed": "Didn't finish",
-  "projects.label.step-forbidden": "Not allowed",
-  "projects.label.step-move": "Put in this project",
-  "projects.label.step-not-attempted": "Not tried",
-  "projects.label.step-skipped": "Not needed",
-  "projects.label.step-source": "Link the document to the file",
-  "projects.label.step-tracking": "Track this file",
-  "projects.label.step-unlink-move": "Take out of this project",
-  "projects.label.step-unlink-source": "Unlink the file",
-  "projects.label.target-documents": "this project's documents",
+  "projects.label.subfolder-description": "Subfolder description",
   "projects.label.target-projects": "your projects",
-  "projects.label.title": "Title",
-  "projects.label.tracking-off": "Not tracking files",
-  "projects.label.tracking-on": "Tracking files",
-  "projects.label.version-latest": "Version {number, number}, newest",
-  "projects.label.version-number": "Version {number, number}",
   "projects.notice.archive-keeps":
-    "Archiving hides this project from your lists. Its documents and versions stay.",
-  "projects.notice.archived":
-    "This project is archived. Its documents are still here and can be read.",
-  "projects.notice.export-pick": "Choose the documents and versions to export.",
-  "projects.notice.file-none":
-    "This document isn't in a file. lophn keeps its versions.",
-  "projects.notice.file-stays": "The file on disk stays where it is.",
-  "projects.notice.moved":
-    "Moved to {place}. Old links still open this document.",
-  "projects.notice.moved-out":
-    "Moved out of this project. It has no place now, so find it by its title.",
-  "projects.notice.place-help":
-    "lophn writes the newest version to a new file. It won't replace a file that's already there.",
-  "projects.notice.place-many-files":
-    "This version has more than one file, so it can't go in a single file.",
-  "projects.notice.place-no-project":
-    "Turn on file tracking for a project to put documents in files.",
-  "projects.notice.remove-help":
-    "The file is deleted only if it still matches the newest version. The document and its versions stay.",
-  "projects.notice.renamed":
-    "Renamed to {name}. Old links still open this document.",
-  "projects.notice.review-opened":
-    "Review the removal in the window that opened.",
+    "Archiving hides the project from the launcher. Its sessions stay, but agents stop reacting to new events until you unarchive it.",
+  "projects.notice.folder-missing":
+    "{path} was moved or deleted. Work that needs this folder waits until you choose its new location.",
+  "projects.notice.pick-subfolder":
+    "Pick a folder inside the registered folder and describe it. You can't go above it.",
+  "projects.notice.relocate-first":
+    "Choose the folder's new location before adding subfolders.",
   "projects.notice.saved": "Saved.",
-  "projects.notice.steps-incomplete":
-    "Some steps after the file didn't finish. The file stays where it is.",
-  "projects.result.file-conflict":
-    "Nothing was written. A file is already there or the document changed. Choose another name or check the latest.",
-  "projects.result.file-deleted": "The file was deleted.",
-  "projects.result.file-failed":
-    "Couldn't write the file, so the document isn't in a file. Try again.",
-  "projects.result.file-gone": "The file was already gone.",
-  "projects.result.file-unknown":
-    "Couldn't confirm whether the file was written. Check the folder before trying again.",
-  "projects.result.file-written": "The file was written.",
+  "projects.notice.subfolder-removed":
+    "{path} removed from the project. The folder itself is untouched.",
+  "projects.title.add-subfolder": "Add subfolder",
+  "projects.title.folder-missing": "A registered folder is missing",
   "projects.title.screen": "Projects",
   "things-to-confirm.button.answer-next": "Answer the next question",
   "things-to-confirm.button.cancel-question": "Cancel these questions",

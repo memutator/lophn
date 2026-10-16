@@ -12,34 +12,25 @@ import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { newId } from "../lophn-space/model.ts";
-import {
-  addFolder,
-  type RegisterFailure,
-  registerFailure,
-  shortNameOf,
-  usableTitle,
-} from "./model.ts";
-import type { FolderDraft, LauncherSource, ProjectCard } from "./source.ts";
+import { addFolder, usableTitle } from "./model.ts";
+import type { FolderDraft, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
 
 export interface RegisterDialogProps {
   open: boolean;
-  source: LauncherSource;
-  /** 이미 쓰는 안쪽 짧은 이름. 겹치지 않는 이름을 고른다. */
-  takenNames: readonly string[];
+  source: RegisterSource;
   onClose: () => void;
-  onRegistered: (card: ProjectCard) => void;
+  onRegistered: (created: { id: string }) => void;
   /** id의 시각과 무작위. 테스트가 고정한다. */
   newProjectId?: () => string;
 }
 
-// 이전 lophn 프로젝트 등록 창의 배치: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록.
-// 폴더는 OS 선택기로만 고르고 없이도 등록한다. 등록은 추적을 켜지 않는다.
+// 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
+// 하나 이상 있어야 등록한다. 런처와 Projects의 + 단추가 같이 쓴다.
 export function RegisterDialog(
   {
     open,
     source,
-    takenNames,
     onClose,
     onRegistered,
     newProjectId = () => newId("prj"),
@@ -51,9 +42,7 @@ export function RegisterDialog(
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pickFailed, setPickFailed] = useState(false);
-  const [failure, setFailure] = useState<
-    { kind: RegisterFailure; name: string } | null
-  >(null);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const reset = () => {
     setTitle("");
@@ -82,13 +71,12 @@ export function RegisterDialog(
 
   const submit = async () => {
     setTouched(true);
-    if (!usableTitle(title) || busy) return;
+    if (!usableTitle(title) || folders.length === 0 || busy) return;
     setBusy(true);
     setFailure(null);
     const name = title.trim();
     const result = await source.register({
       id: newProjectId(),
-      name: shortNameOf(name, takenNames),
       title: name,
       purpose: purpose.trim(),
       folders: folders.map((folder) => ({
@@ -98,7 +86,7 @@ export function RegisterDialog(
     });
     setBusy(false);
     if (!result.ok) {
-      setFailure({ kind: registerFailure(result.code), name });
+      setFailure(name);
       return;
     }
     reset();
@@ -107,8 +95,6 @@ export function RegisterDialog(
 
   const nameError = touched && !usableTitle(title)
     ? t("launcher.error.name-required")
-    : failure?.kind === "name-taken"
-    ? t("launcher.error.name-taken")
     : undefined;
   const addLabel = t("launcher.button.add-folder");
   const removeLabel = t("launcher.button.remove-folder");
@@ -143,10 +129,7 @@ export function RegisterDialog(
             value={title}
             autoFocus
             data-field="name"
-            onChange={(event) => {
-              setTitle(event.currentTarget.value);
-              if (failure?.kind === "name-taken") setFailure(null);
-            }}
+            onChange={(event) => setTitle(event.currentTarget.value)}
           />
         </Field>
         <Field
@@ -208,6 +191,7 @@ export function RegisterDialog(
                       <Input
                         size="sm"
                         value={folder.description}
+                        data-folder-description=""
                         onChange={(event) => {
                           const description = event.currentTarget.value;
                           setFolders(
@@ -222,6 +206,13 @@ export function RegisterDialog(
                 ))}
               </ul>
             )}
+          {touched && folders.length === 0
+            ? (
+              <p className={styles.error} role="alert" data-folder-required="">
+                {t("launcher.error.folder-required")}
+              </p>
+            )
+            : null}
           {pickFailed
             ? (
               <p className={styles.error} role="alert" data-pick-failed="">
@@ -230,10 +221,10 @@ export function RegisterDialog(
             )
             : null}
         </section>
-        {failure?.kind === "failed"
+        {failure !== null
           ? (
             <p className={styles.error} role="alert" data-register-failed="">
-              {t("launcher.error.register-failed", { name: failure.name })}
+              {t("launcher.error.register-failed", { name: failure })}
             </p>
           )
           : null}

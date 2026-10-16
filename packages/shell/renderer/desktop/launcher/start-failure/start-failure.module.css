@@ -44,3 +44,10 @@
   line-height: var(--type-caption-line);
   overflow-wrap: anywhere;
 }
+
+.textSmall {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

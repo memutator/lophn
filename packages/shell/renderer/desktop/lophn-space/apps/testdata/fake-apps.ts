@@ -85,3 +85,31 @@ export function fakeApps(options: FakeAppsOptions = {}) {
   };
   return { source, calls };
 }
+
+const GALLERY_IDS = [
+  "app_01h455vb4pex5v6nkc6gd5fd11",
+  "app_01h455vb4pex5v6nkc6gd5fd12",
+  "app_01h455vb4pex5v6nkc6gd5fd13",
+  "app_01h455vb4pex5v6nkc6gd5fd14",
+  "app_01h455vb4pex5v6nkc6gd5fd15",
+] as const;
+
+/** Workspace Apps 화면과 런처 gallery가 그리는 앱: 실행 중·멈춤·응답 없음과 보관 하나. */
+export function galleryApps() {
+  const [grocery, planner, reading, report, habit] = GALLERY_IDS;
+  return fakeApps({
+    rows: [
+      appRow(grocery, "Grocery budget"),
+      appRow(planner, "Quarter planner"),
+      appRow(reading, "Reading list"),
+      appRow(report, "Weekly report"),
+      appRow(habit, "Habit tracker", { archived: true }),
+    ],
+    runs: {
+      [grocery]: "running",
+      [planner]: "stopped",
+      [reading]: "running",
+      [report]: "unavailable",
+    },
+  });
+}

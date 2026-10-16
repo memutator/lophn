@@ -22,6 +22,7 @@ import {
 import { lophnScope } from "../palette/lophn-scope.ts";
 import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
 import { ProjectsScreen } from "./projects/projects-screen.tsx";
+import type { ProjectsSource } from "./projects/source.ts";
 import { useRequests } from "./things-to-confirm/context.tsx";
 import { AppsScreen } from "./apps/apps-screen.tsx";
 import type { AppsSource } from "./apps/source.ts";
@@ -45,6 +46,8 @@ export interface LophnSpaceProps {
   onProject?: (project: string) => void;
   /** things-to-confirm에서 처음 고를 요청. */
   initialRequest?: string;
+  /** projects 화면 통로. 없으면 projects는 준비 전 안내다. */
+  projectsSource?: ProjectsSource;
   /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
@@ -70,6 +73,7 @@ export function LophnSpace(
     onLauncher,
     onProject,
     initialRequest,
+    projectsSource,
     apps,
     onApp,
     settings,
@@ -188,8 +192,8 @@ export function LophnSpace(
                 initialSelected={initialRequest}
               />
             )
-            : current === "projects"
-            ? <ProjectsScreen source={source} />
+            : current === "projects" && projectsSource
+            ? <ProjectsScreen source={projectsSource} />
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}

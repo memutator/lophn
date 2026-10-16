@@ -1,15 +1,17 @@
-// lophn 공간 apps 화면. 등록한 앱을 사람이 지은 이름과 상태로 보이고, 열기·보관·꺼내기를 둔다
-// (flow organize-documents). 보관은 되돌릴 수 있어 묻지 않고 하고 결과만
-// 알린다. 원시 enum·ID는 보이지 않는다.
+// lophn 공간 apps 화면. 등록한 앱을 사람이 지은 이름과 상태로 보이고, 열기·보관·꺼내기를 둔다. 앱 등록은
+// 이 화면의 일이 아니다. 보관은 되돌릴 수 있어 묻지 않고 하고 결과만 알린다. 원시 enum·ID는 보이지 않는다.
 import { useCallback, useEffect, useState } from "react";
 import {
   Button,
   ErrorState,
+  Icon,
+  iconPixels,
   Loading,
   Skeleton,
   StatusMark,
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
+import { appSpaceIcons, lophnSpaceIcons } from "../../../icons/mod.ts";
 
 import { appStatus, sortApps, statusLabel, statusTone } from "./model.ts";
 import type { AppRow, AppsSource, RunState } from "./source.ts";
@@ -101,6 +103,21 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
     await load();
   }
 
+  const rows = loaded.state === "ready" ? loaded.rows : [];
+  const active = rows.filter((row) => !row.archived);
+  const archived = rows.filter((row) => row.archived);
+
+  const name = (row: AppRow) => (
+    <span className={styles.rowMain}>
+      <Icon
+        icon={appSpaceIcons.app}
+        pixels={iconPixels("base")}
+        className={styles.rowIcon}
+      />
+      <span className={styles.name}>{row.name}</span>
+    </span>
+  );
+
   let body;
   if (loaded.state === "failed") {
     body = (
@@ -112,7 +129,7 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
         }}
       />
     );
-  } else if (loaded.state === "ready" && loaded.rows.length === 0) {
+  } else if (loaded.state === "ready" && rows.length === 0) {
     body = <p className={styles.empty}>{t("apps.empty.no-apps")}</p>;
   } else {
     body = (
@@ -120,15 +137,11 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
         loading={loaded.state === "loading"}
         placeholder={<Skeleton lines={4} />}
       >
-        <ul className={styles.list} aria-label={t("apps.title.screen")}>
-          <li className={styles.head} aria-hidden="true">
-            <span>{t("apps.label.name")}</span>
-            <span>{t("apps.label.status")}</span>
-            <span />
-          </li>
-          {(loaded.state === "ready" ? loaded.rows : []).map((row) => {
-            const status = row.archived || runs !== null
-              ? appStatus(row, runs?.[row.id] ?? null)
+        <h2 className={styles.groupTitle}>{t("apps.heading.apps")}</h2>
+        <ul className={styles.rows} aria-label={t("apps.title.screen")}>
+          {active.map((row) => {
+            const status = runs !== null
+              ? appStatus(row, runs[row.id] ?? null)
               : null;
             return (
               <li
@@ -137,39 +150,64 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
                 data-app-row=""
                 data-status={status ?? undefined}
               >
-                <span className={styles.name}>{row.name}</span>
-                {status === null ? <span /> : (
-                  <StatusMark
-                    tone={statusTone(status)}
-                    label={statusLabel(status)}
-                  />
-                )}
-                <span className={styles.actions}>
-                  {row.archived ? null : (
-                    <Button
-                      size="sm"
-                      data-action="open"
-                      onClick={() => onOpen(row.id)}
-                    >
-                      {t("apps.button.open")}
-                    </Button>
+                <span className={styles.rowMain}>
+                  {name(row)}
+                  {status === null ? null : (
+                    <StatusMark
+                      tone={statusTone(status)}
+                      label={statusLabel(status)}
+                    />
                   )}
+                </span>
+                <span className={styles.actions}>
+                  <Button
+                    size="sm"
+                    data-action="open"
+                    onClick={() => onOpen(row.id)}
+                  >
+                    {t("apps.button.open")}
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    data-action={row.archived ? "restore" : "archive"}
+                    icon={lophnSpaceIcons.archive}
+                    data-action="archive"
                     disabled={busy === row.id}
                     onClick={() => void toggleArchive(row)}
                   >
-                    {row.archived
-                      ? t("apps.button.restore")
-                      : t("apps.button.archive")}
+                    {t("apps.button.archive")}
                   </Button>
                 </span>
               </li>
             );
           })}
         </ul>
+        {archived.length === 0 ? null : (
+          <>
+            <h2 className={styles.groupTitle}>{t("apps.heading.archived")}</h2>
+            <ul className={styles.rows}>
+              {archived.map((row) => (
+                <li
+                  key={row.id}
+                  className={styles.row}
+                  data-app-row=""
+                  data-status="archived"
+                >
+                  {name(row)}
+                  <Button
+                    size="sm"
+                    icon={lophnSpaceIcons.unarchive}
+                    data-action="restore"
+                    disabled={busy === row.id}
+                    onClick={() => void toggleArchive(row)}
+                  >
+                    {t("apps.button.unarchive")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </Loading>
     );
   }
@@ -177,6 +215,7 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
   return (
     <section className={styles.screen} data-screen-body="apps">
       <div className={styles.page}>
+        <p className={styles.muted}>{t("apps.intro.screen")}</p>
         {notice
           ? (
             <p

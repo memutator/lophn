@@ -1,40 +1,143 @@
-/* projects 상세: 머리, 등록(이름·목적), 보관을 위에서 아래로 쌓는다. */
-.body {
+/* Projects: 왼쪽 목록 칸과 오른쪽 상세. 행동 단추는 줄 오른쪽 끝에 둔다. */
+.screen {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  flex: 1;
+  justify-content: center;
   gap: var(--space-8);
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  overflow: auto;
   font-family: var(--font-sans);
 }
 
-.form {
+/* 화면 위쪽에 뜨는 toast. 본문 흐름을 밀지 않는다. */
+.toastSlot {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-0);
+  left: var(--space-0);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin: var(--space-0);
+  justify-content: center;
+  pointer-events: none;
+  z-index: var(--z-toast);
 }
 
-.actions {
+.toastSlot > * {
+  pointer-events: auto;
+}
+
+.listColumn {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex: none;
+  flex-direction: column;
   gap: var(--space-4);
+  width: var(--layout-container-card);
 }
 
-.head {
+.detailColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+  max-width: var(--page-form);
+}
+
+.groupTitle {
+  margin: var(--space-5) var(--space-0) var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.projectCard {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  font-family: var(--font-sans);
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.titleRow {
+.projectCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+.projectCard[aria-current] {
+  background: var(--color-selection);
+}
+
+.projectName {
+  font-weight: var(--font-weight-medium);
+}
+
+.muted {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 목록 끝의 둥근 + 단추. 누르면 등록 dialog가 열린다. */
+.addRound {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  box-sizing: border-box;
+  width: calc(var(--control-lg-height) + var(--space-3));
+  height: calc(var(--control-lg-height) + var(--space-3));
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-base);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.addRound:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.archivedRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
 }
 
-.title {
+.placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-9);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: var(--space-0);
+}
+
+.detailTitle {
   margin: var(--space-0);
   color: var(--color-text-primary);
   font-size: var(--type-title-size);
@@ -43,18 +146,138 @@
   letter-spacing: var(--type-tracking-title);
 }
 
-.meta {
+.form {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  flex-direction: column;
+  gap: var(--space-6);
   margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }
 
-.rule {
+/* Folders 머리 아래에 여백을 둔다. */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.folderList {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.folder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.folder + .folder {
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.folderHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.path {
+  min-width: var(--space-0);
+  overflow-wrap: anywhere;
   font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.pathMissing {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.folderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 하위 폴더: 등록 폴더 아래에 들여 써서 중첩으로 보인다. */
+.subfolders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-left: var(--space-5);
+  padding-left: var(--space-6);
+  border-left: var(--border-width) solid var(--color-border-base);
+}
+
+.subfolderList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.subfolder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.subfolderRemoved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.subHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.subTitle {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+
+.dangerZone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
 .notice {
@@ -67,6 +290,13 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface-subtle);
   color: var(--status-warning-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.error {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }

@@ -63,7 +63,9 @@ function present(text: string | null): text is string {
 }
 
 // reasoning 본문은 prompt에 넣지 않는다. 조각이 모두 빠진 message는 없다.
-function historyMessages(history: readonly HistoryMessage[]): PromptMessage[] {
+export function historyMessages(
+  history: readonly HistoryMessage[],
+): PromptMessage[] {
   const messages: PromptMessage[] = [];
   for (const message of history) {
     const parts: PromptPart[] = [];
@@ -143,7 +145,7 @@ export function anthropicSystem(request: PromptRequest) {
   return request.system.map((block) => ({
     type: "text" as const,
     text: block.text,
-    cache_control: EPHEMERAL,
+    ...(block.cache === false ? {} : { cache_control: EPHEMERAL }),
   }));
 }
 

@@ -25,10 +25,23 @@ export type PromptLayerKind =
   | "role_agent"
   | "user_instructions"
   | "work_material"
-  | "turn_context";
+  | "turn_context"
+  | TurnLayerKind;
 
-// system 쪽 세 층. 각 층의 끝이 cache 경계 하나다.
-export type SystemLayerKind = "product" | "role_agent" | "user_instructions";
+// `assembleTurnPrompt`의 system 층. 순서대로 role, tools, instructions, skills, place이고 자주 안 바뀌는 것이 앞이다.
+export type TurnLayerKind =
+  | "role"
+  | "tools"
+  | "instructions"
+  | "skills"
+  | "place";
+
+// system 쪽 층. 경계 표시가 달린 층의 끝이 cache 경계 하나다.
+export type SystemLayerKind =
+  | "product"
+  | "role_agent"
+  | "user_instructions"
+  | TurnLayerKind;
 
 export type PromptTool = {
   name: string;
@@ -41,6 +54,13 @@ export type HistoryPart =
   | { kind: "text"; text: string }
   | { kind: "tool_use"; id: string; name: string; input: unknown }
   | { kind: "tool_result"; id: string; text: string }
+  // tool 결과 안의 이미지다. id는 tool_result와 같은 tool_use id이고 provider adapter가 image block으로 바꾼다.
+  | {
+    kind: "tool_result_image";
+    id: string;
+    media_type: string;
+    data_base64: string;
+  }
   | { kind: "reasoning"; text: string };
 
 export type HistoryMessage = {
@@ -56,7 +76,12 @@ export type PromptMessage = {
 };
 
 // 한 층의 system 본문. 층마다 하나이고 끝이 cache 경계다.
-export type SystemBlock = { layer: SystemLayerKind; text: string };
+// `cache`가 false면 경계 표시를 달지 않는다. 없으면 단다(Anthropic marker는 넷까지다).
+export type SystemBlock = {
+  layer: SystemLayerKind;
+  text: string;
+  cache?: boolean;
+};
 
 // provider 중립 요청. 번역은 adapter가 하고 tools는 이번 call의 목록만이다.
 export type PromptRequest = {

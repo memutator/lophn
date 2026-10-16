@@ -1,26 +1,5 @@
 export { inputBudget, measureWire } from "./budget.ts";
-export {
-  checkCompletion,
-  COMPACTION_REASSEMBLY_RETRY_MAX,
-  compactionNeeded,
-  type CompactionResult,
-  compactionTarget,
-  type CompletionCheck,
-  historyCut,
-  mergeStepInputCap,
-  type Precheck,
-  precheckCompaction,
-  recentHistoryBudget,
-  SHRINK_RESULT_CODE_POINTS,
-  SHRINK_RESULT_HEAD,
-  SHRINK_RESULT_TAIL,
-  shrinkResultText,
-  splitChunks,
-  SUMMARY_RULE_VERSION,
-  summaryOutputCap,
-  type SummaryParts,
-  type SummaryRef,
-} from "./compaction.ts";
+export { summaryOutputCap } from "./compaction.ts";
 export {
   assertsNoPreferenceGeneralization,
   type ClampResult,
@@ -35,8 +14,11 @@ export {
   type SessionMessage,
   splitSummaryMaterial,
   SUMMARY_PART_KEYS,
+  SUMMARY_RULE_VERSION,
   summaryBodyHash,
   summaryBodyTokens,
+  type SummaryParts,
+  type SummaryRef,
   visibleMessages,
 } from "./summary.ts";
 export {
@@ -73,6 +55,7 @@ export {
   type SystemBlock,
   type SystemLayerKind,
   type TurnContextBasis,
+  type TurnLayerKind,
   type WirePack,
   type WirePacker,
   type WorkMaterial,
@@ -100,3 +83,36 @@ export {
   type TurnContextView,
 } from "./turn-context.ts";
 export * from "./input-tags.ts";
+export {
+  type BasisDiff,
+  basisOf,
+  diffBasis,
+  INSTRUCTION_LAYERS,
+  type InstructionLayerName,
+  type InstructionTexts,
+  type ListChange,
+  type SeenBasis,
+} from "./basis.ts";
+export {
+  buildContextText,
+  type ContextRead,
+  type FolderRead,
+  renderContextText,
+} from "./context-text.ts";
+export {
+  type PlaceAgent,
+  type PlaceApp,
+  type PlaceContext,
+  type PlaceData,
+  placeInfo,
+  type PlaceProject,
+  visibleContexts,
+} from "./place-info.ts";
+export { type SkillListItem, skillListText } from "./skill-list.ts";
+export {
+  assembleTurnPrompt,
+  type TurnPromptDeps,
+  type TurnPromptInput,
+  type TurnPromptResult,
+  type TurnTool,
+} from "./turn-prompt.ts";

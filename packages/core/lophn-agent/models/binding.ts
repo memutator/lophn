@@ -41,6 +41,10 @@ function anthropicMessages(messages: readonly PromptMessage[]): unknown[] {
           input: part.input,
         };
       }
+      // 이미지 part의 wire 번역은 provider adapter가 맡는다. 여기서는 글 결과만 낸다.
+      if (part.kind === "tool_result_image") {
+        return { type: "tool_result", tool_use_id: part.id, content: "" };
+      }
       return {
         type: "tool_result",
         tool_use_id: part.id,
@@ -100,7 +104,7 @@ function responsesInput(messages: readonly PromptMessage[]): unknown[] {
           name: part.name,
           arguments: JSON.stringify(part.input),
         });
-      } else {
+      } else if (part.kind === "tool_result") {
         items.push({
           type: "function_call_output",
           call_id: part.id,

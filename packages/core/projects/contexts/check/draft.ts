@@ -57,7 +57,7 @@ export function schemaFailure(
     bundle: content,
     files: NO_FILES,
     appData: () => undefined,
-    env: { externalTypes: [], appCommandEffect: () => "unknown" },
+    env: { externalTypes: [], appApiEffect: () => "unknown" },
     user_saved_views: [],
   });
   return finishedReport(runningReport(subject), outcome, subject.at);

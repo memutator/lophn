@@ -36,7 +36,7 @@ export function visualSourceSchemas(strict: boolean) {
     visualObject(strict, shape);
   return z.discriminatedUnion("kind", [
     object({
-      kind: z.literal("app_command"),
+      kind: z.literal("app_api"),
       reference: object({
         app: idSchema("app"),
         release: idSchema("rel"),

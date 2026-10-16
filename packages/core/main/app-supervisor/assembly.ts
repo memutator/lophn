@@ -189,7 +189,7 @@ function wireOf(
     process_nonce: observation.processNonce,
     // 관측 wire 계약이 아직 요구하는 칸이다. 연결 주소는 core에 알리지 않는다.
     endpoint: "",
-    commands: observation.commands,
+    app_api: observation.app_api,
     screens: observation.screens,
     ready: observation.ready,
     accepting: observation.accepting,
@@ -616,7 +616,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       if (answered.ok) {
         const attestation = answered.value.body as
           | {
-            commands?: string[];
+            app_api?: string[];
             data_schema?: number;
             bundle_hash?: string;
           }
@@ -624,7 +624,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         if (answered.value.status === 200 && attestation !== null) {
           return {
             ok: true as const,
-            commands: attestation.commands ?? [],
+            app_api: attestation.app_api ?? [],
             dataSchema: attestation.data_schema ?? 0,
             bundleHash: attestation.bundle_hash ?? "",
           };
@@ -1048,7 +1048,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
           attestation: {
             release: started.attestation.release,
             bundle_hash: started.attestation.bundleHash,
-            commands: started.attestation.commands,
+            app_api: started.attestation.app_api,
             data_schema: started.attestation.dataSchema,
           },
         }

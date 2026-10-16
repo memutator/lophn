@@ -76,7 +76,7 @@ export const toolOutcomeSchema = z.strictObject(toolOutcomeFields);
 const toolOutcomeOutputSchema = z.object(toolOutcomeFields);
 export type ToolOutcome = z.infer<typeof toolOutcomeOutputSchema>;
 
-const appCommandFields = {
+const appApiFields = {
   app: idSchema("app"),
   release: idSchema("rel"),
   command: nonempty,
@@ -88,13 +88,13 @@ const appCommandFields = {
     basis_seq: z.string().regex(/^[0-9]+$/),
   }),
   context_binding: z.record(z.string(), z.json()).nullable(),
-  // 이 값이 있으면 tool_calls.app_command로 묶이고 revert가 앱의 선언된 revert command를 부른다.
+  // 이 값이 있으면 tool_calls.app_api로 묶이고 revert가 앱의 선언된 revert command를 부른다.
   revert_command: z.string().min(1).optional(),
 };
 
-const appCommandBindingSchema = z.strictObject(appCommandFields);
-const appCommandBindingOutputSchema = z.object({
-  ...appCommandFields,
+const appApiBindingSchema = z.strictObject(appApiFields);
+const appApiBindingOutputSchema = z.object({
+  ...appApiFields,
   permission_basis: z.object({
     grant: idSchema("grt"),
     scope: nonempty,
@@ -167,7 +167,7 @@ const toolCallFields = {
   tool: toolNameSchema,
   definition_revision: nonempty,
   effect: toolEffectSchema,
-  app_command: appCommandBindingSchema.nullable(),
+  app_api: appApiBindingSchema.nullable(),
   confirm: z.boolean(),
   extension: toolExtensionSchema.nullable(),
   input: hash,
@@ -216,7 +216,7 @@ function callShape(value: Call) {
 
 export const toolCallOutputSchema = z.object({
   ...toolCallFields,
-  app_command: appCommandBindingOutputSchema.nullable(),
+  app_api: appApiBindingOutputSchema.nullable(),
   extension: toolExtensionOutputSchema.nullable(),
   decision: toolDecisionOutputSchema.nullable(),
   outcome: toolOutcomeOutputSchema.nullable(),

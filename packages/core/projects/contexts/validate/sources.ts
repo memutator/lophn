@@ -48,11 +48,11 @@ export const checkSources: ContractCheck = (bundle, env) => {
         }
         break;
       case "app-data": {
-        const effect = env.appCommandEffect(source.app, source.command);
+        const effect = env.appApiEffect(source.app, source.command);
         if (effect === "unknown") {
-          issues.push({ code: "app_command_unknown", path: at("command") });
+          issues.push({ code: "app_api_unknown", path: at("command") });
         } else if (effect !== "read") {
-          issues.push({ code: "app_command_not_read", path: at("command") });
+          issues.push({ code: "app_api_not_read", path: at("command") });
         }
         break;
       }

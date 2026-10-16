@@ -7,7 +7,7 @@ import { relativePathSchema } from "../projects/values.ts";
 import {
   appIdSchema,
   approvalIdSchema,
-  commandKeySchema,
+  appApiKeySchema,
   invocationIdSchema,
   releaseIdSchema,
 } from "./channel-values.ts";
@@ -108,17 +108,17 @@ export const bundleManifestSchema = z.object({
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
 // command 하나의 바뀐 점. `kinds`는 입력·효과·확인·되돌림 지원이고 설명·이름만 바뀐 것은
-// `description_only_commands`로 구별한다. 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
-const COMMAND_CHANGE_KINDS = [
+// `description_only_app_api`로 구별한다. 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
+const APP_API_CHANGE_KINDS = [
   "input",
   "effect",
   "confirm",
   "revert",
 ] as const;
 const commandEffectSchema = z.enum(["read", "write", "external"]);
-const commandChangeSchema = z.object({
-  command: commandKeySchema,
-  kinds: z.array(z.enum(COMMAND_CHANGE_KINDS)),
+const appApiChangeSchema = z.object({
+  command: appApiKeySchema,
+  kinds: z.array(z.enum(APP_API_CHANGE_KINDS)),
   effect_from: commandEffectSchema.nullable(),
   effect_to: commandEffectSchema.nullable(),
   // 이전에 없던 필수 입력 이름.
@@ -132,15 +132,15 @@ const releaseComparisonSchema = z.object({
   previous_release: releaseIdSchema.nullable(),
   added_permissions: z.array(z.string().min(1)),
   removed_permissions: z.array(z.string().min(1)),
-  added_commands: z.array(commandKeySchema),
-  removed_commands: z.array(commandKeySchema),
+  added_app_api: z.array(appApiKeySchema),
+  removed_app_api: z.array(appApiKeySchema),
   // 동작이 바뀐 command(입력·효과·확인·되돌림). 설명만 바뀐 것은 포함하지 않는다.
-  changed_commands: z.array(commandKeySchema),
-  command_changes: z.array(commandChangeSchema),
+  changed_app_api: z.array(appApiKeySchema),
+  app_api_changes: z.array(appApiChangeSchema),
   // 효과가 external인 command 가운데 이전에는 external이 아니었거나 없던 것.
-  external_commands: z.array(commandKeySchema),
+  external_app_api: z.array(appApiKeySchema),
   // 이름·설명만 바뀌어 동작 변경과 구별되는 command.
-  description_only_commands: z.array(commandKeySchema),
+  description_only_app_api: z.array(appApiKeySchema),
   added_automations: z.array(z.string().min(1)),
   removed_automations: z.array(z.string().min(1)),
   changed_automations: z.array(z.string().min(1)),
@@ -218,11 +218,11 @@ const releaseRequestActors = ["coding_agent", "machine"] as const;
 const releasePrepareBundleInputSchema = z.strictObject({
   app: appIdSchema,
   commit: z.string().regex(/^[0-9a-f]{40}$/),
-  request_key: commandKeySchema,
+  request_key: appApiKeySchema,
   ticket_source: ticketSourceSchema,
 });
 const releasePrepareBundleOutputSchema = z.object({
-  request_key: commandKeySchema,
+  request_key: appApiKeySchema,
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256Schema.nullable(),
   blueprint_hash: sha256Schema.nullable(),
@@ -241,11 +241,11 @@ export const releasePrepareBundle = defineCommand({
 // 준비 진행 조회. 작업 메모리 유실이면 unknown이다.
 const releasePreparationInputSchema = z.strictObject({
   app: appIdSchema,
-  request_key: commandKeySchema,
+  request_key: appApiKeySchema,
 });
 const releasePreparationOutputSchema = z.object({
   app: appIdSchema,
-  request_key: commandKeySchema,
+  request_key: appApiKeySchema,
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256Schema.nullable(),
   blueprint_hash: sha256Schema.nullable(),
@@ -266,7 +266,7 @@ export const releasePreparation = defineCommand({
 // 준비 취소 요청. worker 종료 확인 뒤 정리한다.
 const releaseCancelPreparationInputSchema = z.strictObject({
   app: appIdSchema,
-  request_key: commandKeySchema,
+  request_key: appApiKeySchema,
 });
 const releaseCancelPreparationOutputSchema = z.object({
   accepted: z.literal(true),

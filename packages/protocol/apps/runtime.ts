@@ -64,7 +64,7 @@ export type RuntimeObservation = z.infer<typeof runtimeObservationSchema>;
 const readyAttestationFields = {
   release: releaseIdSchema.nullable(),
   bundle_hash: sha256Schema,
-  commands: z.array(z.string().min(1)),
+  app_api: z.array(z.string().min(1)),
   data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   process_nonce: z.string().min(1),
   connection_ok: z.literal(true),

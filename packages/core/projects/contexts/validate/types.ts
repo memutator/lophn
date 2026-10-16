@@ -12,8 +12,8 @@ const CONTRACT_ISSUE_CODES = [
   "from_type_unknown",
   "from_type_self",
   "index_not_markdown",
-  "app_command_unknown",
-  "app_command_not_read",
+  "app_api_unknown",
+  "app_api_not_read",
   // fields
   "key_field_missing",
   "key_field_not_scalar",
@@ -70,11 +70,11 @@ export type ExternalType = {
   }[];
 };
 
-type AppCommandEffect = "read" | "write" | "external" | "unknown";
+type AppApiEffectOrUnknown = "read" | "write" | "external" | "unknown";
 
 export type ValidationEnv = {
   externalTypes: readonly ExternalType[];
-  appCommandEffect(app: string, command: string): AppCommandEffect;
+  appApiEffect(app: string, command: string): AppApiEffectOrUnknown;
 };
 
 export type ContractCheck = (

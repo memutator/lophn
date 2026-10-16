@@ -56,7 +56,7 @@ const externalTypeSchema = z.strictObject({
 });
 
 // 앱 command 선언의 효과(앱 등록의 active release). 앱 데이터는 읽지 않고 계약이 가리키는 command의 효과만 검사한다.
-const appCommandSchema = z.strictObject({
+const appApiSchema = z.strictObject({
   app: z.string().min(1),
   command: z.string().min(1),
   effect: z.enum(["read", "write", "external"]),
@@ -104,7 +104,7 @@ export const contextCheckRequestSchema = z.strictObject({
   roots: rootsSchema,
   user_saved_views: z.array(savedViewSchema),
   external_types: z.array(externalTypeSchema),
-  app_commands: z.array(appCommandSchema),
+  app_api: z.array(appApiSchema),
 });
 
 export const contextCheckResponseSchema = z.strictObject({
@@ -122,7 +122,7 @@ export const contextPreviewWorkRequestSchema = z.strictObject({
   draft: z.record(z.string(), z.unknown()),
   roots: rootsSchema,
   external_types: z.array(externalTypeSchema),
-  app_commands: z.array(appCommandSchema),
+  app_api: z.array(appApiSchema),
 });
 
 export const contextPreviewWorkResponseSchema = z.strictObject({
@@ -171,7 +171,7 @@ export const contextWorkInputReadSchema = withReadCommon(z.object({
   user_saved_views: z.array(savedViewSchema),
   // 검사할 판(후보 또는 draft)이 읽는 다른 context의 type과 앱 command 효과. 적용 판만 묻는 입력(index)은 비어 있다.
   external_types: z.array(externalTypeSchema),
-  app_commands: z.array(appCommandSchema),
+  app_api: z.array(appApiSchema),
 }));
 export type ContextWorkInput = z.infer<typeof contextWorkInputReadSchema>;
 

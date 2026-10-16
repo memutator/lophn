@@ -1,6 +1,6 @@
 // 검사와 preview 요청에 싣는 환경. core가 ledger에서 읽어 싣고 worker는 다른 context의 파일이나 앱을 읽지 않는다.
 // - external_types: 같은 Project의 다른 active context가 적용한 판의 type 목록(제목으로 찾는다).
-// - app_commands: 판의 app-data Source가 가리키는 (app, command)의 앱 선언 효과.
+// - app_api: 판의 app-data Source가 가리키는 (app, command)의 앱 선언 효과.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type BundleContent,
@@ -12,14 +12,14 @@ import type { ContextLedgerDeps } from "./adapter.ts";
 import { loadBundle, loadProjectContexts } from "./rows.ts";
 
 type ExternalTypes = ContextWorkInput["external_types"];
-type AppCommands = ContextWorkInput["app_commands"];
+type AppApis = ContextWorkInput["app_api"];
 type Reader = Pick<Sql, "get" | "all">;
 
 // 앱 command 선언의 효과. 앱 등록이 선언을 찾지 못하면 undefined다.
-type AppCommandEffectLookup = (
+type AppApiEffectLookup = (
   app: string,
   command: string,
-) => AppCommands[number]["effect"] | undefined;
+) => AppApis[number]["effect"] | undefined;
 
 // 한 context의 판이 다른 context에 내놓는 type 목록(계약의 type 순서). private인 type도 visibility를 달아
 // 싣는다: 검사가 "없다"와 "private이다"를 구별해 알린다. source·rules·relations는 싣지 않는다.
@@ -74,10 +74,10 @@ export function externalTypesRead(
 // 판의 app-data Source가 가리키는 (app, command) 쌍에 앱 선언의 효과를 붙인다. 앱 선언이 없는 쌍은
 // 싣지 않아 worker가 알 수 없는 command로 본다. 내용이 BundleContent 모양이 아니면 비어 있다(모양은
 // worker의 검사가 알린다). (app, command)의 code unit 순이고 중복이 없다.
-export function appCommandsOf(
+export function appApiOf(
   content: Record<string, unknown>,
-  effectOf: AppCommandEffectLookup | undefined,
-): AppCommands {
+  effectOf: AppApiEffectLookup | undefined,
+): AppApis {
   const parsed = bundleContentSchema.safeParse(content);
   if (!parsed.success || effectOf === undefined) return [];
   const pairs = new Map<string, { app: string; command: string }>();
@@ -86,7 +86,7 @@ export function appCommandsOf(
     const { app, command } = type.source;
     pairs.set(`${app}\u0000${command}`, { app, command });
   }
-  const commands: AppCommands = [];
+  const commands: AppApis = [];
   for (const key of [...pairs.keys()].sort()) {
     const { app, command } = pairs.get(key)!;
     const effect = effectOf(app, command);

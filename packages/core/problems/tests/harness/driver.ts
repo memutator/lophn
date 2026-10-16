@@ -1,9 +1,9 @@
 import type { CheckDefinition } from "./definitions.ts";
 
-// 앱이 바로 낸 ReadyAttestation의 test 자식 쪽 모양이다. `commands`는 등록된 app-api key다.
+// 앱이 바로 낸 ReadyAttestation의 test 자식 쪽 모양이다. `app_api`는 등록된 app-api key다.
 export type Attestation = {
   bundle_hash: string;
-  commands: string[];
+  app_api: string[];
   data_schema: number;
   process_nonce: string;
 };

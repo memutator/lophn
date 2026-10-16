@@ -12,7 +12,7 @@ import {
 import {
   appIdSchema,
   approvalIdSchema,
-  commandKeySchema,
+  appApiKeySchema,
   invocationIdSchema,
   processNonceSchema,
   releaseIdSchema,
@@ -50,7 +50,7 @@ export const invocationSummarySchema = jsonObjectSchema.refine(
 function operationTriggerSchemas(strict: boolean) {
   const object = strict ? z.strictObject : z.object;
   const operation = z.discriminatedUnion("kind", [
-    object({ kind: z.literal("command"), command: commandKeySchema }),
+    object({ kind: z.literal("command"), command: appApiKeySchema }),
     object({ kind: z.literal("start") }),
     object({
       kind: z.literal("data_change"),
@@ -62,7 +62,7 @@ function operationTriggerSchemas(strict: boolean) {
   ]);
   const trigger = z.discriminatedUnion("kind", [
     object({ kind: z.literal("direct") }),
-    object({ kind: z.literal("automation"), key: commandKeySchema }),
+    object({ kind: z.literal("automation"), key: appApiKeySchema }),
     object({
       kind: z.literal("activation"),
       activation_seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -136,7 +136,7 @@ const invocationSchema = invocationSchemas(false);
 const invocationAcceptConfirmInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
-  command: commandKeySchema,
+  command: appApiKeySchema,
   input_hash: sha256Schema,
   approval: approvalIdSchema,
   key: idempotencyKeySchema,

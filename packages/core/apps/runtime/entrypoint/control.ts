@@ -18,14 +18,14 @@ function error(status: number, code: string, message: string): ControlResult {
   return { status, error: { code, message } };
 }
 
-// 보고의 `commands` 칸은 등록된 app-api key다.
+// 보고의 `app_api` 칸은 등록된 app-api key다.
 export function attestation(state: RuntimeState) {
   ensureAppApiPort();
   const port = readAppApiPort();
   return {
     release: state.identity.release,
     bundle_hash: state.identity.bundleHash,
-    commands: port ? port.handlers().map((handler) => handler.api) : [],
+    app_api: port ? port.handlers().map((handler) => handler.api) : [],
     data_schema: state.dataSchema,
     process_nonce: state.identity.processNonce,
     connection_ok: true as const,
@@ -34,7 +34,7 @@ export function attestation(state: RuntimeState) {
 
 function appApisMatchBlueprint(state: RuntimeState): boolean {
   const declared = state.blueprint.app_api.map((api) => api.key).sort();
-  const registered = [...attestation(state).commands].sort();
+  const registered = [...attestation(state).app_api].sort();
   return declared.length === registered.length &&
     declared.every((key, index) => key === registered[index]);
 }

@@ -366,13 +366,13 @@ export async function createRealAppDriver(
             }
             const value = answered.body as {
               bundle_hash: string;
-              commands: string[];
+              app_api: string[];
               data_schema: number;
               process_nonce: string;
             };
             return {
               bundle_hash: value.bundle_hash,
-              commands: value.commands,
+              app_api: value.app_api,
               data_schema: value.data_schema,
               process_nonce: value.process_nonce,
             };

@@ -13,7 +13,7 @@ export type PreviewLaunch = {
   // 준비 전 bundle이면 null이다. 가짜 release를 만들지 않는다.
   release: string | null;
   bundleHash: string;
-  commands: string[];
+  app_api: string[];
   screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
   flags: { args: string[]; limits: LimitKey[] };
@@ -31,7 +31,7 @@ export type PreviewObservationWire = {
   bundle_hash: string | null;
   process_nonce: string;
   endpoint: string;
-  commands: string[];
+  app_api: string[];
   screens: Record<string, ("full" | "panel" | "card")[]>;
   ready: boolean;
   accepting: boolean;

@@ -226,7 +226,7 @@ export type SupervisorClient = {
         attestation: {
           release: string;
           bundleHash: string;
-          commands: string[];
+          app_api: string[];
           dataSchema: number;
         };
       }
@@ -353,7 +353,7 @@ export function createSupervisorClient(
             attestation: {
               release: answer.value.attestation.release,
               bundleHash: answer.value.attestation.bundle_hash,
-              commands: answer.value.attestation.commands,
+              app_api: answer.value.attestation.app_api,
               dataSchema: answer.value.attestation.data_schema,
             },
           }

@@ -11,7 +11,7 @@ import {
   appIdSchema,
   atSchema,
   type ChannelMode,
-  commandKeySchema,
+  appApiKeySchema,
   grantIdSchema,
   invocationIdSchema,
   opaqueSchema,
@@ -55,7 +55,7 @@ const callOriginSchema = z.discriminatedUnion("kind", [
 // AppCallOrigin에서 감사 caller로 남기는 것만. path·nonce·credential은 복제하지 않는다.
 const invocationCallerBranches = [
   z.strictObject({ kind: z.literal("direct") }),
-  z.strictObject({ kind: z.literal("automation"), key: commandKeySchema }),
+  z.strictObject({ kind: z.literal("automation"), key: appApiKeySchema }),
   z.strictObject({
     kind: z.literal("app"),
     app: appIdSchema,
@@ -79,7 +79,7 @@ const confirmProofFields = {
   invocation: invocationIdSchema,
   process_nonce: processNonceSchema,
   release: releaseIdSchema,
-  command: commandKeySchema,
+  command: appApiKeySchema,
   input_hash: sha256Schema,
   caller: invocationCallerSchema,
   expires_at: atSchema,
@@ -106,8 +106,8 @@ const connectionFields = {
   }),
   screen_sizes: screenSizesSchema,
   caller: callOriginSchema.nullable(),
-  commands: z.array(commandKeySchema).refine(unique, {
-    message: "duplicate command",
+  app_api: z.array(appApiKeySchema).refine(unique, {
+    message: "duplicate app-api",
   }),
   expires_at: atSchema.nullable(),
 };

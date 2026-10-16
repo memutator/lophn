@@ -454,7 +454,7 @@ export function createContextsDispatcher(
         user_saved_views: read.value.user_saved_views,
         // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
         external_types: read.value.external_types,
-        app_commands: read.value.app_commands,
+        app_api: read.value.app_api,
       },
       CONTEXT_CHECK_TIMEOUT_MS,
     );
@@ -565,7 +565,7 @@ export function createContextsDispatcher(
         roots: read.value.roots,
         // 다른 context의 type과 앱 command 효과는 context.work_input이 ledger에서 읽어 싣는다.
         external_types: read.value.external_types,
-        app_commands: read.value.app_commands,
+        app_api: read.value.app_api,
       },
       CONTEXT_PREVIEW_TIMEOUT_MS,
     );
@@ -612,7 +612,7 @@ export function createContextsDispatcher(
         roots: read.value.roots,
         user_saved_views: read.value.user_saved_views,
         external_types: read.value.external_types,
-        app_commands: read.value.app_commands,
+        app_api: read.value.app_api,
       },
       CONTEXT_CHECK_TIMEOUT_MS,
     );

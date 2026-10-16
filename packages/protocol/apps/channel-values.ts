@@ -51,13 +51,6 @@ export const appApiKeySchema = z.string().refine(
   },
 );
 
-// 옛 command key. 옛 file이 쓰는 동안만 남긴다. 새 계약은 appApiKeySchema를 쓴다.
-export const commandKeySchema = z.string().min(1).refine(
-  (value) =>
-    value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),
-  { message: "command key cannot be blank, a wildcard, or contain controls" },
-);
-
 export const screenKeySchema = z.string().min(1).refine(
   (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
   { message: "screen key cannot be blank or contain controls" },

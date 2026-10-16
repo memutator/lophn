@@ -14,9 +14,9 @@ export type AppDeclarations = {
   release: string;
   permissions: readonly GrantPermissionRequirement[];
   // 이 앱이 부르겠다고 선언한 다른 앱의 app-api.
-  app_connections: readonly { app: string; commands: readonly string[] }[];
+  app_connections: readonly { app: string; app_api: readonly string[] }[];
   // 현재 blueprint의 command key 전체. broker가 호출한 command가 선언된 것인지 본다.
-  commands: readonly string[];
+  app_api: readonly string[];
 };
 
 export interface CurrentDeclarations {
@@ -128,7 +128,7 @@ export function compareDeclarations(
   const apis: AddedAppApi[] = [];
   for (const connection of declarations.app_connections) {
     const have = calls.get(connection.app);
-    for (const api of new Set(connection.commands)) {
+    for (const api of new Set(connection.app_api)) {
       if (!have?.has(api)) {
         apis.push({ app: connection.app as AddedAppApi["app"], api });
       }
@@ -156,7 +156,7 @@ export function declaredScopes(
     if (connection.app === app) continue;
     const merged = new Set([
       ...(calls.get(connection.app) ?? []),
-      ...connection.commands,
+      ...connection.app_api,
     ]);
     calls.set(connection.app, [...merged].sort());
   }

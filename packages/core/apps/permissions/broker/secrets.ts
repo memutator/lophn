@@ -79,7 +79,7 @@ export function secretAllowed(
   );
   if (!granted) return false;
   return destinationAllowed(
-    { release: "", scope, commands: [] },
+    { release: "", scope, app_api: [] },
     platformPorts,
     urlHost(url),
     urlPort(url),
@@ -108,7 +108,7 @@ export function createSecretUseService(deps: SecretUseDeps): SecretUseService {
       if (!access.ok) return access;
       const state = access.value;
       if (
-        state === null || !state.commands.includes(input.command) ||
+        state === null || !state.app_api.includes(input.command) ||
         !secretGranted(state, input.name)
       ) {
         return refuse("secret.use", { name: input.name });

@@ -4,15 +4,6 @@ import {
   authenticatedContextSchema,
 } from "../../protocol/server/mod.ts";
 import type { LedgerConnection } from "../storage/ledger/mod.ts";
-import { APPS_CONTROL_PRINCIPAL } from "../apps/control.ts";
-import { APP_REVERT_PRINCIPAL } from "../apps/revert/app-steps.ts";
-import { REWIND_INSTALL_PRINCIPAL } from "../lophn-agent/session/rewind/files.ts";
-import { INVOCATION_RECOVERY_PRINCIPAL } from "../apps/invocations/restart.ts";
-import { TICKET_CHECK_FEED_PRINCIPAL } from "../apps/tickets/checker/ids.ts";
-import {
-  ASSIGNMENT_REACTIONS_PRINCIPAL,
-  NOTIFICATIONS_PRINCIPAL,
-} from "../main/daemon/platform-register.ts";
 
 // 발급 원문(token)은 core 프로세스 메모리에만 있다. ledger에는 credential_ref와
 // 그 권한 context만 적어 writer·reader Worker가 제출 context를 다시 검증한다.
@@ -47,9 +38,9 @@ export function recordCredential(
   }
   try {
     connection.exec("begin immediate");
-    // 고정 machine credential만 재시작에서 다시 기록한다. 같은 ref가 있으면
-    // scope·conditions·state가 같을 때만 건너뛰고, 다르면 기동을 거절한다.
-    // 그 밖 credential은 중복을 그대로 거절한다.
+    // core 안 machine credential(`machine:*`)은 코드가 기동마다 만든다. 권한이 기동마다 달라질 수
+    // 있으니(provider host 등) 새 값으로 덮는다. coding connection은 같은 권한일 때만 건너뛰고,
+    // 다르면 거절한다. 그 밖 credential은 중복을 그대로 거절한다.
     const existing = connection.sql.get(
       "select context, state from credentials where credential_ref = ?",
       [parsed.data.credential_ref],
@@ -58,6 +49,11 @@ export function recordCredential(
       connection.sql.run(
         `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
         [parsed.data.credential_ref, JSON.stringify(parsed.data)],
+      );
+    } else if (parsed.data.credential_ref.startsWith("machine:")) {
+      connection.sql.run(
+        `update credentials set context = ?, state = 'active' where credential_ref = ?`,
+        [JSON.stringify(parsed.data), parsed.data.credential_ref],
       );
     } else if (!sameFixedCredential(existing, parsed.data)) {
       connection.exec("rollback");
@@ -81,28 +77,10 @@ export function recordCredential(
   return ok(undefined);
 }
 
-// sweep·내장 assignment 준비 credential처럼 기동마다 같은 ref로 다시 기록하는 것만
-// 중복을 허용한다. notifications 구독자(core 안 machine principal)도 기동마다
-// 같은 자격을 다시 기록한다.
-const FIXED_CREDENTIALS = new Set([
-  "machine:annotations",
-  "machine:approvals",
-  "machine:router",
-  "machine:ticket-claims",
-  APPS_CONTROL_PRINCIPAL,
-  "machine:lophn-agent-bootstrap",
-  INVOCATION_RECOVERY_PRINCIPAL,
-  TICKET_CHECK_FEED_PRINCIPAL,
-  NOTIFICATIONS_PRINCIPAL,
-  ASSIGNMENT_REACTIONS_PRINCIPAL,
-  REWIND_INSTALL_PRINCIPAL,
-  APP_REVERT_PRINCIPAL,
-]);
-
 // coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다
 // 같은 권한으로 다시 기록한다. 권한이 다르면 위의 비교가 거절한다.
 function isFixedCredential(ref: string): boolean {
-  return FIXED_CREDENTIALS.has(ref) || /^coding:cac_[0-9a-z]{26}$/.test(ref);
+  return /^coding:cac_[0-9a-z]{26}$/.test(ref);
 }
 
 function sameFixedCredential(

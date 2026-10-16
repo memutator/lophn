@@ -29,7 +29,7 @@ export const conversationIcons = {
   send: ArrowUp,
   stop: Square,
   request: ListPlus,
-  correction: PencilLine,
+  steer: PencilLine,
   checkDelivery: SearchCheck,
   resend: RotateCw,
   jumpLatest: ArrowDown,

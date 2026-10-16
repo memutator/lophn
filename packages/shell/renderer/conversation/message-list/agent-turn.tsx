@@ -115,7 +115,7 @@ export function UserMessage(
         ? (
           <span className={styles.steerMark} data-steer="">
             <Icon
-              icon={conversationIcons.correction}
+              icon={conversationIcons.steer}
               pixels={iconPixels("small")}
             />
             {t("conversation.label.steer")}

@@ -2,18 +2,17 @@ export const contexts = {
   "contexts.button.document-open": "Open",
   "contexts.button.frame-versions-hide": "Versions ▴",
   "contexts.button.frame-versions-show": "Versions ▾",
-  "contexts.button.glossary-add": "Add",
   "contexts.button.glossary-add-term": "Add term",
   "contexts.button.glossary-cancel": "Cancel",
   "contexts.button.glossary-delete": "Delete",
   "contexts.button.glossary-edit": "Edit",
   "contexts.button.glossary-save": "Save",
-  "contexts.button.input-ask": "Ask Context Engineer",
   "contexts.button.input-save-view": "Save as view",
   "contexts.button.input-search": "Search",
   "contexts.button.overview-see-all": "See all {count} →",
   "contexts.button.results-next": "Next ›",
   "contexts.button.results-prev": "‹ Prev",
+  "contexts.button.search-open": "Open",
   "contexts.button.search-open-context": "Open context",
   "contexts.button.search-save": "Save",
   "contexts.button.tab-archive": "Archive",
@@ -22,8 +21,8 @@ export const contexts = {
   "contexts.button.tab-open": "Open",
   "contexts.button.tab-unarchive": "Unarchive",
   "contexts.button.versions-restore": "Restore",
-  "contexts.button.violations-send": "Send to Context Engineer",
-  "contexts.button.violations-send-all": "Send all to Context Engineer",
+  "contexts.button.violations-send": "Send to Project Manager",
+  "contexts.button.violations-send-all": "Send all to Project Manager",
   "contexts.empty.document-none": "No context includes this document.",
   "contexts.empty.glossary-none": "No terms yet.",
   "contexts.empty.results-none": "Nothing matches these inputs.",
@@ -45,8 +44,6 @@ export const contexts = {
     "Context isn't responding right now. Try again in a moment.",
   "contexts.error.restore-failed": "Couldn't restore that version.",
   "contexts.error.search-save-failed": "Couldn't save the view. Try again.",
-  "contexts.error.violations-send-failed":
-    "Couldn't send that to Context Engineer. Try again.",
   "contexts.heading.composition-title": "Composition",
   "contexts.heading.contract-fields": "Fields",
   "contexts.heading.contract-relations": "Relations",
@@ -91,8 +88,10 @@ export const contexts = {
     "Version r{number} · applied {when} · tests failed",
   "contexts.label.frame-version-passed":
     "Version r{number} · applied {when} · tests passed",
-  "contexts.label.glossary-by-agent": "Context Engineer",
+  "contexts.label.glossary-by-project-manager": "Project Manager",
   "contexts.label.glossary-by-user": "You",
+  "contexts.label.glossary-count":
+    "{count, plural, one {# term} other {# terms}}",
   "contexts.label.glossary-meaning": "Meaning",
   "contexts.label.glossary-term": "Term",
   "contexts.label.input-chip-on": "✓ {value}",
@@ -132,10 +131,11 @@ export const contexts = {
   "contexts.label.versions-current": "Current",
   "contexts.label.versions-failed": "Tests failed",
   "contexts.label.versions-name": "r{number}",
-  "contexts.label.violations-on-it": "Context Engineer is on it",
+  "contexts.label.violations-count":
+    "{count, plural, one {# document doesn't} other {# documents don't}} match this context",
   "contexts.label.violations-rule": "rule: {rule}",
-  "contexts.note.glossary-purpose":
-    "Agents use these words and meanings to understand what you say.",
+  "contexts.note.glossary-delete":
+    "The term and its meaning leave this context's glossary. Project Manager can add it again later.",
   "contexts.note.input-required": "Fill in {inputs} to see results.",
   "contexts.note.input-unsupported":
     "This search can't be shown because it asks for “{type}”, which can't be drawn yet.",
@@ -145,6 +145,7 @@ export const contexts = {
   "contexts.note.search-pick": "Pick a search on the left.",
   "contexts.note.tab-archived":
     "Archived contexts are left out of searches and violations.",
+  "contexts.title.glossary-delete": "Delete “{term}”?",
   "contexts.title.restored": "Restored version r{number}",
   "contexts.title.tab-screen": "Contexts in {project}",
 } as const;

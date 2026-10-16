@@ -1,15 +1,15 @@
 // Violations: 계약을 어긴 문서를 줄마다 파일 이름·무엇이 어긋났는지·어긴 규칙 한 줄·
-// [Send to Context Engineer]로 보이고 위에 [Send all to Context Engineer]를 둔다.
-// 이미 넘긴 줄은 "Context Engineer is on it", 위반이 없으면 "No violations."만.
-// 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
+// [Send to Project Manager]로 보이고 위에 위반 수 안내와 [Send all to Project Manager]를 둔다.
+// 위반이 없으면 "No violations."만. 넘기기는 core를 부르지 않는다. 부른 쪽이 그 project의
+// Project Manager session을 연다.
+// 문구 key는 아래만 t()로 쓴다:
 //   contexts.button.violations-send
 //   contexts.button.violations-send-all
 //   contexts.empty.violations-none
-//   contexts.error.violations-send-failed
-//   contexts.label.violations-on-it
+//   contexts.label.violations-count
 //   contexts.label.violations-rule
-//   common.error.load-failed
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+//   contexts.label.target-focus
+import { type ReactNode, useEffect, useState } from "react";
 import { Button, ErrorState } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -17,7 +17,6 @@ import {
   fileName,
   keyText,
   sortViolations,
-  violationKey,
 } from "./context-violations-model.ts";
 import styles from "./context-violations.module.css";
 import type { ContextsSource, ViolationItem } from "./source.ts";
@@ -29,6 +28,8 @@ export interface ContextViolationsProps {
   readonly context: string;
   /** 파일 이름을 누르면 그 문서 탭을 연다. */
   readonly onOpenDocument: OpenDocument;
+  /** 이 위반들을 Project Manager에게 넘긴다(줄의 단추는 그 줄 하나, 머리의 단추는 전부). */
+  readonly onSend: (violations: readonly ViolationItem[]) => void;
 }
 
 type Load =
@@ -36,19 +37,14 @@ type Load =
   | { readonly state: "failed" }
   | {
     readonly state: "ready";
-    /** 줄마다 handed_off를 가진다: 읽을 때 이미 넘긴 줄은 true다. */
     readonly violations: readonly ViolationItem[];
-    /** 이 화면에서 방금 넘겨 읽은 값에 아직 반영되지 않은 위반의 keyText. */
-    readonly sent: ReadonlySet<string>;
   };
 
 export function ContextViolations(
-  { source, context, onOpenDocument }: ContextViolationsProps,
+  { source, context, onOpenDocument, onSend }: ContextViolationsProps,
 ): ReactNode {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [sendFailed, setSendFailed] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -61,7 +57,6 @@ export function ContextViolations(
             ? {
               state: "ready",
               violations: sortViolations(result.value.violations),
-              sent: new Set(),
             }
             : { state: "failed" },
         );
@@ -75,39 +70,6 @@ export function ContextViolations(
     };
   }, [source, context, attempt]);
 
-  // 넘긴 줄만 상태 글로 바꾼다. 실패하면 줄은 그대로고 오류 글만 보인다.
-  const handOff = useCallback(
-    async (violations: readonly ViolationItem[] | null) => {
-      setSending(true);
-      setSendFailed(false);
-      let succeeded = false;
-      try {
-        const result = await source.handOffViolations(
-          violations === null
-            ? { context }
-            : { context, violations: violations.map(violationKey) },
-        );
-        succeeded = result.ok;
-      } catch {
-        succeeded = false;
-      }
-      setSending(false);
-      if (!succeeded) {
-        setSendFailed(true);
-        return;
-      }
-      setLoad((previous) => {
-        if (previous.state !== "ready") return previous;
-        const sent = new Set(previous.sent);
-        for (const violation of violations ?? previous.violations) {
-          sent.add(keyText(violation));
-        }
-        return { ...previous, sent };
-      });
-    },
-    [source, context],
-  );
-
   if (load.state === "loading") return null;
   if (load.state === "failed") {
     return (
@@ -117,30 +79,26 @@ export function ContextViolations(
       />
     );
   }
-  if (load.violations.length === 0) {
+  const { violations } = load;
+  if (violations.length === 0) {
     return (
       <p className={styles.empty}>{t("contexts.empty.violations-none")}</p>
     );
   }
-  const handedOff = (violation: ViolationItem) =>
-    violation.handed_off || load.sent.has(keyText(violation));
-  const pending = load.violations.some((violation) => !handedOff(violation));
   return (
     <div>
-      {pending && (
-        <div className={styles.bulk}>
-          <Button disabled={sending} onClick={() => void handOff(null)}>
-            {t("contexts.button.violations-send-all")}
-          </Button>
-        </div>
-      )}
-      {sendFailed && (
-        <p className={styles.error} role="alert" data-violations-error>
-          {t("contexts.error.violations-send-failed")}
-        </p>
-      )}
+      <div className={styles.bulk}>
+        <span className={styles.count} data-violations-count>
+          {t("contexts.label.violations-count", {
+            count: violations.length,
+          })}
+        </span>
+        <Button variant="primary" onClick={() => onSend(violations)}>
+          {t("contexts.button.violations-send-all")}
+        </Button>
+      </div>
       <ul className={styles.rows}>
-        {load.violations.map((violation) => (
+        {violations.map((violation) => (
           <li
             key={keyText(violation)}
             className={styles.row}
@@ -170,20 +128,9 @@ export function ContextViolations(
                 </p>
               )}
             </div>
-            {handedOff(violation)
-              ? (
-                <span className={styles.status} data-violation-status>
-                  {t("contexts.label.violations-on-it")}
-                </span>
-              )
-              : (
-                <Button
-                  disabled={sending}
-                  onClick={() => void handOff([violation])}
-                >
-                  {t("contexts.button.violations-send")}
-                </Button>
-              )}
+            <Button onClick={() => onSend([violation])}>
+              {t("contexts.button.violations-send")}
+            </Button>
           </li>
         ))}
       </ul>

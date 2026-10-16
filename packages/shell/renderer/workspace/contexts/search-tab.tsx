@@ -14,7 +14,7 @@
 //   contexts.note.search-no-saved-views
 //   contexts.note.search-pick
 //   common.error.load-failed
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/design/components";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
@@ -24,7 +24,7 @@ import { SearchBody } from "./search-tab-body.tsx";
 import { useRead } from "./search-tab-read.ts";
 import { SearchSide } from "./search-tab-side.tsx";
 import type { ContextsSource, SearchInputValues } from "./source.ts";
-import type { OpenDocument } from "./shared.ts";
+import { type OpenDocument, searchTabTitle } from "./shared.ts";
 
 /** layout에 저장되는 search 탭 값과 같은 모양(domain-model shell/workspace TabLayout). */
 export interface SearchTabState {
@@ -47,8 +47,8 @@ export interface SearchTabProps {
   /** "Open context" 링크와 선언된 검색이 없을 때의 [Open context]. */
   readonly onOpenContext: (context: string) => void;
   readonly onOpenDocument: OpenDocument;
-  /** 그릴 수 없는 입력 타입일 때의 [Ask Context Engineer]. */
-  readonly onAsk?: () => void;
+  /** 읽은 context 이름으로 만든 탭 이름. 복원한 탭은 이름이 비어 있어 읽은 뒤 채운다. */
+  readonly onTitle?: (title: string) => void;
 }
 
 export function SearchTab(props: SearchTabProps): ReactNode {
@@ -70,6 +70,13 @@ export function SearchTab(props: SearchTabProps): ReactNode {
     },
   );
   const views = useRead(state.context, () => source.savedViews(state.context));
+
+  const title = contexts.slot.status === "loaded"
+    ? contexts.slot.value.find((item) => item.id === state.context)?.title
+    : undefined;
+  useEffect(() => {
+    if (title !== undefined) props.onTitle?.(searchTabTitle(title));
+  }, [title]);
 
   const searches = contract.slot;
   const declared = searches.status === "loaded"
@@ -144,7 +151,6 @@ export function SearchTab(props: SearchTabProps): ReactNode {
             state={state}
             onState={onState}
             onOpenDocument={props.onOpenDocument}
-            onAsk={props.onAsk}
             onSaved={views.reload}
           />
         )}

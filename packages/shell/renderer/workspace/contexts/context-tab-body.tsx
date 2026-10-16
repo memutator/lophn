@@ -10,7 +10,7 @@ import { ContextViolations } from "./context-violations.tsx";
 import { ContractDetails } from "./contract-details.tsx";
 import type { SearchTabState } from "./search-tab.tsx";
 import type { OpenDocument, SubTab } from "./shared.ts";
-import type { ContextsSource } from "./source.ts";
+import type { ContextsSource, ViolationItem } from "./source.ts";
 
 export interface ContextTabBodyProps {
   readonly source: ContextsSource;
@@ -21,6 +21,8 @@ export interface ContextTabBodyProps {
   readonly onOpenDocument: OpenDocument;
   /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다. */
   readonly onOpenSearch: (state: SearchTabState) => void;
+  /** Violations의 [Send to Project Manager]와 [Send all …]: 그 project의 Project Manager를 연다. */
+  readonly onSendViolations: (violations: readonly ViolationItem[]) => void;
   /** 읽은 context 이름. 복원한 탭이 이름을 얻는다. */
   readonly onTitle?: (title: string) => void;
   /** 탭 안 알림이 닫히기까지를 재는 timer와 "applied 2 hours ago"를 재는 지금. gallery와 시험이 세운다. */
@@ -55,6 +57,7 @@ export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
             source={source}
             context={context}
             onOpenDocument={onOpenDocument}
+            onSend={props.onSendViolations}
           />
         );
       case "glossary":

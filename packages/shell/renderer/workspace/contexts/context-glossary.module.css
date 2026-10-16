@@ -1,9 +1,32 @@
-/* Glossary 하위 탭: 안내 한 줄, 용어 목록, 추가 form. 색과 간격은 design token만 쓴다. */
+/* Glossary 하위 탭: 머리 줄, 용어 목록. 색과 간격은 design token만 쓴다. */
 .screen {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
   max-width: var(--page-form);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: var(--control-md-height);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.heading {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.count {
+  margin-left: var(--space-3);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
 }
 
 .note {
@@ -14,60 +37,78 @@
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
   margin: var(--space-0);
   padding: var(--space-0);
   list-style: none;
 }
 
+/* 용어, 뜻, 행동 세 칸. 읽을 때와 고칠 때 같은 칸 배치를 지킨다. */
 .row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-0);
+  display: grid;
+  grid-template-columns: 1fr 3fr auto;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: var(--control-md-height);
+  padding: var(--space-3) var(--space-0);
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 
 .term {
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
   font-weight: var(--font-weight-medium);
 }
 
 .meaning {
   margin: var(--space-0);
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 
 .meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  margin: var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }
 
-.fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--field-gap);
-}
-
 .actions {
   display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
-.adding {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+/* 읽는 줄의 Edit과 Delete는 hover하거나 focus가 들어왔을 때만 보인다. 칸은 그대로다. */
+.hover {
+  opacity: 0;
+}
+
+.row:hover .hover,
+.row:focus-within .hover {
+  opacity: 1;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: var(--space-0);
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--space-4);
   border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:focus {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--space-0);
+}
+
+.termInput {
+  font-weight: var(--font-weight-medium);
 }
 
 .failure {

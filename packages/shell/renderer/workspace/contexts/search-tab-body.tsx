@@ -25,7 +25,6 @@ export interface SearchBodyProps {
   readonly state: SearchTabState;
   readonly onState: (next: SearchTabState) => void;
   readonly onOpenDocument: OpenDocument;
-  readonly onAsk?: () => void;
   /** 보기를 저장한 뒤, Saved views를 다시 읽게 한다. */
   readonly onSaved: () => void;
 }
@@ -108,7 +107,6 @@ export function SearchBody(props: SearchBodyProps): ReactNode {
           }}
           onSaveView={() =>
             setNaming((current) => current === null ? "" : null)}
-          onAsk={props.onAsk}
         />
       )}
       {naming !== null && (

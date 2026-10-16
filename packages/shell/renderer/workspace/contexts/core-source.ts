@@ -265,9 +265,6 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
     glossaryRemove: (request, compare) =>
       command("terms", "remove", request, { ...compare }),
 
-    handOffViolations: (request) =>
-      command("contexts", "hand_off_violations", request),
-
     archive: ({ context, revision }) =>
       command("contexts", "archive", { context }, { base_revision: revision }),
 

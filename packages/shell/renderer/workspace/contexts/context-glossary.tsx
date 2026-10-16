@@ -1,39 +1,33 @@
-// Glossary: 이 context의 용어와 뜻을 목록으로 보고, 사람이 추가·고침·지운다.
-// 줄마다 누가(You / Context Engineer) 언제(2 days ago) 정했는지 보인다.
-// 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
-//   contexts.button.glossary-add
+// Glossary: 머리 줄(Glossary · 용어 수 · 오른쪽 끝 [Add term])과 용어 목록. 사람이 더하고 고치는 일은 그
+// 줄에서 바로 하고(Enter·✓ 저장, Esc·× 취소), 지우기는 확인 modal을 거친다. 줄마다 누가(You / Project
+// Manager) 언제(2 days ago) 정했는지 보인다. 한 번에 한 줄만 고친다: 다른 줄의 [Edit]이나 [Add term]을
+// 누르면 쓰던 줄은 저장 없이 닫힌다.
+// 문구 key는 아래만 t()로 쓴다:
 //   contexts.button.glossary-add-term
 //   contexts.button.glossary-cancel
 //   contexts.button.glossary-delete
-//   contexts.button.glossary-edit
-//   contexts.button.glossary-save
 //   contexts.empty.glossary-none
 //   contexts.error.glossary-failed
-//   contexts.label.glossary-by-agent
-//   contexts.label.glossary-by-user
-//   contexts.label.glossary-meaning
-//   contexts.label.glossary-term
-//   contexts.note.glossary-purpose
+//   contexts.label.glossary-count
+//   contexts.label.sub-glossary
+//   contexts.note.glossary-delete
+//   contexts.title.glossary-delete
 //   common.error.load-failed
 // "2 days ago"는 wording의 formatRelativeTime으로 만든다.
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Button,
-  EmptyState,
+  Dialog,
   ErrorState,
   Loading,
   Skeleton,
 } from "@lophn/design/components";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { GlossaryFields } from "./context-glossary-fields.tsx";
-import {
-  type GlossaryChanges,
-  isBlank,
-  type TermDraft,
-} from "./context-glossary-model.ts";
+import type { GlossaryChanges, TermDraft } from "./context-glossary-model.ts";
+import { changesOf } from "./context-glossary-model.ts";
 import { GlossaryRow } from "./context-glossary-row.tsx";
 import styles from "./context-glossary.module.css";
 import { errorReason } from "./error-reason.ts";
@@ -54,18 +48,19 @@ type Load =
   | { readonly state: "failed" }
   | { readonly state: "loaded"; readonly entries: readonly GlossaryEntry[] };
 
-/** 추가 중인 항목. ID는 form을 열 때 한 번 만들어 재시도에도 같은 ID를 쓴다. */
-interface Adding {
-  readonly id: string;
-  readonly draft: TermDraft;
-}
+/** 그 줄에서 열어 둔 것. add의 ID는 줄을 열 때 한 번 만들어 재시도에도 같은 ID를 쓴다. */
+type Mode =
+  | { readonly kind: "add"; readonly id: string }
+  | { readonly kind: "edit"; readonly entry: string }
+  | null;
 
 export function ContextGlossary(
   { source, context, newId, now }: ContextGlossaryProps,
 ): ReactNode {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [adding, setAdding] = useState<Adding | null>(null);
+  const [mode, setMode] = useState<Mode>(null);
+  const [deleting, setDeleting] = useState<GlossaryEntry | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const clock = now ?? new Date();
@@ -73,7 +68,8 @@ export function ContextGlossary(
   useEffect(() => {
     let current = true;
     setLoad({ state: "loading" });
-    setAdding(null);
+    setMode(null);
+    setDeleting(null);
     setFailure(null);
     source.glossary(context).then(
       (result) => {
@@ -107,57 +103,74 @@ export function ContextGlossary(
     }
   };
 
-  const saveEntry = (
+  const saveEdit = async (
     entry: GlossaryEntry,
-    changes: GlossaryChanges,
-  ): Promise<boolean> =>
-    perform(() =>
+    draft: TermDraft,
+  ): Promise<void> => {
+    const changes: GlossaryChanges | null = changesOf(entry, draft);
+    if (changes === null) {
+      setMode(null);
+      return;
+    }
+    const saved = await perform(() =>
       source.glossarySet(
         { entry: entry.id, ...changes },
         { base_revision: entry.revision },
       )
     );
+    if (saved) setMode(null);
+  };
 
-  const removeEntry = (entry: GlossaryEntry): Promise<boolean> =>
-    perform(() =>
+  const saveAdd = async (id: string, draft: TermDraft): Promise<void> => {
+    const saved = await perform(() =>
+      source.glossarySet({
+        id,
+        context,
+        term: draft.term.trim(),
+        meaning: draft.meaning.trim(),
+      })
+    );
+    if (saved) setMode(null);
+  };
+
+  const confirmDelete = async (entry: GlossaryEntry): Promise<void> => {
+    await perform(() =>
       source.glossaryRemove(
         { entry: entry.id },
         { base_revision: entry.revision },
       )
     );
+    setDeleting(null);
+  };
 
-  const startAdding = (): void => {
+  const open = (next: Mode): void => {
     setFailure(null);
-    setAdding({ id: newId(), draft: { term: "", meaning: "" } });
+    setMode(next);
   };
-
-  const submitAdd = async (current: Adding): Promise<void> => {
-    const saved = await perform(() =>
-      source.glossarySet({
-        id: current.id,
-        context,
-        term: current.draft.term.trim(),
-        meaning: current.draft.meaning.trim(),
-      })
-    );
-    if (saved) setAdding(null);
-  };
-
-  const cancelAdding = (): void => {
-    setFailure(null);
-    setAdding(null);
-  };
-
-  const retry = (): void => {
-    setLoad({ state: "loading" });
-    setAttempt((count) => count + 1);
-  };
+  const entries = load.state === "loaded" ? load.entries : [];
 
   return (
     <section className={styles.screen}>
-      <p className={styles.note} data-glossary-note>
-        {t("contexts.note.glossary-purpose")}
-      </p>
+      <div className={styles.head}>
+        <h2 className={styles.heading}>
+          {t("contexts.label.sub-glossary")}
+          {load.state === "loaded" && (
+            <span className={styles.count} data-glossary-count>
+              {t("contexts.label.glossary-count", {
+                count: entries.length,
+              })}
+            </span>
+          )}
+        </h2>
+        <Button
+          variant="primary"
+          data-glossary-add
+          disabled={load.state !== "loaded" || busy || mode?.kind === "add"}
+          onClick={() => open({ kind: "add", id: newId() })}
+        >
+          {t("contexts.button.glossary-add-term")}
+        </Button>
+      </div>
       <Loading
         loading={load.state === "loading"}
         placeholder={<Skeleton lines={3} />}
@@ -165,7 +178,7 @@ export function ContextGlossary(
         {load.state === "failed" && (
           <ErrorState
             target={t("contexts.label.sub-glossary")}
-            onRetry={retry}
+            onRetry={() => setAttempt((count) => count + 1)}
           />
         )}
         {load.state === "loaded" && (
@@ -180,66 +193,72 @@ export function ContextGlossary(
                 </p>
               </div>
             )}
-            {load.entries.length === 0 && adding === null && (
-              <EmptyState
-                icon={lophnSpaceIcons.add}
-                message={t("contexts.empty.glossary-none")}
-                action={{
-                  label: t("contexts.button.glossary-add-term"),
-                  onSelect: startAdding,
-                }}
-              />
+            {entries.length === 0 && mode === null && (
+              <p className={styles.note}>
+                {t("contexts.empty.glossary-none")}
+              </p>
             )}
-            {load.entries.length > 0 && (
-              <ul className={styles.list}>
-                {load.entries.map((entry) => (
-                  <GlossaryRow
-                    key={entry.id}
-                    entry={entry}
-                    now={clock}
-                    busy={busy}
-                    onSave={(changes) => saveEntry(entry, changes)}
-                    onDelete={() => void removeEntry(entry)}
-                  />
-                ))}
-              </ul>
-            )}
-            {adding !== null
-              ? (
-                <div className={styles.adding} data-glossary-add>
-                  <GlossaryFields
-                    value={adding.draft}
-                    disabled={busy}
-                    onChange={(draft) => setAdding({ id: adding.id, draft })}
-                  />
-                  <div className={styles.actions}>
-                    <Button
-                      variant="primary"
-                      disabled={busy || isBlank(adding.draft)}
-                      onClick={() => void submitAdd(adding)}
-                    >
-                      {t("contexts.button.glossary-add")}
-                    </Button>
-                    <Button disabled={busy} onClick={cancelAdding}>
-                      {t("contexts.button.glossary-cancel")}
-                    </Button>
-                  </div>
-                </div>
-              )
-              : load.entries.length > 0 && (
-                <div>
-                  <Button
-                    icon={lophnSpaceIcons.add}
-                    disabled={busy}
-                    onClick={startAdding}
-                  >
-                    {t("contexts.button.glossary-add-term")}
-                  </Button>
-                </div>
+            <ul className={styles.list}>
+              {mode?.kind === "add" && (
+                <GlossaryFields
+                  key={mode.id}
+                  initial={{ term: "", meaning: "" }}
+                  busy={busy}
+                  onSave={(draft) => void saveAdd(mode.id, draft)}
+                  onCancel={() => open(null)}
+                />
               )}
+              {entries.map((entry) =>
+                mode?.kind === "edit" && mode.entry === entry.id
+                  ? (
+                    <GlossaryFields
+                      key={entry.id}
+                      initial={{ term: entry.term, meaning: entry.meaning }}
+                      busy={busy}
+                      onSave={(draft) => void saveEdit(entry, draft)}
+                      onCancel={() => open(null)}
+                    />
+                  )
+                  : (
+                    <GlossaryRow
+                      key={entry.id}
+                      entry={entry}
+                      now={clock}
+                      busy={busy}
+                      onEdit={() => open({ kind: "edit", entry: entry.id })}
+                      onDelete={() => setDeleting(entry)}
+                    />
+                  )
+              )}
+            </ul>
           </>
         )}
       </Loading>
+      <Dialog
+        open={deleting !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleting(null);
+        }}
+        title={t("contexts.title.glossary-delete", {
+          term: deleting?.term ?? "",
+        })}
+        actions={
+          <>
+            <Button onClick={() => setDeleting(null)}>
+              {t("contexts.button.glossary-cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => deleting && void confirmDelete(deleting)}
+            >
+              {t("contexts.button.glossary-delete")}
+            </Button>
+          </>
+        }
+      >
+        <p className={styles.note}>{t("contexts.note.glossary-delete")}</p>
+      </Dialog>
     </section>
   );
 }

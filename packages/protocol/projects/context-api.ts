@@ -284,10 +284,9 @@ export const storedViolationSchema = z.strictObject(storedViolationFields)
   .refine(ruleOnlyForRuleKind, ruleMessage);
 export type StoredViolation = z.infer<typeof storedViolationSchema>;
 
-// 읽기가 돌려주는 줄: 저장된 위반 + 이미 Context Engineer에게 넘겼는지(handed_off).
+// 읽기가 돌려주는 줄.
 export const violationItemSchema = z.strictObject({
   ...storedViolationFields,
-  handed_off: z.boolean(),
 }).refine(ruleOnlyForRuleKind, ruleMessage);
 export type ViolationItem = z.infer<typeof violationItemSchema>;
 
@@ -391,28 +390,6 @@ export const violationsRecordRequestSchema = z.strictObject({
   context: ctxIdSchema,
   count: countSchema,
   bundle_hash: sha256Schema,
-});
-
-export const HAND_OFF_VIOLATIONS_MAX = 200;
-export const violationsHandOffRequestSchema = z.strictObject({
-  context: ctxIdSchema,
-  // 없으면 전부. 있으면 키가 겹치지 않는 1개 이상. 근거는 서버가 붙인다.
-  violations: z.array(violationKeySchema).min(1).max(HAND_OFF_VIOLATIONS_MAX)
-    .refine(
-      (keys) =>
-        new Set(
-          keys.map((key) =>
-            JSON.stringify([key.kind, key.rule, key.path, key.section])
-          ),
-        )
-          .size === keys.length,
-      { message: "duplicate violation key" },
-    ).optional(),
-});
-export const violationsHandOffResultSchema = z.strictObject({
-  context: ctxIdSchema,
-  run: runIdSchema,
-  violation_count: positiveIntSchema,
 });
 
 const glossarySetNewSchema = z.strictObject({
@@ -595,8 +572,7 @@ export const contextViolationsRequestSchema = z.strictObject({
   cursor: readCursorSchema.optional(),
   limit: pageLimitSchema.optional(),
 });
-// path, kind, rule, section의 code unit 순. handed_off는 같은 키(kind, rule, path, section)의 위반을
-// 이미 context.hand_off_violations로 넘겼는지다.
+// path, kind, rule, section의 code unit 순.
 export const contextViolationsReadSchema = publicPage(z.object({
   context: ctxIdSchema,
   violations: z.array(violationItemSchema).max(CONTEXT_PAGE_MAX),
@@ -868,16 +844,6 @@ export const contextRecordViolationsRoute = defineCommand({
   actors: ["machine"],
   errors: ["not_found", "conflict", "forbidden"],
 });
-export const contextHandOffViolationsRoute = defineCommand({
-  resource: "contexts",
-  method: "hand_off_violations",
-  name: "context.hand_off_violations",
-  input: violationsHandOffRequestSchema,
-  output: violationsHandOffResultSchema,
-  compare: noCompareSchema,
-  actors: ["user"],
-  errors: ["invalid_input", "not_found", "forbidden"],
-});
 
 export const glossarySetRoute = defineCommand({
   resource: "terms",
@@ -1047,7 +1013,6 @@ export const CONTEXT_API_COMMAND_ROUTES = [
   viewUpdateRoute,
   viewDeleteRoute,
   contextRecordViolationsRoute,
-  contextHandOffViolationsRoute,
   glossarySetRoute,
   glossaryRemoveRoute,
 ] as const;

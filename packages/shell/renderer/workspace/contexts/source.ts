@@ -31,9 +31,6 @@ import type {
   StoredViolation,
   viewSaveRequestSchema,
   ViolationItem,
-  ViolationKey,
-  violationsHandOffRequestSchema,
-  violationsHandOffResultSchema,
 } from "../../../../protocol/projects/context-api.ts";
 import type { searchInputValuesSchema } from "../../../../protocol/projects/context-contract.ts";
 import type { ReadResult } from "../source.ts";
@@ -51,7 +48,6 @@ export type {
   SearchRow,
   StoredViolation,
   ViolationItem,
-  ViolationKey,
 };
 export type ContextListItem = z.infer<typeof contextListItemSchema>;
 export type SavedViewListItem = z.infer<typeof savedViewListItemSchema>;
@@ -110,7 +106,7 @@ export type InputOptionsRequest = Pick<
   "context" | "search" | "input"
 >;
 
-/** context.violations 한 page. 줄마다 이미 Context Engineer에게 넘겼는지(handed_off)를 가진다. */
+/** context.violations 한 page. */
 export type ViolationsPage = Pick<
   z.infer<typeof contextViolationsReadSchema>,
   "violations" | "complete" | "next_cursor"
@@ -127,8 +123,6 @@ export type GlossarySetRequest = z.infer<typeof glossarySetRequestSchema>;
 export type GlossaryRemoveRequest = z.infer<
   typeof glossaryRemoveRequestSchema
 >;
-export type HandOffRequest = z.infer<typeof violationsHandOffRequestSchema>;
-export type HandOffResult = z.infer<typeof violationsHandOffResultSchema>;
 export type RollbackRequest = {
   readonly context: string;
   readonly bundle: string;
@@ -183,10 +177,6 @@ export interface ContextsSource {
     request: GlossaryRemoveRequest,
     compare: BaseRevision,
   ): Promise<CommandResult<{ readonly entry: string }>>;
-  /** violations를 빼면 전부를 넘긴다. */
-  handOffViolations(
-    request: HandOffRequest,
-  ): Promise<CommandResult<HandOffResult>>;
   rollback(request: RollbackRequest): Promise<CommandResult<RollbackResult>>;
   archive(request: ArchiveRequest): Promise<CommandResult<ContextValue>>;
   unarchive(request: ArchiveRequest): Promise<CommandResult<ContextValue>>;

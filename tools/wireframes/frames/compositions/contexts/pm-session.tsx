@@ -78,8 +78,8 @@ function WorkingSession() {
                       open={isOpen("contract")}
                       onToggle={() => toggle("contract")}
                     >
-                      <li>Finding.effects is required</li>
-                      <li>Experiment.status is draft | running | reported</li>
+                      <li>Experiment.about is required</li>
+                      <li>Finding links point to a scenario that exists</li>
                     </ToolRow>
                   </>
                 )
@@ -87,14 +87,15 @@ function WorkingSession() {
               <Said>
                 Two documents in eval break its contract.{" "}
                 <Link onClick={() => open(documentTab(VIOLATIONS[0].path))}>
-                  F-012
-                </Link>{" "}
-                has no effects, and{" "}
-                <Link onClick={() => open(documentTab(VIOLATIONS[1].path))}>
                   exp-012
                 </Link>{" "}
-                uses the status “paused”. I'm checking whether the documents or
-                the rule should change before I touch anything.
+                has no about, and{" "}
+                <Link onClick={() => open(documentTab(VIOLATIONS[1].path))}>
+                  F-014
+                </Link>{" "}
+                links to the scenario sched-x, which doesn't exist. I'm checking
+                whether the documents or the rule should change before I touch
+                anything.
               </Said>
             </AgentTurn>
           </>

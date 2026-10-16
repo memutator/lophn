@@ -17,8 +17,6 @@ import type {
   GlossaryEntry,
   GlossaryRemoveRequest,
   GlossarySetRequest,
-  HandOffRequest,
-  HandOffResult,
   InputOptions,
   InputOptionsRequest,
   PickOption,
@@ -32,9 +30,6 @@ import type {
   SearchRequest,
   SearchRow,
   StoredViolation,
-  ViolationItem,
-  ViolationKey,
-  ViolationsPage,
 } from "./source.ts";
 
 export function fakeId(prefix: string, seed: string): string {
@@ -570,18 +565,6 @@ const VIOLATIONS: Readonly<Record<string, readonly StoredViolation[]>> = {
   [RELEASE_NOTES]: [],
 };
 
-const HANDED_OFF: Readonly<Record<string, readonly ViolationKey[]>> = {
-  [EVAL]: [{
-    kind: "broken_link",
-    rule: null,
-    path: "loop/findings/F-014.md",
-    section: null,
-  }],
-};
-
-const keyOf = (key: ViolationKey) =>
-  JSON.stringify([key.kind, key.rule, key.path, key.section]);
-
 // ---------- 용어집 ----------
 
 function entry(
@@ -903,7 +886,6 @@ export type FakeCall =
     request: GlossaryRemoveRequest;
     compare: BaseRevision;
   }
-  | { command: "handOffViolations"; request: HandOffRequest }
   | { command: "rollback"; request: RollbackRequest }
   | { command: "archive" | "unarchive"; request: ArchiveRequest };
 
@@ -955,9 +937,6 @@ export function createFakeContextsSource(
   );
   const views = new Map(
     Object.entries(VIEWS).map(([key, list]) => [key, [...list]]),
-  );
-  const handedOff = new Map(
-    Object.entries(HANDED_OFF).map(([key, list]) => [key, [...list]]),
   );
   let revision = 100;
   const nextRevision = () => String(++revision);
@@ -1069,19 +1048,12 @@ export function createFakeContextsSource(
         complete: true,
       }));
     },
-    violations(context): Promise<ReadResult<ViolationsPage>> {
-      const known = new Set((handedOff.get(context) ?? []).map(keyOf));
-      return Promise.resolve(ok({
-        violations: (VIOLATIONS[context] ?? []).map((
-          violation,
-        ): ViolationItem => ({
-          ...violation,
-          handed_off: known.has(keyOf(violation)),
-        })),
+    violations: (context) =>
+      Promise.resolve(ok({
+        violations: [...(VIOLATIONS[context] ?? [])],
         complete: true,
         next_cursor: null,
-      }));
-    },
+      })),
     glossary: (context) =>
       Promise.resolve(ok(
         [...(glossary.get(context) ?? [])].sort((a, b) =>
@@ -1164,29 +1136,6 @@ export function createFakeContextsSource(
         }
       }
       return Promise.resolve({ ok: false, message: "not_found" });
-    },
-    handOffViolations(request): Promise<CommandResult<HandOffResult>> {
-      calls.push({ command: "handOffViolations", request });
-      const all = VIOLATIONS[request.context] ?? [];
-      const keys: readonly ViolationKey[] = request.violations ??
-        all.map((violation) => ({
-          kind: violation.kind,
-          rule: violation.rule,
-          path: violation.path,
-          section: violation.section,
-        }));
-      const known = new Set(
-        (handedOff.get(request.context) ?? []).map(keyOf),
-      );
-      handedOff.set(request.context, [
-        ...(handedOff.get(request.context) ?? []),
-        ...keys.filter((key) => !known.has(keyOf(key))),
-      ]);
-      return Promise.resolve(ok({
-        context: request.context,
-        run: fakeId("run", `h${calls.length}`),
-        violation_count: Math.max(1, keys.length),
-      }));
     },
     rollback(request): Promise<CommandResult<RollbackResult>> {
       calls.push({ command: "rollback", request });

@@ -75,11 +75,7 @@ export function createListReads(state: ContextApiState): Handlers {
     if (!page.ok) return page;
     return ok({
       context: input.context,
-      // 계약의 handed_off는 위반을 넘기는 길이 없어진 뒤로 늘 false다. 계약에서 칸을 지우면 뺀다.
-      violations: page.value.items.map(({ row }) => ({
-        ...row,
-        handed_off: false,
-      })),
+      violations: page.value.items.map(({ row }) => row),
       as_of_seq: String(state.seq),
       complete: page.value.complete,
       next_cursor: page.value.next_cursor,

@@ -1,7 +1,8 @@
-// Context 탭의 Search 하위 탭: 이 context가 선언한 검색과 저장한 보기의 목록. 하나를
-// 고르면 결과를 여기서 그리지 않고 그 검색을 고른 Search 탭을 여는 일을 부른 쪽에 맡긴다.
+// Context 탭의 Search 하위 탭: 이 context가 선언한 검색과 저장한 보기의 목록.
+// 줄의 [Open]이나 보기를 고르면 결과를 여기서 그리지 않고 그 검색을 고른 Search 탭을 여는 일을
+// 부른 쪽에 맡긴다.
 import type { ReactNode } from "react";
-import { ErrorState, Skeleton } from "@lophn/design/components";
+import { Button, ErrorState, Skeleton } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";
@@ -49,10 +50,10 @@ export function ContextSearchList(
         {searches.status === "loaded" && searches.value.length > 0 && (
           <ul className={styles.list} data-search-list="">
             {searches.value.map((search) => (
-              <li key={search.name}>
-                <button
-                  type="button"
-                  className={styles.item}
+              <li key={search.name} className={styles.entry}>
+                <span>{search.title}</span>
+                <Button
+                  size="sm"
                   data-declared={search.name}
                   onClick={() =>
                     onOpenSearch({
@@ -63,8 +64,8 @@ export function ContextSearchList(
                       savedView: null,
                     })}
                 >
-                  {search.title}
-                </button>
+                  {t("contexts.button.search-open")}
+                </Button>
               </li>
             ))}
           </ul>

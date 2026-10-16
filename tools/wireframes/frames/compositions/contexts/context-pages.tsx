@@ -4,7 +4,7 @@ import type { GlossaryDemo } from "./glossary.tsx";
 import type { PaneInit } from "../project-app.tsx";
 import { contextTab, documentTab } from "../phroner-data.ts";
 import type { TabSpec } from "../project-window.tsx";
-import { ContextHead, contextsTab } from "./contexts-list.tsx";
+import { contextsTab } from "./contexts-list.tsx";
 import { declaredSearchTab } from "./declared-search.tsx";
 import { ProjectHost } from "./host.tsx";
 import { useOpenTab } from "./open-tab.ts";
@@ -29,6 +29,8 @@ const right = (tab: TabSpec): PaneInit => ({
 // Context 탭 본문을 직접 준다. 여기서 여는 탭(위반 목록의 [Send to …], 검색)도 ProjectHost를 거치게 한다.
 interface EvalOptions {
   readonly glossaryDemo?: GlossaryDemo;
+  readonly versionsOpen?: boolean;
+  readonly restoredDemo?: boolean;
 }
 
 function HostedContext(
@@ -45,15 +47,6 @@ const evalTab = (initial: SubTab, options: EvalOptions = {}): TabSpec => ({
 
 function contextPage(sub: SubTab, options: EvalOptions = {}) {
   const tab = evalTab(sub, options);
-  return <ProjectHost panes={[left(tab, tab)]} />;
-}
-
-// renderer의 Context 탭 본문(`ContextTabBody`)을 fake 통로로 그린 탭.
-function headPage(options: { versions?: boolean; restore?: boolean }) {
-  const tab: TabSpec = {
-    ...contextTab("eval", "overview"),
-    body: <ContextHead {...options} />,
-  };
   return <ProjectHost panes={[left(tab, tab)]} />;
 }
 
@@ -90,9 +83,11 @@ export const ContextGlossaryDeletePage = () =>
 export const ContextContractPage = () => contextPage("contract");
 
 /** Context 탭 머리의 판 목록을 펼친 상태. 옛 판 줄의 [Restore]로 되돌린다. */
-export const ContextVersionsPage = () => headPage({ versions: true });
+export const ContextVersionsPage = () =>
+  contextPage("overview", { versionsOpen: true });
 /** 옛 판(r2)으로 되돌린 직후. 탭 위쪽에 toast가 뜨고 머리의 판이 바뀐다. */
-export const ContextRestoredPage = () => headPage({ restore: true });
+export const ContextRestoredPage = () =>
+  contextPage("overview", { restoredDemo: true });
 
 /** 위반 toast. 문서 탭을 보고 있어도 창 위에 뜬다. */
 export function ViolationToastPage() {

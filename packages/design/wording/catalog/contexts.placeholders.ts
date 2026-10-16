@@ -5,13 +5,11 @@ export type ContextsPlaceholders = {
   "contexts.button.document-open": Record<never, never>;
   "contexts.button.frame-versions-hide": Record<never, never>;
   "contexts.button.frame-versions-show": Record<never, never>;
-  "contexts.button.glossary-add": Record<never, never>;
   "contexts.button.glossary-add-term": Record<never, never>;
   "contexts.button.glossary-cancel": Record<never, never>;
   "contexts.button.glossary-delete": Record<never, never>;
   "contexts.button.glossary-edit": Record<never, never>;
   "contexts.button.glossary-save": Record<never, never>;
-  "contexts.button.input-ask": Record<never, never>;
   "contexts.button.input-save-view": Record<never, never>;
   "contexts.button.input-search": Record<never, never>;
   "contexts.button.overview-see-all": {
@@ -19,6 +17,7 @@ export type ContextsPlaceholders = {
   };
   "contexts.button.results-next": Record<never, never>;
   "contexts.button.results-prev": Record<never, never>;
+  "contexts.button.search-open": Record<never, never>;
   "contexts.button.search-open-context": Record<never, never>;
   "contexts.button.search-save": Record<never, never>;
   "contexts.button.tab-archive": Record<never, never>;
@@ -45,7 +44,6 @@ export type ContextsPlaceholders = {
   "contexts.error.reason-unavailable": Record<never, never>;
   "contexts.error.restore-failed": Record<never, never>;
   "contexts.error.search-save-failed": Record<never, never>;
-  "contexts.error.violations-send-failed": Record<never, never>;
   "contexts.heading.composition-title": Record<never, never>;
   "contexts.heading.contract-fields": Record<never, never>;
   "contexts.heading.contract-relations": Record<never, never>;
@@ -135,8 +133,11 @@ export type ContextsPlaceholders = {
     number: "string";
     when: "string";
   };
-  "contexts.label.glossary-by-agent": Record<never, never>;
+  "contexts.label.glossary-by-project-manager": Record<never, never>;
   "contexts.label.glossary-by-user": Record<never, never>;
+  "contexts.label.glossary-count": {
+    count: "plural";
+  };
   "contexts.label.glossary-meaning": Record<never, never>;
   "contexts.label.glossary-term": Record<never, never>;
   "contexts.label.input-chip-on": {
@@ -201,11 +202,13 @@ export type ContextsPlaceholders = {
   "contexts.label.versions-name": {
     number: "string";
   };
-  "contexts.label.violations-on-it": Record<never, never>;
+  "contexts.label.violations-count": {
+    count: "plural";
+  };
   "contexts.label.violations-rule": {
     rule: "string";
   };
-  "contexts.note.glossary-purpose": Record<never, never>;
+  "contexts.note.glossary-delete": Record<never, never>;
   "contexts.note.input-required": {
     inputs: "string";
   };
@@ -217,6 +220,9 @@ export type ContextsPlaceholders = {
   "contexts.note.search-no-saved-views": Record<never, never>;
   "contexts.note.search-pick": Record<never, never>;
   "contexts.note.tab-archived": Record<never, never>;
+  "contexts.title.glossary-delete": {
+    term: "string";
+  };
   "contexts.title.restored": {
     number: "string";
   };

@@ -1,8 +1,7 @@
 // 선언된 검색의 입력 form. 선언의 입력 이름·타입에서 그린다: 고르는 입력은
 // 타이핑으로 후보를 거르는 combobox, 여럿 고르는 입력은 chip, 범위 입력은 시작·끝 두 칸. 그릴 수
-// 없는 입력 타입이면 form 대신 이유와 [Ask Context Engineer]를 보인다.
+// 없는 입력 타입이면 form 대신 이유만 보인다.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
-//   contexts.button.input-ask
 //   contexts.button.input-save-view
 //   contexts.button.input-search
 //   contexts.label.input-chip-on
@@ -35,8 +34,6 @@ export interface SearchInputFormProps {
   readonly onSearch: () => void;
   /** [Save as view]. */
   readonly onSaveView: () => void;
-  /** 그릴 수 없는 입력 타입일 때의 [Ask Context Engineer]. */
-  readonly onAsk?: () => void;
 }
 
 type DeclaredInput = DeclaredSearch["inputs"][number];
@@ -44,7 +41,7 @@ type DeclaredInput = DeclaredSearch["inputs"][number];
 const DRAWABLE: readonly string[] = ["entity", "value", "range", "text"];
 
 export function SearchInputForm(props: SearchInputFormProps): ReactNode {
-  const { search, onAsk } = props;
+  const { search } = props;
   const unsupported = search.inputs.find((input) =>
     !DRAWABLE.includes(input.type)
   );
@@ -54,11 +51,6 @@ export function SearchInputForm(props: SearchInputFormProps): ReactNode {
         <p className={styles.note} data-unsupported="">
           {t("contexts.note.input-unsupported", { type: unsupported.type })}
         </p>
-        {onAsk !== undefined && (
-          <div className={styles.actions}>
-            <Button onClick={onAsk}>{t("contexts.button.input-ask")}</Button>
-          </div>
-        )}
       </div>
     );
   }

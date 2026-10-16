@@ -1,5 +1,4 @@
 // Glossary 화면의 순수한 계산: 사람이 고친 값에서 바뀐 field만 고르고, 누가·언제 문구를 고른다.
-// 화면과 줄 컴포넌트가 같이 쓴다.
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { GlossaryEntry } from "./source.ts";
@@ -34,11 +33,11 @@ export function isBlank(draft: TermDraft): boolean {
   return draft.term.trim() === "" || draft.meaning.trim() === "";
 }
 
-/** 정한 쪽: 사람이면 You, Context Engineer면 Context Engineer. */
+/** 정한 쪽: 사람이면 You, 아니면 Project Manager. */
 export function setByLabel(setBy: GlossaryEntry["set_by"]): string {
   return setBy === "user"
     ? t("contexts.label.glossary-by-user")
-    : t("contexts.label.glossary-by-agent");
+    : t("contexts.label.glossary-by-project-manager");
 }
 
 /** 정한 시각을 "2 days ago" 같은 상대 시각으로. */

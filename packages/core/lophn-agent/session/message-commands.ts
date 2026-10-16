@@ -254,7 +254,7 @@ function writeHuman(
   const title = titleOnReceive({
     title: session.title,
     first_request: firstRequest,
-    mode,
+    delivery: input.delivery === "steer" ? "steer" : "next_turn",
     text,
   });
   if (title !== session.title) {

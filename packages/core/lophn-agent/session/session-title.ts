@@ -57,16 +57,17 @@ export function renameSessionTitle(text: string): Result<string> {
 // 사람의 request 하나를 접수할 때 session 제목이 어떻게 되는지.
 //
 // 자동 제목은 첫 사람 request를 접수하는 transaction에서 제목이 null일 때만 정한다.
-// 이미 제목이 있으면(자동이든 rename이든) 다시 정하지 않고, correction은 정하지 않으며,
+// 이미 제목이 있으면(자동이든 rename이든) 다시 정하지 않고, steer는 정하지 않으며,
 // 첫 request가 아니면 정하지 않는다. 본문에서 제목이 나오지 않으면 null을 유지한다.
 export function titleOnReceive(input: {
   title: string | null;
   first_request: boolean;
-  mode: "request" | "correction";
+  delivery: "next_turn" | "steer";
   text: string;
 }): string | null {
   if (
-    input.title !== null || input.mode !== "request" || !input.first_request
+    input.title !== null || input.delivery !== "next_turn" ||
+    !input.first_request
   ) {
     return input.title;
   }

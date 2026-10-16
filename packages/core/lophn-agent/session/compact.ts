@@ -3,10 +3,8 @@ import {
   compactSession,
   failSessionCompact,
   requestSessionCompact,
-  sessionCompacted,
-  sessionCompactFailed,
-  sessionCompactRequested,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type {
   CommandDefinition,
   Input,
@@ -21,16 +19,32 @@ import {
 import {
   hasUnfinishedRun,
   loadSession,
+  nextSessionSeq,
   openCompactRequest,
   type SessionRow,
 } from "./model.ts";
+import { publishAfterCommit } from "../run-loop/turn-events.ts";
 
 // Compact. 사람이 부를 때만 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다.
 // 요약 call은 짧은 transaction 안에서 부를 수 없어서 세 걸음으로 나눈다. 사람이 요청하고(Request),
-// runtime이 prompt-assemble의 요약 규칙으로 요약하는 model call을 하고(Workspace의 Model for
-// summaries, 비면 session agent의 model), 끝까지 성공한 그 call을 구간과 함께 session에 이어 요청을
-// 끝낸다(Compact). 요약이 실패하면 요청만 이유와 함께 닫는다(Fail). 요청의 진행은 session 행을
-// 바꾸지 않아 입력 접수에 닿지 않고, 원문은 어느 경우에도 지우지 않는다.
+// runtime이 session agent의 model에 요약 지시를 보내 요약을 받고, 끝까지 성공한 그 call을 구간과 함께
+// session에 이어 요청을 끝낸다(Compact). 요약이 실패하면 요청만 이유와 함께 닫는다(Fail). 요청의 진행은
+// session 행을 바꾸지 않아 입력 접수에 닿지 않고, 원문은 어느 경우에도 지우지 않는다.
+// 요청, 구간, 경계는 session 기록(표)에만 쓴다. 시작과 끝은 Bus의 agent event다.
+
+function publishCompact(
+  tx: Tx,
+  session: string,
+  type: "CompactStarted" | "CompactEnded",
+  payload: { turn: null } | { ok: boolean },
+): void {
+  publishAfterCommit(tx, {
+    session,
+    type,
+    at: tx.now(),
+    payload,
+  } as AgentEvent);
+}
 
 type Compaction = { through_seq: string; summary_call: string };
 
@@ -52,63 +66,32 @@ function hasMessageAfterSpan(tx: Tx, session: SessionRow): boolean {
   ) !== undefined;
 }
 
-type SummaryCall = {
-  id: string;
-  provider: string;
-  model_name: string;
-  started_seq: string;
-};
-
 // 이 session에 묶인 요약 call로 끝까지 성공한(완전 출력이 있는) 것이다. 시작·실패·취소·부분 출력 call과
 // 판단 용도 call, run 안의 압축 call, 다른 session의 call은 Compact의 요약이 아니다.
 function summaryCall(
   tx: { sql: Pick<Tx["sql"], "get"> },
   session: string,
   call: string,
-): SummaryCall | undefined {
+): string | undefined {
   const row = tx.sql.get(
-    `select c.id as id, c.provider as provider, c.model_name as model_name,
-       cast(e.seq as text) as started_seq
-     from model_calls c
-     join events e on e.subject = c.id and e.type = 'ModelCallStarted'
-     where c.id = ? and c.session = ? and c.turn is null
-       and c.purpose = 'conversation_compression'
-       and c.model_use = 'organizing' and c.state = 'finished'
-       and c.output is not null and json_extract(c.outcome, '$.kind') = 'complete'`,
+    `select id from model_calls
+     where id = ? and session = ? and turn is null
+       and purpose = 'conversation_compression'
+       and model_use = 'organizing' and state = 'finished'
+       and output is not null and json_extract(outcome, '$.kind') = 'complete'`,
     [call, session],
   );
-  return row === undefined ? undefined : {
-    id: String(row["id"]),
-    provider: String(row["provider"]),
-    model_name: String(row["model_name"]),
-    started_seq: String(row["started_seq"]),
-  };
-}
-
-// 요약은 Workspace의 Model for summaries로 만든다. 그 칸이 비어 있으면 session agent의 model을
-// 쓰므로 어느 model이든 받는다.
-function usesSummariesModel(
-  tx: { sql: Pick<Tx["sql"], "get"> },
-  call: SummaryCall,
-): boolean {
-  const slot = tx.sql.get(
-    "select provider, model_name from agent_model_defaults where slot = 'summaries'",
-    [],
-  );
-  if (slot === undefined || slot["provider"] === null) return true;
-  return slot["provider"] === call.provider &&
-    slot["model_name"] === call.model_name;
+  return row === undefined ? undefined : String(row["id"]);
 }
 
 // rewind의 "Summarize from here"도 Compact와 같은 요약 call을 쓴다. 이 session에 묶여 끝까지
-// 성공하고 Model for summaries로 만든 call인가.
+// 성공한 call인가.
 export function isFinishedSummaryCall(
   lookup: { sql: Pick<Tx["sql"], "get"> },
   session: string,
   call: string,
 ): boolean {
-  const found = summaryCall(lookup, session, call);
-  return found !== undefined && usesSummariesModel(lookup, found);
+  return summaryCall(lookup, session, call) !== undefined;
 }
 
 function closeRequest(
@@ -158,11 +141,17 @@ export function createCompactCommands(): {
         if (!hasMessageAfterSpan(tx, session)) {
           return reject("conflict", "no message is left to summarize");
         }
-        const seq = tx.emit(sessionCompactRequested, session.id, {});
+        // 요청의 이름은 표 안에서 이어 세는 순번이다.
+        const next = tx.sql.get(
+          "select coalesce(max(request_seq), 0) + 1 as next from session_compact_requests",
+          [],
+        );
+        const seq = String(next?.["next"] ?? 1);
         tx.sql.run(
           "insert into session_compact_requests (request_seq, session, state) values (?, ?, 'requested')",
           [BigInt(seq), session.id],
         );
+        publishCompact(tx, session.id, "CompactStarted", { turn: null });
         return ok({ id: session.id, request_seq: seq });
       },
     },
@@ -198,16 +187,6 @@ export function createCompactCommands(): {
         if (call === undefined) {
           return reject("unavailable", "no summary call finished well");
         }
-        // 요청보다 앞서 시작한 call은 이 요청의 요약이 아니다.
-        if (BigInt(call.started_seq) < BigInt(request.request_seq)) {
-          return reject("conflict", "the summary call predates the request");
-        }
-        if (!usesSummariesModel(tx, call)) {
-          return reject(
-            "conflict",
-            "the summary was not made with the Model for summaries",
-          );
-        }
         // 요약이 덮는 구간의 끝은 이 session의 확정 메시지여야 하고 앞서 덮은 구간보다 뒤여야 한다.
         const covered = tx.sql.get(
           "select 1 as found from messages where session = ? and created_seq = ?",
@@ -225,21 +204,26 @@ export function createCompactCommands(): {
         }
         const after: Compaction = {
           through_seq: input.through_seq,
-          summary_call: call.id,
+          summary_call: call,
         };
-        const seq = tx.emit(sessionCompacted, session.id, { before, after });
+        const seq = nextSessionSeq(tx);
         tx.sql.run(
           `update sessions set compaction_through_seq = ?,
              compaction_summary_call = ?, state_seq = ? where id = ?`,
           [
             BigInt(after.through_seq),
             after.summary_call,
-            Number(seq),
+            seq,
             session.id,
           ],
         );
         closeRequest(tx, request.request_seq, "compacted", null);
-        return ok({ id: session.id, compaction: after, state_seq: seq });
+        publishCompact(tx, session.id, "CompactEnded", { ok: true });
+        return ok({
+          id: session.id,
+          compaction: after,
+          state_seq: String(seq),
+        });
       },
     },
     failCompact: {
@@ -262,11 +246,8 @@ export function createCompactCommands(): {
         ) {
           return reject("conflict", "no such open Compact request");
         }
-        tx.emit(sessionCompactFailed, session.id, {
-          request: request.request_seq,
-          reason: input.reason,
-        });
         closeRequest(tx, request.request_seq, "failed", input.reason);
+        publishCompact(tx, session.id, "CompactEnded", { ok: false });
         return ok({
           id: session.id,
           request_seq: request.request_seq,

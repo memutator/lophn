@@ -8,7 +8,6 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
-  modelDefaultsRead,
   RUN_BLOB_PURPOSES,
   sessionCompactRequests,
   startModelCall,
@@ -16,7 +15,6 @@ import {
   type TokenUsage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
-  COMPACT_RESHRINK_MAX,
   compactSummaryRequest,
   inputBudget,
   measureWire,
@@ -40,12 +38,14 @@ import {
 import { readSessionConversation } from "./history.ts";
 
 // 사람이 요청한 Compact를 끝낸다(lophn-agent/conversation, harness/prompt-assemble,
-// harness/model). 요청은 core의 읽기로 고르고(끝나지 않은 run이 있는 session의 요청은 나오지
-// 않는다), session의 앞 구간을 prompt-assemble의 요약 규칙으로 요약하는 model call을 한 뒤, 끝까지 성공한
-// 그 call을 CompactSession으로 잇는다. 요약 call은 run과 agent 대신 session에 묶여 run이 한 번도 없는
-// session도 요약한다. 요약 model은 Workspace의 Model for summaries이고 그 칸이 비면 session agent의
-// model이다. 요약용 model을 따로 골랐으면 그 실패를 agent model로 바꿔 처리하지 않는다. 어떤 실패든
-// 요청만 이유와 함께 닫고 session과 원문은 그대로다.
+// harness/model). 요청은 core의 읽기로 고르고(끝나지 않은 turn이 있는 session의 요청은 나오지
+// 않는다), session의 앞 구간을 같은 model(session agent의 model)에 요약 지시를 보내 요약하는 model call을
+// 한 뒤, 끝까지 성공한 그 call을 CompactSession으로 잇는다. 최근 사람 메시지 몇 개는 요약하지 않고 원문으로
+// 남겨 이후 call의 조립이 요약 뒤에 붙인다. 요약 call은 turn과 agent 대신 session에 묶여 turn이 한 번도
+// 없는 session도 요약한다. 어떤 실패든 요청만 이유와 함께 닫고 session과 원문은 그대로다.
+
+// 요약하지 않고 원문으로 남기는 최근 사람 메시지 수.
+const KEEP_RECENT = 3;
 
 // 요약 call이 예약하는 출력 크기. 요약 본문 상한(summaryOutputCap)은 최대 4,000 token이라 그만큼 예약한다.
 const RESERVED_OUTPUT = 4000;
@@ -86,7 +86,6 @@ export type RangeSummarizer = {
   // session을 바꾸지 않는다.
   summarizeFrom(input: {
     session: string;
-    assignment: string;
     from_seq: string;
   }): Promise<RangeSummary>;
 };
@@ -105,7 +104,6 @@ export type CompactorDeps = {
 
 type Request = {
   session: string;
-  assignment: string;
   request_seq: string;
 };
 
@@ -138,18 +136,27 @@ class Failure extends Error {
   }
 }
 
+// 요약할 구간의 끝(포함하지 않는 위치). 뒤쪽 사람 메시지 KEEP_RECENT개와 그 뒤는 원문으로 남긴다.
+// 맨 앞 메시지는 남기지 않아 요약할 것이 하나는 있고, 사람 메시지가 없으면 전부 요약한다.
+function recentStart(messages: readonly SessionMessage[]): number {
+  let start = messages.length;
+  let kept = 0;
+  for (let at = messages.length - 1; at >= 1 && kept < KEEP_RECENT; at--) {
+    if (messages[at]!.role === "user") {
+      start = at;
+      kept++;
+    }
+  }
+  return start;
+}
+
 export function createCompactor(
   deps: CompactorDeps,
 ): Compactor & RangeSummarizer {
   const { machine, clock, ids } = deps;
 
-  // 요약 model. 따로 고른 Model for summaries가 먼저이고 비면 그 session agent의 model이다(구성 resolve다).
+  // 요약 model은 session agent의 model이다(구성 resolve다).
   async function summaryChoice(request: Request): Promise<ModelChoice | null> {
-    const defaults = await readOf(machine, modelDefaultsRead, {});
-    if (!defaults.ok) return null;
-    if (defaults.value.defaults.summaries !== null) {
-      return defaults.value.defaults.summaries;
-    }
     const made = await resolveRunAgent(machine, {
       session: request.session,
       skills: [],
@@ -179,7 +186,6 @@ export function createCompactor(
     input: {
       previous: string | null;
       messages: readonly SessionMessage[];
-      shorten?: string;
     },
   ): Promise<{ id: string; text: string }> {
     const prompt = compactSummaryRequest({ ...input, cap: limit.body });
@@ -204,7 +210,6 @@ export function createCompactor(
         kind: "compact_summary",
         session: request.session,
         request_seq: request.request_seq,
-        shortened: input.shorten !== undefined,
         has_previous: input.previous !== null,
         from_seq: first === undefined ? null : String(first.seq),
         through_seq: last === undefined ? null : String(last.seq),
@@ -325,7 +330,7 @@ export function createCompactor(
     return { id, text: output.text };
   }
 
-  // 요약 한 걸음. 본문이 상한을 넘으면 직전 결과를 주고 다시 줄이게 한다(최대 두 번). 잘라 맞추지 않는다.
+  // 요약 한 걸음. 본문이 상한을 넘으면 실패한다. 잘라 맞추지 않는다.
   async function summarize(
     request: Request,
     binding: ModelBinding,
@@ -333,15 +338,7 @@ export function createCompactor(
     attempt: { order: number },
     input: { previous: string | null; messages: readonly SessionMessage[] },
   ): Promise<{ id: string; text: string }> {
-    let done = await summarizeOnce(request, binding, limit, attempt, input);
-    for (let again = 0; again < COMPACT_RESHRINK_MAX; again++) {
-      if (summaryBodyTokens(done.text) <= limit.body) return done;
-      done = await summarizeOnce(request, binding, limit, attempt, {
-        previous: null,
-        messages: [],
-        shorten: done.text,
-      });
-    }
+    const done = await summarizeOnce(request, binding, limit, attempt, input);
     if (summaryBodyTokens(done.text) > limit.body) {
       throw new Failure("summary_too_long");
     }
@@ -431,8 +428,9 @@ export function createCompactor(
     // 읽지 못한 것은 요약할 수 없는 session이 아니라 지금 닿지 못한 core다. 요청은 열려 있고 다음에 다시 본다.
     if (!read.ok) return { kind: "idle" };
     const conversation = read.value;
-    // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다.
-    const material = visibleMessages(conversation);
+    // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다. 최근 사람 메시지 몇 개는 남긴다.
+    const visible = visibleMessages(conversation);
+    const material = visible.slice(0, recentStart(visible));
     if (material.length === 0) {
       return await fail(request, "nothing_to_summarize");
     }
@@ -474,7 +472,6 @@ export function createCompactor(
   // 접는 일(Rewind의 summary_call)은 사람이 확정한다. 실패해도 session과 원문은 그대로다.
   async function summarizeFrom(input: {
     session: string;
-    assignment: string;
     from_seq: string;
   }): Promise<RangeSummary> {
     const read = await readSessionConversation(machine, {
@@ -489,11 +486,7 @@ export function createCompactor(
       return { kind: "failed", reason: "nothing_to_summarize" };
     }
     const summary = await summarizeMaterial(
-      {
-        session: input.session,
-        assignment: input.assignment,
-        request_seq: input.from_seq,
-      },
+      { session: input.session, request_seq: input.from_seq },
       material,
       null,
     );
@@ -509,7 +502,6 @@ export function createCompactor(
       const request = taken.value.request;
       const summary = await summarizeFrom({
         session: request.session,
-        assignment: request.assignment,
         from_seq: request.from_seq,
       });
       // 읽지 못해 idle이면 요청은 가져간 채로 남는다. 사람은 기다리다 다시 요청한다(기한이 있다).

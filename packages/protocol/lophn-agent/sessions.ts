@@ -9,6 +9,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { agentRefOutputSchema, placeOutputSchema } from "./places.ts";
 import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 
@@ -445,8 +446,8 @@ export const sessionCompactRequests = defineRead({
   output: withReadCommon(z.object({
     requests: z.array(z.object({
       session: idSchema("ses"),
-      assignment: idSchema("asg"),
-      work_place: workPlaceOutputSchema,
+      agent: agentRefOutputSchema,
+      place: placeOutputSchema.nullable(),
       request_seq: seqSchema,
     })),
   })),

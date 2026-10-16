@@ -10,11 +10,13 @@ import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { sessionVisible, visibleSessions } from "./guards.ts";
 import {
   agentClause,
+  agentRefOf,
   agentSessionOf,
   loadMessage,
   loadSession,
   MESSAGE_COLUMNS,
   messageRowOf,
+  placeOf,
   receivedMessageOf,
   SESSION_COLUMNS,
   sessionRowOf,
@@ -116,13 +118,30 @@ export function createConversationReads(): {
         });
       },
     },
-    // 요약 요청을 session의 agent와 place로 말하는 계약이 아직 옛 assignment 모양이라 요청을 내지 않는다.
-    // compact는 그 계약이 바뀔 때까지 막혀 있다.
+    // 열린 요청을 오래된 것부터 낸다. 도는 turn이 있는 session의 요청은 그 turn이 끝날 때까지 나오지 않는다.
     compactRequests: {
       route: sessionCompactRequests,
       handle(snapshot) {
+        const rows = snapshot.sql.all(
+          `select cast(r.request_seq as text) as request_seq, s.*
+           from session_compact_requests r join sessions s on s.id = r.session
+           where r.state = 'requested' and s.lifecycle = 'open'
+             and not exists (
+               select 1 from turns t where t.session = s.id and t.state = 'running'
+             )
+           order by r.request_seq limit ?`,
+          [PAGE],
+        );
         return ok({
-          requests: [],
+          requests: rows.map((row) => {
+            const session = sessionRowOf(row);
+            return {
+              session: session.id,
+              agent: agentRefOf(session),
+              place: placeOf(session),
+              request_seq: String(row["request_seq"]),
+            };
+          }),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

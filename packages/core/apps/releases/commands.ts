@@ -583,7 +583,7 @@ function requireMachine(ctx: RequestContext, route: string): Result<void> {
     : err({ code: "forbidden", message: `${route} is machine only` });
 }
 
-// bundle에 담긴 의존이다. 옛 칸(`sdk_dependencies`)과 새 칸(`dependencies`)을 합쳐 이름순으로 낸다.
+// bundle에 담긴 의존이다. `sdk_dependencies`와 `dependencies`를 합쳐 이름순으로 낸다.
 function manifestDependencies(
   manifest: {
     sdk_dependencies: readonly { name: string; version: string }[];

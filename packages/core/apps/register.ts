@@ -45,11 +45,7 @@ import {
   releaseDeclarations,
   releaseWording,
 } from "./releases/store.ts";
-import {
-  AppTestVerificationLookupPort,
-  ProblemWordingPort,
-} from "../../protocol/problems/mod.ts";
-import { findAppTestVerification } from "../problems/tests/app-test-lookup.ts";
+import { ProblemWordingPort } from "../../protocol/problems/mod.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
 import { PACKAGE_GUIDE_BLOB_FIELD } from "./packages/blobs.ts";
@@ -235,13 +231,6 @@ export function createLedgerRegistration(
       // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
       // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
       { key: currentDeclarations, create: () => releaseDeclarations },
-      // release 준비는 같은 bundle hash의 통과한 app test와 현재 ticket claim을 같은 transaction에서
-      // 다시 확인한다. 구현은 problems·coding-agent 소유 읽기다.
-      {
-        key: AppTestVerificationLookupPort,
-        create: (tx) => (verification: string) =>
-          findAppTestVerification(tx.sql, verification),
-      },
       // 보고 당시 release의 선언 code 문구다. problems의 문구 projection이
       // 같은 snapshot sql로 읽는다.
       { key: ProblemWordingPort, create: () => releaseWording },

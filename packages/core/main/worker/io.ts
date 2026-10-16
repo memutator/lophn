@@ -13,8 +13,11 @@ import {
 } from "../../diagnostics/mod.ts";
 import { createBlobStoreWork, systemQuota } from "../../storage/blobs/mod.ts";
 import { observeBlobGc } from "../../storage/blobs/worker/gc.ts";
-import { readUnreferencedRecords } from "../../storage/blobs/worker/maintenance.ts";
-import { type ErrorCode, ok, type Result } from "../../../base/mod.ts";
+import {
+  listInstalledBlobs,
+  readUnreferencedRecords,
+} from "../../storage/blobs/worker/maintenance.ts";
+import { type ErrorCode, ok } from "../../../base/mod.ts";
 import {
   type BlobPipe,
   type BlobPipeRequest,
@@ -453,61 +456,6 @@ async function createPlatformIo(
     },
   });
   return session;
-}
-
-// GC 관측의 설치 blob 파일 목록. hash 폴더 2자 아래 나머지 62자다.
-// core는 파일을 열지 않는다. 관측 실패는 없다고 본다.
-export async function listInstalledBlobs(
-  root: string,
-): Promise<
-  Result<
-    readonly {
-      hash: string;
-      observedAtMs: number;
-      sizeBytes: number;
-      registeredAtMs: number;
-    }[]
-  >
-> {
-  const objects = `${root}/blobs/sha256`;
-  const found: {
-    hash: string;
-    observedAtMs: number;
-    sizeBytes: number;
-    registeredAtMs: number;
-  }[] = [];
-  let prefixes: string[];
-  try {
-    prefixes = [...Deno.readDirSync(objects)].map((entry) => entry.name);
-  } catch {
-    return ok([]);
-  }
-  for (const prefix of prefixes) {
-    let names: string[];
-    try {
-      names = [...Deno.readDirSync(`${objects}/${prefix}`)].map((
-        entry,
-      ) => entry.name);
-    } catch {
-      continue;
-    }
-    for (const suffix of names) {
-      try {
-        const stat = await Deno.stat(`${objects}/${prefix}/${suffix}`);
-        if (!stat.isFile) continue;
-        const at = stat.mtime?.getTime() ?? 0;
-        found.push({
-          hash: `${prefix}${suffix}`,
-          observedAtMs: at,
-          sizeBytes: stat.size,
-          registeredAtMs: at,
-        });
-      } catch {
-        // 관측 중 사라진 파일은 목록에서 뺀다.
-      }
-    }
-  }
-  return ok(found);
 }
 
 export async function runPlatformIo(root: string): Promise<void> {

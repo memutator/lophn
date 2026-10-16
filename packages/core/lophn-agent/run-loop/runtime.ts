@@ -41,8 +41,8 @@ import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
 } from "../../storage/blobs/child-prepare.ts";
-import type { BlobPrepareCall } from "../../main/daemon/core.ts";
 import type {
+  BlobPrepareCall,
   BufferGauge,
   PreparedRelayResult,
 } from "../../storage/blobs/prepare-relay.ts";

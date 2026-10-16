@@ -55,6 +55,10 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 **lophn-agent는 domain을 import하지 않는다. domain끼리는 problems → apps만.**
 - 막는 것: 플랫폼이 꽂히는 쪽을 알게 되는 것(domain을 더하고 뺄 때마다 harness를 고치게 된다). domain 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
 - 처음 규칙은 "domain끼리 import 금지"였다. 한 방향 의존은 해가 없고 problems → apps는 자연스러워 방향 규칙으로 바꿨다.
+- 아직 못 끊은 예외 둘을 `tools/check-deps.ts`가 이름으로 허용한다. harness와 domain을 나눌 때 다시 본다.
+  - projects → apps: writer·reader Worker가 직접 여는 `projects/contexts/ledger/deps.ts`가 app-api의 effect를 알려고 releases store를 읽는다. wiring이 값을 넘길 길이 없다.
+  - lophn-agent → projects: agent lookup이 context 상태를 읽는다.
+- import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 
 ## 두지 않는 규칙
 

@@ -4,11 +4,10 @@
 // 사본과 ledger의 Verification에서 온다. 확정은 접수한 coding agent의 ticket claim으로 다시 검사된다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import { releasePrepare } from "../../../protocol/apps/mod.ts";
-import type { RequestContext } from "../../../protocol/server/mod.ts";
+import type { RequestContext, Sql } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { dataChangesOf, readBundleCopy } from "./activation/desired.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
-import { findPassedAppTest } from "../../problems/tests/app-test-lookup.ts";
 import type { PreparationSnapshot } from "./preparation.ts";
 
 // release 확정에 쓰는 operation 이름이다. core 내부 machine 자격의 scope가 이것을 담는다.
@@ -35,6 +34,12 @@ type ReleaseFinalizerDeps = {
     },
   ): Promise<Result<unknown>> | undefined;
   machine(): RequestContext | undefined;
+  // 같은 앱·같은 bundle hash로 통과한 app test의 id다(problems 소유 읽기를 wiring이 넘겨준다).
+  findPassedAppTest(
+    sql: Pick<Sql, "get">,
+    app: string,
+    bundleHash: string,
+  ): Result<string | undefined>;
 };
 
 type ReleaseFinalizer = {
@@ -87,7 +92,7 @@ export function createReleaseFinalizer(
     const opened = openConnection(deps.ledgerPath);
     if (!opened.ok) return unavailable("ledger is unavailable");
     try {
-      return findPassedAppTest(opened.value.sql, app, bundleHash);
+      return deps.findPassedAppTest(opened.value.sql, app, bundleHash);
     } finally {
       opened.value.close();
     }

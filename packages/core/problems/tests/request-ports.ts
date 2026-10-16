@@ -5,7 +5,11 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import type { requestTest } from "../../../protocol/problems/mod.ts";
+import {
+  AppTestVerificationLookupPort,
+  type requestTest,
+} from "../../../protocol/problems/mod.ts";
+import { findAppTestVerification } from "./app-test-lookup.ts";
 import {
   defineTxPort,
   type TxPortRegistration,
@@ -67,6 +71,12 @@ function admission(
 export function testTxPorts(): TxPortRegistration[] {
   return [
     defineTxPort(testAdmissionPort, admission),
+    // release 준비는 같은 bundle hash의 통과한 app test를 같은 transaction에서 다시 확인한다.
+    defineTxPort(
+      AppTestVerificationLookupPort,
+      (tx) => (verification: string) =>
+        findAppTestVerification(tx.sql, verification),
+    ),
     defineTxPort(
       testEvidencePort,
       (tx) => (input) =>

@@ -6,8 +6,11 @@
 import { err, type Result } from "../../../base/mod.ts";
 import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { UploadHandler } from "../../server/mod.ts";
-import type { BlobPrepareCall } from "../../main/daemon/core.ts";
-import type { PreparedRelayResult } from "../../storage/blobs/prepare-relay.ts";
+import type {
+  BlobPrepareCall,
+  PreparedRelayResult,
+} from "../../storage/blobs/prepare-relay.ts";
+
 import { exactBytes } from "../../storage/blobs/exact-bytes.ts";
 import { ticketDefinitions } from "./register.ts";
 

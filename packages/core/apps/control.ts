@@ -44,6 +44,7 @@ import {
 import type {
   AuthenticatedContext,
   RequestContext,
+  Sql,
 } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
@@ -88,8 +89,11 @@ import {
   createReleaseFinalizer,
   FINALIZER_OPERATIONS,
 } from "./releases/finalizer.ts";
-import type { BlobPrepareCall } from "../main/daemon/core.ts";
-import type { PreparedRelayResult } from "../storage/blobs/prepare-relay.ts";
+import type {
+  BlobPrepareCall,
+  PreparedRelayResult,
+} from "../storage/blobs/prepare-relay.ts";
+
 import { createFsPreviewArea } from "./preview/area.ts";
 import { createPreviewReads } from "./preview/reads.ts";
 import {
@@ -258,6 +262,12 @@ type AppsControlDeps = {
       },
     ): Promise<Result<unknown>> | undefined;
     machine(): RequestContext | undefined;
+    // 같은 앱·같은 bundle hash로 통과한 app test의 id다. problems 소유 읽기를 wiring이 넘겨준다.
+    findPassedAppTest(
+      sql: Pick<Sql, "get">,
+      app: string,
+      bundleHash: string,
+    ): Result<string | undefined>;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
     platformPorts: () => readonly number[];
   };
@@ -573,6 +583,7 @@ export async function createAppsControl(
       dataRoot: deps.activation.dataRoot,
       command: deps.activation.command,
       machine: deps.activation.machine,
+      findPassedAppTest: deps.activation.findPassedAppTest,
     });
 
   async function reconcileApp(next: DesiredApp): Promise<Result<void>> {

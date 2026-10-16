@@ -30,6 +30,14 @@ const BLOB_RELAY_RESPONSE_MS = 120_000;
 // blob.read 응답을 기다리는 시간.
 const BLOB_RELAY_READ_MS = 6_000;
 
+// core.prepareBlob(I/O worker 중계)에 넘기는 준비 요청.
+export type BlobPrepareCall = {
+  principal: string;
+  purpose: string;
+  expectedHash?: string;
+  bytes: ReadableStream<Uint8Array>;
+};
+
 // core가 바이트를 쥐고 있는 양의 관측. 자식 쪽 대기열과 중계가 읽어 쥔 chunk가 더한다.
 export type BufferGauge = {
   readonly current: number;

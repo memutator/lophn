@@ -8,8 +8,11 @@ import {
   annotationUploadScreenshot,
 } from "../../../protocol/apps/annotation.ts";
 import type { UploadHandler } from "../../server/mod.ts";
-import type { BlobPrepareCall } from "../../main/daemon/core.ts";
-import type { PreparedRelayResult } from "../../storage/blobs/prepare-relay.ts";
+import type {
+  BlobPrepareCall,
+  PreparedRelayResult,
+} from "../../storage/blobs/prepare-relay.ts";
+
 import { exactBytes } from "../../storage/blobs/exact-bytes.ts";
 
 export function annotationUploadHandler(relay: {

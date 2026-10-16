@@ -36,6 +36,7 @@ import type {
 import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
 import type { RestartOwner } from "../../../storage/migration/mod.ts";
 import type {
+  BlobPrepareCall,
   BlobPrepareRelay,
   BufferGauge,
   PreparedRelayResult,
@@ -64,7 +65,7 @@ import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { Assembled } from "../registration.ts";
-import type { BlobPrepareCall, CoreOptions } from "../core.ts";
+import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
 import type { DataRoot } from "../../../install-and-update/mod.ts";
 

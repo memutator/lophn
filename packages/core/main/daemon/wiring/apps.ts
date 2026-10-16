@@ -67,7 +67,10 @@ import {
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { checkBlueprint } from "../../../apps/blueprint/check.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
-import { findAppTestVerification } from "../../../problems/tests/app-test-lookup.ts";
+import {
+  findAppTestVerification,
+  findPassedAppTest,
+} from "../../../problems/tests/app-test-lookup.ts";
 import { createReleaseSourceMaps } from "../../../apps/releases/bundle/read.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
@@ -132,6 +135,7 @@ export const appsWiring: WiringFactory = () => {
           command: (context, envelope) =>
             runtime.writer.command(context as never, envelope as never),
           machine,
+          findPassedAppTest,
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,
         },

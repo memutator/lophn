@@ -36,7 +36,7 @@ import {
 } from "../blobs/mod.ts";
 import { requestPrincipal } from "./after-commit.ts";
 import { SECRET_COMMANDS } from "../../secrets/mod.ts";
-import type { TeamModule } from "../../main/daemon/registration.ts";
+import type { TeamModule } from "./team-module.ts";
 
 type WriterBoot = {
   path: string;

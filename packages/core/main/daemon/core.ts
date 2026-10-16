@@ -23,7 +23,8 @@ import {
   writeRunMetadata,
 } from "../../install-and-update/mod.ts";
 import type { KeychainAdapter } from "../../secrets/mod.ts";
-import { assemble, type TeamModule } from "./registration.ts";
+import { assemble } from "./registration.ts";
+import type { TeamModule } from "../../storage/ledger/team-module.ts";
 import { withPlatform } from "./platform-register.ts";
 import { openRuntime } from "./runtime.ts";
 import {
@@ -59,12 +60,6 @@ export type CoreOptions = {
   parent?: ParentPipe;
   // secret store·MCP OAuth가 값을 읽는 keychain adapter.
   codingKeychain: KeychainAdapter;
-};
-export type BlobPrepareCall = {
-  principal: string;
-  purpose: string;
-  expectedHash?: string;
-  bytes: ReadableStream<Uint8Array>;
 };
 
 type Core = {

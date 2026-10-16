@@ -19,8 +19,8 @@ import {
   type Supervisor,
   type WiringFactory,
 } from "./context.ts";
-import type { BlobPrepareCall } from "../core.ts";
 import type {
+  BlobPrepareCall,
   BufferGauge,
   PreparedRelayResult,
 } from "../../../storage/blobs/prepare-relay.ts";

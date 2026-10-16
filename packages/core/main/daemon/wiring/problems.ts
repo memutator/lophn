@@ -1,7 +1,11 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import { reportBody } from "../../../../protocol/problems/mod.ts";
-import { createChildBlobPrepare } from "../../../storage/blobs/child-prepare.ts";
+import {
+  type ChildBlobPolicy,
+  createChildBlobPrepare,
+} from "../../../storage/blobs/child-prepare.ts";
+import { problemsReportDefinitions } from "../../../problems/register.ts";
 import { authorize } from "../../../server/identity/mod.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
@@ -24,6 +28,30 @@ import {
   type WiringContext,
   type WiringFactory,
 } from "./context.ts";
+
+// collector 자식이 준비할 수 있는 purpose와 상한. 상한은 purpose를 등록한 problems report 정의의 max_size_bytes다.
+const REPORT_PURPOSE_CAPS = new Map<string, number>(
+  problemsReportDefinitions.blobPurposes.map((
+    purpose,
+  ) => [purpose.purpose, purpose.max_size_bytes] as const),
+);
+const COLLECTOR_BLOB_POLICY: ChildBlobPolicy = {
+  // registerBlobs 원주체 검사: report.principal과 준비 principal이 같아야 한다.
+  principal: "collector",
+  purposes: new Map(
+    [
+      "report_text",
+      "report_details",
+      "snapshot_stack",
+      "snapshot_logs",
+      "feedback_state",
+      "feedback_screenshot",
+    ].flatMap((purpose) => {
+      const cap = REPORT_PURPOSE_CAPS.get(purpose);
+      return cap === undefined ? [] : [[purpose, cap] as const];
+    }),
+  ),
+};
 
 export const problemsWiring: WiringFactory = () => {
   // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
@@ -129,6 +157,7 @@ async function startCollector(
     send: (message) =>
       ctx.io.send(COLLECTOR_KIND, message).then((sent) => sent.ok),
     prepareBlob: (call) => ctx.blobRelay.prepare(call),
+    policies: new Map([[COLLECTOR_KIND, COLLECTOR_BLOB_POLICY]]),
   });
   onClose(() => handler.close());
   const started = await ctx.io.start(

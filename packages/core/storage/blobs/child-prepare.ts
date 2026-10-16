@@ -16,9 +16,11 @@ import {
   AGENT_RUNTIME_PRINCIPAL,
   TURN_BLOB_PURPOSES,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { BlobPrepareCall } from "../../main/daemon/core.ts";
-import type { BufferGauge, PreparedRelayResult } from "./prepare-relay.ts";
-import { problemsReportDefinitions } from "../../problems/register.ts";
+import type {
+  BlobPrepareCall,
+  BufferGauge,
+  PreparedRelayResult,
+} from "./prepare-relay.ts";
 import type { Frame } from "../../../protocol/base/mod.ts";
 
 // kind별 허용. kind가 여기 없으면 요청은 forbidden이다(자식 spec이 준 권한이 아니라
@@ -27,12 +29,6 @@ export type ChildBlobPolicy = {
   principal: string;
   purposes: ReadonlyMap<string, number>;
 };
-
-const REPORT_PURPOSE_CAPS = new Map<string, number>(
-  problemsReportDefinitions.blobPurposes.map((
-    purpose,
-  ) => [purpose.purpose, purpose.max_size_bytes] as const),
-);
 
 const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> = new Map(
   [
@@ -49,26 +45,6 @@ const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> = new Map(
         ),
       },
     ],
-    [
-      "problems/report-collector",
-      {
-        // registerBlobs 원주체 검사: report.principal과 준비 principal이 같아야 한다.
-        principal: "collector",
-        purposes: new Map(
-          [
-            "report_text",
-            "report_details",
-            "snapshot_stack",
-            "snapshot_logs",
-            "feedback_state",
-            "feedback_screenshot",
-          ].flatMap((purpose) => {
-            const cap = REPORT_PURPOSE_CAPS.get(purpose);
-            return cap === undefined ? [] : [[purpose, cap] as const];
-          }),
-        ),
-      },
-    ],
   ],
 );
 
@@ -79,6 +55,7 @@ type ChildBlobPrepareDeps = {
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // 자식에게 json frame을 쓴다. 쓰지 못하면 false다.
   send(message: ParentMessage): Promise<boolean>;
+  // 없으면 기본 목록(lophn-agent runtime)이다. 다른 kind의 정책은 wiring이 넘겨준다.
   policies?: ReadonlyMap<string, ChildBlobPolicy>;
   // core가 쥔 바이트(받아 두고 아직 넘기지 않은 chunk)를 관측한다. 없으면 관측하지 않는다.
   gauge?: BufferGauge;

@@ -61,6 +61,45 @@ function numberedName(segment: string): boolean {
     /-next$/i.test(name);
 }
 
+// core 안 층. domain은 problems → apps만 되고, lophn-agent는 domain 아래, 나머지 바닥은 둘 다 모른다.
+// 아직 못 끊은 예외 둘. harness와 domain을 나눌 때 다시 본다(project-docs/architecture/layers.md).
+// projects → apps: writer·reader Worker가 직접 여는 projects/contexts/ledger/deps.ts가 releases store를 읽는다.
+// lophn-agent → projects: lophn-agent/register.ts의 agent lookup이 context 상태를 읽는다.
+const CORE_DOMAIN_EDGES = new Set(["problems>apps", "projects>apps"]);
+const CORE_LAYER_EXCEPTIONS = new Set(["lophn-agent>projects"]);
+const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
+function coreModule(path: string): string | undefined {
+  const parts = path.split("/");
+  return parts[0] === "packages" && parts[1] === "core" && parts.length > 3
+    ? parts[2]
+    : undefined;
+}
+function coreLayerViolation(file: string, target: string): string | undefined {
+  const from = coreModule(file);
+  const to = coreModule(target);
+  if (!from || !to || from === to) return;
+  if (from !== "main" && to === "main") {
+    return `module은 core/main을 import하지 않는다: ${from} → main`;
+  }
+  const bottom = from !== "main" && from !== "lophn-agent" &&
+    !CORE_DOMAINS.has(from);
+  if (bottom && (to === "lophn-agent" || CORE_DOMAINS.has(to))) {
+    return `바닥은 lophn-agent와 domain을 import하지 않는다: ${from} → ${to}`;
+  }
+  if (
+    from === "lophn-agent" && CORE_DOMAINS.has(to) &&
+    !CORE_LAYER_EXCEPTIONS.has(`${from}>${to}`)
+  ) {
+    return `lophn-agent는 domain을 import하지 않는다: ${from} → ${to}`;
+  }
+  if (
+    CORE_DOMAINS.has(from) && CORE_DOMAINS.has(to) &&
+    !CORE_DOMAIN_EDGES.has(`${from}>${to}`)
+  ) {
+    return `domain끼리는 problems → apps만: ${from} → ${to}`;
+  }
+}
+
 function protocolTop(file: string): string | undefined {
   if (!file.startsWith("packages/protocol/")) return;
   const parts = file.split("/");
@@ -205,6 +244,10 @@ async function checkRepo(root: string): Promise<Violation[]> {
             ? `core를 import하는 것은 core뿐: ${specifier}`
             : `package 의존 금지 ${own} → ${targetPackage}: ${specifier}`,
         );
+      }
+      if (!testCode && target) {
+        const message = coreLayerViolation(file, target);
+        if (message) add(file, line, "core-layer", message);
       }
       // testing/ 안은 *_test.ts와 같은 testing/ 안 파일만 import한다(제품 module graph에 test 도구가 들어가지 않게).
       const testing = target &&

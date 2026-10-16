@@ -41,9 +41,12 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
-import { type BlobPrepareCall } from "../../../main/daemon/core.ts";
+import type {
+  BlobPrepareCall,
+  PreparedRelayResult,
+} from "../../../storage/blobs/prepare-relay.ts";
 import type { Bus } from "../../../events/ports.ts";
-import type { PreparedRelayResult } from "../../../storage/blobs/prepare-relay.ts";
+
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { loadApps } from "../../registration/mod.ts";
 import {

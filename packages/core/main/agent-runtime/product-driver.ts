@@ -2,11 +2,9 @@ import {
   createIdSource,
   cryptoRandom,
   err,
-  type IdSource,
   ok,
   systemClock,
 } from "../../../base/mod.ts";
-import { ALL_ROUTES } from "../../../protocol/mod.ts";
 import {
   agentGrantsGet,
   toolGateCheck,
@@ -45,19 +43,14 @@ import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts";
 
-// 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler·소유 계약 연결(쓰기는 입력에서 정확한 대상을
-// 읽는 `builtinBinding`)과 외부 MCP 등록 통로를 한 곳에서 낸다. 시험도 같은 묶음을 쓴다.
+// 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
+// 시험도 같은 묶음을 쓴다.
 export function productToolkit(options: {
   machine: CoreCall;
-  ids: IdSource;
   mcp?: Toolkit["mcp"];
 }): Toolkit {
   return {
-    ...createBuiltinToolkit({
-      routes: ALL_ROUTES,
-      machine: options.machine,
-      ids: options.ids,
-    }),
+    ...createBuiltinToolkit(),
     // 허락된 앱의 app-api tool. grant는 machine 자격의 loopback으로 읽는다.
     appApi: createAppApiToolkit({
       machine: options.machine,
@@ -110,7 +103,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       resolveModel,
       toolkit: productToolkit({
         machine: calls.machine,
-        ids,
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),

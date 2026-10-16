@@ -7,7 +7,6 @@ export {
 export { turnSchemaSteps } from "./schema.ts";
 export {
   createTurnCommands,
-  finishRow as finishTurnRow,
   turnBodyFields,
   type TurnCommandDeps,
 } from "./commands.ts";

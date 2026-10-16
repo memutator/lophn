@@ -79,8 +79,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     : createMcpConnections({ ...deps.connections, onListChanged });
 
   // (assignment → server name → 재조회 상태)다. list_changed·재연결 뒤
-  // refreshing, 재조회 실패면 failed다. fresh 밖의 서버 tool은 호출 거절과
-  // connectionRevision undefined다.
+  // refreshing, 재조회 실패면 failed다. fresh 밖의 서버 tool은 호출이 거절된다.
   const refresh = new Map<string, Map<string, RefreshState>>();
   // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 판정 근거의
   // configuration_revision도 여기서 온다.

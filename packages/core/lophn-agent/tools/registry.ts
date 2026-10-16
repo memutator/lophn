@@ -61,66 +61,10 @@ export const questionSubmitTool = { name: "question.submit" } as const;
 
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
 
-export type ToolSource = {
-  builtin: readonly ToolDefinition[];
-  app: readonly ToolDefinition[];
-  external: readonly ToolDefinition[];
-};
-
-export type CapabilityScope = {
-  // preset capability가 고른 이름. null이면 선택을 아직 고정하지 않아 빈 목록이다.
-  presetTools: readonly string[] | null;
-  // 제품 역할 상한. null이면 상한이 없어 빈 목록이다(fail closed).
-  roleTools: readonly string[] | null;
-};
-
-// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→외부다.
-// 같은 판의 같은 bytes를 유지하려고 입력 순서를 그대로 두고 이름 중복은 먼저 온
-// 정의를 남긴다. 옛 run-loop가 쓴다(새 목록은 builtin.ts의 listRoleTools).
-export function listTools(
-  source: ToolSource,
-  scope: CapabilityScope,
-): readonly ToolDefinition[] {
-  if (scope.presetTools === null || scope.roleTools === null) return [];
-  const allowed = new Set(scope.presetTools);
-  for (const name of scope.roleTools) {
-    if (!allowed.has(name)) allowed.delete(name);
-  }
-  const role = new Set(scope.roleTools);
-  const seen = new Set<string>();
-  const listed: ToolDefinition[] = [];
-  for (
-    const definition of [
-      ...source.builtin,
-      ...source.app,
-      ...source.external,
-    ]
-  ) {
-    // 앱 command 정의는 이름이 동적이라 preset·역할 이름 목록에 없다. 역할·현재 허락·assignment의
-    // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다.
-    if (
-      definition.origin !== "app" &&
-      (!allowed.has(definition.name) || !role.has(definition.name))
-    ) continue;
-    if (seen.has(definition.name)) continue;
-    seen.add(definition.name);
-    listed.push(definition);
-  }
-  return listed;
-}
-
 // run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract다. 목록에 없는 tool의
 // contract는 더하지 않는다.
 export function runOperations(
   listed: readonly ToolDefinition[],
 ): readonly string[] {
   return [...new Set(listed.map((definition) => definition.contract))];
-}
-
-// 실행은 목록과 같은 정의를 찾는다. 등록되지 않은 이름은 없다.
-export function findTool(
-  listed: readonly ToolDefinition[],
-  name: string,
-): ToolDefinition | undefined {
-  return listed.find((definition) => definition.name === name);
 }

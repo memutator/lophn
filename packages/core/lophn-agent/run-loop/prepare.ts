@@ -46,7 +46,6 @@ import {
 import type { AppApiToolkit } from "../tools/app-toolkit.ts";
 import { type AppApiTool, buildAppApiTools } from "../tools/app-tools.ts";
 import { appApiMissingReason } from "../tools/app-api/missing.ts";
-import type { ToolBinding } from "../tool-judgment/mod.ts";
 import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
@@ -95,11 +94,6 @@ export type McpToolkit = {
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(재조회가 끝날 때까지 호출은 거절된다).
   call(session: string): McpToolCall;
-  // 옛 tool 판정이 읽던 서버 연결 설정 판이다. Gate로 바뀐 뒤 쓰는 곳이 없어 mcp-toolkit이 지울 때까지 남는다.
-  connectionRevision?(
-    definition: ToolDefinition,
-    session: string,
-  ): { revision: number } | undefined;
 };
 
 export type Toolkit = {
@@ -107,11 +101,6 @@ export type Toolkit = {
   definitions?: readonly ToolDefinition[];
   // 이 turn의 agent 자격으로 소유 계약을 부르는 handler. 정의가 handler를 들지 않은 tool만 쓴다.
   handlers(seat: TurnSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
-  // 옛 tool 판정의 연결이다. Gate로 바뀐 뒤 쓰는 곳이 없어 tools/toolkit.ts가 지울 때까지 남는다.
-  binding?(
-    definition: ToolDefinition,
-    run?: { agent: CoreCall; seat: TurnSeat; reach: Set<string> },
-  ): ToolBinding | undefined;
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
   mcp?(session: string): McpToolkit | undefined;
   // 허락된 앱의 app-api tool 정의와 목록에 없는 이유 구별이다. 없으면 app-api tool이 없다.

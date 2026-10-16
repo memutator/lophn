@@ -4,17 +4,13 @@ export { deleteSessionToolCalls } from "./erase.ts";
 export { createToolReads } from "./reads.ts";
 export {
   BUILTIN_TOOLS,
-  type CapabilityScope,
-  findTool,
   type GateRequest,
-  listTools,
   questionSubmitTool,
   runOperations,
   type ToolCallHandler,
   type ToolCatalog,
   type ToolDefinition,
   type ToolOrigin,
-  type ToolSource,
 } from "./registry.ts";
 export {
   APP_TOOL_CONTRACT,
@@ -44,10 +40,7 @@ export {
   TEXT_MAX_LINES,
 } from "./result.ts";
 export {
-  executeTool,
   executeToolCall,
-  type ExecutionDeps,
-  type ExecutionOutcome,
   type RunCredential,
   type ToolCallOutcome,
   type ToolHandler,

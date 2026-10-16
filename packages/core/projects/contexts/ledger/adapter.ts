@@ -62,8 +62,7 @@
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
 // 읽기마다 적재 범위(bundle.test_draft는 대상 판의 context와 판 하나, 내용은 폴더에서 읽는다): context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
 // 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project(또는 app이면 context_app_data로 고른 context들)와 그 context·판(content 없음), context.get·bundles·
-// glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
-// (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
+// glossary.list는 대상 context의 것, context.violations는 위반(deps.index)이다. context.saved_views(깨진 view
 // 표시)·overview·search·contract·input_options는 적용된 판의 content(context.contract의 bundle 지정은 그 판의 content), context.draft는 판과 검사와
 // 만드는 중인 판 하나(draft, 없으면 검사 중인 판, 없으면 마지막 failed 판)의 content,
 // context.containing은 project의 active context들의 적용된 판 content다.

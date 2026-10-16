@@ -1,4 +1,4 @@
-/* legacy AppSpace의 SpaceBar: 왼쪽 런처 복귀·이름·상태, 오른쪽 조작. */
+/* 앱 공간 위쪽 바: 앞쪽 런처 복귀·이름·상태·project, 뒤쪽 묶음별 아이콘 단추. */
 .leading {
   display: flex;
   align-items: center;
@@ -17,12 +17,34 @@
   text-overflow: ellipsis;
 }
 
+.project {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: nowrap;
+}
+
 .trailing {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
+.trailing button[aria-pressed="true"] {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
 .report:empty {
   display: none;
+}
+
+/* 묶음 사이 얇은 구분선 */
+.sep {
+  flex: none;
+  width: var(--border-width);
+  height: var(--space-6);
+  margin: var(--space-0) var(--space-2);
+  background: var(--color-border-base);
 }

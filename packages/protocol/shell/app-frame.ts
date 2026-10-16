@@ -93,7 +93,7 @@ const viewStateFields = {
   screen: screenKeySchema,
   size: screenSizeSchema,
   connectionState: z.enum(VIEW_CONNECTION_STATES),
-  project: projectIdSchema.nullable().optional(),
+  project: projectIdSchema.nullable(),
 };
 
 export const appFrameViewStateSchema = z.object(viewStateFields).refine(

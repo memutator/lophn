@@ -1,25 +1,27 @@
-// 앱 공간(`/apps/:app`). 얇은 바 아래 본문 전체에
-// 그 앱의 native view 하나를 붙인다. 운영 패널은 720px로 열고 좁은 창에서는 본문을 덮되 앱
-// view는 덮이지 않는 영역으로 줄어든다. lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다.
+// 앱 공간(`/apps/:app`). 위쪽 바 아래 전체에 그 앱의 native view 하나를 붙이고, 옆에 agent·터미널 pane이나 운영 패널(앱 상세)을
+// 연다. 탭 줄은 없다. 운영 패널은 720px로 열고 좁은 창에서는 본문을 덮되 앱 view는 덮이지 않는 영역으로 줄어든다.
 // 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(EmbeddedView).
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Button,
   ErrorState,
   Loading,
   Skeleton,
+  Toast,
   useObservedSize,
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type {
   AppFrameViewState,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
+import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
-import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
+import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import {
   type AppStatus,
   appStatus,
@@ -29,9 +31,11 @@ import type {
   AppsSource,
   RunState,
 } from "../desktop/lophn-space/apps/source.ts";
+import type { TerminalDeps } from "../terminal/deps.ts";
+import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
+import { keyOf } from "../workspace/agents/agent-key.ts";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
-import type { PreviewOpen } from "./app-detail/model.ts";
 import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
 import type { IssuesSource } from "./app-detail/issues/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
@@ -39,8 +43,13 @@ import {
   AgentPane,
   agentPanePlacement,
   type AgentPaneState,
+  type PaneTab,
+  type PaneTerminal,
 } from "./agent-pane.tsx";
 import { AgentSelect } from "./agent-select.tsx";
+import { AnnotationPanel } from "./annotate/annotation-panel.tsx";
+import { useAnnotate } from "./annotate/use-annotate.ts";
+import { STAY, useViewToast } from "./annotate/use-view-toast.ts";
 import { useAppAgents } from "./app-agents.ts";
 import { AppBar } from "./app-bar.tsx";
 import {
@@ -49,7 +58,9 @@ import {
   ViewCoversProvider,
 } from "./embedded-view.tsx";
 import { OpsPanelFrame, opsPanelPlacement } from "./ops-panel-frame.tsx";
+import { ProjectPicker, type ProjectsRead } from "./project-picker.tsx";
 import { ReportButton } from "./report-button.tsx";
+import { useToastHandler } from "./toast-handler.ts";
 import styles from "./app-space.module.css";
 
 export interface AppSpaceProps {
@@ -57,9 +68,9 @@ export interface AppSpaceProps {
   source: AppsSource;
   /** shell preload의 view 통로. 없으면 앱 화면을 열 수 없다고 보인다. */
   views?: LophnShellViewsApi;
-  /** 새 창 열기와 OS 앱 바로가기 통로. 없으면 그 조작을 두지 않는다. */
+  /** 안 쓴다(새 창 열기와 OS 앱 바로가기는 이 공간에 없다). 호스트가 지운다. */
   windows?: LophnAppWindowsApi;
-  /** [Report a problem] 통로. 없으면 버튼을 두지 않는다. */
+  /** [Report a problem] 통로. 없으면 깃발 단추를 두지 않는다. */
   feedback?: LophnShellFeedbackBegin;
   /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   detail?: AppDetailSource;
@@ -80,11 +91,26 @@ export interface AppSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
-  /** 문서 작업대(lophn 공간 documents)로 바꾼다. */
-  onDocuments: () => void;
+  /** 안 쓴다(Documents 화면이 없다). 호스트가 지운다. */
+  onDocuments?: () => void;
   /** 대화의 결과 링크로 그 문서를 연다. */
-  onOpenResult?: (document: string, version: string | null) => void;
-  onThingsToConfirm: () => void;
+  onOpenResult?: (document: string) => void;
+  /** 안 쓴다(Things to confirm 화면이 없다). 호스트가 지운다. */
+  onThingsToConfirm?: () => void;
+  /** 처음부터 정해진 project(project 창에서 온 경우). 있으면 project 고르기를 건너뛴다. */
+  project?: string;
+  /** Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
+  annotate?: LophnShellAnnotateApi;
+  /** project 고르기 목록을 읽는 함수. 없으면 고르기 없이 안내만 보인다. */
+  projects?: ProjectsRead;
+  /** native view 위에 알림을 띄우는 overlay. 없으면 같은 모양의 toast를 앱 화면 위쪽에 그린다. */
+  overlay?: OverlayApi;
+  /** 처음에 pane에 열어 둘 agent session. */
+  session?: string;
+  /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
+  onOpenSession?: (session: string) => void;
+  /** 터미널 탭 통로. 있어야 lophn이 연 coding 터미널을 pane에 받는다. */
+  terminal?: TerminalDeps;
 }
 
 type AppRecord =
@@ -97,21 +123,6 @@ type Entry =
   | { readonly state: "loading" }
   | { readonly state: "unavailable" }
   | { readonly state: "ready"; readonly screen: string };
-
-type ShortcutNotice = "added" | "removed" | "not-installed" | "failed";
-
-function shortcutText(notice: ShortcutNotice): string {
-  switch (notice) {
-    case "added":
-      return t("app-space.notice.shortcut-added");
-    case "removed":
-      return t("app-space.notice.shortcut-removed");
-    case "not-installed":
-      return t("app-space.notice.shortcut-not-installed");
-    case "failed":
-      return t("app-space.notice.shortcut-failed");
-  }
-}
 
 function useAppRecord(source: AppsSource, app: string, attempt: number) {
   const [record, setRecord] = useState<AppRecord>({ state: "loading" });
@@ -160,12 +171,32 @@ function useEntry(
   return entry;
 }
 
+// 앱 화면이 묶인 project의 이름. project 목록을 읽는 함수가 없으면 이름을 모른다.
+function useProjectName(
+  projects: ProjectsRead | undefined,
+  project: string | null,
+): string | null {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    setName(null);
+    if (projects === undefined || project === null) return;
+    let live = true;
+    void projects().then((read) => {
+      if (!live || !read.ok) return;
+      setName(read.value.find((item) => item.id === project)?.name ?? null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [projects, project]);
+  return name;
+}
+
 export function AppSpace(
   {
     app,
     source,
     views,
-    windows,
     feedback,
     detail,
     issues,
@@ -176,9 +207,14 @@ export function AppSpace(
     onSettings,
     windowWidth,
     onLauncher,
-    onDocuments,
     onOpenResult,
-    onThingsToConfirm,
+    project,
+    annotate: annotateApi,
+    projects,
+    overlay,
+    session,
+    onOpenSession,
+    terminal,
   }: AppSpaceProps,
 ) {
   const [attempt, setAttempt] = useState(0);
@@ -197,6 +233,9 @@ export function AppSpace(
   const covers = useMemo(createViewCovers, []);
   // agent 칸이 열려 있는 동안 운영 패널은 자리를 내준다.
   const [pane, setPane] = useState<AgentPaneState | null>(null);
+  const [paneTab, setPaneTab] = useState<PaneTab>("agent");
+  const [coding, setCoding] = useState<PaneTerminal | null>(null);
+  const [opened, setOpened] = useState(false);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
   const agentPane = agentPanePlacement(
@@ -209,47 +248,170 @@ export function AppSpace(
     width,
   );
 
-  // 운영과 분리된 preview. 열려 있는 동안 본문은 그 preview이고 사람이 닫으면 앱으로 돌아온다.
-  const [preview, setPreview] = useState<PreviewOpen | null>(null);
-  const previewRef = useRef<PreviewOpen | null>(null);
-  previewRef.current = preview;
-  function changePreview(next: PreviewOpen | null): void {
-    const closing = previewRef.current;
-    if (closing !== null && closing.nonce !== next?.nonce) {
-      void detail?.stopPreview(app, { nonce: closing.nonce });
-    }
-    setPreview(next);
-  }
-  useEffect(() => () => {
-    const closing = previewRef.current;
-    if (closing !== null) {
-      void detail?.stopPreview(app, { nonce: closing.nonce });
-    }
-  }, [detail, app]);
-
-  const [windowFailed, setWindowFailed] = useState(false);
-  const [shortcut, setShortcut] = useState<ShortcutNotice | null>(null);
-
   const status: AppStatus | null = row ? appStatus(row, run) : null;
 
-  // [Report a problem]이 묶일 본문 view. crash해도 view_session은 남아 버튼이 동작한다.
-  const [viewSession, setViewSession] = useState<string | null>(null);
+  // 본문 view의 상태. crash해도 view_session은 남아 깃발 단추가 동작한다.
+  const [viewState, setViewState] = useState<AppFrameViewState | null>(null);
+  const viewSession = viewState?.view_session ?? null;
+  const [projectFailed, setProjectFailed] = useState(false);
 
   function onViewState(state: AppFrameViewState): void {
     setRun(state.connectionState);
-    setViewSession(state.view_session);
+    setViewState(state);
   }
 
-  async function changeShortcut(add: boolean): Promise<void> {
-    if (!windows) return;
-    const reply = add
-      ? await windows.addShortcut({ app })
-      : await windows.removeShortcut({ app });
-    if (reply.ok) setShortcut(add ? "added" : "removed");
-    else {setShortcut(
-        reply.code === "not_installed" ? "not-installed" : "failed",
-      );}
+  // ---- agent pane ----
+
+  const sessions = useSessions().sessions;
+
+  function openAgent(assignment: string): void {
+    setPane((current) =>
+      current?.mode === "agent" && current.assignment === assignment
+        ? current
+        : { mode: "agent", assignment, session: null }
+    );
+    setPaneTab("agent");
+    setDetailsOpen(false);
   }
+
+  // 이 앱의 agent session이면 pane을 그 session으로 연다. session이 없으면 이 앱의 App Engineer 열린 session이다.
+  function openSession(
+    target: string | null,
+    forApp: string | undefined,
+  ): boolean {
+    if (agents === undefined || agentViewSource === undefined) return false;
+    if (target === null) {
+      if (forApp !== app) return false;
+      const latest = sessions.filter((item) =>
+        item.ended === null && item.agent?.role === "app_engineer" &&
+        item.agent.app === app
+      ).at(-1);
+      setPane({
+        mode: "agent",
+        assignment: "app_engineer",
+        session: latest?.session ?? null,
+      });
+    } else {
+      const agent = sessions.find((item) => item.session === target)?.agent;
+      if (agent === undefined || agent === null) return false;
+      if (agent.role === "lophn") {
+        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
+      } else if (agent.role === "app_engineer" && agent.app === app) {
+        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
+      } else if (
+        agent.role === "operator" &&
+        agentList.agents.some((item) => item.assignment === agent.agent)
+      ) {
+        setPane({ mode: "agent", assignment: keyOf(agent), session: target });
+      } else return false;
+    }
+    setPaneTab("agent");
+    setDetailsOpen(false);
+    return true;
+  }
+
+  const firstSession = useRef(session);
+  useEffect(() => {
+    if (firstSession.current === undefined) return;
+    if (openSession(firstSession.current, undefined)) {
+      firstSession.current = undefined;
+    }
+  }, [sessions, agentList.agents]);
+
+  useToastHandler({ app, openSession });
+
+  // 대기 목록과 질문 카드가 session을 열 때: 이 pane에 있으면 pane에서, 아니면 호스트가 연다.
+  function showSession(target: string): void {
+    if (!openSession(target, undefined)) onOpenSession?.(target);
+  }
+
+  // core 요청으로 열린 coding 터미널. 이 앱의 것만 pane의 터미널 탭으로 두고 보던 탭에서 focus를 옮기지 않는다.
+  useTerminalOpenRequests((request) => {
+    if (terminal === undefined || agents === undefined) return;
+    if (request.coding.app !== app) return;
+    terminal.store.requestFromCore(request);
+    setCoding({
+      key: request.tab.key,
+      title: request.tab.title,
+      project: request.runtime.project,
+      product: request.coding.product,
+      session: request.coding.session,
+      ticket: request.coding.ticket,
+    });
+    setOpened(true);
+    setPane((current) =>
+      current ?? { mode: "agent", assignment: "app_engineer", session: null }
+    );
+    setDetailsOpen(false);
+  }, terminal?.bridge ?? null);
+
+  // 대기 목록 카드의 [Answer in terminal]이 이 pane의 터미널을 고르면 터미널 탭으로 바꾼다.
+  useEffect(() => {
+    if (terminal === undefined || coding === null) return;
+    return terminal.store.onSelect((key) => {
+      if (key !== coding.key) return;
+      setPane((current) =>
+        current ?? { mode: "agent", assignment: "app_engineer", session: null }
+      );
+      setPaneTab("terminal");
+      setDetailsOpen(false);
+    });
+  }, [terminal, coding]);
+
+  // ---- project ----
+
+  const pickedProject = viewState?.project ?? null;
+  const projectName = useProjectName(projects, pickedProject);
+  // 앱 place에서 연 화면은 project를 모른다. 고르기 전에는 그 위에 고르기를 얹는다.
+  const needsProject = views !== undefined && viewState !== null &&
+    viewState.project === null;
+
+  function pickProject(chosen: string): void {
+    if (views === undefined || viewSession === null) return;
+    setProjectFailed(false);
+    views.setViewProject({ view_session: viewSession, project: chosen })
+      .then(onViewState, () => setProjectFailed(true));
+  }
+
+  // ---- annotate ----
+
+  const annotating = useAnnotate(annotateApi, viewSession);
+  const toast = useViewToast(overlay);
+  const toastKind = useRef<"on" | "sent" | null>(null);
+  const annotateOn = annotating.state?.on ?? false;
+  const turnOff = annotating.setMode;
+  useEffect(() => {
+    if (annotateOn) {
+      toastKind.current = "on";
+      toast.show({
+        title: t("app-space.title.annotate-on"),
+        body: t("app-space.text.annotate-on"),
+        action: {
+          label: t("app-space.button.annotate-done"),
+          run: () => turnOff(false),
+        },
+      });
+    } else if (toastKind.current === "on") {
+      toastKind.current = null;
+      toast.hide();
+    }
+  }, [annotateOn]);
+
+  async function sendAnnotations(): Promise<void> {
+    const receiver = pane?.mode === "agent" &&
+        pane.assignment === "app_engineer"
+      ? pane.session
+      : null;
+    const sent = await annotating.send(receiver);
+    if (sent === null) return;
+    toastKind.current = "sent";
+    toast.show({
+      title: t("app-space.title.annotations-sent", { count: sent.sent }),
+      body: t("app-space.text.annotations-sent"),
+    });
+  }
+
+  const annotations = annotating.state?.items ?? [];
 
   let body;
   let embedded = false;
@@ -262,35 +424,6 @@ export function AppSpace(
     );
   } else if (record.state === "missing") {
     body = <p className={styles.state}>{t("app-space.empty.not-found")}</p>;
-  } else if (preview !== null && views !== undefined) {
-    // 운영 앱이 아니라 그 Version의 preview다. 모드를 바꿔 보이고 닫는 길을 바로 둔다.
-    body = (
-      <>
-        <p className={styles.notice} role="status" data-preview-banner="">
-          {t("app-detail.label.preview-banner", {
-            number: String(preview.number),
-          })}{" "}
-          <Button
-            size="sm"
-            data-preview-close=""
-            onClick={() => changePreview(null)}
-          >
-            {t("app-detail.button.close-preview")}
-          </Button>
-        </p>
-        <EmbeddedView
-          key={preview.nonce}
-          views={views}
-          app={app}
-          mode="preview"
-          release={preview.release}
-          screen={preview.screen}
-          size="full"
-          label={row?.name ?? t("app-space.label.this-app")}
-        />
-      </>
-    );
-    embedded = false;
   } else if (row?.archived) {
     body = <p className={styles.state}>{t("app-space.empty.archived")}</p>;
   } else if (row !== null && row.release === null) {
@@ -313,6 +446,7 @@ export function AppSpace(
         key={attempt}
         views={views}
         app={app}
+        {...(project === undefined ? {} : { project })}
         mode="live"
         release={row.release}
         screen={entry.screen}
@@ -347,6 +481,7 @@ export function AppSpace(
         <AppBar
           name={row?.name ?? null}
           status={status}
+          project={projectName}
           onLauncher={onLauncher}
           detailsOpen={detailsOpen && !paneShown}
           onDetails={() => {
@@ -356,15 +491,14 @@ export function AppSpace(
               setDetailsOpen(true);
             } else setDetailsOpen(!detailsOpen);
           }}
-          onDocuments={onDocuments}
-          onNewWindow={windows && row && !row.archived
-            ? () => {
-              setWindowFailed(false);
-              void windows.openWindow({ app }).then((reply) =>
-                setWindowFailed(!reply.ok)
-              );
+          {...(annotateApi !== undefined && embedded && viewSession !== null
+            ? {
+              annotate: {
+                on: annotateOn,
+                onToggle: () => annotating.setMode(!annotateOn),
+              },
             }
-            : undefined}
+            : {})}
           report={feedback
             ? (
               <ReportButton
@@ -374,38 +508,82 @@ export function AppSpace(
             )
             : null}
           decisions={
-            <SpaceDecisions
-              place={{ kind: "app", id: app }}
-              onOpen={onThingsToConfirm}
+            <WaitingLayer
+              onOpenSession={showSession}
+              onAnswerInTerminal={(target) =>
+                void terminal?.store.focusSession(target)}
             />
           }
           agentSelect={agents
             ? (
               <AgentSelect
                 agents={agentList.agents}
-                onOpenAgent={(assignment) =>
-                  setPane((current) =>
-                    current?.mode === "agent" &&
-                      current.assignment === assignment
-                      ? current
-                      : { mode: "agent", assignment, session: null }
-                  )}
-                onManage={() => setPane({ mode: "manage", agent: null })}
+                paneOpen={paneShown}
+                onOpenAgent={openAgent}
+                onManage={() => {
+                  setPane({ mode: "manage", agent: null });
+                  setPaneTab("agent");
+                  setDetailsOpen(false);
+                }}
               />
             )
             : null}
         />
       </div>
-      {windowFailed
-        ? (
-          <p className={styles.notice} role="status" data-window-failed="">
-            {t("app-space.notice.window-failed")}
-          </p>
-        )
-        : null}
       <ViewCoversProvider value={covers}>
         <div className={styles.content} ref={contentRef}>
-          <div className={styles.view}>{body}</div>
+          <div className={styles.column}>
+            {needsProject && projects === undefined
+              ? (
+                <p className={styles.notice} role="status" data-no-project="">
+                  {t("app-space.notice.no-project-list")}
+                </p>
+              )
+              : null}
+            <div className={styles.view}>
+              {body}
+              {needsProject && projects !== undefined
+                ? (
+                  <ProjectPicker
+                    appName={row?.name ?? t("app-space.label.this-app")}
+                    projects={projects}
+                    onPick={pickProject}
+                    failed={projectFailed}
+                  />
+                )
+                : null}
+              {toast.dom === null
+                ? null
+                : (
+                  <div className={styles.viewToast} data-view-toast="">
+                    <Toast
+                      title={toast.dom.title}
+                      {...(toast.dom.body === undefined
+                        ? {}
+                        : { body: toast.dom.body })}
+                      actions={toast.dom.action
+                        ? [{ id: "act", label: toast.dom.action.label }]
+                        : []}
+                      onAction={() => toast.dom?.action?.run()}
+                      onClose={toast.hide}
+                      timer={STAY}
+                    />
+                  </div>
+                )}
+            </div>
+            {annotateOn && annotations.length > 0
+              ? (
+                <AnnotationPanel
+                  items={annotations}
+                  sending={annotating.state?.phase === "sending"}
+                  failure={annotating.failure}
+                  onRemove={annotating.remove}
+                  onClear={() => annotating.remove("all")}
+                  onSend={() => void sendAnnotations()}
+                />
+              )
+              : null}
+          </div>
           <OpsPanelFrame
             placement={ops}
             onClose={() => setDetailsOpen(false)}
@@ -416,9 +594,10 @@ export function AppSpace(
                   app={app}
                   name={row.name}
                   source={detail}
-                  preview={preview}
-                  onPreview={changePreview}
+                  preview={null}
+                  onPreview={() => {}}
                   onInstructions={onInstructions}
+                  onOpenSession={showSession}
                   initialTab={issueProblem !== undefined ? "issues" : undefined}
                   issues={issues
                     ? (
@@ -433,47 +612,6 @@ export function AppSpace(
                 />
               )
               : null}
-            {windows
-              ? (
-                <section
-                  className={styles.section}
-                  data-section="this-computer"
-                >
-                  <h3 className={styles.heading}>
-                    {t("app-space.heading.this-computer")}
-                  </h3>
-                  <span className={styles.actions}>
-                    <Button
-                      size="sm"
-                      data-shortcut="add"
-                      disabled={row === null || row.archived}
-                      onClick={() => void changeShortcut(true)}
-                    >
-                      {t("app-space.button.add-shortcut")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      data-shortcut="remove"
-                      onClick={() => void changeShortcut(false)}
-                    >
-                      {t("app-space.button.remove-shortcut")}
-                    </Button>
-                  </span>
-                  {shortcut
-                    ? (
-                      <p
-                        className={styles.result}
-                        role="status"
-                        data-shortcut-result={shortcut}
-                      >
-                        {shortcutText(shortcut)}
-                      </p>
-                    )
-                    : null}
-                </section>
-              )
-              : null}
           </OpsPanelFrame>
           {agents !== undefined && pane !== null && agentPane !== "hidden"
             ? (
@@ -483,7 +621,15 @@ export function AppSpace(
                 app={app}
                 appName={row?.name ?? ""}
                 source={agents}
+                agents={agentList.agents}
                 {...(agentViewSource === undefined ? {} : { agentViewSource })}
+                tab={paneTab}
+                onTab={setPaneTab}
+                {...(terminal !== undefined && coding !== null
+                  ? { coding: { tab: coding, deps: terminal } }
+                  : {})}
+                opened={opened}
+                onOpenedClose={() => setOpened(false)}
                 onState={setPane}
                 onClose={() => setPane(null)}
                 {...(onOpenResult === undefined ? {} : { onOpenResult })}

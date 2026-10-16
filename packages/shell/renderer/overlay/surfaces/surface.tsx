@@ -20,9 +20,11 @@ import {
   Tooltip,
 } from "@lophn/design/components";
 import { paletteIcons } from "../../icons/mod.ts";
-import type { LophnOverlayFeedback } from "../../../ipc/feedback.ts";
 import type { OverlaySurface, PaletteIcon } from "../../../ipc/overlay.ts";
-import { FeedbackDialog } from "../feedback/feedback-dialog.tsx";
+import {
+  FeedbackDialog,
+  type FeedbackDialogApi,
+} from "../feedback/feedback-dialog.tsx";
 import type { SurfaceActions, SurfaceMount } from "../registry.ts";
 import styles from "./surface.module.css";
 
@@ -205,7 +207,7 @@ export function surfaceMount(
   { timer = systemTimer, clock = systemClock, feedback }: {
     timer?: Timer;
     clock?: Clock;
-    feedback?: LophnOverlayFeedback;
+    feedback?: FeedbackDialogApi;
   } = {},
 ): SurfaceMount {
   return (host, surface, actions) => {

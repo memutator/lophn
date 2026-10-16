@@ -2,15 +2,15 @@ import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
 import "../chrome.css";
 import { t } from "@lophn/wording";
-import type { LophnOverlayFeedback } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { FeedbackDialogApi } from "./feedback/feedback-dialog.tsx";
 import { overlayRegistry } from "./registry.ts";
 import { surfaceMount } from "./surfaces/surface.tsx";
 import styles from "./entry.module.css";
 
 declare global {
   var lophnShell: OverlayApi;
-  var lophnFeedback: LophnOverlayFeedback | undefined;
+  var lophnFeedback: FeedbackDialogApi | undefined;
 }
 const root = document.getElementById("root");
 if (root) {

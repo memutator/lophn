@@ -43,6 +43,7 @@ export function mockFeedback(): LophnShellFeedbackBegin {
 export function mockViews(root?: HTMLElement): LophnShellViewsApi {
   let serial = 0;
   const boxes = new Map<string, HTMLElement>();
+  const states = new Map<string, AppFrameViewState>();
   const listeners = new Set<(state: AppFrameViewState) => void>();
   return {
     openApp(input) {
@@ -58,7 +59,7 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
         `App view (${input.size}, ${input.screen}) is not drawn in mock mode`;
       (root ?? document.body).append(box);
       boxes.set(session, box);
-      return Promise.resolve({
+      const state: AppFrameViewState = {
         view_session: session,
         app: input.app,
         release: input.release ?? null,
@@ -66,9 +67,19 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
         screen: input.screen,
         size: input.size,
         connectionState: "running" as const,
-      });
+        project: input.project ?? null,
+      };
+      states.set(session, state);
+      return Promise.resolve(state);
     },
-    setViewProject: () => Promise.reject(new Error("mock")),
+    setViewProject({ view_session, project }) {
+      const current = states.get(view_session);
+      if (current === undefined) return Promise.reject(new Error("conflict"));
+      const state = { ...current, project };
+      states.set(view_session, state);
+      for (const listener of [...listeners]) listener(state);
+      return Promise.resolve(state);
+    },
     setViewBounds({ view_session, bounds }) {
       const box = boxes.get(view_session);
       if (box !== undefined) {
@@ -90,6 +101,7 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
     closeView({ view_session }) {
       boxes.get(view_session)?.remove();
       boxes.delete(view_session);
+      states.delete(view_session);
       return Promise.resolve();
     },
     reopenView: () => Promise.reject(new Error("conflict")),

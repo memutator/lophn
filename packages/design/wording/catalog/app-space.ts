@@ -568,22 +568,42 @@ export const appSpace = {
   "app-detail.text.task-request-sentence":
     "Please work on lophn task {task}: {request} Read the task with your lophn tools, take it on, do the work, and report back when you're done.",
   "app-space.button.add-shortcut": "Add to app menu",
+  "app-space.button.annotate": "Annotate",
+  "app-space.button.annotate-done": "Done",
   "app-space.button.app-details": "App details",
+  "app-space.button.clear-annotations": "Clear all",
   "app-space.button.documents": "Documents",
   "app-space.button.manage-agents": "Manage",
   "app-space.button.new-window": "Open in new window",
   "app-space.button.remove-shortcut": "Remove from app menu",
+  "app-space.button.send-annotations": "Send to App Engineer",
+  "app-space.button.show-terminal": "Show terminal",
   "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
+  "app-space.empty.no-projects": "There are no projects to choose from yet.",
   "app-space.empty.no-version": "This app has nothing to show yet.",
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
+  "app-space.error.annotations-archived":
+    "This app is archived, so App Engineer can't take new messages. Restore it in Apps first.",
+  "app-space.error.annotations-failed":
+    "The annotations didn't go through. Try again.",
+  "app-space.error.project-failed": "Couldn't use that project. Try again.",
   "app-space.heading.agents": "Agents",
+  "app-space.heading.annotations": "Annotations ({count, number})",
   "app-space.heading.app-details": "App details",
+  "app-space.heading.choose-project": "Choose a project",
   "app-space.heading.this-computer": "On this computer",
   "app-space.label.agent-select": "Agent",
+  "app-space.label.annotations": "Annotations",
+  "app-space.label.in-project": "· {project}",
+  "app-space.label.remove-annotation": "Remove annotation {number}",
+  "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
+  "app-space.label.your-projects": "your projects",
+  "app-space.notice.no-project-list":
+    "This screen isn't tied to a project, and the project list isn't available here.",
   "app-space.notice.shortcut-added": "Added to your computer's app menu.",
   "app-space.notice.shortcut-failed":
     "Your computer's app menu didn't change. Try again.",
@@ -592,6 +612,19 @@ export const appSpace = {
   "app-space.notice.shortcut-removed": "Removed from your computer's app menu.",
   "app-space.notice.window-failed":
     "The app didn't open in a new window. Try again.",
+  "app-space.text.annotate-on":
+    "Click an element or drag an area, then write a note.",
+  "app-space.text.annotations-note":
+    "They go to App Engineer as one message. They don't become problems.",
+  "app-space.text.annotations-sent":
+    "They arrive in its session as one message.",
+  "app-space.text.choose-project":
+    "{app} needs to know which project this screen is for. It was opened from the app list, not from a project.",
+  "app-space.title.annotate-on": "Annotate is on",
+  "app-space.title.annotations-sent":
+    "{count, plural, one {# annotation} other {# annotations}} sent to App Engineer",
+  "app-space.title.coding-opened":
+    "App Engineer opened {product} for ticket {ticket}",
   "common.button.open-again": "Open again",
   "common.button.report-problem": "Report a problem",
   "common.label.app-mode-live": "Live",
@@ -603,6 +636,18 @@ export const appSpace = {
   "common.label.app-view-crashed": "Screen stopped",
   "common.label.app-view-unresponsive": "Not responding",
   "report-problem.button.open": "Report a problem",
+  "report-problem.empty.no-problems": "No open problems to attach to.",
+  "report-problem.hint.text-only":
+    "Only this text is sent. No screenshot and no screen state.",
+  "report-problem.label.option-existing":
+    "Another report of an existing problem",
+  "report-problem.label.option-new": "A new problem",
+  "report-problem.label.report-count":
+    "{count, plural, one {# report} other {# reports}}",
+  "report-problem.label.send-as": "Send it as",
+  "report-problem.label.which-problem": "Which problem?",
   "report-problem.notice.open-failed":
     "Couldn't open the report form. Try again.",
+  "report-problem.placeholder.describe":
+    "Describe what you did and what you expected.",
 } as const;

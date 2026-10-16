@@ -1,5 +1,6 @@
-/* 앱 공간의 agent 칸. 넓은 창이면 앱 화면 옆 열, 좁은 창이면 오른쪽에서 앱 화면을 덮는다. */
+/* 앱 공간의 옆 pane. 넓은 창이면 앱 화면 옆 열, 좁은 창이면 오른쪽에서 앱 화면을 덮는다. */
 .pane {
+  position: relative;
   box-sizing: border-box;
   display: flex;
   flex: none;
@@ -22,23 +23,15 @@
   z-index: var(--z-sheet);
 }
 
-.head {
-  box-sizing: border-box;
+.body {
   display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--control-lg-height);
-  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-6);
-  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--color-border-base);
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
 }
 
-.title {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
+.hidden {
+  display: none;
 }
 
 .agent {
@@ -63,4 +56,14 @@
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
+}
+
+/* 터미널을 열었다는 알림. pane 머리를 가리지 않게 머리 바로 아래에 뜬다. */
+.toast {
+  position: absolute;
+  top: calc(var(--control-lg-height) + var(--space-3));
+  left: 50%;
+  max-width: calc(100% - var(--space-6) - var(--space-6));
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
 }

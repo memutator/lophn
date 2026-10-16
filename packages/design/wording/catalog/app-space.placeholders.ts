@@ -612,26 +612,63 @@ export type AppSpacePlaceholders = {
     request: "string";
   };
   "app-space.button.add-shortcut": Record<never, never>;
+  "app-space.button.annotate": Record<never, never>;
+  "app-space.button.annotate-done": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
+  "app-space.button.clear-annotations": Record<never, never>;
   "app-space.button.documents": Record<never, never>;
   "app-space.button.manage-agents": Record<never, never>;
   "app-space.button.new-window": Record<never, never>;
   "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.button.send-annotations": Record<never, never>;
+  "app-space.button.show-terminal": Record<never, never>;
   "app-space.empty.agent-not-ready": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
+  "app-space.empty.no-projects": Record<never, never>;
   "app-space.empty.no-version": Record<never, never>;
   "app-space.empty.not-found": Record<never, never>;
   "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.error.annotations-archived": Record<never, never>;
+  "app-space.error.annotations-failed": Record<never, never>;
+  "app-space.error.project-failed": Record<never, never>;
   "app-space.heading.agents": Record<never, never>;
+  "app-space.heading.annotations": {
+    count: "number";
+  };
   "app-space.heading.app-details": Record<never, never>;
+  "app-space.heading.choose-project": Record<never, never>;
   "app-space.heading.this-computer": Record<never, never>;
   "app-space.label.agent-select": Record<never, never>;
+  "app-space.label.annotations": Record<never, never>;
+  "app-space.label.in-project": {
+    project: "string";
+  };
+  "app-space.label.remove-annotation": {
+    number: "string";
+  };
+  "app-space.label.sending-annotations": Record<never, never>;
   "app-space.label.this-app": Record<never, never>;
+  "app-space.label.your-projects": Record<never, never>;
+  "app-space.notice.no-project-list": Record<never, never>;
   "app-space.notice.shortcut-added": Record<never, never>;
   "app-space.notice.shortcut-failed": Record<never, never>;
   "app-space.notice.shortcut-not-installed": Record<never, never>;
   "app-space.notice.shortcut-removed": Record<never, never>;
   "app-space.notice.window-failed": Record<never, never>;
+  "app-space.text.annotate-on": Record<never, never>;
+  "app-space.text.annotations-note": Record<never, never>;
+  "app-space.text.annotations-sent": Record<never, never>;
+  "app-space.text.choose-project": {
+    app: "string";
+  };
+  "app-space.title.annotate-on": Record<never, never>;
+  "app-space.title.annotations-sent": {
+    count: "plural";
+  };
+  "app-space.title.coding-opened": {
+    product: "string";
+    ticket: "string";
+  };
   "common.button.open-again": Record<never, never>;
   "common.button.report-problem": Record<never, never>;
   "common.label.app-mode-live": Record<never, never>;
@@ -643,7 +680,17 @@ export type AppSpacePlaceholders = {
   "common.label.app-view-crashed": Record<never, never>;
   "common.label.app-view-unresponsive": Record<never, never>;
   "report-problem.button.open": Record<never, never>;
+  "report-problem.empty.no-problems": Record<never, never>;
+  "report-problem.hint.text-only": Record<never, never>;
+  "report-problem.label.option-existing": Record<never, never>;
+  "report-problem.label.option-new": Record<never, never>;
+  "report-problem.label.report-count": {
+    count: "plural";
+  };
+  "report-problem.label.send-as": Record<never, never>;
+  "report-problem.label.which-problem": Record<never, never>;
   "report-problem.notice.open-failed": Record<never, never>;
+  "report-problem.placeholder.describe": Record<never, never>;
 };
 
 type Area = typeof appSpace;

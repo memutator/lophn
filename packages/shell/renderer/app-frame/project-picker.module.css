@@ -1,0 +1,48 @@
+/* project 고르기. 앱 화면 자리를 덮고 가운데에 상자 하나를 둔다. */
+.scrim {
+  position: absolute;
+  inset: var(--space-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--floating-backdrop);
+  font-family: var(--font-sans);
+  z-index: var(--z-shell);
+}
+
+.picker {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: var(--dialog-width-default);
+  max-width: calc(100% - var(--space-8) - var(--space-8));
+  max-height: calc(100% - var(--space-8) - var(--space-8));
+  padding: var(--space-8);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background: var(--floating-surface);
+  box-shadow: var(--shadow-dialog);
+}
+
+.title {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.text {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.failure {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

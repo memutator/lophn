@@ -1,13 +1,12 @@
-// 앱 공간의 얇은 바(`/apps/:app`). 런처 복귀, 앱
-// 이름과 연결 상태, [Report a problem] 자리, 운영 패널 진입, 문서 작업대 전환, 새 창 열기를 둔다.
-// 이 공간의 lophn 크롬은 그 앱의 결정 대기와 lophn 장애 안내만이다(`decisions`).
+// 앱 공간의 위쪽 바(`/apps/:app`). 앞쪽은 런처 복귀, 앱 이름, 연결 상태, 정해졌으면 project 이름이다. 뒤쪽은 글자 없이
+// tooltip만 있는 아이콘 단추이고 순서는 [대기 목록] [Annotate, Report] | [Agent, 앱 상세] | ⌘다. 켜진 것은 눌린 모양이다.
 // 바는 shell 크롬이라 앱 view bounds에 들어가지 않는다.
 import type { ReactNode } from "react";
 import { IconButton, StatusMark, Tooltip } from "@lophn/design/components";
-import { appSpaceIcons } from "../icons/mod.ts";
+import { appSpaceIcons, editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { PaletteButton, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { LauncherButton } from "../workspace/launcher-button.tsx";
 import {
   type AppStatus,
@@ -20,17 +19,18 @@ export interface AppBarProps {
   /** 사람이 지은 앱 이름. 읽기 전에는 없다. */
   name: string | null;
   status: AppStatus | null;
+  /** 앱 화면이 묶인 project 이름. 정해지기 전에는 없다. */
+  project: string | null;
   onLauncher: () => void;
   detailsOpen: boolean;
   onDetails: () => void;
-  onDocuments: () => void;
-  /** 없으면(전용 창 통로가 없는 창) 버튼을 두지 않는다. */
-  onNewWindow?: () => void;
-  /** 그 앱의 결정 대기와 lophn 장애 안내(SpaceDecisions). */
-  decisions?: ReactNode;
-  /** [Report a problem] 자리. 앱 view 캡처를 먼저 요청하는 독립 버튼이다. */
+  /** 없으면(annotate 통로가 없는 창) Annotate 단추를 두지 않는다. */
+  annotate?: { readonly on: boolean; readonly onToggle: () => void };
+  /** 깃발 단추. */
   report?: ReactNode;
-  /** agent select. window controls 바로 옆, 곧 바 오른쪽의 맨 끝에 둔다. */
+  /** 대기 목록 pill. */
+  decisions?: ReactNode;
+  /** agent select. */
   agentSelect?: ReactNode;
 }
 
@@ -60,16 +60,17 @@ export function AppBar(
   {
     name,
     status,
+    project,
     onLauncher,
     detailsOpen,
     onDetails,
-    onDocuments,
-    onNewWindow,
-    decisions,
+    annotate,
     report,
+    decisions,
     agentSelect,
   }: AppBarProps,
 ) {
+  const marking = annotate !== undefined || report !== undefined;
   return (
     <TopBar
       leading={
@@ -86,28 +87,30 @@ export function AppBar(
               </span>
             )
             : null}
+          {project === null
+            ? null
+            : (
+              <span className={styles.project} data-app-project="">
+                {t("app-space.label.in-project", { project })}
+              </span>
+            )}
         </span>
       }
       trailing={
         <span className={styles.trailing}>
           {decisions}
+          {annotate === undefined ? null : (
+            <BarButton
+              icon={editorIcons.edit}
+              label={t("app-space.button.annotate")}
+              pressed={annotate.on}
+              onClick={annotate.onToggle}
+              data="annotate"
+            />
+          )}
           <span className={styles.report} data-report-slot="">{report}</span>
-          <BarButton
-            icon={appSpaceIcons.documents}
-            label={t("app-space.button.documents")}
-            onClick={onDocuments}
-            data="documents"
-          />
-          {onNewWindow
-            ? (
-              <BarButton
-                icon={appSpaceIcons.newWindow}
-                label={t("app-space.button.new-window")}
-                onClick={onNewWindow}
-                data="new-window"
-              />
-            )
-            : null}
+          {marking ? <span className={styles.sep} aria-hidden="true" /> : null}
+          {agentSelect}
           <BarButton
             icon={appSpaceIcons.appDetails}
             label={t("app-space.button.app-details")}
@@ -115,7 +118,8 @@ export function AppBar(
             onClick={onDetails}
             data="app-details"
           />
-          {agentSelect}
+          <span className={styles.sep} aria-hidden="true" />
+          <PaletteButton />
         </span>
       }
     />

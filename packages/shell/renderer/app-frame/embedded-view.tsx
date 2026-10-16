@@ -72,6 +72,7 @@ export interface EmbeddedViewProps extends AppViewOpen {
 
 export function EmbeddedView(props: EmbeddedViewProps) {
   const { views, app, mode, release, screen, size, label, onState } = props;
+  const project = props.project;
   const cardMessage = props.card?.message;
   const cardBlock = props.card?.block;
   const shown = props.shown ?? true;
@@ -98,6 +99,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       screen,
       size,
       ...(release === undefined ? {} : { release }),
+      ...(project === undefined ? {} : { project }),
       ...(cardMessage === undefined || cardBlock === undefined
         ? {}
         : { card: { message: cardMessage, block: cardBlock } }),
@@ -134,6 +136,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     app,
     mode,
     release,
+    project,
     screen,
     size,
     cardMessage,

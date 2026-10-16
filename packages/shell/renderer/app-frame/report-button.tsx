@@ -1,10 +1,9 @@
-// [Report a problem] 독립 버튼. 앱 공간 바·앱 패널·세션 카드의 shell
-// 크롬에 두고 그 자리의 실제 view(view_session)에 묶는다. 누르면 main이 버튼 시점 view를 고정하고
-// 그 view를 먼저 캡처한 뒤 overlay에 dialog를 연다. 버튼은 shell renderer에 있어 앱 view가 crash·
+// [Report a problem] 깃발 단추. 앱 공간 바의 shell 크롬에 두고 그 자리의 실제 view(view_session)에 묶는다. 누르면 main이
+// 버튼 시점 view를 고정하고 overlay에 dialog를 연다. 버튼은 shell renderer에 있어 앱 view가 crash·
 // 무한 loop여도 동작한다. renderer는 view_session만 보내고 앱·release·화면은 main이 정한다.
 import { useState } from "react";
-import { Button } from "@lophn/design/components";
-import { appSpaceIcons } from "../icons/mod.ts";
+import { Flag } from "lucide-react";
+import { IconButton, Tooltip } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -34,18 +33,18 @@ export function ReportButton({ feedback, viewSession }: ReportButtonProps) {
     }
   }
 
+  const label = t("report-problem.button.open");
   return (
     <span className={styles.report}>
-      <Button
-        size="sm"
-        variant="ghost"
-        icon={appSpaceIcons.report}
-        disabled={viewSession === null}
-        data-report-problem=""
-        onClick={() => void open()}
-      >
-        {t("report-problem.button.open")}
-      </Button>
+      <Tooltip content={label}>
+        <IconButton
+          icon={Flag}
+          label={label}
+          disabled={viewSession === null}
+          data-report-problem=""
+          onClick={() => void open()}
+        />
+      </Tooltip>
       {failed
         ? (
           <span className={styles.failed} role="status">

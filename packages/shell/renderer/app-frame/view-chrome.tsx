@@ -3,7 +3,13 @@
 // shell이 그리므로 그대로 동작한다. 버튼은 이 크롬이 감싼 view_session 하나에만 묶인다.
 // 화면이 멈추거나 crash하면 그 상태와 [Open again]을 둔다. 새 view는 사람이 누를 때만 지금
 // 연결로 연다.
-import { Button, StatusMark } from "@lophn/design/components";
+import { Flag } from "lucide-react";
+import {
+  Button,
+  IconButton,
+  StatusMark,
+  Tooltip,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
@@ -91,17 +97,18 @@ export function ViewChrome(
             {t("common.button.open-again")}
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          data-report-problem={viewSession ?? ""}
-          disabled={viewSession === null || onReport === undefined}
-          onClick={() => {
-            if (viewSession !== null) onReport?.(viewSession);
-          }}
-        >
-          {t("common.button.report-problem")}
-        </Button>
+        <Tooltip content={t("common.button.report-problem")}>
+          <IconButton
+            icon={Flag}
+            label={t("common.button.report-problem")}
+            size="sm"
+            data-report-problem={viewSession ?? ""}
+            disabled={viewSession === null || onReport === undefined}
+            onClick={() => {
+              if (viewSession !== null) onReport?.(viewSession);
+            }}
+          />
+        </Tooltip>
       </span>
     </div>
   );

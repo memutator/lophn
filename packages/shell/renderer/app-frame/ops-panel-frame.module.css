@@ -1,4 +1,4 @@
-/* legacy AppSpace의 OpsPanel. 넓은 창이면 본문 옆 열, 좁은 창이면 오른쪽에서 본문을 덮는다. */
+/* 앱 공간의 운영 패널(앱 상세). 넓은 창이면 본문 옆 열, 좁은 창이면 오른쪽에서 본문을 덮는다. */
 .panel {
   box-sizing: border-box;
   display: flex;
@@ -46,7 +46,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
   min-height: var(--space-0);
   overflow-y: auto;
   padding: var(--space-6);

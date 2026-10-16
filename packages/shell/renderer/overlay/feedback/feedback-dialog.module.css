@@ -1,66 +1,22 @@
-/* report-problem dialog 본문. 글 칸, 보낼 자료 미리보기, 상태 줄. */
+/* report-problem dialog 본문. 글 칸, 보낼 곳, 상태 줄. */
 .body {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
 
-.attachments {
+.pickList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-}
-
-.heading {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
-}
-
-.summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.path {
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  overflow-wrap: anywhere;
-}
-
-/* 캡처한 그대로 보인다. 가리거나 자르지 않고 칸 안에 맞춰 줄인다. */
-.shot {
-  display: block;
-  max-width: 100%;
   max-height: var(--layout-container-card);
-  object-fit: contain;
-  align-self: flex-start;
+  overflow-y: auto;
   border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .note {
   margin: var(--space-0);
+  padding: var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);

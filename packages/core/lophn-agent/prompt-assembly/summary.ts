@@ -141,14 +141,6 @@ function compactSummaryInstructions(cap: number): string {
   ].join("\n");
 }
 
-function shortenInstructions(cap: number): string {
-  return [
-    `The draft below is over the limit of ${cap} tokens (UTF-8 bytes).`,
-    "Write a shorter version that keeps the four parts, every condition of a decision and every negation (not, never, only if, unless).",
-    "Drop detail before you drop a condition. Do not cut a sentence off to fit. Answer with the summary text only.",
-  ].join("\n");
-}
-
 function fenced(lines: string[]): string {
   return [
     DATA_START_MARKER,
@@ -160,27 +152,22 @@ function fenced(lines: string[]): string {
 }
 
 // 요약을 만드는 model call의 요청이다. 원문은 지시 층이 아니라 자료 경계 안에만 두고 tool은 주지 않는다.
-// previous는 앞서 Compact한 요약이나 앞 chunk의 요약이고, shorten은 cap을 넘은 직전 결과다.
+// previous는 앞서 Compact한 요약이나 앞 chunk의 요약이다.
 // cap은 본문 상한(summaryOutputCap)이고 지시 문장에 그 수를 쓴다.
 export function compactSummaryRequest(input: {
   previous: string | null;
   messages: readonly SessionMessage[];
-  shorten?: string;
   cap: number;
 }): PromptRequest {
-  const material = input.shorten !== undefined
-    ? `${shortenInstructions(input.cap)}\n\n${
-      fenced(["Draft summary:", input.shorten])
-    }`
-    : fenced([
-      ...(input.previous === null
-        ? []
-        : ["Earlier summary:", input.previous, ""]),
-      "Messages, oldest first:",
-      ...input.messages.map((message) =>
-        `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`
-      ),
-    ]);
+  const material = fenced([
+    ...(input.previous === null
+      ? []
+      : ["Earlier summary:", input.previous, ""]),
+    "Messages, oldest first:",
+    ...input.messages.map((message) =>
+      `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`
+    ),
+  ]);
   return {
     system: [{
       layer: "role",

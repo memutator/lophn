@@ -525,28 +525,6 @@ export const sessionForked = defineEvent("SessionForked", {
   }),
 });
 
-// 요청한 순간의 사실이다. subject가 session이고 event 순번이 요청의 이름이다.
-export const sessionCompactRequested = defineEvent("SessionCompactRequested", {
-  subject: sessionSubject,
-  payload: z.object({}),
-});
-
-export const sessionCompactFailed = defineEvent("SessionCompactFailed", {
-  subject: sessionSubject,
-  payload: z.object({
-    request: seqSchema,
-    reason: compactFailureReasonSchema,
-  }),
-});
-
-export const sessionCompacted = defineEvent("SessionCompacted", {
-  subject: sessionSubject,
-  payload: z.object({
-    before: compactionOutputSchema.nullable(),
-    after: compactionOutputSchema,
-  }),
-});
-
 export const sessionModelChanged = defineEvent("SessionModelChanged", {
   subject: sessionSubject,
   payload: z.object({
@@ -587,9 +565,6 @@ export const SESSION_EVENTS = [
   sessionUnarchived,
   sessionDeleted,
   sessionForked,
-  sessionCompactRequested,
-  sessionCompacted,
-  sessionCompactFailed,
   sessionModelChanged,
   sessionClosed,
 ] as const;

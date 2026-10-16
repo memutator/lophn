@@ -30,7 +30,6 @@ export { detailCollectionSetting } from "./snapshots/register.ts";
 // ReleaseLookup을 받는 port key(writer ports와 reader ports에 같은 key로 끼운다. 구현은 repairs/register.ts)와
 // apps에 넘기는 열린 문제 수 구현.
 export { ReleaseLookupPort } from "./reporting/mod.ts";
-export { problemCounts } from "./grouping/mod.ts";
 
 // leaf마다 자기 register.ts에서 내는 등록 조각이다. 칸은 모두 선택이다.
 // 조립(이 file)은 조각을 칸마다 이어 붙인다.

@@ -23,7 +23,3 @@ export interface ReleaseLookup {
   previousOf(id: string): Result<ReleaseFact | null>;
 }
 
-// apps가 받는다. `app.get`의 열린 문제 수를 위해서다.
-export interface ProblemCounts {
-  open(app: string): Result<number>;
-}

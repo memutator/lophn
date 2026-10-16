@@ -1,5 +1,5 @@
-import { err, ok } from "../../../../base/mod.ts";
-import type { RequestContext } from "../../../../protocol/server/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
 import {
   contextWorkInputReadSchema,
   contextWorkInputRoute,
@@ -62,6 +62,26 @@ export const projectsWiring: WiringFactory = () => {
   let directoryLink: { close(): void } | undefined;
   return {
     name: "projects",
+    // project 키워드 검색이 project 폴더를 찾는 ledger snapshot. 읽을 때마다 짧은 연결을 연다.
+    environment: (ctx) => ({
+      projectSearch: {
+        snapshot<T>(
+          read: (sql: Pick<Sql, "get" | "all">, seq: string) => Result<T>,
+        ): Result<T> {
+          const opened = openConnection(ctx.ledgerPath);
+          if (!opened.ok) return opened;
+          try {
+            const head = opened.value.sql.get(
+              "select coalesce(max(seq), 0) as seq from events",
+              [],
+            );
+            return read(opened.value.sql, String(head?.["seq"] ?? 0));
+          } finally {
+            opened.value.close();
+          }
+        },
+      },
+    }),
     // context worker(machine)가 검사 결과와 위반 수를 기록한다(documents/contexts).
     operations: () =>
       CONTEXT_WORKER_OPERATIONS.map((name): OperationPolicy => ({

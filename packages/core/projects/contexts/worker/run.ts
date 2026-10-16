@@ -195,14 +195,14 @@ function createContextsWorker(
     }
     const input = parsed.data;
     const effects = new Map(
-      input.app_commands.map((entry) => [
+      input.app_api.map((entry) => [
         `${entry.app}\u0000${entry.command}`,
         entry.effect,
       ]),
     );
     const env: ValidationEnv = {
       externalTypes: input.external_types,
-      appCommandEffect: (app, command) =>
+      appApiEffect: (app, command) =>
         effects.get(`${app}\u0000${command}`) ?? "unknown",
     };
     const done = await jobs.check({
@@ -240,14 +240,14 @@ function createContextsWorker(
     const joined = previews.get(key);
     if (joined !== undefined) return joined;
     const effects = new Map(
-      input.app_commands.map((entry) => [
+      input.app_api.map((entry) => [
         `${entry.app}\u0000${entry.command}`,
         entry.effect,
       ]),
     );
     const env: ValidationEnv = {
       externalTypes: input.external_types,
-      appCommandEffect: (app, command) =>
+      appApiEffect: (app, command) =>
         effects.get(`${app}\u0000${command}`) ?? "unknown",
     };
     const run = Promise.resolve().then(() =>

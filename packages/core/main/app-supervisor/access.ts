@@ -101,9 +101,9 @@ export function createCoreBrokerAccess(deps: {
         permissions: declared.permissions,
         app_connections: declared.app_connections.map((use) => ({
           app: use.app,
-          commands: use.app_api,
+          app_api: use.app_api,
         })),
-        commands: declared.app_api,
+        app_api: declared.app_api,
       };
       const state: AccessState = {
         release: view.release,
@@ -114,7 +114,7 @@ export function createCoreBrokerAccess(deps: {
           grants,
           targetCommands: () => undefined,
         }),
-        commands: declared.app_api,
+        app_api: declared.app_api,
       };
       return ok(state);
     },

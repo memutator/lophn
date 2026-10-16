@@ -32,7 +32,7 @@ void observationShape;
 type PreviewProbe =
   | {
     ok: true;
-    commands: string[];
+    app_api: string[];
     dataSchema: number;
     bundleHash: string;
   }
@@ -296,8 +296,8 @@ export function createPreviewLauncher(
       });
       return;
     }
-    const declared = [...launch.commands].sort();
-    const reported = [...probe.commands].sort();
+    const declared = [...launch.app_api].sort();
+    const reported = [...probe.app_api].sort();
     if (
       declared.length !== reported.length ||
       declared.some((key, index) => key !== reported[index]) ||
@@ -362,7 +362,7 @@ export function createPreviewLauncher(
       process_nonce: entry.launch.nonce,
       // 관측 wire 계약이 아직 요구하는 칸이다. 연결 주소는 더 이상 core에 알리지 않는다.
       endpoint: "",
-      commands: [...entry.launch.commands],
+      app_api: [...entry.launch.app_api],
       screens: { ...(entry.launch.screens ?? {}) },
       ready,
       accepting: ready && entry.opened,

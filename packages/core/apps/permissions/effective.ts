@@ -24,7 +24,7 @@ type AccessEntry = {
 export type EffectiveScope = {
   access: AccessEntry[];
   // 부르는 앱이 target마다 실제 부를 수 있는 app-api. 방향은 caller → target 하나다.
-  app_calls: { app: string; commands: string[] }[];
+  app_calls: { app: string; app_api: string[] }[];
 };
 
 type EffectiveInput = {
@@ -75,11 +75,11 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
     )
   );
 
-  const appCalls: { app: string; commands: string[] }[] = [];
+  const appCalls: { app: string; app_api: string[] }[] = [];
   for (const target of sorted(declarations.app_connections.map((c) => c.app))) {
     const declared = new Set(
       declarations.app_connections.filter((c) => c.app === target)
-        .flatMap((c) => c.commands),
+        .flatMap((c) => c.app_api),
     );
     const live = new Set(input.targetCommands(target) ?? []);
     const allowed = new Set<string>();
@@ -89,10 +89,10 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
       }
       for (const command of grant.scope.app_apis) allowed.add(command);
     }
-    const commands = sorted(
+    const app_api = sorted(
       [...allowed].filter((c) => declared.has(c) && live.has(c)),
     );
-    if (commands.length > 0) appCalls.push({ app: target, commands });
+    if (app_api.length > 0) appCalls.push({ app: target, app_api });
   }
 
   return { access, app_calls: appCalls };

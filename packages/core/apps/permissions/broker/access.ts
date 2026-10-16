@@ -10,7 +10,7 @@ export type AccessState = {
   release: string;
   scope: EffectiveScope;
   // 현재 고정 blueprint의 command key 전체.
-  commands: readonly string[];
+  app_api: readonly string[];
 };
 
 export interface BrokerAccess {

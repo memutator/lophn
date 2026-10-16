@@ -4,13 +4,13 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { inputDeliverySchema } from "./inputs.ts";
 import {
   agentMessageContentInputSchema,
   messageContentSchema,
   userMessageContentInputSchema,
 } from "./message-content.ts";
 
-const messageModeSchema = z.enum(["request", "correction"]);
 function links(strict: boolean) {
   function object<S extends z.ZodRawShape>(shape: S) {
     return strict ? z.strictObject(shape) : z.object(shape);
@@ -39,27 +39,27 @@ const messageSchema = z.object({
   actor: actorSchema,
   body: sha256Schema,
   turn: idSchema("trn").nullable(),
-  mode: messageModeSchema.nullable(),
+  delivery: inputDeliverySchema.nullable(),
   applied_at_call: idSchema("mcl").nullable(),
   links: z.array(messageLinkSchema),
-  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 turn·mode·반영 연결이 없다.
+  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 turn·delivery·반영 연결이 없다.
   copied_from: idSchema("msg").nullable(),
 }).refine(
   (value) =>
     value.copied_from !== null
-      ? value.mode === null && value.turn === null &&
+      ? value.delivery === null && value.turn === null &&
         value.applied_at_call === null
       : value.actor === "user"
-      ? value.mode !== null
+      ? value.delivery !== null
       : (value.actor === "machine" || value.actor.startsWith("agent:")) &&
-        value.mode === null,
-  { message: "message actor and mode mismatch" },
+        value.delivery === null,
+  { message: "message actor and delivery mismatch" },
 ).refine(
   (value) => value.applied_at_call === null || value.turn !== null,
   { message: "applied message requires a turn" },
 ).refine(
-  (value) => value.mode !== "correction" || value.turn !== null,
-  { message: "correction requires a target turn" },
+  (value) => value.delivery !== "steer" || value.turn !== null,
+  { message: "steer requires a target turn" },
 );
 function validMessageSeqs(value: { created_seq: string; state_seq: string }) {
   return seqSchema.safeParse(value.created_seq).success &&
@@ -95,10 +95,10 @@ const receiveMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
   content: userMessageContentInputSchema,
-  mode: messageModeSchema,
+  delivery: inputDeliverySchema,
   turn: idSchema("trn").optional(),
-}).refine((value) => value.mode !== "correction" || value.turn !== undefined, {
-  message: "correction requires target turn",
+}).refine((value) => value.delivery !== "steer" || value.turn !== undefined, {
+  message: "steer requires target turn",
 });
 const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),

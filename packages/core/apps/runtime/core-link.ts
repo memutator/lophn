@@ -11,7 +11,7 @@ export type RuntimeRecord =
     attestation: {
       release: string | null;
       bundle_hash: string;
-      commands: string[];
+      app_api: string[];
       data_schema: number;
       process_nonce: string;
       connection_ok: true;

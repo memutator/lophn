@@ -18,12 +18,12 @@ import { createContextDrafts } from "../folders.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";
-import { appCommandsOf, externalTypesRead } from "./work-environment.ts";
+import { appApiOf, externalTypesRead } from "./work-environment.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 type Deps =
   & Pick<ContextLedgerDeps, "blobs" | "index" | "folders" | "files">
-  & Partial<Pick<ContextLedgerDeps, "appCommandEffect">>;
+  & Partial<Pick<ContextLedgerDeps, "appApiEffect">>;
 
 // documents/projects의 project_folders 표에서 등록 순서대로 읽는다.
 function foldersOf(sql: Reader, project: string): string[] {
@@ -95,7 +95,7 @@ function draftInput(
       inputs: view.inputs,
     })),
     external_types: external.value,
-    app_commands: appCommandsOf(content, deps.appCommandEffect),
+    app_api: appApiOf(content, deps.appApiEffect),
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
   });
@@ -204,9 +204,9 @@ export function contextWorkInputRead(
             inputs: view.inputs,
           })),
         external_types,
-        app_commands: candidate === null
+        app_api: candidate === null
           ? []
-          : appCommandsOf(candidate.content, deps.appCommandEffect),
+          : appApiOf(candidate.content, deps.appApiEffect),
         as_of_seq: snapshot.as_of_seq,
         next_cursor: null,
       });

@@ -44,7 +44,7 @@ type PreviewSupervisor = {
 export type PreviewBundle = {
   entry: string;
   importMap: string;
-  commands: readonly string[];
+  app_api: readonly string[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
   // bundle 파일 중 그 hash의 byte. fixture는 bundle 안의 파일이다(domain-model apps/sdk files).
@@ -234,7 +234,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         nonce,
         release: input.release,
         bundleHash: input.bundle_hash,
-        commands: [...bundle.commands],
+        app_api: [...bundle.app_api],
         screens: { ...bundle.screens },
         dataSchema: bundle.dataSchema,
         flags: {

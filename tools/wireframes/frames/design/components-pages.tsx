@@ -709,7 +709,7 @@ export function ComponentsStates() {
         <div className={kit.row}>
           <DiffMark kind="add" />
           <DiffMark kind="delete" />
-          <AuthorMark author="Context Engineer" />
+          <AuthorMark author="Project Manager" />
           <AuthorMark author="lophn" />
         </div>
       </Section>

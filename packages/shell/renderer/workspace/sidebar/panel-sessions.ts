@@ -7,17 +7,13 @@ import type { SidebarAgent, SidebarAgentRole } from "./sidebar-agent.ts";
 import type { PanelSession } from "./use-agent-panel.ts";
 
 /**
- * role로 agent 줄을 찾는다. Project Manager는 agent 목록 계약이 아직 돌려주는 옛 이름도 같은 줄로 본다.
- * Operator는 여럿이라 이 함수로 찾지 않는다.
+ * role로 agent 줄을 찾는다. Operator는 여럿이라 이 함수로 찾지 않는다.
  */
 export function agentByRole(
   agents: readonly SidebarAgent[],
-  role: Exclude<SidebarAgentRole, "operator" | "context_engineer">,
+  role: Exclude<SidebarAgentRole, "operator">,
 ): SidebarAgent | undefined {
-  return agents.find((row) =>
-    row.role === role ||
-    (role === "project_manager" && row.role === "context_engineer")
-  );
+  return agents.find((row) => row.role === role);
 }
 
 // session을 가진 agent를 sidebar의 agent 줄로 찾는다. 이 project에 놓인 agent와 lophn만 줄이 있다.

@@ -27,7 +27,7 @@ export type AppChild = {
 type ProbeResult =
   | {
     ok: true;
-    commands: string[];
+    app_api: string[];
     dataSchema: number;
     bundleHash: string;
   }
@@ -39,7 +39,7 @@ export type DesiredApp = {
   bundleHash: string;
   runEnabled: boolean;
   archived: boolean;
-  commands: string[];
+  app_api: string[];
   // 현재 blueprint가 선언한 화면과 크기. connection은 이 선언과의 교집합만 받는다.
   screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
@@ -145,12 +145,12 @@ type Tracked = {
   // control/open까지 끝나 새 호출을 받는다.
   opened: boolean;
   // probe가 확인한 실제 등록 command. probe 전에는 선언한 목록이다.
-  commands: string[];
+  app_api: string[];
   // 준비 모드(activation 후보)로 probe만 통과하고 아직 열지 않았다. 열 때 시작 사실에 쓴다.
   attestation?: {
     release: string;
     bundleHash: string;
-    commands: string[];
+    app_api: string[];
     dataSchema: number;
   };
 };
@@ -197,7 +197,7 @@ type AppObservation = {
   mode: "live";
   bundleHash: string;
   processNonce: string;
-  commands: string[];
+  app_api: string[];
   screens: Record<string, ("full" | "panel" | "card")[]>;
   ready: boolean;
   accepting: boolean;
@@ -235,7 +235,7 @@ type CandidateStart =
     attestation: {
       release: string;
       bundleHash: string;
-      commands: string[];
+      app_api: string[];
       dataSchema: number;
     };
   }
@@ -416,7 +416,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       started: false,
       probed: false,
       opened: false,
-      commands: [...desired.commands],
+      app_api: [...desired.app_api],
     };
     runtime.tracked = tracked;
     // 자식이 스스로 끝나면 재시작 정책을 적용한다. 정지 요청 뒤의 종료는 여기 오지 않는다.
@@ -442,8 +442,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       });
       return { ok: false, reason };
     }
-    const declared = [...desired.commands].sort();
-    const reported = [...probe.commands].sort();
+    const declared = [...desired.app_api].sort();
+    const reported = [...probe.app_api].sort();
     const commandsMatch = declared.length === reported.length &&
       declared.every((key, index) => key === reported[index]);
     if (!commandsMatch || probe.dataSchema !== desired.dataSchema) {
@@ -454,11 +454,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       return { ok: false, reason: "handler or schema mismatch" };
     }
     tracked.probed = true;
-    tracked.commands = [...probe.commands];
+    tracked.app_api = [...probe.app_api];
     const attestation = {
       release: desired.release,
       bundleHash: probe.bundleHash,
-      commands: [...probe.commands],
+      app_api: [...probe.app_api],
       dataSchema: probe.dataSchema,
     };
     // activation 후보는 검사까지만 한다. 통로를 열고 시작을 알리는 일은 commit 뒤의 `open`이다.
@@ -508,7 +508,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       attestation: {
         release: desired.release,
         bundle_hash: attestation.bundleHash,
-        commands: attestation.commands,
+        app_api: attestation.app_api,
         data_schema: attestation.dataSchema,
         process_nonce: nonce,
         connection_ok: true,
@@ -746,7 +746,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         mode: "live",
         bundleHash: desired?.bundleHash ?? "",
         processNonce: tracked?.child.identity.processNonce ?? "",
-        commands: [...(tracked?.commands ?? desired?.commands ?? [])],
+        app_api: [...(tracked?.app_api ?? desired?.app_api ?? [])],
         screens: { ...(desired?.screens ?? {}) },
         // 검사를 통과한 자식만 ready다. 띄운 직후나 probe 중에는 아니다.
         ready: live && tracked.probed,

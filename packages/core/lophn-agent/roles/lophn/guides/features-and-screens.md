@@ -35,8 +35,8 @@ collects everything that is waiting for your answer, from every session.
 ## What a conversation shows
 
 A conversation shows the result and the next thing you need to do. A plan
-sentence is not a finished result. You can send a correction while an agent is
-working. It reaches the agent as your own steering message. A message you send
+sentence is not a finished result. You can steer an agent while it is
+working. A steer reaches the agent as your own steering message. A message you send
 while a turn is running goes into the next turn unless you steer.
 
 Stopping a turn does not undo a change that already happened. To undo, use

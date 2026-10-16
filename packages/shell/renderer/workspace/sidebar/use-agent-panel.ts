@@ -39,11 +39,9 @@ export interface AgentPanelView {
 
 const RECENT_LIMIT = 5;
 
-// Project Manager는 계약이 아직 돌려주는 옛 이름 `context_engineer`도 같은 자리다.
 const BUILTIN_ORDER: Partial<Record<SidebarAgentRole, number>> = {
   lophn: 0,
   project_manager: 1,
-  context_engineer: 1,
 };
 
 function agentPanelOf(

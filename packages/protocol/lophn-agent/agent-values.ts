@@ -5,7 +5,7 @@ import {
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
-import { appCommandKeySchema } from "./scope.ts";
+import { appApiKeySchema } from "./scope.ts";
 import type { Role } from "./places.ts";
 
 // agent 정의(lophn-agent/agents domain model)의 값. 정의와 자리 설정은 app data의 Markdown 파일이고,
@@ -46,7 +46,7 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
 ]);
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
 
-// Context Engineer는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 자리 모두다.
+// Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
 
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
@@ -94,7 +94,7 @@ export const profileOutputSchema = z.discriminatedUnion("kind", [
 export type Profile = z.infer<typeof profileSchema>;
 
 // 앱 Operator가 읽을 (앱, command) 이름 쌍. 이름만 고르고, 호출할 때마다 현재 blueprint와 허락을 다시 본다.
-const appReadFields = { app: idSchema("app"), command: appCommandKeySchema };
+const appReadFields = { app: idSchema("app"), command: appApiKeySchema };
 const appReadSchema = z.strictObject(appReadFields);
 const appReadOutputSchema = z.object(appReadFields);
 type AppRead = z.infer<typeof appReadSchema>;

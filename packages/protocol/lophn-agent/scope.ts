@@ -5,7 +5,7 @@ import { idSchema } from "../base/ids.ts";
 const AGENT_ROLES = [
   "lophn",
   "app_engineer",
-  "context_engineer",
+  "project_manager",
   "operator",
 ] as const;
 
@@ -33,20 +33,20 @@ export const workPlaceOutputSchema = z.discriminatedUnion(
 );
 
 // apps/blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
-export const appCommandKeySchema = z.string().min(1).refine(
+export const appApiKeySchema = z.string().min(1).refine(
   (value) =>
     value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),
-  { message: "command key cannot be blank, a wildcard, or contain controls" },
+  { message: "app-api key cannot be blank, a wildcard, or contain controls" },
 );
 
 const APP_COMMAND_EFFECTS = ["read", "write", "external"] as const;
 
-const appCommandEffectSchema = z.enum(APP_COMMAND_EFFECTS);
+const appApiEffectSchema = z.enum(APP_COMMAND_EFFECTS);
 
 const agentAppScopeEntryFields = {
   app: idSchema("app"),
-  commands: z.array(appCommandKeySchema).min(1),
-  effects: z.array(appCommandEffectSchema).min(1),
+  app_api: z.array(appApiKeySchema).min(1),
+  effects: z.array(appApiEffectSchema).min(1),
   revert_required: z.boolean(),
   confirm_allowed: z.boolean(),
 };
@@ -58,20 +58,20 @@ function uniqueList<T>(values: readonly T[]): boolean {
 // 현재 grant·역할 판정이 아니라 StartRun에 싣는 condition의 local shape.
 const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
   .refine(
-    (value) => uniqueList(value.commands) && uniqueList(value.effects),
-    { message: "duplicate command or effect" },
+    (value) => uniqueList(value.app_api) && uniqueList(value.effects),
+    { message: "duplicate app-api or effect" },
   ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
-    { message: "revert_required applies only when a write command is present" },
+    { message: "revert_required applies only when a write app-api is present" },
   );
 
 const agentAppScopeEntryOutputSchema = z.object(agentAppScopeEntryFields)
   .refine(
-    (value) => uniqueList(value.commands) && uniqueList(value.effects),
-    { message: "duplicate command or effect" },
+    (value) => uniqueList(value.app_api) && uniqueList(value.effects),
+    { message: "duplicate app-api or effect" },
   ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
-    { message: "revert_required applies only when a write command is present" },
+    { message: "revert_required applies only when a write app-api is present" },
   );
 
 const agentAppScopeFields = {
@@ -95,7 +95,7 @@ function scopeShape(value: {
   }[];
 }): boolean {
   const apps = value.apps;
-  if (value.role === "context_engineer" && apps.length !== 0) return false;
+  if (value.role === "project_manager" && apps.length !== 0) return false;
   if (value.role === "operator") {
     return apps.every((entry) =>
       entry.effects.length === 1 && entry.effects[0] === "read" &&

@@ -4,10 +4,10 @@
 
 import { INSTANCE_LOCK_NAME } from "./instance-lock.ts";
 
-export const LINUX_INSTALL_ROOT = "/opt/lophn";
+const LINUX_INSTALL_ROOT = "/opt/lophn";
 
 // 설치 묶음 안의 위치. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
-export type LinuxInstallLayout = {
+type LinuxInstallLayout = {
   root: string;
   // 설치된 Deno binary. 플랫폼 process·migration·CLI가 모두 이 binary로 시작한다.
   deno: string;
@@ -46,11 +46,7 @@ export const LINUX_LAUNCHERS = {
   cli: "/usr/bin/lophn",
 } as const;
 
-
 // Deno transpile cache. 지워도 H는 그대로고 고정 의존성으로 다시 만든다.
-export function denoCacheDir(home: string): string {
-  return `${home.replace(/\/$/, "")}/.cache/lophn/deno`;
-}
 
 const LOOPBACK = "127.0.0.1,[::1]";
 
@@ -141,13 +137,12 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
   ].join("\n");
 }
 
-
 // Electron의 launcher는 Chromium sandbox 파일 옆의 실행 파일 그대로를 쓴다. sandbox를 끄는 flag를
 // 붙이는 launcher는 만들지 않는다.
 export const DESKTOP_LAUNCHER_TARGET = "/opt/lophn/lophn-desktop";
 
 // Electron이 다시 쓰는 실행 의존성. .deb는 이 목록을 그대로 Depends에 둔다.
-export const LINUX_DEPENDS: readonly string[] = [
+const LINUX_DEPENDS: readonly string[] = [
   "libgtk-3-0t64 | libgtk-3-0",
   "libnotify4",
   "libnss3",

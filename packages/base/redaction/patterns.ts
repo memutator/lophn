@@ -4,7 +4,7 @@ import { sha256Hex } from "../mod.ts";
 // 입력과 출력이 같은 content hash를 쓴다. 규칙 갱신은 이 묶음 전체를 바꾼다.
 // 이 목록은 provider 지원 목록이 아니다.
 
-export type CredentialPattern = {
+type CredentialPattern = {
   name: string;
   pattern: RegExp;
 };
@@ -12,7 +12,7 @@ export type CredentialPattern = {
 const PEM_BODY =
   "-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----";
 
-export const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
+const CREDENTIAL_PATTERNS: readonly CredentialPattern[] = [
   { name: "openai", pattern: /sk-[A-Za-z0-9]{20,}/ },
   { name: "anthropic", pattern: /sk-ant-[A-Za-z0-9_-]{20,}/ },
   { name: "github", pattern: /gh[pousr]_[A-Za-z0-9]{20,}/ },

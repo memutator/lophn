@@ -23,11 +23,3 @@ export function formatSeq(n: bigint): string {
 }
 
 // 처리 위치 P 다음 시작 위치.
-export function nextFromSeq(p: string): Result<string> {
-  const parsed = parseSeq(p);
-  if (!parsed.ok) return parsed;
-  if (parsed.value === MAX_SEQ) {
-    return err({ code: "invalid_input", message: "invalid seq" });
-  }
-  return ok(formatSeq(parsed.value + 1n));
-}

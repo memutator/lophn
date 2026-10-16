@@ -2,9 +2,6 @@
 // 이 목록을 agent·앱·test 결과로 내보내지 않는다.
 
 // 읽기만 하는 얼굴. 등록·회수·개수 없이 일치 검사만 한다. 값 목록을 내보내지 않는다.
-export type KnownSecretMatcher = {
-  match(text: string): { index: number; length: number } | undefined;
-};
 
 export type KnownSecretRegistry = {
   register(values: readonly string[]): void;

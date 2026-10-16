@@ -5,7 +5,7 @@ import type { KnownSecretRegistry } from "./registry.ts";
 // stream은 알려진 값의 최장 길이만큼 보류하고 검사한 prefix만 내보낸다.
 // 보류는 아직 값이 끝나지 않았을 수 있는 꼬리다. 이미 끝난 값은 지운다.
 
-export type RedactionStream = {
+type RedactionStream = {
   push(chunk: string): string;
   finish(): string;
   readonly held: number;

@@ -1,18 +1,14 @@
 import type { Clock } from "./clock.ts";
-import { err, ok, type Result } from "./result.ts";
 import type { RandomSource } from "./random.ts";
 
 // Crockford base32. ULID의 시각 48bit·random 80bit를 소문자로 적는다.
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
 const PREFIX = /^[a-z]{3}$/;
-const ID = /^([a-z]{3})_([0-7][0-9a-hjkmnp-tv-z]{25})$/;
 
 const TIME_CHARS = 10;
 const RANDOM_CHARS = 16;
 const BYTE_BITS = 8n;
-
-export type IdParts = { prefix: string; ulid: string };
 
 export type IdSource = {
   newId(prefix: string): string;
@@ -26,15 +22,6 @@ function encode(value: bigint, length: number): string {
     rest >>= 5n;
   }
   return out;
-}
-
-function decode(chars: string): bigint {
-  let value = 0n;
-  for (const char of chars) {
-    const index = CROCKFORD.indexOf(char);
-    value = (value << 5n) + BigInt(index);
-  }
-  return value;
 }
 
 function readRandom(random: RandomSource): bigint {
@@ -80,14 +67,3 @@ export function createIdSource(deps: {
   };
 }
 
-export function parseId(s: string): Result<IdParts> {
-  const match = ID.exec(s);
-  if (!match) {
-    return err({ code: "invalid_input", message: "invalid ID" });
-  }
-  const ulid = match[2];
-  if (decode(ulid.slice(0, TIME_CHARS)) >= 1n << 48n) {
-    return err({ code: "invalid_input", message: "invalid ID" });
-  }
-  return ok({ prefix: match[1], ulid });
-}

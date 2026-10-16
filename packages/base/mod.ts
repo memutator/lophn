@@ -9,24 +9,14 @@ export { err, ok, type Result } from "./result.ts";
 export {
   type Clock,
   formatAt,
-  isManualClock,
-  type ManualClock,
   manualClock,
   monotonicClock,
   systemClock,
 } from "./clock.ts";
 export { cryptoRandom, type RandomSource, seededRandom } from "./random.ts";
-export { createIdSource, type IdParts, type IdSource, parseId } from "./id.ts";
-export { formatSeq, nextFromSeq, parseSeq } from "./seq.ts";
-export { invertAll, invertChangeset } from "./changeset-invert.ts";
+export { createIdSource, type IdSource } from "./id.ts";
+export { formatSeq, parseSeq } from "./seq.ts";
+export { invertAll } from "./changeset-invert.ts";
 export { canonicalize } from "./canonical-json.ts";
 export { fingerprint, sha256Hex } from "./hash.ts";
-export {
-  createLogger,
-  type LogEvent,
-  type Logger,
-  type LoggerOptions,
-  type LogInput,
-  type LogLevel,
-  type LogRecord,
-} from "./log.ts";
+export { type Logger } from "./log.ts";

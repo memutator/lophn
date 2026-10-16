@@ -1,19 +1,17 @@
-import { isFieldPath, type RedactionFieldDeclaration } from "./model.ts";
+import { isFieldPath } from "./model.ts";
 
 // 소유 concern이 선언한 경로만 남긴다.
 // 필드명 변경은 익명화가 아니다. 가명 비교는 같은 자료 안으로 한정한다.
-
-export const PSEUDONYM_SCOPE = "record";
 
 // 필드명을 바꿔도 이름·연락처·이메일·경로는 안전 필드가 아니다.
 const PERSONAL_KEY =
   /(?:^|[._-])(?:name|full_name|display_name|alias|email|e_mail|phone|tel|mobile|contact|path|home)(?:$|[._-])/i;
 
-export function personalKey(key: string): boolean {
+function personalKey(key: string): boolean {
   return PERSONAL_KEY.test(key);
 }
 
-export type FieldSelection = {
+type FieldSelection = {
   value: unknown;
   dropped: string[];
 };
@@ -85,38 +83,7 @@ function writeAt(
   }
 }
 
-const DECLARATION_KEYS = ["safe_fields", "private_fields", "sample_paths"];
-
-function fieldPathList(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  if (!value.every(isFieldPath)) return undefined;
-  if (new Set(value).size !== value.length) return undefined;
-  return [...value];
-}
-
 // 선언 모양을 검사한다. 모르는 key, 틀린 경로, 중복 경로, 안전·private 겹침은 받지 않는다.
-export function parseFieldDeclaration(
-  declaration: RedactionFieldDeclaration,
-): RedactionFieldDeclaration | undefined {
-  const raw: unknown = declaration;
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return undefined;
-  }
-  const record = raw as Record<string, unknown>;
-  const keys = Object.keys(record);
-  if (
-    keys.length !== DECLARATION_KEYS.length ||
-    !keys.every((key) => DECLARATION_KEYS.includes(key))
-  ) {
-    return undefined;
-  }
-  const safe = fieldPathList(record.safe_fields);
-  const priv = fieldPathList(record.private_fields);
-  const sample = fieldPathList(record.sample_paths);
-  if (!safe || !priv || !sample) return undefined;
-  if (safe.some((path) => priv.includes(path))) return undefined;
-  return { safe_fields: safe, private_fields: priv, sample_paths: sample };
-}
 
 function subtreeHasPrivate(
   value: unknown,
@@ -179,6 +146,3 @@ export function selectSafeFields(
 
 // 가명 표식. 비교는 PSEUDONYM_SCOPE(같은 자료) 안에서만 통한다.
 // 원문 길이·type은 표식에 넣지 않는다.
-export function pseudonym(index: number): string {
-  return `p${index}`;
-}

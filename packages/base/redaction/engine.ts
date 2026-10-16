@@ -35,7 +35,7 @@ export type RedactionEngine = {
   auditBlock(location: string): RedactionOmission;
 };
 
-export type RedactionEngineOptions = {
+type RedactionEngineOptions = {
   registry: KnownSecretRegistry;
   clock?: Clock;
   limits?: {

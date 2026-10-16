@@ -127,7 +127,7 @@ function invert(bytes: Uint8Array): Uint8Array {
   return concat(out);
 }
 
-export function invertChangeset(bytes: Uint8Array): Result<Uint8Array> {
+function invertChangeset(bytes: Uint8Array): Result<Uint8Array> {
   try {
     return ok(invert(bytes));
   } catch (thrown) {

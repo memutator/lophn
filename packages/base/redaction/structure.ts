@@ -7,11 +7,11 @@ const SENSITIVE_KEYS =
 const AUTH_QUERY =
   /^(?:token|access_token|api_key|apikey|key|password|secret|auth|credential|sig|signature)$/i;
 
-export type StructureOutcome =
+type StructureOutcome =
   | { ok: true; value: unknown; redacted: string[] }
   | { ok: false; reason: "limit_exceeded" | "uncertain"; location: string };
 
-export type StructureLimits = {
+type StructureLimits = {
   maxDepth: number;
   maxItems: number;
 };

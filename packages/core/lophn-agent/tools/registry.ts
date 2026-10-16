@@ -36,7 +36,11 @@ export type ToolDefinition = {
   // 실행. 옛 run-loop가 만든 정의(앱, MCP)는 없고 handlers 표로 실행한다.
   handler?: ToolCallHandler;
   // Gate가 걸리는 tool만 둔다. null이면 그 호출은 거치지 않는다.
-  gate?: (input: unknown, ctx: ToolContext) => GateRequest | null;
+  // 받는 agent처럼 core를 읽어야 정해지는 intent가 있어 Promise도 된다.
+  gate?: (
+    input: unknown,
+    ctx: ToolContext,
+  ) => GateRequest | null | Promise<GateRequest | null>;
   // 아래는 옛 tool-judgment와 run-loop가 아직 읽는 칸이다. `defineBuiltin`이 기본값을 채운다.
   // 그 둘이 새 설계로 바뀌면 지운다.
   revision: string;

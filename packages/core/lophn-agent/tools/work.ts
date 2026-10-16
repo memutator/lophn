@@ -262,7 +262,7 @@ export async function executeToolCall(
       effect,
     );
   }
-  const request = definition.gate?.(checked.value, ctx) ?? null;
+  const request = (await definition.gate?.(checked.value, ctx)) ?? null;
   if (request !== null) {
     const blocked = await askGate(ctx, name, effect, request);
     if (blocked !== null) return blocked;

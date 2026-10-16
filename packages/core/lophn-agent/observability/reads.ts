@@ -335,7 +335,7 @@ function callTarget(
   id: string,
 ): Result<TurnTrace> {
   const row = lookup.sql.get(
-    `select ${MODEL_COLUMNS}, turn as turn, session, started_at
+    `select ${MODEL_COLUMNS}, turn, session, started_at
        from model_calls where id = ?`,
     [id],
   );

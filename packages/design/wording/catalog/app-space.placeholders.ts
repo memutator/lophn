@@ -538,15 +538,11 @@ export type AppSpacePlaceholders = {
   "app-detail.note.warning-outside-link": Record<never, never>;
   "app-detail.note.warning-read-network": Record<never, never>;
   "app-detail.note.went-back": Record<never, never>;
-  "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.annotate": Record<never, never>;
   "app-space.button.annotate-done": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
   "app-space.button.clear-annotations": Record<never, never>;
-  "app-space.button.documents": Record<never, never>;
   "app-space.button.manage-agents": Record<never, never>;
-  "app-space.button.new-window": Record<never, never>;
-  "app-space.button.remove-shortcut": Record<never, never>;
   "app-space.button.send-annotations": Record<never, never>;
   "app-space.button.show-terminal": Record<never, never>;
   "app-space.empty.agent-not-ready": Record<never, never>;
@@ -564,7 +560,6 @@ export type AppSpacePlaceholders = {
   };
   "app-space.heading.app-details": Record<never, never>;
   "app-space.heading.choose-project": Record<never, never>;
-  "app-space.heading.this-computer": Record<never, never>;
   "app-space.label.agent-select": Record<never, never>;
   "app-space.label.annotations": Record<never, never>;
   "app-space.label.in-project": {
@@ -577,11 +572,6 @@ export type AppSpacePlaceholders = {
   "app-space.label.this-app": Record<never, never>;
   "app-space.label.your-projects": Record<never, never>;
   "app-space.notice.no-project-list": Record<never, never>;
-  "app-space.notice.shortcut-added": Record<never, never>;
-  "app-space.notice.shortcut-failed": Record<never, never>;
-  "app-space.notice.shortcut-not-installed": Record<never, never>;
-  "app-space.notice.shortcut-removed": Record<never, never>;
-  "app-space.notice.window-failed": Record<never, never>;
   "app-space.text.annotate-on": Record<never, never>;
   "app-space.text.annotations-note": Record<never, never>;
   "app-space.text.annotations-sent": Record<never, never>;

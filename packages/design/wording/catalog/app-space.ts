@@ -490,15 +490,11 @@ export const appSpace = {
     "This app can read files and use the network, so it could send what it reads elsewhere.",
   "app-detail.note.went-back":
     "Only the app code changed. The database stays as it is.",
-  "app-space.button.add-shortcut": "Add to app menu",
   "app-space.button.annotate": "Annotate",
   "app-space.button.annotate-done": "Done",
   "app-space.button.app-details": "App details",
   "app-space.button.clear-annotations": "Clear all",
-  "app-space.button.documents": "Documents",
   "app-space.button.manage-agents": "Manage",
-  "app-space.button.new-window": "Open in new window",
-  "app-space.button.remove-shortcut": "Remove from app menu",
   "app-space.button.send-annotations": "Send to App Engineer",
   "app-space.button.show-terminal": "Show terminal",
   "app-space.empty.agent-not-ready": "This agent can't open here yet.",
@@ -517,7 +513,6 @@ export const appSpace = {
   "app-space.heading.annotations": "Annotations ({count, number})",
   "app-space.heading.app-details": "App details",
   "app-space.heading.choose-project": "Choose a project",
-  "app-space.heading.this-computer": "On this computer",
   "app-space.label.agent-select": "Agent",
   "app-space.label.annotations": "Annotations",
   "app-space.label.in-project": "· {project}",
@@ -527,14 +522,6 @@ export const appSpace = {
   "app-space.label.your-projects": "your projects",
   "app-space.notice.no-project-list":
     "This screen isn't tied to a project, and the project list isn't available here.",
-  "app-space.notice.shortcut-added": "Added to your computer's app menu.",
-  "app-space.notice.shortcut-failed":
-    "Your computer's app menu didn't change. Try again.",
-  "app-space.notice.shortcut-not-installed":
-    "Only the installed lophn app can change your computer's app menu.",
-  "app-space.notice.shortcut-removed": "Removed from your computer's app menu.",
-  "app-space.notice.window-failed":
-    "The app didn't open in a new window. Try again.",
   "app-space.text.annotate-on":
     "Click an element or drag an area, then write a note.",
   "app-space.text.annotations-note":

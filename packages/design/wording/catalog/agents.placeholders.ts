@@ -190,20 +190,15 @@ export type AgentsPlaceholders = {
   "project-workspace.button.agent-editor-delete": Record<never, never>;
   "project-workspace.button.agent-editor-delete-confirm": Record<never, never>;
   "project-workspace.button.agent-editor-edit-project": Record<never, never>;
-  "project-workspace.button.agent-editor-reset-model": Record<never, never>;
   "project-workspace.button.agent-editor-save": Record<never, never>;
   "project-workspace.button.agent-editor-upload-image": Record<never, never>;
   "project-workspace.button.edit-instructions": Record<never, never>;
   "project-workspace.button.new-operator": Record<never, never>;
   "project-workspace.button.open-agent": Record<never, never>;
-  "project-workspace.button.use-workspace-default": Record<never, never>;
   "project-workspace.empty.agent-editor-no-contexts": Record<never, never>;
-  "project-workspace.empty.agent-editor-no-mcp": Record<never, never>;
   "project-workspace.empty.agent-editor-no-project": Record<never, never>;
-  "project-workspace.empty.agent-editor-no-skills": Record<never, never>;
   "project-workspace.empty.no-instructions": Record<never, never>;
   "project-workspace.empty.no-mcp-servers": Record<never, never>;
-  "project-workspace.empty.no-permission-rules": Record<never, never>;
   "project-workspace.empty.no-skills": Record<never, never>;
   "project-workspace.heading.agent-editor-contexts": Record<never, never>;
   "project-workspace.heading.agent-editor-delete-title": {
@@ -211,7 +206,6 @@ export type AgentsPlaceholders = {
   };
   "project-workspace.heading.agent-editor-mcp": Record<never, never>;
   "project-workspace.heading.agent-editor-model": Record<never, never>;
-  "project-workspace.heading.agent-editor-permissions": Record<never, never>;
   "project-workspace.heading.agent-editor-profile": Record<never, never>;
   "project-workspace.heading.agent-editor-skills": Record<never, never>;
   "project-workspace.heading.agents-in-project": {
@@ -220,13 +214,8 @@ export type AgentsPlaceholders = {
   "project-workspace.heading.agents-new-operator": Record<never, never>;
   "project-workspace.heading.instructions": Record<never, never>;
   "project-workspace.heading.mcp-servers": Record<never, never>;
-  "project-workspace.heading.models-for-project": Record<never, never>;
-  "project-workspace.heading.permissions": Record<never, never>;
   "project-workspace.heading.skills": Record<never, never>;
   "project-workspace.info.instructions-file": Record<never, never>;
-  "project-workspace.info.models-follow-default": Record<never, never>;
-  "project-workspace.info.permissions-lead": Record<never, never>;
-  "project-workspace.info.stored-in-lophn": Record<never, never>;
   "project-workspace.label.agent-counts-built-in": {
     skills: "plural";
     mcp: "number";
@@ -237,27 +226,18 @@ export type AgentsPlaceholders = {
     mcp: "number";
   };
   "project-workspace.label.agent-counts-unknown": Record<never, never>;
-  "project-workspace.label.agent-editor-built-in": Record<never, never>;
   "project-workspace.label.agent-editor-icons": Record<never, never>;
   "project-workspace.label.agent-editor-image-file": Record<never, never>;
   "project-workspace.label.agent-editor-instructions": Record<never, never>;
-  "project-workspace.label.agent-editor-model-changed": Record<never, never>;
-  "project-workspace.label.agent-editor-model-inherit": {
-    model: "string";
     source: "string";
   };
   "project-workspace.label.agent-editor-model-unset": Record<never, never>;
   "project-workspace.label.agent-editor-name": Record<never, never>;
-  "project-workspace.label.agent-editor-project-instructions": {
-    project: "string";
   };
   "project-workspace.label.agent-editor-remove-context": {
     name: "string";
   };
-  "project-workspace.label.agent-editor-source": {
-    layer: "string";
   };
-  "project-workspace.label.agent-kind-built-in": Record<never, never>;
   "project-workspace.label.agent-kind-operator": Record<never, never>;
   "project-workspace.label.agent-no-model": Record<never, never>;
   "project-workspace.label.agents-target": Record<never, never>;
@@ -276,31 +256,21 @@ export type AgentsPlaceholders = {
   "project-workspace.label.instructions-shared": {
     project: "string";
   };
-  "project-workspace.label.model-default": {
-    model: "string";
   };
-  "project-workspace.label.model-default-none": Record<never, never>;
-  "project-workspace.label.model-overrides": {
-    model: "string";
   };
   "project-workspace.label.open-agent-named": {
     name: "string";
   };
-  "project-workspace.label.reset-model-named": {
-    role: "string";
   };
   "project-workspace.label.role-app-engineer": Record<never, never>;
-  "project-workspace.label.role-context-engineer": Record<never, never>;
   "project-workspace.label.role-lophn": Record<never, never>;
   "project-workspace.label.role-operators": Record<never, never>;
-  "project-workspace.notice.agent-editor-body-help": Record<never, never>;
   "project-workspace.notice.agent-editor-delete-body": Record<never, never>;
   "project-workspace.notice.agent-editor-issue": {
     code: "string";
   };
   "project-workspace.notice.agent-editor-model-help": Record<never, never>;
   "project-workspace.notice.agent-editor-save-first": Record<never, never>;
-  "project-workspace.notice.agent-editor-wider-help": Record<never, never>;
   "project-workspace.notice.agents-change-failed": Record<never, never>;
   "project-workspace.notice.agents-delete-failed": Record<never, never>;
   "project-workspace.notice.agents-save-conflict": Record<never, never>;

@@ -2,54 +2,14 @@
 import type { workspaceSettings } from "./workspace-settings.ts";
 
 export type WorkspaceSettingsPlaceholders = {
-  "settings.agents-model-catalog_auto_update.help": Record<never, never>;
-  "settings.agents-model-catalog_auto_update.name": Record<never, never>;
-  "settings.agents-run-fallback_model.help": Record<never, never>;
-  "settings.agents-run-fallback_model.name": Record<never, never>;
-  "settings.agents-run-max_minutes.help": Record<never, never>;
-  "settings.agents-run-max_minutes.name": Record<never, never>;
-  "settings.agents-run-max_tool_calls.help": Record<never, never>;
-  "settings.agents-run-max_tool_calls.name": Record<never, never>;
-  "settings.agents-run-on_limit.help": Record<never, never>;
-  "settings.agents-run-on_limit.name": Record<never, never>;
   "settings.appearance.density-help": Record<never, never>;
   "settings.appearance.reading-width-help": Record<never, never>;
   "settings.appearance.text-size-help": Record<never, never>;
   "settings.appearance.theme-help": Record<never, never>;
-  "settings.backup.app-export-failed": Record<never, never>;
-  "settings.backup.app-export-heading": Record<never, never>;
-  "settings.backup.app-export-note": Record<never, never>;
-  "settings.backup.app-export-ready": Record<never, never>;
-  "settings.backup.created": {
-    time: "string";
   };
-  "settings.backup.created-failed": Record<never, never>;
-  "settings.backup.excluded-heading": Record<never, never>;
-  "settings.backup.excluded-note": Record<never, never>;
-  "settings.backup.expand-unavailable": Record<never, never>;
-  "settings.backup.heading": Record<never, never>;
-  "settings.backup.intro": Record<never, never>;
-  "settings.backup.lost-count": {
-    count: "plural";
   };
-  "settings.backup.lost-heading": {
-    time: "string";
   };
-  "settings.backup.lost-none": Record<never, never>;
-  "settings.backup.none": Record<never, never>;
-  "settings.backup.reconnect": Record<never, never>;
-  "settings.backup.reconnect-heading": Record<never, never>;
-  "settings.backup.restore-complete": Record<never, never>;
-  "settings.backup.restore-failed": Record<never, never>;
-  "settings.backup.restore-failed-plan": Record<never, never>;
-  "settings.backup.restore-restarted": Record<never, never>;
-  "settings.backup.retained": {
-    count: "plural";
   };
-  "settings.backup.secrets-heading": Record<never, never>;
-  "settings.backup.secrets-note": Record<never, never>;
-  "settings.backup.secrets-window": Record<never, never>;
-  "settings.backup.tab-not-restoreable": Record<never, never>;
   "settings.button.add-entry": Record<never, never>;
   "settings.button.before-restore": Record<never, never>;
   "settings.button.check-security": Record<never, never>;
@@ -116,9 +76,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.add-entry": Record<never, never>;
   "settings.label.appearance-target": Record<never, never>;
   "settings.label.applies": Record<never, never>;
-  "settings.label.apply-next-call": Record<never, never>;
-  "settings.label.apply-next-work": Record<never, never>;
-  "settings.label.apply-now": Record<never, never>;
   "settings.label.available": Record<never, never>;
   "settings.label.available-no": Record<never, never>;
   "settings.label.available-yes": Record<never, never>;
@@ -174,12 +131,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-model": Record<never, never>;
   "settings.label.coding-not-checked": Record<never, never>;
   "settings.label.coding-not-found": Record<never, never>;
-  "settings.label.coding-scope-all": Record<never, never>;
-  "settings.label.coding-scope-one-app": {
-    name: "string";
   };
-  "settings.label.coding-scope-one-app-unknown": Record<never, never>;
-  "settings.label.coding-scope-pick-app": Record<never, never>;
   "settings.label.coding-sign-in-not-found": Record<never, never>;
   "settings.label.coding-sign-in-unknown": Record<never, never>;
   "settings.label.coding-signal-no": Record<never, never>;
@@ -254,10 +206,8 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.tab-diagnostics": Record<never, never>;
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
-  "settings.label.tab-notifications": Record<never, never>;
   "settings.label.tab-providers": Record<never, never>;
   "settings.label.tab-reactions": Record<never, never>;
-  "settings.label.tab-update": Record<never, never>;
   "settings.label.text-size": Record<never, never>;
   "settings.label.theme": Record<never, never>;
   "settings.label.theme-dark": Record<never, never>;
@@ -301,8 +251,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-no-connections": Record<never, never>;
   "settings.note.coding-revoke-waiting": Record<never, never>;
   "settings.note.coding-revoked-note": Record<never, never>;
-  "settings.note.coding-scope-all-note": Record<never, never>;
-  "settings.note.coding-scope-app-note": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.coding-start-note": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
@@ -315,8 +263,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.notifications.label": Record<never, never>;
   "settings.problems-detail_collection.help": Record<never, never>;
   "settings.problems-detail_collection.name": Record<never, never>;
-  "settings.projects-search-skip_patterns.help": Record<never, never>;
-  "settings.projects-search-skip_patterns.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
   "settings.reaction.context-violation-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
@@ -337,23 +283,9 @@ export type WorkspaceSettingsPlaceholders = {
     name: "string";
   };
   "settings.title.screen": Record<never, never>;
-  "settings.update.deployment-unverified": Record<never, never>;
-  "settings.update.heading": Record<never, never>;
-  "settings.update.intro": Record<never, never>;
-  "settings.update.new-version": {
-    version: "string";
     os: "string";
     current: "string";
   };
-  "settings.update.no-package": Record<never, never>;
-  "settings.update.package-unreadable": Record<never, never>;
-  "settings.update.restart-required": Record<never, never>;
-  "settings.update.schema-compatible": Record<never, never>;
-  "settings.update.schema-migration": Record<never, never>;
-  "settings.update.schema-newer": Record<never, never>;
-  "settings.update.stop-failed": Record<never, never>;
-  "settings.update.stopped": Record<never, never>;
-  "settings.update.system-mismatch": Record<never, never>;
   "settings.usage.loading": Record<never, never>;
 };
 

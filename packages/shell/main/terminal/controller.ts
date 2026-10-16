@@ -6,6 +6,7 @@ import type { BrowserWindow } from "electron";
 import {
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
+  TERMINAL_FOCUS_SESSION_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
@@ -25,7 +26,7 @@ export interface MainIpc {
 }
 
 /**
- * terminal 채널 일곱 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
+ * terminal 채널 여덟 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
  * TerminalIpc가 본다.
  */
 export function registerTerminalIpc(
@@ -41,6 +42,7 @@ export function registerTerminalIpc(
       [TERMINAL_RESTART_CHANNEL, "restart"],
       [TERMINAL_SNAPSHOT_CHANNEL, "snapshot"],
       [TERMINAL_FOCUS_CHANNEL, "focus"],
+      [TERMINAL_FOCUS_SESSION_CHANNEL, "focusSession"],
     ] as const
   ) {
     const invoke = ipc[method] as unknown as (
@@ -64,6 +66,7 @@ export function removeTerminalIpc(register: MainIpc): void {
       TERMINAL_RESTART_CHANNEL,
       TERMINAL_SNAPSHOT_CHANNEL,
       TERMINAL_FOCUS_CHANNEL,
+      TERMINAL_FOCUS_SESSION_CHANNEL,
     ]
   ) {
     register.removeHandler(channel);
@@ -93,6 +96,7 @@ export class TerminalFocusTable {
     string,
     { contents: number; generation: number | undefined }
   >();
+  readonly #waiting = new Map<string, Array<() => void>>();
 
   /**
    * 사람이 terminal_ref 탭을 골랐다. webContents id는 그때의 frame이고
@@ -106,7 +110,33 @@ export class TerminalFocusTable {
   blur(contentsId: number, terminalRef: string): void {
     if (this.#focused.get(terminalRef)?.contents === contentsId) {
       this.#focused.delete(terminalRef);
+      this.#release(terminalRef);
     }
+  }
+
+  /** 창이 닫혔다. 그 webContents가 고른 탭을 모두 놓는다. */
+  forget(contentsId: number): void {
+    for (const [terminalRef, entry] of [...this.#focused]) {
+      if (entry.contents !== contentsId) continue;
+      this.#focused.delete(terminalRef);
+      this.#release(terminalRef);
+    }
+  }
+
+  /** 사람이 그 탭에 focus해 있지 않을 때 풀린다. 이미 아니면 바로 풀린다. */
+  whenFree(terminalRef: string): Promise<void> {
+    if (!this.#focused.has(terminalRef)) return Promise.resolve();
+    return new Promise((resolve) => {
+      const waiting = this.#waiting.get(terminalRef) ?? [];
+      waiting.push(resolve);
+      this.#waiting.set(terminalRef, waiting);
+    });
+  }
+
+  #release(terminalRef: string): void {
+    const waiting = this.#waiting.get(terminalRef);
+    this.#waiting.delete(terminalRef);
+    for (const resolve of waiting ?? []) resolve();
   }
 
   /** generation을 주면 renderer가 focus를 알린 그 generation일 때만 맞다. */

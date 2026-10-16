@@ -63,23 +63,3 @@ export function registerCodingIpc(
 export function removeCodingIpc(main: Pick<CodingIpcMain, "removeHandler">) {
   main.removeHandler(CODING_CHANNEL);
 }
-
-/**
- * supervisor가 host에서 받은 줄과 host 끝남을 child 등록(coding-children)과 TUI 관측 표(ObservationStore)에
- * 같이 보낸다. 둘 다 같은 줄을 본다: child 줄은 등록기가, observation 줄은 관측 표가 받고 나머지는 무시한다.
- */
-export function hostEventSinks(
-  registrar: { onEvent(event: unknown): void; hostLost(): void },
-  store: { onEvent(event: unknown): void; hostLost(): void },
-): { onEvent(event: unknown): void; onHostLost(): void } {
-  return {
-    onEvent(event) {
-      registrar.onEvent(event);
-      store.onEvent(event);
-    },
-    onHostLost() {
-      registrar.hostLost();
-      store.hostLost();
-    },
-  };
-}

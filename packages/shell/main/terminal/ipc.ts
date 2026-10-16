@@ -8,6 +8,8 @@ import {
   terminalCloseSchema,
   type TerminalFocus,
   terminalFocusSchema,
+  type TerminalFocusSession,
+  terminalFocusSessionSchema,
   type TerminalInput,
   terminalInputSchema,
   type TerminalOpen,
@@ -57,6 +59,11 @@ export type TerminalIpc = {
   ): Promise<IpcResult<TerminalReply | TerminalSnapshotReply>>;
   /** 사람이 고른 탭이 바뀌었다. 표에 적을 뿐 host에는 보내지 않는다. */
   focus(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** 대기 목록에서 누른 coding session의 탭을 고른다. 탭이 없으면 `no_terminal`로 거절한다. */
+  focusSession(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<IpcResult<TerminalReply>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -83,6 +90,8 @@ export function createTerminalIpc(deps: {
   host: { request(message: unknown): Promise<TerminalReply> };
   /** 살아 있는 탭을 닫기 전에 사람이 확인한다. false면 runtime을 유지한다. */
   confirmClose?: (runtime: TerminalRuntime) => Promise<boolean>;
+  /** coding session ↔ 터미널 탭 표. 탭 runtime을 창에 다시 알리고 돌려준다. */
+  coding?: { reveal(session: string): TerminalRuntime | undefined };
 }): TerminalIpc {
   async function guarded<T>(
     event: IpcEvent,
@@ -216,5 +225,23 @@ export function createTerminalIpc(deps: {
       }
       return Promise.resolve({ ok: true, value: null });
     },
+    focusSession: (event, input) =>
+      guarded<TerminalFocusSession>(
+        event,
+        terminalFocusSessionSchema,
+        input,
+        (value) => {
+          const runtime = deps.coding?.reveal(value.session);
+          return Promise.resolve(
+            runtime === undefined
+              ? {
+                ok: false,
+                reason: "no_terminal",
+                message: "session has no terminal tab",
+              }
+              : { ok: true, runtime },
+          );
+        },
+      ),
   };
 }

@@ -8,8 +8,10 @@ import {
   removeTerminalIpc,
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
-import { createChildRegistrar } from "../../terminal/coding/coding-children.ts";
-import { createObservationStore } from "../../terminal/coding/coding-start.ts";
+import {
+  type CodingTerminalRequests,
+  createCodingTerminalRequests,
+} from "../../terminal/coding/requests.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
@@ -19,10 +21,10 @@ import {
 } from "../coding-connection.ts";
 import {
   createCodingIpc,
-  hostEventSinks,
   registerCodingIpc,
   removeCodingIpc,
 } from "../coding-ipc.ts";
+import { TERMINAL_STATE_CHANNEL } from "../../../ipc/terminal.ts";
 import {
   canDeliverMessages,
   canLaunch,
@@ -63,29 +65,24 @@ async function projectFolders(
 /** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor. */
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
+  /**
+   * core가 Gateway frame(`coding_terminal`)으로 보낸 요청 하나를 받는다. frame을 이 함수에 잇는 일은
+   * platform 단위가 한다. frame은 renderer로 중계하지 않는다.
+   */
+  codingTerminals: CodingTerminalRequests;
 };
 
-// lophn이 띄운 coding TUI 아래 MCP·CLI process를 host가 관측해 알리면 main이 자기 사람 credential로 core에
-// 등록·해제한다. 같은 줄이 TUI 관측(ObservationStore)도 채운다. 관측 표는 이 process의
-// 메모리라 Electron이 다시 뜨면 비고 모든 TUI는 unknown이다(자동 spawn·resume 없음).
 export function register(ctx: ShellContext): Coding {
   const { here, dataRoot, overlays, core, ipc } = ctx;
-  const codingChildren = createChildRegistrar({ core: () => core.session() });
-  const observations = createObservationStore({
-    now: () => new Date().toISOString(),
-  });
-  const hostSinks = hostEventSinks(codingChildren, observations);
   const terminals = createSupervisor({
     // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
     entry: join(here, "terminal-host.cjs"),
     spawnHost: spawnNodeHost,
-    onEvent: (event) => hostSinks.onEvent(event),
-    onHostLost: () => hostSinks.onHostLost(),
   });
 
-  // coding agent 연결과 ticket [Start]. `lophn` 실행 파일과 helper는 설치 묶음에 있다(Linux .deb의
-  // `/usr/bin/lophn`, `<설치 root>/lophn-credential`). 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고,
-  // 없으면 연결·시작은 unavailable이다. child에는 이 main의 데이터 root만 환경으로 준다.
+  // harness 감지와 skill·hook 설치. `lophn` 실행 파일은 설치 묶음에 있다(Linux .deb의 `/usr/bin/lophn`).
+  // 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고, 없으면 감지는 unavailable이다.
+  // child에는 이 main의 데이터 root만 환경으로 준다.
   function lophnCommand(): string | null {
     if (app.isPackaged) {
       return process.platform === "linux" ? "/usr/bin/lophn" : null;
@@ -113,11 +110,40 @@ export function register(ctx: ShellContext): Coding {
       ? null
       : childCliRunner({ command: lophnCli, env: cliEnv }),
   });
+  // core에 붙은 직후 감지를 한 번 읽어 알린다. 안 하면 사람이 Settings를 열기 전까지 core가 맡기기를
+  // `not_connected`로 거절한다.
+  const detectOnConnect = setInterval(() => {
+    if (core.session() !== null) {
+      clearInterval(detectOnConnect);
+      void harnessSettings.read();
+    } else if (core.state.state.startsWith("failed")) {
+      clearInterval(detectOnConnect);
+    }
+  }, 500);
 
   // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
   // folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
   // snapshot으로만 renderer에 다시 보인다.
   const terminalFocus = new TerminalFocusTable();
+  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다. skill·hook 설치는 CLI가 한다.
+  const codingTerminals = createCodingTerminalRequests({
+    supervisor: terminals,
+    focus: terminalFocus,
+    reportResult: (body) =>
+      ctx.coreInternal("memory", "coding_agent_terminals", "result", body),
+    reportExited: (body) =>
+      ctx.coreInternal("memory", "coding_agent_terminals", "exited", body),
+    runCli: lophnCli === null
+      ? null
+      : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
+    publish: (runtime) => {
+      for (const window of ctx.windows) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(TERMINAL_STATE_CHANNEL, runtime);
+        }
+      }
+    },
+  });
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
@@ -125,6 +151,7 @@ export function register(ctx: ShellContext): Coding {
       folders: (project) => projectFolders(core.session(), project),
     },
     host: terminals,
+    coding: codingTerminals,
   });
   registerTerminalIpc(ipc, terminalIpc);
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.
@@ -138,10 +165,15 @@ export function register(ctx: ShellContext): Coding {
   ctx.windowHooks.created.push((window) =>
     attachTerminalSurface(overlays.overlayRegistry(), window)
   );
+  ctx.windowHooks.closed.push((window) =>
+    terminalFocus.forget(window.contentsId)
+  );
 
   return {
     terminals,
+    codingTerminals,
     stop() {
+      clearInterval(detectOnConnect);
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);
       terminals.stop();

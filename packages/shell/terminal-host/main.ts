@@ -14,7 +14,7 @@ import {
   yieldChunk,
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
-import type { CodingAttachment, CodingHost } from "./coding-types.ts";
+import type { CodingHost } from "./coding-types.ts";
 import { RingBuffer } from "./ring-buffer.ts";
 
 export type FolderRecord = { folder_ref: string; path: string };
@@ -34,12 +34,10 @@ export type HostRequest =
     rows: number;
   }
   | {
-    // 사람이 누른 [Start]를 main이 다시 검사해 넘긴 LaunchPlan이다. host가 plan을 검사한다.
+    // core가 보낸 plan을 main이 다시 검사해 넘긴다. host가 plan을 한 번 더 검사한다.
     id: string;
     type: "open-coding";
     plan: unknown;
-    /** 설치된 helper 절대 경로. 있으면 TUI 아래 MCP·CLI process를 관측해 main에 알린다. */
-    credential_helper?: string;
     columns: number;
     rows: number;
   }
@@ -49,6 +47,8 @@ export type HostRequest =
     terminal_ref: string;
     generation: number;
     text: string;
+    /** core 요청으로 넣는 글이다. 첫 prompt 전달 표시를 바꾼다. 사람이 친 입력에는 없다. */
+    from_core?: boolean;
   }
   | {
     id: string;
@@ -75,6 +75,8 @@ export type HostDeps = {
   controlFd?: number;
   /** coding TUI 시작. 없으면 open-coding은 거절한다. */
   coding?: CodingHost;
+  /** process가 끝나 runtime이 바뀌었다. 요청의 답이 아니라 host가 먼저 알린다. */
+  onRuntime?: (runtime: TerminalRuntime) => void;
 };
 
 type Session = {
@@ -84,8 +86,6 @@ type Session = {
   group: ProcessGroup | null;
   /** 사람이 보낸 입력. 재시작 때 재생하지 않는다. */
   typed: string[];
-  /** lophn이 연 coding TUI의 관측·prompt 전달. 일반 shell에는 없다. */
-  coding?: CodingAttachment;
 };
 
 export type Host = {
@@ -102,36 +102,35 @@ export type Host = {
 
 export function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
-  /** 같은 operation_id는 같은 runtime_ref다. 다시 spawn하지 않는다. */
-  const operations = new Map<string, string>();
+  /** 같은 coding session은 같은 runtime_ref다. 다시 spawn하지 않는다. */
+  const bySession = new Map<string, string>();
   let seq = 0;
 
-  async function startCoding(
+  function startCoding(
     request: Extract<HostRequest, { type: "open-coding" }>,
-  ): Promise<TerminalReply> {
+  ): TerminalReply {
     const coding = deps.coding;
     if (!coding) {
       return reject("spawn_failed", "coding launch is not available");
     }
-    const claimed = (request.plan as { operation_id?: unknown } | null)
-      ?.operation_id;
+    const claimed = (request.plan as { session?: unknown } | null)?.session;
     const known = typeof claimed === "string"
-      ? sessions.get(operations.get(claimed) ?? "")
+      ? sessions.get(bySession.get(claimed) ?? "")
       : undefined;
     if (known) return { ok: true, runtime: { ...known.runtime } };
     const prepared = coding.prepare(request.plan, {
       env: deps.env,
-      credential_helper: request.credential_helper,
       checkFolder: deps.checkFolder,
     });
     if (!prepared.ok) return reject(prepared.reason, prepared.message);
     const { launch } = prepared;
     const plan = launch.plan;
     const terminalRef = `term_${++seq}`;
+    // plan에는 project가 없다. 탭은 앱 공간이 coding_session.app으로 고른다.
     const runtime: TerminalRuntime = {
       terminal_ref: terminalRef,
-      project: plan.project,
-      folder_ref: plan.folder_ref,
+      project: "",
+      folder_ref: "",
       cwd_at_start: launch.cwd,
       program_path: launch.file,
       launch_kind: "coding_tui",
@@ -143,47 +142,28 @@ export function createHost(deps: HostDeps): Host {
       failure_reason: null,
       output_seq: 0,
       dropped_output: false,
-      coding: {
-        operation_id: plan.operation_id,
+      coding_session: {
+        session: plan.session,
+        app: plan.app,
         ticket: plan.ticket,
-        connection: plan.connection,
-        prompt_delivery: plan.prompt_delivery.mode === "argv"
-          ? "none"
-          : "pending",
+        prompt: plan.prompt_by_argv ? "none" : "pending",
       },
+      title: plan.title,
+      product: plan.harness_id,
     };
-    const attachment = coding.attach(
-      launch,
-      { runtime_ref: terminalRef, generation: 1 },
-      (outcome) => {
-        if (runtime.coding) {
-          runtime.coding = { ...runtime.coding, prompt_delivery: outcome };
-        }
-      },
-    );
     const session: Session = {
       runtime,
       buffer: new RingBuffer(),
       handle: null,
       group: null,
       typed: [],
-      coding: attachment,
     };
-    // 동기로 먼저 잡아 두어 socket을 여는 동안 온 같은 operation_id도 같은 runtime을 본다.
-    sessions.set(terminalRef, session);
-    operations.set(plan.operation_id, terminalRef);
-    const begun = await attachment.begin();
-    if (!begun.ok) {
-      runtime.state = "exited";
-      runtime.failure_reason = "spawn_failed";
-      return { ok: true, runtime: { ...runtime } };
-    }
     try {
       const handle = deps.pty.spawn({
         file: launch.file,
         args: launch.args,
         cwd: launch.cwd,
-        env: begun.env,
+        env: launch.env,
         columns: request.columns,
         rows: request.rows,
         controlFd: deps.controlFd,
@@ -192,24 +172,22 @@ export function createHost(deps: HostDeps): Host {
       session.group = deps.pty.group(handle.pid);
       runtime.state = "running";
       handle.onData((chunk) => {
-        attachment.output(chunk);
         void acceptChunk(session, chunk);
       });
       handle.onExit((exit) => {
-        attachment.exited();
         if (runtime.state === "unknown" || runtime.exit_code !== null) return;
         runtime.state = "exited";
         runtime.exit_code = exit.exitCode;
         runtime.dropped_output = session.buffer.dropped;
         session.handle = null;
+        endPrompt(session);
+        deps.onRuntime?.({ ...runtime });
       });
-      attachment.spawned((text) => handle.write(text), handle.pid);
     } catch {
-      attachment.abandon();
-      runtime.state = "exited";
-      runtime.failure_reason = "spawn_failed";
-      runtime.exit_code = null;
+      return reject("spawn_failed", "coding TUI could not be started");
     }
+    sessions.set(terminalRef, session);
+    bySession.set(plan.session, terminalRef);
     return { ok: true, runtime: { ...runtime } };
   }
 
@@ -281,6 +259,7 @@ export function createHost(deps: HostDeps): Host {
         runtime.exit_code = exit.exitCode;
         runtime.dropped_output = session.buffer.dropped;
         session.handle = null;
+        deps.onRuntime?.({ ...runtime });
       });
     } catch {
       runtime.state = "exited";
@@ -289,6 +268,12 @@ export function createHost(deps: HostDeps): Host {
       return { ok: true, runtime: { ...runtime } };
     }
     return { ok: true, runtime: { ...runtime } };
+  }
+
+  /** 첫 prompt를 기다리다 끝났다. 넣지 못한 것이다. */
+  function endPrompt(session: Session): void {
+    const coding = session.runtime.coding_session;
+    if (coding?.prompt === "pending") coding.prompt = "not_delivered";
   }
 
   async function acceptChunk(session: Session, chunk: string): Promise<void> {
@@ -378,6 +363,10 @@ export function createHost(deps: HostDeps): Host {
         }
         session.typed.push(request.text);
         session.handle.write(request.text);
+        const coding = session.runtime.coding_session;
+        if (request.from_core && coding?.prompt === "pending") {
+          coding.prompt = "delivered";
+        }
         return { ok: true, runtime: { ...session.runtime } };
       }
       if (request.type === "resize") {
@@ -391,7 +380,7 @@ export function createHost(deps: HostDeps): Host {
       }
       if (request.type === "close") return stop(session, deps.sleep);
       if (request.type === "restart") {
-        // coding TUI는 자동 resume·재spawn이 없다. 사람이 새 [Start]를 눌러야 한다.
+        // coding TUI는 자동 resume·재spawn이 없다. 새 맡기기만 새 탭을 연다.
         if (session.runtime.launch_kind === "coding_tui") {
           return reject(
             "spawn_failed",
@@ -475,8 +464,8 @@ function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
   session.handle = null;
   session.buffer.clear();
   session.typed.length = 0;
-  if (confirmed) session.coding?.exited();
-  else session.coding?.lost("종료를 확인하지 못했다");
+  const coding = session.runtime.coding_session;
+  if (coding?.prompt === "pending") coding.prompt = "not_delivered";
   return { ok: true, runtime: { ...session.runtime } };
 }
 

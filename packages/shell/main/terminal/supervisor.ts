@@ -17,7 +17,14 @@ export type HostProcess = {
 
 export type SpawnHost = (entry: string) => HostProcess;
 
+/** host에서 온 runtime(요청의 답에 실린 것과 process가 끝났다는 줄)과 host가 사라진 일을 듣는다. */
+export type SupervisorListener = {
+  runtime?(runtime: TerminalRuntime): void;
+  hostLost?(): void;
+};
+
 export type Supervisor = {
+  on(listener: SupervisorListener): () => void;
   request(message: unknown): Promise<TerminalReply>;
   note(runtime: TerminalRuntime): void;
   runtimes(): readonly TerminalRuntime[];
@@ -28,11 +35,8 @@ export type Supervisor = {
 export function createSupervisor(options: {
   spawnHost: SpawnHost;
   entry: string;
-  /** host가 요청의 답이 아니라 먼저 보낸 줄(coding TUI 관측). id 없는 `event` 줄이다. */
-  onEvent?: (event: unknown) => void;
-  /** host가 끝났거나 멈췄다. 그 host가 연 runtime의 관측은 unknown이 된다. */
-  onHostLost?: () => void;
 }): Supervisor {
+  const listeners = new Set<SupervisorListener>();
   // 창이 뜨자마자 host를 띄우지 않는다. 첫 요청이 child를 만든다.
   let child: HostProcess | undefined;
   const pending = new Map<string, (reply: TerminalReply) => void>();
@@ -53,17 +57,18 @@ export function createSupervisor(options: {
 
   function refreshRuntime(runtime: TerminalRuntime): void {
     const known = runtimes.get(runtime.terminal_ref);
-    if (
-      known === undefined || known.generation < runtime.generation ||
-      known.state === "unknown" || known.state === "exited"
-    ) {
+    if (known === undefined || known.generation <= runtime.generation) {
       runtimes.set(runtime.terminal_ref, runtime);
     }
   }
 
+  function hostLost(): void {
+    for (const listener of listeners) listener.hostLost?.();
+  }
+
   function onExit(): void {
     lost = true;
-    options.onHostLost?.();
+    hostLost();
     for (const [id, resolve] of pending) {
       pending.delete(id);
       resolve({
@@ -85,7 +90,6 @@ export function createSupervisor(options: {
   function onLine(line: string): void {
     let parsed: {
       id?: string;
-      event?: unknown;
       reply?: TerminalReply;
       runtime?: TerminalRuntime;
     };
@@ -94,12 +98,9 @@ export function createSupervisor(options: {
     } catch {
       return;
     }
-    if (parsed.event !== undefined) {
-      options.onEvent?.(parsed);
-      return;
-    }
     if (parsed.runtime) {
       refreshRuntime(parsed.runtime);
+      for (const listener of listeners) listener.runtime?.(parsed.runtime);
     }
     if (parsed.id && parsed.reply) {
       const resolve = pending.get(parsed.id);
@@ -136,6 +137,10 @@ export function createSupervisor(options: {
   }
 
   return {
+    on(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     request(message) {
       const type = (message as { type?: unknown } | null)?.type;
       // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
@@ -166,7 +171,7 @@ export function createSupervisor(options: {
             message: "generation does not match",
           });
         }
-        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 [Start]만 있다.
+        // coding TUI는 자동 resume·재spawn이 없고 shell로 바뀌지도 않는다. 새 맡기기만 새 탭을 연다.
         if (terminal.launch_kind === "coding_tui") {
           return Promise.resolve({
             ok: false,
@@ -200,7 +205,7 @@ export function createSupervisor(options: {
     },
     stop() {
       lost = true;
-      options.onHostLost?.();
+      hostLost();
       try {
         child?.kill("SIGTERM");
       } catch {

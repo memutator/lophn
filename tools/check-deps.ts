@@ -88,8 +88,7 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 // 새 계약으로 바뀌어 곧 지울 옛 file이다. 이 file의 import는 protocol 순환에 세지 않는다.
 // 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
 const LEAVING_FILES = new Set([
-  "packages/protocol/coding-agent/cli-decisions.ts",
-  "packages/protocol/coding-agent/mcp-decisions.ts",
+
   "packages/protocol/lophn-agent/question-submission.ts",
   "packages/protocol/lophn-agent/run-wait.ts",
   "packages/protocol/server/registration.ts",

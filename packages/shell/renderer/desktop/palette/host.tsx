@@ -22,7 +22,7 @@ import type { OverlayApi } from "../../../ipc/overlay.ts";
 import type { ShortcutApi } from "../../../ipc/shortcuts.ts";
 import { currentPlatform, type WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
-import type { DocumentFound } from "./model.ts";
+import type { FileFound } from "./model.ts";
 import {
   type PaletteOpener,
   paletteOpener,
@@ -30,16 +30,16 @@ import {
 } from "./session.ts";
 import styles from "./palette.module.css";
 
-/** 문서 검색(documents 검색 contract). place가 있으면 그 자리 문서만 찾는다. */
-export type DocumentSearch = (
+/** project 키워드 검색. place가 있으면 그 project에서만, 없으면 모든 project에서 찾는다. */
+export type FileSearch = (
   query: string,
   place: { readonly kind: "project"; readonly id: string } | null,
-) => Promise<readonly DocumentFound[]>;
+) => Promise<readonly FileFound[]>;
 
 export interface PaletteDeps {
   readonly overlay: OverlayApi;
   readonly shortcuts: ShortcutApi;
-  readonly search?: DocumentSearch;
+  readonly search?: FileSearch;
   readonly timer?: Timer;
   readonly platform?: WindowPlatform;
 }
@@ -53,7 +53,7 @@ interface PaletteHub {
    */
   openGlobal(scope: PaletteScope<unknown>): void;
   readonly platform: WindowPlatform;
-  readonly search?: DocumentSearch;
+  readonly search?: FileSearch;
   /** overlay·shortcut 통로가 있어 팔레트를 열 수 있다. */
   readonly available: boolean;
 }
@@ -161,11 +161,11 @@ export function useGlobalPalette(): (scope: PaletteScope<unknown>) => void {
   return (scope) => hub?.openGlobal(scope);
 }
 
-/** 이 창에 팔레트가 있는지, 지금 OS(키 이름)와 문서 검색. 공간의 scope가 쓴다. */
+/** 이 창에 팔레트가 있는지, 지금 OS(키 이름)와 파일 검색. 공간의 scope가 쓴다. */
 export function usePaletteEnv(): {
   available: boolean;
   platform: WindowPlatform;
-  search?: DocumentSearch;
+  search?: FileSearch;
 } {
   const hub = useContext(PaletteContext);
   return {

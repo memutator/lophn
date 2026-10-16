@@ -1,36 +1,44 @@
 // Lophn Workspace, 런처, 시작 실패의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { WorkspaceWithoutProject } from "../workspace-page.tsx";
-import { MISSING_FOLDER } from "./data.ts";
-import { ProjectsScreen } from "./projects-screen.tsx";
-import { SubfolderPicker } from "./subfolder-picker.tsx";
-import { TopToast } from "./top-toast.tsx";
+import { MISSING_FOLDER } from "../../../../../packages/shell/renderer/desktop/lophn-space/projects/testdata/fake-projects.ts";
+import { click, fill, first, last } from "./drive.ts";
 
 /** Projects: 목록(보관한 project 포함)과 상세. */
 export const WorkspaceProjects = () => <WorkspaceWithoutProject />;
 
 /** Projects: 등록한 폴더 하나가 사라진 상태. 알림은 탭 위쪽 toast다. */
 export const WorkspaceFolderMissing = () => (
-  <WorkspaceWithoutProject
-    body={<ProjectsScreen missingFolder={MISSING_FOLDER} />}
-    overlay={
-      <TopToast
-        title="A registered folder is missing"
-        body={`${MISSING_FOLDER} was moved or deleted. Work that needs this folder waits until you choose its new location.`}
-        action="Choose new location"
-      />
-    }
-  />
+  <WorkspaceWithoutProject missingFolder={MISSING_FOLDER} />
 );
 
 /** Projects: 하위 폴더를 더하는 dialog. 고르기는 등록 폴더 안으로만 열린다. */
 export const WorkspaceSubfolderAdd = () => (
-  <WorkspaceWithoutProject overlay={<SubfolderPicker />} />
+  <WorkspaceWithoutProject
+    global
+    steps={[
+      click(first("[data-add-subfolder]")),
+      click(first('[data-expand="src"]')),
+      click(first('[data-pick="src/tools"]')),
+      fill(
+        first("[data-subfolder-new-description]"),
+        "Small command-line helpers",
+      ),
+    ]}
+  />
 );
 
 /** Projects: 하위 폴더의 설명을 고쳤고 하나를 뺀 상태. */
 export const WorkspaceSubfolderEdit = () => (
-  <WorkspaceWithoutProject body={<ProjectsScreen editSubfolders />} />
+  <WorkspaceWithoutProject
+    steps={[
+      fill(
+        first("[data-subfolder-description]"),
+        "Experiment runs, results and score tables",
+      ),
+      click(last("[data-remove-subfolder]")),
+    ]}
+  />
 );
 
 /** Apps. */
@@ -43,17 +51,7 @@ export const SettingsGeneral = () => (
 
 /** Settings › General: 필수 설정이 비어 그 기능만 시작하지 않는 상태. 알림은 탭 위쪽 toast다. */
 export const SettingsRequiredEmpty = () => (
-  <WorkspaceWithoutProject
-    screen="settings"
-    pane="general"
-    overlay={
-      <TopToast
-        title="Default model is not set"
-        body="lophn and the project agents do not start until a default model is chosen. Everything else keeps working."
-        action="Choose in Agents"
-      />
-    }
-  />
+  <WorkspaceWithoutProject screen="settings" pane="general" requiredEmpty />
 );
 
 /** Settings › Appearance. */

@@ -37,6 +37,7 @@ import type { RailAction } from "./sidebar/rail.tsx";
 import { ContextSidebar } from "./contexts/context-sidebar.tsx";
 import {
   agentByRole,
+  type KnownSessions,
   panelSessions,
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
@@ -163,6 +164,37 @@ export function Workspace(props: WorkspaceProps) {
   const { sessions: sessionStates } = useSessions();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
   const agentViewSource = props.agentViewSource;
+  // sidebar session 줄의 제목과 시각. session store는 싣지 않아 agent마다 대화 source의 session 목록에서 읽는다.
+  const [knownSessions, setKnownSessions] = useState<KnownSessions>(
+    new Map(),
+  );
+  const sessionIds = sessionStates.map((entry) => entry.session).join();
+  useEffect(() => {
+    if (agentViewSource === undefined) return;
+    let live = true;
+    void Promise.all(sidebarAgents.agents.map(async (row) => {
+      const read = await agentViewSource({
+        assignment: row.assignment,
+        place: row.role === "lophn"
+          ? { kind: "global", id: "" }
+          : { kind: "project", id: projectId },
+      }).sessions();
+      return read.ok ? read.value : [];
+    })).then((lists) => {
+      if (!live) return;
+      setKnownSessions(
+        new Map(
+          lists.flat().map((entry) => [entry.id, {
+            title: entry.title,
+            at: Date.parse(entry.activeAt) || 0,
+          }]),
+        ),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [agentViewSource, sidebarAgents.agents, projectId, sessionIds]);
   // 앱 패널 view가 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
@@ -653,7 +685,6 @@ export function Workspace(props: WorkspaceProps) {
   usePaletteScope(() =>
     workspaceScope({
       view,
-      documents: [],
       files: loaded.files,
       contexts: contextList,
       terminal: terminal !== undefined,
@@ -713,6 +744,7 @@ export function Workspace(props: WorkspaceProps) {
               sessionStates,
               sidebarAgents.agents,
               projectId,
+              knownSessions,
             )}
             current={currentTab?.kind === "document_editor"
               ? currentTab.key

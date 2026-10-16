@@ -47,7 +47,7 @@ import {
 import type { DraftStore } from "./drafts.ts";
 import type { ContextLinks } from "./file-links.tsx";
 import { AgentHeader } from "./header/agent-header.tsx";
-import { QuestionCard } from "./question-card/ask-card.tsx";
+import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RecapCard } from "./recap/recap-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";

@@ -11,15 +11,12 @@ import { t } from "@lophn/wording";
 import { lophnSpaceIcons } from "../../../icons/mod.ts";
 
 import { RegisterDialog } from "../../launcher/register-dialog.tsx";
-import type { LophnSource } from "../source.ts";
 import { ProjectDetail } from "./project-detail.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./projects.module.css";
 
 export interface ProjectsScreenProps {
   source: ProjectsSource;
-  /** 안 쓴다. 옛 호출 모양을 위해 남겼다. */
-  lophn?: LophnSource;
 }
 
 type Rows =

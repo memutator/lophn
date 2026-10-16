@@ -1,7 +1,11 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
+import { useSessions } from "./connection/events/hooks.tsx";
+import { ToastHost } from "./connection/toasts/toast-host.tsx";
+import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
+import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { Launcher } from "./launcher/launcher.tsx";
 import {
   LAUNCHER,
@@ -28,20 +32,22 @@ import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
+import type { ProjectsRead } from "../app-frame/project-picker.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
 import type { SettingsSource } from "./lophn-space/settings/source.ts";
 import type { SettingsPanels } from "./lophn-space/settings/settings-screen.tsx";
-import type { CodingConnectionsSource } from "./lophn-space/settings/connections/source.ts";
+import { applyTheme } from "./lophn-space/settings/appearance/model.ts";
 import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
+import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 
 export interface DesktopProps {
   source: CoreSource;
-  /** 창을 연 자리. 기본 창은 런처다. */
+  /** 창이 처음 여는 화면. 기본 창은 런처다. */
   initial?: Route;
   formatTime?: (confirmedAt: number) => string;
   /** 프로젝트 작업대 통로. project 공간에서만 쓴다. */
@@ -52,38 +58,76 @@ export interface DesktopProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
   terminal?: TerminalDeps;
-  /** lophn 공간 통로. 없으면 lophn 공간 대신 런처를 보인다. */
+  /** Lophn Workspace의 팔레트 통로. 없으면 Workspace 대신 런처를 보인다. */
   lophn?: LophnSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
-  /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
+  /** 런처의 프로젝트 카드·등록 통로. 없으면 카드는 비었음 상태다. */
   projects?: LauncherSource;
   /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
   instructions?: InstructionsSource;
-  /** Projects 화면 통로. 없으면 Projects는 준비 전 안내다. */
+  /** Projects 화면 통로. 앱 공간의 project 고르기도 이 목록을 쓴다. 없으면 Projects는 준비 전 안내다. */
   projectsSource?: ProjectsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
   /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
-  /** settings의 진단 탭 통로. 없는 탭은 두지 않는다. */
+  /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
   /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
   views?: LophnShellViewsApi;
-  /** 앱 공간의 새 창 열기와 OS 앱 바로가기 통로. */
-  appWindows?: LophnAppWindowsApi;
+  /** shell preload의 Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
+  annotate?: LophnShellAnnotateApi;
   /** [Report a problem] 통로. 앱 공간 바의 버튼이 쓴다. */
   feedback?: LophnShellFeedbackBegin;
-  /** settings의 coding agent 연결 통로. 없으면 그 탭을 두지 않는다. */
-  coding?: CodingConnectionsSource;
   /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
   agentViewSource?: AgentViewSourceFactory;
+  /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
+  overlay?: OverlayApi;
+}
+
+// toast 행동의 기본 처리. 지금 보이는 화면이 처리하지 못한 행동(그 화면이 false를 돌렸다)을 다른 화면으로 가서
+// 연다. 화면의 처리기보다 먼저 등록돼야(목록에서 뒤에 서야) 화면이 먼저 처리하니, 화면보다 앞에 그린다.
+function DefaultToastHandler(
+  { openSession, goProject, goApp }: {
+    openSession: (session: string) => void;
+    goProject: (route: Route) => void;
+    goApp: (app: string) => void;
+  },
+) {
+  const { setOpen } = useWaitingPanel();
+  const latest = useRef({ openSession, goProject, goApp });
+  latest.current = { openSession, goProject, goApp };
+  useEffect(() =>
+    registerToastActionHandler((action) => {
+      const current = latest.current;
+      switch (action.kind) {
+        case "waiting":
+          setOpen(true);
+          return true;
+        case "session":
+          if (action.session !== null) {
+            current.openSession(action.session);
+            return true;
+          }
+          // 앱의 App Engineer session은 아직 없다. 그 앱 공간으로 간다.
+          if (action.app === undefined) return false;
+          current.goApp(action.app);
+          return true;
+        case "project-manager":
+          current.goProject(openProject(action.project, {
+            projectManager: { context: action.context, check: action.check },
+          }));
+          return true;
+      }
+    }), [setOpen]);
+  return null;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -107,51 +151,113 @@ export function Desktop(
     settingsPanels,
     appDetail,
     views,
-    appWindows,
+    annotate,
     feedback,
-    coding,
     issues,
     agentViewSource,
+    overlay,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
-  // things-to-confirm으로 간 횟수. 이미 lophn 공간이어도 그 형제를 다시 연다.
+  // 같은 화면이어도 다시 열게 하는 횟수. Workspace의 화면은 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
   const lophnSpace = () => setRoute(openLophn());
-  // lophn 공간의 형제로 간다. 이미 lophn 공간이어도 그 자리를 다시 연다.
+  // Workspace 화면으로 간다. 이미 Workspace여도 그 화면을 다시 연다.
   const visit = (next: Route) => {
     setVisits((value) => value + 1);
     setRoute(next);
   };
-  const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
-  // 앱 행은 그 앱 공간으로 간다. 앱 통로가 없는 창은 apps 형제 화면으로 간다.
+  // 앱 행은 그 앱 공간으로 간다. 앱 통로가 없는 창은 apps 화면으로 간다.
   const appSpace = (app: string) =>
     apps ? setRoute(openApp(app)) : visit(openLophn("apps"));
-  // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다.
-  const confirmTarget = (request?: string) =>
-    request === undefined
-      ? thingsToConfirm()
-      : visit({ ...openLophn("things-to-confirm"), request });
-  // 회수 링크(`cac_`). 그 연결의 화면만 열고 결정 창은 사람이 누를 때 연다. 그 밖의 링크는 things-to-confirm으로 간다.
-  const codingTarget = (target: string) => {
-    if (target.startsWith("cac_")) {
-      visit({ ...openLophn("settings"), connection: target });
-    } else thingsToConfirm();
-  };
   // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
   const issueTarget = (app: string, problem: string) => {
     setVisits((value) => value + 1);
     setRoute({ ...openApp(app), issueProblem: problem });
   };
-  // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다.
+  // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: LophnTarget) => {
     if (target.kind === "launcher") launcher();
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "screen") visit(openLophn(target.screen));
     else if (target.kind === "app") appSpace(target.id);
-    else visit(openLophn("projects"));
+    else setRoute(openProject(target.project, { open: target.file }));
   };
+
+  // session을 그 session이 있는 창에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간이다.
+  // place가 없는 lophn의 session은 마지막으로 연 project 창에서 연다. project를 연 적이 없으면 Projects로 간다.
+  const { sessions } = useSessions();
+  const lastProject = useRef<string | null>(null);
+  useEffect(() => {
+    if (route.space === "project" && route.project) {
+      lastProject.current = route.project;
+    }
+  }, [route]);
+  const known = useRef(sessions);
+  known.current = sessions;
+  const openSession = (session: string) => {
+    const place = known.current.find((entry) => entry.session === session)
+      ?.place;
+    if (place?.kind === "project") {
+      setRoute(openProject(place.id, { session }));
+    } else if (place?.kind === "app") setRoute(openApp(place.id, session));
+    else if (lastProject.current !== null) {
+      setRoute(openProject(lastProject.current, { session }));
+    } else visit(openLophn("projects"));
+  };
+  // coding agent 카드의 [Answer in terminal]. 그 session의 탭이 이 창에도 main에도 없으면 그 session의 창으로 간 뒤 다시 고른다.
+  const [focusRequest, setFocusRequest] = useState<{ session: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (focusRequest !== null) {
+      void terminal?.store.focusSession(focusRequest.session);
+    }
+  }, [focusRequest]);
+  const answerInTerminal = (session: string) => {
+    void (async () => {
+      if (
+        terminal !== undefined && await terminal.store.focusSession(session)
+      ) {
+        return;
+      }
+      openSession(session);
+      setFocusRequest({ session });
+    })();
+  };
+
+  // 앱 공간의 project 고르기 목록. Projects 화면과 같은 통로로 읽는다.
+  const projectsRead = useMemo<ProjectsRead | undefined>(
+    () =>
+      projectsSource === undefined ? undefined : async () => {
+        const read = await projectsSource.list();
+        return read.ok
+          ? {
+            ok: true,
+            value: read.value.filter((row) => !row.archived).map((row) => ({
+              id: row.id,
+              name: row.title,
+              folder: row.folders[0]?.path ?? "",
+            })),
+          }
+          : { ok: false };
+      },
+    [projectsSource],
+  );
+
+  // 저장한 theme을 시작할 때 적용한다. core가 준비되면 읽는다.
+  const appearance = settingsPanels?.appearance;
+  useEffect(() => {
+    if (appearance === undefined) return;
+    return appearance.watch((state) => {
+      if (state.state !== "ready") return;
+      void appearance.values().then((read) => {
+        if (read.ok) applyTheme(read.value.theme);
+      });
+    });
+  }, [appearance]);
+
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
@@ -173,6 +279,7 @@ export function Desktop(
               place: route.project!,
             }))
           : undefined}
+        onOpenApp={apps ? appSpace : undefined}
         editor={editor}
         terminal={terminal}
         agentViewSource={agentViewSource}
@@ -200,7 +307,6 @@ export function Desktop(
         app={route.app}
         source={apps}
         views={views}
-        windows={appWindows}
         feedback={feedback}
         detail={appDetail}
         issues={issues}
@@ -214,9 +320,12 @@ export function Desktop(
           : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
-        onDocuments={() => visit(openLophn("projects"))}
-        onOpenResult={() => visit(openLophn("projects"))}
-        onThingsToConfirm={thingsToConfirm}
+        annotate={annotate}
+        projects={projectsRead}
+        overlay={overlay}
+        terminal={terminal}
+        session={route.session}
+        onOpenSession={openSession}
       />
     );
   } else if (route.space === "lophn" && lophn) {
@@ -225,19 +334,22 @@ export function Desktop(
         key={visits}
         source={lophn}
         screen={route.screen}
-        initialRequest={route.request}
+        settingsPane={route.settingsPane}
         projectsSource={projectsSource}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
+        onOpenFile={(project, file) =>
+          setRoute(openProject(project, { open: file }))}
         apps={apps}
         onApp={appSpace}
         settings={settings}
         settingsPanels={settingsPanels}
-        coding={coding}
         onInstructions={instructions
           ? () => setRoute(openInstructions({ layer: "global" }))
           : undefined}
+        onOpenSession={openSession}
+        onAnswerInTerminal={answerInTerminal}
       />
     );
   } else {
@@ -250,20 +362,26 @@ export function Desktop(
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
         onApp={appSpace}
+        onOpenSession={openSession}
+        onAnswerInTerminal={answerInTerminal}
       />
     );
   }
-  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 같은 자리에서 받는다.
+  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   return (
     <PaletteProvider deps={palette} onLauncher={launcher}>
+      <DefaultToastHandler
+        openSession={openSession}
+        goProject={setRoute}
+        goApp={(app) => setRoute(openApp(app))}
+      />
       {space}
+      {overlay ? <ToastHost overlay={overlay} /> : null}
       {intents
         ? (
           <DesktopIntents
             intents={intents}
             lophn={lophn}
-            onThingsToConfirm={confirmTarget}
-            onCoding={codingTarget}
             onIssue={issueTarget}
             go={go}
           />

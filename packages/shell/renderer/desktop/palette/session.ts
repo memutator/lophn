@@ -24,7 +24,7 @@ export interface PaletteScope<T> {
   readonly order: readonly PaletteGroup[];
   /** 검색어 없이도 아는 행(열린 탭·목록·행동). */
   entries(): readonly PaletteEntry<T>[];
-  /** 검색어로 찾는 문서(documents 검색). 실패는 빈 목록이다. */
+  /** 검색어로 찾는 파일. 실패는 빈 목록이다. */
   search?(query: string): Promise<readonly PaletteEntry<T>[]>;
   choose(target: T): void;
 }

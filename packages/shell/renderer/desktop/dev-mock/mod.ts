@@ -1,7 +1,7 @@
 // 개발 확인 전용. 주소에 `mock`이 있을 때만 Desktop의 모든 통로를 메모리 가짜로 채워 core 없이
 // 모든 화면을 보게 한다(`deno task dev:mock`). 제품 경로는 주소 flag 없이 이 값을 만들지 않고,
 // 가짜 통로는 core·파일·keychain·coding agent에 닿지 않는다.
-import type { LophnAppWindowsApi } from "../../../ipc/app-window.ts";
+import type { LophnShellAnnotateApi } from "../../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../../ipc/feedback.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
@@ -15,30 +15,25 @@ import type { CoreSource } from "../connection/connection.ts";
 import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
-import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
+import type { ProjectsSource } from "../lophn-space/projects/source.ts";
 import type { LophnSource } from "../lophn-space/source.ts";
+import { lophnSource } from "../lophn-space/core-source.ts";
+import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
-import {
-  mockApps,
-  mockCoding,
-  mockSettings,
-  mockSettingsPanels,
-} from "./admin.ts";
+import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
 import {
   mockAppDetail,
   mockAppViews,
-  mockAppWindows,
   mockFeedback,
   mockIssues,
   mockViews,
 } from "./app-space.ts";
 import { mockAgentViewSource } from "./agent.ts";
 import { mockCore, mockEvents } from "./requests.ts";
-import { mockLophn } from "./lophn.ts";
-import { mockInstructions, mockLauncher } from "./launcher.ts";
+import { mockInstructions, mockLauncher, mockProjects } from "./launcher.ts";
 
 export interface DevMock {
   readonly core: CoreSource;
@@ -46,16 +41,18 @@ export interface DevMock {
   readonly workspace: WorkspaceSource;
   /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
   readonly editor: Omit<EditorDeps, "menu">;
+  /** 팔레트의 project·앱 행. */
   readonly lophn: LophnSource;
+  /** Projects 화면과 앱 공간의 project 고르기. 런처 카드와 같은 project다. */
+  readonly projectsSource: ProjectsSource;
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
-  readonly coding: CodingConnectionsSource;
   readonly issues: IssuesSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
+  readonly annotate: LophnShellAnnotateApi;
   readonly appViews: AppViewsDeps;
-  readonly appWindows: LophnAppWindowsApi;
   readonly feedback: LophnShellFeedbackBegin;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentViewSourceFactory;
@@ -79,6 +76,8 @@ export function devMock(
   const bench = seedWorkbench();
   const launcher = mockLauncher();
   const views = mockViews();
+  const projectsSource = mockProjects();
+  const apps = mockApps();
   return {
     core: mockCore(),
     launcher,
@@ -108,16 +107,16 @@ export function devMock(
       },
     },
     editor: bench.editor,
-    lophn: mockLophn(),
-    apps: mockApps(),
+    lophn: lophnSource(projectsSource, apps),
+    projectsSource,
+    apps,
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
-    coding: mockCoding(),
     issues: mockIssues(),
     appDetail: mockAppDetail(),
     views,
+    annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
-    appWindows: mockAppWindows(),
     feedback: mockFeedback(),
     agentViewSource: mockAgentViewSource(),
     events: mockEvents(),

@@ -1,5 +1,6 @@
 import type { InstructionsPlace } from "../../ipc/instructions.ts";
 import type { LophnScreen } from "./lophn-space/model.ts";
+import type { SettingsPane } from "./lophn-space/settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
 export type Space = "launcher" | "lophn" | "project" | "app" | "instructions";
@@ -10,18 +11,23 @@ export interface Route {
   readonly project?: string;
   /** app 공간의 앱 id. 다른 공간은 없다. */
   readonly app?: string;
-  /** lophn 공간의 형제. 없으면 documents다. */
+  /** Lophn Workspace의 화면. 없으면 projects다. */
   readonly screen?: LophnScreen;
+  /** Settings에서 처음 보일 항목. 없으면 General이다. */
+  readonly settingsPane?: SettingsPane;
   /** instructions 공간이 여는 지침 층. settings·project-workspace·app-detail의 [Instructions]가 쓴다. */
   readonly instructions?: InstructionsPlace;
-  /** documents 화면에서 바로 읽을 문서. 전역 팔레트의 문서 행이 쓴다. */
-  readonly read?: { readonly document: string; readonly version: string };
-  /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
-  readonly request?: string;
-  /** settings에서 먼저 보일 coding agent 연결. `lophn://things-to-confirm/<cac id>` 링크가 쓴다. */
-  readonly connection?: string;
   /** app 공간에서 Issues 탭으로, 고른 채 열 문제. report-problem dialog의 [View issue]가 쓴다. */
   readonly issueProblem?: string;
+  /** project·app 공간에서 열어 시작할 session. */
+  readonly session?: string;
+  /** project 공간에서 그 project의 Project Manager를 위반(context와 검사)을 붙여 열어 시작한다. */
+  readonly projectManager?: {
+    readonly context: string;
+    readonly check: string;
+  };
+  /** project 공간에서 열어 시작할 파일. path는 디스크의 절대 경로다. */
+  readonly open?: { readonly path: string; readonly line?: number };
 }
 
 export const LAUNCHER: Route = { space: "launcher" };
@@ -36,17 +42,20 @@ export function routeTitle(route: Route): string {
 
 export function openLophn(
   screen?: LophnScreen,
-  read?: Route["read"],
+  settingsPane?: SettingsPane,
 ): Route {
   if (screen === undefined) return { space: "lophn" };
-  return read === undefined
+  return settingsPane === undefined
     ? { space: "lophn", screen }
-    : { space: "lophn", screen, read };
+    : { space: "lophn", screen, settingsPane };
 }
 
 /** 프로젝트 작업대로 이동한다. */
-export function openProject(project: string): Route {
-  return { space: "project", project };
+export function openProject(
+  project: string,
+  start: Pick<Route, "session" | "projectManager" | "open"> = {},
+): Route {
+  return { space: "project", project, ...start };
 }
 
 /** [Instructions] 편집기로 이동한다. */
@@ -55,6 +64,8 @@ export function openInstructions(place: InstructionsPlace): Route {
 }
 
 /** 앱 공간으로 이동한다. */
-export function openApp(app: string): Route {
-  return { space: "app", app };
+export function openApp(app: string, session?: string): Route {
+  return session === undefined
+    ? { space: "app", app }
+    : { space: "app", app, session };
 }

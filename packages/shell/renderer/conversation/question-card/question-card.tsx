@@ -1,117 +1,82 @@
+// composer 위 질문 카드와 답한 뒤 대화에 남는 접힌 요약. 질문은 한 번에 하나만 보이고 ‹ 1 of N ›로 넘긴다.
+// 기한, 추천, Skip은 없고 Other는 늘 붙는다. 답을 기다리는 동안 agent는 멈춰 있고, 사람이 그냥 메시지를
+// 보내도 묶음은 끝난다.
 import {
   type KeyboardEvent,
   type ReactElement,
-  useId,
+  type ReactNode,
   useRef,
   useState,
 } from "react";
 import { Button, Icon, iconPixels, Kbd } from "@lophn/design/components";
-import { confirmIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
-
+import { lophnSpaceIcons } from "../../icons/mod.ts";
+import type {
+  AnsweredLine,
+  AskedQuestion,
+  QuestionAnswer,
+  QuestionOutcome,
+} from "../agent-tab-source.ts";
 import {
   answerOf,
-  completeAnswers,
-  type GroupAnswer,
+  answersOf,
+  NO_PICK,
+  OTHER_MAX,
   type Pick,
-  QUESTION_CARD_SPREAD_MAX,
-  type QuestionGroupView,
-  type QuestionView,
-  type Remaining,
-  remainingOf,
-} from "./model.ts";
+  togglePick,
+  typeOther,
+} from "./ask-model.ts";
 import styles from "./question-card.module.css";
 
 export interface QuestionCardProps {
-  group: QuestionGroupView;
-  /** 지금 시각(epoch ms). 기한의 남은 시간을 이 값으로 센다. 시각은 주입한다. */
-  now: number;
-  /** true이면 보내기·Skip을 막는다(연결이 끊겼거나 접수 중). */
-  disabled?: boolean;
-  /**
-   * 모든 질문에 답한 뒤 [Submit]을 누르면 질문 순서대로 답 전부를 한 번에 넘긴다.
-   * 선택만으로는 부르지 않는다.
-   */
-  onSubmit: (answers: readonly GroupAnswer[]) => void;
-  /** [Skip]: 묶음 전체를 답 없이 미룬다(DeferQuestionGroup). */
-  onSkip: () => void;
+  /** 묻는 agent의 이름. */
+  agent: string;
+  questions: readonly AskedQuestion[];
+  /** 답 전부를 한 번에 낸다. 접수되었는지 돌려준다. */
+  onSubmit: (answers: readonly QuestionAnswer[]) => Promise<boolean>;
 }
 
-function remainingText(remaining: Exclude<Remaining, { unit: "now" }>): string {
-  switch (remaining.unit) {
-    case "days-hours":
-      return t("conversation.label.duration-days-hours", remaining);
-    case "hours-minutes":
-      return t("conversation.label.duration-hours-minutes", remaining);
-    case "minutes":
-      return t("conversation.label.duration-minutes", remaining);
-  }
-}
-
-function expiryText(expiresAt: string, now: number): string {
-  const remaining = remainingOf(expiresAt, now);
-  return remaining.unit === "now"
-    ? t("conversation.label.question-expires-now")
-    : t("conversation.label.question-expires", {
-      remaining: remainingText(remaining),
-    });
-}
-
-// 대화 안 질문 묶음 카드. 질문이 QUESTION_CARD_SPREAD_MAX 이하이면 모두 펼치고 넘으면 "1 of N"으로
-// 하나씩 넘긴다. 선택지에 번호 키와 추천 표시, 마지막에 Other, 아래에 "Work is paused until you
-// answer"와 Skip·Submit을 둔다. 기한이 있으면 남은 시간을 보이고 머리의 Details를
-// 펼치면 질문의 자세한 이유(reason)를 보인다.
 export function QuestionCard(
-  { group, now, disabled = false, onSubmit, onSkip }: QuestionCardProps,
+  { agent, questions, onSubmit }: QuestionCardProps,
 ): ReactElement {
-  const titleId = useId();
   const root = useRef<HTMLElement>(null);
-  const [picks, setPicks] = useState<Record<string, Pick | undefined>>({});
-  const [texts, setTexts] = useState<Record<string, string>>({});
-  const [page, setPage] = useState(0);
-  const [detailed, setDetailed] = useState(false);
+  const [picks, setPicks] = useState<Record<string, Pick>>({});
+  const [index, setIndex] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  const total = group.questions.length;
-  const paged = total > QUESTION_CARD_SPREAD_MAX;
-  const visible = paged ? [group.questions[page]] : group.questions;
-  const answers = completeAnswers(group, picks, texts);
+  const question = questions[index];
+  const pick = picks[question.id] ?? NO_PICK;
+  const last = index === questions.length - 1;
+  const answers = answersOf(questions, picks);
 
-  const pick = (question: QuestionView, chosen: Pick) => {
-    setPicks((current) => ({ ...current, [question.id]: chosen }));
-  };
-  const focusOther = (question: QuestionView) => {
-    root.current?.querySelector<HTMLInputElement>(
-      `[data-question="${question.id}"] [data-option-other] input`,
-    )?.focus();
-  };
+  const change = (next: Pick) =>
+    setPicks((current) => ({ ...current, [question.id]: next }));
+  const toggle = (label: string | null) =>
+    change(togglePick(question, pick, label));
 
-  // 번호 키는 누른 자리가 속한 질문에 간다. 자리가 질문 밖이면 하나씩 넘기는 카드는 보이는 질문,
-  // 모두 펼친 카드는 첫 미답 질문이다. 글을 쓰는 중의 숫자는 번호 키가 아니다.
+  async function submit() {
+    if (answers === null) return;
+    setBusy(true);
+    setFailed(false);
+    const done = await onSubmit(answers);
+    setBusy(false);
+    setFailed(!done);
+  }
+
+  // 번호 키는 글을 쓰는 중이 아닐 때만 선택지를 누른다.
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
       return;
     }
     if (!/^[1-9]$/.test(event.key)) return;
-    const target = event.target as HTMLElement;
-    if (target.closest("input, textarea")) return;
-    const owner = target.closest<HTMLElement>("[data-question]")?.dataset
-      .question;
-    const question = visible.find((candidate) => candidate.id === owner) ??
-      (paged ? visible[0] : visible.find((candidate) =>
-        answerOf(
-          candidate,
-          picks[candidate.id],
-          texts[candidate.id] ?? "",
-        ) ===
-          null
-      ));
-    if (question === undefined) return;
+    if ((event.target as HTMLElement).closest("input, textarea")) return;
     const number = Number(event.key);
     if (number <= question.options.length) {
-      pick(question, { kind: "option", key: question.options[number - 1].key });
+      toggle(question.options[number - 1].label);
     } else if (number === question.options.length + 1) {
-      pick(question, { kind: "other" });
-      focusOther(question);
+      toggle(null);
+      root.current?.querySelector<HTMLInputElement>("input")?.focus();
     } else return;
     event.preventDefault();
   };
@@ -120,216 +85,241 @@ export function QuestionCard(
     <section
       ref={root}
       className={styles.card}
-      aria-labelledby={titleId}
-      data-question-card=""
+      aria-label={t("conversation.label.question-card", { agent })}
       onKeyDown={onKeyDown}
     >
       <header className={styles.head}>
-        <Icon icon={confirmIcons.question} pixels={iconPixels("base")} />
-        <span id={titleId} className={styles.title}>
-          {t("conversation.label.question-asking", {
-            agent: group.agentName,
-            count: total,
-          })}
+        <span className={styles.title}>
+          {t("conversation.title.question-asking", { agent })}
         </span>
-        {group.expires_at === null
-          ? null
-          : (
-            <span className={styles.expiry} data-question-expiry="">
-              {expiryText(group.expires_at, now)}
-            </span>
-          )}
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-expanded={detailed}
-          onClick={() => setDetailed(!detailed)}
-        >
-          {t("conversation.button.question-details")}
-        </Button>
-      </header>
-      <div className={styles.body}>
-        {visible.map((question) => (
-          <QuestionBlock
-            key={question.id}
-            question={question}
-            pick={picks[question.id]}
-            text={texts[question.id] ?? ""}
-            detailed={detailed}
-            onPick={(chosen) => pick(question, chosen)}
-            onText={(text) => {
-              setTexts((current) => ({ ...current, [question.id]: text }));
-              pick(question, { kind: "other" });
-            }}
-            onOtherClick={() => {
-              pick(question, { kind: "other" });
-              focusOther(question);
-            }}
-          />
-        ))}
-      </div>
-      {paged
-        ? (
-          <nav className={styles.pager}>
+        {questions.length === 1 ? null : (
+          <span className={styles.nav}>
             <Button
               size="sm"
               variant="ghost"
-              disabled={page === 0}
-              onClick={() => setPage(page - 1)}
+              aria-label={t("conversation.label.question-previous")}
+              disabled={index === 0}
+              onClick={() => setIndex(index - 1)}
             >
-              {t("common.button.back")}
+              ‹
             </Button>
-            <span data-question-progress="">
+            <span className={styles.count}>
               {t("conversation.label.request-position", {
-                current: page + 1,
-                total,
+                current: index + 1,
+                total: questions.length,
               })}
             </span>
             <Button
               size="sm"
               variant="ghost"
-              disabled={page === total - 1}
-              onClick={() => setPage(page + 1)}
+              aria-label={t("conversation.label.question-following")}
+              disabled={last}
+              onClick={() => setIndex(index + 1)}
             >
-              {t("conversation.button.question-next")}
+              ›
             </Button>
-          </nav>
-        )
-        : null}
-      <footer className={styles.foot}>
-        <span className={styles.paused}>
-          {t("conversation.label.question-paused")}
-        </span>
-        <Button size="sm" disabled={disabled} onClick={onSkip}>
-          {t("conversation.button.question-skip")}
-        </Button>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={disabled || answers === null}
-          onClick={() => {
-            if (!disabled && answers !== null) onSubmit(answers);
-          }}
-        >
-          {t("conversation.button.question-submit")}
-        </Button>
-      </footer>
-    </section>
-  );
-}
-
-interface QuestionBlockProps {
-  question: QuestionView;
-  pick: Pick | undefined;
-  text: string;
-  detailed: boolean;
-  onPick: (pick: Pick) => void;
-  onText: (text: string) => void;
-  onOtherClick: () => void;
-}
-
-function QuestionBlock(
-  { question, pick, text, detailed, onPick, onText, onOtherClick }:
-    QuestionBlockProps,
-) {
-  const otherChosen = pick?.kind === "other";
-  return (
-    <div className={styles.question}>
-      <p className={styles.prompt}>{question.prompt}</p>
-      {detailed
-        ? (
-          <p className={styles.reason} data-question-reason="">
-            {question.reason}
-          </p>
-        )
-        : null}
-      <div
-        className={styles.options}
-        role="radiogroup"
-        aria-label={question.prompt}
-        data-question={question.id}
-      >
-        {question.options.map((option, index) => {
-          const chosen = pick?.kind === "option" && pick.key === option.key;
-          return (
-            <button
-              key={option.key}
-              type="button"
-              role="radio"
-              aria-checked={chosen}
-              className={styles.option}
-              data-option={option.key}
-              onClick={() => onPick({ kind: "option", key: option.key })}
-            >
-              <span className={styles.optionText}>
-                <span className={styles.optionName}>
-                  {option.label}
-                  {question.recommendation?.option_key === option.key
-                    ? (
-                      <span className={styles.recommended} data-recommended="">
-                        {t("conversation.label.question-recommended")}
-                      </span>
-                    )
-                    : null}
-                </span>
-                {option.description === ""
-                  ? null
-                  : (
-                    <span className={styles.optionDetail}>
-                      {option.description}
-                    </span>
-                  )}
-              </span>
-              <Kbd keys={[String(index + 1)]} />
-            </button>
-          );
-        })}
+          </span>
+        )}
+      </header>
+      <div className={styles.body}>
         <div
-          className={styles.option}
-          role="radio"
-          aria-checked={otherChosen}
-          tabIndex={0}
-          data-option-other=""
-          onClick={(event) => {
-            if (event.target === event.currentTarget) onOtherClick();
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              (event.key === "Enter" || event.key === " ")
-            ) {
-              event.preventDefault();
-              onOtherClick();
-            }
-          }}
+          key={question.id}
+          className={styles.ask}
+          role={question.multiSelect ? "group" : "radiogroup"}
+          aria-label={question.question}
         >
-          <span className={styles.otherRow}>
-            <span className={styles.optionName}>
+          <p className={styles.askHead}>
+            <span className={styles.tag}>{question.header}</span>
+            {question.multiSelect
+              ? (
+                <span className={styles.multi}>
+                  {t("conversation.label.question-pick-any")}
+                </span>
+              )
+              : null}
+          </p>
+          <p className={styles.text}>{question.question}</p>
+          {question.options.map((option, position) => (
+            <Choice
+              key={option.label}
+              multi={question.multiSelect}
+              checked={pick.labels.includes(option.label)}
+              number={position + 1}
+              onClick={() => toggle(option.label)}
+            >
+              <span className={styles.choiceLabel}>{option.label}</span>
+              <span className={styles.choiceDesc}>{option.description}</span>
+            </Choice>
+          ))}
+          <Choice
+            multi={question.multiSelect}
+            checked={pick.other}
+            number={question.options.length + 1}
+            onClick={() => toggle(null)}
+          >
+            <span className={styles.choiceLabel}>
               {t("common.label.other")}
             </span>
             <input
               className={styles.otherInput}
               aria-label={t("conversation.label.question-own-answer", {
-                prompt: question.prompt,
+                prompt: question.question,
               })}
               placeholder={t(
                 "conversation.label.question-own-answer-placeholder",
               )}
-              value={text}
-              onFocus={() => onPick({ kind: "other" })}
-              onChange={(event) => onText(event.currentTarget.value)}
+              maxLength={OTHER_MAX}
+              value={pick.text}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) =>
+                change(typeOther(question, pick, event.currentTarget.value))}
             />
-          </span>
-          <Kbd keys={[String(question.options.length + 1)]} />
+          </Choice>
         </div>
       </div>
-      {question.recommendation === null
-        ? null
-        : (
-          <p className={styles.why} data-recommendation="">
-            {question.recommendation.explanation}
-          </p>
-        )}
+      <footer className={styles.foot}>
+        <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>
+          {failed
+            ? t("conversation.notice.answer-failed")
+            : t("conversation.notice.question-waiting")}
+        </p>
+        {last
+          ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy || answers === null}
+              onClick={submit}
+            >
+              {t("conversation.button.question-submit")}
+            </Button>
+          )
+          : (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={answerOf(question, pick) === null}
+              onClick={() => setIndex(index + 1)}
+            >
+              {t("conversation.button.question-next")}
+            </Button>
+          )}
+      </footer>
+    </section>
+  );
+}
+
+function Choice(
+  { multi, checked, number, onClick, children }: {
+    multi: boolean;
+    checked: boolean;
+    number: number;
+    onClick: () => void;
+    children: ReactNode;
+  },
+) {
+  return (
+    <div
+      className={styles.choice}
+      role={multi ? "checkbox" : "radio"}
+      aria-checked={checked}
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === "Enter" || event.key === " ")
+        ) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <span
+        className={multi ? styles.checkBox : styles.radioDot}
+        data-on={checked ? "" : undefined}
+        aria-hidden="true"
+      >
+        {checked && multi ? "✓" : null}
+      </span>
+      <span className={styles.choiceText}>{children}</span>
+      <Kbd keys={[String(number)]} />
+    </div>
+  );
+}
+
+export interface QuestionSummaryProps {
+  outcome: QuestionOutcome;
+  /** 질문 순서대로 header와 답. */
+  lines: readonly AnsweredLine[];
+}
+
+/** 풀린 묶음이 대화에 남는 접힌 요약. 사람 메시지로 끝난 묶음은 늘 펼쳐 고른 답이 없음을 보인다. */
+export function QuestionSummary(
+  { outcome, lines }: QuestionSummaryProps,
+): ReactElement {
+  const [open, setOpen] = useState(false);
+  const submitted = outcome === "submitted";
+  const shown = open || !submitted;
+  return (
+    <div className={styles.summary}>
+      <button
+        type="button"
+        className={styles.summaryHead}
+        aria-expanded={shown}
+        disabled={!submitted}
+        onClick={() => setOpen(!open)}
+      >
+        {submitted
+          ? (
+            <Icon
+              icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+              pixels={iconPixels("small")}
+            />
+          )
+          : null}
+        <span>
+          {submitted
+            ? (
+              <>
+                <span className={styles.ok}>✓</span>{" "}
+                {t("conversation.label.questions-answered", {
+                  count: lines.length,
+                })}
+              </>
+            )
+            : outcome === "cancelled"
+            ? t("conversation.label.question-cancelled")
+            : t("conversation.label.questions-ended-by-message")}
+        </span>
+      </button>
+      {shown
+        ? (
+          <ul className={styles.summaryList}>
+            {outcome === "human_message"
+              ? (
+                <li className={styles.summaryPlain}>
+                  {t("conversation.notice.questions-ended-by-message")}
+                </li>
+              )
+              : null}
+            {lines.map((line) => (
+              <li key={line.header}>
+                <span className={styles.summaryKey}>{line.header}</span>
+                {line.answer !== null
+                  ? line.answer
+                  : (
+                    <span className={styles.summaryNone}>
+                      {submitted
+                        ? t("conversation.label.question-answered-elsewhere")
+                        : t("conversation.label.question-no-answer")}
+                    </span>
+                  )}
+              </li>
+            ))}
+          </ul>
+        )
+        : null}
     </div>
   );
 }

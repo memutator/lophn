@@ -12,7 +12,7 @@ import {
   openProject,
   type Route,
 } from "./router.ts";
-import { coreLophnSource } from "./lophn-space/core-source.ts";
+import { lophnSource } from "./lophn-space/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -25,22 +25,23 @@ import {
 } from "../app-frame/app-views.tsx";
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
-import { documentSearch } from "./palette/search.ts";
+import { fileSearch } from "./palette/search.ts";
+import { coreFileSearchSource } from "../workspace/search/core-source.ts";
+import { createEventClient } from "./connection/events/client.ts";
+import { EventsProvider } from "./connection/events/hooks.tsx";
 import { ConversationProvider } from "../conversation/window-deps.tsx";
 import { coreAgentViewSourceFactory } from "../conversation/agent-core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
-import {
-  RequestDrafts,
-  RequestsProvider,
-} from "./lophn-space/things-to-confirm/context.tsx";
-import { coreRequestSource } from "./lophn-space/things-to-confirm/core-source.ts";
 import {
   coreLauncherSource,
   windowFolderPicker,
 } from "./launcher/core-source.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
+import { coreProjectsSource } from "./lophn-space/projects/core-source.ts";
 import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
+import { coreAppearanceSource } from "./lophn-space/settings/appearance/core-source.ts";
+import { coreReactionsSource } from "./lophn-space/settings/reactions/core-source.ts";
 import { coreProviderSettingsSource } from "./lophn-space/settings/providers/core-source.ts";
 import { coreAgentsSettingsSource } from "./lophn-space/settings/agents/core-source.ts";
 import { coreDiagnosticsSource } from "./lophn-space/settings/diagnostics/core-source.ts";
@@ -51,7 +52,7 @@ import {
 } from "./lophn-space/settings/connections/core-source.ts";
 import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
@@ -64,32 +65,34 @@ const seed = mock ? null : devSeed();
 const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
 const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
-const lophn = mock?.lophn ?? coreLophnSource(core);
-// projects 화면의 정리(이름·보관·문서 이동·export·파일로 두기와 빼기).
+// 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
+const events = createEventClient(mock?.events ?? core);
+// Projects 화면과 앱 공간의 project 고르기.
+const projectsSource = mock?.projectsSource ??
+  coreProjectsSource(core, windowFolderPicker());
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
+// 팔레트의 project·앱 행.
+const lophn = mock?.lophn ?? lophnSource(projectsSource, apps);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
-// settings의 Providers(계정과 인증)·Agents(모든 project의 기본값) 자리와 진단 탭.
-// key·로그인 응답은 보호 창이 받는다.
+// settings 항목마다의 통로. key·로그인 응답은 보호 창이 받고, coding agent 감지는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const settingsPanels = mock?.settingsPanels ?? {
   providers: coreProviderSettingsSource(core),
   agents: coreAgentsSettingsSource(core),
   diagnostics: coreDiagnosticsSource(core),
+  reactions: coreReactionsSource(core),
+  appearance: coreAppearanceSource(core),
+  coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),
 };
-// coding agent 연결(settings). 감지·연결은 main이 따로 검증하는 통로(`lophnCoding`)다.
-const codingApi = mock ? undefined : windowCodingApi();
-const coding = mock?.coding ?? coreCodingConnectionsSource(core, {
-  coding: codingApi,
-});
 const issues = mock?.issues ?? coreIssuesSource(core);
 // 런처의 프로젝트 카드·등록과 작업대는 제품 core 통로로 읽고 쓴다.
 const projects = mock?.launcher ??
   coreLauncherSource(core, windowFolderPicker());
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다. provider 끊김 줄의
-// 행동은 lophn 공간 settings로 간다.
+// 행동은 Settings로 간다.
 const conversation = {
   drafts: new DraftStore(),
   onSettings: () => {
@@ -99,22 +102,14 @@ const conversation = {
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource = mock?.agentViewSource ??
   coreAgentViewSourceFactory(core);
-// 창마다 하나인 질문·approval 통로와 고르던 답. things-to-confirm·chip이 같이 쓴다.
-const requests = {
-  source: coreRequestSource(core),
-  drafts: new RequestDrafts(),
-};
-// 개발 확인용 시작 자리. `#settings`면 settings 형제부터 연다. `#lophn`이면 lophn 공간(projects)부터,
-// `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
-// 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다.
+// 개발 확인용 시작 화면. `#settings`면 Settings부터 연다. `#lophn`이면 Lophn Workspace(Projects)부터,
+// `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 Apps부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash === "#lophn"
   ? openLophn()
-  : location.hash === "#things-to-confirm"
-  ? openLophn("things-to-confirm")
   : location.hash === "#projects"
   ? openLophn("projects")
   : location.hash.startsWith("#project=")
@@ -144,14 +139,18 @@ const bridges = globalThis as {
   lophnShell?:
     & OverlayApi
     & Partial<LophnShellViewsApi>
+    & Partial<LophnShellAnnotateApi>
     & Partial<LophnShellFeedbackBegin>;
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
-  lophnAppWindows?: LophnAppWindowsApi;
 };
 const views: LophnShellViewsApi | undefined = mock?.views ??
   (typeof bridges.lophnShell?.openApp === "function"
     ? bridges.lophnShell as LophnShellViewsApi
+    : undefined);
+const annotate: LophnShellAnnotateApi | undefined = mock?.annotate ??
+  (typeof bridges.lophnShell?.setMode === "function"
+    ? bridges.lophnShell as LophnShellAnnotateApi
     : undefined);
 const feedback: LophnShellFeedbackBegin | undefined = mock?.feedback ??
   (typeof bridges.lophnShell?.beginFeedback === "function"
@@ -162,7 +161,7 @@ const palette: PaletteDeps | undefined =
     ? {
       overlay: bridges.lophnShell,
       shortcuts: bridges.lophnShortcuts,
-      search: documentSearch(lophn),
+      search: fileSearch(lophn, coreFileSearchSource(core)),
     }
     : undefined;
 
@@ -177,7 +176,7 @@ mount(
   <div className={styles.root}>
     <AppViewsProvider value={appViews}>
       <ConversationProvider deps={conversation}>
-        <RequestsProvider deps={requests}>
+        <EventsProvider client={events}>
           <Desktop
             source={core}
             initial={start}
@@ -188,20 +187,21 @@ mount(
             lophn={lophn}
             palette={palette}
             projects={projects}
+            projectsSource={projectsSource}
             intents={bridges.lophnIntents}
             apps={apps}
             settings={settings}
             settingsPanels={settingsPanels}
-            coding={coding}
             issues={issues}
             appDetail={appDetail}
             views={views}
-            appWindows={mock?.appWindows ?? bridges.lophnAppWindows}
+            annotate={annotate}
+            overlay={bridges.lophnShell}
             feedback={feedback}
             instructions={mock?.instructions ?? windowInstructionsSource()}
             agentViewSource={agentViewSource}
           />
-        </RequestsProvider>
+        </EventsProvider>
       </ConversationProvider>
     </AppViewsProvider>
   </div>,

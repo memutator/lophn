@@ -287,9 +287,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   ),
   "lophn-projects": () => <MockDesktop route={openLophn("projects")} />,
   "lophn-apps": () => <MockDesktop route={openLophn("apps")} />,
-  "lophn-things-to-confirm": () => (
-    <MockDesktop route={openLophn("things-to-confirm")} />
-  ),
   "settings-connections": () => settings("connections"),
   "settings-coding": () => settings("coding"),
   "settings-extensions": () => settings("extensions"),

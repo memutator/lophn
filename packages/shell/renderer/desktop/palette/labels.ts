@@ -12,8 +12,6 @@ export function groupLabel(group: PaletteGroup): string {
   switch (group) {
     case "tabs":
       return t("common.heading.palette-tabs");
-    case "documents":
-      return t("common.heading.palette-documents");
     case "files":
       return t("common.heading.palette-files");
     case "contexts":

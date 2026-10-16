@@ -8,7 +8,6 @@ import {
 } from "@lophn/design/components";
 import {
   appSpaceIcons,
-  confirmIcons,
   connectionFailedIcon,
   connectionStaleIcon,
   conversationIcons,
@@ -528,7 +527,6 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
     file: "conversation-icons.ts",
     icons: conversationIcons,
   },
-  { title: "confirmIcons", file: "confirm-icons.ts", icons: confirmIcons },
   {
     title: "chrome-icons",
     file: "chrome-icons.ts",

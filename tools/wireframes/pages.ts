@@ -76,7 +76,6 @@ export type ScreenId =
   | "launcher-schema-failed"
   | "lophn-projects"
   | "lophn-apps"
-  | "lophn-things-to-confirm"
   | "settings-connections"
   | "settings-coding"
   | "settings-extensions"
@@ -465,13 +464,6 @@ export const PAGES: readonly WireframePage[] = [
     ["connect-apps", "new-app"],
     "lophn 공간의 Apps. 설치한 앱의 상태와 열기, 앱 공간으로 가는 길이 한 목록에 있다.",
     "lophn-apps",
-  ),
-  now(
-    "lophn-things-to-confirm",
-    "Lophn Workspace · Things to confirm",
-    ["answer-question", "approve-action"],
-    "lophn 공간의 Things to confirm. agent의 질문과 approval이 한 곳에 모이고, 기다리는 것이 먼저 보인다.",
-    "lophn-things-to-confirm",
   ),
   now(
     "settings-connections",

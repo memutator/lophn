@@ -7,7 +7,7 @@ import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { WorkspaceWithoutProject } from "../workspace-page.tsx";
-import { Driven, ToolsPane } from "../workspace-settings.tsx";
+import { Driven } from "../workspace-settings.tsx";
 import { bySelector, byText, type Step } from "./drive.ts";
 
 const SIDEBAR = { foldersClosed: true } as const;
@@ -91,11 +91,7 @@ export const SettingsConnectPage = () => (
   </Driven>
 );
 
-/** Settings › Tools and skills. settings-shell이 ToolsPane을 이을 때까지 이 항목만 본문을 끼운다. */
+/** Settings › Tools and skills. */
 export const SettingsToolsPage = () => (
-  <WorkspaceWithoutProject
-    screen="settings"
-    pane="tools"
-    panes={{ tools: <ToolsPane /> }}
-  />
+  <WorkspaceWithoutProject screen="settings" pane="tools" />
 );

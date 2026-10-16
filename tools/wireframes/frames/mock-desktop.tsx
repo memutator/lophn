@@ -1,8 +1,7 @@
 // 진짜 Desktop 화면을 mock 데이터로 그린다. 조립은 packages/shell/renderer/desktop/entry.tsx의 mock
 // 갈래와 같다. entry는 import하면 바로 mount하므로 이 gallery가 같은 조립을 따로 둔다. 앱 코드는
 // 고치지 않고, preload가 없는 일반 browser에 없는 통로(터미널 PTY, overlay)만 여기서 채운다.
-import { useEffect, useMemo } from "react";
-import { t } from "@lophn/wording";
+import { useMemo } from "react";
 
 import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
 import {
@@ -15,16 +14,15 @@ import {
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   LAUNCHER,
+  openLophn,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
+import type { SettingsPane } from "../../../packages/shell/renderer/desktop/lophn-space/settings/model.ts";
+import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
 import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
-import {
-  RequestDrafts,
-  RequestsProvider,
-} from "../../../packages/shell/renderer/desktop/lophn-space/things-to-confirm/context.tsx";
-import { fakeRequests } from "../../../packages/shell/renderer/desktop/lophn-space/things-to-confirm/testdata/fake-source.ts";
 import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
 import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { fakeTerminal } from "./fake-terminal.ts";
@@ -58,7 +56,7 @@ export interface MockDesktopProps {
   readonly emptyLauncher?: boolean;
   /** 이 core 연결 상태를 고정한다(시작 실패 화면). */
   readonly core?: CoreSource;
-  /** Settings에서 열 탭. 탭이 화면 안 상태라서 화면이 뜬 뒤 눌러 고른다. */
+  /** Settings에서 처음 보일 항목. 주면 route 대신 Settings를 연다. */
   readonly settingsTab?: SettingsTab;
 }
 
@@ -74,44 +72,22 @@ function layoutOf(panes: readonly PaneSpec[]) {
   };
 }
 
-const SETTINGS_TAB = {
-  connections: "settings.label.tab-connections",
-  coding: "settings.label.tab-coding",
-  extensions: "settings.label.tab-extensions",
-  general: "settings.label.tab-general",
-  diagnostics: "settings.label.tab-diagnostics",
-} as const;
+// 옛 Settings 탭 이름을 지금 Settings 항목으로 옮긴다.
+const SETTINGS_PANE = {
+  connections: "providers",
+  coding: "coding",
+  extensions: "tools",
+  general: "general",
+  diagnostics: "diagnostics",
+} as const satisfies Record<string, SettingsPane>;
 
-export type SettingsTab = keyof typeof SETTINGS_TAB;
-
-// settings 탭은 화면 안 상태라서 props로 고를 수 없다. 뜬 뒤 그 탭을 눌러 준다. 아직 안 떴으면
-// false를 돌려 다시 해 본다.
-function pressSettingsTab(value: SettingsTab): boolean {
-  const label = t(SETTINGS_TAB[value]);
-  const candidates = [
-    ...document.querySelectorAll<HTMLElement>('[role="tab"], button, a'),
-  ];
-  const tab =
-    candidates.find((item) => item.id.endsWith(`-trigger-${value}`)) ??
-      candidates.find((item) => item.textContent?.trim() === label);
-  if (!tab) return false;
-  tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
-  tab.click();
-  return true;
-}
+export type SettingsTab = keyof typeof SETTINGS_PANE;
 
 export function MockDesktop(props: MockDesktopProps) {
-  const { route = LAUNCHER, panes, openTerminal, core } = props;
-  const { settingsTab, emptyLauncher } = props;
-  useEffect(() => {
-    if (settingsTab === undefined) return;
-    let tries = 0;
-    const timer = setInterval(() => {
-      tries += 1;
-      if (pressSettingsTab(settingsTab) || tries > 60) clearInterval(timer);
-    }, 50);
-    return () => clearInterval(timer);
-  }, [settingsTab]);
+  const { panes, openTerminal, core, settingsTab, emptyLauncher } = props;
+  const route = settingsTab === undefined
+    ? props.route ?? LAUNCHER
+    : openLophn("settings", SETTINGS_PANE[settingsTab]);
   const wiring = useMemo(() => {
     const mock = devMock("?mock") as DevMock;
     const workspace = panes === undefined ? mock.workspace : {
@@ -141,10 +117,7 @@ export function MockDesktop(props: MockDesktopProps) {
       workspace,
       terminal,
       conversation: { drafts: new DraftStore(), onSettings: () => {} },
-      requests: {
-        source: fakeRequests({ requests: [] }).source,
-        drafts: new RequestDrafts(),
-      },
+      events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
   }, [panes, openTerminal, emptyLauncher]);
@@ -152,7 +125,7 @@ export function MockDesktop(props: MockDesktopProps) {
   return (
     <AppViewsProvider value={mock.appViews}>
       <ConversationProvider deps={wiring.conversation}>
-        <RequestsProvider deps={wiring.requests}>
+        <EventsProvider client={wiring.events}>
           <Desktop
             source={core ?? mock.core}
             initial={route}
@@ -161,18 +134,18 @@ export function MockDesktop(props: MockDesktopProps) {
             terminal={wiring.terminal}
             lophn={mock.lophn}
             projects={wiring.projects}
+            projectsSource={mock.projectsSource}
             apps={mock.apps}
             settings={mock.settings}
             settingsPanels={wiring.settingsPanels}
-            coding={mock.coding}
             issues={mock.issues}
             appDetail={mock.appDetail}
             views={mock.views}
-            appWindows={mock.appWindows}
+            annotate={mock.annotate}
             feedback={mock.feedback}
             instructions={mock.instructions}
           />
-        </RequestsProvider>
+        </EventsProvider>
       </ConversationProvider>
     </AppViewsProvider>
   );

@@ -1,4 +1,4 @@
-/* legacy lophn Shell sidebar: 바탕보다 한 단 낮은 면, 오른쪽 경계, 48px 머리 줄, 32px 행. */
+/* Lophn Workspace sidebar: 바탕보다 한 단 낮은 면, 오른쪽 경계, 위쪽 바와 같은 높이의 머리 줄, 40px 행. */
 .sidebar {
   box-sizing: border-box;
   display: flex;
@@ -12,7 +12,7 @@
   font-family: var(--font-sans);
 }
 
-/* 상단 바와 같은 줄에 놓이고 창 끌기 영역이다. */
+/* 위쪽 바와 높이가 같고 아래 경계선이 위쪽 바의 경계선과 한 줄로 이어진다. 창 끌기 영역이다. */
 .header {
   box-sizing: border-box;
   display: flex;
@@ -20,8 +20,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  height: var(--space-11);
+  height: var(--window-top-bar);
   padding: var(--space-0) var(--space-4) var(--space-0) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-base);
   -webkit-app-region: drag;
 }
 
@@ -133,4 +134,54 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 줄은 넉넉한 높이와 간격을 쓴다. 고른 줄은 둥근 배경이다. */
+.navList.navList {
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5) var(--space-6);
+}
+
+.navRow.navRow {
+  height: var(--space-10);
+  gap: var(--space-5);
+  padding: var(--space-0) var(--space-5);
+  border-radius: var(--radius-md);
+}
+
+/* 열 방향 li 안에서 flex:1이 높이를 0으로 만들지 않게 한다. */
+.navItem > .navRow.navRow {
+  flex: none;
+  align-self: stretch;
+}
+
+.navItem {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.subList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-5);
+}
+
+.subList .navList.navList {
+  padding: var(--space-0);
+}
+
+.navGroup {
+  margin: var(--space-0) var(--space-0) var(--space-2);
+  padding: var(--space-0) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.collapsed .navRow.navRow {
+  width: var(--space-10);
+  padding: var(--space-0);
 }

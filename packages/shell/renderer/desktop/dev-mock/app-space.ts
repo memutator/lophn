@@ -1,6 +1,6 @@
 // mock 모드의 앱 공간 통로. 운영 패널(app-detail)·Issues는 화면 테스트의 가짜 통로이고, 앱
-// view는 main의 native view 대신 본문 자리에 안내 상자를 올리는 가짜 통로다. 새 창·바로가기·
-// [Report a problem]은 아무것도 열지 않고 성공만 답한다.
+// view는 main의 native view 대신 본문 위에 안내 상자를 올리는 가짜 통로다. [Report a problem]은 아무것도 열지 않고
+// 성공만 답한다.
 import { fakeDetail } from "../../app-frame/app-detail/testdata/fake-source.ts";
 import { fakeIssues } from "../../app-frame/app-detail/issues/testdata/fake-source.ts";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
@@ -9,7 +9,6 @@ import type {
   AppFrameViewState,
   LophnShellViewsApi,
 } from "../../../ipc/app-frame.ts";
-import type { LophnAppWindowsApi } from "../../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../../ipc/feedback.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import { APP_BUDGET, APP_PLANNER } from "./ids.ts";
@@ -22,11 +21,6 @@ export function mockAppDetail(): AppDetailSource {
 
 export function mockIssues(): IssuesSource {
   return fakeIssues().source;
-}
-
-export function mockAppWindows(): LophnAppWindowsApi {
-  const done = () => Promise.resolve({ ok: true as const });
-  return { openWindow: done, addShortcut: done, removeShortcut: done };
 }
 
 export function mockFeedback(): LophnShellFeedbackBegin {

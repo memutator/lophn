@@ -53,8 +53,8 @@ const ICONS: Readonly<Record<string, IconType>> = {
   archive: lophnSpaceIcons.archive,
   compact: editorIcons.compareChangesOnly,
   fork: editorIcons.compare,
-  mcp: settingsIcons.connections,
-  skills: settingsIcons.extensions,
+  mcp: settingsIcons.providers,
+  skills: settingsIcons.tools,
   permissions: lophnSpaceIcons.settings,
   recap: conversationIcons.result,
   "new-app": lophnSpaceIcons.apps,
@@ -64,8 +64,8 @@ const ICONS: Readonly<Record<string, IconType>> = {
 };
 
 function iconOf(entry: SlashEntryView): IconType {
-  if (entry.source === "skill") return settingsIcons.extensions;
-  return ICONS[entry.name] ?? settingsIcons.extensions;
+  if (entry.source === "skill") return settingsIcons.tools;
+  return ICONS[entry.name] ?? settingsIcons.tools;
 }
 
 // 글자가 단어 머리에서 맞는 곳을 굵게 한다. 거르기가 단어 머리 기준이라 같은 기준으로 맞춘다.

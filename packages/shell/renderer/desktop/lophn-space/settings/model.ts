@@ -4,7 +4,7 @@ import { formatDate, type MessageKey, t } from "@lophn/wording";
 
 import type { LucideIcon } from "lucide-react";
 
-import { paneIcons } from "./pane-icons.ts";
+import { settingsIcons } from "../../../icons/mod.ts";
 import type { AuthWay, ServerAuth } from "./source.ts";
 
 /** Settings의 항목. sidebar의 Settings 아래에 고르는 줄로 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
@@ -42,12 +42,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       {
         id: "general",
         label: "settings.label.tab-general",
-        icon: paneIcons.general,
+        icon: settingsIcons.general,
       },
       {
         id: "appearance",
         label: "settings.label.tab-appearance",
-        icon: paneIcons.appearance,
+        icon: settingsIcons.appearance,
       },
     ],
   },
@@ -58,22 +58,22 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       {
         id: "providers",
         label: "settings.label.tab-providers",
-        icon: paneIcons.providers,
+        icon: settingsIcons.providers,
       },
       {
         id: "agents",
         label: "settings.label.tab-agents",
-        icon: paneIcons.agents,
+        icon: settingsIcons.agents,
       },
       {
         id: "tools",
         label: "settings.label.tab-extensions",
-        icon: paneIcons.tools,
+        icon: settingsIcons.tools,
       },
       {
         id: "coding",
         label: "settings.label.tab-coding",
-        icon: paneIcons.coding,
+        icon: settingsIcons.coding,
       },
     ],
   },
@@ -84,12 +84,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       {
         id: "reactions",
         label: "settings.label.tab-reactions",
-        icon: paneIcons.reactions,
+        icon: settingsIcons.reactions,
       },
       {
         id: "diagnostics",
         label: "settings.label.tab-diagnostics",
-        icon: paneIcons.diagnostics,
+        icon: settingsIcons.diagnostics,
       },
     ],
   },

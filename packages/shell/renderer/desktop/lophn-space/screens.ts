@@ -8,7 +8,6 @@ import type { LophnScreen } from "./model.ts";
 const ICONS: Record<LophnScreen, IconProps["icon"]> = {
   projects: lophnSpaceIcons.projects,
   apps: lophnSpaceIcons.apps,
-  "things-to-confirm": lophnSpaceIcons.thingsToConfirm,
   settings: lophnSpaceIcons.settings,
 };
 
@@ -18,8 +17,6 @@ export function screenLabel(screen: LophnScreen): string {
       return t("projects.title.screen");
     case "apps":
       return t("apps.title.screen");
-    case "things-to-confirm":
-      return t("things-to-confirm.title.screen");
     case "settings":
       return t("settings.title.screen");
   }

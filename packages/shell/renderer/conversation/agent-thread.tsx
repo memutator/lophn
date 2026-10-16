@@ -29,7 +29,7 @@ import type { DraftStore } from "./drafts.ts";
 import { AgentTurn, Said, UserMessage } from "./message-list/agent-turn.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import { ThreadScroll } from "./message-list/thread-scroll.tsx";
-import { QuestionSummary } from "./question-card/ask-card.tsx";
+import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";

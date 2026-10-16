@@ -119,6 +119,13 @@
   color: var(--color-text-primary);
 }
 
+/* 고른 saved view. */
+.item[data-active] {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
 .item:focus-visible {
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: calc(var(--border-focus-offset) * -1);

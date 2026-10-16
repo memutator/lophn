@@ -1,20 +1,22 @@
 import {
   Activity,
-  Bell,
-  Download,
+  Bot,
+  Palette,
   Plug,
   SlidersHorizontal,
   SquareTerminal,
   Wrench,
+  Zap,
 } from "lucide-react";
 
-// settings 화면 왼쪽 nav가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
+// Settings 항목(sidebar의 Settings 아래)이 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
 export const settingsIcons = {
-  connections: Plug,
-  coding: SquareTerminal,
-  extensions: Wrench,
   general: SlidersHorizontal,
-  notifications: Bell,
-  update: Download,
+  appearance: Palette,
+  providers: Plug,
+  agents: Bot,
+  tools: Wrench,
+  coding: SquareTerminal,
+  reactions: Zap,
   diagnostics: Activity,
 };

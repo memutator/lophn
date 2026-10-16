@@ -4,6 +4,7 @@ import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { AgentsPage } from "../agents/agents-page.tsx";
+import { OPERATOR_ID } from "../agents/agent-key.ts";
 import { TAB_KEY } from "../contexts/tab-fields.ts";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
@@ -11,12 +12,17 @@ import type { TabKindDef } from "./kind.ts";
 
 export const AGENTS_TAB_KEY = "agents";
 
-const ASSIGNMENT_ID = /^asg_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const BUILT_IN_KEYS = ["lophn", "project_manager", "app_engineer"];
+
+// agent key는 내장 role 이름이거나 Operator의 `agt_…` ID다.
+const isAgentKey = (value: unknown): value is string =>
+  typeof value === "string" &&
+  (OPERATOR_ID.test(value) || BUILT_IN_KEYS.includes(value));
 
 /** 탭이 editor로 열어 둔 agent. 없거나 맞지 않으면 목록이다. */
 function agentOf(tab: TabItem): string | null {
   const agent = tab.fields?.agent;
-  return typeof agent === "string" && ASSIGNMENT_ID.test(agent) ? agent : null;
+  return isAgentKey(agent) ? agent : null;
 }
 
 /** Agents 탭을 연다. 이미 열려 있으면 고르기만 한다(Manage와 `+`가 같은 길이다). */
@@ -38,9 +44,7 @@ export const agentsKind: TabKindDef = {
       key,
       kind: "agents",
       title: t("project-workspace.label.kind-agents"),
-      ...(typeof agent === "string" && ASSIGNMENT_ID.test(agent)
-        ? { fields: { agent } }
-        : {}),
+      ...(isAgentKey(agent) ? { fields: { agent } } : {}),
     };
   },
   toStored(tab) {
@@ -73,7 +77,6 @@ export const agentsKind: TabKindDef = {
           name: item.title,
         }))}
         onEditInstructions={agents.editInstructions}
-        onChangeDefaults={agents.openLophn}
         onAddExtension={agents.openLophn}
         onChanged={agents.changed}
       />

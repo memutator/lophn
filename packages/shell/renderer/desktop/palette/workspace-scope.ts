@@ -1,5 +1,5 @@
-// 프로젝트 작업대의 팔레트 행. 열린 탭·문서·파일·컨텍스트·행동 순서이고
-// 고르면 작업대 안의 대상(탭 고르기, 문서 탭 열기, Context 탭 열기, 행동)으로만 간다.
+// 프로젝트 작업대의 팔레트 행. 열린 탭·파일·컨텍스트·행동 순서이고
+// 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, Context 탭 열기, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
 import {
@@ -9,35 +9,38 @@ import {
 import type { ContextListItem } from "../../workspace/contexts/source.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { WorkspaceView } from "../../workspace/model.ts";
-import type { DocumentRow, FileRow } from "../../workspace/source.ts";
+import type { FileRow } from "../../workspace/source.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
 import {
-  type DocumentFound,
+  type FileFound,
   type PaletteEntry,
   WORKSPACE_GROUPS,
 } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
-export type WorkspaceAction = "launcher" | "lophn" | "terminal" | "info-panel";
+export type WorkspaceAction = "launcher" | "lophn" | "terminal";
 
 export type WorkspaceTarget =
   | { readonly kind: "tab"; readonly pane: number; readonly key: string }
-  | { readonly kind: "document"; readonly document: DocumentRow }
+  /** id는 파일의 절대 경로다. 파일 행의 문서 id는 옛 모양이라 목록에서 찾는다. */
+  | {
+    readonly kind: "document";
+    readonly document: { readonly id: string; readonly title: string };
+  }
   | { readonly kind: "context"; readonly id: string }
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
 export interface WorkspaceScopeInput {
   readonly view: WorkspaceView;
-  readonly documents: readonly DocumentRow[];
   readonly files: readonly FileRow[];
   /** 이 프로젝트의 context. 고르면 그 Context 탭이 열린다. */
   readonly contexts: readonly ContextListItem[];
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
   readonly platform: WindowPlatform;
-  /** 이 프로젝트 자리의 문서 검색. */
-  readonly search?: (query: string) => Promise<readonly DocumentFound[]>;
+  /** 이 프로젝트의 키워드 검색. */
+  readonly search?: (query: string) => Promise<readonly FileFound[]>;
   readonly go: (target: WorkspaceTarget) => void;
 }
 
@@ -89,7 +92,6 @@ function actions(
     ...(input.terminal
       ? [action("terminal", t("common.button.palette-terminal"), "terminal")]
       : []),
-    action("info-panel", t("common.button.palette-info-panel"), "panel"),
     action("lophn", t("common.button.palette-lophn"), "screen"),
   ];
 }
@@ -97,26 +99,12 @@ function actions(
 export function workspaceScope(
   input: WorkspaceScopeInput,
 ): PaletteScope<WorkspaceTarget> {
-  const documentEntry = (
-    row: DocumentRow,
-    detail?: string,
-    found = false,
-  ): PaletteEntry<WorkspaceTarget> => ({
-    group: "documents",
-    key: `document:${row.id}`,
-    label: row.title,
-    ...(detail ? { detail } : {}),
-    icon: "document",
-    target: { kind: "document", document: row },
-    ...(found ? { found } : {}),
-  });
   const search = input.search;
   return {
     title: t("common.title.palette-workspace"),
     order: WORKSPACE_GROUPS,
     entries: () => [
       ...tabs(input.view),
-      ...input.documents.map((row) => documentEntry(row)),
       ...input.files.map((file) => ({
         group: "files" as const,
         key: `file:${file.path}`,
@@ -144,13 +132,18 @@ export function workspaceScope(
     ],
     search: search
       ? async (query) =>
-        (await search(query)).map((hit) =>
-          documentEntry(
-            { id: hit.document, title: hit.title },
-            hit.detail,
-            true,
-          )
-        )
+        (await search(query)).map((hit) => ({
+          group: "files" as const,
+          key: `file:${hit.file}:${hit.line}`,
+          label: `${hit.path}:${hit.line}`,
+          detail: hit.text,
+          icon: "file" as const,
+          found: true,
+          target: {
+            kind: "document" as const,
+            document: { id: hit.file, title: hit.path },
+          },
+        }))
       : undefined,
     choose: input.go,
   };

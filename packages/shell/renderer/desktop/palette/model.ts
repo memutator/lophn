@@ -4,36 +4,37 @@ import type { OverlayModel, PaletteIcon } from "../../../ipc/overlay.ts";
 
 export type PaletteGroup =
   | "tabs"
-  | "documents"
   | "files"
   | "contexts"
   | "actions"
   | "projects"
   | "apps";
 
-/** 프로젝트 작업대: 열린 탭·문서·파일·컨텍스트·행동. */
+/** 프로젝트 작업대: 열린 탭·파일·컨텍스트·행동. */
 export const WORKSPACE_GROUPS: readonly PaletteGroup[] = [
   "tabs",
-  "documents",
   "files",
   "contexts",
   "actions",
 ];
 
-/** lophn 공간: 프로젝트·문서·앱·행동. */
+/** Lophn Workspace: 프로젝트·앱·파일·행동. */
 export const LOPHN_GROUPS: readonly PaletteGroup[] = [
   "projects",
-  "documents",
   "apps",
+  "files",
   "actions",
 ];
 
-/** 문서 검색 한 건. 고르면 그 판을 연다. */
-export interface DocumentFound {
-  readonly document: string;
-  readonly version: string;
-  readonly title: string;
-  readonly detail: string;
+/** project 키워드 검색에서 일치한 줄 하나. 고르면 그 project 창에서 그 줄을 연다. */
+export interface FileFound {
+  readonly project: string;
+  /** 등록 폴더 기준 상대 경로. */
+  readonly path: string;
+  /** 디스크의 절대 경로. */
+  readonly file: string;
+  readonly line: number;
+  readonly text: string;
 }
 
 export interface PaletteEntry<T> {
@@ -52,7 +53,7 @@ export interface PaletteEntry<T> {
 /** 묶음 하나에 보이는 행 수. 다섯 묶음이 overlay 행 한도 64 안에 든다. */
 export const GROUP_LIMIT = 12;
 
-/** 검색어를 멈춘 뒤 문서 검색을 부르기까지. */
+/** 검색어를 멈춘 뒤 파일 검색을 부르기까지. */
 export const SEARCH_DEBOUNCE_MS = 150;
 
 function matches(entry: PaletteEntry<unknown>, words: string): boolean {

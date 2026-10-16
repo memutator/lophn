@@ -1,6 +1,6 @@
-// mock 모드의 lophn 공간 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
+// mock 모드의 Lophn Workspace 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
 // 채운 것이다. key·로그인 응답은 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
-// Providers와 Agents 자리는 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
+// Providers와 Agents 항목은 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
 import {
   declared,
   fakeSettings,
@@ -19,7 +19,6 @@ import { fakeConnections } from "../lophn-space/settings/connections/testdata/fa
 import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../lophn-space/settings/source.ts";
 import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
-import type { CodingConnectionsSource } from "../lophn-space/settings/connections/source.ts";
 import type { AppsSource } from "../lophn-space/apps/source.ts";
 import { APP_BUDGET, APP_EXPENSES, APP_PLANNER } from "./ids.ts";
 
@@ -54,11 +53,8 @@ export function mockSettingsPanels(): SettingsPanels {
     diagnostics: fakeDiagnostics().source,
     reactions: fakeReactions({ modes: SAMPLE_MODES }).source,
     appearance: fakeAppearance().source,
+    coding: fakeConnections().source,
   };
-}
-
-export function mockCoding(): CodingConnectionsSource {
-  return fakeConnections().source;
 }
 
 export function mockApps(): AppsSource {

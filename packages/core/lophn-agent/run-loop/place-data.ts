@@ -263,7 +263,7 @@ export async function readPlaceData(
 }
 
 // context 하나의 글. 읽지 못한 것은 글 없이 둔다(이름과 한 줄만 보인다). 목록도 못 읽으면 null이다.
-async function readContext(
+export async function readContext(
   call: CoreCall,
   id: string,
   projectOf: (id: string) => Promise<Result<ProjectRecord>>,

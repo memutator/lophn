@@ -1,7 +1,5 @@
 /* 파일 탭의 viewer·알림, project 키워드 검색, 경로 팔레트. 공통 틀은 ../compose.module.css를 쓴다. */
 
-}
-
 /* 디스크와 내 것을 나란히 비교 */
 .compare {
   display: grid;

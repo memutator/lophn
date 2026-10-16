@@ -1,11 +1,11 @@
 export {
   type AgentSessionRow,
   conversationSchemaSteps,
-  hasUnappliedSteering,
   loadMessage,
   messageBodyFields,
   type MessageRow,
   type SessionRow,
+  takeSteering,
 } from "./model.ts";
 export {
   type ConversationDeps,

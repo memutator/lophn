@@ -155,58 +155,9 @@ export {
   RUNTIME_MACHINE_OPERATIONS,
   RUNTIME_MACHINE_ROUTES,
 } from "./runtime-access.ts";
-
-// ---- 옛 이름 (이 아래 한 블록) ----
-// 다른 단위가 아직 import하는 `Run*` 이름이다. 새 코드는 쓰지 않는다. 그 단위들이 새 이름으로 옮기면 이
-// 블록을 지운다. `RunRow`·`loadRun`·`ResumeState`는 waiting-and-recovery가 지워질 때까지 있다.
-import { loadTurn, type TurnRow } from "./model.ts";
-import { turnSchemaSteps } from "./schema.ts";
-import { createTurnCommands, finishRow, turnBodyFields } from "./commands.ts";
-import { createTurnReads } from "./reads.ts";
-import { deleteSessionTurns, sessionTurnIds } from "./erase.ts";
-import { TURN_LIMIT_SETTING_KEYS } from "./limits.ts";
-import type { CallResult } from "./tool-batch.ts";
-import type { ModelAttempt } from "./ports.ts";
-import type { HistoryMessage } from "../prompt-assembly/mod.ts";
-
-export const runSchemaSteps = turnSchemaSteps;
-export const createRunCommands = createTurnCommands;
-export const runBodyFields = turnBodyFields;
-export const finishRunRow = finishRow;
-export const createRunReads = createTurnReads;
-export const deleteSessionRuns = deleteSessionTurns;
-export const sessionRunIds = sessionTurnIds;
-export const RUN_LIMIT_SETTING_KEYS = TURN_LIMIT_SETTING_KEYS;
-
-// waiting-and-recovery가 `turns` 기준으로 바뀔 때까지 읽는 모양이다. 없어진 열은 비어 있어 그 쪽의 옛
-// 동작은 막힌 채로 둔다.
-export type RunRow = Omit<TurnRow, "state"> & {
-  state: TurnRow["state"] | "accepted" | "waiting_user";
-  assignment: string;
-  waiting_on: string | null;
-};
-export function loadRun(
-  lookup: Parameters<typeof loadTurn>[0],
-  id: string,
-): RunRow | undefined {
-  const row = loadTurn(lookup, id);
-  return row === undefined
-    ? undefined
-    : { ...row, assignment: "", waiting_on: null };
-}
-
-// 이어 하기 재료의 옛 모양이다. loop는 이어 하지 않는다.
-export type ResumeState = {
-  history: HistoryMessage[];
-  facts: {
-    changes: string[];
-    unexecuted: string[];
-    unknown_effects: string[];
-  };
-  pending: {
-    attempt: ModelAttempt;
-    confirmed: CallResult[];
-    started: Record<string, string>;
-  } | null;
-  retry: { previous: string; retries: number; retry_at: string | null } | null;
-};
+export {
+  type TurnBodyEnvironment,
+  turnBodyRead,
+  type TurnBodyViewEnvironment,
+  turnBodyViewRead,
+} from "./turn-body-reads.ts";

@@ -94,6 +94,8 @@ import {
   interruptRunningTurns,
   publishAfterCommit,
   turnBodyFields,
+  turnBodyRead,
+  turnBodyViewRead,
   turnLimitSettings,
   turnSchemaSteps,
 } from "./run-loop/mod.ts";
@@ -108,11 +110,11 @@ import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
-  hasUnappliedSteering,
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
   sessionSummaryRead,
+  takeSteering,
 } from "./session/mod.ts";
 import {
   createQuestionCommands,
@@ -136,13 +138,6 @@ import {
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "./tools/mod.ts";
-import {
-  createWaitCommands,
-  deleteSessionWaitResolutions,
-  runBodyRead,
-  runBodyViewRead,
-  waitSchemaSteps,
-} from "./waiting-and-recovery/mod.ts";
 import {
   type AgentRef,
   mcpAuthBegin,
@@ -240,8 +235,7 @@ const commands = createProviderCommands();
 const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다.
 const usage = createUsageCommands({
-  applyMessages: (tx, ctx, input, compare) =>
-    conversationCommands.apply.handle(tx, ctx, input, compare),
+  applyMessages: takeSteering,
 });
 const reads = createProviderReads();
 const modelReads = createModelReads();
@@ -279,24 +273,17 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
 // run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
-// turn은 입력함에서 시작하므로 run 접수는 없다. 그것을 부르던 handoff와 기다림 쪽은 Router로 바뀔 때까지 막혀 있다.
-const RUN_ACCEPT_REMOVED = "accepting a run is replaced by the inbox";
-const APPROVAL_REQUEST_REMOVED =
-  "a waiting run no longer opens an approval request; the router asks in the turn";
 const runCommands = createTurnCommands({
-  hasUnappliedSteering,
   publish: publishAfterCommit,
   calls: callSignals,
 });
 const runReads = createTurnReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다. run을 가리키는 표마다
-// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 기다림 결과(tool call을
-// 가리킨다), 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
-    () => deleteSessionWaitResolutions(tx, session),
     () => deleteSessionQuestions(tx, session, eraseBlobRefs),
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
     () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
@@ -370,19 +357,6 @@ const toolReads = createToolReads();
 // blob으로 준비하고(packages/core/lophn-agent/tools/questions/text-prepare.ts) blob 참조만 남는다.
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
-
-// 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
-// waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
-// 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
-// 이동의 handler를 같은 Tx에서 부른다. 두 command는 machine 전용 기록이라 이 연결에 한해 자격을
-// 바꿔 넘기고 바깥 command의 actor와 event 기록은 그대로다.
-const waitCommands = createWaitCommands({
-  createApproval: () =>
-    err({ code: "unavailable", message: APPROVAL_REQUEST_REMOVED }),
-  acceptRun: () => err({ code: "unavailable", message: RUN_ACCEPT_REMOVED }),
-  assignMessage: (tx, ctx, input, compare) =>
-    conversationCommands.assign.handle(tx, ctx, input, compare),
-});
 
 // agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
@@ -676,7 +650,6 @@ export const lophnAgentDefinitions = {
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
-    ...waitSchemaSteps,
     ...revertSchemaSteps,
   ],
   commands: [
@@ -727,10 +700,6 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
-    waitCommands.wait,
-    waitCommands.resolve,
-    waitCommands.correct,
-    waitCommands.recover,
     revertCommands.record,
     revertCommands.rewind,
     revertCommands.amend,
@@ -869,10 +838,10 @@ export function createLedgerRegistration(
       // Compact가 session에 이은 요약의 본문도 같은 읽기 통로로 읽는다.
       sessionSummaryRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
-      // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
-      runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 저장된 turn basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
+      turnBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 사람 화면이 같은 본문을 지금의 redaction을 거쳐 읽는 길이다(user만).
-      runBodyViewRead({
+      turnBodyViewRead({
         ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
         redact: environment.redactBody ?? UNATTACHED_REDACT,
       }),

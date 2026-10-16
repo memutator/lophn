@@ -55,8 +55,6 @@ export const turnBodyFields: readonly BlobFieldDefinition[] = [
 ];
 
 export type TurnCommandDeps = {
-  // 정상 종료를 막는 미반영 steering이 있는지.
-  hasUnappliedSteering?: (tx: Tx, turn: string) => boolean;
   // StartTurn이 고정할 한도. 없으면 설정 파일에서 읽는다. 호출자가
   // 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
   turnLimits?: (tx: Tx) => Result<TurnLimits>;
@@ -317,12 +315,6 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         const { outcome } = input;
         if (outcome.kind === "interrupted") {
           return reject("invalid_input", "interrupts go through StopTurn");
-        }
-        if (
-          outcome.kind === "completed" &&
-          deps.hasUnappliedSteering?.(tx, row.id) === true
-        ) {
-          return reject("conflict", "unapplied steering blocks a normal end");
         }
         const done = finishRow(tx, row, outcome, input.result, null, null);
         if (!done.ok) return done;

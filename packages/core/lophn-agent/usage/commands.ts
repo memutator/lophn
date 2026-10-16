@@ -174,9 +174,7 @@ function checkProvider(
 export type UsageDeps = {
   applyMessages?: (
     tx: Tx,
-    ctx: RequestContext,
     input: { messages: string[]; call: string },
-    compare: { applied_at_call: null },
   ) => Result<unknown>;
 };
 
@@ -253,10 +251,10 @@ export function createUsageCommands(deps: UsageDeps = {}): {
           if (deps.applyMessages === undefined) {
             return conflict("applying messages is not connected");
           }
-          const applied = deps.applyMessages(tx, ctx, {
+          const applied = deps.applyMessages(tx, {
             messages: input.applied_messages,
             call: call.value.id,
-          }, { applied_at_call: null });
+          });
           if (!applied.ok) return applied;
         }
         return ok({ call: call.value });

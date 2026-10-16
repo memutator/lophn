@@ -8,10 +8,12 @@ import {
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   SchemaStep,
   SqlParams,
   SqlRow,
+  Tx,
 } from "../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
@@ -400,11 +402,23 @@ export function eventExists(lookup: Lookup, seq: string): boolean {
   ]) !== undefined;
 }
 
-// turn의 정상 종료를 막는 미반영 steer. turn이 가져가지 않은 사람의 steer 메시지가 그 session에 남아 있는 것이다.
-export function hasUnappliedSteering(lookup: Lookup, turn: string): boolean {
-  return lookup.sql.get(
-    `select 1 as found from turns t join messages m on m.session = t.session
-     where t.id = ? and m.delivery = 'steer' and m.turn is null limit 1`,
-    [turn],
-  ) !== undefined;
+// 도는 turn의 model 요청에 반영한 steer를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
+// 정상 종료 전에 미반영 steer가 없는지는 loop가 입력함으로 본다. 이미 turn이 정해진 message는 그대로 둔다.
+export function takeSteering(
+  tx: Tx,
+  input: { messages: readonly string[]; call: string },
+): Result<void> {
+  const call = tx.sql.get("select turn from model_calls where id = ?", [
+    input.call,
+  ]);
+  if (call === undefined || typeof call["turn"] !== "string") {
+    return err({ code: "not_found", message: "model call not found" });
+  }
+  for (const message of input.messages) {
+    tx.sql.run(
+      "update messages set turn = ? where id = ? and delivery = 'steer' and turn is null",
+      [call["turn"], message],
+    );
+  }
+  return ok(undefined);
 }

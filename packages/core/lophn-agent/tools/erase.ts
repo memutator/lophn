@@ -8,8 +8,7 @@ type EraseBlobRefs = (
   ownerKeys: readonly string[],
 ) => Result<void>;
 
-// session을 delete할 때 그 session의 turn이 낸 tool call 기록을 지운다. 이 call을
-// 가리키는 기다림 결과(waiting-and-recovery)는 먼저 지워 둔다. 보완 사실과 본문 참조를 call보다
+// session을 delete할 때 그 session의 turn이 낸 tool call 기록을 지운다. 보완 사실과 본문 참조를 call보다
 // 먼저 지운다. 다시 시도한 call(attempt 1)은 첫 시도를 가리키고 FK가 restrict라 먼저 지운다.
 export function deleteSessionToolCalls(
   tx: Tx,

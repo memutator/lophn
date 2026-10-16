@@ -1,4 +1,4 @@
-// coding agent 연결, coding 시작, 터미널 supervisor, 터미널·coding IPC.
+// harness 감지, 터미널 supervisor, 터미널·coding IPC.
 import { app } from "electron";
 import { join } from "node:path";
 
@@ -9,26 +9,26 @@ import {
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
 import { createChildRegistrar } from "../../terminal/coding/coding-children.ts";
-import {
-  childPlanRunner,
-  createCodingStart,
-  createObservationStore,
-} from "../../terminal/coding/coding-start.ts";
+import { createObservationStore } from "../../terminal/coding/coding-start.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
   childCliRunner,
-  createCodingConnection,
+  createHarnessSettings,
+  type HarnessCatalog,
 } from "../coding-connection.ts";
 import {
-  codingSessions,
   createCodingIpc,
   hostEventSinks,
   registerCodingIpc,
-  registeredFolders,
   removeCodingIpc,
 } from "../coding-ipc.ts";
-import { packagedInstall } from "../paths.ts";
+import {
+  canDeliverMessages,
+  canLaunch,
+  HARNESS_ADAPTERS,
+  harnessDetectionSchema,
+} from "../../../../protocol/coding-agent/mod.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
 
 type CallSession = {
@@ -69,7 +69,7 @@ export type Coding = Registered & {
 // 등록·해제한다. 같은 줄이 TUI 관측(ObservationStore)도 채운다. 관측 표는 이 process의
 // 메모리라 Electron이 다시 뜨면 비고 모든 TUI는 unknown이다(자동 spawn·resume 없음).
 export function register(ctx: ShellContext): Coding {
-  const { here, dataRoot, overlays, core, coreInternal, ipc } = ctx;
+  const { here, dataRoot, overlays, core, ipc } = ctx;
   const codingChildren = createChildRegistrar({ core: () => core.session() });
   const observations = createObservationStore({
     now: () => new Date().toISOString(),
@@ -95,34 +95,23 @@ export function register(ctx: ShellContext): Coding {
   }
   const lophnCli = lophnCommand();
   const cliEnv = { ...process.env, LOPHN_HOME: dataRoot };
-  const codingConnection = createCodingConnection({
+  const catalog: HarnessCatalog = {
+    parse(item) {
+      const parsed = harnessDetectionSchema.safeParse(item);
+      return parsed.success ? parsed.data : null;
+    },
+    facts: (id) => ({
+      label: HARNESS_ADAPTERS[id].label,
+      can_launch: canLaunch(id),
+      can_deliver_messages: canDeliverMessages(id),
+    }),
+  };
+  const harnessSettings = createHarnessSettings({
+    catalog,
     core: () => core.session(),
     cli: lophnCli === null
       ? null
       : childCliRunner({ command: lophnCli, env: cliEnv }),
-  });
-  const codingStart = createCodingStart({
-    core: { internal: coreInternal },
-    folders: { folders: (project) => projectFolders(core.session(), project) },
-    plan: lophnCli === null
-      ? () =>
-        Promise.resolve({
-          ok: false as const,
-          error: {
-            code: "unavailable",
-            message: "lophn command is not installed",
-          },
-        })
-      : childPlanRunner({ command: lophnCli, env: cliEnv }),
-    host: terminals,
-    ...(app.isPackaged
-      ? {
-        credential_helper: join(
-          packagedInstall(process.resourcesPath).root,
-          "lophn-credential",
-        ),
-      }
-      : {}),
   });
 
   // terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
@@ -138,15 +127,12 @@ export function register(ctx: ShellContext): Coding {
     host: terminals,
   });
   registerTerminalIpc(ipc, terminalIpc);
-  // 연결 화면과 [Start]. desktop 창 본문만 부르고 연결 intent·시작 클릭은 main이 다시 검사한다.
+  // Settings › Coding agents의 감지. desktop 창 본문만 부른다.
   registerCodingIpc(
     ipc,
     createCodingIpc({
       registry: overlays.overlayRegistry(),
-      connection: codingConnection,
-      start: codingStart,
-      folders: () => registeredFolders(core.session()),
-      sessions: () => codingSessions(terminals.runtimes(), observations),
+      harnesses: harnessSettings,
     }),
   );
   ctx.windowHooks.created.push((window) =>

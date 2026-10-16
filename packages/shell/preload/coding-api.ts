@@ -24,12 +24,8 @@ export function createCodingApi(transport: CodingTransport): CodingApi {
   }
   return Object.freeze(
     {
-      detect: () => call({ op: "detect" }),
+      harnesses: () => call({ op: "harnesses" }),
       refresh: () => call({ op: "refresh" }),
-      connect: (request) => call({ op: "connect", request }),
-      folders: () => call({ op: "folders" }),
-      start: (click) => call({ op: "start", click }),
-      sessions: () => call({ op: "sessions" }),
     } satisfies CodingApi,
   );
 }

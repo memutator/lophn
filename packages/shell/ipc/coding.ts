@@ -1,5 +1,5 @@
-// coding agent 연결과 [Start]의 shell IPC 경계. renderer는 고정 intent와
-// 사람이 고른 값만 보내고 main이 따로 다시 검사한다. token·경로 설정·credential은 이 통로에 없다.
+// Settings › Coding agents의 shell IPC 경계. renderer는 harness 감지 읽기와
+// 다시 감지만 보내고 main이 따로 다시 검사한다. token·경로 설정·credential은 이 통로에 없다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 zod 말고 import가 없다.
 import { z } from "zod";
 
@@ -41,16 +41,10 @@ export type ConnectRequest = z.infer<typeof connectRequestSchema>;
 
 /** renderer가 부를 수 있는 호출. 이름이 없으면 main이 거절한다. */
 export const codingCallSchema = z.discriminatedUnion("op", [
-  z.strictObject({ op: z.literal("detect") }),
+  /** 제품마다 감지 결과와 맡길 수 있는지를 읽는다. 처음에만 감지하고 이후는 마지막 결과다. */
+  z.strictObject({ op: z.literal("harnesses") }),
   /** 사람이 [Detect again]을 누를 때만. 화면이 열릴 때·다시 들어올 때는 보내지 않는다. */
   z.strictObject({ op: z.literal("refresh") }),
-  z.strictObject({ op: z.literal("connect"), request: z.unknown() }),
-  z.strictObject({ op: z.literal("folders") }),
-  /** 사람이 [Start]를 누른 값. main이 한 번 더 검사한다. */
-  z.strictObject({ op: z.literal("start"), click: z.unknown() }),
-  z.strictObject({ op: z.literal("sessions") }),
-  /** 제품마다 감지 결과와 맡길 수 있는지를 읽는다. Settings가 보인다. */
-  z.strictObject({ op: z.literal("harnesses") }),
 ]);
 
 export type CodingCallInput = z.infer<typeof codingCallSchema>;
@@ -93,6 +87,10 @@ export interface HarnessSettingsView {
   readonly can_launch: boolean;
   readonly can_deliver_messages: boolean;
   readonly reason: string | null;
+  /** 감지한 때. 감지 결과를 읽지 못했으면 없다. */
+  readonly observed_at?: string;
+  /** 찾은 실행 파일 경로. 못 찾았으면 없거나 null이다. */
+  readonly executable?: string | null;
 }
 
 export interface DetectView {
@@ -183,10 +181,6 @@ export type CodingReply<T> =
 
 /** preload가 desktop 창 본문에 여는 통로. */
 export interface CodingApi {
-  detect(): Promise<CodingReply<DetectView>>;
-  refresh(): Promise<CodingReply<DetectView>>;
-  connect(request: ConnectRequest): Promise<CodingReply<ConnectView>>;
-  folders(): Promise<CodingReply<readonly FolderChoiceView[]>>;
-  start(click: unknown): Promise<CodingReply<StartView>>;
-  sessions(): Promise<CodingReply<readonly SessionView[]>>;
+  harnesses(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
+  refresh(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
 }

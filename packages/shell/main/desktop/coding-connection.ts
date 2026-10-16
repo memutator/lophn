@@ -1,69 +1,44 @@
-// coding agent 연결 화면의 main 쪽. renderer는 "이 harness로 연결"이라는 고정
-// intent와 사람이 고른 harness·이름·범위만 보내고, 이 모듈이 그 intent를 따로 다시 검사한다: 모양, 지금
-// 감지된 harness인지, 앱 하나 범위면 그 앱의 source 폴더가 있는지. 설치 target(환경·profile·경로)은 main이
-// 감지 기록과 앱 기록에서 만들고 renderer가 보낸 값은 쓰지 않는다.
+// Settings › Coding agents의 main 쪽. `lophn harness detect|refresh`를 exec로 불러 제품마다 감지 결과를 읽고
+// `HarnessSettingsView`로 바꿔 renderer에 주고, 같은 결과를 core `harness.report`로 알린다. 감지 결과는 CLI도
+// 저장하지 않아서 이 module이 마지막 결과만 메모리에 쥔다.
 //
-// 연결 생성은 core의 `connect` memory route(사람 credential, 확인 창 없음)이고 token은 이 모듈을 지나지
-// 않는다. 이어서 `lophn connection install`로 선택 target만 설치하고 `lophn doctor`로 loading을 읽는다
-// (순서는 coding-agent `connectAndInstall`과 같다). 설치·doctor가 실패해도 이미 만든 연결을 회수하거나
-// 다시 발급하지 않고 따로 알린다. 감지는 `harness detect`가 저장 결과를, `harness refresh`만 사람 요청
-// 재감지를 먹는다(화면이 열릴 때 자동 재감지는 없다).
+// 처음 읽기는 `detect`(실행 파일 찾기만), 사람이 누른 [Detect again]만 `refresh`(version·login probe)다.
+// 화면이 열릴 때 자동 재감지는 없다. 연결을 만들거나 설치하는 길은 없다(맡길 때 core와 CLI가 한다).
 import { execFile } from "node:child_process";
-import { z } from "zod";
 
 import {
-  type CodingFailureCode,
   type CodingReply,
-  type ConnectRequest,
-  connectRequestSchema,
-  type ConnectView,
-  type DetectView,
   HARNESS_IDS,
+  type HarnessDiscovery,
+  type HarnessName,
+  type HarnessSettingsView,
   type HarnessView,
-  type InstallStatus,
 } from "../../ipc/coding.ts";
 
-// shell main은 contracts를 따라가지 않는다(shell tsc). 이 모듈이 읽는 감지·연결 값의 모양만 여기 둔다. 값은
-// contracts coding-agent의 harnessDetectionSchema·connectionIdSchema와 같아야 한다.
-const connectionIdSchema = z.string().regex(
-  /^cac_[0-7][0-9a-hjkmnp-tv-z]{25}$/,
-);
+// shell tsc는 protocol의 base를 따라가지 못한다. 감지 값 검사와 제품 표(label, 맡길 수 있는지)는 wiring이
+// protocol의 `harnessDetectionSchema`·`HARNESS_ADAPTERS`·`canLaunch`·`canDeliverMessages`로 만들어 넣는다.
+// 이 module이 읽는 감지 칸만 여기 둔다. core에 알릴 때는 검사한 값 그대로 보낸다.
+export type Detection = {
+  harness_id: HarnessName;
+  discovery: HarnessDiscovery;
+  observed_at: string;
+  selected_executable: string | null;
+  version: {
+    result: HarnessSettingsView["version_result"];
+    value: string | null;
+  };
+  auth: { result: HarnessView["auth"] };
+};
 
-export const detectionSchema = z.object({
-  harness_id: z.enum(HARNESS_IDS),
-  environment: z.object({
-    kind: z.enum(["host", "wsl", "remote"]),
-    identity: z.string().min(1),
-  }),
-  profile_id: z.string().min(1).nullable(),
-  observed_at: z.string().min(1),
-  discovery: z.enum(["unobserved", "detected", "absent", "unknown", "error"]),
-  candidates: z.array(z.object({
-    path: z.string().min(1),
-    source: z.string().min(1),
-  })),
-  selected_executable: z.string().min(1).nullable(),
-  version: z.object({
-    result: z.enum(["verified", "unknown", "error"]),
-    value: z.string().min(1).nullable(),
-  }),
-  auth: z.object({
-    result: z.enum([
-      "verified",
-      "not_verified",
-      "unknown",
-      "error",
-      "unverified_capability",
-    ]),
-  }),
-  probe_results: z.array(z.object({
-    probe: z.string().min(1),
-    outcome: z.string().min(1),
-  })),
-  freshness: z.enum(["fresh", "stale"]),
-});
-
-type HarnessDetection = z.infer<typeof detectionSchema>;
+export type HarnessCatalog = {
+  /** `harnessDetectionSchema` 검사. 맞지 않으면 null. */
+  parse(item: unknown): Detection | null;
+  facts(id: HarnessName): {
+    label: string;
+    can_launch: boolean;
+    can_deliver_messages: boolean;
+  };
+};
 
 type ExecFile = (
   file: string,
@@ -83,53 +58,14 @@ const defaultExec: ExecFile = (file, args, options) =>
     });
   });
 
-/** 고정 연결 intent가 부르는 core route 하나. renderer allowlist에는 없고 main만 부른다. */
-export const CONNECTION_INTENT = "memory:coding_agent_connections/connect";
-
-export type CliResult =
-  | { ok: true; data: unknown }
-  | {
-    ok: false;
-    error: { code: string; message: string; details?: unknown };
-  };
-
-/** `lophn <args> --json`을 부른다. 인자는 이 모듈이 정하고 renderer 값은 인자 값으로만 간다. */
-export type CliRun = (args: string[]) => Promise<CliResult>;
-
-type CoreResult =
-  | { ok: true; value: unknown }
-  | { ok: false; error: { code: string; message: string } };
-
-export type CodingConnectionDeps = {
-  /** main이 사람 credential로 core를 부른다(`CoreSession.internal`). 준비 전이면 null. */
-  core(): {
-    internal(
-      kind: string,
-      resource: string,
-      method: string,
-      body: unknown,
-    ): Promise<CoreResult>;
-  } | null;
-  /** `lophn` child. 설치 경로를 모르면 null이다. */
-  cli: CliRun | null;
-};
-
-export type CodingConnection = {
-  detect(mode: "detect" | "refresh"): Promise<CodingReply<DetectView>>;
-  connect(raw: unknown): Promise<CodingReply<ConnectView>>;
-};
-
-function fail<T>(
-  code: CodingFailureCode,
-  message: string,
-): CodingReply<T> {
-  return { ok: false, error: { code, message } };
-}
+/** `lophn <args> --json`의 `data`. 실패하면 이유 한 줄. */
+export type CliRun = (
+  args: string[],
+) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
 
 /**
- * `lophn` 실행 파일 child다. 사람 전용 command라 상속 환경에서 connection·관측 socket·credential 이름을 빼고
- * 부른다. 종료 code와 상관없이 stdout의 JSON 하나를 읽는다(실패 결과도 `{summary,data,next}` 또는
- * `{error}`로 나온다).
+ * `lophn` 실행 파일 child다. 상속 환경에서 connection·credential 이름을 빼고 부른다. 종료 code와 상관없이
+ * stdout의 JSON 하나를 읽는다(실패도 `{error}`로 나온다).
  */
 export function childCliRunner(options: {
   /** `lophn` 실행 파일 절대 경로. */
@@ -149,266 +85,167 @@ export function childCliRunner(options: {
     }
     const ran = await exec(options.command, [...args, "--json"], {
       env,
-      timeout: options.timeout_ms ?? 60_000,
-      maxBuffer: 4 << 20,
+      timeout: options.timeout_ms ?? 30_000,
+      maxBuffer: 1 << 20,
     });
-    let body: unknown;
+    let body: { data?: unknown; error?: { message?: unknown } } | null;
     try {
       body = JSON.parse(ran.stdout);
     } catch {
+      return { ok: false, message: "lophn gave no result" };
+    }
+    if (body?.error !== undefined) {
+      const message = body.error?.message;
       return {
         ok: false,
-        error: { code: "unavailable", message: "lophn child gave no result" },
+        message: typeof message === "string" ? message : "lophn refused",
       };
     }
-    const failure = (body as { error?: unknown } | null)?.error as
-      | { code?: unknown; message?: unknown; details?: unknown }
-      | undefined;
-    if (failure !== undefined) {
-      return {
-        ok: false,
-        error: {
-          code: typeof failure.code === "string" ? failure.code : "unavailable",
-          message: typeof failure.message === "string"
-            ? failure.message
-            : "lophn child refused",
-          details: failure.details,
-        },
-      };
-    }
-    return { ok: true, data: (body as { data?: unknown } | null)?.data };
+    return { ok: true, data: body?.data };
   };
 }
 
-function harnessView(detection: HarnessDetection): HarnessView {
-  return {
-    harness_id: detection.harness_id,
-    discovery: detection.discovery,
-    version: detection.version.value,
-    version_result: detection.version.result,
-    auth: detection.auth.result,
-    profile_id: detection.profile_id,
-    observed_at: detection.observed_at,
-    freshness: detection.freshness,
-    executable: detection.selected_executable,
-    candidates: detection.candidates.map((item) => ({
-      path: item.path,
-      source: item.source,
-    })),
-    probes: detection.probe_results.map((item) => ({
-      probe: item.probe,
-      outcome: item.outcome,
-    })),
-  };
-}
-
-type Detected = {
-  source: DetectView["source"];
-  detections: HarnessDetection[];
+export type HarnessSettingsDeps = {
+  catalog: HarnessCatalog;
+  /** main이 사람 credential로 core를 부른다(`CoreSession.internal`). 준비 전이면 null. */
+  core(): {
+    internal(
+      kind: string,
+      resource: string,
+      method: string,
+      body: unknown,
+    ): Promise<{ ok: boolean }>;
+  } | null;
+  /** `lophn` child. 설치 경로를 모르면 null이다. */
+  cli: CliRun | null;
 };
 
-async function readDetections(
-  cli: CliRun,
-  mode: "detect" | "refresh",
-): Promise<{ ok: true; value: Detected } | CodingReply<never>> {
-  const ran = await cli(["harness", mode]);
-  if (!ran.ok) {
-    return fail("unavailable", "harness detection could not be read");
+export type HarnessSettings = {
+  /** 마지막 감지 결과. 아직 없으면 `detect`를 한 번 돌린다. */
+  read(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
+  /** 사람이 누른 [Detect again]. `refresh`를 돌려 마지막 결과를 바꾼다. */
+  refresh(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
+};
+
+function reasonOf(
+  facts: ReturnType<HarnessCatalog["facts"]>,
+): string | null {
+  const reasons: string[] = [];
+  if (!facts.can_launch) {
+    reasons.push("lophn has no way to pass the first prompt to it.");
   }
-  const data = ran.data as
-    | { source?: unknown; detections?: unknown }
-    | null
-    | undefined;
-  const source = data?.source;
-  if (
-    (source !== "cached" && source !== "first" && source !== "refreshed") ||
-    !Array.isArray(data?.detections)
-  ) {
-    return fail("unavailable", "harness detection has an unknown shape");
+  if (!facts.can_deliver_messages) {
+    reasons.push(
+      "It does not report turn end, so only the first prompt is sent.",
+    );
   }
-  const detections: HarnessDetection[] = [];
-  for (const item of data.detections) {
-    const parsed = detectionSchema.safeParse(item);
-    if (parsed.success) detections.push(parsed.data);
-  }
-  return { ok: true, value: { source, detections } };
+  return reasons.length === 0 ? null : reasons.join(" ");
 }
 
-function installStatus(data: unknown): ConnectView["install"] {
-  const body = data as
-    | { install?: unknown; resources?: unknown }
-    | null
-    | undefined;
-  const status = body?.install;
-  const known: InstallStatus[] = ["complete", "partial", "failed"];
-  const resources = Array.isArray(body?.resources)
-    ? body.resources.flatMap((item) => {
-      const one = item as { resource_identity?: unknown; outcome?: unknown };
-      return typeof one.resource_identity === "string" &&
-          typeof one.outcome === "string"
-        ? [{ identity: one.resource_identity, outcome: one.outcome }]
-        : [];
-    })
-    : [];
-  return {
-    status: known.includes(status as InstallStatus)
-      ? status as InstallStatus
-      : "error",
-    resources,
-  };
-}
-
-function checksOf(data: unknown): ConnectView["checks"] {
-  const loading = (data as { loading?: unknown } | null | undefined)?.loading;
-  if (!Array.isArray(loading)) return null;
-  const checks: { stage: string; result: "success" | "failure" | "unknown" }[] =
-    [];
-  for (const item of loading) {
-    const one = item as { stage?: unknown; result?: unknown };
-    if (
-      typeof one.stage === "string" &&
-      (one.result === "success" || one.result === "failure" ||
-        one.result === "unknown")
-    ) {
-      checks.push({ stage: one.stage, result: one.result });
-    }
-  }
-  return checks;
-}
-
-export function createCodingConnection(
-  deps: CodingConnectionDeps,
-): CodingConnection {
-  async function detect(
-    mode: "detect" | "refresh",
-  ): Promise<CodingReply<DetectView>> {
-    if (deps.cli === null) {
-      return fail("unavailable", "lophn command is not installed");
-    }
-    const read = await readDetections(deps.cli, mode);
-    if (!("value" in read)) return read;
+export function createHarnessSettings(
+  deps: HarnessSettingsDeps,
+): HarnessSettings {
+  function viewOf(detection: Detection): HarnessSettingsView {
+    const facts = deps.catalog.facts(detection.harness_id);
     return {
-      ok: true,
-      value: {
-        source: read.value.source,
-        harnesses: read.value.detections.map(harnessView),
-      },
-    };
-  }
-
-  async function targetOf(
-    request: ConnectRequest,
-    detection: HarnessDetection,
-    core: NonNullable<ReturnType<CodingConnectionDeps["core"]>>,
-  ): Promise<{ ok: true; target: unknown } | CodingReply<never>> {
-    const base = {
-      environment: detection.environment,
-      profile_id: detection.profile_id,
       harness_id: detection.harness_id,
-    };
-    if (request.scope.kind === "all") {
-      return {
-        ok: true,
-        target: {
-          scope_kind: "user",
-          ...base,
-          app: null,
-          app_realpath: null,
-        },
-      };
-    }
-    const read = await core.internal("read", "apps", "get", {
-      app: request.scope.app,
-    });
-    if (!read.ok) {
-      return fail(
-        read.error.code === "not_found" ? "invalid_input" : "unavailable",
-        "the app could not be read",
-      );
-    }
-    const source = (read.value as { app?: { source_path?: unknown } } | null)
-      ?.app?.source_path;
-    if (typeof source !== "string" || source === "") {
-      return fail("invalid_input", "the app has no source folder");
-    }
-    return {
-      ok: true,
-      target: {
-        scope_kind: "app",
-        ...base,
-        app: request.scope.app,
-        app_realpath: source,
-      },
+      label: facts.label,
+      discovery: detection.discovery,
+      version: detection.version.value,
+      version_result: detection.version.result,
+      login: detection.auth.result,
+      can_launch: facts.can_launch,
+      can_deliver_messages: facts.can_deliver_messages,
+      reason: reasonOf(facts),
+      observed_at: detection.observed_at,
+      executable: detection.selected_executable,
     };
   }
 
-  return {
-    detect,
-    async connect(raw) {
-      // renderer가 보낸 고정 intent를 이 자리에서 다시 검사한다.
-      const parsed = connectRequestSchema.safeParse(raw);
-      if (!parsed.success) {
-        return fail("invalid_input", "connect request is not valid");
-      }
-      const request = parsed.data;
-      const cli = deps.cli;
-      const core = deps.core();
-      if (cli === null || core === null) {
-        return fail("unavailable", "lophn is not ready");
-      }
-      // 연결은 지금 감지된 harness로만 만든다. 감지하지 못한 제품은 거절한다.
-      const read = await readDetections(cli, "detect");
-      if (!("value" in read)) return read;
-      const detection = read.value.detections.find((item) =>
-        item.harness_id === request.harness_id && item.discovery === "detected"
-      );
-      if (detection === undefined) {
-        return fail("not_detected", "that product was not detected");
-      }
-      const target = await targetOf(request, detection, core);
-      if (!("target" in target)) return target;
-      const connected = await core.internal(
+  // CLI가 실패했거나 이 제품 항목이 없을 때. 감지 값은 확인 못함이고 맡길 수 있는지는 표에서 온다.
+  function unknownView(id: HarnessName, why: string): HarnessSettingsView {
+    const facts = deps.catalog.facts(id);
+    const base = reasonOf(facts);
+    return {
+      harness_id: id,
+      label: facts.label,
+      discovery: "unknown",
+      version: null,
+      version_result: "unknown",
+      login: "unknown",
+      can_launch: facts.can_launch,
+      can_deliver_messages: facts.can_deliver_messages,
+      reason: base === null ? why : `${why} ${base}`,
+    };
+  }
+
+  // 감지가 성공한 마지막 결과. 실패 결과는 쥐지 않아서 다음 읽기가 다시 감지한다.
+  let last: {
+    views: readonly HarnessSettingsView[];
+    detections: Detection[];
+    reported: boolean;
+  } | null = null;
+
+  // core가 닿지 않으면 알리기만 실패로 둔다. Settings 표시는 그대로다.
+  async function report(detections: Detection[]): Promise<boolean> {
+    try {
+      const sent = await deps.core()?.internal(
         "memory",
-        "coding_agent_connections",
-        "connect",
-        { label: request.label, scope: request.scope },
+        "coding_agent_harnesses",
+        "report",
+        { detections },
       );
-      if (!connected.ok) {
-        const code = connected.error.code;
-        return fail(
-          code === "invalid_input" || code === "forbidden" ||
-            code === "conflict"
-            ? code
-            : "unavailable",
-          "the connection was not created",
-        );
-      }
-      const id = connectionIdSchema.safeParse(
-        (connected.value as { connection?: unknown } | null)?.connection,
-      );
-      if (!id.success) {
-        return fail("unavailable", "the connection answer has no reference");
-      }
-      const input = JSON.stringify({ target: target.target });
-      const installed = await cli([
-        "connection",
-        "install",
-        "--connection",
-        id.data,
-        "--input",
-        input,
-      ]);
-      const checks = await cli(["doctor", "--input", input]);
-      return {
-        ok: true,
-        value: {
-          connection: id.data,
-          install: installed.ok
-            ? installStatus(installed.data)
-            : { status: "error", resources: [] },
-          checks: checks.ok ? checksOf(checks.data) : null,
-        },
-      };
+      return sent?.ok === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function run(mode: "detect" | "refresh") {
+    const fail = (why: string) => ({
+      views: HARNESS_IDS.map((id) => unknownView(id, why)),
+      detections: null,
+    });
+    if (deps.cli === null) return fail("The lophn command is not installed.");
+    const ran = await deps.cli(["harness", mode]);
+    if (!ran.ok) return fail(`Detection failed: ${ran.message}.`);
+    if (!Array.isArray(ran.data)) {
+      return fail("Detection gave an unknown result.");
+    }
+    const detections: Detection[] = [];
+    for (const item of ran.data) {
+      const parsed = deps.catalog.parse(item);
+      if (parsed !== null) detections.push(parsed);
+    }
+    const views = HARNESS_IDS.map((id) => {
+      const found = detections.find((item) => item.harness_id === id);
+      return found === undefined
+        ? unknownView(id, "Detection gave no result for it.")
+        : viewOf(found);
+    });
+    return { views, detections };
+  }
+
+  async function take(mode: "detect" | "refresh") {
+    const done = await run(mode);
+    if (done.detections === null) return done.views;
+    last = {
+      views: done.views,
+      detections: done.detections,
+      reported: await report(done.detections),
+    };
+    return done.views;
+  }
+
+  return {
+    async read() {
+      if (last === null) return { ok: true, value: await take("detect") };
+      // 처음 알릴 때 core가 닿지 않았으면 다음 읽기에서 다시 알린다.
+      if (!last.reported) last.reported = await report(last.detections);
+      return { ok: true, value: last.views };
+    },
+    async refresh() {
+      return { ok: true, value: await take("refresh") };
     },
   };
 }

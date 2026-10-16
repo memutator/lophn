@@ -31,12 +31,9 @@ export type CommandOutcome =
   | { kind: "message" }
   // 맞는 명령이 없다. 명령으로도 일반 메시지로도 보내지 않는다.
   | { kind: "unknown_command"; name: string }
-  | { kind: "choose_skill"; name: string; candidates: readonly CommandEntry[] }
   // 이름 뒤에 글이 있어야 하는 명령(Rename)이다.
   | { kind: "needs_argument"; command: string }
-  // 작업 중에는 못 쓰는 명령이다.
-  | { kind: "blocked"; command: string }
-  // 이번 일이 끝난 뒤 실행하려고 줄 세웠다.
+  // 도는 turn 중에 불러 다음 turn에 들어가도록 줄 세웠다.
   | { kind: "queued"; command: string }
   | { kind: "open_screen"; screen: CommandScreen }
   | { kind: "done"; command: string }
@@ -47,24 +44,37 @@ export type CommandOutcome =
   | { kind: "sent"; command: string; queued: boolean }
   | { kind: "failed"; command: string; error: LophnError };
 
-// 작업 중에 부른 Compact를 일이 끝날 때까지 쥐고 있는 줄이다. 프로세스 수명의 상태이므로 entry가
-// 만들어 넘긴다. 줄 서는 것은 session마다 Compact 하나뿐이다(role·skill 메시지는 다음 요청으로
+type QueuedId = "compact" | "fork";
+
+// 도는 turn 중에 부른 명령을 turn이 끝날 때까지 쥐고 있는 줄이다. 프로세스 수명의 상태이므로 entry가
+// 만들어 넘긴다. 줄 서는 것은 session마다 Compact와 Fork뿐이다(role·skill 메시지는 다음 입력으로
 // 접수해 conversation이 줄을 세운다).
 export type CommandQueue = {
-  hold(session: string): void;
-  // 일이 끝난 session의 줄 선 명령을 실행하고 줄을 비운다. 실패해도 다시 줄 서지 않는다.
+  hold(session: string, id: QueuedId): void;
+  // turn이 끝난 session의 줄 선 명령을 실행하고 줄을 비운다. 실패해도 다시 줄 서지 않는다.
   drain(session: string, ports: CommandPorts): Promise<CommandOutcome[]>;
 };
 
 export function createCommandQueue(): CommandQueue {
-  const compacts = new Set<string>();
+  const held = new Map<string, Set<QueuedId>>();
   return {
-    hold: (session) => {
-      compacts.add(session);
+    hold: (session, id) => {
+      const ids = held.get(session) ?? new Set<QueuedId>();
+      ids.add(id);
+      held.set(session, ids);
     },
     async drain(session, ports) {
-      if (!compacts.delete(session)) return [];
-      return [await requested("compact", ports.requestCompact())];
+      const ids = held.get(session);
+      held.delete(session);
+      const outcomes: CommandOutcome[] = [];
+      for (const id of ids ?? []) {
+        outcomes.push(
+          id === "compact"
+            ? await requested(id, ports.requestCompact())
+            : await opened(id, ports.forkSession()),
+        );
+      }
+      return outcomes;
     },
   };
 }
@@ -125,11 +135,15 @@ function runBuiltin(
       return settle(id, ports.archiveSession());
     case "compact":
       if (working && entry.while_running === "queue") {
-        deps.queue.hold(deps.session);
+        deps.queue.hold(deps.session, id);
         return { kind: "queued", command: id };
       }
       return requested(id, ports.requestCompact());
     case "fork":
+      if (working && entry.while_running === "queue") {
+        deps.queue.hold(deps.session, id);
+        return { kind: "queued", command: id };
+      }
       return opened(id, ports.forkSession());
     // 화면을 열 뿐이다. 명령 자체로 권한이나 설정을 바꾸지 않는다.
     case "mcp":
@@ -162,9 +176,9 @@ async function send(
     : { kind: "failed", command: entry.name, error: sent.error };
 }
 
-// 제출한 입력 하나를 registry대로 실행한다. 작업 중 값(while_running)이 정하는 대로: blocked는 부르지
-// 않고, queue는 일이 끝난 뒤로 미루고(role·skill 메시지는 다음 요청으로 접수해 conversation이 줄을
-// 세운다), run은 바로 부른다.
+// 제출한 입력 하나를 registry대로 실행한다. 도는 turn 중에는 while_running이 queue인 명령을 다음
+// turn으로 미루고(role·skill 메시지는 다음 입력으로 접수해 conversation이 줄을 세운다), run인
+// 명령은 바로 부른다.
 export async function runCommand(
   deps: CommandDeps,
   input: { text: string; working: boolean },
@@ -175,19 +189,10 @@ export async function runCommand(
       return { kind: "message" };
     case "unknown_command":
       return { kind: "unknown_command", name: submission.name };
-    case "choose_skill":
-      return {
-        kind: "choose_skill",
-        name: submission.name,
-        candidates: submission.candidates,
-      };
     case "command":
       break;
   }
   const { entry, argument } = submission;
-  if (input.working && entry.while_running === "blocked") {
-    return { kind: "blocked", command: entry.name };
-  }
   const action = entry.action;
   switch (action.kind) {
     case "builtin":
@@ -206,14 +211,12 @@ export async function runCommand(
         skillPrompt(action.skill_name, argument),
         input.working,
       );
-    case "tool":
+    // registry는 tool action을 만들지 않는다. 계약의 action 종류에 남아 있어 닫는다.
+    default:
       return {
         kind: "failed",
         command: entry.name,
-        error: {
-          code: "invalid_input",
-          message: "a tool command has no way to run yet",
-        },
+        error: { code: "invalid_input", message: "unknown command action" },
       };
   }
 }

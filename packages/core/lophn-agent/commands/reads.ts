@@ -21,7 +21,7 @@ export type CommandSessionPlace = {
 };
 
 export type CommandReadDeps = {
-  // 그 agent가 그 자리에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
+  // 그 agent가 그 place에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
   // (lophn-agent/extensions). 끈 skill은 selected=false로 와서 registry가 거른다.
   skills(
     sql: ReadSnapshot["sql"],
@@ -71,7 +71,10 @@ export function createCommandReads(deps: CommandReadDeps): {
           return err({ code: "not_found", message: "session not found" });
         }
         const registry = buildRegistry({
-          role: place.role,
+          // register.ts가 옛 AgentRole을 쓰는 동안만 필요하다.
+          role: place.role === "context_engineer"
+            ? "project_manager"
+            : place.role,
           skills: deps.skills(snapshot.sql, place),
         });
         return ok({

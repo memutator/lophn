@@ -5,44 +5,36 @@ already gave, or from material it can read. One question is one decision. It
 does not ask again for an answer it already has, and it does not bundle separate
 decisions into one question.
 
-## How you answer
+## Questions
 
-The conversation shows the question, choices with explanations, a recommended
-choice and why, what happens after the choice, and what happens if you do not
-answer. When a deadline is part of the decision, you see it. Clicking a choice
-does not submit it. You confirm that question. A general "yes" elsewhere in the
-conversation, or an empty reply, is not the answer.
+An agent asks you with a question card in the conversation. The card shows the
+choices with explanations and a recommended choice with the reason. You can pick
+a choice or type your own answer. Silence is not an answer and not an approval.
+A question has no deadline and keeps waiting. If you did not open that session,
+the question waits in the waiting list.
 
-You can also type a free answer, choose Not now, or cancel. Not now, cancel, and
-closing the window leave the question unanswered. Silence is not a choice and
-not an approval. A question with no deadline keeps waiting. Operator questions
-that have no open conversation, and questions you missed, stay in Things to
-confirm. A notification does not answer them.
+The agent that asked cannot answer for you. A choice you pick is only your
+answer to the agent. It does not grant access by itself.
 
-If the choice is a reversible change inside lophn, confirming that question is
-the decision. No extra confirmation window opens. lophn applies only the target
-and value you confirmed, and only once. The agent does not gain new access from
-your answer. If the target changed, your answer remains, but the change is not
-applied. You see what changed. A free-text answer alone never changes a setting.
-Ask for a new question whose choices state the exact value.
+## Permission requests
 
-## Decisions that leave this question
+Some actions need your permission when an agent tries them: an app-api or MCP
+tool the agent must ask about, a change to lophn settings, an activation that
+widens what an app may do, or a reaction that opens a session. Each appears as a
+request in the conversation and in the waiting list, and as a toast.
 
-For actions that need your decision, anything you cannot undo, anything that
-spends money, anything sent outside your machine, a wider Access grant, and a
-secret all use their own protected screen. A question cannot approve them. The
-Confirmation window is the child window over the window that asked. The app
-stays visible, and only input is blocked. The window reads the current request
-again before you can submit.
+For an app-api or MCP tool you can allow once, allow for this session, allow
+always, or reject with a reason. Allow always changes that agent's grant to no
+longer ask. Allow for this session is forgotten when the session closes. For the
+other kinds you allow or reject. There is no default choice. Closing a card is
+not a decision. The reason you give on rejection goes back to the agent.
 
-You see the exact target, the change, the effect, what can be undone, and what
-remains. For access, you see the exact files, destinations, and secret use.
-Allow and Reject are explicit. Reject does not need a reason. Enter by itself, a
-default button, silence, closing the window, and agreement inside the app are
-not approval. Closing the window does not by itself cancel the request. You can
-return to a request that is still waiting in Things to confirm.
+An allowance is used once for the exact action you saw, and it is checked again
+just before it runs. If what it would do has changed, it is not run. Accepted
+and applied are different, and you are told which happened.
 
-Allowed and applied are different. If the result is unknown, lophn does not
-start the action again by itself. A rejection is not retried through another
-path. If the target changed, the old action is removed and you review the
-current one. A late or duplicate decision does not start a new action.
+## Decisions inside a screen
+
+Some decisions are made on the screen that owns them: resolving a problem,
+rewinding, deleting files, connecting a provider, and entering a secret. They
+need your own click on that screen. An agent cannot make them for you.

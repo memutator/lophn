@@ -1,58 +1,43 @@
 # Features and screens
 
-This guide is for the lophn product version named in the guide list. It explains
-only how to use the product. It does not invent missing behavior, and it does
-not show secret values.
-
-## Find an existing answer first
-
-When you ask how something works, Help looks up the matching section in the
-guides that shipped with this product version. It answers from that section. It
-writes a new version of a help document only when no existing answer fits, or
-when the product behavior has changed. A short answer stays in the conversation.
-If the guides and the public Settings definitions do not say something, lophn
-says it does not know. It does not guess from an internal name or from a value
-it cannot see.
+This guide explains how to use lophn. It does not invent behavior that is not
+here, and it never shows secret values. If neither these guides nor the public
+Settings definitions say something, lophn says it does not know. It does not
+guess from an internal name.
 
 ## Where things live
 
-The Launcher is the first window. Open a project card to reach the Project
-workspace, or an app card to open an app. The Project workspace keeps documents,
-the terminal, and app panels in one tab row. The terminal is also where [Start]
-opens a coding agent for a Task.
+The Launcher is the first window. Open a project card to reach the project
+window, or an app card to open an app. A project window keeps documents, the
+terminal, contexts and the project's agents in one place. An app window shows
+the app and, beside it, the App Engineer and Operators for that app.
 
-The lophn area has Projects, Apps, Things to confirm, Roles, and Settings.
-Documents and Contexts belong to a project, so you open them inside the Project
-workspace. Conversation is the dock on the right of every area. Closing it does
-not change the project or the app you already have open. A notification chip is
-not a decision. Opening it goes to Things to confirm.
+You talk to an agent in a conversation. In a project window you pick the agent
+from the sidebar, in an app window from the agent select in the title bar, and
+anywhere you can answer a toast.
 
 ## Features
 
 Projects holds the projects you registered. Inside a project, Documents opens
-documents as tabs and saved views open searches. Contexts lists the project's
-contexts. A Context tab shows its Overview, Search, Violations, Glossary, and
-Contract. Context Engineer keeps a context up to date, so to create or change
-one you start a conversation with Context Engineer instead of editing it
-yourself. Apps holds registered apps. App detail, inside an app, is where you
-look at the current version, access, connections, issues, and tasks for that one
-app.
+documents as tabs and Contexts lists the project's contexts. A context tab shows
+its overview, search, violations, glossary and contract. The project's Project
+Manager keeps contexts up to date, so to create or change one you ask Project
+Manager instead of editing the contract yourself.
 
-Roles is where you see what each role does and where you open a conversation
-with it. Settings is where you review and change product settings, including
-connections, backup, and diagnostics. Things to confirm collects decisions that
-are still waiting and results that already happened.
+Apps holds registered apps. App detail shows the current release, access
+(grants), connections, problems and what changed. To build or change an app you
+ask its App Engineer. You do not instruct the coding agent directly.
+
+Agents is where you see each agent's definition and change it. Settings is where
+you review and change product settings, including connections. The waiting list
+collects everything that is waiting for your answer, from every session.
 
 ## What a conversation shows
 
-The conversation shows the result and the next action you need. A plan sentence
-is not a finished result. Open the details only when you want the reason, the
-actual change, or the cost. In progress, Waiting, Stopped, and Done are the
-states you see. Work moving between roles stays the same request for you.
+A conversation shows the result and the next thing you need to do. A plan
+sentence is not a finished result. You can send a correction while an agent is
+working. It reaches the agent as your own steering message. A message you send
+while a turn is running goes into the next turn unless you steer.
 
-You can send a correction while work is in progress, waiting on a question, or
-waiting on a decision. Received and applied are different. Stopping is different
-from the work actually ending. Stopping does not undo a change that already
-happened. A separate next request starts only after the current work ends
-normally. After a failure or a stop, lophn keeps what you wrote and waits for
-you to send it again.
+Stopping a turn does not undo a change that already happened. To undo, use
+rewind (see the Rewind guide).

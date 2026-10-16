@@ -11,9 +11,6 @@ export const REPAIR_APP_PROMPT =
 export const CHECK_CONTRACTS_PROMPT =
   "Check every context in this project against its documents. List each place where a context and its documents disagree, and tell me what you would change.";
 
-export const NEW_CONTEXT_PROMPT =
-  "I want to set up a new context. Talk with me about what it should cover and what it should own, one question at a time, then draft it with me.";
-
 // 명령 뒤에 사람이 쓴 글이 있으면 빈 줄을 두고 prompt 뒤에 붙인다.
 export function withArgument(prompt: string, argument: string): string {
   return argument === "" ? prompt : `${prompt}\n\n${argument}`;

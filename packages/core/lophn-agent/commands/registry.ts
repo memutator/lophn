@@ -1,14 +1,13 @@
 import {
-  type AgentRole,
   BUILTIN_COMMAND_IDS,
   type CommandEntry,
   type CommandNotice,
+  type Role,
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   CHECK_CONTRACTS_PROMPT,
   NEW_APP_PROMPT,
-  NEW_CONTEXT_PROMPT,
   REPAIR_APP_PROMPT,
 } from "./role-prompts.ts";
 
@@ -27,7 +26,7 @@ export type RegistrySkill = {
 };
 
 export type RegistryInput = {
-  role: AgentRole;
+  role: Role;
   skills: readonly RegistrySkill[];
 };
 
@@ -67,7 +66,7 @@ const BUILTIN_TABLE: Record<
   fork: {
     title: "Fork",
     description: "Copy this session into a new one",
-    while_running: "blocked",
+    while_running: "queue",
   },
   mcp: {
     title: "MCP",
@@ -81,12 +80,13 @@ const BUILTIN_TABLE: Record<
   },
   permissions: {
     title: "Permissions",
-    description: "Change what this agent may do",
+    description: "Show agent grants and this session's session permissions",
     while_running: "run",
   },
   recap: {
     title: "Recap",
-    description: "Summarize this session on screen",
+    description:
+      "Summarize this session briefly on screen and leave the history as it is",
     while_running: "run",
   },
 };
@@ -119,8 +119,8 @@ function promptCommand(
   };
 }
 
-// role 명령을 더하는 자리는 role마다의 목록 하나다.
-const ROLE_COMMANDS: Record<AgentRole, readonly CommandEntry[]> = {
+// role 명령은 role마다의 목록 하나다. protocol의 ROLE_COMMAND_NAMES와 같아야 한다.
+const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
   lophn: [
     promptCommand(
       "new-app",
@@ -135,31 +135,26 @@ const ROLE_COMMANDS: Record<AgentRole, readonly CommandEntry[]> = {
       REPAIR_APP_PROMPT,
     ),
   ],
-  context_engineer: [
+  project_manager: [
     promptCommand(
       "check-contracts",
       "Check contracts",
       "Check every context against its documents",
       CHECK_CONTRACTS_PROMPT,
     ),
-    promptCommand(
-      "new-context",
-      "New context",
-      "Set up a new context with you",
-      NEW_CONTEXT_PROMPT,
-    ),
   ],
   app_engineer: [],
   operator: [],
 };
 
-// 그 role의 built-in이다. lophn은 New app · Repair app, Context Engineer는 Check
-// contracts · New context, App Engineer와 Operator는 빈 목록이다.
-export function roleCommands(role: AgentRole): readonly CommandEntry[] {
+// 그 role의 built-in이다. lophn은 New app · Repair app, Project Manager는 Check
+// contracts, App Engineer와 Operator는 빈 목록이다.
+export function roleCommands(role: Role): readonly CommandEntry[] {
   return ROLE_COMMANDS[role].map((entry) => structuredClone(entry));
 }
 
-// 이름 영문 사전순이고, 같은 이름은 마지막 층(project, global, builtin 순)이 앞이다.
+// 이름 영문 사전순이고, 같은 이름은 마지막 층(project, global, builtin 순)이 앞이다. 같은 이름은
+// 마지막 층 하나만 남는다.
 const ORIGIN_RANK: Record<SkillSource, number> = {
   project: 0,
   global: 1,
@@ -180,7 +175,9 @@ export function buildRegistry(input: RegistryInput): CommandRegistry {
   // 끈 skill은 없는 것과 같다. 예약된 이름의 skill은 목록에서 빠지고 알림이 된다.
   const selected = input.skills.filter((skill) => skill.selected)
     .toSorted(compareSkills);
-  const usable = selected.filter((skill) => !reserved.has(skill.name));
+  const usable = selected.filter((skill, index) =>
+    !reserved.has(skill.name) && selected[index - 1]?.name !== skill.name
+  );
   const notices: CommandNotice[] = [];
   for (const skill of selected) {
     const reserved_by = reserved.get(skill.name);
@@ -192,17 +189,12 @@ export function buildRegistry(input: RegistryInput): CommandRegistry {
     }
   }
 
-  // 출처는 같은 이름이 둘 이상일 때만 붙인다.
-  const counts = new Map<string, number>();
-  for (const skill of usable) {
-    counts.set(skill.name, (counts.get(skill.name) ?? 0) + 1);
-  }
   const skillEntries = usable.map((skill): CommandEntry => ({
     name: skill.name,
     title: null,
     description: skill.description,
     source: "skill",
-    skill_origin: (counts.get(skill.name) ?? 0) > 1 ? skill.origin : null,
+    skill_origin: null,
     while_running: "queue",
     action: { kind: "skill", skill_name: skill.name },
   }));

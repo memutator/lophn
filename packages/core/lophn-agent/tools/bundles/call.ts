@@ -34,9 +34,13 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       };
     },
     handler: async (input, ctx) => {
+      const wanted = input as ToolInput<"call">;
+      // gate가 받는 agent를 풀어 물었으면 여기까지 온 호출은 허락을 받은 것이다. 못 풀었으면 묻지 않았다.
+      const asked = await callAgentOf(wanted.to, ctx) !== null;
       const sent = await ctx.router.send({
-        ...(input as ToolInput<"call">),
+        ...wanted,
         dedup: ctx.tool_call,
+        ...(asked ? { gate_allowed: true as const } : {}),
       });
       if (!sent.ok) return sent;
       const { call, state, fail_reason } = sent.value;

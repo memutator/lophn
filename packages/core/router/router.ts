@@ -82,12 +82,14 @@ export function createRouter(deps: RouterDeps): Router {
   const { directory, transport, gate, store } = deps;
 
   // 보낸 agent의 grant로 받는 agent를 판정한다. 거절이면 not_allowed, 판정하지 못하면 오류로 돌려준다.
+  // gateAllowed는 보낸 agent의 turn이 ToolGate에서 사람의 허락을 받았다는 표시다. 묻는 grant만 이 표시로 통과한다.
   function authorize(
     from: CallFrom,
     agent: CallAgent,
+    gateAllowed: boolean,
   ): Result<"allowed" | "not_allowed"> {
     if (from.kind !== "agent") return ok("allowed");
-    const verdict = gate.authorize(from, agent);
+    const verdict = gate.authorize(from, agent, gateAllowed);
     if (verdict.ok) return ok("allowed");
     if (
       verdict.error.code === "unavailable" || verdict.error.code === "internal"
@@ -100,8 +102,9 @@ export function createRouter(deps: RouterDeps): Router {
     from: CallFrom,
     agent: CallAgent,
     to: CallTo,
+    gateAllowed: boolean,
   ): Result<Resolved> {
-    const allowed = authorize(from, agent);
+    const allowed = authorize(from, agent, gateAllowed);
     if (!allowed.ok) return allowed;
     if (allowed.value === "not_allowed") return ok(failed("not_allowed", to));
     const opened = directory.open(tx, agent, from);
@@ -115,8 +118,9 @@ export function createRouter(deps: RouterDeps): Router {
     from: CallFrom,
     to: CallTo,
     target: TargetSession,
+    gateAllowed: boolean,
   ): Result<Resolved> {
-    const allowed = authorize(from, target.agent);
+    const allowed = authorize(from, target.agent, gateAllowed);
     if (!allowed.ok) return allowed;
     if (allowed.value === "not_allowed") return ok(failed("not_allowed", to));
     return ok({ ok: true, to, target });
@@ -128,6 +132,7 @@ export function createRouter(deps: RouterDeps): Router {
     from: CallFrom,
     input: RouteInput,
   ): Result<Resolved> {
+    const gateAllowed = input.gate_allowed === true;
     const addressing = addressingOf(input.to);
     let to: CallTo;
     switch (addressing.form) {
@@ -154,15 +159,19 @@ export function createRouter(deps: RouterDeps): Router {
           };
       }
     }
-    if (to.kind === "new_session") return open(tx, from, to.agent, to);
+    if (to.kind === "new_session") {
+      return open(tx, from, to.agent, to, gateAllowed);
+    }
     const target = directory.find(sesId(to.session));
     if (to.kind === "open_session") {
       if (target === null) return ok(failed("not_found", to));
       if (!target.accepting) return ok(failed("closed", to));
-      return existing(from, to, target);
+      return existing(from, to, target, gateAllowed);
     }
-    if (target !== null && target.accepting) return existing(from, to, target);
-    return open(tx, from, to.agent, to);
+    if (target !== null && target.accepting) {
+      return existing(from, to, target, gateAllowed);
+    }
+    return open(tx, from, to.agent, to, gateAllowed);
   }
 
   function inputOf(

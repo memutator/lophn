@@ -181,6 +181,8 @@ export const callSendInputSchema = z.strictObject({
   refs: z.array(callRefSchema),
   options: codingOptionsSchema.optional(),
   dedup: z.string().min(1),
+  // call tool이 ToolGate에서 사람의 허락을 받은 뒤에만 싣는다. 묻는 grant를 통과시키고 deny는 못 푼다.
+  gate_allowed: z.literal(true).optional(),
 });
 
 export const callSend = defineCommand({

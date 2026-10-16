@@ -148,7 +148,10 @@ const operatorDefinition = operatorDefinitionSchema.omit({
   mcp_servers: true,
 });
 
-const callToolInput = callSendInputSchema.omit({ dedup: true });
+const callToolInput = callSendInputSchema.omit({
+  dedup: true,
+  gate_allowed: true,
+});
 
 export const TOOL_INPUTS = {
   "file.read": z.strictObject({
@@ -178,7 +181,7 @@ export const TOOL_INPUTS = {
   }),
   "web.search": z.strictObject({ query: nonblank }),
   "web.fetch": z.strictObject({ url: z.url() }),
-  // dedup은 입력이 아니라 tool call ID로 채운다.
+  // dedup은 입력이 아니라 tool call ID로, gate_allowed는 ToolGate의 결과로 채운다.
   call: callToolInput,
   reply: callReply.input,
   cancel: callCancel.input.required({ reason: true }),

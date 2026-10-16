@@ -41,8 +41,8 @@ const ASK_IN_TX = {
 };
 
 // 보낸 agent의 agent grant로 받는 agent를 판정한다. command는 tx 안이라 사람의 답을 기다릴 수 없다. 묻는 grant는
-// 거절로 둔다(fail-closed).
-function callGate(
+// 보낸 turn이 ToolGate에서 이미 허락을 받았을 때만 통과하고 아니면 거절이다(fail-closed). deny는 늘 거절이다.
+export function callGate(
   sql: Parameters<typeof loadAgentGrant>[0],
   senderAgent: (session: string) => CallAgent | null,
 ): CallGate {
@@ -64,12 +64,13 @@ function callGate(
     return gate(intent, { app: [], agent: grant.value, reaction: {} as never });
   }
   return {
-    authorize(sender, target) {
+    authorize(sender, target, gateAllowed) {
       const decided = verdict(sender, target);
       if (decided === null) {
         return err({ code: "forbidden", message: "no grant to call" });
       }
       if (decided.verdict === "run") return ok(undefined);
+      if (decided.verdict === "ask" && gateAllowed) return ok(undefined);
       return err(
         decided.verdict === "ask"
           ? ASK_IN_TX

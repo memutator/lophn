@@ -87,10 +87,15 @@ export interface InputTransport {
   queued(): readonly { call: Id<"cal">; app: Id<"app"> }[];
 }
 
-// 보낸 쪽이 agent일 때만 부른다. Gate의 agent grant 판정이다. 묻는 grant면 이 호출이 돌아오기 전에
-// 보낸 쪽 turn이 허락을 기다린다. 거절이면 not_allowed.
+// 보낸 쪽이 agent일 때만 부른다. Gate의 agent grant 판정이다. 묻는 grant는 tx 안이라 물을 수 없다.
+// 보낸 turn이 ToolGate에서 이미 허락을 받았으면(`gateAllowed`) 통과하고, 아니면 거절이다. deny는 늘 거절이다.
+// 거절이면 not_allowed.
 export interface CallGate {
-  authorize(sender: CallFrom, target: CallAgent): Result<void>;
+  authorize(
+    sender: CallFrom,
+    target: CallAgent,
+    gateAllowed: boolean,
+  ): Result<void>;
   // 묻지 않고 보이기만 판정한다. deny가 아니면 true(묻는 grant도 보인다).
   visible(sender: CallFrom, target: CallAgent): boolean;
 }

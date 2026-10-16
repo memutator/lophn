@@ -1,49 +1,6 @@
 // context 화면의 고정 데이터. phroner project의 eval context가 중심이고, 위반·판·용어집·검색 이름이 여기서 나온다.
 import { experimentPath, findingPath } from "../phroner-data.ts";
 
-export interface ContextCardData {
-  readonly name: string;
-  readonly purpose: string;
-  /** 개체 종류 수와 이름. */
-  readonly kinds: string;
-  /** 적용된 판. */
-  readonly version: string;
-  readonly tests: string;
-  readonly violations: number;
-}
-
-export const CONTEXT_CARDS: readonly ContextCardData[] = [
-  {
-    name: "eval",
-    purpose:
-      "Keep experiments, scenarios, rubrics and findings of the eval loop findable.",
-    kinds: "4 kinds of things (Experiment, Scenario, Rubric, Finding)",
-    version: "r3",
-    tests: "tests passed",
-    violations: 2,
-  },
-  {
-    name: "harness",
-    purpose: "Keep harness changes and components findable.",
-    kinds: "2 kinds of things (Change, Component)",
-    version: "r5",
-    tests: "tests passed",
-    violations: 0,
-  },
-];
-
-/** 이미 보관한 context. 검색과 위반 목록에서 빠진다. */
-export const ARCHIVED_CARDS: readonly ContextCardData[] = [
-  {
-    name: "scratch-notes",
-    purpose: "Early notes on the eval loop, replaced by eval.",
-    kinds: "1 kind of thing (Note)",
-    version: "r2",
-    tests: "tests passed",
-    violations: 0,
-  },
-];
-
 export interface ViolationRow {
   readonly path: string;
   readonly what: string;

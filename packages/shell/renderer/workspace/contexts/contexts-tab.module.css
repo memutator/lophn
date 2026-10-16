@@ -1,5 +1,9 @@
+/* 탭 본문의 기둥: 최대 폭을 두고 가로 가운데에 놓는다. 배경은 탭 바탕 그대로다. */
 .screen {
+  box-sizing: border-box;
+  width: 100%;
   max-width: var(--page-launcher);
+  margin: var(--space-0) auto;
 }
 
 .title {
@@ -49,19 +53,56 @@
 
 .actions {
   display: flex;
+  justify-content: flex-end;
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: auto;
+  padding-top: var(--space-5);
 }
 
-.newContext {
+.failure {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+}
+
+.archivedHead {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  justify-content: space-between;
+  gap: var(--space-3);
   margin-top: var(--space-8);
+}
+
+.archivedHead h2 {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.archivedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.archivedRow p {
+  margin: var(--space-0);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.muted,
+.note {
+  color: var(--color-text-muted);
 }
 
 .note {
   margin: var(--space-0);
-  color: var(--color-text-muted);
   font-size: var(--type-small-size);
 }

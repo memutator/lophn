@@ -12,7 +12,6 @@ import type {
   ContainingContext,
   ContextContract,
   ContextDetail,
-  ContextDraft,
   ContextListItem,
   ContextOverview,
   ContextsSource,
@@ -105,36 +104,20 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
     return { ok: true, value: { items: all, next: cursor ?? null } };
   };
 
-  // 이 project의 Operator가 정의 `contexts`에 고른 context별 수다(lophn-agent/agents). context는 project 안에만
-  // 있고 Operator의 정의도 그 project 자리의 파일이라, 그 project의 Operator를 한 번씩만 읽어 센다.
-  const countOperators = async (
-    project: string,
-  ): Promise<ReadResult<ReadonlyMap<string, number>>> => {
-    const place = { kind: "project", id: project };
-    const listed = await read<
-      { agents: readonly { assignment: string; kind: string }[] }
-    >("agents", "list", { place });
-    if (!listed.ok) return listed;
-    const counts = new Map<string, number>();
-    for (const row of listed.value.agents) {
-      if (row.kind !== "operator") continue;
-      const agent = await read<
-        { definition: { contexts?: readonly string[] } | null }
-      >("agents", "read", { place, assignment: row.assignment });
-      if (!agent.ok) return agent;
-      for (const context of agent.value.definition?.contexts ?? []) {
-        counts.set(context, (counts.get(context) ?? 0) + 1);
-      }
-    }
-    return { ok: true, value: counts };
-  };
-
   return {
     async list(project) {
       const result = await collect<
         Page & { contexts: readonly ContextListItem[] },
         ContextListItem
       >("list", { project }, (value) => value.contexts);
+      return result.ok ? { ok: true, value: result.value.items } : result;
+    },
+
+    async archived(project) {
+      const result = await collect<
+        Page & { contexts: readonly ContextListItem[] },
+        ContextListItem
+      >("list", { project, status: "archived" }, (value) => value.contexts);
       return result.ok ? { ok: true, value: result.value.items } : result;
     },
 
@@ -181,18 +164,6 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
             bundle_hash: result.value.bundle_hash,
             content: result.value.content,
           },
-        }
-        : result;
-    },
-
-    async draft(context) {
-      const result = await read<ContextDraft>("contexts", "draft", {
-        context,
-      });
-      return result.ok
-        ? {
-          ok: true,
-          value: { context: result.value.context, draft: result.value.draft },
         }
         : result;
     },
@@ -286,8 +257,6 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
       return result.ok ? { ok: true, value: result.value.contexts } : result;
     },
 
-    operatorCounts: countOperators,
-
     saveView: (request) => command("contexts", "save_view", request),
 
     glossarySet: (request, compare?: BaseRevision) =>
@@ -298,6 +267,14 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
 
     handOffViolations: (request) =>
       command("contexts", "hand_off_violations", request),
+
+    archive: ({ context, revision }) =>
+      command("contexts", "archive", { context }, { base_revision: revision }),
+
+    unarchive: ({ context, revision }) =>
+      command("contexts", "unarchive", { context }, {
+        base_revision: revision,
+      }),
 
     // rollback의 비교 기준은 context의 revision이다: 읽은 뒤 다른 판이 적용되면 core가 거절한다.
     async rollback(request) {

@@ -126,3 +126,22 @@
   line-height: var(--type-small-line);
   white-space: nowrap;
 }
+
+/* 개체가 둘 이하일 때: 그림 없이 카드만 나란히. */
+.plain {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-container-panel),
+    1fr));
+  gap: var(--space-5);
+}
+
+.plainEntity > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+}
+
+.plainEntity p {
+  margin: var(--space-0);
+}

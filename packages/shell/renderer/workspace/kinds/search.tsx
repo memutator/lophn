@@ -6,7 +6,7 @@ import { t } from "@lophn/wording";
 import { paletteIcons } from "../../icons/mod.ts";
 
 import { SearchTab } from "../contexts/search-tab.tsx";
-import { searchTabTitle } from "../contexts/settle-tabs.ts";
+import { searchTabTitle } from "../contexts/shared.ts";
 import type { SearchTabState } from "../contexts/search-tab.tsx";
 import {
   CONTEXT_ID,

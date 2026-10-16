@@ -3,8 +3,8 @@ import type { contexts } from "./contexts.ts";
 
 export type ContextsPlaceholders = {
   "contexts.button.document-open": Record<never, never>;
-  "contexts.button.frame-ask": Record<never, never>;
-  "contexts.button.frame-history": Record<never, never>;
+  "contexts.button.frame-versions-hide": Record<never, never>;
+  "contexts.button.frame-versions-show": Record<never, never>;
   "contexts.button.glossary-add": Record<never, never>;
   "contexts.button.glossary-add-term": Record<never, never>;
   "contexts.button.glossary-cancel": Record<never, never>;
@@ -21,8 +21,12 @@ export type ContextsPlaceholders = {
   "contexts.button.results-prev": Record<never, never>;
   "contexts.button.search-open-context": Record<never, never>;
   "contexts.button.search-save": Record<never, never>;
-  "contexts.button.tab-new-context": Record<never, never>;
+  "contexts.button.tab-archive": Record<never, never>;
+  "contexts.button.tab-archived-hide": Record<never, never>;
+  "contexts.button.tab-archived-show": Record<never, never>;
   "contexts.button.tab-open": Record<never, never>;
+  "contexts.button.tab-unarchive": Record<never, never>;
+  "contexts.button.versions-restore": Record<never, never>;
   "contexts.button.violations-send": Record<never, never>;
   "contexts.button.violations-send-all": Record<never, never>;
   "contexts.empty.document-none": Record<never, never>;
@@ -30,6 +34,7 @@ export type ContextsPlaceholders = {
   "contexts.empty.results-none": Record<never, never>;
   "contexts.empty.search-no-searches": Record<never, never>;
   "contexts.empty.violations-none": Record<never, never>;
+  "contexts.error.archive-failed": Record<never, never>;
   "contexts.error.glossary-failed": Record<never, never>;
   "contexts.error.reason-conflict": Record<never, never>;
   "contexts.error.reason-forbidden": Record<never, never>;
@@ -38,15 +43,21 @@ export type ContextsPlaceholders = {
   "contexts.error.reason-not-found": Record<never, never>;
   "contexts.error.reason-unauthorized": Record<never, never>;
   "contexts.error.reason-unavailable": Record<never, never>;
+  "contexts.error.restore-failed": Record<never, never>;
   "contexts.error.search-save-failed": Record<never, never>;
   "contexts.error.violations-send-failed": Record<never, never>;
   "contexts.heading.composition-title": Record<never, never>;
   "contexts.heading.contract-fields": Record<never, never>;
   "contexts.heading.contract-relations": Record<never, never>;
   "contexts.heading.contract-searches": Record<never, never>;
-  "contexts.heading.drafting-overview": Record<never, never>;
   "contexts.heading.search-saved-views": Record<never, never>;
   "contexts.heading.search-searches": Record<never, never>;
+  "contexts.heading.sidebar-contexts": Record<never, never>;
+  "contexts.heading.sidebar-saved-views": Record<never, never>;
+  "contexts.heading.tab-archived": {
+    count: "string";
+  };
+  "contexts.heading.versions": Record<never, never>;
   "contexts.label.composition-documents": {
     type: "string";
     count: "plural";
@@ -110,16 +121,6 @@ export type ContextsPlaceholders = {
     article: "string";
     type: "string";
   };
-  "contexts.label.drafting-apply": Record<never, never>;
-  "contexts.label.drafting-checks": Record<never, never>;
-  "contexts.label.drafting-chip": Record<never, never>;
-  "contexts.label.drafting-draft": Record<never, never>;
-  "contexts.label.drafting-progress": Record<never, never>;
-  "contexts.label.drafting-reading": Record<never, never>;
-  "contexts.label.drafting-status": {
-    step: "string";
-  };
-  "contexts.label.frame-kept-up-to-date": Record<never, never>;
   "contexts.label.frame-note": Record<never, never>;
   "contexts.label.frame-sub-tabs": Record<never, never>;
   "contexts.label.frame-version-checking": {
@@ -152,10 +153,6 @@ export type ContextsPlaceholders = {
     fields: "string";
   };
   "contexts.label.palette-detail": Record<never, never>;
-  "contexts.label.rail-agent": Record<never, never>;
-  "contexts.label.rail-saved-views": Record<never, never>;
-  "contexts.label.rail-shortcuts": Record<never, never>;
-  "contexts.label.rail-terminal": Record<never, never>;
   "contexts.label.results-count": {
     count: "plural";
     singular: "string";
@@ -183,9 +180,6 @@ export type ContextsPlaceholders = {
     names: "string";
   };
   "contexts.label.tab-no-violations": Record<never, never>;
-  "contexts.label.tab-operators": {
-    count: "plural";
-  };
   "contexts.label.tab-version-checking": {
     number: "string";
   };
@@ -201,12 +195,16 @@ export type ContextsPlaceholders = {
   };
   "contexts.label.target-focus": Record<never, never>;
   "contexts.label.target-list": Record<never, never>;
+  "contexts.label.versions-checking": Record<never, never>;
+  "contexts.label.versions-current": Record<never, never>;
+  "contexts.label.versions-failed": Record<never, never>;
+  "contexts.label.versions-name": {
+    number: "string";
+  };
   "contexts.label.violations-on-it": Record<never, never>;
   "contexts.label.violations-rule": {
     rule: "string";
   };
-  "contexts.note.drafting-later": Record<never, never>;
-  "contexts.note.drafting-not-final": Record<never, never>;
   "contexts.note.glossary-purpose": Record<never, never>;
   "contexts.note.input-required": {
     inputs: "string";
@@ -215,15 +213,15 @@ export type ContextsPlaceholders = {
     type: "string";
   };
   "contexts.note.overview-example": Record<never, never>;
+  "contexts.note.restored": Record<never, never>;
   "contexts.note.search-no-saved-views": Record<never, never>;
   "contexts.note.search-pick": Record<never, never>;
-  "contexts.note.tab-new-context": Record<never, never>;
+  "contexts.note.tab-archived": Record<never, never>;
+  "contexts.title.restored": {
+    number: "string";
+  };
   "contexts.title.tab-screen": {
     project: "string";
-  };
-  "contexts.title.toast-violations": {
-    title: "string";
-    count: "plural";
   };
 };
 

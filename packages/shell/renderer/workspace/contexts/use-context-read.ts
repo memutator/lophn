@@ -1,52 +1,33 @@
-// Context 탭 본문이 한 번 읽고, 작업대 watch가 알리는 stamp가 바뀌면 화면을 그대로 둔 채 다시 읽는다.
-// 대상(source·context)이나 [Retry]가 바뀌면 loading부터 시작하고, stamp만
-// 바뀌어 다시 읽다 실패하면 이미 보이는 값을 지키다 다음 stamp에서 다시 읽는다.
+// Context 탭 머리가 열 때 한 번 읽는다. 열려 있는 동안 저절로 다시 읽지 않는다.
+// 사람이 한 일(판 되돌리기) 뒤에는 `refresh`로 화면을 둔 채 다시 읽고, 읽지 못하면 이미 보이는 값을 지킨다.
+// 대상이 바뀌거나 [Retry]를 누르면 loading부터 시작한다.
 import { useEffect, useRef, useState } from "react";
-
-import type { ContextListItem } from "./source.ts";
 
 export type ContextRead<T> =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly value: T };
 
-/**
- * context 목록 한 줄의 읽을 거리가 바뀌었는지 가르는 표. 상태·판·진행(draft·checking 판)이
- * 바뀌면 달라진다.
- */
-export function contextStamp(item: ContextListItem): string {
-  return JSON.stringify([
-    item.status,
-    item.revision,
-    item.applied_bundle,
-    item.draft_bundle,
-    item.checking_bundle,
-  ]);
-}
-
 /** load는 값을 돌려주고 읽지 못하면 null을 돌려준다. target이 같으면 같은 대상이다. */
 export function useContextRead<T>(
   load: () => Promise<T | null>,
   target: readonly unknown[],
-  stamp: string | undefined,
 ) {
   const [read, setRead] = useState<ContextRead<T>>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const last = useRef<readonly unknown[] | null>(null);
+  const [refreshed, setRefreshed] = useState(0);
+  const quiet = useRef(false);
   useEffect(() => {
-    const key = [...target, attempt];
-    const quiet = last.current !== null &&
-      key.length === last.current.length &&
-      key.every((value, index) => value === last.current?.[index]);
-    last.current = key;
+    const keep = quiet.current;
+    quiet.current = false;
     let live = true;
-    if (!quiet) setRead({ state: "loading" });
+    if (!keep) setRead({ state: "loading" });
     void load().then((value) => {
       if (!live) return;
       setRead((current) =>
         value !== null
           ? { state: "ready", value }
-          : quiet && current.state === "ready"
+          : keep && current.state === "ready"
           ? current
           : { state: "failed" }
       );
@@ -54,6 +35,13 @@ export function useContextRead<T>(
     return () => {
       live = false;
     };
-  }, [...target, attempt, stamp]);
-  return { read, reload: () => setAttempt((count) => count + 1) };
+  }, [...target, attempt, refreshed]);
+  return {
+    read,
+    reload: () => setAttempt((count) => count + 1),
+    refresh: () => {
+      quiet.current = true;
+      setRefreshed((count) => count + 1);
+    },
+  };
 }

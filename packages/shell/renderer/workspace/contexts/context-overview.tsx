@@ -1,6 +1,6 @@
 // Overview: context가 다루는 것마다 카드(이름·한 줄 뜻·개수·가진 것·예시 문서·"See all"), 카드 사이
 // 사람 말 화살표, 아래에 ContextComposition. 계약 말(kind·public·검색 함수)은
-// 쓰지 않는다.
+// 쓰지 않는다. 개체가 둘 이하면 그림 없이 카드만 둔다.
 // 문구 key는 packages/design/wording/en.ts에 이미 있다. 구현은 en.ts를 고치지 않고 아래 key만 t()로 쓴다:
 //   contexts.button.overview-see-all
 //   contexts.label.overview-diagram
@@ -102,6 +102,22 @@ function Diagram(
   },
 ): ReactNode {
   if (model.cards.length === 0) return null;
+  // 개체가 둘 이하면 그릴 관계가 거의 없어 그림 없이 카드만 나란히 둔다.
+  if (model.cards.length <= 2) {
+    return (
+      <div className={styles.plain} data-plain-cards="">
+        {model.cards.map((card) => (
+          <div key={card.name} className={styles.plainEntity}>
+            <Entity
+              card={card}
+              onOpenDocument={onOpenDocument}
+              onSeeAll={onSeeAll}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
   const grid = layoutGrid(model.cards.length);
   const cellOf = new Map(
     model.cards.map((card, index) => [card.name, grid.cells[index]!]),

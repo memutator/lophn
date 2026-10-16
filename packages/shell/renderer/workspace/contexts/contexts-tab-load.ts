@@ -1,7 +1,6 @@
-// Contexts 탭이 카드마다 읽는 값. 목록 하나와 context마다 종류·판 이력·
-// Operator 수를 함께 읽는다. 목록이나 판 이력을 읽지 못하면 null이다(화면은 다시 읽기를 보인다).
-// 종류는 색인(context worker)이, Operator 수는 agents가 따로 답하므로 그 둘이 안 오면 카드는
-// 그 줄만 빼고 보인다.
+// Contexts 탭이 열 때 읽는 값. 보관하지 않은 context마다 카드 하나(종류·판 이력)와 보관한 context 목록이다.
+// 목록이나 판 이력을 읽지 못하면 null이다(화면은 다시 읽기를 보인다). 종류는 색인(context worker)이
+// 따로 답하므로 안 오면 카드는 그 줄만 빼고 보인다.
 import type { ContextListItem, ContextsSource } from "./source.ts";
 
 export type VersionCheck = "passed" | "checking" | "failed";
@@ -12,29 +11,33 @@ export interface CardData {
   readonly kinds: readonly string[];
   /** 적용된 판의 검사 결과. 적용된 판이 없으면 null. */
   readonly version: VersionCheck | null;
-  /** 쓰는 Operator 수. 읽지 못했으면 null이고 카드는 그 줄을 보이지 않는다. */
-  readonly operators: number | null;
 }
 
-export async function loadCards(
+export interface ContextsRead {
+  readonly cards: readonly CardData[];
+  readonly archived: readonly ContextListItem[];
+}
+
+export async function loadContexts(
   source: ContextsSource,
   project: string,
-): Promise<readonly CardData[] | null> {
-  const list = await source.list(project);
-  if (!list.ok) return null;
-  // Operator는 project마다 한 번만 읽고 context별 수로 센다.
-  if (list.value.length === 0) return [];
-  const operators = await source.operatorCounts(project);
+): Promise<ContextsRead | null> {
+  const [list, archived] = await Promise.all([
+    source.list(project),
+    source.archived(project),
+  ]);
+  if (!list.ok || !archived.ok) return null;
   const cards = await Promise.all(
-    list.value.map((item) => loadCard(source, item, operators)),
+    list.value.map((item) => loadCard(source, item)),
   );
-  return cards.includes(null) ? null : cards as CardData[];
+  return cards.includes(null)
+    ? null
+    : { cards: cards as CardData[], archived: archived.value };
 }
 
 async function loadCard(
   source: ContextsSource,
   item: ContextListItem,
-  operators: Awaited<ReturnType<ContextsSource["operatorCounts"]>>,
 ): Promise<CardData | null> {
   const [overview, bundles] = await Promise.all([
     source.overview(item.id),
@@ -55,6 +58,5 @@ async function loadCard(
       : status === "failed"
       ? "failed"
       : "passed",
-    operators: operators.ok ? operators.value.get(item.id) ?? 0 : null,
   };
 }

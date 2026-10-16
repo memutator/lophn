@@ -1,7 +1,7 @@
 export const contexts = {
   "contexts.button.document-open": "Open",
-  "contexts.button.frame-ask": "Ask Context Engineer",
-  "contexts.button.frame-history": "History",
+  "contexts.button.frame-versions-hide": "Versions ▴",
+  "contexts.button.frame-versions-show": "Versions ▾",
   "contexts.button.glossary-add": "Add",
   "contexts.button.glossary-add-term": "Add term",
   "contexts.button.glossary-cancel": "Cancel",
@@ -16,8 +16,12 @@ export const contexts = {
   "contexts.button.results-prev": "‹ Prev",
   "contexts.button.search-open-context": "Open context",
   "contexts.button.search-save": "Save",
-  "contexts.button.tab-new-context": "New context",
+  "contexts.button.tab-archive": "Archive",
+  "contexts.button.tab-archived-hide": "Hide",
+  "contexts.button.tab-archived-show": "Show",
   "contexts.button.tab-open": "Open",
+  "contexts.button.tab-unarchive": "Unarchive",
+  "contexts.button.versions-restore": "Restore",
   "contexts.button.violations-send": "Send to Context Engineer",
   "contexts.button.violations-send-all": "Send all to Context Engineer",
   "contexts.empty.document-none": "No context includes this document.",
@@ -26,6 +30,7 @@ export const contexts = {
   "contexts.empty.search-no-searches":
     "This context has no declared searches yet.",
   "contexts.empty.violations-none": "No violations.",
+  "contexts.error.archive-failed": "That didn't go through.",
   "contexts.error.glossary-failed":
     "That didn't go through. The glossary is unchanged.",
   "contexts.error.reason-conflict":
@@ -38,6 +43,7 @@ export const contexts = {
   "contexts.error.reason-unauthorized": "Sign in again to continue.",
   "contexts.error.reason-unavailable":
     "Context isn't responding right now. Try again in a moment.",
+  "contexts.error.restore-failed": "Couldn't restore that version.",
   "contexts.error.search-save-failed": "Couldn't save the view. Try again.",
   "contexts.error.violations-send-failed":
     "Couldn't send that to Context Engineer. Try again.",
@@ -45,9 +51,12 @@ export const contexts = {
   "contexts.heading.contract-fields": "Fields",
   "contexts.heading.contract-relations": "Relations",
   "contexts.heading.contract-searches": "Declared searches",
-  "contexts.heading.drafting-overview": "Draft overview",
   "contexts.heading.search-saved-views": "Saved views",
   "contexts.heading.search-searches": "Searches",
+  "contexts.heading.sidebar-contexts": "Contexts",
+  "contexts.heading.sidebar-saved-views": "Saved views",
+  "contexts.heading.tab-archived": "Archived ({count})",
+  "contexts.heading.versions": "Versions",
   "contexts.label.composition-documents":
     "{type} — {count, plural, one {# document} other {# documents}} in {path}",
   "contexts.label.composition-folders":
@@ -74,16 +83,7 @@ export const contexts = {
   "contexts.label.contract-relation": "{name} → {target}",
   "contexts.label.document-role":
     "{article, select, an {as an {type}} other {as a {type}}}",
-  "contexts.label.drafting-apply": "Apply",
-  "contexts.label.drafting-checks": "Check the draft",
-  "contexts.label.drafting-chip": "Draft",
-  "contexts.label.drafting-draft": "Drafting overview and searches",
-  "contexts.label.drafting-progress": "Progress",
-  "contexts.label.drafting-reading": "Reading your folders",
-  "contexts.label.drafting-status":
-    "Context Engineer is drafting · step {step} of 4",
-  "contexts.label.frame-kept-up-to-date": "Kept up to date by Context Engineer",
-  "contexts.label.frame-note": "Details for Context Engineer and the curious",
+  "contexts.label.frame-note": "Details of the contract this context follows",
   "contexts.label.frame-sub-tabs": "Context sections",
   "contexts.label.frame-version-checking":
     "Version r{number} · applied {when} · checking tests",
@@ -103,10 +103,6 @@ export const contexts = {
   "contexts.label.overview-from": "from {context}",
   "contexts.label.overview-has": "has {fields}",
   "contexts.label.palette-detail": "Context",
-  "contexts.label.rail-agent": "Agent",
-  "contexts.label.rail-saved-views": "Saved views",
-  "contexts.label.rail-shortcuts": "Shortcuts",
-  "contexts.label.rail-terminal": "Terminal",
   "contexts.label.results-count":
     "{count, plural, one {# {singular}} other {# {plural}}}",
   "contexts.label.results-pager": "Pages",
@@ -124,8 +120,6 @@ export const contexts = {
   "contexts.label.tab-kinds":
     "{count, plural, one {# kind of thing ({names})} other {# kinds of things ({names})}}",
   "contexts.label.tab-no-violations": "no violations",
-  "contexts.label.tab-operators":
-    "{count, plural, one {Used by # Operator} other {Used by # Operators}}",
   "contexts.label.tab-version-checking": "Version r{number}, checking tests",
   "contexts.label.tab-version-failed": "Version r{number}, tests failed",
   "contexts.label.tab-version-none": "No version applied yet",
@@ -134,23 +128,23 @@ export const contexts = {
     "{count, plural, one {# violation} other {# violations}}",
   "contexts.label.target-focus": "this context",
   "contexts.label.target-list": "the context list",
+  "contexts.label.versions-checking": "Checking tests",
+  "contexts.label.versions-current": "Current",
+  "contexts.label.versions-failed": "Tests failed",
+  "contexts.label.versions-name": "r{number}",
   "contexts.label.violations-on-it": "Context Engineer is on it",
   "contexts.label.violations-rule": "rule: {rule}",
-  "contexts.note.drafting-later":
-    "Available after Context Engineer applies the first version.",
-  "contexts.note.drafting-not-final":
-    "Not final. Context Engineer applies it when the checks pass.",
   "contexts.note.glossary-purpose":
     "Agents use these words and meanings to understand what you say.",
   "contexts.note.input-required": "Fill in {inputs} to see results.",
   "contexts.note.input-unsupported":
     "This search can't be shown because it asks for “{type}”, which can't be drawn yet.",
   "contexts.note.overview-example": "e.g.",
+  "contexts.note.restored": "Its contract and searches apply again.",
   "contexts.note.search-no-saved-views": "No saved views yet.",
   "contexts.note.search-pick": "Pick a search on the left.",
-  "contexts.note.tab-new-context":
-    "Context Engineer sets it up with you in an Agent tab.",
+  "contexts.note.tab-archived":
+    "Archived contexts are left out of searches and violations.",
+  "contexts.title.restored": "Restored version r{number}",
   "contexts.title.tab-screen": "Contexts in {project}",
-  "contexts.title.toast-violations":
-    "{title}: {count, plural, one {# document doesn't match the contract} other {# documents don't match the contract}}",
 } as const;

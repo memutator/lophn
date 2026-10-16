@@ -12,7 +12,6 @@ import type {
   BundleSummary,
   CheckReport,
   contextContractReadSchema,
-  contextDraftReadSchema,
   contextGetReadSchema,
   contextInputOptionsReadSchema,
   contextInputOptionsRequestSchema,
@@ -75,7 +74,7 @@ export type ContextOverview = Pick<
   "context" | "bundle_hash" | "types" | "violation_count"
 >;
 
-/** 판 이력의 한 줄: 판과 그 검사 보고. 번호 내림차순, 번호 없는 draft가 맨 앞이다. */
+/** 판 이력의 한 줄: 판과 그 검사 보고. 번호 내림차순, 번호 없는 draft가 맨 앞이다. 판의 시각은 검사 보고의 시각이다. */
 export interface BundleEntry {
   readonly bundle: BundleSummary;
   readonly check: CheckReport | null;
@@ -94,16 +93,6 @@ export type ContextContract = Pick<
   z.infer<typeof contextContractReadSchema>,
   "context" | "bundle" | "bundle_hash" | "content"
 >;
-
-/**
- * context.draft: 만드는 중(drafting) context의 진행(단계 1~3, 지금 판, 검사되지 않은 content,
- * 검사 보고). drafting이 아니면 draft가 null이다.
- */
-export type ContextDraft = Pick<
-  z.infer<typeof contextDraftReadSchema>,
-  "context" | "draft"
->;
-export type DraftProgress = NonNullable<ContextDraft["draft"]>;
 
 /**
  * context.input_options: 입력 form의 combobox와 chip이 보이는 후보. value는 문자열·숫자·불리언이고
@@ -144,6 +133,11 @@ export type RollbackRequest = {
   readonly context: string;
   readonly bundle: string;
 };
+/** 보관·보관 풀기. revision은 목록에서 읽은 context의 revision이다(그 사이 바뀌면 conflict). */
+export type ArchiveRequest = {
+  readonly context: string;
+  readonly revision: string;
+};
 export type RollbackResult = z.infer<typeof bundleRollbackResultSchema>;
 
 /** 이미 있는 항목을 고치거나 지울 때 보내는 비교 기준(항목을 읽은 때의 revision). */
@@ -155,12 +149,12 @@ export interface ContextsSource {
   // ---------- 읽기 ----------
   /** 이 프로젝트의 보관되지 않은 context(drafting·active). 제목 순. */
   list(project: string): Promise<ReadResult<readonly ContextListItem[]>>;
+  /** 이 프로젝트의 보관한 context. 제목 순. */
+  archived(project: string): Promise<ReadResult<readonly ContextListItem[]>>;
   get(context: string): Promise<ReadResult<ContextDetail>>;
   overview(context: string): Promise<ReadResult<ContextOverview>>;
   /** 적용된 판의 계약 내용. 적용된 판이 없으면 content가 null이다. */
   contract(context: string): Promise<ReadResult<ContextContract>>;
-  /** drafting context의 진행. 만드는 중이 아니면 draft가 null이다. */
-  draft(context: string): Promise<ReadResult<ContextDraft>>;
   bundles(context: string): Promise<ReadResult<readonly BundleEntry[]>>;
   search(request: SearchRequest): Promise<ReadResult<SearchPage>>;
   /** 선언된 검색의 고르는 입력(entity·value)에 보일 후보. */
@@ -177,10 +171,6 @@ export interface ContextsSource {
     project: string,
     path: string,
   ): Promise<ReadResult<readonly ContainingContext[]>>;
-  /** 이 project의 Operator가 정의 `contexts`에 고른 context별 수. 한 번도 고르지 않은 context는 없다. */
-  operatorCounts(
-    project: string,
-  ): Promise<ReadResult<ReadonlyMap<string, number>>>;
 
   // ---------- 사람이 보내는 명령 ----------
   saveView(request: SaveViewRequest): Promise<CommandResult<SavedViewValue>>;
@@ -198,4 +188,6 @@ export interface ContextsSource {
     request: HandOffRequest,
   ): Promise<CommandResult<HandOffResult>>;
   rollback(request: RollbackRequest): Promise<CommandResult<RollbackResult>>;
+  archive(request: ArchiveRequest): Promise<CommandResult<ContextValue>>;
+  unarchive(request: ArchiveRequest): Promise<CommandResult<ContextValue>>;
 }

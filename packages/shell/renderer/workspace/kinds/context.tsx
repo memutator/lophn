@@ -97,7 +97,9 @@ export const contextKind: TabKindDef = {
           }))}
         onOpenDocument={contexts.openPath}
         onOpenSearch={contexts.openSearch}
-        onAsk={contexts.askProjectManager}
+        onTitle={(title) =>
+          host.patchTab(tab.key, (current) =>
+            current.title === title ? {} : { title })}
       />
     );
   },

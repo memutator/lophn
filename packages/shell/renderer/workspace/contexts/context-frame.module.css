@@ -1,6 +1,26 @@
+/* 탭 본문의 기둥: 최대 폭을 두고 가로 가운데에 놓는다. 배경은 탭 바탕 그대로다. */
 .frame {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: var(--page-launcher);
+  margin: var(--space-0) auto;
+}
+
+/* 탭 안 알림: 탭 본문 맨 위에 붙어 scroll해도 위쪽에 남는다. */
+.tabToast {
+  position: sticky;
+  top: var(--space-0);
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: var(--space-0);
+}
+
+.tabToast > * {
+  flex: none;
 }
 
 .head {
@@ -15,12 +35,6 @@
   margin: var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
-}
-
-.actions {
-  display: flex;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
 }
 
 .note {
@@ -41,6 +55,10 @@
   line-height: var(--type-title-line);
 }
 
+.spacer {
+  flex: 1;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -55,4 +73,39 @@
 .purpose {
   margin: var(--space-3) var(--space-0) var(--space-4);
   color: var(--color-text-secondary);
+}
+
+/* 판 목록 */
+.versions {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.versions h2 {
+  margin: var(--space-0) var(--space-0) var(--space-3);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.version {
+  display: grid;
+  grid-template-columns: var(--space-10) calc(var(--space-12) * 2) 1fr auto;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: var(--control-md-height);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.versionName {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+}
+
+.versionWhen,
+.versionState {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
 }

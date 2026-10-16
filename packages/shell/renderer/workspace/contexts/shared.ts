@@ -1,5 +1,6 @@
 // context 화면들이 같이 쓰는 작은 값. 화면 하나의 파일에 두면 다른 화면이 그 파일을 import해야 해서
 // 병렬로 만들기 어려우므로 여기 둔다.
+import { t } from "@lophn/wording";
 
 /** Context 탭의 하위 탭. 순서가 화면 순서다. */
 export const SUB_TABS = [
@@ -18,6 +19,12 @@ export const SUB_TAB_LABELS: Readonly<Record<SubTab, string>> = {
   glossary: "Glossary",
   contract: "Contract",
 };
+
+/** Search 탭 이름: "Search · eval". */
+export function searchTabTitle(context: string | undefined): string {
+  const kind = t("contexts.label.rail-search");
+  return context === undefined ? kind : `${kind} · ${context}`;
+}
 
 /**
  * 도메인 객체(exp-008, F-009)와 문서 이름 링크가 누르면 부르는 함수. 인자는 project 폴더

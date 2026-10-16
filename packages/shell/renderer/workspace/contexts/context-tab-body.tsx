@@ -1,10 +1,8 @@
 // Context 탭의 본문: 머리와 하위 탭은 ContextFrame이, 하위 탭 본문 다섯은 여기서 이어 붙인다.
-// 만드는 중인 context는 ContextFrame이 ContextDrafting으로 그린다.
 import type { ReactNode } from "react";
 
 import { newId } from "../../desktop/lophn-space/model.ts";
-import { ContextComposition } from "./context-composition.tsx";
-import { ContextFrame } from "./context-frame.tsx";
+import { ContextFrame, type ContextFrameProps } from "./context-frame.tsx";
 import { ContextGlossary } from "./context-glossary.tsx";
 import { ContextOverview } from "./context-overview.tsx";
 import { ContextSearchList } from "./context-search-list.tsx";
@@ -23,27 +21,25 @@ export interface ContextTabBodyProps {
   readonly onOpenDocument: OpenDocument;
   /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다. */
   readonly onOpenSearch: (state: SearchTabState) => void;
-  /** [Ask Context Engineer]와 [History]. */
-  readonly onAsk: () => void;
-  /** 작업대 watch가 알리는 이 context의 읽을 거리 표(drafting에서 active로 넘어가는 것을 따른다). */
-  readonly stamp?: string;
+  /** 읽은 context 이름. 복원한 탭이 이름을 얻는다. */
+  readonly onTitle?: (title: string) => void;
+  /** 탭 안 알림이 닫히기까지를 재는 timer와 "applied 2 hours ago"를 재는 지금. gallery와 시험이 세운다. */
+  readonly timer?: ContextFrameProps["timer"];
+  readonly now?: Date;
 }
 
 export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
-  const { source, context, onSub, onOpenDocument, onOpenSearch, onAsk } = props;
+  const { source, context, onSub, onOpenDocument, onOpenSearch } = props;
   const panel = (sub: SubTab): ReactNode => {
     switch (sub) {
       case "overview":
         return (
-          <>
-            <ContextOverview
-              source={source}
-              context={context}
-              onOpenDocument={onOpenDocument}
-              onSeeAll={() => onSub("search")}
-            />
-            <ContextComposition source={source} context={context} />
-          </>
+          <ContextOverview
+            source={source}
+            context={context}
+            onOpenDocument={onOpenDocument}
+            onSeeAll={() => onSub("search")}
+          />
         );
       case "search":
         return (
@@ -51,7 +47,6 @@ export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
             source={source}
             context={context}
             onOpenSearch={onOpenSearch}
-            onAsk={onAsk}
           />
         );
       case "violations":
@@ -81,9 +76,9 @@ export function ContextTabBody(props: ContextTabBodyProps): ReactNode {
       sub={props.sub}
       onSub={onSub}
       renderPanel={panel}
-      onAsk={onAsk}
-      onHistory={onAsk}
-      stamp={props.stamp}
+      onTitle={props.onTitle}
+      timer={props.timer}
+      now={props.now}
     />
   );
 }

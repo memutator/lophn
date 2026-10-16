@@ -34,7 +34,7 @@ import {
 } from "./model.ts";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/rail.tsx";
-import { ContextRows } from "./sidebar/context-rows.tsx";
+import { ContextSidebar } from "./contexts/context-sidebar.tsx";
 import {
   agentByRole,
   panelSessions,
@@ -61,7 +61,6 @@ import type {
   TabHost,
 } from "./kinds/host.ts";
 import type { ContextListItem } from "./contexts/source.ts";
-import { settleContextTabs } from "./contexts/settle-tabs.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { openContext } from "./kinds/context.tsx";
 import { openAgent } from "./kinds/agent.tsx";
@@ -224,15 +223,8 @@ export function Workspace(props: WorkspaceProps) {
       if (contexts?.ok) setContextList(contexts.value);
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
-        // 복원한 Context 탭은 이름을 얻고, 없어진 context의 탭은 다른 없는 대상처럼 빠진다.
-        // 목록을 못 읽으면 그대로 둔다.
-        if (restored) {
-          setView(
-            contexts?.ok
-              ? settleContextTabs(restored, contexts.value)
-              : restored,
-          );
-        }
+        // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
+        if (restored) setView(restored);
       }
     };
     void load();
@@ -443,6 +435,7 @@ export function Workspace(props: WorkspaceProps) {
     source: contextsSource,
     list: contextList,
     titleOf: (id) => contextList.find((item) => item.id === id)?.title,
+    refresh: readContexts,
     openPath,
     openSearch: (state) => openSearchFor(host, state),
     askProjectManager: () => {
@@ -702,12 +695,20 @@ export function Workspace(props: WorkspaceProps) {
             project={loaded.project}
             source={source}
             contextPanel={contextsSource === undefined ? null : (
-              <ContextRows
+              <ContextSidebar
                 source={contextsSource}
                 project={projectId}
                 onLoaded={setContextList}
-                onOpen={(item) =>
+                onOpenContext={(item) =>
                   openContext(host, item.id, undefined, item.title)}
+                onOpenSavedView={(view) =>
+                  openSearchFor(host, {
+                    context: view.context,
+                    search: view.search,
+                    inputs: view.inputs,
+                    page: 0,
+                    savedView: view.id,
+                  })}
               />
             )}
             agents={sidebarAgents.agents}

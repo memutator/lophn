@@ -2,6 +2,7 @@
 // Experiment·Scenario·Rubric·Finding)와 같은 값을 계약 모양으로 담는다. 명령은 메모리의 값을
 // 바꾸고 calls에 남긴다.
 import type {
+  ArchiveRequest,
   BaseRevision,
   BundleContent,
   BundleEntry,
@@ -9,11 +10,10 @@ import type {
   ContainingContext,
   ContextContract,
   ContextDetail,
-  ContextDraft,
   ContextListItem,
   ContextOverview,
   ContextsSource,
-  DraftProgress,
+  ContextValue,
   GlossaryEntry,
   GlossaryRemoveRequest,
   GlossarySetRequest,
@@ -45,6 +45,7 @@ export const PROJECT = fakeId("prj", "ph1");
 export const EVAL = fakeId("ctx", "ev4");
 export const HARNESS = fakeId("ctx", "hns");
 export const RELEASE_NOTES = fakeId("ctx", "rn1");
+export const SCRATCH_NOTES = fakeId("ctx", "scr");
 
 const SHA = (digit: string) => digit.repeat(64);
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
@@ -56,7 +57,7 @@ function listItem(
     id: string;
     title: string;
     purpose: string;
-    status: "drafting" | "active";
+    status: "drafting" | "active" | "archived";
     applied: { number: number; bundle: string } | null;
     violations: number;
     revision: string;
@@ -84,7 +85,7 @@ export const EVAL_ITEM = listItem({
   purpose:
     "Keep experiments, scenarios, rubrics and findings of the eval loop findable.",
   status: "active",
-  applied: { number: 3, bundle: fakeId("cbn", "ev3") },
+  applied: { number: 3, bundle: fakeId("cbn", "ev43") },
   violations: 2,
   revision: "21",
 });
@@ -93,9 +94,18 @@ export const HARNESS_ITEM = listItem({
   title: "harness",
   purpose: "Keep harness changes and components findable.",
   status: "active",
-  applied: { number: 5, bundle: fakeId("cbn", "hn5") },
+  applied: { number: 5, bundle: fakeId("cbn", "hns5") },
   violations: 0,
   revision: "34",
+});
+export const SCRATCH_NOTES_ITEM = listItem({
+  id: SCRATCH_NOTES,
+  title: "scratch-notes",
+  purpose: "Early notes on the eval loop, replaced by eval.",
+  status: "archived",
+  applied: { number: 2, bundle: fakeId("cbn", "scr2") },
+  violations: 0,
+  revision: "12",
 });
 export const RELEASE_NOTES_ITEM = listItem({
   id: RELEASE_NOTES,
@@ -157,6 +167,7 @@ const BUNDLES: Readonly<Record<string, readonly BundleEntry[]>> = {
     appliedEntry(HARNESS, 5, "applied", "2026-10-11T09:00:00.000Z", "c"),
   ],
   [RELEASE_NOTES]: [],
+  [SCRATCH_NOTES]: [],
 };
 
 // ---------- 계약 ----------
@@ -629,10 +640,12 @@ const GLOSSARY: Readonly<Record<string, readonly GlossaryEntry[]>> = {
 
 // ---------- 저장한 보기 ----------
 
+export const VIEW_C049 = fakeId("viw", "v1");
+export const VIEW_RUNNING = fakeId("viw", "v2");
 const VIEWS: Readonly<Record<string, readonly SavedViewListItem[]>> = {
   [EVAL]: [
     {
-      id: fakeId("viw", "v1"),
+      id: VIEW_C049,
       context: EVAL,
       name: "Findings for C-049",
       search: "findings_about_change",
@@ -642,7 +655,7 @@ const VIEWS: Readonly<Record<string, readonly SavedViewListItem[]>> = {
       broken: false,
     },
     {
-      id: fakeId("viw", "v2"),
+      id: VIEW_RUNNING,
       context: EVAL,
       name: "Running experiments",
       search: "experiments_by_status",
@@ -876,41 +889,6 @@ const CONTAINING: Readonly<Record<string, readonly ContainingContext[]>> = {
   ],
 };
 
-// ---------- 만드는 중 ----------
-
-// 초안 content는 submit 전이라 검사되지 않은 JSON 객체다: 개체 이름과 관계만 적었다.
-const DRAFT: DraftProgress = {
-  step: 2,
-  bundle: {
-    id: fakeId("cbn", "rn0"),
-    context: RELEASE_NOTES,
-    number: null,
-    parent: null,
-    bundle_hash: null,
-    status: "draft",
-    check: null,
-    created_by: `agent:${fakeId("asg", "ce1")}`,
-    revision: "1",
-  },
-  content: {
-    schema: 1,
-    contract: {
-      types: [
-        {
-          name: "Changelog entry",
-          relations: [{ name: "release", label: "mentions", to: "Release" }],
-        },
-        {
-          name: "Release",
-          relations: [{ name: "issues", label: "closes", to: "Issue" }],
-        },
-        { name: "Issue", relations: [] },
-      ],
-    },
-  },
-  check: null,
-};
-
 // ---------- fake source ----------
 
 export type FakeCall =
@@ -926,7 +904,8 @@ export type FakeCall =
     compare: BaseRevision;
   }
   | { command: "handOffViolations"; request: HandOffRequest }
-  | { command: "rollback"; request: RollbackRequest };
+  | { command: "rollback"; request: RollbackRequest }
+  | { command: "archive" | "unarchive"; request: ArchiveRequest };
 
 export interface FakeContextsSource extends ContextsSource {
   /** 보낸 명령을 순서대로. */
@@ -946,12 +925,26 @@ export function createFakeContextsSource(
   options: FakeOptions = {},
 ): FakeContextsSource {
   const calls: FakeCall[] = [];
-  const items = options.empty ? [] : [
-    EVAL_ITEM,
-    HARNESS_ITEM,
-    ...(options.drafting ? [RELEASE_NOTES_ITEM] : []),
-  ];
-  const itemOf = (id: string) => items.find((item) => item.id === id);
+  // 보관·되돌리기가 바꾸는 값은 이 source 안의 사본이다.
+  const items = new Map<string, ContextListItem>(
+    (options.empty ? [] : [
+      EVAL_ITEM,
+      HARNESS_ITEM,
+      ...(options.drafting ? [RELEASE_NOTES_ITEM] : []),
+      SCRATCH_NOTES_ITEM,
+    ]).map((item) => [item.id, item]),
+  );
+  const bundles = new Map(
+    Object.entries(BUNDLES).map(([key, list]) => [key, [...list]]),
+  );
+  const itemOf = (id: string) => items.get(id);
+  const listBy = (archived: boolean) =>
+    [...items.values()].filter((item) =>
+      (item.status === "archived") === archived
+    );
+  const appliedOf = (context: string) =>
+    bundles.get(context)?.find((entry) => entry.bundle.status === "applied")
+      ?.bundle;
   const missing = <T>(): ReadResult<T> => ({
     ok: false,
     message: "not_found",
@@ -968,14 +961,39 @@ export function createFakeContextsSource(
   );
   let revision = 100;
   const nextRevision = () => String(++revision);
+  const move = (
+    request: ArchiveRequest,
+    command: "archive" | "unarchive",
+    status: ContextListItem["status"],
+  ): Promise<CommandResult<ContextValue>> => {
+    calls.push({ command, request });
+    const item = itemOf(request.context);
+    if (item === undefined) return Promise.resolve(missing());
+    if (item.revision !== request.revision) {
+      return Promise.resolve({ ok: false, message: "conflict" });
+    }
+    const changed = { ...item, status, revision: nextRevision() };
+    items.set(item.id, changed);
+    return Promise.resolve(ok({
+      id: changed.id,
+      project: changed.project,
+      title: changed.title,
+      purpose: changed.purpose,
+      status: changed.status,
+      applied_bundle: changed.applied_bundle,
+      violation_mark: changed.violation_mark,
+      revision: changed.revision,
+    }));
+  };
 
   return {
     calls,
-    list: () => Promise.resolve(ok(items)),
+    list: () => Promise.resolve(ok(listBy(false))),
+    archived: () => Promise.resolve(ok(listBy(true))),
     get(context): Promise<ReadResult<ContextDetail>> {
       const item = itemOf(context);
       if (item === undefined) return Promise.resolve(missing());
-      const applied = BUNDLES[context]?.[0]?.bundle;
+      const applied = appliedOf(context);
       return Promise.resolve(ok({
         context: {
           id: item.id,
@@ -987,7 +1005,7 @@ export function createFakeContextsSource(
           violation_mark: item.violation_mark,
           revision: item.revision,
         },
-        applied: applied?.status === "applied" ? applied : null,
+        applied: applied ?? null,
       }));
     },
     overview(context): Promise<ReadResult<ContextOverview>> {
@@ -1004,14 +1022,13 @@ export function createFakeContextsSource(
           violation_mark: item.violation_mark,
           revision: item.revision,
         },
-        bundle_hash: BUNDLES[context]?.[0]?.bundle.bundle_hash ?? null,
+        bundle_hash: appliedOf(context)?.bundle_hash ?? null,
         types: OVERVIEW[context] ?? [],
         violation_count: item.violation_mark,
       }));
     },
     contract(context): Promise<ReadResult<ContextContract>> {
-      const applied = BUNDLES[context]?.[0]?.bundle;
-      const live = applied?.status === "applied" ? applied : undefined;
+      const live = appliedOf(context);
       return Promise.resolve(ok({
         context,
         bundle: live?.id ?? null,
@@ -1019,13 +1036,7 @@ export function createFakeContextsSource(
         content: live === undefined ? null : CONTENT[context] ?? null,
       }));
     },
-    draft(context): Promise<ReadResult<ContextDraft>> {
-      return Promise.resolve(ok({
-        context,
-        draft: context === RELEASE_NOTES ? DRAFT : null,
-      }));
-    },
-    bundles: (context) => Promise.resolve(ok(BUNDLES[context] ?? [])),
+    bundles: (context) => Promise.resolve(ok(bundles.get(context) ?? [])),
     search(request: SearchRequest): Promise<ReadResult<SearchPage>> {
       const declared = CONTENT[request.context]?.searches.find((search) =>
         search.name === request.search
@@ -1083,9 +1094,6 @@ export function createFakeContextsSource(
         ok((options.containing ?? CONTAINING)[path] ?? []),
       );
     },
-    operatorCounts: () =>
-      Promise.resolve(ok(new Map([[EVAL, 1], [HARNESS, 2]]))),
-
     saveView(request): Promise<CommandResult<SavedViewValue>> {
       calls.push({ command: "saveView", request });
       const value: SavedViewValue = {
@@ -1182,10 +1190,56 @@ export function createFakeContextsSource(
     },
     rollback(request): Promise<CommandResult<RollbackResult>> {
       calls.push({ command: "rollback", request });
-      return Promise.resolve({
-        ok: false,
-        message: "unavailable",
-      });
+      const item = itemOf(request.context);
+      const list = bundles.get(request.context) ?? [];
+      const target = list.find((entry) => entry.bundle.id === request.bundle);
+      if (item === undefined || target === undefined) {
+        return Promise.resolve(missing());
+      }
+      if (target.bundle.status !== "superseded") {
+        return Promise.resolve({ ok: false, message: "conflict" });
+      }
+      const next = list.map((entry): BundleEntry => ({
+        ...entry,
+        bundle: entry.bundle.id === target.bundle.id
+          ? { ...entry.bundle, status: "applied" }
+          : entry.bundle.status === "applied"
+          ? { ...entry.bundle, status: "superseded" }
+          : entry.bundle,
+      }));
+      bundles.set(request.context, next);
+      const applied = next.find((entry) =>
+        entry.bundle.id === target.bundle.id
+      )!;
+      const changed: ContextListItem = {
+        ...item,
+        applied_bundle: applied.bundle.id,
+        applied_number: applied.bundle.number,
+        revision: nextRevision(),
+      };
+      items.set(item.id, changed);
+      return Promise.resolve(ok({
+        context: {
+          id: changed.id,
+          project: changed.project,
+          title: changed.title,
+          purpose: changed.purpose,
+          status: changed.status,
+          applied_bundle: changed.applied_bundle,
+          violation_mark: changed.violation_mark,
+          revision: changed.revision,
+        },
+        bundle: applied.bundle,
+      }));
     },
+    archive: (request) => move(request, "archive", "archived"),
+    unarchive: (request) =>
+      move(
+        request,
+        "unarchive",
+        itemOf(request.context)?.applied_bundle === null
+          ? "drafting"
+          : "active",
+      ),
   };
 }

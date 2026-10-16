@@ -1,16 +1,16 @@
-// 카드의 줄: 종류 수·적용된 판과 검사 결과·위반 수·쓰는 Operator 수 순서.
+// 카드의 줄: 종류 수·적용된 판과 검사 결과·위반 수 순서.
 import { t } from "@lophn/wording";
 
 import type { CardData } from "./contexts-tab-load.ts";
 
 export interface CardRow {
-  readonly key: "kinds" | "version" | "violations" | "operators";
+  readonly key: "kinds" | "version" | "violations";
   readonly text: string;
   readonly warn: boolean;
 }
 
 export function cardRows(card: CardData): readonly CardRow[] {
-  const { item, kinds, version, operators } = card;
+  const { item, kinds, version } = card;
   const rows: CardRow[] = [];
   if (kinds.length > 0) {
     rows.push({
@@ -39,12 +39,5 @@ export function cardRows(card: CardData): readonly CardRow[] {
       : t("contexts.label.tab-violations", { count: violations }),
     warn: violations > 0,
   });
-  if (operators !== null) {
-    rows.push({
-      key: "operators",
-      text: t("contexts.label.tab-operators", { count: operators }),
-      warn: false,
-    });
-  }
   return rows;
 }

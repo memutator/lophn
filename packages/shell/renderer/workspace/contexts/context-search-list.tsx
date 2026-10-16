@@ -1,8 +1,7 @@
 // Context 탭의 Search 하위 탭: 이 context가 선언한 검색과 저장한 보기의 목록. 하나를
 // 고르면 결과를 여기서 그리지 않고 그 검색을 고른 Search 탭을 여는 일을 부른 쪽에 맡긴다.
 import type { ReactNode } from "react";
-import { EmptyState, ErrorState, Skeleton } from "@lophn/design/components";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { ErrorState, Skeleton } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";
@@ -16,12 +15,10 @@ export interface ContextSearchListProps {
   readonly context: string;
   /** 고른 검색이나 보기를 그 Search 탭 값으로 넘긴다. */
   readonly onOpenSearch: (state: SearchTabState) => void;
-  /** 선언된 검색이 없을 때의 [Ask Context Engineer]. */
-  readonly onAsk: () => void;
 }
 
 export function ContextSearchList(
-  { source, context, onOpenSearch, onAsk }: ContextSearchListProps,
+  { source, context, onOpenSearch }: ContextSearchListProps,
 ): ReactNode {
   const contract = useRead(context, async () => {
     const read = await source.contract(context);
@@ -45,14 +42,9 @@ export function ContextSearchList(
           />
         )}
         {searches.status === "loaded" && searches.value.length === 0 && (
-          <EmptyState
-            icon={lophnSpaceIcons.search}
-            message={t("contexts.empty.search-no-searches")}
-            action={{
-              label: t("contexts.button.frame-ask"),
-              onSelect: onAsk,
-            }}
-          />
+          <p className={styles.note}>
+            {t("contexts.empty.search-no-searches")}
+          </p>
         )}
         {searches.status === "loaded" && searches.value.length > 0 && (
           <ul className={styles.list} data-search-list="">

@@ -1,112 +1,103 @@
-// Contexts 탭: 이 project의 context 목록. context는 Project Manager가 대화에서 만들어서 만드는 단추가 없다.
-// 보관은 사람이 여기서 한다. 보관한 context는 검색과 위반 목록에서 빠진다.
-import { useState } from "react";
-import { Button, Card } from "@lophn/design/components";
+// Contexts 탭과 Context 탭 머리: renderer의 `ContextsTab`·`ContextTabBody`를 fake 통로로 그린다.
+// context는 Project Manager가 대화에서 만들어서 만드는 단추가 없다. 보관은 사람이 여기서 한다.
+import { useEffect, useRef, useState } from "react";
 
-import { contextTab } from "../phroner-data.ts";
-import type { TabSpec } from "../project-window.tsx";
 import {
-  ARCHIVED_CARDS,
-  CONTEXT_CARDS,
-  type ContextCardData,
-} from "./contexts-data.ts";
+  ContextsTab,
+} from "../../../../../packages/shell/renderer/workspace/contexts/contexts-tab.tsx";
+import { ContextTabBody } from "../../../../../packages/shell/renderer/workspace/contexts/context-tab-body.tsx";
+import type { SubTab } from "../../../../../packages/shell/renderer/workspace/contexts/shared.ts";
+import {
+  createFakeContextsSource,
+  EVAL,
+  EVAL_ITEM,
+  HARNESS_ITEM,
+  PROJECT,
+} from "../../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
+import { contextTab, documentTab } from "../phroner-data.ts";
+import type { TabSpec } from "../project-window.tsx";
+import { declaredSearchTab } from "./declared-search.tsx";
 import { useOpenTab } from "./open-tab.ts";
 import styles from "./contexts.module.css";
 
-function ContextCard(
-  { card, onArchive }: { card: ContextCardData; onArchive: () => void },
-) {
-  const open = useOpenTab();
-  return (
-    <Card>
-      <div className={styles.cardHead}>
-        <h3>{card.name}</h3>
-      </div>
-      <p className={styles.purpose}>{card.purpose}</p>
-      <ul className={styles.facts}>
-        <li>{card.kinds}</li>
-        <li>
-          Version {card.version},{" "}
-          <span className={styles.good}>{card.tests}</span>
-        </li>
-        <li className={card.violations > 0 ? styles.warn : undefined}>
-          {card.violations === 0
-            ? "No violations"
-            : `${card.violations} violations`}
-        </li>
-      </ul>
-      <div className={styles.actions}>
-        <Button onClick={() => open(contextTab(card.name))}>Open</Button>
-        <Button variant="ghost" onClick={onArchive}>Archive</Button>
-      </div>
-    </Card>
-  );
+const TITLES = new Map(
+  [EVAL_ITEM, HARNESS_ITEM].map((item) => [item.id, item.title]),
+);
+
+// 시간이 가지 않는 timer를 주어 toast가 화면에 남은 채로 보인다.
+const NO_TIMER = { set: () => 0, clear: () => {}, now: () => 0 };
+
+/** 화면이 그려진 뒤 사람이 누르는 단추를 차례로 누른다. 한 번만 돈다. */
+function useClicks(selectors: readonly string[]) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      for (const selector of selectors) {
+        let hit: HTMLElement | null = null;
+        for (let tries = 0; tries < 50 && live && hit === null; tries += 1) {
+          hit = ref.current?.querySelector<HTMLElement>(selector) ?? null;
+          if (hit === null) await new Promise((r) => setTimeout(r, 50));
+        }
+        if (!live || hit === null) return;
+        hit.click();
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+  return ref;
 }
 
 export function ContextsList(
   { archivedOpen = false }: { archivedOpen?: boolean },
 ) {
-  const [active, setActive] = useState(CONTEXT_CARDS);
-  const [archived, setArchived] = useState(ARCHIVED_CARDS);
-  const [shown, setShown] = useState(archivedOpen);
+  const open = useOpenTab();
+  const [source] = useState(() => createFakeContextsSource());
+  const ref = useClicks(
+    archivedOpen ? ["[data-archived] button[aria-expanded]"] : [],
+  );
   return (
-    <div className={styles.list}>
-      <h1 className={styles.title}>Contexts in phroner</h1>
-      <div className={styles.cards}>
-        {active.map((card) => (
-          <ContextCard
-            key={card.name}
-            card={card}
-            onArchive={() => {
-              setActive(active.filter((item) => item !== card));
-              setArchived([...archived, card]);
-            }}
-          />
-        ))}
-      </div>
-      {archived.length === 0 ? null : (
-        <>
-          <div className={styles.archivedHead}>
-            <h2>Archived ({archived.length})</h2>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-expanded={shown}
-              onClick={() => setShown(!shown)}
-            >
-              {shown ? "Hide" : "Show"}
-            </Button>
-          </div>
-          {shown
-            ? (
-              <>
-                <p className={styles.note}>
-                  Archived contexts are left out of searches and violations.
-                </p>
-                {archived.map((card) => (
-                  <div key={card.name} className={styles.archivedRow}>
-                    <p>
-                      <span className={styles.mono}>{card.name}</span>{" "}
-                      <span className={styles.muted}>· {card.purpose}</span>
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setArchived(archived.filter((item) =>
-                          item !== card
-                        ));
-                        setActive([...active, card]);
-                      }}
-                    >
-                      Unarchive
-                    </Button>
-                  </div>
-                ))}
-              </>
-            )
-            : null}
-        </>
-      )}
+    <div ref={ref} className={styles.list}>
+      <ContextsTab
+        projectTitle="phroner"
+        project={PROJECT}
+        source={source}
+        onOpenContext={(context) =>
+          open(contextTab(TITLES.get(context) ?? context))}
+      />
+    </div>
+  );
+}
+
+/** eval context의 탭 본문. 판 목록을 펼치거나 옛 판으로 되돌린 상태에서 시작할 수 있다. */
+export function ContextHead(
+  { initial = "overview", versions = false, restore = false }: {
+    initial?: SubTab;
+    versions?: boolean;
+    restore?: boolean;
+  },
+) {
+  const open = useOpenTab();
+  const [source] = useState(() => createFakeContextsSource());
+  const [sub, setSub] = useState<SubTab>(initial);
+  const ref = useClicks([
+    ...(versions || restore ? ["[data-versions-toggle]"] : []),
+    ...(restore ? ["[data-version-row] button"] : []),
+  ]);
+  return (
+    <div ref={ref}>
+      <ContextTabBody
+        source={source}
+        context={EVAL}
+        sub={sub}
+        onSub={setSub}
+        onOpenDocument={(path) => open(documentTab(path))}
+        onOpenSearch={() => open(declaredSearchTab("findings"))}
+        timer={NO_TIMER}
+        now={new Date("2026-10-12T09:00:00.000Z")}
+      />
     </div>
   );
 }

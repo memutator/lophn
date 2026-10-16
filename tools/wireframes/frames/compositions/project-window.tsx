@@ -20,7 +20,7 @@ import {
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
-import { ContextRows } from "../../../../packages/shell/renderer/workspace/sidebar/context-rows.tsx";
+import { ContextSidebar } from "../../../../packages/shell/renderer/workspace/contexts/context-sidebar.tsx";
 import {
   ProjectSidebar,
   type SidebarTab,
@@ -28,14 +28,17 @@ import {
 import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/rail.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import type { PanelSession } from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
-import sideStyles from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.module.css";
 import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
-import { createFakeContextsSource } from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
+import {
+  createFakeContextsSource,
+  VIEW_C049,
+  VIEW_RUNNING,
+} from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
 import {
   AGENT_ROWS,
   type AgentRow,
@@ -350,7 +353,7 @@ function useSidebarScript(
   }, []);
 }
 
-/** Context 모양의 본문: 실제 context 목록 줄과, contexts 화면이 올 때까지 두는 Saved views 줄. */
+/** Context 모양의 본문: 실제 `ContextSidebar`가 fake 통로의 context 목록과 saved views를 읽어 그린다. */
 function PageContextPanel(
   { savedActive, onOpenContext, onSavedView }: {
     savedActive?: string;
@@ -358,39 +361,19 @@ function PageContextPanel(
     onSavedView: (view: string) => void;
   },
 ) {
-  const saved = [
-    { id: "running", label: "Running experiments" },
-    { id: "c-049", label: "Findings for C-049" },
-  ];
   return (
-    <>
-      <ContextRows
-        source={CONTEXTS}
-        project={PROJECT_ID}
-        onOpen={(item) => onOpenContext(item.title)}
-      />
-      <section className={sideStyles.section}>
-        <h2 className={sideStyles.sectionLabel}>Saved views</h2>
-        <ul className={sideStyles.list} role="list">
-          {saved.map((view) => (
-            <li key={view.id} className={sideStyles.li}>
-              <button
-                type="button"
-                className={sideStyles.item}
-                data-active={savedActive === view.id || undefined}
-                onClick={() => onSavedView(view.id)}
-              >
-                <Icon
-                  icon={lophnSpaceIcons.savedView}
-                  pixels={iconPixels("base")}
-                />
-                <span className={sideStyles.label}>{view.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </>
+    <ContextSidebar
+      source={CONTEXTS}
+      project={PROJECT_ID}
+      activeSavedView={savedActive === "running"
+        ? VIEW_RUNNING
+        : savedActive === "c-049"
+        ? VIEW_C049
+        : undefined}
+      onOpenContext={(item) => onOpenContext(item.title)}
+      onOpenSavedView={(view) =>
+        onSavedView(view.id === VIEW_RUNNING ? "running" : "c-049")}
+    />
   );
 }
 

@@ -65,7 +65,7 @@ async function readLayer(
   });
 }
 
-// model call 직전마다 부른다. 전역 → project 또는 app → agent 본문 순으로 지금의 파일을 다시 읽고 그
+// 옛 입구: model call 직전마다 부른다(assemblePrompt가 쓰는 동안만 남긴다. 새 입구는 turn.ts). 전역 → project → agent 본문 순으로 지금의 파일을 다시 읽고 그
 // call의 고정 snapshot을 만든다. 읽기 실패·상한 초과는 층 상태로 남기고 call을 막는다. 정해진 층 밖의
 // 파일은 묻지 않으므로 읽은 자료 속 LOPHN 파일은 지침이 되지 않는다.
 export async function resolveInstructions(
@@ -74,7 +74,9 @@ export async function resolveInstructions(
 ): Promise<Result<InstructionResolution>> {
   const layers: InstructionLayer[] = [];
   for (const kind of instructionLayers(input.place)) {
-    const place = kind === "project" || kind === "app" ? input.place.id : null;
+    const place = kind === "project" && input.place.kind === "project"
+      ? input.place.id
+      : null;
     const read = await deps.files.read(kind);
     if (!read.ok) {
       layers.push(

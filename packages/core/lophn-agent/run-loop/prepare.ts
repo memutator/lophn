@@ -143,9 +143,9 @@ export type PreparerDeps = {
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
-  // turn마다 그 turn으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 turn의 작업
-  // 자리와 첨부만 읽게 한다).
-  instructionFilesFor?(turn: string): InstructionDeps["files"];
+  // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
+  // place로 어느 project인지 정한다).
+  instructionFilesFor?(session: Id<"ses">): InstructionDeps["files"];
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다.
@@ -497,7 +497,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ? deps.instructions
         : {
           ...deps.instructions,
-          files: deps.instructionFilesFor(seat.turn),
+          files: deps.instructionFilesFor(seat.session as Id<"ses">),
         },
       ports: ports_,
     };

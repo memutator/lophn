@@ -2,17 +2,19 @@ import type { Result } from "../../../base/mod.ts";
 import type {
   AgentRole,
   AssignmentScope,
+  PROMPT_INSTRUCTION_LAYERS,
   WorkPlace,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// 사람 지침(LOPHN.md)의 층·작업 자리·상한을 고르는 순수 규칙이다. LOPHN.md는 document·판을 쓰지 않는
-// 그냥 파일이라 읽을 때마다 파일에서 읽는다. 파일 읽기와 hash는 work.ts, 파일을 여는 쪽은 core다
-// (concern lophn-agent/instructions).
+// 사람 지침(LOPHN.md)의 층과 상한을 고르는 순수 규칙이다. LOPHN.md는 document·판을 쓰지 않는 그냥 파일이다.
+// turn 시작에 읽는 쪽은 turn.ts, 파일을 여는 쪽은 core(files.ts)다. 아래 `instructionPlace`,
+// `InstructionLayer`, `InstructionResolution`, `resolveLayers`와 work.ts는 옛 assemblePrompt가 쓰는 동안만 남는다.
 
 export const INSTRUCTION_FILE_MAX_BYTES = 32768;
 export const INSTRUCTION_TOTAL_MAX_BYTES = 131072;
 
-export type InstructionLayerKind = "global" | "project" | "app" | "agent";
+// 전역, project(LOPHN.md), agent 순서다. 앱 층은 없다.
+export type InstructionLayerKind = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 export type InstructionStatus =
   | "present"
   | "absent"
@@ -27,8 +29,8 @@ export type InstructionFile = {
   bytes: Uint8Array;
 };
 
-// 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이고(agent는
-// question으로 제안만 한다), 어느 자리의 파일인지는 통로가 이미 안다(run의 작업 자리).
+// 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이다. 어느 project의
+// 파일인지는 통로가 이미 안다(그 session의 place).
 export interface InstructionFiles {
   // 그 층의 지금 파일. 파일이 없으면 null(부재)이고 읽지 못하면 err다.
   read(layer: InstructionLayerKind): Promise<Result<InstructionFile | null>>;
@@ -37,7 +39,7 @@ export interface InstructionFiles {
 // 한 층의 읽기 결과. 로컬 경로는 어느 칸에도 없다.
 export type InstructionLayer = {
   kind: InstructionLayerKind;
-  // project·app 층의 대상 id. global·agent는 null이다.
+  // project 층의 대상 id. global·agent는 null이다.
   place: string | null;
   source_hash: string | null;
   transmitted_hash: string | null;
@@ -84,10 +86,9 @@ export function instructionPlace(input: {
   return input.session;
 }
 
-// 전역 → project 또는 app → agent 본문 순으로 읽을 층이다. 작업 자리가 project면 project 층,
-// app이면 app 층만 있고 부모 폴더를 거슬러 오르지 않는다.
-export function instructionLayers(place: WorkPlace): InstructionLayerKind[] {
-  return ["global", place.kind, "agent"];
+// 옛 assemblePrompt용. 새 입구는 turn.ts의 readTurnInstructions다.
+export function instructionLayers(_place: WorkPlace): InstructionLayerKind[] {
+  return ["global", "project", "agent"];
 }
 
 export type Inspected =

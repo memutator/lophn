@@ -17,3 +17,8 @@ export {
   encodeInstructionFile,
   instructionFilesOverCore,
 } from "./read.ts";
+export {
+  readTurnInstructions,
+  type TurnInstructionLayer,
+  type TurnInstructions,
+} from "./turn.ts";

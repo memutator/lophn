@@ -7,7 +7,7 @@ import {
   systemClock,
 } from "../../../base/mod.ts";
 import { ALL_ROUTES } from "../../../protocol/mod.ts";
-import { instructionRead } from "../../../protocol/lophn-agent/mod.ts";
+import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
@@ -114,12 +114,12 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         },
         redact: calls.redact,
       },
-      // LOPHN.md와 agent 정의 본문은 core의 ReadInstructionFile로 그 turn의 이름으로 매 call 직전에 읽는다.
-      // core가 turn의 작업 자리로 어느 파일인지 정한다.
-      instructionFilesFor: (turn) =>
+      // LOPHN.md와 agent 정의 본문은 core의 GetInstructions로 그 session의 이름으로 읽는다.
+      // core가 session의 place로 어느 파일인지 정한다.
+      instructionFilesFor: (session) =>
         instructionFilesOverCore(
-          turn,
-          (input) => readOf(calls.machine, instructionRead, input),
+          session,
+          (input) => readOf(calls.machine, instructionsGet, input),
         ),
       redact: calls.redact,
       // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 설정이 없으면 빈 목록이다.

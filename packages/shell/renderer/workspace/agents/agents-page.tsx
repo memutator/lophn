@@ -23,8 +23,6 @@ export interface AgentsPageProps {
   contexts: readonly ContextOption[];
   /** project의 LOPHN.md를 연다. 통로가 없으면 단추는 아무것도 하지 않는다. */
   onEditInstructions: () => void;
-  /** 이 탭에서는 쓰지 않는다. 부르는 쪽이 아직 넘긴다. */
-  onChangeDefaults?: () => void;
   /** Skills·MCP servers의 [Add …]. 등록 form은 lophn 공간이 갖고 있다. */
   onAddExtension: () => void;
   /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */

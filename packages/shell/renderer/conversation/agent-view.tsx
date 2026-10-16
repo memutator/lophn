@@ -45,7 +45,6 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
-import type { ContextLinks } from "./file-links.tsx";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
@@ -57,12 +56,8 @@ import styles from "./agent-view.module.css";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
 export interface AgentViewHost {
-  /** 옛 문서 탭을 여는 길. 호스트가 `openFile`로 갈아타면 지운다. */
-  openResult?: (document: string, version: string | null) => void;
   /** 편집 카드의 [Open]이 그 파일(프로젝트 안 경로)의 탭을 연다. */
   openFile?: (path: string) => void;
-  /** 대화 속 context 이름 링크가 그 context의 탭을 여는 길. */
-  contexts?: ContextLinks;
   /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
   openPermissions: () => void;
   /** Change defaults…(defaults)와 `/skills`·`/mcp`가 Settings › Agents로 간다. */

@@ -30,7 +30,7 @@ import { coreFileSearchSource } from "../workspace/search/core-source.ts";
 import { createEventClient } from "./connection/events/client.ts";
 import { EventsProvider } from "./connection/events/hooks.tsx";
 import { ConversationProvider } from "../conversation/window-deps.tsx";
-import { coreAgentViewSourceFactory } from "../conversation/agent-core-source.ts";
+import { coreAgentTabSourceFactory } from "../conversation/agent-tab-core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import {
   coreLauncherSource,
@@ -101,7 +101,7 @@ const conversation = {
 };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource = mock?.agentViewSource ??
-  coreAgentViewSourceFactory(core);
+  coreAgentTabSourceFactory(core);
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다. `#lophn`이면 Lophn Workspace(Projects)부터,
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 Apps부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면

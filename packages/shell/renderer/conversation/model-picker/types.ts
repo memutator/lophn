@@ -38,18 +38,6 @@ export interface PickerAxisView {
   }[];
 }
 
-/**
- * model을 바꿔 값을 맞췄다는 알림 한 건. picker는 값을 조용히 맞추고 알리지 않아 그리지 않는다. 옛 source와
- * 옛 Agents 화면의 연결이 아직 이 type을 쓴다.
- */
-export interface PickerNoticeView {
-  readonly axisLabel: string;
-  /** 맞추기 전 값의 표시 이름(XHigh). */
-  readonly fromLabel: string;
-  /** 맞춘 뒤 값의 표시 이름(High). */
-  readonly toLabel: string;
-}
-
 export interface ModelPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

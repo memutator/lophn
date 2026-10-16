@@ -19,7 +19,7 @@ import type {
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import {
@@ -83,7 +83,7 @@ export interface AppSpaceProps {
    */
   agents?: AgentsSource;
   /** Agent 칸이 agent 하나의 통로를 얻는 함수. 없으면 칸이 "준비 안 됨"이다. */
-  agentViewSource?: AgentViewSourceFactory;
+  agentViewSource?: AgentTabSourceFactory;
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
   /** Settings로 간다(Agent 칸·관리 칸의 기본 model·확장 등록·연결). 없으면 그 단추는 아무것도 하지 않는다. */
@@ -93,8 +93,6 @@ export interface AppSpaceProps {
   onLauncher: () => void;
   /** 안 쓴다(Documents 화면이 없다). 호스트가 지운다. */
   onDocuments?: () => void;
-  /** 대화의 결과 링크로 그 문서를 연다. */
-  onOpenResult?: (document: string) => void;
   /** 안 쓴다(Things to confirm 화면이 없다). 호스트가 지운다. */
   onThingsToConfirm?: () => void;
   /** 처음부터 정해진 project(project 창에서 온 경우). 있으면 project 고르기를 건너뛴다. */
@@ -207,7 +205,6 @@ export function AppSpace(
     onSettings,
     windowWidth,
     onLauncher,
-    onOpenResult,
     project,
     annotate: annotateApi,
     projects,
@@ -632,7 +629,6 @@ export function AppSpace(
                 onOpenedClose={() => setOpened(false)}
                 onState={setPane}
                 onClose={() => setPane(null)}
-                {...(onOpenResult === undefined ? {} : { onOpenResult })}
                 {...(onInstructions === undefined ? {} : { onInstructions })}
                 {...(onSettings === undefined ? {} : { onSettings })}
                 onChanged={agentList.reload}

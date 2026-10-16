@@ -43,7 +43,7 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -87,7 +87,7 @@ export interface DesktopProps {
   /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
-  agentViewSource?: AgentViewSourceFactory;
+  agentViewSource?: AgentTabSourceFactory;
   /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
   overlay?: OverlayApi;
 }

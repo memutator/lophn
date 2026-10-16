@@ -32,14 +32,6 @@ export interface Route {
 
 export const LAUNCHER: Route = { space: "launcher" };
 
-/** 창 제목. 런처는 공간이 아니라서 이름 없이 제품 이름만 쓴다. */
-export function routeTitle(route: Route): string {
-  if (route.space === "launcher") return "lophn";
-  if (route.space === "project") return "project — lophn";
-  if (route.space === "app") return "app — lophn";
-  return "lophn — lophn";
-}
-
 export function openLophn(
   screen?: LophnScreen,
   settingsPane?: SettingsPane,

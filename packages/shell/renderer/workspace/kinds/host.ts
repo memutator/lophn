@@ -7,9 +7,8 @@ import type { WorkspaceProps } from "../workspace.tsx";
 import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
 import type { AgentsSource } from "../agents/source.ts";
-import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
-import type { ContextLinks } from "../../conversation/file-links.tsx";
 import type { ContextChipView } from "../../conversation/composer/types.ts";
 import type { ReadPosition } from "./kind.ts";
 
@@ -55,20 +54,16 @@ export interface AgentsSlice {
 /** Agent 탭이 작업대와 나누는 것. 통로(agentViewSource)가 없으면 host.agentView는 null이다. */
 export interface AgentViewSlice {
   /** agent와 자리로 그 agent의 source를 얻는다. */
-  readonly factory: AgentViewSourceFactory;
+  readonly factory: AgentTabSourceFactory;
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   readonly drafts: DraftStore;
   readonly now?: () => number;
-  /** 결과 링크와 편집 카드의 [Open]이 그 문서 탭을 연다. */
-  openResult(document: string, version: string | null): void;
   /** 대화의 결과 링크가 파일(절대 경로)을 연다. */
   openFile(path: string): void;
   /** 탭 줄이 그리는 agent의 profile 아이콘. 목록에 없으면 undefined. */
   profileOf(agent: string): AvatarProfile | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
   dotOf(session: string | null): TabDot | null;
-  /** 대화 속 context 이름 링크가 그 Context 탭을 연다. 통로가 없으면 링크를 그리지 않는다. */
-  readonly contexts?: ContextLinks;
   /** Change defaults…와 `/skills`·`/mcp`가 lophn 공간의 Settings › Agents로 간다. */
   openSettings(): void;
   /** provider 끊김 줄의 행동이 설정의 연결 자리로 간다. 없으면 그 행동을 두지 않는다. */

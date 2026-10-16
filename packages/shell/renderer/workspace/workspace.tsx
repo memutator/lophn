@@ -54,7 +54,7 @@ import {
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { layoutHint } from "./view-hint.ts";
-import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { ContextChipView } from "../conversation/composer/types.ts";
 import type {
   AgentsSlice,
@@ -109,9 +109,9 @@ export interface WorkspaceProps {
    * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수. 없으면
    * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
    * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
-   * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
+   * 막힌다. core 구현(agent-tab-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
    */
-  agentViewSource?: AgentViewSourceFactory;
+  agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
   /** 처음 열 때 한 번 Project Manager를 위반(context와 검사)을 붙여 연다. */
@@ -538,20 +538,10 @@ export function Workspace(props: WorkspaceProps) {
       factory: agentViewSource,
       drafts: conversation?.drafts ?? localDrafts,
       ...(conversation?.now === undefined ? {} : { now: conversation.now }),
-      openResult: (document) => {
-        if (document.startsWith("/")) openFile(host, document);
-      },
       openFile: (path) => openFile(host, path),
       profileOf: (agent) =>
         sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
       dotOf: (session) => sessionDot(sessionStates, session),
-      ...(contextsSource === undefined ? {} : {
-        contexts: {
-          open: (id: string) => openContext(host, id),
-          titleOf: (id: string) =>
-            contextList.find((item) => item.id === id)?.title,
-        },
-      }),
       openSettings: onLophn,
       ...(conversation?.onSettings === undefined
         ? {}

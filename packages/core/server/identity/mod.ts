@@ -54,10 +54,4 @@ export {
   type AppCredentialResponse,
   createAppCredentialIssuer,
 } from "./app-credential.ts";
-export {
-  type ChosenQuestionOption,
-  type QuestionEvidenceUse,
-  questionEvidenceUse,
-  type QuestionOptionSource,
-  verifyQuestionEvidence,
-} from "./question-evidence.ts";
+export { createCodingTokens } from "./coding-token.ts";

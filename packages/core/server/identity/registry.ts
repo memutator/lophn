@@ -7,6 +7,7 @@ import {
   type Result,
   sha256Hex,
 } from "../../../base/mod.ts";
+import { createHash } from "node:crypto";
 import {
   type AuthenticatedContext,
   authenticatedContextSchema,
@@ -26,9 +27,14 @@ import {
 } from "./model.ts";
 
 export type CredentialIssue = {
-  // user·machine은 종류 문자열이고 agent·app은 kind:id Actor다. agent runtime
-  // 경계만 agent credential을, app supervisor만 app credential을 발급한다.
-  actor: "user" | "machine" | `agent:${string}` | `app:${string}`;
+  // user·machine은 종류 문자열이고 나머지는 kind:id Actor다. agent runtime 경계만 agent credential을,
+  // app supervisor만 app credential을, coding session 쪽만 coding_agent credential을 발급한다.
+  actor:
+    | "user"
+    | "machine"
+    | `agent:${string}`
+    | `app:${string}`
+    | `coding_agent:${string}`;
   principal: string;
   scope: CredentialScope;
   conditions: CredentialConditions;
@@ -96,6 +102,11 @@ function digestBytes(hex: string): Uint8Array {
   return Uint8Array.from(hex.match(/../g)!, (pair) => parseInt(pair, 16));
 }
 
+// 발급은 동기여야 해서(CodingTokens port) 동기 hash를 쓴다.
+function digestOf(token: string): Uint8Array {
+  return new Uint8Array(createHash("sha256").update(token).digest());
+}
+
 export function constantTimeDigestEqual(
   left: Uint8Array,
   right: Uint8Array,
@@ -126,9 +137,9 @@ export class CredentialRegistry {
     };
   }
 
-  async issue(
+  issue(
     input: CredentialIssue,
-  ): Promise<Result<{ token: string; credential_ref: string }>> {
+  ): Result<{ token: string; credential_ref: string }> {
     let userReserved = false;
     try {
       const parsedScope = credentialScopeSchema.safeParse({
@@ -151,7 +162,7 @@ export class CredentialRegistry {
       if (
         !parsed?.success ||
         (kind !== "user" && kind !== "machine" && kind !== "app" &&
-          kind !== "agent")
+          kind !== "agent" && kind !== "coding_agent")
       ) return invalid();
       const context: AuthenticatedContext = parsed.data;
       if (
@@ -205,6 +216,12 @@ export class CredentialRegistry {
           context.scope.targets.turn !== context.conditions.turn
         ) return invalid();
       }
+      // coding token은 session 하나가 받은 앱 하나에 묶인다. 만료는 없고 session이 끝날 때 거둔다.
+      if (kind === "coding_agent") {
+        if (!context.conditions.app || input.principal !== input.actor) {
+          return invalid();
+        }
+      }
       if (
         context.expires_at !== undefined &&
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
@@ -234,13 +251,12 @@ export class CredentialRegistry {
             message: "user credential already issued",
           });
         }
-        // hash를 기다리는 동안 다른 hello가 두 번째 user token을 만들지 못한다.
         this.#userIssued = true;
         userReserved = true;
       }
       const token = randomValue(this.#options.random);
       const credential_ref = randomValue(this.#options.random);
-      const digest = digestBytes(await sha256Hex(token));
+      const digest = digestOf(token);
       if (
         token === credential_ref || this.#records.has(credential_ref) ||
         [...this.#records.values()].some((record) =>

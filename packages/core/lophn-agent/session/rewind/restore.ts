@@ -109,7 +109,6 @@ export async function readInside(
 // 판정에 든 경로마다 PreparedFile 하나를 만든다(복원·건너뜀·이름 변경의 옛 경로 모두).
 //   observed_sha256·link: current의 관측.
 //   staged: plan=restore이고 write 동작이면 pre-image를 저장소에서 읽을 수 있어 true, 그 밖에는 false.
-//   redo_ref: 다시 하기는 없어 늘 null이다.
 export async function prepareRestore(input: {
   store: RewindStore;
   session: string;
@@ -135,7 +134,6 @@ export async function prepareRestore(input: {
         staged: write?.kind === "write"
           ? await staged(input.store, input.session, write.blob)
           : false,
-        redo_ref: null,
       });
     }
   }

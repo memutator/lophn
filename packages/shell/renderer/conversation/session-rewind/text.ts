@@ -19,26 +19,12 @@ export function reasonText(code: string | null): string | null {
       return t("conversation.rewind-why.rename-blocked");
     case "created_edited":
       return t("conversation.rewind-why.created-edited");
-    case "no_receipt":
-      return t("conversation.rewind-why.no-receipt");
-    case "no_revert_command":
-      return t("conversation.rewind-why.no-revert-command");
-    case "app_revision_changed":
-      return t("conversation.rewind-why.app-revision-changed");
     case "external_effect":
       return t("conversation.rewind-why.external-effect");
     case "already_reverted":
       return t("conversation.rewind-why.already-reverted");
     case "answered_fact":
       return t("conversation.rewind-why.answered-fact");
-    case "app_failed":
-      return t("conversation.rewind-why.app-failed");
-    case "app_uncertain":
-      return t("conversation.rewind-why.app-uncertain");
-    case "app_not_started":
-      return t("conversation.rewind-why.app-not-started");
-    case "app_not_settled":
-      return t("conversation.rewind-why.app-not-settled");
     case "later_edit":
       return t("conversation.rewind-why.later-edit");
     case "unknown":
@@ -48,12 +34,11 @@ export function reasonText(code: string | null): string | null {
   }
 }
 
-/** 항목의 이름: 파일은 경로, 앱 변경과 남는 사실은 종류의 말이다(안쪽 ID는 보이지 않는다). */
+/** 항목의 이름: 파일은 경로, 남는 사실은 종류의 말이다(안쪽 ID는 보이지 않는다). */
 export function itemLabel(
   item: Pick<RewindResultView, "kind" | "target">,
 ): string {
   if (item.kind === "file") return item.target;
-  if (item.kind === "app") return t("conversation.label.rewind-item-app");
   switch (item.target) {
     case "external_request":
       return t("conversation.label.rewind-item-external");

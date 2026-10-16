@@ -14,7 +14,6 @@ import {
   rewindChoiceSchema,
   rewindHeaderOutput,
   rewindOutcomeSchema,
-  rewindRedoSchema,
 } from "./session-rewinds.ts";
 
 // session rewind의 나머지 contract다(lophn-agent/revert). Rewind와 PreviewRewind는
@@ -177,9 +176,6 @@ export const rewindAppRequestSchema = z.object({
 });
 export type RewindAppRequest = z.infer<typeof rewindAppRequestSchema>;
 
-// rewind를 다시 하는 일은 없다. 결과 모양이 요구하는 칸의 값이다.
-export const REWIND_NO_REDO = { redo: "none" } as const;
-
 // Revert: rewind 한 번의 시도다(결과 기록).
 export const revertRecordSchema = z.object({
   id: idSchema("rwd"),
@@ -190,7 +186,6 @@ export const revertRecordSchema = z.object({
   boundary_seq: seqSchema,
   summary_call: idSchema("mcl").nullable(),
   outcome: rewindOutcomeSchema,
-  redo: rewindRedoSchema,
   items: z.array(revertItemSchema),
   apps: z.array(rewindAppRequestSchema),
   preview_hash: sha256Schema,

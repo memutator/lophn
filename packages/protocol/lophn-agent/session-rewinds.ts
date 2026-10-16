@@ -22,15 +22,7 @@ export const rewindOutcomeSchema = z.enum([
   "blocked",
 ]);
 
-export const REWIND_REDO_STATES = [
-  "none",
-  "available",
-  "done",
-  "closed",
-] as const;
-export const rewindRedoSchema = z.enum(REWIND_REDO_STATES);
-
-// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다(문서 표 17개).
+// 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다.
 export const REWIND_REASON_CODES = [
   "edited_outside",
   "chain_broken",
@@ -38,16 +30,9 @@ export const REWIND_REASON_CODES = [
   "link_path",
   "rename_blocked",
   "created_edited",
-  "no_receipt",
-  "no_revert_command",
-  "app_revision_changed",
   "external_effect",
   "already_reverted",
   "answered_fact",
-  "app_failed",
-  "app_uncertain",
-  "app_not_started",
-  "app_not_settled",
   "later_edit",
 ] as const;
 export const rewindReasonSchema = z.enum(REWIND_REASON_CODES);
@@ -62,75 +47,42 @@ const FILE_REASONS: readonly RewindReason[] = [
   "created_edited",
   "already_reverted",
   "later_edit",
-  "app_not_settled",
-];
-const APP_REASONS: readonly RewindReason[] = [
-  "no_receipt",
-  "no_revert_command",
-  "app_revision_changed",
-  "external_effect",
-  "app_failed",
-  "app_uncertain",
-  "app_not_started",
 ];
 const FACT_REASONS: readonly RewindReason[] = [
   "external_effect",
   "answered_fact",
 ];
 
-export const REWIND_ITEM_CLASSES = ["file", "app", "fact"] as const;
+export const REWIND_ITEM_CLASSES = ["file", "fact"] as const;
 export const rewindItemClassSchema = z.enum(REWIND_ITEM_CLASSES);
 export const rewindPlanSchema = z.enum(["restore", "skip", "remain"]);
-
-// AppRewindBinding: 앱 write 하나를 되돌릴 근거다. receipt 원문은 UI·model에 주지 않는다.
-export const appRewindBindingSchema = z.object({
-  app: idSchema("app"),
-  release: idSchema("rel"),
-  command: z.string().min(1),
-  tool_call: idSchema("tcl"),
-  invocation: idSchema("inv"),
-  receipt: z.string().min(1),
-  expected_revision: z.string().min(1),
-  revert_command: z.string().min(1),
-  step_key: z.string().min(1),
-  revert_invocation: idSchema("inv").nullable(),
-});
-export type AppRewindBinding = z.infer<typeof appRewindBindingSchema>;
 
 // rewind 항목 중 사전 검사가 정하는 부분(preview의 restore·skip·remain 항목).
 export const previewItemFields = {
   ordinal: z.number().int().nonnegative(),
   class: rewindItemClassSchema,
-  // file은 경로, app은 원래 ToolCall ID, fact는 사실 종류다.
+  // file은 경로, fact는 사실 종류다.
   target: z.string().min(1),
   source: z.array(idSchema("tcl")),
   plan: rewindPlanSchema,
   reason: rewindReasonSchema.nullable(),
-  app_revert: appRewindBindingSchema.nullable(),
 };
 
 export type ItemShape = {
-  class: "file" | "app" | "fact";
+  class: "file" | "fact";
   plan: "restore" | "skip" | "remain";
   reason: RewindReason | null;
-  app_revert: unknown | null;
 };
 
 // 이유 코드는 대상 종류에 맞는 것만 쓰고, 남는 사실은 되돌리지 않으며, 문서 파일은 복원하거나
-// 건너뛸 뿐 남는 영향이 아니다. 앱 복원 근거는 앱 항목에만 있고 복원할 앱 항목에는 반드시 있다.
+// 건너뛸 뿐 남는 영향이 아니다.
 export function classOk(value: ItemShape): boolean {
   if (value.reason !== null) {
-    const fits = value.class === "file"
-      ? FILE_REASONS
-      : value.class === "app"
-      ? APP_REASONS
-      : FACT_REASONS;
+    const fits = value.class === "file" ? FILE_REASONS : FACT_REASONS;
     if (!fits.includes(value.reason)) return false;
   }
   if (value.class === "fact" && value.plan !== "remain") return false;
-  if (value.class === "file" && value.plan === "remain") return false;
-  if (value.class !== "app") return value.app_revert === null;
-  return value.plan !== "restore" || value.app_revert !== null;
+  return !(value.class === "file" && value.plan === "remain");
 }
 
 export function previewItemOk(value: ItemShape): boolean {
@@ -157,8 +109,6 @@ export const preparedFileSchema = z.strictObject({
   link: z.boolean(),
   // 복원할 내용(pre-image)을 session 저장소에서 읽을 수 있음을 확인했나.
   staged: z.boolean(),
-  // 복원 직전 내용을 redo 근거로 session 저장소에 둔 key. restore_all rewind에만 있다.
-  redo_ref: sha256Schema.nullable(),
 });
 export type PreparedFile = z.infer<typeof preparedFileSchema>;
 export const preparedFilesSchema = z.array(preparedFileSchema).refine(
@@ -170,7 +120,6 @@ export const rewindHeaderOutput = z.object({
   id: idSchema("rwd"),
   session: idSchema("ses"),
   outcome: rewindOutcomeSchema,
-  redo: rewindRedoSchema,
   result_seq: seqSchema.nullable(),
   // 같은 요청이 이미 접수되어 저장된 현재 결과를 돌려준 것이다.
   replayed: z.boolean(),

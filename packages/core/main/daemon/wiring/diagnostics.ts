@@ -1,11 +1,29 @@
-import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
-import type { StatusSource } from "../../../diagnostics/mod.ts";
+import { ok } from "../../../../base/mod.ts";
+import {
+  diagnosticsList,
+  diagnosticsStatus,
+} from "../../../../protocol/diagnostics/mod.ts";
+import {
+  createComponentChecks,
+  createLogRecordSource,
+  diagnosticsListRead,
+  diagnosticsStatusHandler,
+  type StatusSource,
+} from "../../../diagnostics/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
-import type { Supervisor, WiringFactory } from "./context.ts";
+import type { WiringFactory } from "./context.ts";
+
+const key = (route: { resource: string; method: string }) =>
+  `${route.resource}/${route.method}`;
 
 export const diagnosticsWiring: WiringFactory = () => ({
   name: "diagnostics",
   prepare(ctx) {
+    // core와 ledger는 여기서 짓는다. 나머지 구성 요소는 owner의 wiring이 componentChecks에 더한다.
+    ctx.componentChecks.push(...createComponentChecks({
+      ready: () => ctx.ready,
+      runtime: () => ctx.peek.runtime,
+    }));
     const source: StatusSource = {
       get ready() {
         return ctx.ready;
@@ -15,48 +33,20 @@ export const diagnosticsWiring: WiringFactory = () => ({
       // ledger를 만들거나 복원할 때마다 새로 정한 식별(data root의 ledger-id). 내용은 노출하지 않는다.
       // derived는 출처에 이 값을 적고 다르면 버리고 다시 만든다.
       ledgerId: ctx.ledgerId,
-      components() {
-        const runtime = ctx.peek.runtime;
-        return [
-          ["ledger", { available: true }],
-          // unavailable 관측은 안전한 이유가 있어야 한다(healthObservationSchema).
-          ["api", {
-            available: ctx.ready,
-            ...(ctx.ready ? {} : { reason: "API가 아직 요청을 받지 않는다" }),
-          }],
-          ["writer", {
-            available: runtime !== undefined,
-            ...(runtime ? {} : { reason: "writer가 아직 없다" }),
-          }],
-          ["reader", {
-            available: runtime?.readers.health().every((health) =>
-              health === "healthy"
-            ) ?? false,
-            ...(runtime ? {} : { reason: "reader가 아직 없다" }),
-          }],
-          ["io", ioComponent(ctx.io)],
-          ["apps", appsComponent(ctx.appsSupervision)],
-        ];
-      },
+      checks: () => ctx.componentChecks,
     };
     ctx.provide("statusSource", source);
   },
+  build(ctx) {
+    const list = diagnosticsListRead(
+      createLogRecordSource(ctx.root.path, ctx.clock),
+    );
+    return ok({
+      memory: [[
+        key(diagnosticsStatus),
+        diagnosticsStatusHandler(() => ctx.componentChecks, ctx.clock),
+      ]],
+      reads: (reads) => reads.set(key(diagnosticsList), list),
+    });
+  },
 });
-
-function appsComponent(
-  supervision: Supervisor,
-): { available: boolean; reason?: string } {
-  const observed = supervision.observation(APPS_SUPERVISOR_KIND);
-  return observed.available
-    ? { available: true }
-    : { available: false, reason: observed.reason ?? "apps supervisor가 없다" };
-}
-
-function ioComponent(
-  io: Supervisor,
-): { available: boolean; reason?: string } {
-  const observed = io.observation("platform/io");
-  return observed.available
-    ? { available: true }
-    : { available: false, reason: observed.reason ?? "platform/io가 없다" };
-}

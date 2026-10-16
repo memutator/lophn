@@ -14,10 +14,6 @@ import type { SecretPreparation } from "../../../protocol/secrets/mod.ts";
 import type { ReadHandler } from "../../server/mod.ts";
 import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
 import {
-  type DiagnosticListSource,
-  diagnosticsCheckRead,
-  diagnosticsListRead,
-  type DoctorSource,
   platformStatusReads,
   type StatusSource,
 } from "../../diagnostics/mod.ts";
@@ -105,12 +101,8 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
-  // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다.
-  doctor?: DoctorSource;
   // secret store가 값을 읽는 OS keychain. 참조가 있을 때 부른다.
   keychain: () => KeychainAdapter;
-  // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다.
-  diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
   blob?: {
     fields: readonly BlobFieldDefinition[];
@@ -178,20 +170,9 @@ export async function openRuntime(input: {
     input.assembled.secretRefs,
   );
   const status = platformStatusReads(input.source, input.clock);
-  // doctor의 무거운 검사는 worker가 한다. core는 그 관측만 읽는다.
-  const doctor = input.doctor
-    ? diagnosticsCheckRead(input.doctor, input.clock)
-    : undefined;
-  const diagnosticList = input.diagnostics
-    ? diagnosticsListRead(input.diagnostics)
-    : undefined;
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
     ["platform/health", status.health],
-    ...(doctor ? [["diagnostics/check", doctor] as [string, ReadHandler]] : []),
-    ...(diagnosticList
-      ? [["diagnostics/list", diagnosticList] as [string, ReadHandler]]
-      : []),
     [
       "blobs/read",
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),

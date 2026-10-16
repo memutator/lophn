@@ -5,6 +5,7 @@ export {
   type FailureObservation,
   type ReportObservation,
 } from "./classify.ts";
+export { createComponentChecks } from "./components.ts";
 export { createLogFiles, LOG_FILE_COUNT, LOG_FILE_MAX_BYTES } from "./files.ts";
 export {
   createSafeLog,
@@ -19,32 +20,16 @@ export {
   type DiagnosticHost,
   type DiagnosticIngress,
 } from "./pipe.ts";
+export type { ComponentCheck } from "./ports.ts";
 export {
-  classifySecurity,
-  type CredentialPermissionObservation,
-  DIAGNOSTICS_CHECK_ROUTE,
-  diagnosticsCheckRead,
-  type DoctorObservation,
-  type DoctorSource,
-  type GrantRiskObservation,
-  safeDetail,
-  type SdkHashObservation,
-  SECURITY_DIAGNOSTIC_KINDS,
-  type SecurityDiagnostic,
-  type SecurityDiagnosticKind,
-  storageFailure,
-  UNUSED_GRANT_MS,
-  warmPatternRevision,
-} from "./doctor.ts";
-export {
+  createLogRecordSource,
   type DiagnosticListSource,
   type DiagnosticQuery,
-  DIAGNOSTICS_LIST_ROUTE,
   diagnosticsListRead,
 } from "./list.ts";
 export {
-  type ComponentStatus,
-  PLATFORM_STATUS_ROUTES,
+  diagnosticsStatusHandler,
   platformStatusReads,
   type StatusSource,
 } from "./status.ts";
+export { safeDetail, storageFailure } from "./storage-failure.ts";

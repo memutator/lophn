@@ -10,7 +10,7 @@ import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
-import { idSchema, runIdSchema } from "../base/ids.ts";
+import { idSchema } from "../base/ids.ts";
 import {
   bundleContentSchema,
   contractNameSchema,
@@ -203,7 +203,6 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 
 // ---------- 값: SavedView ----------
 
-export const SAVED_VIEW_ORIGINS = ["user", "engineer"] as const;
 // saved view를 만든 쪽. 값 schema와 SavedViewCreated가 이것을 쓴다.
 export const SAVED_VIEW_AUTHORS = ["user", "project_manager"] as const;
 const savedViewFields = {
@@ -1135,28 +1134,6 @@ export const savedViewDeletedEvent = defineEvent("SavedViewDeleted", {
     before_revision: revisionSchema,
   }),
 });
-export const contextViolationsRecordedEvent = defineEvent(
-  "ContextViolationsRecorded",
-  {
-    subject: ctxIdSchema,
-    payload: z.object({
-      before: countSchema,
-      after: countSchema,
-      bundle_hash: sha256Schema,
-    }),
-  },
-);
-export const contextViolationsHandedOffEvent = defineEvent(
-  "ContextViolationsHandedOff",
-  {
-    subject: ctxIdSchema,
-    payload: z.object({
-      violations: z.array(violationKeySchema).min(1),
-      evidence: blobReferenceSchema,
-      run: runIdSchema,
-    }),
-  },
-);
 export const glossaryEntrySetEvent = defineEvent("GlossaryEntrySet", {
   subject: glossaryEntryIdSchema,
   payload: z.object({
@@ -1188,8 +1165,6 @@ export const CONTEXT_API_EVENTS = [
   savedViewCreatedEvent,
   savedViewUpdatedEvent,
   savedViewDeletedEvent,
-  contextViolationsRecordedEvent,
-  contextViolationsHandedOffEvent,
   glossaryEntrySetEvent,
   glossaryEntryRemovedEvent,
 ] as const;

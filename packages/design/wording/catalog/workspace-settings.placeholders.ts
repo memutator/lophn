@@ -47,19 +47,13 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.diagnostics.raw-key": Record<never, never>;
   "settings.diagnostics.wide-grant": Record<never, never>;
   "settings.empty.general": Record<never, never>;
-  "settings.error.coding-conflict": Record<never, never>;
   "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
-  "settings.error.coding-not-detected": Record<never, never>;
-  "settings.error.coding-refused": Record<never, never>;
-  "settings.error.coding-revoke-window": Record<never, never>;
-  "settings.error.coding-unavailable": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;
   "settings.error.value-out-of-range": Record<never, never>;
   "settings.error.value-unknown": Record<never, never>;
   "settings.error.value-wrong-type": Record<never, never>;
-  "settings.heading.coding-access": Record<never, never>;
   "settings.heading.coding-agents": Record<never, never>;
   "settings.heading.coding-defaults": Record<never, never>;
   "settings.heading.values": Record<never, never>;
@@ -94,7 +88,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-col-skill": Record<never, never>;
   "settings.label.coding-col-takes-task": Record<never, never>;
   "settings.label.coding-col-turn-end": Record<never, never>;
-  "settings.label.coding-connections-target": Record<never, never>;
   "settings.label.coding-default-name": {
     name: "string";
   };
@@ -137,8 +130,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-stage-other": Record<never, never>;
   "settings.label.coding-stage-skills": Record<never, never>;
   "settings.label.coding-stage-tools": Record<never, never>;
-  "settings.label.coding-state-active": Record<never, never>;
-  "settings.label.coding-state-revoked": Record<never, never>;
   "settings.label.coding-target": Record<never, never>;
   "settings.label.coding-version": {
     version: "string";
@@ -151,8 +142,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.component-events": Record<never, never>;
   "settings.label.component-ledger": Record<never, never>;
   "settings.label.component-sandbox": Record<never, never>;
-  "settings.label.connection-name": Record<never, never>;
-  "settings.label.connection-scope": Record<never, never>;
   "settings.label.default": Record<never, never>;
   "settings.label.density": Record<never, never>;
   "settings.label.density-comfortable": Record<never, never>;
@@ -233,19 +222,11 @@ export type WorkspaceSettingsPlaceholders = {
   };
   "settings.note.coding-checked-again": Record<never, never>;
   "settings.note.coding-checks-unavailable": Record<never, never>;
-  "settings.note.coding-connect-note": Record<never, never>;
-  "settings.note.coding-connected": {
-    name: "string";
-  };
   "settings.note.coding-default-used": Record<never, never>;
   "settings.note.coding-defaults-saved": Record<never, never>;
   "settings.note.coding-detect-note": Record<never, never>;
   "settings.note.coding-intro": Record<never, never>;
   "settings.note.coding-model": Record<never, never>;
-  "settings.note.coding-name-help": Record<never, never>;
-  "settings.note.coding-no-connections": Record<never, never>;
-  "settings.note.coding-revoke-waiting": Record<never, never>;
-  "settings.note.coding-revoked-note": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.coding-start-note": Record<never, never>;
   "settings.note.not-set": Record<never, never>;

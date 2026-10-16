@@ -49,19 +49,10 @@ export const workspaceSettings = {
   "settings.diagnostics.wide-grant":
     "A connection can read more than it needs.",
   "settings.empty.general": "No settings are declared yet.",
-  "settings.error.coding-conflict":
-    "A connection like this already exists, so nothing was connected.",
   "settings.error.coding-defaults":
     "The options weren't saved. Nothing changed. Try again.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
-  "settings.error.coding-not-detected":
-    "That product wasn't found on this computer, so nothing was connected.",
-  "settings.error.coding-refused":
-    "lophn didn't accept that choice. Nothing was connected.",
-  "settings.error.coding-revoke-window":
-    "The confirmation window didn't open. Try again.",
-  "settings.error.coding-unavailable": "Couldn't connect right now. Try again.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -72,7 +63,6 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
-  "settings.heading.coding-access": "Connections to lophn",
   "settings.heading.coding-agents": "Coding agents",
   "settings.heading.coding-defaults": "Default run options",
   "settings.heading.values": "Settings",
@@ -108,7 +98,6 @@ export const workspaceSettings = {
   "settings.label.coding-col-skill": "Skill",
   "settings.label.coding-col-takes-task": "Takes a task",
   "settings.label.coding-col-turn-end": "Turn-end signal",
-  "settings.label.coding-connections-target": "your coding agent connections",
   "settings.label.coding-default-name": "{name} on this computer",
   "settings.label.coding-default-none": "No default",
   "settings.label.coding-default-product": "Default product",
@@ -138,8 +127,6 @@ export const workspaceSettings = {
   "settings.label.coding-stage-other": "Another check",
   "settings.label.coding-stage-skills": "Finds the lophn skills",
   "settings.label.coding-stage-tools": "Finds the lophn tools",
-  "settings.label.coding-state-active": "Active",
-  "settings.label.coding-state-revoked": "Revoked",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
   "settings.label.coding-version-unknown": "Version unknown",
@@ -150,8 +137,6 @@ export const workspaceSettings = {
   "settings.label.component-events": "Event stream",
   "settings.label.component-ledger": "Ledger",
   "settings.label.component-sandbox": "Sandbox",
-  "settings.label.connection-name": "Connection name",
-  "settings.label.connection-scope": "What it can reach",
   "settings.label.default": "Default",
   "settings.label.density": "Density",
   "settings.label.density-comfortable": "Comfortable",
@@ -224,9 +209,6 @@ export const workspaceSettings = {
   "settings.note.coding-checked-again": "Checked again just now.",
   "settings.note.coding-checks-unavailable":
     "lophn couldn't check yet whether it loads.",
-  "settings.note.coding-connect-note":
-    "Pressing Connect is your permission. There's no token to create or paste.",
-  "settings.note.coding-connected": "{name} is connected.",
   "settings.note.coding-default-used":
     "Used when an App Engineer does not pick one.",
   "settings.note.coding-defaults-saved": "Saved.",
@@ -236,13 +218,6 @@ export const workspaceSettings = {
     "Connect the coding agent you already use. lophn only sets up the product you pick.",
   "settings.note.coding-model":
     "Leave it empty to use the product's own default model.",
-  "settings.note.coding-name-help":
-    "A name you'll recognize. It tells connections apart.",
-  "settings.note.coding-no-connections": "No coding agent is connected yet.",
-  "settings.note.coding-revoke-waiting":
-    "Waiting for your decision in the confirmation window.",
-  "settings.note.coding-revoked-note":
-    "lophn no longer accepts this connection. Anything already running in your coding agent keeps running.",
   "settings.note.coding-signal":
     "Without a turn-end signal, lophn sends only the first prompt and no follow-up messages. A product that can't take the first prompt is not offered as a default.",
   "settings.note.coding-start-note":

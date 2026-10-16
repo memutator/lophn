@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "./result.ts";
 
 // SQLite changeset format(sqlite.org/sessionintro.html)을 직접 읽어 뒤집는다.
 // node:sqlite에는 sqlite3changeset_invert가 없다. 순수 함수이고 IO가 없다.

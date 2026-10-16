@@ -1,5 +1,10 @@
 import { ok, type Result } from "../../../../base/mod.ts";
-import type { AppDriver, HarnessPlan, HarnessPlanCheck } from "./driver.ts";
+import type {
+  AppDriver,
+  HarnessPlan,
+  HarnessPlanCheck,
+  RewindRun,
+} from "./driver.ts";
 import type { MigrationScenario } from "./driver.ts";
 import type { Emitter } from "./emit.ts";
 
@@ -78,6 +83,27 @@ async function migration(
   };
 }
 
+async function rewind(
+  driver: AppDriver,
+  plan: HarnessPlan,
+): Promise<Verdict> {
+  // write app-api를 선언 순서대로 부른다. 앞선 호출이 만든 상태가 뒤 호출의 앞선 상태가 된다.
+  const runs: Record<string, RewindRun> = {};
+  for (const api of plan.write_api) runs[api] = await driver.rewind(api);
+  const failed = Object.entries(runs).filter(([, run]) =>
+    !(run.called && run.changed && run.applied && run.restored)
+  );
+  return {
+    met: failed.length === 0,
+    reason: failed.length === 0
+      ? "write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다"
+      : `되돌리지 못한 write app-api가 있다: ${
+        failed.map(([api, run]) => `${api}(${run.reason})`).join(", ")
+      }`,
+    evidence: { runs },
+  };
+}
+
 export type ChecksInput = {
   driver: AppDriver;
   plan: HarnessPlan;
@@ -125,6 +151,8 @@ function run(name: string, input: ChecksInput): Promise<Verdict> {
   switch (name) {
     case "blueprint_handler_match":
       return blueprintHandlerMatch(driver, plan);
+    case "rewind":
+      return rewind(driver, plan);
     case "migration_empty":
       return migration(driver, plan, "empty");
     case "migration_upgrade":

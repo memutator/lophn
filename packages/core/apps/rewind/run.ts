@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { err, type Result } from "../../../base/mod.ts";
+import { err, invertAll, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { At } from "../../../protocol/base/values.ts";
 import type { Rewind } from "../../../protocol/apps/calls/mod.ts";
@@ -11,7 +11,6 @@ import type {
   AppViewSignal,
   InvocationLedger,
 } from "../ports.ts";
-import { invertAll } from "./invert.ts";
 import { rewindPlan } from "./plan.ts";
 import {
   finishRewind,

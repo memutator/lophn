@@ -28,7 +28,7 @@ const SOURCES: Record<CheckName, CheckSource> = {
   dependencies: "runner",
   migration_empty: "harness",
   migration_upgrade: "harness",
-  rewind: "runner",
+  rewind: "harness",
 };
 
 export function checkDigest(definition: CheckDefinition): string {

@@ -22,12 +22,27 @@ export type MigrationRun = {
   reason: string;
 };
 
+// write app-api 하나를 fixture 입력으로 부르고 changeset을 뒤집어 적용한 결과다.
+export type RewindRun = {
+  // 호출이 성공했는지.
+  called: boolean;
+  // 호출이 DB 상태를 바꿨는지.
+  changed: boolean;
+  // 뒤집은 changeset이 적용됐는지.
+  applied: boolean;
+  // 적용 뒤 DB 상태가 호출 전과 같은지.
+  restored: boolean;
+  reason: string;
+};
+
 // test 앱 자식을 실제 진입점으로 구동하는 쪽(runner)이 test 자식에 주는 통로다.
 // harness는 앱 code를 import하지 않고 이 통로로만 만진다.
 export type AppDriver = {
   probe(): Promise<Attestation>;
   // 선언한 입력 계약을 어긴 입력으로 app-api를 불러 입력 검증에서 거절됐는지 돌려준다.
   rejectsInvalidInput(api: string): Promise<boolean>;
+  // write app-api를 불러 changeset을 뒤집어 적용하고 DB 상태를 호출 전과 견준다.
+  rewind(api: string): Promise<RewindRun>;
   // 고정 fixture DB의 migration. 빈 DB 전체와 이전 release schema → 새 schema다.
   migrate(scenario: MigrationScenario): Promise<MigrationRun>;
 };
@@ -44,6 +59,8 @@ export type HarnessPlan = {
   test_hash: string;
   // 선언한 app-api key.
   app_api: string[];
+  // 그 가운데 write app-api key.
+  write_api: string[];
   // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema.
   data: { schema: number; previous_schema: number | null };
   checks: HarnessPlanCheck[];

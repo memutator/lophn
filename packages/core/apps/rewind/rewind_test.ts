@@ -1,11 +1,10 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { Buffer } from "node:buffer";
-import { ok, type Result } from "../../../base/mod.ts";
+import { invertAll, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import { invertAll } from "./invert.ts";
 import { createAppRewind, type RewindDeps } from "./run.ts";
 import { rewindSchemaSteps } from "./schema.ts";
 

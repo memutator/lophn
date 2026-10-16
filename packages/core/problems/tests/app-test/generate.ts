@@ -185,23 +185,13 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
   const writes = input.app_api.filter((api) => api.effect === "write").map((
     api,
   ) => api.key);
-  // 앱 test driver가 changeset을 뒤집어 적용하려면 core의 rewind와 같은 뒤집기 함수를 써야 하는데
-  // 공용 위치에 아직 없다. 통과로 채우지 않고 판정 불가로 남긴다.
-  add(
-    "rewind",
-    writes.length > 0,
-    "write app-api가 선언되지 않았다",
-    {
-      status: "inconclusive",
-      reason: "changeset을 뒤집는 공용 함수가 없어 rewind를 확인하지 못했다",
-      evidence: { write_app_api: writes },
-    },
-  );
+  add("rewind", writes.length > 0, "write app-api가 선언되지 않았다", null);
 
   const harness: HarnessPlan = {
     bundle_hash: input.bundle_hash,
     test_hash: input.test_hash,
     app_api: input.app_api.map((api) => api.key),
+    write_api: writes,
     data: input.data,
     checks: checks.filter((check) => check.source === "harness").map((
       { precomputed: _precomputed, coverage: _coverage, ...rest },

@@ -5,9 +5,12 @@
 // app test는 network 없이 test DB로 돈다. 앱 자식의 Deno net 허락은 가상 host와 broker·control socket뿐이고
 // (apps/permissions `appFlags`), 외부 net·secret은 broker가 apps/preview의 고정 대역에 보내 실제 접속이 없다.
 // 앱 data는 이 실행의 작업 폴더 안 DB다.
+import { Buffer } from "node:buffer";
+import { DatabaseSync } from "node:sqlite";
 import {
   createIdSource,
   cryptoRandom,
+  invertAll,
   ok,
   type Result,
   sha256Hex,
@@ -79,6 +82,35 @@ type InputSchema = Blueprint["app_api"][number]["input"];
 function invalidValue(schema: InputSchema): unknown {
   if (schema === null) return { unexpected: true };
   return schema.type === "string" ? 7 : "not-a-valid-value";
+}
+
+// 입력 계약을 지키는 가장 단순한 값이다. 입력이 없는 app-api에는 입력을 보내지 않는다.
+function validValue(schema: NonNullable<InputSchema>): unknown {
+  if (schema.enum && schema.enum.length > 0) return schema.enum[0];
+  switch (schema.type) {
+    case "object": {
+      const value: Record<string, unknown> = {};
+      for (const key of schema.required ?? []) {
+        const property = schema.properties?.[key];
+        value[key] = property ? validValue(property) : null;
+      }
+      return value;
+    }
+    case "array":
+      return Array.from(
+        { length: schema.minItems ?? 0 },
+        () => schema.items ? validValue(schema.items) : null,
+      );
+    case "string":
+      return "x".repeat(Math.max(1, schema.minLength ?? 1));
+    case "integer":
+    case "number":
+      return schema.minimum ?? 1;
+    case "boolean":
+      return true;
+    default:
+      return null;
+  }
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -246,11 +278,67 @@ export async function createRealAppDriver(
     // 앱이 처리되지 않은 rejection으로 스스로 끝났으면 다음 호출을 위해 새로 띄운다.
     if (app && !appGone) return app;
     appGone = false;
+    await seedData();
     app = await spawn();
     void app.exited.then(() => {
       appGone = true;
     });
     return app;
+  }
+
+  // 앱이 처음 뜨기 전에 data 폴더의 DB를 새 schema까지 migration해 둔다(운영은 activation이 한다).
+  let seeded = false;
+  async function seedData() {
+    if (seeded) return;
+    seeded = true;
+    if (plan.data.schema === 0) return;
+    const path = `${dataDir}/app.sqlite`;
+    const created = openAppDatabase(path);
+    if (!created.ok) return;
+    created.value.close();
+    const backup = await createAppBackup(dataDir, path, "before");
+    if (!backup.ok) return;
+    await migrateAppDatabase({
+      dataArea: dataDir,
+      databasePath: path,
+      backupPath: `${dataDir}/backups/before`,
+      targetSchema: plan.data.schema,
+      scripts: await scripts(),
+      appliedAt: new Date().toISOString(),
+      result: {
+        release: "rel_01arz3ndektsv4rrffq69g5fav",
+        attempt: "act_01arz3ndektsv4rrffq69g5fav",
+        invocation: null,
+      },
+    });
+  }
+
+  // 업무 표의 논리 상태다. 열려 있는 DB를 읽기 전용으로 열어 행을 본다(DB가 없으면 빈 상태).
+  function dataState(): string {
+    let db: DatabaseSync;
+    try {
+      db = new DatabaseSync(`${dataDir}/app.sqlite`, { readOnly: true });
+    } catch {
+      return "{}";
+    }
+    try {
+      const dump: Record<string, string[]> = {};
+      const tables = db.prepare(
+        "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like 'lophn_%' order by name",
+      ).all().map((row) => String(row["name"]));
+      for (const table of tables) {
+        dump[table] = db.prepare(`select * from "${table}"`).all().map((row) =>
+          JSON.stringify(
+            row,
+            (_key, value) =>
+              typeof value === "bigint" ? value.toString() : value,
+          )
+        ).sort();
+      }
+      return JSON.stringify(dump);
+    } finally {
+      db.close();
+    }
   }
 
   async function probeAttestation() {
@@ -362,6 +450,88 @@ export async function createRealAppDriver(
         body?.error?.code === "invalid_input") ||
         (answered.status === 200 && body?.status === "error" &&
           body.error?.code === "invalid_input");
+    },
+    async rewind(api) {
+      const declaration = input.blueprint.app_api.find((item) =>
+        item.key === api
+      );
+      const none = {
+        called: false,
+        changed: false,
+        applied: false,
+        restored: false,
+      };
+      if (!declaration) return { ...none, reason: "선언하지 않은 app-api다" };
+      await probeAttestation();
+      const before = dataState();
+      const called = await control("/_lophn/control/call", {
+        invocation: ids.newId("inv"),
+        api,
+        ...(declaration.input === null
+          ? {}
+          : { input: validValue(declaration.input) }),
+        context: {
+          app: APP_ID,
+          release: null,
+          mode: "test",
+          project: null,
+          effect: declaration.effect,
+          caller: null,
+        },
+      });
+      const body = called.body as {
+        status?: string;
+        changeset?: string | null;
+        error?: { code?: string };
+      } | null;
+      if (called.status !== 200 || body?.status !== "ok") {
+        return {
+          ...none,
+          reason: `fixture 입력의 호출이 성공하지 못했다: ${
+            body?.error?.code ?? called.status
+          }`,
+        };
+      }
+      const changed = dataState() !== before;
+      if (!body.changeset) {
+        return {
+          ...none,
+          called: true,
+          reason: "호출이 changeset을 내지 않았다",
+        };
+      }
+      const inverted = invertAll([
+        new Uint8Array(Buffer.from(body.changeset, "base64")),
+      ]);
+      if (!inverted.ok) {
+        return {
+          ...none,
+          called: true,
+          changed,
+          reason: `changeset을 뒤집지 못했다: ${inverted.error.message}`,
+        };
+      }
+      const applied = await control("/_lophn/control/apply", {
+        changesets: inverted.value.map((bytes) =>
+          Buffer.from(bytes).toString("base64")
+        ),
+      });
+      const done = (applied.body as { status?: string } | null)?.status ===
+        "applied";
+      const restored = dataState() === before;
+      return {
+        called: true,
+        changed,
+        applied: done,
+        restored,
+        reason: !done
+          ? "뒤집은 changeset이 적용되지 않았다"
+          : !restored
+          ? "적용 뒤 DB 상태가 호출 전과 다르다"
+          : !changed
+          ? "호출이 DB 상태를 바꾸지 않았다"
+          : "뒤집어 적용하니 호출 전 상태로 돌아왔다",
+      };
     },
     async migrate(scenario) {
       migrations += 1;

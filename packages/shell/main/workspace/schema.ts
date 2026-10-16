@@ -42,14 +42,6 @@ export const layoutPaneSchema = z.strictObject({
 
 export type LayoutPane = z.infer<typeof layoutPaneSchema>;
 
-// 정보 패널은 공간별 열림·마지막 탭만 남긴다.
-export const informationPanelSchema = z.strictObject({
-  open: z.boolean(),
-  tab: z.enum(["info", "versions", "contexts"]),
-});
-
-export type InformationPanel = z.infer<typeof informationPanelSchema>;
-
 // 창 bounds는 화면 상의 정수 rectangle이다. 음수·과도한 크기는 받지 않는다.
 const windowBounds = z.strictObject({
   x: z.number().int().min(-32768).max(32768),
@@ -69,7 +61,6 @@ export const workspaceLayoutSchema = z.strictObject({
   panes: z.array(layoutPaneSchema).min(1).max(2),
   split_ratio: z.number().finite().gt(0).lt(1),
   focused_pane: z.number().int().min(0).max(1),
-  information_panel: informationPanelSchema,
 }).refine(
   (layout) => layout.focused_pane < layout.panes.length,
   { message: "focused_pane is not a valid pane index" },

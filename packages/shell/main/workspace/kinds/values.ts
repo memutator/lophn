@@ -1,8 +1,8 @@
-// kind 선언이 함께 쓰는 값 모양이다. layout 파일의 탭 key·참조 형식과 힌트의 참조 읽기.
+// kind 선언이 함께 쓰는 값 모양이다. layout 파일의 탭 key와 참조 형식.
 import { z } from "zod";
 
-// 로컬 탭 참조. credential이 아니라 workspace 안 유일 key다(domain-model 제약).
-export const tabKey = z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/);
+// 로컬 탭 참조. credential이 아니라 workspace 안 유일 key다. 파일 탭은 절대 경로가 key다.
+export const tabKey = z.string().min(1).max(4096);
 
 // 읽던 위치는 section key와 0 이상 scroll offset뿐이다. 본문은 없다.
 export const readPositionSchema = z.strictObject({
@@ -10,9 +10,6 @@ export const readPositionSchema = z.strictObject({
   scroll_offset: z.number().min(0).max(Number.MAX_SAFE_INTEGER),
 });
 
-export const documentId = z.string().regex(
-  /^doc_[0-7][0-9a-hjkmnp-tv-z]{25}$/,
-);
 export const appId = z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 
 const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;

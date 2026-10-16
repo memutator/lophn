@@ -1,46 +1,83 @@
-// 편집기 파일 adapter와 창 닫기 guard. renderer는 문서 id와 session handle만 보내고
-// 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
+// 파일 adapter와 창 닫기 guard. renderer는 절대 경로만 보내고 main이 디스크를 직접 읽고 쓴다.
+// core는 연결 폴더(폴더 목록의 범위)와 project의 첫 폴더(지침 경로)를 알 때만 부른다.
+// 창마다 guard가 저장 중 수를 기억한다.
 import { app } from "electron";
 
-import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../../ipc/editor.ts";
+import {
+  FILE_CHANGED_CHANNEL,
+  FILE_CLOSE_REQUEST_CHANNEL,
+} from "../../../ipc/files.ts";
 import { CloseGuard, guardWindowClose } from "../../editor/close-guard.ts";
-import { coreFilesPort, coreInstructionsPort } from "../../editor/core-port.ts";
 import { createFileAdapter } from "../../editor/file-adapter.ts";
 import { createInstructions } from "../../editor/instructions.ts";
-import { registerEditorIpc, removeEditorIpc } from "../../editor/ipc.ts";
+import { registerFilesIpc, removeFilesIpc } from "../../editor/ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
+type ProjectFolders = {
+  id: string;
+  status: string;
+  folders: { path: string }[];
+};
+
 export function register(ctx: ShellContext): Registered {
-  const { dataRoot, overlays, core, ipc, log, closeGuards } = ctx;
+  const { dataRoot, overlays, ipc, log, closeGuards } = ctx;
+
+  /** 활성 project들. core를 못 읽으면 null이다. */
+  async function activeProjects(): Promise<ProjectFolders[] | null> {
+    const found: ProjectFolders[] = [];
+    let cursor: string | undefined;
+    do {
+      const reply = await ctx.coreInternal("read", "projects", "list", {
+        status: "active",
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (!reply.ok) return null;
+      const value = reply.value as {
+        projects?: ProjectFolders[];
+        next_cursor?: string | null;
+      };
+      found.push(...(value.projects ?? []));
+      cursor = value.next_cursor ?? undefined;
+    } while (cursor !== undefined);
+    return found;
+  }
+
   const fileAdapter = createFileAdapter({
-    port: () => {
-      const session = core.session();
-      return session ? coreFilesPort(session) : null;
-    },
-    log,
-  });
-  // [Instructions]. exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
-  const instructions = createInstructions({
-    port: () => {
-      const session = core.session();
-      return session ? coreInstructionsPort(session) : null;
-    },
     dataRoot,
+    folders: async () =>
+      (await activeProjects())?.flatMap((project) =>
+        project.folders.map((folder) => folder.path)
+      ) ?? null,
+    notify: (owner, change) => {
+      const window = [...ctx.windows].find((one) =>
+        !one.isDestroyed() && one.webContents.id === owner
+      );
+      window?.webContents.send(FILE_CHANGED_CHANNEL, change);
+    },
   });
-  registerEditorIpc(ipc, {
+  const instructions = createInstructions({
+    dataRoot,
+    firstFolder: async (project) => {
+      const projects = await activeProjects();
+      if (projects === null) throw new Error("core is not ready");
+      return projects.find((one) => one.id === project)?.folders[0]?.path ??
+        null;
+    },
+  });
+  registerFilesIpc(ipc, {
     registry: overlays.overlayRegistry(),
     adapter: fileAdapter,
     instructions,
     guardOf: (id) => closeGuards.get(id),
   });
 
-  // 창 닫기는 편집기의 마지막 고침과 편집 종료를 먼저 본다.
+  // 창 닫기는 편집기의 마지막 고침을 먼저 본다.
   ctx.windowHooks.created.push((window) => {
     const contentsId = window.webContents.id;
     const guard = new CloseGuard({
       send: (request) => {
         if (!window.isDestroyed()) {
-          window.webContents.send(EDITOR_CLOSE_REQUEST_CHANNEL, request);
+          window.webContents.send(FILE_CLOSE_REQUEST_CHANNEL, request);
         }
       },
       log,
@@ -68,5 +105,5 @@ export function register(ctx: ShellContext): Registered {
     fileAdapter.dropOwner(contentsId);
   });
 
-  return { stop: () => removeEditorIpc(ipc) };
+  return { stop: () => removeFilesIpc(ipc) };
 }

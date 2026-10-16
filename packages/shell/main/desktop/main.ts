@@ -27,7 +27,7 @@ add(feedback.register(ctx, views, calls));
 add(annotate.register(ctx, views));
 add(secretInput.register(ctx));
 const terminals = add(coding.register(ctx));
-add(layout.register(ctx, views));
+add(layout.register(ctx));
 add(editor.register(ctx));
 add(desktop.register(ctx, views, terminals));
 

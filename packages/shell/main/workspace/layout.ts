@@ -1,8 +1,6 @@
 // WorkspaceLayout(domain-model/shell/workspace)의 검증과 기본값, 읽던 위치
 // 보존의 순수 동작만 둔다. schema 원본은 schema.ts가 정한다.
 import {
-  type InformationPanel,
-  informationPanelSchema,
   LAYOUT_SCHEMA_VERSION,
   type LayoutFile,
   layoutFileSchema,
@@ -13,7 +11,6 @@ import {
 import { tabKindOf } from "./kinds/registry.ts";
 
 export type {
-  InformationPanel,
   LayoutFile,
   LayoutPane,
   LayoutTab,
@@ -47,7 +44,7 @@ export function parseLayoutFile(value: unknown): LayoutResult {
 }
 
 /**
- * registry에 없는 kind(지운 옛 kind 포함)의 탭은 자리표시 없이 건너뛰고 나머지 탭의 순서·선택을
+ * registry에 없는 kind(지운 옛 kind 포함)의 탭은 placeholder 없이 건너뛰고 나머지 탭의 순서·선택을
  * 지킨다(domain-model TabKind registry). 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. 그 밖의
  * 모양 오류는 손대지 않고 schema 검증이 손상으로 판단한다.
  */
@@ -97,7 +94,6 @@ export function emptyLayout(project: string): WorkspaceLayout {
     panes: [{ tabs: [], selected_tab: null }],
     split_ratio: 0.5,
     focused_pane: 0,
-    information_panel: { open: false, tab: "info" },
   };
 }
 
@@ -106,13 +102,6 @@ export function validateLayout(value: unknown): LayoutResult {
   const parsed = workspaceLayoutSchema.safeParse(value);
   if (!parsed.success) return { ok: false, reason: "corrupt" };
   return { ok: true, layout: parsed.data };
-}
-
-export function validateInformationPanel(
-  value: unknown,
-): InformationPanel | undefined {
-  const parsed = informationPanelSchema.safeParse(value);
-  return parsed.success ? parsed.data : undefined;
 }
 
 /** 두 칸 각각의 최소 폭은 480px다. */

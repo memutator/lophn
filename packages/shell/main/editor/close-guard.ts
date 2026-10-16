@@ -5,7 +5,7 @@
 // - renderer가 사람에게 묻는 중이라고 답하면 기한을 멈춘다. 사람이 고르는 동안 닫지 않는다.
 // - 질문이 나가 있는 동안 온 닫기는 다시 묻지 않고 삼킨다(중복 질문 억제).
 // 각 창 renderer가 알린 저장 중 수는 끄기 확인(desktop quit의 pendingSaves)이 함께 읽는다.
-import type { CloseAnswer, EditorCounts } from "../../ipc/editor.ts";
+import type { CloseAnswer, FileCounts } from "../../ipc/files.ts";
 
 /** 답이 오기 전에 기다리는 한도(ms). */
 export const CLOSE_GUARD_TIMEOUT_MS = 15_000;
@@ -30,7 +30,7 @@ export interface CloseGuardOptions {
 
 /** 창 하나의 guard. */
 export class CloseGuard {
-  #counts: EditorCounts = { unsettled: 0, open: 0 };
+  #counts: FileCounts = { unsettled: 0, open: 0 };
   #request = 0;
   #resolve: ((allow: boolean) => void) | null = null;
   #timer: unknown = null;
@@ -41,11 +41,11 @@ export class CloseGuard {
   }
 
   /** renderer가 알린 이 창의 편집 수. */
-  setCounts(counts: EditorCounts): void {
+  setCounts(counts: FileCounts): void {
     this.#counts = counts;
   }
 
-  get counts(): EditorCounts {
+  get counts(): FileCounts {
     return this.#counts;
   }
 
@@ -130,7 +130,7 @@ export class CloseGuards {
     this.#guards.delete(id);
   }
 
-  /** 디스크·결과 확인이 끝나지 않은 문서 저장 수(desktop QuitWork.pendingSaves). */
+  /** 디스크·결과 확인이 끝나지 않은 파일 저장 수(desktop QuitWork.pendingSaves). */
   pendingSaves(): number {
     let total = 0;
     for (const guard of this.#guards.values()) total += guard.counts.unsettled;

@@ -10,27 +10,10 @@ const layout = z.strictObject({
 });
 
 export type ContextsLayout = z.infer<typeof layout>;
-export type ContextsHint = { kind: "contexts"; key: string };
-export type ContextsView = {
-  kind: "contexts";
-  key: string;
-  selected: boolean;
-};
 
-export const contextsKind = defineTabKind<
-  ContextsLayout,
-  ContextsHint,
-  ContextsView
->({
+export const contextsKind = defineTabKind<ContextsLayout>({
   kind: "contexts",
   layout,
   // 대상이 없으니 복원 때 검사할 것도 없다.
   restore: (tab) => Promise.resolve({ kind: "tab", tab }),
-  hint: (_raw, key) => ({ kind: "contexts", key }),
-  scope: () => {},
-  view(hint, selected, ctx) {
-    if (!ctx.refOk(hint.key)) return null;
-    return { kind: hint.kind, key: hint.key, selected };
-  },
-  describe: () => "list",
 });

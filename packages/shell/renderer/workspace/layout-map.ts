@@ -79,10 +79,7 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
   };
 }
 
-/**
- * renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. 정보 패널은 파일 탭 안에
- * 있어 저장하지 않지만 schema가 아직 칸을 요구해 닫힌 값을 보낸다.
- */
+/** renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. */
 export function toStoredLayout(input: {
   project: string;
   view: WorkspaceView;
@@ -93,7 +90,6 @@ export function toStoredLayout(input: {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
   split_ratio: number;
   focused_pane: number;
-  information_panel: { open: false; tab: "info" };
 } {
   const panes = input.view.panes.slice(0, 2).map((pane) => {
     const tabs = pane.tabs.flatMap((tab) => {
@@ -119,6 +115,5 @@ export function toStoredLayout(input: {
     panes: kept,
     split_ratio: ratio,
     focused_pane: focused,
-    information_panel: { open: false, tab: "info" },
   };
 }

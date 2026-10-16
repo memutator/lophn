@@ -1,5 +1,5 @@
-// 프로젝트 작업대의 layout 저장·복원. desktop 창 본문만 부른다. renderer는 탭과
-// 정보 패널을 보내고, 창 bounds와 schema 판은 여기서 채운 뒤 파일 schema로 검사한다.
+// 프로젝트 작업대의 layout 저장·복원. desktop 창 본문만 부른다. renderer는 탭을 보내고,
+// 창 bounds와 schema 판은 여기서 채운 뒤 파일 schema로 검사한다.
 import { z } from "zod";
 
 import {
@@ -32,10 +32,6 @@ const saveInput = z.strictObject({
   panes: z.array(z.unknown()).min(1).max(2),
   split_ratio: z.number(),
   focused_pane: z.number().int().min(0).max(1),
-  information_panel: z.strictObject({
-    open: z.boolean(),
-    tab: z.enum(["info", "versions", "contexts"]),
-  }),
 });
 
 export interface LayoutIpcMain {
@@ -133,7 +129,6 @@ export function registerLayoutIpc(
         panes: parsed.value.panes,
         split_ratio: parsed.value.split_ratio,
         focused_pane: parsed.value.focused_pane,
-        information_panel: parsed.value.information_panel,
         window_bounds: clampBounds(deps.bounds(event)),
       });
       if (!valid.ok) {

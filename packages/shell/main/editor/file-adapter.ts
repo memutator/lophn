@@ -1,286 +1,121 @@
-// 편집기의 파일 adapter. renderer는 문서 id와 session handle만 보내고,
-// main이 documents의 파일 통로(`/v1/files/*`)를 부른다. 목표(FileTarget)·경로·
-// core port는 여기에만 있다. 원자 교체·hash 비교·version 준비는 documents가 하고 이 adapter는
-// 결과를 단계별로 옮길 뿐이다. 결과를 모르는 쓰기는 다시 쓰지 않고 documents 상태부터 본다.
+// 편집기·파일 tree의 파일 adapter. 경로 하나가 파일 하나이고, shell main이 디스크를 직접 읽고
+// 쓴다(core를 거치지 않는다). project 폴더 안/밖 판정은 없다 — 사람이 연 파일은 어디든 된다.
+// 거절하는 것은 데이터 root의 `secrets.json`뿐이고, 폴더 목록(list)만 연결 폴더 안으로 좁힌다.
+// 충돌은 디스크 내용 hash 비교로만 안다(쓰기는 읽을 때 받은 hash를 기대값으로 보낸다).
 import { createHash, randomBytes } from "node:crypto";
+import {
+  open,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  rmdir,
+  stat,
+  unlink,
+} from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 import {
-  type CurrentFile,
-  EDITOR_MAX_BYTES,
-  type EditorDiagnostic,
-  type EditorFailure,
-  type EditorOpened,
-  type EditorReply,
-  type EditorWrite,
-  type FileState,
-  type FileTargetKind,
-  type LookupReport,
-  type SaveReport,
-  type VersionOutcome,
-  type WatchReport,
-} from "../../ipc/editor.ts";
+  FILE_TEXT_MAX_BYTES,
+  FILE_VIEW_MAX_BYTES,
+  type FileBytes,
+  type FileChanged,
+  type FileEntry,
+  type FileFailure,
+  type FileList,
+  type FileReply,
+  type FileText,
+  type FileWrite,
+  type FileWritten,
+} from "../../ipc/files.ts";
 
-// shell tsc는 contracts를 보지 않는다. contract output에서 이 adapter가 읽는 field만 옮긴다.
-// 실제 검사는 port 구현(main의 contract client)이 route schema로 이미 했다.
+type Empty = Record<PropertyKey, never>;
 
-export type PortError = {
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
-};
-export type PortResult<T> = { ok: true; value: T } | {
-  ok: false;
-  error: PortError;
-};
-
-export type FileTarget =
-  | { kind: "project_file"; project: string; path: string }
-  | { kind: "working_copy"; document: string }
-  | {
-    kind: "instruction_file";
-    instruction_target: string;
-    project: string | null;
-    path: string;
-  };
-
-/** documents.get에서 adapter가 읽는 것. */
-export interface DocumentRead {
-  document: {
-    id: string;
-    latest_version: string;
-    file_source:
-      | { kind: "project_file"; project: string; path: string }
-      | {
-        kind: "instruction_file";
-        instruction_target: string;
-        project: string | null;
-        path: string;
-      }
-      | null;
-  };
-  version: {
-    id: string;
-    files:
-      | { path: string; primary: boolean; media_type: string }[]
-      | { hash: string };
-    format: { name: string; module_hash: string; explicit: boolean };
-  };
-}
-
-export interface PreparedBlob {
-  preparation: string;
-  principal: string;
-  purpose: string;
-  hash: string;
-  size_bytes: number;
-}
-
-export interface FileStatus {
-  state: FileState;
-  observed_at: string;
-  observed_hash: string | null;
-  compared_version: string | null;
-}
-
-export interface FileOperationResult {
-  outcome: "written" | "renamed" | "deleted" | "unverified";
-  written_hash: string | null;
-  observed_hash: string | null;
-  observed_at: string | null;
-  changed_again: boolean | null;
-  recording: "recorded" | "unverified";
-  version_result: VersionOutcome;
-  save_result?: { version: string };
-  latest_version?: string;
-}
-
-export interface WriteRequest {
-  request_key: string;
-  target: FileTarget;
-  base_hash: string | null;
-  content: { kind: "prepared"; blob: PreparedBlob };
-  version_request?: {
-    document: string;
-    base_version: string | null;
-    idempotency_key: string;
-  };
-}
-
-export interface ValidateInput {
-  name: string;
-  module_hash: string;
-  files: {
-    path: string;
-    media_type: string;
-    bytes: number;
-    blob_hash: string;
-    primary: boolean;
-    content: { kind: "prepared"; blob: PreparedBlob };
-  }[];
-  input_hash: string;
-  explicit: boolean;
-  cursor?: string;
-}
-
-export interface ValidatePage {
-  status: "passed" | "failed";
-  diagnostics: EditorDiagnostic[];
-  complete: boolean;
-  next_cursor: string | null;
-}
-
-/** documents 파일 통로. main이 core session으로 만든다. */
-export interface FilesPort {
-  document(id: string): Promise<PortResult<DocumentRead>>;
-  /** `/v1/files/read` stream. limit을 넘으면 too_large로 끊는다. */
-  read(target: FileTarget, limit: number): Promise<PortResult<Uint8Array>>;
-  /** `/v1/documents/file`: 판에 고정된 파일 바이트. */
-  versionFile(
-    version: string,
-    path: string,
-    limit: number,
-  ): Promise<PortResult<Uint8Array>>;
-  watch(
-    target: FileTarget,
-    cursor: string | undefined,
-  ): Promise<PortResult<{ status: FileStatus; next_cursor: string }>>;
-  upload(bytes: Uint8Array, hash: string): Promise<PortResult<PreparedBlob>>;
-  write(request: WriteRequest): Promise<PortResult<FileOperationResult>>;
-  validate(input: ValidateInput): Promise<PortResult<ValidatePage>>;
+/** 쓰기 때 갈아 끼울 수 있는 fs 동작. 테스트가 실패를 주입한다. */
+export interface FileSystemOps {
+  /** 임시 파일을 만들어 내용을 쓰고 디스크에 닿게 한다. */
+  writeTemp(path: string, bytes: Uint8Array, mode: number): Promise<void>;
+  rename(from: string, to: string): Promise<void>;
 }
 
 export interface FileAdapterOptions {
-  /** 연결된 core가 없으면 null이다. 그때 쓰기는 offline이다. */
-  port: () => FilesPort | null;
-  hash?: (bytes: Uint8Array) => string;
-  newHandle?: () => string;
-  log?: (message: string) => void;
+  /** 데이터 root. 그 바로 아래 `secrets.json`은 거절한다. */
+  dataRoot: string;
+  /** 연결된(활성 project) 폴더들. core를 못 읽으면 null이다. */
+  folders: () => Promise<readonly string[] | null>;
+  /** 밖에서 바뀐 파일을 그 창에 알린다. */
+  notify: (owner: number, change: FileChanged) => void;
+  fs?: Partial<FileSystemOps>;
+  pollMs?: number;
 }
 
 export interface FileAdapter {
-  open(owner: number, document: string): Promise<EditorReply<EditorOpened>>;
-  write(owner: number, input: EditorWrite): Promise<EditorReply<SaveReport>>;
-  lookup(
-    owner: number,
-    input: { session: string; request_key: string },
-  ): Promise<EditorReply<LookupReport>>;
-  current(
-    owner: number,
-    input: { session: string },
-  ): Promise<EditorReply<CurrentFile>>;
-  watch(
-    owner: number,
-    input: { session: string; cursor?: string },
-  ): Promise<EditorReply<WatchReport>>;
-  release(owner: number, session: string): void;
-  /** 창이 사라지면 그 창의 session을 모두 놓는다. */
+  list(path: string): Promise<FileReply<FileList>>;
+  read(path: string): Promise<FileReply<FileText>>;
+  readBytes(path: string): Promise<FileReply<FileBytes>>;
+  write(owner: number, input: FileWrite): Promise<FileReply<FileWritten>>;
+  rename(input: { from: string; to: string }): Promise<FileReply<Empty>>;
+  delete(input: { path: string }): Promise<FileReply<Empty>>;
+  /** 이 창이 보는 경로 전체를 통째로 바꾼다. 빈 목록이면 끈다. */
+  watch(owner: number, paths: readonly string[]): Promise<FileReply<Empty>>;
+  /** 창이 사라지면 그 창의 감시를 놓는다. */
   dropOwner(owner: number): void;
-  /** 지금 core로 가는 중인 쓰기 수. */
-  inFlight(): number;
 }
 
-interface Session {
-  readonly owner: number;
-  readonly document: string;
-  readonly target: FileTarget;
-  readonly primaryPath: string | null;
-  readonly mediaType: string | null;
-  readonly format: { name: string; module_hash: string; explicit: boolean };
-  /** 다음 판 확정의 기준 판. 확정되면 그 판으로 옮긴다. */
-  baseVersion: string | null;
-  /** 결과를 모르는 쓰기. request_key → 그때 보낸 hash와 기준. */
-  readonly attempts: Map<string, { hash: string; base: string | null }>;
-}
-
-// documents/formats의 글 형식 이름. 편집기는 글만 열므로 이 밖이면 형식 검사를 부르지 않는다.
-const BUILTIN_FORMATS = new Set(["document", "data"]);
-const ATTEMPT_MEMORY = 16;
+const CONTENT_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".pdf": "application/pdf",
+};
 
 export function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function handle(): string {
-  return `es_${randomBytes(18).toString("base64url")}`;
-}
+const realOps: FileSystemOps = {
+  async writeTemp(path, bytes, mode) {
+    const handle = await open(path, "wx", mode);
+    try {
+      await handle.writeFile(bytes);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  },
+  rename,
+};
 
-/** documents/versions canonical files JSON(고정 필드, 경로 순, 키 codepoint 순). */
-export function canonicalFilesHash(
-  files: readonly {
-    blob_hash: string;
-    bytes: number;
-    media_type: string;
-    path: string;
-    primary: boolean;
-  }[],
-  hash: (bytes: Uint8Array) => string = sha256,
-): string {
-  const ordered = [...files].sort((left, right) =>
-    left.path < right.path ? -1 : left.path > right.path ? 1 : 0
-  );
-  const json = `[${
-    ordered.map((file) =>
-      `{${
-        (["blob_hash", "bytes", "media_type", "path", "primary"] as const).map(
-          (field) => `${JSON.stringify(field)}:${JSON.stringify(file[field])}`,
-        ).join(",")
-      }}`
-    ).join(",")
-  }]`;
-  return hash(new TextEncoder().encode(json));
-}
-
-function targetOf(read: DocumentRead): FileTarget {
-  const source = read.document.file_source;
-  if (source === null) {
-    return { kind: "working_copy", document: read.document.id };
-  }
-  if (source.kind === "project_file") {
-    return {
-      kind: "project_file",
-      project: source.project,
-      path: source.path,
-    };
-  }
-  return {
-    kind: "instruction_file",
-    instruction_target: source.instruction_target,
-    project: source.project,
-    path: source.path,
-  };
-}
-
-function primaryOf(read: DocumentRead) {
-  const files = Array.isArray(read.version.files) ? read.version.files : [];
-  return files.length === 1 && files[0]!.primary ? files[0]! : null;
-}
-
-function failure(code: string): EditorFailure {
-  switch (code) {
-    case "invalid_input":
-    case "forbidden":
-    case "not_found":
-    case "unavailable":
-    case "offline":
-    case "unsupported":
-    case "too_large":
-      return code;
-    case "unauthorized":
+function failureOf(error: unknown): FileFailure {
+  switch ((error as NodeJS.ErrnoException)?.code) {
+    case "ENOENT":
+      return "not_found";
+    case "EACCES":
+    case "EPERM":
       return "forbidden";
+    case "EISDIR":
+    case "ENOTDIR":
+      return "unsupported";
+    case "EEXIST":
+    case "ENOTEMPTY":
+      return "conflict";
     default:
       return "unavailable";
   }
 }
 
-/** 응답이 오지 않은 실패. 쓰기가 일어났는지 모른다. */
-function transportLost(error: PortError): boolean {
-  return error.code === "unavailable" &&
-    error.details?.["reason"] === "transport_failed";
+function fail<T>(code: FileFailure): FileReply<T> {
+  return { ok: false, code };
 }
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 function decode(bytes: Uint8Array): string | null {
+  if (bytes.includes(0)) return null;
   try {
     return decoder.decode(bytes);
   } catch {
@@ -288,328 +123,285 @@ function decode(bytes: Uint8Array): string | null {
   }
 }
 
-function emptyReport(disk: SaveReport["disk"], failure: string): SaveReport {
-  return {
-    disk,
-    written_hash: null,
-    observed_hash: null,
-    observed_at: null,
-    changed_again: null,
-    recording: null,
-    version: null,
-    saved_version: null,
-    latest_version: null,
-    problems: null,
-    failure,
-  };
+/** 파일이 없으면 null이다. 있는데 읽을 수 없으면 던진다. */
+async function readOrNull(path: string): Promise<Uint8Array | null> {
+  try {
+    return await readFile(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+/** symlink를 따라간 실제 경로. 없는 끝 조각은 있는 위쪽 폴더의 실제 경로에 붙인다. */
+async function realPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const parent = dirname(path);
+    if (parent === path) return path;
+    return join(await realPath(parent), basename(path));
+  }
+}
+
+function inside(path: string, folder: string): boolean {
+  return path === folder ||
+    path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
 }
 
 export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
-  const hash = options.hash ?? sha256;
-  const newHandle = options.newHandle ?? handle;
-  const log = options.log ?? ((message) => console.log(`[lophn] ${message}`));
-  const sessions = new Map<string, Session>();
-  let writing = 0;
+  const ops: FileSystemOps = { ...realOps, ...options.fs };
+  const secrets = join(options.dataRoot, "secrets.json");
+  // 같은 경로의 쓰기는 한 줄로 선다. 기대 hash 비교와 교체 사이에 다른 쓰기가 끼지 않게 한다.
+  const queues = new Map<string, Promise<unknown>>();
 
-  function own(owner: number, id: string): Session | undefined {
-    const found = sessions.get(id);
-    return found && found.owner === owner ? found : undefined;
+  /** 정규화한 경로. 절대 경로가 아니거나 secret 파일이면 거절이다. */
+  async function accept(
+    path: string,
+  ): Promise<{ ok: true; path: string } | { ok: false; code: FileFailure }> {
+    if (!isAbsolute(path)) return { ok: false, code: "invalid_input" };
+    const clean = resolve(path);
+    try {
+      if (await realPath(clean) === await realPath(secrets)) {
+        return { ok: false, code: "forbidden" };
+      }
+    } catch {
+      return { ok: false, code: "unavailable" };
+    }
+    return { ok: true, path: clean };
   }
 
-  async function readText(
-    port: FilesPort,
-    session: Omit<Session, "attempts" | "owner"> & { latest: string },
-  ): Promise<EditorReply<{ text: string; hash: string | null }>> {
-    const read = await port.read(session.target, EDITOR_MAX_BYTES);
-    let bytes: Uint8Array;
-    let base: string | null;
-    if (read.ok) {
-      bytes = read.value;
-      base = hash(bytes);
-    } else if (
-      read.error.code === "not_found" &&
-      session.target.kind === "working_copy" && session.primaryPath !== null
-    ) {
-      // working copy는 첫 쓰기에서 생긴다. 그 전에는 연 판의 주 파일이 시작 글이다.
-      const fixed = await port.versionFile(
-        session.latest,
-        session.primaryPath,
-        EDITOR_MAX_BYTES,
-      );
-      if (!fixed.ok) return { ok: false, code: failure(fixed.error.code) };
-      bytes = fixed.value;
-      base = null;
-    } else {
-      return { ok: false, code: failure(read.error.code) };
+  async function guarded<T>(
+    path: string,
+    run: (clean: string) => Promise<FileReply<T>>,
+  ): Promise<FileReply<T>> {
+    const accepted = await accept(path);
+    if (!accepted.ok) return fail(accepted.code);
+    try {
+      return await run(accepted.path);
+    } catch (error) {
+      return fail(failureOf(error));
     }
-    const text = decode(bytes);
-    if (text === null) return { ok: false, code: "unsupported" };
-    return { ok: true, value: { text, hash: base } };
   }
 
-  // 종료 쓰기 뒤의 형식 검사. 판 확정과 따로 기억한다. 돌리지 못하면 null이다.
-  async function check(
-    port: FilesPort,
-    session: Session,
-    blob: PreparedBlob,
-    bytes: number,
-  ): Promise<EditorDiagnostic[] | null> {
-    if (
-      session.primaryPath === null || session.mediaType === null ||
-      !BUILTIN_FORMATS.has(session.format.name)
-    ) return null;
-    const file = {
-      path: session.primaryPath,
-      media_type: session.mediaType,
-      bytes,
-      blob_hash: blob.hash,
-      primary: true,
-    };
-    const input: ValidateInput = {
-      name: session.format.name,
-      module_hash: session.format.module_hash,
-      files: [{ ...file, content: { kind: "prepared", blob } }],
-      input_hash: canonicalFilesHash([file], hash),
-      explicit: session.format.explicit,
-    };
-    const found: EditorDiagnostic[] = [];
-    for (let page = 0; page < 20; page += 1) {
-      const answered = await port.validate(input);
-      if (!answered.ok) {
-        log(`형식 검사를 돌리지 못했다: ${answered.error.code}`);
-        return null;
-      }
-      for (const item of answered.value.diagnostics) {
-        found.push({
-          severity: item.severity,
-          message: item.message,
-          file: item.file,
-          start_line: item.start_line,
-        });
-      }
-      if (answered.value.complete || answered.value.next_cursor === null) {
-        return found;
-      }
-      input.cursor = answered.value.next_cursor;
+  function serial<T>(path: string, run: () => Promise<T>): Promise<T> {
+    const result = (queues.get(path) ?? Promise.resolve()).then(run, run);
+    const tail = result.catch(() => {});
+    queues.set(path, tail);
+    void tail.then(() => {
+      if (queues.get(path) === tail) queues.delete(path);
+    });
+    return result;
+  }
+
+  // 감시는 폴링이다. 창마다 경로의 마지막 stat과 hash를 기억하고, stat이 바뀐 것만 다시 읽어
+  // hash를 비교한다(fs.watch는 편집기·git이 임시 파일로 바꿔치는 쓰기를 놓친다).
+  type Seen = { stamp: string; hash: string | null };
+  const watched = new Map<number, Map<string, Seen>>();
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  async function stamp(path: string): Promise<string> {
+    try {
+      const info = await stat(path);
+      return `${info.mtimeMs}:${info.size}`;
+    } catch {
+      return "";
     }
-    return found;
+  }
+
+  async function look(path: string): Promise<Seen> {
+    const before = await stamp(path);
+    try {
+      return { stamp: before, hash: sha256(await readFile(path)) };
+    } catch {
+      return { stamp: before, hash: null };
+    }
+  }
+
+  async function poll() {
+    for (const [owner, seen] of watched) {
+      for (const [path, before] of seen) {
+        if (await stamp(path) === before.stamp) continue;
+        const now = await look(path);
+        // 기다리는 사이 watch 목록이 바뀌었으면 이 판정은 버린다.
+        if (seen.get(path) !== before) continue;
+        seen.set(path, now);
+        if (now.hash !== before.hash) {
+          options.notify(owner, { path, hash: now.hash });
+        }
+      }
+    }
+  }
+
+  function arm() {
+    const any = watched.size > 0;
+    if (any && timer === null) {
+      timer = setInterval(() => void poll(), options.pollMs ?? 1000);
+    } else if (!any && timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
   }
 
   return {
-    async open(owner, document) {
-      const port = options.port();
-      if (port === null) return { ok: false, code: "offline" };
-      const read = await port.document(document);
-      if (!read.ok) return { ok: false, code: failure(read.error.code) };
-      const primary = primaryOf(read.value);
-      const base = {
-        document,
-        target: targetOf(read.value),
-        primaryPath: primary?.path ?? null,
-        mediaType: primary?.media_type ?? null,
-        format: read.value.version.format,
-        baseVersion: read.value.document.latest_version,
-        latest: read.value.document.latest_version,
-      };
-      const text = await readText(port, base);
-      if (!text.ok) return text;
-      const id = newHandle();
-      sessions.set(id, {
-        owner,
-        document,
-        target: base.target,
-        primaryPath: base.primaryPath,
-        mediaType: base.mediaType,
-        format: base.format,
-        baseVersion: base.baseVersion,
-        attempts: new Map(),
+    async list(path) {
+      return await guarded(path, async (clean) => {
+        const folders = await options.folders();
+        if (folders === null) return fail("unavailable");
+        // 실제 경로로 비교해 연결 폴더 밖으로 나가는 symlink를 거절한다.
+        const real = await realPath(clean);
+        let allowed = false;
+        for (const folder of folders) {
+          if (inside(real, await realPath(resolve(folder)))) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) return fail("forbidden");
+        const entries: FileEntry[] = [];
+        for (const item of await readdir(clean, { withFileTypes: true })) {
+          let kind: FileEntry["kind"] | null = null;
+          if (item.isDirectory()) kind = "folder";
+          else if (item.isFile()) kind = "file";
+          else if (item.isSymbolicLink()) {
+            try {
+              const target = await stat(join(clean, item.name));
+              kind = target.isDirectory()
+                ? "folder"
+                : target.isFile()
+                ? "file"
+                : null;
+            } catch { /* 끊긴 link는 보이지 않는다 */ }
+          }
+          if (kind !== null) entries.push({ name: item.name, kind });
+        }
+        // 폴더 먼저, 그다음 이름순.
+        entries.sort((a, b) =>
+          a.kind !== b.kind
+            ? a.kind === "folder" ? -1 : 1
+            : a.name < b.name
+            ? -1
+            : a.name > b.name
+            ? 1
+            : 0
+        );
+        return { ok: true, value: { entries } };
       });
-      return {
-        ok: true,
-        value: {
-          session: id,
-          text: text.value.text,
-          base_hash: text.value.hash,
-          target: base.target.kind as FileTargetKind,
-          primary_path: base.primaryPath,
-        },
-      };
     },
 
-    async write(owner, input) {
-      const session = own(owner, input.session);
-      if (!session) return { ok: false, code: "unknown_session" };
-      const port = options.port();
-      if (port === null) {
-        return { ok: true, value: emptyReport("failed", "offline") };
-      }
-      const written = hash(input.bytes);
-      session.attempts.set(input.request_key, {
-        hash: written,
-        base: input.base_hash,
-      });
-      while (session.attempts.size > ATTEMPT_MEMORY) {
-        session.attempts.delete(session.attempts.keys().next().value!);
-      }
-      writing += 1;
-      try {
-        // 바이트는 먼저 core blob 준비로 올리고, 쓰기는 그 준비 참조를 가리킨다.
-        const blob = await port.upload(input.bytes, written);
-        if (!blob.ok) {
-          // 업로드가 실패하면 파일 쓰기 요청은 나가지 않았다.
-          return {
-            ok: true,
-            value: emptyReport("failed", failure(blob.error.code)),
-          };
-        }
-        if (input.end && input.base_version !== undefined) {
-          session.baseVersion = input.base_version;
-        }
-        const request: WriteRequest = {
-          request_key: input.request_key,
-          target: session.target,
-          base_hash: input.base_hash,
-          content: { kind: "prepared", blob: blob.value },
-          ...(input.end
-            ? {
-              version_request: {
-                document: session.document,
-                base_version: session.baseVersion,
-                idempotency_key: `${input.request_key}-v`,
-              },
-            }
-            : {}),
-        };
-        const result = await port.write(request);
-        if (!result.ok) {
-          const lost = transportLost(result.error);
-          return {
-            ok: true,
-            value: emptyReport(
-              lost
-                ? "unknown"
-                : result.error.code === "conflict"
-                ? "conflict"
-                : "failed",
-              lost ? "unknown" : result.error.code,
-            ),
-          };
-        }
-        const value = result.value;
-        if (value.outcome === "unverified") {
-          return { ok: true, value: emptyReport("unknown", "unknown") };
-        }
-        session.attempts.delete(input.request_key);
-        if (value.save_result !== undefined) {
-          session.baseVersion = value.save_result.version;
-        }
-        const problems = input.end
-          ? await check(port, session, blob.value, input.bytes.byteLength)
-          : null;
+    async read(path) {
+      return await guarded(path, async (clean) => {
+        const info = await stat(clean);
+        if (!info.isFile()) return fail("unsupported");
+        if (info.size > FILE_TEXT_MAX_BYTES) return fail("too_large");
+        const bytes = await readFile(clean);
+        const text = decode(bytes);
+        if (text === null) return fail("unsupported");
         return {
           ok: true,
           value: {
-            disk: "written",
-            written_hash: value.written_hash,
-            observed_hash: value.observed_hash,
-            observed_at: value.observed_at,
-            changed_again: value.changed_again,
-            recording: value.recording,
-            version: input.end ? value.version_result : null,
-            saved_version: value.save_result?.version ?? null,
-            latest_version: value.latest_version ?? null,
-            problems,
-            failure: null,
+            text,
+            hash: sha256(bytes),
+            modified_at: Math.floor(info.mtimeMs),
           },
         };
-      } finally {
-        writing -= 1;
-      }
-    },
-
-    async lookup(owner, input) {
-      const session = own(owner, input.session);
-      if (!session) return { ok: false, code: "unknown_session" };
-      const attempt = session.attempts.get(input.request_key);
-      const port = options.port();
-      if (!attempt || port === null) {
-        return {
-          ok: true,
-          value: { state: "unknown", observed_hash: null, observed_at: null },
-        };
-      }
-      // 지금 디스크 바이트를 documents 파일 통로로 읽어 그 hash를 본다. 추적을 끈 폴더는
-      // 관측 상태(files.status)에 hash가 없어서 상태만으로는 가릴 수 없다.
-      const read = await port.read(session.target, EDITOR_MAX_BYTES);
-      let observed: string | null;
-      if (read.ok) observed = hash(read.value);
-      else if (read.error.code === "not_found") observed = null;
-      else {
-        return {
-          ok: true,
-          value: { state: "unknown", observed_hash: null, observed_at: null },
-        };
-      }
-      const state: LookupReport["state"] = observed === attempt.hash
-        ? "written"
-        : observed === attempt.base
-        ? "not_written"
-        : "changed";
-      if (state !== "written") session.attempts.delete(input.request_key);
-      return {
-        ok: true,
-        value: {
-          state,
-          observed_hash: observed,
-          observed_at: new Date().toISOString(),
-        },
-      };
-    },
-
-    async current(owner, input) {
-      const session = own(owner, input.session);
-      if (!session) return { ok: false, code: "unknown_session" };
-      const port = options.port();
-      if (port === null) return { ok: false, code: "offline" };
-      const read = await readText(port, {
-        ...session,
-        latest: session.baseVersion ?? "",
       });
-      return read.ok
-        ? { ok: true, value: { text: read.value.text, hash: read.value.hash } }
-        : read;
     },
 
-    async watch(owner, input) {
-      const session = own(owner, input.session);
-      if (!session) return { ok: false, code: "unknown_session" };
-      const port = options.port();
-      if (port === null) return { ok: false, code: "offline" };
-      const watched = await port.watch(session.target, input.cursor);
-      if (!watched.ok) return { ok: false, code: failure(watched.error.code) };
-      const status = watched.value.status;
-      return {
-        ok: true,
-        value: {
-          state: status.state,
-          observed_hash: status.observed_hash,
-          observed_at: status.observed_at,
-          compared_version: status.compared_version,
-          cursor: watched.value.next_cursor,
-        },
-      };
+    async readBytes(path) {
+      return await guarded(path, async (clean) => {
+        const dot = clean.lastIndexOf(".");
+        const type = dot < 0
+          ? undefined
+          : CONTENT_TYPES[clean.slice(dot).toLowerCase()];
+        if (type === undefined) return fail("unsupported");
+        const info = await stat(clean);
+        if (!info.isFile()) return fail("unsupported");
+        if (info.size > FILE_VIEW_MAX_BYTES) return fail("too_large");
+        return {
+          ok: true,
+          value: {
+            bytes: new Uint8Array(await readFile(clean)),
+            content_type: type,
+            modified_at: Math.floor(info.mtimeMs),
+          },
+        };
+      });
     },
 
-    release(owner, id) {
-      if (own(owner, id)) sessions.delete(id);
+    async write(owner, input) {
+      return await guarded(input.path, (clean) =>
+        serial(clean, async () => {
+          const bytes = new TextEncoder().encode(input.text);
+          if (bytes.byteLength > FILE_TEXT_MAX_BYTES) return fail("too_large");
+          // 기대 hash가 디스크 내용과 같을 때만 쓴다. 없는 파일은 기대 hash가 null일 때만 만든다.
+          const current = await readOrNull(clean);
+          if ((current === null ? null : sha256(current)) !== input.base_hash) {
+            return fail("conflict");
+          }
+          const mode = current === null
+            ? 0o644
+            : (await stat(clean)).mode & 0o777;
+          // 같은 폴더의 임시 파일에 쓰고 rename으로 바꾼다. 중간에 끊겨도 원본이 남는다.
+          const temp = join(
+            dirname(clean),
+            `.${basename(clean)}.lophn-${randomBytes(6).toString("hex")}.tmp`,
+          );
+          try {
+            await ops.writeTemp(temp, bytes, mode);
+            await ops.rename(temp, clean);
+          } catch (error) {
+            await rm(temp, { force: true }).catch(() => {});
+            return fail(failureOf(error));
+          }
+          // 이 창이 쓴 것은 밖에서 바뀐 것이 아니다.
+          const own = watched.get(owner);
+          if (own?.has(clean)) own.set(clean, await look(clean));
+          return { ok: true, value: { hash: sha256(bytes) } };
+        }));
+    },
+
+    async rename(input) {
+      const to = await accept(input.to);
+      if (!to.ok) return fail(to.code);
+      return await guarded(input.from, async (from) => {
+        await stat(from);
+        const taken = await stat(to.path).then(() => true, () => false);
+        if (taken) return fail("conflict");
+        await ops.rename(from, to.path);
+        return { ok: true, value: {} };
+      });
+    },
+
+    // 영구 삭제다. 폴더는 비어 있을 때만 지운다.
+    async delete(input) {
+      return await guarded(input.path, async (clean) => {
+        if ((await stat(clean)).isDirectory()) await rmdir(clean);
+        else await unlink(clean);
+        return { ok: true, value: {} };
+      });
+    },
+
+    async watch(owner, paths) {
+      const next = new Map<string, Seen>();
+      for (const path of paths) {
+        const accepted = await accept(path);
+        if (!accepted.ok) return fail(accepted.code);
+        next.set(
+          accepted.path,
+          watched.get(owner)?.get(accepted.path) ?? await look(accepted.path),
+        );
+      }
+      if (next.size === 0) watched.delete(owner);
+      else watched.set(owner, next);
+      arm();
+      return { ok: true, value: {} };
     },
 
     dropOwner(owner) {
-      for (const [id, session] of sessions) {
-        if (session.owner === owner) sessions.delete(id);
-      }
+      watched.delete(owner);
+      arm();
     },
-
-    inFlight: () => writing,
   };
 }

@@ -16,7 +16,7 @@ export type StoreResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: StoreError };
 
-/** layout.json 파일 자리. `<root>/shell/layout.json` 고정이다. */
+/** layout.json 파일 경로. `<root>/shell/layout.json` 고정이다. */
 export function layoutPath(dataRoot: string): string {
   return join(dataRoot, "shell", "layout.json");
 }

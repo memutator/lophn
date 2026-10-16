@@ -1,6 +1,6 @@
 // 복원은 현재 대상과 권한을 다시 읽는다. 저장된 참조를 그대로
-// 믿지 않는다. 없거나 못 쓰는 대상은 이유를 가진 자리표시로 남기고 terminal은
-// 종료된 자리표시다(PTY를 만들지 않는다).
+// 믿지 않는다. 없거나 못 쓰는 대상은 이유를 가진 placeholder로 남기고 terminal은
+// 종료된 placeholder다(PTY를 만들지 않는다). 파일 탭은 파일이 없어도 지키고, 탭이 열릴 때 안내한다.
 import { tabKindOf } from "./kinds/registry.ts";
 import type { RestoredTab, RestoreTargets } from "./kinds/kind.ts";
 import type { LayoutPane, LayoutTab } from "./schema.ts";
@@ -26,7 +26,7 @@ export type RestoreOutcome = {
 
 /**
  * 저장된 탭을 지금의 대상·권한으로 검사한다. 대상 검사는 kind의 선언이 한다.
- * registry에 없는 kind는 null이다 — 자리표시 없이 건너뛴다.
+ * registry에 없는 kind는 null이다 — placeholder 없이 건너뛴다.
  */
 export function restoreTab(
   tab: LayoutTab,

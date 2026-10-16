@@ -1,77 +1,22 @@
-// document_editor 탭 kind. 문서 하나를 편집기로 연다.
+// document_editor 탭 kind. 파일 하나를 편집기로 연다. 대상은 절대 경로다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";
-import { documentId, idOf, readPositionSchema, tabKey } from "./values.ts";
+import { readPositionSchema, tabKey } from "./values.ts";
 
 const layout = z.strictObject({
   kind: z.literal("document_editor"),
   key: tabKey,
-  document: documentId,
+  path: z.string().min(1).max(4096),
   read_position: readPositionSchema.optional(),
 });
 
 export type DocumentEditorLayout = z.infer<typeof layout>;
-export type DocumentEditorHint = {
-  kind: "document_editor";
-  key: string;
-  document: string;
-};
-export type DocumentEditorView = {
-  kind: "document_editor";
-  key: string;
-  document: string;
-  selected: boolean;
-};
 
-export const documentEditorKind = defineTabKind<
-  DocumentEditorLayout,
-  DocumentEditorHint,
-  DocumentEditorView
->({
+export const documentEditorKind = defineTabKind<DocumentEditorLayout>({
   kind: "document_editor",
   layout,
   readPosition: (tab) => tab.read_position,
-  async restore(tab, targets) {
-    if (!(await targets.canRead(tab.document))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "no_permission",
-      };
-    }
-    if (!(await targets.documentExists(tab.document))) {
-      return {
-        kind: "placeholder",
-        key: tab.key,
-        origin: tab.kind,
-        title: tab.document,
-        reason: "document_missing",
-      };
-    }
-    return { kind: "tab", tab };
-  },
-  hint(raw, key) {
-    const document = idOf("doc", raw.document);
-    if (document === null) return null;
-    return { kind: "document_editor", key, document };
-  },
-  scope(hint, reads) {
-    reads.allow("document", hint.document, "documents", {
-      document: hint.document,
-    });
-  },
-  view(hint, selected, ctx) {
-    if (!ctx.refOk(hint.key) || !ctx.refOk(hint.document)) return null;
-    if (!ctx.scope.allows("document", hint.document)) return null;
-    return {
-      kind: hint.kind,
-      key: hint.key,
-      document: hint.document,
-      selected,
-    };
-  },
-  describe: (view) => view.document,
+  // 지워진 파일도 탭을 지킨다. 탭이 열릴 때 "없음" 안내를 보인다.
+  restore: (tab) => Promise.resolve({ kind: "tab", tab }),
 });

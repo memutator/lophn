@@ -32,7 +32,6 @@
     "desktop/core",
     "terminal/coding",
     "desktop/main.ts",
-    "desktop/wiring",
-    "entry-screen-test.ts"
+    "desktop/wiring"
   ]
 }

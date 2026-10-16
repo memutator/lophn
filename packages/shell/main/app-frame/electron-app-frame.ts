@@ -146,6 +146,11 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       if (view === undefined || view.webContents.isDestroyed()) return null;
       return view.webContents.getURL() || null;
     },
+    send(adapter, channel, payload) {
+      const view = native.get(adapter);
+      if (view === undefined || view.webContents.isDestroyed()) return;
+      view.webContents.send(channel, payload);
+    },
     focusShell(ref) {
       const window = live(ref);
       if (window !== undefined && !window.webContents.isDestroyed()) {

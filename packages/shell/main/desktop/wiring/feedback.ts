@@ -1,6 +1,6 @@
 // [Report a problem]. 버튼은 desktop 창 본문이 view_session만 보내고 dialog는 같은 창
-// overlay에 연다. 제출은 problems `SubmitFeedback`(worker route)으로 보내고 고른 PNG만 byte
-// channel로 붙인다. 원문 글·binding·raw capture는 main 메모리에만 있다.
+// overlay에 연다. 보내기는 core `problem.submit_feedback`(worker route)로 글만 보낸다.
+// 원문 글·binding은 main 메모리에만 있다.
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { DESKTOP_INTENT_CHANNEL } from "../../../ipc/shortcuts.ts";
@@ -17,7 +17,7 @@ import type { Registered, ShellContext } from "./context.ts";
 export function register(
   ctx: ShellContext,
   views: AppViews,
-  calls: AppCalls,
+  _calls: AppCalls,
 ): Registered {
   const { core, overlays, windows, windowRef, windowOfRef } = ctx;
   const feedback = createFeedback({
@@ -43,17 +43,9 @@ export function register(
       return {
         open: (draftRef) => overlay.openFeedback(draftRef),
         close: (draftRef) => overlay.closeFeedback(draftRef),
-        preview: (preview) => overlay.sendFeedback(preview),
-        dialogOpen: () => overlay.dialogOpen(),
       };
     },
-    // confirmation window는 요청 창의 child modal이다.
-    protectedWindow: (ref) =>
-      windowOfRef(ref)?.getChildWindows().some((child) =>
-        !child.isDestroyed()
-      ) ??
-        false,
-    async submit(input, screenshot) {
+    async submit(input) {
       const session = core.session();
       if (session === null) {
         return {
@@ -61,19 +53,12 @@ export function register(
           error: { code: "unavailable", message: "core is not ready" },
         };
       }
-      const reply = screenshot === null
-        ? await session.internal(
-          "worker",
-          "problems",
-          "submit-feedback",
-          input,
-        )
-        : await session.workerBytes(
-          "problems",
-          "submit-feedback",
-          input,
-          screenshot,
-        );
+      const reply = await session.internal(
+        "worker",
+        "problems",
+        "submit_feedback",
+        input,
+      );
       if (!reply.ok) {
         const code = reply.error.code;
         return {
@@ -93,7 +78,6 @@ export function register(
         value: { report: value.report, problem: value.problem },
       };
     },
-    commandStart: (view_session) => calls.appCall.commandStart(view_session),
     // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다.
     async lookup(report) {
       const session = core.session();
@@ -129,10 +113,6 @@ export function register(
       report: () => reportIdOf(Date.now(), randomBytes(10)),
     },
     clock: { nowIso: () => new Date().toISOString() },
-    timer: {
-      set: (callback, ms) => setTimeout(callback, ms),
-      clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
-    },
   });
   overlays.onFeedbackEnded((draftRef) => feedback.ended(draftRef));
   registerFeedbackIpc(ctx.ipc, feedback);

@@ -40,10 +40,9 @@ function lophnPackages(repoRoot: string): esbuild.Plugin {
 }
 
 const entries: BuildEntry[] = [
-  // main.cjs는 시작 flag로 desktop main과 앱 화면 검사 host 중 하나만 연다.
+  // main.cjs는 시작 flag를 보고 desktop main을 연다.
   { in: join(here, "entry.ts"), out: "main" },
   { in: join(here, "desktop/main.ts"), out: "desktop" },
-  { in: join(here, "entry-screen-test.ts"), out: "screen-test" },
   { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
   {
@@ -51,7 +50,6 @@ const entries: BuildEntry[] = [
     out: "preload-secret-input",
   },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
-  { in: join(shell, "preload/screen-test.ts"), out: "preload-screen-test" },
 ];
 
 export function build(

@@ -1,15 +1,12 @@
-// [Report a problem] 경계(FEEDBACK_IPC·FEEDBACK_PUSH의 사본). main tsc는 contracts
+// [Report a problem] 경계(FEEDBACK_IPC·FEEDBACK_SEND_IPC의 사본). main tsc는 protocol
 // package를 보지 않으므로 같은 모양을 여기 둔다.
-// 원문 글·binding·raw capture는 main 메모리에만 있고 renderer에는
-// draftRef와 안전한 미리보기만 온다.
+// 원문 글·binding은 main 메모리에만 있고 renderer에는 draftRef만 온다.
 import { z } from "zod";
 
 export const FEEDBACK_BEGIN_CHANNEL = "shell:feedback-begin";
-export const FEEDBACK_SUBMIT_CHANNEL = "shell:feedback-submit";
 export const FEEDBACK_SEND_CHANNEL = "shell:feedback-send";
 export const FEEDBACK_CANCEL_CHANNEL = "shell:feedback-cancel";
 export const FEEDBACK_OPEN_ISSUE_CHANNEL = "shell:feedback-open-issue";
-export const FEEDBACK_PREVIEW_CHANNEL = "shell:feedback-preview";
 
 /** problems/feedback 한도(contracts FEEDBACK_LIMITS와 같은 값). */
 export const FEEDBACK_LIMITS = {
@@ -19,9 +16,6 @@ export const FEEDBACK_LIMITS = {
   png_bytes: 2_097_152,
   total_bytes: 3_145_728,
 } as const;
-
-/** 앱 view 캡처를 기다리는 최대 시간. 늦은 이미지는 버린다. */
-export const FEEDBACK_CAPTURE_MS = 1_500;
 
 /** 제보로 새로 연 문제의 이름(contracts FEEDBACK_PROBLEM_NAME과 같은 값). */
 export const FEEDBACK_PROBLEM_NAME = "User report";
@@ -45,12 +39,6 @@ export const feedbackBeginSchema = z.strictObject({
   problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
 });
 
-export const feedbackSubmitSchema = z.strictObject({
-  draftRef: ref,
-  text: feedbackTextSchema,
-  selection: z.strictObject({ screen: z.boolean(), screenshot: z.boolean() }),
-});
-
 // 제보는 글만 보낸다(contracts feedbackSendSchema의 사본).
 export const feedbackSendSchema = z.strictObject({
   draftRef: ref,
@@ -60,46 +48,6 @@ export const feedbackSendSchema = z.strictObject({
 });
 
 export const feedbackCancelSchema = z.strictObject({ draftRef: ref });
-
-export const FEEDBACK_CAPTURE_BLOCKS = [
-  "hidden",
-  "protected_window",
-  "capture_failed",
-] as const;
-export type FeedbackCaptureBlock = typeof FEEDBACK_CAPTURE_BLOCKS[number];
-
-export const FEEDBACK_SCREENSHOT_STATES = [
-  "pending",
-  ...FEEDBACK_CAPTURE_BLOCKS,
-] as const;
-export type FeedbackScreenshotState = typeof FEEDBACK_SCREENSHOT_STATES[number];
-
-const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
-
-export const feedbackPreviewSchema = z.strictObject({
-  draftRef: ref,
-  text: feedbackTextSchema.nullable(),
-  screen: sha256.nullable(),
-  screen_missing_reason: z.strictObject({ reason: z.string().regex(/\S/) })
-    .nullable(),
-  screenshot: sha256.nullable(),
-  screenshot_png: z.string().regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
-    .nullable().optional(),
-  screenshot_block: z.enum(FEEDBACK_SCREENSHOT_STATES).nullable().optional(),
-  screen_summary: z.strictObject({
-    name: z.string().regex(/\S/),
-    path: z.string().nullable(),
-  }).nullable().optional(),
-  existing_issue: z.boolean().optional(),
-}).refine((value) =>
-  (value.screen === null) !== (value.screen_missing_reason === null)
-).refine((value) =>
-  value.screenshot_png === undefined ||
-  (value.screenshot === null) === (value.screenshot_png === null)
-);
-
-export type FeedbackPreview = z.infer<typeof feedbackPreviewSchema>;
-export type FeedbackSelection = { screen: boolean; screenshot: boolean };
 
 export type FeedbackErrorCode =
   | "invalid_input"
@@ -134,13 +82,11 @@ export interface LophnShellFeedbackBegin {
 
 /** overlay의 dialog 쪽. 실패는 code 하나를 message로 싣은 Error로 거절한다. */
 export interface LophnOverlayFeedback {
-  submitFeedback(
+  sendFeedback(
     draftRef: string,
     text: string,
-    selection: FeedbackSelection,
+    existing_problem: string | null,
   ): Promise<FeedbackAccepted>;
   cancelFeedback(draftRef: string): Promise<void>;
   openFeedbackIssue(draftRef: string): Promise<void>;
-  /** main이 미는 미리보기. 지금까지 받은 마지막 미리보기도 곧바로 넘긴다. */
-  subscribePreview(listener: (preview: FeedbackPreview) => void): () => void;
 }

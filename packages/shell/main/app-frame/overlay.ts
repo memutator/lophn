@@ -28,7 +28,6 @@ import {
   type HeadlessMode,
   SHELL_OFF,
 } from "../desktop/headless.ts";
-import type { FeedbackPreview } from "../../ipc/feedback.ts";
 import { latestFrame } from "./frame.ts";
 import { type ViewHost, viewOrder } from "./view-order.ts";
 
@@ -41,11 +40,8 @@ export const OVERLAY_URL = "lophn-shell://overlay/index.html";
 export interface OverlayContents extends CallerContents {
   loadURL(url: string): Promise<void>;
   send(
-    channel:
-      | "overlay:state"
-      | "shell:overlay-result"
-      | "shell:feedback-preview",
-    event: OverlayEvent | FeedbackPreview,
+    channel: "overlay:state" | "shell:overlay-result",
+    event: OverlayEvent,
   ): void;
   focus(): void;
   close(): void;
@@ -444,17 +440,6 @@ export function createOverlay(options: OverlayOptions) {
       if (!surface) return;
       finish(surface, "completed");
       sync();
-    },
-    /** lophn dialog·sheet가 떠 있다. 그동안은 앱 view를 캡처하지 않는다. */
-    dialogOpen(): boolean {
-      return [...surfaces.values()].some((surface) =>
-        surface.kind === "dialog" || surface.kind === "sheet"
-      );
-    },
-    /** 이 창 overlay의 feedback 미리보기. overlay preload가 마지막 값을 들고 있다. */
-    sendFeedback(preview: FeedbackPreview): void {
-      if (disposed || !available || view.webContents.isDestroyed()) return;
-      view.webContents.send("shell:feedback-preview", preview);
     },
     /** 이 창의 살아 있는 overlay view인지. */
     isOverlay(contents: CallerContents): boolean {

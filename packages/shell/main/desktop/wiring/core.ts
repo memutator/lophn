@@ -53,9 +53,6 @@ export function connectCore(input: ConnectInput) {
         for (const reaction of relay.frames) reaction(frame);
       },
     },
-    beforeCall: async (event, call) => {
-      for (const reaction of relay.beforeCall) await reaction(event, call);
-    },
   });
 }
 

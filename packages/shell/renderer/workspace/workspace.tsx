@@ -53,7 +53,6 @@ import {
 } from "../desktop/palette/host.tsx";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import { layoutHint } from "./view-hint.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
 import type { ContextChipView } from "../conversation/composer/types.ts";
 import type {
@@ -225,10 +224,6 @@ export function Workspace(props: WorkspaceProps) {
   const [contextList, setContextList] = useState<readonly ContextListItem[]>(
     NO_CONTEXTS,
   );
-  // 앱 패널 탭이 연 view의 session. 탭 key로 찾고 현재 보기 힌트만 쓴다.
-  const [sessions, setSessions] = useState<Readonly<Record<string, string>>>(
-    {},
-  );
   // sidebar 파일 tree의 Rename·Delete 확인. 끝나면 tree를 다시 읽으려고 sidebar를 새로 세운다.
   const [fileDialog, setFileDialog] = useState<FileDialogState>(null);
   const [treeEpoch, setTreeEpoch] = useState(0);
@@ -274,15 +269,6 @@ export function Workspace(props: WorkspaceProps) {
       live = false;
     };
   }, [projectId, source, contextsSource]);
-
-  // 작업대 힌트. 통로가 없는 화면 테스트는 보내지 않는다. 창 신원은 main이 정한다.
-  useEffect(() => {
-    const bridge = (globalThis as {
-      lophnWorkspace?: { report(hint: unknown): Promise<{ ok: boolean }> };
-    }).lophnWorkspace;
-    if (!bridge) return;
-    void bridge.report(layoutHint({ project: projectId, view, sessions }));
-  }, [projectId, view, sessions]);
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
@@ -420,19 +406,6 @@ export function Workspace(props: WorkspaceProps) {
       setView(next);
       persistLater();
     } else update(next);
-  };
-
-  const noteSession = (key: string, session: string | null) => {
-    setSessions((current) => {
-      if (session === null) {
-        if (!(key in current)) return current;
-        const { [key]: _gone, ...rest } = current;
-        return rest;
-      }
-      return current[key] === session
-        ? current
-        : { ...current, [key]: session };
-    });
   };
 
   // 검색 결과·Overview 예시의 도메인 객체는 그 파일 탭으로 간다. 경로는 연결 폴더 기준 상대 경로이거나
@@ -577,7 +550,6 @@ export function Workspace(props: WorkspaceProps) {
     patchTab,
     removeTab,
     document: { noteReadPosition: notePosition },
-    appPanel: { noteSession },
     contexts,
     agents,
     agentView,

@@ -149,15 +149,13 @@ export interface AppPanelTabProps {
   /** 칸에 보이는 고른 탭인지. false면 view를 남긴 채 숨긴다. */
   shown: boolean;
   onOpenAppSpace?: (app: string) => void;
-  /** 이 탭이 연 view의 session. view가 서면 알리고 내려가면 null이다(현재 보기 힌트가 쓴다). */
-  onSession?: (view_session: string | null) => void;
 }
 
 type Facts = AppRead | null;
 
 /** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
 export function AppPanelTab(
-  { project, app, screen, shown, onOpenAppSpace, onSession }: AppPanelTabProps,
+  { project, app, screen, shown, onOpenAppSpace }: AppPanelTabProps,
 ) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<Facts>(null);
@@ -174,12 +172,6 @@ export function AppPanelTab(
       live = false;
     };
   }, [deps, app, attempt]);
-
-  const session = state?.view_session ?? null;
-  useEffect(() => {
-    onSession?.(session);
-    return () => onSession?.(null);
-  }, [session]);
 
   const notice = (message: string, space: boolean) => (
     <div className={styles.notice} data-app-panel-notice="">

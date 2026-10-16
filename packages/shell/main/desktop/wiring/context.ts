@@ -11,7 +11,7 @@ import type {
 import { electronOverlays } from "../../app-frame/electron-overlay.ts";
 import { createAppConnector } from "../../app-frame/app-connection.ts";
 import { CloseGuards } from "../../editor/close-guard.ts";
-import type { ConnectionOptions, CoreConnection } from "../core/connection.ts";
+import type { CoreConnection } from "../core/connection.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import type { InstalledTray } from "../tray.ts";
@@ -43,15 +43,12 @@ export type Ipc = {
   removeAllListeners(channel: string): void;
 };
 
-type BeforeCall = NonNullable<ConnectionOptions["beforeCall"]>;
-
 /** core 연결이 main에 보여 주는 곳. 영역이 자기 반응을 덧붙인다. */
 export type CoreRelay = {
   /** main 자신의 Gateway 조건. renderer들의 조건과 합쳐 건다. */
   conditions: EventCondition[];
   /** 조건에 맞아 도착한 event. renderer에도 같이 가지만 main이 먼저 쓴다. */
   events: Array<(event: BusEvent) => void>;
-  beforeCall: Array<(...args: Parameters<BeforeCall>) => Promise<void>>;
   /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
   frames: Array<(frame: { type: string }) => void>;
 };
@@ -122,7 +119,6 @@ export function createShellContext(): ShellContext {
   const relay: CoreRelay = {
     conditions: [],
     events: [],
-    beforeCall: [],
     frames: [],
   };
   const core = connectCore({ here, dataRoot, windows, log, relay });

@@ -82,7 +82,6 @@ export const appPanelKind: TabKindDef = {
         screen={tab.screen}
         shown={shown}
         onOpenAppSpace={onOpenApp}
-        onSession={(session) => host.appPanel.noteSession(tab.key, session)}
       />
     );
   },

@@ -18,12 +18,6 @@ export interface DocumentSlice {
   noteReadPosition(document: string, position: ReadPosition): void;
 }
 
-/** 앱 패널 탭이 작업대와 나누는 상태. */
-export interface AppPanelSlice {
-  /** 앱 패널 view의 session을 현재 보기 힌트에 알린다. 닫히면 null이다. */
-  noteSession(tab: string, session: string | null): void;
-}
-
 /** Contexts·Context·Search 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.contexts는 null이다. */
 export interface ContextsSlice {
   readonly source: ContextsSource;
@@ -99,7 +93,6 @@ export interface TabHost {
   ): void;
   removeTab(key: string): void;
   readonly document: DocumentSlice;
-  readonly appPanel: AppPanelSlice;
   readonly contexts: ContextsSlice | null;
   readonly agents: AgentsSlice | null;
   readonly agentView: AgentViewSlice | null;

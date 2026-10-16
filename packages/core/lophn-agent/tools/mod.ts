@@ -8,7 +8,6 @@ export {
   findTool,
   type GateRequest,
   listTools,
-  questionSubmitTool,
   runOperations,
   type ToolCallHandler,
   type ToolCatalog,

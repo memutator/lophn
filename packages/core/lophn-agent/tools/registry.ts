@@ -56,9 +56,6 @@ export type ToolCatalog = {
   definitions: readonly ToolDefinition[];
 };
 
-// 옛 run-loop가 askedQuestion에서 이름만 읽는다. 질문은 새 `ask` tool로 바뀐다.
-export const questionSubmitTool = { name: "question.submit" } as const;
-
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
 
 export type ToolSource = {

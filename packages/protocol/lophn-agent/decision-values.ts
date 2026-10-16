@@ -68,21 +68,6 @@ export const roleKindSchema = z.enum([
   "operator",
 ]);
 
-// 허용 방향은 lophn-agent/handoff의 현재 집합이다. Operator는 양방향 모두 없다.
-export const HANDOFF_DIRECTIONS = [
-  ["lophn", "app_engineer"],
-  ["lophn", "context_engineer"],
-  ["app_engineer", "lophn"],
-  ["app_engineer", "context_engineer"],
-  ["context_engineer", "lophn"],
-] as const;
-
-export function handoffAllowed(from: string, to: string): boolean {
-  return HANDOFF_DIRECTIONS.some(([sender, receiver]) =>
-    sender === from && receiver === to
-  );
-}
-
 export const handoffContentSchema = z.strictObject({
   what: z.string().regex(/\S/),
   why: z.string().regex(/\S/),

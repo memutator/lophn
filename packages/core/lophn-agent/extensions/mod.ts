@@ -1,10 +1,14 @@
 export {
+  builtinForRole,
+  BUNDLED_SKILLS_ROOT,
   discoverSkills,
+  mergeSkillLayers,
   parseSkillFrontmatter,
   SKILL_BODY_MAX_BYTES,
   SKILL_DESCRIPTION_MAX,
   SKILL_MANIFEST,
   SKILL_NAME_MAX,
+  type SkillCandidate,
   skillDescriptionReason,
   type SkillDiscovery,
   type SkillDiscoveryInput,
@@ -12,11 +16,8 @@ export {
   type SkillFilesPort,
   skillNameReason,
   skillPromptSection,
-  type SkillScope,
-  type SkillShadowing,
   type SkillSkipped,
   type SkillSupplemental,
-  validateSkillSelection,
 } from "./skills.ts";
 export {
   listSkillsSync,
@@ -25,21 +26,49 @@ export {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 export {
+  createSkillsRead,
+  type SkillsReadDeps,
+  type SkillsReadLookups,
+} from "./skills-handler.ts";
+export {
   createGlobalSkillReads,
   type GlobalSkillDeps,
   type GlobalSkillLookups,
 } from "./global-skills.ts";
 export {
+  createSkillSnapshot,
+  type SkillSession,
+  type SkillSnapshot,
+  type SkillSnapshotDeps,
+} from "./skill-read.ts";
+export {
+  createProjectExtensionCommands,
+  createProjectExtensionReads,
+  EMPTY_PROJECT_EXTENSIONS,
+  parseProjectExtensions,
+  PROJECT_EXTENSIONS_FILE,
+  PROJECT_SKILLS_DIR,
+  type ProjectExtensionDeps,
+  type ProjectExtensions,
+  projectExtensionsPathOf,
+  projectFolderOf,
+  projectSkillsOf,
+  serializeProjectExtensions,
+} from "./project-settings.ts";
+export {
+  collectProjectMcpEntries,
+  type ProjectMcpEntry,
+  type ProjectServerSource,
+} from "./project-servers.ts";
+export {
   dataRootOf,
   fileHash,
   parsePlaceMcpFile,
   PLACE_MCP_FILE,
-  PLACE_SKILLS_DIR,
   type PlaceFiles,
   placeFolderOf,
   type PlaceMcpFile,
   placeMcpPathOf,
-  placeSkillsOf,
   serializePlaceMcpFile,
 } from "./place-store.ts";
 export {
@@ -49,27 +78,20 @@ export {
   type PlaceExtensionLookups,
 } from "./place-settings.ts";
 export {
-  collectPlaceMcpEntries,
-  collectPlaceMcpServers,
-  mergeMcpServers,
-  type PlaceMcpEntry,
-  type PlaceServerSource,
-} from "./place-servers.ts";
-export {
   commandSkillsOf,
   createExtensionRegistry,
   type ExtensionRegistry,
   type ExtensionRegistryDeps,
-  mcpToolsOf,
 } from "./registry.ts";
 export {
-  readSkill,
-  readSkillSupplemental,
-  type SkillReadErrorCode,
-  type SkillReadInput,
-  type SkillReadResult,
-  type SkillSupplementalReadInput,
-} from "./skill-read.ts";
+  type McpLayer,
+  type McpRuntimeServer,
+  mergeMcpLayers,
+  type RuntimeAuth,
+  runtimeServerOfLayer,
+  runtimeServerOfSetting,
+  type RuntimeValue,
+} from "./mcp-server.ts";
 export {
   allowNetList,
   allowRunList,
@@ -77,6 +99,7 @@ export {
   httpEndpointReason,
   type McpConfigCheck,
   type McpConfigProblem,
+  type McpServerShape,
   serverConfigReason,
 } from "./mcp-config.ts";
 export {
@@ -126,24 +149,19 @@ export {
 } from "./adapters/mcp-stdio.ts";
 export {
   assignExternalToolNames,
-  baseExternalToolName,
   buildMcpTools,
-  classificationOf,
   createMcpToolHandlers,
-  EXTERNAL_TOOL_CONCERN,
   EXTERNAL_TOOL_CONTRACT,
-  EXTERNAL_TOOL_PREFIX,
   type ExternalTool,
-  externalToolHashSuffix,
+  externalToolByName,
+  externalToolName,
   externalToolTargetId,
   type McpCallOutcome,
   type McpInvokeCall,
   type McpSelection,
   type McpToolCall,
-  mcpToolDefinitionHash,
   type McpToolEntry,
   type McpToolsSource,
-  widestEffect,
 } from "./mcp-tools.ts";
 export {
   createMcpSecretRefSource,

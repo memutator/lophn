@@ -24,17 +24,12 @@ import {
   type PlaceFiles,
   type PlaceMcpFile,
   placeMcpPathOf,
-  placeSkillsOf,
   type ReadSql,
   serializePlaceMcpFile,
 } from "./place-store.ts";
-import {
-  listSkillsSync,
-  type SkillSources,
-  type SyncSkillFiles,
-} from "./skills-sync.ts";
 
-// 자리(project·app) 층의 MCP 서버 목록을 저장하고 읽는다(concern lophn-agent/extensions). 서버 등록은
+// 옛 place(project·app) 층의 MCP 서버 목록을 저장하고 읽는다. register.ts가 이 handler를 내리면 이 file을 지운다
+// (새 project 층은 project-settings.ts). skill은 더 이상 싣지 않는다. 서버 등록은
 // 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다. 파일은 transaction 안에서 마지막에
 // 쓰고, 쓰기가 실패하면 handler가 err를 돌려 event까지 전체가 되돌아간다.
 
@@ -43,13 +38,10 @@ export type PlaceExtensionLookups = {
   placeExists(place: AgentPlace): boolean;
   // 전역(Workspace)에 등록된 서버 전부다. 켜짐 여부와 상관없이 이름이 겹치면 거절한다.
   globalServers(): readonly McpServerConfig[];
-  // 전역 층의 skill 출처다. 자리 폴더는 data root와 자리에서 정해진다.
-  skillSources(): Omit<SkillSources, "place">;
 };
 
 export type PlaceExtensionDeps = {
   files: PlaceFiles;
-  skillFiles: SyncSkillFiles;
   lookups(sql: ReadSql): PlaceExtensionLookups;
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
@@ -219,10 +211,6 @@ export function createPlaceExtensionReads(deps: PlaceExtensionDeps): {
           });
         }
         const file = current.value?.file ?? null;
-        const listing = listSkillsSync(deps.skillFiles, {
-          ...lookups.skillSources(),
-          place: placeSkillsOf(root.value, place),
-        });
         return ok({
           place,
           settings: {
@@ -230,9 +218,9 @@ export function createPlaceExtensionReads(deps: PlaceExtensionDeps): {
             mcp_servers: [...(file?.mcp_servers ?? [])],
           },
           hash: current.value?.hash ?? null,
-          skills: [...listing.entries],
-          shadowed: [...listing.shadowed],
-          skipped: [...listing.skipped],
+          skills: [],
+          shadowed: [],
+          skipped: [],
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

@@ -384,7 +384,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         const found = externalByName.get(definition.name);
         return found === undefined ? null : {
           server_name: found.server,
-          configuration_revision: found.configurationRevision,
+          configuration_revision: 0,
           original_tool: found.original,
           canonical_name: found.definition.name,
         };
@@ -459,7 +459,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다.
         skills: ((await deps.skills?.(resolved.place)) ?? []).map((entry) => ({
           ...entry,
-          selected: resolved.skills.includes(entry.name),
+          enabled: entry.enabled && resolved.skills.includes(entry.name),
         })),
         timezone: deps.timezone?.() ?? null,
         limits: {
@@ -585,7 +585,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     let mcp: LoadedMcp | undefined;
     const made = await resolveRunAgent(machine, {
       session: start.session,
-      skills: skills.map((entry) => entry.name),
+      skills: skills.filter((entry) => entry.enabled).map((entry) =>
+        entry.name
+      ),
       mcp: async (off, place) => {
         mcp = await loadMcp(start.session, { place, skip: off });
         return (mcp.source?.tools ?? []).map((tool) => ({

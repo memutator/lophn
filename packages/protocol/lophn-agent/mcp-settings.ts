@@ -9,6 +9,8 @@ import { secretNameSchema } from "../secrets/secrets.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import {
   globalSkillsRead,
+  skillNameSchema,
+  SKILLS_OFF_MAX,
   skillShadowSchema,
   skillSkippedSchema,
   skillSummarySchema,
@@ -479,8 +481,12 @@ const projectServersSchema = z.array(mcpServerSchema).max(32).refine(
   { message: "mcp server names must be unique" },
 );
 
-// project 층의 MCP 서버 목록이다. 같은 이름은 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다. skill은
-// `ReadSkills`가 맡아 여기 싣지 않는다. mcp_servers는 새 내용 전체다.
+// project 층의 설정이다. 같은 이름의 MCP 서버는 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다.
+// skills_off는 이 project에서 끈 skill 이름이고 mcp_off는 이 project에서 끈 전역 MCP 서버 이름이다.
+// 지금 없는 이름도 지우지 않는다. 모두 새 내용 전체다.
+const projectSkillsOffSchema = z.array(skillNameSchema).max(SKILLS_OFF_MAX);
+const projectMcpOffSchema = z.array(nameSchema).max(32);
+
 export const projectExtensionSettingsRead = defineRead({
   resource: "project-extension-settings",
   method: "read",
@@ -489,6 +495,8 @@ export const projectExtensionSettingsRead = defineRead({
   output: withReadCommon(z.object({
     project: idSchema("prj"),
     mcp_servers: z.array(mcpServerSchema),
+    skills_off: projectSkillsOffSchema,
+    mcp_off: projectMcpOffSchema,
     hash: sha256Schema.nullable(),
   })),
   actors: ["user", "machine"],
@@ -502,6 +510,8 @@ export const projectExtensionSettingsChange = defineCommand({
   input: z.strictObject({
     project: idSchema("prj"),
     mcp_servers: projectServersSchema,
+    skills_off: projectSkillsOffSchema,
+    mcp_off: projectMcpOffSchema,
   }),
   output: z.object({
     project: idSchema("prj"),

@@ -1,9 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 
 // 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions).
-// 계약 schema(mcpServerConfigSchema)가 이미
-// 전송 방식·값 모양을 거르고, 이 모듈은 그 밖의 누락·상충을 서버별로 본다.
+// 계약 schema(mcpServerSchema)가 이미 전송 방식·값 모양을 거르고, 이 모듈은 그 밖의 누락·상충을 서버별로 본다.
+// 층의 서버(McpServer)와 연결이 쓰는 서버(McpRuntimeServer) 모두 이 모양을 만족한다.
 // 잘못된 서버 하나만 연결하지 않고 고칠 항목을 알리며 다른 서버와 lophn 자체
 // 도구는 그대로다. TLS 검증을 끄는 설정은 없다.
 
@@ -14,9 +13,27 @@ export type McpConfigProblem = {
   reason: string;
 };
 
-export type McpConfigCheck = {
+// 검사가 읽는 칸만 적은 서버 모양이다.
+export type McpServerShape =
+  & { name: string; enabled: boolean }
+  & (
+    | { transport: "stdio"; stdio: { executable: string } }
+    | {
+      transport: "http";
+      http: {
+        url: string;
+        headers: Record<string, unknown>;
+        auth:
+          | { kind: "none" | "bearer" }
+          | { kind: "api_key"; header_name: string }
+          | { kind: "oauth2"; issuer: string };
+      };
+    }
+  );
+
+export type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
   // 연결 대상 서버다. 문제가 있는 서버는 빠진다(그 서버만 연결 안 함).
-  valid: readonly McpServerConfig[];
+  valid: readonly T[];
   problems: readonly McpConfigProblem[];
 };
 
@@ -47,7 +64,7 @@ export function httpEndpointReason(
 }
 
 // stdio 실행 파일 검사다. 절대 경로는 계약 schema가 이미 본다.
-function stdioReason(server: McpServerConfig): string | null {
+function stdioReason(server: McpServerShape): string | null {
   if (server.transport !== "stdio") return null;
   const stdio = server.stdio;
   if (typeof stdio.executable !== "string" || stdio.executable.length === 0) {
@@ -62,7 +79,7 @@ function stdioReason(server: McpServerConfig): string | null {
 }
 
 // HTTP 서버 검사다.
-function httpReason(server: McpServerConfig): string | null {
+function httpReason(server: McpServerShape): string | null {
   if (server.transport !== "http") return null;
   const endpoint = httpEndpointReason(server.http.url);
   if (endpoint !== null) return endpoint;
@@ -78,7 +95,7 @@ function httpReason(server: McpServerConfig): string | null {
 }
 
 // 서버 한 대의 누락·상충을 본다. 계약 schema를 지난 값이다.
-export function serverConfigReason(server: McpServerConfig): string | null {
+export function serverConfigReason(server: McpServerShape): string | null {
   const nameProblem = typeof server.name !== "string" ||
       server.name.length === 0
     ? "server name이 없다"
@@ -89,9 +106,9 @@ export function serverConfigReason(server: McpServerConfig): string | null {
 
 // 서버 목록 전체를 검사한다. 문제 서버는 valid에서 빠지고 문제 사유를
 // problems로 알린다. 정상 서버는 그대로다.
-export function checkMcpConfig(
-  servers: readonly McpServerConfig[],
-): Result<McpConfigCheck> {
+export function checkMcpConfig<T extends McpServerShape>(
+  servers: readonly T[],
+): Result<McpConfigCheck<T>> {
   if (!Array.isArray(servers)) {
     return err({
       code: "invalid_input",
@@ -99,7 +116,7 @@ export function checkMcpConfig(
     });
   }
   const seen = new Set<string>();
-  const valid: McpServerConfig[] = [];
+  const valid: T[] = [];
   const problems: McpConfigProblem[] = [];
   for (const server of servers) {
     const reason = serverConfigReason(server);
@@ -130,7 +147,7 @@ export function checkMcpConfig(
 // `--allow-run` 목록이다(architecture §2.3). 사람이 enabled로 등록한 MCP stdio
 // executable만 둔다. shell 해석·model이 고른 프로그램은 없다.
 export function allowRunList(
-  servers: readonly McpServerConfig[],
+  servers: readonly McpServerShape[],
 ): string[] {
   const names = new Set<string>();
   for (const server of servers) {
@@ -151,7 +168,7 @@ export function allowRunList(
 // OAuth 방식이면 그 발급자의 `host:port`다(token 교환·갱신은 runtime이 대신 보낸다). 같은 host의 다른
 // port, 일반 net, model이 제시한 URL은 없다. 기본 port는 https 443, http 80이다.
 export function allowNetList(
-  servers: readonly McpServerConfig[],
+  servers: readonly McpServerShape[],
 ): string[] {
   const hosts = new Set<string>();
   const add = (address: string) => {

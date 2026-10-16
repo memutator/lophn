@@ -1,293 +1,161 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import { sha256Hex } from "../../../base/mod.ts";
-import type { SkillEntry } from "./skills.ts";
-import { SKILL_MANIFEST, type SkillFilesPort } from "./skills.ts";
+import { err, ok } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import type { Role } from "../../../protocol/lophn-agent/mod.ts";
+import type { SkillReader } from "../tools/ports.ts";
+import {
+  discoverSkills,
+  joinPath,
+  SKILL_BODY_MAX_BYTES,
+  SKILL_MANIFEST,
+  type SkillEntry,
+  type SkillFilesPort,
+  type SkillSkipped,
+} from "./skills.ts";
 
-// 선택한 skill 읽기(concern lophn-agent/extensions). `skill.read`는 이름으로만
-// 부르고 경로 입력은 없다(architecture §5.3 선택 skill). 읽기 앞에 RunBasis에
-// 고정한 hash와 현재 파일을 비교한다(architecture §5.5): 다르거나 없으면
-// 실패다. 본문은 전체이거나 실패이고 부분 성공은 없다. 보조 자료는
-// 제목 목록만 돌려주고 자동으로 본문을 읽지 않는다.
+// turn 시작에 고정하는 skill 판이다(concern lophn-agent/extensions). 그 turn이 볼 skill 목록과 읽을 수 있는 본문,
+// 딸린 파일 본문을 메모리에 읽어 둔다. 도는 turn은 파일이 그 사이에 바뀌어도 이 판만 쓴다. 꺼진 skill은 막는다.
+// 전역 skill은 lophn data에 있어 file tool이 닿지 않는다. 이 reader만 읽는다.
 
-export type SkillReadErrorCode =
-  | "not_selected"
-  | "missing"
-  | "changed"
-  | "invalid_path"
-  | "invalid_format";
-
-export type SkillReadFailure = {
-  code: SkillReadErrorCode;
-  // 사람용 이유다. 절대 경로가 나가지 않도록 만들어 쓴다.
-  message: string;
-};
-
-export type SkillReadResult = {
-  name: string;
-  // 성공이면 SKILL.md의 frontmatter를 뺀 전체 본문이다. 실패면 null이다.
-  body: string | null;
-  // 보조 자료 제목 목록이다. 자동 본문 읽기는 없다.
-  supplemental_titles: readonly string[];
-  // 실패 이유다. 성공이면 null이다.
-  error: SkillReadFailure | null;
-};
-
-export type SkillReadInput = {
+export type SkillSnapshotDeps = {
   port: SkillFilesPort;
-  entries: readonly SkillEntry[];
-  // 이번 run에 제공한 skill 이름이다.
-  name: string;
-  // RunBasis에 고정한 content hash다. 없으면 이번 run에 고정하지 않은
-  // 이름이다.
-  pinned_hash: string | null;
-  max_file_bytes: number;
+  // 내장 skill 폴더와 개인 보관소다.
+  builtin_root: string | null;
+  personal_store: string | null;
+  // 사람이 등록한 폴더(등록 순서)와 전역에서 끈 이름이다. turn마다 읽는다.
+  global(): Promise<{ roots: readonly string[]; off: readonly string[] }>;
+  // project의 skill 폴더와 그 project에서 끈 이름이다. 파일이 없으면 끈 이름은 비어 있다.
+  project(
+    project: Id<"prj">,
+  ): Promise<{ store: string | null; off: readonly string[] }>;
 };
 
-// 목록의 entry로 읽는다. 이름은 정확히 하나만 받는다: 대상 찾기는
-// 등록에 고정한 발견 목록에서만 하고 이 경로에서 새로 찾지 않는다.
-export async function readSkill(
-  input: SkillReadInput,
-): Promise<Result<SkillReadResult>> {
-  const entry = input.entries.find((candidate) =>
-    candidate.name === input.name
-  );
-  if (entry === undefined) {
-    return ok(failure(input.name, "missing", "skill is not in the run list"));
-  }
-  if (!entry.selected) {
-    return ok(
-      failure(
-        input.name,
-        "not_selected",
-        "skill is discovered but not selected for this run",
-      ),
-    );
-  }
-  if (input.pinned_hash !== entry.content_hash) {
-    return ok(
-      failure(
-        input.name,
-        "changed",
-        "skill changed after the run fixed its content hash",
-      ),
-    );
-  }
-  const bundleCheck = await input.port.kind(entry.bundle_path);
-  if (!bundleCheck.ok) {
-    return ok(failure(input.name, "missing", "skill folder is not available"));
-  }
-  if (bundleCheck.value === null) {
-    return ok(failure(input.name, "missing", "skill folder is gone"));
-  }
-  if (bundleCheck.value === "symlink") {
-    return ok(
-      failure(
-        input.name,
-        "invalid_path",
-        "skill folder is a symbolic link",
-      ),
-    );
-  }
-  if (bundleCheck.value !== "dir") {
-    return ok(
-      failure(input.name, "invalid_path", "skill folder is not a folder"),
-    );
-  }
-  const manifest = `${
-    entry.bundle_path.endsWith("/") ||
-      entry.bundle_path.endsWith("\\")
-      ? entry.bundle_path
-      : entry.bundle_path.includes("\\") && !entry.bundle_path.includes("/")
-      ? `${entry.bundle_path}\\`
-      : `${entry.bundle_path}/`
-  }${SKILL_MANIFEST}`;
-  const manifestKind = await input.port.kind(manifest);
-  if (!manifestKind.ok || manifestKind.value !== "file") {
-    return ok(failure(input.name, "missing", "skill manifest is gone"));
-  }
-  const read = await input.port.read(manifest, input.max_file_bytes);
-  if (!read.ok) {
-    return ok(
-      failure(input.name, "missing", "skill manifest is not available"),
-    );
-  }
-  const file = read.value;
-  if (file === null) {
-    return ok(failure(input.name, "missing", "skill manifest is gone"));
-  }
-  if (!file.complete) {
-    return ok(
-      failure(
-        input.name,
-        "changed",
-        "skill body does not fit the read limit in full",
-      ),
-    );
-  }
-  const parsed = parseFrontmatterBody(file.text);
-  if (parsed === null) {
-    return ok(
-      failure(
-        input.name,
-        "invalid_format",
-        "skill manifest is not valid frontmatter format",
-      ),
-    );
-  }
-  const hash = await sha256Hex(file.text);
-  if (hash !== input.pinned_hash) {
-    return ok(
-      failure(
-        input.name,
-        "changed",
-        "skill content changed after the run fixed its content hash",
-      ),
-    );
-  }
-  return ok({
-    name: input.name,
-    body: parsed,
-    supplemental_titles: entry.supplemental.map((file) => file.title),
-    error: null,
-  });
-}
-
-export type SkillSupplementalReadInput = {
-  port: SkillFilesPort;
-  entry: SkillEntry;
-  title: string;
-  max_file_bytes: number;
+export type SkillSession = {
+  id: Id<"ses">;
+  role: Role;
+  // project에 놓인 agent의 project다. lophn과 앱에 놓인 agent는 null이다(project 층이 없다).
+  project: Id<"prj"> | null;
+  // agent 정의가 끈 이름이다.
+  skills_off: readonly string[];
 };
 
-// 보조 자료 본문이다. 제목으로만 고른 UTF-8 문서를 읽고 경로 입력은
-// 없다(architecture §5.5 `skill.read_supplemental(name,title)`): 경로는
-// 발견이 고정한 relative_path다. `..`·절대 경로·symlink·실행 파일은 거절이다.
-// 스크립트를 실행하지 않는다: 이 경로에는 run tool이 없다.
-export async function readSkillSupplemental(
-  input: SkillSupplementalReadInput,
-): Promise<Result<SkillReadResult>> {
-  const titleCheck = checkTitle(input.title);
-  if (!titleCheck) {
-    return ok(
-      failure(
-        input.title,
-        "invalid_path",
-        "supplemental title is not a title from the discovery list",
-      ),
-    );
-  }
-  const supplemental = input.entry.supplemental.find((file) =>
-    file.title === input.title
-  );
-  if (supplemental === undefined) {
-    return ok(
-      failure(
-        input.title,
-        "not_selected",
-        "supplemental title is not in the discovery list",
-      ),
-    );
-  }
-  if (
-    supplemental.relative_path.includes("..") ||
-    supplemental.relative_path.startsWith("/") ||
-    supplemental.relative_path.includes("\\")
-  ) {
-    return ok(
-      failure(
-        input.title,
-        "invalid_path",
-        "supplemental path leaves the skill folder",
-      ),
-    );
-  }
-  const path = `${
-    input.entry.bundle_path.endsWith("/")
-      ? input.entry.bundle_path
-      : `${input.entry.bundle_path}/`
-  }${supplemental.relative_path}`;
-  const kind = await input.port.kind(path);
-  if (!kind.ok) {
-    return ok(
-      failure(
-        input.title,
-        "missing",
-        "supplemental document is not available",
-      ),
-    );
-  }
-  if (kind.value === null) {
-    return ok(failure(input.title, "missing", "supplemental document is gone"));
-  }
-  if (kind.value === "symlink") {
-    return ok(
-      failure(
-        input.title,
-        "invalid_path",
-        "supplemental document is a symbolic link",
-      ),
-    );
-  }
-  if (kind.value === "dir") {
-    return ok(
-      failure(
-        input.title,
-        "invalid_path",
-        "supplemental path is not a document",
-      ),
-    );
-  }
-  const executable = await input.port.executable(path);
-  if (executable.ok && executable.value === true) {
-    return ok(
-      failure(
-        input.title,
-        "invalid_path",
-        "supplemental document is executable",
-      ),
-    );
-  }
-  const read = await input.port.read(path, input.max_file_bytes);
-  if (!read.ok || read.value === null) {
-    return ok(
-      failure(
-        input.title,
-        "missing",
-        "supplemental document is not available",
-      ),
-    );
-  }
-  if (!read.value.complete) {
-    return ok(
-      failure(
-        input.title,
-        "invalid_format",
-        "supplemental document does not fit the read limit in full",
-      ),
-    );
-  }
-  return ok({
-    name: input.title,
-    body: read.value.text,
-    supplemental_titles: [],
-    error: null,
+export type SkillSnapshot = {
+  // prompt의 skill 목록 재료다. 끈 skill도 enabled false로 남는다.
+  skills: readonly { name: string; description: string; enabled: boolean }[];
+  skipped: readonly SkillSkipped[];
+  reader: SkillReader;
+};
+
+type Fixed = { body: string; files: Map<string, string> };
+
+export async function createSkillSnapshot(
+  deps: SkillSnapshotDeps,
+  session: SkillSession,
+): Promise<SkillSnapshot> {
+  const global = await deps.global();
+  const project = session.project === null
+    ? { store: null, off: [] as readonly string[] }
+    : await deps.project(session.project);
+  const found = await discoverSkills({
+    port: deps.port,
+    builtin_root: deps.builtin_root,
+    registered_roots: global.roots,
+    personal_store: deps.personal_store,
+    project_store: project.store,
+    role: session.role,
+    off: [...new Set([...global.off, ...project.off, ...session.skills_off])],
+    max_file_bytes: SKILL_BODY_MAX_BYTES,
   });
+  const entries: readonly SkillEntry[] = found.ok ? found.value.entries : [];
+  const skipped = found.ok ? found.value.skipped : [];
+
+  const fixed = new Map<string, Fixed>();
+  for (const entry of entries) {
+    if (!entry.enabled) continue;
+    const read = await readFixed(deps.port, entry);
+    if (read !== null) fixed.set(entry.name, read);
+  }
+
+  const reader: SkillReader = {
+    read(id, name, path) {
+      if (id !== session.id) {
+        return Promise.resolve(
+          err({ code: "not_found", message: "no skill list for this session" }),
+        );
+      }
+      const entry = entries.find((one) => one.name === name);
+      if (entry === undefined) {
+        return Promise.resolve(
+          err({ code: "not_found", message: `skill ${name} does not exist` }),
+        );
+      }
+      if (!entry.enabled) {
+        return Promise.resolve(
+          err({ code: "forbidden", message: `skill ${name} is turned off` }),
+        );
+      }
+      const one = fixed.get(name);
+      if (one === undefined) {
+        return Promise.resolve(
+          err({
+            code: "unavailable",
+            message: `skill ${name} could not be read`,
+          }),
+        );
+      }
+      if (path === undefined) return Promise.resolve(ok(one.body));
+      const file = one.files.get(path);
+      return Promise.resolve(
+        file === undefined
+          ? err({
+            code: "not_found",
+            message: `skill ${name} has no file ${path}`,
+          })
+          : ok(file),
+      );
+    },
+  };
+
+  return {
+    skills: entries.map((entry) => ({
+      name: entry.name,
+      description: entry.description,
+      enabled: entry.enabled,
+    })),
+    skipped,
+    reader,
+  };
 }
 
-// 보조 자료 제목은 발견이 만든 `{파일명에서 .md를 뺀 값}`이다. 경로로 쓰지
-// 않는다: `/`·`\`·`..`·빈 값은 거절이다.
-function checkTitle(title: string): boolean {
-  if (title.length === 0 || title.length > 128) return false;
-  if (title.includes("/") || title.includes("\\")) return false;
-  if (title.includes("..")) return false;
-  return true;
+// SKILL.md 본문(frontmatter 뒤)과 딸린 파일을 읽어 둔다. 하나라도 온전히 못 읽으면 그 skill은 읽을 수 없다.
+async function readFixed(
+  port: SkillFilesPort,
+  entry: SkillEntry,
+): Promise<Fixed | null> {
+  const manifest = await port.read(
+    joinPath(entry.bundle_path, SKILL_MANIFEST),
+    SKILL_BODY_MAX_BYTES,
+  );
+  if (!manifest.ok || manifest.value === null || !manifest.value.complete) {
+    return null;
+  }
+  const body = bodyOf(manifest.value.text);
+  if (body === null) return null;
+  const files = new Map<string, string>();
+  for (const file of entry.supplemental) {
+    const read = await port.read(
+      joinPath(entry.bundle_path, file.relative_path),
+      SKILL_BODY_MAX_BYTES,
+    );
+    if (!read.ok || read.value === null || !read.value.complete) return null;
+    files.set(file.relative_path, read.value.text);
+  }
+  return { body, files };
 }
 
-// frontmatter 다음 줄부터 본문이다. 검사는 discovery가 했다.
-function parseFrontmatterBody(source: string): string | null {
-  if (!source.startsWith("---")) return null;
+// frontmatter 다음 줄부터가 본문이다. 형식 검사는 발견이 했다.
+function bodyOf(source: string): string | null {
   const lines = source.split("\n");
-  if (lines[0].replace(/\r$/, "") !== "---") return null;
+  if (lines[0]?.replace(/\r$/, "") !== "---") return null;
   for (let i = 1; i < lines.length; i++) {
     if (lines[i].replace(/\r$/, "") === "---") {
       return lines.slice(i + 1).join("\n");
@@ -295,27 +163,3 @@ function parseFrontmatterBody(source: string): string | null {
   }
   return null;
 }
-
-function failure(
-  name: string,
-  code: SkillReadErrorCode,
-  message: string,
-): SkillReadResult {
-  return {
-    name,
-    body: null,
-    supplemental_titles: [],
-    error: { code, message },
-  };
-}
-
-// 실패는 command result의 안전한 결과로 포장하기 위한 helper다. 직접 쓰는
-// Result 거절이 아니라 읽기 실패 값을 만든다(architecture §5.5).
-export function skillReadToolFailure(
-  result: SkillReadResult,
-): string {
-  return `skill\u0000${result.error?.code ?? "missing"}`;
-}
-
-export type { SkillEntry };
-export { err };

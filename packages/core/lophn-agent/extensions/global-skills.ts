@@ -13,14 +13,11 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// 전역(Workspace) 층의 skill 목록을 사람 화면에 준다(concern lophn-agent/extensions).
-// 자리 폴더는 보지 않는다: 자리 skill은 place-extension-settings가 맡는다. 끈 skill도 목록에 남고
-// enabled만 false라서 화면이 다시 켤 수 있다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다.
+// 옛 `ReadGlobalSkills` handler다(concern lophn-agent/extensions). register.ts가 `ReadSkills`(skills-handler.ts)로
+// 바꾸면 이 file을 지운다. 전역 층과 내장 skill만 보이고 출처 말은 옛 말로 옮긴다(내장은 bundled, 나머지는 registered).
 
-// 다른 concern의 값을 읽는 길이다. 정본은 각 concern(platform/settings)이고 여기서는 읽기만 한다.
 export type GlobalSkillLookups = {
-  // 전역 층의 skill 출처다: 등록 폴더·개인 보관소·동봉 폴더.
-  skillSources(): Omit<SkillSources, "place">;
+  skillSources(): Omit<SkillSources, "project">;
   // 전역에서 끈 skill의 정확한 이름이다.
   skillsOff(): readonly string[];
 };
@@ -44,10 +41,11 @@ export function createGlobalSkillReads(deps: GlobalSkillDeps): {
         const off = lookups.skillsOff();
         let listing: ReturnType<typeof listSkillsSync>;
         try {
-          listing = listSkillsSync(deps.skillFiles, {
-            ...lookups.skillSources(),
-            place: null,
-          });
+          listing = listSkillsSync(
+            deps.skillFiles,
+            { ...lookups.skillSources(), project: null },
+            { role: null, off },
+          );
         } catch {
           return err({
             code: "unavailable",
@@ -55,16 +53,16 @@ export function createGlobalSkillReads(deps: GlobalSkillDeps): {
           });
         }
         return ok({
-          skills: listing.entries.flatMap((entry) =>
-            entry.source_kind === "place" ? [] : [{
-              name: entry.name,
-              description: entry.description,
-              source_kind: entry.source_kind,
-              enabled: !off.includes(entry.name),
-            }]
-          ),
+          skills: listing.entries.map((entry) => ({
+            name: entry.name,
+            description: entry.description,
+            source_kind: entry.source === "builtin"
+              ? "bundled" as const
+              : "registered" as const,
+            enabled: entry.enabled,
+          })),
           skills_off: [...off],
-          shadowed: [...listing.shadowed],
+          shadowed: [],
           skipped: [...listing.skipped],
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

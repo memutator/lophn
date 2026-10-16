@@ -9,7 +9,6 @@ import {
   mcpAuthCompleteInputSchema,
   mcpAuthState,
   mcpAuthStateInputSchema,
-  type McpServerConfig,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SecretDestination,
@@ -20,11 +19,11 @@ import {
   type CallbackListener,
   createMcpOAuth,
   type HttpFetch,
-  type McpAuthKey,
   type McpOAuthServer,
   type McpOAuthVault,
   mcpTokenRef,
 } from "./mod.ts";
+import type { McpRuntimeServer } from "./mcp-server.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 
 // MCP OAuth 2.1의 시작·완료·상태·취소 memory route와 연결 때의 token 부착 대조다(concern
@@ -32,8 +31,8 @@ import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 // 여기는 core의 입구와 재료를 끼운다.
 // - 발급자(token endpoint)에 닿는 일은 이 core 프로세스가 한다. 시작에서 낸 verifier·state와 받은 token이 모두
 //   core 안에만 있어야 하기 때문이다. 값은 응답·log·ledger·event 어디에도 없다.
-// - token은 OS keychain(vault)에만 보관한다. 설정은 값이 아니라 서버(자리+이름)에서 정해지는 참조
-//   (`token_ref`)만 가리킨다. 전역 서버는 settings에, 자리 서버는 그 자리 `mcp-servers.json`에 쓴다.
+// - token은 OS keychain(vault)에만 보관한다. 설정에는 token이 없다. 서버(place+이름)에서 정해지는 참조가 보관을
+//   가리키고, 로그인했는지는 보관이 말한다.
 // - ledger를 거치지 않는다: 진행 중인 로그인은 작업 메모리가 곧 상태다.
 
 type McpAuthMemoryHandler = (
@@ -41,30 +40,20 @@ type McpAuthMemoryHandler = (
   input: unknown,
 ) => Promise<Result<unknown>>;
 
-// 설정에 token 참조를 쓰는 대상이다. 전역 서버는 자리가 null이다.
-export type McpAuthTarget = { place: AgentPlace | null; name: string };
-
 export type McpAuthControlDeps = {
   // token 교환·갱신이 쓰는 fetch다. 테스트가 가짜 발급자를 끼운다.
   fetch: HttpFetch;
   // 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다. 테스트가 가짜를
   // 끼우므로 사람의 실제 OS browser는 열지 않는다.
   openListener(): Promise<Result<CallbackListener>>;
-  // 등록한 MCP server와 등록된 자리의 읽기다(전역 서버는 자리가 null). 같은 이름의 서버가 여러 자리에 있을 수
-  // 있어 서버는 이름과 자리로 고른다.
+  // 등록한 MCP server와 등록된 place의 읽기다(전역 서버는 place가 null). 같은 이름의 서버가 여러 place에 있을 수
+  // 있어 서버는 이름과 place로 고른다.
   registered(): Promise<Result<RegisteredMcpServer[]>>;
   // token 보관이다(OS keychain).
   vault: McpOAuthVault;
   nowMs(): number;
   // 기다림 시한 timer다. 없으면 제품 timer다.
   deadline?: AuthDeadline;
-  // 설정의 token 참조를 쓰거나(ref) 지운다(null). ctx는 로그인을 부른 사람의 자격이라 그 사람의 설정 변경으로
-  // 남는다. 서버 판은 바뀐 설정에 맞춰 올린다.
-  writeTokenRef(
-    ctx: unknown,
-    target: McpAuthTarget,
-    ref: string | null,
-  ): Promise<Result<void>>;
   // 보관한 값이 바뀐 뒤 알려진 값 registry를 다시 맞춘다. 새 token이 안전화에 들고 옛 값이 회수된다.
   syncSecrets?: () => Promise<unknown>;
 };
@@ -103,7 +92,7 @@ function sameOrigin(url: string, destination: SecretDestination): boolean {
 // OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다.
 function oauthServerOf(
   place: AgentPlace | null,
-  server: McpServerConfig,
+  server: McpRuntimeServer,
 ): McpOAuthServer | undefined {
   if (server.transport !== "http" || server.http.auth.kind !== "oauth2") {
     return undefined;
@@ -150,7 +139,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   async function registeredServerOf(
     place: AgentPlace | null,
     name: string,
-  ): Promise<Result<McpServerConfig>> {
+  ): Promise<Result<McpRuntimeServer>> {
     const loaded = await deps.registered();
     if (!loaded.ok) return loaded;
     const found = loaded.value.find((entry) =>
@@ -162,7 +151,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     return ok(found.server);
   }
 
-  // 로그인할 수 있는 서버: 그 자리에 등록된 http oauth2 서버다.
+  // 로그인할 수 있는 서버: 그 place에 등록된 http oauth2 서버다.
   async function oauthTarget(
     place: AgentPlace | null,
     name: string,
@@ -217,7 +206,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     });
   };
 
-  const complete: McpAuthMemoryHandler = async (ctx, input) => {
+  const complete: McpAuthMemoryHandler = async (_ctx, input) => {
     const parsed = mcpAuthCompleteInputSchema.safeParse(input);
     if (!parsed.success) {
       return err({
@@ -228,10 +217,10 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     const { name, place } = parsed.data;
     const target = await oauthTarget(place, name);
     if (!target.ok) return target;
-    const key: McpAuthKey = target.value.key;
+    // 설정에 쓸 것이 없다. token은 보관에만 있다.
     const done = await oauth.complete(
       target.value,
-      () => deps.writeTokenRef(ctx, { place, name }, mcpTokenRef(key)),
+      () => Promise.resolve(ok(undefined)),
     );
     if (!done.ok) return done;
     return ok({ completed: true });
@@ -301,7 +290,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
           message: "MCP 서버 설정을 읽지 못했다",
         });
       }
-      // 이 참조를 가리키는 켜진 서버 중 자기 자리의 참조를 가진 서버만 쓴다: 다른 자리의 참조를 손으로
+      // 이 참조를 가리키는 켜진 서버 중 자기 place의 참조를 가진 서버만 쓴다: 다른 place의 참조를 손으로
       // 맞춘 설정은 그 서버의 token을 얻지 못한다. token은 로그인한 서버의 URL origin에만 간다.
       const match = loaded.value.find((entry) => {
         const server = oauthServerOf(entry.place, entry.server);

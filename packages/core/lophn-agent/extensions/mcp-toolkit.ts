@@ -1,12 +1,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentPlace,
+  type McpServer,
   mcpServersSetting,
-  placeExtensionSettingsRead,
+  projectExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { settingsGet } from "../../../protocol/config/mod.ts";
-import type { ToolDefinition } from "../tools/mod.ts";
 import {
   checkMcpConfig,
   createMcpConnections,
@@ -16,18 +15,34 @@ import {
   type McpToolCall,
   type McpToolEntry,
 } from "./mod.ts";
+import {
+  type McpRuntimeServer,
+  mergeMcpLayers,
+  runtimeServerOfLayer,
+  runtimeServerOfSetting,
+} from "./mcp-server.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 
-// 제품 runtime의 외부 MCP tool 등록이다. 사람의 registry(
-// `lophn-agent.extensions.mcp_servers` 설정)와 preset 선택만이 출처이며 연결과
-// 재조회는 이 모듈 하나가 소유한다. list_changed 알림과 재연결 뒤 그 server의
+// 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), project 층,
+// agent 정의 층에서 온다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다. 연결과 재조회는 이 모듈 하나가
+// 소유한다. list_changed 알림과 재연결 뒤 그 server의
 // 전체 tool 목록을 다시 읽고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
 // 재조회가 실패하면 옛 정의를 호출 가능으로 두지 않는다.
 
 // 연결 표의 server 알림은 표 없이 온다(list_changed 알림만 서버 이름을 아는 것).
 // 상태는 (assignment, server)마다 하나다.
 type RefreshState = "fresh" | "refreshing" | "failed";
+
+// agent 정의 층이다. agent가 가진 서버와, 아래 층에서 끈 서버 이름이다.
+export type McpAgentLayer = {
+  servers: readonly McpServer[];
+  off: readonly string[];
+};
+
+// 어느 서버를 연결하나. `place`는 그 agent가 놓인 곳이다(project 층은 project place만 있다). `skip`은 agent 정의가
+// 끈 서버 이름이고 `agent`가 있으면 그 층이 대신한다.
+export type McpSourceInput = McpSourceOptions & { agent?: McpAgentLayer };
 
 export type McpToolkitDeps = {
   // machine 자격의 loopback. 사람의 registry(settings/get)를 읽는다.
@@ -39,7 +54,7 @@ export type McpToolkitDeps = {
 };
 
 export type McpKit = {
-  // run마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp 자리다.
+  // run마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
   // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;
@@ -69,7 +84,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   const refresh = new Map<string, Map<string, RefreshState>>();
   // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 판정 근거의
   // configuration_revision도 여기서 온다.
-  const known = new Map<string, Map<string, McpServerConfig>>();
+  const known = new Map<string, Map<string, McpRuntimeServer>>();
 
   const stateOf = (assignment: string, server: string): RefreshState =>
     refresh.get(assignment)?.get(server) ?? "fresh";
@@ -84,17 +99,17 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     refresh.set(assignment, byServer);
   };
 
-  const knownOf = (assignment: string): Map<string, McpServerConfig> => {
+  const knownOf = (assignment: string): Map<string, McpRuntimeServer> => {
     const found = known.get(assignment);
     if (found !== undefined) return found;
-    const made = new Map<string, McpServerConfig>();
+    const made = new Map<string, McpRuntimeServer>();
     known.set(assignment, made);
     return made;
   };
 
   // 사람의 registry에서 등록 서버 설정을 읽는다. 설정이 없으면 기본([])과 같다.
   async function registeredServers(): Promise<
-    Result<readonly McpServerConfig[]>
+    Result<readonly McpRuntimeServer[]>
   > {
     const read = await readOf(deps.machine, settingsGet, {
       keys: [mcpServersSetting.key],
@@ -111,28 +126,40 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         message: "MCP server 설정이 형식을 벗어났다",
       });
     }
-    return ok(shaped.data);
+    return ok(shaped.data.map(runtimeServerOfSetting));
   }
 
-  // 이 자리의 agent가 고를 수 있는 서버다: 전역 서버가 먼저고 그 자리 층의 서버가 이어진다.
-  // 전역과 이름이 겹치는 자리 서버는 쓰지 않는다. 자리 층을 읽지 못하면 그 층이 없는 것과 같다: 전역
-  // 서버만 남긴다(fails closed).
+  // 이 place의 agent가 쓸 수 있는 서버다: 전역에 project 층, agent 정의 층이 차례로 덮인다. 하위 층을 읽지 못하면
+  // 그 층이 없는 것과 같다: 위 층만 남긴다(fails closed).
   async function serversOf(
     place: AgentPlace | null,
-  ): Promise<Result<readonly McpServerConfig[]>> {
+    agent: McpAgentLayer | undefined,
+  ): Promise<Result<readonly McpRuntimeServer[]>> {
     const global = await registeredServers();
-    if (!global.ok || place === null) return global;
-    const own = await readOf(deps.machine, placeExtensionSettingsRead, {
-      place,
-    });
-    if (!own.ok) return global;
-    const taken = new Set(global.value.map((server) => server.name));
-    return ok([
-      ...global.value,
-      ...own.value.settings.mcp_servers.filter((server) =>
-        !taken.has(server.name)
-      ),
-    ]);
+    if (!global.ok) return global;
+    const layers = [{ servers: global.value, off: [] as readonly string[] }];
+    if (place !== null && place.kind === "project") {
+      const own = await readOf(deps.machine, projectExtensionSettingsRead, {
+        project: place.id,
+      });
+      if (own.ok) {
+        layers.push({
+          servers: own.value.mcp_servers.map((server) =>
+            runtimeServerOfLayer(server, place)
+          ),
+          off: own.value.mcp_off,
+        });
+      }
+    }
+    if (agent !== undefined) {
+      layers.push({
+        servers: agent.servers.map((server) =>
+          runtimeServerOfLayer(server, place)
+        ),
+        off: agent.off,
+      });
+    }
+    return ok(mergeMcpLayers(layers));
   }
 
   // 전체 tools/list를 다시 읽는다. 끝나면 fresh, 못 하면 failed다.
@@ -148,7 +175,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // 서버는 failed다(문제 서버는 연결하지 않는 것과 같은 답).
   async function attach(
     assignment: string,
-    server: McpServerConfig,
+    server: McpRuntimeServer,
   ): Promise<boolean> {
     const acquired = await connections.acquire(
       assignment,
@@ -168,8 +195,11 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
 
   function makeToolkit(assignmentId: string): McpToolkit {
     return {
-      async source(assignment: string, options?: McpSourceOptions) {
-        const registered = await serversOf(options?.place ?? null);
+      async source(assignment: string, options?: McpSourceInput) {
+        const registered = await serversOf(
+          options?.place ?? null,
+          options?.agent,
+        );
         if (!registered.ok) return registered;
         const byServer = knownOf(assignment);
         byServer.clear();
@@ -180,7 +210,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         // 재조회가 실패한 서버는 tool 목록에도 없다(옛 정의를 두지 않는다).
         const checked = checkMcpConfig(registered.value);
         if (!checked.ok) return checked;
-        const servers = new Map<string, McpServerConfig>();
+        const servers = new Map<string, McpRuntimeServer>();
         const tools: McpToolEntry[] = [];
         for (const server of checked.value.valid) {
           if (!server.enabled) continue;
@@ -200,20 +230,14 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         return ok({ servers, tools });
       },
 
-      // preset 판의 MCP 선택(서버+현재 tool 정확한 쌍)과 safe 표시를 골라낸다.
-      // 선택이 비어 있으면 null이고 buildMcpTools도 제공도 없다(호출도 없다).
+      // 모델에 내보일 MCP 선택(서버+현재 tool 정확한 쌍)을 골라낸다. 선택이 비어 있으면 null이고
+      // buildMcpTools도 제공도 없다(호출도 없다).
       selection(definition: unknown): McpSelection | null {
         const shape = definition as {
           mcp?: {
             servers: readonly string[];
             tools: readonly { server_name: string; original_tool: string }[];
           } | null;
-          safe_tools?:
-            | readonly {
-              server_name: string;
-              original_tool: string;
-            }[]
-            | null;
         };
         if (
           shape?.mcp === undefined || shape.mcp === null ||
@@ -222,7 +246,6 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         return {
           servers: [...shape.mcp.servers],
           tools: shape.mcp.tools.map((pair) => ({ ...pair })),
-          safe_tools: (shape.safe_tools ?? []).map((pair) => ({ ...pair })),
         };
       },
 
@@ -307,22 +330,6 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
           }
         };
       },
-
-      // 서버의 연결 설정 판이다(판정 근거 mcp_configuration_revision).
-      // 등록 서버이고 재조회가 진행·실패 중이 아니면 revision을 건넨다. 등록
-      // 밖 서버·재조회 중 서버는 undefined다.
-      connectionRevision(
-        definition: ToolDefinition,
-      ): { revision: number } | undefined {
-        // external 정의에서 서버 이름을 떼어 등록 판을 본다. 등록 밖 서버·
-        // 재조회 중 서버는 undefined로 판정이 connection lost다.
-        const name = serverNameOf(definition);
-        if (name === undefined) return undefined;
-        const server = knownOf(assignmentId).get(name);
-        if (server === undefined) return undefined;
-        if (stateOf(assignmentId, name) !== "fresh") return undefined;
-        return { revision: server.revision };
-      },
     };
   }
 
@@ -335,12 +342,4 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     },
   };
   return kit;
-}
-
-// external 정의의 description에서 서버 이름을 뗀다. 정의는
-// `MCP tool <original> of server <server>: ...` 모양이다.
-function serverNameOf(definition: ToolDefinition): string | undefined {
-  const match = /of server ([^:]+):/.exec(definition.description);
-  if (match === null) return undefined;
-  return match[1];
 }

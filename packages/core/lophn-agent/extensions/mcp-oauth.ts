@@ -20,7 +20,7 @@ import {
 } from "./mcp-oauth-vault.ts";
 
 // MCP OAuth를 처음부터 끝까지 잇는다(concern lophn-agent/extensions, requirements #R16, #R17).
-// - 사람이 시작한 로그인(PKCE S256·loopback 반환)을 서버(자리+이름)마다 하나씩 쥐고, 기다림 시한과 취소를 정한다.
+// - 사람이 시작한 로그인(PKCE S256·loopback 반환)을 서버(place+이름)마다 하나씩 쥐고, 기다림 시한과 취소를 정한다.
 // - 받은 token은 vault(OS keychain)에만 보관하고, 설정이 그 보관을 가리키게 쓰는 일은 부르는 쪽이 넘긴 link가 한다.
 // - 연결이 token을 붙일 때 만료가 가까우면 갱신한다. 같은 서버의 갱신은 한 번에 하나다.
 // - 상태는 끝난 세션의 기억이 아니라 진행 중인 시도, 마지막 실패, 지금 설정과 맞는 보관 token에서 읽는다.

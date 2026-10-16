@@ -1,6 +1,7 @@
 // AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentRef로
 // 가리키고 화면에는 key(agent-key.ts)로 나간다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 // 아래는 route가 없어 unavailable로 답하는 것이다.
+// - project 층 model 고르기
 // - project 층 skill 켬·끔, 전역 server를 project 층에서 켬·끔
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
@@ -14,9 +15,9 @@ import type { CoreSource } from "../../desktop/connection/connection.ts";
 import { isAppPlace, keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
 import { readGrants, saveGrants } from "./core-grants.ts";
 import {
+  changeProjectSettings,
   readGlobalModel,
   readInstructions,
-  readProjectServers,
   readServers,
   readSkills,
 } from "./core-extensions.ts";
@@ -564,29 +565,36 @@ export function coreAgentsSource(
         : { ok: false, message: changed.code };
     },
 
-    setSkill: () => Promise.resolve(unavailable),
+    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다.
+    setSkill(project, name, on) {
+      if (isAppPlace(project)) return Promise.resolve(unavailable);
+      return changeProjectSettings(link, project, (current) => ({
+        ...current,
+        skillsOff: on
+          ? current.skillsOff.filter((one) => one !== name)
+          : [...new Set([...current.skillsOff, name])],
+      }));
+    },
 
-    async setMcp(project, name, on) {
-      if (isAppPlace(project)) return unavailable;
-      const current = await readProjectServers(link, project);
-      if (!current.ok) return current;
-      if (!current.value.servers.some((server) => server.name === name)) {
-        return unavailable;
-      }
-      const changed = await link.command(
-        "project-extension-settings",
-        "change",
-        {
-          project,
-          mcp_servers: current.value.servers.map((server) =>
-            server.name === name ? { ...server, enabled: on } : server
-          ),
-        },
-        { hash: current.value.hash },
-      );
-      return changed.ok
-        ? { ok: true, value: null }
-        : { ok: false, message: changed.code };
+    // project 층 server는 enabled를 바꾸고, 전역 server는 이 project에서 끈 이름(mcp_off)에 넣고 뺀다.
+    setMcp(project, name, on) {
+      if (isAppPlace(project)) return Promise.resolve(unavailable);
+      return changeProjectSettings(link, project, (current) => {
+        if (current.servers.some((server) => server.name === name)) {
+          return {
+            ...current,
+            servers: current.servers.map((server) =>
+              server.name === name ? { ...server, enabled: on } : server
+            ),
+          };
+        }
+        return {
+          ...current,
+          mcpOff: on
+            ? current.mcpOff.filter((one) => one !== name)
+            : [...new Set([...current.mcpOff, name])],
+        };
+      });
     },
 
     grants: (project, key) => readGrants(link, project, key),

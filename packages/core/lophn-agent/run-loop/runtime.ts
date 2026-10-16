@@ -48,10 +48,8 @@ import type {
 } from "../../storage/blobs/prepare-relay.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import { agentRuntimeLaunchSpec, readBundledSkillRoots } from "../register.ts";
-import {
-  type McpServerConfig,
-  ROLES,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { ROLES } from "../../../protocol/lophn-agent/mod.ts";
+import type { McpRuntimeServer as McpServerConfig } from "../extensions/mod.ts";
 import { allowNetList, allowRunList } from "../extensions/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { createTurnPipe } from "./turn-pipe.ts";

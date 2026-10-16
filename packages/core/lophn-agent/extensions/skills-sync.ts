@@ -1,21 +1,24 @@
 import type {
-  SkillShadow,
-  SkillSkipped,
-  SkillSummary,
+  Role,
+  SkillEntry as SkillRow,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { SkillSource } from "../../../protocol/lophn-agent/mod.ts";
 import {
+  builtinForRole,
   folderSkipReason,
   joinPath,
+  mergeSkillLayers,
   parseSkillFrontmatter,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
-  type SkillScope,
+  type SkillCandidate,
+  type SkillSkipped,
+  undeclaredBuiltinReason,
 } from "./skills.ts";
 
-// 동기 skill 목록(concern lophn-agent/extensions). agents read와 `/` 메뉴는 동기 handler라 비동기 발견
-// (`discoverSkills`, run 준비가 쓴다)을 기다릴 수 없다. 같은 규칙을 동기 port 위에서 한 번 더 구현하고
-// 두 구현이 같은 목록을 내는지는 시험이 지킨다. 본문 hash·보조 자료는 만들지 않는다: 이 목록은 이름과 설명,
-// 출처만 보이고 run은 시작할 때 비동기 발견으로 다시 고정한다.
+// 동기 skill 목록(concern lophn-agent/extensions). `ReadSkills`와 `/` 메뉴는 동기 handler라 비동기 발견
+// (`discoverSkills`, turn 시작이 쓴다)을 기다릴 수 없다. 같은 층 규칙(`mergeSkillLayers`)을 동기 port 위에서 한 번
+// 더 읽는다. 본문 hash와 딸린 파일은 만들지 않는다. 이 목록은 이름, 설명, 출처, 켜짐만 보인다.
 
 // 폴더·파일을 동기로 보는 눈이다. 없으면 null이고 그 밖의 실패는 던진다. symlink는 따라가지 않는다.
 export type SyncSkillFiles = {
@@ -27,25 +30,20 @@ export type SyncSkillFiles = {
   ): { text: string; complete: boolean } | null;
 };
 
-// 발견 출처다. 자리 층(place)이 먼저고 등록 폴더는 등록 순서 그대로다. null은 그 출처가 없는 것이다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), project 폴더다. null은 그 출처가 없는 것이다.
 export type SkillSources = {
-  place: string | null;
+  bundled: string | null;
   registered: readonly string[];
   personal: string | null;
-  bundled: string | null;
+  project: string | null;
 };
 
 export type SkillListing = {
-  entries: readonly SkillSummary[];
-  shadowed: readonly SkillShadow[];
+  entries: readonly SkillRow[];
   skipped: readonly SkillSkipped[];
 };
 
-type Candidate = { name: string; description: string; scope: SkillScope };
-
-function byName(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
+type Candidate = SkillCandidate & { description: string };
 
 function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   try {
@@ -55,14 +53,16 @@ function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   }
 }
 
+// role이 null이면 내장 skill을 모두 낸다. off는 끈 이름의 합이다.
 export function listSkillsSync(
   files: SyncSkillFiles,
   sources: SkillSources,
+  options: { role: Role | null; off: readonly string[] },
 ): SkillListing {
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
 
-  const addBundle = (bundle: string, scope: SkillScope): void => {
+  const addBundle = (bundle: string, source: SkillSource): void => {
     const manifest = joinPath(bundle, SKILL_MANIFEST);
     const kind = attempt(() => files.kind(manifest));
     // 검사 실패와 manifest 없음은 조용히 건너뛴다: 꾸러미가 아닌 폴더이거나 보관소 오류다.
@@ -100,18 +100,26 @@ export function listSkillsSync(
       skipped.push({ path: manifest, reason: parsed.error });
       return;
     }
+    if (source === "builtin") {
+      const undeclared = undeclaredBuiltinReason(parsed.value.name);
+      if (undeclared !== null) {
+        skipped.push({ path: manifest, reason: undeclared });
+        return;
+      }
+    }
     candidates.push({
       name: parsed.value.name,
       description: parsed.value.description,
-      scope,
+      source,
+      bundle_path: bundle,
     });
   };
 
   // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
-  // 자리·개인·동봉 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
+  // 개인·내장·project 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
   const scanFolder = (
     container: string,
-    scope: SkillScope,
+    source: SkillSource,
     reportMissing: boolean,
   ): void => {
     const folder = attempt(() => files.kind(container));
@@ -137,7 +145,7 @@ export function listSkillsSync(
     }
     const names = (listed.value ?? []).filter((name) => !name.startsWith("."))
       .slice()
-      .sort(byName);
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     for (const name of names) {
       if (name.includes("/") || name.includes("\\")) {
         skipped.push({
@@ -157,40 +165,31 @@ export function listSkillsSync(
         });
         continue;
       }
-      addBundle(bundle, scope);
+      addBundle(bundle, source);
     }
   };
 
-  if (sources.place !== null) scanFolder(sources.place, "place", false);
+  if (sources.bundled !== null) scanFolder(sources.bundled, "builtin", false);
   for (const root of sources.registered) {
     // 등록 폴더 자신이 꾸러미일 수 있다.
-    addBundle(root, "registered");
-    scanFolder(root, "registered", true);
+    addBundle(root, "global");
+    scanFolder(root, "global", true);
   }
-  if (sources.personal !== null) {
-    scanFolder(sources.personal, "personal", false);
-  }
-  if (sources.bundled !== null) scanFolder(sources.bundled, "bundled", false);
+  if (sources.personal !== null) scanFolder(sources.personal, "global", false);
+  if (sources.project !== null) scanFolder(sources.project, "project", false);
 
-  const entries: SkillSummary[] = [];
-  const shadowed: SkillShadow[] = [];
-  const kept = new Map<string, SkillScope>();
-  for (const candidate of candidates) {
-    const winner = kept.get(candidate.name);
-    if (winner !== undefined) {
-      shadowed.push({
-        name: candidate.name,
-        kept: winner,
-        hidden: candidate.scope,
-      });
-      continue;
-    }
-    kept.set(candidate.name, candidate.scope);
-    entries.push({
-      name: candidate.name,
-      description: candidate.description,
-      source_kind: candidate.scope,
-    });
-  }
-  return { entries, shadowed, skipped };
+  const visible = candidates.filter((candidate) =>
+    candidate.source !== "builtin" ||
+    builtinForRole(candidate.name, options.role)
+  );
+  const entries = mergeSkillLayers(visible, options.off, skipped).map((
+    entry,
+  ) => ({
+    name: entry.name,
+    description: entry.description,
+    source: entry.source,
+    enabled: entry.enabled,
+    can_disable: entry.can_disable,
+  }));
+  return { entries, skipped };
 }

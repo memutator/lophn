@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { sha256Hex } from "../../../base/mod.ts";
-import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
+import type { McpRuntimeServer } from "./mcp-server.ts";
 import type {
   SecretDestination,
   SecretSendInput,
@@ -62,6 +62,8 @@ export type McpToolView = {
   description: string | null;
   // JSON Schema 객체다.
   schema: Record<string, unknown>;
+  // 서버가 `annotations.readOnlyHint`를 참으로 알렸다. 효과를 정하는 근거는 이것 하나다.
+  read_only: boolean;
 };
 
 // 검증을 모두 지난 도구 목록이다. tool_list_hash는 목록 내용의 sha256이다.
@@ -73,7 +75,7 @@ export type ToolList = {
 
 export type ConnectionView = {
   owner: OwnerKey;
-  server_revision: number;
+  server_fingerprint: string;
   state: ConnectionState;
   protocol_version: string | null;
   tool_list_hash: string | null;
@@ -98,7 +100,7 @@ export type McpTransport = {
 
 // process·HTTP를 여는 눈이다. runtime이 실제 연결을, 테스트가 가짜를 끼운다.
 export type McpTransportOpener = (
-  server: McpServerConfig,
+  server: McpRuntimeServer,
   signal: AbortSignal,
 ) => Promise<Result<McpTransport>>;
 
@@ -131,7 +133,7 @@ export type McpConnectionsDeps = {
   deadline: DeadlineFn;
   // stdio 연결 열기다. 테스트가 가짜 child를 끼운다.
   openStdio(
-    server: McpServerConfig,
+    server: McpRuntimeServer,
     input: StdioSpawnInput,
     signal: AbortSignal,
   ): Promise<Result<StdioSpawn>>;
@@ -163,7 +165,7 @@ export type McpConnections = {
   // 별도 연결이 생긴다.
   acquire(
     assignment: string,
-    server: McpServerConfig,
+    server: McpRuntimeServer,
     signal: AbortSignal,
   ): Promise<Result<ConnectionView>>;
   // 이 assignment의 도구 목록이다. 검증을 모두 지난 목록만 온다.
@@ -198,7 +200,7 @@ export type McpConnections = {
 
 type Entry = {
   owner: OwnerKey;
-  server: McpServerConfig;
+  server: McpRuntimeServer;
   state: ConnectionState;
   transport: McpTransport | null;
   protocolVersion: string | null;
@@ -284,7 +286,7 @@ export function createMcpConnections(
   function view(entry: Entry): ConnectionView {
     return {
       owner: entry.owner,
-      server_revision: entry.server.revision,
+      server_fingerprint: entry.server.fingerprint,
       state: entry.state,
       protocol_version: entry.protocolVersion,
       tool_list_hash: entry.toolListHash,
@@ -295,7 +297,7 @@ export function createMcpConnections(
 
   // HTTP transport opener다.
   async function openHttp(
-    server: McpServerConfig,
+    server: McpRuntimeServer,
   ): Promise<Result<McpTransport>> {
     if (server.transport !== "http") {
       return err({ code: "invalid_input", message: "http 서버가 아니다" });
@@ -467,7 +469,7 @@ export function createMcpConnections(
 
   // 연결 열기다. stdio는 deps.openStdio로, http는 openHttp로 연다.
   async function openTransport(
-    server: McpServerConfig,
+    server: McpRuntimeServer,
     signal: AbortSignal,
   ): Promise<Result<McpTransport>> {
     if (server.transport === "http") return await openHttp(server);
@@ -698,7 +700,7 @@ export function createMcpConnections(
       // 같은 assignment의 연결이 살아 있으면 같은 연결을 쓴다.
       if (existing !== undefined && existing.state === "connected") {
         // 설정 판이 바뀌면 옛 연결을 쓰지 않는다(domain model).
-        if (existing.server.revision === server.revision) {
+        if (existing.server.fingerprint === server.fingerprint) {
           return ok(view(existing));
         }
         await closeEntry(existing);
@@ -993,6 +995,9 @@ export function createMcpConnections(
               ? record["description"]
               : null,
             schema: record["inputSchema"] as Record<string, unknown>,
+            read_only: (record["annotations"] as
+              | { readOnlyHint?: unknown }
+              | undefined)?.readOnlyHint === true,
           });
         }
         const next = page["nextCursor"];
@@ -1019,6 +1024,7 @@ export function createMcpConnections(
       tool.original,
       tool.description,
       tool.schema,
+      tool.read_only,
     ])));
     entry.toolListHash = hash;
     return ok({ tools, hash, protocol_version: entry.protocolVersion ?? "" });

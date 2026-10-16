@@ -161,6 +161,7 @@ import {
 import {
   allowNetList,
   allowRunList,
+  BUNDLED_SKILLS_ROOT,
   commandSkillsOf,
   createExtensionRegistry,
   createGlobalSkillReads,
@@ -169,7 +170,7 @@ import {
   dataRootOf,
   type ExtensionRegistry,
   listSkillsSync,
-  mcpToolsOf,
+  type McpRuntimeServer,
   type PlaceExtensionDeps,
   type PlaceFiles,
   type SkillSources,
@@ -178,12 +179,8 @@ import {
 import { contextStatusOf } from "../projects/contexts/mod.ts";
 import { createMcpSecretRefSource } from "./extensions/mod.ts";
 
-// 설치 묶음에 동봉된 skill 폴더다. runtime의 skill 발견(packages/core/lophn-agent/extensions/skill-folders.ts)이
-// 같은 위치를 연다. 폴더가 없으면 동봉 skill이 없는 것이라 읽기 허락도 더하지 않는다.
-const BUNDLED_SKILLS_ROOT = new URL("../../../assets/skills", import.meta.url)
-  .pathname;
-
-// 동봉 skill 폴더가 있으면 그 경로만 돌려준다. core graph에는 동기 file API를 두지 않으므로
+// 내장 skill 폴더(extensions/builtin-skills)가 있으면 그 경로만 돌려준다. runtime의 skill 발견
+// (extensions/skill-folders.ts)이 같은 위치를 연다. core graph에는 동기 file API를 두지 않으므로
 // async로 확인하고, 결과를 `agentRuntimeLaunchSpec`의 `bundledSkillRoots`로 넘긴다.
 export async function readBundledSkillRoots(): Promise<string[]> {
   try {
@@ -204,7 +201,7 @@ export function agentRuntimeLaunchSpec(input: {
   socketRoot: string;
   // 등록된 MCP server 설정이다(settings registry의 행). 없으면
   // `--allow-run`은 빈 목록이다(architecture §2.3).
-  mcpServers?: readonly McpServerConfig[];
+  mcpServers?: readonly McpRuntimeServer[];
   // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
   hosts?: readonly string[];
   // 사람이 등록한 skill 폴더다. 읽기 허락에 더하고 등록이 바뀌면 core가 다시 띄운다.
@@ -569,7 +566,7 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
 // 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더.
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
-): Omit<SkillSources, "place"> {
+): Omit<SkillSources, "project"> {
   const root = dataRootOf(sql, undefined);
   return {
     registered: registeredSkillFolders(sql),
@@ -676,12 +673,8 @@ export function agentLookups(
       place === null
         ? globalSkillNames(sql)
         : registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
-    mcp: (place) =>
-      mcpToolsOf(
-        place === null
-          ? registeredMcpServers(sql)
-          : registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
-      ),
+    // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent grant가 정한다.
+    mcp: () => [],
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
   };
@@ -689,9 +682,11 @@ export function agentLookups(
 
 // 전역 층에서 발견하는 skill 이름이다. 전역에서 끈 것은 뺀다.
 function globalSkillNames(sql: Pick<Tx["sql"], "get" | "all">): string[] {
-  const off = registeredSkillsOff(sql);
-  return listSkillsSync(skillFiles, { ...globalSkillSources(sql), place: null })
-    .entries.map((entry) => entry.name).filter((name) => !off.includes(name));
+  return listSkillsSync(
+    skillFiles,
+    { ...globalSkillSources(sql), project: null },
+    { role: null, off: registeredSkillsOff(sql) },
+  ).entries.filter((entry) => entry.enabled).map((entry) => entry.name);
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
@@ -735,11 +730,9 @@ const agentReads = createAgentReads(agentDeps);
 // 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
 const placeExtensionDeps: PlaceExtensionDeps = {
   files: placeFiles,
-  skillFiles,
   lookups: (sql) => ({
     placeExists: (place) => placeExists(sql, place),
     globalServers: () => registeredMcpServers(sql),
-    skillSources: () => globalSkillSources(sql),
   }),
 };
 const placeExtensionCommands = createPlaceExtensionCommands(placeExtensionDeps);

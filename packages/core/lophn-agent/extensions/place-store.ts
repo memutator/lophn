@@ -8,13 +8,11 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 
-// 자리(project·app) 층의 저장 위치와 파일 모양(concern lophn-agent/extensions, domain model
-// PlaceExtensionSettings). 자리 폴더 `<data root>/{projects,apps}/<id>/`는 agent 정의와
-// 같지만 `agents/`와 따로 둔다: skill 꾸러미는 `skills/`에, MCP 서버 목록은 `mcp-servers.json` 한 파일에 둔다.
-// 파일 IO는 port로 받는다.
+// 옛 place(project·app) 층의 저장 위치와 파일 모양이다. register.ts가 옛 `ReadPlaceExtensionSettings`·
+// `ChangePlaceExtensionSettings` handler를 내리면 이 file에서 PlaceFiles, ReadSql, dataRootOf, fileHash만 남기고 지운다.
+// 새 project 층은 project-settings.ts다. 파일 IO는 port로 받는다.
 
 export const PLACE_MCP_FILE = "mcp-servers.json";
-export const PLACE_SKILLS_DIR = "skills";
 
 // 한 파일의 읽기와 원자 쓰기다. 없는 파일 읽기는 null이고 그 밖의 IO 실패는 던진다.
 export type PlaceFiles = {
@@ -28,10 +26,6 @@ export function placeFolderOf(root: string, place: AgentPlace): string {
   return `${root}/${
     place.kind === "project" ? "projects" : "apps"
   }/${place.id}`;
-}
-
-export function placeSkillsOf(root: string, place: AgentPlace): string {
-  return `${placeFolderOf(root, place)}/${PLACE_SKILLS_DIR}`;
 }
 
 export function placeMcpPathOf(root: string, place: AgentPlace): string {

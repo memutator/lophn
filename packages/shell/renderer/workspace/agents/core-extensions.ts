@@ -70,30 +70,64 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpRow[]>> {
   };
 }
 
-export interface ProjectServers {
+export interface ProjectSettings {
   readonly servers: readonly McpServer[];
+  readonly skillsOff: readonly string[];
+  readonly mcpOff: readonly string[];
   readonly hash: string | null;
 }
 
-export async function readProjectServers(
+export async function readProjectSettings(
   link: Link,
   project: string,
-): Promise<ReadResult<ProjectServers>> {
-  return await link.read<{ mcp_servers: McpServer[]; hash: string | null }>(
-    "project-extension-settings",
-    "read",
-    { project },
-  ).then((result) =>
+): Promise<ReadResult<ProjectSettings>> {
+  return await link.read<{
+    mcp_servers: McpServer[];
+    skills_off: string[];
+    mcp_off: string[];
+    hash: string | null;
+  }>("project-extension-settings", "read", { project }).then((result) =>
     result.ok
       ? {
         ok: true as const,
-        value: { servers: result.value.mcp_servers, hash: result.value.hash },
+        value: {
+          servers: result.value.mcp_servers,
+          skillsOff: result.value.skills_off,
+          mcpOff: result.value.mcp_off,
+          hash: result.value.hash,
+        },
       }
       : result
   );
 }
 
-/** 이 자리에서 보이는 MCP server: 전역과 project 층. */
+/** project 층 설정을 읽어 edit로 고친 새 내용 전체를 쓴다. 읽은 뒤 바뀌었으면 conflict로 거절된다. */
+export async function changeProjectSettings(
+  link: Link,
+  project: string,
+  edit: (current: ProjectSettings) => Omit<ProjectSettings, "hash"> | null,
+): Promise<ReadResult<null>> {
+  const current = await readProjectSettings(link, project);
+  if (!current.ok) return current;
+  const next = edit(current.value);
+  if (next === null) return { ok: false, message: "unavailable" };
+  const changed = await link.command(
+    "project-extension-settings",
+    "change",
+    {
+      project,
+      mcp_servers: next.servers,
+      skills_off: next.skillsOff,
+      mcp_off: next.mcpOff,
+    },
+    { hash: current.value.hash },
+  );
+  return changed.ok
+    ? { ok: true, value: null }
+    : { ok: false, message: changed.code };
+}
+
+/** 이 자리에서 보이는 MCP server: 전역과 project 층. 전역 server를 project에서 끈 것은 꺼진 것으로 보인다. */
 export async function readServers(
   link: Link,
   place: string | null,
@@ -101,12 +135,18 @@ export async function readServers(
   const global = await readGlobalServers(link);
   if (!global.ok) return global;
   if (place === null || isAppPlace(place)) return global;
-  const project = await readProjectServers(link, place);
+  const project = await readProjectSettings(link, place);
   if (!project.ok) return project;
+  const overridden = new Set(project.value.servers.map((one) => one.name));
   return {
     ok: true,
     value: [
-      ...global.value,
+      ...global.value.filter((row) => !overridden.has(row.name)).map((
+        row,
+      ) => ({
+        ...row,
+        on: row.on && !project.value.mcpOff.includes(row.name),
+      })),
       ...project.value.servers.map((server): McpRow => ({
         name: server.name,
         detail: detailOf(server),

@@ -1,22 +1,24 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { sha256Hex } from "../../../base/mod.ts";
-import type { Clock } from "../../../base/mod.ts";
+import {
+  BUILTIN_SKILLS,
+  type Role,
+  type SkillEntry as SkillRow,
+  type SkillSource,
+} from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견·검증·선택(concern lophn-agent/extensions). 파일 IO는 FilesPort로
-// 끼운다. 이 모듈은 사람의 실제 home·app 소스·다른 harness 보관소를 열지 않는다:
-// 부르는 쪽이 발견 root·개인 보관소·동봉 폴더를 정해서 준다. 테스트는
-// temp dir만 쓴다. 발견 cache는 없다: run 경계마다 다시 스캔해서 RunBasis에
-// 고정할 content hash를 만든다.
+// skill 발견, 검증, 층 합치기(concern lophn-agent/extensions). 층은 내장, 전역(등록 폴더와 개인 보관소), project
+// 셋이고 같은 이름은 마지막 층이 덮는다. 다만 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
+// 끄기는 이름 단위다. 파일 IO는 SkillFilesPort로 끼운다. 이 모듈은 사람의 실제 home이나 다른 harness 보관소를
+// 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다. turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
-// 폴더·파일을 보는 눈이다. runtime은 실제 폴더 port를, 테스트는 temp dir
-// port를 끼운다. 사람의 실제 home을 이 모듈이 직접 읽지 않는다.
+// 폴더·파일을 보는 눈이다. runtime은 실제 폴더 port를, 테스트는 temp dir port를 끼운다.
 export type SkillFilesPort = {
   // 폴더의 바로 아래 이름이다. 폴더가 없으면 null이다.
   list(dir: string): Promise<Result<readonly string[] | null>>;
   // 경로 종류이다. 없으면 null이다. symlink는 따라가지 않는다.
   kind(path: string): Promise<Result<"file" | "dir" | "symlink" | null>>;
-  // UTF-8 텍스트를 max_bytes 안에서 읽는다. 없으면 null이고, 상한을 넘으면
-  // complete false다. 부분 성공 없이 실패를 판단하려면 complete가 필요하다.
+  // UTF-8 텍스트를 max_bytes 안에서 읽는다. 없으면 null이고, 상한을 넘으면 complete false다.
   read(
     path: string,
     max_bytes: number,
@@ -25,8 +27,6 @@ export type SkillFilesPort = {
   executable(path: string): Promise<Result<boolean | null>>;
 };
 
-export type SkillScope = "place" | "registered" | "personal" | "bundled";
-
 export type SkillSupplemental = {
   title: string;
   // bundle 폴더 안의 상대 경로다. `..`·절대 경로는 발견에서 제외한다.
@@ -34,43 +34,24 @@ export type SkillSupplemental = {
   hash: string;
 };
 
-export type SkillEntry = {
-  name: string;
-  description: string;
-  // SKILL.md 원문의 sha256이다. run 시작에 RunBasis로 고정한다.
+// 층을 합친 skill 하나다. 앞 다섯 칸은 `ReadSkills`가 내는 것과 같다.
+export type SkillEntry = SkillRow & {
+  // SKILL.md 원문의 sha256이다.
   content_hash: string;
-  source_kind: SkillScope;
-  // registered root의 등록 순번이다. personal·bundled에는 없다.
-  folder_order: number | null;
-  // platform이 읽는 절대 위치다. agent prompt에는 나가지 않는다.
+  // 읽는 쪽만 쓰는 절대 위치다. prompt에는 나가지 않는다.
   bundle_path: string;
   supplemental: readonly SkillSupplemental[];
-  // 발견 목록과 preset의 정확한 이름 선택의 교집합이다.
-  selected: boolean;
-  discovered_at: string;
 };
 
-// 사람에게 알릴 제외 진단이다. bundle_path처럼 진단은 사람용이고
-// agent prompt에는 나가지 않는다.
+// 형식이 틀려 제외한 꾸러미와 이유다. 사람에게 알리는 진단이고 prompt에는 나가지 않는다.
 export type SkillSkipped = {
   path: string;
   reason: string;
 };
 
-// 같은 이름으로 밀려난 발견이다. 먼저 발견한 것 하나만 남는다.
-export type SkillShadowing = {
-  name: string;
-  kept_bundle: string;
-  dropped_bundle: string;
-};
-
-export type SkillDiscovery = {
-  entries: readonly SkillEntry[];
-  skipped: readonly SkillSkipped[];
-  shadowing: readonly SkillShadowing[];
-  // preset이 골랐지만 발견하지 못한 이름이다.
-  missing: readonly string[];
-};
+// 내장 skill 폴더다. 설치 묶음에 함께 간다. `register.ts`가 같은 값으로 읽기 허락을 건다.
+export const BUNDLED_SKILLS_ROOT = new URL("./builtin-skills", import.meta.url)
+  .pathname;
 
 // 형식 상한이다.
 export const SKILL_NAME_MAX = 64;
@@ -190,185 +171,168 @@ function scalarReasonOrValue(raw: string): string | { value: string } {
   return { value };
 }
 
-type Candidate = {
+// ---- 층 합치기 ----
+
+export type SkillCandidate = {
   name: string;
-  description: string;
-  hash: string;
-  scope: SkillScope;
-  folder_order: number | null;
+  source: SkillSource;
   bundle_path: string;
+};
+
+function declaredBuiltin(name: string) {
+  return BUILTIN_SKILLS.find((builtin) => builtin.name === name);
+}
+
+// 내장 폴더에 있어도 선언되지 않은 이름은 내장 skill이 아니다.
+export function undeclaredBuiltinReason(name: string): string | null {
+  return declaredBuiltin(name) === undefined
+    ? "built-in skill is not declared"
+    : null;
+}
+
+// 내장 skill은 선언한 role의 agent만 갖는다. role이 null이면 모두 본다(사람 화면의 목록).
+export function builtinForRole(name: string, role: Role | null): boolean {
+  const builtin = declaredBuiltin(name);
+  return builtin !== undefined && (role === null || builtin.role === role);
+}
+
+// 층 순서(내장, 전역, project)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮고, 끌 수 없는 내장 skill은
+// 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
+// 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이다.
+export function mergeSkillLayers<T extends SkillCandidate>(
+  candidates: readonly T[],
+  off: readonly string[],
+  skipped: SkillSkipped[],
+  // 내장 skill을 끌 수 있는지다. 기본은 선언(BUILTIN_SKILLS)이 말한다.
+  builtinCanDisable: (name: string) => boolean = (name) =>
+    declaredBuiltin(name)?.can_disable !== false,
+): (T & { enabled: boolean; can_disable: boolean })[] {
+  const canDisable = (candidate: SkillCandidate): boolean =>
+    candidate.source !== "builtin" || builtinCanDisable(candidate.name);
+  const byName = new Map<string, T>();
+  for (const candidate of candidates) {
+    const kept = byName.get(candidate.name);
+    if (
+      kept !== undefined && kept.source === "builtin" &&
+      !canDisable(kept)
+    ) {
+      skipped.push({
+        path: candidate.bundle_path,
+        reason:
+          "a built-in skill that cannot be turned off has this name, so it stays",
+      });
+      continue;
+    }
+    byName.set(candidate.name, candidate);
+  }
+  const offNames = new Set(off);
+  return [...byName.values()]
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .map((candidate) => {
+      const disable = canDisable(candidate);
+      return {
+        ...candidate,
+        can_disable: disable,
+        enabled: !disable || !offNames.has(candidate.name),
+      };
+    });
+}
+
+// ---- 발견 ----
+
+type Candidate = SkillCandidate & {
+  description: string;
+  content_hash: string;
   supplemental: readonly SkillSupplemental[];
 };
 
 export type SkillDiscoveryInput = {
   port: SkillFilesPort;
-  clock: Clock;
-  // 그 agent 자리(project·app)의 skill 폴더다. 가장 먼저 찾고 폴더 자신은 꾸러미가 아니라
-  // 꾸러미를 담는 폴더다. 없으면 null이다.
-  place_store?: string | null;
-  // 등록 root는 사람이 정한 등록 순서 그대로다.
+  // 내장 skill 폴더다. 없으면 null이다.
+  builtin_root: string | null;
+  // 전역 층: 등록 폴더는 사람이 정한 순서 그대로, 개인 보관소는 그 뒤다. 없으면 null이다.
   registered_roots: readonly string[];
-  // 개인 skill 보관소 폴더다. 없으면 null이다.
   personal_store: string | null;
-  // 동봉 skill 폴더다(설치 bundle의 assets/skills). 없으면 null이다.
-  bundled_root: string | null;
-  // manifest·보조 파일 읽기 상한이다.
+  // project 층: 그 project의 skill 폴더다. project에 놓이지 않은 agent는 null이다.
+  project_store: string | null;
+  // 내장 skill을 이 role의 것만 남긴다. null이면 모두 남긴다.
+  role: Role | null;
+  // 끈 이름: 전역, project, agent 정의가 끈 것의 합이다.
+  off: readonly string[];
+  // manifest와 딸린 파일 읽기 상한이다.
   max_file_bytes: number;
-  // preset이 고른 정확한 skill 이름이다. null은 아직 고정이 아니고
-  // 빈 목록은 0개다.
-  selection: readonly string[] | null;
 };
 
-// 발견은 run 경계에서만 한다. 자리→등록 root 순서→개인→동봉 순서로 폴더 자신과
-// 바로 아래 skill 꾸러미만 본다. 같은 이름은 먼저 발견한 것을 남기고,
-// selection은 정확한 이름 목록의 교집합이다.
+export type SkillDiscovery = {
+  entries: readonly SkillEntry[];
+  skipped: readonly SkillSkipped[];
+};
+
+// 발견은 turn 경계에서만 한다. 내장, 등록 폴더, 개인 보관소, project 순서로 폴더 자신과 바로 아래 꾸러미만 본다.
 export async function discoverSkills(
   input: SkillDiscoveryInput,
 ): Promise<Result<SkillDiscovery>> {
-  const selectionCheck = checkSelectionInput(input.selection);
-  if (!selectionCheck.ok) return selectionCheck;
-  const candidates: Candidate[] = [];
-  const skipped: SkillSkipped[] = [];
-  const listed: string[] = [];
-  if (input.place_store !== undefined && input.place_store !== null) {
-    await scanFoldersOnly(
-      input,
-      candidates,
-      skipped,
-      listed,
-      input.place_store,
-      "place",
-      null,
-    );
-  }
-  for (const [order, root] of input.registered_roots.entries()) {
-    await scanRoot(
-      input,
-      candidates,
-      skipped,
-      listed,
-      root,
-      "registered",
-      order,
-    );
-  }
-  if (input.personal_store !== null) {
-    await scanFoldersOnly(
-      input,
-      candidates,
-      skipped,
-      listed,
-      input.personal_store,
-      "personal",
-      null,
-    );
-  }
-  if (input.bundled_root !== null) {
-    await scanFoldersOnly(
-      input,
-      candidates,
-      skipped,
-      listed,
-      input.bundled_root,
-      "bundled",
-      null,
-    );
-  }
-  const entries: SkillEntry[] = [];
-  const shadowing: SkillShadowing[] = [];
-  const seen = new Map<string, SkillEntry>();
-  for (const candidate of candidates) {
-    const kept = seen.get(candidate.name);
-    if (kept !== undefined) {
-      shadowing.push({
-        name: candidate.name,
-        kept_bundle: kept.bundle_path,
-        dropped_bundle: candidate.bundle_path,
-      });
-      continue;
-    }
-    const entry: SkillEntry = {
-      name: candidate.name,
-      description: candidate.description,
-      content_hash: candidate.hash,
-      source_kind: candidate.scope,
-      folder_order: candidate.folder_order,
-      bundle_path: candidate.bundle_path,
-      supplemental: candidate.supplemental,
-      selected: false,
-      discovered_at: input.clock.now(),
-    };
-    seen.set(candidate.name, entry);
-    entries.push(entry);
-  }
-  const missing: string[] = [];
-  if (input.selection !== null) {
-    for (const name of input.selection) {
-      if (!seen.has(name)) missing.push(name);
-    }
-    for (const entry of entries) {
-      entry.selected = input.selection.includes(entry.name);
-    }
-  }
-  return ok({ entries, skipped, shadowing, missing });
-}
-
-// 선택 목록 자체의 거절이다. 정확한 이름 형식만 받고 중복과 전체 선택
-// 표식은 거절이다. 발견 밖 이름은 거절이 아니라 누락 알림이다.
-function checkSelectionInput(
-  selection: readonly string[] | null,
-): Result<void> {
-  if (selection === null) return ok(undefined);
-  const seen = new Set<string>();
-  for (const name of selection) {
+  for (const name of input.off) {
     const reason = skillNameReason(name);
     if (reason !== null) {
       return err({ code: "invalid_input", message: reason });
     }
-    if (seen.has(name)) {
-      return err({
-        code: "invalid_input",
-        message: "skill selection has a duplicate name",
-      });
-    }
-    seen.add(name);
   }
-  return ok(undefined);
+  const candidates: Candidate[] = [];
+  const skipped: SkillSkipped[] = [];
+  if (input.builtin_root !== null) {
+    await scanFolders(
+      input,
+      candidates,
+      skipped,
+      input.builtin_root,
+      "builtin",
+    );
+  }
+  for (const root of input.registered_roots) {
+    // 등록 폴더 자신이 꾸러미일 수 있다.
+    await addBundle(input, candidates, skipped, root, "global");
+    await scanFolders(input, candidates, skipped, root, "global");
+  }
+  if (input.personal_store !== null) {
+    await scanFolders(
+      input,
+      candidates,
+      skipped,
+      input.personal_store,
+      "global",
+    );
+  }
+  if (input.project_store !== null) {
+    await scanFolders(
+      input,
+      candidates,
+      skipped,
+      input.project_store,
+      "project",
+    );
+  }
+  const visible = candidates.filter((candidate) =>
+    candidate.source !== "builtin" ||
+    builtinForRole(candidate.name, input.role)
+  );
+  return ok({
+    entries: mergeSkillLayers(visible, input.off, skipped),
+    skipped,
+  });
 }
 
-// preset 저장 검사다. 정확한 이름만 받는다: 형식이 맞지 않는 이름·중복·
-// 전체 선택 표식은 거절이고 발견 목록에 없는 이름도 거절이다(사람이 로컬
-// 꾸러미를 준비해 등록한 뒤에만 목록에 온다).
-export function validateSkillSelection(
-  discovered: readonly { readonly name: string }[],
-  selection: readonly string[],
-): Result<void> {
-  const checked = checkSelectionInput(selection);
-  if (!checked.ok) return checked;
-  const names = new Set(discovered.map((entry) => entry.name));
-  for (const name of selection) {
-    if (!names.has(name)) {
-      return err({
-        code: "invalid_input",
-        message: "skill selection has a name that is not discovered",
-      });
-    }
-  }
-  return ok(undefined);
-}
-
-// prompt에 나가는 skill 절이다. 이름과 설명만 이름 사전순이다. 본문·보조
-// 자료·bundle 경로·설치 명령·로컬 주소는 나가지 않는다.
+// prompt에 나가는 skill 목록의 재료다. 켜진 skill의 이름과 설명만 이름 사전순이다. 본문과 경로는 나가지 않는다.
 export function skillPromptSection(
-  entries: readonly SkillEntry[],
+  entries: readonly { name: string; description: string; enabled: boolean }[],
 ): readonly { name: string; description: string }[] {
   return entries
-    .filter((entry) => entry.selected)
+    .filter((entry) => entry.enabled)
     .map((entry) => ({ name: entry.name, description: entry.description }))
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
-// 폴더 경로를 붙인다. Windows drive root는 `\`를 쓴다(epresentation만, 읽기는
+// 폴더 경로를 붙인다. Windows drive root는 `\`를 쓴다(표기만, 읽기는
 // port가 한다).
 export function joinPath(dir: string, name: string): string {
   if (dir.endsWith("/") || dir.endsWith("\\")) return `${dir}${name}`;
@@ -376,30 +340,13 @@ export function joinPath(dir: string, name: string): string {
   return `${dir}${separator}${name}`;
 }
 
-async function scanRoot(
+// 폴더의 바로 아래 skill 꾸러미를 사전순으로 본다. 아직 없는 폴더도 알린다.
+async function scanFolders(
   input: SkillDiscoveryInput,
   candidates: Candidate[],
   skipped: SkillSkipped[],
-  listed: string[],
-  root: string,
-  scope: SkillScope,
-  order: number,
-): Promise<void> {
-  // root 자신이 skill 꾸러미일 수 있다(폴더 자체).
-  await addBundle(input, candidates, skipped, root, scope, order);
-  await scanFoldersOnly(input, candidates, skipped, listed, root, scope, order);
-}
-
-// root의 바로 아래 skill 꾸러미를 사전순으로 본다. 폴더 이름은 그
-// 범위 안의 순서 key다.
-async function scanFoldersOnly(
-  input: SkillDiscoveryInput,
-  candidates: Candidate[],
-  skipped: SkillSkipped[],
-  listed: string[],
   container: string,
-  scope: SkillScope,
-  order: number | null,
+  source: SkillSource,
 ): Promise<void> {
   const folder = await input.port.kind(container);
   if (!folder.ok || folder.value !== "dir") {
@@ -421,7 +368,6 @@ async function scanFoldersOnly(
     });
     return;
   }
-  if (contents.value !== null) listed.push(container);
   const names = (contents.value ?? []).filter((name) => !name.startsWith("."))
     .slice()
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
@@ -447,7 +393,7 @@ async function scanFoldersOnly(
       });
       continue;
     }
-    await addBundle(input, candidates, skipped, bundle, scope, order);
+    await addBundle(input, candidates, skipped, bundle, source);
   }
 }
 
@@ -464,15 +410,13 @@ export function folderSkipReason(
   }
 }
 
-// 한 skill 꾸러미를 읽는다. manifest가 없거나 잘못된 형식은 이유와
-// 함께 제외하고 고치지 않는다.
+// 한 skill 꾸러미를 읽는다. manifest가 없거나 잘못된 형식은 이유와 함께 제외하고 고치지 않는다.
 async function addBundle(
   input: SkillDiscoveryInput,
   candidates: Candidate[],
   skipped: SkillSkipped[],
   bundle: string,
-  scope: SkillScope,
-  order: number | null,
+  source: SkillSource,
 ): Promise<void> {
   const manifest = joinPath(bundle, SKILL_MANIFEST);
   const kind = await input.port.kind(manifest);
@@ -513,12 +457,18 @@ async function addBundle(
     return;
   }
   const supplemental = await scanSupplemental(input, skipped, bundle);
+  if (source === "builtin") {
+    const undeclared = undeclaredBuiltinReason(parsed.value.name);
+    if (undeclared !== null) {
+      skipped.push({ path: manifest, reason: undeclared });
+      return;
+    }
+  }
   candidates.push({
     name: parsed.value.name,
     description: parsed.value.description,
-    hash: await sha256Hex(file.text),
-    scope,
-    folder_order: order,
+    source,
+    content_hash: await sha256Hex(file.text),
     bundle_path: bundle,
     supplemental,
   });

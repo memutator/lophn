@@ -3,8 +3,8 @@ import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretPurpose } from "../../../protocol/secrets/mod.ts";
 
 // MCP OAuth token 보관(concern lophn-agent/extensions, requirements #R16, #R17).
-// 접근·갱신 token은 OS keychain에만 있고 ledger·설정·log에는 참조와 만료·묶음 정보만 있다. 서버(자리+이름)마다
-// 한 벌이고, 같은 이름의 서버도 자리가 다르면 따로다. 벌마다 발급자·서버 URL·client를 함께 적어 두어(binding)
+// 접근·갱신 token은 OS keychain에만 있고 ledger·설정·log에는 참조와 만료·묶음 정보만 있다. 서버(place+이름)마다
+// 한 벌이고, 같은 이름의 서버도 place가 다르면 따로다. 벌마다 발급자·서버 URL·client를 함께 적어 두어(binding)
 // 그 조합이 바뀌면 옛 token을 쓰지 않을 수 있게 한다. 평문 파일·환경 변수 fallback은 없다.
 //
 // 값마다 따로 keychain 항목이다: core의 알려진 값 registry가 값 전체를 한 줄로 지우기 때문에 접근 token과 갱신
@@ -12,20 +12,20 @@ import type { SecretPurpose } from "../../../protocol/secrets/mod.ts";
 // 회수한다(secret-store의 이름별 참조 비교). 현재 벌이 어느 참조인지는 서버마다 고정 참조 하나인 meta 항목이
 // 가진다(값 없음).
 
-// 한 서버의 식별이다. 전역(Workspace) 서버는 자리가 null이다.
+// 한 서버의 식별이다. 전역(Workspace) 서버는 place가 null이다.
 export type McpAuthKey = { place: AgentPlace | null; name: string };
 
 function scopeOf(place: AgentPlace | null): string {
   return place === null ? "global" : place.id;
 }
 
-// 서버 하나를 가리키는 문자열이다(작업 메모리의 열쇠). 자리가 다르면 같은 이름도 다르다.
+// 서버 하나를 가리키는 문자열이다(작업 메모리의 열쇠). place가 다르면 같은 이름도 다르다.
 export function mcpAuthKeyId(key: McpAuthKey): string {
   return `${scopeOf(key.place)}\0${key.name}`;
 }
 
-// 설정의 `token_ref`가 가리키는 참조다. 서버 이름과 자리에서 정해진다: 같은 이름의 서버도 자리가 다르면
-// 다른 참조라서 다른 자리의 설정을 손으로 맞춰도 그 서버의 token을 가리킬 수 없다.
+// 설정의 `token_ref`가 가리키는 참조다. 서버 이름과 place에서 정해진다: 같은 이름의 서버도 place가 다르면
+// 다른 참조라서 다른 place의 설정을 손으로 맞춰도 그 서버의 token을 가리킬 수 없다.
 export function mcpTokenRef(key: McpAuthKey): string {
   return `sec:mcp-oauth:${scopeOf(key.place)}:${key.name}`;
 }

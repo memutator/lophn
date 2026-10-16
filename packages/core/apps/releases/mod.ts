@@ -72,7 +72,6 @@ export {
   asksFor,
   type ComparedRelease,
   compareForActivation,
-  compareReleases,
 } from "./compare.ts";
 export {
   canonicalInputHashSync,

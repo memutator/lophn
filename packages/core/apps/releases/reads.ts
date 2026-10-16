@@ -1,4 +1,4 @@
-// releases.list·get·compare(옛 읽기), releases.list_records·get_record, activations.compare·queue.
+// releases.list_records·get_record, activations.compare·queue.
 // 불변 Release를 준비 순서로 읽고, 이전 release와의 비교를 고정 blueprint 둘로 만든다.
 // 범위 밖 앱의 release는 없는 것과 같다.
 import { z } from "zod";
@@ -8,10 +8,7 @@ import {
   activationsCompare,
   activationsQueue,
   type ReleaseRecord,
-  releasesCompare,
-  releasesGet,
   releasesGetRecord,
-  releasesList,
   releasesListRecords,
 } from "../../../protocol/apps/mod.ts";
 import type {
@@ -22,7 +19,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { loadGrants } from "../permissions/mod.ts";
-import { compareForActivation, compareReleases } from "./compare.ts";
+import { compareForActivation } from "./compare.ts";
 import {
   loadActiveRelease,
   loadRelease,
@@ -170,25 +167,11 @@ function getRecord(
 }
 
 export function createReleaseReads(): {
-  list: ReadDefinition<typeof releasesList>;
-  get: ReadDefinition<typeof releasesGet>;
-  compare: ReadDefinition<typeof releasesCompare>;
   listRecords: ReadDefinition<typeof releasesListRecords>;
   getRecord: ReadDefinition<typeof releasesGetRecord>;
   activationCompare: ReadDefinition<typeof activationsCompare>;
 } {
   return {
-    // 옛 읽기. 새 모양의 record를 그대로 낸다. 쓰는 곳이 `list_records`·`get_record`로 옮겨 가면 지운다.
-    list: {
-      route: releasesList,
-      handle: (snapshot, ctx, input) =>
-        listRecords(snapshot, ctx, releasesList.name, input) as never,
-    },
-    get: {
-      route: releasesGet,
-      handle: (snapshot, ctx, input) =>
-        getRecord(snapshot, ctx, releasesGet.name, input.release) as never,
-    },
     listRecords: {
       route: releasesListRecords,
       handle: (snapshot, ctx, input) =>
@@ -237,62 +220,6 @@ export function createReleaseReads(): {
             grants: grants.value,
             declarations,
             next: { data_changes: release.data_changes },
-          }),
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      },
-    },
-    compare: {
-      route: releasesCompare,
-      handle(snapshot, ctx, input) {
-        const stored = loadStoredBlueprint(snapshot.sql, input.release);
-        if (!stored.ok) return stored;
-        if (stored.value === null) return notFound();
-        const { release, blueprint } = stored.value;
-        const allowed = visible(
-          snapshot,
-          ctx,
-          releasesCompare.name,
-          release.app,
-        );
-        if (!allowed.ok) return allowed;
-        if (!allowed.value) return notFound();
-        // 비교 대상: 명시한 같은 앱 release, 없으면 이 release 앞의 채택 참조다.
-        let previousId: string | null;
-        if (input.previous_release !== undefined) {
-          previousId = input.previous_release;
-        } else if (release.status === "active") {
-          previousId = release.activation?.previous_release ?? null;
-        } else {
-          const active = snapshot.sql.get(
-            "SELECT id FROM releases WHERE app = ? AND status = 'active'",
-            [release.app],
-          );
-          previousId = active === undefined ? null : String(active.id);
-        }
-        let previous = null;
-        if (previousId !== null) {
-          const found = loadStoredBlueprint(snapshot.sql, previousId);
-          if (!found.ok) return found;
-          // 다른 앱의 release는 없는 것과 같다.
-          if (found.value === null || found.value.release.app !== release.app) {
-            return notFound();
-          }
-          previous = {
-            id: found.value.release.id,
-            blueprint: found.value.blueprint,
-            data_schema: found.value.release.data_schema,
-          };
-        }
-        return ok({
-          comparison: compareReleases({
-            previous: previous === null || previous.id === release.id
-              ? null
-              : previous,
-            blueprint,
-            data_schema: release.data_schema,
-            data_changes: release.data_changes,
           }),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

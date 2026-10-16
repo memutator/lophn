@@ -44,4 +44,3 @@ export const confirmationHandleRegisteredSchema = z.strictObject({
   confirmation: confirmationRefSchema,
   expires_at: atSchema,
 });
-

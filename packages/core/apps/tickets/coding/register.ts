@@ -49,4 +49,3 @@ const codingDefinitions = {
 export function createCoreRegistration() {
   return codingDefinitions;
 }
-

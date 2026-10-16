@@ -136,5 +136,4 @@ export async function sealBundle(
   return ok(undefined);
 }
 
-
 // 사본이 정말 0444·0555인지 재귀로 본다.

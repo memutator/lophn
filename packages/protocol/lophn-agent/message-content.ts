@@ -80,7 +80,6 @@ const textPartInput = z.strictObject({
   text: z.string(),
 });
 
-
 // 사람 메시지는 글과 composer chip(attached)을 받는다.
 export const userMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),

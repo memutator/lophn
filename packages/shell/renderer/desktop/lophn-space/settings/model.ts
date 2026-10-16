@@ -144,4 +144,3 @@ export function valueText(value: unknown, resolved: boolean): string {
   }
   return t("settings.label.value-not-set");
 }
-

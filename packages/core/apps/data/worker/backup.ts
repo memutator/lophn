@@ -95,4 +95,3 @@ export async function retainAppBackups(
   const retained = names.filter((name) => keep.has(name));
   return ok(retained.filter((name) => !removed.includes(name)));
 }
-

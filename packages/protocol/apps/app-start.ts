@@ -43,4 +43,3 @@ export const appStartInputSchema = z.strictObject(startFields).refine(
 );
 
 // 한 줄 JSON. 줄바꿈이 들어간 값은 시작 입력이 아니다.
-

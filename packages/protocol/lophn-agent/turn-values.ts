@@ -94,7 +94,6 @@ export type TurnElapsed = z.infer<typeof turnElapsedSchema>;
 const TURN_STATES = ["running", "finished"] as const;
 export const turnStateSchema = z.enum(TURN_STATES);
 
-
 // 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
 
 export const turnRecordSchema = z.object({

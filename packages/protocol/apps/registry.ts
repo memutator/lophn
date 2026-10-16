@@ -73,4 +73,3 @@ export const ROUTES = [
   ...PREVIEW_ROUTES,
   ...RELEASE_ROUTES,
 ] as const;
-

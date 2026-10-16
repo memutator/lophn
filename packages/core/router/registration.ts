@@ -12,3 +12,6 @@ export function createRouterRegistration() {
 }
 
 // reader Worker가 read만 다시 조립한다.
+export function createRouterReaderRegistration() {
+  return { reads: [...ROUTER_READS], ports: new Map() };
+}

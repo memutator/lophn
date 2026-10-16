@@ -1,5 +1,8 @@
 export { createRouter, type Router, type RouterDeps } from "./router.ts";
-export { createRouterRegistration } from "./registration.ts";
+export {
+  createRouterReaderRegistration,
+  createRouterRegistration,
+} from "./registration.ts";
 export {
   failReceivedCalls,
   installRouterEnvironment,

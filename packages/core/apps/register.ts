@@ -65,7 +65,10 @@ import { createDataRecordStore } from "./data/store.ts";
 import { packagesGuideBody } from "../../protocol/apps/mod.ts";
 import { SecretAllowance } from "../../protocol/secrets/mod.ts";
 import type { WorkerRoute } from "../../protocol/base/mod.ts";
-import type { TxPortRegistration } from "../storage/ledger/mod.ts";
+import type {
+  ReaderRegistration,
+  TxPortRegistration,
+} from "../storage/ledger/mod.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -247,3 +250,39 @@ export function createLedgerRegistration(
 }
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.
+export function createReaderRegistration(): ReaderRegistration {
+  const reads = createAppsReads();
+  const invocations = createInvocationsReads();
+  const sdkReads = createSdkReads();
+  const runtimeReads = createRuntimeReads();
+  const grantReads = createGrantsReads();
+  const releaseReads = createReleaseReads();
+  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
+  return {
+    reads: [
+      reads.list,
+      reads.get,
+      blueprintReads.appApi,
+      releaseReads.listRecords,
+      releaseReads.getRecord,
+      releaseReads.activationCompare,
+      grantReads.list,
+      runtimeReads.runtime,
+      runtimeReads.logs,
+      invocations.list,
+      invocations.get,
+      sdkReads.list,
+      sdkReads.versions,
+      sdkReads.usage,
+    ],
+    // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
+    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다.
+    ports: new Map<unknown, unknown>([
+      [
+        currentDeclarations,
+        releaseDeclarations,
+      ],
+      [ProblemWordingPort, releaseWording],
+    ]),
+  };
+}

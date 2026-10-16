@@ -24,4 +24,3 @@ export const blobReadPipeInputSchema = z.strictObject({
   length: z.number().int().nonnegative(),
   channel: z.number().int().min(1).max(0xffffffff),
 });
-

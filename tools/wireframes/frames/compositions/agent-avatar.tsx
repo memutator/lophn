@@ -84,4 +84,3 @@ export function Avatar(
 ) {
   return <ProfileAvatar profile={profileOf(agent)} size={size} />;
 }
-

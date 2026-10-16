@@ -74,4 +74,3 @@ export function inputJsonSchema(
   return definition.inputSchema ??
     z.toJSONSchema(definition.input) as Record<string, unknown>;
 }
-

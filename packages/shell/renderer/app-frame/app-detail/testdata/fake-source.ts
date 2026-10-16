@@ -19,7 +19,6 @@ import type {
 const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
 const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
 
-
 const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
 const R5 = "rel_01h455vb4pex5v6nkc6gd5fd05";

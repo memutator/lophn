@@ -34,44 +34,43 @@ const REPORT_PURPOSE_CAPS = new Map<string, number>(
   ) => [purpose.purpose, purpose.max_size_bytes] as const),
 );
 
-const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
-  new Map(
+const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> = new Map(
+  [
     [
-      [
-        "lophn-agent/runtime",
-        {
-          // turn 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
-          // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
-          principal: AGENT_RUNTIME_PRINCIPAL,
-          purposes: new Map(
-            [
-              ...Object.values(TURN_BLOB_PURPOSES),
-            ].map((purpose) => [purpose, 16 * 1024 * 1024] as const),
-          ),
-        },
-      ],
-      [
-        "problems/report-collector",
-        {
-          // registerBlobs 원주체 검사: report.principal과 준비 principal이 같아야 한다.
-          principal: "collector",
-          purposes: new Map(
-            [
-              "report_text",
-              "report_details",
-              "snapshot_stack",
-              "snapshot_logs",
-              "feedback_state",
-              "feedback_screenshot",
-            ].flatMap((purpose) => {
-              const cap = REPORT_PURPOSE_CAPS.get(purpose);
-              return cap === undefined ? [] : [[purpose, cap] as const];
-            }),
-          ),
-        },
-      ],
+      "lophn-agent/runtime",
+      {
+        // turn 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
+        // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
+        principal: AGENT_RUNTIME_PRINCIPAL,
+        purposes: new Map(
+          [
+            ...Object.values(TURN_BLOB_PURPOSES),
+          ].map((purpose) => [purpose, 16 * 1024 * 1024] as const),
+        ),
+      },
     ],
-  );
+    [
+      "problems/report-collector",
+      {
+        // registerBlobs 원주체 검사: report.principal과 준비 principal이 같아야 한다.
+        principal: "collector",
+        purposes: new Map(
+          [
+            "report_text",
+            "report_details",
+            "snapshot_stack",
+            "snapshot_logs",
+            "feedback_state",
+            "feedback_screenshot",
+          ].flatMap((purpose) => {
+            const cap = REPORT_PURPOSE_CAPS.get(purpose);
+            return cap === undefined ? [] : [[purpose, cap] as const];
+          }),
+        ),
+      },
+    ],
+  ],
+);
 
 type ChildBlobPrepareDeps = {
   // 이 handler가 받는 자식의 kind. hello로 core가 정한 값이다(자식 주장이 아니다).

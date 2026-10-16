@@ -62,7 +62,7 @@ fix task 하나로 묶는 것을 추천한다. 질문 기능은 런타임에서 
 
 ### deno.json 정리 (lead 몫)
 
-- root `deno.json`: `@std/toml`, `unpdf`는 import하는 곳이 없다.
+- root `deno.json`: `@std/toml`은 import하는 곳이 없다. `unpdf`는 `tools/file/pdf.ts`가 동적 import하므로 둔다.
 - `packages/shell/main/desktop/core/deno.json`: `@lophn/base`는 TS에서 쓰는 곳이 없다.
 - `packages/design/deno.json`: `@iconify-json/catppuccin/`는 확인이 필요하다.
 - `quickjs-emscripten`, `parse5`는 이미 없다. `picomatch`, `@std/yaml`은 core가 쓴다.

@@ -20,7 +20,7 @@ async function blueprintHandlerMatch(
 ): Promise<Verdict> {
   const attestation = await driver.probe();
   const declared = [...plan.app_api].sort();
-  const registered = [...attestation.commands].sort();
+  const registered = [...attestation.app_api].sort();
   const same = declared.length === registered.length &&
     declared.every((key, index) => key === registered[index]);
   const bundle = attestation.bundle_hash === plan.bundle_hash;

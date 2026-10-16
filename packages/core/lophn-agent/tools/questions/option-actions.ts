@@ -205,4 +205,3 @@ export function checkOptionAction(
 
 // platform/ledger의 질문 정본 port가 쓰는 read. 사람이 고른 option의 고정 action이 내는 소유 command
 // 호출(route·입력·CAS)을 돌려준다. ledger가 제출 호출과 대조한다.
-

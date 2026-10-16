@@ -22,13 +22,14 @@ export type InstructionReadFile = z.infer<typeof instructionReadFileSchema>;
 // `preview`가 null이고 빈 파일은 본문이 빈 미리보기다. 읽는 파일은 같은 core 길이라 로컬 경로는 어느 칸에도 없다.
 // 상한은 요구가 정하지 않아 추천값을 둔다: 화면 한 칸에 보이는 앞부분이라 4 KiB다(32 KiB 파일 상한의 1/8).
 // 본문은 사람이 쓴 파일 그대로의 앞부분이다. 상한이 글자 가운데에 걸리면 그 글자 앞에서 끊고 `truncated`가 true다.
-const INSTRUCTION_PREVIEW_MAX_BYTES = 4096;
+export const INSTRUCTION_PREVIEW_MAX_BYTES = 4096;
 
 const instructionPreviewSchema = z.object({
   text: z.string().max(INSTRUCTION_PREVIEW_MAX_BYTES),
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   truncated: z.boolean(),
 });
+export type InstructionPreview = z.infer<typeof instructionPreviewSchema>;
 
 export const instructionPreview = defineRead({
   resource: "instructions",

@@ -25,7 +25,6 @@ export type PrepareBlob = (input: {
 // 설치와 publish가 blob을 준비하고 register_version을 부를 때 쓰는 machine이다.
 export const INSTALL_PRINCIPAL = "machine:install";
 
-
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }

@@ -222,4 +222,3 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     output: harnessInstallOutputSchema,
   },
 ];
-

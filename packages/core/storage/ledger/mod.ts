@@ -45,7 +45,9 @@ export {
   type KnownSecretChannel,
   type KnownSecretMatch,
 } from "./known-secrets.ts";
-export type { ReaderRegistrationModule } from "./reads.ts";
+export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
+export { snapshotPort } from "./reads.ts";
+export { commandResultRead } from "./command-results.ts";
 export { isDomainEvent } from "./domain-events.ts";
 export { createCommitPublisher } from "./commit-publisher.ts";
 export { reactionIdempotencyKey } from "./reaction.ts";

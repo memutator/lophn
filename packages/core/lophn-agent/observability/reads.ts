@@ -19,8 +19,8 @@ import {
   type MessageFacts,
   type ModelFacts,
   refKey,
-  type TurnFacts,
   type ToolFacts,
+  type TurnFacts,
 } from "./model.ts";
 
 // trace read는 pool read다. handler는 동기 Result를 돌려준다. 원본 표(turns·events·model_calls·
@@ -222,15 +222,15 @@ function loadMessages(
 // 보낸 쪽과 받은 쪽을 같은 관계 행에서 읽어 양방향 연결이 한 사실에서 나온다.
 function loadLinks(lookup: Lookup, turn: string): TurnTrace["handoff_links"] {
   return lookup.sql.all(
-    `select id as receiver_run, source_sender_run as sender_run,
+    `select id as receiver_turn, source_sender_run as sender_turn,
        source_original_message as original_message
      from turns
      where source_kind = 'handoff' and (id = ? or source_sender_run = ?)
      order by accepted_seq`,
     [turn, turn],
   ).map((row) => ({
-    sender_run: String(row["sender_run"]),
-    receiver_run: String(row["receiver_run"]),
+    sender_turn: String(row["sender_turn"]),
+    receiver_turn: String(row["receiver_turn"]),
     original_message: String(row["original_message"]),
   }));
 }

@@ -25,7 +25,7 @@ export {
   type RevertRow,
 } from "./hidden.ts";
 export { createSessionRewindCommands, type RewindEffects } from "./commands.ts";
-export { createSessionRewindReads } from "./reads.ts";
+export { appWritesPort, createSessionRewindReads } from "./reads.ts";
 export { createRewindEffects } from "./effects.ts";
 export { createRewindWriteHandlers } from "./write-routes.ts";
 export {

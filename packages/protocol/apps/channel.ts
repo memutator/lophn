@@ -8,10 +8,10 @@ function unique<T>(values: readonly T[]): boolean {
 import {
   actorSchema,
   APP_CALL_DEPTH_LIMIT,
+  appApiKeySchema,
   appIdSchema,
   atSchema,
   type ChannelMode,
-  appApiKeySchema,
   grantIdSchema,
   invocationIdSchema,
   opaqueSchema,

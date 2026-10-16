@@ -60,4 +60,3 @@ export const redactionResultSchema = z.object({
 // TrustClass 값은 자료 문자열로 승격하지 않는다.
 
 // 출처 불명은 data다. 구현은 platform이 entry로 받는다.
-

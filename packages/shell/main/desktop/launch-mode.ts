@@ -37,4 +37,3 @@ function isArgvList(
   return Array.isArray(input) &&
     input.every((item) => typeof item === "string");
 }
-

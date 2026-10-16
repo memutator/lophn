@@ -424,7 +424,7 @@ async function command(
     idempotency_key: request.idempotency_key,
     compare: request.compare,
     prepared: request.prepared,
-    ...(request.run === undefined ? {} : { run: request.run }),
+    ...(request.turn === undefined ? {} : { turn: request.turn }),
     ...(request.confirmation === undefined
       ? {}
       : { confirmation: request.confirmation }),

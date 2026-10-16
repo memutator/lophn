@@ -78,7 +78,6 @@ export type CommandRequest<R extends CommandRoute> = z.infer<
   ReturnType<typeof commandRequestSchema<R>>
 >;
 
-
 const readMetaSchema = z.object({
   as_of_seq: seqSchema,
   next_cursor: z.string().nullable(),
@@ -100,4 +99,3 @@ export function withReadCommon<T extends z.ZodRawShape>(
 ) {
   return z.object({ ...output.shape, ...readCommonSchema.shape });
 }
-

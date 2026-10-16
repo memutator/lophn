@@ -8,17 +8,8 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import { secretsListRead } from "../../secrets/mod.ts";
+import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import type { Assembled } from "./registration.ts";
-
-// AppCreated·자리 보관 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
-// 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다. 구독자 이름은
-// contracts의 ASSIGNMENT_SUBSCRIBER("lophn-agent-assignments")다.
-
-// 읽기(event·assignment)와 생성·멈춤·재개·cursor 전진 operation만 둔다. assignment 본문 조립은
-// 하지 않는다.
-
-// AppCreated·AppArchived처럼 assignments 반응 구독자만 읽는 계기 event의 공개 정책이다.
-// 다른 자격은 정책이 없을 때와 똑같이 못 본다.
 
 const platformDefinitions = {
   schemaSteps: [] as SchemaStep[],
@@ -30,9 +21,13 @@ const platformDefinitions = {
   blobFields: [] as BlobFieldDefinition[],
 };
 
-// writer Worker가 이 모듈을 다시 import해 command를 모은다.
-
 // reader Worker가 이 모듈에서 read를 다시 조립한다.
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [...platformDefinitions.reads],
+    ports: new Map(),
+  };
+}
 
 // core 조립이 team 조립 결과에 platform 항목을 더한다. command 이름·read 경로·schema id·blob
 // field가 팀 등록과 겹치면 거절한다. route는 더하지 않는다: contract ROUTES가 소유한다.

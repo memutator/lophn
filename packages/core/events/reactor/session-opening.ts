@@ -34,8 +34,7 @@ type NewWorkDeps = {
 
 type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
-const newWorkHandlerName = (type: ReactionEventType) =>
-  `new-work:${type}`;
+const newWorkHandlerName = (type: ReactionEventType) => `new-work:${type}`;
 
 // program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다.
 function callOf(event: NewWork): Omit<CallEnvelope, "call"> {

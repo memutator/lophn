@@ -5,9 +5,9 @@ import { defineCommand } from "../base/route.ts";
 import { idempotencyKeySchema } from "../base/envelope.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import {
+  appApiKeySchema,
   appIdSchema,
   approvalIdSchema,
-  appApiKeySchema,
   invocationIdSchema,
   releaseIdSchema,
 } from "./channel-values.ts";
@@ -333,4 +333,3 @@ export const RELEASE_ROUTES = [
   releaseCancelPreparation,
   releasePrepare,
 ] as const;
-

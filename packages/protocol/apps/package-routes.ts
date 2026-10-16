@@ -244,4 +244,3 @@ export const packageVersionRegistered = defineEvent(
     payload: packageVersionRegisteredPayloadSchema,
   },
 );
-

@@ -35,7 +35,9 @@ type TurnMarkedCommand = CommandDefinition & {
   turnDisposition?: TurnDisposition;
 };
 
-export function turnDisposition(definition: CommandDefinition): TurnDisposition {
+export function turnDisposition(
+  definition: CommandDefinition,
+): TurnDisposition {
   const declared = (definition as TurnMarkedCommand).turnDisposition;
   return {
     audit: declared?.audit === true,

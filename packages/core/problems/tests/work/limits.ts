@@ -34,4 +34,3 @@ export const SAFE_ENV_NAMES = [
   "LANG",
   "LC_ALL",
 ] as const;
-

@@ -56,4 +56,3 @@ export const questionGroupRefSchema = z.strictObject({
   group: idSchema("qgr"),
   created_seq: seqSchema,
 });
-

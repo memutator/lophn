@@ -53,4 +53,3 @@ const BUILTIN_TOOL_REVISION = "1";
 
 // 새 대상의 ID는 key에서 정한다. 같은 key는 같은 ID를 가리키므로 재전송이 두 번째 대상을 만들지
 // 않고 이미 있다는 conflict로 끝난다. 모양은 `<prefix>_<26자 Crockford>`이다.
-

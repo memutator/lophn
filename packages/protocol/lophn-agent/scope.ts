@@ -126,4 +126,3 @@ export const agentAppScopeOutputSchema = z.object(agentAppScopeOutputFields)
   ).refine(scopeShape, {
     message: "role scope shape is outside the local bound",
   });
-

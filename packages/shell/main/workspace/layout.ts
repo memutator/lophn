@@ -89,4 +89,3 @@ export function validateLayout(value: unknown): LayoutResult {
   if (!parsed.success) return { ok: false, reason: "corrupt" };
   return { ok: true, layout: parsed.data };
 }
-

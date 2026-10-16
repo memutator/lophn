@@ -73,4 +73,3 @@ export function registerTabKind(kind: TabKind): () => void {
 export function tabKindOf(kind: unknown): TabKind | undefined {
   return typeof kind === "string" ? kinds.get(kind) : undefined;
 }
-

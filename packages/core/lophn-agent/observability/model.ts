@@ -48,7 +48,7 @@ export type TurnFacts = {
   id: string;
   assignment: string;
   session: string | null;
-  state: "accepted" | "running" | "waiting_user" | "finished";
+  state: "running" | "finished";
   basis: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -237,7 +237,7 @@ export function mergeTraces(
   const links = new Map<string, TurnTrace["handoff_links"][number]>();
   for (const trace of traces) {
     for (const link of trace.handoff_links) {
-      links.set(`${link.sender_run}>${link.receiver_run}`, link);
+      links.set(`${link.sender_turn}>${link.receiver_turn}`, link);
     }
   }
   const all = <T>(pick: (trace: TurnTrace) => readonly T[]): T[] =>

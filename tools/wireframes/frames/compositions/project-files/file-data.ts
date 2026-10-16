@@ -129,4 +129,3 @@ const FACTS: Record<string, FileFacts> = {
 
 const factsOf = (path: string): FileFacts =>
   FACTS[path] ?? { size: "1.9 KB", modified: "2 hours ago" };
-

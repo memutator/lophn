@@ -24,4 +24,3 @@ export type Writer = {
 // 자격은 Worker 등록이 본다. 이쪽은 시각·회수 주장을 보내지 않는다.
 // onCommit은 commit된 새 command 결과(재전달 제외)에서 domain event가 있을 때 부른다. Worker가 아니라
 // 이쪽(core)에서 불러 Bus에 닿는다.
-

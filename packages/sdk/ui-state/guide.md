@@ -3,8 +3,8 @@
 ## 목적
 
 읽기 결과의 loading·empty·error·freshness 상태와 앱 화면 root의
-`AppErrorBoundary`다. 상태 표시는 lophn 화면과 같은 component이고
-시각 값의 정본은 shell/design-system이다.
+`AppErrorBoundary`다. 상태 표시는 lophn 화면과 같은 component이고 시각 값의
+정본은 shell/design-system이다.
 
 ## 공개 API와 type
 

@@ -248,4 +248,3 @@ export const UPLOAD_INPUT_HEADER = "x-lophn-input";
 export function routePath(route: { resource: string; method: string }): string {
   return `/${route.resource}/${route.method}`;
 }
-

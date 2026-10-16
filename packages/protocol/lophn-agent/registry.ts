@@ -12,9 +12,7 @@ import { REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_ROUTES } from "./model-calls.ts";
-import {
-  MODEL_ROUTES,
-} from "./models.ts";
+import { MODEL_ROUTES } from "./models.ts";
 import { PROVIDER_ROUTES } from "./providers.ts";
 import { TOOL_CALL_ROUTES } from "./tool-calls.ts";
 import { TRACE_ROUTES } from "./traces.ts";
@@ -83,4 +81,3 @@ export const ROUTES = [
   mcpAuthRequestTake,
   mcpAuthRequestDone,
 ] as const;
-

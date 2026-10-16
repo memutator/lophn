@@ -4,7 +4,11 @@ import { declareSetting } from "../../protocol/config/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
-import { defineTxPort, turnAdmission } from "../storage/ledger/mod.ts";
+import {
+  defineTxPort,
+  type ReaderRegistration,
+  turnAdmission,
+} from "../storage/ledger/mod.ts";
 import {
   finishRewindSummary,
   instructionPreview,
@@ -842,3 +846,37 @@ export function createLedgerRegistration(
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
 // event를 보지 않는다. usage·preset read도 event를 보지 않는다.
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [
+      reads.read,
+      reads.list,
+      modelReads.modelDefault,
+      modelReads.projectModel,
+      modelReads.favorites,
+      modelReads.catalog,
+      usageReads.read,
+      usageReads.list,
+      usageReads.usage,
+      agentReads.list,
+      agentReads.read,
+      skillsReads.read,
+      projectExtensionReads.read,
+      turnReads.read,
+      turnReads.list,
+      turnReads.result,
+      conversationReads.session,
+      conversationReads.sessions,
+      conversationReads.messages,
+      conversationReads.message,
+      conversationReads.compactRequests,
+      commandReads.list,
+      toolReads.read,
+      toolReads.list,
+      questionReads.read,
+      questionReads.list,
+      traceReads.read,
+    ],
+    ports: new Map(),
+  };
+}

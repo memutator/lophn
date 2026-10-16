@@ -75,4 +75,3 @@ export function recordCredential(
   }
   return ok(undefined);
 }
-

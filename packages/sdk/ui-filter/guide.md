@@ -2,10 +2,10 @@
 
 ## 목적
 
-read command 결과를 좁히는 기간·다중 선택·검색 filter다. 고른 값은
-앱의 read command 입력에 그대로 싣고, 결과의 loading·empty·error·freshness는
-@lophn/ui-state가 보인다. 조작은 lophn 화면과 같은 component이고
-시각 값의 정본은 shell/design-system이다.
+read command 결과를 좁히는 기간·다중 선택·검색 filter다. 고른 값은 앱의 read
+command 입력에 그대로 싣고, 결과의 loading·empty·error·freshness는
+@lophn/ui-state가 보인다. 조작은 lophn 화면과 같은 component이고 시각 값의
+정본은 shell/design-system이다.
 
 ## 공개 API와 type
 

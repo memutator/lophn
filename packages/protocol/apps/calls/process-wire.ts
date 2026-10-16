@@ -79,4 +79,3 @@ const appProcessStartInputSchema = z.strictObject({
 export type AppProcessStartInput = z.infer<typeof appProcessStartInputSchema>;
 
 // 한 줄 JSON. 줄바꿈이 들어간 값은 시작 입력이 아니다.
-

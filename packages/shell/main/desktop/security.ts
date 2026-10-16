@@ -55,4 +55,3 @@ export function webPreferences(packaged: boolean): WebPreferences {
     devTools: !packaged,
   };
 }
-

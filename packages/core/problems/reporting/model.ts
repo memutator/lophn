@@ -27,8 +27,7 @@ export type ProblemRow = {
   recurred_release: string | null;
 };
 
-const PROBLEM_COLUMNS =
-  `id, app, group_key, name, state, state_changed_at, seq,
+const PROBLEM_COLUMNS = `id, app, group_key, name, state, state_changed_at, seq,
    recurred_resolved_at, recurred_release`;
 
 const text = (value: unknown) =>

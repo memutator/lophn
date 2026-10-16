@@ -9,4 +9,3 @@ export const DEMO_CLICKS: Readonly<Record<GlossaryDemo, readonly string[]>> = {
   edit: ["[data-glossary-edit]"],
   delete: ["[data-glossary-delete]"],
 };
-

@@ -137,4 +137,3 @@ function absoluteTime(confirmedAt: number): string {
 
 // provider 끊김: 로컬 문서·앱·터미널은 그대로 두고 대화에만 필요한 행동 한 줄(설정으로
 // 연결·다시 연결)을 보인다. core가 준비되지 않았거나 아직 읽지 못했으면 null이다.
-

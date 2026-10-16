@@ -3,10 +3,7 @@ import { archiveStateSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { defineRead } from "../base/route.ts";
 import { projectIdSchema } from "./values.ts";
-import {
-  projectInputSchema,
-  projectReadSchema,
-} from "./projects.ts";
+import { projectInputSchema, projectReadSchema } from "./projects.ts";
 
 export const projectList = defineRead({
   resource: "projects",

@@ -137,4 +137,3 @@ export const getProblem = defineRead({
 });
 
 // grouping domain: claim 해제·만료·완료 보고·취소. connection 회수는 ticket의 해제 사유다.
-

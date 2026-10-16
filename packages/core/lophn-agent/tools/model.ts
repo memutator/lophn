@@ -139,4 +139,3 @@ export const callColumns = CALL_COLUMNS;
 
 // 입력 schema 검사 실패는 보정 없이 invalid_input이다. 숫자 문자열을 숫자로
 // 바꾸거나 모르는 필드를 버리지 않는다.
-

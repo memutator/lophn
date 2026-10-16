@@ -7,7 +7,6 @@ import {
   type JsonValue,
 } from "./blueprint-types.ts";
 
-
 export function normalizeJson(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(normalizeJson);
   if (value !== null && typeof value === "object") {
@@ -19,4 +18,3 @@ export function normalizeJson(value: JsonValue): JsonValue {
   }
   return value;
 }
-

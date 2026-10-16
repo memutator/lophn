@@ -331,4 +331,3 @@ export function validateInput(
   if (copied === undefined) return invalid("input is not JSON");
   return checkValue(parsed.value, copied, "input");
 }
-

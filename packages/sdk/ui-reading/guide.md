@@ -2,9 +2,9 @@
 
 ## 목적
 
-문서를 읽는 화면의 Markdown 본문·목차 tree·code block이다.
-Markdown·code block·목차와 읽기 틀은 lophn 문서 화면과 같은 component이고 시각
-값의 정본은 shell/design-system이다.
+문서를 읽는 화면의 Markdown 본문·목차 tree·code block이다. Markdown·code
+block·목차와 읽기 틀은 lophn 문서 화면과 같은 component이고 시각 값의 정본은
+shell/design-system이다.
 
 ## 공개 API와 type
 

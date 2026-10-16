@@ -2,10 +2,9 @@
 
 ## 목적
 
-tooltip·popover·메뉴·dialog·toast·command palette다. lophn 화면과
-같은 component이고 시각 값의 정본은 shell/design-system이다.
-앱 안에서는 모두 앱 view의 문서 안에 그린다. lophn 화면의 overlay 층을 빌리는
-통로는 없다.
+tooltip·popover·메뉴·dialog·toast·command palette다. lophn 화면과 같은
+component이고 시각 값의 정본은 shell/design-system이다. 앱 안에서는 모두 앱
+view의 문서 안에 그린다. lophn 화면의 overlay 층을 빌리는 통로는 없다.
 
 ## 공개 API와 type
 

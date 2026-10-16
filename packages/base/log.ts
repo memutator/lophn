@@ -19,4 +19,3 @@ export interface Logger {
   error(input: LogEvent): void;
   flush(): Promise<void>;
 }
-

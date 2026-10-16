@@ -38,7 +38,7 @@ export { contextAuthorityPort };
 // content blob(BundleContent JSON)의 영구 참조. owner_key는 blob의 hash다:
 // 내용으로 주소를 정한 값이라 같은 내용은 한 참조다. 일반 blob 읽기로는 열지 않는다(context 읽기가 연다).
 // 바이트는 core가 command 앞에서 호출자 자격으로 준비한다(contexts-blob.ts).
-const contextContentField = defineBlobField({
+export const contextContentField = defineBlobField({
   owner_kind: CONTEXT_CONTENT_OWNER_KIND,
   field: CONTEXT_CONTENT_FIELD,
   retention: { kind: "permanent" },
@@ -47,7 +47,7 @@ const contextContentField = defineBlobField({
 
 // command·read를 실행하는 쪽이 의존을 쓰기 전에 알리는 ledger 연결. blob 파일의 위치(data root)는
 // adapter가 sql을 넘기지 않는 port라 이 연결로 푼다.
-type ContextsRuntime = {
+export type ContextsRuntime = {
   deps: ContextLedgerDeps;
   enter(sql: Pick<Sql, "get" | "all">): void;
 };
@@ -114,7 +114,7 @@ export async function loadContextsRuntime(): Promise<ContextsRuntime> {
 
 // 의존이 동기 port라 Result를 돌려주지 못하는 곳은 이 오류를 던진다. 등록이 감싸서
 // transaction을 되돌리고 unavailable로 답한다.
-class ContextDepUnavailable extends Error {}
+export class ContextDepUnavailable extends Error {}
 
 function unavailable(error: unknown): Result<never> | undefined {
   return error instanceof ContextDepUnavailable
@@ -122,7 +122,7 @@ function unavailable(error: unknown): Result<never> | undefined {
     : undefined;
 }
 
-type ContextsRegistration = {
+export type ContextsRegistration = {
   schemaSteps: readonly SchemaStep[];
   commands: readonly CommandDefinition[];
   reads: readonly ReadDefinition[];
@@ -174,7 +174,7 @@ export function createContextsRegistration(
 
 export { CONTEXT_WORKER_OPERATIONS };
 
-const CONTEXT_WORKER_PRINCIPAL = "machine:context-worker";
+export const CONTEXT_WORKER_PRINCIPAL = "machine:context-worker";
 
 // context worker가 쓰는 좁은 machine 자격의 발급 요청이다. operation은 CONTEXT_WORKER_OPERATIONS
 // 둘뿐이라 mapActor가 이 자격을 context_worker로 본다. worker를 띄우는 쪽이 registry.issue에 넘긴다.

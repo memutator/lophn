@@ -63,4 +63,3 @@ export function sweep(tx: Tx): Result<number> {
   const deleted = deleteAnnotations(tx, ids);
   return deleted.ok ? ok(ids.length) : deleted;
 }
-

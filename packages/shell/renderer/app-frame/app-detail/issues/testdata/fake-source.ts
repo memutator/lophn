@@ -14,7 +14,6 @@ export const PRB_TOTAL = "prb_01h455vb4pex5v6nkc6gd5fd02";
 export const PRB_LIST = "prb_01h455vb4pex5v6nkc6gd5fd03";
 export const PRB_SLIP = "prb_01h455vb4pex5v6nkc6gd5fd04";
 
-
 const COMMIT = "3f9a1c2";
 
 export const ISSUES: readonly IssueView[] = [

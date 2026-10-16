@@ -121,4 +121,3 @@ export const applyProblemDecision = defineCommand({
   ],
   display_read: "/problems/get",
 });
-

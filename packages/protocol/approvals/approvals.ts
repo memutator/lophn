@@ -368,6 +368,3 @@ export const APPROVAL_ROUTES = [
   cancelApprovalRequest,
   applyApprovedAction,
 ] as const;
-
-
-

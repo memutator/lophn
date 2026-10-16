@@ -27,6 +27,7 @@ import {
 } from "../../../lophn-agent/run-loop/mod.ts";
 import {
   createCallStore,
+  createRouterReaderRegistration,
   createRouterRegistration,
   installRouterEnvironment,
   type RouterEnvironment,
@@ -198,3 +199,4 @@ const environment: RouterEnvironment = {
 installRouterEnvironment(environment);
 
 export const createCoreRegistration = createRouterRegistration;
+export const createReaderRegistration = createRouterReaderRegistration;

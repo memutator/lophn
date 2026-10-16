@@ -8,6 +8,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
+  INSTRUCTION_PREVIEW_MAX_BYTES,
+  instructionPreview,
   instructionsGet,
   type Place,
   type Role,
@@ -16,12 +18,14 @@ import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
+import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import { dataRootOf } from "../agents/store.ts";
 import {
   encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
   type InstructionFile,
   type InstructionLayerKind,
+  previewInstruction,
 } from "./mod.ts";
 
 const FILE_NAME = "LOPHN.md";
@@ -269,4 +273,47 @@ export function instructionsGetHandler(): ReadDefinition<
 
 // PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. turn을 모르고 전역 층
 // 하나뿐이다. 읽는 길은 GetInstructions와 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
+export function instructionPreviewHandler(): ReadDefinition<
+  typeof instructionPreview
+> {
+  return {
+    route: instructionPreview,
+    handle(snapshot) {
+      try {
+        const root = dataRootOf(snapshot.sql, undefined);
+        if (!root.ok) return unavailable();
+        const file = openFile(
+          `${root.value}/${FILE_NAME}`,
+          INSTRUCTION_PREVIEW_MAX_BYTES,
+        );
+        if (!file.ok) return file;
+        if (file.value === null) {
+          return ok({
+            preview: null,
+            as_of_seq: snapshot.as_of_seq,
+            next_cursor: null,
+          });
+        }
+        const preview = previewInstruction(file.value);
+        if (!preview.ok) return preview;
+        return ok({
+          preview: preview.value,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      } catch {
+        return unavailable();
+      }
+    },
+  };
+}
 
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [
+      instructionsGetHandler(),
+      instructionPreviewHandler(),
+    ],
+    ports: new Map(),
+  };
+}

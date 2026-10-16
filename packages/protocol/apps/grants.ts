@@ -97,4 +97,3 @@ export const appGrantRevoke = defineCommand({
 export const APP_GRANT_ROUTES = [appGrantsList, appGrantRevoke] as const;
 
 // payload의 scope 종류는 Grant kind와 같아야 한다.
-

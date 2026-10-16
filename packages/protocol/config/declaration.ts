@@ -26,4 +26,3 @@ export interface SettingsReader {
     setting: SettingDeclaration<S>,
   ): z.output<S> | undefined;
 }
-

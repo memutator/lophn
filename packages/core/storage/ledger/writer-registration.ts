@@ -31,4 +31,3 @@ export type WriterRegistration = {
   // 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
   confirmation?: ConfirmationBridge;
 };
-

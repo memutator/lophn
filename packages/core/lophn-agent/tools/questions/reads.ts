@@ -89,7 +89,9 @@ export function createQuestionReads(): {
         if (group === undefined) return notFound();
         if (scope !== null) {
           const turn = loadTurnRef(snapshot, group.turn);
-          if (turn === undefined || turn.assignment !== scope) return notFound();
+          if (turn === undefined || turn.assignment !== scope) {
+            return notFound();
+          }
         }
         return ok({
           group: recordFor(snapshot, group),

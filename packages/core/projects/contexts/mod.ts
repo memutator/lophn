@@ -7,6 +7,8 @@ export { contextStatusOf } from "./ledger/status.ts";
 export {
   CONTEXT_WORKER_OPERATIONS,
   contextAuthorityPort,
+  type ContextBlobs,
+  type ContextIndexPort,
   contextLedgerCommands,
   type ContextLedgerDeps,
   contextLedgerReads,

@@ -29,4 +29,3 @@ export const ROUTES = [
   ...PROJECT_SEARCH_ROUTES,
   ...CONTEXT_OUTLINE_ROUTES,
 ] as const;
-

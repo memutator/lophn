@@ -5,4 +5,3 @@ export interface ModelSelection {
   readonly model: string;
   readonly values: Readonly<Record<string, string>>;
 }
-

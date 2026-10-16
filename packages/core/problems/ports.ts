@@ -22,4 +22,3 @@ export interface ReleaseLookup {
   // 같은 앱에서 `number`가 바로 앞인 release.
   previousOf(id: string): Result<ReleaseFact | null>;
 }
-

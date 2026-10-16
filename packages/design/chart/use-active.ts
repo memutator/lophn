@@ -42,4 +42,3 @@ export function localX(event: { clientX: number; currentTarget: Element }) {
   const svg = event.currentTarget.closest("svg");
   return event.clientX - (svg?.getBoundingClientRect().left ?? 0);
 }
-

@@ -10,9 +10,9 @@ import {
   type CodingReply,
   HARNESS_IDS,
   type HarnessDiscovery,
+  type HarnessLogin,
   type HarnessName,
   type HarnessSettingsView,
-  type HarnessLogin,
 } from "../../ipc/coding.ts";
 
 // shell tsc는 protocol의 base를 따라가지 못한다. 감지 값 검사와 제품 표(label, 맡길 수 있는지)는 wiring이

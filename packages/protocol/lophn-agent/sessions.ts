@@ -471,7 +471,6 @@ export const sessionSummary = defineRead({
   errors: [...readErrors],
 });
 
-
 // 지운 내용은 싣지 않는다.
 
 // subject는 새 session이다.
@@ -492,4 +491,3 @@ export const SESSION_COMMANDS = [
   sessionCompactRequests,
   sessionSummary,
 ] as const;
-

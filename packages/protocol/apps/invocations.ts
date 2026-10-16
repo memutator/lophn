@@ -10,9 +10,9 @@ import {
   signedConfirmProofSchema,
 } from "./channel.ts";
 import {
+  appApiKeySchema,
   appIdSchema,
   approvalIdSchema,
-  appApiKeySchema,
   invocationIdSchema,
   processNonceSchema,
   releaseIdSchema,
@@ -227,4 +227,3 @@ export const invocationsGet = defineRead({
   actors: readActors,
   errors: readErrors,
 });
-

@@ -179,7 +179,6 @@ export const loginCancel = defineCommand({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
-
 export const PROVIDER_ROUTES = [
   registerProvider,
   disconnectProvider,
@@ -192,4 +191,3 @@ export const PROVIDER_ROUTES = [
   refreshProviderCredential,
   recordProviderAvailability,
 ] as const;
-

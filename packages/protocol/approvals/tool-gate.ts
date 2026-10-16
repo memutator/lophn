@@ -54,4 +54,3 @@ export const toolGateCheck = defineMemory({
   actors: ["agent"],
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
-

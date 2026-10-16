@@ -9,9 +9,7 @@ export * as shell from "./shell/mod.ts";
 
 import { ROUTES as appsRoutes } from "./apps/mod.ts";
 import { ROUTES as lophnAgentRoutes } from "./lophn-agent/mod.ts";
-import {
-  ROUTES as codingAgentRoutes,
-} from "./coding-agent/mod.ts";
+import { ROUTES as codingAgentRoutes } from "./coding-agent/mod.ts";
 import { ROUTES as documentsRoutes } from "./projects/mod.ts";
 import { ROUTES as platformRoutes } from "./registry.ts";
 import { ROUTES as shellRoutes } from "./shell/mod.ts";
@@ -26,4 +24,3 @@ export const ALL_ROUTES = [
   ...problemsRoutes,
   ...lophnAgentRoutes,
 ];
-

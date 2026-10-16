@@ -1,7 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../../base/mod.ts";
-import { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
 import { TicketSessionEnd } from "../../../../protocol/coding-agent/ticket/ports.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { ROUTER_SCHEMA_STEPS } from "../../../router/mod.ts";
@@ -44,20 +43,11 @@ function setup() {
     );
   }
   const actions: { topic: string; data: unknown }[] = [];
-  const revoked: string[] = [];
   const settled: string[] = [];
   let counter = 0;
   const ports = new Map<unknown, unknown>([
     [afterCommit, {
       push: (topic: string, data: unknown) => actions.push({ topic, data }),
-    }],
-    [CodingTokens, {
-      issue: ({ session }: { session: string }) =>
-        ok({ token: `token-of-${session}` }),
-      revoke: (session: string) => {
-        revoked.push(session);
-        return ok(undefined);
-      },
     }],
     [TicketSessionEnd, {
       settle: (session: string) => {
@@ -125,13 +115,16 @@ function setup() {
     frames,
     start,
     hook,
-    revoked,
+    revoked: () =>
+      actions.filter((action) => action.topic === "coding_revoke").map((a) =>
+        (a.data as { session: string }).session
+      ),
     settled,
     sessionOf,
   };
 }
 
-Deno.test("앱 하나에 session은 하나뿐이고 끝나면 줄의 다음 call이 token을 새로 받아 열린다", () => {
+Deno.test("앱 하나에 session은 하나뿐이고 끝나면 줄의 다음 call이 새 session으로 열린다", () => {
   const { db, tx, memory, transport, frames, start, revoked, settled } =
     setup();
   const first = start(1);
@@ -149,17 +142,13 @@ Deno.test("앱 하나에 session은 하나뿐이고 끝나면 줄의 다음 call
   assertEquals(frames("open").length, 1);
 
   assert(applyTerminalExited(tx, memory, firstSession).ok);
-  assertEquals(revoked, [firstSession]);
+  assertEquals(revoked(), [firstSession]);
   assertEquals(settled, [firstSession]);
   const plans = frames("open").map((request) =>
     request.plan as { session: string; env: Record<string, string> }
   );
   assertEquals(plans.length, 2);
   assert(plans[1]!.session !== firstSession);
-  assertEquals(
-    plans[1]!.env["LOPHN_CODING_TOKEN"],
-    `token-of-${plans[1]!.session}`,
-  );
   assertEquals(transport.lines()[0]?.waiting.length, 0);
   assertEquals(
     db.prepare("SELECT count(*) AS n FROM coding_sessions WHERE ended = 0")

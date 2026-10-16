@@ -1,7 +1,6 @@
 // Router가 부르는 coding transport. 같은 tx 안에서 도는 동기 Result다. 터미널 요청은 commit 뒤로 보낸다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { canDeliverMessages } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
 import { TERMINAL_INPUT_MAX_CHARS } from "../../../../protocol/coding-agent/terminal-requests.ts";
 import type {
   CodingSendRejection,
@@ -9,7 +8,7 @@ import type {
 } from "../../../../protocol/coding-agent/transport.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { createCallStore } from "../../../router/mod.ts";
-import { sendTerminal } from "./events.ts";
+import { revokeToken, sendTerminal } from "./events.ts";
 import { deliverInput } from "./input.ts";
 import { openSession, startFailure } from "./launch.ts";
 import { codingLines } from "./lines.ts";
@@ -108,8 +107,7 @@ export function createCodingTransport(
         createCallStore().move(tx, input.call as never, "cancelled", null);
       }
       if (row === null) return ok(undefined);
-      const revoked = tx.port(CodingTokens).revoke(row.session);
-      if (!revoked.ok) return revoked;
+      revokeToken(tx, row.session);
       const request = memory.request({ kind: "stop", session: row.session });
       sendTerminal(tx, { kind: "stop", request, session: row.session });
       return ok(undefined);

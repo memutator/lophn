@@ -6,6 +6,8 @@ import type {
   CodingOptions,
 } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { HarnessDetection } from "../../../../protocol/coding-agent/harnesses.ts";
+import type { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
+import { CODING_TOKEN_ENV } from "../../../../protocol/coding-agent/token.ts";
 import { codingHook } from "../../../../protocol/coding-agent/hook.ts";
 import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
 import {
@@ -25,7 +27,7 @@ import type {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { ReactorHandler } from "../../../events/mod.ts";
 import type { CommitAction } from "../../../storage/ledger/mod.ts";
-import { CODING_TERMINAL_TOPIC } from "./events.ts";
+import { CODING_REVOKE_TOPIC, CODING_TERMINAL_TOPIC } from "./events.ts";
 import { harnessList as harnessItems } from "./harnesses.ts";
 import type { CodingSignal } from "./signal.ts";
 import { type ReleaseSourceReader, sourceDiff } from "./source-diff.ts";
@@ -35,6 +37,8 @@ export type SignalResult = { accepted: boolean; app: string | null };
 export type CodingRelayDeps = {
   // core 안 machine 자격으로 writer에 command를 낸다. 같은 key는 효과가 한 번이다.
   run(signal: CodingSignal, key?: string): Promise<Result<SignalResult>>;
+  // session 하나 범위 token의 발급과 회수.
+  tokens(): CodingTokens;
   // Settings의 기본 실행 옵션.
   defaults(): CodingOptions;
   // 연결된 shell main에 터미널 요청 frame을 보낸다. 연결이 없으면 unavailable이다.
@@ -231,24 +235,53 @@ export function createCodingRelay(deps: CodingRelayDeps) {
         }),
       ),
     },
-    // commit 뒤 일 가운데 터미널 요청을 shell main에 보낸다. 보내지 못하면 실패 결과를 낸 것으로 본다.
+    // commit 뒤 일 가운데 token 회수와 터미널 요청을 한다. open 요청은 여기서 token을 만들어 plan의 env에 담는다.
+    // token을 못 만들거나 frame을 보내지 못하면 터미널이 실패 결과를 낸 것으로 본다.
     apply(actions: readonly CommitAction[]): void {
-      for (const action of actions) {
-        if (action.topic !== CODING_TERMINAL_TOPIC) continue;
-        const request = action.data as CodingTerminalRequest;
-        const sent = deps.send({ type: "coding_terminal", request });
-        if (!sent.ok) {
-          void signal({
-            kind: "terminal_result",
-            request: request.request,
-            ok: false,
-          }).then((done) => {
+      const failed = (request: string) =>
+        void signal({ kind: "terminal_result", request, ok: false }).then(
+          (done) => {
             if (!done.ok) {
               console.error(
                 `coding: terminal failure not recorded (${done.error.code})`,
               );
             }
-          });
+          },
+        );
+      for (const action of actions) {
+        if (action.topic === CODING_REVOKE_TOPIC) {
+          const { session } = action.data as { session: string };
+          const revoked = deps.tokens().revoke(session);
+          if (!revoked.ok) {
+            console.error(
+              `coding: token revoke failed (${revoked.error.code})`,
+            );
+          }
+          continue;
+        }
+        if (action.topic !== CODING_TERMINAL_TOPIC) continue;
+        let request = action.data as CodingTerminalRequest;
+        if (request.kind === "open") {
+          const { session, app } = request.plan;
+          const issued = deps.tokens().issue({ session, app } as never);
+          if (!issued.ok) {
+            console.error(`coding: token issue failed (${issued.error.code})`);
+            failed(request.request);
+            continue;
+          }
+          request = {
+            ...request,
+            plan: {
+              ...request.plan,
+              env: {
+                ...request.plan.env,
+                [CODING_TOKEN_ENV]: issued.value.token,
+              },
+            },
+          };
+        }
+        if (!deps.send({ type: "coding_terminal", request }).ok) {
+          failed(request.request);
         }
       }
     },

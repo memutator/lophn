@@ -17,6 +17,7 @@ import {
   serializeMessageContent,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { createCodingTokens } from "../../../server/identity/mod.ts";
 import {
   CODING_REACTION_TEXTS,
   codingDefaultHarness,
@@ -138,7 +139,10 @@ export const codingSessionsWiring: WiringFactory = () => {
     }],
     records: () => [CODING_CONTEXT],
     build(ctx) {
+      // registry는 마지막 wiring이 열므로 처음 쓸 때 만든다.
+      let tokens: ReturnType<typeof createCodingTokens> | undefined;
       const relay = createCodingRelay({
+        tokens: () => tokens ??= createCodingTokens({ registry: ctx.registry }),
         async run(signal, idempotency) {
           const done = await ctx.runtime.writer.command(CODING_CONTEXT, {
             command: codingSignal.name,

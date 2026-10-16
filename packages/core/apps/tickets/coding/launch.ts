@@ -1,4 +1,4 @@
-// session을 새로 띄운다. 실행 옵션을 정하고, token을 만들고, 실행 계획을 짜 `open` 터미널 요청을 commit 뒤로 보낸다.
+// session을 새로 띄운다. 실행 옵션을 정하고, 실행 계획을 짜 `open` 터미널 요청을 commit 뒤로 보낸다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   canLaunch,
@@ -12,10 +12,6 @@ import {
   launchPlanOf,
   PASTE_AFTER_HOOK_DEADLINE_MS,
 } from "../../../../protocol/coding-agent/launch-plan.ts";
-import {
-  CODING_TOKEN_ENV,
-  CodingTokens,
-} from "../../../../protocol/coding-agent/token.ts";
 import type { CodingStartFailure } from "../../../../protocol/coding-agent/transport.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { sendTerminal } from "./events.ts";
@@ -79,18 +75,7 @@ export function openSession(
   const launch = resolveLaunch(tx, memory, line.app, line.options);
   if (!launch.ok) return launch;
   const session = tx.newId("ses");
-  let tokens: CodingTokens;
-  try {
-    tokens = tx.port(CodingTokens);
-  } catch {
-    return err({
-      code: "unavailable",
-      message: "coding tokens are not available",
-    });
-  }
-  const issued = tokens.issue({ session, app: line.app } as never);
-  if (!issued.ok) return issued;
-  // token 원문은 plan의 env에만 담긴다. 표와 오류와 log에는 넣지 않는다.
+  // token은 commit 뒤 main thread가 만들어 plan의 env에만 담는다. 표와 오류와 log에는 넣지 않는다.
   const plan = launchPlanOf({
     session,
     app: line.app,
@@ -99,12 +84,9 @@ export function openSession(
     executable: launch.value.executable,
     cwd: launch.value.cwd,
     options: launch.value.options,
-    env: { [CODING_TOKEN_ENV]: issued.value.token },
+    env: {},
   });
-  if (!plan.ok) {
-    tokens.revoke(session);
-    return plan;
-  }
+  if (!plan.ok) return plan;
   const pastes = HARNESS_ADAPTERS[launch.value.harness].prompt?.kind ===
     "paste_after_hook";
   insertSession(tx.sql, {

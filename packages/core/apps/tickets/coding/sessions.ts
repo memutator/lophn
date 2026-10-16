@@ -1,11 +1,15 @@
 // session 하나의 시작과 끝. 표 읽기·쓰기는 store.ts, 줄은 lines.ts가 맡는다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import { firstPromptOf } from "../../../../protocol/coding-agent/launch-plan.ts";
-import { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
 import { TicketSessionEnd } from "../../../../protocol/coding-agent/ticket/ports.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { closeCall } from "./close-call.ts";
-import { messageReceived, sessionEnded, sessionStarted } from "./events.ts";
+import {
+  messageReceived,
+  revokeToken,
+  sessionEnded,
+  sessionStarted,
+} from "./events.ts";
 import { openNext } from "./lines.ts";
 import type { CodingMemory } from "./memory.ts";
 import {
@@ -47,10 +51,7 @@ export function endSession(
   });
   clearInputs(tx.sql, session);
   if (row.started) sessionEnded(tx, session);
-  const revoked = tx.port(CodingTokens).revoke(session);
-  if (!revoked.ok) {
-    console.error(`coding: token revoke failed (${revoked.error.code})`);
-  }
+  revokeToken(tx, session);
   const settled = tx.port(TicketSessionEnd).settle(session);
   if (!settled.ok) return settled;
   // claim도 완료 보고도 없었으면 tickets가 event를 내지 않으므로 call을 여기서 닫는다.

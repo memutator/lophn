@@ -8,6 +8,7 @@ import { createCallStore } from "../../../router/mod.ts";
 import type { SessionRow } from "./store.ts";
 
 export const CODING_TERMINAL_TOPIC = "coding_terminal";
+export const CODING_REVOKE_TOPIC = "coding_revoke";
 
 export function emitAgent(tx: Tx, event: AgentEvent): void {
   tx.port(afterCommit).push(AGENT_EVENT_TOPIC, event);
@@ -15,6 +16,11 @@ export function emitAgent(tx: Tx, event: AgentEvent): void {
 
 export function sendTerminal(tx: Tx, request: CodingTerminalRequest): void {
   tx.port(afterCommit).push(CODING_TERMINAL_TOPIC, request);
+}
+
+// token은 main thread의 credential registry에 있어 회수도 commit 뒤에 한다.
+export function revokeToken(tx: Tx, session: string): void {
+  tx.port(afterCommit).push(CODING_REVOKE_TOPIC, { session });
 }
 
 export function sessionStarted(tx: Tx, row: SessionRow): void {

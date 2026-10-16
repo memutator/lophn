@@ -237,7 +237,7 @@ const releasePrepareBundleInputSchema = z.strictObject({
   app: appIdSchema,
   commit: z.string().regex(/^[0-9a-f]{40}$/),
   request_key: commandKeySchema,
-  ticket_source: ticketSourceSchema.optional(),
+  ticket_source: ticketSourceSchema,
 });
 const releasePrepareBundleOutputSchema = z.object({
   request_key: commandKeySchema,

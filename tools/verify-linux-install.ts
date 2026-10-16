@@ -6,10 +6,7 @@
 // 모든 실행은 이 도구가 만든 임시 HOME·LOPHN_HOME을 쓴다. `--root`에 `dpkg-deb -x`로 푼 임시
 // 폴더를 줄 수도 있다. 미확인이 하나라도 있으면 Linux 배포를 사용 가능으로 표시하지 않는다.
 import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
-import {
-  credentialSocketPath,
-  linuxInstallLayout,
-} from "../packages/core/install-and-update/mod.ts";
+import { linuxInstallLayout } from "../packages/core/install-and-update/mod.ts";
 
 type Verdict = "pass" | "fail" | "unverified";
 const results: { name: string; verdict: Verdict; note: string }[] = [];
@@ -51,7 +48,6 @@ async function checkLayout(): Promise<void> {
   for (
     const file of [
       layout.deno,
-      layout.credentialHelper,
       layout.desktopBinary,
       layout.chromeSandbox,
       `${layout.platform}/deno.json`,
@@ -67,13 +63,12 @@ async function checkLayout(): Promise<void> {
       layout.platform + "/vendor",
       layout.platform + "/node_modules",
       layout.skills,
-      layout.guides,
       layout.sdk,
     ]
   ) {
     if (!await isDir(dir)) missing.push(dir);
   }
-  for (const name of ["lophn-desktop", "lophn", "lophn-mcp"]) {
+  for (const name of ["lophn-desktop", "lophn"]) {
     try {
       // /usr/bin/lophn-desktop은 설치 root로 가는 링크라서 링크 자체를 본다.
       await Deno.lstat(`${bin}/${name}`);
@@ -82,7 +77,7 @@ async function checkLayout(): Promise<void> {
     }
   }
   record(
-    "R4·R6 설치 묶음 배치와 세 실행 이름",
+    "R4·R6 설치 묶음 배치와 두 실행 이름",
     missing.length === 0 ? "pass" : "fail",
     missing.join(", "),
   );
@@ -109,7 +104,6 @@ async function tempHome(): Promise<{ home: string; data: string }> {
 async function runLauncher(
   name: string,
   args: string[],
-  stdin?: string,
 ): Promise<{ code: number; stdout: string }> {
   const { home, data } = await tempHome();
   try {
@@ -120,20 +114,14 @@ async function runLauncher(
     const script = `${home}/${name}`;
     await Deno.writeTextFile(script, text);
     await Deno.chmod(script, 0o755);
-    const child = new Deno.Command(script, {
+    const out = await new Deno.Command(script, {
       args,
       env: { HOME: home, LOPHN_HOME: data, PATH: "/usr/bin:/bin" },
       clearEnv: true,
-      stdin: "piped",
+      stdin: "null",
       stdout: "piped",
       stderr: "null",
-    }).spawn();
-    const writer = child.stdin.getWriter();
-    if (stdin !== undefined) {
-      await writer.write(new TextEncoder().encode(stdin));
-    }
-    await writer.close();
-    const out = await child.output();
+    }).output();
     return { code: out.code, stdout: new TextDecoder().decode(out.stdout) };
   } finally {
     await Deno.remove(home, { recursive: true }).catch(() => undefined);
@@ -141,41 +129,17 @@ async function runLauncher(
 }
 
 async function checkLaunchers(): Promise<void> {
-  const bad: string[] = [];
-  for (const name of ["lophn", "lophn-mcp"]) {
-    const text = await Deno.readTextFile(`${bin}/${name}`);
-    if (/no-sandbox|disable-setuid-sandbox|--allow-all|\s-A\s/.test(text)) {
-      bad.push(name);
-    }
-  }
+  const text = await Deno.readTextFile(`${bin}/lophn`);
   record(
     "R3·R6 launcher에 sandbox 해제·전체 권한이 없다",
-    bad.length === 0 ? "pass" : "fail",
-    bad.join(", "),
+    /no-sandbox|disable-setuid-sandbox|--allow-all|\s-A\s/.test(text)
+      ? "fail"
+      : "pass",
   );
   const cli = await runLauncher("lophn", ["help"]);
   record(
     "R6 lophn CLI가 설치된 Deno로 cached-only 시작",
     cli.stdout.includes("commands:") ? "pass" : "fail",
-  );
-  const initialize = {
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "verify", version: "1" },
-    },
-  };
-  const mcp = await runLauncher(
-    "lophn-mcp",
-    [],
-    JSON.stringify(initialize) + "\n",
-  );
-  record(
-    "R6 lophn-mcp가 설치된 Deno로 cached-only 시작·initialize 응답",
-    mcp.stdout.includes('"serverInfo":{"name":"lophn-mcp"') ? "pass" : "fail",
   );
 }
 
@@ -219,29 +183,7 @@ async function checkCoreOffline(): Promise<void> {
       return;
     }
     record("R4·R5 새 cache·system Deno 없이 cached-only core 시작", "pass");
-    const socket = credentialSocketPath(data);
-    const sock = await Deno.lstat(socket).then(
-      (stat) => stat.isSocket,
-      () => false,
-    );
-    record("보호 통로 socket 열림(소유자 전용)", sock ? "pass" : "fail");
-    const helper = await runHelper(home, data);
-    record(
-      "R6 helper → core: 등록되지 않은 child는 not_found",
-      helper.code === 1 && helper.stdout === '{"reason":"not_found"}'
-        ? "pass"
-        : "fail",
-      helper.stdout,
-    );
     await stopCore(first.core);
-    const down = await runHelper(home, data);
-    record(
-      "R6 helper: core 없으면 no_secret_service(평문 fallback 없음)",
-      down.code === 1 && down.stdout === '{"reason":"no_secret_service"}'
-        ? "pass"
-        : "fail",
-      down.stdout,
-    );
 
     // Deno cache를 지워도 H는 그대로다.
     const before = await Deno.stat(`${data}/lophn.db`).then(
@@ -271,28 +213,6 @@ async function checkCoreOffline(): Promise<void> {
   } finally {
     await Deno.remove(home, { recursive: true }).catch(() => undefined);
   }
-}
-
-async function runHelper(home: string, data: string) {
-  const child = new Deno.Command(layout.credentialHelper, {
-    env: { HOME: home, LOPHN_HOME: data },
-    clearEnv: true,
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const writer = child.stdin.getWriter();
-  await writer.write(
-    new TextEncoder().encode(JSON.stringify({
-      connection: "cac_01arz3ndektsv4rrffq69g5fav",
-      process_generation: "verify",
-      loader_identity: layout.credentialHelper,
-      purpose: "mcp_cli_loader",
-    })),
-  );
-  await writer.close();
-  const out = await child.output();
-  return { code: out.code, stdout: new TextDecoder().decode(out.stdout) };
 }
 
 await checkLayout();

@@ -11,19 +11,16 @@
 //   deno                       설치된 Deno binary
 //   platform/                  packages source, deno.json, deno.lock, vendor/, node_modules/
 //   desktop/                   빌드된 desktop 화면
-//   skills/, guides/           coding agent skill, 안내 원문
+//   skills/                    coding agent skill 배포 원본
 //   sdk -> platform/packages/sdk
-//   lophn-credential           OS keychain 전달 helper(compile binary)
-// /usr/bin/{lophn-desktop,lophn,lophn-mcp} launcher, 데스크톱 항목, 아이콘.
+// /usr/bin/{lophn-desktop,lophn} launcher, 데스크톱 항목, 아이콘.
 import {
   cliLauncher,
-  CREDENTIAL_HELPER_COMPILE_FLAGS,
   debControl,
   DESKTOP_LAUNCHER_TARGET,
   desktopEntry,
   LINUX_LAUNCHERS,
   linuxInstallLayout,
-  mcpLauncher,
   postinstScript,
   SANDBOX_MODE,
 } from "../packages/base/install/linux-install.ts";
@@ -110,21 +107,7 @@ async function stageContent(pkg: string): Promise<void> {
     `${repo}/packages/shell/renderer/dist`,
     await ensure(inPkg(pkg, layout.desktop)),
   );
-  // 안내 원문은 lophn-agent 소유 자리에서 복사한다.
-  const guides = await ensure(inPkg(pkg, layout.guides));
-  for await (
-    const entry of Deno.readDir(
-      `${repo}/packages/core/lophn-agent/roles/lophn/guides`,
-    )
-  ) {
-    if (entry.isFile && entry.name.endsWith(".md")) {
-      await Deno.copyFile(
-        `${repo}/packages/core/lophn-agent/roles/lophn/guides/${entry.name}`,
-        `${guides}/${entry.name}`,
-      );
-    }
-  }
-  // skill 배포 원본(coding-agent/guides). 원본이 아직 없으면 빈 자리를 둔다.
+  // skill 배포 원본(coding-agent/guides). 원본이 아직 없으면 빈 폴더를 둔다.
   const skills = await ensure(inPkg(pkg, layout.skills));
   const skillSource = `${repo}/packages/coding-agent/guides/skills`;
   if (await exists(skillSource)) await copy(skillSource, skills);
@@ -146,16 +129,6 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function stageHelper(pkg: string): Promise<void> {
-  await run(Deno.execPath(), [
-    "compile",
-    ...CREDENTIAL_HELPER_COMPILE_FLAGS,
-    "-o",
-    inPkg(pkg, layout.credentialHelper),
-    `${repo}/packages/core/install-and-update/credential-helper-main.ts`,
-  ]);
-}
-
 async function stageSystem(pkg: string): Promise<void> {
   await Deno.mkdir(`${pkg}/usr/bin`, { recursive: true });
   await Deno.symlink(
@@ -163,7 +136,6 @@ async function stageSystem(pkg: string): Promise<void> {
     `${pkg}${LINUX_LAUNCHERS.desktop}`,
   );
   await write(`${pkg}${LINUX_LAUNCHERS.cli}`, cliLauncher(layout), 0o755);
-  await write(`${pkg}${LINUX_LAUNCHERS.mcp}`, mcpLauncher(layout), 0o755);
   await write(
     `${pkg}/usr/share/applications/lophn.desktop`,
     desktopEntry(),
@@ -229,7 +201,6 @@ async function main(): Promise<void> {
   await Deno.chmod(inPkg(pkg, layout.deno), 0o755);
   await stagePlatform(pkg, work);
   await stageContent(pkg);
-  await stageHelper(pkg);
   await stageSystem(pkg);
   // 그룹·기타의 쓰기 권한을 뺀다(umask와 무관하게 설치 묶음은 root만 쓴다). setuid는 그대로다.
   await run("chmod", ["-R", "go-w", pkg]);

@@ -9,15 +9,9 @@ import {
   OPEN_EXTERNAL_CHANNEL,
   type OpenExternalReply,
 } from "../ipc/open-external.ts";
-import {
-  WINDOWLESS_CONFIRMATION_CHANNEL,
-  type WindowlessConfirmationReply,
-} from "../ipc/windowless-confirmation.ts";
 import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
-import { createConfirmationOpener } from "./confirmation-open.ts";
-import { createConfirmationEndedSubscriber } from "./confirmation-ended.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
@@ -43,25 +37,8 @@ contextBridge.exposeInMainWorld(
   role === "shell"
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
-      openConfirmation: createConfirmationOpener(ipcRenderer),
       // secret 값을 받는 보호 입력 창 열기. 값은 이 창을 지나지 않는다.
       openSecretInput: createSecretInputOpener(ipcRenderer),
-      // 연 확인이 확정되지 않고 끝났다는 알림. main이 연 창에만 보낸다.
-      onConfirmationEnded: createConfirmationEndedSubscriber(ipcRenderer),
-      // app.create·apply_settings 선택지는 확인 창 없이 main이 정본을 다시 읽어 접수한다.
-      async confirmWithoutWindow(input: {
-        group: string;
-        option_key: string;
-      }): Promise<WindowlessConfirmationReply> {
-        try {
-          return await ipcRenderer.invoke(
-            WINDOWLESS_CONFIRMATION_CHANNEL,
-            input,
-          ) as WindowlessConfirmationReply;
-        } catch {
-          return { ok: false, code: "unavailable" };
-        }
-      },
       // 창 없는 사람 결정의 handle. main이 정본을 core에서 다시 읽고 handle만 돌려준다.
       async requestDecisionHandle(
         request: DecisionHandleRequest,

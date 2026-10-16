@@ -1,33 +1,8 @@
 export {
-  CONFIRMATION_ENDED_KINDS,
-  CONFIRMATION_ERRORS,
-  CONFIRMATION_IPC,
-  CONFIRMATION_REQUEST_KINDS,
-  confirmationCancelSchema,
-  type ConfirmationDisplay,
-  confirmationDisplaySchema,
-  type ConfirmationEnded,
-  confirmationEndedSchema,
-  type ConfirmationIntent,
-  type ConfirmationIpc,
-  type ConfirmationOpenInput,
-  confirmationOpenInputSchema,
-  type ConfirmationOpenIntent,
-  confirmationOpenIntentSchema,
-  type ConfirmationOpenResult,
-  confirmationOpenResultSchema,
-  type ConfirmationOutcome,
-  confirmationOutcomeSchema,
-  type ConfirmationRequest,
-  type ConfirmationRequestKind,
-  confirmationRequestSchema,
-  type ConfirmationSubmission,
-  confirmationSubmitSchema,
   type DecisionHandleRequest,
   decisionHandleRequestSchema,
   type DecisionHandleResult,
   decisionHandleResultSchema,
-  type LophnConfirmation,
   type LophnShell,
 } from "./confirmation.ts";
 import { WORKSPACE_ROUTES } from "./workspace.ts";
@@ -151,7 +126,6 @@ export {
   screenTestObservationSchema,
 } from "./screen-test.ts";
 
-// 확인 창을 여는 계기는 core event(ApprovalRequestCreated, QuestionCreated) 구독이다.
 // shell은 ledger command·event를 내놓지 않는다. 현재 보기 relay만 core 메모리 route다.
 export const ROUTES = WORKSPACE_ROUTES;
 export const EVENTS = [] as const;

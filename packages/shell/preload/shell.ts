@@ -12,7 +12,6 @@ import {
 import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
-import { createEditorApi } from "./editor-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
@@ -25,7 +24,6 @@ import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
-import { createWorkspaceHintApi } from "./workspace-api.ts";
 
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
@@ -106,8 +104,6 @@ if (role === "shell") {
     "lophnAppWindows",
     createAppWindowsApi(ipcRenderer),
   );
-  // 문서 편집기의 파일 통로. 경로·core port는 main에만 있다.
-  contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
   // 파일 읽고 쓰기·watch. 경로는 renderer가 보내고 디스크는 main이 만진다.
   contextBridge.exposeInMainWorld("lophnFiles", createFilesApi(ipcRenderer));
   // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
@@ -119,11 +115,6 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnInstructions",
     createInstructionsApi(ipcRenderer),
-  );
-  // 작업대 현재 보기 힌트. 창 신원은 main이 IPC sender로 정한다.
-  contextBridge.exposeInMainWorld(
-    "lophnWorkspace",
-    createWorkspaceHintApi(ipcRenderer),
   );
 }
 

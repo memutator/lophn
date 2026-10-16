@@ -45,7 +45,7 @@ export function mockProjects(): ProjectsSource {
   }).source;
 }
 
-/** 지침 문서는 시드 편집기가 여는 문서 하나다. 첫 저장은 메모리에서 성공만 답한다. */
+/** 지침 문서는 시드 편집기가 여는 문서 하나다. */
 export function mockInstructions(): InstructionsApi {
   return {
     open: () =>
@@ -55,16 +55,6 @@ export function mockInstructions(): InstructionsApi {
           document: SEED_INSTRUCTIONS_DOCUMENT,
           version: "ver_instructions",
           path: SEED_INSTRUCTIONS_DOCUMENT,
-        },
-      }),
-    create: () =>
-      Promise.resolve({
-        ok: true,
-        value: {
-          outcome: "saved",
-          version: "ver_instructions",
-          failure: null,
-          document: SEED_INSTRUCTIONS_DOCUMENT,
         },
       }),
   };

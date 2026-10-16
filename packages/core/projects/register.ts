@@ -21,6 +21,7 @@ import { createFolderResolver } from "./registry/folder-resolver.ts";
 import { folderResolverPort } from "./registry/ports.ts";
 import { createProjectReads } from "./registry/reads.ts";
 import { projectsSchemaSteps } from "./registry/schema.ts";
+import { projectSearchRead } from "./search/mod.ts";
 
 // context API의 의존. command를 실행하는 writer Worker와 read를 실행하는 reader Worker 안에서만
 // 실제 구현이 올라온다(contexts-api.ts). core 본체는 route 등록만 쓴다.
@@ -32,9 +33,24 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   blobFields?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
+  apiReads?: readonly unknown[];
 };
 
-export function createLedgerRegistration(): LedgerRegistration {
+// project.search가 ledger를 짧게 읽는 통로. 없으면 검색은 unavailable이다.
+type ProjectSearchEnvironment = {
+  snapshot: Parameters<typeof projectSearchRead>[0]["snapshot"];
+};
+
+const UNATTACHED_SEARCH: ProjectSearchEnvironment = {
+  snapshot: () => ({
+    ok: false,
+    error: { code: "unavailable", message: "project search is not attached" },
+  }),
+};
+
+export function createLedgerRegistration(
+  environment: { projectSearch?: ProjectSearchEnvironment } = {},
+): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const contexts = createContextsRegistration(contextsRuntime);
@@ -57,6 +73,10 @@ export function createLedgerRegistration(): LedgerRegistration {
       reads.resolveCwd,
       ...contexts.reads,
     ],
+    apiReads: [projectSearchRead({
+      ...(environment.projectSearch ?? UNATTACHED_SEARCH),
+      exists: (path) => folders.exists(path),
+    })],
     // 하위 폴더 검사와 폴더 존재 확인. Project Manager를 만드는 port는 agent-definition이 채운다.
     ports: [{ key: folderResolverPort, create: () => folders }],
     // context 내용 blob은 context 읽기가 연다.

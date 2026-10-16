@@ -148,6 +148,11 @@ export const annotatePageCaptureReadySchema = z.strictObject({
     width: z.number(),
     height: z.number(),
   }),
+  // crop이 viewport CSS px라 PNG px로 바꾸는 데 쓴다.
+  viewport: z.strictObject({
+    width: z.number().positive(),
+    height: z.number().positive(),
+  }),
 });
 
 export type PickedItem = z.infer<typeof pickedItemSchema>;

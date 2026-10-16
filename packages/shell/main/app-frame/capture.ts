@@ -2,12 +2,11 @@
 // 앱 view 전체를 capture하고, 페이지가 알려 준 범위로 잘라 정해진 크기로 줄인다. 어느 단계든
 // 실패하면 null이고 보내기는 그 annotation을 screenshot 없이 보낸다.
 import { Buffer } from "node:buffer";
-import { z } from "zod";
 
 import {
   ANNOTATE_PAGE_CLEAR_CAPTURE,
   ANNOTATE_PAGE_PREPARE_CAPTURE,
-  annotatePageCaptureReadySchema,
+  type AnnotatePageCaptureReady,
   type AnnotateViewPort,
 } from "../../ipc/annotation.ts";
 
@@ -21,15 +20,7 @@ export const SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024;
 export type Crop = { x: number; y: number; width: number; height: number };
 export type Viewport = { width: number; height: number };
 
-// 페이지가 capture-ready에 viewport 크기를 같이 싣는다(crop이 viewport CSS px라 PNG px로 바꾸는 데
-// 필요하다). ipc/annotation.ts의 계약에는 아직 없다.
-export const captureReadySchema = annotatePageCaptureReadySchema.extend({
-  viewport: z.strictObject({
-    width: z.number().positive(),
-    height: z.number().positive(),
-  }),
-});
-export type CaptureReady = z.infer<typeof captureReadySchema>;
+export type CaptureReady = AnnotatePageCaptureReady;
 
 /** PNG를 crop(viewport CSS px)으로 잘라 한도 안으로 줄인다. 못 하면 던진다. */
 export type CropAndFit = (

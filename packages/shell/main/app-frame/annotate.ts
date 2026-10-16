@@ -16,6 +16,7 @@ import {
   ANNOTATE_SEND_CHANNEL,
   type AnnotateErrorCode,
   annotateModeRequestSchema,
+  annotatePageCaptureReadySchema,
   annotatePageItemsSchema,
   annotateRemoveRequestSchema,
   type AnnotateReply,
@@ -32,11 +33,7 @@ import {
   type ContentsRegistry,
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
-import {
-  captureReadySchema,
-  createCapturer,
-  type CropAndFit,
-} from "./capture.ts";
+import { createCapturer, type CropAndFit } from "./capture.ts";
 
 type CoreResult =
   | { ok: true; value: unknown }
@@ -324,7 +321,7 @@ export function createAnnotate(deps: AnnotateDeps) {
     captureReady(event: IpcEvent, input: unknown): void {
       const port = pageView(event);
       if (port === undefined) return;
-      const parsed = captureReadySchema.safeParse(input);
+      const parsed = annotatePageCaptureReadySchema.safeParse(input);
       if (parsed.success) capturer.ready(port.view_session, parsed.data);
     },
   };

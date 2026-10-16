@@ -6,7 +6,7 @@ import {
   ticketReportCompletion,
   ticketSummaryBlobSchema,
   ticketUploadSummary,
-} from "../../protocol/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/ticket/mod.ts";
 import type { CoreClient } from "./client/core.ts";
 import { callRoute, uploadText } from "./call.ts";
 
@@ -31,7 +31,6 @@ export async function reportTicket(
       completion: {
         release: input.release,
         summary_hash: uploaded.value.hash,
-        fix_records: input.fix_records ?? [],
         verifications: input.verifications ?? [],
       },
       summary_blob: blob,

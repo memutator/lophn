@@ -149,7 +149,6 @@ export type TicketCheckResult = z.infer<typeof ticketCheckResultSchema>;
 export const completionFields = {
   release: idSchema("rel"),
   summary_hash: sha256Schema,
-  fix_records: z.array(seqSchema).max(12),
   verifications: z.array(idSchema("vrf")).max(24),
 };
 export const ticketCompletionSchema = z.object({

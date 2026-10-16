@@ -96,7 +96,6 @@ export const ticketReportToolInputSchema = z.strictObject({
   ...claimed,
   release: completionFields.release,
   summary: ticketReportSummarySchema,
-  fix_records: completionFields.fix_records.optional(),
   verifications: completionFields.verifications.optional(),
 });
 export type TicketReportToolInput = z.infer<

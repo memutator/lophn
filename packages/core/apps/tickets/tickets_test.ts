@@ -78,8 +78,8 @@ function open() {
   const reported = (id: string, session: string) =>
     db.prepare(
       `INSERT INTO ticket_completions
-         (ticket, seq, session, claim_seq, release, summary_hash, fix_records, verifications)
-       VALUES (?, '1', ?, '2', ?, ?, '[]', '[]')`,
+         (ticket, seq, session, claim_seq, release, summary_hash, verifications)
+       VALUES (?, '1', ?, '2', ?, ?, '[]')`,
     ).run(id, session, REL, HASH);
   const row = (id: string) =>
     db.prepare("SELECT state, revision FROM tickets WHERE id = ?").get(id);
@@ -141,7 +141,6 @@ Deno.test("coding token은 앱 하나만 연다", () => {
       completion: {
         release: REL,
         summary_hash: HASH,
-        fix_records: [],
         verifications: [],
       },
       summary_blob: { hash: HASH } as never,

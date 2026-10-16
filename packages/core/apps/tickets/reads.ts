@@ -110,7 +110,7 @@ export function createTicketReads(): {
           [ticket],
         );
         const completion = seq === null ? undefined : snapshot.sql.get(
-          `SELECT release, summary_hash, fix_records, verifications
+          `SELECT release, summary_hash, verifications
            FROM ticket_completions WHERE ticket = ? AND seq = ?`,
           [ticket, seq],
         );
@@ -141,7 +141,6 @@ export function createTicketReads(): {
               completion_seq: seq,
               release: String(completion.release),
               summary_hash: String(completion.summary_hash),
-              fix_records: list(completion.fix_records),
               verifications: list(completion.verifications),
             },
             check_result: checked === undefined || seq === null ? null : {

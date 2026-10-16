@@ -83,8 +83,8 @@ export function createTicketReportCommands(): {
         if (!blob.ok) return blob;
         tx.sql.run(
           `INSERT INTO ticket_completions
-             (ticket, seq, session, claim_seq, release, summary_hash, fix_records, verifications)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             (ticket, seq, session, claim_seq, release, summary_hash, verifications)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             input.ticket,
             seq,
@@ -92,7 +92,6 @@ export function createTicketReportCommands(): {
             input.claim_seq,
             input.completion.release,
             input.completion.summary_hash,
-            JSON.stringify([...input.completion.fix_records]),
             JSON.stringify([...input.completion.verifications]),
           ],
         );

@@ -1,7 +1,7 @@
 import type { Result } from "../../base/mod.ts";
 import { definePort, type PortKey } from "../base/ports.ts";
 import type { ConnectionId } from "./connections.ts";
-import type { TicketId } from "./ticket-values.ts";
+import type { TicketId } from "./ticket/values.ts";
 
 export const TICKET_CLAIM_REJECTS = [
   "missing",

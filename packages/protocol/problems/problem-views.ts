@@ -129,7 +129,6 @@ export const PROBLEM_MORE_KINDS = [
 export const problemMoreKindSchema = z.enum(PROBLEM_MORE_KINDS);
 export type ProblemMoreKind = z.infer<typeof problemMoreKindSchema>;
 
-// 지난 고친 기록과 첨부는 ticket 쪽 자료라 여기에 없다.
 function more<K extends ProblemMoreKind, T extends z.ZodType>(
   kind: K,
   item: T,

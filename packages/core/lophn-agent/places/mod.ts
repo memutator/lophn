@@ -14,4 +14,11 @@ export type {
   PlaceDeps,
 } from "./ports.ts";
 
-export { UNWIRED_END_DEPS, UNWIRED_OPEN_DEPS } from "./unwired.ts";
+export { UNWIRED_END_DEPS, UNWIRED_PLACE_DEPS } from "./unwired.ts";
+export {
+  COMMIT_END_DEPS,
+  installPlaceEnvironment,
+  openDepsOf,
+  placeDepsOf,
+  type PlaceEnvironment,
+} from "./environment.ts";

@@ -35,7 +35,6 @@ import {
   type PreparationRegistry,
 } from "../blobs/mod.ts";
 import { requestPrincipal } from "./after-commit.ts";
-import { bindQuestionOptionOwners } from "../../lophn-agent/register.ts";
 import { SECRET_COMMANDS } from "../../secrets/mod.ts";
 import type { TeamModule } from "../../main/daemon/registration.ts";
 
@@ -125,8 +124,6 @@ export async function assembleWriter(
   ) {
     throw new Error("dispatchOnly command must be dispatchable");
   }
-  // ApplyQuestionOption은 등록된 command 중 선택지로 열 수 있는 소유 동작의 handler만 부른다.
-  bindQuestionOptionOwners(commands);
   const preparations = createPreparationRegistry();
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
   let currentRequest: RequestContext | undefined;

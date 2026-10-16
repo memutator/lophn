@@ -57,8 +57,8 @@ export type ConversationDeps = {
     ownerKind: string,
     ownerKeys: readonly string[],
   ) => Result<void>;
-  // session을 열 때 place와 Operator를 확인하고 SessionStarted를 낸다.
-  open: OpenDeps;
+  // session을 열 때 place와 Operator를 확인하고 SessionStarted를 낸다. 그 tx의 sql로 읽는다.
+  open: (tx: Tx) => OpenDeps;
   // archive와 지움이 묶는 영향.
   end: EndDeps;
 };
@@ -124,7 +124,7 @@ export function createConversationCommands(deps: ConversationDeps): {
             "the event of the opening context not found",
           );
         }
-        const started = startSession(tx, deps.open, {
+        const started = startSession(tx, deps.open(tx), {
           id: input.id,
           agent: input.agent,
           opening,

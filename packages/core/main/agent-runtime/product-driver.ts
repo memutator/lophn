@@ -29,9 +29,12 @@ import { rolePrompt } from "../../lophn-agent/roles/prompts.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
+  productSkillSnapshotDeps,
   productSkillStores,
   registeredSkillEntries,
 } from "../../lophn-agent/extensions/skill-folders.ts";
+import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
+import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 
@@ -94,7 +97,16 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),
-      toolPorts: () => UNWIRED_TOOL_PORTS,
+      // gate와 questions는 core에 닿는 route가 아직 없어 닫힌 채다. rewind도 같다.
+      toolPorts: (session, turn) => ({
+        ...UNWIRED_TOOL_PORTS,
+        router: routerOverCore(turn.core),
+        skills: turnSkillReader(
+          productSkillSnapshotDeps(calls.machine),
+          session,
+          turn.skills,
+        ),
+      }),
       events: calls.events,
       rolePrompt,
       instructions: {

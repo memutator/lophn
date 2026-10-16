@@ -3,9 +3,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { defineSetting } from "../../protocol/config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import {
-  type CommandDefinition,
   type EventVisibilityDefinition,
-  questionOption,
   type ReadDefinition,
   type Tx,
 } from "../../protocol/server/mod.ts";
@@ -20,7 +18,6 @@ import {
   assignmentPaused,
   finishRewindSummary,
   instructionPreview,
-  instructionRead,
   instructionsGet,
   providerDisconnected,
   questionCreated,
@@ -58,16 +55,23 @@ import {
   modelCallBodyFields,
   usageSchemaSteps,
 } from "./usage/mod.ts";
-import { UNWIRED_END_DEPS, UNWIRED_OPEN_DEPS } from "./places/mod.ts";
+import {
+  COMMIT_END_DEPS,
+  openDepsOf,
+  type OperatorDirectory,
+  type OperatorInfo,
+  UNWIRED_END_DEPS,
+} from "./places/mod.ts";
 import {
   type AgentDeps,
   type AgentFileSystem,
   type AgentLookups,
-  agentRefOf,
   createAgentCommands,
   createAgentReads,
-  createAgentStore,
-  parseAgentFile,
+  listOperators,
+  loadAgent,
+  nameOf,
+  openAgentContext,
   type ProfileAssetDeps,
   type ProfileFileHandler,
   profileImageFileHandler,
@@ -75,7 +79,6 @@ import {
   profileImageUploadHandler,
   type ProfileReaders,
   type ProfileUploadHandler,
-  slotOf,
 } from "./agents/mod.ts";
 import {
   createTurnCommands,
@@ -106,13 +109,9 @@ import {
   sessionSummaryRead,
 } from "./session/mod.ts";
 import {
-  chosenOptionCall,
-  createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
   deleteSessionQuestions,
-  OPTION_ACTION_OWNERS,
-  type OptionOwnerHandlers,
   questionBodyFields,
   questionSchemaSteps,
   questionTextRead,
@@ -141,9 +140,8 @@ import {
   runBodyViewRead,
   waitSchemaSteps,
 } from "./waiting-and-recovery/mod.ts";
-import { appDirectSocketPaths, SOCKET_HOST } from "../../protocol/apps/mod.ts";
 import {
-  type AgentRole,
+  type AgentRef,
   DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
   mcpAuthCancel,
@@ -160,92 +158,50 @@ import {
   skillsOffSetting,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
-  allowNetList,
-  allowRunList,
   BUNDLED_SKILLS_ROOT,
   commandSkillsOf,
   createExtensionRegistry,
-  createGlobalSkillReads,
-  createPlaceExtensionCommands,
-  createPlaceExtensionReads,
+  createProjectExtensionCommands,
+  createProjectExtensionReads,
+  createSkillsRead,
   dataRootOf,
   type ExtensionRegistry,
   listSkillsSync,
   type McpRuntimeServer,
-  type PlaceExtensionDeps,
   type PlaceFiles,
   type SkillSources,
   type SyncSkillFiles,
 } from "./extensions/mod.ts";
+import type { Loaded } from "./agents/inspect.ts";
+import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import { contextStatusOf } from "../projects/contexts/mod.ts";
 import { createMcpSecretRefSource } from "./extensions/mod.ts";
 
-// 내장 skill 폴더(extensions/builtin-skills)가 있으면 그 경로만 돌려준다. runtime의 skill 발견
-// (extensions/skill-folders.ts)이 같은 위치를 연다. core graph에는 동기 file API를 두지 않으므로
-// async로 확인하고, 결과를 `agentRuntimeLaunchSpec`의 `bundledSkillRoots`로 넘긴다.
-export async function readBundledSkillRoots(): Promise<string[]> {
-  try {
-    return (await Deno.stat(BUNDLED_SKILLS_ROOT)).isDirectory
-      ? [BUNDLED_SKILLS_ROOT]
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-// agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
-// 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
+// agent runtime 등록 뼈대. 권한 목록은 `agentRuntimePermissions`가 계산한다.
+// host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
 export function agentRuntimeLaunchSpec(input: {
   dataRoot: string;
   apiPort: number;
-  // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`). 자리 경로는 그 폴더와 같다.
+  // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`). socket 경로는 그 폴더와 같다.
   socketRoot: string;
-  // 등록된 MCP server 설정이다(settings registry의 행). 없으면
-  // `--allow-run`은 빈 목록이다(architecture §2.3).
+  // 등록된 MCP server 설정이다(settings registry의 행).
   mcpServers?: readonly McpRuntimeServer[];
   // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
   hosts?: readonly string[];
   // 사람이 등록한 skill 폴더다. 읽기 허락에 더하고 등록이 바뀌면 core가 다시 띄운다.
   skillRoots?: readonly string[];
-  // `readBundledSkillRoots()`가 확인한 동봉 skill 폴더다. 읽기 허락에 더한다.
-  bundledSkillRoots?: readonly string[];
+  // file tool과 shell이 닿는 place 폴더들(절대 경로)이다. 쓰기 폴더는 읽기 폴더 안에 있다.
+  placeFolders: { read: readonly string[]; write: readonly string[] };
 }): KindLaunchSpec {
-  // confirm proof의 direct call은 이 프로세스가 앱 socket으로 보낸다. Deno는 자리마다
-  // read·write·`unix:<경로>`와 가상 host를 요구하고 폴더 prefix는 받지 않는다.
-  const sockets = appDirectSocketPaths(input.socketRoot);
+  const permissions = agentRuntimePermissions({
+    ...input,
+    bundledSkillRoots: [BUNDLED_SKILLS_ROOT],
+  });
   return {
     kind: "lophn-agent/runtime",
     entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
-    // 개인 skill 보관소(<dataRoot>/skills)는 dataRoot 안이고, 동봉 skill 폴더는 설치 묶음의 assets/skills다.
-    allow_read: [
-      input.dataRoot,
-      ...(input.bundledSkillRoots ?? []),
-      ...(input.skillRoots ?? []),
-      ...sockets,
-    ],
-    // derived만 쓴다. ledger·blob·원본은 쓰지 않는다. socket 쓰기는 연결에 필요한 허락이다.
-    allow_write: [`${input.dataRoot}/derived/lophn-agent`, ...sockets],
-    // core loopback, 앱 direct socket, 등록된 provider 목적지, enabled로 등록한 MCP HTTP server의 정확한
-    // `host:port`. 공개 models.dev는 등록될 때 더한다.
-    allow_net: [
-      `127.0.0.1:${input.apiPort}`,
-      SOCKET_HOST,
-      ...sockets.map((path) => `unix:${path}`),
-      ...(input.hosts ?? []),
-      ...allowNetList(input.mcpServers ?? []),
-    ],
-    // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
-    allow_run: allowRunList(input.mcpServers ?? []),
+    ...permissions,
     allow_sys: [],
-    // MCP 최소 환경을 구성하는 네 이름이다(architecture §2.3).
-    allow_env: [
-      "LOPHN_HOME",
-      "LOPHN_WORKER_KIND",
-      "PATH",
-      "HOME",
-      "TEMP",
-      "LC_ALL",
-    ],
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -412,11 +368,13 @@ const conversationCommands = createConversationCommands({
   send: { router: messageRouter, directory: messageDirectory },
   deleteSessionRecords,
   eraseBlobRefs,
-  // project와 앱, Operator 정의, Bus, 끝날 때의 영향은 wiring이 놓는다. 놓기 전에는 새 session을 열지 못한다.
-  open: UNWIRED_OPEN_DEPS,
-  // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. Bus event는 commit 뒤에 main thread가 낸다.
+  // project와 앱, Operator 정의는 wiring이 놓는다(places/environment.ts). 놓기 전에는 새 session을 열지 못한다.
+  // SessionStarted는 commit 뒤에 Bus로 간다.
+  open: openDepsOf,
+  // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. 입력함 비우기와 Bus event는 commit 뒤에 main thread가 한다.
   end: {
     ...UNWIRED_END_DEPS,
+    ...COMMIT_END_DEPS,
     effects: { ...UNWIRED_END_DEPS.effects, failReceivedCalls },
     interruptRunningTurns: (tx, session) => {
       const done = interruptRunningTurns(
@@ -467,29 +425,6 @@ const toolReads = createToolReads();
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
-// 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(ApplyQuestionOption). 소유 command의
-// handler는 다른 팀 등록에 있으므로 writer가 모든 등록을 모은 뒤 묶는다(bindQuestionOptionOwners).
-// 묶기 전에는 비어 있어 어느 동작도 적용하지 않는다. writer Worker마다 이 module 상태가 따로
-// 있다(platform.ts의 approval owner 목록과 같다).
-let optionOwners: OptionOwnerHandlers = new Map();
-
-export function bindQuestionOptionOwners(
-  commands: readonly CommandDefinition[],
-): void {
-  const handlers = new Map<string, CommandDefinition["handle"]>();
-  for (const owner of OPTION_ACTION_OWNERS) {
-    const found = commands.find((command) =>
-      command.route.name === owner.route.name
-    );
-    if (found !== undefined) handlers.set(owner.route.name, found.handle);
-  }
-  optionOwners = handlers;
-}
-
-const questionApply = createApplyQuestionOption({
-  handlers: () => optionOwners,
-});
-
 // 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
 // waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
 // 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
@@ -506,12 +441,6 @@ const waitCommands = createWaitCommands({
 // agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
-// platform/ledger의 callChosenOption이 대조하는 질문 정본. 사람이 고른 option의
-// 고정 action이 내는 소유 command 호출을 같은 Tx에서 읽어 준다.
-const questionOptionPort = defineTxPort(questionOption, (tx) => ({
-  chosen: (question: string) => chosenOptionCall(tx, question),
-}));
-
 const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   status: (run: string) => {
     const row = tx.sql.get("select state from turns where id = ?", [run]);
@@ -727,55 +656,88 @@ const agentDeps: AgentDeps = {
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);
 
-// skill·MCP의 자리 층: 자리 data 폴더의 MCP 서버 목록을 저장하고 읽는다.
-// 사람이 전역에 등록한 서버와 이름이 겹치면 거절한다.
-const placeExtensionDeps: PlaceExtensionDeps = {
-  files: placeFiles,
-  lookups: (sql) => ({
-    placeExists: (place) => placeExists(sql, place),
-    globalServers: () => registeredMcpServers(sql),
-  }),
-};
-const placeExtensionCommands = createPlaceExtensionCommands(placeExtensionDeps);
-const placeExtensionReads = createPlaceExtensionReads(placeExtensionDeps);
+// Operator 조회. session을 열 때와 Router의 session 목록이 읽는다. wiring이 places 환경에 끼운다.
+export function operatorDirectory(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): OperatorDirectory {
+  const opened = openAgentContext(agentDeps, sql);
+  const toInfo = (loaded: Loaded): OperatorInfo | null =>
+    loaded.ref.role === "operator" && loaded.place !== null
+      ? {
+        id: loaded.ref.agent as OperatorInfo["id"],
+        name: nameOf(loaded),
+        place: loaded.place,
+      }
+      : null;
+  return {
+    operator(id) {
+      if (!opened.ok) return null;
+      const loaded = loadAgent(opened.value, {
+        role: "operator",
+        agent: id as never,
+      });
+      return loaded.ok && loaded.value !== null ? toInfo(loaded.value) : null;
+    },
+    operators() {
+      if (!opened.ok) return [];
+      const listed = listOperators(opened.value);
+      return listed.ok
+        ? listed.value.flatMap((loaded) => toInfo(loaded) ?? [])
+        : [];
+    },
+  };
+}
 
-// 전역 층의 skill 목록을 사람 화면에 준다(Settings › Agents). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
-const globalSkillReads = createGlobalSkillReads({
+// skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
+const skillsReads = createSkillsRead({
+  files: placeFiles,
   skillFiles,
   lookups: (sql) => ({
     skillSources: () => globalSkillSources(sql),
     skillsOff: () => registeredSkillsOff(sql),
+    projectExists: (id) => placeExists(sql, { kind: "project", id }),
   }),
 });
+const projectExtensionDeps = {
+  files: placeFiles,
+  lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
+    projectExists: (id: string) => placeExists(sql, { kind: "project", id }),
+  }),
+};
+const projectExtensionCommands = createProjectExtensionCommands(
+  projectExtensionDeps,
+);
+const projectExtensionReads = createProjectExtensionReads(
+  projectExtensionDeps,
+);
 
-// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다. `/` 메뉴가 session을 옛 모양
-// (assignment, role, 작업 place)으로 읽는 동안 그 값에서 agent를 가린다.
+// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
 function skillsOffOf(
   sql: Pick<Tx["sql"], "get" | "all">,
-  session: { assignment: string; role: AgentRole; work_place: Place },
+  agent: AgentRef,
 ): readonly string[] {
-  const root = dataRootOf(sql, undefined);
-  if (!root.ok) return [];
-  const place = session.work_place;
-  const ref = agentRefOf(session.role, place, session.assignment);
-  const slot = ref === null ? null : slotOf(root.value, ref, place);
-  if (ref === null || slot === null) return [];
-  const file = createAgentStore(agentDeps.files, root.value).read(slot);
-  if (!file.ok || file.value === null) return [];
-  const parsed = parseAgentFile(file.value.text, {
-    role: ref.role,
-    place: ref.role === "lophn" ? null : place.kind,
-  });
-  return parsed.ok ? parsed.value.skills_off ?? [] : [];
+  const opened = openAgentContext(agentDeps, sql);
+  if (!opened.ok) return [];
+  const loaded = loadAgent(opened.value, agent);
+  if (!loaded.ok || loaded.value === null) return [];
+  return loaded.value.definition?.skills_off ?? [];
 }
 
 // `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-// 자리에서 그 agent가 쓸 수 있는 것이다: 전역 층에 자리 층을 더하고, agent 정의가 끈 것은 selected=false다.
+// place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 끈 것은 selected=false다.
+// 내장 skill은 선언한 role의 메뉴에만 보인다.
 const commandReads = createCommandReads({
   skills: (sql, session) =>
     commandSkillsOf(
-      extensionRegistry(sql)?.skills(session.work_place).entries ?? [],
-      skillsOffOf(sql, session),
+      session.place === null
+        ? listSkillsSync(
+          skillFiles,
+          { ...globalSkillSources(sql), project: null },
+          { role: null, off: registeredSkillsOff(sql) },
+        ).entries
+        : extensionRegistry(sql)?.skills(session.place).entries ?? [],
+      skillsOffOf(sql, session.agent),
+      session.role,
     ),
 });
 
@@ -819,7 +781,7 @@ export const lophnAgentDefinitions = {
     agentCommands.change,
     agentCommands.delete,
     agentCommands.changeBuiltin,
-    placeExtensionCommands.change,
+    projectExtensionCommands.change,
     runCommands.start,
     runCommands.checkpoint,
     runCommands.finish,
@@ -849,7 +811,6 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
-    questionApply,
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,
@@ -874,8 +835,8 @@ export const lophnAgentDefinitions = {
     usageReads.usage,
     agentReads.list,
     agentReads.read,
-    placeExtensionReads.read,
-    globalSkillReads.read,
+    skillsReads.read,
+    projectExtensionReads.read,
     runReads.read,
     runReads.list,
     runReads.result,
@@ -893,7 +854,6 @@ export const lophnAgentDefinitions = {
     revertReads.preview,
     revertReads.checkpoints,
     revertReads.list,
-    instructionReadRoute(),
     instructionsGetRoute(),
     instructionPreviewRoute(),
   ],
@@ -906,10 +866,7 @@ export const lophnAgentDefinitions = {
     ...questionBodyFields,
     ...messageBodyFields,
   ],
-  ports: [
-    runAdmissionPort,
-    questionOptionPort,
-  ],
+  ports: [runAdmissionPort],
   workers: [],
   // 확인한 rewind의 앱 단계를 이어 실행하는 core 메모리 route와 MCP OAuth 입구다.
   memoryRoutes: [
@@ -951,22 +908,9 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
 // 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
 const UNATTACHED_REDACT = (): string | null => null;
 
-// ReadInstructionFile은 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는
-// core module graph에 들일 수 없어 서빙은 instruction-files.ts의 reader 등록이 한다(core.ts가 reader module로
-// 붙인다). 여기 handler는 route를 registry에 올리는 자리이고 실행되지 않는다.
-function instructionReadRoute(): ReadDefinition<typeof instructionRead> {
-  return {
-    route: instructionRead,
-    handle() {
-      return err({
-        code: "unavailable" as const,
-        message: "지침 읽기는 reader Worker가 서빙한다",
-      });
-    },
-  };
-}
-
-// GetInstructions도 reader Worker가 서빙한다(instructions/files.ts의 instructionsGetHandler).
+// GetInstructions는 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는 core module
+// graph에 들일 수 없어 서빙은 instructions/files.ts의 reader 등록이 한다(core 조립이 reader module로 붙인다). 여기
+// handler는 route를 registry에 올릴 뿐 실행되지 않는다.
 function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
   return {
     route: instructionsGet,
@@ -1081,7 +1025,8 @@ export function createReaderRegistration(): ReaderRegistration {
       usageReads.usage,
       agentReads.list,
       agentReads.read,
-      placeExtensionReads.read,
+      skillsReads.read,
+      projectExtensionReads.read,
       runReads.read,
       runReads.list,
       runReads.result,

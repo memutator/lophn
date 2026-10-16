@@ -10,7 +10,6 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   INSTRUCTION_PREVIEW_MAX_BYTES,
   instructionPreview,
-  instructionRead,
   instructionsGet,
   type Place,
   type Role,
@@ -272,41 +271,8 @@ export function instructionsGetHandler(): ReadDefinition<
   };
 }
 
-// ReadInstructionFile(옛 입구). turn이 도는 session의 지침을 읽는다. register.ts가 내릴 때까지만 남는다.
-export function instructionReadHandler(): ReadDefinition<
-  typeof instructionRead
-> {
-  return {
-    route: instructionRead,
-    handle(snapshot, _ctx, input) {
-      try {
-        if (input.layer === "app") return notFound();
-        const found = snapshot.sql.get(
-          "select session from turns where id = ?",
-          [input.turn],
-        );
-        if (found === undefined) return notFound();
-        const file = readInstruction(
-          snapshot,
-          String(found["session"]),
-          input.layer,
-          undefined,
-        );
-        if (!file.ok) return file;
-        return ok({
-          file: file.value === null ? null : encodeInstructionFile(file.value),
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      } catch {
-        return unavailable();
-      }
-    },
-  };
-}
-
 // PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. turn을 모르고 전역 층
-// 하나뿐이다. 읽는 길은 ReadInstructionFile과 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
+// 하나뿐이다. 읽는 길은 GetInstructions와 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
 export function instructionPreviewHandler(): ReadDefinition<
   typeof instructionPreview
 > {
@@ -346,7 +312,6 @@ export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
       instructionsGetHandler(),
-      instructionReadHandler(),
       instructionPreviewHandler(),
     ],
     ports: new Map(),

@@ -86,7 +86,7 @@ function commandsOf() {
     },
     deleteSessionRecords: () => ok(undefined),
     eraseBlobRefs: () => ok(undefined),
-    open: deps,
+    open: () => deps,
     end: UNWIRED_END_DEPS,
   });
 }

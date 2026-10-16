@@ -1,15 +1,14 @@
 import { ok } from "../../../base/mod.ts";
-import type { EndDeps, OpenDeps } from "./ports.ts";
+import type { EndDeps, PlaceDeps } from "./ports.ts";
 
-// wiring이 진짜 port를 놓기 전의 자리다. project와 앱이 없는 것으로 읽혀 session을 열지 못하고,
-// 끝날 때의 영향은 아무것도 하지 않는다.
-export const UNWIRED_OPEN_DEPS: OpenDeps = {
+// wiring이 진짜 directory를 놓기 전의 값이다. project와 앱이 없는 것으로 읽혀 session을 열지 못한다.
+export const UNWIRED_PLACE_DEPS: PlaceDeps = {
   projects: { project: () => null, projectByName: () => null },
   apps: { app: () => null, appByName: () => null },
   operators: { operator: () => null, operators: () => [] },
-  publish: () => {},
 };
 
+// 끝날 때의 영향을 아무것도 하지 않는 값이다. 시험이 쓴다.
 export const UNWIRED_END_DEPS: EndDeps = {
   effects: {
     cancelPendingRequests: () => ok(undefined),

@@ -139,7 +139,11 @@ export type PreparerDeps = {
   ): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
-  toolPorts(session: AgentSession): ToolPorts;
+  // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름이다.
+  toolPorts(
+    session: AgentSession,
+    turn: { core: CoreCall; skills: readonly string[] },
+  ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
   rolePrompt(role: string): Promise<Result<string>>;
@@ -382,7 +386,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const place = session.place;
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
     const scope: { read: string[]; write: string[] } = { read: [], write: [] };
-    const ports = { ...deps.toolPorts(session), scope };
+    const ports = {
+      ...deps.toolPorts(session, { core: agentCall, skills: resolved.skills }),
+      scope,
+    };
     const toolSetup: ToolSetup = {
       listed,
       context: (toolCall: Id<"tcl">): ToolContext => ({

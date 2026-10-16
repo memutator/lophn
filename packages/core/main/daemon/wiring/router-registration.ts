@@ -12,7 +12,7 @@ import { loadAgentGrant } from "../../../approvals/grants/mod.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
-  UNWIRED_OPEN_DEPS,
+  placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
 import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
 import {
@@ -87,7 +87,7 @@ export function callGate(
 const environment: RouterEnvironment = {
   deps(view, who) {
     const directory = createSessionDirectory({
-      ...UNWIRED_OPEN_DEPS,
+      ...placeDepsOf(view.sql),
       // 새 session의 SessionStarted는 commit 뒤에 Bus로 낸다.
       publish: (event) => view.port(afterCommit).push(AGENT_EVENT_TOPIC, event),
       sql: () => view.sql,

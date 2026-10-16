@@ -6,7 +6,12 @@ import {
   profileImageUpload,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
-import { ensureLophn } from "../../../lophn-agent/agents/ensure.ts";
+import { appCreate } from "../../../../protocol/apps/mod.ts";
+import { withAppEngineer } from "../../../lophn-agent/agents/app-engineer.ts";
+import {
+  ensureAppEngineer,
+  ensureLophn,
+} from "../../../lophn-agent/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import {
@@ -37,9 +42,19 @@ export const lophnAgentWiring: WiringFactory = () => ({
     const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
     return ok({
       writer: (inner) =>
-        withQuestionText(
-          inner,
-          createQuestionTextPreparer({ relay: () => ctx.bodyPrepare }),
+        withAppEngineer(
+          withQuestionText(
+            inner,
+            createQuestionTextPreparer({ relay: () => ctx.bodyPrepare }),
+          ),
+          // 앱을 등록하면 그 앱의 App Engineer 정의 파일을 만든다.
+          (app) => {
+            ensureAppEngineer(
+              { files: createNodeAgentFiles(), root: ctx.root.path },
+              app,
+            );
+          },
+          appCreate.name,
         ),
       // profile 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
       uploads: [[

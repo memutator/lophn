@@ -148,8 +148,8 @@ export function endSession(
   const cancelled = deps.effects.cancelPendingRequests(tx, id);
   if (!cancelled.ok) return cancelled;
   deps.effects.forgetSessionGrants(id);
-  deps.clearInbox(id);
-  deps.publish({
+  deps.clearInbox(tx, id);
+  deps.publish(tx, {
     session: id,
     type: "SessionEnded",
     at: tx.now(),

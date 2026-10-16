@@ -10,7 +10,7 @@ export {
 export { resolveSubmission, type Submission } from "./list.ts";
 export {
   type CommandReadDeps,
-  type CommandSessionPlace,
+  type CommandSession,
   createCommandReads,
 } from "./reads.ts";
 export {

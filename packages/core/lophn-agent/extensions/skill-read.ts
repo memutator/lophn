@@ -163,3 +163,35 @@ function bodyOf(source: string): string | null {
   }
   return null;
 }
+
+// turn이 처음 skill을 읽을 때 판을 고정하는 reader다. agent가 켠 skill(`enabled`)만 읽는다.
+export function turnSkillReader(
+  deps: SkillSnapshotDeps,
+  session: {
+    id: string;
+    agent: { role: Role };
+    place: { kind: "project" | "app"; id: string } | null;
+  },
+  enabled: readonly string[],
+): SkillReader {
+  let snapshot: Promise<SkillSnapshot> | undefined;
+  return {
+    async read(id, name, path) {
+      if (!enabled.includes(name)) {
+        return err({
+          code: "forbidden",
+          message: `skill ${name} is not available to this agent`,
+        });
+      }
+      snapshot ??= createSkillSnapshot(deps, {
+        id: session.id as Id<"ses">,
+        role: session.agent.role,
+        project: session.place?.kind === "project"
+          ? session.place.id as Id<"prj">
+          : null,
+        skills_off: [],
+      });
+      return (await snapshot).reader.read(id, name, path);
+    },
+  };
+}

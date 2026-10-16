@@ -13,7 +13,12 @@ export {
 } from "./resolve.ts";
 export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
-export { listOperators, loadAgent, openAgentContext } from "./inspect.ts";
+export {
+  listOperators,
+  loadAgent,
+  nameOf,
+  openAgentContext,
+} from "./inspect.ts";
 export {
   type ProfileAssetDeps,
   type ProfileFileHandler,

@@ -1,23 +1,25 @@
 import { err, ok } from "../../../base/mod.ts";
 import {
-  type AgentRole,
-  agentRoleSchema,
+  type AgentRef,
   commandsList,
+  type Place,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
+import { agentRefOf, loadSession, placeOf } from "../session/model.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 // `/` 명령 목록 read(concern lophn-agent/commands). 목록은 저장하는 표가 아니라 session의 agent에서
 // 열 때마다 계산한다(domain model 정책).
 
-export type CommandSessionPlace = {
-  assignment: string;
-  role: AgentRole;
-  work_place: { kind: "project" | "app"; id: string };
+export type CommandSession = {
+  role: Role;
+  place: Place | null;
+  agent: AgentRef;
 };
 
 export type CommandReadDeps = {
@@ -25,33 +27,9 @@ export type CommandReadDeps = {
   // (lophn-agent/extensions). 끈 skill은 selected=false로 와서 registry가 거른다.
   skills(
     sql: ReadSnapshot["sql"],
-    place: CommandSessionPlace,
+    session: CommandSession,
   ): readonly RegistrySkill[];
 };
-
-function placeOf(
-  sql: ReadSnapshot["sql"],
-  session: string,
-): CommandSessionPlace | undefined {
-  const row = sql.get(
-    `select s.assignment as assignment, a.role as role,
-       s.work_place_kind as work_place_kind, s.work_place_id as work_place_id
-     from sessions s join assignments a on a.id = s.assignment
-     where s.id = ?`,
-    [session],
-  );
-  if (row === undefined) return undefined;
-  const role = agentRoleSchema.safeParse(row["role"]);
-  if (!role.success) return undefined;
-  return {
-    assignment: String(row["assignment"]),
-    role: role.data,
-    work_place: {
-      kind: row["work_place_kind"] === "app" ? "app" : "project",
-      id: String(row["work_place_id"]),
-    },
-  };
-}
 
 export function createCommandReads(deps: CommandReadDeps): {
   list: ReadDefinition<typeof commandsList>;
@@ -66,16 +44,18 @@ export function createCommandReads(deps: CommandReadDeps): {
             message: "only a person reads the command list",
           });
         }
-        const place = placeOf(snapshot.sql, input.session);
-        if (place === undefined) {
+        const row = loadSession({ sql: snapshot.sql }, input.session);
+        if (row === undefined) {
           return err({ code: "not_found", message: "session not found" });
         }
+        const session: CommandSession = {
+          role: row.role,
+          place: placeOf(row),
+          agent: agentRefOf(row),
+        };
         const registry = buildRegistry({
-          // register.ts가 옛 AgentRole을 쓰는 동안만 필요하다.
-          role: place.role === "context_engineer"
-            ? "project_manager"
-            : place.role,
-          skills: deps.skills(snapshot.sql, place),
+          role: session.role,
+          skills: deps.skills(snapshot.sql, session),
         });
         return ok({
           commands: [...registry.entries],

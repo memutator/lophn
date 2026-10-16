@@ -71,7 +71,7 @@ function replay(
 }
 
 export function createForkCommand(
-  open: OpenDeps,
+  open: (tx: Tx) => OpenDeps,
 ): CommandDefinition<typeof forkSession> {
   return {
     route: forkSession,
@@ -99,7 +99,7 @@ export function createForkCommand(
 
       // 제목과 model 선택은 출처에서 이어받고 archive와 요약(compaction)은 이어받지 않는다. 보관한 place와
       // 없어진 Operator에는 새 session을 열지 못한다.
-      const started = startSession(tx, open, {
+      const started = startSession(tx, open(tx), {
         id: input.id,
         agent: agentRefOf(source),
         opening: source.opening_source_seq === null ||

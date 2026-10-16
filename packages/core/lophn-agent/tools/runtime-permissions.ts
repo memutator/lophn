@@ -2,9 +2,12 @@ import {
   appDirectSocketPaths,
   SOCKET_HOST,
 } from "../../../protocol/apps/mod.ts";
-import type { McpServerConfig } from "../../../protocol/lophn-agent/mod.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
-import { allowNetList, allowRunList } from "../extensions/mod.ts";
+import {
+  allowNetList,
+  allowRunList,
+  type McpServerShape,
+} from "../extensions/mod.ts";
 import { SHELL_ENV_NAMES } from "./shell/env.ts";
 
 // agent runtime process의 Deno 권한 계산이다. `agentRuntimeLaunchSpec`(register.ts)이 이 결과를 그대로 launch spec에 싣는다.
@@ -13,7 +16,7 @@ export type RuntimePermissionInput = {
   apiPort: number;
   // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`).
   socketRoot: string;
-  mcpServers?: readonly McpServerConfig[];
+  mcpServers?: readonly McpServerShape[];
   // 사람이 등록한 provider의 목적지(`host:port`).
   hosts?: readonly string[];
   skillRoots?: readonly string[];

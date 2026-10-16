@@ -1,8 +1,6 @@
-import {
-  AGENT_ROLES,
-  type AgentSettings,
-  type ModelChoice,
-  type ModelFavorites,
+import type {
+  ModelChoice,
+  ModelFavorites,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
@@ -52,20 +50,6 @@ export function saveChoice(
       JSON.stringify(choice.option_values),
     ],
   );
-}
-
-// 옛 agent 정의가 역할별 model 칸을 읽는 동안 쓰는 모양이다. 전역 기본 하나를 모든 role에 준다.
-export function loadWorkspaceModels(
-  sql: Query,
-): NonNullable<AgentSettings["models"]> {
-  const choice = loadChoice(sql, GLOBAL_SCOPE);
-  const models: NonNullable<AgentSettings["models"]> = {};
-  if (choice !== null) {
-    for (const role of AGENT_ROLES) {
-      models[role] = choice;
-    }
-  }
-  return models;
 }
 
 export function loadFavorites(sql: Query): ModelFavorites {

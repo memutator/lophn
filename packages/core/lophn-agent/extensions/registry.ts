@@ -1,6 +1,7 @@
 import type {
   AgentPlace,
   McpServerConfig,
+  Role,
   SkillEntry as SkillRow,
   SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -18,6 +19,7 @@ import {
   runtimeServerOfLayer,
   runtimeServerOfSetting,
 } from "./mcp-server.ts";
+import { builtinForRole } from "./skills.ts";
 import {
   listSkillsSync,
   type SkillListing,
@@ -113,17 +115,20 @@ export function createExtensionRegistry(
 }
 
 // `/` 메뉴의 skill 한 줄이다. agent 정의가 끈 정확한 이름은 selected=false다. 끌 수 없는 내장 skill은 늘 켜져 있다.
-// 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다.
+// 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다. 내장 skill은 선언한 role의 메뉴에만 보인다.
 export function commandSkillsOf(
   entries: readonly SkillRow[],
   skillsOff: readonly string[],
+  role: Role,
 ): {
   name: string;
   description: string;
   origin: SkillSource;
   selected: boolean;
 }[] {
-  return entries.map((entry) => ({
+  return entries.filter((entry) =>
+    entry.source !== "builtin" || builtinForRole(entry.name, role)
+  ).map((entry) => ({
     name: entry.name,
     description: entry.description,
     origin: entry.source,

@@ -1,20 +1,12 @@
 import { z } from "zod";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { defineSetting } from "../config/settings.ts";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
-import {
-  globalSkillsRead,
-  skillNameSchema,
-  SKILLS_OFF_MAX,
-  skillShadowSchema,
-  skillSkippedSchema,
-  skillSummarySchema,
-} from "./skill-settings.ts";
+import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
 
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().regex(/\S/);
@@ -391,26 +383,6 @@ export const mcpAuthRequestDone = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-// 자리(project·app) 층의 MCP 서버 목록이다(domain model PlaceExtensionSettings).
-// 그 자리 data 폴더의 파일 하나이고 agents/settings.md와 따로 둔다.
-// 어느 서버·tool을 쓸지는 agent 정의가 고르므로 이 목록에는 끈 것 칸이 없다.
-const placeServersSchema = z.array(mcpServerConfigSchema).max(32).refine(
-  (servers) =>
-    new Set(servers.map((server) => server.name)).size === servers.length,
-  { message: "mcp server names must be unique" },
-);
-
-export const readPlaceExtensionSettingsInputSchema = z.strictObject({
-  place: agentPlaceSchema,
-});
-
-// mcp_servers는 이 자리 파일의 새 내용 전체다: 없는 서버는 지워진다. 서버의 revision은 받은 값이 아니라
-// 바뀐 설정에 맞춰 core가 올린다.
-export const changePlaceExtensionSettingsInputSchema = z.strictObject({
-  place: agentPlaceSchema,
-  mcp_servers: placeServersSchema,
-});
-
 const readErrors = [
   "invalid_input",
   "unauthorized",
@@ -418,62 +390,6 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-
-// 이 자리 서버 목록과 파일 hash, 그리고 이 자리의 agent가 발견하는 skill(자리 폴더가 먼저)과 가려진 것,
-// 제외한 꾸러미를 돌려준다. 파일이 없으면 hash가 null이고 서버는 비어 있다. 읽기는 화면과 run 준비(machine)가 한다.
-export const placeExtensionSettingsRead = defineRead({
-  resource: "place-extension-settings",
-  method: "read",
-  name: "ReadPlaceExtensionSettings",
-  input: readPlaceExtensionSettingsInputSchema,
-  output: withReadCommon(z.object({
-    place: agentPlaceOutputSchema,
-    settings: z.object({
-      revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-      mcp_servers: z.array(mcpServerConfigSchema),
-    }),
-    hash: sha256Schema.nullable(),
-    skills: z.array(skillSummarySchema),
-    shadowed: z.array(skillShadowSchema),
-    skipped: z.array(skillSkippedSchema),
-  })),
-  actors: ["user", "machine"],
-  errors: [...readErrors],
-});
-
-// 서버 등록은 사람만 정한다. 파일 hash를 비교하고(없는 파일은 null) 전역 서버와 이름이 겹치면 거절한다.
-export const placeExtensionSettingsChange = defineCommand({
-  resource: "place-extension-settings",
-  method: "change",
-  name: "ChangePlaceExtensionSettings",
-  input: changePlaceExtensionSettingsInputSchema,
-  output: z.object({
-    place: agentPlaceOutputSchema,
-    hash: sha256Schema,
-  }),
-  compare: z.strictObject({ hash: sha256Schema.nullable() }),
-  actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "not_found",
-    "conflict",
-  ],
-});
-
-// 누가 언제 어느 자리의 목록을 바꿨는지만 남기고 내용의 전후는 hash뿐이다. 서버 설정은 경로와 secret 참조를 담는다.
-export const placeExtensionSettingsChanged = defineEvent(
-  "PlaceExtensionSettingsChanged",
-  {
-    subject: z.union([idSchema("prj"), idSchema("app")]),
-    payload: z.object({
-      place: agentPlaceOutputSchema,
-      before_hash: sha256Schema.nullable(),
-      after_hash: sha256Schema,
-    }),
-  },
-);
 
 const projectServersSchema = z.array(mcpServerSchema).max(32).refine(
   (servers) =>
@@ -529,11 +445,6 @@ export const projectExtensionSettingsChange = defineCommand({
 });
 
 export const EXTENSION_ROUTES = [
-  placeExtensionSettingsRead,
-  placeExtensionSettingsChange,
   projectExtensionSettingsRead,
   projectExtensionSettingsChange,
-  globalSkillsRead,
 ] as const;
-
-export const EXTENSION_EVENTS = [placeExtensionSettingsChanged] as const;

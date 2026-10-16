@@ -29,7 +29,6 @@ import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
 import { AGENT_DEFINITION_ROUTES } from "./agent-definitions.ts";
 import { connectProvider } from "./providers.ts";
 import {
-  EXTENSION_EVENTS,
   EXTENSION_ROUTES,
   mcpAuthBegin,
   mcpAuthCancel,
@@ -96,5 +95,4 @@ export const EVENTS = [
   ...MODEL_EVENTS,
   ...MODEL_CALL_EVENTS,
   ...TOOL_CALL_EVENTS,
-  ...EXTENSION_EVENTS,
 ] as const;

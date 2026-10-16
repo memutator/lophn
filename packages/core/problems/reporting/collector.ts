@@ -4,7 +4,6 @@
 import { ok } from "../../../base/mod.ts";
 import { appLogs, invocationsGet } from "../../../protocol/apps/mod.ts";
 import {
-  getProblem,
   observeException,
   observeViewError,
   problemGet,
@@ -39,9 +38,6 @@ export function collectorOperationPolicies(): OperationPolicy[] {
     invocationsGet.name,
     settingsGet.name,
     problemGet.name,
-    // `problems.work` 반응기 자격(grouping/connection.ts, 오래 남은 test runner 조립이 쓴다)이 쓴다.
-    // 그 반응기 연결을 끊는 단위(tests)가 같이 뺀다.
-    getProblem.name,
   ].map((name): OperationPolicy => ({
     name,
     actors: ["machine"],

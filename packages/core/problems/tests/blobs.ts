@@ -5,7 +5,6 @@ import {
   defineBlobField,
   defineBlobPurpose,
 } from "../../../protocol/storage/mod.ts";
-import { idSchema } from "../../../protocol/base/mod.ts";
 import type { Verification } from "../../../protocol/problems/mod.ts";
 import type { PreparedResultEvidence } from "./model.ts";
 
@@ -22,11 +21,8 @@ const FIELDS = [
   "method_environment",
   "execution_0_environment",
   "execution_0_output",
-  "execution_1_environment",
-  "execution_1_output",
   "blueprint",
   "sdk_dependencies",
-  "symptom",
 ];
 export const TEST_BLOB_PURPOSES = [
   defineBlobPurpose({
@@ -53,12 +49,6 @@ export const TEST_BLOB_FIELDS = [
       general_read: false,
     })
   ),
-  defineBlobField({
-    owner_kind: "verification_failure_path",
-    field: "test",
-    retention: { kind: "permanent" },
-    general_read: false,
-  }),
 ];
 
 export function blobPurpose(field: string): string {
@@ -68,17 +58,6 @@ export function blobPurpose(field: string): string {
     return field.endsWith("_output") ? "test_output" : "test_environment";
   }
   return "frozen_test";
-}
-
-export function failurePathOwnerKey(
-  verification: string,
-  index: number,
-): string {
-  if (
-    !idSchema("vrf").safeParse(verification).success ||
-    !Number.isSafeInteger(index) || index < 0
-  ) throw new RangeError("invalid failure path key");
-  return `${verification}:${index}`;
 }
 
 type RequiredBlob = {
@@ -117,15 +96,6 @@ export function requiredBlobs(
   if (evidence.frozen.sdk_dependencies) {
     add("sdk_dependencies", evidence.frozen.sdk_dependencies);
   }
-  if (evidence.frozen.symptom) add("symptom", evidence.frozen.symptom);
-  (evidence.frozen.failure_paths ?? []).forEach((path, index) =>
-    required.push({
-      owner_kind: "verification_failure_path",
-      owner_key: failurePathOwnerKey(verification.id, index),
-      field: "test",
-      hash: path.test_hash,
-    })
-  );
   return required;
 }
 

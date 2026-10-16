@@ -1,10 +1,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
-import {
-  screenTestHost,
-  TEST_RUNNER_KIND,
-} from "../../../problems/tests/runner.ts";
+import { TEST_RUNNER_KIND } from "../../../problems/tests/runner.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import { denoDir, repoRoot } from "../paths.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
@@ -26,15 +23,8 @@ export const supervisionWiring: WiringFactory = () => ({
           ...(Deno.env.get("DENO_DIR")
             ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
             : {}),
-          // test runner는 자식에 메모리 경계(systemd-run)를 걸 때 같은 session bus를 찾고, 화면 검사 host의 위치를 안다.
-          ...(kind === TEST_RUNNER_KIND
-            ? {
-              ...sessionBusEnv(),
-              ...(screenTestHost()
-                ? { SCREEN_TEST_HOST: screenTestHost()! }
-                : {}),
-            }
-            : {}),
+          // test runner는 자식에 메모리 경계(systemd-run)를 걸 때 같은 session bus를 찾는다.
+          ...(kind === TEST_RUNNER_KIND ? sessionBusEnv() : {}),
         }),
       }),
     );

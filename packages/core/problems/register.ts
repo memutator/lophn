@@ -143,7 +143,6 @@ export function createEventRegistration(): EventRegistration {
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
 // 문제 상세가 release를 푸는 ReleaseLookup은 core 조립이 `ReleaseLookupPort`로 끼운다.
-// 테스트 사실은 tests leaf 구현을 `ProblemTestPort`로(tests/register.ts) 등록한다.
 export function createReaderRegistration(): ReaderRegistration {
   const parts = [groupingPart, reportingPart, repairsPart, testsPart];
   return {

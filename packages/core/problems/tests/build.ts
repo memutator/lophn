@@ -32,8 +32,6 @@ export type RecordFacts = {
   reason: string;
   // 실제로 끝까지 관측했는가. 아니면 judge가 inconclusive만 받는다.
   sufficient: boolean;
-  // reproduction에서 한 side를 시작하지 못한 이유다.
-  unstarted?: { side: "before" | "after"; reason: string };
 };
 
 export type BuiltRecord = {
@@ -111,8 +109,6 @@ export function buildRecord(facts: RecordFacts): Result<BuiltRecord> {
         item.end_reason !== "start_failed"
       ),
       evidence_sufficient: facts.sufficient,
-      unstarted_side: facts.unstarted?.side ?? null,
-      unstarted_reason: facts.unstarted?.reason ?? null,
     };
     return ok({
       verification,

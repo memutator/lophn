@@ -6,19 +6,18 @@ import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 export const TEST_RUNNER_KIND = "problems/test-runner";
 export const COLLECTOR_KIND = "problems/report-collector";
 
-// runner가 동시에 도는 두 요청이 나눠 쓰는 고정 socket 자리다. Deno는 Unix socket 듣기·연결에 정확한
-// 경로의 net 허락을 요구하므로 요청마다 만든 경로가 아니라 이 자리만 쓴다.
+// runner가 동시에 도는 두 요청이 나눠 쓰는 고정 socket slot이다. Deno는 Unix socket 듣기·연결에 정확한
+// 경로의 net 허락을 요구하므로 요청마다 만든 경로가 아니라 이 slot의 경로만 쓴다.
 export const RUNNER_SLOTS = [0, 1] as const;
 
 export function runnerSockets(
   dataRoot: string,
   slot: (typeof RUNNER_SLOTS)[number],
-): { broker: string; direct: string; probe: string } {
+): { broker: string; control: string } {
   const base = `${dataRoot}/work/problems/tests/sock`;
   return {
     broker: `${base}/${slot}-b.sock`,
-    direct: `${base}/${slot}-a.sock`,
-    probe: `${base}/${slot}-p.sock`,
+    control: `${base}/${slot}-a.sock`,
   };
 }
 
@@ -33,28 +32,14 @@ const LIMIT_TOOLS = [
   "/usr/bin/prlimit",
 ] as const;
 
-// packaged core의 --allow-env에는 이 이름이 없다. 권한이 없으면 host가 없는 것과 같고,
-// 화면 검사를 띄울 수 없는 spec이 된다.
-export function screenTestHost(): string | undefined {
-  try {
-    return Deno.env.get("SCREEN_TEST_HOST");
-  } catch {
-    return undefined;
-  }
-}
-
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고, 승인된 Deno 실행 파일과 자식을
-// 거는 platform 도구, 화면 검사 host만 --allow-run으로 받는다. net은 고정
-// socket 자리와 가상 host, core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.
+// 거는 platform 도구만 --allow-run으로 받는다. net은 고정 socket 경로와 가상 host,
+// core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.
 export function testRunnerSpec(input: {
   dataRoot: string;
   deno: string;
-  screenHost?: string;
 }): KindLaunchSpec | undefined {
-  if (
-    !input.dataRoot.startsWith("/") || !input.deno.startsWith("/") ||
-    (input.screenHost !== undefined && !input.screenHost.startsWith("/"))
-  ) {
+  if (!input.dataRoot.startsWith("/") || !input.deno.startsWith("/")) {
     return undefined;
   }
   const work = `${input.dataRoot}/work/problems/tests`;
@@ -73,26 +58,18 @@ export function testRunnerSpec(input: {
     entry,
     allow_read: [input.dataRoot, entry, rootConfig, ...GROUP_TOOLS],
     allow_write: [work],
-    // 고정 socket 자리와 가상 host(Unix socket은 정확한 경로의 net 허락을 요구한다)와
-    // core loopback(`problems.work` 반응기가 event를 읽고 command를 내는 데 쓴다;
-    // runner service가 요청을 받아 core command로 남긴다)을 모두 허락한다.
+    // 고정 socket 경로와 가상 host(Unix socket은 정확한 경로의 net 허락을 요구한다)와
+    // core loopback(runner service가 요청을 받아 core command로 남긴다)을 모두 허락한다.
     allow_net: ["lophn.invalid", "127.0.0.1", ...sockets],
-    allow_run: [
-      input.deno,
-      ...LIMIT_TOOLS,
-      ...(input.screenHost ? [input.screenHost] : []),
-    ],
+    allow_run: [input.deno, ...LIMIT_TOOLS],
     allow_sys: [],
     allow_env: [
       "LOPHN_HOME",
       "LOPHN_WORKER_KIND",
-      "SCREEN_TEST_HOST",
       "HOME",
       "DENO_DIR",
       "XDG_CACHE_HOME",
       "PATH",
-      "DISPLAY",
-      "XAUTHORITY",
       "XDG_RUNTIME_DIR",
       "DBUS_SESSION_BUS_ADDRESS",
       "NODE_V8_COVERAGE",

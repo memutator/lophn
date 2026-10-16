@@ -10,13 +10,12 @@ import type { requestTest } from "../../../protocol/problems/mod.ts";
 import {
   canonicalRequest,
   checkTestAuthority,
+  connectionOf,
   type PreparedAdmission,
   type RequestPhase,
-  type TestConnection,
 } from "./model.ts";
 
 const FORBIDDEN = "이 credential로는 할 수 없다";
-const CONFLICT = "같은 요청의 내용이 다르다";
 
 const HASH = /^[0-9a-f]{64}$/;
 
@@ -115,15 +114,9 @@ export function checkPreparedAdmission(
   input: Input<typeof requestTest>,
   prepared: PreparedAdmission | null,
 ): Result<PreparedAdmission & { canonical_input: string }> {
-  const canonical = canonicalRequest({ ...input, before_bundle_hash: null });
+  const canonical = canonicalRequest(connectionOf(input));
   if (!canonical.ok) return canonical;
   if (!prepared) return err({ code: "forbidden", message: FORBIDDEN });
-  if (prepared.claim_rejected !== undefined) {
-    return err({
-      code: "conflict",
-      message: `ticket claim이 현재가 아니다: ${prepared.claim_rejected}`,
-    });
-  }
   if (prepared.unavailable) {
     return err({ code: "unavailable", message: "테스트 준비를 할 수 없다" });
   }
@@ -141,29 +134,11 @@ export function checkPreparedAdmission(
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  if (input.kind === "reproduction") {
-    if (
-      !hashOk(prepared.before_bundle_hash ?? "") ||
-      prepared.before_target?.release !== input.before ||
-      prepared.before_target?.bundle_hash !== prepared.before_bundle_hash
-    ) {
-      return err({ code: "forbidden", message: FORBIDDEN });
-    }
-  } else if (
-    prepared.before_bundle_hash !== null || prepared.before_target !== null
-  ) {
-    return err({ code: "conflict", message: CONFLICT });
-  }
   return ok({ ...prepared, canonical_input: canonical.value });
 }
 
-export function sideAllowed(
-  connection: TestConnection,
-  side: string,
-): boolean {
-  if (connection.kind === "reproduction") {
-    return side === "before" || side === "after";
-  }
+// app test와 test command는 side가 single 하나다.
+export function sideAllowed(side: string): boolean {
   return side === "single";
 }
 

@@ -2,33 +2,17 @@
 // 쓰고 runner가 응답 파일을 쓴다. 자식에는 net·run 권한이 없으므로 이 폴더가 둘이 주고받는 유일한
 // 길이다. runner가 실제 앱 자식과 broker를 쥐고 AppDriver를 구현하고, 자식은 이 통로로만 만진다
 // (앱 code는 격리 자식, harness는 따로 도는 test 자식이다).
-import {
-  type AppDriver,
-  type Attestation,
-  type ChangeResult,
-  type InvokeResult,
-  type ReadProbe,
-  type ReceivedReport,
-  type RevertResult,
-  type SdkResult,
-  ViewHostInconclusive,
-} from "./driver.ts";
+import type { AppDriver, Attestation } from "./driver.ts";
 
 export const RPC_DIR = "rpc";
 const POLL_MS = 15;
+// 자식이 부를 수 있는 AppDriver 방법. runner 쪽 driver의 그 밖의 방법은 자식에 닿지 않는다.
+const METHODS = ["probe", "rejectsInvalidInput", "migrate"];
 
 type Request = { n: number; method: string; args: unknown[] };
 type Response =
   | { n: number; ok: true; value: unknown }
-  | { n: number; ok: false; error: string; inconclusive?: boolean };
-
-// runner 쪽이 실제로 채우는 driver다. view는 화면 host를 띄울 수 있을 때만 있다.
-export type RunnerDriver = Omit<AppDriver, "view"> & {
-  view: {
-    exception(): Promise<ReceivedReport[]>;
-    feedback(): Promise<ReceivedReport[]>;
-  } | null;
-};
+  | { n: number; ok: false; error: string };
 
 async function writeAtomic(path: string, text: string): Promise<void> {
   await Deno.writeTextFile(`${path}.tmp`, text);
@@ -39,10 +23,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // test 자식 쪽. 호출마다 요청 파일 하나를 쓰고 응답 파일이 나올 때까지 기다린다. 기한은 runner의
 // process timeout이 강제한다.
-export function rpcDriver(
-  scratch: string,
-  options: { view: boolean },
-): AppDriver {
+export function rpcDriver(scratch: string): AppDriver {
   const dir = `${scratch}/${RPC_DIR}`;
   let counter = 0;
   async function call<T>(method: string, ...args: unknown[]): Promise<T> {
@@ -62,36 +43,13 @@ export function rpcDriver(
       }
       const response = JSON.parse(text) as Response;
       if (response.ok) return response.value as T;
-      if (response.inconclusive) throw new ViewHostInconclusive(response.error);
       throw new Error(response.error);
     }
   }
   return {
     probe: () => call<Attestation>("probe"),
-    invoke: (command, input, opts) =>
-      call<InvokeResult>("invoke", command, input, opts),
-    reportDirect: (code) => call<SdkResult>("reportDirect", code),
-    sdkReceipt: () => call<SdkResult>("sdkReceipt"),
-    throwUnhandled: () => call<ReceivedReport[]>("throwUnhandled"),
-    reportWithSecret: (secret) => call<SdkResult>("reportWithSecret", secret),
-    attemptDenied: () => call("attemptDenied"),
-    view: options.view
-      ? {
-        exception: () => call<ReceivedReport[]>("view.exception"),
-        feedback: () => call<ReceivedReport[]>("view.feedback"),
-      }
-      : null,
+    rejectsInvalidInput: (api) => call<boolean>("rejectsInvalidInput", api),
     migrate: (scenario) => call("migrate", scenario),
-    probeRead: (command) => call<ReadProbe>("probeRead", command),
-    runAutomation: (key, approval) => call("runAutomation", key, approval),
-    attemptConfirmAutomation: (command) =>
-      call("attemptConfirmAutomation", command),
-    useSecret: (input) => call("useSecret", input),
-    exerciseAdapters: () => call("exerciseAdapters"),
-    businessState: () => call<string>("businessState"),
-    prepareChange: (command) => call<void>("prepareChange", command),
-    change: (command) => call<ChangeResult>("change", command),
-    revert: (token) => call<RevertResult>("revert", token),
   };
 }
 
@@ -99,27 +57,19 @@ export function rpcDriver(
 // 요청까지 마치고 끝난다.
 export function serveRpc(
   scratch: string,
-  driver: RunnerDriver,
+  driver: AppDriver,
 ): { stop(): Promise<void> } {
   const dir = `${scratch}/${RPC_DIR}`;
   let stopping = false;
   const done = new Set<number>();
   const dispatch = async (request: Request): Promise<unknown> => {
-    const a = request.args;
-    switch (request.method) {
-      case "view.exception":
-        return await driver.view!.exception();
-      case "view.feedback":
-        return await driver.view!.feedback();
-      default: {
-        const method = (driver as unknown as Record<string, unknown>)[
-          request.method
-        ];
-        if (typeof method !== "function") throw new Error("unknown method");
-        return await (method as (...args: unknown[]) => Promise<unknown>)
-          .apply(driver, a);
-      }
-    }
+    if (!METHODS.includes(request.method)) throw new Error("unknown method");
+    const method = (driver as unknown as Record<string, unknown>)[
+      request.method
+    ];
+    if (typeof method !== "function") throw new Error("unknown method");
+    return await (method as (...args: unknown[]) => Promise<unknown>)
+      .apply(driver, request.args);
   };
   const loop = (async () => {
     await Deno.mkdir(dir, { recursive: true });
@@ -147,9 +97,6 @@ export function serveRpc(
           n: next.n,
           ok: false,
           error: error instanceof Error ? error.message : String(error),
-          ...(error instanceof ViewHostInconclusive
-            ? { inconclusive: true }
-            : {}),
         };
       }
       await writeAtomic(`${dir}/${next.n}.res.json`, JSON.stringify(response));

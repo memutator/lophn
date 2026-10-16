@@ -21,6 +21,7 @@ import { appendActualSideStart, appendRequestObservation } from "./commands.ts";
 import {
   canonicalRequest,
   checkTestAuthority,
+  connectionOf,
   type PreparedAdmission,
   type PreparedResultEvidence,
   type RequestRecord,
@@ -88,7 +89,6 @@ function evidenceOf(
   const item = value as Record<string, unknown>;
   const text = (key: string) => typeof item[key] === "string";
   const flag = (key: string) => typeof item[key] === "boolean";
-  const side = item.unstarted_side;
   if (
     ![
       "request_principal",
@@ -102,10 +102,7 @@ function evidenceOf(
     ].every(text) ||
     !flag("actually_started") || !flag("evidence_sufficient") ||
     typeof item.frozen !== "object" || item.frozen === null ||
-    !Array.isArray(item.execution_evidence) ||
-    !(side === null || side === "before" || side === "after") ||
-    !(item.unstarted_reason === null ||
-      typeof item.unstarted_reason === "string")
+    !Array.isArray(item.execution_evidence)
   ) return null;
   return item as unknown as PreparedResultEvidence;
 }
@@ -222,8 +219,8 @@ export function stagedEvidence(
   return null;
 }
 
-// 제품 접수의 준비 값이다. app test와 reproduction만 접수하고 test_command는 준비할 수 없다(unavailable).
-// 앱·참조의 존재와 reproduction의 이전 bundle은 조립(core)이 같은 transaction에서 읽은 사실이다. app test의 대상
+// 제품 접수의 준비 값이다. app test만 접수하고 test_command는 준비할 수 없다(unavailable).
+// 앱·참조의 존재는 조립(core)이 같은 transaction에서 읽은 사실이다. app test의 대상
 // bundle·고정 시험의 일치는 runner가 시작 전에 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
 export function productAdmission(
   ctx: Pick<RequestContext, "principal">,
@@ -232,13 +229,9 @@ export function productAdmission(
     runner_principal: string;
     app_registered: boolean;
     refs_ok: boolean;
-    before_target: { release: string; bundle_hash: string } | null;
-    claim_rejected?: string;
   },
 ): PreparedAdmission | null {
-  const reproduction = input.kind === "reproduction";
-  const before = reproduction ? facts.before_target : null;
-  const canonical = canonicalRequest({ ...input, before_bundle_hash: null });
+  const canonical = canonicalRequest(connectionOf(input));
   if (!canonical.ok) return null;
   return {
     request_principal: ctx.principal,
@@ -247,14 +240,9 @@ export function productAdmission(
     request_hash: hashCanonical(canonical.value),
     canonical: canonical.value,
     runner_principal: facts.runner_principal,
-    before_bundle_hash: before?.bundle_hash ?? null,
-    before_target: before,
     app_in_scope: facts.app_registered,
     refs_ok: facts.refs_ok,
     unavailable: input.kind === "test_command",
-    ...(facts.claim_rejected === undefined
-      ? {}
-      : { claim_rejected: facts.claim_rejected }),
   };
 }
 

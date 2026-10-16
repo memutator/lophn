@@ -2,9 +2,7 @@
 // 이 모듈이 띄운다. credential은 argv에 넣지 않는다.
 import { applyMemoryLimit } from "../../../supervision/security/mod.ts";
 import {
-  brokerReport,
   type MemoryLimitPort,
-  type ReportSink,
   type RunningChild,
   runPrepared,
   type RunRequest,
@@ -16,28 +14,10 @@ import {
   type AppTestInput,
   generateAppTestChecks,
   judgeAppTest,
-  openViewDriver,
-  type ScreenReportSink,
 } from "../app-test/mod.ts";
-import {
-  runScreenHost,
-  screenErrorBoundaries,
-} from "../adapters/screen-host.ts";
-import {
-  serveTestAppSocket,
-  type TestAppInvoke,
-} from "../adapters/test-app-socket.ts";
-import type { ScreenTestInput } from "../../../../protocol/shell/mod.ts";
 import type { SpawnPort } from "./mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
-
-// core가 감독 pipe로 보내는 `problems.work` 깨움 요청의 op. 본문은 cursor 하나다: core가 ledger의
-// `problems.work` 처리 위치를 읽어 싣고, 상태는 그 뒤 event와 정본에서 다시 읽는다.
-export const PROBLEMS_WORK_OP = "problems.work";
-
-// 같은 runner service가 도는 `problems.closing` 반응기의 깨움 op다. 본문은 cursor 하나다.
-export const PROBLEMS_CLOSING_OP = "problems.closing";
 
 export type RunnerChild = {
   pid: number;
@@ -68,7 +48,7 @@ export async function acceptRun(
     spawn?: SpawnPort;
     // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다.
     commit?: StartAttemptCommit;
-    // 자식이 실제로 시작한 직후 부른다(실제 시작을 ledger에 남기는 자리).
+    // 자식이 실제로 시작한 직후 부른다(실제 시작을 ledger에 남기는 때).
     started?: (
       child: { started_at: string; mode: RunningChild["mode"] },
     ) => Promise<void>;
@@ -86,16 +66,6 @@ export async function acceptRun(
     commit: options.commit,
     started: options.started,
   });
-}
-
-// 자식의 private IPC 보고를 그 요청의 mode=test·scope로 collector에 넘긴다.
-// 자식은 collector 주소를 받지 않는다.
-export function forwardChildReport(
-  frame: Uint8Array,
-  scope: string,
-  sink: ReportSink,
-): Promise<Result<unknown>> {
-  return brokerReport(frame, scope, sink);
 }
 
 // 고정 app-test 계획과 scratch의 private 관측을 lifecycle 결과와 함께 판정한다.
@@ -119,55 +89,6 @@ export async function acceptAppTest(
     judgment.reason = execution.value.reason;
   }
   return ok({ execution: execution.value, judgment });
-}
-
-// 요청 폴더의 socket과 설치 host를 이어 준다. host가 내는 오류는 collector가
-// mode=test·scope로 접수한 뒤에만 ViewDriver 근거가 된다.
-export async function runnerView(input: {
-  command?: string;
-  args?: readonly string[];
-  work_dir: string;
-  screens: Omit<ScreenTestInput, "app_socket_path" | "probe_nonce">;
-  invoke: TestAppInvoke;
-  // test 앱 socket의 경로. runner launch spec이 정확한 경로만 허락하므로 호출한 쪽이 정한다.
-  socket_path?: string;
-  sink: ScreenReportSink;
-  scope: string;
-  nonce: string;
-  newReportId: () => string;
-  now: () => string;
-}) {
-  const socket = serveTestAppSocket({
-    path: input.socket_path ?? `${input.work_dir}/app.sock`,
-    invoke: input.invoke,
-  });
-  try {
-    const screens = { ...input.screens, app_socket_path: socket.path };
-    const boundaries = await screenErrorBoundaries(screens);
-    const command = input.command ?? Deno.env.get("SCREEN_TEST_HOST");
-    return await openViewDriver({
-      nonce: input.nonce,
-      run: (nonce) =>
-        command
-          ? runScreenHost({
-            command,
-            args: input.args,
-            work_dir: input.work_dir,
-            input: { ...screens, probe_nonce: nonce },
-          })
-          : Promise.resolve({
-            kind: "unavailable",
-            reason: "화면 host가 없다",
-          }),
-      has_boundary: (screen) => boundaries.has(screen),
-      sink: input.sink,
-      scope: input.scope,
-      newReportId: input.newReportId,
-      now: input.now,
-    });
-  } finally {
-    await socket.shutdown();
-  }
 }
 
 export function runnerReady(kind: string): Result<true> {

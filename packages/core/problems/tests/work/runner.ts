@@ -53,7 +53,7 @@ export async function runPrepared(
     expected_exit_code?: number;
     // 시작 시도를 ledger에 확정한다. spawn은 이 결과가 ok인 뒤에만 한다.
     commit?: StartAttemptCommit;
-    // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다. 실제 시작 시각을 ledger에 남기는 자리다.
+    // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다. 실제 시작 시각을 ledger에 남기는 때다.
     started?: (
       child: { started_at: string; mode: RunningChild["mode"] },
     ) => Promise<void>;

@@ -68,7 +68,7 @@ create table test_side_starts (
   request_key text not null,
   request_hash text not null,
   runner_principal text not null,
-  side text not null check (side in ('single', 'before', 'after')),
+  side text not null check (side = 'single'),
   bundle_hash text not null,
   test_hash text not null,
   started_at text not null,
@@ -99,14 +99,10 @@ create table verifications (
   request_principal text not null,
   request_key text not null,
   request_hash text not null,
-  kind text not null check (kind in ('app_test', 'reproduction', 'test_command')),
+  kind text not null check (kind in ('app_test', 'test_command')),
   app text not null,
   target_bundle_hash text not null,
   target_release text,
-  problem text,
-  basis_seq text,
-  before_release text,
-  after_release text,
   ticket text,
   ticket_check_index integer,
   ticket_check_hash text,
@@ -123,7 +119,6 @@ create table verifications (
 create index verifications_app on verifications (
   app, kind, target_bundle_hash, result, recorded_seq
 );
-create index verifications_problem on verifications (problem, basis_seq);
 create index verifications_ticket on verifications (
   ticket, ticket_completion_seq, ticket_check_index
 );
@@ -134,35 +129,6 @@ when exists (
   select 1 from verifications existing where existing.id = new.id
     or (existing.request_principal = new.request_principal
       and existing.request_key = new.request_key)
-)
-begin
-  select raise(abort, 'immutable');
-end;
-create table verification_reports (
-  verification text not null,
-  report text not null,
-  primary key (verification, report),
-  foreign key (verification) references verifications (id)
-);
-create index verification_reports_report on verification_reports (report);
-create trigger verification_reports_bound_insert
-before insert on verification_reports
-when not exists (
-  select 1 from verifications parent, json_each(parent.verification_canonical, '$.reports') item
-  where parent.id = new.verification and item.value = new.report
-) or exists (
-  select 1 from test_requests where phase = 'result_ref' and result_ref = new.verification
-)
-begin
-  select raise(abort, 'immutable');
-end;
-${IMMUTABLE("verification_reports")}
-create trigger verification_reports_no_replace
-before insert on verification_reports
-when exists (
-  select 1 from verification_reports existing
-  where existing.verification = new.verification
-    and existing.report = new.report
 )
 begin
   select raise(abort, 'immutable');

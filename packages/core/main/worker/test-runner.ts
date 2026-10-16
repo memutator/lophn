@@ -1,7 +1,6 @@
 // test runner control의 진입점이다. RequestTest 실행 구현(실제 test 자식은
 // 요청마다 띄운다)은 runner-core.ts와 app-test-run.ts에 있고, 상시 service(core 감독이 띄운 process가
-// `problems.test.run`·`problems.test.recover` 요청, `problems.work` 깨움과
-// `problems.closing` 깨움을 받는다)은 runner-service.ts에 있다. credential은 argv에
+// `problems.test.run`·`problems.test.recover` 요청을 받는다)은 runner-service.ts에 있다. credential은 argv에
 // 넣지 않는다.
 export * from "../../problems/tests/work/runner-core.ts";
 
@@ -18,25 +17,9 @@ if (import.meta.main && Deno.args.includes("--app-test-job")) {
   Deno.exit(0);
 }
 
-// reproduction test 한 건을 같은 방식으로 돈다(before·after를 차례로 실행한다). 요청 JSON은
-// `reproduction-run.ts`의 `ReproductionJob`이다.
-if (import.meta.main && Deno.args.includes("--reproduction-job")) {
-  const { runReproductionJob } = await import(
-    "../../problems/tests/work/reproduction-run.ts"
-  );
-  const text = await new Response(Deno.stdin.readable).text();
-  const done = await runReproductionJob(JSON.parse(text));
-  Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(done)}\n`));
-  Deno.exit(0);
-}
-
 // 그 밖의 기동은 core 감독이 띄운 상시 process다. session 하나(runner-service.ts)가
-// `problems.test.run`·`problems.test.recover` 요청(problems/tests), `problems.work` 깨움
-//과 `problems.closing` 깨움을 같이 받는다(stdin 하나).
-if (
-  import.meta.main && !Deno.args.includes("--app-test-job") &&
-  !Deno.args.includes("--reproduction-job")
-) {
+// `problems.test.run`·`problems.test.recover` 요청(problems/tests)을 받는다(stdin 하나).
+if (import.meta.main && !Deno.args.includes("--app-test-job")) {
   const { runRunnerService } = await import(
     "../../problems/tests/work/runner-service.ts"
   );

@@ -3,38 +3,33 @@
 // 실행하지 않는다. FrozenTest의 모든 hash는 이 함수가 내는 blob의 sha256이고, Verification이 영구 등록하는
 // blob(hash→bytes)도 여기서 같이 낸다: 저장하지 않은 blob의 hash를 적지 않는다.
 import { createHash } from "node:crypto";
-import type { Blueprint } from "../../../../protocol/apps/mod.ts";
+import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
+import { bundleManifestSchema } from "../../../../protocol/apps/mod.ts";
 import type { FrozenTest } from "../../../../protocol/problems/mod.ts";
 import { canonicalHash, canonicalJson } from "../canonical.ts";
-import type { HarnessFailurePath } from "../harness/mod.ts";
-import { sdkDependenciesHash } from "./generate.ts";
-
-// 앱이 bundle에 넣은 시험 자료(`tests/app-test.json`)다.
-export type AppTestFile = {
-  failure_paths: HarnessFailurePath[];
-  inputs?: Record<string, unknown>;
-  prepare?: Record<
-    string,
-    { command: string; input?: unknown; bind?: Record<string, string> }
-  >;
-  journal_tables?: string[];
-  domain?: {
-    name: string;
-    command: string;
-    input?: unknown;
-    fault?: "store" | "net" | "none";
-  }[];
-};
+import {
+  CHECK_DEFINITIONS_VERSION,
+  REQUIRED_CHECKS,
+} from "../harness/definitions.ts";
+import { type BundleDependency, dependenciesHash } from "./generate.ts";
 
 export const APP_TEST_TIMEOUT_MS = 240_000;
 const EXPECTED_TEXT = "every required check passes";
 const ENVIRONMENT_TEXT = "problems/tests runner environment";
 
+export type BundleFacts = {
+  blueprintBytes: Uint8Array;
+  blueprint: Blueprint;
+  entrypoint: string;
+  dependencies: BundleDependency[];
+  // bundle import map의 specifier → 값.
+  imports: Record<string, string>;
+};
+
 export type DerivedAppTest = {
   frozen: FrozenTest;
   test_hash: string;
-  blueprint: Blueprint;
-  file: AppTestFile;
+  facts: BundleFacts;
   // FrozenTest가 가리키는 모든 blob. hash는 bytes의 sha256이다.
   blobs: ReadonlyMap<string, Uint8Array>;
   // runner 환경을 적은 blob의 hash(method.environment, execution.environment).
@@ -55,33 +50,47 @@ export type DeriveResult =
   | { ok: true; value: DerivedAppTest }
   | { ok: false; reason: string };
 
-// bundle 사본에서 고정 시험을 만든다. 읽을 수 없거나 시험 자료가 없으면 이유를 돌려준다.
+// 봉인 bundle 사본의 blueprint·manifest·import map을 읽는다.
+export async function readBundleFacts(
+  bundle: string,
+): Promise<{ ok: true; value: BundleFacts } | { ok: false; reason: string }> {
+  try {
+    const blueprintBytes = await Deno.readFile(`${bundle}/blueprint.json`);
+    const blueprint = JSON.parse(
+      new TextDecoder().decode(blueprintBytes),
+    ) as Blueprint;
+    const manifest = bundleManifestSchema.parse(
+      JSON.parse(await Deno.readTextFile(`${bundle}/manifest.json`)),
+    );
+    const map = JSON.parse(
+      await Deno.readTextFile(`${bundle}/import-map.json`),
+    ) as { imports?: Record<string, string> };
+    return {
+      ok: true,
+      value: {
+        blueprintBytes,
+        blueprint,
+        entrypoint: manifest.entrypoint,
+        dependencies: manifest.dependencies,
+        imports: map.imports ?? {},
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      reason: "bundle 사본의 blueprint·manifest·import map을 읽을 수 없다",
+    };
+  }
+}
+
+// bundle 사본에서 고정 시험을 만든다. 읽을 수 없으면 이유를 돌려준다.
 export async function deriveAppTest(
   bundle: string,
   bundleHash: string,
 ): Promise<DeriveResult> {
-  let blueprintBytes: Uint8Array;
-  let blueprint: Blueprint;
-  try {
-    blueprintBytes = await Deno.readFile(`${bundle}/blueprint.json`);
-    blueprint = JSON.parse(new TextDecoder().decode(blueprintBytes));
-  } catch {
-    return { ok: false, reason: "bundle 사본의 blueprint를 읽을 수 없다" };
-  }
-  let file: AppTestFile;
-  try {
-    file = JSON.parse(
-      await Deno.readTextFile(`${bundle}/tests/app-test.json`),
-    ) as AppTestFile;
-  } catch {
-    return {
-      ok: false,
-      reason: "bundle에 앱 시험 자료(tests/app-test.json)가 없다",
-    };
-  }
-  if (!Array.isArray(file.failure_paths)) {
-    return { ok: false, reason: "앱 시험 자료에 실패 경로 목록이 없다" };
-  }
+  const read = await readBundleFacts(bundle);
+  if (!read.ok) return read;
+  const facts = read.value;
   try {
     const blobs = new Map<string, Uint8Array>();
     const store = (bytes: Uint8Array): string => {
@@ -89,29 +98,21 @@ export async function deriveAppTest(
       blobs.set(hash, bytes);
       return hash;
     };
-    const dependencies = [...blueprint.sdk_dependencies].map((
-      { name, version },
-    ) => ({ name, version })).sort((a, b) =>
+    const sorted = [...facts.dependencies].sort((a, b) =>
       a.name.localeCompare(b.name) || a.version.localeCompare(b.version)
     );
-    const sdk = store(encode(canonicalJson(dependencies)));
-    if (sdk !== sdkDependenciesHash(blueprint.sdk_dependencies)) {
-      return { ok: false, reason: "SDK 의존 hash를 정할 수 없다" };
+    const dependencies = store(encode(canonicalJson(sorted)));
+    if (dependencies !== dependenciesHash(facts.dependencies)) {
+      return { ok: false, reason: "의존 hash를 정할 수 없다" };
     }
-    const failurePaths = file.failure_paths.map((path) => ({
-      code: path.code,
-      test_hash: store(encode(canonicalJson(path))),
-    }));
     const environment = store(environmentBytes());
     const frozen: FrozenTest = {
       code: store(
         encode(canonicalJson({ kind: "bundle", bundle_hash: bundleHash })),
       ),
       input: store(encode(canonicalJson({
-        inputs: file.inputs ?? {},
-        prepare: file.prepare ?? {},
-        journal_tables: file.journal_tables ?? [],
-        domain: file.domain ?? [],
+        version: CHECK_DEFINITIONS_VERSION,
+        checks: REQUIRED_CHECKS,
       }))),
       expected: store(encode(EXPECTED_TEXT)),
       method: {
@@ -121,9 +122,10 @@ export async function deriveAppTest(
         expected_exit_code: 0,
         environment,
       },
-      blueprint: store(blueprintBytes),
-      sdk_dependencies: sdk,
-      failure_paths: failurePaths,
+      blueprint: store(facts.blueprintBytes),
+      sdk_dependencies: dependencies,
+      // 계약의 옛 칸이다. app test에서는 비워 둔다.
+      failure_paths: [],
       symptom: null,
     };
     const test = store(encode(canonicalJson(frozen)));
@@ -132,7 +134,7 @@ export async function deriveAppTest(
     }
     return {
       ok: true,
-      value: { frozen, test_hash: test, blueprint, file, blobs, environment },
+      value: { frozen, test_hash: test, facts, blobs, environment },
     };
   } catch {
     return { ok: false, reason: "고정 시험을 만들 수 없다" };

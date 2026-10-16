@@ -58,7 +58,6 @@ export type TestConnection = {
   after: string | null;
   ticket: Verification["ticket"];
   test: string;
-  before_bundle_hash: string | null;
   // 접수한 요청의 실행 기한이다. 요청 identity가 아니라 runner에 넘길 값만이다.
   request_timeout_ms?: number;
 };
@@ -88,13 +87,9 @@ export type PreparedAdmission = {
   request_hash: string;
   canonical: string;
   runner_principal: string;
-  before_bundle_hash: string | null;
-  before_target: { release: string; bundle_hash: string } | null;
   app_in_scope: boolean;
   refs_ok: boolean;
   unavailable: boolean;
-  // coding agent의 reproduction 요청이 기댄 ticket claim이 현재가 아닌 이유다. 있으면 접수하지 않는다.
-  claim_rejected?: string;
 };
 
 export type SideStart = {
@@ -126,8 +121,6 @@ export type PreparedResultEvidence = {
   execution_evidence: ExecutionEvidence[];
   actually_started: boolean;
   evidence_sufficient: boolean;
-  unstarted_side: "before" | "after" | null;
-  unstarted_reason: string | null;
 };
 
 export function connectionOf(
@@ -144,15 +137,10 @@ export function connectionOf(
     after: input.after,
     ticket: input.ticket ? { ...input.ticket } : null,
     test: input.test,
-    before_bundle_hash: input.before_bundle_hash ?? null,
   };
 }
 
-export function canonicalRequest(
-  input: Omit<TestConnection, "before_bundle_hash"> & {
-    before_bundle_hash?: string | null;
-  },
-): Result<string> {
+export function canonicalRequest(input: TestConnection): Result<string> {
   try {
     canonicalJson(input);
   } catch {
@@ -161,28 +149,21 @@ export function canonicalRequest(
   if (new Set(input.reports).size !== input.reports.length) {
     return err({ code: "invalid_input", message: INVALID });
   }
-  const { before_bundle_hash: _before, ...publicConnection } = connectionOf({
-    ...input,
-    before_bundle_hash: input.before_bundle_hash ?? null,
-  });
   const parsed = requestTestInputSchema.safeParse({
     request_key: "k",
-    ...publicConnection,
+    ...connectionOf(input),
   });
   if (!parsed.success) return err({ code: "invalid_input", message: INVALID });
   try {
-    return ok(canonicalJson(connectionOf({
-      ...parsed.data,
-      before_bundle_hash: null,
-    })));
+    return ok(canonicalJson(connectionOf(parsed.data)));
   } catch {
     return err({ code: "invalid_input", message: INVALID });
   }
 }
 
 export function sameConnection(
-  left: Parameters<typeof canonicalRequest>[0],
-  right: Parameters<typeof canonicalRequest>[0],
+  left: TestConnection,
+  right: TestConnection,
 ): boolean {
   const a = canonicalRequest(left);
   const b = canonicalRequest(right);

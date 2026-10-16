@@ -38,7 +38,6 @@ function verificationScope(
       "request_principal",
       "request_key",
       "request_hash",
-      "problem",
       "ticket",
     ].includes(key)
   ) && scopeCovers(ctx.scope, row);
@@ -48,7 +47,6 @@ const ROW_TARGET_KEYS = [
   "request_principal",
   "request_key",
   "request_hash",
-  "problem",
   "ticket",
 ] as const;
 
@@ -91,11 +89,11 @@ function rowToVerification(row: Record<string, unknown>): Verification {
       bundle_hash: String(row.target_bundle_hash),
       release: row.target_release === null ? null : String(row.target_release),
     },
-    problem: row.problem === null ? null : String(row.problem),
-    basis_seq: row.basis_seq === null ? null : String(row.basis_seq),
+    problem: null,
+    basis_seq: null,
     reports: [],
-    before: row.before_release === null ? null : String(row.before_release),
-    after: row.after_release === null ? null : String(row.after_release),
+    before: null,
+    after: null,
     ticket: row.ticket === null ? null : {
       ticket: String(row.ticket),
       check_index: Number(row.ticket_check_index),
@@ -110,33 +108,19 @@ function rowToVerification(row: Record<string, unknown>): Verification {
   };
 }
 
-function withReports(
-  snapshot: ReadSnapshot,
+function storedVerification(
   row: Record<string, unknown>,
 ): Result<Verification> {
   try {
     const parsed = verificationSchema.safeParse(
       JSON.parse(String(row.verification_canonical)),
     );
-    if (parsed.success) {
-      const verification = parsed.data;
-      const reports = snapshot.sql.all(
-        `select report from verification_reports where verification = ? order by report`,
-        [verification.id],
-      ).map((item) => String(item.report));
-      if (
-        reports.length === verification.reports.length &&
-        new Set(verification.reports).size === reports.length &&
-        verification.reports.every((report) => reports.includes(report)) &&
-        canonicalJson({
-            ...rowToVerification(row),
-            reports: verification.reports,
-          }) ===
-          canonicalJson(verification)
-      ) return ok(verification);
-    }
+    if (
+      parsed.success &&
+      canonicalJson(rowToVerification(row)) === canonicalJson(parsed.data)
+    ) return ok(parsed.data);
   } catch {
-    // 저장 canonical 또는 관계가 깨지면 부분 결과를 내놓지 않는다.
+    // 저장 canonical이 깨지면 부분 결과를 내놓지 않는다.
   }
   return err({
     code: "internal",
@@ -209,7 +193,7 @@ export function readVerification(
     snapshot.port(TargetAuthorization),
   );
   if (!allowed.ok) return allowed;
-  const verification = withReports(snapshot, row);
+  const verification = storedVerification(row);
   if (!verification.ok) return verification;
   if (input.detail && !allowed.value.detail) {
     return err({
@@ -245,12 +229,19 @@ export function readVerificationList(
   const asOf = parseSeq(snapshot.as_of_seq);
   if (!after.ok) return err({ code: "invalid_input", message: "cursor" });
   if (!asOf.ok) return err({ code: "internal", message: "snapshot seq" });
+  // 문제와 이은 Verification은 없다. 문제로 거르면 결과가 없다.
+  if (input.problem !== undefined) {
+    return ok({
+      verifications: [],
+      as_of_seq: snapshot.as_of_seq,
+      next_cursor: null,
+    });
+  }
   const scopeColumns = new Set([
     "app",
     "request_principal",
     "request_key",
     "request_hash",
-    "problem",
     "ticket",
   ]);
   const predicates: string[] = [];
@@ -267,7 +258,6 @@ export function readVerificationList(
   const rows = snapshot.sql.all(
     `select * from verifications
      where app = ?
-       and (problem = ? or ? is null)
        and (ticket = ? or ? is null)
        and (kind = ? or ? is null)
        and cast(recorded_seq as integer) > ?
@@ -277,8 +267,6 @@ export function readVerificationList(
      limit ?`,
     [
       input.app,
-      input.problem ?? null,
-      input.problem ?? null,
       input.ticket ?? null,
       input.ticket ?? null,
       input.kind ?? null,
@@ -290,8 +278,8 @@ export function readVerificationList(
     ],
   );
   const visible = rows;
-  const parsed = visible.slice(0, VERIFICATION_PAGE_CAP).map((row) =>
-    withReports(snapshot, row)
+  const parsed = visible.slice(0, VERIFICATION_PAGE_CAP).map(
+    storedVerification,
   );
   if (parsed.some((item) => !item.ok)) {
     return err({
@@ -351,13 +339,9 @@ export const verificationRecordedVisibility: EventVisibilityDefinition<
     const release = row.target_release === null
       ? null
       : String(row.target_release);
-    const problem = row.problem === null ? null : String(row.problem);
-    const basis = row.basis_seq === null ? null : String(row.basis_seq);
     const same =
       String(row.target_bundle_hash) === event.payload.target.bundle_hash &&
       release === event.payload.target.release &&
-      problem === (event.payload.problem ?? null) &&
-      basis === (event.payload.basis_seq ?? null) &&
       String(row.result) === event.payload.result &&
       String(row.test) === event.payload.test &&
       String(row.execution) === event.payload.execution &&

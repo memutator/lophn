@@ -12,8 +12,8 @@ import { ok, type Result } from "../../../base/mod.ts";
 import {
   observeException,
   observeTestRequest,
+  problemReport,
   recordVerification,
-  reportProblem,
   stageTestEvidence,
   startTestSide,
 } from "../../../protocol/problems/mod.ts";
@@ -129,7 +129,7 @@ function reportContext(
     actor: `app:${request.app}`,
     principal: REPORT_PRINCIPAL,
     scope: {
-      operations: [reportProblem.name, observeException.name],
+      operations: [problemReport.name, observeException.name],
       targets: { app: request.app, process: REPORT_PROCESS, mode: "test" },
     },
     conditions: {
@@ -147,7 +147,7 @@ export function startTestControl(deps: TestControlDeps): TestControl {
   const now = deps.nowMs ?? Date.now;
   const log = deps.log ?? (() => undefined);
   const running = new Map<string, "run" | "recover">();
-  // 동시에 도는 요청이 나눠 쓰는 runner socket 자리다.
+  // 동시에 도는 요청이 나눠 쓰는 runner socket slot이다.
   const slotOf = new Map<string, 0 | 1>();
   // 다시 시도해도 되는 시각. runner에 닿지 못했거나 시작 시도를 확정하지 못한 요청이다.
   const retryAt = new Map<string, number>();

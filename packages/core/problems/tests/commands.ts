@@ -14,7 +14,6 @@ import {
   sameConnection,
   type SideStart,
 } from "./model.ts";
-import { expectedBundle } from "./judge.ts";
 import { testAdmissionPort } from "./ports.ts";
 import {
   atOk,
@@ -46,6 +45,9 @@ export function handleRequestTest(
 ): Result<
   { request_key: string; accepted: boolean; result_ref: string | null }
 > {
+  if (input.kind === "reproduction") {
+    return err({ code: "invalid_input", message: "받지 않는 test 종류다" });
+  }
   const allowed = checkRequestAuthority(ctx, input);
   if (!allowed.ok) return allowed;
   const existing = loadRecords(tx.sql, ctx.principal, input.request_key);
@@ -53,7 +55,7 @@ export function handleRequestTest(
     existing[0];
   if (prior) {
     if (
-      !sameConnection(prior.payload, { ...input, before_bundle_hash: null }) ||
+      !sameConnection(prior.payload, connectionOf(input)) ||
       (prior.payload.request_timeout_ms ?? null) !==
         (input.timeout_ms ?? null) ||
       prior.request_principal !== ctx.principal
@@ -83,8 +85,7 @@ export function handleRequestTest(
     runner_principal: checked.value.runner_principal,
     reason: "accepted",
     payload: {
-      ...connectionOf({ ...input, before_bundle_hash: null }),
-      before_bundle_hash: checked.value.before_bundle_hash,
+      ...connectionOf(input),
       ...(input.timeout_ms === undefined
         ? {}
         : { request_timeout_ms: input.timeout_ms }),
@@ -283,7 +284,7 @@ export function appendActualSideStart(
     return err({ code: "conflict", message: CONFLICT });
   }
   if (
-    !sideAllowed(accepted.payload, start.side) || !atOk(start.started_at) ||
+    !sideAllowed(start.side) || !atOk(start.started_at) ||
     !hashOk(start.test_hash) || !hashOk(start.bundle_hash)
   ) {
     return err({
@@ -291,14 +292,8 @@ export function appendActualSideStart(
       message: "테스트 요청이 올바르지 않다",
     });
   }
-  const bundle = expectedBundle(
-    accepted.payload,
-    start.side,
-    accepted.payload.before_bundle_hash,
-  );
-  if (!bundle.ok) return bundle;
   if (
-    start.bundle_hash !== bundle.value ||
+    start.bundle_hash !== accepted.payload.target.bundle_hash ||
     start.test_hash !== accepted.payload.test
   ) {
     return err({ code: "conflict", message: CONFLICT });

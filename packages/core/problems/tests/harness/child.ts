@@ -2,24 +2,11 @@
 // scratch의 `child.json`이고 앱 자식·broker·DB는 만지지 않는다: 모든 접근은 runner가 쥔 AppDriver를
 // private 호출 통로(rpc.ts)로 부른다. 관측 frame은 scratch의 `frames.jsonl`에 쓴다(stdout이 아니다).
 import { createEmitter } from "./emit.ts";
-import {
-  observeDirectFailurePath,
-  observeFailurePath,
-  runPlatformChecks,
-} from "./checks.ts";
+import { runChecks } from "./checks.ts";
 import type { HarnessPlan } from "./driver.ts";
 import { rpcDriver } from "./rpc.ts";
-import { loadSources } from "./source-scan.ts";
-import type { HarnessFailurePath } from "./failure-path.ts";
 
-export type HarnessChildInput = {
-  plan: HarnessPlan;
-  // 정적 code 사용을 읽을 고정 source 폴더(봉인 bundle 사본).
-  source_dir: string;
-  // runner가 화면 검사 host를 띄울 수 있는지.
-  view: boolean;
-  failure_paths: HarnessFailurePath[];
-};
+export type HarnessChildInput = { plan: HarnessPlan };
 
 export async function runHarnessChild(scratch: string): Promise<void> {
   const input = JSON.parse(
@@ -38,32 +25,10 @@ export async function runHarnessChild(scratch: string): Promise<void> {
       });
     },
   });
-  const driver = rpcDriver(scratch, { view: input.view });
-  const sources = await loadSources(input.source_dir);
-  const ran = await runPlatformChecks({
-    driver,
+  const ran = await runChecks({
+    driver: rpcDriver(scratch),
     plan: input.plan,
     emitter,
-    sources,
   });
   if (!ran.ok) throw new Error("platform checks failed to emit");
-  for (const path of input.failure_paths) {
-    const sent = path.direct || path.command === undefined
-      ? await observeDirectFailurePath({
-        driver,
-        plan: input.plan,
-        emitter,
-        code: path.code,
-      })
-      : await observeFailurePath({
-        driver,
-        plan: input.plan,
-        emitter,
-        code: path.code,
-        command: path.command,
-        command_input: path.input ?? null,
-        fault: path.fault,
-      });
-    if (!sent.ok) throw new Error("failure path did not emit");
-  }
 }

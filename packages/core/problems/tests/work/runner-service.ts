@@ -1,8 +1,7 @@
 // test runner control의 상시 service다. core 감독이 하나를 띄우고, core가
 // 감독 pipe로 보내는 요청 한 건(`problems.test.run`)을 받아 실제 runner 경로(app-test-run.ts)로 돌린다.
 // 시작 시도·실제 시작·결과는 요청별 좁은 machine credential로 core command에 남기고, 앱의 보고는 요청별
-// app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 같은 session이
-// `problems.work`·`problems.closing` 깨움도 받는다. 돌리지 못한 요청은
+// app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 돌리지 못한 요청은
 // 이유와 함께 끝난다: 조용히 두거나 성공으로 꾸미지 않는다.
 //
 // 이 모듈은 core graph 밖이다(worker). 요청 credential은 argv·log에 싣지 않는다.
@@ -13,36 +12,22 @@ import type {
   WorkerRequest,
 } from "../../../../protocol/supervision/mod.ts";
 import {
-  type AcceptedReport,
   type ExecutionEvidence,
   type FrozenTest,
-  frozenTestSchema,
+  observeException,
+  problemReport,
 } from "../../../../protocol/problems/mod.ts";
-import { objectPathFor } from "../../../storage/blobs/mod.ts";
 import {
   type ChildSession,
   type ChildStreams,
   startChild,
 } from "../../../supervision/responsiveness/mod.ts";
 import {
-  createWorkPorts,
-  type WorkClientOptions,
-} from "../../grouping/adapters/core-client.ts";
-import { reactWork, type WorkReactionPorts } from "../../grouping/work.ts";
-import {
-  type ClosingClientOptions,
-  type ClosingReactionPorts,
-  createClosingPorts,
-} from "../../closing/adapters/core-client.ts";
-import { reactClosing } from "../../closing/work.ts";
-import {
   blobPurpose,
   buildRecord,
   deriveAppTest,
   OBSERVE_TEST_REQUEST,
   RECOVER_TEST_REQUEST,
-  reproductionFrozen,
-  type ReproductionScenario,
   type StoredSideStart,
   TEST_RECOVERY_PRINCIPAL,
   TEST_RUNNER_PRINCIPAL,
@@ -51,17 +36,12 @@ import {
 } from "../mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import { canonicalHash } from "../canonical.ts";
-import {
-  PROBLEMS_CLOSING_OP,
-  PROBLEMS_WORK_OP,
-  TEST_RUNNER_KIND,
-} from "./runner-core.ts";
+import { TEST_RUNNER_KIND } from "./runner-core.ts";
 import {
   type AppTestHooks,
   type AppTestJob,
   runAppTestJob,
 } from "./app-test-run.ts";
-import { runReproductionJob } from "./reproduction-run.ts";
 
 export const RUNNER_RUN_OP = "problems.test.run";
 export const RUNNER_RECOVER_OP = "problems.test.recover";
@@ -195,22 +175,8 @@ export function collectorFor(
   const forward = (path: string, body: unknown) =>
     post(fetcher, port, credential, path, body);
   return {
-    report: (report) => forward("report", report),
-    exception: (body) => forward("observe-exception", body),
-    screen: {
-      async exception(input) {
-        const done = await forward("observe-exception", input);
-        return done.ok ? ok(done.value as AcceptedReport) : done;
-      },
-      // test mode의 feedback을 받는 machine·app 통로가 없다(SubmitFeedback은 shell 사용자 전용). 받은 것으로
-      // 꾸미지 않는다: 이 확인은 통과하지 못한다.
-      feedback() {
-        return Promise.resolve(err({
-          code: "unavailable",
-          message: "test mode feedback을 받는 접수 통로가 없다",
-        }));
-      },
-    },
+    report: (report) => forward(problemReport.method, report),
+    exception: (body) => forward(observeException.method, body),
   };
 }
 
@@ -251,7 +217,6 @@ async function recordResult(input: {
   result: "pass" | "fail" | "inconclusive";
   reason: string;
   sufficient: boolean;
-  unstarted?: { side: "before" | "after"; reason: string };
 }): Promise<Result<{ verification: string }>> {
   const { job } = input;
   const built = buildRecord({
@@ -271,7 +236,6 @@ async function recordResult(input: {
     result: input.result,
     reason: input.reason,
     sufficient: input.sufficient,
-    ...(input.unstarted === undefined ? {} : { unstarted: input.unstarted }),
   });
   if (!built.ok) return built;
   const staged = await input.client.command("stage-test-evidence", {
@@ -332,318 +296,6 @@ async function recordResult(input: {
   return ok({ verification: String(recorded.value["verification"]) });
 }
 
-const HASH = /^[0-9a-f]{64}$/;
-
-// 주소와 sha256이 같은 저장된 blob만 읽는다. 없거나 다르면 hash를 만들지 않는다.
-async function storedBlob(
-  root: string,
-  hash: string,
-): Promise<Uint8Array | null> {
-  if (!HASH.test(hash)) return null;
-  try {
-    const bytes = await Deno.readFile(objectPathFor(root, hash));
-    return await sha256Hex(bytes) === hash ? bytes : null;
-  } catch {
-    return null;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// 저장된 input·expected·symptom JSON을 한 시나리오로 맞춘다. 필드가 빠지면 null이다.
-function scenarioOf(
-  input: unknown,
-  expected: unknown,
-  symptom: unknown,
-): ReproductionScenario | null {
-  if (!isRecord(input) || !isRecord(expected) || !isRecord(symptom)) {
-    return null;
-  }
-  const probe = input.probe;
-  if (!isRecord(probe) || typeof probe.command !== "string") return null;
-  if (typeof symptom.problem_code !== "string" || !isRecord(symptom.symptom)) {
-    return null;
-  }
-  if (!isRecord(expected.expectation)) return null;
-  if (
-    !Array.isArray(input.adjacent) || !Array.isArray(expected.adjacent) ||
-    input.adjacent.length !== expected.adjacent.length
-  ) return null;
-  const adjacent: ReproductionScenario["adjacent"] = [];
-  for (let index = 0; index < input.adjacent.length; index++) {
-    const left = input.adjacent[index];
-    const right = expected.adjacent[index];
-    if (
-      !isRecord(left) || !isRecord(right) || typeof left.name !== "string" ||
-      left.name !== right.name || typeof left.command !== "string" ||
-      !isRecord(right.holds)
-    ) return null;
-    adjacent.push({
-      name: left.name,
-      command: left.command,
-      input: left.input as ReproductionScenario["probe"]["input"],
-      holds: right.holds as ReproductionScenario["symptom"],
-    });
-  }
-  const fault = probe.fault;
-  return {
-    problem_code: symptom.problem_code,
-    probe: {
-      command: probe.command,
-      input: probe.input as ReproductionScenario["probe"]["input"],
-      ...(fault === "store" || fault === "net" || fault === "none"
-        ? { fault }
-        : {}),
-    },
-    symptom: symptom.symptom as ReproductionScenario["symptom"],
-    expectation: expected.expectation as ReproductionScenario["expectation"],
-    adjacent,
-  };
-}
-
-async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await Deno.stat(path)).isDirectory;
-  } catch {
-    return false;
-  }
-}
-
-type Observe = (
-  phase: "preparation_failed" | "start_attempt",
-  at: string | null,
-  reason: string,
-) => Promise<Result<Record<string, unknown>>>;
-
-// 저장된 FrozenTest와 부분 blob이 있을 때만 reproduction을 돈다. 요청에는 시나리오가 없고,
-// 없는 blob으로 시나리오를 만들지 않는다.
-async function runStoredReproduction(input: {
-  job: RunJob;
-  client: Client;
-  session: Pick<ChildSession, "prepareBlob">;
-  principals: { machine: string; current: string; next: string | null };
-  root: string;
-  observation: Observe;
-  unrunnable: (reason: string) => Promise<JobOutcome>;
-}): Promise<JobOutcome> {
-  const { job, unrunnable } = input;
-  const connection = job.connection;
-  const frozenBytes = await storedBlob(input.root, connection.test);
-  if (frozenBytes === null) {
-    return await unrunnable(
-      "저장된 고정 시험 blob이 없어 시나리오를 만들지 않고 실행하지 않았다",
-    );
-  }
-  let frozenJson: unknown;
-  try {
-    frozenJson = JSON.parse(new TextDecoder().decode(frozenBytes));
-  } catch {
-    return await unrunnable("고정 시험 blob을 읽지 못해 실행하지 않았다");
-  }
-  const parsed = frozenTestSchema.safeParse(frozenJson);
-  if (!parsed.success || canonicalHash(parsed.data) !== connection.test) {
-    return await unrunnable(
-      "고정 시험 blob이 요청의 시험과 달라 실행하지 않았다",
-    );
-  }
-  const frozen = parsed.data;
-  if (frozen.symptom === null) {
-    return await unrunnable("reproduction 고정 시험에 증상 blob이 없다");
-  }
-  const parts = {
-    code: await storedBlob(input.root, frozen.code),
-    input: await storedBlob(input.root, frozen.input),
-    expected: await storedBlob(input.root, frozen.expected),
-    symptom: await storedBlob(input.root, frozen.symptom),
-    environment: await storedBlob(input.root, frozen.method.environment),
-  };
-  const missing = Object.entries(parts).find(([, bytes]) => bytes === null);
-  if (
-    missing !== undefined || parts.input === null || parts.expected === null ||
-    parts.symptom === null || parts.code === null || parts.environment === null
-  ) {
-    return await unrunnable(
-      `부분 blob이 없어 시나리오를 만들지 않았다: ${missing?.[0] ?? "frozen"}`,
-    );
-  }
-  let scenario: ReproductionScenario | null = null;
-  try {
-    scenario = scenarioOf(
-      JSON.parse(new TextDecoder().decode(parts.input)),
-      JSON.parse(new TextDecoder().decode(parts.expected)),
-      JSON.parse(new TextDecoder().decode(parts.symptom)),
-    );
-  } catch {
-    scenario = null;
-  }
-  if (scenario === null) {
-    return await unrunnable("저장된 부분 blob으로 시나리오를 맞추지 못했다");
-  }
-  const fixed = reproductionFrozen(scenario);
-  if (
-    fixed.input !== frozen.input || fixed.expected !== frozen.expected ||
-    fixed.symptom !== frozen.symptom
-  ) {
-    return await unrunnable("부분 blob이 고정 시험과 달라 실행하지 않았다");
-  }
-  const beforeHash = connection.before_bundle_hash;
-  const afterHash = connection.target.bundle_hash;
-  const beforeBundle = beforeHash === null
-    ? ""
-    : `${input.root}/apps/${job.app}/bundles/${beforeHash}`;
-  const afterBundle = `${input.root}/apps/${job.app}/bundles/${afterHash}`;
-  if (beforeHash === null || !await isDirectory(beforeBundle)) {
-    return await unrunnable("이전 bundle 사본이 없어 실행하지 않았다");
-  }
-  if (!await isDirectory(afterBundle)) {
-    return await unrunnable("고친 bundle 사본이 없어 실행하지 않았다");
-  }
-  const requested = connection.request_timeout_ms;
-  const timeout = requested === undefined
-    ? frozen.method.timeout_ms
-    : Math.min(frozen.method.timeout_ms, requested);
-
-  const attempted = await input.observation(
-    "start_attempt",
-    NOW(),
-    "시작 시도",
-  );
-  if (!attempted.ok) {
-    return {
-      state: "not_started",
-      reason: `시작 시도를 확정하지 못했다: ${attempted.error.message}`,
-    };
-  }
-  const keyHash = (await sha256Hex(job.request_key)).slice(0, 24);
-  const work = `${input.root}/work/problems/tests/${keyHash}`;
-  const home = `${work}/home`;
-  await Deno.mkdir(`${input.root}/work/problems/tests/sock`, {
-    recursive: true,
-  });
-  await Deno.mkdir(home, { recursive: true, mode: 0o700 });
-  const runnerHome = Deno.env.get("HOME");
-  const cache = Deno.env.get("DENO_DIR") ??
-    (runnerHome === undefined ? undefined : `${runnerHome}/.cache/deno`);
-  let ran: Awaited<ReturnType<typeof runReproductionJob>>;
-  try {
-    ran = await runReproductionJob({
-      request_key: job.request_key,
-      slot: job.slot,
-      work,
-      sockets: {
-        broker: `${input.root}/work/problems/tests/sock/${job.slot}-b.sock`,
-        direct: `${input.root}/work/problems/tests/sock/${job.slot}-a.sock`,
-        probe: `${input.root}/work/problems/tests/sock/${job.slot}-p.sock`,
-      },
-      before: { bundle: beforeBundle, bundle_hash: beforeHash },
-      after: { bundle: afterBundle, bundle_hash: afterHash },
-      scenario,
-      test_hash: connection.test,
-      timeout_ms: timeout,
-      deno: Deno.execPath(),
-      environment: {
-        home,
-        // 자식 HOME은 이 요청의 작업 폴더다. 모듈 캐시는 runner가 이미 쓰는 캐시를 가리킨다.
-        ...(cache === undefined ? {} : { denoDir: cache }),
-      },
-    });
-  } catch (error) {
-    return await unrunnable(
-      `시작하지 못했다: ${
-        error instanceof Error ? error.message : "실행 실패"
-      }`,
-    );
-  }
-  if (!ran.ok) {
-    return await unrunnable(`시작하지 못했다: ${ran.error.message}`);
-  }
-  let sideStartFailure: string | null = null;
-  for (const execution of ran.value.executions) {
-    const side = await input.client.command("start-test-side", {
-      start: {
-        request_principal: job.request_principal,
-        request_key: job.request_key,
-        request_hash: job.request_hash,
-        side: execution.side,
-        started_at: execution.started_at,
-        test_hash: connection.test,
-        bundle_hash: execution.bundle_hash,
-      },
-      proof: proofOf(job, "start_attempt", input.principals),
-    }, `side-${execution.side}`);
-    if (!side.ok) sideStartFailure = side.error.message;
-  }
-  if (sideStartFailure !== null) {
-    return {
-      state: "started_unrecorded",
-      reason: `실제 시작을 기록하지 못했다: ${sideStartFailure}`,
-    };
-  }
-  if (ran.value.executions.length === 0) {
-    return await unrunnable("시작한 side가 없어 결과를 남기지 않았다");
-  }
-  const executions: ExecutionEvidence[] = ran.value.executions.map((item) => ({
-    side: item.side,
-    bundle_hash: item.bundle_hash,
-    test_hash: connection.test,
-    started_at: item.started_at,
-    ended_at: item.ended_at,
-    exit_code: item.exit_code,
-    end_reason: item.end_reason,
-    environment: frozen.method.environment,
-    memory_limit_mode: item.mode === "soft" ? "soft" : "hard",
-    ...ENVIRONMENT_EVIDENCE,
-  }));
-  const observations = ran.value.judgment.observations;
-  try {
-    canonicalHash(observations);
-  } catch {
-    return {
-      state: "started_unrecorded",
-      reason: "관측을 결과에 싣지 못해 결과를 남기지 않았다",
-    };
-  }
-  const recorded = await recordResult({
-    job,
-    client: input.client,
-    prepare: (blob) => input.session.prepareBlob(blob),
-    principal: TEST_RUNNER_PRINCIPAL,
-    derived: {
-      frozen,
-      blobs: new Map([
-        [frozen.code, parts.code],
-        [frozen.input, parts.input],
-        [frozen.expected, parts.expected],
-        [frozen.symptom, parts.symptom],
-        [frozen.method.environment, parts.environment],
-      ]),
-    },
-    executions,
-    observations,
-    result: ran.value.judgment.result,
-    reason: ran.value.judgment.reason,
-    sufficient: ran.value.judgment.result !== "inconclusive",
-    ...(ran.value.not_started === null
-      ? {}
-      : { unstarted: ran.value.not_started }),
-  });
-  if (!recorded.ok) {
-    return {
-      state: "started_unrecorded",
-      reason:
-        `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
-    };
-  }
-  return {
-    state: "recorded",
-    reason: ran.value.judgment.reason,
-    verification: recorded.value.verification,
-    result: ran.value.judgment.result,
-  };
-}
-
 const ENVIRONMENT_EVIDENCE = {
   runner_version: "lophn-runner/1",
   output: null,
@@ -693,18 +345,6 @@ export async function runRequest(
   };
 
   const connection = job.connection;
-  if (connection.kind === "reproduction") {
-    // 요청에는 시나리오가 없다. 저장된 blob이 있을 때만 읽고, 없으면 만들지 않는다.
-    return await runStoredReproduction({
-      job,
-      client,
-      session,
-      principals,
-      root: options.root ?? Deno.env.get("LOPHN_HOME") ?? "",
-      observation,
-      unrunnable,
-    });
-  }
   if (connection.kind !== "app_test") {
     return await unrunnable(
       `${connection.kind} 요청은 이 runner가 실행하지 않는다`,
@@ -733,11 +373,9 @@ export async function runRequest(
   }
   const sockets = {
     broker: `${root}/work/problems/tests/sock/${job.slot}-b.sock`,
-    direct: `${root}/work/problems/tests/sock/${job.slot}-a.sock`,
-    probe: `${root}/work/problems/tests/sock/${job.slot}-p.sock`,
+    control: `${root}/work/problems/tests/sock/${job.slot}-a.sock`,
   };
   const frozenTimeout = test.frozen.method.timeout_ms;
-  const host = Deno.env.get("SCREEN_TEST_HOST");
   const jobSpec: AppTestJob = {
     request_key: job.request_key,
     slot: job.slot,
@@ -747,18 +385,10 @@ export async function runRequest(
     sockets,
     bundle,
     bundle_hash: bundleHash,
-    blueprint_hash: test.frozen.blueprint ?? "",
-    scenarios: test.file.failure_paths,
-    frozen_failure_paths: test.frozen.failure_paths ?? [],
     test_hash: test.test_hash,
-    inputs: test.file.inputs ?? {},
-    prepare: test.file.prepare,
-    journal_tables: test.file.journal_tables,
-    domain: test.file.domain,
+    dependencies_hash: test.frozen.sdk_dependencies ?? "",
     // 접수한 요청은 이전 release의 data schema를 싣지 않는다. 이전 release 없음으로 다루고 이유를 둔다.
     previous_schema: null,
-    previous_declarations: null,
-    screen_host: host ? { command: host, args: [] } : null,
     timeout_ms: frozenTimeout,
     ...(connection.request_timeout_ms === undefined
       ? {}
@@ -831,7 +461,7 @@ export async function runRequest(
   const observations = { ...judgment.observations };
   const detailed = {
     ...observations,
-    runner: { domain: ran.value.domain, forwarded: ran.value.forwarded },
+    runner: { forwarded: ran.value.forwarded },
   };
   const attempt = async (value: unknown) =>
     await recordResult({
@@ -999,14 +629,6 @@ export async function recoverRequest(
 export type RunnerWorkerOptions = {
   streams: ChildStreams;
   fetch?: LoopbackFetch;
-  // hello가 준 machine credential과 core api port로 `problems.work` 반응 통로를 만든다.
-  // 없으면 깨움 요청(`problems.work`)은 unknown op로 끝난다.
-  ports?(position: { credential: string; api_port: number }): WorkReactionPorts;
-  // 같은 session 안의 `problems.closing` 반응기의 통로다. 없으면 그 op는
-  // unavailable이다.
-  closing?(
-    position: { credential: string; api_port: number },
-  ): ClosingReactionPorts;
 };
 
 function requestOf(message: ParentMessage): WorkerRequest | undefined {
@@ -1020,115 +642,22 @@ function requestOf(message: ParentMessage): WorkerRequest | undefined {
 
 export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
   let stopped = false;
-  let workPorts: WorkReactionPorts | undefined;
-  let workKnown: string | undefined;
-  let workChain: Promise<unknown> = Promise.resolve();
-  let closing: ClosingReactionPorts | undefined;
-  let closingKnown: string | undefined;
-  let closingChain: Promise<unknown> = Promise.resolve();
   const respond = (message: ChildMessage) => session.send(message);
   const session: ChildSession = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== TEST_RUNNER_KIND) {
         throw new Error("invalid worker kind");
       }
-      workPorts = options.ports?.({
-        credential: hello.credential,
-        api_port: hello.api_port,
-      });
-      closing = options.closing?.({
-        credential: hello.credential,
-        api_port: hello.api_port,
-      });
       return session.send({ type: "ready" });
     },
     onStop() {
       stopped = true;
       return session.send({ type: "stopped" });
     },
-    async onParent(message) {
+    onParent(message) {
       const request = requestOf(message);
       if (request === undefined) return;
       const op = request.op;
-      // `problems.work` 깨움은 cursor 뒤 ticket event를 따라잡는다. 성공한
-      // 위치는 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
-      if (op === PROBLEMS_WORK_OP) {
-        const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
-        const fail = (code: "invalid_input" | "unavailable", text: string) =>
-          respond({
-            type: "worker_response",
-            request_id: request.request_id,
-            ok: false,
-            error: { code, message: text },
-          });
-        if (typeof cursor !== "string" || !/^\d+$/.test(cursor)) {
-          return fail("invalid_input", "cursor is not a seq");
-        }
-        const mine = workPorts;
-        if (mine === undefined) {
-          return fail("unavailable", "runner has no credential");
-        }
-        const run = workChain.then(async () => {
-          const from = workKnown !== undefined &&
-              BigInt(workKnown) > BigInt(cursor)
-            ? workKnown
-            : cursor;
-          const done = await reactWork(mine, from);
-          workKnown = done.ok ? done.value.processed_through_seq : undefined;
-          return done;
-        });
-        workChain = run.catch(() => undefined);
-        const done = await run;
-        await (done.ok
-          ? respond({
-            type: "worker_response",
-            request_id: request.request_id,
-            ok: true,
-            payload: done.value,
-          })
-          : fail("unavailable", "problems work reaction failed"));
-        return;
-      }
-      // `problems.closing` 깨움은 같은 runner의 다른 반응기다. 통로가 없으면
-      // unavailable이다. 두 반응기는 요청을 하나씩 차례로 처리하고, 성공한 위치는 각자
-      // 기억해 더 낡은 깨움의 cursor로 되돌아가지 않는다.
-      if (op === PROBLEMS_CLOSING_OP) {
-        const cursor = (request.payload as { cursor?: unknown } | null)?.cursor;
-        const fail = (code: "invalid_input" | "unavailable", text: string) =>
-          respond({
-            type: "worker_response",
-            request_id: request.request_id,
-            ok: false,
-            error: { code, message: text },
-          });
-        if (typeof cursor !== "string" || !/^\d+$/.test(cursor)) {
-          return fail("invalid_input", "cursor is not a seq");
-        }
-        const theirs = closing;
-        if (theirs === undefined) {
-          return fail("unavailable", "runner has no closing credential");
-        }
-        const run = closingChain.then(async () => {
-          const from = closingKnown !== undefined &&
-              BigInt(closingKnown) > BigInt(cursor)
-            ? closingKnown
-            : cursor;
-          const done = await reactClosing(theirs, from);
-          closingKnown = done.ok ? done.value.processed_through_seq : undefined;
-          return done;
-        });
-        closingChain = run.catch(() => undefined);
-        const done = await run;
-        await (done.ok
-          ? respond({
-            type: "worker_response",
-            request_id: request.request_id,
-            ok: true,
-            payload: done.value,
-          })
-          : fail("unavailable", "problems closing reaction failed"));
-        return;
-      }
       // 요청은 기다리지 않고 시작한다: 한 요청이 오래 도는 동안에도 다음 frame(blob 준비 credit, 정지)을 읽는다.
       if (op !== RUNNER_RUN_OP && op !== RUNNER_RECOVER_OP) {
         return respond({
@@ -1169,36 +698,6 @@ export async function runRunnerService(): Promise<void> {
     console.error(...args);
   const session = createRunnerWorker({
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
-    ports: (position) =>
-      createWorkPorts(
-        {
-          baseUrl: `http://127.0.0.1:${position.api_port}`,
-          credential: position.credential,
-          // EXTERNAL_FETCH tripwire: property access로만 부른다.
-          fetch: (input, init) => {
-            const globalFetch = globalThis.fetch;
-            return globalFetch(input, init).then(async (response) => ({
-              status: response.status,
-              bytes: new Uint8Array(await response.arrayBuffer()),
-            }));
-          },
-        } satisfies WorkClientOptions,
-      ),
-    closing: (position) =>
-      createClosingPorts(
-        {
-          baseUrl: `http://127.0.0.1:${position.api_port}`,
-          credential: position.credential,
-          // EXTERNAL_FETCH tripwire: property access로만 부른다.
-          fetch: (input, init) => {
-            const globalFetch = globalThis.fetch;
-            return globalFetch(input, init).then(async (response) => ({
-              status: response.status,
-              bytes: new Uint8Array(await response.arrayBuffer()),
-            }));
-          },
-        } satisfies ClosingClientOptions,
-      ),
   });
   await session.run();
 }

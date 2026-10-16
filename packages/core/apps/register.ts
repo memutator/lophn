@@ -76,7 +76,6 @@ import type {
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
 import { ticketCheckFeedVisibility } from "./tickets/checker/connection.ts";
-import { visibleToProblemsClosing } from "../problems/closing/connection.ts";
 import {
   assignmentReactionsOnlyVisibility,
   notificationsOnlyVisibility,
@@ -259,11 +258,10 @@ export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
       notificationsOnlyVisibility(releaseActivationFailed),
-      // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)와
-      // `problems.closing` 반응기의 깨움 신호로만 열린다.
+      // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)의 깨움 신호로만 열린다.
       // 다른 자격이 보는 것은 그대로 숨김이다.
-      visibleToProblemsClosing(ticketCheckFeedVisibility(releaseActivated)),
-      visibleToProblemsClosing(ticketCheckFeedVisibility(releaseSuperseded)),
+      ticketCheckFeedVisibility(releaseActivated),
+      ticketCheckFeedVisibility(releaseSuperseded),
       // 앱 만들기·보관·보관 해제는 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
       assignmentReactionsOnlyVisibility(appCreated),
       assignmentReactionsOnlyVisibility(appArchived),

@@ -3,15 +3,10 @@ import { visibleToChecker } from "../grouping/register.ts";
 import { workerRoot } from "../worker-root.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import {
-  ProblemTestPort,
-  verificationRecorded,
-} from "../../../protocol/problems/mod.ts";
-import {
   getTestRequestRead,
   getVerificationRead,
   listVerificationsRead,
   observeTestRequestCommand,
-  problemTestLookup,
   recordVerificationCommand,
   requestTestCommand,
   stageTestEvidenceCommand,
@@ -21,8 +16,9 @@ import {
   TEST_SCHEMA_STEPS,
   verificationRecordedVisibility,
 } from "./mod.ts";
-import { screenTestHost, testRunnerSpec } from "./runner.ts";
+import { testRunnerSpec } from "./runner.ts";
 import { testTxPorts } from "./request-ports.ts";
+import { verificationRecorded } from "../../../protocol/problems/mod.ts";
 
 const verificationRecordedForChecker = visibleToChecker(
   verificationRecordedVisibility,
@@ -32,11 +28,7 @@ const verificationRecordedForChecker = visibleToChecker(
 function testRunnerWorkers(): KindLaunchSpec[] {
   const root = workerRoot();
   if (!root) return [];
-  const spec = testRunnerSpec({
-    dataRoot: root,
-    deno: Deno.execPath(),
-    screenHost: screenTestHost(),
-  });
+  const spec = testRunnerSpec({ dataRoot: root, deno: Deno.execPath() });
   return spec ? [spec] : [];
 }
 
@@ -58,6 +50,4 @@ export const testsPart = {
   ports: testTxPorts(),
   workers: testRunnerWorkers(),
   readerReads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
-  // 테스트 사실은 tests leaf 구현을 ProblemTestPort로 등록한다.
-  readerPorts: [[ProblemTestPort, problemTestLookup]],
 } satisfies ProblemsPart;

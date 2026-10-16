@@ -86,19 +86,10 @@ export function handleRecordVerification(
       seq: String(prior.recorded_seq),
     });
   }
-  if (new Set(verification.reports).size !== verification.reports.length) {
-    return err({
-      code: "invalid_input",
-      message: "테스트 요청이 올바르지 않다",
-    });
-  }
   if (
     records.some((record) => record.phase === "preparation_failed") ||
     verification.request_hash !== accepted.request_hash ||
-    !sameConnection(
-      { ...verification, before_bundle_hash: null },
-      accepted.payload,
-    )
+    !sameConnection(connectionOf(verification), accepted.payload)
   ) {
     return err({ code: "conflict", message: CONFLICT });
   }
@@ -135,12 +126,7 @@ export function handleRecordVerification(
     verification.request_key,
     verification.request_hash,
   );
-  const judged = judgeRecordable(
-    verification,
-    evidence,
-    starts,
-    accepted.payload,
-  );
+  const judged = judgeRecordable(verification, evidence, starts);
   if (!judged.ok) return judged;
   const other = tx.sql.get(`select id from verifications where id = ?`, [
     verification.id,
@@ -154,8 +140,6 @@ export function handleRecordVerification(
       kind: verification.kind,
       app: verification.app,
       target: verification.target,
-      ...(verification.problem ? { problem: verification.problem } : {}),
-      ...(verification.basis_seq ? { basis_seq: verification.basis_seq } : {}),
       ...(verification.ticket ? { ticket: verification.ticket } : {}),
       result: verification.result,
       test: verification.test,
@@ -174,11 +158,10 @@ export function handleRecordVerification(
   tx.sql.run(
     `insert into verifications (
        id, request_principal, request_key, request_hash, kind, app,
-       target_bundle_hash, target_release, problem, basis_seq,
-       before_release, after_release, ticket, ticket_check_index,
+       target_bundle_hash, target_release, ticket, ticket_check_index,
        ticket_check_hash, ticket_completion_seq, test, execution, result,
        reason, observations, recorded_seq, verification_canonical
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       verification.id,
       verification.request_principal,
@@ -188,10 +171,6 @@ export function handleRecordVerification(
       verification.app,
       verification.target.bundle_hash,
       verification.target.release,
-      verification.problem,
-      verification.basis_seq,
-      verification.before,
-      verification.after,
       ticket?.ticket ?? null,
       ticket?.check_index ?? null,
       ticket?.check_hash ?? null,
@@ -205,12 +184,6 @@ export function handleRecordVerification(
       canonical,
     ],
   );
-  for (const report of verification.reports) {
-    tx.sql.run(
-      `insert into verification_reports (verification, report) values (?, ?)`,
-      [verification.id, report],
-    );
-  }
   const linked = appendRecord(tx, {
     request_principal: verification.request_principal,
     request_key: verification.request_key,
@@ -223,7 +196,7 @@ export function handleRecordVerification(
     result_ref: verification.id,
     runner_principal: ctx.principal,
     reason: verification.reason,
-    payload: connectionOf({ ...verification, before_bundle_hash: null }),
+    payload: connectionOf(verification),
   });
   if (!linked.ok) return linked;
   return ok({ verification: verification.id, seq: eventSeq });

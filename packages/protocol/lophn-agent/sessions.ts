@@ -404,22 +404,6 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const sessionRead = defineRead({
-  resource: "sessions",
-  method: "read",
-  name: "ReadSession",
-  input: z.strictObject({ session: idSchema("ses") }),
-  output: withReadCommon(z.object({ session: sessionRecordSchema })).refine(
-    (value) =>
-      seqSchema.safeParse(value.session.state_seq).success &&
-      seqSchema.safeParse(value.as_of_seq).success &&
-      BigInt(value.session.state_seq) <= BigInt(value.as_of_seq),
-    { message: "session state is newer than read snapshot" },
-  ),
-  actors: ["user", "agent", "machine", "coding_agent"],
-  errors: [...readErrors],
-});
-
 // 목록은 agent(assignment)와 자리별이다: 둘은 필수이고 다른 agent나 다른 자리의 session은
 // 섞이지 않는다. archived는 기본에서 뺀다(`exclude`, 생략과 같다);
 // Archived 보기는 `only`다. 제목 검색은 이 결과에서 제목만 대상으로 하는 화면의 거름이며
@@ -590,7 +574,6 @@ export const SESSION_COMMANDS = [
   failSessionCompact,
   changeSessionModel,
   closeSession,
-  sessionRead,
   sessionList,
   sessionCompactRequests,
   sessionSummary,

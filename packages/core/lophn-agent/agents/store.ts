@@ -1,26 +1,24 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  AgentPlace,
-  AgentRole,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
+import type { AgentRef, Place } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
-// 정의 파일과 자리 설정 파일을 app data의 자리별 `agents/` 폴더에서 읽고 쓰는 저장소다.
-// 파일 IO는 port로 받는다. hash는 파일 글의 sha256이고 CAS와 event가 이것을 비교한다.
+// 정의 파일을 lophn data root 아래에서 읽고 쓰는 저장소다. 정의는 project나 앱 폴더가 아니라 lophn data에 둔다.
+//   lophn:            <root>/agents/lophn.md
+//   Project Manager:  <root>/projects/<project>/agents/project-manager.md
+//   App Engineer:     <root>/apps/<app>/agents/app-engineer.md
+//   Operator:         <place 폴더>/agents/<agt id>.md
+// 파일 IO는 port로 받는다. hash는 파일 글의 sha256이고 CAS가 이것을 비교한다.
 
-export const SETTINGS_FILE = "settings.md";
+// 정의 파일 하나의 위치. Operator의 place는 ref에 없어 호출하는 쪽이 정해 준다.
+export type AgentSlot = { folder: string; file: string };
 
-const BUILTIN_FILES: Record<Exclude<AgentRole, "operator">, string> = {
+const BUILTIN_FILES = {
   lophn: "lophn.md",
-  context_engineer: "context-engineer.md",
+  project_manager: "project-manager.md",
   app_engineer: "app-engineer.md",
-};
-
-// Operator 파일 이름이 assignment ID라 정의와 실행 정체의 연결은 이름을 바꿔도 변하지 않는다.
-export function agentFileName(role: AgentRole, assignment: string): string {
-  return role === "operator" ? `${assignment}.md` : BUILTIN_FILES[role];
-}
+} as const;
 
 export function fileHash(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -28,17 +26,74 @@ export function fileHash(text: string): string {
 
 export type AgentFile = { text: string; hash: string };
 
-export type AgentStore = {
-  read(place: AgentPlace, file: string): Result<AgentFile | null>;
-  // 쓴 글의 hash를 돌려준다.
-  write(place: AgentPlace, file: string, text: string): Result<string>;
-  remove(place: AgentPlace, file: string): Result<void>;
-};
-
-export function agentsDirectory(root: string, place: AgentPlace): string {
+export function placeAgentsFolder(root: string, place: Place): string {
   const area = place.kind === "project" ? "projects" : "apps";
   return `${root}/${area}/${place.id}/agents`;
 }
+
+export function slotOf(
+  root: string,
+  ref: AgentRef,
+  operatorPlace?: Place,
+): AgentSlot | null {
+  switch (ref.role) {
+    case "lophn":
+      return { folder: `${root}/agents`, file: BUILTIN_FILES.lophn };
+    case "project_manager":
+      return {
+        folder: placeAgentsFolder(root, { kind: "project", id: ref.project }),
+        file: BUILTIN_FILES.project_manager,
+      };
+    case "app_engineer":
+      return {
+        folder: placeAgentsFolder(root, { kind: "app", id: ref.app }),
+        file: BUILTIN_FILES.app_engineer,
+      };
+    case "operator":
+      return operatorPlace === undefined ? null : {
+        folder: placeAgentsFolder(root, operatorPlace),
+        file: `${ref.agent}.md`,
+      };
+  }
+}
+
+// turn과 session 기록이 role 이름·작업 place·Operator id로 agent를 가리키는 동안 쓰는 변환이다. 옛 이름
+// `context_engineer`는 Project Manager다. 가리킬 수 없으면 null이다.
+export function agentRefOf(
+  role: string,
+  place: Place | null,
+  operator: string | null,
+): AgentRef | null {
+  switch (role) {
+    case "lophn":
+      return { role: "lophn" };
+    case "project_manager":
+    case "context_engineer":
+      return place?.kind === "project"
+        ? { role: "project_manager", project: place.id as never }
+        : null;
+    case "app_engineer":
+      return place?.kind === "app"
+        ? { role: "app_engineer", app: place.id as never }
+        : null;
+    case "operator":
+      return operator === null
+        ? null
+        : { role: "operator", agent: operator as never };
+    default:
+      return null;
+  }
+}
+
+export type AgentStore = {
+  root: string;
+  read(slot: AgentSlot): Result<AgentFile | null>;
+  // 쓴 글의 hash를 돌려준다.
+  write(slot: AgentSlot, text: string): Result<string>;
+  remove(slot: AgentSlot): Result<void>;
+  // 폴더 안의 Operator 파일 이름에서 뺀 `agt_...` id들.
+  operatorIds(place: Place): Result<string[]>;
+};
 
 function unavailable(what: string): Result<never> {
   return err({
@@ -51,31 +106,45 @@ export function createAgentStore(
   files: AgentFileSystem,
   root: string,
 ): AgentStore {
-  const pathOf = (place: AgentPlace, file: string) =>
-    `${agentsDirectory(root, place)}/${file}`;
+  const pathOf = (slot: AgentSlot) => `${slot.folder}/${slot.file}`;
   return {
-    read(place, file) {
+    root,
+    read(slot) {
       try {
-        const text = files.read(pathOf(place, file));
+        const text = files.read(pathOf(slot));
         return ok(text === null ? null : { text, hash: fileHash(text) });
       } catch {
         return unavailable("read");
       }
     },
-    write(place, file, text) {
+    write(slot, text) {
       try {
-        files.writeAtomic(pathOf(place, file), text);
+        files.writeAtomic(pathOf(slot), text);
         return ok(fileHash(text));
       } catch {
         return unavailable("written");
       }
     },
-    remove(place, file) {
+    remove(slot) {
       try {
-        files.remove(pathOf(place, file));
+        files.remove(pathOf(slot));
         return ok(undefined);
       } catch {
         return unavailable("removed");
+      }
+    },
+    operatorIds(place) {
+      try {
+        return ok(
+          files.list(placeAgentsFolder(root, place))
+            .filter((name) =>
+              name.endsWith(".md") &&
+              idSchema("agt").safeParse(name.slice(0, -3)).success
+            )
+            .map((name) => name.slice(0, -3)),
+        );
+      } catch {
+        return unavailable("listed");
       }
     },
   };

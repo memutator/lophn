@@ -27,6 +27,13 @@ import {
   createContextsWatch,
   denoWatchFs,
 } from "../../../projects/contexts/watch/service.ts";
+import {
+  projectInfoList,
+  projectInfoOf,
+} from "../../../projects/registry/mod.ts";
+import { createFolderResolver } from "../../../projects/registry/folder-resolver.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
+import type { ProjectDirectory } from "../../../apps/ports.ts";
 import { createWorkerChannel, type WiringFactory } from "./context.ts";
 
 // context worker 일의 입력(적용 판·검사할 후보 판)과 활성 context 목록을 reader에서 읽는 자격. core가
@@ -48,6 +55,7 @@ export const projectsWiring: WiringFactory = () => {
   const contextsHost = createContextsHost();
   // 활성 context의 계약 경로 폴더를 보고 바뀌면 index를 따라잡게 하는 감시.
   let contextsWatch: ContextsWatch | undefined;
+  let directoryLink: { close(): void } | undefined;
   return {
     name: "projects",
     // context worker(machine)가 검사 결과와 위반 수를 기록한다(documents/contexts).
@@ -58,6 +66,35 @@ export const projectsWiring: WiringFactory = () => {
         kind: "command",
       })),
     build(ctx) {
+      // 앱이 project 목록을 읽는 길. 읽기만 하는 짧은 ledger 연결이다.
+      const opened = openConnection(ctx.ledgerPath);
+      if (!opened.ok) return opened;
+      const connection = opened.value;
+      directoryLink = connection;
+      const folders = createFolderResolver();
+      const summary = (info: {
+        id: string;
+        name: string;
+        purpose: string;
+        archived: boolean;
+      }) => ({
+        id: info.id as never,
+        name: info.name,
+        purpose: info.purpose,
+        archived: info.archived,
+      });
+      const directory: ProjectDirectory = {
+        list() {
+          const listed = projectInfoList(connection.sql, folders);
+          return listed.ok ? ok(listed.value.map(summary)) : listed;
+        },
+        get(id) {
+          const found = projectInfoOf(connection.sql, folders, { id });
+          if (!found.ok) return found;
+          return ok(found.value === null ? null : summary(found.value));
+        },
+      };
+      ctx.provide("projectDirectory", directory);
       return ok({
         reads: (reads) => contextsHost.overlayReads(reads),
         // context의 초안은 호출자 자격으로 command 앞에 준비한다.
@@ -173,6 +210,9 @@ export const projectsWiring: WiringFactory = () => {
     },
     closeIntake() {
       contextsWatch?.stop();
+    },
+    closeWork() {
+      directoryLink?.close();
     },
   };
 };

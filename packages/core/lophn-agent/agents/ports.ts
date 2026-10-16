@@ -1,9 +1,8 @@
-import type { Result } from "../../../base/mod.ts";
 import type {
-  AgentPlace,
-  AgentRole,
-  AgentSettings,
   McpTool,
+  ModelChoice,
+  Place,
+  Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 
@@ -16,53 +15,35 @@ export interface AgentFileSystem {
   read(path: string): string | null;
   writeAtomic(path: string, text: string): void;
   remove(path: string): void;
+  // 폴더 안의 파일 이름들. 폴더가 없으면 빈 목록이다.
+  list(path: string): string[];
 }
-
-export type AssignmentRef = {
-  id: string;
-  role: AgentRole;
-  scope: { kind: "all" } | { kind: AgentPlace["kind"]; id: string };
-  state: "enabled" | "paused" | "withdrawn";
-  revision: number;
-};
 
 export type ReadSql = Pick<Tx["sql"], "get" | "all">;
 
 // 다른 concern의 값을 읽는 길. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type AgentLookups = {
-  placeExists(place: AgentPlace): boolean;
-  // 거두지 않은 assignment 가운데 전역(all)이거나 이 자리가 범위인 것.
-  assignments(place: AgentPlace): AssignmentRef[];
-  // 거둔 것도 돌려준다. 없으면 null.
-  assignment(id: string): AssignmentRef | null;
+  placeExists(place: Place): boolean;
+  // 있는 project와 앱 전부. 목록과 Operator 찾기가 훑는다.
+  places(): Place[];
   // 만드는 중(drafting)인 context와 보관한 context도 실제 context다. 없으면 null.
   contextStatus(id: string): "drafting" | "active" | "archived" | null;
   // context가 속한 project. 없으면 null. context는 project 안에만 있다.
   contextProject(id: string): string | null;
-  // 이 자리의 agent가 읽을 active context다. project 자리는 그 project의 active context 전부이고, App Engineer가
-  // 앱 자리에 있으면 그 앱을 app-data source로 읽는 active context 전부다. 그 밖의 앱 자리는 빈 목록이다.
-  activeContexts(place: AgentPlace, role: AgentRole): string[];
-  // 이 자리의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 자리 층(그 자리에서 여는
-  // agent에만 보인다)을
-  // 더한 것이고 발견·등록 순서다.
-  skills(place: AgentPlace): string[];
-  mcp(place: AgentPlace): McpTool[];
-  // Workspace 층: 역할별 기본 model(agent-model-defaults)과 기본 권한(platform/settings).
-  workspace(): AgentSettings;
-};
-
-// Operator assignment를 같은 transaction에서 만들고 거둔다. 실패하면 command가 전체를 되돌린다.
-export type AssignmentWriter = {
-  createOperator(place: AgentPlace): Result<string>;
-  withdraw(assignment: string): Result<void>;
+  // 이 place의 agent가 읽을 active context다. project place는 그 project의 active context 전부이고,
+  // App Engineer는 그 앱을 app-data source로 읽는 active context 전부다. 그 밖에는 빈 목록이다.
+  activeContexts(place: Place | null, role: Role): string[];
+  // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 project 층을 더한 것이고
+  // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
+  skills(place: Place | null): string[];
+  mcp(place: Place | null): McpTool[];
+  // 전역 기본 model. 없으면 null.
+  modelDefault(): ModelChoice | null;
 };
 
 export type AgentDeps = {
   files: AgentFileSystem;
   lookups(sql: ReadSql): AgentLookups;
-  assignmentWriter(tx: Tx): AssignmentWriter;
-  // 이 role의 RoleCaps 개별 동작.
-  roleCaps(role: AgentRole): readonly string[];
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
 };

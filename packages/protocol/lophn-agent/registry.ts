@@ -5,7 +5,6 @@ import {
   SESSION_COMMANDS,
   SESSION_EVENTS,
   sessionList,
-  sessionRead,
   unarchiveSession,
 } from "./sessions.ts";
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
@@ -46,7 +45,6 @@ export const ROUTES = [
   ...SESSION_COMMANDS.filter((route) =>
     !([
       openSession,
-      sessionRead,
       sessionList,
       closeSession,
       unarchiveSession,

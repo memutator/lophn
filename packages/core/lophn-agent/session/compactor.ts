@@ -1,6 +1,5 @@
 import { type Clock, type IdSource, type Result } from "../../../base/mod.ts";
 import {
-  assignmentRead,
   type CallCost,
   type CompactFailureReason,
   compactSession,
@@ -151,17 +150,8 @@ export function createCompactor(
     if (defaults.value.defaults.summaries !== null) {
       return defaults.value.defaults.summaries;
     }
-    const assigned = await readOf(machine, assignmentRead, {
-      assignment: request.assignment,
-    });
-    if (!assigned.ok) return null;
     const made = await resolveRunAgent(machine, {
-      run: {
-        id: request.session,
-        session: request.session,
-        source: { kind: "message" },
-      },
-      assignment: assigned.value.assignment,
+      session: request.session,
       skills: [],
       mcp: () => Promise.resolve([]),
     });

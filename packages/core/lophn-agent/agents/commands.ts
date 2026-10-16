@@ -1,13 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  agentDeleted,
-  type AgentPlace,
-  type AgentRole,
-  agentSaved,
-  agentsDelete,
-  agentsSave,
-  placeAgentSettingsChange,
-  placeAgentSettingsChanged,
+  builtinAgentChange,
+  operatorChange,
+  operatorCreate,
+  operatorDelete,
+  type Place,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -18,16 +15,21 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { serializeSettingsFile } from "./definition-file.ts";
-import { callableIn, openPlaceView, type PlaceView } from "./inspect.ts";
+import {
+  type AgentContext,
+  findOperator,
+  loadAgent,
+  openAgentContext,
+} from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
 import { staleImagePaths } from "./profile-asset.ts";
-import { agentFileName, dataRootOf, fileHash, SETTINGS_FILE } from "./store.ts";
-import { checkSave, checkSettings } from "./validate.ts";
+import { slotOf } from "./store.ts";
+import { checkBuiltin, checkOperator } from "./validate.ts";
 
-// 정의와 자리 설정의 저장·삭제는 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기 → event다.
-// 파일은 transaction 안에서 마지막에 쓰고, 쓰기가 실패하면 handler가 err를 돌려 방금 만든 assignment와
-// event까지 전체가 되돌아간다. 그래서 실패한 저장은 assignment도 event도 남기지 않는다.
+// 정의의 저장·삭제는 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
+// 쓰기가 실패하면 handler가 err를 돌려 전체가 되돌아간다. 정의 저장은 event를 내지 않는다.
+// Project Manager와 App Engineer는 place가 생길 때 ensure가 만든다: 사람은 이름이 Operator의 id인 정의만
+// 만들고 지울 수 있고(operatorCreate·operatorDelete), built-in은 내용만 바꾼다(builtinAgentChange).
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
@@ -42,16 +44,13 @@ function conflict(what: string): Result<never> {
 // 가리키지 않아 agent의 답을 바꾸지 않고, 다음 저장이 목록을 다시 보고 지운다.
 function removeStaleImages(
   deps: AgentDeps,
-  tx: Tx,
-  place: AgentPlace,
-  role: AgentRole,
-  assignment: string,
+  context: AgentContext,
+  place: Place,
+  operator: string,
   profile: Profile | undefined,
 ): void {
-  const root = dataRootOf(tx.sql, deps.dataRoot);
-  if (!root.ok) return;
   for (
-    const path of staleImagePaths(root.value, place, role, assignment, profile)
+    const path of staleImagePaths(context.store.root, place, operator, profile)
   ) {
     try {
       deps.files.remove(path);
@@ -61,163 +60,132 @@ function removeStaleImages(
   }
 }
 
-function placeView(
-  deps: AgentDeps,
-  tx: Tx,
-  place: AgentPlace,
-): Result<PlaceView> {
-  const view = openPlaceView(deps, tx.sql, place);
-  if (!view.ok) return view;
-  if (!view.value.context.lookups.placeExists(place)) {
-    return notFound("place");
-  }
-  return view;
+function open(deps: AgentDeps, tx: Tx): Result<AgentContext> {
+  return openAgentContext(deps, tx.sql);
 }
 
 export function createAgentCommands(deps: AgentDeps): {
-  save: CommandDefinition<typeof agentsSave>;
-  delete: CommandDefinition<typeof agentsDelete>;
-  changeSettings: CommandDefinition<typeof placeAgentSettingsChange>;
+  create: CommandDefinition<typeof operatorCreate>;
+  change: CommandDefinition<typeof operatorChange>;
+  delete: CommandDefinition<typeof operatorDelete>;
+  changeBuiltin: CommandDefinition<typeof builtinAgentChange>;
 } {
   return {
-    save: {
-      route: agentsSave,
+    create: {
+      route: operatorCreate,
       handle(
         tx: Tx,
         _ctx: RequestContext,
-        input: Input<typeof agentsSave>,
-        compare: Compare<typeof agentsSave>,
-      ): Result<Output<typeof agentsSave>> {
-        const { place, definition } = input;
-        const view = placeView(deps, tx, place);
-        if (!view.ok) return view;
-        const { store, lookups } = view.value.context;
-
-        // 새 Operator는 assignment를 먼저 만든 뒤에야 ID를 알지만 검사는 만들기 전에 끝낸다.
-        let role: AgentRole = "operator";
-        let assignment: string | null = null;
-        if (input.assignment !== undefined) {
-          const ref = lookups.assignment(input.assignment);
-          if (ref === null) return notFound("agent");
-          // 이 자리에서 부를 수 없는 agent(다른 자리의 Operator, 거둔 것)는 이 자리의 agent가 아니다.
-          // Context Engineer는 전역이라 앱 자리에도 닿고 그때는 검사가 자리 오류로 알린다.
-          const reachable = ref.state !== "withdrawn" &&
-            (callableIn(ref, place) || ref.role === "context_engineer");
-          if (!reachable) return notFound("agent");
-          role = ref.role;
-          assignment = ref.id;
+        input: Input<typeof operatorCreate>,
+      ): Result<Output<typeof operatorCreate>> {
+        const context = open(deps, tx);
+        if (!context.ok) return context;
+        const { place, definition, id } = input;
+        if (!context.value.lookups.placeExists(place)) {
+          return notFound("place");
         }
-
-        const file = assignment === null
-          ? ok(null)
-          : store.read(place, agentFileName(role, assignment));
-        if (!file.ok) return file;
-        const before = file.value?.hash ?? null;
-        if (compare.hash !== before) return conflict("agent file");
-
-        const checked = checkSave({
-          view: view.value,
-          role,
-          assignment,
+        const existing = findOperator(context.value, id);
+        if (!existing.ok) return existing;
+        if (existing.value !== null) {
+          return err({ code: "conflict", message: "operator already exists" });
+        }
+        const checked = checkOperator({
+          context: context.value,
+          place,
+          id,
           definition,
         });
         if (!checked.ok) return checked;
-        const text = checked.value;
-
-        let id = assignment;
-        if (id === null) {
-          const created = deps.assignmentWriter(tx).createOperator(place);
-          if (!created.ok) return created;
-          id = created.value;
-        }
-        const after = fileHash(text);
-        tx.emit(agentSaved, id, {
-          place,
-          role,
-          before_hash: before,
-          after_hash: after,
-        });
-        const written = store.write(place, agentFileName(role, id), text);
+        const slot = slotOf(context.value.store.root, {
+          role: "operator",
+          agent: id,
+        }, place)!;
+        const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
-        removeStaleImages(deps, tx, place, role, id, definition.profile);
-        return ok({ assignment: id, role, hash: after });
+        removeStaleImages(deps, context.value, place, id, definition.profile);
+        return ok({ agent: id, hash: written.value });
+      },
+    },
+    change: {
+      route: operatorChange,
+      handle(
+        tx: Tx,
+        _ctx: RequestContext,
+        input: Input<typeof operatorChange>,
+        compare: Compare<typeof operatorChange>,
+      ): Result<Output<typeof operatorChange>> {
+        const context = open(deps, tx);
+        if (!context.ok) return context;
+        const found = findOperator(context.value, input.agent);
+        if (!found.ok) return found;
+        if (found.value === null) return notFound("agent");
+        const { place, slot, file } = found.value;
+        if (compare.hash !== file.hash) return conflict("agent file");
+        const checked = checkOperator({
+          context: context.value,
+          place,
+          id: input.agent,
+          definition: input.definition,
+        });
+        if (!checked.ok) return checked;
+        const written = context.value.store.write(slot, checked.value);
+        if (!written.ok) return written;
+        removeStaleImages(
+          deps,
+          context.value,
+          place,
+          input.agent,
+          input.definition.profile,
+        );
+        return ok({ agent: input.agent, hash: written.value });
       },
     },
     delete: {
-      route: agentsDelete,
+      route: operatorDelete,
       handle(
         tx: Tx,
         _ctx: RequestContext,
-        input: Input<typeof agentsDelete>,
-        compare: Compare<typeof agentsDelete>,
-      ): Result<Output<typeof agentsDelete>> {
-        const ref = deps.lookups(tx.sql).assignment(input.assignment);
-        if (ref === null || ref.state === "withdrawn") {
-          return notFound("agent");
-        }
-        // built-in은 이름도 존재도 제품이 정한다.
-        if (ref.role !== "operator") {
-          return err({
-            code: "forbidden",
-            message: "only an operator can be deleted",
-          });
-        }
-        if (ref.scope.kind === "all") return notFound("agent");
-        const place: AgentPlace = ref.scope as AgentPlace;
-        const view = placeView(deps, tx, place);
-        if (!view.ok) return view;
-        const { store } = view.value.context;
-        const file = agentFileName("operator", ref.id);
-        const current = store.read(place, file);
-        if (!current.ok) return current;
-        // 정의 파일이 없는 assignment는 agent가 아니다.
-        if (current.value === null) return notFound("agent");
-        if (compare.hash !== current.value.hash) return conflict("agent file");
-
-        const withdrawn = deps.assignmentWriter(tx).withdraw(ref.id);
-        if (!withdrawn.ok) return withdrawn;
-        tx.emit(agentDeleted, ref.id, {
-          place,
-          role: "operator",
-          hash: current.value.hash,
-        });
-        const removed = store.remove(place, file);
+        input: Input<typeof operatorDelete>,
+        compare: Compare<typeof operatorDelete>,
+      ): Result<Output<typeof operatorDelete>> {
+        const context = open(deps, tx);
+        if (!context.ok) return context;
+        const found = findOperator(context.value, input.agent);
+        if (!found.ok) return found;
+        if (found.value === null) return notFound("agent");
+        const { place, slot, file } = found.value;
+        if (compare.hash !== file.hash) return conflict("agent file");
+        const removed = context.value.store.remove(slot);
         if (!removed.ok) return removed;
-        return ok({ assignment: ref.id, hash: current.value.hash });
+        removeStaleImages(deps, context.value, place, input.agent, undefined);
+        return ok({ agent: input.agent, hash: file.hash });
       },
     },
-    changeSettings: {
-      route: placeAgentSettingsChange,
+    changeBuiltin: {
+      route: builtinAgentChange,
       handle(
         tx: Tx,
         _ctx: RequestContext,
-        input: Input<typeof placeAgentSettingsChange>,
-        compare: Compare<typeof placeAgentSettingsChange>,
-      ): Result<Output<typeof placeAgentSettingsChange>> {
-        const { place, settings } = input;
-        const view = placeView(deps, tx, place);
-        if (!view.ok) return view;
-        const { store } = view.value.context;
-        const current = store.read(place, SETTINGS_FILE);
-        if (!current.ok) return current;
-        const before = current.value?.hash ?? null;
-        if (compare.hash !== before) return conflict("settings file");
-
-        const checked = checkSettings({
-          settings,
-          workspace: view.value.workspace,
-          text: serializeSettingsFile(settings),
-        });
+        input: Input<typeof builtinAgentChange>,
+        compare: Compare<typeof builtinAgentChange>,
+      ): Result<Output<typeof builtinAgentChange>> {
+        const context = open(deps, tx);
+        if (!context.ok) return context;
+        // place가 없는 Project Manager와 App Engineer는 agent가 아니다. 파일이 없어도 있는 place의
+        // built-in은 agent이고 처음 저장이 파일을 만든다.
+        const loaded = loadAgent(context.value, input.agent);
+        if (!loaded.ok) return loaded;
+        if (loaded.value === null) return notFound("agent");
+        const before = loaded.value.file?.hash ?? null;
+        if (compare.hash !== before) return conflict("agent file");
+        const checked = checkBuiltin(input.agent.role, input.definition);
         if (!checked.ok) return checked;
-        const after = fileHash(checked.value);
-        tx.emit(placeAgentSettingsChanged, place.id, {
-          place,
-          before_hash: before,
-          after_hash: after,
-        });
-        const written = store.write(place, SETTINGS_FILE, checked.value);
+        const written = context.value.store.write(
+          loaded.value.slot,
+          checked.value,
+        );
         if (!written.ok) return written;
-        return ok({ place, hash: after });
+        return ok({ agent: input.agent, hash: written.value });
       },
     },
   };

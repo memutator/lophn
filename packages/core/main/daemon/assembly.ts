@@ -43,6 +43,7 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 // 최상위 팀마다 등록 파일 하나.
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
+import { createCoreRegistration as createProjectsPortsRegistration } from "./wiring/projects-registration.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
@@ -57,6 +58,7 @@ export const TEAMS = [
   { createCoreRegistration: createTicketPortsRegistration },
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
+  { createCoreRegistration: createProjectsPortsRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -77,6 +79,7 @@ export const TEAM_MODULES = [
   new URL("./platform-register.ts", import.meta.url).href,
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
+  new URL("./wiring/projects-registration.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.

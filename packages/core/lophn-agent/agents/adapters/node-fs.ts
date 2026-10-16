@@ -1,5 +1,6 @@
 import {
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -39,6 +40,16 @@ export function createNodeAgentFiles(): AgentFileSystem {
     },
     remove(path) {
       rmSync(path, { force: true });
+    },
+    list(path) {
+      try {
+        return readdirSync(path, { withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => entry.name);
+      } catch (error) {
+        if ((error as { code?: string }).code === "ENOENT") return [];
+        throw error;
+      }
     },
   };
 }

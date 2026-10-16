@@ -7,7 +7,6 @@ import {
   type EventVisibilityDefinition,
   questionOption,
   type ReadDefinition,
-  type SqlRow,
   type Tx,
 } from "../../protocol/server/mod.ts";
 import type { EventDefinition } from "../../protocol/base/mod.ts";
@@ -18,10 +17,7 @@ import {
   runAdmission,
 } from "../storage/ledger/mod.ts";
 import {
-  agentProfilesRead,
-  agentProfilesUpload,
   assignmentPaused,
-  createOperatorAssignment,
   finishRewindSummary,
   instructionPreview,
   instructionRead,
@@ -35,19 +31,18 @@ import {
   runFinished,
   runStarted,
   takeRewindSummaryRequest,
-  withdrawAssignment,
 } from "../../protocol/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
   createModelCommands,
   createModelReads,
-  loadWorkspaceModels,
   type ModelCommandDeps,
   modelSchemaSteps,
   snapshotCatalogEntry,
   snapshotModelListed,
 } from "./models/mod.ts";
+import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
 import {
   createProviderCommands,
   createProviderDefinitionsRead,
@@ -65,11 +60,9 @@ import {
 import { UNWIRED_END_DEPS, UNWIRED_OPEN_DEPS } from "./places/mod.ts";
 import {
   type AgentDeps,
-  agentFileName,
   type AgentFileSystem,
   type AgentLookups,
-  type AssignmentRef,
-  type AssignmentWriter,
+  agentRefOf,
   createAgentCommands,
   createAgentReads,
   createAgentStore,
@@ -81,7 +74,7 @@ import {
   profileImageUploadHandler,
   type ProfileReaders,
   type ProfileUploadHandler,
-  roleCapsOf,
+  slotOf,
 } from "./agents/mod.ts";
 import {
   createTurnCommands,
@@ -149,7 +142,6 @@ import {
 } from "./waiting-and-recovery/mod.ts";
 import { appDirectSocketPaths, SOCKET_HOST } from "../../protocol/apps/mod.ts";
 import {
-  type AgentPlace,
   type AgentRole,
   DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
@@ -160,6 +152,9 @@ import {
   mcpAuthState,
   type McpServerConfig,
   mcpServersSetting,
+  type Place,
+  profileImageRead,
+  profileImageUpload,
   skillFoldersSetting,
   skillsOffSetting,
 } from "../../protocol/lophn-agent/mod.ts";
@@ -173,6 +168,7 @@ import {
   createPlaceExtensionReads,
   dataRootOf,
   type ExtensionRegistry,
+  listSkillsSync,
   mcpToolsOf,
   type PlaceExtensionDeps,
   type PlaceFiles,
@@ -528,24 +524,6 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
-// agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
-// 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
-function agentAssignmentRef(row: SqlRow): AssignmentRef {
-  return {
-    id: String(row["id"]),
-    role: String(row["role"]) as AssignmentRef["role"],
-    scope: row["scope_kind"] === "all" ? { kind: "all" } : {
-      kind: String(row["scope_kind"]) as "project" | "app",
-      id: String(row["scope_id"]),
-    },
-    state: String(row["state"]) as AssignmentRef["state"],
-    revision: Number(row["revision"]),
-  };
-}
-
-const ASSIGNMENT_COLUMNS =
-  "id, role, scope_kind, scope_id, state, revision from assignments";
-
 // settings registry 값을 읽는다. 없거나 형식이 틀리면 undefined다(fail closed).
 function settingValue(
   sql: Pick<Tx["sql"], "all">,
@@ -636,7 +614,7 @@ function extensionRegistry(
 
 function placeExists(
   sql: Pick<Tx["sql"], "get">,
-  place: AgentPlace,
+  place: Place,
 ): boolean {
   return sql.get(
     place.kind === "project"
@@ -646,6 +624,8 @@ function placeExists(
   ) !== undefined;
 }
 
+// agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
+// 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
 export function agentLookups(
   sql: Pick<Tx["sql"], "get" | "all">,
 ): AgentLookups {
@@ -656,28 +636,27 @@ export function agentLookups(
   };
   return {
     placeExists: (place) => placeExists(sql, place),
-    assignments: (place) =>
-      sql.all(
-        `select ${ASSIGNMENT_COLUMNS} where state != 'withdrawn'
-           and (scope_kind = 'all' or (scope_kind = ? and scope_id = ?))
-         order by id`,
-        [place.kind, place.id],
-      ).map(agentAssignmentRef),
-    assignment: (id) => {
-      const row = sql.get(`select ${ASSIGNMENT_COLUMNS} where id = ?`, [id]);
-      return row === undefined ? null : agentAssignmentRef(row);
-    },
+    places: () => [
+      ...sql.all("select id from projects order by id", []).map((row) => ({
+        kind: "project" as const,
+        id: String(row["id"]),
+      })),
+      ...sql.all("select id from apps order by id", []).map((row) => ({
+        kind: "app" as const,
+        id: String(row["id"]),
+      })),
+    ],
     // context는 project 안에만 있다(documents/contexts). 만드는 중(drafting)인 context도 실제 context다.
     contextStatus: (id) => contextStatusOf(sql, id) ?? null,
     contextProject: (id) => {
       const row = sql.get("select project from contexts where id = ?", [id]);
       return row === undefined ? null : String(row["project"]);
     },
-    // project 자리는 그 project의 active context 전부이고, App Engineer가 앱 자리에 있으면 적용된 판이 그 앱을
-    // app-data source로 읽는 active context 전부다(context.list의 app 거르기와 같다). context_app_data는 앱
-    // slug를 담는다. 그 밖의 앱 자리는 없다.
+    // project place는 그 project의 active context 전부이고, App Engineer는 적용된 판이 그 앱을 app-data
+    // source로 읽는 active context 전부다(context.list의 app 거르기와 같다). context_app_data는 앱 slug를
+    // 담는다. 그 밖에는 없다.
     activeContexts: (place, role) =>
-      (place.kind === "project"
+      (place === null ? [] : place.kind === "project"
         ? sql.all(
           "select id from contexts where project = ? and status = 'active' order by id",
           [place.id],
@@ -691,18 +670,28 @@ export function agentLookups(
           [place.id],
         )
         : []).map((row) => String(row["id"])),
-    // 이 자리의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그 자리 층을 더한다. 한 읽기 안에서
-    // 같은 자리는 같은 목록이다.
+    // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 project 층을 더한다. 한 읽기 안에서 같은
+    // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
     skills: (place) =>
-      registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
+      place === null
+        ? globalSkillNames(sql)
+        : registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
     mcp: (place) =>
       mcpToolsOf(
-        registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
+        place === null
+          ? registeredMcpServers(sql)
+          : registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
       ),
-    // 전역 층: 전역 기본 model 하나를 모든 role에 준다. 기본 권한 설정은 아직 없어
-    // 권한 층은 비어 있다.
-    workspace: () => ({ models: loadWorkspaceModels(sql) }),
+    // 전역 기본 model.
+    modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
   };
+}
+
+// 전역 층에서 발견하는 skill 이름이다. 전역에서 끈 것은 뺀다.
+function globalSkillNames(sql: Pick<Tx["sql"], "get" | "all">): string[] {
+  const off = registeredSkillsOff(sql);
+  return listSkillsSync(skillFiles, { ...globalSkillSources(sql), place: null })
+    .entries.map((entry) => entry.name).filter((name) => !off.includes(name));
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
@@ -735,44 +724,9 @@ export function agentProfileHandlers(
   };
 }
 
-// 새 Operator 저장(SaveAgent)과 Operator 삭제(DeleteAgent)가 같은 transaction에서 assignment command를
-// 부른다. 파일 쓰기가 실패하면 SaveAgent가 err를 돌려 방금 만든
-// assignment와 event까지 되돌아간다.
-function operatorAssignmentWriter(tx: Tx): AssignmentWriter {
-  return {
-    createOperator(place) {
-      const id = tx.newId("asg");
-      const created = tx.call(
-        createOperatorAssignment,
-        { id, scope: place },
-        {},
-      );
-      return created.ok ? ok(id) : created;
-    },
-    withdraw(assignment) {
-      const row = tx.sql.get(
-        `select ${ASSIGNMENT_COLUMNS} where id = ?`,
-        [assignment],
-      );
-      if (row === undefined) {
-        return err({ code: "not_found", message: "assignment not found" });
-      }
-      const ref = agentAssignmentRef(row);
-      const withdrawn = tx.call(
-        withdrawAssignment,
-        { assignment },
-        { revision: ref.revision, state: ref.state as "enabled" | "paused" },
-      );
-      return withdrawn.ok ? ok(undefined) : withdrawn;
-    },
-  };
-}
-
 const agentDeps: AgentDeps = {
   files: createNodeAgentFiles(),
   lookups: agentLookups,
-  assignmentWriter: operatorAssignmentWriter,
-  roleCaps: roleCapsOf,
 };
 const agentCommands = createAgentCommands(agentDeps);
 const agentReads = createAgentReads(agentDeps);
@@ -800,21 +754,23 @@ const globalSkillReads = createGlobalSkillReads({
   }),
 });
 
-// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
+// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다. `/` 메뉴가 session을 옛 모양
+// (assignment, role, 작업 place)으로 읽는 동안 그 값에서 agent를 가린다.
 function skillsOffOf(
   sql: Pick<Tx["sql"], "get" | "all">,
-  session: { assignment: string; role: AgentRole; work_place: AgentPlace },
+  session: { assignment: string; role: AgentRole; work_place: Place },
 ): readonly string[] {
   const root = dataRootOf(sql, undefined);
   if (!root.ok) return [];
-  const file = createAgentStore(agentDeps.files, root.value).read(
-    session.work_place,
-    agentFileName(session.role, session.assignment),
-  );
+  const place = session.work_place;
+  const ref = agentRefOf(session.role, place, session.assignment);
+  const slot = ref === null ? null : slotOf(root.value, ref, place);
+  if (ref === null || slot === null) return [];
+  const file = createAgentStore(agentDeps.files, root.value).read(slot);
   if (!file.ok || file.value === null) return [];
   const parsed = parseAgentFile(file.value.text, {
-    role: session.role,
-    place: session.work_place.kind,
+    role: ref.role,
+    place: ref.role === "lophn" ? null : place.kind,
   });
   return parsed.ok ? parsed.value.skills_off ?? [] : [];
 }
@@ -865,9 +821,10 @@ export const lophnAgentDefinitions = {
     usage.start,
     usage.finish,
     usage.supplement,
-    agentCommands.save,
+    agentCommands.create,
+    agentCommands.change,
     agentCommands.delete,
-    agentCommands.changeSettings,
+    agentCommands.changeBuiltin,
     placeExtensionCommands.change,
     runCommands.start,
     runCommands.checkpoint,
@@ -923,7 +880,6 @@ export const lophnAgentDefinitions = {
     usageReads.usage,
     agentReads.list,
     agentReads.read,
-    agentReads.settings,
     placeExtensionReads.read,
     globalSkillReads.read,
     runReads.read,
@@ -975,8 +931,8 @@ export const lophnAgentDefinitions = {
     mcpAuthRequestDone,
   ],
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
-  uploadRoutes: [agentProfilesUpload],
-  files: [agentProfilesRead],
+  uploadRoutes: [profileImageUpload],
+  files: [profileImageRead],
   // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
   // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
 };
@@ -1117,7 +1073,6 @@ export function createReaderRegistration(): ReaderRegistration {
       usageReads.usage,
       agentReads.list,
       agentReads.read,
-      agentReads.settings,
       placeExtensionReads.read,
       runReads.read,
       runReads.list,

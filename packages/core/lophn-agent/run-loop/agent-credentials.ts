@@ -62,7 +62,7 @@ export function createAgentCredentialLink(options: {
   machine: CoreCall;
   // 이 child process의 이름. credential의 process 조건이 된다.
   process: string;
-  // 역할의 operation 상한. 기본은 ROLE_CAPS에서 낸다.
+  // 역할의 operation 상한. 기본은 역할이 고정한 tool 목록에서 낸다.
   operationsFor?: (role: string) => readonly string[];
 }): AgentCredentialLink {
   const operationsFor = options.operationsFor ?? roleOperations;

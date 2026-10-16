@@ -1,10 +1,7 @@
-import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../agents/mod.ts";
 import { OPTION_ACTION_OPERATIONS } from "../tools/questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
-  BUILTIN_TOOLS,
   CONTEXT_ENTITY_CONTRACT,
-  CONTEXT_ENTITY_TOOL,
   CONTEXT_SEARCH_CONTRACT,
   listRoleTools,
   runOperations,
@@ -19,8 +16,8 @@ import {
 } from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
+  agentDefinitionRead,
   agentSessionRead,
-  agentsRead,
   applyQuestionOption,
   cancelQuestionGroup,
   checkpointTurn,
@@ -38,7 +35,6 @@ import {
   messagesList,
   modelCallList,
   modelDefaultRead,
-  placeAgentSettingsRead,
   providerList,
   providerRead,
   questionRead,
@@ -86,8 +82,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   providerList,
   turnList,
   turnRead,
-  agentsRead,
-  placeAgentSettingsRead,
+  agentDefinitionRead,
   providerRead,
   modelDefaultRead,
   agentSessionRead,
@@ -183,43 +178,20 @@ function isRole(role: string): role is Role {
   return (ROLES as readonly string[]).includes(role);
 }
 
-// 역할이 닿을 수 있는 operation의 상한. 역할 tool 상한(ROLE_CAPS)의 소유 contract와 보조 operation이다.
+// 역할이 닿을 수 있는 operation의 상한. 역할이 고정한 tool 목록의 소유 contract와 보조 operation이다.
 // runtime은 turn마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
+// 앱 command 통로(`app.connect`)는 어느 역할이든 닿을 수 있다: 범위는 agent grant와 tool 목록이 정한다.
 export function roleOperations(role: string): readonly string[] {
-  const cap = ROLE_CAPS.get(role);
-  // 옛 상한 표에 없는 새 역할은 역할 고정 목록의 소유 contract를 쓴다.
-  if (cap === undefined) {
-    return isRole(role)
-      ? [
-        ...new Set([
-          ...runOperations(listRoleTools(role, { input_media: ["image"] })),
-          ...CONTEXT_MATERIAL_READS,
-          ...EXTERNAL_TOOL_OPERATIONS,
-        ]),
-      ]
-      : [];
-  }
-  const names = new Set(cap.tools);
-  // context 읽기다. 선언 검색 tool(origin context)은 이름이 동적이라 상한 이름에 없고, 개체 읽기를 가진 역할이
-  // 선택한 context의 검색과 개체를 읽는다.
-  const contextRead = names.has(CONTEXT_ENTITY_TOOL)
-    ? [CONTEXT_SEARCH_CONTRACT, CONTEXT_ENTITY_CONTRACT]
-    : [];
-  const own = [
-    ...runOperations(BUILTIN_TOOLS.filter((tool) => names.has(tool.name))),
-    ...contextRead,
-    ...CONTEXT_MATERIAL_READS,
-  ];
-  // 외부 MCP tool의 소유 contract다. 확장 선택은 상한 항목이 아니라 preset의
-  // 선택 항목이라 상한 이름에 넣지 않고 contract만 더한다.
-  // turn이 실제로 제공하는 external 정의는 runOperations(listed)가 더한다.
-  // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 grant와 tool 목록이 정한다.
-  // 역할 tool이 소유한 operation과 겹치는 것(조회 tool의 context 읽기, 승인 요청)은 한 번만 둔다.
+  if (!isRole(role)) return [];
   return [
-    ...new Set(
-      APP_COMMAND_EXPOSURE.get(role)?.execution === "none"
-        ? [...own, ...EXTERNAL_TOOL_OPERATIONS]
-        : [...own, APP_TOOL_CONTRACT, ...EXTERNAL_TOOL_OPERATIONS],
-    ),
+    ...new Set([
+      ...runOperations(listRoleTools(role, { input_media: ["image"] })),
+      // 선택한 context의 선언 검색과 개체 읽기다. 이름이 동적이라 tool 이름에 없다.
+      CONTEXT_SEARCH_CONTRACT,
+      CONTEXT_ENTITY_CONTRACT,
+      ...CONTEXT_MATERIAL_READS,
+      APP_TOOL_CONTRACT,
+      ...EXTERNAL_TOOL_OPERATIONS,
+    ]),
   ];
 }

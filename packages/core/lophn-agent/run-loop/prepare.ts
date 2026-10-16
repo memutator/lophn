@@ -14,7 +14,6 @@ import {
   agentSessionRead,
   finishTurn,
   type ModelChoice,
-  type ResolvedAgent,
   startTurn,
   toWireToolName,
   TURN_BLOB_PURPOSES,
@@ -49,6 +48,7 @@ import {
 import type { ToolBinding } from "../tool-judgment/mod.ts";
 import { loadContextMaterials } from "../prompt-assembly/context-overview.ts";
 import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
+import type { ResolvedAgent } from "../agents/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import {
   createCorePorts,
@@ -270,7 +270,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           servers: [...new Set(agent.mcp.map((tool) => tool.server_name))],
           tools: agent.mcp,
         },
-        safe_tools: agent.safe_tools,
+        safe_tools: [],
       });
       // 켠 MCP가 없으면 제공도 없다.
       if (selection !== null) {
@@ -583,20 +583,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
     const skills = (await deps.skills?.(session.place)) ?? [];
     let mcp: LoadedMcp | undefined;
-    const faux = {
-      id: start.session,
-      role: session.agent.role,
-      scope: session.place === null
-        ? { kind: "all", id: null }
-        : { kind: session.place.kind, id: session.place.id },
-    };
     const made = await resolveRunAgent(machine, {
-      run: {
-        id: start.input.message,
-        session: start.session,
-        source: { kind: "message" },
-      },
-      assignment: faux as never,
+      session: start.session,
       skills: skills.map((entry) => entry.name),
       mcp: async (off, place) => {
         mcp = await loadMcp(start.session, { place, skip: off });

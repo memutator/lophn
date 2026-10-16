@@ -1,20 +1,24 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AgentDefinition,
-  type AgentIssue,
+  type AgentDefinitionIssue,
   agentNameKey,
-  agentPlaceAllowsRole,
-  type AgentRole,
-  type AgentSettings,
+  type BuiltinDefinition,
+  type OperatorDefinition,
+  type Place,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
-import { callableIn, issuesOfError, type PlaceView } from "./inspect.ts";
-import { permissionIssues } from "./resolve.ts";
+import { serializeAgentFile } from "./definition-file.ts";
+import {
+  type AgentContext,
+  issuesOfError,
+  listOperators,
+  nameOf,
+} from "./inspect.ts";
 
-// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 자리 Operator 사이의
-// 이름 중복, context 참조, 권한 상한. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
+// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 place Operator 사이의
+// 이름 중복과 context 참조. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
 
-export function invalidInput(issues: AgentIssue[]): Result<never> {
+export function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
   return err({
     code: "invalid_input",
     message: "agent is invalid",
@@ -22,7 +26,10 @@ export function invalidInput(issues: AgentIssue[]): Result<never> {
   });
 }
 
-function addAll(into: AgentIssue[], more: readonly AgentIssue[]) {
+function addAll(
+  into: AgentDefinitionIssue[],
+  more: readonly AgentDefinitionIssue[],
+) {
   for (const issue of more) {
     if (!into.some((i) => i.field === issue.field && i.code === issue.code)) {
       into.push(issue);
@@ -30,113 +37,72 @@ function addAll(into: AgentIssue[], more: readonly AgentIssue[]) {
   }
 }
 
+// 이 place의 다른 Operator가 같은 이름을 쓰는가. 틀린 파일은 이름을 알 수 없어 겹쳤다고 하지 않는다.
 function duplicateName(
-  view: PlaceView,
-  assignment: string | null,
+  context: AgentContext,
+  place: Place,
+  self: string | null,
   name: string,
 ): Result<boolean> {
-  const { place, context } = view;
+  const others = listOperators(context, place);
+  if (!others.ok) return others;
   const key = agentNameKey(name);
-  for (const ref of context.lookups.assignments(place)) {
-    if (ref.role !== "operator" || ref.id === assignment) continue;
-    if (!callableIn(ref, place)) continue;
-    const file = context.store.read(place, `${ref.id}.md`);
-    if (!file.ok) return file;
-    if (file.value === null) continue;
-    const parsed = parseAgentFile(file.value.text, {
-      role: "operator",
-      place: place.kind,
-    });
-    // 틀린 파일은 이름을 알 수 없어 다른 이름과 겹쳤다고 하지 않는다.
-    if (parsed.ok && parsed.value.name !== undefined) {
-      if (agentNameKey(parsed.value.name) === key) return ok(true);
-    }
-  }
-  return ok(false);
-}
-
-// 정의 ⊆ 자리 ⊆ Workspace 기본이고 정의 ⊆ RoleCaps다. 층에 권한 칸이 없으면 거르지 않는다.
-function capIssues(
-  tools: readonly string[],
-  layers: readonly (readonly string[] | undefined)[],
-): AgentIssue[] {
-  const found: AgentIssue[] = [];
-  for (const allowed of layers) {
-    if (allowed !== undefined) addAll(found, permissionIssues(tools, allowed));
-  }
-  return found;
+  return ok(
+    others.value.some((other) =>
+      (other.ref as { agent: string }).agent !== self &&
+      other.definition !== null && agentNameKey(nameOf(other)) === key
+    ),
+  );
 }
 
 // 맞으면 파일에 쓸 글을 돌려준다.
-export function checkSave(input: {
-  view: PlaceView;
-  role: AgentRole;
-  assignment: string | null;
-  definition: AgentDefinition;
+export function checkOperator(input: {
+  context: AgentContext;
+  place: Place;
+  id: string | null;
+  definition: OperatorDefinition;
 }): Result<string> {
-  const { view, role, assignment, definition } = input;
-  const { place } = view;
-  const issues: AgentIssue[] = [];
+  const { context, place, id, definition } = input;
+  const issues: AgentDefinitionIssue[] = [];
 
-  const text = serializeAgentFile(definition, { role, place: place.kind });
+  const text = serializeAgentFile(definition, {
+    role: "operator",
+    place: place.kind,
+  });
   if (!text.ok) addAll(issues, issuesOfError(text.error));
-  if (!agentPlaceAllowsRole(role, place)) {
-    addAll(issues, [{ field: "place", code: "not_allowed" }]);
-  }
 
-  if (role === "operator") {
-    if (definition.name !== undefined && definition.name.trim() !== "") {
-      const taken = duplicateName(view, assignment, definition.name);
-      if (!taken.ok) return taken;
-      if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
-    }
-    if (place.kind === "project") {
-      // 없는 context와 다른 project의 context는 `missing_reference`, 보관한 context는
-      // `archived_reference`로 고를 수 없다. 만드는 중인 context는 고를 수 있다. 저장한 뒤 보관된
-      // context는 정의에 그대로 두고 실행 때만 자료에서 뺀다(resolve).
-      (definition.contexts ?? []).forEach((id, index) => {
-        const lookups = view.context.lookups;
-        const status = lookups.contextStatus(id);
-        const code = status === null || lookups.contextProject(id) !== place.id
+  if (definition.name.trim() !== "") {
+    const taken = duplicateName(context, place, id, definition.name);
+    if (!taken.ok) return taken;
+    if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
+  }
+  if (place.kind === "project") {
+    // 없는 context와 다른 project의 context는 `missing_reference`, 보관한 context는 `archived_reference`로
+    // 고를 수 없다. 만드는 중인 context는 고를 수 있다. 저장한 뒤 보관된 context는 정의에 그대로 두고 실행
+    // 때만 자료에서 뺀다(resolve).
+    const { lookups } = context;
+    (definition.contexts ?? []).forEach((contextId, index) => {
+      const status = lookups.contextStatus(contextId);
+      const code =
+        status === null || lookups.contextProject(contextId) !== place.id
           ? "missing_reference"
           : status === "archived"
           ? "archived_reference"
           : null;
-        if (code !== null) {
-          addAll(issues, [{ field: `contexts.${index}`, code }]);
-        }
-      });
-    }
-  }
-
-  if (definition.permissions !== undefined) {
-    addAll(
-      issues,
-      capIssues(definition.permissions.tools, [
-        view.deps.roleCaps(role),
-        view.settings.settings.permissions?.tools,
-        view.workspace.permissions?.tools,
-      ]),
-    );
+      if (code !== null) {
+        addAll(issues, [{ field: `contexts.${index}`, code }]);
+      }
+    });
   }
 
   if (issues.length > 0 || !text.ok) return invalidInput(issues);
   return ok(text.value);
 }
 
-// 자리 설정의 권한은 Workspace 기본의 부분집합이어야 한다.
-export function checkSettings(input: {
-  settings: AgentSettings;
-  workspace: AgentSettings;
-  text: Result<string>;
-}): Result<string> {
-  const issues: AgentIssue[] = [];
-  if (!input.text.ok) addAll(issues, issuesOfError(input.text.error));
-  const tools = input.settings.permissions?.tools;
-  const allowed = input.workspace.permissions?.tools;
-  if (tools !== undefined && allowed !== undefined) {
-    addAll(issues, permissionIssues(tools, allowed));
-  }
-  if (issues.length > 0 || !input.text.ok) return invalidInput(issues);
-  return ok(input.text.value);
+export function checkBuiltin(
+  role: Exclude<Role, "operator">,
+  definition: BuiltinDefinition,
+): Result<string> {
+  const text = serializeAgentFile(definition, { role, place: null });
+  return text.ok ? ok(text.value) : invalidInput(issuesOfError(text.error));
 }

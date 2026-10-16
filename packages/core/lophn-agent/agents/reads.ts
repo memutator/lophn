@@ -1,14 +1,12 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  AGENT_ROLES,
-  agentKindOf,
-  type AgentListRow,
-  type AgentPlace,
-  agentsList,
-  agentsRead,
-  BUILTIN_AGENT_NAMES,
-  placeAgentSettingsRead,
-  type ValueSource,
+  agentDefinitionList,
+  agentDefinitionRead,
+  type AgentDefinitionRow,
+  type AgentRef,
+  type AgentValueLayer,
+  type ModelChoice,
+  type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
@@ -17,105 +15,120 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { DEFAULT_PROFILES } from "./builtin.ts";
 import {
-  callableIn,
-  inspectAgent,
-  type Inspected,
-  loadPlaceSettings,
+  type AgentContext,
+  listOperators,
+  loadAgent,
+  type Loaded,
+  nameOf,
   openAgentContext,
-  openPlaceView,
-  type PlaceView,
+  profileOf,
 } from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
 
-// 읽기는 동기 handler다. 목록의 정본은 assignment이고 정의 파일은 읽을 때마다 같은 검사를 한다.
-
-// 목록은 lophn, Context Engineer 또는 App Engineer, Operator 순서다.
-const LIST_ORDER = ["lophn", "context_engineer", "app_engineer", "operator"];
-
-const DEFAULT_SOURCE: ValueSource = { layer: "default", place: null };
+// 읽기는 동기 handler다. 목록의 정본은 place(project, 앱)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
+// 같은 검사를 한다.
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
 }
 
-function fallbackName(inspected: Inspected): string {
-  const { ref, definition } = inspected;
-  if (ref.role !== "operator") return BUILTIN_AGENT_NAMES[ref.role];
-  return definition?.name ?? ref.id;
+// model은 agent 정의가 먼저이고 비면 전역 기본이다. 어느 층에도 없으면 null이다.
+function effectiveModel(
+  context: AgentContext,
+  loaded: Loaded,
+): { value: ModelChoice; source: AgentValueLayer } | null {
+  const own = loaded.definition?.model;
+  if (own !== undefined) return { value: own, source: "agent" };
+  const global = context.lookups.modelDefault();
+  return global === null ? null : { value: global, source: "global" };
 }
 
-function modelOf(inspected: Inspected) {
-  const effective = inspected.effective;
-  return effective?.model == null || effective.sources.model === null
-    ? null
-    : effective.model;
-}
-
-function rowOf(inspected: Inspected): AgentListRow {
-  const { ref, effective } = inspected;
-  const kind = agentKindOf(ref.role);
-  const model = modelOf(inspected);
+function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
+  const model = effectiveModel(context, loaded);
+  const { lookups } = context;
+  const definition = loaded.definition;
+  const operator = loaded.role === "operator";
+  const broken = loaded.issues.length > 0;
+  const skills = lookups.skills(loaded.place);
+  const mcp = lookups.mcp(loaded.place);
+  const skillsOff = definition?.skills_off ?? [];
+  const mcpOff = definition?.mcp_off ?? [];
+  const contexts = definition !== null && "contexts" in definition
+    ? definition.contexts ?? []
+    : [];
+  const active = new Set(lookups.activeContexts(loaded.place, loaded.role));
   return {
-    assignment: ref.id,
-    role: ref.role,
-    kind,
-    name: effective?.name ?? fallbackName(inspected),
-    profile: effective?.profile ?? inspected.definition?.profile ??
-      DEFAULT_PROFILES[ref.role],
+    agent: loaded.ref,
+    kind: operator ? "operator" : "built_in",
+    place: loaded.place,
+    name: nameOf(loaded),
+    profile: profileOf(loaded),
     model: model === null ? null : {
-      provider: model.provider,
-      model_name: model.model_name,
-      source: effective!.sources.model!,
+      provider: model.value.provider,
+      model_name: model.value.model_name,
+      source: model.source,
     },
-    state: ref.state === "paused" ? "paused" : "enabled",
-    issues: inspected.issues,
-    counts: effective === null ? { contexts: null, skills: null, mcp: null } : {
-      contexts: kind === "built_in" ? null : effective.contexts.length,
-      skills: effective.skills.length,
-      mcp: effective.mcp.length,
+    issues: loaded.issues,
+    counts: broken ? { contexts: null, skills: null, mcp: null } : {
+      contexts: operator
+        ? contexts.filter((id) => active.has(id)).length
+        : null,
+      skills: skills.filter((name) => !skillsOff.includes(name)).length,
+      mcp:
+        mcp.filter((tool) =>
+          !mcpOff.some((off) =>
+            off.server_name === tool.server_name &&
+            (off.original_tool === undefined ||
+              off.original_tool === tool.original_tool)
+          )
+        ).length,
     },
   };
 }
 
-function placeView(
-  deps: AgentDeps,
-  snapshot: ReadSnapshot,
-  place: AgentPlace,
-): Result<PlaceView> {
-  const context = openAgentContext(deps, snapshot.sql);
-  if (!context.ok) return context;
-  if (!context.value.lookups.placeExists(place)) return notFound("place");
-  return openPlaceView(deps, snapshot.sql, place);
-}
-
 export function createAgentReads(deps: AgentDeps): {
-  list: ReadDefinition<typeof agentsList>;
-  read: ReadDefinition<typeof agentsRead>;
-  settings: ReadDefinition<typeof placeAgentSettingsRead>;
+  list: ReadDefinition<typeof agentDefinitionList>;
+  read: ReadDefinition<typeof agentDefinitionRead>;
 } {
   return {
     list: {
-      route: agentsList,
+      route: agentDefinitionList,
       handle(
         snapshot: ReadSnapshot,
         _ctx: RequestContext,
-        input: Input<typeof agentsList>,
-      ): Result<Output<typeof agentsList>> {
-        const view = placeView(deps, snapshot, input.place);
-        if (!view.ok) return view;
-        const refs = view.value.context.lookups.assignments(input.place)
-          .filter((ref) => callableIn(ref, input.place))
-          .sort((a, b) =>
-            LIST_ORDER.indexOf(a.role) - LIST_ORDER.indexOf(b.role) ||
-            (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+        input: Input<typeof agentDefinitionList>,
+      ): Result<Output<typeof agentDefinitionList>> {
+        const context = openAgentContext(deps, snapshot.sql);
+        if (!context.ok) return context;
+        const { lookups } = context.value;
+        const within = input.place;
+        if (within !== undefined && !lookups.placeExists(within)) {
+          return notFound("place");
+        }
+        // lophn, Project Manager, App Engineer, Operator 순서다.
+        const refs: AgentRef[] = [{ role: "lophn" }];
+        for (
+          const place of within === undefined ? lookups.places() : [within]
+        ) {
+          refs.push(
+            place.kind === "project"
+              ? { role: "project_manager", project: place.id }
+              : { role: "app_engineer", app: place.id },
           );
-        const agents: AgentListRow[] = [];
+        }
+        const agents: AgentDefinitionRow[] = [];
         for (const ref of refs) {
-          const inspected = inspectAgent(view.value, ref);
-          if (!inspected.ok) return inspected;
-          if (inspected.value !== null) agents.push(rowOf(inspected.value));
+          const loaded = loadAgent(context.value, ref);
+          if (!loaded.ok) return loaded;
+          if (loaded.value !== null) {
+            agents.push(rowOf(context.value, loaded.value));
+          }
+        }
+        const operators = listOperators(context.value, within);
+        if (!operators.ok) return operators;
+        for (const operator of operators.value) {
+          agents.push(rowOf(context.value, operator));
         }
         return ok({
           agents,
@@ -125,96 +138,43 @@ export function createAgentReads(deps: AgentDeps): {
       },
     },
     read: {
-      route: agentsRead,
+      route: agentDefinitionRead,
       handle(
         snapshot: ReadSnapshot,
         _ctx: RequestContext,
-        input: Input<typeof agentsRead>,
-      ): Result<Output<typeof agentsRead>> {
-        const view = placeView(deps, snapshot, input.place);
-        if (!view.ok) return view;
-        const ref = view.value.context.lookups.assignment(input.assignment);
-        if (ref === null) return notFound("agent");
-        const found = inspectAgent(view.value, ref);
-        if (!found.ok) return found;
-        const inspected = found.value;
-        if (inspected === null) return notFound("agent");
-        const effective = inspected.effective;
-        const model = modelOf(inspected);
-        return ok({
-          assignment: ref.id,
-          role: ref.role,
-          kind: agentKindOf(ref.role),
-          place: input.place,
-          definition: inspected.definition,
-          hash: inspected.file?.hash ?? null,
-          effective: {
-            name: {
-              value: effective?.name ?? fallbackName(inspected),
-              source: effective?.sources.name ?? DEFAULT_SOURCE,
-            },
-            profile: {
-              value: effective?.profile ?? inspected.definition?.profile ??
-                DEFAULT_PROFILES[ref.role],
-              source: effective?.sources.profile ?? DEFAULT_SOURCE,
-            },
-            model: model === null
-              ? null
-              : { value: model, source: effective!.sources.model! },
-            permissions: {
-              value: {
-                tools: effective?.tools ?? [...deps.roleCaps(ref.role)],
-              },
-              source: effective?.sources.tools ?? DEFAULT_SOURCE,
-            },
-          },
-          issues: inspected.issues,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      },
-    },
-    settings: {
-      route: placeAgentSettingsRead,
-      handle(
-        snapshot: ReadSnapshot,
-        _ctx: RequestContext,
-        input: Input<typeof placeAgentSettingsRead>,
-      ): Result<Output<typeof placeAgentSettingsRead>> {
+        input: Input<typeof agentDefinitionRead>,
+      ): Result<Output<typeof agentDefinitionRead>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        if (!context.value.lookups.placeExists(input.place)) {
-          return notFound("place");
-        }
-        const loaded = loadPlaceSettings(context.value.store, input.place);
-        if (!loaded.ok) return loaded;
-        if (loaded.value.issues.length > 0) {
-          return err({
-            code: "invalid_input",
-            message: "place settings file is invalid",
-            details: { issues: loaded.value.issues },
-          });
-        }
-        const workspace = context.value.lookups.workspace();
-        const effective: Output<
-          typeof placeAgentSettingsRead
-        >["effective_models"] = {};
-        // 칸을 비운 role은 Workspace의 역할별 기본을 따른다. 그 기본도 없으면 model이 없다.
-        for (const role of AGENT_ROLES) {
-          if (loaded.value.settings.models?.[role] !== undefined) continue;
-          const model = workspace.models?.[role];
-          if (model !== undefined) {
-            effective[role] = {
-              value: model,
-              source: { layer: "workspace", place: null },
-            };
-          }
-        }
+        const found = loadAgent(context.value, input.agent);
+        if (!found.ok) return found;
+        const loaded = found.value;
+        if (loaded === null) return notFound("agent");
+        const model = effectiveModel(context.value, loaded);
+        const operator = loaded.role === "operator";
+        const profile = profileOf(loaded);
         return ok({
-          place: input.place,
-          settings: loaded.value.settings,
-          hash: loaded.value.hash,
-          effective_models: effective,
+          agent: loaded.ref,
+          role: loaded.role,
+          place: loaded.place as Place | null,
+          definition: loaded.definition,
+          hash: loaded.file?.hash ?? null,
+          effective: {
+            name: {
+              value: nameOf(loaded),
+              source: operator ? "agent" : "global",
+            },
+            profile: {
+              value: profile,
+              source: loaded.definition !== null &&
+                  "profile" in loaded.definition &&
+                  loaded.definition.profile !== undefined
+                ? "agent"
+                : "global",
+            },
+            model,
+          },
+          issues: loaded.issues,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

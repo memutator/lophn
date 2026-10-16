@@ -26,7 +26,7 @@ export type DesktopWindows = {
 let shotSerial = 0;
 
 /**
- * 창 밖에서 온 일(전역 팔레트 키, OS notification 클릭)을 가장 최근 창에 시킨다. 사람이
+ * 창 밖에서 온 일(전역 팔레트 키)을 가장 최근 창에 시킨다. 사람이
  * 직접 누른 것이라 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. 막 연 창은
  * preload가 받아 두었다가 renderer가 구독하면 넘긴다.
  */
@@ -75,15 +75,13 @@ export function openDesktopWindow(
     preload: join(here, "preload-shell.cjs"),
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
-    // `things-to-confirm`은 lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
+    // `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
     // `apps`는 apps 형제부터, `settings`는 settings 형제부터, `app:<id>`는 그 앱 공간부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
       ? `${desktopUrl}#lophn`
-      : process.env.LOPHN_SHELL_START === "things-to-confirm"
-      ? `${desktopUrl}#things-to-confirm`
       : process.env.LOPHN_SHELL_START === "projects"
       ? `${desktopUrl}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")

@@ -14,19 +14,12 @@ asar: true
 extraResources:
   - from: packaging/icon.png
     to: icon.png
-protocols:
-  - name: lophn
-    schemes:
-      - lophn
-    role: Editor
 linux:
   target:
     - dir
   category: Development
   synopsis: Client workspace for projects and apps with lophn
   maintainer: lophn developers <lophn@localhost>
-  mimeTypes:
-    - x-scheme-handler/lophn
 appImage:
   artifactName: ${productName}-${version}-${arch}.AppImage
 mac:

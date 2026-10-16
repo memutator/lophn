@@ -301,7 +301,7 @@ export interface ThreadProviderError extends EntryBase {
 
 /** 되돌린 구간에서 복원하지 못한 항목 하나. receipt 같은 안쪽 근거는 없다. */
 export interface RewindResultView {
-  readonly kind: "file" | "app" | "fact";
+  readonly kind: "file" | "fact";
   readonly target: string;
   readonly result:
     | "skipped"

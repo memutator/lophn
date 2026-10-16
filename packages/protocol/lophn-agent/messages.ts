@@ -139,54 +139,6 @@ export const recordMessage = defineCommand({
   actors: ["agent", "machine"],
   errors: commandErrors,
 });
-const distinctMessages = z.array(idSchema("msg")).min(1).refine(
-  (ids) => new Set(ids).size === ids.length,
-  { message: "duplicate message ids" },
-);
-export const applyMessagesInputSchema = z.strictObject({
-  messages: distinctMessages,
-  call: idSchema("mcl"),
-});
-export const applyMessagesCompareSchema = z.strictObject({
-  applied_at_call: z.null(),
-});
-export const applyMessagesOutputSchema = z.object({
-  messages: z.array(messageSnapshotSchema).min(1),
-}).refine(
-  (value) =>
-    new Set(value.messages.map((m) => m.message.id)).size ===
-      value.messages.length,
-  { message: "duplicate message ids" },
-);
-export const applyMessages = defineCommand({
-  resource: "messages",
-  method: "apply",
-  name: "ApplyMessages",
-  input: applyMessagesInputSchema,
-  compare: applyMessagesCompareSchema,
-  output: applyMessagesOutputSchema,
-  actors: ["machine"],
-  errors: commandErrors,
-});
-export const assignMessageInputSchema = z.strictObject({
-  message: idSchema("msg"),
-  run: idSchema("run"),
-});
-export const assignMessageCompareSchema = z.strictObject({
-  previous_run: idSchema("run").nullable(),
-  message_state_seq: seqSchema,
-  applied_at_call: z.null(),
-});
-export const assignMessage = defineCommand({
-  resource: "messages",
-  method: "assign",
-  name: "AssignMessage",
-  input: assignMessageInputSchema,
-  compare: assignMessageCompareSchema,
-  output: messageCommandOutputSchema,
-  actors: ["machine"],
-  errors: commandErrors,
-});
 export const messagesListInputSchema = z.strictObject({
   session: idSchema("ses"),
   run: idSchema("run").optional(),
@@ -255,8 +207,6 @@ export const messageBody = defineRead({
 export const MESSAGE_ROUTES = [
   receiveMessage,
   recordMessage,
-  applyMessages,
-  assignMessage,
   messagesList,
   messageBody,
 ] as const;
@@ -274,11 +224,6 @@ export const messageRecordedPayloadSchema = z.object({
   body: sha256Schema,
   links: z.array(messageLinkSchema),
 });
-export const messageAppliedPayloadSchema = z.object({ call: idSchema("mcl") });
-export const messageAssignedPayloadSchema = z.object({
-  previous_run: idSchema("run").nullable(),
-  run: idSchema("run"),
-});
 export const messageReceived = defineEvent("MessageReceived", {
   subject: idSchema("msg"),
   payload: messageReceivedPayloadSchema,
@@ -287,19 +232,9 @@ export const messageRecorded = defineEvent("MessageRecorded", {
   subject: idSchema("msg"),
   payload: messageRecordedPayloadSchema,
 });
-export const messageApplied = defineEvent("MessageApplied", {
-  subject: idSchema("msg"),
-  payload: messageAppliedPayloadSchema,
-});
-export const messageAssigned = defineEvent("MessageAssigned", {
-  subject: idSchema("msg"),
-  payload: messageAssignedPayloadSchema,
-});
 export const MESSAGE_EVENTS = [
   messageReceived,
   messageRecorded,
-  messageApplied,
-  messageAssigned,
 ] as const;
 
 // owner는 링크 존재·같은 session/assignment/run·최초 반영 transaction·blob

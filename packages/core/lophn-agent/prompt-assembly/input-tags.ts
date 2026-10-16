@@ -11,7 +11,6 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
-import type { AnnotationInput } from "../../../protocol/apps/annotation.ts";
 
 // Router 입력을 user role로 넣을 때 출처를 밝히는 tag를 만든다. 순수 함수다.
 // 고정 문장은 영어로 두고, tag 밖에 program이 쓴 줄로만 붙인다.
@@ -164,39 +163,6 @@ export function attachedInput(input: {
     ...fieldLines([["Path", input.path], ["Rule", input.rule]]),
   ].join("\n");
   return renderTag("attached", { kind: input.kind, name: input.name }, body);
-}
-
-// annotation 하나의 블록이다. 이미지는 싣지 않고 호출하는 쪽이 따로 붙인다.
-export function annotationBlock(input: {
-  n: number;
-  kind: AnnotationInput["kind"];
-  app: string;
-  release: string;
-  view: string;
-  note?: string;
-  component?: string;
-  source?: string;
-  element?: string;
-  position?: string;
-}): string {
-  const body = fieldLines([
-    ["Note", input.note],
-    ["Component", input.component],
-    ["Source", input.source],
-    ["Element", input.element],
-    ["Position", input.position],
-  ]).join("\n");
-  return renderTag(
-    "annotation",
-    {
-      n: input.n,
-      kind: input.kind,
-      app: input.app,
-      release: input.release,
-      view: input.view,
-    },
-    body,
-  );
 }
 
 // 바깥 web 결과다. 본문은 escape되어 닫는 tag로 빠져나가지 못한다.

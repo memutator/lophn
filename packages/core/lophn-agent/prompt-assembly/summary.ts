@@ -8,52 +8,9 @@ import {
 import type { HistoryMessage, PromptRequest } from "./model.ts";
 
 // Compact summary의 준비이다(concern lophn-agent/harness/prompt-assemble). 순수 값과 계산만
-// 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양·본문 상한·재축소·
-// 재사용 범위를 정한다.
+// 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
 
 export const SUMMARY_RULE_VERSION = "compaction.1";
-
-// Compact 본문 상한은 요약 출력 상한(summaryOutputCap, 입력 예산 10%와 4,000 중
-// 작은 값)과 같고 호출자가 cap으로 넘긴다. 상한을 1 넘으면 저장된 완성 summary로 쓰지 않고 다시 줄인다.
-// token 상한은 UTF-8 byte를 쓴다. 재축소 횟수는 여기서 정한다.
-export const COMPACT_RESHRINK_MAX = 2;
-
-export type SummaryParts = {
-  purpose: string;
-  decisions_constraints: string;
-  progress_evidence: string;
-  incomplete: string;
-  failures_next: string;
-  estimations_uncertainty: string;
-};
-
-// 여섯 부분의 이름과 순서다. 없는 내용은 없다고 쓴다.
-export const SUMMARY_PART_KEYS: readonly (keyof SummaryParts)[] = [
-  "purpose",
-  "decisions_constraints",
-  "progress_evidence",
-  "incomplete",
-  "failures_next",
-  "estimations_uncertainty",
-];
-
-export type SummaryRef = {
-  kind: "compact" | "compaction";
-  // compact는 원문 세션이 필수고 compaction은 적용 run이 필수다.
-  session: string | null;
-  run: string | null;
-  // 실제 포함한 완료 구간(from ≤ through)이다.
-  from_seq: bigint;
-  through_seq: bigint;
-  created_at: string;
-  // organizing·conversation_compression 완전 성공 call이다.
-  summary_call: string;
-  // 완전 출력 blob의 hash다. 원문 대체 저장 아니다.
-  body_hash: string;
-  rule_version: string;
-  references: readonly { address: string; version: string | null }[];
-  parts: SummaryParts;
-};
 
 export function summaryBodyTokens(text: string): number {
   return new TextEncoder().encode(text).byteLength;
@@ -61,71 +18,6 @@ export function summaryBodyTokens(text: string): number {
 
 export function summaryBodyHash(text: string): Promise<string> {
   return sha256Hex(text);
-}
-
-export type ClampResult =
-  | { status: "within"; text: string }
-  // 다시 줄여야 한다. 문장 중간을 잘라 맞춘 결과는 내보내지 않는다.
-  | { status: "over"; text: string | null; attempt: number };
-
-// 마지막 온전한 문장 경계만 남긴 줄임이다. 쉼표·공백 같은 중간 경계는 잘라 맞추지 않는다.
-// code point 단위로 문장 끝(., !, ?)만 본다.
-function lastSentenceEnd(text: string): number {
-  const points = [...text];
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (points[i] === "." || points[i] === "!" || points[i] === "?") {
-      return i + 1;
-    }
-  }
-  return 0;
-}
-
-// cap 안으로 문장 경계에서 다시 줄인다. 문장 경계가 없으면 줄이지 못하므로
-// 원문을 내보내지 않는다. attempt는 이번이 몇째 재축소인지고, 상한을 넘으면
-// "over"를 돌려 저장된 완성 summary로 쓰지 않는다.
-export function clampSummaryText(
-  text: string,
-  cap: number,
-  attempt: number,
-): ClampResult {
-  if (summaryBodyTokens(text) <= cap) {
-    return { status: "within", text };
-  }
-  if (attempt > COMPACT_RESHRINK_MAX) {
-    return { status: "over", text: null, attempt };
-  }
-  const points = [...text];
-  const end = lastSentenceEnd(text);
-  if (end === 0) return { status: "over", text: null, attempt };
-  return { status: "over", text: points.slice(0, end).join(""), attempt };
-}
-
-// Compact 재사용은 사람이 부른 같은 세션의 최신 완성본 하나다. 다른 세션·주기
-// run·handoff에 자동 주입하지 않는다. session을 지정하지 않으면 아무 것도 고르지 않는다.
-export function latestCompactSummary(
-  summaries: readonly SummaryRef[],
-  session: string,
-): SummaryRef | null {
-  let chosen: SummaryRef | null = null;
-  for (const summary of summaries) {
-    if (summary.kind !== "compact" || summary.session !== session) {
-      continue;
-    }
-    if (summary.session === null || summary.run !== null) continue;
-    if (chosen === null || summary.created_at > chosen.created_at) {
-      chosen = summary;
-    }
-  }
-  return chosen;
-}
-
-// 일회 선호를 영구 취향으로 일반화하지 않는지의 확인이다. 요약 문장 안에
-// 일회 표현("이번"·"이번 한 번")이 남아야 하고 영구 표현("늘"·"항상")으로 바꾸지 않는다.
-export function assertsNoPreferenceGeneralization(
-  summary: SummaryParts,
-): boolean {
-  const joined = SUMMARY_PART_KEYS.map((key) => summary[key]).join(" ");
-  return !joined.includes("늘") && !joined.includes("항상");
 }
 
 // ---- 이후 call의 조립 ----
@@ -249,14 +141,6 @@ function compactSummaryInstructions(cap: number): string {
   ].join("\n");
 }
 
-function shortenInstructions(cap: number): string {
-  return [
-    `The draft below is over the limit of ${cap} tokens (UTF-8 bytes).`,
-    "Write a shorter version that keeps the four parts, every condition of a decision and every negation (not, never, only if, unless).",
-    "Drop detail before you drop a condition. Do not cut a sentence off to fit. Answer with the summary text only.",
-  ].join("\n");
-}
-
 function fenced(lines: string[]): string {
   return [
     DATA_START_MARKER,
@@ -268,27 +152,22 @@ function fenced(lines: string[]): string {
 }
 
 // 요약을 만드는 model call의 요청이다. 원문은 지시 층이 아니라 자료 경계 안에만 두고 tool은 주지 않는다.
-// previous는 앞서 Compact한 요약이나 앞 chunk의 요약이고, shorten은 cap을 넘은 직전 결과다.
+// previous는 앞서 Compact한 요약이나 앞 chunk의 요약이다.
 // cap은 본문 상한(summaryOutputCap)이고 지시 문장에 그 수를 쓴다.
 export function compactSummaryRequest(input: {
   previous: string | null;
   messages: readonly SessionMessage[];
-  shorten?: string;
   cap: number;
 }): PromptRequest {
-  const material = input.shorten !== undefined
-    ? `${shortenInstructions(input.cap)}\n\n${
-      fenced(["Draft summary:", input.shorten])
-    }`
-    : fenced([
-      ...(input.previous === null
-        ? []
-        : ["Earlier summary:", input.previous, ""]),
-      "Messages, oldest first:",
-      ...input.messages.map((message) =>
-        `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`
-      ),
-    ]);
+  const material = fenced([
+    ...(input.previous === null
+      ? []
+      : ["Earlier summary:", input.previous, ""]),
+    "Messages, oldest first:",
+    ...input.messages.map((message) =>
+      `[${message.role === "user" ? "Person" : "Agent"}] ${message.text}`
+    ),
+  ]);
   return {
     system: [{
       layer: "role",

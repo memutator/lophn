@@ -687,8 +687,6 @@ export const lophnAgentDefinitions = {
     conversationCommands.failCompact,
     conversationCommands.send,
     conversationCommands.record,
-    conversationCommands.apply,
-    conversationCommands.assign,
     removeQueuedCommand({ eraseBlobRefs }),
     toolCommands.request,
     toolCommands.decide,

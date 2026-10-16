@@ -14,7 +14,6 @@ export {
 export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { isFinishedSummaryCall } from "./compact.ts";
 export { createConversationReads } from "./reads.ts";
-export { factMessageContent, recordFactMessage } from "./message-commands.ts";
 export {
   type MessageBodyEnvironment,
   messageBodyRead,

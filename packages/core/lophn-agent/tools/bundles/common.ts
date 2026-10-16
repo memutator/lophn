@@ -16,22 +16,6 @@ import type { RunCredential } from "../work.ts";
 
 // 내장 묶음이 함께 쓰는 정의·결과 모양. 묶음마다 다른 것은 이름·입력·소유 contract뿐이다.
 
-export const COMMON_ERRORS = [
-  "invalid_input",
-  "not_found",
-  "forbidden",
-  "conflict",
-  "unavailable",
-] as const;
-
-// 옛 모양(positional)의 선택지다. `context-*-tools.ts`가 쓴다. 그 file이 지워지면 같이 지운다.
-export type DefineOptions = {
-  effect: ToolDefinition["effect"];
-  scopeCheck: string;
-  reversible: boolean;
-  idempotent: boolean;
-};
-
 export type BuiltinSpec = {
   name: BuiltinToolName;
   description: string;
@@ -44,55 +28,23 @@ export type BuiltinSpec = {
 };
 
 // 내장 tool 정의다. 입력 schema는 protocol의 `TOOL_INPUTS`가 정본이다.
-// 옛 칸(revision, confirm, contract, reversible, idempotent)은 tool-judgment와 run-loop가 읽어서
+// 옛 칸(revision, confirm, contract, reversible, idempotent)은 run-loop가 읽어서
 // 기본값을 채운다.
-export function defineBuiltin(spec: BuiltinSpec): ToolDefinition;
-export function defineBuiltin(
-  revision: string,
-  name: string,
-  description: string,
-  input: z.ZodType,
-  contract: string,
-  options: DefineOptions,
-): ToolDefinition;
-export function defineBuiltin(
-  first: BuiltinSpec | string,
-  name?: string,
-  description?: string,
-  input?: z.ZodType,
-  contract?: string,
-  options?: DefineOptions,
-): ToolDefinition {
-  if (typeof first !== "string") {
-    const read = first.effect === "read";
-    return {
-      name: first.name,
-      description: first.description,
-      input: first.input ?? TOOL_INPUTS[first.name],
-      effect: first.effect,
-      origin: "builtin",
-      handler: first.handler,
-      ...(first.gate === undefined ? {} : { gate: first.gate }),
-      revision: BUILTIN_TOOL_REVISION,
-      confirm: false,
-      contract: first.name,
-      reversible: read,
-      idempotent: read,
-    };
-  }
+export function defineBuiltin(spec: BuiltinSpec): ToolDefinition {
+  const read = spec.effect === "read";
   return {
-    name: name!,
-    description: description!,
-    revision: first,
-    input: input!,
-    effect: options!.effect,
-    confirm: false,
-    contract: contract!,
-    scopeCheck: options!.scopeCheck,
-    reversible: options!.reversible,
-    idempotent: options!.idempotent,
-    errors: COMMON_ERRORS,
+    name: spec.name,
+    description: spec.description,
+    input: spec.input ?? TOOL_INPUTS[spec.name],
+    effect: spec.effect,
     origin: "builtin",
+    handler: spec.handler,
+    ...(spec.gate === undefined ? {} : { gate: spec.gate }),
+    revision: BUILTIN_TOOL_REVISION,
+    confirm: false,
+    contract: spec.name,
+    reversible: read,
+    idempotent: read,
   };
 }
 

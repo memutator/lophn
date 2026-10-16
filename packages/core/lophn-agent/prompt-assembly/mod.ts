@@ -1,24 +1,16 @@
 export { inputBudget, measureWire } from "./budget.ts";
 export { summaryOutputCap } from "./compaction.ts";
 export {
-  assertsNoPreferenceGeneralization,
-  type ClampResult,
-  clampSummaryText,
-  COMPACT_RESHRINK_MAX,
   compactSummaryRequest,
   type FoldedMessages,
   type HiddenMessages,
-  latestCompactSummary,
   type SessionConversation,
   sessionMaterial,
   type SessionMessage,
   splitSummaryMaterial,
-  SUMMARY_PART_KEYS,
   SUMMARY_RULE_VERSION,
   summaryBodyHash,
   summaryBodyTokens,
-  type SummaryParts,
-  type SummaryRef,
   visibleMessages,
 } from "./summary.ts";
 export { anthropicSystem, anthropicTools } from "./layers.ts";

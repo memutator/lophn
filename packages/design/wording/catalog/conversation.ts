@@ -309,15 +309,6 @@ export const conversation = {
   "conversation.rewind-why.already-reverted": "This was already undone.",
   "conversation.rewind-why.answered-fact":
     "Your answers and decisions stay in the conversation.",
-  "conversation.rewind-why.app-failed": "The app couldn't undo this change.",
-  "conversation.rewind-why.app-not-settled":
-    "This wasn't started because the app changes didn't all finish.",
-  "conversation.rewind-why.app-not-started":
-    "This wasn't started because an earlier step didn't finish.",
-  "conversation.rewind-why.app-revision-changed":
-    "The app's data changed since, so this change and the earlier ones from the same app aren't undone.",
-  "conversation.rewind-why.app-uncertain":
-    "The app was asked to undo this, but its answer never arrived. lophn can't tell if it worked.",
   "conversation.rewind-why.chain-broken":
     "This file was edited between lophn's changes, so it is left as it is.",
   "conversation.rewind-why.created-edited":
@@ -332,10 +323,6 @@ export const conversation = {
     "This path is a link, so it is left as it is.",
   "conversation.rewind-why.no-pre-image":
     "The earlier content of this file wasn't kept.",
-  "conversation.rewind-why.no-receipt":
-    "The app didn't give a way to undo this change.",
-  "conversation.rewind-why.no-revert-command":
-    "The app has no way to undo this change.",
   "conversation.rewind-why.rename-blocked":
     "Another file is at the old name, so the rename isn't undone.",
   "conversation.rewind-why.unknown": "lophn can't undo this edit.",

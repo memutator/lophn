@@ -7,7 +7,6 @@ import {
   revertApplied,
   revertBlocked,
   type RevertItem,
-  REWIND_NO_REDO,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { sessionRewind } from "../../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
@@ -126,7 +125,6 @@ function headerOf(row: RevertRow, replayed: boolean): Header {
     id: row.id,
     session: row.session,
     outcome: row.outcome,
-    ...REWIND_NO_REDO,
     result_seq: row.result_seq,
     replayed,
   };

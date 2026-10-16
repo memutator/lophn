@@ -58,8 +58,7 @@ export async function readHiddenGroups(
       (row.choice === "restore_all" || row.choice === "messages_only") &&
       (row.outcome === "applied" || row.outcome === "partial" ||
         row.outcome === "uncertain") &&
-      row.redo !== "done" && row.boundary_seq !== null &&
-      row.result_seq !== null
+      row.boundary_seq !== null && row.result_seq !== null
       ? [{
         row,
         from: BigInt(row.boundary_seq),

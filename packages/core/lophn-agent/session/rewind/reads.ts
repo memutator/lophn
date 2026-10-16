@@ -3,7 +3,6 @@ import {
   type Checkpoint,
   type RevertItem,
   type RevertRecord,
-  REWIND_NO_REDO,
   rewindCheckpoints,
   rewindList,
   sessionRewindPreview,
@@ -168,7 +167,6 @@ export function createSessionRewindReads(deps: PlanDeps): {
             boundary_seq: String(row["boundary_seq"]),
             summary_call: text(row["summary_call"]),
             outcome: String(row["outcome"]) as RevertRecord["outcome"],
-            ...REWIND_NO_REDO,
             items: itemsOf(snapshot, String(row["id"])),
             apps: appsOf(snapshot, String(row["id"])),
             preview_hash: String(row["preview_hash"]),
@@ -200,7 +198,6 @@ function itemsOf(lookup: Lookup, revert: string): RevertItem[] {
     reason: row["reason"] === null
       ? null
       : String(row["reason"]) as RevertItem["reason"],
-    app_revert: null,
   }));
 }
 

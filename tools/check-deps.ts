@@ -91,7 +91,6 @@ const LEAVING_FILES = new Set([
   "packages/protocol/coding-agent/cli-decisions.ts",
   "packages/protocol/coding-agent/mcp-decisions.ts",
   "packages/protocol/lophn-agent/question-submission.ts",
-  "packages/protocol/lophn-agent/run-wait.ts",
   "packages/protocol/server/registration.ts",
 ]);
 

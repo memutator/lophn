@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  applyMessages,
-  assignMessage,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
@@ -68,10 +66,6 @@ export type SendMessageDeps = {
   };
 };
 
-function blocked(): Result<never> {
-  return reject("unavailable", "message intake is being rebuilt");
-}
-
 type BodyBlob = {
   hash: string;
   evidence: {
@@ -125,24 +119,6 @@ function textOf(content: Input<typeof sendMessage>["content"]): string {
     part.kind === "text" ? [part.text] : []
   )
     .join("\n");
-}
-
-// session에 machine이 남기는 사실 한 줄의 본문이다(Undo의 "Undid edit to <경로>"). core가 이 값으로 blob을
-// 준비해 두고 recordFactMessage가 같은 값에서 같은 hash를 만든다.
-export function factMessageContent(text: string) {
-  return {
-    schema_version: 1 as const,
-    parts: [{ kind: "text" as const, text }],
-  };
-}
-
-// 사실 메시지(machine)를 받은 메시지 기록의 봉투(`from_kind`)로 말할 수 없어 session 기록에는 아직 남기지 않는다.
-// 이 길을 새로 짓는 일은 rewind가 한다. 그때까지 막아 둔다.
-export function recordFactMessage(
-  _tx: Tx,
-  _input: { session: string; text: string; principal: string },
-): Result<string> {
-  return reject("unavailable", "fact messages are being rebuilt");
 }
 
 // 이 session에 도는 turn이 있는지. steer가 도는 turn 안으로 들어가는지 가른다.
@@ -415,8 +391,6 @@ function recordAgent(
 export function createMessageCommands(deps: SendMessageDeps): {
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
-  apply: CommandDefinition<typeof applyMessages>;
-  assign: CommandDefinition<typeof assignMessage>;
 } {
   return {
     send: {
@@ -430,8 +404,5 @@ export function createMessageCommands(deps: SendMessageDeps): {
       handle: (tx, ctx, input: Input<typeof recordMessage>) =>
         recordAgent(tx, ctx, input),
     },
-    // 옛 반영, 담당 옮기기는 messages 표가 봉투 칸으로 바뀌어 옛 열을 더 쓰지 못한다.
-    apply: { route: applyMessages, handle: blocked },
-    assign: { route: assignMessage, handle: blocked },
   };
 }

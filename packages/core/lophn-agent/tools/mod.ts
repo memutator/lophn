@@ -5,7 +5,6 @@ export { createToolReads } from "./reads.ts";
 export {
   BUILTIN_TOOLS,
   type GateRequest,
-  questionSubmitTool,
   runOperations,
   type ToolCallHandler,
   type ToolCatalog,

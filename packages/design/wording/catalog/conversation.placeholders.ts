@@ -384,11 +384,6 @@ export type ConversationPlaceholders = {
   };
   "conversation.rewind-why.already-reverted": Record<never, never>;
   "conversation.rewind-why.answered-fact": Record<never, never>;
-  "conversation.rewind-why.app-failed": Record<never, never>;
-  "conversation.rewind-why.app-not-settled": Record<never, never>;
-  "conversation.rewind-why.app-not-started": Record<never, never>;
-  "conversation.rewind-why.app-revision-changed": Record<never, never>;
-  "conversation.rewind-why.app-uncertain": Record<never, never>;
   "conversation.rewind-why.chain-broken": Record<never, never>;
   "conversation.rewind-why.created-edited": Record<never, never>;
   "conversation.rewind-why.edited-outside": Record<never, never>;
@@ -396,8 +391,6 @@ export type ConversationPlaceholders = {
   "conversation.rewind-why.later-edit": Record<never, never>;
   "conversation.rewind-why.link-path": Record<never, never>;
   "conversation.rewind-why.no-pre-image": Record<never, never>;
-  "conversation.rewind-why.no-receipt": Record<never, never>;
-  "conversation.rewind-why.no-revert-command": Record<never, never>;
   "conversation.rewind-why.rename-blocked": Record<never, never>;
   "conversation.rewind-why.unknown": Record<never, never>;
   "conversation.rewind.preview-failed": Record<never, never>;

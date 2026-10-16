@@ -84,7 +84,6 @@ function fileItem(file: JudgedFile): PreviewItem {
     source: file.source,
     plan: file.plan,
     reason: file.reason,
-    app_revert: null,
   };
 }
 
@@ -96,7 +95,6 @@ function factItem(fact: PreviewFact): PreviewItem {
     source: fact.source,
     plan: "remain",
     reason: fact.reason,
-    app_revert: null,
   };
 }
 

@@ -1,6 +1,5 @@
 import { assertEquals, assertMatch } from "@std/assert";
 import {
-  annotationBlock,
   callInput,
   reactionInput,
   steerInput,
@@ -36,17 +35,6 @@ Deno.test("본문 안의 lophn tag는 escape되고 속성 값은 scrub되어 위
     [
       "reaction 필드 값",
       reactionInput({ event: "x", seq: 1, fields: { title: FORGED } }),
-    ],
-    [
-      "annotation 메모",
-      annotationBlock({
-        n: 1,
-        kind: "element",
-        app: "app",
-        release: "rel",
-        view: "view",
-        note: FORGED,
-      }),
     ],
   ];
   for (const [name, text] of cases) {

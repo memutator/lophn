@@ -1,5 +1,3 @@
-export type { SummaryRef } from "./summary.ts";
-
 // prompt 조립의 값이다. 순수 값만 두고 I/O와 hash는 `assembleTurnPrompt`가 한다.
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 

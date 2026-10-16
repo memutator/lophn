@@ -23,16 +23,6 @@ import {
   runSourceOutputSchema,
   runSourceSchema,
 } from "./run-values.ts";
-import {
-  correctWaitingRun,
-  recoverRun,
-  resolveRunWait,
-  RUN_WAIT_COMMANDS,
-  runRecovered,
-  runResumed,
-  runWaited,
-  waitRun,
-} from "./run-wait.ts";
 
 const runLinkFields = {
   continued_from: idSchema("run").nullable(),
@@ -298,26 +288,13 @@ export const RUN_COMMANDS = [
   finishRun,
   stopRun,
   confirmNextRun,
-  ...RUN_WAIT_COMMANDS,
   ...RUN_READS,
 ] as const;
 
 export const RUN_EVENTS = [
   runAccepted,
   runStarted,
-  runWaited,
-  runResumed,
-  runRecovered,
   runFinished,
 ] as const;
 
-export {
-  correctWaitingRun,
-  INITIAL_RUN_ELAPSED,
-  recoverRun,
-  resolveRunWait,
-  runRecovered,
-  runResumed,
-  runWaited,
-  waitRun,
-};
+export { INITIAL_RUN_ELAPSED };

@@ -19,7 +19,7 @@ import type {
 } from "./settings-source.ts";
 import styles from "./provider-list.module.css";
 
-export interface ProviderListProps {
+interface ProviderListProps {
   source: ProviderSettingsSource;
 }
 

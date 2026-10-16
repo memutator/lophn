@@ -5,7 +5,7 @@ import type { DeclaredSearch, SearchCell, SearchRow } from "./source.ts";
 export type ResultColumn = DeclaredSearch["result"]["columns"][number];
 
 /** 칸에 적을 글. 목록은 쉼표로 잇고 없는 값은 빈 글이다. */
-export function cellText(value: unknown): string {
+function cellText(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (Array.isArray(value)) return value.map(cellText).join(", ");
   if (typeof value === "object") return JSON.stringify(value);
@@ -13,7 +13,7 @@ export function cellText(value: unknown): string {
 }
 
 /** 열 path의 cell. 행은 열마다 cell 하나를 가진다. */
-export function cellOf(row: SearchRow, path: string): SearchCell | undefined {
+function cellOf(row: SearchRow, path: string): SearchCell | undefined {
   return row.cells.find((cell) => cell.path === path);
 }
 
@@ -90,7 +90,7 @@ export function pageNumbers(
   return out;
 }
 
-export interface BoardLane {
+interface BoardLane {
   readonly value: string;
   readonly rows: readonly SearchRow[];
 }

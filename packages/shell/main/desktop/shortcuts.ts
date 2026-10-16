@@ -4,7 +4,7 @@
 import { WINDOW_SHORTCUTS, type WindowShortcut } from "../../ipc/shortcuts.ts";
 
 /** Electron `Input`에서 쓰는 부분. */
-export interface KeyInput {
+interface KeyInput {
   readonly type: string;
   readonly key: string;
   readonly code?: string;
@@ -43,7 +43,7 @@ function letterOf(input: KeyInput): string {
  * 키 입력이 창 shortcut이면 그 이름. CommandOrControl은 macOS에서 Command, 다른 OS에서
  * Control이고 다른 쪽 modifier가 같이 눌리면 맞지 않는다. 눌러 둔 반복은 한 번만 친다.
  */
-export function windowShortcut(
+function windowShortcut(
   input: KeyInput,
   platform: string,
 ): WindowShortcut | null {
@@ -60,7 +60,7 @@ export function windowShortcut(
   return found?.name ?? null;
 }
 
-export interface InputSource {
+interface InputSource {
   on(
     event: "before-input-event",
     listener: (event: { preventDefault(): void }, input: KeyInput) => void,

@@ -11,7 +11,7 @@ import {
 import styles from "./app-detail.module.css";
 import type { ReadHandle } from "./use-read.ts";
 
-export interface LoadableProps<T> {
+interface LoadableProps<T> {
   read: ReadHandle<T>;
   /** 실패한 대상의 사람 말 이름. */
   target: string;

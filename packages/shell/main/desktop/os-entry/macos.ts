@@ -6,9 +6,9 @@ import { join } from "node:path";
 import { OPEN_APP_FLAG } from "../open-intent.ts";
 import type { OsEntryApp } from "./entry.ts";
 
-export const MAC_LAUNCHER = "open-app";
+const MAC_LAUNCHER = "open-app";
 
-export interface BundleFile {
+interface BundleFile {
   /** bundle 안 상대 경로. */
   path: string;
   data: string;

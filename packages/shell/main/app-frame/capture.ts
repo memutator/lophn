@@ -11,16 +11,16 @@ import {
 } from "../../ipc/annotation.ts";
 
 /** 표지를 그릴 때까지 페이지를 기다리는 시간. */
-export const CAPTURE_WAIT_MS = 2000;
+const CAPTURE_WAIT_MS = 2000;
 /** 올리는 이미지의 긴 변 상한(px). */
-export const SCREENSHOT_LONG_SIDE = 1600;
+const SCREENSHOT_LONG_SIDE = 1600;
 /** protocol `ANNOTATION_SCREENSHOT_MAX_BYTES`의 사본. shell main은 protocol을 import하지 못한다. */
-export const SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024;
+const SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024;
 
-export type Crop = { x: number; y: number; width: number; height: number };
-export type Viewport = { width: number; height: number };
+type Crop = { x: number; y: number; width: number; height: number };
+type Viewport = { width: number; height: number };
 
-export type CaptureReady = AnnotatePageCaptureReady;
+type CaptureReady = AnnotatePageCaptureReady;
 
 /** PNG를 crop(viewport CSS px)으로 잘라 한도 안으로 줄인다. 못 하면 던진다. */
 export type CropAndFit = (
@@ -59,7 +59,7 @@ export function nativeCropAndFit(native: {
 }
 
 /** `nativeImage`가 주는 이미지 중 쓰는 칸. */
-export interface NativeImageLike {
+interface NativeImageLike {
   getSize(): { width: number; height: number };
   crop(rect: Crop): NativeImageLike;
   resize(size: { width: number; height: number }): NativeImageLike;
@@ -80,7 +80,7 @@ function shrink(image: NativeImageLike, scale: number): NativeImageLike {
   });
 }
 
-export interface CapturerDeps {
+interface CapturerDeps {
   cropAndFit: CropAndFit;
 }
 
@@ -119,4 +119,3 @@ export function createCapturer(deps: CapturerDeps) {
   };
 }
 
-export type Capturer = ReturnType<typeof createCapturer>;

@@ -4,7 +4,7 @@
 import { type CallResult, failure, type Outcome } from "./app-connection.ts";
 import type { Blueprint, BlueprintSource } from "./app-call.ts";
 
-export type BlueprintRead = (
+type BlueprintRead = (
   app: string,
   release: string,
 ) => Promise<CallResult>;

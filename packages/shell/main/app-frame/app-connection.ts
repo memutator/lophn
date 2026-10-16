@@ -17,7 +17,7 @@ export type CoreCaller = (
   body: unknown,
 ) => Promise<CallResult>;
 
-export type AppFrameErrorCode =
+type AppFrameErrorCode =
   | "invalid_input"
   | "forbidden"
   | "conflict"

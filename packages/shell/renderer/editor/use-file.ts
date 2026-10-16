@@ -7,7 +7,7 @@ import { fileNameOf, isInstructionsFile } from "./model.ts";
 import type { SaveSession } from "./save-state.ts";
 import type { EditorSessions } from "./sessions.ts";
 
-export type TextFile =
+type TextFile =
   | { readonly kind: "loading" }
   | {
     readonly kind: "ready";
@@ -66,7 +66,7 @@ export function useTextFile(
   return file;
 }
 
-export type MediaFile =
+type MediaFile =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly url: string; readonly size: number }
   | { readonly kind: "failed"; readonly code: FileFailure };

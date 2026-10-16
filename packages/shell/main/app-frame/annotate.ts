@@ -39,7 +39,7 @@ type CoreResult =
   | { ok: true; value: unknown }
   | { ok: false; error: { code: string; message: string } };
 
-export interface AnnotateDeps {
+interface AnnotateDeps {
   registry: ContentsRegistry;
   /** sender 본문이 desktop 창이면 그 창. 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
@@ -327,9 +327,7 @@ export function createAnnotate(deps: AnnotateDeps) {
   };
 }
 
-export type AnnotateService = ReturnType<typeof createAnnotate>;
-
-export interface AnnotateIpcMain {
+interface AnnotateIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown> | unknown,

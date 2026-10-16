@@ -33,7 +33,7 @@ import styles from "./context-glossary.module.css";
 import { errorReason } from "./error-reason.ts";
 import type { ContextsSource, GlossaryEntry, ReadResult } from "./source.ts";
 
-export interface ContextGlossaryProps {
+interface ContextGlossaryProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

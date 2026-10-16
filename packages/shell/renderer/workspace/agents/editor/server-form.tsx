@@ -24,7 +24,7 @@ const URL = /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/;
 const HEADER = /^[A-Za-z0-9-]{1,64}$/;
 const CALL_TIMEOUT_MS = 60_000;
 
-export interface ServerFormProps {
+interface ServerFormProps {
   /** 이미 있는 이름. 같은 이름은 받지 않는다. */
   readonly taken: readonly string[];
   readonly onAdd: (server: McpServer) => void;

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const INSTRUCTIONS_OPEN_CHANNEL = "shell:instructions-open";
 
-export const instructionsPlaceSchema = z.discriminatedUnion("layer", [
+const instructionsPlaceSchema = z.discriminatedUnion("layer", [
   z.strictObject({ layer: z.literal("global") }),
   z.strictObject({
     layer: z.literal("project"),
@@ -27,7 +27,7 @@ export type InstructionsPlace =
   | { readonly layer: "app"; readonly place: string };
 
 /** renderer가 구별하는 실패. 경로·OS 오류 원문은 싣지 않는다. */
-export type EditorFailure =
+type EditorFailure =
   | "invalid_input"
   | "forbidden"
   | "not_found"
@@ -42,7 +42,7 @@ export type EditorReply<T> =
   | { readonly ok: false; readonly code: EditorFailure };
 
 /** 열린 결과. 파일에 연결된 문서가 없으면 document와 version이 null이다(첫 저장 전). */
-export interface InstructionsOpened {
+interface InstructionsOpened {
   /** 지침 파일의 절대 경로. 편집기가 이 경로로 연다. */
   readonly path: string;
   readonly document: string | null;

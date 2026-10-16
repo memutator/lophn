@@ -28,7 +28,7 @@ interface Persisted {
 }
 
 /** sessionStorage 모양. 테스트는 Map으로 대신한다. */
-export interface RefStorage {
+interface RefStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }

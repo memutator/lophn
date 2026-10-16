@@ -3,18 +3,18 @@
 
 export const SHELL_SCHEME = "lophn-shell";
 
-export interface SchemePrivilege {
+interface SchemePrivilege {
   scheme: string;
   privileges: { standard: boolean; secure: boolean; supportFetchAPI: boolean };
 }
 
-export interface SchemeRegistry {
+interface SchemeRegistry {
   registerSchemesAsPrivileged(schemes: SchemePrivilege[]): void;
 }
 
 // shell 설치 파일과 앱 화면. service worker·CORS 우회·CSP 우회 권한은 주지 않는다
 // (앱 service worker가 옛 release의 byte를 대신 내주지 못하게 한다).
-export const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app"];
+const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app"];
 
 /**
  * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 두 scheme을 함께
@@ -56,24 +56,3 @@ export function webPreferences(packaged: boolean): WebPreferences {
   };
 }
 
-export interface PermissionContents {
-  setWindowOpenHandler(handler: () => { action: "deny" }): void;
-  onPermissionRequest(handler: (permission: string) => boolean): void;
-  onDevtoolsOpened(handler: () => void): void;
-  closeDevTools(): void;
-}
-
-/**
- * 새 창과 camera·location 같은 권한 요청은 기본 거절한다.
- * packaged build에서는 devtools가 열려도 바로 닫는다.
- */
-export function hardenContents(
-  contents: PermissionContents,
-  packaged: boolean,
-): void {
-  contents.setWindowOpenHandler(() => ({ action: "deny" }));
-  contents.onPermissionRequest(() => false);
-  if (packaged) {
-    contents.onDevtoolsOpened(() => contents.closeDevTools());
-  }
-}

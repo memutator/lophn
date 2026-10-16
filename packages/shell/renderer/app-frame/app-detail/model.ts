@@ -10,7 +10,6 @@ import type {
   LossLine,
   ResourceKind,
   RewindOutcome,
-  StepKey,
 } from "./source.ts";
 
 /** release 번호를 `r7` 꼴로. */
@@ -65,14 +64,6 @@ export function stepText(step: ActivationStep, release: number): string {
       });
   }
 }
-
-export const STEP_KEYS: readonly StepKey[] = [
-  "hold",
-  "drain",
-  "stop",
-  "migrate",
-  "start",
-];
 
 export function lossText(loss: LossLine): { label: string; value: string } {
   switch (loss.kind) {

@@ -3,7 +3,7 @@
 // 개수만 싣고, main log에는 안전한 대상 참조(app·release·mode)를 함께 둔다. URL·query·본문·
 // token·socket 경로는 어디에도 쓰지 않는다.
 
-export const VIEW_EVENTS = [
+const VIEW_EVENTS = [
   "created",
   "hidden",
   "replaced",
@@ -14,9 +14,9 @@ export const VIEW_EVENTS = [
 export type ViewEvent = typeof VIEW_EVENTS[number];
 
 // 감독 pipe의 component는 최상위/이름 모양이다. shell main은 platform 감독 아래의 이름을 쓴다.
-export const VIEW_DIAGNOSTIC_COMPONENT = "platform/shell-main";
+const VIEW_DIAGNOSTIC_COMPONENT = "platform/shell-main";
 
-export interface ViewLifetimeDiagnostic {
+interface ViewLifetimeDiagnostic {
   type: "diagnostic";
   kind: "shell_view_lifetime";
   payload: {
@@ -33,7 +33,7 @@ export interface ViewLifetimeDiagnostic {
 }
 
 /** 기록 대상. view 신원은 main registry가 정한 값이다. */
-export interface ViewRecord {
+interface ViewRecord {
   view_session: string;
   generation: number;
   app: string;
@@ -41,7 +41,7 @@ export interface ViewRecord {
   mode: string;
 }
 
-export interface ViewDiagnosticsDeps {
+interface ViewDiagnosticsDeps {
   /** 감독 pipe로 보낸다. 보내지 못하면 false다. 실패해도 view 동작은 막지 않는다. */
   send(message: ViewLifetimeDiagnostic): boolean;
   log(line: string): void;

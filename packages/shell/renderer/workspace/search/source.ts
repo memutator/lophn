@@ -13,7 +13,7 @@ export interface FileMatch {
   readonly end: number;
 }
 
-export interface FileSearchInput {
+interface FileSearchInput {
   readonly project: string;
   readonly query: string;
   /** 등록 폴더나 그 하위 폴더 하나(절대 경로). 없으면 모든 폴더다. */

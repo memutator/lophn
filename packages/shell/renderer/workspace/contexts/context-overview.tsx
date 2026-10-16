@@ -29,7 +29,7 @@ import type { ContextsSource } from "./source.ts";
 import type { OpenDocument } from "./shared.ts";
 import styles from "./context-overview.module.css";
 
-export interface ContextOverviewProps {
+interface ContextOverviewProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

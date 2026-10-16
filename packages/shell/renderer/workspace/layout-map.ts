@@ -26,7 +26,7 @@ function readPosition(value: unknown): TabItem["readPosition"] {
 }
 
 /** layout 파일 탭을 화면에 그린다. 맞출 수 없거나 등록되지 않은 kind면 null이다. */
-export function tabFromStored(value: unknown): TabItem | null {
+function tabFromStored(value: unknown): TabItem | null {
   if (typeof value !== "object" || value === null) return null;
   const tab = value as Record<string, unknown>;
   const kind = tabKindOf(tab.kind);
@@ -43,7 +43,7 @@ export function tabFromStored(value: unknown): TabItem | null {
 }
 
 /** 화면 탭을 schema 필드로 줄인다. 맞출 수 없으면 그 탭만 빠진다. */
-export function toStoredTab(tab: TabItem): Record<string, unknown> | null {
+function toStoredTab(tab: TabItem): Record<string, unknown> | null {
   return tabKindOf(tab.kind)?.toStored(tab, {
     position: readPosition(tab.readPosition),
   }) ?? null;

@@ -27,13 +27,13 @@ import {
 import type { FeedbackViewSnapshot } from "./view-model.ts";
 
 /** 한 창의 overlay에서 feedback dialog를 다루는 handle. */
-export interface FeedbackDialog {
+interface FeedbackDialog {
   open(draftRef: string): boolean;
   close(draftRef: string): void;
 }
 
 /** core `problem.submit_feedback` 입력(protocol/problems/problem-feedback.ts)과 같은 모양. */
-export interface SubmitFeedbackRequest {
+interface SubmitFeedbackRequest {
   report_id: string;
   app: string;
   text: string;
@@ -51,7 +51,7 @@ export interface SubmitFeedbackRequest {
   };
 }
 
-export interface FeedbackDeps {
+interface FeedbackDeps {
   registry: ContentsRegistry;
   /** sender가 본문인 desktop 창. desktop 창이 아니면 undefined다. */
   windowOfShell(sender: CallerContents): string | undefined;
@@ -305,9 +305,9 @@ export function createFeedback(deps: FeedbackDeps) {
   };
 }
 
-export type FeedbackService = ReturnType<typeof createFeedback>;
+type FeedbackService = ReturnType<typeof createFeedback>;
 
-export interface FeedbackIpcMain {
+interface FeedbackIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown> | unknown,

@@ -51,7 +51,7 @@ export interface PaletteEntry<T> {
 }
 
 /** 묶음 하나에 보이는 행 수. 다섯 묶음이 overlay 행 한도 64 안에 든다. */
-export const GROUP_LIMIT = 12;
+const GROUP_LIMIT = 12;
 
 /** 검색어를 멈춘 뒤 파일 검색을 부르기까지. */
 export const SEARCH_DEBOUNCE_MS = 150;

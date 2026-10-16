@@ -5,12 +5,12 @@ import type { BodyPart, SourceResult } from "./agent-tab-source.ts";
 import type { DraftStore } from "./drafts.ts";
 
 /** 본문을 읽는 통로. 대화 화면의 어느 source든 이것을 가진다. */
-export interface BodySource {
+interface BodySource {
   body(message: string): Promise<SourceResult<readonly BodyPart[]>>;
 }
 
 /** 한 번에 읽는 본문 수. 긴 세션도 core read queue를 한꺼번에 채우지 않는다. */
-export const BODY_READS_AT_ONCE = 4;
+const BODY_READS_AT_ONCE = 4;
 
 // 다시 읽어도 같은 답인 오류. not_found는 없거나 범위 밖인 메시지다. 그 밖(unavailable,
 // internal, 통로 실패)은 본문 blob을 잠깐 못 읽은 것이라 다시 읽는다.
@@ -34,7 +34,7 @@ function inFlight(drafts: DraftStore): Set<string> {
 }
 
 /** 이 메시지의 본문을 지금 읽어야 하는지. */
-export function needsBody(drafts: DraftStore, message: string): boolean {
+function needsBody(drafts: DraftStore, message: string): boolean {
   const state = drafts.body(message);
   if (state === undefined) return true;
   return state.state === "failed" && !SETTLED.has(state.code) &&

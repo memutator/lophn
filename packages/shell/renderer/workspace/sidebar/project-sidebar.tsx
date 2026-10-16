@@ -22,7 +22,7 @@ export type SidebarTab = "explorer" | "context" | "agent";
 
 const TABS: readonly SidebarTab[] = ["explorer", "context", "agent"];
 
-export interface ProjectSidebarProps {
+interface ProjectSidebarProps {
   mode: "open" | "collapsed";
   width: number;
   project: ProjectView | null;

@@ -45,8 +45,8 @@ const inputValue = z.union([
     to: z.union([z.string().max(1024), z.number().finite()]),
   }),
 ]);
-export const SEARCH_INPUTS_MAX = 16;
-export const SEARCH_INPUTS_MAX_BYTES = 4096;
+const SEARCH_INPUTS_MAX = 16;
+const SEARCH_INPUTS_MAX_BYTES = 4096;
 export const searchInputs = z.record(z.string().min(1).max(128), inputValue)
   .refine((inputs) => Object.keys(inputs).length <= SEARCH_INPUTS_MAX, {
     message: "too many search inputs",

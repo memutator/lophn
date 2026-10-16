@@ -19,7 +19,7 @@ import styles from "./agents-tab.module.css";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
 import type { ImageSrc } from "./views.ts";
 
-export interface AgentsTabProps {
+interface AgentsTabProps {
   /** project(앱 자리면 앱) 이름. */
   readonly projectName: string;
   readonly overview: AgentsOverview;

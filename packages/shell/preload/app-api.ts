@@ -10,7 +10,7 @@ import {
   type AppReply,
 } from "../ipc/app.ts";
 
-export interface AppTransport {
+interface AppTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   send(channel: string, input: unknown): void;
 }
@@ -62,7 +62,7 @@ const NAME_MAX_CHARS = 256;
 const MESSAGE_MAX_CHARS = 16_384;
 
 /** main world에서 본 오류 하나. 문자열이 아닌 값은 버린다. */
-export type ViewErrorReport = (
+type ViewErrorReport = (
   observation: unknown,
   name: unknown,
   message: unknown,
@@ -113,15 +113,9 @@ export function createViewErrorReport(
   };
 }
 
-export interface ErrorTarget {
+interface ErrorTarget {
   addEventListener(type: string, listener: (event: unknown) => void): void;
 }
-
-/**
- * SDK 루트 오류 경계(ui-state AppErrorBoundary)가 main world에서 보내는 DOM event.
- * `detail`은 `{name, message}`다. watchMainWorldErrors 안에는 같은 글자를 직접 쓴다(직렬화돼 돈다).
- */
-export const RENDER_ERROR_EVENT = "lophn:render-error";
 
 /**
  * 페이지의 오류는 그 world에서만 보이므로(context isolation) 이 함수를 main world에서 돌린다

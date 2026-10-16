@@ -15,7 +15,7 @@ import type {
 import { reasonText } from "./text.ts";
 import styles from "./rewind-panel.module.css";
 
-export interface RewindPanelProps {
+interface RewindPanelProps {
   source: Pick<AgentTabSource, "rewindPreview" | "rewind">;
   session: string;
   /** 시점으로 고른 내 메시지. */

@@ -33,7 +33,7 @@ export type CallResult = { ok: true; value: unknown } | {
 export type Registered = { stop(): void };
 
 /** main 안 IPC 등록 통로. 영역마다 자기 listener 모양으로 좁혀 쓴다. */
-export type Ipc = {
+type Ipc = {
   handle(
     channel: string,
     listener: (event: never, input: never) => unknown,
@@ -54,7 +54,7 @@ export type CoreRelay = {
 };
 
 /** 창이 열리고 닫힐 때 영역이 덧붙이는 반응. */
-export type WindowHooks = {
+type WindowHooks = {
   created: Array<(window: BrowserWindow) => void>;
   closed: Array<(window: { ref: string; contentsId: number }) => void>;
 };

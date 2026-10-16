@@ -37,7 +37,7 @@ export interface TypeCardModel {
   readonly relations: readonly RelationLine[];
 }
 
-export interface GraphNode {
+interface GraphNode {
   /** 노드를 가리키는 안정된 이름: 이 context의 type은 type 이름, 다른 context의 type은 `eval/Scenario`. */
   readonly key: string;
   /** data 속성에 쓰는 type 이름(`Scenario`). */
@@ -47,7 +47,7 @@ export interface GraphNode {
   readonly external: boolean;
 }
 
-export interface GraphEdge {
+interface GraphEdge {
   /** GraphNode.key. */
   readonly from: string;
   readonly to: string;
@@ -104,7 +104,7 @@ export function buildContractModel(
 }
 
 /** type 참조를 그림과 관계 글에 쓰는 이름으로 바꾼다: `harness/Change` → `harness.Change`. */
-export function displayRef(ref: string): string {
+function displayRef(ref: string): string {
   return ref.replace("/", ".");
 }
 
@@ -113,7 +113,7 @@ function refName(ref: string): string {
   return ref.slice(ref.indexOf("/") + 1);
 }
 
-export function sourcePath(source: ContractSource): string {
+function sourcePath(source: ContractSource): string {
   switch (source.kind) {
     case "folder":
       return `${source.root}/${source.child_pattern}`;

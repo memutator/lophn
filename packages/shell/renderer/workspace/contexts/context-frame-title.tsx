@@ -4,7 +4,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./context-frame.module.css";
 
-export interface ContextTitleProps {
+interface ContextTitleProps {
   readonly name: string;
   readonly purpose: string;
   /** 이름 줄 오른쪽 끝. */

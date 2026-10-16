@@ -12,7 +12,7 @@ import type {
   SavedViewListItem,
 } from "./source.ts";
 
-export interface ContextSidebarProps {
+interface ContextSidebarProps {
   readonly source: ContextsSource;
   readonly project: string;
   readonly onOpenContext: (context: ContextListItem) => void;

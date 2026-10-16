@@ -33,19 +33,19 @@ import {
   StartFailedError,
 } from "./supervise.ts";
 
-export interface StateTarget {
+interface StateTarget {
   send(channel: string, payload: unknown): void;
   isDestroyed(): boolean;
 }
 
-export interface CoreIpc {
+interface CoreIpc {
   handle(
     channel: string,
     listener: (event: unknown, input: unknown) => Promise<unknown>,
   ): void;
 }
 
-export interface ConnectionOptions {
+interface ConnectionOptions {
   launch: LaunchOptions;
   ipc: CoreIpc;
   fetch: RpcFetch;
@@ -75,7 +75,7 @@ export interface ConnectionOptions {
   };
 }
 
-export type ConnectionState = ShellConnectionState;
+type ConnectionState = ShellConnectionState;
 
 export interface CoreConnection {
   readonly state: ConnectionState;
@@ -98,7 +98,7 @@ export interface CoreConnection {
 }
 
 /** handle 등록 응답을 기다리는 시간. 넘으면 그 등록은 없다. */
-export const CONFIRMATION_REPLY_MS = 5_000;
+const CONFIRMATION_REPLY_MS = 5_000;
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
 export function startCoreConnection(

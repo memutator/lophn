@@ -20,7 +20,7 @@ export function issueRowOf(item: ProblemListItem): IssueRow {
 }
 
 /** 원래 source 위치의 stack 글. 오류가 없으면 null이다. */
-export function stackText(error: ProblemSnapshot["error"]): string | null {
+function stackText(error: ProblemSnapshot["error"]): string | null {
   if (error === null) return null;
   const head = error.message === null
     ? error.name

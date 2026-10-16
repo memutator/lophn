@@ -8,14 +8,14 @@ import type { FileReply, FileText, FileWritten } from "../../ipc/files.ts";
 /** 입력이 이만큼 멈추면 디스크에 쓴다. */
 export const SAVE_QUIET_MS = 800;
 /** 결과를 모르는 쓰기를 다시 확인하는 간격. 다 쓰면 사람의 다시 시도를 기다린다. */
-export const CHECK_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
+const CHECK_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
 
 export interface SaveClock {
   set(callback: () => void, ms: number): unknown;
   clear(handle: unknown): void;
 }
 
-export const systemSaveClock: SaveClock = {
+const systemSaveClock: SaveClock = {
   set: (callback, ms) => setTimeout(callback, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
@@ -34,11 +34,11 @@ export interface SavePort {
  */
 export type SaveState = "saved" | "saving" | "failed" | "unknown" | "conflict";
 
-export interface SaveFacts {
+interface SaveFacts {
   readonly state: SaveState;
 }
 
-export interface SaveSessionOptions {
+interface SaveSessionOptions {
   port: SavePort;
   /** 연 글. */
   text: string;

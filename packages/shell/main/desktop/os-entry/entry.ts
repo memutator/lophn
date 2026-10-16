@@ -25,7 +25,7 @@ export interface EntryFiles {
   remove(path: string): void;
 }
 
-export interface ShortcutLinks {
+interface ShortcutLinks {
   /** Electron `shell.writeShortcutLink(path, "create", options)`. */
   write(path: string, options: ShortcutOptions): boolean;
 }

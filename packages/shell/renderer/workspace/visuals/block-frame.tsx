@@ -34,7 +34,7 @@ function Unavailable({ kind }: { kind: "kind" | "drawing" }) {
   );
 }
 
-export interface VisualBlockProps {
+interface VisualBlockProps {
   /** 블록이 든 확정 메시지. */
   message: string;
   /** 같은 메시지 안에서 이 카드를 가리키는 key(`[a-z0-9_-]{1,64}`). */

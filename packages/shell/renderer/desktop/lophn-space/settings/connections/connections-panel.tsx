@@ -34,7 +34,7 @@ import type {
   HarnessSettingsView,
 } from "./source.ts";
 
-export interface CodingConnectionsPanelProps {
+interface CodingConnectionsPanelProps {
   source: CodingConnectionsSource;
 }
 

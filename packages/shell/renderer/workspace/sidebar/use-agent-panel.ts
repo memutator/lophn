@@ -24,7 +24,7 @@ export interface AgentGroup {
   readonly sessions: readonly PanelSession[];
 }
 
-export interface RecentSession {
+interface RecentSession {
   readonly session: PanelSession;
   readonly agentName: string;
 }
@@ -37,7 +37,7 @@ export interface AgentPanelView {
   readonly recent: readonly RecentSession[];
 }
 
-export const RECENT_LIMIT = 5;
+const RECENT_LIMIT = 5;
 
 // Project Manager는 계약이 아직 돌려주는 옛 이름 `context_engineer`도 같은 자리다.
 const BUILTIN_ORDER: Partial<Record<SidebarAgentRole, number>> = {
@@ -46,7 +46,7 @@ const BUILTIN_ORDER: Partial<Record<SidebarAgentRole, number>> = {
   context_engineer: 1,
 };
 
-export function agentPanelOf(
+function agentPanelOf(
   agents: readonly SidebarAgent[],
   sessions: readonly PanelSession[],
 ): AgentPanelView {

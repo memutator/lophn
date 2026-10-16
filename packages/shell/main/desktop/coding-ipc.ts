@@ -13,12 +13,12 @@ import {
   type IpcEvent,
 } from "./ipc-guard.ts";
 
-export interface CodingIpcDeps {
+interface CodingIpcDeps {
   registry: ContentsRegistry;
   harnesses: HarnessSettings;
 }
 
-export interface CodingIpcMain {
+interface CodingIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown>,

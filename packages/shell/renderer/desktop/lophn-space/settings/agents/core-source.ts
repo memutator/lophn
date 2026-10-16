@@ -132,7 +132,7 @@ function configOf(server: McpServer): Record<string, unknown> {
   };
 }
 
-export interface AgentsDeps {
+interface AgentsDeps {
   picker: FolderPickerApi | undefined;
   openWindow: OpenSecretWindow | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */

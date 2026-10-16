@@ -17,7 +17,7 @@ import { joinPath } from "./model.ts";
 import type { ProjectsSource, SubfolderItem } from "./source.ts";
 import styles from "./subfolder-picker.module.css";
 
-export interface SubfolderPickerProps {
+interface SubfolderPickerProps {
   open: boolean;
   /** 등록 폴더의 절대 경로. 트리의 맨 위이고 그 위로는 올라갈 수 없다. */
   root: string;

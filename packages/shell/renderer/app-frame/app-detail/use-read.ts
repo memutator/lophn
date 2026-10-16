@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SourceResult } from "./source.ts";
 
-export type Loaded<T> =
+type Loaded<T> =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | {

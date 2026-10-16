@@ -64,7 +64,7 @@ const UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "always" });
 
 /** `now` 기준 상대 시각("2 minutes ago"). 1분이 안 되면 "now". */
-export function sinceLabel(activeAt: string, now: Date): string {
+function sinceLabel(activeAt: string, now: Date): string {
   const elapsed = now.getTime() - new Date(activeAt).getTime();
   for (const [unit, size] of UNITS) {
     if (elapsed >= size) {
@@ -75,7 +75,7 @@ export function sinceLabel(activeAt: string, now: Date): string {
 }
 
 /** 사용자 달력으로 오늘이면 Today, 아니면 Earlier다. */
-export function groupOf(activeAt: string, now: Date): "today" | "earlier" {
+function groupOf(activeAt: string, now: Date): "today" | "earlier" {
   const day = (value: Date) =>
     `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
   return day(new Date(activeAt)) === day(now) ? "today" : "earlier";

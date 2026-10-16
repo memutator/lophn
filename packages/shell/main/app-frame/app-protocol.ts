@@ -25,7 +25,7 @@ export interface ProtocolView {
   hosts: readonly FetchHost[];
 }
 
-export interface UpstreamRequest {
+interface UpstreamRequest {
   target: ScreenTarget;
   screen: string;
   /** screen 아래 상대 경로. */
@@ -33,7 +33,7 @@ export interface UpstreamRequest {
   signal: AbortSignal;
 }
 
-export interface UpstreamResponse {
+interface UpstreamResponse {
   status: number;
   headers: Readonly<Record<string, string | string[] | undefined>>;
   body: ReadableStream<Uint8Array> | null;
@@ -230,7 +230,7 @@ export function createAppProtocolHandler(
 }
 
 /** core의 file route `app.screen_file`을 연다. 응답 상태·Content-Type·body는 core가 준 그대로이고 signal로 끊는다. */
-export type ScreenFileOpen = (
+type ScreenFileOpen = (
   input: { target: ScreenTarget; screen: string; path: string },
   signal: AbortSignal,
 ) => Promise<

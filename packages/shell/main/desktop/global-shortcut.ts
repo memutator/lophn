@@ -11,9 +11,9 @@ export interface GlobalShortcutPort {
   unregister(accelerator: string): void;
 }
 
-export type GlobalPaletteState = "registered" | "unavailable";
+type GlobalPaletteState = "registered" | "unavailable";
 
-export interface GlobalPaletteOptions {
+interface GlobalPaletteOptions {
   port: GlobalShortcutPort;
   /** 키를 누르면 부른다. 창을 앞으로 가져와 전역 팔레트를 연다. */
   onPalette(): void;

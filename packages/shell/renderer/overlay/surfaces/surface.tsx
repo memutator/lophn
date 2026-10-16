@@ -37,7 +37,7 @@ interface SurfaceViewProps {
 }
 
 // owner의 label·text·choice는 React text로만 그린다. 고르기는 api.result로만 돌아가고 command를 보내지 않는다.
-export function SurfaceView(
+function SurfaceView(
   { surface, host, actions, timer, clock }: SurfaceViewProps,
 ) {
   // Radix menu는 고른 뒤 같은 event 안에서 닫힘도 알린다. 고른 결과 하나만 보낸다.

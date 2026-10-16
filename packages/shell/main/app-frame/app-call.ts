@@ -5,7 +5,7 @@
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
-export type JsonValue =
+type JsonValue =
   | null
   | boolean
   | number
@@ -14,7 +14,7 @@ export type JsonValue =
   | { [key: string]: JsonValue };
 
 /** blueprint의 app-api 선언 중 main이 쓰는 것. */
-export interface AppApiDeclaration {
+interface AppApiDeclaration {
   key: string;
   label: string;
   effect: "read" | "write" | "external";
@@ -36,9 +36,9 @@ function fail(code: string, message: string): CallOutcome<never> {
 }
 
 // IPC 입력 상한. protocol의 IPC 상한(64 KiB)과 같다.
-export const CALL_INPUT_MAX_BYTES = 64 * 1024;
+const CALL_INPUT_MAX_BYTES = 64 * 1024;
 // 앱 응답을 페이지로 넘기는 상한. 넘으면 결과를 넘기지 않는다.
-export const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
+const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
 
 /** 고정 bundle의 blueprint를 읽는다. 같은 bundle은 같은 blueprint다. */
 export type BlueprintSource = (view: {
@@ -48,7 +48,7 @@ export type BlueprintSource = (view: {
   bundleHash: string;
 }) => Promise<Outcome<Blueprint>>;
 
-export interface AppCallDeps {
+interface AppCallDeps {
   blueprint: BlueprintSource;
   call: CoreCaller;
 }
@@ -66,7 +66,7 @@ function remember<K, V>(cache: Map<K, V>, key: K, value: V): void {
 }
 
 /** appCallSchema와 같은 검사. 모르는 field·빈 api·wildcard는 거절한다. */
-export function checkCall(
+function checkCall(
   value: unknown,
 ): { api: string; input: JsonValue } | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -146,7 +146,7 @@ function coreFailure(
 }
 
 /** core의 app-api outcome을 페이지에 보일 결과로 바꾼다. */
-export function outcomeOf(outcome: unknown): CallOutcome<unknown> {
+function outcomeOf(outcome: unknown): CallOutcome<unknown> {
   const body = record(outcome);
   switch (body?.status) {
     case "succeeded": {

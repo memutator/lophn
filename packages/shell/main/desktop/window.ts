@@ -5,10 +5,6 @@ import { type WebPreferences, webPreferences } from "./security.ts";
 export const MIN_WINDOW_WIDTH = 960;
 export const MIN_WINDOW_HEIGHT = 600;
 
-/** macOS 신호등 자리. 이 폭만큼 상단 바 왼쪽을 비운다. */
-export const TRAFFIC_LIGHT_WIDTH = 80;
-/** Windows·Linux 창 단추(최소화·최대화·닫기) 자리. 상단 바가 단추 셋을 이 폭으로 그린다. */
-export const WINDOW_CONTROLS_WIDTH = 144;
 /** 상단 바 높이. */
 export const TOP_BAR_HEIGHT = 36;
 
@@ -22,7 +18,7 @@ export function windowTitle(spaceName?: string): string {
   return spaceName ? `${spaceName}${TITLE_SUFFIX}` : "lophn";
 }
 
-export interface WindowOptions {
+interface WindowOptions {
   platform: NodeJS.Platform;
   packaged: boolean;
   /** main이 검증한 공간 이름. 런처는 없다. */
@@ -43,7 +39,7 @@ export interface WindowConfig {
   webPreferences: WebPreferences & { preload: string };
 }
 
-export function windowConfig(options: WindowOptions): WindowConfig {
+function windowConfig(options: WindowOptions): WindowConfig {
   const mac = options.platform === "darwin";
   return {
     width: MIN_WINDOW_WIDTH,
@@ -68,11 +64,11 @@ export interface CreatedWindow {
   onPageTitleUpdated(handler: (prevent: () => void) => void): void;
 }
 
-export interface WindowFactory {
+interface WindowFactory {
   create(config: WindowConfig): CreatedWindow;
 }
 
-export interface OpenWindowOptions extends WindowOptions {
+interface OpenWindowOptions extends WindowOptions {
   url: string;
   windows: WindowFactory;
 }

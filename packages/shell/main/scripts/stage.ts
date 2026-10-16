@@ -66,11 +66,6 @@ function copyTree(
   }
 }
 
-interface RootConfig {
-  workspace: string[];
-  [k: string]: unknown;
-}
-
 function stageShellMain(): void {
   const src = path.join(mainRoot, "dist");
   const dst = path.join(out, "shell-main", "dist");

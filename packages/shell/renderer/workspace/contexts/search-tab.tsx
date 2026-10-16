@@ -39,7 +39,7 @@ export interface SearchTabState {
   readonly savedView: string | null;
 }
 
-export interface SearchTabProps {
+interface SearchTabProps {
   readonly project: string;
   readonly source: ContextsSource;
   readonly state: SearchTabState;

@@ -1,11 +1,11 @@
-export interface Preventable {
+interface Preventable {
   preventDefault(): void;
 }
-export interface Navigation extends Preventable {
+interface Navigation extends Preventable {
   url: string;
   isMainFrame: boolean;
 }
-export interface OverlaySecurityContents {
+interface OverlaySecurityContents {
   setWindowOpenHandler(handler: () => { action: "deny" }): void;
   onNavigation(listener: (event: Navigation) => void): () => void;
   onWebview(listener: (event: Preventable) => void): () => void;
@@ -16,7 +16,7 @@ export interface OverlaySecuritySession {
   denyPermissions(): void;
   onDownload(listener: (event: Preventable) => void): () => void;
 }
-export function overlayTarget(url: string): boolean {
+function overlayTarget(url: string): boolean {
   try {
     const parsed = new URL(url);
     return parsed.protocol === "lophn-shell:" && parsed.host === "overlay" &&

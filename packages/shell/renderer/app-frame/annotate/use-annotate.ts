@@ -10,7 +10,7 @@ import type {
 /** 보내기가 거절된 이유. conflict는 보관한 앱이다. */
 export type SendFailure = "archived" | "failed";
 
-export interface Annotate {
+interface Annotate {
   readonly state: AnnotateState | null;
   readonly failure: SendFailure | null;
   setMode(on: boolean): void;

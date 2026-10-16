@@ -38,7 +38,7 @@ export type {
  * 별표 찍은 model을 여러 picker가 함께 쓰게 하고 싶은 host가 감싼다. 이름은 찍은 순서다. picker는
  * `layout`의 별표를 읽고 눌림을 props로 알려 이 값을 읽지 않는다.
  */
-export interface Favorites {
+interface Favorites {
   readonly names: readonly string[];
   readonly toggle: (name: string) => void;
 }

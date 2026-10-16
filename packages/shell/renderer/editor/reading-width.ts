@@ -10,7 +10,7 @@ import {
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
 /** core가 선언하는 설정 key(packages/core/config/shell-settings.ts). */
-export const READING_WIDTH_KEY = "shell.reading_width";
+const READING_WIDTH_KEY = "shell.reading_width";
 
 // settings/list 응답에서 읽는 field. 사람이 고른 값이 있으면 chosen, 없으면 선언의 default다.
 interface SettingsList {
@@ -24,7 +24,7 @@ export interface ReadingWidthStore extends ReadingWidthSetting {
   failed(): boolean;
 }
 
-export interface SettingsPort {
+interface SettingsPort {
   get(): Promise<unknown | null>;
   set(width: ReadingWidth): Promise<boolean>;
 }

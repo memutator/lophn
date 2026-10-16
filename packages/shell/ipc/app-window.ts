@@ -14,7 +14,7 @@ export const appWindowRequestSchema = z.object({
   project: z.string().regex(new RegExp(`^prj_${ULID}$`)).optional(),
 }).strict();
 
-export type AppWindowRequest = z.infer<typeof appWindowRequestSchema>;
+type AppWindowRequest = z.infer<typeof appWindowRequestSchema>;
 
 /**
  * 실패는 사람이 겪는 영향 하나로 묶는다. `not_installed`는 설치한 lophn이 아닌 실행(개발·headless)

@@ -3,7 +3,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./activity.module.css";
 
-export interface WorkedForProps {
+interface WorkedForProps {
   /** run이 일한 시간(ms). trace의 times.active_ms다. */
   durationMs: number;
 }

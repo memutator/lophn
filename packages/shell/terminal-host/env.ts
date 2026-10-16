@@ -20,13 +20,13 @@ export function stripPlatformEnv(
   return out;
 }
 
-export type ShellProgram = {
+type ShellProgram = {
   file: string;
   args: string[];
   label: string;
 };
 
-export type ShellLookup = {
+type ShellLookup = {
   platform: NodeJS.Platform;
   env: Readonly<Record<string, string | undefined>>;
   exists: (file: string) => boolean;

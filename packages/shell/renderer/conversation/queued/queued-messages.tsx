@@ -8,7 +8,7 @@ import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
 import type { QueuedView } from "../agent-tab-source.ts";
 import styles from "./queued-messages.module.css";
 
-export interface QueuedMessagesProps {
+interface QueuedMessagesProps {
   items: readonly QueuedView[];
   /** 그 줄을 도는 turn에 steer로 올린다. */
   onSendNow: (id: string) => void;

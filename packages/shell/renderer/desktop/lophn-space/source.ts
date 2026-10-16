@@ -5,7 +5,7 @@ export type SourceResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly code: string };
 
-export interface Named {
+interface Named {
   readonly id: string;
   readonly title: string;
 }

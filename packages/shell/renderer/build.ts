@@ -107,7 +107,7 @@ async function addPackage(
   mergeImports(imports, config.imports ?? {}, new URL("deno.json", directory));
 }
 
-export async function build(
+async function build(
   outdir = join(here, "dist"),
   entryPoints: readonly { in: string; out: string }[] = defaultEntries,
 ): Promise<void> {

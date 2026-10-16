@@ -8,7 +8,7 @@ import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";
 import { WindowControls } from "./window-controls.tsx";
 
-export interface TopBarProps {
+interface TopBarProps {
   /** 바 왼쪽 자리. 런처는 wordmark를 둔다. */
   leading?: ReactNode;
   /** 바 오른쪽 자리. 런처는 lophn 관리 진입점을 둔다. */

@@ -4,7 +4,7 @@ import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { Reaction } from "../events/reactions.ts";
 import { agentLabel, shortId } from "../waiting/model.ts";
 
-export interface ToastText {
+interface ToastText {
   readonly title: string;
   readonly body: string;
   /** 반응이 행동을 갖지 않으면 없다. */

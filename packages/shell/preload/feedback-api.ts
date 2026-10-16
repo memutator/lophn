@@ -11,7 +11,7 @@ import {
   type LophnShellFeedbackBegin,
 } from "../ipc/feedback.ts";
 
-export interface FeedbackTransport {
+interface FeedbackTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 

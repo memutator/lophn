@@ -15,19 +15,19 @@ import type {
   ViewBounds,
 } from "./registry.ts";
 
-export const EMPTY_BOUNDS: ViewBounds = { x: 0, y: 0, width: 0, height: 0 };
+const EMPTY_BOUNDS: ViewBounds = { x: 0, y: 0, width: 0, height: 0 };
 
 // renderer가 몇 번을 보내도 main은 이 간격마다 한 번만 bounds를 적용한다.
-export const BOUNDS_FRAME_MS = 16;
+const BOUNDS_FRAME_MS = 16;
 
-export interface WindowGeometry {
+interface WindowGeometry {
   /** 앱 view가 놓일 수 있는 창 본문(DIP, 상단 바 아래). 창이 없으면 undefined다. */
   body(window: string): ViewBounds | undefined;
   /** shell renderer의 page zoom. CSS pixel과 창 DIP의 비율이다. */
   zoom(window: string): number;
 }
 
-export interface AppViewOpenRequest {
+interface AppViewOpenRequest {
   app: string;
   mode: "live" | "preview";
   release?: string;
@@ -45,7 +45,7 @@ type Generation = Outcome<{ generation: number }>;
  * renderer는 page의 CSS pixel로 보내고 WebContentsView bounds는 창 DIP다. page zoom만큼
  * 다르므로 곱한다. 크기가 아니라 가장자리를 반올림해 view가 자리에서 한 pixel도 밀리지 않는다.
  */
-export function toDip(css: ViewBounds, zoom: number): ViewBounds {
+function toDip(css: ViewBounds, zoom: number): ViewBounds {
   if (!Number.isFinite(zoom) || zoom <= 0 || zoom === 1) return css;
   const x = Math.round(css.x * zoom);
   const y = Math.round(css.y * zoom);
@@ -58,7 +58,7 @@ export function toDip(css: ViewBounds, zoom: number): ViewBounds {
 }
 
 /** 두 사각형의 교차. 없으면 넓이 0이다. */
-export function intersect(a: ViewBounds, b: ViewBounds): ViewBounds {
+function intersect(a: ViewBounds, b: ViewBounds): ViewBounds {
   const x = Math.max(a.x, b.x);
   const y = Math.max(a.y, b.y);
   const right = Math.min(a.x + a.width, b.x + b.width);

@@ -14,7 +14,7 @@ const WAIT_MS = 300;
 /** Select는 빈 값을 못 가져 "모든 폴더"는 이 값이다. */
 const ALL = "__all__";
 
-export interface FileSearchProps {
+interface FileSearchProps {
   readonly project: string;
   readonly workspace: WorkspaceSource;
   readonly search: FileSearchSource;

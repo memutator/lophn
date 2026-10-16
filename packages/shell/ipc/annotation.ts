@@ -43,14 +43,14 @@ export const annotateStateSchema = z.strictObject({
 });
 
 // "N annotations sent" toast의 재료.
-export const annotateSendResultSchema = z.strictObject({
+const annotateSendResultSchema = z.strictObject({
   sent: z.number().int().min(1),
   session: sessionId,
 });
 
-export type AnnotateModeRequest = z.infer<typeof annotateModeRequestSchema>;
-export type AnnotateRemoveRequest = z.infer<typeof annotateRemoveRequestSchema>;
-export type AnnotateSendRequest = z.infer<typeof annotateSendRequestSchema>;
+type AnnotateModeRequest = z.infer<typeof annotateModeRequestSchema>;
+type AnnotateRemoveRequest = z.infer<typeof annotateRemoveRequestSchema>;
+type AnnotateSendRequest = z.infer<typeof annotateSendRequestSchema>;
 export type AnnotateState = z.infer<typeof annotateStateSchema>;
 export type AnnotateSendResult = z.infer<typeof annotateSendResultSchema>;
 
@@ -110,7 +110,7 @@ export const annotatePagePrepareCaptureSchema = z.strictObject({
   n: z.number().int().min(1),
 });
 
-export const pickedItemSchema = z.strictObject({
+const pickedItemSchema = z.strictObject({
   n: z.number().int().min(1),
   kind,
   note: z.string().max(2000),
@@ -156,7 +156,6 @@ export const annotatePageCaptureReadySchema = z.strictObject({
 });
 
 export type PickedItem = z.infer<typeof pickedItemSchema>;
-export type AnnotatePageItems = z.infer<typeof annotatePageItemsSchema>;
 export type AnnotatePageCaptureReady = z.infer<
   typeof annotatePageCaptureReadySchema
 >;

@@ -7,7 +7,7 @@ import { t } from "@lophn/wording";
 import styles from "./notices.module.css";
 
 /** 탭 본문 위쪽 가운데에 toast를 놓는 자리. */
-export function TabToast({ children }: { children: ReactNode }) {
+function TabToast({ children }: { children: ReactNode }) {
   return <div className={styles.slot}>{children}</div>;
 }
 
@@ -24,7 +24,7 @@ export function ReloadedToast({ onClose }: { onClose: () => void }) {
   );
 }
 
-export interface ConflictToastProps {
+interface ConflictToastProps {
   comparing: boolean;
   onKeepMine: () => void;
   onUseDisk: () => void;

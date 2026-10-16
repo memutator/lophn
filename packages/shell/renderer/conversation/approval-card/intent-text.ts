@@ -3,7 +3,7 @@ import { t } from "@lophn/wording";
 import type { Intent } from "../../../../protocol/approvals/intent.ts";
 import { shortId } from "../../desktop/connection/waiting/model.ts";
 
-export interface ApprovalContent {
+interface ApprovalContent {
   /** 카드 제목. 누가 무엇을 하려는지. */
   readonly title: string;
   /** 결정 뒤 남는 줄이 가리키는 것. */

@@ -35,11 +35,11 @@ import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
 import styles from "./agent-pane.module.css";
 
-export const AGENT_PANE_WIDTH = 480;
+const AGENT_PANE_WIDTH = 480;
 /** 칸을 열고도 앱 화면이 이만큼은 남아야 옆 열이다. 아니면 덮는다. */
-export const AGENT_PANE_BODY_MIN = 480;
+const AGENT_PANE_BODY_MIN = 480;
 
-export type AgentPanePlacement = "hidden" | "docked" | "overlay";
+type AgentPanePlacement = "hidden" | "docked" | "overlay";
 
 export function agentPanePlacement(
   open: boolean,
@@ -72,7 +72,7 @@ export interface PaneTerminal {
   readonly ticket: string;
 }
 
-export interface AgentPaneProps {
+interface AgentPaneProps {
   state: AgentPaneState;
   placement: Exclude<AgentPanePlacement, "hidden">;
   app: string;

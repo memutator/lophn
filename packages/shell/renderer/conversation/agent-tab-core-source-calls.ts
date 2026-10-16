@@ -45,7 +45,7 @@ export function asRecord(value: unknown): Json | null {
 const CALL_ID = /cal_[0-7][0-9a-hjkmnp-tv-z]{25}/;
 
 /** tool 결과(JSON) 안의 call id. 결과의 칸 이름에 기대지 않고 id 모양으로 찾는다. */
-export function callIdIn(output: unknown): string | null {
+function callIdIn(output: unknown): string | null {
   return CALL_ID.exec(JSON.stringify(output) ?? "")?.[0] ?? null;
 }
 

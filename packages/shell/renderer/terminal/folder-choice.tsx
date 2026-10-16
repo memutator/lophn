@@ -13,7 +13,7 @@ import type { TerminalFolderChoice } from "../../ipc/terminal.ts";
 import { folderTitle } from "./model.ts";
 import styles from "./terminal.module.css";
 
-export interface FolderChoiceProps {
+interface FolderChoiceProps {
   folders: readonly TerminalFolderChoice[];
   onChoose: (folderRef: string) => void;
 }
@@ -42,7 +42,7 @@ export function FolderChoice({ folders, onChoose }: FolderChoiceProps) {
   );
 }
 
-export interface StartNoticeProps {
+interface StartNoticeProps {
   /** 주면 오른쪽에 숨기기 버튼을 둔다. */
   onHide?: () => void;
 }

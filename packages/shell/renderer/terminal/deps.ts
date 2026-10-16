@@ -53,7 +53,7 @@ let requests = 0;
  * overlay dialog로 닫기를 묻는다. 닫기를 고른 때만 true다. 창 닫힘·Escape·overlay
  * 실패는 결정이 아니라 유지다.
  */
-export function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
+function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
   const waiting = new Map<string, (value: boolean) => void>();
   const consumer = overlayConsumer(api, (result) => {
     if (result.type === "pointer") return;

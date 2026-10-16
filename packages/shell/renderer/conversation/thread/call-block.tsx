@@ -79,7 +79,7 @@ function statusText(
   }
 }
 
-export interface CallBlockProps {
+interface CallBlockProps {
   call: CallView;
   source: Pick<AgentTabSource, "callState" | "cancelCall">;
   defaultOpen?: boolean;

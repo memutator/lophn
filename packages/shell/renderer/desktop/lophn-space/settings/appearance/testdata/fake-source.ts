@@ -2,7 +2,7 @@
 import { APPEARANCE_DEFAULTS } from "../model.ts";
 import type { AppearanceSource, AppearanceValues } from "../source.ts";
 
-export interface FakeAppearanceOptions {
+interface FakeAppearanceOptions {
   values?: Partial<AppearanceValues>;
   /** 고르기가 거절되는 code. 없으면 저장된다. */
   chooseCode?: string;

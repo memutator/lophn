@@ -7,7 +7,7 @@ import { t } from "@lophn/wording";
 import type { StartFailure } from "./model.ts";
 import styles from "./start-failure.module.css";
 
-export interface StartFailureProps {
+interface StartFailureProps {
   failure: StartFailure;
   /** 연결을 다시 확인한다. 사람이 할 수 있는 행동은 다시 시도 하나다. */
   onRetry: () => void;

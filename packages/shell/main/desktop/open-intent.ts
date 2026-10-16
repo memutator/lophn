@@ -4,7 +4,7 @@
 // 못해 같은 모양을 여기서 정규식으로 본다).
 
 export const OPEN_APP_FLAG = "--open-app";
-export const QUIT_FLAG = "--quit";
+const QUIT_FLAG = "--quit";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const APP_ID = new RegExp(`^app_${ULID}$`);

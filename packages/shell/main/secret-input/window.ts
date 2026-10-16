@@ -9,14 +9,14 @@ import {
   surfaceOptions,
 } from "../desktop/headless.ts";
 
-export const SECRET_INPUT_URL = "lophn-shell://secret-input/index.html";
+const SECRET_INPUT_URL = "lophn-shell://secret-input/index.html";
 
 /** 표시 최대폭. 좁은 부모는 창 안에 맞춘다. */
-export const SECRET_INPUT_MAX_WIDTH = 480;
-export const SECRET_INPUT_HEIGHT = 360;
+const SECRET_INPUT_MAX_WIDTH = 480;
+const SECRET_INPUT_HEIGHT = 360;
 const CHROME = 48;
 
-export interface SecretInputWindowConfig {
+interface SecretInputWindowConfig {
   parent: ParentWindow;
   modal: true;
   width: number;
@@ -37,7 +37,7 @@ export interface ParentWindow {
   getContentSize(): { width: number; height: number };
 }
 
-export interface SecretInputContents {
+interface SecretInputContents {
   readonly id: number;
   loadURL(url: string): Promise<void>;
   send(channel: string, payload: unknown): void;
@@ -60,7 +60,7 @@ export interface SecretInputBrowserWindow {
   on(event: "closed" | "unresponsive", listener: () => void): void;
 }
 
-export interface SecretInputSession {
+interface SecretInputSession {
   readonly partition: string;
   /** 권한 요청은 기본 거절. */
   setPermissionRequestHandler(
@@ -117,7 +117,7 @@ export interface OpenedSecretInput {
 let serial = 0;
 
 /** 부모보다 넓지 않게, 최대 480px. */
-export function secretInputSize(
+function secretInputSize(
   parent: { width: number; height: number },
 ): { width: number; height: number } {
   const width = Math.max(
@@ -131,7 +131,7 @@ export function secretInputSize(
   return { width, height };
 }
 
-export function secretInputConfig(input: {
+function secretInputConfig(input: {
   parent: ParentWindow;
   preload: string;
   packaged: boolean;

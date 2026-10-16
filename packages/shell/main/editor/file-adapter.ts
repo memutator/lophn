@@ -33,7 +33,7 @@ import {
 type Empty = Record<PropertyKey, never>;
 
 /** 쓰기 때 갈아 끼울 수 있는 fs 동작. 테스트가 실패를 주입한다. */
-export interface FileSystemOps {
+interface FileSystemOps {
   /** 임시 파일을 만들어 내용을 쓰고 디스크에 닿게 한다. */
   writeTemp(path: string, bytes: Uint8Array, mode: number): Promise<void>;
   rename(from: string, to: string): Promise<void>;

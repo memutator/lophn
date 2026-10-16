@@ -16,13 +16,13 @@ import { t } from "@lophn/wording";
 
 import styles from "./add-tab-menu.module.css";
 
-export interface NewTabAgent {
+interface NewTabAgent {
   readonly id: string;
   readonly name: string;
   readonly profile: AvatarProfile;
 }
 
-export interface NewTabMenuProps {
+interface NewTabMenuProps {
   onDocument?: () => void;
   onTerminal?: () => void;
   /** 주면 Agent ▸ 항목이 있고 이 목록으로 바뀐다. */

@@ -21,7 +21,7 @@ import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
-export interface OpenAgentInput {
+interface OpenAgentInput {
   /** sidebar의 agent 줄이 주는 agent id. */
   readonly agent: string;
   /** 탭 제목이 될 agent 이름. source가 읽으면 그 이름으로 바뀐다. */

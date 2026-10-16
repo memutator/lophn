@@ -8,7 +8,7 @@ import {
   type ToastAction,
 } from "../../desktop/connection/toasts/toast-actions.ts";
 
-export interface ReactionHost {
+interface ReactionHost {
   readonly project: string;
   /** 이 project의 session이면 그 Agent 탭을 열고 true. 아니면 false. */
   openSession(session: string): boolean;

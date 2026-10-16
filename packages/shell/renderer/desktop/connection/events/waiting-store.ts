@@ -19,7 +19,7 @@ import { createValueStore, syncOnReady } from "./store.ts";
 type Place = z.infer<typeof placeOutputSchema>;
 
 /** 질문 내용은 event와 snapshot 어디에도 없다. 내용은 질문 read로 따로 읽는다. */
-export interface QuestionRequest {
+interface QuestionRequest {
   readonly group: string;
   readonly turn: string;
   readonly tool_call: string;
@@ -50,7 +50,7 @@ export interface WaitingState {
   readonly count: number;
 }
 
-export const WAITING_CONDITION: EventCondition = {
+const WAITING_CONDITION: EventCondition = {
   types: [
     "SessionStarted",
     "PermissionRequested",
@@ -69,7 +69,7 @@ export function approvalWaitingKind(
   return kind === "activation" || kind === "reaction" ? kind : null;
 }
 
-export interface WaitingStore {
+interface WaitingStore {
   get(): WaitingState;
   subscribe(listener: () => void): () => void;
   /** 결정을 낸 뒤 보류 request를 다시 읽어 맞춘다. */

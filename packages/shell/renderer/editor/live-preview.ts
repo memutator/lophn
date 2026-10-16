@@ -43,7 +43,7 @@ import {
 import type { Match } from "./find/find.ts";
 import { IMAGE_OFF, svgIcon } from "./svg-icon.ts";
 
-export interface LivePreviewOptions {
+interface LivePreviewOptions {
   /** 그림 src를 이 화면이 불러도 되는 URL로 바꾼다. null이면 실패 모양이다. */
   resolveImage?: (src: string) => string | null;
 }

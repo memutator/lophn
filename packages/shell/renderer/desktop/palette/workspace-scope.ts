@@ -19,9 +19,9 @@ import {
 } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
-export type WorkspaceAction = "launcher" | "lophn" | "terminal";
+type WorkspaceAction = "launcher" | "lophn" | "terminal";
 
-export type WorkspaceTarget =
+type WorkspaceTarget =
   | { readonly kind: "tab"; readonly pane: number; readonly key: string }
   /** id는 파일의 절대 경로다. 파일 행의 문서 id는 옛 모양이라 목록에서 찾는다. */
   | {
@@ -31,7 +31,7 @@ export type WorkspaceTarget =
   | { readonly kind: "context"; readonly id: string }
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
-export interface WorkspaceScopeInput {
+interface WorkspaceScopeInput {
   readonly view: WorkspaceView;
   readonly files: readonly FileRow[];
   /** 이 프로젝트의 context. 고르면 그 Context 탭이 열린다. */

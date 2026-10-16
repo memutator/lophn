@@ -8,7 +8,7 @@ export const rectSchema = z.object({
   height: z.number().int().min(1).max(32768),
 }).strict();
 const id = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
-export const overlayKindSchema = z.enum([
+const overlayKindSchema = z.enum([
   "menu",
   "popover",
   "tooltip",
@@ -19,7 +19,7 @@ export const overlayKindSchema = z.enum([
   "notification",
 ]);
 // palette 행 앞의 아이콘 이름. 그림은 overlay가 design에서 고른다.
-export const PALETTE_ICONS = [
+const PALETTE_ICONS = [
   "tab",
   "document",
   "file",
@@ -31,7 +31,7 @@ export const PALETTE_ICONS = [
   "terminal",
   "panel",
 ] as const;
-export const overlayModelSchema = z.object({
+const overlayModelSchema = z.object({
   label: z.string().max(256),
   text: z.string().max(4096).optional(),
   // palette만 쓴다. 켜면 overlay는 검색어를 거르지 않고 연 쪽에 query로 돌려준다.
@@ -90,7 +90,7 @@ export type Rect = z.infer<typeof rectSchema>;
 export type OverlayOpen = z.infer<typeof overlayOpenSchema>;
 export type OverlayIdentity = z.infer<typeof overlayCloseSchema>;
 export type OverlayModel = z.infer<typeof overlayModelSchema>;
-export type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
+type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
 export type PaletteIcon = typeof PALETTE_ICONS[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;
 /** `feedback`는 main이 연 [Report a problem] dialog의 draftRef다. shell renderer는 열 수 없다. */

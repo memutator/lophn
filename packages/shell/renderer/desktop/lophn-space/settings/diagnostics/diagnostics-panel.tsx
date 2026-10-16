@@ -9,7 +9,7 @@ import styles from "../settings.module.css";
 import { clockText, componentName } from "./model.ts";
 import type { DiagnosticsSource, DiagnosticsView } from "./source.ts";
 
-export interface DiagnosticsPanelProps {
+interface DiagnosticsPanelProps {
   source: DiagnosticsSource;
 }
 

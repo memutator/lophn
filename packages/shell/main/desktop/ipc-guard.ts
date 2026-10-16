@@ -2,7 +2,7 @@
 import type { ZodType } from "zod";
 
 // shell은 packages/base를 import하지 않는다. 경계 오류 모양만 여기서 맞춘다.
-export type IpcError = {
+type IpcError = {
   code: "invalid_input" | "forbidden";
   message: string;
 };
@@ -20,7 +20,7 @@ function err(error: IpcError): IpcResult<never> {
 }
 
 /** 직렬화한 입력의 상한. 이보다 크면 내용을 보기 전에 거절한다. */
-export const MAX_IPC_BYTES = 64 * 1024;
+const MAX_IPC_BYTES = 64 * 1024;
 
 export interface CallerFrame {
   /** subframe이면 부모가 있다. main frame만 통과한다. */
@@ -39,7 +39,7 @@ export interface IpcEvent {
   senderFrame: CallerFrame | null;
 }
 
-export interface RegisteredContents {
+interface RegisteredContents {
   contents: CallerContents;
   /** 이 webContents가 있을 수 있는 주소. scheme·host·path를 각각 비교한다. */
   origin: { scheme: string; host: string; path: string };

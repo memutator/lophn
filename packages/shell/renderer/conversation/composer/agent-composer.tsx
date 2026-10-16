@@ -38,7 +38,7 @@ import type { ContextChipView } from "./types.ts";
 
 export type { ContextChipView } from "./types.ts";
 
-export interface AgentComposerProps {
+interface AgentComposerProps {
   /** model 단추·picker와 `/` 명령 창이 읽는 통로. */
   source: Pick<
     AgentTabSource,

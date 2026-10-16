@@ -35,7 +35,7 @@ import { RegisterDialog } from "./register-dialog.tsx";
 import type { LauncherSource, ProjectCard as Card } from "./source.ts";
 import styles from "./launcher.module.css";
 
-export interface LauncherProps {
+interface LauncherProps {
   source: CoreSource;
   /** 확인 시각의 표시. 테스트가 고정한다. */
   formatTime?: (confirmedAt: number) => string;

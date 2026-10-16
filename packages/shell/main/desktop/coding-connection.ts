@@ -18,7 +18,7 @@ import {
 // shell tsc는 protocol의 base를 따라가지 못한다. 감지 값 검사와 제품 표(label, 맡길 수 있는지)는 wiring이
 // protocol의 `harnessDetectionSchema`·`HARNESS_ADAPTERS`·`canLaunch`·`canDeliverMessages`로 만들어 넣는다.
 // 이 module이 읽는 감지 칸만 여기 둔다. core에 알릴 때는 검사한 값 그대로 보낸다.
-export type Detection = {
+type Detection = {
   harness_id: HarnessName;
   discovery: HarnessDiscovery;
   observed_at: string;
@@ -59,7 +59,7 @@ const defaultExec: ExecFile = (file, args, options) =>
   });
 
 /** `lophn <args> --json`의 `data`. 실패하면 이유 한 줄. */
-export type CliRun = (
+type CliRun = (
   args: string[],
 ) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
 
@@ -104,7 +104,7 @@ export function childCliRunner(options: {
   };
 }
 
-export type HarnessSettingsDeps = {
+type HarnessSettingsDeps = {
   catalog: HarnessCatalog;
   /** main이 사람 credential로 core를 부른다(`CoreSession.internal`). 준비 전이면 null. */
   core(): {

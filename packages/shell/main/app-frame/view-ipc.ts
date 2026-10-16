@@ -28,7 +28,7 @@ import {
 } from "../desktop/ipc-guard.ts";
 import type { ViewVisibility } from "./visibility.ts";
 
-export interface ViewIpcDeps {
+interface ViewIpcDeps {
   registry: ContentsRegistry;
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
@@ -38,7 +38,7 @@ export interface ViewIpcDeps {
   >;
 }
 
-export interface ViewIpcHandlers {
+interface ViewIpcHandlers {
   openApp(
     event: IpcEvent,
     input: unknown,
@@ -149,7 +149,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
   };
 }
 
-export interface ViewIpcMain {
+interface ViewIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown>,

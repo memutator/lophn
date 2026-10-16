@@ -28,7 +28,7 @@ import type { TerminalEntry } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
 import styles from "./terminal.module.css";
 
-export interface TerminalTabProps {
+interface TerminalTabProps {
   tabKey: string;
   project: string;
   /** layout에 남은 시작 폴더. 복원한 탭을 사람이 다시 시작할 때 쓴다. */

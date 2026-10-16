@@ -9,7 +9,7 @@ import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import { openContext } from "./context.tsx";
 
-export const CONTEXTS_TAB_KEY = "contexts";
+const CONTEXTS_TAB_KEY = "contexts";
 
 /** Contexts 탭을 연다. 이미 열려 있으면 고르기만 한다. */
 export function openContexts(host: TabHost): void {

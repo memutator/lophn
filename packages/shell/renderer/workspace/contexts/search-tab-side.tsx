@@ -18,7 +18,7 @@ import type {
   SavedViewListItem,
 } from "./source.ts";
 
-export interface SearchSideProps {
+interface SearchSideProps {
   readonly context: string;
   readonly search: string | null;
   readonly savedView: string | null;

@@ -16,14 +16,14 @@ import {
 } from "./model.ts";
 import styles from "./terminal.module.css";
 
-export type BannerState =
+type BannerState =
   | { kind: "ended"; ending: Ending; exitCode: number | null }
   | { kind: "not_started" }
   /** coding 탭이 끝났다. 다시 시작은 없고 다음 맡기기가 새 session을 시작한다. */
   | { kind: "session_ended" }
   | { kind: "refused"; reason: Refusal };
 
-export interface ExitBannerProps {
+interface ExitBannerProps {
   state: BannerState;
   /** 사람이 누를 때만 새 shell을 시작한다. 없으면 버튼을 두지 않는다. */
   onRestart?: () => void;

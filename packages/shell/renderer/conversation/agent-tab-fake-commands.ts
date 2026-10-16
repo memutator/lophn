@@ -28,7 +28,7 @@ function role(name: string, title: string, description: string) {
   } satisfies SlashEntryView;
 }
 
-export function skill(
+function skill(
   name: string,
   description: string,
   skillOrigin: SlashEntryView["skillOrigin"] = null,
@@ -101,15 +101,15 @@ export const REPAIR_APP = role(
   "Find and fix what broke in an app",
 );
 
-export const EVAL_METRICS = skill(
+const EVAL_METRICS = skill(
   "eval-metrics",
   "Compute pass rate and regressions",
 );
-export const RELEASE_NOTES = skill(
+const RELEASE_NOTES = skill(
   "release-notes",
   "Draft release notes from merged changes",
 );
-export const WEEKLY_REPORT = skill(
+const WEEKLY_REPORT = skill(
   "weekly-report",
   "Write the weekly eval report",
 );

@@ -7,7 +7,7 @@ import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
-export interface AppFacts {
+interface AppFacts {
   readonly name: string;
   /** 지금 채택된 판. 아직 없으면 null이다. */
   readonly release: string | null;
@@ -20,7 +20,7 @@ export type AppRead =
   | { readonly ok: false; readonly code: "not_found" | "unavailable" };
 
 /** blueprint가 선언한 화면 하나. */
-export interface AppScreen {
+interface AppScreen {
   readonly key: string;
   readonly label: string;
   readonly sizes: readonly ("full" | "panel" | "card")[];

@@ -5,7 +5,7 @@ import {
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
 
-export interface FolderTransport {
+interface FolderTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 

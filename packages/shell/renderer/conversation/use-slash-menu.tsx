@@ -17,7 +17,7 @@ import {
   slashQuery,
 } from "./slash-menu/slash-menu.tsx";
 
-export interface SlashMenuInput {
+interface SlashMenuInput {
   source: Pick<AgentTabSource, "commands">;
   session: string | null;
   /** 입력칸의 글. */
@@ -30,7 +30,7 @@ export interface SlashMenuInput {
   onProblem: () => void;
 }
 
-export interface SlashMenuControl {
+interface SlashMenuControl {
   /** composer 위에 놓을 메뉴. 닫혀 있으면 null이다. */
   menu: ReactNode | null;
   /** composer를 감싼 곳의 keydown. 입력칸에서 온 위아래·Esc만 본다. */

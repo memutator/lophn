@@ -29,7 +29,7 @@ function allowLabel(choice: RequestChoice): string {
   }
 }
 
-export interface ApprovalCardProps {
+interface ApprovalCardProps {
   /** 요청한 agent의 이름. 거절 이유가 이 agent에게 간다. */
   agent: string;
   request: ApprovalCardRequest;

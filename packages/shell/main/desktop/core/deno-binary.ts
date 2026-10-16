@@ -4,7 +4,7 @@
 
 import { packagedInstall } from "../paths.ts";
 
-export interface BinaryResolutionPort {
+interface BinaryResolutionPort {
   isPackaged: boolean;
   resourcesPath?: string;
 }

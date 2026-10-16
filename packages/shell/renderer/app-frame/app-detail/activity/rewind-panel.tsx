@@ -17,9 +17,9 @@ import type {
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 
-export type RewindStage = "confirm" | "running" | "done" | "conflict";
+type RewindStage = "confirm" | "running" | "done" | "conflict";
 
-export interface RewindPanelProps {
+interface RewindPanelProps {
   app: string;
   name: string;
   /** 이 호출 직전으로 돌아간다. */

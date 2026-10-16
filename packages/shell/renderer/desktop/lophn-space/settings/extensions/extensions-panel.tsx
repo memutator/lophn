@@ -27,7 +27,7 @@ import type {
 } from "../agents/settings-source.ts";
 import styles from "./extensions.module.css";
 
-export interface ExtensionsPanelProps {
+interface ExtensionsPanelProps {
   source: AgentsSettingsSource;
 }
 

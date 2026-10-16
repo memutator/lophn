@@ -24,7 +24,7 @@ export const VIEW_REOPEN_CHANNEL = "shell:view-reopen";
 export const VIEW_STATE_CHANNEL = "shell:view-state";
 
 // 창 본문 경계 안의 정수 rectangle. renderer는 CSS pixel로 보내고 main이 창 DIP로 바꾼다.
-export const viewBoundsSchema = z.object({
+const viewBoundsSchema = z.object({
   x: z.number().int(),
   y: z.number().int(),
   width: z.number().int().min(0),
@@ -32,7 +32,7 @@ export const viewBoundsSchema = z.object({
 }).strict();
 
 // 세션 앱 카드의 message·block 표시 참조. 카드만 싣는다(contracts appViewCardSchema).
-export const appViewCardSchema = z.object({
+const appViewCardSchema = z.object({
   message: z.string().regex(new RegExp(`^msg_${ULID}$`)),
   block: z.string().regex(/^[a-z0-9_-]{1,64}$/),
 }).strict();
@@ -82,17 +82,15 @@ export const appFrameViewStateSchema = z.object({
   viewHealth: z.enum(["ok", "unresponsive", "crashed"]).optional(),
 }).refine((value) => value.mode === "preview" || value.release !== null);
 
-export type ViewBounds = z.infer<typeof viewBoundsSchema>;
 export type AppViewOpen = z.infer<typeof appViewOpenSchema>;
-export type AppViewCard = z.infer<typeof appViewCardSchema>;
-export type ViewBoundsRequest = z.infer<typeof viewBoundsRequestSchema>;
-export type ViewProjectRequest = z.infer<typeof viewProjectRequestSchema>;
-export type ViewsHidden = z.infer<typeof viewsHiddenSchema>;
-export type ViewCloseRequest = z.infer<typeof viewCloseRequestSchema>;
+type ViewBoundsRequest = z.infer<typeof viewBoundsRequestSchema>;
+type ViewProjectRequest = z.infer<typeof viewProjectRequestSchema>;
+type ViewsHidden = z.infer<typeof viewsHiddenSchema>;
+type ViewCloseRequest = z.infer<typeof viewCloseRequestSchema>;
 export type AppFrameViewState = z.infer<typeof appFrameViewStateSchema>;
 export type VisibilityResult = { generation: number };
 
-export type ViewErrorCode =
+type ViewErrorCode =
   | "invalid_input"
   | "forbidden"
   | "conflict"

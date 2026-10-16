@@ -14,7 +14,7 @@ import { parseAppUrl } from "./app-protocol.ts";
 import type { BoundView } from "./registry.ts";
 import { appHostLabel } from "./session-policy.ts";
 
-export interface AppIpcHost {
+interface AppIpcHost {
   handle(
     channel: string,
     listener: (event: unknown, input: unknown) => Promise<unknown>,
@@ -24,7 +24,7 @@ export interface AppIpcHost {
   removeAllListeners(channel: string): void;
 }
 
-export interface AppIpcDeps {
+interface AppIpcDeps {
   /** webContents id의 지금 view(registry.senderView). */
   view(contentsId: number): BoundView | undefined;
   call(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
@@ -41,7 +41,7 @@ function isMainFrame(event: IpcEvent): CallerFrame | undefined {
 }
 
 /** sender가 살아 있는 앱 view의 main frame이고 그 view의 screen 주소일 때만 view를 돌려준다. */
-export function senderView(
+function senderView(
   lookup: AppIpcDeps["view"],
   value: unknown,
 ): BoundView | undefined {

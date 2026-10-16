@@ -16,12 +16,9 @@ import type {
   VersionView,
 } from "../source.ts";
 
-export const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
-export const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
-export const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
+const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
+const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
 
-export const NOW = new Date("2026-10-15T15:00:00");
-export const now = () => NOW;
 
 const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
@@ -43,10 +40,10 @@ const RELEASES: readonly ReleaseCard[] = [
   release(R5, 5, "9d04ac1", 3, "2026-10-08T09:40:00", "2026-10-12T10:05:00"),
 ];
 
-export type ActivationFake = "applied" | "applying" | "failed";
-export type RewindFake = "applied" | "conflict" | "pending";
+type ActivationFake = "applied" | "applying" | "failed";
+type RewindFake = "applied" | "conflict" | "pending";
 
-export interface FakeOptions {
+interface FakeOptions {
   /** Version 탭이 보이는 상태. 기본은 applied. */
   activation?: ActivationFake;
   /** 거두기 정리. pending이면 요청 뒤 정리 중으로 남고 finishCleanup()으로 끝낸다. */
@@ -65,8 +62,8 @@ export interface FakeOptions {
 
 export const GRANT_HOST = "grt_01h455vb4pex5v6nkc6gd5fd01";
 export const GRANT_SECRET = "grt_01h455vb4pex5v6nkc6gd5fd02";
-export const GRANT_FILE = "grt_01h455vb4pex5v6nkc6gd5fd03";
-export const GRANT_LOOKUP = "grt_01h455vb4pex5v6nkc6gd5fd04";
+const GRANT_FILE = "grt_01h455vb4pex5v6nkc6gd5fd03";
+const GRANT_LOOKUP = "grt_01h455vb4pex5v6nkc6gd5fd04";
 export const GRANT_RESERVE = "grt_01h455vb4pex5v6nkc6gd5fd05";
 
 const YOU: Caller = { kind: "person" };
@@ -108,10 +105,10 @@ function row(
   };
 }
 
-export const PHRONER = "prj_01h455vb4pex5v6nkc6gd5fd01";
-export const GROCERY = "prj_01h455vb4pex5v6nkc6gd5fd02";
+const PHRONER = "prj_01h455vb4pex5v6nkc6gd5fd01";
+const GROCERY = "prj_01h455vb4pex5v6nkc6gd5fd02";
 
-export const ACTIVITY: readonly ActivityRow[] = [
+const ACTIVITY: readonly ActivityRow[] = [
   row(
     "inv_41",
     "2026-10-15T14:41:00",

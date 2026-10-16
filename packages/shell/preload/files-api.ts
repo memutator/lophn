@@ -17,7 +17,7 @@ import {
   type FilesApi,
 } from "../ipc/files.ts";
 
-export interface FilesTransport {
+interface FilesTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   send(channel: string, input: unknown): void;
   on(

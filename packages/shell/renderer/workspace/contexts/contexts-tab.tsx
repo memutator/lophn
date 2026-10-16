@@ -19,7 +19,7 @@ import { cardRows } from "./contexts-tab-rows.ts";
 import { errorReason } from "./error-reason.ts";
 import type { ContextListItem, ContextsSource } from "./source.ts";
 
-export interface ContextsTabProps {
+interface ContextsTabProps {
   /** "Contexts in phroner"처럼 제목에 쓰는 프로젝트 이름. */
   readonly projectTitle: string;
   readonly project: string;

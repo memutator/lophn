@@ -19,11 +19,11 @@ import type { SaveState } from "./save-state.ts";
 import styles from "./view-bar.module.css";
 
 /** CommandOrControl+E를 이 OS의 글자로 보인다. */
-export function editShortcut(): readonly string[] {
+function editShortcut(): readonly string[] {
   return currentPlatform() === "mac" ? ["⌘", "E"] : ["Ctrl", "E"];
 }
 
-export interface ViewBarProps {
+interface ViewBarProps {
   /** 왼쪽 한 줄. */
   lead: ReactNode;
   children?: ReactNode;
@@ -38,7 +38,7 @@ export function ViewBar({ lead, children }: ViewBarProps) {
   );
 }
 
-export interface FileMetaProps {
+interface FileMetaProps {
   outside: boolean;
   /** 파일 종류와 크기 같은 짧은 정보. */
   meta: string | null;
@@ -63,7 +63,7 @@ export function FileMeta({ outside, meta, line }: FileMetaProps) {
   );
 }
 
-export interface SaveMarkProps {
+interface SaveMarkProps {
   state: SaveState;
   /** 충돌 표시를 누르면 충돌 toast를 다시 보인다. */
   onConflict?: () => void;
@@ -95,7 +95,7 @@ export function SaveMark({ state, onConflict, onRetry }: SaveMarkProps) {
   );
 }
 
-export interface FileActionsProps {
+interface FileActionsProps {
   kind: FileKind;
   /** 글 파일만 저장 상태가 있다. 이미지와 pdf는 보기만 한다. */
   state: SaveState | null;

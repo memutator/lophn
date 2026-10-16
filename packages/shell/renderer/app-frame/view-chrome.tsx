@@ -36,7 +36,7 @@ const CONNECTION = {
   },
 } as const satisfies Record<Connection, unknown>;
 
-export interface ViewChromeProps {
+interface ViewChromeProps {
   /** 사람이 지은 앱 이름. */
   name: string;
   mode: "live" | "preview";

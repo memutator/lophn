@@ -5,7 +5,6 @@ import { z } from "zod";
 
 export const CODING_CHANNEL = "shell:coding";
 
-
 export const HARNESS_IDS = [
   "claude",
   "codex",
@@ -58,7 +57,7 @@ export interface HarnessSettingsView {
   readonly executable?: string | null;
 }
 
-export type CodingFailureCode =
+type CodingFailureCode =
   | "invalid_input"
   | "forbidden"
   | "unavailable"

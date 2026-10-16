@@ -284,7 +284,7 @@ export function DefaultsTable() {
   );
 }
 
-export interface GrantsPanelProps {
+interface GrantsPanelProps {
   readonly agentName: string;
   readonly entries: readonly AgentGrantEntry[];
   readonly catalog: GrantCatalog;

@@ -16,7 +16,7 @@ const layout = z.strictObject({
   }).optional(),
 });
 
-export type TerminalLayout = z.infer<typeof layout>;
+type TerminalLayout = z.infer<typeof layout>;
 export const terminalKind = defineTabKind<TerminalLayout>({
   kind: "terminal",
   layout,

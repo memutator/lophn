@@ -16,7 +16,7 @@ import { addFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
 
-export interface RegisterDialogProps {
+interface RegisterDialogProps {
   open: boolean;
   source: RegisterSource;
   onClose: () => void;

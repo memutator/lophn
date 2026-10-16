@@ -41,7 +41,7 @@ function codingOf(
  * coding 탭의 아이콘(harness vendor). 탭 줄이 kind의 고정 `icon` 대신 탭마다 부를 수 있게
  * 낸다. coding 탭이 아니거나 모르는 harness면 null이라 kind의 icon을 쓴다.
  */
-export function codingTabIcon(tab: TabItem): ReactNode | null {
+function codingTabIcon(tab: TabItem): ReactNode | null {
   const coding = codingOf(tab);
   const vendor = coding === null ? undefined : vendorOf(coding.product);
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;

@@ -8,9 +8,9 @@ import { t } from "@lophn/wording";
 import styles from "./thread-scroll.module.css";
 
 /** 맨 아래로 보는 여유. 이만큼 안이면 새 말을 따라 내려간다. */
-export const BOTTOM_SLACK = 24;
+const BOTTOM_SLACK = 24;
 
-export function atBottom(
+function atBottom(
   scrollTop: number,
   scrollHeight: number,
   clientHeight: number,
@@ -18,7 +18,7 @@ export function atBottom(
   return scrollHeight - scrollTop - clientHeight <= BOTTOM_SLACK;
 }
 
-export interface ThreadScrollProps {
+interface ThreadScrollProps {
   /** 줄 수. 늘어나면 새 말이 온 것이다. */
   count: number;
   /** 열 때 돌아갈 읽던 위치. null이면 맨 아래다. */

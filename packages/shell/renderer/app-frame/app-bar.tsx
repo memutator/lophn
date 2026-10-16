@@ -15,7 +15,7 @@ import {
 } from "../desktop/lophn-space/apps/model.ts";
 import styles from "./app-bar.module.css";
 
-export interface AppBarProps {
+interface AppBarProps {
   /** 사람이 지은 앱 이름. 읽기 전에는 없다. */
   name: string | null;
   status: AppStatus | null;

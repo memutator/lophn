@@ -72,7 +72,7 @@ function find(path: string): readonly Node[] | undefined {
   return nodes;
 }
 
-export interface FakeWorkspaceOptions {
+interface FakeWorkspaceOptions {
   /** 디스크에서 사라진 것으로 보일 연결 폴더 경로. */
   readonly missing?: readonly string[];
   /** 읽기에 실패하는 폴더 경로. */

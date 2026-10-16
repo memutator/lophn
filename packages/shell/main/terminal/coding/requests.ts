@@ -17,21 +17,21 @@ import type { Supervisor } from "../supervisor.ts";
 
 type Failure = "spawn_failed" | "no_terminal" | "folder_missing" | "host_lost";
 
-export type ResultBody =
+type ResultBody =
   | { request: string; ok: true; terminal_ref?: string }
   | { request: string; ok: false; reason: Failure };
 
-export type ExitedBody = {
+type ExitedBody = {
   session: string;
   exit_code: number | null;
   reason: "exited" | "killed" | "host_lost";
 };
 
-export type CliRun = (
+type CliRun = (
   args: string[],
 ) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
 
-export type CodingTerminalDeps = {
+type CodingTerminalDeps = {
   supervisor: Pick<Supervisor, "request" | "on" | "runtimes">;
   /** 사람이 그 탭에 focus해 있지 않을 때 풀린다. */
   focus: { whenFree(terminalRef: string): Promise<void> };

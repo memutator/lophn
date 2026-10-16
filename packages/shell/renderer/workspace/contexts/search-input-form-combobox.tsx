@@ -8,7 +8,7 @@ import { t } from "@lophn/wording";
 import type { OptionValue, PickOption } from "./source.ts";
 import styles from "./search-input-form.module.css";
 
-export interface PickComboboxProps {
+interface PickComboboxProps {
   /** label[for]가 가리키는 칸의 id. */
   readonly inputId: string;
   readonly options: readonly PickOption[];

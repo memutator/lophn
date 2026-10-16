@@ -12,7 +12,7 @@ import type {
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import styles from "./project-sidebar.module.css";
 
-export interface AgentPanelProps {
+interface AgentPanelProps {
   view: AgentPanelView;
   onAgent: (agent: SidebarAgent) => void;
   /** hover의 +. 주지 않으면 agent 줄과 같다. */

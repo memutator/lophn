@@ -14,7 +14,7 @@ import { t } from "@lophn/wording";
 import { useViewCover } from "./embedded-view.tsx";
 import styles from "./project-picker.module.css";
 
-export interface ProjectChoice {
+interface ProjectChoice {
   readonly id: string;
   readonly name: string;
   /** 목록 줄의 보조 글. 폴더 경로. */
@@ -32,7 +32,7 @@ type Loaded =
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly projects: readonly ProjectChoice[] };
 
-export interface ProjectPickerProps {
+interface ProjectPickerProps {
   appName: string;
   projects: ProjectsRead;
   onPick: (project: string) => void;

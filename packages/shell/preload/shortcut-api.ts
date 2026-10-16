@@ -10,7 +10,7 @@ import {
   WINDOW_SHORTCUT_CHANNEL,
 } from "../ipc/shortcuts.ts";
 
-export interface ShortcutTransport {
+interface ShortcutTransport {
   on(
     channel: string,
     callback: (event: unknown, payload: unknown) => void,

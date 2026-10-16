@@ -12,7 +12,7 @@ import {
 export const PROVIDER_CONCERN = "lophn-agent/providers";
 export const PROVIDER_DISCONNECT = "provider_disconnect";
 /** core가 handle 사용을 비교하는 결정 이름(= command route 이름). */
-export const DISCONNECT_PROVIDER = "DisconnectProvider";
+const DISCONNECT_PROVIDER = "DisconnectProvider";
 
 /** `DisconnectProvider`의 binding. */
 const BINDING = ["provider"] as const;

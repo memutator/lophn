@@ -8,7 +8,7 @@ import type {
 } from "../../ipc/secret-input.ts";
 import styles from "./secret-input.module.css";
 
-export interface SecretInputProps {
+interface SecretInputProps {
   purpose: SecretInputPurpose;
   /** 대상 이름: 앱, provider, MCP server. */
   subject: string;

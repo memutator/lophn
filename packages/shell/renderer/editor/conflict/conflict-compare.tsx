@@ -6,7 +6,7 @@ import { t } from "@lophn/wording";
 import { compareLines } from "./compare.ts";
 import styles from "./conflict-compare.module.css";
 
-export interface ConflictCompareProps {
+interface ConflictCompareProps {
   /** 지금 디스크 글. */
   disk: string;
   /** 편집기의 글(아직 저장하지 않았다). */

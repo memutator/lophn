@@ -10,11 +10,11 @@ import { t } from "@lophn/wording";
 import { useViewCover } from "./embedded-view.tsx";
 import styles from "./ops-panel-frame.module.css";
 
-export const OPS_PANEL_WIDTH = 720;
+const OPS_PANEL_WIDTH = 720;
 /** 이 창 폭보다 좁으면 패널은 본문을 덮는다. */
-export const OPS_PANEL_DOCK_MIN = 1024;
+const OPS_PANEL_DOCK_MIN = 1024;
 
-export type OpsPanelPlacement = "hidden" | "docked" | "overlay";
+type OpsPanelPlacement = "hidden" | "docked" | "overlay";
 
 export function opsPanelPlacement(
   open: boolean,
@@ -24,7 +24,7 @@ export function opsPanelPlacement(
   return windowWidth < OPS_PANEL_DOCK_MIN ? "overlay" : "docked";
 }
 
-export interface OpsPanelFrameProps {
+interface OpsPanelFrameProps {
   placement: OpsPanelPlacement;
   onClose: () => void;
   children?: ReactNode;

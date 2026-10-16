@@ -9,7 +9,7 @@ import { agentByRole } from "../sidebar/panel-sessions.ts";
 import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 
 /** 열 때의 최신 값. 위반을 읽는 동안 작업대가 바뀌므로 값이 아니라 읽는 함수로 받는다. */
-export interface ProjectManagerEnv {
+interface ProjectManagerEnv {
   readonly project: string;
   readonly host: () => TabHost;
   readonly sessions: () => readonly SessionEntry[];

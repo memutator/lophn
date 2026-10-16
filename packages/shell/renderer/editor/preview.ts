@@ -56,7 +56,7 @@ function selections(state: EditorState): Selection[] {
 }
 
 /** 선택이 [from, to]에 닿는지. 끝을 포함해 바로 뒤 커서도 안으로 센다. */
-export function touches(
+function touches(
   ranges: readonly Selection[],
   from: number,
   to: number,
@@ -65,7 +65,7 @@ export function touches(
 }
 
 /** 파일 맨 위 frontmatter(`---` … `---`) 범위. */
-export function frontmatterRange(
+function frontmatterRange(
   doc: Text,
 ): { from: number; to: number } | null {
   if (doc.lines < 2 || doc.line(1).text.trimEnd() !== "---") return null;
@@ -82,7 +82,7 @@ export function frontmatterRange(
  * 단순 YAML frontmatter의 key/value. 중첩·여러 줄 값은 첫 줄 원문으로 보인다. 두 열은
  * 보기일 뿐이고 원문은 click 한 번 거리다.
  */
-export function frontmatterFields(source: string): [string, string][] {
+function frontmatterFields(source: string): [string, string][] {
   const out: [string, string][] = [];
   for (const line of source.split("\n").slice(1, -1)) {
     const match = /^([A-Za-z0-9_][\w.-]*)\s*:\s*(.*)$/.exec(line);
@@ -102,7 +102,7 @@ function unquote(value: string): string {
 }
 
 /** 표 원문의 칸. 두 번째 줄은 정렬로 읽는다. */
-export function parseTable(
+function parseTable(
   source: string,
 ): { rows: string[][]; align: Align[] } {
   const lines = source.split("\n").filter((line) => line.trim() !== "");

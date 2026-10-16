@@ -148,4 +148,3 @@ export function createOverlay(
   };
 }
 
-export type Overlay = ReturnType<typeof createOverlay>;

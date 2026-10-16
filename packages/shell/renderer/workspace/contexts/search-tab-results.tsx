@@ -12,7 +12,7 @@ import type {
   SearchInputValues,
 } from "./source.ts";
 
-export interface SearchTabResultsProps {
+interface SearchTabResultsProps {
   readonly source: ContextsSource;
   readonly context: string;
   readonly search: DeclaredSearch;

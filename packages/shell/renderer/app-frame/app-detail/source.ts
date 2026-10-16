@@ -20,7 +20,7 @@ export interface ReleaseCard {
   readonly replacedAt: string | null;
 }
 
-export type StepKey = "hold" | "drain" | "stop" | "migrate" | "start";
+type StepKey = "hold" | "drain" | "stop" | "migrate" | "start";
 
 export interface ActivationStep {
   readonly key: StepKey;
@@ -30,7 +30,7 @@ export interface ActivationStep {
 }
 
 /** 줄에 있거나 도는 activation. 단계를 모르면 steps는 모두 wait이다. */
-export interface Applying {
+interface Applying {
   readonly id: string;
   readonly number: number;
   readonly phase: "waiting_approval" | "queued" | "running";
@@ -38,7 +38,7 @@ export interface Applying {
 }
 
 /** 마지막 시도가 실패한 release. 이전 release는 계속 응답한다. */
-export interface ApplyFailure {
+interface ApplyFailure {
   readonly id: string;
   readonly number: number;
   readonly triedAt: string | null;
@@ -201,7 +201,7 @@ export interface RewindPlanView {
   readonly blocked: { readonly invocation: string } | null;
 }
 
-export interface RewindProgress {
+interface RewindProgress {
   /** 끝나기를 기다리는 호출. */
   readonly running: readonly {
     readonly invocation: string;
@@ -217,7 +217,7 @@ export interface RewindResult {
 }
 
 /** 앱 공간이 연 preview. 닫을 때 nonce로 가리킨다. */
-export interface StartedPreview {
+interface StartedPreview {
   readonly nonce: string;
 }
 

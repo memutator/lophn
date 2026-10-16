@@ -10,8 +10,8 @@ export const SAVED_VIEW_ID = /^viw_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 export const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
 /** 입력은 16개 이하, 합쳐 4KiB 이하다. 넘으면 저장하지 않는다. */
-export const INPUTS_MAX = 16;
-export const INPUTS_MAX_BYTES = 4096;
+const INPUTS_MAX = 16;
+const INPUTS_MAX_BYTES = 4096;
 
 export function isSubTab(value: unknown): value is SubTab {
   return typeof value === "string" &&

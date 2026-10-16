@@ -43,20 +43,20 @@ export type StreamFetch = (
 >;
 
 /** file route의 응답. 상태가 200이 아니어도 core가 준 그대로다. */
-export interface FileStream {
+interface FileStream {
   status: number;
   headers: Headers;
   body: ReadableStream<Uint8Array> | null;
 }
 
 /** renderer가 `file` kind로 받는 byte 응답. content type은 core가 정한 것이다. */
-export interface FileBytes {
+interface FileBytes {
   bytes: Uint8Array;
   contentType: string;
 }
 
 /** renderer가 `file` kind로 한 번에 받는 byte 상한. */
-export const FILE_REPLY_MAX_BYTES = 32 * 1024 * 1024;
+const FILE_REPLY_MAX_BYTES = 32 * 1024 * 1024;
 
 export interface CoreSession {
   readonly apiPort: number;
@@ -118,7 +118,7 @@ export interface CoreSession {
   ): Promise<CallResult>;
 }
 
-export interface SessionInput {
+interface SessionInput {
   apiPort: number;
   coreEpoch: string;
   userToken: string;

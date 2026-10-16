@@ -72,7 +72,7 @@ export type TerminalFocus = {
 
 export type TerminalFocusSession = { session: string };
 
-export type TerminalStateName = "starting" | "running" | "exited" | "unknown";
+type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
 export type TerminalFailure =
   | "no_folder"
@@ -85,10 +85,10 @@ export type TerminalFailure =
   | "no_terminal";
 
 /** coding TUI의 첫 prompt 전달 결과. argv는 `none`, 입력 전달은 pending에서 셋 중 하나로 끝난다. */
-export type PromptOutcome = "none" | "pending" | "delivered" | "not_delivered";
+type PromptOutcome = "none" | "pending" | "delivered" | "not_delivered";
 
 /** coding session의 터미널 탭 표지. coding 탭은 제목으로 구별하고 끝나면 끝난 상태로만 보인다. */
-export type TerminalCodingSession = {
+type TerminalCodingSession = {
   session: string;
   app: string;
   ticket: string;
@@ -128,7 +128,7 @@ export type TerminalOutput = {
 
 export type TerminalFolderChoice = { folder_ref: string; path: string };
 
-export type TerminalReject = {
+type TerminalReject = {
   ok: false;
   reason: TerminalFailure;
   message: string;
@@ -136,7 +136,7 @@ export type TerminalReject = {
   folders?: TerminalFolderChoice[];
 };
 
-export type TerminalAccept = { ok: true; runtime: TerminalRuntime };
+type TerminalAccept = { ok: true; runtime: TerminalRuntime };
 export type TerminalReply = TerminalAccept | TerminalReject;
 
 /**
@@ -179,7 +179,6 @@ export interface TerminalApi {
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
 }
 
-export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
 export const TERMINAL_STATE_CHANNEL = "shell:terminal-state";
 export const TERMINAL_OPEN_CHANNEL = "shell:terminal-open";
 export const TERMINAL_INPUT_CHANNEL = "shell:terminal-input";

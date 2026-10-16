@@ -82,9 +82,9 @@ export function phaseOfReply(reply: TerminalReply): Phase {
   return { kind: "refused", reason: refusalOf(reply.reason) };
 }
 
-export type StatusTone = "neutral" | "warning" | "serious" | "critical";
+type StatusTone = "neutral" | "warning" | "serious" | "critical";
 
-export type EndingWording =
+type EndingWording =
   | { key: "terminal.status.exited"; values: { code: string } }
   | {
     key:
@@ -147,7 +147,7 @@ export const REFUSAL_KEY: Record<
   unavailable: "terminal.error.unavailable",
 };
 
-export interface OutputStep {
+interface OutputStep {
   /** xterm에 이 순서대로 쓴다. */
   readonly writes: readonly string[];
   /** 다음 snapshot의 after_seq. */

@@ -4,12 +4,12 @@
 /** launcher가 첫 argv에 창 없는 시작을 요청할 때 쓰는 실행 intent. */
 export const TRAY_INTENT = "--tray";
 
-export type LaunchMode = {
+type LaunchMode = {
   /** true면 main과 core만 띄우고 창을 열지 않는다. */
   tray: boolean;
 };
 
-export interface LaunchModeInput {
+interface LaunchModeInput {
   argv?: readonly string[];
   /**
    * OS가 로그인 항목으로 띄웠는지(macOS). macOS login item은 argv를 넘기지 못해
@@ -38,32 +38,3 @@ function isArgvList(
     input.every((item) => typeof item === "string");
 }
 
-export interface RunningNoticeTarget {
-  /** 이미 실행 중임을 알린다. 있다면 OS notification 자리다. */
-  show(title: string, body: string): void;
-}
-
-export interface RunningNoticeOptions {
-  /** notification이 없을 때 이유만 log로 남긴다. */
-  show?: (title: string, body: string) => void;
-  log?: (message: string) => void;
-}
-
-const TITLE = "lophn";
-const BODY = "이미 실행 중입니다";
-
-/** 같은 데이터 root에 main이 이미 있을 때 실행 중이라고 알리고 끝난다. */
-export function notifyAlreadyRunning(options: RunningNoticeOptions = {}): void {
-  const show = options.show;
-  if (show === undefined) {
-    (options.log ?? defaultLog)(
-      "notification이 없어 실행 중 안내를 log로 남긴다",
-    );
-    return;
-  }
-  show(TITLE, BODY);
-}
-
-function defaultLog(message: string): void {
-  console.log(`[lophn] ${message}`);
-}

@@ -17,7 +17,7 @@ export interface TerminalView {
 }
 
 /** 출력이 바꿔도 동작이 생기지 않게 먹는 OSC 번호. 8은 링크, 52는 clipboard다. */
-export const SWALLOWED_OSC = [8, 52] as const;
+const SWALLOWED_OSC = [8, 52] as const;
 
 interface XtermLike {
   readonly cols: number;
@@ -41,7 +41,7 @@ interface FitLike {
   fit(): void;
 }
 
-export interface XtermParts {
+interface XtermParts {
   Terminal: new (options: Record<string, unknown>) => XtermLike;
   FitAddon: new () => FitLike;
 }

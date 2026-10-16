@@ -12,7 +12,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./project-sidebar.module.css";
 
-export const RAIL_ACTIONS = [
+const RAIL_ACTIONS = [
   "terminal",
   "contexts",
   "saved",

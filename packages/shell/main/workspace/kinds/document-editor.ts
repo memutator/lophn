@@ -11,7 +11,7 @@ const layout = z.strictObject({
   read_position: readPositionSchema.optional(),
 });
 
-export type DocumentEditorLayout = z.infer<typeof layout>;
+type DocumentEditorLayout = z.infer<typeof layout>;
 
 export const documentEditorKind = defineTabKind<DocumentEditorLayout>({
   kind: "document_editor",

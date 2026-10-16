@@ -8,7 +8,7 @@ import type { ThreadHidden } from "../agent-tab-source.ts";
 import { itemLabel, reasonText } from "./text.ts";
 import styles from "./hidden-range.module.css";
 
-export interface HiddenRangeProps
+interface HiddenRangeProps
   extends Pick<ThreadHidden, "choice" | "count" | "restored" | "left"> {
   /** 숨긴 줄. 펼쳤을 때만 그린다. */
   children: ReactNode;

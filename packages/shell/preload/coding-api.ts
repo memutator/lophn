@@ -4,7 +4,7 @@ import {
   type CodingReply,
 } from "../ipc/coding.ts";
 
-export interface CodingTransport {
+interface CodingTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 

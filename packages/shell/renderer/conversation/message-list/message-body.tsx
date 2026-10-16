@@ -29,7 +29,7 @@ function Text({ text }: { text: string }): ReactElement {
   return <p className={styles.text}>{text}</p>;
 }
 
-export interface MessageBodyProps {
+interface MessageBodyProps {
   message: string;
   /** 확정 메시지 본문을 읽은 결과(ReadMessageBody). */
   body: BodyState | undefined;
@@ -103,7 +103,7 @@ export function MessageBody(
   );
 }
 
-export interface UserBodyProps extends MessageBodyProps {
+interface UserBodyProps extends MessageBodyProps {
   delivery: DeliveryLabel;
   /** 아직 확정되지 않은 말이다. */
   provisional: boolean;

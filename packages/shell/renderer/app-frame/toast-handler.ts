@@ -8,7 +8,7 @@ import {
   type ToastAction,
 } from "../desktop/connection/toasts/toast-actions.ts";
 
-export interface SpaceReactionHost {
+interface SpaceReactionHost {
   readonly app: string;
   /**
    * session이 있으면 이 앱의 agent session일 때 pane을 그 session으로 열고 true. session이 없으면 이 앱의

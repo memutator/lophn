@@ -10,7 +10,7 @@ import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
-export const AGENTS_TAB_KEY = "agents";
+const AGENTS_TAB_KEY = "agents";
 
 const BUILT_IN_KEYS = ["lophn", "project_manager", "app_engineer"];
 

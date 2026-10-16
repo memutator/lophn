@@ -8,9 +8,9 @@
 import type { CloseAnswer, FileCounts } from "../../ipc/files.ts";
 
 /** 답이 오기 전에 기다리는 한도(ms). */
-export const CLOSE_GUARD_TIMEOUT_MS = 15_000;
+const CLOSE_GUARD_TIMEOUT_MS = 15_000;
 
-export interface GuardTimer {
+interface GuardTimer {
   set(callback: () => void, ms: number): unknown;
   clear(handle: unknown): void;
 }
@@ -20,7 +20,7 @@ const realTimer: GuardTimer = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
-export interface CloseGuardOptions {
+interface CloseGuardOptions {
   /** 그 창의 renderer에 묻는다. request는 이 질문의 번호다. */
   send(request: number): void;
   log?: (message: string) => void;
@@ -138,14 +138,14 @@ export class CloseGuards {
   }
 }
 
-export interface ClosableWindow {
+interface ClosableWindow {
   onClose(listener: (event: { preventDefault(): void }) => void): void;
   close(): void;
   isDestroyed(): boolean;
 }
 
 /** 앱 끄기와 창 닫기 guard의 연결. */
-export interface QuitLink {
+interface QuitLink {
   /** tray Quit처럼 사람이 이미 확인한 끄기다. 묻지 않고 닫는다. */
   quitting(): boolean;
   /** 앱 끄기(OS 끄기·app.quit)가 이 닫기를 불렀다. guard가 막으면 끄기는 멈춘다. */

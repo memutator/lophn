@@ -9,9 +9,9 @@ import type {
   InstructionsPlace,
 } from "../../ipc/instructions.ts";
 
-export const INSTRUCTION_FILE_NAME = "LOPHN.md";
+const INSTRUCTION_FILE_NAME = "LOPHN.md";
 
-export interface InstructionsOptions {
+interface InstructionsOptions {
   /** 이 shell이 core에 준 data root. */
   dataRoot: string;
   /** project의 첫 등록 폴더. 없거나 활성이 아니면 null, core를 못 읽으면 던진다. */

@@ -16,7 +16,7 @@ import { webPreferences } from "../desktop/security.ts";
 import type { AppViewContents, AppViewHost, ViewBounds } from "./registry.ts";
 import type { AppSessionHandle } from "./session-policy.ts";
 
-export interface ElectronAppViewsInput {
+interface ElectronAppViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
   /** build가 dist에 낸 앱 preload(.cjs). */
   preload: string;

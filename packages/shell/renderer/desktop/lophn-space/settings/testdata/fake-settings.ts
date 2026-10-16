@@ -1,7 +1,6 @@
 // settings 화면 테스트의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. secret 값은 이
 // 통로에 없다: 보호 창 열기는 이름만 기록한다.
 import type {
-  ProviderRow,
   ServerRow,
   SettingEntry,
   SettingRejectReason,
@@ -10,23 +9,6 @@ import type {
   SettingsView,
   SourceResult,
 } from "../source.ts";
-
-export function provider(
-  id: string,
-  name: string,
-  options: Partial<Omit<ProviderRow, "id" | "name">> = {},
-): ProviderRow {
-  return {
-    id,
-    name,
-    definition: `${name.toLowerCase()}-def`,
-    way: "api_key",
-    state: "available",
-    reason: null,
-    revision: 4,
-    ...options,
-  };
-}
 
 /**
  * 선언한 설정 하나. 기본값을 주면 기본값이 있는 설정이고, 사람이 정한 값(chosen)을 주면 정한 설정이다.
@@ -78,7 +60,7 @@ export const SAMPLE_DECLARED: readonly SettingEntry[] = [
   }),
 ];
 
-export interface FakeSettingsOptions {
+interface FakeSettingsOptions {
   settings?: Partial<SettingsView>;
   settingsFail?: boolean;
   /** 선언한 설정. 없으면 대표 선언이다. */

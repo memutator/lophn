@@ -8,7 +8,7 @@ import { conversationIcons } from "../../icons/mod.ts";
 import { isBlank, type TermDraft } from "./context-glossary-model.ts";
 import styles from "./context-glossary.module.css";
 
-export interface GlossaryFieldsProps {
+interface GlossaryFieldsProps {
   readonly initial: TermDraft;
   readonly busy: boolean;
   readonly onSave: (draft: TermDraft) => void;

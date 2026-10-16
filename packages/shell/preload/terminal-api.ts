@@ -15,7 +15,7 @@ import {
   type TerminalRuntime,
 } from "../ipc/terminal.ts";
 
-export interface TerminalTransport {
+interface TerminalTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   on(
     channel: string,

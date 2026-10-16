@@ -12,16 +12,16 @@ import {
 import { encodeFrame, FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
-export const STOP_GRACE_MS = 5_000;
+const STOP_GRACE_MS = 5_000;
 
 /** hello가 이 안에 오지 않으면 core 시작이 실패다. */
-export const HELLO_TIMEOUT_MS = 30_000;
+const HELLO_TIMEOUT_MS = 30_000;
 
 // core 자신은 설치 코드·data root·loopback·고정 child만 연다.
 // loopback의 IPv6 주소는 Deno 규칙대로 대괄호가 필요하다.
-export const CORE_PERMISSION_FLAGS = ["--allow-sys=uid,gid,statfs"];
+const CORE_PERMISSION_FLAGS = ["--allow-sys=uid,gid,statfs"];
 
-export interface CoreSpawn {
+interface CoreSpawn {
   command: string;
   args: readonly string[];
   env: NodeJS.ProcessEnv;
@@ -42,12 +42,12 @@ export interface LaunchOptions {
  * Deno transpile cache. 설치 묶음은 `~/.cache/lophn/deno`다.
  * 지워도 data root는 그대로고 고정 의존성으로 다시 만든다.
  */
-export function packagedDenoDir(home: string = homedir()): string {
+function packagedDenoDir(home: string = homedir()): string {
   return join(home, ".cache", "lophn", "deno");
 }
 
 /** packaged core의 읽기·쓰기·환경·실행 권한. 일반 `--allow-all`·ffi·전체 환경 접근은 없다. */
-export function packagedPermissionFlags(
+function packagedPermissionFlags(
   options: LaunchOptions,
   denoDir: string,
 ): string[] {
@@ -64,7 +64,7 @@ export function packagedPermissionFlags(
 }
 
 /** `deno run <flags> packages/core/main/daemon/main.ts`. argv·env에 credential은 없다. */
-export function coreLaunch(options: LaunchOptions): CoreSpawn {
+function coreLaunch(options: LaunchOptions): CoreSpawn {
   const entry = join(
     options.repoRoot,
     "packages",
@@ -98,10 +98,10 @@ export function coreLaunch(options: LaunchOptions): CoreSpawn {
   };
 }
 
-export type CorePhase = "starting" | "ready" | "stopped";
+type CorePhase = "starting" | "ready" | "stopped";
 
 /** core가 hello 전에 `start_failed`로 알린 시작 실패. reason이 화면이 보일 이유를 가른다. */
-export type StartFailure = Extract<
+type StartFailure = Extract<
   CoreToMainMessage,
   { type: "start_failed" }
 >["reason"];
@@ -136,7 +136,7 @@ export interface CoreProcess {
   ended(): void;
 }
 
-export interface CoreChild {
+interface CoreChild {
   stdin: { write(bytes: Uint8Array): void };
   stdout: { on(event: "data", listener: (chunk: Uint8Array) => void): void };
   on(
@@ -147,7 +147,7 @@ export interface CoreChild {
 }
 
 /** 길이 prefix frame으로 hello를 받고, 명시 stop만 보낸다. */
-export function supervise(
+function supervise(
   child: CoreChild,
   timers: {
     setTimeout(fn: () => void, ms: number): unknown;
@@ -304,7 +304,7 @@ export function supervise(
   };
 }
 
-export interface SpawnedCore extends CoreProcess {
+interface SpawnedCore extends CoreProcess {
   readonly child: ChildProcess;
 }
 

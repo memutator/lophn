@@ -36,7 +36,7 @@ function selectable(kind: OverlayOpen["kind"]): boolean {
   return interactive(kind) || kind === "notification";
 }
 
-export const OVERLAY_URL = "lophn-shell://overlay/index.html";
+const OVERLAY_URL = "lophn-shell://overlay/index.html";
 export interface OverlayContents extends CallerContents {
   loadURL(url: string): Promise<void>;
   send(
@@ -53,7 +53,7 @@ export interface OverlayView {
   setVisible(visible: boolean): void;
   setBounds(bounds: Rect): void;
 }
-export interface OverlayOptions {
+interface OverlayOptions {
   shell: OverlayContents;
   registry: ContentsRegistry;
   host: ViewHost<OverlayView>;

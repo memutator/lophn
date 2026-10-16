@@ -193,7 +193,7 @@ function ownServers(definition: AgentDraft): McpRow[] {
   }));
 }
 
-export interface DefinitionFormProps {
+interface DefinitionFormProps {
   readonly detail: AgentDetail;
   readonly definition: AgentDraft;
   readonly issues: readonly AgentDefinitionIssue[];

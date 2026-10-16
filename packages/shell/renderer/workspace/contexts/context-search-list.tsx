@@ -10,7 +10,7 @@ import type { SearchTabState } from "./search-tab.tsx";
 import { useRead } from "./search-tab-read.ts";
 import type { ContextsSource } from "./source.ts";
 
-export interface ContextSearchListProps {
+interface ContextSearchListProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

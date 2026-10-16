@@ -4,12 +4,12 @@ import type { MessageKey } from "@lophn/wording";
 
 import type { AppearanceId, AppearanceValues } from "./source.ts";
 
-export interface AppearanceOption {
+interface AppearanceOption {
   readonly value: string;
   readonly label: MessageKey;
 }
 
-export interface AppearanceRow {
+interface AppearanceRow {
   readonly id: AppearanceId;
   /** 설정 선언의 key. */
   readonly settingKey: string;

@@ -115,7 +115,7 @@ function projectDocuments(
 }
 
 /** 파일이 놓인 등록 폴더와 그 폴더 기준 상대 경로. 어느 폴더 안도 아니면 null이다. */
-export function locateInFolders(
+function locateInFolders(
   path: string,
   folders: readonly { path: string }[],
 ): { folder: string; relative: string } | null {
@@ -131,14 +131,6 @@ export function locateInFolders(
   return hit === undefined
     ? null
     : { folder: hit.folder, relative: path.slice(hit.root.length + 1) };
-}
-
-/** 등록 폴더 기준 상대 경로. 어느 폴더 안도 아니면 null이다. */
-export function relativeToFolders(
-  path: string,
-  folders: readonly { path: string }[],
-): string | null {
-  return locateInFolders(path, folders)?.relative ?? null;
 }
 
 const NO_LAYOUT: LayoutRead = { ok: false, message: "layout is unavailable" };

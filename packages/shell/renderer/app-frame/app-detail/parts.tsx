@@ -6,7 +6,7 @@ import { Toast } from "@lophn/design/components";
 import type { Effect } from "./source.ts";
 import styles from "./app-detail.module.css";
 
-export type PillTone =
+type PillTone =
   | "plain"
   | "write"
   | "external"

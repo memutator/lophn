@@ -20,7 +20,7 @@ import styles from "./project-sidebar.module.css";
 export type FileAction = "open" | "rename" | "delete";
 
 /** tree의 루트가 될 수 있는 폴더: 연결 폴더와 그 하위 폴더. */
-export interface RootChoice {
+interface RootChoice {
   /** 절대 경로. */
   readonly path: string;
   /** 하위 폴더면 속한 연결 폴더의 이름. */
@@ -167,7 +167,7 @@ function Row(
   );
 }
 
-export interface ExplorerProps {
+interface ExplorerProps {
   source: WorkspaceSource;
   folders: readonly ProjectFolderView[];
   /** 지금 편집기에서 열려 있는 파일의 절대 경로. */

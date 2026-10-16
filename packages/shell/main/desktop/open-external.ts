@@ -20,7 +20,7 @@ import {
 // 8,192자 검사는 checkExternalUrl이 한다. 입력 상한은 그 위에서 거른다.
 const openInputSchema = z.strictObject({ url: z.string() });
 
-export interface OpenExternalDeps {
+interface OpenExternalDeps {
   registry: ContentsRegistry;
   /** OS 기본 browser로 연다. 실패하면 reject한다. */
   open(url: string): Promise<void>;

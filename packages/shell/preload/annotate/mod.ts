@@ -26,7 +26,7 @@ import {
   viewOf,
 } from "./pick.ts";
 
-export interface AnnotateTransport {
+interface AnnotateTransport {
   send(channel: string, payload: unknown): void;
   on(channel: string, listener: (payload: unknown) => void): void;
 }

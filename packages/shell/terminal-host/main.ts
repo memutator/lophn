@@ -17,9 +17,9 @@ import { type ProcessGroup } from "./child-group.ts";
 import type { CodingHost } from "./coding-types.ts";
 import { RingBuffer } from "./ring-buffer.ts";
 
-export type FolderRecord = { folder_ref: string; path: string };
+type FolderRecord = { folder_ref: string; path: string };
 
-export type FolderCheck =
+type FolderCheck =
   | { ok: true; path: string }
   | { ok: false; reason: "not_directory" | "unreadable" };
 
@@ -63,7 +63,7 @@ export type HostRequest =
   | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number }
   | { id: string; type: "host-lost" };
 
-export type HostDeps = {
+type HostDeps = {
   pty: PtyAdapter;
   env: Readonly<Record<string, string | undefined>>;
   platform: NodeJS.Platform;
@@ -88,7 +88,7 @@ type Session = {
   typed: string[];
 };
 
-export type Host = {
+type Host = {
   /** close·restart는 child 종료를 기다려 확인하므로 Promise다. */
   handle(
     request: HostRequest,
@@ -100,7 +100,7 @@ export type Host = {
   dispose(): TerminalRuntime[];
 };
 
-export function createHost(deps: HostDeps): Host {
+function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
   /** 같은 coding session은 같은 runtime_ref다. 다시 spawn하지 않는다. */
   const bySession = new Map<string, string>();

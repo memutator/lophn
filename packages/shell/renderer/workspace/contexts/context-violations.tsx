@@ -22,7 +22,7 @@ import styles from "./context-violations.module.css";
 import type { ContextsSource, ViolationItem } from "./source.ts";
 import type { OpenDocument } from "./shared.ts";
 
-export interface ContextViolationsProps {
+interface ContextViolationsProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

@@ -16,7 +16,7 @@ export const REACTION_EVENTS = [
 export type ReactionEvent = typeof REACTION_EVENTS[number];
 
 /** 끔, 열고 묻지 않음, 물음. */
-export const REACTION_MODES = ["off", "open", "ask"] as const;
+const REACTION_MODES = ["off", "open", "ask"] as const;
 
 export type ReactionMode = typeof REACTION_MODES[number];
 

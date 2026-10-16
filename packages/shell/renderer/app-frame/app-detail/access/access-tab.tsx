@@ -12,7 +12,7 @@ import type { AccessView, AppDetailSource } from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 
-export interface AccessTabProps {
+interface AccessTabProps {
   app: string;
   source: AppDetailSource;
   now: () => Date;

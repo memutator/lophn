@@ -28,7 +28,7 @@ import type {
 } from "./source.ts";
 import type { Period } from "./model.ts";
 
-export interface IssuesTabProps {
+interface IssuesTabProps {
   app: string;
   source: IssuesSource;
   now: () => Date;

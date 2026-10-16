@@ -28,7 +28,7 @@ export type {
 
 type IconType = ComponentProps<typeof Icon>["icon"];
 
-export interface SlashMenuProps {
+interface SlashMenuProps {
   /** 일하는 중 안내 문구의 주어. */
   agentName: string;
   /** `/` 뒤에 친 글자. 맞는 글자를 굵게 하는 데만 쓰고 거르기는 하지 않는다. */

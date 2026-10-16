@@ -6,18 +6,18 @@ import { dirname, join } from "node:path";
 
 import { type LayoutResult, parseLayoutFile } from "./layout.ts";
 
-export type StoreError =
+type StoreError =
   | { code: "not_a_directory"; message: string }
   | { code: "unreadable"; message: string }
   | { code: "unwritable"; message: string }
   | { code: "internal"; message: string };
 
-export type StoreResult<T> =
+type StoreResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: StoreError };
 
 /** layout.json 파일 경로. `<root>/shell/layout.json` 고정이다. */
-export function layoutPath(dataRoot: string): string {
+function layoutPath(dataRoot: string): string {
   return join(dataRoot, "shell", "layout.json");
 }
 
@@ -29,7 +29,7 @@ export interface LayoutStore {
 }
 
 /** chmod까지 store가 쓰는 최소 fs 폭. 테스트가 가짜를 끼운다. */
-export interface StoreDeps {
+interface StoreDeps {
   chmod(path: string, mode: number): Promise<void>;
   mkdir(
     path: string,
@@ -42,15 +42,15 @@ export interface StoreDeps {
 }
 
 /** open이 돌려주는 최소 handle 폭. */
-export interface FileHandleLike {
+interface FileHandleLike {
   writeFile(data: string, options: { encoding: "utf8" }): Promise<void>;
   chmod(mode: number): Promise<void>;
   close(): Promise<void>;
 }
 
 /** Linux·macOS 0700 폴더·0600 파일. Windows는 동등 ACL이 사용자 limit이다. */
-export const DIR_MODE = 0o700;
-export const FILE_MODE = 0o600;
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
 
 const INTERNAL = "layout storage is not accessible";
 

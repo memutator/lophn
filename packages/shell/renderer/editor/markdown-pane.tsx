@@ -9,7 +9,7 @@ import {
 } from "./markdown-editor.tsx";
 import styles from "./markdown-pane.module.css";
 
-export interface MarkdownPaneProps {
+interface MarkdownPaneProps {
   text: string;
   /** 편집기의 접근 이름. */
   label: string;

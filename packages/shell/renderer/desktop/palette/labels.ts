@@ -37,7 +37,7 @@ const MODIFIERS: readonly {
 ];
 
 /** accelerator를 사람이 읽는 키 이름으로 쓴다. 표에 없는 modifier는 이름 그대로 둔다. */
-export function shortcutLabel(
+function shortcutLabel(
   accelerator: string,
   platform: WindowPlatform,
 ): string {

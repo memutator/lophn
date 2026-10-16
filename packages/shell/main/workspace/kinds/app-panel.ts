@@ -11,7 +11,7 @@ const layout = z.strictObject({
   surface: z.string().min(1).max(128),
 });
 
-export type AppPanelLayout = z.infer<typeof layout>;
+type AppPanelLayout = z.infer<typeof layout>;
 export const appPanelKind = defineTabKind<AppPanelLayout>({
   kind: "app_panel",
   layout,

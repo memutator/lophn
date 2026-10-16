@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OverlayApi, OverlayIdentity } from "../../../ipc/overlay.ts";
 import { overlayConsumer } from "../../overlay/consumer.ts";
 
-export interface ViewToast {
+interface ViewToast {
   readonly title: string;
   readonly body?: string;
   /** 오른쪽 끝 단추 하나. */

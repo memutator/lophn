@@ -27,18 +27,18 @@ import { ViewChrome } from "../app-frame/view-chrome.tsx";
 import styles from "./app-panel-tab.module.css";
 
 /** 탭에 고른 앱 화면. 제목은 사람이 지은 앱 이름이다. */
-export interface PanelChoice {
+interface PanelChoice {
   readonly app: string;
   readonly screen: string;
   readonly title: string;
 }
 
 /** 패널을 선언한 화면만 고를 수 있다. 하나도 없으면 앱 공간으로 열기를 안내한다. */
-export function panelScreens(app: AppScreens): AppScreens["screens"] {
+function panelScreens(app: AppScreens): AppScreens["screens"] {
   return app.screens.filter((screen) => screen.sizes.includes("panel"));
 }
 
-export interface AppPanelPickerProps {
+interface AppPanelPickerProps {
   onChoose: (choice: PanelChoice) => void;
   /** 앱 공간 열기. 없으면 안내 글만 둔다. */
   onOpenAppSpace?: (app: string) => void;
@@ -141,7 +141,7 @@ export function AppPanelPicker(
   );
 }
 
-export interface AppPanelTabProps {
+interface AppPanelTabProps {
   /** 이 탭이 열린 project. 앱 view가 이 project에서 열린다. */
   project: string;
   app: string;

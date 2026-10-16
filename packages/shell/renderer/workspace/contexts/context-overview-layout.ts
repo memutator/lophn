@@ -2,26 +2,26 @@
 // 가장자리로 잇는다. 같은 줄·같은 칸에서 카드를 건너뛰는 화살표는 바깥으로 휘어 돌아간다.
 export const CARD_WIDTH = 240;
 export const CARD_HEIGHT = 232;
-export const GAP_X = 120;
-export const GAP_Y = 100;
-export const MARGIN = 56;
+const GAP_X = 120;
+const GAP_Y = 100;
+const MARGIN = 56;
 const COLUMNS = 3;
 const ARROW_LENGTH = 9;
 const ARROW_HALF_WIDTH = 5;
 const ARC = 60;
 const PAD = 4;
 
-export interface Cell {
+interface Cell {
   readonly column: number;
   readonly row: number;
 }
 
-export interface Point {
+interface Point {
   readonly x: number;
   readonly y: number;
 }
 
-export interface Route {
+interface Route {
   /** SVG path. */
   readonly line: string;
   /** 화살촉 꼭짓점. */
@@ -29,7 +29,7 @@ export interface Route {
   readonly label: Point;
 }
 
-export interface Grid {
+interface Grid {
   readonly width: number;
   readonly height: number;
   readonly cells: readonly Cell[];

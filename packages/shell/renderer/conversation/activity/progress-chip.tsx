@@ -5,7 +5,7 @@ import { t } from "@lophn/wording";
 import type { TaskState, TaskView } from "./model.ts";
 import styles from "./activity.module.css";
 
-export interface ProgressChipProps {
+interface ProgressChipProps {
   /** 일하는 중의 할 일 목록. 비어 있으면 chip을 그리지 않는다. */
   tasks: readonly TaskView[];
 }

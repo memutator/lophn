@@ -13,7 +13,7 @@ export interface EntityCard {
   readonly example: { readonly key: string; readonly path: string } | null;
 }
 
-export interface EntityEdge {
+interface EntityEdge {
   readonly from: string;
   readonly to: string;
   readonly label: string;

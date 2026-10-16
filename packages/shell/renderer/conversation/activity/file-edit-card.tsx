@@ -4,7 +4,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./activity.module.css";
 
-export interface EditCardProps {
+interface EditCardProps {
   /** 보이는 경로. */
   path: string;
   added: number;

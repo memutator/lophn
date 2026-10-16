@@ -12,17 +12,17 @@ const ARROW_HALF_WIDTH = 4;
 const ARC = 56;
 const PAD = 4;
 
-export interface Cell {
+interface Cell {
   readonly column: number;
   readonly row: number;
 }
 
-export interface Point {
+interface Point {
   readonly x: number;
   readonly y: number;
 }
 
-export interface Route {
+interface Route {
   /** SVG path. */
   readonly line: string;
   /** 화살촉 꼭짓점 세 개를 이은 points 글. */
@@ -31,7 +31,7 @@ export interface Route {
   readonly label: Point;
 }
 
-export interface Grid {
+interface Grid {
   readonly width: number;
   readonly height: number;
   readonly cells: readonly Cell[];

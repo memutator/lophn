@@ -26,7 +26,7 @@ import { SubfolderPicker } from "./subfolder-picker.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./projects.module.css";
 
-export interface ProjectDetailProps {
+interface ProjectDetailProps {
   source: ProjectsSource;
   project: ProjectItem;
   /** 등록을 바꿨다. 목록의 행을 새 값으로 바꾼다. */

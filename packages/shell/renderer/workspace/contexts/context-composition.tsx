@@ -24,7 +24,7 @@ import {
 } from "./context-composition-nodes.ts";
 import type { ContextsSource } from "./source.ts";
 
-export interface ContextCompositionProps {
+interface ContextCompositionProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

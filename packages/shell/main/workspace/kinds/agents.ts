@@ -11,7 +11,7 @@ const layout = z.strictObject({
   agent: z.string().min(1).max(128).optional(),
 });
 
-export type AgentsLayout = z.infer<typeof layout>;
+type AgentsLayout = z.infer<typeof layout>;
 
 export const agentsKind = defineTabKind<AgentsLayout>({
   kind: "agents",

@@ -46,7 +46,7 @@ type View =
   | { readonly kind: "failed" }
   | { readonly kind: "file"; readonly path: string };
 
-export interface InstructionsEntryProps {
+interface InstructionsEntryProps {
   place: InstructionsPlace;
   source: InstructionsSource;
   editor: EditorDeps;

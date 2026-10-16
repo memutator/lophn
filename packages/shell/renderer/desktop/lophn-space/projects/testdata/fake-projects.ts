@@ -6,9 +6,9 @@ import type {
   SourceResult,
 } from "../source.ts";
 
-export const PHRONER = "prj_01h455vb4pex5v6nkc6gd5fd01";
-export const GROCERY = "prj_01h455vb4pex5v6nkc6gd5fd02";
-export const OLD_NOTES = "prj_01h455vb4pex5v6nkc6gd5fd03";
+const PHRONER = "prj_01h455vb4pex5v6nkc6gd5fd01";
+const GROCERY = "prj_01h455vb4pex5v6nkc6gd5fd02";
+const OLD_NOTES = "prj_01h455vb4pex5v6nkc6gd5fd03";
 
 /** 사라진 폴더를 보이는 gallery page가 쓰는 폴더. */
 export const MISSING_FOLDER = "/home/mina/notes/phroner";
@@ -21,7 +21,7 @@ export function folderItem(
   return { path, description, found: true, subfolders };
 }
 
-export const DEFAULT_PROJECTS: readonly ProjectItem[] = [
+const DEFAULT_PROJECTS: readonly ProjectItem[] = [
   {
     id: PHRONER,
     title: "phroner",

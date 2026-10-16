@@ -53,7 +53,7 @@ export function useViewCover(
 
 type Phase = "opening" | "ready" | "failed";
 
-export interface EmbeddedViewProps extends AppViewOpen {
+interface EmbeddedViewProps extends AppViewOpen {
   /** shell preload의 view 통로. */
   views: LophnShellViewsApi;
   /** 오류 문구에 쓰는 사람 말 이름. */

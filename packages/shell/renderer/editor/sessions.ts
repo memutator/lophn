@@ -14,7 +14,7 @@ export interface LeaveAsker {
   ask(name: string | null): Promise<LeaveChoice>;
 }
 
-export interface OpenedSession {
+interface OpenedSession {
   readonly session: SaveSession;
   /** 연 글. 이미 열린 session이면 편집기의 지금 글이다. */
   readonly text: string;

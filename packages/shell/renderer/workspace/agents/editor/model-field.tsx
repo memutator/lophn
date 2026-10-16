@@ -82,7 +82,7 @@ function pick(models: ModelsView | null, key: string): ModelChoice | null {
   };
 }
 
-export interface ModelFieldProps {
+interface ModelFieldProps {
   readonly models: ModelsView | null;
   readonly label: string;
   /** "Use project default — Haiku 5.5 (from Workspace)" 같은 따르기 선택지의 글. */
@@ -134,7 +134,7 @@ function ModelProvider({ name }: { name: string }) {
   );
 }
 
-export interface DefaultModelFieldProps {
+interface DefaultModelFieldProps {
   readonly models: ModelsView | null;
   readonly value: ModelChoice | null;
   readonly onChange: (choice: ModelChoice) => void;

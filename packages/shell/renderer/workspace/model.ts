@@ -3,24 +3,20 @@
 
 /** sidebar 기본 폭. drag로 200~400px, 접힘 56px. */
 export const SIDEBAR_WIDTH = 240;
-export const SIDEBAR_MIN = 200;
-export const SIDEBAR_MAX = 400;
-export const SIDEBAR_COLLAPSED = 56;
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 400;
+const SIDEBAR_COLLAPSED = 56;
 
 /** 반응형 경계. */
-export const BREAKPOINT_SM = 640;
+const BREAKPOINT_SM = 640;
 export const BREAKPOINT_MD = 1024;
 
-/** 상단 바 높이(`--window-top-bar`). */
-export const TOP_BAR_HEIGHT = 36;
-
 /** 칸 최소 폭·경계·잡는 영역. */
-export const PANE_MIN = 480;
-export const SPLIT_DIVIDER = 1;
-export const SPLIT_GRAB = 8;
+const PANE_MIN = 480;
+const SPLIT_DIVIDER = 1;
 export const SPLIT_EQUAL = 0.5;
 
-export type SidebarMode = "open" | "collapsed" | "hidden";
+type SidebarMode = "open" | "collapsed" | "hidden";
 
 export interface SidebarState {
   /** 사람이 drag로 고른 폭. 자동으로 다시 접지 않는다. */
@@ -29,7 +25,7 @@ export interface SidebarState {
   readonly collapsedByUser: boolean;
 }
 
-export interface SidebarView {
+interface SidebarView {
   readonly mode: SidebarMode;
   /** 화면에 차지하는 폭. hidden은 0. */
   readonly width: number;
@@ -71,7 +67,7 @@ export function clampSidebar(width: number): number {
 }
 
 /** 탭 종류의 이름. 등록된 kind는 kinds/registry.ts가 정한다. */
-export type TabKind = string;
+type TabKind = string;
 
 export interface TabItem {
   readonly key: string;
@@ -185,7 +181,7 @@ function dropEmptyPane(view: WorkspaceView): WorkspaceView {
   return { ...view, panes: kept, focusedPane: 0 };
 }
 
-export interface SplitLayout {
+interface SplitLayout {
   /** 화면에 그릴 칸 수. 폭이 부족하면 1이다. */
   readonly visiblePanes: 1 | 2;
   /** 왼쪽 칸 폭. 한 칸 보기에서는 전체 폭. */

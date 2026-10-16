@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useContext } from "react";
 import type { DraftStore } from "./drafts.ts";
 
 /** 창마다 하나. entry가 만들어 Agent 탭과 앱 공간의 Agent 칸이 같은 입력 메모리를 쓴다. */
-export interface ConversationDeps {
+interface ConversationDeps {
   readonly drafts: DraftStore;
   readonly now?: () => number;
   /** 설정의 연결 자리로 간다. Agent 화면의 provider 끊김 줄의 행동이 쓴다. */

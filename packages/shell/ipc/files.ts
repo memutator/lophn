@@ -48,11 +48,6 @@ export const fileDeleteSchema = z.object({ path }).strict();
 export const fileWatchSchema = z.object({
   paths: z.array(path).max(256),
 }).strict();
-export const fileChangedSchema = z.object({
-  path,
-  /** 지워졌으면 null이다. */
-  hash: hash.nullable(),
-}).strict();
 export const fileCountsSchema = z.object({
   /** 디스크 저장이 끝나지 않은 파일 수(쓰는 중, 실패, 불명, 충돌). */
   unsettled: z.number().int().min(0).max(10_000),

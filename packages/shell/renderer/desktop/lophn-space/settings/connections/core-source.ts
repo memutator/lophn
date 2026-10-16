@@ -15,12 +15,12 @@ import type {
 } from "./source.ts";
 
 /** 기본 제품. 비어 있을 수 있다(null). */
-export const DEFAULT_HARNESS_KEY = "coding-agent.default_harness";
+const DEFAULT_HARNESS_KEY = "coding-agent.default_harness";
 /** 기본 model. 비어 있으면 제품의 기본이다. */
-export const DEFAULT_MODEL_KEY = "coding-agent.default_model";
+const DEFAULT_MODEL_KEY = "coding-agent.default_model";
 
 /** Settings가 쓰는 shell IPC. `harnesses`는 저장한 감지 결과, `refresh`는 사람이 요청한 다시 감지다. */
-export interface CodingSettingsApi {
+interface CodingSettingsApi {
   harnesses(): Promise<CodingReply<readonly HarnessSettingsView[]>>;
   refresh(): Promise<CodingReply<unknown>>;
 }
@@ -34,7 +34,7 @@ export function windowCodingApi(): CodingSettingsApi | undefined {
     : undefined;
 }
 
-export interface CodingConnectionsDeps {
+interface CodingConnectionsDeps {
   coding: CodingSettingsApi | undefined;
 }
 

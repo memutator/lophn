@@ -10,7 +10,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./notice-card.module.css";
 
-export interface NoticeCardProps {
+interface NoticeCardProps {
   icon?: IconProps["icon"];
   /** 안내 글. 비면 글 줄을 그리지 않는다. */
   text: ReactNode;

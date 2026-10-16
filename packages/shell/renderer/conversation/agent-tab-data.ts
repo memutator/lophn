@@ -25,7 +25,7 @@ import type {
 // ---- event를 줄로 접는 규칙 ----
 
 /** event만으로는 알 수 없는 것을 아는 대로 채운다. */
-export interface FoldContext {
+interface FoldContext {
   /** 보낸 session의 role. 모르면 chip은 이름 없이 그려지고 누르면 읽는다. */
   readonly roleOf: (session: string) => AgentRole | null;
 }
@@ -85,7 +85,7 @@ function senderOf(
  * - Permission*·Question*: `pending`과 결과 줄. 질문 내용은 event에 없어 따로 읽는다.
  * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
  */
-export function foldEvent(
+function foldEvent(
   view: ThreadView,
   event: AgentEvent,
   ctx: FoldContext,
@@ -274,7 +274,7 @@ export function foldEvent(
   }
 }
 
-export function foldEvents(
+function foldEvents(
   view: ThreadView,
   events: readonly AgentEvent[],
   ctx: FoldContext,
@@ -284,7 +284,7 @@ export function foldEvents(
 
 // ---- hook ----
 
-export type TabConnection = "loading" | "live" | "reconnecting";
+type TabConnection = "loading" | "live" | "reconnecting";
 
 /** useSessions의 상태를 목록의 점으로 옮긴다. */
 function statusOf(known: KnownSession): SessionStatus {
@@ -295,7 +295,7 @@ function statusOf(known: KnownSession): SessionStatus {
     : "idle";
 }
 
-export interface AgentTabList {
+interface AgentTabList {
   /** undefined는 아직 읽지 않았다. null은 이 agent가 없다. */
   readonly agent: AgentFace | null | undefined;
   readonly sessions: readonly SessionEntry[];

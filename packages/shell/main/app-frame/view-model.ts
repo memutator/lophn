@@ -16,7 +16,7 @@ export interface ViewBounds {
   height: number;
 }
 
-export interface AppFrameOpen {
+interface AppFrameOpen {
   app: string;
   mode: ViewMode;
   release: string | null;

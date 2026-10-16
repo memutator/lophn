@@ -9,7 +9,7 @@ import { t } from "@lophn/wording";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import styles from "./report-button.module.css";
 
-export interface ReportButtonProps {
+interface ReportButtonProps {
   feedback: LophnShellFeedbackBegin;
   /** 묶인 view. 아직 열리지 않았으면 null이고 버튼을 쓸 수 없다. */
   viewSession: string | null;

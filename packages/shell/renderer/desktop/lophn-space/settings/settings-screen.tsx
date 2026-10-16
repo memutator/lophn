@@ -33,7 +33,7 @@ export type SettingsPanels = Pick<
   | "appearance"
 >;
 
-export interface SettingsScreenProps {
+interface SettingsScreenProps {
   /** 고른 항목. sidebar가 고르고 이 화면은 그 항목의 본문 하나만 그린다. */
   pane: SettingsPane;
   /** 이 화면 안에서 다른 항목으로 가는 길(Agents의 [Add server], 필수 설정 안내의 [Choose in Agents]). */

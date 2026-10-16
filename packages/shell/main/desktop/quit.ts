@@ -4,14 +4,14 @@
 import { type PlainKey, word } from "./wording.ts";
 
 /** 끄기 전에 볼 진행 중인 일. */
-export interface QuitWork {
+interface QuitWork {
   /** 살아 있는 PTY 수(starting·running). */
   runningTerminals(): number;
   /** 아직 디스크·기록 확인이 끝나지 않은 문서 저장 수. */
   pendingSaves(): number;
 }
 
-export type QuitPrompt = {
+type QuitPrompt = {
   title: string;
   detail: string;
   quit: string;
@@ -19,7 +19,7 @@ export type QuitPrompt = {
 };
 
 /** 진행 중인 일이 있으면 확인 문구, 없으면 undefined. */
-export function quitPrompt(work: QuitWork): QuitPrompt | undefined {
+function quitPrompt(work: QuitWork): QuitPrompt | undefined {
   const terminals = work.runningTerminals() > 0;
   const saves = work.pendingSaves() > 0;
   if (!terminals && !saves) return undefined;
@@ -36,7 +36,7 @@ export function quitPrompt(work: QuitWork): QuitPrompt | undefined {
   };
 }
 
-export interface QuitFlowOptions {
+interface QuitFlowOptions {
   work: QuitWork;
   /** 사람에게 묻는다. Quit을 고른 때만 true. 닫기·Esc·실패는 false. */
   confirm(prompt: QuitPrompt): Promise<boolean>;
@@ -47,9 +47,9 @@ export interface QuitFlowOptions {
   log?: (message: string) => void;
 }
 
-export type QuitOutcome = "quit" | "cancelled" | "busy";
+type QuitOutcome = "quit" | "cancelled" | "busy";
 
-export interface QuitFlow {
+interface QuitFlow {
   /** tray Quit. 진행 중인 일이 있으면 확인한 뒤 멈춘다. */
   request(): Promise<QuitOutcome>;
   /** 확인 없이 멈춘다. 확인할 창이 없는 `--quit`이 쓴다. */
@@ -102,12 +102,12 @@ export function createQuitFlow(options: QuitFlowOptions): QuitFlow {
 // second-instance `--quit`의 종료 순서. 창이 있으면 tray Quit과 같은 확인 경로를 쓴다.
 // 창이 없으면 확인할 창이 없다는 사실을 log로 남기고 core 정상 종료 순서를 밟는다.
 
-export interface QuitWindowProbe {
+interface QuitWindowProbe {
   /** 진행 중 터미널·저장을 확인할 창이 있는지. */
   hasWindows(): boolean;
 }
 
-export interface QuitOptions {
+interface QuitOptions {
   windows: QuitWindowProbe;
   /** core 정상 종료 순서. supervise child의 stop frame을 싣는다. */
   shutdownCore: () => void;

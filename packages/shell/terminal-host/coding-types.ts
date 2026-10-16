@@ -4,7 +4,7 @@
 import type { TerminalFailure } from "../ipc/terminal.ts";
 
 /** host가 runtime을 만들 때 읽는 plan 값이다. */
-export type CodingPlanView = {
+type CodingPlanView = {
   session: string;
   app: string;
   ticket: string;
@@ -14,7 +14,7 @@ export type CodingPlanView = {
   prompt_by_argv: boolean;
 };
 
-export type CodingLaunch = {
+type CodingLaunch = {
   plan: CodingPlanView;
   file: string;
   /** `argv[0]`은 명령 이름이라 빼고 executable에 넘기는 인자다. */
@@ -23,7 +23,7 @@ export type CodingLaunch = {
   env: Record<string, string>;
 };
 
-export type PrepareContext = {
+type PrepareContext = {
   env: Readonly<Record<string, string | undefined>>;
   checkFolder: (
     path: string,
@@ -33,7 +33,7 @@ export type PrepareContext = {
   };
 };
 
-export type PrepareResult =
+type PrepareResult =
   | { ok: true; launch: CodingLaunch }
   | { ok: false; reason: TerminalFailure; message: string };
 

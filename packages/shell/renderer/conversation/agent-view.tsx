@@ -73,7 +73,7 @@ export interface AgentViewHost {
   openConnections?: () => void;
 }
 
-export interface AgentViewProps {
+interface AgentViewProps {
   source: AgentTabSource;
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   drafts: DraftStore;

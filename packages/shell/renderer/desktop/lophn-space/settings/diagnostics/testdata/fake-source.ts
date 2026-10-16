@@ -1,7 +1,7 @@
 // Diagnostics 화면의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
 import type { DiagnosticsSource, DiagnosticsView } from "../source.ts";
 
-export interface FakeDiagnosticsOptions {
+interface FakeDiagnosticsOptions {
   view?: DiagnosticsView;
   checkFails?: boolean;
 }
@@ -9,7 +9,7 @@ export interface FakeDiagnosticsOptions {
 const AT = "2026-10-06T10:42:07.000Z";
 
 /** 화면 확인용 대표 결과: 쓸 수 없는 구성 요소 둘이 안전한 이유와 함께 있다. */
-export const SAMPLE_VIEW: DiagnosticsView = {
+const SAMPLE_VIEW: DiagnosticsView = {
   checkedAt: "2026-10-06T10:42:09.000Z",
   components: [
     { component: "core", available: true, reason: null, checkedAt: AT },

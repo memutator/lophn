@@ -17,7 +17,7 @@ export interface DecisionCore {
 }
 
 /** handle을 묶을 정본. 대상과 내용 기준, 쓸 수 있는 결정, 대상의 기한이다. */
-export interface Canonical {
+interface Canonical {
   readonly targetRef: string;
   readonly content: Record<string, unknown>;
   readonly allowed: readonly string[];

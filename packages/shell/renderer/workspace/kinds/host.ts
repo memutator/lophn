@@ -13,7 +13,7 @@ import type { ContextChipView } from "../../conversation/composer/types.ts";
 import type { ReadPosition } from "./kind.ts";
 
 /** 파일 탭이 작업대와 나누는 상태. */
-export interface DocumentSlice {
+interface DocumentSlice {
   noteReadPosition(document: string, position: ReadPosition): void;
 }
 

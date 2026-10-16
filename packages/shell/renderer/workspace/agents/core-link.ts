@@ -4,7 +4,7 @@ import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ReadResult } from "../source.ts";
 
-export type Reply<V> =
+type Reply<V> =
   | { readonly ok: true; readonly value: V }
   | { readonly ok: false; readonly code: string; readonly error: unknown };
 

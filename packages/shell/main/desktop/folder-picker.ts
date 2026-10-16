@@ -25,7 +25,7 @@ const FOLDER_TITLES = {
   relocate: "common.title.pick-folder-relocate",
 } as const;
 
-export interface PickRequest {
+interface PickRequest {
   kind: "folder" | "file";
   /** OS dialog 제목. */
   title: string;
@@ -39,7 +39,7 @@ export interface PickDialog {
   ): Promise<{ canceled: boolean; paths: string[] }>;
 }
 
-export interface PickerDeps {
+interface PickerDeps {
   registry: ContentsRegistry;
   dialog: PickDialog;
   headless: HeadlessMode;

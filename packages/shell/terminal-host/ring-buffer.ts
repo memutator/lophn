@@ -2,10 +2,10 @@
 // 오래된 완전한 chunk부터 빼고, 남은 큰 chunk는 문자 경계로 자른다.
 // disk·ledger·blob·log에 쓰지 않는다.
 
-export const MAX_LINES = 10_000;
-export const MAX_BYTES = 5_242_880;
+const MAX_LINES = 10_000;
+const MAX_BYTES = 5_242_880;
 
-export type Chunk = {
+type Chunk = {
   seq: number;
   text: string;
   bytes: number;

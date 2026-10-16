@@ -75,12 +75,6 @@ export type BodyPart =
   }
   | { readonly kind: "app_card"; readonly app: string; readonly view: string };
 
-/** 사람 말의 본문 값. 글 part만이고 hash·blob은 core가 만든다. */
-export interface TextContent {
-  readonly schema_version: 1;
-  readonly parts: readonly [{ readonly kind: "text"; readonly text: string }];
-}
-
 // ---- 보낸 쪽 ----
 
 /**
@@ -137,7 +131,7 @@ export interface CallView {
 
 // ---- 질문 ----
 
-export interface QuestionOption {
+interface QuestionOption {
   readonly label: string;
   readonly description: string;
 }
@@ -192,7 +186,7 @@ export interface ApprovalCardRequest {
 }
 
 /** 결정 뒤 대화에 남는 줄. 접수와 적용은 다르고, cancelled(원래 일이 끝남)는 거절이 아니다. */
-export type ApprovalOutcome = "received" | "applied" | "denied" | "cancelled";
+type ApprovalOutcome = "received" | "applied" | "denied" | "cancelled";
 
 export interface ApprovalResultView {
   readonly request: string;
@@ -230,7 +224,7 @@ export interface ThreadMessage extends EntryBase {
 }
 
 /** tool 줄. trace에 없는 줄은 없다. */
-export interface ToolLineView {
+interface ToolLineView {
   /** tool call ID(`tcl_…`) 또는 묶음 key. */
   readonly id: string;
   /** 접힌 한 줄, 예: "Read 3 documents". */
@@ -239,7 +233,7 @@ export interface ToolLineView {
   readonly lines: readonly string[];
 }
 
-export interface EditView {
+interface EditView {
   readonly id: string;
   /** 바뀐 문서 ID(`doc_…`). [Open]이 이 문서의 탭을 연다. */
   readonly document: string;
@@ -248,43 +242,43 @@ export interface EditView {
   readonly removed: number;
 }
 
-export interface TaskView {
+interface TaskView {
   readonly id: string;
   readonly text: string;
   readonly state: "done" | "now" | "later";
 }
 
-export interface ThreadTools extends EntryBase {
+interface ThreadTools extends EntryBase {
   readonly kind: "tools";
   readonly tool: ToolLineView;
 }
 
 /** 되돌아가는 편집을 undo하는 기능은 없다. 되돌리려면 rewind다. */
-export interface ThreadEdit extends EntryBase {
+interface ThreadEdit extends EntryBase {
   readonly kind: "edit";
   readonly edit: EditView;
 }
 
-export interface ThreadCall extends EntryBase {
+interface ThreadCall extends EntryBase {
   readonly kind: "call";
   readonly call: CallView;
 }
 
 /** 답을 기다리는 묶음은 `pending.questions`이고, 이 줄은 풀린 묶음의 접힌 요약이다. */
-export interface ThreadQuestions extends EntryBase {
+interface ThreadQuestions extends EntryBase {
   readonly kind: "questions";
   readonly group: string;
   readonly outcome: QuestionOutcome;
   readonly lines: readonly AnsweredLine[];
 }
 
-export interface ThreadApprovalResult extends EntryBase {
+interface ThreadApprovalResult extends EntryBase {
   readonly kind: "approval-result";
   readonly result: ApprovalResultView;
 }
 
 /** 끝난 turn의 꼬리. 정상 종료는 "Worked for", 멈춤과 실패는 사람에게 멈춤이다. */
-export interface ThreadTurnEnd extends EntryBase {
+interface ThreadTurnEnd extends EntryBase {
   readonly kind: "turn-end";
   readonly turn: string;
   readonly outcome: "completed" | "stopped" | "failed";
@@ -292,7 +286,7 @@ export interface ThreadTurnEnd extends EntryBase {
 }
 
 /** 요청이 거절되는 등 server 요청이 실패했다. 오류와 [Retry]가 대화에 남는다. */
-export interface ThreadProviderError extends EntryBase {
+interface ThreadProviderError extends EntryBase {
   readonly kind: "provider-error";
   readonly turn: string;
   readonly code: string;
@@ -358,7 +352,7 @@ export interface QueuedView {
 }
 
 /** 사람이 답할 것. 둘 다 composer 위에 놓인다. */
-export interface PendingView {
+interface PendingView {
   readonly approval: ApprovalCardRequest | null;
   readonly questions: AskedGroup | null;
 }

@@ -12,7 +12,7 @@ import type { ModelPickerProps, PickerModelRef } from "./model-picker/types.ts";
 
 const NO_MODEL: PickerModelRef = { provider: "", modelName: "" };
 
-export interface ModelPickerInput {
+interface ModelPickerInput {
   source: Pick<
     AgentTabSource,
     "model" | "chooseModel" | "setModelOption" | "toggleFavorite"

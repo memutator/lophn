@@ -6,12 +6,12 @@ import type {
   SubfolderItem,
 } from "./source.ts";
 
-export interface SubfolderDraft extends SubfolderItem {
+interface SubfolderDraft extends SubfolderItem {
   /** 빼기를 눌렀다. 저장 전이면 [Undo]로 되돌린다. */
   readonly removed: boolean;
 }
 
-export interface FolderDraft {
+interface FolderDraft {
   readonly path: string;
   readonly description: string;
   readonly found: boolean;

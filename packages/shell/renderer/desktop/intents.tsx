@@ -12,7 +12,7 @@ import { lophnScope, type LophnTarget } from "./palette/lophn-scope.ts";
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
-export interface DesktopIntentsProps {
+interface DesktopIntentsProps {
   intents: IntentApi;
   /** 전역 팔레트의 프로젝트·앱 행. 없거나 읽지 못하면 그 묶음만 빈다. */
   lophn?: LophnSource;

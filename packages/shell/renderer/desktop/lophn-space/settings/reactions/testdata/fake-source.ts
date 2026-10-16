@@ -2,7 +2,7 @@
 import { DEFAULT_MODES } from "../model.ts";
 import type { ReactionModes, ReactionsSource } from "../source.ts";
 
-export interface FakeReactionsOptions {
+interface FakeReactionsOptions {
   modes?: Partial<ReactionModes>;
   /** 고르기가 거절되는 code. 없으면 저장된다. */
   chooseCode?: string;

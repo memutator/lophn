@@ -35,7 +35,7 @@ export const secretInputSubmitSchema = z.object({
 }).strict();
 
 export type SecretInputOpen = z.infer<typeof secretInputOpenSchema>;
-export type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
+type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
 export type SecretInputPurpose = z.infer<typeof purpose>;
 
 /** 값은 답에 없다. 호출한 화면은 `stored`를 받은 뒤에야 그 이름을 가리키는 command를 보낸다. */

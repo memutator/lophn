@@ -11,7 +11,7 @@ import { AgentEditor, type ContextOption } from "./editor/agent-editor.tsx";
 import styles from "./agents-tab.module.css";
 import type { AgentsOverview, AgentsSource, ModelsView } from "./source.ts";
 
-export interface AgentsPageProps {
+interface AgentsPageProps {
   project: string;
   projectName: string;
   source: AgentsSource;

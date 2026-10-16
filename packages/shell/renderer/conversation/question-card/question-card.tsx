@@ -28,7 +28,7 @@ import {
 } from "./ask-model.ts";
 import styles from "./question-card.module.css";
 
-export interface QuestionCardProps {
+interface QuestionCardProps {
   /** 묻는 agent의 이름. */
   agent: string;
   questions: readonly AskedQuestion[];
@@ -248,7 +248,7 @@ function Choice(
   );
 }
 
-export interface QuestionSummaryProps {
+interface QuestionSummaryProps {
   outcome: QuestionOutcome;
   /** 질문 순서대로 header와 답. */
   lines: readonly AnsweredLine[];

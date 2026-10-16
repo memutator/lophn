@@ -20,7 +20,7 @@ import type {
   ReactionsSource,
 } from "./source.ts";
 
-export interface ReactionsPanelProps {
+interface ReactionsPanelProps {
   source: ReactionsSource;
 }
 

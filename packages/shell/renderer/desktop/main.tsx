@@ -45,7 +45,7 @@ import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 
-export interface DesktopProps {
+interface DesktopProps {
   source: CoreSource;
   /** 창이 처음 여는 화면. 기본 창은 런처다. */
   initial?: Route;

@@ -74,7 +74,7 @@ function searchTitle(host: TabHost, context: string): string {
 }
 
 /** 새 Search 탭을 연다. 채운 입력과 저장한 보기는 state에 담아 넘긴다. */
-export function openSearch(host: TabHost, state: SearchTabState): void {
+function openSearch(host: TabHost, state: SearchTabState): void {
   const key = `search-${Date.now().toString(36)}-${++searchCount}`;
   host.openTab({
     key,

@@ -16,7 +16,7 @@ import {
   readProviderDisconnect,
 } from "./provider-disconnect.ts";
 
-export interface HandleRegistration {
+interface HandleRegistration {
   readonly type: "confirmation_handle_register";
   readonly window_id: string;
   readonly target_ref: string;
@@ -25,7 +25,7 @@ export interface HandleRegistration {
   readonly expires_at: string;
 }
 
-export type HandleIssue =
+type HandleIssue =
   | { ok: true; confirmation: string; expires_at: string }
   | { ok: false; error: { code: string; message: string } };
 

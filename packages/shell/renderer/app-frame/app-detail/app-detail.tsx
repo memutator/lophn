@@ -12,7 +12,7 @@ import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
 import styles from "./app-detail.module.css";
 
-export interface AppDetailProps {
+interface AppDetailProps {
   app: string;
   /** 사람이 지은 앱 이름. */
   name: string;

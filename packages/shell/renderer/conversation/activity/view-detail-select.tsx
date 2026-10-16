@@ -5,7 +5,7 @@ import { type MessageKey, t } from "@lophn/wording";
 import type { ViewDetail } from "./model.ts";
 import styles from "./activity.module.css";
 
-export interface ViewDetailSelectProps {
+interface ViewDetailSelectProps {
   value: ViewDetail;
   onChange: (value: ViewDetail) => void;
 }

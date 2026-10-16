@@ -12,7 +12,7 @@ import type { SearchTabState } from "./search-tab.tsx";
 import type { OpenDocument, SubTab } from "./shared.ts";
 import type { ContextsSource, ViolationItem } from "./source.ts";
 
-export interface ContextTabBodyProps {
+interface ContextTabBodyProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

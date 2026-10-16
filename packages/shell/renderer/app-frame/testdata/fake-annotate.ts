@@ -6,7 +6,7 @@ import type {
   LophnShellAnnotateApi,
 } from "../../../ipc/annotation.ts";
 
-export interface FakeAnnotateOptions {
+interface FakeAnnotateOptions {
   /** 처음 모아 둔 목록. */
   readonly items?: AnnotateState["items"];
   /** 보내기가 이 code로 거절된다. */

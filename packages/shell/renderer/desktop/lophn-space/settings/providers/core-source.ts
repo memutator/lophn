@@ -38,7 +38,7 @@ import type {
   WindowOutcome,
 } from "./settings-source.ts";
 
-export interface ProviderValue {
+interface ProviderValue {
   id: string;
   name: string;
   endpoint: string;
@@ -115,7 +115,7 @@ function baseOf(modelsEndpoint: string | null): string | null {
 }
 
 /** 등록된 provider를 쪽마다 모두 읽는다. */
-export async function listProviders(
+async function listProviders(
   core: CoreSource,
 ): Promise<SourceResult<ProviderValue[]>> {
   const rows: ProviderValue[] = [];
@@ -153,7 +153,7 @@ function windowDecisionHandle():
     : undefined;
 }
 
-export interface ProviderDeps {
+interface ProviderDeps {
   openWindow: OpenSecretWindow | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
   requestHandle: DecisionHandleApi["requestDecisionHandle"] | undefined;

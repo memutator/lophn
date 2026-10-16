@@ -181,7 +181,7 @@ export function fakeTextOf(path: string): string | undefined {
   return undefined;
 }
 
-export interface FakeEditorFiles extends EditorFiles {
+interface FakeEditorFiles extends EditorFiles {
   /** 밖(다른 편집기, git)이 이 파일을 바꾼다. 알림도 간다. */
   change(path: string, text: string): void;
   /** 지금 디스크 글. */

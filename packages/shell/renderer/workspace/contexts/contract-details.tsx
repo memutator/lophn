@@ -32,7 +32,7 @@ import { DeclaredSearches } from "./contract-details-searches.tsx";
 import type { ContextsSource } from "./source.ts";
 import styles from "./contract-details.module.css";
 
-export interface ContractDetailsProps {
+interface ContractDetailsProps {
   readonly source: ContextsSource;
   /** context ID. */
   readonly context: string;

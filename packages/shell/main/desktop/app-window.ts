@@ -29,7 +29,7 @@ export interface AppWindowConfig {
 }
 
 /** 시스템 제목 표시줄이 있는 창. 끌 shell 상단 바가 없어서다. preload는 없다. */
-export function appWindowConfig(
+function appWindowConfig(
   packaged: boolean,
   appName: string,
 ): AppWindowConfig {
@@ -46,7 +46,7 @@ export function appWindowConfig(
 }
 
 /** 만든 전용 창. ref는 app-frame registry가 view를 붙일 창 이름이다. */
-export interface AppWindowSurface {
+interface AppWindowSurface {
   readonly ref: string;
   /** 창 본문 전체(DIP). */
   body(): ViewBounds;
@@ -56,7 +56,7 @@ export interface AppWindowSurface {
   close(): void;
 }
 
-export interface AppWindowDeps {
+interface AppWindowDeps {
   /** 그 앱의 현재 기록. `apps/get {app}`이다. */
   readApp(app: string): Promise<CallResult>;
   /** 그 release에서 전용 창에 여는 screen. blueprint가 full 크기로 선언한 첫 screen이다. */
@@ -67,7 +67,7 @@ export interface AppWindowDeps {
   log(message: string): void;
 }
 
-export interface OpenedAppWindow {
+interface OpenedAppWindow {
   window: string;
   view: AppFrameViewState;
 }
@@ -163,4 +163,3 @@ export function createAppWindows(deps: AppWindowDeps) {
   };
 }
 
-export type AppWindows = ReturnType<typeof createAppWindows>;

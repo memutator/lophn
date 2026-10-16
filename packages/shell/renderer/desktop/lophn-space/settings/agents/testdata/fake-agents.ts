@@ -18,7 +18,7 @@ import type {
   SourceResult,
 } from "../settings-source.ts";
 
-export type AgentsCall =
+type AgentsCall =
   | readonly ["change-model", ModelChoice]
   | readonly ["instructions"]
   | readonly ["add-skill"]
@@ -38,7 +38,7 @@ type Failing =
   | "create-server"
   | "server";
 
-export interface FakeAgentsOptions {
+interface FakeAgentsOptions {
   view?: AgentsSettingsView;
   extensions?: ExtensionsView;
   /** 이 이름의 호출은 이 code로 실패한다. */
@@ -47,7 +47,7 @@ export interface FakeAgentsOptions {
 
 const grants = FAKE_GRANTS.lophn ?? [];
 
-export const VIEW: AgentsSettingsView = {
+const VIEW: AgentsSettingsView = {
   defaultModel: GLOBAL_MODEL,
   lophn: {
     name: "lophn",
@@ -59,7 +59,7 @@ export const VIEW: AgentsSettingsView = {
   instructionsPreview: GLOBAL_LOPHN_MD,
 };
 
-export const EXTENSIONS: ExtensionsView = {
+const EXTENSIONS: ExtensionsView = {
   skills: GLOBAL_SKILLS,
   servers: GLOBAL_MCP,
 };

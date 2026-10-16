@@ -34,7 +34,7 @@ const saveInput = z.strictObject({
   focused_pane: z.number().int().min(0).max(1),
 });
 
-export interface LayoutIpcMain {
+interface LayoutIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown>,
@@ -42,7 +42,7 @@ export interface LayoutIpcMain {
   removeHandler(channel: string): void;
 }
 
-export interface LayoutIpcDeps {
+interface LayoutIpcDeps {
   registry: ContentsRegistry;
   store: LayoutStore;
   /** 이 창의 bounds. 없거나 숫자가 아니면 기본 960×600이다. */

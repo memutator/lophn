@@ -32,15 +32,15 @@ import type {
   StoredViolation,
 } from "./source.ts";
 
-export function fakeId(prefix: string, seed: string): string {
+function fakeId(prefix: string, seed: string): string {
   return `${prefix}_${seed.padStart(26, "0")}`;
 }
 
 export const PROJECT = fakeId("prj", "ph1");
 export const EVAL = fakeId("ctx", "ev4");
 export const HARNESS = fakeId("ctx", "hns");
-export const RELEASE_NOTES = fakeId("ctx", "rn1");
-export const SCRATCH_NOTES = fakeId("ctx", "scr");
+const RELEASE_NOTES = fakeId("ctx", "rn1");
+const SCRATCH_NOTES = fakeId("ctx", "scr");
 
 const SHA = (digit: string) => digit.repeat(64);
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
@@ -93,7 +93,7 @@ export const HARNESS_ITEM = listItem({
   violations: 0,
   revision: "34",
 });
-export const SCRATCH_NOTES_ITEM = listItem({
+const SCRATCH_NOTES_ITEM = listItem({
   id: SCRATCH_NOTES,
   title: "scratch-notes",
   purpose: "Early notes on the eval loop, replaced by eval.",
@@ -102,7 +102,7 @@ export const SCRATCH_NOTES_ITEM = listItem({
   violations: 0,
   revision: "12",
 });
-export const RELEASE_NOTES_ITEM = listItem({
+const RELEASE_NOTES_ITEM = listItem({
   id: RELEASE_NOTES,
   title: "release-notes",
   purpose:
@@ -874,7 +874,7 @@ const CONTAINING: Readonly<Record<string, readonly ContainingContext[]>> = {
 
 // ---------- fake source ----------
 
-export type FakeCall =
+type FakeCall =
   | { command: "saveView"; request: SaveViewRequest }
   | {
     command: "glossarySet";
@@ -889,12 +889,12 @@ export type FakeCall =
   | { command: "rollback"; request: RollbackRequest }
   | { command: "archive" | "unarchive"; request: ArchiveRequest };
 
-export interface FakeContextsSource extends ContextsSource {
+interface FakeContextsSource extends ContextsSource {
   /** 보낸 명령을 순서대로. */
   readonly calls: readonly FakeCall[];
 }
 
-export interface FakeOptions {
+interface FakeOptions {
   /** true면 context가 하나도 없다. */
   empty?: boolean;
   /** true면 만드는 중인 release-notes도 목록에 있다. */

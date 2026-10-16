@@ -25,7 +25,7 @@ export interface SecretInputIpcEvent {
   readonly sender: { readonly id: number };
 }
 
-export interface SecretInputIpc {
+interface SecretInputIpc {
   handle(
     channel: string,
     listener: (event: SecretInputIpcEvent, input: unknown) => Promise<unknown>,
@@ -33,7 +33,7 @@ export interface SecretInputIpc {
   removeHandler(channel: string): void;
 }
 
-export interface SecretInputDeps {
+interface SecretInputDeps {
   host: SecretInputHost;
   /** IPC를 보낸 webContents가 일반 shell 창 본문이면 그 창. 아니면 undefined다. */
   parentOf(event: SecretInputIpcEvent): ParentWindow | undefined;
@@ -45,7 +45,7 @@ export interface SecretInputDeps {
 }
 
 /** 설정 여부만 읽는다. 값은 읽지 못한다. */
-export interface StatusCore {
+interface StatusCore {
   internal(
     kind: string,
     resource: string,

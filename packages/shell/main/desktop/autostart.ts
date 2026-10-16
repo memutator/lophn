@@ -16,9 +16,9 @@ import { dirname, join } from "node:path";
 import { TRAY_INTENT } from "./launch-mode.ts";
 
 /** XDG autostart 파일 이름. 같은 이름이 있으면 lophn의 것으로 본다. */
-export const AUTOSTART_FILE = "lophn.desktop";
+const AUTOSTART_FILE = "lophn.desktop";
 
-export type AutostartUnavailable =
+type AutostartUnavailable =
   /** 개발 실행. 실행 파일이 Electron 자체라 앱으로 돌아오지 않는다. */
   | "not_packaged"
   /** 실행 경로가 절대 경로·실행 가능한 파일이 아니거나 등록에 쓸 수 없는 글자를 담는다. */
@@ -37,7 +37,7 @@ export interface ExecutableProbe {
 }
 
 /** Linux XDG autostart 파일 다루기. */
-export interface AutostartFiles {
+interface AutostartFiles {
   /** 없으면 undefined. */
   read(path: string): string | undefined;
   /** 디렉터리를 만들고 원자적으로 쓴다. */
@@ -47,7 +47,7 @@ export interface AutostartFiles {
 }
 
 /** macOS·Windows의 Electron login item. */
-export interface LoginItems {
+interface LoginItems {
   get(query: { path: string; args: string[] }): { openAtLogin: boolean };
   set(settings: {
     openAtLogin: boolean;
@@ -77,7 +77,7 @@ export interface AutostartOs {
 const UNSAFE = /[\u0000-\u001f\u007f"]/;
 const UNSAFE_EXEC = /[`$\\%]/;
 
-export type VerifiedPath =
+type VerifiedPath =
   | { ok: true; path: string }
   | { ok: false; reason: "not_packaged" | "unverified_path" };
 
@@ -110,7 +110,7 @@ function isAbsolute(path: string, platform: NodeJS.Platform): boolean {
 }
 
 /** XDG autostart entry. Exec는 따옴표로 묶은 실행 경로와 `--tray`뿐이다. */
-export function desktopEntry(execPath: string): string {
+function desktopEntry(execPath: string): string {
   return [
     "[Desktop Entry]",
     "Type=Application",
@@ -122,7 +122,7 @@ export function desktopEntry(execPath: string): string {
   ].join("\n");
 }
 
-export function autostartPath(configHome: string): string {
+function autostartPath(configHome: string): string {
   return join(configHome, "autostart", AUTOSTART_FILE);
 }
 

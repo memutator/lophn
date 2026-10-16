@@ -47,7 +47,7 @@ import {
 import { readSession } from "./agent-tab-core-source-sessions.ts";
 
 /** 한 번 읽으면 바뀌지 않는 값. */
-export interface ThreadMemo {
+interface ThreadMemo {
   readonly bodies: Map<string, readonly BodyPart[]>;
   readonly roles: Map<string, AgentRole>;
   /** `<종류>:<id>` → tool 호출의 입력·결과 본문. */

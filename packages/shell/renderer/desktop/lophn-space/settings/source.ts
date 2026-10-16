@@ -61,7 +61,7 @@ export type SettingRejectReason =
   | "out_of_range"
   | "invalid_value";
 
-export interface SettingRejection {
+interface SettingRejection {
   readonly key: string;
   readonly reason: SettingRejectReason;
 }
@@ -87,7 +87,7 @@ export interface SettingsView {
 export type ServerAuth = "none" | "bearer" | "api_key" | "oauth2";
 
 /** server가 등록된 자리(project 또는 app). 전역 server는 자리가 아니므로 null로 쓴다. */
-export interface ServerPlace {
+interface ServerPlace {
   readonly kind: "project" | "app";
   readonly id: string;
 }

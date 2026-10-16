@@ -20,7 +20,7 @@ import type { ModelFavorite, ModelsView } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 
 /** picker 하나가 가진 화면 상태. 닫혀 있고 검색이 비어 있는 것이 처음이다. */
-export interface PickerState {
+interface PickerState {
   readonly open: boolean;
   readonly query: string;
 }

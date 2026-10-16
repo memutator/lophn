@@ -2,7 +2,7 @@ import { IconButton, Tooltip } from "@lophn/design/components";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-export interface LauncherButtonProps {
+interface LauncherButtonProps {
   onLauncher: () => void;
 }
 

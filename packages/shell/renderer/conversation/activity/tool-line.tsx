@@ -5,7 +5,7 @@ import { lophnSpaceIcons } from "../../icons/mod.ts";
 import type { ToolLineDetail, ToolLineView } from "./model.ts";
 import styles from "./activity.module.css";
 
-export interface ToolLineProps {
+interface ToolLineProps {
   tool: ToolLineView;
   detail: ToolLineDetail;
 }

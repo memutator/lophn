@@ -23,7 +23,7 @@ import type {
 } from "./source.ts";
 import type { RangeValue } from "./shared.ts";
 
-export interface SearchInputFormProps {
+interface SearchInputFormProps {
   readonly search: DeclaredSearch;
   /** 채워 둔 값. 고르는 입력은 후보 value(여럿이면 value 목록), 범위는 RangeValue, 글은 문자열. */
   readonly values: SearchInputValues;

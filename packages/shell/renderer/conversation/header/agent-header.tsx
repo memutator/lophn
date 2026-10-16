@@ -30,7 +30,7 @@ import {
 export type { QueuedCodingView } from "./session-popover.tsx";
 
 /** header가 자기 밖에 맡기는 일: 탭에서 session을 여는 길. */
-export interface AgentHeaderHost {
+interface AgentHeaderHost {
   /** 다른 session을 이 탭에서 연다. archive한 session이면 기록만 읽는다. */
   switchSession: (session: string) => void;
   /** 아직 만들지 않은 새 session으로 간다. */
@@ -39,7 +39,7 @@ export interface AgentHeaderHost {
   openForked: (session: string) => void;
 }
 
-export interface AgentHeaderProps {
+interface AgentHeaderProps {
   agent: SessionSwitcherProps["agent"];
   /** 지금 보는 session. null은 아직 만들지 않은 새 session이다. */
   session: SessionEntry | null;

@@ -3,7 +3,7 @@
 // 따로 답하므로 안 오면 카드는 그 줄만 빼고 보인다.
 import type { ContextListItem, ContextsSource } from "./source.ts";
 
-export type VersionCheck = "passed" | "checking" | "failed";
+type VersionCheck = "passed" | "checking" | "failed";
 
 export interface CardData {
   readonly item: ContextListItem;
@@ -13,7 +13,7 @@ export interface CardData {
   readonly version: VersionCheck | null;
 }
 
-export interface ContextsRead {
+interface ContextsRead {
   readonly cards: readonly CardData[];
   readonly archived: readonly ContextListItem[];
 }

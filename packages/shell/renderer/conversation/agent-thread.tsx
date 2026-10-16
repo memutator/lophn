@@ -37,7 +37,7 @@ import { ReceivedMessage } from "./thread/received-message.tsx";
 import turns from "./message-list/turns.module.css";
 import styles from "./agent-view.module.css";
 
-export interface AgentThreadProps {
+interface AgentThreadProps {
   agent: Pick<AgentFace, "name" | "profile">;
   entries: readonly ThreadEntry[];
   detail: ViewDetail;

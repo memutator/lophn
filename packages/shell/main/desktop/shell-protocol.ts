@@ -5,7 +5,7 @@ import { extname, isAbsolute, resolve, sep } from "node:path";
 
 import { SHELL_SCHEME } from "./security.ts";
 
-export const SHELL_CSP = [
+const SHELL_CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
@@ -31,7 +31,7 @@ const MIME: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
 };
 
-export function mimeFor(file: string): string {
+function mimeFor(file: string): string {
   return MIME[extname(file).toLowerCase()] ?? "application/octet-stream";
 }
 
@@ -39,7 +39,7 @@ export function mimeFor(file: string): string {
  * pathname을 root 안의 파일로만 푼다. `..`, NUL, 역슬래시, 절대 경로,
  * 디코드에 실패하는 값은 null이다.
  */
-export function safeJoin(root: string, pathname: string): string | null {
+function safeJoin(root: string, pathname: string): string | null {
   let decoded: string;
   try {
     decoded = decodeURIComponent(pathname);
@@ -65,13 +65,13 @@ export function safeJoin(root: string, pathname: string): string | null {
   return full;
 }
 
-export interface ShellResponse {
+interface ShellResponse {
   status: number;
   headers: Record<string, string>;
   body: Uint8Array | null;
 }
 
-export interface FileSystem {
+interface FileSystem {
   lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
   realpath(path: string): Promise<string>;
   readFile(path: string): Promise<Uint8Array>;
@@ -99,7 +99,7 @@ function empty(status: number): ShellResponse {
   };
 }
 
-export interface ShellHandlerOptions {
+interface ShellHandlerOptions {
   /** renderer build 출력 폴더. 이 폴더 밖은 어떤 경로로도 내주지 않는다. */
   distDir: string;
   fs?: FileSystem;

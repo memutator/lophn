@@ -1,11 +1,11 @@
 // 보낸 말 하나의 전달 상태. 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
 // 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다.
-import type { Delivery, TextContent } from "./agent-tab-source.ts";
+import type { Delivery } from "./agent-tab-source.ts";
 
 export type { Delivery };
 
-export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
+type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
 
 export interface Outgoing {
   readonly id: string;
@@ -18,7 +18,7 @@ export interface Outgoing {
   readonly checked: boolean;
 }
 
-export type SendReply = { readonly ok: true } | {
+type SendReply = { readonly ok: true } | {
   readonly ok: false;
   readonly code: string;
 };
@@ -90,12 +90,7 @@ export function composerLocked(outgoing: Outgoing | null): boolean {
  * MESSAGE_TEXT_CONTENT_MAX_BYTES와 같다. renderer는
  * contract schema를 bundle에 싣지 않고 이 값만 쓴다.
  */
-export const MESSAGE_TEXT_MAX_BYTES = 65536;
-
-/** 보낼 본문 값. 글 part 하나다. hash와 blob은 core가 만든다. */
-export function textContent(text: string): TextContent {
-  return { schema_version: 1, parts: [{ kind: "text", text }] };
-}
+const MESSAGE_TEXT_MAX_BYTES = 65536;
 
 const LONE_SURROGATE =
   /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
@@ -105,7 +100,7 @@ const LONE_SURROGATE =
  * JSON.stringify가 정규 형태와 같다. 짝 없는 surrogate는 정규화할 수 없어 core가
  * 거절하므로 상한을 넘은 것으로 센다.
  */
-export function contentBytes(text: string): number {
+function contentBytes(text: string): number {
   if (LONE_SURROGATE.test(text)) return Number.POSITIVE_INFINITY;
   return new TextEncoder().encode(
     JSON.stringify({ parts: [{ kind: "text", text }], schema_version: 1 }),

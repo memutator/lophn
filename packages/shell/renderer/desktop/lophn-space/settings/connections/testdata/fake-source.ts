@@ -17,7 +17,7 @@ const LABELS: Record<HarnessName, string> = {
   openclaw: "OpenClaw",
 };
 
-export function harness(
+function harness(
   id: HarnessName,
   over: Partial<HarnessSettingsView> = {},
 ): HarnessSettingsView {
@@ -37,7 +37,7 @@ export function harness(
 }
 
 /** 화면 확인용 대표 감지 결과: 로그인 안 함, turn 끝 신호 없음, 맡길 수 없음, 못 찾음이 한 번씩 있다. */
-export const HARNESSES: readonly HarnessSettingsView[] = [
+const HARNESSES: readonly HarnessSettingsView[] = [
   harness("claude", { version: "2.1.4" }),
   harness("codex", { version: "0.58.0" }),
   harness("gemini", {
@@ -57,7 +57,7 @@ export const HARNESSES: readonly HarnessSettingsView[] = [
   harness("hermes", { discovery: "absent", login: "unknown" }),
 ];
 
-export interface FakeConnectionsOptions {
+interface FakeConnectionsOptions {
   harnesses?: SourceResult<readonly HarnessSettingsView[]>;
   refresh?: SourceResult<readonly HarnessSettingsView[]>;
   defaults?: SourceResult<CodingDefaults>;
@@ -65,7 +65,7 @@ export interface FakeConnectionsOptions {
   saveCode?: string;
 }
 
-export interface FakeConnections {
+interface FakeConnections {
   readonly source: CodingConnectionsSource;
   readonly calls: {
     harnesses: number;

@@ -5,7 +5,7 @@ import { FLASH_MS } from "./line-flash.ts";
 const BLOCKS = "h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td, th";
 
 /** 원문 줄에서 markdown 표지를 걷어 읽기 화면에 보이는 글로 만든다. */
-export function plainLine(line: string): string {
+function plainLine(line: string): string {
   return line
     .replace(/^\s*(#{1,6}\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+|>\s*)/, "")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")

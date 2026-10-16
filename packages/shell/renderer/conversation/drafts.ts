@@ -16,7 +16,7 @@ export interface Draft {
   readonly scroll: number | null;
 }
 
-export const EMPTY_DRAFT: Draft = {
+const EMPTY_DRAFT: Draft = {
   text: "",
   selection: [0, 0],
   outgoing: null,

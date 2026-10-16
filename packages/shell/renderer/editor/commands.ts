@@ -110,7 +110,7 @@ export function setHeading(level: number): StateCommand {
 }
 
 /** 목록 항목 앞부분: 들임, 표지나 번호, 빈칸, task 상자. */
-export interface ListPrefix {
+interface ListPrefix {
   readonly indent: string;
   readonly marker: string;
   readonly space: string;
@@ -120,7 +120,7 @@ export interface ListPrefix {
 
 const LIST = /^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+)(\[[ xX]\][ \t]+)?/;
 
-export function listPrefix(text: string): ListPrefix | null {
+function listPrefix(text: string): ListPrefix | null {
   const match = LIST.exec(text);
   if (!match) return null;
   return {
@@ -133,7 +133,7 @@ export function listPrefix(text: string): ListPrefix | null {
 }
 
 /** code block 안인지. Markdown 언어가 있어야 안다. */
-export function inCode(state: EditorState, position: number): boolean {
+function inCode(state: EditorState, position: number): boolean {
   for (
     let node: ReturnType<typeof syntaxTree>["topNode"] | null = syntaxTree(
       state,

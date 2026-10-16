@@ -43,7 +43,7 @@ export type SettledState =
   | "denied"
   | "cancelled";
 
-export type DecideResult =
+type DecideResult =
   | { readonly ok: true; readonly state: SettledState }
   | { readonly ok: false; readonly code: string };
 

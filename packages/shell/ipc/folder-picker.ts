@@ -7,7 +7,7 @@ export const FOLDER_PICK_CHANNEL = "shell:folder-pick";
 export const FILE_PICK_CHANNEL = "shell:file-pick";
 
 /** main이 dialog 제목을 purpose로 정한다. 없으면 `register`다. */
-export type FolderPickInput = { purpose?: "register" | "relocate" };
+type FolderPickInput = { purpose?: "register" | "relocate" };
 
 /** 고른 절대 경로. 사람이 그만두면 null이다. */
 export type FolderPickReply =

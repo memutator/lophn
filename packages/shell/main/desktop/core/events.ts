@@ -18,13 +18,13 @@ export interface Clock {
   now(): number;
 }
 
-export interface ConnectionNotice {
+interface ConnectionNotice {
   state: "stale";
   /** 마지막 확인 시각. 한 번도 확인하지 못했으면 null. */
   confirmedAt: number | null;
 }
 
-export interface GatewaySink {
+interface GatewaySink {
   stale(notice: ConnectionNotice): void;
   /** 서버가 조건을 적용했다(`ready`). renderer는 이때 snapshot을 읽는다. */
   ready(): void;
@@ -91,7 +91,7 @@ export interface Gateway {
   stop(): void;
 }
 
-export interface GatewayOptions {
+interface GatewayOptions {
   session: CoreSession;
   /** hello로 받은 epoch. reconnect가 다른 epoch를 받으면 버린다. */
   epoch: string;

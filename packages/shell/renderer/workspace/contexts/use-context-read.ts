@@ -3,7 +3,7 @@
 // 대상이 바뀌거나 [Retry]를 누르면 loading부터 시작한다.
 import { useEffect, useRef, useState } from "react";
 
-export type ContextRead<T> =
+type ContextRead<T> =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly value: T };

@@ -11,10 +11,10 @@ import type { AppGrantScope } from "../../../../../protocol/apps/mod.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 
-export type Effect = "read" | "write" | "external";
+type Effect = "read" | "write" | "external";
 
 /** 세부 칸 한 줄. */
-export interface Fact {
+interface Fact {
   readonly label: string;
   readonly value: string;
   readonly style: "text" | "code" | "effect";

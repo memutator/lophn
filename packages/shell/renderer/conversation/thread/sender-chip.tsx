@@ -36,7 +36,7 @@ const EVIDENCE_LABEL: Record<EvidenceRef["kind"], MessageKey> = {
 };
 
 /** chip에 보이는 보낸 쪽 이름. event만으로 이름을 모르면 종류만 말한다. */
-export function senderLabel(sender: Sender): string {
+function senderLabel(sender: Sender): string {
   switch (sender.kind) {
     case "agent": {
       const role = sender.role === null ? null : t(ROLE_LABEL[sender.role]);
@@ -70,7 +70,7 @@ function SenderIcon({ sender }: { sender: Sender }): ReactElement | null {
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
-export interface SenderChipProps {
+interface SenderChipProps {
   sender: Sender;
   open: boolean;
   onToggle: () => void;
@@ -115,7 +115,7 @@ type Loaded =
   | { readonly state: "failed" }
   | { readonly state: "ready"; readonly envelope: Envelope };
 
-export interface SenderPanelProps {
+interface SenderPanelProps {
   /** 받은 메시지 id. panel이 열릴 때 봉투를 읽는다. */
   message: string;
   sender: Sender;

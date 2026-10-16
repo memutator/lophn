@@ -6,7 +6,7 @@ import type { AppViews } from "./app-views.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 /** 뒤 영역이 쓰는 앱 호출. */
-export type AppCalls = Registered & {
+type AppCalls = Registered & {
   appCall: ReturnType<typeof createAppCall>;
 };
 

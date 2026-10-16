@@ -12,7 +12,7 @@ import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { Changes, hasChanges } from "./changes.tsx";
 
-export interface VersionsTabProps {
+interface VersionsTabProps {
   app: string;
   source: AppDetailSource;
   now: () => Date;

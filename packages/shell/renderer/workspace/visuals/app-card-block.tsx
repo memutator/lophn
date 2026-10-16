@@ -21,7 +21,7 @@ const NOTICE = {
   not_card: "app-card.notice.not-card",
 } as const satisfies Record<Settled, string>;
 
-export interface AppCardBlockProps {
+interface AppCardBlockProps {
   card: AppCardRef;
   /** 카드가 든 확정 메시지와 블록 key. view가 이 자리에 묶인다. */
   message: string;

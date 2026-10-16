@@ -49,7 +49,7 @@ export type AgentEditorSource = Pick<
   | "setGrants"
 >;
 
-export interface AgentEditorProps {
+interface AgentEditorProps {
   readonly source: AgentEditorSource;
   /** agent가 놓인 곳의 id(project나 앱). lophn 전체 설정은 null이다. */
   readonly project: string | null;

@@ -6,7 +6,7 @@ import type { SourceResult } from "../source.ts";
 export type { SourceResult };
 
 /** core가 점검하는 구성 요소. 새 이름이 와도 화면은 이름을 그대로 읽을 수 있게 string이다. */
-export interface ComponentStatus {
+interface ComponentStatus {
   readonly component: string;
   readonly available: boolean;
   /** 안전한 불가 이유. 쓸 수 있으면 null이다. */

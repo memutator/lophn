@@ -24,7 +24,7 @@ export interface AgentTarget {
  * factory 인자에서 agent를 가리키는 값을 만든다. Operator는 id로, lophn은 place가 없는(global) 자리로, Project Manager와
  * App Engineer는 project와 앱 자리로 정해진다.
  */
-export function agentRefOf(target: AgentTarget): AgentRef {
+function agentRefOf(target: AgentTarget): AgentRef {
   const { assignment, place } = target;
   if (assignment.startsWith("agt_")) {
     return { role: "operator", agent: assignment };
@@ -58,7 +58,7 @@ type ListRoute = PlainRoute & {
   readonly output: z.ZodType<{ next_cursor: string | null }>;
 };
 
-export interface CommandBody<R extends CommandOf> {
+interface CommandBody<R extends CommandOf> {
   readonly input: In<R>;
   readonly compare: CompareOf<R>;
   /** idempotency key. 같은 key로 다시 보내면 core가 이전 결과를 돌려준다. */
@@ -69,7 +69,7 @@ export interface CommandBody<R extends CommandOf> {
 const PAGE_LIMIT = 50;
 
 /** 같은 core 통로에서 동시에 진행하는 호출 수. */
-export const MAX_IN_FLIGHT = 4;
+const MAX_IN_FLIGHT = 4;
 
 class Gate {
   #open = MAX_IN_FLIGHT;
@@ -112,7 +112,7 @@ const ERROR_CODES: ReadonlySet<string> = new Set([
   "internal",
 ]);
 
-export function errorCodeOf(code: string | undefined): string {
+function errorCodeOf(code: string | undefined): string {
   return code !== undefined && ERROR_CODES.has(code) ? code : "internal";
 }
 

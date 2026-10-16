@@ -26,7 +26,7 @@ import styles from "./panes.module.css";
 /** 칸 폭이 이보다 좁으면 본문 여백을 16px로 줄인다. */
 const PANE_PADDING_WIDE_MIN = 640;
 
-export interface PanesProps {
+interface PanesProps {
   view: WorkspaceView;
   /** 칸을 그릴 본문 폭. */
   bodyWidth: number;

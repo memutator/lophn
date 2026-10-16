@@ -3,12 +3,12 @@
 // kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { z } from "zod";
 
-export type PlaceholderReason =
+type PlaceholderReason =
   | "app_unavailable"
   | "context_missing"
   | "search_missing";
 
-export type RestoredTab =
+type RestoredTab =
   | { kind: "tab"; tab: { kind: string; key: string } }
   | {
     kind: "placeholder";
@@ -19,7 +19,7 @@ export type RestoredTab =
   };
 
 /** 탭 대상을 지금 기준으로 검사하는 통로. 테스트가 가짜를 끼운다. */
-export interface RestoreTargets {
+interface RestoreTargets {
   /** 앱이 살아 있고 실행 가능한지. */
   app(app: string): Promise<boolean>;
   /** 이 프로젝트에 속한 보관되지 않은 context가 있는지. */
@@ -28,13 +28,13 @@ export interface RestoreTargets {
   declaredSearch(context: string, search: string): Promise<boolean>;
 }
 
-export interface ReadPosition {
+interface ReadPosition {
   section: string;
   scroll_offset: number;
 }
 
 /** 탭 kind 하나의 선언. L은 layout 파일 탭이다. */
-export interface TabKind<
+interface TabKind<
   L extends { kind: string; key: string } = { kind: string; key: string },
 > {
   /** TabLayout.kind에 쓰는 이름. registry 안 유일. */
@@ -74,6 +74,3 @@ export function tabKindOf(kind: unknown): TabKind | undefined {
   return typeof kind === "string" ? kinds.get(kind) : undefined;
 }
 
-export function tabKinds(): readonly TabKind[] {
-  return [...kinds.values()];
-}

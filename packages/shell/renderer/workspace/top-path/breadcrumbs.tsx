@@ -3,7 +3,7 @@ import { t } from "@lophn/wording";
 import type { Crumb } from "../model.ts";
 import styles from "./breadcrumbs.module.css";
 
-export interface BreadcrumbsProps {
+interface BreadcrumbsProps {
   crumbs: readonly Crumb[];
 }
 

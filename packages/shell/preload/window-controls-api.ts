@@ -7,7 +7,7 @@ import {
   type WindowState,
 } from "../ipc/window-controls.ts";
 
-export interface WindowControlsTransport {
+interface WindowControlsTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   on(
     channel: string,

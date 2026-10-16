@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 
 import { posixGroup, type ProcessGroup } from "./child-group.ts";
 
-export type PtyExit = { exitCode: number; signal?: number };
+type PtyExit = { exitCode: number; signal?: number };
 
 export interface PtyHandle {
   readonly pid: number;
@@ -16,7 +16,7 @@ export interface PtyHandle {
   onExit(listener: (exit: PtyExit) => void): { dispose(): void };
 }
 
-export type PtySpawnOptions = {
+type PtySpawnOptions = {
   file: string;
   args: string[];
   cwd: string;

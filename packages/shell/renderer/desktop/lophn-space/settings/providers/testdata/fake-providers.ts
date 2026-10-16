@@ -9,9 +9,9 @@ import type {
 } from "../settings-source.ts";
 import type { AuthWay } from "../../source.ts";
 
-export const ANTHROPIC = "pvd_01h455vb4pex5v6nkc6gd5fd11";
+const ANTHROPIC = "pvd_01h455vb4pex5v6nkc6gd5fd11";
 export const OPENAI = "pvd_01h455vb4pex5v6nkc6gd5fd12";
-export const XAI = "pvd_01h455vb4pex5v6nkc6gd5fd13";
+const XAI = "pvd_01h455vb4pex5v6nkc6gd5fd13";
 
 function connection(
   id: string,
@@ -31,13 +31,13 @@ function connection(
 }
 
 /** Anthropic: 로그인. OpenAI와 xAI: API key. */
-export const CONNECTED: readonly ProviderRow[] = [
+const CONNECTED: readonly ProviderRow[] = [
   connection(ANTHROPIC, "Anthropic", "anthropic", "oauth"),
   connection(OPENAI, "OpenAI", "openai", "api_key"),
   connection(XAI, "xAI", "xai", "api_key"),
 ];
 
-export function definition(
+function definition(
   key: string,
   name: string,
   options: Partial<Omit<ProviderDefinitionRow, "key" | "name">> = {},
@@ -53,24 +53,24 @@ export function definition(
   };
 }
 
-export const ANTHROPIC_DEFINITION = definition("anthropic", "Anthropic", {
+const ANTHROPIC_DEFINITION = definition("anthropic", "Anthropic", {
   ways: ["oauth", "api_key"],
   signIn: { product: "Claude", verified: true },
 });
 
-export const OPENAI_DEFINITION = definition("openai", "OpenAI", {
+const OPENAI_DEFINITION = definition("openai", "OpenAI", {
   ways: ["oauth", "api_key"],
   signIn: { product: "ChatGPT", verified: true },
 });
 
-export const XAI_DEFINITION = definition("xai", "xAI");
+const XAI_DEFINITION = definition("xai", "xAI");
 
-export const CUSTOM_DEFINITION = definition("custom", "Custom provider", {
+const CUSTOM_DEFINITION = definition("custom", "Custom provider", {
   hint: "Any OpenAI-compatible endpoint",
   custom: true,
 });
 
-export const AVAILABLE: readonly ProviderDefinitionRow[] = [
+const AVAILABLE: readonly ProviderDefinitionRow[] = [
   definition("google", "Google", { hint: "Gemini models" }),
   definition("openrouter", "OpenRouter", {
     hint: "Models from many providers",
@@ -85,12 +85,12 @@ const DEFINITIONS: Readonly<Record<string, ProviderDefinitionRow>> = {
   xai: XAI_DEFINITION,
 };
 
-export type ProviderCall =
+type ProviderCall =
   | readonly ["disconnect", string]
   | readonly ["connect", string, Exclude<AuthWay, "none">]
   | readonly ["custom", CustomProviderInput];
 
-export interface FakeProvidersOptions {
+interface FakeProvidersOptions {
   connected?: readonly ProviderRow[];
   available?: readonly ProviderDefinitionRow[];
   /** 이 이름의 호출은 이 code로 실패한다. */

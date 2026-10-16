@@ -40,7 +40,7 @@ import {
 } from "./model.ts";
 import { NamedControl } from "./named-control.tsx";
 
-export interface GeneralPanelProps {
+interface GeneralPanelProps {
   source: SettingsSource;
   /** 필수 설정 안내의 [Choose in Agents]가 쓴다. */
   onPane: (pane: SettingsPane) => void;

@@ -40,7 +40,7 @@ interface Context extends Loaded {
   readonly current: ModelChoice | null;
 }
 
-export interface ModelPart {
+interface ModelPart {
   model(
     session: string | null,
     query: string,

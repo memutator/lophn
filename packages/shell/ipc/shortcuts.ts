@@ -35,13 +35,13 @@ export const DESKTOP_INTENT_CHANNEL = "shell:intent";
  * main이 창 밖에서 일어난 일로 창에 시키는 것. `global-palette`는 전역 팔레트 키,
  * `things-to-confirm`은 OS notification 클릭이다. 클릭은 읽음·결정이 아니다.
  */
-export const DESKTOP_INTENTS = ["global-palette", "things-to-confirm"] as const;
+const DESKTOP_INTENTS = ["global-palette", "things-to-confirm"] as const;
 
 /**
  * `lophn://things-to-confirm/<id>` 링크. things-to-confirm에서 그 요청을 고른
  * 화면을 연다. confirmation window는 열지 않는다(사람이 그 화면에서 누를 때 연다).
  */
-export interface ConfirmTargetIntent {
+interface ConfirmTargetIntent {
   readonly kind: "things-to-confirm";
   readonly request: string;
 }
@@ -50,7 +50,7 @@ export interface ConfirmTargetIntent {
  * [Report a problem]으로 접수된 feedback이 묶인 Issue. 그 앱 공간을 연다.
  * 앱·문제 ID는 main이 접수 결과에서 정하고 화면에는 보이지 않는다.
  */
-export interface AppIssueIntent {
+interface AppIssueIntent {
   readonly kind: "app-issue";
   readonly app: string;
   readonly problem: string;
@@ -60,7 +60,7 @@ export interface AppIssueIntent {
  * `lophn://things-to-confirm/<cac|tkt|app id>` 링크(coding agent 회수·취소·생성). target은 연결(`cac_`)·
  * Task(`tkt_`)·앱(`app_`) 하나이고 renderer가 그 대상의 화면을 연다. 결정 창은 사람이 그 화면에서 누를 때 연다.
  */
-export interface CodingTargetIntent {
+interface CodingTargetIntent {
   readonly kind: "coding";
   readonly target: string;
 }

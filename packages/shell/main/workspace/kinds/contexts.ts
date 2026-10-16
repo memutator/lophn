@@ -9,7 +9,7 @@ const layout = z.strictObject({
   key: tabKey,
 });
 
-export type ContextsLayout = z.infer<typeof layout>;
+type ContextsLayout = z.infer<typeof layout>;
 
 export const contextsKind = defineTabKind<ContextsLayout>({
   kind: "contexts",

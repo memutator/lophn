@@ -11,7 +11,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - Settings의 coding agent harness 목록(`coding_agent_harnesses/list`). 감지 보고(`report`)와 터미널 결과·종료
 //   알림(`coding_agent_terminals/*`)은 main이 자기 신원으로 보내므로 renderer는 부르지 않는다.
 // 다른 memory route는 main의 고정 통로만 부른다.
-export const RENDERER_MEMORY_ROUTES: readonly string[] = [
+const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
   "memory:agent-mcp-auth/complete",
   "memory:agent-mcp-auth/state",
@@ -30,10 +30,10 @@ export const RENDERER_MEMORY_ROUTES: readonly string[] = [
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지를 올리고 읽는다.
-export const RENDERER_UPLOAD_ROUTES: readonly string[] = [
+const RENDERER_UPLOAD_ROUTES: readonly string[] = [
   "upload:profile-images/upload",
 ];
-export const RENDERER_FILE_ROUTES: readonly string[] = [
+const RENDERER_FILE_ROUTES: readonly string[] = [
   "file:profile-images/read",
 ];
 

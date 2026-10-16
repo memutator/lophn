@@ -26,7 +26,7 @@ const keywordLayout = z.strictObject({
 
 const layout = z.union([declaredLayout, keywordLayout]);
 
-export type SearchLayout = z.infer<typeof layout>;
+type SearchLayout = z.infer<typeof layout>;
 export const searchKind = defineTabKind<SearchLayout>({
   kind: "search",
   layout,

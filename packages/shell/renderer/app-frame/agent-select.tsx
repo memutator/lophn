@@ -18,7 +18,7 @@ import { t } from "@lophn/wording";
 
 import styles from "./agent-select.module.css";
 
-export type AppSpaceAgentRole = "lophn" | "app_engineer" | "operator";
+type AppSpaceAgentRole = "lophn" | "app_engineer" | "operator";
 
 /** select 항목 하나. */
 export interface AppSpaceAgent {
@@ -30,7 +30,7 @@ export interface AppSpaceAgent {
   readonly profile: AvatarProfile;
 }
 
-export interface AgentSelectProps {
+interface AgentSelectProps {
   /**
    * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, App Engineer, 이 앱의 Operator들(들어온 순서).
    */

@@ -55,7 +55,7 @@ const SETTLED_MARK = {
 >;
 
 /** 방금 결정한 줄. 접수와 적용 성공을 구별하고, 거절과 cancelled를 구별한다. */
-export function SettledList({ rows }: { rows: readonly SettledRow[] }) {
+function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   return (
     <section
       className={styles.group}

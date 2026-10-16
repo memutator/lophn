@@ -18,7 +18,7 @@ import { t } from "@lophn/wording";
 import type { ContainingContext, ContextsSource } from "./source.ts";
 import styles from "./document-contexts.module.css";
 
-export interface DocumentContextsProps {
+interface DocumentContextsProps {
   readonly source: ContextsSource;
   readonly project: string;
   /** project 폴더 기준 상대 경로. */

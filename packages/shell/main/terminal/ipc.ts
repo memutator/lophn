@@ -31,7 +31,7 @@ import {
   type IpcResult,
 } from "../desktop/ipc-guard.ts";
 
-export type FocusTable = {
+type FocusTable = {
   focused(
     contentsId: number,
     terminalRef: string,
@@ -41,7 +41,7 @@ export type FocusTable = {
   blur(contentsId: number, terminalRef: string): void;
 };
 
-export type FolderSource = {
+type FolderSource = {
   folders(
     project: string,
   ): Promise<readonly { folder_ref: string; path: string }[]>;

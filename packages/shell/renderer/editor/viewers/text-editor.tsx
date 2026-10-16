@@ -31,7 +31,7 @@ export interface TextEditorHandle {
   replaceText(text: string): void;
 }
 
-export interface TextEditorProps {
+interface TextEditorProps {
   initialText: string;
   /** 접근 이름. */
   label: string;

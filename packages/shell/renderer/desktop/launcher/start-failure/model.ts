@@ -2,9 +2,9 @@
 import type { MessageKey } from "@lophn/wording";
 import type { ConnectionState } from "../../../../ipc/core.ts";
 
-export type SchemaReason = NonNullable<ConnectionState["schemaFailure"]>;
+type SchemaReason = NonNullable<ConnectionState["schemaFailure"]>;
 
-export type StartFailureKind = "start" | "sandbox" | SchemaReason;
+type StartFailureKind = "start" | "sandbox" | SchemaReason;
 
 export interface StartFailure {
   kind: StartFailureKind;
@@ -41,7 +41,7 @@ const SCHEMA: Record<SchemaReason, StartFailure> = {
 };
 
 /** Core 시작 실패: daemon lock 확인, 프로세스 상태 확인 실패, binary 못 찾음. */
-export function startFailure(): StartFailure {
+function startFailure(): StartFailure {
   return {
     kind: "start",
     title: "launcher.title.start-failed",
@@ -50,7 +50,7 @@ export function startFailure(): StartFailure {
 }
 
 /** Sandbox 실패: security settings 적용 불가, permissions 오류. */
-export function sandboxFailure(): StartFailure {
+function sandboxFailure(): StartFailure {
   return {
     kind: "sandbox",
     title: "launcher.title.sandbox-failed",

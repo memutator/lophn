@@ -15,7 +15,7 @@ import {
 export const PROBLEM_CONCERN = "problems/closing";
 export const PROBLEM_DECISION = "problem_decision";
 /** core가 handle 사용을 비교하는 결정 이름(= command route 이름). */
-export const APPLY_PROBLEM_DECISION = "ApplyProblemDecision";
+const APPLY_PROBLEM_DECISION = "ApplyProblemDecision";
 
 /** contracts applyProblemDecision의 binding. 첫 field가 handle 대상이다. */
 const BINDING = [

@@ -33,7 +33,7 @@ import { DEFAULT_PANE, type SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
 import styles from "./lophn-space.module.css";
 
-export interface LophnSpaceProps {
+interface LophnSpaceProps {
   /** 팔레트의 project·앱 행. */
   source: LophnSource;
   /** 처음 보일 화면. 없으면 projects다. */

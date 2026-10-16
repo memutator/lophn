@@ -13,7 +13,7 @@ import { folderMissing } from "./model.ts";
 import type { ProjectCard as Card } from "./source.ts";
 import styles from "./launcher.module.css";
 
-export interface ProjectCardProps {
+interface ProjectCardProps {
   card: Card;
   onOpen: (id: string) => void;
 }

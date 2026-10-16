@@ -40,7 +40,7 @@ const PAGE_LIMIT = 20;
 const NAME_ATTEMPTS = 5;
 const SLUG_MAX = 63;
 
-export function projectItemOf(value: ProjectValue): ProjectItem {
+function projectItemOf(value: ProjectValue): ProjectItem {
   return {
     id: value.id,
     title: value.title,

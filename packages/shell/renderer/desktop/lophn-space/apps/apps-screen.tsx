@@ -17,7 +17,7 @@ import { appStatus, sortApps, statusLabel, statusTone } from "./model.ts";
 import type { AppRow, AppsSource, RunState } from "./source.ts";
 import styles from "./apps-screen.module.css";
 
-export interface AppsScreenProps {
+interface AppsScreenProps {
   source: AppsSource;
   /** 그 앱의 앱 공간을 연다. */
   onOpen: (app: string) => void;

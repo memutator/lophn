@@ -9,7 +9,6 @@ import {
 
 import type { ConnectionState, CoreSource } from "./connection.ts";
 import { initialConnection } from "./connection.ts";
-import type { ProviderFacts } from "./provider-state.ts";
 import styles from "./connection.module.css";
 
 /** main이 민 연결 상태를 따른다. */
@@ -18,33 +17,6 @@ export function useConnection(source: CoreSource): ConnectionState {
     source.current?.() ?? initialConnection
   );
   useEffect(() => source.subscribe(setConnection), [source]);
-  return connection;
-}
-
-const NO_CONNECTION: CoreSource = {
-  subscribe: () => () => {},
-  call: () =>
-    Promise.resolve({
-      ok: false,
-      error: { code: "unavailable", message: "core bridge is missing" },
-    }),
-};
-
-/**
- * 통로가 없는 창(테스트·다른 창)에서도 훅 순서를 같게 두고 ready를 보인다 — 통로가 없다는
- * 것은 끊김을 알 길이 없다는 뜻이므로 끊김 줄을 걸지 않는다. 통로가 있으면 useConnection과
- * 같다.
- */
-export function useConnectionSafe(
-  core: CoreSource | undefined,
-): ConnectionState {
-  const [connection, setConnection] = useState<ConnectionState>(
-    () => core?.current?.() ?? { state: "ready", confirmedAt: null },
-  );
-  useEffect(
-    () => (core ?? NO_CONNECTION).subscribe(setConnection),
-    [core],
-  );
   return connection;
 }
 
@@ -58,7 +30,7 @@ export function retryConnection(source: CoreSource): void {
   });
 }
 
-export interface ConnectionGateProps {
+interface ConnectionGateProps {
   connection: ConnectionState;
   onRetry: () => void;
 }
@@ -118,7 +90,7 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   );
 }
 
-export interface ConnectionNoticeProps {
+interface ConnectionNoticeProps {
   connection: ConnectionState;
   onRetry: () => void;
   /** 확인 시각을 글로 바꾼다. 기본은 절대 시각이다. */
@@ -163,51 +135,6 @@ function absoluteTime(confirmedAt: number): string {
   }).format(new Date(confirmedAt));
 }
 
-export interface ProviderNoticeProps {
-  /** 대화 입력칸의 끊김 안내 위에 놓인다. provider를 읽지 못했으면 null이다. */
-  facts: ProviderFacts | null;
-  /** 설정의 연결 자리로 연다. 없으면 행동만 말한다. */
-  onSettings?: () => void;
-  /** 다시 읽는다. provider 판정이 바뀔 만한 때에 부른다. */
-  onRefresh?: () => void;
-}
-
 // provider 끊김: 로컬 문서·앱·터미널은 그대로 두고 대화에만 필요한 행동 한 줄(설정으로
 // 연결·다시 연결)을 보인다. core가 준비되지 않았거나 아직 읽지 못했으면 null이다.
-export function ProviderNotice(
-  { facts, onSettings, onRefresh }: ProviderNoticeProps,
-) {
-  if (facts === null || usableFacts(facts)) return null;
-  return (
-    <div className={styles.notice} role="status" data-provider="unusable">
-      <span className={styles.noticeText}>
-        <Icon
-          icon={connectionStaleIcon}
-          pixels={iconPixels("base")}
-          className={styles.muted}
-        />
-        <span className={styles.message}>
-          {t("conversation.notice.provider-lost")}
-        </span>
-      </span>
-      {onSettings
-        ? (
-          <Button variant="ghost" onClick={onSettings}>
-            {t("settings.label.tab-connections")}
-          </Button>
-        )
-        : null}
-      {onRefresh && facts.providers === null
-        ? (
-          <Button variant="ghost" onClick={onRefresh}>
-            {t("document.button.check-again")}
-          </Button>
-        )
-        : null}
-    </div>
-  );
-}
 
-function usableFacts(facts: ProviderFacts): boolean {
-  return facts.providers !== null && facts.usable;
-}

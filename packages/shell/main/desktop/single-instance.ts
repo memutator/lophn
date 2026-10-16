@@ -4,19 +4,14 @@
 // OS 앱 바로가기가 `--open-app`으로 이미 떠 있는 main에 앱 창을 요청하는 데 쓴다.
 import { readOpenIntent } from "./open-intent.ts";
 
-/** second-instance argv의 창 없는 종료 요청. 다른 값은 실행하지 않는다. */
-export function hasQuitIntent(argv: readonly string[]): boolean {
-  return readOpenIntent(argv).kind === "quit";
-}
-
-export interface SingleInstanceApp {
+interface SingleInstanceApp {
   requestSingleInstanceLock(additionalData: { dataRoot: string }): boolean;
   quit(): void;
   // Electron은 (event, argv, workingDirectory, additionalData)로 보낸다.
   on(event: "second-instance", listener: (...args: unknown[]) => void): void;
 }
 
-export interface SingleInstanceOptions {
+interface SingleInstanceOptions {
   app: SingleInstanceApp;
   dataRoot: string;
   /** 새 기본 창 요청. 대상 intent가 없는 second-instance마다 부른다. */
@@ -27,7 +22,7 @@ export interface SingleInstanceOptions {
   onOpenApp?: (app: string) => void;
 }
 
-export interface SingleInstance {
+interface SingleInstance {
   /** 이 프로세스가 lock을 가졌는지. 못 가졌으면 이미 종료를 요청했다. */
   acquired: boolean;
 }

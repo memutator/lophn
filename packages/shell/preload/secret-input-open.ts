@@ -5,7 +5,7 @@ import {
   type SecretInputOpenReply,
 } from "../ipc/secret-input.ts";
 
-export interface SecretInputOpenTransport {
+interface SecretInputOpenTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 

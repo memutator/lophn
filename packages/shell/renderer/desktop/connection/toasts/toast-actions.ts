@@ -5,7 +5,7 @@ import type { ReactionAction } from "../events/reactions.ts";
 export type ToastAction = ReactionAction;
 
 /** 처리했으면 true. */
-export type ToastActionHandler = (action: ToastAction) => boolean;
+type ToastActionHandler = (action: ToastAction) => boolean;
 
 const handlers: ToastActionHandler[] = [];
 

@@ -24,7 +24,7 @@ import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { RewindPanel } from "./rewind-panel.tsx";
 
-export interface ActivityTabProps {
+interface ActivityTabProps {
   app: string;
   /** 앱 이름. rewind panel이 쓴다. */
   name: string;

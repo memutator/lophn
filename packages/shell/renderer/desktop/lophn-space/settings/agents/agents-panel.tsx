@@ -24,7 +24,7 @@ import type {
 } from "./settings-source.ts";
 import styles from "./agents.module.css";
 
-export interface AgentsPanelProps {
+interface AgentsPanelProps {
   source: AgentsSettingsSource;
 }
 

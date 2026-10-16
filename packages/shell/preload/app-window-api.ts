@@ -6,7 +6,7 @@ import {
   type LophnAppWindowsApi,
 } from "../ipc/app-window.ts";
 
-export interface AppWindowTransport {
+interface AppWindowTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 

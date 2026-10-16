@@ -70,14 +70,14 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpRow[]>> {
   };
 }
 
-export interface ProjectSettings {
+interface ProjectSettings {
   readonly servers: readonly McpServer[];
   readonly skillsOff: readonly string[];
   readonly mcpOff: readonly string[];
   readonly hash: string | null;
 }
 
-export async function readProjectSettings(
+async function readProjectSettings(
   link: Link,
   project: string,
 ): Promise<ReadResult<ProjectSettings>> {

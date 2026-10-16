@@ -4,7 +4,6 @@ import {
   LAYOUT_SCHEMA_VERSION,
   type LayoutFile,
   layoutFileSchema,
-  type LayoutTab,
   type WorkspaceLayout,
   workspaceLayoutSchema,
 } from "./schema.ts";
@@ -12,7 +11,6 @@ import { tabKindOf } from "./kinds/registry.ts";
 
 export type {
   LayoutFile,
-  LayoutPane,
   LayoutTab,
   WindowBounds,
   WorkspaceLayout,
@@ -85,18 +83,6 @@ export function toLayoutFile(layout: WorkspaceLayout): LayoutFile {
   return { schema_version: SCHEMA_VERSION, layout };
 }
 
-export function emptyLayout(project: string): WorkspaceLayout {
-  return {
-    schema_version: SCHEMA_VERSION,
-    project,
-    window_bounds: { x: 0, y: 0, width: 960, height: 600 },
-    last_space: "launcher",
-    panes: [{ tabs: [], selected_tab: null }],
-    split_ratio: 0.5,
-    focused_pane: 0,
-  };
-}
-
 /** 저장 전 검증. 실패 원문 대신 안전한 이유만 내놓는다. */
 export function validateLayout(value: unknown): LayoutResult {
   const parsed = workspaceLayoutSchema.safeParse(value);
@@ -104,21 +90,3 @@ export function validateLayout(value: unknown): LayoutResult {
   return { ok: true, layout: parsed.data };
 }
 
-/** 두 칸 각각의 최소 폭은 480px다. */
-export const MIN_PANE_WIDTH = 480;
-
-/**
- * 창 폭으로 두 칸을 유지할 수 있는지. 부족하면 저장된 panes·split_ratio·탭
- * 소속을 바꾸지 않고 한 칸 보기로 표시한다(domain-model 정책).
- */
-export function fitsTwoPanes(windowWidth: number): boolean {
-  return windowWidth >= MIN_PANE_WIDTH * 2 + 1;
-}
-
-/** 읽던 위치는 그것을 가진 kind의 선언에서만 온다. 다른 kind는 위치를 버린다. */
-export function readPositionOf(tab: LayoutTab): {
-  section: string;
-  scroll_offset: number;
-} | undefined {
-  return tabKindOf(tab.kind)?.readPosition?.(tab);
-}

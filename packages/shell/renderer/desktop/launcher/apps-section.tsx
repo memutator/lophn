@@ -13,7 +13,7 @@ import type { AppRow } from "../lophn-space/apps/source.ts";
 import type { Loaded } from "./model.ts";
 import styles from "./launcher.module.css";
 
-export interface AppsSectionProps {
+interface AppsSectionProps {
   apps: Loaded<AppRow>;
   /** 그 앱의 앱 공간을 연다. */
   onApp: (app: string) => void;

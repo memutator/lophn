@@ -6,12 +6,12 @@ import { join } from "node:path";
 import type { AutostartState } from "./autostart.ts";
 import { word } from "./wording.ts";
 
-export type TrayItemId = "open" | "launcher" | "autostart" | "quit";
+type TrayItemId = "open" | "launcher" | "autostart" | "quit";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
-export type TrayNotice = "global-search-unavailable";
+type TrayNotice = "global-search-unavailable";
 
-export type TrayMenuItem =
+type TrayMenuItem =
   | { type: "normal"; id: TrayItemId; label: string }
   | { type: "notice"; label: string }
   | {
@@ -31,7 +31,7 @@ const NOTICE_LABELS = {
  * tray menu. 자동 시작을 쓸 수 없는 실행(개발 실행 등)에서는 그 항목을 끈다. 쓸 수 없게 된
  * OS 기능은 Quit 위에 누를 수 없는 줄로 하나씩 보인다.
  */
-export function trayMenu(
+function trayMenu(
   autostart: AutostartState,
   notices: readonly TrayNotice[] = [],
 ): TrayMenuItem[] {
@@ -62,7 +62,7 @@ export function trayMenu(
   ];
 }
 
-export interface TrayHandle {
+interface TrayHandle {
   setToolTip(text: string): void;
   setMenu(items: TrayMenuItem[], onSelect: (id: TrayItemId) => void): void;
   /** 아이콘 클릭(Linux appindicator는 보내지 않을 수 있다). */
@@ -75,7 +75,7 @@ export interface TrayFactory {
   create(icon: string): TrayHandle;
 }
 
-export interface TrayActions {
+interface TrayActions {
   /** 가장 최근 창을 앞으로, 창이 없으면 새 기본 창. */
   openWindow(): void;
   /** 새 기본 창. 새 기본 창은 언제나 런처에서 시작한다. */
@@ -86,7 +86,7 @@ export interface TrayActions {
   quit(): void;
 }
 
-export interface TrayOptions {
+interface TrayOptions {
   factory: TrayFactory;
   icon: string;
   actions: TrayActions;
@@ -156,7 +156,7 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
   };
 }
 
-export interface IconLocation {
+interface IconLocation {
   packaged: boolean;
   /** packaged build의 `process.resourcesPath`. */
   resourcesPath: string;

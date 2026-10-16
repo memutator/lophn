@@ -14,7 +14,7 @@ import type {
 } from "./settings-source.ts";
 import styles from "./connect-dialog.module.css";
 
-export interface ConnectDialogProps {
+interface ConnectDialogProps {
   source: ProviderSettingsSource;
   /** 연결할 정의. null이면 닫혀 있다. */
   definition: ProviderDefinitionRow | null;
@@ -86,7 +86,7 @@ function MethodDialog(
 }
 
 /** 로그인 방법 고르기. 연결 창과 gallery의 정적 창이 같이 쓴다. */
-export function MethodsBody(
+function MethodsBody(
   { definition, busy = false, failed = false, onChoose = () => {} }: {
     definition: ProviderDefinitionRow;
     busy?: boolean;
@@ -197,14 +197,14 @@ function needsKey(value: string): boolean {
 }
 
 /** Custom provider form의 값. API key는 여기 없다. */
-export interface CustomFields {
+interface CustomFields {
   readonly id: string;
   readonly name: string;
   readonly baseUrl: string;
 }
 
 /** Custom provider form. 연결 창과 gallery의 정적 창이 같이 쓴다. 오류는 사람이 그 칸에 무언가 쓴 뒤에만 보인다. */
-export function CustomProviderBody(
+function CustomProviderBody(
   { fields, failed = false, onChange = () => {} }: {
     fields: CustomFields;
     failed?: boolean;

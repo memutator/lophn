@@ -27,7 +27,7 @@ import type { LophnShellFeedbackSend } from "../../../../protocol/shell/feedback
 import styles from "./feedback-dialog.module.css";
 
 /** 기존 문제에 덧붙일 때 고르는 줄. 열림·해결됨 문제만 온다. */
-export interface FeedbackProblem {
+interface FeedbackProblem {
   readonly id: string;
   readonly title: string;
   readonly count: number;
@@ -38,7 +38,7 @@ export type FeedbackDialogApi =
   & Pick<LophnOverlayFeedback, "cancelFeedback" | "openFeedbackIssue">
   & LophnShellFeedbackSend;
 
-export interface FeedbackDialogProps {
+interface FeedbackDialogProps {
   draftRef: string;
   api: FeedbackDialogApi;
   host: HTMLElement;

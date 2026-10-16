@@ -41,7 +41,7 @@ export interface MarkdownEditorHandle {
   replaceText(text: string): void;
 }
 
-export interface MarkdownEditorProps {
+interface MarkdownEditorProps {
   /** 처음 글. 뒤의 바깥 바꿈은 이 편집기의 몫이 아니다. */
   initialText: string;
   /** 접근 이름. */

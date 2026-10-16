@@ -15,7 +15,7 @@ import styles from "../settings.module.css";
 import { APPEARANCE_ROWS, applyTheme } from "./model.ts";
 import type { AppearanceSource, AppearanceValues } from "./source.ts";
 
-export interface AppearancePanelProps {
+interface AppearancePanelProps {
   source: AppearanceSource;
 }
 

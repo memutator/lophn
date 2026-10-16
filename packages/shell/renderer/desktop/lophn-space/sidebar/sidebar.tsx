@@ -13,7 +13,7 @@ import { screenIcon, screenLabel } from "../screens.ts";
 import { SETTINGS_GROUPS, type SettingsPane } from "../settings/model.ts";
 import styles from "./sidebar.module.css";
 
-export interface LophnSidebarProps {
+interface LophnSidebarProps {
   /** open·collapsed·hidden. hidden이면 그리지 않는다. */
   mode: "open" | "collapsed" | "hidden";
   width: number;

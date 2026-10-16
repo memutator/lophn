@@ -32,7 +32,7 @@ export interface McpServerValue {
   };
 }
 
-export interface ExtensionSettings {
+interface ExtensionSettings {
   readonly folders: readonly string[];
   readonly servers: readonly McpServerValue[];
 }

@@ -119,27 +119,3 @@ export function FileInfoPanel(
   );
 }
 
-export interface DocumentInfoPanelProps {
-  tab: InfoTabId;
-  /** focus 칸의 활성 문서 탭. 문서가 아니면 null이다. */
-  document: string | null;
-  path: string | null;
-}
-
-/** 작업대의 정보 panel 자리가 아직 부르는 옛 모양. 정보 panel이 탭 안으로 간 뒤 작업대 정리와 함께 지운다. */
-export function DocumentInfoPanel(
-  { tab, document, path }: DocumentInfoPanelProps,
-) {
-  if (document === null) {
-    return <p className={styles.note}>{t("document.notice.no-document")}</p>;
-  }
-  if (tab === "contexts") {
-    return <p className={styles.note}>{t("document.empty.contexts")}</p>;
-  }
-  return (
-    <section data-info-facts="">
-      <h3 className={styles.caption}>{t("document.label.info-file")}</h3>
-      <p className={styles.mono} data-info-file="">{path ?? document}</p>
-    </section>
-  );
-}

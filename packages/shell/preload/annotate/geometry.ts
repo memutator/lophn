@@ -1,7 +1,7 @@
 // 고른 곳의 위치 계산. viewport 비율과 scroll 값으로 적어 두고 다시 그릴 때 옮긴다.
 import type { PickedItem } from "../../ipc/annotation.ts";
 
-export type Rect = PickedItem["rect"];
+type Rect = PickedItem["rect"];
 /** viewport 안 사각형(CSS px). */
 export type Box = { x: number; y: number; width: number; height: number };
 export type View = {

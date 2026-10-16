@@ -3,9 +3,9 @@ import type { MessageKey } from "@lophn/wording";
 
 import type { ReactionEvent, ReactionMode, ReactionModes } from "./source.ts";
 
-export const DEFAULT_MODE: ReactionMode = "open";
+const DEFAULT_MODE: ReactionMode = "open";
 
-export interface ReactionRow {
+interface ReactionRow {
   readonly event: ReactionEvent;
   readonly name: MessageKey;
   /** 언제. */

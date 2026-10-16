@@ -18,9 +18,9 @@ import { EditorSessions } from "../editor/sessions.ts";
  * 시드 프로젝트 id. 실제 project id 모양이라 같은 id로 core에 프로젝트를
  * 만들면 터미널 열기가 그 등록 폴더를 읽는다.
  */
-export const DEV_SEED_PROJECT = "prj_01k6devseed000000000000000";
+const DEV_SEED_PROJECT = "prj_01k6devseed000000000000000";
 
-export interface DevSeed {
+interface DevSeed {
   readonly project: string;
   readonly source: WorkspaceSource;
   /** 파일 탭 통로. */

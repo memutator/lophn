@@ -17,7 +17,7 @@ const SETTINGS = {
   deny: "conversation.label.grant-deny",
 } as const satisfies Record<GrantSetting, string>;
 
-export interface PermissionsViewProps {
+interface PermissionsViewProps {
   agent: string;
   permissions: PermissionsData;
   /** panel을 닫는다. popover 안에서는 두지 않는다. */

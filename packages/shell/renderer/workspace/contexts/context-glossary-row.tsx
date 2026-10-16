@@ -8,7 +8,7 @@ import { setByLabel, whenLabel } from "./context-glossary-model.ts";
 import styles from "./context-glossary.module.css";
 import type { GlossaryEntry } from "./source.ts";
 
-export interface GlossaryRowProps {
+interface GlossaryRowProps {
   readonly entry: GlossaryEntry;
   /** "2 days ago"를 잴 지금. */
   readonly now: Date;

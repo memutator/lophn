@@ -10,19 +10,19 @@ export interface Rect {
   height: number;
 }
 
-export const EMPTY_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 };
+const EMPTY_RECT: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
-export function empty(rect: Rect): boolean {
+function empty(rect: Rect): boolean {
   return rect.width <= 0 || rect.height <= 0;
 }
 
-export function sameRect(a: Rect, b: Rect): boolean {
+function sameRect(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width &&
     a.height === b.height;
 }
 
 /** 가장자리를 반올림한 정수 사각형. 크기를 반올림하면 이웃 칸과 한 pixel 겹칠 수 있다. */
-export function rectOf(element: Element): Rect {
+function rectOf(element: Element): Rect {
   const box = element.getBoundingClientRect();
   const x = Math.round(box.left);
   const y = Math.round(box.top);
@@ -34,7 +34,7 @@ export function rectOf(element: Element): Rect {
   };
 }
 
-export function intersect(a: Rect, b: Rect): Rect {
+function intersect(a: Rect, b: Rect): Rect {
   const x = Math.max(a.x, b.x);
   const y = Math.max(a.y, b.y);
   const right = Math.min(a.x + a.width, b.x + b.width);
@@ -47,7 +47,7 @@ export function intersect(a: Rect, b: Rect): Rect {
  * 덮인 영역을 뺀다. native view는 사각형이라 남은 네 쪽 중 가장 넓은 쪽으로 줄인다. 옆에서
  * 덮는 패널이면 덮지 않은 옆 폭이 남는다. 다 덮이면 넓이 0이다.
  */
-export function subtractCover(rect: Rect, cover: Rect): Rect {
+function subtractCover(rect: Rect, cover: Rect): Rect {
   const overlap = intersect(rect, cover);
   if (empty(overlap)) return rect;
   const right = rect.x + rect.width;
@@ -75,7 +75,7 @@ export function subtractCover(rect: Rect, cover: Rect): Rect {
 }
 
 /** 자리를 경계들로 자르고 덮개를 뺀 사각형. */
-export function visibleRect(
+function visibleRect(
   region: Rect,
   clips: readonly Rect[],
   covers: readonly Rect[],
@@ -93,7 +93,7 @@ const clipping = (overflow: string) =>
   overflow !== "" && overflow !== "visible";
 
 /** 내용을 자르는 조상(칸·카드 목록의 스크롤 영역). 그 밖은 보이지 않는다. */
-export function clipAncestors(element: Element): Element[] {
+function clipAncestors(element: Element): Element[] {
   const view = element.ownerDocument.defaultView;
   const found: Element[] = [];
   for (
@@ -109,7 +109,7 @@ export function clipAncestors(element: Element): Element[] {
   return found;
 }
 
-export interface BoundsRelayDeps {
+interface BoundsRelayDeps {
   element: Element;
   /** 지금 본문을 덮는 패널. 없으면 빈 목록이다. */
   covers(): readonly Element[];

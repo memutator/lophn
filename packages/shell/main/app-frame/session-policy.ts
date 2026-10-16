@@ -34,17 +34,17 @@ export function appHostLabel(app: string): string {
   return `app-${app.slice("app_".length).toLowerCase()}`;
 }
 
-export interface Preventable {
+interface Preventable {
   preventDefault(): void;
 }
 
-export interface RequestDetails {
+interface RequestDetails {
   url: string;
   resourceType: string;
   webContentsId?: number;
 }
 
-export interface HeaderDetails extends RequestDetails {
+interface HeaderDetails extends RequestDetails {
   requestHeaders: Record<string, string>;
 }
 
@@ -73,13 +73,13 @@ export interface AppSessionHandle {
 }
 
 /** webContents 하나가 지금 묶인 view. registry가 정한 값이다. */
-export interface SessionView {
+interface SessionView {
   token: string;
   appLabel: string;
   hosts: readonly FetchHost[];
 }
 
-export interface AppSessionsDeps {
+interface AppSessionsDeps {
   handle(partition: string): AppSessionHandle;
   /** webContents id → 지금 view. 폐기된 contents는 undefined다. */
   viewOf(contentsId: number | undefined): SessionView | undefined;
@@ -162,4 +162,3 @@ export function createAppSessions(deps: AppSessionsDeps) {
   };
 }
 
-export type AppSessions = ReturnType<typeof createAppSessions>;

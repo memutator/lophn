@@ -3,7 +3,7 @@ import { t } from "@lophn/wording";
 
 import type { CardData } from "./contexts-tab-load.ts";
 
-export interface CardRow {
+interface CardRow {
   readonly key: "kinds" | "version" | "violations";
   readonly text: string;
   readonly warn: boolean;

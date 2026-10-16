@@ -2,7 +2,7 @@
 // 파일의 줄이고 경로 순·줄 순으로 늘어서 있다.
 import type { FileMatch, FileSearchSource } from "./source.ts";
 
-export const FAKE_SEARCH_FOLDER = "/home/mina/work/phroner";
+const FAKE_SEARCH_FOLDER = "/home/mina/work/phroner";
 
 const CORPUS: readonly { path: string; line: number; text: string }[] = [
   {

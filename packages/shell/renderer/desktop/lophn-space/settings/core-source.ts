@@ -37,7 +37,7 @@ import type {
   SourceResult,
 } from "./source.ts";
 
-export interface SettingsDeps {
+interface SettingsDeps {
   openWindow: OpenSecretWindow | undefined;
   picker: FolderPickerApi | undefined;
   /** 인증 주소를 OS browser로 여는 shell 통로. 없는 창에서는 undefined다. */
@@ -256,6 +256,6 @@ function signInOf(
 }
 
 /** MCP credential을 담는 보관 이름. 설정의 `sec:` 참조가 같은 이름을 가리킨다. */
-export function secretNameOf(server: string): string {
+function secretNameOf(server: string): string {
   return `mcp-${server}`;
 }

@@ -9,14 +9,11 @@ import type {
   SourceResult,
 } from "../source.ts";
 
-export const APP = "app_01h455vb4pex5v6nkc6gd5fd01";
 export const PRB_SHIP = "prb_01h455vb4pex5v6nkc6gd5fd01";
 export const PRB_TOTAL = "prb_01h455vb4pex5v6nkc6gd5fd02";
 export const PRB_LIST = "prb_01h455vb4pex5v6nkc6gd5fd03";
 export const PRB_SLIP = "prb_01h455vb4pex5v6nkc6gd5fd04";
 
-export const NOW = new Date("2026-10-15T15:00:00");
-export const now = () => NOW;
 
 const COMMIT = "3f9a1c2";
 
@@ -144,7 +141,7 @@ export const ISSUES: readonly IssueView[] = [
   },
 ];
 
-export interface FakeOptions {
+interface FakeOptions {
   /** 이 이름의 읽기·쓰기는 실패한다. */
   failing?: readonly string[];
 }

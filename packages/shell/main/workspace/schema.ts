@@ -11,7 +11,7 @@ export const LAYOUT_SCHEMA_VERSION = 1;
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다(domain-model TabLayout). 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
 // parseLayoutFile이 먼저 그런 탭을 건너뛴다.
-export const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
+const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
   (value, ctx) => {
     const kind = tabKindOf((value as { kind?: unknown } | null)?.kind);
     if (kind === undefined) {
@@ -30,7 +30,7 @@ export const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
 export type { LayoutTab };
 
 // 칸은 탭 목록과 그 안의 선택뿐이다.
-export const layoutPaneSchema = z.strictObject({
+const layoutPaneSchema = z.strictObject({
   tabs: z.array(layoutTabSchema).max(200),
   selected_tab: tabKey.nullable(),
 }).refine(
@@ -39,8 +39,6 @@ export const layoutPaneSchema = z.strictObject({
     pane.tabs.some((tab) => tab.key === pane.selected_tab),
   { message: "selected_tab is not in tabs" },
 );
-
-export type LayoutPane = z.infer<typeof layoutPaneSchema>;
 
 // 창 bounds는 화면 상의 정수 rectangle이다. 음수·과도한 크기는 받지 않는다.
 const windowBounds = z.strictObject({

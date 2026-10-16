@@ -7,7 +7,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 
 import type { TerminalReply, TerminalRuntime } from "../../ipc/terminal.ts";
 
-export type HostProcess = {
+type HostProcess = {
   stdin: { write(data: string): void } | null;
   stdout: AsyncIterable<string | Uint8Array> | null;
   killed: boolean;
@@ -15,10 +15,10 @@ export type HostProcess = {
   on(event: "exit", listener: (code: number | null) => void): void;
 };
 
-export type SpawnHost = (entry: string) => HostProcess;
+type SpawnHost = (entry: string) => HostProcess;
 
 /** host에서 온 runtime(요청의 답에 실린 것과 process가 끝났다는 줄)과 host가 사라진 일을 듣는다. */
-export type SupervisorListener = {
+type SupervisorListener = {
   runtime?(runtime: TerminalRuntime): void;
   hostLost?(): void;
 };

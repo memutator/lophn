@@ -1,6 +1,6 @@
 import type { OverlayApi, OverlayEvent, OverlayReply } from "../ipc/overlay.ts";
 
-export interface OverlayTransport {
+interface OverlayTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   on(
     channel: string,

@@ -5,12 +5,12 @@ import {
   type LayoutSaveResult,
 } from "../ipc/workspace.ts";
 
-export interface LayoutTransport {
+interface LayoutTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 
 /** 작업대 layout 통로. 탭과 정보 패널만 보내고 main이 다시 검사한다. */
-export interface LophnLayoutApi {
+interface LophnLayoutApi {
   read(input: { project: string }): Promise<LayoutReadResult>;
   save(input: unknown): Promise<LayoutSaveResult>;
 }

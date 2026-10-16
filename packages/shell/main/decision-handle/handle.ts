@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { canonicalize } from "./canonical.ts";
 
 /** contracts CONFIRMATION_HANDLE_TTL_MS. 발급 시각에서 120초. */
-export const HANDLE_TTL_MS = 120_000;
+const HANDLE_TTL_MS = 120_000;
 
 /**
  * 내용 기준. core confirmationBinding과 같이 canonical JSON의 sha256 hex다.

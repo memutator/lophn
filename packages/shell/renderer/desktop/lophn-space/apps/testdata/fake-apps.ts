@@ -1,11 +1,6 @@
 // apps 화면·앱 공간 테스트의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
 import type { AppRow, AppsSource, RunState, SourceResult } from "../source.ts";
 
-export const BUDGET = "app_01h455vb4pex5v6nkc6gd5fd01";
-export const NOTES = "app_01h455vb4pex5v6nkc6gd5fd02";
-export const OLD = "app_01h455vb4pex5v6nkc6gd5fd03";
-export const BUDGET_RELEASE = "rel_01h455vb4pex5v6nkc6gd5fd01";
-
 export function appRow(
   id: string,
   name: string,
@@ -21,7 +16,7 @@ export function appRow(
   };
 }
 
-export interface FakeAppsOptions {
+interface FakeAppsOptions {
   rows?: readonly AppRow[];
   runs?: Readonly<Record<string, RunState>>;
   /** 앱 공간이 여는 화면. 없으면 unavailable이다. */

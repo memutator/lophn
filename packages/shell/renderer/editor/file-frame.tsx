@@ -16,7 +16,7 @@ import type { SaveState } from "./save-state.ts";
 import { FileActions, FileMeta, ViewBar } from "./view-bar.tsx";
 import styles from "./file-frame.module.css";
 
-export interface FileFrameProps {
+interface FileFrameProps {
   path: string;
   kind: FileKind;
   outside: boolean;

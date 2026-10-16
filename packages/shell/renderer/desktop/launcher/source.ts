@@ -1,7 +1,7 @@
 // 런처와 등록 dialog가 읽고 쓰는 통로. core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 
 /** 등록 폴더 하나. found가 false면 디스크에서 사라진 폴더다. */
-export interface CardFolder {
+interface CardFolder {
   readonly path: string;
   readonly found: boolean;
 }
@@ -28,7 +28,7 @@ export interface ProjectDraft {
   readonly folders: readonly FolderDraft[];
 }
 
-export type LauncherResult<T> =
+type LauncherResult<T> =
   | { ok: true; value: T }
   | { ok: false; code: string };
 

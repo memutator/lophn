@@ -15,7 +15,7 @@ import { ProjectDetail } from "./project-detail.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./projects.module.css";
 
-export interface ProjectsScreenProps {
+interface ProjectsScreenProps {
   source: ProjectsSource;
 }
 

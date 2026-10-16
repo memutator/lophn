@@ -18,7 +18,7 @@ import type { ConnectionState, CoreSource } from "../connection.ts";
 import { matchesCondition } from "./client.ts";
 
 /** 다시 붙을 때 read가 돌려줄 지금 상태. */
-export interface FakeSnapshot {
+interface FakeSnapshot {
   readonly snapshots: readonly SessionSnapshot[];
   readonly approvals: readonly PendingApproval[];
 }

@@ -6,13 +6,13 @@ export interface Match {
   readonly to: number;
 }
 
-export interface FindOptions {
+interface FindOptions {
   readonly caseSensitive?: boolean;
   /** 이 개수를 넘으면 세기를 멈추고 "+"를 붙인다. */
   readonly cap?: number;
 }
 
-export const MATCH_CAP = 1000;
+const MATCH_CAP = 1000;
 
 /** text 안에서 query가 겹치지 않게 나오는 자리 전부. */
 export function findMatches(

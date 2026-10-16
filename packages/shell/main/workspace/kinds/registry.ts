@@ -12,7 +12,7 @@ import { registerTabKind } from "./kind.ts";
 import { searchKind } from "./search.ts";
 import { terminalKind } from "./terminal.ts";
 
-export const BUILT_IN_TAB_KINDS = [
+const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   terminalKind,
   appPanelKind,
@@ -32,4 +32,4 @@ type LayoutOf<K> = K extends { layout: z.ZodType<infer L> } ? L : never;
 /** layout 파일의 탭. 등록된 kind의 TabLayout 합이다. */
 export type LayoutTab = LayoutOf<Built>;
 
-export { registerTabKind, tabKindOf, tabKinds } from "./kind.ts";
+export { registerTabKind, tabKindOf } from "./kind.ts";

@@ -7,7 +7,7 @@ import { formatRelativeTime, t } from "@lophn/wording";
 import type { BundleEntry } from "./source.ts";
 import styles from "./context-frame.module.css";
 
-export interface ContextVersionsProps {
+interface ContextVersionsProps {
   readonly bundles: readonly BundleEntry[];
   /** 적용된 판의 ID. 적용된 판이 없으면 null. */
   readonly applied: string | null;

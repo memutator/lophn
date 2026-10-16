@@ -31,7 +31,7 @@ export function externalLinkRecord(
   return { origin: parsed.origin, path: parsed.pathname };
 }
 
-export interface ExternalLinkDeps {
+interface ExternalLinkDeps {
   /** OS 기본 browser로 연다. 실패하면 reject한다. */
   open(url: string): Promise<void>;
   log(line: string): void;

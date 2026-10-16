@@ -47,7 +47,6 @@ import {
 } from "./view-model.ts";
 
 export type {
-  AppFrameOpen,
   AppFrameViewState,
   AppViewContents,
   AppViewHost,
@@ -60,7 +59,7 @@ export type {
 } from "./view-model.ts";
 export { checkOpen } from "./view-model.ts";
 
-export interface AppFrameDeps {
+interface AppFrameDeps {
   connector: Pick<AppConnector, "connect" | "hosts">;
   views: AppViewHost;
   sessionHandle(partition: string): AppSessionHandle;

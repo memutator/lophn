@@ -17,7 +17,7 @@ import {
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 
-export interface CoreTransport {
+interface CoreTransport {
   on(
     channel: string,
     callback: (event: unknown, payload: unknown) => void,

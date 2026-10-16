@@ -1,11 +1,11 @@
 // settings 화면의 순수 규칙. 원시 enum·ID를 화면 말로 바꾸고, 모르는 값을
 // 지어내지 않는다. 화면 컴포넌트와 테스트가 같이 쓴다.
-import { formatDate, type MessageKey, t } from "@lophn/wording";
+import { type MessageKey, t } from "@lophn/wording";
 
 import type { LucideIcon } from "lucide-react";
 
 import { settingsIcons } from "../../../icons/mod.ts";
-import type { AuthWay, ServerAuth } from "./source.ts";
+import type { AuthWay } from "./source.ts";
 
 /** Settings의 항목. sidebar의 Settings 아래에 고르는 줄로 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
 export type SettingsPane =
@@ -18,14 +18,14 @@ export type SettingsPane =
   | "reactions"
   | "diagnostics";
 
-export interface SettingsPaneEntry {
+interface SettingsPaneEntry {
   readonly id: SettingsPane;
   /** 항목 이름의 wording key. */
   readonly label: MessageKey;
   readonly icon: LucideIcon;
 }
 
-export interface SettingsGroup {
+interface SettingsGroup {
   readonly id: "general" | "agents" | "system";
   /** 묶음 이름의 wording key. */
   readonly label: MessageKey;
@@ -117,17 +117,6 @@ export function wayLabel(way: AuthWay): string {
   }
 }
 
-const SHORT_TIME: Intl.DateTimeFormatOptions = {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-};
-
-export function timeText(iso: string): string {
-  return formatDate(new Date(iso), "en", SHORT_TIME);
-}
-
 /** 저장 이름(`next_turn`)처럼 생긴 값은 첫 글자를 키운 낱말로, 사람이 쓴 글은 그대로 둔다. */
 export function slugText(value: string): string {
   if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(value)) return value;
@@ -156,50 +145,3 @@ export function valueText(value: unknown, resolved: boolean): string {
   return t("settings.label.value-not-set");
 }
 
-export function serverAuthLabel(auth: ServerAuth): string {
-  switch (auth) {
-    case "none":
-      return t("settings.label.auth-none");
-    case "bearer":
-      return t("settings.label.auth-bearer");
-    case "api_key":
-      return t("settings.label.auth-api-key");
-    case "oauth2":
-      return t("settings.label.auth-sign-in");
-  }
-}
-
-const SERVER_NAME = /^[A-Za-z0-9_-]{1,32}$/;
-const ABSOLUTE = /^(\/|[A-Za-z]:\\).+/;
-const HEADER = /^[A-Za-z0-9-]{1,64}$/;
-const HTTP_URL =
-  /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/;
-
-export function validServerName(name: string): boolean {
-  return SERVER_NAME.test(name);
-}
-
-export function validExecutable(path: string): boolean {
-  return ABSOLUTE.test(path);
-}
-
-export function validServerUrl(url: string): boolean {
-  return HTTP_URL.test(url);
-}
-
-export function validHeader(name: string): boolean {
-  return HEADER.test(name);
-}
-
-/** 인수는 한 줄에 하나다. 빈 줄은 버린다(shell 해석 없음). */
-export function argsOf(text: string): string[] {
-  return text.split("\n").map((line) => line.replace(/\r$/, "")).filter((
-    line,
-  ) => line !== "");
-}
-
-/** 폴더 경로의 마지막 이름. 사람이 고른 폴더를 이름으로 보인다. */
-export function folderName(path: string): string {
-  const parts = path.split(/[\\/]+/).filter((part) => part !== "");
-  return parts[parts.length - 1] ?? path;
-}

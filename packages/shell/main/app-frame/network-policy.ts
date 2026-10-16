@@ -13,7 +13,7 @@ export interface FetchHost {
 /** Electron webRequest의 resourceType 중 판정이 다르게 다루는 것. */
 export type RequestKind = "mainFrame" | "subFrame" | "other";
 
-export interface RequestCheck {
+interface RequestCheck {
   url: string;
   kind: RequestKind;
   /** 이 view가 묶인 앱의 host label(`app-<ULID 소문자>`). */
@@ -38,7 +38,7 @@ function bareHost(hostname: string): string {
     : lower;
 }
 
-export function isLoopback(host: string): boolean {
+function isLoopback(host: string): boolean {
   const bare = bareHost(host);
   return bare === "localhost" || bare === "::1" ||
     /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare);
@@ -64,7 +64,7 @@ function effectivePort(url: URL): number {
  * 부여한 host로 가는 바깥 요청인가. 운영 전송은 https·wss만이다(broker net/fetch와 같다).
  * userinfo가 있으면 거절한다. 플랫폼 port의 loopback은 부여가 있어도 거절한다.
  */
-export function grantedUrl(
+function grantedUrl(
   url: URL,
   hosts: readonly FetchHost[],
   platformPorts: readonly number[],

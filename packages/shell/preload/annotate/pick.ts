@@ -4,7 +4,7 @@ import type { PickedItem } from "../../ipc/annotation.ts";
 import { bundlePositionOf, nameOf, roleOf, textOf } from "./describe.ts";
 import { type Box, rectOf, type View } from "./geometry.ts";
 
-export const COMPONENT_ATTR = "data-lophn-component";
+const COMPONENT_ATTR = "data-lophn-component";
 /** 이만큼 움직이면 클릭이 아니라 끌기다(CSS px). */
 export const DRAG_THRESHOLD = 4;
 export const NOTE_MAX = 2000;

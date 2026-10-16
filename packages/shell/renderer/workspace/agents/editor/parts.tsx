@@ -72,7 +72,7 @@ function RowToggle(
   );
 }
 
-export interface SkillListProps {
+interface SkillListProps {
   readonly items: readonly SkillRow[];
   /** 보고 있는 층에서 꺼 둔 이름. 이 이름은 꺼진 것으로 그린다. */
   readonly offNames?: readonly string[];
@@ -125,7 +125,7 @@ function statusText(on: boolean, status: McpStatus): string {
   return status === null ? "" : t(STATUS_LABEL[status]);
 }
 
-export interface McpListProps {
+interface McpListProps {
   readonly items: readonly McpRow[];
   /** 보고 있는 층에서 꺼 둔 이름. */
   readonly offNames?: readonly string[];
@@ -202,7 +202,7 @@ const ICON_LABEL: Record<AvatarIconId, MessageKey> = {
   compare: "project-workspace.label.avatar-icon-compare",
 };
 
-export interface ProfileFieldProps {
+interface ProfileFieldProps {
   readonly value: Profile;
   /** 올린 이미지 파일 이름을 화면이 읽을 수 있는 주소로 푼다. */
   readonly imageSrc: (image: string) => string;
@@ -311,7 +311,7 @@ export function ProfileField(
 /** project 지침이 보이는 줄 수. */
 const PROJECT_LINES = 4;
 
-export interface InstructionsBlockProps {
+interface InstructionsBlockProps {
   /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(lophn). */
   readonly project: ProjectInstructionsView | null;
   /** project 지침 머리 글. */

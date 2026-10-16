@@ -68,7 +68,7 @@ const SHOWN_ELSEWHERE = [
   "lophn-agent.extensions.",
 ];
 
-export function shownInGeneral(key: string): boolean {
+function shownInGeneral(key: string): boolean {
   return !SHOWN_ELSEWHERE.some((prefix) => key.startsWith(prefix));
 }
 
@@ -92,7 +92,7 @@ export function helpOf(key: string): string | null {
 }
 
 /** 묶음은 key의 첫 구간(그 설정을 선언한 요소)이다. */
-export function groupOf(key: string): string {
+function groupOf(key: string): string {
   return key.split(".")[0]!;
 }
 
@@ -100,7 +100,7 @@ export function groupTitle(owner: string): string {
   return slugText(owner);
 }
 
-export interface SettingGroup {
+interface SettingGroup {
   readonly owner: string;
   readonly entries: readonly SettingEntry[];
 }

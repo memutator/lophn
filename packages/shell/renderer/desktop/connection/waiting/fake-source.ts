@@ -263,7 +263,7 @@ const QUESTION_GROUP = id("qgr", 1);
 const QUESTION_TURN = id("trn", 31);
 const QUESTION_CALL = id("tcl", 31);
 
-export const QUESTION: readonly AskQuestion[] = [{
+const QUESTION: readonly AskQuestion[] = [{
   question:
     "Include the three flaky scenarios in this week's regression count?",
   header: "Regression count",

@@ -19,7 +19,7 @@ import type { SearchTabState } from "./search-tab.tsx";
 import type { OpenDocument } from "./shared.ts";
 import type { ContextsSource, DeclaredSearch, PickOption } from "./source.ts";
 
-export interface SearchBodyProps {
+interface SearchBodyProps {
   readonly source: ContextsSource;
   readonly search: DeclaredSearch;
   readonly state: SearchTabState;

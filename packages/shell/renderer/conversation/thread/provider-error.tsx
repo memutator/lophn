@@ -6,7 +6,7 @@ import { t } from "@lophn/wording";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import styles from "./thread.module.css";
 
-export interface ProviderErrorProps {
+interface ProviderErrorProps {
   /** 실패한 turn. [Retry]가 그 turn의 입력을 같은 session에 다시 보낸다. */
   turn: string;
   /** 어떤 오류인지. core가 준 글이다. */

@@ -2,7 +2,7 @@ import type { EventMessage } from "./client.ts";
 import type { BusEvent } from "../../../../../protocol/events/mod.ts";
 
 // useSyncExternalStore가 읽는 가장 작은 store. 값은 바뀔 때마다 새 객체로 갈아 끼운다.
-export interface ValueStore<T> {
+interface ValueStore<T> {
   get(): T;
   set(next: T): void;
   subscribe(listener: () => void): () => void;
@@ -26,7 +26,7 @@ export function createValueStore<T>(initial: T): ValueStore<T> {
   };
 }
 
-export interface SyncOptions<R> {
+interface SyncOptions<R> {
   read(): Promise<R | null>;
   /** snapshot으로 지금 상태를 통째로 맞춘다. */
   replace(snapshot: R): void;

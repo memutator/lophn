@@ -45,7 +45,6 @@ export {
   APP_ID,
   APP_NAME,
   EVAL_ANALYST_ID,
-  EXPERIMENT_PLANNER_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
   GLOBAL_LOPHN_MD,
@@ -57,7 +56,7 @@ export {
   PROJECT_NAME,
 } from "./fake-data.ts";
 
-export type FakeCall =
+type FakeCall =
   | {
     method: "saveAgent";
     assignment: string | null;
@@ -76,7 +75,7 @@ export type FakeCall =
   }
   | { method: "setFavorites"; items: readonly ModelFavorite[] };
 
-export interface FakeAgentsSource extends AgentsSource {
+interface FakeAgentsSource extends AgentsSource {
   /** 보낸 명령을 순서대로. */
   readonly calls: readonly FakeCall[];
   /** agent 파일의 지금 hash. */

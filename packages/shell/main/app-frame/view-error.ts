@@ -7,11 +7,11 @@ import type { ConnectTarget } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 // contracts/problems REPORTING_LIMITS의 new_reports_per_window·window_ms와 같은 값이다.
-export const VIEW_ERRORS_PER_WINDOW = 20;
-export const VIEW_ERROR_WINDOW_MS = 60_000;
+const VIEW_ERRORS_PER_WINDOW = 20;
+const VIEW_ERROR_WINDOW_MS = 60_000;
 // 한 메시지의 글자 상한. 자동 보고 본문 상한(256 KiB) 안에 머문다.
-export const VIEW_ERROR_NAME_MAX_CHARS = 256;
-export const VIEW_ERROR_MESSAGE_MAX_CHARS = 16_384;
+const VIEW_ERROR_NAME_MAX_CHARS = 256;
+const VIEW_ERROR_MESSAGE_MAX_CHARS = 16_384;
 
 const OBSERVATIONS: readonly string[] = [
   "error",
@@ -19,13 +19,13 @@ const OBSERVATIONS: readonly string[] = [
   "render_error",
 ];
 
-export type ViewErrorObservation =
+type ViewErrorObservation =
   | "error"
   | "unhandledrejection"
   | "render_error";
 
 /** contracts appViewErrorSchema와 같은 검사. */
-export function checkViewError(value: unknown):
+function checkViewError(value: unknown):
   | { observation: ViewErrorObservation; name: string; message: string | null }
   | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -53,7 +53,7 @@ export function checkViewError(value: unknown):
 }
 
 /** collector `observe-exception` 본문(contracts/problems exceptionObservationInputSchema). */
-export interface ExceptionObservation {
+interface ExceptionObservation {
   report_id: string;
   observed_at: string;
   observation: ViewErrorObservation;
@@ -69,7 +69,7 @@ export interface ExceptionObservation {
 }
 
 /** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 view 식별이다(core route가 칸을 요구한다). */
-export interface ViewErrorOrigin {
+interface ViewErrorOrigin {
   view_session: string;
   generation: number;
   app: string;
@@ -79,12 +79,12 @@ export interface ViewErrorOrigin {
   binding: string;
 }
 
-export interface ViewErrorForward {
+interface ViewErrorForward {
   view: ViewErrorOrigin;
   observation: ExceptionObservation;
 }
 
-export interface ViewErrorDeps {
+interface ViewErrorDeps {
   /** 인증된 client로 collector에 보낸다. 받지 못했으면 false다. */
   send(forward: ViewErrorForward): Promise<boolean>;
   ids: { reportId(): string };

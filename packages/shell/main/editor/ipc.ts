@@ -34,7 +34,7 @@ import type { CloseGuard } from "./close-guard.ts";
 import type { FileAdapter } from "./file-adapter.ts";
 import type { Instructions } from "./instructions.ts";
 
-export interface FilesIpcMain {
+interface FilesIpcMain {
   handle(
     channel: string,
     listener: (event: unknown, input: unknown) => Promise<unknown>,
@@ -44,7 +44,7 @@ export interface FilesIpcMain {
   removeAllListeners(channel: string): void;
 }
 
-export interface FilesIpcDeps {
+interface FilesIpcDeps {
   registry: ContentsRegistry;
   adapter: FileAdapter;
   instructions: Instructions;

@@ -14,7 +14,7 @@ const layout = z.strictObject({
   sub_tab: subTab.default("overview"),
 });
 
-export type ContextLayout = z.infer<typeof layout>;
+type ContextLayout = z.infer<typeof layout>;
 export const contextKind = defineTabKind<ContextLayout>({
   kind: "context",
   layout,

@@ -17,7 +17,7 @@ import {
 const inputSchema = z.strictObject({ action: z.enum(WINDOW_ACTIONS) });
 
 /** 동작을 받는 창. Electron BrowserWindow의 일부다. */
-export interface ControlledWindow {
+interface ControlledWindow {
   minimize(): void;
   maximize(): void;
   unmaximize(): void;
@@ -25,7 +25,7 @@ export interface ControlledWindow {
   close(): void;
 }
 
-export interface WindowControlDeps {
+interface WindowControlDeps {
   registry: ContentsRegistry;
   /** sender가 본문인 창. 없으면 undefined다. */
   windowOf(event: IpcEvent): ControlledWindow | undefined;

@@ -15,12 +15,12 @@ export interface TerminalOpenRequest {
 }
 
 /** coding 탭 key. terminal_ref에서 정한다. */
-export function codingTabKey(terminalRef: string): string {
+function codingTabKey(terminalRef: string): string {
   return `coding-${terminalRef}`;
 }
 
 /** 새 `coding_tui` runtime이면 열기 요청으로 옮긴다. 아니면 null이다. */
-export function requestOf(
+function requestOf(
   runtime: TerminalRuntime,
 ): TerminalOpenRequest | null {
   const coding = runtime.coding_session;

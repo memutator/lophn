@@ -11,7 +11,7 @@ import { TextFileView } from "./text-file-view.tsx";
 import type { InfoTabId } from "./info-panel/info-panel.tsx";
 
 /** 탭 tooltip에 쓰는 파일 정보. */
-export interface DocumentTabMeta {
+interface DocumentTabMeta {
   readonly fileName: string;
   readonly title: string;
   readonly path: string | null;

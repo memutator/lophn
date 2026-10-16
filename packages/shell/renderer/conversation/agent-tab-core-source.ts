@@ -52,7 +52,7 @@ import {
   readThread,
 } from "./agent-tab-core-source-thread.ts";
 
-export interface AgentCoreDeps {
+interface AgentCoreDeps {
   /** 지금 시각(ms). */
   readonly now?: () => number;
 }

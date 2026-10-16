@@ -1,7 +1,7 @@
 // 이미지 viewer. 보기만 한다. 바이트는 호출자가 blob URL로 만들어 넘긴다. 바탕은 탭 본문과 같다.
 import styles from "./media.module.css";
 
-export interface ImageViewerProps {
+interface ImageViewerProps {
   url: string;
   label: string;
   /** 그림을 읽으면 크기를 알린다. */

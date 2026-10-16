@@ -24,7 +24,7 @@ const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const ref = z.string().min(1).refine(noControl);
 
 // 공백 외 1~500 Unicode scalar. lone surrogate는 받지 않는다.
-export const feedbackTextSchema = z.string().regex(/\S/).refine((text) => {
+const feedbackTextSchema = z.string().regex(/\S/).refine((text) => {
   const scalars = [...text];
   return scalars.length >= 1 &&
     scalars.length <= FEEDBACK_LIMITS.text_scalars &&
@@ -49,7 +49,7 @@ export const feedbackSendSchema = z.strictObject({
 
 export const feedbackCancelSchema = z.strictObject({ draftRef: ref });
 
-export type FeedbackErrorCode =
+type FeedbackErrorCode =
   | "invalid_input"
   | "forbidden"
   | "conflict"
@@ -67,9 +67,6 @@ export interface FeedbackAccepted {
   /** 묶인 문제. live가 아니면 문제로 묶지 않아 null이다. */
   problem: string | null;
 }
-
-/** feedbackSend의 답. 접수된 Report와 묶인 문제(live가 아니면 null). */
-export type FeedbackSendReply = FeedbackAccepted;
 
 /** desktop renderer의 버튼 쪽. view_session만 보내고 신원은 main이 정한다. */
 export interface LophnShellFeedbackBegin {

@@ -23,11 +23,11 @@ export const PROJECT_ID = id("prj", "ph1");
 export const PROJECT_NAME = "phroner";
 export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
-export const EVAL_BOARD_ID = id("app", "eb1");
-export const NOTES_SYNC_ID = id("app", "ns1");
+const EVAL_BOARD_ID = id("app", "eb1");
+const NOTES_SYNC_ID = id("app", "ns1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
-export const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
-export const HARNESS = id("ctx", "hns");
+const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
+const HARNESS = id("ctx", "hns");
 export const PROJECT_CONTEXTS = [
   { id: EVAL, name: "eval" },
   { id: HARNESS, name: "harness" },

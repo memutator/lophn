@@ -63,7 +63,7 @@ import { ReportButton } from "./report-button.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import styles from "./app-space.module.css";
 
-export interface AppSpaceProps {
+interface AppSpaceProps {
   app: string;
   source: AppsSource;
   /** shell preload의 view 통로. 없으면 앱 화면을 열 수 없다고 보인다. */

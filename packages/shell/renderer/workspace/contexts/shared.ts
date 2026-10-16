@@ -12,14 +12,6 @@ export const SUB_TABS = [
 ] as const;
 export type SubTab = typeof SUB_TABS[number];
 
-export const SUB_TAB_LABELS: Readonly<Record<SubTab, string>> = {
-  overview: "Overview",
-  search: "Search",
-  violations: "Violations",
-  glossary: "Glossary",
-  contract: "Contract",
-};
-
 /** Search 탭 이름: "Search · eval". */
 export function searchTabTitle(context: string | undefined): string {
   const kind = t("contexts.label.rail-search");

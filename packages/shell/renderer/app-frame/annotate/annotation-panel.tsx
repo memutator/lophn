@@ -8,7 +8,7 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import type { SendFailure } from "./use-annotate.ts";
 import styles from "./annotation-panel.module.css";
 
-export interface AnnotationPanelProps {
+interface AnnotationPanelProps {
   items: AnnotateState["items"];
   sending: boolean;
   /** 보내기가 거절된 이유. 목록은 그대로 남는다. */

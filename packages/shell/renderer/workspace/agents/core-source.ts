@@ -45,7 +45,7 @@ const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
 const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
 
-export interface AgentsDeps {
+interface AgentsDeps {
   /** project의 LOPHN.md를 여는 main 통로. 없으면 지침 미리보기는 빈 글이다. */
   instructions: InstructionsApi | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */

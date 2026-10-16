@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const shell = dirname(here);
 
-export type BuildEntry = { in: string; out: string };
+type BuildEntry = { in: string; out: string };
 
 const shared = {
   bundle: true,
@@ -52,7 +52,7 @@ const entries: BuildEntry[] = [
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
 ];
 
-export function build(
+function build(
   outdir: string,
   extra: BuildEntry[] = [],
 ): Promise<void> {

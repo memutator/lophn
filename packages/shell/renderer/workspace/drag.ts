@@ -2,7 +2,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 import type { DragOutcome } from "./model.ts";
 
-export interface PointerDrag {
+interface PointerDrag {
   /** 누른 자리에서 움직인 가로 거리. 미리보기만 바꾼다. */
   move: (dx: number) => void;
   /** drag-end면 마지막 값을 적용하고 drag-cancel이면 시작 값으로 돌린다. */

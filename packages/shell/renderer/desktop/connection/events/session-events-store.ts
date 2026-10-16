@@ -21,7 +21,7 @@ export const NO_SESSION_EVENTS: SessionEventsState = {
   snapshot: null,
 };
 
-export interface SessionEventsStore {
+interface SessionEventsStore {
   get(): ReadonlyMap<string, SessionEventsState>;
   subscribe(listener: () => void): () => void;
   /** 대화 탭을 연다. 반환 함수가 닫는다. 같은 session을 여럿이 열어도 구독은 하나다. */

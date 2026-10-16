@@ -35,7 +35,7 @@ import {
 } from "./search-results-model.ts";
 import styles from "./search-results.module.css";
 
-export interface SearchResultsProps {
+interface SearchResultsProps {
   readonly search: DeclaredSearch;
   /** 지금 page의 줄. */
   readonly rows: readonly SearchRow[];

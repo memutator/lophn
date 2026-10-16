@@ -89,7 +89,7 @@ const requestId = (n: number) => fakeId("apr", n);
 const appId = (n: number) => fakeId("app", n);
 
 export const SESSION_MAIN = sessionId(1);
-export const SESSION_EARLIER = sessionId(2);
+const SESSION_EARLIER = sessionId(2);
 /** 기록만 읽는 archive한 session. */
 export const SESSION_ARCHIVED = sessionId(3);
 

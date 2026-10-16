@@ -29,7 +29,7 @@ export interface SessionsState {
   readonly sessions: readonly SessionEntry[];
 }
 
-export const SESSIONS_CONDITION: EventCondition = {
+const SESSIONS_CONDITION: EventCondition = {
   types: [
     "SessionStarted",
     "SessionEnded",
@@ -52,7 +52,7 @@ interface Record_ {
   place: Place | null;
 }
 
-export interface SessionsStore {
+interface SessionsStore {
   get(): SessionsState;
   subscribe(listener: () => void): () => void;
   start(): () => void;

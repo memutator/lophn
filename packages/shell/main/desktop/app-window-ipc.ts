@@ -19,7 +19,7 @@ import {
 } from "./ipc-guard.ts";
 import type { OsEntryApp, OsEntryResult } from "./os-entry/entry.ts";
 
-export interface AppWindowIpcDeps {
+interface AppWindowIpcDeps {
   registry: ContentsRegistry;
   /** 그 앱의 전용 창을 연다(app-window.ts). */
   openWindow(app: string): Promise<Outcome<unknown>>;
@@ -32,7 +32,7 @@ export interface AppWindowIpcDeps {
   };
 }
 
-export interface AppWindowIpcHandlers {
+interface AppWindowIpcHandlers {
   openWindow(event: IpcEvent, input: unknown): Promise<AppWindowReply>;
   addShortcut(event: IpcEvent, input: unknown): Promise<AppWindowReply>;
   removeShortcut(event: IpcEvent, input: unknown): Promise<AppWindowReply>;
@@ -103,7 +103,7 @@ export function createAppWindowIpc(
   };
 }
 
-export interface AppWindowIpcMain {
+interface AppWindowIpcMain {
   handle(
     channel: string,
     listener: (event: IpcEvent, input: unknown) => Promise<unknown>,

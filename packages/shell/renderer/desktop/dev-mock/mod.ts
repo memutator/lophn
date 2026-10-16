@@ -62,7 +62,7 @@ export interface DevMock {
 }
 
 /** 주소에 mock이 있는지. */
-export function isDevMock(
+function isDevMock(
   search: string = globalThis.location?.search ?? "",
 ): boolean {
   return new URLSearchParams(search).has("mock");

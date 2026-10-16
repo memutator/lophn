@@ -17,7 +17,7 @@ import {
 import type { TerminalIpc } from "./ipc.ts";
 
 /** ipcMain 등록 모양. 테스트는 이 이름으로 대역을 끼운다. */
-export interface MainIpc {
+interface MainIpc {
   handle(
     channel: string,
     listener: (event: unknown, input: unknown) => Promise<unknown>,

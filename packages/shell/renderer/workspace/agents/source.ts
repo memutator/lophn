@@ -125,7 +125,7 @@ export interface PlaceChoice {
 }
 
 /** 연결된 provider. definition은 catalog 항목과 맞추는 key다. */
-export interface ProviderChoice {
+interface ProviderChoice {
   readonly id: string;
   readonly name: string;
   readonly definition: string;
@@ -167,7 +167,7 @@ export type SaveResult =
   };
 
 /** grant 대상 하나의 효과. 다른 agent 부르기는 read로 센다. */
-export interface GrantApi {
+interface GrantApi {
   readonly api: string;
   readonly detail: string;
   readonly effect: Effect;
@@ -182,7 +182,7 @@ export interface GrantApp {
   readonly apis: readonly GrantApi[];
 }
 
-export interface GrantMcpTool {
+interface GrantMcpTool {
   readonly tool: string;
   readonly detail: string;
   readonly effect: Effect;
@@ -193,7 +193,7 @@ export interface GrantMcpServer {
   readonly tools: readonly GrantMcpTool[];
 }
 
-export interface GrantAgent {
+interface GrantAgent {
   readonly agent: CallAgent;
   readonly name: string;
   readonly detail: string;

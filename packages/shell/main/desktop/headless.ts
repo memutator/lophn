@@ -44,7 +44,7 @@ export function surfaceOptions<T extends SurfaceConfig>(
   } as T;
 }
 
-export interface Revealable {
+interface Revealable {
   show(): void;
   focus(): void;
   isMinimized?(): boolean;
@@ -86,19 +86,19 @@ export function guardShortcuts(
   };
 }
 
-export interface PaintImage {
+interface PaintImage {
   isEmpty(): boolean;
   toPNG(): Uint8Array;
 }
 
-export interface PaintSource {
+interface PaintSource {
   on(
     event: "paint",
     listener: (event: unknown, dirty: unknown, image: PaintImage) => void,
   ): void;
 }
 
-export interface ShotDeps {
+interface ShotDeps {
   write(path: string, data: Uint8Array): void;
   timer: {
     set(callback: () => void, ms: number): unknown;
@@ -107,7 +107,7 @@ export interface ShotDeps {
 }
 
 /** 마지막 paint 뒤 이만큼 조용하면 안정된 것으로 본다. */
-export const SETTLE_MS = 1500;
+const SETTLE_MS = 1500;
 
 /**
  * offscreen `paint`로 screenshot을 쓴다. offscreen에서는 capturePage()가 실패한다.

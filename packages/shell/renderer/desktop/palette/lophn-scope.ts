@@ -27,7 +27,7 @@ export type LophnTarget =
   | { readonly kind: "screen"; readonly screen: LophnScreen }
   | { readonly kind: "launcher" };
 
-export interface LophnScopeInput {
+interface LophnScopeInput {
   readonly catalog: Catalog;
   readonly platform: WindowPlatform;
   readonly search?: (query: string) => Promise<readonly FileFound[]>;

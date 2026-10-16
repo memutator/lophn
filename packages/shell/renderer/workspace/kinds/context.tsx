@@ -16,7 +16,7 @@ import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
 /** 한 context의 탭 key. 같은 context는 한 탭으로 열려 다시 열면 고르기만 한다. */
-export function contextTabKey(context: string): string {
+function contextTabKey(context: string): string {
   return `context:${context}`;
 }
 

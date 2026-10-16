@@ -11,7 +11,7 @@ import type {
 import { SenderChip, SenderPanel } from "./sender-chip.tsx";
 import styles from "./thread.module.css";
 
-export interface ReceivedMessageProps {
+interface ReceivedMessageProps {
   /** 받은 메시지 id. */
   message: string;
   sender: Sender;

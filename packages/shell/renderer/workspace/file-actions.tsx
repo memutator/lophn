@@ -8,9 +8,9 @@ export type FileDialogState =
   | { readonly action: "delete" | "rename"; readonly path: string }
   | null;
 
-export type RenameResult = "ok" | "exists" | "failed";
+type RenameResult = "ok" | "exists" | "failed";
 
-export interface FileActionDialogProps {
+interface FileActionDialogProps {
   state: FileDialogState;
   onClose: () => void;
   /** 지웠으면 true. */

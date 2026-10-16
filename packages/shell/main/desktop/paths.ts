@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 const HOME_ENV = "LOPHN_HOME";
 
-export interface DataRootInput {
+interface DataRootInput {
   argv?: readonly string[];
   env?: NodeJS.ProcessEnv;
   home?: string;

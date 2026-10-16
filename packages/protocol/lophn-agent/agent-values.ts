@@ -8,7 +8,7 @@ import {
 import { appApiKeySchema } from "./scope.ts";
 import type { Role } from "./places.ts";
 
-// agent 정의(lophn-agent/agents domain model)의 값. 정의와 자리 설정은 app data의 Markdown 파일이고,
+// agent 정의의 값. 정의와 설정은 app data의 Markdown 파일이고,
 // 파일에는 사람이 바꾼 칸만 있다. 그래서 칸은 모두 optional(없음 = 아래 층을 따름)이고 null을 받지 않는다.
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {

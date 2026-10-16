@@ -32,14 +32,13 @@ import {
   operatorDefinitionSchema,
 } from "./operators.ts";
 
-// 사람(editor)이 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentRef`다(옛 assignment ID를 대신한다).
+// 사람(editor)이 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentRef`다.
 // agent는 정의 읽기와 Operator 만들기·고치기만 하고 지우거나 built-in을 고치지 못한다. agent가 부르면 core가
 // 호출 session의 role·place로 범위를 본다: 자기 place의 정의와 Operator뿐이다(agent의 operator.create·update는 tool이다).
 // - 내장 role(lophn, Project Manager, App Engineer)은 만들고 지울 수 없고, 사람이 고치는 것은 지침·model·skill·MCP 끄기다.
 // - Operator는 `operatorDefinitionSchema`로 만들고 고치고 지운다.
 // - tool 목록은 role이 정하고 사람이 바꾸지 않는다. grant는 approvals/grants의 `agentGrantsGet`·`agentGrantsSet`이 맡는다.
-// - 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다. invalid_input의 details는 항목별 이유(`agentIssuesDetailsSchema`)다.
-// 옛 `agents.ts`의 route를 대신한다. 이름이 겹치지 않게 지어 옛것과 함께 둘 수 있다.
+// - 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다. invalid_input의 details는 항목별 이유다.
 
 const builtinAgentRefBranches = [
   z.strictObject({ role: z.literal("lophn") }),

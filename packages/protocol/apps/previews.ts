@@ -9,7 +9,7 @@ import {
 } from "./channel-values.ts";
 import { runtimeReasonSchema } from "./runtime.ts";
 
-// preview는 별도 entity·ID·운영 상태·ledger 표가 아니다(→ domain-model apps/preview).
+// preview는 별도 entity·ID·운영 상태·ledger 항목이 아니다.
 // 통로 값과 view session은 apps/runtime·shell/app-frame이 소유한다.
 const previewInputSchema = z.strictObject({
   app: appIdSchema,

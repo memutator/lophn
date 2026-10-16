@@ -24,7 +24,7 @@ type RouteKind = (typeof ROUTE_KINDS)[number];
 
 const NAME = /^[a-z][a-z0-9_-]*$/;
 
-// confirmation window가 받는 것이 사람의 결정인지 secret 입력인지.
+// confirmation이 받는 것이 사람의 결정인지 secret 입력인지.
 const CONFIRMATION_KINDS = ["decision", "secret_input"] as const;
 
 type ConfirmationKind = (typeof CONFIRMATION_KINDS)[number];

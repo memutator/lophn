@@ -110,7 +110,7 @@ export const agentSessionList = defineRead({
   errors: [...readErrors],
 });
 
-// 옛 route와 이름이 같아 registry에는 올리지 않는다. places-sessions가 merge될 때 바꿔 끼운다.
+// registry에는 올리지 않는다.
 export const AGENT_SESSION_ROUTES = [
   openAgentSession,
   agentSessionRead,

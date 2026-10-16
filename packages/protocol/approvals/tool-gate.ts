@@ -55,4 +55,3 @@ export const toolGateCheck = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// registry에는 lead가 올린다.

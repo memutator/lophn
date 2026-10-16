@@ -2,9 +2,7 @@
 // command, 읽기, event와 값의 모양이다. 값의 뜻과 제약은 domain model이 정하고 여기서는 한 값 안에서
 // 정해지는 모양과 route 선언만 둔다. 상태 전이, CAS 비교, actor 범위의 세부는 handler의 몫이다.
 //
-// 옛 contexts.ts·context-routes.ts·context-reads.ts·terms.ts·term-routes.ts와 이름이 겹치지 않게
-// route는 `…Route`, event는 `…Event`, 입력은 `…RequestSchema`로 끝낸다. 옛 파일을 지우는 작업이
-// 끝나면 접미사를 걷어도 된다.
+// route는 `…Route`, event는 `…Event`, 입력은 `…RequestSchema`로 끝낸다.
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";

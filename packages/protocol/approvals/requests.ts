@@ -182,7 +182,6 @@ export const approvalsDecideTurn = defineMemory({
   ],
 });
 
-// 옛 APPROVAL_ROUTES와 합치는 것은 lead 등록이다.
 export const APPROVAL_DECISION_ROUTES = [
   approvalsPending,
   approvalsDecide,

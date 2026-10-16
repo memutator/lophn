@@ -4,7 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { ATTACHED_KINDS } from "./input-tags.ts";
 
 // 본문 blob 하나의 정규 직렬화 상한이다. 요청은 본문 값을 싣고 RPC JSON 상한이 256KiB
-// 이므로(platform/api) id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
+// 이므로 id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
 // 글뿐이라 64KiB(스키마가 검사), agent 답은 글과 카드를 합쳐 240KiB다. agent 답의
 // 합계는 core가 준비 전에 검사한다.
 export const MESSAGE_TEXT_CONTENT_MAX_BYTES = 65536;

@@ -124,7 +124,7 @@ const getProblemOutputSchema = withReadCommon(z.object({
   last_release: idSchema("rel").nullable(),
 }));
 // 사용자 화면·CLI가 읽는 GetProblem 모양. `problem`은 ID 없는 사용자용이고 `detail`은
-// 반드시 있다. 같은 read의 output에서 `userProblemReadOf`로 만든다(additive: route output은 그대로다).
+// 반드시 있다. 같은 read의 output에서 만든다(additive: route output은 그대로다).
 
 export const getProblem = defineRead({
   resource: "problems",

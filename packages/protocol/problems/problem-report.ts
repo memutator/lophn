@@ -86,7 +86,7 @@ const problemSnapshotInputSchema = input.snapshot.refine((value) =>
 export type ProblemSnapshot = z.infer<typeof problemSnapshotSchema>;
 export type ProblemSnapshotInput = z.infer<typeof problemSnapshotInputSchema>;
 
-// 기록 입력. 옛 report에서 code가 name이고 text(해시)가 message다.
+// 기록 입력.
 const nullableHash = sha256Schema.nullable();
 const scopeFields = {
   app: idSchema("app"),

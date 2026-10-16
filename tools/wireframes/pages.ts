@@ -367,7 +367,7 @@ export const PAGES: readonly WireframePage[] = [
   design(
     "sdk-actions",
     "SDK · actions",
-    "@lophn/ui-action 예제(order-actions). blueprint command를 버튼으로 두고 확인 표시를 선언의 confirm에 따른다. 앱 bridge가 없어 눌러도 실패 문구가 나온다.",
+    "@lophn/ui-action 예제(order-actions). blueprint command를 버튼으로 두고 누르면 확인 없이 바로 호출한다. 앱 bridge가 없어 눌러도 실패 문구가 나온다.",
     "sdk-actions",
   ),
   design(

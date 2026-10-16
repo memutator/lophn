@@ -166,5 +166,4 @@ export const agentGrantsSet = defineCommand({
   ],
 });
 
-// registry에는 lead가 올린다.
 export const AGENT_GRANT_ROUTES = [agentGrantsGet, agentGrantsSet] as const;

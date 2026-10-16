@@ -13,7 +13,8 @@ import { eventTypeSchema } from "../base/event.ts";
 // agent event는 session에서 일어나고 메모리로만 흐른다. seq가 없고 저장하지 않는다.
 // coding agent는 SessionStarted, MessageReceived, TurnStarted, TurnEnded, SessionEnded와
 // harness가 물어 올 때의 PermissionRequested·PermissionResolved만 낸다.
-// ToolCall*, Question*, Compact*는 내지 않는다. subagent와 model 호출은 event로 두지 않는다.
+// lophn agent의 ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
+// subagent와 model 호출은 event로 두지 않는다.
 
 type AgentEventDefinition<
   T extends string = string,

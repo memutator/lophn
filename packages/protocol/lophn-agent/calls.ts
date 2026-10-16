@@ -268,7 +268,6 @@ export const callRead = defineRead({
   errors: [...readErrors],
 });
 
-// registry에는 lead가 올린다.
 export const CALL_ROUTES = [
   callSend,
   callReply,

@@ -1,5 +1,5 @@
 // md 목차 parser. shell editor의 Outline, context의 `outline`·`section` kind, 준비 worker가
-// 같은 코드를 불러야 같은 파일에서 같은 tree를 얻으므로 contracts에 둔다(code-map "여러 최상위가 같이 쓰는 순수 함수").
+// 같은 코드를 불러야 같은 파일에서 같은 tree를 얻으므로 contracts에 둔다.
 // 의존성·시각·무작위·IO가 없다.
 //
 // 입력 text는 UTF-8로 읽은 문자열이다. parser가 BOM 제거 → CRLF/CR을 LF로 → NFC를 직접 적용하고,

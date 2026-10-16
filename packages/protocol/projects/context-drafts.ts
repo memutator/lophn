@@ -56,7 +56,7 @@ export const bundleTestDraftRoute = defineRead({
   ],
 });
 
-// 옛 route를 다시 내보낸다. 등록할 때 CONTEXT_API_ROUTES와 겹치지 않게 한다.
+// 등록할 때 CONTEXT_API_ROUTES와 겹치지 않게 한다.
 export const CONTEXT_DRAFT_ROUTES = [
   bundleOpenDraftRoute,
   bundleTestDraftRoute,

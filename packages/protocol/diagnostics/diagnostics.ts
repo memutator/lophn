@@ -4,7 +4,7 @@ import { ACTOR_KINDS, defineMemory, defineRead } from "../base/route.ts";
 import { redactionResultSchema } from "../base/redaction.ts";
 import { atSchema } from "../base/values.ts";
 
-// domain-model platform/diagnostics. 등록 component·code 목록은 아직 정하지 않았다.
+// 등록 component·code 목록은 아직 정하지 않았다.
 const DIAGNOSTIC_RECORD_KINDS = ["log", "crash", "health"] as const;
 
 const diagnosticRecordKindSchema = z.enum(DIAGNOSTIC_RECORD_KINDS);

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// domain-model/platform/ledger.md의 ID 접두사 표. 접두사 목록은 여기만 갖는다.
+// ID 접두사 목록은 여기만 갖는다.
 const ID_PREFIXES = {
   prj: "Project",
   doc: "Document",

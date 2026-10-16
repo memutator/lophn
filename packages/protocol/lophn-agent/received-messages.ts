@@ -37,7 +37,6 @@ const readErrors = [
 
 const readActors = ["user", "agent", "machine"] as const;
 
-// 옛 messages/list와 경로가 겹치지 않게 자원 이름을 따로 둔다.
 export const receivedMessageList = defineRead({
   resource: "session_messages",
   method: "list",
@@ -64,7 +63,6 @@ export const receivedMessageRead = defineRead({
   errors: [...readErrors],
 });
 
-// registry에는 lead가 올린다.
 export const RECEIVED_MESSAGE_ROUTES = [
   receivedMessageList,
   receivedMessageRead,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ACTOR_KINDS, type ActorKind } from "./route.ts";
 import { idSchema } from "./ids.ts";
 
-// actor 문자열의 모양만 정한다. 인증은 platform/identity의 몫이다.
+// actor 문자열의 모양만 정한다. 인증은 core의 몫이다.
 function prefixed(kind: string, id: z.ZodType<string>) {
   return z.string().refine(
     (value) =>
@@ -14,7 +14,7 @@ function prefixed(kind: string, id: z.ZodType<string>) {
 
 // coding agent는 옛 연결(`cac`)과 coding session(`ses`) 두 꼴의 principal을 쓴다.
 const codingAgentIdSchema = z.union([idSchema("cac"), idSchema("ses")]);
-// lophn agent는 session(`ses`)이 신원이다. 옛 run-loop가 쓰는 assignment(`asg`)는 wave 3이 걷으면 뺀다.
+// lophn agent는 session(`ses`)이 신원이다. assignment(`asg`)는 옛 run-loop가 쓰던 id다.
 const agentIdSchema = z.union([idSchema("ses"), idSchema("asg")]);
 
 export const actorSchema = z.union([

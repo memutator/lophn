@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { anyIdSchema } from "./ids.ts";
 
-// 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름(domain-model platform/ledger).
+// 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름.
 const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;
 
 export const eventTypeSchema = z.string().regex(EVENT_TYPE);

@@ -81,7 +81,7 @@ const CLI_FALLBACK_BINS = [
   ".local/share/mise/shims",
 ].map((dir) => `$HOME/${dir}`).join(",");
 
-// CLI의 환경 이름이다. coding-agent/cli/launch.ts의 `CLI_ENV_NAMES`와 같은 목록이다.
+// CLI의 환경 이름이다.
 const CLI_ENV =
   "LOPHN_HOME,LOPHN_CODING_TOKEN,LOPHN_DAEMON_URL,HOME,DENO_DIR,PATH";
 

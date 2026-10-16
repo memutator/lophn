@@ -46,7 +46,7 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
 const providerOutput = z.object({ provider: providerRecordSchema });
 
-// 새 Connect. credential은 secret 이름 참조다. route 등록은 lead가 옛 `registerProvider`를 지울 때 한다.
+// 새 Connect. credential은 secret 이름 참조다.
 export const connectProvider = defineCommand({
   resource: "providers",
   method: "connect",
@@ -57,7 +57,6 @@ export const connectProvider = defineCommand({
   errors: [...userErrors],
 });
 
-// 옛 Connect(곧 지움): core가 아직 준비 증거 모양을 쓴다.
 export const registerProvider = defineCommand({
   resource: "providers",
   method: "register",

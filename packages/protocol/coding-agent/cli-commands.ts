@@ -34,7 +34,7 @@ import {
 } from "./ticket/claims.ts";
 import { ticketList, ticketShow } from "./ticket/routes.ts";
 
-// 새 coding route 배열이다. `registry.ts`의 `ROUTES`에는 lead가 wave 3 merge 뒤에 넣는다.
+// coding route 배열이다. `registry.ts`가 펼쳐 모은다.
 export const CODING_ROUTES = [
   ...HOOK_ROUTES,
   ...MESSAGE_ROUTES,

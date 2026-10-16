@@ -19,7 +19,7 @@ export const TURN_BLOB_PURPOSES = {
 // blob의 준비 주체와 같아야 StartTurn·StartModelCall 같은 command가 영구 참조를 등록한다.
 export const AGENT_RUNTIME_PRINCIPAL = "machine:agent-runtime";
 
-// 준비 증거. 같은 주체·용도·hash의 살아 있는 준비가 있을 때만 등록된다(platform/blob-store).
+// 준비 증거. 같은 주체·용도·hash의 살아 있는 준비가 있을 때만 등록된다.
 function preparedEvidence(
   principal: string,
   purpose: string,

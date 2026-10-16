@@ -5,7 +5,7 @@ import { z } from "zod";
 // UTF-8 bytes로 blob으로 준비하고 command가 같은 transaction에서 영구 참조를 등록한다
 // (메시지 본문과 같은 길). ledger에는 그 blob의 hash만 남는다.
 
-// 글 하나의 상한(UTF-8 bytes). 요청 전체는 platform/api의 RPC JSON 상한 안이어야 한다.
+// 글 하나의 상한(UTF-8 bytes). 요청 전체는 RPC JSON 상한 안이어야 한다.
 export const QUESTION_TEXT_MAX_BYTES = 32768;
 // 글 blob 준비·참조의 이름. 준비 주체는 보낸 쪽의 자격이고 참조는 permanent다.
 export const QUESTION_TEXT_PURPOSE = "question_text";

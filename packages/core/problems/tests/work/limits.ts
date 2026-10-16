@@ -17,7 +17,7 @@ export const RUNNER_LIMITS = {
 } as const;
 
 // Deno heap 268,435,456 bytes는 MiB 단위 V8 flag다.
-export const DENO_HEAP_FLAG = "--v8-flags=--max-old-space-size=256";
+const DENO_HEAP_FLAG = "--v8-flags=--max-old-space-size=256";
 
 export const FIXED_DENO_FLAGS = [
   "--no-prompt",
@@ -35,4 +35,3 @@ export const SAFE_ENV_NAMES = [
   "LC_ALL",
 ] as const;
 
-export type SafeEnvName = (typeof SAFE_ENV_NAMES)[number];

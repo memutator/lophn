@@ -9,7 +9,7 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
-export type GateCheck =
+type GateCheck =
   | { pass: true; consume: (() => Promise<Result<void>>) | null }
   | {
     pass: false;

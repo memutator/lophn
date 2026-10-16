@@ -55,7 +55,7 @@ function bundleCopyPath(
 }
 
 // 당시 release의 읽기 전용 준비 폴더 출처. data root의 apps 부분만 받는다.
-export type PreparedFolderSource = {
+type PreparedFolderSource = {
   // `apps` 부모 폴더(abs path). collector 등록 spec의 allow_read와 같다.
   appsRoot: string | null;
 };
@@ -89,7 +89,7 @@ function stackBytesOf(stack: string, limit: number): {
 // prepared 출처의 앱 frame 위치 찾기. source map으로 stack의
 // 생성 위치를 원본 상대 path·줄로 찾는다: 위치를 아는 stack은 같은 생성 위치의
 // mapping만 취하고, 준비 폴더 밖 path는 읽지 않는다.
-export async function resolveStackFrames(
+async function resolveStackFrames(
   folder: PreparedFolderSource,
   evidence: {
     app: string;
@@ -452,7 +452,7 @@ function decodeField(
 
 // 조립 경계. 관측한 오류 → stack 준비·위치 찾기·로그·묶는 key.
 // raw 문자는 bounded memory에서만 있고 결과는 ProblemSnapshotInput(+묶는 key)이다.
-export type AssemblyDeps = {
+type AssemblyDeps = {
   // raw stack blob 준비. platform blob prepare 경계로 간다.
   blobPrepare: SnapshotBlobPrepare;
   // 당시 release의 읽기 전용 준비 폴더 출처.
@@ -474,7 +474,7 @@ export type AssemblyDeps = {
 };
 
 // redaction을 거친 관측. error가 null이면 오류 정보 없이 관측만 한 것이다(process_exit 등).
-export type ObservedException = {
+type ObservedException = {
   report_id: string;
   observed_at: string;
   observation: string;
@@ -486,7 +486,7 @@ export type ObservedException = {
   invocation: ProblemSnapshotInput["invocation"];
 };
 
-export type AssembledException = {
+type AssembledException = {
   // 문제 이름이자 error.name이다. 오류 이름이 없으면 관측 종류다.
   name: string;
   snapshot: ProblemSnapshotInput;
@@ -507,7 +507,7 @@ export function problemNameOf(raw: string | null, fallback: string): string {
 
 // 처리되지 않은 오류의 묶는 key. 오류 이름과 앱 source 위치(source map으로 푼 가장 위 앱 frame의
 // `path:line`)의 해시다. 위치를 못 풀면 그 발생의 Report id라 다른 발생과 묶이지 않는다.
-export async function observedErrorGroupKey(
+async function observedErrorGroupKey(
   name: string,
   frames: readonly SourceFrame[],
   reportId: string,

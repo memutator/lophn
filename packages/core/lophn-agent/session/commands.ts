@@ -43,7 +43,7 @@ import { renameSessionTitle } from "./session-title.ts";
 
 // 세션 command. 등록 순서와 transaction 규칙은 message-commands.ts와 같다.
 
-export type ConversationDeps = {
+type ConversationDeps = {
   // 사람 메시지를 같은 Tx에서 Router로 입력함에 넣는다. 조립이 Router와 session 목록을 건다.
   send: SendMessageDeps;
   // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다. 기록을 가진 concern마다

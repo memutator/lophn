@@ -1,5 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import type { ReadSnapshot, Tx } from "../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { definePort } from "../../../protocol/base/mod.ts";
 import type {
   AddedAppApi,
@@ -53,18 +53,6 @@ export function declarationsOf(
 }
 
 // read 쪽. 선언을 낼 주체가 없으면(port 미등록) 선언을 모르는 것이고 null이다.
-export function declarationsAt(
-  snapshot: Pick<ReadSnapshot, "port" | "sql">,
-  app: string,
-): Result<AppDeclarations | null> {
-  let declarations: CurrentDeclarations;
-  try {
-    declarations = snapshot.port(currentDeclarations);
-  } catch {
-    return ok(null);
-  }
-  return declarations.get(snapshot.sql, app);
-}
 
 const LISTEN_HOSTS = ["localhost", "127.0.0.1", "::1"];
 
@@ -105,7 +93,7 @@ export function resourceLabel(scope: ResourceScope): string {
   return `${scope.kind}:${scope.name}`;
 }
 
-export type DeclarationGap = {
+type DeclarationGap = {
   added_resources: string[];
   added_app_apis: AddedAppApi[];
 };

@@ -59,24 +59,3 @@ export function saveAgentGrant(
 // release에서 빠진 app-api의 override를 모든 agent grant에서 지운다.
 // 새로 더해진 app-api는 apis에 없으므로 효과별 기본값으로 들어온다. 사람이 바꾼 것은 그대로다.
 // activation 성공 단계가 부른다.
-export function pruneAgentGrantApis(
-  tx: Pick<Tx, "sql" | "now">,
-  app: string,
-  apiNames: readonly string[],
-): Result<void> {
-  const kept = new Set(apiNames);
-  for (const row of tx.sql.all("select agent, entries from agent_grants", [])) {
-    const grant = grantOf(String(row["agent"]), row["entries"]);
-    if (!grant.ok) return grant;
-    let changed = false;
-    const entries = grant.value.entries.map((entry) => {
-      if (entry.kind !== "app" || entry.app !== app) return entry;
-      const apis = entry.apis.filter((one) => kept.has(one.api));
-      if (apis.length === entry.apis.length) return entry;
-      changed = true;
-      return { ...entry, apis };
-    });
-    if (changed) saveAgentGrant(tx, grant.value.agent, entries);
-  }
-  return ok(undefined);
-}

@@ -34,7 +34,7 @@ import { type ReleaseSourceReader, sourceDiff } from "./source-diff.ts";
 
 export type SignalResult = { accepted: boolean; app: string | null };
 
-export type CodingRelayDeps = {
+type CodingRelayDeps = {
   // core 안 machine 자격으로 writer에 command를 낸다. 같은 key는 효과가 한 번이다.
   run(signal: CodingSignal, key?: string): Promise<Result<SignalResult>>;
   // session 하나 범위 token의 발급과 회수.

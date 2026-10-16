@@ -5,11 +5,11 @@ import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
 export const MODEL_RETRY_MAX = 2;
 // 서버가 시각을 주지 않았을 때 첫째·둘째 retry 앞의 대기.
-export const MODEL_RETRY_DEFAULT_MS: readonly [number, number] = [2000, 4000];
+const MODEL_RETRY_DEFAULT_MS: readonly [number, number] = [2000, 4000];
 
 export const TOOL_RETRY_MAX = 1;
-export const TOOL_RETRY_BASE_MS = 1000;
-export const TOOL_RETRY_JITTER = 0.1;
+const TOOL_RETRY_BASE_MS = 1000;
+const TOOL_RETRY_JITTER = 0.1;
 
 // provider가 일시 실패로 분류한 통신만 같은 입력으로 다시 보낸다. 부분 응답·취소·불명확은
 // retry 대상이 아니다.

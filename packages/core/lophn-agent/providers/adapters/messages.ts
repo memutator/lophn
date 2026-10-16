@@ -3,7 +3,6 @@
 // (frame 누적, complete/partial/refused/failed 판정, usage 정규화)을 여기 둔다.
 // 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다.
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
@@ -11,84 +10,27 @@ import type { SseFrame } from "./stream.ts";
 
 // prompt-assemble이 준 경계 위치(최대 3곳). Anthropic breakpoint
 // 상한은 4개라 3개는 상한 안이다(조사 문서, OpenCode 234–251).
-export const ANTHROPIC_CACHE_BOUNDARY_MAX = 3;
 
-export type CacheBoundaries = {
+type CacheBoundaries = {
   system: boolean;
   tools: boolean;
   final_user: boolean;
 };
 
-export function boundaryCount(boundaries: CacheBoundaries): number {
-  return (boundaries.system ? 1 : 0) + (boundaries.tools ? 1 : 0) +
-    (boundaries.final_user ? 1 : 0);
-}
-
 // Anthropic thinking.signature와 redacted_thinking.data 원문. 사람이 읽을
 // 본문(thinking text)은 상태에 두지 않는다.
-export type OpaqueReasoningState = {
+type OpaqueReasoningState = {
   signature?: string;
   data?: string;
 };
 
 // 같은 run·같은 provider·같은 model 메모리에서만 재사용한다. provider나
 // model이 바뀌면 버리고, run 종료 시 폐기한다. blob·trace에 남지 않는다.
-export type ReasoningMemory = {
-  get(
-    run: string,
-    provider: string,
-    model: string,
-  ): OpaqueReasoningState | undefined;
-  set(
-    run: string,
-    provider: string,
-    model: string,
-    state: OpaqueReasoningState,
-  ): void;
-  drop(run: string): void;
-};
-
-export function createReasoningMemory(): ReasoningMemory {
-  const values = new Map<
-    string,
-    { provider: string; model: string; state: OpaqueReasoningState }
-  >();
-  return {
-    get(run, provider, model) {
-      const found = values.get(run);
-      if (!found) return undefined;
-      // provider·model이 다르면 상태가 없는 것과 같다. 전송 대상이 아니라 버림이다.
-      if (found.provider !== provider || found.model !== model) {
-        return undefined;
-      }
-      return { ...found.state };
-    },
-    set(run, provider, model, state) {
-      values.set(run, { provider, model, state: { ...state } });
-    },
-    drop(run) {
-      values.delete(run);
-    },
-  };
-}
 
 // 시그니처가 필요한데 메모리가 비어 있으면(restart·compaction) state-free 재시도를
 // 하지 않고 실패한다(architecture §5.2).
-export function reasoningFor(
-  memory: ReasoningMemory | undefined,
-  need: { run: string; provider: string; model: string; required: boolean },
-): Result<OpaqueReasoningState | undefined> {
-  const found = memory?.get(need.run, need.provider, need.model);
-  if (found === undefined && need.required) {
-    return err({
-      code: "conflict",
-      message: "opaque 추론 상태가 메모리에 없다",
-    });
-  }
-  return ok(found);
-}
 
-export type AnthropicBlock = {
+type AnthropicBlock = {
   type: string;
   text?: string;
   id?: string;
@@ -100,7 +42,7 @@ export type AnthropicBlock = {
   data?: string;
 };
 
-export type ToolDefinition = {
+type ToolDefinition = {
   name: string;
   description?: string;
   input_schema: unknown;
@@ -235,7 +177,7 @@ export function buildRequest(input: {
 export type ToolCall = { id: string; name: string; args: string };
 
 // stream 결과. tool 인자는 content_block_stop을 본 것만 완성이다.
-export type StreamResult = {
+type StreamResult = {
   text: string;
   toolCalls: ToolCall[];
   // 인자가 완성된 tool. stop을 보지 못한 tool은 여기 없다.
@@ -417,7 +359,7 @@ function mergeUsage(
 
 // usage 정규화(조사 문서 표). Anthropic input은 cache를 제외해 본다. 값 모름은 0이
 // 아니라 null이다.
-export function anthropicUsage(raw: Record<string, unknown>): TokenUsage {
+function anthropicUsage(raw: Record<string, unknown>): TokenUsage {
   const details = raw.output_tokens_details as
     | { thinking_tokens?: unknown }
     | undefined;
@@ -442,7 +384,7 @@ function asCount(value: unknown): number | null {
 
 // ── 종료 판정 ─────────────────────────────────────────────────────────────
 
-export type Verdict = {
+type Verdict = {
   kind: "complete" | "partial" | "refused" | "failed";
   // failed일 때만 실패 코드다(ModelOutcome과 같은 근원).
   code?: "temporary" | "refused" | "unknown";

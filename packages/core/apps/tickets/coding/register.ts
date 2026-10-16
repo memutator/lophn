@@ -23,7 +23,7 @@ import { createCodingTransport } from "./transport.ts";
 
 const memory = createCodingMemory();
 
-export const codingDefinitions = {
+const codingDefinitions = {
   schemaSteps: codingSchemaSteps,
   commands: [createSignalCommand(memory)],
   // Router의 transport는 tx마다 그 tx의 표를 본다.
@@ -50,4 +50,3 @@ export function createCoreRegistration() {
   return codingDefinitions;
 }
 
-export { memory as codingMemory };

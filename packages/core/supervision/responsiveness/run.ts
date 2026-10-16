@@ -23,7 +23,7 @@ import {
 } from "./slot.ts";
 import type { Frame } from "../../../protocol/base/mod.ts";
 
-export type Outcome = "failed" | "ready-ended" | "stopped";
+type Outcome = "failed" | "ready-ended" | "stopped";
 
 type ReadStep = ChildMessage | "ended" | "violated" | "faulted";
 type Frames = AsyncGenerator<Frame, "eof" | "closed">;

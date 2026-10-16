@@ -26,7 +26,7 @@ export function occurrenceOf(row: Record<string, unknown>): ProblemOccurrence {
   };
 }
 
-export type OccurrenceRead = {
+type OccurrenceRead = {
   // preview는 비어 있다. 글 바이트는 blob store에서 읽어 `withMessagePreview`로 채운다.
   view: Output<typeof problemGetOccurrence>;
   message: { hash: string; size_bytes: number } | null;

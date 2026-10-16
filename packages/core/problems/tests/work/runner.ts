@@ -3,10 +3,8 @@ import { acceptFrame, emptySides, sideVerdict } from "./ipc.ts";
 import type { ObservationSide, SideObservations } from "./ipc.ts";
 import { prepareCommand, rejectOutside } from "./prepare.ts";
 import type { PreparedCommand, PrepareInput } from "./prepare.ts";
-import { admitQueue, recoverLostRunner } from "./recovery.ts";
-import type { Admission, AttemptRecord, LostRun } from "./recovery.ts";
-import { recoverSpool } from "./spool.ts";
-import type { RecoveryDecision, SpoolRecord } from "./spool.ts";
+import { admitQueue } from "./recovery.ts";
+import type { Admission } from "./recovery.ts";
 import { startChild } from "./spawn.ts";
 import type {
   ChildOutcome,
@@ -157,17 +155,3 @@ export async function runPrepared(
   });
 }
 
-export function onRunnerLost(
-  attempts: readonly AttemptRecord[],
-  deadRunner: string,
-): { lost: LostRun[]; unknown: string[] } {
-  return recoverLostRunner(attempts, deadRunner);
-}
-
-export function onSpool(
-  record: SpoolRecord | null,
-  started: boolean | null,
-  nowMs: number,
-): RecoveryDecision {
-  return recoverSpool(record, started, nowMs);
-}

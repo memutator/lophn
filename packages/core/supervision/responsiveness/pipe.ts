@@ -2,8 +2,8 @@ import { Buffer } from "node:buffer";
 import type { Readable, Writable } from "node:stream";
 
 // 한 frame(1MiB + header)이 들어오도록 멈춤 선을 잡고, 멈춘 뒤에도 쌓이면 fault로 끊는다.
-export const PIPE_PAUSE_BYTES = 1024 * 1024 + 64 * 1024;
-export const PIPE_MAX_BYTES = 2 * PIPE_PAUSE_BYTES;
+const PIPE_PAUSE_BYTES = 1024 * 1024 + 64 * 1024;
+const PIPE_MAX_BYTES = 2 * PIPE_PAUSE_BYTES;
 const PIPE_RESUME_BYTES = PIPE_PAUSE_BYTES / 2;
 
 // stdio 오류·overflow는 EOF와 다르다. 호출자가 성공적인 끝으로 오해하지 않게 따로 표시한다.

@@ -13,8 +13,6 @@ import {
   unavailable,
 } from "./steps.ts";
 
-type Query = Pick<Sql, "get" | "all">;
-
 // 사용할 수 없게 둔 이유를 앱 상태에 남기고 unavailable로 끝낸다. 데이터를 더 덮거나 이전 코드를 시작하지 않는다.
 async function stuck(
   ports: ActivationPorts,
@@ -256,16 +254,3 @@ export function observeReleaseActivations(
 
 // ---- migration 이력 ----
 
-export type MigrationHistoryEntry = {
-  release: string;
-  attempt: string;
-  started_at: string;
-  // 복구본의 schema(시도가 시작할 때의 실제 schema)와 목표 schema.
-  from: number;
-  to: number;
-  backup: { hash: string } | null;
-  change: { invocation: string; data_schema: number } | null;
-  restore: { backup_hash: string; data_schema: number } | null;
-  // applied는 새 release가 채택된 변경, restored는 복원으로 되돌린 변경이다.
-  result: "in_progress" | "applied" | "restored" | "failed";
-};

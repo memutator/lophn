@@ -20,7 +20,7 @@ export function loadInvocation(
   return invocation;
 }
 
-export type InvocationPage = { after?: string; limit?: number };
+type InvocationPage = { after?: string; limit?: number };
 
 // 새 것부터(id는 시간 순서다). limit이 없으면 전부다. `after`는 마지막으로 받은 id다.
 export function listInvocations(

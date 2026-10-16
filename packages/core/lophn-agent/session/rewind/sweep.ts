@@ -7,7 +7,7 @@ import type { RewindStore } from "./store.ts";
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
 // row가 가리키는 저장물의 key다: 쓰기 직전 pre-image(`before_blob`).
-export function liveStoreKeys(lookup: Lookup, session: string): Set<string> {
+function liveStoreKeys(lookup: Lookup, session: string): Set<string> {
   const keys = new Set<string>();
   for (
     const row of lookup.sql.all(
@@ -20,7 +20,7 @@ export function liveStoreKeys(lookup: Lookup, session: string): Set<string> {
   return keys;
 }
 
-export type RewindSweepDeps = {
+type RewindSweepDeps = {
   store: Pick<RewindStore, "sessions" | "sweep" | "removeSession">;
   // ledger를 짧게 읽는다. 읽지 못하면 아무것도 지우지 않는다(throw).
   snapshot<T>(read: (lookup: Lookup) => T): T;
@@ -28,7 +28,7 @@ export type RewindSweepDeps = {
   skipNewerThan: number;
 };
 
-export type RewindSweepResult = {
+type RewindSweepResult = {
   // 닫히거나 지워져 디렉터리를 통째로 지운 session.
   sessions: string[];
   // 열린 session에서 지운 고아 저장물 수.

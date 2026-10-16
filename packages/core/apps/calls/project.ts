@@ -1,13 +1,13 @@
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Place } from "../../../protocol/lophn-agent/places.ts";
 
-export type ProjectCaller =
+type ProjectCaller =
   | { kind: "person" }
   | { kind: "agent"; place: Place | null }
   // 부른 invocation의 project.
   | { kind: "app"; project: Id<"prj"> | null };
 
-export type ProjectPick =
+type ProjectPick =
   | { ok: true; project: Id<"prj"> | null }
   | { ok: false; code: "project_required" | "project_mismatch" };
 

@@ -8,14 +8,14 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 // 미참조 확인 기록 하나의 모양. 처음 확인한 시각만 남긴다.
-export type UnreferencedRecord = {
+type UnreferencedRecord = {
   // 미참조를 처음 확인한 시각(ms).
   unreferencedAtMs: number;
 };
 
 // 미참조 기록 폴더. 구분력은 hash 앞 2자 폴더가 정하고 이름은 나머지 62자다.
-export const UNREFERENCED_DIR = "blobs/unreferenced";
-export const UNREFERENCED_PREFIX_CHARS = 2;
+const UNREFERENCED_DIR = "blobs/unreferenced";
+const UNREFERENCED_PREFIX_CHARS = 2;
 
 // sha256 64-hex. 경로 구분력은 이 모양만 받는다(다른 모양은 경로로 만들지 않는다).
 const SHA256_HEX = /^[0-9a-f]{64}$/;

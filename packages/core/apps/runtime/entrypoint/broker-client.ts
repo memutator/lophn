@@ -1,7 +1,7 @@
 // 앱이 broker socket으로 보내는 좁은 요청. supervisor 구현은 runtime/supervisor에 있다.
 import { BROKER_PATHS } from "./limits.ts";
 
-export type BrokerRequest = {
+type BrokerRequest = {
   socketPath: string;
   credential: string;
   path: string;
@@ -14,7 +14,7 @@ export type BrokerTransport = (
   request: BrokerRequest,
 ) => Promise<BrokerResponse>;
 
-export type BrokerChild = {
+type BrokerChild = {
   process_nonce: string;
   mode: "live" | "preview" | "test";
 };

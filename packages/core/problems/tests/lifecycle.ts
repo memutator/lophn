@@ -34,9 +34,7 @@ import type { LifecycleProof } from "./proof.ts";
 const CONFLICT = "같은 요청의 내용이 다르다";
 const NOT_FOUND = "기록을 찾을 수 없다";
 
-export const OBSERVE_TEST_REQUEST_ROUTE = "ObserveTestRequest";
-export const START_TEST_SIDE_ROUTE = "StartTestSide";
-export const STAGE_TEST_EVIDENCE_ROUTE = "StageTestEvidence";
+const STAGE_TEST_EVIDENCE_ROUTE = "StageTestEvidence";
 
 export const observeTestRequestCommand: CommandDefinition<
   typeof observeTestRequest
@@ -107,7 +105,7 @@ function evidenceOf(
   return item as unknown as PreparedResultEvidence;
 }
 
-export function handleStageTestEvidence(
+function handleStageTestEvidence(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof stageTestEvidence>,

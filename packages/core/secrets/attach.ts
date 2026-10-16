@@ -17,7 +17,7 @@ import { attachAllowed } from "./model.ts";
 export const SECRET_SEND = "secret.send";
 
 // 현재 참조·판·용도·허용 목적지. grant 판정(SecretAllowance)과 분리한다.
-export type SecretReferenceLookup = {
+type SecretReferenceLookup = {
   current(use: SecretSendInput["use"]): Promise<
     Result<{
       name: string;
@@ -29,7 +29,7 @@ export type SecretReferenceLookup = {
   >;
 };
 
-export type SecretAttach = {
+type SecretAttach = {
   // 값은 callback 인자로만 넘긴다. 이 함수의 결과는 전송 여부뿐이다.
   send(
     input: SecretSendInput,

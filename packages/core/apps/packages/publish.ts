@@ -27,7 +27,7 @@ import {
 
 type RegisterOutput = z.infer<typeof packageRegisterVersionOutputSchema>;
 
-export type PublishDeps = {
+type PublishDeps = {
   dataRoot: string;
   // 앱에 연결된 source 폴더(app.source_path). 연결 안 된 앱은 err다.
   sourceRootOf: (app: string) => Promise<Result<string>> | Result<string>;
@@ -45,7 +45,7 @@ function invalid(message: string): Result<never> {
 }
 
 // 안내 글은 세 절이고 이 byte가 guide_hash가 된다.
-export function guideText(guide: PackagePublishInput["guide"]): string {
+function guideText(guide: PackagePublishInput["guide"]): string {
   return `# Purpose\n\n${guide.purpose.trim()}\n\n# API\n\n${guide.api.trim()}\n\n` +
     `# Examples\n\n${guide.examples.trim()}\n`;
 }

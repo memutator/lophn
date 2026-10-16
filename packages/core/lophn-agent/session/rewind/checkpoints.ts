@@ -9,7 +9,7 @@ import type { Tx } from "../../../../protocol/server/mod.ts";
 // transaction이 만든다. steer로 도는 turn에 들어간 메시지와 Fork 복사본(`copied_from`이 있는 메시지)은
 // checkpoint가 아니다.
 
-export type CheckpointMessage = {
+type CheckpointMessage = {
   id: string;
   session: string;
   from_kind: "human" | "program" | "agent" | "coding_agent";

@@ -5,7 +5,7 @@ import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 // 문자열을 숫자로 바꾸거나 모르는 필드를 지우거나 잘못된 값을 추측해 고치지
 // 않는다. 실패는 입력을 하나도 적용하지 않은 invalid_input이다.
 
-export type InputRejection = {
+type InputRejection = {
   code: "invalid_input";
   message: string;
   // 모델이 고칠 자리. 값 자체는 담지 않는다.

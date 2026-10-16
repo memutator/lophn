@@ -6,7 +6,7 @@ import type {
 
 // 비용은 float 없이 십진수 문자열로만 계산·저장한다(plan 완료: 십진수 문자열로
 // 입력·계산·저장, float 변환 없음). 요율은 1000000 token당 금액이다.
-export const TOKENS_PER_UNIT = "1000000";
+const TOKENS_PER_UNIT = "1000000";
 
 // 십진수 문자열은 nonnegativeDecimalSchema(/^(0|[1-9][0-9]*)(\.[0-9]+)?/)다.
 function parts(value: string): { whole: bigint; frac: bigint; width: number } {
@@ -42,7 +42,7 @@ function align(
 }
 
 // 십진수 문자열 더하기. 소수 자릿수는 양쪽 중 큰 값이고 값은 정확하다.
-export function decimalSum(a: string, b: string): string {
+function decimalSum(a: string, b: string): string {
   const left = parts(a);
   const right = parts(b);
   const width = Math.max(left.width, right.width);
@@ -51,7 +51,7 @@ export function decimalSum(a: string, b: string): string {
 
 // tokens × rate ÷ 1000000을 십진수 문자열로 돌려준다. 하나의 정수 나눗셈으로
 // 소수 6자리까지 내려 중간 반올림이 없어 재계산 결과가 같다.
-export function decimalMulDiv(tokens: bigint, rate: string): string {
+function decimalMulDiv(tokens: bigint, rate: string): string {
   const rateParts = parts(rate);
   const unitParts = parts(TOKENS_PER_UNIT);
   const width = Math.max(rateParts.width, unitParts.width);
@@ -62,13 +62,13 @@ export function decimalMulDiv(tokens: bigint, rate: string): string {
 
 // 그 call의 과금 token 구간: 새 입력 + cache 읽기·쓰기는 input 요율에,
 // reasoning은 reasoning 요율이 있을 때만 각각 곱한다(이중 과금 없음).
-export type ChargedTokens = {
+type ChargedTokens = {
   input: bigint | null;
   output: bigint | null;
   reasoning: bigint | null;
 };
 
-export function chargedTokens(usage: TokenUsage): ChargedTokens {
+function chargedTokens(usage: TokenUsage): ChargedTokens {
   const input = usage.input === null ? null : BigInt(usage.input) +
     BigInt(usage.cache_read ?? 0) +
     BigInt(usage.cache_write ?? 0);

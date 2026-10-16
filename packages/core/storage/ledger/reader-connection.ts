@@ -9,7 +9,7 @@ import {
   ReadLimitExceeded,
 } from "./reads.ts";
 
-export function readerStorage<T>(operation: () => T): T {
+function readerStorage<T>(operation: () => T): T {
   try {
     return operation();
   } catch (error) {
@@ -68,7 +68,7 @@ export function openReaderConnection(path: string): Result<ReaderConnection> {
   }
 }
 
-export function createReaderConnection(
+function createReaderConnection(
   connection: DatabaseSync,
 ): ReaderConnection {
   let usable = true;

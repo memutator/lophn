@@ -35,7 +35,7 @@ const REPORT_PURPOSE_CAPS = new Map<string, number>(
   ) => [purpose.purpose, purpose.max_size_bytes] as const),
 );
 
-export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
+const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
   new Map(
     [
       [
@@ -75,7 +75,7 @@ export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
     ],
   );
 
-export type ChildBlobPrepareDeps = {
+type ChildBlobPrepareDeps = {
   // 이 handler가 받는 자식의 kind. hello로 core가 정한 값이다(자식 주장이 아니다).
   kind: string;
   // core.prepareBlob. 바이트는 해석 없이 stream으로 넘긴다.
@@ -101,8 +101,8 @@ export type ChildBlobPrepare = {
   readonly open: number;
 };
 
-export const CHILD_BLOB_MAX_STREAMS = 4;
-export const CHILD_BLOB_IDLE_MS = 30_000;
+const CHILD_BLOB_MAX_STREAMS = 4;
+const CHILD_BLOB_IDLE_MS = 30_000;
 
 // 오류는 코드마다 고정 문구뿐이다. 경로·I/O worker 메시지·hash 원문은 자식에게 가지 않는다.
 const SAFE_MESSAGES: Record<

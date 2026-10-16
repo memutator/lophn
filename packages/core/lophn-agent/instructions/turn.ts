@@ -21,7 +21,7 @@ export type TurnInstructionLayer = {
 };
 
 // 사람이 쓴 지침은 조용히 빼지 않는다: 한 층이라도 읽지 못했거나 상한을 넘으면 turn을 시작하지 않는다.
-export type TurnInstructions =
+type TurnInstructions =
   | { status: "ready"; layers: TurnInstructionLayer[] }
   | {
     status: "blocked";

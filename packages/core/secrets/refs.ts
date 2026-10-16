@@ -6,7 +6,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import type { SecretRecord } from "./model.ts";
 
-export type SecretReference = Pick<SecretRecord, "name" | "sealedRef">;
+type SecretReference = Pick<SecretRecord, "name" | "sealedRef">;
 
 // 이름 순서다. 표가 없거나 읽지 못하면 비어 있는 것으로 꾸미지 않고 unavailable이다.
 export function readSecretRefs(

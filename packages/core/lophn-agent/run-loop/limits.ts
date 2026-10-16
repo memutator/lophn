@@ -29,7 +29,7 @@ export const TURN_LIMIT_SETTING_KEYS = {
   active_ms: "lophn-agent.run.active_ms",
 } as const;
 
-export type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
+type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
 
 // run 한도 선언. 공통 설정 하나씩이고 양의 정수만 받는다. 0·무제한은 없다. 사람이 바꾸고 다음 turn부터
 // 적용하며 turn은 시작할 때 값을 고정한다.
@@ -67,13 +67,13 @@ export type LimitReason =
   | "stall_limit"
   | "active_limit";
 
-export type ModelPurpose = "judgment" | "organizing" | "finalizing";
+type ModelPurpose = "judgment" | "organizing" | "finalizing";
 
 // 완전한 응답만 진행이다. partial·failed·cancelled는 시도 횟수에는 들어가고
 // 무진행 시간은 되돌리지 않는다.
-export type AttemptEnd = "complete" | "partial" | "failed" | "cancelled";
+type AttemptEnd = "complete" | "partial" | "failed" | "cancelled";
 
-export type TurnLimiterInit = {
+type TurnLimiterInit = {
   limits: TurnLimits;
   // 마지막 CheckpointTurn 값.
   elapsed: TurnElapsed;
@@ -83,7 +83,7 @@ export type TurnLimiterInit = {
   nowMs: () => number;
 };
 
-export type AttemptStart =
+type AttemptStart =
   | { allowed: true; attempt: number }
   | { allowed: false; limit: LimitReason };
 
@@ -199,7 +199,7 @@ export class TurnLimiter {
   }
 }
 
-export type GuardedCall<T> =
+type GuardedCall<T> =
   | { called: true; value: T }
   | { called: false; limit: LimitReason };
 
@@ -223,7 +223,7 @@ export type ConfirmedFacts = {
   unapplied_inputs: readonly string[];
 };
 
-export type LimitResult = {
+type LimitResult = {
   outcome: { kind: "failed"; reason: LimitReason };
   result: string;
   facts: Record<string, unknown>;

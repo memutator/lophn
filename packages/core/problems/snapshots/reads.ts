@@ -16,14 +16,14 @@ import {
   type problemGetOccurrence,
 } from "../../../protocol/problems/mod.ts";
 
-export type SnapshotBlobRead =
+type SnapshotBlobRead =
   | { status: "available"; bytes: Uint8Array }
   | { status: "unavailable"; reason: "pruned" | "missing" | "corrupt" };
 
 // blob 읽기 통로. hash만으로는 읽을 수 없고 호출자가 허용 owner·field에서 시작한다.
-export type SnapshotBlobReader = (hash: string) => Promise<SnapshotBlobRead>;
+type SnapshotBlobReader = (hash: string) => Promise<SnapshotBlobRead>;
 
-export type LogFragmentRead = LogFragment;
+type LogFragmentRead = LogFragment;
 
 const UNAVAILABLE_REASONS = {
   pruned: "용량 상한을 넘어 오래된 로그 조각이 정리되었다",
@@ -34,7 +34,7 @@ const UNAVAILABLE_REASONS = {
 const NO_LOGS_REASON = "이 발생에는 수집한 로그가 없다";
 
 const BLOB_STATUS = ["pruned", "missing", "corrupt"] as const;
-export type SnapshotBlobReason = (typeof BLOB_STATUS)[number];
+type SnapshotBlobReason = (typeof BLOB_STATUS)[number];
 
 function knownBlobReason(value: unknown): SnapshotBlobReason | undefined {
   for (const reason of BLOB_STATUS) {
@@ -60,7 +60,7 @@ function mayRead(actor: string): boolean {
   return parts !== undefined && parts.kind !== "app";
 }
 
-export async function readLogFragment(input: {
+async function readLogFragment(input: {
   actor: string;
   snapshot: { logs: LogEvidence | null };
   read: SnapshotBlobReader;
@@ -108,7 +108,7 @@ export async function readLogFragment(input: {
 }
 
 // 고정한 snapshot의 로그 증거 행. 없는 snapshot은 undefined다.
-export type SnapshotLogsRow = {
+type SnapshotLogsRow = {
   as_of_seq: string;
   logs: LogEvidence | null;
 };

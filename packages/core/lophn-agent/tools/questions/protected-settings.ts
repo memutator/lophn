@@ -6,9 +6,9 @@
 // 규칙을 쓰려고 이 파일 하나에 둔다. 모르는 key는 일반 설정이다: 등록된 공개 설정은 secret 값을
 // 담지 않으므로(platform/settings), 이 규칙은 key 이름에 드러난 위험 종류만 거른다.
 
-export type ProtectedSettingKind = "secret" | "permission" | "external";
+type ProtectedSettingKind = "secret" | "permission" | "external";
 
-export type ProtectedSetting = {
+type ProtectedSetting = {
   kind: ProtectedSettingKind;
   // 사람이 직접 확인하는 보호 화면의 소유 concern.
   screen: string;

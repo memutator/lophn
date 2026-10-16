@@ -10,7 +10,7 @@ import {
 import type { CredentialIssue } from "./registry.ts";
 import type { CredentialRegistry } from "./registry.ts";
 
-export type AppCredentialResponse = {
+type AppCredentialResponse = {
   type: "app_credential_response";
   request_id: string;
   credential: string;

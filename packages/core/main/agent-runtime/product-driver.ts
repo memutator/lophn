@@ -45,7 +45,7 @@ import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
 // 시험도 같은 묶음을 쓴다.
-export function productToolkit(options: {
+function productToolkit(options: {
   machine: CoreCall;
   mcp?: Toolkit["mcp"];
 }): Toolkit {
@@ -164,11 +164,11 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
 }
 
 // 입력함의 turn을 계속 시작한다(source → preparer → StartTurn → loop → end). 시작할 turn이 없으면 쉰다.
-export const PUMP_IDLE_MS = 500;
+const PUMP_IDLE_MS = 500;
 
 // 제품 MCP 연결 눈이다. 실제 stdio process를 열고(spawnStdioMcp) 단조
 // deadline timer를 쓴다. 테스트는 fake child·fake fetch를 끼운다.
-export function mcpConnectionsDeps(
+function mcpConnectionsDeps(
   secrets?: McpConnectionsDeps["secrets"],
 ): McpConnectionsDeps {
   return {

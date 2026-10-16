@@ -6,17 +6,17 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 // ledger 안 표가 아니라 파일인 이유: restore는 옛 ledger의 안쪽을 그대로 들여오므로
 // 안쪽 값은 복원 때 바뀌지 않는다. 파일은 restore가 ledger를 바꾸기 전에 새 값으로 쓰고,
 // 중간에 죽어도 값이 틀리는 쪽은 "다시 만든다"뿐이다.
-export const LEDGER_ID_FILE = "ledger-id";
+const LEDGER_ID_FILE = "ledger-id";
 
 const LEDGER_ID = /^ldg_[0-9a-f]{32}$/;
 
-export function isLedgerId(value: string): boolean {
+function isLedgerId(value: string): boolean {
   return LEDGER_ID.test(value);
 }
 
 // 식별은 모의 시간·결정적 seed에 묶지 않는다. 같은 값이 두 ledger에 붙으면 이 값의
 // 이유가 사라진다.
-export function newLedgerId(): string {
+function newLedgerId(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return `ldg_${
@@ -24,7 +24,7 @@ export function newLedgerId(): string {
   }`;
 }
 
-export async function readLedgerId(root: string): Promise<string | undefined> {
+async function readLedgerId(root: string): Promise<string | undefined> {
   let text: string;
   try {
     text = await Deno.readTextFile(`${root}/${LEDGER_ID_FILE}`);
@@ -36,7 +36,7 @@ export async function readLedgerId(root: string): Promise<string | undefined> {
 }
 
 // 임시 파일에 쓰고 sync한 뒤 rename한다. 반쯤 쓴 값이 식별이 되지 않는다.
-export async function writeLedgerId(
+async function writeLedgerId(
   root: string,
   id: string,
 ): Promise<Result<void>> {

@@ -49,14 +49,14 @@ export const CONTEXTS_KIND = "documents/contexts";
 
 // data root 아래 worker가 쓰는 두 자리. core의 launch spec(packages/core/projects/contexts/connection.ts)이 같은 자리만
 // 쓰기를 허락한다.
-export function contextsPaths(dataRoot: string) {
+function contextsPaths(dataRoot: string) {
   return {
     index: `${dataRoot}/derived/contexts.sqlite`,
     staging: `${dataRoot}/documents/staging/context-check`,
   };
 }
 
-export type ContextsWorkerOptions = {
+type ContextsWorkerOptions = {
   streams: ChildStreams;
   clock?: Clock;
   // 시험이 파일 예산을 줄일 때 쓴다.
@@ -107,7 +107,7 @@ function openStore(path: string): IndexStore {
   }
 }
 
-export function createContextsWorker(
+function createContextsWorker(
   options: ContextsWorkerOptions,
 ): ChildSession {
   const clock = options.clock ?? systemClock;

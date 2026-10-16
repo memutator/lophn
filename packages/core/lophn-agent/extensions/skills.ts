@@ -27,7 +27,7 @@ export type SkillFilesPort = {
   executable(path: string): Promise<Result<boolean | null>>;
 };
 
-export type SkillSupplemental = {
+type SkillSupplemental = {
   title: string;
   // bundle 폴더 안의 상대 경로다. `..`·절대 경로는 발견에서 제외한다.
   relative_path: string;
@@ -54,8 +54,8 @@ export const BUNDLED_SKILLS_ROOT = new URL("./builtin-skills", import.meta.url)
   .pathname;
 
 // 형식 상한이다.
-export const SKILL_NAME_MAX = 64;
-export const SKILL_DESCRIPTION_MAX = 1024;
+const SKILL_NAME_MAX = 64;
+const SKILL_DESCRIPTION_MAX = 1024;
 
 // bundle 폴더 안의 manifest 이름이다.
 export const SKILL_MANIFEST = "SKILL.md";
@@ -67,7 +67,7 @@ const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 // skill 이름 검사다. 고치지 않는다: 대문자·연속 하이픈·앞뒤 하이픈은
 // 제외 사유다.
-export function skillNameReason(name: unknown): string | null {
+function skillNameReason(name: unknown): string | null {
   if (typeof name !== "string" || name.length === 0) {
     return "skill name is missing";
   }
@@ -81,7 +81,7 @@ export function skillNameReason(name: unknown): string | null {
 }
 
 // 설명 검사다. 공백만으로 되지 않은 1~1,024자다.
-export function skillDescriptionReason(description: unknown): string | null {
+function skillDescriptionReason(description: unknown): string | null {
   if (typeof description !== "string" || !/\S/.test(description)) {
     return "skill description is missing";
   }
@@ -91,7 +91,7 @@ export function skillDescriptionReason(description: unknown): string | null {
   return null;
 }
 
-export type SkillFrontmatter = {
+type SkillFrontmatter = {
   name: string;
   description: string;
   body: string;
@@ -246,7 +246,7 @@ type Candidate = SkillCandidate & {
   supplemental: readonly SkillSupplemental[];
 };
 
-export type SkillDiscoveryInput = {
+type SkillDiscoveryInput = {
   port: SkillFilesPort;
   // 내장 skill 폴더다. 없으면 null이다.
   builtin_root: string | null;
@@ -323,14 +323,6 @@ export async function discoverSkills(
 }
 
 // prompt에 나가는 skill 목록의 재료다. 켜진 skill의 이름과 설명만 이름 사전순이다. 본문과 경로는 나가지 않는다.
-export function skillPromptSection(
-  entries: readonly { name: string; description: string; enabled: boolean }[],
-): readonly { name: string; description: string }[] {
-  return entries
-    .filter((entry) => entry.enabled)
-    .map((entry) => ({ name: entry.name, description: entry.description }))
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-}
 
 // 폴더 경로를 붙인다. Windows drive root는 `\`를 쓴다(표기만, 읽기는
 // port가 한다).

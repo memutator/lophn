@@ -55,7 +55,7 @@ function relativeSource(path: string): string {
 }
 
 // line과 column은 stack trace처럼 1부터다. 그 생성 위치 앞쪽에서 가장 가까운 segment의 원래 위치를 준다.
-export function resolveSource(
+function resolveSource(
   sourceMapJson: string,
   line: number,
   column: number,

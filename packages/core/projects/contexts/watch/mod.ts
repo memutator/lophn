@@ -5,7 +5,6 @@ export type {
   ActiveContext,
   ChangeDetector,
   ChangeDetectorDeps,
-  FsEventLike,
   FsWatcherLike,
   Timer,
   TimerHandle,

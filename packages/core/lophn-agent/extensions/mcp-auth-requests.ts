@@ -15,7 +15,7 @@ import type { AuthDeadline, HttpFetch } from "./mod.ts";
 // - 대기열은 작업 메모리다: 요청·응답 본문(code·verifier·token)을 ledger·event·log 어디에도 남기지 않는다.
 // - 기한 안에 답이 없으면(runtime이 없거나 발급자가 느리면) 요청은 실패하고 대기열에서 빠진다. 늦은 답은 받지 않는다.
 
-export const MCP_AUTH_REQUEST_WAIT_MS = 8_000;
+const MCP_AUTH_REQUEST_WAIT_MS = 8_000;
 
 type Entry = {
   request: McpAuthRequest;

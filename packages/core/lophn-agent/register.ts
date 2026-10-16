@@ -3,32 +3,15 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
+import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
+import { defineTxPort, runAdmission } from "../storage/ledger/mod.ts";
 import {
-  type EventVisibilityDefinition,
-  type ReadDefinition,
-  type Tx,
-} from "../../protocol/server/mod.ts";
-import type { EventDefinition } from "../../protocol/base/mod.ts";
-import {
-  defineTxPort,
-  type EventRegistration,
-  type ReaderRegistration,
-  runAdmission,
-} from "../storage/ledger/mod.ts";
-import {
-  assignmentPaused,
   finishRewindSummary,
   instructionPreview,
   instructionsGet,
-  providerDisconnected,
-  questionCreated,
   readRewindSummary,
   recordRewindWrite,
   requestRewindSummary,
-  REVERT_EVENTS,
-  runAccepted,
-  runFinished,
-  runStarted,
   stageRewindFile,
   takeRewindSummaryRequest,
 } from "../../protocol/lophn-agent/mod.ts";
@@ -37,7 +20,6 @@ import {
   askRead,
   askWait,
 } from "../../protocol/lophn-agent/ask-tool.ts";
-import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
   createModelCommands,
@@ -209,7 +191,7 @@ export function agentRuntimeLaunchSpec(input: {
 }
 
 // catalog 자동 갱신 on/off. 사람이 끄면 정상본·snapshot만 쓴다. 다음 기동부터 적용한다.
-export const catalogAutoUpdateSetting = declareSetting({
+const catalogAutoUpdateSetting = declareSetting({
   key: "lophn-agent.model.catalog_auto_update",
   type: z.boolean(),
   default: true,
@@ -454,7 +436,7 @@ function placeExists(
 
 // agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
 // 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
-export function agentLookups(
+function agentLookups(
   sql: Pick<Tx["sql"], "get" | "all">,
 ): AgentLookups {
   let registry: ExtensionRegistry | null | undefined;
@@ -861,74 +843,6 @@ export function createLedgerRegistration(
 
 // question·assignment 계기 event의 공개 정책은 notifications
 // 구독자에게만 연다. 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
-export function createEventRegistration(): EventRegistration {
-  return {
-    visibility: [
-      notificationsOnlyVisibility(questionCreated),
-      notificationsOnlyVisibility(assignmentPaused),
-      // agent runtime(machine 자격)만 run의 접수·시작·끝남을 따라 읽는다. selector가 RunStarted를 훑고
-      // 감독 pipe의 credential 발급이 StartRun이 확정한 scope를 대조한다. 사람·agent·app은 못 본다.
-      machineOnlyVisibility(runAccepted),
-      machineOnlyVisibility(runStarted),
-      machineOnlyVisibility(runFinished),
-      // 되돌리기 결과는 session을 보는 사람(shell)과 machine(observability·prompt 조립)이 읽는다. agent는
-      // 읽지 않는다: Undo는 사실 메시지로, 숨김 구간은 입력 조립으로 전해지고 event 자체는 필요 없다.
-      ...REVERT_EVENTS.map((event) => userAndMachineVisibility(event)),
-      // Disconnect한 provider로 진행 중인 run의 호출을 멈추려고 runtime이 따라 읽는다.
-      machineOnlyVisibility(providerDisconnected),
-    ],
-  };
-}
-
-function userAndMachineVisibility<D extends EventDefinition>(
-  event: D,
-): EventVisibilityDefinition<D> {
-  return {
-    event,
-    handle: (_snapshot, ctx) =>
-      ok(ctx.actor === "user" || ctx.actor === "machine"),
-  };
-}
-
-function machineOnlyVisibility<D extends EventDefinition>(
-  event: D,
-): EventVisibilityDefinition<D> {
-  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "machine") };
-}
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
 // event를 보지 않는다. usage·preset read도 event를 보지 않는다.
-export function createReaderRegistration(): ReaderRegistration {
-  return {
-    reads: [
-      reads.read,
-      reads.list,
-      modelReads.modelDefault,
-      modelReads.projectModel,
-      modelReads.favorites,
-      modelReads.catalog,
-      usageReads.read,
-      usageReads.list,
-      usageReads.usage,
-      agentReads.list,
-      agentReads.read,
-      skillsReads.read,
-      projectExtensionReads.read,
-      runReads.read,
-      runReads.list,
-      runReads.result,
-      conversationReads.session,
-      conversationReads.sessions,
-      conversationReads.messages,
-      conversationReads.message,
-      conversationReads.compactRequests,
-      commandReads.list,
-      toolReads.read,
-      toolReads.list,
-      questionReads.read,
-      questionReads.list,
-      traceReads.read,
-    ],
-    ports: new Map(),
-  };
-}

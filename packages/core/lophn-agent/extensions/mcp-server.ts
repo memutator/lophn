@@ -10,11 +10,11 @@ import { mcpTokenRef } from "./mcp-oauth-vault.ts";
 // 옮긴다. 값은 없고 참조뿐이다. 서버는 이름만으로 하나가 정해지지 않는다: 같은 이름도 층의 place가 다르면 따로이고,
 // OAuth token의 참조가 그 place에서 정해진다.
 
-export type RuntimeValue =
+type RuntimeValue =
   | { kind: "value"; value: string }
   | { kind: "secret_ref"; secret_ref: string };
 
-export type RuntimeAuth =
+type RuntimeAuth =
   | { kind: "none" }
   | { kind: "bearer"; secret_ref: string }
   | { kind: "api_key"; secret_ref: string; header_name: string }
@@ -131,7 +131,7 @@ export function runtimeServerOfLayer(
   };
 }
 
-export type McpLayer = {
+type McpLayer = {
   servers: readonly McpRuntimeServer[];
   // 이 층이 끈 아래 층의 서버 이름이다. 지금 없는 이름은 아무 일도 하지 않는다.
   off: readonly string[];

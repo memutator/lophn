@@ -3,17 +3,12 @@
 // 참조된 blob이 없거나 hash가 다르면 unavailable이며 빈 내용을 돌려주지 않는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  ReadDefinition,
-  RequestContext,
-  Sql,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext, Sql } from "../../../protocol/server/mod.ts";
 import {
   type BlobFieldDefinition,
   type BlobReadInput,
   blobReadInputSchema,
   type BlobReadResult,
-  blobsRead,
 } from "../../../protocol/storage/mod.ts";
 import type { BlobAuthorizer } from "./refs.ts";
 import {
@@ -25,12 +20,12 @@ import {
   unavailableAnswer,
 } from "./refs.ts";
 
-export type StoredBlobRef = {
+type StoredBlobRef = {
   hash: string;
   size_bytes: number;
 };
 
-export type BlobBytes = {
+type BlobBytes = {
   // 등록된 hash의 그 구간. 없거나 관측 hash가 다르면 err다.
   read(
     hash: string,
@@ -39,7 +34,7 @@ export type BlobBytes = {
   ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 };
 
-export type BlobReadDeps = {
+type BlobReadDeps = {
   fields: readonly BlobFieldDefinition[];
   // 소유 concern이 그 owner·고정 판·field를 지금 자격으로 읽을 수 있는지.
   authorize: BlobAuthorizer;
@@ -47,7 +42,7 @@ export type BlobReadDeps = {
 };
 
 // 참조 행에서 시작한다. hash만 아는 읽기는 이 행이 없으면 거절된다.
-export function storedRef(
+function storedRef(
   sql: Pick<Sql, "get">,
   input: Pick<BlobReadInput, "owner_kind" | "owner_key" | "field">,
 ): Result<StoredBlobRef | undefined> {
@@ -69,13 +64,13 @@ export function storedRef(
 }
 
 // 한 조각의 판정. scope 검사는 호출자가 매 조각 전에 다시 한다.
-export type ReadWindow = {
+type ReadWindow = {
   offset_bytes: number;
   length_bytes: number;
   truncated: boolean;
 };
 
-export type ReadDecision =
+type ReadDecision =
   | {
     kind: "bytes";
     hash: string;
@@ -84,7 +79,7 @@ export type ReadDecision =
   }
   | { kind: "unavailable"; answer: BlobReadResult };
 
-export function decideRead(
+function decideRead(
   fields: readonly BlobFieldDefinition[],
   ctx: RequestContext,
   authorize: BlobAuthorizer,
@@ -211,46 +206,4 @@ export async function finishBlobRead(
 }
 
 // read handler가 부르는 비동기 경계. snapshot SQL은 동기이고 바이트는 그 뒤에 읽는다.
-export function readBlob(
-  sql: Pick<Sql, "get">,
-  deps: BlobReadDeps,
-  ctx: RequestContext,
-  input: BlobReadInput,
-): Promise<Result<BlobReadResult>> {
-  const plan = planBlobRead(sql, deps, ctx, input);
-  if (!plan.ok) return Promise.resolve(plan);
-  if (plan.value.kind === "answer") {
-    return Promise.resolve(ok(plan.value.result));
-  }
-  return finishBlobRead(deps, ctx, plan.value);
-}
 
-export function createBlobRead(
-  deps: BlobReadDeps & {
-    sql(ctx: RequestContext): Pick<Sql, "get">;
-  },
-): ReadDefinition<typeof blobsRead> {
-  return {
-    route: blobsRead,
-    handle(_snapshot, ctx, input) {
-      // 동기 read handler는 snapshot만 본다. 바이트 읽기는 core가 이 판정 뒤에 한다.
-      const stored = storedRef(deps.sql(ctx), input);
-      if (!stored.ok) return stored;
-      const decision = decideRead(
-        deps.fields,
-        ctx,
-        deps.authorize,
-        input,
-        stored.value,
-      );
-      if (!decision.ok) return decision;
-      if (decision.value.kind === "unavailable") {
-        return ok(decision.value.answer);
-      }
-      return err({
-        code: "unavailable",
-        message: "blob 바이트는 read handler 밖에서 읽는다",
-      });
-    },
-  };
-}

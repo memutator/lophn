@@ -21,7 +21,7 @@ type Watched = {
   ticket_source: { ticket: string; claim_seq: string };
 };
 
-export type ReleaseFinalizerDeps = {
+type ReleaseFinalizerDeps = {
   ledgerPath: string;
   dataRoot: string;
   command(
@@ -37,7 +37,7 @@ export type ReleaseFinalizerDeps = {
   machine(): RequestContext | undefined;
 };
 
-export type ReleaseFinalizer = {
+type ReleaseFinalizer = {
   // ticket claim을 가진 coding agent의 준비 접수를 기억한다. 그 밖의 접수는 확정하지 않는다.
   watch(
     app: string,

@@ -53,7 +53,7 @@ const RESERVED_OUTPUT = 4000;
 // 요약 call 하나의 크기다. input은 입력 예산이고 body는 요약 본문 상한(summaryOutputCap(input))이다.
 type SummaryLimit = { input: number; body: number };
 
-export type CompactResult =
+type CompactResult =
   | { kind: "idle" }
   | {
     kind: "compacted";
@@ -68,7 +68,7 @@ export type CompactResult =
     reason: CompactFailureReason;
   };
 
-export type RangeSummary =
+type RangeSummary =
   | { kind: "idle" }
   | { kind: "summarized"; session: string; summary_call: string }
   | { kind: "failed"; reason: CompactFailureReason };
@@ -81,7 +81,7 @@ export type Compactor = {
   nextRange(): Promise<RangeSummary>;
 };
 
-export type RangeSummarizer = {
+type RangeSummarizer = {
   // "Summarize from here"의 요약 call이다. 고른 seq부터의 보이는 대화를 요약해 call을 돌려줄 뿐
   // session을 바꾸지 않는다.
   summarizeFrom(input: {
@@ -90,7 +90,7 @@ export type RangeSummarizer = {
   }): Promise<RangeSummary>;
 };
 
-export type CompactorDeps = {
+type CompactorDeps = {
   clock: Clock;
   ids: IdSource;
   // machine 자격의 loopback.

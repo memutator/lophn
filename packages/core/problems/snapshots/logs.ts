@@ -14,14 +14,14 @@ import {
 } from "./prepare.ts";
 
 // apps.logs read와 같은 입력이다. 앱은 credential에서 온 값만 쓴다.
-export type AppLogQuery = {
+type AppLogQuery = {
   app: string;
   invocation?: string;
   limit: number;
   max_bytes: number;
 };
 
-export type AppLogFeed = {
+type AppLogFeed = {
   state: AppLogState;
   lines: readonly string[];
   collected_at: string | null;
@@ -32,7 +32,7 @@ export type AppLogFeed = {
 // 맡으므로 여기서는 contract 모양의 port로만 받는다. null은 연결 없음이다.
 export type AppLogSource = (query: AppLogQuery) => Promise<Result<AppLogFeed>>;
 
-export type LogCollectionDeps = {
+type LogCollectionDeps = {
   // 진단 상세 수집 설정. 꺼져 있으면 새 수집만 멈춘다. null은 설정을 읽지 못한 것이다:
   // 사람이 껐을 수 있으므로 모으지 않는다.
   detailCollection: boolean | null;
@@ -48,7 +48,7 @@ export type LogCollectionDeps = {
   remainingLargeBytes: number;
 };
 
-export type LogCollection = {
+type LogCollection = {
   logs: LogEvidence | null;
   prepared: PreparedSnapshotBlob | null;
 };

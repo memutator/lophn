@@ -21,7 +21,7 @@ const GENERATED_FOLDERS = ["screens/", "sdk/", "vendor/", "node_modules/"];
 // 이보다 크면 내용을 싣지 않는다(patch를 만들지 못한다).
 const MAX_TEXT_BYTES = 256 * 1024;
 
-export type ReleaseBundleSource =
+type ReleaseBundleSource =
   | { preserved: true; files: ReadonlyMap<string, string | null> }
   | { preserved: false; reason: string };
 

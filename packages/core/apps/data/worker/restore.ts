@@ -9,7 +9,7 @@ import { contained } from "./paths.ts";
 const RESTORE_TMP = "restore.tmp";
 const RESTORE_PREVIOUS = "restore.previous";
 
-export type RestoredDatabase = {
+type RestoredDatabase = {
   verified: VerifiedDatabase;
 };
 
@@ -48,7 +48,7 @@ async function removeSidecars(databasePath: string): Promise<void> {
 
 // backup을 운영 DB 자리로 복원한다. backup 무결성·schema 확인 전에 원본을
 // 건드리지 않는다. 교체 중 실패하면 직전 원본으로 되돌린다.
-export type RestoreHooks = {
+type RestoreHooks = {
   // 원본을 옆으로 옮긴 뒤, 새 파일을 제자리에 놓기 전에 호출한다.
   // 여기서 실패를 던지면 원본과 sidecar를 그대로 되돌린다.
   beforeReplace?: () => void;

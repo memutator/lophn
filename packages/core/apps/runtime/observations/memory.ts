@@ -4,25 +4,25 @@
 // 수치와 기간을 관측으로 남긴다. Deno의 V8 heap 옵션은 RSS 한도가 아니므로
 // 한도로 읽지 않는다. 한도는 호출자가 RSS 한도로 설정한 값만 받는다.
 
-export const MEMORY_SAMPLE_INTERVAL_MS = 60_000;
-export const MEMORY_OVERRUN_WINDOW_MS = 600_000;
-export const MEMORY_OVERRUN_RATIO = 0.85;
+const MEMORY_SAMPLE_INTERVAL_MS = 60_000;
+const MEMORY_OVERRUN_WINDOW_MS = 600_000;
+const MEMORY_OVERRUN_RATIO = 0.85;
 
 // 현재 자식 신원. supervisor launch가 채우고 종료 확인 때 거둔다.
-export type MemoryChild = {
+type MemoryChild = {
   pid: number;
   processNonce: string;
   release: string;
 };
 
-export type MemorySample = {
+type MemorySample = {
   app: string;
   child: MemoryChild;
   rss_bytes: number;
   observed_at: string;
 };
 
-export type MemoryOverrun = {
+type MemoryOverrun = {
   app: string;
   release: string;
   process_nonce: string;
@@ -33,13 +33,13 @@ export type MemoryOverrun = {
 };
 
 // startTicks는 같은 pid가 다른 프로세스로 재사용됐는지 가르는 값이다.
-export type RssReading = { rssBytes: number; startTicks: string };
+type RssReading = { rssBytes: number; startTicks: string };
 // 측정하지 못했으면 undefined다. 비동기로 읽는다.
 export type RssReader = (pid: number) => Promise<RssReading | undefined>;
 
 // /proc/<pid>/stat에서 starttime(22번째 field)을 꺼낸다. comm이 공백·괄호를 가질 수
 // 있어 마지막 ')' 뒤부터 센다.
-export function startTicksOf(stat: string): string | undefined {
+function startTicksOf(stat: string): string | undefined {
   const close = stat.lastIndexOf(")");
   if (close < 0) return undefined;
   const fields = stat.slice(close + 1).trim().split(/\s+/);
@@ -48,7 +48,7 @@ export function startTicksOf(stat: string): string | undefined {
   return ticks !== undefined && /^\d+$/.test(ticks) ? ticks : undefined;
 }
 
-export function rssKbOf(status: string): number | undefined {
+function rssKbOf(status: string): number | undefined {
   const line = status.split("\n").find((entry) => entry.startsWith("VmRSS:"));
   if (line === undefined) return undefined;
   const kb = Number(line.split(/\s+/).filter((field) => field !== "")[1]);
@@ -75,7 +75,7 @@ export function procRssReader(
   };
 }
 
-export type MemoryDeps = {
+type MemoryDeps = {
   app: string;
   // 설정한 RSS 한도. 없으면 85% 판정을 하지 않는다.
   limitBytes?: number;

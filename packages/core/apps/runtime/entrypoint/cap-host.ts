@@ -9,11 +9,11 @@ import type { JsonValue } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { InvocationContext } from "../../invocations/context.ts";
 import type { BrokerResponse } from "./broker-client.ts";
 
-export const CAP_HOST = Symbol.for("lophn.cap-host");
+const CAP_HOST = Symbol.for("lophn.cap-host");
 // cap-store가 설치하는 changeset 훅이다(packages/sdk/cap-store/host.ts의 STORE_HOOKS와 같다).
-export const STORE_HOOKS = Symbol.for("lophn.cap-store");
+const STORE_HOOKS = Symbol.for("lophn.cap-store");
 
-export type ApplyOutcome = { ok: true } | { ok: false; message: string };
+type ApplyOutcome = { ok: true } | { ok: false; message: string };
 
 type StoreHooks = {
   beginChangeset(): void;
@@ -65,7 +65,7 @@ export function decodeChangeset(text: string): Uint8Array {
   return new Uint8Array(Buffer.from(text, "base64"));
 }
 
-export type CapHostPort = {
+type CapHostPort = {
   mode: "live" | "preview" | "test";
   // cap-store가 읽는 앱 data 영역(시작 입력의 data_path)이다.
   dataPath: string;

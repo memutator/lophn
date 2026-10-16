@@ -19,7 +19,7 @@ import {
 } from "../../../protocol/approvals/mod.ts";
 import { runAdmission } from "./run-admission.ts";
 
-export type UsableApproval = {
+type UsableApproval = {
   id: string;
   // 허락 결정이 남은 event 위치. 이보다 앞선 event는 접수 근거가 될 수 없다.
   grantedSeq: bigint;
@@ -43,7 +43,7 @@ function deadlineReached(expiresAt: string | null, now: string): boolean {
 
 // 지금 이 action으로 이 approval을 쓸 수 있는지 본다. 기록은 바꾸지 않는다.
 // 허락됨·기한 전·정확한 action 일치·원래 run 진행 중이어야 한다.
-export function usableApproval(
+function usableApproval(
   tx: Tx,
   approval: string,
   action: ApprovalAction,
@@ -123,7 +123,7 @@ function eventAfter(tx: Tx, seq: string, after: bigint): boolean {
 }
 
 // 이미 저장된 사용. 같은 허락의 재호출이 같은 receipt를 돌려받는 데 쓴다.
-export function recordedUse(
+function recordedUse(
   tx: Tx,
   approval: string,
 ): Result<ApprovalUse | undefined> {

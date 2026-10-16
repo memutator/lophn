@@ -7,20 +7,20 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
 // OAuth endpoint의 HTTP 응답. 본문은 상한 안에서 한 덩어리로 읽고 보존하지 않는다.
-export type OAuthHttpResponse = {
+type OAuthHttpResponse = {
   status: number;
   body: string;
   headers: Headers;
 };
 
 // fetch 눈이다. 제품은 실제 fetch, 테스트는 in-process fake를 준다.
-export type OAuthHttpFetch = (
+type OAuthHttpFetch = (
   url: string,
   init: RequestInit,
 ) => Promise<Response>;
 
 // OAuth token·device 응답 본문의 읽기 상한. 분류 조각용이고 보존하지 않는다.
-export const OAUTH_BODY_MAX_BYTES = 65_536;
+const OAUTH_BODY_MAX_BYTES = 65_536;
 
 function parseUrl(url: string): URL | null {
   try {
@@ -31,7 +31,7 @@ function parseUrl(url: string): URL | null {
 }
 
 // OAuth 목적지는 HTTPS만이다. 파싱 실패는 fail closed다.
-export function httpsDestination(url: string): URL | null {
+function httpsDestination(url: string): URL | null {
   const parsed = parseUrl(url);
   return parsed !== null && parsed.protocol === "https:" ? parsed : null;
 }

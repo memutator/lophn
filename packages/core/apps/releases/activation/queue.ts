@@ -17,8 +17,6 @@ export type QueueEntry = {
   approved: string | null;
 };
 
-export type ActivationQueue = ReturnType<typeof createActivationQueue>;
-
 export function createActivationQueue() {
   const entries = new Map<string, QueueEntry>();
   const lanes = new Map<string, Promise<void>>();

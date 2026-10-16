@@ -1,6 +1,6 @@
 // 앱 데이터 기록의 ledger 저장. 행은 참조와 결과만 담고 DB 파일은 열지 않는다.
 
-import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import type { DataRecord, DataRecordStore } from "./commands.ts";
 
 type RecordRow = {
@@ -61,16 +61,3 @@ export function createDataRecordStore(tx: Pick<Tx, "sql">): DataRecordStore {
 }
 
 // 읽기 전용 조회. read handler가 snapshot sql로 쓴다.
-export function loadDataRecords(
-  sql: Pick<Sql, "all">,
-  release: string,
-): DataRecord[] {
-  return (sql.all(
-    `select app, release, attempt, kind, data_schema, backup_hash,
-            invocation, integrity_ok
-       from app_data_records
-      where release = ?
-      order by attempt, kind`,
-    [release],
-  ) as RecordRow[]).map(recordOf);
-}

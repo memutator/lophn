@@ -39,7 +39,7 @@ function unknownPreparation(tx: Tx, preparation: SecretPreparation): boolean {
   return known === undefined;
 }
 
-export const setSecretCommand = defineSyncCommand(
+const setSecretCommand = defineSyncCommand(
   setSecret,
   (tx, _ctx, input, compare) => {
     if (unknownPreparation(tx, input.preparation)) {
@@ -79,7 +79,7 @@ export const setSecretCommand = defineSyncCommand(
   },
 );
 
-export const removeSecretCommand = defineSyncCommand(
+const removeSecretCommand = defineSyncCommand(
   removeSecret,
   (tx, _ctx, input, compare) => {
     const current = readSecret(tx, input.name);

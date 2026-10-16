@@ -26,13 +26,13 @@ export type ToolGateCall = {
   input: JsonObject;
 };
 
-export type ResolvedIntent = {
+type ResolvedIntent = {
   kind: IntentKind;
   target: IntentTarget;
   effect: Effect;
 };
 
-export type ToolGateResult =
+type ToolGateResult =
   | { kind: "run" }
   | { kind: "denied"; reason: GateDenyReason }
   | { kind: "rejected"; reason: string | null }
@@ -43,7 +43,7 @@ export type ToolGateResult =
   // 허락 뒤 실행 직전에 intent가 달라졌거나 허락이 이미 쓰였다. 실행하지 않는다.
   | { kind: "changed" };
 
-export interface ToolGate {
+interface ToolGate {
   check(call: ToolGateCall): Promise<ToolGateResult>;
 }
 

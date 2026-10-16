@@ -126,10 +126,6 @@ export function hiddenFromSeq(lookup: Lookup, session: string): string | null {
   return hiddenRanges(lookup, session)[0]?.from_seq ?? null;
 }
 
-export function foldedRanges(lookup: Lookup, session: string): FoldedRange[] {
-  return foldsOf(rowsOf(lookup, session));
-}
-
 // 이미 숨긴 구간 안의 메시지는 checkpoint로 고를 수 없다. 숨김 구간(시작 seq 포함) 안의 메시지면
 // invalid_input이다. 숨긴 구간 뒤에 접수한 메시지는 고를 수 있다.
 export function assertCheckpointVisible(

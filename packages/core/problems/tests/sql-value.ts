@@ -8,7 +8,7 @@ export function flag(value: unknown): boolean {
   return value === 1 || value === 1n || value === true;
 }
 
-export function int64(value: unknown): Result<bigint> {
+function int64(value: unknown): Result<bigint> {
   if (typeof value === "bigint") {
     if (value < 0n) return err({ code: "internal", message: INVALID });
     return ok(value);

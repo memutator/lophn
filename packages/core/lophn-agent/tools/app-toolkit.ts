@@ -15,7 +15,7 @@ import {
 // agent runtime의 app-api 연결. session을 시작할 때 agent grant에서 할당된 앱을 읽고, 그 앱의 활성 release
 // 선언을 읽어 tool 정의를 만든다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
-export type AppApiLoad = Pick<AppApiSource, "views" | "entries">;
+type AppApiLoad = Pick<AppApiSource, "views" | "entries">;
 
 export type AppApiToolkit = {
   // 지금의 선언과 grant.

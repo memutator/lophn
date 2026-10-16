@@ -33,7 +33,7 @@ const cursorSchema = z.strictObject({
 });
 
 // 목록 page는 같은 조건 안에서만 이어진다. name·limit이 다른 cursor는 invalid_input이다.
-export function nextPackageCursor(
+function nextPackageCursor(
   offset: number,
   name: string | undefined,
   limit: number,

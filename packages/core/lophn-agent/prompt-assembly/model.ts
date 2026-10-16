@@ -2,7 +2,7 @@
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
 // `assembleTurnPrompt`의 system 층. 순서대로 role, tools, instructions, skills, place이고 자주 안 바뀌는 것이 앞이다.
-export type TurnLayerKind =
+type TurnLayerKind =
   | "role"
   | "tools"
   | "instructions"

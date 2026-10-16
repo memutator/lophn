@@ -2,7 +2,7 @@
 // 파일을 만들거나 예약하거나 저장하지 않는다. 같은 pattern과 같은 경로 목록은 같은 결과를 낸다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-export type SeriesPart = "n" | "major" | "minor" | "patch";
+type SeriesPart = "n" | "major" | "minor" | "patch";
 
 export type SeriesPattern = {
   text: string;
@@ -18,7 +18,7 @@ export type SeriesPattern = {
   width: number | null;
 };
 
-export type SeriesMember = {
+type SeriesMember = {
   path: string;
   // 번호 자리가 잡은 글자. 앞자리 0을 유지한다.
   key: string;
@@ -26,7 +26,7 @@ export type SeriesMember = {
   parts: number[];
 };
 
-export type SeriesNext = {
+type SeriesNext = {
   // 계산 불가면 빈 문자열.
   key: string;
   // 계산 불가면 null. `*`는 그대로 남는다.

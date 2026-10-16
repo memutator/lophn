@@ -13,7 +13,7 @@ import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // Chat 요청 message. Anthropic 블록을 Chat messages로 바꾼다.
-export type ChatMessage = {
+type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content?: string | unknown[];
   tool_calls?: {
@@ -24,13 +24,13 @@ export type ChatMessage = {
   tool_call_id?: string;
 };
 
-export type ChatTool = {
+type ChatTool = {
   type: "function";
   function: { name: string; description?: string; parameters?: unknown };
 };
 
 // stream_options.include_usage는 고정이다(조사 문서 797–1002).
-export const STREAM_OPTIONS = { include_usage: true } as const;
+const STREAM_OPTIONS = { include_usage: true } as const;
 
 // 이미지는 tool message에 실을 수 없어 뒤따르는 user message의 content part로 보낸다.
 export function imagePart(mediaType: string, dataBase64: string): unknown {
@@ -154,7 +154,7 @@ export function buildRequest(input: {
 // 빼먹은 조각(Ollama·llama.cpp)은 id가 빈 채로 남고 순서 기준 표시자로 대응한다.
 
 // stream 결과. tool 인자는 finish_reason chunk를 본 것만 완성이다.
-export type ChatStreamResult = {
+type ChatStreamResult = {
   text: string;
   toolCalls: ToolCall[];
   // finish_reason을 본 뒤 확정된 tool. 못 본 call은 여기 없다.
@@ -176,7 +176,7 @@ export type ChatStreamResult = {
 };
 
 // 한 응답의 tool call slot 상한. 범위 밖 index로 거대한 희소 배열을 만들지 않는다.
-export const MAX_CHAT_TOOL_CALLS = 128;
+const MAX_CHAT_TOOL_CALLS = 128;
 
 export function createChatStreamResult(): ChatStreamResult {
   return {
@@ -306,7 +306,7 @@ export function finishChatStream(out: ChatStreamResult): void {
 // usage 정규화(조사 문서 표). Chat는 prompt_tokens에 cache가 포함이다. cached는
 // prompt_tokens_details.cached_tokens ?? prompt_cache_hit_tokens ?? 뒷면 필드 순으로
 // 본다(조사 문서 1511–1552). 새 입력은 prompt에서 cached를 빼고 하한 0이다.
-export function chatUsage(raw: Record<string, unknown>): TokenUsage {
+function chatUsage(raw: Record<string, unknown>): TokenUsage {
   const promptDetails = raw.prompt_tokens_details as
     | { cached_tokens?: unknown }
     | undefined;
@@ -342,7 +342,7 @@ function asCount(value: unknown): number | null {
 
 // ── 종료 판정 ─────────────────────────────────────────────────────────────
 
-export type Verdict = {
+type Verdict = {
   kind: "complete" | "partial" | "refused" | "failed";
   // failed일 때만 실패 코드다(ModelOutcome과 같은 근원).
   code?: "temporary" | "refused" | "unknown";

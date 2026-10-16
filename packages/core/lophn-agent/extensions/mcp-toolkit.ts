@@ -35,16 +35,16 @@ import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 type RefreshState = "fresh" | "refreshing" | "failed";
 
 // agent 정의 층이다. agent가 가진 서버와, 아래 층에서 끈 서버 이름이다.
-export type McpAgentLayer = {
+type McpAgentLayer = {
   servers: readonly McpServer[];
   off: readonly string[];
 };
 
 // 어느 서버를 연결하나. `place`는 그 agent가 놓인 곳이다(project 층은 project place만 있다). `skip`은 agent 정의가
 // 끈 서버 이름이고 `agent`가 있으면 그 층이 대신한다.
-export type McpSourceInput = McpSourceOptions & { agent?: McpAgentLayer };
+type McpSourceInput = McpSourceOptions & { agent?: McpAgentLayer };
 
-export type McpToolkitDeps = {
+type McpToolkitDeps = {
   // machine 자격의 loopback. 사람의 registry(settings/get)를 읽는다.
   machine: CoreCall;
   connections: McpConnectionsDeps;
@@ -53,7 +53,7 @@ export type McpToolkitDeps = {
   create?: (deps: McpConnectionsDeps) => McpConnections;
 };
 
-export type McpKit = {
+type McpKit = {
   // run마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
   // 데몬 종료다. 모든 연결을 닫는다.

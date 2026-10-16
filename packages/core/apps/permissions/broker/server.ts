@@ -12,7 +12,7 @@ import type { ReadyService } from "./ready.ts";
 import type { AppsCallService } from "./apps-call.ts";
 import type { ProjectsListService } from "./projects.ts";
 
-export const BROKER_ROUTES = {
+const BROKER_ROUTES = {
   ready: "/_lophn/broker/ready",
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
@@ -22,7 +22,7 @@ export const BROKER_ROUTES = {
   projectsList: APP_BROKER_PATHS.projects,
 } as const;
 
-export const BROKER_BODY_MAX_BYTES = 1_048_576;
+const BROKER_BODY_MAX_BYTES = 1_048_576;
 
 export type BrokerServices = {
   ready?: ReadyService;
@@ -39,7 +39,7 @@ export type BrokerSession = {
   credential: string;
 };
 
-export type BrokerEndpoint = {
+type BrokerEndpoint = {
   handle(request: Request): Promise<Response>;
   // 새 요청부터 막는다. 이미 받은 요청은 끝까지 간다(회수는 이미 한 전송을 취소하지 않는다).
   block(): void;
@@ -207,7 +207,7 @@ export function createBrokerHub(): BrokerHub {
   };
 }
 
-export type BrokerListener = { shutdown(): Promise<void> };
+type BrokerListener = { shutdown(): Promise<void> };
 
 // 앱별 broker socket을 듣는다. 신뢰 supervisor 프로세스에서만 부른다.
 export function serveBroker(

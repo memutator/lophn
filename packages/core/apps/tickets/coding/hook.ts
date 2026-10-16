@@ -22,7 +22,7 @@ import {
   shiftInput,
 } from "./store.ts";
 
-export type HookInput = {
+type HookInput = {
   session: string;
   harness: HarnessId;
   event: string;

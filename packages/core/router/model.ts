@@ -49,7 +49,7 @@ export type RouteResult = {
 };
 
 // 보낸 쪽이 쓴 받는 곳이 어느 모양인지. 이미 풀린 CallTo는 `kind`가 있다.
-export type Addressing =
+type Addressing =
   | { form: "resolved"; to: CallTo }
   | { form: "session"; session: string }
   | { form: "named"; named: NamedAgent }

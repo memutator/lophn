@@ -5,13 +5,13 @@
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-export const DATA_LOCK_NAME = "data.lock";
+const DATA_LOCK_NAME = "data.lock";
 const OWNER_FILE = "owner";
 
 // 정상 job은 이보다 훨씬 짧다. 한도를 넘긴 owner는 죽은 자식이 남긴 것으로 본다.
-export const DATA_LOCK_STALE_MS = 10 * 60 * 1000;
+const DATA_LOCK_STALE_MS = 10 * 60 * 1000;
 
-export type DataLock = {
+type DataLock = {
   release(): Promise<void>;
 };
 

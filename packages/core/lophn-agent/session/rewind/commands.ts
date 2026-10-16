@@ -67,7 +67,7 @@ export type RewindEffects = {
   cancelWaiting(tx: Tx, input: { session: string }): Result<void>;
 };
 
-export type RevertDeps = PlanDeps & {
+type RevertDeps = PlanDeps & {
   // 숨김 구간의 대화 효과. 없으면 Rewind는 unavailable이다(숨기지 못하는 rewind를 적용됐다고 하지 않는다).
   effects?: RewindEffects;
 };

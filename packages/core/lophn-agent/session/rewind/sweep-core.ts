@@ -6,7 +6,7 @@ import { ledgerSnapshot } from "./files.ts";
 export const REWIND_SWEEP_INTERVAL_MS = 60 * 60_000;
 
 // 이보다 최근에 만든 저장물은 ledger row 등록 전일 수 있어(설치와 등록은 공동 원자 작업이 아니다) 건너뛴다.
-export const REWIND_SWEEP_GRACE_MS = 10 * 60_000;
+const REWIND_SWEEP_GRACE_MS = 10 * 60_000;
 
 export async function sweepRewind(input: {
   ledgerPath: string;

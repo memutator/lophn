@@ -8,7 +8,7 @@ import type { ToolDefinition } from "./registry.ts";
 
 // model에는 wire 이름으로 보내고, 돌아온 이름은 표로 거꾸로 찾는다. 이름을 parse하지 않는다.
 
-export type WireTable = ReadonlyMap<string, ToolDefinition>;
+type WireTable = ReadonlyMap<string, ToolDefinition>;
 
 // 같은 wire 이름이 둘이거나 wire 이름이 형식에 맞지 않으면 오류다. session을 시작할 때 목록으로 한 번 만든다.
 export function buildWireTable(
@@ -50,7 +50,7 @@ export function toolForWireName(
 }
 
 // 없는 tool을 불렀을 때 구별하는 네 코드다. 앱 tool의 이유는 app-api가 정한다.
-export const MISSING_TOOL_CODES = [
+const MISSING_TOOL_CODES = [
   "unknown_tool",
   "removed_from_grant",
   "removed_from_release",
@@ -67,11 +67,6 @@ export const MISSING_TOOL_MESSAGES: Readonly<Record<MissingToolCode, string>> =
   };
 
 // model에 보이는 정의다. effect와 origin은 registry와 Gate만 읽으므로 싣지 않는다.
-export type ModelTool = {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
-};
 
 export function inputJsonSchema(
   definition: ToolDefinition,
@@ -80,10 +75,3 @@ export function inputJsonSchema(
     z.toJSONSchema(definition.input) as Record<string, unknown>;
 }
 
-export function toModelTool(definition: ToolDefinition): ModelTool {
-  return {
-    name: toWireToolName(definition.name),
-    description: definition.description,
-    input_schema: inputJsonSchema(definition),
-  };
-}

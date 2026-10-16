@@ -26,16 +26,16 @@ import {
 } from "../../../protocol/base/mod.ts";
 
 // blob GC check 주기(기동 시와 매일). 관측은 삭제가 아니다.
-export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 // worker가 받아 두기로 한 blob 바이트 전체의 상한(credit budget). 모든 blob.prepare
 // channel이 이 하나를 나눠 쓴다: 준 credit 중 아직 blob store가 읽어 가지 않은 합이 이
 // 값을 넘지 않는다. dispatch가 느린 요청에 묶여 있어도 pipe에서 미리 읽은 frame이
 // child.ts의 read-ahead 한도(두 chunk)에서 제어 frame 몫을 남기도록 chunk 하나로 잡는다.
-export const BLOB_PREPARE_WORKER_BUDGET = STREAM_CHUNK_MAX_BYTES;
+const BLOB_PREPARE_WORKER_BUDGET = STREAM_CHUNK_MAX_BYTES;
 // 한 channel이 쥘 수 있는 credit. 아직 시작하지 못한(scheduler 대기) 준비는 한 조각만
 // 쥐게 해서, 돌고 있는 준비가 budget을 다 쓰지 못하는 일이 없게 한다.
-export const BLOB_PREPARE_WORKER_WINDOW = BLOB_PREPARE_WORKER_BUDGET;
+const BLOB_PREPARE_WORKER_WINDOW = BLOB_PREPARE_WORKER_BUDGET;
 const BLOB_PREPARE_GRANT_QUANTUM = 256 * 1024;
 // 이보다 작은 credit은 쪼개 주지 않는다(frame이 잘게 쪼개지는 것을 막는다).
 const BLOB_PREPARE_GRANT_MIN = 32 * 1024;
@@ -64,7 +64,7 @@ type PrepareStream = {
   answered: boolean;
 };
 
-export type PlatformIoOptions = {
+type PlatformIoOptions = {
   root: string;
   streams: ChildStreams;
   catalog: DiagnosticCatalog;
@@ -76,7 +76,7 @@ export type PlatformIoOptions = {
 };
 
 // byte chunk는 제어 메시지가 아니다. 요청의 channel에 묶인다.
-export async function createPlatformIo(
+async function createPlatformIo(
   options: PlatformIoOptions,
 ): Promise<ChildSession> {
   const files = await createLogFiles(options.root);

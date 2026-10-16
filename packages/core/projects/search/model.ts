@@ -4,14 +4,14 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 
 // 이보다 큰 파일은 건너뛴다.
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
-export const DEFAULT_LIMIT = 200;
-export const MAX_LIMIT = 1000;
+const DEFAULT_LIMIT = 200;
+const MAX_LIMIT = 1000;
 // snippet(text)의 최대 길이.
-export const SNIPPET_MAX = 200;
+const SNIPPET_MAX = 200;
 // NUL이 있는지 보는 앞부분의 크기.
 const NUL_PROBE_BYTES = 8 * 1024;
 
-export type LineMatch = {
+type LineMatch = {
   line: number;
   text: string;
   start: number;

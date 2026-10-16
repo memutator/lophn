@@ -161,7 +161,7 @@ function sumCosts(list: readonly { cost: CallCost }[]): UsageTotal["costs"] {
 }
 
 // 십진수 문자열 더하기. 소수 자릿수는 양쪽 중 큰 값이고 값은 정확하다.
-export function decimalSum(a: string, b: string): string {
+function decimalSum(a: string, b: string): string {
   const [aInt, aFrac = ""] = a.split(".");
   const [bInt, bFrac = ""] = b.split(".");
   const width = Math.max(aFrac.length, bFrac.length);

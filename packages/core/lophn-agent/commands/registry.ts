@@ -25,14 +25,14 @@ export type RegistrySkill = {
   selected: boolean;
 };
 
-export type RegistryInput = {
+type RegistryInput = {
   role: Role;
   skills: readonly RegistrySkill[];
 };
 
 // entries는 전역 built-in(고정 순서) · role 명령 · skill(이름 사전순)의 순서다.
 // notices는 built-in 이름과 같아 `/`에서 빠진 skill을 알린다.
-export type CommandRegistry = {
+type CommandRegistry = {
   entries: readonly CommandEntry[];
   notices: readonly CommandNotice[];
 };
@@ -92,7 +92,7 @@ const BUILTIN_TABLE: Record<
 };
 
 // 모든 agent 공통 전역 built-in을 고정 순서로 준다.
-export function builtinCommands(): readonly CommandEntry[] {
+function builtinCommands(): readonly CommandEntry[] {
   return BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
     name: id,
     ...BUILTIN_TABLE[id],
@@ -149,7 +149,7 @@ const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
 
 // 그 role의 built-in이다. lophn은 New app · Repair app, Project Manager는 Check
 // contracts, App Engineer와 Operator는 빈 목록이다.
-export function roleCommands(role: Role): readonly CommandEntry[] {
+function roleCommands(role: Role): readonly CommandEntry[] {
   return ROLE_COMMANDS[role].map((entry) => structuredClone(entry));
 }
 

@@ -20,7 +20,7 @@ import { pathFrom } from "./state.ts";
 import { continueRecovery, rollback, settle } from "./recovery.ts";
 
 // 도는 호출이 스스로 끝나기를 기다리는 시간. 넘으면 결과 모름으로 닫고 강제로 멈춘다.
-export const DRAIN_GRACE_MS = 30_000;
+const DRAIN_GRACE_MS = 30_000;
 
 // 새 호출 접수를 닫고 도는 호출이 끝나기를 기다린다. 닫힌 동안 온 호출은 붙잡힌다.
 async function drain(

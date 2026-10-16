@@ -230,7 +230,7 @@ export function createReleaseReads(): {
 }
 
 // activation 줄의 지금 상태다. 줄은 core 메모리라 ledger snapshot이 아니라 driver가 준다.
-export type ActivationQueueSource = {
+type ActivationQueueSource = {
   entries(app: string | undefined): Promise<
     Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>
   >;

@@ -14,7 +14,7 @@ import type {
 import type { ReactorHandler } from "../../../events/ports.ts";
 import { asksFor } from "../compare.ts";
 
-export type ActivationHandlerDeps = {
+type ActivationHandlerDeps = {
   releases: {
     // ticket에 이은 가장 새로 준비된 release.
     forTicket(ticket: string): Result<ReleaseRecord | null>;
@@ -32,8 +32,8 @@ export type ActivationHandlerDeps = {
   enqueue(app: string, release: string, approved: string | null): void;
 };
 
-export const TICKET_VERIFIED_HANDLER = "activation.ticket-verified";
-export const APPROVAL_DECIDED_HANDLER = "activation.approval-decided";
+const TICKET_VERIFIED_HANDLER = "activation.ticket-verified";
+const APPROVAL_DECIDED_HANDLER = "activation.approval-decided";
 
 export function createActivationHandlers(deps: ActivationHandlerDeps): {
   ticketVerified: ReactorHandler<"TicketVerified">;

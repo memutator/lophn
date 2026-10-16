@@ -128,7 +128,7 @@ function storedVerification(
   });
 }
 
-export function readTestRequest(
+function readTestRequest(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   input: { request_key: string },
@@ -160,7 +160,7 @@ export function readTestRequest(
   });
 }
 
-export function readVerification(
+function readVerification(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   input: { verification: string; detail: boolean },
@@ -208,7 +208,7 @@ export function readVerification(
   });
 }
 
-export function readVerificationList(
+function readVerificationList(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   input: {

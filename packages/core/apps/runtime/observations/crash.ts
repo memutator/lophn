@@ -8,14 +8,14 @@ import {
   type ObservedExceptionInput,
 } from "../../../../protocol/problems/mod.ts";
 
-export const CRASH_EVIDENCE = [
+const CRASH_EVIDENCE = [
   "unexpected_exit",
   "start_failed",
   "ready_timeout",
   "crash_loop",
   "v8_oom",
 ] as const;
-export type CrashEvidence = (typeof CRASH_EVIDENCE)[number];
+type CrashEvidence = (typeof CRASH_EVIDENCE)[number];
 
 export type CrashEvent =
   | {
@@ -30,14 +30,14 @@ export type CrashEvent =
   | { kind: "start_failed"; reason: { code: string; summary: string } }
   | { kind: "crash_loop"; exits: number };
 
-export type CrashDeps = {
+type CrashDeps = {
   ids: IdSource;
   now: () => number;
   // 문제 보고 전송. 조립이 observe-exception으로 연결한다.
   report: (input: ObservedExceptionInput) => Promise<void> | void;
 };
 
-export type CrashOutcome = {
+type CrashOutcome = {
   evidence: CrashEvidence;
   input: ObservedExceptionInput;
   // 전송이 실패해도 관측 자체는 남는다. 실패한 전송을 성공으로 말하지 않는다.
@@ -48,7 +48,7 @@ export type CrashOutcome = {
 const V8_OOM =
   /(Reached heap limit|JavaScript heap out of memory|FatalProcessOutOfMemory)/;
 
-export function classifyExit(
+function classifyExit(
   event: Extract<CrashEvent, { kind: "exit" }>,
 ): CrashEvidence | undefined {
   if (event.intended) return undefined;
@@ -75,7 +75,7 @@ function messageOf(event: CrashEvent, evidence: CrashEvidence): string {
     : `the app process exited with code ${event.exitCode}`;
 }
 
-export type CrashObserver = {
+type CrashObserver = {
   // 의도된 정지면 undefined다.
   observe(event: CrashEvent): Promise<CrashOutcome | undefined>;
 };

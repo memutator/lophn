@@ -36,7 +36,7 @@ export type ChangesetBlobs = {
   ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 };
 
-export type InvocationLedgerDeps = {
+type InvocationLedgerDeps = {
   sql: Pick<Sql, "get" | "all">;
   // ledger 쓰기 transaction 하나. 돌려준 값이 err이면 rollback한다.
   transaction<T>(fn: (tx: Tx) => Result<T>): Result<T>;

@@ -4,7 +4,7 @@
 import type { CheckResult } from "../../../../protocol/coding-agent/ticket/mod.ts";
 import type { CheckWork, VerificationFact } from "./work.ts";
 
-export type CheckOutcome = {
+type CheckOutcome = {
   result: CheckResult;
   reason: string;
   verification: string | null;

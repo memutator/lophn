@@ -21,12 +21,12 @@ export function nextRevision(revision: string): string {
 // command 밖 trusted host/worker가 canonical root를 준비할 책임이다.
 export type CanonicalRoot = string;
 
-export type PathStyle = "posix" | "windows" | "unc";
+type PathStyle = "posix" | "windows" | "unc";
 
 const DRIVE = /^[A-Za-z]:[\\/]/;
 const UNC = /^\\\\[^\\]+\\[^\\]+/;
 
-export function pathStyle(path: CanonicalRoot): Result<PathStyle> {
+function pathStyle(path: CanonicalRoot): Result<PathStyle> {
   if (!absolutePathSchema.safeParse(path).success) {
     return err({ code: "invalid_input", message: "invalid canonical root" });
   }
@@ -100,7 +100,7 @@ export function rootRelation(
   );
 }
 
-export function rootsOverlap(
+function rootsOverlap(
   left: CanonicalRoot,
   right: CanonicalRoot,
 ): Result<boolean> {

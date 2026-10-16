@@ -7,7 +7,7 @@ import type { MemoryHandler } from "../../server/mod.ts";
 import { devImportMap } from "../packages/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
-export type BlueprintCheckDeps = {
+type BlueprintCheckDeps = {
   dataRoot: string;
   // 호출자가 그 앱을 열 수 있는지 보고 연결된 source 폴더를 돌려준다. 범위 밖이면 err다.
   sourceRootOf: (

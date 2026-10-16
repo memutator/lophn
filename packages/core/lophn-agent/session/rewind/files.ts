@@ -41,7 +41,7 @@ import type { AppWrites } from "../../ports.ts";
 // core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없고 ledger credential 기록으로만
 // writer가 현재 자격을 본다. 설치가 건너뛴 경로의 정정(AmendRevertInstall), file tool의 쓰기 기록
 // (RecordRewindFile), 앱 rewind 요청 결과(RecordRewindApps)만 낸다.
-export const REWIND_MACHINE_PRINCIPAL = "machine:rewind";
+const REWIND_MACHINE_PRINCIPAL = "machine:rewind";
 
 export const REWIND_MACHINE_CONTEXT: AuthenticatedContext = {
   principal: REWIND_MACHINE_PRINCIPAL,
@@ -77,7 +77,7 @@ export function ledgerSnapshot<T>(
 }
 
 // 사람이 고른 앱을 앱 rewind에 잇는 길이다. 구현은 core 조립이 끼운다(S5의 AppWrites와 앱 rewind).
-export type RewindAppPorts = {
+type RewindAppPorts = {
   // 고른 시점 뒤에 이 session이 앱에 한 write invocation.
   writes: AppWrites;
   // 그 앱을 `from` invocation 직전으로 되돌리라고 요청한다. 앱 쪽 순서(drain, 충돌 시 통째로 취소)를 따라
@@ -127,7 +127,7 @@ export function amendInstall(
   });
 }
 
-export async function amendInstalled(
+async function amendInstalled(
   writer: Writer,
   revert: string,
   installed: readonly { path: string; result: "restored" | "skipped" }[],
@@ -146,7 +146,7 @@ export async function amendInstalled(
 
 // 허용 폴더마다 모아 읽는다. 결과의 key는 path다(한 session에서 같은 경로가 두 폴더에 있으면 판정이 복원하지
 // 않는다).
-export async function observeAll(
+async function observeAll(
   files: readonly FileRef[],
 ): Promise<Map<string, FileStat>> {
   const byRoot = new Map<string, string[]>();
@@ -162,14 +162,14 @@ export async function observeAll(
   return seen;
 }
 
-export type PreparedRewind = {
+type PreparedRewind = {
   plan: RewindPlan;
   files: PreparedFile[];
 };
 
 // 판정을 만들고 준비한다. 판정이 거절이면 null을 돌려주고 호출자가 입력을 그대로 보내 command가 같은
 // 거절을 낸다.
-export async function prepareRewind(
+async function prepareRewind(
   deps: Pick<RewindFilesDeps, "snapshot" | "store">,
   target: RewindTarget,
 ): Promise<Result<PreparedRewind | null>> {

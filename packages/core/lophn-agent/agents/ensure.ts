@@ -8,7 +8,7 @@ import { createAgentStore, slotOf } from "./store.ts";
 // project 등록처럼 같은 tx 안에서 부르면 파일 쓰기가 실패할 때 등록도 되돌아가는 대신 만들다 만 파일이
 // 남을 수 있다(빈 파일이라 해가 없고 다음 호출이 이어 만든다).
 
-export type EnsureDeps = { files: AgentFileSystem; root: string };
+type EnsureDeps = { files: AgentFileSystem; root: string };
 
 function ensure(deps: EnsureDeps, ref: AgentRef): Result<void> {
   const store = createAgentStore(deps.files, deps.root);

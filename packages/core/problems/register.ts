@@ -12,11 +12,7 @@ import type {
   defineBlobPurpose,
 } from "../../protocol/storage/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
-import type {
-  EventRegistration,
-  ReaderRegistration,
-  TxPortRegistration,
-} from "../storage/ledger/mod.ts";
+import type { TxPortRegistration } from "../storage/ledger/mod.ts";
 import { testsPart } from "./tests/register.ts";
 import { reportingPart } from "./reporting/register.ts";
 import { reportWorkerPart } from "./reporting/worker/register.ts";
@@ -120,18 +116,5 @@ export function createLedgerRegistration(
 
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
 // 만든다. 정책이 없는 problems event는 숨김이다.
-export function createEventRegistration(): EventRegistration {
-  return {
-    events: gather([testsPart], "events"),
-    visibility: gather([testsPart], "visibility"),
-  };
-}
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
-export function createReaderRegistration(): ReaderRegistration {
-  const parts = [groupingPart, reportingPart, repairsPart, testsPart];
-  return {
-    reads: gather(parts, "readerReads"),
-    ports: new Map<unknown, unknown>(gather(parts, "readerPorts")),
-  };
-}

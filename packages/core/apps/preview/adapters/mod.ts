@@ -20,13 +20,13 @@ import {
   type PreviewSecretService,
 } from "./secret.ts";
 
-export type PreviewBrokerOptions = {
+type PreviewBrokerOptions = {
   scope: PreviewScope;
   // 보고는 child의 mode와 release로 운영과 구별된다.
   problems?: ProblemReportService;
 };
 
-export type PreviewBrokerServices = {
+type PreviewBrokerServices = {
   services: BrokerServices;
   // 시도한 다른 앱 호출을 보려고 services.appsCall을 따로 쥔다.
   appsCall: PreviewAppsCallService;
@@ -54,12 +54,9 @@ export function createPreviewBrokerServices(
   };
 }
 
-export type { PreviewAppCallAttempt, PreviewAppsCallService } from "./apps.ts";
-export type {
-  PreviewExternalRequest,
-  PreviewExternalService,
-} from "./external.ts";
-export type { PreviewSecretService, PreviewSecretUse } from "./secret.ts";
+export type { PreviewAppsCallService } from "./apps.ts";
+export type { PreviewExternalService } from "./external.ts";
+export type { PreviewSecretService } from "./secret.ts";
 export {
   createPreviewAppsCallService,
   createPreviewExternalService,

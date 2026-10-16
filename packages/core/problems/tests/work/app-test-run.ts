@@ -40,7 +40,7 @@ export type AppTestJob = {
   environment: { home?: string; denoDir?: string; xdgCacheHome?: string };
 };
 
-export type AppTestJobResult = {
+type AppTestJobResult = {
   judgment: AppTestJudgment;
   execution: {
     result: "pass" | "fail" | "inconclusive";

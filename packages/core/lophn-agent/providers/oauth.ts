@@ -25,31 +25,20 @@ import {
 
 // lophn 제품 이름 식별. 등록·요청 어디서도 Claude Code·Codex·Grok CLI로
 // 위장하지 않는다.
-export const OAUTH_APP_NAME = "lophn";
+const OAUTH_APP_NAME = "lophn";
 
 // chatgpt(공식 Sign in with ChatGPT)의 고정 목적지(조사 문서).
-export const SIWC_AUTHORIZE = "https://auth.openai.com/api/accounts/authorize";
-export const SIWC_TOKEN = "https://auth.openai.com/api/accounts/oauth/token";
-export const SIWC_REGISTER =
+const SIWC_AUTHORIZE = "https://auth.openai.com/api/accounts/authorize";
+const SIWC_REGISTER =
   "https://auth.openai.com/api/accounts/oauth/register";
-export const SIWC_RESOURCE = "https://api.openai.com/v1";
-export const SIWC_SCOPES = [
-  "openid",
-  "profile",
-  "email",
-  "offline_access",
-  "resource.invoke",
-  "chatgpt.tokens.use.direct",
-] as const;
 // token reference: access 3600초, refresh 30일. 매 갱신 뒤 새 30일이다.
-export const SIWC_ACCESS_SECONDS = 3_600;
-export const SIWC_REFRESH_SECONDS = 30 * 24 * 3_600;
+const SIWC_ACCESS_SECONDS = 3_600;
 
 // supergrok의 고정 discovery와 device 코드 목적지(조사 문서). 실제 endpoints는
 // discovery 응답을 다시 검사한 뒤에만 쓴다.
-export const XAI_DISCOVERY =
+const XAI_DISCOVERY =
   "https://auth.x.ai/.well-known/openid-configuration";
-export const XAI_SCOPES = [
+const XAI_SCOPES = [
   "openid",
   "profile",
   "email",
@@ -60,11 +49,10 @@ export const XAI_SCOPES = [
 
 // device polling: 간격 없으면 5초, slow_down마다 5초를 더하고, chatgpt는 최대
 // 15분, xAI는 만료가 없으면 최대 5분까지만 기다린다.
-export const OAUTH_POLL_DEFAULT_MS = 5_000;
-export const OAUTH_POLL_SLOW_DOWN_MS = 5_000;
-export const OAUTH_POLL_MIN_MS = 1_000;
-export const CHATGPT_LOGIN_MAX_WAIT_MS = 15 * 60_000;
-export const SUPERGROK_LOGIN_MAX_WAIT_MS = 5 * 60_000;
+const OAUTH_POLL_DEFAULT_MS = 5_000;
+const OAUTH_POLL_SLOW_DOWN_MS = 5_000;
+const CHATGPT_LOGIN_MAX_WAIT_MS = 15 * 60_000;
+const SUPERGROK_LOGIN_MAX_WAIT_MS = 5 * 60_000;
 
 // ---- base64url / PKCE / state / nonce ----
 
@@ -77,12 +65,12 @@ function base64url(bytes: Uint8Array): string {
   );
 }
 
-export function oauthRandomBytes(count: number): Uint8Array {
+function oauthRandomBytes(count: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(count));
 }
 
 // RFC 7636 S256 challenge다. verifier의 SHA-256을 base64url로 인코딩한다.
-export async function pkceChallengeS256(verifier: string): Promise<string> {
+async function pkceChallengeS256(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(verifier),
@@ -166,7 +154,7 @@ async function rs256Verified(
 // ---- 붙여넣은 인증 응답 파싱 ----
 // browser 최종 URL(code·state query), code#state, query string 세 모양을 받는다.
 
-export function parsePastedSubmission(
+function parsePastedSubmission(
   text: string,
 ): { code: string; state: string | null } | null {
   const trimmed = text.trim();
@@ -206,7 +194,7 @@ function parsePastedUrl(
 
 // 갱신할 token 묶음. access·refresh·id_token과 실제 만료, 발급 client·resource,
 // 검증된 identity가 함께 교체된다(조사 구현 메모 1).
-export type OAuthTokenBundle = {
+type OAuthTokenBundle = {
   access_token: string;
   refresh_token: string | null;
   // 실제 만료(ms epoch). expiry margin은 refresh 쪽이 정한다.
@@ -254,15 +242,6 @@ type LoginSession = {
 };
 
 // device code 시작 응답.
-type DeviceStart = {
-  device_code: string;
-  user_code: string;
-  verification_uri: string;
-  verification_uri_complete?: string;
-  expires_in: number | null;
-  interval_ms: number;
-  device_auth_id: string | null;
-};
 
 // token endpoint의 원시 응답이다.
 type NativeTokens = {
@@ -273,7 +252,7 @@ type NativeTokens = {
   earliest_refresh_at?: string | null;
 };
 
-export type OAuthDeps = {
+type OAuthDeps = {
   // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리는 활성
   // gate다. gate가 닫혀 있으면 begin·complete은 시작하지 않는다(fake 성공으로
   // 열지 않는다). 테스트가 openGate를 대신 준다.

@@ -51,7 +51,7 @@ function requireReadActor(ctx: RequestContext): Result<void> {
     : err({ code: "forbidden", message: "project read actor forbidden" });
 }
 
-export type ProjectReadDeps = {
+type ProjectReadDeps = {
   folders: FolderResolver;
 };
 
@@ -230,7 +230,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
 
 // lophn-agent의 `ProjectDirectory`가 쓰는 모양이다(`core/lophn-agent/ports.ts`의 ProjectInfo와 같다).
 // domain module끼리 import하지 못해 모양만 맞춘다. 구현을 끼우는 쪽은 wiring이다.
-export type ProjectInfoOf = {
+type ProjectInfoOf = {
   id: string;
   name: string;
   purpose: string;

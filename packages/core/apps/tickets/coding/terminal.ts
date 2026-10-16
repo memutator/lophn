@@ -8,7 +8,7 @@ import type { CodingMemory } from "./memory.ts";
 import { endSession, ensureStarted } from "./sessions.ts";
 import { loadSession, saveSession, type SessionRow } from "./store.ts";
 
-export type TerminalResult = { request: string; ok: boolean };
+type TerminalResult = { request: string; ok: boolean };
 
 // open이 ok이면 첫 prompt가 harness에 넘어갔다. hook이 있는 제품은 SessionStarted hook이 오면 그때 알린다.
 function opened(tx: Tx, row: SessionRow): void {

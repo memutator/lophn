@@ -58,7 +58,7 @@ export type RunFacts = {
   elapsed_active_ms: number;
 };
 
-export type TraceInput = {
+type TraceInput = {
   run: RunFacts | null;
   // run 없이 호출 하나를 기준으로 할 때의 실제 연결(없으면 null). 가짜 run·session을 만들지 않는다.
   call: {
@@ -84,7 +84,7 @@ export function refKey(ownerKey: string, hash: string): string {
 // 사람 기다림 구간은 RunWaited부터 다음 RunResumed(또는 기다림 중에 끝난 RunFinished)까지다. 기다림 경계는
 // 각각 시각 하나뿐이라 단조 값이 없다. 시계가 뒤로 가도 음수가 되지 않게 0에서 멈추고, 아직 끝나지 않은
 // 기다림은 지금까지의 시간을 짐작해 더하지 않는다.
-export function waitingMs(events: readonly EventFacts[]): number {
+function waitingMs(events: readonly EventFacts[]): number {
   let total = 0;
   let since: number | null = null;
   for (const event of events) {
@@ -107,7 +107,7 @@ function sum(values: readonly (number | null)[]): number {
   return values.reduce<number>((total, value) => total + (value ?? 0), 0);
 }
 
-export function activityOf(
+function activityOf(
   models: readonly ModelFacts[],
   tools: readonly ToolFacts[],
 ): RunTrace["activity"] {

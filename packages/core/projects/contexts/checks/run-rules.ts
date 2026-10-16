@@ -11,7 +11,7 @@ import type {
 } from "./types.ts";
 
 // 한 type의 개체(입력 순서)에 규칙 하나를 적용해 위반을 낸다. 입력은 바꾸지 않는다.
-export interface RuleScope {
+interface RuleScope {
   readonly type: ContractType;
   readonly entities: readonly CheckEntity[];
   readonly allEntities: readonly CheckEntity[];

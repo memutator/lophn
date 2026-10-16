@@ -5,7 +5,7 @@ import { groupLeader } from "./group.ts";
 import { RUNNER_LIMITS } from "./limits.ts";
 import type { PreparedCommand } from "./prepare.ts";
 
-export type ChildHandle = {
+type ChildHandle = {
   pid: number;
   stdin: WritableStream<Uint8Array> | null;
   stdout: ReadableStream<Uint8Array> | null;

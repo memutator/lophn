@@ -8,7 +8,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 
 // 사람에게 알릴 서버별 고칠 항목이다. 서버 이름과 원문 값 외의 자유
 // 원문은 담지 않는다.
-export type McpConfigProblem = {
+type McpConfigProblem = {
   server: string;
   reason: string;
 };
@@ -31,7 +31,7 @@ export type McpServerShape =
     }
   );
 
-export type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
+type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
   // 연결 대상 서버다. 문제가 있는 서버는 빠진다(그 서버만 연결 안 함).
   valid: readonly T[];
   problems: readonly McpConfigProblem[];
@@ -39,7 +39,7 @@ export type McpConfigCheck<T extends McpServerShape = McpServerShape> = {
 
 // HTTP 목적지를 본다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
 // redirect·TLS는 연결할 때 adapter가 본다.
-export function httpEndpointReason(
+function httpEndpointReason(
   url: unknown,
 ): string | null {
   if (typeof url !== "string" || url.length === 0) {
@@ -95,7 +95,7 @@ function httpReason(server: McpServerShape): string | null {
 }
 
 // 서버 한 대의 누락·상충을 본다. 계약 schema를 지난 값이다.
-export function serverConfigReason(server: McpServerShape): string | null {
+function serverConfigReason(server: McpServerShape): string | null {
   const nameProblem = typeof server.name !== "string" ||
       server.name.length === 0
     ? "server name이 없다"

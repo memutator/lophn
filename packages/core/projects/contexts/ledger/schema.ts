@@ -46,7 +46,7 @@ const AT_GLOB =
 const at = (column: string) =>
   `${column} GLOB ${AT_GLOB} AND length(${column}) = 24`;
 
-export const GLOSSARY_ENTRY_LIMIT = 200;
+const GLOSSARY_ENTRY_LIMIT = 200;
 
 export const contextsLedgerSchemaSteps: readonly SchemaStep[] = [{
   // contexts: Context(id, project, title, purpose, status, applied_bundle, violation_mark, revision).

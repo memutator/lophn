@@ -8,7 +8,7 @@ import {
 } from "../../protocol/approvals/mod.ts";
 
 // 보류 request로 나오는 intent 종류. 나머지는 turn 안에서 풀린다.
-export const PENDING_KINDS = ["activation", "reaction"] as const;
+const PENDING_KINDS = ["activation", "reaction"] as const;
 
 // 같은 intent는 같은 지문이다. 허락이 쓰이기 직전에 같은 intent인지 비교할 때 쓴다.
 // 호출 쪽이 동기라 동기 hash를 쓴다.

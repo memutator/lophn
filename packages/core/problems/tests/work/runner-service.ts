@@ -43,8 +43,8 @@ import {
   runAppTestJob,
 } from "./app-test-run.ts";
 
-export const RUNNER_RUN_OP = "problems.test.run";
-export const RUNNER_RECOVER_OP = "problems.test.recover";
+const RUNNER_RUN_OP = "problems.test.run";
+const RUNNER_RECOVER_OP = "problems.test.recover";
 
 type JobCommon = {
   request_principal: string;
@@ -58,14 +58,14 @@ type JobCommon = {
   api_port: number;
 };
 
-export type RunJob = JobCommon & {
+type RunJob = JobCommon & {
   slot: 0 | 1;
   // 앱 보고를 mode=test·진단 scope로 접수하게 하는 요청별 app credential이다.
   report_credential: string;
   diagnostic_scope: string;
 };
 
-export type RecoverJob = JobCommon & {
+type RecoverJob = JobCommon & {
   // 이 요청에 지금 묶인 runner. 복구 runner가 이미 이어받았다면 복구 runner다.
   previous_runner: string;
   recovered_at: string | null;
@@ -73,7 +73,7 @@ export type RecoverJob = JobCommon & {
 };
 
 // core가 돌려받는 끝맺음이다. 정본은 ledger이고 이 값은 core가 다음 일을 정하는 신호일 뿐이다.
-export type JobOutcome = {
+type JobOutcome = {
   state:
     | "recorded"
     | "preparation_failed"
@@ -167,7 +167,7 @@ async function clientFor(
 
 // 앱 보고를 그 요청의 mode=test·진단 scope로 core의 접수 route에 넘긴다. 위치 주장(app·mode·scope)은
 // 요청별 app credential에 발급 때 고정돼 있고 본문이 바꾸지 못한다.
-export function collectorFor(
+function collectorFor(
   fetcher: LoopbackFetch,
   port: number,
   credential: string,
@@ -305,7 +305,7 @@ const ENVIRONMENT_EVIDENCE = {
 };
 
 // 접수된 요청 한 건을 시작부터 결과까지 돈다.
-export async function runRequest(
+async function runRequest(
   job: RunJob,
   session: Pick<ChildSession, "prepareBlob">,
   options: { fetch?: LoopbackFetch; root?: string } = {},
@@ -503,7 +503,7 @@ export async function runRequest(
 
 // runner가 바뀐 뒤 이미 시작 시도를 남긴 요청을 이어받는다. 다시 시작하지 않는다. 실제 시작을 관측한
 // 요청은 runner_lost inconclusive로, 시작 여부를 모르면 시작 불명으로 남긴다.
-export async function recoverRequest(
+async function recoverRequest(
   job: RecoverJob,
   session: Pick<ChildSession, "prepareBlob">,
   options: { fetch?: LoopbackFetch; root?: string } = {},
@@ -626,7 +626,7 @@ export async function recoverRequest(
   };
 }
 
-export type RunnerWorkerOptions = {
+type RunnerWorkerOptions = {
   streams: ChildStreams;
   fetch?: LoopbackFetch;
 };
@@ -640,7 +640,7 @@ function requestOf(message: ParentMessage): WorkerRequest | undefined {
     : undefined;
 }
 
-export function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
+function createRunnerWorker(options: RunnerWorkerOptions): ChildSession {
   let stopped = false;
   const respond = (message: ChildMessage) => session.send(message);
   const session: ChildSession = startChild(options.streams, {

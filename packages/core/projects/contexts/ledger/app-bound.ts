@@ -15,7 +15,7 @@ import type { ContextLedgerDeps } from "./adapter.ts";
 import { loadAppData } from "./rows-app-data.ts";
 
 // 앱 하나에 묶인 agent에게 열리는 읽기다. contract는 overview 자료의 type 뜻·관계를 그리는 데 쓴다.
-export const APP_BOUND_READS: ReadonlySet<string> = new Set([
+const APP_BOUND_READS: ReadonlySet<string> = new Set([
   "context.get",
   "context.contract",
   "context.overview",

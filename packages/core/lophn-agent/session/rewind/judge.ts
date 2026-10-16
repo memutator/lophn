@@ -25,7 +25,7 @@ export type FileStat = {
   link: boolean;
 };
 
-export type FileAction =
+type FileAction =
   | { kind: "write"; path: string; sha256: string; blob: string }
   | { kind: "delete"; path: string };
 

@@ -12,7 +12,7 @@ export const invalid = (message: string): Result<never> =>
   err({ code: "invalid_input", message });
 export const notFound = (message: string): Result<never> =>
   err({ code: "not_found", message });
-export const unavailable = (message: string): Result<never> =>
+const unavailable = (message: string): Result<never> =>
   err({ code: "unavailable", message });
 
 // ticket을 만들고 고치고 확인하는 주체는 App Engineer(agent)다. 취소는 사람도 한다.

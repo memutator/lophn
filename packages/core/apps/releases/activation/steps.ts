@@ -41,12 +41,12 @@ export function attemptOf(release: ReleaseRecord): Attempt | undefined {
   };
 }
 
-export type BackupOutcome = {
+type BackupOutcome = {
   result: ActivationDataResult;
   backup_hash: string;
 };
 
-export type Candidate = { attestation: ReadyAttestation; nonce: string };
+type Candidate = { attestation: ReadyAttestation; nonce: string };
 
 // 실패의 code와 summary. `restored`는 fail을 낼 때 정한다.
 export type FailureReason = Pick<ActivationFailure, "code" | "summary">;
@@ -161,7 +161,7 @@ export async function quiesce(
 
 // 변경 전 보호 backup을 만들고 그 참조를 ledger에 확정한다. 확정이 끝나야 migration을 시작한다.
 // 확정 여부를 모르는 실패는 호출한 쪽이 ledger를 다시 읽어 판단한다.
-export type Protected =
+type Protected =
   | { stage: "done"; backup: BackupOutcome }
   // backup을 만들지 못했다. 데이터는 바뀌지 않았다.
   | { stage: "not_made" }

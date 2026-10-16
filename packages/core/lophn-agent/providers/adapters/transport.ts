@@ -13,7 +13,7 @@ import type {
 } from "./auth-transport.ts";
 
 // 상한까지만 읽고 나머지는 버린다. 읽은 본문은 분류 조각용이고 보존하지 않는다.
-export async function readBounded(
+async function readBounded(
   body: ReadableStream<Uint8Array> | null,
   maxBytes: number,
 ): Promise<string> {

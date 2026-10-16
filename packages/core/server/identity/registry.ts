@@ -42,12 +42,12 @@ export type CredentialIssue = {
   test_runner?: boolean;
 };
 
-export type CurrentCredential = {
+type CurrentCredential = {
   scope: CredentialScope;
   conditions: CredentialConditions;
 };
 
-export type CredentialRegistryOptions = {
+type CredentialRegistryOptions = {
   epoch: string;
   random: RandomSource;
   clock: Clock;
@@ -91,7 +91,7 @@ function digestOf(token: string): Uint8Array {
   return new Uint8Array(createHash("sha256").update(token).digest());
 }
 
-export function constantTimeDigestEqual(
+function constantTimeDigestEqual(
   left: Uint8Array,
   right: Uint8Array,
 ): boolean {

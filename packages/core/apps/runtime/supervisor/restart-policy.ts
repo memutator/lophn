@@ -1,9 +1,9 @@
 // 예상 밖 종료의 backoff와 crash loop 판정. IO 없는 순수 규칙이다.
 // 숫자는 domain-model apps/runtime 정책 그대로다.
 
-export const BACKOFF_BASE_MS = 1_000;
-export const BACKOFF_MAX_MS = 300_000;
-export const CRASH_WINDOW_MS = 600_000;
+const BACKOFF_BASE_MS = 1_000;
+const BACKOFF_MAX_MS = 300_000;
+const CRASH_WINDOW_MS = 600_000;
 export const CRASH_LIMIT = 5;
 
 export type UnexpectedExit = { atMs: number };

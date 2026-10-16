@@ -20,7 +20,7 @@ import { startSession } from "./lifecycle.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 
-export type SessionDirectoryDeps = OpenDeps & {
+type SessionDirectoryDeps = OpenDeps & {
   // 지금 transaction의 sql이다. Router가 한 tx 안에서 부르는 find와 openOf, listOpen이 읽는다.
   sql(): Pick<Sql, "get" | "all">;
 };

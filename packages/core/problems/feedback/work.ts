@@ -25,9 +25,7 @@ import {
   type SelectedProblem,
 } from "./model.ts";
 
-export type FeedbackView = NonNullable<ProblemFeedbackInput["view"]>;
-
-export type FeedbackDeps = {
+type FeedbackDeps = {
   caller: FeedbackCaller;
   blobPrepare: SnapshotBlobPrepare;
   // blob 준비 principal이자 Report의 원주체다(registerBlobs의 원주체 검사).
@@ -46,7 +44,7 @@ export type FeedbackDeps = {
   monotonicNow?: () => number;
 };
 
-export type AssembledFeedback = {
+type AssembledFeedback = {
   input: RecordProblemReportInput;
   // problem.record_report 요청에 함께 보내는 준비 참조.
   prepared: string[];

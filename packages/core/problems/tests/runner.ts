@@ -8,9 +8,9 @@ export const COLLECTOR_KIND = "problems/report-collector";
 
 // runner가 동시에 도는 두 요청이 나눠 쓰는 고정 socket slot이다. Deno는 Unix socket 듣기·연결에 정확한
 // 경로의 net 허락을 요구하므로 요청마다 만든 경로가 아니라 이 slot의 경로만 쓴다.
-export const RUNNER_SLOTS = [0, 1] as const;
+const RUNNER_SLOTS = [0, 1] as const;
 
-export function runnerSockets(
+function runnerSockets(
   dataRoot: string,
   slot: (typeof RUNNER_SLOTS)[number],
 ): { broker: string; control: string } {

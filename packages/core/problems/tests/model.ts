@@ -10,18 +10,17 @@ import {
   type ExecutionEvidence,
   type FrozenTest,
   requestTestInputSchema,
-  TEST_EXECUTION_LIMITS,
   type TestRequest,
   type Verification,
   verificationInputSchema,
 } from "../../../protocol/problems/mod.ts";
 
 // platform writer는 scope.operations에 route.name을 넣는다. 동의어를 만들지 않는다.
-export const RECORD_VERIFICATION = "RecordVerification";
-export const READ_TEST_REQUEST = "GetTestRequest";
-export const READ_VERIFICATION = "GetVerification";
-export const LIST_VERIFICATIONS = "ListVerifications";
-export const READ_BLOB_DETAIL = "blob.read";
+const RECORD_VERIFICATION = "RecordVerification";
+const READ_TEST_REQUEST = "GetTestRequest";
+const READ_VERIFICATION = "GetVerification";
+const LIST_VERIFICATIONS = "ListVerifications";
+const READ_BLOB_DETAIL = "blob.read";
 
 // 상시 test runner가 요청에 묶이는 machine 주체다. 접수 때 요청 기록에 runner로 적힌다. runner 프로세스가
 // 바뀌어 이미 시작한 요청을 이어받을 때(recovery)는 다른 주체가 필요하므로 복구 runner의 주체를 따로 둔다.
@@ -34,7 +33,7 @@ export const RECOVER_TEST_REQUEST = "recover_test_request";
 // 한 페이지. 계약 input에 limit가 없으므로 조용히 field를 만들지 않는다.
 export const VERIFICATION_PAGE_CAP = 50;
 
-export const REQUEST_PHASES = [
+const REQUEST_PHASES = [
   "accepted",
   "preparation_failed",
   "start_attempt",
@@ -304,10 +303,6 @@ export function parseVerification(value: unknown): Result<Verification> {
   const parsed = verificationInputSchema.safeParse(value);
   if (!parsed.success) return err({ code: "invalid_input", message: INVALID });
   return ok(parsed.data);
-}
-
-export function timeoutBounds(): { min: number; max: number } {
-  return { min: 1, max: TEST_EXECUTION_LIMITS.timeout_ms };
 }
 
 export function projectRequest(

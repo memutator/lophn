@@ -9,7 +9,6 @@ import type { FileStat } from "./judge.ts";
 // installRestore다.
 export {
   installRestore,
-  type InstallResult,
   observeFilesAsync,
   prepareRestore,
 } from "./restore.ts";

@@ -54,7 +54,7 @@ export const turnBodyFields: readonly BlobFieldDefinition[] = [
   }),
 ];
 
-export type TurnCommandDeps = {
+type TurnCommandDeps = {
   // StartTurn이 고정할 한도. 없으면 설정 파일에서 읽는다. 호출자가
   // 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
   turnLimits?: (tx: Tx) => Result<TurnLimits>;

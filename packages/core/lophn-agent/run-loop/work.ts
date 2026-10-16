@@ -20,7 +20,7 @@ import {
 
 export type TurnStart = { session: Id<"ses">; input: RoutedInput };
 
-export type TurnStarter = {
+type TurnStarter = {
   // 지금 시작할 turn 하나. 없으면 null이다. 입력은 꺼내지 않는다.
   next(): TurnStart | null;
   // turn이 시작됐다(StartTurn 확정 뒤). 입력을 꺼내고 session을 도는 중으로 둔다.

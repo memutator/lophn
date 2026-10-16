@@ -25,7 +25,7 @@ export type CannotStart = {
   why: "model_required" | "agent_invalid" | "agent_missing";
 };
 
-export type RunAgent =
+type RunAgent =
   | { kind: "resolved"; agent: ResolvedAgent }
   | ({ kind: "cannot_start" } & CannotStart);
 

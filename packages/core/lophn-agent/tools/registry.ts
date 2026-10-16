@@ -11,7 +11,7 @@ import type { ToolContext } from "./tool-context.ts";
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
-export type ToolOrigin = "builtin" | "app" | "external";
+type ToolOrigin = "builtin" | "app" | "external";
 
 // Gate에 물을 intent의 재료다. 호출자(actor)와 출처(origin)는 executeToolCall이 ToolContext에서 채운다.
 export type GateRequest = Pick<Intent, "kind" | "target" | "effect" | "input">;
@@ -50,10 +50,6 @@ export type ToolDefinition = {
   // 옛 정의가 채우지만 읽는 곳은 없다.
   scopeCheck?: string;
   errors?: readonly string[];
-};
-
-export type ToolCatalog = {
-  definitions: readonly ToolDefinition[];
 };
 
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();

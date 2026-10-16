@@ -8,7 +8,7 @@ import {
 // schema가 통과시킨 뒤에도 권한 범위를 넓히는 모양은 실행 전에 막는다.
 const FORBIDDEN_FLAGS = ["--allow-all", "--allow-ffi", "-A"];
 
-export type LaunchSpecError = {
+type LaunchSpecError = {
   code: "invalid_input";
   message: string;
 };

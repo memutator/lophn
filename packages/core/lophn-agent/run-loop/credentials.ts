@@ -27,7 +27,7 @@ export type AgentTurnCredential = {
   credential_ref: string;
 };
 
-export type TurnCredentialOptions = {
+type TurnCredentialOptions = {
   issuer: AgentCredentialIssuer;
   // agent actor가 닿을 수 있는 operation 이름. 인증 경계의 발급 상한 안이어야 한다. 함수이면 session의
   // 역할마다 정한다.
@@ -143,7 +143,7 @@ export type BeginTurnInput = {
   limits: { model_attempts: number; stall_ms: number; active_ms: number };
 };
 
-export type BeginTurnDeps = {
+type BeginTurnDeps = {
   credentials: TurnCredentials;
   // StartTurn command 호출. 호출자가 machine credential로 보낸다.
   startTurn(input: BeginTurnInput): Promise<Result<StartTurnResult>>;

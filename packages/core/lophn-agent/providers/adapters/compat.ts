@@ -18,33 +18,11 @@ export function joinEndpoint(base: string, path: string): string {
 
 // 인증 없음은 127.0.0.1·::1·localhost에만 허용된다. Ollama·LM Studio·
 // llama.cpp의 loopback endpoint가 여기 해당한다. 파싱 실패는 fail closed다.
-export function isLoopback(endpoint: string): boolean {
-  if (!URL.canParse(endpoint)) return false;
-  const host = new URL(endpoint).hostname;
-  return host === "127.0.0.1" || host === "[::1]" || host === "::1" ||
-    host === "localhost";
-}
 
 // provider redirect로 다른 목적지에 credential을 보내지 않는다. 같은
 // origin 안의 redirect만 안전하다. 목적지를 못 읽으면 안전하지 않은 것으로 세운다.
-export function redirectCredentialSafe(
-  from: string,
-  location: string,
-): boolean {
-  const fromOrigin = originOf(from);
-  const toOrigin = originOf(location);
-  if (fromOrigin === null || toOrigin === null) return false;
-  return fromOrigin === toOrigin;
-}
 
-function originOf(endpoint: string): string | null {
-  if (!URL.canParse(endpoint)) return null;
-  const url = new URL(endpoint);
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-  return url.origin;
-}
-
-export type CompatQuirks = {
+type CompatQuirks = {
   // assistant 메시지마다 reasoning_content 필수(DeepSeek, 조사 문서 1378–1384·
   // 1685–1693). 없는 턴은 공백 하나로 채운다(빈 문자열은 거절이다).
   reasoning_content_required: boolean;
@@ -74,7 +52,7 @@ export function quirksFor(provider: string): CompatQuirks {
   return QUIRKS[provider] ?? PLAIN;
 }
 
-export type StateFreeVerdict = {
+type StateFreeVerdict = {
   // continuable이 false면 run-loop가 configuration_unavailable로 끝낸다.
   continuable: boolean;
   adjustment: "none" | "reasoning_item_dropped" | "reasoning_content_padded";
@@ -106,13 +84,6 @@ export function verifyStateFree(input: {
 // 시그니처 비교. 블록의 signature와 메모리의 signature가
 // 같을 때만 재전송 대상이다. 다르거나 한쪽이 없으면 깨진 턴으로 보고 그 시그니처를
 // 재전송하지 않는다(Hermes 487–524).
-export function signatureAgrees(
-  block: string | undefined,
-  memory: string | undefined,
-): boolean {
-  if (block === undefined || memory === undefined) return false;
-  return block === memory;
-}
 
 // tool 인자 JSON 검증. 비어 있으면 인자 없는 호출로 본다.
 export function verifiedJsonObject(text: string): boolean {

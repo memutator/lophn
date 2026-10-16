@@ -6,7 +6,7 @@ import type {
 } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { HarnessDetection } from "../../../../protocol/coding-agent/harnesses.ts";
 
-export type PendingRequest =
+type PendingRequest =
   | { kind: "open"; session: string }
   | {
     kind: "input";

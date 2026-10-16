@@ -21,7 +21,7 @@ import { loadGroup, loadRunRef, type QuestionGroup } from "./model.ts";
 // agent)만 읽고, 그 밖은 없는 묶음과 똑같이 not_found다. 참조가 없거나 바이트를 읽지
 // 못하거나 hash가 다르면 일부만 돌려주지 않고 unavailable이다.
 
-export type QuestionTextEnvironment = MessageBodyEnvironment;
+type QuestionTextEnvironment = MessageBodyEnvironment;
 
 type Need = { field: string; hash: string };
 

@@ -9,7 +9,7 @@ import type { SnapshotPort } from "../work-types.ts";
 import { previewDraft } from "./run.ts";
 import type { PreviewInput, PreviewOutcome } from "./types.ts";
 
-export type PreviewJobRequest = {
+type PreviewJobRequest = {
   // 임시 snapshot 폴더 이름. 호출마다 다르다.
   snapshot: string;
   draft: unknown;

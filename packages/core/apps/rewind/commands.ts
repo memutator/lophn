@@ -10,7 +10,7 @@ import type { AppRewind } from "../ports.ts";
 import { appAccessDenied, authorizeAppId } from "../registration/mod.ts";
 
 // rewind는 호출 중에 앱 process를 기다리므로 memory route의 async handler다.
-export type AppRewindCommand = {
+type AppRewindCommand = {
   route: typeof appRewind;
   handle(
     ctx: RequestContext,

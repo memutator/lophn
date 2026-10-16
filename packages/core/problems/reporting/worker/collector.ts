@@ -68,14 +68,10 @@ import {
 // hello message는 startChild가 helloSchema로 검사한 뒤 넘긴다.
 export const COLLECTOR_KIND = "problems/report-collector";
 
-export function acceptCollectorHello(kind: string): boolean {
-  return kind === COLLECTOR_KIND;
-}
-
 // 인증 경계가 hello로 넘긴 collector 위치. app·release·process·mode·bundle_hash·
 // diagnostic_scope 주장은 hello scope targets에서 온다(credential에서만 정한다.
 // contracts/platform의 app credential 주장 대상이고 발급 때 credential에 고정된다).
-export type CollectorPosition = {
+type CollectorPosition = {
   credential: string;
   api_port: number;
   // hello scope targets의 app credential 주장. 없는 주장은 조립에서 null로 둔다.
@@ -89,7 +85,7 @@ export type CollectorPosition = {
   };
 };
 
-export type CollectorWorkerOptions = {
+type CollectorWorkerOptions = {
   streams: ChildStreams;
   // op별 접수. 출처 확인·redaction·조립·제출은 이 함수 몫이다.
   accept(request: WorkerRequest, position: CollectorPosition): Promise<unknown>;
@@ -97,7 +93,7 @@ export type CollectorWorkerOptions = {
 };
 
 // 접수를 거절한 사유. 코드는 호출자에게 그대로 가고 그 밖의 실패는 unavailable이다.
-export class CollectorRejection extends Error {
+class CollectorRejection extends Error {
   readonly code: ErrorCode;
 
   constructor(code: ErrorCode, message: string) {
@@ -114,7 +110,7 @@ export function collectorReady(kind: string): Result<true> {
   return ok(true);
 }
 
-export function createCollectorWorker(
+function createCollectorWorker(
   options: CollectorWorkerOptions,
 ): ChildSession {
   let position: CollectorPosition | undefined;
@@ -217,7 +213,7 @@ function workerRequest(
 }
 
 // 보고 접수. 본문은 contract가 다시 본다.
-export function acceptReportPayload(
+function acceptReportPayload(
   payload: unknown,
 ): Result<
   ReturnType<typeof problemReportInputSchema.parse>,
@@ -366,7 +362,7 @@ function requestClaims(payload: unknown): {
 
 // 로그 증거의 출처. 기본은 core loopback의 apps.logs와 settings.get이고, 테스트와
 // 다른 조립은 port를 바꿔 끼운다. 설정을 읽지 못하면 null이다.
-export type CollectorLogs = {
+type CollectorLogs = {
   source: AppLogSource | null;
   detailCollection: () => Promise<boolean | null>;
 };
@@ -384,7 +380,7 @@ type OccurrenceReplay = {
 };
 
 // 같은 worker 안의 재전송. 조립 시각이 달라도 같은 발생이면 저장한 접수를 돌려준다.
-export type OccurrenceReplays = {
+type OccurrenceReplays = {
   lookup(reportId: string): OccurrenceReplay | undefined;
   remember(
     reportId: string,
@@ -393,7 +389,7 @@ export type OccurrenceReplays = {
   ): void;
 };
 
-export function createOccurrenceReplays(): OccurrenceReplays {
+function createOccurrenceReplays(): OccurrenceReplays {
   const held = new Map<string, OccurrenceReplay>();
   return {
     lookup(reportId) {
@@ -457,7 +453,7 @@ async function invocationEvidence(
 // app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다.
 // message·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
 // app·release·process·mode·bundle_hash·diagnostic_scope 주장은 credential에서 온다.
-export async function acceptProblemReport(
+async function acceptProblemReport(
   payload: unknown,
   client: CoreClientOptions,
   redaction: RedactionEngine,
@@ -849,7 +845,7 @@ async function acceptObserved(options: {
 
 // process 출처 오류 접수. observation kind에서 원본 origin을 정한다: render_error는
 // view_observer, process_exit·error·unhandledrejection는 process_observer다.
-export async function observeExceptionPayload(
+async function observeExceptionPayload(
   payload: unknown,
   client: CoreClientOptions,
   redaction: RedactionEngine,
@@ -890,7 +886,7 @@ export async function observeExceptionPayload(
 // view 출처 오류 접수. 모든 observation 종류를 view_observer 출처로 받는다. view의
 // app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸 값이다
 // (packages/core/problems/reporting/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
-export async function observeViewErrorPayload(
+async function observeViewErrorPayload(
   payload: unknown,
   client: CoreClientOptions,
   redaction: RedactionEngine,
@@ -928,7 +924,7 @@ export async function observeViewErrorPayload(
 // 넘긴다. 검증·redaction·blob 준비·조립은 assembleFeedback이 하고 이 함수는 제품 의존
 // (redaction, core 읽기, blob 준비)을 꽂아 problem.record_report로 제출한다. 조립이 거절한 사유는
 // 코드 그대로 호출자에게 간다.
-export async function acceptSubmitFeedback(
+async function acceptSubmitFeedback(
   payload: unknown,
   caller: FeedbackCaller,
   client: CoreClientOptions,

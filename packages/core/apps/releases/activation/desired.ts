@@ -27,11 +27,11 @@ import {
 import { RUNTIME_CONFIG_PATH } from "../bundle/runtime-entry.ts";
 import type { DesiredApp } from "../../runtime/mod.ts";
 
-export const IMPORT_MAP_COPY_NAME = "import-map.json";
+const IMPORT_MAP_COPY_NAME = "import-map.json";
 
-export type ScreenSizes = Record<string, ("full" | "panel" | "card")[]>;
+type ScreenSizes = Record<string, ("full" | "panel" | "card")[]>;
 
-export type BundleParts = {
+type BundleParts = {
   // 사본 root. 자식의 읽기 허락과 import map 상대 경로의 기준이다.
   root: string;
   manifest: BundleManifest;
@@ -49,7 +49,7 @@ function unavailable(message: string): Result<never> {
 
 const STEP_FILE = /^migrations\/(\d+)-(\d+)\.sql$/;
 
-export function dataSchemaOf(manifest: BundleManifest): number {
+function dataSchemaOf(manifest: BundleManifest): number {
   let schema = 0;
   for (const file of manifest.files) {
     const match = STEP_FILE.exec(file.path);

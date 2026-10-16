@@ -17,7 +17,7 @@ import type { ApprovalLedger } from "./ledger.ts";
 import type { Approvals, Gate, Grants, SessionAllowances } from "./ports.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
-export type ApprovalsDeps = {
+type ApprovalsDeps = {
   gate: Gate;
   grants: Grants;
   allowances: SessionAllowances;

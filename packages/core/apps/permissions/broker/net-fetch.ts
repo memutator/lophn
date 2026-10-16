@@ -22,7 +22,7 @@ import type { BrokerChild } from "./invocations.ts";
 
 export type NetFetchOutput = z.infer<typeof brokerNetFetchOutputSchema>;
 
-export type NetFetchDeps = {
+type NetFetchDeps = {
   access: BrokerAccess;
   // 실제 전송. 기본은 전역 fetch다. redirect는 이 서비스가 직접 따라가므로 manual로 부른다.
   transport?: typeof globalThis.fetch;
@@ -35,9 +35,9 @@ export type NetFetchDeps = {
   maxRedirects?: number;
 };
 
-export const NET_FETCH_TIMEOUT_MS = 30_000;
-export const NET_FETCH_MAX_BYTES = 1_048_576;
-export const NET_FETCH_MAX_REDIRECTS = 5;
+const NET_FETCH_TIMEOUT_MS = 30_000;
+const NET_FETCH_MAX_BYTES = 1_048_576;
+const NET_FETCH_MAX_REDIRECTS = 5;
 
 const METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 

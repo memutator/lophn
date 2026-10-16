@@ -38,7 +38,7 @@ import type {
   EntityRow,
 } from "./state.ts";
 
-export type ReadCall<R extends ReadRoute> = {
+type ReadCall<R extends ReadRoute> = {
   actor: ContextApiActor;
   input: Input<R>;
 };

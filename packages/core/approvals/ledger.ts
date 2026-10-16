@@ -26,7 +26,7 @@ export interface ApprovalLedger {
 }
 
 // machine 자격으로 command와 read를 낸다. 결과는 route의 output 모양이다.
-export interface ApprovalCalls {
+interface ApprovalCalls {
   command(name: string, input: unknown): Promise<Result<unknown>>;
   read(
     route: { resource: string; method: string },

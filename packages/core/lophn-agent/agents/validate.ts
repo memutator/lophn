@@ -18,7 +18,7 @@ import {
 // 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 place Operator 사이의
 // 이름 중복과 context 참조. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
 
-export function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
+function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
   return err({
     code: "invalid_input",
     message: "agent is invalid",

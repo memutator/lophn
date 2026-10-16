@@ -1,12 +1,10 @@
 // 순수 wire 판정 도우미. Zod 없이 contracts schema와 같은 거절을 만든다.
 import { SOCKET_PATH_MAX_BYTES } from "./limits.ts";
 
-export const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 export const SHA = /^[0-9a-f]{64}$/;
 export const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
-export const CONTROL = /\p{Cc}/u;
-
-export type WireError = { message: string };
+const CONTROL = /\p{Cc}/u;
 
 export type Json =
   | null
@@ -16,11 +14,7 @@ export type Json =
   | Json[]
   | { [key: string]: Json };
 
-export function fail(message: string): { ok: false; error: WireError } {
-  return { ok: false, error: { message } };
-}
-
-export function ownKeys(value: object): string[] | undefined {
+function ownKeys(value: object): string[] | undefined {
   const keys = Object.keys(value);
   for (const key of keys) {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);

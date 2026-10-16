@@ -20,14 +20,14 @@ export type BlobPrepareInput = {
   bytes: Uint8Array | ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-export type BlobPrepareLink = {
+type BlobPrepareLink = {
   send(message: ChildMessage): Promise<void>;
   sendBytes(channel: number, payload: Uint8Array): Promise<void>;
   sendEnd(channel: number): Promise<void>;
   sendAbort(channel: number): Promise<void>;
 };
 
-export type BlobPrepareClient = {
+type BlobPrepareClient = {
   prepare(input: BlobPrepareInput): Promise<Result<PreparedBlob>>;
   // credit·결과 메시지를 받는다. 소비하면 true. 자식 entry의 parent message 처리와는
   // 별도로, 진행 중인 handler 뒤에 줄 서지 않게 바로 불려야 한다(startChild가 한다).
@@ -36,12 +36,12 @@ export type BlobPrepareClient = {
   close(): void;
 };
 
-export type BlobPrepareClientOptions = {
+type BlobPrepareClientOptions = {
   // 결과를 기다리는 최대 시간. 지나면 abort를 보내고 unavailable이다.
   timeoutMs?: number;
 };
 
-export const BLOB_PREPARE_CLIENT_TIMEOUT_MS = 30_000;
+const BLOB_PREPARE_CLIENT_TIMEOUT_MS = 30_000;
 
 type Pending = {
   requestId: string;

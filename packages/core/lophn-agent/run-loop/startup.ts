@@ -16,7 +16,7 @@ export type Startup = {
   credential: string;
 };
 
-export type StartupInput = {
+type StartupInput = {
   hello: Extract<ParentMessage, { type: "hello" }>;
   // core loopback read. credential 부착은 호출자가 한다. 기동 자체는 읽지 않는다.
   read?: CoreRead;

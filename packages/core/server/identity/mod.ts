@@ -10,32 +10,18 @@ export {
   scopeWithin,
   TARGET_AUTHORIZATION_UNAVAILABLE,
 } from "./model.ts";
-export {
-  constantTimeDigestEqual,
-  type CredentialIssue,
-  CredentialRegistry,
-  type CredentialRegistryOptions,
-  type CurrentCredential,
-} from "./registry.ts";
-export { identityCurrentRead } from "./reads.ts";
+export { type CredentialIssue, CredentialRegistry } from "./registry.ts";
 export { confirmationBinding } from "./confirmation-binding.ts";
-export {
-  type ConfirmationBinding,
-  ConfirmationRegistry,
-  type ConfirmationRegistryOptions,
-  type ConfirmationUse,
-} from "./confirmation.ts";
+export { ConfirmationRegistry, type ConfirmationUse } from "./confirmation.ts";
 export {
   type ConfirmationBridge,
   confirmationBridge,
-  disconnectedConfirmationBridge,
   type RouteConfirmation,
   routeConfirmation,
 } from "./confirmation-bridge.ts";
 export { consumeRouteConfirmation } from "./confirmation-route.ts";
 export {
   type AppCredentialIssuer,
-  type AppCredentialResponse,
   createAppCredentialIssuer,
 } from "./app-credential.ts";
 export { createCodingTokens } from "./coding-token.ts";

@@ -3,12 +3,8 @@ export { scanContext } from "./scan.ts";
 export {
   type IndexStore,
   openIndexStore,
-  readEntities,
-  readEntitiesOfType,
-  readEntityWithLinks,
   readIndexedFiles,
   readIndexState,
-  readViolations,
 } from "./store.ts";
 export type {
   FileStat,

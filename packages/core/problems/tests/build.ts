@@ -17,7 +17,7 @@ import {
   type TestConnection,
 } from "./model.ts";
 
-export type RecordFacts = {
+type RecordFacts = {
   id: string;
   request_principal: string;
   request_key: string;
@@ -34,7 +34,7 @@ export type RecordFacts = {
   sufficient: boolean;
 };
 
-export type BuiltRecord = {
+type BuiltRecord = {
   verification: Verification;
   evidence: PreparedResultEvidence;
   required: ReturnType<typeof requiredBlobs>;

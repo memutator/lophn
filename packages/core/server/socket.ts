@@ -11,7 +11,7 @@ import {
 } from "../events/mod.ts";
 import { errorBody, failure } from "./request.ts";
 
-export type SocketDeps = {
+type SocketDeps = {
   bus: Bus;
   // Bus 밖 frame을 보낼 연결 목록. 연결 동안 session을 올린다.
   frames?: GatewayFrames;

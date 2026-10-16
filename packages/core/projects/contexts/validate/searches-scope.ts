@@ -21,7 +21,7 @@ type Target =
   | { kind: "external"; ref: string; type: ExternalType }
   | { kind: "unresolved" };
 
-export type Scope = {
+type Scope = {
   start: Target;
   aliases: Map<string, Target>;
 };

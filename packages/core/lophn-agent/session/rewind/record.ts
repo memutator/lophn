@@ -240,7 +240,7 @@ export type RecorderPorts = {
   ): Promise<Result<Output<typeof recordRewindFile>>>;
 };
 
-export type RecordedWrite = {
+type RecordedWrite = {
   // 기록이 한도 안에서 pre-image를 남겼나. 기록에 실패했거나 한도를 넘었으면 false다.
   recorded: boolean;
 };

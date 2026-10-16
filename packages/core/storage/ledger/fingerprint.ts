@@ -1,10 +1,4 @@
-import {
-  canonicalize,
-  err,
-  fingerprint,
-  ok,
-  type Result,
-} from "../../../base/mod.ts";
+import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 
 // domain-model platform/ledger: 지문은 command, 정규화 input, compare, run,
 // prepared의 불변 참조와 사람 결정의 대상·내용을 포함한다.
@@ -18,7 +12,7 @@ export type FingerprintInput = {
   decision: { target: unknown; content: unknown } | null;
 };
 
-export function fingerprintBody(parts: FingerprintInput): unknown {
+function fingerprintBody(parts: FingerprintInput): unknown {
   return {
     command: parts.command,
     input: parts.input,
@@ -34,12 +28,9 @@ export function commandFingerprint(parts: FingerprintInput): Promise<string> {
 }
 
 // 같은 입력이면 RFC 8785 직렬화가 같다.
-export function canonicalFingerprintBody(parts: FingerprintInput): string {
-  return canonicalize(fingerprintBody(parts));
-}
 
 // CAS 256개 초과는 handler 전에 거절한다. 변경 행 한도는 tx가 실제 changes로 본다.
-export const COMMAND_MAX_CAS = 256;
+const COMMAND_MAX_CAS = 256;
 
 // 받은 비교 대상의 leaf 수다. 실제 비교 횟수가 아니다. 중첩 키와 배열 원소를 센다.
 export function countCas(compare: unknown): number {

@@ -46,7 +46,7 @@ export function createSettingsRegistry(
 }
 
 /** 값이 선언의 type을 통과하는지. 통과하면 undefined다. */
-export function rejectionOf(
+function rejectionOf(
   type: z.ZodType,
   value: unknown,
 ): SettingRejection["reason"] | undefined {

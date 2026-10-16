@@ -23,7 +23,7 @@ import {
 import type { WiringFactory } from "./context.ts";
 
 // Reactor가 cursor를 올리는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
-export const reactorContext: AuthenticatedContext = {
+const reactorContext: AuthenticatedContext = {
   principal: REACTOR_PRINCIPAL,
   actor: "machine",
   scope: { operations: ["AdvanceSubscriberCursor"], targets: {} },

@@ -10,11 +10,11 @@ import {
 // confirmation은 command가 하고 이 파일은 값만 검사한다. 오류는 공통 code다.
 
 // 묶음 크기의 정본은 contract 한 곳이다. 여기서 숫자를 다시 쓰지 않는다.
-export const GROUP_MIN_QUESTIONS = QUESTION_GROUP_MIN_QUESTIONS;
-export const GROUP_MAX_QUESTIONS = QUESTION_GROUP_MAX_QUESTIONS;
+const GROUP_MIN_QUESTIONS = QUESTION_GROUP_MIN_QUESTIONS;
+const GROUP_MAX_QUESTIONS = QUESTION_GROUP_MAX_QUESTIONS;
 
 // 묶음 안 질문 하나의 검사에 필요한 모양. action은 고정 action이 있는 선택지에만 있다.
-export type GroupQuestionShape = {
+type GroupQuestionShape = {
   id: string;
   options: readonly { key: string; action: unknown | null }[];
   recommendation: { option_key: string | null } | null;
@@ -204,7 +204,7 @@ function checkAnswer(
 }
 
 // Skip(미루기)로 묶음 전체를 답 없이 닫은 결과. 답·채택·동작 적용이 하나도 없다.
-export type GroupDeferral = {
+type GroupDeferral = {
   status: "cancelled";
   closed_reason: "deferred";
   answers: null;

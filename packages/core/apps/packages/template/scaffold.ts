@@ -8,9 +8,9 @@ import { devImportMap } from "./import-map.ts";
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TEXT = /\.(?:ts|tsx|json|md|html|css|sql|txt)$|(?:^|\/)\.gitignore$/;
 
-export const DEV_IMPORT_MAP_PATH = ".lophn/import-map.json";
+const DEV_IMPORT_MAP_PATH = ".lophn/import-map.json";
 
-export type ScaffoldInput = {
+type ScaffoldInput = {
   files: readonly TemplateFile[];
   // 없으면 만든다. 이미 있는 폴더의 파일은 그대로 둔다.
   dir: string;
@@ -22,7 +22,7 @@ export type ScaffoldInput = {
   dataRoot?: string;
 };
 
-export type ScaffoldResult = {
+type ScaffoldResult = {
   // 새로 쓴 파일만이다.
   files: string[];
   devImportMap: string | null;

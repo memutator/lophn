@@ -9,7 +9,7 @@ import {
 } from "../harness/definitions.ts";
 import type { HarnessPlan, HarnessPlanCheck } from "../harness/driver.ts";
 
-export type Precomputed = {
+type Precomputed = {
   status: "pass" | "fail" | "inconclusive";
   reason: string;
   evidence: Record<string, unknown>;

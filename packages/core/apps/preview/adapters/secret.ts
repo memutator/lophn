@@ -8,7 +8,7 @@ import type { SecretUseService } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
 import { invalid, refuse, standInOnly } from "./refusal.ts";
 
-export type PreviewSecretUse = {
+type PreviewSecretUse = {
   name: string;
   destination: { host: string; port: number };
   command: string;

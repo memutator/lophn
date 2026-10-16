@@ -13,9 +13,9 @@ import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 // 보낸다. 허락 밖 목적지는 Deno 권한이 막으므로 응답 없음(닿지 못함)으로 돌아간다.
 // 요청·응답에는 code·verifier·refresh token·새 token이 있으므로 어디에도 남기지 않고 오류와 log에 싣지 않는다.
 
-export const MCP_AUTH_PUMP_IDLE_MS = 250;
+const MCP_AUTH_PUMP_IDLE_MS = 250;
 // 발급자 한 번 호출의 상한이다. core가 기다리는 기한(8초)보다 짧아야 닿지 못했다는 답이 제때 간다.
-export const MCP_AUTH_FETCH_TIMEOUT_MS = 6_000;
+const MCP_AUTH_FETCH_TIMEOUT_MS = 6_000;
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 

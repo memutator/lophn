@@ -29,13 +29,13 @@ export type StoppedConditions = {
 };
 
 // 세 조건이 모두 관측됐는지. 하나라도 거짓이면 유지보수는 아무것도 하지 않는다.
-export function fullyStopped(conditions: StoppedConditions): boolean {
+function fullyStopped(conditions: StoppedConditions): boolean {
   return conditions.preparationsBlocked && conditions.commandsBlocked &&
     conditions.writerStopped;
 }
 
 // 정지 유지보수 deps. 목록 관측은 실제 파일·ledger에서 잡아 넣는다.
-export type MaintenanceDeps = {
+type MaintenanceDeps = {
   root: string;
   // 세 정지 조건의 실제 관측. 하나라도 거짓이면 유지보수는 실행하지 않는다.
   conditions(): StoppedConditions | Promise<StoppedConditions>;
@@ -87,7 +87,7 @@ export async function runMaintenanceGc(
 // 처음 확인 시각 기록. io.ts의 매일 관측과 정지 유지보수가 이 helper로
 // 남긴다. 유예기간은 처음 확인한 시각부터 센다 — 부른 쪽이 기록이 없을 때만
 // 부른다(collectGarbage·observeBlobGc의 기록 갱신 순서).
-export async function recordUnreferenced(
+async function recordUnreferenced(
   root: string,
   hash: string,
   atMs: number,
@@ -113,7 +113,7 @@ export async function recordUnreferenced(
 }
 
 // 다시 참조된 hash의 기록 지우기(다음 미참조 확인부터 유예기간이 새로 섞인다).
-export async function forgetUnreferenced(
+async function forgetUnreferenced(
   root: string,
   hash: string,
 ): Promise<Result<void>> {
@@ -198,7 +198,7 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
 // 목적 기록 관측. 준비가 남긴 blobs/purposes/<2>/<62>.json 파일을 읽어
 // hash → purpose로 모은다. 없거나 모양이 다른 기록은 건너뛴다: 정지
 // 유지보수는 기록 없는 hash를 지우지 않는다(fail-closed).
-export async function readPurposeRecords(
+async function readPurposeRecords(
   root: string,
 ): Promise<Result<ReadonlyMap<string, string>>> {
   const found = new Map<string, string>();

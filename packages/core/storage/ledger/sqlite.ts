@@ -135,7 +135,7 @@ export function createSql(db: DatabaseSync, alive: () => boolean): Sql {
   };
 }
 
-export type PragmaCheck = {
+type PragmaCheck = {
   journalMode: string;
   synchronous: bigint;
   foreignKeys: bigint;
@@ -158,7 +158,7 @@ function pragmaValue(db: DatabaseSync, sql: string): bigint | string {
 const SYNCHRONOUS_FULL = 2n;
 const BUSY_TIMEOUT_MS = 5000n;
 
-export function configure(db: DatabaseSync): Result<void> {
+function configure(db: DatabaseSync): Result<void> {
   const journalMode = pragmaValue(db, "pragma journal_mode=WAL");
   if (journalMode !== "wal") {
     return err({

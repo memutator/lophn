@@ -6,11 +6,11 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 // 다른 origin(host·scheme·port)으로의 redirect는 거절이다. TLS 검증을
 // 끄는 설정은 제공하지 않는다.
 
-export const MCP_PROTOCOL_VERSION = "2025-06-18";
+const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 // 같은 origin(host·scheme·port)인지 본다. localhost와 127.0.0.1은
 // port는 같아도 host가 다르므로 다른 origin이다.
-export function sameOrigin(a: string, b: string): boolean {
+function sameOrigin(a: string, b: string): boolean {
   try {
     const left = new URL(a);
     const right = new URL(b);
@@ -20,13 +20,6 @@ export function sameOrigin(a: string, b: string): boolean {
     return false;
   }
 }
-
-export type HttpResponse = {
-  status: number;
-  location: string | null;
-  body: Uint8Array;
-  headers: Headers;
-};
 
 // fetch 눈이다. 테스트가 끼운다. redirect는 따라가지 않고 응답 그대로 본다.
 export type HttpFetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -49,7 +42,7 @@ export function endpointReason(url: string): string | null {
   return "평문 http는 loopback 주소에만 허용한다";
 }
 
-export type HttpRequestResult =
+type HttpRequestResult =
   | { ok: true; status: number; body: Uint8Array; headers: Headers }
   // redirect 거절이다.
   | { ok: false; reason: "redirect_rejected"; detail: string }
@@ -174,12 +167,3 @@ export function rpcResultOf(
 
 // 서버가 reverse 기능(sampling·elicitation·roots)을 요청할 때 같은 id로
 // `-32601`(method not found)을 답한다.
-export function unsupportedReverseResponse(
-  id: unknown,
-): Record<string, unknown> {
-  return {
-    jsonrpc: "2.0",
-    id,
-    error: { code: -32601, message: "method not found" },
-  };
-}

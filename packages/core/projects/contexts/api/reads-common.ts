@@ -48,7 +48,7 @@ export function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-export type KeyPart = string | number;
+type KeyPart = string | number;
 export type Key = readonly KeyPart[];
 
 export function compareKey(a: Key, b: Key): number {
@@ -81,7 +81,7 @@ export function decodeCursor(cursor: string): Record<string, unknown> | null {
   }
 }
 
-export function pageLimit(limit: number | undefined): Result<number> {
+function pageLimit(limit: number | undefined): Result<number> {
   if (limit === undefined) return ok(CONTEXT_PAGE_DEFAULT);
   if (!Number.isInteger(limit) || limit < 1 || limit > CONTEXT_PAGE_MAX) {
     return invalidInput(`limit must be 1-${CONTEXT_PAGE_MAX}`);
@@ -89,7 +89,7 @@ export function pageLimit(limit: number | undefined): Result<number> {
   return ok(limit);
 }
 
-export type KeyedPage<T> = {
+type KeyedPage<T> = {
   items: T[];
   complete: boolean;
   next_cursor: string | null;

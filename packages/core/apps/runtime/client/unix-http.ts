@@ -2,17 +2,17 @@
 // 연결을 열지 못한 것(보내지 않았다)과 보낸 뒤 응답을 못 받은 것(결과 모름)을 구별한다.
 import { SOCKET_HOST } from "../../../../protocol/apps/mod.ts";
 
-export type DirectRequest = {
+type DirectRequest = {
   method: "GET" | "POST";
   path: string;
   authorization: string;
   body?: unknown;
 };
 
-export type DirectResponse = { status: number; body: unknown };
+type DirectResponse = { status: number; body: unknown };
 
 // 요청을 보내지 못했다. 앱은 이 요청을 받지 않았다.
-export class NotSent extends Error {
+class NotSent extends Error {
   constructor() {
     super("the app socket could not be opened");
     this.name = "NotSent";
@@ -20,14 +20,14 @@ export class NotSent extends Error {
 }
 
 // 요청은 보냈지만 응답을 끝까지 받지 못했다. 앱이 처리했는지는 모른다.
-export class ResultLost extends Error {
+class ResultLost extends Error {
   constructor() {
     super("the response was lost after the request was sent");
     this.name = "ResultLost";
   }
 }
 
-export type DirectTransport = (
+type DirectTransport = (
   endpoint: string,
   request: DirectRequest,
 ) => Promise<DirectResponse>;

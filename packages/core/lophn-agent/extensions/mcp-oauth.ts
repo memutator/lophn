@@ -27,7 +27,7 @@ import {
 // network는 token endpoint(발급자)뿐이고 fetch로 받는다. 값(verifier·state·token)은 응답 모양 어디에도 없다.
 
 // 접근 token이 만료되기 이 시간 전부터 갱신한다(요청이 가는 도중 만료되는 일을 줄인다).
-export const REFRESH_SKEW_MS = 60_000;
+const REFRESH_SKEW_MS = 60_000;
 
 // 로그인·갱신이 서버를 가리키는 설정의 지금 값이다. token이 이 값들과 묶여 있어야 쓴다.
 export type McpOAuthServer = {
@@ -39,12 +39,12 @@ export type McpOAuthServer = {
   tokenRef: string | null;
 };
 
-export type McpAuthReport = {
+type McpAuthReport = {
   state: McpAuthStateName;
   reason: McpAuthFailure | null;
 };
 
-export type McpOAuth = {
+type McpOAuth = {
   // 로그인을 시작한다. 이미 기다리는 로그인이 있으면 conflict다. 실패하면 listener를 닫는다.
   begin(
     server: McpOAuthServer,

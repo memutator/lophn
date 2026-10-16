@@ -31,7 +31,7 @@ type StopInput = z.infer<typeof previewsStopInputSchema>;
 type StopOutput = z.infer<typeof previewsStopOutputSchema>;
 
 // supervisor 통로. 운영 자식의 reconcile·record와 겹치지 않는 preview 전용 호출이다.
-export type PreviewSupervisor = {
+type PreviewSupervisor = {
   start(launch: PreviewLaunch): Promise<Result<void>>;
   observe(
     app: string,
@@ -68,7 +68,7 @@ export interface PreviewReleases {
   ): Promise<Result<string | undefined>>;
 }
 
-export type PreviewServiceDeps = {
+type PreviewServiceDeps = {
   clock: Clock;
   nonce: () => string;
   supervisor: PreviewSupervisor;
@@ -112,7 +112,7 @@ function actorKind(actor: string): string {
   return actor.split(":", 1)[0];
 }
 
-export function previewObservationOf(
+function previewObservationOf(
   wire: ObservationWire,
 ): PreviewObservation {
   return {

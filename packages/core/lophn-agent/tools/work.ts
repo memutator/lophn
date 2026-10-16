@@ -56,7 +56,7 @@ const FAILURE_CODES: ReadonlyMap<ErrorCode, string> = new Map([
 
 // ---- 새 실행기 ----
 
-export type ToolCallOutcome = {
+type ToolCallOutcome = {
   // 정본 이름. 없는 tool이면 model이 부른 이름이다.
   tool: string;
   effect: ToolDefinition["effect"];

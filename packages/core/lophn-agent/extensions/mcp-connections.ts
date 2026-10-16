@@ -22,22 +22,22 @@ import {
 // 테스트는 가짜 MCP child와 로컬 HTTP server를 끼운다.
 
 // 연결+initialize 합산 기한이다.
-export const CONNECT_TIMEOUT_MS = 30_000;
+const CONNECT_TIMEOUT_MS = 30_000;
 // 전체 tools/list page와 검증의 합산 기한이다.
-export const LIST_TIMEOUT_MS = 30_000;
+const LIST_TIMEOUT_MS = 30_000;
 // 재연결 대기이다. 1초·2초·4초, 최대 세 번.
-export const RECONNECT_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000];
+const RECONNECT_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000];
 
 // 도구 목록 상한이다. 넘으면 그 서버 목록 전체를 거절한다.
-export const LIST_PAGE_MAX = 100;
-export const LIST_TOOLS_MAX = 2048;
-export const LIST_BYTES_MAX = 10 * 1024 * 1024;
-export const SCHEMA_DEPTH_MAX = 32;
+const LIST_PAGE_MAX = 100;
+const LIST_TOOLS_MAX = 2048;
+const LIST_BYTES_MAX = 10 * 1024 * 1024;
+const SCHEMA_DEPTH_MAX = 32;
 
-export type OwnerKey = readonly [assignment: string, server: string];
+type OwnerKey = readonly [assignment: string, server: string];
 
 // 연결 상태다(domain model McpConnection).
-export type ConnectionState =
+type ConnectionState =
   | "disconnected"
   | "connecting"
   | "connected"
@@ -45,15 +45,6 @@ export type ConnectionState =
   | "failed_auth";
 
 // 목록 검증에 실패한 이유다. 사람용 진단이고 server 자유 원문은 없다.
-export type ListFailure =
-  | "protocol"
-  | "repeated_cursor"
-  | "duplicate_name"
-  | "invalid_definition"
-  | "over_page_limit"
-  | "over_tool_limit"
-  | "over_bytes_limit"
-  | "over_depth_limit";
 
 export type McpToolView = {
   server: string;
@@ -67,13 +58,13 @@ export type McpToolView = {
 };
 
 // 검증을 모두 지난 도구 목록이다. tool_list_hash는 목록 내용의 sha256이다.
-export type ToolList = {
+type ToolList = {
   tools: readonly McpToolView[];
   hash: string;
   protocol_version: string;
 };
 
-export type ConnectionView = {
+type ConnectionView = {
   owner: OwnerKey;
   server_fingerprint: string;
   state: ConnectionState;
@@ -84,7 +75,7 @@ export type ConnectionView = {
 };
 
 // JSON-RPC over transport 눈이다. stdio·HTTP가 같은 모양을 낸다.
-export type McpTransport = {
+type McpTransport = {
   // 요청 하나를 보내고 응답을 기다린다. 이미 전달한 요청은 재전송하지 않는다.
   request(
     method: string,
@@ -99,26 +90,22 @@ export type McpTransport = {
 };
 
 // process·HTTP를 여는 눈이다. runtime이 실제 연결을, 테스트가 가짜를 끼운다.
-export type McpTransportOpener = (
-  server: McpRuntimeServer,
-  signal: AbortSignal,
-) => Promise<Result<McpTransport>>;
 
 // 대기다. 신호가 중단되면 "aborted"로 일찍 돌아온다.
-export type WaitFn = (
+type WaitFn = (
   ms: number,
   signal: AbortSignal,
 ) => Promise<"elapsed" | "aborted">;
 
 // 기한 timer다. progress로 늘지 않는 단조 시계 기한이다.
-export type DeadlineFn = (
+type DeadlineFn = (
   ms: number,
   signal: AbortSignal,
 ) => Promise<"elapsed" | "aborted">;
 
 // secret 전송 부착 port다. 값은 transmit callback의
 // 인자로만 오고 결과에는 전송 여부뿐이다. provider 전송 부착과 같은 모양이다.
-export type McpSecretAttach = {
+type McpSecretAttach = {
   send(
     input: SecretSendInput,
     transmit: (
@@ -148,12 +135,7 @@ export type McpConnectionsDeps = {
   onListChanged?(server: string): void;
 };
 
-export type McpDisconnectReason =
-  | "assignment_ended"
-  | "server_detached"
-  | "daemon_shutdown";
-
-export type CallOutcome =
+type CallOutcome =
   | { kind: "success"; result: unknown }
   | { kind: "failure"; code: string; message: string }
   | { kind: "uncertain"; message: string }

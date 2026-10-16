@@ -29,10 +29,10 @@ import { isReservedAgentName } from "./names.ts";
 // 존재 여부가 필요한 참조(context)와 같은 place Operator 사이의 이름 중복은 파일만으로 알 수 없으므로
 // 여기서 보지 않는다.
 
-export type AgentFileTarget = { role: Role; place: Place["kind"] | null };
+type AgentFileTarget = { role: Role; place: Place["kind"] | null };
 export type AgentFileDefinition = OperatorDefinition | BuiltinDefinition;
 
-export type AgentFileError = LophnError & {
+type AgentFileError = LophnError & {
   code: "invalid_input";
   details: { issues: AgentDefinitionIssue[] };
 };

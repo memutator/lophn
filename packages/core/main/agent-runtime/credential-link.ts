@@ -9,7 +9,7 @@ import type { AgentCredentialIssuer } from "../../lophn-agent/run-loop/mod.ts";
 // 인증 경계가 하고 runtime은 StartTurn이 확정된 turn에 대해 요청만 보낸다. token은 이 응답으로만
 // 오고 log·오류에 남기지 않는다.
 
-export type CredentialLink = {
+type CredentialLink = {
   // run-loop의 `createTurnCredentials`가 쓰는 발급 port다.
   issuer: AgentCredentialIssuer;
   // 감독 pipe에서 받은 parent message. 이 link의 응답이면 true다.

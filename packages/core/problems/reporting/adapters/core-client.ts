@@ -6,7 +6,7 @@ import type { LophnError } from "../../../../base/mod.ts";
 import { recordProblemReport } from "../../../../protocol/problems/mod.ts";
 
 // loopback HTTP/1.1 JSON call의 좁은 모양. fetch는 주입받는다.
-export type LoopbackFetch = (
+type LoopbackFetch = (
   input: string,
   init: {
     method: string;

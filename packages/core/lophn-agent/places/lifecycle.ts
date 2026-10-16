@@ -39,7 +39,7 @@ function placeUsable(
 }
 
 // agent가 놓이는 place를 정한다. place를 가진 agent는 그 place가 열 수 있는 곳이어야 한다.
-export function placeOfAgent(
+function placeOfAgent(
   deps: PlaceDeps,
   agent: AgentRef,
 ): Result<Place | null> {
@@ -71,7 +71,7 @@ export function placeOfAgent(
   return ok(place);
 }
 
-export type OpeningContext = { source_seq: string; target: string };
+type OpeningContext = { source_seq: string; target: string };
 
 export function startSession(
   tx: Tx,

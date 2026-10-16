@@ -16,7 +16,7 @@ import { join } from "node:path";
 // 매겨 둔다. 같은 내용은 하나다. 쓰기는 임시 파일 → hash 확인 → 원자 설치다. 파일 일은 모두 async
 // API로 한다(core graph에 동기 file API를 들이지 않는다).
 
-export type StoredBlob = {
+type StoredBlob = {
   // 내용의 sha256(hex). 파일 이름이자 FileState.blob의 key다.
   key: string;
   size: number;

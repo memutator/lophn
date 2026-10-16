@@ -57,7 +57,7 @@ export function aborted(error: unknown): CheckFinding {
 
 // 단계 (1)~(5)의 결과. 격리 검사(runCheck)와 context.preview가 같이 쓴다. entities는 추출까지 갔을 때만
 // 있다(모양·의미 검사에서 멈추면 null).
-export type StageResult = {
+type StageResult = {
   findings: CheckFinding[];
   violations: CheckViolation[];
   entities: ExtractedEntity[] | null;

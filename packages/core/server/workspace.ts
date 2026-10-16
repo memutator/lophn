@@ -18,7 +18,7 @@ import type { MemoryHandler } from "./dispatch.ts";
 export const WORKSPACE_MEMORY_ROUTES: readonly Route[] = WORKSPACE_ROUTES;
 
 // 창 수 상한. 크기는 창 수 × (2048 bytes + 탭 page)로 묶인다.
-export const WORKSPACE_MAX_WINDOWS = 64;
+const WORKSPACE_MAX_WINDOWS = 64;
 
 // relay 값 하나. publish가 보낸 상태와 session 결합만 담는다.
 type WindowState = {

@@ -29,9 +29,9 @@ import type { BlobReference } from "../api/state.ts";
 type Reader = Pick<Sql, "get" | "all">;
 
 // 판의 행. content는 blob이라 참조만 담는다. 내용은 adapter가 blob reader로 읽는다.
-export type StoredBundle = BundleSummary & { content_ref: BlobReference };
+type StoredBundle = BundleSummary & { content_ref: BlobReference };
 
-export type ProjectRef = { id: string; archived: boolean };
+type ProjectRef = { id: string; archived: boolean };
 
 // ---------- 행과 값 사이 ----------
 
@@ -294,11 +294,6 @@ export function loadContextViews(
   return sql.all("SELECT * FROM saved_views WHERE context = ? ORDER BY id", [
     context,
   ]).map(viewOfRow);
-}
-
-export function loadView(sql: Reader, id: string): SavedViewValue | null {
-  const row = sql.get("SELECT * FROM saved_views WHERE id = ?", [id]);
-  return row === undefined ? null : viewOfRow(row);
 }
 
 export function saveView(sql: Sql, value: SavedViewValue): void {

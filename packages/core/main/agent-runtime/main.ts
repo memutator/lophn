@@ -62,7 +62,7 @@ export type CoreCalls = {
   events: AgentEventSink;
 };
 
-export type Runtime = {
+type Runtime = {
   startup: Startup;
   // 입력함에서 시작할 turn을 고르는 길. 입력함은 core 메모리에 있어 감독 pipe로 읽는다.
   source: TurnSource;
@@ -82,7 +82,7 @@ type Streams = {
   stderr: WritableStream<Uint8Array>;
 };
 
-export async function startAgentRuntime(input: {
+async function startAgentRuntime(input: {
   streams?: Streams;
   // 테스트가 core 대신 응답을 끼운다. 없으면 hello의 loopback port로 붙는다.
   read?: CoreRead;

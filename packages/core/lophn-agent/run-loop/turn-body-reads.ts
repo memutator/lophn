@@ -15,10 +15,10 @@ import { type MessageBodyEnvironment, readBodyBytes } from "../session/mod.ts";
 // 밖의 자격이나 없는 대상은 모두 같은 not_found다. 참조가 없거나 바이트를 읽지 못하거나 hash가 다르면
 // 일부만 돌려주지 않고 unavailable이다.
 
-export type TurnBodyEnvironment = MessageBodyEnvironment;
+type TurnBodyEnvironment = MessageBodyEnvironment;
 
 // 이 읽기가 한 번에 돌려주는 값의 상한. model 응답·tool 결과는 이보다 작게 저장된다.
-export const TURN_BODY_MAX_BYTES = 4 * 1024 * 1024;
+const TURN_BODY_MAX_BYTES = 4 * 1024 * 1024;
 
 const SOURCES = {
   turn_basis: {
@@ -180,7 +180,7 @@ function utf8Prefix(text: string, limit: number): string {
   return new TextDecoder().decode(bytes.slice(0, end));
 }
 
-export type TurnBodyViewEnvironment = TurnBodyEnvironment & {
+type TurnBodyViewEnvironment = TurnBodyEnvironment & {
   /** 지금의 redaction. 끝내지 못하면 null이다. */
   readonly redact: (text: string) => string | null;
 };

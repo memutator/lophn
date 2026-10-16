@@ -13,7 +13,7 @@ import type {
 // lophn-agent가 바깥에서 받는 것들이다. 다른 domain module은 직접 import할 수 없으므로
 // main/daemon/wiring이 구현해 끼운다.
 
-export type ProjectInfo = {
+type ProjectInfo = {
   id: Id<"prj">;
   name: string;
   purpose: string;
@@ -38,7 +38,7 @@ export interface ProjectDirectory {
   }[];
 }
 
-export type AppInfo = {
+type AppInfo = {
   id: Id<"app">;
   name: string;
   purpose: string;

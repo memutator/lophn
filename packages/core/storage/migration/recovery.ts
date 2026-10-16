@@ -5,18 +5,18 @@ import { openConnection } from "../ledger/mod.ts";
 const RECOVERY_LEDGER_PATH = "ledger.db";
 
 // 복구본 stamp. yyyyMMddThhmmssSSSZ 하나다. colon·slash가 없어 파일 이름이 된다.
-export const RECOVERY_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
+const RECOVERY_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
 
 // 복구본 폴더. 가장 최근 하나만 둔다.
-export const RECOVERY_DIR = "recovery";
+const RECOVERY_DIR = "recovery";
 
-export type RecoveryCopy = {
+type RecoveryCopy = {
   // recovery/s<N>-<stamp>/ledger.db
   path: string;
   schemaVersion: number;
 };
 
-export type RecoveryDeps = {
+type RecoveryDeps = {
   // 데이터 root. 복구본은 <root>/recovery/ 밑에 둔다.
   root: string;
   // 변환 전 schema 순번.
@@ -42,7 +42,7 @@ export function recoveryStamp(at: string): Result<string> {
   );
 }
 
-export function recoveryName(schemaVersion: number, stamp: string): string {
+function recoveryName(schemaVersion: number, stamp: string): string {
   return `s${schemaVersion}-${stamp}`;
 }
 

@@ -3,10 +3,10 @@ import { hostOf } from "../../../protocol/apps/blueprint-scope.ts";
 // fs scope의 path는 lexical 절대 경로다(contracts). 여기서는 부여 때 푼
 // 실제 절대 경로로 바꿔 경계를 정한다.
 
-export type FsScope = { path: string; recursive: boolean };
-export type NetScope = { host: string; port: number };
+type FsScope = { path: string; recursive: boolean };
+type NetScope = { host: string; port: number };
 
-export type ResolvedFsScope = FsScope & {
+type ResolvedFsScope = FsScope & {
   // 폴더 안 lexical link 중 그 폴더 밖을 가리키는 경로. 그 kind의 deny 인자다.
   outsideLinks: string[];
 };
@@ -66,7 +66,7 @@ export function isSameOrInside(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
-export function containsProtected(
+function containsProtected(
   path: string,
   roots: ProtectedRoots,
 ): boolean {

@@ -31,9 +31,9 @@ import {
 // 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
 
 export const PROJECT_EXTENSIONS_FILE = "extensions.json";
-export const PROJECT_SKILLS_DIR = "skills";
+const PROJECT_SKILLS_DIR = "skills";
 
-export function projectFolderOf(root: string, project: string): string {
+function projectFolderOf(root: string, project: string): string {
   return `${root}/projects/${project}`;
 }
 
@@ -67,7 +67,7 @@ const fileSchema = z.strictObject({
   mcp_off: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,32}$/)).max(32),
 });
 
-export function serializeProjectExtensions(value: ProjectExtensions): string {
+function serializeProjectExtensions(value: ProjectExtensions): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
@@ -90,7 +90,7 @@ export function parseProjectExtensions(
   return ok(parsed.data);
 }
 
-export type ProjectExtensionDeps = {
+type ProjectExtensionDeps = {
   files: PlaceFiles;
   lookups(sql: ReadSql): { projectExists(project: string): boolean };
   // 없으면 ledger 파일이 있는 폴더가 data root다.

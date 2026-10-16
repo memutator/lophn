@@ -48,7 +48,7 @@ import {
 import type { WiringFactory } from "./context.ts";
 
 // 켤 때 잃어버린 call을 닫는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
-export const ROUTER_PRINCIPAL = "machine:router";
+const ROUTER_PRINCIPAL = "machine:router";
 
 const ROUTER_CONTEXT: AuthenticatedContext = {
   principal: ROUTER_PRINCIPAL,

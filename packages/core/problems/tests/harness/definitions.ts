@@ -19,7 +19,7 @@ export const REQUIRED_CHECKS = [
 export type CheckName = (typeof REQUIRED_CHECKS)[number];
 
 // runner가 blueprint와 bundle 파일만으로 판정하는 검사와, test 자식이 앱을 구동해 판정하는 검사.
-export type CheckSource = "runner" | "harness";
+type CheckSource = "runner" | "harness";
 
 export type CheckDefinition = { name: CheckName; source: CheckSource };
 

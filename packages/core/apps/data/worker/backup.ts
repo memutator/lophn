@@ -8,17 +8,17 @@ import { openAppDatabase } from "./db.ts";
 import { type VerifiedDatabase, verifyDatabase } from "./integrity.ts";
 import { contained } from "./paths.ts";
 
-export const BACKUP_KEEP = 1;
+const BACKUP_KEEP = 1;
 const BACKUP_DIR = "backups";
 const PENDING_SUFFIX = ".pending";
 
-export type AppBackup = {
+type AppBackup = {
   // 데이터 영역 상대 경로. ledger가 가리키는 보호 참조의 로컬 자리다.
   name: string;
   verified: VerifiedDatabase;
 };
 
-export type RetainInput = {
+type RetainInput = {
   // 진행 중 복원이 참조하는 backup 이름. 완료 전에는 삭제하지 않는다.
   protectedNames: readonly string[];
 };
@@ -96,8 +96,3 @@ export async function retainAppBackups(
   return ok(retained.filter((name) => !removed.includes(name)));
 }
 
-export async function appBackupNames(
-  dataArea: string,
-): Promise<readonly string[]> {
-  return await listBackupNames(dataArea);
-}

@@ -13,7 +13,7 @@ export const CODING_REACTION_TEXTS = {
   CodingSessionEndedUnreported:
     "The coding session ended without reporting completion.",
 } as const;
-export type CloseEvent = keyof typeof CODING_REACTION_TEXTS;
+type CloseEvent = keyof typeof CODING_REACTION_TEXTS;
 
 export function closeCall(tx: Tx, input: {
   call: string;

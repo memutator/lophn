@@ -21,7 +21,7 @@ import { placeAgentsFolder } from "./store.ts";
 // agent의 판정(있는지, 어느 역할인지, 어느 place인지, 정의의 profile)은 읽기 concern이 맡고 여기서는 파일만
 // 다룬다. 이미지는 Operator만 가진다. 정의의 profile에 이미지 이름을 잇는 것은 정의 저장이 한다.
 
-export type ProfileImageType = keyof typeof AGENT_PROFILE_IMAGE_TYPES;
+type ProfileImageType = keyof typeof AGENT_PROFILE_IMAGE_TYPES;
 
 const IMAGE_EXTENSIONS = Object.values(AGENT_PROFILE_IMAGE_TYPES);
 
@@ -46,9 +46,9 @@ export type ProfileAssetDeps = {
   readers: ProfileReaders;
 };
 
-export type UploadedProfile = { profile: { kind: "image"; image: string } };
+type UploadedProfile = { profile: { kind: "image"; image: string } };
 
-export type ProfileImageBody = {
+type ProfileImageBody = {
   bytes: ReadableStream<Uint8Array>;
   length: number | undefined;
 };
@@ -87,7 +87,7 @@ function matchesAt(
 }
 
 // 내용의 첫 byte로 형식을 정한다. png·jpg·webp가 아니면 null이다(svg도 여기서 빠진다).
-export function sniffProfileImage(bytes: Uint8Array): ProfileImageType | null {
+function sniffProfileImage(bytes: Uint8Array): ProfileImageType | null {
   if (matchesAt(bytes, 0, PNG)) return "image/png";
   if (matchesAt(bytes, 0, JPEG)) return "image/jpeg";
   if (matchesAt(bytes, 0, RIFF) && matchesAt(bytes, 8, WEBP)) {
@@ -109,7 +109,7 @@ function unavailable(message: string): Result<never> {
 }
 
 // 선언한 형식·크기·길이와 첫 byte가 모두 맞아야 받는다.
-export function checkProfileImage(
+function checkProfileImage(
   content_type: string,
   declared: number,
   body: Uint8Array,

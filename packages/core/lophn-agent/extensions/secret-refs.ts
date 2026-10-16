@@ -15,7 +15,7 @@ import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
 import { globalMcpServersSetting } from "./settings.ts";
 
-export const MCP_SECRET_OWNER = "lophn-agent/extensions";
+const MCP_SECRET_OWNER = "lophn-agent/extensions";
 
 // 전역 서버 설정에서 모든 secret 참조를 모은다(stdio env 값, http headers, auth). 참조는 `sec:<이름>`이다.
 // oauth2의 token은 secrets 표가 아니라 OAuth token 보관(mcp-oauth-vault)을 가리키므로 여기 없다.

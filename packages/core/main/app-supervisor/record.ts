@@ -3,7 +3,7 @@
 import type { Result } from "../../../base/mod.ts";
 import type { RuntimeRecord } from "../../apps/runtime/core-link.ts";
 
-export type RecordResponse = { status: number; body: unknown };
+type RecordResponse = { status: number; body: unknown };
 
 export function recordInput(record: RuntimeRecord): Record<string, unknown> {
   if (record.method === "record_started") {

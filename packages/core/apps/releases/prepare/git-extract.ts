@@ -5,12 +5,12 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { releaseExcludes } from "../../../../protocol/coding-agent/mod.ts";
 
-export type ExtractedFile = {
+type ExtractedFile = {
   path: string;
   bytes: Uint8Array;
 };
 
-export type ExtractFailure = {
+type ExtractFailure = {
   code: "invalid_input";
   reason:
     | "source_outside_boundary"
@@ -29,7 +29,7 @@ export type GitRunner = {
   run(args: readonly string[]): Promise<Result<Uint8Array>>;
 };
 
-export type ExtractInput = {
+type ExtractInput = {
   // 연결된 실제 source 경계(app.source_path). 밖의 경로는 거절이다.
   sourceRoot: string;
   // 완전한 40-hex commit ID다. 단축 hash는 받지 않는다.
@@ -41,7 +41,7 @@ export type ExtractInput = {
 
 const ISOCT = /^[0-9a-f]{40}$/;
 
-export function validCommit(commit: string): boolean {
+function validCommit(commit: string): boolean {
   return ISOCT.test(commit);
 }
 
@@ -117,7 +117,7 @@ async function requireRepository(
 type TreeEntry = { mode: string; path: string };
 
 // `ls-tree -r -z` 출력을 path별로 나눈다. -z라 NUL이 경계다.
-export function parseLsTree(output: string): TreeEntry[] {
+function parseLsTree(output: string): TreeEntry[] {
   const entries: TreeEntry[] = [];
   for (const record of output.split("\0")) {
     if (record === "") continue;
@@ -136,7 +136,7 @@ type StatusRecord = { status: string; path: string };
 
 // `status --porcelain -z`는 `XY path\0` 형식이다. rename은 XY path\0to\0으로
 // 두 record가 나오고 to가 두 번째 record다.
-export function parseStatusRecords(output: string): StatusRecord[] {
+function parseStatusRecords(output: string): StatusRecord[] {
   const records = output.split("\0").filter((record) => record !== "");
   const parsed: StatusRecord[] = [];
   for (let index = 0; index < records.length; index++) {
@@ -154,9 +154,6 @@ export function parseStatusRecords(output: string): StatusRecord[] {
 }
 
 // porcelain record의 path만 필요할 때 쓴다.
-export function parsePorcelain(output: string): string[] {
-  return parseStatusRecords(output).map((record) => record.path);
-}
 
 // commit과 working tree가 다르면 거절이다. tracked 변경은
 // working_tree_changed, untracked(uncommitted) 파일은 uncommitted_file이다.

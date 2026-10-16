@@ -3,7 +3,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { MemoryLimitMode } from "../../../protocol/supervision/mod.ts";
 
 // 전체 process 메모리 상한. Deno heap 상한과 별개다.
-export const PROCESS_MEMORY_LIMIT_BYTES = 536_870_912;
+const PROCESS_MEMORY_LIMIT_BYTES = 536_870_912;
 
 // hard는 cgroup v2 memory.max다. user systemd가 scope에 컨트롤러를 위임한다.
 const SYSTEMD_RUN = "/usr/bin/systemd-run";
@@ -13,19 +13,19 @@ const SYSTEMD_RUN = "/usr/bin/systemd-run";
 const PRLIMIT = "/usr/bin/prlimit";
 const ADAPTER_MS = 2_000;
 
-export type MemoryLimit = {
+type MemoryLimit = {
   mode: Exclude<MemoryLimitMode, "unavailable">;
   // 자식 process 전체 argv. spawnProcess와 같이 shell 없이 그대로 넘긴다.
   command: string;
   args: string[];
 };
 
-export type MemoryLimitError = {
+type MemoryLimitError = {
   code: "unavailable";
   message: string;
 };
 
-export type MemoryProbe = {
+type MemoryProbe = {
   // cgroup v2 memory 컨트롤러를 이 사용자 scope에 걸 수 있는가.
   cgroup(): Promise<boolean>;
   // RLIMIT_AS를 걸 수 있는가.
@@ -115,7 +115,7 @@ function isDenoTarget(command: string): boolean {
   return base === "deno" || base.startsWith("deno.");
 }
 
-export const systemMemoryProbe: MemoryProbe = {
+const systemMemoryProbe: MemoryProbe = {
   cgroup: probeCgroup,
   addressSpace: probeAddressSpace,
 };

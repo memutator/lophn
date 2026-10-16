@@ -9,7 +9,6 @@ import {
   decodeActivationDataJobInput,
   encodeActivationDataJobOutput,
 } from "../../../../protocol/apps/mod.ts";
-import { migrationFlags } from "../../permissions/mod.ts";
 import { createAppBackup, retainAppBackups } from "./backup.ts";
 import { databaseHash, openAppDatabase } from "./db.ts";
 import { acquireDataLock } from "./lock.ts";
@@ -18,17 +17,8 @@ import { contained, insideDataArea } from "./paths.ts";
 import { restoreAppBackup } from "./restore.ts";
 
 // migration 자식에 있으면 안 되는 권한. migrationFlags의 flag를 그대로 쓴다.
-const FORBIDDEN_FLAGS = [
-  "--allow-net",
-  "--allow-env",
-  "--allow-run",
-  "--allow-ffi",
-  "--allow-sys",
-  "--allow-all",
-  "-A",
-];
 
-export type DataJobContext = {
+type DataJobContext = {
   // 앱 데이터 영역 루트. job이 여는 모든 경로는 이 안이어야 한다.
   dataArea: string;
   databasePath: string;
@@ -38,7 +28,7 @@ export type DataJobContext = {
   invocation?: string | null;
 };
 
-export type DataJobFailure = {
+type DataJobFailure = {
   code: "invalid_input" | "conflict" | "unavailable";
   message: string;
 };
@@ -77,20 +67,6 @@ async function resolveInside(
 }
 
 // migration 자식의 권한 경계. migrationFlags 결과에서 금지 flag를 확인한다.
-export function migrationChildFlags(
-  app: { bundle: string; data: string },
-  protectedDenies: readonly string[],
-): Result<readonly string[], DataJobFailure> {
-  const flags = migrationFlags(app, protectedDenies);
-  if (!flags.ok) return invalid("migration flags are unavailable");
-  for (const arg of flags.value.args) {
-    const name = arg.split("=", 1)[0];
-    if (FORBIDDEN_FLAGS.includes(name)) {
-      return invalid("migration child has a forbidden permission");
-    }
-  }
-  return ok(flags.value.args);
-}
 
 type JobOutcome = { result: ActivationDataResult; backup_hash?: string };
 
@@ -276,9 +252,3 @@ export async function runDataJob(
 }
 
 // 운영 DB를 열 수 있는지를 확인만 한다. core·supervisor 대신 data worker가 연다.
-export function dataWorkerCanOpen(databasePath: string): Result<true> {
-  const opened = openAppDatabase(databasePath);
-  if (!opened.ok) return opened;
-  opened.value.close();
-  return ok(true);
-}

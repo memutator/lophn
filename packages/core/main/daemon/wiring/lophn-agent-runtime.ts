@@ -28,7 +28,7 @@ import { appSocketRoot } from "../../../apps/control.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
-export const SESSION_INPUTS_PRINCIPAL = "machine:session-inputs";
+const SESSION_INPUTS_PRINCIPAL = "machine:session-inputs";
 
 const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
   principal: SESSION_INPUTS_PRINCIPAL,

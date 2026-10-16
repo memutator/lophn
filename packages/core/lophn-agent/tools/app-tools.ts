@@ -125,7 +125,7 @@ function toolResult(
 }
 
 // core가 돌려준 상태(성공, 실패, 거절, 결과 모름)를 그대로 옮긴다. 앱 결과는 감싸지 않는다.
-export function resultOf(
+function resultOf(
   appName: string,
   api: string,
   effect: AppAppApi["effect"],

@@ -16,7 +16,7 @@ import { createTicketSessionEnd } from "./session-end.ts";
 
 // ticket 근거(problem, release)가 어느 앱의 것인지 읽는다. 없으면 null이다. 두 표는 같은
 // ledger라 tx.sql로 읽고, 읽지 못하면(표 없음 등) 닫힌 채로 unavailable이다.
-export type TicketEvidenceLookupPort = {
+type TicketEvidenceLookupPort = {
   problemApp(id: string): Result<string | null>;
   releaseApp(id: string): Result<string | null>;
 };

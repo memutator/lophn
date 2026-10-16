@@ -67,9 +67,9 @@ import type { TurnSource } from "./ports.ts";
 export const AGENT_RUNTIME_KIND = "lophn-agent/runtime";
 export const AGENT_RUNTIME_TASK = "lophn-agent";
 // agent credential의 process 조건이다. child가 끝나면 이 조건의 credential을 모두 끝낸다.
-export const AGENT_RUNTIME_PROCESS = "agent-runtime";
+const AGENT_RUNTIME_PROCESS = "agent-runtime";
 // 등록 provider 목적지가 바뀌었는지 보는 주기.
-export const AGENT_RUNTIME_HOSTS_POLL_MS = 1_000;
+const AGENT_RUNTIME_HOSTS_POLL_MS = 1_000;
 
 type RouteLike = { name: string; kind: string };
 
@@ -104,7 +104,7 @@ export function agentRuntimePolicies(
 }
 
 // registry가 발급한 자격은 core 프로세스 메모리의 token과 ledger의 기록 둘이 있어야 쓰인다.
-export function agentCredentialIssuer(
+function agentCredentialIssuer(
   registry: CredentialRegistry,
   record: (context: AuthenticatedContext) => Promise<Result<void>>,
 ): AgentCredentialIssuer {
@@ -149,7 +149,7 @@ const HOSTS_READER: RequestContext = {
 };
 
 // 등록한 skill 폴더를 읽는 자격이다. 이 폴더만 child의 읽기 허락에 더한다.
-export const SKILL_ROOTS_READER: RequestContext = {
+const SKILL_ROOTS_READER: RequestContext = {
   principal: "machine:agent-runtime-skill-roots",
   actor: "machine",
   scope: { operations: [settingsList.name], targets: {} },
@@ -171,7 +171,7 @@ export type AgentRuntimeChild = {
   hosts(): readonly string[];
 };
 
-export type AgentRuntimeDeps = {
+type AgentRuntimeDeps = {
   io: Supervisor;
   registry: CredentialRegistry;
   record(context: AuthenticatedContext): Promise<Result<void>>;

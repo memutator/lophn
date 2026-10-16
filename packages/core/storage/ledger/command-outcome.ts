@@ -17,12 +17,12 @@ import {
 } from "../../server/identity/mod.ts";
 import { validateOutput } from "./output.ts";
 
-export function isThenable(value: unknown): boolean {
+function isThenable(value: unknown): boolean {
   return typeof value === "object" && value !== null && "then" in value &&
     typeof (value as { then?: unknown }).then === "function";
 }
 
-export const ACTOR_KINDS = [
+const ACTOR_KINDS = [
   "user",
   "machine",
   "coding_agent",
@@ -30,7 +30,7 @@ export const ACTOR_KINDS = [
   "app",
 ] as const;
 
-export type ActorKind = (typeof ACTOR_KINDS)[number];
+type ActorKind = (typeof ACTOR_KINDS)[number];
 
 function isActorKind(value: string): value is ActorKind {
   return (ACTOR_KINDS as readonly string[]).includes(value);
@@ -46,7 +46,7 @@ export function seqText(value: bigint | null): string | null {
   return value === null ? null : formatSeq(value);
 }
 
-export type StoredRow = {
+type StoredRow = {
   fingerprint: string;
   result: string;
   first_seq: bigint | null;

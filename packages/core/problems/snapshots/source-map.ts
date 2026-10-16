@@ -53,8 +53,6 @@ async function readIfInside(
   }
 }
 
-export { readIfInside };
-
 // bundle 사본의 source map 파일을 읽는다. map이 없으면 그 이유를 돌려준다.
 export async function readSourceMap(
   copyRoot: string,
@@ -63,7 +61,7 @@ export async function readSourceMap(
 }
 
 // bundle 사본의 manifest를 읽고 files 목록을 검사한다.
-export type BundledManifest = {
+type BundledManifest = {
   entrypoint: string;
   files: readonly { path: string; hash: string }[];
   sdk_dependencies: readonly { name: string; version: string }[];
@@ -123,20 +121,6 @@ export async function readBundleManifest(
 
 // bundle 내 hash로 준비 폴더의 파일 내용을 읽는다. manifest에 없으면 이유를
 // 돌려준다.
-export async function readBundledFile(
-  copyRoot: string,
-  manifest: BundledManifest,
-  path: string,
-): Promise<Result<string, SourceMapFailure>> {
-  const found = manifest.files.find((file) => file.path === path);
-  if (found === undefined) {
-    return err({
-      code: "invalid_input",
-      message: "bundle manifest에 path가 없다",
-    });
-  }
-  return await readIfInside(copyRoot, path);
-}
 
 // 단일 V3 VLQ 문자 디코딩을 위한 기본 64진법 문자표.
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -146,110 +130,8 @@ for (let index = 0; index < B64.length; index++) {
 }
 
 // base64 VLQ 숫자 하나를 풀고 다음 위치를 돌려준다.
-function decodeVlq(
-  source: string,
-  start: number,
-): Result<{ value: number; next: number }, SourceMapFailure> {
-  let result = 0;
-  let shift = 0;
-  let position = start;
-  for (;;) {
-    if (position >= source.length) {
-      return err({
-        code: "invalid_input",
-        message: "source map VLQ가 끊겼다",
-      });
-    }
-    const digit = B64_VALUES[source[position]!];
-    if (digit === undefined) {
-      return err({
-        code: "invalid_input",
-        message: "source map VLQ 문자가 아니다",
-      });
-    }
-    position += 1;
-    const isContinuation = (digit & 32) !== 0;
-    result += (digit & 31) * 2 ** shift;
-    if (!isContinuation) {
-      const negative = (result & 1) === 1;
-      const magnitude = result >>> 1;
-      // 2^31 부근 가수를 방어한다: 유의미한 값은 32bit 안이다.
-      const value = magnitude > 2 ** 31
-        ? Number.NaN
-        : negative
-        ? -magnitude
-        : magnitude;
-      if (!Number.isFinite(value)) {
-        return err({
-          code: "invalid_input",
-          message: "source map VLQ 값이 크다",
-        });
-      }
-      return ok({ value, next: position });
-    }
-    shift += 5;
-    if (shift > 50) {
-      return err({
-        code: "invalid_input",
-        message: "source map VLQ가 길다",
-      });
-    }
-  }
-}
 
 // source map mappings의 첫 segment 표지를 돌려주는 콜백 모양.
-export type MappingVisitor = (
-  generated: { line: number; column: number },
-  original: { path: string; line: number; column: number },
-) => void;
 
 // V3 source map mappings를 풀며 원본 위치 segment마다 visitor를 부른다.
 // 십여 단위 byte의 map 크기 한도는 호출자가 준다: 여기는 형식만 본다.
-export function walkMappings(
-  mappings: string,
-  visit: MappingVisitor,
-): Result<true, SourceMapFailure> {
-  const lines = mappings.split(";");
-  let sourceIndex = 0;
-  let originalLine = 0;
-  let originalColumn = 0;
-  for (let generatedLine = 0; generatedLine < lines.length; generatedLine++) {
-    const segments = lines[generatedLine]!.split(",");
-    let generatedColumn = 0;
-    for (const segment of segments) {
-      if (segment.length === 0) continue;
-      const first = decodeVlq(segment, 0);
-      if (!first.ok) return first;
-      generatedColumn += first.value.value;
-      let cursor = first.value.next;
-      let sourceDelta = 0;
-      let lineDelta = 0;
-      let columnDelta = 0;
-      // 1개 segment(생성 위치만)는 원본 위치가 없으므로 건너뛴다.
-      const fields: number[] = [first.value.value];
-      for (let count = 1; count < 5; count++) {
-        if (cursor >= segment.length) break;
-        const nextField = decodeVlq(segment, cursor);
-        if (!nextField.ok) return nextField;
-        cursor = nextField.value.next;
-        fields.push(nextField.value.value);
-      }
-      if (fields.length >= 4) {
-        [sourceDelta, lineDelta, columnDelta] = [
-          fields[1]!,
-          fields[2]!,
-          fields[3]!,
-        ];
-        sourceIndex += sourceDelta;
-        originalLine += lineDelta;
-        originalColumn += columnDelta;
-        visit(
-          { line: generatedLine + 1, column: generatedColumn },
-          // 경로는 visitor가 source roots·sources로 결정한다.
-          { path: "", line: originalLine + 1, column: originalColumn + 1 },
-        );
-      }
-    }
-  }
-  return ok(true);
-}

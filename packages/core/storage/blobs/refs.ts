@@ -9,7 +9,6 @@ import {
   type BlobReadResult,
   type BlobRefRegistration,
   type PermanentBlobReference,
-  type PreparedBlob,
 } from "../../../protocol/storage/mod.ts";
 
 export type BlobAuthorizer = (
@@ -18,18 +17,6 @@ export type BlobAuthorizer = (
 ) => Result<void>;
 
 // 준비 참조가 요구하는 주체·purpose·hash·크기와 맞는지. 파일은 다시 보지 않는다.
-export function preparedMatches(
-  prepared: PreparedBlob,
-  required: Pick<PreparedBlob, "principal" | "purpose" | "hash"> & {
-    size_bytes?: number;
-  },
-): boolean {
-  return prepared.principal === required.principal &&
-    prepared.purpose === required.purpose &&
-    prepared.hash === required.hash &&
-    (required.size_bytes === undefined ||
-      prepared.size_bytes === required.size_bytes);
-}
 
 // 등록 field가 보존 종류와 일반 읽기 허용을 함께 적었는지.
 export function fieldDefined(
@@ -103,7 +90,7 @@ export function observedMatches(
   return ok(undefined);
 }
 
-export type BlobReadAnswer = {
+type BlobReadAnswer = {
   result: BlobReadResult;
   // available일 때만 실제 바이트. unavailable은 바이트가 없다.
   bytes?: Uint8Array;

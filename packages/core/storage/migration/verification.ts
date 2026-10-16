@@ -77,9 +77,3 @@ export function verifyMigrated(
 }
 
 // 위반 내용을 검사에 그대로 내보내지 않는다. 다만 검사 실패 자체는 본다.
-export function verificationFailure(): Result<never> {
-  return err({
-    code: "unavailable",
-    message: "migration 완료 검사가 실패해 원본을 되돌린다",
-  });
-}

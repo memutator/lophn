@@ -7,7 +7,7 @@ import type { At } from "../../../protocol/base/values.ts";
 import type { InvocationLedger } from "../ports.ts";
 
 // platform의 RestartObservation과 같은 모양이다. 최상위 사이는 contract로만 부르므로 여기서 따로 쓴다.
-export type InvocationRestartObservation = {
+type InvocationRestartObservation = {
   target: string;
   baseSeq: string;
   outcome: "confirmed" | "not_started" | "unknown";
@@ -24,18 +24,6 @@ type Rows = {
 
 // 기동이 미확인 확정에 쓰는 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없고,
 // 읽기 목록만 닿는다. core가 기동 때 ledger에 기록해 둔다.
-export const INVOCATION_RECOVERY_PRINCIPAL = "machine:invocation-recovery";
-
-export const INVOCATION_RECOVERY_CONTEXT = {
-  principal: INVOCATION_RECOVERY_PRINCIPAL,
-  actor: "machine",
-  scope: {
-    operations: ["app.invocations"],
-    targets: {},
-  },
-  conditions: {},
-  credential_ref: INVOCATION_RECOVERY_PRINCIPAL,
-};
 
 const REASON = "result_not_observed";
 

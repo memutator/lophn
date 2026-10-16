@@ -18,7 +18,7 @@ import {
   openConnection,
 } from "../storage/ledger/mod.ts";
 
-export type WriteLinkDeps = {
+type WriteLinkDeps = {
   ledgerPath: string;
   clock: Clock;
   ids: IdSource;

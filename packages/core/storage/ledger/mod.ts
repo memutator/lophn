@@ -14,25 +14,12 @@ import type { CommandSuccess } from "./writer-message.ts";
 
 export { LEDGER_SCHEMA_STEPS };
 
-export {
-  admitAgentRun,
-  LEDGER_COMMANDS,
-  type RunDisposition,
-  type RunMarkedCommand,
-} from "./commands.ts";
-export { type RunAdmission, runAdmission } from "./run-admission.ts";
-export { recordedUse, usableApproval } from "./approval-use.ts";
+export { admitAgentRun, LEDGER_COMMANDS } from "./commands.ts";
+export { runAdmission } from "./run-admission.ts";
 export { withEraseWindow } from "./erase.ts";
-export { commandResultRead } from "./command-results.ts";
-export { openWriter, runCommand } from "./writer.ts";
-export {
-  createWriterRegistration,
-  type CredentialCheck,
-  type WriterRegistration,
-} from "./writer-registration.ts";
+export { type WriterRegistration } from "./writer-registration.ts";
 export { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
 export {
-  type AfterCommit,
   afterCommit,
   type CommitAction,
   createAfterCommitCollector,
@@ -52,32 +39,18 @@ export type {
 export { openConnection };
 export type { LedgerConnection };
 export { createReaderPool } from "./reader-pool.ts";
-export type { ReaderHealth, ReaderPool } from "./reader-pool.ts";
+export type { ReaderPool } from "./reader-pool.ts";
 export {
   KNOWN_SECRETS,
   type KnownSecretChannel,
   type KnownSecretMatch,
 } from "./known-secrets.ts";
-export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
-export { snapshotPort } from "./reads.ts";
-export {
-  createEventVisibilityRegistry,
-  currentEventContext,
-} from "../../events/visibility.ts";
-export type {
-  EventReadGate,
-  EventRegistration,
-  EventVisibilityRegistry,
-  SubjectScopeGate,
-} from "../../events/visibility.ts";
+export type { ReaderRegistrationModule } from "./reads.ts";
 export { isDomainEvent } from "./domain-events.ts";
-export {
-  type CommitEventReader,
-  createCommitPublisher,
-} from "./commit-publisher.ts";
+export { createCommitPublisher } from "./commit-publisher.ts";
 export { reactionIdempotencyKey } from "./reaction.ts";
 
-export type LedgerDeps = {
+type LedgerDeps = {
   clock: Clock;
   ids: IdSource;
   ports?: readonly TxPortRegistration[];
@@ -94,7 +67,7 @@ export type LedgerDeps = {
   domainOnly?: boolean;
 };
 
-export type Ledger = {
+type Ledger = {
   // actor·run은 transaction 시작 때 고정한다. handler는 바꾸지 못한다.
   // request는 테스트가 현재 자격을 명시할 때만 쓴다. 없으면 cursor를 올리지 못한다.
   transaction<T>(

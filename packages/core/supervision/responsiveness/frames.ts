@@ -15,7 +15,7 @@ export type ByteWriter = {
   write(bytes: Uint8Array): Promise<number>;
 };
 
-export type WriterBacklog = { frames: number; bytes: number };
+type WriterBacklog = { frames: number; bytes: number };
 
 export type FrameWriter = {
   writeJson(payload: unknown): Promise<void>;
@@ -36,14 +36,14 @@ export type FrameWriter = {
 
 const FRAME_HEADER_BYTES = 9;
 // 막힌 sink에 계속 써도 payload·promise가 무한히 쌓이지 않는다. 넘치면 그 writer는 fault다.
-export const WRITE_BACKLOG_MAX_FRAMES = 256;
-export const WRITE_BACKLOG_MAX_BYTES = 2 *
+const WRITE_BACKLOG_MAX_FRAMES = 256;
+const WRITE_BACKLOG_MAX_BYTES = 2 *
   (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
 // 일반 frame이 상한까지 차도 마지막 제어 frame 하나는 들어갈 자리.
 const FINAL_RESERVE_FRAMES = 1;
 const FINAL_RESERVE_BYTES = CONTROL_MAX_BYTES + FRAME_HEADER_BYTES;
 
-export type FrameWriterOptions = {
+type FrameWriterOptions = {
   // frame 하나를 쓰기 시작해 끝나기까지의 기한(ms). 실제 경과 시간으로 잰다. 넘으면 그 writer는
   // fault가 되고(쓰던 frame은 끊겼을 수 있다), 쓰던 frame과 줄 선 frame은 같은 오류로 거절한다.
   // 없으면 기한이 없다(상대가 읽지 않으면 쓰기가 끝나지 않는다).

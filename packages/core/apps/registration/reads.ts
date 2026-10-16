@@ -23,7 +23,7 @@ const cursorSchema = z.strictObject({
 
 // 목록 page는 같은 조건 안에서만 이어진다. 상태·limit이 다른 cursor는
 // invalid_input이다. 같은 조건이면 새 snapshot의 위치 그대로 이어 본다.
-export function nextAppCursor(
+function nextAppCursor(
   offset: number,
   status: "active" | "archived" | undefined,
   limit: number,
@@ -35,7 +35,7 @@ export function nextAppCursor(
   }));
 }
 
-export function appPageOffset(
+function appPageOffset(
   cursor: string | undefined,
   status: "active" | "archived" | undefined,
   limit: number,

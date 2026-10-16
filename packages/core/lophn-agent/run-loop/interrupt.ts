@@ -11,7 +11,7 @@ import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 // - `session_ended`: session을 archive하거나 지울 때 그 session의 turn. places의 `EndDeps`가 같은 tx 안에서 부른다.
 // 대기 중이던 권한 요청과 질문의 cancelled 처리는 approvals와 agent-tools가 한다.
 
-export type InterruptReason = "restarted" | "session_ended";
+type InterruptReason = "restarted" | "session_ended";
 
 export function interruptRunningTurns(
   tx: Tx,

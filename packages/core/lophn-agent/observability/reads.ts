@@ -27,7 +27,7 @@ import {
 // tool_calls·messages·blob_refs)를 읽기만 하고 trace 자체는 어디에도 쓰지 않는다. 범위 밖 대상은
 // 이유와 관계없이 없는 대상과 똑같이 not_found다(존재를 새지 않는다).
 
-export type Lookup = {
+type Lookup = {
   sql: {
     get(query: string, params: SqlParams): SqlRow | undefined;
     all(query: string, params: SqlParams): SqlRow[];
@@ -98,7 +98,7 @@ type RunRow = RunFacts & {
   accepted_seq: SqlParam;
 };
 
-export function loadRun(lookup: Lookup, id: string): RunRow | undefined {
+function loadRun(lookup: Lookup, id: string): RunRow | undefined {
   const row = lookup.sql.get(
     `select ${RUN_COLUMNS} from runs where id = ?`,
     [id],
@@ -284,7 +284,7 @@ function loadUnrecorded(lookup: Lookup, run: string) {
   };
 }
 
-export function traceOfRun(lookup: Lookup, run: RunRow): RunTrace {
+function traceOfRun(lookup: Lookup, run: RunRow): RunTrace {
   const models = modelsOf(lookup.sql.all(
     `select ${MODEL_COLUMNS} from model_calls where turn = ?
      order by attempt_order`,
@@ -311,38 +311,6 @@ export function traceOfRun(lookup: Lookup, run: RunRow): RunTrace {
 }
 
 // run 없이 기록된 호출의 trace로 조립한다. export가 쓴다(가시 판정은 route가 본다).
-export function traceOfCall(lookup: Lookup, id: string): RunTrace | null {
-  const row = lookup.sql.get(
-    `select ${MODEL_COLUMNS}, turn as run, session, started_at
-       from model_calls where id = ?`,
-    [id],
-  );
-  if (row === undefined) return null;
-  const run = text(row["run"]);
-  const owner = run === null ? undefined : loadRun(lookup, run);
-  const models = modelsOf([row]);
-  const tools = toolsOf(lookup, "t.model_call = ?", id);
-  return assembleTrace({
-    run: null,
-    call: {
-      run,
-      session: text(row["session"]),
-      assignment: owner?.assignment ?? null,
-    },
-    events: loadCallEvents(lookup, id),
-    messages: [],
-    models,
-    tools,
-    handoff_links: [],
-    refs: loadRefs(lookup, {
-      run: null,
-      models: [id],
-      tools: tools.map((t) => t.id),
-      messages: [],
-    }),
-    unrecorded: { models: [], tools: [] },
-  });
-}
 
 function runTarget(
   lookup: Lookup,

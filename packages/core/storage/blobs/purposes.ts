@@ -13,13 +13,13 @@ import { isSha256Hash } from "./unreferenced.ts";
 import type { BlobRetentionCategory } from "../../../protocol/storage/mod.ts";
 
 // 목적 기록 하나의 모양. 준비가 성공한 hash의 purpose만 남긴다.
-export type PurposeRecord = {
+type PurposeRecord = {
   purpose: string;
 };
 
 // 목적 기록 폴더. 구분력은 hash 앞 2자 폴더가 정하고 이름은 나머지 62자다.
-export const PURPOSES_DIR = "blobs/purposes";
-export const PURPOSE_PREFIX_CHARS = 2;
+const PURPOSES_DIR = "blobs/purposes";
+const PURPOSE_PREFIX_CHARS = 2;
 
 // hash의 목적 기록 경로. sha256 64-hex 밖은 거절한다(invalid_input).
 export function purposesPathFor(
@@ -42,7 +42,7 @@ export function purposesPathFor(
 // purpose를 capacity category로 옮긴다. 규칙 밖 purpose면 undefined다.
 // app_bundle 같은 참조 등록 목적은 category가 없어
 // 정리 대상이 아니다(상한은 capacity field의 blob뿐이다).
-export function categoryOfPurpose(
+function categoryOfPurpose(
   rules: readonly RetentionRule[],
   purpose: string,
 ): BlobRetentionCategory | undefined {
@@ -65,7 +65,7 @@ export function parsePurposeRecord(raw: unknown): PurposeRecord | undefined {
   return { purpose };
 }
 
-export type AssignmentEntry = { category: string; permanent: boolean };
+type AssignmentEntry = { category: string; permanent: boolean };
 
 // trimCapacity의 할당을 산다. 두 근거:
 // - 참조 행(blob_refs의 hash → owner_kind/field)이 있으면 그 field 규칙.
@@ -120,6 +120,3 @@ export function assignmentOf(
 const PERMANENT_CATEGORY = Object.keys(BLOB_CAPACITY_MAX_BYTES)[0];
 
 // 상한의 유효 category.
-export const VALID_CATEGORIES: ReadonlySet<string> = new Set(
-  Object.keys(BLOB_CAPACITY_MAX_BYTES),
-);

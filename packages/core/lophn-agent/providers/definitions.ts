@@ -16,10 +16,6 @@ const definitions: ProviderDefinition[] = (definitionsJson as unknown[])
   .filter((parsed) => parsed.success)
   .map((parsed) => parsed.data);
 
-export function builtinProviderDefinitions(): ProviderDefinition[] {
-  return definitions;
-}
-
 export function createProviderDefinitionsRead(): ApiReadDefinition<
   typeof providerDefinitions
 > {

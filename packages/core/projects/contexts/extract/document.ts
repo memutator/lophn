@@ -95,7 +95,7 @@ function parseMarkdown(raw: string): ParsedDocument | null {
 }
 
 // 없는 파일, YAML 문법 오류, 객체가 아닌 frontmatter는 개체로 읽을 수 없어 null이다.
-export function parseDocument(
+function parseDocument(
   files: ProjectFiles,
   path: string,
 ): ParsedDocument | null {

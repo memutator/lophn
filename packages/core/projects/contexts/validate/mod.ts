@@ -6,8 +6,6 @@ import { checkSources } from "./sources.ts";
 import { type ContractIssue, sortIssues, type ValidationEnv } from "./types.ts";
 
 export {
-  type AppCommandEffect,
-  CONTRACT_ISSUE_CODES,
   type ContractIssue,
   type ContractIssueCode,
   type ExternalType,

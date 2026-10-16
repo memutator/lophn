@@ -2,9 +2,9 @@
 // 쓰고 runner가 응답 파일을 쓴다. 자식에는 net·run 권한이 없으므로 이 폴더가 둘이 주고받는 유일한
 // 길이다. runner가 실제 앱 자식과 broker를 쥐고 AppDriver를 구현하고, 자식은 이 통로로만 만진다
 // (앱 code는 격리 자식, harness는 따로 도는 test 자식이다).
-import type { AppDriver, Attestation } from "./driver.ts";
+import type { AppDriver } from "./driver.ts";
 
-export const RPC_DIR = "rpc";
+const RPC_DIR = "rpc";
 const POLL_MS = 15;
 // 자식이 부를 수 있는 AppDriver 방법. runner 쪽 driver의 그 밖의 방법은 자식에 닿지 않는다.
 const METHODS = ["probe", "rejectsInvalidInput", "rewind", "migrate"];
@@ -23,36 +23,6 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // test 자식 쪽. 호출마다 요청 파일 하나를 쓰고 응답 파일이 나올 때까지 기다린다. 기한은 runner의
 // process timeout이 강제한다.
-export function rpcDriver(scratch: string): AppDriver {
-  const dir = `${scratch}/${RPC_DIR}`;
-  let counter = 0;
-  async function call<T>(method: string, ...args: unknown[]): Promise<T> {
-    counter += 1;
-    const n = counter;
-    const request: Request = { n, method, args };
-    await Deno.mkdir(dir, { recursive: true });
-    await writeAtomic(`${dir}/${n}.req.json`, JSON.stringify(request));
-    const path = `${dir}/${n}.res.json`;
-    while (true) {
-      let text: string | undefined;
-      try {
-        text = await Deno.readTextFile(path);
-      } catch {
-        await sleep(POLL_MS);
-        continue;
-      }
-      const response = JSON.parse(text) as Response;
-      if (response.ok) return response.value as T;
-      throw new Error(response.error);
-    }
-  }
-  return {
-    probe: () => call<Attestation>("probe"),
-    rejectsInvalidInput: (api) => call<boolean>("rejectsInvalidInput", api),
-    rewind: (api) => call("rewind", api),
-    migrate: (scenario) => call("migrate", scenario),
-  };
-}
 
 // runner 쪽. 자식이 도는 동안 요청 폴더를 읽어 순서대로 실행하고 응답을 쓴다. 정지하면 마지막
 // 요청까지 마치고 끝난다.

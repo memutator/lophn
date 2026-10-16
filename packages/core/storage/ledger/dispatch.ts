@@ -16,7 +16,7 @@ import {
 } from "./command-outcome.ts";
 
 // 바깥 command 하나가 transaction을 연다. 안쪽 call은 새 transaction·commit을 만들지 않는다.
-export const CALL_MAX_DEPTH = 4;
+const CALL_MAX_DEPTH = 4;
 
 export type CommandDispatch = {
   // 안쪽 command는 바깥과 같은 Tx를 받는다. route 객체에는 SQL이 없다.

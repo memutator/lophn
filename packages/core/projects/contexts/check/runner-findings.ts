@@ -8,7 +8,7 @@ const PRIVATE_CODES: readonly string[] = [
 ];
 
 // zod issue 중 이 검사가 쓰는 부분.
-export type SchemaIssue = {
+type SchemaIssue = {
   path: readonly PropertyKey[];
   message: string;
 };

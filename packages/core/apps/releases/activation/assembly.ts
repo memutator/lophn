@@ -82,9 +82,9 @@ type Envelope = {
 };
 
 // 진행하지 못한 시도를 다시 이어받는 최소 간격이다. 같은 실패를 매 sweep 쏟아내지 않는다.
-export const ACTIVATION_RETRY_MS = 30_000;
+const ACTIVATION_RETRY_MS = 30_000;
 
-export type ActivationDeps = {
+type ActivationDeps = {
   clock: Clock;
   ids: IdSource;
   ledgerPath: string;
@@ -115,7 +115,7 @@ export type ActivationDeps = {
 };
 
 // 다른 module의 port다. 조립이 늦게 끼운다(`attach`). 끼우기 전에는 activation을 진행하지 않는다.
-export type ActivationLate = {
+type ActivationLate = {
   approvals: {
     createPending(intent: Intent): Promise<Result<PendingApproval>>;
     cancelPendingFor(app: string, release?: string): Promise<Result<number>>;

@@ -9,16 +9,16 @@ export type SseFrame = {
   data: string;
 };
 
-export type SseOver = {
+type SseOver = {
   kind: "line" | "event" | "total";
   limit: number;
 };
 
-export type SsePush =
+type SsePush =
   | { ok: true; frames: SseFrame[] }
   | { ok: false; over: SseOver };
 
-export type SseParser = {
+type SseParser = {
   push(chunk: Uint8Array): SsePush;
   // 잘린 꼬리는 버린다. 내보내지 않은 event가 있었다는 표시만 남긴다.
   finish(): { pending: boolean };
@@ -26,9 +26,9 @@ export type SseParser = {
 
 // lophn 값은 요구·조사 문서에 숫자가 없다.
 // 정규 event가 넘지 않는 상한으로 두고, 넘으면 실패가 맞다.
-export const SSE_LINE_MAX_BYTES = 262_144;
-export const SSE_EVENT_MAX_BYTES = 2_097_152;
-export const SSE_TOTAL_MAX_BYTES = 67_108_864;
+const SSE_LINE_MAX_BYTES = 262_144;
+const SSE_EVENT_MAX_BYTES = 2_097_152;
+const SSE_TOTAL_MAX_BYTES = 67_108_864;
 
 const NEWLINE = 0x0a;
 

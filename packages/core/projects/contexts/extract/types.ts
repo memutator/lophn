@@ -62,7 +62,7 @@ export type EntityAnchor = {
 };
 
 // field가 값을 찾을 범위.
-export type AnchorScope =
+type AnchorScope =
   | { kind: "folder" }
   | { kind: "document" }
   | { kind: "section"; heading: Heading }
@@ -105,7 +105,7 @@ export type ExtractResult = {
 
 // ---------- kind ----------
 
-export type SourceKind = ContractSource["kind"];
+type SourceKind = ContractSource["kind"];
 export type TypeOfKind<K extends SourceKind> =
   & Omit<ContractType, "source">
   & { source: Extract<ContractSource, { kind: K }> };
@@ -133,7 +133,7 @@ export type KindExtractor<K extends SourceKind> = (
 
 // ---------- field ----------
 
-export type FieldFromKind<K extends FieldFrom["kind"]> = Extract<
+type FieldFromKind<K extends FieldFrom["kind"]> = Extract<
   FieldFrom,
   { kind: K }
 >;

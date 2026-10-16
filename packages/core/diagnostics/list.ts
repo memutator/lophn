@@ -6,13 +6,13 @@ import {
 } from "../../protocol/diagnostics/mod.ts";
 import type { ReadHandler } from "../server/mod.ts";
 
-export type DiagnosticQuery = {
+type DiagnosticQuery = {
   component?: string;
   kind?: DiagnosticRecord["kind"];
 };
 
 // 기록된 안전 진단. 원문은 여기 들어오기 전에 redaction을 통과한 것이다.
-export type DiagnosticListSource = {
+type DiagnosticListSource = {
   records(query: DiagnosticQuery): Promise<readonly DiagnosticRecord[]>;
 };
 

@@ -12,26 +12,26 @@ export { CATALOG_REFRESH_INTERVAL_MS };
 
 // catalog 적용 순서(domain-model lophn-agent/harness/model "catalog 우선순위").
 // release snapshot 위에 정상 갱신본을 겹치고 좁은 patch와 사람 보완이 그 위를 덮는다.
-export const LAYER_ORDER = [
+const LAYER_ORDER = [
   "release_snapshot",
   "models_dev",
   "lophn_patch",
   "user",
 ] as const;
-export type CatalogSource = (typeof LAYER_ORDER)[number];
+type CatalogSource = (typeof LAYER_ORDER)[number];
 
-export function layerRank(source: string): number {
+function layerRank(source: string): number {
   return LAYER_ORDER.indexOf(source as CatalogSource);
 }
 
 // model identity는 (provider_definition, model_name) 쌍이다. 같은 이름의
 // 직접 제공처와 중계 제공처 항목은 별도 항목으로 유지한다.
-export type EntryIdentity = Readonly<{
+type EntryIdentity = Readonly<{
   provider_definition: string;
   model_name: string;
 }>;
 
-export function entryKey(entry: EntryIdentity): string {
+function entryKey(entry: EntryIdentity): string {
   return `${entry.provider_definition}\u0000${entry.model_name}`;
 }
 
@@ -41,7 +41,7 @@ function preferred(previous: CatalogEntry, next: CatalogEntry): CatalogEntry {
   return layerRank(next.source) >= layerRank(previous.source) ? next : previous;
 }
 
-export function mergeEntries(
+function mergeEntries(
   entries: readonly (readonly CatalogEntry[])[],
 ): CatalogEntry[] {
   const merged = new Map<string, CatalogEntry>();
@@ -70,15 +70,6 @@ export type CatalogLayers = {
   user: CatalogEntry[];
 };
 
-export function emptyLayers(): CatalogLayers {
-  return {
-    release_snapshot: [],
-    models_dev: [],
-    lophn_patch: [],
-    user: [],
-  };
-}
-
 export function mergeCatalogLayers(layers: CatalogLayers): CatalogEntry[] {
   return mergeEntries([
     layers.release_snapshot,
@@ -89,45 +80,9 @@ export function mergeCatalogLayers(layers: CatalogLayers): CatalogEntry[] {
 }
 
 // 사용자 보완이 덮을 수 있는 항목 필드. identity·출처·판은 보완 대상이 아니다.
-export const OVERRIDABLE_FIELDS = [
-  "context_limit",
-  "input_limit",
-  "output_limit",
-  "supports_tools",
-  "input_media",
-  "output_media",
-  "options",
-  "preview",
-  "deprecated",
-  "price_basis",
-] as const;
-
-export type UserPatch = Readonly<
-  Partial<Pick<CatalogEntry, (typeof OVERRIDABLE_FIELDS)[number]>>
->;
 
 // 사람 보완은 명시한 항목만 던다. patched 항목은 출처 user가 되지만
 // 같은 identity의 하위 층 항목도 유지된다.
-export function applyUserPatch(
-  entry: CatalogEntry,
-  patch: UserPatch,
-  revision: string,
-  at: string,
-): CatalogEntry {
-  const next: CatalogEntry = { ...entry };
-  for (const field of OVERRIDABLE_FIELDS) {
-    if (patch[field] !== undefined) {
-      (next as Record<string, unknown>)[field] = patch[field];
-    }
-  }
-  return {
-    ...next,
-    source: "user",
-    source_revision: revision,
-    checked_at: at,
-    received_at: entry.received_at,
-  };
-}
 
 // 갱신 목록의 항목 전체 검증. 한 항목이라도 검증을 넘지 못하면 전체를 거절한다.
 export function validateCatalogResponse(
@@ -223,12 +178,6 @@ export function stateAfterFailure(
 }
 
 // 갱신 시점 판정. 마지막 확인 뒤 24시간이 지나면 갱신한다.
-export function refreshDue(state: CatalogState, nowMs: number): boolean {
-  if (!state.auto_update) return false;
-  if (state.last_checked_at === null) return true;
-  const checked = Date.parse(state.last_checked_at);
-  return nowMs - checked >= CATALOG_REFRESH_INTERVAL_MS;
-}
 
 export async function hashEntries(
   entries: readonly CatalogEntry[],
@@ -266,7 +215,7 @@ export function parseEntries(text: string): CatalogEntry[] | undefined {
 
 // catalog 밖 model을 호출 gate로 넘기는 조건. 확인된 항목이 하나라도 없으면
 // 사용할 수 없다. 임의 한계(false negatives도 0도 128000도 아니다)를 추측하지 않는다.
-export type ResolvedSupport = Readonly<{
+type ResolvedSupport = Readonly<{
   context_limit: number;
   input_limit: number;
   output_limit: number;

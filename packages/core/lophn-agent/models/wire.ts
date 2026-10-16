@@ -14,9 +14,9 @@ import type { JsonObject, JsonValue } from "../../../protocol/base/mod.ts";
 // 요청 필드로 옮기는 표가 하나씩 있고, effort 밖 값은 catalog가 선언한 wire(body patch 또는
 // model id 바꾸기)를 그대로 쓴다. model 이름으로 갈라지는 분기는 어디에도 두지 않는다.
 
-export type WireProtocol = (typeof PROVIDER_PROTOCOLS)[number];
+type WireProtocol = (typeof PROVIDER_PROTOCOLS)[number];
 
-export type WirePlan = {
+type WirePlan = {
   // 요청에 실을 model 이름. model_id wire가 있으면 바뀐 이름, 없으면 entry.model_name.
   sent_model_name: string;
   // 요청 body에 합칠 조각. 조각이 겹치면 깊게 합친다.

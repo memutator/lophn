@@ -3,7 +3,6 @@ export { createProviderCommands } from "./commands.ts";
 export { createProviderReads } from "./reads.ts";
 export {
   builtinProviderDefinition,
-  builtinProviderDefinitions,
   createProviderDefinitionsRead,
 } from "./definitions.ts";
 export {
@@ -23,32 +22,13 @@ export {
   createFetchTransport,
   withRequestHeaders,
 } from "./adapters/transport.ts";
-export { billingRouteOf, credentialUsable } from "./credentials.ts";
+export { credentialUsable } from "./credentials.ts";
 export { listProviders, loadProvider } from "./store.ts";
-export {
-  createProviderOAuth,
-  OAUTH_APP_NAME,
-  OAUTH_POLL_DEFAULT_MS,
-  OAUTH_POLL_SLOW_DOWN_MS,
-  type OAuthBegin,
-  type OAuthDeps,
-  type OAuthTokenBundle,
-  parsePastedSubmission,
-  pkceChallengeS256,
-} from "./oauth.ts";
+export { createProviderOAuth, type OAuthBegin } from "./oauth.ts";
 export {
   type OAuthCallback,
   type OAuthListener,
   type OAuthListenerOpener,
 } from "./adapters/oauth-transport.ts";
 export { openCallbackListener } from "./adapters/oauth-transport.ts";
-export {
-  createOAuthRefresher,
-  type OAuthRefreshOutcome,
-  type OAuthRefreshPort,
-  refreshDue,
-  refreshDueAt,
-  type RefreshFacts,
-  unauthorizedRetry,
-} from "./refresh.ts";
 export type { InvokeModelCall } from "./work.ts";

@@ -4,11 +4,7 @@ import {
   REDACTION_MAX_DEPTH,
   REDACTION_REPLACEMENT,
 } from "../../../base/redaction/mod.ts";
-import {
-  type AppInvocation,
-  type AppInvocationOperation,
-  type InvocationEffect,
-} from "../../../protocol/apps/calls/mod.ts";
+import { type AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import { INVOCATION_SUMMARY_MAX_BYTES } from "../../../protocol/apps/mod.ts";
 import {
   CHANGESET_MAX_BYTES,
@@ -25,13 +21,6 @@ function invalid(message: string): Result<never> {
 
 // 시작을 미리 남길 호출: write·external app-api와 앱 시작. 읽기는 실패했을 때 끝에서 한 번에 남기고,
 // data_change는 이미 일어난 일이라 끝에서 한 번에 남긴다.
-export function recordsAtStart(
-  effect: InvocationEffect,
-  operation: AppInvocationOperation,
-): boolean {
-  if (operation.kind === "start") return true;
-  return operation.kind === "api" && effect !== "read";
-}
 
 // `running`만 종료 상태로 간다. 종료 상태는 바뀌지 않는다.
 export function finishable(current: AppInvocation): Result<void> {
@@ -49,7 +38,7 @@ export function recordableOnce(input: AppInvocation): Result<void> {
   return ok(undefined);
 }
 
-export type ChangesetVerdict = "fits" | "too_large" | "release_full";
+type ChangesetVerdict = "fits" | "too_large" | "release_full";
 
 // changeset을 붙일 수 있는지. 못 붙이면 그 invocation은 changeset 없이 닫힌다.
 export function changesetVerdict(

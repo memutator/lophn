@@ -8,7 +8,7 @@ import {
 import { defineRead, idSchema } from "../../../../protocol/base/mod.ts";
 
 // 같은 app의 Verification 사실. problems/tests가 소유한 행의 읽기 값이다.
-export const verificationFactSchema = z.object({
+const verificationFactSchema = z.object({
   id: idSchema("vrf"),
   kind: z.enum(["app_test", "reproduction", "test_command"]),
   app: idSchema("app"),

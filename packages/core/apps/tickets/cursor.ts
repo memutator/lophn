@@ -28,6 +28,6 @@ export function nextCursor(afterId: string, _asOf: string): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function invalid(): Result<never> {
+function invalid(): Result<never> {
   return err({ code: "invalid_input", message: "invalid ticket cursor" });
 }

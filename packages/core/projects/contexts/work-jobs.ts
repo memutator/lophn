@@ -12,7 +12,7 @@ import {
   runIndexJob,
 } from "./work-index.ts";
 
-export type ContextJobs = {
+type ContextJobs = {
   index(request: IndexJobRequest): Promise<Result<IndexJobResult>>;
   check(request: CheckJobRequest): Promise<Result<CheckOutcome>>;
 };

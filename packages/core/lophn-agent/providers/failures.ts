@@ -15,7 +15,7 @@ type ProviderFailure = (typeof PROVIDER_FAILURES)[number];
 // 순서: retry-after-ms → retry-after(숫자 초 또는 HTTP-date) → reset header.
 // "retry after" 문구가 "resets in"보다 우선이다(Hermes 조사 93–101).
 
-export type ResetSource = {
+type ResetSource = {
   headers: Record<string, string>;
   // error 종료의 사람이 읽을 message. 문구 파싱 근원이다. 원문 보존은 없다.
   message?: string;
@@ -25,7 +25,7 @@ export type ResetSource = {
 
 // 숫자가 아닌 reset header 값은 시각이든 무엇이든 버린다. 값이 안전하지 않으면
 // 미상과 같다.
-export function retryAfterMs(
+function retryAfterMs(
   source: ResetSource,
 ): number | null {
   const msHeader = source.headers["retry-after-ms"];
@@ -148,11 +148,11 @@ const MEMORY_CEILING_PATTERNS: readonly RegExp[] = [
   /request too large for this model to process/i,
 ];
 
-export function isOverflowMessage(message: string): boolean {
+function isOverflowMessage(message: string): boolean {
   return OVERFLOW_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-export function isMemoryCeilingMessage(message: string): boolean {
+function isMemoryCeilingMessage(message: string): boolean {
   return MEMORY_CEILING_PATTERNS.some((pattern) => pattern.test(message));
 }
 
@@ -195,7 +195,7 @@ function codeOf(
 
 // 오류가 온 자리. HTTP status·header·구조화 code·사람이 읽을 message 파편만
 // 받는다. 원문 본문은 받지 않고 열지도 않는다.
-export type FailureInput = {
+type FailureInput = {
   kind: "http" | "stream_error";
   status: number | null;
   headers: Record<string, string>;
@@ -233,7 +233,7 @@ type CoreVerdict = Omit<FailureVerdict, "provider_code">;
 
 const SAFE_PROVIDER_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export function failureVerdict(input: FailureInput): FailureVerdict {
+function failureVerdict(input: FailureInput): FailureVerdict {
   const core = coreVerdict(input);
   // 구조화 code만 안전한 토큰이면 남긴다. 본문 문구와 원문은 남기지 않는다.
   const code = input.code !== undefined && SAFE_PROVIDER_CODE.test(input.code)
@@ -486,11 +486,11 @@ export function outcomeFromVerdict(
 export const ERROR_BODY_MAX_BYTES = 65_536;
 const FRAGMENT_MAX_CHARS = 2000;
 
-export type ErrorFacts = { code?: string; message?: string };
+type ErrorFacts = { code?: string; message?: string };
 
 // 오류 본문 한 덩어리에서 구조화 code와 문구 조각만 뽑는다. 본문 원문은 반환하지
 // 않고 호출자도 남기지 않는다. 읽을 수 없으면 빈 facts다(원인 불명으로 간다).
-export function errorFactsFromBody(text: string | null): ErrorFacts {
+function errorFactsFromBody(text: string | null): ErrorFacts {
   if (text === null || text.length === 0) return {};
   let parsed: unknown;
   try {
@@ -522,7 +522,7 @@ export function errorFactsFromBody(text: string | null): ErrorFacts {
   return facts;
 }
 
-export function headersRecord(headers: Headers): Record<string, string> {
+function headersRecord(headers: Headers): Record<string, string> {
   const record: Record<string, string> = {};
   headers.forEach((value, name) => {
     record[name.toLowerCase()] = value;

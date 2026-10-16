@@ -2,7 +2,7 @@
 // 방법은 OS마다 다르다. Linux는 setsid, macOS는 setsid 바이너리가 없어 perl의
 // setpgrp로 나눈다. 둘 다 없으면 시작 전에 unavailable이다.
 
-export type GroupLeader = {
+type GroupLeader = {
   // 새 세션을 여는 실행 파일. 그 뒤 인자가 실제 명령이다.
   command: string;
   args: string[];
@@ -13,9 +13,9 @@ const PERL = "/usr/bin/perl";
 // macOS perl은 기본 설치다. 0은 호출 프로세스, 두 번째 0은 새 그룹 id를 고른다.
 const PERL_SPLIT = "setpgrp(0,0); exec @ARGV";
 
-export type GroupTool = "setsid" | "perl" | "none";
+type GroupTool = "setsid" | "perl" | "none";
 
-export function groupTool(os: string): GroupTool {
+function groupTool(os: string): GroupTool {
   if (os === "linux") return "setsid";
   if (os === "darwin") return "perl";
   return "none";

@@ -1,15 +1,15 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-export const IO_CONCURRENCY = 2;
-export const IO_QUEUE_LIMIT = 32;
-export const IO_PRINCIPAL_LIMIT = 4;
-export const IO_QUEUE_TIMEOUT_MS = 30_000;
+const IO_CONCURRENCY = 2;
+const IO_QUEUE_LIMIT = 32;
+const IO_PRINCIPAL_LIMIT = 4;
+const IO_QUEUE_TIMEOUT_MS = 30_000;
 
-export type IoJob<T> = {
+type IoJob<T> = {
   result: Promise<Result<T>>;
   cancel(): void;
 };
-export type IoScheduler = {
+type IoScheduler = {
   submit<T>(
     principal: string,
     work: (signal: AbortSignal) => Promise<T>,

@@ -153,7 +153,7 @@ async function staged(
   }
 }
 
-export type InstallResult = {
+type InstallResult = {
   path: string;
   result: "restored" | "skipped";
 };

@@ -1,8 +1,6 @@
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type CreateQuestionGroupInput,
-  type OptionAction,
-  optionActionSchema,
   QUESTION_GROUP_MAX_QUESTIONS,
   type questionList,
   type QuestionOption,
@@ -30,7 +28,7 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-export type GroupRow = {
+type GroupRow = {
   id: string;
   run: string;
   session: string | null;
@@ -44,7 +42,7 @@ export type GroupRow = {
   closed_seq: string | null;
 };
 
-export type QuestionRow = {
+type QuestionRow = {
   id: string;
   group: string;
   position: number;
@@ -62,7 +60,7 @@ export type QuestionGroup = GroupRow & { questions: QuestionRow[] };
 export const GROUP_COLUMNS = `id, run, session, created_by, expires_at, status,
   binding_hash, closed_reason, closed_reason_blob, created_seq, closed_seq`;
 
-export const QUESTION_COLUMNS =
+const QUESTION_COLUMNS =
   `id, "group", position, prompt_blob, reason_blob, options, recommendation, answer`;
 
 export function groupRowOf(row: SqlRow): GroupRow {
@@ -81,7 +79,7 @@ export function groupRowOf(row: SqlRow): GroupRow {
   };
 }
 
-export function questionRowOf(row: SqlRow): QuestionRow {
+function questionRowOf(row: SqlRow): QuestionRow {
   return {
     id: String(row["id"]),
     group: String(row["group"]),
@@ -124,21 +122,6 @@ export function loadGroup(
 
 // 질문 ID로 그 묶음을 찾는다. 질문 ID를 다른 concern이 가리키므로(선택지 적용 근거·채택)
 // 이 길이 필요하다.
-export function loadGroupOfQuestion(
-  lookup: Lookup,
-  question: string,
-): { group: QuestionGroup; question: QuestionRow } | undefined {
-  const row = lookup.sql.get(
-    `select "group" from questions where id = ?`,
-    [question],
-  );
-  if (row === undefined) return undefined;
-  const group = loadGroup(lookup, String(row["group"]));
-  const found = group?.questions.find((one) => one.id === question);
-  return group === undefined || found === undefined
-    ? undefined
-    : { group, question: found };
-}
 
 export type RunRef = {
   id: string;
@@ -212,11 +195,11 @@ export function groupStateOf(group: QuestionGroup): GroupState {
   };
 }
 
-export type QuestionGroupRecord = Output<typeof questionList>["groups"][number];
+type QuestionGroupRecord = Output<typeof questionList>["groups"][number];
 
 // 같은 질문 option을 사람 결정으로 적용한 기록의 key. 적용 기록은 platform/ledger의
 // question_evidence(identity의 일회 표)이고 이 concern에는 적용 상태 표가 없다.
-export function evidenceKey(question: string, option: string): string {
+function evidenceKey(question: string, option: string): string {
   return `${question}\u0000${option}`;
 }
 
@@ -246,54 +229,10 @@ export function appliedOf(
 
 // 사람이 고른 선택지와 그 고정 action. 고정 action이 있는 선택지를 가진 질문은 질문 하나짜리
 // 묶음이라 묶음에서 많아야 하나다. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
-export function chosenActionOf(
-  group: QuestionGroup,
-): { question: QuestionRow; key: string; action: OptionAction } | undefined {
-  if (group.status !== "answered") return undefined;
-  for (const question of group.questions) {
-    const answer = answerOf(question);
-    if (answer === null || answer.kind !== "option") continue;
-    const option = optionsOf(question).find((candidate) =>
-      candidate.key === answer.option_key
-    );
-    if (option === undefined || option.action === null) continue;
-    const parsed = optionActionSchema.safeParse(option.action);
-    if (parsed.success && answer.option_key !== null) {
-      return { question, key: answer.option_key, action: parsed.data };
-    }
-  }
-  return undefined;
-}
 
 // 채택은 answered 묶음에 속한 질문이 고른 선택지의 adoption으로만 판정한다. 새 version은
 // 자동 채택하지 않는다: 같은 질문의 답은 그때 고정한 document·version만 가리킨다. 채택을 근거로
 // 쓰는 ticket·handoff는 이 값의 document·version과 질문 ID를 함께 보관한다.
-export type Adoption = {
-  question: string;
-  document: string;
-  version: string;
-  section: string | null;
-};
-
-export function adoptionsOf(group: QuestionGroup): Adoption[] {
-  if (group.status !== "answered") return [];
-  const adopted: Adoption[] = [];
-  for (const question of group.questions) {
-    const answer = answerOf(question);
-    if (answer === null || answer.kind !== "option") continue;
-    const chosen = optionsOf(question).find((option) =>
-      option.key === answer.option_key
-    );
-    if (chosen === undefined || chosen.adoption === null) continue;
-    adopted.push({
-      question: question.id,
-      document: chosen.adoption.document,
-      version: chosen.adoption.version,
-      section: chosen.adoption.section,
-    });
-  }
-  return adopted;
-}
 
 export function recordOf(
   group: QuestionGroup,

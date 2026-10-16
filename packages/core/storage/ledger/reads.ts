@@ -15,7 +15,7 @@ import { createTargetAuthorizer } from "./target-authorization.ts";
 import { validateOutput } from "./output.ts";
 
 export const READ_MAX_ROWS = 500;
-export const READ_MAX_BYTES = 1024 * 1024;
+const READ_MAX_BYTES = 1024 * 1024;
 export const READ_TIMEOUT_MS = 2000;
 // reader의 잠금 대기 상한. READ_TIMEOUT_MS 안에서 끝나야 pool이 그 read를
 // 기한 뒤 성공으로 바꾸지 않는다(잠금 대기는 최대 5,000ms의
@@ -55,7 +55,7 @@ function responseRows(value: unknown): number {
   return 0;
 }
 
-export type ReaderRegistration = {
+type ReaderRegistration = {
   reads: readonly ReadDefinition[];
   ports: ReadonlyMap<unknown, unknown>;
 };
@@ -66,13 +66,6 @@ const SNAPSHOT_PORT = Symbol.for("lophn.reader.snapshotPort");
 type SnapshotPort<T> = {
   readonly [SNAPSHOT_PORT]: (snapshot: ReadSnapshot) => T;
 };
-
-export function snapshotPort<T>(
-  create: (snapshot: ReadSnapshot) => T,
-): unknown {
-  const port: SnapshotPort<T> = { [SNAPSHOT_PORT]: create };
-  return port;
-}
 
 // entry의 정적 module이 Worker마다 함수와 port object identity를 다시 조립한다.
 export type ReaderRegistrationModule = {

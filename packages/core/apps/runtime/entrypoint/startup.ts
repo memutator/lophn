@@ -12,18 +12,10 @@ import { ensureAppApiPort } from "./app-api-port.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
 import { attestation } from "./control.ts";
 
-export type Started = {
+type Started = {
   start: AppStart;
   state: RuntimeState;
 };
-
-export async function readStartLine(
-  read: () => Promise<string | null>,
-): Promise<string> {
-  const line = await read();
-  if (!line) throw new Error("app start input missing");
-  return line;
-}
 
 export function startRuntime(deps: {
   line: string;

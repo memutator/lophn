@@ -19,7 +19,7 @@ type Entry = {
   settle(result: AskResult): void;
 };
 
-export type QuestionWaitsDeps = {
+type QuestionWaitsDeps = {
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -147,4 +147,3 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
   };
 }
 
-export type QuestionWaits = ReturnType<typeof createQuestionWaits>;

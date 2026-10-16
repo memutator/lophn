@@ -5,7 +5,7 @@ import { loadProject, searchScopeOf } from "../registry/mod.ts";
 import { decodeCursor, encodeCursor, pageLimit } from "./model.ts";
 import { scan, type ScanDeps } from "./work.ts";
 
-export type ProjectSearchDeps = ScanDeps & {
+type ProjectSearchDeps = ScanDeps & {
   // ledger snapshot 하나에서 project를 읽는다. 연결은 읽고 나면 닫는다.
   snapshot<T>(
     read: (sql: Pick<Sql, "get" | "all">, asOfSeq: string) => Result<T>,

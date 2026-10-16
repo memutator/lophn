@@ -25,7 +25,7 @@ import { type CoreCall, readOf } from "./core-call.ts";
 // file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다: lophn은 모든 project 폴더를 읽기만 하고, Project
 // Manager와 project place의 Operator는 그 project 폴더를, App Engineer는 앱 source 폴더를 읽고 쓴다.
 
-export type PlaceRead = {
+type PlaceRead = {
   place: PlaceData;
   scope: { read: string[]; write: string[] };
 };

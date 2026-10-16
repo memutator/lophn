@@ -33,7 +33,7 @@ const WORKER_ENTRIES: Readonly<
   "apps/data": runDataWorker,
 };
 
-export async function runWorker(kind: string, root: string): Promise<void> {
+async function runWorker(kind: string, root: string): Promise<void> {
   const entry = Object.hasOwn(WORKER_ENTRIES, kind)
     ? WORKER_ENTRIES[kind]
     : undefined;

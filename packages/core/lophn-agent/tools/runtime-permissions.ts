@@ -11,7 +11,7 @@ import {
 import { SHELL_ENV_NAMES } from "./shell/env.ts";
 
 // agent runtime process의 Deno 권한 계산이다. `agentRuntimeLaunchSpec`(register.ts)이 이 결과를 그대로 launch spec에 싣는다.
-export type RuntimePermissionInput = {
+type RuntimePermissionInput = {
   dataRoot: string;
   apiPort: number;
   // supervisor가 앱 direct socket을 두는 폴더(`appSocketRoot`).
@@ -25,7 +25,7 @@ export type RuntimePermissionInput = {
   placeFolders: { read: readonly string[]; write: readonly string[] };
 };
 
-export type RuntimePermissions =
+type RuntimePermissions =
   & Pick<
     KindLaunchSpec,
     "allow_read" | "allow_write" | "allow_net" | "allow_run" | "allow_env"

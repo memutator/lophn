@@ -19,19 +19,7 @@ import type { SpawnPort } from "./mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
 
-export type RunnerChild = {
-  pid: number;
-  killGroup(signal?: Deno.Signal): void;
-};
-
 // 감독이 runner를 거두면 띄워 둔 프로세스 그룹을 전부 회수한다.
-export function stopChildren(children: readonly RunnerChild[]): void {
-  for (const child of children) {
-    try {
-      child.killGroup("SIGKILL");
-    } catch { /* 이미 끝난 자식은 무시한다 */ }
-  }
-}
 
 // 메모리 경계는 platform/security가 고른다. 걸 수 없으면 runPrepared가
 // 자식을 띄우지 않는다.
@@ -41,7 +29,7 @@ export const platformMemory: MemoryLimitPort = {
   },
 };
 
-export async function acceptRun(
+async function acceptRun(
   request: RunRequest,
   options: {
     memory?: MemoryLimitPort;

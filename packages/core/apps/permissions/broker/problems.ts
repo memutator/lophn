@@ -11,15 +11,15 @@ import type { z } from "zod";
 import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
-export type ProblemReportOutput = z.infer<
+type ProblemReportOutput = z.infer<
   typeof brokerProblemReportOutputSchema
 >;
 
-export type ProblemObserveInput = z.infer<
+type ProblemObserveInput = z.infer<
   typeof brokerProblemObserveInputSchema
 >["observation"];
 
-export type ProblemReportRequest = {
+type ProblemReportRequest = {
   app: string;
   release: string | null;
   mode: BrokerChild["mode"];

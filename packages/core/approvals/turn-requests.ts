@@ -27,7 +27,7 @@ type Entry = {
   waiters: ((decision: TurnDecision) => void)[];
 };
 
-export type TurnRequestsDeps = {
+type TurnRequestsDeps = {
   grants: Grants;
   allowances: SessionAllowances;
   bus: Pick<Bus, "publish">;

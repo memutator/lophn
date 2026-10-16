@@ -63,7 +63,7 @@ function agentSession(ctx: RequestContext): Result<string> {
   return ok(actor.id);
 }
 
-export const sendCallCommand: CommandDefinition<typeof callSend> = {
+const sendCallCommand: CommandDefinition<typeof callSend> = {
   route: callSend,
   handle(tx, ctx, input) {
     const session = agentSession(ctx);
@@ -95,7 +95,7 @@ export const sendCallCommand: CommandDefinition<typeof callSend> = {
   },
 };
 
-export const replyCallCommand: CommandDefinition<typeof callReply> = {
+const replyCallCommand: CommandDefinition<typeof callReply> = {
   route: callReply,
   handle(tx, ctx, input) {
     const session = agentSession(ctx);
@@ -106,7 +106,7 @@ export const replyCallCommand: CommandDefinition<typeof callReply> = {
   },
 };
 
-export const cancelCallCommand: CommandDefinition<typeof callCancel> = {
+const cancelCallCommand: CommandDefinition<typeof callCancel> = {
   route: callCancel,
   handle(tx, ctx, input) {
     const kind = parseActor(ctx.actor)?.kind;
@@ -125,7 +125,7 @@ export const cancelCallCommand: CommandDefinition<typeof callCancel> = {
   },
 };
 
-export const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
+const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
   route: callsRecover,
   handle(tx, ctx, input) {
     if (parseActor(ctx.actor)?.kind !== "machine") {
@@ -144,7 +144,7 @@ export const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
   },
 };
 
-export const reactCommand: CommandDefinition<typeof callsReact> = {
+const reactCommand: CommandDefinition<typeof callsReact> = {
   route: callsReact,
   handle(tx, ctx, input) {
     if (parseActor(ctx.actor)?.kind !== "machine") {

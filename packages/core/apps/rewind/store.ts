@@ -36,7 +36,7 @@ function fromRow(row: SqlRow): Result<Rewind> {
   return parsed.success ? ok(parsed.data) : invalidStored();
 }
 
-export function loadRewind(sql: Query, id: Id<"rwd">): Result<Rewind | null> {
+function loadRewind(sql: Query, id: Id<"rwd">): Result<Rewind | null> {
   const row = sql.get("SELECT * FROM app_rewinds WHERE id = ?", [id]);
   return row === undefined ? ok(null) : fromRow(row);
 }

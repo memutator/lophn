@@ -13,7 +13,7 @@ function listOf(flag: string): string[] {
 
 // 운영 data 자리: `.../apps/<app>/preview/<nonce>` 옆의 `.../apps/<app>/data`다.
 // preview 입력의 dataPath가 이 모양이 아니면 disposable 영역이 아니다.
-export function liveDataOf(
+function liveDataOf(
   launch: Pick<PreviewLaunch, "app" | "nonce" | "dataPath">,
 ): string | undefined {
   const suffix = `/apps/${launch.app}/preview/${launch.nonce}`;

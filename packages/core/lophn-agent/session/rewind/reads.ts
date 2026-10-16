@@ -25,7 +25,7 @@ import { type PlanDeps, planRewind } from "./preview.ts";
 // 쓴다. 앱 rewind의 계획(함께 되돌아갈 다른 변경, external 효과, 되돌릴 수 없는 write)은 여기서 만들지
 // 않고 앱 rewind의 계획 route가 보인다.
 
-export const appWritesPort: PortKey<AppWrites> = definePort<AppWrites>(
+const appWritesPort: PortKey<AppWrites> = definePort<AppWrites>(
   "lophn-agent.AppWrites",
 );
 

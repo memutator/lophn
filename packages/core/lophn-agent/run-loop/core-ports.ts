@@ -82,7 +82,7 @@ export type ToolSetup = {
   } | null;
 };
 
-export type CorePortsDeps = {
+type CorePortsDeps = {
   seat: TurnSeat;
   clock: Clock;
   ids: IdSource;

@@ -1,7 +1,7 @@
 // Unix socket HTTP/1.1. host는 lophn.invalid만 받는다.
 import { SOCKET_HOST } from "./limits.ts";
 
-export type HttpRequest = {
+type HttpRequest = {
   method: string;
   path: string;
   url: URL;
@@ -9,7 +9,7 @@ export type HttpRequest = {
   body: Uint8Array;
 };
 
-export type HttpResponse = {
+type HttpResponse = {
   status: number;
   headers?: Record<string, string>;
   body: Uint8Array | string;
@@ -55,7 +55,7 @@ async function handle(
   });
 }
 
-export function json(status: number, value: unknown): Response {
+function json(status: number, value: unknown): Response {
   return new Response(JSON.stringify(value), {
     status,
     headers: { "content-type": "application/json" },

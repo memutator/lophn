@@ -19,7 +19,7 @@ export type ProjectServerSource = {
 const PROJECT_ID = /^prj_[0-9a-z]+$/;
 
 // 서버와 그 서버가 놓인 project다. 같은 이름의 서버가 서로 다른 project에 있어도 따로 남는다.
-export type ProjectMcpEntry = { place: AgentPlace; server: McpRuntimeServer };
+type ProjectMcpEntry = { place: AgentPlace; server: McpRuntimeServer };
 
 // `<root>/projects/*/extensions.json`이 가진 서버를 project id 순으로 모은다. 틀린 파일이나 읽지 못한 파일은 그
 // project 서버만 빠진다. project id 모양이 아닌 폴더는 project가 아니다.

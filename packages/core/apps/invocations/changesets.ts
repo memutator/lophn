@@ -14,7 +14,7 @@ export const RELEASE_CHANGESET_MAX_BYTES = 128 * MIB;
 
 export const CHANGESET_OWNER_KIND = "invocation";
 export const CHANGESET_FIELD_NAME = "changeset";
-export const CHANGESET_PURPOSE = "app_changeset";
+const CHANGESET_PURPOSE = "app_changeset";
 
 export const INVOCATION_BLOB_FIELDS = [
   defineBlobField({

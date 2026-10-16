@@ -47,7 +47,7 @@ const READY_MS = 20_000;
 const DENO_HEAP_FLAG = "--v8-flags=--max-old-space-size=256";
 
 // runner가 보고를 넘기는 곳이다. mode=test와 scope는 이 함수를 만든 쪽이 붙인다.
-export type DriverSink = {
+type DriverSink = {
   report(report: {
     report_id: string;
     name: string;
@@ -74,7 +74,7 @@ export type RealDriverInput = {
   sink: DriverSink;
 };
 
-export type RealDriver = AppDriver & { close(): Promise<void> };
+type RealDriver = AppDriver & { close(): Promise<void> };
 
 type InputSchema = Blueprint["app_api"][number]["input"];
 

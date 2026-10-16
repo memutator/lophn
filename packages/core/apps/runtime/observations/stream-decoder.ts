@@ -3,9 +3,9 @@
 // 통째로 버린다. 잘린 secret 일부가 새지 않는다는 안전성을 모르기 때문이다.
 
 // 한 줄이 redaction을 받기 전에 메모리에 머무를 수 있는 byte 상한이다.
-export const LOG_PENDING_LINE_MAX_BYTES = 16 * 1024;
+const LOG_PENDING_LINE_MAX_BYTES = 16 * 1024;
 
-export type StreamDecoderDeps = {
+type StreamDecoderDeps = {
   // 줄바꿈 없이 끝난 줄과 완성한 줄. 줄바꿈 문자는 뗀다.
   onLine: (line: string) => void;
   // 상한을 넘겨 버린 줄. 한 줄에 한 번만 부른다.
@@ -13,7 +13,7 @@ export type StreamDecoderDeps = {
   maxLineBytes?: number;
 };
 
-export type StreamDecoder = {
+type StreamDecoder = {
   push(bytes: Uint8Array): void;
   // 스트림이 끝났다. 줄바꿈 없이 끝난 꼬리를 한 줄로 낸다.
   finish(): void;

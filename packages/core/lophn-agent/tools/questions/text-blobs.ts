@@ -63,7 +63,7 @@ export function registerTextBlobs(
 }
 
 // 저장되는 모양의 질문 하나. 요청의 글은 blob hash로 바뀌어 있다.
-export type StoredQuestionContent = {
+type StoredQuestionContent = {
   id: string;
   prompt_blob: string;
   reason_blob: string;

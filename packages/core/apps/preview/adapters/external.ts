@@ -11,7 +11,7 @@ import {
 import type { PreviewScope } from "../model.ts";
 import { invalid, refuse, standInOnly } from "./refusal.ts";
 
-export type PreviewExternalRequest = {
+type PreviewExternalRequest = {
   host: string;
   port: number;
   method: string;

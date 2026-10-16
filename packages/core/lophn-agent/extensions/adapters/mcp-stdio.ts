@@ -10,18 +10,18 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 // 남으면 강제 종료한다.
 
 //SIGKILL 전 대기다.
-export const STDIO_KILL_GRACE_MS = 5_000;
+const STDIO_KILL_GRACE_MS = 5_000;
 
 // stderr 원문의 상한이다(architecture §2.3 크기 제한). 넘으면 뒤를 버린다.
-export const STDERR_MAX_BYTES = 64 * 1024;
+const STDERR_MAX_BYTES = 64 * 1024;
 
 // 자식 진입에 넘기는 최소 env 이름이다(architecture §2.3). 그 밖의
 // process env는 server에 가지 않는다.
-export const STDIO_AMBIENT_ENV = ["PATH", "HOME", "TEMP", "LC_ALL"] as const;
+const STDIO_AMBIENT_ENV = ["PATH", "HOME", "TEMP", "LC_ALL"] as const;
 
 // 서버 설정에서 자식 env를 만든다. ambient는 호출 process의 env 읽기다.
 // secret 값은 연결 부착 경계에서 이미 결정된 글만 온다(architecture §5.5).
-export function stdioChildEnv(
+function stdioChildEnv(
   explicit: Record<string, string>,
   ambient: (name: string) => string | undefined,
 ): Record<string, string> {
@@ -40,7 +40,6 @@ export function stdioChildEnv(
 // shell 메타문자가 든 인자가 그대로 전달되는지 본다. Deno.Command는
 // 인자 배열을 그대로 execve에 넣으므로 그 자체가 보장이고, 이 모듈은
 // 내부에서 문자열을 이어 붙이거나 shell을 부르지 않는다.
-export const STDIO_NO_SHELL = true;
 
 export type StdioSpawn = {
   // 자식 process다. pid는 강제 종료가 쓴다.

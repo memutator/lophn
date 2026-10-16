@@ -49,9 +49,9 @@ const PATHS = {
   "openai-chat-completions": "/chat/completions",
 } as const;
 
-export const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_VERSION = "2023-06-01";
 
-export type InvokeDeps = {
+type InvokeDeps = {
   transport: AuthTransport;
   nowMs: () => number;
   // 지금 시각(ms)을 atSchema 꼴로 옮긴다.

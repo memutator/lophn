@@ -57,7 +57,7 @@ export type LoadPlan = {
   ofType?: string;
 };
 
-export type Loaded = {
+type Loaded = {
   state: ContextApiState;
   // 적재한 판의 content blob 참조. 바뀌지 않은 판은 이 참조를 그대로 쓴다.
   contentRefs: Map<string, BlobReference>;

@@ -25,7 +25,7 @@ import {
 // 않고 모두 낸다(어느 role의 것인지는 선언이 말한다).
 
 // 다른 concern의 값을 읽는 길이다. 정본은 각 concern이고 여기서는 읽기만 한다.
-export type SkillsReadLookups = {
+type SkillsReadLookups = {
   // 전역 층의 skill 출처다: 등록 폴더, 개인 보관소, 내장 폴더.
   skillSources(): Omit<SkillSources, "project">;
   // 전역에서 끈 skill의 정확한 이름이다.
@@ -33,7 +33,7 @@ export type SkillsReadLookups = {
   projectExists(project: string): boolean;
 };
 
-export type SkillsReadDeps = {
+type SkillsReadDeps = {
   files: PlaceFiles;
   skillFiles: SyncSkillFiles;
   lookups(sql: ReadSql): SkillsReadLookups;

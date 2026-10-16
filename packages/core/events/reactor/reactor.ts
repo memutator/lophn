@@ -25,7 +25,7 @@ export type ReactorCursor = {
   advance(through: string): Promise<Result<void>>;
 };
 
-export type ReactorDeps = {
+type ReactorDeps = {
   reader: ReactorReader;
   cursor: ReactorCursor;
   clock: Pick<Clock, "nowMs">;

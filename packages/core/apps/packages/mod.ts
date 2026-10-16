@@ -10,48 +10,12 @@ export {
 } from "./blobs.ts";
 export { createSdkReads } from "./reads.ts";
 export { sdkSchemaSteps } from "./schema.ts";
-export { resolveLophnSdk } from "./resolve.ts";
+export { packageInstallPath } from "./install.ts";
+export { publishPackage } from "./publish.ts";
 export {
-  installPackage,
-  installSupportPackage,
-  installTemplate,
-  packageInstallPath,
-  type SupportInstallResult,
-  type TemplateInstallResult,
-} from "./install.ts";
-export { type PublishDeps, publishPackage } from "./publish.ts";
-export {
-  keepSupportFile,
-  SUPPORT_PACKAGES,
-  type SupportPackage,
-  VENDOR_RULES,
-} from "./vendor.ts";
-export {
-  buildImportMap,
-  builtinTemplate,
-  DEV_IMPORT_MAP_PATH,
   devImportMap,
-  type ImportMap,
-  type ImportMapInput,
-  type ImportMapResult,
-  type PackageRef,
-  readTemplateDirectory,
-  type ResolvedTemplate,
-  resolveTemplate,
-  type ResolveTemplateInput,
   scaffoldApp,
-  type ScaffoldInput,
-  type ScaffoldResult,
-  TEMPLATE_HASH,
-  TEMPLATE_ROOTS,
   type TemplateFailure,
   type TemplateFile,
-  templateHash,
-  type TemplateSource,
 } from "./template/mod.ts";
-export {
-  byCatalogOrder,
-  isWithheldPackageName,
-  parseLophnSdkSpecifier,
-  SDK_WITHHELD_NAMES,
-} from "./model.ts";
+export { byCatalogOrder } from "./model.ts";

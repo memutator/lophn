@@ -32,7 +32,7 @@ import { PRODUCT_INSTRUCTIONS } from "../roles/prompts.ts";
 // turn 하나의 prompt를 6장 순서로 조립한다: role 지침과 고정 규칙, tools, 지침 층, skill 목록, place 정보,
 // 대화. 지침은 file이 아니라 값으로 받는다(turn 시작에 읽는 쪽이 따로 있다). I/O는 호출하는 쪽이 한다.
 
-export type TurnTool = PromptTool & {
+type TurnTool = PromptTool & {
   // deferred tool은 이름만 prompt에 둔다.
   deferred?: boolean;
 };
@@ -55,7 +55,7 @@ export type TurnPromptInput = {
   reserved_output: number;
 };
 
-export type TurnPromptDeps = { pack: WirePacker };
+type TurnPromptDeps = { pack: WirePacker };
 
 export type TurnPromptResult =
   | {

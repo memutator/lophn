@@ -6,7 +6,7 @@ import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
 import { createRecoveryCopy, recoveryStamp } from "./recovery.ts";
 import { type MigrationVerification, verifyMigrated } from "./verification.ts";
 
-export type MigrationDeps = {
+type MigrationDeps = {
   clock: Clock;
   // 없으면 복구본을 만들지 않는다(테스트 harness가 쓴다). 있으면 미적용 step이
   // 있을 때 변환 전 schema가 있으면 반드시 만들고 무결성 검사를 통과한 뒤에만
@@ -17,7 +17,7 @@ export type MigrationDeps = {
   };
 };
 
-export type AppliedMigration = {
+type AppliedMigration = {
   version: number;
   contentHash: string;
 };

@@ -60,7 +60,7 @@ export type CheckOutcome = {
 //
 // 검색 예의 key 목록은 table이면 행 순서, board면 칸 순서대로 칸마다 행 순서를 이은 것이다(첫 page만).
 // 4와 5는 서로 막지 않는다. 위반(extract·rule)은 finding이 아니다.
-export const EXAMPLE_REASONS = [
+const EXAMPLE_REASONS = [
   "entity_not_found", // 그 path(+section)에 그 type·key의 개체가 없다
   "field_differs", // 개체는 있으나 expect.fields의 값이 다르다
   "search_error", // runSearch가 오류를 냈다

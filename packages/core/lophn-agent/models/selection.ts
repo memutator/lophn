@@ -1,7 +1,5 @@
 import {
   type CatalogEntry,
-  EFFORT_VALUES,
-  OPTION_AXIS_EFFORT,
   type OptionValues,
   type ResolvedModel,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -15,12 +13,12 @@ import { resolveOptionValues } from "./options.ts";
 // 요청에 싣는 값(sent_model_name·request_patch·request_headers)은 호출 형식을 아는 쪽이
 // wire.ts의 translateOptions로 채운다. 여기서는 바꾸지 않은 model 이름과 빈 조각이다.
 
-export type ProviderNames = {
+type ProviderNames = {
   // provider 목록에 그 model 이름이 있는지. 목록을 확인하지 못했으면 null이다.
   modelListed(modelName: string): boolean | null;
 };
 
-export type NamedLimits = {
+type NamedLimits = {
   // 사람이 명시한 양의 입력·출력·전체 문맥 한계와 text·tool 지원 정보다.
   context_limit: number;
   input_limit: number;
@@ -30,13 +28,13 @@ export type NamedLimits = {
 
 // 목록에 없는 이름은 저장 거절이고, 목록을 확인하지 못했으면 미확인으로 저장한다.
 // 첫 성공 호출에서 unverified 표시를 해제하는 것은 호출 기록의 몫이다.
-export function verificationOf(
+function verificationOf(
   listed: boolean | null,
 ): "verified" | "unverified" {
   return listed === true ? "verified" : "unverified";
 }
 
-export type SelectionInput = {
+type SelectionInput = {
   purpose: "judgment" | "organizing";
   provider: string;
   // run 시작에 고정한 provider의 credential 판. 인증 없음(loopback)만 null이다.
@@ -72,7 +70,7 @@ const EXPLICIT_ENTRY = (
 
 // 알려진 텍스트 입력·출력 미지원과 필요한 tool call 미지원 model은 거절한다.
 // tool call은 자기 model 호출(organizing 포함)이라 필요하다. judgment·organizing 구별은 없다.
-export function rejectSelection(
+function rejectSelection(
   entry: CatalogEntry,
   needsTools: boolean,
 ): Result<void> {
@@ -201,58 +199,5 @@ export function resolveSelection(
 // run은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다.
 // run이 effort를 고정하지 않았으면(모델에 맡김) 비교할 값이 없다. effort 밖 축은 약하고 강함을
 // 비교할 이름 순서가 없어 이 검사가 바꾸지 않는다.
-export function requestOptionsWithinRun(
-  started: OptionValues,
-  requested: OptionValues,
-): Result<Record<string, string>> {
-  const from = started[OPTION_AXIS_EFFORT];
-  const to = requested[OPTION_AXIS_EFFORT];
-  if (from !== undefined && to !== undefined) {
-    const startedRank = EFFORT_VALUES.indexOf(from as never);
-    const requestedRank = EFFORT_VALUES.indexOf(to as never);
-    if (startedRank < 0 || requestedRank < 0) {
-      return err({
-        code: "invalid_input",
-        message: "run의 effort는 정해진 이름 안에서만 다룬다",
-      });
-    }
-    if (requestedRank > startedRank) {
-      return err({
-        code: "invalid_input",
-        message: "run 중 effort를 높이지 않는다",
-      });
-    }
-  }
-  return ok({ ...requested });
-}
 
 // 같음은 통과다. 바로 아래도 통과다.
-export function withinLimits(
-  limits: Pick<
-    ResolvedModel,
-    "context_limit" | "input_limit" | "output_limit"
-  >,
-  wholeRequestBytes: number,
-  inputBytes: number,
-  reservedOutputTokens: number,
-): Result<void> {
-  if (inputBytes > limits.input_limit) {
-    return err({
-      code: "invalid_input",
-      message: "입력이 입력 한계를 넘는다",
-    });
-  }
-  if (reservedOutputTokens > limits.output_limit) {
-    return err({
-      code: "invalid_input",
-      message: "예약 출력이 출력 한계를 넘는다",
-    });
-  }
-  if (wholeRequestBytes > limits.context_limit) {
-    return err({
-      code: "invalid_input",
-      message: "전체 문맥이 문맥 한계를 넘는다",
-    });
-  }
-  return ok(undefined);
-}

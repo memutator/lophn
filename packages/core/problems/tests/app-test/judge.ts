@@ -6,12 +6,12 @@ import { canonicalHash } from "../canonical.ts";
 import type { AppTestPlan, PlanCheck } from "./generate.ts";
 
 // 통과가 증명하는 범위. 검사한 고정 기준과 입력 범위는 runner의 설치 자료다.
-export type ObservedCoverage = {
+type ObservedCoverage = {
   criteria: string[];
   input_range: string;
 };
 
-export type CheckObservation = {
+type CheckObservation = {
   name: string;
   status: "pass" | "fail" | "inconclusive" | "not_applicable";
   reason: string;
@@ -20,7 +20,7 @@ export type CheckObservation = {
   coverage: ObservedCoverage;
 };
 
-export type AppTestObservations = {
+type AppTestObservations = {
   platform_checks_hash: string;
   checks: CheckObservation[];
   // 통과가 증명하는 범위.

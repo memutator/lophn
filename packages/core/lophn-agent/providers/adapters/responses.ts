@@ -12,7 +12,7 @@ import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // 요청 item. prompt-assemble이 준 Anthropic 블록을 Responses item으로 바꾼다.
-export type ResponsesItem = {
+type ResponsesItem = {
   type: string;
   role?: string;
   content?: unknown;
@@ -25,7 +25,7 @@ export type ResponsesItem = {
   encrypted_content?: string;
 };
 
-export type ResponsesTool = {
+type ResponsesTool = {
   type: "function";
   name: string;
   description?: string;
@@ -34,7 +34,7 @@ export type ResponsesTool = {
 };
 
 // Responses 요청값. store=false와 stream=true는 고정이다.
-export const RESPONSES_REQUEST_FIELDS = {
+const RESPONSES_REQUEST_FIELDS = {
   store: false,
   stream: true,
 } as const;
@@ -139,7 +139,7 @@ export function buildRequest(input: {
 // ── SSE 응답 번역 ────────���────────────────────────────────────────────────
 
 // stream 결과. tool 인자는 response.output_item.done을 본 것만 완성이다.
-export type ResponsesStreamResult = {
+type ResponsesStreamResult = {
   text: string;
   toolCalls: ToolCall[];
   // 인자가 완성된 function call. done을 보지 못한 call은 여기 없다.
@@ -298,7 +298,7 @@ export function applyResponsesFrames(
 
 // usage 정규화(조사 문서 표). OpenAI는 cache를 input 합계 안에 둔다. 새 입력은
 // input에서 cached를 빼고 하한 0이다. 값 모름은 0이 아니라 null이다.
-export function responsesUsage(raw: Record<string, unknown>): TokenUsage {
+function responsesUsage(raw: Record<string, unknown>): TokenUsage {
   const inputDetails = raw.input_tokens_details as
     | { cached_tokens?: unknown }
     | undefined;
@@ -331,7 +331,7 @@ function asCount(value: unknown): number | null {
 
 // ── 종료 판정 ─────────���───────────────────────────────────────────────────
 
-export type Verdict = {
+type Verdict = {
   kind: "complete" | "partial" | "refused" | "failed";
   // failed일 때만 실패 코드다(ModelOutcome과 같은 근원).
   code?: "temporary" | "refused" | "unknown";

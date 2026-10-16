@@ -13,13 +13,13 @@ export const GATEWAY_BUFFER_LIMIT = 1024 * 1024;
 const CLOSE_POLICY_VIOLATION = 1008;
 
 // 실제 WebSocket과 test fake가 둘 다 맞춘다.
-export interface GatewaySocket {
+interface GatewaySocket {
   send(text: string): void;
   close(code: number): void;
   bufferedAmount(): number;
 }
 
-export type GatewaySession = {
+type GatewaySession = {
   // client가 보낸 text frame을 처리한다.
   receive(text: string): void;
   // 연결이 끊겼다. 구독을 푼다.

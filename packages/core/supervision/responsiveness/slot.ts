@@ -39,7 +39,7 @@ export type ChildCallbacks = {
 };
 
 // stopped: 종료가 확인된 정지. unavailable: 한도 초과·protocol 위반·종료 미확인.
-export type Phase =
+type Phase =
   | "starting"
   | "ready"
   | "stopping"

@@ -4,7 +4,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { relativePathSchema } from "../../../../protocol/projects/mod.ts";
 
-export type UiBuildFailure = {
+type UiBuildFailure = {
   code: "invalid_input" | "unavailable";
   reason:
     | "fixed_dependency_missing"
@@ -34,19 +34,19 @@ export const FIXED_UI_DEPENDENCIES = [
   "react-dom",
 ] as const;
 
-export type UiBuildInput = {
+type UiBuildInput = {
   screens: readonly { path: string; bytes: Uint8Array }[];
   dependencies: readonly { name: string; version: string }[];
 };
 
-export type UiBuildOutput = {
+type UiBuildOutput = {
   files: { path: string; bytes: Uint8Array }[];
   // external source map. bundle 안 고정 이름이며 운영 시작의 오류 위치 근거다.
   sourceMap: { path: string; bytes: Uint8Array };
 };
 
 // 준비 단계 build 입력이 고정 목록 안에만 있는지 본다. 밖의 의존은 거절이다.
-export function dependenciesInsideFixedList(
+function dependenciesInsideFixedList(
   dependencies: readonly { name: string; version: string }[],
 ): boolean {
   return dependencies.every((dependency) =>

@@ -134,7 +134,7 @@ export async function readBodyBytes(
 }
 
 // 본문 값. JSON 값이 아닌 기존 text blob은 글 하나로 읽는다(domain model).
-export function bodyContentOf(bytes: Uint8Array) {
+function bodyContentOf(bytes: Uint8Array) {
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);

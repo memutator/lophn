@@ -11,7 +11,7 @@ import { type WiringContext, type WiringFactory } from "./context.ts";
 
 // 만료 정리(sweep)와 보고 검사 handler가 쓰는 machine 자격이다. 기록이 없으면 writer가 거절하므로
 // 기동을 여기서 멈춘다.
-export const ticketMachineContext: RequestContext = {
+const ticketMachineContext: RequestContext = {
   principal: "machine:ticket-claims",
   actor: "machine",
   scope: {

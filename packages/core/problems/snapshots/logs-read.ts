@@ -20,7 +20,7 @@ import {
   snapshotBlobStatus,
   type SnapshotLogsEnvironment,
 } from "./mod.ts";
-export type BlobBytesRead = (
+type BlobBytesRead = (
   hash: string,
   offset: number,
   length: number,

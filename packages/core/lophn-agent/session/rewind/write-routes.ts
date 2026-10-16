@@ -20,7 +20,7 @@ import type { RewindStore } from "./store.ts";
 // 확인을 거쳐 machine 자격으로 RecordRewindFile을 낸다. 확인은 둘: 부른 agent 자격의 session·turn이 입력과
 // 같고, root가 그 session의 place가 file tool에 연 폴더다.
 
-export type RewindWriteDeps = {
+type RewindWriteDeps = {
   store: Pick<RewindStore, "put" | "has">;
   // 그 session의 place가 file tool에 연 쓰기 폴더(절대 경로)다. 열리지 않았으면 빈 목록이다.
   foldersOf(session: string): readonly string[];

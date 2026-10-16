@@ -5,7 +5,7 @@ import type { ContextApiCommands } from "./commands.ts";
 import type { ContextApiDeps, ContextApiState } from "./state.ts";
 
 // 위반 하나를 가리키는 키. 새 위반인지는 이 키의 집합으로 가린다(개수가 아니다).
-export const violationKey = (violation: {
+const violationKey = (violation: {
   kind: string;
   rule: string | null;
   path: string;

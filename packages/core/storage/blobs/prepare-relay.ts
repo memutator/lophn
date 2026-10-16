@@ -5,10 +5,7 @@
 // core가 쥐는 바이트는 자식 쪽 credit window와 한 chunk뿐이다: 전체를 모으지 않는다.
 
 import { err, type ErrorCode, ok, type Result } from "../../../base/mod.ts";
-import {
-  BLOB_PREPARE_CREDIT_WINDOW,
-  type ChildMessage,
-} from "../../../protocol/supervision/mod.ts";
+import { type ChildMessage } from "../../../protocol/supervision/mod.ts";
 import {
   BLOB_PREPARE_OP,
   BLOB_READ_MAX_BYTES,
@@ -22,18 +19,16 @@ import {
 
 // core가 한 준비에서 동시에 쥘 수 있는 바이트의 상한. 자식 쪽에서 받아 둔 credit
 // window(BLOB_PREPARE_CREDIT_WINDOW)와 I/O worker로 넘기는 중인 chunk 하나다.
-export const BLOB_RELAY_BUFFER_MAX_BYTES = BLOB_PREPARE_CREDIT_WINDOW +
-  STREAM_CHUNK_MAX_BYTES;
 
 // 이보다 작은 chunk는 합쳐서 한 frame으로 보낸다(마지막 chunk와 credit이 모자란 경우 제외).
-export const BLOB_RELAY_MIN_FRAME_BYTES = 32 * 1024;
+const BLOB_RELAY_MIN_FRAME_BYTES = 32 * 1024;
 
 // worker가 credit을 더 주지 않고 말이 없을 때 기다리는 시간. 지나면 abort한다.
-export const BLOB_RELAY_CREDIT_MS = 30_000;
+const BLOB_RELAY_CREDIT_MS = 30_000;
 // end를 보낸 뒤 fsync·설치가 끝나 응답이 오기까지 기다리는 시간.
-export const BLOB_RELAY_RESPONSE_MS = 120_000;
+const BLOB_RELAY_RESPONSE_MS = 120_000;
 // blob.read 응답을 기다리는 시간.
-export const BLOB_RELAY_READ_MS = 6_000;
+const BLOB_RELAY_READ_MS = 6_000;
 
 // core가 바이트를 쥐고 있는 양의 관측. 자식 쪽 대기열과 중계가 읽어 쥔 chunk가 더한다.
 export type BufferGauge = {
@@ -99,7 +94,7 @@ export type PreparedRelayResult = {
   size_bytes: number;
 };
 
-export type BlobRelayDeps = {
+type BlobRelayDeps = {
   // I/O worker에 worker_request json frame을 쓴다.
   send(payload: unknown): Promise<void>;
   // 요청의 channel에 묶인 byte chunk, end, abort를 쓴다.

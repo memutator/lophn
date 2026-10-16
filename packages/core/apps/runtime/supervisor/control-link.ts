@@ -12,11 +12,11 @@ import {
 import type { ErrorCode } from "../../../../base/mod.ts";
 import type { z } from "zod";
 import type { Supervisor } from "./supervisor.ts";
-import { encodeFrame, FrameDecoder } from "../../../../protocol/base/mod.ts";
+import { FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 type AppCredentialResponse = z.infer<typeof appCredentialResponseSchema>;
 
-export type ControlReader = {
+type ControlReader = {
   read(buffer: Uint8Array): Promise<number | null>;
 };
 
@@ -31,13 +31,13 @@ export class OpError extends Error {
 
 export type OpHandlers = Record<string, (payload: unknown) => Promise<unknown>>;
 
-export type ControlHello = {
+type ControlHello = {
   credential: string;
   apiPort: number;
   coreEpoch: string;
 };
 
-export type ControlLinkOptions = {
+type ControlLinkOptions = {
   // core로 frame 하나를 보낸다. 쓰기는 호출 순서대로 이어져야 한다.
   send: (message: unknown) => Promise<void> | void;
   ops: OpHandlers;
@@ -47,7 +47,7 @@ export type ControlLinkOptions = {
   onCredential?: (response: AppCredentialResponse) => void;
 };
 
-export type ControlLink = {
+type ControlLink = {
   credential: () => string | undefined;
   apiPort: () => number | undefined;
   closed: Promise<void>;
@@ -165,6 +165,3 @@ export function attachControlLink(
   };
 }
 
-export function encodeControl(message: unknown): Uint8Array {
-  return encodeFrame({ kind: "json", channel: 0, payload: message });
-}

@@ -17,8 +17,6 @@ import type {
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   type CatalogLayers,
-  type EntryIdentity,
-  entryKey,
   hashEntries,
   initialState,
   mergeCatalogLayers,
@@ -38,17 +36,16 @@ import {
 export { CATALOG_REFRESH_INTERVAL_MS };
 
 // 동봉 snapshot. 항목 모양은 models.dev 해석 결과와 같다.
-export type SnapshotEntry = CatalogEntry;
 
 // catalog와 state의 최신 자료. snapshot_hash가 두 파일의 연결 근거다.
-export type CatalogStore = {
+type CatalogStore = {
   entries: CatalogEntry[];
   state: CatalogState;
 };
 
 // 시각·network·파일 시스템은 인자로 받는다. 테스트에서 끼운다.
-export type CatalogClock = { nowMs(): number };
-export type SnapshotLoader = () => Promise<CatalogEntry[]>;
+type CatalogClock = { nowMs(): number };
+type SnapshotLoader = () => Promise<CatalogEntry[]>;
 
 export type FilesLike = {
   readTextFile(path: string): Promise<string>;
@@ -79,7 +76,7 @@ const DEFAULT_FILES: FilesLike = {
   mkdir: (path, options) => Deno.mkdir(path, options),
 };
 
-export function catalogPaths(dataRoot: string): {
+function catalogPaths(dataRoot: string): {
   directory: string;
   catalog: string;
   state: string;
@@ -296,7 +293,7 @@ export function createCatalogRefresher(
 }
 
 // 갱신 시점 판정(24시간). 마지막 확인이 없으면 갱신한다.
-export function refreshDueAt(
+function refreshDueAt(
   state: CatalogState,
   nowMs: number,
 ): boolean {
@@ -308,9 +305,9 @@ export function refreshDueAt(
 
 // 동기 파일 읽기. read handler는 Promise를 돌려주지 않으므로 core read는 이것으로
 // derived 파일을 읽는다(architecture §5.3).
-export type SyncFiles = { readTextFile(path: string): string };
+type SyncFiles = { readTextFile(path: string): string };
 
-export type CatalogReadDeps = {
+type CatalogReadDeps = {
   // derived catalog 파일의 sync reader. core 조립이 root와 함께 끼운다.
   files: SyncFiles;
   loadSnapshot: () => CatalogEntry[];
@@ -398,7 +395,6 @@ export function createCatalogRead(
 }
 
 export {
-  entryKey,
   hashEntries,
   initialState,
   mergeCatalogLayers,
@@ -409,4 +405,4 @@ export {
   stateAfterReceived,
   validateCatalogResponse,
 };
-export type { CatalogLayers, EntryIdentity };
+export type { CatalogLayers };

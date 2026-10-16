@@ -20,7 +20,7 @@ export type MigrationScript = {
   sql: string;
 };
 
-export type MigrateInput = {
+type MigrateInput = {
   dataArea: string;
   databasePath: string;
   // 첫 변경 전 backup. 중간 실패의 복원 근거다.
@@ -31,7 +31,7 @@ export type MigrateInput = {
   result: Pick<ActivationDataResult, "release" | "attempt" | "invocation">;
 };
 
-export type MigrateOutcome = {
+type MigrateOutcome = {
   result: ActivationDataResult;
   // 중간 실패로 첫 변경 전 backup을 복원했으면 true.
   restored: boolean;
@@ -47,7 +47,7 @@ function plain(hash: string): string {
   return hash.startsWith(HASH_PREFIX) ? hash.slice(HASH_PREFIX.length) : hash;
 }
 
-export function stepFile(change: Pick<DataChange, "from" | "to">): string {
+function stepFile(change: Pick<DataChange, "from" | "to">): string {
   return `migrations/${change.from}-${change.to}.sql`;
 }
 
@@ -79,13 +79,6 @@ export async function scriptFromBundle(
 }
 
 // 공개한 script 내용이 hash와 다르면 그 release 준비는 거절한다.
-export async function publishedScriptChanged(
-  published: { scriptHash: string; sql: string },
-  candidateSql: string,
-): Promise<boolean> {
-  const candidate = `${HASH_PREFIX}${await sha256Hex(candidateSql)}`;
-  return published.scriptHash !== candidate;
-}
 
 async function scriptMatches(script: MigrationScript): Promise<boolean> {
   return await sha256Hex(script.sql) === plain(script.change.script_hash);

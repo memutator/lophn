@@ -27,7 +27,7 @@ import {
   type WatchFs,
 } from "./mod.ts";
 
-export type ContextsWatchDeps = {
+type ContextsWatchDeps = {
   // 활성 context 전체와 그 폴더·적용 판 hash(`context.work_list`). 읽지 못하면 err다.
   list(): Promise<Result<ContextWorkList>>;
   readInput(input: { context: string }): Promise<Result<ContextWorkInput>>;

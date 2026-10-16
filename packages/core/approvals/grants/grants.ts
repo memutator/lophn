@@ -15,7 +15,7 @@ import { reactionSettings } from "./reaction-settings.ts";
 
 // 바깥 연결 지점. 앱 grant는 apps/permissions의 읽기, agent grant는 표 읽기와 사람 자격의
 // agentGrantsSet 호출이다. 이 module은 저장소와 transport를 모른다.
-export interface GrantsConnections {
+interface GrantsConnections {
   appGrantsOf(app: string): Promise<Result<AppGrant[]>>;
   readAgentGrant(agent: AgentRef): Promise<Result<AgentGrant>>;
   writeAgentGrant(

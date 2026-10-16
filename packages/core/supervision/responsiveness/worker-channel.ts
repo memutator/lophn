@@ -26,7 +26,7 @@ export type WorkerChannel = {
 
 const REQUEST_TIMEOUT_MS = 5_000;
 // worker를 바꾸기 전에 이미 보낸 요청이 답하기를 기다리는 한도. 넘은 요청은 unavailable로 끝낸다.
-export const REPLACE_DRAIN_MS = 3_000;
+const REPLACE_DRAIN_MS = 3_000;
 
 export function createWorkerChannel(
   options: { drainMs?: number } = {},

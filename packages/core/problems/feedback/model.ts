@@ -6,7 +6,7 @@ import {
   REPORTING_LIMITS,
 } from "../../../protocol/problems/mod.ts";
 
-export const FEEDBACK_LIMITS = {
+const FEEDBACK_LIMITS = {
   text_scalars: REPORTING_LIMITS.feedback_text_scalars,
 } as const;
 

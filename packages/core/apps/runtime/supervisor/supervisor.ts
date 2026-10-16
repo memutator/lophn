@@ -11,7 +11,6 @@ import type { StopReason } from "../processes/terminate.ts";
 import { unexpected } from "../processes/terminate.ts";
 import { TERMINATING } from "../model.ts";
 import {
-  BACKOFF_MAX_MS,
   backoffMs,
   crashLoop,
   recentExits,
@@ -25,7 +24,7 @@ export type AppChild = {
   terminate(): Promise<boolean>;
 };
 
-export type ProbeResult =
+type ProbeResult =
   | {
     ok: true;
     commands: string[];
@@ -118,9 +117,9 @@ export type SupervisorDeps = {
 };
 
 // 진행 호출 종료 요청 뒤 강제 종료까지의 유예다.
-export const STOP_GRACE_MS = 10_000;
+const STOP_GRACE_MS = 10_000;
 
-export type SpawnRequest = {
+type SpawnRequest = {
   app: string;
   release: string;
   // 이번 시작의 두 socket. flag에는 없으니 띄우는 쪽이 socketFlags로 더한다.
@@ -192,7 +191,7 @@ export type Supervisor = {
   stop(): Promise<void>;
 };
 
-export type AppObservation = {
+type AppObservation = {
   app: string;
   release: string;
   mode: "live";
@@ -229,7 +228,7 @@ export type ControlTarget = {
 };
 
 // 후보 시작의 결과다. 준비 모드의 자식이 hash·handler·schema·연결 검사를 통과했다는 확인이다.
-export type CandidateStart =
+type CandidateStart =
   | {
     ok: true;
     processNonce: string;
@@ -772,4 +771,4 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   };
 }
 
-export { BACKOFF_MAX_MS, backoffMs };
+export { backoffMs };

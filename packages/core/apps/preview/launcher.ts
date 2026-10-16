@@ -29,7 +29,7 @@ const observationShape: Same<ObservationWire, WireObservation> = true;
 void launchShape;
 void observationShape;
 
-export type PreviewProbe =
+type PreviewProbe =
   | {
     ok: true;
     commands: string[];
@@ -38,7 +38,7 @@ export type PreviewProbe =
   }
   | { ok: false; reason: string };
 
-export type PreviewSpawnRequest = {
+type PreviewSpawnRequest = {
   app: string;
   release: string | null;
   nonce: string;
@@ -52,14 +52,14 @@ export type PreviewSpawnRequest = {
   identity: ChildIdentity;
 };
 
-export type PreviewChildIdentity = {
+type PreviewChildIdentity = {
   app: string;
   release: string | null;
   bundleHash: string;
   processNonce: string;
 };
 
-export type PreviewLauncherDeps = {
+type PreviewLauncherDeps = {
   clock: Clock;
   deno: () => string;
   environment: AppEnvironment;
@@ -114,7 +114,7 @@ export type PreviewLauncher = {
   stopAll(): Promise<void>;
 };
 
-export const PREVIEW_STOP_GRACE_MS = 10_000;
+const PREVIEW_STOP_GRACE_MS = 10_000;
 const READY_TIMEOUT_MS = 30_000;
 
 type Entry = {

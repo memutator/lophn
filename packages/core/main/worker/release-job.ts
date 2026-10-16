@@ -2,14 +2,14 @@
 // 받아 stdout에 결과 JSON 한 줄을 남긴다. 플랫폼 credential은 받지 않는다.
 import { prepareFromSource } from "../../apps/releases/prepare/from-source.ts";
 
-export type ReleaseJobInput = {
+type ReleaseJobInput = {
   dataRoot: string;
   app: string;
   sourceRoot: string;
   commit: string;
 };
 
-export type ReleaseJobResult =
+type ReleaseJobResult =
   | {
     ok: true;
     bundle_hash: string;

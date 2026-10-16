@@ -26,7 +26,3 @@ export function createCoreRegistration() {
 }
 
 // reader Worker가 read만 다시 조립한다.
-export function createReaderRegistration() {
-  const { reads } = createCoreRegistration();
-  return { reads, ports: new Map() };
-}

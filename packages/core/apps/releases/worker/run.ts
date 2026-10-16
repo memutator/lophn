@@ -9,20 +9,12 @@ import {
 } from "../../../supervision/responsiveness/mod.ts";
 import { prepareRelease, type PrepareReleaseInput } from "../mod.ts";
 
-export const RELEASE_WORKER_KIND = "apps/release";
+const RELEASE_WORKER_KIND = "apps/release";
 
 // supervisor ↔ worker stdio JSON job. request envelope은 supervision의
 // workerRequestEnvelopeSchema이고 op별 payload는 소유 contracts가 다시 검사한다.
-export type ReleaseJobRequest = {
-  op: string;
-  payload: unknown;
-};
 
-export type ReleaseJobResponse = {
-  accepted: boolean;
-};
-
-export type ReleaseWorkerOptions = {
+type ReleaseWorkerOptions = {
   root: string;
   streams: ChildStreams;
   // op별 실행. op 이름은 release worker 경계에서 contracts schema로 다시 검사한다.
@@ -31,7 +23,7 @@ export type ReleaseWorkerOptions = {
   cancelled?: () => boolean;
 };
 
-export function createReleaseWorker(
+function createReleaseWorker(
   options: ReleaseWorkerOptions,
 ): ChildSession {
   const session = startChild(options.streams, {
@@ -93,7 +85,7 @@ function isPrepareInput(value: unknown): value is PrepareReleaseInput {
     Array.isArray(record.screens) && Array.isArray(record.dependencies);
 }
 
-export async function acceptRelease(
+async function acceptRelease(
   root: string,
   request: WorkerRequest,
   cancelled?: () => boolean,

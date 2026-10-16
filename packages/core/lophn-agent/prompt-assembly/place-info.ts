@@ -15,7 +15,7 @@ export type PlaceProject = {
   subfolders: readonly FolderRead[];
 };
 
-export type PlaceApp = {
+type PlaceApp = {
   id: string;
   name: string;
   purpose: string;

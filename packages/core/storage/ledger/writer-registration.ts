@@ -13,7 +13,7 @@ import type { TxCall } from "./tx.ts";
 
 // BEGIN 다음 현재 자격을 다시 본다. 부모 메시지의 주장은 쓰지 않는다.
 // 현재 context를 돌려주면 그 actor·scope로 검사한다.
-export type CredentialCheck = (
+type CredentialCheck = (
   ctx: AuthenticatedContext,
 ) => Result<AuthenticatedContext>;
 
@@ -32,8 +32,3 @@ export type WriterRegistration = {
   confirmation?: ConfirmationBridge;
 };
 
-export function createWriterRegistration(
-  registration: WriterRegistration,
-): WriterRegistration {
-  return registration;
-}

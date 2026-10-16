@@ -15,13 +15,13 @@ import type {
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
-export type ActiveBlueprint = {
+type ActiveBlueprint = {
   release: ReleaseRecord;
   blueprint: Blueprint;
 };
 
 // 앱이 채택한 release와 그 고정 blueprint. active release가 없으면 null이다.
-export type ActiveBlueprintLoader = (
+type ActiveBlueprintLoader = (
   sql: ReadSnapshot["sql"],
   app: string,
   release?: string,

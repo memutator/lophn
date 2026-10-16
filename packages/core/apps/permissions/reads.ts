@@ -30,7 +30,7 @@ const cursorSchema = z.strictObject({
 });
 
 // 목록 page는 같은 조건 안에서만 이어진다. app·status·limit이 다른 cursor는 invalid_input이다.
-export function nextGrantCursor(
+function nextGrantCursor(
   offset: number,
   app: string | undefined,
   status: AppGrant["status"] | undefined,
@@ -44,7 +44,7 @@ export function nextGrantCursor(
   }));
 }
 
-export function grantPageOffset(
+function grantPageOffset(
   cursor: string | undefined,
   app: string | undefined,
   status: AppGrant["status"] | undefined,

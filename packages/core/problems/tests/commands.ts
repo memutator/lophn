@@ -37,7 +37,7 @@ const CONFLICT = "같은 요청의 내용이 다르다";
 const NOT_FOUND = "기록을 찾을 수 없다";
 const FORBIDDEN = "이 credential로는 할 수 없다";
 
-export function handleRequestTest(
+function handleRequestTest(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof requestTest>,
@@ -99,7 +99,7 @@ export function handleRequestTest(
   });
 }
 
-export type ObservationInput = {
+type ObservationInput = {
   phase: Exclude<RequestPhase, "accepted" | "result_ref" | "actual_started">;
   request_principal: string;
   request_key: string;
@@ -214,7 +214,7 @@ export function appendRequestObservation(
   });
 }
 
-export type SideStartInput = SideStart & {
+type SideStartInput = SideStart & {
   request_principal: string;
   request_key: string;
   request_hash: string;

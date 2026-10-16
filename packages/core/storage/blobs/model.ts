@@ -2,9 +2,6 @@
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  BLOB_PREPARATION_TTL_MS,
-  BLOB_PREPARE_CHUNK_MAX_BYTES,
-  BLOB_PREPARE_MAX_BYTES,
   type PreparedBlob,
   preparedBlobSchema,
 } from "../../../protocol/storage/mod.ts";
@@ -12,13 +9,8 @@ import {
 export const BLOB_STORE_TMP_DIR = "blobs/tmp";
 // 완성 blob은 hash 앞 2자 폴더 아래 나머지 62자 파일로 둔다(domain-model "경로").
 export const BLOB_STORE_OBJECTS_DIR = "blobs/sha256";
-export const PREFIX_CHARS = 2;
+const PREFIX_CHARS = 2;
 export const BLOB_READ_ONLY_MODE = 0o400;
-
-export type PrepareDecision = {
-  // 기존 blob이 있으면 파일을 새로 쓰지 않는다.
-  action: "install" | "reuse";
-};
 
 export function tmpDirFor(root: string): string {
   return `${root}/${BLOB_STORE_TMP_DIR}`;
@@ -39,36 +31,9 @@ export function tmpPathFor(
   return `${tmpDir}/prepare-${suffix}`;
 }
 
-export function chunkLimit(): number {
-  return BLOB_PREPARE_CHUNK_MAX_BYTES;
-}
-
 // 최대 크기 초과는 쓰는 동안 바로 본다. 초과분을 메모리에 쌓지 않는다.
-export function sizeVerdict(bytes: number): Result<number> {
-  if (bytes > BLOB_PREPARE_MAX_BYTES) {
-    return err({
-      code: "invalid_input",
-      message: "blob 크기가 최대 한도를 넘는다",
-    });
-  }
-  return ok(bytes);
-}
 
 // 예상 hash·크기 불일치는 준비 자체가 잘못된 입력이다.
-export function expectedMatches(
-  actual: { hash: string; sizeBytes: number },
-  expected?: { hash?: string; sizeBytes?: number },
-): boolean {
-  if (
-    expected?.hash !== undefined &&
-    expected.hash.toLowerCase() !== actual.hash
-  ) return false;
-  if (
-    expected?.sizeBytes !== undefined &&
-    expected.sizeBytes !== actual.sizeBytes
-  ) return false;
-  return true;
-}
 
 // 답은 준비 관측 결과다. hash는 계산한 바이트에서 온다.
 export function preparedOf(
@@ -92,9 +57,3 @@ export function preparedOf(
 }
 
 // 준비 참조 수명. 만기 등록 요청은 invalid_input이다.
-export function referenceExpired(
-  nowMs: number,
-  registeredMs: number,
-): boolean {
-  return nowMs - registeredMs >= BLOB_PREPARATION_TTL_MS;
-}

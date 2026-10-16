@@ -17,7 +17,7 @@ import type { RewindFilesDeps } from "./files.ts";
 
 // 끝난 요청을 사람이 읽을 수 있는 시간이자 기다리는 요청이 사라지는 기한이다. 요약 call 하나가 이보다 오래
 // 걸리면 사람은 이미 기다리기를 멈춘다.
-export const REWIND_SUMMARY_TTL_MS = 15 * 60_000;
+const REWIND_SUMMARY_TTL_MS = 15 * 60_000;
 // 한꺼번에 쥐는 요청 수. 사람 한 명이 누르는 요약이라 넘치면 가장 오래된 것부터 버린다.
 const KEPT = 32;
 

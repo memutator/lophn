@@ -9,7 +9,7 @@ import {
 } from "../../../../protocol/projects/mod.ts";
 import { sha256Schema } from "../../../../protocol/base/mod.ts";
 
-export type SealFailure = {
+type SealFailure = {
   code: "unavailable" | "invalid_input";
   message: string;
 };
@@ -136,44 +136,5 @@ export async function sealBundle(
   return ok(undefined);
 }
 
-async function walk(
-  directory: string,
-  visit: (
-    path: string,
-    info: Deno.FileInfo,
-  ) => Promise<Result<void, SealFailure>>,
-): Promise<Result<void, SealFailure>> {
-  const info = await Deno.stat(directory);
-  const self = await visit(directory, info);
-  if (!self.ok) return self;
-  if (!info.isDirectory) return ok(undefined);
-  for await (const entry of Deno.readDir(directory)) {
-    const walked = await walk(`${directory}/${entry.name}`, visit);
-    if (!walked.ok) return walked;
-  }
-  return ok(undefined);
-}
 
 // 사본이 정말 0444·0555인지 재귀로 본다.
-export async function verifySealedPermissions(
-  copyPath: string,
-): Promise<Result<void, SealFailure>> {
-  try {
-    return await walk(copyPath, (_path, info) => {
-      const writable = ((info.mode ?? 0) & 0o222) !== 0;
-      if (writable) {
-        return Promise.resolve(
-          err({
-            code: "invalid_input",
-            message: info.isDirectory
-              ? "bundle copy directory is writable"
-              : "bundle copy file is writable",
-          }),
-        );
-      }
-      return Promise.resolve(ok(undefined));
-    });
-  } catch {
-    return err({ code: "invalid_input", message: "bundle copy is missing" });
-  }
-}

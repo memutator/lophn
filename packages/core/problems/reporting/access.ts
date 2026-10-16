@@ -1,10 +1,4 @@
-import {
-  err,
-  formatSeq,
-  ok,
-  parseSeq,
-  type Result,
-} from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type ReadSnapshot,
   type RequestContext,
@@ -29,7 +23,7 @@ export function requireOperation(
 }
 
 // owner가 판정하는 대상 사실. mode·diagnostic_scope는 credential 고정 조건과도 맞아야 한다.
-export type ReadFacts = {
+type ReadFacts = {
   app: string;
   problem: string | null;
   mode?: string;
@@ -71,50 +65,10 @@ export function targetVisible(
     : decision;
 }
 
-export function parseSeqCursor(
-  cursor: string | undefined,
-): Result<bigint | null> {
-  if (cursor === undefined) return ok(null);
-  const parsed = parseSeq(cursor);
-  return parsed.ok
-    ? ok(parsed.value)
-    : err({ code: "invalid_input", message: CURSOR_INVALID });
-}
-
 export function invalidCursor(): Result<never> {
   return err({ code: "invalid_input", message: CURSOR_INVALID });
 }
 
-const SCAN_BATCH = 200;
 // 한 호출이 훑는 행의 상한. 범위 밖 행이 많으면 짧은 page와 cursor를 돌려주고 다음 호출이 잇는다.
-export const SCAN_CAP = 1000;
 
 // seq 내림차순으로 훑으며 보이는 행만 limit개 모은다. 다음 page는 마지막 행의 seq 아래다.
-export function scanVisible<Row extends { seq: bigint }>(options: {
-  limit: number;
-  load(before: bigint | null, size: number): Row[];
-  visible(row: Row): Result<boolean>;
-  before: bigint | null;
-}): Result<{ rows: Row[]; next: string | null }> {
-  const rows: Row[] = [];
-  let before = options.before;
-  let scanned = 0;
-  for (;;) {
-    const batch = options.load(before, SCAN_BATCH);
-    for (const row of batch) {
-      const seen = options.visible(row);
-      if (!seen.ok) return seen;
-      if (seen.value) {
-        // limit개를 채운 뒤 보이는 행이 하나 더 있어야 다음 page가 있다.
-        if (rows.length === options.limit) {
-          return ok({ rows, next: formatSeq(rows[rows.length - 1].seq) });
-        }
-        rows.push(row);
-      }
-      before = row.seq;
-      scanned += 1;
-      if (scanned >= SCAN_CAP) return ok({ rows, next: formatSeq(before) });
-    }
-    if (batch.length < SCAN_BATCH) return ok({ rows, next: null });
-  }
-}

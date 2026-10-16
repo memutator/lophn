@@ -11,7 +11,7 @@ import { openConnection } from "../ledger/mod.ts";
 // 재시작 점검 모양.
 // 소유 concern의 복구 command가 아직 없는 영역은 이 모양으로 관측값을 남긴다.
 // 각 대상의 상태·event는 해당 concern이 소유하고, 이 모듈은 소유 표를 읽지 않는다.
-export type RestartObservation = {
+type RestartObservation = {
   // 복구 점검 대상의 실제 record ID · 자연키.
   target: string;
   // 점검 시작에 읽은 관련 변경 위치. 모르는 대상은 "0"이다.
@@ -24,7 +24,7 @@ export type RestartObservation = {
   reason?: string;
 };
 
-export type RestartCheck = {
+type RestartCheck = {
   // schema 순번과 hash 유효성은 기동의 migration 적용이 이미 검사한다.
   // 여기서는 중단 흔적의 관측만 남긴다. 전역 barrier를 만들지 않는다.
   observations: readonly RestartObservation[];
@@ -37,7 +37,7 @@ export type RestartOwner = (
   now: string,
 ) => readonly RestartObservation[];
 
-export type RestartDeps = {
+type RestartDeps = {
   clock: Pick<Clock, "now">;
   // 복구 command 없이 표의 실제 상태를 관측할 수 있는 소유 concern(예: platform/approvals).
   owners?: readonly RestartOwner[];

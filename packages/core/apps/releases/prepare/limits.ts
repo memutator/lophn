@@ -6,7 +6,6 @@ import {
   RELEASE_PREPARATION_LIMIT_MS,
   RELEASE_SOURCE_MAX_BYTES,
 } from "../../../../protocol/apps/mod.ts";
-import { err, ok, type Result } from "../../../../base/mod.ts";
 
 export {
   RELEASE_BUNDLE_MAX_BYTES,
@@ -15,7 +14,7 @@ export {
   RELEASE_SOURCE_MAX_BYTES,
 };
 
-export type LimitName =
+type LimitName =
   | "source_bytes"
   | "bundle_bytes"
   | "file_count"
@@ -29,14 +28,14 @@ export type LimitFailure = {
 };
 
 // 준비 도중의 관측값을 상값 하나로 모은다. 상한은 값 하나당 하나만 담는다.
-export type PreparationUsage = {
+type PreparationUsage = {
   source_bytes: number;
   bundle_bytes: number;
   file_count: number;
   elapsed_ms: number;
 };
 
-export function exceededLimit(
+function exceededLimit(
   usage: PreparationUsage,
 ): LimitFailure | undefined {
   const limits: [LimitName, number, number][] = [
@@ -54,15 +53,8 @@ export function exceededLimit(
 }
 
 // 상한 검사에 통과했으면 준비를 계속한다. 넘겼으면 실패 이유를 남긴다.
-export function checkLimits(
-  usage: PreparationUsage,
-): Result<{ usage: PreparationUsage }, LimitFailure> {
-  const exceeded = exceededLimit(usage);
-  if (exceeded) return err(exceeded);
-  return ok({ usage });
-}
 
-export type UsageCounter = {
+type UsageCounter = {
   usage(): PreparationUsage;
   addSource(bytes: number, files: number): LimitFailure | undefined;
   addBundle(bytes: number, files: number): LimitFailure | undefined;

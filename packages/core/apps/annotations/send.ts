@@ -29,7 +29,7 @@ export type RunCommand = <R extends CommandRoute>(
   prepared: readonly string[],
 ) => Promise<Result<Output<R>>>;
 
-export type AnnotationDeps = {
+type AnnotationDeps = {
   run: RunCommand;
   // 다른 module이 채우는 칸이라 부를 때 읽는다. 없으면 보내기는 unavailable, source map은 없는 것과 같다.
   delivery(): AnnotationDelivery | undefined;

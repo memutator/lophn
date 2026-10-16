@@ -12,7 +12,7 @@ import type { WatchFolder } from "../watch/mod.ts";
 import type { Snapshot, SnapshotPort } from "../work-types.ts";
 
 // 예산(구현 조절값). 넘으면 일부만 훑지 않고 일을 `unavailable`로 끝낸다.
-export const CONTEXT_FILE_LIMITS: {
+const CONTEXT_FILE_LIMITS: {
   files: number;
   fileBytes: number;
   snapshotBytes: number;

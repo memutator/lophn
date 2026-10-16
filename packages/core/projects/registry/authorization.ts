@@ -8,20 +8,18 @@ import {
 import type { Project, ProjectCandidate } from "./model.ts";
 
 // command는 현재 Project와 전체 변경 후보를, read는 Project를 판정한다.
-export type ProjectAccessTarget =
+type ProjectAccessTarget =
   | { kind: "command"; before: Project | null; after: ProjectCandidate }
   | { kind: "project"; project: Project };
 
-export type ProjectAuthorizer = TargetAuthorizer;
-
-export function dependencyUnavailable(): Result<never> {
+function dependencyUnavailable(): Result<never> {
   return err({
     code: "unavailable",
     message: "project dependency unavailable",
   });
 }
 
-export function synchronousResult<T>(value: unknown): Result<T> {
+function synchronousResult<T>(value: unknown): Result<T> {
   if (value instanceof Promise) {
     void value.catch(() => {});
     return dependencyUnavailable();

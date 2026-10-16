@@ -1,9 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  canonicalOrder,
-  isSameOrInside,
-  type ResolvedRequirement,
-} from "./model.ts";
+import { canonicalOrder, type ResolvedRequirement } from "./model.ts";
 
 // Deno 2.9.7 probe:
 // --allow-read 폴더 안의 symlink라도 --deny-read=<그 lexical 경로>가 폴더 밖 읽기를 막는다.
@@ -26,7 +22,7 @@ export type LimitKey = (typeof LIMIT_KEYS)[number];
 // 앱 process가 여는 socket은 broker socket 하나와 control socket 하나뿐이다. 둘은 supervisor가
 // 시작마다 새로 정한다. 정해진 값이 있으면 결과에 넣고, 없으면 supervisor가 `socketFlags`로 띄울 때 더한다.
 // 다른 앱의 socket에는 닿지 못한다(앱 사이 호출은 broker를 지나 core가 중계한다).
-export type AppPaths = {
+type AppPaths = {
   bundle: string;
   data: string;
   brokerSocket?: string;
@@ -49,7 +45,7 @@ const SOCKET_HOST = "lophn.invalid";
 const DATABASE_FILE = "app.sqlite";
 const DATABASE_SUFFIXES = ["", "-wal", "-shm", "-journal"] as const;
 
-export function databaseFiles(data: string): string[] {
+function databaseFiles(data: string): string[] {
   return DATABASE_SUFFIXES.map((suffix) => `${data}/${DATABASE_FILE}${suffix}`);
 }
 
@@ -189,26 +185,3 @@ export function socketFlags(
 }
 
 // migration은 외부 grant를 물려받지 않는다. bundle 읽기와 자기 DB 작업 영역만.
-export function migrationFlags(
-  app: Pick<AppPaths, "bundle" | "data">,
-  protectedDenies: readonly string[],
-): Result<FlagSet> {
-  if (
-    isSameOrInside(app.data, app.bundle) || isSameOrInside(app.bundle, app.data)
-  ) {
-    return fail("invalid_input", "bundle and data must be separate");
-  }
-  const args = [
-    ...FIXED,
-    `--allow-read=${[app.bundle, app.data].sort().join(",")}`,
-    `--allow-write=${databaseFiles(app.data).sort().join(",")}`,
-  ];
-  if (protectedDenies.length > 0) {
-    const sorted = [...protectedDenies].sort();
-    args.push(
-      `--deny-read=${sorted.join(",")}`,
-      `--deny-write=${sorted.join(",")}`,
-    );
-  }
-  return ok({ args, limits: LIMIT_KEYS });
-}

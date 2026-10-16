@@ -11,19 +11,12 @@ export {
   mergeSkillLayers,
   parseSkillFrontmatter,
   SKILL_BODY_MAX_BYTES,
-  SKILL_DESCRIPTION_MAX,
   SKILL_MANIFEST,
-  SKILL_NAME_MAX,
   type SkillCandidate,
-  skillDescriptionReason,
   type SkillDiscovery,
-  type SkillDiscoveryInput,
   type SkillEntry,
   type SkillFilesPort,
-  skillNameReason,
-  skillPromptSection,
   type SkillSkipped,
-  type SkillSupplemental,
 } from "./skills.ts";
 export {
   listSkillsSync,
@@ -31,34 +24,20 @@ export {
   type SkillSources,
   type SyncSkillFiles,
 } from "./skills-sync.ts";
-export {
-  createSkillsRead,
-  type SkillsReadDeps,
-  type SkillsReadLookups,
-} from "./skills-handler.ts";
-export {
-  createSkillSnapshot,
-  type SkillSession,
-  type SkillSnapshot,
-  type SkillSnapshotDeps,
-} from "./skill-read.ts";
+export { createSkillsRead } from "./skills-handler.ts";
+export { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 export {
   createProjectExtensionCommands,
   createProjectExtensionReads,
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
   PROJECT_EXTENSIONS_FILE,
-  PROJECT_SKILLS_DIR,
-  type ProjectExtensionDeps,
   type ProjectExtensions,
   projectExtensionsPathOf,
-  projectFolderOf,
   projectSkillsOf,
-  serializeProjectExtensions,
 } from "./project-settings.ts";
 export {
   collectProjectMcpEntries,
-  type ProjectMcpEntry,
   type ProjectServerSource,
 } from "./project-servers.ts";
 export { dataRootOf, fileHash, type PlaceFiles } from "./place-store.ts";
@@ -66,129 +45,60 @@ export {
   commandSkillsOf,
   createExtensionRegistry,
   type ExtensionRegistry,
-  type ExtensionRegistryDeps,
 } from "./registry.ts";
 export {
-  type McpLayer,
   type McpRuntimeServer,
   mergeMcpLayers,
-  type RuntimeAuth,
   runtimeServerOfLayer,
-  type RuntimeValue,
 } from "./mcp-server.ts";
 export {
   allowNetList,
   allowRunList,
   checkMcpConfig,
-  httpEndpointReason,
-  type McpConfigCheck,
-  type McpConfigProblem,
   type McpServerShape,
-  serverConfigReason,
 } from "./mcp-config.ts";
 export {
-  type CallOutcome,
-  CONNECT_TIMEOUT_MS,
-  type ConnectionState,
-  type ConnectionView,
   createMcpConnections,
-  type DeadlineFn,
-  LIST_BYTES_MAX,
-  LIST_PAGE_MAX,
-  LIST_TIMEOUT_MS,
-  LIST_TOOLS_MAX,
-  type ListFailure,
   type McpConnections,
   type McpConnectionsDeps,
-  type McpDisconnectReason,
-  type McpSecretAttach,
   type McpToolView,
-  type McpTransport,
-  type McpTransportOpener,
-  type OwnerKey,
-  RECONNECT_DELAYS_MS,
-  SCHEMA_DEPTH_MAX,
-  type ToolList,
-  type WaitFn,
 } from "./mcp-connections.ts";
 export {
   endpointReason,
   type HttpFetch,
   initializeBody,
-  MCP_PROTOCOL_VERSION,
   redirectOriginRejected,
   rpcResultOf,
-  sameOrigin,
-  unsupportedReverseResponse,
 } from "./adapters/mcp-http.ts";
 export {
   spawnStdioMcp,
-  STDERR_MAX_BYTES,
-  STDIO_AMBIENT_ENV,
-  STDIO_KILL_GRACE_MS,
-  STDIO_NO_SHELL,
-  stdioChildEnv,
   type StdioSpawn,
   type StdioSpawnInput,
 } from "./adapters/mcp-stdio.ts";
 export {
-  assignExternalToolNames,
   buildMcpTools,
   createMcpToolHandlers,
   EXTERNAL_TOOL_CONTRACT,
   type ExternalTool,
-  externalToolByName,
-  externalToolName,
-  externalToolTargetId,
-  type McpCallOutcome,
-  type McpInvokeCall,
   type McpSelection,
   type McpToolCall,
   type McpToolEntry,
   type McpToolsSource,
 } from "./mcp-tools.ts";
-export {
-  createMcpSecretRefSource,
-  lookupMcpSecretUse,
-  MCP_SECRET_OWNER,
-} from "./secret-refs.ts";
-export {
-  createMcpOAuth,
-  type McpAuthReport,
-  type McpOAuth,
-  type McpOAuthServer,
-  REFRESH_SKEW_MS,
-} from "./mcp-oauth.ts";
+export { createMcpSecretRefSource, lookupMcpSecretUse } from "./secret-refs.ts";
+export { createMcpOAuth, type McpOAuthServer } from "./mcp-oauth.ts";
 export {
   createMcpOAuthVault,
   type McpAuthKey,
   mcpAuthKeyId,
   type McpGrant,
-  type McpGrantBinding,
   type McpOAuthVault,
   mcpTokenRef,
-  type McpVaultKeychain,
 } from "./mcp-oauth-vault.ts";
 export {
   type AuthDeadline,
   authHeaders,
-  authorizationUrl,
-  type AuthState,
   bindingChanged,
-  type BrowserOpener,
   type CallbackListener,
-  type CallbackOpener,
   createMcpAuth,
-  type CredentialBinding,
-  exchangeToken,
-  type HttpAuth,
-  MCP_AUTH_WAIT_MS,
-  type OAuthBinding,
-  type OAuthStartInput,
-  pkceChallengeS256,
-  type RefreshOutcome,
-  type Registration,
-  type TokenExchangeInput,
-  type TokenExchangeOutcome,
-  type TokenGrant,
 } from "./mcp-auth.ts";

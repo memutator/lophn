@@ -20,7 +20,7 @@ const BUILTIN_FILES = {
   app_engineer: "app-engineer.md",
 } as const;
 
-export function fileHash(text: string): string {
+function fileHash(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
@@ -59,31 +59,6 @@ export function slotOf(
 
 // turn과 session 기록이 role 이름·작업 place·Operator id로 agent를 가리키는 동안 쓰는 변환이다. 옛 이름
 // `context_engineer`는 Project Manager다. 가리킬 수 없으면 null이다.
-export function agentRefOf(
-  role: string,
-  place: Place | null,
-  operator: string | null,
-): AgentRef | null {
-  switch (role) {
-    case "lophn":
-      return { role: "lophn" };
-    case "project_manager":
-    case "context_engineer":
-      return place?.kind === "project"
-        ? { role: "project_manager", project: place.id as never }
-        : null;
-    case "app_engineer":
-      return place?.kind === "app"
-        ? { role: "app_engineer", app: place.id as never }
-        : null;
-    case "operator":
-      return operator === null
-        ? null
-        : { role: "operator", agent: operator as never };
-    default:
-      return null;
-  }
-}
 
 export type AgentStore = {
   root: string;

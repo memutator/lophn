@@ -19,8 +19,8 @@ export type Redactor = {
   onParent(message: ParentMessage): boolean;
 };
 
-export const REDACT_OVERLAP = 4_096;
-export const REDACT_TIMEOUT_MS = 15_000;
+const REDACT_OVERLAP = 4_096;
+const REDACT_TIMEOUT_MS = 15_000;
 
 type Span = { index: number; length: number };
 type Entry = {

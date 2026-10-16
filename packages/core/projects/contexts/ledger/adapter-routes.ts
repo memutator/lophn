@@ -51,7 +51,7 @@ import {
 } from "./adapter-run.ts";
 import { contextOf, loadCheck } from "./rows.ts";
 
-export type CommandEntry<R extends CommandRoute = CommandRoute> = {
+type CommandEntry<R extends CommandRoute = CommandRoute> = {
   route: R;
   run(
     deps: ContextLedgerDeps,
@@ -63,7 +63,7 @@ export type CommandEntry<R extends CommandRoute = CommandRoute> = {
   ): Result<Output<R>>;
 };
 
-export type ReadEntry<R extends ReadRoute = ReadRoute> = {
+type ReadEntry<R extends ReadRoute = ReadRoute> = {
   route: R;
   run(
     deps: ContextLedgerDeps,

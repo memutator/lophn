@@ -41,7 +41,7 @@ import type { WiringFactory } from "./context.ts";
 import type { SettingsReader } from "../../../../protocol/config/mod.ts";
 
 // Approvals가 request 표에 쓰고 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
-export const APPROVALS_PRINCIPAL = "machine:approvals";
+const APPROVALS_PRINCIPAL = "machine:approvals";
 
 const APPROVALS_CONTEXT: AuthenticatedContext = {
   principal: APPROVALS_PRINCIPAL,
@@ -72,7 +72,7 @@ const DEFAULT_SETTINGS: SettingsReader = {
 };
 
 // 호출한 agent의 credential이 묶인 session·turn과 입력이 같을 때만 받는다.
-export function ownTurn(
+function ownTurn(
   who: AuthenticatedContext,
   input: { session: string; turn: string },
 ): Result<void> {

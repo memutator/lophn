@@ -6,7 +6,7 @@ import type { PlaceAgent, PlaceContext } from "./place-info.ts";
 // session 기록에 쓰는 일은 호출하는 쪽이 한다.
 
 export const INSTRUCTION_LAYERS = ["global", "project", "agent"] as const;
-export type InstructionLayerName = (typeof INSTRUCTION_LAYERS)[number];
+type InstructionLayerName = (typeof INSTRUCTION_LAYERS)[number];
 
 // 층별 지침 전문. 없는 층은 빈 문자열이다.
 export type InstructionTexts = Record<InstructionLayerName, string>;
@@ -58,7 +58,7 @@ export async function basisOf(input: {
   };
 }
 
-export type ListChange = { added: string[]; removed: string[] };
+type ListChange = { added: string[]; removed: string[] };
 
 export type BasisDiff = {
   instructions: InstructionLayerName[];

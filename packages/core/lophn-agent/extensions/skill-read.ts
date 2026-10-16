@@ -29,7 +29,7 @@ export type SkillSnapshotDeps = {
   ): Promise<{ store: string | null; off: readonly string[] }>;
 };
 
-export type SkillSession = {
+type SkillSession = {
   id: Id<"ses">;
   role: Role;
   // project에 놓인 agent의 project다. lophn과 앱에 놓인 agent는 null이다(project 층이 없다).
@@ -38,7 +38,7 @@ export type SkillSession = {
   skills_off: readonly string[];
 };
 
-export type SkillSnapshot = {
+type SkillSnapshot = {
   // prompt의 skill 목록 재료다. 끈 skill도 enabled false로 남는다.
   skills: readonly { name: string; description: string; enabled: boolean }[];
   skipped: readonly SkillSkipped[];

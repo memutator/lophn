@@ -44,16 +44,16 @@ export function contentHashOf(
 
 // 대기 큐. 개수·바이트 한도를 넘는 새 입력은 실패와 손실 이유다.
 // entry는 send가 끝난 뒤에만 빠진다: 재전송은 같은 고정 input만 쥔다.
-export type CollectorPending = {
+type CollectorPending = {
   bytes: number;
   input: Readonly<RecordProblemReportInput>;
 };
 
-export function utf8Length(value: unknown): number {
+function utf8Length(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length;
 }
 
-export function queueRejection(overCount: boolean): ReportTransportError {
+function queueRejection(overCount: boolean): ReportTransportError {
   return {
     code: "unavailable",
     message: overCount

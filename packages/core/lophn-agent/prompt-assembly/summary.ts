@@ -1,4 +1,3 @@
-import { sha256Hex } from "../../../base/mod.ts";
 import {
   DATA_END_MARKER,
   DATA_NOTE,
@@ -10,14 +9,8 @@ import type { HistoryMessage, PromptRequest } from "./model.ts";
 // Compact summary의 준비이다(concern lophn-agent/harness/prompt-assemble). 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
 
-export const SUMMARY_RULE_VERSION = "compaction.1";
-
 export function summaryBodyTokens(text: string): number {
   return new TextEncoder().encode(text).byteLength;
-}
-
-export function summaryBodyHash(text: string): Promise<string> {
-  return sha256Hex(text);
 }
 
 // ---- 이후 call의 조립 ----
@@ -31,14 +24,14 @@ export type SessionMessage = {
 
 // rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
 // 빠진다.
-export type FoldedMessages = {
+type FoldedMessages = {
   from_seq: bigint;
   through_seq: bigint;
   // "Summarize from here"의 요약 본문이다. 접힌 구간 자리에 이 요약이 들어간다.
   text: string;
 };
 
-export type HiddenMessages = { from_seq: bigint; through_seq: bigint };
+type HiddenMessages = { from_seq: bigint; through_seq: bigint };
 
 export type SessionConversation = {
   // Compact가 session에 이은 요약과 그것이 덮는 마지막 메시지의 순번. 없으면 null이다.

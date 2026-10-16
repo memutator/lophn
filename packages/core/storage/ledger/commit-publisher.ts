@@ -8,11 +8,11 @@ import type { CommandSuccess } from "./writer-message.ts";
 
 // first_seq..last_seq(양 끝 포함)의 events 행을 seq 순서로 읽는다. 행은 envelope 모양이다
 // (seq, type, subject, actor, at, payload는 파싱한 값). 검사는 publisher가 한다.
-export type CommitEventReader = {
+type CommitEventReader = {
   readRange(firstSeq: string, lastSeq: string): Promise<Result<unknown[]>>;
 };
 
-export type CommitPublisherDeps = {
+type CommitPublisherDeps = {
   reader: CommitEventReader;
   bus: Pick<Bus, "publish">;
   log?: (message: string) => void;

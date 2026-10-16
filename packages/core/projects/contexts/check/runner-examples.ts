@@ -101,7 +101,7 @@ export function exampleFindings(
   return findings;
 }
 
-export type SavedViewCall = {
+type SavedViewCall = {
   name: string;
   search: string;
   inputs: Record<string, unknown>;

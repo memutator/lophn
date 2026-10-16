@@ -69,7 +69,7 @@ const COLLECTOR_TIMEOUT_MS = 15_000;
 // shell main이 받는 user credential의 process 조건(core/parent.ts greet).
 const SHELL_PROCESS = "electron-main";
 
-export type CollectorWorkersDeps = {
+type CollectorWorkersDeps = {
   // collector 감독 pipe의 요청 통로. 감독이 child를 띄우면 bind된다.
   channel: WorkerChannel;
   observation(): HealthObservation;

@@ -1,4 +1,4 @@
-import { err, type Result } from "../../../base/mod.ts";
+import { type Result } from "../../../base/mod.ts";
 import type { ConfirmationRef } from "../../../protocol/base/mod.ts";
 import { ConfirmationRegistry, type ConfirmationUse } from "./confirmation.ts";
 
@@ -31,17 +31,7 @@ export function routeConfirmation(
   };
 }
 
-const unavailable = (): Result<never> =>
-  err({ code: "unavailable", message: "사람 결정 확인을 사용할 수 없다" });
-
 // 다리가 없으면 confirmation route는 unavailable이다. 없는 확인을 성공으로 넘기지 않는다.
-export function disconnectedConfirmationBridge(): ConfirmationBridge {
-  return {
-    reserve: () => unavailable(),
-    consume: () => undefined,
-    release: () => undefined,
-  };
-}
 
 export function confirmationBridge(
   registry: ConfirmationRegistry,

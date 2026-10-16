@@ -229,7 +229,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
   ];
 }
 
-export type AppsControlDeps = {
+type AppsControlDeps = {
   clock: Clock;
   ledgerPath: string;
   readers: {
@@ -271,7 +271,7 @@ export type AppsControlDeps = {
   };
 };
 
-export type AppsControl = {
+type AppsControl = {
   // 앱 시작 입력에 싣는 공개 검증 key. 서명 key는 core 시작마다 새로 만든다.
   readonly verifyKey: string;
   // core 안에서 하나뿐인 서명 key 쥠이다.
@@ -317,7 +317,7 @@ function internalError(): Result<never> {
 const GRANT_PAGES = 20;
 
 // preview가 release로 여는 bundle이다. 없는 release·다른 앱의 release는 undefined라 같은 거절이다.
-export function ledgerPreviewReleases(ledgerPath: string): PreviewReleases {
+function ledgerPreviewReleases(ledgerPath: string): PreviewReleases {
   return {
     bundleOf(app, release) {
       const opened = openConnection(ledgerPath);
@@ -711,7 +711,7 @@ export function appCredentialIssuer(
 // supervisor machine credential이 닿는 operation(발급 상한 안이어야 한다).
 export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
-export function denoDir(): string {
+function denoDir(): string {
   let configured: string | undefined;
   try {
     configured = Deno.env.get("DENO_DIR");
@@ -721,7 +721,7 @@ export function denoDir(): string {
   return home ? `${home}/.cache/deno` : "/tmp";
 }
 
-export function repoRoot(): string {
+function repoRoot(): string {
   return new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 }
 

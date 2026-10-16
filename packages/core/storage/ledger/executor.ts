@@ -54,11 +54,11 @@ import {
 } from "./command-outcome.ts";
 
 // transaction 안의 현재 자격 재검사. 자격 저장은 identity가 맡는다.
-export type CredentialCheck = (
+type CredentialCheck = (
   ctx: AuthenticatedContext,
 ) => Result<AuthenticatedContext>;
 
-export type CommandExecutorDeps = TxDeps & {
+type CommandExecutorDeps = TxDeps & {
   checkCredential: CredentialCheck;
   // 사람 결정 확인. 없으면 confirmation route는 쓸 수 없다.
   confirmation?: ConfirmationBridge;
@@ -91,7 +91,7 @@ function authoritySnapshot(ctx: RequestContext): Result<RequestContext> {
   }
 }
 
-export async function digestOf(
+async function digestOf(
   command: string,
   envelope: Omit<FingerprintInput, "command">,
 ): Promise<Result<string>> {
@@ -234,7 +234,7 @@ function reserveConfirmation(
 }
 
 // 이번 command가 낸 event만 본다. rollback으로 빈 번호가 있으면 before+1이 아니다.
-export function commitCommand(
+function commitCommand(
   connection: LedgerConnection,
   deps: CommandExecutorDeps,
   commands: ReadonlyMap<string, CommandDefinition>,

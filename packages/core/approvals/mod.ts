@@ -1,21 +1,15 @@
 export { createApprovals } from "./approvals.ts";
-export type { ApprovalsDeps, ApprovalsService } from "./approvals.ts";
+export type { ApprovalsService } from "./approvals.ts";
 export { gate } from "./gate/mod.ts";
 export {
   agentGrantRegistration,
   allowanceKey,
   createGrants,
   createSessionAllowances,
-  type GrantsConnections,
   loadAgentGrant,
-  pruneAgentGrantApis,
   reactionSettings,
 } from "./grants/mod.ts";
-export {
-  type ApprovalCalls,
-  type ApprovalLedger,
-  createApprovalLedger,
-} from "./ledger.ts";
+export { type ApprovalLedger, createApprovalLedger } from "./ledger.ts";
 export { intentFingerprint } from "./model.ts";
 export type {
   ApprovalApplier,
@@ -24,10 +18,7 @@ export type {
   Grants,
   SessionAllowances,
 } from "./ports.ts";
-export {
-  createCoreRegistration,
-  createReaderRegistration,
-} from "./registration.ts";
+export { createCoreRegistration } from "./registration.ts";
 export {
   APPROVAL_INTERNAL_COMMANDS,
   approvalsCancelPendingFor,

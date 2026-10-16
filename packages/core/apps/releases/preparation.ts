@@ -5,7 +5,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { BundleManifest } from "../../../protocol/apps/mod.ts";
 
-export type PreparationStatus =
+type PreparationStatus =
   | "preparing"
   | "completed"
   | "cancelled"

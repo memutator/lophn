@@ -15,7 +15,6 @@ import {
   type MemoryRoute,
   type ReadRoute,
   type Route,
-  routePath,
   UPLOAD_INPUT_HEADER,
   type UploadRoute,
   type WorkerRoute,
@@ -77,7 +76,7 @@ export type FileHandler = (
 // - length: 응답 본문의 정확한 길이(Content-Length). 그보다 적게 흐르고 끝나면 응답이 끊긴다.
 // - body: 소비자가 당길 때만 다음 창을 읽는다(backpressure). 크기·hash 검사가 끝에서
 //   어긋나면 body를 오류로 끝내 응답을 완료하지 않는다.
-export type FileStream = {
+type FileStream = {
   contentType: string;
   length: number;
   body: ReadableStream<Uint8Array>;
@@ -92,7 +91,7 @@ export type FileStreamHandler = (
 // stream은 route 상한(max_bytes)을 넘으면 오류로 끝난다. length는 Content-Length를 보낸
 // 요청의 선언 길이이고(그만큼만 흐른다) chunked 전송이면 없다. 입력이 크기를 선언하는
 // route는 handler가 exactLength로 그 크기를 정확히 지킨다.
-export type UploadBody = {
+type UploadBody = {
   bytes: ReadableStream<Uint8Array>;
   length: number | undefined;
 };
@@ -142,7 +141,7 @@ export type DispatchDeps = {
   ) => Promise<HttpResult>;
 };
 
-export type HttpResult =
+type HttpResult =
   | { status: number; json: unknown }
   | { status: number; bytes: Uint8Array; contentType: string }
   | {
@@ -380,7 +379,7 @@ function decodeInputHeader(value: string): Uint8Array | undefined {
 
 // route 상한을 넘는 바이트는 흘리지 않는다. 길이를 선언했으면 정확히 그 길이여야 한다.
 // 어긋나면 stream이 오류로 끝나 handler가 아무것도 확정하지 못한다.
-export function exactLength(
+function exactLength(
   source: ReadableStream<Uint8Array>,
   length: number | undefined,
   max: number = Number.MAX_SAFE_INTEGER,
@@ -608,7 +607,7 @@ async function fileStream(
 // 실리므로 CR·LF나 `;` 뒤 덧붙임을 통과시키지 않는다. 값을 고르거나 고쳐 쓰지 않는다.
 const MEDIA_TYPE = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
 
-export function validMediaType(value: unknown): value is string {
+function validMediaType(value: unknown): value is string {
   return typeof value === "string" && value.length <= 255 &&
     MEDIA_TYPE.test(value);
 }
@@ -707,12 +706,6 @@ async function workerWithBytes(
     deps,
     () => readLimitedBody(request, { maxBytes, timeoutMs: deps.bodyTimeoutMs }),
   );
-}
-
-export function registeredPath(
-  route: { resource: string; method: string },
-): string {
-  return routePath(route);
 }
 
 // file route의 성공 payload. worker가 돌려주는 원본 bytes다. core는 해석하지 않는다.

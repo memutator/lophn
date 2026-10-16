@@ -14,7 +14,7 @@ export const GROUP_CONFIRM_MS = 1_000;
 const GROUP_POLL_MS = 10;
 
 // ok: 대상이 있었고 신호가 갔다. absent: 대상 process(group)가 없다. failed: 그 밖(확인 불가).
-export type AdapterResult = "ok" | "absent" | "failed";
+type AdapterResult = "ok" | "absent" | "failed";
 
 function runKillUtility(args: string[]): Promise<AdapterResult> {
   return new Promise((resolve) => {

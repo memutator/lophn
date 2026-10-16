@@ -2,25 +2,25 @@
 import { z } from "zod";
 import { declareSetting } from "../../protocol/config/mod.ts";
 
-export const themeSetting = declareSetting({
+const themeSetting = declareSetting({
   key: "shell.theme",
   type: z.enum(["light", "dark", "system"]),
   default: "system",
 });
 
-export const textSizeSetting = declareSetting({
+const textSizeSetting = declareSetting({
   key: "shell.text_size",
   type: z.enum(["small", "default", "large"]),
   default: "default",
 });
 
-export const readingWidthSetting = declareSetting({
+const readingWidthSetting = declareSetting({
   key: "shell.reading_width",
   type: z.enum(["narrow", "default", "wide"]),
   default: "default",
 });
 
-export const densitySetting = declareSetting({
+const densitySetting = declareSetting({
   key: "shell.density",
   type: z.enum(["comfortable", "compact"]),
   default: "comfortable",

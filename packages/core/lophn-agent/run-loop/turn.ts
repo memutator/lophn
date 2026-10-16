@@ -70,7 +70,7 @@ export type LoopState = {
   };
 };
 
-export type TurnResult = { kind: "continue" } | {
+type TurnResult = { kind: "continue" } | {
   kind: "end";
   end: LoopEnd;
 };
@@ -82,7 +82,7 @@ function endWith(end: LoopEnd): TurnResult {
 }
 
 // 진행 호출에 중단을 요청하고 부모 신호가 중단돼도 따라 중단되는 하위 신호를 만든다.
-export function linked(parent: AbortSignal): AbortController {
+function linked(parent: AbortSignal): AbortController {
   const child = new AbortController();
   if (parent.aborted) child.abort();
   else parent.addEventListener("abort", () => child.abort(), { once: true });

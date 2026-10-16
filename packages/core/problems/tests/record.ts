@@ -40,7 +40,7 @@ function storedVerification(tx: Tx, principal: string, key: string) {
   );
 }
 
-export function handleRecordVerification(
+function handleRecordVerification(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof recordVerification>,

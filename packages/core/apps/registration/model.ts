@@ -6,28 +6,13 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
-import type { EventEnvelopeFor } from "../../../protocol/events/mod.ts";
-import type {
-  appArchived,
-  appCreated,
-  appSourceConnected,
-  appUnarchived,
-} from "../../../protocol/apps/mod.ts";
-
-export type AppEvent =
-  | EventEnvelopeFor<typeof appCreated>
-  | EventEnvelopeFor<typeof appSourceConnected>
-  | EventEnvelopeFor<typeof appArchived>
-  | EventEnvelopeFor<typeof appUnarchived>;
 
 // command는 현재 App과 변경 후보를 판정한다. read는 App 하나다.
 export type AppAccessTarget =
   | { kind: "command"; before: App | null; after: Omit<App, "revision"> }
   | { kind: "app"; app: App };
 
-export type AppAuthorizer = TargetAuthorizer;
-
-export function dependencyUnavailable(): Result<never> {
+function dependencyUnavailable(): Result<never> {
   return err({
     code: "unavailable",
     message: "app dependency unavailable",
@@ -93,7 +78,7 @@ export function denied(result: Result<unknown>): boolean {
     (result.error.code === "forbidden" || result.error.code === "not_found");
 }
 
-export function synchronousResult<T>(value: unknown): Result<T> {
+function synchronousResult<T>(value: unknown): Result<T> {
   if (value instanceof Promise) {
     void value.catch(() => {});
     return dependencyUnavailable();
@@ -117,19 +102,5 @@ export function synchronousResult<T>(value: unknown): Result<T> {
   return dependencyUnavailable();
 }
 
-const DASH = /[-_]+/g;
-
 // slug의 대시·밑줄을 공백으로 바꾸고 단어 첫 글자를 대문자로 한다.
 // 이미 대문자인 토큰(MAHAS)은 그대로 둔다.
-export function suggestAppName(slug: string): string {
-  return slug
-    .split(DASH)
-    .filter((word) => word.length > 0)
-    .map((word) =>
-      // 한 토큰 안에 소문자가 있으면(예: usageReport) 첫 글자만 대문자로 맞춘다.
-      // 소문자가 없으면(MAHAS, usage2) 사람이 쓴 대·소문자를 보존한다.
-      /[a-z]/.test(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word
-    )
-    .join(" ")
-    .trim();
-}

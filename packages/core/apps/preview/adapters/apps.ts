@@ -4,7 +4,7 @@ import { brokerAppCallInputSchema } from "../../../../protocol/apps/mod.ts";
 import type { AppsCallService } from "../../permissions/mod.ts";
 import { invalid, refuse } from "./refusal.ts";
 
-export type PreviewAppCallAttempt = { app: string; api: string };
+type PreviewAppCallAttempt = { app: string; api: string };
 
 export type PreviewAppsCallService = AppsCallService & {
   readonly attempts: readonly PreviewAppCallAttempt[];

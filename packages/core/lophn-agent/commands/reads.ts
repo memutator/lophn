@@ -16,13 +16,13 @@ import { buildRegistry, type RegistrySkill } from "./registry.ts";
 // `/` 명령 목록 read(concern lophn-agent/commands). 목록은 저장하는 표가 아니라 session의 agent에서
 // 열 때마다 계산한다(domain model 정책).
 
-export type CommandSession = {
+type CommandSession = {
   role: Role;
   place: Place | null;
   agent: AgentRef;
 };
 
-export type CommandReadDeps = {
+type CommandReadDeps = {
   // 그 agent가 그 place에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
   // (lophn-agent/extensions). 끈 skill은 selected=false로 와서 registry가 거른다.
   skills(

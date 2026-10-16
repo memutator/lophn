@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
 import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
@@ -9,7 +9,6 @@ import {
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
-  CallAgent,
   CallFrom,
   CallRef,
   CallReply,
@@ -42,7 +41,7 @@ import { titleOnReceive } from "./session-title.ts";
 
 // 사람 메시지를 session의 입력함에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
 // 같은 Tx 안에서 부르고, 실패하면 접수한 메시지도 함께 되돌아간다.
-export type MessageRouter = {
+type MessageRouter = {
   route(tx: Tx, input: {
     from: CallFrom;
     to: CallToInput | CallTo;
@@ -138,7 +137,7 @@ function nextCreatedSeq(tx: Tx): number {
   return row === undefined ? 1 : Number(row["next"]);
 }
 
-export type SentMessage = { message: string; state_seq: string };
+type SentMessage = { message: string; state_seq: string };
 
 type HumanMessage = {
   id: string;
@@ -240,7 +239,7 @@ function writeHuman(
 
 // SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 입력함에
 // 들어간다. 입력함에 넣는 것이 실패하면 쓴 메시지도 같은 transaction이라 함께 되돌아간다.
-export function sendWith(
+function sendWith(
   deps: SendMessageDeps,
   tx: Tx,
   ctx: RequestContext,
@@ -283,45 +282,6 @@ export function sendWith(
 
 // 사람의 단추 한 번으로 새 session을 여는 요청이다(request.ts). Router가 session을 열고 입력을 넣은 뒤
 // 그 session에 사람 메시지를 쓴다.
-export function sendToNewSession(
-  deps: Pick<SendMessageDeps, "router">,
-  tx: Tx,
-  ctx: RequestContext,
-  input: {
-    id: string;
-    agent: CallAgent;
-    content: Input<typeof sendMessage>["content"];
-  },
-  existingBody: PermanentBlobReference,
-): Result<{ session: string; message: string }> {
-  const routed = deps.router.route(tx, {
-    from: { kind: "human" },
-    to: { kind: "new_session", agent: input.agent },
-    reply: "none",
-    body: textOf(input.content),
-    refs: [],
-    reply_to: null,
-    dedup: null,
-    options: null,
-    kind: "message",
-    delivery: "next_turn",
-    // 이 id로 곧 이어 쓴다(같은 transaction).
-    message: input.id as Id<"msg">,
-  });
-  if (!routed.ok) return routed;
-  if (routed.value.session === null) {
-    return err({ code: "internal", message: "the request opened no session" });
-  }
-  const written = writeHuman(tx, ctx, {
-    id: input.id,
-    session: routed.value.session,
-    content: input.content,
-    delivery: "next_turn",
-    refs: [],
-  }, existingBody);
-  if (!written.ok) return written;
-  return ok({ session: routed.value.session, message: input.id });
-}
 
 // agent의 답을 그 session의 기록에 남긴다. 받은 메시지와 같은 봉투로 쓴다: 보낸 쪽은 그 session 자신이고
 // `turn`은 답한 turn이다. 쓰는 쪽은 runtime(machine)이거나 그 session 자신의 agent이고, turn은 이 session에서

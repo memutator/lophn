@@ -10,7 +10,7 @@ import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 // 참조·판·목적지를 대조한 뒤 이 응답 하나로만 준다. 값은 인증 전송 callback의 인자로만 쓰고 결과·오류·
 // log·ModelCall blob에 남기지 않는다. 값을 받지 못하면 callback은 불리지 않고 요청은 나가지 않는다.
 
-export type SecretLink = {
+type SecretLink = {
   // 인증 transport가 쓰는 전송 부착 port다.
   attach: SecretAttachLike;
   // 감독 pipe에서 받은 parent message. 이 link의 응답이면 true다.

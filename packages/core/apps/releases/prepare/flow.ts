@@ -26,7 +26,7 @@ export type PrepareFailure = {
   reason: string;
 };
 
-export type BlobPrepare = (input: {
+type BlobPrepare = (input: {
   principal: string;
   purpose: string;
   bytes: ReadableStream<Uint8Array>;

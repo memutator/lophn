@@ -67,7 +67,7 @@ export type BlobPrepareCall = {
   bytes: ReadableStream<Uint8Array>;
 };
 
-export type Core = {
+type Core = {
   port: number;
   epoch: string;
   dataRoot: string;

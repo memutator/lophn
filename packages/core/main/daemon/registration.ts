@@ -19,7 +19,7 @@ import type { SecretRefSource } from "../../secrets/mod.ts";
 
 // 최상위 팀의 등록 파일이 내놓는 모양. main.ts는 이 목록만 부르고 팀 내용을 모른다.
 // 팀 파일은 지금 자기 모양을 그대로 내보내므로, 여기 조립은 있는 항목만 읽는다.
-export type TeamRegistration = {
+type TeamRegistration = {
   schemaSteps?: readonly SchemaStep[];
   commands?: readonly CommandDefinition[];
   reads?: readonly ReadDefinition[];

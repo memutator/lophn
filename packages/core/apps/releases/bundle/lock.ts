@@ -6,7 +6,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import { packageNameSchema } from "../../../../protocol/apps/mod.ts";
 import { packageInstallPath } from "../../packages/install.ts";
 
-export type LockFailure = {
+type LockFailure = {
   code: "invalid_input";
   reason:
     | "range_version"
@@ -16,7 +16,7 @@ export type LockFailure = {
   specifier: string;
 };
 
-export type SdkRef = { name: string; version: string };
+type SdkRef = { name: string; version: string };
 
 const SDK_VALUE = /^lophn-sdk:(@[^/@]+\/[^/@]+)@([^/@]+)(?:\/(.+))?$/;
 const EXACT_PIN =
@@ -26,13 +26,13 @@ const RANGE = /[~^*]|@latest|@next|@x\b/;
 const EXTERNAL_VALUE =
   /^(npm|jsr):((?:@[^/@]+\/)?[^/@]+)@(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(?:\/.*)?$/;
 
-export type ExternalRef = {
+type ExternalRef = {
   name: string;
   version: string;
   source: "npm" | "jsr";
 };
 
-export type LockedImports = {
+type LockedImports = {
   imports: Record<string, string>;
   // 잠근 값이 가리키는 설치 사본. bundle은 이 사본의 byte를 `packageInstallPath` 아래에 담는다.
   packages: SdkRef[];

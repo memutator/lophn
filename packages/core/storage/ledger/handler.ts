@@ -13,7 +13,7 @@ import type { CommandRoute } from "../../../protocol/base/mod.ts";
 // 파일·socket·process handle은 인자로 없고, Tx만 받는다.
 type NotPromise<T> = T extends Promise<unknown> ? never : T;
 
-export type SyncHandler<R extends CommandRoute> = (
+type SyncHandler<R extends CommandRoute> = (
   tx: Tx,
   ctx: RequestContext,
   input: Input<R>,

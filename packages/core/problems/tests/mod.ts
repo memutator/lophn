@@ -1,15 +1,9 @@
 export {
   appendActualSideStart,
   appendRequestObservation,
-  handleRequestTest,
-  type ObservationInput,
   requestTestCommand,
-  type SideStartInput,
 } from "./commands.ts";
-export {
-  handleRecordVerification,
-  recordVerificationCommand,
-} from "./record.ts";
+export { recordVerificationCommand } from "./record.ts";
 export {
   canListVerifications,
   canonicalRequest,
@@ -17,18 +11,12 @@ export {
   canReadVerification,
   canRecordVerification,
   connectionOf,
-  LIST_VERIFICATIONS,
   OBSERVE_TEST_REQUEST,
   parseVerification,
   type PreparedAdmission,
   type PreparedResultEvidence,
   projectRequest,
-  READ_BLOB_DETAIL,
-  READ_TEST_REQUEST,
-  READ_VERIFICATION,
-  RECORD_VERIFICATION,
   RECOVER_TEST_REQUEST,
-  REQUEST_PHASES,
   type RequestPhase,
   type RequestRecord,
   type SideStart,
@@ -36,26 +24,17 @@ export {
   TEST_RECOVERY_PRINCIPAL,
   TEST_RUNNER_PRINCIPAL,
   type TestConnection,
-  timeoutBounds,
   VERIFICATION_PAGE_CAP,
 } from "./model.ts";
 export {
   getTestRequestRead,
   getVerificationRead,
   listVerificationsRead,
-  readTestRequest,
-  readVerification,
-  readVerificationList,
   verificationRecordedVisibility,
 } from "./reads.ts";
 export { judgeRecordable } from "./judge.ts";
 export { blobPurpose } from "./blobs.ts";
-export {
-  buildRecord,
-  type BuiltRecord,
-  type RecordFacts,
-  verificationIdFor,
-} from "./build.ts";
+export { buildRecord, verificationIdFor } from "./build.ts";
 export { testAdmissionPort, testEvidencePort } from "./ports.ts";
 export {
   listOpenTestRequests,

@@ -7,7 +7,6 @@ export { type CoreSigner, createCoreSigner } from "./signing.ts";
 export {
   type PreviewLaunch,
   previewLaunchSchema,
-  previewNonceSchema,
   SUPERVISOR_OPS,
 } from "./control-protocol.ts";
 export type { ObservationWire } from "./control-protocol.ts";
@@ -15,10 +14,4 @@ export type { AppChild } from "./supervisor/mod.ts";
 export type { AppEnvironment, ChildIdentity } from "./processes/mod.ts";
 export { appArgv, appEnv, flagsAccepted } from "./processes/mod.ts";
 export { SOCKET_SLOTS } from "./processes/mod.ts";
-export type {
-  AppFacts,
-  ConnectFacts,
-  ProcessObservation,
-  ProcessQuery,
-  ProcessSource,
-} from "./connect.ts";
+export type { ConnectFacts } from "./connect.ts";

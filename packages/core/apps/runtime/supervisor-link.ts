@@ -8,11 +8,6 @@ import type {
   RuntimeObservation,
   RuntimeReason,
 } from "../../../protocol/apps/mod.ts";
-import type {
-  ProcessObservation,
-  ProcessQuery,
-  ProcessSource,
-} from "./connect.ts";
 import {
   activationOpenOutputSchema,
   activationPauseOutputSchema,
@@ -461,44 +456,6 @@ export function createAppProcessLink(
 }
 
 // connect 어댑터가 읽는 프로세스 출처. 자식이 없거나 다른 nonce인 질의는 값 없음이다.
-export function processSourceOf(client: SupervisorClient): ProcessSource {
-  return {
-    async current(query: ProcessQuery) {
-      // preview는 운영 자식과 따로 쥔 프로세스라 그 nonce로 묻는다. 운영 관측으로 대신하지 않는다.
-      const found = query.mode === "preview"
-        ? await client.previewObserve(query.app, query.nonce)
-        : await client.observe(query.app);
-      if (!found.ok) return found;
-      const wire = found.value;
-      if (
-        wire === null || wire.process_nonce === "" ||
-        wire.bundle_hash === null ||
-        wire.endpoint === ""
-      ) return ok(undefined);
-      if (wire.mode !== query.mode) return ok(undefined);
-      if (query.mode === "preview" && wire.process_nonce !== query.nonce) {
-        return ok(undefined);
-      }
-      const process: ProcessObservation = {
-        app: wire.app,
-        mode: wire.mode,
-        release: wire.release,
-        bundleHash: wire.bundle_hash,
-        processNonce: wire.process_nonce,
-        endpoint: wire.endpoint,
-        ready: wire.ready,
-        accepting: wire.accepting,
-        commands: wire.commands,
-        screens: wire.screens as ProcessObservation["screens"],
-      };
-      return ok(process);
-    },
-    async restart(app, nonce) {
-      const restarted = await client.restart(app, nonce);
-      return restarted.ok ? ok(undefined) : restarted;
-    },
-  };
-}
 
 const STARTING: RuntimeReason = {
   code: "starting",

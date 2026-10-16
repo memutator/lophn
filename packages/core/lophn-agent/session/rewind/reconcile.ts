@@ -10,7 +10,7 @@ import type { RewindFilesDeps } from "./files.ts";
 // 항목은 restored인데 파일은 그대로다. 파일이 아직 agent가 마지막으로 쓴 상태인 경로를 찾아 machine
 // `AmendRevertInstall`로 skipped(edited_outside)로 고친다. 설치를 이어서 하지는 않는다: 시간이 지난 뒤
 // 이어 쓰면 사람이 고친 내용을 덮을 수 있다.
-export type RewindReconcileDeps = {
+type RewindReconcileDeps = {
   snapshot: RewindFilesDeps["snapshot"];
   amend(revert: string, paths: readonly string[]): Promise<Result<unknown>>;
 };

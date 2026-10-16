@@ -21,7 +21,7 @@ export type ParentPipe = {
 // 사람 token이 지니는 operation은 route 등록의 actor 상한에서 계산한다. 손으로 쓴
 // 목록이 아니어서 새 route는 user를 허용하면 자동으로 들어가고, machine·app·worker
 // 전용 route는 들어가지 않는다. status·health read는 route 이름과 별개로 늘 포함한다.
-export function userOperations(
+function userOperations(
   routes: readonly Route[],
   // 팀이 공개 정책을 내놓은 event 이름. owner 정책이 사람에게 event를 보이려면 필요하다.
   events: readonly string[] = [],
@@ -114,7 +114,7 @@ async function flush(
   }
 }
 
-export type ParentConfirmation = {
+type ParentConfirmation = {
   confirmation(body: {
     action: "issue" | "close-window" | "clear";
     request?: unknown;
@@ -123,19 +123,19 @@ export type ParentConfirmation = {
   reply(message: unknown): Promise<void>;
 };
 
-export type ShellViewLifetime = Extract<
+type ShellViewLifetime = Extract<
   Diagnostic,
   { kind: "shell_view_lifetime" }
 >;
 
 // main의 안전 진단을 받는 곳. 기록 실패는 core를 멈추지 않는다.
-export type ParentDiagnostics = {
+type ParentDiagnostics = {
   shellView(diagnostic: ShellViewLifetime): Promise<void>;
 };
 
 // view 수명 한 줄. schema가 고정한 field(구성 요소·관측 시각·view id·generation·개수)만 쓰고
 // URL·query·token·경로는 payload에 들어올 자리가 없다.
-export function shellViewLogLine(diagnostic: ShellViewLifetime): string {
+function shellViewLogLine(diagnostic: ShellViewLifetime): string {
   const payload = diagnostic.payload;
   return JSON.stringify({
     at: payload.observed_at,

@@ -24,14 +24,14 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "app not found" });
 }
 
-export type RuntimeObservationSource = (
+type RuntimeObservationSource = (
   app: string,
 ) => {
   observation: RuntimeObservation | null;
   observed_at: string | null;
 } | undefined;
 
-export type RuntimeLogSource = (
+type RuntimeLogSource = (
   app: string,
   input: {
     invocation?: string;
@@ -47,7 +47,7 @@ export type RuntimeLogSource = (
   next_cursor?: string | null;
 } | undefined;
 
-export type RuntimeReadDeps = {
+type RuntimeReadDeps = {
   // 현재 supervisor 관측. 없으면 observation은 null이다.
   observation?: RuntimeObservationSource;
   // supervisor log buffer 조회. 없으면 state는 none이다.
@@ -135,7 +135,7 @@ function denied(result: Result<unknown>): boolean {
 }
 
 // core 메인 스레드의 read handler 모양. reader pool의 read가 이 모양으로 이어진다.
-export type MainRead = (
+type MainRead = (
   ctx: AuthenticatedContext,
   input: unknown,
 ) => Result<unknown> | Promise<Result<unknown>>;

@@ -9,7 +9,7 @@ import { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
 // Worker를 건너므로 structured clone 되는 값만 싣는다.
 export type CommitAction = { topic: string; data: unknown };
 
-export interface AfterCommit {
+interface AfterCommit {
   push(topic: string, data: unknown): void;
 }
 
@@ -38,7 +38,7 @@ export function createAfterCommitCollector() {
 
 // 지금 도는 command를 부른 자격의 principal이다. command가 아닌 곳에서는 null이다. 본문 blob은 그 이름으로 준비돼
 // 있어, command를 거쳐 들어온 효과(session을 끝내며 보내는 알림 등)도 같은 이름으로 기록해야 한다.
-export interface RequestPrincipal {
+interface RequestPrincipal {
   principal(): string | null;
 }
 

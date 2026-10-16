@@ -1,14 +1,6 @@
-import {
-  asInternalError,
-  err,
-  type LophnError,
-  ok,
-  type Result,
-} from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
-  API_MAJOR,
-  DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
   type ErrorBody,
   HEADER_MAX_BYTES,
@@ -20,9 +12,9 @@ import type { CredentialRegistry } from "./identity/mod.ts";
 
 // body를 읽기 전의 고정 한도.
 export const BODY_TIMEOUT_MS = 5_000;
-export const JSON_MAX_BYTES = RPC_JSON_MAX_BYTES;
-export const JSON_MAX_DEPTH = RPC_JSON_MAX_DEPTH;
-export const JSON_MAX_ITEMS = RPC_JSON_MAX_ITEMS;
+const JSON_MAX_BYTES = RPC_JSON_MAX_BYTES;
+const JSON_MAX_DEPTH = RPC_JSON_MAX_DEPTH;
+const JSON_MAX_ITEMS = RPC_JSON_MAX_ITEMS;
 export const MAX_HEADER_BYTES = HEADER_MAX_BYTES;
 
 const encoder = new TextEncoder();
@@ -42,36 +34,25 @@ export function errorBody(error: LophnError): ErrorBody {
 }
 
 // handler가 던진 것은 경계에서 internal로 바꾼다. stack·원문·token은 없다.
-export function safeError(thrown: unknown): LophnError {
-  return asInternalError(thrown);
-}
 
 // 실제 bind port P의 allowlist. proxy header는 보지 않는다.
-export function allowedHosts(port: number): ReadonlySet<string> {
+function allowedHosts(port: number): ReadonlySet<string> {
   return new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 }
 
-export function defaultPort(): number {
-  return DEFAULT_API_PORT;
-}
-
-export function apiMajor(): number {
-  return API_MAJOR;
-}
-
-export type GateInput = {
+type GateInput = {
   url: string;
   origin: string | null;
   authorization: string | null;
   port: number;
 };
 
-export type GateDecision =
+type GateDecision =
   | { ok: true; context: AuthenticatedContext }
   | { ok: false; failure: RequestFailure };
 
 // Deno는 클라이언트가 보낸 Host를 요청 URL authority로 바꾼다. header는 그대로 두지 않는다.
-export function hostOf(url: string): string | null {
+function hostOf(url: string): string | null {
   try {
     return new URL(url).host || null;
   } catch {
@@ -127,7 +108,7 @@ function bearerToken(header: string | null): string | undefined {
   return match?.[1];
 }
 
-export type BodyLimit = {
+type BodyLimit = {
   maxBytes: number;
   timeoutMs: number;
 };
@@ -196,8 +177,6 @@ export async function readLimitedBody(
   if (timer !== undefined) clearTimeout(timer);
   return result;
 }
-
-export type ParsedJson = { value: unknown };
 
 // 깊이 16, object/array 항목 4,096. 읽은 bytes 위에서만 센다.
 export function parseLimitedJson(

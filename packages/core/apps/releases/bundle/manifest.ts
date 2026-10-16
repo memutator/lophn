@@ -6,12 +6,12 @@ import {
   bundleManifestSchema,
 } from "../../../../protocol/apps/mod.ts";
 
-export type ManifestFailure = {
+type ManifestFailure = {
   code: "invalid_input";
   message: string;
 };
 
-export function parseManifest(
+function parseManifest(
   value: unknown,
 ): Result<BundleManifest, ManifestFailure> {
   const parsed = bundleManifestSchema.safeParse(value);

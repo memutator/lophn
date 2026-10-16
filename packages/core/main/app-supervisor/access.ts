@@ -15,7 +15,7 @@ import {
   effectiveScope,
 } from "../../apps/permissions/mod.ts";
 
-export type CorePost = (
+type CorePost = (
   path: string,
   bearer: string,
   body: unknown,

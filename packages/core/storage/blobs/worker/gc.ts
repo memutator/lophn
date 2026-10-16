@@ -9,13 +9,12 @@ import {
   BLOB_CAPACITY_MAX_BYTES,
   type InstalledBlob,
   referencedOf,
-  staleTemporary,
   trimTargets,
   unreferencedGracePassed,
 } from "../mod.ts";
 
 // GC 관측(실제 삭제 없음). 미참조 수와 삭제 자격 수만 센다.
-export type GcObservation = {
+type GcObservation = {
   installed: number;
   unreferenced: number;
   // 유예기간이 지나 삭제 자격이 있는 수.
@@ -141,20 +140,6 @@ export async function observeBlobGc(
 // 임시 준비 파일 정리. 재시작 뒤 부른다. 진행 중 아님을 확인한 뒤에만
 // 지운다: 살아 있는 준비 worker가 쓰는 임시 파일은 지우지 않는다. 관측은
 // 파일 시각 하나이고, 유예기간 안의 파일은 남는다.
-export async function clearTemporary(
-  deps: Pick<GcDeps, "listTmp" | "removeTmp" | "nowMs" | "graceMs">,
-): Promise<Result<readonly string[]>> {
-  const list = await deps.listTmp();
-  if (!list.ok) return list;
-  const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
-  const cleared: string[] = [];
-  for (const entry of list.value) {
-    if (!staleTemporary(entry.observedAtMs, deps.nowMs(), grace)) continue;
-    const removed = await deps.removeTmp(entry.name);
-    if (removed.ok) cleared.push(entry.name);
-  }
-  return ok(cleared);
-}
 
 // 실제 GC. 정지 유지보수에서만 부른다. 두 순서:
 // 고정 참조 대조 → 유예기간 통과분만 파일 삭제. writer 정지·새 준비 차단은 부르는 쪽(core

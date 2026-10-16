@@ -13,7 +13,7 @@ import {
 // 마지막에 bytes 합계) 어느 블록·어느 상한인지 값 없이 알려 준다. 어느 단계에서 실패해도 아무것도
 // 저장하지 않고 일부를 자르지 않는다.
 
-export const VISUAL_LIMITS = {
+const VISUAL_LIMITS = {
   blocks: MESSAGE_VISUAL_MAX_COUNT,
   bytes: MESSAGE_VISUAL_MAX_BYTES,
   tableRows: 1000,
@@ -24,7 +24,7 @@ export const VISUAL_LIMITS = {
   diagramEdges: 200,
 } as const;
 
-export type VisualStage =
+type VisualStage =
   | "parse"
   | "count"
   | "limit"
@@ -36,7 +36,7 @@ export type VisualStage =
   // 출처가 이 run에서 읽거나 실행한 결과가 아니다. 검사는 tool이 소유 contract 읽기로 한다.
   | "source";
 
-export type VisualRejection = {
+type VisualRejection = {
   code: "invalid_input";
   stage: VisualStage;
   // 블록의 key. 형식에 맞지 않으면 순서(`#2`)다. 받은 값을 그대로 싣지 않는다.
@@ -178,7 +178,7 @@ const UNSAFE: readonly RegExp[] = [
   /@import\b|\burl\s*\(|\bexpression\s*\(/i,
 ];
 
-export function unsafeText(text: string): boolean {
+function unsafeText(text: string): boolean {
   return UNSAFE.some((pattern) => pattern.test(text));
 }
 
@@ -213,7 +213,7 @@ function canonicalBytes(value: unknown): number | null {
   }
 }
 
-export type CheckedContent = ReturnType<
+type CheckedContent = ReturnType<
   typeof agentMessageContentInputSchema.parse
 >;
 

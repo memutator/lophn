@@ -9,7 +9,7 @@ export const RUNTIME_ENTRY_PATH = "lophn-entry.ts";
 // bundle 안 `vendor/`와 `node_modules/`에서 읽고(cache나 network 없이), 이 설정이 그 위치를 가리킨다.
 export const RUNTIME_CONFIG_PATH = "lophn.json";
 
-export type RuntimeEntry = {
+type RuntimeEntry = {
   entrypoint: string;
   files: { path: string; bytes: Uint8Array }[];
   // 앱 import map에 더하는 플랫폼 specifier다. runtime entrypoint가 `@lophn/base`를 쓴다.

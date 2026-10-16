@@ -92,7 +92,7 @@ function portOf<T>(tx: Pick<Tx, "port">, key: PortKey<T>): T | undefined {
 // 준비의 ticket 출처를 현재 claim으로 다시 확인한다. 요청 때 거절한 것과 같은 이유가
 // 확정 때에도 거절이다. 검사는 claim 기한을 연장하지 않는다. 준비는 언제나 맡은 ticket의 지금 claim 아래에서만
 // 받는다: coding agent가 아니거나 출처가 없으면 거절이다.
-export function checkPreparationClaim(
+function checkPreparationClaim(
   tx: Pick<Tx, "port" | "now">,
   createdBy: string,
   source: { ticket: string; claim_seq: string } | undefined,

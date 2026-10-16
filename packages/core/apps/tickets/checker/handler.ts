@@ -6,7 +6,7 @@ import type { ReactorHandler } from "../../../events/ports.ts";
 import { checkOutcomeOf } from "./result.ts";
 import { type CheckWork, checkWorkSchema } from "./work.ts";
 
-export type RecordChecksCall = {
+type RecordChecksCall = {
   ticket: string;
   completion_seq: string;
   base_revision: string;
@@ -24,7 +24,7 @@ export type TicketCheckClient = {
   >;
 };
 
-export const TICKET_CHECK_HANDLER = "ticket-check";
+const TICKET_CHECK_HANDLER = "ticket-check";
 
 export function createTicketCheckHandler(
   client: TicketCheckClient,

@@ -1,4 +1,3 @@
-import type { LogLevel } from "../../base/mod.ts";
 import type { Diagnostic } from "../../protocol/supervision/mod.ts";
 import {
   type DiagnosticRecord,
@@ -6,7 +5,6 @@ import {
   diagnosticsWriteInputSchema,
 } from "../../protocol/diagnostics/mod.ts";
 
-export const LOG_LEVEL: LogLevel = "info";
 export type DiagnosticCatalog = {
   components: readonly string[];
   locations: Readonly<Record<string, string>>;

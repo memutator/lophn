@@ -1,5 +1,3 @@
-import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
-
 // 결과 상한. 목록·검색은 한 번에 20개. 텍스트는 UTF-8 24 KiB와 300줄
 // 중 먼저 닿는 곳에서 자른다. 문서는 앞, log는 뒤를 남기고 JSON·Unicode를 깨지
 // 않는다.
@@ -8,51 +6,9 @@ export const PAGE_SIZE = 20;
 export const TEXT_MAX_BYTES = 24 * 1024;
 export const TEXT_MAX_LINES = 300;
 
-export type Page<T> = {
-  items: readonly T[];
-  hasMore: boolean;
-  nextCursor: string | null;
-};
-
 // cursor는 base64 {after}다. 조건은 호출자가 유지하고 여기는 위치만 옮긴다.
-export function pageOf<T>(items: readonly T[], cursor: string | null): Page<T> {
-  const start = cursor === null ? 0 : indexAfter(items, cursor);
-  const slice = items.slice(start, start + PAGE_SIZE);
-  const next = start + slice.length;
-  const hasMore = next < items.length;
-  return {
-    items: slice,
-    hasMore,
-    nextCursor: hasMore ? cursorOf(next - 1) : null,
-  };
-}
 
-function indexAfter<T>(items: readonly T[], cursor: string): number {
-  const parsed = readCursor(cursor);
-  if (parsed === null) return items.length;
-  return Math.min(items.length, parsed + 1);
-}
-
-function readCursor(cursor: string): number | null {
-  try {
-    const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
-    const parsed = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    ) as { after?: unknown };
-    return typeof parsed.after === "number" && Number.isInteger(parsed.after) &&
-        parsed.after >= 0
-      ? parsed.after
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function cursorOf(after: number): string {
-  return btoa(JSON.stringify({ after }));
-}
-
-export type TextLimit = {
+type TextLimit = {
   text: string;
   complete: boolean;
   originalBytes: number;
@@ -146,50 +102,11 @@ export function limitJson(value: unknown): {
   return { content: null, complete: false, originalBytes };
 }
 
-export function boundedResult(
-  result: ToolResult,
-  limited: { complete: boolean },
-): ToolResult {
-  return limited.complete ? result : { ...result, complete: false };
-}
-
 // 소유 contract의 cursor를 감싸는 이어 보기 위치다. 조건(scope)을 같이 담아 다른 조건의 목록에서
 // 온 cursor를 거절하고, 한 page에서 앞 20개만 보여 준 뒤의 위치(skip)도 지킨다.
 // 소유 contract의 cursor는 그대로 안에 둔다. 해석하거나 만들어 내지 않는다.
-export type WindowCursor = {
-  inner: string | null;
-  skip: number;
-  scope: string;
-};
 
-function toBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-export function encodeWindowCursor(cursor: WindowCursor): string {
-  return toBase64(JSON.stringify(cursor));
-}
-
-export function decodeWindowCursor(cursor: string): WindowCursor | null {
-  try {
-    const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
-    const parsed = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    ) as Partial<WindowCursor>;
-    return (parsed.inner === null || typeof parsed.inner === "string") &&
-        typeof parsed.skip === "number" && Number.isInteger(parsed.skip) &&
-        parsed.skip >= 0 && typeof parsed.scope === "string"
-      ? { inner: parsed.inner, skip: parsed.skip, scope: parsed.scope }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-export type FitJson = {
+type FitJson = {
   content: unknown;
   complete: boolean;
   originalBytes: number;

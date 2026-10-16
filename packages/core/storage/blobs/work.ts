@@ -15,15 +15,15 @@ import {
 } from "./model.ts";
 
 // 안전 여유. 실측 크기를 모르므로 준비 최대치보다 여유가 있어야 받는다.
-export const DISK_MARGIN_BYTES = 256 * 1024 * 1024;
+const DISK_MARGIN_BYTES = 256 * 1024 * 1024;
 
-export type PreparedInstall = {
+type PreparedInstall = {
   prepared: PreparedBlob;
   // 기존 blob을 재사용했으면 파일을 새로 쓰지 않았다.
   reused: boolean;
 };
 
-export type PreparedInput = {
+type PreparedInput = {
   preparation: string;
   principal: string;
   purpose: string;
@@ -47,7 +47,7 @@ export type BlobStoreWork = {
   ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 };
 
-export type BlobStoreDeps = {
+type BlobStoreDeps = {
   root: string;
   // 준비 파일 접미사. 내용에서 파생하지 않는다.
   suffix: () => string;

@@ -4,7 +4,7 @@ import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import type { KnownSecretChannel } from "./known-secrets.ts";
 import { READ_TIMEOUT_MS, readKey } from "./reads.ts";
 
-export type ReaderHealth = "healthy" | "unhealthy" | "closed";
+type ReaderHealth = "healthy" | "unhealthy" | "closed";
 export type ReaderPool = {
   read(
     route: Pick<ReadRoute, "resource" | "method">,
@@ -40,7 +40,7 @@ const KNOWN_ACK_MS = 5000;
 
 // 격리된 reader slot을 다시 띄우는 한도와 간격(core 시작마다). 한도를 넘으면 더 띄우지 않고
 // 그 slot은 격리된 채 남는다(둘 다 그러면 read는 unavailable이다).
-export const READER_RESPAWN_LIMIT = 6;
+const READER_RESPAWN_LIMIT = 6;
 const RESPAWN_BACKOFF_MS: readonly number[] = [
   250,
   500,
@@ -50,7 +50,7 @@ const RESPAWN_BACKOFF_MS: readonly number[] = [
   8000,
 ];
 
-export type ReaderPoolOptions = {
+type ReaderPoolOptions = {
   respawnLimit?: number;
   backoffMs?: readonly number[];
   // 다시 띄운 reader가 healthy가 된 뒤 부른다. 새 reader는 알려진 secret 값을 모르는 채(ready 아님)

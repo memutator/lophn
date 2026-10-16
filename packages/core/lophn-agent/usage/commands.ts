@@ -171,7 +171,7 @@ function checkProvider(
 
 // 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다. 반영 command는
 // 입력 표를 소유한 conversation이 주입한다. 반영이 거절되면 시작 기록도 남지 않고 전송도 없다.
-export type UsageDeps = {
+type UsageDeps = {
   applyMessages?: (
     tx: Tx,
     input: { messages: string[]; call: string },

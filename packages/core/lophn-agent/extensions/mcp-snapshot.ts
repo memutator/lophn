@@ -42,7 +42,7 @@ const denoProjectSource: ProjectServerSource = {
   },
 };
 
-export type McpSnapshotDeps = {
+type McpSnapshotDeps = {
   // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;

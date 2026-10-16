@@ -17,7 +17,7 @@ import type { RoutedInput } from "../../router/ports.ts";
 // core Bus로 보낸다(`agent_event`). core 쪽 handler는 `run-loop/turn-pipe.ts`다. 응답이 없으면 읽지 못한 것이고
 // 새 turn을 고르지 않는다. event는 놓칠 수 있다(Bus는 메모리다).
 
-export type TurnSourceLink = {
+type TurnSourceLink = {
   source: TurnSource;
   events: AgentEventSink;
   // 감독 pipe에서 받은 parent message. 이 link의 응답이면 true다.

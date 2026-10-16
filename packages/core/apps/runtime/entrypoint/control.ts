@@ -10,7 +10,7 @@ import type { RuntimeState } from "./state.ts";
 import { readAppApiPort } from "../../invocations/context.ts";
 import { ensureAppApiPort } from "./app-api-port.ts";
 
-export type ControlResult =
+type ControlResult =
   | { status: number; body: unknown }
   | { status: number; error: { code: string; message: string } };
 
@@ -32,7 +32,7 @@ export function attestation(state: RuntimeState) {
   };
 }
 
-export function appApisMatchBlueprint(state: RuntimeState): boolean {
+function appApisMatchBlueprint(state: RuntimeState): boolean {
   const declared = state.blueprint.app_api.map((api) => api.key).sort();
   const registered = [...attestation(state).commands].sort();
   return declared.length === registered.length &&

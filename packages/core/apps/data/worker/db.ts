@@ -17,7 +17,7 @@ import {
 
 const HASH_PREFIX = "sha256:";
 
-export type AppDatabase = {
+type AppDatabase = {
   // 실제 현재 schema와 마지막 migration 결과. 표가 없으면 schema 0이다.
   schemaState(): SchemaState;
   integrityOk(): boolean;
@@ -152,14 +152,3 @@ export async function databaseHash(path: string): Promise<Result<string>> {
 }
 
 // 본체 파일 복사. backup API와 구별하기 위한 비교 대상이며 유효 backup이 아니다.
-export async function copyDatabaseFile(
-  source: string,
-  destination: string,
-): Promise<Result<void>> {
-  try {
-    await Deno.copyFile(source, destination);
-    return ok(undefined);
-  } catch {
-    return unavailable("database file copy failed");
-  }
-}

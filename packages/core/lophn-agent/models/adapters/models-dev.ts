@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
 // 공개 catalog 목적지. 응답 해석만이 목적이며 개인 자료를 싣지 않는다.
-export const MODELS_DEV_URL = "https://models.dev/api.json";
+const MODELS_DEV_URL = "https://models.dev/api.json";
 
 // catalog 갱신은 세션·key·token·model 선택·계정 정보를 싣지 않는 공개 GET이다.
 // ETag는 현재 catalog 판 확인용이며 조건부 GET의 If-None-Match로만 쓴다.
-export type FetchResult =
+type FetchResult =
   | { kind: "received"; body: string; etag: string | null }
   | { kind: "unchanged" }
   | { kind: "failed"; code: "invalid_input" | "unavailable" };
@@ -19,7 +19,7 @@ export type HttpFetch = (
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 
 // 요청은 method·URL·Accept·선택적 If-None-Match뿐이다. credential·선택·세션은 없다.
-export function buildRequest(etag: string | null): RequestInit {
+function buildRequest(etag: string | null): RequestInit {
   return {
     method: "GET",
     headers: etag === null

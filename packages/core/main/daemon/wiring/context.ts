@@ -128,7 +128,7 @@ export type Built = {
   reads?: (reads: Map<string, ReadHandler>) => void;
 };
 
-export type Wiring = {
+type Wiring = {
   name: string;
   // migration에 더한다. 팀 schema보다 앞(ledger, credential)과 뒤(settings, secret). 순서가 이력이다.
   schemaSteps?: readonly SchemaStep[];

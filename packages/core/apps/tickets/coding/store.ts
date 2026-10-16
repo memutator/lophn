@@ -8,7 +8,7 @@ import type { Sql } from "../../../../protocol/server/mod.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 
-export type SessionState = "running" | "waiting" | "idle" | "unknown";
+type SessionState = "running" | "waiting" | "idle" | "unknown";
 
 export type SessionRow = {
   session: string;
@@ -86,13 +86,6 @@ export function activeOfCall(sql: Reader, call: string): SessionRow | null {
 }
 
 // 끝난 session도 찾는다. 완료 보고나 끝 event를 call로 잇는 데 쓴다.
-export function sessionOfCall(sql: Reader, call: string): SessionRow | null {
-  const row = sql.get(
-    `SELECT ${COLUMNS} FROM coding_sessions WHERE call = ? ORDER BY ended LIMIT 1`,
-    [call],
-  );
-  return row === undefined ? null : rowOf(row);
-}
 
 export function insertSession(sql: Sql, row: SessionRow): void {
   sql.run(
@@ -176,7 +169,7 @@ export function allLines(sql: Reader): LineRow[] {
   ).map(lineOf);
 }
 
-export type InputRow = { id: number; call: string | null; text: string };
+type InputRow = { id: number; call: string | null; text: string };
 
 export function pushInput(
   sql: Sql,
@@ -203,12 +196,6 @@ export function shiftInput(sql: Sql, session: string): InputRow | null {
     call: row.call === null ? null : String(row.call),
     text: String(row.text),
   };
-}
-
-export function hasInput(sql: Reader, session: string): boolean {
-  return sql.get("SELECT 1 AS found FROM coding_inputs WHERE session = ?", [
-    session,
-  ]) !== undefined;
 }
 
 export function clearInputs(sql: Sql, session: string): void {

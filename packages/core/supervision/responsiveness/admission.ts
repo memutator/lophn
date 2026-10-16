@@ -1,25 +1,21 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
 // architecture 2.3 입장·실행 한도의 고정 값. 일반 설정으로 격리나 한도를 해제하지 않는다.
-export const COMMAND_ADMISSION_TOTAL = 256;
-export const COMMAND_ADMISSION_PRINCIPAL = 64;
-export const COMMAND_CONTROL_RESERVED = 16;
-export const COMMAND_START_WAIT_MS = 5_000;
+const COMMAND_ADMISSION_TOTAL = 256;
+const COMMAND_ADMISSION_PRINCIPAL = 64;
+const COMMAND_CONTROL_RESERVED = 16;
+const COMMAND_START_WAIT_MS = 5_000;
 
-export const HTTP_CONCURRENT_TOTAL = 128;
-export const HTTP_CONCURRENT_PRINCIPAL = 16;
+const HTTP_CONCURRENT_TOTAL = 128;
+const HTTP_CONCURRENT_PRINCIPAL = 16;
 
-export const EVENT_CONNECTION_TOTAL = 32;
-export const EVENT_CONNECTION_PRINCIPAL = 4;
-
-export const READ_EXEC = 2;
-export const READ_WAIT_TOTAL = 64;
-export const READ_WAIT_PRINCIPAL = 8;
+const EVENT_CONNECTION_TOTAL = 32;
+const EVENT_CONNECTION_PRINCIPAL = 4;
 
 // caller의 priority 주장은 입력에 없다. 입장 영역만 회수·정지 제어를 위한 control lane이다.
-export type AdmissionLane = "normal" | "control";
+type AdmissionLane = "normal" | "control";
 
-export type Arrival = { release(): void };
+type Arrival = { release(): void };
 
 export type Admission = {
   // command 입장 대기. principal별 FIFO·principal 사이 round-robin으로 실행 슬롯에 들어간다.

@@ -62,7 +62,7 @@ async function projectOfApp(
 }
 
 // 이 session의 읽기 범위. 읽기 tool이 route를 부르기 전에 쓴다.
-export type ContextAccess = {
+type ContextAccess = {
   role: Role;
   place: VisiblePlace;
   attached: readonly string[];
@@ -118,4 +118,4 @@ export async function checkVisible(
     : notFound(MISSING);
 }
 
-export const MISSING = "no such context";
+const MISSING = "no such context";

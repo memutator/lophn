@@ -26,7 +26,7 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 // 앱 소스, 다른 harness 보관소, 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소), project 순이다.
 
 // 내장, 개인 보관소, project 폴더의 위치다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
-export type SkillStores = {
+type SkillStores = {
   bundled: string | null;
   personal: string | null;
   // project place의 skill 폴더다. project에 놓이지 않은 agent는 null이다.
@@ -85,7 +85,7 @@ export async function registeredSkillEntries(
 }
 
 // 발견 결과 전체다(entries와 skipped). 읽을 수 없으면 null이다.
-export async function discoverProductSkills(
+async function discoverProductSkills(
   machine: CoreCall,
   stores: SkillStores,
   agentOff: readonly string[] = [],

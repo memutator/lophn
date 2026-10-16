@@ -15,7 +15,7 @@ const ACCESS_KINDS: ReadonlySet<string> = new Set<AccessKind>([
   "secret.use",
 ]);
 
-export type AccessEntry = {
+type AccessEntry = {
   kind: AccessKind;
   // 선언한 범위(= 같은 범위의 grant가 허락한 것). kind 구분자는 뺀다.
   scope: Record<string, unknown>;
@@ -27,7 +27,7 @@ export type EffectiveScope = {
   app_calls: { app: string; commands: string[] }[];
 };
 
-export type EffectiveInput = {
+type EffectiveInput = {
   app: string;
   // 현재 release의 선언. release가 없으면 null이고 실행 범위는 0이다.
   declarations: AppDeclarations | null;

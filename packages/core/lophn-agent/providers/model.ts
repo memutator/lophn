@@ -21,7 +21,7 @@ type Query = {
 };
 
 // provider당 credential은 하나다. 읽을 때 model block을 함께 모은다.
-export function credentialFromRow(
+function credentialFromRow(
   sql: Query,
   provider: string,
 ): Result<ProviderCredential | null> {
@@ -61,7 +61,7 @@ export function credentialFromRow(
   return assertCredential(value);
 }
 
-export function modelBlocksFromRow(
+function modelBlocksFromRow(
   sql: Query,
   provider: string,
 ): ProviderCredential["model_blocks"] {

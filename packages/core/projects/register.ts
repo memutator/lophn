@@ -1,18 +1,5 @@
-import { ok } from "../../base/mod.ts";
-import { contextViolationFound } from "../../protocol/events/mod.ts";
-import { CONTEXT_API_EVENTS, EVENTS } from "../../protocol/projects/mod.ts";
-import type {
-  EventVisibilityDefinition,
-  RequestContext,
-} from "../../protocol/server/mod.ts";
-import type { EventDefinition } from "../../protocol/base/mod.ts";
-import type {
-  EventRegistration,
-  ReaderRegistration,
-  TxPortRegistration,
-} from "../storage/ledger/mod.ts";
+import type { TxPortRegistration } from "../storage/ledger/mod.ts";
 import {
-  CONTEXT_WORKER_PRINCIPAL,
   createContextsRegistration,
   loadContextsRuntime,
 } from "./contexts/register.ts";
@@ -86,45 +73,11 @@ export function createLedgerRegistration(
 
 // context worker(machine:context-worker)가 보는 context event. 판 제출·적용·되돌림과 보관이
 // index 감시 폴더와 검사 일을 바꾼다. 사람 token은 owner 정책으로 읽는다.
-function isContextWorker(ctx: RequestContext): boolean {
-  return ctx.actor === "machine" && ctx.principal === CONTEXT_WORKER_PRINCIPAL;
-}
 
 // context event(위반을 새로 찾은 ContextViolationFound 포함)의 공개 정책: 사람(user)과 context worker가
 // 읽고, 다른 자격에는 숨긴다.
-function contextVisibility<D extends EventDefinition>(
-  event: D,
-): EventVisibilityDefinition<D> {
-  return {
-    event,
-    handle: (_snapshot, ctx) =>
-      ok(ctx.actor === "user" || isContextWorker(ctx)),
-  };
-}
 
 // event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
 // 만든다.
-export function createEventRegistration(): EventRegistration {
-  return {
-    events: EVENTS,
-    visibility: [...CONTEXT_API_EVENTS, contextViolationFound].map((event) =>
-      contextVisibility(event) as unknown as EventVisibilityDefinition
-    ),
-  };
-}
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
-export function createReaderRegistration(): ReaderRegistration {
-  const contexts = createContextsRegistration(contextsRuntime);
-  const projectReads = createProjectReads({ folders: createFolderResolver() });
-  return {
-    reads: [
-      ...contexts.reads,
-      projectReads.list,
-      projectReads.get,
-      projectReads.resolve,
-      projectReads.resolveCwd,
-    ],
-    ports: new Map(),
-  };
-}

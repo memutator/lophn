@@ -5,7 +5,7 @@ import type {
   ContractVisibility,
 } from "../../../../protocol/projects/mod.ts";
 
-export const CONTRACT_ISSUE_CODES = [
+const CONTRACT_ISSUE_CODES = [
   // sources
   "series_pattern_invalid",
   "series_pattern_overlap",
@@ -70,7 +70,7 @@ export type ExternalType = {
   }[];
 };
 
-export type AppCommandEffect = "read" | "write" | "external" | "unknown";
+type AppCommandEffect = "read" | "write" | "external" | "unknown";
 
 export type ValidationEnv = {
   externalTypes: readonly ExternalType[];

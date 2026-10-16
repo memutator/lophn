@@ -16,7 +16,7 @@ import type { PlaceScope } from "../ports.ts";
 
 export type Mode = "read" | "write";
 
-export type Resolved = {
+type Resolved = {
   // 실제 경로. 이 경로로 읽고 쓴다.
   path: string;
   // 허용 폴더(실제 경로)와 그 안의 상대 경로. rewind 기록이 쓴다.

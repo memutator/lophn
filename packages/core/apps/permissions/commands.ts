@@ -53,7 +53,7 @@ function outsideSources(
 }
 
 // 늘어난 선언을 사람이 허락했는지다. 이 함수는 Gate나 request를 모르고 값만 받는다.
-export type GrantDecision = "granted" | "not_needed";
+type GrantDecision = "granted" | "not_needed";
 
 // activation 성공 단계에서 한 transaction으로 부른다. 앱 grant를 새 선언에 맞춘다.
 // - 허락(granted)일 때만 active grant가 덮지 않는 선언에 grant를 만든다. 허락 없이는 만들지 않는다.

@@ -3,7 +3,7 @@
 // (읽는 쪽이 fail-closed로 다루게 한다).
 import type { Sql } from "../../../../protocol/server/mod.ts";
 
-export type ContextStatusValue = "drafting" | "active" | "archived";
+type ContextStatusValue = "drafting" | "active" | "archived";
 
 export function contextStatusOf(
   sql: Pick<Sql, "get">,

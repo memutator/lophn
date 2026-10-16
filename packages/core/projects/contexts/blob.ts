@@ -23,7 +23,7 @@ import {
   rejected,
 } from "../../lophn-agent/session/message-body.ts";
 
-export type ContextBlobDeps = {
+type ContextBlobDeps = {
   // 준비 통로. I/O worker가 뜨기 전에는 없다(unavailable).
   relay(): BodyPrepare | undefined;
   // 제출할 초안 폴더의 bundle.json 내용. 판이나 파일이 없거나 JSON이 아니면 undefined다.

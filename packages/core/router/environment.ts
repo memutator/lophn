@@ -19,7 +19,7 @@ export type RouterEnvironment = {
   describe?: RouterDescribe;
 };
 
-export type RouterDescribe = (
+type RouterDescribe = (
   view: SqlView,
   target: { session: string },
 ) => { place: { kind: "project" | "app"; id: string } | null; state: string };

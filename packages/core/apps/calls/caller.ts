@@ -20,7 +20,7 @@ export type VerifiedCaller =
   }
   | { kind: "app"; app: Id<"app">; parent: Flight };
 
-export type CallerChecks = {
+type CallerChecks = {
   callers: CallerDirectory;
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
   flight(id: Id<"inv">): Flight | undefined;

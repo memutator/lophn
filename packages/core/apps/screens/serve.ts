@@ -4,7 +4,7 @@ import { relativePathSchema } from "../../../protocol/projects/values.ts";
 import type { BundleLocator } from "../ports.ts";
 import { screenContentType } from "./content-type.ts";
 
-export const DEFAULT_MAX_SCREEN_FILE_BYTES = 8 * 1024 * 1024;
+const DEFAULT_MAX_SCREEN_FILE_BYTES = 8 * 1024 * 1024;
 
 export type ScreenFileDeps = {
   bundles: BundleLocator;
@@ -15,7 +15,7 @@ export type ScreenFileDeps = {
   maxBytes?: number;
 };
 
-export type ScreenFile = { bytes: Uint8Array; contentType: string };
+type ScreenFile = { bytes: Uint8Array; contentType: string };
 
 const notFound = () =>
   err({ code: "not_found" as const, message: "screen file not found" });

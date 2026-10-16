@@ -24,7 +24,7 @@ export const systemTimers: Timers = {
   clear: (handle) => clearTimeout(handle as number),
 };
 
-export type CallIntake = AppIntake & {
+type CallIntake = AppIntake & {
   // 접수가 닫혀 있으면 열릴 때까지 붙잡는다.
   admit(app: Id<"app">): Promise<void>;
   enter(flight: Flight): void;

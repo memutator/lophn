@@ -110,7 +110,7 @@ export type ModelAttempt = {
   toolCalls: readonly { id: string; name: string; args: string }[];
 };
 
-export type ModelPort = {
+type ModelPort = {
   // 선택한 provider adapter의 `buildRequest` 번역과 opaque 상태 byte 수(prompt-assemble의 pack).
   pack: WirePacker;
   // provider·계정·model을 쓸 수 있는지. 끄면 새 call을 보내지 않는다.
@@ -196,7 +196,7 @@ export type FinishRequest = {
 };
 
 // 정상 종료는 미반영 steering이 없을 때만 확정된다. 있으면 종료하지 않고 다음 판단으로 간다.
-export type FinishResult = { finished: true } | {
+type FinishResult = { finished: true } | {
   finished: false;
   reason: "pending_input";
 };

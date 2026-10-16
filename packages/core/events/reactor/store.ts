@@ -10,7 +10,7 @@ const UNAVAILABLE = {
   message: "events를 읽을 수 없다",
 };
 
-export type EventsReader = ReactorReader & {
+type EventsReader = ReactorReader & {
   // 근거 seq의 event 한 행. 없으면 null이다.
   at(seq: string): Promise<Result<unknown | null>>;
   // first..last(양 끝 포함)의 행. commit 뒤 Bus로 낼 때 쓴다.

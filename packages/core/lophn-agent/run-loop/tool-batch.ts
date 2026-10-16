@@ -17,7 +17,7 @@ import {
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
 
-export type ModelToolCall = { id: string; name: string; args: string };
+type ModelToolCall = { id: string; name: string; args: string };
 
 export type CallResult = {
   key: string;
@@ -34,7 +34,7 @@ export type CallResult = {
   entries: number;
 };
 
-export type BatchOutcome = {
+type BatchOutcome = {
   results: CallResult[];
 };
 
@@ -65,11 +65,11 @@ const REASON_TEXT: Readonly<Record<string, string>> = {
     "An earlier call did not complete, so this call did not start.",
 };
 
-export function notExecutedText(code: string): string {
+function notExecutedText(code: string): string {
   return REASON_TEXT[code] ?? "The call did not start.";
 }
 
-export function synthesizedResult(
+function synthesizedResult(
   status: "failure" | "not_executed" | "uncertain",
   summary: string,
 ): ToolResult {
@@ -86,7 +86,7 @@ export function synthesizedResult(
 
 // 인자는 JSON 객체여야 한다. 비어 있으면 인자 없는 호출이다(adapter가 같은 규칙으로 완성을
 // 확인한다). 그 밖의 것은 고치지 않고 원문을 그대로 둔다.
-export function parseToolArgs(
+function parseToolArgs(
   args: string,
 ): { ok: true; value: unknown } | { ok: false } {
   if (args.trim().length === 0) return { ok: true, value: {} };

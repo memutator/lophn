@@ -3,7 +3,7 @@ import type { Sql } from "../../../../protocol/server/mod.ts";
 import type { CheckViolation } from "../check/types.ts";
 import type { IndexedEntity, IndexedFile, IndexState } from "./types.ts";
 
-export type IndexRows = {
+type IndexRows = {
   files: IndexedFile[];
   entities: IndexedEntity[];
   violations: CheckViolation[];

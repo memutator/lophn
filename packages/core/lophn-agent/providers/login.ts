@@ -20,11 +20,9 @@ import {
   createProviderOAuth,
   type OAuthBegin,
 } from "./mod.ts";
-import type { OAuthListener } from "./mod.ts";
-import { openCallbackListener } from "./mod.ts";
 import type { CommandSuccess, Writer } from "../../storage/ledger/mod.ts";
 
-export const PROVIDER_LOGIN_LIVE_ENV = "LOPHN_LIVE_PROVIDER";
+const PROVIDER_LOGIN_LIVE_ENV = "LOPHN_LIVE_PROVIDER";
 
 // 활성 gate다. 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만
 // 열린다. 테스트가 이 판정을 대신 준다.
@@ -32,7 +30,7 @@ function liveGateOf(env = Deno.env.get(PROVIDER_LOGIN_LIVE_ENV)): boolean {
   return env === "1";
 }
 
-export type ProviderLoginWriterDeps = {
+type ProviderLoginWriterDeps = {
   // 테스트가 활성 gate와 OAuth HTTP를 대신 준다. 없으면 제품 env 판정과
   // 실제 network(비활성)다.
   liveGate?: () => boolean;
@@ -163,5 +161,3 @@ async function cancelCommand(
 }
 
 // loopback callback listener의 제품 open port다(127.0.0.1 실제 listener).
-export const providerLoginListenerOpener = (): Promise<Result<OAuthListener>> =>
-  openCallbackListener();

@@ -99,14 +99,14 @@ import {
 // content blob을 읽는다. 쓰는 길은 없다: 바이트는 호출 경계(core)가 command 앞에서 호출자 자격으로
 // platform/blob-store에 준비하고, adapter는 같은 값에서 같은 hash를 만들어 tx.registerBlobRef로
 // 소유 변경과 같은 transaction에 영구 참조만 등록한다(content-blobs.ts).
-export interface ContextBlobs {
+interface ContextBlobs {
   // 참조가 가리키는 BundleContent JSON을 읽는다. 없거나 hash가 다르면 internal이다.
   read(reference: BlobReference): Result<Record<string, unknown>>;
 }
 
 // derived 저장소(개체, 위반, index 신선도)다. ledger 표가 아니고 index 작업(ctx-I-index)이 구현한다.
 // adapter는 이 port로만 읽는다. 위반 수는 ledger(contexts.violation_mark)에, 위반 목록은 여기에 있다.
-export interface ContextIndexPort {
+interface ContextIndexPort {
   // context의 위반 목록. 계산하지 않았으면 빈 목록이다.
   violations(context: string): readonly StoredViolation[];
   // 적용된 판의 개체. 검색과 overview가 쓴다.

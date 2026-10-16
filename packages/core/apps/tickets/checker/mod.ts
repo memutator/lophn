@@ -1,10 +1,5 @@
-export {
-  createTicketCheckHandler,
-  type RecordChecksCall,
-  TICKET_CHECK_HANDLER,
-  type TicketCheckClient,
-} from "./handler.ts";
-export { type CheckOutcome, checkOutcomeOf } from "./result.ts";
+export { createTicketCheckHandler, type TicketCheckClient } from "./handler.ts";
+export { checkOutcomeOf } from "./result.ts";
 export {
   type CheckWork,
   checkWorkSchema,

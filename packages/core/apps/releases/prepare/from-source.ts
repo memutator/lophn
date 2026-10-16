@@ -26,14 +26,14 @@ import {
   prepareRelease,
 } from "./flow.ts";
 
-export type SourcePrepareInput = {
+type SourcePrepareInput = {
   dataRoot: string;
   app: string;
   sourceRoot: string;
   commit: string;
 };
 
-export type SourcePrepareDeps = PrepareDeps & {
+type SourcePrepareDeps = PrepareDeps & {
   // Deno 실행 파일. 기본은 지금 실행 중인 Deno다.
   deno?: string;
   // 취소 신호. 실행 중인 자식은 SIGKILL하고 부분 결과를 확정하지 않는다.

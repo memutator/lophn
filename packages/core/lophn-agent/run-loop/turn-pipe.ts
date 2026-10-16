@@ -15,7 +15,7 @@ import type { TurnSource } from "./ports.ts";
 // 입력함과 Bus는 core 메모리에 있다. agent runtime child가 감독 pipe로 보내는 `turn_source_request`와
 // `agent_event`를 core 쪽에서 받는 handler다. 요청은 `TurnSource`를 그대로 부르고 event는 Bus에 낸다.
 
-export type TurnPipe = {
+type TurnPipe = {
   // child message를 처리한다. 응답이 있으면 돌려주고, 이 handler의 message가 아니면 undefined를 돌려준다.
   // `handled`는 이 handler의 message였는지다.
   onMessage(message: ChildMessage): {

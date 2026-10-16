@@ -10,7 +10,7 @@ import {
 // 사람 클릭의 일회 근거. 원문은 이 메모리 표에만 있고 ledger·event·log에 쓰지 않는다.
 // core epoch 하나와 main 연결 하나의 수명이다.
 
-export type ConfirmationBinding = {
+type ConfirmationBinding = {
   target: unknown;
   content: unknown;
 };
@@ -32,7 +32,7 @@ type Entry = {
   reserved: boolean;
 };
 
-export type ConfirmationRegistryOptions = {
+type ConfirmationRegistryOptions = {
   clock: Clock;
   // 32 bytes를 채운다. 테스트가 결정적 값을 끼운다.
   random: (bytes: Uint8Array) => void;

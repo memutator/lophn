@@ -7,13 +7,7 @@ import { toStatus } from "./model.ts";
 
 type NameRow = { name: string; revision: number | bigint };
 
-export type SecretView = {
-  // 이 caller가 볼 수 있는 이름. 권한 밖 이름은 여기 없다.
-  allowed(name: string): boolean;
-  status(name: string): SecretStatus | undefined;
-};
-
-export function readSecretStatuses(
+function readSecretStatuses(
   sql: Pick<Sql, "all">,
   allowed: readonly string[],
   requested: readonly string[] | undefined,

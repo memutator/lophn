@@ -17,7 +17,7 @@ import {
 
 export { SECRET_FILE_NAME };
 
-export const SECRET_FILE_MODE = 0o600;
+const SECRET_FILE_MODE = 0o600;
 
 // fs 접근. test가 쓰기 실패를 끼운다. 없는 파일은 Deno.errors.NotFound를 던진다.
 export type SecretFs = {
@@ -30,7 +30,7 @@ export type SecretFs = {
   remove(path: string): Promise<void>;
 };
 
-export const denoSecretFs: SecretFs = {
+const denoSecretFs: SecretFs = {
   readText: (path) => Deno.readTextFile(path),
   async mode(path) {
     return (await Deno.stat(path)).mode ?? SECRET_FILE_MODE;

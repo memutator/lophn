@@ -27,14 +27,14 @@ export type ProblemRow = {
   recurred_release: string | null;
 };
 
-export const PROBLEM_COLUMNS =
+const PROBLEM_COLUMNS =
   `id, app, group_key, name, state, state_changed_at, seq,
    recurred_resolved_at, recurred_release`;
 
 const text = (value: unknown) =>
   value === null || value === undefined ? null : String(value);
 
-export function problemRowOf(row: Record<string, unknown>): ProblemRow {
+function problemRowOf(row: Record<string, unknown>): ProblemRow {
   return {
     id: String(row["id"]),
     app: String(row["app"]),
@@ -100,7 +100,7 @@ export function problemRecordOf(row: ProblemRow): Result<ProblemRecord> {
   return err({ code: "internal", message: BROKEN });
 }
 
-export type ReopenDecision = "reopen" | "accumulate";
+type ReopenDecision = "reopen" | "accumulate";
 
 // live 발생이 이미 있는 문제에 붙을 때 다시 열지 쌓기만 할지 정한다. 해결됨인 문제만, 그리고 발생의
 // release가 해결된 뒤에 활성화됐을 때만 다시 연다. 무시 중인 문제는 재발해도 열지 않고, release를

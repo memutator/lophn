@@ -3,11 +3,6 @@
 // 이름·설명만 바뀐 것은 따로 낸다. 업무 의미의 동일성은 증명하지 않으므로 바뀐 것이 있으면
 // `review_required`다. 데이터 계약은 apps/data 근거(`data_schema`·`data_changes`), 접근 요청은
 // apps/permissions 근거(`added_permissions`)로 나눠 낸다.
-import {
-  type Blueprint,
-  canonicalJson,
-  type InputSchema,
-} from "../blueprint/mod.ts";
 import type {
   ActivationComparison,
   AppGrant,
@@ -18,32 +13,8 @@ import {
   compareDeclarations,
 } from "../permissions/mod.ts";
 
-export type ComparedRelease = {
-  id: string;
-  blueprint: Blueprint;
-  data_schema: number;
-};
-
 // 비교는 command·automation·problem code 꼴로 한다. 새 blueprint에는 confirm·revert·automation·problem code가
 // 없어서 그 칸은 늘 비어 있다.
-type CommandDeclaration = {
-  key: string;
-  label: string;
-  description: string;
-  effect: "read" | "write" | "external";
-  confirm: boolean;
-  revert: unknown;
-  input: InputSchema | null;
-};
-function same(a: unknown, b: unknown): boolean {
-  return canonicalJson(a as never) === canonicalJson(b as never);
-}
-
-function byKey<T extends { key: string }>(
-  values: readonly T[],
-): Map<string, T> {
-  return new Map(values.map((value) => [value.key, value]));
-}
 
 // activation에서 묻는 판정 값이다. 선언 비교는 grant 덮음 하나다: 새 release의 선언 가운데 지금 active
 // grant가 덮지 않는 것이 늘어난 것이고, 이전 release와 선언을 따로 비교하지 않는다. data 손실은 이번에 지나는

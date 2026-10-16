@@ -2,7 +2,7 @@
 import { headingsIn, sectionRange } from "./document.ts";
 import type { ParsedDocument } from "./types.ts";
 
-export type MarkdownLink = {
+type MarkdownLink = {
   text: string;
   // 문서 폴더 기준으로 푼 정규 경로(`./`, `../`, `#조각`, `?query` 정리). Project 밖이면 `../`로 시작한다.
   target: string;

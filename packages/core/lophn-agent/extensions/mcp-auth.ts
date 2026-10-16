@@ -24,22 +24,16 @@ import { httpRequest } from "./adapters/mcp-http.ts";
 // 보관 이름이다. 서버 이름을 그대로 쓴다. 서버 이름은
 // 계약이 `[A-Za-z0-9_-]{1,32}`로 거르므로 이 그대로가
 // secretNameSchema를 지난다.
-export function mcpSecretName(server: string): string {
-  return `mcp-${server}`;
-}
 
 // 설정이 가리키는 참조다. `sec:` + 보관 이름이다(extensions secret-refs가 같은
 // 규칙으로 읽는다).
-export function mcpSecretRef(server: string): string {
-  return `sec:${mcpSecretName(server)}`;
-}
 
 // 인증 방식이다(계약 mcpAuthSchema의 kind).
-export type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
+type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
 
 // 사람이 지정한 Bearer·API 키의 인증 비밀이 묶인 서버 연결 대상이다. 값은
 // 이 모양 어디에도 없고 참조만 있다(platform/secrets).
-export type CredentialBinding = {
+type CredentialBinding = {
   // 서버 URL이다. URL이 바뀌면 옛 인증 비밀을 재사용하지 않는다.
   server_url: string;
   // 보관 이름이다(`mcp-<server>`).
@@ -48,7 +42,7 @@ export type CredentialBinding = {
 
 // OAuth 발급자에 묶인 인증 비밀이다. 발급자·계정이 바뀌면 옛 token을
 // 재사용하지 않는다.
-export type OAuthBinding = {
+type OAuthBinding = {
   // OAuth 발급자다(계약 mcpAuthSchema의 issuer). 발급자가 바뀌면 옛 token을
   // 재사용하지 않는다.
   issuer: string;
@@ -77,7 +71,7 @@ export function bindingChanged(
 // 인증 헤더 붙이기다. Bearer는 `authorization: Bearer <token>`이고 API 키는
 // 사람이 정한 헤더 이름에 값 그대로다. redirect가 같은 origin이 아니면 인증
 // 헤더를 넘기지 않는다(adapter의 httpRequest가 거른다).
-export type HttpAuth = {
+type HttpAuth = {
   // 요청에 붙일 헤더다. 값이 비어 있으면 인증 없음이다(인증 없음).
   headers: Record<string, string>;
   kind: McpAuthKind;
@@ -113,14 +107,14 @@ export function authHeaders(
 // OAuth 2.1 Authorization Code + S256 PKCE다.
 
 // PKCE verifier이다. RFC 7636의 43자 base64url이다.
-export function pkceVerifier(random: RandomSource = cryptoRandom): string {
+function pkceVerifier(random: RandomSource = cryptoRandom): string {
   const bytes = new Uint8Array(32);
   random.fill(bytes);
   return base64url(bytes);
 }
 
 // RFC 7636 S256 challenge다. verifier의 SHA-256을 base64url로 인코딩한다.
-export async function pkceChallengeS256(
+async function pkceChallengeS256(
   verifier: string,
 ): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -142,7 +136,6 @@ function base64url(bytes: Uint8Array): string {
 // 사람이 시작한 브라우저 열기 port다. 실제 브라우저를 열지 않고 열 URL을
 // 돌려준다(`[Sign in]` 흐름이 OS browser로 연다). 값은 접어 두는
 // 근거가 없다.
-export type BrowserOpener = (url: string) => Promise<Result<void>>;
 
 // 127.0.0.1 loopback callback listener port다. 테스트가 끼운다. 사람이
 // return 해 주는 요청을 받아 redirect URL로 돌려주는 port다(렇게
@@ -163,10 +156,9 @@ export type CallbackListener = {
 
 // callback listener port를 만든다. 실제 loopback listener는 이 모듈 밖의
 // port에서 만들고, 테스트는 가짜를 끼운다.
-export type CallbackOpener = () => Promise<Result<CallbackListener>>;
 
 // OAuth 시작이다. authorization URL을 만들고 사람이 연다.
-export type OAuthStartInput = {
+type OAuthStartInput = {
   authorizationEndpoint: string;
   clientId: string;
   // 동적 클라이언트 등록을 지원하지 않는 서버에는 사람이 등록한 client_id를
@@ -177,7 +169,7 @@ export type OAuthStartInput = {
   challenge: string;
 };
 
-export function authorizationUrl(
+function authorizationUrl(
   input: OAuthStartInput,
 ): Result<URL> {
   let endpoint: URL;
@@ -213,7 +205,7 @@ export function authorizationUrl(
 
 // OAuth token 교환이다. code·verifier·redirect_port로 token endpoint를
 // 부른다. endpoint는 https다.
-export type TokenExchangeInput = {
+type TokenExchangeInput = {
   tokenEndpoint: string;
   code: string;
   verifier: string;
@@ -224,13 +216,13 @@ export type TokenExchangeInput = {
   clientSecret: string | null;
 };
 
-export type TokenExchangeOutcome = {
+type TokenExchangeOutcome = {
   access_token: string;
   refresh_token: string | null;
   expires_in: number | null;
 };
 
-export async function exchangeToken(
+async function exchangeToken(
   input: TokenExchangeInput,
   fetch: HttpFetch,
   signal: AbortSignal,
@@ -299,7 +291,7 @@ export async function exchangeToken(
 }
 
 // OAuth refresh이다. 만료 토큰은 같은 연결에서 한 번에 하나만 갱신한다.
-export type RefreshOutcome = {
+type RefreshOutcome = {
   access_token: string;
   refresh_token: string | null;
   expires_in: number | null;
@@ -388,76 +380,10 @@ export async function refreshToken(
 // 동적 클라이언트 등록 시도다. 지원하지 않는 서버는 사람이 등록한 client
 // 정보를 넣는다. 등록 미지원(400대)은 absent이고 부르는 쪽이 사람 등록
 // client로 진행한다.
-export type Registration =
-  | { client_id: string; client_secret: string | null }
-  | { absent: true };
-
-export async function registerClient(
-  input: {
-    registrationEndpoint: string;
-    redirectPort: number;
-    clientName: string;
-  },
-  fetch: HttpFetch,
-  signal: AbortSignal,
-): Promise<Result<Registration>> {
-  let endpoint: URL;
-  try {
-    endpoint = new URL(input.registrationEndpoint);
-  } catch {
-    return err({
-      code: "invalid_input",
-      message: "registration endpoint가 URL이 아니다",
-    });
-  }
-  if (endpoint.protocol !== "https:") {
-    return err({
-      code: "invalid_input",
-      message: "registration endpoint는 https다",
-    });
-  }
-  const response = await httpRequest(fetch, input.registrationEndpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      client_name: input.clientName,
-      redirect_uris: [`http://127.0.0.1:${input.redirectPort}/callback`],
-      token_endpoint_auth_method: "none",
-    }),
-    signal,
-  });
-  if (!response.ok) {
-    return err({
-      code: response.reason === "invalid" ? "invalid_input" : "unavailable",
-      message: response.detail,
-    });
-  }
-  // 등록 미지원이다. 부르는 쪽이 사람 등록 client로 진행한다.
-  if (response.status >= 400) return ok({ absent: true });
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(new TextDecoder().decode(response.body));
-  } catch {
-    return err({ code: "unavailable", message: "등록 응답이 JSON이 아니다" });
-  }
-  if (parsed === null || typeof parsed !== "object") {
-    return err({ code: "unavailable", message: "등록 응답이 객체가 아니다" });
-  }
-  const record = parsed as Record<string, unknown>;
-  const clientId = record["client_id"];
-  if (typeof clientId !== "string" || clientId.length === 0) {
-    return err({ code: "unavailable", message: "client_id가 없다" });
-  }
-  const clientSecret = record["client_secret"];
-  return ok({
-    client_id: clientId,
-    client_secret: typeof clientSecret === "string" ? clientSecret : null,
-  });
-}
 
 // 사람이 browser에서 돌아오기를 기다리는 시한이다. 요구가 시한을 정하지 않아 추천값 5분으로 둔다:
 // 로그인 페이지에서 계정을 고르고 허락하는 데 충분하고, 닫힌 browser가 작업 메모리를 오래 잡지 않는다.
-export const MCP_AUTH_WAIT_MS = 5 * 60_000;
+const MCP_AUTH_WAIT_MS = 5 * 60_000;
 
 // 기다림 시한 timer다. 신호가 중단되면 "aborted"로 일찍 돌아온다(mcp-connections의 DeadlineFn과 같은 모양).
 export type AuthDeadline = (
@@ -467,13 +393,13 @@ export type AuthDeadline = (
 
 // 로그인 session의 상태다. 값(verifier·state·token)은 어디에도 없다. 끝나면 session은 값을 쥐지 않고
 // not_started로 돌아간다(받은 token은 부르는 쪽이 keychain에 보관한다).
-export type AuthState =
+type AuthState =
   | { kind: "not_started" }
   | { kind: "in_progress" }
   | { kind: "failed"; reason: McpAuthFailure };
 
 // token 교환이 끝난 결과다. 보관은 부르는 쪽이 한다.
-export type TokenGrant = {
+type TokenGrant = {
   access_token: string;
   refresh_token: string | null;
   expires_at_ms: number | null;

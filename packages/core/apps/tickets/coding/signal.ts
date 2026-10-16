@@ -29,7 +29,7 @@ import { applyTerminalExited, applyTerminalResult } from "./terminal.ts";
 
 const session = idSchema("ses");
 
-export const codingSignalSchema = z.discriminatedUnion("kind", [
+const codingSignalSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("hook"),
     session,
@@ -101,7 +101,7 @@ function closeByReceiver(
   return ok(undefined);
 }
 
-export function applySignal(
+function applySignal(
   tx: Tx,
   memory: CodingMemory,
   signal: CodingSignal,

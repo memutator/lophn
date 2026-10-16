@@ -1,45 +1,7 @@
 import { RUNNER_LIMITS } from "./limits.ts";
 
-export type AttemptRecord = {
-  request_key: string;
-  // ledger에 확정된 시작 시도. 이 시각이 없으면 spawn하지 않는다.
-  start_attempt_at: string | null;
-  // 실제 시작을 관측했는가. null이면 시작 여부를 모른다.
-  started: boolean | null;
-  runner: string;
-};
-
-export type LostRun = {
-  request_key: string;
-  verdict: "inconclusive";
-  reason: "runner_lost";
-  // 같은 요청을 다시 시작하지 않는다.
-  restart: false;
-};
-
 // runner가 죽으면 감독이 자식을 회수하고, 실제 시작한 요청만 runner_lost로 남긴다.
 // 시작하지 않은 요청과 시작 여부를 모르는 요청은 Verification을 만들지 않는다.
-export function recoverLostRunner(
-  attempts: readonly AttemptRecord[],
-  deadRunner: string,
-): { lost: LostRun[]; unknown: string[] } {
-  const lost: LostRun[] = [];
-  const unknown: string[] = [];
-  for (const attempt of attempts) {
-    if (attempt.runner !== deadRunner) continue;
-    if (attempt.started === true && attempt.start_attempt_at) {
-      lost.push({
-        request_key: attempt.request_key,
-        verdict: "inconclusive",
-        reason: "runner_lost",
-        restart: false,
-      });
-    } else if (attempt.started === null) {
-      unknown.push(attempt.request_key);
-    }
-  }
-  return { lost, unknown };
-}
 
 export type Admission = "admit" | "unavailable";
 

@@ -2,20 +2,13 @@
 // context.ts는 앱 process(runtime/entrypoint)도 쓰는 host port 모양이다. 그쪽은 이 mod를 거치지 않고
 // context.ts를 직접 import한다(core ledger 쪽 import를 앱 process가 끌고 가지 않게).
 export { createInvocationLedger } from "./ledger.ts";
-export type { ChangesetBlobs, InvocationLedgerDeps } from "./ledger.ts";
+export type { ChangesetBlobs } from "./ledger.ts";
 export {
   CHANGESET_MAX_BYTES,
   INVOCATION_BLOB_FIELDS,
   INVOCATION_BLOB_PURPOSES,
   RELEASE_CHANGESET_MAX_BYTES,
 } from "./changesets.ts";
-export { recordsAtStart } from "./model.ts";
 export { createInvocationsReads } from "./reads.ts";
-export {
-  closeUnfinishedInvocations,
-  INVOCATION_RECOVERY_CONTEXT,
-  INVOCATION_RECOVERY_PRINCIPAL,
-  observeInvocations,
-} from "./restart.ts";
-export type { InvocationRestartObservation } from "./restart.ts";
+export { closeUnfinishedInvocations, observeInvocations } from "./restart.ts";
 export { invocationsSchemaSteps } from "./schema.ts";

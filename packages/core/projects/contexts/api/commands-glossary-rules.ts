@@ -14,7 +14,7 @@ export function rejected(code: ErrorCode, message: string): Result<never> {
 }
 
 // 용어 비교 키다. 앞뒤 공백을 자른 뒤 ASCII 대문자만 소문자로 바꾼다. 비ASCII 대소문자는 다른 글자이다.
-export function termKey(term: string): string {
+function termKey(term: string): string {
   return term.trim().replace(/[A-Z]+/g, (upper) => upper.toLowerCase());
 }
 

@@ -9,18 +9,18 @@ import type {
 // 막는다(fail closed): 그 답은 저장되지 않고 질문은 미답으로 남는다.
 
 // platform/redaction 엔진의 redact와 같은 모양이다. 조립이 실제 엔진을 건다.
-export type AnswerRedactor = (
+type AnswerRedactor = (
   input: RedactionInput,
   body: string,
 ) => Promise<RedactionResult>;
 
 // secret은 질문으로 받지 않고 platform/secrets의 보호 입력으로 안내한다.
-export type SecureInputGuidance = {
+type SecureInputGuidance = {
   route: "platform/secrets";
   input: "protected_input";
 };
 
-export type AnswerScreen =
+type AnswerScreen =
   // 일반 저장해도 되는 답 글이다.
   | { status: "accepted"; text: string }
   // 빈 답·공백만 있는 답은 답이 아니다.
@@ -30,14 +30,14 @@ export type AnswerScreen =
   // 판정을 하지 못했다. 저장하지 않는다.
   | { status: "unavailable" };
 
-export const SECURE_INPUT_GUIDANCE: SecureInputGuidance = {
+const SECURE_INPUT_GUIDANCE: SecureInputGuidance = {
   route: "platform/secrets",
   input: "protected_input",
 };
 
 // 질문 답의 redaction 입력. 엔진은 question_answer 범위에서 비밀로 보이는 부분이
 // 하나라도 있으면 제출 전체를 막는다.
-export const ANSWER_REDACTION_INPUT: RedactionInput = {
+const ANSWER_REDACTION_INPUT: RedactionInput = {
   source: {
     concern: "lophn-agent/questions",
     revision: "1",

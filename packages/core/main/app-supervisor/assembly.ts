@@ -112,7 +112,7 @@ type Spawned = {
   terminate(): Promise<boolean>;
 };
 
-export type SupervisorIo = {
+type SupervisorIo = {
   clock: Clock;
   ids: IdSource;
   deno: () => string;
@@ -158,7 +158,7 @@ export type SupervisorIo = {
   >;
 };
 
-export type Assembly = {
+type Assembly = {
   supervisor: Supervisor;
   // 앱 자식마다 여는 broker socket과 서비스다. 시험과 grant 적용이 앱 단위로 막는다.
   broker: SupervisorBroker;

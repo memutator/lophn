@@ -19,7 +19,7 @@ function escapeClosing(text: string, tag: string): string {
   return text.replace(new RegExp(`<(/?)${tag}`, "gi"), "&lt;$1" + tag);
 }
 
-export function scrubAttribute(value: string): string {
+function scrubAttribute(value: string): string {
   return value.replace(/[\r\n"<>&]/g, " ").trim();
 }
 

@@ -4,7 +4,7 @@
 import type { Blueprint } from "../blueprint/mod.ts";
 
 // 각 group에서 하나 이상을 선언해야 한다.
-export const SDK_REQUIRED_PERMISSIONS: Readonly<
+const SDK_REQUIRED_PERMISSIONS: Readonly<
   Record<string, readonly (readonly string[])[]>
 > = {
   "@lophn/cap-fs": [["fs.read", "fs.write"]],
@@ -13,7 +13,7 @@ export const SDK_REQUIRED_PERMISSIONS: Readonly<
   "@lophn/cap-secret": [["secret.use"], ["net.fetch"]],
 };
 
-export type SdkPermissionFailure = {
+type SdkPermissionFailure = {
   package: string;
   permissions: readonly string[];
   message: string;

@@ -1,12 +1,8 @@
 export {
   type AppAccessTarget,
-  type AppAuthorizer,
   authorizeApp,
   authorizeAppId,
   denied as appAccessDenied,
-  dependencyUnavailable,
-  suggestAppName,
-  synchronousResult,
 } from "./model.ts";
 export { createAppCommands } from "./commands.ts";
 export { createAppsReads } from "./reads.ts";

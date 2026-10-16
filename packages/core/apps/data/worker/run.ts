@@ -6,15 +6,13 @@ import { decodeActivationDataJobInput } from "../../../../protocol/apps/mod.ts";
 import { runDataJob } from "./job.ts";
 import { type MigrationScript, scriptFromBundle } from "./migrate.ts";
 
-export const DATA_WORKER_KIND = "apps/data";
-
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
 // job 한 줄을 root 아래 그 앱의 데이터 영역에서 돌린다. migrate는 bundle 사본의 단계 파일
 // (`migrations/<from>-<to>.sql`)을 release의 data_changes와 hash로 맞춰 읽는다. bundle은 그 앱의 사본이어야 한다.
-export async function runDataJobLine(
+async function runDataJobLine(
   root: string,
   line: string,
 ): Promise<Result<string>> {

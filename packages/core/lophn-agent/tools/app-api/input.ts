@@ -13,12 +13,12 @@ import type { Place } from "../../../../protocol/lophn-agent/places.ts";
 // 칸이 없고 보내면 거절된다(core가 그 agent의 project를 넣는다). lophn과 앱 place의 agent는 `project`
 // 칸을 보이고, 이 칸은 앱에 가는 입력이 아니라 호출의 project다.
 
-export type AppApiInputDeclaration = {
+type AppApiInputDeclaration = {
   input: InputSchema | null;
   project_scope: boolean;
 };
 
-export type AppApiInput = {
+type AppApiInput = {
   jsonSchema: Record<string, unknown>;
   // 값을 바꾸지 않는다. 틀리면 issue를 낸다.
   validator: z.ZodType;

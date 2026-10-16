@@ -24,7 +24,7 @@ const cursorSchema = z.strictObject({
 });
 
 type Cursor = z.infer<typeof cursorSchema>;
-export type ProjectPageBasis = {
+type ProjectPageBasis = {
   id: Project["id"];
   revision: Project["revision"];
 };

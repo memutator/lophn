@@ -58,20 +58,20 @@ import { pagePreview } from "./mod.ts";
 import { finishedReport } from "./check/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 
-export const CONTEXTS_WORKER_KIND = "documents/contexts";
+const CONTEXTS_WORKER_KIND = "documents/contexts";
 
 // 읽기가 index를 기다리는 한도와, 직전 scan이 끝난 뒤 새 scan을 요청하지 않는 시간(초기 구현값).
-export const CONTEXT_INDEX_DEADLINE_MS = 2_000;
-export const CONTEXT_INDEX_FRESH_MS = 2_000;
+const CONTEXT_INDEX_DEADLINE_MS = 2_000;
+const CONTEXT_INDEX_FRESH_MS = 2_000;
 // worker가 한 일을 끝내기를 core가 기다리는 한도.
-export const CONTEXT_INDEX_TIMEOUT_MS = 60_000;
-export const CONTEXT_CHECK_TIMEOUT_MS = 120_000;
-export const CONTEXT_PREVIEW_TIMEOUT_MS = 60_000;
+const CONTEXT_INDEX_TIMEOUT_MS = 60_000;
+const CONTEXT_CHECK_TIMEOUT_MS = 120_000;
+const CONTEXT_PREVIEW_TIMEOUT_MS = 60_000;
 // 답이 오지 않은(결과 불명) check를 다시 보내는 간격. 마지막 시도가 실패하면 후보는 checking으로 남는다.
-export const CONTEXT_CHECK_RETRY_MS = [1_000, 3_000] as const;
+const CONTEXT_CHECK_RETRY_MS = [1_000, 3_000] as const;
 
 // worker가 쓰는 두 자리. 같은 경로를 worker(packages/core/projects/contexts/worker/run.ts)도 쓴다.
-export function contextsIndexPath(dataRoot: string): string {
+function contextsIndexPath(dataRoot: string): string {
   return `${dataRoot}/derived/contexts.sqlite`;
 }
 export function contextsStagingPath(dataRoot: string): string {
@@ -95,7 +95,7 @@ function codeReads(): string[] {
 
 // 권한: 읽기는 Project 폴더와 자기 index·snapshot 자리, 쓰기는 index(+WAL)와 snapshot 폴더뿐이다.
 // network·env·subprocess·FFI는 없다. `--no-prompt`는 launchArgv가 낸다.
-export function contextsWorkerSpec(input: {
+function contextsWorkerSpec(input: {
   dataRoot: string;
   roots: readonly string[];
 }): KindLaunchSpec | undefined {
@@ -129,7 +129,7 @@ export function contextsWorkerSpec(input: {
 // ── process ───────────────────────────────────────────────────────────
 
 // worker 요청 통로. WorkerChannel 모양 중 쓰는 부분이다.
-export type ContextsChannel = {
+type ContextsChannel = {
   request(
     op: string,
     payload: unknown,
@@ -140,7 +140,7 @@ export type ContextsChannel = {
   failPending(message: string): void;
 };
 
-export type ContextsProcessDeps = {
+type ContextsProcessDeps = {
   supervisor: {
     start(
       spec: unknown,
@@ -162,7 +162,7 @@ export type ContextsProcessDeps = {
   prepare(): Promise<void>;
 };
 
-export type ContextsProcess = {
+type ContextsProcess = {
   // worker가 이 Project 폴더들을 읽을 수 있게 띄운다. 이미 그렇게 떠 있으면 그대로 둔다.
   ensure(roots: readonly string[]): Promise<boolean>;
   // 읽을 Project 폴더 전체가 이것이라고 알린다. 떠 있는 worker가 이 밖의 폴더를 읽을 수 있게 떠 있으면
@@ -280,7 +280,7 @@ export type ContextsDispatchDeps = {
   log?(message: string): void;
 };
 
-export type ContextsDispatcher = {
+type ContextsDispatcher = {
   // 읽기 전에 부른다. stale이 true면 기한 안에 따라잡지 못해 있던 index로 답한다.
   // `force`는 2초 규칙과 이미 도는 scan을 건너뛴다(변화 신호는 도는 scan이 시작된 뒤의 변화일 수 있다).
   ensureFresh(
@@ -667,7 +667,7 @@ const INDEXED_READS = [
 
 // 요청이 받아들여지기 전에 조립이 시작된다. worker를 띄울 수 있는 core(io 감독이 있는 core)만
 // `attach`로 dispatcher를 붙이고, 붙기 전에는 읽기도 submit도 그대로 지나간다.
-export type ContextsHost = {
+type ContextsHost = {
   attach(dispatcher: ContextsDispatcher): void;
   // index를 읽는 읽기 앞에 따라잡기를 끼우고, context.preview를 worker로 답하게 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;

@@ -13,10 +13,10 @@ import {
 } from "../../protocol/config/mod.ts";
 import type { SettingChange, SettingsRegistry } from "./registry.ts";
 
-export const SETTINGS_FILE_MODE = 0o600;
+const SETTINGS_FILE_MODE = 0o600;
 const WATCH_DEBOUNCE_MS = 100;
 
-export type SettingsTimer = {
+type SettingsTimer = {
   set(run: () => void, ms: number): unknown;
   clear(handle: unknown): void;
 };
@@ -25,7 +25,7 @@ const systemTimer: SettingsTimer = {
   clear: (handle) => clearTimeout(handle as number),
 };
 
-export type UpdateResult = {
+type UpdateResult = {
   changed: string[];
   rejected: SettingRejection[];
 };

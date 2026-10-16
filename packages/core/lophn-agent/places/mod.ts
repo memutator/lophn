@@ -1,11 +1,7 @@
 export { acceptsInput } from "./model.ts";
-export {
-  createSessionDirectory,
-  type SessionDirectoryDeps,
-} from "./directory.ts";
+export { createSessionDirectory } from "./directory.ts";
 export { createReceivedRecorder } from "./messages.ts";
-export { createSessionSnapshots, type SessionApprovals } from "./snapshots.ts";
-export { endSession, placeOfAgent, startSession } from "./lifecycle.ts";
+export { endSession, startSession } from "./lifecycle.ts";
 export type {
   EndDeps,
   OpenDeps,
@@ -20,5 +16,4 @@ export {
   installPlaceEnvironment,
   openDepsOf,
   placeDepsOf,
-  type PlaceEnvironment,
 } from "./environment.ts";

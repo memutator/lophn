@@ -4,7 +4,7 @@ import { ok, type Result } from "../../../base/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { eraseBlobRefs } from "../../storage/blobs/mod.ts";
 
-export type RefOwner = "session_message" | "ticket";
+type RefOwner = "session_message" | "ticket";
 
 // 방금 보낸 묶음은 session 기록의 ref가 붙기 전일 수 있어 이 시간이 지나야 sweep 대상이다.
 const SWEEP_GRACE_MS = 60 * 60 * 1000;
@@ -64,4 +64,3 @@ export function sweep(tx: Tx): Result<number> {
   return deleted.ok ? ok(ids.length) : deleted;
 }
 
-export const retention = { addRef, removeRefs, sweep };

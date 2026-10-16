@@ -190,7 +190,7 @@ function attachToProblem(
   return reopened.ok ? ok(found.id) : reopened;
 }
 
-export function handleRecordProblemReport(
+function handleRecordProblemReport(
   tx: Tx,
   _ctx: RequestContext,
   input: Input<typeof recordProblemReport>,

@@ -25,7 +25,7 @@ import { BUILTIN_NAMES } from "./names.ts";
 // 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
 
 // 제품이 고정하거나 다른 concern이 정하는 값이다. 테스트가 작은 값으로 바꿔 끼운다.
-export type ResolveEnvironment = {
+type ResolveEnvironment = {
   // 정의에 profile이 없을 때의 기본 icon.
   default_profile: Profile;
   // 이 place에서 쓸 수 있는 skill 이름과 MCP tool. 전역 층과 project 층을 이름 단위로 합친 것이다(등록 순서).
@@ -36,7 +36,7 @@ export type ResolveEnvironment = {
   active_contexts: readonly string[];
 };
 
-export type ResolveInput = {
+type ResolveInput = {
   agent: AgentRef;
   // Project Manager와 App Engineer와 Operator의 place. lophn은 null이다.
   place: Place | null;
@@ -49,7 +49,7 @@ export type ResolveInput = {
   environment: ResolveEnvironment;
 };
 
-export const RESOLVED_FIELDS = [
+const RESOLVED_FIELDS = [
   "name",
   "profile",
   "agent_instructions",
@@ -59,7 +59,7 @@ export const RESOLVED_FIELDS = [
   "mcp",
   "contexts",
 ] as const;
-export type ResolvedField = (typeof RESOLVED_FIELDS)[number];
+type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
 export type ResolvedAgent = {
   agent: AgentRef;

@@ -50,7 +50,7 @@ export type ChangeDetector = {
 };
 
 // Deno.FsWatcher에서 어댑터가 쓰는 부분.
-export type FsEventLike = {
+type FsEventLike = {
   kind: string;
   paths: readonly string[];
 };

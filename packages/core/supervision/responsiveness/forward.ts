@@ -7,14 +7,14 @@ import type {
 import { valueWithin } from "./deadline.ts";
 
 // route 등록값: timeout·응답 상한은 route마다 등록값이다.
-export type WorkerRouteLimits = {
+type WorkerRouteLimits = {
   timeoutMs?: number;
   responseMaxBytes?: number;
   // 요청이 바이트 body를 함께 보낼 수 있는 route의 상한. 없으면 이 route는 JSON body만 받는다.
   requestBytesMax?: number;
 };
 
-export type WorkerRouteHandle = {
+type WorkerRouteHandle = {
   observation(): HealthObservation;
   // bytes는 요청의 바이트 body다. core는 해석하지 않고 worker로 중계만 한다.
   forward(

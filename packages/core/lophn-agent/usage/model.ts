@@ -105,14 +105,6 @@ create index model_call_supplements_seq
 // 매개변수로 넘기는 STATE 열 값은 Number()-변환 후 그대로 쓴다.
 export type CallRow = Record<string, SqlParam>;
 
-function bool(value: unknown): boolean {
-  return value === 1 || value === 1n || value === true;
-}
-
-function stored(state: unknown): unknown {
-  return state;
-}
-
 // model_calls 행을 ModelCallRecord로 옮긴다. 열 값은 입력 schema가 이미 검사했고
 // 여기서는 bigint 상태·시각·JSON 값만 옮긴다.
 export function callFromRow(
@@ -190,4 +182,3 @@ export function assertCall(
   return ok(parsed.data);
 }
 
-export const rowHelpers = { bool, stored, callFromRow };

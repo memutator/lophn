@@ -28,17 +28,17 @@ export type Row = {
 // 이름 → 값. 주지 않은 선택 입력은 없다.
 export type InputValues = Readonly<Record<string, unknown>>;
 
-export type SearchErrorCode =
+type SearchErrorCode =
   | "search_unknown"
   | "input_invalid"
   | "input_required"
   | "cursor_mismatch";
 export type SearchError = { code: SearchErrorCode; input?: string };
 
-export type Cell = { path: string; value: unknown; ref: EntityRef | null };
+type Cell = { path: string; value: unknown; ref: EntityRef | null };
 export type ResultRow = { ref: EntityRef; cells: Cell[]; group?: unknown };
 
-export type TablePage = {
+type TablePage = {
   kind: "table";
   rows: ResultRow[];
   total: number;

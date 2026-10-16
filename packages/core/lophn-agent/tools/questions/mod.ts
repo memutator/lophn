@@ -1,15 +1,7 @@
 export {
-  type Adoption,
-  adoptionsOf,
   appliedOf,
-  chosenActionOf,
-  evidenceKey,
-  type GroupRow,
   loadGroup,
-  loadGroupOfQuestion,
   type QuestionGroup,
-  type QuestionGroupRecord,
-  type QuestionRow,
   settingChangesOf,
 } from "./model.ts";
 export { questionBodyFields, questionSchemaSteps } from "./schema.ts";
@@ -20,39 +12,15 @@ export {
   collectGroupAnswers,
   deferGroup,
   type GroupAnswerInput,
-  type GroupQuestionShape,
   type GroupState,
   validateNewGroup,
 } from "./group.ts";
 export {
-  appCreateOptionAction,
-  buildOptionAction,
   checkOptionAction,
-  chosenOptionCall,
-  createApplyQuestionOption,
-  findOptionOwner,
   OPTION_ACTION_OPERATIONS,
-  OPTION_ACTION_OWNERS,
-  type OptionActionOwner,
-  type OptionApplyDeps,
-  optionBindingHash,
-  optionInputHash,
-  type OptionOwnerHandlers,
-  settingsOptionAction,
 } from "./option-actions.ts";
-export {
-  type ProtectedSetting,
-  protectedSetting,
-  type ProtectedSettingKind,
-} from "./protected-settings.ts";
+export { protectedSetting } from "./protected-settings.ts";
 export { createQuestionReads } from "./reads.ts";
 export { questionTextRead } from "./text-read.ts";
-export {
-  ANSWER_REDACTION_INPUT,
-  type AnswerRedactor,
-  type AnswerScreen,
-  screenAnswerText,
-  SECURE_INPUT_GUIDANCE,
-  type SecureInputGuidance,
-} from "./screen.ts";
-export { createQuestionWaits, type QuestionWaits } from "./wait.ts";
+export { screenAnswerText } from "./screen.ts";
+export { createQuestionWaits } from "./wait.ts";

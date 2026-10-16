@@ -28,7 +28,7 @@ export type InstructionDeps = {
   redact(text: string): string | null | Promise<string | null>;
 };
 
-export type Inspected =
+type Inspected =
   | { status: "present"; text: string }
   | { status: "too_large" | "invalid"; reason: string };
 

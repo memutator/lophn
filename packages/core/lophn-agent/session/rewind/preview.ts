@@ -17,13 +17,13 @@ import {
 // AppWrites로 붙이고, 앱 rewind의 계획은 앱 rewind의 계획 route가 보인다.
 
 // 되돌릴 수 없는 사실 한 줄(외부 요청 같은 남는 영향).
-export type PreviewFact = {
+type PreviewFact = {
   target: string;
   reason: "external_effect";
   source: string[];
 };
 
-export type PreviewInput = {
+type PreviewInput = {
   choice: RewindChoice;
   checkpoint: string;
   judged: readonly JudgedFile[];
@@ -32,7 +32,7 @@ export type PreviewInput = {
   current: ReadonlyMap<string, FileStat>;
 };
 
-export type PreviewResult = {
+type PreviewResult = {
   restore: PreviewItem[];
   skip: PreviewItem[];
   remain: PreviewItem[];
@@ -45,7 +45,7 @@ export type PreviewResult = {
 //   summarize     : 모두 비어 있다(아무것도 바뀌지 않는다)
 // preview_hash는 위 목록과 choice·checkpoint와 판정에 든 경로의 지금 hash로 정한 sha256이다. 같은 입력은
 // 같은 hash, 하나라도 다르면 다른 hash다.
-export function assemblePreview(input: PreviewInput): PreviewResult {
+function assemblePreview(input: PreviewInput): PreviewResult {
   const restoreAll = input.choice === "restore_all";
   const items: PreviewItem[] = [
     ...(restoreAll ? input.judged.map(fileItem) : []),
@@ -99,7 +99,7 @@ function factItem(fact: PreviewFact): PreviewItem {
 }
 
 // 판정에 든 경로와 복원 동작이 건드리는 경로(이름 변경의 옛 경로)다.
-export function pathsOf(judged: readonly JudgedFile[]): string[] {
+function pathsOf(judged: readonly JudgedFile[]): string[] {
   return [
     ...new Set(
       judged.flatMap((file) => [

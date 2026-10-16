@@ -9,7 +9,7 @@ import type {
 
 // 허용됐고 채택한 release가 있는데 지금 살아 있다는 관측이 없을 때의 근거다.
 // 과거 event나 열린 problem으로 생존을 추정하지 않는다.
-export const NO_OBSERVATION: RuntimeReason = {
+const NO_OBSERVATION: RuntimeReason = {
   code: "no_observation",
   summary: "no live observation of the current release",
 };

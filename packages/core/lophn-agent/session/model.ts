@@ -302,7 +302,7 @@ export function nextMessageSeq(lookup: Lookup): number {
   return row === undefined ? 1 : Number(row["next"]);
 }
 
-export type MessageRow = {
+type MessageRow = {
   id: string;
   session: string;
   from_kind: "human" | "program" | "agent" | "coding_agent";

@@ -38,7 +38,7 @@ import { requestPrincipal } from "./after-commit.ts";
 import { SECRET_COMMANDS } from "../../secrets/mod.ts";
 import type { TeamModule } from "../../main/daemon/registration.ts";
 
-export type WriterBoot = {
+type WriterBoot = {
   path: string;
   modules: string[];
   // "system"이면 writer가 자기 system clock을 쓴다. 숫자면 그 시각에 고정한
@@ -229,7 +229,7 @@ function portList(ports: unknown): TxPortRegistration[] {
 }
 
 // BEGIN IMMEDIATE 안에서 부른다. 기록에 없는 ref나 제출 binding이 다른 ref는 거절한다.
-export function checkCredential(
+function checkCredential(
   connection: LedgerConnection,
   ctx: AuthenticatedContext,
 ): Result<AuthenticatedContext> {

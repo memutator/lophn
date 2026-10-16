@@ -21,5 +21,4 @@ export {
   type TicketCheckClient,
   ticketCheckWork,
 } from "./checker/mod.ts";
-export { problemWorkLookup } from "./problem-work.ts";
 export { TicketAnnotationLookup, TicketEvidenceLookup } from "./ports.ts";

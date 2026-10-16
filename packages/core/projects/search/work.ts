@@ -21,9 +21,9 @@ import {
   sortKey,
 } from "./model.ts";
 
-export type SearchScope = readonly { folder_path: string; start: string }[];
+type SearchScope = readonly { folder_path: string; start: string }[];
 
-export type ScanInput = {
+type ScanInput = {
   scope: SearchScope;
   query: string;
   cursor: Cursor | undefined;

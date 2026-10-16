@@ -25,7 +25,7 @@ export type ReactionRouter = {
   ): Promise<Result<void>>;
 };
 
-export type NewWorkDeps = {
+type NewWorkDeps = {
   approvals: Pick<Approvals, "judge" | "createPending" | "registerApplier">;
   router: ReactionRouter;
   // 근거 seq의 events 행. 보류 request가 허락된 뒤 event를 다시 읽는다.
@@ -34,7 +34,7 @@ export type NewWorkDeps = {
 
 type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
-export const newWorkHandlerName = (type: ReactionEventType) =>
+const newWorkHandlerName = (type: ReactionEventType) =>
   `new-work:${type}`;
 
 // program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다.

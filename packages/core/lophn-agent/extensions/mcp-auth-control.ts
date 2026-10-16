@@ -40,7 +40,7 @@ type McpAuthMemoryHandler = (
   input: unknown,
 ) => Promise<Result<unknown>>;
 
-export type McpAuthControlDeps = {
+type McpAuthControlDeps = {
   // token 교환·갱신이 쓰는 fetch다. 테스트가 가짜 발급자를 끼운다.
   fetch: HttpFetch;
   // 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다. 테스트가 가짜를

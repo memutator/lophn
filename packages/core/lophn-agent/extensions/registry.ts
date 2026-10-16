@@ -32,7 +32,7 @@ import {
 // graph에는 동기 file API를 두지 않으므로 port는 Worker 안에서 URL로 연 adapter다(adapters/node-fs.ts).
 // agent 정의 층(agent가 가진 서버와 끈 이름)은 여기 없다. 정의를 읽는 쪽이 더한다.
 
-export type ExtensionRegistryDeps = {
+type ExtensionRegistryDeps = {
   root: string;
   files: PlaceFiles;
   skillFiles: SyncSkillFiles;

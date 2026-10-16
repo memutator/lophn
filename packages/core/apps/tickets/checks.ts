@@ -55,7 +55,7 @@ function verificationFact(row: Record<string, unknown>): VerificationFact {
 
 // 보고된 ticket의 그 보고에 대한 사실을 한 snapshot에서 모은다. reported가 아니거나 최신 보고가
 // 아니면 null이다. 다른 concern의 값은 읽기만 한다.
-export function loadCheckWork(
+function loadCheckWork(
   sql: ReadSql,
   ticket: string,
   completionSeq: string,

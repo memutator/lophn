@@ -13,11 +13,11 @@ import {
 } from "../harness/definitions.ts";
 import { type BundleDependency, dependenciesHash } from "./generate.ts";
 
-export const APP_TEST_TIMEOUT_MS = 240_000;
+const APP_TEST_TIMEOUT_MS = 240_000;
 const EXPECTED_TEXT = "every required check passes";
 const ENVIRONMENT_TEXT = "problems/tests runner environment";
 
-export type BundleFacts = {
+type BundleFacts = {
   blueprintBytes: Uint8Array;
   blueprint: Blueprint;
   entrypoint: string;
@@ -26,7 +26,7 @@ export type BundleFacts = {
   imports: Record<string, string>;
 };
 
-export type DerivedAppTest = {
+type DerivedAppTest = {
   frozen: FrozenTest;
   test_hash: string;
   facts: BundleFacts;
@@ -36,17 +36,17 @@ export type DerivedAppTest = {
   environment: string;
 };
 
-export function sha256Bytes(bytes: Uint8Array): string {
+function sha256Bytes(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
-export function environmentBytes(): Uint8Array {
+function environmentBytes(): Uint8Array {
   return encode(ENVIRONMENT_TEXT);
 }
 
-export type DeriveResult =
+type DeriveResult =
   | { ok: true; value: DerivedAppTest }
   | { ok: false; reason: string };
 

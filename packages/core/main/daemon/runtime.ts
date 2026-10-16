@@ -71,7 +71,7 @@ export type CoreRuntime = {
 const WRITER_CLOSE_MS = 15_000;
 
 // 닫기 요청이 기한 안에 답하지 않으면 expire를 부른다. 답이 오면 부르지 않는다.
-export async function closeWithin(
+async function closeWithin(
   close: () => Promise<unknown>,
   ms: number,
   expire: () => void,

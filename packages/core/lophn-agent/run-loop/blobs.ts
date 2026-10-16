@@ -11,7 +11,7 @@ export type BlobPort = {
   ): Promise<Result<{ hash: string; size_bytes: number }>>;
 };
 
-export type StoredBlob = { hash: string; size: number };
+type StoredBlob = { hash: string; size: number };
 
 // 글을 안전화한다. 끝내지 못하면 null이다(model로도 blob으로도 보내지 않는다).
 export type RedactText = (

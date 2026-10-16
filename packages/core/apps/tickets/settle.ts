@@ -6,7 +6,7 @@ import { defineCommand } from "../../../protocol/base/mod.ts";
 import { TicketSessionEnd } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 
-export const ticketSettleAll = defineCommand({
+const ticketSettleAll = defineCommand({
   resource: "tickets",
   method: "settle_all",
   name: "SettleTicketSessions",

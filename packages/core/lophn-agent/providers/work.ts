@@ -11,7 +11,6 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
-import type { SseOver } from "./adapters/stream.ts";
 
 // 호출 입력. resolve가 준 판과 run 근거다(§5.2).
 export type ModelCallInput = {
@@ -57,16 +56,5 @@ export type InvokeModelCall = (
 ) => Promise<Result<ModelCallOutput>>;
 
 // SDK 숨은 retry 0. 호출은 한 번이다. 재시도는 run-loop가 새 ModelCall로 한다.
-export const SDK_RETRIES = 0;
 
 // parser 상한 실패는 일시가 아니라 요청 크기 문제다. over 종류를 그대로 전달한다.
-export function overOutcome(over: SseOver): ModelOutcome {
-  return {
-    kind: "failed",
-    code: "temporary",
-    retry_at: null,
-    finish_reason: null,
-    http_status: null,
-    provider_code: `sse_${over.kind}`,
-  };
-}

@@ -22,7 +22,7 @@ export const CALL_TIMEOUT_MS = 120_000;
 export const APPLY_TIMEOUT_MS = 60_000;
 // 응답이 core로 돌아가는 길이 감독 pipe의 control frame 하나라서 그 한도(256KiB)가 상한이다. envelope와
 // 감싼 칸의 여유를 뺀다. 넘으면 결과 모름이다.
-export const CALL_RESPONSE_MAX_BYTES = CONTROL_MAX_BYTES - 1024;
+const CALL_RESPONSE_MAX_BYTES = CONTROL_MAX_BYTES - 1024;
 
 export type ControlRequest = {
   socket: string;
@@ -45,11 +45,11 @@ export type ControlTransport = (
   request: ControlRequest,
 ) => Promise<ControlReply>;
 
-export type CallOutput =
+type CallOutput =
   | { sent: false; error: LophnError }
   | { sent: true; response: ProcessCallResponse | null };
 
-export type Relay = {
+type Relay = {
   call(target: AppApiTarget, request: ProcessCallRequest): Promise<CallOutput>;
   // 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
   apply(

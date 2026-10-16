@@ -22,7 +22,7 @@ import type { AgentCredentialIssuer } from "./mod.ts";
 // agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
 // `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
 // 같은 답이다. 다른 역할은 앱 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
-export function agentConditions(input: {
+function agentConditions(input: {
   session: string;
   turn: string;
   process: string;
@@ -43,12 +43,12 @@ export function agentConditions(input: {
   return { ...base, app: input.place.id };
 }
 
-export type CoreCall = (
+type CoreCall = (
   path: string,
   body: unknown,
 ) => Promise<Result<unknown>>;
 
-export type AgentCredentialLink = {
+type AgentCredentialLink = {
   // child message를 처리한다. 발급했으면 응답 message를, 그 밖(거절·종료 처리)에는 undefined를 돌려준다.
   onMessage(
     message: ChildMessage,

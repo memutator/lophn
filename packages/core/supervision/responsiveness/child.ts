@@ -29,7 +29,7 @@ export type ChildStreams = {
 
 type Hello = Extract<ParentMessage, { type: "hello" }>;
 
-export type ChildHandlers = {
+type ChildHandlers = {
   // hello의 credential은 여기로만 간다. log·stderr에 남기지 않는다.
   onHello(message: Hello): Promise<void> | void;
   // explicit stop·EOF·protocol 위반 모두 이 hook을 정확히 한 번 부른다. 앞선 handler가 아직
@@ -42,7 +42,7 @@ export type ChildHandlers = {
   onParent?(message: ParentMessage): Promise<void> | void;
 };
 
-export type ReadAhead = {
+type ReadAhead = {
   // 지금 handler가 처리 중인 frame과 아직 시작하지 않은 frame의 수·크기.
   activeFrames: number;
   activeBytes: number;
@@ -73,8 +73,8 @@ const FRAME_HEADER_BYTES = 9;
 // handler가 느려도 stdin은 계속 읽어 EOF·stop을 바로 본다. 대신 미리 읽은 양은 이 한도를
 // 넘으면 protocol 실패로 끝낸다(무제한 queue 없음). 처리 중 최대 frame 하나와 대기 최대 frame
 // 하나가 함께 들어가는 크기다.
-export const READ_AHEAD_MAX_FRAMES = 256;
-export const READ_AHEAD_MAX_BYTES = 2 *
+const READ_AHEAD_MAX_FRAMES = 256;
+const READ_AHEAD_MAX_BYTES = 2 *
   (STREAM_CHUNK_MAX_BYTES + FRAME_HEADER_BYTES);
 
 type Work =

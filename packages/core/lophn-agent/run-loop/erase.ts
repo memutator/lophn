@@ -9,7 +9,7 @@ type EraseBlobRefs = (
 ) => Result<void>;
 
 // session의 turn id다. 다른 concern의 지움이 turn 기준으로 행을 찾을 때 core가 쓴다.
-export function sessionTurnIds(tx: Tx, session: string): string[] {
+function sessionTurnIds(tx: Tx, session: string): string[] {
   return tx.sql.all("select id from turns where session = ?", [session]).map((
     row,
   ) => String(row["id"]));

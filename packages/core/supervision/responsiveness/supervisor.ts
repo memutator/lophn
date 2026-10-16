@@ -36,7 +36,7 @@ export type StartResult =
   // reason은 사람이 읽는 짧은 까닭이다(쓰기 기한 초과 같은 것). 판단에는 code만 쓴다.
   | { ok: false; code: "invalid_input" | "unavailable"; reason?: string };
 
-export type SupervisorOptions = {
+type SupervisorOptions = {
   clock: Clock;
   denoCommand: string;
   // 재기동 간격(1·2·4초)에만 쓴다. ready·stop·teardown 기한은 실제 경과 시간으로 잰다.

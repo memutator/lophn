@@ -27,7 +27,7 @@ export const EXTERNAL_TOOL_CONTRACT = "external_mcp_call";
 // 서버+tool 쌍 하나의 대상 ID다. 정확한 쌍 UTF-8 `JSON.stringify([server, tool])`의 SHA-256 앞 128 bit를 ULID
 // 문자로 적는다. 같은 쌍은 늘 같은 ID이고 이름 처리와 무관하다.
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
-export async function externalToolTargetId(
+async function externalToolTargetId(
   server: string,
   original: string,
 ): Promise<string> {
@@ -75,7 +75,7 @@ function pairKey(pair: { server_name: string; original_tool: string }): string {
 
 // 호출 이름이다. `mcp__<server>__<tool>`이 wire 이름 규칙(영문, 숫자, `_`, `-`)에 맞고 64자 이하면 그대로이고,
 // 아니면 안전하지 않은 글자를 `_`로 바꾸고 줄여 쌍의 hash를 뒤에 붙인다. 같은 쌍은 늘 같은 이름이다.
-export async function externalToolName(
+async function externalToolName(
   server: string,
   original: string,
 ): Promise<string> {
@@ -92,7 +92,7 @@ export async function externalToolName(
 }
 
 // 이름이 겹치는 쌍은 등록을 거절한다. 숫자로 우회하지 않는다.
-export async function assignExternalToolNames(
+async function assignExternalToolNames(
   pairs: readonly { server: string; original: string }[],
 ): Promise<
   Result<ReadonlyMap<string, string>, { code: "conflict"; message: string }>
@@ -218,15 +218,10 @@ export async function buildMcpTools(
 }
 
 // 정의 목록의 표로 호출 이름에서 쌍을 거꾸로 찾는다. 이름을 parse하지 않는다.
-export function externalToolByName(
-  tools: readonly ExternalTool[],
-): ReadonlyMap<string, ExternalTool> {
-  return new Map(tools.map((tool) => [tool.definition.name, tool]));
-}
 
 // ---- 호출 ----
 
-export type McpInvokeCall = {
+type McpInvokeCall = {
   // 사람이 붙인 서버 이름이다(원래 서버·tool로 정확히 돌아간다).
   server: string;
   original: string;
@@ -234,11 +229,6 @@ export type McpInvokeCall = {
   // 같은 호출의 식별이다. 최초 ToolCall ID라 재전송이 handler를 다시 실행하지 않는다.
   requestKey: string;
 };
-
-export type McpCallOutcome =
-  | { kind: "result"; result: unknown }
-  // 요청은 나갔지만 응답을 못 받았다. 서버가 처리했는지 모른다.
-  | { kind: "unknown"; reason: string };
 
 // 이 ToolCall의 호출 통로다. 실제 연결은 agent runtime 조립이 낸다(mcp-connections). 연결이 없거나 사라진 이름은
 // err이다(없는 tool과 같은 답).

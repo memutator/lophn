@@ -3,7 +3,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { BLUEPRINT_EXTRACT_LIMIT_MS } from "../../../protocol/apps/mod.ts";
 
-export type ExtractChildFailure = {
+type ExtractChildFailure = {
   code: "invalid_input" | "unavailable";
   reason:
     | "source_unreadable"
@@ -13,7 +13,7 @@ export type ExtractChildFailure = {
     | "extract_failed";
 };
 
-export type ExtractedBlueprint = {
+type ExtractedBlueprint = {
   // 정규 JSON(이름 순 고정) 문자열. release의 blueprint blob 내용이다.
   canonicalJson: string;
   hashInput: string;
@@ -26,12 +26,12 @@ const CHILD = new URL("./extract-child.ts", import.meta.url);
 
 // blueprint 판정 결과의 검사기 모양. wrapper(mod.ts)가 다시 내보내는 contracts
 // ValidationResult와 같은 모양이다.
-export type BlueprintValidator = (
+type BlueprintValidator = (
   value: unknown,
 ) => { ok: boolean; value?: { name: string } };
 
 // 정규 JSON 문자열을 blueprint 정본으로 검사한다. 검사기는 caller가 주입한다.
-export function validateExtracted(
+function validateExtracted(
   validate: BlueprintValidator,
   canonicalJson: string,
 ): Result<{ blueprintName: string }, ExtractChildFailure> {
@@ -48,7 +48,7 @@ export function validateExtracted(
   return ok({ blueprintName: validated.value.name });
 }
 
-export type ExtractChild = {
+type ExtractChild = {
   stdout: ReadableStream<Uint8Array>;
   stderr: ReadableStream<Uint8Array>;
   status: Promise<{ success: boolean; code: number; signal: string | null }>;
@@ -61,7 +61,7 @@ export type ExtractSpawner = {
 };
 
 // 파일·network·env 권한 없이 띄우고 limitMs 뒤 SIGKILL한다.
-export function denoExtractSpawner(): ExtractSpawner {
+function denoExtractSpawner(): ExtractSpawner {
   return {
     spawn(source, limitMs) {
       const child = new Deno.Command(Deno.execPath(), {

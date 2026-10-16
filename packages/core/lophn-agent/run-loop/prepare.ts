@@ -114,7 +114,7 @@ export type ToolPorts = Pick<
   "gate" | "router" | "questions" | "scope" | "rewind" | "skills" | "fetch"
 >;
 
-export type PreparerDeps = {
+type PreparerDeps = {
   clock: Clock;
   ids: IdSource;
   // machine 자격의 loopback.
@@ -148,7 +148,7 @@ export type PreparerDeps = {
   reservedOutput?: number;
 };
 
-export type PreparedTurn = {
+type PreparedTurn = {
   turn: string;
   session: string;
   begin: BeginTurnInput;
@@ -170,7 +170,7 @@ export type PreparedTurn = {
 };
 
 // 시작할 수 없는 turn은 core에서 failed로 닫혀 session은 입력을 계속 받는다.
-export type Preparation =
+type Preparation =
   | { kind: "ready"; turn: PreparedTurn }
   | { kind: "closed"; turn: string; reason: CannotStart["reason"] };
 

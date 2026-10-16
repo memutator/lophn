@@ -36,7 +36,7 @@ type ObserverFactory = {
   installProblemReporter?: (reporter: unknown) => void;
 };
 
-export type MainDeps = {
+type MainDeps = {
   readLine: () => Promise<string | null>;
   importModule: (specifier: string) => Promise<unknown>;
   clock?: { now: () => string; nowMs: () => number };
@@ -52,7 +52,7 @@ export type MainDeps = {
   writeStderr?: (text: string) => void;
 };
 
-export async function main(deps: MainDeps): Promise<void> {
+async function main(deps: MainDeps): Promise<void> {
   const clock = deps.clock ?? systemClock;
   const ids = deps.ids ?? createIdSource({
     clock,
@@ -146,7 +146,7 @@ export async function main(deps: MainDeps): Promise<void> {
 
 // 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
 // 그 파일이 부른다. 시작이 실패하면 이유를 stderr로 알리고 끝난다.
-export async function run(): Promise<void> {
+async function run(): Promise<void> {
   const reason = await boot().catch((error: unknown) =>
     error instanceof Error ? error.message : String(error)
   );

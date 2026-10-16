@@ -62,20 +62,10 @@ import { createDataCommands } from "./data/commands.ts";
 import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
-import {
-  appArchived,
-  appCreated,
-  appUnarchived,
-  packagesGuideBody,
-} from "../../protocol/apps/mod.ts";
+import { packagesGuideBody } from "../../protocol/apps/mod.ts";
 import { SecretAllowance } from "../../protocol/secrets/mod.ts";
 import type { WorkerRoute } from "../../protocol/base/mod.ts";
-import type {
-  EventRegistration,
-  ReaderRegistration,
-  TxPortRegistration,
-} from "../storage/ledger/mod.ts";
-import { assignmentReactionsOnlyVisibility } from "../main/daemon/platform-register.ts";
+import type { TxPortRegistration } from "../storage/ledger/mod.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -258,51 +248,5 @@ export function createLedgerRegistration(
 
 // release 계기 event의 공개 정책. notifications 구독자에게만 열고,
 // 다른 apps event는 정책이 없어 계속 숨김이다.
-export function createEventRegistration(): EventRegistration {
-  return {
-    visibility: [
-      // 앱 만들기·보관·보관 해제는 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
-      assignmentReactionsOnlyVisibility(appCreated),
-      assignmentReactionsOnlyVisibility(appArchived),
-      assignmentReactionsOnlyVisibility(appUnarchived),
-    ],
-  };
-}
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.
-export function createReaderRegistration(): ReaderRegistration {
-  const reads = createAppsReads();
-  const invocations = createInvocationsReads();
-  const sdkReads = createSdkReads();
-  const runtimeReads = createRuntimeReads();
-  const grantReads = createGrantsReads();
-  const releaseReads = createReleaseReads();
-  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
-  return {
-    reads: [
-      reads.list,
-      reads.get,
-      blueprintReads.appApi,
-      releaseReads.listRecords,
-      releaseReads.getRecord,
-      releaseReads.activationCompare,
-      grantReads.list,
-      runtimeReads.runtime,
-      runtimeReads.logs,
-      invocations.list,
-      invocations.get,
-      sdkReads.list,
-      sdkReads.versions,
-      sdkReads.usage,
-    ],
-    // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
-    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다.
-    ports: new Map<unknown, unknown>([
-      [
-        currentDeclarations,
-        releaseDeclarations,
-      ],
-      [ProblemWordingPort, releaseWording],
-    ]),
-  };
-}

@@ -13,22 +13,22 @@ import {
   drain,
 } from "./stream-decoder.ts";
 
-export const LOG_INVOCATION_MAX_LINES = 200;
-export const LOG_INVOCATIONS_MAX = 500;
-export const LOG_UNATTACHED_MAX_LINES = 500;
-export const LOG_FLUSH_MAX_MS = 20;
+const LOG_INVOCATION_MAX_LINES = 200;
+const LOG_INVOCATIONS_MAX = 500;
+const LOG_UNATTACHED_MAX_LINES = 500;
+const LOG_FLUSH_MAX_MS = 20;
 
 // SDK가 invocation 문맥에서 찍는 표시다. 알 수 없는 id를 만들어 붙이지 않는다.
 const INVOCATION_MARK = /^\[inv=(inv_[0-9a-z]{26})\] ?/;
 
-export type LogLineLoss = {
+type LogLineLoss = {
   app: string;
   invocation?: string;
   dropped_lines: number;
   reason: "buffer_limit" | "unsafe_truncation";
 };
 
-export type LogBufferDeps = {
+type LogBufferDeps = {
   app: string;
   // 알려진 secret registry와 credential pattern을 적용한 줄 redaction.
   redact: (line: string) => string;
@@ -39,7 +39,7 @@ export type LogBufferDeps = {
   wait?: (ms: number) => Promise<void>;
 };
 
-export type LogQuery = {
+type LogQuery = {
   invocation?: string;
   limit: number;
   max_bytes?: number;
@@ -47,7 +47,7 @@ export type LogQuery = {
   cursor?: string;
 };
 
-export type LogRead = {
+type LogRead = {
   state: AppLogState;
   lines: string[];
   collected_at: string | null;

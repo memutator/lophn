@@ -26,7 +26,7 @@ export type ContextApiActor =
   }
   | { kind: "coding_agent"; actor: string };
 
-export type EmittedEvent = {
+type EmittedEvent = {
   seq: string;
   type: string;
   subject: string;

@@ -13,10 +13,10 @@ import type {
 import type { CoreSigner } from "../../apps/runtime/signing.ts";
 import type { WorkerRouteTarget } from "../../supervision/responsiveness/mod.ts";
 
-export const VIEW_ERROR_KEY =
+const VIEW_ERROR_KEY =
   `${observeViewError.resource}/${observeViewError.method}`;
 
-export type ViewBindingDeps = {
+type ViewBindingDeps = {
   // appsControl.signer: core 시작마다 하나인 서명 key 쥠이다.
   signer: Pick<CoreSigner, "verifyConnection">;
   nowMs(): number;

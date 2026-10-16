@@ -1,8 +1,8 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 
-export const LOG_FILE_MAX_BYTES = 10 * 1024 * 1024;
-export const LOG_FILE_COUNT = 5;
+const LOG_FILE_MAX_BYTES = 10 * 1024 * 1024;
+const LOG_FILE_COUNT = 5;
 
 // H is fixed nonsecret installation input; filenames never come from a report.
 export async function createLogFiles(root: string): Promise<{

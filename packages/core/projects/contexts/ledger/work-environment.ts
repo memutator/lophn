@@ -16,14 +16,14 @@ type AppCommands = ContextWorkInput["app_commands"];
 type Reader = Pick<Sql, "get" | "all">;
 
 // 앱 command 선언의 효과. 앱 등록이 선언을 찾지 못하면 undefined다.
-export type AppCommandEffectLookup = (
+type AppCommandEffectLookup = (
   app: string,
   command: string,
 ) => AppCommands[number]["effect"] | undefined;
 
 // 한 context의 판이 다른 context에 내놓는 type 목록(계약의 type 순서). private인 type도 visibility를 달아
 // 싣는다: 검사가 "없다"와 "private이다"를 구별해 알린다. source·rules·relations는 싣지 않는다.
-export function externalTypesOf(
+function externalTypesOf(
   title: string,
   content: BundleContent,
 ): ExternalTypes {

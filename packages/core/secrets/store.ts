@@ -34,7 +34,7 @@ import {
 // 제품 기본 keychain(Linux Secret Service, 그 밖은 unavailable)은 packages/core/secrets가 낸다.
 export { productKeychain };
 
-export type SecretStore = {
+type SecretStore = {
   // ledger의 현재 참조와 알려진 값을 맞춘다. 동시에 부르면 한 번 더 도는 것으로 합친다.
   // 끝났을 때 registry가 현재 참조와 같으면 ok, 그렇지 않으면 err(이후 재시도한다).
   sync(): Promise<Result<void>>;
@@ -52,7 +52,7 @@ export type SecretStore = {
   stop(): void;
 };
 
-export type SecretStoreDeps = {
+type SecretStoreDeps = {
   ledgerPath: string;
   // reader pool의 알려진 값 통로.
   channel: KnownSecretChannel;

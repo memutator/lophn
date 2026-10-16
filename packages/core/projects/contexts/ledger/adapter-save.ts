@@ -20,7 +20,7 @@ import {
 } from "./rows.ts";
 
 // handler는 행을 고치지 않고 새 값으로 바꿔 넣으므로 Map의 얕은 복사로 처음 값을 남길 수 있다.
-export type Baseline = Pick<
+type Baseline = Pick<
   ContextApiState,
   "contexts" | "bundles" | "checks" | "views" | "glossary"
 >;
@@ -53,7 +53,7 @@ export function blobUploads() {
     references: (): BlobReference[] => [...uploaded.values()],
   };
 }
-export type BlobUploads = ReturnType<typeof blobUploads>;
+type BlobUploads = ReturnType<typeof blobUploads>;
 
 function changes<T extends { id: string }>(
   before: ReadonlyMap<string, T>,

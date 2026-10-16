@@ -30,7 +30,7 @@ function testsOf(sql: Query, release: string): string[] {
   ).map((row) => String(row.verification));
 }
 
-export function releaseFromRow(
+function releaseFromRow(
   sql: Query,
   row: SqlRow,
 ): Result<ReleaseRecord> {
@@ -112,7 +112,7 @@ export function loadActiveRelease(
   return releaseFromRow(sql, row);
 }
 
-export type StoredBlueprint = {
+type StoredBlueprint = {
   release: ReleaseRecord;
   blueprint: Blueprint;
   declarations: AppDeclarations;
@@ -173,7 +173,7 @@ export function findReleaseForTicket(
   return row === undefined ? ok(null) : releaseFromRow(sql, row);
 }
 
-export type ReleaseFactRow = {
+type ReleaseFactRow = {
   id: string;
   app: string;
   number: number;

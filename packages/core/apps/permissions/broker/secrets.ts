@@ -23,15 +23,15 @@ import {
 import type { BrokerChild } from "./invocations.ts";
 import { destinationAllowed, urlHost, urlPort } from "./net-fetch.ts";
 
-export type SecretUseOutput = z.infer<typeof brokerSecretUseOutputSchema>;
+type SecretUseOutput = z.infer<typeof brokerSecretUseOutputSchema>;
 
-export type SecretUseDestination = {
+type SecretUseDestination = {
   scheme: string;
   host: string;
   port: number;
 };
 
-export type SecretDeliveryRequest = {
+type SecretDeliveryRequest = {
   app: string;
   release: string;
   processNonce: string;
@@ -54,7 +54,7 @@ export interface RedactionGate {
   ensure(name: string): Promise<Result<void>> | Result<void>;
 }
 
-export type SecretUseDeps = {
+type SecretUseDeps = {
   access: BrokerAccess;
   delivery: SecretDelivery;
   redaction: RedactionGate;

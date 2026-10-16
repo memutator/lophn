@@ -12,7 +12,7 @@ import { calId } from "./model.ts";
 import { readCall } from "./store.ts";
 
 // call을 누를 때 그때의 상태를 읽는다. 상태 구독은 없다. agent는 자기가 보냈거나 받은 call만 본다.
-export const readCallRead: ReadDefinition<typeof callRead> = {
+const readCallRead: ReadDefinition<typeof callRead> = {
   route: callRead,
   handle(snapshot, ctx, input) {
     const read = readCall(snapshot, calId(input.call));
@@ -46,7 +46,7 @@ function placeOf(agent: CallAgent): Place | null {
 const STATES = ["running", "waiting", "idle", "unknown"] as const;
 
 // 부를 수 있는 열린 session 목록. grant가 deny인 상대는 뺀다. 목록은 prompt에 넣지 않고 tool이 읽는다.
-export const sendableRead: ReadDefinition<typeof callSendable> = {
+const sendableRead: ReadDefinition<typeof callSendable> = {
   route: callSendable,
   handle(snapshot, ctx) {
     const actor = parseActor(ctx.actor);

@@ -33,12 +33,12 @@ import type { ChildBlobPolicy } from "../../storage/blobs/child-prepare.ts";
 import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 import { TEST_RUNNER_KIND } from "./runner.ts";
 
-export const TEST_RUN_OP = "problems.test.run";
-export const TEST_RECOVER_OP = "problems.test.recover";
+const TEST_RUN_OP = "problems.test.run";
+const TEST_RECOVER_OP = "problems.test.recover";
 
 // runner가 요청에 쓰는 machine operation. 요청 기록 이음(lifecycle)과 결과 쓰기는 서로 독립이다. 이름 둘은
 // 요청별로 owner가 다시 보는 의미 operation이다(problems/tests model).
-export const TEST_RUNNER_OPERATIONS = [
+const TEST_RUNNER_OPERATIONS = [
   observeTestRequest.name,
   startTestSide.name,
   stageTestEvidence.name,
@@ -66,7 +66,7 @@ const JOB_TIMEOUT_MS = 720_000;
 const RETRY_MS = 5_000;
 const SLOTS = [0, 1] as const;
 
-export type TestControlDeps = {
+type TestControlDeps = {
   ledgerPath: string;
   channel: Pick<WorkerChannel, "request" | "failPending">;
   apiPort: number;

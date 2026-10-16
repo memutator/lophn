@@ -31,7 +31,7 @@ export function mcpTokenRef(key: McpAuthKey): string {
 }
 
 // token이 묶인 조합이다. 이 중 하나라도 지금 설정과 다르면 token은 쓰지 않는다.
-export type McpGrantBinding = {
+type McpGrantBinding = {
   issuer: string;
   server_url: string;
   client_id: string;
@@ -49,7 +49,7 @@ export type McpGrant = {
 
 // 필요한 만큼만 쓰는 keychain 눈이다(platform/secrets의 KeychainAdapter와 같은 모양). 제품은 core가 OS adapter를
 // 넘기고 시험은 fake를 넘긴다.
-export type McpVaultKeychain = {
+type McpVaultKeychain = {
   status(): Promise<"available" | "unavailable">;
   store(item: {
     name: string;

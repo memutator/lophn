@@ -8,7 +8,7 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored grant" });
 }
 
-export function grantFromRow(row: Record<string, unknown>): Result<AppGrant> {
+function grantFromRow(row: Record<string, unknown>): Result<AppGrant> {
   let scope: unknown;
   try {
     scope = JSON.parse(String(row.scope));
@@ -62,9 +62,6 @@ export function loadGrants(
 }
 
 // Grants.appGrants(app)의 근거다. 지금 active인 앱 grant만 준다.
-export function appGrantsOf(sql: Query, app: string): Result<AppGrant[]> {
-  return loadGrants(sql, { app, status: "active" });
-}
 
 export function insertGrant(tx: Pick<Tx, "sql">, grant: AppGrant): void {
   tx.sql.run(
@@ -97,15 +94,8 @@ export function markRevoked(
 
 // 앱의 grant 집합이 바뀔 때마다 늘어나는 값이다(만든 grant 수 + 거둔 grant 수). 없으면 "0".
 // releases가 승인 때 본 값으로 쓰는 동안만 남긴다.
-export function grantsSeq(sql: Query, app: string): string {
-  const row = sql.get(
-    `SELECT COUNT(*) + COUNT(revoked_at) AS seq FROM grants WHERE app = ?`,
-    [app],
-  );
-  return String(row?.seq ?? 0);
-}
 
-export type ProcessFact =
+type ProcessFact =
   | { kind: "none" }
   | { kind: "started"; nonce: string }
   | { kind: "stopped"; nonce: string };

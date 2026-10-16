@@ -18,13 +18,13 @@ import type { TurnPreparer } from "./prepare.ts";
 // StartTurn으로 확정하고, `agent:<ses>` credential을 받아 loop에 넘긴다. turn이 끝나거나 멈추거나 감독이
 // 끊기면 credential을 끝낸다. 켜질 때 돌던 turn은 core가 interrupted로 닫으므로 이 쪽에 이어 하기는 없다.
 
-export type DriveDeps = {
+type DriveDeps = {
   source: TurnSource;
   credentials: TurnCredentials;
   preparer: Pick<TurnPreparer, "prepare" | "forget">;
 };
 
-export type DriveResult =
+type DriveResult =
   | { kind: "idle" }
   | { kind: "unavailable" }
   // turn을 시작할 수 없어 core가 failed로 닫았다. 입력은 소비됐다.

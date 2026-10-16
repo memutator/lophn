@@ -55,7 +55,7 @@ const closedRedaction: RedactionGate = {
   ensure: () => err({ code: "unavailable", message: NOT_CONNECTED }),
 };
 // 자식 하나가 쓰는 broker 서비스들이다. 연결의 신원은 서비스 호출마다 endpoint가 넘긴다.
-export function servicesFor(
+function servicesFor(
   child: BrokerChild,
   adapters: BrokerAdapters,
 ): BrokerServices {
@@ -88,7 +88,7 @@ export function servicesFor(
   };
 }
 
-export type OpenedChild = {
+type OpenedChild = {
   // 이 자식에게만 올릴 서비스다. 없으면 운영 서비스 묶음이다(preview 대역이 따로 올린다).
   services?: BrokerServices;
   child: BrokerChild;
@@ -108,7 +108,7 @@ export type SupervisorBroker = {
   blockApp(app: string): number;
 };
 
-export type BrokerListening = { shutdown(): Promise<void> };
+type BrokerListening = { shutdown(): Promise<void> };
 
 export function createSupervisorBroker(deps: {
   adapters: BrokerAdapters;

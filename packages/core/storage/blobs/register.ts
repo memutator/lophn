@@ -13,7 +13,7 @@ import {
 import type { PreparationRegistry } from "./registry.ts";
 import { claimedHash, fieldDefined } from "./refs.ts";
 
-export type BlobRegistrationDeps = {
+type BlobRegistrationDeps = {
   // 준비 참조의 core 메모리 판정. 파일을 다시 hash하지 않는다.
   preparations: Pick<PreparationRegistry, "live">;
   // 소유 concern이 등록한 blob field. 보존 종류와 일반 읽기 허용이 함께 있다.
@@ -32,7 +32,7 @@ export function createBlobRegistrar(
   return (sql, reference) => registerBlobRef(sql, deps, reference);
 }
 
-export function registerBlobRef(
+function registerBlobRef(
   sql: Sql,
   deps: BlobRegistrationDeps,
   reference: BlobRefRegistration,

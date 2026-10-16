@@ -3,7 +3,7 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { SourceDiffOutput } from "../../../../protocol/coding-agent/source-diff.ts";
 
-export type ReleaseSource =
+type ReleaseSource =
   // 파일 내용. binary이거나 너무 크면 null이다.
   | { preserved: true; files: ReadonlyMap<string, string | null> }
   | { preserved: false; reason: string };

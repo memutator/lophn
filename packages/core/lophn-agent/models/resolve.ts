@@ -53,7 +53,7 @@ function anthropicMaxTokens(
   return Math.min(outputLimit, MAX_OUTPUT_TOKENS + budget);
 }
 
-export type ModelResolverDeps = {
+type ModelResolverDeps = {
   machine: CoreCall;
   // API key의 값을 전송 직전에 붙이는 port. 없으면 값이 있는 credential은 쓸 수 없다.
   attach?: SecretAttachLike;

@@ -7,15 +7,15 @@ import {
   SOCKET_PATH_MAX_BYTES,
 } from "../../../../protocol/apps/mod.ts";
 
-export type SocketDirError = { code: "invalid_input"; message: string };
+type SocketDirError = { code: "invalid_input"; message: string };
 
-export type SocketDirectory = {
+type SocketDirectory = {
   directory: string;
   brokerSocket: string;
   controlSocket: string;
 };
 
-export type SocketDirDeps = {
+type SocketDirDeps = {
   xdgRuntimeDir: string | undefined;
   uid: number;
   // 0700 디렉터리를 만든다. 이미 있으면 그대로 둔다.

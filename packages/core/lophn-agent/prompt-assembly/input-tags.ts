@@ -1,5 +1,4 @@
 import {
-  type AttachedKind,
   INPUT_TAG_ATTRIBUTES,
   INPUT_TAGS,
   type InputTagKind,
@@ -9,7 +8,6 @@ import {
 import type {
   CallRef,
   CallReply,
-  CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
 
 // Router 입력을 user role로 넣을 때 출처를 밝히는 tag를 만든다. 순수 함수다.
@@ -57,11 +55,6 @@ export function renderTag(
 }
 
 // 값이 있는 칸만 `이름: 값` 줄로 쓴다.
-function fieldLines(fields: [string, string | undefined][]): string[] {
-  return fields.flatMap(([label, value]) =>
-    value === undefined ? [] : [`${label}: ${value}`]
-  );
-}
 
 function refText(ref: CallRef): string {
   switch (ref.kind) {
@@ -102,25 +95,6 @@ export function callInput(input: {
 }
 
 // call의 답이다. 원래 맡긴 일의 한 줄 요약을 본문 첫 줄에 싣는다.
-export function replyInput(input: {
-  call: string;
-  from: string;
-  status: CallState;
-  reason?: string;
-  summary: string;
-  body: string;
-}): string {
-  return renderTag(
-    "reply",
-    {
-      call: input.call,
-      from: input.from,
-      status: input.status,
-      reason: input.reason,
-    },
-    `Task: ${input.summary}\n\n${input.body}`,
-  );
-}
 
 // domain event의 필드를 `key: value` 줄로 싣는다.
 export function reactionInput(input: {
@@ -151,19 +125,6 @@ export function steerInput(text: string): string {
 }
 
 // 사람이 composer에 붙인 것이다. 이름과 한 줄만 싣고, 위반이면 path와 rule, 파일이면 path를 더한다.
-export function attachedInput(input: {
-  kind: AttachedKind;
-  name: string;
-  line: string;
-  path?: string;
-  rule?: string;
-}): string {
-  const body = [
-    input.line,
-    ...fieldLines([["Path", input.path], ["Rule", input.rule]]),
-  ].join("\n");
-  return renderTag("attached", { kind: input.kind, name: input.name }, body);
-}
 
 // 바깥 web 결과다. 본문은 escape되어 닫는 tag로 빠져나가지 못한다.
 export function wrapUntrusted(source: UntrustedSource, text: string): string {

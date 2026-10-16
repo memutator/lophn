@@ -16,7 +16,7 @@ import { sameDestination } from "./model.ts";
 
 // owner concern(provider·MCP·앱)이 그 secret을 보낼 수 있는 목적지를 답한다. redirect로 목적지가 바뀌었는지
 // 보려고 쓴다. 모르는 이름은 빈 목록이다.
-export type SecretDestinations = {
+type SecretDestinations = {
   allowed(name: string): readonly SecretDestination[];
 };
 

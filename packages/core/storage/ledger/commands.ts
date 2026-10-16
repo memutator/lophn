@@ -9,7 +9,7 @@ import { defineSyncCommand } from "./handler.ts";
 import { runAdmission } from "./run-admission.ts";
 
 // 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다(domain model).
-export const advanceSubscriberCursorCommand = defineSyncCommand(
+const advanceSubscriberCursorCommand = defineSyncCommand(
   advanceSubscriberCursor,
   (tx: Tx, _ctx: RequestContext, input, _compare) => {
     const advanced = tx.advanceSubscriberCursor(
@@ -23,7 +23,7 @@ export const advanceSubscriberCursorCommand = defineSyncCommand(
 
 export const LEDGER_COMMANDS = [advanceSubscriberCursorCommand];
 
-export type RunDisposition = {
+type RunDisposition = {
   // 끝난 run에서도 통과하는 감사 보완. 새 대상 변경이 아니다.
   audit?: boolean;
   // run 판정 자체를 적는 command. gate 밖이어야 상태를 확인할 수 있다.
@@ -31,7 +31,7 @@ export type RunDisposition = {
 };
 
 // 표시는 command 정의에 붙는다. 전역 표는 writer가 둘이면 뒤 등록이 앞 등록을 덮는다.
-export type RunMarkedCommand = CommandDefinition & {
+type RunMarkedCommand = CommandDefinition & {
   runDisposition?: RunDisposition;
 };
 

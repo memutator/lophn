@@ -14,15 +14,11 @@ import {
 
 // 실행 권한을 절대 경로로만 받는 child(I/O worker)가 secret-tool을 부르는 후보. 그 child의
 // launch spec allow_run과 같은 목록이다.
-export const SECRET_TOOL_PATHS: readonly string[] = [
-  "/usr/bin/secret-tool",
-  "/usr/local/bin/secret-tool",
-];
 
 const LABEL_PREFIX = "lophn secret";
 const ATTR_REF = "lophn_ref";
 
-export type SecretToolRunner = {
+type SecretToolRunner = {
   // 값은 argv·env에 없고 stdin으로만 간다. stdout bytes만 돌려준다.
   run(
     args: readonly string[],
@@ -102,7 +98,7 @@ export function createLinuxSecretServiceAdapter(options: {
 // session bus를 찾는 데 필요한 값만 넘긴다. secret 값은 env에 없다.
 const SESSION_ENV = ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR", "PATH"];
 
-export function sessionEnv(
+function sessionEnv(
   read: (name: string) => string | undefined,
 ): Record<string, string> {
   const env: Record<string, string> = {};

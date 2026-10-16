@@ -33,7 +33,7 @@ type Launchable = {
 };
 
 // call의 options에서 빠진 칸은 Settings 기본으로 채운다.
-export function resolveLaunch(
+function resolveLaunch(
   tx: Tx,
   memory: CodingMemory,
   app: string,

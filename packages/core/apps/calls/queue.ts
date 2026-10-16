@@ -1,6 +1,6 @@
 // 앱마다 write·external을 한 번에 하나씩 돌리는 줄이다. read는 이 줄을 쓰지 않는다.
 // 키는 앱이다. 호출이 끝나면 release를 부르고, 줄을 정리하면(reset) 기다리던 쪽은 null을 받는다.
-export type Release = () => void;
+type Release = () => void;
 
 type Lane = { waiters: ((release: Release | null) => void)[] };
 

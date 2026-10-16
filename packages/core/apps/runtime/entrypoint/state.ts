@@ -3,7 +3,7 @@ import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
 import type { BrokerClient } from "./broker-client.ts";
 import type { StoreAccess } from "./cap-host.ts";
 
-export type ProcessIdentity = {
+type ProcessIdentity = {
   app: string;
   release: string | null;
   bundleHash: string;
@@ -12,9 +12,9 @@ export type ProcessIdentity = {
 };
 
 // 한 번에 하나만 돌리는 문이다. 앞 일이 실패해도 다음 일은 돈다.
-export type Mutex = <T>(work: () => Promise<T>) => Promise<T>;
+type Mutex = <T>(work: () => Promise<T>) => Promise<T>;
 
-export function createMutex(): Mutex {
+function createMutex(): Mutex {
   let tail: Promise<unknown> = Promise.resolve();
   return (work) => {
     const run = tail.then(work, work);

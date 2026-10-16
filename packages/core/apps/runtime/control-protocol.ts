@@ -47,8 +47,6 @@ export const SUPERVISOR_OPS = {
   dataJob: "apps.data_job",
 } as const;
 
-export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
-
 const appId = z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const releaseId = z.string().regex(/^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
@@ -73,7 +71,6 @@ export const desiredAppSchema = z.strictObject({
   importMap: z.string().min(1),
   dataPath: z.string().min(1),
 });
-export const reconcileInputSchema = desiredAppSchema;
 export const reconcileOutputSchema = z.strictObject({
   accepted: z.literal(true),
 });
@@ -84,7 +81,7 @@ const reasonSchema = z.strictObject({
   summary: z.string().min(1),
 });
 // supervisor가 지금 쥔 프로세스 하나. 자식이 없으면(멈춤·crash loop) nonce·endpoint가 빈 값이다.
-export const observationWireSchema = z.strictObject({
+const observationWireSchema = z.strictObject({
   app: appId,
   release: releaseId.nullable(),
   mode: z.enum(["live", "preview"]),
@@ -132,7 +129,7 @@ export const blockOutputSchema = z.strictObject({
 
 // preview 프로세스 하나의 시작 입력이다. core가 nonce와 disposable 영역(dataPath)을 먼저 만들고
 // 운영 DesiredApp과 같은 모양으로 알린다. release는 준비 전 bundle이면 null이다.
-export const previewNonceSchema = z.string().regex(/^[0-9A-Za-z-]{8,64}$/);
+const previewNonceSchema = z.string().regex(/^[0-9A-Za-z-]{8,64}$/);
 export const previewLaunchSchema = z.strictObject({
   app: appId,
   nonce: previewNonceSchema,

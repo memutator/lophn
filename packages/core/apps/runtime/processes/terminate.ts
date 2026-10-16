@@ -8,7 +8,7 @@ export type StopReason =
   | "user_stop"
   | "core_eof";
 
-export type Termination = {
+type Termination = {
   intended: StopReason | undefined;
   exitCode: number | null;
 };

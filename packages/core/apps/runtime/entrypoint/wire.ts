@@ -1,6 +1,6 @@
 // control socket·시작 입력의 순수 검증. protocol/apps의 calls/process-wire와 channel-values의
 // Zod schema와 같은 판정이어야 하고, 앱 프로세스는 Zod를 싣지 않는다.
-import type { Json, WireError } from "./wire-check.ts";
+import type { Json } from "./wire-check.ts";
 import {
   appApiKey,
   BASE64,
@@ -11,12 +11,12 @@ import {
   text,
 } from "./wire-check.ts";
 
-export type { Json, WireError };
-export type RuntimeMode = "live" | "preview" | "test";
-export type InvocationEffect = "read" | "write" | "external";
+export type { Json };
+type RuntimeMode = "live" | "preview" | "test";
+type InvocationEffect = "read" | "write" | "external";
 
 // protocol/apps/calls/caller.ts와 같다.
-export type InvocationCaller =
+type InvocationCaller =
   | { kind: "person"; view_session: string }
   | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
@@ -138,10 +138,10 @@ export function parseProcessApply(
   return { changesets: list as string[] };
 }
 
-export type ControlProbe = { process_nonce: string };
-export type ControlOpen = { process_nonce: string; release: string | null };
-export type ControlClose = { process_nonce: string; reason: string };
-export type ControlShutdown = { process_nonce: string; grace_ms: number };
+type ControlProbe = { process_nonce: string };
+type ControlOpen = { process_nonce: string; release: string | null };
+type ControlClose = { process_nonce: string; reason: string };
+type ControlShutdown = { process_nonce: string; grace_ms: number };
 
 export function parseControlProbe(value: unknown): ControlProbe | undefined {
   const source = record(value);

@@ -1,18 +1,18 @@
 import type { CheckDefinition } from "./definitions.ts";
 
 // 앱이 바로 낸 ReadyAttestation의 test 자식 쪽 모양이다. `commands`는 등록된 app-api key다.
-export type Attestation = {
+type Attestation = {
   bundle_hash: string;
   commands: string[];
   data_schema: number;
   process_nonce: string;
 };
 
-export type MigrationScenario = "empty" | "upgrade";
+type MigrationScenario = "empty" | "upgrade";
 
 // 고정 fixture DB에서 돌린 migration 한 번의 결과. 빈 DB 전체 migration은 schema 0에서,
 // 이전 release schema는 이전 release의 schema에서 시작한다.
-export type MigrationRun = {
+type MigrationRun = {
   ok: boolean;
   from_schema: number;
   data_schema: number;
@@ -23,7 +23,7 @@ export type MigrationRun = {
 };
 
 // write app-api 하나를 fixture 입력으로 부르고 changeset을 뒤집어 적용한 결과다.
-export type RewindRun = {
+type RewindRun = {
   // 호출이 성공했는지.
   called: boolean;
   // 호출이 DB 상태를 바꿨는지.

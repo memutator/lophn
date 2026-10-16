@@ -3,37 +3,9 @@
 import type { Result } from "../../../base/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/mod.ts";
 
-type ScreenSize = "full" | "panel" | "card";
-
 // supervisor가 지금 쥔 앱 프로세스 하나의 관측이다. 과거 event·ledger 주소로 만들지 않는다.
-export type ProcessObservation = {
-  app: string;
-  mode: "live" | "preview";
-  release: string | null;
-  bundleHash: string;
-  processNonce: string;
-  endpoint: string;
-  ready: boolean;
-  accepting: boolean;
-  // 실제 프로세스가 등록한 app-api key(ReadyAttestation)와 선언한 화면·크기다.
-  commands: readonly string[];
-  screens: Readonly<Record<string, readonly ScreenSize[]>>;
-};
 
-export type ProcessQuery =
-  | { app: string; mode: "live" }
-  | { app: string; mode: "preview"; nonce: string };
-
-export type ProcessSource = {
-  // 없으면 값 없음이다. supervisor에 닿지 못하면 unavailable이다.
-  current(
-    query: ProcessQuery,
-  ): Promise<Result<ProcessObservation | undefined>>;
-  // 그 nonce의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄운다. 이미 다른 nonce면 하지 않는다.
-  restart(app: string, nonce: string): Promise<Result<void>>;
-};
-
-export type AppFacts = {
+type AppFacts = {
   id: string;
   status: "active" | "archived";
   run_enabled: boolean;

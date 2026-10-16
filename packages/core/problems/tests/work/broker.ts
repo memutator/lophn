@@ -5,7 +5,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 const REJECT = "자식 보고를 받지 않는다";
 
 // 자식이 받는 실행. 주소·credential·mode는 없다. 보고는 private IPC로만 온다.
-export type ChildLaunch = {
+type ChildLaunch = {
   args: string[];
   env: Record<string, string>;
 };

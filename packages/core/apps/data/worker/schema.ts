@@ -34,7 +34,7 @@ export const INITIAL_SCHEMA: SchemaState = {
 };
 
 // 현재 schema에서 목표 schema까지의 연속 경로. 같은 release 안에서 분기·중복은 없다.
-export type MigrationPath = {
+type MigrationPath = {
   steps: readonly DataChange[];
 };
 
@@ -43,14 +43,6 @@ function invalid(message: string): Result<never> {
 }
 
 // 공개한 migration을 바꾸려는 시도. 내용은 script_hash로만 비교한다.
-export function migrationChanged(
-  published: DataChange,
-  candidate: DataChange,
-): boolean {
-  return published.from === candidate.from &&
-    published.to === candidate.to &&
-    published.script_hash !== candidate.script_hash;
-}
 
 // 현재 schema에서 목표까지의 연속 경로. 건너뛰기는 순서대로만 적용한다.
 // 목표와 현재가 같으면 빈 경로다. DB 미사용(schema 0, 변경 없음)도 여기 해당한다.

@@ -32,7 +32,7 @@ function mayChange(tx: Tx, ctx: RequestContext, problem: ProblemRow): boolean {
 
 // 열림·해결됨·무시를 바꾼다. 같은 상태로 바꾸면 그대로 ok다. event도 Gate도 보류 request도 없다.
 // 상태가 바뀌면 이전 재발 사실(recurred)은 비운다.
-export function handleSetProblemState(
+function handleSetProblemState(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof problemSetState>,

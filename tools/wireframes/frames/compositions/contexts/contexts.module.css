@@ -13,21 +13,6 @@
   margin: var(--space-0) auto;
 }
 
-/* 탭 안 toast: 탭 본문 맨 위에 붙어 스크롤해도 남는다. 높이를 차지하지 않는다. */
-.tabToast {
-  position: sticky;
-  top: var(--space-0);
-  z-index: var(--z-toast);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  height: var(--space-0);
-}
-
-.tabToast > * {
-  flex: none;
-}
-
 /* toast의 단추를 오른쪽 끝으로 모은다. */
 .toastRight [data-tone] > div > div {
   justify-content: flex-end;

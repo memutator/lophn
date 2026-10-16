@@ -33,7 +33,7 @@ import {
   createFakeWaiting,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { mockViews } from "../../../../../packages/shell/renderer/desktop/dev-mock/app-space.ts";
-import { mockAgentViewSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
+import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
 import {
   appRow,
   fakeApps,
@@ -201,7 +201,7 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     }).source,
     issues: fakeIssues().source,
     agents: createFakeAgentsSource(),
-    agentViewSource: mockAgentViewSource(),
+    agentViewSource: mockAgentTabSource(),
     annotate: fakeAnnotate({
       items: (props.annotate?.items ?? []).map((item) => ({
         n: item.n,

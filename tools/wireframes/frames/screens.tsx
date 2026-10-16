@@ -230,19 +230,6 @@ const TERMINAL_PANES: readonly PaneSpec[] = [
     selected: "term_1",
   },
 ];
-const APP_PANEL_PANES: readonly PaneSpec[] = [
-  { tabs: [NOTES, PLAN], selected: NOTES.key },
-  {
-    tabs: [{
-      key: "panel_1",
-      kind: "app_panel",
-      title: "Grocery budget",
-      app: APP_BUDGET,
-      screen: "home",
-    }],
-    selected: "panel_1",
-  },
-];
 
 function settings(tab: SettingsTab): ReactNode {
   return <MockDesktop route={openLophn("settings")} settingsTab={tab} />;
@@ -287,9 +274,7 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   ),
   "lophn-projects": () => <MockDesktop route={openLophn("projects")} />,
   "lophn-apps": () => <MockDesktop route={openLophn("apps")} />,
-  "settings-connections": () => settings("connections"),
   "settings-coding": () => settings("coding"),
-  "settings-extensions": () => settings("extensions"),
   "settings-general": () => settings("general"),
   "settings-diagnostics": () => settings("diagnostics"),
   "project-document": () => (
@@ -303,12 +288,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
       route={openProject(PROJECT_GROCERY)}
       panes={TERMINAL_PANES}
       openTerminal="term_1"
-    />
-  ),
-  "project-app-panel": () => (
-    <MockDesktop
-      route={openProject(PROJECT_GROCERY)}
-      panes={APP_PANEL_PANES}
     />
   ),
   "app-space": () => <MockDesktop route={openApp(APP_BUDGET)} />,

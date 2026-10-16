@@ -6,20 +6,12 @@ import { runHarnessDetect, runHarnessInstall } from "./harness-run.ts";
 import { type CommandEntry, entryOf } from "./types.ts";
 
 export const HARNESS_COMMANDS: readonly CommandEntry[] = [
-  entryOf(
-    "harness detect",
-    "감지한 harness를 읽는다(저장 결과가 있으면 그대로)",
-    {
-      run: (_input, ctx) => runHarnessDetect("detect", ctx.local),
-    },
-  ),
-  entryOf(
-    "harness refresh",
-    "harness를 다시 감지하고 version·login을 확인한다",
-    {
-      run: (_input, ctx) => runHarnessDetect("refresh", ctx.local),
-    },
-  ),
+  entryOf("harness detect", "harness 실행 파일을 찾는다", {
+    run: (_input, ctx) => runHarnessDetect("detect", ctx.local),
+  }),
+  entryOf("harness refresh", "harness를 찾고 version·login을 확인한다", {
+    run: (_input, ctx) => runHarnessDetect("refresh", ctx.local),
+  }),
   entryOf("harness install", "앱 source 폴더에 skill과 hook 설정을 놓는다", {
     run: async (input) => {
       const checked = harnessInstallInputSchema.safeParse(input);

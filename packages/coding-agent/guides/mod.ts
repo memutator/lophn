@@ -1,52 +1,6 @@
-// coding-agent/guides의 public entry다(code-map). 배포 skill의 검사·manifest·발견·설치를 내보낸다.
-export {
-  type CheckedSkill,
-  checkSkill,
-  relativeLinksOf,
-  SKILL_ENTRY,
-  SKILL_LIMITS,
-  SKILL_NAME_PATTERN,
-  type SkillCheck,
-  type SkillFileInput,
-  type SkillIssue,
-  type SkillIssueRule,
-} from "./skill-check.ts";
-export {
-  checkManifest,
-  type ManifestIssue,
-  SKILL_RELEASES,
-  skillContentHash,
-  type SkillRelease,
-} from "./manifest.ts";
+// coding-agent/guides의 entry다. 배포 skill 원본을 읽는 것만 내보낸다.
 export {
   DISTRIBUTED_SKILLS_DIR,
   type DistributedSkill,
-  type Distribution,
-  loadDistribution,
-  type RejectedSkill,
-  selectSkill,
-  startupDiscovery,
+  loadSkills,
 } from "./distribution.ts";
-export {
-  installSkills,
-  type SkillFileResult,
-  type SkillInstallResult,
-  type SkillsInstallInput,
-  type SkillsInstallOutcome,
-} from "./install.ts";
-// Claude Code 세션 시작 hook이다.
-export {
-  HOOK_LIMITS,
-  type HookFacts,
-  type HookLimits,
-  type HookRead,
-  renderHook,
-  runSummaryHook,
-  runSummaryHookBounded,
-} from "./hook.ts";
-export { staleGuideMessage, syncTools } from "./sync-tools.ts";
-export type {
-  SyncFileResult,
-  SyncToolsOutcome,
-  SyncToolsPorts,
-} from "./sync-tools.ts";

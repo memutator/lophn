@@ -1,5 +1,5 @@
 // CLI 실행 argv의 권한 계산이다.
-// 일반 CLI는 core loopback network와 읽기뿐이다. 쓰기는 감지 결과를 두는 `<H>/integrations`뿐이다.
+// 일반 CLI는 core loopback network와 읽기뿐이고 쓰기가 없다.
 // 명령 시점에야 알 수 있는 권한은 그 명령에만 정확한 경로로 더한다: `harness install`은 고른 앱 source 폴더
 // 하나의 읽기·쓰기, `harness refresh`는 감지가 찾은 제품 실행 파일의 실행. `-A`·일반 `--allow-write`·
 // `--allow-run`, 와일드카드는 없다.
@@ -61,12 +61,10 @@ export function selectionFlags(selection: CliSelection): string[] {
 // 선택과 상관없이 고정인 권한이다.
 export function cliStaticFlags(inputs: CliLaunchInputs): string[] {
   const root = inputs.dataRoot.replace(/\/$/, "");
-  const integrations = `${root}/integrations`;
   const read = [
     inputs.resources,
     inputs.cache,
     `${root}/run`,
-    integrations,
     inputs.cwd,
     "/proc/self/stat",
     ...detectionReadDirs(inputs.home),
@@ -74,7 +72,6 @@ export function cliStaticFlags(inputs: CliLaunchInputs): string[] {
   ];
   return [
     `--allow-read=${read.join(",")}`,
-    `--allow-write=${integrations}`,
     `--allow-env=${CLI_ENV_NAMES.join(",")}`,
     `--allow-net=${inputs.loopback.join(",")}`,
   ];

@@ -1,4 +1,4 @@
-// command 표의 한 자리다. 이름·입력·인증은 `CODING_CLI_COMMANDS`(protocol)가 정본이고, 여기는 그 표에
+// command 표의 한 줄이다. 이름·입력·인증은 `CODING_CLI_COMMANDS`(protocol)가 정본이고, 여기는 그 표에
 // 실행과 help 글을 붙인다. 표 밖 command는 만들지 않는다.
 import type { z } from "zod";
 import { err, type LophnError, type Result } from "../../../base/mod.ts";

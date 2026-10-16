@@ -5,7 +5,7 @@ import { idSchema } from "../base/ids.ts";
 const AGENT_ROLES = [
   "lophn",
   "app_engineer",
-  "context_engineer",
+  "project_manager",
   "operator",
 ] as const;
 
@@ -95,7 +95,7 @@ function scopeShape(value: {
   }[];
 }): boolean {
   const apps = value.apps;
-  if (value.role === "context_engineer" && apps.length !== 0) return false;
+  if (value.role === "project_manager" && apps.length !== 0) return false;
   if (value.role === "operator") {
     return apps.every((entry) =>
       entry.effects.length === 1 && entry.effects[0] === "read" &&

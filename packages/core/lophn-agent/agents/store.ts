@@ -57,8 +57,7 @@ export function slotOf(
   }
 }
 
-// turn과 session 기록이 role 이름·작업 place·Operator id로 agent를 가리키는 동안 쓰는 변환이다. 옛 이름
-// `context_engineer`는 Project Manager다. 가리킬 수 없으면 null이다.
+// turn과 session 기록이 role 이름·작업 place·Operator id로 agent를 가리키는 동안 쓰는 변환이다. 가리킬 수 없으면 null이다.
 
 export type AgentStore = {
   root: string;

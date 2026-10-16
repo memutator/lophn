@@ -46,7 +46,7 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
 ]);
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
 
-// Context Engineer는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 자리 모두다.
+// Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
 
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.

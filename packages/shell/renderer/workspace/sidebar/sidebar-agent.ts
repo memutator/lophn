@@ -4,13 +4,10 @@ import type { AvatarProfile } from "@lophn/design/components";
 
 /**
  * project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다.
- * `context_engineer`는 agent 목록 계약이 아직 돌려주는 옛 이름이다. 목록 계약이 `project_manager`로
- * 옮겨 가면(screens-agents) 이 이름을 지운다.
  */
 export type SidebarAgentRole =
   | "lophn"
   | "project_manager"
-  | "context_engineer"
   | "operator";
 
 /** Agent 모양의 agent 줄 하나. */

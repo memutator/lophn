@@ -1,4 +1,4 @@
-// Contract: "Details for Context Engineer and the curious" 아래에 개체 관계 그림, 개체마다 카드
+// Contract: "Details for Project Manager and the curious" 아래에 개체 관계 그림, 개체마다 카드
 // (이름·public·kind와 경로·문서 수·field와 관계), 선언된 검색마다 이름과 예시 검사 결과.
 // 판 번호·단추가 있는 머리는 ContextFrame의 몫이다.
 // 값 만들기는 contract-details-model.ts, 그림 자리는 contract-details-layout.ts,

@@ -1,4 +1,4 @@
-/* 이전 lophn 런처: 바닥 배경의 창, 스크롤 본문, 1040px 기둥. */
+/* 런처: 바닥 배경의 창, 스크롤 본문, 1040px 기둥. */
 .window {
   position: absolute;
   inset: var(--space-0);
@@ -46,7 +46,7 @@
   background: var(--color-surface-base);
 }
 
-/* 섹션: 제목·개수 줄 아래 카드 격자. 이전 lophn 런처와 같은 간격이다. */
+/* 섹션: 제목·개수 줄 아래 카드 격자. */
 .section {
   display: flex;
   flex-direction: column;

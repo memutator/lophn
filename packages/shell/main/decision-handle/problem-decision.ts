@@ -17,7 +17,7 @@ export const PROBLEM_DECISION = "problem_decision";
 /** core가 handle 사용을 비교하는 결정 이름(= command route 이름). */
 const APPLY_PROBLEM_DECISION = "ApplyProblemDecision";
 
-/** contracts applyProblemDecision의 binding. 첫 field가 handle 대상이다. */
+/** protocol applyProblemDecision의 binding. 첫 field가 handle 대상이다. */
 const BINDING = [
   "choice",
   "problem",

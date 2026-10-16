@@ -107,7 +107,7 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
   };
 }
 
-/** API base. 내장 정의의 models 주소는 `<base>/models`다(architecture §5.2). */
+/** API base. 내장 정의의 models 주소는 `<base>/models`다. */
 function baseOf(modelsEndpoint: string | null): string | null {
   return modelsEndpoint !== null && modelsEndpoint.endsWith("/models")
     ? modelsEndpoint.slice(0, -"/models".length)

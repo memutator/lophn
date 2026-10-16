@@ -1,5 +1,5 @@
 // Lophn Workspace가 읽는 통로. 팔레트의 project·앱 행만 있다. core route 이름은 core-source.ts만 안다.
-// 모양은 outline.root에서 이 화면이 쓰는 field만 옮긴 것이다(contracts를 들이면 zod가 renderer bundle에 들어간다).
+// 모양은 outline.root에서 이 화면이 쓰는 field만 옮긴 것이다(protocol을 들이면 zod가 renderer bundle에 들어간다).
 
 export type SourceResult<T> =
   | { readonly ok: true; readonly value: T }

@@ -107,7 +107,7 @@ export interface CoreSession {
     bytes: Uint8Array,
   ): Promise<CallResult>;
   /**
-   * worker route에 request byte channel을 붙여 보낸다(problems SubmitFeedback의 선택한 PNG).
+   * worker route에 request byte channel을 붙여 보낸다(제보의 선택한 PNG).
    * 입력은 upload와 같은 header이고 core는 바이트를 해석하지 않고 worker로 넘긴다.
    */
   workerBytes(

@@ -1,5 +1,5 @@
 // project sidebar가 그리는 agent 한 줄의 값. Agent 모양과 접힌 rail이 같이 쓴다.
-// renderer는 contracts를 type check하지 않으므로 id는 문자열로 받는다.
+// renderer는 protocol을 type check하지 않으므로 id는 문자열로 받는다.
 import type { AvatarProfile } from "@lophn/design/components";
 
 /**

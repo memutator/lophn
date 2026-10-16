@@ -102,7 +102,7 @@ type Host = {
 
 function createHost(deps: HostDeps): Host {
   const sessions = new Map<string, Session>();
-  /** 같은 coding session은 같은 runtime_ref다. 다시 spawn하지 않는다. */
+  /** 같은 coding session은 같은 runtime을 가리킨다. 다시 spawn하지 않는다. */
   const bySession = new Map<string, string>();
   let seq = 0;
 

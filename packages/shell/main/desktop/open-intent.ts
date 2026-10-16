@@ -1,7 +1,7 @@
 // 창 열기 intent. OS가 넘기는 실행 인자에서 읽는 것은 `--quit`, `--open-app <app ID>` 둘뿐이다.
 // 모양이 조금이라도 다르면 아무 대상도 열지 않고 기본 창 요청으로 읽는다. 앱 코드·경로·token·port는
-// 받을 자리가 없다. 모양은 protocol/shell/launch.ts의 `launchIntentSchema`다(node test가 zod를 풀지
-// 못해 같은 모양을 여기서 정규식으로 본다).
+// 받을 자리가 없다. 모양은 node test가 zod를 풀지
+// 못해 여기서 정규식으로 본다.
 
 export const OPEN_APP_FLAG = "--open-app";
 const QUIT_FLAG = "--quit";

@@ -68,7 +68,7 @@ interface AppSpaceProps {
   source: AppsSource;
   /** shell preload의 view 통로. 없으면 앱 화면을 열 수 없다고 보인다. */
   views?: LophnShellViewsApi;
-  /** 안 쓴다(새 창 열기와 OS 앱 바로가기는 이 공간에 없다). 호스트가 지운다. */
+  /** 이 공간에서 쓰지 않는다(새 창 열기와 OS 앱 바로가기는 이 공간에 없다). */
   windows?: LophnAppWindowsApi;
   /** [Report a problem] 통로. 없으면 깃발 단추를 두지 않는다. */
   feedback?: LophnShellFeedbackBegin;
@@ -91,7 +91,7 @@ interface AppSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
-  /** 안 쓴다(Things to confirm 화면이 없다). 호스트가 지운다. */
+  /** 이 공간에서 쓰지 않는다(Things to confirm 화면이 없다). */
   onThingsToConfirm?: () => void;
   /** 처음부터 정해진 project(project 창에서 온 경우). 있으면 project 고르기를 건너뛴다. */
   project?: string;

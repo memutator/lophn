@@ -1,4 +1,4 @@
-// WorkspaceLayout(domain-model/shell/workspace) 값. 파일 계약 첫 판이다.
+// WorkspaceLayout 값. 파일 계약 첫 판이다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { tabKey } from "./kinds/values.ts";
 export const LAYOUT_SCHEMA_VERSION = 1;
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
-// 제외된다(domain-model TabLayout). 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
+// 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
 // parseLayoutFile이 먼저 그런 탭을 건너뛴다.
 const layoutTabSchema: z.ZodType<LayoutTab> = z.unknown().transform(
   (value, ctx) => {

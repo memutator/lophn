@@ -25,7 +25,7 @@ export const savedViewId = z.string().regex(
   /^viw_[0-7][0-9a-hjkmnp-tv-z]{25}$/,
 );
 
-// Context 탭의 하위 탭. contracts/shell/workspace.ts의 CONTEXT_SUB_TABS와 같아야 한다(renderer
+// Context 탭의 하위 탭. protocol/shell/workspace.ts의 CONTEXT_SUB_TABS와 같아야 한다(renderer
 // registry 테스트가 대조한다).
 export const CONTEXT_SUB_TABS = [
   "overview",

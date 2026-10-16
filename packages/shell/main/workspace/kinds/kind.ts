@@ -37,9 +37,9 @@ interface ReadPosition {
 interface TabKind<
   L extends { kind: string; key: string } = { kind: string; key: string },
 > {
-  /** TabLayout.kind에 쓰는 이름. registry 안 유일. */
+  /** layout 탭의 kind에 쓰는 이름. registry 안 유일. */
   readonly kind: L["kind"];
-  /** 이 kind가 가질 수 있는 TabLayout 필드와 제약. strict object이고 kind 리터럴을 포함한다. */
+  /** 이 kind가 가질 수 있는 layout 탭 필드와 제약. strict object이고 kind 리터럴을 포함한다. */
   readonly layout: z.ZodType<L>;
   /** 읽던 위치를 가진 kind만 준다. 다른 kind는 위치를 버린다. */
   readPosition?(tab: L): ReadPosition | undefined;

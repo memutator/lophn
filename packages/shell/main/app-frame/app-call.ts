@@ -65,7 +65,7 @@ function remember<K, V>(cache: Map<K, V>, key: K, value: V): void {
   }
 }
 
-/** appCallSchema와 같은 검사. 모르는 field·빈 api·wildcard는 거절한다. */
+/** 모르는 field·빈 api·wildcard는 거절한다. */
 function checkCall(
   value: unknown,
 ): { api: string; input: JsonValue } | undefined {

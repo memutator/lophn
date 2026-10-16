@@ -1,5 +1,4 @@
-// Context·Search 탭이 TabItem.fields에 두는 layout 값의 읽기와 쓰기(domain-model shell/workspace
-// TabLayout). 탭 줄·layout map은 이 값을 모르고 kind 선언만 안다.
+// Context·Search 탭이 TabItem.fields에 두는 layout 값의 읽기와 쓰기. 탭 줄·layout map은 이 값을 모르고 kind 선언만 안다.
 import type { TabItem } from "../model.ts";
 import { SUB_TABS, type SubTab } from "./shared.ts";
 import type { SearchTabState } from "./search-tab.tsx";

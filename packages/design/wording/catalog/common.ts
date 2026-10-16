@@ -54,6 +54,8 @@ export const common = {
   "common.label.row-range": "{start, number}–{end, number} of {total, number}",
   "common.label.search": "Search",
   "common.label.sort-by": "Sort by",
+  "common.label.tab-ended": "Session ended",
+  "common.label.tab-waiting": "Waiting for you",
   "common.label.tab-working": "Working",
   "common.label.tray-global-search-unavailable":
     "Search from anywhere isn't available",

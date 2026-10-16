@@ -80,6 +80,8 @@ export type CommonPlaceholders = {
   };
   "common.label.search": Record<never, never>;
   "common.label.sort-by": Record<never, never>;
+  "common.label.tab-ended": Record<never, never>;
+  "common.label.tab-waiting": Record<never, never>;
   "common.label.tab-working": Record<never, never>;
   "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;

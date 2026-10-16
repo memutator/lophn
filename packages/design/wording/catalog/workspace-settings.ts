@@ -7,47 +7,18 @@ export const workspaceSettings = {
   "settings.appearance.theme-help":
     "Light, dark, or follow the system setting.",
   "settings.button.add-entry": "Add",
-  "settings.button.before-restore": "Restore",
-  "settings.button.check-security": "Check security",
   "settings.button.choose-in-agents": "Choose in Agents",
-  "settings.button.choose-package": "Choose update file",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
-  "settings.button.export-app": "Export",
-  "settings.button.export-secrets": "Export secrets",
-  "settings.button.import-secrets": "Import secrets",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
-  "settings.button.restore-again": "Try the restore again",
   "settings.button.revoke": "Revoke",
   "settings.button.run-checks": "Run checks",
-  "settings.button.stop-and-update": "Stop for the update",
-  "settings.check.clean": "No problems were found in the security check.",
   "settings.diagnostics.check-failed":
     "The check couldn't start right now. Try again.",
-  "settings.diagnostics.check-failed-no":
-    "The check hasn't run yet. Check the access connections use.",
-  "settings.diagnostics.checked-at": "Checked {time}.",
-  "settings.diagnostics.clean-row": "No problem was found in this check.",
-  "settings.diagnostics.heading": "Diagnose problems",
-  "settings.diagnostics.intro":
-    "Check the access connections use and how records save names and keys.",
   "settings.diagnostics.last-run": "Last run at {time}.",
-  "settings.diagnostics.next-raw-key":
-    "Replace the key to keep it out of records.",
-  "settings.diagnostics.next-wide-grant":
-    "Give the connection a smaller scope.",
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
-  "settings.diagnostics.raw-failed":
-    "The raw results couldn't load. Try again.",
-  "settings.diagnostics.raw-heading": "Raw check results.",
-  "settings.diagnostics.raw-intro":
-    "The same results as the check above, with the exact names and codes.",
-  "settings.diagnostics.raw-key":
-    "A record holds a key that looks like a saved password.",
-  "settings.diagnostics.wide-grant":
-    "A connection can read more than it needs.",
   "settings.empty.general": "No settings are declared yet.",
   "settings.error.coding-defaults":
     "The options weren't saved. Nothing changed. Try again.",
@@ -63,9 +34,7 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
-  "settings.heading.coding-agents": "Coding agents",
   "settings.heading.coding-defaults": "Default run options",
-  "settings.heading.values": "Settings",
   "settings.intro.appearance":
     "How lophn looks. Changes apply as soon as you choose.",
   "settings.intro.coding":
@@ -76,42 +45,23 @@ export const workspaceSettings = {
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.reactions":
     "When something happens, lophn can open a new agent session for it. Choose what happens for each event. By default lophn opens the session without asking.",
-  "settings.intro.screen":
-    "Connect your accounts, add skills and tool servers, and review your settings.",
   "settings.label.add-entry": "Add an entry",
   "settings.label.appearance-target": "your appearance settings",
-  "settings.label.applies": "Applies",
   "settings.label.available": "Available",
   "settings.label.available-no": "Unavailable",
   "settings.label.available-yes": "Available",
-  "settings.label.backup-target": "your backups",
   "settings.label.checked-at": "Checked",
   "settings.label.chosen-default": "Set by you · Default: {value}",
   "settings.label.coding-check-failed": "Couldn't check",
-  "settings.label.coding-check-failed-stage": "Doesn't work",
-  "settings.label.coding-check-line": "{stage}: {result}",
-  "settings.label.coding-check-ok": "Works",
-  "settings.label.coding-check-unknown": "Not confirmed",
   "settings.label.coding-col-executable": "Executable",
   "settings.label.coding-col-product": "Product",
   "settings.label.coding-col-sign-in": "Sign-in",
   "settings.label.coding-col-skill": "Skill",
   "settings.label.coding-col-takes-task": "Takes a task",
   "settings.label.coding-col-turn-end": "Turn-end signal",
-  "settings.label.coding-default-name": "{name} on this computer",
   "settings.label.coding-default-none": "No default",
   "settings.label.coding-default-product": "Default product",
-  "settings.label.coding-detail-candidate": "{path} (from {source})",
-  "settings.label.coding-detail-executable": "Found at {path}",
-  "settings.label.coding-detail-probe": "{probe}: {outcome}",
-  "settings.label.coding-detail-resource": "{place}: {outcome}",
-  "settings.label.coding-details": "Details",
   "settings.label.coding-found": "Found",
-  "settings.label.coding-install-complete": "Set up",
-  "settings.label.coding-install-details": "Where it was set up",
-  "settings.label.coding-install-error": "Setup didn't finish",
-  "settings.label.coding-install-failed": "Not set up",
-  "settings.label.coding-install-partial": "Partly set up",
   "settings.label.coding-launch-no": "Can't take a task",
   "settings.label.coding-launch-yes": "Ready",
   "settings.label.coding-model": "Model",
@@ -123,10 +73,6 @@ export const workspaceSettings = {
   "settings.label.coding-signal-yes": "Has signal",
   "settings.label.coding-signed-in": "Signed in",
   "settings.label.coding-stage-connect": "Connects to lophn",
-  "settings.label.coding-stage-guide": "Reads the app guide",
-  "settings.label.coding-stage-other": "Another check",
-  "settings.label.coding-stage-skills": "Finds the lophn skills",
-  "settings.label.coding-stage-tools": "Finds the lophn tools",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
   "settings.label.coding-version-unknown": "Version unknown",
@@ -144,21 +90,7 @@ export const workspaceSettings = {
   "settings.label.general-target": "your settings",
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",
-  "settings.label.group-integrations": "Integrations",
-  "settings.label.group-preferences": "Preferences",
   "settings.label.group-system": "System",
-  "settings.label.harness-claude": "Claude Code",
-  "settings.label.harness-codex": "Codex",
-  "settings.label.harness-gemini": "Gemini CLI",
-  "settings.label.harness-hermes": "Hermes",
-  "settings.label.harness-openclaw": "OpenClaw",
-  "settings.label.harness-opencode": "OpenCode",
-  "settings.label.harness-pi": "pi",
-  "settings.label.integrity": "Check",
-  "settings.label.integrity-failed": "Failed",
-  "settings.label.integrity-passed": "Passed",
-  "settings.label.nav": "Settings sections",
-  "settings.label.notifications-target": "notification settings",
   "settings.label.reaction-activation-failed": "Activation failed",
   "settings.label.reaction-ask": "Ask",
   "settings.label.reaction-context-violation": "Context violation",
@@ -170,15 +102,9 @@ export const workspaceSettings = {
   "settings.label.reactions-target": "your reaction settings",
   "settings.label.reading-width": "Reading width",
   "settings.label.reason": "Reason",
-  "settings.label.retained-through": "Holds records through",
   "settings.label.size-default": "Default",
   "settings.label.size-large": "Large",
   "settings.label.size-small": "Small",
-  "settings.label.source": "Where it comes from",
-  "settings.label.source-default": "lophn's default",
-  "settings.label.source-you": "Changed by you",
-  "settings.label.state": "State",
-  "settings.label.state-ready": "Ready",
   "settings.label.tab-agents": "Agents",
   "settings.label.tab-appearance": "Appearance",
   "settings.label.tab-coding": "Coding agents",
@@ -206,35 +132,19 @@ export const workspaceSettings = {
   "settings.note.allowed-max": "Allowed: up to {max, number}.",
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
-  "settings.note.coding-checked-again": "Checked again just now.",
-  "settings.note.coding-checks-unavailable":
-    "lophn couldn't check yet whether it loads.",
   "settings.note.coding-default-used":
     "Used when an App Engineer does not pick one.",
   "settings.note.coding-defaults-saved": "Saved.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
-  "settings.note.coding-intro":
-    "Connect the coding agent you already use. lophn only sets up the product you pick.",
   "settings.note.coding-model":
     "Leave it empty to use the product's own default model.",
   "settings.note.coding-signal":
     "Without a turn-end signal, lophn sends only the first prompt and no follow-up messages. A product that can't take the first prompt is not offered as a default.",
-  "settings.note.coding-start-note":
-    "Setting up isn't the same as starting. Start a task from its Tasks tab, or from your own terminal.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.reactions-ask":
     "Ask puts a request in the waiting list and opens the session when you allow it. Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
-  "settings.notifications.changed": "Saved. Notifications follow this choice.",
-  "settings.notifications.changed-failed":
-    "The choice wasn't saved. Nothing changed. Try again.",
-  "settings.notifications.heading": "Notifications",
-  "settings.notifications.help":
-    "The notification opens lophn. It doesn't include message contents.",
-  "settings.notifications.intro":
-    "lophn can show a system notification when something needs your attention.",
-  "settings.notifications.label": "System notifications",
   "settings.problems-detail_collection.help":
     "Keep a snapshot with each reported problem.",
   "settings.problems-detail_collection.name": "Collect problem details",
@@ -266,5 +176,4 @@ export const workspaceSettings = {
   "settings.shell-theme.name": "Theme",
   "settings.title.not-set": "{name} is not set",
   "settings.title.screen": "Settings",
-  "settings.usage.loading": "Reading use and cost.",
 } as const;

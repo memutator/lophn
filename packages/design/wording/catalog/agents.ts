@@ -257,76 +257,44 @@ export const agents = {
     "Couldn't upload that image. Nothing changed.",
   "settings.agents.action-failed":
     "That didn't work. Nothing changed. Try again.",
-  "settings.agents.intro":
-    "These apply to every project unless a project or an Operator sets its own.",
   "settings.agents.no-instructions": "No instructions yet.",
-  "settings.agents.no-options": "No options for this model.",
   "settings.agents.no-servers": "No MCP servers yet.",
   "settings.agents.no-skills": "No skills yet.",
-  "settings.agents.options-unknown": "Options for this model aren't known yet.",
-  "settings.button.add-folder": "Add a skill folder",
   "settings.button.add-server": "Add server",
   "settings.button.add-skill": "Add skill",
-  "settings.button.cancel-sign-in": "Cancel sign-in",
-  "settings.button.change": "Change",
   "settings.button.disconnect": "Disconnect",
   "settings.button.edit": "Edit",
-  "settings.button.enter-credential": "Enter credential",
-  "settings.button.new-server": "New tool server",
   "settings.button.save": "Save",
-  "settings.button.server-sign-in": "Sign in",
   "settings.error.connect-failed":
     "Couldn't connect. Nothing changed. Try again.",
   "settings.error.custom-id":
     "Use lowercase letters, numbers, hyphens or underscores.",
   "settings.error.custom-name": "Enter a display name.",
   "settings.error.custom-url": "Use https, or http only for this computer.",
-  "settings.extensions.folder-added":
-    "{name} is added. New work can use its skills.",
-  "settings.extensions.folder-failed":
-    "The folder wasn't added. Nothing changed. Pick the folder again.",
-  "settings.extensions.intro":
-    "Skills and tool servers extend what an agent can do. Adding one doesn't give an agent more access.",
-  "settings.extensions.no-folders": "No skill folders are added yet.",
-  "settings.extensions.no-servers": "No tool servers are added yet.",
   "settings.extensions.server-added":
     "{name} is added. New work can use it once any credential is saved.",
   "settings.extensions.server-failed":
     "{name} wasn't added. Nothing changed. Check the details and add it again.",
   "settings.heading.add-provider": "Add a provider",
-  "settings.heading.agents-defaults": "Default models",
   "settings.heading.agents-instructions": "Instructions for all projects",
   "settings.heading.agents-servers": "MCP servers (all projects)",
   "settings.heading.agents-skills": "Skills (all projects)",
-  "settings.heading.agents-summaries": "Model for summaries",
   "settings.heading.connected": "Connected",
-  "settings.heading.servers": "Tool servers",
-  "settings.heading.skills": "Skills",
   "settings.label.agents-target": "your agent settings",
   "settings.label.available-target": "the providers you can add",
   "settings.label.custom-id": "Provider ID",
-  "settings.label.custom-key": "Add an API key (optional)",
   "settings.label.custom-name": "Display name",
   "settings.label.custom-provider-hint": "Any OpenAI-compatible endpoint",
   "settings.label.custom-url": "Base URL",
   "settings.label.extensions-target": "your tools and skills",
-  "settings.label.location": "Location",
   "settings.label.login-signed-in": "Signed in",
   "settings.label.method-opens-browser": "Opens your browser",
-  "settings.label.method-paste-key": "Paste a key",
   "settings.label.method-sign-in": "Sign in with {product}",
-  "settings.label.model-line": "{name} · {model}",
-  "settings.label.model-name": "Model",
-  "settings.label.not-chosen": "Not chosen",
   "settings.label.off": "Off",
   "settings.label.on-computer": "Runs on this computer",
-  "settings.label.option-pair": "{axis}: {value}",
   "settings.label.over-web": "Connects over the web",
   "settings.label.providers-target": "your connections",
-  "settings.label.role-app-engineer": "App Engineer",
-  "settings.label.role-context-engineer": "Context Engineer",
   "settings.label.role-lophn": "lophn",
-  "settings.label.role-operator": "Operators",
   "settings.label.server-address": "Address",
   "settings.label.server-arguments": "Arguments",
   "settings.label.server-auth": "Sign-in",
@@ -337,31 +305,16 @@ export const agents = {
   "settings.label.sign-in-how": "How do you want to sign in to {name}?",
   "settings.label.status-connected": "Connected",
   "settings.label.status-needs-sign-in": "Needs sign-in",
-  "settings.label.unavailable-connection": "A connection that isn't listed",
   "settings.notice.custom-id-help":
     "Lowercase letters, numbers, hyphens or underscores.",
-  "settings.notice.custom-key-help":
-    "You enter the key in a protected window after you connect.",
-  "settings.notice.custom-key-required":
-    "A web address needs an API key. Check the box below.",
   "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
   "settings.notice.method-unverified": "Not confirmed to work with lophn yet.",
-  "settings.notice.next-run": "Changes apply to new work.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.notice.provider-lead":
     "A provider is a service you connect with one key or sign-in. You choose models per agent and per session, not here.",
-  "settings.notice.window-opened":
-    "Finish in the window that opened. This list updates when you come back.",
   "settings.server.address-help":
     "A secure web address, or one on this computer.",
   "settings.server.arguments-help": "One per line. They are passed as written.",
-  "settings.server.auth-sign-in-absent":
-    "Signing in to a tool server isn't available yet.",
-  "settings.server.credential-missing":
-    "A credential is needed before new work can use this server.",
-  "settings.server.credential-set": "Credential saved.",
-  "settings.server.credential-unknown":
-    "Whether a credential is saved couldn't be checked.",
   "settings.server.error-header": "Use letters, numbers and dashes, up to 64.",
   "settings.server.error-name":
     "Use letters, numbers, dashes and underscores, up to 32.",
@@ -370,31 +323,8 @@ export const agents = {
   "settings.server.error-taken": "A server with this name already exists.",
   "settings.server.error-url":
     "Enter a secure web address, or one on this computer.",
-  "settings.server.name-help": "A short name you will recognize.",
   "settings.server.program-help":
     "The full path of the program to start on this computer.",
-  "settings.server.sign-in-busy":
-    "A sign-in for this server is already waiting. Finish it in your browser.",
-  "settings.server.sign-in-failed":
-    "Couldn't sign in to {name}. Nothing changed. Try again.",
-  "settings.server.sign-in-needed":
-    "Sign in before new work can use this server.",
-  "settings.server.sign-in-not-opened":
-    "The sign-in page didn't open. Try again.",
-  "settings.server.sign-in-reason-callback-timeout":
-    "The sign-in wasn't finished in time. Try again.",
-  "settings.server.sign-in-reason-exchange-failed":
-    "The service didn't accept the sign-in. Try again.",
-  "settings.server.sign-in-reason-expired":
-    "This sign-in expired. Sign in again.",
-  "settings.server.sign-in-reason-refresh-rejected":
-    "The service ended this sign-in. Sign in again.",
-  "settings.server.sign-in-reason-state-mismatch":
-    "The sign-in page sent back something unexpected, so it was rejected. Try again.",
-  "settings.server.sign-in-reason-store-failed":
-    "The sign-in couldn't be saved on this computer. Try again.",
-  "settings.server.signed-in": "Signed in.",
-  "settings.sign-in.waiting": "Complete the sign-in in your browser.",
   "settings.status.plan-access":
     "Your plan doesn't allow this. Check that your plan includes it.",
   "settings.status.sign-in-problem":

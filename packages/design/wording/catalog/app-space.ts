@@ -2,123 +2,41 @@ export const appSpace = {
   "app-detail.button.all-issues": "All problems",
   "app-detail.button.back-to-activity": "Back to Activity",
   "app-detail.button.cancel": "Cancel",
-  "app-detail.button.cancel-create": "Never mind",
-  "app-detail.button.change-access": "Review access",
-  "app-detail.button.check-result": "Check the result",
-  "app-detail.button.close-preview": "Close preview",
-  "app-detail.button.copy-request": "Copy request",
-  "app-detail.button.export-app": "Export",
   "app-detail.button.go-back": "Go back to {release}",
-  "app-detail.button.hide-activity": "Hide activity",
-  "app-detail.button.hide-changes": "Hide changes",
-  "app-detail.button.issue-back": "All issues",
-  "app-detail.button.issue-dismiss": "Stop working on this",
-  "app-detail.button.issue-fixed": "It's fixed",
   "app-detail.button.issue-ignored": "Ignore",
-  "app-detail.button.issue-not-fixed": "It's still not fixed",
-  "app-detail.button.issue-not-visible": "I can't see it now",
   "app-detail.button.issue-reopen": "Reopen",
   "app-detail.button.issue-resolved": "Mark resolved",
-  "app-detail.button.issue-tried": "I tried it myself, but it doesn't work",
-  "app-detail.button.open-preview": "Open preview",
-  "app-detail.button.review-connection": "Review connection",
   "app-detail.button.revoke": "Revoke",
   "app-detail.button.rewind-app": "Rewind {name}",
   "app-detail.button.rewind-from-here": "Rewind from here",
-  "app-detail.button.see-changes": "See what changes",
-  "app-detail.button.show-activity": "Show activity",
-  "app-detail.button.start": "Start",
-  "app-detail.button.turn-off": "Turn off",
-  "app-detail.button.turn-on": "Turn on",
-  "app-detail.button.use-version": "Use this version",
-  "app-detail.error.apply-failed":
-    "Version {number} couldn't be applied. Your current version is unchanged.",
-  "app-detail.error.cancel-changed":
-    "This task changed after you opened it. Open it again before cancelling.",
-  "app-detail.error.cancel-failed":
-    "Couldn't cancel this task. It's still open. Try again.",
-  "app-detail.error.copy-failed":
-    "Couldn't copy the request. Select the text and copy it instead.",
-  "app-detail.error.create-failed":
-    "Couldn't create the task. Nothing was added. Try again.",
-  "app-detail.error.decision-failed":
-    "The confirmation window didn't open. Try again.",
   "app-detail.error.go-back-failed":
     "Couldn't go back to {release}. Nothing changed.",
   "app-detail.error.issue-state-failed":
     "Couldn't change the problem. Try again.",
-  "app-detail.error.issue-tried-failed":
-    "Couldn't open the problem form. Try again.",
-  "app-detail.error.preview-failed":
-    "The preview didn't open. Your app in use isn't affected.",
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
   "app-detail.error.rewind-failed":
     "Couldn't start the rewind. Nothing changed.",
-  "app-detail.error.start-connection-unavailable":
-    "The connection can't be used right now. Check it in Settings, then try again.",
-  "app-detail.error.start-failed":
-    "Couldn't start the coding agent. Nothing was opened. Try again.",
-  "app-detail.error.start-folder-changed":
-    "That folder isn't registered anymore. Pick a folder again.",
-  "app-detail.error.start-host-refused":
-    "The terminal didn't open. Press Start to try again.",
-  "app-detail.error.start-own-terminal":
-    "lophn can't open this one for you. Use your own terminal instead.",
-  "app-detail.error.start-refused":
-    "The coding agent wasn't started because this task isn't ready for it. Check the task, then try again.",
-  "app-detail.error.turn-off-failed":
-    "Couldn't turn off {name}. It's still on. Try again.",
-  "app-detail.heading.access-agents": "Actions agents can start",
-  "app-detail.heading.access-asks": "Asking for more access",
-  "app-detail.heading.access-documents": "Documents this app can save",
-  "app-detail.heading.access-files-read": "Files this app can read",
-  "app-detail.heading.access-files-write": "Files this app can change",
-  "app-detail.heading.access-listen": "Ports this app can listen on",
-  "app-detail.heading.access-network": "Websites this app can contact",
-  "app-detail.heading.access-removed": "Removed access",
-  "app-detail.heading.access-secrets": "Secrets this app can use",
   "app-detail.heading.active-release": "Active release",
   "app-detail.heading.active-release-named": "Active release ({release})",
   "app-detail.heading.being-applied": "Being applied",
   "app-detail.heading.changes": "What changes, {from} to {to}",
   "app-detail.heading.changes-first": "What {to} declares",
-  "app-detail.heading.current-version": "Current version",
-  "app-detail.heading.detail-access": "Permissions",
-  "app-detail.heading.detail-actions": "Actions",
-  "app-detail.heading.detail-data": "Saved data",
-  "app-detail.heading.detail-screens": "Screens",
   "app-detail.heading.earlier-releases": "Earlier releases",
   "app-detail.heading.evidence": "Evidence",
-  "app-detail.heading.issue-checks": "What was checked",
-  "app-detail.heading.issue-decide": "Your decision",
   "app-detail.heading.last-activation": "Last activation",
   "app-detail.heading.occurrences": "Occurrences",
   "app-detail.heading.other-apps": "Other apps",
-  "app-detail.heading.other-versions": "Other versions",
   "app-detail.heading.outside-resources": "Outside resources",
   "app-detail.heading.progress": "Progress",
   "app-detail.heading.rewind-before": "Rewind {name} to before {time}",
   "app-detail.heading.rewind-cancelled": "Rewind cancelled",
   "app-detail.heading.rewinds-together": "Rewinds together, newest first",
   "app-detail.heading.rewound": "Rewound",
-  "app-detail.heading.what-changes": "What changes",
   "app-detail.heading.what-was-rewound": "What was rewound",
   "app-detail.label.access-target": "this app's access",
   "app-detail.label.activity-target": "this app's activity",
   "app-detail.label.all-projects": "All projects",
   "app-detail.label.all-statuses": "All statuses",
-  "app-detail.label.an-action": "an action",
-  "app-detail.label.another-app": "Another app",
-  "app-detail.label.applied-before": "It was in use before",
-  "app-detail.label.applied-failed": "Couldn't be applied",
-  "app-detail.label.applied-no": "Not in use",
-  "app-detail.label.applied-working": "Being applied",
-  "app-detail.label.applied-yes": "In use",
-  "app-detail.label.by-agent": "By an agent",
-  "app-detail.label.by-app": "By another app",
-  "app-detail.label.by-applying": "While a version was being applied",
-  "app-detail.label.by-direct": "Directly",
-  "app-detail.label.by-restart": "After the app restarted",
   "app-detail.label.call-data-change": "Data change",
   "app-detail.label.call-start": "App start",
   "app-detail.label.called-by-activation": "lophn, when a release was applied",
@@ -131,34 +49,11 @@ export const appSpace = {
   "app-detail.label.caller-start": "App start",
   "app-detail.label.calls-held": "Calls that arrive now wait",
   "app-detail.label.came-back": "This problem came back",
-  "app-detail.label.cancel-reason": "Reason",
   "app-detail.label.cancelled": "Cancelled",
-  "app-detail.label.change-access-added":
-    "{count, plural, one {# new permission asked} other {# new permissions asked}}",
-  "app-detail.label.change-access-removed":
-    "{count, plural, one {# permission no longer needed} other {# permissions no longer needed}}",
-  "app-detail.label.change-actions-added":
-    "{count, plural, one {# action added} other {# actions added}}",
-  "app-detail.label.change-actions-changed":
-    "{count, plural, one {# action behaves differently} other {# actions behave differently}}",
-  "app-detail.label.change-actions-external":
-    "{count, plural, one {# action can change things outside lophn} other {# actions can change things outside lophn}}",
-  "app-detail.label.change-actions-removed":
-    "{count, plural, one {# action removed} other {# actions removed}}",
-  "app-detail.label.change-data":
-    "Saved data changes from format {from} to {to}",
-  "app-detail.label.change-screens":
-    "{count, plural, one {# screen changed} other {# screens changed}}",
   "app-detail.label.changes-app-api": "Another app's app-api",
   "app-detail.label.changes-loss": "Steps that can lose data",
   "app-detail.label.changes-resource": "Outside resource",
-  "app-detail.label.changes-target": "what changes",
   "app-detail.label.changes-wider": "Wider declarations",
-  "app-detail.label.check-fail": "Failed",
-  "app-detail.label.check-inconclusive": "Not confirmed",
-  "app-detail.label.check-line": "{condition}: {result}",
-  "app-detail.label.check-pass": "Passed",
-  "app-detail.label.checked-at": "Last checked {age}",
   "app-detail.label.cleaning-up": "Cleaning up",
   "app-detail.label.col-call": "Call · project",
   "app-detail.label.col-caller": "Caller",
@@ -166,40 +61,16 @@ export const appSpace = {
   "app-detail.label.col-result": "Result",
   "app-detail.label.col-time": "Time",
   "app-detail.label.commit": "commit {commit}",
-  "app-detail.label.condition-human": "You confirm it",
-  "app-detail.label.condition-issues-closed": "The related issues are closed",
-  "app-detail.label.condition-number": "Check {number, number}",
-  "app-detail.label.condition-reproduction": "The reproduction test passes",
-  "app-detail.label.condition-version-in-use": "The new version is in use",
-  "app-detail.label.connection-actions":
-    "{count, plural, one {# action} other {# actions}}",
-  "app-detail.label.connection-allowed": "Allowed",
-  "app-detail.label.connection-asks": "Needs your approval",
-  "app-detail.label.connection-partly": "Partly allowed",
-  "app-detail.label.connections-target": "this app's connections",
-  "app-detail.label.create-title": "Title",
-  "app-detail.label.create-what": "What do you want?",
-  "app-detail.label.create-why": "Why?",
-  "app-detail.label.data-format": "Saved data format {number}",
   "app-detail.label.data-schema": "data schema {schema}",
-  "app-detail.label.data-target": "this app's data",
-  "app-detail.label.details": "Details",
-  "app-detail.label.did-action": "Used {action}",
-  "app-detail.label.did-action-unnamed": "Used an action",
-  "app-detail.label.did-data-change": "Updated saved data",
-  "app-detail.label.did-start": "Started",
   "app-detail.label.done": "Done",
   "app-detail.label.everyone-together": "Everyone's changes go together",
   "app-detail.label.evidence-error": "Error at its source location",
   "app-detail.label.evidence-log": "Log",
   "app-detail.label.evidence-reports": "Reports from people",
-  "app-detail.label.fact-action": "Action",
   "app-detail.label.fact-applied": "Applied",
   "app-detail.label.fact-called-by": "Called by",
-  "app-detail.label.fact-can-start": "Can start now",
   "app-detail.label.fact-commit": "Commit",
   "app-detail.label.fact-first": "First report",
-  "app-detail.label.fact-input": "Fixed input",
   "app-detail.label.fact-input-fingerprint": "Input",
   "app-detail.label.fact-last": "Last report",
   "app-detail.label.fact-project": "Project",
@@ -207,11 +78,7 @@ export const appSpace = {
   "app-detail.label.fact-release": "Release",
   "app-detail.label.fact-reports": "Reports",
   "app-detail.label.fact-result": "Result",
-  "app-detail.label.fact-saved": "Saved",
-  "app-detail.label.fact-schedule": "When",
   "app-detail.label.fact-schema": "Data schema",
-  "app-detail.label.fact-seen": "Seen working",
-  "app-detail.label.fact-start": "Start check",
   "app-detail.label.fact-tried": "Tried",
   "app-detail.label.fact-undo": "Undo record",
   "app-detail.label.failed-still-active":
@@ -222,42 +89,18 @@ export const appSpace = {
   "app-detail.label.from-release": "release {release}",
   "app-detail.label.in-progress": "In progress",
   "app-detail.label.input-none": "None",
-  "app-detail.label.input-saved": "Saved with the app",
-  "app-detail.label.issue-basis": "What this is based on",
-  "app-detail.label.issue-claim": "What the fix says",
-  "app-detail.label.issue-closed": "Why it's closed",
-  "app-detail.label.issue-collected": "Details we collected",
-  "app-detail.label.issue-dismiss-reason": "Why stop (one line)",
-  "app-detail.label.issue-first-seen": "First seen {age}",
-  "app-detail.label.issue-human": "Your check",
   "app-detail.label.issue-last": "last {when}",
-  "app-detail.label.issue-last-seen": "Last seen {age}",
-  "app-detail.label.issue-needed": "What you can do",
-  "app-detail.label.issue-needs": "Still needed",
-  "app-detail.label.issue-owner": "Who is on it",
-  "app-detail.label.issue-remaining": "Still to confirm",
-  "app-detail.label.issue-repair": "Repair",
   "app-detail.label.issue-reports":
     "{count, plural, one {# report} other {# reports}}",
-  "app-detail.label.issue-scope": "What was confirmed",
-  "app-detail.label.issue-seen":
-    "{count, plural, one {Seen once} other {Seen # times}}",
-  "app-detail.label.issue-status-closed": "Closed",
-  "app-detail.label.issue-status-fixing": "Being fixed",
   "app-detail.label.issue-status-ignored": "Ignored",
   "app-detail.label.issue-status-open": "Open",
   "app-detail.label.issue-status-resolved": "Resolved",
-  "app-detail.label.issue-version": "Version",
   "app-detail.label.issues-target": "the issues",
-  "app-detail.label.last-activity": "Last activity: {status}, {age}",
   "app-detail.label.loss-drop-column": "Drops column",
   "app-detail.label.loss-drop-table": "Drops table",
   "app-detail.label.loss-narrow-type": "Narrows the type of",
-  "app-detail.label.mode-preview": "Preview",
-  "app-detail.label.no": "No",
   "app-detail.label.no-project": "no project",
   "app-detail.label.no-project-level": "None (app level)",
-  "app-detail.label.not-yet": "Not yet",
   "app-detail.label.nothing-changed": "Nothing changed",
   "app-detail.label.occurrence-app-error": "App error",
   "app-detail.label.occurrence-report": "Report",
@@ -266,13 +109,10 @@ export const appSpace = {
   "app-detail.label.outcome-not-changed": "Not changed",
   "app-detail.label.outcome-stays": "Won't be undone",
   "app-detail.label.outcome-undone": "Will be undone",
-  "app-detail.label.own-terminal": "Use your own terminal",
   "app-detail.label.period-all": "All time",
   "app-detail.label.period-day": "Last 24 hours",
   "app-detail.label.period-month": "Last 30 days",
   "app-detail.label.period-week": "Last 7 days",
-  "app-detail.label.preview-banner":
-    "Preview of Version {number}, not the app in use",
   "app-detail.label.recurred": "Recurred",
   "app-detail.label.recurred-in": "Recurred in {release}",
   "app-detail.label.replaced": "Replaced {when}",
@@ -293,16 +133,7 @@ export const appSpace = {
   "app-detail.label.role-lophn": "lophn",
   "app-detail.label.role-operator": "Agent",
   "app-detail.label.role-project-manager": "Project Manager",
-  "app-detail.label.schedule-interval":
-    "Every {minutes, plural, one {# minute} other {# minutes}}",
-  "app-detail.label.schedule-start": "When the app starts",
   "app-detail.label.session-unnamed": "session",
-  "app-detail.label.start-connection": "Connection",
-  "app-detail.label.start-folder": "Folder",
-  "app-detail.label.start-folder-option": "{project}: {path}",
-  "app-detail.label.start-harness": "Coding agent",
-  "app-detail.label.start-not-chosen": "not chosen yet",
-  "app-detail.label.start-ok": "Started and responding",
   "app-detail.label.state-done": "Done",
   "app-detail.label.state-failed": "Failed",
   "app-detail.label.state-running": "Running",
@@ -311,16 +142,7 @@ export const appSpace = {
   "app-detail.label.state-waiting": "Waiting",
   "app-detail.label.status-applied": "Applied",
   "app-detail.label.status-applying": "Applying",
-  "app-detail.label.status-blocked": "Blocked",
-  "app-detail.label.status-current": "In use",
-  "app-detail.label.status-didnt-finish": "Didn't finish",
-  "app-detail.label.status-done": "Done",
   "app-detail.label.status-failed": "Couldn't be applied",
-  "app-detail.label.status-older": "Older version",
-  "app-detail.label.status-prepared": "Saved, not in use",
-  "app-detail.label.status-result-unknown": "Result unknown",
-  "app-detail.label.status-waiting": "Waiting",
-  "app-detail.label.status-working": "In progress",
   "app-detail.label.step-drain": "Waiting for the running call to finish",
   "app-detail.label.step-hold": "Stopped taking new calls",
   "app-detail.label.step-hold-count":
@@ -332,34 +154,16 @@ export const appSpace = {
   "app-detail.label.step-stop": "Confirm the previous process has stopped",
   "app-detail.label.tab-access": "Access",
   "app-detail.label.tab-activity": "Activity",
-  "app-detail.label.tab-data": "Data",
   "app-detail.label.tab-issues": "Issues",
   "app-detail.label.tab-version": "Version",
   "app-detail.label.time-unknown": "time unknown",
   "app-detail.label.tool-call": "tool call",
-  "app-detail.label.tui-ended": "Ended",
-  "app-detail.label.tui-ready": "Ready for input",
-  "app-detail.label.tui-starting": "Starting",
-  "app-detail.label.tui-unknown": "Status unknown",
-  "app-detail.label.tui-waiting-input": "Waiting for you",
-  "app-detail.label.tui-working": "Working",
   "app-detail.label.turn": "turn",
   "app-detail.label.undo-none": "None",
   "app-detail.label.version-target": "this app's versions",
-  "app-detail.label.versions-target": "this app's versions",
   "app-detail.label.went-back": "Went back to {release}",
-  "app-detail.label.yes": "Yes",
-  "app-detail.note.access-empty":
-    "This app can't read files, contact websites or use secrets yet.",
   "app-detail.note.access-intro":
     "Access is set when a release is applied. It can only be taken back here, not added.",
-  "app-detail.note.access-removal-scope":
-    "Removing access doesn't undo what the app already read, sent or changed.",
-  "app-detail.note.access-removed": "Access was removed.",
-  "app-detail.note.access-removing":
-    "Removal was requested. It isn't finished yet.",
-  "app-detail.note.access-removing-stop":
-    "Removal was requested. Waiting for the app to stop before it counts as removed.",
   "app-detail.note.activity-scope":
     "Writes, external calls, app starts and failed reads. Successful reads are not listed.",
   "app-detail.note.applying-first":
@@ -374,30 +178,12 @@ export const appSpace = {
     "They continue on the rewound {name} when this finishes.",
   "app-detail.note.came-back":
     "It was resolved on {resolved} and happened again in release {release}, so it is open again.",
-  "app-detail.note.cancel-reason": "One line. The work already done is kept.",
   "app-detail.note.changes-none":
     "Nothing is wider than before and no step can lose data.",
   "app-detail.note.conflict":
     "Conflict: {reason} The whole rewind was cancelled. New calls are accepted again and the held calls continued.",
   "app-detail.note.conflict-unknown":
     "The changes could not be reversed safely. The whole rewind was cancelled. New calls are accepted again and the held calls continued.",
-  "app-detail.note.connection-scope":
-    "Allowing this connection doesn't approve actions that ask you first.",
-  "app-detail.note.connections-empty": "This app doesn't use other apps.",
-  "app-detail.note.create":
-    "lophn works out what to adopt and how to check the result before this can start.",
-  "app-detail.note.data-converts":
-    "Your saved data will be converted. Going back to an older version later won't convert it back.",
-  "app-detail.note.decision-waiting":
-    "Waiting for your decision in the confirmation window.",
-  "app-detail.note.export":
-    "Exporting makes a copy of this app's data. Nothing in the app changes.",
-  "app-detail.note.export-failed":
-    "The copy couldn't be made. Nothing changed. Try again.",
-  "app-detail.note.export-preparing":
-    "Preparing the copy. This can take a moment.",
-  "app-detail.note.export-ready":
-    "The copy is ready in the folder lophn made for it.",
   "app-detail.note.failed-called":
     "App Engineer was called and will pick this up.",
   "app-detail.note.failed-unchanged":
@@ -410,39 +196,15 @@ export const appSpace = {
     "Going back changes only the app code. The database stays as it is.",
   "app-detail.note.input-fingerprint":
     "A fingerprint. The input itself is not kept.",
-  "app-detail.note.issue-check-failed": "The last check didn't pass.",
-  "app-detail.note.issue-checks-scope":
-    "The fix says, the test results, and your own check are separate. One doesn't stand in for another.",
-  "app-detail.note.issue-choice-blocked":
-    "Some choices need to know which version was in use, and that isn't known for this issue.",
-  "app-detail.note.issue-human-no": "You haven't checked this yourself.",
-  "app-detail.note.issue-human-yes": "You checked this yourself.",
-  "app-detail.note.issue-tried":
-    "Opens a new problem form for this issue, so you can tell us what you saw.",
-  "app-detail.note.issues-empty": "This app has no issues.",
   "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
   "app-detail.note.may-call": "This app may call it.",
   "app-detail.note.no-activity": "No activity yet.",
-  "app-detail.note.no-changes": "Nothing differs from the version in use.",
-  "app-detail.note.no-current": "No version is in use yet.",
   "app-detail.note.no-issues": "No problems match these filters.",
   "app-detail.note.no-log": "No log lines were kept for this problem.",
   "app-detail.note.no-other-apps": "This app can't call other apps.",
-  "app-detail.note.no-other-versions": "There are no other versions.",
   "app-detail.note.no-reports": "No one wrote a report about this problem.",
   "app-detail.note.no-resources": "This app has no outside resources.",
   "app-detail.note.no-stack": "No stack was kept for this problem.",
-  "app-detail.note.own-terminal":
-    "Paste this into your own coding agent. lophn doesn't open it or keep track of it.",
-  "app-detail.note.prompt-delivered":
-    "The first message reached the coding agent.",
-  "app-detail.note.prompt-not-delivered":
-    "The first message didn't reach the coding agent. Start again to send it.",
-  "app-detail.note.prompt-pending":
-    "Sending the first message to the coding agent.",
-  "app-detail.note.prompt-unknown":
-    "lophn couldn't confirm the first message arrived. It won't send it again.",
-  "app-detail.note.request-copied": "Copied.",
   "app-detail.note.resource-file-read": "Can read files here. Allowed {when}.",
   "app-detail.note.resource-file-write":
     "Can read and change files here. Allowed {when}.",
@@ -450,8 +212,6 @@ export const appSpace = {
   "app-detail.note.resource-network": "Can contact this host. Allowed {when}.",
   "app-detail.note.resource-secret":
     "Name only. The value is never shown here.",
-  "app-detail.note.review-needed":
-    "Review this before you use it. A comparison can't show whether the app still does what you expect.",
   "app-detail.note.revoke-cleaned":
     "Previous process stopped. The app restarted without it.",
   "app-detail.note.revoke-requested":
@@ -466,28 +226,7 @@ export const appSpace = {
     "{undone, plural, one {# change will be undone} other {# changes will be undone}}. {stays, plural, one {# external effect stays} other {# external effects stay}}. {cannot, plural, one {# call can't be undone because its result is unknown} other {# calls can't be undone because their results are unknown}}.",
   "app-detail.note.rewound":
     "{undone, plural, one {# change was} other {# changes were}} undone. External effects and calls with an unknown result were not. Open app screens were refreshed and the held calls continued.",
-  "app-detail.note.secret-deleted": "The saved value was deleted.",
-  "app-detail.note.secret-missing": "No value is saved for this secret yet.",
-  "app-detail.note.secret-still-stored": "The saved value is still stored.",
-  "app-detail.note.secret-stored": "A value is saved for this secret.",
-  "app-detail.note.start-no-connection":
-    "No connection can work on this app yet. Connect a coding agent in Settings first.",
-  "app-detail.note.start-no-folder":
-    "Add a project folder first. The coding agent opens in one of your registered folders.",
-  "app-detail.note.start-no-harness":
-    "No coding agent was found on this computer. Check Settings first.",
-  "app-detail.note.start-opened":
-    "Opened in a terminal on this computer. Its status shows below.",
-  "app-detail.note.start-with": "Opens {harness} in {folder}.",
-  "app-detail.note.tui-separate":
-    "The terminal's status is separate from the task's status.",
   "app-detail.note.undo-recorded": "Undone by a rewind. The record stays.",
-  "app-detail.note.warning-other":
-    "Review these permissions together before you allow them.",
-  "app-detail.note.warning-outside-link":
-    "A permission points outside the folder you chose.",
-  "app-detail.note.warning-read-network":
-    "This app can read files and use the network, so it could send what it reads elsewhere.",
   "app-detail.note.went-back":
     "Only the app code changed. The database stays as it is.",
   "app-space.button.annotate": "Annotate",

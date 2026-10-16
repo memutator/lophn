@@ -22,7 +22,6 @@ export type ProjectPlaceholders = {
   "conversation.notice.visual-app-card": Record<never, never>;
   "conversation.notice.visual-unavailable-drawing": Record<never, never>;
   "conversation.notice.visual-unavailable-kind": Record<never, never>;
-  "conversation.placeholder.new-context": Record<never, never>;
   "document.button.check-task": Record<never, never>;
   "document.button.compare": Record<never, never>;
   "document.button.delete": Record<never, never>;

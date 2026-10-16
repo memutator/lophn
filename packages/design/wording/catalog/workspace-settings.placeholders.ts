@@ -7,87 +7,47 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.appearance.text-size-help": Record<never, never>;
   "settings.appearance.theme-help": Record<never, never>;
   "settings.button.add-entry": Record<never, never>;
-  "settings.button.before-restore": Record<never, never>;
-  "settings.button.check-security": Record<never, never>;
   "settings.button.choose-in-agents": Record<never, never>;
-  "settings.button.choose-package": Record<never, never>;
   "settings.button.connect-with": {
     name: "string";
   };
   "settings.button.detect-again": Record<never, never>;
-  "settings.button.export-app": Record<never, never>;
-  "settings.button.export-secrets": Record<never, never>;
-  "settings.button.import-secrets": Record<never, never>;
   "settings.button.remove-entry": {
     item: "string";
   };
   "settings.button.reset-default": Record<never, never>;
-  "settings.button.restore-again": Record<never, never>;
   "settings.button.revoke": Record<never, never>;
   "settings.button.run-checks": Record<never, never>;
-  "settings.button.stop-and-update": Record<never, never>;
-  "settings.check.clean": Record<never, never>;
   "settings.diagnostics.check-failed": Record<never, never>;
-  "settings.diagnostics.check-failed-no": Record<never, never>;
-  "settings.diagnostics.checked-at": {
-    time: "string";
-  };
-  "settings.diagnostics.clean-row": Record<never, never>;
-  "settings.diagnostics.heading": Record<never, never>;
-  "settings.diagnostics.intro": Record<never, never>;
   "settings.diagnostics.last-run": {
     time: "string";
   };
-  "settings.diagnostics.next-raw-key": Record<never, never>;
-  "settings.diagnostics.next-wide-grant": Record<never, never>;
   "settings.diagnostics.not-run": Record<never, never>;
-  "settings.diagnostics.raw-failed": Record<never, never>;
-  "settings.diagnostics.raw-heading": Record<never, never>;
-  "settings.diagnostics.raw-intro": Record<never, never>;
-  "settings.diagnostics.raw-key": Record<never, never>;
-  "settings.diagnostics.wide-grant": Record<never, never>;
   "settings.empty.general": Record<never, never>;
-  "settings.error.coding-conflict": Record<never, never>;
   "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
-  "settings.error.coding-not-detected": Record<never, never>;
-  "settings.error.coding-refused": Record<never, never>;
   "settings.error.coding-revoke-window": Record<never, never>;
-  "settings.error.coding-unavailable": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;
   "settings.error.value-out-of-range": Record<never, never>;
   "settings.error.value-unknown": Record<never, never>;
   "settings.error.value-wrong-type": Record<never, never>;
-  "settings.heading.coding-access": Record<never, never>;
-  "settings.heading.coding-agents": Record<never, never>;
   "settings.heading.coding-defaults": Record<never, never>;
-  "settings.heading.values": Record<never, never>;
   "settings.intro.appearance": Record<never, never>;
   "settings.intro.coding": Record<never, never>;
   "settings.intro.diagnostics": Record<never, never>;
   "settings.intro.general": Record<never, never>;
   "settings.intro.reactions": Record<never, never>;
-  "settings.intro.screen": Record<never, never>;
   "settings.label.add-entry": Record<never, never>;
   "settings.label.appearance-target": Record<never, never>;
-  "settings.label.applies": Record<never, never>;
   "settings.label.available": Record<never, never>;
   "settings.label.available-no": Record<never, never>;
   "settings.label.available-yes": Record<never, never>;
-  "settings.label.backup-target": Record<never, never>;
   "settings.label.checked-at": Record<never, never>;
   "settings.label.chosen-default": {
     value: "string";
   };
   "settings.label.coding-check-failed": Record<never, never>;
-  "settings.label.coding-check-failed-stage": Record<never, never>;
-  "settings.label.coding-check-line": {
-    stage: "string";
-    result: "string";
-  };
-  "settings.label.coding-check-ok": Record<never, never>;
-  "settings.label.coding-check-unknown": Record<never, never>;
   "settings.label.coding-col-executable": Record<never, never>;
   "settings.label.coding-col-product": Record<never, never>;
   "settings.label.coding-col-sign-in": Record<never, never>;
@@ -95,33 +55,9 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-col-takes-task": Record<never, never>;
   "settings.label.coding-col-turn-end": Record<never, never>;
   "settings.label.coding-connections-target": Record<never, never>;
-  "settings.label.coding-default-name": {
-    name: "string";
-  };
   "settings.label.coding-default-none": Record<never, never>;
   "settings.label.coding-default-product": Record<never, never>;
-  "settings.label.coding-detail-candidate": {
-    path: "string";
-    source: "string";
-  };
-  "settings.label.coding-detail-executable": {
-    path: "string";
-  };
-  "settings.label.coding-detail-probe": {
-    probe: "string";
-    outcome: "string";
-  };
-  "settings.label.coding-detail-resource": {
-    place: "string";
-    outcome: "string";
-  };
-  "settings.label.coding-details": Record<never, never>;
   "settings.label.coding-found": Record<never, never>;
-  "settings.label.coding-install-complete": Record<never, never>;
-  "settings.label.coding-install-details": Record<never, never>;
-  "settings.label.coding-install-error": Record<never, never>;
-  "settings.label.coding-install-failed": Record<never, never>;
-  "settings.label.coding-install-partial": Record<never, never>;
   "settings.label.coding-launch-no": Record<never, never>;
   "settings.label.coding-launch-yes": Record<never, never>;
   "settings.label.coding-model": Record<never, never>;
@@ -133,11 +69,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.coding-signal-yes": Record<never, never>;
   "settings.label.coding-signed-in": Record<never, never>;
   "settings.label.coding-stage-connect": Record<never, never>;
-  "settings.label.coding-stage-guide": Record<never, never>;
-  "settings.label.coding-stage-other": Record<never, never>;
-  "settings.label.coding-stage-skills": Record<never, never>;
-  "settings.label.coding-stage-tools": Record<never, never>;
-  "settings.label.coding-state-active": Record<never, never>;
   "settings.label.coding-state-revoked": Record<never, never>;
   "settings.label.coding-target": Record<never, never>;
   "settings.label.coding-version": {
@@ -160,21 +91,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.general-target": Record<never, never>;
   "settings.label.group-agents": Record<never, never>;
   "settings.label.group-general": Record<never, never>;
-  "settings.label.group-integrations": Record<never, never>;
-  "settings.label.group-preferences": Record<never, never>;
   "settings.label.group-system": Record<never, never>;
-  "settings.label.harness-claude": Record<never, never>;
-  "settings.label.harness-codex": Record<never, never>;
-  "settings.label.harness-gemini": Record<never, never>;
-  "settings.label.harness-hermes": Record<never, never>;
-  "settings.label.harness-openclaw": Record<never, never>;
-  "settings.label.harness-opencode": Record<never, never>;
-  "settings.label.harness-pi": Record<never, never>;
-  "settings.label.integrity": Record<never, never>;
-  "settings.label.integrity-failed": Record<never, never>;
-  "settings.label.integrity-passed": Record<never, never>;
-  "settings.label.nav": Record<never, never>;
-  "settings.label.notifications-target": Record<never, never>;
   "settings.label.reaction-activation-failed": Record<never, never>;
   "settings.label.reaction-ask": Record<never, never>;
   "settings.label.reaction-context-violation": Record<never, never>;
@@ -186,15 +103,9 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.reactions-target": Record<never, never>;
   "settings.label.reading-width": Record<never, never>;
   "settings.label.reason": Record<never, never>;
-  "settings.label.retained-through": Record<never, never>;
   "settings.label.size-default": Record<never, never>;
   "settings.label.size-large": Record<never, never>;
   "settings.label.size-small": Record<never, never>;
-  "settings.label.source": Record<never, never>;
-  "settings.label.source-default": Record<never, never>;
-  "settings.label.source-you": Record<never, never>;
-  "settings.label.state": Record<never, never>;
-  "settings.label.state-ready": Record<never, never>;
   "settings.label.tab-agents": Record<never, never>;
   "settings.label.tab-appearance": Record<never, never>;
   "settings.label.tab-coding": Record<never, never>;
@@ -231,8 +142,6 @@ export type WorkspaceSettingsPlaceholders = {
     min: "number";
     max: "number";
   };
-  "settings.note.coding-checked-again": Record<never, never>;
-  "settings.note.coding-checks-unavailable": Record<never, never>;
   "settings.note.coding-connect-note": Record<never, never>;
   "settings.note.coding-connected": {
     name: "string";
@@ -240,22 +149,13 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-default-used": Record<never, never>;
   "settings.note.coding-defaults-saved": Record<never, never>;
   "settings.note.coding-detect-note": Record<never, never>;
-  "settings.note.coding-intro": Record<never, never>;
   "settings.note.coding-model": Record<never, never>;
-  "settings.note.coding-name-help": Record<never, never>;
   "settings.note.coding-no-connections": Record<never, never>;
   "settings.note.coding-revoke-waiting": Record<never, never>;
   "settings.note.coding-revoked-note": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
-  "settings.note.coding-start-note": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
   "settings.note.reactions-ask": Record<never, never>;
-  "settings.notifications.changed": Record<never, never>;
-  "settings.notifications.changed-failed": Record<never, never>;
-  "settings.notifications.heading": Record<never, never>;
-  "settings.notifications.help": Record<never, never>;
-  "settings.notifications.intro": Record<never, never>;
-  "settings.notifications.label": Record<never, never>;
   "settings.problems-detail_collection.help": Record<never, never>;
   "settings.problems-detail_collection.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
@@ -278,7 +178,6 @@ export type WorkspaceSettingsPlaceholders = {
     name: "string";
   };
   "settings.title.screen": Record<never, never>;
-  "settings.usage.loading": Record<never, never>;
 };
 
 type Area = typeof workspaceSettings;

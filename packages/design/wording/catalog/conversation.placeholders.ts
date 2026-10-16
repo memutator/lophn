@@ -36,9 +36,7 @@ export type ConversationPlaceholders = {
   "conversation.button.jump-latest": Record<never, never>;
   "conversation.button.model-reset": Record<never, never>;
   "conversation.button.permissions-edit": Record<never, never>;
-  "conversation.button.question-details": Record<never, never>;
   "conversation.button.question-next": Record<never, never>;
-  "conversation.button.question-skip": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
   "conversation.button.recap-dismiss": Record<never, never>;
@@ -46,14 +44,12 @@ export type ConversationPlaceholders = {
   "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.retry": Record<never, never>;
-  "conversation.button.rewind": Record<never, never>;
   "conversation.button.rewind-go": Record<never, never>;
   "conversation.button.rewind-here": Record<never, never>;
   "conversation.button.save": Record<never, never>;
   "conversation.button.send": Record<never, never>;
   "conversation.button.send-now": Record<never, never>;
   "conversation.button.session-new": Record<never, never>;
-  "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
@@ -121,14 +117,6 @@ export type ConversationPlaceholders = {
   "conversation.label.delivery-received": Record<never, never>;
   "conversation.label.delivery-sending": Record<never, never>;
   "conversation.label.delivery-unconfirmed": Record<never, never>;
-  "conversation.label.duration-days-hours": {
-    days: "number";
-    hours: "number";
-  };
-  "conversation.label.duration-hours-minutes": {
-    hours: "number";
-    minutes: "number";
-  };
   "conversation.label.duration-minutes": {
     minutes: "number";
   };
@@ -154,9 +142,6 @@ export type ConversationPlaceholders = {
   "conversation.label.model-list": Record<never, never>;
   "conversation.label.model-unknown": Record<never, never>;
   "conversation.label.more-actions": Record<never, never>;
-  "conversation.label.more-results": {
-    count: "plural";
-  };
   "conversation.label.next-turn": Record<never, never>;
   "conversation.label.permission-summary": {
     count: "plural";
@@ -168,44 +153,19 @@ export type ConversationPlaceholders = {
     agent: "string";
   };
   "conversation.label.permissions-session": Record<never, never>;
-  "conversation.label.question-answered": {
-    count: "plural";
-    answers: "string";
-  };
   "conversation.label.question-answered-elsewhere": Record<never, never>;
-  "conversation.label.question-applied": {
-    answers: "string";
-  };
-  "conversation.label.question-apply-failed": {
-    answers: "string";
-  };
-  "conversation.label.question-applying": {
-    answers: "string";
-  };
-  "conversation.label.question-asking": {
-    agent: "string";
-    count: "plural";
-  };
   "conversation.label.question-cancelled": Record<never, never>;
   "conversation.label.question-card": {
     agent: "string";
   };
-  "conversation.label.question-expired": Record<never, never>;
-  "conversation.label.question-expires": {
-    remaining: "string";
-  };
-  "conversation.label.question-expires-now": Record<never, never>;
   "conversation.label.question-following": Record<never, never>;
   "conversation.label.question-no-answer": Record<never, never>;
   "conversation.label.question-own-answer": {
     prompt: "string";
   };
   "conversation.label.question-own-answer-placeholder": Record<never, never>;
-  "conversation.label.question-paused": Record<never, never>;
   "conversation.label.question-pick-any": Record<never, never>;
   "conversation.label.question-previous": Record<never, never>;
-  "conversation.label.question-recommended": Record<never, never>;
-  "conversation.label.question-skipped": Record<never, never>;
   "conversation.label.questions-answered": {
     count: "plural";
   };
@@ -225,7 +185,6 @@ export type ConversationPlaceholders = {
     total: "number";
   };
   "conversation.label.requests": Record<never, never>;
-  "conversation.label.results": Record<never, never>;
   "conversation.label.rewind-app-also": {
     app: "string";
   };

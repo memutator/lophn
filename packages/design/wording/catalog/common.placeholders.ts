@@ -2,23 +2,15 @@
 import type { common } from "./common.ts";
 
 export type CommonPlaceholders = {
-  "app-detail.button.remove-access": Record<never, never>;
-  "app-detail.label.version": {
-    number: "string";
-  };
   "common.author.label": {
     author: "string";
   };
   "common.button.apply": Record<never, never>;
-  "common.button.ask-agent": {
-    agent: "string";
-  };
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.clear": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
-  "common.button.copy-address": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
@@ -101,8 +93,6 @@ export type CommonPlaceholders = {
     start: "string";
     end: "string";
   };
-  "common.notification.body": Record<never, never>;
-  "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
   "common.palette.no-results": Record<never, never>;
   "common.quit.saves": Record<never, never>;
@@ -123,41 +113,19 @@ export type CommonPlaceholders = {
   "document.button.check-again": Record<never, never>;
   "document.button.read": Record<never, never>;
   "document.diff.identical": Record<never, never>;
-  "document.label.meta": {
-    number: "number";
-    when: "string";
-  };
   "document.label.saving": Record<never, never>;
-  "document.status.offline": Record<never, never>;
-  "document.status.unknown": Record<never, never>;
-  "document.status.version-pending": Record<never, never>;
-  "document.status.version-saved": Record<never, never>;
-  "documents.status.draft": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.retry": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "settings.button.cancel": Record<never, never>;
   "settings.button.connect": Record<never, never>;
-  "settings.error.changed": Record<never, never>;
-  "settings.error.window": Record<never, never>;
   "settings.label.auth-api-key": Record<never, never>;
   "settings.label.auth-bearer": Record<never, never>;
   "settings.label.auth-none": Record<never, never>;
   "settings.label.auth-sign-in": Record<never, never>;
-  "settings.label.details": Record<never, never>;
   "settings.label.tab-connections": Record<never, never>;
   "settings.label.way-api-key": Record<never, never>;
-  "things-to-confirm.label.event-activation-failed": Record<never, never>;
-  "things-to-confirm.label.event-decision": Record<never, never>;
-  "things-to-confirm.label.event-issue-closed": Record<never, never>;
-  "things-to-confirm.label.event-issue-opened": Record<never, never>;
-  "things-to-confirm.label.event-issue-reopened": Record<never, never>;
-  "things-to-confirm.label.event-paused": Record<never, never>;
-  "things-to-confirm.label.event-question": Record<never, never>;
-  "things-to-confirm.label.event-task-check-failed": Record<never, never>;
-  "things-to-confirm.label.event-task-confirmed": Record<never, never>;
-  "things-to-confirm.label.event-violations-rose": Record<never, never>;
 };
 
 type Area = typeof common;

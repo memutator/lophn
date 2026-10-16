@@ -19,8 +19,6 @@ export const project = {
     "This visual couldn't be drawn from its data.",
   "conversation.notice.visual-unavailable-kind":
     "This kind of visual can't be shown here.",
-  "conversation.placeholder.new-context":
-    "Say what this context should cover. The Context Engineer will ask for whatever else it needs.",
   "document.button.check-task": "Check task",
   "document.button.compare": "Compare",
   "document.button.delete": "Delete",

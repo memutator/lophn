@@ -56,3 +56,4 @@ export {
   SECURE_INPUT_GUIDANCE,
   type SecureInputGuidance,
 } from "./screen.ts";
+export { createQuestionWaits, type QuestionWaits } from "./wait.ts";

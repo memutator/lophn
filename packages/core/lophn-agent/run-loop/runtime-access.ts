@@ -74,10 +74,12 @@ import {
   approvalsText,
   cancelApprovalRequest,
   createApprovalRequest,
+  toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
+import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
@@ -173,6 +175,10 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
   createApprovalRequest.name,
 ];
 
+// Gate가 걸리는 tool과 `ask`가 사람의 결정을 기다리는 입구다. 기다림은 core가 쥐고 호출 하나가 결과가 날 때까지 열려 있다.
+// 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 역할의 상한에 더한다.
+const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
+
 // prompt의 place 정보(project·앱·context 글·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
 // 자격으로 읽으므로 모든 역할의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.
 const PLACE_READS: readonly string[] = [
@@ -206,6 +212,7 @@ export function roleOperations(role: string): readonly string[] {
       ...PLACE_READS,
       APP_TOOL_CONTRACT,
       ...EXTERNAL_TOOL_OPERATIONS,
+      ...HUMAN_WAIT_ROUTES,
     ]),
   ];
 }

@@ -1,7 +1,6 @@
 import type { Result } from "../../../base/mod.ts";
 import { fingerprint } from "../../../base/mod.ts";
 import type { ErrorCode } from "../../../base/mod.ts";
-import type { Intent } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolOutcome,
   ToolResult,
@@ -287,25 +286,21 @@ export async function executeToolCall(
   };
 }
 
-// 허락되면 null, 아니면 실행하지 않은 결과다.
+// 허락되면 null, 아니면 실행하지 않은 결과다. 판정, 사람에게 묻기, 기다리기, 허락 소비는 core가 한다.
 async function askGate(
   ctx: ToolContext,
   tool: string,
   effect: ToolDefinition["effect"],
   request: GateRequest,
 ): Promise<ToolCallOutcome | null> {
-  const intent: Intent = {
-    ...request,
-    actor: { kind: "agent", agent: ctx.agent, session: ctx.session },
-    origin: {
-      kind: "turn",
-      session: ctx.session,
-      turn: ctx.turn,
-      tool_call: ctx.tool_call,
-    },
-  };
-  const verdict = await ctx.gate.judge(intent);
-  if (!verdict.ok) {
+  const checked = await ctx.gate.check({
+    session: ctx.session,
+    turn: ctx.turn,
+    tool_call: ctx.tool_call,
+    tool,
+    intent: request,
+  });
+  if (!checked.ok) {
     return stopped(
       tool,
       "failure",
@@ -314,54 +309,41 @@ async function askGate(
       effect,
     );
   }
-  if (verdict.value.verdict === "run") return null;
-  if (verdict.value.verdict === "deny") {
-    return stopped(
-      tool,
-      "not_executed",
-      "denied",
-      `tool call was denied (${verdict.value.reason})`,
-      effect,
-    );
+  const result = checked.value;
+  switch (result.kind) {
+    case "run":
+      return null;
+    case "denied":
+      return stopped(
+        tool,
+        "not_executed",
+        "denied",
+        `tool call was denied (${result.reason})`,
+        effect,
+      );
+    case "rejected":
+      return stopped(
+        tool,
+        "not_executed",
+        "rejected",
+        "the person rejected this tool call",
+        effect,
+      );
+    case "cancelled":
+      return stopped(
+        tool,
+        "not_executed",
+        "cancelled",
+        `the request was cancelled (${result.cause})`,
+        effect,
+      );
+    case "changed":
+      return stopped(
+        tool,
+        "failure",
+        "conflict",
+        FAILURE_SUMMARIES.conflict!,
+        effect,
+      );
   }
-  const opened = ctx.gate.openTurnRequest(intent);
-  if (!opened.ok) {
-    return stopped(
-      tool,
-      "failure",
-      "unavailable",
-      "tool is unavailable",
-      effect,
-    );
-  }
-  const decision = await ctx.gate.waitTurnDecision(opened.value.id);
-  if (decision.outcome === "reject") {
-    return stopped(
-      tool,
-      "not_executed",
-      "rejected",
-      "the person rejected this tool call",
-      effect,
-    );
-  }
-  if (decision.outcome === "cancelled") {
-    return stopped(
-      tool,
-      "not_executed",
-      "cancelled",
-      `the request was cancelled (${decision.cause})`,
-      effect,
-    );
-  }
-  const used = await ctx.gate.consumeTurnAllow(opened.value.id, intent);
-  if (!used.ok) {
-    return stopped(
-      tool,
-      "failure",
-      "conflict",
-      FAILURE_SUMMARIES.conflict!,
-      effect,
-    );
-  }
-  return null;
 }

@@ -15,7 +15,7 @@ export const ASK_TOOLS: readonly ToolDefinition[] = [
     effect: "read",
     handler: async (input, ctx) => {
       const asked = await ctx.questions.ask(
-        ctx.session,
+        { session: ctx.session, turn: ctx.turn, tool_call: ctx.tool_call },
         (input as ToolInput<"ask">).questions,
       );
       if (!asked.ok) return asked;

@@ -7,13 +7,7 @@ const unavailable = () =>
   err({ code: "unavailable" as const, message: "this port is not wired" });
 
 export const UNWIRED_TOOL_PORTS: ToolPorts = {
-  gate: {
-    judge: () => Promise.resolve(unavailable()),
-    openTurnRequest: () => unavailable(),
-    waitTurnDecision: () =>
-      Promise.resolve({ outcome: "cancelled", cause: "restart" }),
-    consumeTurnAllow: () => Promise.resolve(unavailable()),
-  },
+  gate: { check: () => Promise.resolve(unavailable()) },
   router: {
     send: () => Promise.resolve(unavailable()),
     reply: () => Promise.resolve(unavailable()),

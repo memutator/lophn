@@ -58,13 +58,13 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
     turn: "trn_01J00000000000000000000000",
     tool_call: "tcl_01J00000000000000000000000",
     gate: {
-      judge: (intent: { kind: string }) => {
-        asked.push(intent.kind);
+      check: (call: { intent: { kind: string } }) => {
+        asked.push(call.intent.kind);
         return Promise.resolve(
           ok(
             gateVerdict === "run"
-              ? { verdict: "run" as const }
-              : { verdict: "deny" as const, reason: "not_granted" as const },
+              ? { kind: "run" as const }
+              : { kind: "denied" as const, reason: "not_granted" as const },
           ),
         );
       },

@@ -65,7 +65,7 @@ export type TurnSeat = {
 export type ToolSetup = {
   // session을 시작할 때 고정한 목록(model에는 wire 이름으로 간다).
   listed: readonly ToolDefinition[];
-  // tool call 하나의 실행 맥락. 사람의 결정을 기다리는 호출(`gate.waitTurnDecision`, `questions.ask`)은
+  // tool call 하나의 실행 맥락. 사람의 결정을 기다리는 호출(`gate.check`, `questions.ask`)은
   // core-ports가 감싸 기다리는 동안 turn의 시간을 세지 않게 한다.
   context(toolCall: Id<"tcl">): ToolContext;
   // 외부 MCP tool의 서버 이름. 없으면 내장 tool이다.
@@ -401,21 +401,20 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     return {
       ...ctx,
       gate: {
-        ...ctx.gate,
-        async waitTurnDecision(request) {
+        async check(input) {
           pause.begin();
           try {
-            return await ctx.gate.waitTurnDecision(request);
+            return await ctx.gate.check(input);
           } finally {
             pause.end();
           }
         },
       },
       questions: {
-        async ask(session, questions) {
+        async ask(call, questions) {
           pause.begin();
           try {
-            return await ctx.questions.ask(session, questions);
+            return await ctx.questions.ask(call, questions);
           } finally {
             pause.end();
           }

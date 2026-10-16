@@ -7,6 +7,8 @@ import {
   systemClock,
 } from "../../../base/mod.ts";
 import { ALL_ROUTES } from "../../../protocol/mod.ts";
+import { toolGateCheck } from "../../../protocol/approvals/mod.ts";
+import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
@@ -97,9 +99,14 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),
-      // gate와 questions는 core에 닿는 route가 아직 없어 닫힌 채다. rewind도 같다.
+      // rewind는 닫힌 채다. gate와 questions는 core가 기다림을 쥐고 runtime은 긴 한 번의 호출로 결과를 받는다.
       toolPorts: (session, turn) => ({
         ...UNWIRED_TOOL_PORTS,
+        gate: { check: (input) => readOf(turn.core, toolGateCheck, input) },
+        questions: {
+          ask: (call, questions) =>
+            readOf(turn.core, askWait, { ...call, questions }),
+        },
         router: routerOverCore(turn.core),
         skills: turnSkillReader(
           productSkillSnapshotDeps(calls.machine),

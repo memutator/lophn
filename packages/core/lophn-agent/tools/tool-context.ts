@@ -5,11 +5,15 @@ import type {
   Place,
   Role,
 } from "../../../protocol/lophn-agent/places.ts";
-import type { Approvals } from "../../approvals/ports.ts";
 import type { CallRouting } from "../ports.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import type { RecorderPorts } from "../session/rewind/record.ts";
-import type { PlaceScope, QuestionWait, SkillReader } from "./ports.ts";
+import type {
+  PlaceScope,
+  QuestionWait,
+  SkillReader,
+  ToolGatePort,
+} from "./ports.ts";
 import type { ToolDefinition } from "./registry.ts";
 
 // tool handler에 넘기는 실행 맥락이다. turn마다 하나 만든다.
@@ -27,11 +31,8 @@ export type ToolContext = {
   listed: readonly ToolDefinition[];
   // core route를 부른다. agent 자격이다.
   core: CoreCall;
-  // Gate가 걸리는 tool만 executeToolCall이 부른다.
-  gate: Pick<
-    Approvals,
-    "judge" | "openTurnRequest" | "waitTurnDecision" | "consumeTurnAllow"
-  >;
+  // Gate가 걸리는 tool만 executeToolCall이 부른다. 판정, 사람에게 묻기, 기다리기, 허락 소비를 core가 한 번에 한다.
+  gate: ToolGatePort;
   router: CallRouting;
   questions: QuestionWait;
   scope: PlaceScope;

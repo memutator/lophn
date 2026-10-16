@@ -70,7 +70,12 @@ export { builtinTools, listRoleTools } from "./builtin.ts";
 export { defineBuiltin } from "./bundles/common.ts";
 export { definitionTokens, splitDeferred, TOOL_SEARCH } from "./deferred.ts";
 export type { ToolContext } from "./tool-context.ts";
-export type { PlaceScope, QuestionWait, SkillReader } from "./ports.ts";
+export type {
+  PlaceScope,
+  QuestionWait,
+  SkillReader,
+  ToolGatePort,
+} from "./ports.ts";
 export {
   buildWireTable,
   inputJsonSchema,

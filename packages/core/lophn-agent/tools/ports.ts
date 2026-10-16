@@ -1,4 +1,8 @@
 import type { Result } from "../../../base/mod.ts";
+import type {
+  ToolGateInput,
+  ToolGateResult,
+} from "../../../protocol/approvals/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   AskInput,
@@ -11,9 +15,14 @@ import type {
 // 메시지를 보내면 풀린다. 꺼졌다 켜지거나 turn이 끊기면 cancelled로 풀린다.
 export interface QuestionWait {
   ask(
-    session: Id<"ses">,
+    call: { session: Id<"ses">; turn: Id<"trn">; tool_call: Id<"tcl"> },
     questions: AskInput["questions"],
   ): Promise<Result<AskResult>>;
+}
+
+// Gate가 걸리는 tool을 실행하기 직전에 core에 묻는다. run이 아니면 실행하지 않는다.
+export interface ToolGatePort {
+  check(input: ToolGateInput): Promise<Result<ToolGateResult>>;
 }
 
 // 그 session의 role과 place가 file tool에 열어 둔 폴더다. 절대 경로이고 쓰기 폴더는 읽기 폴더 안에 있다.

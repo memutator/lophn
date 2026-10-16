@@ -109,5 +109,23 @@ export const askAnswer = defineMemory({
   errors: [...askErrors],
 });
 
-// registry에는 lead가 올린다.
+// runtime이 `ask`의 질문 묶음을 올리고 풀릴 때까지 기다린다. 사람이 답하거나 그 session에 메시지를 보내면
+// 결과가 돌아오고, turn이 끝나거나 session이 닫히면 cancelled다. credential의 session·turn과 입력이
+// 다르면 forbidden이다.
+export const askWait = defineMemory({
+  resource: "ask",
+  method: "wait",
+  name: "WaitAskQuestions",
+  input: z.strictObject({
+    ...askTarget,
+    turn: idSchema("trn"),
+    questions: askInputSchema.shape.questions,
+  }),
+  output: askResultSchema,
+  actors: ["agent"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+// registry에는 lead가 올린다. `askWait`는 아직 올리지 않았다.
 export const ASK_ROUTES = [askRead, askAnswer] as const;
+export const ASK_AGENT_ROUTES = [askWait] as const;

@@ -85,7 +85,7 @@ const advanceSubscriberCursorCompareSchema = z.strictObject({
   processed_through_seq: seqSchema,
 });
 
-// 반응 command의 idempotency 기준(domain-model platform/ledger).
+// 반응 command의 idempotency 기준.
 export const reactionKeySchema = z.strictObject({
   subscriber: z.string().min(1),
   cause_seq: seqSchema,

@@ -3,7 +3,7 @@ export type Clock = {
   nowMs(): number;
 };
 
-// 기록 시각은 이 형식만 쓴다(domain-model platform/ledger "시각·기간·seq").
+// 기록 시각은 이 형식만 쓴다.
 const AT = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 
 function pad(n: number, width: number): string {

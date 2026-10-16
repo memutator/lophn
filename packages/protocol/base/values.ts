@@ -1,7 +1,7 @@
 import { parseSeq } from "../../base/mod.ts";
 import { z } from "zod";
 
-// 기록 시각은 이 형식만 쓴다(domain-model platform/ledger "시각·기간·seq").
+// 기록 시각은 이 형식만 쓴다.
 const AT = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 
 export const atSchema = z.string().regex(AT);
@@ -27,7 +27,7 @@ const ARCHIVE_STATES = ["active", "archived"] as const;
 
 export const archiveStateSchema = z.enum(ARCHIVE_STATES);
 
-// ledger 밖 derived store에만 둔다(domain-model platform/ledger DerivedProvenance).
+// ledger 밖 derived store에만 둔다.
 
 // 목록 read의 cursor다.
 export const readCursorSchema = z.string().min(1);

@@ -123,15 +123,14 @@ function invocationSchemas(strict: boolean) {
 
 const invocationSchema = invocationSchemas(false);
 
-// record_started 입력. 검증된 inv·사실만 받는다
-// (domain-model apps/invocations command 표).
+// record_started 입력. 검증된 inv·사실만 받는다.
 
 // record_finished 입력. 종료 상태는 succeeded/failed/unknown이다.
 // unknown도 같은 사실 재전송이므로 started_at 모양은 그대로다.
 
 // record_denied 입력. handler를 부르기 전 거절이라 시작이 없다.
 
-// confirm 접수. 승인 사용과 accepted를 원자적으로 저장한다(domain-model command 표).
+// confirm 접수. 승인 사용과 accepted를 원자적으로 저장한다.
 const invocationAcceptConfirmInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,

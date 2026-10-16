@@ -57,7 +57,7 @@ export const redactionResultSchema = z.object({
 
 // schema가 base의 모양과 어긋나면 type 검사에서 걸린다.
 
-// domain-model/platform/security.md TrustClass. 자료 문자열로 승격하지 않는다.
+// TrustClass 값은 자료 문자열로 승격하지 않는다.
 
 // 출처 불명은 data다. 구현은 platform이 entry로 받는다.
 

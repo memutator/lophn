@@ -18,7 +18,7 @@ type DaemonAddress = {
   source: DaemonAddressSource;
 };
 
-// loopback host만 받는다(platform/api allowedHosts와 같은 세 host다).
+// loopback host만 받는다.
 function loopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "[::1]" ||
     host === "::1";
@@ -41,7 +41,7 @@ function parseRef(value: string): ParsedAddress | undefined {
 }
 
 // 명시 주소 하나를 검사한다. loopback 아닌 주소와 http 밖 scheme은 거절이다.
-// 주소가 바뀌어도 token을 재발급하지 않는다(architecture 2.1).
+// 주소가 바뀌어도 token을 재발급하지 않는다.
 function acceptAddress(
   value: string,
   source: DaemonAddressSource,
@@ -78,7 +78,7 @@ function runMetadataAddress(
   });
 }
 
-// 설치 설정의 위치 값도 loopback만 받는다. 값은 platform/install contract가 정한다.
+// 설치 설정의 위치 값도 loopback만 받는다. 값은 install contract가 정한다.
 type InstallSettings = { host?: unknown; port?: unknown };
 
 function installSettingsAddress(

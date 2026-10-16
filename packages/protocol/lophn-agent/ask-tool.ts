@@ -125,5 +125,4 @@ export const askWait = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// registry에는 lead가 올린다. `askWait`는 아직 올리지 않았다.
 export const ASK_ROUTES = [askRead, askAnswer] as const;

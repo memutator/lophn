@@ -28,7 +28,7 @@ const runtimeReasonInputSchema = z.strictObject(runtimeReasonFields);
 export const runtimeReasonSchema = z.object(runtimeReasonFields);
 export type RuntimeReason = z.infer<typeof runtimeReasonSchema>;
 
-// 화면 상태 projection. ledger에 저장하지 않는다(domain-model apps/runtime).
+// 화면 상태 projection. ledger에 저장하지 않는다.
 const runtimeStateSchema = z.object({
   state: runtimeStateValueSchema,
   termination_pending: z.boolean(),

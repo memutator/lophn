@@ -5,7 +5,7 @@ export { DIRECT_SOCKET_PATHS };
 // 읽기 결과의 원천 상태. 정상 0행과 미수집·부분 범위·신선도 부족을 구분한다.
 // 값을 만드는 일은 앱 handler의 몫이다.
 
-// command.revert가 지원하는 write의 성공 결과(domain-model apps/blueprint).
+// command.revert가 지원하는 write의 성공 결과.
 
 // 호출에 붙이는 confirm proof는 core가 서명한 envelope다.
 // 서명 없는 payload는 받지 않는다.

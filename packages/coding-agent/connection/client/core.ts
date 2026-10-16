@@ -129,7 +129,7 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
       if (sent.ok) return sent;
       const failed = sent.error;
       // transport 유실은 command 결과를 같은 key로 다시 본다. 성공·domain
-      // 실패로 추측하지 않는다(architecture 8).
+      // 실패로 추측하지 않는다.
       if (
         failed.code === "unavailable" &&
         failed.details?.reason === "transport_failed" &&
@@ -210,7 +210,7 @@ function decodeJson(bytes: Uint8Array): unknown {
   }
 }
 
-// header 값은 JSON의 base64url이다(platform/api upload route).
+// header 값은 JSON의 base64url이다.
 function encodeInput(input: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(input));
   let binary = "";

@@ -11,7 +11,7 @@ export const errorBodySchema = z.object({
 
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 
-// platform/ledger 오류 분류 순서와 같다.
+// ledger 오류 분류 순서와 같다.
 export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   invalid_input: 400,
   unauthorized: 401,

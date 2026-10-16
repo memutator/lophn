@@ -25,7 +25,7 @@ import {
   turnIdSchema,
 } from "./channel-values.ts";
 
-// 다른 앱 호출의 인증된 출처. 본문 주장은 받지 않는다(domain-model apps/connections).
+// 다른 앱 호출의 인증된 출처. 본문 주장은 받지 않는다.
 const appCallOriginSchema = z.strictObject({
   kind: z.literal("app"),
   app: appIdSchema,
@@ -40,7 +40,7 @@ const appCallOriginSchema = z.strictObject({
     { message: "path ends at the calling app" },
   );
 
-// 인증된 agent runtime 연결에서만 만든다(domain-model apps/invocations).
+// 인증된 agent runtime 연결에서만 만든다.
 const agentCallOriginSchema = z.strictObject({
   kind: z.literal("agent"),
   turn: turnIdSchema,
@@ -73,7 +73,7 @@ export const invocationCallerSchema = z.discriminatedUnion(
   invocationCallerBranches,
 );
 
-// 서명된 일시 값. 서명·TTL은 platform/identity가 정한다.
+// 서명된 일시 값. 서명·TTL은 core가 정한다.
 const confirmProofFields = {
   invocation: invocationIdSchema,
   process_nonce: processNonceSchema,
@@ -124,7 +124,7 @@ function connectionShape(value: {
   );
 }
 
-// core가 서명하는 제한 credential. live는 release가 필수다(domain-model apps/runtime).
+// core가 서명하는 제한 credential. live는 release가 필수다.
 const appConnectionSchema = z.object(connectionFields).refine(
   connectionShape,
   { message: "connection does not match its mode, screens, or caller" },

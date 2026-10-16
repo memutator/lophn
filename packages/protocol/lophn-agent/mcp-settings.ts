@@ -294,7 +294,7 @@ export const mcpAuthCancel = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-// 발급자(token endpoint) 호출을 agent runtime이 대신 보낸다(architecture: OAuth network는 runtime의 몫이고 core
+// 발급자(token endpoint) 호출을 agent runtime이 대신 보낸다(OAuth network는 runtime의 몫이고 core
 // module graph에는 외부 fetch가 없다). core는 token 교환·갱신 요청을 작업 메모리 대기열에 놓고, runtime이 이 입구로
 // 가져가 `--allow-net`이 허락한 발급자에게 보낸 뒤 받은 응답을 돌려준다. machine 자격만 부르고(actors), 요청과
 // 응답 본문에는 code·verifier·refresh token·새 token이 들어 있어 loopback 밖으로 나가지 않으며 어디에도 남기지

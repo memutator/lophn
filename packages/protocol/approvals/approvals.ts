@@ -6,7 +6,7 @@ import { jsonObjectSchema } from "../base/json-values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 
-// concern id는 최상위 또는 최상위/leaf다(domain-model platform/approvals).
+// concern id는 최상위 또는 최상위/leaf다.
 const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
 
 // command 이름은 소유 concern이 등록한 command route의 이름 그대로다(`document.rename`,
@@ -46,10 +46,10 @@ export type ApprovalAction = z.infer<typeof approvalActionSchema>;
 
 // 설명 글(이유·변경·외부 영향·되돌림)은 요청에 값으로 싣는다. 호출자는 hash를 만들지도
 // blob을 준비하지도 않는다: core가 redaction을 거친 글을 UTF-8 bytes로 blob으로 준비하고
-// command가 같은 transaction에서 영구 참조를 등록한다(platform/approvals, 메시지 본문·질문
+// command가 같은 transaction에서 영구 참조를 등록한다(메시지 본문·질문
 // 글과 같은 길). ledger에는 그 blob의 hash만 남고, 글은 ReadApprovalText가 돌려준다.
 
-// 글 하나의 상한(UTF-8 bytes). 요청 전체는 platform/api의 RPC JSON 상한 안이어야 한다.
+// 글 하나의 상한(UTF-8 bytes). 요청 전체는 RPC JSON 상한 안이어야 한다.
 const APPROVAL_TEXT_MAX_BYTES = 32768;
 // 글 blob 준비·참조의 이름. 준비 주체는 보낸 쪽의 자격이고 참조는 permanent다.
 
@@ -84,7 +84,7 @@ const approvalEffectSchema = z.strictObject({
 });
 
 // binding_hash는 concern·command·caller·targets·input_hash·comparison 전체의 지문이다.
-// 표시용 redacted 입력의 hash가 아니다(domain-model platform/approvals ApprovalAction).
+// 표시용 redacted 입력의 hash가 아니다.
 
 const APPROVAL_STATUSES = [
   "pending",

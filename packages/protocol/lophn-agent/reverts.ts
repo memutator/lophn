@@ -16,7 +16,7 @@ import {
   rewindOutcomeSchema,
 } from "./session-rewinds.ts";
 
-// session rewind의 나머지 contract다(lophn-agent/revert). Rewind와 PreviewRewind는
+// session rewind의 나머지 contract다. Rewind와 PreviewRewind는
 // `session-rewinds.ts`에 있다. 여기에는 file tool의 쓰기 기록, 설치 정정, 앱 rewind 요청 기록,
 // "Summarize from here" 요청, 읽기(checkpoint 목록, rewind 목록)와 event가 있다. 단위는 session
 // 안 turn을 시작한 입력(Checkpoint)이고, 파일은 RewindFile pre-image로 되돌린다. 앱 data는 되돌리지

@@ -24,8 +24,7 @@ import {
   packageVersionSchema,
 } from "./packages.ts";
 
-// package.register_version 입력. 검증된 설치 결과의 hash만 받는다
-// (domain-model apps/sdk command 표).
+// package.register_version 입력. 검증된 설치 결과의 hash만 받는다.
 const packageRegisterVersionInputSchema = z.strictObject({
   name: packageNameSchema,
   description: z.string().regex(/\S/).refine(
@@ -46,13 +45,13 @@ export type PackageRegisterVersionInput = z.infer<
   typeof packageRegisterVersionInputSchema
 >;
 
-// Package id는 등록 결과다. 입력에 없다(domain-model apps/sdk Package 표).
+// Package id는 등록 결과다. 입력에 없다.
 export const packageRegisterVersionOutputSchema = z.object({
   package: packageSchema,
   version: packageVersionSchema,
 });
 
-// Package kind 불변·공개 판 불변은 handler가 검사한다(domain-model apps/sdk).
+// Package kind 불변·공개 판 불변은 handler가 검사한다.
 export const packageRegisterVersion = defineCommand({
   resource: "packages",
   method: "register_version",
@@ -152,7 +151,7 @@ const packagesGuideInputSchema = z.strictObject({
   name: packageNameSchema,
   version: packageVersionNameSchema,
 });
-// 안내 원문은 blob store의 guide_hash 대상이다(→ platform/blob의 blobs/read).
+// 안내 원문은 blob store의 guide_hash 대상이다(blobs/read로 읽는다).
 const packagesGuideOutputSchema = withReadCommon(z.object({
   name: packageNameSchema,
   version: packageVersionNameSchema,

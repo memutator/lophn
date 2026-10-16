@@ -4,13 +4,13 @@
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type DataJobInput,
-  decodeDataJobInput,
-  encodeDataJobOutput,
+  type ActivationDataJobInput,
+  type ActivationDataResult,
+  decodeActivationDataJobInput,
+  encodeActivationDataJobOutput,
 } from "../../../../protocol/apps/mod.ts";
-import type { DataResult } from "../../../../protocol/apps/mod.ts";
 import { migrationFlags } from "../../permissions/mod.ts";
-import { createAppBackup } from "./backup.ts";
+import { createAppBackup, retainAppBackups } from "./backup.ts";
 import { databaseHash, openAppDatabase } from "./db.ts";
 import { acquireDataLock } from "./lock.ts";
 import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
@@ -92,7 +92,7 @@ export function migrationChildFlags(
   return ok(flags.value.args);
 }
 
-type JobOutcome = { result: DataResult; backup_hash?: string };
+type JobOutcome = { result: ActivationDataResult; backup_hash?: string };
 
 const HASH_PREFIX = "sha256:";
 
@@ -102,9 +102,9 @@ function plainHash(hash: string): string {
 
 async function runBackup(
   ctx: DataJobContext,
-  input: DataJobInput,
+  input: ActivationDataJobInput,
 ): Promise<Result<JobOutcome, DataJobFailure>> {
-  const name = `backup-${input.activation_seq}`;
+  const name = `backup-${input.attempt}`;
   const created = await createAppBackup(
     ctx.dataArea,
     ctx.databasePath,
@@ -113,11 +113,13 @@ async function runBackup(
   if (!created.ok) {
     return err({ code: "unavailable", message: "backup failed" });
   }
+  // 복구본은 앱마다 가장 최근 하나다. 이전 시도의 파일은 지운다.
+  await retainAppBackups(ctx.dataArea, { protectedNames: [name] });
   // 보호 blob이 될 byte의 hash다. 이 hash의 byte만 나중에 복원된다.
   return ok({
     result: {
       release: input.release,
-      activation_seq: input.activation_seq,
+      attempt: input.attempt,
       invocation: null,
       data_schema: created.value.verified.state.dataSchema,
       integrity_ok: true,
@@ -129,7 +131,7 @@ async function runBackup(
 // 실제 schema와 무결성만 확인한다. 데이터는 바꾸지 않는다.
 function runInspect(
   ctx: DataJobContext,
-  input: DataJobInput,
+  input: ActivationDataJobInput,
 ): Result<JobOutcome, DataJobFailure> {
   const opened = openAppDatabase(ctx.databasePath);
   if (!opened.ok) {
@@ -144,7 +146,7 @@ function runInspect(
     return ok({
       result: {
         release: input.release,
-        activation_seq: input.activation_seq,
+        attempt: input.attempt,
         invocation: null,
         data_schema: db.schemaState().dataSchema,
         integrity_ok: integrity,
@@ -157,7 +159,7 @@ function runInspect(
 
 async function runMigrate(
   ctx: DataJobContext,
-  input: DataJobInput,
+  input: ActivationDataJobInput,
 ): Promise<Result<JobOutcome, DataJobFailure>> {
   if (
     ctx.scripts === undefined || ctx.appliedAt === undefined ||
@@ -167,7 +169,7 @@ async function runMigrate(
   }
   const backup = await resolveInside(
     ctx.dataArea,
-    `backups/backup-${input.activation_seq}`,
+    `backups/backup-${input.attempt}`,
   );
   if (!backup.ok) return backup;
   const migrated = await migrateAppDatabase({
@@ -179,7 +181,7 @@ async function runMigrate(
     appliedAt: ctx.appliedAt,
     result: {
       release: input.release,
-      activation_seq: input.activation_seq,
+      attempt: input.attempt,
       invocation: ctx.invocation ?? null,
     },
   });
@@ -191,14 +193,14 @@ async function runMigrate(
 
 async function runRestore(
   ctx: DataJobContext,
-  input: DataJobInput,
+  input: ActivationDataJobInput,
 ): Promise<Result<JobOutcome, DataJobFailure>> {
   if (input.backup_hash === undefined) {
     return invalid("restore needs a backup");
   }
   const backup = await resolveInside(
     ctx.dataArea,
-    `backups/backup-${input.activation_seq}`,
+    `backups/backup-${input.attempt}`,
   );
   if (!backup.ok) return backup;
   // 복원은 ledger가 확정하고 보호 blob으로 보존한 그 byte만 쓴다. 영역의 파일이 그 hash와 다르면
@@ -221,7 +223,7 @@ async function runRestore(
   return ok({
     result: {
       release: input.release,
-      activation_seq: input.activation_seq,
+      attempt: input.attempt,
       invocation: ctx.invocation ?? null,
       data_schema: restored.value.verified.state.dataSchema,
       integrity_ok: true,
@@ -234,9 +236,9 @@ export async function runDataJob(
   ctx: DataJobContext,
   line: string,
 ): Promise<Result<string, DataJobFailure>> {
-  let input: DataJobInput;
+  let input: ActivationDataJobInput;
   try {
-    input = decodeDataJobInput(line);
+    input = decodeActivationDataJobInput(line);
   } catch {
     return invalid("data job input is invalid");
   }
@@ -267,7 +269,7 @@ export async function runDataJob(
     if (!outcome.value.result.integrity_ok) {
       return err({ code: "unavailable", message: "integrity check failed" });
     }
-    return ok(encodeDataJobOutput(outcome.value));
+    return ok(encodeActivationDataJobOutput(outcome.value));
   } finally {
     await locked.value.release();
   }

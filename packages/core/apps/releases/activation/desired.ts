@@ -9,6 +9,7 @@ import {
   bundleManifestSchema,
   type DataChange,
   dataChangeSchema,
+  lossOfStepSql,
 } from "../../../../protocol/apps/mod.ts";
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import {
@@ -58,7 +59,8 @@ export function dataSchemaOf(manifest: BundleManifest): number {
 
 // release.prepare의 data_changes다. 사본의 `migrations/<from>-<to>.sql`마다 한 단계이고
 // script_hash는 그 파일 byte의 sha256이다. data worker가 같은 파일을 같은 hash로 확인한다
-// (`scriptFromBundle`). 설명은 파일 앞의 `--` 주석 줄이고 없으면 schema 번호 이동이다.
+// (`scriptFromBundle`). 설명은 파일 앞의 `--` 주석 줄이고 없으면 schema 번호 이동이다. 손실은 파일 머리의
+// `-- loss:` 줄이 유일한 출처이고 줄이 틀리면 invalid_input이라 release 준비가 거절된다.
 export async function dataChangesOf(
   parts: Pick<BundleParts, "root" | "manifest">,
 ): Promise<Result<DataChange[]>> {
@@ -74,17 +76,22 @@ export async function dataChangesOf(
     }
     const from = Number(match[1]);
     const to = Number(match[2]);
+    const loss = lossOfStepSql(text);
+    if (!loss.ok) return loss;
     const described = text.split("\n").map((line) => line.trim()).filter(
       (line) => line.length > 0,
     ).filter((line, index, lines) =>
       line.startsWith("--") &&
       lines.slice(0, index).every((before) => before.startsWith("--"))
-    ).map((line) => line.replace(/^--\s*/, "")).join(" ");
+    ).map((line) => line.replace(/^--\s*/, "")).filter((line) =>
+      !line.startsWith("loss:")
+    ).join(" ");
     const change = dataChangeSchema.safeParse({
       from,
       to,
       script_hash: await sha256Hex(text),
       description: described.length > 0 ? described : `schema ${from} to ${to}`,
+      loss: loss.value,
     });
     if (!change.success) return unavailable("migration step is invalid");
     changes.push(change.data);

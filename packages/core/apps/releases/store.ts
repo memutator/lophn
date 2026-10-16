@@ -1,5 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { type Release, releaseSchema } from "../../../protocol/apps/mod.ts";
+import {
+  type ReleaseRecord,
+  releaseRecordSchema,
+} from "../../../protocol/apps/mod.ts";
 import type { ProblemWordingFact } from "../../../protocol/problems/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
@@ -7,6 +10,7 @@ import type {
   AppDeclarations,
   CurrentDeclarations,
 } from "../permissions/mod.ts";
+import { permissionLabel } from "./facts.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -26,10 +30,13 @@ function testsOf(sql: Query, release: string): string[] {
   ).map((row) => String(row.verification));
 }
 
-export function releaseFromRow(sql: Query, row: SqlRow): Result<Release> {
+export function releaseFromRow(
+  sql: Query,
+  row: SqlRow,
+): Result<ReleaseRecord> {
   let parsed;
   try {
-    parsed = releaseSchema.safeParse({
+    parsed = releaseRecordSchema.safeParse({
       id: row.id,
       app: row.app,
       number: Number(row.number),
@@ -44,6 +51,7 @@ export function releaseFromRow(sql: Query, row: SqlRow): Result<Release> {
       created_at: row.created_at,
       status: row.status,
       activation: parseJson(row.activation),
+      activated_at: row.activated_at ?? null,
       failure: parseJson(row.failure),
     });
   } catch {
@@ -52,7 +60,10 @@ export function releaseFromRow(sql: Query, row: SqlRow): Result<Release> {
   return parsed.success ? ok(parsed.data) : invalidStored();
 }
 
-export function loadRelease(sql: Query, id: string): Result<Release | null> {
+export function loadRelease(
+  sql: Query,
+  id: string,
+): Result<ReleaseRecord | null> {
   const row = sql.get("SELECT * FROM releases WHERE id = ?", [id]);
   if (row === undefined) return ok(null);
   return releaseFromRow(sql, row);
@@ -62,7 +73,7 @@ export function loadRelease(sql: Query, id: string): Result<Release | null> {
 export function loadReleases(
   sql: Query,
   filter: { app?: string; status?: string },
-): Result<Release[]> {
+): Result<ReleaseRecord[]> {
   const where: string[] = [];
   const params: string[] = [];
   if (filter.app !== undefined) {
@@ -79,7 +90,7 @@ export function loadReleases(
     } ORDER BY app, number`,
     params,
   );
-  const releases: Release[] = [];
+  const releases: ReleaseRecord[] = [];
   for (const row of rows) {
     const release = releaseFromRow(sql, row);
     if (!release.ok) return release;
@@ -92,7 +103,7 @@ export function loadReleases(
 export function loadActiveRelease(
   sql: Query,
   app: string,
-): Result<Release | null> {
+): Result<ReleaseRecord | null> {
   const row = sql.get(
     "SELECT * FROM releases WHERE app = ? AND status = 'active'",
     [app],
@@ -102,7 +113,7 @@ export function loadActiveRelease(
 }
 
 export type StoredBlueprint = {
-  release: Release;
+  release: ReleaseRecord;
   blueprint: Blueprint;
   declarations: AppDeclarations;
 };
@@ -149,6 +160,75 @@ export function loadActiveBlueprint(
   return row === undefined ? ok(null) : storedOf(sql, row);
 }
 
+// ticket에 이은 release. 여럿이면 가장 새로 준비된 것(number가 가장 큰 것)이다.
+export function findReleaseForTicket(
+  sql: Query,
+  ticket: string,
+): Result<ReleaseRecord | null> {
+  const row = sql.get(
+    `SELECT * FROM releases WHERE json_extract(ticket_source, '$.ticket') = ?
+     ORDER BY number DESC LIMIT 1`,
+    [ticket],
+  );
+  return row === undefined ? ok(null) : releaseFromRow(sql, row);
+}
+
+export type ReleaseFactRow = {
+  id: string;
+  app: string;
+  number: number;
+  code_commit: string;
+  activated_at: ReleaseRecord["activated_at"];
+  // 그 release가 선언한 바깥 자원 이름이다.
+  resources: string[];
+};
+
+// problems의 `ReleaseLookup`을 구조로 맞춘다. module끼리 import하지 않으므로 조립이 끼운다.
+export function releaseLookupOf(sql: Query): {
+  get(id: string): Result<ReleaseFactRow | null>;
+  activeOf(app: string): Result<ReleaseFactRow | null>;
+  previousOf(id: string): Result<ReleaseFactRow | null>;
+} {
+  function factOf(row: SqlRow | undefined): Result<ReleaseFactRow | null> {
+    if (row === undefined) return ok(null);
+    try {
+      const declarations = JSON.parse(String(row.declarations)) as {
+        permissions: Blueprint["permissions"];
+      };
+      return ok({
+        id: String(row.id),
+        app: String(row.app),
+        number: Number(row.number),
+        code_commit: String(row.code_commit),
+        activated_at:
+          row.activated_at === null || row.activated_at === undefined
+            ? null
+            : String(row.activated_at),
+        resources: [...new Set(declarations.permissions.map(permissionLabel))]
+          .sort(),
+      });
+    } catch {
+      return invalidStored();
+    }
+  }
+  return {
+    get: (id) => factOf(sql.get("SELECT * FROM releases WHERE id = ?", [id])),
+    activeOf: (app) =>
+      factOf(
+        sql.get("SELECT * FROM releases WHERE app = ? AND status = 'active'", [
+          app,
+        ]),
+      ),
+    previousOf: (id) =>
+      factOf(sql.get(
+        `SELECT prev.* FROM releases prev
+          JOIN releases cur ON cur.id = ? AND prev.app = cur.app
+         WHERE prev.number < cur.number ORDER BY prev.number DESC LIMIT 1`,
+        [id],
+      )),
+  };
+}
+
 export function nextReleaseNumber(sql: Query, app: string): number {
   const row = sql.get(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM releases WHERE app = ?",
@@ -159,7 +239,7 @@ export function nextReleaseNumber(sql: Query, app: string): number {
 
 export function insertRelease(
   tx: Pick<Tx, "sql">,
-  release: Release,
+  release: ReleaseRecord,
   canonicalBlueprint: string,
   declarations: AppDeclarations,
 ): void {
@@ -178,9 +258,7 @@ export function insertRelease(
       release.blueprint_hash,
       release.data_schema,
       JSON.stringify(release.data_changes),
-      release.ticket_source === null
-        ? null
-        : JSON.stringify(release.ticket_source),
+      JSON.stringify(release.ticket_source),
       release.created_by,
       release.created_at,
       release.status,

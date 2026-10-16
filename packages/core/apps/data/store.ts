@@ -4,8 +4,9 @@ import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { DataRecord, DataRecordStore } from "./commands.ts";
 
 type RecordRow = {
+  app: string;
   release: string;
-  activation_seq: string;
+  attempt: string;
   kind: DataRecord["kind"];
   data_schema: number | bigint;
   backup_hash: string | null;
@@ -16,8 +17,9 @@ type RecordRow = {
 function recordOf(row: RecordRow): DataRecord {
   return {
     kind: row.kind,
+    app: row.app,
     release: row.release,
-    activationSeq: row.activation_seq,
+    attempt: row.attempt,
     dataSchema: Number(row.data_schema),
     backupHash: row.backup_hash,
     invocation: row.invocation,
@@ -27,25 +29,26 @@ function recordOf(row: RecordRow): DataRecord {
 
 export function createDataRecordStore(tx: Pick<Tx, "sql">): DataRecordStore {
   return {
-    find(release, activationSeq, kind) {
+    find(release, attempt, kind) {
       const row = tx.sql.get(
-        `select release, activation_seq, kind, data_schema, backup_hash,
+        `select app, release, attempt, kind, data_schema, backup_hash,
                 invocation, integrity_ok
            from app_data_records
-          where release = ? and activation_seq = ? and kind = ?`,
-        [release, activationSeq, kind],
+          where release = ? and attempt = ? and kind = ?`,
+        [release, attempt, kind],
       ) as RecordRow | undefined;
       return row === undefined ? null : recordOf(row);
     },
     save(record) {
       tx.sql.run(
         `insert into app_data_records (
-           release, activation_seq, kind, data_schema, backup_hash,
+           app, release, attempt, kind, data_schema, backup_hash,
            invocation, integrity_ok
-         ) values (?, ?, ?, ?, ?, ?, ?)`,
+         ) values (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          record.app,
           record.release,
-          record.activationSeq,
+          record.attempt,
           record.kind,
           record.dataSchema,
           record.backupHash,
@@ -63,11 +66,11 @@ export function loadDataRecords(
   release: string,
 ): DataRecord[] {
   return (sql.all(
-    `select release, activation_seq, kind, data_schema, backup_hash,
+    `select app, release, attempt, kind, data_schema, backup_hash,
             invocation, integrity_ok
        from app_data_records
       where release = ?
-      order by activation_seq, kind`,
+      order by attempt, kind`,
     [release],
   ) as RecordRow[]).map(recordOf);
 }

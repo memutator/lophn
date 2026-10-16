@@ -83,14 +83,24 @@ export {
 // 않도록 이 파일들을 각각 import한다.
 export { releasesSchemaSteps } from "./schema.ts";
 export { checkPreparationClaim, createReleaseCommands } from "./commands.ts";
-export { createReleaseReads } from "./reads.ts";
-export { type ComparedRelease, compareReleases } from "./compare.ts";
+export {
+  type ActivationQueueSource,
+  createActivationQueueRead,
+  createReleaseReads,
+} from "./reads.ts";
+export {
+  asksFor,
+  type ComparedRelease,
+  compareForActivation,
+  compareReleases,
+} from "./compare.ts";
 export {
   canonicalInputHashSync,
   declarationsOfBlueprint,
   permissionLabel,
 } from "./facts.ts";
 export {
+  findReleaseForTicket,
   insertRelease,
   loadActiveBlueprint,
   loadActiveRelease,
@@ -98,6 +108,7 @@ export {
   loadReleases,
   loadStoredBlueprint,
   releaseDeclarations,
+  releaseLookupOf,
   releaseWording,
   type StoredBlueprint,
 } from "./store.ts";
@@ -112,10 +123,9 @@ export {
   rollback,
 } from "./activation/recovery.ts";
 export {
-  type ActivationFailure,
+  type ActivationIntake,
   type ActivationOutcome,
   type ActivationPorts,
-  type ActivationProblem,
   type Attempt,
   attemptOf,
   type BackupOutcome,

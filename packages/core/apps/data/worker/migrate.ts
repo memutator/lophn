@@ -4,7 +4,10 @@
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
-import type { DataChange, DataResult } from "../../../../protocol/apps/mod.ts";
+import type {
+  ActivationDataResult,
+  DataChange,
+} from "../../../../protocol/apps/mod.ts";
 import { openAppDatabase } from "./db.ts";
 import { migrationPath } from "./schema.ts";
 import { restoreAppBackup } from "./restore.ts";
@@ -25,11 +28,11 @@ export type MigrateInput = {
   targetSchema: number;
   scripts: readonly MigrationScript[];
   appliedAt: string;
-  result: Pick<DataResult, "release" | "activation_seq" | "invocation">;
+  result: Pick<ActivationDataResult, "release" | "attempt" | "invocation">;
 };
 
 export type MigrateOutcome = {
-  result: DataResult;
+  result: ActivationDataResult;
   // 중간 실패로 첫 변경 전 backup을 복원했으면 true.
   restored: boolean;
 };

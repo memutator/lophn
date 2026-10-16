@@ -2,7 +2,7 @@
 // 정본은 release에 고정한 blueprint이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Release } from "../../../protocol/apps/mod.ts";
+import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
   type AppAppApi,
   appAppApi,
@@ -16,7 +16,7 @@ import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
 export type ActiveBlueprint = {
-  release: Release;
+  release: ReleaseRecord;
   blueprint: Blueprint;
 };
 

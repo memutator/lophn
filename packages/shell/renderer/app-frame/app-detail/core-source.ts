@@ -123,14 +123,35 @@ const short = (commit: string) => commit.slice(0, 7);
 
 // ---- Version ----
 
-/** activation 단계는 읽을 계약이 없어 모두 대기로 둔다. */
-const UNKNOWN_STEPS: readonly ActivationStep[] = [
-  { key: "hold", state: "wait", count: null },
-  { key: "drain", state: "wait", count: null },
-  { key: "stop", state: "wait", count: null },
-  { key: "migrate", state: "wait", count: null },
-  { key: "start", state: "wait", count: null },
+const STEP_ORDER: readonly ActivationStep["key"][] = [
+  "hold",
+  "drain",
+  "stop",
+  "migrate",
+  "start",
 ];
+
+/** 줄 항목이 알려 주는 지금 단계까지는 끝, 그 단계는 하는 중, 나머지는 대기다. */
+function stepsOf(entry: ActivationQueueEntry | undefined): ActivationStep[] {
+  const at = entry?.step == null ? -1 : STEP_ORDER.indexOf(entry.step);
+  return STEP_ORDER.map((key, index) => ({
+    key,
+    state: at < 0
+      ? "wait"
+      : index < at
+      ? "done"
+      : index === at
+      ? "now"
+      : "wait",
+    count: entry === undefined
+      ? null
+      : key === "hold"
+      ? (entry.held_calls > 0 ? entry.held_calls : null)
+      : key === "migrate"
+      ? (entry.migration_steps > 0 ? entry.migration_steps : null)
+      : null,
+  }));
+}
 
 function versionView(
   releases: readonly ReleaseRecord[],
@@ -167,7 +188,7 @@ function versionView(
       id: activating.id,
       number: activating.number,
       phase: entry?.phase ?? "running",
-      steps: UNKNOWN_STEPS,
+      steps: stepsOf(entry),
     },
     failed: activating !== undefined || failed === undefined ? null : {
       id: failed.id,

@@ -4,13 +4,10 @@
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type DataResult,
-  releaseBackupRecorded,
-  releaseDataChanged,
-  releaseDataRestored,
-  releaseRecordBackup,
-  releaseRecordDataChange,
-  releaseRecordDataRestore,
+  type ActivationDataResult,
+  activationRecordBackup,
+  activationRecordDataChange,
+  activationRecordDataRestore,
 } from "../../../protocol/apps/mod.ts";
 import {
   BACKUP_BLOB_FIELD_NAME,
@@ -18,6 +15,7 @@ import {
   BACKUP_BLOB_PURPOSE,
   backupBlobOwnerKey,
 } from "./blobs.ts";
+import { discardBackups } from "./discard.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -26,8 +24,9 @@ import type {
 
 export type DataRecord = {
   kind: "backup" | "change" | "restore";
+  app: string;
   release: string;
-  activationSeq: string;
+  attempt: string;
   dataSchema: number;
   // backup·restore만 보호 backup 참조를 가진다.
   backupHash: string | null;
@@ -39,24 +38,24 @@ export type DataRecordStore = {
   // 진행 중 시도의 기존 기록. 같은 시도의 재기록은 conflict다.
   find(
     release: string,
-    activationSeq: string,
+    attempt: string,
     kind: DataRecord["kind"],
   ): DataRecord | null;
   save(record: DataRecord): void;
 };
 
 // 진행 중인 activation 시도인지 확인하고 확정한 참조를 그 시도에 남기는 자리다. releases가 낸다(apps/releases).
-// 시도가 아니거나 비교 기준이 다르면 conflict다.
+// 시도가 아니거나 비교 기준이 다르면 conflict다. 통과하면 그 release의 앱을 돌려준다.
 export type AttemptGate = {
   check(
     tx: Tx,
     attempt: {
       kind: DataRecord["kind"];
       release: string;
-      activationSeq: string;
+      attempt: string;
       dataSchema: number;
     },
-  ): Result<void>;
+  ): Result<{ app: string }>;
   record(
     tx: Tx,
     attempt: {
@@ -84,7 +83,7 @@ function requireMachine(ctx: RequestContext): Result<void> {
 }
 
 // 성공 제출은 실제 무결성 확인을 동반해야 한다.
-function requireIntegrity(result: DataResult): Result<void> {
+function requireIntegrity(result: ActivationDataResult): Result<void> {
   return result.integrity_ok
     ? ok(undefined)
     : invalid("data result without integrity is not a success");
@@ -92,33 +91,37 @@ function requireIntegrity(result: DataResult): Result<void> {
 
 const ACCEPTED = { accepted: true as const };
 
+function headSeq(tx: Tx): string {
+  const row = tx.sql.get(
+    "SELECT COALESCE(MAX(seq), 0) AS head FROM events",
+    [],
+  );
+  return String(row?.head ?? 0);
+}
+
 export function createDataCommands(
   records: (tx: Tx) => DataRecordStore,
-  gate?: AttemptGate,
+  gate: AttemptGate,
 ): {
-  recordBackup: CommandDefinition<typeof releaseRecordBackup>;
-  recordDataChange: CommandDefinition<typeof releaseRecordDataChange>;
-  recordDataRestore: CommandDefinition<typeof releaseRecordDataRestore>;
+  recordBackup: CommandDefinition<typeof activationRecordBackup>;
+  recordDataChange: CommandDefinition<typeof activationRecordDataChange>;
+  recordDataRestore: CommandDefinition<typeof activationRecordDataRestore>;
 } {
   return {
     recordBackup: {
-      route: releaseRecordBackup,
+      route: activationRecordBackup,
       handle(tx, ctx, input, _compare) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
         const store = records(tx);
-        const gated = gate?.check(tx, {
+        const gated = gate.check(tx, {
           kind: "backup",
           release: input.release,
-          activationSeq: input.activation_seq,
+          attempt: input.attempt,
           dataSchema: input.data_schema,
         });
-        if (gated !== undefined && !gated.ok) return gated;
-        const existing = store.find(
-          input.release,
-          input.activation_seq,
-          "backup",
-        );
+        if (!gated.ok) return gated;
+        const existing = store.find(input.release, input.attempt, "backup");
         if (existing !== null) return conflict("backup is already recorded");
         // ledger에는 실제로 보존한 byte의 hash만 둔다. 보존하지 않은 blob의 hash를 주장할 수 없다.
         if (
@@ -127,33 +130,31 @@ export function createDataCommands(
         ) {
           return invalid("backup hash is not the preserved backup blob");
         }
-        const record: DataRecord = {
+        // 앱마다 복구본은 가장 최근 하나다. 이전 시도의 복구본 참조를 먼저 지운다.
+        const replaced = discardBackups(tx, gated.value.app);
+        if (!replaced.ok) return replaced;
+        store.save({
           kind: "backup",
+          app: gated.value.app,
           release: input.release,
-          activationSeq: input.activation_seq,
+          attempt: input.attempt,
           dataSchema: input.data_schema,
           backupHash: input.backup_hash,
           invocation: null,
           integrityOk: true,
-        };
-        store.save(record);
-        gate?.record(tx, {
+        });
+        gate.record(tx, {
           kind: "backup",
           release: input.release,
           backupHash: input.backup_hash,
           invocation: null,
         });
-        const seq = tx.emit(releaseBackupRecorded, input.release, {
-          activation_seq: input.activation_seq,
-          backup_hash: input.backup_hash,
-          data_schema: input.data_schema,
-        });
         // 보호 blob 참조는 일반 읽기가 없는 field로 같은 transaction에서 등록한다. 실패하면 기록도 없다.
         const registered = tx.registerBlobRef({
           owner_kind: BACKUP_BLOB_OWNER_KIND,
-          owner_key: backupBlobOwnerKey(input.release, input.activation_seq),
+          owner_key: backupBlobOwnerKey(input.release, input.attempt),
           field: BACKUP_BLOB_FIELD_NAME,
-          registered_seq: seq,
+          registered_seq: headSeq(tx),
           source: { kind: "prepared", blob: { ...input.blob } },
         });
         if (!registered.ok) {
@@ -171,112 +172,90 @@ export function createDataCommands(
       },
     },
     recordDataChange: {
-      route: releaseRecordDataChange,
+      route: activationRecordDataChange,
       handle(tx, ctx, input, _compare) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
         const store = records(tx);
-        const integrity = requireIntegrity(input.result);
+        const { result } = input;
+        const integrity = requireIntegrity(result);
         if (!integrity.ok) return integrity;
-        if (input.result.invocation === null) {
+        if (result.invocation === null) {
           return invalid("data change result needs an invocation");
         }
-        const gated = gate?.check(tx, {
+        const gated = gate.check(tx, {
           kind: "change",
-          release: input.result.release,
-          activationSeq: input.result.activation_seq,
-          dataSchema: input.result.data_schema,
+          release: result.release,
+          attempt: result.attempt,
+          dataSchema: result.data_schema,
         });
-        if (gated !== undefined && !gated.ok) return gated;
-        const backup = store.find(
-          input.result.release,
-          input.result.activation_seq,
-          "backup",
-        );
+        if (!gated.ok) return gated;
+        const backup = store.find(result.release, result.attempt, "backup");
         if (backup === null) {
           return conflict("data change needs a recorded backup");
         }
-        const existing = store.find(
-          input.result.release,
-          input.result.activation_seq,
-          "change",
-        );
+        const existing = store.find(result.release, result.attempt, "change");
         if (existing !== null) {
           return conflict("data change is already recorded");
         }
         store.save({
           kind: "change",
-          release: input.result.release,
-          activationSeq: input.result.activation_seq,
-          dataSchema: input.result.data_schema,
+          app: gated.value.app,
+          release: result.release,
+          attempt: result.attempt,
+          dataSchema: result.data_schema,
           backupHash: backup.backupHash,
-          invocation: input.result.invocation,
+          invocation: result.invocation,
           integrityOk: true,
         });
-        gate?.record(tx, {
+        gate.record(tx, {
           kind: "change",
-          release: input.result.release,
+          release: result.release,
           backupHash: backup.backupHash,
-          invocation: input.result.invocation,
-        });
-        tx.emit(releaseDataChanged, input.result.release, {
-          activation_seq: input.result.activation_seq,
-          invocation: input.result.invocation,
-          data_schema: input.result.data_schema,
-          integrity_ok: true,
+          invocation: result.invocation,
         });
         return ok(ACCEPTED);
       },
     },
     recordDataRestore: {
-      route: releaseRecordDataRestore,
+      route: activationRecordDataRestore,
       handle(tx, ctx, input, _compare) {
         const machine = requireMachine(ctx);
         if (!machine.ok) return machine;
         const store = records(tx);
-        const integrity = requireIntegrity(input.result);
+        const { result } = input;
+        const integrity = requireIntegrity(result);
         if (!integrity.ok) return integrity;
-        const gated = gate?.check(tx, {
+        const gated = gate.check(tx, {
           kind: "restore",
-          release: input.result.release,
-          activationSeq: input.result.activation_seq,
-          dataSchema: input.result.data_schema,
+          release: result.release,
+          attempt: result.attempt,
+          dataSchema: result.data_schema,
         });
-        if (gated !== undefined && !gated.ok) return gated;
-        const backup = store.find(
-          input.result.release,
-          input.result.activation_seq,
-          "backup",
-        );
+        if (!gated.ok) return gated;
+        const backup = store.find(result.release, result.attempt, "backup");
         if (backup === null || backup.backupHash !== input.backup_hash) {
           return conflict("restore backup does not match the recorded backup");
         }
+        if (backup.dataSchema !== result.data_schema) {
+          return conflict("the restored data is not at the backed up schema");
+        }
         // 같은 시도의 같은 복원 보고는 응답을 잃은 재전송이다. 새 사실을 만들지 않는다.
-        const restored = store.find(
-          input.result.release,
-          input.result.activation_seq,
-          "restore",
-        );
+        const restored = store.find(result.release, result.attempt, "restore");
         if (restored !== null) {
-          return restored.dataSchema === input.result.data_schema
+          return restored.dataSchema === result.data_schema
             ? ok(ACCEPTED)
             : conflict("restore is already recorded with another schema");
         }
         store.save({
           kind: "restore",
-          release: input.result.release,
-          activationSeq: input.result.activation_seq,
-          dataSchema: input.result.data_schema,
+          app: gated.value.app,
+          release: result.release,
+          attempt: result.attempt,
+          dataSchema: result.data_schema,
           backupHash: input.backup_hash,
-          invocation: input.result.invocation,
+          invocation: result.invocation,
           integrityOk: true,
-        });
-        tx.emit(releaseDataRestored, input.result.release, {
-          activation_seq: input.result.activation_seq,
-          invocation: input.result.invocation,
-          backup_hash: input.backup_hash,
-          data_schema: input.result.data_schema,
-          integrity_ok: true,
         });
         return ok(ACCEPTED);
       },

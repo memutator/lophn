@@ -135,11 +135,28 @@ export const ACTIVATION_PHASES = [
 export const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
 export type ActivationPhase = z.infer<typeof activationPhaseSchema>;
 
+// running일 때 지금 하는 단계다: 새 호출 멈춤, 도는 호출 기다림, 이전 process 종료, migration, 시작 확인.
+export const ACTIVATION_STEPS = [
+  "hold",
+  "drain",
+  "stop",
+  "migrate",
+  "start",
+] as const;
+export const activationStepSchema = z.enum(ACTIVATION_STEPS);
+export type ActivationStep = z.infer<typeof activationStepSchema>;
+
 export const activationQueueEntrySchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema,
   phase: activationPhaseSchema,
   approval: approvalIdSchema.nullable(),
+  // running이 아니면 null이다.
+  step: activationStepSchema.nullable(),
+  // 새 호출 접수를 닫은 동안 붙잡은 호출 수.
+  held_calls: z.number().int().nonnegative().max(MAX),
+  // 적용할 migration 단계 수. 모르면 0이다.
+  migration_steps: z.number().int().nonnegative().max(MAX),
 });
 export type ActivationQueueEntry = z.infer<typeof activationQueueEntrySchema>;
 

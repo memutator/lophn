@@ -5,6 +5,10 @@ import { backup, DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import {
+  MIGRATION_PRIMARY_KEY_REQUIRED,
+  tablesWithoutPrimaryKey,
+} from "../../../../protocol/apps/mod.ts";
+import {
   APP_SCHEMA_SQL,
   APP_SCHEMA_TABLE,
   INITIAL_SCHEMA,
@@ -19,7 +23,8 @@ export type AppDatabase = {
   integrityOk(): boolean;
   // SQLite backup API로 WAL까지 포함한 일관된 복사본을 만든다.
   backupTo(destination: string): Promise<Result<void>>;
-  // 단계의 데이터 변경과 schema 번호 갱신을 한 transaction으로 확정한다.
+  // 단계의 데이터 변경과 schema 번호 갱신을 한 transaction으로 확정한다. 단계가 만든 표에 PRIMARY KEY가
+  // 없으면 rewind(changeset)가 그 표를 기록하지 못하므로 단계 전체를 되돌리고 실패한다.
   applyStep(
     sql: string,
     next: { dataSchema: number; scriptHash: string; appliedAt: string },
@@ -30,6 +35,21 @@ export type AppDatabase = {
 
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
+}
+
+function tableNames(db: DatabaseSync): Set<string> {
+  return new Set(
+    db.prepare(
+      "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'",
+    ).all().map((row) => String(row["name"])),
+  );
+}
+
+function primaryKeyColumns(db: DatabaseSync, table: string): number {
+  const quoted = `"${table.replaceAll('"', '""')}"`;
+  return db.prepare(`pragma table_info(${quoted})`).all().filter((column) =>
+    Number(column["pk"]) > 0
+  ).length;
 }
 
 export function openAppDatabase(path: string): Result<AppDatabase> {
@@ -77,7 +97,23 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
     applyStep(sql, next) {
       db.exec("begin immediate");
       try {
+        const before = tableNames(db);
         db.exec(sql);
+        const missing = tablesWithoutPrimaryKey(
+          [...tableNames(db)].filter((name) => !before.has(name)).map((
+            name,
+          ) => ({
+            name,
+            primary_key_columns: primaryKeyColumns(db, name),
+          })),
+        );
+        if (missing.length > 0) {
+          db.exec("rollback");
+          return err({
+            code: "invalid_input",
+            message: `${MIGRATION_PRIMARY_KEY_REQUIRED}: ${missing.join(", ")}`,
+          });
+        }
         db.prepare(
           `insert into ${APP_SCHEMA_TABLE}
              (id, data_schema, last_result, script_hash, applied_at)

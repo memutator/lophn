@@ -10,7 +10,8 @@ export type {
 } from "./commands.ts";
 export { dataSchemaSteps } from "./schema.ts";
 export { createDataRecordStore, loadDataRecords } from "./store.ts";
-// 현재 schema에서 목표까지의 연속 경로 계산이다. IO가 없어 core가 start_activation에서 쓴다.
+export { discardBackups } from "./discard.ts";
+// 현재 schema에서 목표까지의 연속 경로 계산이다. IO가 없어 core가 activation 시작 검사에서 쓴다.
 export { migrationPath } from "./worker/schema.ts";
 export {
   BACKUP_BLOB_FIELD,

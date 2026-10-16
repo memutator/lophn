@@ -1,66 +1,69 @@
 // activation 단계의 port와 한 단계씩의 일. 이 모듈은 supervisor·
-// data worker·core command를 직접 부르지 않고 port로만 부른다. 조립(apps/app-supervisor)이 실제 구현을
+// data worker·core command를 직접 부르지 않고 port로만 부른다. 조립(assembly.ts)이 실제 구현을
 // 끼우고 시험은 같은 port의 대역을 끼운다. port는 던지지 않고 Result를 낸다: 던지는 것은 부른 쪽 process가
 // 끊긴 것이라 이 모듈이 삼키지 않는다(끊긴 시도는 `recoverActivation`이 ledger와 실제 관측으로 잇는다).
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
+  ActivationDataResult,
+  ActivationFailure,
+  ActivationStep,
   DataChange,
-  DataResult,
   ReadyAttestation,
-  Release,
+  ReleaseRecord,
 } from "../../../../protocol/apps/mod.ts";
 
-// 한 activation 시도의 고정 입력이다. ReleaseActivationStarted가 확정한 값만 담는다.
+// 한 activation 시도의 고정 입력이다. `activation.start`가 확정한 값만 담는다.
 export type Attempt = {
   app: string;
   release: string;
-  startedSeq: string;
+  attempt: string;
   previousRelease: string | null;
-  expectedSchema: number;
   targetSchema: number;
   bundleHash: string;
   dataChanges: readonly DataChange[];
 };
 
-export function attemptOf(release: Release): Attempt | undefined {
+// 종료를 확인한 뒤 읽은 실제 DB의 schema를 출발점으로 가진 시도다. migration과 복구본의 기준이다.
+export type StartedAttempt = Attempt & { startSchema: number };
+
+export function attemptOf(release: ReleaseRecord): Attempt | undefined {
   if (release.status !== "activating" || release.activation === null) {
     return undefined;
   }
   return {
     app: release.app,
     release: release.id,
-    startedSeq: release.activation.started_seq,
+    attempt: release.activation.attempt,
     previousRelease: release.activation.previous_release,
-    expectedSchema: release.activation.expected_schema,
     targetSchema: release.data_schema,
     bundleHash: release.bundle_hash,
     dataChanges: release.data_changes,
   };
 }
 
-export function needsMigration(attempt: Attempt): boolean {
-  return attempt.targetSchema !== attempt.expectedSchema;
-}
-
-export type BackupOutcome = { result: DataResult; backup_hash: string };
+export type BackupOutcome = {
+  result: ActivationDataResult;
+  backup_hash: string;
+};
 
 export type Candidate = { attestation: ReadyAttestation; nonce: string };
 
-export type ActivationFailure = { code: string; summary: string };
+// 실패의 code와 summary. `restored`는 fail을 낼 때 정한다.
+export type FailureReason = Pick<ActivationFailure, "code" | "summary">;
 
-// 사람에게 알릴 문제다(problems/reporting). 복원 실패나 확인 불가처럼 앱을 사용할 수 없게 둔 이유다.
-export type ActivationProblem = {
-  app: string;
-  release: string;
-  started_seq: string;
-  code: string;
-  summary: string;
-};
+// 새 호출 접수를 닫은 동안의 drain. 닫힌 동안 온 호출은 붙잡아 두었다가 열 때 그때의 활성 release로 넘긴다.
+export interface ActivationIntake {
+  close(app: string): void;
+  whenIdle(app: string, graceMs: number): Promise<{ idle: boolean }>;
+  // 끝나지 않은 호출을 결과 모름으로 닫는다(유예 뒤 강제 정지).
+  abandon(app: string): Promise<void>;
+  open(app: string): void;
+}
 
 export interface ActivationPorts {
+  intake: ActivationIntake;
   supervisor: {
-    // 새 호출·automation clock을 닫고 의도된 종료로 표시한 뒤 이전 자식의 OS 종료를 확인한다. true만 확인이다.
-    // 자식이 없으면 곧바로 true다.
+    // 이전 자식의 OS 종료를 확인한다. true만 확인이다. 자식이 없으면 곧바로 true다.
     stopCurrent(app: string): Promise<boolean>;
     // 준비 중인 후보 자식의 종료를 확인한다. 후보가 없으면 true다.
     stopCandidate(app: string): Promise<boolean>;
@@ -72,42 +75,62 @@ export interface ActivationPorts {
     run(app: string, release: string): Promise<Result<void>>;
   };
   data: {
-    // 실제 앱 DB의 schema와 무결성이다. 종료를 확인한 뒤의 값이다.
+    // 종료를 확인한 뒤 실제 앱 DB의 schema와 무결성이다.
     inspect(
-      app: string,
+      attempt: Attempt,
     ): Promise<Result<{ data_schema: number; integrity_ok: boolean }>>;
-    backup(attempt: Attempt): Promise<Result<BackupOutcome>>;
+    backup(attempt: StartedAttempt): Promise<Result<BackupOutcome>>;
     // 연속 경로를 순서대로 적용한다. 중간 단계 실패의 결과는 err이거나 목표가 아닌 schema의 결과다.
-    migrate(attempt: Attempt, invocation: string): Promise<Result<DataResult>>;
-    restore(attempt: Attempt, backupHash: string): Promise<Result<DataResult>>;
+    migrate(
+      attempt: StartedAttempt,
+      invocation: string,
+    ): Promise<Result<ActivationDataResult>>;
+    restore(
+      attempt: Attempt,
+      backupHash: string,
+    ): Promise<Result<ActivationDataResult>>;
   };
   core: {
-    release(id: string): Promise<Result<Release | null>>;
+    release(id: string): Promise<Result<ReleaseRecord | null>>;
     recordBackup(input: {
       release: string;
-      activation_seq: string;
+      attempt: string;
       backup_hash: string;
       data_schema: number;
     }): Promise<Result<void>>;
-    recordDataChange(result: DataResult): Promise<Result<void>>;
+    recordDataChange(result: ActivationDataResult): Promise<Result<void>>;
     recordDataRestore(
-      result: DataResult,
+      result: ActivationDataResult,
       backupHash: string,
     ): Promise<Result<void>>;
     completeActivation(input: {
       release: string;
-      started_seq: string;
-      result: DataResult;
+      attempt: string;
+      result: ActivationDataResult;
       attestation: ReadyAttestation;
     }): Promise<Result<void>>;
     failActivation(input: {
       release: string;
-      started_seq: string;
+      attempt: string;
       failure: ActivationFailure;
       invocation?: string | null;
     }): Promise<Result<void>>;
+    // 되돌리기에 실패했거나 확인하지 못해 앱을 사용할 수 없는 상태로 둔다.
+    markUnavailable(
+      app: string,
+      release: string,
+      reason: { code: string; summary: string },
+    ): Promise<void>;
   };
-  report(problem: ActivationProblem): Promise<void>;
+  // 끝난 뒤에 얹는 일.
+  after: {
+    // 이전 release의 changeset을 지운다.
+    pruneChangesets(app: string, keepRelease: string): Promise<void>;
+    // 열린 앱 view가 다시 그리게 남지 않는 event를 낸다.
+    viewChanged(app: string): void;
+  };
+  // 지금 하는 단계를 알린다(`activations.queue`가 읽는다). migrate는 적용할 단계 수를 싣는다.
+  progress(app: string, step: ActivationStep, migrationSteps?: number): void;
   newInvocation(): string;
 }
 
@@ -136,16 +159,6 @@ export async function quiesce(
   return await ports.supervisor.stopCandidate(app);
 }
 
-// 종료를 확인한 앱 DB가 시작 때의 schema 그대로이고 온전한지 본다.
-export async function schemaIsExpected(
-  ports: ActivationPorts,
-  attempt: Attempt,
-): Promise<boolean> {
-  const actual = await ports.data.inspect(attempt.app);
-  return actual.ok && actual.value.integrity_ok &&
-    actual.value.data_schema === attempt.expectedSchema;
-}
-
 // 변경 전 보호 backup을 만들고 그 참조를 ledger에 확정한다. 확정이 끝나야 migration을 시작한다.
 // 확정 여부를 모르는 실패는 호출한 쪽이 ledger를 다시 읽어 판단한다.
 export type Protected =
@@ -157,18 +170,18 @@ export type Protected =
 
 export async function protectData(
   ports: ActivationPorts,
-  attempt: Attempt,
+  attempt: StartedAttempt,
 ): Promise<Protected> {
   const made = await ports.data.backup(attempt);
   if (
     !made.ok || !made.value.result.integrity_ok ||
-    made.value.result.data_schema !== attempt.expectedSchema
+    made.value.result.data_schema !== attempt.startSchema
   ) {
     return { stage: "not_made" };
   }
   const recorded = await ports.core.recordBackup({
     release: attempt.release,
-    activation_seq: attempt.startedSeq,
+    attempt: attempt.attempt,
     backup_hash: made.value.backup_hash,
     data_schema: made.value.result.data_schema,
   });
@@ -180,8 +193,8 @@ export async function protectData(
 // migration을 적용하고 실제 결과를 ledger에 확정한다. 목표가 아닌 schema의 결과는 실패다.
 export async function changeData(
   ports: ActivationPorts,
-  attempt: Attempt,
-): Promise<Result<DataResult>> {
+  attempt: StartedAttempt,
+): Promise<Result<ActivationDataResult>> {
   const invocation = ports.newInvocation();
   const changed = await ports.data.migrate(attempt, invocation);
   if (
@@ -190,7 +203,10 @@ export async function changeData(
   ) {
     return err({ code: "unavailable", message: "data change failed" });
   }
-  const result: DataResult = { ...changed.value, invocation };
+  const result: ActivationDataResult = {
+    ...changed.value,
+    invocation: invocation as ActivationDataResult["invocation"],
+  };
   const recorded = await ports.core.recordDataChange(result);
   if (!recorded.ok) {
     return err({ code: "unavailable", message: "data change not recorded" });
@@ -199,19 +215,14 @@ export async function changeData(
 }
 
 // 변경이 없는 시도의 결과다. 실제 확인한 schema와 무결성을 그대로 낸다.
-export async function unchangedResult(
-  ports: ActivationPorts,
-  attempt: Attempt,
-): Promise<Result<DataResult>> {
-  const actual = await ports.data.inspect(attempt.app);
-  if (!actual.ok || !actual.value.integrity_ok) {
-    return err({ code: "unavailable", message: "data was not inspected" });
-  }
-  return ok({
-    release: attempt.release,
-    activation_seq: attempt.startedSeq,
+export function unchangedResult(
+  attempt: StartedAttempt,
+): ActivationDataResult {
+  return {
+    release: attempt.release as ActivationDataResult["release"],
+    attempt: attempt.attempt as ActivationDataResult["attempt"],
     invocation: null,
-    data_schema: actual.value.data_schema,
+    data_schema: attempt.startSchema,
     integrity_ok: true,
-  });
+  };
 }

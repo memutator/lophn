@@ -958,7 +958,7 @@ export async function createRealAppDriver(
           appliedAt: new Date().toISOString(),
           result: {
             release: "rel_01arz3ndektsv4rrffq69g5fav",
-            activation_seq: "1",
+            attempt: "act_01arz3ndektsv4rrffq69g5fav",
             invocation: null,
           },
         });
@@ -994,7 +994,7 @@ export async function createRealAppDriver(
         appliedAt: new Date().toISOString(),
         result: {
           release: "rel_01arz3ndektsv4rrffq69g5fav",
-          activation_seq: "2",
+          attempt: "act_01arz3ndektsv4rrffq69g5fav",
           invocation: null,
         },
       });

@@ -9,10 +9,16 @@ import {
   type InputSchema,
 } from "../blueprint/mod.ts";
 import type {
+  ActivationComparison,
+  AppGrant,
   CommandChange,
   DataChange,
   ReleaseComparison,
 } from "../../../protocol/apps/mod.ts";
+import {
+  type AppDeclarations,
+  compareDeclarations,
+} from "../permissions/mod.ts";
 import { permissionLabel } from "./facts.ts";
 
 export type ComparedRelease = {
@@ -232,4 +238,40 @@ function reviewNeeded(comparison: ReleaseComparison): boolean {
     comparison.added_problem_code_warnings.length > 0 ||
     comparison.data_changes.length > 0 ||
     comparison.data_schema.from !== comparison.data_schema.to;
+}
+
+// activation에서 묻는 판정 값이다. 선언 비교는 grant 덮음 하나다: 새 release의 선언 가운데 지금 active
+// grant가 덮지 않는 것이 늘어난 것이고, 이전 release와 선언을 따로 비교하지 않는다. data 손실은 이번에 지나는
+// migration 단계가 선언한 `loss`를 믿는다. DB 사본에서 돌려 재지 않는다.
+export function compareForActivation(input: {
+  previous: { id: string; data_schema: number } | null;
+  grants: readonly AppGrant[];
+  declarations: Pick<AppDeclarations, "permissions" | "app_connections">;
+  next: { data_changes: readonly DataChange[] };
+}): ActivationComparison {
+  const { previous } = input;
+  const gap = compareDeclarations(input.grants, input.declarations);
+  const from = previous?.data_schema ?? 0;
+  return {
+    previous_release: previous === null
+      ? null
+      : previous.id as ActivationComparison["previous_release"],
+    first: previous === null,
+    added_resources: gap.added_resources,
+    added_app_apis: gap.added_app_apis,
+    loss_steps: input.next.data_changes.filter((change) =>
+      change.from >= from && (change.loss ?? []).length > 0
+    ).map((change) => ({
+      from: change.from,
+      to: change.to,
+      loss: [...(change.loss ?? [])],
+    })),
+  };
+}
+
+// 첫 activation이거나 늘어난 선언, 손실 단계가 하나라도 있으면 사람에게 묻는다.
+export function asksFor(comparison: ActivationComparison): boolean {
+  return comparison.first || comparison.added_resources.length > 0 ||
+    comparison.added_app_apis.length > 0 ||
+    comparison.loss_steps.length > 0;
 }

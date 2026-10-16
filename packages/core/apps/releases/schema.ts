@@ -1,7 +1,7 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // domain-model apps/releases의 releases·release_tests 표. 준비 뒤 내용 열은 불변이고
-// status·activation·failure만 activation 결정이 바꾼다.
+// status·activation·activated_at·failure만 activation 결정이 바꾼다.
 //
 // 정규 blueprint JSON(`blueprint`)과 거기서 만든 선언 사실(`declarations`)을 준비 때 한 번 같이 둔다.
 // core는 파일을 읽지 않고 command·read는 동기라서 현재 release의 선언·설명·비교를 읽을 자리가
@@ -19,20 +19,22 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       blueprint_hash TEXT NOT NULL CHECK (length(blueprint_hash) = 64),
       data_schema INTEGER NOT NULL CHECK (data_schema >= 0),
       data_changes TEXT NOT NULL CHECK (json_valid(data_changes)),
-      ticket_source TEXT CHECK (ticket_source IS NULL OR json_valid(ticket_source)),
+      ticket_source TEXT NOT NULL CHECK (json_valid(ticket_source)),
       created_by TEXT NOT NULL CHECK (length(created_by) > 0),
       created_at TEXT NOT NULL CHECK (length(created_at) > 0),
       status TEXT NOT NULL CHECK (status IN (
         'prepared', 'activating', 'active', 'failed', 'superseded'
       )),
       activation TEXT CHECK (activation IS NULL OR json_valid(activation)),
+      activated_at TEXT,
       failure TEXT CHECK (failure IS NULL OR json_valid(failure)),
       blueprint TEXT NOT NULL CHECK (json_valid(blueprint)),
       declarations TEXT NOT NULL CHECK (json_valid(declarations)),
       UNIQUE (app, id),
       UNIQUE (app, number),
       CHECK (status NOT IN ('activating', 'failed') OR activation IS NOT NULL),
-      CHECK (status <> 'failed' OR failure IS NOT NULL)
+      CHECK (status <> 'failed' OR failure IS NOT NULL),
+      CHECK (status NOT IN ('active', 'superseded') OR activated_at IS NOT NULL)
     ) STRICT;
     CREATE UNIQUE INDEX releases_one_active ON releases(app)
       WHERE status = 'active';
@@ -57,6 +59,11 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
     BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
     CREATE TRIGGER releases_no_delete BEFORE DELETE ON releases
     BEGIN SELECT RAISE(ABORT, 'releases are kept'); END;
+    -- 이전 release로 돌아가기 요청. activate_previous가 쓰고 activation driver가 읽어 줄에 세운 뒤 지운다.
+    CREATE TABLE activation_requests (
+      release TEXT PRIMARY KEY NOT NULL REFERENCES releases(id),
+      requested_at TEXT NOT NULL CHECK (length(requested_at) > 0)
+    ) STRICT;
     CREATE TABLE release_tests (
       release TEXT NOT NULL REFERENCES releases(id),
       verification TEXT NOT NULL CHECK (length(verification) > 0),

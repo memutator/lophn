@@ -1,21 +1,34 @@
-// releases.list·get·compare. 불변 Release를 준비 순서로 읽고, 이전
-// release와의 비교를 고정 blueprint 둘로 만든다. 범위 밖 앱의 release는 없는 것과 같다.
+// releases.list·get·compare(옛 읽기), releases.list_records·get_record, activations.compare·queue.
+// 불변 Release를 준비 순서로 읽고, 이전 release와의 비교를 고정 blueprint 둘로 만든다.
+// 범위 밖 앱의 release는 없는 것과 같다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type Release,
+  type ActivationQueueEntry,
+  activationsCompare,
+  activationsQueue,
+  type ReleaseRecord,
   releasesCompare,
   releasesGet,
+  releasesGetRecord,
   releasesList,
+  releasesListRecords,
 } from "../../../protocol/apps/mod.ts";
 import type {
+  ApiReadDefinition,
   ReadDefinition,
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
-import { compareReleases } from "./compare.ts";
-import { loadRelease, loadReleases, loadStoredBlueprint } from "./store.ts";
+import { loadGrants } from "../permissions/mod.ts";
+import { compareForActivation, compareReleases } from "./compare.ts";
+import {
+  loadActiveRelease,
+  loadRelease,
+  loadReleases,
+  loadStoredBlueprint,
+} from "./store.ts";
 
 const PAGE = 50;
 
@@ -93,69 +106,138 @@ function visible(
   return appAccessDenied(access) ? ok(false) : access;
 }
 
+type ListInput = {
+  app?: string;
+  status?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+function listRecords(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  operation: string,
+  input: ListInput,
+) {
+  const all = loadReleases(snapshot.sql, {
+    ...(input.app === undefined ? {} : { app: input.app }),
+    ...(input.status === undefined ? {} : { status: input.status }),
+  });
+  if (!all.ok) return all;
+  const seen = new Map<string, boolean>();
+  const shown: ReleaseRecord[] = [];
+  for (const release of all.value) {
+    let allowed = seen.get(release.app);
+    if (allowed === undefined) {
+      const checked = visible(snapshot, ctx, operation, release.app);
+      if (!checked.ok) return checked;
+      allowed = checked.value;
+      seen.set(release.app, allowed);
+    }
+    if (allowed) shown.push(release);
+  }
+  const limit = input.limit ?? PAGE;
+  const offset = pageOffset(input.cursor, input, limit, shown.length);
+  if (!offset.ok) return offset;
+  const page = shown.slice(offset.value, offset.value + limit);
+  const next = offset.value + page.length;
+  return ok({
+    releases: page,
+    as_of_seq: snapshot.as_of_seq,
+    next_cursor: next < shown.length ? nextCursor(next, input, limit) : null,
+  });
+}
+
+function getRecord(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  operation: string,
+  id: string,
+) {
+  const release = loadRelease(snapshot.sql, id);
+  if (!release.ok) return release;
+  let shown: ReleaseRecord | null = null;
+  if (release.value !== null) {
+    const allowed = visible(snapshot, ctx, operation, release.value.app);
+    if (!allowed.ok) return allowed;
+    if (allowed.value) shown = release.value;
+  }
+  return ok({
+    release: shown,
+    as_of_seq: snapshot.as_of_seq,
+    next_cursor: null,
+  });
+}
+
 export function createReleaseReads(): {
   list: ReadDefinition<typeof releasesList>;
   get: ReadDefinition<typeof releasesGet>;
   compare: ReadDefinition<typeof releasesCompare>;
+  listRecords: ReadDefinition<typeof releasesListRecords>;
+  getRecord: ReadDefinition<typeof releasesGetRecord>;
+  activationCompare: ReadDefinition<typeof activationsCompare>;
 } {
   return {
+    // 옛 읽기. 새 모양의 record를 그대로 낸다. 쓰는 곳이 `list_records`·`get_record`로 옮겨 가면 지운다.
     list: {
       route: releasesList,
-      handle(snapshot, ctx, input) {
-        const all = loadReleases(snapshot.sql, {
-          ...(input.app === undefined ? {} : { app: input.app }),
-          ...(input.status === undefined ? {} : { status: input.status }),
-        });
-        if (!all.ok) return all;
-        const seen = new Map<string, boolean>();
-        const shown: Release[] = [];
-        for (const release of all.value) {
-          let allowed = seen.get(release.app);
-          if (allowed === undefined) {
-            const checked = visible(
-              snapshot,
-              ctx,
-              releasesList.name,
-              release.app,
-            );
-            if (!checked.ok) return checked;
-            allowed = checked.value;
-            seen.set(release.app, allowed);
-          }
-          if (allowed) shown.push(release);
-        }
-        const limit = input.limit ?? PAGE;
-        const offset = pageOffset(input.cursor, input, limit, shown.length);
-        if (!offset.ok) return offset;
-        const page = shown.slice(offset.value, offset.value + limit);
-        const next = offset.value + page.length;
-        return ok({
-          releases: page,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: next < shown.length
-            ? nextCursor(next, input, limit)
-            : null,
-        });
-      },
+      handle: (snapshot, ctx, input) =>
+        listRecords(snapshot, ctx, releasesList.name, input) as never,
     },
     get: {
       route: releasesGet,
+      handle: (snapshot, ctx, input) =>
+        getRecord(snapshot, ctx, releasesGet.name, input.release) as never,
+    },
+    listRecords: {
+      route: releasesListRecords,
+      handle: (snapshot, ctx, input) =>
+        listRecords(snapshot, ctx, releasesListRecords.name, input),
+    },
+    // 실패 근거(`failure`)도 이 record가 싣는다.
+    getRecord: {
+      route: releasesGetRecord,
+      handle: (snapshot, ctx, input) =>
+        getRecord(snapshot, ctx, releasesGetRecord.name, input.release),
+    },
+    // 지금 활성 release와 견준 activation 비교다. 이미 활성인 release는 자기 앞의 release와 견준다.
+    activationCompare: {
+      route: activationsCompare,
       handle(snapshot, ctx, input) {
-        const release = loadRelease(snapshot.sql, input.release);
-        if (!release.ok) return release;
-        let shown: Release | null = null;
-        if (release.value !== null) {
-          const allowed = visible(
-            snapshot,
-            ctx,
-            releasesGet.name,
-            release.value.app,
-          );
-          if (!allowed.ok) return allowed;
-          if (allowed.value) shown = release.value;
-        }
+        const stored = loadStoredBlueprint(snapshot.sql, input.release);
+        if (!stored.ok) return stored;
+        if (stored.value === null) return notFound();
+        const { release, declarations } = stored.value;
+        const allowed = visible(
+          snapshot,
+          ctx,
+          activationsCompare.name,
+          release.app,
+        );
+        if (!allowed.ok) return allowed;
+        if (!allowed.value) return notFound();
+        const baseId = release.status === "active"
+          ? release.activation?.previous_release ?? null
+          : null;
+        const base = baseId === null
+          ? loadActiveRelease(snapshot.sql, release.app)
+          : loadRelease(snapshot.sql, baseId);
+        if (!base.ok) return base;
+        const grants = loadGrants(snapshot.sql, {
+          app: release.app,
+          status: "active",
+        });
+        if (!grants.ok) return grants;
+        const previous = base.value === null || base.value.id === release.id
+          ? null
+          : { id: base.value.id, data_schema: base.value.data_schema };
         return ok({
-          release: shown,
+          comparison: compareForActivation({
+            previous,
+            grants: grants.value,
+            declarations,
+            next: { data_changes: release.data_changes },
+          }),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
@@ -216,6 +298,30 @@ export function createReleaseReads(): {
           next_cursor: null,
         });
       },
+    },
+  };
+}
+
+// activation 줄의 지금 상태다. 줄은 core 메모리라 ledger snapshot이 아니라 driver가 준다.
+export type ActivationQueueSource = {
+  entries(app: string | undefined): Promise<
+    Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>
+  >;
+};
+
+export function createActivationQueueRead(
+  source: ActivationQueueSource,
+): ApiReadDefinition<typeof activationsQueue> {
+  return {
+    route: activationsQueue,
+    async handle(_ctx, input) {
+      const parsed = activationsQueue.input.safeParse(input);
+      if (!parsed.success) {
+        return err({ code: "invalid_input", message: "invalid read input" });
+      }
+      const read = await source.entries(parsed.data.app);
+      if (!read.ok) return read;
+      return ok({ ...read.value, next_cursor: null });
     },
   };
 }

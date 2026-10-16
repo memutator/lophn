@@ -1,6 +1,6 @@
 // migration 전 보호 backup. SQLite backup API로 WAL까지 포함한
 // 일관된 복사본을 만들고 무결성·schema를 확인한 뒤에만 backup으로 남긴다.
-// 본체 파일 복사는 유효 backup이 아니다. 최근 5개를 유지하되 진행 중 복원이
+// 본체 파일 복사는 유효 backup이 아니다. 가장 최근 하나만 유지하되 진행 중 복원이
 // 참조하는 backup은 보존 한도 때문에 없애지 않는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -8,7 +8,7 @@ import { openAppDatabase } from "./db.ts";
 import { type VerifiedDatabase, verifyDatabase } from "./integrity.ts";
 import { contained } from "./paths.ts";
 
-export const BACKUP_KEEP = 5;
+export const BACKUP_KEEP = 1;
 const BACKUP_DIR = "backups";
 const PENDING_SUFFIX = ".pending";
 

@@ -111,7 +111,6 @@ export function fakeWorkspaceSource(
         })),
       });
     },
-    documents: () => Promise.resolve({ ok: true, value: [] }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "no layout" }),

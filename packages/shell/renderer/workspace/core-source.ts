@@ -13,13 +13,17 @@ import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreContextsSource } from "./contexts/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
-  DocumentRow,
   FileRow,
   LayoutRead,
   ProjectView,
   ReadResult,
   WorkspaceSource,
 } from "./source.ts";
+
+interface DocumentRow {
+  id: string;
+  title: string;
+}
 
 interface ProjectGetValue {
   project: {
@@ -203,8 +207,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         return { ok: false, message: "unavailable" };
       }
     },
-
-    documents: (id) => projectDocuments(core, id),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

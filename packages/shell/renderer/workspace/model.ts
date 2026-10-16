@@ -185,16 +185,6 @@ function dropEmptyPane(view: WorkspaceView): WorkspaceView {
   return { ...view, panes: kept, focusedPane: 0 };
 }
 
-/**
- * 한 칸의 선택 탭을 새 오른쪽 칸으로 보낸다. 탭이 둘 이상일 때만
- * 나눈다. 이미 두 칸이면 그대로다.
- */
-export function splitPane(view: WorkspaceView): WorkspaceView {
-  if (view.panes.length !== 1) return view;
-  const selected = view.panes[0]!.selected;
-  return selected === null ? view : moveTab(view, selected, 1);
-}
-
 export interface SplitLayout {
   /** 화면에 그릴 칸 수. 폭이 부족하면 1이다. */
   readonly visiblePanes: 1 | 2;

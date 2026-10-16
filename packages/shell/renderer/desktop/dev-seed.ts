@@ -173,14 +173,6 @@ const SEEDED: WorkspaceSource = {
       ? { ok: true, value: { ...read.value, title: "lophn" } }
       : read;
   },
-  documents: () =>
-    Promise.resolve({
-      ok: true,
-      value: [
-        { id: "doc_notes", title: "notes" },
-        { id: "doc_plan", title: "plan" },
-      ],
-    }),
   files: () =>
     Promise.resolve({
       ok: true,

@@ -26,12 +26,6 @@ export interface FolderEntry {
   readonly kind: "file" | "folder";
 }
 
-/** documents.list 결과의 한 문서. 제목만 보인다. */
-export interface DocumentRow {
-  readonly id: string;
-  readonly title: string;
-}
-
 /** 프로젝트 폴더에서 문서로 잡힌 파일. 경로는 등록 폴더 기준 상대 경로다. */
 export interface FileRow {
   /** 이 파일이 속한 등록 폴더 경로. sidebar가 폴더 아래에 문서를 보일 때 쓴다. */
@@ -55,7 +49,6 @@ export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
   list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;
-  documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
   /**
    * Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.

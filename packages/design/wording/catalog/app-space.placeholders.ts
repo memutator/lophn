@@ -6,12 +6,10 @@ export type AppSpacePlaceholders = {
   "app-detail.button.back-to-activity": Record<never, never>;
   "app-detail.button.cancel": Record<never, never>;
   "app-detail.button.cancel-create": Record<never, never>;
-  "app-detail.button.cancel-task": Record<never, never>;
   "app-detail.button.change-access": Record<never, never>;
   "app-detail.button.check-result": Record<never, never>;
   "app-detail.button.close-preview": Record<never, never>;
   "app-detail.button.copy-request": Record<never, never>;
-  "app-detail.button.create-task": Record<never, never>;
   "app-detail.button.export-app": Record<never, never>;
   "app-detail.button.go-back": {
     release: "string";
@@ -27,8 +25,6 @@ export type AppSpacePlaceholders = {
   "app-detail.button.issue-reopen": Record<never, never>;
   "app-detail.button.issue-resolved": Record<never, never>;
   "app-detail.button.issue-tried": Record<never, never>;
-  "app-detail.button.keep-task": Record<never, never>;
-  "app-detail.button.new-task": Record<never, never>;
   "app-detail.button.open-preview": Record<never, never>;
   "app-detail.button.review-connection": Record<never, never>;
   "app-detail.button.revoke": Record<never, never>;
@@ -39,7 +35,6 @@ export type AppSpacePlaceholders = {
   "app-detail.button.see-changes": Record<never, never>;
   "app-detail.button.show-activity": Record<never, never>;
   "app-detail.button.start": Record<never, never>;
-  "app-detail.button.task-back": Record<never, never>;
   "app-detail.button.turn-off": Record<never, never>;
   "app-detail.button.turn-on": Record<never, never>;
   "app-detail.button.use-version": Record<never, never>;
@@ -65,8 +60,6 @@ export type AppSpacePlaceholders = {
   "app-detail.error.start-host-refused": Record<never, never>;
   "app-detail.error.start-own-terminal": Record<never, never>;
   "app-detail.error.start-refused": Record<never, never>;
-  "app-detail.error.start-task-changed": Record<never, never>;
-  "app-detail.error.start-task-unavailable": Record<never, never>;
   "app-detail.error.turn-off-failed": {
     name: "string";
   };
@@ -94,7 +87,6 @@ export type AppSpacePlaceholders = {
   "app-detail.heading.current-version": Record<never, never>;
   "app-detail.heading.detail-access": Record<never, never>;
   "app-detail.heading.detail-actions": Record<never, never>;
-  "app-detail.heading.detail-automations": Record<never, never>;
   "app-detail.heading.detail-data": Record<never, never>;
   "app-detail.heading.detail-screens": Record<never, never>;
   "app-detail.heading.earlier-releases": Record<never, never>;
@@ -114,10 +106,6 @@ export type AppSpacePlaceholders = {
   "app-detail.heading.rewind-cancelled": Record<never, never>;
   "app-detail.heading.rewinds-together": Record<never, never>;
   "app-detail.heading.rewound": Record<never, never>;
-  "app-detail.heading.task-checks": Record<never, never>;
-  "app-detail.heading.task-needs": Record<never, never>;
-  "app-detail.heading.task-start": Record<never, never>;
-  "app-detail.heading.task-terminal": Record<never, never>;
   "app-detail.heading.what-changes": Record<never, never>;
   "app-detail.heading.what-was-rewound": Record<never, never>;
   "app-detail.label.access-target": Record<never, never>;
@@ -131,13 +119,9 @@ export type AppSpacePlaceholders = {
   "app-detail.label.applied-no": Record<never, never>;
   "app-detail.label.applied-working": Record<never, never>;
   "app-detail.label.applied-yes": Record<never, never>;
-  "app-detail.label.automation-off": Record<never, never>;
-  "app-detail.label.automation-on": Record<never, never>;
-  "app-detail.label.automations-target": Record<never, never>;
   "app-detail.label.by-agent": Record<never, never>;
   "app-detail.label.by-app": Record<never, never>;
   "app-detail.label.by-applying": Record<never, never>;
-  "app-detail.label.by-automation": Record<never, never>;
   "app-detail.label.by-direct": Record<never, never>;
   "app-detail.label.by-restart": Record<never, never>;
   "app-detail.label.call-data-change": Record<never, never>;
@@ -177,9 +161,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.change-actions-removed": {
     count: "plural";
   };
-  "app-detail.label.change-automations": {
-    count: "plural";
-  };
   "app-detail.label.change-data": {
     from: "string";
     to: "string";
@@ -211,14 +192,12 @@ export type AppSpacePlaceholders = {
   "app-detail.label.commit": {
     commit: "string";
   };
-  "app-detail.label.condition-app-test": Record<never, never>;
   "app-detail.label.condition-human": Record<never, never>;
   "app-detail.label.condition-issues-closed": Record<never, never>;
   "app-detail.label.condition-number": {
     number: "number";
   };
   "app-detail.label.condition-reproduction": Record<never, never>;
-  "app-detail.label.condition-test-command": Record<never, never>;
   "app-detail.label.condition-version-in-use": Record<never, never>;
   "app-detail.label.connection-actions": {
     count: "plural";
@@ -268,8 +247,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.fact-schema": Record<never, never>;
   "app-detail.label.fact-seen": Record<never, never>;
   "app-detail.label.fact-start": Record<never, never>;
-  "app-detail.label.fact-task": Record<never, never>;
-  "app-detail.label.fact-test": Record<never, never>;
   "app-detail.label.fact-tried": Record<never, never>;
   "app-detail.label.fact-undo": Record<never, never>;
   "app-detail.label.failed-still-active": {
@@ -316,8 +293,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.issue-status-ignored": Record<never, never>;
   "app-detail.label.issue-status-open": Record<never, never>;
   "app-detail.label.issue-status-resolved": Record<never, never>;
-  "app-detail.label.issue-tests": Record<never, never>;
-  "app-detail.label.issue-unconfirmed": Record<never, never>;
   "app-detail.label.issue-version": Record<never, never>;
   "app-detail.label.issues-target": Record<never, never>;
   "app-detail.label.last-activity": {
@@ -328,7 +303,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.loss-drop-table": Record<never, never>;
   "app-detail.label.loss-narrow-type": Record<never, never>;
   "app-detail.label.mode-preview": Record<never, never>;
-  "app-detail.label.mode-test": Record<never, never>;
   "app-detail.label.no": Record<never, never>;
   "app-detail.label.no-project": Record<never, never>;
   "app-detail.label.no-project-level": Record<never, never>;
@@ -392,7 +366,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.start-harness": Record<never, never>;
   "app-detail.label.start-not-chosen": Record<never, never>;
   "app-detail.label.start-ok": Record<never, never>;
-  "app-detail.label.start-unconfirmed": Record<never, never>;
   "app-detail.label.state-done": Record<never, never>;
   "app-detail.label.state-failed": Record<never, never>;
   "app-detail.label.state-running": Record<never, never>;
@@ -426,40 +399,9 @@ export type AppSpacePlaceholders = {
   "app-detail.label.step-stop": Record<never, never>;
   "app-detail.label.tab-access": Record<never, never>;
   "app-detail.label.tab-activity": Record<never, never>;
-  "app-detail.label.tab-automations": Record<never, never>;
-  "app-detail.label.tab-connections": Record<never, never>;
   "app-detail.label.tab-data": Record<never, never>;
   "app-detail.label.tab-issues": Record<never, never>;
-  "app-detail.label.tab-tasks": Record<never, never>;
   "app-detail.label.tab-version": Record<never, never>;
-  "app-detail.label.task-checked": Record<never, never>;
-  "app-detail.label.task-claim": Record<never, never>;
-  "app-detail.label.task-conditions": Record<never, never>;
-  "app-detail.label.task-details": Record<never, never>;
-  "app-detail.label.task-failed": Record<never, never>;
-  "app-detail.label.task-held-until": Record<never, never>;
-  "app-detail.label.task-next-check-result": Record<never, never>;
-  "app-detail.label.task-next-needs-confirmation": Record<never, never>;
-  "app-detail.label.task-next-start": Record<never, never>;
-  "app-detail.label.task-next-waiting-for-approval": Record<never, never>;
-  "app-detail.label.task-none": Record<never, never>;
-  "app-detail.label.task-passed": Record<never, never>;
-  "app-detail.label.task-pending": Record<never, never>;
-  "app-detail.label.task-remaining": Record<never, never>;
-  "app-detail.label.task-state-cancelled": Record<never, never>;
-  "app-detail.label.task-state-check-failed": Record<never, never>;
-  "app-detail.label.task-state-confirmed": Record<never, never>;
-  "app-detail.label.task-state-in-progress": Record<never, never>;
-  "app-detail.label.task-state-needs-confirmation": Record<never, never>;
-  "app-detail.label.task-state-ready": Record<never, never>;
-  "app-detail.label.task-state-reported": Record<never, never>;
-  "app-detail.label.task-unavailable": Record<never, never>;
-  "app-detail.label.task-unclear": Record<never, never>;
-  "app-detail.label.tasks-target": Record<never, never>;
-  "app-detail.label.test-fail": Record<never, never>;
-  "app-detail.label.test-inconclusive": Record<never, never>;
-  "app-detail.label.test-pass": Record<never, never>;
-  "app-detail.label.test-unavailable": Record<never, never>;
   "app-detail.label.time-unknown": Record<never, never>;
   "app-detail.label.tool-call": Record<never, never>;
   "app-detail.label.tui-ended": Record<never, never>;
@@ -490,8 +432,6 @@ export type AppSpacePlaceholders = {
   };
   "app-detail.note.applying-queued": Record<never, never>;
   "app-detail.note.applying-waiting-approval": Record<never, never>;
-  "app-detail.note.automation-follows-app": Record<never, never>;
-  "app-detail.note.automations-empty": Record<never, never>;
   "app-detail.note.calls-held": {
     name: "string";
   };
@@ -592,25 +532,12 @@ export type AppSpacePlaceholders = {
     harness: "string";
     folder: "string";
   };
-  "app-detail.note.task-not-checked": Record<never, never>;
-  "app-detail.note.task-not-reported": Record<never, never>;
-  "app-detail.note.task-nothing-remaining": Record<never, never>;
-  "app-detail.note.task-reported": Record<never, never>;
-  "app-detail.note.task-start-again": Record<never, never>;
-  "app-detail.note.tasks-empty": Record<never, never>;
-  "app-detail.note.tasks-unavailable": Record<never, never>;
-  "app-detail.note.test-scope": Record<never, never>;
   "app-detail.note.tui-separate": Record<never, never>;
   "app-detail.note.undo-recorded": Record<never, never>;
   "app-detail.note.warning-other": Record<never, never>;
   "app-detail.note.warning-outside-link": Record<never, never>;
   "app-detail.note.warning-read-network": Record<never, never>;
   "app-detail.note.went-back": Record<never, never>;
-  "app-detail.text.task-create-needs": Record<never, never>;
-  "app-detail.text.task-request-sentence": {
-    task: "string";
-    request: "string";
-  };
   "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.annotate": Record<never, never>;
   "app-space.button.annotate-done": Record<never, never>;

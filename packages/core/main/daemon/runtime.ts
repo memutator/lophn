@@ -433,7 +433,7 @@ type BlobRefAuthorizer = (
   reference: { owner_kind: string; owner_key: string },
 ) => Result<void>;
 
-// /v1/blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
+// /blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
 // scope는 시작과 바이트 반환 직전에 다시 검사한다.
 export function blobReadHandler(
   ledgerPath: string,

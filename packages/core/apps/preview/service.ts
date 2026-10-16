@@ -1,4 +1,4 @@
-// core 쪽 `/v1/previews/{start,get,stop}`의 업무 규칙. preview 프로세스를
+// core 쪽 `/previews/{start,get,stop}`의 업무 규칙. preview 프로세스를
 // 운영 상태와 따로 시작·관측·종료하고, App 활성 참조·run_enabled·grant·activation·운영 data를 읽기
 // 외에는 건드리지 않는다. 쓰는 곳은 supervisor 통로와 core의 disposable 영역뿐이다.
 // 범위 밖 앱·release는 없는 것과 같은 not_found다.

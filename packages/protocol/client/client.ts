@@ -93,7 +93,7 @@ export function createRpcClient(options: {
       try {
         response = await options.fetch(`${base}${routePath(route)}`, init);
       } catch {
-        // 결과를 모른다. command는 같은 key로 /v1/commands/result를 다시 본다.
+        // 결과를 모른다. command는 같은 key로 /commands/result를 다시 본다.
         return fail("unavailable", "transport failed", {
           reason: "transport_failed",
         });

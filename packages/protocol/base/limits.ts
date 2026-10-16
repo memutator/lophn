@@ -1,6 +1,3 @@
-// major는 1만 제공한다.
-export const API_MAJOR = 1;
-
 export const DEFAULT_API_PORT = 7431;
 
 const KIB = 1024;

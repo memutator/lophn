@@ -1,6 +1,6 @@
 // 앱 프로세스 실패의 근거를 구별해 problems에 보낸다. 예상 밖 종료, 기동 실패와
 // ready timeout, crash loop, V8 OOM은 서로 다른 근거 이름으로 남고 의도된 정지는
-// 보내지 않는다. 전송은 problems의 process_exit 관측(/v1/problems/observe-exception)이고
+// 보내지 않는다. 전송은 problems의 process_exit 관측(/problems/observe-exception)이고
 // 어느 앱·release인지는 본문이 아니라 인증된 process observer 결속이 정한다.
 import type { IdSource } from "../../../../base/mod.ts";
 import {

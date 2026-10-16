@@ -133,7 +133,7 @@ export const setSecret = defineCommand({
   confirmation: "required",
   confirmation_kind: "secret_input",
   binding: ["name", "preparation"],
-  display_read: "/v1/secrets/list",
+  display_read: "/secrets/list",
 });
 export const removeSecret = defineCommand({
   resource: "secrets",
@@ -147,7 +147,7 @@ export const removeSecret = defineCommand({
   confirmation: "required",
   confirmation_kind: "secret_input",
   binding: ["name"],
-  display_read: "/v1/secrets/list",
+  display_read: "/secrets/list",
 });
 
 const secretCleanupInputSchema = z.strictObject({

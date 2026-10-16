@@ -1,5 +1,5 @@
 // CLI가 core를 부르는 client다.
-// POST /v1/<resource>/<method>에 Authorization bearer(coding token)로 붙고 쓰기는
+// POST /<resource>/<method>에 Authorization bearer(coding token)로 붙고 쓰기는
 // idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
 // 않고 effect_unknown 진단과 원래 key·commands/result 대상 read 안내를 돌려준다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -41,7 +41,7 @@ type CoreClientOptions = {
 export type CoreClient = {
   baseUrl: string;
   // command route를 envelope로 보낸다. 응답을 잃어 effect_unknown이면
-  // 원래 key로 /v1/commands/result를 다시 본다.
+  // 원래 key로 /commands/result를 다시 본다.
   // compare·prepared는 소유 route가 요구하는 CAS 비교와 준비 참조다.
   command<R extends CommandRoute>(
     route: R,

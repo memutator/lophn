@@ -119,6 +119,6 @@ export const applyProblemDecision = defineCommand({
     "last_report",
     "note",
   ],
-  display_read: "/v1/problems/get",
+  display_read: "/problems/get",
 });
 

@@ -23,7 +23,7 @@ export function createProviderWatch(deps: {
     let cursor: string | undefined;
     for (;;) {
       const listed = await deps.read(
-        "/v1/providers/list",
+        "/providers/list",
         cursor === undefined ? {} : { cursor },
       );
       if (!listed.ok) return listed;

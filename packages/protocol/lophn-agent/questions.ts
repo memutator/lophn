@@ -162,7 +162,7 @@ export const answerQuestionAction = defineCommand({
   errors: [...commandErrors],
   confirmation: "required",
   binding: ["group", "created_seq", "answer", "binding_hash"],
-  display_read: "/v1/questions/read",
+  display_read: "/questions/read",
 });
 
 export const deferQuestionGroup = defineCommand({

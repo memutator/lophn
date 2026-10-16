@@ -46,7 +46,7 @@ export async function postRecordReport(
   let response: { status: number; bytes: Uint8Array };
   try {
     response = await options.fetch(
-      `${base}/v1/${recordProblemReport.resource}/${recordProblemReport.method}`,
+      `${base}/${recordProblemReport.resource}/${recordProblemReport.method}`,
       {
         method: "POST",
         headers: {

@@ -1013,7 +1013,7 @@ async function confirmInvocation(
     const base = client.baseUrl.replace(/\/$/, "");
     // 주입한 client.fetch를 건다: 테스트와 EXTERNAL_FETCH tripwire가 같은
     // 통로를 본다. 응답은 loopback 모양({status, bytes})이다.
-    const response = await client.fetch(`${base}/v1/invocations/get`, {
+    const response = await client.fetch(`${base}/invocations/get`, {
       method: "POST",
       headers: {
         "authorization": `Bearer ${client.credential}`,

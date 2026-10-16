@@ -1,6 +1,5 @@
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { z } from "zod";
-import { API_MAJOR } from "./limits.ts";
 
 export const ACTOR_KINDS = [
   "user",
@@ -247,6 +246,6 @@ export function defineUpload<I extends z.ZodType, O extends z.ZodType>(
 export const UPLOAD_INPUT_HEADER = "x-lophn-input";
 
 export function routePath(route: { resource: string; method: string }): string {
-  return `/v${API_MAJOR}/${route.resource}/${route.method}`;
+  return `/${route.resource}/${route.method}`;
 }
 

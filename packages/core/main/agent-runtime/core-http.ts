@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { RUNTIME_MACHINE_ROUTES } from "../../lophn-agent/run-loop/mod.ts";
-import { API_MAJOR, routePath } from "../../../protocol/base/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
 
 export {
@@ -78,9 +78,9 @@ export function machineCall(options: {
   };
 }
 
-// runtime client는 `apps/connect`처럼 resource/method를 준다. loop는 routePath(/v1/...)를 준다.
+// runtime client는 `apps/connect`처럼 resource/method를 준다. loop는 routePath(/resource/method)를 준다.
 function httpPath(path: string): string {
-  return path.startsWith("/") ? path : `/v${API_MAJOR}/${path}`;
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function agentCall(options: {

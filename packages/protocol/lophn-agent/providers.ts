@@ -88,7 +88,7 @@ export const disconnectProvider = defineCommand({
   confirmation: "required",
   confirmation_kind: "secret_input",
   binding: ["provider"],
-  display_read: "/v1/providers/read",
+  display_read: "/providers/read",
 });
 
 export const refreshProviderCredential = defineCommand({
@@ -167,7 +167,7 @@ export const loginComplete = defineCommand({
   confirmation: "required",
   confirmation_kind: "secret_input",
   binding: ["provider", "login", "submission"],
-  display_read: "/v1/providers/read",
+  display_read: "/providers/read",
 });
 
 export const loginCancel = defineCommand({

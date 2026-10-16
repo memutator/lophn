@@ -136,7 +136,7 @@ export function createLedgerRegistration(
       PACKAGE_GUIDE_BLOB_FIELD,
       ...INVOCATION_BLOB_FIELDS,
     ],
-    // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
+    // `/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: [
       ...createPreviewReads(() => unattachedPreviewService()),

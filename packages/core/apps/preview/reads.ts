@@ -1,4 +1,4 @@
-// `/v1/previews/{start,get,stop}`의 core 등록. ledger snapshot 없이 supervisor 통로와 core의 disposable
+// `/previews/{start,get,stop}`의 core 등록. ledger snapshot 없이 supervisor 통로와 core의 disposable
 // 영역을 쓰는 API read(ApiReadDefinition)이고, 입력을 route schema로 검사한 뒤 service에 넘긴다.
 import { err } from "../../../base/mod.ts";
 import {

@@ -36,6 +36,6 @@ export type RuntimeRecord =
   };
 
 export type CoreLink = {
-  // machine credential로 /v1/apps/<method>를 부른다. run_enabled는 건드리지 않는다.
+  // machine credential로 /apps/<method>를 부른다. run_enabled는 건드리지 않는다.
   record(record: RuntimeRecord): Promise<Result<{ state: string }>>;
 };

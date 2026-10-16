@@ -41,12 +41,6 @@ export const WAYS: readonly Way[] = [
     tryIt: "new-document-tab-info",
   },
   {
-    title: "Violation toast",
-    steps: ["Toast", "[View]"],
-    result: "eval · Violations",
-    tryIt: "new-violation-toast",
-  },
-  {
     title: "Top bar search",
     steps: ["Magnifier or Ctrl+K", "type “eval”", "Contexts: eval"],
     result: "eval · Overview",

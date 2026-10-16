@@ -178,70 +178,44 @@ export const agents = {
   "project-workspace.button.agent-editor-delete": "Delete Operator",
   "project-workspace.button.agent-editor-delete-confirm": "Delete",
   "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
-  "project-workspace.button.agent-editor-reset-model": "Reset",
   "project-workspace.button.agent-editor-save": "Save",
   "project-workspace.button.agent-editor-upload-image": "Upload image",
   "project-workspace.button.edit-instructions": "Edit",
   "project-workspace.button.new-operator": "New Operator",
   "project-workspace.button.open-agent": "Open",
-  "project-workspace.button.use-workspace-default": "Use Workspace default",
   "project-workspace.empty.agent-editor-no-contexts":
     "No contexts. This operator works with project documents only.",
-  "project-workspace.empty.agent-editor-no-mcp":
-    "This project has no MCP servers yet.",
   "project-workspace.empty.agent-editor-no-project":
     "This project has no instructions yet.",
-  "project-workspace.empty.agent-editor-no-skills":
-    "This project has no skills yet.",
   "project-workspace.empty.no-instructions": "LOPHN.md is empty.",
   "project-workspace.empty.no-mcp-servers": "No MCP servers registered yet.",
-  "project-workspace.empty.no-permission-rules": "No permission rules yet.",
   "project-workspace.empty.no-skills": "No skills registered yet.",
   "project-workspace.heading.agent-editor-contexts": "Contexts",
   "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
   "project-workspace.heading.agent-editor-mcp": "MCP servers",
   "project-workspace.heading.agent-editor-model": "Model",
-  "project-workspace.heading.agent-editor-permissions": "Permissions",
   "project-workspace.heading.agent-editor-profile": "Profile",
   "project-workspace.heading.agent-editor-skills": "Skills",
   "project-workspace.heading.agents-in-project": "Agents in {project}",
   "project-workspace.heading.agents-new-operator": "New Operator",
   "project-workspace.heading.instructions": "Instructions",
   "project-workspace.heading.mcp-servers": "MCP servers",
-  "project-workspace.heading.models-for-project": "Models for this project",
-  "project-workspace.heading.permissions": "Permissions",
   "project-workspace.heading.skills": "Skills",
   "project-workspace.info.instructions-file":
     "Your project's AGENTS.md is for coding agents. lophn agents read LOPHN.md.",
-  "project-workspace.info.models-follow-default":
-    "Leave a row alone and it follows the Workspace default.",
-  "project-workspace.info.permissions-lead":
-    "Permissions that last are decided only here.",
-  "project-workspace.info.stored-in-lophn":
-    "Agent definitions are stored in lophn, not in your project folder.",
   "project-workspace.label.agent-counts-built-in":
     "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-operator":
     "{contexts, plural, one {# context} other {# contexts}} · {skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-unknown":
     "Can't count until its file is fixed",
-  "project-workspace.label.agent-editor-built-in":
-    "Built-in instructions (read only)",
   "project-workspace.label.agent-editor-icons": "Icon",
   "project-workspace.label.agent-editor-image-file": "Image file",
   "project-workspace.label.agent-editor-instructions": "Instructions",
-  "project-workspace.label.agent-editor-model-changed": "Changed",
-  "project-workspace.label.agent-editor-model-inherit":
-    "Use project default — {model} (from {source})",
   "project-workspace.label.agent-editor-model-unset":
     "Use project default — none chosen yet",
   "project-workspace.label.agent-editor-name": "Name",
-  "project-workspace.label.agent-editor-project-instructions":
-    "Project instructions · LOPHN.md — shared by every agent in {project}",
   "project-workspace.label.agent-editor-remove-context": "Remove {name}",
-  "project-workspace.label.agent-editor-source":
-    "{layer, select, workspace {Workspace} project {project} app {app} agent {this agent} other {lophn}}",
-  "project-workspace.label.agent-kind-built-in": "Built in",
   "project-workspace.label.agent-kind-operator": "Operator",
   "project-workspace.label.agent-no-model": "No model",
   "project-workspace.label.agents-target": "the agents",
@@ -259,18 +233,10 @@ export const agents = {
   "project-workspace.label.avatar-icon-terminal": "Terminal",
   "project-workspace.label.instructions-shared":
     "Shared by every agent in {project}",
-  "project-workspace.label.model-default": "Use Workspace default ({model})",
-  "project-workspace.label.model-default-none": "No model chosen yet",
-  "project-workspace.label.model-overrides": "{model} · overrides Workspace",
   "project-workspace.label.open-agent-named": "Open {name}",
-  "project-workspace.label.reset-model-named":
-    "Use Workspace default for {role}",
   "project-workspace.label.role-app-engineer": "App Engineer",
-  "project-workspace.label.role-context-engineer": "Context Engineer",
   "project-workspace.label.role-lophn": "lophn",
   "project-workspace.label.role-operators": "Operators",
-  "project-workspace.notice.agent-editor-body-help":
-    "The agent reads project instructions first, then these.",
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
@@ -279,8 +245,6 @@ export const agents = {
     "Only the fields you change are saved; the rest follow project and Workspace defaults.",
   "project-workspace.notice.agent-editor-save-first":
     "Save first to upload an image.",
-  "project-workspace.notice.agent-editor-wider-help":
-    "Can't be wider than the project's permissions.",
   "project-workspace.notice.agents-change-failed":
     "Couldn't change that. Nothing changed.",
   "project-workspace.notice.agents-delete-failed":

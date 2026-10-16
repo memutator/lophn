@@ -9,7 +9,6 @@ import { declaredSearchTab } from "./declared-search.tsx";
 import { ProjectHost } from "./host.tsx";
 import { useOpenTab } from "./open-tab.ts";
 import { pmNewTab, pmWorkingTab } from "./pm-session.tsx";
-import { ViolationToast } from "./violation-toast.tsx";
 
 const DOC_PATH = "eval/experiments/exp-008-query-tools.md";
 const DOC = documentTab(DOC_PATH);
@@ -88,18 +87,6 @@ export const ContextVersionsPage = () =>
 /** 옛 판(r2)으로 되돌린 직후. 탭 위쪽에 toast가 뜨고 머리의 판이 바뀐다. */
 export const ContextRestoredPage = () =>
   contextPage("overview", { restoredDemo: true });
-
-/** 위반 toast. 문서 탭을 보고 있어도 창 위에 뜬다. */
-export function ViolationToastPage() {
-  return (
-    <ProjectHost
-      sidebar={{ current: DOC_PATH }}
-      panes={[left(DOC)]}
-    >
-      <ViolationToast />
-    </ProjectHost>
-  );
-}
 
 /** [Ask Project Manager]를 누른 뒤, reaction이 꺼져 있어 새로 연 session. 위반 chip이 붙고 입력칸은 비어 있다. */
 export function ViolationSessionNewPage() {

@@ -124,7 +124,6 @@ import {
   DeclaredSearchTablePage,
   ViolationSessionNewPage,
   ViolationSessionOpenPage,
-  ViolationToastPage,
 } from "./compositions/contexts/context-pages.tsx";
 import { ContextWays } from "./compositions/ways-page.tsx";
 import {
@@ -383,7 +382,6 @@ export const SCREENS: Record<ScreenId, () => ReactNode> = {
   "new-context-glossary-delete": () => <ContextGlossaryDeletePage />,
   "new-context-contract": () => <ContextContractPage />,
   "new-ways-to-open": () => <ContextWays />,
-  "new-violation-toast": () => <ViolationToastPage />,
   "new-agent-toast-opened": () => <ViolationSessionNewPage />,
   "new-violation-session-open": () => <ViolationSessionOpenPage />,
   "new-project-agents": () => <ProjectAgentsPage />,

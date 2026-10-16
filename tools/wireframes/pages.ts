@@ -156,7 +156,6 @@ export type ScreenId =
   | "new-context-glossary-delete"
   | "new-context-contract"
   | "new-ways-to-open"
-  | "new-violation-toast"
   | "new-agent-toast-opened"
   | "new-violation-session-open"
   | "new-project-agents"
@@ -953,12 +952,6 @@ export const PAGES: readonly WireframePage[] = [
     "Context · ways to open",
     "Context 탭을 여는 길 여덟을 한 장에 모았다. 길마다 try it을 누르면 그 길을 눌러 볼 수 있는 page로 간다.",
     "new-ways-to-open",
-  ),
-  fresh(
-    "new-violation-toast",
-    "Violation · toast",
-    "ContextViolationFound로 창 위에 뜨는 toast다. 문구는 2 documents don't match이고 단추는 [View]와 [Ask Project Manager]다. 문서 탭을 보는 중에도 뜬다.",
-    "new-violation-toast",
   ),
   fresh(
     "new-agent-toast-opened",

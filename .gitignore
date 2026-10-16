@@ -24,3 +24,10 @@ Thumbs.db
 
 # agent worktrees
 .claude/worktrees/
+
+# python caches
+__pycache__/
+
+# third-party bundles kept only as local reference
+project-docs/tmp/browser-anottation/.vite/
+project-docs/tmp/browser-anottation/webview/

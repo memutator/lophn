@@ -1,0 +1,352 @@
+schema_version: 1
+catalog: ../boundary-catalog.yaml
+requirements:
+
+  # ticket
+
+  - id: req-0728
+    status: accepted
+    subject: app-tickets
+    statement: "ticket은 앱 하나의 구현 또는 수리 둘 중 한 종류다."
+    acceptance:
+      - "구현 ticket과 수리 ticket은 만들어진다."
+      - "앱 둘을 묶은 입력은 거절된다."
+      - "두 종류 밖의 종류를 지정한 입력은 거절된다."
+
+  - id: req-0729
+    status: accepted
+    subject: app-tickets
+    statement: "ticket의 필수 칸(제목, 무엇과 왜, acceptance check)이 비었거나 가리킨 근거가 없으면 ticket을 만들지 않고 거절한다."
+    acceptance:
+      - "필수 칸이 비었거나 공백뿐인 입력은 거절된다."
+      - "없는 문제나 파일을 근거로 가리킨 입력은 거절된다."
+
+  # 폐기: 언제 맡길 만큼 준비됐는지는 App Engineer가 판단한다. 준비 상태와 확인 목록을 프로그램이 두지 않는다.
+  - id: req-0730
+    status: rejected
+    subject: app-tickets
+    statement: "ticket은 준비 상태(needs_confirmation 또는 ready)와 필요한 확인 목록(한 줄 1~200자, 1~12개)을 가지며, ready는 근거와 조건이 모두 채워지고 필요한 확인이 비었을 때만 되고 ready 전환은 한 번뿐이다."
+    acceptance:
+      - "근거나 조건이 일부만 찬 입력은 needs_confirmation으로 만들어진다."
+      - "ready인데 근거나 조건이 비었거나 필요한 확인이 남은 입력은 거절된다."
+      - "ready가 된 ticket에 다시 준비 전환을 요청하면 거절된다."
+
+  - id: req-0731
+    status: accepted
+    subject: app-tickets
+    statement: "수리 ticket은 같은 앱의 문제를 하나 이상 묶고, 구현 ticket에는 문제를 묶지 않는다."
+    acceptance:
+      - "문제가 없는 수리 ticket과 다른 앱의 문제를 섞은 수리 ticket은 거절된다."
+      - "구현 ticket에 문제를 묶으려 하면 거절된다."
+    related:
+      - problems
+
+  - id: req-0732
+    status: accepted
+    subject: app-tickets
+    statement: "App Engineer가 사람의 요청이나 앱의 문제로 만드는 ticket은 같은 입력 검사를 거치고, 사람에게 묻지 않고 만들어지는 즉시 열린 ticket으로 보이며, ticket을 만드는 것만으로는 claim이 생기지 않는다."
+    acceptance:
+      - "App Engineer가 만든 ticket이 확인 창 없이 만든 즉시 목록에 나온다."
+      - "ticket을 만들어도 claim이 생기지 않는다."
+      - "입력 검사를 통과하지 못하는 ticket은 App Engineer가 만들어도 거절된다."
+    related:
+      - agent-roles
+
+  # 폐기: 쓸데없는 제약이다. 목표가 바뀌면 App Engineer가 새 ticket을 내거나 coding agent에게 메시지로 전한다.
+  - id: req-0733
+    status: rejected
+    subject: app-tickets
+    statement: "ticket의 목표, 본문, 근거, acceptance check, 수리 대상은 만든 뒤 바뀌지 않고, 바꾸려면 기존 ticket을 취소하고 이전 ticket을 근거로 App Engineer가 새 ticket을 만든다."
+    acceptance:
+      - "claim 전과 후 모두 목표를 바꾸는 요청이 거절된다."
+      - "새 ticket에서 이전 지시, 취소 이유, 새 지시를 구별해 읽는다."
+
+  - id: req-0734
+    status: accepted
+    subject: app-tickets
+    statement: "acceptance check는 lophn이 실행할 수 있는 조건(app test, test command)과 App Engineer가 판단하는 글 조건이고, ticket은 조건을 하나 이상 가진다."
+    acceptance:
+      - "app test, test command, 글 조건을 각각 가진 ticket이 만들어진다."
+      - "조건이 하나도 없는 ticket은 거절된다."
+
+  # 폐기: 어떤 조건을 둘지는 App Engineer가 정한다. 종류별 필수 조건을 프로그램이 강제하지 않는다.
+  - id: req-0735
+    status: rejected
+    subject: app-tickets
+    statement: "구현 ticket은 app test와 실행 가능한 test command를 각각 하나 이상 요구하고, 실제 사용까지 맡길 때만 release 활성 조건을 명시한다."
+    acceptance:
+      - "필수 test가 빠진 구현 ticket은 거절된다."
+      - "활성 조건이 없는 ticket은 승인 대기만으로 완료가 막히지 않는다."
+      - "활성 조건이 있으면 실제로 활성인 release와 비교한다."
+    related:
+      - app-releases
+
+  # 폐기: 어떤 조건을 둘지는 App Engineer가 정한다. 문제 닫힘과 reproduction test를 조건으로 강제하지 않는다(problems를 일반 관측성 수준으로 줄였다).
+  - id: req-0736
+    status: rejected
+    subject: app-tickets
+    statement: "수리 ticket은 app test, 대상 문제마다의 고정 reproduction test(만들 수 없으면 사람 확인), 연결된 문제 전부의 닫힘을 필수 조건으로 요구한다."
+    acceptance:
+      - "reproduction test도 사람 확인도 없는 수리 ticket은 거절된다."
+      - "일부 문제만 통과하면 ticket이 확인됨으로 판정되지 않는다."
+      - "사람 확인은 test 통과로 세어지지 않는다."
+    related:
+      - problems
+
+  - id: req-0737
+    status: accepted
+    subject: app-tickets
+    statement: "test command 조건은 실행 파일, 인자, 작업 위치, timeout, 기대 종료 값으로 정하고, lophn은 이것을 그대로 실행해 종료 값을 기대 값과 비교한다."
+    acceptance:
+      - "공백이 든 인자가 쪼개지지 않고 그대로 전달된다."
+      - "실제 종료 값과 기대 값이 다르면 실패로 남는다."
+      - "timeout을 넘기면 실패로 남는다."
+
+  # claim
+
+  - id: req-0738
+    status: accepted
+    subject: app-tickets
+    statement: "coding agent는 App Engineer가 맡긴 ticket을 CLI로 claim하고, ticket 하나의 현재 claim은 하나다."
+    acceptance:
+      - "같은 ticket을 동시에 claim하면 하나만 성공한다."
+      - "ticket 목록 읽기만으로 claim이 생기지 않는다."
+
+  - id: req-0739
+    status: accepted
+    subject: app-tickets
+    statement: "claim 기한은 만들거나 마지막으로 명시 갱신한 시각부터 60분(3,600,000ms)이고, 현재 연결만 기한 전에 갱신하거나 반납할 수 있으며, 자료 읽기와 release 준비는 기한을 바꾸지 않는다."
+    acceptance:
+      - "기한에 정확히 닿은 시각에 옛 갱신이 거절된다."
+      - "자료 읽기, 묶음 읽기, release 준비 전후의 기한이 같다."
+      - "claim 응답에서 기한과 반납 방법을 찾을 수 있다."
+
+  - id: req-0740
+    status: accepted
+    subject: app-tickets
+    statement: "기한이 지난 claim으로 온 갱신, release 준비, 완료 보고는 만료 정리 전이라도 거절된다."
+    acceptance:
+      - "기한이 막 지난 뒤 정리 전에도 갱신, release 준비, 완료 보고가 거절된다."
+      - "같은 ticket을 다시 claim한 뒤 옛 claim으로 온 요청은 거절된다."
+
+  - id: req-0741
+    status: accepted
+    subject: app-tickets
+    statement: "claim이 만료나 반납으로 끝나면 ticket은 다시 열린 상태가 되고, 이전 완료 보고와 test 결과는 그대로 읽힌다."
+    acceptance:
+      - "만료 뒤 새 claim이 가능하다."
+      - "이전 완료 보고와 test 결과가 그대로 읽힌다."
+
+  - id: req-0742
+    status: accepted
+    subject: app-tickets
+    statement: "ticket 근거 release 준비는 현재 유효한 claim을 확인해 그 claim을 release의 출처로 남기고, 완료 보고는 같은 앱의 같은 ticket과 claim이 출처인 release만 받는다."
+    acceptance:
+      - "다른 앱이나 다른 claim의 release를 연결하려 하면 거절된다."
+      - "ticket과 release 양쪽에서 출처 claim을 찾을 수 있다."
+    related:
+      - app-releases
+
+  # claim event
+
+  # 폐기: claim의 시작, 갱신, 반납은 ticket 상태가 바뀌는 것이고 반응할 쪽이 없다. ledger에는 반응할 domain event만 남긴다(tmp/specs/event.md).
+  - id: req-1400
+    status: rejected
+    subject: app-tickets
+    statement: "claim이 시작되면 claim 시작 event가 남는다."
+    details:
+      emits:
+        - "claim 시작 event: ticket, claim, 기한"
+    acceptance:
+      - "ticket을 claim하면 그 ticket과 claim과 기한을 담은 claim 시작 event가 하나 남는다."
+      - "거절된 claim 요청은 claim 시작 event를 남기지 않는다."
+    related:
+      - events
+
+  # 폐기: claim의 시작, 갱신, 반납은 ticket 상태가 바뀌는 것이고 반응할 쪽이 없다. ledger에는 반응할 domain event만 남긴다(tmp/specs/event.md).
+  - id: req-1401
+    status: rejected
+    subject: app-tickets
+    statement: "claim을 갱신하면 claim 갱신 event가 남는다."
+    details:
+      emits:
+        - "claim 갱신 event: ticket, claim, 새 기한"
+    acceptance:
+      - "현재 연결이 claim을 기한 전에 갱신하면 새 기한을 담은 claim 갱신 event가 하나 남는다."
+      - "거절된 갱신은 claim 갱신 event를 남기지 않는다."
+    related:
+      - events
+
+  # 폐기: claim의 시작, 갱신, 반납은 ticket 상태가 바뀌는 것이고 반응할 쪽이 없다. ledger에는 반응할 domain event만 남긴다(tmp/specs/event.md).
+  - id: req-1402
+    status: rejected
+    subject: app-tickets
+    statement: "claim을 반납하면 claim 반납 event가 남는다."
+    details:
+      emits:
+        - "claim 반납 event: ticket, claim"
+    acceptance:
+      - "현재 연결이 claim을 반납하면 claim 반납 event가 하나 남는다."
+      - "반납 뒤 ticket은 다시 열린 상태로 읽힌다."
+    related:
+      - events
+
+  - id: req-1403
+    status: accepted
+    impl: done
+    subject: app-tickets
+    statement: "claim이 기한이 지나 만료로 정리되면 claim 만료 event가 남는다."
+    details:
+      emits:
+        - "claim 만료 event: ticket, claim, 지난 기한"
+    acceptance:
+      - "기한이 지난 claim을 정리하면 claim 만료 event가 하나 남는다."
+      - "기한 안에 갱신한 claim에는 claim 만료 event가 남지 않는다."
+    related:
+      - events
+
+  - id: req-1404
+    status: accepted
+    impl: done
+    subject: app-tickets
+    statement: "완료 보고가 접수되면 완료 보고 event가 남는다."
+    details:
+      emits:
+        - "완료 보고 event: ticket, claim, 보고에 연결된 release"
+    acceptance:
+      - "완료 보고를 접수하면 ticket과 claim과 release를 담은 완료 보고 event가 하나 남는다."
+      - "거절된 완료 보고는 완료 보고 event를 남기지 않는다."
+    related:
+      - events
+
+  # 완료 보고와 검사
+
+  - id: req-0744
+    status: accepted
+    subject: app-tickets
+    statement: "완료 보고는 만든 release, 변경 내용, 수행한 확인, 하지 못한 확인, 한계, 수리한 문제별 고친 기록, test result 참조를 연결하고, 접수되면 claim이 끝나지만 보고만으로 ticket이 확인됨이 되지는 않는다."
+    acceptance:
+      - "접수 뒤 그 ticket의 claim이 끝나 있다."
+      - "연결된 산출물과 한계가 모두 읽힌다."
+      - "검사 전에는 확인됨이 아니다."
+
+  - id: req-0745
+    status: accepted
+    subject: app-tickets
+    statement: "완료 보고가 접수되면 lophn은 실행할 수 있는 acceptance check를 그 보고의 release로 돌려 조건마다 결과와 근거를 남기고, 글 조건은 App Engineer가 판단한다."
+    acceptance:
+      - "app test와 test command 조건마다 통과나 실패와 그 test 결과가 읽힌다."
+      - "글 조건에는 lophn이 판정을 남기지 않는다."
+
+  - id: req-0746
+    status: accepted
+    subject: app-tickets
+    statement: "ticket은 열림, claim 중, 보고됨, 확인됨, 확인 실패, 취소 중 하나이고, 확인됨과 확인 실패는 App Engineer가 정하며, 확인 실패 ticket은 다시 맡길 수 있다."
+    acceptance:
+      - "App Engineer가 보고된 ticket을 확인됨이나 확인 실패로 바꿀 수 있다."
+      - "완료 보고와 조건 결과만으로는 확인됨이 되지 않는다."
+      - "확인 실패 ticket은 새 claim을 받을 수 있다."
+    related:
+      - agent-roles
+
+  # 폐기: 당연한 구현 품질이다.
+  - id: req-0747
+    status: rejected
+    subject: app-tickets
+    statement: "core는 재시작 뒤에도 보고된 ticket의 남은 검사를 이어 하고, test result, 문제의 닫힘과 재발, release 활성 상태를 다시 비교해 ticket을 갱신한다."
+    acceptance:
+      - "검사 도중 재시작해도 결과가 이어진다."
+      - "활성 release가 바뀐 뒤 늦게 끝난 검사가 ticket을 확인됨으로 만들지 않는다."
+      - "비교에 model 호출이 없다."
+
+  # 폐기: 문제를 해결됨으로 바꾸는 것은 App Engineer가 한다(req-0154). ticket 검사가 문제 닫힘을 읽지 않는다.
+  - id: req-0748
+    status: rejected
+    subject: app-tickets
+    statement: "수리 ticket의 검사는 문제 쪽이 먼저 판정한 닫힘과 이번 보고의 고친 release 근거를 읽어 판정하고, ticket의 완료 보고, 확인됨, 취소는 문제를 닫지 않는다."
+    acceptance:
+      - "보고만 내거나 ticket을 취소해도 문제의 진행이 그대로다."
+      - "문제 쪽 닫힘 근거가 맞을 때만 해당 조건이 통과한다."
+    related:
+      - problems
+
+  # 취소
+
+  - id: req-0749
+    status: accepted
+    subject: app-tickets
+    statement: "사람이나 App Engineer는 닫히기 전의 ticket을 한 줄 사유로 취소한다."
+    acceptance:
+      - "사유 없이 취소하면 거절된다."
+      - "취소한 ticket은 완료와 구별되어 읽힌다."
+    related:
+      - agent-roles
+
+  # 폐기: 취소하면 session을 멈추고 coding token을 회수한다(req-1062). 옛 claim 쓰기를 따로 막지 않는다.
+  - id: req-0750
+    status: rejected
+    subject: app-tickets
+    statement: "ticket이 취소되면 옛 claim의 갱신, ticket 근거 release 준비, 완료 보고를 거절하고, 이미 남은 결과와 문제는 그대로 둔다."
+    acceptance:
+      - "취소 직후 옛 claim의 갱신, release 준비, 완료 보고 세 요청이 거절된다."
+      - "취소 전의 결과가 그대로 조회된다."
+
+  # 요청과 문제에서 ticket으로
+
+  # 폐기: 요청에서 ticket을 만들고 맡기는 일은 req-1450~1453이 맡는다. 무엇이 App Engineer를 부르는지는 approval 이야기에서 정한다(architecture/event.md의 Reactor).
+  - id: req-0743
+    status: rejected
+    subject: app-tickets
+    statement: "사람이 App Engineer에게 한 제작·수리 요청은 ticket이 되어 coding agent가 claim하고, 작업하고, 완료를 보고하는 흐름으로 처리된다."
+    acceptance:
+      - "요청 하나에 실제 ticket, claim, 완료 보고가 남는다."
+      - "근거가 모자란 요청은 needs_confirmation ticket으로 만들어지고 필요한 확인 목록이 남는다."
+    related:
+      - agent-roles
+
+  # 폐기: 문제에서 수리 ticket을 만들고 맡기는 일은 req-1450~1453이 맡는다. 무엇이 App Engineer를 부르는지는 approval 이야기에서 정한다(architecture/event.md의 Reactor).
+  - id: req-0751
+    status: rejected
+    subject: app-tickets
+    statement: "문제의 수리 요청은 App Engineer가 수리 ticket을 준비하고 coding agent에게 맡기는 일로 이어진다."
+    acceptance:
+      - "수리 요청 단추를 누르면 App Engineer가 그 문제의 수리 ticket을 준비한다."
+      - "맡긴 ticket에서 claim 근거를 찾을 수 있다."
+      - "우선순위나 요청 표시만으로 release approval이 자동 생성되지 않는다."
+    related:
+      - problems
+      - agent-roles
+
+  # 폐기: 기능 요청으로 판명된 문제를 ticket으로 잇는 일은 App Engineer가 판단해서 쓴다. '권한을 주지 않는다'는 길 없는 동작이다.
+  - id: req-0752
+    status: rejected
+    subject: app-tickets
+    statement: "기능 요청으로 판명된 문제는 원문, 기대 기준, 고정 출처를 보존한 채 새 구현 ticket의 근거로 이어지고, ticket의 볼 곳, 지킬 것, claim은 권한을 주지 않는다."
+    acceptance:
+      - "기능 요청 ticket에서 원문과 이전 문제 근거를 찾을 수 있다."
+      - "claim이나 근거 주소로 다른 앱 data에 접근하거나 임의 코드를 실행하려 하면 거절된다."
+    related:
+      - problems
+
+  # 폐기: ticket 칸은 App Engineer가 판단해서 쓴다. 문제에서 자동으로 채우지 않는다.
+  - id: req-0753
+    status: rejected
+    subject: app-tickets
+    statement: "열린 문제 하나로 수리 ticket을 만들면 제목, 무엇과 왜, 고정 근거, acceptance check를 기존 증상과 근거에서 자동으로 채우고 일반 생성과 같은 검사를 거치며, 만든 ticket은 준비 전 상태로 열린다."
+    acceptance:
+      - "근거가 갖춰진 문제에서는 양식 입력 없이 필수 검사를 통과한 ticket이 만들어진다."
+      - "reproduction test를 만들 수 없는 문제는 '내가 확인함' 조건만 생긴다."
+      - "근거가 모자란 문제는 ticket을 만들지 않고 다음 행동을 보인다."
+      - "새 구현 요청은 담당 App Engineer와의 대화로 이어진다."
+    related:
+      - problems
+
+  # 폐기: 사람은 App Engineer를 통해 진행을 받는다(req-1450). ticket 화면을 따로 두지 않는다.
+  - id: req-0754
+    status: rejected
+    subject: app-tickets
+    statement: "ticket은 화면에서 제목, 원래 요청 또는 문제, 지금 결과와 다음 행동을 기본으로 보이고, 여섯 진행 구분은 영어 화면 말로 나오며, claim 기한, 연결 식별자, 전체 조건, 보고와 test 원문은 펼치면 읽힌다."
+    acceptance:
+      - "여섯 진행 구분이 서로 다른 화면 상태로 보인다."
+      - "기한과 연결 ID는 펼쳤을 때 읽힌다."
+      - "실제 검사 근거와 남은 조건은 펼쳐서 읽는다."

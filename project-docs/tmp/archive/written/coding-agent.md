@@ -1,0 +1,200 @@
+# written: coding-agent
+
+분류표: `triage/coding-1.md`, `triage/coding-2.md`, `triage/coding-3.md`, `triage/deferred-to-apps-coding.md`(subject coding-agent). 한 요구에 줄이 여럿이면 합친 것이다.
+
+## coding-agent.yaml
+
+| 새 ID | 분류표 줄 |
+|---|---|
+| req-1050 | connection R1a |
+| req-1051 | connection R1b |
+| req-1052 | secrets R12 |
+| req-1052 | identity R5 |
+| req-1053 | identity R5 |
+| req-1054 | connection R2b |
+| req-1055 | connection R3a |
+| req-1056 | connection R9 |
+| req-1057 | mcp-server R36a |
+| req-1057 | connection R17b |
+| req-1058 | mcp-server R36b |
+| req-1058 | connection R17b |
+| req-1059 | identity R15 |
+| req-1060 | connection R17c |
+| req-1061 | connection R8b |
+| req-1062 | connection R18 |
+| req-1063 | connection R4a |
+| req-1063 | cli R25b |
+| req-1064 | connection R5a |
+| req-1065 | connection R5b |
+| req-1066 | mcp-server R30a |
+| req-1067 | connection R10 |
+| req-1068 | connection R11 |
+| req-1069 | mcp-server R37a |
+| req-1070 | connection R6 |
+| req-1070 | mcp-server R2 |
+| req-1071 | connection R15 |
+| req-1072 | cli R8b |
+| req-1073 | connection R7a |
+| req-1073 | mcp-server R18a |
+| req-1073 | cli R7a |
+| req-1074 | mcp-server R7b |
+| req-1075 | harnesses R1 |
+| req-1076 | harnesses R2a |
+| req-1077 | harnesses R2b |
+| req-1078 | harnesses R3 |
+| req-1078 | settings R31 |
+| req-1079 | harnesses R4 |
+| req-1080 | harnesses R5a |
+| req-1081 | harnesses R5b |
+| req-1082 | harnesses R6 |
+| req-1083 | harnesses R7 |
+| req-1084 | harnesses R8a |
+| req-1085 | harnesses R8b |
+| req-1086 | harnesses R9 |
+| req-1087 | harnesses R10 |
+| req-1088 | harnesses R11a |
+| req-1089 | harnesses R11b |
+| req-1090 | harnesses R12 |
+| req-1091 | sessions R1a |
+| req-1092 | sessions R1b |
+| req-1093 | sessions R2 |
+| req-1094 | sessions R3a |
+| req-1095 | sessions R3b |
+| req-1096 | sessions R4 |
+| req-1097 | sessions R5 |
+| req-1098 | sessions R6 |
+| req-1099 | sessions R7 |
+| req-1100 | sessions R8 |
+| req-1101 | sessions R9 |
+| req-1102 | sessions R10 |
+| req-1103 | guides R1 |
+| req-1104 | guides R2 |
+| req-1105 | guides R3a |
+| req-1106 | guides R4 |
+| req-1107 | guides R5b |
+| req-1108 | guides R8a |
+| req-1109 | guides R8b |
+| req-1110 | guides R9a |
+| req-1111 | guides R9b |
+| req-1112 | guides R10 |
+| req-1113 | guides R11 |
+| req-1114 | guides R12 |
+| req-1115 | guides R13 |
+| req-1116 | guides R14 |
+| req-1117 | guides R15 |
+| req-1118 | guides R16 |
+| req-1119 | guides R17 |
+| req-1119 | mcp-server R19i |
+| req-1120 | guides R20a |
+| req-1121 | guides R21a |
+| req-1121 | mcp-server R39a |
+| req-1122 | guides R21b |
+| req-1122 | mcp-server R39b |
+| req-1123 | guides R22 |
+| req-1124 | guides R23a |
+| req-1125 | guides R23b |
+| req-1126 | guides R24 |
+| req-1127 | guides R25a |
+| req-1128 | guides R26 |
+| req-1129 | mcp-server R19a |
+| req-1130 | mcp-server R19b |
+| req-1131 | mcp-server R19c |
+| req-1132 | mcp-server R19d |
+| req-1133 | mcp-server R33a |
+| req-1134 | mcp-server R19e |
+| req-1135 | mcp-server R19f |
+| req-1136 | cli R27b |
+| req-1137 | mcp-server R19g |
+| req-1137 | mcp-server R29a |
+| req-1138 | mcp-server R32a |
+| req-1139 | mcp-server R32b |
+| req-1140 | mcp-server R19h |
+| req-1140 | mcp-server R32c |
+| req-1141 | mcp-server R29b |
+| req-1142 | mcp-server R29c |
+| req-1143 | mcp-server R29d |
+| req-1144 | mcp-server R34b |
+| req-1145 | mcp-server R22a |
+| req-1146 | mcp-server R22b |
+| req-1147 | mcp-server R23a |
+| req-1148 | mcp-server R23b |
+| req-1149 | mcp-server R24a |
+| req-1350 | mcp-server R25a |
+| req-1351 | mcp-server R24b |
+| req-1351 | repair-context R20a |
+| req-1352 | repair-context R20a |
+| req-1353 | mcp-server R25b |
+| req-1353 | mcp-server R21c |
+| req-1353 | cli R34a |
+| req-1354 | mcp-server R26 |
+| req-1355 | mcp-server R27 |
+| req-1356 | mcp-server R28 |
+| req-1357 | mcp-server R31c |
+| req-1358 | mcp-server R37b |
+| req-1359 | repair-context R1 |
+| req-1360 | repair-context R2 |
+| req-1361 | repair-context R3 |
+| req-1362 | repair-context R4a |
+| req-1363 | repair-context R4b |
+| req-1364 | repair-context R5a |
+| req-1365 | repair-context R5b |
+| req-1366 | repair-context R6 |
+| req-1367 | repair-context R7 |
+| req-1368 | repair-context R8 |
+| req-1369 | repair-context R9 |
+| req-1370 | repair-context R10a |
+| req-1371 | repair-context R10b |
+| req-1372 | repair-context R11 |
+| req-1373 | repair-context R12 |
+| req-1374 | repair-context R13 |
+| req-1375 | repair-context R14 |
+| req-1376 | repair-context R15 |
+| req-1377 | repair-context R16 |
+| req-1378 | repair-context R17 |
+| req-1379 | repair-context R18 |
+| req-1380 | repair-context R19 |
+| req-1381 | repair-context R20b |
+
+## coding-agent-mcp.yaml
+
+| 새 ID | 분류표 줄 |
+|---|---|
+| req-1150 | mcp-server R1a |
+| req-1151 | mcp-server R1b |
+| req-1151 | connection R16 |
+| req-1152 | guides R27b |
+| req-1153 | mcp-server R3a |
+| req-1154 | mcp-server R4a |
+| req-1155 | mcp-server R4b |
+| req-1156 | mcp-server R34a |
+| req-1157 | mcp-server R35a |
+| req-1158 | mcp-server R5a |
+| req-1159 | mcp-server R5b |
+| req-1160 | mcp-server R6a |
+| req-1161 | mcp-server R6b |
+| req-1162 | mcp-server R7a |
+
+## coding-agent-cli.yaml
+
+| 새 ID | 분류표 줄 |
+|---|---|
+| req-1200 | cli R1a |
+| req-1201 | cli R2a |
+| req-1202 | cli R2b |
+| req-1203 | cli R3a |
+| req-1204 | cli R4a |
+| req-1205 | cli R4b |
+| req-1206 | cli R39 |
+| req-1207 | cli R6a |
+| req-1208 | cli R8a |
+| req-1209 | cli R9 |
+| req-1210 | cli R10a |
+| req-1211 | cli R10b |
+| req-1212 | cli R40a |
+| req-1213 | cli R35a |
+| req-1214 | cli R35b (지움: App Engineer가 맡기는 모양으로 바뀌며 사람이 coding agent 쪽에서 수리를 움직이는 길이 없어짐) |
+| req-1215 | cli R31 |
+| req-1216 | cli R36 |
+| req-1217 | cli R37 |
+| req-1218 | cli R1b |
+| req-1218 | cli R41 |

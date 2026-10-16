@@ -1,0 +1,352 @@
+schema_version: 1
+catalog: ../boundary-catalog.yaml
+requirements:
+
+  # 공개 항목
+
+  - id: req-0350
+    status: accepted
+    subject: config
+    statement: "설정 항목은 그것을 쓰는 요소가 자기 이름 아래(예: `agents.`, `server.`, `shell.`)에 타입과 기본값으로 선언하고, config는 선언된 항목만 받아 설정 파일 하나에 저장한다."
+    acceptance:
+      - "선언하지 않은 항목을 설정하려 하면 거절되고 적용값이 바뀌지 않는다."
+      - "여러 요소의 설정이 한 파일에 요소별 이름 아래로 저장된다."
+
+  # 폐기: 계약을 과하게 강제하는 메타 장치다. 항목은 타입과 기본값만 선언한다(req-0350).
+  - id: req-0351
+    status: rejected
+    subject: config
+    statement: 공개한 항목마다 값의 종류, 기본값 또는 필수 선택 여부, 허용값이나 숫자 범위와 단위, 설정할 수 있는 층, 효력이 나는 시점을 조회할 수 있다.
+    details:
+      returns:
+        - 값의 종류
+        - 기본값 또는 필수 선택 여부
+        - 허용값 또는 숫자 범위와 단위
+        - 설정할 수 있는 층
+        - 효력이 나는 시점
+    acceptance:
+      - 숫자 항목을 조회하면 단위, 경계값, 효력 시점이 나온다.
+
+  # 폐기: 계약을 과하게 강제하는 메타 장치다. 항목은 타입과 기본값만 선언한다(req-0350).
+  - id: req-0352
+    status: rejected
+    subject: config
+    statement: 공개한 설정마다 사람이 읽을 이름, 한 줄 설명, 현재 선택과 기본값의 뜻, 영향받는 기능, 위험, 되돌리는 방법, 효력 시점을 함께 제공하고, 설명이 없는 항목은 공개하지 않는다.
+    details:
+      contains:
+        - 사람이 읽을 이름
+        - 한 줄 설명
+        - 현재 선택과 기본값의 뜻
+        - 영향받는 기능
+        - 위험
+        - 되돌리는 방법
+        - 효력 시점
+    acceptance:
+      - 숫자, 목록, model 선택 설정에서 설명과 실제 적용 결과가 맞는다.
+      - 설명이 빠진 항목은 공개 목록에 오르지 않는다.
+      - secret 값 없이 설정의 뜻을 읽을 수 있다.
+
+  # 폐기: 계약을 과하게 강제하는 메타 장치다.
+  - id: req-0353
+    status: rejected
+    subject: config
+    statement: 설정 화면과 agent는 같은 공개 목록에서 이름, 영향, 효력 시점, 현재값을 읽고, 공개하지 않은 항목은 선택지로 나오지 않는다.
+    acceptance:
+      - 같은 항목을 설정 화면과 agent에서 읽으면 이름, 영향, 효력 시점, 현재값이 같다.
+      - 공개하지 않은 항목은 설정 화면과 agent 어디에도 선택지로 나오지 않는다.
+    related:
+      - shell
+      - agents
+
+  # 층과 병합
+
+  - id: req-0354
+    status: accepted
+    subject: config
+    statement: 일반 설정은 내장 기본값과 전역 선택 두 층만 합치고, project와 Operator 층의 agent 설정은 일반 설정의 층이나 복제 원본으로 두지 않는다.
+    acceptance:
+      - 전역 선택은 내장 기본값보다 우선한다.
+      - project나 Operator 층에서 agent 설정을 정해도 일반 설정의 항목으로 저장되지 않고 일반 설정의 적용값에 나타나지 않는다.
+    related:
+      - agents
+
+  # 폐기: 없는 길을 늘어놓은 것이다.
+  - id: req-0355
+    status: rejected
+    subject: config
+    statement: 정해진 층 밖의 출처(환경 변수, CLI 일회 인자, session 안의 말, 외부 서버 응답)는 설정을 덮어쓰지 못한다.
+    acceptance:
+      - 각 출처에 같은 항목을 넣어도 적용값과 revision이 바뀌지 않는다.
+
+  - id: req-0356
+    status: accepted
+    subject: config
+    statement: 사람이 명시한 선택만 저장하고, 내장 기본값과 병합한 적용값은 사람의 선택으로 다시 저장하지 않는다.
+    acceptance:
+      - 한 항목만 선택한 뒤 내장 기본값을 바꾸면 선택하지 않은 항목만 새 기본값을 쓴다.
+
+  # 폐기: 두 층이면 구현 세부다.
+  - id: req-0357
+    status: rejected
+    subject: config
+    statement: 층을 합칠 때 object는 항목별로 합치고, 문자열, 숫자, 참거짓은 높은 층의 값으로 바뀌고, 목록은 높은 층의 전체 목록으로 바뀐다.
+    acceptance:
+      - 낮은 층의 두 원소 목록에 높은 층의 한 원소 목록을 적용하면 한 원소만 남는다.
+      - 높은 층 object에서 생략한 항목만 낮은 층 값을 따른다.
+
+  # 폐기: 두 층이면 구현 세부다.
+  - id: req-0358
+    status: rejected
+    subject: config
+    statement: 항목을 생략하거나 선택을 삭제하면 낮은 층을 따르고, nullable 항목의 명시 null, 빈 목록, false는 서로 다른 선택이다.
+    acceptance:
+      - null로 저장한 경우와 선택을 삭제한 경우의 적용값이 다르게 나온다.
+      - null을 허용하지 않는 항목에 null을 넣으면 거절된다.
+
+  # 폐기: 두 층이면 구현 세부다.
+  - id: req-0359
+    status: rejected
+    subject: config
+    statement: 항목마다 적용값, 그 값을 정한 층, 다른 층의 명시 선택, 적용 revision을 조회할 수 있다.
+    details:
+      returns:
+        - 적용값
+        - 그 값을 정한 층
+        - 다른 층의 명시 선택
+        - 적용 revision
+    acceptance:
+      - 같은 항목을 여러 층에서 정하고 조회하면 적용값과 가려진 선택이 함께 나온다.
+
+  # agent 기본값
+
+  # 폐기: agent 설정(req-0038, 0039)이 맡는다. model은 agent 설정의 몫이다.
+  - id: req-0360
+    status: rejected
+    subject: config
+    statement: 전역 층에서 role마다 기본 model과 option을 정한다.
+    acceptance:
+      - role별 기본 model과 option을 저장하면 바꾸지 않은 place의 그 role agent가 그 값을 쓴다.
+    related:
+      - agents
+      - models
+
+  # 폐기: 지금 두지 않는다. compact는 그 session의 model로 한다.
+  - id: req-0361
+    status: rejected
+    subject: config
+    statement: 전역 층에 요약에 쓰는 model 한 칸을 둔다.
+    acceptance:
+      - 요약용 model을 저장하면 role과 상관없이 한 칸으로 조회된다.
+    related:
+      - models
+
+  # 폐기: 별표 model은 shell req-0092가 맡는다. 별표 목록은 설정 파일의 shell 항목에 둔다.
+  - id: req-0362
+    status: rejected
+    subject: config
+    statement: 전역 층에 순서 있는 즐겨찾기 model 목록을 둔다.
+    acceptance:
+      - 즐겨찾기 model을 순서대로 저장하면 같은 순서로 조회된다.
+    related:
+      - models
+
+  # 폐기: grant의 기본은 효과에서 나오고 할당 때 정한다(approvals req-1493).
+  - id: req-0363
+    status: rejected
+    subject: config
+    statement: 전역 층에서 agent의 기본 권한을 정하고, place와 agent가 바꾸지 않은 칸은 이 값을 따른다.
+    acceptance:
+      - 기본 권한을 저장하면 바꾸지 않은 place의 agent가 그 권한을 쓴다.
+    related:
+      - agents
+
+  # 검증
+
+  # 폐기: 구현 세부다.
+  - id: req-0364
+    status: rejected
+    subject: config
+    statement: 검증은 각 층의 문법, 알려진 항목, 타입, 숫자 범위, 허용 층을 먼저 보고, 병합한 뒤에 필수값, 항목 관계, 대상 참조를 본다.
+    acceptance:
+      - 층 단계의 오류와 병합 뒤 단계의 오류를 따로 만들면 각각 알맞은 항목과 단계에서 거절된다.
+
+  - id: req-0365
+    status: accepted
+    subject: config
+    statement: 모르는 항목, 틀린 타입, 범위 밖 숫자는 오류로 거절한다.
+    details:
+      forbids:
+        - 숫자 문자열을 숫자로 바꿔 받기
+        - 가까운 이름으로 오타 고치기
+    acceptance:
+      - 오타 항목과 숫자 문자열을 보내면 전체 적용이 거절되고 아무것도 바뀌지 않는다.
+
+  - id: req-0366
+    status: accepted
+    subject: config
+    statement: "필수 선택이 비면 아무 provider, model, credential로 채우지 않고 그 기능만 시작하지 않으며, 다른 기능은 그대로 쓴다."
+    acceptance:
+      - "필수 선택을 지우면 그 기능이 시작되지 않고 다른 값으로 채워지지 않는다."
+      - "agent 설정이 비어 agent가 시작되지 않는 동안에도 설정 화면, 앱, project 파일은 쓸 수 있다."
+
+  # 폐기: 구현 세부다.
+  - id: req-0367
+    status: rejected
+    subject: config
+    statement: 대상(model, provider 연결 등)의 존재, 사용 가능 여부, 호환성은 그 대상을 맡은 요소의 검증을 따르고, offline이라 확인하지 못한 것은 그 요소가 허용할 때만 미확인으로 표시해 받는다.
+    acceptance:
+      - 사용할 수 없는 대상과 offline이라 확인하지 못한 대상을 각각 선택하면 맡은 요소의 판정대로 거절되거나 미확인으로 표시된다.
+    related:
+      - models
+
+  # 폐기: 구현 세부다.
+  - id: req-0368
+    status: rejected
+    subject: config
+    statement: 설정 오류는 틀린 항목, 선택 층, 기대 타입 또는 허용 범위, 고칠 방법을 알리고 secret 값이나 입력 전체를 담지 않는다.
+    details:
+      contains:
+        - 틀린 항목
+        - 선택 층
+        - 기대 타입 또는 허용 범위
+        - 고칠 방법
+    acceptance:
+      - 잘못된 입력을 보내면 오류에서 고칠 항목을 찾을 수 있다.
+      - 오류에는 입력 원문과 secret이 없다.
+
+  # 폐기: secrets 요구(다른 기록에는 이름만 둔다)가 맡는다.
+  - id: req-0369
+    status: rejected
+    subject: config
+    statement: 일반 설정은 API key, password, OAuth token, 인증 header, private key 원문을 거절하고, secret이 필요한 항목에는 secrets가 허용한 보호 참조만 받는다.
+    acceptance:
+      - 키 형태의 값을 원문으로 넣으면 적용이 거절된다.
+      - secrets가 허용한 보호 참조는 받는다.
+    related:
+      - secrets
+
+  # 폐기: 없는 길을 늘어놓은 것이다.
+  - id: req-0370
+    status: rejected
+    subject: config
+    statement: 어떤 설정 층도 권한 검사와 안전 금지, 사람의 credential 결정을 해제하지 못한다.
+    acceptance:
+      - 금지를 풀자는 값을 어느 층에 넣어도 거절되거나 효력이 없다.
+
+  # 적용과 reload
+
+  # 폐기: 없는 길을 늘어놓은 것이다. agent가 설정을 바꾸는 tool이 없다.
+  - id: req-0371
+    status: rejected
+    subject: config
+    statement: 설정 선택은 사람이 명시적으로 적용했을 때만 바뀌고, agent의 제안이나 session 안의 동의 추측은 적용 요청으로 보지 않는다.
+    acceptance:
+      - agent가 제안만 하거나 session에서 동의하는 말이 나와도 선택과 revision이 바뀌지 않는다.
+      - 사람이 적용한 뒤에는 선택과 revision이 바뀐다.
+    related:
+      - agents
+
+  # 폐기: single-user desktop app에는 과하다.
+  - id: req-0372
+    status: rejected
+    subject: config
+    statement: 한 번의 적용은 영향받는 요소의 적용값까지 검증한 뒤 전체 변경을 함께 저장하거나 함께 거절한다.
+    acceptance:
+      - 여러 항목 중 하나를 틀리게 보내면 어떤 선택도 바뀌지 않는다.
+
+  # 폐기: single-user desktop app에는 과하다.
+  - id: req-0373
+    status: rejected
+    subject: config
+    statement: 적용은 편집을 시작한 revision이 현재 revision과 같을 때만 받고, 충돌하면 최신 선택과 충돌 항목을 알린다.
+    acceptance:
+      - 같은 revision에서 시작한 두 편집 중 하나를 먼저 적용하면 나중 적용이 충돌로 거절된다.
+      - 충돌 응답에서 최신 선택과 충돌 항목을 읽을 수 있다.
+
+  # 폐기: 사후 감사다.
+  - id: req-0374
+    status: rejected
+    subject: config
+    statement: 성공한 변경은 변경 주체, 시각, 항목, 전후 선택, 영향받는 요소, 새 revision을 기록한다.
+    details:
+      contains:
+        - 변경 주체
+        - 시각
+        - 항목
+        - 전후 선택
+        - 영향받는 요소
+        - 새 revision
+    acceptance:
+      - 변경 뒤 기록에서 위 항목을 읽을 수 있다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0375
+    status: rejected
+    subject: config
+    statement: 선택과 적용값이 모두 같은 다시 읽기는 새 revision을 만들지 않는다.
+    acceptance:
+      - 같은 선택을 다시 읽으면 revision이 그대로다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0376
+    status: rejected
+    subject: config
+    statement: reload는 저장된 선택과 현재 내장 기본값을 처음부터 병합하고 검증해 적용값을 교체하며, 화면과 다른 호출자는 같은 적용값을 읽는다.
+    acceptance:
+      - 내장 기본값을 바꾼 뒤 reload하면 화면과 다른 호출자가 같은 revision과 값을 본다.
+    related:
+      - shell
+
+  # 폐기: 구현 품질이다.
+  - id: req-0377
+    status: rejected
+    subject: config
+    statement: 적용이나 reload가 실패하면 마지막 성공값과 revision을 유지하고 실패를 알리며, 일부 항목만 적용하거나 내장 기본값으로 돌아가지 않는다.
+    acceptance:
+      - 검증 실패와 저장 실패를 각각 만들면 이전 값과 revision이 그대로이고 실패가 알려진다.
+
+  # 폐기: req-0366에 합쳤다.
+  - id: req-0378
+    status: rejected
+    subject: config
+    statement: 유효한 저장 선택도 마지막 성공값도 없는 첫 시작에는 agent 작업을 시작하지 않고, 설정을 고치는 일과 설정과 무관한 앱 사용, project 파일 읽기는 할 수 있다.
+    acceptance:
+      - 초기 설정 오류 상태에서 agent는 시작되지 않는다.
+      - 같은 상태에서 설정 수정 화면과 기존 앱, project 파일은 열린다.
+
+  # 효력 시점
+
+  # 폐기: 구현 품질이다.
+  - id: req-0379
+    status: rejected
+    subject: config
+    statement: 적용 결과는 새 revision, 즉시 효력이 난 항목, 다음 run부터 효력이 나는 항목을 구별해 알린다.
+    details:
+      returns:
+        - 새 revision
+        - 즉시 효력이 난 항목
+        - 다음 run부터 효력이 나는 항목
+    acceptance:
+      - 한 항목만 바꾸면 그 항목의 효력 시점이 결과에 나온다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0380
+    status: rejected
+    subject: config
+    statement: 적용할 때 바뀌지 않은 provider 연결과 앱을 다시 잇지 않고 lophn 전체를 다시 띄우지 않는다.
+    acceptance:
+      - 한 항목만 바꿔 적용해도 바뀌지 않은 연결과 앱이 끊기지 않고 이어진다.
+    related:
+      - models
+      - apps
+
+  - id: req-0381
+    status: accepted
+    subject: config
+    statement: 사람 지침을 고쳐도 도는 turn은 시작할 때 읽은 지침을 끝까지 쓰고, 고친 지침은 다음 turn부터 쓰인다.
+    acceptance:
+      - turn이 도는 중에 project 지침을 고쳐도 그 turn은 시작할 때 읽은 지침으로 끝난다.
+      - 고친 뒤 시작한 turn은 고친 지침을 쓴다.
+    related:
+      - agents
+      - run-loop

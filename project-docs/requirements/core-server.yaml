@@ -1,0 +1,210 @@
+schema_version: 1
+catalog: ../boundary-catalog.yaml
+interfaces:
+  - core-api
+requirements:
+
+  # core-api 계약 전체에 걸친 보장
+
+  - id: req-0200
+    status: accepted
+    subject: core-api
+    statement: read 호출은 저장된 상태를 바꾸지 않는다.
+    acceptance:
+      - read를 반복 호출하기 전후로 저장된 기록과 event 순번이 같다.
+
+  # 폐기: 당연하다.
+  - id: req-0201
+    status: rejected
+    subject: core-api
+    statement: 등록되지 않은 major, resource, method 호출은 다른 동작으로 추정하지 않고 거절한다.
+    acceptance:
+      - 철자가 비슷한 미등록 호출은 어떤 동작도 실행하지 않고 거절된다.
+      - 등록된 호출은 정상으로 실행된다.
+
+  - id: req-0202
+    status: accepted
+    subject: core-api
+    statement: 실패 응답은 오류 객체 하나이고, 입력 오류, 자격 없음, 범위 거절, 부재, 충돌, 사용 불가, 내부 실패 중 하나의 종류와 안전한 설명을 담는다.
+    details:
+      contains:
+        - 오류 종류
+        - 안전한 설명
+    acceptance:
+      - 입력 오류, 자격 없음, 범위 거절, 부재, 충돌, 사용 불가, 내부 실패 일곱 상황에서 각각 서로 다른 오류 종류가 돌아온다.
+      - 모든 오류 객체에 종류와 안전한 설명이 있다.
+
+  # 폐기: 앱 오류의 상세는 문제 기록(req-0109)이 맡는다. 응답을 따로 가리지 않는다.
+  - id: req-0203
+    status: rejected
+    subject: core-api
+    statement: 앱 실패가 일반 API 호출의 오류로 나갈 때는 안전한 오류 종류와 설명만 담는다.
+    acceptance:
+      - secret과 개인정보를 담은 예외를 일으킨 앱을 호출하면 응답에 stack, 원시 상세, 입력 원문, token이 없다.
+
+  # 폐기: MVP 이전이라 API major를 두지 않는다.
+  - id: req-0204
+    status: rejected
+    subject: core-api
+    statement: 지원하지 않는 major의 호출은 다른 major로 바꿔 처리하지 않고 거절한다.
+    acceptance:
+      - 지원하지 않는 major로 부르면 오류가 돌아오고 어떤 동작도 실행되지 않는다.
+
+  - id: req-0205
+    status: accepted
+    subject: core-api
+    statement: 호출자의 종류와 자격은 token이 정하고, 요청이 내세운 이름, label, 제품 이름, 환경 변수, 화면의 주장으로 바뀌지 않는다.
+    acceptance:
+      - 같은 제품의 두 연결, place에 놓인 두 agent, 두 앱이 서로를 주장해도 각자의 자격과 범위가 그대로다.
+      - 일반 process가 사람을 주장하면 실패한다.
+
+  - id: req-0206
+    status: accepted
+    subject: core-api
+    statement: 호출은 호출자 자격의 범위 안에서만 읽고 쓰며, 다른 연결, 앱, place에 놓인 agent의 범위로 읽기나 쓰기를 청하면 거절한다.
+    acceptance:
+      - 다른 앱, 다른 agent, 다른 연결의 자격으로 서로의 자료를 읽고 쓰려 하면 모두 거절된다.
+
+  # 폐기: 구현 세부다.
+  - id: req-0207
+    status: rejected
+    subject: core-api
+    statement: token은 Bearer header로만 받는다.
+    acceptance:
+      - token hash로 호출하면 거절된다.
+      - URL query에 token을 붙인 호출은 거절된다.
+      - cookie에 token을 담은 호출은 거절된다.
+
+  - id: req-0208
+    status: accepted
+    subject: core-api
+    statement: "회수된 token의 새 호출은 바로 거절된다."
+    acceptance:
+      - "coding agent session이 끝나 token을 회수하면 그 token으로 하는 읽기와 쓰기가 거절된다."
+
+  # 폐기: req-0206(자격 범위 안에서만 읽고 씀)이 맡는다.
+  - id: req-0209
+    status: rejected
+    subject: core-api
+    statement: 주소, 이름, blob hash를 안다는 사실은 권한이 아니며, 호출은 대상을 아는지가 아니라 호출자 자격의 범위로 판정한다.
+    acceptance:
+      - 범위 밖 주소나 blob hash를 넣은 읽기와 쓰기가 거절된다.
+
+  # 폐기: 세부 방어다. 사용자가 만든 local 앱이라 보안을 빡빡하게 할 이유가 없다.
+  - id: req-0210
+    status: rejected
+    subject: core-api
+    statement: 앱 범위 자격이 다른 앱의 대상을 조회하면, 없는 대상을 조회했을 때와 같은 안전한 부재 응답을 돌려준다.
+    acceptance:
+      - 존재하는 다른 앱의 ID를 조회한 응답과 실제로 없는 ID를 조회한 응답이 내용으로 구별되지 않는다.
+
+  - id: req-0211
+    status: accepted
+    subject: core-api
+    statement: 모든 호출(app-api, read, 구독, 준비 상태, health)은 유효한 token을 요구하고, Origin이 없거나 localhost라는 사실만으로 통과시키지 않는다.
+    acceptance:
+      - 모든 경로에 token 없는 요청을 보내면 자격 없음 오류가 돌아온다.
+      - Origin이 없는 요청도 token이 없으면 거절된다.
+
+  # server
+
+  # 폐기: 발급 경로는 각 요구(coding token은 req-1052)가 정한다. 없는 길을 늘어놓지 않는다.
+  - id: req-0212
+    status: rejected
+    subject: server
+    statement: 자격은 정해진 시작 경로와 사람의 연결 결정으로만 발급되고 발급 상한 안의 범위만 가지며, 앱과 agent는 자기 자격을 발급하거나 넓히지 못한다.
+    acceptance:
+      - 발급 상한보다 넓은 범위를 청하면 거절된다.
+      - 앱이 자기 자격의 발급이나 확대를 청하면 거절된다.
+      - agent가 자기 자격의 발급이나 확대를 청하면 거절된다.
+
+  # 폐기: 모든 호출에 token이 필요해서(req-0211) 세부 방어다.
+  - id: req-0213
+    status: rejected
+    subject: server
+    statement: Host는 실제 bind 주소와 port의 정확한 허용 목록으로 검사하고 IPv4, IPv6, localhost를 모두 처리하며, proxy header는 신원 근거로 쓰지 않는다.
+    acceptance:
+      - 127.0.0.1, localhost, 대괄호로 감싼 IPv6 Host는 통과한다.
+      - 다른 port의 Host와 외부 Host는 거절된다.
+      - 변조한 proxy header를 붙인 요청은 신원이 바뀌지 않고 거절된다.
+
+  # 폐기: 모든 호출에 token이 필요해서(req-0211) 세부 방어다.
+  - id: req-0214
+    status: rejected
+    subject: server
+    statement: Origin header가 붙은 요청은 거절하며, CORS preflight나 cookie 인증으로 통과시키지 않는다.
+    acceptance:
+      - 올바른 token과 Origin을 함께 보내도 거절된다.
+      - CORS preflight 요청은 실패한다.
+      - cookie만 있는 요청은 실패한다.
+
+  # 폐기: 구현 세부다.
+  - id: req-0215
+    status: rejected
+    subject: server
+    statement: 요청 검사는 Host, Origin, Bearer token, 현재 동작 자격의 순서로 하고, 인증이 끝나기 전에 body를 처리하지 않는다.
+    details:
+      ordering:
+        - Host
+        - Origin
+        - Bearer token
+        - 현재 동작 자격
+    acceptance:
+      - 외부 Host와 틀린 token을 함께 보내면 Host 거절이 먼저 나온다.
+      - 인증 전 요청의 body는 처리되지 않는다.
+
+  # 폐기: 응답성은 구현 품질이다.
+  - id: req-0216
+    status: rejected
+    subject: server
+    statement: 느린 작업(앱 실행, model 호출, test, 파일 scan)이 돌고 있어도 무관한 app-api와 read는 그 작업이 끝나기를 기다리지 않고 응답한다.
+    acceptance:
+      - 느린 작업을 30초 이상 멈춰 둔 동안 무관한 app-api와 read가 응답한다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0217
+    status: rejected
+    subject: server
+    statement: 관리 요청의 크기, 대기 개수, 주체별 점유, 대기 기한은 유한하고 초과는 명시적으로 거절한다.
+    details:
+      limits:
+        - 요청 크기
+        - 대기 개수
+        - 주체별 점유
+        - 대기 기한
+    acceptance:
+      - 한 주체가 상한까지 제출한 뒤 더 내면 초과 요청이 거절된다.
+      - 대기열이 끝없이 커지지 않는다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0218
+    status: rejected
+    subject: server
+    statement: 권한 회수와 정지 제어 요청은 입장 여유를 따로 예약해 두어, 다른 요청이 가득 차도 접수된다.
+    acceptance:
+      - 한 주체가 자기 상한을 가득 채운 상태에서도 다른 주체의 회수 요청과 정지 요청이 접수된다.
+
+  - id: req-0219
+    status: accepted
+    subject: server
+    statement: core API는 loopback 주소(IPv4 127.0.0.1, IPv6 ::1)에서만 연결을 받는다.
+    acceptance:
+      - LAN 주소로 HTTP 연결과 구독 연결을 시도하면 실패한다.
+      - loopback 연결도 token을 요구한다.
+
+  # 폐기: 구현 품질이다.
+  - id: req-0220
+    status: rejected
+    subject: server
+    statement: 요청 body는 읽기 전에 동작별 최대 bytes와 견주어, 한도를 넘으면 거절한다.
+    acceptance:
+      - 길이를 속인 chunked body와 큰 JSON 요청을 보내면 한도에서 거절되고 body 전체가 처리되지 않는다.
+
+  # 폐기: MVP 이전에는 호환 장치를 만들지 않는다.
+  - id: req-0221
+    status: rejected
+    subject: core-api
+    statement: core API는 같은 major 안에서는 선택 필드 추가만 하고, 필수 입력, 기존 의미, 오류 분류를 바꾸는 변경은 새 major로 낸다.
+    acceptance:
+      - 같은 major의 이전 client fixture가 선택 필드가 늘어난 응답을 그대로 읽는다.
+      - 필수 입력, 기존 의미, 오류 분류를 바꾼 변경은 새 major의 호출로만 받아들여지고 이전 major의 호출은 기존 의미 그대로 동작한다.

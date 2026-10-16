@@ -138,6 +138,8 @@ export async function build(
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
     await addPackage(imports, new URL("chart/", design));
+    // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.
+    await addPackage(imports, new URL("../base/", design));
     for (
       const name of [
         "tokens",

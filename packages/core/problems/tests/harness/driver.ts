@@ -12,7 +12,7 @@ export type MigrationScenario = "empty" | "upgrade";
 
 // 고정 fixture DB에서 돌린 migration 한 번의 결과. 빈 DB 전체 migration은 schema 0에서,
 // 이전 release schema는 이전 release의 schema에서 시작한다.
-export type MigrationRun = {
+type MigrationRun = {
   ok: boolean;
   from_schema: number;
   data_schema: number;

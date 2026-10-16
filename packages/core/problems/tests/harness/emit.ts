@@ -6,7 +6,7 @@ import {
   testObservationFrameSchema,
 } from "../../../../protocol/problems/mod.ts";
 
-export type FrameInput = Omit<TestObservationFrame, "side" | "test_hash">;
+type FrameInput = Omit<TestObservationFrame, "side" | "test_hash">;
 
 export type Emitter = {
   emit(frame: FrameInput): Result<null>;

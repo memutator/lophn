@@ -104,7 +104,7 @@ async function rewind(
   };
 }
 
-export type ChecksInput = {
+type ChecksInput = {
   driver: AppDriver;
   plan: HarnessPlan;
   emitter: Emitter;

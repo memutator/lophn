@@ -71,7 +71,7 @@ interface SaveMarkProps {
 }
 
 /** 저장 상태. 저장됨과 저장 중은 흐린 글, 충돌과 실패는 경고 표시다. */
-export function SaveMark({ state, onConflict, onRetry }: SaveMarkProps) {
+function SaveMark({ state, onConflict, onRetry }: SaveMarkProps) {
   if (state === "conflict") {
     return (
       <Button variant="ghost" size="sm" onClick={onConflict}>

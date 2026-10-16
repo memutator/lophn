@@ -31,7 +31,6 @@ export const contextsKind: TabKindDef = {
     if (!TAB_KEY.test(tab.key)) return null;
     return { kind: "contexts", key: tab.key };
   },
-  hint: (tab) => ({ kind: "contexts", key: tab.key }),
   render(tab, _active, host) {
     const contexts = host.contexts;
     if (contexts === null) return null;

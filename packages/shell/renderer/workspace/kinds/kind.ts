@@ -1,5 +1,5 @@
 // 탭 kind registry의 renderer 쪽 모양이다. kind마다 파일 하나가 이름·layout
-// 값 읽기와 쓰기·현재 보기 힌트·본문·열기 진입을 모두 선언하고, 탭 줄·layout map·view hint·칸은
+// 값 읽기와 쓰기·본문·열기 진입을 모두 선언하고, 탭 줄·layout map·칸은
 // 이 목록을 돌 뿐 kind 이름으로 가르지 않는다. kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { ReactNode } from "react";
 import type { IconProps, TabDot } from "@lophn/design/components";
@@ -11,19 +11,6 @@ import type { TabHost } from "./host.ts";
 export interface ReadPosition {
   readonly section: string;
   readonly scroll_offset: number;
-}
-
-/** main에 보내는 힌트 탭. 제목·경로·본문·터미널 출력은 넣지 않는다. */
-export type HintTab =
-  & { readonly kind: string; readonly key: string }
-  & Readonly<
-    Record<string, unknown>
-  >;
-
-/** 힌트를 만들 때 화면이 가진 kind별 관측 값. */
-export interface HintContext {
-  /** 앱 패널 탭 key마다 연 view의 session. */
-  readonly sessions: Readonly<Record<string, string>>;
 }
 
 export interface TabKindDef {
@@ -55,8 +42,6 @@ export interface TabKindDef {
     tab: TabItem,
     shared: { readonly position: ReadPosition | undefined },
   ): Record<string, unknown> | null;
-  /** 현재 보기 힌트. 아직 모르는 값이 있으면 null이다. */
-  hint(tab: TabItem, ctx: HintContext): HintTab | null;
   /** 이 탭이 focus일 때 agent가 읽을 앱 view를 가졌는지. */
   hasAppView?(tab: TabItem): boolean;
   /** 고른 탭의 본문. null이면 칸이 종류 자리표시를 그린다. */

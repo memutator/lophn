@@ -46,17 +46,6 @@ export const appPanelKind: TabKindDef = {
       surface: tab.screen,
     };
   },
-  hint(tab, ctx) {
-    if (tab.app === undefined || tab.screen === undefined) return null;
-    const session = ctx.sessions[tab.key];
-    return {
-      kind: "app_panel",
-      key: tab.key,
-      app: tab.app,
-      surface: tab.screen,
-      ...(session === undefined ? {} : { view_session: session }),
-    };
-  },
   hasAppView: (tab) => tab.app !== undefined && tab.screen !== undefined,
   // 앱 패널은 고르지 않아도 칸에 남아 view를 숨긴 채 둔다. 닫으면 빠져 view가 폐기된다.
   keep(tab, shown, host) {

@@ -117,9 +117,6 @@ export const documentEditorKind: TabKindDef = {
       ...(position === undefined ? {} : { read_position: position }),
     };
   },
-  hint(tab) {
-    return { kind: "document_editor", key: tab.key, path: tab.key };
-  },
   render(tab, _active, host) {
     return <FileTab key={tab.key} tab={tab} host={host} />;
   },

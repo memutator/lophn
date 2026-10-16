@@ -15,15 +15,6 @@ const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
 let terminalCount = 0;
 
-/** 폴더 경로는 힌트에 넣지 않는다. 슬래시 없는 짧은 참조만 터미널 탭이 된다. */
-function folderRef(value: string | undefined): string | null {
-  if (value === undefined || value.length === 0 || value.length > 80) {
-    return null;
-  }
-  if (value.includes("/") || value.includes("\\")) return null;
-  return value;
-}
-
 /** 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다. */
 export function openTerminal(host: TabHost): void {
   const terminal = host.props.terminal;
@@ -119,11 +110,6 @@ export const terminalKind: TabKindDef = {
         },
       }),
     };
-  },
-  hint(tab) {
-    const folder = folderRef(tab.folder);
-    if (folder === null) return null;
-    return { kind: "terminal", key: tab.key, project_folder: folder };
   },
   render(tab, active, host) {
     const terminal = host.props.terminal;

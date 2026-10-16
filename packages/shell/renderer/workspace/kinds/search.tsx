@@ -188,17 +188,6 @@ export const searchKind: TabKindDef = {
         : null,
     };
   },
-  // 채운 입력과 결과는 힌트에 넣지 않는다. context와 선언된 검색의 key만이고, 키워드 검색은 탭 key만이다.
-  hint(tab) {
-    const state = searchStateOf(tab);
-    if (state === null) return { kind: "search", key: tab.key };
-    return {
-      kind: "search",
-      key: tab.key,
-      context: state.context,
-      ...(state.search === null ? {} : { declared_search: state.search }),
-    };
-  },
   render(tab, _active, host) {
     const state = searchStateOf(tab);
     if (state === null) {

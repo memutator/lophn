@@ -72,16 +72,6 @@ export const contextKind: TabKindDef = {
       sub_tab: subTabOf(tab),
     };
   },
-  hint(tab) {
-    const context = contextOf(tab);
-    if (context === null) return null;
-    return {
-      kind: "context",
-      key: tab.key,
-      context,
-      sub_tab: subTabOf(tab),
-    };
-  },
   render(tab, _active, host) {
     const contexts = host.contexts;
     const context = contextOf(tab);

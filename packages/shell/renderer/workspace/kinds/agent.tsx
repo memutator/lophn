@@ -175,7 +175,6 @@ export const agentKind: TabKindDef = {
     };
   },
   // agent·session은 현재 보기에 싣지 않는다. 대화 내용은 agent가 알 일이 아니다.
-  hint: (tab) => ({ kind: "agent", key: tab.key }),
   render(tab, _active, host) {
     const agent = agentOf(tab);
     const place = placeOf(tab);

@@ -9,7 +9,6 @@ import {
   reservedProblemCodeSchema,
 } from "./problem-codes.ts";
 import {
-  invocationEvidenceInputSchema,
   snapshotInputSchema,
 } from "./snapshots.ts";
 import { reportBlobsInputSchema } from "./report-blobs.ts";
@@ -141,15 +140,6 @@ export const REPORT_ERRORS = [
 const automaticBytes = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).length <=
     REPORTING_LIMITS.automatic_body_bytes;
-export const reportProblemInputSchema = z.strictObject({
-  report_id: idSchema("rpt"),
-  code: problemCodeSchema,
-  observed_at: atSchema,
-  text: z.string().optional(),
-  details: z.json().optional(),
-  invocation: invocationEvidenceInputSchema.nullable().optional(),
-}).refine(automaticBytes);
-export type ReportProblemIngress = z.infer<typeof reportProblemInputSchema>;
 export const observeExceptionInputSchema = exceptionObservationInputSchema;
 export type ObserveExceptionInput = z.infer<typeof observeExceptionInputSchema>;
 export const reportProblem = defineWorker({

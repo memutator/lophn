@@ -29,7 +29,6 @@ import {
   problemInterpretationLinked,
   problemWorkEnded,
   problemWorkStarted,
-  reconcileProblemWork,
 } from "./problems.ts";
 import {
   getReport,
@@ -39,7 +38,6 @@ import {
 } from "./problem-reads.ts";
 import {
   applyProblemDecision,
-  closeProblemVerified,
   problemClosed,
   problemConfirmationRecorded,
   problemReopened,
@@ -79,9 +77,7 @@ export const ROUTES = [
   getTestRequest,
   getVerification,
   listVerifications,
-  reconcileProblemWork,
   linkProblemInterpretation,
-  closeProblemVerified,
   applyProblemDecision,
   listProblems,
   getProblem,

@@ -56,6 +56,10 @@ import type {
 } from "../../../../protocol/secrets/mod.ts";
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { createAppsControl } from "../../../apps/control.ts";
+import type {
+  AnnotationDelivery,
+  ReleaseSourceMaps,
+} from "../../../apps/annotations/ports.ts";
 import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
@@ -215,6 +219,10 @@ type Late = {
   appIntake: AppIntake;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
+  // annotations가 받는 것. Router(places-sessions)가 annotationDelivery를, releases가 releaseSourceMaps를 채운다.
+  // 없으면 보내기는 unavailable이고 source 위치는 비운다.
+  annotationDelivery: AnnotationDelivery;
+  releaseSourceMaps: ReleaseSourceMaps;
   // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
   inbox: Inbox;
 };
@@ -259,6 +267,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appIntake: true,
   invocationLedger: true,
   appRewind: true,
+  annotationDelivery: true,
+  releaseSourceMaps: true,
   inbox: true,
 };
 

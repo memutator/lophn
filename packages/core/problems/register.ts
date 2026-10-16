@@ -12,7 +12,6 @@ import type {
   defineBlobPurpose,
 } from "../../protocol/storage/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
-import type { SettingDefinition } from "../../protocol/config/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -49,7 +48,6 @@ export type ProblemsPart = {
   // reader Worker에 붙는 read와 그 port([key, 구현] 쌍).
   readerReads?: readonly ReadDefinition[];
   readerPorts?: readonly (readonly [unknown, unknown])[];
-  settings?: readonly SettingDefinition[];
   // createLedgerRegistration이 environment로 만드는 ledger snapshot 밖 read.
   ledgerApiReads?: (
     environment: ProblemsLedgerEnvironment,
@@ -74,8 +72,7 @@ type ListField =
   | "events"
   | "visibility"
   | "readerReads"
-  | "readerPorts"
-  | "settings";
+  | "readerPorts";
 
 function gather<K extends ListField>(
   parts: readonly ProblemsPart[],
@@ -109,11 +106,6 @@ export const problemsReportDefinitions = {
   workers: gather(reportParts, "workers"),
   workerRoutes: gather(reportParts, "workerRoutes"),
   uploadRoutes: gather(reportParts, "uploadRoutes"),
-};
-
-// core 조립의 settings.ts가 모으는 problems 등록 항목이다.
-export const problemsDefinitions = {
-  settings: gather(reportParts, "settings"),
 };
 
 export function createLedgerRegistration(

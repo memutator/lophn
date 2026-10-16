@@ -9,12 +9,22 @@ import {
 } from "./sessions.ts";
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_EVENTS, MESSAGE_ROUTES, messagesList } from "./messages.ts";
-import { QUESTION_COMMANDS, QUESTION_EVENTS } from "./questions.ts";
+import {
+  applyQuestionOption,
+  QUESTION_COMMANDS,
+  QUESTION_EVENTS,
+} from "./questions.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
-import { AGENT_EVENTS, AGENT_ROUTES } from "./agents.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
-import { MODEL_EVENTS, MODEL_ROUTES } from "./models.ts";
+import {
+  changeModelDefaults,
+  MODEL_EVENTS,
+  MODEL_ROUTES,
+  modelCatalogRefresh,
+  modelDefaultsChanged,
+  modelDefaultsRead,
+} from "./models.ts";
 import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
 import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
 import { TRACE_ROUTES } from "./traces.ts";
@@ -52,13 +62,20 @@ export const ROUTES = [
   ),
   ...AGENT_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
-  ...QUESTION_COMMANDS,
+  ...QUESTION_COMMANDS.filter((route) => route !== applyQuestionOption),
   ...REVERT_ROUTES,
-  ...AGENT_ROUTES,
   ...COMMAND_ROUTES,
   ...PROVIDER_ROUTES,
   ...MODEL_CALL_ROUTES,
-  ...MODEL_ROUTES,
+  // 옛 역할별 기본 model과 catalog 새로 읽기는 handler가 없다.
+  ...MODEL_ROUTES.filter((route) =>
+    !([
+      changeModelDefaults,
+      modelDefaultsRead,
+      modelCatalogRefresh,
+    ] as readonly unknown[])
+      .includes(route)
+  ),
   ...TOOL_CALL_ROUTES,
   ...TRACE_ROUTES,
   ...INSTRUCTION_ROUTES,
@@ -90,9 +107,8 @@ export const EVENTS = [
   ...MESSAGE_EVENTS,
   ...QUESTION_EVENTS,
   ...REVERT_EVENTS,
-  ...AGENT_EVENTS,
   ...PROVIDER_EVENTS,
-  ...MODEL_EVENTS,
+  ...MODEL_EVENTS.filter((event) => event !== modelDefaultsChanged),
   ...MODEL_CALL_EVENTS,
   ...TOOL_CALL_EVENTS,
 ] as const;

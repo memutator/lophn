@@ -18,6 +18,7 @@ import {
   annotationUploadScreenshot,
 } from "./annotation.ts";
 import { appAppApi } from "./blueprint/read.ts";
+import { blueprintCheck } from "./blueprint/check.ts";
 import {
   appCallApi,
   appInvocation,
@@ -77,6 +78,7 @@ export const ROUTES = [
   annotationSend,
   annotationsGet,
   appAppApi,
+  blueprintCheck,
   appCallApi,
   appInvocations,
   appInvocation,

@@ -21,6 +21,7 @@ import {
   finishRewindSummary,
   instructionPreview,
   instructionRead,
+  instructionsGet,
   providerDisconnected,
   questionCreated,
   readRewindSummary,
@@ -893,6 +894,7 @@ export const lophnAgentDefinitions = {
     revertReads.checkpoints,
     revertReads.list,
     instructionReadRoute(),
+    instructionsGetRoute(),
     instructionPreviewRoute(),
   ],
   // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
@@ -955,6 +957,19 @@ const UNATTACHED_REDACT = (): string | null => null;
 function instructionReadRoute(): ReadDefinition<typeof instructionRead> {
   return {
     route: instructionRead,
+    handle() {
+      return err({
+        code: "unavailable" as const,
+        message: "지침 읽기는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
+// GetInstructions도 reader Worker가 서빙한다(instructions/files.ts의 instructionsGetHandler).
+function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
+  return {
+    route: instructionsGet,
     handle() {
       return err({
         code: "unavailable" as const,

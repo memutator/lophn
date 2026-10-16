@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import { installAnnotate } from "./annotate/mod.ts";
+
 import {
   createAppApi,
   createViewErrorReport,
@@ -18,4 +20,11 @@ contextBridge.exposeInMainWorld("lophnApp", createAppApi(transport));
 contextBridge.executeInMainWorld({
   func: watchMainWorldErrors,
   args: [createViewErrorReport(transport, () => Date.now())],
+});
+
+// 표시하기 층. 페이지가 고른 항목을 main으로 보내고 main의 mode·capture 요청을 받는다.
+installAnnotate({
+  send: (channel, payload) => ipcRenderer.send(channel, payload),
+  on: (channel, listener) =>
+    ipcRenderer.on(channel, (_event, payload) => listener(payload)),
 });

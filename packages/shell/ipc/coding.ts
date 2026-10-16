@@ -58,30 +58,6 @@ export interface HarnessSettingsView {
   readonly executable?: string | null;
 }
 
-export type TuiState =
-  | "starting"
-  | "ready"
-  | "working"
-  | "waiting_input"
-  | "ended"
-  | "unknown";
-
-export type PromptDelivery =
-  | "none"
-  | "pending"
-  | "delivered"
-  | "not_delivered"
-  | "unknown";
-
-/** lophn이 [Start]로 연 TUI 하나. TUI 상태는 Task 상태와 다른 사실이다. */
-export interface SessionView {
-  readonly runtime_ref: string;
-  readonly ticket: string;
-  readonly connection: string;
-  readonly tui: TuiState;
-  readonly prompt_delivery: PromptDelivery;
-}
-
 export type CodingFailureCode =
   | "invalid_input"
   | "forbidden"

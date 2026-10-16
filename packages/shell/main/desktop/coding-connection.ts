@@ -64,7 +64,7 @@ export type CliRun = (
 ) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
 
 /**
- * `lophn` 실행 파일 child다. 상속 환경에서 connection·credential 이름을 빼고 부른다. 종료 code와 상관없이
+ * `lophn` 실행 파일 child다. 상속 환경에서 credential 이름을 빼고 부른다. 종료 code와 상관없이
  * stdout의 JSON 하나를 읽는다(실패도 `{error}`로 나온다).
  */
 export function childCliRunner(options: {
@@ -79,7 +79,6 @@ export function childCliRunner(options: {
     const env: Record<string, string> = {};
     for (const [name, value] of Object.entries(options.env)) {
       if (value === undefined) continue;
-      if (name === "LOPHN_CONNECTION") continue;
       if (/(TOKEN|SECRET|PASSWORD|CREDENTIAL)/i.test(name)) continue;
       env[name] = value;
     }

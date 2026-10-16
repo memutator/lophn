@@ -91,7 +91,7 @@ export const appCreate = defineCommand({
   actors: ["user", "coding_agent", "agent"],
   errors: ["forbidden", "invalid_input", "conflict"],
 });
-// source 연결은 user 또는 그 앱 범위 connection만 받는다.
+// source 연결은 user, 그 앱 범위 connection, 그 앱의 App Engineer만 받는다.
 export const appConnectSource = defineCommand({
   resource: "apps",
   method: "connect_source",
@@ -99,7 +99,7 @@ export const appConnectSource = defineCommand({
   input: appConnectSourceInputSchema,
   output: appSchema,
   compare: appCompareSchema,
-  actors: ["user", "coding_agent"],
+  actors: ["user", "coding_agent", "agent"],
   errors: ["forbidden", "invalid_input", "conflict", "not_found"],
 });
 export const appArchive = defineCommand({

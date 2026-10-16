@@ -6,6 +6,7 @@
 // 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   INSTRUCTION_PREVIEW_MAX_BYTES,
   instructionPreview,
@@ -242,7 +243,15 @@ export function instructionsGetHandler(): ReadDefinition<
 > {
   return {
     route: instructionsGet,
-    handle(snapshot, _ctx, input) {
+    handle(snapshot, ctx, input) {
+      // agent는 자기 session의 지침만 읽는다.
+      const actor = parseActor(ctx.actor);
+      if (actor?.kind === "agent" && actor.id !== input.session) {
+        return err({
+          code: "forbidden",
+          message: "an agent reads the instructions of its own session",
+        });
+      }
       try {
         const file = readInstruction(
           snapshot,

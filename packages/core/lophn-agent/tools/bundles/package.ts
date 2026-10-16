@@ -1,5 +1,7 @@
 import { ok } from "../../../../base/mod.ts";
 import {
+  appGet,
+  packagePublish,
   packagesGuideBody,
   packagesList,
   packagesUsage,
@@ -11,6 +13,7 @@ import type { ToolInput } from "../domain/input.ts";
 import {
   countSummary,
   fitted,
+  invalid,
   notFound,
   readBody,
   unavailable,
@@ -27,6 +30,21 @@ function newer(a: string, b: string): number {
     if (diff !== 0) return diff;
   }
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// 앱 source의 HEAD commit. git이 못 읽으면 null이다.
+async function headOf(source: string): Promise<string | null> {
+  try {
+    const out = await new Deno.Command("git", {
+      args: ["-C", source, "rev-parse", "HEAD"],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    const head = new TextDecoder().decode(out.stdout).trim();
+    return out.code === 0 && /^[0-9a-f]{40}$/.test(head) ? head : null;
+  } catch {
+    return null;
+  }
 }
 
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
@@ -92,12 +110,26 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineBuiltin({
     name: "package.publish",
     description:
-      "Publish a folder of an app's code as a user package (@me/...). Only a passed app test lets a version out.",
+      "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), the permissions it needs and tests (ids of passed app tests of this app). The code is the HEAD commit of the app source, so commit the folder first.",
     effect: "write",
-    // route(`package.publish`)는 version, 설명, 안내, permission, test를 받는데 이 tool 입력에는 없다.
-    handler: () =>
-      Promise.resolve(
-        unavailable("package.publish input does not carry the version"),
-      ),
+    handler: async (input, ctx) => {
+      const rest = input as ToolInput<"package.publish">;
+      const app = await readOf(ctx.core, appGet, { app: rest.app });
+      if (!app.ok) return app;
+      const source = app.value.app.source_path;
+      if (source === null) return invalid("the app has no source folder");
+      const commit = await headOf(source);
+      if (commit === null) return unavailable("the app source has no commit");
+      const published = await readOf(ctx.core, packagePublish, {
+        ...rest,
+        commit,
+        key: ctx.tool_call,
+      });
+      if (!published.ok) return published;
+      return ok(fitted(
+        `published ${rest.name}@${rest.version}`,
+        published.value,
+      ));
+    },
   }),
 ];

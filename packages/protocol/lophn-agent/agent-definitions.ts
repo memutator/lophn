@@ -33,7 +33,8 @@ import {
 } from "./operators.ts";
 
 // 사람(editor)이 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentRef`다(옛 assignment ID를 대신한다).
-// 정의를 쓰고 지우는 길은 agent에게 열지 않는다(agent의 operator.create·update는 tool이다).
+// agent는 정의 읽기와 Operator 만들기·고치기만 하고 지우거나 built-in을 고치지 못한다. agent가 부르면 core가
+// 호출 session의 role·place로 범위를 본다: 자기 place의 정의와 Operator뿐이다(agent의 operator.create·update는 tool이다).
 // - 내장 role(lophn, Project Manager, App Engineer)은 만들고 지울 수 없고, 사람이 고치는 것은 지침·model·skill·MCP 끄기다.
 // - Operator는 `operatorDefinitionSchema`로 만들고 고치고 지운다.
 // - tool 목록은 role이 정하고 사람이 바꾸지 않는다. grant는 approvals/grants의 `agentGrantsGet`·`agentGrantsSet`이 맡는다.
@@ -69,7 +70,7 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-const readActors = ["user", "machine"] as const;
+const readActors = ["user", "machine", "agent"] as const;
 
 // 저장·삭제가 비교하는 파일 hash다. 파일이 아직 없는 내장 agent는 null이다.
 const saveCompareSchema = z.strictObject({ hash: sha256Schema.nullable() });
@@ -194,7 +195,7 @@ export const operatorCreate = defineCommand({
   name: "CreateOperator",
   input: createOperatorInputSchema,
   output: z.object({ agent: operatorIdSchema, hash: sha256Schema }),
-  actors: ["user"],
+  actors: ["user", "agent"],
   errors: [...writeErrors],
 });
 
@@ -209,7 +210,7 @@ export const operatorChange = defineCommand({
   input: changeOperatorInputSchema,
   output: z.object({ agent: operatorIdSchema, hash: sha256Schema }),
   compare: existingCompareSchema,
-  actors: ["user"],
+  actors: ["user", "agent"],
   errors: [...writeErrors],
 });
 

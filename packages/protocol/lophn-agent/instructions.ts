@@ -120,7 +120,7 @@ export const instructionsGet = defineRead({
   output: withReadCommon(z.object({
     file: instructionReadFileSchema.nullable(),
   })),
-  actors: ["machine"],
+  actors: ["machine", "agent"],
   errors: [
     "invalid_input",
     "unauthorized",

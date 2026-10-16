@@ -24,6 +24,7 @@ import {
   openAgentContext,
   profileOf,
 } from "./inspect.ts";
+import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
 
 // 읽기는 동기 handler다. 목록의 정본은 place(project, 앱)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
@@ -96,9 +97,15 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentDefinitionList,
       handle(
         snapshot: ReadSnapshot,
-        _ctx: RequestContext,
+        ctx: RequestContext,
         input: Input<typeof agentDefinitionList>,
       ): Result<Output<typeof agentDefinitionList>> {
+        const rule = agentCallerRule(snapshot.sql, ctx);
+        if (!rule.ok) return rule;
+        if (rule.value !== null) {
+          const allowed = rule.value(input.place ?? null);
+          if (!allowed.ok) return allowed;
+        }
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
         const { lookups } = context.value;
@@ -141,15 +148,21 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentDefinitionRead,
       handle(
         snapshot: ReadSnapshot,
-        _ctx: RequestContext,
+        ctx: RequestContext,
         input: Input<typeof agentDefinitionRead>,
       ): Result<Output<typeof agentDefinitionRead>> {
+        const rule = agentCallerRule(snapshot.sql, ctx);
+        if (!rule.ok) return rule;
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
         const found = loadAgent(context.value, input.agent);
         if (!found.ok) return found;
         const loaded = found.value;
         if (loaded === null) return notFound("agent");
+        if (rule.value !== null) {
+          const allowed = rule.value(loaded.place as Place | null);
+          if (!allowed.ok) return allowed;
+        }
         const model = effectiveModel(context.value, loaded);
         const operator = loaded.role === "operator";
         const profile = profileOf(loaded);

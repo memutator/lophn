@@ -21,12 +21,13 @@ import {
   loadAgent,
   openAgentContext,
 } from "./inspect.ts";
+import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
 import { staleImagePaths } from "./profile-asset.ts";
 import { slotOf } from "./store.ts";
 import { checkBuiltin, checkOperator } from "./validate.ts";
 
-// 정의의 저장·삭제는 사람만 한다(route actors). 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
+// 정의의 삭제와 built-in 저장은 사람만 한다(route actors). Operator는 agent도 만들고 고치되 자기 place 안에서만 한다. 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
 // 쓰기가 실패하면 handler가 err를 돌려 전체가 되돌아간다. 정의 저장은 event를 내지 않는다.
 // Project Manager와 App Engineer는 place가 생길 때 ensure가 만든다: 사람은 이름이 Operator의 id인 정의만
 // 만들고 지울 수 있고(operatorCreate·operatorDelete), built-in은 내용만 바꾼다(builtinAgentChange).
@@ -75,12 +76,18 @@ export function createAgentCommands(deps: AgentDeps): {
       route: operatorCreate,
       handle(
         tx: Tx,
-        _ctx: RequestContext,
+        ctx: RequestContext,
         input: Input<typeof operatorCreate>,
       ): Result<Output<typeof operatorCreate>> {
+        const rule = agentCallerRule(tx.sql, ctx);
+        if (!rule.ok) return rule;
+        const { place, definition, id } = input;
+        if (rule.value !== null) {
+          const allowed = rule.value(place);
+          if (!allowed.ok) return allowed;
+        }
         const context = open(deps, tx);
         if (!context.ok) return context;
-        const { place, definition, id } = input;
         if (!context.value.lookups.placeExists(place)) {
           return notFound("place");
         }
@@ -110,16 +117,22 @@ export function createAgentCommands(deps: AgentDeps): {
       route: operatorChange,
       handle(
         tx: Tx,
-        _ctx: RequestContext,
+        ctx: RequestContext,
         input: Input<typeof operatorChange>,
         compare: Compare<typeof operatorChange>,
       ): Result<Output<typeof operatorChange>> {
+        const rule = agentCallerRule(tx.sql, ctx);
+        if (!rule.ok) return rule;
         const context = open(deps, tx);
         if (!context.ok) return context;
         const found = findOperator(context.value, input.agent);
         if (!found.ok) return found;
         if (found.value === null) return notFound("agent");
         const { place, slot, file } = found.value;
+        if (rule.value !== null) {
+          const allowed = rule.value(place);
+          if (!allowed.ok) return allowed;
+        }
         if (compare.hash !== file.hash) return conflict("agent file");
         const checked = checkOperator({
           context: context.value,

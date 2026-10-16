@@ -6,6 +6,7 @@ import { operatorDefinitionSchema } from "./operators.ts";
 import { askInputSchema } from "./ask-tool.ts";
 import { callCancel, callReply, callSendInputSchema } from "./calls.ts";
 import type { Role } from "./places.ts";
+import { packagePublishInputSchema } from "../apps/package-routes.ts";
 import { problemStateSchema } from "../problems/problem-record.ts";
 import {
   sourceRelativePathSchema,
@@ -224,12 +225,12 @@ export const TOOL_INPUTS = {
     name: nonblank,
     version: nonblank.optional(),
   }),
-  // path는 앱 source 안 폴더다.
-  "package.publish": z.strictObject({
-    app: idSchema("app"),
-    name: nonblank,
-    path: sourceRelativePathSchema,
-  }),
+  // path는 앱 source 안 폴더다. commit은 앱 source의 HEAD로, key는 tool call ID로 채운다.
+  "package.publish": packagePublishInputSchema.omit({
+    commit: true,
+    key: true,
+    path: true,
+  }).extend({ path: sourceRelativePathSchema }),
   "release.list": z.strictObject({ app: idSchema("app") }),
   "release.get": z.strictObject({ release: idSchema("rel") }),
   "context.list": none,

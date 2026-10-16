@@ -47,12 +47,17 @@ function requireCreator(ctx: RequestContext): Result<void> {
     : forbidden("app creation is user or lophn agent only");
 }
 
-// source 연결은 user 또는 coding connection만 받는다.
-function requireWriter(ctx: RequestContext): Result<void> {
+// source 연결은 user, coding connection, 그 앱의 App Engineer만 받는다. App Engineer의 앱은 자격 조건이 정한다.
+function requireWriter(ctx: RequestContext, app: string): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
+  if (kind === "agent") {
+    return ctx.conditions.app === app
+      ? ok(undefined)
+      : forbidden("an App Engineer connects only its own app");
+  }
   return kind === "user" || kind === "coding_agent"
     ? ok(undefined)
-    : forbidden("app changes are user or coding connection only");
+    : forbidden("app changes are user, coding connection or App Engineer only");
 }
 
 // 등록은 전체 범위 요청만 받는다. 앱 하나 scope의 conditions.app은
@@ -149,7 +154,7 @@ export function createAppCommands(): {
     connectSource: {
       route: appConnectSource,
       handle(tx, ctx, input, compare) {
-        const actor = requireWriter(ctx);
+        const actor = requireWriter(ctx, input.app);
         if (!actor.ok) return actor;
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;

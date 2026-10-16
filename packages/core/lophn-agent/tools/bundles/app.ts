@@ -5,17 +5,13 @@ import {
   appCreate,
   appGet,
   appList,
+  blueprintCheck,
 } from "../../../../protocol/apps/mod.ts";
 import { problemList } from "../../../../protocol/problems/mod.ts";
 import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
-import {
-  countSummary,
-  fitted,
-  readBody,
-  unavailable,
-} from "../domain/result.ts";
+import { countSummary, fitted, readBody } from "../domain/result.ts";
 import { defineBuiltin } from "./common.ts";
 
 const SLUG_MAX = 63;
@@ -122,7 +118,17 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     description:
       "Check the blueprint of an app and return errors, warnings and the permission review separately. Edit the blueprint file with the file tools.",
     effect: "read",
-    // 검사 route가 없다(source의 blueprint를 평가하는 읽기).
-    handler: () => Promise.resolve(unavailable("blueprint check is not wired")),
+    handler: async (input, ctx) => {
+      const { app } = input as ToolInput<"blueprint.check">;
+      const checked = await readOf(ctx.core, blueprintCheck, { app });
+      if (!checked.ok) return checked;
+      const { errors, warnings, permission_review } = checked.value;
+      return ok(fitted(
+        errors.length === 0
+          ? `blueprint of app ${app} has no errors`
+          : `blueprint of app ${app} has ${errors.length} errors`,
+        { errors, warnings, permission_review },
+      ));
+    },
   }),
 ];

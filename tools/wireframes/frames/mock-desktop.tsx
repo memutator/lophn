@@ -34,11 +34,9 @@ export { PROJECT_GROCERY };
 /** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
 export interface TabSpec {
   readonly key: string;
-  readonly kind: "document_editor" | "terminal" | "app_panel";
+  readonly kind: "document_editor" | "terminal";
   readonly title: string;
   readonly folder?: string;
-  readonly app?: string;
-  readonly screen?: string;
 }
 
 export interface PaneSpec {
@@ -72,11 +70,9 @@ function layoutOf(panes: readonly PaneSpec[]) {
   };
 }
 
-// 옛 Settings 탭 이름을 지금 Settings 항목으로 옮긴다.
+// gallery의 Settings 탭 이름을 Settings 항목(pane)으로 잇는다.
 const SETTINGS_PANE = {
-  connections: "providers",
   coding: "coding",
-  extensions: "tools",
   general: "general",
   diagnostics: "diagnostics",
 } as const satisfies Record<string, SettingsPane>;

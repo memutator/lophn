@@ -8,7 +8,7 @@ import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
-import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
@@ -31,7 +31,7 @@ import {
   mockIssues,
   mockViews,
 } from "./app-space.ts";
-import { mockAgentViewSource } from "./agent.ts";
+import { mockAgentTabSource } from "./agent.ts";
 import { mockCore, mockEvents } from "./requests.ts";
 import { mockInstructions, mockLauncher, mockProjects } from "./launcher.ts";
 
@@ -55,7 +55,7 @@ export interface DevMock {
   readonly appViews: AppViewsDeps;
   readonly feedback: LophnShellFeedbackBegin;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
-  readonly agentViewSource: AgentViewSourceFactory;
+  readonly agentViewSource: AgentTabSourceFactory;
   /** 대기 목록이 읽는 event 연결(fake Gateway). */
   readonly events: CoreSource;
   readonly instructions: InstructionsApi;
@@ -118,7 +118,7 @@ export function devMock(
     annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
     feedback: mockFeedback(),
-    agentViewSource: mockAgentViewSource(),
+    agentViewSource: mockAgentTabSource(),
     events: mockEvents(),
     instructions: mockInstructions(),
   };

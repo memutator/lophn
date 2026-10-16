@@ -2,7 +2,6 @@
 // 같은 값에서 같은 bytes·같은 hash를 만들어야 해서 두 쪽이 함께 쓰는 순수 함수를 여기 둔다.
 import { canonicalize } from "../../base/mod.ts";
 import type {
-  ContextValue,
   StoredViolation,
   ViolationKey,
 } from "./context-api.ts";
@@ -25,15 +24,6 @@ export function sameViolationKey(a: ViolationKey, b: ViolationKey): boolean {
     a.section === b.section;
 }
 
-export function keyOfViolation(violation: StoredViolation): ViolationKey {
-  return {
-    kind: violation.kind,
-    rule: violation.rule,
-    path: violation.path,
-    section: violation.section,
-  };
-}
-
 // 넘길 위반을 고른다. 요청이 없으면 저장된 전부, 있으면 요청한 키마다 하나(없거나 겹치면 err).
 export function chooseViolations(
   stored: readonly StoredViolation[],
@@ -47,7 +37,7 @@ export function chooseViolations(
   const chosen: StoredViolation[] = [];
   for (const key of wanted) {
     const found = stored.find((row) =>
-      sameViolationKey(keyOfViolation(row), key)
+      sameViolationKey(row, key)
     );
     if (!found) return { ok: false, reason: "missing", path: key.path };
     if (chosen.includes(found)) {
@@ -81,57 +71,4 @@ export function ruleDefinitionOf(
     }
   }
   return null;
-}
-
-const text = (value: string | null): string => value ?? "";
-
-function compareCodeUnits(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-// 근거 안의 위반은 읽기와 같은 순서(path, kind, rule, section, target, type의 code unit 순)로
-// 둔다. 어디서 읽은 목록이든 같은 위반 집합은 같은 근거 bytes가 된다.
-function inEvidenceOrder(
-  violations: readonly StoredViolation[],
-): StoredViolation[] {
-  const keyOf = (v: StoredViolation) => [
-    v.path,
-    v.kind,
-    text(v.rule),
-    text(v.section),
-    text(v.target),
-    text(v.type),
-  ];
-  return [...violations].sort((a, b) => {
-    const left = keyOf(a);
-    const right = keyOf(b);
-    for (let i = 0; i < left.length; i++) {
-      const diff = compareCodeUnits(left[i]!, right[i]!);
-      if (diff !== 0) return diff;
-    }
-    return 0;
-  });
-}
-
-// context.hand_off_violations가 붙이는 근거를 만든다. 경로·section·규칙·현재 규칙 정의만 담고
-// 문서 판이나 `doc@ver` 주소는 담지 않는다(contexts.md 정책 "근거"). contract는 적용된 판 content의
-// contract다(적용된 판이 없으면 null).
-export function evidenceOf(
-  context: ContextValue["id"],
-  contract: unknown,
-  violations: readonly StoredViolation[],
-): Record<string, unknown> {
-  return {
-    context,
-    violations: inEvidenceOrder(violations).map((violation) => ({
-      kind: violation.kind,
-      rule: violation.rule,
-      type: violation.type,
-      path: violation.path,
-      section: violation.section,
-      target: violation.target,
-      message: violation.message,
-      rule_definition: ruleDefinitionOf(contract, violation.rule),
-    })),
-  };
 }

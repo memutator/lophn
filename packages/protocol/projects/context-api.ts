@@ -1146,17 +1146,6 @@ export const contextViolationsRecordedEvent = defineEvent(
     }),
   },
 );
-export const contextViolationsHandedOffEvent = defineEvent(
-  "ContextViolationsHandedOff",
-  {
-    subject: ctxIdSchema,
-    payload: z.object({
-      violations: z.array(violationKeySchema).min(1),
-      evidence: blobReferenceSchema,
-      run: runIdSchema,
-    }),
-  },
-);
 export const glossaryEntrySetEvent = defineEvent("GlossaryEntrySet", {
   subject: glossaryEntryIdSchema,
   payload: z.object({
@@ -1189,7 +1178,6 @@ export const CONTEXT_API_EVENTS = [
   savedViewUpdatedEvent,
   savedViewDeletedEvent,
   contextViolationsRecordedEvent,
-  contextViolationsHandedOffEvent,
   glossaryEntrySetEvent,
   glossaryEntryRemovedEvent,
 ] as const;

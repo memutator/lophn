@@ -76,14 +76,11 @@ export type ScreenId =
   | "launcher-schema-failed"
   | "lophn-projects"
   | "lophn-apps"
-  | "settings-connections"
   | "settings-coding"
-  | "settings-extensions"
   | "settings-general"
   | "settings-diagnostics"
   | "project-document"
   | "project-terminal"
-  | "project-app-panel"
   | "app-space"
   | "new-waiting-list"
   | "new-waiting-permission"
@@ -465,25 +462,11 @@ export const PAGES: readonly WireframePage[] = [
     "lophn-apps",
   ),
   now(
-    "settings-connections",
-    "Settings · Connections",
-    ["connect-provider", "manage-provider-connection"],
-    "Settings의 Connections 탭. 연결된 provider와 연결 상태·다음 행동. key는 이 화면이 받지 않고 보호 창이 받는다.",
-    "settings-connections",
-  ),
-  now(
     "settings-coding",
     "Settings · Coding agents",
     ["connect-coding-agent", "manage-coding-access"],
     "Settings의 Coding agents 탭. 감지한 coding agent와 연결을 보고 회수한다.",
     "settings-coding",
-  ),
-  now(
-    "settings-extensions",
-    "Settings · Extensions",
-    ["add-agent-extension"],
-    "Settings의 Extensions 탭. agent가 쓰는 도구와 skill 확장을 더하고 끈다.",
-    "settings-extensions",
   ),
   now(
     "settings-general",
@@ -512,13 +495,6 @@ export const PAGES: readonly WireframePage[] = [
     ["project-workspace", "start-coding-agent"],
     "프로젝트 작업대의 terminal 탭. 문서 옆 칸에 같은 폴더의 shell이 열린다. 여기 출력은 PTY 없이 gallery의 가짜 통로가 준 것이다.",
     "project-terminal",
-  ),
-  now(
-    "project-app-panel",
-    "Project workspace · app panel tab",
-    ["project-workspace", "ask-app-hint"],
-    "프로젝트 작업대의 app panel 탭. 앱 화면의 panel 크기를 탭으로 띄운다. 앱 view는 native view라서 여기서는 안내 상자로 그린다.",
-    "project-app-panel",
   ),
   now(
     "app-space",

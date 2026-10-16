@@ -1,36 +1,5 @@
 /* 파일 탭의 viewer·알림, project 키워드 검색, 경로 팔레트. 공통 틀은 ../compose.module.css를 쓴다. */
 
-/* 탭 안 위쪽 toast. 탭 본문 위에 떠서 가운데에 놓이고, 단추는 오른쪽 끝이다. */
-.hasToast {
-  position: relative;
-}
-
-.tabToast {
-  position: absolute;
-  top: calc(var(--control-md-height) + var(--space-3));
-  right: var(--space-6);
-  left: var(--space-6);
-  z-index: var(--z-toast);
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.tabToastBox {
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
-  width: 100%;
-  max-width: calc(var(--page-reading-default) + var(--space-10));
-  pointer-events: auto;
-}
-
-.tabToastActions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
 }
 
 /* 디스크와 내 것을 나란히 비교 */

@@ -31,7 +31,6 @@ export type {
   PickerLayoutView,
   PickerModelRef,
   PickerModelRow,
-  PickerNoticeView,
   PickerProviderGroup,
 } from "./types.ts";
 

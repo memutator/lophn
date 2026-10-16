@@ -23,6 +23,3 @@ export function mockAgentTabSource(
     return fake;
   };
 }
-
-// `mod.ts`가 옛 이름으로 부른다. 호스트가 `mockAgentTabSource`로 갈아탄 뒤 cleanup이 지운다.
-export const mockAgentViewSource = mockAgentTabSource;

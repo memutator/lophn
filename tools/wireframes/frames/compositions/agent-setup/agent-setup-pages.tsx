@@ -7,7 +7,7 @@ import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { WorkspaceWithoutProject } from "../workspace-page.tsx";
-import { Driven } from "../workspace-settings.tsx";
+import { Driven } from "../driven.tsx";
 import { bySelector, byText, type Step } from "./drive.ts";
 
 const SIDEBAR = { foldersClosed: true } as const;

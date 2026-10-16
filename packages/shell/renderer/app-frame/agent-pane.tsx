@@ -21,7 +21,7 @@ import {
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
@@ -81,7 +81,7 @@ export interface AgentPaneProps {
   /** select와 같은 목록. agent 탭의 이름과 avatar를 찾는다. */
   agents: readonly AppSpaceAgent[];
   /** 없으면 Agent 화면을 열 수 없다("준비 안 됨"). */
-  agentViewSource?: AgentViewSourceFactory;
+  agentViewSource?: AgentTabSourceFactory;
   /** 보이는 탭. */
   tab: PaneTab;
   onTab: (tab: PaneTab) => void;
@@ -92,7 +92,6 @@ export interface AgentPaneProps {
   onOpenedClose: () => void;
   onState: (state: AgentPaneState) => void;
   onClose: () => void;
-  onOpenResult?: (document: string) => void;
   /** app 층 LOPHN.md를 연다. */
   onInstructions?: () => void;
   /** Settings로 간다(기본 model·확장 등록·연결). */
@@ -262,7 +261,7 @@ function NotReady(): ReactElement {
 
 function AgentBody(
   props: AgentPaneProps & {
-    factory: AgentViewSourceFactory;
+    factory: AgentTabSourceFactory;
     assignment: string;
     session: string | null;
   },
@@ -276,9 +275,6 @@ function AgentBody(
   const shared = useConversation()?.drafts;
   const local = useMemo(() => new DraftStore(), []);
   const host: AgentViewHost = {
-    ...(props.onOpenResult === undefined ? {} : {
-      openResult: (document) => props.onOpenResult?.(document),
-    }),
     // 권한 요약은 같은 칸의 관리 화면으로 간다.
     openPermissions: () => onState({ mode: "manage", agent: null }),
     openAgentSettings: () => props.onSettings?.(),
@@ -317,7 +313,6 @@ function ManageBody(props: AgentPaneProps & { agent: string | null }) {
         onAgent={(agent) => props.onState({ mode: "manage", agent })}
         contexts={[]}
         onEditInstructions={() => props.onInstructions?.()}
-        onChangeDefaults={() => props.onSettings?.()}
         onAddExtension={() => props.onSettings?.()}
         onChanged={props.onChanged}
       />

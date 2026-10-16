@@ -65,7 +65,7 @@ interface AppGetValue {
   };
 }
 
-/** core `apps.get`(contracts App)에서 크롬과 판 고정이 읽는 field만 옮긴다. */
+/** core `apps.get`(protocol App)에서 크롬과 판 고정이 읽는 field만 옮긴다. */
 export function coreAppRead(core: CoreSource): AppViewsDeps["app"] {
   return async (app) => {
     const reply = await core.call({

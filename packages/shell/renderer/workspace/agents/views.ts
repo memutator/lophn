@@ -1,6 +1,6 @@
 // Agents 탭과 agent editor가 함께 쓰는 화면 값. 값의 정본은 protocol의 agent-definitions·approvals/grants이고,
 // 여기는 화면이 contract만으로 만들 수 없는 것(model 표시 이름, 이미지 주소, 켬·끔 줄, project 지침 글)만 더한다.
-// renderer는 contracts를 type으로만 쓴다.
+// renderer는 protocol을 type으로만 쓴다.
 import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 

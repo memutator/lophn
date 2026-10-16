@@ -6,7 +6,7 @@
 import type { ConnectTarget } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
-// contracts/problems REPORTING_LIMITS의 new_reports_per_window·window_ms와 같은 값이다.
+// core problems/reporting의 REPORTING_LIMITS 중 new_reports_per_window·window_ms와 같은 값이다.
 const VIEW_ERRORS_PER_WINDOW = 20;
 const VIEW_ERROR_WINDOW_MS = 60_000;
 // 한 메시지의 글자 상한. 자동 보고 본문 상한(256 KiB) 안에 머문다.
@@ -24,7 +24,6 @@ type ViewErrorObservation =
   | "unhandledrejection"
   | "render_error";
 
-/** contracts appViewErrorSchema와 같은 검사. */
 function checkViewError(value: unknown):
   | { observation: ViewErrorObservation; name: string; message: string | null }
   | undefined {
@@ -52,7 +51,7 @@ function checkViewError(value: unknown):
   };
 }
 
-/** collector `observe-exception` 본문(contracts/problems exceptionObservationInputSchema). */
+/** collector `observe-exception` 본문. */
 interface ExceptionObservation {
   report_id: string;
   observed_at: string;

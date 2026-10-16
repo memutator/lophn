@@ -2,9 +2,9 @@
 
 ## 목적
 
-정렬·페이지·열 선택·숫자 정렬·가상 scroll을 갖춘 표다(apps/sdk#R16). 칸 모양은
+정렬·페이지·열 선택·숫자 정렬·가상 scroll을 갖춘 표다. 칸 모양은
 @lophn/design의 Table이 그린다. 임의 script 실행 없이 loading·empty·error 표시를
-제공한다(apps/sdk#R38).
+제공한다.
 
 ## 공개 API와 type
 

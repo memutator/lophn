@@ -2,9 +2,9 @@
 
 ## 목적
 
-문서를 읽는 화면의 Markdown 본문·목차 tree·code block이다 (apps/sdk#R16).
+문서를 읽는 화면의 Markdown 본문·목차 tree·code block이다.
 Markdown·code block·목차와 읽기 틀은 lophn 문서 화면과 같은 component이고 시각
-값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+값의 정본은 shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -64,7 +64,7 @@ const outline = parseMarkdown(report.body).outline;
 </ReadingFrame>;
 ```
 
-문구는 앱의 message key로 준다(apps/sdk#R41).
+문구는 앱의 message key로 준다.
 
 ## version 정책
 

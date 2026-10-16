@@ -3,10 +3,10 @@
 ## 목적
 
 앱 shell·tab·sidebar·grid·card와 5가지 페이지 틀(읽기·dashboard·목록과
-상세·표·폼)이다(apps/sdk#R15). 모두 창이 아니라 넣은 영역의 폭에 반응하고 패널
-320px·카드 240px부터 페이지 가로 scroll 없이 읽기와 조작을 준다 (apps/sdk#R37).
+상세·표·폼)이다. 모두 창이 아니라 넣은 영역의 폭에 반응하고 패널
+320px·카드 240px부터 페이지 가로 scroll 없이 읽기와 조작을 준다.
 탭·카드·페이지 틀은 lophn 화면과 같은 component이고 시각 값의 정본은
-shell/design-system이다(apps/sdk#R20, R21).
+shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -89,7 +89,7 @@ import { AppShell, FormFrame, Sidebar } from "@lophn/ui-layout";
 ```
 
 문구는 앱의 message key로 주고 화면 id(`current`, `items[].id`)는 문구와 따로
-둔다(apps/sdk#R41).
+둔다.
 
 ## version 정책
 

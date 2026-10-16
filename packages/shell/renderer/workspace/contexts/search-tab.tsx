@@ -26,7 +26,7 @@ import { SearchSide } from "./search-tab-side.tsx";
 import type { ContextsSource, SearchInputValues } from "./source.ts";
 import { type OpenDocument, searchTabTitle } from "./shared.ts";
 
-/** layout에 저장되는 search 탭 값과 같은 모양(domain-model shell/workspace TabLayout). */
+/** layout에 저장되는 search 탭 값과 같은 모양. */
 export interface SearchTabState {
   /** context ID. */
   readonly context: string;

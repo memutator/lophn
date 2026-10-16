@@ -14,7 +14,7 @@ export interface ReadPosition {
 }
 
 export interface TabKindDef {
-  /** TabLayout.kind에 쓰는 이름. registry 안 유일. */
+  /** layout 탭의 kind에 쓰는 이름. registry 안 유일. */
   readonly kind: string;
   /** 종류 이름의 wording key. 팔레트가 탭 행에 쓴다(탭 줄에는 종류 글자가 없다). */
   readonly labelKey: MessageKey;

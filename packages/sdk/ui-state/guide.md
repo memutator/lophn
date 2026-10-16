@@ -2,9 +2,9 @@
 
 ## 목적
 
-읽기 결과의 loading·empty·error·freshness 상태(apps/sdk#R18)와 앱 화면 root의
-`AppErrorBoundary`(apps/sdk#R29)다. 상태 표시는 lophn 화면과 같은 component이고
-시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+읽기 결과의 loading·empty·error·freshness 상태와 앱 화면 root의
+`AppErrorBoundary`다. 상태 표시는 lophn 화면과 같은 component이고
+시각 값의 정본은 shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -73,7 +73,7 @@ createRoot(element).render(
 </ReadState>;
 ```
 
-문구는 앱의 message key로 준다(apps/sdk#R41).
+문구는 앱의 message key로 준다.
 
 ## version 정책
 

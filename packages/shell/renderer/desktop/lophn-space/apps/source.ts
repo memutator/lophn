@@ -1,5 +1,5 @@
 // apps 화면과 앱 공간이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
-// core-source.ts만 안다. 모양은 contracts(apps.list·get·runtime·archive·unarchive)에서 이
+// core-source.ts만 안다. 모양은 protocol(apps.list·get·runtime·archive·unarchive)에서 이
 // 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../source.ts";
 

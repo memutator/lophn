@@ -2,7 +2,7 @@
 
 ## 목적
 
-grant 범위의 secret 사용 client다(apps/sdk#R31). secret 값은 읽을 수 없다. 이
+grant 범위의 secret 사용 client다. secret 값은 읽을 수 없다. 이
 client는 "이 secret을 이 목적지로 보낼 때 플랫폼 전송부가 인증 값을 붙여 달라"는
 요청 하나만 내고 안전한 사용 결과만 받는다. secret의 생성·교체·삭제와 원값 읽기
 통로는 없다. 그것은 사람의 확인과 OS 보관 경계를 지난다. import는 grant를 주지

@@ -7,7 +7,7 @@ import { EXTERNAL_URL_MAX_CHARS } from "../../../protocol/shell/app-bridge-types
 import type { CallOutcome } from "./app-call.ts";
 import type { BoundView } from "./registry.ts";
 
-/** contracts externalUrlSchema와 같은 검사. 통과하면 URL 그대로, 아니면 undefined다. */
+/** 통과하면 URL 그대로, 아니면 undefined다. */
 export function checkExternalUrl(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > EXTERNAL_URL_MAX_CHARS) {
     return undefined;

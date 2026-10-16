@@ -1,4 +1,4 @@
-// Fork: 같은 agent의 새 session `id`로 이력을 복사하고(S8 5장) 만든 session을 부르는 쪽이 새 탭에 연다.
+// Fork: 같은 agent의 새 session `id`로 이력을 복사하고 만든 session을 부르는 쪽이 새 탭에 연다.
 // header의 ⋯ menu와 `/fork`가 같은 길을 쓴다.
 import { newId } from "../../desktop/lophn-space/model.ts";
 import type { AgentTabSource, SourceResult } from "../agent-tab-source.ts";

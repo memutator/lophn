@@ -36,7 +36,7 @@ interface ConnectionGateProps {
 }
 
 // 준비 전·실패는 본문 대신 640px 기둥에 놓인다. 준비 전은 자리 모양만, 실패는 다음 행동
-// 하나를 보인다. 이전 lophn의 DaemonGate 모양이다.
+// 하나를 보인다.
 export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   if (connection.state === "failed") {
     return (

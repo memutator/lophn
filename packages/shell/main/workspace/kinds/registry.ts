@@ -29,7 +29,7 @@ type Built = (typeof BUILT_IN_TAB_KINDS)[number];
 
 type LayoutOf<K> = K extends { layout: z.ZodType<infer L> } ? L : never;
 
-/** layout 파일의 탭. 등록된 kind의 TabLayout 합이다. */
+/** layout 파일의 탭. 등록된 kind의 layout 탭 합이다. */
 export type LayoutTab = LayoutOf<Built>;
 
 export { registerTabKind, tabKindOf } from "./kind.ts";

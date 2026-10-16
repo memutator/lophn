@@ -1,4 +1,4 @@
-// app-detail(ui-ux 5절): 한 앱의 Version·Access·Activity·Issues를 보고 이전 release로 돌아가기,
+// app-detail: 한 앱의 Version·Access·Activity·Issues를 보고 이전 release로 돌아가기,
 // 바깥 자원 거두기, 앱 data rewind를 한다. 운영 패널(`ops-panel-frame.tsx`)의 본문이다. 사람은
 // release를 고르거나 쓰기 시작하지 않는다. 결정은 확인 창 없이 이 탭에서 바로 한다.
 import type { ReactNode } from "react";

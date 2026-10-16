@@ -1,5 +1,5 @@
 // gallery와 dev-mock이 쓰는 대기 목록 fake. events의 fake Gateway에 대기 항목을 채우고, 결정과 질문 답 route를
-// 메모리에서 받아 항목을 빼고 event를 흘린다. 시나리오 데이터는 옛 wireframe의 ALL_ITEMS를 옮긴 것이다.
+// 메모리에서 받아 항목을 빼고 event를 흘린다.
 import {
   approvalsDecide,
   approvalsDecideTurn,
@@ -276,7 +276,7 @@ const QUESTION: readonly AskQuestion[] = [{
 
 type Item = ReturnType<typeof turnRequest> | PendingApproval | "question";
 
-/** 옛 wireframe의 ALL_ITEMS: 모든 종류가 섞인 한 목록. */
+/** 모든 종류가 섞인 한 목록. */
 export const allItems = (): readonly Item[] => [
   APP_API_CALL(),
   CODING_ASK(),

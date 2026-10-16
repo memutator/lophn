@@ -1,6 +1,6 @@
 // 앱 공간 위쪽 바의 agent select. 앱 공간은 lophn sidebar를 쓰지 않으므로
 // 이 select가 agent를 여는 유일한 길이다(알림의 [Ask App Engineer]는 select를 거치지 않는다).
-// 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 contracts를
+// 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 protocol을
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
 import {

@@ -1,4 +1,4 @@
-/* 이전 lophn DaemonGate의 기둥: 폼 폭 640px, 위 24px·좌우 32px·아래 48px. */
+/* 기둥: 폼 폭 640px, 위 24px·좌우 32px·아래 48px. */
 .gate {
   box-sizing: border-box;
   width: 100%;
@@ -96,7 +96,7 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* 단절: 마지막 화면 위의 한 줄. 이전 lophn 런처의 이어서 줄과 같은 모양이다. */
+/* 단절: 마지막 화면 위의 한 줄. */
 .notice {
   display: flex;
   align-items: center;

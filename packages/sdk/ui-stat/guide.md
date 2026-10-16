@@ -2,9 +2,8 @@
 
 ## 목적
 
-read command 결과의 수치와 변화량이다(apps/sdk#R18). lophn 화면과 같은 수치
-타일이고 시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21,
-shell/design-system#R31).
+read command 결과의 수치와 변화량이다. lophn 화면과 같은 수치
+타일이고 시각 값의 정본은 shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -53,7 +52,7 @@ import { StatRow, StatTile } from "@lophn/ui-stat";
 </StatRow>;
 ```
 
-문구는 앱의 message key로 준다(apps/sdk#R41).
+문구는 앱의 message key로 준다.
 
 ## version 정책
 

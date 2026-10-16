@@ -1,5 +1,5 @@
 // Diagnostics 화면이 읽는 통로. 구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 실제로 점검한
-// 시각이다(`diagnostics/status`). 모양은 contracts(diagnostics)에서 이 화면이 쓰는 field만 옮긴 것이다.
+// 시각이다(`diagnostics/status`). 모양은 protocol(diagnostics)에서 이 화면이 쓰는 field만 옮긴 것이다.
 // 경로·key·값은 이 통로에 없다. 점검은 사람이 [Run checks]를 누를 때만 한다.
 import type { SourceResult } from "../source.ts";
 

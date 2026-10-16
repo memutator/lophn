@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 import { canonicalize } from "./canonical.ts";
 
-/** contracts CONFIRMATION_HANDLE_TTL_MS. 발급 시각에서 120초. */
+/** protocol CONFIRMATION_HANDLE_TTL_MS와 같은 값. 발급 시각에서 120초. */
 const HANDLE_TTL_MS = 120_000;
 
 /**

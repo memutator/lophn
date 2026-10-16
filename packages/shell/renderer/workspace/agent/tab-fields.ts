@@ -1,5 +1,4 @@
-// Agent 탭이 TabItem.fields에 두는 값의 읽기와 쓰기(domain-model shell/workspace TabLayout의 agent·work_place·
-// session). layout 파일에 남는 것은 이 셋뿐이고, chips는 탭을 연 순간의 메모리 값이다(저장하지 않는다).
+// Agent 탭이 TabItem.fields에 두는 값(agent·work_place·session)의 읽기와 쓰기. layout 파일에 남는 것은 이 셋뿐이고, chips는 탭을 연 순간의 메모리 값이다(저장하지 않는다).
 import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
 import type { TabItem } from "../model.ts";
 

@@ -1,5 +1,5 @@
 // Settings › Providers가 읽고 쓰는 통로. provider는 연결과 인증만 다루므로 이
-// 통로에는 model 이름·기본값 route가 없다. provider 하나에는 연결 하나다. 모양은 contracts(providers·provider definitions)에서 이 화면이 쓰는 field만 옮긴 것이고
+// 통로에는 model 이름·기본값 route가 없다. provider 하나에는 연결 하나다. 모양은 protocol(providers·provider definitions)에서 이 화면이 쓰는 field만 옮긴 것이고
 // secret 값은 없다: key·로그인 응답은 보호 창이 받고 이 통로는 그 창을 여는 일만 한다.
 // 연결된 provider는 기존 settings의 ProviderRow를 그대로 쓴다.
 import type {

@@ -1,4 +1,4 @@
-// [Report a problem] 경계(FEEDBACK_IPC·FEEDBACK_SEND_IPC의 사본). main tsc는 protocol
+// [Report a problem] 경계. main tsc는 protocol
 // package를 보지 않으므로 같은 모양을 여기 둔다.
 // 원문 글·binding은 main 메모리에만 있고 renderer에는 draftRef만 온다.
 import { z } from "zod";
@@ -8,7 +8,7 @@ export const FEEDBACK_SEND_CHANNEL = "shell:feedback-send";
 export const FEEDBACK_CANCEL_CHANNEL = "shell:feedback-cancel";
 export const FEEDBACK_OPEN_ISSUE_CHANNEL = "shell:feedback-open-issue";
 
-/** problems/feedback 한도(contracts FEEDBACK_LIMITS와 같은 값). */
+/** problems/feedback 한도. core가 같은 값을 쓴다. */
 export const FEEDBACK_LIMITS = {
   text_scalars: 500,
   state_bytes: 65_536,
@@ -17,7 +17,7 @@ export const FEEDBACK_LIMITS = {
   total_bytes: 3_145_728,
 } as const;
 
-/** 제보로 새로 연 문제의 이름(contracts FEEDBACK_PROBLEM_NAME과 같은 값). */
+/** 제보로 새로 연 문제의 이름(protocol FEEDBACK_PROBLEM_NAME과 같은 값). */
 export const FEEDBACK_PROBLEM_NAME = "User report";
 
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
@@ -39,7 +39,7 @@ export const feedbackBeginSchema = z.strictObject({
   problem: z.string().regex(/^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/).optional(),
 });
 
-// 제보는 글만 보낸다(contracts feedbackSendSchema의 사본).
+// 제보는 글만 보낸다.
 export const feedbackSendSchema = z.strictObject({
   draftRef: ref,
   text: feedbackTextSchema,

@@ -105,7 +105,7 @@ export interface WorkspaceProps {
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
   /**
-   * Agent 탭이 agent 하나의 통로(AgentViewSource)를 얻는 함수. 없으면
+   * Agent 탭이 agent 하나의 통로를 얻는 함수(agentViewSource). 없으면
    * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
    * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
    * 막힌다. core 구현(agent-tab-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
@@ -458,7 +458,7 @@ export function Workspace(props: WorkspaceProps) {
     return found.length === 0 ? null : found[found.length - 1].session;
   };
 
-  // Violations 단추. 열린 PM session이 있으면 그 탭을 고르고 chip을 쓰던 글로 채운다(session에는 chip을 붙일 길이 없다). 없으면 chip을 붙인 새 PM 탭이다.
+  // Project Manager에게 묻는 단추(askProjectManager). 열린 PM session이 있으면 그 탭을 고르고 chip을 쓰던 글로 채운다(session에는 chip을 붙일 길이 없다). 없으면 chip을 붙인 새 PM 탭이다.
   const askPm = (chips: readonly ContextChipView[]) => {
     const row = agentByRole(sidebarAgents.agents, "project_manager");
     if (agentViewSource === undefined || row === undefined) return;

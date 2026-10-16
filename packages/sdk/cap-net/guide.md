@@ -2,12 +2,12 @@
 
 ## 목적
 
-timeout과 retry가 있는 외부 fetch client다(apps/sdk#R24). 앱 프로세스에는 외부
+timeout과 retry가 있는 외부 fetch client다. 앱 프로세스에는 외부
 net flag가 없고, 요청은 broker의 전송부가 매번 정확한 host·port·redirect를
 선언∩grant로 검사한 뒤 보낸다. import는 grant를 주지 않는다.
 
 loopback 듣기는 별도 package가 없다. `Deno.serve`를 쓴다. 주소와 permission
-제한은 apps/permissions를 따른다(apps/sdk#R25).
+제한은 apps/permissions를 따른다.
 
 ## 공개 API와 type
 

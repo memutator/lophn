@@ -1,4 +1,4 @@
-// WorkspaceLayout(domain-model/shell/workspace)의 검증과 기본값, 읽던 위치
+// WorkspaceLayout의 검증과 기본값, 읽던 위치
 // 보존의 순수 동작만 둔다. schema 원본은 schema.ts가 정한다.
 import {
   LAYOUT_SCHEMA_VERSION,
@@ -43,7 +43,7 @@ export function parseLayoutFile(value: unknown): LayoutResult {
 
 /**
  * registry에 없는 kind(지운 옛 kind 포함)의 탭은 placeholder 없이 건너뛰고 나머지 탭의 순서·선택을
- * 지킨다(domain-model TabKind registry). 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. 그 밖의
+ * 지킨다. 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. 그 밖의
  * 모양 오류는 손대지 않고 schema 검증이 손상으로 판단한다.
  */
 function skipUnregisteredTabs(value: unknown): unknown {

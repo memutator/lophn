@@ -268,6 +268,8 @@ const releasePreparationOutputSchema = z.object({
   bundle_hash: sha256Schema.nullable(),
   blueprint_hash: sha256Schema.nullable(),
   manifest: bundleManifestSchema.nullable(),
+  // 준비가 끝나 확정된 release. ticket report가 쓴다.
+  release: releaseIdSchema.nullable(),
 });
 export const releasePreparation = defineCommand({
   resource: "releases",

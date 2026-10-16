@@ -26,9 +26,9 @@ export interface ChartLocaleProps {
 
 export type ChartStateProps = DataStateProps;
 
-export type TableCell = string | number | undefined;
+type TableCell = string | number | undefined;
 
-export interface TableRow {
+interface TableRow {
   readonly key: string;
   readonly cells: readonly TableCell[];
 }
@@ -38,7 +38,7 @@ export interface TableView {
   readonly rows: readonly TableRow[];
 }
 
-export interface LegendItem {
+interface LegendItem {
   readonly label: string;
   readonly slot: Slot;
 }
@@ -64,7 +64,7 @@ function tableColumns(view: TableView): TableColumn<TableRow>[] {
   );
 }
 
-export function Legend({ items }: { items: readonly LegendItem[] }) {
+function Legend({ items }: { items: readonly LegendItem[] }) {
   return (
     <ul className={styles.legend}>
       {items.map((item, index) => (

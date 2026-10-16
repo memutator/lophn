@@ -9,7 +9,7 @@ import {
 import type { Slot } from "./types.ts";
 import styles from "./chart.module.css";
 
-export interface Tick {
+interface Tick {
   readonly at: number;
   readonly label: string;
 }
@@ -90,7 +90,7 @@ export function BottomLabels(
   );
 }
 
-export interface TooltipRow {
+interface TooltipRow {
   readonly name: string;
   readonly value: string;
   readonly slot?: Slot;

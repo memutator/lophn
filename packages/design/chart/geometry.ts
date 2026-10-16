@@ -23,7 +23,7 @@ export const GEOMETRY = {
 // 점의 hover 자리 반지름: 점·표면 ring·간격을 더한 만큼. 보이는 점(4px)은 그대로다.
 export const POINT_HIT = GEOMETRY.point + GEOMETRY.ring + GEOMETRY.gap;
 
-export const AXIS_BAND = GEOMETRY.caption + GEOMETRY.pad;
+const AXIS_BAND = GEOMETRY.caption + GEOMETRY.pad;
 
 // 글자 폭은 DOM에서 재지 않고 caption em으로 넉넉하게 어림한다. 실제보다 좁게 잡으면 글이 SVG 밖으로
 // 나가므로 언제나 위쪽 한계를 쓴다: 숫자·문장 부호·공백 0.7em(tabular 숫자는 0.6em 남짓),
@@ -45,7 +45,7 @@ export function valueLabelsFit(labels: readonly string[], left: number) {
   return labels.every((label) => textWidth(label) <= left - GEOMETRY.pad);
 }
 
-export interface PlacedLabel {
+interface PlacedLabel {
   readonly at: number;
   readonly label: string;
   readonly x: number;
@@ -184,7 +184,7 @@ export function groupLayout(
   };
 }
 
-export interface StackSegment {
+interface StackSegment {
   readonly index: number;
   readonly start: number;
   readonly end: number;

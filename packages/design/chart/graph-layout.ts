@@ -13,16 +13,16 @@ const PAD = px(tokens.space[5]);
 const ROW_GAP = px(tokens.space[5]);
 const COLUMN_GAP = px(tokens.space[10]);
 // 이보다 긴 이름은 줄여 보이고 전체는 tooltip으로 읽는다.
-export const LABEL_LIMIT = 24;
+const LABEL_LIMIT = 24;
 
-export function shorten(label: string, limit = LABEL_LIMIT): string {
+function shorten(label: string, limit = LABEL_LIMIT): string {
   const characters = [...label];
   return characters.length <= limit
     ? label
     : `${characters.slice(0, limit - 1).join("")}…`;
 }
 
-export interface PlacedNode extends GraphNode {
+interface PlacedNode extends GraphNode {
   readonly shortLabel: string;
   readonly layer: number;
   readonly x: number;
@@ -30,14 +30,14 @@ export interface PlacedNode extends GraphNode {
   readonly width: number;
 }
 
-export interface PlacedEdge extends GraphEdge {
+interface PlacedEdge extends GraphEdge {
   readonly path: string;
   readonly labelX: number;
   readonly labelY: number;
   readonly shortLabel?: string;
 }
 
-export interface GraphLayout {
+interface GraphLayout {
   readonly nodes: readonly PlacedNode[];
   readonly edges: readonly PlacedEdge[];
   readonly width: number;

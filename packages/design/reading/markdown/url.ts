@@ -11,7 +11,7 @@ const STRIPPED = /[\t\n\r]/g;
 const CONTROL = /[\u0000-\u001f\u007f]/;
 const RELATIVE_BASE = "https://relative.invalid/";
 
-export type UrlKind = "link" | "image";
+type UrlKind = "link" | "image";
 
 function clean(raw: string): string | undefined {
   const value = raw.replace(EDGE, "").replace(STRIPPED, "");

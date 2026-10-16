@@ -20,7 +20,7 @@ import { useActive } from "./use-active.ts";
 import styles from "./chart.module.css";
 
 // 리뷰 probe와 테스트가 이 자리에서 geometry를 부른다.
-export { type BarItem, barItems } from "./bar-layout.ts";
+export { barItems } from "./bar-layout.ts";
 
 export function BarPlot(
   { width, categories, series, stacked, format, kind }: {

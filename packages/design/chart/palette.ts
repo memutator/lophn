@@ -8,7 +8,7 @@ export const SLOT_COUNT = tokens.chart.series.length;
 // 모든 쌍이 맞닿는 차트(산점)는 3계열까지만 그린다.
 export const ALL_PAIRS_MAX = 3;
 // 기타 계열의 key. 실제 엔티티 key("other"도 쓸 수 있다)와 겹치지 않도록 domain을 보고 정한다.
-export function otherKey(domain: readonly string[]): string {
+function otherKey(domain: readonly string[]): string {
   const taken = new Set(domain);
   let key = "other";
   for (let suffix = 1; taken.has(key); suffix += 1) key = `other~${suffix}`;
@@ -21,9 +21,6 @@ export function slotOf(domain: readonly string[], key: string): Slot {
 }
 
 // light 표면에서 대비가 낮아 직접 라벨이나 표 보기가 필요한 자리.
-export function needsLabelOrTable(slot: Slot): boolean {
-  return slot !== "other" && tokens.chart.series[slot].lightNeedsLabelOrTable;
-}
 
 export interface ColoredSeries extends Series {
   readonly slot: Slot;

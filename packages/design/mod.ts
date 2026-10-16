@@ -1,4 +1,3 @@
-export { applyThemeOverride, type ThemeOverrideResult } from "./theme.ts";
 export { tokens } from "./tokens.ts";
 export type {
   Breakpoint,

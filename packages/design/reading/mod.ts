@@ -7,12 +7,7 @@ export type {
   MarkdownDocument,
   OutlineItem,
 } from "./markdown/model.ts";
-export { safeUrl, type UrlKind } from "./markdown/url.ts";
+export { safeUrl } from "./markdown/url.ts";
 export { CodeBlock, type CodeBlockProps } from "./code-block/code-block.tsx";
-export {
-  type DiffLine,
-  type DiffSpan,
-  DiffView,
-  type DiffViewProps,
-} from "./diff-view/diff-view.tsx";
+export { type DiffLine } from "./diff-view/diff-view.tsx";
 export { Toc, TOC_MAX_LEVEL, type TocProps } from "./toc/toc.tsx";

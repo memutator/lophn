@@ -3,7 +3,7 @@ import { GEOMETRY, groupLayout, stackSegments } from "./geometry.ts";
 import type { ColoredSeries } from "./palette.ts";
 import type { Slot } from "./types.ts";
 
-export interface BarItem {
+interface BarItem {
   readonly category: number;
   readonly series: number;
   readonly slot: Slot;
@@ -93,7 +93,7 @@ export function barItems(
   return items;
 }
 
-export interface HitBox {
+interface HitBox {
   readonly x: number;
   readonly y: number;
   readonly width: number;

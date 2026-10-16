@@ -43,7 +43,3 @@ export function localX(event: { clientX: number; currentTarget: Element }) {
   return event.clientX - (svg?.getBoundingClientRect().left ?? 0);
 }
 
-export function localY(event: { clientY: number; currentTarget: Element }) {
-  const svg = event.currentTarget.closest("svg");
-  return event.clientY - (svg?.getBoundingClientRect().top ?? 0);
-}

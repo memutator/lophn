@@ -11,14 +11,14 @@ import type {
 
 export type Problem = "invalid" | "too-many-groups";
 
-export type Checked<T> =
+type Checked<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly problem: Problem };
 
 const invalid = { ok: false, problem: "invalid" } as const;
 
-export const MAX_BINS = 50;
-export const DEFAULT_BINS = 10;
+const MAX_BINS = 50;
+const DEFAULT_BINS = 10;
 
 function isText(value: unknown): value is string {
   return typeof value === "string";
@@ -83,7 +83,7 @@ function checkSeriesList(
   );
 }
 
-export interface TimeSeriesInput {
+interface TimeSeriesInput {
   readonly x: readonly Date[];
   readonly series: readonly Series[];
   readonly domain: readonly string[];
@@ -110,7 +110,7 @@ export function checkTimeSeries(
     : invalid;
 }
 
-export interface BarInput {
+interface BarInput {
   readonly categories: readonly string[];
   readonly series: readonly Series[];
   readonly domain: readonly string[];
@@ -130,7 +130,7 @@ export function checkBars(
     : invalid;
 }
 
-export interface DistributionInput {
+interface DistributionInput {
   readonly values: readonly number[];
   readonly bins: number;
 }
@@ -147,7 +147,7 @@ export function checkDistribution(
   return { ok: true, value: { values, bins: bins as number } };
 }
 
-export interface ScatterInput {
+interface ScatterInput {
   readonly groups: readonly ScatterGroup[];
   readonly domain: readonly string[];
 }
@@ -187,7 +187,7 @@ export function checkScatter(
   return shape;
 }
 
-export interface GraphInput {
+interface GraphInput {
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
 }

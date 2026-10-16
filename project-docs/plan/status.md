@@ -143,6 +143,6 @@
 | `screens-workspace-screens` | screens-workspace | 3 | screens-workspace-settings, screens-data-waiting | merged | screens-workspace/screens-workspace-screens | ccb2cb38 |  |
 | `screens-workspace-settings` | screens-workspace | 3 | 없음 | merged | screens-workspace/screens-workspace-settings | a94be2cf |  |
 | `screens-workspace-space` | screens-workspace | 3 | screens-workspace-settings, screens-workspace-screens, screens-app-space-frame, screens-agents-settings, screens-data-events, screens-data-waiting, screens-data-toast, screens-project-window, screens-project-reactions, screens-project-terminal, screens-conversation-view | merged | screens-workspace/screens-workspace-space | a71b5e54c |  |
-| `cleanup-comments` | cleanup | 4 | cleanup-names | todo |  |  |  |
+| `cleanup-comments` | cleanup | 4 | cleanup-names | merged | cleanup/cleanup-comments | 7097ae67 |  |
 | `cleanup-dead` | cleanup | 4 | 없음 | merged | cleanup/cleanup-dead | cc01ecb2 |  |
 | `cleanup-names` | cleanup | 4 | cleanup-dead | merged | cleanup/cleanup-names | cd014b73 |  |

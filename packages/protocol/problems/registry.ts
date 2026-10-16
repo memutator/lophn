@@ -38,12 +38,6 @@ import {
   listReports,
 } from "./problem-reads.ts";
 import {
-  listProblemFixes,
-  problemFixRecorded,
-  problemsUploadFixSummary,
-  recordProblemFix,
-} from "./fixes.ts";
-import {
   applyProblemDecision,
   closeProblemVerified,
   problemClosed,
@@ -87,7 +81,6 @@ export const ROUTES = [
   listVerifications,
   reconcileProblemWork,
   linkProblemInterpretation,
-  recordProblemFix,
   closeProblemVerified,
   applyProblemDecision,
   listProblems,
@@ -97,8 +90,6 @@ export const ROUTES = [
   getSnapshot,
   getSnapshotLogs,
   reportBody,
-  listProblemFixes,
-  problemsUploadFixSummary,
   ...PROBLEM_ROUTES,
 ] as const;
 export const EVENTS = [
@@ -110,7 +101,6 @@ export const EVENTS = [
   problemWorkStarted,
   problemWorkEnded,
   problemInterpretationLinked,
-  problemFixRecorded,
   problemClosed,
   problemReopened,
   problemConfirmationRecorded,

@@ -10,7 +10,6 @@ export * from "./feedback.ts";
 export * from "./problems.ts";
 export * from "./problem-detail.ts";
 export * from "./problem-reads.ts";
-export * from "./fixes.ts";
 export * from "./closing.ts";
 export * from "./report-blobs.ts";
 export * from "./report-body.ts";

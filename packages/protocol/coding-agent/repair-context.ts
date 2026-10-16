@@ -96,7 +96,6 @@ export const EVIDENCE_KINDS = [
   "source_diff",
   "screen",
   "image",
-  "fix_records",
   "verifications",
   "reference",
 ] as const;

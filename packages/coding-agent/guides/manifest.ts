@@ -18,8 +18,8 @@ export const SKILL_RELEASES: readonly SkillRelease[] = [
   },
   {
     name: "lophn-repair",
-    version: "2.0.0",
-    hash: "6569183f081df7c42c7346798f5d6c34807f772501e358b8bae8cd5cc7d63cdd",
+    version: "2.0.1",
+    hash: "94ad46c4e355261a62fb43457f3f600a1cac3fae05210c33d40fe95eff5a220a",
   },
 ];
 

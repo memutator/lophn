@@ -62,7 +62,6 @@ export function createTicketReportCommands(): {
         }
         const references = completionReferences(
           tx,
-          input.ticket,
           stored.app,
           input.completion,
         );
@@ -116,10 +115,9 @@ export function createTicketReportCommands(): {
   };
 }
 
-// 완료 보고 참조. verifications는 실제 runner 기록이고 fix_records는 이 ticket claim의 고친 기록이다.
+// 완료 보고 참조. verifications는 실제 runner 기록이다.
 function completionReferences(
   tx: Tx,
-  ticket: string,
   app: string,
   completion: Completion,
 ): Result<void> {
@@ -135,26 +133,6 @@ function completionReferences(
     if (row === undefined) return notFound("verification does not exist");
     if (String(row["app"]) !== app) {
       return invalid("verification belongs to another app");
-    }
-  }
-  if (new Set(completion.fix_records).size !== completion.fix_records.length) {
-    return invalid("duplicate fix record");
-  }
-  for (const seq of completion.fix_records) {
-    const row = tx.sql.get(
-      `SELECT payload FROM events WHERE seq = ? AND type = 'ProblemFixRecorded'`,
-      [Number(seq)],
-    );
-    if (row === undefined) return notFound("fix record does not exist");
-    const payload = JSON.parse(String(row["payload"])) as {
-      ticket?: string | null;
-      after?: string;
-    };
-    if (payload.ticket !== ticket) {
-      return notFound("fix record does not belong to this ticket");
-    }
-    if (payload.after !== completion.release) {
-      return invalid("fix record after release differs");
     }
   }
   return ok(undefined);

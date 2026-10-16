@@ -13,8 +13,6 @@ import { previewsStart, previewsStop } from "../apps/previews.ts";
 import { releasePrepareBundle } from "../apps/releases.ts";
 import { appLogs, appRuntime } from "../apps/runtime.ts";
 import type { Route } from "../base/route.ts";
-import { listProblemFixes, recordProblemFix } from "../problems/fixes.ts";
-import { recordProblemFixToolInputSchema } from "../problems/fixes.ts";
 import { requestTest } from "../problems/tests.ts";
 import {
   problemGet,
@@ -205,19 +203,6 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     codingSourceDiff,
     codingSourceDiff.input,
     codingSourceDiff.output,
-  ),
-  // 지난 고친 기록은 `problem more`에 없어 이 명령으로 읽는다.
-  token(
-    "problem fix-records",
-    listProblemFixes,
-    listProblemFixes.input,
-    listProblemFixes.output,
-  ),
-  token(
-    "problem record-fix",
-    recordProblemFix,
-    recordProblemFixToolInputSchema,
-    recordProblemFix.output,
   ),
   {
     name: "harness detect",

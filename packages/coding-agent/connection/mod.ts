@@ -15,5 +15,4 @@ export {
   LOPHN_DAEMON_URL,
   resolveDaemonAddress,
 } from "./client/daemon.ts";
-export { recordFix } from "./problem-ops.ts";
 export { reportTicket } from "./ticket-ops.ts";

@@ -59,7 +59,6 @@ export const READ_WORDS = [
   "more",
   "diff",
   "detect",
-  "fix-records",
 ] as const;
 
 export function isReadName(name: string): boolean {

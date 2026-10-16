@@ -1,10 +1,5 @@
 import { z } from "zod";
 import { getProblem, getSnapshot, listProblems } from "../problems/mod.ts";
-import {
-  listProblemFixes,
-  recordProblemFix,
-  recordProblemFixToolInputSchema,
-} from "../problems/fixes.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
 import { requestTest } from "../problems/tests.ts";
@@ -21,7 +16,7 @@ import { cliCommonSchema } from "./cli-core.ts";
 export const PROBLEM_HANDLERS = ["user", "coding_agent"] as const;
 export const problemHandlerSchema = z.enum(PROBLEM_HANDLERS);
 
-// record_fix·test의 근거 ticket claim이다. 지정 ticket의 현재 claim이 아니면 쓰지 않는다.
+// test의 근거 ticket claim이다. 지정 ticket의 현재 claim이 아니면 쓰지 않는다.
 // 문제 직접 claim·별도 시도 단계는 입력에 없다.
 export const problemTicketSourceSchema = z.strictObject({
   ticket: idSchema("tkt"),
@@ -33,8 +28,7 @@ const listExtra = { handler: problemHandlerSchema.optional() };
 const testExtra = { ticket_source: problemTicketSourceSchema };
 
 // tool 입력은 owner route 입력을 다시 적지 않고 고른다(mcp-core·mcp-decisions 같은
-// 모양). state 같은 filter 이름도 owner 것이 그대로다. record_fix는 summary 본문을 받고
-// 통로가 준비 증거를 만든다(ticket report와 같은 모양). owner 입력(problems/tests)이
+// 모양). state 같은 filter 이름도 owner 것이 그대로다. owner 입력(problems/tests)이
 // ticket_source를 optional로 둔 additive PR(#456)과 달리 tool 입력은 필수로 묶는다(main
 // mcp-problem과 같다). refine 뒤 key 덮기는 extend가 거절하므로 안전 확장(safeExtend)으로 심는다.
 const problemTestInput = requestTest.input.safeExtend({
@@ -45,11 +39,9 @@ const problemInput = z.discriminatedUnion("op", [
   listProblems.input.extend({ ...listExtra, op: z.literal("list") }),
   getProblem.input.extend({ op: z.literal("show") }),
   getSnapshot.input.extend({ op: z.literal("snapshot") }),
-  listProblemFixes.input.extend({ op: z.literal("fix_records") }),
   repairContextSummary.input.extend({ op: z.literal("summary") }),
   repairContextBundle.input.extend({ op: z.literal("bundle") }),
   repairContextMore.input.extend({ op: z.literal("more") }),
-  recordProblemFixToolInputSchema.extend({ op: z.literal("record_fix") }),
   problemTestInput,
 ]);
 
@@ -63,11 +55,9 @@ export const MCP_PROBLEM_TOOLS = [
       "list",
       "show",
       "snapshot",
-      "fix_records",
       "summary",
       "bundle",
       "more",
-      "record_fix",
       "test",
     ],
   },
@@ -87,11 +77,9 @@ export const MCP_PROBLEM_ROUTES = {
     list: listProblems,
     show: getProblem,
     snapshot: getSnapshot,
-    fix_records: listProblemFixes,
     summary: repairContextSummary,
     bundle: repairContextBundle,
     more: repairContextMore,
-    record_fix: recordProblemFix,
     test: requestTest,
   },
 } as const;
@@ -103,7 +91,7 @@ export function mcpProblemTool(name: string) {
 }
 
 const common = cliCommonSchema.shape;
-// refine을 가진 owner 입력(record_fix·test 등)은 extend가 key를 덮지 못한다.
+// refine을 가진 owner 입력(test 등)은 extend가 key를 덮지 못한다.
 // 공통 field가 겹치지 않으므로 refine 뒤에도 안전 확장(safeExtend)을 그대로 쓴다.
 const withCommon = <T extends z.ZodRawShape>(
   command: string,
@@ -135,10 +123,6 @@ export const cliProblemSnapshotSchema = withCommon(
   "problem snapshot",
   getSnapshot.input,
 );
-export const cliProblemFixRecordsSchema = withCommon(
-  "problem fix-records",
-  listProblemFixes.input,
-);
 export const cliProblemSummarySchema = withCommon(
   "problem summary",
   repairContextSummary.input,
@@ -150,11 +134,6 @@ export const cliProblemBundleSchema = withCommon(
 export const cliProblemMoreSchema = withCommon(
   "problem more",
   repairContextMore.input,
-);
-// coding 쓰기는 현재 ticket·claim_seq 필수다.
-export const cliProblemRecordFixSchema = withCommon(
-  "problem record-fix",
-  recordProblemFixToolInputSchema,
 );
 export const cliProblemTestSchema = withCommon(
   "problem test",
@@ -209,11 +188,9 @@ export const CLI_PROBLEM_NAMES = [
   "problem list",
   "problem show",
   "problem snapshot",
-  "problem fix-records",
   "problem summary",
   "problem bundle",
   "problem more",
-  "problem record-fix",
   "problem test",
   "problem attachment open",
   "problem report",
@@ -228,11 +205,9 @@ export const CLI_PROBLEM_COMMANDS = [
   cliProblemListSchema,
   cliProblemShowSchema,
   cliProblemSnapshotSchema,
-  cliProblemFixRecordsSchema,
   cliProblemSummarySchema,
   cliProblemBundleSchema,
   cliProblemMoreSchema,
-  cliProblemRecordFixSchema,
   cliProblemTestSchema,
   cliProblemAttachmentOpenSchema,
   cliProblemReportSchema,

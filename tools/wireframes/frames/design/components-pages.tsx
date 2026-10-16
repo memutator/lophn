@@ -213,8 +213,8 @@ export function ComponentsForms() {
             <Checkbox label="Disabled" disabled />
           </div>
           <div className={kit.column}>
-            <Switch label="Desktop notifications" defaultChecked />
-            <Switch label="Check for updates" />
+            <Switch label="Show line numbers" defaultChecked />
+            <Switch label="Wrap long lines" />
             <Switch label="Disabled, on" defaultChecked disabled />
             <Switch label="Disabled" disabled />
           </div>

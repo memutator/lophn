@@ -841,8 +841,5 @@ export function createLedgerRegistration(
   };
 }
 
-// question·assignment 계기 event의 공개 정책은 notifications
-// 구독자에게만 연다. 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
-
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
 // event를 보지 않는다. usage·preset read도 event를 보지 않는다.

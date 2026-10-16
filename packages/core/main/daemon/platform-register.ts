@@ -10,20 +10,12 @@ import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import { secretsListRead } from "../../secrets/mod.ts";
 import type { Assembled } from "./registration.ts";
 
-// notifications 구독자였던 core 내부 machine 자격 이름이다. 계기 event 공개 정책
-// (`notificationsOnlyVisibility`)이 쓴다. events 단위가 그 정책 장치와 함께 지운다.
-
 // AppCreated·자리 보관 반응 구독자의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수
 // 없고, ledger credential 기록으로만 reader·writer가 현재 자격을 다시 본다. 구독자 이름은
 // contracts의 ASSIGNMENT_SUBSCRIBER("lophn-agent-assignments")다.
 
 // 읽기(event·assignment)와 생성·멈춤·재개·cursor 전진 operation만 둔다. assignment 본문 조립은
 // 하지 않는다.
-
-// 계기 event의 소유 concern이 자기 등록 파일에서 쓰는 공개 정책이다. notifications 구독자만
-// 읽고, 사람·agent·app·다른 machine은 정책이 없을 때와 똑같이 못 본다(정책 없음 = 숨김).
-// 사람에게 event를 보이는 일은 notification read가 맡는다. 소유 concern이 사람·다른 자격에게
-// 이미 공개하는 event라면 이 정책을 그 정책 뒤에 이어 쓴다(owner 정책 || isNotifications).
 
 // AppCreated·AppArchived처럼 assignments 반응 구독자만 읽는 계기 event의 공개 정책이다.
 // 다른 자격은 정책이 없을 때와 똑같이 못 본다.

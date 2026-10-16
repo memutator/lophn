@@ -28,7 +28,7 @@ interface OpenAgentInput {
   readonly name: string;
   /** 열어 볼 session. 없으면 첫 말을 보낼 때 만드는 새 session이다. */
   readonly session?: string | null;
-  /** 새 session의 첫 context(notification의 [Ask], 계약 위반 toast가 여는 Project Manager의 위반 근거). 보낼 때까지 아무것도 보내지 않는다. */
+  /** 새 session의 첫 context(계약 위반 toast가 여는 Project Manager의 위반 근거). 보낼 때까지 아무것도 보내지 않는다. */
   readonly chips?: readonly ContextChipView[];
 }
 

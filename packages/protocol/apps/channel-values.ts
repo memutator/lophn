@@ -27,8 +27,6 @@ export const SOCKET_HOST = "lophn.invalid";
 // confirm 실행 marker 상한.
 // 앱끼리 이어 부르는 깊이.
 export const APP_CALL_DEPTH_LIMIT = 8;
-// automation 전체 동시 invocation 기본 한도.
-// automation 호출 기본 timeout.
 // 내부 trace 이름 상한.
 // socket 경로 UTF-8 상한.
 export const SOCKET_PATH_MAX_BYTES = 104;

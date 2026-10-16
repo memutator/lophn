@@ -4,7 +4,7 @@ import { appApiKeySchema } from "./channel-values.ts";
 import { hostOf } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
-// app.call·agent.commands·automation.run은 Grant scope이며 blueprint 요구가 아니다.
+// app.call·agent.commands는 Grant scope이며 blueprint 요구가 아니다.
 
 const LISTEN_HOSTS = ["localhost", "127.0.0.1", "::1"] as const;
 

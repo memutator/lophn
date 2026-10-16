@@ -55,7 +55,6 @@ const callOriginSchema = z.discriminatedUnion("kind", [
 // AppCallOrigin에서 감사 caller로 남기는 것만. path·nonce·credential은 복제하지 않는다.
 const invocationCallerBranches = [
   z.strictObject({ kind: z.literal("direct") }),
-  z.strictObject({ kind: z.literal("automation"), key: commandKeySchema }),
   z.strictObject({
     kind: z.literal("app"),
     app: appIdSchema,

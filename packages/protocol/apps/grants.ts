@@ -40,8 +40,6 @@ export type AppGrant = z.infer<typeof appGrantSchema>;
 
 // grant.revoke는 사람의 결정이다(→ domain-model apps/permissions 상태 표).
 
-// automation 끄기는 확인 창 없이 user가 정확한 grant를 CAS해 회수한다.
-
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [
   "invalid_input",

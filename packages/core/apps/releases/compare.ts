@@ -13,7 +13,7 @@ import {
   compareDeclarations,
 } from "../permissions/mod.ts";
 
-// 비교는 command·automation·problem code 꼴로 한다. 새 blueprint에는 confirm·revert·automation·problem code가
+// 비교는 command·problem code 꼴로 한다. 새 blueprint에는 confirm·revert·problem code가
 // 없어서 그 칸은 늘 비어 있다.
 
 // activation에서 묻는 판정 값이다. 선언 비교는 grant 덮음 하나다: 새 release의 선언 가운데 지금 active

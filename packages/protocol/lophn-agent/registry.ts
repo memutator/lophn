@@ -11,7 +11,6 @@ import {
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_EVENTS, MESSAGE_ROUTES, messagesList } from "./messages.ts";
 import { QUESTION_COMMANDS, QUESTION_EVENTS } from "./questions.ts";
-import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
 import { AGENT_EVENTS, AGENT_ROUTES } from "./agents.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
@@ -57,7 +56,6 @@ export const ROUTES = [
   ...AGENT_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...QUESTION_COMMANDS,
-  ...HANDOFF_ROUTES,
   ...REVERT_ROUTES,
   ...AGENT_ROUTES,
   ...COMMAND_ROUTES,

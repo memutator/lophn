@@ -30,9 +30,6 @@ export const appInvocationOperationSchema = z.discriminatedUnion("kind", [
     message: "data_change to is not after from",
   }),
 ]);
-export type AppInvocationOperation = z.infer<
-  typeof appInvocationOperationSchema
->;
 
 const appInvocationStatusSchema = z.enum([
   "running",
@@ -43,7 +40,6 @@ const appInvocationStatusSchema = z.enum([
 ]);
 
 export const invocationEffectSchema = z.enum(["read", "write", "external"]);
-export type InvocationEffect = z.infer<typeof invocationEffectSchema>;
 
 const changesetSummarySchema = z.strictObject({
   hash: sha256Schema,

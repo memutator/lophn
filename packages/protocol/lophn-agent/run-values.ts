@@ -49,7 +49,7 @@ export const runSourceSchema = z.discriminatedUnion("kind", [
   z.strictObject(handoffSourceFields),
 ]);
 
-export const runSourceOutputSchema = z.discriminatedUnion("kind", [
+const runSourceOutputSchema = z.discriminatedUnion("kind", [
   z.object(messageSourceFields),
   z.object(handoffSourceOutputFields),
 ]);
@@ -65,7 +65,7 @@ const runLimitsFields = {
 };
 
 export const runLimitsSchema = z.strictObject(runLimitsFields);
-export const runLimitsOutputSchema = z.object(runLimitsFields);
+const runLimitsOutputSchema = z.object(runLimitsFields);
 
 const elapsedFields = {
   active_ms: durationMsSchema,

@@ -137,10 +137,6 @@ export const providerListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
 });
 
-export const providerDisconnectedPayloadSchema = z.object({
-  definition_key: nonblankSchema,
-});
-
 // OAuth 로그인은 provider가 등록되기 전에 시작한다: Connect가 credential까지 받기 때문이다. 만들 provider의
 // ID와 내장 정의 key를 받고, 정의는 core가 내장 목록에서 찾는다.
 export const loginBeginInputSchema = z.strictObject({

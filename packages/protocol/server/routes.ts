@@ -18,7 +18,7 @@ const healthObservationSchema = z.object({
 });
 export type HealthObservation = z.infer<typeof healthObservationSchema>;
 
-export const commandResultSchema = z.object({
+const commandResultSchema = z.object({
   principal: z.string().min(1),
   idempotency_key: idempotencyKeySchema,
   fingerprint: sha256Schema,

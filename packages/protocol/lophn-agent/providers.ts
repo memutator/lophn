@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
@@ -11,7 +10,6 @@ import {
   loginCancelInputSchema,
   loginCompleteInputSchema,
   loginCompleteOutputSchema,
-  providerDisconnectedPayloadSchema,
   providerListInputSchema,
   providerReadInputSchema,
   providerRevisionCompareSchema,
@@ -182,12 +180,6 @@ export const loginCancel = defineCommand({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
-const providerSubject = idSchema("pvd");
-
-export const providerDisconnected = defineEvent("ProviderDisconnected", {
-  subject: providerSubject,
-  payload: providerDisconnectedPayloadSchema,
-});
 
 export const PROVIDER_ROUTES = [
   registerProvider,

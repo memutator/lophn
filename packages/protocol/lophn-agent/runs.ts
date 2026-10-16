@@ -7,7 +7,6 @@ import {
   sha256Schema,
 } from "../base/values.ts";
 import { defineCommand } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { RUN_READS } from "./run-reads.ts";
 import { agentAppScopeOutputSchema, agentAppScopeSchema } from "./scope.ts";
@@ -15,11 +14,9 @@ import {
   nonSelfRunLinks,
   runElapsedOutputSchema,
   runElapsedSchema,
-  runLimitsOutputSchema,
   runLimitsSchema,
   runOutcomeOutputSchema,
   runOutcomeSchema,
-  runSourceOutputSchema,
   runSourceSchema,
 } from "./run-values.ts";
 
@@ -243,42 +240,6 @@ const confirmNextRun = defineCommand({
   ],
 });
 
-const runSubject = idSchema("run");
-
-export const runAccepted = defineEvent("RunAccepted", {
-  subject: runSubject,
-  payload: z.object({
-    assignment: idSchema("asg"),
-    session: idSchema("ses").nullable(),
-    source: runSourceOutputSchema,
-    accepted_seq: seqSchema,
-  }),
-});
-
-export const runStarted = defineEvent("RunStarted", {
-  subject: runSubject,
-  payload: z.object({
-    basis: sha256Schema,
-    limits: runLimitsOutputSchema,
-    started_at: atSchema,
-    scope: agentAppScopeOutputSchema,
-  }),
-});
-
-export const runFinished = defineEvent("RunFinished", {
-  subject: runSubject,
-  payload: z.object({
-    assignment: idSchema("asg"),
-    started: z.boolean(),
-    started_at: atSchema.nullable(),
-    outcome: runOutcomeOutputSchema,
-    result: sha256Schema,
-    finished_at: atSchema,
-  }).refine(
-    (value) => (value.started_at === null) !== value.started,
-    { message: "started flag and started_at disagree" },
-  ),
-});
 
 export const RUN_COMMANDS = [
   acceptRun,

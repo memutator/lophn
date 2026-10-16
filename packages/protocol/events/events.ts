@@ -24,7 +24,7 @@ const envelopeFields = {
 
 const eventEnvelopeBaseSchema = z.object(envelopeFields);
 
-export type EventEnvelope = z.infer<typeof eventEnvelopeBaseSchema>;
+type EventEnvelope = z.infer<typeof eventEnvelopeBaseSchema>;
 
 // envelope의 seq·actor·run·at은 그대로 두고 등록 event의 type·subject·payload만 좁힌 값.
 // 노출 판단 hook이 받는 값은 이 모양이다(EventVisibilityDefinition).
@@ -40,16 +40,6 @@ export type EventEnvelopeFor<D extends EventDefinition> =
   };
 
 // 특정 event의 payload를 좁힌 envelope.
-export function eventEnvelopeSchema<D extends EventDefinition>(
-  definition: D,
-) {
-  return z.object({
-    ...envelopeFields,
-    type: z.literal(definition.type),
-    subject: definition.subject,
-    payload: definition.payload,
-  });
-}
 
 const eventBatchLimitSchema = z.number().refine(
   (n): n is number =>

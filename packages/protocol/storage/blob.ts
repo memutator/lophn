@@ -47,7 +47,7 @@ export function defineBlobPurpose<const P extends string>(
   return definition;
 }
 
-export const BLOB_RETENTION_CATEGORIES = [
+const BLOB_RETENTION_CATEGORIES = [
   "model_call_body",
   "snapshot_attachment",
   "trace_body",
@@ -159,7 +159,7 @@ export const blobReadResultSchema = z.discriminatedUnion("status", [
 ]);
 export type BlobReadResult = z.infer<typeof blobReadResultSchema>;
 
-export const blobsRead = defineRead({
+const blobsRead = defineRead({
   resource: "blobs",
   method: "read",
   name: "blob.read",

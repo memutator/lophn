@@ -34,7 +34,6 @@ const NOTICE_KINDS = [
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 
 export const ATTACHED_KINDS = ["context", "file", "violation"] as const;
-export type AttachedKind = (typeof ATTACHED_KINDS)[number];
 
 export const UNTRUSTED_SOURCES = ["web.search", "web.fetch"] as const;
 export type UntrustedSource = (typeof UNTRUSTED_SOURCES)[number];

@@ -13,8 +13,6 @@ export * from "./questions.ts";
 export * from "./reverts.ts";
 export * from "./visuals.ts";
 export * from "./instructions.ts";
-export * from "./assignment-values.ts";
-export * from "./assignments.ts";
 export * from "./agent-values.ts";
 export * from "./commands.ts";
 export * from "./provider-values.ts";

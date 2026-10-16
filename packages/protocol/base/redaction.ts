@@ -58,22 +58,6 @@ export const redactionResultSchema = z.object({
 // schema가 base의 모양과 어긋나면 type 검사에서 걸린다.
 
 // domain-model/platform/security.md TrustClass. 자료 문자열로 승격하지 않는다.
-const TRUST_CLASSES = [
-  "platform_rule",
-  "user_request",
-  "platform_fact",
-  "data",
-] as const;
-const trustClassSchema = z.enum(TRUST_CLASSES);
-type TrustClass = z.infer<typeof trustClassSchema>;
 
 // 출처 불명은 data다. 구현은 platform이 entry로 받는다.
-export type DataEnvelope = {
-  trust: TrustClass;
-  text: string;
-  source?: string;
-  revision?: string;
-};
-
-export type DataSerializer = (value: DataEnvelope) => string;
 

@@ -1,12 +1,10 @@
 import { z } from "zod";
 import { blobPurposeDefinitionSchema } from "./blob.ts";
-import { STREAM_CHUNK_MAX_BYTES } from "../base/frame.ts";
 import { sha256Schema } from "../base/values.ts";
 
 export const BLOB_PREPARE_OP = "blob.prepare";
 // 바이트 읽기는 I/O worker만 한다. core는 hash와 구간만 넘긴다.
 export const BLOB_READ_OP = "blob.read";
-export const BLOB_PREPARE_CHUNK_MAX_BYTES = STREAM_CHUNK_MAX_BYTES;
 
 // bytes는 supervision 요청의 channel에 묶인다. JSON payload에는 stream을 넣지 않는다.
 

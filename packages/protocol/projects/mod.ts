@@ -13,7 +13,7 @@ export * from "./project-search.ts";
 export * from "./context-drafts.ts";
 export * from "./context-outlines.ts";
 
-import { CONTEXT_API_EVENTS, CONTEXT_API_ROUTES } from "./context-api.ts";
+import { CONTEXT_API_ROUTES } from "./context-api.ts";
 import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";
 import { CONTEXT_DRAFT_ROUTES } from "./context-drafts.ts";
 import { CONTEXT_OUTLINE_ROUTES } from "./context-outlines.ts";
@@ -30,6 +30,3 @@ export const ROUTES = [
   ...CONTEXT_OUTLINE_ROUTES,
 ] as const;
 
-export const EVENTS = [
-  ...CONTEXT_API_EVENTS,
-] as const;

@@ -12,7 +12,6 @@ import {
   atSchema,
   type ChannelMode,
   commandKeySchema,
-  endpointSchema,
   grantIdSchema,
   invocationIdSchema,
   opaqueSchema,
@@ -85,9 +84,6 @@ const confirmProofFields = {
   caller: invocationCallerSchema,
   expires_at: atSchema,
 };
-export const confirmExecutionProofInputSchema = z.strictObject(
-  confirmProofFields,
-);
 export const confirmExecutionProofSchema = z.object(confirmProofFields);
 
 const screenSizesSchema = z.record(
@@ -137,48 +133,12 @@ const appConnectionSchema = z.object(connectionFields).refine(
 export type AppConnection = z.infer<typeof appConnectionSchema>;
 
 // core read 경로 밖 제어 요청. endpoint·nonce는 ledger에 저장하지 않는다.
-const connectFields = {
-  app: appIdSchema,
-  mode: runtimeModeSchema,
-  screens: z.array(screenKeySchema).min(1).refine(unique, {
-    message: "duplicate screen",
-  }),
-  screen_sizes: screenSizesSchema,
-  commands: z.array(commandKeySchema).refine(unique, {
-    message: "duplicate command",
-  }),
-  caller: callOriginSchema.optional(),
-  preview_nonce: processNonceSchema.optional(),
-};
-
-function connectShape(value: {
-  mode: ChannelMode;
-  screens: readonly string[];
-  screen_sizes: Record<string, readonly string[]>;
-  preview_nonce?: string;
-}): boolean {
-  if (value.mode === "test") return false;
-  return Object.keys(value.screen_sizes).every((screen) =>
-    value.screens.includes(screen)
-  ) && (value.mode === "preview") === (value.preview_nonce !== undefined);
-}
-
-const appConnectInputSchema = z.strictObject(connectFields).refine(
-  connectShape,
-  { message: "connect request does not match its mode or caller" },
-);
-export type AppConnectInput = z.infer<typeof appConnectInputSchema>;
 
 // Authorization과 confirm proof가 싣는 서명 envelope의 서명. 서명 대상은 payload의 RFC 8785
 // canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다.
 const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
 
 // core가 서명한 connection이다. 앱 direct 요청의 Authorization은 `{payload: connection, signature}`다.
-export const appConnectOutputSchema = z.object({
-  endpoint: endpointSchema,
-  connection: appConnectionSchema,
-  signature: signatureSchema,
-});
 
 // Authorization과 confirm proof가 싣는 서명 envelope.
 export const signedConnectionSchema = z.strictObject({

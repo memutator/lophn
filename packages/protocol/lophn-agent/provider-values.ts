@@ -162,7 +162,6 @@ const modelBlockFields = {
 };
 export const modelBlockSchema = z.strictObject(modelBlockFields);
 const modelBlockOutputSchema = z.object(modelBlockFields);
-export type ModelBlock = z.infer<typeof modelBlockSchema>;
 
 export const CREDENTIAL_STATES = [
   "available",
@@ -260,5 +259,4 @@ export const providerRecordSchema = z.object({
 export type ProviderRecord = z.infer<typeof providerRecordSchema>;
 
 export const OAUTH_REFRESH_LEAD_MS = 60_000;
-export const OAUTH_REFRESH_TIMEOUT_MS = 15_000;
 export const USAGE_WAIT_DEFAULT_MS = 3_600_000;

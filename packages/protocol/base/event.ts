@@ -15,8 +15,6 @@ export const subjectSchema = z.union([
   z.null(),
 ]);
 
-export type Subject = z.infer<typeof subjectSchema>;
-
 export type EventDefinition<
   T extends string = string,
   S extends z.ZodType = z.ZodType,

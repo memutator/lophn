@@ -499,8 +499,3 @@ export const REVERT_ROUTES = [
   rewindList,
 ] as const;
 
-export const REVERT_EVENTS = [
-  revertApplied,
-  revertBlocked,
-  revertAmended,
-] as const;

@@ -31,7 +31,6 @@ const streamChannel = uint.min(1);
 const processKindSchema = z.string().regex(
   /^(platform|documents|apps|problems|lophn-agent|coding-agent)\/[a-z][a-z0-9-]*$/,
 );
-export type ProcessKind = z.infer<typeof processKindSchema>;
 
 export const helloSchema = z.strictObject({
   type: z.literal("hello"),
@@ -329,7 +328,6 @@ const INTERNAL_ERROR_CLASSES = [
   "ledger_corruption",
 ] as const;
 const internalErrorClassSchema = z.enum(INTERNAL_ERROR_CLASSES);
-export type InternalErrorClass = z.infer<typeof internalErrorClassSchema>;
 const diagnosticObservation = {
   component: processKindSchema,
   observed_at: atSchema,

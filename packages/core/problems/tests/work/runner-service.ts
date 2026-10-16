@@ -111,7 +111,7 @@ async function post(
 ): Promise<Result<unknown>> {
   let response: { status: number; bytes: Uint8Array };
   try {
-    response = await fetcher(`http://127.0.0.1:${port}/v1/problems/${path}`, {
+    response = await fetcher(`http://127.0.0.1:${port}/problems/${path}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${credential}`,

@@ -37,7 +37,7 @@ type ProblemReportRequest = {
   } | null;
 };
 
-// problems의 보고 contract(`/v1/problems/report`)를 감싼 포트다.
+// problems의 보고 contract(`/problems/report`)를 감싼 포트다.
 export interface ProblemsReport {
   report(request: ProblemReportRequest): Promise<Result<ProblemReportOutput>>;
   // 잡은 예외. 연결이 없으면 경로를 없애지 않고 unavailable이다.

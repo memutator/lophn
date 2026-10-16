@@ -39,7 +39,7 @@ function readSecretStatuses(
   });
 }
 
-// `/v1/secrets/list` handler. 사람은 설정된 이름을 모두 본다. 다른 actor의 이름 허용은 소유
+// `/secrets/list` handler. 사람은 설정된 이름을 모두 본다. 다른 actor의 이름 허용은 소유
 // concern의 grant 검사가 맡으므로(apps/permissions) 이 read는 그들에게 이름을 열지 않는다.
 // 권한 없는 이름과 없는 이름은 같은 거절이다. sealed_ref는 나가지 않는다.
 export function secretsListRead(): ReadDefinition<typeof listSecrets> {

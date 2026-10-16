@@ -190,7 +190,7 @@ export const mcpAuthBegin = defineMemory({
 // MCP OAuth 2.1의 완료 입구다. 사람이 돌아온 callback의 code·state를
 // 받아 lophn이 token 교환을 마친다. state는 시작이 만든 무작위 값과 같아야 하고(잘못된
 // 반환 검증 값은 거절이다), 교환한 token은 OS keychain에만 보관하고 설정의
-// `token_ref`가 그 보관을 가리키게 쓴다. 성공·실패의 상태는 `/v1/agent-mcp-auth/state` read로만
+// `token_ref`가 그 보관을 가리키게 쓴다. 성공·실패의 상태는 `/agent-mcp-auth/state` read로만
 // 보인다: token·verifier·state 값은 응답 어디에도 없다.
 export const mcpAuthCompleteInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),

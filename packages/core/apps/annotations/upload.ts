@@ -1,4 +1,4 @@
-// `/v1/annotations/upload_screenshot` handler. screenshot 바이트를 core가 해석 없이 blob 준비 중계로
+// `/annotations/upload_screenshot` handler. screenshot 바이트를 core가 해석 없이 blob 준비 중계로
 // 흘려 보낸다. 준비 주체는 요청 credential이라 이어지는 annotation.send의 저장이 같은 주체로 영구
 // 참조를 등록한다. purpose와 상한은 호출자가 고르지 않는다.
 import { err, type Result } from "../../../base/mod.ts";

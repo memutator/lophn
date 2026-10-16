@@ -5,7 +5,7 @@ import { codingTerminalFrameSchema } from "../coding-agent/terminal-requests.ts"
 
 // Gateway는 renderer가 건 조건으로 Bus를 걸러 보내는 WebSocket이다. 받는 principal은 사람 token 하나다.
 // replay도 ack도 없다. 놓치거나 끊기면 붙은 쪽이 snapshot부터 다시 읽는다.
-export const GATEWAY_PATH = "/v1/gateway";
+export const GATEWAY_PATH = "/gateway";
 export const GATEWAY_SUBPROTOCOL = "lophn.gateway.1";
 export const GATEWAY_ACTORS = ["user"] as const;
 

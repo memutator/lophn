@@ -26,7 +26,7 @@ async function post(
   let response: { status: number; bytes: Uint8Array };
   try {
     response = await client.fetch(
-      `${client.baseUrl.replace(/\/$/, "")}/v1/${path}`,
+      `${client.baseUrl.replace(/\/$/, "")}/${path}`,
       {
         method: "POST",
         headers: {

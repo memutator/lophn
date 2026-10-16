@@ -24,7 +24,7 @@ export function gatewayAllowed(ctx: AuthenticatedContext): boolean {
   return (GATEWAY_ACTORS as readonly string[]).includes(ctx.actor);
 }
 
-// upgrade는 GET /v1/gateway, subprotocol lophn.gateway.1만 받는다.
+// upgrade는 GET /gateway, subprotocol lophn.gateway.1만 받는다.
 // Host·Origin·Bearer는 HTTP와 같은 gate를 이미 통과한 뒤다.
 export function acceptSocket(
   request: Request,

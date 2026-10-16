@@ -1,5 +1,5 @@
 // apps/preview의 경계. activation 없이 고정 bundle을 별도 프로세스로 여는 launcher(supervisor 쪽),
-// core의 `/v1/previews/*` service와 disposable 영역, 그리고 실제 효과 대신 쓰는 broker 대역이다.
+// core의 `/previews/*` service와 disposable 영역, 그리고 실제 효과 대신 쓰는 broker 대역이다.
 export { createPreviewLauncher, type PreviewLauncher } from "./launcher.ts";
 export { previewFlagsViolation } from "./flags.ts";
 export {

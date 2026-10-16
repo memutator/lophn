@@ -1,10 +1,10 @@
 import {
-  API_MAJOR,
   type CommandRoute,
   type FileRoute,
   type MemoryRoute,
   type ReadRoute,
   type Route,
+  routePath,
   type UploadRoute,
   type WorkerRoute,
 } from "../../protocol/base/mod.ts";
@@ -12,26 +12,18 @@ import { GATEWAY_PATH } from "../../protocol/events/mod.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 
 // route registry: resource/method → kind, schema, handler, actor 상한, 한도.
-// 경로는 v + major, resource, method의 정확히 세 구간이다.
+// 경로는 /resource/method의 정확히 두 구간이다.
 export type RouteEntry = {
   route: Route;
   path: string;
 };
-
-const PATH = new RegExp(
-  `^/v${API_MAJOR}/([a-z][a-z0-9_-]*)/([a-z][a-z0-9_-]*)$`,
-);
-
-function pathOf(route: { resource: string; method: string }): string {
-  return `/v${API_MAJOR}/${route.resource}/${route.method}`;
-}
 
 export class RouteRegistry {
   readonly #byPath = new Map<string, RouteEntry>();
 
   constructor(routes: readonly Route[] = ROUTES) {
     for (const route of routes) {
-      const path = pathOf(route);
+      const path = routePath(route);
       if (this.#byPath.has(path)) {
         throw new Error(`duplicate route: ${path}`);
       }
@@ -41,8 +33,6 @@ export class RouteRegistry {
 
   // 대소문자·누락·추가 구간·미등록 resource/method·옛 별칭은 추정하지 않는다.
   lookup(pathname: string): RouteEntry | undefined {
-    const match = PATH.exec(pathname);
-    if (!match) return undefined;
     return this.#byPath.get(pathname);
   }
 

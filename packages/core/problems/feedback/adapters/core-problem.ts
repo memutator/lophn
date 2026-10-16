@@ -15,7 +15,7 @@ export function coreProblemLookup(client: CoreCall) {
       response = await client.fetch(
         `${
           client.baseUrl.replace(/\/$/, "")
-        }/v1/${problemGet.resource}/${problemGet.method}`,
+        }/${problemGet.resource}/${problemGet.method}`,
         {
           method: "POST",
           headers: {

@@ -134,7 +134,7 @@ const assembled = assembleSupervisor({
   spawn: (launch) => spawnApp(launch),
   async post(path, bearer, body) {
     const response = await fetch(
-      `http://127.0.0.1:${port.value}/v1/${path}`,
+      `http://127.0.0.1:${port.value}/${path}`,
       {
         method: "POST",
         headers: {

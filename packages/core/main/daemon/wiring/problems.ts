@@ -90,7 +90,7 @@ export const problemsWiring: WiringFactory = () => {
   };
 };
 
-// problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
+// problems/report-collector. 문제 보고 worker route(`/problems/report` 등)를 받는 상시
 // worker다. problems를 등록하지 않은 조립은 띄우지 않는다. 띄우지
 // 못해도 core는 계속 선다: 그 route는 unavailable이다. 앱 위치 주장은 요청이 싣는다.
 async function startCollector(
@@ -157,7 +157,7 @@ async function startCollector(
   }
 }
 
-// /v1/problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
+// /problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
 // 보고는 이 자격으로 `problem.get_occurrence`가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
 // 읽기 시작할 때와 반환 직전에 보고의 앱·문제 target을 현재 credential로 다시 검사한다. 글은 core
 // 알려진 값 pipe를 지난 것만 내보낸다(끝내지 못하면 unavailable).

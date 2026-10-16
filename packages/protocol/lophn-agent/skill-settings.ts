@@ -1,36 +1,7 @@
 import { z } from "zod";
 import { defineRead } from "../base/route.ts";
-import { defineSetting } from "../config/settings.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
-
-// skill 발견 root 정의 등록(settings registry).
-// 사람이 등록한 절대 폴더를 등록 순서대로 발견한다. machine_local
-// 이고 다음 turn부터 적용한다. 기본은 등록 폴더가 없는 빈 목록이다.
-// runtime이 같은 값 타입으로 읽도록 core 등록과 한 정의다.
-export const skillFoldersSetting = defineSetting({
-  key: "lophn-agent.extensions.skill_folders",
-  owner: "lophn-agent/extensions",
-  display_name_key: "settings.lophn-agent.skill_folders.name",
-  description: "Registered absolute skill discovery roots in user order.",
-  value_meaning_key: "settings.lophn-agent.skill_folders.value",
-  default_meaning_key: "settings.lophn-agent.skill_folders.default",
-  affected_features: ["lophn-agent/extensions"],
-  risk_key: "settings.lophn-agent.skill_folders.risk",
-  revert_key: "settings.lophn-agent.skill_folders.revert",
-  constraints: {
-    path: "absolute folder paths",
-    max_entries: 64,
-  },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.lophn-agent.skill_folders.apply_at",
-  machine_local: true,
-  default_present: true,
-  default: [],
-  value_type: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
-});
 
 // 전역에서 끈 skill의 정확한 이름이다. 전역 등록
 // 목록 쪽의 끄기라서 agent 정의의 `skills_off`와 따로이고 둘 중 하나라도 끄면 그 agent는 쓰지 못한다. 지금 발견되지
@@ -39,30 +10,6 @@ export const skillNameSchema = z.string().max(64).regex(
   /^[a-z0-9]+(-[a-z0-9]+)*$/,
 );
 export const SKILLS_OFF_MAX = 256;
-
-export const skillsOffSetting = defineSetting({
-  key: "lophn-agent.extensions.skills_off",
-  owner: "lophn-agent/extensions",
-  display_name_key: "settings.lophn-agent.skills_off.name",
-  description: "Exact names of the skills switched off for every agent.",
-  value_meaning_key: "settings.lophn-agent.skills_off.value",
-  default_meaning_key: "settings.lophn-agent.skills_off.default",
-  affected_features: ["lophn-agent/extensions"],
-  risk_key: "settings.lophn-agent.skills_off.risk",
-  revert_key: "settings.lophn-agent.skills_off.revert",
-  constraints: {
-    name: "lowercase letters, digits and single hyphens, up to 64 characters",
-    max_entries: SKILLS_OFF_MAX,
-  },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.lophn-agent.skills_off.apply_at",
-  machine_local: true,
-  default_present: true,
-  default: [],
-  value_type: z.array(skillNameSchema).max(SKILLS_OFF_MAX),
-});
 
 // skill의 층은 전역, project이고 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이 덮는다.
 // 내장 skill은 lophn이 가진다.

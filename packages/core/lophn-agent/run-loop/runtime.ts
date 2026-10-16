@@ -14,7 +14,7 @@ import {
   type ReadRoute,
   routePath,
 } from "../../../protocol/base/mod.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
@@ -152,7 +152,7 @@ const HOSTS_READER: RequestContext = {
 export const SKILL_ROOTS_READER: RequestContext = {
   principal: "machine:agent-runtime-skill-roots",
   actor: "machine",
-  scope: { operations: [settingsGet.name], targets: {} },
+  scope: { operations: [settingsList.name], targets: {} },
   conditions: {},
   credential_ref: "machine:agent-runtime-skill-roots",
 };

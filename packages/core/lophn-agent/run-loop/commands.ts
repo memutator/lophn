@@ -20,11 +20,9 @@ import {
 } from "../../../protocol/storage/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import {
-  effectiveTurnLimits,
-  TURN_LIMIT_SETTING_KEYS,
-  type TurnLimits,
-} from "./limits.ts";
+import { type TurnLimits, turnLimitsOf } from "./limits.ts";
+import { createFileSettingsReader } from "../../config/mod.ts";
+import { dataRootOf } from "../agents/store.ts";
 import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 import { loadTurn, type TurnRow } from "./model.ts";
 import type { CallSignals } from "./ports.ts";
@@ -59,7 +57,7 @@ export const turnBodyFields: readonly BlobFieldDefinition[] = [
 export type TurnCommandDeps = {
   // 정상 종료를 막는 미반영 steering이 있는지.
   hasUnappliedSteering?: (tx: Tx, turn: string) => boolean;
-  // StartTurn이 고정할 한도. 없으면 같은 Tx의 공통 설정 선택(setting_choices)에서 읽는다. 호출자가
+  // StartTurn이 고정할 한도. 없으면 설정 파일에서 읽는다. 호출자가
   // 보낸 한도는 이 값과 같아야 하고 다르면 거절한다.
   turnLimits?: (tx: Tx) => Result<TurnLimits>;
   // turn이 시작하고 끝날 때 `TurnStarted`·`TurnEnded`를 Bus로 낸다. 없으면 버린다.
@@ -68,28 +66,12 @@ export type TurnCommandDeps = {
   calls?: CallSignals;
 };
 
-// 공통 설정의 저장 선택과 내장 기본값으로 다음 turn의 한도를 정한다. 설정 표를 읽지 못하면 한도를
-// 알 수 없으므로 시작하지 않는다(안전하게 닫는다).
+// 설정 파일(`<data root>/settings.json`)의 고른 값과 선언의 기본값으로 다음 turn의 한도를 정한다. data root를
+// 알 수 없으면 한도를 알 수 없으므로 시작하지 않는다(안전하게 닫는다).
 function settingsTurnLimits(tx: Tx): Result<TurnLimits> {
-  const keys = Object.values(TURN_LIMIT_SETTING_KEYS);
-  try {
-    const rows = tx.sql.all(
-      `select key, value from setting_choices
-       where layer = 'common' and key in (${keys.map(() => "?").join(", ")})`,
-      keys,
-    );
-    return effectiveTurnLimits(
-      rows.map((row) => ({
-        key: String(row["key"]),
-        value: JSON.parse(String(row["value"])) as unknown,
-      })),
-    );
-  } catch {
-    return err({
-      code: "unavailable",
-      message: "turn limit settings are not readable",
-    });
-  }
+  const root = dataRootOf(tx.sql, undefined);
+  if (!root.ok) return root;
+  return turnLimitsOf(createFileSettingsReader(root.value));
 }
 
 type Code = "invalid_input" | "conflict" | "not_found" | "forbidden";

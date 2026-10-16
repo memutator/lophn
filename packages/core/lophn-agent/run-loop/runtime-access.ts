@@ -77,7 +77,7 @@ import {
 } from "../../../protocol/approvals/mod.ts";
 import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
@@ -101,7 +101,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   rewindList,
   compactSession,
   failSessionCompact,
-  settingsGet,
+  settingsList,
   // 사람 지침(LOPHN.md)과 agent 지침. turn을 시작할 때 층마다 한 번 읽는다.
   instructionsGet,
   startTurn,

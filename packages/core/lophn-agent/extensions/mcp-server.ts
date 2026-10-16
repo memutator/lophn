@@ -2,12 +2,11 @@ import { canonicalize } from "../../../base/mod.ts";
 import type {
   AgentPlace,
   McpServer,
-  McpServerConfig,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { mcpTokenRef } from "./mcp-oauth-vault.ts";
 
 // 연결이 쓰는 MCP 서버 한 대다(concern lophn-agent/extensions). 층에서 온 설정(`McpServer`, secret은 이름 참조
-// `{secret}`)과 전역 설정 값(`McpServerConfig`, secret은 `sec:` 참조)을 연결, OAuth, secret 부착이 읽는 한 모양으로
+// `{secret}`)을 연결, OAuth, secret 부착이 읽는 한 모양으로
 // 옮긴다. 값은 없고 참조뿐이다. 서버는 이름만으로 하나가 정해지지 않는다: 같은 이름도 층의 place가 다르면 따로이고,
 // OAuth token의 참조가 그 place에서 정해진다.
 
@@ -127,57 +126,6 @@ export function runtimeServerOfLayer(
             : secretRef(auth.client_credential.secret),
           scopes: [...auth.scopes],
           token_ref: tokenRef,
-        },
-    },
-  };
-}
-
-// 전역 설정(`lophn-agent.extensions.mcp_servers`)의 값이다. 값의 모양이 층의 서버와 달라 같은 모양으로 옮긴다.
-export function runtimeServerOfSetting(
-  config: McpServerConfig,
-): McpRuntimeServer {
-  const common = {
-    name: config.name,
-    enabled: config.enabled,
-    call_timeout_ms: config.call_timeout_ms,
-    fingerprint: canonicalize([null, config]),
-  };
-  if (config.transport === "stdio") {
-    return {
-      ...common,
-      transport: "stdio",
-      stdio: {
-        executable: config.stdio.executable,
-        args: [...config.stdio.args],
-        cwd: config.stdio.cwd,
-        env: { ...config.stdio.env },
-      },
-    };
-  }
-  const auth = config.http.auth;
-  return {
-    ...common,
-    transport: "http",
-    http: {
-      url: config.http.url,
-      headers: { ...config.http.headers },
-      auth: auth.kind === "none"
-        ? { kind: "none" }
-        : auth.kind === "bearer"
-        ? { kind: "bearer", secret_ref: auth.secret_ref }
-        : auth.kind === "api_key"
-        ? {
-          kind: "api_key",
-          secret_ref: auth.secret_ref,
-          header_name: auth.header_name,
-        }
-        : {
-          kind: "oauth2",
-          issuer: auth.issuer,
-          client_id: auth.client_id,
-          client_secret_ref: auth.client_secret_ref,
-          scopes: [...auth.scopes],
-          token_ref: mcpTokenRef({ place: null, name: config.name }),
         },
     },
   };

@@ -62,12 +62,12 @@ export function coreLogSource(client: CoreCall): AppLogSource {
   };
 }
 
-// settings.get으로 읽은 true·false. 읽지 못하면 null이다. 사람이 고르지 않았거나 core가 아직 모르는
+// settings/list로 읽은 true·false. 읽지 못하면 null이다. 사람이 고르지 않았거나 core가 아직 모르는
 // key면 선언의 기본값이다.
 export async function readDetailCollection(
   client: CoreCall,
 ): Promise<boolean | null> {
-  const read = await post(client, "settings/get", {
+  const read = await post(client, "settings/list", {
     keys: [DETAIL_COLLECTION_SETTING_KEY],
   });
   if (!read.ok) return null;
@@ -75,7 +75,9 @@ export async function readDetailCollection(
   if (!Array.isArray(settings)) return null;
   const found = settings.find((setting) =>
     (setting as { key?: unknown })?.key === DETAIL_COLLECTION_SETTING_KEY
-  ) as { value?: unknown } | undefined;
-  if (found === undefined) return detailCollectionSetting.default ?? null;
-  return typeof found.value === "boolean" ? found.value : null;
+  ) as { chosen?: unknown } | undefined;
+  if (found === undefined || found.chosen === undefined) {
+    return detailCollectionSetting.default ?? null;
+  }
+  return typeof found.chosen === "boolean" ? found.chosen : null;
 }

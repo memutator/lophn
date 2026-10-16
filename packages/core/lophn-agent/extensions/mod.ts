@@ -1,4 +1,10 @@
 export {
+  extensionSettings,
+  globalMcpServersSetting,
+  skillFoldersSetting,
+  skillsOffSetting,
+} from "./settings.ts";
+export {
   builtinForRole,
   BUNDLED_SKILLS_ROOT,
   discoverSkills,
@@ -68,7 +74,6 @@ export {
   mergeMcpLayers,
   type RuntimeAuth,
   runtimeServerOfLayer,
-  runtimeServerOfSetting,
   type RuntimeValue,
 } from "./mcp-server.ts";
 export {

@@ -101,7 +101,6 @@ export {
   componentObservationSchema,
   type ComponentState,
   componentStateSchema,
-  defaultHarnessSetting,
   DISCOVERY_RESULTS,
   type DiscoveryResult,
   discoveryResultSchema,

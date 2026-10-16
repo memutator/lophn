@@ -19,7 +19,7 @@ const key = (route: { resource: string; method: string }) =>
 
 // 설정 파일(`<data root>/settings.json`)을 연다. store는 build에서 열어 `settings` 칸을 먼저 낸다
 // (approvals처럼 build에서 읽는 wiring이 있다). watch는 start에서 시작한다.
-// 선언은 shell 것에 assembly.ts가 `settingDeclarations`로 모은 각 module의 것을 더한다.
+// 선언은 shell 것에 setting-declarations wiring이 `settingDeclarations`로 모은 각 module의 것을 더한다.
 export const configWiring: WiringFactory = () => {
   let store: SettingsStore | undefined;
   return {
@@ -29,7 +29,7 @@ export const configWiring: WiringFactory = () => {
       try {
         registry = createSettingsRegistry([
           ...shellSettings,
-          ...ctx.peek.settingDeclarations ?? [],
+          ...ctx.settingDeclarations,
         ]);
       } catch (error) {
         return err({

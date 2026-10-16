@@ -1,11 +1,9 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import {
-  type AgentPlace,
-  skillFoldersSetting,
-  skillsOffSetting,
-} from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
+import { createListSettingsReader } from "../../config/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import {
   BUNDLED_SKILLS_ROOT,
   discoverSkills,
@@ -157,21 +155,14 @@ async function presentFolder(
 async function globalSkillSettings(
   machine: CoreCall,
 ): Promise<{ roots: readonly string[]; off: readonly string[] }> {
-  const read = await readOf(machine, settingsGet, {
+  const read = await readOf(machine, settingsList, {
     keys: [skillFoldersSetting.key, skillsOffSetting.key],
   });
   if (!read.ok) return { roots: [], off: [] };
-  const valueOf = (key: string): unknown =>
-    read.value.settings.find((entry) => entry.key === key)?.value ?? null;
-  const roots = skillFoldersSetting.value_type.safeParse(
-    valueOf(skillFoldersSetting.key),
-  );
-  const off = skillsOffSetting.value_type.safeParse(
-    valueOf(skillsOffSetting.key),
-  );
+  const settings = createListSettingsReader(read.value.settings);
   return {
-    roots: roots.success ? roots.data : [],
-    off: off.success ? off.data : [],
+    roots: settings.get(skillFoldersSetting) ?? [],
+    off: settings.get(skillsOffSetting) ?? [],
   };
 }
 

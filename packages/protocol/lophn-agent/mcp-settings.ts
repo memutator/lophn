@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
-import { defineSetting } from "../config/settings.ts";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -153,32 +152,6 @@ export const extensionSettingsSchema = z.strictObject({
       value.mcp_servers.length,
   { message: "mcp server names must be unique" },
 );
-
-export const mcpServersSetting = defineSetting({
-  key: "lophn-agent.extensions.mcp_servers",
-  owner: "lophn-agent/extensions",
-  display_name_key: "settings.lophn-agent.mcp_servers.name",
-  description: "Registered external MCP servers.",
-  value_meaning_key: "settings.lophn-agent.mcp_servers.value",
-  default_meaning_key: "settings.lophn-agent.mcp_servers.default",
-  affected_features: ["lophn-agent/extensions"],
-  risk_key: "settings.lophn-agent.mcp_servers.risk",
-  revert_key: "settings.lophn-agent.mcp_servers.revert",
-  constraints: {
-    transports: ["stdio", "http"],
-    auth: ["none", "bearer", "api_key", "oauth2"],
-    call_timeout_ms: { min: 1000, max: 600_000, default: 60_000 },
-    tool_effects: ["read", "write", "external"],
-  },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.lophn-agent.mcp_servers.apply_at",
-  machine_local: true,
-  default_present: true,
-  default: [],
-  value_type: z.array(mcpServerConfigSchema).max(32),
-});
 
 const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 

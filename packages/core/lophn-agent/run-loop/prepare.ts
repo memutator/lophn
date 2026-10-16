@@ -20,7 +20,8 @@ import {
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
+import { createListSettingsReader } from "../../config/mod.ts";
 import {
   type InstructionDeps,
   readTurnInstructions,
@@ -28,7 +29,7 @@ import {
 } from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import { abortableWait } from "./retry.ts";
-import { resolveTurnLimits, TURN_LIMIT_SETTING_KEYS } from "./limits.ts";
+import { TURN_LIMIT_SETTING_KEYS, turnLimitsOf } from "./limits.ts";
 import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
 import type { AgentEventSink } from "./ports.ts";
 import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
@@ -585,11 +586,13 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       return err({ code: "conflict", message: "the session is not open" });
     }
 
-    const settings = await readOf(machine, settingsGet, {
+    const settings = await readOf(machine, settingsList, {
       keys: Object.values(TURN_LIMIT_SETTING_KEYS),
     });
     if (!settings.ok) return settings;
-    const limits = resolveTurnLimits(settings.value.settings);
+    const limits = turnLimitsOf(
+      createListSettingsReader(settings.value.settings),
+    );
     if (!limits.ok) return limits;
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가

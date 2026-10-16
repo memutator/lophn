@@ -11,15 +11,18 @@ import {
   type TurnElapsed,
   turnLimitsSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { EffectiveSetting } from "../../../protocol/config/mod.ts";
-import type { z } from "zod";
+import {
+  declareSetting,
+  type SettingsReader,
+} from "../../../protocol/config/mod.ts";
+import { z } from "zod";
 
 export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
 // turn 한도. 한도 값은 공통 설정이고 시작 때 turn에 고정된다(turns_started_immutable). 이 파일은
 // 시간·횟수를 세는 순수 계산이다. 시계는 주입한 단조 ms다. model·tool·ledger를 직접 부르지 않는다.
 
-// 공통 설정 key. 정의(SettingDefinition) 등록은 packages/core/lophn-agent/register.ts가 한다.
+// 공통 설정 key.
 export const TURN_LIMIT_SETTING_KEYS = {
   model_attempts: "lophn-agent.run.model_attempts",
   stall_ms: "lophn-agent.run.stall_ms",
@@ -28,46 +31,28 @@ export const TURN_LIMIT_SETTING_KEYS = {
 
 export type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
 
-// 다음 turn을 시작할 한도. 적용값이 비어 있으면 내장 기본값이다(필수 선택이 아니므로 turn 시작을 막지
-// 않는다). 값이 있는데 양의 정수가 아니면 기본값으로 대신하지 않고 거절한다(0·무제한 금지).
-export function resolveTurnLimits(
-  settings: readonly EffectiveSetting[],
-): Result<TurnLimits> {
-  const picked: Record<string, unknown> = {};
-  for (const key of Object.keys(TURN_LIMIT_SETTING_KEYS) as TurnLimitKey[]) {
-    const setting = settings.find((item) =>
-      item.key === TURN_LIMIT_SETTING_KEYS[key]
-    );
-    picked[key] = setting === undefined || !setting.resolved
-      ? DEFAULT_TURN_LIMITS[key]
-      : setting.value;
-  }
-  const parsed = turnLimitsSchema.safeParse(picked);
-  if (!parsed.success) {
-    return err({
-      code: "invalid_input",
-      message: "turn limits are positive integers only",
-    });
-  }
-  return ok(parsed.data);
+// run 한도 선언. 공통 설정 하나씩이고 양의 정수만 받는다. 0·무제한은 없다. 사람이 바꾸고 다음 turn부터
+// 적용하며 turn은 시작할 때 값을 고정한다.
+function limitSetting(name: TurnLimitKey) {
+  return declareSetting({
+    key: TURN_LIMIT_SETTING_KEYS[name],
+    type: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    default: DEFAULT_TURN_LIMITS[name],
+  });
 }
+export const turnLimitSettings = {
+  model_attempts: limitSetting("model_attempts"),
+  stall_ms: limitSetting("stall_ms"),
+  active_ms: limitSetting("active_ms"),
+} as const;
 
-// 저장된 공통 선택(setting_choices)에서 다음 turn의 한도를 계산한다. 선택이 없는 항목은
-// 내장 기본값이다(정의의 기본값과 같은 DEFAULT_TURN_LIMITS). 저장값이 양의 정수가
-// 아니면 기본값으로 대신하지 않고 거절한다.
-export function effectiveTurnLimits(
-  choices: readonly { key: string; value: unknown }[],
-): Result<TurnLimits> {
-  const picked: Record<string, unknown> = {};
-  for (const name of Object.keys(TURN_LIMIT_SETTING_KEYS) as TurnLimitKey[]) {
-    const choice = choices.find((item) =>
-      item.key === TURN_LIMIT_SETTING_KEYS[name]
-    );
-    picked[name] = choice === undefined
-      ? DEFAULT_TURN_LIMITS[name]
-      : choice.value;
-  }
-  const parsed = turnLimitsSchema.safeParse(picked);
+// 다음 turn을 시작할 한도. 고른 값이 없으면 선언의 기본값이다. 파일의 값은 읽을 때 이미 type을 통과했다.
+export function turnLimitsOf(reader: SettingsReader): Result<TurnLimits> {
+  const parsed = turnLimitsSchema.safeParse({
+    model_attempts: reader.get(turnLimitSettings.model_attempts),
+    stall_ms: reader.get(turnLimitSettings.stall_ms),
+    active_ms: reader.get(turnLimitSettings.active_ms),
+  });
   if (!parsed.success) {
     return err({
       code: "invalid_input",

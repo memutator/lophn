@@ -1,39 +1,23 @@
 import { ok, type Result } from "../../../base/mod.ts";
-import {
-  type AgentPlace,
-  mcpServersSetting,
-} from "../../../protocol/lophn-agent/mod.ts";
-import { type McpRuntimeServer, runtimeServerOfSetting } from "./mcp-server.ts";
+import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import { type McpRuntimeServer, runtimeServerOfLayer } from "./mcp-server.ts";
+import { createFileSettingsReader } from "../../config/mod.ts";
+import { globalMcpServersSetting } from "./settings.ts";
 import {
   collectProjectMcpEntries,
   type ProjectServerSource,
 } from "./project-servers.ts";
-import { openConnection } from "../../storage/ledger/mod.ts";
 
 // 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`을 더한다.
 // agent-runtime child의 `--allow-run`·`--allow-net`과 MCP OAuth begin의 서버 조회가 같은 snapshot을 읽는다.
 // agent 정의가 가진 서버는 정의 파일에 있어 여기 없다.
 
-// 전역(Workspace) 서버다. ledger 경로의 setting_choices 행을 readOnly로 열어 형식 검사를 지난 server 목록으로
-// 옮긴다(credentials 열기와 별개다). 읽지 못하면 빈 목록이다.
-function globalMcpServers(ledgerPath: string): Result<McpRuntimeServer[]> {
-  const opened = openConnection(ledgerPath);
-  if (!opened.ok) return opened;
-  try {
-    const rows = opened.value.sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length === 0) return ok([]);
-    const shaped = mcpServersSetting.value_type.safeParse(
-      JSON.parse(String(rows[0]["value"])),
-    );
-    return ok(shaped.success ? shaped.data.map(runtimeServerOfSetting) : []);
-  } catch {
-    return ok([]);
-  } finally {
-    opened.value.close();
-  }
+// 전역(Workspace) 서버다. 설정 파일에서 읽는다. 읽지 못하면 빈 목록이다.
+function globalMcpServers(root: string): Result<McpRuntimeServer[]> {
+  const servers = createFileSettingsReader(root).get(globalMcpServersSetting);
+  return ok(
+    (servers ?? []).map((server) => runtimeServerOfLayer(server, null)),
+  );
 }
 
 // core 프로세스의 비동기 file API다. 동기 file API는 core module graph에 두지 않는다.
@@ -59,7 +43,7 @@ const denoProjectSource: ProjectServerSource = {
 };
 
 export type McpSnapshotDeps = {
-  // 테스트가 바꿔 끼운다. 기본은 ledger의 설정 행과 data root의 project 폴더다.
+  // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
 };
@@ -76,9 +60,9 @@ export async function registeredMcpServers(
   ledgerPath: string,
   deps: McpSnapshotDeps = {},
 ): Promise<Result<RegisteredMcpServer[]>> {
-  const global = deps.global?.() ?? globalMcpServers(ledgerPath);
-  if (!global.ok) return global;
   const root = ledgerPath.slice(0, ledgerPath.lastIndexOf("/"));
+  const global = deps.global?.() ?? globalMcpServers(root);
+  if (!global.ok) return global;
   const projects = await collectProjectMcpEntries(
     root,
     deps.projects ?? denoProjectSource,

@@ -8,41 +8,48 @@ import type {
 
 // 외부 MCP credential의 secret 참조다. MCP server 설정이
 // 가리키는 `sec:` 참조를 ledger의 secrets 표에서 읽어 core의 알려진 값
-// registry에 등록하는 통로다. 설정은 setting_choices 행(platform/settings)에
+// registry에 등록하는 통로다. 설정은 설정 파일(platform/config)에
 // 있고 참조는 secrets 표에 있다. 값은 표에 없다(platform/secrets).
 
-import { mcpServersSetting } from "../../../protocol/lophn-agent/mod.ts";
+import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
+import { createFileSettingsReader } from "../../config/mod.ts";
+import { globalMcpServersSetting } from "./settings.ts";
 
 export const MCP_SECRET_OWNER = "lophn-agent/extensions";
 
-// 설정 JSON에서 모든 secret ref를 모은다(stdio env 값·http headers·auth).
-function secretRefsOf(value: unknown): string[] {
-  const refs: string[] = [];
-  if (value === null || typeof value !== "object") return refs;
-  if (Array.isArray(value)) {
-    for (const item of value) refs.push(...secretRefsOf(item));
-    return refs;
-  }
-  const record = value as Record<string, unknown>;
-  // plain-or-secret 값이다(contracts mcp-settings). auth bearer·api_key의
-  // secret_ref도 같은 이름이다.
-  if (typeof record["secret_ref"] === "string") {
-    refs.push(record["secret_ref"]);
-  }
-  if (
-    record["auth"] !== undefined && typeof record["auth"] === "object" &&
-    record["auth"] !== null
-  ) {
-    // oauth2의 client_secret_ref다. token_ref는 secrets 표가 아니라 OAuth token 보관(mcp-oauth-vault)을 가리킨다.
-    for (const field of ["client_secret_ref"]) {
-      const ref = (record["auth"] as Record<string, unknown>)[field];
-      if (typeof ref === "string") refs.push(ref);
+// 전역 서버 설정에서 모든 secret 참조를 모은다(stdio env 값, http headers, auth). 참조는 `sec:<이름>`이다.
+// oauth2의 token은 secrets 표가 아니라 OAuth token 보관(mcp-oauth-vault)을 가리키므로 여기 없다.
+function secretRefsOf(servers: readonly McpServer[]): string[] {
+  const names: string[] = [];
+  const value = (one: { value: string } | { secret: string }) => {
+    if ("secret" in one) names.push(one.secret);
+  };
+  for (const server of servers) {
+    if (server.transport === "stdio") {
+      Object.values(server.stdio.env).forEach(value);
+      continue;
+    }
+    Object.values(server.http.headers).forEach(value);
+    const auth = server.http.auth;
+    if (auth.kind === "bearer" || auth.kind === "api_key") {
+      names.push(auth.credential.secret);
+    } else if (auth.kind === "oauth2" && auth.client_credential !== null) {
+      names.push(auth.client_credential.secret);
     }
   }
-  for (const child of Object.values(record)) {
-    refs.push(...secretRefsOf(child));
+  return names.map((name) => `sec:${name}`);
+}
+
+// ledger 파일이 있는 폴더가 data root다.
+function rootOf(sql: Pick<Sql, "all">): Result<string> {
+  const file = sql.all(
+    "select file from pragma_database_list where name = 'main'",
+    [],
+  )[0]?.["file"];
+  if (typeof file !== "string" || !file.includes("/")) {
+    return err({ code: "unavailable", message: "ledger location is unknown" });
   }
-  return refs;
+  return ok(file.slice(0, file.lastIndexOf("/")));
 }
 
 // `sec:` 참조를 secrets 표의 이름으로 바꾼다. 참조는 `sec:<name>`이다.
@@ -61,9 +68,8 @@ export function createMcpSecretRefSource(
 ): SecretRefSource {
   return {
     owner: MCP_SECRET_OWNER,
-    // 설정이 바뀌는 계기다(ApplySettings가 setting_choices를 쓴다). SetSecret·
-    // RemoveSecret은 core가 기본으로 다시 맞춘다(secret-store SECRET_COMMANDS).
-    commands: ["ApplySettings"],
+    // SetSecret·RemoveSecret은 core가 기본으로 다시 맞춘다(secret-store SECRET_COMMANDS).
+    commands: [],
     read(sql: Pick<Sql, "all">): Result<{ name: string; sealedRef: string }[]> {
       const configured = configuredRefs(sql);
       if (!configured.ok) return configured;
@@ -76,14 +82,13 @@ function configuredRefs(
   sql: Pick<Sql, "all">,
 ): Result<{ name: string; sealedRef: string }[]> {
   try {
-    const rows = sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length === 0) return ok([]);
-    const parsed: unknown = JSON.parse(String(rows[0]["value"]));
+    const root = rootOf(sql);
+    if (!root.ok) return root;
+    const servers = createFileSettingsReader(root.value).get(
+      globalMcpServersSetting,
+    ) ?? [];
     const names = new Set<string>();
-    for (const ref of secretRefsOf(parsed)) {
+    for (const ref of secretRefsOf(servers)) {
       const name = nameOf(ref);
       if (name === null) continue;
       names.add(name);
@@ -131,15 +136,14 @@ export function lookupMcpSecretUse(
   if (name === null || use.purpose !== "external_mcp_credential") {
     return err(forbidden);
   }
-  let setting: unknown;
+  let servers: readonly McpServer[];
   let secretRows: Record<string, unknown>[];
   try {
-    const rows = sql.all(
-      "select layer, key, value from setting_choices where key = ?",
-      [mcpServersSetting.key],
-    );
-    if (rows.length === 0) return err(forbidden);
-    setting = JSON.parse(String(rows[0]["value"]));
+    const root = rootOf(sql);
+    if (!root.ok) return root;
+    servers = createFileSettingsReader(root.value).get(
+      globalMcpServersSetting,
+    ) ?? [];
     secretRows = sql.all(
       "select name, sealed_ref, revision from secrets where name = ?",
       [name],
@@ -150,9 +154,7 @@ export function lookupMcpSecretUse(
       message: "MCP credential 참조를 읽지 못했다",
     });
   }
-  const servers = mcpServersSetting.value_type.safeParse(setting);
-  if (!servers.success) return err(forbidden);
-  const allowed = servers.data.some((server) =>
+  const allowed = servers.some((server) =>
     server.enabled && server.transport === "http" &&
     sentRefsOf(server.http).includes(use.sealed_ref) &&
     sameOrigin(server.http.url, use.destination)
@@ -184,23 +186,17 @@ function sameOrigin(url: string, destination: SecretDestination): boolean {
   }
 }
 
-// 요청 헤더로 server에 가는 참조다(headers의 secret_ref, bearer·api_key). oauth2의
+// 요청 헤더로 server에 가는 참조다(headers의 secret, bearer·api_key). oauth2의
 // client secret은 server로 가지 않는다.
-function sentRefsOf(http: {
-  headers: Record<string, { kind: string; secret_ref?: string }>;
-  auth: { kind: string; secret_ref?: string };
-}): string[] {
+function sentRefsOf(
+  http: Extract<McpServer, { transport: "http" }>["http"],
+): string[] {
   const refs: string[] = [];
   for (const value of Object.values(http.headers)) {
-    if (value.kind === "secret_ref" && value.secret_ref !== undefined) {
-      refs.push(value.secret_ref);
-    }
+    if ("secret" in value) refs.push(`sec:${value.secret}`);
   }
-  if (
-    (http.auth.kind === "bearer" || http.auth.kind === "api_key") &&
-    http.auth.secret_ref !== undefined
-  ) {
-    refs.push(http.auth.secret_ref);
+  if (http.auth.kind === "bearer" || http.auth.kind === "api_key") {
+    refs.push(`sec:${http.auth.credential.secret}`);
   }
   return refs;
 }

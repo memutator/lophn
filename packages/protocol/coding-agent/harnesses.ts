@@ -294,30 +294,6 @@ export const harnessEnabledSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-export const defaultHarnessSetting = defineSetting({
-  key: "coding-agent.default_harness",
-  owner: "coding-agent/harnesses",
-  display_name_key: "settings.coding-agent.default_harness.name",
-  description: "Harness the connection install suggests first.",
-  value_meaning_key: "settings.coding-agent.default_harness.value",
-  default_meaning_key: "settings.coding-agent.default_harness.default",
-  affected_features: ["coding-agent/harnesses", "coding-agent/sessions"],
-  risk_key: "settings.coding-agent.default_harness.risk",
-  revert_key: "settings.coding-agent.default_harness.revert",
-  constraints: {
-    harness_ids: [...HARNESS_IDS],
-    nullable: true,
-  },
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.coding-agent.default_harness.apply_at",
-  machine_local: true,
-  default_present: true,
-  default: null,
-  value_type: harnessIdSchema.nullable(),
-});
-
 export const harnessProfileSetting = defineSetting({
   key: "coding-agent.harnesses.profile",
   owner: "coding-agent/harnesses",

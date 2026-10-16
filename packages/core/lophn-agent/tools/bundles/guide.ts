@@ -1,10 +1,10 @@
 import { ok } from "../../../../base/mod.ts";
-import { settingsGet } from "../../../../protocol/config/mod.ts";
+import { settingsList } from "../../../../protocol/config/mod.ts";
 import { readOf } from "../../run-loop/core-call.ts";
 import { guideText, guideTopics } from "../../roles/guides.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
-import { fitted, notFound, readBody } from "../domain/result.ts";
+import { fitted, notFound } from "../domain/result.ts";
 import { limitText } from "../result.ts";
 import { defineBuiltin } from "./common.ts";
 
@@ -42,11 +42,11 @@ export const GUIDE_TOOLS: readonly ToolDefinition[] = [
       const { key } = input as ToolInput<"settings.get">;
       const read = await readOf(
         ctx.core,
-        settingsGet,
+        settingsList,
         key === undefined ? {} : { keys: [key] },
       );
       if (!read.ok) return read;
-      const { body } = readBody(read.value);
+      const body = read.value;
       return ok(fitted(`${body.settings.length} settings`, body, ["settings"]));
     },
   }),

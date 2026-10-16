@@ -2,10 +2,9 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentPlace,
   type McpServer,
-  mcpServersSetting,
   projectExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import {
   checkMcpConfig,
   createMcpConnections,
@@ -19,9 +18,10 @@ import {
   type McpRuntimeServer,
   mergeMcpLayers,
   runtimeServerOfLayer,
-  runtimeServerOfSetting,
 } from "./mcp-server.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import { createListSettingsReader } from "../../config/mod.ts";
+import { globalMcpServersSetting } from "./settings.ts";
 import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 
 // 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), project 층,
@@ -111,22 +111,16 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   async function registeredServers(): Promise<
     Result<readonly McpRuntimeServer[]>
   > {
-    const read = await readOf(deps.machine, settingsGet, {
-      keys: [mcpServersSetting.key],
+    const read = await readOf(deps.machine, settingsList, {
+      keys: [globalMcpServersSetting.key],
     });
     if (!read.ok) return read;
-    const setting = read.value.settings.find((entry) =>
-      entry.key === mcpServersSetting.key
+    const servers = createListSettingsReader(read.value.settings).get(
+      globalMcpServersSetting,
     );
-    if (setting === undefined || setting.value === null) return ok([]);
-    const shaped = mcpServersSetting.value_type.safeParse(setting.value);
-    if (!shaped.success) {
-      return err({
-        code: "unavailable",
-        message: "MCP server 설정이 형식을 벗어났다",
-      });
-    }
-    return ok(shaped.data.map(runtimeServerOfSetting));
+    return ok(
+      (servers ?? []).map((server) => runtimeServerOfLayer(server, null)),
+    );
   }
 
   // 이 place의 agent가 쓸 수 있는 서버다: 전역에 project 층, agent 정의 층이 차례로 덮인다. 하위 층을 읽지 못하면

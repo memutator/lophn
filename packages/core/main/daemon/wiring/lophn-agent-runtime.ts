@@ -1,6 +1,5 @@
 import { ok } from "../../../../base/mod.ts";
 import { providerList } from "../../../../protocol/lophn-agent/mod.ts";
-import { settingsGet } from "../../../../protocol/config/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
   AGENT_RUNTIME_TASK,
@@ -16,7 +15,7 @@ import {
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
-import { skillFoldersSetting } from "../../../../protocol/lophn-agent/mod.ts";
+import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -87,19 +86,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             cursor = page.next_cursor;
           }
         },
-        readSkillRoots: async (context) => {
-          const read = await runtime.readers.read(settingsGet, context, {
-            keys: [skillFoldersSetting.key],
-          });
-          if (!read.ok) return read;
-          const setting = (read.value as {
-            settings: { key: string; value: unknown }[];
-          }).settings.find((each) => each.key === skillFoldersSetting.key);
-          const shaped = skillFoldersSetting.value_type.safeParse(
-            setting?.value ?? [],
-          );
-          return ok(shaped.success ? shaped.data : []);
-        },
+        readSkillRoots: () =>
+          Promise.resolve(ok(ctx.settings.get(skillFoldersSetting) ?? [])),
       });
       if (started.ok) agentRuntime = started.value;
       else console.error(`agent runtime: ${started.error.message}`);

@@ -38,6 +38,7 @@ import { problemsWiring } from "./wiring/problems.ts";
 import { problemsTestsWiring } from "./wiring/problems-tests.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
+import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { storageWiring } from "./wiring/storage.ts";
 import { supervisionWiring } from "./wiring/supervision.ts";
@@ -101,6 +102,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   supervisionWiring,
   diagnosticsWiring,
   storageWiring,
+  settingDeclarationsWiring,
   configWiring,
   secretsWiring,
   eventsWiring,

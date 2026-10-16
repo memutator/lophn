@@ -11,7 +11,7 @@ import {
   problemSubmitFeedback,
   recordProblemReport,
 } from "../../../protocol/problems/mod.ts";
-import { settingsGet } from "../../../protocol/config/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import type { HealthObservation } from "../../../protocol/server/mod.ts";
 import type { WorkerRequest } from "../../../protocol/supervision/mod.ts";
 import type { OperationPolicy } from "../../server/identity/mod.ts";
@@ -26,7 +26,7 @@ export const COLLECTOR_CREDENTIAL_OPERATIONS = [
   recordProblemReport.name,
   appLogs.name,
   invocationsGet.name,
-  settingsGet.name,
+  settingsList.name,
   problemGet.name,
 ];
 
@@ -36,7 +36,7 @@ export function collectorOperationPolicies(): OperationPolicy[] {
   return [
     recordProblemReport.name,
     invocationsGet.name,
-    settingsGet.name,
+    settingsList.name,
     problemGet.name,
   ].map((name): OperationPolicy => ({
     name,

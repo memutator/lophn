@@ -1,6 +1,6 @@
 import type {
   AgentPlace,
-  McpServerConfig,
+  McpServer,
   Role,
   SkillEntry as SkillRow,
   SkillSource,
@@ -17,7 +17,6 @@ import {
   type McpRuntimeServer,
   mergeMcpLayers,
   runtimeServerOfLayer,
-  runtimeServerOfSetting,
 } from "./mcp-server.ts";
 import { builtinForRole } from "./skills.ts";
 import {
@@ -39,7 +38,7 @@ export type ExtensionRegistryDeps = {
   skillFiles: SyncSkillFiles;
   // 전역(Workspace) 층이다. 서버 목록은 platform/settings 값, skill 출처는 등록 폴더·개인 보관소·내장 폴더다.
   global: {
-    servers: readonly McpServerConfig[];
+    servers: readonly McpServer[];
     skills: Omit<SkillSources, "project">;
     // 전역에서 끈 skill의 정확한 이름이다.
     skillsOff: readonly string[];
@@ -62,7 +61,9 @@ export function createExtensionRegistry(
 ): ExtensionRegistry {
   const skills = new Map<string, SkillListing>();
   const servers = new Map<string, readonly McpRuntimeServer[]>();
-  const global = deps.global.servers.map(runtimeServerOfSetting);
+  const global = deps.global.servers.map((server) =>
+    runtimeServerOfLayer(server, null)
+  );
 
   // 틀린 파일은 그 project 층이 없는 것과 같다. 연결하지 않는 쪽으로 닫는다.
   function projectOf(place: AgentPlace): ProjectExtensions {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { defineSetting } from "../../protocol/config/mod.ts";
+import { declareSetting } from "../../protocol/config/mod.ts";
+import { createFileSettingsReader } from "../config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import {
   type EventVisibilityDefinition,
@@ -86,8 +87,8 @@ import {
   deleteSessionTurns,
   interruptRunningTurns,
   publishAfterCommit,
-  TURN_LIMIT_SETTING_KEYS,
   turnBodyFields,
+  turnLimitSettings,
   turnSchemaSteps,
 } from "./run-loop/mod.ts";
 import {
@@ -142,20 +143,16 @@ import {
 } from "./waiting-and-recovery/mod.ts";
 import {
   type AgentRef,
-  DEFAULT_RUN_LIMITS,
   mcpAuthBegin,
   mcpAuthCancel,
   mcpAuthComplete,
   mcpAuthRequestDone,
   mcpAuthRequestTake,
   mcpAuthState,
-  type McpServerConfig,
-  mcpServersSetting,
+  type McpServer,
   type Place,
   profileImageRead,
   profileImageUpload,
-  skillFoldersSetting,
-  skillsOffSetting,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
   BUNDLED_SKILLS_ROOT,
@@ -175,7 +172,13 @@ import {
 import type { Loaded } from "./agents/inspect.ts";
 import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import { contextStatusOf } from "../projects/contexts/mod.ts";
-import { createMcpSecretRefSource } from "./extensions/mod.ts";
+import {
+  createMcpSecretRefSource,
+  extensionSettings,
+  globalMcpServersSetting,
+  skillFoldersSetting,
+  skillsOffSetting,
+} from "./extensions/mod.ts";
 
 // agent runtime 등록 뼈대. 권한 목록은 `agentRuntimePermissions`가 계산한다.
 // host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -207,74 +210,19 @@ export function agentRuntimeLaunchSpec(input: {
   };
 }
 
-// catalog 자동 갱신 on/off 정의 등록(settings registry). 사람이
-// 끄면 정상본·snapshot만 쓴다. machine_local이고 다음 기동부터 적용한다.
-export const catalogAutoUpdateSetting = defineSetting({
+// catalog 자동 갱신 on/off. 사람이 끄면 정상본·snapshot만 쓴다. 다음 기동부터 적용한다.
+export const catalogAutoUpdateSetting = declareSetting({
   key: "lophn-agent.model.catalog_auto_update",
-  owner: "lophn-agent/harness/model",
-  display_name_key: "settings.lophn-agent.catalog_auto_update.name",
-  description: "Automatic public model catalog refresh.",
-  value_meaning_key: "settings.lophn-agent.catalog_auto_update.value",
-  default_meaning_key: "settings.lophn-agent.catalog_auto_update.default",
-  affected_features: ["lophn-agent/harness/model"],
-  risk_key: "settings.lophn-agent.catalog_auto_update.risk",
-  revert_key: "settings.lophn-agent.catalog_auto_update.revert",
-  constraints: {},
-  required: false,
-  layers: ["common"],
-  apply_at: "next_turn",
-  apply_at_key: "settings.lophn-agent.catalog_auto_update.apply_at",
-  machine_local: true,
-  default_present: true,
+  type: z.boolean(),
   default: true,
-  value_type: z.boolean(),
 });
 
-// run 한도 정의 등록(settings registry). 공통 설정
-// 하나씩이고 양의 정수만 받는다. 0·무제한·역할의 인상은 없다. 사람이
-// 바꾸고 다음 run부터 적용하며 run은 시작할 때 값을 고정한다.
-function runLimitSetting(
-  key: keyof typeof TURN_LIMIT_SETTING_KEYS,
-  fallback: number,
-  unit: string,
-) {
-  return defineSetting({
-    key: TURN_LIMIT_SETTING_KEYS[key],
-    owner: "lophn-agent/harness/run-loop",
-    display_name_key: `settings.lophn-agent.run_${key}.name`,
-    description: `Run limit: ${key} (${unit}).`,
-    value_meaning_key: `settings.lophn-agent.run_${key}.value`,
-    default_meaning_key: `settings.lophn-agent.run_${key}.default`,
-    affected_features: ["lophn-agent/harness/run-loop"],
-    risk_key: `settings.lophn-agent.run_${key}.risk`,
-    revert_key: `settings.lophn-agent.run_${key}.revert`,
-    constraints: { minimum: 1, type: "positive integer", unit },
-    required: false,
-    layers: ["common"],
-    apply_at: "next_turn",
-    apply_at_key: `settings.lophn-agent.run_${key}.apply_at`,
-    machine_local: false,
-    default_present: true,
-    default: fallback,
-    value_type: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  });
-}
-
-export const runModelAttemptsSetting = runLimitSetting(
-  "model_attempts",
-  DEFAULT_RUN_LIMITS.model_attempts,
-  "attempts",
-);
-export const runStallSetting = runLimitSetting(
-  "stall_ms",
-  DEFAULT_RUN_LIMITS.stall_ms,
-  "ms",
-);
-export const runActiveSetting = runLimitSetting(
-  "active_ms",
-  DEFAULT_RUN_LIMITS.active_ms,
-  "ms",
-);
+// 이 module이 선언하는 설정 전부다. 조립이 settingDeclarations로 모은다.
+export const lophnAgentSettings = [
+  catalogAutoUpdateSetting,
+  ...extensionSettings,
+  ...Object.values(turnLimitSettings),
+];
 
 // derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다.
 // pool read handler는 동기 Result를 돌려주므로 파일 읽기도
@@ -451,46 +399,26 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
-// settings registry 값을 읽는다. 없거나 형식이 틀리면 undefined다(fail closed).
-function settingValue(
-  sql: Pick<Tx["sql"], "all">,
-  key: string,
-): unknown {
-  try {
-    const rows = sql.all(
-      "select value from setting_choices where key = ?",
-      [key],
-    );
-    if (rows.length === 0) return undefined;
-    return JSON.parse(String(rows[0]["value"]));
-  } catch {
-    return undefined;
-  }
+// 설정 파일의 값을 읽는다. 읽지 못하면 기본값이다. data root는 ledger 파일이 있는 폴더다.
+function settingsOf(sql: Pick<Tx["sql"], "get" | "all">) {
+  const root = dataRootOf(sql, undefined);
+  return root.ok ? createFileSettingsReader(root.value) : undefined;
 }
 
 // 전역(Workspace)에 등록된 외부 MCP server 전부다. 읽지 못하면 빈 목록이다.
 function registeredMcpServers(
-  sql: Pick<Tx["sql"], "all">,
-): McpServerConfig[] {
-  const shaped = mcpServersSetting.value_type.safeParse(
-    settingValue(sql, mcpServersSetting.key),
-  );
-  return shaped.success ? shaped.data : [];
+  sql: Pick<Tx["sql"], "get" | "all">,
+): McpServer[] {
+  return settingsOf(sql)?.get(globalMcpServersSetting) ?? [];
 }
 
-function registeredSkillFolders(sql: Pick<Tx["sql"], "all">): string[] {
-  const shaped = skillFoldersSetting.value_type.safeParse(
-    settingValue(sql, skillFoldersSetting.key),
-  );
-  return shaped.success ? shaped.data : [];
+function registeredSkillFolders(sql: Pick<Tx["sql"], "get" | "all">): string[] {
+  return settingsOf(sql)?.get(skillFoldersSetting) ?? [];
 }
 
 // 전역에서 끈 skill의 정확한 이름이다. 읽지 못하면 끈 것이 없다.
-function registeredSkillsOff(sql: Pick<Tx["sql"], "all">): string[] {
-  const shaped = skillsOffSetting.value_type.safeParse(
-    settingValue(sql, skillsOffSetting.key),
-  );
-  return shaped.success ? shaped.data : [];
+function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
+  return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
 // 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더.
@@ -742,16 +670,6 @@ const commandReads = createCommandReads({
 });
 
 export const lophnAgentDefinitions = {
-  // settings registry 출처의 항목이다. core 조립의 settings.ts가 모은다.
-  settings: [
-    catalogAutoUpdateSetting,
-    skillFoldersSetting,
-    skillsOffSetting,
-    mcpServersSetting,
-    runModelAttemptsSetting,
-    runStallSetting,
-    runActiveSetting,
-  ],
   schemaSteps: [
     ...providerSchemaSteps,
     ...modelSchemaSteps,

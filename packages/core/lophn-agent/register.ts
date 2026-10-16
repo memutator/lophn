@@ -31,6 +31,11 @@ import {
   runStarted,
   takeRewindSummaryRequest,
 } from "../../protocol/lophn-agent/mod.ts";
+import {
+  askAnswer,
+  askRead,
+  askWait,
+} from "../../protocol/lophn-agent/ask-tool.ts";
 import { notificationsOnlyVisibility } from "../main/daemon/platform-register.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
@@ -799,6 +804,10 @@ export const lophnAgentDefinitions = {
     mcpAuthCancel,
     mcpAuthRequestTake,
     mcpAuthRequestDone,
+    // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
+    askWait,
+    askRead,
+    askAnswer,
   ],
   // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes: [profileImageUpload],

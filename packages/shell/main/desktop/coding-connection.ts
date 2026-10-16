@@ -12,7 +12,7 @@ import {
   type HarnessDiscovery,
   type HarnessName,
   type HarnessSettingsView,
-  type HarnessView,
+  type HarnessLogin,
 } from "../../ipc/coding.ts";
 
 // shell tsc는 protocol의 base를 따라가지 못한다. 감지 값 검사와 제품 표(label, 맡길 수 있는지)는 wiring이
@@ -27,7 +27,7 @@ export type Detection = {
     result: HarnessSettingsView["version_result"];
     value: string | null;
   };
-  auth: { result: HarnessView["auth"] };
+  auth: { result: HarnessLogin };
 };
 
 export type HarnessCatalog = {

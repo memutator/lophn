@@ -54,8 +54,6 @@ export const common = {
   "common.label.row-range": "{start, number}–{end, number} of {total, number}",
   "common.label.search": "Search",
   "common.label.sort-by": "Sort by",
-  "common.label.tab-ended": "Session ended",
-  "common.label.tab-waiting": "Waiting for you",
   "common.label.tab-working": "Working",
   "common.label.tray-global-search-unavailable":
     "Search from anywhere isn't available",
@@ -82,11 +80,8 @@ export const common = {
   "contexts.label.frame-chip": "Context",
   "contexts.label.rail-contexts": "Contexts",
   "contexts.label.rail-search": "Search",
-  "conversation.notice.provider-lost":
-    "The agent can't reach its account right now. Your work stays open, and you can check the account in Settings.",
   "document.button.check-again": "Check again",
   "document.button.read": "Read",
-  "document.diff.identical": "These versions are identical.",
   "document.label.saving": "Saving…",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",

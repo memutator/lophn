@@ -12,7 +12,7 @@ import {
 
 type Outcome = (typeof HARNESS_INSTALL_OUTCOMES)[number];
 
-export type SkillSource = {
+type SkillSource = {
   name: string;
   files: readonly { path: string; content: string }[];
 };
@@ -26,7 +26,7 @@ export type InstallPorts = {
   skills: readonly SkillSource[];
 };
 
-export type InstallResult = { skill: Outcome; hook: Outcome };
+type InstallResult = { skill: Outcome; hook: Outcome };
 
 const RECORD_PATH = ".lophn/installed.json";
 

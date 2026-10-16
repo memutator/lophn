@@ -2,7 +2,7 @@
 // 설치는 읽은 내용의 hash가 이 기록과 맞을 때만 한다(`loadSkills`).
 import { sha256Hex } from "../../base/mod.ts";
 
-export type SkillRelease = {
+type SkillRelease = {
   name: string;
   // `major.minor.patch`다.
   version: string;

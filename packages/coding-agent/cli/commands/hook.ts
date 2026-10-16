@@ -18,7 +18,7 @@ function invalid(message: string): LophnError {
   return { code: "invalid_input", message };
 }
 
-export async function runHook(
+async function runHook(
   input: Record<string, unknown>,
   ctx: RunContext,
 ): Promise<Result<unknown, LophnError>> {

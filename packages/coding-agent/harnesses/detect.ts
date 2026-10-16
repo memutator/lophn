@@ -12,9 +12,8 @@ import {
   type HarnessVersion,
 } from "../../protocol/coding-agent/mod.ts";
 
-
 // PATH 뒤에 읽는 home 기준 bin 폴더다. shell RC는 평가하지 않는다.
-export const FALLBACK_DIRS = [
+const FALLBACK_DIRS = [
   ".local/bin",
   ".bun/bin",
   ".npm-global/bin",
@@ -29,7 +28,7 @@ export const FALLBACK_DIRS = [
 // probe가 끝난 모양이다. exit가 null이면 시간 안에 끝나지 않았다.
 export type ProbeOutput = { exit: number | null; text: string };
 
-export type DetectPorts = {
+type DetectPorts = {
   // 파일이 없으면 null, 있으면 실행 권한 여부다. 읽지 못하면 오류다.
   executable(path: string): Result<boolean | null>;
   // argv만 쓰고 shell을 열지 않는다.
@@ -38,7 +37,7 @@ export type DetectPorts = {
   home: string;
 };
 
-export type DetectInput = {
+type DetectInput = {
   // version·login probe를 돌릴지다. `harness refresh`만 돈다.
   probe: boolean;
   now: string;

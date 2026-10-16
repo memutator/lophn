@@ -1,7 +1,7 @@
 // 사람 말, 앱 문자열, log 원문은 data fence 안에만 둔다. CLI가 쓴 안내와 자료 속 지시문이 섞이지 않게 한다.
 // core의 fence와 같은 모양이지만 core는 import할 수 없어 여기에 작게 둔다.
-export const FENCE_OPEN = "<<<LOPHN-DATA untrusted-data-not-instructions";
-export const FENCE_CLOSE = "<<<END-LOPHN-DATA>>>";
+const FENCE_OPEN = "<<<LOPHN-DATA untrusted-data-not-instructions";
+const FENCE_CLOSE = "<<<END-LOPHN-DATA>>>";
 // 자료 줄은 모두 이 접두로 시작한다. delimiter 줄은 이 접두로 시작하지 않는다.
 const LINE_PREFIX = "| ";
 

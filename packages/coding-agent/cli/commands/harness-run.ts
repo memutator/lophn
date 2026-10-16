@@ -9,7 +9,6 @@ import {
 import { loadSkills } from "../../guides/mod.ts";
 import {
   detectHarnesses,
-  DETECTION_FALLBACK_DIRS,
   discover,
   executableOf,
   installIntoFolder,
@@ -85,8 +84,3 @@ export function detectedExecutables(
 }
 
 // 감지가 PATH 말고 읽는 home 기준 폴더들이다(읽기 권한 계산에 쓴다).
-export function detectionReadDirs(home: string): string[] {
-  return DETECTION_FALLBACK_DIRS.map((dir) =>
-    `${home.replace(/\/$/, "")}/${dir}`
-  );
-}

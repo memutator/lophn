@@ -10,7 +10,7 @@ import { exactPath, planSelection, selectionFlags } from "./launch.ts";
 
 type Env = { get(name: string): string | undefined };
 
-export type PlanOptions = { env?: Env; cwd?: string; home?: string };
+type PlanOptions = { env?: Env; cwd?: string; home?: string };
 
 function inputOf(
   input: string | undefined,
@@ -30,7 +30,7 @@ function inputOf(
 }
 
 // 이 argv가 더 열 권한 flag들이다. 없으면 빈 배열이다.
-export function planCliPermissions(
+function planCliPermissions(
   argv: readonly string[],
   options: PlanOptions = {},
 ): string[] {

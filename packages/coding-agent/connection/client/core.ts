@@ -20,7 +20,7 @@ import {
 } from "../../../protocol/client/mod.ts";
 
 // 바이트 body를 stream으로 보내는 fetch다. 선언한 길이만큼만 흐른다.
-export type UploadFetch = (
+type UploadFetch = (
   input: string,
   init: {
     method: "POST";
@@ -30,7 +30,7 @@ export type UploadFetch = (
   },
 ) => Promise<{ status: number; bytes: Uint8Array }>;
 
-export type CoreClientOptions = {
+type CoreClientOptions = {
   baseUrl: string;
   // `LOPHN_CODING_TOKEN`의 값이다.
   token: string;
@@ -65,7 +65,7 @@ export type CoreClient = {
 };
 
 // 쓰기 응답 유실 진단이다. 원래 key와 대상 read 안내를 details에 남긴다.
-export function effectUnknown(
+function effectUnknown(
   idempotencyKey: string,
   subject: string,
 ): LophnError {
@@ -81,13 +81,9 @@ export function effectUnknown(
   };
 }
 
-export function isEffectUnknown(error: LophnError): boolean {
-  return error.details?.diagnosis === "effect_unknown";
-}
-
 // 없는 대상과 이 token 범위 밖 대상은 같은 답이다. core가 준 not_found의 메시지·details를
 // 버려 존재 여부가 새지 않게 한다.
-export const UNREADABLE_MESSAGE =
+const UNREADABLE_MESSAGE =
   "현재 token으로 읽을 수 없다. 없는 대상이거나 이 앱 범위 밖이다";
 
 function sameAsAbsent<T>(result: Result<T>): Result<T> {

@@ -4,11 +4,11 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { CODING_SKILL_NAMES } from "../../protocol/coding-agent/mod.ts";
 import { SKILL_RELEASES, skillContentHash } from "./manifest.ts";
 
-export const DISTRIBUTED_SKILLS_DIR = decodeURIComponent(
+const DISTRIBUTED_SKILLS_DIR = decodeURIComponent(
   new URL("./skills", import.meta.url).pathname,
 );
 
-export type DistributedSkill = {
+type DistributedSkill = {
   name: string;
   files: { path: string; content: string }[];
 };

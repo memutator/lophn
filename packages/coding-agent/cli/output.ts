@@ -35,7 +35,7 @@ export function exitOf(error: LophnError | undefined): number {
   }
 }
 
-export type OutputWriter = {
+type OutputWriter = {
   // data가 undefined이면 아무것도 쓰지 않는다(hook).
   result(data: unknown): Promise<void>;
   failure(error: LophnError): Promise<void>;
@@ -43,7 +43,7 @@ export type OutputWriter = {
   text(text: string): Promise<void>;
 };
 
-export type OutputOptions = {
+type OutputOptions = {
   json: boolean;
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
@@ -66,7 +66,7 @@ async function write(
 }
 
 // data를 줄로 푼다. key는 CLI·protocol이 정한 이름이라 그대로 쓰고, 문자열 값만 fence를 판단한다.
-export function renderLines(
+function renderLines(
   value: unknown,
   indent = "",
   label = "data",

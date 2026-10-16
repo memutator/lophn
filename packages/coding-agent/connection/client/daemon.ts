@@ -6,20 +6,20 @@ import { runMetadataSchema } from "../../../protocol/supervision/mod.ts";
 
 export const LOPHN_DAEMON_URL = "LOPHN_DAEMON_URL";
 
-export type DaemonAddressSource =
+type DaemonAddressSource =
   | "option"
   | "env"
   | "run_metadata"
   | "install_settings"
   | "default";
 
-export type DaemonAddress = {
+type DaemonAddress = {
   url: string;
   source: DaemonAddressSource;
 };
 
 // loopback host만 받는다(platform/api allowedHosts와 같은 세 host다).
-export function loopbackHost(host: string): boolean {
+function loopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "localhost" || host === "[::1]" ||
     host === "::1";
 }
@@ -42,7 +42,7 @@ function parseRef(value: string): ParsedAddress | undefined {
 
 // 명시 주소 하나를 검사한다. loopback 아닌 주소와 http 밖 scheme은 거절이다.
 // 주소가 바뀌어도 token을 재발급하지 않는다(architecture 2.1).
-export function acceptAddress(
+function acceptAddress(
   value: string,
   source: DaemonAddressSource,
 ): Result<DaemonAddress> {
@@ -65,7 +65,7 @@ export function acceptAddress(
 }
 
 // 현재 daemon 연결 정보는 H/run/location.json의 위치 metadata다. credential은 없다.
-export function runMetadataAddress(
+function runMetadataAddress(
   value: unknown,
 ): Result<DaemonAddress> {
   const parsed = runMetadataSchema.safeParse(value);
@@ -79,9 +79,9 @@ export function runMetadataAddress(
 }
 
 // 설치 설정의 위치 값도 loopback만 받는다. 값은 platform/install contract가 정한다.
-export type InstallSettings = { host?: unknown; port?: unknown };
+type InstallSettings = { host?: unknown; port?: unknown };
 
-export function installSettingsAddress(
+function installSettingsAddress(
   settings: InstallSettings | undefined,
 ): Result<DaemonAddress> {
   const port = settings?.port;
@@ -103,14 +103,14 @@ export function installSettingsAddress(
   return ok({ url: `http://${host}:${port}`, source: "install_settings" });
 }
 
-export function defaultAddress(): DaemonAddress {
+function defaultAddress(): DaemonAddress {
   return {
     url: `http://127.0.0.1:${DEFAULT_API_PORT}`,
     source: "default",
   };
 }
 
-export type DaemonAddressInputs = {
+type DaemonAddressInputs = {
   option?: string;
   env?: string;
   runMetadata?: unknown;
@@ -133,7 +133,7 @@ function explicitResult(
 
 // 순서는 명시 옵션 → 환경 설정 → 현재 daemon 연결 정보 → 설치 설정 → 기본이다.
 // 명시 주소의 거절은 다음 단계로 내려가지 않는다. 출처 값은 주입한다.
-export function resolveDaemonAddress(
+function resolveDaemonAddress(
   sources: DaemonAddressInputs,
 ): Result<DaemonAddress> {
   if (sources.option !== undefined) {

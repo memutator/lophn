@@ -21,7 +21,7 @@ import type { RunContext } from "./commands/types.ts";
 const VERSION = "0.1.0";
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
-export type CliOptions = {
+type CliOptions = {
   env?: { get(name: string): string | undefined };
   fetch?: RpcFetch;
   stdout?: WritableStream<Uint8Array>;

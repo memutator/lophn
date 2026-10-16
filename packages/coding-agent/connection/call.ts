@@ -10,7 +10,7 @@ import {
 import type { Route, UploadRoute } from "../../protocol/base/mod.ts";
 import type { CoreClient } from "./client/core.ts";
 
-export type RouteCall = {
+type RouteCall = {
   route: Route;
   input: Record<string, unknown>;
   // 없으면 새로 만든다. 같은 key로 다시 부르면 같은 효과다.

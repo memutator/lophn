@@ -27,7 +27,7 @@ export type RunContext = {
   local: LocalEnv;
 };
 
-export type CommandRun = (
+type CommandRun = (
   // 공통 칸(json·input·input_file·idempotency_key)을 뺀 command 입력이다.
   input: Record<string, unknown>,
   ctx: RunContext,
@@ -49,7 +49,7 @@ export type CommandEntry = {
 };
 
 // 읽기 명령의 마지막 단어다. 이름 pattern만으로 읽기를 가릴 수 있어야 하므로 변경 명령은 이 단어를 쓰지 않는다.
-export const READ_WORDS = [
+const READ_WORDS = [
   "list",
   "show",
   "status",
@@ -61,12 +61,12 @@ export const READ_WORDS = [
   "detect",
 ] as const;
 
-export function isReadName(name: string): boolean {
+function isReadName(name: string): boolean {
   const last = name.split(" ").at(-1) ?? name;
   return (READ_WORDS as readonly string[]).includes(last);
 }
 
-export function specOf(name: string): CodingCliCommand {
+function specOf(name: string): CodingCliCommand {
   const spec = CODING_CLI_COMMANDS.find((command) => command.name === name);
   if (spec === undefined) throw new Error(`command not in table: ${name}`);
   return spec;

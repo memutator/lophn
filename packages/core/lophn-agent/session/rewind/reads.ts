@@ -21,7 +21,7 @@ import { type PlanDeps, planRewind } from "./preview.ts";
 // 되돌리기 읽기(lophn-agent/revert). preview는 저장된 목록이 아니라 지금의 기록과 파일 상태로 다시
 // 만든 현재 판이고 command나 event를 만들지 않는다. 읽는 쪽은 사람과 machine뿐이다(agent·앱에는 내용도
 // 경로도 주지 않는다). 숨김 구간은 reverts 행에서 읽는다(hidden.ts). 고른 시점 뒤 이 session이 앱에 한
-// write invocation은 AppWrites(S5가 준다)로 받아 `app_writes`에 싣는다. reader Worker에서는 등록한 port를
+// write invocation은 AppWrites(apps가 준다)로 받아 `app_writes`에 싣는다. reader Worker에서는 등록한 port를
 // 쓴다. 앱 rewind의 계획(함께 되돌아갈 다른 변경, external 효과, 되돌릴 수 없는 write)은 여기서 만들지
 // 않고 앱 rewind의 계획 route가 보인다.
 

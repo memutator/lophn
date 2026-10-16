@@ -229,6 +229,8 @@ export function createAppCalls(
         if (abandoned) return null;
         if (!gated.ok) return gated;
         if (!gated.value.pass) return recordDenied(base, gated.value.code);
+        // 사람을 기다리는 Gate는 줄을 얻기 전에 끝내고, 허락은 줄을 얻은 뒤 실행 직전에 쓴다.
+        // 사람 대기가 앱의 write 줄을 막지 않게 하려는 순서라 둘을 합치지 않는다.
         consume = gated.value.consume;
       }
 

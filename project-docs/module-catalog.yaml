@@ -1,0 +1,99 @@
+# lophn — Module Catalog
+#
+# 코드 module(폴더)과 추상화(boundary)를 잇는 한 파일이다. 어느 폴더가 어느 boundary인지만 정한다.
+# boundary는 project-docs/boundary-catalog.yaml의 ID(elements를 재귀로 돈 것과 interfaces 중 하나)다.
+# 세분도: packages/ 바로 아래 package, packages/core/ 바로 아래 module, shell은 바로 아래 폴더, tools/.
+# import 허용 규칙은 여기 없다. tools/check-deps.ts가 원본이다.
+#
+# 칸: path(필수), boundary(필수), notes(코드만 보면 모를 것 한두 줄, 없으면 칸을 두지 않는다),
+#     doc(그 module에 AGENTS.md가 있을 때만).
+# tools/check-modules.ts가 본다: path가 있는지, boundary ID가 있는지, 세분도의 폴더가 빠짐없이 올라 있는지,
+# AGENTS.md가 있는 module에 doc이 있는지. boundary-catalog.yaml 자체의 ID·참조·kind별 칸도 같이 본다.
+
+modules:
+
+  - path: packages/base
+    boundary: base
+
+  - path: packages/protocol
+    boundary: protocol
+    notes: 구현을 두지 않는다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다).
+
+  - path: packages/coding-agent
+    boundary: coding-agent
+
+  - path: packages/design
+    boundary: design
+    notes: 화면 문구는 직접 쓰지 않고 wording key로 쓴다(wording/).
+
+  - path: packages/sdk
+    boundary: sdk
+
+  - path: packages/core/approvals
+    boundary: approvals
+
+  - path: packages/core/apps
+    boundary: apps
+
+  - path: packages/core/config
+    boundary: config
+
+  - path: packages/core/diagnostics
+    boundary: diagnostics
+
+  - path: packages/core/events
+    boundary: events
+
+  - path: packages/core/install-and-update
+    boundary: core
+    notes: 맞는 하위 boundary가 없어 core로 둔다(data root 해석, 실행 metadata, instance lock).
+
+  - path: packages/core/lophn-agent
+    boundary: lophn-agent
+
+  - path: packages/core/main
+    boundary: core
+    notes: process entry(daemon, agent-runtime, worker, app-supervisor)와 조립만 한다. 업무 규칙을 두지 않고 module이 main을 import하지 않는다. daemon은 module마다 wiring/<module>.ts가 끼우고 assembly.ts의 목록이 순서를 정한다. wiring file끼리 import하지 않고 둘 이상이 쓰는 값은 wiring/context.ts로 나눈다.
+
+  - path: packages/core/problems
+    boundary: problems
+
+  - path: packages/core/projects
+    boundary: projects
+
+  - path: packages/core/router
+    boundary: agent-sessions
+    notes: 사람 메시지, call tool, Reactor에서 온 입력을 session 입력함으로 보낸다. domain module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
+
+  - path: packages/core/secrets
+    boundary: secrets
+
+  - path: packages/core/server
+    boundary: server
+
+  - path: packages/core/storage
+    boundary: storage
+
+  - path: packages/core/supervision
+    boundary: supervision
+
+  - path: packages/shell/main
+    boundary: shell
+    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다.
+
+  - path: packages/shell/renderer
+    boundary: shell
+
+  - path: packages/shell/preload
+    boundary: shell
+
+  - path: packages/shell/ipc
+    boundary: shell
+
+  - path: packages/shell/terminal-host
+    boundary: shell
+    notes: shell 중 coding-agent를 import할 수 있는 곳이다(shell/main/terminal도).
+
+  - path: tools
+    boundary: null
+    notes: 개발 도구(check, wireframes, fake provider)라 맞는 boundary가 없다.

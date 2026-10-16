@@ -62,7 +62,7 @@ export interface SessionEndEffects {
   failReceivedCalls(tx: Tx, session: Id<"ses">): Result<void>;
 }
 
-// session rewind가 앱 rewind와 잇는 길(S5가 준다).
+// session rewind가 앱 rewind와 잇는 길(apps가 준다).
 export interface AppWrites {
   writesAfter(session: Id<"ses">, checkpointSeq: Seq): SessionAppWrites;
 }

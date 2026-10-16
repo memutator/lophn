@@ -1,7 +1,8 @@
 #!/bin/bash
-# boot.sh: route duplicates, then start core twice on the same fresh data root (restart check).
-cd /home/pyosechang/projects/lophn
-D=/home/pyosechang/projects/lophn/project-docs/plan/tools/lead; L=${TMPDIR:-/tmp}
+# boot.sh: route 중복 검사 뒤, 새 data root로 core를 두 번 띄운다(재시작 확인). 각 boot의 exit 0을 본다.
+ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
+cd "$ROOT" || exit 1
+D=project-docs/plan/tools/lead; L=${TMPDIR:-/tmp}
 deno run -A --config deno.json $D/dup-routes.ts 2>&1 | head -1
 H=.dev-data/boot; rm -rf $H; mkdir -p -m 700 $H
 for i in 1 2; do

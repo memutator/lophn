@@ -55,7 +55,7 @@ export const createPendingCommand: CommandDefinition<
     if (!allowed.ok) return allowed;
     const kind = pendingKindAllowed(input.intent);
     if (!kind.ok) return kind;
-    // 같은 intent가 이미 기다리면 새로 묻지 않는다.
+    // 같은 intent가 이미 기다리면 새로 묻지 않는다. Reactor가 같은 event를 다시 처리해도 카드가 불어나지 않게 한다.
     const intent = canonicalize(input.intent);
     const same = tx.sql.get(
       `select id from approval_requests where status = 'pending' and intent = ?`,

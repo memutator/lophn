@@ -33,7 +33,7 @@ const TERMINAL_HOST = [
   "packages/shell/main/terminal",
 ];
 
-async function walk(
+export async function walk(
   root: string,
 ): Promise<{ files: string[]; paths: string[] }> {
   const files: string[] = [];
@@ -55,8 +55,10 @@ async function walk(
 
 function numberedName(segment: string): boolean {
   const name = segment.replace(/\.[^.]+$/, "").replace(/_test$/, "");
-  return /^(?:v\d+|[mw]\d+|milestone\d*|phase-?\d*)$/i.test(name) ||
-    /^(?:new|old|legacy)-/i.test(name) || /-next$/i.test(name);
+  return name.split(/[-.]/).some((token) =>
+    /^(?:v\d+|[mw]\d+|milestone\d*)$/i.test(token)
+  ) || /^phase-?\d*$/i.test(name) || /^(?:new|old|legacy)-/i.test(name) ||
+    /-next$/i.test(name);
 }
 
 function protocolTop(file: string): string | undefined {

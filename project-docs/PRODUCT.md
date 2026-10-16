@@ -89,8 +89,6 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 | 사용자 도메인을 범용 모델로 미리 만들기 | 필요할 때 agent가 그 사람에게 맞춰 만든다(2절) |
 | 원격, 여러 사람용 서비스 | 자기 컴퓨터에서 도는 개인 작업 공간이다 |
 
-전체 목록은 `values.yaml`의 `non_goals`에 있다.
-
 ## 6. 지금 범위와 그다음
 
 **MVP**
@@ -108,8 +106,8 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 | 문서 | 다루는 것 |
 |---|---|
-| `values.yaml` | 사람에게 하는 약속과 하지 않는 것. 판정할 수 있는 가치 |
 | `products/AGENT-ROLE.md` | agent 목록, place, 책임, agent 사이의 call과 사람에게 올림(escalate) 정책 |
-| `boundary-catalog.yaml` | lophn을 이루는 경계 |
-| `requirements/` | 경계마다 지킬 보장 |
-| `products/roadmap`, `products/change-log` | 순서와 바뀐 것 |
+| `boundary-catalog.yaml` | lophn을 이루는 경계와 공개 계약 |
+| `module-catalog.yaml` | 코드 module ↔ 경계 |
+| `architecture/` | 여러 module에 걸친 메커니즘과 그 이유 |
+| `plan/` | 진행 중인 계획, 무겁게 짠 것, 알려진 미완 |

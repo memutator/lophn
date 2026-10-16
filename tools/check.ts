@@ -140,6 +140,7 @@ async function exists(path: string): Promise<boolean> {
 async function buildSteps(
   run: Set<string>,
   full: boolean,
+  catalogChanged: boolean,
 ): Promise<{ checks: Step[]; test: Step; skipped: Result[] }> {
   const has = (...names: string[]) => full || names.some((n) => run.has(n));
   const pkgFolders = ALL_PACKAGES.filter((p) => run.has(p)).map((p) =>
@@ -173,6 +174,20 @@ async function buildSteps(
     name: "deps",
     commands: [["deno", "run", "--allow-read", "tools/check-deps.ts"]],
   });
+
+  if (full || run.size > 0) {
+    checks.push({
+      name: "source",
+      commands: [["deno", "run", "--allow-read", "tools/check-source.ts"]],
+    });
+  } else skip("source", "돌 package 없음");
+  // 폴더가 늘거나 줄어도, project-docs/*.yaml이 바뀌어도 돈다.
+  if (full || catalogChanged || run.size > 0) {
+    checks.push({
+      name: "modules",
+      commands: [["deno", "run", "--allow-read", "tools/check-modules.ts"]],
+    });
+  } else skip("modules", "package와 catalog가 안 바뀜");
 
   if (full) {
     checks.push({ name: "check", commands: [["deno", "check"]] });
@@ -404,11 +419,13 @@ async function main() {
   const base = baseIndex >= 0 ? Deno.args[baseIndex + 1] : undefined;
 
   let run: Set<string>;
+  let catalogChanged = false;
   if (full) {
     run = new Set(ALL_PACKAGES);
     console.log("바뀐 package: 전부 (--full)");
   } else {
     const files = await changedFiles(base);
+    catalogChanged = files.some((f) => /^project-docs\/[^/]+\.yaml$/.test(f));
     const changed = new Set<string>();
     let everything = files.length === 0;
     for (const f of files) {
@@ -439,7 +456,7 @@ async function main() {
     Deno.exit(130);
   });
 
-  const { checks, test, skipped } = await buildSteps(run, full);
+  const { checks, test, skipped } = await buildSteps(run, full, catalogChanged);
   const results: Result[] = [];
   let ok = await runStage(checks, results);
   if (ok) ok = await runStage([test], results);

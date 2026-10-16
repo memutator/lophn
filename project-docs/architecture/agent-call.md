@@ -1,0 +1,64 @@
+# agent-call
+
+agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼다. handoff, 결과를 받는 escalate, App Engineer가 coding agent에게 ticket을 맡기는 것, coding agent의 메시지, domain event에 대한 reaction이 모두 같은 봉투를 쓰고, 받는 곳과 답 방식만 봉투의 칸으로 다르다. 보낸 쪽은 기다리며 막히지 않는다. 답과 실패는 보낸 session의 새 입력으로 돌아온다. 사람에게 올리는 것은 call이 아니라 session 안에서 묻는 것이다(escalate는 이 뜻으로만 쓴다).
+
+## 흐름
+
+```
+ 보낸 쪽                                  Router (core/router)                    받는 쪽
+ ───────                                  ────────────────────                    ───────
+ person (메시지)             ─┐           받는 곳 풀기                        ┌─ lophn session
+ agent-tools (call/reply/cancel) ─┤       ├ 새 session   : role+place로 하나    │   run-loop 입력함(메모리)
+ events Reactor (reaction)   ─┼─ route ─▶ ├ 열린 session : session ID           │
+ coding-agent-cli (메시지)   ─┘           └ 둘 다        : 열려 있으면 거기,    └─ coding session
+                                            닫혔으면 같은 role+place의 새 session  앱별 줄 + PTY(메모리)
+                                          Gate(approvals): agent가 보낸 것만
+                                          agent_calls 행(storage): agent가 보낸 것만
+
+ coding session의 끝 ─ domain event ─▶ Reactor ─▶ call을 닫고 맡긴 App Engineer에게 reaction
+```
+
+보낸 쪽은 사람, program(근거 domain event seq), agent session, coding agent session 넷이다. 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(App Engineer와 coding agent만)이다.
+
+## 지키는 것
+
+- Router는 domain module을 import하지 않는다. session 목록, 배달, Gate, call 표는 port이고 wiring이 끼운다.
+  - 네 종류의 보낸 쪽이 모두 쓰는 입구라, 한 module에 기대면 순환이 생긴다.
+- 보낸 쪽을 막지 않는다. 동기 호출, timeout, 자동 재시도가 없다.
+  - 입력 하나가 turn 하나이고 turn이 token이라 재시도가 곧 비용이다.
+- 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. "있으면 보내고 없으면 연다"를 기본으로 두지 않는다.
+  - session을 열 때마다 token이 든다. "열린 session, 없으면 새 session"은 놓치면 안 되는 사실(coding agent의 완료 보고와 메시지, claim 만료, 보고 없는 끝)을 맡긴 App Engineer에게 돌려줄 때만 쓴다.
+- 이름은 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 not_found, 같은 이름이 여럿이면 invalid_input이다.
+- 실패는 조용히 버리지 않는다. not_found, not_allowed, closed(배달 실패), receiver_ended(받은 session이 답 없이 끝남), lophn_restarted는 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
+  - 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
+- Gate는 두 곳이다. call tool이 보내기 전에 ToolGate로 사람에게 묻고, Router는 deny는 늘 거절, ask는 "이미 허락받았다"는 표시가 있을 때만 통과시킨다(fail-closed).
+  - Router는 tx 안이라 사람의 답을 기다릴 수 없다. 합쳐서 Router 한 곳에서 판정하게 단순화하지 않는다.
+  - 열린 session으로 보내도 그 session의 agent로 판정한다.
+- 받은 메시지는 허락이 아니다. 받은 agent는 자기 grant로만 일한다. program이 막는 것은 이것 하나다.
+  - "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
+- 보낸 쪽의 대화 원문은 넘기지 않는다. body와 refs만 간다. body는 redaction을 거친 뒤에만 받는 session 기록에 들어간다.
+  - 고정 문구(실패 알림, 취소 알림)와 body는 tx 안에서 blob을 만들 수 없어서 command 앞단이 미리 준비해 둔다.
+- `agent_calls` 행은 agent가 보낸 call에만 둔다. 사람 메시지와 reaction은 행이 없고, reaction의 중복은 Reactor의 idempotency key가 막는다.
+  - 이름을 풀지 못한 call도 행이 없다(받는 곳을 적을 수 없다). 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
+- dedup(보낸 session + tool call ID)은 unique다.
+  - run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부른다. call은 Gate에서 read라 그 대상이고, 첫 시도가 call을 만들고 실패로 돌아오면 재시도가 call과 session을 하나 더 만든다.
+- 입력함과 앱 줄은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
+  - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다.
+- 같은 사실을 두 길로 알리지 않는다. coding session의 끝(완료 보고, claim 만료, 보고 없는 끝)은 domain event → Reactor 한 길로만 App Engineer에게 가고, 그 handler가 같은 tx에서 call을 닫는다.
+  - Router의 실패 알림이 같은 사실을 한 번 더 보내면 App Engineer가 두 번 반응한다. 이미 끝난 call(취소, Router가 먼저 닫음)이면 알리지 않는다.
+- 입력함 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
+- 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
+- result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.
+- coding agent에게 맡기기는 Router가 session을 열지 않고 coding transport가 연다. 앱에 끝나지 않은 coding session이 있으면 앱 줄에 서고, call은 받는 session 없이 accepted로 기다린다.
+
+## 왜 이 모양인가
+
+- **call 하나의 모양.** handoff, escalate, ticket 맡기기, coding agent 메시지, reaction을 따로 만들면 grant, 실패 처리, 화면이 다섯 벌이 된다. 다른 것은 받는 곳(새 session, 열린 session)과 답 방식(none, result, conversation)뿐이다. 선례: A2A의 id 없음/taskId, Erlang의 cast/call.
+- **동기 호출과 subagent는 버렸다.** turn이 분 단위라 보낸 turn이 결과를 기다리면 맞지 않는다(Erlang call 5초, Orleans의 turn 점유). 답은 Akka ask의 pipeToSelf처럼 보낸 session의 새 입력으로 온다. A2A의 polling, SSE, webhook도 쓰지 않는다.
+- **Orleans식 "없으면 만든다"를 버렸다.** session을 여는 것이 token이라 보내는 쪽이 명시해야 한다.
+- **dead letter를 버렸다.** 조용히 버리면 보낸 agent는 일이 진행 중인 줄 안다. Erlang monitor의 DOWN처럼 이유를 돌려준다.
+- **상태는 accepted, done, failed, cancelled 넷이다. `sent`와 `declined`가 없다.** Router가 행 만들기와 입력 넣기를 한 번에 해서 sent로 머무는 때가 없다. declined와 done을 나눠도 program이 다르게 하는 일이 없고, "맡지 않겠다"는 글은 보낸 agent가 읽을 의미다. 그래서 맡지 않을 때도 reply로 이유를 보낸다. 봉투의 여는 방식 칸(tab, tui, headless)도 transport마다 값이 하나뿐이라 뺐다. 되살리고 싶어지면 이 이유를 먼저 본다.
+- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록은 prompt가 아니라 tool result로만 주어 prompt cache를 깨지 않는다. grant가 deny인 상대는 목록에서 숨기되 호출 때 Gate가 다시 판정한다.
+- **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
+- **두 transport, 한 protocol.** 봉투, 받는 곳, 상태는 lophn session과 coding session이 같이 쓰고 배달만 다르다(입력함 / PTY, idle일 때만 넣는다). coding agent는 끝을 hook과 process 종료로도 알 수 있어서 그 경로만 Reactor를 거친다.
+- **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

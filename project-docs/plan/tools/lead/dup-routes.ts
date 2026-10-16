@@ -1,4 +1,5 @@
-import { ALL_ROUTES } from "/home/pyosechang/projects/lophn/packages/protocol/mod.ts";
+// route 이름 중복 검사. boot.sh가 부른다. 실행: deno run -A --config deno.json <이 file> (저장소 root에서)
+import { ALL_ROUTES } from "../../../../packages/protocol/mod.ts";
 const seen = new Map<string, number>();
 for (const r of ALL_ROUTES as unknown as Record<string, unknown>[]) {
   const key = String(r.name ?? r.command ?? r.method ?? JSON.stringify(Object.keys(r)));

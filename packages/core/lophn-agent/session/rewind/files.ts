@@ -76,7 +76,7 @@ export function ledgerSnapshot<T>(
   }
 }
 
-// 사람이 고른 앱을 앱 rewind에 잇는 길이다. 구현은 core 조립이 끼운다(S5의 AppWrites와 앱 rewind).
+// 사람이 고른 앱을 앱 rewind에 잇는 길이다. 구현은 core 조립이 끼운다(apps의 AppWrites와 앱 rewind).
 type RewindAppPorts = {
   // 고른 시점 뒤에 이 session이 앱에 한 write invocation.
   writes: AppWrites;

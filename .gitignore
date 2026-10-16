@@ -22,8 +22,9 @@ release/
 .DS_Store
 Thumbs.db
 
-# agent worktrees
+# agent worktrees and machine-local agent settings
 .claude/worktrees/
+.claude/settings.local.json
 
 # python caches
 __pycache__/

@@ -19,7 +19,8 @@ export type SessionRow = {
   ended: boolean;
   // SessionStarted를 냈는가. 냈으면 끝날 때 SessionEnded를 낸다.
   started: boolean;
-  // harness가 무엇이든 알려 준 적이 있는가. 없으면 상태는 unknown이다.
+  // harness가 무엇이든 알려 준 적이 있는가. 없으면 상태는 unknown이고 메시지를 넣지 않는다.
+  // 화면 출력으로 idle을 짐작하지 않는다. hook 신호만 믿는다.
   heard: boolean;
   running: boolean;
   turn: string | null;

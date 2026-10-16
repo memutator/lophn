@@ -47,13 +47,13 @@
 # - ID는 elements의 모든 깊이와 interfaces 전체에서 하나뿐인 영어 kebab-case다. 위치와 무관하게 가리킨다.
 # - ID에 계층 경로를 넣지 않는다. 같은 책임이면 구현을 바꾸거나 계층을 옮겨도 ID를 그대로 둔다.
 # - 다른 뜻에 쓰던 ID를 다시 쓰지 않는다.
-# - 다른 문서(requirements, flow, eval, products 등)는 이 ID를 가리킨다. 어떻게 가리키는지는 각 문서 형식이 정한다.
+# - module-catalog.yaml과 project-docs/architecture/가 이 ID를 가리킨다. 어떻게 가리키는지는 각 문서 형식이 정한다.
 # - 부모 ID를 가리킨 것이 모든 자식을 가리킨다는 뜻은 아니다. 메서드·단추·event마다 ID를 늘리지 않는다.
 #
 # 7. 읽기와 검사
 # - 도구는 elements를 재귀로 돈 결과와 interfaces를 합쳐 ID index 하나를 만든다.
 # - 부모 정보나 flat 목록은 필요할 때 순회 중에 파생한다. 파생 정보를 원본과 이중으로 두지 않는다.
-# - 모든 참조 ID가 있는지, ID가 겹치지 않는지, 계층이 순환하지 않는지, kind별 칸이 맞는지 검사한다.
+# - 모든 참조 ID가 있는지, ID가 겹치지 않는지, 계층이 순환하지 않는지, kind별 칸이 맞는지 검사한다(tools/check-modules.ts).
 
 schema_version: 1
 system: lophn

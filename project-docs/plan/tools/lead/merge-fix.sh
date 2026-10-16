@@ -1,2 +1,3 @@
 #!/bin/bash
-FIX=1 exec /home/pyosechang/projects/lophn/project-docs/plan/tools/lead/merge.sh "$@"
+# merge-fix.sh <id>: 단위 없는 `fix/<id>` branch용 merge.sh
+FIX=1 exec "$(dirname "$0")/merge.sh" "$@"

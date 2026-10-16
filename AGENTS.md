@@ -20,17 +20,31 @@
 
 ## 문서
 
-무엇을 만들지는 `project-docs/`가 정한다. 먼저 [PRODUCT.md](project-docs/PRODUCT.md)를 읽고, 맡은 일에 걸린 요구(`project-docs/requirements/`)와 spec(`project-docs/tmp/specs/`)만 읽는다. 정할 수 없는 것은 보고하고 추천안으로 진행한다.
+| 위치 | 무엇 |
+|---|---|
+| `project-docs/PRODUCT.md` | 제품이 무엇이고 무엇이 아닌가 |
+| `project-docs/boundary-catalog.yaml` | 추상화 경계와 공개 계약의 ID |
+| `project-docs/module-catalog.yaml` | 코드 module ↔ boundary ID |
+| `project-docs/architecture/<topic>.md` | 여러 module에 걸친 메커니즘의 흐름, 불변 조건, 이유 |
+| `project-docs/plan/` | 진행 중인 계획, `weight.md`(무겁게 짠 것), `gaps.md`(알려진 미완) |
+
+* 동작을 바꿔 architecture 문서와 달라지면 같은 변경에서 그 문서를 고친다.
+* 정할 수 없는 것은 보고하고 추천안으로 진행한다.
 
 ## 코드
 
-어떻게 만들지는 [project-docs/dev/](project-docs/dev/README.md)가, 순서와 작업 단위는 [project-docs/plan/](project-docs/plan/README.md)이 정한다.
-
-* 코드 위치와 package 사이 import 방향은 [code-map.md](project-docs/dev/code-map.md)를 따른다. core를 import하는 것은 core뿐이다.
-* 모듈 모양, 의존 방향, 오류, 이름은 [code.md](project-docs/dev/code.md)를 따른다. 이름과 경로에 `v2`, `milestone1`, `w07` 같은 판·단계·작업 번호를 넣지 않는다.
-* 테스트는 [testing.md](project-docs/dev/testing.md)를 따른다.
-* 작업은 [workflow.md](project-docs/dev/workflow.md)의 끝남 기준을 모두 채워야 끝난다. 테스트 이름과 코드 주석에 요구 ID나 작업 번호를 넣지 않는다.
+* 경계(API, command, protocol)에서는 공통 오류 코드 일곱(`invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`, `internal`)과 `packages/base`의 Result만 쓴다.
+* 시각, id, 무작위 값, 파일 시스템, 네트워크는 인자로 받는다(`packages/base`의 Clock, IdSource). 전역 mutable 상태를 두지 않는다.
+* protocol을 바꾸면 쓰는 쪽을 같은 변경에서 고친다. `v2` 경로나 `FooV2` type을 만들지 않는다.
+* 주석은 "왜"만 쓴다. 죽은 코드는 지운다.
+* 의존성은 판을 정확히 고정한다.
 * 끝내기 전에 `deno task check`를 돌린다.
+
+## 사람에게 묻는 것
+
+* push, force push, 기록 지우기, 병합 안 된 branch 삭제
+* 실제 model provider 호출(개발과 test는 `tools/fake-provider`)
+* 사람의 `~/.lophn`을 건드리는 일(개발은 `.dev-data/`)
 
 ## 호환성
 

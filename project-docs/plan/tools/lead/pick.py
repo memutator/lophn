@@ -1,16 +1,20 @@
-import sys,subprocess,re
-sys.path.insert(0,'/home/pyosechang/projects/lophn/project-docs/plan/tools')
-from briefs import *
-n=int(sys.argv[1])
-b=read_briefs()
-st=open('/home/pyosechang/projects/lophn/project-docs/plan/status.md').read()
-running=[m.group(1) for m in re.finditer(r"^\| `([^`]+)` \|[^\n]*\| running \|",st,re.M)]
-out=subprocess.run(['python3','-I','/home/pyosechang/projects/lophn/project-docs/plan/tools/status.py','ready'],capture_output=True,text=True).stdout.split('\n')
-ids=[l.split()[-1] for l in out if l.startswith('wave ')]
-def shared(p): return p.startswith('packages/design/wording') or p.endswith('.placeholders.ts')
-chosen=[]
-for t in ids:
-    if any(overlap(p,q) for c in chosen+running if c in b for p in b[t]['owned'] if not shared(p) for q in b[c]['owned'] if not shared(q)): continue
+"""사용: python3 -I pick.py N
+status.py ready 가운데 서로 소유가 겹치지 않는 task를 최대 N개 골라 id를 한 줄로 낸다."""
+import os, subprocess, sys
+TOOLS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, TOOLS)
+from briefs import read_briefs, clash
+
+if len(sys.argv) != 2:
+    print(__doc__); sys.exit(0)
+n = int(sys.argv[1])
+b = read_briefs()
+out = subprocess.run([sys.executable, "-I", os.path.join(TOOLS, "status.py"), "ready"], capture_output=True, text=True).stdout.split("\n")
+chosen = []
+for t in [l.split()[-1] for l in out if l.startswith("wave ")]:
+    if clash(b[t], [b[c] for c in chosen]):
+        continue
     chosen.append(t)
-    if len(chosen)==n: break
-print(' '.join(chosen))
+    if len(chosen) == n:
+        break
+print(" ".join(chosen))

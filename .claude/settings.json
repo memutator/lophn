@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr ready *)",
+      "Bash(bash. dev-data/lead-tools/merge-nocheck.sh *)"
+    ]
+  }
+}

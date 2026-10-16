@@ -60,6 +60,7 @@ export {
   type KnownSecretMatch,
 } from "./known-secrets.ts";
 export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
+export { snapshotPort } from "./reads.ts";
 export {
   createEventVisibilityRegistry,
   currentEventContext,

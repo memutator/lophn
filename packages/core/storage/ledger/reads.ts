@@ -60,6 +60,20 @@ export type ReaderRegistration = {
   ports: ReadonlyMap<unknown, unknown>;
 };
 
+// snapshot의 sql이 있어야 만들 수 있는 port(session이 속한 앱 같은 lookup)를 등록한다. `snapshot.port`가
+// 부를 때마다 그 snapshot으로 만들어 돌려준다. 그냥 값으로 등록한 port는 그 값 그대로 돌아온다.
+const SNAPSHOT_PORT = Symbol.for("lophn.reader.snapshotPort");
+type SnapshotPort<T> = {
+  readonly [SNAPSHOT_PORT]: (snapshot: ReadSnapshot) => T;
+};
+
+export function snapshotPort<T>(
+  create: (snapshot: ReadSnapshot) => T,
+): unknown {
+  const port: SnapshotPort<T> = { [SNAPSHOT_PORT]: create };
+  return port;
+}
+
 // entry의 정적 module이 Worker마다 함수와 port object identity를 다시 조립한다.
 export type ReaderRegistrationModule = {
   createReaderRegistration?(): ReaderRegistration;
@@ -130,7 +144,16 @@ function executeSnapshot(
       as_of_seq: asOfSeq,
       port<T>(key: unknown): T {
         requireActive();
-        if (ports.has(key)) return ports.get(key) as T;
+        if (ports.has(key)) {
+          const registered = ports.get(key);
+          if (
+            typeof registered === "object" && registered !== null &&
+            SNAPSHOT_PORT in registered
+          ) {
+            return (registered as SnapshotPort<T>)[SNAPSHOT_PORT](snapshot);
+          }
+          return registered as T;
+        }
         if (key === TargetAuthorization && authorizer !== undefined) {
           return authorizer as T;
         }

@@ -12,6 +12,7 @@ import type { TicketEvidence } from "../../../protocol/coding-agent/ticket/mod.t
 import { CodingTransport } from "../../../protocol/coding-agent/transport.ts";
 import { ticketVerified } from "../../../protocol/events/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import { addRef, removeRefs } from "../annotations/retention.ts";
 import {
   agentActor,
   cancelActorAllowed,
@@ -66,6 +67,10 @@ export function createTicketCommands(): {
               item.kind === "file" ? item.path : item.id,
             ],
           );
+          // 근거 annotation은 이 ticket이 있는 동안 sweep에 지워지지 않는다.
+          if (item.kind === "annotation") {
+            addRef(tx.sql, item.id, "ticket", id);
+          }
         });
         return ok({ ticket: id, state: "open" as const, revision: "1" });
       },
@@ -174,6 +179,7 @@ export function createTicketCommands(): {
            WHERE id = ?`,
           [input.reason, nextRevision(stored.revision), input.ticket],
         );
+        removeRefs(tx.sql, "ticket", input.ticket);
         return ok({ ticket: input.ticket, state: "cancelled" as const });
       },
     },

@@ -86,6 +86,8 @@ export function recordCredential(
 // 같은 자격을 다시 기록한다.
 const FIXED_CREDENTIALS = new Set([
   "machine:annotations",
+  "machine:approvals",
+  "machine:router",
   "machine:ticket-claims",
   APPS_CONTROL_PRINCIPAL,
   "machine:lophn-agent-bootstrap",

@@ -17,6 +17,7 @@ import type { WiringFactory } from "./wiring/context.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { appsRevertWiring } from "./wiring/apps-revert.ts";
 import { appsTicketsWiring } from "./wiring/apps-tickets.ts";
+import { annotationsWiring } from "./wiring/annotations.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { configWiring } from "./wiring/config.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
@@ -43,6 +44,7 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 // 최상위 팀마다 등록 파일 하나.
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
+import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createCoreRegistration as createProjectsPortsRegistration } from "./wiring/projects-registration.ts";
 
 export const TEAMS = [
@@ -58,6 +60,7 @@ export const TEAMS = [
   { createCoreRegistration: createTicketPortsRegistration },
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
+  { createCoreRegistration: createAnnotationsRegistration },
   { createCoreRegistration: createProjectsPortsRegistration },
 ];
 
@@ -79,6 +82,7 @@ export const TEAM_MODULES = [
   new URL("./platform-register.ts", import.meta.url).href,
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
+  new URL("../../apps/annotations/register.ts", import.meta.url).href,
   new URL("./wiring/projects-registration.ts", import.meta.url).href,
 ];
 
@@ -106,6 +110,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentProviderLoginWiring,
   appsRevertWiring,
   appsTicketsWiring,
+  annotationsWiring,
   problemsWiring,
   problemsTestsWiring,
   lophnAgentExtensionsWiring,

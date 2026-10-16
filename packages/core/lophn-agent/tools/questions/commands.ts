@@ -31,13 +31,13 @@ import {
   fixedVersionsExist,
   groupStateOf,
   loadGroup,
-  loadRunRef,
+  loadTurnRef,
   optionsOf,
   type QuestionGroup,
   sameContent,
   settingChangesOf,
 } from "./model.ts";
-import type { RunRef } from "./model.ts";
+import type { TurnRef } from "./model.ts";
 import {
   registerTextBlobs,
   storedContent,
@@ -73,13 +73,13 @@ function requireUser(ctx: RequestContext): Result<void> {
   );
 }
 
-// agent 자격은 자기 assignment의 run 묶음만 다룬다. 자격에 run이 묶여 있으면 그
-// run의 묶음만이다. 그 밖은 없는 묶음과 똑같이 답한다.
-function agentOwns(ctx: RequestContext, run: RunRef): boolean {
+// agent 자격은 자기 assignment의 turn 묶음만 다룬다. 자격에 turn이 묶여 있으면 그
+// turn의 묶음만이다. 그 밖은 없는 묶음과 똑같이 답한다.
+function agentOwns(ctx: RequestContext, turn: TurnRef): boolean {
   const actor = parseActor(ctx.actor);
   if (actor === undefined || actor.kind !== "agent") return false;
-  if (actor.id !== run.assignment) return false;
-  return ctx.run === undefined || ctx.run === null || ctx.run === run.id;
+  if (actor.id !== turn.assignment) return false;
+  return ctx.turn === undefined || ctx.turn === null || ctx.turn === turn.id;
 }
 
 type ClosedStatus = "answered" | "expired" | "cancelled";
@@ -132,19 +132,19 @@ function closeGroup(
   );
 }
 
-type LoadedPending = { group: QuestionGroup; run: RunRef };
+type LoadedPending = { group: QuestionGroup; turn: TurnRef };
 
 // 묶음을 읽고 호출자가 볼 수 있는지 본다. 보이지 않으면 없는 묶음과 같다.
 function loadVisible(
   tx: Tx,
   id: string,
-  visible: (run: RunRef) => boolean,
+  visible: (turn: TurnRef) => boolean,
 ): Result<LoadedPending> {
   const group = loadGroup(tx, id);
   if (group === undefined) return groupNotFound();
-  const run = loadRunRef(tx, group.run);
-  if (run === undefined || !visible(run)) return groupNotFound();
-  return ok({ group, run });
+  const turn = loadTurnRef(tx, group.turn);
+  if (turn === undefined || !visible(turn)) return groupNotFound();
+  return ok({ group, turn });
 }
 
 type StoredAnswer =
@@ -251,7 +251,7 @@ function answerHandle(
   if (!user.ok) return user;
   const loaded = loadVisible(tx, input.group, () => true);
   if (!loaded.ok) return loaded;
-  const { group, run } = loaded.value;
+  const { group, turn } = loaded.value;
   if (
     group.created_seq !== compare.created_seq ||
     group.created_seq !== input.created_seq
@@ -273,8 +273,8 @@ function answerHandle(
     }
     return reject("conflict", "the question group is already closed");
   }
-  if (run.state === "finished") {
-    return reject("conflict", "the run is finished");
+  if (turn.state === "finished") {
+    return reject("conflict", "the turn is finished");
   }
   const open = checkGroupOpen(group, tx.now());
   if (!open.ok) return open;
@@ -320,9 +320,9 @@ function createHandle(
   if (actor === undefined || actor.kind !== "agent") {
     return reject("forbidden", "only an agent asks a question");
   }
-  const run = loadRunRef(tx, input.run);
-  if (run === undefined || !agentOwns(ctx, run)) {
-    return reject("not_found", "run not found");
+  const turn = loadTurnRef(tx, input.turn);
+  if (turn === undefined || !agentOwns(ctx, turn)) {
+    return reject("not_found", "turn not found");
   }
   const shape = validateNewGroup(input.questions);
   if (!shape.ok) return shape;
@@ -350,28 +350,28 @@ function createHandle(
       return reject("conflict", "question id already used");
     }
   }
-  // 끝난 run은 새 묶음을 받지 않는다. 시작 전·이미 답을 기다리는 run도 같다.
-  if (run.state === "finished") {
-    return reject("forbidden", "the run is finished");
+  // 끝난 turn은 새 묶음을 받지 않는다. 시작 전·이미 답을 기다리는 turn도 같다.
+  if (turn.state === "finished") {
+    return reject("forbidden", "the turn is finished");
   }
-  if (run.state !== "running") {
-    return reject("conflict", "the run is not running");
+  if (turn.state !== "running") {
+    return reject("conflict", "the turn is not running");
   }
-  if (assignmentState(tx, run.assignment) !== "enabled") {
+  if (assignmentState(tx, turn.assignment) !== "enabled") {
     return reject("forbidden", "the assignment is not enabled");
   }
-  // 세션은 선택이다. 있으면 run의 세션이어야 한다.
-  if (input.session !== null && input.session !== run.session) {
-    return reject("invalid_input", "session does not belong to the run");
+  // 세션은 선택이다. 있으면 turn의 세션이어야 한다.
+  if (input.session !== null && input.session !== turn.session) {
+    return reject("invalid_input", "session does not belong to the turn");
   }
-  // run 하나에 답을 기다리는 묶음은 하나다.
+  // turn 하나에 답을 기다리는 묶음은 하나다.
   if (
     tx.sql.get(
-      "select 1 as found from question_groups where run = ? and status = 'pending'",
-      [run.id],
+      "select 1 as found from question_groups where turn = ? and status = 'pending'",
+      [turn.id],
     ) !== undefined
   ) {
-    return reject("conflict", "the run already waits for an answer");
+    return reject("conflict", "the turn already waits for an answer");
   }
   // 묶음 안과 이미 받은 답에서 같은 본문을 다시 묻지 않는다.
   const asked = new Set<string>();
@@ -384,8 +384,8 @@ function createHandle(
       tx.sql.get(
         `select 1 as found from questions q
          join question_groups g on g.id = q."group"
-         where g.run = ? and g.status = 'answered' and q.prompt_blob = ?`,
-        [run.id, question.prompt_blob],
+         where g.turn = ? and g.status = 'answered' and q.prompt_blob = ?`,
+        [turn.id, question.prompt_blob],
       ) !== undefined
     ) {
       return reject("conflict", "this question was already answered");
@@ -419,17 +419,17 @@ function createHandle(
     summary.push({ id: question.id, options });
   }
   const seq = tx.emit(questionCreated, input.id, {
-    run: input.run,
+    turn: input.turn,
     session: input.session,
     questions: summary,
   });
   tx.sql.run(
-    `insert into question_groups (id, run, session, created_by, expires_at,
+    `insert into question_groups (id, turn, session, created_by, expires_at,
        status, created_seq)
      values (?, ?, ?, ?, ?, 'pending', ?)`,
     [
       input.id,
-      input.run,
+      input.turn,
       input.session,
       ctx.actor,
       input.expires_at,
@@ -547,10 +547,10 @@ export function createQuestionCommands(): {
         const loaded = loadVisible(
           tx,
           input.group,
-          (run) => actor.kind !== "agent" || agentOwns(ctx, run),
+          (turn) => actor.kind !== "agent" || agentOwns(ctx, turn),
         );
         if (!loaded.ok) return loaded;
-        const { group, run } = loaded.value;
+        const { group, turn } = loaded.value;
         if (
           group.created_seq !== compare.created_seq ||
           group.created_seq !== input.created_seq
@@ -566,7 +566,7 @@ export function createQuestionCommands(): {
           return reject("forbidden", "only the asking agent cancels it");
         }
         if (
-          actor.kind === "machine" && run.state !== "finished" &&
+          actor.kind === "machine" && turn.state !== "finished" &&
           input.closed_reason !== "superseded"
         ) {
           return reject(

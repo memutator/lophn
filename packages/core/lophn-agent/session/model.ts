@@ -389,7 +389,7 @@ export function openCompactRequest(
 }
 
 // 도는 turn이 있는지.
-export function hasUnfinishedRun(lookup: Lookup, session: string): boolean {
+export function hasUnfinishedTurn(lookup: Lookup, session: string): boolean {
   return lookup.sql.get(
     "select 1 as found from turns where session = ? and state = 'running' limit 1",
     [session],

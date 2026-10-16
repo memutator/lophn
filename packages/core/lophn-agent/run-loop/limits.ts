@@ -31,7 +31,7 @@ export const TURN_LIMIT_SETTING_KEYS = {
 
 type TurnLimitKey = keyof typeof TURN_LIMIT_SETTING_KEYS;
 
-// run 한도 선언. 공통 설정 하나씩이고 양의 정수만 받는다. 0·무제한은 없다. 사람이 바꾸고 다음 turn부터
+// turn 한도 선언. 공통 설정 하나씩이고 양의 정수만 받는다. 0·무제한은 없다. 사람이 바꾸고 다음 turn부터
 // 적용하며 turn은 시작할 때 값을 고정한다.
 function limitSetting(name: TurnLimitKey) {
   return declareSetting({

@@ -4,7 +4,7 @@ import { declareSetting } from "../../protocol/config/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
-import { defineTxPort, runAdmission } from "../storage/ledger/mod.ts";
+import { defineTxPort, turnAdmission } from "../storage/ledger/mod.ts";
 import {
   finishRewindSummary,
   instructionPreview,
@@ -253,17 +253,17 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
   };
 }
 
-// run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
+// turn ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
-const runCommands = createTurnCommands({
+const turnCommands = createTurnCommands({
   publish: publishAfterCommit,
   calls: callSignals,
 });
-const runReads = createTurnReads();
+const turnReads = createTurnReads();
 
-// DeleteSession이 같은 Tx에서 지우는 그 세션의 run 기록이다. run을 가리키는 표마다
-// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 질문 묶음, tool call, model 호출, 마지막으로 run. 본문 참조는 소유 행보다
+// DeleteSession이 같은 Tx에서 지우는 그 세션의 turn 기록이다. turn을 가리키는 표마다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 질문 묶음, tool call, model 호출, 마지막으로 turn. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
@@ -279,10 +279,10 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   return ok(undefined);
 }
 
-// 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
-// transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
+// 세션과 메시지(concern conversation). 사람 입력 접수는 담당 turn 접수와 한
+// transaction이므로 run-loop의 StartTurn handler를 같은 Tx에서 부른다. StartTurn은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
-// message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
+// message 출처의 turn이다. 바깥 command의 actor·event 기록은 그대로다.
 const conversationCommands = createConversationCommands({
   // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
   send: { router: messageRouter, directory: messageDirectory },
@@ -324,8 +324,8 @@ const revertCommands = createSessionRewindCommands(revertDeps);
 // core의 route 등록이고 core에서는 실행되지 않는다.
 const revertReads = createSessionRewindReads({});
 
-// run·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고
-// 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
+// turn·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고
+// 조회 때 turn·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
 // step이 없다.
 const traceReads = createTraceReads();
 
@@ -341,12 +341,12 @@ const toolReads = createToolReads();
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
-// agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
-// (platform/ledger). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
-// unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
-const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
-  status: (run: string) => {
-    const row = tx.sql.get("select state from turns where id = ?", [run]);
+// agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 turn이 진행 중일 때만 통과한다
+// (platform/ledger). 판정은 이 concern의 turns 표를 같은 Tx에서 읽는다. 없는 turn은
+// unknown이고 끝난 turn은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
+const turnAdmissionPort = defineTxPort(turnAdmission, (tx) => ({
+  status: (turn: string) => {
+    const row = tx.sql.get("select state from turns where id = ?", [turn]);
     if (row === undefined) return "unknown" as const;
     return row["state"] === "finished"
       ? "finished" as const
@@ -654,10 +654,10 @@ export const lophnAgentDefinitions = {
     agentCommands.delete,
     agentCommands.changeBuiltin,
     projectExtensionCommands.change,
-    runCommands.start,
-    runCommands.checkpoint,
-    runCommands.finish,
-    runCommands.stop,
+    turnCommands.start,
+    turnCommands.checkpoint,
+    turnCommands.finish,
+    turnCommands.stop,
     conversationCommands.open,
     conversationCommands.rename,
     conversationCommands.archive,
@@ -701,9 +701,9 @@ export const lophnAgentDefinitions = {
     agentReads.read,
     skillsReads.read,
     projectExtensionReads.read,
-    runReads.read,
-    runReads.list,
-    runReads.result,
+    turnReads.read,
+    turnReads.list,
+    turnReads.result,
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
@@ -730,7 +730,7 @@ export const lophnAgentDefinitions = {
     ...questionBodyFields,
     ...messageBodyFields,
   ],
-  ports: [runAdmissionPort],
+  ports: [turnAdmissionPort],
   workers: [],
   // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
   memoryRoutes: [
@@ -773,7 +773,7 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
     })),
 };
 
-// 사람이 run 근거·tool 입력·tool 결과를 펼쳐 볼 때 지금의 redaction을 거치는 통로다. 알려진 secret 값은
+// 사람이 turn 근거·tool 입력·tool 결과를 펼쳐 볼 때 지금의 redaction을 거치는 통로다. 알려진 secret 값은
 // 기동 뒤에야 알려지므로 core가 늦게 채우는 함수로 준다. 붙이지 않은 등록은 끝내지 못한 것으로 답한다.
 const UNATTACHED_REDACT = (): string | null => null;
 

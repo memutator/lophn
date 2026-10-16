@@ -1,4 +1,4 @@
-// run trace(ReadAgentTrace)에서 그리는 활동 줄·카드의 화면 값. trace에 없는
+// turn trace(ReadAgentTrace)에서 그리는 활동 줄·카드의 화면 값. trace에 없는
 // 줄은 그리지 않는다.
 
 /** 보기 상세 select의 값: Messages·Compact(기본)·Everything. */

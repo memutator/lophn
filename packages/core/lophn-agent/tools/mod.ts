@@ -32,7 +32,7 @@ export {
 } from "./result.ts";
 export {
   executeToolCall,
-  type RunCredential,
+  type TurnCredential,
   type ToolHandler,
 } from "./work.ts";
 export { builtinTools, listRoleTools } from "./builtin.ts";

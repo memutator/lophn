@@ -103,7 +103,7 @@ const approvalGrantScopeSchema = z.enum(APPROVAL_GRANT_SCOPES);
 const approvalRequestSchema = z.object({
   id: idSchema("apr"),
   requester: actorSchema,
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   reason_blob: sha256Schema,
   effect: approvalEffectSchema,
   action: approvalActionSchema,
@@ -180,7 +180,7 @@ export const approvalsGet = defineRead({
 
 const approvalsListInputSchema = z.strictObject({
   status: approvalStatusSchema.optional(),
-  run: idSchema("run").optional(),
+  turn: idSchema("trn").optional(),
   // session 허락이 사는 session으로 거른다. tool-judgment가 그 session의 허락을 찾는다.
   grant_session: idSchema("ses").optional(),
   limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
@@ -228,7 +228,7 @@ const contentCompareSchema = z.strictObject({ created_seq: seqSchema });
 const createApprovalRequestInputSchema = z.strictObject({
   id: idSchema("apr"),
   requester: actorSchema,
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   reason: approvalTextSchema,
   effect: approvalEffectInputSchema,
   action: approvalActionSchema,

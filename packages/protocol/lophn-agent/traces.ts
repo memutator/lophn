@@ -10,7 +10,7 @@ import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { agentRoleSchema } from "./scope.ts";
-import { runOutcomeOutputSchema, runStateSchema } from "./run-values.ts";
+import { turnOutcomeOutputSchema, turnStateSchema } from "./turn-values.ts";
 
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().regex(/\S/);
@@ -24,7 +24,7 @@ const readErrors = [
 ] as const;
 
 const traceTargetSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("run"), run: idSchema("run") }),
+  z.strictObject({ kind: z.literal("turn"), turn: idSchema("trn") }),
   z.strictObject({ kind: z.literal("session"), session: idSchema("ses") }),
   z.strictObject({
     kind: z.literal("model_call"),
@@ -48,8 +48,8 @@ const timesSchema = z.strictObject({
 });
 
 const handoffLinkSchema = z.strictObject({
-  sender_run: idSchema("run"),
-  receiver_run: idSchema("run"),
+  sender_turn: idSchema("trn"),
+  receiver_turn: idSchema("trn"),
   original_message: idSchema("msg"),
 });
 
@@ -78,11 +78,11 @@ const activitySchema = z.object({
   }),
 });
 
-const runTraceSchema = z.object({
-  run: idSchema("run").nullable(),
+const turnTraceSchema = z.object({
+  turn: idSchema("trn").nullable(),
   session: idSchema("ses").nullable(),
   assignment: idSchema("asg").nullable(),
-  state: runStateSchema.nullable(),
+  state: turnStateSchema.nullable(),
   started_at: atSchema.nullable(),
   finished_at: atSchema.nullable(),
   basis: hash.nullable(),
@@ -93,10 +93,10 @@ const runTraceSchema = z.object({
   handoff_links: z.array(handoffLinkSchema),
   activity: activitySchema,
   times: timesSchema,
-  reason: runOutcomeOutputSchema.nullable(),
+  reason: turnOutcomeOutputSchema.nullable(),
   missing: z.array(missingSchema),
 });
-export type RunTrace = z.infer<typeof runTraceSchema>;
+export type TurnTrace = z.infer<typeof turnTraceSchema>;
 
 const agentTraceReadInputSchema = z.strictObject({
   target: traceTargetSchema,
@@ -113,7 +113,7 @@ const agentTraceReadInputSchema = z.strictObject({
 );
 
 const agentTraceReadOutputSchema = withReadCommon(z.object({
-  trace: runTraceSchema,
+  trace: turnTraceSchema,
 }));
 
 export const agentTraceRead = defineRead({

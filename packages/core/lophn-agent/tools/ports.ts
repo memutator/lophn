@@ -20,7 +20,7 @@ export interface QuestionWait {
   ): Promise<Result<AskResult>>;
 }
 
-// Gate가 걸리는 tool을 실행하기 직전에 core에 묻는다. run이 아니면 실행하지 않는다.
+// Gate가 걸리는 tool을 실행하기 직전에 core에 묻는다. turn이 아니면 실행하지 않는다.
 export interface ToolGatePort {
   check(input: ToolGateInput): Promise<Result<ToolGateResult>>;
 }

@@ -1,6 +1,6 @@
-import type { RunTrace } from "../../../protocol/lophn-agent/mod.ts";
+import type { TurnTrace } from "../../../protocol/lophn-agent/mod.ts";
 
-// trace는 저장하지 않는다. 조회 때 읽은 원본 사실(run·event·ModelCall·ToolCall·message 참조)에서
+// trace는 저장하지 않는다. 조회 때 읽은 원본 사실(turn·event·ModelCall·ToolCall·message 참조)에서
 // 순수하게 조립한다. IO와 SQL은 reads.ts가 한다. 본문·오류 원문·추론은 입력에 없고 따라서
 // 출력에도 없다.
 
@@ -43,8 +43,8 @@ export type ToolFacts = {
 
 export type MessageFacts = { id: string; body: string };
 
-// 시작·상태·종료 확인은 run 하나를 기준으로 할 때만 있다. 독립 호출 trace에는 run 사실이 없다.
-export type RunFacts = {
+// 시작·상태·종료 확인은 turn 하나를 기준으로 할 때만 있다. 독립 호출 trace에는 turn 사실이 없다.
+export type TurnFacts = {
   id: string;
   assignment: string;
   session: string | null;
@@ -52,17 +52,17 @@ export type RunFacts = {
   basis: string | null;
   started_at: string | null;
   finished_at: string | null;
-  outcome: RunTrace["reason"];
+  outcome: TurnTrace["reason"];
   result: string | null;
-  // CheckpointRun이 남긴 단조 누적값이다. 사람을 기다린 시간은 들어 있지 않다.
+  // CheckpointTurn이 남긴 단조 누적값이다. 사람을 기다린 시간은 들어 있지 않다.
   elapsed_active_ms: number;
 };
 
 type TraceInput = {
-  run: RunFacts | null;
-  // run 없이 호출 하나를 기준으로 할 때의 실제 연결(없으면 null). 가짜 run·session을 만들지 않는다.
+  turn: TurnFacts | null;
+  // turn 없이 호출 하나를 기준으로 할 때의 실제 연결(없으면 null). 가짜 turn·session을 만들지 않는다.
   call: {
-    run: string | null;
+    turn: string | null;
     session: string | null;
     assignment: string | null;
   };
@@ -70,7 +70,7 @@ type TraceInput = {
   messages: readonly MessageFacts[];
   models: readonly ModelFacts[];
   tools: readonly ToolFacts[];
-  handoff_links: RunTrace["handoff_links"];
+  handoff_links: TurnTrace["handoff_links"];
   // `${owner_key}\u0000${hash}` 형태의 등록된 영구 참조.
   refs: ReadonlySet<string>;
   // 시작 event는 있지만 기록 행이 없는 호출.
@@ -110,7 +110,7 @@ function sum(values: readonly (number | null)[]): number {
 function activityOf(
   models: readonly ModelFacts[],
   tools: readonly ToolFacts[],
-): RunTrace["activity"] {
+): TurnTrace["activity"] {
   const ids = (picked: readonly { id: string }[]) => picked.map((m) => m.id);
   const byOutcome = (kind: ModelFacts["outcome_kind"]) =>
     ids(
@@ -144,8 +144,8 @@ function activityOf(
   };
 }
 
-function missingOf(input: TraceInput): RunTrace["missing"] {
-  const missing: RunTrace["missing"] = [];
+function missingOf(input: TraceInput): TurnTrace["missing"] {
+  const missing: TurnTrace["missing"] = [];
   const record = (reference: string, reason: string) =>
     missing.push({ kind: "record", reference, reason });
   const body = (owner: string, field: string, hash: string | null) => {
@@ -157,17 +157,17 @@ function missingOf(input: TraceInput): RunTrace["missing"] {
       });
     }
   };
-  const { run } = input;
-  if (run !== null) {
-    if (run.state !== "finished") record(run.id, "end_not_confirmed");
-    body(run.id, "basis", run.basis);
-    body(run.id, "result", run.result);
+  const { turn } = input;
+  if (turn !== null) {
+    if (turn.state !== "finished") record(turn.id, "end_not_confirmed");
+    body(turn.id, "basis", turn.basis);
+    body(turn.id, "result", turn.result);
     // 시도 번호는 1부터 빈틈이 없다. 빈 번호는 기록 누락이다.
     const seen = new Set(input.models.map((m) => m.attempt_order));
     const last = Math.max(0, ...seen);
     for (let order = 1; order <= last; order++) {
       if (!seen.has(order)) {
-        record(`${run.id}#attempt-${order}`, "attempt_record_absent");
+        record(`${turn.id}#attempt-${order}`, "attempt_record_absent");
       }
     }
   }
@@ -188,24 +188,24 @@ function missingOf(input: TraceInput): RunTrace["missing"] {
   return missing;
 }
 
-export function assembleTrace(input: TraceInput): RunTrace {
-  const { run, models, tools } = input;
+export function assembleTrace(input: TraceInput): TurnTrace {
+  const { turn, models, tools } = input;
   const modelMs = sum(models.map((m) => m.duration_ms));
   const toolMs = sum(tools.map((t) => t.duration_ms));
-  const waiting = run === null ? 0 : waitingMs(input.events);
-  // run 전체 경과는 단조 누적값(active)과 기다림의 합이다. 시작·종료 시각의 차이는 쓰지 않는다.
-  const active = run === null ? modelMs + toolMs : run.elapsed_active_ms;
+  const waiting = turn === null ? 0 : waitingMs(input.events);
+  // turn 전체 경과는 단조 누적값(active)과 기다림의 합이다. 시작·종료 시각의 차이는 쓰지 않는다.
+  const active = turn === null ? modelMs + toolMs : turn.elapsed_active_ms;
   const firstOutput = [...models]
     .sort((a, b) => a.attempt_order - b.attempt_order)
     .find((m) => m.first_output_ms !== null)?.first_output_ms ?? null;
   return {
-    run: run?.id ?? input.call.run,
-    session: run?.session ?? input.call.session,
-    assignment: run?.assignment ?? input.call.assignment,
-    state: run?.state ?? null,
-    started_at: run?.started_at ?? null,
-    finished_at: run?.finished_at ?? null,
-    basis: run?.basis ?? null,
+    turn: turn?.id ?? input.call.turn,
+    session: turn?.session ?? input.call.session,
+    assignment: turn?.assignment ?? input.call.assignment,
+    state: turn?.state ?? null,
+    started_at: turn?.started_at ?? null,
+    finished_at: turn?.finished_at ?? null,
+    basis: turn?.basis ?? null,
     events: input.events.map((event) => event.seq),
     messages: input.messages.map((message) => message.id),
     model_calls: models.map((m) => m.id),
@@ -221,32 +221,32 @@ export function assembleTrace(input: TraceInput): RunTrace {
       tool_ms: toolMs,
     },
     // 종료 확인이 없으면 null이다. 정상 종료로 올리지 않는다.
-    reason: run?.state === "finished" ? run.outcome : null,
+    reason: turn?.state === "finished" ? turn.outcome : null,
     missing: missingOf(input),
   };
 }
 
-// session 하나의 run trace들을 한 묶음으로 합친다. run·종료는 하나가 아니므로 비운다.
+// session 하나의 turn trace들을 한 묶음으로 합친다. turn·종료는 하나가 아니므로 비운다.
 export function mergeTraces(
   session: string,
   assignment: string,
-  traces: readonly RunTrace[],
-): RunTrace {
+  traces: readonly TurnTrace[],
+): TurnTrace {
   const seqs = new Set<string>();
   for (const trace of traces) for (const seq of trace.events) seqs.add(seq);
-  const links = new Map<string, RunTrace["handoff_links"][number]>();
+  const links = new Map<string, TurnTrace["handoff_links"][number]>();
   for (const trace of traces) {
     for (const link of trace.handoff_links) {
       links.set(`${link.sender_run}>${link.receiver_run}`, link);
     }
   }
-  const all = <T>(pick: (trace: RunTrace) => readonly T[]): T[] =>
+  const all = <T>(pick: (trace: TurnTrace) => readonly T[]): T[] =>
     traces.flatMap(pick);
-  const sumTimes = (key: keyof RunTrace["times"]) =>
+  const sumTimes = (key: keyof TurnTrace["times"]) =>
     sum(traces.map((trace) => trace.times[key]));
   const finished = traces.every((trace) => trace.finished_at !== null);
   return {
-    run: null,
+    turn: null,
     session,
     assignment,
     state: null,

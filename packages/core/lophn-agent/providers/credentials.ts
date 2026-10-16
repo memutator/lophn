@@ -10,7 +10,7 @@ import { type ProviderCredential } from "../../../protocol/lophn-agent/mod.ts";
 
 // credential이 지금 쓸 수 있는가. usage_wait는 until 도달까지 막는다. model 전용 대기는 그
 // model에만 막는다. rejected·revoked는 쓸 수 없다. provider에는 credential이 하나라
-// 고르거나 넘어갈 다른 credential은 없고, 쓸 수 없으면 run이 멈춘다.
+// 고르거나 넘어갈 다른 credential은 없고, 쓸 수 없으면 turn이 멈춘다.
 export function credentialUsable(
   credential: ProviderCredential | null,
   facts: { modelName: string; nowMs: number },

@@ -12,12 +12,12 @@ import type {
 import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
 
-// 호출 입력. resolve가 준 판과 run 근거다(§5.2).
+// 호출 입력. resolve가 준 판과 turn 근거다(§5.2).
 export type ModelCallInput = {
   // 시도 id. 호출 시작 기록과 같은 id다.
   callId: string;
-  // Compact의 요약 call은 run이 없고 session만 있다.
-  run: string | null;
+  // Compact의 요약 call은 turn이 없고 session만 있다.
+  turn: string | null;
   session: string | null;
   purpose: "judgment" | "organizing";
   model: CallModel;

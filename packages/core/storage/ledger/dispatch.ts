@@ -6,7 +6,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { CommandRoute } from "../../../protocol/base/mod.ts";
 import { authorizeConditions } from "../../server/identity/mod.ts";
-import { admitAgentRun, runDisposition } from "./commands.ts";
+import { admitAgentTurn, turnDisposition } from "./commands.ts";
 import { countCas, withinCommandLimits } from "./fingerprint.ts";
 import {
   actorKind,
@@ -58,11 +58,11 @@ export function createCommandDispatch(
     }
     const checked = admit(definition.value, ctx, input, compare);
     if (!checked.ok) return checked;
-    // 안쪽 call도 바깥 run 판정을 다시 받는다. 끝난 run의 새 대상 변경은 거절한다.
-    const admitted = admitAgentRun(
+    // 안쪽 call도 바깥 turn 판정을 다시 받는다. 끝난 turn의 새 대상 변경은 거절한다.
+    const admitted = admitAgentTurn(
       tx,
       request,
-      runDisposition(definition.value),
+      turnDisposition(definition.value),
     );
     if (!admitted.ok) return admitted;
     const compared = casAgrees(

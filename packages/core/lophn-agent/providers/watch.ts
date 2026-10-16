@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { providerList } from "../../../protocol/lophn-agent/mod.ts";
 import type { CoreRead } from "../run-loop/mod.ts";
 
-// Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다.
+// Disconnect한 provider로 진행 중인 turn을 멈추게 하는 눈이다.
 // provider 목록을 읽어 앞서 있던 provider가 사라졌으면 그 provider의 회수를 알린다. runtime은
 // ledger를 읽기만 하므로 목록이 유일한 신호이고, 읽지 못하면 아는 목록을 바꾸지 않아 다음 훑기가
 // 같은 차이를 이어서 처리한다. 처음 훑은 목록은 기준일 뿐 회수하지 않는다.

@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   finishModelCall,
   registerPreparedBlob,
-  RUN_BLOB_PURPOSES,
+  TURN_BLOB_PURPOSES,
   startModelCall,
   supplementModelCall,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -225,13 +225,13 @@ export function createUsageCommands(deps: UsageDeps = {}): {
                 "input",
                 call.value.input,
                 input.blob_sizes.input,
-                RUN_BLOB_PURPOSES.model_call_input,
+                TURN_BLOB_PURPOSES.model_call_input,
               ],
               [
                 "context_basis",
                 call.value.context_basis,
                 input.blob_sizes.context_basis,
-                RUN_BLOB_PURPOSES.model_call_basis,
+                TURN_BLOB_PURPOSES.model_call_basis,
               ],
             ] as const
           ) {
@@ -281,7 +281,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
             field: "output",
             hash: input.output,
             size: input.output_size,
-            purpose: RUN_BLOB_PURPOSES.model_call_output,
+            purpose: TURN_BLOB_PURPOSES.model_call_output,
             seq: String(seq),
           });
           if (!registered.ok) return registered;

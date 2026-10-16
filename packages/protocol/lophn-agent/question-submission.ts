@@ -140,7 +140,7 @@ export function groupAgreesWithFixedActions(
 
 const questionGroupBase = {
   id: idSchema("qgr"),
-  run: idSchema("run"),
+  turn: idSchema("trn"),
   session: idSchema("ses").nullable(),
   expires_at: atSchema.nullable(),
 };

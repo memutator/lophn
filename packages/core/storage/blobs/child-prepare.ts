@@ -14,7 +14,6 @@ import {
 } from "../../../protocol/supervision/mod.ts";
 import {
   AGENT_RUNTIME_PRINCIPAL,
-  RUN_BLOB_PURPOSES,
   TURN_BLOB_PURPOSES,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { BlobPrepareCall } from "../../main/daemon/core.ts";
@@ -41,12 +40,11 @@ const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
       [
         "lophn-agent/runtime",
         {
-          // run 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
+          // turn 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
           // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
           principal: AGENT_RUNTIME_PRINCIPAL,
           purposes: new Map(
             [
-              ...Object.values(RUN_BLOB_PURPOSES),
               ...Object.values(TURN_BLOB_PURPOSES),
             ].map((purpose) => [purpose, 16 * 1024 * 1024] as const),
           ),

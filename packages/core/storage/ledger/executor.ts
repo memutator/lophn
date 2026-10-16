@@ -37,7 +37,7 @@ import type {
 } from "./writer-message.ts";
 import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
-import { admitAgentRun, runDisposition } from "./commands.ts";
+import { admitAgentTurn, turnDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
 import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import {
@@ -64,19 +64,19 @@ type CommandExecutorDeps = TxDeps & {
   confirmation?: ConfirmationBridge;
 };
 
-// envelope.run이 없으면 current credential의 묶인 turn을 잃지 않는다.
-function effectiveRun(
+// envelope.turn이 없으면 current credential의 묶인 turn을 잃지 않는다.
+function effectiveTurn(
   ctx: AuthenticatedContext,
-  envelopeRun: string | undefined,
+  envelopeTurn: string | undefined,
 ): string | null {
-  return envelopeRun ?? ctx.conditions.turn ?? null;
+  return envelopeTurn ?? ctx.conditions.turn ?? null;
 }
 
 function requestContext(
   ctx: AuthenticatedContext,
-  run: string | null,
+  turn: string | null,
 ): RequestContext {
-  return run === null ? ctx : { ...ctx, run };
+  return turn === null ? ctx : { ...ctx, turn };
 }
 
 // handler가 scope·conditions를 바꿔도 Tx owner gate는 이 snapshot을 본다.
@@ -125,9 +125,9 @@ function applyCommand(
 ): Result<CommandSuccess> {
   const { record, tx, seal, now, checkCursor } = session;
   if (
-    envelope.run !== undefined &&
+    envelope.turn !== undefined &&
     ctx.conditions.turn !== undefined &&
-    envelope.run !== ctx.conditions.turn
+    envelope.turn !== ctx.conditions.turn
   ) {
     return err({ code: "forbidden", message: "turn 조건이 다르다" });
   }
@@ -155,11 +155,11 @@ function applyCommand(
   if (!reserved.ok) return reserved;
   const cas = casAgrees(record, compare, input, checkCursor);
   if (!cas.ok) return cas;
-  // agent의 command는 자격에 묶인 run만이다. 끝난 run은 감사 보완만 통과한다.
-  const admitted = admitAgentRun(
+  // agent의 command는 자격에 묶인 turn만이다. 끝난 turn은 감사 보완만 통과한다.
+  const admitted = admitAgentTurn(
     tx,
-    requestContext(ctx, effectiveRun(ctx, envelope.run)),
-    runDisposition(definition),
+    requestContext(ctx, effectiveTurn(ctx, envelope.turn)),
+    turnDisposition(definition),
   );
   if (!admitted.ok) return admitted;
   const before = headSeq(record);
@@ -168,7 +168,7 @@ function applyCommand(
   try {
     raw = definition.handle(
       tx,
-      requestContext(ctx, effectiveRun(ctx, envelope.run)),
+      requestContext(ctx, effectiveTurn(ctx, envelope.turn)),
       input,
       compare,
     );
@@ -261,7 +261,7 @@ function commitCommand(
         const request = authoritySnapshot(
           requestContext(
             credential.value,
-            effectiveRun(credential.value, envelope.run),
+            effectiveTurn(credential.value, envelope.turn),
           ),
         );
         if (!request.ok) return request;
@@ -275,7 +275,7 @@ function commitCommand(
         );
         return ok({
           actor: credential.value.actor,
-          run: effectiveRun(credential.value, envelope.run),
+          turn: effectiveTurn(credential.value, envelope.turn),
           request: request.value,
         });
       },
@@ -378,7 +378,7 @@ export async function executeCommand(
   const digest = await digestOf(definition.route.name, {
     input: parsedInput.data,
     compare: parsedCompare.data,
-    run: envelope.run ?? null,
+    turn: envelope.turn ?? null,
     prepared: envelope.prepared,
     decision: binding ?? envelope.decision ?? null,
   });

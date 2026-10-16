@@ -4,7 +4,7 @@ import { t } from "@lophn/wording";
 import styles from "./activity.module.css";
 
 interface WorkedForProps {
-  /** run이 일한 시간(ms). trace의 times.active_ms다. */
+  /** turn이 일한 시간(ms). trace의 times.active_ms다. */
   durationMs: number;
 }
 

@@ -26,12 +26,12 @@ import {
   responsesPacker,
 } from "./binding.ts";
 
-// resolved agent가 정한 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
+// resolved agent가 정한 model 선택을 현재 provider·catalog로 검증해 turn이 쓸 model 묶음으로 만든다
 // (lophn-agent/harness/model, harness/provider). 어느 층의 선택인지는
 // agents가 정했고 여기서는 받은 선택만 본다. 고른 option 값은 default를
 // 채운 뒤 호출 형식의 표로 요청 body 조각·header·보낼 model 이름이 되고, catalog에 없는 값이면 요청을
 // 보내지 않고 실패한다. provider에는 credential이 하나라 고르지 않는다: 연결이 없거나(Disconnect 포함)
-// 그 credential을 쓸 수 없으면 run은 시작하지 않고 다른 provider·model로 넘어가지 않는다. 닿는 protocol은
+// 그 credential을 쓸 수 없으면 turn은 시작하지 않고 다른 provider·model로 넘어가지 않는다. 닿는 protocol은
 // Anthropic Messages·OpenAI Responses·OpenAI Chat Completions다.
 // 인증 없는 loopback provider는 붙일 값이 없고, API key는 core가 감독 pipe로 건네는 값을 인증
 // transport가 전송 직전에만 붙인다. 값을 받지 못하면 요청을 보내지 않는다. OAuth는

@@ -14,8 +14,8 @@ import type { CommandSuccess } from "./writer-message.ts";
 
 export { LEDGER_SCHEMA_STEPS };
 
-export { admitAgentRun, LEDGER_COMMANDS } from "./commands.ts";
-export { runAdmission } from "./run-admission.ts";
+export { admitAgentTurn, LEDGER_COMMANDS } from "./commands.ts";
+export { turnAdmission } from "./turn-admission.ts";
 export { withEraseWindow } from "./erase.ts";
 export { type WriterRegistration } from "./writer-registration.ts";
 export { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
@@ -68,10 +68,10 @@ type LedgerDeps = {
 };
 
 type Ledger = {
-  // actor·run은 transaction 시작 때 고정한다. handler는 바꾸지 못한다.
+  // actor·turn은 transaction 시작 때 고정한다. handler는 바꾸지 못한다.
   // request는 테스트가 현재 자격을 명시할 때만 쓴다. 없으면 cursor를 올리지 못한다.
   transaction<T>(
-    ctx: { actor: string; run?: string; request?: RequestContext },
+    ctx: { actor: string; turn?: string; request?: RequestContext },
     fn: (tx: Tx) => Result<T>,
   ): Result<T>;
   close(): void;
@@ -112,7 +112,7 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
       let span: { first: bigint; last: bigint } | undefined;
       const result = runTransaction(
         connection,
-        { actor: ctx.actor, run: ctx.run ?? null, request },
+        { actor: ctx.actor, turn: ctx.turn ?? null, request },
         txDeps,
         (tx) => {
           const before = headSeq(tx.sql);

@@ -14,13 +14,13 @@ import {
 } from "./wire.ts";
 
 // 실행기. command 밖의 일이다. 결과는 command로 남긴다.
-// 자격과 범위는 호출 run의 것만 쓴다. 실행기가 권한을 넓히지 않는다.
+// 자격과 범위는 호출 turn의 것만 쓴다. 실행기가 권한을 넓히지 않는다.
 
-export type RunCredential = {
-  run: string;
-  // 현재 run의 scope가 허용하는 대상. 실행기는 이 집합 밖을 더하지 않는다.
+export type TurnCredential = {
+  turn: string;
+  // 현재 turn의 scope가 허용하는 대상. 실행기는 이 집합 밖을 더하지 않는다.
   targets: ReadonlySet<string>;
-  // 현재 run의 scope가 허용하는 동작.
+  // 현재 turn의 scope가 허용하는 동작.
   operations: ReadonlySet<string>;
   // 이 호출의 최초 ToolCall ID. 소유 contract의 idempotency key로 쓴다(같은 요청의 재전송이 새
   // 판·새 문서를 만들지 않는다). 모르면 handler가 호출 내용에서 정한다.
@@ -29,7 +29,7 @@ export type RunCredential = {
 
 export type ToolHandler = (
   input: unknown,
-  credential: RunCredential,
+  credential: TurnCredential,
 ) => Promise<Result<ToolResult>>;
 
 // 기계가 구별하는 코드는 유지하고, 문장만 안전하게 고정한다. forbidden과

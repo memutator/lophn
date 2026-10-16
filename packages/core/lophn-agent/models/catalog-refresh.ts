@@ -8,7 +8,7 @@ import {
 
 export type CatalogRefresherHandle = CatalogRefresher;
 
-// agent runtime 안의 catalog 갱신 연결. 갱신은 run을 막지 않는 single-flight이고
+// agent runtime 안의 catalog 갱신 연결. 갱신은 turn을 막지 않는 single-flight이고
 // network·시각·파일은 주입한다(architecture §5.3).
 export function startCatalogRefresher(
   input: {

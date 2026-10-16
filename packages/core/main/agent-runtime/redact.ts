@@ -1,4 +1,4 @@
-// runtime이 stderr·run 기록에 쓰기 전에 secret 형태를 거른다. credential 값과 secret 형태는 남기지 않는다.
+// runtime이 stderr·turn 기록에 쓰기 전에 secret 형태를 거른다. credential 값과 secret 형태는 남기지 않는다.
 const SECRET_PATTERNS = [
   /sk-ant-[A-Za-z0-9_-]{8,}/g,
   /sk-[A-Za-z0-9]{8,}/g,

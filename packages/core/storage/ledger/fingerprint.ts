@@ -1,13 +1,13 @@
 import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 
-// domain-model platform/ledger: 지문은 command, 정규화 input, compare, run,
+// domain-model platform/ledger: 지문은 command, 정규화 input, compare, turn,
 // prepared의 불변 참조와 사람 결정의 대상·내용을 포함한다.
 // token·전송 시도 ID·일회 handle 원문은 제외한다.
 export type FingerprintInput = {
   command: string;
   input: unknown;
   compare: unknown;
-  run: string | null;
+  turn: string | null;
   prepared: readonly string[];
   decision: { target: unknown; content: unknown } | null;
 };
@@ -17,7 +17,7 @@ function fingerprintBody(parts: FingerprintInput): unknown {
     command: parts.command,
     input: parts.input,
     compare: parts.compare,
-    run: parts.run,
+    turn: parts.turn,
     prepared: [...parts.prepared],
     decision: parts.decision,
   };

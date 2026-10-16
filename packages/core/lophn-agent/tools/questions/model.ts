@@ -30,7 +30,7 @@ function text(value: unknown): string | null {
 
 type GroupRow = {
   id: string;
-  run: string;
+  turn: string;
   session: string | null;
   created_by: string;
   expires_at: string | null;
@@ -57,7 +57,7 @@ type QuestionRow = {
 // `group`으로 모은 것이다.
 export type QuestionGroup = GroupRow & { questions: QuestionRow[] };
 
-export const GROUP_COLUMNS = `id, run, session, created_by, expires_at, status,
+export const GROUP_COLUMNS = `id, turn, session, created_by, expires_at, status,
   binding_hash, closed_reason, closed_reason_blob, created_seq, closed_seq`;
 
 const QUESTION_COLUMNS =
@@ -66,7 +66,7 @@ const QUESTION_COLUMNS =
 export function groupRowOf(row: SqlRow): GroupRow {
   return {
     id: String(row["id"]),
-    run: String(row["run"]),
+    turn: String(row["turn"]),
     session: text(row["session"]),
     created_by: String(row["created_by"]),
     expires_at: text(row["expires_at"]),
@@ -123,19 +123,19 @@ export function loadGroup(
 // 질문 ID로 그 묶음을 찾는다. 질문 ID를 다른 concern이 가리키므로(선택지 적용 근거·채택)
 // 이 길이 필요하다.
 
-export type RunRef = {
+export type TurnRef = {
   id: string;
   assignment: string;
   session: string | null;
   state: string;
 };
 
-export function loadRunRef(
+export function loadTurnRef(
   lookup: Lookup,
   id: string,
-): RunRef | undefined {
+): TurnRef | undefined {
   const row = lookup.sql.get(
-    "select id, assignment, session, state from runs where id = ?",
+    "select id, assignment, session, state from turns where id = ?",
     [id],
   );
   return row === undefined ? undefined : {
@@ -240,7 +240,7 @@ export function recordOf(
 ): QuestionGroupRecord {
   return {
     id: group.id,
-    run: group.run,
+    turn: group.turn,
     session: group.session,
     expires_at: group.expires_at,
     status: group.status,
@@ -325,7 +325,7 @@ export function sameContent(
   stored: StoredGroupContent,
 ): boolean {
   if (
-    group.run !== input.run || group.session !== input.session ||
+    group.turn !== input.turn || group.session !== input.session ||
     group.expires_at !== input.expires_at ||
     group.questions.length !== stored.questions.length
   ) return false;

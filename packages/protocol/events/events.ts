@@ -17,7 +17,7 @@ const envelopeFields = {
   type: eventTypeSchema,
   subject: subjectSchema,
   actor: actorSchema,
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   payload: z.object({}).catchall(z.unknown()),
   at: atSchema,
 };
@@ -26,7 +26,7 @@ const eventEnvelopeBaseSchema = z.object(envelopeFields);
 
 type EventEnvelope = z.infer<typeof eventEnvelopeBaseSchema>;
 
-// envelope의 seq·actor·run·at은 그대로 두고 등록 event의 type·subject·payload만 좁힌 값.
+// envelope의 seq·actor·turn·at은 그대로 두고 등록 event의 type·subject·payload만 좁힌 값.
 // 노출 판단 hook이 받는 값은 이 모양이다(EventVisibilityDefinition).
 export type EventEnvelopeFor<D extends EventDefinition> =
   & Omit<

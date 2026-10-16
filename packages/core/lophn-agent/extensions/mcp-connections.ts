@@ -17,7 +17,7 @@ import {
 
 // 바깥 MCP 연결 관리(concern lophn-agent/extensions).
 // 연결은 assignment와 서버 이름의
-// 조합마다 하나다. 같은 assignment의 여러 run이 같은 연결을 쓰고 다른
+// 조합마다 하나다. 같은 assignment의 여러 turn이 같은 연결을 쓰고 다른
 // assignment와는 공유하지 않는다. 시계·대기·process 시작·HTTP는 주입한다.
 // 테스트는 가짜 MCP child와 로컬 HTTP server를 끼운다.
 

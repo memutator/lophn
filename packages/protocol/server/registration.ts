@@ -31,7 +31,7 @@ export type Output<R extends CommandRoute | ReadRoute> = z.output<R["output"]>;
 export type Compare<R extends CommandRoute> = z.output<
   Extract<R["compare"], z.ZodType>
 >;
-export type RequestContext = AuthenticatedContext & { run?: string };
+export type RequestContext = AuthenticatedContext & { turn?: string };
 
 export interface Tx {
   readonly sql: Sql;
@@ -69,7 +69,7 @@ export interface Tx {
   // 사람이 고른 질문 option의 고정 action 한 번을 같은 transaction에서 user 자격으로 적용한다.
   // ledger가 질문 정본(port)과 대조해 route·입력·CAS가 고정 action과 같고 그 option을
   // 아직 적용하지 않았을 때만 `handle`을 한 번 부른다. `handle`이 받는 Tx는 event를 actor=user,
-  // run=null로 기록하고 이 경로와 `call`은 다시 부르지 못한다. 호출 자격은 machine만이다.
+  // turn=null로 기록하고 이 경로와 `call`은 다시 부르지 못한다. 호출 자격은 machine만이다.
   // 새 transaction·commit은 만들지 않고, 실패하면 바깥 command가 그대로 rollback한다.
   // 선택 member다. 이 경로가 없는 Tx(fixture·fake)는 option 적용을 열지 않는다.
   callChosenOption?<R extends CommandRoute>(

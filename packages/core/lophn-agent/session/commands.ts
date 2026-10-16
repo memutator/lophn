@@ -46,7 +46,7 @@ import { renameSessionTitle } from "./session-title.ts";
 type ConversationDeps = {
   // 사람 메시지를 같은 Tx에서 Router로 입력함에 넣는다. 조립이 Router와 session 목록을 건다.
   send: SendMessageDeps;
-  // 세션을 지울 때 같은 Tx에서 그 세션의 run 기록을 지운다. 기록을 가진 concern마다
+  // 세션을 지울 때 같은 Tx에서 그 세션의 turn 기록을 지운다. 기록을 가진 concern마다
   // 자기 몫을 지우고 조립이 그것들을 잇는다. 메시지는 이 함수를 부르기 전에 지워져 있다.
   deleteSessionRecords: (tx: Tx, session: string) => Result<void>;
   // 메시지 본문의 blob 영구 참조를 지운다(platform/blob-store). 소유 행인 메시지보다 먼저 부른다.

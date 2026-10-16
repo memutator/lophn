@@ -116,7 +116,7 @@ export const DOMAIN_EVENTS = [
 
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number]["type"];
 
-// seq는 전역이다. agent event와 달리 run 칸이 없다.
+// seq는 전역이다. agent event와 달리 turn 칸이 없다.
 function domainEventEnvelopeSchema<
   T extends string,
   S extends z.ZodType,

@@ -25,14 +25,14 @@ export type CannotStart = {
   why: "model_required" | "agent_invalid" | "agent_missing";
 };
 
-type RunAgent =
+type TurnAgent =
   | { kind: "resolved"; agent: ResolvedAgent }
   | ({ kind: "cannot_start" } & CannotStart);
 
 const MAX_CONTEXT_PAGES = 50;
 
 function cannot(reason: CannotStart["reason"], why: CannotStart["why"]) {
-  return ok<RunAgent>({ kind: "cannot_start", reason, why });
+  return ok<TurnAgent>({ kind: "cannot_start", reason, why });
 }
 
 // 이 place의 agent가 읽을 active context다. project place는 그 project의 context 전부이고, App Engineer는
@@ -77,7 +77,7 @@ function issueFields(error: { details?: unknown }): string[] {
 
 // 새 turn의 resolved agent를 만든다. 읽지 못한 것(core 연결 실패)은 오류이고, 정의가 틀렸거나 model이 어느
 // 층에도 없는 것은 시작할 수 없는 turn이다.
-export async function resolveRunAgent(
+export async function resolveTurnAgent(
   machine: CoreCall,
   input: {
     session: string;
@@ -89,7 +89,7 @@ export async function resolveRunAgent(
       place: Place | null,
     ): Promise<readonly McpTool[]>;
   },
-): Promise<Result<RunAgent>> {
+): Promise<Result<TurnAgent>> {
   // 이 session이 고른 model은 가장 높은 층이다. turn을 준비하는 지금 읽은 값이 이 turn에 고정되고, 그 뒤에
   // 바뀐 선택은 다음 turn부터 쓴다.
   const sessionRecord = await readOf(machine, agentSessionRead, {

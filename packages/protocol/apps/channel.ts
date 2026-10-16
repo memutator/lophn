@@ -17,12 +17,12 @@ import {
   opaqueSchema,
   processNonceSchema,
   releaseIdSchema,
-  runIdSchema,
   runtimeModeSchema,
   screenKeySchema,
   screenSizeSchema,
   sha256Schema,
   toolCallIdSchema,
+  turnIdSchema,
 } from "./channel-values.ts";
 
 // 다른 앱 호출의 인증된 출처. 본문 주장은 받지 않는다(domain-model apps/connections).
@@ -43,7 +43,7 @@ const appCallOriginSchema = z.strictObject({
 // 인증된 agent runtime 연결에서만 만든다(domain-model apps/invocations).
 const agentCallOriginSchema = z.strictObject({
   kind: z.literal("agent"),
-  run: runIdSchema,
+  turn: turnIdSchema,
   tool_call: toolCallIdSchema,
 });
 
@@ -64,7 +64,7 @@ const invocationCallerBranches = [
   }),
   z.strictObject({
     kind: z.literal("agent"),
-    run: runIdSchema,
+    turn: turnIdSchema,
     tool_call: toolCallIdSchema,
   }),
   z.strictObject({ kind: z.literal("system") }),

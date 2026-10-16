@@ -70,7 +70,7 @@ export type TxDeps = {
 
 type TxContext = {
   actor: string;
-  run: string | null;
+  turn: string | null;
   // command 실행기의 현재 자격 snapshot. lowlevel transaction에는 없다.
   request?: RequestContext;
 };
@@ -240,7 +240,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
   };
   const emitAs = (
     actor: string,
-    run: string | null,
+    turn: string | null,
     event: { type: string; payload: z.ZodType },
     subject: string | null,
     payload: unknown,
@@ -265,12 +265,12 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다.
     const inserted = measured(true, () =>
       sql.run(
-        "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
+        "insert into events (type, subject, actor, turn, payload, at) values (?, ?, ?, ?, ?, ?)",
         [
           event.type,
           subject,
           actor,
-          run,
+          turn,
           JSON.stringify(parsed.data),
           deps.clock.now(),
         ],
@@ -285,7 +285,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       all: (text, params) => measured(false, () => sql.all(text, params)),
     },
     emit: (event, subject, payload) =>
-      emitAs(ctx.actor, ctx.run, event, subject, payload),
+      emitAs(ctx.actor, ctx.turn, event, subject, payload),
     now: () => {
       live();
       return deps.clock.now();
@@ -401,7 +401,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };
-  // 근거를 검증한 option 적용 한 번에만 넘기는 Tx다. event는 사람 자격(user, run 없음)으로
+  // 근거를 검증한 option 적용 한 번에만 넘기는 Tx다. event는 사람 자격(user, turn 없음)으로
   // 기록하고, 다시 사람 자격으로 바꾸거나 다른 command를 부르는 입구는 없다.
   const chosenTx: Tx = {
     ...tx,

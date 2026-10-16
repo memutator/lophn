@@ -24,8 +24,8 @@ type OpaqueReasoningState = {
   data?: string;
 };
 
-// 같은 run·같은 provider·같은 model 메모리에서만 재사용한다. provider나
-// model이 바뀌면 버리고, run 종료 시 폐기한다. blob·trace에 남지 않는다.
+// 같은 turn·같은 provider·같은 model 메모리에서만 재사용한다. provider나
+// model이 바뀌면 버리고, turn 종료 시 폐기한다. blob·trace에 남지 않는다.
 
 // 시그니처가 필요한데 메모리가 비어 있으면(restart·compaction) state-free 재시도를
 // 하지 않고 실패한다(architecture §5.2).
@@ -123,7 +123,7 @@ function pairedThinking(
   reasoning: OpaqueReasoningState | undefined,
 ): AnthropicBlock {
   // 상태에는 원문 signature만 산다. 메모리에 상태가 없으면(다른 provider·model,
-  // run 종료) 이 블록의 signature를 지워 전송 대상에서 뺀다. 메모리에 있으면
+  // turn 종료) 이 블록의 signature를 지워 전송 대상에서 뺀다. 메모리에 있으면
   // 블록을 원문 그대로 보낸다. 시그니처 비교는 compat.ts가 맡는다.
   if (block.signature === undefined) return block;
   if (reasoning?.signature === undefined) {

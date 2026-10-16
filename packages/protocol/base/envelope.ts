@@ -3,7 +3,7 @@ import {
   IDEMPOTENCY_KEY_MAX_BYTES,
   IDEMPOTENCY_KEY_MIN_BYTES,
 } from "./limits.ts";
-import { runIdSchema } from "./ids.ts";
+import { turnIdSchema } from "./ids.ts";
 import { seqSchema } from "./values.ts";
 import type { CommandRoute } from "./route.ts";
 import { confirmationRefSchema } from "./confirmation-handle.ts";
@@ -31,7 +31,7 @@ type CommandRequestRoute = {
 const commandRequestFields = {
   idempotency_key: idempotencyKeySchema,
   compare: z.strictObject({}),
-  run: runIdSchema.optional(),
+  turn: turnIdSchema.optional(),
   prepared: preparedSchema,
   confirmation: confirmationRefSchema.optional(),
 };
@@ -49,7 +49,7 @@ type CommandRequestObject<R extends CommandRequestRoute> = z.ZodObject<{
   input: R["input"];
   idempotency_key: typeof idempotencyKeySchema;
   compare: CompareSchema<R>;
-  run: z.ZodOptional<typeof runIdSchema>;
+  turn: z.ZodOptional<typeof turnIdSchema>;
   prepared: typeof preparedSchema;
   confirmation: ConfirmationSchema<R>;
 }>;
@@ -68,7 +68,7 @@ export function commandRequestSchema<R extends CommandRequestRoute>(
     input: route.input,
     idempotency_key: commandRequestFields.idempotency_key,
     compare,
-    run: commandRequestFields.run,
+    turn: commandRequestFields.turn,
     prepared: commandRequestFields.prepared,
     confirmation,
   }) as unknown as CommandRequestObject<R>;

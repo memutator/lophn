@@ -54,7 +54,7 @@ type McpToolkitDeps = {
 };
 
 type McpKit = {
-  // run마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
+  // turn마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
   // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;

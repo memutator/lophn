@@ -1,4 +1,3 @@
-import { RUN_COMMANDS } from "./runs.ts";
 import {
   closeSession,
   openSession,
@@ -40,7 +39,6 @@ import {
 } from "./mcp-settings.ts";
 
 export const ROUTES = [
-  ...RUN_COMMANDS,
   // 옛 session·message route 가운데 새 route로 바뀐 것은 뺀다.
   ...SESSION_COMMANDS.filter((route) =>
     !([

@@ -2,7 +2,7 @@
 // function tools, store=false, stream=true)과 SSE 응답 번역(output_index 누적,
 // output_item.done 확정, response.completed 판정, usage 정규화)을 여기 둔다.
 // function_call.call_id↔function_call_output.call_id 대응과 encrypted reasoning
-// item의 run 메모리 재전송도 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가
+// item의 turn 메모리 재전송도 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가
 // 맡는다. 실제 OpenAI API는 부르지 않는다.
 
 import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
@@ -90,7 +90,7 @@ function pairedItems(
     if (typed.type === "reasoning") {
       const encrypted = reasoningItemOf(typed);
       if (encrypted !== undefined) reasoning.push(encrypted);
-      // reasoning item은 요청에 재전송 대상에서 뺀다. run 메모리로만 산다.
+      // reasoning item은 요청에 재전송 대상에서 뺀다. turn 메모리로만 산다.
       continue;
     }
     output.push(item);
@@ -151,7 +151,7 @@ type ResponsesStreamResult = {
   // response.failed의 provider code·message. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
-  // encrypted reasoning 원문들. run 메모리로만 산다.
+  // encrypted reasoning 원문들. turn 메모리로만 산다.
   reasoningItems: string[];
   // 만나지 않은 event는 여기 세지 않는다.
   sawUnknownEvent: boolean;

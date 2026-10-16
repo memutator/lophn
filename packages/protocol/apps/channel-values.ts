@@ -76,7 +76,7 @@ export const opaqueSchema = z.string().min(1).refine(
 export const grantIdSchema = idSchema("grt");
 export const invocationIdSchema = idSchema("inv");
 export const approvalIdSchema = idSchema("apr");
-export const runIdSchema = idSchema("run");
+export const turnIdSchema = idSchema("trn");
 export const toolCallIdSchema = idSchema("tcl");
 
 export const endpointSchema = z.string().min(1).refine(

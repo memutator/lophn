@@ -17,7 +17,7 @@ import {
   type ApprovalUse,
   approvalUseSchema,
 } from "../../../protocol/approvals/mod.ts";
-import { runAdmission } from "./run-admission.ts";
+import { turnAdmission } from "./turn-admission.ts";
 
 type UsableApproval = {
   id: string;
@@ -42,7 +42,7 @@ function deadlineReached(expiresAt: string | null, now: string): boolean {
 }
 
 // 지금 이 action으로 이 approval을 쓸 수 있는지 본다. 기록은 바꾸지 않는다.
-// 허락됨·기한 전·정확한 action 일치·원래 run 진행 중이어야 한다.
+// 허락됨·기한 전·정확한 action 일치·원래 turn 진행 중이어야 한다.
 function usableApproval(
   tx: Tx,
   approval: string,
@@ -55,7 +55,7 @@ function usableApproval(
     });
   }
   const row = tx.sql.get(
-    `select status, action, expires_at, run, closed_seq
+    `select status, action, expires_at, turn, closed_seq
        from approval_requests where id = ?`,
     [approval],
   );
@@ -89,22 +89,22 @@ function usableApproval(
       message: "허락된 동작과 사용하려는 동작이 다르다",
     });
   }
-  const run = row["run"];
-  if (run !== null) {
+  const turn = row["turn"];
+  if (turn !== null) {
     const lookup = tx as Tx & {
       portLookup?: { present(key: object): boolean };
     };
-    // 원래 run의 상태를 알 수 없으면 사용하지 않는다(fail-closed).
-    if (lookup.portLookup?.present(runAdmission) !== true) {
+    // 원래 turn의 상태를 알 수 없으면 사용하지 않는다(fail-closed).
+    if (lookup.portLookup?.present(turnAdmission) !== true) {
       return err({
         code: "unavailable",
-        message: "원래 run 상태를 확인할 수 없다",
+        message: "원래 turn 상태를 확인할 수 없다",
       });
     }
-    if (tx.port(runAdmission).status(String(run)) !== "active") {
+    if (tx.port(turnAdmission).status(String(turn)) !== "active") {
       return err({
         code: "conflict",
-        message: "끝난 run의 허락으로 새 동작을 적용하지 않는다",
+        message: "끝난 turn의 허락으로 새 동작을 적용하지 않는다",
       });
     }
   }

@@ -89,7 +89,7 @@ function catalogPaths(dataRoot: string): {
   };
 }
 
-// 갱신은 run을 막지 않는 single-flight다. 진행 중 요청은 같은 진행을 기다린다(plan 완료 2).
+// 갱신은 turn을 막지 않는 single-flight다. 진행 중 요청은 같은 진행을 기다린다(plan 완료 2).
 export type CatalogRefresher = {
   // 저장된 catalog와 state를 읽는다. 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
   load(): Promise<Result<CatalogStore>>;

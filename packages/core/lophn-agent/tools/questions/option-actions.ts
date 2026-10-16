@@ -23,7 +23,7 @@ import { protectedSetting } from "./protected-settings.ts";
 //   되돌아가고, 그 option은 다시 적용할 수 있는 상태로 남는다.
 // - 소유 command는 같은 Tx에서 부른다. 소유 command가 user만 받으므로
 //   Tx의 callChosenOption이 질문 정본과 대조한 뒤 그 호출 한 번만 user 자격(event actor=user,
-//   run=null)으로 넘긴다. 바깥 ApplyQuestionOption의 요청 자격(machine)은 그대로다.
+//   turn=null)으로 넘긴다. 바깥 ApplyQuestionOption의 요청 자격(machine)은 그대로다.
 // - 소유 command의 전제(CAS)가 달라졌으면 답은 그대로 두고 동작은 적용하지 않으며, 달라진 대상과
 //   이유를 오류 details로 돌려준다. 소유 변경이 일부만 남지 않도록 오류는 transaction 전체를
 //   되돌린다.

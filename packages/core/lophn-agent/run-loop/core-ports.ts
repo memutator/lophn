@@ -255,7 +255,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     }
     const invoked = await model.invoke({
       callId: id,
-      run: seat.turn,
+      turn: seat.turn,
       session: seat.session,
       purpose: "judgment",
       model: model.call,

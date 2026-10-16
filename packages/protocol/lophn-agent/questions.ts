@@ -242,7 +242,7 @@ const recordedQuestionSchema = questionOutputSchema.and(z.object({
 
 const questionGroupRecordSchema = z.object({
   id: idSchema("qgr"),
-  run: idSchema("run"),
+  turn: idSchema("trn"),
   session: idSchema("ses").nullable(),
   expires_at: atSchema.nullable(),
   status: questionStatusSchema,
@@ -278,7 +278,7 @@ const questionGroupReadInputSchema = z.strictObject({
 });
 
 const questionGroupListInputSchema = z.strictObject({
-  run: idSchema("run").optional(),
+  turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
   assignment: idSchema("asg").optional(),
   status: questionStatusSchema.optional(),
@@ -357,7 +357,7 @@ const questionCreatedOptionSchema = z.object({
 export const questionCreated = defineEvent("QuestionCreated", {
   subject: questionSubject,
   payload: z.object({
-    run: idSchema("run"),
+    turn: idSchema("trn"),
     session: idSchema("ses").nullable(),
     questions: z.array(z.object({
       id: idSchema("qst"),

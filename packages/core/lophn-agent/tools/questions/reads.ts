@@ -14,13 +14,13 @@ import {
   groupRowOf,
   loadGroup,
   loadQuestions,
-  loadRunRef,
+  loadTurnRef,
   type QuestionGroup,
   recordOf,
 } from "./model.ts";
 
 // read는 pool read다. handler는 동기 Result를 돌려준다. user·machine·coding_agent는
-// 모든 묶음을 보고 agent는 자기 assignment의 run 묶음만 본다. 그 밖(다른
+// 모든 묶음을 보고 agent는 자기 assignment의 turn 묶음만 본다. 그 밖(다른
 // assignment의 agent, app)은 없는 묶음과 똑같이 답한다. 닫힌 묶음도 저장된 본문·
 // 답·닫은 이유를 그대로 읽고, 답 접수와 적용은 applied로 구별한다.
 
@@ -88,8 +88,8 @@ export function createQuestionReads(): {
         const group = loadGroup(snapshot, input.group);
         if (group === undefined) return notFound();
         if (scope !== null) {
-          const run = loadRunRef(snapshot, group.run);
-          if (run === undefined || run.assignment !== scope) return notFound();
+          const turn = loadTurnRef(snapshot, group.turn);
+          if (turn === undefined || turn.assignment !== scope) return notFound();
         }
         return ok({
           group: recordFor(snapshot, group),
@@ -121,9 +121,9 @@ export function createQuestionReads(): {
           clauses.push("r.assignment = ?");
           params.push(assignment);
         }
-        if (input.run !== undefined) {
-          clauses.push("g.run = ?");
-          params.push(input.run);
+        if (input.turn !== undefined) {
+          clauses.push("g.turn = ?");
+          params.push(input.turn);
         }
         if (input.session !== undefined) {
           clauses.push("g.session = ?");
@@ -138,7 +138,7 @@ export function createQuestionReads(): {
         ).join(", ");
         const rows = snapshot.sql.all(
           `select ${columns} from question_groups g
-           join runs r on r.id = g.run
+           join turns r on r.id = g.turn
            where ${clauses.join(" and ")} order by g.created_seq limit ?`,
           [...params, PAGE + 1],
         ).map(groupRowOf);

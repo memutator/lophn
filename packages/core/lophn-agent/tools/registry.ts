@@ -54,7 +54,7 @@ export type ToolDefinition = {
 
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
 
-// run의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract다. 목록에 없는 tool의
+// turn의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract다. 목록에 없는 tool의
 // contract는 더하지 않는다.
 export function runOperations(
   listed: readonly ToolDefinition[],

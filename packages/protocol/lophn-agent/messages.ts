@@ -38,16 +38,16 @@ const messageSchema = z.object({
   session: idSchema("ses"),
   actor: actorSchema,
   body: sha256Schema,
-  run: idSchema("run").nullable(),
+  turn: idSchema("trn").nullable(),
   mode: messageModeSchema.nullable(),
   applied_at_call: idSchema("mcl").nullable(),
   links: z.array(messageLinkSchema),
-  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 run·mode·반영 연결이 없다.
+  // Fork로 복사한 메시지에만 있는 원래 메시지. 지난 발언이라 turn·mode·반영 연결이 없다.
   copied_from: idSchema("msg").nullable(),
 }).refine(
   (value) =>
     value.copied_from !== null
-      ? value.mode === null && value.run === null &&
+      ? value.mode === null && value.turn === null &&
         value.applied_at_call === null
       : value.actor === "user"
       ? value.mode !== null
@@ -55,11 +55,11 @@ const messageSchema = z.object({
         value.mode === null,
   { message: "message actor and mode mismatch" },
 ).refine(
-  (value) => value.applied_at_call === null || value.run !== null,
-  { message: "applied message requires a run" },
+  (value) => value.applied_at_call === null || value.turn !== null,
+  { message: "applied message requires a turn" },
 ).refine(
-  (value) => value.mode !== "correction" || value.run !== null,
-  { message: "correction requires a target run" },
+  (value) => value.mode !== "correction" || value.turn !== null,
+  { message: "correction requires a target turn" },
 );
 function validMessageSeqs(value: { created_seq: string; state_seq: string }) {
   return seqSchema.safeParse(value.created_seq).success &&
@@ -96,9 +96,9 @@ const receiveMessageInputSchema = z.strictObject({
   session: idSchema("ses"),
   content: userMessageContentInputSchema,
   mode: messageModeSchema,
-  run: idSchema("run").optional(),
-}).refine((value) => value.mode !== "correction" || value.run !== undefined, {
-  message: "correction requires target run",
+  turn: idSchema("trn").optional(),
+}).refine((value) => value.mode !== "correction" || value.turn !== undefined, {
+  message: "correction requires target turn",
 });
 const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),
@@ -137,7 +137,7 @@ export const recordMessage = defineCommand({
 });
 const messagesListInputSchema = z.strictObject({
   session: idSchema("ses"),
-  run: idSchema("run").optional(),
+  turn: idSchema("trn").optional(),
   after_seq: seqSchema.optional(),
   through_seq: seqSchema.optional(),
   cursor: z.string().min(1).optional(),
@@ -207,6 +207,6 @@ export const MESSAGE_ROUTES = [
   messageBody,
 ] as const;
 
-// owner는 링크 존재·같은 session/assignment/run·최초 반영 transaction·blob
+// owner는 링크 존재·같은 session/assignment/turn·최초 반영 transaction·blob
 // 영구 참조 등록·authenticated actor·보존 request의 사람 선택·idempotency를 검사한다.
 // redaction과 blob 준비는 core가 command 앞에서 한다.

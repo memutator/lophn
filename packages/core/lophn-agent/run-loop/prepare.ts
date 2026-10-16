@@ -46,7 +46,7 @@ import {
 import type { AppApiToolkit } from "../tools/app-toolkit.ts";
 import { type AppApiTool, buildAppApiTools } from "../tools/app-tools.ts";
 import { appApiMissingReason } from "../tools/app-api/missing.ts";
-import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
+import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import {
@@ -374,7 +374,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ...tool,
         handler: (input, ctx) =>
           handler(input, {
-            run: ctx.turn,
+            turn: ctx.turn,
             targets: reach,
             operations,
             call: ctx.tool_call,
@@ -602,7 +602,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
     const skills = (await deps.skills?.(session.place)) ?? [];
     let mcp: LoadedMcp | undefined;
-    const made = await resolveRunAgent(machine, {
+    const made = await resolveTurnAgent(machine, {
       session: start.session,
       skills: skills.filter((entry) => entry.enabled).map((entry) =>
         entry.name

@@ -9,7 +9,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { limitJson } from "../tools/mod.ts";
 import type {
-  RunCredential,
+  TurnCredential,
   ToolDefinition,
   ToolHandler,
 } from "../tools/mod.ts";
@@ -268,7 +268,7 @@ export function createMcpToolHandlers(
   for (const tool of tools) {
     handlers.set(
       tool.definition.name,
-      async (input: unknown, credential: RunCredential) =>
+      async (input: unknown, credential: TurnCredential) =>
         await invoke(call, {
           server: tool.server,
           original: tool.original,

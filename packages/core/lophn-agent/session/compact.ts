@@ -17,7 +17,7 @@ import {
   sessionNotFound,
 } from "./guards.ts";
 import {
-  hasUnfinishedRun,
+  hasUnfinishedTurn,
   loadSession,
   nextSessionSeq,
   openCompactRequest,
@@ -67,7 +67,7 @@ function hasMessageAfterSpan(tx: Tx, session: SessionRow): boolean {
 }
 
 // 이 session에 묶인 요약 call로 끝까지 성공한(완전 출력이 있는) 것이다. 시작·실패·취소·부분 출력 call과
-// 판단 용도 call, run 안의 압축 call, 다른 session의 call은 Compact의 요약이 아니다.
+// 판단 용도 call, turn 안의 압축 call, 다른 session의 call은 Compact의 요약이 아니다.
 function summaryCall(
   tx: { sql: Pick<Tx["sql"], "get"> },
   session: string,
@@ -132,8 +132,8 @@ export function createCompactCommands(): {
         if (open !== undefined) {
           return ok({ id: session.id, request_seq: open.request_seq });
         }
-        if (hasUnfinishedRun(tx, session.id)) {
-          return reject("conflict", "a run of the session is not finished");
+        if (hasUnfinishedTurn(tx, session.id)) {
+          return reject("conflict", "a turn of the session is not finished");
         }
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
@@ -180,8 +180,8 @@ export function createCompactCommands(): {
         ) {
           return reject("conflict", "no such open Compact request");
         }
-        if (hasUnfinishedRun(tx, session.id)) {
-          return reject("conflict", "a run of the session is not finished");
+        if (hasUnfinishedTurn(tx, session.id)) {
+          return reject("conflict", "a turn of the session is not finished");
         }
         const call = summaryCall(tx, session.id, input.summary_call);
         if (call === undefined) {

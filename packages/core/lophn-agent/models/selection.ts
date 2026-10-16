@@ -37,7 +37,7 @@ function verificationOf(
 type SelectionInput = {
   purpose: "judgment" | "organizing";
   provider: string;
-  // run 시작에 고정한 provider의 credential 판. 인증 없음(loopback)만 null이다.
+  // turn 시작에 고정한 provider의 credential 판. 인증 없음(loopback)만 null이다.
   credential_revision: number | null;
   model_name: string;
   // 고른 축의 값이다. 없는 축은 모델에 맡김이고 default를 채우는 일은 여기서 한다.
@@ -196,8 +196,8 @@ export function resolveSelection(
   return gate.ok ? ok(limits) : gate;
 }
 
-// run은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다.
-// run이 effort를 고정하지 않았으면(모델에 맡김) 비교할 값이 없다. effort 밖 축은 약하고 강함을
+// turn은 시작한 effort를 유지하고 개별 요청은 그보다 높은 effort를 요청하지 못한다.
+// turn이 effort를 고정하지 않았으면(모델에 맡김) 비교할 값이 없다. effort 밖 축은 약하고 강함을
 // 비교할 이름 순서가 없어 이 검사가 바꾸지 않는다.
 
 // 같음은 통과다. 바로 아래도 통과다.

@@ -28,7 +28,6 @@ const ID_PREFIXES = {
   asg: "Assignment",
   ses: "Session",
   msg: "Message",
-  run: "Run",
   mcl: "ModelCall",
   tcl: "ToolCall",
   pvd: "Provider",
@@ -68,5 +67,5 @@ export const anyIdSchema = z.string().refine(
   { message: "invalid id" },
 );
 
-export const runIdSchema = idSchema("run");
+export const turnIdSchema = idSchema("trn");
 

@@ -8,7 +8,7 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
-  RUN_BLOB_PURPOSES,
+  TURN_BLOB_PURPOSES,
   sessionCompactRequests,
   startModelCall,
   takeRewindSummaryRequest,
@@ -25,7 +25,7 @@ import {
   visibleMessages,
 } from "../prompt-assembly/mod.ts";
 import { estimatedCost } from "../usage/mod.ts";
-import { resolveRunAgent } from "../agents/layers.ts";
+import { resolveTurnAgent } from "../agents/layers.ts";
 import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
@@ -157,7 +157,7 @@ export function createCompactor(
 
   // 요약 model은 session agent의 model이다(구성 resolve다).
   async function summaryChoice(request: Request): Promise<ModelChoice | null> {
-    const made = await resolveRunAgent(machine, {
+    const made = await resolveTurnAgent(machine, {
       session: request.session,
       skills: [],
       mcp: () => Promise.resolve([]),
@@ -196,7 +196,7 @@ export function createCompactor(
     if (!safeBody.ok) throw new Failure("model_unavailable");
     const inputBlob = await storeRedacted(
       deps.blobs,
-      RUN_BLOB_PURPOSES.model_call_input,
+      TURN_BLOB_PURPOSES.model_call_input,
       safeBody.value,
     );
     if (!inputBlob.ok) throw new Failure("model_unavailable");
@@ -205,7 +205,7 @@ export function createCompactor(
     const basisBlob = await storeValue(
       deps.blobs,
       deps.redact,
-      RUN_BLOB_PURPOSES.model_call_basis,
+      TURN_BLOB_PURPOSES.model_call_basis,
       {
         kind: "compact_summary",
         session: request.session,
@@ -223,7 +223,7 @@ export function createCompactor(
     const order = attempt.order++;
     const call = {
       id,
-      run: null,
+      turn: null,
       session: request.session,
       model_use: "organizing" as const,
       agent_hash: null,
@@ -263,7 +263,7 @@ export function createCompactor(
 
     const invoked = await binding.invoke({
       callId: id,
-      run: null,
+      turn: null,
       session: request.session,
       purpose: "organizing",
       model: binding.call,
@@ -299,7 +299,7 @@ export function createCompactor(
       const stored = await storeValue(
         deps.blobs,
         deps.redact,
-        RUN_BLOB_PURPOSES.model_call_output,
+        TURN_BLOB_PURPOSES.model_call_output,
         { text: output?.text ?? "", tools: [] },
       );
       if (!stored.ok) throw new Failure("model_failed");
@@ -457,7 +457,7 @@ export function createCompactor(
       { state: "open", request_seq: request.request_seq },
       `${request.session}:compact:${request.request_seq}`,
     );
-    // 요약하는 사이 run이 시작됐거나 session이 바뀌어 core가 끝내기를 거절하면 이 요약은 쓰지 않는다.
+    // 요약하는 사이 turn이 시작됐거나 session이 바뀌어 core가 끝내기를 거절하면 이 요약은 쓰지 않는다.
     if (!ended.ok) return await fail(request, "session_changed");
     return {
       kind: "compacted",

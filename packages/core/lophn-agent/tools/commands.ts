@@ -5,7 +5,7 @@ import {
   recordReadToolCall,
   recordToolRequest,
   registerPreparedBlob,
-  RUN_BLOB_PURPOSES,
+  TURN_BLOB_PURPOSES,
   startToolCall,
   supplementToolCall,
   toolCallDecided,
@@ -181,7 +181,7 @@ export function createToolCommands(): {
             field: "input",
             hash: input.input,
             size: input.input_size,
-            purpose: RUN_BLOB_PURPOSES.tool_call_input,
+            purpose: TURN_BLOB_PURPOSES.tool_call_input,
             seq,
           });
           if (!registered.ok) return registered;
@@ -291,7 +291,7 @@ export function createToolCommands(): {
             field: "output",
             hash: input.output,
             size: input.output_size,
-            purpose: RUN_BLOB_PURPOSES.tool_call_output,
+            purpose: TURN_BLOB_PURPOSES.tool_call_output,
             seq,
           });
           if (!registered.ok) return registered;

@@ -11,7 +11,7 @@ export type CommandEnvelope = {
   input: unknown;
   idempotency_key: string;
   compare: unknown;
-  run?: string;
+  turn?: string;
   prepared: readonly string[];
   // 일회 handle 원문이 아니라 사람 결정의 대상·내용이다. 지문에만 들어간다.
   decision?: { target: unknown; content: unknown };

@@ -44,7 +44,7 @@ function conflict(): Result<never> {
 
 // 저장 때 provider 목록에 없는 이름은 거절하고 목록을 확인하지 못했으면 미확인으로 저장한다.
 // 고른 option 값은 그 model의 축과 값 안에 있어야 한다. catalog 항목이 없으면 축을 모르므로 값 없이만
-// 저장한다. 호출 때의 한계 검사는 run 준비의 몫이다.
+// 저장한다. 호출 때의 한계 검사는 turn 준비의 몫이다.
 function checkChoice(
   deps: ModelCommandDeps,
   slot: string,

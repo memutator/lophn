@@ -1,6 +1,6 @@
 // 인증 transport(secret 전송 부착). adapter의 이
 // 파일만 secret 전송 부착을 machine credential으로 부른다(architecture §5.2).
-// API key 값은 transport callback 메모리에서만 산다. 결과·오류·log·run loop·
+// API key 값은 transport callback 메모리에서만 산다. 결과·오류·log·turn loop·
 // ModelCall blob에는 값이나 header가 남지 않는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";

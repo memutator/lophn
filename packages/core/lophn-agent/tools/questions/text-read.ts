@@ -13,7 +13,7 @@ import {
   readBodyBytes,
 } from "../../session/mod.ts";
 import { visibleAssignment } from "./reads.ts";
-import { loadGroup, loadRunRef, type QuestionGroup } from "./model.ts";
+import { loadGroup, loadTurnRef, type QuestionGroup } from "./model.ts";
 
 // ReadQuestionText. 메시지 본문 읽기(ReadMessageBody)와 같은 길이다: 참조 행 판정은
 // ledger snapshot에서 짧게 하고, blob 바이트는 그 뒤에 읽는다. 글은 준비 단계에서 이미
@@ -110,8 +110,8 @@ export function questionTextRead(
         const group = loadGroup(lookup, id);
         if (group === undefined) return ok(undefined);
         if (scope !== null) {
-          const run = loadRunRef(lookup, group.run);
-          if (run === undefined || run.assignment !== scope) {
+          const turn = loadTurnRef(lookup, group.turn);
+          if (turn === undefined || turn.assignment !== scope) {
             return ok(undefined);
           }
         }

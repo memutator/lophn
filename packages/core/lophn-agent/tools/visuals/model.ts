@@ -33,7 +33,7 @@ type VisualStage =
   | "markup"
   | "bytes"
   | "content"
-  // 출처가 이 run에서 읽거나 실행한 결과가 아니다. 검사는 tool이 소유 contract 읽기로 한다.
+  // 출처가 이 turn에서 읽거나 실행한 결과가 아니다. 검사는 tool이 소유 contract 읽기로 한다.
   | "source";
 
 type VisualRejection = {

@@ -143,7 +143,8 @@ export const agentGrantsGet = defineRead({
   name: "GetAgentGrant",
   input: z.strictObject({ agent: agentRefSchema }),
   output: withReadCommon(z.object({ grant: agentGrantSchema })),
-  actors: ["user"],
+  // machine은 agent runtime이 app-api tool을 고를 때 읽는다.
+  actors: ["user", "machine"],
   errors: [...readErrors],
 });
 

@@ -3,7 +3,6 @@ import { routePath } from "../../../protocol/base/mod.ts";
 import type { ToolHandler } from "./mod.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import { builtinBinding } from "../tool-judgment/builtin-binding.ts";
-import { contextBundleReader, createContextToolkit } from "./context-search.ts";
 import type { Toolkit } from "../run-loop/prepare.ts";
 import type { TurnSeat } from "../run-loop/core-ports.ts";
 
@@ -69,13 +68,6 @@ export function createBuiltinToolkit(options: {
           run: run.seat.turn,
           assignment: run.seat.session,
         })),
-    // 선택한 context의 선언 검색 tool·개체 읽기 tool. 정의 재료는 machine 자격으로 읽고
-    // 호출은 run의 agent 자격으로 부른다.
-    contexts: createContextToolkit({
-      machine: options.machine,
-      contract: (agent) => createContractCall(options.routes, agent),
-      bundle: contextBundleReader(options.machine),
-    }),
     // 내장 tool은 정의가 handler를 들고 있다(ToolContext로 실행). 옛 run-loop에 넘길 handler는 없다.
     handlers(
       _seat: TurnSeat,

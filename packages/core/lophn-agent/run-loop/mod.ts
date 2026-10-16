@@ -55,12 +55,6 @@ export { createTurnPipe, type TurnPipe } from "./turn-pipe.ts";
 export { inputText } from "./input-text.ts";
 export { untrustedSource, wrapUntrusted } from "./untrusted.ts";
 export {
-  type AppOffer,
-  computeAgentAppScope,
-  type OfferedCommand,
-  type ScopeInput,
-} from "./scope.ts";
-export {
   type AgentCredentialIssuer,
   type AgentTurnCredential,
   beginTurn,

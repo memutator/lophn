@@ -1,5 +1,13 @@
-import { ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  removeQueued,
+  steerQueuedNow,
+} from "../../../../protocol/lophn-agent/inputs.ts";
 import { providerList } from "../../../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
+import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
   AGENT_RUNTIME_TASK,
@@ -19,6 +27,17 @@ import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
 import type { WiringFactory } from "./context.ts";
 
+// 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+export const SESSION_INPUTS_PRINCIPAL = "machine:session-inputs";
+
+const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
+  principal: SESSION_INPUTS_PRINCIPAL,
+  actor: "machine",
+  scope: { operations: [messageRemoveQueued.name], targets: {} },
+  conditions: {},
+  credential_ref: SESSION_INPUTS_PRINCIPAL,
+};
+
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
   // 입력함은 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
@@ -28,6 +47,48 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     // Router가 같은 입력함에 넣는다.
     prepare(ctx) {
       ctx.provide("inbox", inbox);
+    },
+    records: () => [SESSION_INPUTS_CONTEXT],
+    // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
+    build(ctx) {
+      const humanOnly = (who: AuthenticatedContext): Result<void> =>
+        who.actor === "user"
+          ? ok(undefined)
+          : err({ code: "forbidden", message: "only the user does this" });
+      const taken = () =>
+        err({
+          code: "conflict" as const,
+          message: "the turn already took this message",
+        });
+      const steerNow: MemoryHandler = (who, body) => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        const input = steerQueuedNow.input.parse(body);
+        return inbox.steerNow(input.session as Id<"ses">, input.message)
+          ? ok({ message: input.message })
+          : taken();
+      };
+      // 기록을 먼저 지운다. 이미 turn이 가져간 메시지는 거기서 conflict로 막힌다.
+      const remove: MemoryHandler = async (who, body) => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        const input = removeQueued.input.parse(body);
+        const done = await ctx.runtime.writer.command(SESSION_INPUTS_CONTEXT, {
+          command: messageRemoveQueued.name,
+          input,
+          idempotency_key: crypto.randomUUID(),
+          compare: {},
+          prepared: [],
+        });
+        if (!done.ok) return done;
+        inbox.remove(input.session as Id<"ses">, input.message);
+        return ok({ message: input.message });
+      };
+      const key = (route: { resource: string; method: string }) =>
+        `${route.resource}/${route.method}`;
+      return ok({
+        memory: [[key(steerQueuedNow), steerNow], [key(removeQueued), remove]],
+      });
     },
     // agent runtime(machine)과 run의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
     operations: (ctx) => agentRuntimePolicies(ctx.allRoutes),

@@ -21,6 +21,10 @@ export type Inbox = {
   // turn이 도는 중인지. turn을 시작할 때 true, 끝나면 false로 둔다.
   setRunning(session: Session, running: boolean): void;
   isRunning(session: Session): boolean;
+  // 입력함의 사람 메시지 하나를 지금 도는 turn의 steer로 올린다. 가져간 것이거나 도는 turn이 없으면 false다.
+  steerNow(session: Session, message: string): boolean;
+  // 입력함에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
+  remove(session: Session, message: string): boolean;
   // 입력이 기다리는 session을 먼저 시작할 순서대로 준다.
   waiting(): readonly Session[];
   // archive나 지움에서 입력과 steering을 비운다.
@@ -76,6 +80,26 @@ export function createInbox(): Inbox {
       if (rest.length === 0) queued.delete(session);
       else queued.set(session, rest);
       return first.input;
+    },
+    steerNow(session, message) {
+      if (!running.has(session)) return false;
+      const entries = queued.get(session) ?? [];
+      const found = entries.find((entry) => entry.input.message === message);
+      if (found === undefined || found.input.kind !== "message") return false;
+      this.remove(session, message);
+      steering.set(session, [
+        ...(steering.get(session) ?? []),
+        { ...found.input, delivery: "steer" },
+      ]);
+      return true;
+    },
+    remove(session, message) {
+      const entries = queued.get(session) ?? [];
+      const rest = entries.filter((entry) => entry.input.message !== message);
+      if (rest.length === entries.length) return false;
+      if (rest.length === 0) queued.delete(session);
+      else queued.set(session, rest);
+      return true;
     },
     pendingSteering(session) {
       return steering.get(session) ?? [];

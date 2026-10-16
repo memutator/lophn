@@ -7,7 +7,10 @@ import {
   systemClock,
 } from "../../../base/mod.ts";
 import { ALL_ROUTES } from "../../../protocol/mod.ts";
-import { toolGateCheck } from "../../../protocol/approvals/mod.ts";
+import {
+  agentGrantsGet,
+  toolGateCheck,
+} from "../../../protocol/approvals/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
@@ -38,6 +41,7 @@ import {
 import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
 import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
+import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts";
 
@@ -53,6 +57,16 @@ export function productToolkit(options: {
       routes: ALL_ROUTES,
       machine: options.machine,
       ids: options.ids,
+    }),
+    // 허락된 앱의 app-api tool. grant는 machine 자격의 loopback으로 읽는다.
+    appApi: createAppApiToolkit({
+      machine: options.machine,
+      grants: {
+        async agentGrant(agent) {
+          const read = await readOf(options.machine, agentGrantsGet, { agent });
+          return read.ok ? ok(read.value.grant) : read;
+        },
+      },
     }),
     ...(options.mcp === undefined ? {} : { mcp: options.mcp }),
   };

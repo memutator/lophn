@@ -402,7 +402,7 @@ export function eventExists(lookup: Lookup, seq: string): boolean {
   ]) !== undefined;
 }
 
-// 도는 turn의 model 요청에 반영한 steer를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
+// 도는 turn의 model 요청에 반영한 steer(입력함에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
 // 정상 종료 전에 미반영 steer가 없는지는 loop가 입력함으로 본다. 이미 turn이 정해진 message는 그대로 둔다.
 export function takeSteering(
   tx: Tx,
@@ -416,7 +416,7 @@ export function takeSteering(
   }
   for (const message of input.messages) {
     tx.sql.run(
-      "update messages set turn = ? where id = ? and delivery = 'steer' and turn is null",
+      "update messages set turn = ? where id = ? and turn is null",
       [call["turn"], message],
     );
   }

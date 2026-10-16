@@ -43,11 +43,9 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from "../tools/mod.ts";
-import {
-  contextReadToolsFor,
-  type ContextToolkit,
-  type ContextToolPin,
-} from "../tools/context-search.ts";
+import type { AppApiToolkit } from "../tools/app-toolkit.ts";
+import { type AppApiTool, buildAppApiTools } from "../tools/app-tools.ts";
+import { appApiMissingReason } from "../tools/app-api/missing.ts";
 import type { ToolBinding } from "../tool-judgment/mod.ts";
 import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
@@ -116,8 +114,8 @@ export type Toolkit = {
   ): ToolBinding | undefined;
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
   mcp?(session: string): McpToolkit | undefined;
-  // 선택한 context의 선언 검색 tool과 개체 읽기 tool의 재료·handler다. 없으면 context tool이 없다.
-  contexts?: ContextToolkit;
+  // 허락된 앱의 app-api tool 정의와 목록에 없는 이유 구별이다. 없으면 app-api tool이 없다.
+  appApi?: AppApiToolkit;
 };
 
 // ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, Router, 질문, 폴더 범위,
@@ -197,6 +195,8 @@ export type TurnPreparer = {
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
+  // 그때 보인 app-api tool이다. 나중에 목록에 없는 이유를 가릴 때 쓴다.
+  offered: readonly AppApiTool[];
 };
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
@@ -302,31 +302,40 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // 선언 검색 tool과 개체 읽기 tool은 resolved agent의 context의 적용된 판에서 만든다. 판은 시작 전에 한
-    // 번 읽고 정의 hash가 turn 근거에 고정된다.
-    const contextRead = await contextReadToolsFor(deps.toolkit.contexts, {
-      contexts: agent.contexts,
-    });
+    // 허락된 앱의 app-api tool이다. 선언이나 grant를 읽지 못하면 그 앱은 없는 것과 같다.
+    const apiKit = deps.toolkit.appApi;
+    const loadedApi = apiKit === undefined
+      ? null
+      : await apiKit.load(session.agent);
+    const appApi = apiKit === undefined || loadedApi === null || !loadedApi.ok
+      ? null
+      : {
+        kit: apiKit,
+        loaded: loadedApi.value,
+        tools: await buildAppApiTools({
+          place: session.place,
+          ...loadedApi.value,
+        }),
+      };
 
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
-    // role이 고정한 목록에 이 turn이 닿는 context와 외부 MCP tool을 더한다.
+    // role이 고정한 목록에 이 turn이 닿는 app-api와 외부 MCP tool을 더한다.
     const current: readonly ToolDefinition[] = [
       ...listRoleTools(
         session.agent.role,
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions ?? BUILTIN_TOOLS,
       ),
-      ...(contextRead.entity === null ? [] : [contextRead.entity]),
-      ...contextRead.search.map((tool) => tool.definition),
+      ...(appApi?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
       current,
-      contextRead,
+      appApi,
       external,
       model: model.value,
       seat,
@@ -358,7 +367,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const fixed = fixedBySession.get(seat.session)!;
     const legacy = new Map<string, ToolHandler>([
       ...toolkit.handlers(seat, agentCall),
-      ...(toolkit.contexts?.handlers(m.contextRead, agentCall) ?? []),
       ...(m.mcpKit === undefined ? [] : createMcpToolHandlers(
         external,
         m.mcpKit.call(seat.session),
@@ -406,6 +414,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ids,
         ...ports,
       }),
+      // 앞서 보인 app-api tool이 사라진 이유(release 선언이나 grant가 바뀜)를 가른다.
+      missing: (wireName) =>
+        m.appApi === null ? "unknown_tool" : appApiMissingReason(
+          wireName,
+          m.appApi.kit.missingState(fixed.offered, m.appApi.loaded),
+        ),
       server: (definition) =>
         externalByName.get(definition.name)?.server ?? null,
       extension: (definition) => {
@@ -667,6 +681,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       fixedBySession.set(start.session, {
         definitions: m.current,
         key: keyOf(m.current),
+        offered: m.appApi?.tools ?? [],
       });
     }
     const fixed = fixedBySession.get(start.session)!;
@@ -696,8 +711,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           definitions_hash: await fingerprint(
             fixed.definitions.map((tool) => [tool.name, tool.revision]),
           ),
-          // 선언 검색 정의를 만든 판이다.
-          contexts: m.contextRead.pins as readonly ContextToolPin[],
         },
         models: { judgment: m.model.call, organizing: m.model.call },
         place: session.place,

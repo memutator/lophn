@@ -112,6 +112,8 @@ export interface CallStore {
   ): Result<AgentCallRecord>;
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 재시작 때 잃어버린 call을 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
+  // 줄에서 기다리던 coding 맡기기가 나중에 session을 열었다. 받는 session을 적는다.
+  setReceiver(tx: Tx, call: Id<"cal">, session: Id<"ses">): Result<void>;
   // 끝나지 않았고 아직 가져가지 않은 call. 입력함과 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
   lost(tx: Tx): readonly AgentCallRecord[];
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.

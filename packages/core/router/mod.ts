@@ -14,6 +14,7 @@ export {
   routerFor,
 } from "./environment.ts";
 export {
+  callsReact,
   callsRecover,
   recoverCallsCommand,
   ROUTER_COMMANDS,

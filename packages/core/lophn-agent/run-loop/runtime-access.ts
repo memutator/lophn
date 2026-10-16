@@ -1,8 +1,6 @@
 import { OPTION_ACTION_OPERATIONS } from "../tools/questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
-  CONTEXT_ENTITY_CONTRACT,
-  CONTEXT_SEARCH_CONTRACT,
   listRoleTools,
   runOperations,
 } from "../tools/mod.ts";
@@ -61,15 +59,14 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   appAgentConfirmProof,
-  appBlueprint,
   appGet,
   appList,
   appRuntime,
-  grantsList,
   invocationAcceptConfirm,
   invocationsList,
 } from "../../../protocol/apps/mod.ts";
 import {
+  agentGrantsGet,
   applyApprovedAction,
   approvalsGet,
   approvalsList,
@@ -146,9 +143,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   contextListRoute,
   contextGetRoute,
   contextContractRoute,
-  // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
-  appBlueprint,
-  grantsList,
+  // app-api tool의 정의 재료(활성 release 선언과 agent grant)와 결과 조회(invocation 기록)를 읽는다.
+  appAppApi,
+  agentGrantsGet,
   invocationsList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
@@ -215,9 +212,6 @@ export function roleOperations(role: string): readonly string[] {
       ...(tools.some((tool) => REWIND_WRITE_TOOLS.includes(tool.name))
         ? [stageRewindFile.name, recordRewindWrite.name]
         : []),
-      // 선택한 context의 선언 검색과 개체 읽기다. 이름이 동적이라 tool 이름에 없다.
-      CONTEXT_SEARCH_CONTRACT,
-      CONTEXT_ENTITY_CONTRACT,
       ...PLACE_READS,
       APP_TOOL_CONTRACT,
       ...EXTERNAL_TOOL_OPERATIONS,

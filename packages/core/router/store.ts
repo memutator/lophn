@@ -138,6 +138,13 @@ export function createCallStore(): CallStore {
       );
       return ok(undefined);
     },
+    setReceiver(tx, call, session) {
+      tx.sql.run(
+        "update agent_calls set receiver_session = ? where call = ? and receiver_session is null",
+        [session, call],
+      );
+      return ok(undefined);
+    },
     lost(tx) {
       return many(tx.sql.all(
         `select ${COLUMNS} from agent_calls

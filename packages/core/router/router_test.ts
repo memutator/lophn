@@ -52,6 +52,7 @@ function setup(sessions: Record<string, TargetSession>) {
       return ok(moved);
     },
     markConsumed: () => ok(undefined),
+    setReceiver: () => ok(undefined),
     lost: () => [],
     openReceivedBy: () => [],
   };

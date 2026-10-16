@@ -113,6 +113,7 @@ import {
   type MessageBodyEnvironment,
   messageBodyFields,
   messageBodyRead,
+  removeQueuedCommand,
   sessionSummaryRead,
   takeSteering,
 } from "./session/mod.ts";
@@ -688,6 +689,7 @@ export const lophnAgentDefinitions = {
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,
+    removeQueuedCommand({ eraseBlobRefs }),
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,

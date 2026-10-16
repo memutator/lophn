@@ -51,7 +51,15 @@ export function openNext(
     if (line === null) return ok(undefined);
     const record = createCallStore().read(tx, line.call as never);
     if (record === null || record.state !== "accepted") continue;
-    if (openSession(tx, memory, line).ok) return ok(undefined);
+    const opened = openSession(tx, memory, line);
+    if (opened.ok) {
+      // 줄에서 기다리던 call이 이제 받는 session을 갖는다.
+      return createCallStore().setReceiver(
+        tx,
+        line.call as never,
+        opened.value.session as never,
+      );
+    }
     const closed = closeCall(tx, {
       call: line.call,
       event: "CodingSessionEndedUnreported",

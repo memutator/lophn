@@ -11,8 +11,7 @@ import type { ToolContext } from "./tool-context.ts";
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
-// `context`는 옛 선언 검색 tool(`context-search-tools.ts`)이 쓴다. 그 file이 지워지면 같이 지운다.
-export type ToolOrigin = "builtin" | "app" | "context" | "external";
+export type ToolOrigin = "builtin" | "app" | "external";
 
 // Gate에 물을 intent의 재료다. 호출자(actor)와 출처(origin)는 executeToolCall이 ToolContext에서 채운다.
 export type GateRequest = Pick<Intent, "kind" | "target" | "effect" | "input">;
@@ -51,8 +50,6 @@ export type ToolDefinition = {
   // 옛 정의가 채우지만 읽는 곳은 없다.
   scopeCheck?: string;
   errors?: readonly string[];
-  // origin이 context인 정의가 속한 context id.
-  context?: string;
 };
 
 export type ToolCatalog = {
@@ -67,8 +64,6 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
 export type ToolSource = {
   builtin: readonly ToolDefinition[];
   app: readonly ToolDefinition[];
-  // 선언 검색 tool(origin context). 순서는 내장→앱→context→외부다. 생략하면 없다.
-  context?: readonly ToolDefinition[];
   external: readonly ToolDefinition[];
 };
 
@@ -77,12 +72,9 @@ export type CapabilityScope = {
   presetTools: readonly string[] | null;
   // 제품 역할 상한. null이면 상한이 없어 빈 목록이다(fail closed).
   roleTools: readonly string[] | null;
-  // preset의 context 선택이 가리키는 context id. origin이 context인 정의는 자기 context가 여기 있을 때만
-  // 목록에 든다(이름 목록 검사는 건너뛴다). 없거나 null이면 context 정의는 목록에 없다(fail closed).
-  contexts?: readonly string[] | null;
 };
 
-// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→context→외부다.
+// 목록은 preset capability와 역할 상한의 교집합이고 순서는 내장→앱→외부다.
 // 같은 판의 같은 bytes를 유지하려고 입력 순서를 그대로 두고 이름 중복은 먼저 온
 // 정의를 남긴다. 옛 run-loop가 쓴다(새 목록은 builtin.ts의 listRoleTools).
 export function listTools(
@@ -97,26 +89,13 @@ export function listTools(
   const role = new Set(scope.roleTools);
   const seen = new Set<string>();
   const listed: ToolDefinition[] = [];
-  const covered = new Set(scope.contexts ?? []);
   for (
     const definition of [
       ...source.builtin,
       ...source.app,
-      ...(source.context ?? []),
       ...source.external,
     ]
   ) {
-    // 선언 검색 정의도 이름이 동적이다. preset의 context 선택이 그 context를 덮을 때만 들어온다. 선택이
-    // 비었거나 없으면 하나도 없다(fail closed). 역할·assignment 범위는 정의를 만들 때 이미 적용했다.
-    if (definition.origin === "context") {
-      if (
-        definition.context === undefined || !covered.has(definition.context)
-      ) continue;
-      if (seen.has(definition.name)) continue;
-      seen.add(definition.name);
-      listed.push(definition);
-      continue;
-    }
     // 앱 command 정의는 이름이 동적이라 preset·역할 이름 목록에 없다. 역할·현재 허락·assignment의
     // 교집합(AgentAppScope)이 이미 고른 것만 들어오므로 이름 검사를 건너뛴다.
     if (

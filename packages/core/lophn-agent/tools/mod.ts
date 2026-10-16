@@ -33,20 +33,6 @@ export {
   type AppApiMissingState,
   grantAllows,
 } from "./app-api/missing.ts";
-export {
-  buildContextReadTools,
-  CONTEXT_ENTITY_CONTRACT,
-  CONTEXT_ENTITY_TOOL,
-  CONTEXT_SEARCH_CONTRACT,
-  CONTEXT_TOOL_PREFIX,
-  type ContextEntityRead,
-  contextReadDefinitions,
-  type ContextReadTools,
-  type ContextSearchTool,
-  type ContextSearchToolSource,
-  type ContextToolContext,
-  createContextReadToolHandlers,
-} from "./context-search-tools.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {
   boundedResult,

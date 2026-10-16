@@ -45,3 +45,28 @@ Deno.test("사람 메시지가 call보다 먼저 나오고 steer는 도는 turn�
   assertEquals(inbox.next(SESSION), undefined);
   assertEquals(inbox.pendingSteering(SESSION).map((i) => i.body), ["s1"]);
 });
+
+Deno.test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지에만 먹는다", () => {
+  const inbox = createInbox();
+  const queued = {
+    ...input("message", "q1"),
+    message: "msg_q1",
+  } as RoutedInput;
+  inbox.put(SESSION, queued);
+  // 도는 turn이 없으면 올릴 곳이 없다.
+  assertEquals(inbox.steerNow(SESSION, "msg_q1"), false);
+  inbox.setRunning(SESSION, true);
+  assertEquals(inbox.steerNow(SESSION, "msg_q1"), true);
+  assertEquals(inbox.next(SESSION), undefined);
+  assertEquals(inbox.pendingSteering(SESSION).map((i) => i.delivery), [
+    "steer",
+  ]);
+  // 이미 steer로 넘어간 메시지와 없는 메시지는 뺄 수 없다.
+  assertEquals(inbox.remove(SESSION, "msg_q1"), false);
+  inbox.put(
+    SESSION,
+    { ...input("message", "q2"), message: "msg_q2" } as RoutedInput,
+  );
+  assertEquals(inbox.remove(SESSION, "msg_q2"), true);
+  assertEquals(inbox.next(SESSION), undefined);
+});

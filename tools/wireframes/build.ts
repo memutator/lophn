@@ -22,7 +22,7 @@ import { mergeImports } from "../../packages/shell/renderer/build.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "../..");
-export const OUTPUT = join(here, "dist");
+const OUTPUT = join(here, "dist");
 
 function fileUrl(path: string): URL {
   return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
@@ -120,7 +120,7 @@ async function importMap(): Promise<Record<string, string>> {
   return imports;
 }
 
-export async function buildGallery(outdir = OUTPUT): Promise<void> {
+async function buildGallery(outdir = OUTPUT): Promise<void> {
   await rm(outdir, { recursive: true, force: true });
   const scratch = await mkdtemp(join(tmpdir(), "wireframes-map-"));
   try {

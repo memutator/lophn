@@ -28,7 +28,6 @@ import {
 import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/rail.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import type { PanelSession } from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
-import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
@@ -48,18 +47,8 @@ import {
 } from "./agents-data.ts";
 import type { FileInit } from "./project-files/file-data.ts";
 import { Avatar } from "./agent-avatar.tsx";
-import styles from "./compose.module.css";
 
-/** `public`으로 내놓는 type·field·relation 표시. */
-export function Mark({ children }: { children: ReactNode }) {
-  return <span className={styles.mark}>{children}</span>;
-}
-
-export function Mono({ children }: { children: ReactNode }) {
-  return <span className={styles.mono}>{children}</span>;
-}
-
-export type TabKind =
+type TabKind =
   | "document"
   | "context"
   | "contexts"
@@ -167,7 +156,7 @@ export interface SidebarSpec {
   readonly rootMenu?: boolean;
 }
 
-export interface SidebarProps extends SidebarSpec {
+interface SidebarProps extends SidebarSpec {
   readonly collapsed: boolean;
   readonly onToggle: () => void;
   readonly onRail: (action: RailAction) => void;
@@ -423,46 +412,7 @@ export function PageSidebar(props: SidebarProps) {
   );
 }
 
-/** 오른쪽 클릭·+ 메뉴의 정적 모양. 실제 Menu(Radix)와 같은 CSS Module을 쓴다. */
-export function StaticMenu(
-  { items, head, width = 200, highlighted }: {
-    items: readonly {
-      label: string;
-      more?: boolean;
-      /** 항목 앞 아이콘. */
-      icon?: ReactNode;
-    }[];
-    head?: string;
-    width?: number;
-    highlighted?: string;
-  },
-) {
-  return (
-    <div
-      className={`${menuStyles.menu} ${styles.menuStatic}`}
-      role="menu"
-      style={{ minWidth: `${width}px` }}
-    >
-      {head === undefined
-        ? null
-        : <div className={styles.menuHead}>{head}</div>}
-      {items.map((item) => (
-        <div
-          key={item.label}
-          role="menuitem"
-          className={menuStyles.item}
-          data-highlighted={item.label === highlighted ? "" : undefined}
-          data-more={item.more ? "" : undefined}
-        >
-          {item.icon}
-          {item.label}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export type NewTabPick =
+type NewTabPick =
   | "document"
   | "terminal"
   | "agent-lophn"

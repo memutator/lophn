@@ -14,5 +14,4 @@ interface Host {
 const HostContext = createContext<Host>({ open: () => {}, opened: 0 });
 
 export const HostProvider = HostContext.Provider;
-export const useHost = () => useContext(HostContext);
 export const useOpenTab = () => useContext(HostContext).open;

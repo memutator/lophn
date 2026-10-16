@@ -6,8 +6,8 @@ import { SCREENS } from "./frames/screens.tsx";
 import styles from "./gallery.module.css";
 
 /** frame의 고정 데스크톱 크기. 좁은 창에서는 이 크기 그대로 줄여서 보인다. */
-export const FRAME_WIDTH = 1280;
-export const FRAME_HEIGHT = 800;
+const FRAME_WIDTH = 1280;
+const FRAME_HEIGHT = 800;
 
 type Theme = "auto" | "light" | "dark";
 const THEME_KEY = "lophn.wireframes.theme";

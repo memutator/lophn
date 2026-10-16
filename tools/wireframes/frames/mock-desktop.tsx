@@ -32,7 +32,7 @@ import "@xterm/xterm/css/xterm.css";
 export { PROJECT_GROCERY };
 
 /** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
-export interface TabSpec {
+interface TabSpec {
   readonly key: string;
   readonly kind: "document_editor" | "terminal";
   readonly title: string;
@@ -44,7 +44,7 @@ export interface PaneSpec {
   readonly selected: string;
 }
 
-export interface MockDesktopProps {
+interface MockDesktopProps {
   readonly route?: Route;
   /** 작업대의 칸 배치. 없으면 시드 배치다. */
   readonly panes?: readonly PaneSpec[];

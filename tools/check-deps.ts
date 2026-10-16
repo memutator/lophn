@@ -9,7 +9,7 @@ import {
   resolveWorkspace,
 } from "./deps-workspace.ts";
 
-export type Violation = {
+type Violation = {
   file: string;
   line: number;
   rule: string;
@@ -92,7 +92,7 @@ const LEAVING_FILES = new Set([
   "packages/protocol/server/registration.ts",
 ]);
 
-export async function checkRepo(root: string): Promise<Violation[]> {
+async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${Deno.cwd()}/${root}`);
   const { files, paths } = await walk(root);
   const members = await readMembers(root, files);

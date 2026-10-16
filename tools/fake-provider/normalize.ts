@@ -17,7 +17,7 @@ const SECRET_KEYS = new Set([
   "device_code",
 ]);
 
-export function canonical(value: unknown): unknown {
+function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
@@ -38,7 +38,7 @@ export function isSecretKey(name: string): boolean {
 }
 
 // log·mismatch 표시용. 인증 값과 secret 필드는 존재만 남긴다.
-export function redact(value: unknown): unknown {
+function redact(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};

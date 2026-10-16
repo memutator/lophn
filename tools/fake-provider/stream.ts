@@ -1,7 +1,7 @@
 // chunk는 pull 때 하나씩 나간다. abort/cancel은 delay·gate·hold를 즉시 끝낸다.
 import type { ResponseChunk } from "./types.ts";
 
-export type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>;
+type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>;
 
 export function decodeChunk(chunk: ResponseChunk): Uint8Array {
   if (chunk.encoding === "base64") {

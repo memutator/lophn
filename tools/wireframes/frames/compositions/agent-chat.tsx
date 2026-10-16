@@ -36,7 +36,7 @@ import { type DemoStep, openSwitcher, pressAt, useDemo } from "./demo-steps.ts";
 import styles from "./compose.module.css";
 
 export { Quiet, Said, ToolRow, UserMessage };
-export type Detail = ViewDetail;
+type Detail = ViewDetail;
 
 const NOW = new Date("2026-10-06T09:30:00Z");
 const MINUTE = 60_000;

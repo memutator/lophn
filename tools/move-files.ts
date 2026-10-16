@@ -9,20 +9,20 @@ import {
   resolveWorkspace,
 } from "./deps-workspace.ts";
 
-export type Mapping = {
+type Mapping = {
   moves?: { from: string; to: string }[];
   packages?: { from: string; to: string }[];
   remove?: string[];
 };
 
-export type Note = {
+type Note = {
   file: string;
   line: number;
   kind: "error" | "warning" | "path" | "config" | "mention";
   message: string;
 };
 
-export type Plan = {
+type Plan = {
   // 옛 경로 → 새 경로. 자리가 바뀌는 파일만 담는다.
   moved: Map<string, string>;
   removed: string[];
@@ -344,7 +344,7 @@ function splitSuffix(specifier: string): [string, string] {
     : [specifier.slice(0, at), specifier.slice(at)];
 }
 
-export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
+async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
   const notes: Note[] = [];
   const note = (
     file: string,
@@ -776,7 +776,7 @@ export async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
 }
 
 // 옮긴 뒤 남은 옛 폴더(추적하지 않는 파일만 있는 곳)를 돌려준다.
-export async function applyPlan(root: string, plan: Plan): Promise<string[]> {
+async function applyPlan(root: string, plan: Plan): Promise<string[]> {
   if ((await git(root, ["status", "--porcelain"])).trim()) {
     throw new Error("commit하지 않은 변경이 있다. 치운 뒤 돌린다");
   }
@@ -820,7 +820,7 @@ export async function applyPlan(root: string, plan: Plan): Promise<string[]> {
     .filter((dir, _, list) => !list.includes(parent(dir))).sort();
 }
 
-export function summary(plan: Plan): string {
+function summary(plan: Plan): string {
   const count = (kind: Note["kind"]) =>
     plan.notes.filter((note) => note.kind === kind).length;
   return [
@@ -832,7 +832,7 @@ export function summary(plan: Plan): string {
   ].join("\n");
 }
 
-export function formatReport(plan: Plan): string {
+function formatReport(plan: Plan): string {
   const groups: [Note["kind"], string][] = [
     ["error", "오류: 고치기 전에는 옮기지 않는다"],
     ["warning", "경고: 확인할 것"],

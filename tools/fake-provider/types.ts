@@ -76,8 +76,3 @@ export type LoggedRequest = {
   aborted: boolean;
 };
 
-export type ScriptFailure =
-  | { kind: "unexpected"; seq: number; detail: string }
-  | { kind: "exhausted" }
-  | { kind: "remaining"; ids: string[] }
-  | { kind: "none" };

@@ -50,19 +50,19 @@ import { APP_NAME } from "./data.ts";
 import { click, find, press, type, useDrive, wait } from "./drive.ts";
 import { OrdersView, type ViewMarks } from "./orders-view.tsx";
 
-export type OpsTab = "version" | "access" | "activity" | "issues";
-export type ActivationState = "applied" | "applying" | "failed";
-export type RewindStage = "confirm" | "running" | "done" | "conflict";
-export type PaneView = "agent" | "terminal";
+type OpsTab = "version" | "access" | "activity" | "issues";
+type ActivationState = "applied" | "applying" | "failed";
+type RewindStage = "confirm" | "running" | "done" | "conflict";
+type PaneView = "agent" | "terminal";
 
-export interface Annotation {
+interface Annotation {
   readonly n: number;
   /** 고른 곳의 이름. */
   readonly target: string;
   readonly memo: string;
 }
 
-export interface AppSpaceProps {
+interface AppSpaceProps {
   /** 처음에 열린 운영 패널 탭. 없으면 패널이 닫혀 있다. */
   readonly panel?: OpsTab;
   readonly version?: ActivationState;

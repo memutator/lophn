@@ -1,6 +1,6 @@
 // Context 탭을 여는 길 목록. React·CSS 없이 두어 `deno test`가 그대로 읽는다. `tryIt`은 그 길을 눌러 볼 수 있는
 // gallery page의 id다.
-export interface Way {
+interface Way {
   readonly title: string;
   /** 사람이 누르는 순서. 마지막 상자(Context 탭)는 그림이 따로 붙인다. */
   readonly steps: readonly string[];

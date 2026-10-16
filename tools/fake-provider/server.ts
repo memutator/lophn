@@ -8,7 +8,7 @@ import { buildReply } from "./semantic.ts";
 import { openStream } from "./stream.ts";
 import type { LoggedRequest, Script, Step, StepResponse } from "./types.ts";
 
-export type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>;
+type Sleep = (ms: number, signal?: AbortSignal) => Promise<void>;
 
 export type ServerOptions = {
   script: Script;

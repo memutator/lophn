@@ -63,7 +63,7 @@ export async function readMembers(
   return membersOf(workspace, configs);
 }
 
-export function workspaceMatcher(
+function workspaceMatcher(
   workspace: string[],
 ): (directory: string) => boolean {
   const patterns = workspace.map(glob);

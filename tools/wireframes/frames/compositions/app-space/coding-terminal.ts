@@ -10,7 +10,7 @@ import { TICKET, TICKET_TITLE } from "./data.ts";
 
 export type CodingScene = "running" | "permission" | "ended";
 
-export const CODING_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd03";
+const CODING_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd03";
 const REF = "term_coding";
 
 const HEAD = "✻ Claude Code\n  /home/mina/.lophn/apps/orders/source";
@@ -53,7 +53,7 @@ function screen(scene: CodingScene): string {
   return text.replaceAll("\n", "\r\n");
 }
 
-export interface CodingBridge extends TerminalApi {
+interface CodingBridge extends TerminalApi {
   /** lophn이 터미널을 열었다고 알린다. */
   emit(): void;
 }

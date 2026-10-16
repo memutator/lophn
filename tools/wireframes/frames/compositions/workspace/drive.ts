@@ -3,7 +3,7 @@
 import { type RefObject, useEffect } from "react";
 
 /** 요소를 찾는다. 아직 그려지지 않았으면 null이다. */
-export type Find = (root: HTMLElement) => HTMLElement | null;
+type Find = (root: HTMLElement) => HTMLElement | null;
 
 export type Action =
   | { readonly find: Find; readonly click: true }
@@ -22,12 +22,6 @@ export const last = (selector: string): Find => (root) => {
   const all = root.querySelectorAll<HTMLElement>(selector);
   return all.length === 0 ? null : all[all.length - 1];
 };
-
-/** selector에 맞고 글에 text가 든 첫 요소. */
-export const withText = (selector: string, text: string): Find => (root) =>
-  [...root.querySelectorAll<HTMLElement>(selector)].find((one) =>
-    one.textContent?.includes(text)
-  ) ?? null;
 
 // React가 input 값을 바꾼 것으로 알아보게 native setter로 쓰고 input event를 낸다.
 function write(element: HTMLElement, text: string): void {

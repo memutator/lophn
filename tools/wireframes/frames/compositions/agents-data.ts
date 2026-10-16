@@ -4,13 +4,13 @@ import type { ModelSelection } from "./model-options.ts";
 import type { TabSpec } from "./project-window.tsx";
 
 /** Weekly report session의 진행. report는 일이 끝난 모양이고 나머지는 사람을 기다리거나 답한 뒤다. */
-export type ChatStage = "report" | "question" | "answered" | "approval";
+type ChatStage = "report" | "question" | "answered" | "approval";
 
 /** model picker를 연 채 시작할지. */
-export type ModelDemo = "picker";
+type ModelDemo = "picker";
 
 /** session switcher를 어떻게 연 채 시작할지. edit는 이름 고치기 input과 삭제 확인을 같이 보인다. */
-export type SwitcherDemo = "open" | "edit";
+type SwitcherDemo = "open" | "edit";
 
 /** Agent 탭을 어떤 모양으로 열지. page마다 한 상태를 고정해 보이는 데 쓴다. */
 export interface ChatInit {
@@ -30,7 +30,7 @@ export interface ChatInit {
 }
 
 /** agent profile의 icon. 사용자가 올린 이미지는 icon 대신 image다. */
-export type AvatarIconKey =
+type AvatarIconKey =
   | "dock"
   | "roles"
   | "contexts"
@@ -43,21 +43,6 @@ export type AvatarIconKey =
   | "read"
   | "edit"
   | "compare";
-
-export const AVATAR_ICON_KEYS: readonly AvatarIconKey[] = [
-  "dock",
-  "roles",
-  "contexts",
-  "documents",
-  "apps",
-  "search",
-  "series",
-  "bookmark",
-  "terminal",
-  "read",
-  "edit",
-  "compare",
-];
 
 export interface AgentProfile {
   readonly icon: AvatarIconKey;
@@ -105,7 +90,7 @@ const nameOf = (id: string) =>
 
 // ---- session ----
 
-export type SessionState = "waiting" | "working" | "idle";
+type SessionState = "waiting" | "working" | "idle";
 
 export interface SessionRow {
   readonly id: string;
@@ -247,12 +232,6 @@ export const SESSIONS: readonly SessionRow[] = [
 export const sessionsOf = (agent: string): readonly SessionRow[] =>
   SESSIONS.filter((row) => row.agent === agent);
 
-export const sessionBySub = (
-  agent: string,
-  sub: string,
-): SessionRow | undefined =>
-  sessionsOf(agent).find((row) => (row.sub ?? `conv:${row.id}`) === sub);
-
 let fresh = 0;
 
 /** sidebar에서 agent를 눌러 여는 새 Agent 탭. 누를 때마다 새 탭이다. */
@@ -298,74 +277,5 @@ export const AGENTS_TAB: TabSpec = {
   title: "phroner · Agents",
 };
 
-/** 새 session의 model. agent 정의의 기본값에서 오고, composer에서 고르면 그 session만 바뀐다. */
-export const SESSION_MODEL: ModelSelection = {
-  model: "Sonnet 5.5",
-  values: { effort: "Medium" },
-};
-
-/** picker를 연 session의 model(effort 밖의 option 축이 보이는 model). */
-export const DEMO_PICKER: ModelSelection = {
-  model: "GPT-6.1 Sol",
-  values: { effort: "High", speed: "Priority" },
-};
-
 // ---- `/` 명령 ----
 
-export interface SlashCommand {
-  readonly name: string;
-  readonly text: string;
-}
-
-export interface SlashGroup {
-  readonly title: string;
-  readonly items: readonly SlashCommand[];
-}
-
-/** 전역 built-in. 모든 agent가 같다. 자주 쓰는 순서이고 알파벳 순이 아니다. 일하는 중에 쓰면 다음 turn에 들어간다. */
-export const GLOBAL_COMMANDS: SlashGroup = {
-  title: "Commands",
-  items: [
-    { name: "Compact", text: "Summarize this session to free up context" },
-    { name: "Recap", text: "Show a short summary of this session" },
-    { name: "Fork", text: "Copy this session into a new one" },
-    { name: "Rename", text: "Rename this session" },
-    { name: "Archive", text: "Archive this session" },
-    { name: "New session", text: "Start a fresh session with this agent" },
-    { name: "MCP", text: "Show MCP server status" },
-    { name: "Skills", text: "Turn skills on or off" },
-    {
-      name: "Permissions",
-      text: "Show what this agent may do and what you allowed here",
-    },
-  ],
-};
-
-/** agent별 built-in. 이름이 같은 agent의 묶음만 둘째에 보인다(Operator는 없다). */
-export const ROLE_COMMANDS: Readonly<Record<string, readonly SlashCommand[]>> =
-  {
-    lophn: [
-      { name: "New app", text: "Start a new app in this project" },
-      { name: "Repair app", text: "Find and fix what broke in an app" },
-    ],
-    "Project Manager": [
-      {
-        name: "Check contracts",
-        text: "Check every context against its documents",
-      },
-      { name: "New context", text: "Set up a new context with you" },
-    ],
-  };
-
-/** skill. 전역과 이 agent 전용을 가르지 않고 출처 badge도 없다. */
-export const SKILL_COMMANDS: SlashGroup = {
-  title: "Skills",
-  items: [
-    { name: "weekly-report", text: "Write the weekly eval report" },
-    { name: "eval-metrics", text: "Compute pass rate and regressions" },
-    {
-      name: "release-notes",
-      text: "Draft release notes from merged changes",
-    },
-  ],
-};

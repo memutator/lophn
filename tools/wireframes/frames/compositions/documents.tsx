@@ -2,7 +2,7 @@
 // 조작은 탭 안 맨 위의 view bar에 있다. Info는 그 칸 오른쪽에 붙어 본문 위로 뜬다(Info · Contexts, Outline은 Info 안).
 // 틀·view bar·정보 panel·편집기·viewer는 모두 renderer 편집기(`packages/shell/renderer/editor`)의 component이고,
 // 이 파일은 고정 data(`editor/fake-source.ts`)와 gallery의 열기·상태 props를 이어 준다.
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type ReadingWidthSetting,
   useReadingWidth,
@@ -22,10 +22,6 @@ import {
   outlineOf,
 } from "../../../../packages/shell/renderer/editor/model.ts";
 import { revealInReading } from "../../../../packages/shell/renderer/editor/reveal.ts";
-import {
-  FileActions,
-  ViewBar as EditorViewBar,
-} from "../../../../packages/shell/renderer/editor/view-bar.tsx";
 import { fileKindOf } from "./project-files/file-data.ts";
 import type { FileInit, SaveState } from "./project-files/file-data.ts";
 import { isOutside, metaOf } from "./project-files/file-data.ts";
@@ -41,34 +37,11 @@ import {
 } from "./project-files/viewers.tsx";
 import { contextOf, contextTab } from "./phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
-import styles from "./compose.module.css";
 
 type Open = (tab: TabSpec) => void;
 
 /** Info 칸의 탭. Info와 Contexts 둘이다. */
 export type InfoPanel = "info" | "contexts";
-
-/** 탭 안 맨 위의 얇은 한 줄 view bar. 오른쪽에 그 탭의 조작, 왼쪽에는 짧은 정보만 둔다(`path`가 비면 아무것도 없다). 탭 줄에는 조작을 두지 않는다. */
-export function ViewBar(
-  { path, lead, children }: {
-    path: string;
-    /** 경로 대신 왼쪽에 둘 것(Agent 탭의 agent header). */
-    lead?: ReactNode;
-    children?: ReactNode;
-  },
-) {
-  return (
-    <EditorViewBar
-      lead={lead ?? (path === ""
-        ? null
-        : (
-          <span className={styles.viewPath}>{path.split("/").join(" / ")}</span>
-        ))}
-    >
-      {children}
-    </EditorViewBar>
-  );
-}
 
 // gallery는 읽기 폭을 기본으로 고정한다.
 const READING_WIDTH: ReadingWidthSetting = {
@@ -196,27 +169,3 @@ export function DocumentPane(
   );
 }
 
-/** 문서 탭 안 view bar의 오른쪽 조작: 저장 상태, Edit/Read 바꾸기(md만), Info, …. 이미지와 pdf는 보기만 한다. */
-export function DocActions(
-  { editing, infoOpen, onEditing, onInfo, kind = "markdown", status = "saved" }:
-    {
-      editing: boolean;
-      infoOpen: boolean;
-      onEditing: () => void;
-      onInfo: () => void;
-      kind?: "markdown" | "text" | "image" | "pdf";
-      status?: SaveState;
-    },
-) {
-  return (
-    <FileActions
-      kind={kind}
-      state={kind === "image" || kind === "pdf" ? null : status}
-      editing={editing}
-      infoOpen={infoOpen}
-      onEditing={onEditing}
-      onInfo={onInfo}
-      onDelete={() => {}}
-    />
-  );
-}

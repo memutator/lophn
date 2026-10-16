@@ -5,16 +5,16 @@ import { Button } from "@lophn/design/components";
 import { ORDER_ROWS } from "./data.ts";
 import styles from "./app-space.module.css";
 
-export type TargetId = "ship" | "total";
+type TargetId = "ship" | "total";
 
-export interface Mark {
+interface Mark {
   /** 고른 순서. 번호 표지로 보인다. */
   readonly n: number;
   /** 메모 칸을 이 요소 아래에 붙여 열어 둔다. */
   readonly memo?: string;
 }
 
-export interface AreaMark {
+interface AreaMark {
   /** 앱 화면 안 위치와 크기(%). */
   readonly left: number;
   readonly top: number;

@@ -69,7 +69,7 @@ export const CHAT_TAB: TabSpec = {
   kind: "agent",
   title: "lophn",
 };
-export const ENGINEER_TAB: TabSpec = {
+const ENGINEER_TAB: TabSpec = {
   key: "chat:engineer",
   kind: "agent",
   title: "Project Manager",

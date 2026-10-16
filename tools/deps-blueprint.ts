@@ -1,9 +1,9 @@
 import { computedImports, readImports } from "./deps-imports.ts";
 import { directory, inside, normalize } from "./deps-workspace.ts";
 
-export const BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint.ts";
+const BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint.ts";
 const NEW_BLUEPRINT_ENTRY = "packages/protocol/apps/blueprint/mod.ts";
-export const BLUEPRINT_WRAPPER = "packages/core/apps/blueprint/mod.ts";
+const BLUEPRINT_WRAPPER = "packages/core/apps/blueprint/mod.ts";
 const SDK = "packages/sdk/blueprint";
 const CONTRACT_FILES = new Set([
   BLUEPRINT_ENTRY,

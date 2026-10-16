@@ -19,7 +19,7 @@ import { pmNewTab } from "./contexts/pm-session.tsx";
 
 export type { SubTab };
 
-export interface ContextBodyProps {
+interface ContextBodyProps {
   readonly name?: string;
   readonly initial?: SubTab;
   /** 판 목록을 펼친 채 시작한다. */

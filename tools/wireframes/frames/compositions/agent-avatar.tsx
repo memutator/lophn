@@ -10,11 +10,7 @@ import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import {
-  type AgentProfile,
-  type AvatarIconKey,
-  profileOf,
-} from "./agents-data.ts";
+import { type AgentProfile, profileOf } from "./agents-data.ts";
 import a from "./agents.module.css";
 
 const ICONS = {
@@ -32,22 +28,7 @@ const ICONS = {
   compare: editorIcons.compare,
 } as const;
 
-export const AVATAR_ICON_LABEL: Record<AvatarIconKey, string> = {
-  dock: "Chat",
-  roles: "People",
-  contexts: "Library",
-  documents: "Document",
-  apps: "App",
-  search: "Search",
-  series: "Layers",
-  bookmark: "Bookmark",
-  terminal: "Terminal",
-  read: "Book",
-  edit: "Pencil",
-  compare: "Compare",
-};
-
-export type AvatarSize = "sm" | "md" | "lg";
+type AvatarSize = "sm" | "md" | "lg";
 
 const SIZE: Record<AvatarSize, { box: string; icon: number }> = {
   sm: { box: a.avatarSm, icon: 12 },
@@ -73,7 +54,7 @@ function Photo() {
 }
 
 /** profile을 직접 받아 그린다. */
-export function ProfileAvatar(
+function ProfileAvatar(
   { profile, size = "md", label }: {
     profile: AgentProfile;
     size?: AvatarSize;
@@ -104,4 +85,3 @@ export function Avatar(
   return <ProfileAvatar profile={profileOf(agent)} size={size} />;
 }
 
-export { ICONS as AVATAR_ICONS };

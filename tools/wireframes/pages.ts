@@ -10,9 +10,9 @@
 // Export panel, lophn 공간 Documents 화면, Contexts(Focus) 화면, context Materials의
 // Baseline·Reference·Follow-changes 묶음.
 
-export type PartId = "design" | "now" | "new";
+type PartId = "design" | "now" | "new";
 
-export interface Part {
+interface Part {
   readonly id: PartId;
   readonly title: string;
   readonly summary: string;
@@ -39,9 +39,9 @@ export const PARTS: readonly Part[] = [
   },
 ];
 
-export const BADGE_DESIGN = "디자인 시스템";
-export const BADGE_NOW = "구현됨 · 진짜 화면";
-export const BADGE_NEW = "새 설계";
+const BADGE_DESIGN = "디자인 시스템";
+const BADGE_NOW = "구현됨 · 진짜 화면";
+const BADGE_NEW = "새 설계";
 
 export type ScreenId =
   | "tokens-colors"
@@ -1242,20 +1242,6 @@ export const PAGES: readonly WireframePage[] = [
     "new-start-failure",
   ),
 ];
-
-/** 이 화면들은 버렸다. 목록에 올리지 않는다. */
-export const DISCARDED_SCREENS: readonly string[] = [
-  "settings-backup",
-  "project-export",
-  "lophn-documents",
-  "lophn-contexts",
-  "lophn-focus",
-  "context-materials",
-];
-
-/** 버린 화면을 가리키는 이름 모양(지금 화면 part의 id·title·screen에 쓰지 않는다). */
-export const DISCARDED_NAME =
-  /\b(backup|export|documents|contexts?|focus|materials|baseline|reference|follow-changes|watch)\b/i;
 
 export function pageById(id: string): WireframePage | undefined {
   return PAGES.find((page) => page.id === id);

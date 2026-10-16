@@ -5,7 +5,7 @@ export const APP_NAME = "Orders";
 
 // ---- 앱 화면 (Orders가 그린 view) ----
 
-export interface OrderRow {
+interface OrderRow {
   readonly id: string;
   readonly customer: string;
   readonly status: "Open" | "Shipped";

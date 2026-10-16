@@ -4,7 +4,7 @@ import type { LoggedRequest, Script } from "./types.ts";
 
 export type { LoggedRequest, Script, Step } from "./types.ts";
 
-export type FakeProvider = {
+type FakeProvider = {
   url: string;
   requests(): LoggedRequest[];
   assertDone(expected: number): void;

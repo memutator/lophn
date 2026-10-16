@@ -14,10 +14,10 @@ import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/l
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/testdata/fake-settings.ts";
 import { type Action, useWorkspaceDrive } from "./workspace/drive.ts";
 
-export type WorkspaceScreen = LophnScreen;
-export type WorkspacePane = SettingsPane;
+type WorkspaceScreen = LophnScreen;
+type WorkspacePane = SettingsPane;
 
-export interface WorkspaceProps {
+interface WorkspaceProps {
   /** 처음에 보이는 화면. 기본은 Projects. */
   readonly screen?: WorkspaceScreen;
   /** Settings의 처음 항목. */

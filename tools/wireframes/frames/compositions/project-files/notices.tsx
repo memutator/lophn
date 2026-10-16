@@ -6,13 +6,6 @@ import {
   ReloadedToast as EditorReloadedToast,
 } from "../../../../../packages/shell/renderer/editor/notices.tsx";
 import { ConflictCompare as EditorConflictCompare } from "../../../../../packages/shell/renderer/editor/conflict/conflict-compare.tsx";
-import { SaveMark as EditorSaveMark } from "../../../../../packages/shell/renderer/editor/view-bar.tsx";
-import type { SaveState } from "./file-data.ts";
-
-/** view bar의 저장 상태. 저장됨과 저장 중은 흐린 글, 충돌은 경고 표시다. */
-export function SaveMark({ status }: { status: SaveState }) {
-  return <EditorSaveMark state={status} />;
-}
 
 /** 고치지 않은 파일이 밖에서 바뀌어 다시 읽었다는 짧은 알림. */
 export function ReloadedToast({ onDismiss }: { onDismiss: () => void }) {

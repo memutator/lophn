@@ -5,9 +5,9 @@ type Token = {
   start: number;
   end: number;
 };
-export type ImportSpecifier = { specifier: string; line: number };
+type ImportSpecifier = { specifier: string; line: number };
 // start·end는 따옴표까지 포함한 문자열의 자리다.
-export type SpecifierSite = {
+type SpecifierSite = {
   specifier: string;
   line: number;
   start: number;

@@ -14,19 +14,19 @@
 // 않게). `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
 // 채운다. 그래서 fake provider를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다.
 
-export type SpawnPlan = {
+type SpawnPlan = {
   command: string;
   args: readonly string[];
   env: Record<string, string>;
 };
 
-export type Mode = "dev" | "dev:core" | "dev:mock";
+type Mode = "dev" | "dev:core" | "dev:mock";
 
 /** 띄우는 대상. fake provider는 stdout을 읽어 ready를 기다린다. */
-export type Purpose = "fake" | "core" | "shell" | "build";
+type Purpose = "fake" | "core" | "shell" | "build";
 
 /** fake provider ready 한 줄의 모양. */
-export type FakeProviderReady = { ready: boolean; url: string };
+type FakeProviderReady = { ready: boolean; url: string };
 
 const LOPHN_HOME = "LOPHN_HOME";
 const FAKE_URL = "LOPHN_FAKE_PROVIDER_URL";
@@ -36,17 +36,17 @@ const LIVE = "LOPHN_LIVE_PROVIDER";
  * 개발 데이터 root. 저장소 밖으로 가지 않는다: 항상 <root>/.dev-data.
  * core는 절대 경로가 아닌 LOPHN_HOME을 거절하므로 부르는 쪽이 절대 경로를 넣는다.
  */
-export function devDataRoot(root: string): string {
+function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
 }
 
 /** mock 모드 데이터 root. 실행마다 비우고 새로 만든다. */
-export function mockDataRoot(root: string): string {
+function mockDataRoot(root: string): string {
   return `${devDataRoot(root)}/mock`;
 }
 
 /** renderer bundle build 계획. shell main이 읽는 dist를 만든다. */
-export function planRendererBuild(root: string): SpawnPlan {
+function planRendererBuild(root: string): SpawnPlan {
   return {
     command: Deno.execPath(),
     args: ["run", "--allow-all", `${root}/packages/shell/renderer/build.ts`],
@@ -58,7 +58,7 @@ export function planRendererBuild(root: string): SpawnPlan {
  * 사람의 LOPHN_LIVE_PROVIDER가 live면 fake provider를 건너뛴다.
  * 이미 주소가 있으면 같은 server를 다시 띄우지 않는다.
  */
-export function shouldStartFakeProvider(
+function shouldStartFakeProvider(
   env: { [LIVE]?: string; [FAKE_URL]?: string },
 ): boolean {
   if (env[LIVE] === "1") return false;
@@ -66,7 +66,7 @@ export function shouldStartFakeProvider(
 }
 
 /** fake provider spawn 계획. loopback 빈 포트로 뜨고 ready 한 줄을 쓴다. */
-export function planFakeProvider(root: string): SpawnPlan {
+function planFakeProvider(root: string): SpawnPlan {
   return {
     command: Deno.execPath(),
     args: ["run", "--allow-net", `${root}/tools/fake-provider/main.ts`],
@@ -79,7 +79,7 @@ export function planFakeProvider(root: string): SpawnPlan {
  * [--port=<n>]`, LOPHN_HOME은 데이터 root다. Electron main이 물려 준 pipe는 shell main이
  * 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만 끝난다.
  */
-export function planCore(
+function planCore(
   root: string,
   options: { dataRoot: string; port?: number; env?: Record<string, string> },
 ): SpawnPlan {
@@ -97,7 +97,7 @@ export function planCore(
 }
 
 /** `deno task dev`의 shell main spawn 계획. */
-export function planShell(
+function planShell(
   root: string,
   options: { dataRoot: string; env?: Record<string, string> },
 ): SpawnPlan {
@@ -120,7 +120,7 @@ export function planShell(
 }
 
 /** fake provider ready 한 줄을 읽는다. 끊기거나 JSON이 아니면 null이다. */
-export async function fakeProviderReady(
+async function fakeProviderReady(
   stream: ReadableStream<Uint8Array>,
 ): Promise<FakeProviderReady | null> {
   const reader = stream.getReader();
@@ -144,7 +144,7 @@ export async function fakeProviderReady(
 }
 
 /** Ctrl+C·SIGTERM이 이 프로세스에 도착하면 된다. Windows는 SIGBREAK다. */
-export function signalNames(os: string = Deno.build.os): Deno.Signal[] {
+function signalNames(os: string = Deno.build.os): Deno.Signal[] {
   return os === "windows" ? ["SIGBREAK"] : ["SIGINT", "SIGTERM"];
 }
 
@@ -153,7 +153,7 @@ export function signalNames(os: string = Deno.build.os): Deno.Signal[] {
  * SIGTERM이 프로세스 tree보다 좁지만 fake provider·shell main은 SIGTERM를 받으면 끝나고,
  * core는 shell main의 자식이라 같이 끝난다. 이미 끝난 child의 kill은 건너뛴다.
  */
-export class ProcessGroup {
+class ProcessGroup {
   readonly #children: Set<Deno.ChildProcess> = new Set();
 
   add(child: Deno.ChildProcess): void {
@@ -180,7 +180,7 @@ export class ProcessGroup {
   }
 }
 
-export type DevOptions = {
+type DevOptions = {
   /** 저장소 루트. 개발 데이터 root는 이 안이다. */
   root: string;
   /** 사람의 env 위에 더할 값. 테스트가 fake provider 주소를 미리 넣을 때 쓴다. */
@@ -199,7 +199,7 @@ export type DevOptions = {
  * 띄운다. shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에
  * 띄운 것을 모두 끝낸다.
  */
-export async function runDev(
+async function runDev(
   mode: Mode,
   options: DevOptions,
 ): Promise<{ ok: true } | { ok: false }> {

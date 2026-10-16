@@ -3,13 +3,13 @@ import { isSecretKey, same, secretHits } from "./normalize.ts";
 import { decodeChunk } from "./stream.ts";
 import type { ResponseChunk } from "./types.ts";
 
-export type RecordRequest = {
+type RecordRequest = {
   live: boolean;
   instructed: boolean;
   body: unknown;
   secrets: string[];
 };
-export type RecordResult =
+type RecordResult =
   | { ok: true; body: unknown }
   | {
     ok: false;

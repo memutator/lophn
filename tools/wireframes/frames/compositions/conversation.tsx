@@ -33,7 +33,7 @@ type Open = (tab: TabSpec) => void;
 export type TabState = "waiting" | "working" | null;
 
 /** 탭 안에서 session을 바꾸거나 새로 연다. */
-export interface SessionHandlers {
+interface SessionHandlers {
   readonly onSession: (row: SessionRow) => void;
   readonly onNewSession: (agent: string) => void;
   readonly onState: (state: TabState) => void;

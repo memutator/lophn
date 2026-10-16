@@ -197,3 +197,5 @@ worker가 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳이
 - **deferred tool.** assemble과 `tool.search`가 지원하지만 `run-loop/prepare.ts`가 어떤 tool에도 켜지 않는다.
 - **core module 규칙과 어긋난 import.** 다른 module의 `mod.ts`가 아닌 파일 import 59건(`apps`, `projects`, `problems`, `lophn-agent`에는 `mod.ts`가 없다), domain module끼리 18건(problems→apps 12), 바닥→domain 1건(`storage/blobs/child-prepare.ts`→`problems/register.ts`), module→`core/main` 8건. check가 없어 쌓였다.
 - **400줄 넘는 파일 86개** (가장 긴 것 1274줄).
+- **`protocol/apps/direct-socket.ts`의 흔적.** core를 지나지 않던 앱 직통 통로는 지웠는데, supervisor 제어 경로 상수를 re-export하는 파일이 남아 `protocol/apps/mod.ts`가 내보낸다.
+  - 줄인다면: 쓰는 곳을 supervision protocol로 바로 잇고 지운다.

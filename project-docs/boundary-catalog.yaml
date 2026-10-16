@@ -149,6 +149,10 @@ elements:
         kind: component
         description: domain event의 기록과 배달.
 
+      - id: router
+        kind: component
+        description: 사람 메시지, agent call, Reactor 반응을 받는 session에 넣는 단 하나의 입구.
+
       - id: storage
         kind: component
         description: lophn 기록의 로컬 저장.
@@ -296,16 +300,6 @@ interfaces:
     kind: interface
     description: 앱이 lophn에게 받아 쓰는 능력(파일, network, secret 등)을 청하는 계약.
     interface_type: api
-    defined_by: protocol
-    provided_by:
-      - app-runtime
-    used_by:
-      - sdk
-
-  - id: app-direct-protocol
-    kind: interface
-    description: core를 지나지 않고 app-api를 부르는 계약.
-    interface_type: protocol
     defined_by: protocol
     provided_by:
       - app-runtime

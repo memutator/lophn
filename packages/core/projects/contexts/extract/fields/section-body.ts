@@ -50,6 +50,7 @@ export const sectionField: FieldReader<"section"> = (from, context) => {
 export const titleField: FieldReader<"title"> = (_from, context) => {
   const { scope } = context.anchor;
   if (scope.kind === "section") return scope.heading.title;
+  if (scope.kind === "outline") return scope.title;
   const { document } = context;
   if (document === null) return null;
   const first: Heading | undefined = document.headings.find((heading) =>
@@ -59,6 +60,11 @@ export const titleField: FieldReader<"title"> = (_from, context) => {
 };
 
 export const outlineField: FieldReader<"outline"> = (from, context) => {
+  const { scope } = context.anchor;
+  if (scope.kind === "outline") {
+    return scope.entries.filter((entry) => entry.level <= from.max_level)
+      .map((entry) => ({ level: entry.level, title: entry.title }));
+  }
   const { document } = context;
   if (document === null) return null;
   const range = entityRange(document, context);

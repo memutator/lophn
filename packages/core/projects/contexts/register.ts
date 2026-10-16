@@ -25,6 +25,8 @@ import {
   contextLedgerCommands,
   type ContextLedgerDeps,
   contextLedgerReads,
+  contextOutlineCommands,
+  contextOutlineReads,
   contextsLedgerSchemaSteps,
   contextWorkInputRead,
   contextWorkListRead,
@@ -67,6 +69,23 @@ function unattached(): ContextsRuntime {
         entity: () => [],
         ofType: () => [],
         failing: () => true,
+      },
+      folders: {
+        draftFolder() {
+          throw new ContextDepUnavailable(UNATTACHED);
+        },
+        outlineFolder() {
+          throw new ContextDepUnavailable(UNATTACHED);
+        },
+      },
+      files: {
+        read: () => err({ code: "unavailable", message: UNATTACHED }),
+        write() {
+          throw new ContextDepUnavailable(UNATTACHED);
+        },
+        remove() {
+          throw new ContextDepUnavailable(UNATTACHED);
+        },
       },
       execute: () => [],
       hash() {
@@ -115,7 +134,10 @@ export function createContextsRegistration(
 ): ContextsRegistration {
   return {
     schemaSteps: contextsLedgerSchemaSteps,
-    commands: contextLedgerCommands(runtime.deps).map((command) => ({
+    commands: [
+      ...contextLedgerCommands(runtime.deps),
+      ...contextOutlineCommands(runtime.deps),
+    ].map((command) => ({
       ...command,
       handle(tx, ctx, input, compare) {
         runtime.enter(tx.sql);
@@ -130,6 +152,7 @@ export function createContextsRegistration(
     })),
     reads: [
       ...contextLedgerReads(runtime.deps),
+      ...contextOutlineReads(runtime.deps),
       contextWorkInputRead(runtime.deps),
       contextWorkListRead(),
     ].map((read) => ({

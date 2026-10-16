@@ -1,12 +1,12 @@
 // context API command. 묶음마다 파일 하나다: commands-lifecycle(context.create·archive·unarchive,
-// bundle.rollback), commands-bundle(bundle.save_draft·discard_draft·submit·finish_check와 자동 적용),
+// bundle.rollback), commands-bundle(bundle.open_draft·discard_draft·submit·finish_check와 자동 적용),
 // commands-views(view.*), commands-glossary(glossary.*), commands-violations(context.record_violations). event와 재실행은 commands-common이 맡는다.
 import type { Result } from "../../../../base/mod.ts";
 import type {
   bundleDiscardDraftRoute,
   bundleFinishCheckRoute,
+  bundleOpenDraftRoute,
   bundleRollbackRoute,
-  bundleSaveDraftRoute,
   bundleSubmitRoute,
   contextArchiveRoute,
   contextCreateRoute,
@@ -50,7 +50,7 @@ export type ContextApiCommands = {
   contextCreate: Handler<typeof contextCreateRoute>;
   contextArchive: Handler<typeof contextArchiveRoute>;
   contextUnarchive: Handler<typeof contextUnarchiveRoute>;
-  bundleSaveDraft: Handler<typeof bundleSaveDraftRoute>;
+  bundleOpenDraft: Handler<typeof bundleOpenDraftRoute>;
   bundleDiscardDraft: Handler<typeof bundleDiscardDraftRoute>;
   bundleSubmit: Handler<typeof bundleSubmitRoute>;
   bundleFinishCheck: Handler<typeof bundleFinishCheckRoute>;

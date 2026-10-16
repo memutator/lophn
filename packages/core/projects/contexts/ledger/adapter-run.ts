@@ -24,6 +24,7 @@ import {
   type ReadHandler,
 } from "../api/reads.ts";
 import type { ContextApiActor } from "../api/state.ts";
+import { createContextDrafts } from "../folders.ts";
 import { contextAuthorityPort, type ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { baselineOf, blobUploads, writeChanges } from "./adapter-save.ts";
@@ -62,6 +63,7 @@ export function runCommand<R extends CommandRoute>(
   const { state, contentRefs } = loaded.value;
   const before = baselineOf(state);
   const uploads = blobUploads();
+  const drafts = createContextDrafts(deps.folders, deps.files);
   const commands = createContextApiCommands(state, {
     now: () => at,
     newId: (prefix) => tx.newId(prefix),
@@ -69,6 +71,7 @@ export function runCommand<R extends CommandRoute>(
     putBlob: uploads.put,
     canWrite: (actor, project) =>
       tx.port(contextAuthorityPort).canWrite(actor, project),
+    drafts,
     recordedViolations: (context) => loadViolationKeys(tx.sql, context),
     keepViolations: (context, keys) => saveViolationKeys(tx.sql, context, keys),
     emit(event) {
@@ -89,6 +92,8 @@ export function runCommand<R extends CommandRoute>(
     if (!registered.ok) return registered;
   }
   writeChanges(tx.sql, before, state, contentRefs, uploads);
+  // 제출하거나 버린 초안 폴더는 쓰기가 끝난 뒤에 지운다.
+  drafts.flush();
   return result;
 }
 
@@ -109,6 +114,10 @@ export function runRead<R extends ReadRoute>(
   if (!loaded.ok) return loaded;
   const reads = createContextApiReads(loaded.value.state, {
     execute: deps.execute,
+    now: () => new Date().toISOString(),
+    canWrite: (actor, project) =>
+      snapshot.port(contextAuthorityPort).canWrite(actor, project),
+    drafts: createContextDrafts(deps.folders, deps.files),
   });
   return spec.handler(reads)({ actor, input });
 }

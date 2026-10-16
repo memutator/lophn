@@ -1,7 +1,10 @@
-// 파일 하나를 ParsedDocument로 읽는다. 제목은 md outline parser가 찾고,
+// 파일 하나를 ParsedDocument로 읽는다. 제목은 md 목차 parser(`parseMarkdownOutline`)가 찾고,
 // frontmatter와 YAML 파일은 `@std/yaml`(core schema)로 읽는다.
 import { parse as parseYaml } from "@std/yaml";
-import { parseOutline } from "../../../../protocol/projects/mod.ts";
+import {
+  type MarkdownOutlineNode,
+  parseMarkdownOutline,
+} from "../../../../protocol/projects/mod.ts";
 import type {
   DocumentReader,
   Heading,
@@ -53,6 +56,21 @@ function splitFrontmatter(
   return null;
 }
 
+// 목차 tree를 문서 순서의 제목 목록으로 편다. line은 body 기준이다.
+function headingsOf(
+  nodes: readonly MarkdownOutlineNode[],
+  frontLines: number,
+): Heading[] {
+  return nodes.flatMap((node): Heading[] => [
+    {
+      level: node.level,
+      title: node.title,
+      line: node.subtree_range.start_line - 1 - frontLines,
+    },
+    ...headingsOf(node.children, frontLines),
+  ]);
+}
+
 function parseMarkdown(raw: string): ParsedDocument | null {
   const text = normalizeText(raw);
   const lines = text.split("\n");
@@ -67,14 +85,7 @@ function parseMarkdown(raw: string): ParsedDocument | null {
     }
   }
   const frontLines = front?.frontLines ?? 0;
-  const outline = parseOutline("text/markdown", text);
-  const headings = outline.status === "ready"
-    ? outline.sections.map((node): Heading => ({
-      level: node.level,
-      title: node.title,
-      line: node.subtree_range.start_line - 1 - frontLines,
-    }))
-    : [];
+  const headings = headingsOf(parseMarkdownOutline(text), frontLines);
   return {
     frontmatter,
     data: null,

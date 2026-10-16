@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert";
+import { ok } from "../../../base/mod.ts";
 import type {
   ContextValue,
   StoredViolation,
@@ -70,6 +71,12 @@ function setup(canWrite: (actor: string, project: string) => boolean) {
     hash: () => HASH,
     putBlob: () => ({ hash: HASH, size_bytes: 1 }),
     canWrite,
+    drafts: {
+      folder: () => "/drafts",
+      create: () => undefined,
+      read: () => ok({}),
+      remove: () => undefined,
+    },
     recordedViolations: (ctx) => recorded.get(ctx) ?? [],
     keepViolations: (ctx, keys) => recorded.set(ctx, keys),
   };
@@ -116,10 +123,10 @@ Deno.test("다른 project의 Project Manager는 context를 만들거나 고치�
       },
       compare: {},
     }),
-    commands.bundleSaveDraft({
+    commands.bundleOpenDraft({
       actor: intruder,
       key: "k2",
-      input: { context: CTX, content: {} as never },
+      input: { context: CTX },
       compare: {},
     }),
     commands.bundleSubmit({

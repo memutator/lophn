@@ -14,6 +14,7 @@ import type {
   ReadSnapshot,
   Sql,
 } from "../../../../protocol/server/mod.ts";
+import { createContextDrafts } from "../folders.ts";
 import type { ContextLedgerDeps } from "./adapter.ts";
 import { type LoadPlan, loadState } from "./adapter-load.ts";
 import { loadCheck } from "./rows.ts";
@@ -21,7 +22,7 @@ import { appCommandsOf, externalTypesRead } from "./work-environment.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 type Deps =
-  & Pick<ContextLedgerDeps, "blobs" | "index">
+  & Pick<ContextLedgerDeps, "blobs" | "index" | "folders" | "files">
   & Partial<Pick<ContextLedgerDeps, "appCommandEffect">>;
 
 // documents/projects의 project_folders 표에서 등록 순서대로 읽는다.
@@ -32,7 +33,7 @@ function foldersOf(sql: Reader, project: string): string[] {
   ).map((row) => String(row.path));
 }
 
-// context.preview가 읽는 draft 판 하나. 판 하나의 content blob만 읽는다.
+// bundle.test_draft와 context.preview가 읽는 draft 판 하나. 내용은 초안 폴더의 bundle.json이다.
 function draftInput(
   deps: Deps,
   snapshot: ReadSnapshot,
@@ -43,7 +44,7 @@ function draftInput(
   const loaded = loadState(sql, deps, {
     context: contextId,
     bundles: true,
-    content: { bundle: bundleId },
+    views: true,
   }, Number(snapshot.as_of_seq));
   if (!loaded.ok) return loaded;
   const { state } = loaded.value;
@@ -58,6 +59,22 @@ function draftInput(
   if (row.status !== "draft") {
     return err({ code: "conflict", message: "the bundle is not a draft" });
   }
+  const file = createContextDrafts(deps.folders, deps.files).read(
+    context.project,
+    context.id,
+    row.id,
+  );
+  if (!file.ok) return file;
+  if (
+    typeof file.value !== "object" || file.value === null ||
+    Array.isArray(file.value)
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "bundle.json is not a JSON object",
+    });
+  }
+  const content = file.value as Record<string, unknown>;
   const project = sql.get("SELECT status FROM projects WHERE id = ?", [
     context.project,
   ]);
@@ -71,10 +88,14 @@ function draftInput(
     recorded_count: context.violation_mark,
     applied: null,
     candidate: null,
-    draft: { bundle: row.id, content: row.content },
-    user_saved_views: [],
+    draft: { bundle: row.id, content },
+    user_saved_views: [...state.views.values()].map((view) => ({
+      name: view.name,
+      search: view.search,
+      inputs: view.inputs,
+    })),
     external_types: external.value,
-    app_commands: appCommandsOf(row.content, deps.appCommandEffect),
+    app_commands: appCommandsOf(content, deps.appCommandEffect),
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
   });

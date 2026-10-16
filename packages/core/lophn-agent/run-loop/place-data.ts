@@ -4,6 +4,7 @@ import { appGet, appList } from "../../../protocol/apps/mod.ts";
 import { callSendable, type Role } from "../../../protocol/lophn-agent/mod.ts";
 import {
   contextContractRoute,
+  contextDraftRoute,
   contextGetRoute,
   contextListRoute,
   glossaryListRoute,
@@ -56,6 +57,30 @@ async function pages<T>(
   return err({ code: "unavailable", message: "the list is too long" });
 }
 
+// project의 context마다 열린 초안(draft 판)의 폴더. 읽지 못한 context는 건너뛴다.
+async function openDraftFolders(
+  call: CoreCall,
+  project: string,
+): Promise<string[]> {
+  const listed = await pages(async (cursor) => {
+    const read = await readOf(call, contextListRoute, {
+      project,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    return read.ok
+      ? ok({ items: read.value.contexts, next_cursor: read.value.next_cursor })
+      : read;
+  });
+  if (!listed.ok) return [];
+  const folders: string[] = [];
+  for (const context of listed.value) {
+    const read = await readOf(call, contextDraftRoute, { context: context.id });
+    const folder = read.ok ? read.value.draft?.folder : null;
+    if (folder !== null && folder !== undefined) folders.push(folder);
+  }
+  return folders;
+}
+
 type ProjectRecord = {
   id: string;
   name: string;
@@ -105,6 +130,10 @@ export async function readPlaceData(
     if (!read.ok) return read;
     project = placeProject(read.value);
     const folders = read.value.folders.map((f) => f.path);
+    // Project Manager는 열어 둔 초안 폴더에 file tool로 쓴다.
+    if (role === "project_manager") {
+      folders.push(...await openDraftFolders(call, place.id));
+    }
     scope.read.push(...folders);
     scope.write.push(...folders);
   } else if (place?.kind === "app") {

@@ -3,9 +3,10 @@ import type { Result } from "../../../../base/mod.ts";
 import {
   bundleDiscardDraftRoute,
   bundleFinishCheckRoute,
+  bundleOpenDraftRoute,
   bundleRollbackRoute,
-  bundleSaveDraftRoute,
   bundleSubmitRoute,
+  bundleTestDraftRoute,
   contextArchiveRoute,
   contextBundlesRoute,
   contextContainingRoute,
@@ -109,13 +110,12 @@ export const COMMAND_ENTRIES: readonly CommandEntry[] = [
     (_sql, input) => ({ context: input.context }),
   ),
   command(
-    bundleSaveDraftRoute,
-    (c) => c.bundleSaveDraft,
-    (_sql, input) => ({
-      context: input.context,
-      bundles: true,
-      index: ["violations"],
-    }),
+    bundleOpenDraftRoute,
+    (c) => c.bundleOpenDraft,
+    (_sql, input) =>
+      "new" in input
+        ? { project: input.new.project, extraContext: input.new.id }
+        : { context: input.context, bundles: true, content: "applied" },
   ),
   command(
     bundleDiscardDraftRoute,
@@ -132,7 +132,6 @@ export const COMMAND_ENTRIES: readonly CommandEntry[] = [
       context: contextOf(sql, "bundle", input.bundle),
       bundles: true,
       checks: true,
-      content: { bundle: input.bundle },
     }),
   ),
   command(
@@ -261,6 +260,14 @@ export const READ_ENTRIES: readonly ReadEntry[] = [
       bundles: true,
       checks: true,
       content: "in-progress",
+    }),
+  ),
+  read(
+    bundleTestDraftRoute,
+    (r) => r.bundleTestDraft,
+    (sql, input) => ({
+      context: contextOf(sql, "bundle", input.bundle),
+      bundles: true,
     }),
   ),
   read(

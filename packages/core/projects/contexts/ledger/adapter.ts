@@ -47,9 +47,9 @@
 // |-------------------------------|------------------------|-------------------------------|---------|
 // | context.create                | 입력의 project, id     | project, project의 context 전부 | no      |
 // | context.archive / unarchive   | input.context          | context                       | no      |
-// | bundle.save_draft             | input.context          | context, 판, (검사 없음)       | no      |
+// | bundle.open_draft             | input.context 또는 new.id | (새 context이면 project), context, 판 | 적용된 판 |
 // | bundle.discard_draft          | contextOf(bundle)      | context, 판                   | no      |
-// | bundle.submit                 | contextOf(bundle)      | context, 판, 검사             | draft 판 |
+// | bundle.submit                 | contextOf(bundle)      | context, 판, 검사             | no (폴더에서 읽는다) |
 // | bundle.finish_check           | contextOf(check)       | context, 판, 검사, saved view | 검사한 판 |
 // | bundle.rollback               | input.context          | context, 판, saved view       | 되돌릴 판 |
 // | view.save                     | input.context          | context, 판, saved view       | 적용된 판 |
@@ -60,7 +60,7 @@
 // | glossary.set (기존)·remove    | contextOf(entry)       | context, 용어 항목            | no      |
 //
 // 읽기도 같은 적재를 읽기 snapshot(`snapshot.sql`)으로 하고 state.seq = Number(snapshot.as_of_seq)다.
-// 읽기마다 적재 범위: context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
+// 읽기마다 적재 범위(bundle.test_draft는 대상 판의 context와 판 하나, 내용은 폴더에서 읽는다): context.entity는 (type, key) 개체와 그 관계 대상 행, context.series_next는 그 type의
 // 개체(둘 다 적용된 판의 content와 index 갱신 실패 여부), context.list는 project(또는 app이면 context_app_data로 고른 context들)와 그 context·판(content 없음), context.get·bundles·
 // glossary.list는 대상 context의 것, context.violations는 위반(deps.index)과 위반을 넘긴 event
 // (ledger events 표의 ContextViolationsHandedOff, state.events로)다. context.saved_views(깨진 view
@@ -75,7 +75,8 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { StoredViolation } from "../../../../protocol/projects/mod.ts";
 import { AGENT_RUNTIME_PRINCIPAL } from "../../../../protocol/lophn-agent/mod.ts";
 import { definePort, parseActor } from "../../../../protocol/base/mod.ts";
-import type { ContextAuthority } from "../../ports.ts";
+import type { ContextAuthority, ContextFolders } from "../../ports.ts";
+import type { ContextFiles } from "../folders.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
@@ -132,6 +133,9 @@ export type ContextLedgerDeps = {
   execute: SearchExecutor;
   // 정규 JSON의 sha256(hex). bundle_hash를 계산한다.
   hash(value: unknown): string;
+  // 초안·저장 목차 폴더의 위치와 그 폴더의 JSON 파일 IO.
+  folders: ContextFolders;
+  files: ContextFiles;
   // app-data source의 앱 slug들이 가리키는 앱 ID들이다. 앱 하나에 묶인 agent의 읽기 권한이 쓴다.
   // 등록되지 않은 slug는 빠지고, 앱 등록이 없는 조립에서는 빈 목록이다.
   appIds(slugs: readonly string[]): readonly string[];

@@ -16,6 +16,10 @@ import {
   withContextBlobs,
 } from "../../../projects/contexts/blob.ts";
 import {
+  createContextFolders,
+  DRAFT_FILE,
+} from "../../../projects/contexts/folders.ts";
+import {
   type ContextsDispatchDeps,
   contextsStagingPath,
   createContextsDispatcher,
@@ -95,14 +99,36 @@ export const projectsWiring: WiringFactory = () => {
         },
       };
       ctx.provide("projectDirectory", directory);
+      // 제출할 초안 폴더의 bundle.json. 폴더는 판의 project·context로 찾는다.
+      const draftFolders = createContextFolders(ctx.root.path);
+      const draftContent = async (bundle: string): Promise<unknown> => {
+        const owner = connection.sql.get(
+          `SELECT c.project AS project, c.id AS context
+             FROM context_bundles b JOIN contexts c ON c.id = b.context
+            WHERE b.id = ?`,
+          [bundle],
+        );
+        if (owner === undefined) return undefined;
+        try {
+          const folder = draftFolders.draftFolder(
+            String(owner["project"]),
+            String(owner["context"]),
+            bundle,
+          );
+          return JSON.parse(await Deno.readTextFile(`${folder}/${DRAFT_FILE}`));
+        } catch {
+          return undefined;
+        }
+      };
       return ok({
         reads: (reads) => contextsHost.overlayReads(reads),
-        // context의 초안은 호출자 자격으로 command 앞에 준비한다.
+        // context 판의 내용은 호출자 자격으로 command 앞에 준비한다.
         writer: (inner) =>
           withContextBlobs(
             contextsHost.wrapWriter(inner),
             createContextBlobPreparer({
               relay: () => ctx.bodyPrepare,
+              draftContent,
             }),
           ),
       });

@@ -12,9 +12,19 @@
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다(파일을 읽고 index를
 // 쓰는 일은 모두 worker 안이다).
-import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  createIdSource,
+  cryptoRandom,
+  err,
+  fingerprint,
+  ok,
+  type Result,
+  systemClock,
+} from "../../../base/mod.ts";
 import {
   bundleSubmitRoute,
+  bundleTestDraftRoute,
+  type CheckReport,
   CONTEXT_WORK_OPS,
   contextCheckResponseSchema,
   contextEntityRoute,
@@ -45,6 +55,7 @@ import type {
   StartResult,
 } from "../../supervision/responsiveness/mod.ts";
 import { pagePreview } from "./mod.ts";
+import { finishedReport } from "./check/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 
 export const CONTEXTS_WORKER_KIND = "documents/contexts";
@@ -287,7 +298,12 @@ export type ContextsDispatcher = {
   preview(
     input: { context: string; bundle: string; cursor?: string },
   ): Promise<Result<ContextPreviewRead>>;
+  // `bundle.test_draft`: 초안 폴더를 지금 파일에 격리 검사로 돌려 running 보고를 끝난 보고로 바꾼다. 판도
+  // 검사 행도 만들지 않고 결과를 제출하지 않는다.
+  testDraft(running: CheckReport): Promise<Result<CheckReport>>;
 };
+
+const checkIds = createIdSource({ clock: systemClock, random: cryptoRandom });
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -572,10 +588,64 @@ export function createContextsDispatcher(
     });
   }
 
+  async function testDraft(running: CheckReport): Promise<Result<CheckReport>> {
+    const read = await deps.readInput({
+      context: running.context,
+      bundle: running.bundle,
+    });
+    if (!read.ok) return read;
+    const draft = read.value.draft;
+    if (draft === null) {
+      return err({ code: "internal", message: "the draft was not read" });
+    }
+    if (!(await deps.process.ensure(read.value.roots))) {
+      return err({ code: "unavailable", message: "context worker is down" });
+    }
+    const answered = await deps.process.request(
+      CONTEXT_WORK_OPS.check,
+      {
+        context: running.context,
+        // worker가 snapshot 폴더 이름으로 쓴다. 같은 초안을 동시에 돌려도 겹치지 않게 호출마다 새로 낸다.
+        check: checkIds.newId("chk"),
+        bundle: draft.content,
+        bundle_hash: await fingerprint(draft.content),
+        roots: read.value.roots,
+        user_saved_views: read.value.user_saved_views,
+        external_types: read.value.external_types,
+        app_commands: read.value.app_commands,
+      },
+      CONTEXT_CHECK_TIMEOUT_MS,
+    );
+    if (!answered.ok) {
+      return err({
+        code: "unavailable",
+        message: `the draft could not be tested: ${answered.error.message}`,
+      });
+    }
+    const parsed = contextCheckResponseSchema.safeParse(answered.value);
+    if (!parsed.success) {
+      return err({ code: "internal", message: "invalid check answer" });
+    }
+    // worker는 제출할 command에 findings를 싣는다. 여기서는 제출하지 않고 보고에만 쓴다.
+    const finish = parsed.data.submissions.find((submission) =>
+      submission.command === "bundle.finish_check"
+    );
+    return ok(finishedReport(running, {
+      status: parsed.data.status,
+      snapshot_hash: parsed.data.snapshot_hash,
+      findings: finish?.input.findings ?? [],
+      violation_count: parsed.data.violation_count,
+    }, new Date().toISOString()));
+  }
+
   return {
     ensureFresh,
     runCheck,
     recover,
+    testDraft: (running) =>
+      testDraft(running).catch((): Result<CheckReport> =>
+        err({ code: "unavailable", message: "draft test dispatch failed" })
+      ),
     preview: (input) =>
       preview(input).catch((): Result<ContextPreviewRead> =>
         err({ code: "unavailable", message: "preview dispatch failed" })
@@ -657,6 +727,27 @@ export function createContextsHost(): ContextsHost {
             });
           }
           return await dispatcher.preview(asked.data);
+        });
+      }
+      // bundle.test_draft는 ledger가 모양 검사까지 하고, 파일을 돌리는 격리 검사가 남은 running 보고를
+      // worker의 결과로 끝낸다. worker가 없는 조립은 running 보고 그대로다(결과를 꾸미지 않는다).
+      const testKey =
+        `${bundleTestDraftRoute.resource}/${bundleTestDraftRoute.method}`;
+      const tested = reads.get(testKey);
+      if (tested !== undefined) {
+        reads.set(testKey, async (ctx, input, credential) => {
+          const first = await tested(ctx, input, credential);
+          const report =
+            (first as { ok: boolean; value?: { report?: unknown } })
+              .value?.report as CheckReport | undefined;
+          if (
+            dispatcher === undefined || !first.ok ||
+            report?.status !== "running"
+          ) return first;
+          const finished = await dispatcher.testDraft(report);
+          return finished.ok
+            ? ok({ ...(first.value as object), report: finished.value })
+            : finished;
         });
       }
     },

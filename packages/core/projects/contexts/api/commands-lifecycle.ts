@@ -1,9 +1,11 @@
 // context API command: context.create·archive·unarchive와 bundle.rollback.
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import type {
   BundleContent,
+  contextCreateRoute,
   ContextValue,
 } from "../../../../protocol/projects/mod.ts";
+import type { Input } from "../../../../protocol/server/mod.ts";
 import { reflectSavedViews } from "./commands-bundle-views.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import type { ContextApiCommands } from "./commands.ts";
@@ -21,6 +23,57 @@ const forbidden = (actor: ContextApiActor) =>
   });
 
 const isUser = (actor: ContextApiActor) => actor.kind === "user";
+
+// context 하나를 drafting으로 만든다(context.create와 새 context의 bundle.open_draft가 같이 쓴다).
+// 쓸 수 있는지는 부르는 쪽이 이미 봤다.
+export function makeContext(
+  state: ContextApiState,
+  deps: ContextApiDeps,
+  actor: ContextApiActor,
+  input: Input<typeof contextCreateRoute>,
+): Result<ContextValue> {
+  const project = state.projects.get(input.project);
+  if (project === undefined || project.archived) {
+    return err({
+      code: "invalid_input",
+      message: "project does not exist or is archived",
+    });
+  }
+  if (state.contexts.has(input.id)) {
+    return err({ code: "conflict", message: "context id already used" });
+  }
+  const title = input.title.trim();
+  for (const other of state.contexts.values()) {
+    if (other.project === input.project && other.title.trim() === title) {
+      return err({
+        code: "conflict",
+        message: "title already used in the project",
+      });
+    }
+  }
+  const revision = emitEvent(state, deps, {
+    type: "ContextCreated",
+    subject: input.id,
+    actor: actor.actor,
+    payload: {
+      project: input.project,
+      title: input.title,
+      purpose: input.purpose,
+    },
+  });
+  const context: ContextValue = {
+    id: input.id,
+    project: input.project,
+    title: input.title,
+    purpose: input.purpose,
+    status: "drafting",
+    applied_bundle: null,
+    violation_mark: 0,
+    revision,
+  };
+  state.contexts.set(context.id, context);
+  return ok(context);
+}
 
 export function createLifecycleCommands(
   state: ContextApiState,
@@ -66,50 +119,11 @@ export function createLifecycleCommands(
       if (!mayWrite(deps, call.actor, call.input.project)) {
         return forbidden(call.actor);
       }
-      return withReplay(state, call.key, () => {
-        const input = call.input;
-        const project = state.projects.get(input.project);
-        if (project === undefined || project.archived) {
-          return err({
-            code: "invalid_input",
-            message: "project does not exist or is archived",
-          });
-        }
-        if (state.contexts.has(input.id)) {
-          return err({ code: "conflict", message: "context id already used" });
-        }
-        const title = input.title.trim();
-        for (const other of state.contexts.values()) {
-          if (other.project === input.project && other.title.trim() === title) {
-            return err({
-              code: "conflict",
-              message: "title already used in the project",
-            });
-          }
-        }
-        const revision = emitEvent(state, deps, {
-          type: "ContextCreated",
-          subject: input.id,
-          actor: call.actor.actor,
-          payload: {
-            project: input.project,
-            title: input.title,
-            purpose: input.purpose,
-          },
-        });
-        const context: ContextValue = {
-          id: input.id,
-          project: input.project,
-          title: input.title,
-          purpose: input.purpose,
-          status: "drafting",
-          applied_bundle: null,
-          violation_mark: 0,
-          revision,
-        };
-        state.contexts.set(context.id, context);
-        return ok(context);
-      });
+      return withReplay(
+        state,
+        call.key,
+        () => makeContext(state, deps, call.actor, call.input),
+      );
     },
 
     contextArchive: transition(

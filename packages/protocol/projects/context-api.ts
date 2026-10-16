@@ -21,6 +21,7 @@ import {
 } from "./context-contract.ts";
 import { publicPage, publicRead, readCursorSchema } from "./read-values.ts";
 import {
+  absolutePathSchema,
   appIdSchema,
   projectIdSchema,
   relativePathSchema,
@@ -322,12 +323,6 @@ export const contextTargetRequestSchema = z.strictObject({
 });
 export const contextResultSchema = contextValueSchema;
 
-export const bundleSaveDraftRequestSchema = z.strictObject({
-  context: ctxIdSchema,
-  // 없으면 새 draft, 있으면 그 draft를 덮어쓴다(base_revision 필요)
-  bundle: bundleIdSchema.optional(),
-  content: draftContentSchema,
-});
 export const bundleTargetRequestSchema = z.strictObject({
   bundle: bundleIdSchema,
 });
@@ -563,6 +558,8 @@ export const contextDraftReadSchema = publicRead(z.object({
     // 그 판의 내용. BundleContent 검사는 submit이 하므로 draft 단계에서는 JSON 객체일 뿐이다.
     content: draftContentSchema.nullable(),
     check: checkReportSchema.nullable(),
+    // 열린 초안(draft 판)의 폴더. 그 밖의 판(검사 중, 실패)과 판이 아직 없는 단계는 null이다.
+    folder: absolutePathSchema.nullable(),
   }).nullable(),
 }));
 
@@ -786,16 +783,6 @@ export const contextUnarchiveRoute = defineCommand({
   errors: ["not_found", "conflict", "forbidden"],
 });
 
-export const bundleSaveDraftRoute = defineCommand({
-  resource: "contexts",
-  method: "save_draft",
-  name: "bundle.save_draft",
-  input: bundleSaveDraftRequestSchema,
-  output: bundleResultSchema,
-  compare: optionalBaseRevisionSchema,
-  actors: ["agent"],
-  errors: ["invalid_input", "not_found", "conflict", "forbidden"],
-});
 export const bundleDiscardDraftRoute = defineCommand({
   resource: "contexts",
   method: "discard_draft",
@@ -1054,9 +1041,6 @@ export const CONTEXT_API_COMMAND_ROUTES = [
   contextCreateRoute,
   contextArchiveRoute,
   contextUnarchiveRoute,
-  bundleSaveDraftRoute,
-  bundleDiscardDraftRoute,
-  bundleSubmitRoute,
   bundleFinishCheckRoute,
   bundleRollbackRoute,
   viewSaveRoute,

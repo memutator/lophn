@@ -21,8 +21,8 @@ export type AppDataReader = (app: string, command: string) => unknown;
 
 // ---------- 문서 ----------
 
-// md outline parser(`packages/protocol/projects/outline-markdown.ts`의
-// `parseOutline`)가 body에서 찾은 제목 하나. 추출은 제목을 이 parser에서만 얻는다.
+// md 목차 parser(`packages/protocol/projects/outline-markdown.ts`의
+// `parseMarkdownOutline`)가 body에서 찾은 제목 하나. 추출은 제목을 이 parser에서만 얻는다.
 export type Heading = {
   level: number; // 1~6
   title: string;
@@ -53,7 +53,7 @@ export type EntityAnchor = {
   type: string;
   // 개체의 파일. folder는 폴더, app-data는 `app:<app>/<command>`.
   path: string;
-  // section·outline 개체에서 heading 글, 나머지는 null
+  // section 개체에서 heading 글, 나머지는 null
   section: string | null;
   // path capture 값. series는 번호 자리 이름(n, major, minor, patch), folder는 folder,
   // 문서가 있는 개체는 file(확장자 뺀 이름)과 path.
@@ -66,7 +66,18 @@ export type AnchorScope =
   | { kind: "folder" }
   | { kind: "document" }
   | { kind: "section"; heading: Heading }
+  // outline 개체: 파일 하나의 목차 전체. entries는 outline source의 min_level~max_level 안이다.
+  | { kind: "outline"; title: string | null; entries: readonly OutlineEntry[] }
   | { kind: "item"; item: unknown };
+
+// 목차 항목 하나: md 파일은 제목에서, pdf·docs는 저장된 목차에서 온다. 문서 순서다.
+export type OutlineEntry = { level: number; title: string };
+
+// pdf·docs 파일의 저장된 목차. 없으면 null.
+export type StoredOutlines = (
+  path: string,
+  format: string,
+) => readonly OutlineEntry[] | null;
 
 export type ExtractedEntity = {
   type: string;
@@ -104,6 +115,8 @@ export type KindContext = {
   files: ProjectFiles;
   readDocument: DocumentReader;
   appData: AppDataReader;
+  // md가 아닌 파일의 목차(저장된 것). 주지 않으면 저장된 목차가 없는 것과 같다.
+  storedOutline?: StoredOutlines;
   // from_type·to_type이 가리키는 type의 읽을 수 있는 개체 자리(개체 순서대로)
   anchorsOf(typeName: string): readonly EntityAnchor[];
 };

@@ -21,6 +21,7 @@ import type {
   KindContext,
   KindResult,
   ProjectFiles,
+  StoredOutlines,
   TypeOfKind,
 } from "./types.ts";
 
@@ -69,6 +70,7 @@ export function extractAll(
   bundle: BundleContent,
   files: ProjectFiles,
   appData: AppDataReader,
+  storedOutline?: StoredOutlines,
 ): ExtractResult {
   const types = bundle.contract.types;
   const byName = new Map(types.map((type) => [type.name, type]));
@@ -87,6 +89,7 @@ export function extractAll(
     files,
     readDocument,
     appData,
+    storedOutline,
     anchorsOf: (name) => resolve(name).anchors,
   };
 

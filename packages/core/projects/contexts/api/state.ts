@@ -1,6 +1,7 @@
 // context API(command와 읽기)가 보는 상태의 모양과 바깥에서 받는 도구다. 시험은 이 모양을 메모리에
 // 두고(testing.ts) 구현이 ledger 표에 옮겨도 같은 값이 나오는지를 본다.
 // 값의 모양은 packages/protocol/projects/context-api.ts가 정한다.
+import type { Result } from "../../../../base/mod.ts";
 import type {
   BundleSummary,
   CheckReport,
@@ -75,6 +76,22 @@ export type ContextApiState = {
 
 export type BlobReference = { hash: string; size_bytes: number };
 
+// 새 판의 초안 폴더. 폴더에는 BundleContent 모양의 bundle.json 하나가 든다. 파일 IO는 바깥이 한다.
+export interface ContextDrafts {
+  folder(project: string, context: string, bundle: string): string;
+  // 폴더와 bundle.json을 만든다. 이미 있으면 그대로 둔다.
+  create(
+    project: string,
+    context: string,
+    bundle: string,
+    content: unknown,
+  ): void;
+  // bundle.json의 내용. 없거나 JSON이 아니면 invalid_input이다.
+  read(project: string, context: string, bundle: string): Result<unknown>;
+  // 폴더를 지우도록 맡긴다. command의 쓰기가 성공한 뒤에 지워진다.
+  remove(project: string, context: string, bundle: string): void;
+}
+
 // 바깥에서 받는 도구. 시각·ID·hash는 주입해서 시험이 매번 같게 돈다.
 export type ContextApiDeps = {
   now(): string;
@@ -94,6 +111,7 @@ export type ContextApiDeps = {
   }): string;
   // 그 project의 context를 쓸 수 있는 actor인가. 그 project의 Project Manager이거나 사람이다.
   canWrite(actor: string, project: string): boolean;
+  drafts: ContextDrafts;
   // context.record_violations가 마지막으로 기록한 위반 키(violationKey)들. 새 위반을 집합으로 가린다.
   recordedViolations(context: string): readonly string[];
   keepViolations(context: string, keys: readonly string[]): void;

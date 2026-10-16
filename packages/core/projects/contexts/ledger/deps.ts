@@ -12,6 +12,9 @@ import {
   type StoredViolation,
 } from "../../../../protocol/projects/mod.ts";
 import { objectPathFor } from "../../../storage/blobs/mod.ts";
+import type { ContextFolders } from "../../ports.ts";
+import { createContextFolders } from "../folders.ts";
+import { createContextFiles } from "./files.ts";
 import {
   type ContextBlobs,
   type ContextIndexPort,
@@ -29,7 +32,7 @@ import {
   readViolations,
 } from "../index/mod.ts";
 import { loadActiveBlueprint } from "../../../apps/releases/store.ts";
-import type { ContextsRuntime } from "../register.ts";
+import { ContextDepUnavailable, type ContextsRuntime } from "../register.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 
@@ -181,6 +184,21 @@ export function createContextsRuntime(): ContextsRuntime {
     },
   };
 
+  // 초안·저장 목차 폴더는 data root 아래다. ledger 연결이 없으면 위치를 알 수 없다.
+  const foldersAt = (): ContextFolders => {
+    const base = root();
+    if (!base.ok) throw new ContextDepUnavailable(base.error.message);
+    return createContextFolders(base.value);
+  };
+  const folders: ContextFolders = {
+    draftFolder: (project, context, bundle) =>
+      foldersAt().draftFolder(project, context, bundle),
+    outlineFolder: (project, context) =>
+      foldersAt().outlineFolder(project, context),
+  };
+
+  const files = createContextFiles();
+
   const index: ContextIndexPort = {
     violations(context) {
       const base = root();
@@ -235,6 +253,8 @@ export function createContextsRuntime(): ContextsRuntime {
     deps: {
       blobs,
       index,
+      folders,
+      files,
       execute,
       hash: (value) => sha256(canonicalize(value)),
       appIds(slugs) {

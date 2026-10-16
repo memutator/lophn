@@ -1,12 +1,15 @@
-// context API command: bundle.save_draft·discard_draft·submit·finish_check와 검사 통과 때 자동 적용.
+// context API command: bundle.open_draft·discard_draft·submit·finish_check와 검사 통과 때 자동 적용.
+// 초안 내용은 ledger에 두지 않는다. 초안 폴더의 bundle.json이 내용이고, submit이 그 내용을 판으로 확정한다.
 import { err, ok } from "../../../../base/mod.ts";
 import {
   bundleContentSchema,
   type BundleSummary,
 } from "../../../../protocol/projects/mod.ts";
+import { EMPTY_DRAFT_CONTENT } from "../folders.ts";
 import type { ContextApiCommands } from "./commands.ts";
 import { emitEvent, withReplay } from "./commands-common.ts";
 import { reflectSavedViews } from "./commands-bundle-views.ts";
+import { makeContext } from "./commands-lifecycle.ts";
 import {
   type BundleRow,
   type ContextApiActor,
@@ -34,87 +37,73 @@ export function createBundleCommands(
   deps: ContextApiDeps,
 ): Pick<
   ContextApiCommands,
-  | "bundleSaveDraft"
+  | "bundleOpenDraft"
   | "bundleDiscardDraft"
   | "bundleSubmit"
   | "bundleFinishCheck"
 > {
-  const bundleSaveDraft: ContextApiCommands["bundleSaveDraft"] = (call) => {
-    const { actor, input, compare } = call;
+  // 새 context이면 첫 판과 함께 context를 만든다. 이미 열린 초안이 있으면 그 폴더를 돌려준다.
+  const bundleOpenDraft: ContextApiCommands["bundleOpenDraft"] = (call) => {
+    const { actor, input } = call;
     return withReplay(state, call.key, () => {
-      const context = state.contexts.get(input.context);
-      if (context === undefined) return fail("not_found", "no such context");
-      if (!mayWrite(deps, actor, context.project)) return forbidden(actor);
-      if (context.status === "archived") {
-        return fail("conflict", "an archived context takes no draft");
+      let context;
+      if ("new" in input) {
+        if (!mayWrite(deps, actor, input.new.project)) return forbidden(actor);
+        const made = makeContext(state, deps, actor, input.new);
+        if (!made.ok) return made;
+        context = made.value;
+      } else {
+        context = state.contexts.get(input.context);
+        if (context === undefined) return fail("not_found", "no such context");
+        if (!mayWrite(deps, actor, context.project)) return forbidden(actor);
+        if (context.status === "archived") {
+          return fail("conflict", "an archived context takes no draft");
+        }
       }
-      if (input.bundle === undefined) {
-        if (compare.base_revision !== undefined) {
-          return fail("invalid_input", "a new draft takes no base_revision");
-        }
-        const open = [...state.bundles.values()].some((row) =>
-          row.context === context.id && row.status === "draft"
-        );
-        if (open) {
-          return fail("conflict", "the context already has a draft");
-        }
-        const id = deps.newId("cbn");
-        const parent = context.applied_bundle;
-        const seq = emitEvent(state, deps, {
-          type: "ContextBundleDraftSaved",
-          subject: id,
-          actor: actor.actor,
-          payload: {
-            context: context.id,
-            parent,
-            content: deps.putBlob(input.content),
-          },
-        });
-        const row: BundleRow = {
-          id,
+      const open = [...state.bundles.values()].find((row) =>
+        row.context === context.id && row.status === "draft"
+      );
+      if (open !== undefined) {
+        return ok({
           context: context.id,
-          number: null,
-          parent,
-          bundle_hash: null,
-          status: "draft",
-          check: null,
-          created_by: actor.actor,
-          revision: seq,
-          content: input.content,
-        };
-        state.bundles.set(id, row);
-        return ok(summaryOf(row));
+          bundle: open.id,
+          folder: deps.drafts.folder(context.project, context.id, open.id),
+        });
       }
-      if (compare.base_revision === undefined) {
-        return fail("invalid_input", "editing a draft needs base_revision");
-      }
-      const current = state.bundles.get(input.bundle);
-      if (current === undefined || current.context !== context.id) {
-        return fail("not_found", "no such bundle in the context");
-      }
-      if (current.status !== "draft") {
-        return fail("conflict", "only a draft can be saved over");
-      }
-      if (current.revision !== compare.base_revision) {
-        return fail("conflict", "the draft changed since base_revision");
-      }
+      const parent = context.applied_bundle;
+      // 새 판은 적용된 판의 내용으로 시작한다. 적용된 판이 없으면 빈 골격이다.
+      const initial = parent === null
+        ? EMPTY_DRAFT_CONTENT
+        : state.bundles.get(parent)?.content ?? EMPTY_DRAFT_CONTENT;
+      const id = deps.newId("cbn");
       const seq = emitEvent(state, deps, {
         type: "ContextBundleDraftSaved",
-        subject: current.id,
+        subject: id,
         actor: actor.actor,
         payload: {
           context: context.id,
-          parent: current.parent,
-          content: deps.putBlob(input.content),
+          parent,
+          content: deps.putBlob(initial),
         },
       });
-      const row: BundleRow = {
-        ...current,
-        content: input.content,
+      state.bundles.set(id, {
+        id,
+        context: context.id,
+        number: null,
+        parent,
+        bundle_hash: null,
+        status: "draft",
+        check: null,
+        created_by: actor.actor,
         revision: seq,
-      };
-      state.bundles.set(row.id, row);
-      return ok(summaryOf(row));
+        content: initial as Record<string, unknown>,
+      });
+      deps.drafts.create(context.project, context.id, id, initial);
+      return ok({
+        context: context.id,
+        bundle: id,
+        folder: deps.drafts.folder(context.project, context.id, id),
+      });
     });
   };
 
@@ -142,6 +131,7 @@ export function createBundleCommands(
       });
       const row: BundleRow = { ...current, status: "discarded", revision: seq };
       state.bundles.set(row.id, row);
+      deps.drafts.remove(owner.project, owner.id, current.id);
       return ok(summaryOf(row));
     });
   };
@@ -169,10 +159,21 @@ export function createBundleCommands(
         number = Math.max(number, row.number ?? 0);
       }
       number += 1;
-      if (!bundleContentSchema.safeParse(current.content).success) {
-        return fail("invalid_input", "content is not a BundleContent");
+      const folder = deps.drafts.read(context.project, context.id, current.id);
+      if (!folder.ok) return folder;
+      const parsed = bundleContentSchema.safeParse(folder.value);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        return fail(
+          "invalid_input",
+          `bundle.json is not a BundleContent: ${issue?.path.join(".") ?? ""} ${
+            issue?.message ?? ""
+          }`.trim(),
+        );
       }
-      const bundleHash = deps.hash(current.content);
+      const content = parsed.data;
+      deps.putBlob(content);
+      const bundleHash = deps.hash(content);
       const checkId = deps.newId("chk");
       const seq = emitEvent(state, deps, {
         type: "ContextBundleSubmitted",
@@ -203,8 +204,10 @@ export function createBundleCommands(
         status: "checking",
         check: checkId,
         revision: seq,
+        content,
       };
       state.bundles.set(row.id, row);
+      deps.drafts.remove(context.project, context.id, current.id);
       return ok(summaryOf(row));
     });
   };
@@ -320,7 +323,7 @@ export function createBundleCommands(
   };
 
   return {
-    bundleSaveDraft,
+    bundleOpenDraft,
     bundleDiscardDraft,
     bundleSubmit,
     bundleFinishCheck,

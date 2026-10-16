@@ -23,7 +23,7 @@ const FROMS_BY_SOURCE: Record<ContextSourceKind, readonly FromKind[]> = {
   series: DOCUMENT_FROMS,
   index: DOCUMENT_FROMS,
   section: ["path", "title", "section", "links", "outline"],
-  outline: ["path", "title"],
+  outline: ["path", "title", "outline"],
   "app-data": ["item"],
 };
 

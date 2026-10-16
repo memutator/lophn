@@ -7,3 +7,10 @@ export {
   EXAMPLE_REASONS,
   type ExampleReason,
 } from "./types.ts";
+export {
+  type FinishedCheck,
+  finishedReport,
+  reportIdOf,
+  runningReport,
+  schemaFailure,
+} from "./draft.ts";

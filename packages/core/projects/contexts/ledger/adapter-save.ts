@@ -67,7 +67,7 @@ function changes<T extends { id: string }>(
   return { changed, removed };
 }
 
-// 순서: 검사, 물러나는 판(applied가 아니게 된 것), applied가 된 판, context, saved view, 용어 항목,
+// 순서: context, 검사, 물러나는 판(applied가 아니게 된 것), applied가 된 판, saved view, 용어 항목,
 // 지운 saved view·항목. 물러나는 판을 먼저 쓰는 까닭은 context당 applied가 하나라는 partial unique
 // index가 문장마다 검사되기 때문이다. 판은 content를 읽지 않았거나 바뀌지 않았으면 적재한 참조를,
 // 아니면 handler가 올린 blob의 참조를 쓴다.
@@ -90,6 +90,11 @@ export function writeChanges(
   };
 
   const bundles = changes(before.bundles, after.bundles).changed;
+  // 새 context의 첫 초안이 같은 transaction에 있으므로 context가 판보다 먼저다. contexts.applied_bundle은
+  // commit 때 검사한다.
+  for (const context of changes(before.contexts, after.contexts).changed) {
+    saveContext(sql, context);
+  }
   for (const check of changes(before.checks, after.checks).changed) {
     saveCheck(sql, check);
   }
@@ -98,9 +103,6 @@ export function writeChanges(
   }
   for (const bundle of bundles.filter((b) => b.status === "applied")) {
     saveBundle(sql, stored(bundle));
-  }
-  for (const context of changes(before.contexts, after.contexts).changed) {
-    saveContext(sql, context);
   }
   recordAppData(sql, before, after);
   const views = changes(before.views, after.views);

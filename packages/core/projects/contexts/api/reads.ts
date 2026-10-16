@@ -1,9 +1,10 @@
 // context API 읽기. 묶음마다 파일 하나다: reads-contexts(list·get·overview·containing),
-// reads-bundle(contract·draft), reads-preview(preview: worker 쪽 자리), reads-search(search·saved_views), reads-options(input_options),
+// reads-bundle(contract·draft·test_draft), reads-preview(preview: worker가 답하는 읽기), reads-search(search·saved_views), reads-options(input_options),
 // reads-entity(entity·series_next), reads-lists(violations·bundles·glossary). 검색은 주입된
 // SearchExecutor가 돌리고 읽기는 입력 검사와 page 자르기를 한다.
 import type { Result } from "../../../../base/mod.ts";
 import type {
+  bundleTestDraftRoute,
   contextBundlesRoute,
   contextContainingRoute,
   contextContractRoute,
@@ -30,7 +31,12 @@ import { createListReads } from "./reads-lists.ts";
 import { createOptionReads } from "./reads-options.ts";
 import { createPreviewReads } from "./reads-preview.ts";
 import { createSearchReads } from "./reads-search.ts";
-import type { ContextApiActor, ContextApiState, EntityRow } from "./state.ts";
+import type {
+  ContextApiActor,
+  ContextApiState,
+  ContextDrafts,
+  EntityRow,
+} from "./state.ts";
 
 export type ReadCall<R extends ReadRoute> = {
   actor: ContextApiActor;
@@ -53,6 +59,10 @@ export type SearchExecutor = (
 
 export type ContextApiReadDeps = {
   execute: SearchExecutor;
+  now(): string;
+  // 그 project의 context를 쓸 수 있는 actor인가(bundle.test_draft).
+  canWrite(actor: string, project: string): boolean;
+  drafts: ContextDrafts;
 };
 
 export type ContextApiReads = {
@@ -61,6 +71,7 @@ export type ContextApiReads = {
   contextOverview: ReadHandler<typeof contextOverviewRoute>;
   contextContract: ReadHandler<typeof contextContractRoute>;
   contextDraft: ReadHandler<typeof contextDraftRoute>;
+  bundleTestDraft: ReadHandler<typeof bundleTestDraftRoute>;
   contextPreview: ReadHandler<typeof contextPreviewRoute>;
   contextSearch: ReadHandler<typeof contextSearchRoute>;
   contextInputOptions: ReadHandler<typeof contextInputOptionsRoute>;
@@ -79,7 +90,7 @@ export function createContextApiReads(
 ): ContextApiReads {
   return {
     ...createContextReads(state),
-    ...createBundleReads(state),
+    ...createBundleReads(state, deps),
     ...createPreviewReads(),
     ...createOptionReads(state),
     ...createSearchReads(state, deps),

@@ -7,7 +7,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { TicketClaimCheck } from "../../../protocol/coding-agent/mod.ts";
+import { TicketClaimCheck } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { requestTest } from "../../../protocol/problems/mod.ts";
 import {
   defineTxPort,
@@ -56,7 +56,7 @@ export function reproductionClaimRejection(
     checked = tx.port(TicketClaimCheck)({
       ticket: source.ticket,
       claim_seq: source.claim_seq,
-      connection: actor.id,
+      session: actor.id,
       now: tx.now(),
     });
   } catch {

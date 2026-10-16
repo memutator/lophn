@@ -13,10 +13,6 @@ import {
 } from "../../problems/reporting/worker/collector.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
 import {
-  runCheckerWorker,
-  TICKET_CHECKER_KIND,
-} from "../../apps/tickets/worker/checker.ts";
-import {
   CODING_AGENT_WORKER_KIND,
   runCodingAgentWorker,
 } from "../../problems/repairs/worker/context.ts";
@@ -44,7 +40,6 @@ const WORKER_ENTRIES: Readonly<
     return runCollectorWorker();
   },
   "apps/data": runDataWorker,
-  [TICKET_CHECKER_KIND]: runCheckerWorker,
   [CODING_AGENT_WORKER_KIND]: runCodingAgentWorker,
   [REVERT_WORKER_KIND]: runRevertWorker,
 };

@@ -42,11 +42,6 @@ import {
   releaseDeclarations,
   releaseWording,
 } from "./releases/store.ts";
-import { checkTicketClaim } from "./tickets/claims.ts";
-import {
-  TicketClaimCheck,
-  type TicketClaimChecker,
-} from "../../protocol/coding-agent/mod.ts";
 import {
   AppTestVerificationLookupPort,
   ProblemWordingPort,
@@ -254,11 +249,6 @@ export function createLedgerRegistration(
       // 보고 당시 release의 선언 code 문구다. problems의 문구 projection이
       // 같은 snapshot sql로 읽는다.
       { key: ProblemWordingPort, create: () => releaseWording },
-      {
-        key: TicketClaimCheck,
-        create: (tx): TicketClaimChecker => (input) =>
-          checkTicketClaim(tx, input),
-      },
     ],
   };
 }

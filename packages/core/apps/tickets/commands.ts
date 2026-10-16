@@ -1,374 +1,235 @@
-// ticket 생성·ready 전환 command.
-// 생성·문제 예약은 한 transaction이며 문제당 열린 repair 제약을
-// ticket_open_repair_problems unique로 강제한다. handler는 동기이고
-// condition_hash는 transaction 안에서 node:crypto로 정규 JSON sha256을 낸다
-// (problems/tests canonical 선례).
-import { createHash } from "node:crypto";
-import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+// ticket 만들기·고치기·확인·취소. App Engineer가 만들고 고치고 확인(verify)하고 취소하며,
+// 확인됨은 App Engineer가 정한다. program은 판정하지 않는다.
+import { ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import {
-  type AcceptanceCheck,
+  ticketCancel,
   ticketCreate,
-  ticketCreated,
-  type TicketCreateInput,
-  ticketMadeReady,
-  ticketMakeReady,
-  type TicketMakeReadyInput,
-} from "../../../protocol/coding-agent/mod.ts";
-import type {
-  CommandDefinition,
-  RequestContext,
-  Tx,
-} from "../../../protocol/server/mod.ts";
+  ticketUpdate,
+  ticketVerify,
+} from "../../../protocol/coding-agent/ticket/mod.ts";
+import type { TicketEvidence } from "../../../protocol/coding-agent/ticket/mod.ts";
+import { CodingTransport } from "../../../protocol/coding-agent/transport.ts";
+import { ticketVerified } from "../../../protocol/events/mod.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import {
-  adoptionMatches,
-  conditionInputsValid,
-  createActorAllowed,
-  humanConfirmationCoupled,
-  outsideAppCondition,
-  readinessOf,
-  readyKindsComplete,
-  uniqueConditions,
+  agentActor,
+  cancelActorAllowed,
+  checkApp,
+  conflict,
+  forbidden,
+  invalid,
+  nextRevision,
+  notFound,
+  revisionAgrees,
 } from "./model.ts";
+import { TicketEvidenceLookup } from "./ports.ts";
+import { loadTicket } from "./store.ts";
 
-// 문제 read·question read·documents resolve는 소유 구현이 아직 없다.
-// handler는 port로 대신 주입받는다.
-export const QUESTION_ADOPTIONS_PORT = {
-  name: "coding-agent.tickets.QuestionAdoptions",
-} as const;
-export const PROBLEM_STATUSES_PORT = {
-  name: "coding-agent.tickets.ProblemStatuses",
-} as const;
-
-type QuestionAdoption = { document: string; version: string };
-type ProblemStatus = { id: string; status: string };
-type AdoptionLookup = {
-  adoptions(questions: readonly string[]): Result<
-    Map<string, QuestionAdoption>
-  >;
-};
-type ProblemLookup = {
-  problems(ids: readonly string[]): Result<ProblemStatus[]>;
-};
-
-function conditionHash(input: AcceptanceCheck): string {
-  return createHash("sha256").update(canonicalize(input), "utf8").digest("hex");
-}
-
-function conflict(message: string): Result<never> {
-  return err({ code: "conflict", message });
-}
-
-function invalid(message: string): Result<never> {
-  return err({ code: "invalid_input", message });
-}
+const CLOSED = ["verified", "cancelled"];
 
 export function createTicketCommands(): {
   create: CommandDefinition<typeof ticketCreate>;
-  make_ready: CommandDefinition<typeof ticketMakeReady>;
+  update: CommandDefinition<typeof ticketUpdate>;
+  verify: CommandDefinition<typeof ticketVerify>;
+  cancel: CommandDefinition<typeof ticketCancel>;
 } {
   return {
     create: {
       route: ticketCreate,
       handle(tx, ctx, input) {
-        return createTicket(tx, ctx, input);
+        if (!agentActor(ctx.actor)) {
+          return forbidden("only an App Engineer creates tickets");
+        }
+        const scope = checkApp(tx.port, ctx, input.app);
+        if (!scope.ok) return scope;
+        const registered = tx.port(appRegistrationLookup).get(input.app);
+        if (!registered.ok) return registered;
+        if (registered.value === null) return notFound("app does not exist");
+        const evidence = input.evidence ?? [];
+        const checked = checkEvidence(tx, input.app, evidence);
+        if (!checked.ok) return checked;
+        const id = tx.newId("tkt");
+        tx.sql.run(
+          `INSERT INTO tickets (id, app, state, goal, acceptance_check, revision)
+           VALUES (?, ?, 'open', ?, ?, '1')`,
+          [id, input.app, input.goal, JSON.stringify(input.check)],
+        );
+        evidence.forEach((item, position) => {
+          tx.sql.run(
+            `INSERT INTO ticket_references (ticket, position, kind, target)
+             VALUES (?, ?, ?, ?)`,
+            [
+              id,
+              position,
+              item.kind,
+              item.kind === "file" ? item.path : item.id,
+            ],
+          );
+        });
+        return ok({ ticket: id, state: "open" as const, revision: "1" });
       },
     },
-    make_ready: {
-      route: ticketMakeReady,
+    update: {
+      route: ticketUpdate,
+      handle(tx, ctx, input) {
+        if (!agentActor(ctx.actor)) {
+          return forbidden("only an App Engineer updates tickets");
+        }
+        const loaded = loadTicket(tx.sql, input.ticket);
+        if (!loaded.ok) return loaded;
+        const stored = loaded.value;
+        if (stored === null) return notFound("ticket does not exist");
+        const scope = checkApp(tx.port, ctx, stored.app);
+        if (!scope.ok) return scope;
+        if (CLOSED.includes(stored.state)) {
+          return conflict("a closed ticket cannot be edited");
+        }
+        const revision = nextRevision(stored.revision);
+        tx.sql.run(
+          `UPDATE tickets SET goal = COALESCE(?, goal),
+             acceptance_check = COALESCE(?, acceptance_check), revision = ?
+           WHERE id = ?`,
+          [
+            input.goal ?? null,
+            input.check === undefined ? null : JSON.stringify(input.check),
+            revision,
+            input.ticket,
+          ],
+        );
+        return ok({ ticket: input.ticket, revision });
+      },
+    },
+    verify: {
+      route: ticketVerify,
       handle(tx, ctx, input, compare) {
-        return makeReady(tx, ctx, input, compare);
+        if (!agentActor(ctx.actor)) {
+          return forbidden("only an App Engineer verifies tickets");
+        }
+        const loaded = loadTicket(tx.sql, input.ticket);
+        if (!loaded.ok) return loaded;
+        const stored = loaded.value;
+        if (stored === null) return notFound("ticket does not exist");
+        const scope = checkApp(tx.port, ctx, stored.app);
+        if (!scope.ok) return scope;
+        if (stored.state !== "reported" || stored.completion_seq === null) {
+          return conflict("ticket has no report to verify");
+        }
+        if (stored.completion_seq !== input.completion_seq) {
+          return conflict("completion changed");
+        }
+        if (
+          !revisionAgrees(
+            stored.revision,
+            input.base_revision,
+            compare.base_revision,
+          )
+        ) return conflict("ticket revision changed");
+        const revision = nextRevision(stored.revision);
+        tx.sql.run(
+          `INSERT INTO ticket_verdicts (ticket, completion_seq, result, note)
+           VALUES (?, ?, ?, ?)`,
+          [
+            input.ticket,
+            input.completion_seq,
+            input.result,
+            input.note ?? null,
+          ],
+        );
+        tx.sql.run("UPDATE tickets SET state = ?, revision = ? WHERE id = ?", [
+          input.result,
+          revision,
+          input.ticket,
+        ]);
+        // 확인됨이면 같은 tx에서 TicketVerified를 낸다. activation이 이 event로 열린다.
+        if (input.result === "verified") {
+          tx.emit(ticketVerified, input.ticket, { app: stored.app });
+        }
+        return ok({ ticket: input.ticket, state: input.result, revision });
+      },
+    },
+    cancel: {
+      route: ticketCancel,
+      handle(tx, ctx, input) {
+        if (!cancelActorAllowed(ctx.actor)) {
+          return forbidden("actor is not allowed to cancel tickets");
+        }
+        const loaded = loadTicket(tx.sql, input.ticket);
+        if (!loaded.ok) return loaded;
+        const stored = loaded.value;
+        if (stored === null) return notFound("ticket does not exist");
+        const scope = checkApp(tx.port, ctx, stored.app);
+        if (!scope.ok) return scope;
+        if (CLOSED.includes(stored.state)) {
+          return conflict("ticket is already closed");
+        }
+        // 돌고 있거나 줄에 선 coding call을 멈춘다. 멈추면 token이 회수된다.
+        const stopped = stopCodingCalls(tx, input.ticket);
+        if (!stopped.ok) return stopped;
+        tx.sql.run("DELETE FROM ticket_claims WHERE ticket = ?", [
+          input.ticket,
+        ]);
+        tx.sql.run(
+          `UPDATE tickets SET state = 'cancelled', cancel_reason = ?, revision = ?
+           WHERE id = ?`,
+          [input.reason, nextRevision(stored.revision), input.ticket],
+        );
+        return ok({ ticket: input.ticket, state: "cancelled" as const });
       },
     },
   };
 }
 
-type TicketCreateOutput = {
-  ticket: string;
-  state: "open";
-  readiness: "needs_confirmation" | "ready";
-  revision: string;
-};
-
-function createTicket(
-  tx: Tx,
-  ctx: RequestContext,
-  input: TicketCreateInput,
-): Result<TicketCreateOutput> {
-  if (!createActorAllowed(ctx.actor)) {
-    return err({
-      code: "forbidden",
-      message: "actor is not allowed to create tickets",
+function stopCodingCalls(tx: Tx, ticket: string): Result<void> {
+  let transport;
+  try {
+    transport = tx.port(CodingTransport);
+  } catch {
+    // transport가 없는 조립에는 멈출 session도 없다.
+    return ok(undefined);
+  }
+  const calls: string[] = [];
+  for (const line of transport.lines()) {
+    if (line.active !== null && line.active.ticket === ticket) {
+      calls.push(line.active.call);
+    }
+    for (const waiting of line.waiting) {
+      if (waiting.ticket === ticket) calls.push(waiting.call);
+    }
+  }
+  for (const call of calls) {
+    const stopped = transport.stop(tx, {
+      call: call as never,
+      reason: "ticket_cancelled",
     });
+    if (!stopped.ok) return stopped;
   }
-  const readiness = readinessOf(input.readiness, input.needs);
-  if (!readiness.ok) return readiness;
-  // 구현 ticket은 문제를 묶지 않고 repair는 1개 이상이다. order는 contract
-  // validCreate가 검사하지만 동시 생성의 승자는 예약 unique가 만든다.
-  if (outsideAppCondition(ctx, input.app)) {
-    return notFound("app does not exist");
-  }
-  const registered = tx.port(appRegistrationLookup).get(input.app);
-  if (!registered.ok) return registered;
-  if (registered.value === null) return notFound("app does not exist");
-  const adopted = new Map<string, QuestionAdoption>();
-  if (input.adoption_questions.length > 0) {
-    const read = tx.port(QUESTION_ADOPTIONS_PORT) as AdoptionLookup;
-    const found = read.adoptions(input.adoption_questions);
-    if (!found.ok) return found;
-    for (const [question, adoption] of found.value) {
-      adopted.set(question, adoption);
-    }
-  }
-  // ready 생성도 make_ready와 같은 근거 일치 검사를 거친다.
-  if (readiness.value === "ready") {
-    const matched = adoptionMatches(input.references, adopted);
-    if (!matched.ok) return matched;
-  }
-  if (input.conditions.length > 0) {
-    const parsed = conditionInputsValid(input.conditions);
-    if (!parsed.ok) return parsed;
-    const unique = uniqueConditions(parsed.value);
-    if (!unique.ok) return unique;
-    const coupled = humanConfirmationCoupled(parsed.value);
-    if (!coupled.ok) return coupled;
-  }
-  if (input.problems.length > 0) {
-    const statuses = tx.port(PROBLEM_STATUSES_PORT) as ProblemLookup;
-    const loaded = statuses.problems(input.problems);
-    if (!loaded.ok) return loaded;
-    const closed = loaded.value.find(
-      (problem) => problem.status === "closed",
-    );
-    if (closed !== undefined) {
-      return invalid("closed problem cannot be repaired");
-    }
-    for (const problem of input.problems) {
-      if (reserved(tx, problem)) {
-        return conflict("an open repair ticket already reserves this problem");
+  return ok(undefined);
+}
+
+// 근거는 이 앱의 것이어야 한다. annotation은 읽을 때 풀고, file은 값 모양만 본다.
+function checkEvidence(
+  tx: Tx,
+  app: string,
+  evidence: readonly TicketEvidence[],
+): Result<void> {
+  for (const item of evidence) {
+    if (item.kind === "ticket") {
+      const found = loadTicket(tx.sql, item.id);
+      if (!found.ok) return found;
+      if (found.value === null || found.value.app !== app) {
+        return invalid("evidence ticket is not in this app");
+      }
+    } else if (item.kind === "problem" || item.kind === "release") {
+      const lookup = tx.port(TicketEvidenceLookup);
+      const found = item.kind === "problem"
+        ? lookup.problemApp(item.id)
+        : lookup.releaseApp(item.id);
+      if (!found.ok) return found;
+      if (found.value !== app) {
+        return invalid(`evidence ${item.kind} is not in this app`);
       }
     }
   }
-  return writeCreate(tx, input, readiness.value);
-}
-
-function notFound(message: string): Result<never> {
-  return err({ code: "not_found", message });
-}
-
-function reserved(tx: Tx, problem: string): boolean {
-  return tx.sql.get(
-    "SELECT problem FROM ticket_open_repair_problems WHERE problem = ?",
-    [problem],
-  ) !== undefined;
-}
-
-function writeCreate(
-  tx: Tx,
-  input: TicketCreateInput,
-  readiness: "needs_confirmation" | "ready",
-): Result<TicketCreateOutput> {
-  // ID는 입력이 아니라 ledger ID source가 만든다(createShape에 id가 없다).
-  const id = tx.newId("tkt");
-  const seq = tx.emit(ticketCreated, id, {
-    app: input.app,
-    kind: input.kind,
-    problems: input.problems,
-    readiness,
-  });
-  tx.sql.run(
-    `INSERT INTO tickets (id, app, kind, title, what, why, inspect, preserve,
-       problems, state, readiness, needs, cancel_reason, completion_seq, revision)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, NULL, NULL, ?)`,
-    [
-      id,
-      input.app,
-      input.kind,
-      input.title,
-      input.what,
-      input.why,
-      JSON.stringify(input.inspect),
-      JSON.stringify(input.preserve),
-      JSON.stringify(input.problems),
-      readiness,
-      JSON.stringify(input.needs),
-      seq,
-    ],
-  );
-  input.references.forEach((reference, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_references (ticket, position, kind, target, address, section)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        position,
-        reference.kind,
-        reference.target,
-        reference.address === null ? null : canonicalize(reference.address),
-        reference.section,
-      ],
-    );
-  });
-  input.adoption_questions.forEach((question, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_adoption_questions (ticket, position, question)
-       VALUES (?, ?, ?)`,
-      [id, position, question],
-    );
-  });
-  input.problems.forEach((problem, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_problems (ticket, position, problem) VALUES (?, ?, ?)`,
-      [id, position, problem],
-    );
-    // repair 예약은 같은 transaction이다.
-    tx.sql.run(
-      `INSERT INTO ticket_open_repair_problems (problem, ticket) VALUES (?, ?)`,
-      [problem, id],
-    );
-  });
-  input.conditions.forEach((condition, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_conditions (ticket, position, kind, input, condition_hash)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        id,
-        position,
-        condition.kind,
-        canonicalize(condition),
-        conditionHash(condition),
-      ],
-    );
-  });
-  return ok({ ticket: id, state: "open", readiness, revision: seq });
-}
-
-function makeReady(
-  tx: Tx,
-  ctx: RequestContext,
-  input: TicketMakeReadyInput,
-  compare: { base_revision: string },
-): Result<{ ticket: string; readiness: "ready"; revision: string }> {
-  if (!createActorAllowed(ctx.actor)) {
-    return err({
-      code: "forbidden",
-      message: "actor is not allowed to make tickets ready",
-    });
-  }
-  const row = loadTicket(tx, input.ticket);
-  if (!row.ok) return row;
-  if (row.value === null) return notFound("ticket does not exist");
-  const stored = row.value;
-  if (outsideAppCondition(ctx, stored.app)) {
-    return notFound("ticket does not exist");
-  }
-  // 종료(confirm·취소)와 이미 ready인 ticket은 전환하지 않는다.
-  if (stored.state !== "open" || stored.readiness !== "needs_confirmation") {
-    return conflict("ticket is not waiting for confirmation");
-  }
-  if (compare.base_revision !== input.base_revision) {
-    return conflict("ticket revision changed");
-  }
-  if (stored.revision !== input.base_revision) {
-    return conflict("ticket revision changed");
-  }
-  const parsed = conditionInputsValid(input.conditions);
-  if (!parsed.ok) return parsed;
-  const unique = uniqueConditions(parsed.value);
-  if (!unique.ok) return unique;
-  const coupled = humanConfirmationCoupled(parsed.value);
-  if (!coupled.ok) return coupled;
-  const kinds = readyKindsComplete(
-    stored.kind === "repair" ? "repair" : "implementation",
-    stored.problems,
-    parsed.value,
-  );
-  if (!kinds.ok) return kinds;
-  const registered = tx.port(appRegistrationLookup).get(stored.app);
-  if (!registered.ok) return registered;
-  if (registered.value === null) return notFound("app does not exist");
-  const read = tx.port(QUESTION_ADOPTIONS_PORT) as AdoptionLookup;
-  const found = read.adoptions(input.adoption_questions);
-  if (!found.ok) return found;
-  const matched = adoptionMatches(
-    input.references,
-    found.value,
-  );
-  if (!matched.ok) return matched;
-  const seq = tx.emit(ticketMadeReady, input.ticket, {
-    app: stored.app,
-    kind: stored.kind,
-    problems: stored.problems,
-  });
-  tx.sql.run(
-    `UPDATE tickets SET readiness = 'ready', needs = '[]', revision = ?
-     WHERE id = ?`,
-    [seq, input.ticket],
-  );
-  // make_ready는 근거·조건을 입력 값으로 덮어쓴다(한 번에 채운다).
-  input.references.forEach((reference, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_references (ticket, position, kind, target, address, section)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        input.ticket,
-        position,
-        reference.kind,
-        reference.target,
-        reference.address === null ? null : canonicalize(reference.address),
-        reference.section,
-      ],
-    );
-  });
-  input.adoption_questions.forEach((question, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_adoption_questions (ticket, position, question)
-       VALUES (?, ?, ?)`,
-      [input.ticket, position, question],
-    );
-  });
-  input.conditions.forEach((condition, position) => {
-    tx.sql.run(
-      `INSERT INTO ticket_conditions (ticket, position, kind, input, condition_hash)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        input.ticket,
-        position,
-        condition.kind,
-        canonicalize(condition),
-        conditionHash(condition),
-      ],
-    );
-  });
-  return ok({ ticket: input.ticket, readiness: "ready", revision: seq });
-}
-
-function loadTicket(
-  tx: Tx,
-  id: string,
-): Result<
-  {
-    app: string;
-    kind: "implementation" | "repair";
-    state: string;
-    readiness: string;
-    problems: string[];
-    revision: string;
-  } | null
-> {
-  const row = tx.sql.get(
-    `SELECT app, kind, state, readiness, problems, revision FROM tickets
-     WHERE id = ?`,
-    [id],
-  );
-  if (row === undefined) return ok(null);
-  const problems = JSON.parse(String(row.problems)) as unknown;
-  return ok({
-    app: String(row.app),
-    kind: row.kind === "repair" ? "repair" : "implementation",
-    state: String(row.state),
-    readiness: row.readiness === "ready" ? "ready" : "needs_confirmation",
-    problems: Array.isArray(problems) ? problems.map(String) : [],
-    revision: String(row.revision),
-  });
+  return ok(undefined);
 }

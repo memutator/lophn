@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
-import { TicketClaimCheck } from "../../../protocol/coding-agent/mod.ts";
+import { TicketClaimCheck } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type {
   CommandDefinition,
   Input,
@@ -209,7 +209,7 @@ export function handleRecordProblemFix(
     checked = check({
       ticket: fix.ticket,
       claim_seq: fix.claim_seq,
-      connection: parseActor(_ctx.actor)?.kind === "coding_agent"
+      session: parseActor(_ctx.actor)?.kind === "coding_agent"
         ? _ctx.actor.slice("coding_agent:".length)
         : "",
       now: tx.now(),

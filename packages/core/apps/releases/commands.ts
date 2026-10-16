@@ -25,10 +25,9 @@ import { releaseActivationFailed } from "../../../protocol/events/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
-  type ConnectionId,
   TicketClaimCheck,
   type TicketId,
-} from "../../../protocol/coding-agent/mod.ts";
+} from "../../../protocol/coding-agent/ticket/mod.ts";
 import { AppTestVerificationLookupPort } from "../../../protocol/problems/mod.ts";
 import type {
   CommandDefinition,
@@ -117,7 +116,7 @@ export function checkPreparationClaim(
     checked = check({
       ticket: source.ticket as TicketId,
       claim_seq: source.claim_seq,
-      connection: actor.id as ConnectionId,
+      session: actor.id,
       now: tx.now(),
     });
   } catch {

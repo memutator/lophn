@@ -38,21 +38,23 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
    전에 `ticket renew`를 부른다.
-3. 현재 앱을 읽는다. `app show`, `app blueprint`로 있는 command와 화면을 보고,
-   ticket이 가리킨 source를 읽는다. 앱 root의 안내 파일이 있으면 먼저 읽는다.
+3. 현재 앱을 읽는다. `app show`, `app blueprint`로 선언된 app api(blueprint의
+   `app_api`)와 화면을 보고, ticket이 가리킨 source를 읽는다. 앱 root의 안내
+   파일이 있으면 먼저 읽는다.
 4. 쓸 package를 찾는다. 새 code를 쓰기 전에 `package list`, `package show`로 이
    앱이 의존으로 선언한 package의 API와 예제를 읽는다. 선언되지 않은 package는
    쓸 수 없다.
 5. blueprint나 의존을 바꿔야 하면 직접 고치지 않는다. 무엇을 왜 바꿔야 하는지
    `message send`로 App Engineer에게 청하고 답을 기다린다.
-6. 구현한다. 화면과 command는 blueprint 선언과 맞게 쓰고, 생성물은 손으로 고치지
-   않는다. 기존 fixture와 ticket의 지킬 것을 보존한다.
+6. 구현한다. 화면과 app api(`src/app-api.ts`의 handler, 화면에서는
+   `lophnApp.call(api, input)`)는 blueprint 선언과 맞게 쓰고, 생성물은 손으로
+   고치지 않는다. 기존 fixture와 ticket의 지킬 것을 보존한다.
 7. 실제 테스트를 돌린다. source를 commit한 뒤 `app test`로 ticket의 test 조건을
    요청한다. 결과는 runner가 낸 test result다. 실패·timeout·미실행이면 원인을
    고쳐 다시 요청하고, 통과 전에 release 준비를 시도하지 않는다. source가 바뀌면
    이전 통과를 쓰지 않는다. 직접 돌린 shell 결과는 test result가 아니다.
 8. preview로 확인한다. `app preview start`로 fixture 격리 preview를 열고 화면과
-   command를 확인한 뒤 `app preview stop`으로 닫는다. preview 결과는 운영이
+   app api를 확인한 뒤 `app preview stop`으로 닫는다. preview 결과는 운영이
    정상이라는 증거가 아니다.
 9. release를 준비한다. 테스트가 통과한 같은 commit에서 `release prepare`를
    부른다. claim이 만료되었으면 준비하지 않고 먼저 `ticket show`로 claim을

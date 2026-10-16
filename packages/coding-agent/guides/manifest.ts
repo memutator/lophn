@@ -13,8 +13,8 @@ export type SkillRelease = {
 export const SKILL_RELEASES: readonly SkillRelease[] = [
   {
     name: "lophn-build-app",
-    version: "2.0.0",
-    hash: "ff796ebcf8d7f7c33433dbf6aecb7ca970d5ebe46a179d796bf9e64463bf8247",
+    version: "2.0.1",
+    hash: "c6ccc8226fd0472744f2d09f5d02a181b9c3dcf2bd222bf31a53d1bad26850a3",
   },
   {
     name: "lophn-repair",

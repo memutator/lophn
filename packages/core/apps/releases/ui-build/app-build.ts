@@ -20,12 +20,53 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCREEN_KEY = /^[a-z0-9][a-z0-9-]*$/;
 
-// CSS Modules·CSS·글꼴은 import map이 가리키는 설치 사본의 파일을 esbuild loader로 읽는다.
+// 앱 source가 SDK component를 쓰는 지점에 bundle 위치(`data-lophn-at="<file>:<line>:<column>"`)를 싣는다.
+// annotation이 이 위치를 release의 app.js.map으로 원래 source 위치로 푼다. 앱 source의 jsx runtime만 이 파일이 대신한다.
+// 앱 template의 `scripts/build-ui.ts`와 같은 코드다(template은 앱 폴더에 복사되어 core를 import하지 못해 복사로 둔다).
+const AT_RUNTIME = `
+import { Fragment, jsx as jsx0, jsxs as jsxs0 } from "react/jsx-runtime";
+const POSITION = /([^\\s()]+:\\d+:\\d+)\\)?\\s*$/;
+function at() {
+  const frame = (new Error().stack ?? "").split("\\n")[3] ?? "";
+  return POSITION.exec(frame)?.[1];
+}
+function mark(type, props, position) {
+  return typeof type === "string" || position === undefined
+    ? props
+    : { ...props, "data-lophn-at": position };
+}
+export { Fragment };
+export const jsx = (type, props, key) => jsx0(type, mark(type, props, at()), key);
+export const jsxs = (type, props, key) => jsxs0(type, mark(type, props, at()), key);
+`;
+
+function atRuntime(root: string): esbuild.Plugin {
+  return {
+    name: "app-at-runtime",
+    setup(build) {
+      build.onResolve(
+        { filter: /^react\/jsx-runtime$/ },
+        (args) =>
+          args.namespace === "file" &&
+            args.importer.startsWith(join(root, "src/"))
+            ? { path: "jsx-runtime", namespace: "app-at" }
+            : undefined,
+      );
+      build.onLoad({ filter: /.*/, namespace: "app-at" }, () => ({
+        contents: AT_RUNTIME,
+        loader: "js",
+        resolveDir: root,
+      }));
+    },
+  };
+}
+
+// CSS Modules·CSS·글꼴·svg는 import map이 가리키는 설치 사본의 파일을 esbuild loader로 읽는다.
 function assets(imports: Record<string, string>): esbuild.Plugin {
   return {
     name: "app-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(css|woff2)$/ }, (args) => {
+      build.onResolve({ filter: /\.(css|woff2|svg)$/ }, (args) => {
         const mapped = imports[args.path];
         const base = args.importer.startsWith("file:")
           ? args.importer
@@ -42,7 +83,9 @@ function assets(imports: Record<string, string>): esbuild.Plugin {
       });
       build.onLoad({ filter: /.*/, namespace: "app-asset" }, async (args) => ({
         contents: await readFile(args.path),
-        loader: args.path.endsWith(".module.css")
+        loader: args.path.endsWith(".svg")
+          ? "text"
+          : args.path.endsWith(".module.css")
           ? "local-css"
           : args.path.endsWith(".css")
           ? "css"
@@ -114,11 +157,15 @@ try {
       format: "esm",
       jsx: "automatic",
       minify: true,
+      // 준비가 이 main.js를 다시 묶어 app.js.map을 만든다. inline이어야 그 map이 원래 source를 잇는다.
+      sourcemap: "inline",
+      sourcesContent: true,
       assetNames: "[name]",
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "error",
       plugins: [
         guard(allowed),
+        atRuntime(root),
         assets(imports),
         ...(denoPlugins({
           configPath: scratch,

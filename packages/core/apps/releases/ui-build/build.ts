@@ -59,6 +59,7 @@ type SourceMap = {
   file?: string;
   sources: string[];
   sourcesContent?: (string | null)[];
+  mappings?: string;
 };
 
 function decode(bytes: Uint8Array): string {
@@ -126,6 +127,8 @@ export async function buildScreens(
     file: input.screens.map((screen) => screen.path).join(","),
     sources: maps.flatMap((map) => map.sources),
     sourcesContent: maps.flatMap((map) => map.sourcesContent ?? []),
+    // mappings는 화면이 하나일 때만 담는다. 화면이 여럿이면 한 map에 이어 붙일 수 없다.
+    ...(maps.length === 1 ? { mappings: maps[0]!.mappings } : {}),
   };
   if (
     merged.sourcesContent?.length !== merged.sources.length ||

@@ -70,7 +70,7 @@ function layoutOf(panes: readonly PaneSpec[]) {
   };
 }
 
-// 옛 Settings 탭 이름을 지금 Settings 항목으로 옮긴다.
+// gallery의 Settings 탭 이름을 Settings 항목(pane)으로 잇는다.
 const SETTINGS_PANE = {
   coding: "coding",
   general: "general",

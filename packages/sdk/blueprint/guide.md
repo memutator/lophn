@@ -3,7 +3,7 @@
 ## 목적
 
 모든 앱이 같은 apps/blueprint 계약으로 선언을 작성하고 검사하는
-도우미다(apps/sdk#R5). 앱마다 blueprint schema의 다른 사본을 만들지 않는다.
+도우미다. 앱마다 blueprint schema의 다른 사본을 만들지 않는다.
 
 ## 공개 API와 type
 

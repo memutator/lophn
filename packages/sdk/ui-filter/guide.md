@@ -2,10 +2,10 @@
 
 ## 목적
 
-read command 결과를 좁히는 기간·다중 선택·검색 filter다(apps/sdk#R18). 고른 값은
+read command 결과를 좁히는 기간·다중 선택·검색 filter다. 고른 값은
 앱의 read command 입력에 그대로 싣고, 결과의 loading·empty·error·freshness는
-@lophn/ui-state가 보인다(apps/sdk#R19). 조작은 lophn 화면과 같은 component이고
-시각 값의 정본은 shell/design-system이다(apps/sdk#R20, R21).
+@lophn/ui-state가 보인다. 조작은 lophn 화면과 같은 component이고
+시각 값의 정본은 shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -91,7 +91,7 @@ await lophnApp.call("list-orders", query);
 </FilterBar>;
 ```
 
-문구는 앱의 message key로 주고 command key와 섞지 않는다(apps/sdk#R41).
+문구는 앱의 message key로 주고 command key와 섞지 않는다.
 
 ## version 정책
 

@@ -2,7 +2,7 @@
 
 ## 목적
 
-허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다(apps/sdk#R24).
+허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다.
 이 package를 import해도 grant가 생기지 않는다. 실제 접근 범위는 앱 프로세스의
 Deno flag이고, 그 flag는 blueprint가 선언하고 사람이 grant한
 `fs.read`·`fs.write` 경로의 교집합이다.

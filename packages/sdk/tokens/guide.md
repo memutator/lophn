@@ -3,7 +3,7 @@
 ## 목적
 
 앱이 import하는 고정 token이다. 값의 정본은 packages/design이고 여기서는 다시
-내보내기만 한다(apps/sdk#R20). 시각 스타일은 @lophn/tokens 및
+내보내기만 한다. 시각 스타일은 @lophn/tokens 및
 shell/design-system을 따른다.
 
 ## 공개 API와 type

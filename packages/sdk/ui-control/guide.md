@@ -2,9 +2,8 @@
 
 ## 목적
 
-높이 28·32·36px(sm·md·lg)의 버튼·입력·선택·체크박스·스위치·키 표시다
-(apps/sdk#R14). lophn 화면과 같은 component이고 시각 값의 정본은
-shell/design-system이다(apps/sdk#R20, R21).
+높이 28·32·36px(sm·md·lg)의 버튼·입력·선택·체크박스·스위치·키 표시다. lophn 화면과 같은 component이고 시각 값의 정본은
+shell/design-system이다.
 
 ## 공개 API와 type
 
@@ -68,7 +67,7 @@ import { Button, Field, Input } from "@lophn/ui-control";
 <Button variant="primary" size="sm">{t("app.button.save")}</Button>;
 ```
 
-문구는 앱의 message key로 준다(apps/sdk#R41).
+문구는 앱의 message key로 준다.
 
 ## version 정책
 

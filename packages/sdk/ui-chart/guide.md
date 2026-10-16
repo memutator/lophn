@@ -2,9 +2,9 @@
 
 ## 목적
 
-시계열·막대·누적 막대·분포·산점 차트와 node·edge 도표다(apps/sdk#R17). 계산은
+시계열·막대·누적 막대·분포·산점 차트와 node·edge 도표다. 계산은
 d3-scale·d3-shape, 그리기는 React SVG다. 앱 화면과 세션 시각 블록이 같은 선언형
-props를 넘긴다. 함수 식이나 HTML을 받지 않는다(apps/sdk#R38).
+props를 넘긴다. 함수 식이나 HTML을 받지 않는다.
 
 ## 공개 API와 type
 

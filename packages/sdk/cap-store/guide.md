@@ -2,8 +2,7 @@
 
 ## 목적
 
-앱이 자기 data 영역의 SQLite DB를 여는 얇은 client와 migration 도우미다
-(apps/sdk#R24). 추가 permission은 없다. 앱 프로세스는 자기 data 영역에만
+앱이 자기 data 영역의 SQLite DB를 여는 얇은 client와 migration 도우미다. 추가 permission은 없다. 앱 프로세스는 자기 data 영역에만
 읽기·쓰기 flag를 가지며 다른 앱 DB와 플랫폼 파일은 열 수 없다.
 
 ## 공개 API와 type

@@ -1,8 +1,5 @@
 import { z } from "zod";
-import type { Result } from "../../base/mod.ts";
 import { atSchema } from "../base/values.ts";
-import type { Sql } from "../server/registration.ts";
-import { definePort, type PortKey } from "../base/ports.ts";
 import { closureReasonSchema } from "./closing.ts";
 import { testKindSchema } from "./tests.ts";
 
@@ -12,36 +9,32 @@ import { testKindSchema } from "./tests.ts";
 const text = z.string().regex(/\S/);
 
 // 수리 작업의 사람이 아는 상태. none은 지금 수리 작업이 없음, unknown은 읽지 못함이다.
-export const WORK_STATES = [
+const WORK_STATES = [
   "needs_confirmation",
   "ready_to_hand_off",
   "in_progress",
   "checking",
 ] as const;
-export const workStateSchema = z.enum(WORK_STATES);
-export type WorkState = z.infer<typeof workStateSchema>;
-export const repairStateSchema = z.enum([...WORK_STATES, "none", "unknown"]);
-export type RepairState = z.infer<typeof repairStateSchema>;
+const repairStateSchema = z.enum([...WORK_STATES, "none", "unknown"]);
 
 // 테스트 한 건의 지금 상태다. unconfirmed는 끝났지만 확인하지 못한 결과(inconclusive)다.
-export const TEST_STATES = [
+const TEST_STATES = [
   "pending",
   "running",
   "pass",
   "fail",
   "unconfirmed",
 ] as const;
-export const testStateSchema = z.enum(TEST_STATES);
+const testStateSchema = z.enum(TEST_STATES);
 // 기록으로 남긴 한 건. not_run은 준비 실패·미실행이고 통과가 아니다.
-export const RECORDED_TEST_STATES = [...TEST_STATES, "not_run"] as const;
-export const recordedTestStateSchema = z.enum(RECORDED_TEST_STATES);
+const RECORDED_TEST_STATES = [...TEST_STATES, "not_run"] as const;
+const recordedTestStateSchema = z.enum(RECORDED_TEST_STATES);
 // 전체 요약은 한 건도 안 돌았음(not_run)과 읽지 못함(unknown)을 성공으로 채우지 않는다.
-export const testSummaryStateSchema = z.enum([
+const testSummaryStateSchema = z.enum([
   ...TEST_STATES,
   "not_run",
   "unknown",
 ]);
-export type TestSummaryState = z.infer<typeof testSummaryStateSchema>;
 
 export const problemDetailSchema = z.object({
   // 기본 먼저: 진행, 실제 담당, 지금 필요한 사람 조치.
@@ -114,30 +107,10 @@ export const problemDetailSchema = z.object({
   (value) => (value.progress.state === "closed") === (value.closed !== null),
   { message: "closed detail follows progress" },
 );
-export type ProblemDetail = z.infer<typeof problemDetailSchema>;
 
 // coding-agent ticket의 상태와 준비 상태에서 읽은 사실이다. claim 상세는 싣지 않는다.
 // contracts 최상위 사이 순환을 피하려고 coding-agent의 값 집합을 이름으로 따로 적는다
 // (coding-agent/ticket/values.ts의 TICKET_STATES와 같다. problems grouping detail_test가 대조한다).
-export type RepairTicketFact = {
-  state:
-    | "open"
-    | "claimed"
-    | "reported"
-    | "confirmed"
-    | "check_failed"
-    | "cancelled";
-  readiness: "needs_confirmation" | "ready";
-  needs: string[];
-};
 
 // 문제의 지금 수리 ticket이다(없으면 null). 구현은 coding-agent가 내놓고 core 조립이 reader
 // port로 등록한다. 등록되지 않았거나 읽지 못하면 read는 담당을 모름으로 보인다.
-export type ProblemWorkLookup = (
-  sql: Pick<Sql, "get" | "all">,
-  problem: string,
-  work: string | null,
-) => Result<RepairTicketFact | null>;
-export const ProblemWorkPort: PortKey<ProblemWorkLookup> = definePort<
-  ProblemWorkLookup
->("problems.ProblemWork");

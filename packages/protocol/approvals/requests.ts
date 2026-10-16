@@ -7,10 +7,10 @@ import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { type IntentKind, intentSchema } from "./intent.ts";
 
 // app-api, MCP tool의 선택지.
-export const TURN_CHOICES = ["once", "session", "always", "reject"] as const;
+const TURN_CHOICES = ["once", "session", "always", "reject"] as const;
 // activation, 설정 고치기, reaction의 선택지.
-export const ALLOW_REJECT_CHOICES = ["allow", "reject"] as const;
-export const requestChoiceSchema = z.enum([
+const ALLOW_REJECT_CHOICES = ["allow", "reject"] as const;
+const requestChoiceSchema = z.enum([
   ...TURN_CHOICES,
   "allow",
 ]);
@@ -26,19 +26,19 @@ export function choicesFor(
 }
 
 // 거절 이유는 요청한 agent에게 그대로 간다. 한 줄이다.
-export const rejectReasonSchema = z.string().trim().min(1).max(500).refine(
+const rejectReasonSchema = z.string().trim().min(1).max(500).refine(
   (value) => !/[\r\n]/.test(value),
   { message: "reject reason is one line" },
 );
 
 // allow는 접수다. 만료는 없다.
-export const REQUEST_STATUSES = [
+const REQUEST_STATUSES = [
   "pending",
   "allow",
   "reject",
   "cancelled",
 ] as const;
-export const requestStatusSchema = z.enum(REQUEST_STATUSES);
+const requestStatusSchema = z.enum(REQUEST_STATUSES);
 export type RequestStatus = z.infer<typeof requestStatusSchema>;
 
 // 보류 request의 적용 결과. 허락의 접수(allow)와 적용의 성공을 따로 보인다. 적용 전에는 null이다.
@@ -82,7 +82,7 @@ export const pendingApprovalSchema = z.strictObject({
 export type PendingApproval = z.infer<typeof pendingApprovalSchema>;
 
 // turn이 이어 가는 값. cancelled는 거절과 구별해 요청자에게 간다.
-export const turnDecisionSchema = z.discriminatedUnion("outcome", [
+const turnDecisionSchema = z.discriminatedUnion("outcome", [
   z.strictObject({
     outcome: z.literal("allow"),
     scope: z.enum(["once", "session", "always"]),
@@ -103,14 +103,13 @@ const rejectChoiceSchema = z.strictObject({
   reason: rejectReasonSchema.optional(),
 });
 
-export const pendingChoiceSchema = z.discriminatedUnion("kind", [
+const pendingChoiceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("allow") }),
   rejectChoiceSchema,
 ]);
-export type PendingChoice = z.infer<typeof pendingChoiceSchema>;
 
 // choice.kind가 그 request의 choices에 없으면 handler가 invalid_input으로 거절한다.
-export const turnChoiceSchema = z.discriminatedUnion("kind", [
+const turnChoiceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.enum(["once", "session", "always", "allow"]) }),
   rejectChoiceSchema,
 ]);

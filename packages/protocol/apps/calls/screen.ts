@@ -4,7 +4,7 @@ import { screenKeySchema } from "../channel-values.ts";
 import { appApiTargetSchema } from "./call.ts";
 
 // core가 UI bundle 사본의 byte를 내준다. path는 그 screen 아래 상대 경로다.
-export const appScreenFileInputSchema = z.strictObject({
+const appScreenFileInputSchema = z.strictObject({
   target: appApiTargetSchema,
   screen: screenKeySchema,
   path: z.string().min(1),

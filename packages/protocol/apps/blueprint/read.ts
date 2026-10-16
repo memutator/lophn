@@ -10,7 +10,7 @@ import { permissionRequirementSchema } from "../permissions.ts";
 // 앱 하나의 active release 고정 blueprint를 사람과 agent가 읽는 모양이다.
 // 선언 전체가 아니라 app-api·화면의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
 // 없는 앱은 같은 not_found로 답한다.
-export const appAppApiSchema = z.object({
+const appAppApiSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   description: z.string().min(1),
@@ -22,7 +22,7 @@ export const appAppApiSchema = z.object({
 });
 export type AppAppApi = z.infer<typeof appAppApiSchema>;
 
-export const appBlueprintScreenSchema = z.object({
+const appBlueprintScreenSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   path: z.string().min(1),
@@ -31,7 +31,7 @@ export const appBlueprintScreenSchema = z.object({
 
 // 설명·구조 검증·실제 test 통과는 서로 다른 근거다. 설명이 완성됐거나 구조가 맞다는 것만으로
 // test 성공을 표시하지 않는다.
-export const appBlueprintEvidenceSchema = z.object({
+const appBlueprintEvidenceSchema = z.object({
   description: z.object({
     complete: z.boolean(),
     // 설명이 비었거나 없는 자리. 예 `app_api.add.input.title`.
@@ -46,7 +46,7 @@ export const appBlueprintEvidenceSchema = z.object({
 
 // 현재 release의 선언 사실이다. 실행 범위(선언 ∩ active grant)를 계산하는 읽는 쪽이 쓴다.
 // blueprint에 이미 있는 값을 계산에 쓰기 좋게 풀어 둔 것이고 새 사실이 아니다.
-export const appDeclarationsSchema = z.object({
+const appDeclarationsSchema = z.object({
   permissions: z.array(permissionRequirementSchema),
   app_connections: z.array(z.object({
     app: appIdSchema,
@@ -54,9 +54,8 @@ export const appDeclarationsSchema = z.object({
   })),
   app_api: z.array(z.string().min(1)),
 });
-export type AppDeclarationsView = z.infer<typeof appDeclarationsSchema>;
 
-export const appBlueprintOutputSchema = withReadCommon(z.object({
+const appBlueprintOutputSchema = withReadCommon(z.object({
   app: appIdSchema,
   release: releaseIdSchema,
   blueprint_hash: sha256Schema,

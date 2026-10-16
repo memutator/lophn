@@ -17,4 +17,3 @@ export const IDEMPOTENCY_KEY_MAX_BYTES = 128;
 
 // event batch 256개·256KiB.
 export const EVENT_BATCH_MAX_COUNT = 256;
-export const EVENT_BATCH_MAX_BYTES = 256 * KIB;

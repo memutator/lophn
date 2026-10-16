@@ -71,14 +71,14 @@ export const ticketUpdate = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
-export const ticketListInputSchema = z.strictObject({
+const ticketListInputSchema = z.strictObject({
   app: idSchema("app").optional(),
   state: ticketStateSchema.optional(),
   limit: z.number().int().min(1).max(TICKET_LIST_LIMIT).optional(),
   cursor: z.string().min(1).optional(),
 });
 // title은 goal의 첫 줄이다(`ticketTitleOf`).
-export const ticketSummarySchema = z.object({
+const ticketSummarySchema = z.object({
   id: ticketIdSchema,
   app: idSchema("app"),
   title: z.string().min(1),
@@ -94,7 +94,7 @@ export const ticketList = defineRead({
   errors: readErrors,
 });
 
-export const ticketViewSchema = z.object({
+const ticketViewSchema = z.object({
   id: ticketIdSchema,
   app: idSchema("app"),
   state: ticketStateSchema,
@@ -110,7 +110,6 @@ export const ticketViewSchema = z.object({
   (value) => (value.state === "claimed") === (value.claim !== null),
   { message: "claim follows state" },
 );
-export type TicketView = z.infer<typeof ticketViewSchema>;
 
 export const ticketShowInputSchema = z.strictObject({ ticket: ticketIdSchema });
 // 근거 annotation은 메모, component, source 위치, release, screenshot 파일 경로까지 풀려 있다.

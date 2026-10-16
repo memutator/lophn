@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
@@ -8,7 +7,6 @@ const nonblank = z.string().regex(/\S/);
 const reasonFields = { reason: nonblank };
 export const missingReasonSchema = z.object(reasonFields);
 export const missingReasonInputSchema = z.strictObject(reasonFields);
-export type MissingReason = z.infer<typeof missingReasonSchema>;
 const paired = (value: unknown, reason: unknown) =>
   (value === null) !== (reason === null);
 const relativePath = nonblank.refine((path) =>
@@ -78,15 +76,10 @@ const input = evidenceSchemas(true);
 export const invocationEvidenceSchema = output.invocation;
 export const invocationEvidenceInputSchema = input.invocation;
 export const errorEvidenceSchema = output.error;
-export const errorEvidenceInputSchema = input.error;
 export const logEvidenceSchema = output.logs;
 export const logEvidenceInputSchema = input.logs;
 export const screenEvidenceSchema = output.screen;
-export const screenEvidenceInputSchema = input.screen;
-export type InvocationEvidence = z.infer<typeof invocationEvidenceSchema>;
-export type ErrorEvidence = z.infer<typeof errorEvidenceSchema>;
 export type LogEvidence = z.infer<typeof logEvidenceSchema>;
-export type ScreenEvidence = z.infer<typeof screenEvidenceSchema>;
 
 function snapshotSchema(evidence: ReturnType<typeof evidenceSchemas>) {
   return evidence.object({
@@ -112,19 +105,3 @@ export { snapshotSchemaOutput as snapshotSchema };
 export const snapshotInputSchema = snapshotSchema(input).refine((value) =>
   new TextEncoder().encode(JSON.stringify(value)).length <= 65_536
 );
-export type Snapshot = z.infer<typeof snapshotSchemaOutput>;
-export type SnapshotInput = z.infer<typeof snapshotInputSchema>;
-export const snapshotRecorded = defineEvent("SnapshotRecorded", {
-  subject: idSchema("snp"),
-  payload: z.object({
-    report: idSchema("rpt"),
-    captured_at: atSchema,
-    evidence_hashes: z.array(sha256Schema),
-    missing_reasons: z.object({
-      invocation: missingReasonSchema.nullable(),
-      error: missingReasonSchema.nullable(),
-      logs: missingReasonSchema.nullable(),
-      screen: missingReasonSchema.nullable(),
-    }),
-  }),
-});

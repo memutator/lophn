@@ -14,7 +14,7 @@ export const SKILLS_OFF_MAX = 256;
 // skill의 층은 전역, project이고 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이 덮는다.
 // 내장 skill은 lophn이 가진다.
 export const SKILL_SOURCES = ["builtin", "global", "project"] as const;
-export const skillSourceSchema = z.enum(SKILL_SOURCES);
+const skillSourceSchema = z.enum(SKILL_SOURCES);
 export type SkillSource = z.infer<typeof skillSourceSchema>;
 
 // 내장 skill 선언이다. description은 skill 목록에 들어가는 영어 한 줄이다.
@@ -35,7 +35,7 @@ export const BUILTIN_SKILLS = [
   },
 ] as const;
 
-export const skillEntrySchema = z.object({
+const skillEntrySchema = z.object({
   name: z.string().min(1).max(64),
   description: z.string().min(1).max(1024),
   source: skillSourceSchema,
@@ -47,7 +47,7 @@ export type SkillEntry = z.infer<typeof skillEntrySchema>;
 // agent 설정 화면이 보는 skill 목록이다. `project`를 주면 전역과 내장에 그 project 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
-export const skillsReadInputSchema = z.strictObject({
+const skillsReadInputSchema = z.strictObject({
   project: idSchema("prj").optional(),
 });
 

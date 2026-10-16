@@ -24,13 +24,9 @@ const KIB = 1024;
 // redaction 뒤 UTF-8 상한.
 export const INVOCATION_SUMMARY_MAX_BYTES = 16 * KIB;
 // 후행 기록 전달 목록 한도. 두 값 중 먼저 닿는 쪽이 한도다.
-export const INVOCATION_DELIVERY_MAX_MESSAGES = 4096;
-export const INVOCATION_DELIVERY_MAX_BYTES = 8 * 1024 * KIB;
 // unavailable만 다시 보내는 backoff 단계와 상한(ms).
-export const INVOCATION_DELIVERY_BACKOFF_MS = [1000, 2000, 4000] as const;
-export const INVOCATION_DELIVERY_BACKOFF_MAX_MS = 30_000;
 
-export const INVOCATION_STATUSES = [
+const INVOCATION_STATUSES = [
   "accepted",
   "running",
   "succeeded",
@@ -38,15 +34,10 @@ export const INVOCATION_STATUSES = [
   "denied",
   "unknown",
 ] as const;
-export const invocationStatusValueSchema = z.enum(INVOCATION_STATUSES);
-export type InvocationStatus = z.infer<typeof invocationStatusValueSchema>;
+const invocationStatusValueSchema = z.enum(INVOCATION_STATUSES);
+type InvocationStatus = z.infer<typeof invocationStatusValueSchema>;
 
 // record_finished가 확정하는 상태다. denied는 record_denied가 남긴다.
-export const INVOCATION_FINISH_STATUSES = [
-  "succeeded",
-  "failed",
-  "unknown",
-] as const;
 
 // summary는 redaction 뒤의 작은 JSON object다. 입출력 본문·credential 원문이 아니다.
 export const invocationSummarySchema = jsonObjectSchema.refine(
@@ -84,13 +75,11 @@ function operationTriggerSchemas(strict: boolean) {
 const shapes = operationTriggerSchemas(false);
 const inputShapes = operationTriggerSchemas(true);
 
-export const invocationOperationSchema = shapes.operation;
-export const invocationOperationInputSchema = inputShapes.operation;
-export type InvocationOperation = z.infer<typeof invocationOperationSchema>;
+const invocationOperationSchema = shapes.operation;
+const invocationOperationInputSchema = inputShapes.operation;
 
-export const invocationTriggerSchema = shapes.trigger;
-export const invocationTriggerInputSchema = inputShapes.trigger;
-export type InvocationTrigger = z.infer<typeof invocationTriggerSchema>;
+const invocationTriggerSchema = shapes.trigger;
+const invocationTriggerInputSchema = inputShapes.trigger;
 
 function invocationSchemas(strict: boolean) {
   const fields = {
@@ -133,67 +122,18 @@ function invocationSchemas(strict: boolean) {
   );
 }
 
-export const invocationSchema = invocationSchemas(false);
-export const invocationInputSchema = invocationSchemas(true);
-export type Invocation = z.infer<typeof invocationSchema>;
-
-const startedFactFields = {
-  app: appIdSchema,
-  release: releaseIdSchema,
-  mode: runtimeModeSchema,
-  actor: actorSchema,
-  caller: invocationCallerSchema,
-  operation: invocationOperationInputSchema,
-  trigger: invocationTriggerInputSchema,
-  started_at: atSchema,
-};
+const invocationSchema = invocationSchemas(false);
 
 // record_started 입력. 검증된 inv·사실만 받는다
 // (domain-model apps/invocations command 표).
-export const invocationRecordStartedInputSchema = z.strictObject({
-  invocation: invocationIdSchema,
-  ...startedFactFields,
-});
-export type InvocationRecordStartedInput = z.infer<
-  typeof invocationRecordStartedInputSchema
->;
-
-const finishedFactFields = {
-  status: z.enum(INVOCATION_FINISH_STATUSES),
-  started_at: atSchema.nullable(),
-  finished_at: atSchema,
-  summary: invocationSummarySchema,
-  detail_hash: sha256Schema.nullable(),
-};
 
 // record_finished 입력. 종료 상태는 succeeded/failed/unknown이다.
 // unknown도 같은 사실 재전송이므로 started_at 모양은 그대로다.
-export const invocationRecordFinishedInputSchema = z.strictObject({
-  invocation: invocationIdSchema,
-  ...finishedFactFields,
-});
-export type InvocationRecordFinishedInput = z.infer<
-  typeof invocationRecordFinishedInputSchema
->;
 
 // record_denied 입력. handler를 부르기 전 거절이라 시작이 없다.
-export const invocationRecordDeniedInputSchema = z.strictObject({
-  invocation: invocationIdSchema,
-  app: appIdSchema,
-  release: releaseIdSchema,
-  actor: actorSchema,
-  caller: invocationCallerSchema,
-  operation: invocationOperationInputSchema,
-  trigger: invocationTriggerInputSchema,
-  finished_at: atSchema,
-  summary: invocationSummarySchema,
-});
-export type InvocationRecordDeniedInput = z.infer<
-  typeof invocationRecordDeniedInputSchema
->;
 
 // confirm 접수. 승인 사용과 accepted를 원자적으로 저장한다(domain-model command 표).
-export const invocationAcceptConfirmInputSchema = z.strictObject({
+const invocationAcceptConfirmInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   command: commandKeySchema,
@@ -203,18 +143,12 @@ export const invocationAcceptConfirmInputSchema = z.strictObject({
   process_nonce: processNonceSchema,
   caller: invocationCallerSchema,
 });
-export type InvocationAcceptConfirmInput = z.infer<
-  typeof invocationAcceptConfirmInputSchema
->;
 
 // 출력은 inv ID와 proof다.
-export const invocationAcceptConfirmOutputSchema = z.object({
+const invocationAcceptConfirmOutputSchema = z.object({
   invocation: invocationIdSchema,
   proof: confirmExecutionProofSchema,
 });
-export type InvocationAcceptConfirmOutput = z.infer<
-  typeof invocationAcceptConfirmOutputSchema
->;
 
 const recordActors = ["machine"] as const;
 
@@ -248,33 +182,6 @@ export const appAgentConfirmProof = defineMemory({
     "unavailable",
   ],
 });
-export const invocationRecordStarted = defineCommand({
-  resource: "invocations",
-  method: "record_started",
-  name: "invocation.record_started",
-  input: invocationRecordStartedInputSchema,
-  output: z.object({ accepted: z.literal(true) }),
-  actors: recordActors,
-  errors: ["conflict", "unauthorized", "invalid_input"],
-});
-export const invocationRecordFinished = defineCommand({
-  resource: "invocations",
-  method: "record_finished",
-  name: "invocation.record_finished",
-  input: invocationRecordFinishedInputSchema,
-  output: z.object({ accepted: z.literal(true) }),
-  actors: recordActors,
-  errors: ["conflict", "unauthorized", "invalid_input"],
-});
-export const invocationRecordDenied = defineCommand({
-  resource: "invocations",
-  method: "record_denied",
-  name: "invocation.record_denied",
-  input: invocationRecordDeniedInputSchema,
-  output: z.object({ accepted: z.literal(true) }),
-  actors: recordActors,
-  errors: ["conflict", "unauthorized", "invalid_input"],
-});
 
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [
@@ -285,16 +192,16 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const INVOCATION_LIST_MAX_COUNT = 200;
+const INVOCATION_LIST_MAX_COUNT = 200;
 
 // 알려진 invocation 목록. 기록 없음은 행이 없다.
-export const invocationsListInputSchema = z.strictObject({
+const invocationsListInputSchema = z.strictObject({
   app: appIdSchema.optional(),
   status: invocationStatusValueSchema.optional(),
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(INVOCATION_LIST_MAX_COUNT).optional(),
 });
-export const invocationsListOutputSchema = withReadCommon(z.object({
+const invocationsListOutputSchema = withReadCommon(z.object({
   invocations: z.array(invocationSchema),
 }));
 export const invocationsList = defineRead({
@@ -307,10 +214,10 @@ export const invocationsList = defineRead({
   errors: readErrors,
 });
 
-export const invocationsGetInputSchema = z.strictObject({
+const invocationsGetInputSchema = z.strictObject({
   invocation: invocationIdSchema,
 });
-export const invocationsGetOutputSchema = withReadCommon(z.object({
+const invocationsGetOutputSchema = withReadCommon(z.object({
   invocation: invocationSchema.nullable(),
 }));
 export const invocationsGet = defineRead({
@@ -323,13 +230,3 @@ export const invocationsGet = defineRead({
   errors: readErrors,
 });
 
-export const INVOCATION_ROUTES = [
-  invocationAcceptConfirm,
-  invocationRecordStarted,
-  invocationRecordFinished,
-  invocationRecordDenied,
-  invocationsList,
-  invocationsGet,
-] as const;
-
-const invocationSubject = invocationIdSchema;

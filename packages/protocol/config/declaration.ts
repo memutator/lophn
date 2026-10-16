@@ -27,10 +27,3 @@ export interface SettingsReader {
   ): z.output<S> | undefined;
 }
 
-/** 화면 이름과 설명의 wording key. 예: settings.shell-reading_width.name */
-export function settingWordingKey(
-  key: string,
-  part: "name" | "help",
-): string {
-  return `settings.${key.replaceAll(".", "-")}.${part}`;
-}

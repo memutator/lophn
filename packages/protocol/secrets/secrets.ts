@@ -4,19 +4,14 @@ import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../base/event.ts";
 import { authenticatedContextSchema } from "../server/identity.ts";
 import type { Sql } from "../server/registration.ts";
-import {
-  defineCommand,
-  defineRead,
-  defineUpload,
-  defineWorker,
-} from "../base/route.ts";
+import { defineCommand, defineRead, defineUpload } from "../base/route.ts";
 
-export const SECRET_PURPOSES = [
+const SECRET_PURPOSES = [
   "app_secret",
   "provider_credential",
   "external_mcp_credential",
 ] as const;
-export const secretPurposeSchema = z.enum(SECRET_PURPOSES);
+const secretPurposeSchema = z.enum(SECRET_PURPOSES);
 export type SecretPurpose = z.infer<typeof secretPurposeSchema>;
 
 // 이름은 event subject에도 들어가므로 공통 subject key의 문법을 유지한다.
@@ -36,14 +31,7 @@ export const secretPreparationSchema = z.object(preparationFields);
 export type SecretPreparation = z.infer<typeof secretPreparationSchema>;
 export const secretPreparationInputSchema = z.strictObject(preparationFields);
 
-export const secretReferenceSchema = z.object({
-  name: secretNameSchema,
-  sealed_ref: secretOpaqueRefSchema,
-  revision: secretRevisionSchema,
-});
-export type SecretReference = z.infer<typeof secretReferenceSchema>;
-
-export const secretStatusSchema = z.object({
+const secretStatusSchema = z.object({
   name: secretNameSchema,
   configured: z.boolean(),
   revision: secretRevisionSchema.nullable(),
@@ -52,17 +40,16 @@ export const secretStatusSchema = z.object({
 });
 export type SecretStatus = z.infer<typeof secretStatusSchema>;
 
-export const secretCleanupResultSchema = z.object({
+const secretCleanupResultSchema = z.object({
   reference_blocked: z.boolean(),
   os_deleted: z.boolean(),
   processes_ended: z.boolean(),
 });
-export type SecretCleanupResult = z.infer<typeof secretCleanupResultSchema>;
 
-export const listSecretsInputSchema = z.strictObject({
+const listSecretsInputSchema = z.strictObject({
   names: z.array(secretNameSchema).optional(),
 });
-export const listSecretsOutputSchema = withReadCommon(z.object({
+const listSecretsOutputSchema = withReadCommon(z.object({
   secrets: z.array(secretStatusSchema),
 }));
 export const listSecrets = defineRead({
@@ -76,7 +63,7 @@ export const listSecrets = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-export const setSecretInputSchema = z.strictObject({
+const setSecretInputSchema = z.strictObject({
   name: secretNameSchema,
   preparation: secretPreparationInputSchema,
 }).refine((value) =>
@@ -84,11 +71,11 @@ export const setSecretInputSchema = z.strictObject({
   value.preparation.owner === value.name, {
   message: "preparation must belong to the app secret name",
 });
-export const secretCompareSchema = z.strictObject({
+const secretCompareSchema = z.strictObject({
   sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
 });
-export const setSecretCompareSchema = z.union([
+const setSecretCompareSchema = z.union([
   z.strictObject({ sealed_ref: z.null(), revision: z.null() }),
   secretCompareSchema,
 ]);
@@ -103,9 +90,6 @@ export const secretComparisonRequestSchema = z.strictObject({
   name: secretNameSchema,
   expected_revision: secretRevisionSchema.nullable(),
 });
-export type SecretComparisonRequest = z.infer<
-  typeof secretComparisonRequestSchema
->;
 const secretComparisonErrorSchema = z.strictObject({
   code: z.enum(ERROR_CODES),
   message: z.string(),
@@ -126,10 +110,7 @@ export const secretComparisonResponseSchema = z.discriminatedUnion("ok", [
     error: secretComparisonErrorSchema,
   }),
 ]);
-export type SecretComparisonResponse = z.infer<
-  typeof secretComparisonResponseSchema
->;
-export const removeSecretInputSchema = z.strictObject({
+const removeSecretInputSchema = z.strictObject({
   name: secretNameSchema,
 });
 
@@ -169,14 +150,14 @@ export const removeSecret = defineCommand({
   display_read: "/v1/secrets/list",
 });
 
-export const secretCleanupInputSchema = z.strictObject({
+const secretCleanupInputSchema = z.strictObject({
   name: secretNameSchema,
   revision: secretRevisionSchema,
 });
-export const secretCleanupOutputSchema = withReadCommon(
+const secretCleanupOutputSchema = withReadCommon(
   secretCleanupResultSchema,
 );
-export const secretCleanup = defineRead({
+const secretCleanup = defineRead({
   resource: "secrets",
   method: "cleanup",
   name: "SecretCleanup",
@@ -186,7 +167,7 @@ export const secretCleanup = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-export const secretEventPayloadSchema = z.object({ name: secretNameSchema });
+const secretEventPayloadSchema = z.object({ name: secretNameSchema });
 const secretSubjectSchema = z.string().regex(/^secret:[A-Za-z0-9_.:-]+$/);
 export const secretSet = defineEvent("SecretSet", {
   subject: secretSubjectSchema,
@@ -250,98 +231,26 @@ export type SecretValue = Uint8Array | string;
 
 // context는 caller 주장을 믿지 않는다. 신뢰한 supervisor가 주입하고,
 // 현재 process·task·scope를 다시 검사한다.
-export const secretPrepareInputSchema = z.strictObject({
-  context: secretAdapterContextSchema,
-  purpose: secretPurposeSchema,
-  owner: z.string().min(1),
-});
-export type SecretPrepareInput = z.infer<typeof secretPrepareInputSchema>;
-export const secretSendInputSchema = z.strictObject({
+const secretSendInputSchema = z.strictObject({
   context: secretAdapterContextSchema,
   use: secretUseSchema,
   operation: z.string().min(1),
   body: z.json(),
 });
 export type SecretSendInput = z.infer<typeof secretSendInputSchema>;
-export const secretSendOutputSchema = z.object({ sent: z.boolean() });
+const secretSendOutputSchema = z.object({ sent: z.boolean() });
 export type SecretSendOutput = z.infer<typeof secretSendOutputSchema>;
 
-export const secretStoreRefreshInputSchema = z.strictObject({
-  context: secretAdapterContextSchema,
-  owner: z.string().min(1),
-  ...useFields,
-  purpose: z.enum(["provider_credential", "external_mcp_credential"]),
-});
-export type SecretStoreRefreshInput = z.infer<
-  typeof secretStoreRefreshInputSchema
->;
-export const secretStoreRefreshOutputSchema = z.object({
-  sealed_ref: secretOpaqueRefSchema,
-  revision: secretRevisionSchema,
-  configured: z.literal(true),
-});
-export type SecretStoreRefreshOutput = z.infer<
-  typeof secretStoreRefreshOutputSchema
->;
-
-export type SecretPrepareValueCallback = (
-  value: SecretValue,
-) => Promise<Result<SecretPreparation>>;
-export type SecretSendValueCallback = (
-  value: SecretValue,
-) => Promise<Result<SecretSendOutput>>;
-export type SecretStoreRefreshValueCallback = (
-  value: SecretValue,
-) => Promise<Result<SecretStoreRefreshOutput>>;
-
-export const secretPipeErrors = [
-  "invalid_input",
-  "unauthorized",
-  "forbidden",
-  "conflict",
-  "unavailable",
-] as const;
-
 // 공개 HTTP route가 아니다. supervision worker envelope의 op로만 부른다.
-export const SECRET_PREPARE_OP = "secret.prepare";
-export const secretPrepare = defineWorker({
-  resource: "secrets",
-  method: "prepare",
-  name: SECRET_PREPARE_OP,
-  input: secretPrepareInputSchema,
-  output: secretPreparationSchema,
-  actors: ["machine"],
-  errors: secretPipeErrors,
-});
 
 export const SECRET_SEND_OP = "secret.send";
-export const secretSend = defineWorker({
-  resource: "secrets",
-  method: "send",
-  name: SECRET_SEND_OP,
-  input: secretSendInputSchema,
-  output: secretSendOutputSchema,
-  actors: ["machine"],
-  errors: secretPipeErrors,
-});
-
-export const SECRET_STORE_REFRESH_OP = "secret.store-refresh";
-export const secretStoreRefresh = defineWorker({
-  resource: "secrets",
-  method: "store-refresh",
-  name: SECRET_STORE_REFRESH_OP,
-  input: secretStoreRefreshInputSchema,
-  output: secretStoreRefreshOutputSchema,
-  actors: ["machine"],
-  errors: secretPipeErrors,
-});
 
 // 사람이 보호 입력창에 넣은 값이 core를 지나 I/O worker의 keychain adapter로 가는 유일한 HTTP
 // 입구다. body는 값의 바이트이고 core는 해석·보관 없이 `secret.prepare`
 // pipe로 흘려 보낸다. 입력 JSON에는 용도·owner·길이만 있고 값은 없다. 출력은 값 없는
 // SecretPreparation이라 이어지는 SetSecret(또는 소유 concern command)이 그대로 쓴다.
 export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
-export const secretInput = defineUpload({
+const secretInput = defineUpload({
   resource: "secrets",
   method: "input",
   name: "secret.input",
@@ -369,17 +278,6 @@ export type SecretRefSource = {
   ): Result<{ name: string; sealedRef: string }[]>;
 };
 
-export const SECRET_EXCHANGE_FORMAT = {
-  format: 1,
-  kdf: "Argon2id",
-  memory_bytes: 64 * 1024 * 1024,
-  iterations: 3,
-  parallelism: 1,
-  salt_bytes: 16,
-  cipher: "AES-256-GCM",
-  nonce_bytes: 12,
-} as const;
-
 export const SECRET_ROUTES = [
   listSecrets,
   setSecret,
@@ -387,4 +285,3 @@ export const SECRET_ROUTES = [
   secretCleanup,
   secretInput,
 ] as const;
-export const SECRET_EVENTS = [secretSet, secretRemoved] as const;

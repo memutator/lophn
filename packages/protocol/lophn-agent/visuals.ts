@@ -35,16 +35,6 @@ function schemas(strict: boolean) {
 const input = schemas(true);
 const output = schemas(false);
 
-export const visualSourceInputSchema = input.source;
-export const visualSourceSchema = output.source;
-export const tableSpecInputSchema = input.table;
-export const tableSpecSchema = output.table;
-export const chartSpecInputSchema = input.chart;
-export const chartSpecSchema = output.chart;
-export const diagramSpecInputSchema = input.diagram;
-export const diagramSpecSchema = output.diagram;
-export const appCardReferenceInputSchema = input.appCard;
-export const appCardReferenceSchema = output.appCard;
 export const visualBlockInputSchema = input.block;
 export const visualBlockSchema = output.block;
 
@@ -55,9 +45,3 @@ export {
   visualTextSchema,
   visualTitleSchema,
 } from "./visual-source.ts";
-export type VisualSource = z.infer<typeof visualSourceSchema>;
-export type TableSpec = z.infer<typeof tableSpecSchema>;
-export type ChartSpec = z.infer<typeof chartSpecSchema>;
-export type DiagramSpec = z.infer<typeof diagramSpecSchema>;
-export type AppCardReference = z.infer<typeof appCardReferenceSchema>;
-export type VisualBlock = z.infer<typeof visualBlockSchema>;

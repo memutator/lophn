@@ -8,7 +8,7 @@ export const visualKeySchema = z.string().regex(/^[a-z0-9_-]{1,64}$/);
 // block key의 regex나 문서에 없는 문자 제한을 이 key에 씌우지 않는다.
 export const visualRefKeySchema = z.string();
 
-export function codePoints(min: number, max: number) {
+function codePoints(min: number, max: number) {
   return z.string().refine((value) => {
     const length = Array.from(value).length;
     return length >= min && length <= max;

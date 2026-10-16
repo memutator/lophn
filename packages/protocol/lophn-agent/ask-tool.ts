@@ -5,10 +5,10 @@ import { idSchema } from "../base/ids.ts";
 // 사람에게 묻는 tool `ask`의 입력과 결과. 질문 내용은 event에 싣지 않고 아래 read route가 준다.
 // 자유 답("Other")은 화면이 늘 붙이므로 schema에 없다. 기한도 Skip도 없다.
 
-export const ASK_QUESTION_MAX = 4;
-export const ASK_HEADER_MAX = 24;
-export const ASK_OPTION_MIN = 2;
-export const ASK_OPTION_MAX = 4;
+const ASK_QUESTION_MAX = 4;
+const ASK_HEADER_MAX = 24;
+const ASK_OPTION_MIN = 2;
+const ASK_OPTION_MAX = 4;
 
 // tool 설명에 넣는 규칙 문구다.
 export const ASK_TOOL_RULES =
@@ -18,16 +18,15 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
 
-export const askOptionSchema = z.strictObject({
+const askOptionSchema = z.strictObject({
   label: nonblank,
   // 짧은 한 줄.
   description: nonblank.refine((value) => !/[\r\n]/.test(value), {
     message: "expected one line",
   }),
 });
-export type AskOption = z.infer<typeof askOptionSchema>;
 
-export const askQuestionSchema = z.strictObject({
+const askQuestionSchema = z.strictObject({
   question: nonblank,
   header: nonblank.max(ASK_HEADER_MAX),
   options: z.array(askOptionSchema).min(ASK_OPTION_MIN).max(ASK_OPTION_MAX),
@@ -40,10 +39,10 @@ export const askInputSchema = z.strictObject({
 });
 export type AskInput = z.infer<typeof askInputSchema>;
 
-export const ASK_ANSWER_STATUSES = ["answered", "unanswered"] as const;
+const ASK_ANSWER_STATUSES = ["answered", "unanswered"] as const;
 
 // 질문 순서대로 하나씩. 고른 label이나 자유 답이 answer에 들어간다.
-export const askAnswerSchema = z.object({
+const askAnswerSchema = z.object({
   question: z.string(),
   status: z.enum(ASK_ANSWER_STATUSES),
   answer: z.array(z.string()),
@@ -54,7 +53,7 @@ const answers = z.array(askAnswerSchema).max(ASK_QUESTION_MAX);
 
 // submitted: 사람이 답을 냈다. cancelled: 꺼졌다 켜지거나 turn이 끊겼다.
 // human_message: 기다리는 중 사람이 보낸 메시지가 답을 대신한다(답인지는 LLM이 읽는다).
-export const askResultSchema = z.discriminatedUnion("outcome", [
+const askResultSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal("submitted"), answers }),
   z.object({ outcome: z.literal("cancelled"), answers }),
   z.object({
@@ -128,4 +127,3 @@ export const askWait = defineMemory({
 
 // registry에는 lead가 올린다. `askWait`는 아직 올리지 않았다.
 export const ASK_ROUTES = [askRead, askAnswer] as const;
-export const ASK_AGENT_ROUTES = [askWait] as const;

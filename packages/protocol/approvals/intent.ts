@@ -16,7 +16,7 @@ import {
 } from "./grants.ts";
 
 // app_resource는 앱의 바깥 자원(network host, secret, 파일) 사용이다.
-export const INTENT_KINDS = [
+const INTENT_KINDS = [
   "app_api",
   "mcp_tool",
   "agent_call",
@@ -28,7 +28,7 @@ export const INTENT_KINDS = [
 export const intentKindSchema = z.enum(INTENT_KINDS);
 export type IntentKind = z.infer<typeof intentKindSchema>;
 
-export const intentActorSchema = z.discriminatedUnion("kind", [
+const intentActorSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("agent"),
     agent: agentRefSchema,
@@ -38,7 +38,6 @@ export const intentActorSchema = z.discriminatedUnion("kind", [
   // 근거 domain event seq.
   z.strictObject({ kind: z.literal("program"), seq: seqSchema }),
 ]);
-export type IntentActor = z.infer<typeof intentActorSchema>;
 
 export const intentTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({
@@ -81,7 +80,7 @@ export const intentTargetSchema = z.discriminatedUnion("kind", [
 ]);
 export type IntentTarget = z.infer<typeof intentTargetSchema>;
 
-export const intentOriginSchema = z.discriminatedUnion("kind", [
+const intentOriginSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("turn"),
     session: idSchema("ses"),
@@ -97,7 +96,6 @@ export const intentOriginSchema = z.discriminatedUnion("kind", [
   // 앱이 다른 앱의 app-api를 부른 호출. 도는 부모 invocation이다. 부모를 모르면 부르지 못한다.
   z.strictObject({ kind: z.literal("app"), invocation: idSchema("inv") }),
 ]);
-export type IntentOrigin = z.infer<typeof intentOriginSchema>;
 
 // effect는 호출하는 쪽이 읽어 넣는다: app-api는 활성 release 선언, MCP tool은 readOnlyHint.
 // agent_call은 read, settings_edit는 write다. reaction과 activation은 read로 두고
@@ -123,7 +121,7 @@ export const intentSchema = z.strictObject({
 export type Intent = z.infer<typeof intentSchema>;
 
 // grant 밖(대상이 grant에 없음), agent grant에서 뺀 app-api, reaction grant가 꺼짐.
-export const GATE_DENY_REASONS = [
+const GATE_DENY_REASONS = [
   "not_granted",
   "excluded",
   "reaction_off",
@@ -132,7 +130,7 @@ export const gateDenyReasonSchema = z.enum(GATE_DENY_REASONS);
 export type GateDenyReason = z.infer<typeof gateDenyReasonSchema>;
 
 // 이유 글은 만들지 않는다. 글은 호출하는 쪽이 wording key로 만든다.
-export const gateVerdictSchema = z.discriminatedUnion("verdict", [
+const gateVerdictSchema = z.discriminatedUnion("verdict", [
   z.strictObject({ verdict: z.literal("deny"), reason: gateDenyReasonSchema }),
   z.strictObject({ verdict: z.literal("run") }),
   z.strictObject({ verdict: z.literal("ask") }),
@@ -140,7 +138,7 @@ export const gateVerdictSchema = z.discriminatedUnion("verdict", [
 export type GateVerdict = z.infer<typeof gateVerdictSchema>;
 
 // Gate는 이 값과 intent만 본다. IO가 없다.
-export const gateGrantsSchema = z.strictObject({
+const gateGrantsSchema = z.strictObject({
   app: z.array(appGrantSchema),
   agent: agentGrantSchema.nullable(),
   reaction: reactionGrantSchema,

@@ -7,27 +7,15 @@ export * as lophnAgent from "./lophn-agent/mod.ts";
 export * as documents from "./projects/mod.ts";
 export * as shell from "./shell/mod.ts";
 
-import { EVENTS as appsEvents, ROUTES as appsRoutes } from "./apps/mod.ts";
-import {
-  EVENTS as lophnAgentEvents,
-  ROUTES as lophnAgentRoutes,
-} from "./lophn-agent/mod.ts";
+import { ROUTES as appsRoutes } from "./apps/mod.ts";
+import { ROUTES as lophnAgentRoutes } from "./lophn-agent/mod.ts";
 import {
   ROUTES as codingAgentRoutes,
 } from "./coding-agent/mod.ts";
-import {
-  EVENTS as documentsEvents,
-  ROUTES as documentsRoutes,
-} from "./projects/mod.ts";
-import {
-  EVENTS as platformEvents,
-  ROUTES as platformRoutes,
-} from "./registry.ts";
-import { EVENTS as shellEvents, ROUTES as shellRoutes } from "./shell/mod.ts";
-import {
-  EVENTS as problemsEvents,
-  ROUTES as problemsRoutes,
-} from "./problems/mod.ts";
+import { ROUTES as documentsRoutes } from "./projects/mod.ts";
+import { ROUTES as platformRoutes } from "./registry.ts";
+import { ROUTES as shellRoutes } from "./shell/mod.ts";
+import { ROUTES as problemsRoutes } from "./problems/mod.ts";
 
 export const ALL_ROUTES = [
   ...platformRoutes,
@@ -39,11 +27,3 @@ export const ALL_ROUTES = [
   ...lophnAgentRoutes,
 ];
 
-export const ALL_EVENTS = [
-  ...platformEvents,
-  ...shellEvents,
-  ...documentsEvents,
-  ...appsEvents,
-  ...problemsEvents,
-  ...lophnAgentEvents,
-];

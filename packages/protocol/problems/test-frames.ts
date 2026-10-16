@@ -23,13 +23,3 @@ export const testObservationFrameSchema = z.strictObject({
 export type TestObservationFrame = z.infer<typeof testObservationFrameSchema>;
 
 // IPC framing bytes are excluded; limits apply to UTF-8 JSON observations.
-export const testObservationFramesSchema = z.array(testObservationFrameSchema)
-  .min(1).refine((values) => {
-    const totals = { single: 0, before: 0, after: 0 };
-    for (const value of values) {
-      totals[value.side] += encoder.encode(JSON.stringify(value)).length;
-    }
-    return Object.values(totals).every((bytes) =>
-      bytes <= TEST_OBSERVATION_SIDE_MAX_BYTES
-    );
-  }, { message: "test observations exceed side byte limit" });

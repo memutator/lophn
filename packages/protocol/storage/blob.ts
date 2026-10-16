@@ -12,12 +12,6 @@ const nonempty = z.string().min(1);
 const size = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const purposeName = z.string().regex(/^[a-z][a-z0-9_]*$/);
 
-export const blobRefSchema = z.object({
-  hash: sha256Schema,
-  size_bytes: size,
-});
-export type BlobRef = z.infer<typeof blobRefSchema>;
-
 export const preparedBlobSchema = z.object({
   preparation: nonempty,
   principal: nonempty,
@@ -42,7 +36,7 @@ export const blobPurposeDefinitionSchema = z.strictObject({
   purpose: purposeName,
   max_size_bytes: size.max(BLOB_PREPARE_MAX_BYTES),
 });
-export type BlobPurposeDefinition<P extends string = string> =
+type BlobPurposeDefinition<P extends string = string> =
   & z.infer<typeof blobPurposeDefinitionSchema>
   & { purpose: P };
 
@@ -59,20 +53,19 @@ export const BLOB_RETENTION_CATEGORIES = [
   "trace_body",
   "operational_log",
 ] as const;
-export const blobRetentionCategorySchema = z.enum(BLOB_RETENTION_CATEGORIES);
+const blobRetentionCategorySchema = z.enum(BLOB_RETENTION_CATEGORIES);
 export type BlobRetentionCategory = z.infer<typeof blobRetentionCategorySchema>;
 
 // 종류별 용량 상한은 측정해 고정하므로 field마다 다른 상한을 받지 않는다.
-export const blobRetentionSchema = z.discriminatedUnion("kind", [
+const blobRetentionSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("permanent") }),
   z.strictObject({
     kind: z.literal("capacity"),
     category: blobRetentionCategorySchema,
   }),
 ]);
-export type BlobRetention = z.infer<typeof blobRetentionSchema>;
 
-export const blobFieldDefinitionSchema = z.strictObject({
+const blobFieldDefinitionSchema = z.strictObject({
   owner_kind: nonempty,
   field: nonempty,
   retention: blobRetentionSchema,
@@ -124,13 +117,12 @@ const base64 = z.string().regex(
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
 ).max(4 * Math.ceil(BLOB_READ_MAX_BYTES / 3));
 
-export const BLOB_UNAVAILABLE_REASONS = [
+const BLOB_UNAVAILABLE_REASONS = [
   "pruned",
   "missing",
   "corrupt",
 ] as const;
-export const blobUnavailableReasonSchema = z.enum(BLOB_UNAVAILABLE_REASONS);
-export type BlobUnavailableReason = z.infer<typeof blobUnavailableReasonSchema>;
+const blobUnavailableReasonSchema = z.enum(BLOB_UNAVAILABLE_REASONS);
 
 export const blobReadResultSchema = z.discriminatedUnion("status", [
   z.object({

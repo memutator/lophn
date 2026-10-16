@@ -256,7 +256,7 @@ function stableJson(value: JsonValue): string {
   }
 }
 
-export function jsonType(value: JsonValue): InputType | undefined {
+function jsonType(value: JsonValue): InputType | undefined {
   if (value === null) return "null";
   switch (typeof value) {
     case "boolean":
@@ -282,7 +282,7 @@ export function matchesType(type: InputType, value: JsonValue): boolean {
     : actual === type;
 }
 
-export function copyJson(
+function copyJson(
   value: unknown,
   seen: Set<object>,
 ): JsonValue | undefined {

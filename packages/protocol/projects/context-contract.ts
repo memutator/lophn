@@ -8,7 +8,7 @@ const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
 
-export const CONTEXT_SOURCE_KINDS = [
+const CONTEXT_SOURCE_KINDS = [
   "folder",
   "docs",
   "series",
@@ -19,7 +19,7 @@ export const CONTEXT_SOURCE_KINDS = [
 ] as const;
 export type ContextSourceKind = typeof CONTEXT_SOURCE_KINDS[number];
 
-export const CONTRACT_VISIBILITIES = ["public", "private"] as const;
+const CONTRACT_VISIBILITIES = ["public", "private"] as const;
 export const contractVisibilitySchema = z.enum(CONTRACT_VISIBILITIES);
 export type ContractVisibility = z.infer<typeof contractVisibilitySchema>;
 
@@ -29,7 +29,7 @@ export const contractTypeNameSchema = z.string().regex(/^[A-Z][A-Za-z0-9]*$/);
 export const contractNameSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
 // 같은 project의 다른 context의 public type: `<context 제목>/<Type 이름>`(rubrics/Rubric).
 // 마지막 `/` 앞이 context의 title이다(documents/contexts "다른 context의 type 참조").
-export const externalTypeRefSchema = z.string().regex(
+const externalTypeRefSchema = z.string().regex(
   /^[\s\S]*\S[\s\S]*\/[A-Z][A-Za-z0-9]*$/,
 );
 // 외부 참조를 context 제목과 Type 이름으로 나눈다. 외부 참조가 아니면 undefined다.
@@ -40,34 +40,34 @@ export function splitExternalRef(
   const slash = ref.lastIndexOf("/");
   return { context: ref.slice(0, slash), type: ref.slice(slash + 1) };
 }
-export const typeRefSchema = z.union([
+const typeRefSchema = z.union([
   contractTypeNameSchema,
   externalTypeRefSchema,
 ]);
 
 // project 폴더 기준 상대 경로. glob(`*`, `**`, `?`)을 허용한다.
-export const pathPatternSchema = relativePathSchema;
+const pathPatternSchema = relativePathSchema;
 const headingLevelSchema = z.number().int().min(1).max(6);
 
 // ---------- Source ----------
 
-export const folderSourceSchema = z.strictObject({
+const folderSourceSchema = z.strictObject({
   kind: z.literal("folder"),
   root: relativePathSchema,
   child_pattern: z.string().min(1).default("*"),
   depth: z.literal(1).default(1),
 });
-export const docsSourceSchema = z.strictObject({
+const docsSourceSchema = z.strictObject({
   kind: z.literal("docs"),
   paths: z.array(pathPatternSchema).min(1),
 });
 // pattern 문법(번호 자리 하나, `*`는 파일 이름 칸)은 documents/series가 정하고 validate/sources가 검사한다.
-export const seriesSourceSchema = z.strictObject({
+const seriesSourceSchema = z.strictObject({
   kind: z.literal("series"),
   pattern: z.string().min(1),
   order: z.literal("natural").default("natural"),
 });
-export const indexSourceSchema = z.strictObject({
+const indexSourceSchema = z.strictObject({
   kind: z.literal("index"),
   document: relativePathSchema,
   within: nonblankSchema.optional(),
@@ -75,7 +75,7 @@ export const indexSourceSchema = z.strictObject({
 const documentsOrFromType = (
   value: { documents?: unknown; from_type?: unknown },
 ) => (value.documents === undefined) !== (value.from_type === undefined);
-export const sectionSourceSchema = z.strictObject({
+const sectionSourceSchema = z.strictObject({
   kind: z.literal("section"),
   documents: z.array(pathPatternSchema).min(1).optional(),
   from_type: contractTypeNameSchema.optional(),
@@ -84,10 +84,10 @@ export const sectionSourceSchema = z.strictObject({
 }).refine(documentsOrFromType, {
   message: "expected exactly one of documents or from_type",
 });
-export const OUTLINE_FORMATS = ["markdown"] as const;
+const OUTLINE_FORMATS = ["markdown"] as const;
 // md가 아닌 파일의 목차는 core가 저장해 둔다.
 export const CONTEXT_OUTLINE_SOURCE_FORMATS = ["pdf", "docs"] as const;
-export const outlineSourceSchema = z.strictObject({
+const outlineSourceSchema = z.strictObject({
   kind: z.literal("outline"),
   documents: z.array(pathPatternSchema).min(1).optional(),
   from_type: contractTypeNameSchema.optional(),
@@ -99,14 +99,14 @@ export const outlineSourceSchema = z.strictObject({
 }).refine((value) => value.min_level <= value.max_level, {
   message: "min_level must not exceed max_level",
 });
-export const appDataSourceSchema = z.strictObject({
+const appDataSourceSchema = z.strictObject({
   kind: z.literal("app-data"),
   app: slugSchema,
   command: nonblankSchema,
   // command 결과에서 항목 배열을 가리키는 key 경로. 빈 배열이면 결과 자체가 배열이다.
   result_path: z.array(z.string().min(1)),
 });
-export const contractSourceSchema = z.discriminatedUnion("kind", [
+const contractSourceSchema = z.discriminatedUnion("kind", [
   folderSourceSchema,
   docsSourceSchema,
   seriesSourceSchema,
@@ -121,7 +121,7 @@ export type ContractSource = z.infer<typeof contractSourceSchema>;
 
 // path capture 이름: series pattern의 번호 자리(`n`, `major`, `minor`, `patch`), folder의 `folder`,
 // 문서가 있는 개체의 `file`(확장자 뺀 파일 이름)과 `path`(project 기준 경로).
-export const fieldFromSchema = z.discriminatedUnion("kind", [
+const fieldFromSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("frontmatter"), key: z.string().min(1) }),
   z.strictObject({
     kind: z.literal("yaml"),
@@ -149,7 +149,7 @@ export const fieldFromSchema = z.discriminatedUnion("kind", [
 ]);
 export type FieldFrom = z.infer<typeof fieldFromSchema>;
 
-export const FIELD_VALUE_TYPES = [
+const FIELD_VALUE_TYPES = [
   "string",
   "number",
   "boolean",
@@ -157,8 +157,8 @@ export const FIELD_VALUE_TYPES = [
   "enum",
   "list",
 ] as const;
-export const fieldValueTypeSchema = z.enum(FIELD_VALUE_TYPES);
-export const listItemTypeSchema = z.enum([
+const fieldValueTypeSchema = z.enum(FIELD_VALUE_TYPES);
+const listItemTypeSchema = z.enum([
   "string",
   "number",
   "boolean",
@@ -166,7 +166,7 @@ export const listItemTypeSchema = z.enum([
   "enum",
 ]);
 
-export const contractFieldSchema = z.strictObject({
+const contractFieldSchema = z.strictObject({
   name: contractNameSchema,
   from: fieldFromSchema,
   value_type: fieldValueTypeSchema,
@@ -188,8 +188,8 @@ export type ContractField = z.infer<typeof contractFieldSchema>;
 
 // ---------- Relation ----------
 
-export const RELATION_CARDINALITIES = ["one", "optional", "many"] as const;
-export const contractRelationSchema = z.strictObject({
+const RELATION_CARDINALITIES = ["one", "optional", "many"] as const;
+const contractRelationSchema = z.strictObject({
   name: contractNameSchema,
   label: nonblankSchema,
   to: typeRefSchema,
@@ -197,7 +197,6 @@ export const contractRelationSchema = z.strictObject({
   cardinality: z.enum(RELATION_CARDINALITIES),
   visibility: contractVisibilitySchema.default("private"),
 });
-export type ContractRelation = z.infer<typeof contractRelationSchema>;
 
 // ---------- CheckRule ----------
 
@@ -205,15 +204,7 @@ const ruleFields = {
   id: z.string().regex(/^[a-z0-9][a-z0-9_-]*$/),
   message: nonblankSchema,
 };
-export const CHECK_RULE_KINDS = [
-  "required_field",
-  "unique_key",
-  "relation_target_exists",
-  "enum_value",
-  "pattern",
-  "count_range",
-] as const;
-export const checkRuleSchema = z.discriminatedUnion("kind", [
+const checkRuleSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...ruleFields,
     kind: z.literal("required_field"),
@@ -277,7 +268,7 @@ function unique<T>(items: readonly T[], key: (item: T) => string): boolean {
   return new Set(items.map(key)).size === items.length;
 }
 
-export const contractTypeSchema = z.strictObject({
+const contractTypeSchema = z.strictObject({
   name: contractTypeNameSchema,
   summary: nonblankSchema,
   visibility: contractVisibilitySchema.default("private"),
@@ -298,7 +289,7 @@ export const contractTypeSchema = z.strictObject({
 });
 export type ContractType = z.infer<typeof contractTypeSchema>;
 
-export const contractSchema = z.strictObject({
+const contractSchema = z.strictObject({
   types: z.array(contractTypeSchema).min(1),
 }).refine((contract) => unique(contract.types, (type) => type.name), {
   message: "type names must be unique",
@@ -313,8 +304,8 @@ export const searchPathSchema = z.string().regex(
   /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)?$/,
 );
 
-export const SEARCH_INPUT_TYPES = ["entity", "value", "range", "text"] as const;
-export const searchInputSchema = z.strictObject({
+const SEARCH_INPUT_TYPES = ["entity", "value", "range", "text"] as const;
+const searchInputSchema = z.strictObject({
   name: contractNameSchema,
   label: nonblankSchema,
   type: z.enum(SEARCH_INPUT_TYPES),
@@ -334,12 +325,12 @@ const literalSchema = z.union([
   z.boolean(),
   z.null(),
 ]);
-export const conditionValueSchema = z.union([
+const conditionValueSchema = z.union([
   literalSchema,
   z.array(literalSchema),
   z.strictObject({ input: contractNameSchema }),
 ]);
-export const CONDITION_OPS = [
+const CONDITION_OPS = [
   "eq",
   "ne",
   "in",
@@ -360,7 +351,7 @@ export type Condition =
     op: typeof CONDITION_OPS[number];
     value?: z.infer<typeof conditionValueSchema>;
   };
-export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
+const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
   z.union([
     z.strictObject({ all: z.array(conditionSchema).min(1) }),
     z.strictObject({ any: z.array(conditionSchema).min(1) }),
@@ -375,7 +366,7 @@ export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
   ])
 );
 
-export const searchFollowSchema = z.strictObject({
+const searchFollowSchema = z.strictObject({
   relation: contractNameSchema,
   as: contractNameSchema,
   // 따라갈 출발 별칭. 없으면 시작 type이다.
@@ -405,7 +396,7 @@ export function followedTypeRef(
   )?.name;
 }
 
-export const searchQuerySchema = z.strictObject({
+const searchQuerySchema = z.strictObject({
   from: contractTypeNameSchema,
   where: conditionSchema.nullable().default(null),
   follow: z.array(searchFollowSchema).default([]),
@@ -419,7 +410,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
 export const SEARCH_PAGE_SIZE_DEFAULT = 30;
 export const SEARCH_PAGE_SIZE_MAX = 100;
-export const resultViewSchema = z.strictObject({
+const resultViewSchema = z.strictObject({
   kind: z.enum(["table", "board"]),
   columns: z.array(z.strictObject({
     label: nonblankSchema,
@@ -436,7 +427,7 @@ export const resultViewSchema = z.strictObject({
 });
 export type ResultView = z.infer<typeof resultViewSchema>;
 
-export const declaredSearchSchema = z.strictObject({
+const declaredSearchSchema = z.strictObject({
   name: contractNameSchema,
   title: nonblankSchema,
   inputs: z.array(searchInputSchema).default([]),
@@ -465,7 +456,7 @@ export const searchInputValuesSchema = z.record(
   jsonValueSchema,
 );
 
-export const contractExampleSchema = z.discriminatedUnion("kind", [
+const contractExampleSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("search"),
     search: contractNameSchema,
@@ -485,14 +476,13 @@ export const contractExampleSchema = z.discriminatedUnion("kind", [
 ]);
 export type ContractExample = z.infer<typeof contractExampleSchema>;
 
-export const savedViewDefSchema = z.strictObject({
+const savedViewDefSchema = z.strictObject({
   name: nonblankSchema,
   search: contractNameSchema,
   inputs: searchInputValuesSchema.default({}),
 });
-export type SavedViewDef = z.infer<typeof savedViewDefSchema>;
 
-export const BUNDLE_CONTENT_SCHEMA = 1;
+const BUNDLE_CONTENT_SCHEMA = 1;
 export const bundleContentSchema = z.strictObject({
   schema: z.literal(BUNDLE_CONTENT_SCHEMA),
   contract: contractSchema,
@@ -507,4 +497,3 @@ export const bundleContentSchema = z.strictObject({
   path: ["saved_views"],
 });
 export type BundleContent = z.infer<typeof bundleContentSchema>;
-export type BundleContentInput = z.input<typeof bundleContentSchema>;

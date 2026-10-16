@@ -23,15 +23,15 @@ const nonnegativeIntegerSchema = z.number().int().nonnegative().max(
 );
 const httpStatusSchema = z.number().int().min(100).max(599);
 
-export const MODEL_USE_KINDS = ["judgment", "organizing"] as const;
-export const MODEL_PURPOSES = [
+const MODEL_USE_KINDS = ["judgment", "organizing"] as const;
+const MODEL_PURPOSES = [
   "judgment",
   "title_summary",
   "conversation_compression",
 ] as const;
 // credential이 provider에 하나라 같은 provider·model의 다른 credential로 옮기는 시도는 없다.
-export const ATTEMPT_KINDS = ["initial", "retry"] as const;
-export const MODEL_OUTCOMES = [
+const ATTEMPT_KINDS = ["initial", "retry"] as const;
+const MODEL_OUTCOMES = [
   "complete",
   "partial",
   "failed",
@@ -45,7 +45,7 @@ export const COST_KINDS = [
   "free",
   "unknown",
 ] as const;
-export const BILLING_ROUTES = [
+const BILLING_ROUTES = [
   "api",
   "subscription",
   "extra_usage",
@@ -63,7 +63,7 @@ const tokenFields = {
   definition_revision: nonblankSchema,
 };
 export const tokenUsageSchema = z.strictObject(tokenFields);
-export const tokenUsageOutputSchema = z.object(tokenFields);
+const tokenUsageOutputSchema = z.object(tokenFields);
 export type TokenUsage = z.infer<typeof tokenUsageSchema>;
 
 const costFields = {
@@ -89,7 +89,7 @@ function costShape(value: {
   return amount && currency && basis && free;
 }
 
-export const callCostSchema = z.strictObject(costFields).refine(costShape, {
+const callCostSchema = z.strictObject(costFields).refine(costShape, {
   message: "cost kind, amount and basis do not agree",
 });
 export const callCostOutputSchema = z.object(costFields).refine(costShape, {
@@ -124,7 +124,7 @@ export const modelOutcomeSchema = z.strictObject(outcomeFields).refine(
   outcomeShape,
   { message: "model outcome and failure code do not agree" },
 );
-export const modelOutcomeOutputSchema = z.object(outcomeFields).refine(
+const modelOutcomeOutputSchema = z.object(outcomeFields).refine(
   outcomeShape,
   { message: "model outcome and failure code do not agree" },
 );
@@ -136,8 +136,8 @@ const limitFields = {
   output_limit: positiveIntegerSchema,
   supports_tools: z.boolean(),
 };
-export const callModelLimitsSchema = z.strictObject(limitFields);
-export const callModelLimitsOutputSchema = z.object(limitFields);
+const callModelLimitsSchema = z.strictObject(limitFields);
+const callModelLimitsOutputSchema = z.object(limitFields);
 
 // option 축 id마다 고른 값이다. requested는 agent가 고른 값이고 applied는 맞춤과 기본값을 채운 뒤 요청에
 // 실제로 실은 값이다. 둘이 다르면 맞춘 것이 기록에 남는다.
@@ -146,8 +146,8 @@ const callOptionValuesFields = {
   requested: optionMapSchema,
   applied: optionMapSchema,
 };
-export const callOptionValuesSchema = z.strictObject(callOptionValuesFields);
-export const callOptionValuesOutputSchema = z.object(callOptionValuesFields);
+const callOptionValuesSchema = z.strictObject(callOptionValuesFields);
+const callOptionValuesOutputSchema = z.object(callOptionValuesFields);
 
 const callModelFields = {
   provider: idSchema("pvd"),
@@ -162,8 +162,8 @@ const callModelFields = {
   billing_route: z.enum(BILLING_ROUTES),
 };
 
-export const callModelSchema = z.strictObject(callModelFields);
-export const callModelOutputSchema = z.object({
+const callModelSchema = z.strictObject(callModelFields);
+const callModelOutputSchema = z.object({
   ...callModelFields,
   option_values: callOptionValuesOutputSchema,
   limits: callModelLimitsOutputSchema,

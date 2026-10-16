@@ -11,7 +11,7 @@ export type ChosenOptionCall = {
   compare: unknown;
 };
 
-export type QuestionOptionRead = {
+type QuestionOptionRead = {
   chosen(question: string): Result<ChosenOptionCall>;
 };
 

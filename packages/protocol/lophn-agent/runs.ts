@@ -12,7 +12,6 @@ import { idSchema } from "../base/ids.ts";
 import { RUN_READS } from "./run-reads.ts";
 import { agentAppScopeOutputSchema, agentAppScopeSchema } from "./scope.ts";
 import {
-  INITIAL_RUN_ELAPSED,
   nonSelfRunLinks,
   runElapsedOutputSchema,
   runElapsedSchema,
@@ -32,7 +31,7 @@ const runLinkFields = {
 const runRef = { run: idSchema("run") };
 const stateSeq = { state_seq: seqSchema };
 
-export const acceptRunInputSchema = z.strictObject({
+const acceptRunInputSchema = z.strictObject({
   id: idSchema("run"),
   assignment: idSchema("asg"),
   session: idSchema("ses").nullable(),
@@ -42,11 +41,11 @@ export const acceptRunInputSchema = z.strictObject({
   message: "run links cannot reference themselves",
 });
 
-export const acceptRunCompareSchema = z.strictObject({
+const acceptRunCompareSchema = z.strictObject({
   assignment_revision: positiveRevisionSchema,
 });
 
-export const startRunInputSchema = z.strictObject({
+const startRunInputSchema = z.strictObject({
   ...runRef,
   basis: sha256Schema,
   // 준비한 basis blob의 크기. 있으면 command가 영구 참조를 등록한다.
@@ -64,16 +63,16 @@ export const startRunInputSchema = z.strictObject({
   },
 );
 
-export const startRunCompareSchema = z.strictObject(stateSeq);
+const startRunCompareSchema = z.strictObject(stateSeq);
 
-export const checkpointRunInputSchema = z.strictObject({
+const checkpointRunInputSchema = z.strictObject({
   ...runRef,
   elapsed: runElapsedSchema,
 });
 
-export const checkpointRunCompareSchema = z.strictObject(stateSeq);
+const checkpointRunCompareSchema = z.strictObject(stateSeq);
 
-export const finishRunInputSchema = z.strictObject({
+const finishRunInputSchema = z.strictObject({
   ...runRef,
   outcome: runOutcomeSchema,
   result: sha256Schema,
@@ -81,9 +80,9 @@ export const finishRunInputSchema = z.strictObject({
   result_size: blobSizeSchema.optional(),
 });
 
-export const finishRunCompareSchema = z.strictObject(stateSeq);
+const finishRunCompareSchema = z.strictObject(stateSeq);
 
-export const stopRunInputSchema = z.strictObject({
+const stopRunInputSchema = z.strictObject({
   ...runRef,
   request_key: z.string().min(1),
   reason: z.enum([
@@ -93,16 +92,16 @@ export const stopRunInputSchema = z.strictObject({
   ]),
 });
 
-export const stopRunCompareSchema = z.strictObject(stateSeq);
+const stopRunCompareSchema = z.strictObject(stateSeq);
 
-export const confirmNextRunInputSchema = z.strictObject({
+const confirmNextRunInputSchema = z.strictObject({
   ...runRef,
   predecessor: idSchema("run"),
 }).refine((value) => value.run !== value.predecessor, {
   message: "a run cannot be its own predecessor",
 });
 
-export const confirmNextRunCompareSchema = z.strictObject({
+const confirmNextRunCompareSchema = z.strictObject({
   accepted_seq: seqSchema,
   predecessor_state_seq: seqSchema,
 });
@@ -122,7 +121,7 @@ const acceptedOutput = z.object({
   state_seq: seqSchema,
 });
 
-export const acceptRun = defineCommand({
+const acceptRun = defineCommand({
   resource: "runs",
   method: "accept",
   name: "AcceptRun",
@@ -133,7 +132,7 @@ export const acceptRun = defineCommand({
   errors: [...commandErrors],
 });
 
-export const startRun = defineCommand({
+const startRun = defineCommand({
   resource: "runs",
   method: "start",
   name: "StartRun",
@@ -151,7 +150,7 @@ export const startRun = defineCommand({
   errors: ["conflict", "forbidden", "unavailable", "unauthorized", "not_found"],
 });
 
-export const checkpointRun = defineCommand({
+const checkpointRun = defineCommand({
   resource: "runs",
   method: "checkpoint",
   name: "CheckpointRun",
@@ -173,7 +172,7 @@ export const checkpointRun = defineCommand({
   ],
 });
 
-export const finishRun = defineCommand({
+const finishRun = defineCommand({
   resource: "runs",
   method: "finish",
   name: "FinishRun",
@@ -197,7 +196,7 @@ export const finishRun = defineCommand({
   ],
 });
 
-export const stopRun = defineCommand({
+const stopRun = defineCommand({
   resource: "runs",
   method: "stop",
   name: "StopRun",
@@ -222,7 +221,7 @@ export const stopRun = defineCommand({
   ],
 });
 
-export const confirmNextRun = defineCommand({
+const confirmNextRun = defineCommand({
   resource: "runs",
   method: "confirm-next",
   name: "ConfirmNextRun",
@@ -291,10 +290,3 @@ export const RUN_COMMANDS = [
   ...RUN_READS,
 ] as const;
 
-export const RUN_EVENTS = [
-  runAccepted,
-  runStarted,
-  runFinished,
-] as const;
-
-export { INITIAL_RUN_ELAPSED };

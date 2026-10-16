@@ -10,25 +10,16 @@ export const CODING_TOKEN_ENV = "LOPHN_CODING_TOKEN";
 
 // coding session. 앱 하나에 한 번에 하나만 돈다.
 export const codingSessionIdSchema = idSchema("ses");
-export type CodingSessionId = z.infer<typeof codingSessionIdSchema>;
 
 export function codingPrincipal(session: string): `coding_agent:${string}` {
   return `coding_agent:${session}`;
 }
 
-export const codingPrincipalSchema = z.string().refine(
-  (value) =>
-    value.startsWith("coding_agent:") &&
-    codingSessionIdSchema.safeParse(value.slice("coding_agent:".length))
-      .success,
-  { message: "invalid coding principal" },
-);
-
-export const codingTokenScopeSchema = z.strictObject({
+const codingTokenScopeSchema = z.strictObject({
   session: codingSessionIdSchema,
   app: idSchema("app"),
 });
-export type CodingTokenScope = z.infer<typeof codingTokenScopeSchema>;
+type CodingTokenScope = z.infer<typeof codingTokenScopeSchema>;
 
 // token 발급과 회수. 회수한 token의 새 호출은 거절한다.
 export type CodingTokens = {

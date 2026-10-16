@@ -8,14 +8,14 @@ import {
 
 // data worker job 입력. migration·backup·restore 프로세스와 problems test runner가
 // 같은 진입점으로 읽는다. inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 한다.
-export const ACTIVATION_DATA_JOB_KINDS = [
+const ACTIVATION_DATA_JOB_KINDS = [
   "inspect",
   "backup",
   "migrate",
   "restore",
   "test",
 ] as const;
-export const activationDataJobKindSchema = z.enum(ACTIVATION_DATA_JOB_KINDS);
+const activationDataJobKindSchema = z.enum(ACTIVATION_DATA_JOB_KINDS);
 
 const jobFields = {
   kind: activationDataJobKindSchema,
@@ -36,13 +36,13 @@ const jobFields = {
 };
 
 // stdin JSON 한 줄. token과 secret은 argv·환경에 없다.
-export const activationDataJobInputSchema = z.strictObject(jobFields);
+const activationDataJobInputSchema = z.strictObject(jobFields);
 export type ActivationDataJobInput = z.infer<
   typeof activationDataJobInputSchema
 >;
 
 // migration 결과에는 invocation이 필수고 성공 제출은 integrity_ok true다.
-export const activationDataJobOutputSchema = z.strictObject({
+const activationDataJobOutputSchema = z.strictObject({
   result: activationDataResultSchema,
   // backup 작업이 만든 DB 파일 byte의 sha256이다.
   backup_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
@@ -50,7 +50,7 @@ export const activationDataJobOutputSchema = z.strictObject({
   (value) => value.result.integrity_ok,
   { message: "successful data job result must have integrity_ok true" },
 );
-export type ActivationDataJobOutput = z.infer<
+type ActivationDataJobOutput = z.infer<
   typeof activationDataJobOutputSchema
 >;
 

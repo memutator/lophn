@@ -115,7 +115,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
 
 // turn 끝 신호 표다. null이면 turn 끝을 알리지 못해 메시지를 넣지 않는다.
 // pi는 `agent_end` 뒤에 retry·compaction·이어하기가 남을 수 있어 끝이 확정되는 `agent_settled`를 쓴다.
-export const TURN_END_SIGNALS: Readonly<Record<HarnessId, string | null>> = {
+const TURN_END_SIGNALS: Readonly<Record<HarnessId, string | null>> = {
   claude: "Stop",
   codex: "Stop",
   gemini: "AfterAgent",

@@ -2,27 +2,15 @@ import { z } from "zod";
 import {
   atSchema,
   durationMsSchema,
-  positiveRevisionSchema,
   positiveSafeIntegerSchema,
   seqSchema,
   sha256Schema,
 } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import { resolvedSourcesSchema } from "./agent-values.ts";
-import {
-  agentRefOutputSchema,
-  agentRefSchema,
-  placeOutputSchema,
-  placeSchema,
-} from "./places.ts";
-import {
-  resolvedModelOutputSchema,
-  resolvedModelSchema,
-} from "./resolved-model.ts";
 
 // agent event TurnEnded의 outcome이다. interrupted는 사람이 멈춤, lophn이 꺼졌다 켜짐, session을
 // archive하거나 지움이다.
-export const TURN_OUTCOME_REASONS = {
+const TURN_OUTCOME_REASONS = {
   completed: ["answer_completed"],
   failed: [
     "model_error",
@@ -83,7 +71,7 @@ const turnLimitsFields = {
 };
 
 export const turnLimitsSchema = z.strictObject(turnLimitsFields);
-export const turnLimitsOutputSchema = z.object(turnLimitsFields);
+const turnLimitsOutputSchema = z.object(turnLimitsFields);
 export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
 export const DEFAULT_TURN_LIMITS = {
@@ -103,81 +91,11 @@ export const turnElapsedSchema = z.strictObject(turnElapsedFields);
 export const turnElapsedOutputSchema = z.object(turnElapsedFields);
 export type TurnElapsed = z.infer<typeof turnElapsedSchema>;
 
-export const TURN_STATES = ["running", "finished"] as const;
+const TURN_STATES = ["running", "finished"] as const;
 export const turnStateSchema = z.enum(TURN_STATES);
 
-const toolContextPinFields = {
-  context: idSchema("ctx"),
-  bundle: idSchema("cbn"),
-  bundle_hash: sha256Schema,
-  title: z.string().min(1),
-};
-
-const toolLimitsFields = {
-  bytes: positiveSafeIntegerSchema,
-  lines: positiveSafeIntegerSchema,
-  list: positiveSafeIntegerSchema,
-};
 
 // 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
-const resolvedFields = {
-  hash: sha256Schema,
-  sources: resolvedSourcesSchema,
-};
-
-export const turnBasisSchema = z.strictObject({
-  agent: agentRefSchema,
-  resolved: z.strictObject(resolvedFields),
-  tools: z.strictObject({
-    revision: positiveRevisionSchema,
-    definitions_hash: sha256Schema,
-    contexts: z.array(z.strictObject(toolContextPinFields)),
-  }),
-  extensions: z.strictObject({
-    settings_revision: positiveRevisionSchema,
-    skill_hashes: z.array(sha256Schema),
-    mcp_config_revisions: z.array(positiveRevisionSchema),
-    mcp_tool_definition_hashes: z.array(sha256Schema),
-  }),
-  models: z.strictObject({
-    judgment: resolvedModelSchema.extend({ purpose: z.literal("judgment") }),
-    organizing: resolvedModelSchema.extend({
-      purpose: z.literal("organizing"),
-    }),
-  }),
-  place: placeSchema.nullable(),
-  limits: turnLimitsSchema,
-  tool_result_limits: z.strictObject(toolLimitsFields),
-});
-
-export const turnBasisOutputSchema = z.object({
-  agent: agentRefOutputSchema,
-  resolved: z.object(resolvedFields),
-  tools: z.object({
-    revision: positiveRevisionSchema,
-    definitions_hash: sha256Schema,
-    contexts: z.array(z.object(toolContextPinFields)),
-  }),
-  extensions: z.object({
-    settings_revision: positiveRevisionSchema,
-    skill_hashes: z.array(sha256Schema),
-    mcp_config_revisions: z.array(positiveRevisionSchema),
-    mcp_tool_definition_hashes: z.array(sha256Schema),
-  }),
-  models: z.object({
-    judgment: resolvedModelOutputSchema.extend({
-      purpose: z.literal("judgment"),
-    }),
-    organizing: resolvedModelOutputSchema.extend({
-      purpose: z.literal("organizing"),
-    }),
-  }),
-  place: placeOutputSchema.nullable(),
-  limits: turnLimitsOutputSchema,
-  tool_result_limits: z.object(toolLimitsFields),
-});
-
-export type TurnBasis = z.infer<typeof turnBasisSchema>;
 
 export const turnRecordSchema = z.object({
   id: idSchema("trn"),
@@ -201,4 +119,3 @@ export const turnRecordSchema = z.object({
 }, { message: "turn state fields are not coupled" });
 
 export type TurnRecord = z.infer<typeof turnRecordSchema>;
-export type Turn = TurnRecord;

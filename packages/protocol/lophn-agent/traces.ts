@@ -78,7 +78,7 @@ const activitySchema = z.object({
   }),
 });
 
-export const runTraceSchema = z.object({
+const runTraceSchema = z.object({
   run: idSchema("run").nullable(),
   session: idSchema("ses").nullable(),
   assignment: idSchema("asg").nullable(),
@@ -98,7 +98,7 @@ export const runTraceSchema = z.object({
 });
 export type RunTrace = z.infer<typeof runTraceSchema>;
 
-export const agentTraceReadInputSchema = z.strictObject({
+const agentTraceReadInputSchema = z.strictObject({
   target: traceTargetSchema,
   role: agentRoleSchema.optional(),
   from_at: atSchema.optional(),
@@ -112,7 +112,7 @@ export const agentTraceReadInputSchema = z.strictObject({
   { message: "empty or inverted period" },
 );
 
-export const agentTraceReadOutputSchema = withReadCommon(z.object({
+const agentTraceReadOutputSchema = withReadCommon(z.object({
   trace: runTraceSchema,
 }));
 
@@ -168,7 +168,7 @@ export const usageTotalSchema = z.object({
 );
 export type UsageTotal = z.infer<typeof usageTotalSchema>;
 
-export const agentUsageReadInputSchema = z.strictObject({
+const agentUsageReadInputSchema = z.strictObject({
   turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
   role: agentRoleSchema.optional(),
@@ -181,7 +181,7 @@ export const agentUsageReadInputSchema = z.strictObject({
   message: "empty or inverted period",
 });
 
-export const agentUsageReadOutputSchema = withReadCommon(z.object({
+const agentUsageReadOutputSchema = withReadCommon(z.object({
   totals: z.array(usageTotalSchema),
 }));
 

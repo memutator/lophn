@@ -55,16 +55,16 @@ const requestFields = {
   app_command: toolCallOutputSchema.shape.app_command.optional(),
 };
 
-export const recordToolRequestInputSchema = z.strictObject(requestFields)
+const recordToolRequestInputSchema = z.strictObject(requestFields)
   .refine(
     (value) => (value.attempt === 0) === (value.retry_of === null),
     { message: "retry keeps the first tool call id" },
   );
-export const recordToolRequestCompareSchema = z.strictObject({
+const recordToolRequestCompareSchema = z.strictObject({
   turn_state_seq: seqSchema,
   model_call_finished_seq: seqSchema,
 });
-export const recordToolRequestOutputSchema = z.object({
+const recordToolRequestOutputSchema = z.object({
   tool_call: idSchema("tcl"),
 });
 
@@ -79,14 +79,14 @@ export const recordToolRequest = defineCommand({
   errors,
 });
 
-export const decideToolCallInputSchema = z.strictObject({
+const decideToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   decision: toolDecisionSchema,
 });
-export const decideToolCallCompareSchema = z.strictObject({
+const decideToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
 });
-export const decideToolCallOutputSchema = z.object({
+const decideToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
   decision: z.enum(["allow", "ask", "deny"]),
 });
@@ -102,17 +102,17 @@ export const decideToolCall = defineCommand({
   errors,
 });
 
-export const startToolCallInputSchema = z.strictObject({
+const startToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   started_at: atSchema,
   approval: idSchema("apr").nullable(),
 });
-export const startToolCallCompareSchema = z.strictObject({
+const startToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
   turn_state_seq: seqSchema,
   assignment_revision: revision,
 });
-export const startToolCallOutputSchema = z.object({
+const startToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
   idempotency_key: idSchema("tcl"),
 });
@@ -128,7 +128,7 @@ export const startToolCall = defineCommand({
   errors,
 });
 
-export const finishToolCallInputSchema = z.strictObject({
+const finishToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   outcome: toolOutcomeSchema,
   output: hash.nullable(),
@@ -144,10 +144,10 @@ export const finishToolCallInputSchema = z.strictObject({
   (value) => value.outcome.kind !== "not_executed" || value.output === null,
   { message: "not_executed has no output" },
 );
-export const finishToolCallCompareSchema = z.strictObject({
+const finishToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
 });
-export const finishToolCallOutputSchema = z.object({
+const finishToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
   outcome: toolOutcomeSchema,
 });
@@ -163,7 +163,7 @@ export const finishToolCall = defineCommand({
   errors,
 });
 
-export const recordReadToolCallInputSchema = z.strictObject({
+const recordReadToolCallInputSchema = z.strictObject({
   request: recordToolRequestInputSchema,
   decision: toolDecisionSchema,
   started_at: atSchema,
@@ -178,7 +178,7 @@ export const recordReadToolCallInputSchema = z.strictObject({
     value.started_at <= value.finished_at,
   { message: "read record is a completed confirm-false read" },
 );
-export const recordReadToolCallOutputSchema = z.object({
+const recordReadToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
 });
 
@@ -192,16 +192,16 @@ export const recordReadToolCall = defineCommand({
   errors,
 });
 
-export const supplementToolCallInputSchema = z.strictObject({
+const supplementToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   supplement_key: nonempty.max(128),
   fact: hash,
   note: nonempty.max(400).nullable(),
 });
-export const supplementToolCallCompareSchema = z.strictObject({
+const supplementToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
 });
-export const supplementToolCallOutputSchema = z.object({
+const supplementToolCallOutputSchema = z.object({
   tool_call: idSchema("tcl"),
   supplement_key: nonempty,
 });
@@ -217,10 +217,10 @@ export const supplementToolCall = defineCommand({
   errors,
 });
 
-export const toolCallReadInputSchema = z.strictObject({
+const toolCallReadInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
 });
-export const toolCallReadOutputSchema = withReadCommon(z.object({
+const toolCallReadOutputSchema = withReadCommon(z.object({
   tool_call: toolCallOutputSchema,
 }));
 
@@ -235,7 +235,7 @@ export const toolCallRead = defineRead({
 });
 
 // 사람 화면은 turn별로, 한 session의 모든 turn을 한 번에 읽을 때는 session으로 거른다.
-export const toolCallListInputSchema = z.strictObject({
+const toolCallListInputSchema = z.strictObject({
   turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
   model_call: idSchema("mcl").optional(),
@@ -247,7 +247,7 @@ export const toolCallListInputSchema = z.strictObject({
     value.model_call !== undefined,
   { message: "list needs a turn, a session or a model call" },
 );
-export const toolCallListOutputSchema = withReadCommon(z.object({
+const toolCallListOutputSchema = withReadCommon(z.object({
   tool_calls: z.array(toolCallOutputSchema),
 }));
 
@@ -313,14 +313,6 @@ export const TOOL_CALL_ROUTES = [
   supplementToolCall,
   toolCallRead,
   toolCallList,
-] as const;
-
-export const TOOL_CALL_EVENTS = [
-  toolCallRequested,
-  toolCallDecided,
-  toolCallStarted,
-  toolCallFinished,
-  toolCallSupplemented,
 ] as const;
 
 // 현재 scope·definition·MCP 판·approval 한 번 사용·owner transaction은 runtime 책임이다.

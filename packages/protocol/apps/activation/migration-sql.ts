@@ -5,9 +5,8 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 
 // 손실 선언. 단계 파일 머리의 `-- loss:` 줄이 유일한 출처다.
 export const LOSS_KINDS = ["drop_table", "drop_column", "narrow_type"] as const;
-export type LossKind = (typeof LOSS_KINDS)[number];
 
-export type LossStep =
+type LossStep =
   | { kind: "drop_table"; table: string; column?: undefined }
   | { kind: "drop_column" | "narrow_type"; table: string; column: string };
 
@@ -18,10 +17,6 @@ export type Migration = {
   sql: string;
   loss: LossStep[];
 };
-
-export function stepFileName(from: number, to: number): string {
-  return `migrations/${from}-${to}.sql`;
-}
 
 const IDENT = "[A-Za-z_][A-Za-z0-9_]*";
 const DROP_TABLE = new RegExp(`^drop_table\\s+(${IDENT})$`);

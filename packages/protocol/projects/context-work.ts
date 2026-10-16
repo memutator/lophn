@@ -63,7 +63,7 @@ const appCommandSchema = z.strictObject({
 });
 
 // worker가 core에 내 달라고 하는 command. core는 요청의 context·bundle·check와 맞는지 다시 본다.
-export const contextSubmissionSchema = z.discriminatedUnion("command", [
+const contextSubmissionSchema = z.discriminatedUnion("command", [
   z.strictObject({
     command: z.literal("context.record_violations"),
     input: violationsRecordRequestSchema,
@@ -84,7 +84,6 @@ export const contextIndexRequestSchema = z.strictObject({
   recorded_count: count,
   roots: rootsSchema,
 });
-export type ContextIndexRequest = z.infer<typeof contextIndexRequestSchema>;
 
 export const contextIndexResponseSchema = z.strictObject({
   scanned: count,
@@ -107,7 +106,6 @@ export const contextCheckRequestSchema = z.strictObject({
   external_types: z.array(externalTypeSchema),
   app_commands: z.array(appCommandSchema),
 });
-export type ContextCheckRequest = z.infer<typeof contextCheckRequestSchema>;
 
 export const contextCheckResponseSchema = z.strictObject({
   status: z.enum(["passed", "failed"]),
@@ -126,9 +124,6 @@ export const contextPreviewWorkRequestSchema = z.strictObject({
   external_types: z.array(externalTypeSchema),
   app_commands: z.array(appCommandSchema),
 });
-export type ContextPreviewWorkRequest = z.infer<
-  typeof contextPreviewWorkRequestSchema
->;
 
 export const contextPreviewWorkResponseSchema = z.strictObject({
   types: z.array(z.strictObject({
@@ -145,7 +140,7 @@ export type ContextPreviewWorkResponse = z.infer<
 
 // ---------- core가 reader Worker에서 읽는 내부 read ----------
 
-export const contextWorkInputRequestSchema = z.strictObject({
+const contextWorkInputRequestSchema = z.strictObject({
   context: ctxIdSchema,
   // 있으면 이 검사의 후보 판과 saved view도 읽는다.
   check: checkIdSchema.optional(),
@@ -202,7 +197,7 @@ export const contextWorkInputRoute = defineRead({
 // 활성 context(보관되지 않은 project의 것)와 아직 도는 검사의 목록이다. core가 시작할 때 도는 검사를
 // 다시 보내고, 변화 감시가 감시할 context를 정하고, worker가 읽을 폴더 집합을 맞추는 데 쓴다. 내용(blob)은
 // 읽지 않는다. 필요한 context는 `context.work_input`으로 따로 읽는다.
-export const contextWorkListRequestSchema = z.strictObject({});
+const contextWorkListRequestSchema = z.strictObject({});
 export const contextWorkListReadSchema = withReadCommon(z.object({
   // 적용 판이 있는 context. 보관된 project의 context는 없다. context id 순.
   contexts: z.array(z.strictObject({

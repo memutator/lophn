@@ -1,13 +1,11 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { sha256Schema } from "../base/values.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
-import { agentRoleSchema, appCommandKeySchema } from "./scope.ts";
-import type { AgentRole } from "./scope.ts";
+import { appCommandKeySchema } from "./scope.ts";
 import type { Role } from "./places.ts";
 
 // agent 정의(lophn-agent/agents domain model)의 값. 정의와 자리 설정은 app data의 Markdown 파일이고,
@@ -34,7 +32,7 @@ export function agentNameKey(name: string): string {
 // 지침 파일 하나(agent 정의 본문 포함)의 상한이다.
 export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 
-export const AGENT_KINDS = ["built_in", "operator"] as const;
+const AGENT_KINDS = ["built_in", "operator"] as const;
 export const agentKindSchema = z.enum(AGENT_KINDS);
 
 // 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project나 앱 아래에 있다.
@@ -47,17 +45,8 @@ export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("app"), id: idSchema("app") }),
 ]);
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
-export type AgentPlaceKind = AgentPlace["kind"];
 
 // Context Engineer는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 자리 모두다.
-export function agentPlaceAllowsRole(
-  role: AgentRole,
-  place: { kind: AgentPlaceKind },
-): boolean {
-  if (role === "context_engineer") return place.kind === "project";
-  if (role === "app_engineer") return place.kind === "app";
-  return true;
-}
 
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
@@ -85,7 +74,7 @@ const profileIconOutputSchema = z.object({
   kind: z.literal("icon"),
   icon: iconIdSchema,
 });
-export const profileImageSchema = z.strictObject({
+const profileImageSchema = z.strictObject({
   kind: z.literal("image"),
   image: imageNameSchema,
 });
@@ -94,7 +83,7 @@ export const profileImageOutputSchema = z.object({
   image: imageNameSchema,
 });
 
-export const profileSchema = z.discriminatedUnion("kind", [
+const profileSchema = z.discriminatedUnion("kind", [
   profileIconSchema,
   profileImageSchema,
 ]);
@@ -106,17 +95,17 @@ export type Profile = z.infer<typeof profileSchema>;
 
 // 앱 Operator가 읽을 (앱, command) 이름 쌍. 이름만 고르고, 호출할 때마다 현재 blueprint와 허락을 다시 본다.
 const appReadFields = { app: idSchema("app"), command: appCommandKeySchema };
-export const appReadSchema = z.strictObject(appReadFields);
-export const appReadOutputSchema = z.object(appReadFields);
-export type AppRead = z.infer<typeof appReadSchema>;
+const appReadSchema = z.strictObject(appReadFields);
+const appReadOutputSchema = z.object(appReadFields);
+type AppRead = z.infer<typeof appReadSchema>;
 
 // 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {
   server_name: nonblankSchema,
   original_tool: nonblankSchema.optional(),
 };
-export const mcpOffSchema = z.strictObject(mcpOffFields);
-export const mcpOffOutputSchema = z.object(mcpOffFields);
+const mcpOffSchema = z.strictObject(mcpOffFields);
+const mcpOffOutputSchema = z.object(mcpOffFields);
 export type McpOff = z.infer<typeof mcpOffSchema>;
 
 // 외부 MCP tool 하나. 안전 표시와 resolved agent의 켜진 MCP가 같은 모양을 쓴다.
@@ -124,21 +113,20 @@ const mcpToolFields = {
   server_name: nonblankSchema,
   original_tool: nonblankSchema,
 };
-export const mcpToolSchema = z.strictObject(mcpToolFields);
-export const mcpToolOutputSchema = z.object(mcpToolFields);
+const mcpToolSchema = z.strictObject(mcpToolFields);
+const mcpToolOutputSchema = z.object(mcpToolFields);
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
 // 권한은 개별 동작 이름(`<영역>.<동작>`)으로만 저장한다. 묶음 이름과 wildcard는 점 표기가 아니거나 `*`라 모양에서 걸린다.
-export const agentToolNameSchema = z.string().max(64).regex(
+const agentToolNameSchema = z.string().max(64).regex(
   /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/,
 );
 
 const toolListSchema = z.array(agentToolNameSchema).refine(unique, {
   message: "duplicate tool",
 });
-export const agentPermissionsSchema = z.strictObject({ tools: toolListSchema });
-export const agentPermissionsOutputSchema = z.object({ tools: toolListSchema });
-export type AgentPermissions = z.infer<typeof agentPermissionsSchema>;
+const agentPermissionsSchema = z.strictObject({ tools: toolListSchema });
+const agentPermissionsOutputSchema = z.object({ tools: toolListSchema });
 
 export const agentNameSchema = nonblankSchema;
 const bodySchema = z.string().refine(
@@ -221,118 +209,19 @@ export const agentDefinitionOutputSchema = z.object({
   ...frontmatterOutputFields,
   body: bodySchema,
 });
-export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
 // 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
-export const VALUE_LAYERS = [
-  "default",
-  "workspace",
-  "place",
-  "definition",
-  "session",
-] as const;
-export const valueLayerSchema = z.enum(VALUE_LAYERS);
-export const valueSourceSchema = z.object({
-  layer: valueLayerSchema,
-  place: agentPlaceOutputSchema.nullable(),
-}).refine(
-  (value) =>
-    (value.place !== null) ===
-      (value.layer === "place" || value.layer === "definition"),
-  { message: "place is set exactly for the place and definition layers" },
-);
 // 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
-export const AGENT_ISSUE_CODES = [
-  "malformed",
-  "unknown_field",
-  "invalid_value",
-  "required",
-  "not_allowed",
-  "reserved_name",
-  "duplicate",
-  "too_large",
-  "missing_reference",
-  "archived_reference",
-  "over_cap",
-] as const;
-export const agentIssueCodeSchema = z.enum(AGENT_ISSUE_CODES);
 
-export const agentIssueSchema = z.object({
-  field: z.string().min(1),
-  code: agentIssueCodeSchema,
-});
 // 오류 details에 싣는 항목별 이유의 모양이다. 저장 거절(invalid_input)의 details가 이것이다.
-export const agentIssuesDetailsSchema = z.object({
-  issues: z.array(agentIssueSchema).min(1),
-});
-
-export const RESOLVED_FIELDS = [
-  "name",
-  "profile",
-  "agent_instructions",
-  "model",
-  "tools",
-  "skills",
-  "mcp",
-  "contexts",
-  "app_reads",
-  "safe_tools",
-] as const;
-export type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
 // 앱 자리의 built-in은 project가 없어 context 자료가 0개이고, 그 이유를 밝힌다.
-export const CONTEXTS_EMPTY_REASONS = ["no_project"] as const;
 
 // 칸마다 그 값을 준 층. resolved agent와 run 기준이 같은 모양을 쓴다.
-export const resolvedSourcesSchema = z.strictObject(
-  Object.fromEntries(
-    RESOLVED_FIELDS.map((field) => [field, valueSourceSchema]),
-  ) as Record<ResolvedField, typeof valueSourceSchema>,
-);
-
-const resolvedFields = {
-  assignment: idSchema("asg"),
-  role: agentRoleSchema,
-  place: agentPlaceOutputSchema,
-  name: agentNameSchema,
-  profile: profileOutputSchema,
-  agent_instructions: sha256Schema,
-  model: modelChoiceOutputSchema,
-  tools: toolListSchema,
-  skills: z.array(nonblankSchema).refine(unique, {
-    message: "duplicate skill",
-  }),
-  mcp: mcpToolListOutputSchema,
-  contexts: contextsSchema,
-  contexts_reason: z.enum(CONTEXTS_EMPTY_REASONS).nullable(),
-  app_reads: appReadsOutputSchema,
-  safe_tools: mcpToolListOutputSchema,
-  sources: resolvedSourcesSchema,
-  hash: sha256Schema,
-};
-
-function resolvedShape(value: {
-  role: AgentRole;
-  place: { kind: AgentPlaceKind };
-  contexts: readonly string[];
-  contexts_reason: string | null;
-  app_reads: readonly unknown[];
-}): boolean {
-  if (!agentPlaceAllowsRole(value.role, value.place)) return false;
-  if (value.contexts_reason !== null && value.contexts.length !== 0) {
-    return false;
-  }
-  return value.role === "operator" || value.app_reads.length === 0;
-}
 
 // run을 준비할 때 한 번 만들어 run 기준에 고정하는 값이다. 같은 파일과 설정이면 같은 값과 hash가 나오고
 // hash는 hash를 뺀 나머지 값의 canonical JSON의 sha256이다.
-export const resolvedAgentSchema = z.object(resolvedFields).refine(
-  resolvedShape,
-  { message: "resolved agent shape is not coupled" },
-);
-export type ResolvedAgent = z.infer<typeof resolvedAgentSchema>;
 
 const countSchema = z.number().int().nonnegative();
 

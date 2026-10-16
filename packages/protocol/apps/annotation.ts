@@ -12,7 +12,7 @@ import { releaseIdSchema } from "./apps.ts";
 // 앱 화면 annotation의 값과 route. 고르기는 shell이, 저장·전달은 core가 한다.
 
 export const ANNOTATION_BATCH_MAX = 20;
-export const ANNOTATION_NOTE_MAX_CHARS = 2000;
+const ANNOTATION_NOTE_MAX_CHARS = 2000;
 // 이미지 한 장의 상한이다. shell main이 이 안으로 줄여 올린다.
 export const ANNOTATION_SCREENSHOT_MAX_BYTES = 2 * 1024 * 1024;
 export const ANNOTATION_SCREENSHOT_PURPOSE = "annotation_screenshot";
@@ -20,13 +20,11 @@ export const ANNOTATION_SCREENSHOT_PURPOSE = "annotation_screenshot";
 export const annotationIdSchema = idSchema("ann");
 export const annotationBatchIdSchema = idSchema("anb");
 export type AnnotationId = z.infer<typeof annotationIdSchema>;
-export type AnnotationBatchId = z.infer<typeof annotationBatchIdSchema>;
 
-export const annotationKindSchema = z.enum(["element", "region"]);
-export type AnnotationKind = z.infer<typeof annotationKindSchema>;
+const annotationKindSchema = z.enum(["element", "region"]);
 
 // viewport 비율의 x와 너비, px의 y와 높이, scroll 값.
-export const annotationRectSchema = z.strictObject({
+const annotationRectSchema = z.strictObject({
   x_ratio: z.number().min(0).max(1),
   width_ratio: z.number().min(0).max(1),
   y_px: z.number(),
@@ -34,16 +32,14 @@ export const annotationRectSchema = z.strictObject({
   scroll_x: z.number(),
   scroll_y: z.number(),
 });
-export type AnnotationRect = z.infer<typeof annotationRectSchema>;
 
 const elementText = z.string().max(200).nullable();
 // 역할, 접근 이름, 보이는 글(가까운 글 포함 짧게).
-export const annotationElementSchema = z.strictObject({
+const annotationElementSchema = z.strictObject({
   role: elementText,
   name: elementText,
   text: elementText,
 });
-export type AnnotationElement = z.infer<typeof annotationElementSchema>;
 
 // 앱 source의 파일과 줄(core가 source map으로 푼 값).
 export const annotationSourceSchema = z.strictObject({
@@ -53,7 +49,7 @@ export const annotationSourceSchema = z.strictObject({
 export type AnnotationSource = z.infer<typeof annotationSourceSchema>;
 
 // 페이지가 요소에서 얻은 bundle 위치. core가 release의 source map으로 `source`를 푼다.
-export const annotationBundlePositionSchema = z.strictObject({
+const annotationBundlePositionSchema = z.strictObject({
   file: z.string(),
   line: z.number().int(),
   column: z.number().int(),
@@ -63,13 +59,12 @@ export type AnnotationBundlePosition = z.infer<
 >;
 
 // 앱 화면 위치(앱이 정한 view 이름과 route).
-export const annotationViewSchema = z.strictObject({
+const annotationViewSchema = z.strictObject({
   screen: screenKeySchema,
   path: z.string(),
 });
-export type AnnotationView = z.infer<typeof annotationViewSchema>;
 
-export const annotationScreenshotBlobSchema = z.strictObject(
+const annotationScreenshotBlobSchema = z.strictObject(
   preparedBlobSchema.shape,
 ).refine(
   (value) => value.purpose === ANNOTATION_SCREENSHOT_PURPOSE,
@@ -91,7 +86,7 @@ export const annotationInputSchema = z.strictObject({
 });
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
 
-export const annotationSchema = z.strictObject({
+const annotationSchema = z.strictObject({
   id: annotationIdSchema,
   batch: annotationBatchIdSchema,
   app: appIdSchema,
@@ -111,7 +106,7 @@ export const annotationSchema = z.strictObject({
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 
-export const annotationBatchSchema = z.strictObject({
+const annotationBatchSchema = z.strictObject({
   id: annotationBatchIdSchema,
   app: appIdSchema,
   sent_at: z.string(),
@@ -153,7 +148,7 @@ export const annotationSendInputSchema = z.strictObject({
   (value) => value.annotations.every((item, i) => item.n === i + 1),
   { message: "annotation n must run 1..N in order" },
 );
-export const annotationSendOutputSchema = z.object({
+const annotationSendOutputSchema = z.object({
   batch: annotationBatchIdSchema,
   annotations: z.array(annotationIdSchema),
   session: idSchema("ses"),
@@ -170,11 +165,11 @@ export const annotationSend = defineMemory({
   errors: ["invalid_input", "not_found", "conflict", "unavailable"],
 });
 
-export const annotationsGetInputSchema = z.union([
+const annotationsGetInputSchema = z.union([
   z.strictObject({ annotation: annotationIdSchema }),
   z.strictObject({ batch: annotationBatchIdSchema }),
 ]);
-export const annotationsGetOutputSchema = withReadCommon(z.object({
+const annotationsGetOutputSchema = withReadCommon(z.object({
   batch: annotationBatchSchema.nullable(),
   annotations: z.array(annotationReadSchema),
 }));

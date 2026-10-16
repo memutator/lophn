@@ -6,7 +6,7 @@ import {
 import { sha256Schema } from "../base/values.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
-export const REPORT_BLOB_PURPOSES = [
+const REPORT_BLOB_PURPOSES = [
   "report_text",
   "report_details",
   "snapshot_stack",
@@ -14,8 +14,8 @@ export const REPORT_BLOB_PURPOSES = [
   "feedback_state",
   "feedback_screenshot",
 ] as const;
-export const reportBlobPurposeSchema = z.enum(REPORT_BLOB_PURPOSES);
-export const reportBlobInputSchema = z.strictObject({
+const reportBlobPurposeSchema = z.enum(REPORT_BLOB_PURPOSES);
+const reportBlobInputSchema = z.strictObject({
   hash: sha256Schema,
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   purpose: reportBlobPurposeSchema,
@@ -47,13 +47,9 @@ export const reportBlobInputSchema = z.strictObject({
   };
   return value.size_bytes <= limits[value.purpose];
 });
-export type ReportBlobInput = z.infer<typeof reportBlobInputSchema>;
 export const reportBlobsInputSchema = z.array(reportBlobInputSchema).max(6)
   .refine((values) =>
     new Set(values.map((value) => value.purpose)).size === values.length
   );
 
 // Actual bytes, permanent reference sizes/purposes, and authority are host checks.
-export function blobMetadataBytes(values: readonly ReportBlobInput[]): number {
-  return values.reduce((sum, value) => sum + value.size_bytes, 0);
-}

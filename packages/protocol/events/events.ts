@@ -3,10 +3,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { actorSchema } from "../base/actor.ts";
-import {
-  EVENT_BATCH_MAX_BYTES,
-  EVENT_BATCH_MAX_COUNT,
-} from "../base/limits.ts";
+import { EVENT_BATCH_MAX_COUNT } from "../base/limits.ts";
 import { withReadCommon } from "../base/envelope.ts";
 
 import {
@@ -25,7 +22,7 @@ const envelopeFields = {
   at: atSchema,
 };
 
-export const eventEnvelopeBaseSchema = z.object(envelopeFields);
+const eventEnvelopeBaseSchema = z.object(envelopeFields);
 
 export type EventEnvelope = z.infer<typeof eventEnvelopeBaseSchema>;
 
@@ -54,7 +51,7 @@ export function eventEnvelopeSchema<D extends EventDefinition>(
   });
 }
 
-export const eventBatchLimitSchema = z.number().refine(
+const eventBatchLimitSchema = z.number().refine(
   (n): n is number =>
     Number.isSafeInteger(n) && n >= 1 && n <= EVENT_BATCH_MAX_COUNT,
   { message: "invalid event batch limit" },
@@ -67,12 +64,12 @@ const filterSchema = {
 };
 
 // seq > after_seq. WebSocket의 from_seq(포함)와 같은 위치 다음부터로 맞춘다.
-export const eventsListInputSchema = z.strictObject({
+const eventsListInputSchema = z.strictObject({
   after_seq: seqSchema,
   ...filterSchema,
 });
 
-export const eventsListOutputSchema = withReadCommon(z.object({
+const eventsListOutputSchema = withReadCommon(z.object({
   events: z.array(eventEnvelopeBaseSchema).max(EVENT_BATCH_MAX_COUNT),
   scanned_through_seq: seqSchema,
   head_seq: seqSchema,
@@ -89,12 +86,12 @@ export const eventsList = defineRead({
 });
 
 // 반응 없는 구간만 이 command다. 비교 기준은 자기 cursor의 이전 seq이고 감소할 수 없다.
-export const advanceSubscriberCursorInputSchema = z.strictObject({
+const advanceSubscriberCursorInputSchema = z.strictObject({
   subscriber: z.string().min(1),
   scanned_through_seq: seqSchema,
 });
 
-export const advanceSubscriberCursorCompareSchema = z.strictObject({
+const advanceSubscriberCursorCompareSchema = z.strictObject({
   processed_through_seq: seqSchema,
 });
 
@@ -124,7 +121,3 @@ export const advanceSubscriberCursor = defineCommand({
   ],
 });
 
-export const EVENT_BATCH_LIMITS = {
-  count: EVENT_BATCH_MAX_COUNT,
-  bytes: EVENT_BATCH_MAX_BYTES,
-} as const;

@@ -11,15 +11,15 @@ import {
 
 const turnRef = { turn: idSchema("trn") };
 
-export const turnReadInputSchema = z.strictObject(turnRef);
+const turnReadInputSchema = z.strictObject(turnRef);
 
-export const turnListInputSchema = z.strictObject({
+const turnListInputSchema = z.strictObject({
   session: idSchema("ses").optional(),
   state: turnStateSchema.optional(),
   cursor: readCursorSchema.optional(),
 });
 
-export const turnResultInputSchema = z.strictObject(turnRef);
+const turnResultInputSchema = z.strictObject(turnRef);
 
 const readErrors = [
   "invalid_input",
@@ -76,7 +76,7 @@ export const turnResult = defineRead({
 // 복구가 저장된 본문(turn basis, model 응답, tool 결과)을 다시 읽는 길이다. 값은 core가 blob 바이트를
 // 읽고 hash를 확인한 JSON 값이다. machine만 읽고 그 밖은 없는 대상과 똑같이 답한다.
 // `turn_resolved`는 turn 기준이 hash로 가리키는 resolved agent의 전체 값이다.
-export const TURN_BODY_KINDS = [
+const TURN_BODY_KINDS = [
   "turn_basis",
   "turn_resolved",
   "model_call_output",
@@ -120,7 +120,7 @@ export const turnBody = defineRead({
 // 끝내지 못하면 값을 주지 않는다. model 응답은 판단 요약이 아니라 사고 원문일 수 있어 사람에게 열지
 // 않는다. 값이 상한을 넘으면 JSON 글의 앞부분만 주고 `truncated`로 알린다.
 // 범위 밖 대상은 없는 대상과 똑같이 not_found다.
-export const TURN_BODY_VIEW_KINDS = [
+const TURN_BODY_VIEW_KINDS = [
   "turn_basis",
   "tool_call_input",
   "tool_call_output",

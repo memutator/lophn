@@ -11,8 +11,8 @@ const positiveIntegerSchema = z.number().int().positive();
 const nonnegativeIntegerSchema = z.number().int().nonnegative();
 export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
-export const effortValueSchema = z.enum(EFFORT_VALUES);
-export type EffortValue = z.infer<typeof effortValueSchema>;
+const effortValueSchema = z.enum(EFFORT_VALUES);
+type EffortValue = z.infer<typeof effortValueSchema>;
 // 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.
 export const EFFORT_LABELS = {
   off: "Off",
@@ -47,13 +47,13 @@ function rateShape(value: {
   return value.context_from === null || value.context_through === null ||
     value.context_from <= value.context_through;
 }
-export const priceRateSchema = z.strictObject(priceRateFields).refine(
+const priceRateSchema = z.strictObject(priceRateFields).refine(
   rateShape,
   {
     message: "invalid context interval",
   },
 );
-export const priceRateOutputSchema = z.object(priceRateFields).refine(
+const priceRateOutputSchema = z.object(priceRateFields).refine(
   rateShape,
   {
     message: "invalid context interval",
@@ -111,11 +111,7 @@ const resolvedModelFields = {
   price_basis: priceBasisSchema.nullable(),
   basis: jsonObjectSchema,
 };
-export const resolvedModelSchema = z.strictObject(resolvedModelFields);
-export const resolvedModelOutputSchema = z.object({
-  ...resolvedModelFields,
-  price_basis: priceBasisOutputSchema.nullable(),
-});
+const resolvedModelSchema = z.strictObject(resolvedModelFields);
 export type PriceRate = z.infer<typeof priceRateSchema>;
 export type PriceBasis = z.infer<typeof priceBasisSchema>;
 export type ResolvedModel = z.infer<typeof resolvedModelSchema>;

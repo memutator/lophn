@@ -12,7 +12,7 @@ export const ACTOR_KINDS = [
 
 export type ActorKind = (typeof ACTOR_KINDS)[number];
 
-export const ROUTE_KINDS = [
+const ROUTE_KINDS = [
   "command",
   "read",
   "file",
@@ -21,20 +21,18 @@ export const ROUTE_KINDS = [
   "upload",
 ] as const;
 
-export type RouteKind = (typeof ROUTE_KINDS)[number];
+type RouteKind = (typeof ROUTE_KINDS)[number];
 
 const NAME = /^[a-z][a-z0-9_-]*$/;
 
-const errorCodeSchema = z.enum(ERROR_CODES);
-
 // confirmation window가 받는 것이 사람의 결정인지 secret 입력인지.
-export const CONFIRMATION_KINDS = ["decision", "secret_input"] as const;
+const CONFIRMATION_KINDS = ["decision", "secret_input"] as const;
 
-export type ConfirmationKind = (typeof CONFIRMATION_KINDS)[number];
+type ConfirmationKind = (typeof CONFIRMATION_KINDS)[number];
 
 // 사람 결정 handle이 필요한 route만 선언한다. read는 결정을 제출하지 않는다.
 // confirmation_kind를 적지 않으면 decision이다.
-export type ConfirmationDeclaration<I extends z.ZodType> = {
+type ConfirmationDeclaration<I extends z.ZodType> = {
   confirmation: "required";
   binding: readonly (keyof z.infer<I> & string)[];
   confirmation_kind?: ConfirmationKind;
@@ -252,4 +250,3 @@ export function routePath(route: { resource: string; method: string }): string {
   return `/v${API_MAJOR}/${route.resource}/${route.method}`;
 }
 
-export const routeErrorsSchema = z.array(errorCodeSchema);

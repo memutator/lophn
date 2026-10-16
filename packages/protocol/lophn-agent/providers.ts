@@ -202,6 +202,3 @@ export const PROVIDER_ROUTES = [
   recordProviderAvailability,
 ] as const;
 
-export const PROVIDER_EVENTS = [
-  providerDisconnected,
-] as const;

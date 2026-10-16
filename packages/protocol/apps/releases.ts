@@ -2,7 +2,6 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idempotencyKeySchema } from "../base/envelope.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import {
@@ -26,7 +25,7 @@ export const RELEASE_PREPARATION_LIMIT_MS = 300_000;
 // blueprint TS 추출 자식 상한.
 export const BLUEPRINT_EXTRACT_LIMIT_MS = 10_000;
 
-export const RELEASE_STATUSES = [
+const RELEASE_STATUSES = [
   "prepared",
   "activating",
   "active",
@@ -34,7 +33,7 @@ export const RELEASE_STATUSES = [
   "superseded",
 ] as const;
 export const releaseStatusValueSchema = z.enum(RELEASE_STATUSES);
-export type ReleaseStatus = z.infer<typeof releaseStatusValueSchema>;
+type ReleaseStatus = z.infer<typeof releaseStatusValueSchema>;
 
 // 준비 출처. 새 coding 준비는 필수이고 null은 과거 이력만 담는다.
 // claim 상태의 사본이 아니라 claim 출처 seq다.
@@ -48,8 +47,7 @@ function ticketSourceSchemas(strict: boolean) {
   });
 }
 export const ticketSourceSchema = ticketSourceSchemas(false);
-export const ticketSourceInputSchema = ticketSourceSchemas(true);
-export type TicketSource = z.infer<typeof ticketSourceSchema>;
+const ticketSourceInputSchema = ticketSourceSchemas(true);
 
 // schema 단계 값. from은 출발점, to는 도착점이며 to > from이다.
 export const dataChangeSchema = z.object({
@@ -83,9 +81,8 @@ function activationSchemas(strict: boolean) {
     data_change_invocation: invocationIdSchema.nullable(),
   });
 }
-export const activationSchema = activationSchemas(false);
-export const activationInputSchema = activationSchemas(true);
-export type Activation = z.infer<typeof activationSchema>;
+const activationSchema = activationSchemas(false);
+const activationInputSchema = activationSchemas(true);
 
 // bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않는다.
 export const bundleManifestSchema = z.object({
@@ -112,14 +109,14 @@ export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
 // command 하나의 바뀐 점. `kinds`는 입력·효과·확인·되돌림 지원이고 설명·이름만 바뀐 것은
 // `description_only_commands`로 구별한다. 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
-export const COMMAND_CHANGE_KINDS = [
+const COMMAND_CHANGE_KINDS = [
   "input",
   "effect",
   "confirm",
   "revert",
 ] as const;
 const commandEffectSchema = z.enum(["read", "write", "external"]);
-export const commandChangeSchema = z.object({
+const commandChangeSchema = z.object({
   command: commandKeySchema,
   kinds: z.array(z.enum(COMMAND_CHANGE_KINDS)),
   effect_from: commandEffectSchema.nullable(),
@@ -127,12 +124,11 @@ export const commandChangeSchema = z.object({
   // 이전에 없던 필수 입력 이름.
   new_required_inputs: z.array(z.string().min(1)),
 });
-export type CommandChange = z.infer<typeof commandChangeSchema>;
 
 // 이전 release와 사람에게 보여줄 비교. 같은 입력 schema만으로 호환을 주장하지 않는다.
 // 데이터 계약(`data_schema`·`data_changes`)은 apps/data, 접근 요청(`added_permissions`·
 // `removed_permissions`)은 apps/permissions의 근거로 따로 둔다.
-export const releaseComparisonSchema = z.object({
+const releaseComparisonSchema = z.object({
   previous_release: releaseIdSchema.nullable(),
   added_permissions: z.array(z.string().min(1)),
   removed_permissions: z.array(z.string().min(1)),
@@ -162,7 +158,6 @@ export const releaseComparisonSchema = z.object({
   // 호환이라고 자동 표시하지 않는다.
   review_required: z.boolean(),
 });
-export type ReleaseComparison = z.infer<typeof releaseComparisonSchema>;
 
 function releaseSchemas(strict: boolean) {
   const fields = {
@@ -209,21 +204,10 @@ function releaseSchemas(strict: boolean) {
   );
 }
 
-export const releaseSchema = releaseSchemas(false);
-export const releaseInputSchema = releaseSchemas(true);
+const releaseSchema = releaseSchemas(false);
 export type Release = z.infer<typeof releaseSchema>;
 
 // 앱 전용 프로세스의 결과. 시도·실제 schema·무결성을 core가 검증한다.
-export const dataResultSchema = z.object({
-  release: releaseIdSchema,
-  activation_seq: z.string().refine((value) => value !== "0", {
-    message: "activation_seq must be positive",
-  }),
-  invocation: invocationIdSchema.nullable(),
-  data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  integrity_ok: z.boolean(),
-});
-export type DataResult = z.infer<typeof dataResultSchema>;
 
 const releaseRecordActors = ["machine"] as const;
 // 준비 접수와 진행 조회는 coding agent 통로도 보낸다.
@@ -334,16 +318,7 @@ export const releasePrepare = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
-const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
-const readErrors = [
-  "invalid_input",
-  "unauthorized",
-  "forbidden",
-  "not_found",
-  "unavailable",
-] as const;
-
-export const RELEASE_LIST_MAX_COUNT = 200;
+const RELEASE_LIST_MAX_COUNT = 200;
 
 // release 목록. 불변 Release를 준비 순서로 보여준다.
 export const releasesListInputSchema = z.strictObject({
@@ -362,28 +337,3 @@ export const RELEASE_ROUTES = [
   releasePrepare,
 ] as const;
 
-const releaseSubject = releaseIdSchema;
-
-export const releaseActivated = defineEvent("ReleaseActivated", {
-  subject: releaseSubject,
-  payload: z.object({
-    started_seq: z.string().refine((value) => value !== "0", {
-      message: "started_seq must be positive",
-    }),
-    previous_release: releaseIdSchema.nullable(),
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }),
-});
-export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
-  subject: releaseSubject,
-  payload: z.object({
-    started_seq: z.string().refine((value) => value !== "0", {
-      message: "started_seq must be positive",
-    }),
-    failure: z.object({
-      code: z.string().min(1),
-      summary: z.string().min(1),
-    }),
-    invocation: invocationIdSchema.nullable().optional(),
-  }),
-});

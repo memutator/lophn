@@ -33,8 +33,8 @@ import {
 export const ctxIdSchema = idSchema("ctx");
 export const bundleIdSchema = idSchema("cbn");
 export const checkIdSchema = idSchema("chk");
-export const savedViewIdSchema = idSchema("viw");
-export const glossaryEntryIdSchema = idSchema("trm");
+const savedViewIdSchema = idSchema("viw");
+const glossaryEntryIdSchema = idSchema("trm");
 
 // ---------- 공통 조각 ----------
 
@@ -69,12 +69,12 @@ const blobReferenceSchema = z.strictObject({
 });
 
 // 판 안의 draft content: 유효한 JSON 객체이면 받는다. BundleContent 스키마 검사는 submit이 한다.
-export const draftContentSchema = z.record(z.string(), jsonValueSchema);
+const draftContentSchema = z.record(z.string(), jsonValueSchema);
 
 // ---------- 값: Context ----------
 
-export const CONTEXT_STATUSES = ["drafting", "active", "archived"] as const;
-export const contextStatusSchema = z.enum(CONTEXT_STATUSES);
+const CONTEXT_STATUSES = ["drafting", "active", "archived"] as const;
+const contextStatusSchema = z.enum(CONTEXT_STATUSES);
 
 const contextFields = {
   id: ctxIdSchema,
@@ -115,7 +115,7 @@ export const contextListItemSchema = z.strictObject({
 
 // ---------- 값: ContextBundle 요약 ----------
 
-export const BUNDLE_STATUSES = [
+const BUNDLE_STATUSES = [
   "draft",
   "checking",
   "failed",
@@ -123,7 +123,7 @@ export const BUNDLE_STATUSES = [
   "superseded",
   "discarded",
 ] as const;
-export const bundleStatusSchema = z.enum(BUNDLE_STATUSES);
+const bundleStatusSchema = z.enum(BUNDLE_STATUSES);
 
 const NUMBERED_BUNDLE_STATUSES = new Set<string>([
   "checking",
@@ -155,10 +155,10 @@ export type BundleSummary = z.infer<typeof bundleSummarySchema>;
 
 // ---------- 값: ContextCheck 보고 요약 ----------
 
-export const CHECK_STATUSES = ["running", "passed", "failed"] as const;
-export const checkStatusSchema = z.enum(CHECK_STATUSES);
+const CHECK_STATUSES = ["running", "passed", "failed"] as const;
+const checkStatusSchema = z.enum(CHECK_STATUSES);
 
-export const CHECK_FINDING_KINDS = [
+const CHECK_FINDING_KINDS = [
   "contract_invalid",
   "cross_project_path",
   "private_reference",
@@ -204,7 +204,7 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 // ---------- 값: SavedView ----------
 
 // saved view를 만든 쪽. 값 schema와 SavedViewCreated가 이것을 쓴다.
-export const SAVED_VIEW_AUTHORS = ["user", "project_manager"] as const;
+const SAVED_VIEW_AUTHORS = ["user", "project_manager"] as const;
 const savedViewFields = {
   id: savedViewIdSchema,
   context: ctxIdSchema,
@@ -224,12 +224,12 @@ export const savedViewListItemSchema = z.strictObject({
 
 // ---------- 값: GlossaryEntry ----------
 
-export const GLOSSARY_TERM_MAX = 80;
-export const GLOSSARY_MEANING_MAX = 1000;
+const GLOSSARY_TERM_MAX = 80;
+const GLOSSARY_MEANING_MAX = 1000;
 export const GLOSSARY_ENTRY_MAX = 200;
-export const glossaryTermSchema = trimmedText(1, GLOSSARY_TERM_MAX);
-export const glossaryMeaningSchema = trimmedText(1, GLOSSARY_MEANING_MAX);
-export const GLOSSARY_SET_BY = ["user", "project_manager"] as const;
+const glossaryTermSchema = trimmedText(1, GLOSSARY_TERM_MAX);
+const glossaryMeaningSchema = trimmedText(1, GLOSSARY_MEANING_MAX);
+const GLOSSARY_SET_BY = ["user", "project_manager"] as const;
 export const glossaryEntrySchema = z.strictObject({
   id: glossaryEntryIdSchema,
   context: ctxIdSchema,
@@ -243,13 +243,13 @@ export type GlossaryEntry = z.infer<typeof glossaryEntrySchema>;
 
 // ---------- 값: Violation ----------
 
-export const VIOLATION_KINDS = [
+const VIOLATION_KINDS = [
   "rule",
   "unreadable",
   "path_mismatch",
   "broken_link",
 ] as const;
-export const violationKindSchema = z.enum(VIOLATION_KINDS);
+const violationKindSchema = z.enum(VIOLATION_KINDS);
 
 const violationKeyFields = {
   kind: violationKindSchema,
@@ -268,7 +268,6 @@ export const violationSchema = z.strictObject({
   type: contractTypeNameSchema.nullable(),
   target: nonblankSchema.nullable(),
 }).refine(ruleOnlyForRuleKind, ruleMessage);
-export type Violation = z.infer<typeof violationSchema>;
 
 // ledger 밖 derived 표에 담기는 모양: 순수 모양 + context, 감지한 판, 문구.
 const storedViolationFields = {
@@ -279,22 +278,17 @@ const storedViolationFields = {
   target: nonblankSchema.nullable(),
   message: nonblankSchema,
 };
-export const storedViolationSchema = z.strictObject(storedViolationFields)
+const storedViolationSchema = z.strictObject(storedViolationFields)
   .refine(ruleOnlyForRuleKind, ruleMessage);
 export type StoredViolation = z.infer<typeof storedViolationSchema>;
 
 // 읽기가 돌려주는 줄.
-export const violationItemSchema = z.strictObject({
+const violationItemSchema = z.strictObject({
   ...storedViolationFields,
 }).refine(ruleOnlyForRuleKind, ruleMessage);
 export type ViolationItem = z.infer<typeof violationItemSchema>;
 
 // `(context, kind, rule, path, section)` 중 context를 뺀 키. 넘길 위반을 가리킨다.
-export const violationKeySchema = z.strictObject(violationKeyFields).refine(
-  ruleOnlyForRuleKind,
-  ruleMessage,
-);
-export type ViolationKey = z.infer<typeof violationKeySchema>;
 
 // ---------- command 비교 기준 ----------
 
@@ -316,15 +310,15 @@ export const contextCreateRequestSchema = z.strictObject({
   title: nonblankSchema,
   purpose: nonblankSchema,
 });
-export const contextTargetRequestSchema = z.strictObject({
+const contextTargetRequestSchema = z.strictObject({
   context: ctxIdSchema,
 });
-export const contextResultSchema = contextValueSchema;
+const contextResultSchema = contextValueSchema;
 
-export const bundleTargetRequestSchema = z.strictObject({
+const bundleTargetRequestSchema = z.strictObject({
   bundle: bundleIdSchema,
 });
-export const bundleResultSchema = bundleSummarySchema;
+const bundleResultSchema = bundleSummarySchema;
 
 export const bundleFinishCheckRequestSchema = z.strictObject({
   check: checkIdSchema,
@@ -341,13 +335,13 @@ export const bundleFinishCheckRequestSchema = z.strictObject({
       : value.findings.length === 0,
   { message: "failed needs at least one finding; passed has none" },
 );
-export const bundleFinishCheckResultSchema = z.strictObject({
+const bundleFinishCheckResultSchema = z.strictObject({
   context: contextValueSchema,
   bundle: bundleSummarySchema,
   check: checkReportSchema,
 });
 
-export const bundleRollbackRequestSchema = z.strictObject({
+const bundleRollbackRequestSchema = z.strictObject({
   context: ctxIdSchema,
   bundle: bundleIdSchema,
 });
@@ -367,7 +361,7 @@ const viewUpdateFields = {
   search: contractNameSchema.optional(),
   inputs: searchInputValuesSchema.optional(),
 };
-export const viewUpdateRequestSchema = z.strictObject({
+const viewUpdateRequestSchema = z.strictObject({
   view: savedViewIdSchema,
   ...viewUpdateFields,
 }).refine(
@@ -377,11 +371,11 @@ export const viewUpdateRequestSchema = z.strictObject({
     ),
   { message: "update must change at least one field" },
 );
-export const viewDeleteRequestSchema = z.strictObject({
+const viewDeleteRequestSchema = z.strictObject({
   view: savedViewIdSchema,
 });
-export const viewResultSchema = savedViewValueSchema;
-export const viewDeleteResultSchema = z.strictObject({
+const viewResultSchema = savedViewValueSchema;
+const viewDeleteResultSchema = z.strictObject({
   view: savedViewIdSchema,
 });
 
@@ -416,8 +410,8 @@ export const glossarySetRequestSchema = z.union([
 export const glossaryRemoveRequestSchema = z.strictObject({
   entry: glossaryEntryIdSchema,
 });
-export const glossaryEntryResultSchema = glossaryEntrySchema;
-export const glossaryRemoveResultSchema = z.strictObject({
+const glossaryEntryResultSchema = glossaryEntrySchema;
+const glossaryRemoveResultSchema = z.strictObject({
   entry: glossaryEntryIdSchema,
 });
 
@@ -428,7 +422,7 @@ export const CONTEXT_PAGE_MAX = 100;
 const pageLimitSchema = z.number().int().min(1).max(CONTEXT_PAGE_MAX);
 
 // project와 app 중 정확히 하나로 거른다. app은 적용된 판이 그 앱을 app-data Source로 읽는 context다.
-export const contextListRequestSchema = z.strictObject({
+const contextListRequestSchema = z.strictObject({
   project: projectIdSchema.optional(),
   app: appIdSchema.optional(),
   // 없으면 보관되지 않은 것(drafting, active), all이면 보관된 것까지
@@ -440,7 +434,7 @@ export const contextListRequestSchema = z.strictObject({
   { message: "expected exactly one of project and app" },
 );
 // 제목의 code unit 순, 같으면 id 순
-export const contextListReadSchema = publicPage(z.object({
+const contextListReadSchema = publicPage(z.object({
   contexts: z.array(contextListItemSchema).max(CONTEXT_PAGE_MAX),
 }));
 
@@ -466,7 +460,7 @@ export const contextOverviewReadSchema = publicRead(z.object({
 
 // 개체를 가리키는 값. 이 ref로 그 파일(+ section)을 연다. context는 다른 context의 개체를 가리킬 때만 있고
 // (`context.entity`의 다른 context 관계 대상) 그 context의 ID다. 없으면 ref를 준 context의 개체다.
-export const entityRefSchema = z.strictObject({
+const entityRefSchema = z.strictObject({
   context: ctxIdSchema.optional(),
   type: contractTypeNameSchema,
   key: nonblankSchema,
@@ -477,7 +471,7 @@ export type EntityRef = z.infer<typeof entityRefSchema>;
 
 // 열 하나의 값. path는 열의 path(`field` 또는 `별칭.field`)이고, field가 key이면 ref가 그 개체
 // (시작 개체 또는 별칭 개체)이고 아니면 null이다. 열이 아닌 묶기·board_by path도 값을 싣는다.
-export const searchCellSchema = z.strictObject({
+const searchCellSchema = z.strictObject({
   path: searchPathSchema,
   value: jsonValueSchema,
   ref: entityRefSchema.nullable(),
@@ -485,7 +479,7 @@ export const searchCellSchema = z.strictObject({
 export type SearchCell = z.infer<typeof searchCellSchema>;
 
 // 선언 검색 실행기의 결과 행과 같은 모양이다: 시작 개체의 ref와 열마다 하나의 cell(열 순서).
-export const searchRowSchema = z.strictObject({
+const searchRowSchema = z.strictObject({
   ref: entityRefSchema,
   cells: z.array(searchCellSchema),
 });
@@ -508,7 +502,7 @@ export const contextSearchReadSchema = publicPage(z.object({
   rows: z.array(searchRowSchema).max(SEARCH_PAGE_SIZE_MAX),
 }));
 
-export const contextContractRequestSchema = z.strictObject({
+const contextContractRequestSchema = z.strictObject({
   context: ctxIdSchema,
   // 없으면 적용된 판이다. 있으면 그 context의 submit된 이후 판(checking, failed, applied, superseded)이다.
   bundle: bundleIdSchema.optional(),
@@ -525,7 +519,7 @@ export const contextContractReadSchema = publicRead(z.object({
 // 만드는 중(drafting) context의 진행이다. drafting이 아닌 context는 draft가 null이다. 단계는 1 읽기
 // (아직 판이 없다), 2 초안(draft 또는 failed 판), 3 검사(checking 판)다. 적용되면 context가 active가
 // 되므로 4는 이 읽기에 없다. bundle·content·check는 그 단계에 아직 없으면 null이다.
-export const contextDraftReadSchema = publicRead(z.object({
+const contextDraftReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   draft: z.strictObject({
     step: z.union([z.literal(1), z.literal(2), z.literal(3)]),
@@ -540,8 +534,8 @@ export const contextDraftReadSchema = publicRead(z.object({
 }));
 
 export const INPUT_OPTIONS_DEFAULT = 50;
-export const INPUT_OPTIONS_MAX = 200;
-export const INPUT_OPTIONS_PREFIX_MAX = 200;
+const INPUT_OPTIONS_MAX = 200;
+const INPUT_OPTIONS_PREFIX_MAX = 200;
 export const contextInputOptionsRequestSchema = z.strictObject({
   context: ctxIdSchema,
   search: contractNameSchema,
@@ -566,7 +560,7 @@ export const contextInputOptionsReadSchema = publicRead(z.object({
   complete: z.boolean(),
 }));
 
-export const contextViolationsRequestSchema = z.strictObject({
+const contextViolationsRequestSchema = z.strictObject({
   context: ctxIdSchema,
   cursor: readCursorSchema.optional(),
   limit: pageLimitSchema.optional(),
@@ -577,13 +571,13 @@ export const contextViolationsReadSchema = publicPage(z.object({
   violations: z.array(violationItemSchema).max(CONTEXT_PAGE_MAX),
 }));
 
-export const contextBundlesRequestSchema = z.strictObject({
+const contextBundlesRequestSchema = z.strictObject({
   context: ctxIdSchema,
   cursor: readCursorSchema.optional(),
   limit: pageLimitSchema.optional(),
 });
 // 판 이력: 번호 내림차순, 번호 없는 draft가 맨 앞이다. 검사 보고가 있으면 같이 싣는다.
-export const contextBundlesReadSchema = publicPage(z.object({
+const contextBundlesReadSchema = publicPage(z.object({
   context: ctxIdSchema,
   bundles: z.array(z.strictObject({
     bundle: bundleSummarySchema,
@@ -591,21 +585,21 @@ export const contextBundlesReadSchema = publicPage(z.object({
   })).max(CONTEXT_PAGE_MAX),
 }));
 
-export const contextSavedViewsRequestSchema = z.strictObject({
+const contextSavedViewsRequestSchema = z.strictObject({
   context: ctxIdSchema,
 });
 // 이름의 code unit 순, 같으면 id 순
-export const contextSavedViewsReadSchema = publicRead(z.object({
+const contextSavedViewsReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   views: z.array(savedViewListItemSchema),
 }));
 
-export const contextContainingRequestSchema = z.strictObject({
+const contextContainingRequestSchema = z.strictObject({
   project: projectIdSchema,
   path: relativePathSchema,
 });
 // 적용된 판이 있는 활성 context 중 계약의 Source가 이 경로를 덮는 것. 제목, id 순.
-export const contextContainingReadSchema = publicRead(z.object({
+const contextContainingReadSchema = publicRead(z.object({
   contexts: z.array(z.strictObject({
     context: ctxIdSchema,
     title: nonblankSchema,
@@ -614,10 +608,10 @@ export const contextContainingReadSchema = publicRead(z.object({
 }));
 
 // 항목 전부를 용어의 ASCII 소문자 byte 순(같으면 id 순)으로 한 번에. cursor·page가 없다.
-export const glossaryListRequestSchema = z.strictObject({
+const glossaryListRequestSchema = z.strictObject({
   context: ctxIdSchema,
 });
-export const glossaryListReadSchema = publicRead(z.object({
+const glossaryListReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   entries: z.array(glossaryEntrySchema).max(GLOSSARY_ENTRY_MAX),
 }));
@@ -628,24 +622,23 @@ export const glossaryListReadSchema = publicRead(z.object({
 // 아니라 core가 context worker에 일을 보내 답한다(packages/core/projects/contexts/connection.ts).
 
 export const CONTEXT_PREVIEW_PAGE = 30;
-export const contextPreviewRequestSchema = z.strictObject({
+const contextPreviewRequestSchema = z.strictObject({
   context: ctxIdSchema,
   // 만드는 중인(draft 상태) 판
   bundle: bundleIdSchema,
   cursor: readCursorSchema.optional(),
 });
 // 위반 한 줄. 저장된 위반에서 context·감지한 판(bundle_hash)만 뺀 것이다.
-export const previewViolationSchema = z.strictObject({
+const previewViolationSchema = z.strictObject({
   ...violationKeyFields,
   type: contractTypeNameSchema.nullable(),
   target: nonblankSchema.nullable(),
   message: nonblankSchema,
 }).refine(ruleOnlyForRuleKind, ruleMessage);
-export type PreviewViolation = z.infer<typeof previewViolationSchema>;
 // types는 지금 파일에서 뽑은 type별 개체 수(계약의 type 순서). 모양·의미 검사에서 멈추면 비어 있고
 // violation_count는 0이다. 위반은 path, kind, rule, section의 code unit 순이고 page는 30개다.
 // findings는 매 page에 같다.
-export const contextPreviewReadSchema = publicPage(z.object({
+const contextPreviewReadSchema = publicPage(z.object({
   context: ctxIdSchema,
   bundle: bundleIdSchema,
   types: z.array(z.strictObject({
@@ -658,14 +651,14 @@ export const contextPreviewReadSchema = publicPage(z.object({
 }));
 export type ContextPreviewRead = z.infer<typeof contextPreviewReadSchema>;
 
-export const contextEntityRequestSchema = z.strictObject({
+const contextEntityRequestSchema = z.strictObject({
   context: ctxIdSchema,
   type: contractTypeNameSchema,
   key: nonblankSchema,
 });
 // 적용된 판의 index에서 읽은 개체 하나. fields는 선언한 field 전부(값이 없으면 null, list는 배열)이고
 // relations는 type이 선언한 관계 전부를 선언 순서로 싣는다. targets는 간선 순서이고 닿는 개체가 없으면 비어 있다.
-export const contextEntityReadSchema = publicRead(z.object({
+const contextEntityReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   bundle_hash: sha256Schema,
   ref: entityRefSchema,
@@ -676,15 +669,14 @@ export const contextEntityReadSchema = publicRead(z.object({
     targets: z.array(entityRefSchema),
   })),
 }));
-export type ContextEntityRead = z.infer<typeof contextEntityReadSchema>;
 
-export const contextSeriesNextRequestSchema = z.strictObject({
+const contextSeriesNextRequestSchema = z.strictObject({
   context: ctxIdSchema,
   type: contractTypeNameSchema,
 });
 // documents/series의 다음 이름. key가 빈 문자열이면 path가 null(계산 불가), path에 `*`가 남아 있으면
 // complete가 false다. taken은 계산한 key를 가진 멤버가 이미 있다는 뜻이다.
-export const seriesNextSchema = z.strictObject({
+const seriesNextSchema = z.strictObject({
   key: z.string(),
   path: relativePathSchema.nullable(),
   from: relativePathSchema.nullable(),
@@ -698,17 +690,13 @@ export const seriesNextSchema = z.strictObject({
 ).refine((next) => !next.taken || next.path !== null, {
   message: "taken needs a computed name",
 });
-export type SeriesNext = z.infer<typeof seriesNextSchema>;
-export const contextSeriesNextReadSchema = publicRead(z.object({
+const contextSeriesNextReadSchema = publicRead(z.object({
   context: ctxIdSchema,
   type: contractTypeNameSchema,
   // type의 series pattern
   pattern: nonblankSchema,
   next: seriesNextSchema,
 }));
-export type ContextSeriesNextRead = z.infer<
-  typeof contextSeriesNextReadSchema
->;
 
 // ---------- route ----------
 
@@ -1002,7 +990,7 @@ export const contextSeriesNextRoute = defineRead({
   errors: READ_ERRORS,
 });
 
-export const CONTEXT_API_COMMAND_ROUTES = [
+const CONTEXT_API_COMMAND_ROUTES = [
   contextCreateRoute,
   contextArchiveRoute,
   contextUnarchiveRoute,
@@ -1015,7 +1003,7 @@ export const CONTEXT_API_COMMAND_ROUTES = [
   glossarySetRoute,
   glossaryRemoveRoute,
 ] as const;
-export const CONTEXT_API_READ_ROUTES = [
+const CONTEXT_API_READ_ROUTES = [
   contextListRoute,
   contextGetRoute,
   contextOverviewRoute,
@@ -1039,7 +1027,7 @@ export const CONTEXT_API_ROUTES = [
 
 // ---------- event ----------
 
-export const contextCreatedEvent = defineEvent("ContextCreated", {
+const contextCreatedEvent = defineEvent("ContextCreated", {
   subject: ctxIdSchema,
   payload: z.object({
     project: projectIdSchema,
@@ -1047,15 +1035,15 @@ export const contextCreatedEvent = defineEvent("ContextCreated", {
     purpose: nonblankSchema,
   }),
 });
-export const contextArchivedEvent = defineEvent("ContextArchived", {
+const contextArchivedEvent = defineEvent("ContextArchived", {
   subject: ctxIdSchema,
   payload: z.object({ before_revision: revisionSchema }),
 });
-export const contextUnarchivedEvent = defineEvent("ContextUnarchived", {
+const contextUnarchivedEvent = defineEvent("ContextUnarchived", {
   subject: ctxIdSchema,
   payload: z.object({ before_revision: revisionSchema }),
 });
-export const bundleDraftSavedEvent = defineEvent("ContextBundleDraftSaved", {
+const bundleDraftSavedEvent = defineEvent("ContextBundleDraftSaved", {
   subject: bundleIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1063,11 +1051,11 @@ export const bundleDraftSavedEvent = defineEvent("ContextBundleDraftSaved", {
     content: blobReferenceSchema,
   }),
 });
-export const bundleDraftDiscardedEvent = defineEvent(
+const bundleDraftDiscardedEvent = defineEvent(
   "ContextBundleDraftDiscarded",
   { subject: bundleIdSchema, payload: z.object({ context: ctxIdSchema }) },
 );
-export const bundleSubmittedEvent = defineEvent("ContextBundleSubmitted", {
+const bundleSubmittedEvent = defineEvent("ContextBundleSubmitted", {
   subject: bundleIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1076,7 +1064,7 @@ export const bundleSubmittedEvent = defineEvent("ContextBundleSubmitted", {
     check: checkIdSchema,
   }),
 });
-export const bundleCheckFailedEvent = defineEvent("ContextBundleCheckFailed", {
+const bundleCheckFailedEvent = defineEvent("ContextBundleCheckFailed", {
   subject: bundleIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1085,7 +1073,7 @@ export const bundleCheckFailedEvent = defineEvent("ContextBundleCheckFailed", {
     findings: z.array(checkFindingSchema).min(1),
   }),
 });
-export const bundleAppliedEvent = defineEvent("ContextBundleApplied", {
+const bundleAppliedEvent = defineEvent("ContextBundleApplied", {
   subject: bundleIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1095,7 +1083,7 @@ export const bundleAppliedEvent = defineEvent("ContextBundleApplied", {
     violation_count: countSchema,
   }),
 });
-export const bundleRolledBackEvent = defineEvent("ContextBundleRolledBack", {
+const bundleRolledBackEvent = defineEvent("ContextBundleRolledBack", {
   subject: bundleIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1104,7 +1092,7 @@ export const bundleRolledBackEvent = defineEvent("ContextBundleRolledBack", {
     before_revision: revisionSchema,
   }),
 });
-export const savedViewCreatedEvent = defineEvent("SavedViewCreated", {
+const savedViewCreatedEvent = defineEvent("SavedViewCreated", {
   subject: savedViewIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1114,7 +1102,7 @@ export const savedViewCreatedEvent = defineEvent("SavedViewCreated", {
     origin: z.enum(SAVED_VIEW_AUTHORS),
   }),
 });
-export const savedViewUpdatedEvent = defineEvent("SavedViewUpdated", {
+const savedViewUpdatedEvent = defineEvent("SavedViewUpdated", {
   subject: savedViewIdSchema,
   payload: z.object({
     before: z.object(viewUpdateFields),
@@ -1127,14 +1115,14 @@ export const savedViewUpdatedEvent = defineEvent("SavedViewUpdated", {
     { message: "update event names the changed fields" },
   ),
 });
-export const savedViewDeletedEvent = defineEvent("SavedViewDeleted", {
+const savedViewDeletedEvent = defineEvent("SavedViewDeleted", {
   subject: savedViewIdSchema,
   payload: z.object({
     before_view: savedViewValueSchema,
     before_revision: revisionSchema,
   }),
 });
-export const glossaryEntrySetEvent = defineEvent("GlossaryEntrySet", {
+const glossaryEntrySetEvent = defineEvent("GlossaryEntrySet", {
   subject: glossaryEntryIdSchema,
   payload: z.object({
     context: ctxIdSchema,
@@ -1144,7 +1132,7 @@ export const glossaryEntrySetEvent = defineEvent("GlossaryEntrySet", {
     created: z.boolean(),
   }),
 });
-export const glossaryEntryRemovedEvent = defineEvent("GlossaryEntryRemoved", {
+const glossaryEntryRemovedEvent = defineEvent("GlossaryEntryRemoved", {
   subject: glossaryEntryIdSchema,
   payload: z.object({
     context: ctxIdSchema,

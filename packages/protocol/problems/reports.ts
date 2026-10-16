@@ -2,7 +2,6 @@ import { z } from "zod";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { authenticatedContextSchema } from "../server/identity.ts";
 import { defineCommand, defineWorker } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import {
   problemCodeSchema,
@@ -19,8 +18,8 @@ import { exceptionObservationInputSchema } from "./exception-observation.ts";
 const nonblank = z.string().regex(/\S/);
 export const reportSourceSchema = z.enum(["app", "exception", "feedback"]);
 export const reportModeSchema = z.enum(["live", "preview", "test"]);
-export type ReportSource = z.infer<typeof reportSourceSchema>;
-export type ReportMode = z.infer<typeof reportModeSchema>;
+type ReportSource = z.infer<typeof reportSourceSchema>;
+type ReportMode = z.infer<typeof reportModeSchema>;
 const scopeFields = {
   app: idSchema("app"),
   mode: reportModeSchema,
@@ -60,7 +59,7 @@ const validReportContent = (
   value: { source: ReportSource; text: string | null },
 ) => value.source !== "feedback" || value.text !== null;
 // The caller cannot fix the server-assigned problem in prepared input.
-export const reportInputSchema = z.strictObject(reportFields).refine(validScope)
+const reportInputSchema = z.strictObject(reportFields).refine(validScope)
   .refine(validCode).refine(validReportContent);
 export const reportSchema = z.object({
   ...reportFields,
@@ -68,8 +67,6 @@ export const reportSchema = z.object({
 }).refine(validScope).refine(validCode).refine(validReportContent).refine((
   value,
 ) => (value.mode === "live") === (value.problem !== null));
-export type ReportInput = z.infer<typeof reportInputSchema>;
-export type Report = z.infer<typeof reportSchema>;
 
 function groupKey(strict: boolean) {
   const object = strict ? z.strictObject : z.object;
@@ -97,28 +94,21 @@ function groupKey(strict: boolean) {
   ]);
 }
 export const groupKeySchema = groupKey(false);
-export const groupKeyInputSchema = groupKey(true);
-export type GroupKey = z.infer<typeof groupKeySchema>;
+const groupKeyInputSchema = groupKey(true);
 
 // The authentication boundary supplies this separately, never from JSON body.
-export const authenticatedReportContextSchema = z.strictObject({
+const authenticatedReportContextSchema = z.strictObject({
   authentication: authenticatedContextSchema.extend({ principal: nonblank }),
   ...scopeFields,
   binding: nonblank,
   origin: z.enum(["app", "process_observer", "view_observer", "shell_user"]),
 }).refine(validScope);
-export type AuthenticatedReportContext = z.infer<
-  typeof authenticatedReportContextSchema
->;
 // Trusted forwarding attestation, not a caller-created proof of authorization.
 export const reportOriginEvidenceInputSchema = z.strictObject({
   context: authenticatedReportContextSchema,
   report_id: idSchema("rpt"),
   content_hash: sha256Schema,
 });
-export type ReportOriginEvidence = z.infer<
-  typeof reportOriginEvidenceInputSchema
->;
 
 const acceptanceIds = { report: idSchema("rpt"), snapshot: idSchema("snp") };
 export const reportAcceptanceSchema = z.union([
@@ -129,7 +119,6 @@ export const reportAcceptanceSchema = z.union([
   }),
   z.object({ ...acceptanceIds, problem: z.null(), diagnostic_scope: nonblank }),
 ]);
-export type AcceptedReport = z.infer<typeof reportAcceptanceSchema>;
 export const REPORT_ERRORS = [
   "invalid_input",
   "unauthorized",
@@ -141,7 +130,7 @@ export const REPORT_ERRORS = [
 const automaticBytes = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).length <=
     REPORTING_LIMITS.automatic_body_bytes;
-export const reportProblemInputSchema = z.strictObject({
+const reportProblemInputSchema = z.strictObject({
   report_id: idSchema("rpt"),
   code: problemCodeSchema,
   observed_at: atSchema,
@@ -149,8 +138,7 @@ export const reportProblemInputSchema = z.strictObject({
   details: z.json().optional(),
   invocation: invocationEvidenceInputSchema.nullable().optional(),
 }).refine(automaticBytes);
-export const observeExceptionInputSchema = exceptionObservationInputSchema;
-export type ObserveExceptionInput = z.infer<typeof observeExceptionInputSchema>;
+const observeExceptionInputSchema = exceptionObservationInputSchema;
 export const reportProblem = defineWorker({
   resource: "problems",
   method: "report",
@@ -185,7 +173,6 @@ export const observeViewErrorInputSchema = z.strictObject({
   }),
   observation: exceptionObservationInputSchema,
 });
-export type ObserveViewErrorInput = z.infer<typeof observeViewErrorInputSchema>;
 export const observeViewError = defineWorker({
   resource: "problems",
   method: "observe-view-error",
@@ -196,7 +183,7 @@ export const observeViewError = defineWorker({
   errors: REPORT_ERRORS,
 });
 
-export const recordReportInputSchema = z.strictObject({
+const recordReportInputSchema = z.strictObject({
   report: reportInputSchema,
   snapshot: snapshotInputSchema,
   group_key: groupKeyInputSchema,
@@ -250,24 +237,8 @@ export const recordReportInputSchema = z.strictObject({
   // 큰 자료 준비 총량(snapshot_large_bytes)은 항목별 상한 합보다 커서 schema로는 걸리지 않는다.
   // 조립 중 실제 잘림·timeout·제외 이유 판정은 collector runtime 책임이다.
 }, { message: "all content hashes need matching bounded blob authority" });
-export type RecordReportInput = z.infer<typeof recordReportInputSchema>;
-export type PreparedReport = RecordReportInput;
 // Hash the immutable content, not this hash itself, ephemeral preparation
 // handles, server-assigned problem, origin forwarding metadata or event seq.
-export const reportContentHashInputSchema = z.strictObject({
-  report: z.strictObject(reportFields).omit({ content_hash: true })
-    .refine(validScope).refine(validCode).refine(validReportContent),
-  snapshot: snapshotInputSchema,
-  group_key: groupKeyInputSchema,
-  existing_problem: idSchema("prb").nullable(),
-  blobs: z.array(z.strictObject({
-    purpose: reportBlobsInputSchema.element.shape.purpose,
-    hash: sha256Schema,
-  })).max(6),
-});
-export type ReportContentHashInput = z.infer<
-  typeof reportContentHashInputSchema
->;
 export const recordReportCompareSchema = z.strictObject({
   active_release: idSchema("rel").nullable(),
   problem_seq: seqSchema.nullable(),
@@ -281,36 +252,4 @@ export const recordReport = defineCommand({
   compare: recordReportCompareSchema,
   actors: ["machine"],
   errors: REPORT_ERRORS,
-});
-export const reportRecorded = defineEvent("ReportRecorded", {
-  subject: idSchema("rpt"),
-  payload: z.object({
-    app: idSchema("app"),
-    problem: idSchema("prb").nullable(),
-    source: reportSourceSchema,
-    mode: reportModeSchema,
-    code: z.union([problemCodeSchema, reservedProblemCodeSchema]),
-    snapshot: idSchema("snp"),
-    observed_at: atSchema,
-    content_hash: sha256Schema,
-  }).refine(validCode).refine((value) =>
-    (value.mode === "live") === (value.problem !== null)
-  ),
-});
-export const problemOpened = defineEvent("ProblemOpened", {
-  subject: idSchema("prb"),
-  payload: z.object({
-    app: idSchema("app"),
-    group_key: groupKeySchema,
-    report: idSchema("rpt"),
-  }),
-});
-export const problemObserved = defineEvent("ProblemObserved", {
-  subject: idSchema("prb"),
-  payload: z.object({
-    report: idSchema("rpt"),
-    release: idSchema("rel").nullable(),
-    active_release_at_acceptance: idSchema("rel").nullable(),
-    previous_status: z.enum(["open", "fixing", "closed"]),
-  }),
 });

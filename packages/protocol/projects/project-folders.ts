@@ -7,9 +7,8 @@ const subfolderFields = {
   path: relativePathSchema,
   description: z.string(),
 };
-export const subfolderSchema = z.strictObject(subfolderFields);
-export const subfolderOutputSchema = z.object(subfolderFields);
-export type Subfolder = z.infer<typeof subfolderSchema>;
+const subfolderSchema = z.strictObject(subfolderFields);
+const subfolderOutputSchema = z.object(subfolderFields);
 
 function distinct(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
@@ -19,7 +18,7 @@ const folderFields = {
   path: absolutePathSchema,
   description: z.string(),
 };
-export const projectFolderSchema = z.strictObject({
+const projectFolderSchema = z.strictObject({
   ...folderFields,
   subfolders: z.array(subfolderSchema),
 }).refine((value) => distinct(value.subfolders.map((sub) => sub.path)), {
@@ -43,4 +42,3 @@ export const projectFolderReadSchema = z.object({
   subfolders: z.array(subfolderOutputSchema),
   found: z.boolean(),
 });
-export type ProjectFolderRead = z.infer<typeof projectFolderReadSchema>;

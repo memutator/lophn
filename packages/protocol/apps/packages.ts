@@ -3,7 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { semver } from "./blueprint-scope.ts";
 
-export const PACKAGE_KINDS = [
+const PACKAGE_KINDS = [
   "component",
   "capability",
   "domain",
@@ -11,7 +11,6 @@ export const PACKAGE_KINDS = [
 ] as const;
 
 export const packageKindSchema = z.enum(PACKAGE_KINDS);
-export type PackageKind = z.infer<typeof packageKindSchema>;
 
 export const packageVersionNameSchema = z.string().refine(semver, {
   message: "expected one exact SemVer",

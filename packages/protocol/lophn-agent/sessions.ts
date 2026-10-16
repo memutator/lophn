@@ -6,7 +6,6 @@ import {
   seqSchema,
 } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { agentRefOutputSchema, placeOutputSchema } from "./places.ts";
@@ -20,11 +19,11 @@ import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 // 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 이모지나 결합 문자를 중간에서
 // 자르지 않는다. 자동 제목은 앞 60자, 사람이 rename한 제목은 120자 이하다.
 export const SESSION_AUTO_TITLE_MAX = 60;
-export const SESSION_RENAME_TITLE_MAX = 120;
+const SESSION_RENAME_TITLE_MAX = 120;
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-export function sessionTitleLength(text: string): number {
+function sessionTitleLength(text: string): number {
   let count = 0;
   for (const _ of segmenter.segment(text)) count += 1;
   return count;
@@ -40,15 +39,14 @@ export const sessionTitleSchema = z.string()
     { message: "title is longer than 120 characters" },
   );
 
-export const SESSION_STATES = ["open", "closed"] as const;
+const SESSION_STATES = ["open", "closed"] as const;
 // 사람이 닫는 이유는 없다. assignment 회수만 session을 닫는다.
-export const SESSION_CLOSED_REASONS = ["assignment_withdrawn"] as const;
+const SESSION_CLOSED_REASONS = ["assignment_withdrawn"] as const;
 
 const forkOriginFields = {
   session: idSchema("ses"),
   through_seq: seqSchema,
 };
-export const forkOriginSchema = z.strictObject(forkOriginFields);
 export const forkOriginOutputSchema = z.object(forkOriginFields);
 
 // toast에서 연 첫 context. 사건 글을 복사하지 않고 참조만 둔다. 대상은
@@ -90,53 +88,50 @@ const sessionFields = {
   state_seq: seqSchema,
 };
 
-export const sessionRecordSchema = z.object(sessionFields).refine((value) => {
+const sessionRecordSchema = z.object(sessionFields).refine((value) => {
   const closed = value.state === "closed";
   if ((value.closed_reason !== null) !== closed) return false;
   if ((value.closed_at !== null) !== closed) return false;
   return value.forked_from === null || value.forked_from.session !== value.id;
 }, { message: "session close or fork origin is not coupled" });
 
-export type SessionRecord = z.infer<typeof sessionRecordSchema>;
-export type Session = SessionRecord;
-
 // 열기: assignment가 enabled일 때만(paused·withdrawn 거절). 자리가 role 규칙(AE=담당 app,
 // Operator=scope, lophn=project/app, CE=project)에 맞는지는 assignment를 아는 owner가 검사한다.
-export const openSessionInputSchema = z.strictObject({
+const openSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   assignment: idSchema("asg"),
   work_place: workPlaceSchema,
   opening_context: openingContextSchema.nullable(),
 });
 
-export const openSessionCompareSchema = z.strictObject({
+const openSessionCompareSchema = z.strictObject({
   assignment_revision: positiveRevisionSchema,
   assignment_state: z.literal("enabled"),
 });
 
 const stateSeqCompareSchema = z.strictObject({ state_seq: seqSchema });
 
-export const renameSessionInputSchema = z.strictObject({
+const renameSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
   title: sessionTitleSchema,
 });
-export const renameSessionCompareSchema = stateSeqCompareSchema;
+const renameSessionCompareSchema = stateSeqCompareSchema;
 
-export const archiveSessionInputSchema = z.strictObject({
+const archiveSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
 });
-export const archiveSessionCompareSchema = stateSeqCompareSchema;
-export const unarchiveSessionInputSchema = archiveSessionInputSchema;
-export const unarchiveSessionCompareSchema = stateSeqCompareSchema;
+const archiveSessionCompareSchema = stateSeqCompareSchema;
+const unarchiveSessionInputSchema = archiveSessionInputSchema;
+const unarchiveSessionCompareSchema = stateSeqCompareSchema;
 
-export const deleteSessionInputSchema = z.strictObject({
+const deleteSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
 });
-export const deleteSessionCompareSchema = stateSeqCompareSchema;
+const deleteSessionCompareSchema = stateSeqCompareSchema;
 
 // Fork: 같은 agent·같은 자리의 새 session. 사람이 고른 지점(through_seq)까지의 확정 메시지만
 // 복사한다.
-export const forkSessionInputSchema = z.strictObject({
+const forkSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   source: idSchema("ses"),
   through_seq: seqSchema,
@@ -148,7 +143,7 @@ export const forkSessionInputSchema = z.strictObject({
 // call을 하고, 끝까지 성공한 그 call을 구간과 함께 session에 이어(CompactSession) 요청을 끝낸다.
 // 실패하면 이유와 함께 요청만 닫는다(FailSessionCompact). 어느 쪽이든 원문과 session의 나머지는
 // 바뀌지 않는다.
-export const COMPACT_FAILURE_REASONS = [
+const COMPACT_FAILURE_REASONS = [
   "nothing_to_summarize",
   "model_unavailable",
   "model_failed",
@@ -159,48 +154,48 @@ export const COMPACT_FAILURE_REASONS = [
 export const compactFailureReasonSchema = z.enum(COMPACT_FAILURE_REASONS);
 export type CompactFailureReason = (typeof COMPACT_FAILURE_REASONS)[number];
 
-export const requestSessionCompactInputSchema = z.strictObject({
+const requestSessionCompactInputSchema = z.strictObject({
   session: idSchema("ses"),
 });
-export const requestSessionCompactCompareSchema = z.strictObject({
+const requestSessionCompactCompareSchema = z.strictObject({
   state: z.literal("open"),
   state_seq: seqSchema,
 });
 
-export const compactSessionInputSchema = z.strictObject({
+const compactSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
   summary_call: idSchema("mcl"),
   // 요약이 덮는 마지막 메시지의 순번. runtime이 요약 재료를 모은 때의 마지막 메시지다.
   through_seq: seqSchema,
 });
-export const compactSessionCompareSchema = z.strictObject({
+const compactSessionCompareSchema = z.strictObject({
   state: z.literal("open"),
   request_seq: seqSchema,
 });
 
-export const failSessionCompactInputSchema = z.strictObject({
+const failSessionCompactInputSchema = z.strictObject({
   session: idSchema("ses"),
   reason: compactFailureReasonSchema,
 });
-export const failSessionCompactCompareSchema = z.strictObject({
+const failSessionCompactCompareSchema = z.strictObject({
   request_seq: seqSchema,
 });
 
 // null은 agent 기본값으로 돌아간다.
-export const changeSessionModelInputSchema = z.strictObject({
+const changeSessionModelInputSchema = z.strictObject({
   session: idSchema("ses"),
   model: modelChoiceSchema.nullable(),
 });
-export const changeSessionModelCompareSchema = z.strictObject({
+const changeSessionModelCompareSchema = z.strictObject({
   state: z.literal("open"),
   state_seq: seqSchema,
 });
 
-export const closeSessionInputSchema = z.strictObject({
+const closeSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
   reason: z.enum(SESSION_CLOSED_REASONS),
 });
-export const closeSessionCompareSchema = z.strictObject({
+const closeSessionCompareSchema = z.strictObject({
   state_seq: seqSchema,
   state: z.literal("open"),
 });
@@ -409,8 +404,8 @@ const readErrors = [
 // 섞이지 않는다. archived는 기본에서 뺀다(`exclude`, 생략과 같다);
 // Archived 보기는 `only`다. 제목 검색은 이 결과에서 제목만 대상으로 하는 화면의 거름이며
 // 메시지 본문은 읽지 않는다.
-export const SESSION_ARCHIVED_FILTERS = ["exclude", "include", "only"] as const;
-export const sessionListInputSchema = z.strictObject({
+const SESSION_ARCHIVED_FILTERS = ["exclude", "include", "only"] as const;
+const sessionListInputSchema = z.strictObject({
   assignment: idSchema("asg"),
   work_place: workPlaceSchema,
   archived: z.enum(SESSION_ARCHIVED_FILTERS).optional(),
@@ -476,70 +471,10 @@ export const sessionSummary = defineRead({
   errors: [...readErrors],
 });
 
-const sessionSubject = idSchema("ses");
-
-export const sessionOpened = defineEvent("SessionOpened", {
-  subject: sessionSubject,
-  payload: z.object({
-    assignment: idSchema("asg"),
-    work_place: workPlaceOutputSchema,
-    opening_context: openingContextOutputSchema.nullable(),
-  }),
-});
-
-export const sessionRenamed = defineEvent("SessionRenamed", {
-  subject: sessionSubject,
-  payload: z.object({
-    before: sessionTitleSchema.nullable(),
-    after: sessionTitleSchema,
-  }),
-});
-
-export const sessionArchived = defineEvent("SessionArchived", {
-  subject: sessionSubject,
-  payload: z.object({}),
-});
-
-export const sessionUnarchived = defineEvent("SessionUnarchived", {
-  subject: sessionSubject,
-  payload: z.object({}),
-});
 
 // 지운 내용은 싣지 않는다.
-export const sessionDeleted = defineEvent("SessionDeleted", {
-  subject: sessionSubject,
-  payload: z.object({
-    assignment: idSchema("asg"),
-    deleted_at: atSchema,
-  }),
-});
 
 // subject는 새 session이다.
-export const sessionForked = defineEvent("SessionForked", {
-  subject: sessionSubject,
-  payload: z.object({
-    forked_from: forkOriginOutputSchema,
-    copied_messages: z.number().int().nonnegative().max(
-      Number.MAX_SAFE_INTEGER,
-    ),
-  }),
-});
-
-export const sessionModelChanged = defineEvent("SessionModelChanged", {
-  subject: sessionSubject,
-  payload: z.object({
-    before: modelChoiceOutputSchema.nullable(),
-    after: modelChoiceOutputSchema.nullable(),
-  }),
-});
-
-export const sessionClosed = defineEvent("SessionClosed", {
-  subject: sessionSubject,
-  payload: z.object({
-    reason: z.enum(SESSION_CLOSED_REASONS),
-    closed_at: atSchema,
-  }),
-});
 
 export const SESSION_COMMANDS = [
   openSession,
@@ -558,13 +493,3 @@ export const SESSION_COMMANDS = [
   sessionSummary,
 ] as const;
 
-export const SESSION_EVENTS = [
-  sessionOpened,
-  sessionRenamed,
-  sessionArchived,
-  sessionUnarchived,
-  sessionDeleted,
-  sessionForked,
-  sessionModelChanged,
-  sessionClosed,
-] as const;

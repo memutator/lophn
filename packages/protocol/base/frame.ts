@@ -1,5 +1,5 @@
 // core와 자식 process 사이 pipe의 frame 형식과 codec이다.
-export const FRAME_KINDS = { json: 1, bytes: 2, end: 3, abort: 4 } as const;
+const FRAME_KINDS = { json: 1, bytes: 2, end: 3, abort: 4 } as const;
 export const STREAM_CHUNK_MAX_BYTES = 1024 * 1024;
 export const CONTROL_MAX_BYTES = 256 * 1024;
 export type Frame =

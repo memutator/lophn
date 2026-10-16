@@ -2,7 +2,7 @@ import type { Result } from "../../../base/mod.ts";
 import { definePort, type PortKey } from "../../base/ports.ts";
 import type { TicketId } from "./values.ts";
 
-export const TICKET_CLAIM_REJECTS = [
+const TICKET_CLAIM_REJECTS = [
   "missing",
   "expired",
   "released",
@@ -12,9 +12,9 @@ export const TICKET_CLAIM_REJECTS = [
   "ticket_closed",
 ] as const;
 
-export type TicketClaimReject = (typeof TICKET_CLAIM_REJECTS)[number];
+type TicketClaimReject = (typeof TICKET_CLAIM_REJECTS)[number];
 
-export type TicketClaimCheckInput = {
+type TicketClaimCheckInput = {
   ticket: TicketId;
   claim_seq: string;
   session: string;

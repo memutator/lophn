@@ -8,13 +8,13 @@
 
 import { sha256Hex } from "./outline-markdown-sha256.ts";
 
-export type OutlineRange = {
+type OutlineRange = {
   // 1-based, inclusive.
   start_line: number;
   end_line: number;
 };
 
-export type OutlineNode = {
+type OutlineNode = {
   // 한 outline 안에서 유일. 명시 anchor 우선, 없으면 제목 slug, 같은 부모 아래 중복은 `-2`부터,
   // 부모가 있으면 `부모key/자기slug`. outline은 모든 heading의 tree이고 heading node만 담는다. 첫 heading 앞 본문은 node가 아니며 줄 범위로 읽는다. 유일한 h1도 level 1 node이고 그 아래 heading은 자식이다.
   key: string;
@@ -38,7 +38,7 @@ export type OutlineNode = {
   children_count: number;
 };
 
-export type OutlineReady = {
+type OutlineReady = {
   status: "ready";
   // 유일한 h1의 표시 제목. h1이 없거나 둘 이상이면 null. 그 h1은 sections에도 level 1 node로 든다.
   title: string | null;
@@ -47,12 +47,12 @@ export type OutlineReady = {
   sections: OutlineNode[];
 };
 
-export type OutlineUnsupported = {
+type OutlineUnsupported = {
   status: "unsupported";
   media_type: string;
 };
 
-export type OutlineResult = OutlineReady | OutlineUnsupported;
+type OutlineResult = OutlineReady | OutlineUnsupported;
 
 type Heading = {
   title: string;

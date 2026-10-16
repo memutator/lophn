@@ -8,7 +8,7 @@ import {
 import { ACTOR_KINDS, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 
-export const healthObservationSchema = z.object({
+const healthObservationSchema = z.object({
   component: z.string().min(1),
   available: z.boolean(),
   reason: z.string().min(1).optional(),
@@ -32,7 +32,6 @@ export const commandResultSchema = z.object({
     BigInt(value.last_seq) >= BigInt(value.first_seq)), {
   message: "invalid result seq range",
 });
-export type CommandResult = z.infer<typeof commandResultSchema>;
 
 const errors = [
   "invalid_input",

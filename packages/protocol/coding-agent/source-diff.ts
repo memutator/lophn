@@ -4,7 +4,7 @@ import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 
-export const sourceDiffFileSchema = z.strictObject({
+const sourceDiffFileSchema = z.strictObject({
   path: z.string().min(1),
   status: z.enum(["added", "removed", "changed"]),
   // 너무 크거나 binary이면 null이다.
@@ -12,7 +12,7 @@ export const sourceDiffFileSchema = z.strictObject({
 });
 
 // 그 release의 source가 남아 있지 않으면 `preserved: false`다. 오류가 아니다.
-export const sourceDiffOutputSchema = z.discriminatedUnion("preserved", [
+const sourceDiffOutputSchema = z.discriminatedUnion("preserved", [
   z.strictObject({
     preserved: z.literal(true),
     files: z.array(sourceDiffFileSchema),

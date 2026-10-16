@@ -1,26 +1,15 @@
 import { z } from "zod";
-import { actorSchema } from "../base/actor.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand } from "../base/route.ts";
-import { atSchema } from "../base/values.ts";
-
-export const SETTINGS_EXCHANGE_FORMAT_VERSION = 1;
-export const SETTINGS_EXCHANGE_FORMAT = {
-  format: "TOML",
-  toml_version: "1.0",
-  encoding: "UTF-8",
-  format_version: SETTINGS_EXCHANGE_FORMAT_VERSION,
-} as const;
 
 const nonemptySchema = z.string().regex(/\S/);
 const keySchema = z.string().min(1);
 const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
 const jsonObjectSchema = z.record(z.string(), z.json());
-export const settingsRevisionNumberSchema = z.number().int().nonnegative().max(
+const settingsRevisionNumberSchema = z.number().int().nonnegative().max(
   Number.MAX_SAFE_INTEGER,
 );
-export const settingApplyAtSchema = z.enum([
+const settingApplyAtSchema = z.enum([
   "next_turn",
   "current_check",
   "next_call",
@@ -46,7 +35,7 @@ const definitionFields = {
 };
 
 // HTTP에서는 실행 가능한 schema 대신 소유 concern의 JSON Schema를 공개한다.
-export const settingDefinitionSchema = z.object({
+const settingDefinitionSchema = z.object({
   ...definitionFields,
   value_type: jsonObjectSchema,
   default_present: z.boolean(),
@@ -57,57 +46,13 @@ export const settingDefinitionSchema = z.object({
 );
 export type SettingDefinitionOutput = z.infer<typeof settingDefinitionSchema>;
 
-export const settingChoiceSchema = z.object({
+const settingChoiceSchema = z.object({
   layer: z.literal("common"),
   key: keySchema,
   value: z.json(),
 });
-export type SettingChoice = z.infer<typeof settingChoiceSchema>;
 
-export const settingChangeSchema = z.object({
-  layer: z.literal("common"),
-  key: keySchema,
-  before_present: z.boolean(),
-  action: z.enum(["set", "delete"]),
-  before: z.json(),
-  after: z.json(),
-}).refine((value) => value.before_present || value.before === null, {
-  message: "absent choice must have null before",
-}).refine((value) => value.action !== "delete" || value.after === null, {
-  message: "deleted choice must have null after",
-});
-export type SettingChange = z.infer<typeof settingChangeSchema>;
-
-export const settingsRevisionSchema = z.object({
-  revision: settingsRevisionNumberSchema,
-  previous_revision: settingsRevisionNumberSchema.nullable(),
-  changes: z.array(settingChangeSchema),
-  affected_concerns: z.array(concernSchema),
-  defaults_revision: nonemptySchema,
-  actor: actorSchema.refine((value) => value === "user" || value === "machine"),
-  at: atSchema,
-}).refine(
-  (value) =>
-    value.revision === 0
-      ? value.previous_revision === null
-      : value.previous_revision === value.revision - 1,
-  { message: "previous_revision must be the preceding revision" },
-).refine(
-  (value) =>
-    new Set(value.changes.map((change) => change.key)).size ===
-      value.changes.length,
-  { message: "duplicate setting changes" },
-);
-export type SettingsRevision = z.infer<typeof settingsRevisionSchema>;
-
-export const settingsStateSchema = z.object({
-  singleton: z.literal(1),
-  revision: settingsRevisionNumberSchema,
-  defaults_revision: nonemptySchema,
-});
-export type SettingsState = z.infer<typeof settingsStateSchema>;
-
-export const effectiveSettingSchema = z.object({
+const effectiveSettingSchema = z.object({
   key: keySchema,
   resolved: z.boolean(),
   value: z.json(),
@@ -124,16 +69,6 @@ export const effectiveSettingSchema = z.object({
 );
 export type EffectiveSetting = z.infer<typeof effectiveSettingSchema>;
 
-export const settingsValidationErrorSchema = z.object({
-  key: keySchema,
-  layer: z.literal("common"),
-  expected: nonemptySchema,
-  remedy: nonemptySchema,
-});
-export type SettingsValidationError = z.infer<
-  typeof settingsValidationErrorSchema
->;
-
 export const settingMutationSchema = z.discriminatedUnion("action", [
   z.strictObject({
     layer: z.literal("common"),
@@ -149,15 +84,7 @@ export const settingMutationSchema = z.discriminatedUnion("action", [
 ]);
 export type SettingMutation = z.infer<typeof settingMutationSchema>;
 
-const readActors = ["user", "agent", "machine"] as const;
-const readErrors = [
-  "invalid_input",
-  "unauthorized",
-  "forbidden",
-  "not_found",
-  "unavailable",
-] as const;
-export const applySettingsInputSchema = z.strictObject({
+const applySettingsInputSchema = z.strictObject({
   changes: z.array(settingMutationSchema).refine(
     (changes) =>
       new Set(changes.map((change) => change.key)).size === changes.length,
@@ -169,21 +96,19 @@ export const applySettingsInputSchema = z.strictObject({
     option: z.string().min(1),
   }).optional(),
 });
-export const settingsCompareSchema = z.strictObject({
+const settingsCompareSchema = z.strictObject({
   revision: settingsRevisionNumberSchema,
   defaults_revision: nonemptySchema,
 });
-export const settingApplicationSchema = z.object({
+const settingApplicationSchema = z.object({
   key: keySchema,
   apply_at: settingApplyAtSchema,
 });
-export type SettingApplication = z.infer<typeof settingApplicationSchema>;
-export const settingsApplyResultSchema = z.object({
+const settingsApplyResultSchema = z.object({
   revision: settingsRevisionNumberSchema,
   changed: z.boolean(),
   applied: z.array(settingApplicationSchema),
 });
-export type SettingsApplyResult = z.infer<typeof settingsApplyResultSchema>;
 
 const commandErrors = [
   "invalid_input",
@@ -202,15 +127,4 @@ export const applySettings = defineCommand({
   actors: ["user", "machine"],
   errors: commandErrors,
 });
-export const settingsChangedPayloadSchema = z.object({
-  revision: settingsRevisionNumberSchema,
-  changes: z.array(settingChangeSchema),
-  affected_concerns: z.array(concernSchema),
-  applied: z.array(settingApplicationSchema),
-});
-export const settingsChanged = defineEvent("SettingsChanged", {
-  subject: z.null(),
-  payload: settingsChangedPayloadSchema,
-});
 export const SETTINGS_ROUTES = [applySettings] as const;
-export const SETTINGS_EVENTS = [settingsChanged] as const;

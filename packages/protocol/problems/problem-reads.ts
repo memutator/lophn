@@ -32,7 +32,7 @@ const readErrors = [
 const cursor = z.string().min(1).optional();
 
 // 일반 업무 응답에는 raw stack을 넣지 않는다. 상세는 수리 조회 권한이다.
-export const reportSummarySchema = z.object({
+const reportSummarySchema = z.object({
   id: idSchema("rpt"),
   app: idSchema("app"),
   problem: idSchema("prb").nullable(),
@@ -43,9 +43,8 @@ export const reportSummarySchema = z.object({
   observed_at: atSchema,
   release: idSchema("rel").nullable(),
 });
-export type ReportSummary = z.infer<typeof reportSummarySchema>;
 
-export const listReportsInputSchema = z.strictObject({
+const listReportsInputSchema = z.strictObject({
   problem: idSchema("prb").optional(),
   app: idSchema("app").optional(),
   diagnostic_scope: z.string().regex(/\S/).optional(),
@@ -56,7 +55,7 @@ export const listReportsInputSchema = z.strictObject({
     (value.app !== undefined && value.diagnostic_scope !== undefined),
   { message: "list by problem, or by app and diagnostic scope" },
 );
-export const listReportsOutputSchema = withReadCommon(z.object({
+const listReportsOutputSchema = withReadCommon(z.object({
   reports: z.array(reportSummarySchema),
 }));
 export const listReports = defineRead({
@@ -69,10 +68,10 @@ export const listReports = defineRead({
   errors: readErrors,
 });
 
-export const getReportInputSchema = z.strictObject({
+const getReportInputSchema = z.strictObject({
   report: idSchema("rpt"),
 });
-export const getReportOutputSchema = withReadCommon(z.object({
+const getReportOutputSchema = withReadCommon(z.object({
   report: reportSchema,
   attachments: z.array(
     z.object({
@@ -99,20 +98,20 @@ export const getReport = defineRead({
   errors: readErrors,
 });
 
-export const SNAPSHOT_ITEMS = [
+const SNAPSHOT_ITEMS = [
   "invocation",
   "error",
   "logs",
   "screen",
 ] as const;
-export const snapshotItemSchema = z.enum(SNAPSHOT_ITEMS);
+const snapshotItemSchema = z.enum(SNAPSHOT_ITEMS);
 
-export const getSnapshotInputSchema = z.strictObject({
+const getSnapshotInputSchema = z.strictObject({
   snapshot: idSchema("snp"),
   item: snapshotItemSchema.optional(),
 });
 const blobRef = z.object({ purpose: z.string(), hash: sha256Schema });
-export const getSnapshotOutputSchema = withReadCommon(z.object({
+const getSnapshotOutputSchema = withReadCommon(z.object({
   snapshot: snapshotSchema,
   item: z.union([
     invocationEvidenceSchema,
@@ -143,7 +142,7 @@ const logFragmentFields = {
 export const getSnapshotLogsInputSchema = z.strictObject({
   snapshot: idSchema("snp"),
 });
-export const logFragmentSchema = z.discriminatedUnion("kind", [
+const logFragmentSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("absent"), reason: z.string().regex(/\S/) }),
   z.strictObject({
     kind: z.literal("unavailable"),
@@ -162,7 +161,7 @@ export const logFragmentSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type LogFragment = z.infer<typeof logFragmentSchema>;
-export const getSnapshotLogsOutputSchema = withReadCommon(z.object({
+const getSnapshotLogsOutputSchema = withReadCommon(z.object({
   fragment: logFragmentSchema,
 }));
 export const getSnapshotLogs = defineRead({

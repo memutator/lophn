@@ -24,7 +24,7 @@ export const INPUT_TAG_ATTRIBUTES = {
   steer: [],
 } as const;
 
-export const NOTICE_KINDS = [
+const NOTICE_KINDS = [
   "instructions_changed",
   "tools_changed",
   "contexts_changed",

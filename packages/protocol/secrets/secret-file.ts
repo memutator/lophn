@@ -13,7 +13,7 @@ import {
 // core가 `<data root>/secrets.json`(0600)을 직접 읽고 쓴다. 이름이 곧 key이고 값은 문자열이다.
 export const SECRET_FILE_NAME = "secrets.json";
 
-export const secretFileStatusSchema = z.strictObject({
+const secretFileStatusSchema = z.strictObject({
   name: secretNameSchema,
   configured: z.boolean(),
 });
@@ -70,18 +70,17 @@ export const SECRET_FILE_ROUTES = [
   secretDelete,
 ] as const;
 
-export const secretFileUseSchema = z.strictObject({
+const secretFileUseSchema = z.strictObject({
   name: secretNameSchema,
   destination: secretDestinationSchema,
 });
-export type SecretFileUse = z.infer<typeof secretFileUseSchema>;
-export const secretFileSendInputSchema = z.strictObject({
+const secretFileSendInputSchema = z.strictObject({
   context: secretAdapterContextSchema,
   use: secretFileUseSchema,
   operation: z.string().min(1),
   body: z.json(),
 });
-export type SecretFileSendInput = z.infer<typeof secretFileSendInputSchema>;
+type SecretFileSendInput = z.infer<typeof secretFileSendInputSchema>;
 
 // core 안에서 부른다. 값은 transmit 인자로만 가고 결과에는 전송 여부뿐이다.
 export interface SecretAttachPort {

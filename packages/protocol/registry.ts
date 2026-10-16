@@ -8,8 +8,8 @@ import {
 } from "./server/routes.ts";
 import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
-import { SETTINGS_EVENTS, SETTINGS_ROUTES } from "./config/settings.ts";
-import { SECRET_EVENTS, SECRET_ROUTES } from "./secrets/secrets.ts";
+import { SETTINGS_ROUTES } from "./config/settings.ts";
+import { SECRET_ROUTES } from "./secrets/secrets.ts";
 import { SETTINGS_FILE_ROUTES } from "./config/file.ts";
 import { SECRET_FILE_ROUTES } from "./secrets/secret-file.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
@@ -34,7 +34,3 @@ export const ROUTES = [
 ] as const;
 
 // 지금 있는 event. platform 소유 event는 settings에서 시작한다.
-export const EVENTS = [
-  ...SETTINGS_EVENTS,
-  ...SECRET_EVENTS,
-] as const;

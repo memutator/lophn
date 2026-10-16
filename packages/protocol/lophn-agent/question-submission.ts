@@ -15,16 +15,16 @@ const fixedVersionReferenceFields = {
   version: idSchema("ver"),
   section: sectionKeySchema.nullable(),
 };
-export const fixedVersionReferenceSchema = z.strictObject(
+const fixedVersionReferenceSchema = z.strictObject(
   fixedVersionReferenceFields,
 );
-export const fixedVersionReferenceOutputSchema = z.object(
+const fixedVersionReferenceOutputSchema = z.object(
   fixedVersionReferenceFields,
 );
 
 // OptionAction은 caller 없이 고정한다. 실제 owner 허용·hash 검증은 runtime이다.
 export const optionActionSchema = approvalActionSchema.omit({ caller: true });
-export const optionActionOutputSchema = z.object({
+const optionActionOutputSchema = z.object({
   ...optionActionSchema.shape,
   input: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("inline"), value: jsonObjectSchema }),
@@ -55,14 +55,14 @@ function uniqueReferences(value: {
   return new Set(keys).size === keys.length;
 }
 
-export const questionOptionSchema = z.strictObject({
+const questionOptionSchema = z.strictObject({
   ...optionBase,
   description: questionTextSchema,
 }).refine(
   uniqueReferences,
   { message: "duplicate fixed version reference" },
 );
-export const questionOptionOutputSchema = z.object({
+const questionOptionOutputSchema = z.object({
   ...optionFields,
   evidence: z.array(fixedVersionReferenceOutputSchema),
   adoption: fixedVersionReferenceOutputSchema.nullable(),
@@ -73,11 +73,11 @@ const recommendationFields = {
   option_key: nonblankSchema.nullable(),
   explanation_blob: sha256Schema,
 };
-export const recommendationSchema = z.strictObject({
+const recommendationSchema = z.strictObject({
   option_key: nonblankSchema.nullable(),
   explanation: questionTextSchema,
 });
-export const recommendationOutputSchema = z.object(recommendationFields);
+const recommendationOutputSchema = z.object(recommendationFields);
 
 // 묶음은 질문 1~4개다. 질문 하나는 독립 결정 하나만 담는다.
 export const QUESTION_GROUP_MIN_QUESTIONS = 1;
@@ -114,7 +114,7 @@ function questionShape(value: {
       keys.includes(value.recommendation.option_key);
 }
 
-export const questionInputSchema = z.strictObject(questionInputFields).refine(
+const questionInputSchema = z.strictObject(questionInputFields).refine(
   questionShape,
   { message: "question options and recommendation disagree" },
 );
@@ -162,28 +162,9 @@ export const createQuestionGroupInputSchema = z.strictObject({
 });
 
 // 저장된 묶음 제출. 질문마다 설명 글은 blob hash이고 position은 1부터 연속이다.
-export const createQuestionGroupSubmissionOutputSchema = z.object({
-  ...questionGroupBase,
-  questions: z.array(questionOutputSchema)
-    .min(QUESTION_GROUP_MIN_QUESTIONS)
-    .max(QUESTION_GROUP_MAX_QUESTIONS),
-}).refine((value) => uniqueIds(value.questions), {
-  message: "duplicate question id in the group",
-}).refine(
-  (value) =>
-    value.questions.every((question, index) =>
-      question.position === index + 1 && question.group === value.id
-    ),
-  { message: "question positions must be consecutive from 1 in the group" },
-).refine((value) => groupAgreesWithFixedActions(value.questions), {
-  message: "a question with a fixed action must be a group of one",
-});
 
-export type FixedVersionReference = z.infer<typeof fixedVersionReferenceSchema>;
 export type OptionAction = z.infer<typeof optionActionSchema>;
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
-export type Recommendation = z.infer<typeof recommendationSchema>;
-export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type CreateQuestionGroupInput = z.infer<
   typeof createQuestionGroupInputSchema
 >;

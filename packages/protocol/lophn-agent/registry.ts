@@ -1,28 +1,23 @@
-import { RUN_COMMANDS, RUN_EVENTS } from "./runs.ts";
+import { RUN_COMMANDS } from "./runs.ts";
 import {
   closeSession,
   openSession,
   SESSION_COMMANDS,
-  SESSION_EVENTS,
   sessionList,
   unarchiveSession,
 } from "./sessions.ts";
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
-import { MESSAGE_EVENTS, MESSAGE_ROUTES, messagesList } from "./messages.ts";
-import {
-  applyQuestionOption,
-  QUESTION_COMMANDS,
-  QUESTION_EVENTS,
-} from "./questions.ts";
-import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
+import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
+import { applyQuestionOption, QUESTION_COMMANDS } from "./questions.ts";
+import { REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
 import { MODEL_CALL_ROUTES } from "./model-calls.ts";
 import {
   MODEL_ROUTES,
 } from "./models.ts";
-import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
-import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
+import { PROVIDER_ROUTES } from "./providers.ts";
+import { TOOL_CALL_ROUTES } from "./tool-calls.ts";
 import { TRACE_ROUTES } from "./traces.ts";
 import { INSTRUCTION_ROUTES } from "./instructions.ts";
 import { skillsRead } from "./skill-settings.ts";
@@ -91,12 +86,3 @@ export const ROUTES = [
   mcpAuthRequestDone,
 ] as const;
 
-export const EVENTS = [
-  ...RUN_EVENTS,
-  ...SESSION_EVENTS,
-  ...MESSAGE_EVENTS,
-  ...QUESTION_EVENTS,
-  ...REVERT_EVENTS,
-  ...PROVIDER_EVENTS,
-  ...TOOL_CALL_EVENTS,
-] as const;

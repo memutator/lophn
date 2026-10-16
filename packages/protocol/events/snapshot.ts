@@ -10,11 +10,11 @@ import {
 import { placeOutputSchema } from "../lophn-agent/places.ts";
 
 // waiting은 대기 권한 요청이나 질문이 있는 때, unknown은 coding agent가 harness 신호를 못 받았을 때다.
-export const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
+const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
 export type SessionState = z.infer<typeof sessionStateSchema>;
 
 // 질문 내용은 싣지 않는다. 질문 read로 읽는다.
-export const sessionSnapshotSchema = z.object({
+const sessionSnapshotSchema = z.object({
   session: idSchema("ses"),
   // 창을 연 뒤 만난 session도 누구의 session인지(coding agent인지) 알게 싣는다.
   agent: callAgentOutputSchema,

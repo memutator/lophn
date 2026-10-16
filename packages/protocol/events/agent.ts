@@ -15,12 +15,12 @@ import { eventTypeSchema } from "../base/event.ts";
 // harness가 물어 올 때의 PermissionRequested·PermissionResolved만 낸다.
 // ToolCall*, Question*, Compact*는 내지 않는다. subagent와 model 호출은 event로 두지 않는다.
 
-export type AgentEventDefinition<
+type AgentEventDefinition<
   T extends string = string,
   P extends z.ZodType = z.ZodType,
 > = { type: T; payload: P };
 
-export function defineAgentEvent<T extends string, P extends z.ZodType>(
+function defineAgentEvent<T extends string, P extends z.ZodType>(
   type: T,
   payload: P,
 ): AgentEventDefinition<T, P> {
@@ -30,7 +30,7 @@ export function defineAgentEvent<T extends string, P extends z.ZodType>(
   return { type, payload };
 }
 
-export function agentEventEnvelopeSchema<
+function agentEventEnvelopeSchema<
   T extends string,
   P extends z.ZodType,
 >(definition: AgentEventDefinition<T, P>) {
@@ -47,7 +47,7 @@ const toolCall = idSchema("tcl");
 const group = idSchema("qgr");
 
 // title은 싣지 않는다. 필요하면 session을 read로 읽는다.
-export const sessionStarted = defineAgentEvent(
+const sessionStarted = defineAgentEvent(
   "SessionStarted",
   z.strictObject({
     agent: callAgentOutputSchema,
@@ -58,7 +58,7 @@ export const sessionStarted = defineAgentEvent(
 );
 
 // 사람 메시지, call, 답, reaction이 모두 이것으로 보인다. steer는 도는 turn 안에서 들어온 메시지다.
-export const messageReceived = defineAgentEvent(
+const messageReceived = defineAgentEvent(
   "MessageReceived",
   z.strictObject({
     message: idSchema("msg"),
@@ -70,13 +70,13 @@ export const messageReceived = defineAgentEvent(
   }),
 );
 
-export const turnStarted = defineAgentEvent(
+const turnStarted = defineAgentEvent(
   "TurnStarted",
   z.strictObject({ turn, input_message: idSchema("msg") }),
 );
 
 // outcome은 turnOutcomeSchema와 같은 값이다.
-export const turnEnded = defineAgentEvent(
+const turnEnded = defineAgentEvent(
   "TurnEnded",
   z.strictObject({
     turn,
@@ -87,12 +87,12 @@ export const turnEnded = defineAgentEvent(
   }),
 );
 
-export const toolCallStarted = defineAgentEvent(
+const toolCallStarted = defineAgentEvent(
   "ToolCallStarted",
   z.strictObject({ turn, tool_call: toolCall, tool: z.string().min(1) }),
 );
 
-export const toolCallEnded = defineAgentEvent(
+const toolCallEnded = defineAgentEvent(
   "ToolCallEnded",
   z.strictObject({
     turn,
@@ -101,12 +101,12 @@ export const toolCallEnded = defineAgentEvent(
   }),
 );
 
-export const permissionRequested = defineAgentEvent(
+const permissionRequested = defineAgentEvent(
   "PermissionRequested",
   z.strictObject({ request: turnPermissionRequestSchema }),
 );
 
-export const permissionResolved = defineAgentEvent(
+const permissionResolved = defineAgentEvent(
   "PermissionResolved",
   z.strictObject({
     request: idSchema("apr"),
@@ -115,12 +115,12 @@ export const permissionResolved = defineAgentEvent(
 );
 
 // 질문 내용은 싣지 않는다. session snapshot과 질문 read가 준다.
-export const questionAsked = defineAgentEvent(
+const questionAsked = defineAgentEvent(
   "QuestionAsked",
   z.strictObject({ group, turn, tool_call: toolCall }),
 );
 
-export const questionResolved = defineAgentEvent(
+const questionResolved = defineAgentEvent(
   "QuestionResolved",
   z.strictObject({
     group,
@@ -128,40 +128,22 @@ export const questionResolved = defineAgentEvent(
   }),
 );
 
-export const compactStarted = defineAgentEvent(
+const compactStarted = defineAgentEvent(
   "CompactStarted",
   z.strictObject({ turn: turn.nullable() }),
 );
 
-export const compactEnded = defineAgentEvent(
+const compactEnded = defineAgentEvent(
   "CompactEnded",
   z.strictObject({ ok: z.boolean() }),
 );
 
-export const sessionEnded = defineAgentEvent(
+const sessionEnded = defineAgentEvent(
   "SessionEnded",
   z.strictObject({
     reason: z.enum(["archived", "deleted", "exited", "lophn_stopped"]),
   }),
 );
-
-export const AGENT_EVENTS = [
-  sessionStarted,
-  messageReceived,
-  turnStarted,
-  turnEnded,
-  toolCallStarted,
-  toolCallEnded,
-  permissionRequested,
-  permissionResolved,
-  questionAsked,
-  questionResolved,
-  compactStarted,
-  compactEnded,
-  sessionEnded,
-] as const;
-
-export type AgentEventType = (typeof AGENT_EVENTS)[number]["type"];
 
 export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(sessionStarted),

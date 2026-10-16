@@ -12,24 +12,24 @@ import {
   releaseIdSchema,
 } from "./apps.ts";
 
-export const RUNTIME_STATES = [
+const RUNTIME_STATES = [
   "preparing",
   "stopped",
   "running",
   "unavailable",
 ] as const;
-export const runtimeStateValueSchema = z.enum(RUNTIME_STATES);
+const runtimeStateValueSchema = z.enum(RUNTIME_STATES);
 
 const runtimeReasonFields = {
   code: z.string().min(1),
   summary: z.string().min(1),
 };
-export const runtimeReasonInputSchema = z.strictObject(runtimeReasonFields);
+const runtimeReasonInputSchema = z.strictObject(runtimeReasonFields);
 export const runtimeReasonSchema = z.object(runtimeReasonFields);
 export type RuntimeReason = z.infer<typeof runtimeReasonSchema>;
 
 // 화면 상태 projection. ledger에 저장하지 않는다(domain-model apps/runtime).
-export const runtimeStateSchema = z.object({
+const runtimeStateSchema = z.object({
   state: runtimeStateValueSchema,
   termination_pending: z.boolean(),
   reason: runtimeReasonSchema.optional(),
@@ -39,11 +39,11 @@ export const runtimeStateSchema = z.object({
 );
 export type RuntimeState = z.infer<typeof runtimeStateSchema>;
 
-export const RUNTIME_MODES = ["live", "preview"] as const;
+const RUNTIME_MODES = ["live", "preview"] as const;
 
 // 현재 supervisor 연결의 메모리 값. 관측이 없으면 null이다.
 // live는 release가 필수이고, ready가 아니면 reason이 필수다.
-export const runtimeObservationSchema = z.object({
+const runtimeObservationSchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema.nullable(),
   mode: z.enum(RUNTIME_MODES),
@@ -119,14 +119,14 @@ export const appRecordStartedInputSchema = z.strictObject({
     value.started_at !== undefined,
   { message: "started observation needs its child identity" },
 );
-export const appRecordStoppedInputSchema = z.strictObject({
+const appRecordStoppedInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   process_nonce: z.string().min(1),
   started_at: atSchema,
   termination_confirmed: z.literal(true),
 });
-export const appRecordUnavailableInputSchema = z.strictObject({
+const appRecordUnavailableInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   ...observationIdentity,
@@ -190,11 +190,11 @@ export const appRuntime = defineRead({
 
 export const LOG_LINE_MAX_COUNT = 200;
 export const LOG_LINE_MAX_LENGTH = 300;
-export const logLineSchema = z.string().max(LOG_LINE_MAX_LENGTH);
-export const APP_LOG_STATES = ["none", "off", "timeout", "ok"] as const;
-export const appLogStateSchema = z.enum(APP_LOG_STATES);
+const logLineSchema = z.string().max(LOG_LINE_MAX_LENGTH);
+const APP_LOG_STATES = ["none", "off", "timeout", "ok"] as const;
+const appLogStateSchema = z.enum(APP_LOG_STATES);
 export type AppLogState = z.infer<typeof appLogStateSchema>;
-export const appLogsInputSchema = z.strictObject({
+const appLogsInputSchema = z.strictObject({
   app: appIdSchema,
   invocation: idSchema("inv").optional(),
   limit: z.number().int().min(1).max(LOG_LINE_MAX_COUNT).optional(),

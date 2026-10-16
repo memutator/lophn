@@ -20,10 +20,10 @@ import {
 
 // session 수명은 열림과 archive 둘이다. 지움은 상태가 아니라 record가 사라지는 것이다.
 // archive, delete, fork, rename, compact, change model은 모양이 같아 sessions.ts 것을 쓴다.
-export const SESSION_LIFECYCLES = ["open", "archived"] as const;
-export const sessionLifecycleSchema = z.enum(SESSION_LIFECYCLES);
+const SESSION_LIFECYCLES = ["open", "archived"] as const;
+const sessionLifecycleSchema = z.enum(SESSION_LIFECYCLES);
 
-export const agentSessionSchema = z.object({
+const agentSessionSchema = z.object({
   id: idSchema("ses"),
   agent: agentRefOutputSchema,
   // agent에서 나오는 편의 칸이다.
@@ -44,15 +44,15 @@ export const agentSessionSchema = z.object({
 );
 export type AgentSession = z.infer<typeof agentSessionSchema>;
 
-export const openAgentSessionInputSchema = z.strictObject({
+const openAgentSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   agent: agentRefSchema,
   opening_context: openingContextSchema.nullable(),
 });
-export const openAgentSessionCompareSchema = z.strictObject({});
+const openAgentSessionCompareSchema = z.strictObject({});
 
-export const SESSION_ARCHIVED_CHOICES = ["exclude", "include", "only"] as const;
-export const listAgentSessionsInputSchema = z.strictObject({
+const SESSION_ARCHIVED_CHOICES = ["exclude", "include", "only"] as const;
+const listAgentSessionsInputSchema = z.strictObject({
   agent: agentRefSchema,
   archived: z.enum(SESSION_ARCHIVED_CHOICES).optional(),
   cursor: readCursorSchema.optional(),

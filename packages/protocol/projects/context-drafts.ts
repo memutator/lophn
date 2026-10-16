@@ -15,12 +15,12 @@ import { publicRead } from "./read-values.ts";
 import { absolutePathSchema } from "./values.ts";
 
 // 새 context면 첫 판과 함께 context를 만든다.
-export const contextDraftOpenInputSchema = z.union([
+const contextDraftOpenInputSchema = z.union([
   z.strictObject({ context: ctxIdSchema }),
   z.strictObject({ new: contextCreateRequestSchema }),
 ]);
 // folder는 lophn data 안 그 project context 아래에 있고 판이 제출되거나 버려질 때까지만 있다.
-export const contextDraftOpenOutputSchema = z.object({
+const contextDraftOpenOutputSchema = z.object({
   context: ctxIdSchema,
   bundle: bundleIdSchema,
   folder: absolutePathSchema,

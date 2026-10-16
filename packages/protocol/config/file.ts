@@ -11,19 +11,19 @@ export const settingsFileSchema = z.record(
 );
 
 // 하나라도 거절이면 아무것도 적용하지 않는다. 값은 싣지 않는다.
-export const SETTING_REJECTION_REASONS = [
+const SETTING_REJECTION_REASONS = [
   "unknown_key",
   "wrong_type",
   "out_of_range",
   "invalid_value",
 ] as const;
-export const settingRejectionSchema = z.strictObject({
+const settingRejectionSchema = z.strictObject({
   key: z.string(),
   reason: z.enum(SETTING_REJECTION_REASONS),
 });
 export type SettingRejection = z.infer<typeof settingRejectionSchema>;
 
-export const settingEntrySchema = z.strictObject({
+const settingEntrySchema = z.strictObject({
   key: z.string(),
   // core가 선언의 zod type에서 만든 JSON Schema다.
   type: z.record(z.string(), z.json()),
@@ -33,14 +33,14 @@ export const settingEntrySchema = z.strictObject({
 });
 export type SettingEntry = z.infer<typeof settingEntrySchema>;
 
-export const settingsListInputSchema = z.strictObject({
+const settingsListInputSchema = z.strictObject({
   keys: z.array(z.string()).optional(),
 });
-export const settingsListOutputSchema = z.strictObject({
+const settingsListOutputSchema = z.strictObject({
   settings: z.array(settingEntrySchema),
 });
 
-export const settingChangeInputSchema = z.discriminatedUnion("action", [
+const settingChangeInputSchema = z.discriminatedUnion("action", [
   z.strictObject({
     key: z.string(),
     action: z.literal("set"),
@@ -48,7 +48,7 @@ export const settingChangeInputSchema = z.discriminatedUnion("action", [
   }),
   z.strictObject({ key: z.string(), action: z.literal("unset") }),
 ]);
-export const settingsUpdateInputSchema = z.strictObject({
+const settingsUpdateInputSchema = z.strictObject({
   changes: z.array(settingChangeInputSchema).refine(
     (changes) =>
       new Set(changes.map((change) => change.key)).size === changes.length,
@@ -56,7 +56,7 @@ export const settingsUpdateInputSchema = z.strictObject({
   ),
 });
 // rejected가 비어 있지 않으면 아무것도 쓰지 않은 것이다.
-export const settingsUpdateOutputSchema = z.strictObject({
+const settingsUpdateOutputSchema = z.strictObject({
   changed: z.array(z.string()),
   rejected: z.array(settingRejectionSchema),
 });

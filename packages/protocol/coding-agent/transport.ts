@@ -9,9 +9,9 @@ import type { Tx } from "../server/registration.ts";
 import type { CodingOptions } from "./harness-id.ts";
 
 const callIdSchema = idSchema("cal");
-export type CallId = z.infer<typeof callIdSchema>;
+type CallId = z.infer<typeof callIdSchema>;
 
-export type CodingStartInput = {
+type CodingStartInput = {
   call: CallId;
   app: string;
   ticket: string;
@@ -23,7 +23,7 @@ export type CodingStartResult =
   | { status: "queued" };
 
 // Result 오류의 details.reason이다.
-export const CODING_START_FAILURES = [
+const CODING_START_FAILURES = [
   "not_connected",
   "cannot_launch",
   "no_source_folder",
@@ -31,7 +31,7 @@ export const CODING_START_FAILURES = [
 ] as const;
 export type CodingStartFailure = (typeof CODING_START_FAILURES)[number];
 
-export const CODING_SEND_REJECTIONS = [
+const CODING_SEND_REJECTIONS = [
   "no_turn_end_signal",
   "state_unknown",
   "session_ended",

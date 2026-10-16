@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // domain-model/platform/ledger.md의 ID 접두사 표. 접두사 목록은 여기만 갖는다.
-export const ID_PREFIXES = {
+const ID_PREFIXES = {
   prj: "Project",
   doc: "Document",
   ver: "Version",
@@ -70,4 +70,3 @@ export const anyIdSchema = z.string().refine(
 
 export const runIdSchema = idSchema("run");
 
-export type RunId = z.infer<typeof runIdSchema>;

@@ -214,7 +214,7 @@ export function validateSchemaNode(
   return { ok: true, value: schema };
 }
 
-export function checkValue(
+function checkValue(
   schema: InputSchema,
   value: JsonValue,
   path: string,

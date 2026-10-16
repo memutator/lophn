@@ -10,7 +10,7 @@ import { errorBodySchema, errorCodeForStatus } from "../base/errors.ts";
 import { type CommandRequest, commandRequestSchema } from "../base/envelope.ts";
 import { type CommandRoute, type Route, routePath } from "../base/route.ts";
 
-export type FileBody = { bytes: Uint8Array; contentType: string | null };
+type FileBody = { bytes: Uint8Array; contentType: string | null };
 
 type SchemaOf<R extends Route> = Extract<R["output"], z.ZodType>;
 

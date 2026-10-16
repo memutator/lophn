@@ -9,7 +9,7 @@ import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 export type OptionValues = Readonly<Record<string, string>>;
 
 // 선택 화면이 보는 축이다. wire는 화면이 모르므로 싣지 않는다.
-export type AxisView = {
+type AxisView = {
   id: string;
   label: string;
   values: { value: string; label: string }[];
@@ -17,9 +17,9 @@ export type AxisView = {
 };
 
 // model을 바꿔 값을 맞췄다는 알림 한 건이다. 문구는 shell/wording이 만든다.
-export type OptionNotice = { axis: string; from: string; to: string };
+type OptionNotice = { axis: string; from: string; to: string };
 
-export type FitResult = {
+type FitResult = {
   option_values: Record<string, string>;
   notices: OptionNotice[];
 };
@@ -85,9 +85,9 @@ export function fitOptionValues(
 // 이 규칙은 그 순서를 바꾸지 않는다.
 
 // 선택 화면에 보일 수 있는 model 하나다. 연결된 provider의 현재 catalog에서 온다.
-export type PickerModel = { provider: string; model_name: string };
+type PickerModel = { provider: string; model_name: string };
 
-export type PickerLayout = {
+type PickerLayout = {
   // 맨 위 Favorites 묶음. 별표를 찍은 순서 그대로이고 provider로 다시 묶지 않는다.
   favorites: PickerModel[];
   // 그 아래 provider 묶음. 입력 순서(provider 순서, 그 안의 model 순서)를 그대로 지키고

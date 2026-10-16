@@ -27,16 +27,16 @@ export const REWIND_MAX_CHECKPOINTS = 100;
 export const REWIND_MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const REWIND_MAX_SESSION_BYTES = 200 * 1024 * 1024;
 
-export const CHECKPOINT_FILES_REASONS = [
+const CHECKPOINT_FILES_REASONS = [
   "limit_total",
   "limit_file",
   "limit_count",
   // 저장소나 기록이 실패해 pre-image를 두지 못했다(한도와 다른 이유).
   "record_failed",
 ] as const;
-export const checkpointFilesReasonSchema = z.enum(CHECKPOINT_FILES_REASONS);
+const checkpointFilesReasonSchema = z.enum(CHECKPOINT_FILES_REASONS);
 
-export const revertResultSchema = z.enum([
+const revertResultSchema = z.enum([
   "restored",
   "skipped",
   "remained",
@@ -88,12 +88,12 @@ function fileStateOk(
     : value.sha256 === null && value.blob === null;
 }
 const fileStateMessage = { message: "file state fields disagree with exists" };
-export const fileStateSchema = z.object({
+const fileStateSchema = z.object({
   exists: z.boolean(),
   sha256: sha256Schema.nullable(),
   blob: sha256Schema.nullable(),
 }).refine(fileStateOk, fileStateMessage);
-export const fileStateInputSchema = z.strictObject({
+const fileStateInputSchema = z.strictObject({
   exists: z.boolean(),
   sha256: sha256Schema.nullable(),
   blob: sha256Schema.nullable(),
@@ -105,7 +105,7 @@ function afterStateOk(
 ): boolean {
   return value.exists === (value.sha256 !== null);
 }
-export const afterFileStateInputSchema = z.strictObject({
+const afterFileStateInputSchema = z.strictObject({
   exists: z.boolean(),
   sha256: sha256Schema.nullable(),
 }).refine(afterStateOk, {
@@ -141,7 +141,7 @@ function itemResultOk(value: ResultShape): boolean {
   }
 }
 
-export const revertItemSchema = z.object({
+const revertItemSchema = z.object({
   ...previewItemFields,
   result: revertResultSchema,
 }).refine(itemResultOk, {
@@ -150,7 +150,7 @@ export const revertItemSchema = z.object({
 export type RevertItem = z.infer<typeof revertItemSchema>;
 
 // 결과 event는 항목 목록을 싣지 않고 결과별 수만 싣는다. 목록은 rewind/list가 읽는다.
-export const revertResultCountsSchema = z.strictObject({
+const revertResultCountsSchema = z.strictObject({
   restored: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),
   remained: z.number().int().nonnegative(),
@@ -163,10 +163,10 @@ export type RevertResultCounts = z.infer<typeof revertResultCountsSchema>;
 // 앱 rewind 요청의 결과다. 요청은 앱 쪽 순서(drain, 충돌 시 통째로 취소)를 따르므로 session rewind는
 // 이 결과를 기다리지 않는다. accepted는 앱 rewind가 접수되어 아직 끝나지 않았고, applied는 끝났고,
 // rejected는 앱 rewind가 거절하거나 취소했다.
-export const REWIND_APP_RESULTS = ["accepted", "applied", "rejected"] as const;
-export const rewindAppResultSchema = z.enum(REWIND_APP_RESULTS);
+const REWIND_APP_RESULTS = ["accepted", "applied", "rejected"] as const;
+const rewindAppResultSchema = z.enum(REWIND_APP_RESULTS);
 
-export const rewindAppRequestSchema = z.object({
+const rewindAppRequestSchema = z.object({
   app: appIdSchema,
   // 이 session의 첫 write invocation. 앱 rewind는 이 invocation 직전으로 되돌린다.
   from_invocation: idSchema("inv"),
@@ -177,7 +177,7 @@ export const rewindAppRequestSchema = z.object({
 export type RewindAppRequest = z.infer<typeof rewindAppRequestSchema>;
 
 // Revert: rewind 한 번의 시도다(결과 기록).
-export const revertRecordSchema = z.object({
+const revertRecordSchema = z.object({
   id: idSchema("rwd"),
   session: idSchema("ses"),
   kind: z.literal("rewind"),
@@ -206,7 +206,7 @@ export type RevertRecord = z.infer<typeof revertRecordSchema>;
 
 // file tool이 쓰기 직전에 pre-image를 남기는 기록이다. core의 `StageRewindFile`·`RecordRewindWrite`가
 // 허용 폴더를 확인한 뒤 이 command를 machine 자격으로 낸다. agent는 이 command를 직접 부르지 못한다.
-export const recordRewindFileInputSchema = z.strictObject({
+const recordRewindFileInputSchema = z.strictObject({
   session: idSchema("ses"),
   turn: idSchema("trn"),
   tool_call: idSchema("tcl"),
@@ -222,7 +222,7 @@ export const recordRewindFileInputSchema = z.strictObject({
   { message: "before_size_bytes is set exactly when the file existed" },
 );
 
-export const recordRewindFileOutputSchema = z.object({
+const recordRewindFileOutputSchema = z.object({
   tool_call: idSchema("tcl"),
   path: relativePathSchema,
   checkpoint: idSchema("msg"),
@@ -281,7 +281,7 @@ export const recordRewindWrite = defineMemory({
 // 설치가 쓰기 직전 hash 재비교에서 건너뛴 경로를 결과에 반영한다. outcome은 applied 그대로이고, 그 항목은
 // plan=restore, result=skipped, reason=edited_outside가 된다. 그 경로의 기록은 되돌려짐 표시(reverted_by)를
 // 풀고, 항목마다 한 번만 고친다.
-export const amendRevertInstallInputSchema = z.strictObject({
+const amendRevertInstallInputSchema = z.strictObject({
   revert: idSchema("rwd"),
   paths: z.array(relativePathSchema).min(1).refine(
     (paths) => new Set(paths).size === paths.length,
@@ -320,7 +320,7 @@ export const recordRewindApps = defineCommand({
 // Rewind가 확정할 때뿐이다. 요청이 사라지면(core 재시작, 기한) 사람이 다시 요청한다.
 const summaryRequestIdSchema = z.string().min(1).max(64);
 
-export const rewindSummaryStateSchema = z.discriminatedUnion("state", [
+const rewindSummaryStateSchema = z.discriminatedUnion("state", [
   z.strictObject({ state: z.literal("waiting") }),
   z.strictObject({
     state: z.literal("summarized"),
@@ -410,7 +410,7 @@ export const finishRewindSummary = defineMemory({
 
 // rewind menu가 session의 checkpoint를 고르는 데 쓴다. 숨긴 구간 안의 checkpoint는 고를 수
 // 없으므로 hidden으로 알린다. created_seq는 메시지의 생성 seq다.
-export const checkpointEntrySchema = z.object({
+const checkpointEntrySchema = z.object({
   ...checkpointFields,
   created_seq: seqSchema,
   hidden: z.boolean(),
@@ -431,7 +431,7 @@ export const rewindCheckpoints = defineRead({
   errors: [...readErrors],
 });
 
-export const rewindListInputSchema = z.strictObject({
+const rewindListInputSchema = z.strictObject({
   session: idSchema("ses"),
   cursor: readCursorSchema.optional(),
 });

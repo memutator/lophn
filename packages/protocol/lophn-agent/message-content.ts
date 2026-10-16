@@ -29,7 +29,7 @@ const attachedFields = {
   path: z.string().min(1).optional(),
   rule: z.string().min(1).optional(),
 };
-export const attachedPartInputSchema = z.strictObject(attachedFields);
+const attachedPartInputSchema = z.strictObject(attachedFields);
 const attachedPartSchema = z.object(attachedFields);
 
 // `visual.show`가 대화에 보이는 앱 카드. view는 앱 blueprint 화면 key다.
@@ -38,16 +38,16 @@ const appCardFields = {
   app: idSchema("app"),
   view: z.string().min(1),
 };
-export const appCardPartInputSchema = z.strictObject(appCardFields);
+const appCardPartInputSchema = z.strictObject(appCardFields);
 const appCardPartSchema = z.object(appCardFields);
 
-export const messagePartInputSchema = z.discriminatedUnion("kind", [
+const messagePartInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("text"), text: z.string() }),
   z.strictObject({ kind: z.literal("visual"), block: visualBlockInputSchema }),
   attachedPartInputSchema,
   appCardPartInputSchema,
 ]);
-export const messagePartSchema = z.discriminatedUnion("kind", [
+const messagePartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({ kind: z.literal("visual"), block: visualBlockSchema }),
   attachedPartSchema,
@@ -89,7 +89,7 @@ function withinBytes(content: unknown, max: number): boolean {
   return size !== undefined && size <= max;
 }
 
-export const messageContentInputSchema = z.strictObject({
+const messageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
   parts: z.array(messagePartInputSchema).min(1),
 }).refine((value) => validVisuals(value.parts), {
@@ -106,18 +106,7 @@ const textPartInput = z.strictObject({
   kind: z.literal("text"),
   text: z.string(),
 });
-const textPart = z.object({ kind: z.literal("text"), text: z.string() });
 
-export const textMessageContentInputSchema = z.strictObject({
-  schema_version: z.literal(1),
-  parts: z.array(textPartInput).min(1),
-}).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
-  message: "message text is too large",
-});
-export const textMessageContentSchema = z.object({
-  schema_version: z.literal(1),
-  parts: z.array(textPart).min(1),
-});
 
 // 사람 메시지는 글과 composer chip(attached)을 받는다.
 export const userMessageContentInputSchema = z.strictObject({
@@ -129,12 +118,8 @@ export const userMessageContentInputSchema = z.strictObject({
 }).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
   message: "message content is too large",
 });
-export const machineMessageContentInputSchema = textMessageContentInputSchema;
 // agent 답은 글, 시각 블록, 앱 카드를 받는다.
 export const agentMessageContentInputSchema = messageContentInputSchema;
-
-export type MessagePart = z.infer<typeof messagePartSchema>;
-export type MessageContent = z.infer<typeof messageContentSchema>;
 
 // 요청은 본문 값(MessageContent)을 싣는다. renderer·shell·runtime은 blob을 준비하지
 // 않는다: core가 redaction을 거친 값을 blob으로 준비하고 command가 같은 transaction에서

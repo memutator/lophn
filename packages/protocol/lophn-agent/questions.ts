@@ -10,7 +10,6 @@ import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { settingMutationSchema } from "../config/settings.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineDecision } from "../base/confirmation-handle.ts";
 import {
   answerInputSchema,
   answerSchema,
@@ -24,13 +23,10 @@ import { questionTextSchema } from "./question-text.ts";
 import {
   createQuestionGroupInputSchema,
   groupAgreesWithFixedActions,
-  optionActionOutputSchema,
   optionActionSchema,
   QUESTION_GROUP_MAX_QUESTIONS,
   QUESTION_GROUP_MIN_QUESTIONS,
-  questionOptionOutputSchema,
   questionOutputSchema,
-  recommendationOutputSchema,
 } from "./question-submission.ts";
 
 const commandErrors = [
@@ -56,10 +52,9 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 // 읽는다. 고정 action이 있는 선택지를 고르는 답만 사람 결정 확인(confirmation handle)을
 // 요구한다. user token은 직접 사람 클릭의 증거가 아니므로 action 답은
 // 이 route로만 받는다. 확인 handle의 결정 이름은 ledger가 검사하는 command 이름(route.name)이다.
-export const QUESTION_ANSWER_DECISION = defineDecision("AnswerQuestionAction");
 
 // 묶음의 답 하나: 질문 ID와 그 질문의 답(선택지 key 또는 자유 답 글).
-export const groupAnswerInputSchema = z.strictObject({
+const groupAnswerInputSchema = z.strictObject({
   question: idSchema("qst"),
   answer: answerInputSchema,
 });
@@ -72,7 +67,7 @@ function distinctQuestions(answers: readonly { question: string }[]): boolean {
 // 일반 답: action이 없는 선택지 또는 자유 답. 묶음 전체에 한 번이고 질문마다 답 하나씩이다.
 // 모든 질문에 답했는지(일부만이면 invalid_input)는 묶음을 아는 owner와 group 검사가 본다.
 // 자유 답은 글을 값으로 싣는다.
-export const answerQuestionGroupInputSchema = questionGroupRefSchema.extend({
+const answerQuestionGroupInputSchema = questionGroupRefSchema.extend({
   answers: z.array(groupAnswerInputSchema)
     .min(QUESTION_GROUP_MIN_QUESTIONS)
     .max(QUESTION_GROUP_MAX_QUESTIONS),
@@ -82,7 +77,7 @@ export const answerQuestionGroupInputSchema = questionGroupRefSchema.extend({
 
 // action 답: 고정 action이 있는 선택지를 고른다(질문 하나짜리 묶음). action의 binding_hash와
 // evidence가 함께 있어야 하고 evidence는 답한 선택지를 가리켜야 한다.
-export const answerQuestionActionInputSchema = questionGroupRefSchema.extend({
+const answerQuestionActionInputSchema = questionGroupRefSchema.extend({
   answer: optionAnswerInputSchema,
   binding_hash: sha256Schema,
   evidence: questionActionEvidenceSchema,
@@ -92,17 +87,17 @@ export const answerQuestionActionInputSchema = questionGroupRefSchema.extend({
 );
 
 // Skip: 묶음 전체를 답 없이 미룬다.
-export const deferQuestionGroupInputSchema = questionGroupRefSchema;
+const deferQuestionGroupInputSchema = questionGroupRefSchema;
 
-export const cancelQuestionGroupInputSchema = questionGroupRefSchema.extend({
+const cancelQuestionGroupInputSchema = questionGroupRefSchema.extend({
   closed_reason: questionClosedReasonSchema.exclude(["deferred", "expired"]),
   // 취소 이유는 글을 값으로 싣는다. core가 blob으로 준비한다.
   closed_reason_text: questionTextSchema,
 });
 
-export const expireQuestionGroupInputSchema = questionGroupRefSchema;
+const expireQuestionGroupInputSchema = questionGroupRefSchema;
 
-export const applyQuestionOptionInputSchema = z.strictObject({
+const applyQuestionOptionInputSchema = z.strictObject({
   question: idSchema("qst"),
   answered_seq: seqSchema,
   option_key: z.string().min(1),
@@ -278,11 +273,11 @@ const questionGroupRecordSchema = z.object({
   { message: "question group positions or fixed actions disagree" },
 );
 
-export const questionGroupReadInputSchema = z.strictObject({
+const questionGroupReadInputSchema = z.strictObject({
   group: idSchema("qgr"),
 });
 
-export const questionGroupListInputSchema = z.strictObject({
+const questionGroupListInputSchema = z.strictObject({
   run: idSchema("run").optional(),
   session: idSchema("ses").optional(),
   assignment: idSchema("asg").optional(),
@@ -317,7 +312,7 @@ export const questionList = defineRead({
 // 일부만 돌려주지 않고 unavailable이다. 답 글과 취소 이유는 사람이 남긴 글이라
 // coding_agent에게는 싣지 않는다(사람 답은 노출하지 않는다).
 export const questionTextInputSchema = questionGroupReadInputSchema;
-export const questionTextOutputSchema = withReadCommon(z.object({
+const questionTextOutputSchema = withReadCommon(z.object({
   group: idSchema("qgr"),
   questions: z.array(z.object({
     question: idSchema("qst"),
@@ -354,7 +349,7 @@ const questionSubject = idSchema("qgr");
 // 질문마다 선택지의 key와, 고정 action이 platform/settings 변경이면 그 변경 목록을 싣는다.
 // platform/settings가 machine ApplySettings의 질문 근거를 이 event에서 대조한다.
 // settings 변경이 아닌 선택지(자유 답·설명 요청·다른 owner action)는 changes가 null이다.
-export const questionCreatedOptionSchema = z.object({
+const questionCreatedOptionSchema = z.object({
   key: z.string().min(1),
   changes: z.array(settingMutationSchema).nullable(),
 });
@@ -417,16 +412,4 @@ export const QUESTION_COMMANDS = [
   questionText,
 ] as const;
 
-export const QUESTION_EVENTS = [
-  questionCreated,
-  questionAnswered,
-  questionExpired,
-  questionCancelled,
-] as const;
-
-export {
-  optionActionOutputSchema,
-  optionActionSchema,
-  questionOptionOutputSchema,
-  recommendationOutputSchema,
-};
+export { optionActionSchema };

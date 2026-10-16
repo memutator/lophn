@@ -12,7 +12,7 @@ export type ProblemWordingFact = {
   declaration: ProblemCodeDeclaration | null;
 };
 
-export type ProblemWordingLookup = (
+type ProblemWordingLookup = (
   sql: Pick<Sql, "get" | "all">,
   app: string,
   release: string,

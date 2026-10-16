@@ -24,14 +24,14 @@ const cursor = z.string().min(1).optional();
 
 export const PROBLEM_MESSAGE_PREVIEW_CHARS = 2_000;
 
-export const releaseRefSchema = z.object({
+const releaseRefSchema = z.object({
   id: idSchema("rel"),
   number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   code_commit: z.string().regex(/^[0-9a-f]{40}$/),
 });
 export type ReleaseRef = z.infer<typeof releaseRefSchema>;
 
-export const problemListItemSchema = z.object({
+const problemListItemSchema = z.object({
   id: idSchema("prb"),
   app: idSchema("app"),
   state: problemStateSchema,
@@ -43,7 +43,7 @@ export const problemListItemSchema = z.object({
 export type ProblemListItem = z.infer<typeof problemListItemSchema>;
 
 // live 발생만 문제에 붙는다.
-export const problemOccurrenceSchema = z.object({
+const problemOccurrenceSchema = z.object({
   report: idSchema("rpt"),
   observed_at: atSchema,
   source: reportSourceSchema,
@@ -51,7 +51,7 @@ export const problemOccurrenceSchema = z.object({
 });
 export type ProblemOccurrence = z.infer<typeof problemOccurrenceSchema>;
 
-export const problemDetailViewSchema = z.object({
+const problemDetailViewSchema = z.object({
   problem: problemRecordSchema,
   occurrence_count: z.number().int().nonnegative(),
   first_observed_at: atSchema,
@@ -119,15 +119,15 @@ export const problemGetOccurrence = defineRead({
   errors: readErrors,
 });
 
-export const PROBLEM_MORE_KINDS = [
+const PROBLEM_MORE_KINDS = [
   "occurrences",
   "failed_invocations",
   "logs",
   "release_changes",
   "related_problems",
 ] as const;
-export const problemMoreKindSchema = z.enum(PROBLEM_MORE_KINDS);
-export type ProblemMoreKind = z.infer<typeof problemMoreKindSchema>;
+const problemMoreKindSchema = z.enum(PROBLEM_MORE_KINDS);
+type ProblemMoreKind = z.infer<typeof problemMoreKindSchema>;
 
 function more<K extends ProblemMoreKind, T extends z.ZodType>(
   kind: K,
@@ -139,7 +139,7 @@ function more<K extends ProblemMoreKind, T extends z.ZodType>(
     next_cursor: z.string().min(1).nullable(),
   }));
 }
-export const problemMoreOutputSchema = z.discriminatedUnion("kind", [
+const problemMoreOutputSchema = z.discriminatedUnion("kind", [
   more("occurrences", problemOccurrenceSchema),
   // 실패 여부는 확인하지 않는다. 내용은 `app.invocation` read로 본다.
   more(
@@ -167,7 +167,6 @@ export const problemMoreOutputSchema = z.discriminatedUnion("kind", [
   ),
   more("related_problems", problemListItemSchema),
 ]);
-export type ProblemMoreOutput = z.infer<typeof problemMoreOutputSchema>;
 
 export const problemMore = defineRead({
   resource: "problems",

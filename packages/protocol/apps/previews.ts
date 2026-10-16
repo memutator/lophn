@@ -11,16 +11,15 @@ import { runtimeReasonSchema } from "./runtime.ts";
 
 // preview는 별도 entity·ID·운영 상태·ledger 표가 아니다(→ domain-model apps/preview).
 // 통로 값과 view session은 apps/runtime·shell/app-frame이 소유한다.
-export const previewInputSchema = z.strictObject({
+const previewInputSchema = z.strictObject({
   app: appIdSchema,
   bundle_hash: sha256Schema,
   release: releaseIdSchema.nullable(),
   fixture_hash: sha256Schema.nullable(),
 });
-export type PreviewInput = z.infer<typeof previewInputSchema>;
 
 // preview 프로세스의 현재 관측. RuntimeObservation의 mode=preview 값이다.
-export const previewObservationSchema = z.object({
+const previewObservationSchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema.nullable(),
   bundle_hash: sha256Schema,

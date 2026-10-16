@@ -1,25 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { sha256Schema } from "../base/values.ts";
-import { appApiKeySchema, commandKeySchema } from "./channel-values.ts";
+import { appApiKeySchema } from "./channel-values.ts";
 import { hostOf } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
 // app.call·agent.commands·automation.run은 Grant scope이며 blueprint 요구가 아니다.
-export const PERMISSION_KINDS = [
-  "fs.read",
-  "fs.write",
-  "net.fetch",
-  "net.listen",
-  "secret.use",
-  "document.save",
-  "app.call",
-  "agent.commands",
-  "automation.run",
-] as const;
-
-export const permissionKindSchema = z.enum(PERMISSION_KINDS);
-export type GrantPermissionKind = z.infer<typeof permissionKindSchema>;
 
 const LISTEN_HOSTS = ["localhost", "127.0.0.1", "::1"] as const;
 
@@ -45,57 +30,28 @@ const uniqueList = <T extends z.ZodType<string>>(item: T) =>
     { message: "duplicate key" },
   );
 
-export const fsScopeSchema = z.strictObject({
+const fsScopeSchema = z.strictObject({
   path: lexicalPathSchema,
   recursive: z.boolean(),
 });
-export const fetchScopeSchema = z.strictObject({
+const fetchScopeSchema = z.strictObject({
   host: hostnameSchema,
   port: portSchema,
 });
-export const listenScopeSchema = z.strictObject({
+const listenScopeSchema = z.strictObject({
   host: z.enum(LISTEN_HOSTS),
   port: portSchema,
 });
-export const secretScopeSchema = z.strictObject({
+const secretScopeSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_.:-]+$/),
 });
 const documentScopeSchema = z.strictObject({
   key: z.string().min(1),
 });
-export const appCallScopeSchema = z.strictObject({
+const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
   app_apis: uniqueList(appApiKeySchema),
 });
-const agentCommandsScopeSchema = z.strictObject({
-  commands: uniqueList(commandKeySchema),
-});
-const automationWhenSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("on_start") }),
-  z.strictObject({
-    kind: z.literal("interval"),
-    interval_ms: z.number().int().min(60000).max(Number.MAX_SAFE_INTEGER),
-  }),
-]);
-const automationRunScopeSchema = z.strictObject({
-  automation: z.string().min(1),
-  command: commandKeySchema,
-  input_hash: sha256Schema,
-  when: automationWhenSchema,
-});
-
-export const permissionScopeSchema = z.discriminatedUnion("kind", [
-  fsScopeSchema.extend({ kind: z.literal("fs.read") }),
-  fsScopeSchema.extend({ kind: z.literal("fs.write") }),
-  fetchScopeSchema.extend({ kind: z.literal("net.fetch") }),
-  listenScopeSchema.extend({ kind: z.literal("net.listen") }),
-  secretScopeSchema.extend({ kind: z.literal("secret.use") }),
-  documentScopeSchema.extend({ kind: z.literal("document.save") }),
-  appCallScopeSchema.extend({ kind: z.literal("app.call") }),
-  agentCommandsScopeSchema.extend({ kind: z.literal("agent.commands") }),
-  automationRunScopeSchema.extend({ kind: z.literal("automation.run") }),
-]);
-export type GrantPermissionScope = z.infer<typeof permissionScopeSchema>;
 
 export const permissionRequirementSchema = z.strictObject({
   kind: z.enum([
@@ -144,16 +100,6 @@ export type GrantPermissionRequirement = z.infer<
 >;
 
 // 앱 grant의 kind. activation 한 번에 만든다. 옛 PERMISSION_KINDS는 옛 Grant가 쓴다.
-export const APP_GRANT_KINDS = [
-  "fs.read",
-  "fs.write",
-  "net.fetch",
-  "net.listen",
-  "secret.use",
-  "app.call",
-] as const;
-export const appGrantKindSchema = z.enum(APP_GRANT_KINDS);
-export type AppGrantKind = z.infer<typeof appGrantKindSchema>;
 
 export const appGrantScopeSchema = z.discriminatedUnion("kind", [
   fsScopeSchema.extend({ kind: z.literal("fs.read") }),

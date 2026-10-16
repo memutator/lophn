@@ -20,7 +20,7 @@ export const RUN_BLOB_PURPOSES = {
 export const AGENT_RUNTIME_PRINCIPAL = "machine:agent-runtime";
 
 // 준비 증거. 같은 주체·용도·hash의 살아 있는 준비가 있을 때만 등록된다(platform/blob-store).
-export function preparedEvidence(
+function preparedEvidence(
   principal: string,
   purpose: string,
   hash: string,

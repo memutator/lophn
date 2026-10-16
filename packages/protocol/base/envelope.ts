@@ -5,7 +5,7 @@ import {
 } from "./limits.ts";
 import { runIdSchema } from "./ids.ts";
 import { seqSchema } from "./values.ts";
-import type { CommandRoute, ReadRoute } from "./route.ts";
+import type { CommandRoute } from "./route.ts";
 import { confirmationRefSchema } from "./confirmation-handle.ts";
 
 const encoder = new TextEncoder();
@@ -78,47 +78,21 @@ export type CommandRequest<R extends CommandRoute> = z.infer<
   ReturnType<typeof commandRequestSchema<R>>
 >;
 
-const seqPairSchema = z.union([
-  z.object({ first_seq: z.null(), last_seq: z.null() }),
-  z.object({ first_seq: seqSchema, last_seq: seqSchema }).refine(
-    (value) => BigInt(value.last_seq) >= BigInt(value.first_seq),
-    { message: "last_seq is before first_seq" },
-  ),
-]);
 
-export function commandResponseSchema<O extends z.ZodType>(
-  route: { output: O },
-) {
-  return z.object({
-    result: route.output,
-    replayed: z.boolean(),
-  }).and(seqPairSchema);
-}
-
-export type CommandResponse<R extends CommandRoute> = z.infer<
-  ReturnType<typeof commandResponseSchema<R["output"]>>
->;
-
-export const readMetaSchema = z.object({
+const readMetaSchema = z.object({
   as_of_seq: seqSchema,
   next_cursor: z.string().nullable(),
 });
 
-export type ReadMeta = z.infer<typeof readMetaSchema>;
-
 // 응답에서 빠지거나 잘린 범위를 명시한다. 범위 밖 대상은 개수도 세지 않으므로 이유에 없다.
-export const omissionSchema = z.object({
+const omissionSchema = z.object({
   reason: z.enum(["page_limit", "byte_limit"]),
   count: z.number().refine((n) => Number.isSafeInteger(n) && n >= 0),
 });
 
-export type Omission = z.infer<typeof omissionSchema>;
-
 export const readCommonSchema = readMetaSchema.extend({
   omitted: z.array(omissionSchema).optional(),
 });
-
-export type ReadCommon = z.infer<typeof readCommonSchema>;
 
 // shape를 generic으로 받아야 안쪽 field type이 넓어지지 않는다.
 export function withReadCommon<T extends z.ZodRawShape>(
@@ -127,4 +101,3 @@ export function withReadCommon<T extends z.ZodRawShape>(
   return z.object({ ...output.shape, ...readCommonSchema.shape });
 }
 
-export type ReadOutput<R extends ReadRoute> = z.infer<R["output"]>;

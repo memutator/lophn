@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   diagnosticSchema,
   workerRequestSchema,
-  workerResponseSchema,
 } from "../supervision/supervision.ts";
 
 // 이 op의 안전 책임은 나눠진다.
@@ -19,7 +18,7 @@ import {
 // 공개 HTTP route가 아니다. core→platform I/O 비공개 인증 pipe에서만 부른다.
 export const DIAGNOSTICS_WRITE_OP = "platform.diagnostics.write";
 
-export const DIAGNOSTICS_WRITE_MAX_RECORDS = 256;
+const DIAGNOSTICS_WRITE_MAX_RECORDS = 256;
 // host queue가 이미 받아 둔 기록들의 byte 상한. control frame 전체 상한은
 // pipe frame의 CONTROL_MAX_BYTES(256KiB)와 codec이 강제한다. 여기서는 더 낮추지 않는다.
 export const DIAGNOSTICS_WRITE_MAX_PENDING_BYTES = 1024 * 1024;
@@ -33,11 +32,10 @@ export const diagnosticsWriteInputSchema = z.strictObject({
   // 기록이 아니고 개수만 보낸 batches도 보낸다.
   dropped: count,
 });
-export type DiagnosticsWriteInput = z.infer<typeof diagnosticsWriteInputSchema>;
 
 // accepted는 queue ingress가 받은 기록 수다. log 저장 성공도 ledger 확정도 아니다.
 // accepted가 그 batch의 records.length 이하라는 것과 dropped이 무엇을 세는지는 host의 책임이다.
-export const diagnosticsWriteOutputSchema = z.strictObject({
+const diagnosticsWriteOutputSchema = z.strictObject({
   accepted: count.max(DIAGNOSTICS_WRITE_MAX_RECORDS),
   dropped: count,
 });
@@ -52,23 +50,7 @@ export const diagnosticsWriteRequestSchema = workerRequestSchema(
   op: z.literal(DIAGNOSTICS_WRITE_OP),
   channel: z.never().optional(),
 });
-export type DiagnosticsWriteRequest = z.infer<
-  typeof diagnosticsWriteRequestSchema
->;
 
 // request_id가 요청과 같은지는 runtime이 검사한다. 공통 worker failure는 그대로 쓴다.
-export const diagnosticsWriteResponseSchema = workerResponseSchema(
-  diagnosticsWriteOutputSchema,
-);
-export type DiagnosticsWriteResponse = z.infer<
-  typeof diagnosticsWriteResponseSchema
->;
 
 // descriptor의 shape만 둔다. defineWorker도 HTTP route 등록도 하지 않는다.
-export const diagnosticsWrite = {
-  op: DIAGNOSTICS_WRITE_OP,
-  input: diagnosticsWriteInputSchema,
-  output: diagnosticsWriteOutputSchema,
-  request: diagnosticsWriteRequestSchema,
-  response: diagnosticsWriteResponseSchema,
-} as const;

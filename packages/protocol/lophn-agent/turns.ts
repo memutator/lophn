@@ -19,7 +19,7 @@ const turnRef = { turn: idSchema("trn") };
 const stateSeq = { state_seq: seqSchema };
 
 // 입력함의 입력이 turn이 되는 순간이다. 행이 이때 생기므로 compare가 없다.
-export const startTurnInputSchema = z.strictObject({
+const startTurnInputSchema = z.strictObject({
   id: idSchema("trn"),
   session: idSchema("ses"),
   input_message: idSchema("msg"),
@@ -37,12 +37,12 @@ export const startTurnInputSchema = z.strictObject({
   { message: "resolved and resolved_size come together" },
 );
 
-export const checkpointTurnInputSchema = z.strictObject({
+const checkpointTurnInputSchema = z.strictObject({
   ...turnRef,
   elapsed: turnElapsedSchema,
 });
 
-export const finishTurnInputSchema = z.strictObject({
+const finishTurnInputSchema = z.strictObject({
   ...turnRef,
   outcome: turnOutcomeSchema,
   result: sha256Schema,
@@ -51,7 +51,7 @@ export const finishTurnInputSchema = z.strictObject({
 });
 
 // 사람이 멈추는 것만 있다. 꺼졌다 켜질 때와 session 끝남은 command 없이 core가 interrupted로 닫는다.
-export const stopTurnInputSchema = z.strictObject({
+const stopTurnInputSchema = z.strictObject({
   ...turnRef,
   request_key: z.string().min(1),
   reason: z.literal("user_stopped"),

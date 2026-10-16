@@ -18,7 +18,7 @@ export const sourceRelativePathSchema = z.string().min(1).refine(
   { message: "path must stay inside source" },
 );
 
-export const TICKET_STATES = [
+const TICKET_STATES = [
   "open",
   "claimed",
   "reported",
@@ -29,8 +29,8 @@ export const TICKET_STATES = [
 export const ticketStateSchema = z.enum(TICKET_STATES);
 export type TicketState = z.infer<typeof ticketStateSchema>;
 
-export const GOAL_MAX_CODE_POINTS = 2000;
-export const TITLE_MAX_CODE_POINTS = 120;
+const GOAL_MAX_CODE_POINTS = 2000;
+const TITLE_MAX_CODE_POINTS = 120;
 
 const codePoints = (max: number) =>
   z.string().refine((value) => {
@@ -61,7 +61,7 @@ const executableSchema = noShell.refine(
   { message: "executable" },
 );
 
-export const CHECK_TEXT_MAX_CODE_POINTS = 500;
+const CHECK_TEXT_MAX_CODE_POINTS = 500;
 
 // acceptance check는 하나다. text는 App Engineer가 판단하는 글 조건이다.
 export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
@@ -88,7 +88,7 @@ export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
 export type AcceptanceCheck = z.infer<typeof acceptanceCheckSchema>;
 
 // 근거 링크. 문제, 다른 ticket, release, 앱 source 파일, 화면 annotation.
-export const ticketEvidenceSchema = z.discriminatedUnion("kind", [
+const ticketEvidenceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
   z.strictObject({ kind: z.literal("ticket"), id: ticketIdSchema }),
   z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
@@ -97,7 +97,7 @@ export const ticketEvidenceSchema = z.discriminatedUnion("kind", [
 ]);
 export type TicketEvidence = z.infer<typeof ticketEvidenceSchema>;
 
-export const TICKET_EVIDENCE_MAX = 20;
+const TICKET_EVIDENCE_MAX = 20;
 export const ticketEvidenceListSchema = z.array(ticketEvidenceSchema)
   .max(TICKET_EVIDENCE_MAX)
   .refine(
@@ -130,9 +130,8 @@ export const ticketClaimSchema = z.object({
   claim_seq: seqSchema,
   expires_at: atSchema,
 });
-export type TicketClaim = z.infer<typeof ticketClaimSchema>;
 
-export const CHECK_RESULTS = ["pass", "fail", "inconclusive"] as const;
+const CHECK_RESULTS = ["pass", "fail", "inconclusive"] as const;
 export const checkResultSchema = z.enum(CHECK_RESULTS);
 export type CheckResult = z.infer<typeof checkResultSchema>;
 
@@ -143,7 +142,6 @@ export const ticketCheckResultSchema = z.object({
   reason: z.string().max(2000),
   verification: idSchema("vrf").nullable(),
 });
-export type TicketCheckResult = z.infer<typeof ticketCheckResultSchema>;
 
 // 완료 보고의 값이다. release는 coding agent가 준비한 것이고 summary는 hash로 가리킨다.
 export const completionFields = {
@@ -155,9 +153,8 @@ export const ticketCompletionSchema = z.object({
   completion_seq: seqSchema,
   ...completionFields,
 });
-export type TicketCompletion = z.infer<typeof ticketCompletionSchema>;
 
-export const VERIFY_RESULTS = ["verified", "failed"] as const;
+const VERIFY_RESULTS = ["verified", "failed"] as const;
 export const verifyResultSchema = z.enum(VERIFY_RESULTS);
 export const VERIFY_NOTE_MAX_CODE_POINTS = 500;
 export const ticketVerdictSchema = z.object({
@@ -165,7 +162,5 @@ export const ticketVerdictSchema = z.object({
   result: verifyResultSchema,
   note: z.string().nullable(),
 });
-export type TicketVerdict = z.infer<typeof ticketVerdictSchema>;
 
 export const TICKET_LIST_LIMIT = 20;
-export const CLAIM_DURATION_MS = 3_600_000;

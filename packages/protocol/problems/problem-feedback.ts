@@ -12,10 +12,10 @@ import {
 const nonblank = z.string().regex(/\S/);
 
 // 글 500자에 view를 더한 값의 JSON 상한.
-export const PROBLEM_FEEDBACK_INPUT_BYTES = 8_192;
+const PROBLEM_FEEDBACK_INPUT_BYTES = 8_192;
 
 // 버튼 시점에 shell main이 고정한 앱 view. binding은 불투명한 참조이고 권한이 아니다.
-export const problemFeedbackViewSchema = z.strictObject({
+const problemFeedbackViewSchema = z.strictObject({
   binding: nonblank,
   name: nonblank,
   app: idSchema("app"),
@@ -27,7 +27,6 @@ export const problemFeedbackViewSchema = z.strictObject({
 }).refine((value) =>
   (value.mode === "live") === (value.diagnostic_scope === null)
 );
-export type ProblemFeedbackView = z.infer<typeof problemFeedbackViewSchema>;
 
 // 제보는 글만 받는다. existing_problem이 null이면 새 문제다.
 export const problemFeedbackInputSchema = z.strictObject({

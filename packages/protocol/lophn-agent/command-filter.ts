@@ -6,7 +6,7 @@ import type { CommandEntry } from "./commands.ts";
 
 // Commands · <agent 이름> · Skills 세 묶음 중 하나다. 맞는 명령이 없는 묶음은 목록에
 // 없다.
-export type CommandGroup = {
+type CommandGroup = {
   source: "builtin" | "role" | "skill";
   title: string;
   entries: readonly CommandEntry[];

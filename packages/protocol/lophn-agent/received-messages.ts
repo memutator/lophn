@@ -14,7 +14,7 @@ import { inputDeliverySchema, receivedEnvelopeSchema } from "./inputs.ts";
 // 보낸 쪽, call, 근거는 받은 봉투(receivedEnvelopeSchema)가 싣는다.
 // annotation 이미지는 message part로 싣지 않는다. refs의 annotation id로 가리키고, prompt를 조립할 때
 // 그 id로 screenshot을 읽는다. 본문 글은 hash이고 값은 ReadMessageBody가 준다.
-export const receivedMessageSchema = receivedEnvelopeSchema.extend({
+const receivedMessageSchema = receivedEnvelopeSchema.extend({
   id: idSchema("msg"),
   session: idSchema("ses"),
   // 이 메시지를 가져가 시작하거나 이어 간 turn. 아직 가져가지 않았으면 null이다.

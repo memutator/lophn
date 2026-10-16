@@ -26,20 +26,12 @@ export const actorSchema = z.union([
 
 export type Actor = z.infer<typeof actorSchema>;
 
-export type ActorParts =
+type ActorParts =
   | { kind: "user" }
   | { kind: "machine" }
   | { kind: "coding_agent"; id: string }
   | { kind: "agent"; id: string }
   | { kind: "app"; id: string };
-
-export const actorPartsSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("user") }),
-  z.strictObject({ kind: z.literal("machine") }),
-  z.strictObject({ kind: z.literal("coding_agent"), id: codingAgentIdSchema }),
-  z.strictObject({ kind: z.literal("agent"), id: agentIdSchema }),
-  z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
-]);
 
 export function parseActor(s: string): ActorParts | undefined {
   const parsed = actorSchema.safeParse(s);
@@ -53,11 +45,6 @@ export function parseActor(s: string): ActorParts | undefined {
     "user" | "machine"
   >;
   return { kind, id: parsed.data.slice(colon + 1) };
-}
-
-export function formatActor(parts: ActorParts): Actor {
-  if (parts.kind === "user" || parts.kind === "machine") return parts.kind;
-  return `${parts.kind}:${parts.id}` as Actor;
 }
 
 export { ACTOR_KINDS };

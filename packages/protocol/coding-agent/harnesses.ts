@@ -5,7 +5,7 @@ import { HARNESS_IDS, type HarnessId, harnessIdSchema } from "./harness-id.ts";
 export { HARNESS_IDS, type HarnessId, harnessIdSchema };
 
 // PATH와 정한 bounded fallback만 읽는다. home 전체 순회는 없다.
-export const DISCOVERY_RESULTS = [
+const DISCOVERY_RESULTS = [
   "unobserved",
   "detected",
   "absent",
@@ -13,11 +13,9 @@ export const DISCOVERY_RESULTS = [
   "error",
 ] as const;
 
-export const discoveryResultSchema = z.enum(DISCOVERY_RESULTS);
+const discoveryResultSchema = z.enum(DISCOVERY_RESULTS);
 
-export type DiscoveryResult = z.infer<typeof discoveryResultSchema>;
-
-export const harnessCandidateSchema = z.object({
+const harnessCandidateSchema = z.object({
   path: z.string().min(1),
   source: z.string().min(1),
   executable_result: z.string().min(1),
@@ -26,9 +24,9 @@ export const harnessCandidateSchema = z.object({
 export type HarnessCandidate = z.infer<typeof harnessCandidateSchema>;
 
 // parsed version 성공만 verified다. 존재만으로 인정하지 않는다.
-export const VERSION_RESULTS = ["verified", "unknown", "error"] as const;
+const VERSION_RESULTS = ["verified", "unknown", "error"] as const;
 
-export const versionResultSchema = z.enum(VERSION_RESULTS);
+const versionResultSchema = z.enum(VERSION_RESULTS);
 
 const pairedReason = <T extends z.ZodRawShape>(fields: T) =>
   z.object(fields).refine(
@@ -37,7 +35,7 @@ const pairedReason = <T extends z.ZodRawShape>(fields: T) =>
     { message: "value and reason must pair" },
   );
 
-export const harnessVersionSchema = pairedReason({
+const harnessVersionSchema = pairedReason({
   result: versionResultSchema,
   value: z.string().min(1).nullable(),
   reason: z.string().min(1).nullable(),
@@ -46,7 +44,7 @@ export const harnessVersionSchema = pairedReason({
 export type HarnessVersion = z.infer<typeof harnessVersionSchema>;
 
 // auth 파일 존재만으로 verified 금지. 원문은 없다.
-export const AUTH_RESULTS = [
+const AUTH_RESULTS = [
   "verified",
   "not_verified",
   "unknown",
@@ -56,7 +54,7 @@ export const AUTH_RESULTS = [
 
 export const authResultSchema = z.enum(AUTH_RESULTS);
 
-export const harnessAuthSchema = z.object({
+const harnessAuthSchema = z.object({
   result: authResultSchema,
   evidence: z.string().min(1).nullable(),
   reason: z.string().min(1).nullable(),
@@ -68,7 +66,7 @@ export const harnessAuthSchema = z.object({
 export type HarnessAuth = z.infer<typeof harnessAuthSchema>;
 
 // raw stdout는 없다. classifier·timeout·side effects만 남긴다.
-export const harnessProbeResultSchema = z.object({
+const harnessProbeResultSchema = z.object({
   probe: z.string().min(1),
   outcome: z.string().min(1),
   detail: z.string().min(1).nullable(),

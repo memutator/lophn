@@ -8,15 +8,13 @@ import { memoryLimitModeSchema } from "../supervision/supervision.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { problemCodeSchema } from "./problem-codes.ts";
 
-export const TEST_KINDS = ["app_test", "reproduction", "test_command"] as const;
-export const TEST_RESULTS = ["pass", "fail", "inconclusive"] as const;
-export const TEST_SIDES = ["single", "before", "after"] as const;
+const TEST_KINDS = ["app_test", "reproduction", "test_command"] as const;
+const TEST_RESULTS = ["pass", "fail", "inconclusive"] as const;
+const TEST_SIDES = ["single", "before", "after"] as const;
 export const testKindSchema = z.enum(TEST_KINDS);
-export const testResultSchema = z.enum(TEST_RESULTS);
+const testResultSchema = z.enum(TEST_RESULTS);
 export const testSideSchema = z.enum(TEST_SIDES);
-export type TestKind = z.infer<typeof testKindSchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
-export type TestSide = z.infer<typeof testSideSchema>;
 
 export const TEST_EXECUTION_LIMITS = {
   concurrent: 2,
@@ -67,7 +65,7 @@ const testMethodFields = {
   expected_exit_code: integer,
   environment: sha256Schema,
 };
-export const testMethodSchema = z.object(testMethodFields);
+const testMethodSchema = z.object(testMethodFields);
 export const testMethodInputSchema = z.strictObject(testMethodFields);
 export type TestMethod = z.infer<typeof testMethodSchema>;
 
@@ -75,9 +73,8 @@ const targetFields = {
   bundle_hash: sha256Schema,
   release: idSchema("rel").nullable(),
 };
-export const testTargetSchema = z.object(targetFields);
-export const testTargetInputSchema = z.strictObject(targetFields);
-export type TestTarget = z.infer<typeof testTargetSchema>;
+const testTargetSchema = z.object(targetFields);
+const testTargetInputSchema = z.strictObject(targetFields);
 const ticketFields = {
   ticket: idSchema("tkt"),
   check_index: integer.min(0),
@@ -85,15 +82,13 @@ const ticketFields = {
   completion_seq: positiveSeq,
 };
 // check_hash is the RFC 8785 canonical JSON sha256 of the check at check_index.
-export const ticketTestLinkSchema = z.object(ticketFields);
-export const ticketTestLinkInputSchema = z.strictObject(ticketFields);
-export type TicketTestLink = z.infer<typeof ticketTestLinkSchema>;
+const ticketTestLinkSchema = z.object(ticketFields);
+const ticketTestLinkInputSchema = z.strictObject(ticketFields);
 const failurePathFields = {
   code: problemCodeSchema,
   test_hash: sha256Schema,
 };
 const failurePathSchema = z.object(failurePathFields);
-const failurePathInputSchema = z.strictObject(failurePathFields);
 const frozenTestFields = {
   code: sha256Schema,
   input: sha256Schema,
@@ -122,11 +117,6 @@ export const frozenTestSchema = z.object(frozenTestFields).refine(
   validFrozenTest,
   { message: "invalid frozen test for its kind" },
 );
-export const frozenTestInputSchema = z.strictObject({
-  ...frozenTestFields,
-  method: testMethodInputSchema,
-  failure_paths: z.array(failurePathInputSchema).nullable(),
-}).refine(validFrozenTest, { message: "invalid frozen test for its kind" });
 export type FrozenTest = z.infer<typeof frozenTestSchema>;
 
 const executionFields = {
@@ -151,7 +141,7 @@ const executionFields = {
   truncated: z.boolean(),
   redaction_notes: z.array(nonempty),
 };
-export const executionEvidenceSchema = z.object(executionFields).refine(
+const executionEvidenceSchema = z.object(executionFields).refine(
   (value) => value.ended_at >= value.started_at,
   { message: "execution ends before it starts" },
 ).refine(
@@ -161,18 +151,6 @@ export const executionEvidenceSchema = z.object(executionFields).refine(
   (value) => value.end_reason !== "exited" || value.exit_code !== null,
   { message: "exited termination requires an exit code" },
 );
-export const executionEvidenceInputSchema = z.strictObject(executionFields)
-  .refine(
-    (value) => value.ended_at >= value.started_at,
-    { message: "execution ends before it starts" },
-  ).refine(
-    (value) =>
-      (value.output === null) === (value.output_missing_reason !== null),
-    { message: "missing output requires a reason" },
-  ).refine(
-    (value) => value.end_reason !== "exited" || value.exit_code !== null,
-    { message: "exited termination requires an exit code" },
-  );
 export type ExecutionEvidence = z.infer<typeof executionEvidenceSchema>;
 export const executionEvidenceListSchema = z.array(executionEvidenceSchema).min(
   1,
@@ -251,25 +229,25 @@ export const requestTestInputSchema = z.strictObject({
     claim_seq: positiveSeq,
   }).optional(),
 }).refine(validConnections, { message: "invalid kind connections" });
-export const requestTestOutputSchema = z.object({
+const requestTestOutputSchema = z.object({
   request_key: idempotencyKeySchema,
   accepted: z.boolean(),
   result_ref: idSchema("vrf").nullable(),
 });
-export const recordVerificationInputSchema = z.strictObject({
+const recordVerificationInputSchema = z.strictObject({
   verification: verificationInputSchema,
   blobs: z.array(blobRefRegistrationSchema),
 });
-export const recordVerificationOutputSchema = z.object({
+const recordVerificationOutputSchema = z.object({
   verification: idSchema("vrf"),
   seq: positiveSeq,
 });
 // GetTestRequest reads by AuthenticatedContext.principal + key, not actor kind.
-export const getTestRequestInputSchema = z.strictObject({
+const getTestRequestInputSchema = z.strictObject({
   request_key: idempotencyKeySchema,
 });
 // These are command-record observations, not Verification lifecycle states.
-export const testRequestSchema = z.object({
+const testRequestSchema = z.object({
   request_key: idempotencyKeySchema,
   accepted: z.boolean(),
   preparation_failed: z.boolean(),
@@ -280,17 +258,17 @@ export const testRequestSchema = z.object({
   reason: nonempty,
 });
 export type TestRequest = z.infer<typeof testRequestSchema>;
-export const getTestRequestOutputSchema = withReadCommon(
+const getTestRequestOutputSchema = withReadCommon(
   z.object({ request: testRequestSchema }),
 );
-export const getVerificationInputSchema = z.strictObject({
+const getVerificationInputSchema = z.strictObject({
   verification: idSchema("vrf"),
   detail: z.boolean(),
 });
-export const getVerificationOutputSchema = withReadCommon(
+const getVerificationOutputSchema = withReadCommon(
   z.object({ verification: verificationSchema }),
 );
-export const listVerificationsInputSchema = z.strictObject({
+const listVerificationsInputSchema = z.strictObject({
   app: idSchema("app"),
   problem: idSchema("prb").optional(),
   ticket: idSchema("tkt").optional(),
@@ -302,7 +280,7 @@ export const listVerificationsInputSchema = z.strictObject({
     message: "filter by problem or ticket, not both",
   },
 );
-export const listVerificationsOutputSchema = withReadCommon(z.object({
+const listVerificationsOutputSchema = withReadCommon(z.object({
   verifications: z.array(verificationSchema),
 }));
 const readActors = ["user", "coding_agent", "agent", "machine"] as const;
@@ -356,7 +334,7 @@ const lifecycleProofSchema = z.strictObject({
   next_runner: nonempty.nullable(),
   operation: z.enum(["observe_test_request", "recover_test_request"]),
 });
-export const observeTestRequestInputSchema = z.strictObject({
+const observeTestRequestInputSchema = z.strictObject({
   observation: z.strictObject({
     phase: z.enum([
       "preparation_failed",
@@ -374,7 +352,7 @@ export const observeTestRequestInputSchema = z.strictObject({
   }),
   proof: lifecycleProofSchema,
 });
-export const startTestSideInputSchema = z.strictObject({
+const startTestSideInputSchema = z.strictObject({
   start: z.strictObject({
     request_principal: nonempty,
     request_key: idempotencyKeySchema,
@@ -386,7 +364,7 @@ export const startTestSideInputSchema = z.strictObject({
   }),
   proof: lifecycleProofSchema,
 });
-export const lifecycleOutputSchema = z.object({ seq: positiveSeq });
+const lifecycleOutputSchema = z.object({ seq: positiveSeq });
 export const observeTestRequest = defineCommand({
   resource: "problems",
   method: "observe-test-request",
@@ -407,7 +385,7 @@ export const startTestSide = defineCommand({
 });
 // runner가 결과 근거(고정 시험·실행 증거·관측 JSON)를 RecordVerification 앞에 남긴다. 한 요청에 한 번이고
 // 같은 내용만 다시 받는다. RecordVerification이 같은 transaction에서 이 기록과 Verification의 hash를 맞춰 본다.
-export const stageTestEvidenceInputSchema = z.strictObject({
+const stageTestEvidenceInputSchema = z.strictObject({
   request_principal: nonempty,
   request_key: idempotencyKeySchema,
   request_hash: sha256Schema,
@@ -449,7 +427,7 @@ export const listVerifications = defineRead({
   actors: readActors,
   errors: readErrors,
 });
-export const verificationRecordedPayloadSchema = z.object({
+const verificationRecordedPayloadSchema = z.object({
   kind: testKindSchema,
   app: idSchema("app"),
   target: testTargetSchema,

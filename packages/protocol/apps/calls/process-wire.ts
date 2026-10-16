@@ -69,7 +69,7 @@ export type ProcessApplyResponse = z.infer<typeof processApplyResponseSchema>;
 // 옛 시작 입력에서 verify_key와 direct_socket을 빼고 control_socket을 더한 것이다.
 const { verify_key: _verifyKey, direct_socket, ...kept } =
   appStartInputSchema.shape;
-export const appProcessStartInputSchema = z.strictObject({
+const appProcessStartInputSchema = z.strictObject({
   ...kept,
   control_socket: direct_socket,
 }).refine(
@@ -79,18 +79,4 @@ export const appProcessStartInputSchema = z.strictObject({
 export type AppProcessStartInput = z.infer<typeof appProcessStartInputSchema>;
 
 // 한 줄 JSON. 줄바꿈이 들어간 값은 시작 입력이 아니다.
-export function encodeAppProcessStart(input: AppProcessStartInput): string {
-  const line = JSON.stringify(appProcessStartInputSchema.parse(input));
-  if (line.includes("\n")) {
-    throw new Error("app start input must be one line");
-  }
-  return `${line}\n`;
-}
 
-export function decodeAppProcessStart(line: string): AppProcessStartInput {
-  const trimmed = line.endsWith("\n") ? line.slice(0, -1) : line;
-  if (trimmed.includes("\n")) {
-    throw new Error("app start input must be one line");
-  }
-  return appProcessStartInputSchema.parse(JSON.parse(trimmed));
-}

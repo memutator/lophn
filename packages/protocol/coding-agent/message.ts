@@ -3,7 +3,7 @@ import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
 import { ticketIdSchema } from "./ticket/values.ts";
 
-export const MESSAGE_MAX_CODE_POINTS = 8_000;
+const MESSAGE_MAX_CODE_POINTS = 8_000;
 
 // ledger에 쓰지 않는다. 보내는 session은 token이 정한다.
 export const codingMessageSend = defineMemory({

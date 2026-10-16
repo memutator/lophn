@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -11,7 +10,7 @@ import {
   userMessageContentInputSchema,
 } from "./message-content.ts";
 
-export const messageModeSchema = z.enum(["request", "correction"]);
+const messageModeSchema = z.enum(["request", "correction"]);
 function links(strict: boolean) {
   function object<S extends z.ZodRawShape>(shape: S) {
     return strict ? z.strictObject(shape) : z.object(shape);
@@ -33,10 +32,8 @@ function links(strict: boolean) {
     object({ kind: z.literal("tool_call"), call: idSchema("tcl") }),
   ]);
 }
-export const messageLinkInputSchema = links(true);
-export const messageLinkSchema = links(false);
-export type MessageLink = z.infer<typeof messageLinkSchema>;
-export const messageSchema = z.object({
+const messageLinkSchema = links(false);
+const messageSchema = z.object({
   id: idSchema("msg"),
   session: idSchema("ses"),
   actor: actorSchema,
@@ -64,20 +61,19 @@ export const messageSchema = z.object({
   (value) => value.mode !== "correction" || value.run !== null,
   { message: "correction requires a target run" },
 );
-export type Message = z.infer<typeof messageSchema>;
 function validMessageSeqs(value: { created_seq: string; state_seq: string }) {
   return seqSchema.safeParse(value.created_seq).success &&
     seqSchema.safeParse(value.state_seq).success &&
     BigInt(value.created_seq) <= BigInt(value.state_seq);
 }
-export const messageSnapshotSchema = z.object({
+const messageSnapshotSchema = z.object({
   message: messageSchema,
   created_seq: seqSchema,
   state_seq: seqSchema,
 }).refine(validMessageSeqs, {
   message: "message state precedes creation",
 });
-export const messageCommandOutputSchema = z.object({
+const messageCommandOutputSchema = z.object({
   message: messageSchema,
   created_seq: seqSchema,
   state_seq: seqSchema,
@@ -95,7 +91,7 @@ const commandErrors = [
 ] as const;
 // 본문은 값 그대로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 command가 영구
 // 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다.
-export const receiveMessageInputSchema = z.strictObject({
+const receiveMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
   content: userMessageContentInputSchema,
@@ -104,7 +100,7 @@ export const receiveMessageInputSchema = z.strictObject({
 }).refine((value) => value.mode !== "correction" || value.run !== undefined, {
   message: "correction requires target run",
 });
-export const receiveMessageCompareSchema = z.strictObject({
+const receiveMessageCompareSchema = z.strictObject({
   session_state: z.literal("open"),
   session_state_seq: seqSchema,
   assignment_revision: revision,
@@ -123,7 +119,7 @@ export const receiveMessage = defineCommand({
 });
 // agent의 답을 그 session의 기록에 남긴다. 받은 message와 같은 봉투로 쓴다: 보낸 쪽은 그 session
 // 자신(`from: agent`)이고 `turn`은 답한 turn이다. 도는 turn의 session만 받는다.
-export const recordMessageInputSchema = z.strictObject({
+const recordMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
   turn: idSchema("trn"),
@@ -139,7 +135,7 @@ export const recordMessage = defineCommand({
   actors: ["agent", "machine"],
   errors: commandErrors,
 });
-export const messagesListInputSchema = z.strictObject({
+const messagesListInputSchema = z.strictObject({
   session: idSchema("ses"),
   run: idSchema("run").optional(),
   after_seq: seqSchema.optional(),
@@ -156,7 +152,7 @@ export const messagesListInputSchema = z.strictObject({
       BigInt(value.after_seq) < BigInt(value.through_seq)),
   { message: "empty or inverted seq range" },
 );
-export const messagesListOutputSchema = withReadCommon(
+const messagesListOutputSchema = withReadCommon(
   z.object({ messages: z.array(messageSnapshotSchema) }),
 ).refine((value) => {
   if (!seqSchema.safeParse(value.as_of_seq).success) return false;
@@ -188,7 +184,7 @@ export const messagesList = defineRead({
 export const messageBodyInputSchema = z.strictObject({
   message: idSchema("msg"),
 });
-export const messageBodyOutputSchema = withReadCommon(z.object({
+const messageBodyOutputSchema = withReadCommon(z.object({
   message: idSchema("msg"),
   session: idSchema("ses"),
   body: sha256Schema,
@@ -209,32 +205,6 @@ export const MESSAGE_ROUTES = [
   recordMessage,
   messagesList,
   messageBody,
-] as const;
-export const messageReceivedPayloadSchema = z.object({
-  session: idSchema("ses"),
-  run: idSchema("run").nullable(),
-  mode: messageModeSchema,
-  body: sha256Schema,
-}).refine((value) => value.mode !== "correction" || value.run !== null, {
-  message: "correction event requires a target run",
-});
-export const messageRecordedPayloadSchema = z.object({
-  session: idSchema("ses"),
-  run: idSchema("run").nullable(),
-  body: sha256Schema,
-  links: z.array(messageLinkSchema),
-});
-export const messageReceived = defineEvent("MessageReceived", {
-  subject: idSchema("msg"),
-  payload: messageReceivedPayloadSchema,
-});
-export const messageRecorded = defineEvent("MessageRecorded", {
-  subject: idSchema("msg"),
-  payload: messageRecordedPayloadSchema,
-});
-export const MESSAGE_EVENTS = [
-  messageReceived,
-  messageRecorded,
 ] as const;
 
 // owner는 링크 존재·같은 session/assignment/run·최초 반영 transaction·blob

@@ -30,7 +30,7 @@ export const toolGateInputSchema = z.strictObject({
 export type ToolGateInput = z.infer<typeof toolGateInputSchema>;
 
 // run만 실행해도 된다. changed는 허락 뒤 실행 직전에 intent가 달라졌거나 허락이 이미 쓰였다는 뜻이다.
-export const toolGateResultSchema = z.discriminatedUnion("kind", [
+const toolGateResultSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("run") }),
   z.strictObject({ kind: z.literal("denied"), reason: gateDenyReasonSchema }),
   z.strictObject({
@@ -56,4 +56,3 @@ export const toolGateCheck = defineMemory({
 });
 
 // registry에는 lead가 올린다.
-export const TOOL_GATE_ROUTES = [toolGateCheck] as const;

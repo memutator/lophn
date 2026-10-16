@@ -27,7 +27,6 @@ const MAX = Number.MAX_SAFE_INTEGER;
 // 시도 id. event seq가 아니라 독립 id다.
 // ReleaseActivationFailed event는 attempt를 싣지 않고 { app, ticket, failure: { code, summary } }를 싣는다.
 export const activationAttemptIdSchema = idSchema("act");
-export type ActivationAttemptId = z.infer<typeof activationAttemptIdSchema>;
 
 export const ACTIVATION_FAILURE_CODES = [
   "drain_failed",
@@ -39,10 +38,10 @@ export const ACTIVATION_FAILURE_CODES = [
   "commit_rejected",
   "restore_failed",
 ] as const;
-export const activationFailureCodeSchema = z.enum(ACTIVATION_FAILURE_CODES);
+const activationFailureCodeSchema = z.enum(ACTIVATION_FAILURE_CODES);
 
 // restored는 이전 release가 다시 도는지(이전이 없으면 null). event payload의 failure는 code, summary만 싣는다.
-export const activationFailureSchema = z.object({
+const activationFailureSchema = z.object({
   code: activationFailureCodeSchema,
   summary: z.string().regex(/\S/),
   restored: z.boolean().nullable(),
@@ -50,7 +49,7 @@ export const activationFailureSchema = z.object({
 export type ActivationFailure = z.infer<typeof activationFailureSchema>;
 
 // 마지막 시도의 기록. 시작·확정 때 CAS를 다시 하지 않으므로 approval과 expected_*는 없다.
-export const activationAttemptSchema = z.object({
+const activationAttemptSchema = z.object({
   attempt: activationAttemptIdSchema,
   previous_release: releaseIdSchema.nullable(),
   backup_hash: sha256Schema.nullable(),
@@ -103,7 +102,7 @@ export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
 // 묻는 규칙: grant 덮음으로 정한다. 새 release의 선언 가운데 지금 active grant가 덮지 않는 항목이
 // 있으면 묻는다. 이전 release와 선언을 따로 비교하지 않는다.
 // first이거나 added_resources, added_app_apis, loss_steps 가운데 하나라도 비어 있지 않으면 묻는다.
-export const addedAppApiSchema = z.object({
+const addedAppApiSchema = z.object({
   app: appIdSchema,
   api: appApiKeySchema,
 });
@@ -127,26 +126,26 @@ export const activationComparisonSchema = z.object({
 export type ActivationComparison = z.infer<typeof activationComparisonSchema>;
 
 // 줄은 메모리다. 끝난 것은 release의 status(active, failed)로 본다.
-export const ACTIVATION_PHASES = [
+const ACTIVATION_PHASES = [
   "waiting_approval",
   "queued",
   "running",
 ] as const;
-export const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
+const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
 export type ActivationPhase = z.infer<typeof activationPhaseSchema>;
 
 // running일 때 지금 하는 단계다: 새 호출 멈춤, 도는 호출 기다림, 이전 process 종료, migration, 시작 확인.
-export const ACTIVATION_STEPS = [
+const ACTIVATION_STEPS = [
   "hold",
   "drain",
   "stop",
   "migrate",
   "start",
 ] as const;
-export const activationStepSchema = z.enum(ACTIVATION_STEPS);
+const activationStepSchema = z.enum(ACTIVATION_STEPS);
 export type ActivationStep = z.infer<typeof activationStepSchema>;
 
-export const activationQueueEntrySchema = z.object({
+const activationQueueEntrySchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema,
   phase: activationPhaseSchema,

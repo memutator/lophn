@@ -37,15 +37,14 @@ export const codingTerminalFrameSchema = z.strictObject({
   type: z.literal("coding_terminal"),
   request: codingTerminalRequestSchema,
 });
-export type CodingTerminalFrame = z.infer<typeof codingTerminalFrameSchema>;
 
-export const TERMINAL_FAILURES = [
+const TERMINAL_FAILURES = [
   "spawn_failed",
   "no_terminal",
   "folder_missing",
   "host_lost",
 ] as const;
-export const terminalFailureSchema = z.enum(TERMINAL_FAILURES);
+const terminalFailureSchema = z.enum(TERMINAL_FAILURES);
 
 // 요청 하나의 결과다.
 export const codingTerminalResult = defineMemory({

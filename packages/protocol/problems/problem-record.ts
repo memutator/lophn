@@ -7,12 +7,11 @@ export const problemNameSchema = z.string().min(1).max(120).regex(/\S/)
   .refine((value) => !/\p{Cc}/u.test(value), {
     message: "problem name has control characters",
   });
-export type ProblemName = z.infer<typeof problemNameSchema>;
 
 // 제보로 새로 연 문제의 이름이다.
 export const FEEDBACK_PROBLEM_NAME = "User report";
 
-export const PROBLEM_STATES = ["open", "resolved", "ignored"] as const;
+const PROBLEM_STATES = ["open", "resolved", "ignored"] as const;
 export const problemStateSchema = z.enum(PROBLEM_STATES);
 export type ProblemState = z.infer<typeof problemStateSchema>;
 

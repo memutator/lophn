@@ -49,7 +49,7 @@ const builtinAgentRefBranches = [
   }),
   z.strictObject({ role: z.literal("app_engineer"), app: idSchema("app") }),
 ] as const;
-export const builtinAgentRefSchema = z.discriminatedUnion(
+const builtinAgentRefSchema = z.discriminatedUnion(
   "role",
   builtinAgentRefBranches,
 );
@@ -77,22 +77,22 @@ const saveCompareSchema = z.strictObject({ hash: sha256Schema.nullable() });
 const existingCompareSchema = z.strictObject({ hash: sha256Schema });
 
 // 값을 준 층. 설정의 층은 전역, project, agent이고 composer가 session 하나만 고른 model이 session이다.
-export const AGENT_VALUE_LAYERS = [
+const AGENT_VALUE_LAYERS = [
   "global",
   "project",
   "agent",
   "session",
 ] as const;
-export const agentValueLayerSchema = z.enum(AGENT_VALUE_LAYERS);
+const agentValueLayerSchema = z.enum(AGENT_VALUE_LAYERS);
 export type AgentValueLayer = z.infer<typeof agentValueLayerSchema>;
 
-export function agentSourced<T extends z.ZodType>(value: T) {
+function agentSourced<T extends z.ZodType>(value: T) {
   return z.object({ value, source: agentValueLayerSchema });
 }
 
 // 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `mcp_servers.0.name`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
-export const AGENT_DEFINITION_ISSUE_CODES = [
+const AGENT_DEFINITION_ISSUE_CODES = [
   "malformed",
   "unknown_field",
   "invalid_value",
@@ -104,26 +104,22 @@ export const AGENT_DEFINITION_ISSUE_CODES = [
   "missing_reference",
   "archived_reference",
 ] as const;
-export const agentDefinitionIssueSchema = z.object({
+const agentDefinitionIssueSchema = z.object({
   field: z.string().min(1),
   code: z.enum(AGENT_DEFINITION_ISSUE_CODES),
 });
 export type AgentDefinitionIssue = z.infer<typeof agentDefinitionIssueSchema>;
 
-export const agentDefinitionIssuesDetailsSchema = z.object({
-  issues: z.array(agentDefinitionIssueSchema).min(1),
-});
-
 // ---------- 읽기 ----------
 
 // lophn는 place가 없어 place를 주어도 첫 줄로 늘 있다. place를 주면 그 자리의 Project Manager·App Engineer·Operator만
 // 더하고, 주지 않으면 모든 자리의 agent다.
-export const listAgentDefinitionsInputSchema = z.strictObject({
+const listAgentDefinitionsInputSchema = z.strictObject({
   place: placeSchema.optional(),
 });
 
 // issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
-export const agentDefinitionRowSchema = z.object({
+const agentDefinitionRowSchema = z.object({
   agent: agentRefOutputSchema,
   kind: agentKindSchema,
   place: placeOutputSchema.nullable(),
@@ -184,7 +180,7 @@ export const agentDefinitionRead = defineRead({
 
 // ---------- 쓰기 ----------
 
-export const createOperatorInputSchema = z.strictObject({
+const createOperatorInputSchema = z.strictObject({
   id: operatorIdSchema,
   place: placeSchema,
   definition: operatorDefinitionSchema,
@@ -199,7 +195,7 @@ export const operatorCreate = defineCommand({
   errors: [...writeErrors],
 });
 
-export const changeOperatorInputSchema = z.strictObject({
+const changeOperatorInputSchema = z.strictObject({
   agent: operatorIdSchema,
   definition: operatorDefinitionSchema,
 });
@@ -214,7 +210,7 @@ export const operatorChange = defineCommand({
   errors: [...writeErrors],
 });
 
-export const deleteOperatorInputSchema = z.strictObject({
+const deleteOperatorInputSchema = z.strictObject({
   agent: operatorIdSchema,
 });
 export const operatorDelete = defineCommand({
@@ -228,7 +224,7 @@ export const operatorDelete = defineCommand({
   errors: [...writeErrors],
 });
 
-export const changeBuiltinAgentInputSchema = z.strictObject({
+const changeBuiltinAgentInputSchema = z.strictObject({
   agent: builtinAgentRefSchema,
   definition: builtinDefinitionSchema,
 });

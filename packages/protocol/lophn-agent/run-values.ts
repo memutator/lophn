@@ -2,19 +2,12 @@ import { z } from "zod";
 import {
   atSchema,
   durationMsSchema,
-  positiveRevisionSchema,
   positiveSafeIntegerSchema,
   seqSchema,
   sha256Schema,
 } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
 import { sectionKeySchema } from "../projects/mod.ts";
-import { resolvedSourcesSchema } from "./agent-values.ts";
-import { workPlaceOutputSchema, workPlaceSchema } from "./scope.ts";
-import {
-  resolvedModelOutputSchema,
-  resolvedModelSchema,
-} from "./resolved-model.ts";
 
 const dedupKeySchema = z.string().min(1).refine(
   (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
@@ -28,10 +21,8 @@ const handoffReferenceFields = {
   question: idSchema("qst").nullable(),
 };
 
-export const handoffReferenceSchema = z.strictObject(handoffReferenceFields);
-export const handoffReferenceOutputSchema = z.object(handoffReferenceFields);
-
-export type HandoffReference = z.infer<typeof handoffReferenceSchema>;
+const handoffReferenceSchema = z.strictObject(handoffReferenceFields);
+const handoffReferenceOutputSchema = z.object(handoffReferenceFields);
 
 const messageSourceFields = {
   kind: z.literal("message"),
@@ -63,46 +54,11 @@ export const runSourceOutputSchema = z.discriminatedUnion("kind", [
   z.object(handoffSourceOutputFields),
 ]);
 
-export type RunSource = z.infer<typeof runSourceSchema>;
-
-const pinnedRevisionFields = {
-  id: z.string().min(1),
-  revision: positiveRevisionSchema,
-  snapshot_hash: sha256Schema,
-  basis_seq: seqSchema,
-};
-
 // 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
-const runBasisAgentFields = {
-  hash: sha256Schema,
-  sources: resolvedSourcesSchema,
-};
-export const runBasisAgentSchema = z.strictObject(runBasisAgentFields);
-export const runBasisAgentOutputSchema = z.object(runBasisAgentFields);
-export const runBasisAssignmentSchema = z.strictObject({
-  ...pinnedRevisionFields,
-  id: idSchema("asg"),
-});
-export const runBasisAssignmentOutputSchema = z.object({
-  ...pinnedRevisionFields,
-  id: idSchema("asg"),
-});
 
 // 선언 검색 정의를 만든 판이다. resume이 같은 판으로 정의를 다시 만든다.
-const toolContextPinFields = {
-  context: idSchema("ctx"),
-  bundle: idSchema("cbn"),
-  bundle_hash: sha256Schema,
-  title: z.string().min(1),
-};
 
-const toolLimitsFields = {
-  bytes: positiveSafeIntegerSchema,
-  lines: positiveSafeIntegerSchema,
-  list: positiveSafeIntegerSchema,
-};
-
-export const runLimitsFields = {
+const runLimitsFields = {
   model_attempts: positiveSafeIntegerSchema,
   stall_ms: positiveSafeIntegerSchema,
   active_ms: positiveSafeIntegerSchema,
@@ -110,66 +66,6 @@ export const runLimitsFields = {
 
 export const runLimitsSchema = z.strictObject(runLimitsFields);
 export const runLimitsOutputSchema = z.object(runLimitsFields);
-
-export const DEFAULT_RUN_LIMITS = {
-  model_attempts: 30,
-  stall_ms: 300_000,
-  active_ms: 1_800_000,
-} as const;
-
-export const runBasisSchema = z.strictObject({
-  agent: runBasisAgentSchema,
-  assignment: runBasisAssignmentSchema,
-  tools: z.strictObject({
-    revision: positiveRevisionSchema,
-    definitions_hash: sha256Schema,
-    contexts: z.array(z.strictObject(toolContextPinFields)),
-  }),
-  extensions: z.strictObject({
-    settings_revision: positiveRevisionSchema,
-    skill_hashes: z.array(sha256Schema),
-    mcp_config_revisions: z.array(positiveRevisionSchema),
-    mcp_tool_definition_hashes: z.array(sha256Schema),
-  }),
-  models: z.strictObject({
-    judgment: resolvedModelSchema.extend({ purpose: z.literal("judgment") }),
-    organizing: resolvedModelSchema.extend({
-      purpose: z.literal("organizing"),
-    }),
-  }),
-  initial_work_place: workPlaceSchema,
-  limits: runLimitsSchema,
-  tool_result_limits: z.strictObject(toolLimitsFields),
-});
-
-export const runBasisOutputSchema = z.object({
-  agent: runBasisAgentOutputSchema,
-  assignment: runBasisAssignmentOutputSchema,
-  tools: z.object({
-    revision: positiveRevisionSchema,
-    definitions_hash: sha256Schema,
-    contexts: z.array(z.object(toolContextPinFields)),
-  }),
-  extensions: z.object({
-    settings_revision: positiveRevisionSchema,
-    skill_hashes: z.array(sha256Schema),
-    mcp_config_revisions: z.array(positiveRevisionSchema),
-    mcp_tool_definition_hashes: z.array(sha256Schema),
-  }),
-  models: z.object({
-    judgment: resolvedModelOutputSchema.extend({
-      purpose: z.literal("judgment"),
-    }),
-    organizing: resolvedModelOutputSchema.extend({
-      purpose: z.literal("organizing"),
-    }),
-  }),
-  initial_work_place: workPlaceOutputSchema,
-  limits: runLimitsOutputSchema,
-  tool_result_limits: z.object(toolLimitsFields),
-});
-
-export type RunBasis = z.infer<typeof runBasisSchema>;
 
 const elapsedFields = {
   active_ms: durationMsSchema,
@@ -180,9 +76,7 @@ const elapsedFields = {
 export const runElapsedSchema = z.strictObject(elapsedFields);
 export const runElapsedOutputSchema = z.object(elapsedFields);
 
-export type RunElapsed = z.infer<typeof runElapsedSchema>;
-
-export const RUN_OUTCOME_REASONS = {
+const RUN_OUTCOME_REASONS = {
   completed: ["answer_completed"],
   failed: [
     "model_error",
@@ -235,9 +129,7 @@ export const runOutcomeOutputSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export type RunOutcome = z.infer<typeof runOutcomeSchema>;
-
-export const RUN_STATES = [
+const RUN_STATES = [
   "accepted",
   "running",
   "waiting_user",
@@ -247,7 +139,7 @@ export const RUN_STATES = [
 export const runStateSchema = z.enum(RUN_STATES);
 
 // 기다리는 요청은 질문 묶음(qgr) 또는 approval request(apr) 하나다.
-export const waitingOnSchema = z.union([idSchema("qgr"), idSchema("apr")]);
+const waitingOnSchema = z.union([idSchema("qgr"), idSchema("apr")]);
 
 export function nonSelfRunLinks(value: {
   id: string;
@@ -308,11 +200,3 @@ export const runRecordSchema = z.object(runRecordFields).refine((value) => {
   return nonSelfRunLinks(value);
 }, { message: "run state fields are not coupled" });
 
-export type RunRecord = z.infer<typeof runRecordSchema>;
-export type Run = RunRecord;
-
-export const INITIAL_RUN_ELAPSED: RunElapsed = {
-  active_ms: 0,
-  stall_ms: 0,
-  checkpoint_at: null,
-};

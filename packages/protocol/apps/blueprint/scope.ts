@@ -16,7 +16,7 @@ import {
 } from "./types.ts";
 import { canonicalJson } from "./json.ts";
 
-export function lexicalPath(
+function lexicalPath(
   value: unknown,
   listen: boolean,
 ): string | undefined {
@@ -93,7 +93,7 @@ export function hostOf(value: unknown): string | undefined {
     : "invalid host";
 }
 
-export function portOf(value: unknown): number | undefined {
+function portOf(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) &&
       value >= 1 && value <= 65535
     ? value

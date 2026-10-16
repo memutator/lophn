@@ -21,8 +21,8 @@ const claimed = {
   claim_seq: seqSchema,
 };
 
-export const ticketClaimInputSchema = z.strictObject(base);
-export const ticketClaimOutputSchema = z.object({
+const ticketClaimInputSchema = z.strictObject(base);
+const ticketClaimOutputSchema = z.object({
   ticket: ticketIdSchema,
   session: codingSessionIdSchema,
   claim_seq: seqSchema,
@@ -83,12 +83,12 @@ export const ticketUploadSummary = defineUpload({
   max_bytes: TICKET_SUMMARY_MAX_BYTES,
 });
 
-export const ticketCompletionInputSchema = z.strictObject(completionFields);
+const ticketCompletionInputSchema = z.strictObject(completionFields);
 
 // CLI의 입력이다. summary 본문을 받아 hash를 내고 `upload_summary`로 올린 뒤 준비 참조로
 // report_completion을 보낸다. completion seq는 입력이 아니다(core가 부여한다).
 const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
-export const ticketReportSummarySchema = z.string().refine(
+const ticketReportSummarySchema = z.string().refine(
   (value) => /\S/.test(value) && utf8Bytes(value) <= TICKET_SUMMARY_MAX_BYTES,
   { message: "summary must be non-blank and within the upload limit" },
 );
@@ -98,11 +98,8 @@ export const ticketReportToolInputSchema = z.strictObject({
   summary: ticketReportSummarySchema,
   verifications: completionFields.verifications.optional(),
 });
-export type TicketReportToolInput = z.infer<
-  typeof ticketReportToolInputSchema
->;
 
-export const ticketReportCompletionInputSchema = z.strictObject({
+const ticketReportCompletionInputSchema = z.strictObject({
   ...claimed,
   completion: ticketCompletionInputSchema,
   summary_blob: ticketSummaryBlobSchema,

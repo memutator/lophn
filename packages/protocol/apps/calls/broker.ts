@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { problemReportInputSchema } from "../../problems/problem-report.ts";
-import { reportAcceptanceSchema } from "../../problems/reports.ts";
 import {
   appApiKeySchema,
   invocationIdSchema,
@@ -44,4 +43,3 @@ export const brokerReportProblemInputSchema = problemReportInputSchema
   .safeExtend(
     childFields,
   );
-export const brokerReportProblemOutputSchema = reportAcceptanceSchema;

@@ -6,8 +6,6 @@ const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;
 
 export const eventTypeSchema = z.string().regex(EVENT_TYPE);
 
-export type EventType = z.infer<typeof eventTypeSchema>;
-
 // entity는 ID, 이름 record는 `<종류>:<키>`, lophn 전체 단일 공통 설정만 null.
 const SUBJECT_KEY = /^[a-z][a-z0-9_]*:[A-Za-z0-9_.:-]+$/;
 

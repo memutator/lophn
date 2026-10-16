@@ -16,17 +16,7 @@ export type ConfirmationRef = z.infer<typeof confirmationRefSchema>;
 // snake_case 선언(delete_file)을 모두 담는다. ledger는 command의 결정 이름을 route.name으로 쓴다.
 const DECISION_NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 
-export const decisionNameSchema = z.string().regex(DECISION_NAME);
-
-export type DecisionName = z.infer<typeof decisionNameSchema>;
-
-export function defineDecision(name: string): DecisionName {
-  const parsed = decisionNameSchema.safeParse(name);
-  if (!parsed.success) {
-    throw new Error("decision name must be a command or snake_case name");
-  }
-  return parsed.data;
-}
+const decisionNameSchema = z.string().regex(DECISION_NAME);
 
 function unique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
@@ -55,15 +45,3 @@ export const confirmationHandleRegisteredSchema = z.strictObject({
   expires_at: atSchema,
 });
 
-export type ConfirmationHandleRegistered = z.infer<
-  typeof confirmationHandleRegisteredSchema
->;
-
-export const confirmationHandleMessageSchema = z.discriminatedUnion("type", [
-  confirmationHandleRegisterSchema,
-  confirmationHandleRegisteredSchema,
-]);
-
-export type ConfirmationHandleMessage = z.infer<
-  typeof confirmationHandleMessageSchema
->;

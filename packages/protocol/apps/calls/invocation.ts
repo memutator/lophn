@@ -34,19 +34,18 @@ export type AppInvocationOperation = z.infer<
   typeof appInvocationOperationSchema
 >;
 
-export const appInvocationStatusSchema = z.enum([
+const appInvocationStatusSchema = z.enum([
   "running",
   "succeeded",
   "failed",
   "denied",
   "unknown",
 ]);
-export type AppInvocationStatus = z.infer<typeof appInvocationStatusSchema>;
 
 export const invocationEffectSchema = z.enum(["read", "write", "external"]);
 export type InvocationEffect = z.infer<typeof invocationEffectSchema>;
 
-export const changesetSummarySchema = z.strictObject({
+const changesetSummarySchema = z.strictObject({
   hash: sha256Schema,
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 });
@@ -93,7 +92,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const APP_INVOCATIONS_MAX_COUNT = 200;
+const APP_INVOCATIONS_MAX_COUNT = 200;
 
 // session·turn 필터는 session·turn별 write 목록에 쓴다.
 export const appInvocationsInputSchema = z.strictObject({
@@ -109,7 +108,7 @@ export const appInvocationsInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(APP_INVOCATIONS_MAX_COUNT).optional(),
 });
-export const appInvocationsOutputSchema = withReadCommon(z.object({
+const appInvocationsOutputSchema = withReadCommon(z.object({
   invocations: z.array(appInvocationSchema),
 }));
 export const appInvocations = defineRead({
@@ -122,10 +121,10 @@ export const appInvocations = defineRead({
   errors: readErrors,
 });
 
-export const appInvocationInputSchema = z.strictObject({
+const appInvocationInputSchema = z.strictObject({
   invocation: invocationIdSchema,
 });
-export const appInvocationOutputSchema = withReadCommon(z.object({
+const appInvocationOutputSchema = withReadCommon(z.object({
   invocation: appInvocationSchema.nullable(),
 }));
 export const appInvocation = defineRead({

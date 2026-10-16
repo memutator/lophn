@@ -6,7 +6,7 @@ import { CONTEXT_OUTLINE_SOURCE_FORMATS } from "./context-contract.ts";
 import { publicRead } from "./read-values.ts";
 import { relativePathSchema, revisionSchema } from "./values.ts";
 
-export const contextOutlineEntrySchema = z.strictObject({
+const contextOutlineEntrySchema = z.strictObject({
   level: z.number().int().min(1).max(6),
   title: z.string().min(1),
   locator: z.string().min(1),
@@ -20,18 +20,18 @@ export const contextOutlineSchema = z.strictObject(outlineFields);
 export type ContextOutline = z.infer<typeof contextOutlineSchema>;
 
 const targetFields = { context: ctxIdSchema, path: relativePathSchema };
-export const contextOutlineTargetSchema = z.strictObject(targetFields);
-export const contextOutlineSetInputSchema = z.strictObject({
+const contextOutlineTargetSchema = z.strictObject(targetFields);
+const contextOutlineSetInputSchema = z.strictObject({
   ...targetFields,
   format: outlineFields.format,
   entries: outlineFields.entries,
 });
-export const contextOutlineRecordSchema = z.object({
+const contextOutlineRecordSchema = z.object({
   context: ctxIdSchema,
   ...outlineFields,
   revision: revisionSchema,
 });
-export const contextOutlineDeleteOutputSchema = z.object(targetFields);
+const contextOutlineDeleteOutputSchema = z.object(targetFields);
 
 // 모든 role이 읽는다. 없으면 outline은 null이다.
 export const outlineGet = defineRead({

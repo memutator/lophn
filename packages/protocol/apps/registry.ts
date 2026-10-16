@@ -1,16 +1,11 @@
 import {
   appArchive,
-  appArchived,
   appConnectSource,
   appCreate,
-  appCreated,
   appGet,
   appList,
   appRename,
-  appRenamed,
-  appSourceConnected,
   appUnarchive,
-  appUnarchived,
 } from "./apps.ts";
 import {
   annotationSend,
@@ -32,26 +27,17 @@ import {
 import {
   appDisableExecution,
   appEnableExecution,
-  appExecutionDisabled,
-  appExecutionEnabled,
   appLogs,
   appRecordStarted,
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
-  appStarted,
-  appStopped,
-  appUnavailable,
 } from "./runtime.ts";
 import { APP_GRANT_ROUTES } from "./grants.ts";
-import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
+import { PACKAGE_ROUTES } from "./package-routes.ts";
 import { ACTIVATION_ROUTES } from "./activation/mod.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
-import {
-  RELEASE_ROUTES,
-  releaseActivated,
-  releaseActivationFailed,
-} from "./releases.ts";
+import { RELEASE_ROUTES } from "./releases.ts";
 
 export const ROUTES = [
   appCreate,
@@ -88,18 +74,3 @@ export const ROUTES = [
   ...RELEASE_ROUTES,
 ] as const;
 
-export const EVENTS = [
-  appCreated,
-  appSourceConnected,
-  appArchived,
-  appUnarchived,
-  appRenamed,
-  appExecutionEnabled,
-  appExecutionDisabled,
-  appStarted,
-  appStopped,
-  appUnavailable,
-  ...PACKAGE_EVENTS,
-  releaseActivated,
-  releaseActivationFailed,
-] as const;

@@ -18,7 +18,7 @@ export const harnessReport = defineMemory({
 });
 
 // can_launch와 can_deliver_messages는 `canLaunch`·`canDeliverMessages`와 같은 뜻이고 core가 채운다.
-export const harnessListItemSchema = z.strictObject({
+const harnessListItemSchema = z.strictObject({
   harness: harnessIdSchema,
   detected: z.boolean(),
   version: z.string().nullable(),

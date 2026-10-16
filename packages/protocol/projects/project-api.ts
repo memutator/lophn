@@ -26,7 +26,7 @@ export const projectRecordSchema = z.object({
 });
 export type ProjectRecord = z.infer<typeof projectRecordSchema>;
 
-export const projectRegisterInputSchema = z.strictObject({
+const projectRegisterInputSchema = z.strictObject({
   id: projectIdSchema,
   name: slugSchema,
   title: z.string().min(1),
@@ -40,7 +40,7 @@ const editFields = {
   // 하위 폴더도 folders 안에 담겨 통째로 바뀐다.
   folders: projectFoldersSchema.optional(),
 };
-export const projectEditInputSchema = z.strictObject({
+const projectEditInputSchema = z.strictObject({
   project: projectIdSchema,
   ...editFields,
 }).refine(
@@ -50,16 +50,16 @@ export const projectEditInputSchema = z.strictObject({
     ),
   { message: "edit must change at least one field" },
 );
-export const projectRefInputSchema = z.strictObject({
+const projectRefInputSchema = z.strictObject({
   project: projectIdSchema,
 });
 // 찾을 수 없게 된 등록 폴더를 사람이 새 위치로 이어 준다.
-export const projectRelinkFolderInputSchema = z.strictObject({
+const projectRelinkFolderInputSchema = z.strictObject({
   project: projectIdSchema,
   folder_path: absolutePathSchema,
   new_path: absolutePathSchema,
 });
-export const projectBaseRevisionSchema = z.strictObject({
+const projectBaseRevisionSchema = z.strictObject({
   base_revision: revisionSchema,
 });
 

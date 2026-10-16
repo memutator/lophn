@@ -4,12 +4,12 @@ import { withReadCommon } from "../base/envelope.ts";
 
 // opaque: runtime은 결합 조건을 cursor에 담는다. schema는 decode하지 않는다.
 export const readCursorSchema = z.string().min(1);
-export const paginationFields = {
+const paginationFields = {
   complete: z.boolean(),
   next_cursor: readCursorSchema.nullable(),
 };
 
-export function validPagination(
+function validPagination(
   value: { complete: boolean; next_cursor: string | null },
 ): boolean {
   return value.complete
@@ -18,7 +18,7 @@ export function validPagination(
 }
 
 // 읽기 예산만으로 큰 metadata/JSON escaping 비용을 막을 수 없어 최종 JSON에도 bound를 둔다.
-export function boundedJson<T extends z.ZodType>(schema: T) {
+function boundedJson<T extends z.ZodType>(schema: T) {
   return schema.refine((value) => {
     try {
       return new TextEncoder().encode(JSON.stringify(value)).length <=

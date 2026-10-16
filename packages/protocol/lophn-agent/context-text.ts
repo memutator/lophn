@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const CONTEXT_TEXT_TAG = "lophn-context";
 // 예산을 넘으면 full에서 names, count로 줄인다.
-export const CONTEXT_TEXT_LEVELS = ["full", "names", "count"] as const;
+const CONTEXT_TEXT_LEVELS = ["full", "names", "count"] as const;
 export type ContextTextLevel = (typeof CONTEXT_TEXT_LEVELS)[number];
 
 const pathDescription = z.object({
@@ -50,4 +50,3 @@ export const contextGetOutputSchema = z.object({
   version: z.string(),
   text: z.string(),
 });
-export type ContextGetOutput = z.infer<typeof contextGetOutputSchema>;

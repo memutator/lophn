@@ -1,42 +1,19 @@
 import { z } from "zod";
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
-import {
-  appIdSchema,
-  documentIdSchema,
-  projectIdSchema,
-  sectionKeySchema,
-  versionIdSchema,
-} from "../projects/values.ts";
+import { appIdSchema } from "../projects/values.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 
 // 요약은 UTF-8 2048 bytes, 탭 상세는 한 page 20개.
-export const SUMMARY_MAX_BYTES = 2048;
-export const TAB_PAGE_SIZE = 20;
+const SUMMARY_MAX_BYTES = 2048;
+const TAB_PAGE_SIZE = 20;
 
 // 화면 상태 문자열은 80자를 넘기면 원값 대신 안전한 형태로 줄인다.
-export const VIEW_STRING_MAX_CHARS = 80;
-
-export const VIEW_AVAILABILITY = [
-  "current",
-  "disconnected",
-  "unavailable",
-] as const;
-
-export const TAB_KINDS = [
-  "document_editor",
-  "terminal",
-  "app_panel",
-  "contexts",
-  "context",
-  "search",
-  "agents",
-  "agent",
-] as const;
+const VIEW_STRING_MAX_CHARS = 80;
 
 // Context 탭의 하위 탭. 순서가 화면 순서다.
-export const CONTEXT_SUB_TABS = [
+const CONTEXT_SUB_TABS = [
   "overview",
   "search",
   "violations",
@@ -44,27 +21,22 @@ export const CONTEXT_SUB_TABS = [
   "contract",
 ] as const;
 
-export const APP_VIEW_MODES = ["live", "preview"] as const;
-
 const WINDOW_REF = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 const viewString = z.string().min(1).max(VIEW_STRING_MAX_CHARS);
 
 const generationSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
-const lineSchema = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
-
-export const windowRefSchema = z.string().regex(WINDOW_REF);
+const windowRefSchema = z.string().regex(WINDOW_REF);
 
 const sessionIdSchema = idSchema("ses");
 const contextIdSchema = idSchema("ctx");
-const releaseIdSchema = idSchema("rel");
 
 function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-export const summarySchema = z.string().refine(
+const summarySchema = z.string().refine(
   (value) => utf8Bytes(value) <= SUMMARY_MAX_BYTES,
   { message: "summary exceeds 2048 UTF-8 bytes" },
 );
@@ -75,7 +47,7 @@ const tabBase = {
 };
 
 // 탭은 허용 종류와 대상 참조만 담는다. 본문·초안·터미널 출력·DOM은 field로도 받지 않는다.
-export const viewTabSchema = z.discriminatedUnion("kind", [
+const viewTabSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...tabBase,
     kind: z.literal("document_editor"),
@@ -116,9 +88,7 @@ export const viewTabSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export type ViewTab = z.infer<typeof viewTabSchema>;
-
-export const tabPageSchema = z.array(viewTabSchema).max(TAB_PAGE_SIZE);
+const tabPageSchema = z.array(viewTabSchema).max(TAB_PAGE_SIZE);
 
 // 출력은 additive다. 입력 strict union과 같은 가지·제약만 두고 모르는 field는 거절하지 않는다.
 const viewTabOutputSchema = z.discriminatedUnion("kind", [
@@ -156,63 +126,20 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const tabPageOutputSchema = z.array(viewTabOutputSchema).max(
+const tabPageOutputSchema = z.array(viewTabOutputSchema).max(
   TAB_PAGE_SIZE,
 );
 
 // 문서 선택은 판·절·줄 범위만. 선택 본문은 없다.
-export const selectionSchema = z.strictObject({
-  document: documentIdSchema,
-  version: versionIdSchema,
-  section: sectionKeySchema.max(VIEW_STRING_MAX_CHARS),
-  start_line: lineSchema,
-  end_line: lineSchema,
-}).refine((value) => value.end_line >= value.start_line, {
-  message: "selection line range is inverted",
-});
-
-export type Selection = z.infer<typeof selectionSchema>;
 
 // 앱 상세 context는 apps/agent-context의 read command다. 여기에는 참조만 둔다.
-export const appViewSchema = z.strictObject({
-  app: appIdSchema,
-  release: releaseIdSchema,
-  mode: z.enum(APP_VIEW_MODES),
-  surface: viewString,
-  view_generation: generationSchema,
-});
-
-export type AppView = z.infer<typeof appViewSchema>;
-
-export const omissionSchema = z.strictObject({
-  reason: viewString,
-  truncated: z.boolean(),
-  next_page: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
-});
-
-export type ViewOmission = z.infer<typeof omissionSchema>;
-
-export const currentViewStateSchema = z.strictObject({
-  window_ref: windowRefSchema,
-  generation: generationSchema,
-  observed_at: atSchema,
-  project: projectIdSchema.nullable(),
-  tabs: z.array(viewTabSchema),
-  focused_pane: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
-  selection: selectionSchema.nullable(),
-  app_view: appViewSchema.nullable(),
-  availability: z.enum(VIEW_AVAILABILITY),
-  omissions: z.array(omissionSchema),
-});
-
-export type CurrentViewState = z.infer<typeof currentViewStateSchema>;
 
 const errors = [...ERROR_CODES] as [
   ErrorCode,
   ...ErrorCode[],
 ];
 
-export const workspacePublish = defineMemory({
+const workspacePublish = defineMemory({
   resource: "workspace",
   method: "publish",
   name: "workspace.publish",
@@ -228,7 +155,7 @@ export const workspacePublish = defineMemory({
   errors,
 });
 
-export const workspaceBind = defineMemory({
+const workspaceBind = defineMemory({
   resource: "workspace",
   method: "bind",
   name: "workspace.bind",
@@ -241,7 +168,7 @@ export const workspaceBind = defineMemory({
   errors,
 });
 
-export const workspaceUnpublish = defineMemory({
+const workspaceUnpublish = defineMemory({
   resource: "workspace",
   method: "unpublish",
   name: "workspace.unpublish",
@@ -274,7 +201,7 @@ export const workspaceReadOutputSchema = z.union([
 
 export type WorkspaceReadOutput = z.infer<typeof workspaceReadOutputSchema>;
 
-export const workspaceRead = defineMemory({
+const workspaceRead = defineMemory({
   resource: "workspace",
   method: "read",
   name: "workspace.read",

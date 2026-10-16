@@ -8,23 +8,23 @@ const nonempty = z.string().regex(/\S/);
 const safeCode = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
 const hash = sha256Schema;
 
-export const TOOL_EFFECTS = ["read", "write", "external"] as const;
+const TOOL_EFFECTS = ["read", "write", "external"] as const;
 export const toolEffectSchema = z.enum(TOOL_EFFECTS);
 export type ToolEffect = z.infer<typeof toolEffectSchema>;
 
-export const TOOL_OUTCOME_KINDS = [
+const TOOL_OUTCOME_KINDS = [
   "success",
   "failure",
   "not_executed",
   "uncertain",
 ] as const;
-export const toolOutcomeKindSchema = z.enum(TOOL_OUTCOME_KINDS);
+const toolOutcomeKindSchema = z.enum(TOOL_OUTCOME_KINDS);
 
 // 내장 tool 이름과 입력 schema는 다른 최상위가 부르지 않으므로 여기 두지 않는다.
 export const toolNameSchema = nonempty.max(64);
 
-export const TOOL_DECISIONS = ["allow", "ask", "deny"] as const;
-export const toolDecisionEffectSchema = z.enum([
+const TOOL_DECISIONS = ["allow", "ask", "deny"] as const;
+const toolDecisionEffectSchema = z.enum([
   "read",
   "reversible_write",
   "irreversible",
@@ -62,11 +62,10 @@ export const toolDecisionSchema = z.strictObject(toolDecisionFields).refine(
   decisionShape,
   { message: decisionMessage },
 );
-export const toolDecisionOutputSchema = z.object(toolDecisionFields).refine(
+const toolDecisionOutputSchema = z.object(toolDecisionFields).refine(
   decisionShape,
   { message: decisionMessage },
 );
-export type ToolDecision = z.infer<typeof toolDecisionOutputSchema>;
 
 const toolOutcomeFields = {
   kind: toolOutcomeKindSchema,
@@ -74,7 +73,7 @@ const toolOutcomeFields = {
 };
 
 export const toolOutcomeSchema = z.strictObject(toolOutcomeFields);
-export const toolOutcomeOutputSchema = z.object(toolOutcomeFields);
+const toolOutcomeOutputSchema = z.object(toolOutcomeFields);
 export type ToolOutcome = z.infer<typeof toolOutcomeOutputSchema>;
 
 const appCommandFields = {
@@ -93,8 +92,8 @@ const appCommandFields = {
   revert_command: z.string().min(1).optional(),
 };
 
-export const appCommandBindingSchema = z.strictObject(appCommandFields);
-export const appCommandBindingOutputSchema = z.object({
+const appCommandBindingSchema = z.strictObject(appCommandFields);
+const appCommandBindingOutputSchema = z.object({
   ...appCommandFields,
   permission_basis: z.object({
     grant: idSchema("grt"),
@@ -103,10 +102,9 @@ export const appCommandBindingOutputSchema = z.object({
   }),
   context_binding: z.record(z.string(), z.json()).nullable(),
 });
-export type AppCommandBinding = z.infer<typeof appCommandBindingOutputSchema>;
 
 // 외부 이름은 ext_<server>_<tool>, 영문·숫자·밑줄·하이픈 64자 이하.
-export const canonicalExternalToolSchema = z.string().regex(
+const canonicalExternalToolSchema = z.string().regex(
   /^ext_[A-Za-z0-9_-]{1,60}$/,
 );
 
@@ -118,8 +116,7 @@ const extensionFields = {
 };
 
 export const toolExtensionSchema = z.strictObject(extensionFields);
-export const toolExtensionOutputSchema = z.object(extensionFields);
-export type ToolExtension = z.infer<typeof toolExtensionOutputSchema>;
+const toolExtensionOutputSchema = z.object(extensionFields);
 
 const sourceFields = {
   target: nonempty,
@@ -130,16 +127,16 @@ const sourceFields = {
   omitted_count: order.nullable(),
 };
 
-export const toolResultSourceSchema = z.strictObject(sourceFields);
-export const toolResultSourceOutputSchema = z.object(sourceFields);
+const toolResultSourceSchema = z.strictObject(sourceFields);
+const toolResultSourceOutputSchema = z.object(sourceFields);
 
 const continuationFields = {
   has_more: z.boolean(),
   read_next: nonempty.nullable(),
 };
 
-export const toolResultContinuationSchema = z.strictObject(continuationFields);
-export const toolResultContinuationOutputSchema = z.object(continuationFields);
+const toolResultContinuationSchema = z.strictObject(continuationFields);
+const toolResultContinuationOutputSchema = z.object(continuationFields);
 
 const resultFields = {
   status: toolOutcomeKindSchema,
@@ -152,14 +149,14 @@ const resultFields = {
 };
 
 export const toolResultSchema = z.strictObject(resultFields);
-export const toolResultOutputSchema = z.object({
+const toolResultOutputSchema = z.object({
   ...resultFields,
   source: toolResultSourceOutputSchema.nullable(),
   continuation: toolResultContinuationOutputSchema.nullable(),
 });
 export type ToolResult = z.infer<typeof toolResultOutputSchema>;
 
-export const TOOL_CALL_STATES = ["requested", "started", "finished"] as const;
+const TOOL_CALL_STATES = ["requested", "started", "finished"] as const;
 
 const toolCallFields = {
   id: idSchema("tcl"),
@@ -217,9 +214,6 @@ function callShape(value: Call) {
   return value.started_at === null || value.started_at <= value.finished_at;
 }
 
-export const toolCallSchema = z.strictObject(toolCallFields).refine(callShape, {
-  message: "tool call state, outcome and retry do not agree",
-});
 export const toolCallOutputSchema = z.object({
   ...toolCallFields,
   app_command: appCommandBindingOutputSchema.nullable(),

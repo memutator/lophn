@@ -34,7 +34,7 @@ const readErrors = [
 ] as const;
 const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
-export const startModelCallInputSchema = z.strictObject({
+const startModelCallInputSchema = z.strictObject({
   call: modelCallRecordSchema.strict(),
   applied_messages: z.array(idSchema("msg")),
   // 준비한 input·context_basis blob의 크기. 있으면 command가 영구 참조를 등록한다.
@@ -50,9 +50,9 @@ export const startModelCallInputSchema = z.strictObject({
     initialCallCostSchema.safeParse(value.call.cost).success,
   { message: "a started call has no result and an unknown cost" },
 );
-export const modelCallCompareSchema = z.strictObject({ state_seq: seqSchema });
+const modelCallCompareSchema = z.strictObject({ state_seq: seqSchema });
 
-export const finishModelCallInputSchema = z.strictObject({
+const finishModelCallInputSchema = z.strictObject({
   call: idSchema("mcl"),
   output: sha256Schema.nullable(),
   // 준비한 output blob의 크기. 있으면 command가 영구 참조를 등록한다.
@@ -68,7 +68,7 @@ export const finishModelCallInputSchema = z.strictObject({
   { message: "a partial outcome keeps the received output" },
 );
 
-export const supplementModelCallInputSchema = z.strictObject({
+const supplementModelCallInputSchema = z.strictObject({
   call: idSchema("mcl"),
   supplement_key: nonblankSchema,
   usage: tokenUsageSchema.nullable(),

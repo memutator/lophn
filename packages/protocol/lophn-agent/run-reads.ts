@@ -11,15 +11,15 @@ import {
 
 const runRef = { run: idSchema("run") };
 
-export const runReadInputSchema = z.strictObject(runRef);
+const runReadInputSchema = z.strictObject(runRef);
 
-export const runListInputSchema = z.strictObject({
+const runListInputSchema = z.strictObject({
   assignment: idSchema("asg").optional(),
   state: runStateSchema.optional(),
   cursor: readCursorSchema.optional(),
 });
 
-export const runResultInputSchema = z.strictObject(runRef);
+const runResultInputSchema = z.strictObject(runRef);
 
 const readErrors = [
   "invalid_input",
@@ -31,7 +31,7 @@ const readErrors = [
 
 const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
-export const runRead = defineRead({
+const runRead = defineRead({
   resource: "runs",
   method: "read",
   name: "ReadRun",
@@ -47,7 +47,7 @@ export const runRead = defineRead({
   errors: [...readErrors],
 });
 
-export const runList = defineRead({
+const runList = defineRead({
   resource: "runs",
   method: "list",
   name: "ListRuns",
@@ -65,7 +65,7 @@ export const runList = defineRead({
   errors: [...readErrors],
 });
 
-export const runResult = defineRead({
+const runResult = defineRead({
   resource: "runs",
   method: "result",
   name: "ReadRunResult",

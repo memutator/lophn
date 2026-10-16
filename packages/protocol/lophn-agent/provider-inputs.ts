@@ -137,18 +137,6 @@ export const providerListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
 });
 
-export const providerRegisteredPayloadSchema = z.object({
-  name: nonblankSchema,
-  endpoint: z.string(),
-  protocol: providerProtocolSchema,
-  definition_revision: nonblankSchema,
-  auth_kind: providerAuthKindSchema,
-});
-export const providerChangedPayloadSchema = z.object({
-  revision: positiveIntegerSchema,
-  credential_revision: positiveIntegerSchema,
-  state: z.enum(CREDENTIAL_STATES),
-});
 export const providerDisconnectedPayloadSchema = z.object({
   definition_key: nonblankSchema,
 });

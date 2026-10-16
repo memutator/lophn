@@ -5,11 +5,9 @@ import { redactionResultSchema } from "../base/redaction.ts";
 import { atSchema } from "../base/values.ts";
 
 // domain-model platform/diagnostics. 등록 component·code 목록은 아직 정하지 않았다.
-export const DIAGNOSTIC_RECORD_KINDS = ["log", "crash", "health"] as const;
+const DIAGNOSTIC_RECORD_KINDS = ["log", "crash", "health"] as const;
 
-export const diagnosticRecordKindSchema = z.enum(DIAGNOSTIC_RECORD_KINDS);
-
-export type DiagnosticRecordKind = z.infer<typeof diagnosticRecordKindSchema>;
+const diagnosticRecordKindSchema = z.enum(DIAGNOSTIC_RECORD_KINDS);
 
 export const diagnosticRecordSchema = z.object({
   at: atSchema,
@@ -58,7 +56,7 @@ export const DIAGNOSTIC_COMPONENTS = [
   "agent-runtime",
 ] as const;
 
-export const componentStatusSchema = z.strictObject({
+const componentStatusSchema = z.strictObject({
   component: z.enum(DIAGNOSTIC_COMPONENTS),
   available: z.boolean(),
   // 경로·key·값을 담지 않는다.

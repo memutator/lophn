@@ -19,7 +19,7 @@ function obj<S extends z.ZodRawShape>(strict: boolean, shape: S) {
 }
 
 export const CALL_REPLIES = ["none", "result", "conversation"] as const;
-export const callReplySchema = z.enum(CALL_REPLIES);
+const callReplySchema = z.enum(CALL_REPLIES);
 export type CallReply = z.infer<typeof callReplySchema>;
 
 function fromSchemas(strict: boolean) {
@@ -32,7 +32,6 @@ function fromSchemas(strict: boolean) {
     obj(strict, { kind: z.literal("coding_agent"), session: idSchema("ses") }),
   ]);
 }
-export const callFromSchema = fromSchemas(true);
 export const callFromOutputSchema = fromSchemas(false);
 export type CallFrom = z.infer<typeof callFromOutputSchema>;
 
@@ -48,7 +47,7 @@ export const callAgentOutputSchema = z.discriminatedUnion("role", [
 export type CallAgent = z.infer<typeof callAgentOutputSchema>;
 
 // agent가 tool에 쓰는 받는 이름이다. 정확히 맞는 것만 푼다. lophn은 place가 없고 Operator는 name을 준다.
-export const namedAgentSchema = z.strictObject({
+const namedAgentSchema = z.strictObject({
   role: z.union([roleSchema, z.literal("coding_agent")]),
   place: z.union([
     z.strictObject({ project: z.string().min(1) }),
@@ -59,7 +58,7 @@ export const namedAgentSchema = z.strictObject({
 export type NamedAgent = z.infer<typeof namedAgentSchema>;
 
 // 보내는 쪽이 쓰는 받는 곳 셋(이름 기준). Router가 이름을 푼다.
-export const callToInputSchema = z.union([
+const callToInputSchema = z.union([
   z.strictObject({ session: idSchema("ses") }),
   namedAgentSchema,
   namedAgentSchema.extend({
@@ -96,7 +95,7 @@ export const callRefOutputSchema = refSchemas(false);
 export type CallRef = z.infer<typeof callRefOutputSchema>;
 
 export const CALL_STATES = ["accepted", "done", "failed", "cancelled"] as const;
-export const callStateSchema = z.enum(CALL_STATES);
+const callStateSchema = z.enum(CALL_STATES);
 export type CallState = z.infer<typeof callStateSchema>;
 
 export const CALL_FAIL_REASONS = [
@@ -106,7 +105,7 @@ export const CALL_FAIL_REASONS = [
   "receiver_ended",
   "lophn_restarted",
 ] as const;
-export const callFailReasonSchema = z.enum(CALL_FAIL_REASONS);
+const callFailReasonSchema = z.enum(CALL_FAIL_REASONS);
 export type CallFailReason = z.infer<typeof callFailReasonSchema>;
 
 // 끝난 call은 다시 열지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다.
@@ -120,7 +119,7 @@ function launchesCoding(to: CallTo): boolean {
 }
 
 // Router 안에서 쓰는 풀린 봉투다. from은 core가 호출자 identity로 채운다.
-export const callEnvelopeSchema = z.object({
+const callEnvelopeSchema = z.object({
   call: idSchema("cal"),
   from: callFromOutputSchema,
   to: callToSchema,
@@ -139,7 +138,7 @@ export const callEnvelopeSchema = z.object({
 export type CallEnvelope = z.infer<typeof callEnvelopeSchema>;
 
 // agent_calls 행이다. 내용(body, refs)은 받는 session 기록에 있다.
-export const agentCallRecordSchema = z.object({
+const agentCallRecordSchema = z.object({
   call: idSchema("cal"),
   from: callFromOutputSchema,
   to: callToSchema,

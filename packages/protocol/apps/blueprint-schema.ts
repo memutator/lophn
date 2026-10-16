@@ -23,9 +23,9 @@ import {
   sameJson,
   type ValidationResult,
 } from "./blueprint-types.ts";
-import { canonicalJson, normalizeJson } from "./blueprint-json.ts";
+import { normalizeJson } from "./blueprint-json.ts";
 
-export function validateSchemaNode(
+function validateSchemaNode(
   value: unknown,
   path: string,
   seen?: Set<object>,
@@ -214,7 +214,7 @@ export function validateSchemaNode(
   return { ok: true, value: schema };
 }
 
-export function checkValue(
+function checkValue(
   schema: InputSchema,
   value: JsonValue,
   path: string,
@@ -332,20 +332,3 @@ export function validateInput(
   return checkValue(parsed.value, copied, "input");
 }
 
-export async function canonicalInputHash(
-  schema: InputSchema | null,
-  value?: unknown,
-): Promise<ValidationResult<string>> {
-  const validated = validateInput(schema, value);
-  if (!validated.ok) return validated;
-  // 입력이 없으면 정규 JSON null을 hash한다. 이 hash는 app·release·command·schema를 묶지 않는다.
-  const encoded = new TextEncoder().encode(
-    canonicalJson(validated.value === undefined ? null : validated.value),
-  );
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  const hash = Array.from(
-    new Uint8Array(digest),
-    (byte) => byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return { ok: true, value: hash };
-}

@@ -6,7 +6,7 @@ import { idSchema } from "../base/ids.ts";
 // owner_kind는 `report`로 고정이고 field는 이 셋뿐이라 입력으로
 // 다른 blob을 가리킬 수 없다. 자격은 이 route의 operation이고 앱 범위 연결은 보고의 앱·문제 target도
 // 함께 통과해야 한다. 응답 글은 core 알려진 값 pipe를 지난 것이다.
-export const REPORT_BODY_FIELDS = [
+const REPORT_BODY_FIELDS = [
   "report_text",
   "snapshot_logs",
   "feedback_state",

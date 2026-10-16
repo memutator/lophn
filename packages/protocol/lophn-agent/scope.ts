@@ -2,7 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 
 // 역할 식별자의 정본. preset·assignment contract는 이 enum만 소비한다.
-export const AGENT_ROLES = [
+const AGENT_ROLES = [
   "lophn",
   "app_engineer",
   "context_engineer",
@@ -11,7 +11,7 @@ export const AGENT_ROLES = [
 
 export const agentRoleSchema = z.enum(AGENT_ROLES);
 
-export type AgentRole = z.infer<typeof agentRoleSchema>;
+type AgentRole = z.infer<typeof agentRoleSchema>;
 
 const workPlaceBranches = [
   z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
@@ -32,8 +32,6 @@ export const workPlaceOutputSchema = z.discriminatedUnion(
   workPlaceOutputBranches,
 );
 
-export type WorkPlace = z.infer<typeof workPlaceSchema>;
-
 // apps/blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
 export const appCommandKeySchema = z.string().min(1).refine(
   (value) =>
@@ -41,9 +39,9 @@ export const appCommandKeySchema = z.string().min(1).refine(
   { message: "command key cannot be blank, a wildcard, or contain controls" },
 );
 
-export const APP_COMMAND_EFFECTS = ["read", "write", "external"] as const;
+const APP_COMMAND_EFFECTS = ["read", "write", "external"] as const;
 
-export const appCommandEffectSchema = z.enum(APP_COMMAND_EFFECTS);
+const appCommandEffectSchema = z.enum(APP_COMMAND_EFFECTS);
 
 const agentAppScopeEntryFields = {
   app: idSchema("app"),
@@ -58,7 +56,7 @@ function uniqueList<T>(values: readonly T[]): boolean {
 }
 
 // 현재 grant·역할 판정이 아니라 StartRun에 싣는 condition의 local shape.
-export const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
+const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
   .refine(
     (value) => uniqueList(value.commands) && uniqueList(value.effects),
     { message: "duplicate command or effect" },
@@ -67,7 +65,7 @@ export const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
     { message: "revert_required applies only when a write command is present" },
   );
 
-export const agentAppScopeEntryOutputSchema = z.object(agentAppScopeEntryFields)
+const agentAppScopeEntryOutputSchema = z.object(agentAppScopeEntryFields)
   .refine(
     (value) => uniqueList(value.commands) && uniqueList(value.effects),
     { message: "duplicate command or effect" },
@@ -129,4 +127,3 @@ export const agentAppScopeOutputSchema = z.object(agentAppScopeOutputFields)
     message: "role scope shape is outside the local bound",
   });
 
-export type AgentAppScope = z.infer<typeof agentAppScopeSchema>;

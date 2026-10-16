@@ -7,27 +7,19 @@ import {
   requestTest,
   stageTestEvidence,
   startTestSide,
-  verificationRecorded,
 } from "./tests.ts";
 import { reportBody } from "./report-body.ts";
 
 import {
   observeException,
   observeViewError,
-  problemObserved,
-  problemOpened,
   recordReport,
   reportProblem,
-  reportRecorded,
 } from "./reports.ts";
-import { snapshotRecorded } from "./snapshots.ts";
 import {
   getProblem,
   linkProblemInterpretation,
   listProblems,
-  problemInterpretationLinked,
-  problemWorkEnded,
-  problemWorkStarted,
 } from "./problems.ts";
 import {
   getReport,
@@ -35,12 +27,7 @@ import {
   getSnapshotLogs,
   listReports,
 } from "./problem-reads.ts";
-import {
-  applyProblemDecision,
-  problemClosed,
-  problemConfirmationRecorded,
-  problemReopened,
-} from "./closing.ts";
+import { applyProblemDecision } from "./closing.ts";
 
 import { problemReport, recordProblemReport } from "./problem-report.ts";
 import {
@@ -52,7 +39,7 @@ import {
 } from "./problem-views.ts";
 import { problemSubmitFeedback } from "./problem-feedback.ts";
 
-export const PROBLEM_ROUTES = [
+const PROBLEM_ROUTES = [
   problemReport,
   recordProblemReport,
   problemList,
@@ -85,17 +72,4 @@ export const ROUTES = [
   getSnapshotLogs,
   reportBody,
   ...PROBLEM_ROUTES,
-] as const;
-export const EVENTS = [
-  verificationRecorded,
-  reportRecorded,
-  snapshotRecorded,
-  problemOpened,
-  problemObserved,
-  problemWorkStarted,
-  problemWorkEnded,
-  problemInterpretationLinked,
-  problemClosed,
-  problemReopened,
-  problemConfirmationRecorded,
 ] as const;

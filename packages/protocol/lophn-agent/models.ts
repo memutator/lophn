@@ -9,8 +9,6 @@ import {
   MODEL_MEDIA,
   priceBasisOutputSchema,
   priceBasisSchema,
-  resolvedModelOutputSchema,
-  resolvedModelSchema,
 } from "./resolved-model.ts";
 import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 
@@ -32,13 +30,13 @@ export const modelChoiceSchema = z.strictObject(modelChoiceFields);
 export const modelChoiceOutputSchema = z.object(modelChoiceFields);
 export type ModelChoice = z.infer<typeof modelChoiceSchema>;
 
-export const CATALOG_SOURCES = [
+const CATALOG_SOURCES = [
   "release_snapshot",
   "models_dev",
   "lophn_patch",
   "user",
 ] as const;
-export const CATALOG_FAILURES = [
+const CATALOG_FAILURES = [
   "invalid_input",
   "unavailable",
   "not_found",
@@ -72,11 +70,11 @@ const modelIdWireFields = {
   kind: z.literal("model_id"),
   model_name: nonblankSchema,
 };
-export const optionWireSchema = z.discriminatedUnion("kind", [
+const optionWireSchema = z.discriminatedUnion("kind", [
   z.strictObject(bodyPatchWireFields),
   z.strictObject(modelIdWireFields),
 ]);
-export const optionWireOutputSchema = z.discriminatedUnion("kind", [
+const optionWireOutputSchema = z.discriminatedUnion("kind", [
   z.object(bodyPatchWireFields),
   z.object(modelIdWireFields),
 ]);
@@ -87,12 +85,11 @@ const optionValueFields = {
   label: nonblankSchema,
   wire: optionWireSchema.nullable(),
 };
-export const optionValueSchema = z.strictObject(optionValueFields);
-export const optionValueOutputSchema = z.object({
+const optionValueSchema = z.strictObject(optionValueFields);
+const optionValueOutputSchema = z.object({
   ...optionValueFields,
   wire: optionWireOutputSchema.nullable(),
 });
-export type OptionValue = z.infer<typeof optionValueSchema>;
 
 const optionBudgetFields = {
   minimum: positiveIntegerSchema,
@@ -152,9 +149,9 @@ function optionAxisShape(
   }
 }
 
-export const optionAxisSchema = z.strictObject(optionAxisFields)
+const optionAxisSchema = z.strictObject(optionAxisFields)
   .superRefine(optionAxisShape);
-export const optionAxisOutputSchema = z.object({
+const optionAxisOutputSchema = z.object({
   ...optionAxisFields,
   values: z.array(optionValueOutputSchema).min(1),
   budget: z.object(optionBudgetFields).nullable(),
@@ -215,18 +212,16 @@ const stateFields = {
   snapshot_hash: sha256Schema,
 };
 export const catalogStateSchema = z.strictObject(stateFields);
-export const catalogStateOutputSchema = z.object(stateFields);
+const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
-
 
 // 즐겨찾기 순서는 별표를 찍은 순서이고 새로 찍은 것이 맨 끝이다. provider로 다시 묶지 않는다.
 const favoriteFields = {
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
 };
-export const modelFavoriteSchema = z.strictObject(favoriteFields);
-export const modelFavoriteOutputSchema = z.object(favoriteFields);
-export type ModelFavorite = z.infer<typeof modelFavoriteSchema>;
+const modelFavoriteSchema = z.strictObject(favoriteFields);
+const modelFavoriteOutputSchema = z.object(favoriteFields);
 
 function uniqueFavorites(
   items: readonly { provider: string; model_name: string }[],
@@ -235,7 +230,7 @@ function uniqueFavorites(
     .size === items.length;
 }
 const duplicateFavorite = { message: "duplicate favorite" };
-export const modelFavoritesItemsSchema = z.array(modelFavoriteSchema).refine(
+const modelFavoritesItemsSchema = z.array(modelFavoriteSchema).refine(
   uniqueFavorites,
   duplicateFavorite,
 );
@@ -243,11 +238,11 @@ const favoritesOutputItemsSchema = z.array(modelFavoriteOutputSchema).refine(
   uniqueFavorites,
   duplicateFavorite,
 );
-export const modelFavoritesSchema = z.strictObject({
+const modelFavoritesSchema = z.strictObject({
   items: modelFavoritesItemsSchema,
   settings_seq: seqSchema,
 });
-export const modelFavoritesOutputSchema = z.object({
+const modelFavoritesOutputSchema = z.object({
   items: favoritesOutputItemsSchema,
   settings_seq: seqSchema,
 });
@@ -309,8 +304,8 @@ export const modelCatalogRead = defineRead({
 });
 
 // model은 전역 기본 하나와 agent 설정에서 고른다. 처음은 null이다.
-export const modelDefaultSchema = modelChoiceSchema.nullable();
-export const modelDefaultOutputSchema = modelChoiceOutputSchema.nullable();
+const modelDefaultSchema = modelChoiceSchema.nullable();
+const modelDefaultOutputSchema = modelChoiceOutputSchema.nullable();
 
 export const modelDefaultRead = defineRead({
   resource: "model-default",
@@ -380,8 +375,5 @@ export const MODEL_ROUTES = [
 
 export const CATALOG_REFRESH_INTERVAL_MS = 86_400_000;
 export const INSTRUCTION_FILE_MAX_BYTES = 32_768;
-export const INSTRUCTION_CALL_MAX_BYTES = 131_072;
 
 // turn 기준에 고정하는 값은 ResolvedModel을 그대로 쓴다.
-export const turnBasisModelSchema = resolvedModelSchema;
-export const turnBasisModelOutputSchema = resolvedModelOutputSchema;

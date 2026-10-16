@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
 
-export type JsonPrimitive = string | number | boolean | null;
+type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
 export type JsonObject = { [key: string]: JsonValue };
 

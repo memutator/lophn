@@ -21,11 +21,11 @@ export const PROVIDER_PROTOCOLS = [
 ] as const;
 export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
 
-export const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
+const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 
 // lead 결정: OAuth는 ChatGPT와 SuperGrok만. Claude OAuth 자리는 두지 않는다.
-export const OAUTH_PRODUCTS = ["chatgpt", "supergrok"] as const;
+const OAUTH_PRODUCTS = ["chatgpt", "supergrok"] as const;
 export const OAUTH_FLOWS = [
   "device_code",
   "device_code_then_pkce_paste_url",
@@ -85,11 +85,11 @@ function oauthShape(value: {
     unique(value.scopes);
 }
 
-export const oauthDefinitionSchema = z.strictObject(oauthFields).refine(
+const oauthDefinitionSchema = z.strictObject(oauthFields).refine(
   oauthShape,
   { message: "oauth definition does not match its verified product" },
 );
-export const oauthDefinitionOutputSchema = z.object(oauthFields).refine(
+const oauthDefinitionOutputSchema = z.object(oauthFields).refine(
   oauthShape,
   { message: "oauth definition does not match its verified product" },
 );
@@ -134,8 +134,8 @@ const secretRefFields = {
   sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
 };
-export const providerSecretRefSchema = z.strictObject(secretRefFields);
-export const providerSecretRefOutputSchema = z.object(secretRefFields);
+const providerSecretRefSchema = z.strictObject(secretRefFields);
+const providerSecretRefOutputSchema = z.object(secretRefFields);
 
 export const PROVIDER_FAILURES = [
   "temporary",
@@ -149,7 +149,7 @@ export const PROVIDER_FAILURES = [
 ] as const;
 export const providerFailureSchema = z.enum(PROVIDER_FAILURES);
 
-export const MODEL_BLOCK_REASONS = [
+const MODEL_BLOCK_REASONS = [
   "not_found",
   "retired",
   "account_model_access",
@@ -161,7 +161,7 @@ const modelBlockFields = {
   until: atSchema.nullable(),
 };
 export const modelBlockSchema = z.strictObject(modelBlockFields);
-export const modelBlockOutputSchema = z.object(modelBlockFields);
+const modelBlockOutputSchema = z.object(modelBlockFields);
 export type ModelBlock = z.infer<typeof modelBlockSchema>;
 
 export const CREDENTIAL_STATES = [
@@ -211,7 +211,7 @@ export const providerCredentialSchema = z.strictObject(credentialFields).refine(
   credentialShape,
   { message: "credential state, secret and model blocks do not agree" },
 );
-export const providerCredentialOutputSchema = z.object({
+const providerCredentialOutputSchema = z.object({
   ...credentialFields,
   secret_ref: providerSecretRefOutputSchema.nullable(),
   model_blocks: z.array(modelBlockOutputSchema),
@@ -262,4 +262,3 @@ export type ProviderRecord = z.infer<typeof providerRecordSchema>;
 export const OAUTH_REFRESH_LEAD_MS = 60_000;
 export const OAUTH_REFRESH_TIMEOUT_MS = 15_000;
 export const USAGE_WAIT_DEFAULT_MS = 3_600_000;
-export const ANTHROPIC_CACHE_TTL_MS = 300_000;

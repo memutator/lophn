@@ -22,7 +22,7 @@ export const placeOutputSchema = z.discriminatedUnion("kind", [
 export type Place = z.infer<typeof placeSchema>;
 
 // role마다 놓일 수 있는 place 종류. lophn은 place가 없다.
-export const ROLE_PLACES: Record<Role, readonly Place["kind"][]> = {
+const ROLE_PLACES: Record<Role, readonly Place["kind"][]> = {
   lophn: [],
   project_manager: ["project"],
   app_engineer: ["app"],

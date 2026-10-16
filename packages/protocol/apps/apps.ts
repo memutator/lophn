@@ -17,15 +17,15 @@ import {
 export const releaseIdSchema = idSchema("rel");
 
 // 화면 이름. 입력한 이름을 보존하므로 slug 문법을 강제하지 않는다.
-export const appNameSchema = z.string().min(1);
+const appNameSchema = z.string().min(1);
 // 한 줄 목적. 빈 문자열과 줄바꿈은 금지다(domain-model apps/registration).
-export const appDescriptionSchema = z.string().min(1).refine(
+const appDescriptionSchema = z.string().min(1).refine(
   (value) => !/[\r\n]/.test(value),
   { message: "description must be a single line" },
 );
 
 // documents가 자리 해석에서 부르는 존재·status·slug. runtime 상태는 없다.
-export const appRegistrationSchema = z.object({
+const appRegistrationSchema = z.object({
   id: appIdSchema,
   slug: slugSchema,
   status: archiveStateSchema,
@@ -34,7 +34,7 @@ export type AppRegistration = z.infer<typeof appRegistrationSchema>;
 
 // Tx.port 또는 ReadSnapshot.port가 같은 transaction·snapshot의 구현을 주입한다.
 // archived도 돌려주므로 호출한 concern이 필요한 status를 검사한다.
-export interface AppRegistrationLookup {
+interface AppRegistrationLookup {
   get(app: z.infer<typeof appIdSchema>): Result<AppRegistration | null>;
 }
 
@@ -65,7 +65,7 @@ export const appCompareSchema = z.strictObject({
   base_revision: revisionSchema,
 });
 
-export const appCreateInputSchema = z.strictObject({
+const appCreateInputSchema = z.strictObject({
   // 미리 배정한 app ID. 사람이 고른 질문 선택지의 고정 action만 앱 ID를 먼저 정할 수 있다.
   // 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
   id: appIdSchema.optional(),
@@ -74,7 +74,7 @@ export const appCreateInputSchema = z.strictObject({
   description: appDescriptionSchema,
   planning_version: versionIdSchema.optional(),
 });
-export const appConnectSourceInputSchema = z.strictObject({
+const appConnectSourceInputSchema = z.strictObject({
   app: appIdSchema,
   source_path: absolutePathSchema,
 });
@@ -122,7 +122,7 @@ export const appUnarchive = defineCommand({
   actors: ["user"],
   errors: ["conflict", "not_found"],
 });
-export const appRenameInputSchema = z.strictObject({
+const appRenameInputSchema = z.strictObject({
   app: appIdSchema,
   name: appNameSchema,
 });
@@ -137,7 +137,7 @@ export const appRename = defineCommand({
   errors: ["conflict", "invalid_input", "not_found"],
 });
 
-export const appListInputSchema = z.strictObject({
+const appListInputSchema = z.strictObject({
   status: archiveStateSchema.optional(),
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),

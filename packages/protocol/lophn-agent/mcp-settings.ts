@@ -20,7 +20,7 @@ const plainOrSecret = z.union([
 
 const headerName = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
 
-export const mcpAuthSchema = z.discriminatedUnion("kind", [
+const mcpAuthSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("none") }),
   z.strictObject({ kind: z.literal("bearer"), secret_ref: secretRef }),
   z.strictObject({
@@ -53,7 +53,7 @@ const httpSchema = z.strictObject({
   auth: mcpAuthSchema,
 });
 
-export const mcpToolClassificationSchema = z.strictObject({
+const mcpToolClassificationSchema = z.strictObject({
   effect: effectSchema,
   schema_hash: sha256Schema,
   reversible: z.boolean(),
@@ -67,7 +67,7 @@ const serverFields = {
   classifications: z.record(nonempty, mcpToolClassificationSchema),
 };
 
-export const mcpServerConfigSchema = z.discriminatedUnion("transport", [
+const mcpServerConfigSchema = z.discriminatedUnion("transport", [
   z.strictObject({
     ...serverFields,
     transport: z.literal("stdio"),
@@ -142,17 +142,6 @@ export const mcpServerSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpServer = z.infer<typeof mcpServerSchema>;
 
-export const extensionSettingsSchema = z.strictObject({
-  revision,
-  registered_folders: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
-  mcp_servers: z.array(mcpServerConfigSchema).max(32),
-}).refine(
-  (value) =>
-    new Set(value.mcp_servers.map((server) => server.name)).size ===
-      value.mcp_servers.length,
-  { message: "mcp server names must be unique" },
-);
-
 const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 
 // MCP OAuth 2.1의 시작 입구다.
@@ -174,7 +163,7 @@ export const mcpAuthBeginInputSchema = z.strictObject({
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(128)).max(32),
 });
-export const mcpAuthBeginOutputSchema = z.object({
+const mcpAuthBeginOutputSchema = z.object({
   // 사람이 OS browser에서 열 주소다(shell이 크롬 링크로 연다). 값 없는 안내라
   // secret이 아니다.
   url: z.string(),
@@ -210,7 +199,7 @@ export const mcpAuthCompleteInputSchema = z.strictObject({
   // 사람 credential의 loopback callback port다.
   callback_port: z.number().int().positive(),
 });
-export const mcpAuthCompleteOutputSchema = z.object({
+const mcpAuthCompleteOutputSchema = z.object({
   // 잘못된 state는 거절이다. complete이 결과 코드만 남기고 값은 없다.
   completed: z.boolean(),
 });
@@ -239,13 +228,13 @@ export const mcpAuthComplete = defineMemory({
 // - signed_in: 쓸 수 있는 token이 있다.
 // - failed: 마지막 시도나 갱신이 실패했고 reason이 이유다. 새로 시작하면 지워진다.
 // 등록하지 않은 서버나 OAuth가 아닌 서버는 none이다. token·verifier·state·code 값이 들어갈 칸은 없다.
-export const MCP_AUTH_STATES = [
+const MCP_AUTH_STATES = [
   "none",
   "in_progress",
   "signed_in",
   "failed",
 ] as const;
-export const MCP_AUTH_FAILURES = [
+const MCP_AUTH_FAILURES = [
   "callback_timeout",
   "state_mismatch",
   "exchange_failed",
@@ -253,8 +242,8 @@ export const MCP_AUTH_FAILURES = [
   "expired",
   "store_failed",
 ] as const;
-export const mcpAuthStateSchema = z.enum(MCP_AUTH_STATES);
-export const mcpAuthFailureSchema = z.enum(MCP_AUTH_FAILURES);
+const mcpAuthStateSchema = z.enum(MCP_AUTH_STATES);
+const mcpAuthFailureSchema = z.enum(MCP_AUTH_FAILURES);
 export type McpAuthStateName = z.infer<typeof mcpAuthStateSchema>;
 export type McpAuthFailure = z.infer<typeof mcpAuthFailureSchema>;
 
@@ -265,7 +254,7 @@ export const mcpAuthStateInputSchema = z.strictObject({
     z.strictObject({ name: mcpAuthServerName, place: mcpAuthPlaceSchema }),
   ).max(64),
 });
-export const mcpAuthStateOutputSchema = z.strictObject({
+const mcpAuthStateOutputSchema = z.strictObject({
   servers: z.array(z.strictObject({
     name: mcpAuthServerName,
     place: agentPlaceOutputSchema.nullable(),
@@ -291,7 +280,7 @@ export const mcpAuthCancelInputSchema = z.strictObject({
   name: mcpAuthServerName,
   place: mcpAuthPlaceSchema,
 });
-export const mcpAuthCancelOutputSchema = z.object({
+const mcpAuthCancelOutputSchema = z.object({
   cancelled: z.boolean(),
 });
 
@@ -311,7 +300,7 @@ export const mcpAuthCancel = defineMemory({
 // 응답 본문에는 code·verifier·refresh token·새 token이 들어 있어 loopback 밖으로 나가지 않으며 어디에도 남기지
 // 않는다(ledger·event·log 없음). core가 정하는 것은 요청 내용이고 runtime은 그 URL이 https인지만 다시 본다.
 export const MCP_AUTH_REQUEST_BODY_MAX = 65_536;
-export const mcpAuthRequestSchema = z.strictObject({
+const mcpAuthRequestSchema = z.strictObject({
   id: z.string().min(1).max(64),
   url: z.string().regex(/^https:\/\/\S+$/).max(2048),
   method: z.literal("POST"),
@@ -334,7 +323,7 @@ export const mcpAuthRequestTake = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-export const mcpAuthResponseSchema = z.strictObject({
+const mcpAuthResponseSchema = z.strictObject({
   status: z.number().int().min(100).max(599),
   // redirect 판정에 쓰는 Location뿐이다. 다른 header는 옮기지 않는다.
   location: z.string().max(2048).nullable(),

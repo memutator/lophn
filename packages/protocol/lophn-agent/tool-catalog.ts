@@ -34,7 +34,7 @@ export function toWireToolName(canonical: string): string {
   return canonical.replaceAll(".", "_");
 }
 
-export const COMMON_TOOLS = [
+const COMMON_TOOLS = [
   "file.read",
   "file.glob",
   "file.grep",
@@ -52,10 +52,10 @@ export const COMMON_TOOLS = [
 ] as const;
 
 // lophn을 뺀 세 role이 갖는다.
-export const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
+const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 
 // 읽기 tool은 모든 role이 갖는다.
-export const READ_TOOLS = [
+const READ_TOOLS = [
   "ticket.list",
   "ticket.get",
   "problem.list",
@@ -79,9 +79,9 @@ export const READ_TOOLS = [
 ] as const;
 
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
-export const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
+const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-export const ROLE_WRITE_TOOLS = {
+const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
   app_engineer: [
     "ticket.create",

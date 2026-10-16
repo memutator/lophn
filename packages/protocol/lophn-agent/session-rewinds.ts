@@ -6,7 +6,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { appIdSchema, relativePathSchema } from "../projects/mod.ts";
 
 // "Restore messages and documents" / "Restore messages only" / "Summarize from here".
-export const REWIND_CHOICES = [
+const REWIND_CHOICES = [
   "restore_all",
   "messages_only",
   "summarize",
@@ -23,7 +23,7 @@ export const rewindOutcomeSchema = z.enum([
 ]);
 
 // 이유는 글이 아니라 고정 코드다. 화면 문장은 이 코드로 wording을 고른다.
-export const REWIND_REASON_CODES = [
+const REWIND_REASON_CODES = [
   "edited_outside",
   "chain_broken",
   "no_pre_image",
@@ -35,7 +35,7 @@ export const REWIND_REASON_CODES = [
   "answered_fact",
   "later_edit",
 ] as const;
-export const rewindReasonSchema = z.enum(REWIND_REASON_CODES);
+const rewindReasonSchema = z.enum(REWIND_REASON_CODES);
 export type RewindReason = z.infer<typeof rewindReasonSchema>;
 
 const FILE_REASONS: readonly RewindReason[] = [
@@ -53,9 +53,9 @@ const FACT_REASONS: readonly RewindReason[] = [
   "answered_fact",
 ];
 
-export const REWIND_ITEM_CLASSES = ["file", "fact"] as const;
-export const rewindItemClassSchema = z.enum(REWIND_ITEM_CLASSES);
-export const rewindPlanSchema = z.enum(["restore", "skip", "remain"]);
+const REWIND_ITEM_CLASSES = ["file", "fact"] as const;
+const rewindItemClassSchema = z.enum(REWIND_ITEM_CLASSES);
+const rewindPlanSchema = z.enum(["restore", "skip", "remain"]);
 
 // rewind 항목 중 사전 검사가 정하는 부분(preview의 restore·skip·remain 항목).
 export const previewItemFields = {
@@ -91,7 +91,7 @@ export function previewItemOk(value: ItemShape): boolean {
     classOk(value);
 }
 
-export const previewItemSchema = z.object(previewItemFields).refine(
+const previewItemSchema = z.object(previewItemFields).refine(
   previewItemOk,
   { message: "preview item fields disagree with its class or plan" },
 );
@@ -101,7 +101,7 @@ export type PreviewItem = z.infer<typeof previewItemSchema>;
 // core가 하고, command는 ledger 기록과 이 관측으로 판정을 다시 한다. 판정에 든 경로(복원할
 // 경로, 건너뛰는 경로, 이름 변경의 옛 경로)마다 하나씩 싣는다. 준비가 없으면 그 파일은
 // restored가 될 수 없다.
-export const preparedFileSchema = z.strictObject({
+const preparedFileSchema = z.strictObject({
   path: relativePathSchema,
   // 준비 때 본 파일의 지금 hash. 없으면 null.
   observed_sha256: sha256Schema.nullable(),
@@ -111,7 +111,7 @@ export const preparedFileSchema = z.strictObject({
   staged: z.boolean(),
 });
 export type PreparedFile = z.infer<typeof preparedFileSchema>;
-export const preparedFilesSchema = z.array(preparedFileSchema).refine(
+const preparedFilesSchema = z.array(preparedFileSchema).refine(
   (files) => new Set(files.map((file) => file.path)).size === files.length,
   { message: "duplicate prepared path" },
 );
@@ -127,12 +127,11 @@ export const rewindHeaderOutput = z.object({
   (value) => (value.outcome === "applying") === (value.result_seq === null),
   { message: "only an applying rewind lacks a result event" },
 );
-export type RewindHeader = z.infer<typeof rewindHeaderOutput>;
 
 // session rewind: 고른 시점으로 대화를 되돌리고, 사람이 고른 앱의 data도 그 시점으로 되돌린다.
 // 앱 rewind의 계획(함께 되돌아갈 다른 변경, external 효과, 되돌릴 수 없음)은 앱 rewind 계획 route가
 // 따로 보인다. 확인은 대화 화면 안의 panel이라 confirmation handle은 없다.
-export const sessionRewindInputSchema = z.strictObject({
+const sessionRewindInputSchema = z.strictObject({
   id: idSchema("rwd"),
   session: idSchema("ses"),
   checkpoint: idSchema("msg"),
@@ -156,7 +155,7 @@ export const sessionRewindInputSchema = z.strictObject({
   { message: "summary_call and files must match the chosen scope" },
 );
 
-export const sessionRewindCompareSchema = z.strictObject({
+const sessionRewindCompareSchema = z.strictObject({
   session_state: z.literal("open"),
   // 도는 turn이 없다. 먼저 멈춘 뒤에만 시작한다.
   active_turn: z.null(),
@@ -191,21 +190,21 @@ export const sessionRewind = defineCommand({
   errors: [...commandErrors],
 });
 
-export const sessionRewindPreviewInputSchema = z.strictObject({
+const sessionRewindPreviewInputSchema = z.strictObject({
   session: idSchema("ses"),
   checkpoint: idSchema("msg"),
   choice: rewindChoiceSchema,
 });
 
 // 이 session이 고른 시점 뒤에 앱에 한 write invocation이다.
-export const appWritesSchema = z.array(z.object({
+const appWritesSchema = z.array(z.object({
   app: appIdSchema,
   invocations: z.array(idSchema("inv")),
 }));
 
 export type SessionAppWrites = z.infer<typeof appWritesSchema>;
 
-export const sessionRewindPreviewOutputSchema = withReadCommon(z.object({
+const sessionRewindPreviewOutputSchema = withReadCommon(z.object({
   choice: rewindChoiceSchema,
   checkpoint: idSchema("msg"),
   restore: z.array(previewItemSchema),

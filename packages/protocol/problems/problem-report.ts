@@ -44,7 +44,6 @@ export const problemReportInputSchema = z.strictObject({
   details: z.json().optional(),
   invocation: invocationEvidenceInputSchema.nullable().optional(),
 }).refine(automaticBytes);
-export type ProblemReportInput = z.infer<typeof problemReportInputSchema>;
 
 export const problemReport = defineWorker({
   resource: "problems",
@@ -80,13 +79,10 @@ function evidence(strict: boolean) {
 }
 const output = evidence(false);
 const input = evidence(true);
-export const problemErrorEvidenceSchema = output.error;
-export const problemErrorEvidenceInputSchema = input.error;
 export const problemSnapshotSchema = output.snapshot;
-export const problemSnapshotInputSchema = input.snapshot.refine((value) =>
+const problemSnapshotInputSchema = input.snapshot.refine((value) =>
   new TextEncoder().encode(JSON.stringify(value)).length <= 65_536
 );
-export type ProblemErrorEvidence = z.infer<typeof problemErrorEvidenceSchema>;
 export type ProblemSnapshot = z.infer<typeof problemSnapshotSchema>;
 export type ProblemSnapshotInput = z.infer<typeof problemSnapshotInputSchema>;
 
@@ -130,15 +126,8 @@ const validContent = (
   },
 ) => (value.source !== "feedback" ||
   value.name === FEEDBACK_PROBLEM_NAME && value.message !== null);
-export const problemReportRecordInputSchema = z.strictObject(reportFields)
+const problemReportRecordInputSchema = z.strictObject(reportFields)
   .refine(validScope).refine(validContent);
-export const problemReportSchema = z.object({
-  ...reportFields,
-  problem: idSchema("prb").nullable(),
-}).refine(validScope).refine(validContent).refine((value) =>
-  (value.mode === "live") === (value.problem !== null)
-);
-export type ProblemReport = z.infer<typeof problemReportSchema>;
 export type ProblemReportRecordInput = z.infer<
   typeof problemReportRecordInputSchema
 >;
@@ -149,8 +138,8 @@ export const problemReportBlobPurposes = [
   "snapshot_stack",
   "snapshot_logs",
 ] as const;
-export const problemReportBlobPurposeSchema = z.enum(problemReportBlobPurposes);
-export const problemReportBlobInputSchema = z.strictObject({
+const problemReportBlobPurposeSchema = z.enum(problemReportBlobPurposes);
+const problemReportBlobInputSchema = z.strictObject({
   hash: sha256Schema,
   size_bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   purpose: problemReportBlobPurposeSchema,
@@ -183,7 +172,7 @@ export const problemReportBlobInputSchema = z.strictObject({
 export type ProblemReportBlobInput = z.infer<
   typeof problemReportBlobInputSchema
 >;
-export const problemReportBlobsInputSchema = z.array(
+const problemReportBlobsInputSchema = z.array(
   problemReportBlobInputSchema,
 ).max(4).refine((values) =>
   new Set(values.map((value) => value.purpose)).size === values.length

@@ -7,7 +7,7 @@ import {
   relativePathSchema,
 } from "./values.ts";
 
-export const projectSearchInputSchema = z.strictObject({
+const projectSearchInputSchema = z.strictObject({
   project: projectIdSchema,
   // 등록 폴더 하나로 좁힌다.
   folder: absolutePathSchema.optional(),
@@ -17,7 +17,7 @@ export const projectSearchInputSchema = z.strictObject({
 });
 
 // start·end는 text 안의 위치다.
-export const projectSearchMatchSchema = z.object({
+const projectSearchMatchSchema = z.object({
   folder_path: absolutePathSchema,
   path: relativePathSchema,
   line: z.number().int().min(1),

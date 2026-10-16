@@ -28,14 +28,7 @@ const port = z.number().int().min(1).max(65535);
 const streamChannel = uint.min(1);
 
 // 알려진 기본 kind일 뿐 닫힌 registry가 아니다. 소유 팀이 자기 kind를 등록한다.
-export const PROCESS_KINDS = [
-  "platform/core",
-  "platform/io",
-  "problems/test-runner",
-  "lophn-agent/runtime",
-  "apps/supervisor",
-] as const;
-export const processKindSchema = z.string().regex(
+const processKindSchema = z.string().regex(
   /^(platform|documents|apps|problems|lophn-agent|coding-agent)\/[a-z][a-z0-9-]*$/,
 );
 export type ProcessKind = z.infer<typeof processKindSchema>;
@@ -50,13 +43,13 @@ export const helloSchema = z.strictObject({
   credential: opaque,
   api_port: port,
 });
-export const readySchema = z.strictObject({ type: z.literal("ready") });
+const readySchema = z.strictObject({ type: z.literal("ready") });
 export const stopSchema = z.strictObject({
   type: z.literal("stop"),
   grace_ms: durationMsSchema,
 });
-export const stoppedSchema = z.strictObject({ type: z.literal("stopped") });
-export const streamCreditSchema = z.strictObject({
+const stoppedSchema = z.strictObject({ type: z.literal("stopped") });
+const streamCreditSchema = z.strictObject({
   type: z.literal("credit"),
   channel: streamChannel,
   window: count,
@@ -67,7 +60,7 @@ export const streamCreditSchema = z.strictObject({
 // principal·expected_hash는 요청에 없다: principal은 core가 자식 kind에서 정하고 hash는
 // I/O worker만 계산한다. size_bytes는 선언일 뿐이고 core가 실제 바이트 수와 대조한다.
 export const BLOB_PREPARE_CREDIT_WINDOW = 2 * STREAM_CHUNK_MAX_BYTES;
-export const blobPrepareRequestSchema = z.strictObject({
+const blobPrepareRequestSchema = z.strictObject({
   type: z.literal("blob_prepare_request"),
   request_id: opaque,
   channel: streamChannel,
@@ -101,7 +94,7 @@ export const blobPrepareResultSchema = z.discriminatedUnion("ok", [
 export type BlobPrepareRequest = z.infer<typeof blobPrepareRequestSchema>;
 export type BlobPrepareResult = z.infer<typeof blobPrepareResultSchema>;
 
-export const mainHelloSchema = z.strictObject({
+const mainHelloSchema = z.strictObject({
   user_token: opaque,
   api_port: port,
   core_epoch: opaque,
@@ -132,7 +125,7 @@ const workerFailureEnvelopeSchema = z.strictObject({
     details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
-export const workerResponseEnvelopeSchema = z.discriminatedUnion("ok", [
+const workerResponseEnvelopeSchema = z.discriminatedUnion("ok", [
   workerSuccessEnvelopeSchema,
   workerFailureEnvelopeSchema,
 ]);
@@ -140,12 +133,6 @@ export type WorkerRequest = z.infer<typeof workerRequestEnvelopeSchema>;
 export type WorkerResponse = z.infer<typeof workerResponseEnvelopeSchema>;
 export function workerRequestSchema<P extends z.ZodType>(payload: P) {
   return workerRequestEnvelopeSchema.extend({ payload });
-}
-export function workerResponseSchema<P extends z.ZodType>(payload: P) {
-  return z.discriminatedUnion("ok", [
-    workerSuccessEnvelopeSchema.extend({ payload }),
-    workerFailureEnvelopeSchema,
-  ]);
 }
 export const appCredentialRequestSchema = z.strictObject({
   type: z.literal("app_credential_request"),
@@ -176,7 +163,7 @@ export const agentCredentialRequestSchema = z.strictObject({
   turn: idSchema("trn"),
   operations: z.array(opaque),
 });
-export const agentCredentialResponseSchema = z.strictObject({
+const agentCredentialResponseSchema = z.strictObject({
   type: z.literal("agent_credential_response"),
   request_id: opaque,
   credential: opaque,
@@ -187,16 +174,13 @@ export const agentCredentialEndSchema = z.strictObject({
   type: z.literal("agent_credential_end"),
   turn: idSchema("trn"),
 });
-export type AgentCredentialRequest = z.infer<
-  typeof agentCredentialRequestSchema
->;
 export type AgentCredentialResponse = z.infer<
   typeof agentCredentialResponseSchema
 >;
 
 // 입력함은 core 메모리에 있다. agent runtime은 이 통로로 시작할 turn을 고르고(`next`), 시작·끝남·steer를
 // 알리거나 읽는다. op와 응답의 모양은 run-loop의 `TurnSource` 그대로다.
-export const TURN_SOURCE_OPS = [
+const TURN_SOURCE_OPS = [
   "next",
   "began",
   "ended",
@@ -217,7 +201,7 @@ export const turnSourceRequestSchema = z.strictObject({
         (value.op === "settled") === (value.count !== undefined),
   { message: "turn source request does not fit its op" },
 );
-export const turnSourceResponseSchema = z.discriminatedUnion("ok", [
+const turnSourceResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     type: z.literal("turn_source_response"),
     request_id: opaque,
@@ -267,7 +251,7 @@ const redactSpanSchema = z.strictObject({
   index: z.number().int().min(0),
   length: z.number().int().min(1),
 });
-export const redactResponseSchema = z.discriminatedUnion("ok", [
+const redactResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     type: z.literal("redact_response"),
     request_id: opaque,
@@ -280,7 +264,6 @@ export const redactResponseSchema = z.discriminatedUnion("ok", [
     ok: z.literal(false),
   }),
 ]);
-export type RedactRequest = z.infer<typeof redactRequestSchema>;
 export type RedactResponse = z.infer<typeof redactResponseSchema>;
 
 // agent runtime의 provider 호출이 credential 값을 받는 통로다.
@@ -288,7 +271,7 @@ export type RedactResponse = z.infer<typeof redactResponseSchema>;
 // core가 현재 참조·판·목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
 // child에 닿고 child의 인증 전송 callback 메모리에서만 쓰인다. 읽을 수 없거나 대조에 실패하면 값 없이
 // 오류이고 child는 요청을 보내지 않는다(fail-closed).
-export const SECRET_SEND_ERROR_CODES = [
+const SECRET_SEND_ERROR_CODES = [
   "invalid_input",
   "forbidden",
   "conflict",
@@ -302,7 +285,7 @@ export const secretSendRequestSchema = z.strictObject({
   url: opaque,
   method: opaque,
 });
-export const secretSendResponseSchema = z.discriminatedUnion("ok", [
+const secretSendResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     type: z.literal("secret_send_response"),
     request_id: opaque,
@@ -319,10 +302,9 @@ export const secretSendResponseSchema = z.discriminatedUnion("ok", [
     }),
   }),
 ]);
-export type SecretSendRequest = z.infer<typeof secretSendRequestSchema>;
 export type SecretSendResponse = z.infer<typeof secretSendResponseSchema>;
 
-export const DIAGNOSTIC_KINDS = [
+const DIAGNOSTIC_KINDS = [
   "lophn_internal",
   "unattributed_observation",
   "invalid_report",
@@ -330,8 +312,7 @@ export const DIAGNOSTIC_KINDS = [
   "app_invocation_delivery_loss",
   "app_log_line_loss",
 ] as const;
-export type DiagnosticKind = (typeof DIAGNOSTIC_KINDS)[number];
-export const diagnosticKindSchema = z.enum(DIAGNOSTIC_KINDS);
+type DiagnosticKind = (typeof DIAGNOSTIC_KINDS)[number];
 const diagnostic = <K extends DiagnosticKind, P extends z.ZodType>(
   kind: K,
   payload: P,
@@ -342,12 +323,12 @@ const diagnostic = <K extends DiagnosticKind, P extends z.ZodType>(
     payload,
   });
 // domain model의 내부 exception과 저장소 실패만 분류한다. 원문 오류 이름은 받지 않는다.
-export const INTERNAL_ERROR_CLASSES = [
+const INTERNAL_ERROR_CLASSES = [
   "internal_exception",
   "disk_full",
   "ledger_corruption",
 ] as const;
-export const internalErrorClassSchema = z.enum(INTERNAL_ERROR_CLASSES);
+const internalErrorClassSchema = z.enum(INTERNAL_ERROR_CLASSES);
 export type InternalErrorClass = z.infer<typeof internalErrorClassSchema>;
 const diagnosticObservation = {
   component: processKindSchema,
@@ -458,7 +439,7 @@ export const START_FAILURE_REASONS = [
   "damaged_original",
   "other",
 ] as const;
-export const startFailedSchema = z.strictObject({
+const startFailedSchema = z.strictObject({
   type: z.literal("start_failed"),
   reason: z.enum(START_FAILURE_REASONS),
 });
@@ -469,13 +450,12 @@ export const coreToMainMessageSchema = z.union([
   confirmationHandleRegisteredSchema,
   secretComparisonResponseSchema,
 ]);
-export type MainToCoreMessage = z.infer<typeof mainToCoreMessageSchema>;
 export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;
 export type ParentMessage = z.infer<typeof parentMessageSchema>;
 export type ChildMessage = z.infer<typeof childMessageSchema>;
 export type MainHello = z.infer<typeof mainHelloSchema>;
 
-export const MEMORY_LIMIT_MODES = ["hard", "soft", "unavailable"] as const;
+const MEMORY_LIMIT_MODES = ["hard", "soft", "unavailable"] as const;
 export const memoryLimitModeSchema = z.enum(MEMORY_LIMIT_MODES);
 export type MemoryLimitMode = (typeof MEMORY_LIMIT_MODES)[number];
 export const kindLaunchSpecSchema = z.strictObject({
@@ -500,4 +480,3 @@ export const runMetadataSchema = z.strictObject({
   core_epoch: opaque,
   started_at: atSchema,
 });
-export type RunMetadata = z.infer<typeof runMetadataSchema>;

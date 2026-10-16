@@ -43,13 +43,12 @@ export const CODING_ROUTES = [
   ...TERMINAL_ROUTES,
 ] as const;
 
-export const cliCommonSchema = z.strictObject({
+const cliCommonSchema = z.strictObject({
   json: z.boolean().optional(),
   input: z.string().optional(),
   input_file: z.string().optional(),
   idempotency_key: z.string().optional(),
 });
-export type CliCommon = z.infer<typeof cliCommonSchema>;
 
 export type CodingCliCommand = {
   name: string;
@@ -94,13 +93,13 @@ export const HARNESS_INSTALL_OUTCOMES = [
   "not_supported",
   "failed",
 ] as const;
-export const harnessInstallOutcomeSchema = z.enum(HARNESS_INSTALL_OUTCOMES);
+const harnessInstallOutcomeSchema = z.enum(HARNESS_INSTALL_OUTCOMES);
 export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,
   folder: absolutePathSchema,
 });
 // 사람이 고친 파일은 덮지 않는다(`kept_user_edit`).
-export const harnessInstallOutputSchema = z.strictObject({
+const harnessInstallOutputSchema = z.strictObject({
   skill: harnessInstallOutcomeSchema,
   hook: harnessInstallOutcomeSchema,
 });
@@ -224,6 +223,3 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   },
 ];
 
-export const CODING_CLI_NAMES: readonly string[] = CODING_CLI_COMMANDS.map(
-  (command) => command.name,
-);

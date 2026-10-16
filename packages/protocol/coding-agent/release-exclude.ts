@@ -3,9 +3,9 @@
 // 앱 실행 코드로 퍼지지 않게 한다. 목록은 HARNESS_ADAPTERS에서 계산한다.
 import { CODING_SKILL_NAMES, HARNESS_ADAPTERS } from "./harness-adapter.ts";
 
-export type ReleaseExcludePath = string;
+type ReleaseExcludePath = string;
 
-export const RELEASE_EXCLUDE_PATHS: readonly ReleaseExcludePath[] = [
+const RELEASE_EXCLUDE_PATHS: readonly ReleaseExcludePath[] = [
   ...new Set(
     Object.values(HARNESS_ADAPTERS).flatMap((adapter) => [
       ...(adapter.hook === null ? [] : [adapter.hook.path]),

@@ -19,39 +19,17 @@ export const DIRECT_SOCKET_PATHS = {
   viewClosed: "/_lophn/control/view-closed",
 } as const;
 
-export const BROKER_SOCKET_PATHS = {
-  ready: "/_lophn/broker/ready",
-  invocationsSubmit: "/_lophn/broker/invocations/submit",
-  controlWatch: "/_lophn/broker/control/watch",
-  automationsTryAcquire: "/_lophn/broker/automations/try_acquire",
-  automationsRelease: "/_lophn/broker/automations/release",
-  netFetch: "/_lophn/broker/net/fetch",
-  secretsUse: "/_lophn/broker/secrets/use",
-  documentsSave: "/_lophn/broker/documents/save",
-  problemsReport: "/_lophn/broker/problems/report",
-  problemsObserve: "/_lophn/broker/problems/observe-exception",
-  appsConnect: "/_lophn/broker/apps/connect",
-  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
-  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
-} as const;
-
 // Unix socket HTTP의 가상 host. 필수 플랫폼 통로에만 쓴다.
 export const SOCKET_HOST = "lophn.invalid";
 
 // 시작 준비 확인 한도.
-export const READY_TIMEOUT_MS = 30_000;
 // 멈춤 유예.
-export const SHUTDOWN_GRACE_MS = 10_000;
 // confirm 실행 marker 상한.
-export const CONFIRM_MARKER_LIMIT = 4096;
 // 앱끼리 이어 부르는 깊이.
 export const APP_CALL_DEPTH_LIMIT = 8;
 // automation 전체 동시 invocation 기본 한도.
-export const AUTOMATION_CONCURRENCY_LIMIT = 4;
 // automation 호출 기본 timeout.
-export const AUTOMATION_TIMEOUT_MS = 600_000;
 // 내부 trace 이름 상한.
-export const TRACE_NAME_MAX_CHARS = 64;
 // socket 경로 UTF-8 상한.
 export const SOCKET_PATH_MAX_BYTES = 104;
 
@@ -59,11 +37,8 @@ export const SOCKET_PATH_MAX_BYTES = 104;
 // 화면 틀은 live·preview만 쓴다.
 export const runtimeModeSchema = z.enum(["live", "preview", "test"]);
 export type ChannelMode = z.infer<typeof runtimeModeSchema>;
-export const viewModeSchema = z.enum(["live", "preview"]);
-export type ViewMode = z.infer<typeof viewModeSchema>;
 
 export const screenSizeSchema = z.enum(["full", "panel", "card"]);
-export type ChannelScreenSize = z.infer<typeof screenSizeSchema>;
 
 // app-api key. blueprint app_api key와 같은 local 모양이다. 존재·grant 판정은 runtime이다.
 export const appApiKeySchema = z.string().refine(

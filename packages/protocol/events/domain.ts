@@ -117,7 +117,7 @@ export const DOMAIN_EVENTS = [
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number]["type"];
 
 // seq는 전역이다. agent event와 달리 run 칸이 없다.
-export function domainEventEnvelopeSchema<
+function domainEventEnvelopeSchema<
   T extends string,
   S extends z.ZodType,
   P extends z.ZodType,
@@ -147,9 +147,9 @@ export const domainEventSchema = z.discriminatedUnion("type", [
 export type DomainEvent = z.infer<typeof domainEventSchema>;
 
 // 새 일은 reaction grant로 끌 수 있고, call 닫음은 끌 수 없고, program 일은 agent를 부르지 않는다.
-export type DomainEventKind = "new_work" | "call_closing" | "program";
+type DomainEventKind = "new_work" | "call_closing" | "program";
 
-export const DOMAIN_EVENT_KINDS = {
+const DOMAIN_EVENT_KINDS = {
   ProblemOpened: "new_work",
   ProblemReopened: "new_work",
   AppRestartHalted: "new_work",

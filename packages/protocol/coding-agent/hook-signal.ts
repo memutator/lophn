@@ -2,7 +2,7 @@
 // 읽지 않는다. 상태 계산은 core가 한다.
 import type { HarnessId } from "./harnesses.ts";
 
-export const HOOK_SIGNAL_TYPES = [
+const HOOK_SIGNAL_TYPES = [
   "SessionStarted",
   "TurnStarted",
   "TurnEnded",

@@ -9,16 +9,13 @@ import { invocationIdSchema, releaseIdSchema } from "../channel-values.ts";
 import { appApiCallerSchema } from "./caller.ts";
 import {
   appInvocationOperationSchema,
-  changesetSummarySchema,
   invocationEffectSchema,
 } from "./invocation.ts";
 
 // blob store 참조. 저장 방식은 app-calls-invocations가 정한다.
-export const changesetRefSchema = changesetSummarySchema;
-export type ChangesetRef = z.infer<typeof changesetRefSchema>;
 
 // external은 되돌아가지 않는 바깥 효과가 있다는 표시이고, 그 invocation의 DB 변경은 reverts_db로 되돌아간다.
-export const rewindPlanItemSchema = z.strictObject({
+const rewindPlanItemSchema = z.strictObject({
   invocation: invocationIdSchema,
   started_at: atSchema,
   operation: appInvocationOperationSchema,
@@ -31,7 +28,7 @@ export const rewindPlanItemSchema = z.strictObject({
 export type RewindPlanItem = z.infer<typeof rewindPlanItemSchema>;
 
 // blocked는 범위 안에 결과 모르는 write·external·앱 시작이 changeset 없이 닫혀 있는 경우다.
-export const rewindPlanSchema = z.strictObject({
+const rewindPlanSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   from_invocation: invocationIdSchema,
@@ -101,7 +98,7 @@ export const appRewind = defineMemory({
   ],
 });
 
-export const appRewindsInputSchema = z.strictObject({
+const appRewindsInputSchema = z.strictObject({
   app: appIdSchema,
   invocation: invocationIdSchema.optional(),
   cursor: z.string().min(1).optional(),

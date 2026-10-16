@@ -31,7 +31,7 @@ export type AppApiTarget = z.infer<typeof appApiTargetSchema>;
 // - agent와 app은 target.mode가 live이고 release가 null이다.
 // - app은 project를 싣지 않는다. core가 부른 invocation의 project를 넘긴다.
 // - project에 놓인 agent가 project를 싣고 놓인 project와 다르면 conflict다.
-export const appApiCallInputSchema = z.strictObject({
+const appApiCallInputSchema = z.strictObject({
   target: appApiTargetSchema,
   api: appApiKeySchema,
   input: jsonValueSchema.optional(),
@@ -41,7 +41,7 @@ export const appApiCallInputSchema = z.strictObject({
 export type AppApiCallInput = z.infer<typeof appApiCallInputSchema>;
 
 // handler까지 가지 못한 이유. Gate 막음, 사람 거절, 호출 루프·깊이, project 규칙 위반, 앱 멈춤.
-export const APP_API_DENIAL_CODES = [
+const APP_API_DENIAL_CODES = [
   "gate_blocked",
   "rejected",
   "cancelled",
@@ -54,20 +54,20 @@ export const APP_API_DENIAL_CODES = [
   "app_unavailable",
   "not_declared",
 ] as const;
-export const appApiDenialSchema = z.strictObject({
+const appApiDenialSchema = z.strictObject({
   code: z.enum(APP_API_DENIAL_CODES),
   message: z.string(),
 });
 export type AppApiDenial = z.infer<typeof appApiDenialSchema>;
 
-export const APP_API_UNKNOWN_REASONS = [
+const APP_API_UNKNOWN_REASONS = [
   "unavailable",
   "connection_lost",
   "core_restarted",
   "timeout",
 ] as const;
 
-export const appApiOutcomeSchema = z.discriminatedUnion("status", [
+const appApiOutcomeSchema = z.discriminatedUnion("status", [
   z.strictObject({ status: z.literal("succeeded"), result: jsonValueSchema }),
   // 앱 handler가 낸 오류.
   z.strictObject({

@@ -17,7 +17,7 @@ export const PASTE_AFTER_HOOK_DEADLINE_MS = 10_000;
 
 const envNameSchema = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/);
 
-export type CodingLaunchPlan = {
+type CodingLaunchPlan = {
   session: string;
   app: string;
   ticket: string;

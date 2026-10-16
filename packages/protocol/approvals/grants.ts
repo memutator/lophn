@@ -8,13 +8,13 @@ import { callAgentSchema } from "../lophn-agent/calls.ts";
 import { type AgentRef, agentRefSchema } from "../lophn-agent/places.ts";
 
 // 효과. 대상마다 호출하는 쪽이 읽어 Gate에 넣는다.
-export const EFFECTS = ["read", "write", "external"] as const;
+const EFFECTS = ["read", "write", "external"] as const;
 export const effectSchema = z.enum(EFFECTS);
 export type Effect = z.infer<typeof effectSchema>;
 
 // 묻지 않음, 물음.
-export const ASK_SETTINGS = ["never", "ask"] as const;
-export const askSettingSchema = z.enum(ASK_SETTINGS);
+const ASK_SETTINGS = ["never", "ask"] as const;
+const askSettingSchema = z.enum(ASK_SETTINGS);
 export type AskSetting = z.infer<typeof askSettingSchema>;
 
 // 대상의 setting이 없으면 효과별 기본값이다.
@@ -27,7 +27,7 @@ export const DEFAULT_ASK: Record<Effect, AskSetting> = {
 export const SETTINGS_EDIT_DEFAULT_ASK: AskSetting = "ask";
 
 // agent grant의 한 대상. 같은 대상은 entries 안에서 하나다.
-export const agentGrantEntrySchema = z.discriminatedUnion("kind", [
+const agentGrantEntrySchema = z.discriminatedUnion("kind", [
   // 앱 하나를 할당하면 app-api 전부가 대상이다. apis에는 사람이 바꾼 것만 든다.
   // 빠진 app-api는 효과별 기본값이다. excluded는 그 agent가 부르지 못한다.
   z.strictObject({
@@ -108,9 +108,9 @@ export const reactionEventTypeSchema = z.enum(REACTION_EVENT_TYPES);
 export type ReactionEventType = z.infer<typeof reactionEventTypeSchema>;
 
 // 끔, 열고 묻지 않음, 물음.
-export const REACTION_MODES = ["off", "open", "ask"] as const;
+const REACTION_MODES = ["off", "open", "ask"] as const;
 export const reactionModeSchema = z.enum(REACTION_MODES);
-export type ReactionMode = z.infer<typeof reactionModeSchema>;
+type ReactionMode = z.infer<typeof reactionModeSchema>;
 export const DEFAULT_REACTION_MODE: ReactionMode = "open";
 
 export const reactionGrantSchema = z.strictObject({

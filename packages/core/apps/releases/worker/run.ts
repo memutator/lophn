@@ -90,7 +90,7 @@ function isPrepareInput(value: unknown): value is PrepareReleaseInput {
     typeof record.commit === "string" &&
     typeof record.entrypoint === "string" &&
     typeof record.blueprintSource === "string" &&
-    Array.isArray(record.screens);
+    Array.isArray(record.screens) && Array.isArray(record.dependencies);
 }
 
 export async function acceptRelease(

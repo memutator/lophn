@@ -11,6 +11,12 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import {
+  activationComplete,
+  activationFail,
+  activationRecordBackup,
+  activationRecordDataChange,
+  activationRecordDataRestore,
+  activationStart,
   appCallApi,
   type AppGrant,
   appGrantsList,
@@ -20,19 +26,15 @@ import {
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
+  packageRegisterVersion,
   packagesGuideBody,
   previewsGet,
   previewsStart,
   previewsStop,
   releaseCancelPreparation,
-  releaseCompleteActivation,
-  releaseFailActivation,
   releasePreparation,
   releasePrepareBundle,
-  releaseRecordBackup,
-  releaseRecordDataChange,
-  releaseRecordDataRestore,
-  releasesGet,
+  releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
 import { appAppApi } from "../../protocol/apps/blueprint/read.ts";
 import {
@@ -56,7 +58,9 @@ import {
   openConnection,
   type Writer,
 } from "../storage/ledger/mod.ts";
+import { INSTALL_PRINCIPAL } from "./packages/install.ts";
 import { loadApp } from "./registration/mod.ts";
+import { createActivationQueueRead } from "./releases/reads.ts";
 import { loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
@@ -107,12 +111,13 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
     operations: [
       appGrantsList.name,
       // activation 진행(apps/releases)이 시도의 상태를 읽고 참조·결과를 확정하고 사용 불가를 남긴다.
-      releasesGet.name,
-      releaseRecordBackup.name,
-      releaseRecordDataChange.name,
-      releaseRecordDataRestore.name,
-      releaseCompleteActivation.name,
-      releaseFailActivation.name,
+      releasesGetRecord.name,
+      activationStart.name,
+      activationRecordBackup.name,
+      activationRecordDataChange.name,
+      activationRecordDataRestore.name,
+      activationComplete.name,
+      activationFail.name,
       appRecordUnavailable.name,
       // 준비한 bundle의 같은 hash app test가 통과로 기록되면 release를 확정한다(release.prepare).
       ...FINALIZER_OPERATIONS,
@@ -121,6 +126,15 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
   },
   conditions: {},
   credential_ref: APPS_CONTROL_PRINCIPAL,
+};
+
+// package.publish가 package.register_version을 내는 core 내부 자격이다. 안내 blob을 준비한 principal과 같아야 한다.
+export const PACKAGE_PUBLISH_CONTEXT: RequestContext = {
+  principal: INSTALL_PRINCIPAL,
+  actor: "machine",
+  scope: { operations: [packageRegisterVersion.name], targets: {} },
+  conditions: {},
+  credential_ref: INSTALL_PRINCIPAL,
 };
 
 // supervisor machine credential이 닿는 operation. 관측 사실의 기록과 activation 진행뿐이다.
@@ -133,12 +147,12 @@ const SUPERVISOR_OPERATIONS = [
   appGrantsList.name,
   // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
   // 시작은 사람 approval의 적용(`apply_approved_action`)이다.
-  releaseRecordBackup.name,
-  releaseRecordDataChange.name,
-  releaseRecordDataRestore.name,
-  releaseCompleteActivation.name,
-  releaseFailActivation.name,
-  releasesGet.name,
+  activationRecordBackup.name,
+  activationRecordDataChange.name,
+  activationRecordDataRestore.name,
+  activationComplete.name,
+  activationFail.name,
+  releasesGetRecord.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, project 목록, 문제 보고, process
 // 관측뿐이다. 호출·목록은 앱 process의 broker가 그 자식의 credential로 core를 부른다.
@@ -174,17 +188,19 @@ export function appsOperationPolicies(): OperationPolicy[] {
     { name: appAppApi.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },
     ...[
-      releaseRecordBackup,
-      releaseRecordDataChange,
-      releaseRecordDataRestore,
-      releaseCompleteActivation,
-      releaseFailActivation,
-      releasesGet,
+      activationRecordBackup,
+      activationRecordDataChange,
+      activationRecordDataRestore,
+      activationComplete,
+      activationFail,
+      activationStart,
+      releasesGetRecord,
     ].map((route): OperationPolicy => ({
       name: route.name,
       actors: ["machine"],
       kind: "command",
     })),
+    { name: packageRegisterVersion.name, actors: ["machine"], kind: "command" },
     // preview는 사람(전체 user 상한)과 coding agent가 연다.
     ...[previewsStart, previewsGet, previewsStop].map((
       route,
@@ -263,6 +279,13 @@ export type AppsControl = {
   // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
+  // 호출자가 그 앱을 열 수 있는지 보고 연결된 source 폴더를 돌려준다. 범위 밖이거나 연결이 없으면 `absent` 코드다.
+  sourceRootOf(
+    ctx: AuthenticatedContext,
+    route: { name: string },
+    app: string,
+    absent: "forbidden" | "not_found",
+  ): Promise<Result<string>>;
   // reader pool의 apps.runtime·apps.logs를 현재 관측·log로 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
   readonly channel: SupervisorChannel;
@@ -464,6 +487,13 @@ export async function createAppsControl(
       "forbidden",
     );
     if (!source.ok) return source;
+    // 준비는 언제나 맡은 ticket의 claim 아래에서 한다.
+    if (body.ticket_source === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "release preparation needs the ticket source",
+      });
+    }
     const accepted = await client.releasePrepare({
       app: body.app,
       commit: body.commit,
@@ -479,6 +509,24 @@ export async function createAppsControl(
     }
     return accepted;
   };
+  function releaseIdOf(
+    preparation: { app: string; bundle_hash: string | null },
+  ): string | null {
+    if (preparation.bundle_hash === null) return null;
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return null;
+    try {
+      const row = opened.value.sql.get(
+        "SELECT id FROM releases WHERE app = ? AND bundle_hash = ?",
+        [preparation.app, preparation.bundle_hash],
+      );
+      return row === undefined ? null : String(row.id);
+    } catch {
+      return null;
+    } finally {
+      opened.value.close();
+    }
+  }
   const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
     const body = input as { app: string; request_key: string };
     const source = await releaseGate(
@@ -492,7 +540,10 @@ export async function createAppsControl(
     if (!read.ok || finalizer === null) return read;
     // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
     const finalized = await finalizer.observe(read.value);
-    if (finalized.ok) return read;
+    if (finalized.ok) {
+      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다).
+      return ok({ ...read.value, release: releaseIdOf(read.value) });
+    }
     // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
     const { code, message } = finalized.error;
     return err({
@@ -574,6 +625,7 @@ export async function createAppsControl(
       [releasePreparation.name, releasePreparationHandler],
       [releaseCancelPreparation.name, releaseCancelHandler],
     ]),
+    sourceRootOf: releaseGate,
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
       if (runtime) {
@@ -587,6 +639,16 @@ export async function createAppsControl(
         reads.set(
           `${appLogs.resource}/${appLogs.method}`,
           withRuntimeLogs(logs, sources) as ReadHandler,
+        );
+      }
+      // 등록 때 unavailable로 올린 `activations.queue`를 driver가 읽는 줄로 덮는다.
+      if (activation !== null) {
+        const queue = createActivationQueueRead({
+          entries: (app) => activation.queueEntries(app),
+        });
+        reads.set(
+          `${queue.route.resource}/${queue.route.method}`,
+          ((ctx, body) => queue.handle(ctx, body as never)) as ReadHandler,
         );
       }
       // 등록 때 unavailable로 올린 `/v1/previews/*`를 supervisor 통로가 있는 service로 덮는다.

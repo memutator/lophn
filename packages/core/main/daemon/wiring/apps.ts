@@ -1,5 +1,16 @@
-import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
-import { packagesGuideBody } from "../../../../protocol/apps/mod.ts";
+import {
+  createIdSource,
+  err,
+  ok,
+  type Result,
+  sha256Hex,
+} from "../../../../base/mod.ts";
+import {
+  blueprintCheck,
+  packagePublish,
+  packageRegisterVersion,
+  packagesGuideBody,
+} from "../../../../protocol/apps/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
@@ -15,6 +26,7 @@ import {
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
+  PACKAGE_PUBLISH_CONTEXT,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
 } from "../../../apps/control.ts";
@@ -31,6 +43,7 @@ import {
   createAppRewind,
   createRewindReads,
 } from "../../../apps/rewind/mod.ts";
+import { loadApp } from "../../../apps/registration/mod.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import type {
   AppViewSignal,
@@ -52,6 +65,10 @@ import {
   withStartInvocation,
 } from "../../../apps/routes.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
+import { checkBlueprint } from "../../../apps/blueprint/check.ts";
+import { publishPackage } from "../../../apps/packages/publish.ts";
+import { findAppTestVerification } from "../../../problems/tests/app-test-lookup.ts";
+import { createReleaseSourceMaps } from "../../../apps/releases/bundle/read.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -64,6 +81,7 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
+import { approvalLedgerRead } from "./approval-reads.ts";
 import {
   type AppsControl,
   createProductRedactor,
@@ -84,7 +102,7 @@ export const appsWiring: WiringFactory = () => {
     // apps 관측 기록·자식 앱 credential이 닿는 operation.
     operations: () => appsOperationPolicies(),
     // apps 제어(runtime·logs 덮기, activation)가 ledger 사실을 읽고 기록하는 core 내부 자격 기록.
-    records: () => [APPS_CONTROL_CONTEXT],
+    records: () => [APPS_CONTROL_CONTEXT, PACKAGE_PUBLISH_CONTEXT],
     async build(ctx) {
       const { runtime } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
@@ -210,6 +228,51 @@ export const appsWiring: WiringFactory = () => {
           (ctx.peek.bundleLocator ??
             bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
       };
+      // activation: 다른 module의 port를 끼우고 Reactor·Approvals에 등록한다. 끼우기 전에는 일하지 않는다.
+      const activation = appsControl.activation;
+      if (activation !== null) {
+        const approvalReads = approvalLedgerRead(ctx.ledgerPath);
+        activation.attach({
+          approvals: {
+            createPending: (intent) => ctx.approvals.createPending(intent),
+            cancelPendingFor: (app, release) =>
+              ctx.approvals.cancelPendingFor(app, release),
+            request: (id) => Promise.resolve(approvalReads.request(id)),
+            pending: () => Promise.resolve(approvalReads.pending()),
+          },
+          bus: ctx.bus,
+          intake: {
+            close: (app) => intake.close(app as Id<"app">, "activation"),
+            async whenIdle(app, graceMs) {
+              const idle = await intake.whenIdle(app as Id<"app">, graceMs);
+              return { idle: idle.idle };
+            },
+            abandon: (app) => intake.abandon(app as Id<"app">),
+            open: (app) => intake.open(app as Id<"app">),
+          },
+          invocations: {
+            pruneChangesets: (app, keepRelease) =>
+              ledger.pruneChangesets(
+                app as Id<"app">,
+                keepRelease as Id<"rel">,
+              ),
+          },
+        });
+        ctx.reactor.on("TicketVerified", activation.handlers.ticketVerified);
+        ctx.reactor.on("ApprovalDecided", activation.handlers.approvalDecided);
+        ctx.approvals.registerApplier(
+          "activation",
+          activation.handlers.applier,
+        );
+      }
+      // annotation이 읽는 release bundle의 source map이다.
+      ctx.provide(
+        "releaseSourceMaps",
+        createReleaseSourceMaps({
+          ledgerPath: ctx.ledgerPath,
+          dataRoot: ctx.root.path,
+        }),
+      );
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);
       ctx.provide("appRewind", rewind);
@@ -223,6 +286,46 @@ export const appsWiring: WiringFactory = () => {
         memory: [
           ["apps/call_api", callApiHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
+          [
+            `${blueprintCheck.resource}/${blueprintCheck.method}`,
+            checkBlueprint({
+              dataRoot: ctx.root.path,
+              sourceRootOf: (context, app) =>
+                appsControl.sourceRootOf(
+                  context,
+                  blueprintCheck,
+                  app,
+                  "not_found",
+                ),
+            }),
+          ],
+          [
+            `${packagePublish.resource}/${packagePublish.method}`,
+            publishPackage({
+              dataRoot: ctx.root.path,
+              sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
+              verification: (id) => findAppTestVerification(link.sql, id),
+              prepareBlob: (call) => ctx.blobRelay.prepare(call),
+              registerVersion: async (input) => {
+                const key = `package-publish-${await sha256Hex(
+                  `${input.name}\n${input.version}\n${input.bundle_hash}\n${input.guide_hash}`,
+                )}`;
+                const done = await ctx.runtime.writer.command(
+                  PACKAGE_PUBLISH_CONTEXT as never,
+                  {
+                    command: packageRegisterVersion.name,
+                    input,
+                    compare: {},
+                    idempotency_key: key,
+                    prepared: input.guide_blob === undefined
+                      ? []
+                      : [input.guide_blob.preparation],
+                  },
+                );
+                return done.ok ? ok(done.value.result as never) : done;
+              },
+            }),
+          ],
         ],
         fileStreams: [[
           "apps/screen_file",
@@ -387,4 +490,16 @@ function packageGuideBodyHandler(
       });
     },
   );
+}
+
+// 앱에 연결된 source 폴더. package.publish가 호출자(그 앱의 agent)를 따로 확인한 뒤 읽는다.
+function sourceRootOfApp(
+  sql: Parameters<typeof loadApp>[0],
+  app: string,
+): Result<string> {
+  const found = loadApp(sql, app);
+  if (!found.ok) return found;
+  return found.value?.source_path == null
+    ? err({ code: "invalid_input", message: "the app has no connected source" })
+    : ok(found.value.source_path);
 }

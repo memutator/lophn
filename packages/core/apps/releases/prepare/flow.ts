@@ -1,5 +1,6 @@
 // release 준비 흐름.
 // extract → 상한 → UI build → blueprint extract → seal → blob prepare.
+// 준비는 지정한 commit의 object에서 읽으므로 도중에 원본이 바뀌어도 결과가 달라지지 않는다.
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
 import {
@@ -19,11 +20,6 @@ import {
   type GitRunner,
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
-import {
-  gitSourceWatch,
-  observationPin,
-  observeGitSource,
-} from "./source-watch.ts";
 
 export type PrepareFailure = {
   code: "invalid_input" | "unavailable";
@@ -46,12 +42,15 @@ export type PrepareReleaseInput = {
   screens: readonly { path: string; bytes: Uint8Array }[];
   // 화면 build가 JS 말고 만든 자원(index.html·CSS·글꼴). 그대로 bundle에 담고 runtime이 screens/ 아래에서 내준다.
   assets?: readonly { path: string; bytes: Uint8Array }[];
-  sdkDependencies: readonly { name: string; version: string }[];
+  // bundle에 담은 정확한 의존 전부(manifest.dependencies가 된다).
+  dependencies: BundleManifest["dependencies"];
   uiDependencies: readonly { name: string; version: string }[];
   // 설치 SDK 사본의 byte(`sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다.
   sdkCopies?: readonly { path: string; bytes: Uint8Array }[];
   // bundle 안 상대 경로로 잠근 앱 import map. 있으면 `import-map.json`으로 bundle에 담는다.
   lockedImports?: Readonly<Record<string, string>>;
+  // 준비가 받아 둔 npm·jsr 사본(`vendor/`, `node_modules/`). 운영 process는 이것만 읽는다.
+  vendorCopies?: readonly { path: string; bytes: Uint8Array }[];
   // 플랫폼이 만든 진입 파일(`bundle/runtime-entry.ts`). 앱 source에 같은 path가 있으면 거절한다.
   entryFiles?: readonly { path: string; bytes: Uint8Array }[];
 };
@@ -105,7 +104,7 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   });
 }
 
-// 준비 한 번. 상한·취소·source 변경이면 seal 결과를 남기지 않는다.
+// 준비 한 번. 상한·취소면 seal 결과를 남기지 않는다.
 export async function prepareRelease(
   input: PrepareReleaseInput,
   deps: PrepareDeps = {},
@@ -115,14 +114,6 @@ export async function prepareRelease(
   const started = now();
   const counter = usageCounter(started, now);
   const limitMs = deps.limitMs ?? RELEASE_PREPARATION_LIMIT_MS;
-  const observed = await observeGitSource(git, input.sourceRoot, input.commit);
-  if (observed === undefined) return fail("git_failed", "unavailable");
-  const watch = gitSourceWatch(
-    git,
-    input.sourceRoot,
-    input.commit,
-    observationPin(observed),
-  );
   const extracted = await extractCommit(git, {
     sourceRoot: input.sourceRoot,
     commit: input.commit,
@@ -136,28 +127,30 @@ export async function prepareRelease(
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
   const sdkCopies = input.sdkCopies ?? [];
+  const vendorCopies = input.vendorCopies ?? [];
   const entryFiles = input.entryFiles ?? [];
-  if (
-    entryFiles.some((entry) =>
-      extracted.value.some((file) => file.path === entry.path)
-    )
-  ) {
-    return fail("entrypoint_reserved");
-  }
   const lockedMap = input.lockedImports === undefined ? [] : [{
     path: "import-map.json",
     bytes: new TextEncoder().encode(
       JSON.stringify({ imports: input.lockedImports }),
     ),
   }];
+  // 플랫폼이 더하는 파일의 path를 앱 source가 차지하고 있으면 거절한다.
+  const reserved = new Set(
+    [...sdkCopies, ...vendorCopies, ...entryFiles, ...lockedMap].map((file) =>
+      file.path
+    ),
+  );
+  if (extracted.value.some((file) => reserved.has(file.path))) {
+    return fail("entrypoint_reserved");
+  }
   const countedFiles = counter.addBundle(
     0,
     input.screens.length + assets.length + sdkCopies.length +
-      lockedMap.length + entryFiles.length + 2,
+      vendorCopies.length + lockedMap.length + entryFiles.length + 2,
   );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
-  if (await watch.changedSince()) return fail("source_changed");
 
   const built = await buildScreens({
     screens: input.screens,
@@ -181,7 +174,6 @@ export async function prepareRelease(
   if (!blueprint.ok) return fail(blueprint.error.reason, blueprint.error.code);
   if (now() - started > limitMs) return fail("elapsed_ms");
   if (deps.cancelled?.()) return fail("cancelled");
-  if (await watch.changedSince()) return fail("source_changed");
 
   const blueprintBytes = new TextEncoder().encode(
     blueprint.value.canonicalJson,
@@ -191,6 +183,7 @@ export async function prepareRelease(
     ...built.value.files,
     ...assets,
     ...sdkCopies,
+    ...vendorCopies,
     ...entryFiles,
     ...lockedMap,
     { path: "blueprint.json", bytes: blueprintBytes },
@@ -217,7 +210,7 @@ export async function prepareRelease(
   const manifest = buildManifest({
     entrypoint: input.entrypoint,
     files: hashed,
-    sdk_dependencies: input.sdkDependencies,
+    dependencies: input.dependencies,
   });
   if (!manifest.ok) return fail("manifest");
   const bundleHash = await sha256Hex(
@@ -241,18 +234,9 @@ export async function prepareRelease(
     await removePartial(copy.value);
     return fail(sealed.error.message, sealed.error.code);
   }
-  if (
-    deps.cancelled?.() || await watch.changedSince() ||
-    now() - started > limitMs
-  ) {
+  if (deps.cancelled?.() || now() - started > limitMs) {
     if (!existing) await removePartial(copy.value);
-    return fail(
-      deps.cancelled?.()
-        ? "cancelled"
-        : now() - started > limitMs
-        ? "elapsed_ms"
-        : "source_changed",
-    );
+    return fail(deps.cancelled?.() ? "cancelled" : "elapsed_ms");
   }
   if (deps.prepareBlob) {
     const prepared = await deps.prepareBlob({

@@ -17,6 +17,7 @@ import {
   serializeMessageContent,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { createReleaseSourceReader } from "../../../apps/releases/bundle/read.ts";
 import { createCodingTokens } from "../../../server/identity/mod.ts";
 import {
   CODING_REACTION_TEXTS,
@@ -139,6 +140,10 @@ export const codingSessionsWiring: WiringFactory = () => {
     }],
     records: () => [CODING_CONTEXT],
     build(ctx) {
+      const sourceReader = createReleaseSourceReader({
+        ledgerPath: ctx.ledgerPath,
+        dataRoot: ctx.root.path,
+      });
       // registry는 마지막 wiring이 열므로 처음 쓸 때 만든다.
       let tokens: ReturnType<typeof createCodingTokens> | undefined;
       const relay = createCodingRelay({
@@ -164,8 +169,8 @@ export const codingSessionsWiring: WiringFactory = () => {
           };
         },
         send: (frame) => ctx.gateway.send(frame),
-        // release source를 읽는 port가 아직 없다.
-        sources: () => undefined,
+        // release bundle의 source를 읽는다.
+        sources: () => sourceReader,
       });
       recover = relay.recover;
       const { handlers } = relay;

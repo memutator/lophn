@@ -45,7 +45,7 @@ export type ReleaseFinalizer = {
     request: {
       commit: string;
       actor: string;
-      ticket_source?: { ticket: string; claim_seq: string };
+      ticket_source: { ticket: string; claim_seq: string };
     },
   ): void;
   // 진행을 읽은 결과를 본다. 끝났고 같은 hash의 통과한 app test가 있으면 release를 확정한다.
@@ -160,10 +160,7 @@ export function createReleaseFinalizer(
 
   return {
     watch(app, requestKey, request) {
-      if (
-        request.ticket_source === undefined ||
-        parseActor(request.actor)?.kind !== "coding_agent"
-      ) return;
+      if (parseActor(request.actor)?.kind !== "coding_agent") return;
       watched.set(keyOf(app, requestKey), {
         commit: request.commit,
         actor: request.actor,

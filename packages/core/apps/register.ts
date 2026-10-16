@@ -35,7 +35,10 @@ import {
   activationAttemptGate,
   createReleaseCommands,
 } from "./releases/commands.ts";
-import { createReleaseReads } from "./releases/reads.ts";
+import {
+  createActivationQueueRead,
+  createReleaseReads,
+} from "./releases/reads.ts";
 import { releasesSchemaSteps } from "./releases/schema.ts";
 import {
   loadActiveBlueprint,
@@ -64,9 +67,6 @@ import {
   appCreated,
   appUnarchived,
   packagesGuideBody,
-  releaseActivated,
-  releaseActivationFailed,
-  releaseSuperseded,
 } from "../../protocol/apps/mod.ts";
 import { SecretAllowance } from "../../protocol/secrets/mod.ts";
 import type { WorkerRoute } from "../../protocol/base/mod.ts";
@@ -75,11 +75,7 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../storage/ledger/mod.ts";
-import { ticketCheckFeedVisibility } from "./tickets/checker/connection.ts";
-import {
-  assignmentReactionsOnlyVisibility,
-  notificationsOnlyVisibility,
-} from "../main/daemon/platform-register.ts";
+import { assignmentReactionsOnlyVisibility } from "../main/daemon/platform-register.ts";
 
 type LedgerRegistration = {
   blobFields?: readonly unknown[];
@@ -157,6 +153,13 @@ export function createLedgerRegistration(
       unattachedRead(appRewindPlan),
       unattachedRead(appRewinds),
       unattachedRead(appProjects),
+      // 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
+      createActivationQueueRead({
+        entries: () =>
+          Promise.resolve(
+            err({ code: "unavailable", message: "읽기가 붙어 있지 않다" }),
+          ),
+      }),
       // SDK 안내 원문 읽기다. route만 선언하고 handler는 blob 바이트 통로를 가진 core 조립(runtime)이 붙인다.
       unattachedGuideBodyRead,
     ],
@@ -191,6 +194,7 @@ export function createLedgerRegistration(
       releaseCommands.startActivation,
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
+      releaseCommands.activatePrevious,
     ],
     reads: [
       reads.list,
@@ -199,6 +203,9 @@ export function createLedgerRegistration(
       releaseReads.list,
       releaseReads.get,
       releaseReads.compare,
+      releaseReads.listRecords,
+      releaseReads.getRecord,
+      releaseReads.activationCompare,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
@@ -257,11 +264,6 @@ export function createLedgerRegistration(
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
-      notificationsOnlyVisibility(releaseActivationFailed),
-      // active release가 바뀐 event는 ticket checker 구독자(machine:ticket-check-feed)의 깨움 신호로만 열린다.
-      // 다른 자격이 보는 것은 그대로 숨김이다.
-      ticketCheckFeedVisibility(releaseActivated),
-      ticketCheckFeedVisibility(releaseSuperseded),
       // 앱 만들기·보관·보관 해제는 assignments 반응 구독자(machine:lophn-agent-assignments)만 읽는다.
       assignmentReactionsOnlyVisibility(appCreated),
       assignmentReactionsOnlyVisibility(appArchived),
@@ -287,6 +289,9 @@ export function createReaderRegistration(): ReaderRegistration {
       releaseReads.list,
       releaseReads.get,
       releaseReads.compare,
+      releaseReads.listRecords,
+      releaseReads.getRecord,
+      releaseReads.activationCompare,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,

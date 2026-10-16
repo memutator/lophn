@@ -24,6 +24,7 @@ import {
   bundleCopyPath,
   MANIFEST_COPY_NAME,
 } from "../bundle/seal.ts";
+import { RUNTIME_CONFIG_PATH } from "../bundle/runtime-entry.ts";
 import type { DesiredApp } from "../../runtime/mod.ts";
 
 export const IMPORT_MAP_COPY_NAME = "import-map.json";
@@ -158,6 +159,11 @@ export async function readBundleCopy(
 }
 
 // 사본의 앱 자식 flag다. data 영역과 grant에서 푼 요구 permission만 사본 root 읽기에 더해진다.
+// 받아 둔 npm·jsr 의존은 사본 안 `vendor/`·`node_modules/`에 있어서 자식은 network도 Deno cache도 쓰지 않는다
+// (`--cached-only`는 그대로다). 앱의 deno.json 대신 사본의 플랫폼 설정(`lophn.json`)을 읽는다. 이 설정이 vendor를
+// 켜야 하므로 `--no-config`와 jsr module 읽기를 막는 `--no-remote`, npm 읽기를 막는 `--no-npm`은 뺀다.
+const VENDOR_REPLACED = ["--no-config", "--no-remote", "--no-npm"];
+
 export function bundleFlags(
   parts: Pick<BundleParts, "root">,
   input: {
@@ -167,12 +173,16 @@ export function bundleFlags(
     protectedDenies: readonly string[];
   },
 ): Result<FlagSet> {
-  return appFlags(
+  const flags = appFlags(
     input.requirements,
     { bundle: parts.root, data: input.dataPath },
     input.platform,
     input.protectedDenies,
   );
+  if (!flags.ok) return flags;
+  const args = flags.value.args.filter((arg) => !VENDOR_REPLACED.includes(arg));
+  args.push(`--config=${parts.root}/${RUNTIME_CONFIG_PATH}`);
+  return ok({ ...flags.value, args: args.sort() });
 }
 
 // supervisor에 알리는 운영 앱의 원하는 상태다(apps/runtime `DesiredApp`). 사본에서 읽은 부분과 ledger가 정한

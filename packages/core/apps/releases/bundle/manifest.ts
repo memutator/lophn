@@ -1,5 +1,5 @@
 // bundle manifest. entrypoint·각 상대 path·hash·
-// exact sdk_dependencies를 담는다. schema는 contracts의 bundleManifestSchema 하나다.
+// 출처가 있는 exact dependencies를 담는다. schema는 contracts의 bundleManifestSchema 하나다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type BundleManifest,
@@ -27,12 +27,13 @@ export function parseManifest(
 export function buildManifest(input: {
   entrypoint: string;
   files: readonly { path: string; hash: string }[];
-  sdk_dependencies: readonly { name: string; version: string }[];
+  dependencies: readonly BundleManifest["dependencies"][number][];
 }): Result<BundleManifest, ManifestFailure> {
   return parseManifest({
     entrypoint: input.entrypoint,
     files: [...input.files],
-    sdk_dependencies: [...input.sdk_dependencies],
+    sdk_dependencies: [],
+    dependencies: [...input.dependencies],
   });
 }
 

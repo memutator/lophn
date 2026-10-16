@@ -31,38 +31,18 @@ export {
   validCommit,
 } from "./prepare/git-extract.ts";
 export {
-  checkPin,
-  gitSourceWatch,
-  observationPin,
-  observeGitSource,
-  observeSourceChanged,
-  pinSource,
-  type SourceWatch,
-  type SourceWatchFailure,
-  type WatchDeps,
-} from "./prepare/source-watch.ts";
-export {
   buildManifest,
   manifestBytes,
   type ManifestFailure,
   parseManifest,
 } from "./bundle/manifest.ts";
 export {
+  type ExternalRef,
   lockAppImports,
   type LockedImports,
   readSdkCopies,
   type SdkRef,
 } from "./bundle/lock.ts";
-export {
-  type ImportMapFailure,
-  lockedImportMap,
-  parseSdkSpecifier,
-  resolveSpecifier,
-  type SdkPathMap,
-  sdkPathMap,
-  validDependencyName,
-  validDependencyVersion,
-} from "./bundle/import-map.ts";
 export {
   BLUEPRINT_COPY_NAME,
   bundleCopyPath,

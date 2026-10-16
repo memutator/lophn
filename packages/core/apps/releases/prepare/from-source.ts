@@ -1,11 +1,13 @@
 // 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
 // release worker 안에서 돈다: commit을 staging에 풀고, 앱 import map을 bundle 안 설치 사본 경로로
-// 잠그고, blueprint 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌린 결과를 `prepareRelease`에
-// 넘긴다. staging은 끝나면 늘 지운다.
-import { err, type Result } from "../../../../base/mod.ts";
-import { devImportMap } from "../../packages/mod.ts";
+// 잠그고, blueprint 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌리고, npm·jsr 의존을 한 번
+// 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
+// staging은 끝나면 늘 지운다.
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import { packageInstallPath } from "../../packages/install.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
+import { readVendorFiles } from "../bundle/vendor.ts";
 import {
   buildEnvironment,
   denoDirOf,
@@ -29,8 +31,6 @@ export type SourcePrepareInput = {
   app: string;
   sourceRoot: string;
   commit: string;
-  // 설치 SDK 폴더. 기본은 `<dataRoot>/sdk`다.
-  sdkRoot?: string;
 };
 
 export type SourcePrepareDeps = PrepareDeps & {
@@ -149,6 +149,73 @@ function reactPins(
   return pins;
 }
 
+// 준비 중 staging에서 blueprint 평가와 화면 build가 쓰는 import map이다. 앱 deno.json의 `lophn-sdk:` 값은
+// 이 장치의 설치 사본(`<dataRoot>/<packageInstallPath>`)으로, 앱 안 상대 경로는 staging 안으로 푼다.
+function stagingImportMap(
+  imports: Readonly<Record<string, string>>,
+  dataRoot: string,
+  staging: string,
+): { imports: Record<string, string> } {
+  const mapped: Record<string, string> = {};
+  for (const [key, value] of Object.entries(imports)) {
+    const sdk = /^lophn-sdk:(@[^/@]+\/[^/@]+)@([^/@]+)(?:\/(.*))?$/.exec(value);
+    const installed = sdk === null
+      ? undefined
+      : packageInstallPath(sdk[1], sdk[2]);
+    mapped[key] = sdk !== null && installed?.ok === true
+      ? new URL(`${installed.value}/${sdk[3] ?? ""}`, `file://${dataRoot}/`)
+        .href
+      : value.startsWith("./") || value.startsWith("../")
+      ? new URL(value, `file://${staging}/`).href
+      : value;
+  }
+  return { imports: mapped };
+}
+
+// npm·jsr 의존을 한 번 받아서 `vendor/`(jsr)와 `node_modules/`(npm)에 둔다. `deno cache`가 network를 쓰는
+// 유일한 단계이고 앱 코드는 실행하지 않는다. 받은 사본은 bundle에 담겨 운영 process가 그대로 읽는다.
+async function fetchExternal(
+  deno: string,
+  specifiers: readonly string[],
+  directory: string,
+  options: {
+    signal?: AbortSignal;
+    limitMs: number;
+    env: Record<string, string>;
+  },
+): Promise<Result<{ path: string; bytes: Uint8Array }[], PrepareFailure>> {
+  if (specifiers.length === 0) return ok([]);
+  await Deno.mkdir(directory, { recursive: true });
+  await Deno.writeTextFile(
+    `${directory}/deno.json`,
+    JSON.stringify({ vendor: true, nodeModulesDir: "auto" }),
+  );
+  // 정확한 pin 하나씩과 앱이 쓰는 하위 경로까지 불러 와야 그 module이 사본에 든다.
+  await Deno.writeTextFile(
+    `${directory}/deps.ts`,
+    specifiers.map((specifier) => `import ${JSON.stringify(specifier)};\n`)
+      .join(""),
+  );
+  const fetched = await runDeno(deno, [
+    "cache",
+    "--no-lock",
+    `--config=${directory}/deno.json`,
+    `${directory}/deps.ts`,
+  ], {
+    cwd: directory,
+    signal: options.signal,
+    limitMs: options.limitMs,
+    env: options.env,
+    clearEnv: true,
+  });
+  if (fetched === "aborted") return fail("cancelled");
+  if (fetched === "timeout") return fail("elapsed_ms");
+  if (fetched.code !== 0) return fail("dependency_fetch_failed", "unavailable");
+  const files = await readVendorFiles(directory);
+  if (!files.ok) return fail(files.error.reason, "unavailable");
+  return ok(files.value);
+}
+
 export async function prepareFromSource(
   input: SourcePrepareInput,
   deps: SourcePrepareDeps = {},
@@ -156,7 +223,7 @@ export async function prepareFromSource(
   const git: GitRunner = deps.git ?? gitCommandRunner();
   const deno = deps.deno ?? Deno.execPath();
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
-  const sdkRoot = input.sdkRoot ?? `${input.dataRoot}/sdk`;
+  const sdkRoot = `${input.dataRoot}/sdk`;
   const denoDir = denoDirOf();
   const platformEntry = runtimeEntry(PACKAGES_URL);
   const aborted = () =>
@@ -183,7 +250,7 @@ export async function prepareFromSource(
   }
   const locked = lockAppImports(imports);
   if (!locked.ok) return fail(locked.error.reason);
-  const copies = await readSdkCopies(sdkRoot, locked.value.packages);
+  const copies = await readSdkCopies(input.dataRoot, locked.value.packages);
   if (!copies.ok) return fail(copies.error.reason);
 
   if (aborted()) return fail("cancelled");
@@ -203,7 +270,7 @@ export async function prepareFromSource(
     await Deno.mkdir(`${staging}/.tmp`, { recursive: true });
     await Deno.writeTextFile(
       `${staging}/.lophn/import-map.json`,
-      JSON.stringify(devImportMap(imports, sdkRoot, staging)),
+      JSON.stringify(stagingImportMap(imports, input.dataRoot, staging)),
     );
     if (aborted()) return fail("cancelled");
 
@@ -221,15 +288,6 @@ export async function prepareFromSource(
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
     if (evaluated.code !== 0) return fail("blueprint_eval_failed");
-    let blueprint: {
-      sdk_dependencies?: { name: string; version: string }[];
-    };
-    try {
-      blueprint = JSON.parse(evaluated.stdout);
-    } catch {
-      return fail("blueprint_eval_failed");
-    }
-    const sdkDependencies = blueprint.sdk_dependencies ?? [];
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
     // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만, write는 staging만, env는 이름만 허락한다.
@@ -261,6 +319,27 @@ export async function prepareFromSource(
     const screens = await readBuiltScreens(staging);
     if (aborted()) return fail("cancelled");
 
+    // 잠근 npm·jsr 값(하위 경로 포함)을 한 번 받아 둔다. 같은 값은 한 번만 부른다.
+    const specifiers = [
+      ...new Set(
+        Object.values(locked.value.imports).filter((value) =>
+          value.startsWith("npm:") || value.startsWith("jsr:")
+        ).map((value) => value.replace(/\/$/, "")),
+      ),
+    ].sort();
+    const vendored = await fetchExternal(
+      deno,
+      specifiers,
+      `${staging}/.lophn/deps`,
+      {
+        signal: deps.signal,
+        limitMs,
+        env: buildEnvironment(`${staging}/.tmp`),
+      },
+    );
+    if (!vendored.ok) return vendored;
+    if (aborted()) return fail("cancelled");
+
     return await prepareRelease({
       dataRoot: input.dataRoot,
       app: input.app,
@@ -271,14 +350,23 @@ export async function prepareFromSource(
       blueprintSource: evaluated.stdout.trim(),
       screens: screens.screens,
       assets: screens.assets,
-      sdkDependencies,
+      dependencies: [
+        ...locked.value.packages.map((item) => ({
+          ...item,
+          source: item.name.startsWith("@me/")
+            ? "package" as const
+            : "sdk" as const,
+        })),
+        ...locked.value.external,
+      ],
       uiDependencies: [
-        ...sdkDependencies.filter((item) =>
+        ...locked.value.packages.filter((item) =>
           (FIXED_UI_DEPENDENCIES as readonly string[]).includes(item.name)
         ),
         ...reactPins(imports),
       ],
       sdkCopies: copies.value,
+      vendorCopies: vendored.value,
       lockedImports: { ...locked.value.imports, ...platformEntry.imports },
     }, { ...deps, git, cancelled: aborted });
   } catch {

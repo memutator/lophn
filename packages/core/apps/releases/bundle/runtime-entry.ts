@@ -5,6 +5,10 @@
 // 절대 경로를 가리키므로 그 설치에서 준비한 bundle만 그 설치에서 뜬다.
 export const RUNTIME_ENTRY_PATH = "lophn-entry.ts";
 
+// 운영 앱 자식이 `--config`로 읽는 플랫폼 설정이다. 앱의 deno.json은 읽지 않는다. 받아 둔 npm·jsr 의존은
+// bundle 안 `vendor/`와 `node_modules/`에서 읽고(cache나 network 없이), 이 설정이 그 위치를 가리킨다.
+export const RUNTIME_CONFIG_PATH = "lophn.json";
+
 export type RuntimeEntry = {
   entrypoint: string;
   files: { path: string; bytes: Uint8Array }[];
@@ -28,6 +32,11 @@ await run();
     files: [{
       path: RUNTIME_ENTRY_PATH,
       bytes: new TextEncoder().encode(source),
+    }, {
+      path: RUNTIME_CONFIG_PATH,
+      bytes: new TextEncoder().encode(
+        JSON.stringify({ vendor: true, nodeModulesDir: "manual" }),
+      ),
     }],
     imports: { "@lophn/base": `${packagesUrl}base/mod.ts` },
   };
